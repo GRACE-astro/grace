@@ -33,13 +33,32 @@
 #include <thunder/utils/creation_policies.hh>
 #include <thunder/utils/lifetime_tracker.hh> 
 
+#include <thunder/config/config_parser.hh>
+
+#include <thunder/parallel/mpi_wrappers.hh>
+
+#include <string> 
+#include <iostream>
+
 namespace thunder {
 
 class thunder_runtime_impl_t 
 {
+ public:
+
+    int master_rank ; //!< The master rank is the one which is allowed to print to stdout 
+    int print_threshold ; //!< Maximum level warnings / messages printed 
  private:
-    
-    thunder_runtime_impl_t() {}
+
+    thunder_runtime_impl_t() {
+        auto& params = thunder::config_parser::get() ; 
+        master_rank = params["system"]["master_rank"].as<int>() ; 
+        print_threshold = params["system"]["print_threshold"].as<int>() ; 
+        if( parallel::mpi_comm_rank() == master_rank ) 
+        {
+            std::cout << THUNDER_BANNER ; 
+        }
+    }
     ~thunder_runtime_impl_t() {} 
 
     friend class utils::singleton_holder<thunder_runtime_impl_t,memory::default_create> ; 

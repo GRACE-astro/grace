@@ -1,0 +1,4 @@
+system: {
+  master_rank: 0,
+  print_threshold: 2
+}

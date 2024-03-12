@@ -1,32 +1,19 @@
 set(HEADER_DIR "${PROJECT_SOURCE_DIR}/include/")
 
+add_subdirectory(errors)
 
-add_library( thunder_error_handlers OBJECT
-             errors/abort.cc 
-             errors/error.cc )
+add_subdirectory(parallel)
 
-target_include_directories( thunder_error_handlers PRIVATE "${HEADER_DIR}")
+add_subdirectory(utils)
 
-add_library( thunder_parallel OBJECT 
-             parallel/mpi_wrappers.cc )
+add_subdirectory(system)
 
-target_include_directories(thunder_parallel PRIVATE "${HEADER_DIR}")
+add_subdirectory(data_structures)
 
-target_link_libraries(thunder_parallel PRIVATE 
-                      MPI::MPI_CXX 
-                      p4est::sc )
-
-add_library(thunder_singleton OBJECT utils/lifetime_tracker.cc) 
-
-target_include_directories(thunder_singleton PRIVATE  "${HEADER_DIR}")
-
-add_library(thunder_variable_registration OBJECT data_structures/variable_indices.cpp)
-
-target_include_directories( thunder_variable_registration PRIVATE "${HEADER_DIR}" )
-target_link_libraries(  thunder_variable_registration PRIVATE
-                        MPI::MPI_CXX 
-                        p4est::sc 
-                        p4est::p4est 
-                        Kokkos::kokkos )
-
-
+add_library( thunder_objects INTERFACE )
+target_sources( thunder_objects INTERFACE 
+                $<TARGET_OBJECTS:thunder_error_handlers>
+                $<TARGET_OBJECTS:thunder_parallel>
+                $<TARGET_OBJECTS:thunder_singleton>
+                $<TARGET_OBJECTS:thunder_runtime_utilities>
+                $<TARGET_OBJECTS:thunder_variable_registration> )

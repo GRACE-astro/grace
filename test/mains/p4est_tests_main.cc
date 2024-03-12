@@ -19,11 +19,11 @@
 #include <sstream>
 
 int main( int argc, char* argv[] ) {
+    thunder::config_parser::initialize("configs/basic_config.yaml");
     thunder::mpi_runtime::initialize(argc,argv) ; 
     thunder::kokkos_runtime::initialize(argc,argv) ; 
     thunder::p4est_runtime::initialize() ; 
     thunder::runtime::initialize() ; 
-    thunder::config_parser::initialize("configs/basic_config.yaml");
     thunder::amr::connectivity::initialize() ; 
     thunder::amr::forest::initialize()       ; 
     thunder::variable_list::initialize()     ; 

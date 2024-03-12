@@ -42,14 +42,14 @@
  */
 //*****************************************************************************************************
 enum unique_objects_lifetimes {
-    MPI_RUNTIME=0,
+    SYSTEM_UTILITIES=0,
+    MPI_RUNTIME,
     KOKKOS_RUNTIME,
     P4EST_RUNTIME,
     THUNDER_RUNTIME, 
     AMR_CONNECTIVITY,
     AMR_FOREST,
     THUNDER_VARIABLES,
-    SYSTEM_UTILITIES,
     thunder_NUM_GLOBAL_OBJECTS 
 } ;
 
