@@ -28,15 +28,16 @@
 #ifndef F25FCED7_32FD_48EF_A294_4D29ABC78524
 #define F25FCED7_32FD_48EF_A294_4D29ABC78524
 
-namespace thunder { 
-template< size_t ndim=THUNDER_NSPACEDIM
-        , coordinate_system which_coords=THUNDER_COORDINATE_SYSTEM > 
-struct coord {
-    int32_t i_,j_,k_ ;
-    int32_t level_   ;
-    int32_t tid_     ;  
-}
+#include <thunder_config.h>
 
-}
+namespace thunder { 
+
+/**
+ * @brief Fill coordinates arrays.
+ */
+void fill_coordinates() ; 
+
+
+} /* namespace thunder */ 
 
 #endif /* F25FCED7_32FD_48EF_A294_4D29ABC78524 */

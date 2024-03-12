@@ -67,6 +67,14 @@ class tree_t
               , "Requested out of bounds quadrant." ) ;
     return quadrant_t<ndim>(quads[i]) ; 
  }
+
+ THUNDER_ALWAYS_INLINE size_t get_quadrants_offset() const { return _ptree->quadrants_offset ; } ;
+
+ THUNDER_ALWAYS_INLINE size_t get_num_quadrants() 
+ {
+    return sc_array_view_t<p4est_quadrant_t*>( _ptree->quadrants ).size() ;  
+ }
+
  p4est_tree_t* get() const { return ptree_ ; }
 
 

@@ -87,6 +87,9 @@ class connectivity_impl_t
     get_tree_vertex(size_t which_tree, size_t which_vertex) const ; 
     //**************************************************************************************************
 
+    THUNDER_ALWAYS_INLINE std::array<double,ndim> 
+    get_vertex_coordinates( size_t which_tree, size_t which_vertex ) const ; 
+
     //**Checkpointing***********************************************************************************
     /**
      * @brief save to file 
@@ -214,6 +217,19 @@ THUNDER_ALWAYS_INLINE std::array<double, ndim>
      return std::array<double, 3> {  pconn_->tree_to_vertex[ which_tree * P4EST_CHILDREN  + which_vertex      ]
                                   ,  pconn_->tree_to_vertex[ which_tree * P4EST_CHILDREN  + which_vertex + 1UL]
                                   ,  pconn_->tree_to_vertex[ which_tree * P4EST_CHILDREN  + which_vertex + 2UL] } ;
+  #endif 
+} 
+//**************************************************************************************************
+template< std::size_t ndim              > // number of spatial dimensions 
+THUNDER_ALWAYS_INLINE std::array<double, ndim>
+ connectivity_impl_t<ndim>::get_vertex_coordinates( size_t which_tree, size_t which_vertex) const { 
+   #ifndef THUNDER_3D 
+     return std::array<double, 2> {  pconn_->vertices[ which_tree * P4EST_CHILDREN  + which_vertex      ]
+                                  ,  pconn_->vertices[ which_tree * P4EST_CHILDREN  + which_vertex + 1UL] } ;
+   #else 
+     return std::array<double, 3> {  pconn_->vertices[ which_tree * P4EST_CHILDREN  + which_vertex      ]
+                                  ,  pconn_->vertices[ which_tree * P4EST_CHILDREN  + which_vertex + 1UL]
+                                  ,  pconn_->vertices[ which_tree * P4EST_CHILDREN  + which_vertex + 2UL] } ;
   #endif 
 } 
 } //namespace detail 

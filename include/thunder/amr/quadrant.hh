@@ -44,9 +44,8 @@ class quadrant_t
 
     ~quadrant_t() = default; 
 
-    template<bool use_current_level=true > 
     std::array< p4est_qcoord_t, ndim > THUNDER_ALWAYS_INLINE 
-    get_qcoords()
+    qcoords(bool use_current_level=true)
     {   
         std::array< p4est_qcoord_t, ndim > ret ; 
         ret[0] = static_cast<p4est_qcoord_t>( pquad_ -> x ) ; 
@@ -54,11 +53,13 @@ class quadrant_t
         if constexpr ( ndim == 3 ) { 
             ret[2] = static_cast<p4est_qcoord_t>( pquad_ -> z ) ;  
         }  
-        if constexpr( use_current_level ) {
+        if ( use_current_level ) {
             for(auto& xx: ret) xx >> ( P4EST_MAXLEVEL - (int) pquad_->level ) ; 
         }  
         return ret ; 
     }
+
+    int THUNDER_ALWAYS_INLINE level() { return static_cast<int>( pquad_->level ) ; }
 
     uint64_t THUNDER_ALWAYS_INLINE 
     get_linearid(int level) {
