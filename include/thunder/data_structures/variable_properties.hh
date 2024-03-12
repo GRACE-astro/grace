@@ -65,10 +65,16 @@ template< size_t ndim >
 struct coord_array_impl_t {} ;
 
 template<> 
-struct coord_array_impl_t<2> { using view_t = Kokkos::View<double ***, DefaultSpace>; };
+struct coord_array_impl_t<2> { using view_t = Kokkos::View<double ****, DefaultSpace>; };
 
 template<> 
-struct coord_array_impl_t<3> { using view_t = Kokkos::View<double ****, DefaultSpace>; } ;
+struct coord_array_impl_t<3> { using view_t = Kokkos::View<double *****, DefaultSpace>; } ;
+
+template< size_t ndim = THUNDER_NSPACEDIM > 
+using var_array_t = variable_properties_t<ndim>::view_t ;  
+
+template< size_t ndim = THUNDER_NSPACEDIM > 
+using coord_array_t = coord_array_impl_t<ndim>::view_t ; 
 
 } /* namespace thunder */
 

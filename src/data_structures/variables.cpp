@@ -26,9 +26,52 @@
 */
 
 #include <thunder/data_structures/variables.hh>
+
+#include <thunder/config/config_parser.hh>
+#include <thunder/amr/forest.hh>
+
 namespace thunder 
 {
 
+variable_list_impl_t::variable_list_impl_t() 
+    : _coords("coordinates", VEC(0,0,0), 0,0)
+    , _state("state", VEC(0,0,0),0,0)
+    , _state_p("scratch_state", VEC(0,0,0),0,0)
+    , _aux("auxiliaries", VEC(0,0,0),0,0)
+{
+    using namespace thunder; 
+    /* Get param parser and forest object */
+    auto& params = config_parser::get() ; 
+    auto& forest = amr::forest::get()   ; 
+    /* Read parameters from config file: */
+    /* 1) Grid quadrant (octant) dimensions */
+    size_t nx {params["amr"]["npoints_block_x"].as<size_t>()} ; 
+    size_t ny {params["amr"]["npoints_block_y"].as<size_t>()} ; 
+    size_t nz {params["amr"]["npoints_block_z"].as<size_t>()} ; 
+    /* 2) Number of ghostzones for evolved vars */
+    size_t ngz { params["amr"]["n_ghostzones"].as<size_t>() } ;  
+    /* register all variables known to Thunder */
+    variables::register_variables() ;
 
+    /* allocate memory for states */ 
+    size_t nq          = forest.local_num_quadrants() ;
+    Kokkos::realloc( _coords
+                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , THUNDER_NSPACEDIM
+                   , nq ) ;
+    Kokkos::realloc( _state
+                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , variables::detail::num_evolved
+                   , nq ) ;
+    Kokkos::realloc( _state_p
+                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , variables::detail::num_evolved
+                   , nq ) ;
+    Kokkos::realloc( _aux
+                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , variables::detail::num_auxiliary
+                   , nq ) ;
+    /* all done */
+}
 
 } /* namespace thunder */

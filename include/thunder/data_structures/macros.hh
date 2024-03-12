@@ -30,8 +30,10 @@
 
 #ifdef THUNDER_3D 
 #define VEC(X,Y,Z) X,Y,Z
+#define EXPR(X,Y,Z) X Y Z
 #else 
 #define VEC(X,Y,Z) X,Y
+#define EXPR(X,Y,Z) X Y 
 #endif 
 
 #endif /* C412D999_BF0F_4E79_9C1D_C17BE6E275CB */

@@ -38,6 +38,7 @@
 
 #include <thunder/amr/connectivity.hh>
 #include <thunder/amr/forest.hh>
+#include <thunder/amr/coordinates.hh>
 
 #include <thunder/data_structures/variables.hh>
 
@@ -80,6 +81,7 @@ void initialize(int& argc, char* argv[])
     thunder::amr::connectivity::initialize() ; 
     thunder::amr::forest::initialize()       ;
     thunder::variable_list::initialize() ; 
+    thunder::fill_coordinates() ; 
 }
 
 

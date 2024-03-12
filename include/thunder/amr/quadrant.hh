@@ -32,45 +32,45 @@
 
 namespace thunder { namespace amr { 
 
-template< size_t ndim = THUNDER_NSPACEDIM > 
+
 class quadrant_t
 {
  private:
-    p4est_quadrant_t * pquad_ ; 
+    p4est_quadrant_t * _pquad ; 
 
  public: 
 
-    quadrant_t( p4est_quadrant_t * quad_ ) : pquad_(quad_) {} ; 
+    quadrant_t( p4est_quadrant_t * pquad) : _pquad(pquad) {} ; 
 
     ~quadrant_t() = default; 
 
-    std::array< p4est_qcoord_t, ndim > THUNDER_ALWAYS_INLINE 
+    std::array< p4est_qcoord_t, THUNDER_NSPACEDIM > THUNDER_ALWAYS_INLINE 
     qcoords(bool use_current_level=true)
     {   
-        std::array< p4est_qcoord_t, ndim > ret ; 
-        ret[0] = static_cast<p4est_qcoord_t>( pquad_ -> x ) ; 
-        ret[1] = static_cast<p4est_qcoord_t>( pquad_ -> y ) ;  
-        if constexpr ( ndim == 3 ) { 
-            ret[2] = static_cast<p4est_qcoord_t>( pquad_ -> z ) ;  
-        }  
+        std::array< p4est_qcoord_t, THUNDER_NSPACEDIM > ret ; 
+        ret[0] = static_cast<p4est_qcoord_t>( _pquad -> x ) ; 
+        ret[1] = static_cast<p4est_qcoord_t>( _pquad -> y ) ;  
+        #ifdef THUNDER_3D
+        ret[2] = static_cast<p4est_qcoord_t>( _pquad -> z ) ;  
+        #endif  
         if ( use_current_level ) {
-            for(auto& xx: ret) xx >> ( P4EST_MAXLEVEL - (int) pquad_->level ) ; 
+            for(auto& xx: ret) xx >> ( P4EST_MAXLEVEL - (int) _pquad->level ) ; 
         }  
         return ret ; 
     }
 
-    int THUNDER_ALWAYS_INLINE level() { return static_cast<int>( pquad_->level ) ; }
+    int THUNDER_ALWAYS_INLINE level() { return static_cast<int>( _pquad->level ) ; }
 
     uint64_t THUNDER_ALWAYS_INLINE 
-    get_linearid(int level) {
-        return p4est_quadrant_linear_id(pquad_, level) ; 
+    linearid(int level) {
+        return p4est_quadrant_linear_id(_pquad, level) ; 
     }
 
     template< typename T > 
     void THUNDER_ALWAYS_INLINE 
     set_user_data(T const & data) 
     {
-        memcpy(pquad_->p.user_data, (void*) &data, sizeof(T)) ; 
+        memcpy(_pquad->p.user_data, (void*) &data, sizeof(T)) ; 
     }
 } ; 
 

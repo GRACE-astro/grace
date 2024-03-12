@@ -44,43 +44,41 @@ namespace thunder { namespace amr {
  * @brief Thin wrapper around p4est_tree_t 
  * \ingroup amr 
  * 
- * @tparam ndim Number of spatial dimensions. 
  * 
  */
-template< std::size_t ndim = THUNDER_NSPACEDIM> // number of spatial dimensions 
 class tree_t 
 {
  //**************************************************************************************************
  public: 
- //**************************************************************************************************
- tree_t(p4est_tree_t* _ptree): ptree_(_ptree) {} ;
+   //**************************************************************************************************
+   tree_t(p4est_tree_t* ptree): _ptree(ptree) {} ;
 
- THUNDER_ALWAYS_INLINE sc_array_view_t<p4est_quadrant_t*> get_quadrants() 
- {
-    return sc_array_view_t<p4est_quadrant_t*>( _ptree->quadrants ) ;  
- }
+   THUNDER_ALWAYS_INLINE sc_array_view_t<p4est_quadrant_t> quadrants() 
+   {
+      return sc_array_view_t<p4est_quadrant_t>{&(_ptree->quadrants)};  
+   }
 
- THUNDER_ALWAYS_INLINE quadrant_t<ndim> get_quadrant( size_t iquad )
- {
-    sc_array_view_t<p4est_quadrant_t*> quads{ _ptree->quadrants } ; 
-    ASSERT_DBG( iquad < quads.size()
-              , "Requested out of bounds quadrant." ) ;
-    return quadrant_t<ndim>(quads[i]) ; 
- }
+   THUNDER_ALWAYS_INLINE quadrant_t quadrant( size_t iquad )
+   {
+      sc_array_view_t<p4est_quadrant_t> quads{&(_ptree->quadrants)} ; 
+      ASSERT_DBG( iquad < quads.size()
+               , "Requested out of bounds quadrant." ) ;
+      return quadrant_t(&quads[iquad]) ; 
+   }
 
- THUNDER_ALWAYS_INLINE size_t get_quadrants_offset() const { return _ptree->quadrants_offset ; } ;
+   THUNDER_ALWAYS_INLINE size_t quadrants_offset() const { return _ptree->quadrants_offset ; } ;
 
- THUNDER_ALWAYS_INLINE size_t get_num_quadrants() 
- {
-    return sc_array_view_t<p4est_quadrant_t*>( _ptree->quadrants ).size() ;  
- }
+   THUNDER_ALWAYS_INLINE size_t num_quadrants() 
+   {
+      return sc_array_view_t<p4est_quadrant_t>( &(_ptree->quadrants) ).size() ;  
+   }
 
- p4est_tree_t* get() const { return ptree_ ; }
+   p4est_tree_t* get() const { return _ptree ; }
 
 
  //**************************************************************************************************
  private:
-    p4est_tree_t * ptree_ ; //!< Pointer to p4est_tree 
+    p4est_tree_t * _ptree ; //!< Pointer to p4est_tree 
 } ; 
 
 } } /* thunder::amr */ 

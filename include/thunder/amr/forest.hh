@@ -25,8 +25,8 @@
  * 
  */
 
-#ifndef THUNDER_AMR_FOREST_HH 
-#define THUNDER_AMR_FOREST_HH 
+#ifndef THUNDER_AMR_FOREST_HH
+#define THUNDER_AMR_FOREST_HH
 
 #include <thunder_config.h> 
 
@@ -36,8 +36,7 @@
 #include <thunder/utils/sc_wrappers.hh>
 
 #include <thunder/amr/p4est_headers.hh>
-#include <thunder/amr/amr_flags.hh>
-#include <thunder/amr/connectivity.hh>
+
 #include <thunder/amr/tree.hh>
 #include <thunder/amr/quadrant.hh>
 
@@ -48,10 +47,9 @@ namespace thunder { namespace amr {
 /**
  * @brief Wrapper around the p4est structure.
  * 
- * @tparam ndim Number of space dimensions.
+ * @tparam THUNDER_NSPACEDIM Number of space dimensions.
  * 
  */
-template< size_t ndim > 
 class forest_impl_t 
 {
  private:
@@ -66,7 +64,7 @@ class forest_impl_t
      *     and up to <code>last_local_tree</code> 
      */
     sc_array_view_t<p4est_tree_t> THUNDER_ALWAYS_INLINE
-    get_trees() const { return sc_array_view_t<p4est_tree_t>(_p4est->trees)} ; 
+    trees() const { return sc_array_view_t<p4est_tree_t>(_p4est->trees) ; } ; 
     /**
      * @brief Get first valid index of tree array on this rank.
      */
@@ -107,29 +105,7 @@ class forest_impl_t
 
 } ; 
 
-template< size_t ndim > 
-forest_impl_t<ndim>::forest_impl_t() 
-{ 
-    auto & params       = thunder::config_parser::get()   ; 
-    auto & connectivity = thunder::amr::connectivity::get() ; 
-    int min_level( params["amr"]["initial_refinement_level"].as<int>() ) ; 
-    _p4est =  p4est_new_ext(  parallel::get_comm_world()
-                            , connectivity.get()   
-                            , 0 
-                            , min_level
-                            , 1 
-                            , sizeof(amr_flags_t)
-                            , initialize_quadrant
-                            , nullptr ) ; 
-}
-
-template< size_t ndim > 
-forest_impl_t<ndim>::~forest_impl_t() 
-{ 
-    p4est_destroy(_p4est) ; 
-}
-
-using forest = utils::singleton_holder<forest_impl_t<THUNDER_NSPACEDIM> > ; 
+using forest = utils::singleton_holder<forest_impl_t > ; 
 
 }} /* thunder::amr */
-#endif 
+#endif /* THUNDER_AMR_FOREST_HH */

@@ -44,12 +44,6 @@
 
 namespace thunder { 
 
-template< size_t ndim = THUNDER_NSPACEDIM > 
-using var_array_t = variable_properties_t<ndim>::view_t ;  
-
-template< size_t ndim = THUNDER_NSPACEDIM > 
-using coord_array_t = coord_array_impl_t<ndim>::view_t ; 
-
 /**
  * @brief Create additional state. Allocates memory on device.
  * 
@@ -64,19 +58,22 @@ template< size_t ndim=THUNDER_NSPACEDIM>
 static var_array_t<ndim> create_state(var_array_t<ndim> const& src, bool initialize=true) ; 
 
 
-template< size_t ndim = THUNDER_NSPACEDIM > 
+
 class variable_list_impl_t
 {
 
 public: 
     
-    THUNDER_ALWAYS_INLINE var_array_t<ndim>  
+    THUNDER_ALWAYS_INLINE coord_array_t<THUNDER_NSPACEDIM> 
+    getcoords() { return _coords ; } 
+    
+    THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>  
     getaux() { return _aux ; }
 
-    THUNDER_ALWAYS_INLINE var_array_t<ndim>  
+    THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>  
     getstate() { return _state ; }
 
-    THUNDER_ALWAYS_INLINE var_array_t<ndim> 
+    THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM> 
     getscratch(int tl) { return _state_p ; }
 
 
@@ -86,10 +83,10 @@ private:
 
     ~variable_list_impl_t() = default; 
 
-    coord_array_t<ndim>  _coords  ;  //!< Gridpoint coordinates    
-    var_array_t<ndim> _state   ;     //!< State variables 
-    var_array_t<ndim> _state_p ;     //!< Second timelevel, allocated at all times 
-    var_array_t<ndim> _aux     ;     //!< Auxiliary variables 
+    coord_array_t<THUNDER_NSPACEDIM>  _coords  ;  //!< Gridpoint coordinates    
+    var_array_t<THUNDER_NSPACEDIM> _state   ;     //!< State variables 
+    var_array_t<THUNDER_NSPACEDIM> _state_p ;     //!< Second timelevel, allocated at all times 
+    var_array_t<THUNDER_NSPACEDIM> _aux     ;     //!< Auxiliary variables 
 
     friend class utils::singleton_holder<variable_list_impl_t, memory::default_create> ; //!< Give access 
     friend class memory::new_delete_creator<variable_list_impl_t, memory::new_delete_allocator> ; //!< Give access 
@@ -98,48 +95,7 @@ private:
 
 } ; 
 
-template<size_t ndim>
-variable_list_impl_t<ndim>::variable_list_impl_t() 
-    : _coords("coordinates", VEC(0,0,0), 0)
-    , _state("state", VEC(0,0,0),0,0)
-    , _state_p("scratch_state", VEC(0,0,0),0,0)
-    , _aux("auxiliaries", VEC(0,0,0),0,0)
-{
-    using namespace thunder; 
-    /* Get param parser and forest object */
-    auto& params = config_parser::get() ; 
-    auto& forest = amr::forest::get()   ; 
-    /* Read parameters from config file: */
-    /* 1) Grid quadrant (octant) dimensions */
-    size_t nx {params["amr"]["npoints_block_x"].as<size_t>()} ; 
-    size_t ny {params["amr"]["npoints_block_y"].as<size_t>()} ; 
-    size_t nz {params["amr"]["npoints_block_z"].as<size_t>()} ; 
-    /* 2) Number of ghostzones for evolved vars */
-    size_t ngz { params["amr"]["n_ghostzones"].as<size_t>() } ;  
-    /* register all variables known to Thunder */
-    variables::register_variables() ;
-
-    /* allocate memory for states */ 
-    size_t nq          = forest.local_num_quadrants() ;
-    Kokkos::realloc( _coords
-                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
-                   , nq ) ;
-    Kokkos::realloc( _state
-                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
-                   , variables::detail::num_evolved
-                   , nq ) ;
-    Kokkos::realloc( _state_p
-                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
-                   , variables::detail::num_evolved
-                   , nq ) ;
-    Kokkos::realloc( _aux
-                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
-                   , variables::detail::num_auxiliary
-                   , nq ) ;
-    /* all done */
-}
-
-using variable_list = utils::singleton_holder<variable_list_impl_t<THUNDER_NSPACEDIM> > ; 
+using variable_list = utils::singleton_holder<variable_list_impl_t > ; 
 
 } /* thunder */
 
