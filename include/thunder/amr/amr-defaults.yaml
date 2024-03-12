@@ -35,5 +35,11 @@ amr: {
   inner_region_radius: 1.,
   outer_region_radius: 10.,
   logarithmic_outer_radius: 10000., 
-  use_logarithmic_radial_zone: false
+  use_logarithmic_radial_zone: false,
+
+  npoints_block_x: 16,
+  npoints_block_y: 16,
+  npoints_block_z: 16,
+
+  n_ghostzones: 4
 }

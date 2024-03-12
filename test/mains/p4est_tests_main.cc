@@ -5,20 +5,28 @@
 */
 #define CATCH_CONFIG_RUNNER
 #include <catch2/catch_session.hpp>
-#include <mpi.h>
-#include <sstream>
-#include <thunder/amr/p4est_headers.hh>
+#include <thunder_config.h> 
+
+#include <thunder/system/mpi_runtime.hh>
+#include <thunder/system/kokkos_runtime.hh>
+#include <thunder/system/p4est_runtime.hh>
+#include <thunder/system/thunder_runtime.hh>
+#include <thunder/config/config_parser.hh>
 #include <thunder/amr/connectivity.hh>
 #include <thunder/amr/forest.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/parallel/mpi_wrappers.hh>
+#include <thunder/data_structures/variables.hh>
+
+#include <sstream>
 
 int main( int argc, char* argv[] ) {
-    parallel::mpi_init(&argc, &argv);
-    p4est_init (NULL, SC_LP_DEFAULT);
+    thunder::mpi_runtime::initialize(argc,argv) ; 
+    thunder::kokkos_runtime::initialize(argc,argv) ; 
+    thunder::p4est_runtime::initialize() ; 
+    thunder::runtime::initialize() ; 
     thunder::config_parser::initialize("configs/basic_config.yaml");
     thunder::amr::connectivity::initialize() ; 
     thunder::amr::forest::initialize()       ; 
+    thunder::variable_list::initialize()     ; 
     std::stringstream ss;
     /* save old buffer and redirect output to string stream */
     auto cout_buf = std::cout.rdbuf( ss.rdbuf() ); 
@@ -43,6 +51,5 @@ int main( int argc, char* argv[] ) {
     parallel::mpi_barrier(sc_MPI_COMM_WORLD);
     if ( parallel::mpi_comm_rank() == 0 )
         std::cout << print_rank.str() + ss.str();
-    parallel::mpi_finalize();
     return result;
 }

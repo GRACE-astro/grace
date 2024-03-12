@@ -56,10 +56,17 @@ Catch2::Catch2
 $<TARGET_OBJECTS:thunder_parallel>
 $<TARGET_OBJECTS:thunder_error_handlers>
 $<TARGET_OBJECTS:thunder_singleton>
+$<TARGET_OBJECTS:thunder_variable_registration>
 yaml_cpp::yaml
 MPI::MPI_CXX
 p4est::sc
-p4est::p4est )
+p4est::p4est 
+Kokkos::kokkos )
+if( THUNDER_ENABLE_OMP )
+target_link_libraries( p4est_tests_main PRIVATE 
+    OpenMP::OpenMP_CXX
+)
+endif() 
 
 add_executable( connectivity_test test_connectivities.cc )
 target_include_directories(connectivity_test PRIVATE "${HEADER_LIST}")
@@ -111,6 +118,27 @@ yaml_cpp::yaml
 MPI::MPI_CXX
 p4est::sc
 p4est::p4est )
+
+add_executable( varlist_test test_variable_list.cpp )
+target_include_directories(varlist_test PRIVATE "${HEADER_LIST}")
+target_compile_options( varlist_test PRIVATE -g)
+target_link_libraries(  varlist_test PRIVATE 
+p4est_tests_main
+Catch2::Catch2
+$<TARGET_OBJECTS:thunder_parallel>
+$<TARGET_OBJECTS:thunder_error_handlers>
+$<TARGET_OBJECTS:thunder_singleton>
+$<TARGET_OBJECTS:thunder_variable_registration>
+yaml_cpp::yaml
+MPI::MPI_CXX
+p4est::sc
+p4est::p4est 
+Kokkos::kokkos)
+if( THUNDER_ENABLE_OMP )
+target_link_libraries( varlist_test PRIVATE 
+    OpenMP::OpenMP_CXX
+)
+endif() 
 
 add_test(NAME parallel_test COMMAND parallel_test)
 

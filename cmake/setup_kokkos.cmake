@@ -30,3 +30,7 @@ endif()
 if( THUNDER_ENABLE_SERIAL AND (NOT Kokkos_ENABLE_SERIAL))
     message(FATAL_ERROR "Thunder configured with SERIAL support but Kokkos does not support SERIAL backend.")
 endif()
+
+if( THUNDER_ENABLE_OMP )
+    find_package(OpenMP REQUIRED)
+endif()

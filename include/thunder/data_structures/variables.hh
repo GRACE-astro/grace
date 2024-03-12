@@ -28,173 +28,118 @@
 #ifndef THUNDER_DATA_STRUCTURES_VARIABLES_HH
 #define THUNDER_DATA_STRUCTURES_VARIABLES_HH
 
-#include<code_modules.h>
-#include<thunder/data_structures/data_vector.hh>
+#include <Kokkos_Core.hpp>
 
-#include<thunder/utils/inline.hh>
+#include <thunder_config.h>
+
+#include<code_modules.h>
+#include<thunder/data_structures/variable_properties.hh>
+#include<thunder/data_structures/variable_indices.hh>
+#include<thunder/data_structures/macros.hh>
+
+#include<thunder/utils/inline.h>
+#include<thunder/utils/singleton_holder.hh> 
+#include<thunder/utils/creation_policies.hh>
+#include<thunder/utils/lifetime_tracker.hh>
 
 namespace thunder { 
 
-template< size_t ndim > 
-struct variable_properties_t 
-{ } ; 
+template< size_t ndim = THUNDER_NSPACEDIM > 
+using var_array_t = variable_properties_t<ndim>::view_t ;  
 
-template<> 
-struct variable_properties_t<2>
-{
-    using view_t = Kokkos::View<double ****, DefaultSpace> ; 
-    bool stagger_x, stagger_y ; 
-    unsigned int ngz ; 
-    unsigned int ntl ; 
-
-    variable_type_t type ;
-    std::string name ; 
-
-} ; 
-
-template<> 
-struct variable_properties_t<3>
-{
-    using view_t = Kokkos::View<double *****, DefaultSpace> ; 
-    bool stagger_x, stagger_y, stagger_z ; 
-    unsigned int ngz ; 
-    unsigned int ntl ; 
-
-    variable_type_t type ;
-    std::string name ;
-} ; 
-
-template< size_t ndim > 
-using var_array_t = variable_properties_t::view_t ; 
+template< size_t ndim = THUNDER_NSPACEDIM > 
+using coord_array_t = coord_array_impl_t<ndim>::view_t ; 
 
 /**
- * @brief Register a variable within Thunder.
+ * @brief Create additional state. Allocates memory on device.
  * 
- * @tparam ndim Number of spatial dimensions
- * @param name Name of the variable.
- * @param staggered Staggering of variable in each direction.
- * @param need_reconstruction Whether the variable needs to be reconstructed.
- * @param is_evolved Whether the variable is evolved.
- * @param need_fluxes Whether the variables needs fluxes. 
- * @return size_t Index of the variable in respective state array.
+ * @tparam ndim Number of space dimensions.
+ *
+ * @param src State used to copy data and layout from.
+ * @param initialize Copy data from source? 
+ * 
+ * Memory is released as soon as the caller's scope is exited.
  */
-template<size_t ndim=THUNDER_NSPACEDIM> 
-static size_t register_variable(  std::string const& name
-                                , std::array<ndim, bool> staggered  
-                                , bool need_reconstruction 
-                                , bool is_evolved 
-                                , bool need_fluxes ) ; 
-
-
-
-enum variable_type_t
-{
-    EVOLVED_VARIABLE=0,
-    AUXILIARY_VARIABLE,
-    FLUX_VARIABLE,
-    NUM_VARIABLE_TYPES 
-} ; 
-
-
-
-
+template< size_t ndim=THUNDER_NSPACEDIM>
+static var_array_t<ndim> create_state(var_array_t<ndim> const& src, bool initialize=true) ; 
 
 
 template< size_t ndim = THUNDER_NSPACEDIM > 
 class variable_list_impl_t
 {
- private:
-    using gf_type       = variable_properties_t<ndim>::view_t ; 
-    using vec_type      = Kokkos::vector<gf_type, Device>;
 
 public: 
     
-    vec_type THUNDER_FORCE_INLINE 
+    THUNDER_ALWAYS_INLINE var_array_t<ndim>  
     getaux() { return _aux ; }
 
-    vec_type THUNDER_FORCE_INLINE 
+    THUNDER_ALWAYS_INLINE var_array_t<ndim>  
     getstate() { return _state ; }
 
-    vec_type& THUNDER_FORCE_INLINE 
-    getstate(int tl) {
-        ASSERT_DBG( n_active_timelevels > tl+1,
-                    "Requested inactive timelevel, request memory allocation first.") ; 
-        vec_type ret = _state ;
-        if ( tl == 1 ) { 
-            ret = _state
-        }
-        return 
-    }
+    THUNDER_ALWAYS_INLINE var_array_t<ndim> 
+    getscratch(int tl) { return _state_p ; }
 
-    void THUNDER_FORCE_INLINE 
-    alloc_state() {
-        ASSERT_DBG( n_active_timelevels < 4, 
-        "Maximum number of active timelevels is 4.") ; 
-        if( n_active_timelevels == 2 ) { 
-            alloc_state_impl(_state_p_p) ; 
-        } else {
-            alloc_state_impl(_state_p_p_p) ; 
-        }
-    }
 
 private: 
 
     variable_list_impl_t() ; 
 
-    ~variable_list_impl_t() ; 
-    int n_active_timelevels ; 
-    gf_type  _coords  ;                                  //!< Gridpoint coordinates    
-    vec_type _state   ;                                  //!< State variables 
-    vec_type _state_p ;                                  //!< Second timelevel, allocated at all times 
-    vec_type _state_p_p ;                                //!< Third timelevel, needs to be explicitly allocated / deallocated 
-    vec_type _state_p_p_p ;                              //!< Fourth timelevel, needs to be explicitly allocated / deallocated 
-    vec_type _aux     ;                                  //!< Auxiliary variables 
-    std::vector<variable_properties_t<ndim>> _varprops ; //!< Host only, used to keep track of all variables.
+    ~variable_list_impl_t() = default; 
 
-}
+    coord_array_t<ndim>  _coords  ;  //!< Gridpoint coordinates    
+    var_array_t<ndim> _state   ;     //!< State variables 
+    var_array_t<ndim> _state_p ;     //!< Second timelevel, allocated at all times 
+    var_array_t<ndim> _aux     ;     //!< Auxiliary variables 
+
+    friend class utils::singleton_holder<variable_list_impl_t, memory::default_create> ; //!< Give access 
+    friend class memory::new_delete_creator<variable_list_impl_t, memory::new_delete_allocator> ; //!< Give access 
+
+    static constexpr size_t longevity = THUNDER_VARIABLES ; 
+
+} ; 
 
 template<size_t ndim>
 variable_list_impl_t<ndim>::variable_list_impl_t() 
+    : _coords("coordinates", VEC(0,0,0), 0)
+    , _state("state", VEC(0,0,0),0,0)
+    , _state_p("scratch_state", VEC(0,0,0),0,0)
+    , _aux("auxiliaries", VEC(0,0,0),0,0)
 {
     using namespace thunder; 
-
+    /* Get param parser and forest object */
     auto& params = config_parser::get() ; 
     auto& forest = amr::forest::get()   ; 
-    /* Read parameters from config file */
-    /* Grid quadrant (octant) dimensions */
+    /* Read parameters from config file: */
+    /* 1) Grid quadrant (octant) dimensions */
     size_t nx {params["amr"]["npoints_block_x"].as<size_t>()} ; 
     size_t ny {params["amr"]["npoints_block_y"].as<size_t>()} ; 
     size_t nz {params["amr"]["npoints_block_z"].as<size_t>()} ; 
-    /* number of ghostzones for evolved vars */
-    size_t ngz { params["amr"]["n_ghostzones"].as<size_t>() } ; 
-    /* number of timelevels for evolved vars */
-    size_t ntl { params["system"]["n_timelevels"].as<size_t>() } ; 
-    /* Read active physics modules */
-    std::vector<std::string> physical_modules ; 
+    /* 2) Number of ghostzones for evolved vars */
+    size_t ngz { params["amr"]["n_ghostzones"].as<size_t>() } ;  
+    /* register all variables known to Thunder */
+    variables::register_variables() ;
 
-    auto& node = params["system"]["active_modules"] ; 
-    for(int i=0; i<node.size(); ++i) {
-        physical_modules.push_back( node[i].as<std::string>() ) ; 
-    }
-    /* 
-    *  for each module read variable properties file 
-    *  and initialize grid functions accordingly 
-    */
-    for( auto const& module: physical_modules ) 
-    {
-       auto file = YAML::LoadFile( physical_modules_variable_lists[module] ) ;
-       for(int ivar=0; ivar<file.size(); ++ivar)
-       {
-        // concatenate module name :: varname to enforce uniqueness of varnames
-        varnames.push_back( 
-                detail::concat_module_varname(module, file[ivar]["name"].as<std::string>() ) 
-                ) ; 
-
-       }
-
-    }
+    /* allocate memory for states */ 
+    size_t nq          = forest.local_num_quadrants() ;
+    Kokkos::realloc( _coords
+                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , nq ) ;
+    Kokkos::realloc( _state
+                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , variables::detail::num_evolved
+                   , nq ) ;
+    Kokkos::realloc( _state_p
+                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , variables::detail::num_evolved
+                   , nq ) ;
+    Kokkos::realloc( _aux
+                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , variables::detail::num_auxiliary
+                   , nq ) ;
+    /* all done */
 }
 
+using variable_list = utils::singleton_holder<variable_list_impl_t<THUNDER_NSPACEDIM> > ; 
 
 } /* thunder */
 
