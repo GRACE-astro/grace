@@ -1,4 +1,5 @@
+name: "thunder"
 amr: {
-  physical_coordinates: "cartesian",
-  initial_refinement_level: 2
+  npoints_block_x: 16,
+  npoints_block_y: 16
 }

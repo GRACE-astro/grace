@@ -121,5 +121,12 @@ p4est::p4est
 Kokkos::kokkos)
 
 
-add_test(NAME parallel_test COMMAND parallel_test)
+add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
+add_test(NAME parser_test COMMAND parser_test)
+add_test(NAME sc_wrappers_test COMMAND sc_wrappers_test)
+add_test(NAME connectivity_test COMMAND connectivity_test)
+add_test(NAME forest_test COMMAND forest_test)
+add_test(NAME varlist_test COMMAND varlist_test)
+
+
 
