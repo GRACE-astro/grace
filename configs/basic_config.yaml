@@ -1,0 +1,4 @@
+amr: {
+  physical_coordinates: "cartesian",
+  initial_refinement_level: 2
+}

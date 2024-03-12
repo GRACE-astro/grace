@@ -1,0 +1,39 @@
+amr: {
+  # physical coordinate system
+  # possible values: "cartesian", "spherical", "cylindrical"
+  physical_coordinates: "cartesian",
+  # Physical extent of the coordinates.
+  # If the code is compiled for 2 spatial dimensions, z-parameters
+  # are ignored. 
+  # If spherical/cylindrical coordinates are selected, xmin and ymin 
+  # will be ignored, and in the case of spherical coordinates zmin 
+  # will also be ignored.
+  xmin: -2.,
+  xmax: 2.,
+  ymin: -1.,
+  ymax: 1.,
+  zmin: -1.,
+  zmax: 1., 
+
+  periodic_x: false,
+  periodic_y: false,
+  periodic_z: false,
+  
+  # Reflection symmetries, default is to disable all
+  reflection_symmetries: {
+    x: false,
+    y: false,
+    z: false
+  } , 
+  # Should the grid be uniform at t=0? 
+  uniform_initial_refinement: true ,
+  # Initial level of refinement (for uniform only!)
+  initial_refinement_level: 2,
+  # For spherical coordinates (and cylindrical in 3D) only!
+  # Near the center, to avoid coordinate singularities,
+  # a patch of cartesian
+  inner_region_radius: 1.,
+  outer_region_radius: 10.,
+  logarithmic_outer_radius: 10000., 
+  use_logarithmic_radial_zone: false
+}

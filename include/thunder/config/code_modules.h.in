@@ -1,0 +1,54 @@
+/**
+ * @file code_modules.h
+ * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @brief 
+ * @version 0.1
+ * @date 2023-06-07
+ * 
+ * @copyright This file is part of Thunder.
+ * Thunder is an evolution framework that uses Finite Difference 
+ * methods to simulate relativistic spacetimes and plasmas
+ * Copyright (C) 2023 Carlo Musolino
+ *                                                                    
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *  
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *  
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ */
+#ifndef BAF4B02D_A6A3_4DB8_87E0_FB248A6ECFA4
+#define BAF4B02D_A6A3_4DB8_87E0_FB248A6ECFA4
+
+#include <string> 
+#include <vector> 
+
+#define THUNDER_ENABLE_HYDRO_BASE 
+#define THUNDER_ENABLE_ADM_BASE 
+
+#cmakedefine THUNDER_ENABLE_GRMHD 
+#cmakedefine THUNDER_ENABLE_COWLING 
+#cmakedefine THUNDER_ENABLE_BSSN 
+#cmakedefine THUNDER_ENABLE_Z4C 
+#cmakedefine THUNDER_ENABLE_M1
+
+
+namespace thunder { namespace detail { 
+
+const std::vector< std::string > code_modules { 
+    "amr"
+} ;
+
+const std::vector< std::string > code_modules_default_configs { 
+     "${CMAKE_SOURCE_DIR}/include/thunder/amr/amr-defaults.yaml"
+} ;
+
+}}
+#endif /* BAF4B02D_A6A3_4DB8_87E0_FB248A6ECFA4 */

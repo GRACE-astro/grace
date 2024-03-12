@@ -1,0 +1,452 @@
+/**
+ * @file mpi_wrappers.hh
+ * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @brief add a thin c++ wrapper around mpi calls.
+ * @version 0.1
+ * @date 2023-03-01
+ * 
+ * @copyright This file is part of Thunder.
+ * Thunder is an evolution framework that uses Finite Difference 
+ * methods to simulate relativistic spacetimes and plasmas
+ * Copyright (C) 2023 Carlo Musolino
+ *                                                                    
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *  
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *  
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ */
+
+#ifndef THUNDER_MPI_WRAPPERS_HH
+#define THUNDER_MPI_WRAPPERS_HH
+
+
+#include <thunder/errors/assert.hh>
+#include <thunder/utils/type_traits.hh>
+/// This header contains
+/// a `mock` MPI implementation
+/// in case we don't actually link to
+/// MPI. NB: this drags the whole sc.h
+/// in here.
+#include <sc.h>
+
+
+#define mpi_comm sc_MPI_Comm
+#define mpi_op sc_MPI_Op 
+
+#define mpi_any_tag sc_MPI_ANY_TAG
+
+#define mpi_comm_null sc_MPI_COMM_NULL
+#define mpi_comm_self sc_MPI_COMM_SELF
+#define mpi_comm_world sc_MPI_COMM_WORLD
+
+#define mpi_sum sc_MPI_SUM
+#define mpi_max sc_MPI_MAX 
+#define mpi_min sc_MPI_MIN 
+#define mpi_prod sc_MPI_PROD 
+#define mpi_land sc_MPI_LAND 
+#define mpi_band sc_MPI_BAND 
+#define mpi_lor sc_MPI_LOR 
+#define mpi_bor sc_MPI_BOR 
+#define mpi_lxor sc_MPI_LXOR 
+#define mpi_bxor sc_MPI_bxor 
+#define mpi_minloc sc_MPI_MINLOC 
+#define mpi_maxloc sc_MPI_MAXLOC
+#define mpi_replace sc_MPI_REPLACE 
+
+namespace parallel {
+
+namespace detail {
+    template< typename T >
+    struct mpi_typename {
+        using type=meta::no_such_type;
+        static constexpr sc_MPI_Datatype mpi_type=sc_MPI_DATATYPE_NULL;
+    } ; 
+
+    template<> struct mpi_typename<char> {
+        using type=char;
+        static constexpr sc_MPI_Datatype mpi_type = sc_MPI_CHAR;
+    } ; 
+
+    template<> struct mpi_typename<int> {
+        using type=int;
+        static constexpr sc_MPI_Datatype mpi_type = sc_MPI_INT;
+    } ; 
+
+    template<> struct mpi_typename<unsigned> {
+        using type=unsigned;
+        static constexpr sc_MPI_Datatype mpi_type = sc_MPI_UNSIGNED;
+    } ;
+
+    template<> struct mpi_typename<long> {
+        using type=long;
+        static constexpr sc_MPI_Datatype mpi_type = sc_MPI_LONG;
+    } ;
+
+    template<> struct mpi_typename<unsigned long> {
+        using type=unsigned long ;
+        static constexpr sc_MPI_Datatype mpi_type = sc_MPI_UNSIGNED_LONG;
+    } ;
+
+    template<> struct mpi_typename<long long> {
+        using type=long long ;
+        static constexpr sc_MPI_Datatype mpi_type = sc_MPI_LONG_LONG_INT;
+    } ;
+
+    template<> struct mpi_typename<unsigned long long> {
+        using type=unsigned long long ;
+        static constexpr sc_MPI_Datatype mpi_type = sc_MPI_UNSIGNED_LONG_LONG;
+    } ;
+
+    template<> struct mpi_typename<float> {
+        using type=float ;
+        static constexpr sc_MPI_Datatype mpi_type = sc_MPI_FLOAT;
+    } ;
+
+    template<> struct mpi_typename<double> {
+        using type=double ;
+        static constexpr sc_MPI_Datatype mpi_type = sc_MPI_DOUBLE;
+    } ;
+
+    template<> struct mpi_typename<long double> {
+        using type=long double ;
+        static constexpr sc_MPI_Datatype mpi_type = sc_MPI_LONG_DOUBLE;
+    } ;
+}
+
+void mpi_init(int* argc, char *** argv) ;
+
+void mpi_finalize() ;
+
+[[noreturn]] void mpi_abort(sc_MPI_Comm comm, int error_code) ;
+
+int mpi_comm_size(sc_MPI_Comm comm=sc_MPI_COMM_WORLD) ; 
+
+int mpi_comm_rank(sc_MPI_Comm comm=sc_MPI_COMM_WORLD) ; 
+
+void mpi_barrier(sc_MPI_Comm comm=sc_MPI_COMM_WORLD) ;
+
+sc_MPI_Comm inline get_comm_world() { return sc_MPI_COMM_WORLD ; }  
+
+template<typename T>
+static inline 
+void mpi_gather(T* send_buffer,
+                int send_count,
+                T* recv_buffer,
+                int recv_count,
+                int root=0,
+                sc_MPI_Comm comm = MPI_COMM_WORLD)
+{
+    static_assert( meta::is_valid<typename detail::mpi_typename<T>::type>::value, 
+                    "Invalid type for mpi_gather." ) ; 
+    
+    sc_MPI_Datatype mpi_dtype = detail::mpi_typename<T>::mpi_type; 
+    int mpi_retval = sc_MPI_Gather( static_cast<void*>(send_buffer),
+                                    send_count,
+                                    mpi_dtype,
+                                    static_cast<void*>(recv_buffer),
+                                    recv_count, mpi_dtype,
+                                    root, comm) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_gather call failed.") ; 
+}
+
+template<typename T>
+static inline 
+void mpi_gatherv(T* send_buffer,
+                 int send_count,
+                 T* recv_buffer,
+                 int* recv_counts,
+                 int* recv_offsets,
+                 int root=0,
+                 sc_MPI_Comm comm = MPI_COMM_WORLD) 
+{
+    static_assert( meta::is_valid<typename detail::mpi_typename<T>::type>::value, 
+                    "Invalid type for mpi_gatherv." ) ; 
+    
+    sc_MPI_Datatype mpi_dtype = detail::mpi_typename<T>::mpi_type; 
+
+    int mpi_retval = sc_MPI_Gatherv(static_cast<void*>(send_buffer),
+                                    send_count,
+                                    mpi_dtype,
+                                    recv_buffer,
+                                    recv_counts,
+                                    recv_offsets,
+                                    mpi_dtype, root,
+                                    comm );
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_gatherv call failed.") ; 
+}  
+
+template<typename T>
+static inline 
+void mpi_allgather(T* send_buffer,
+                   int send_count,
+                   T* recv_buffer,
+                   int recv_count,
+                   sc_MPI_Comm comm = MPI_COMM_WORLD)
+{
+    static_assert( meta::is_valid<typename detail::mpi_typename<T>::type>::value, 
+                    "Invalid type for mpi_allgather." ) ; 
+    
+    sc_MPI_Datatype mpi_dtype = detail::mpi_typename<T>::mpi_type; 
+    int mpi_retval = sc_MPI_Allgather( static_cast<void*>(send_buffer),
+                                       send_count,
+                                       mpi_dtype,
+                                       static_cast<void*>(recv_buffer),
+                                       recv_count,
+                                       mpi_dtype,
+                                       comm ) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_allgather call failed.") ; 
+}
+
+template<typename T>
+static inline 
+void mpi_allgatherv(T* send_buffer,
+                    int send_count,
+                    T* recv_buffer,
+                    int* recv_counts,
+                    int* recv_offsets,
+                    sc_MPI_Comm comm = MPI_COMM_WORLD)
+{
+    static_assert( meta::is_valid<typename detail::mpi_typename<T>::type>::value, 
+                    "Invalid type for mpi_allgather." ) ; 
+    
+    sc_MPI_Datatype mpi_dtype = detail::mpi_typename<T>::mpi_type; 
+    int mpi_retval = sc_MPI_Allgatherv( static_cast<void*>(send_buffer),
+                                       send_count,
+                                       mpi_dtype,
+                                       static_cast<void*>(recv_buffer),
+                                       recv_counts,
+                                       recv_offsets,
+                                       mpi_dtype,
+                                       comm ) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_allgatherv call failed.") ; 
+}
+
+template<typename T>
+static inline 
+void mpi_alltoall(T* send_buffer,
+                  int send_count,
+                  T* recv_buffer,
+                  int count_recv,
+                  sc_MPI_Comm comm = MPI_COMM_WORLD)
+{
+    static_assert( meta::is_valid<typename detail::mpi_typename<T>::type>::value, 
+                    "Invalid type for mpi_alltoall." ) ; 
+    
+    sc_MPI_Datatype mpi_dtype = detail::mpi_typename<T>::mpi_type; 
+    int mpi_retval = sc_MPI_Alltoall( static_cast<void*>(send_buffer),
+                                       send_count,
+                                       mpi_dtype,
+                                       static_cast<void*>(recv_buffer),
+                                       count_recv,
+                                       mpi_dtype,
+                                       comm ) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_alltoall call failed.") ; 
+}
+
+
+template<typename T>
+static inline 
+void mpi_bcast(T* send_buffer,
+               int send_count,
+               int root,
+               sc_MPI_Comm comm = MPI_COMM_WORLD) 
+{
+    static_assert( meta::is_valid<typename detail::mpi_typename<T>::type>::value, 
+                    "Invalid type for mpi_bcast." ) ; 
+    
+    sc_MPI_Datatype mpi_dtype = detail::mpi_typename<T>::mpi_type; 
+    int mpi_retval = sc_MPI_Bcast( static_cast<void*>(send_buffer),
+                                   send_count,
+                                   mpi_dtype,
+                                   root,
+                                   comm ) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_bcast call failed.") ; 
+}
+
+template<typename T>
+static inline 
+void mpi_reduce(T* send_buffer,
+                T* recv_buffer,
+                int count,
+                sc_MPI_Op op,
+                int root=0,
+                sc_MPI_Comm comm=MPI_COMM_WORLD) 
+{
+    static_assert( meta::is_valid<typename detail::mpi_typename<T>::type>::value, 
+                    "Invalid type for mpi_reduce." ) ; 
+
+    ASSERT_DBG( (send_buffer != nullptr) or (count == 0), 
+                "Trying to reduce more than zero"
+                " data elements via dangling pointer.") ; 
+    
+    sc_MPI_Datatype mpi_dtype = detail::mpi_typename<T>::mpi_type; 
+    int mpi_retval = sc_MPI_Reduce( static_cast<void*>(send_buffer),
+                                    static_cast<void*>(recv_buffer),
+                                    count,
+                                    mpi_dtype,
+                                    op,
+                                    root,
+                                    comm ) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_reduce call failed.") ; 
+}
+
+template<typename T>
+static inline 
+void mpi_allreduce(T* send_buffer,
+                   T* recv_buffer,
+                   int count,
+                   sc_MPI_Op op,
+                   sc_MPI_Comm comm=MPI_COMM_WORLD)
+{
+    static_assert( meta::is_valid<typename detail::mpi_typename<T>::type>::value, 
+                    "Invalid type for mpi_reduce." ) ; 
+    
+    ASSERT_DBG( (send_buffer != nullptr) or (count == 0), 
+                "Trying to reduce more than zero"
+                " data elements via dangling pointer.");
+    ASSERT_DBG( (recv_buffer != nullptr) or (count == 0), 
+                "Trying to store allreduce result from "
+                "more than zero data elements on dangling pointer.") ;
+    
+    sc_MPI_Datatype mpi_dtype = detail::mpi_typename<T>::mpi_type; 
+    int mpi_retval = sc_MPI_Allreduce(static_cast<void*>(send_buffer),
+                                      static_cast<void*>(recv_buffer),
+                                      count,
+                                      mpi_dtype,
+                                      op,
+                                      comm ) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_reduce call failed.") ; 
+}
+
+template<typename T>
+static inline 
+void mpi_send(T* send_buffer, int size,
+              int dest,
+              int tag,
+              sc_MPI_Comm comm=MPI_COMM_WORLD) 
+{
+    #ifndef SC_ENABLE_MPI
+    ASSERT(0, 
+           "Please make sure that a real MPI implementation"
+           "is linked before attempting to call mpi_send"
+           "(build sc with --enable-mpi)") ;
+    #endif 
+    ASSERT_DBG( (send_buffer!=nullptr) or (size==0), 
+                "Attempting to mpi_send more than zero "
+                "elements from a dangling pointer." ) ;
+    sc_MPI_Datatype mpi_dtype = detail::mpi_typename<T>::mpi_type; 
+    int mpi_retval = sc_MPI_Send( static_cast<void*>(send_buffer),
+                                  size,
+                                  mpi_dtype,
+                                  dest,
+                                  tag,
+                                  comm) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_send call failed.") ;
+}
+
+template<typename T>
+static inline 
+sc_MPI_Status mpi_recv(T* recv_buffer, int size,
+              int source,
+              int tag,
+              sc_MPI_Comm comm=MPI_COMM_WORLD)
+{
+    #ifndef SC_ENABLE_MPI
+    ASSERT(0, 
+           "Please make sure that a real MPI implementation"
+           "is linked before attempting to call mpi_recv"
+           "(build sc with --enable-mpi)") ;
+    #endif
+    ASSERT_DBG( (recv_buffer!=nullptr) or (size==0), 
+                "Attempting to mpi_recv more than zero "
+                "elements into a dangling pointer." ) ;
+    sc_MPI_Datatype mpi_dtype = detail::mpi_typename<T>::mpi_type; 
+    sc_MPI_Status status ;
+    int mpi_retval = sc_MPI_Recv( static_cast<void*>(recv_buffer),
+                                  size,
+                                  mpi_dtype,
+                                  source,
+                                  tag,
+                                  comm, &status) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_recv call failed.") ; 
+    return status ;
+}
+
+template<typename T>
+static inline 
+void mpi_isend(T* send_buffer, int size,
+               int dest,
+               int tag,
+               sc_MPI_Comm comm,
+               sc_MPI_Request* request)
+{
+    #ifndef SC_ENABLE_MPI
+    ASSERT(0, 
+           "Please make sure that a real MPI implementation"
+           "is linked before attempting to call mpi_isend"
+           "(build sc with --enable-mpi)") ;
+    #endif
+    ASSERT_DBG( (send_buffer!=nullptr) or (size==0), 
+                "Attempting to mpi_isend more than zero "
+                "elements from a dangling pointer." ) ;
+    sc_MPI_Datatype mpi_dtype = detail::mpi_typename<T>::mpi_type; 
+    int mpi_retval = sc_MPI_Isend( static_cast<void*>(send_buffer),
+                                   size,
+                                   mpi_dtype,
+                                   dest,
+                                   tag,
+                                   comm, request) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_isend call failed.") ;
+}
+
+template<typename T>
+static inline 
+void mpi_irecv(T* recv_buffer, int size,
+              int source,
+              int tag,
+              sc_MPI_Comm comm,
+              sc_MPI_Request* request) 
+{
+    #ifndef SC_ENABLE_MPI
+    ASSERT(0, 
+           "Please make sure that a real MPI implementation"
+           "is linked before attempting to call mpi_irecv"
+           "(build sc with --enable-mpi)") ;
+    #endif
+    ASSERT_DBG( (recv_buffer!=nullptr) or (size==0), 
+                "Attempting to mpi_irecv more than zero "
+                "elements into a dangling pointer." ) ;
+    sc_MPI_Datatype mpi_dtype = detail::mpi_typename<T>::mpi_type; 
+    int mpi_retval = sc_MPI_Irecv( static_cast<void*>(recv_buffer),
+                                  size,
+                                  mpi_dtype,
+                                  source,
+                                  tag,
+                                  comm, request) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_irecv call failed.") ;
+}
+
+}
+
+#endif 

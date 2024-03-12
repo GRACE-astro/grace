@@ -1,0 +1,66 @@
+/**
+ * @file thunder_config.h
+ * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @brief 
+ * @version 0.1
+ * @date 2023-03-13
+ * 
+ * @copyright This file is part of thunder.
+ * thunder is an evolution framework that uses Discontinuous Galerkin 
+ * methods to simulate relativistic spacetimes and plasmas
+ * Copyright (C) 2023 Carlo Musolino
+ *                                                                    
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *  
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *  
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ */
+#ifndef THUNDER_CONFIG_HEADER_H_FB650CE9_1908_47F9_98EB_3C4E4087C9CC
+#define THUNDER_CONFIG_HEADER_H_FB650CE9_1908_47F9_98EB_3C4E4087C9CC
+
+#include <stdlib.h>
+
+
+namespace thunder {
+
+
+//*****************************************************************************************************
+/**
+ * @brief Lifetimes of thunder singleton objects
+ * \ingroup system
+ * 
+ * Objects get deleted from top to bottom in this 
+ * list at finalization.
+ */
+//*****************************************************************************************************
+enum unique_objects_lifetimes {
+    AMR_CONNECTIVITY=0,
+    AMR_FOREST,
+    SYSTEM_UTILITIES,
+    thunder_NUM_GLOBAL_OBJECTS 
+} ;
+//*****************************************************************************************************
+//*****************************************************************************************************
+
+#cmakedefine THUNDER_NSPACEDIM @THUNDER_NSPACEDIM@ 
+#cmakedefine THUNDER_3D 
+
+#cmakedefine THUNDER_ENABLE_CUDA 
+#cmakedefine THUNDER_ENABLE_HIP
+#cmakedefine THUNDER_ENABLE_OMP 
+#cmakedefine THUNDER_ENABLE_SERIAL 
+
+#cmakedefine THUNDER_CARTESIAN_COORDINATES
+#cmakedefine THUNDER_SPHERICAL_COORDINATES
+
+}
+#endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

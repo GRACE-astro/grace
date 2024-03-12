@@ -1,0 +1,10 @@
+
+if (NOT CATCH2_ROOT)
+    set(CATCH2_ROOT "")
+    set(CATCH2_ROOT "$ENV{CATCH2_ROOT}")
+endif()
+find_package(Catch2 PATHS "${CATCH2_ROOT}" NO_DEFAULT_PATH)
+find_package(Catch2 REQUIRED)
+set(catch2_SOURCE_DIR "${CATCH2_ROOT}")
+list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+include(Catch)
