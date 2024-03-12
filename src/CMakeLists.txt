@@ -16,4 +16,5 @@ target_sources( thunder_objects INTERFACE
                 $<TARGET_OBJECTS:thunder_parallel>
                 $<TARGET_OBJECTS:thunder_singleton>
                 $<TARGET_OBJECTS:thunder_runtime_utilities>
-                $<TARGET_OBJECTS:thunder_variable_registration> )
+                $<TARGET_OBJECTS:thunder_variable_registration>
+                $<TARGET_OBJECTS:thunder_init> )

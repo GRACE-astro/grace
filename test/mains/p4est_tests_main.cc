@@ -7,26 +7,13 @@
 #include <catch2/catch_session.hpp>
 #include <thunder_config.h> 
 
-#include <thunder/system/mpi_runtime.hh>
-#include <thunder/system/kokkos_runtime.hh>
-#include <thunder/system/p4est_runtime.hh>
-#include <thunder/system/thunder_runtime.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/amr/connectivity.hh>
-#include <thunder/amr/forest.hh>
-#include <thunder/data_structures/variables.hh>
-
+#include <thunder/system/thunder_initialize.hh>
+#include <iostream>
+#include <thunder/parallel/mpi_wrappers.hh>
 #include <sstream>
 
 int main( int argc, char* argv[] ) {
-    thunder::config_parser::initialize("configs/basic_config.yaml");
-    thunder::mpi_runtime::initialize(argc,argv) ; 
-    thunder::kokkos_runtime::initialize(argc,argv) ; 
-    thunder::p4est_runtime::initialize() ; 
-    thunder::runtime::initialize() ; 
-    thunder::amr::connectivity::initialize() ; 
-    thunder::amr::forest::initialize()       ; 
-    thunder::variable_list::initialize()     ; 
+    thunder::initialize(argc,argv) ; 
     std::stringstream ss;
     /* save old buffer and redirect output to string stream */
     auto cout_buf = std::cout.rdbuf( ss.rdbuf() ); 

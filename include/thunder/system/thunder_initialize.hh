@@ -1,5 +1,5 @@
 /**
- * @file kokkos_runtime.hh
+ * @file thunder_initialize.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
  * @version 0.1
@@ -24,38 +24,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#ifndef INCLUDE_THUNDER_SYSTEM_KOKKOS_RUNTIME
-#define INCLUDE_THUNDER_SYSTEM_KOKKOS_RUNTIME
-
-#include <Kokkos_Core.hpp>
-
-#include <thunder_config.h>
-
-#include <thunder/utils/singleton_holder.hh> 
-#include <thunder/utils/creation_policies.hh>
-#include <thunder/utils/lifetime_tracker.hh> 
+#ifndef INCLUDE_THUNDER_SYSTEM_THUNDER_INITIALIZE
+#define INCLUDE_THUNDER_SYSTEM_THUNDER_INITIALIZE
 
 namespace thunder {
 
-class kokkos_runtime_impl_t 
-{
- private:
-    
-    kokkos_runtime_impl_t(int* argc, char* argv[]) {
-        Kokkos::initialize(*argc, argv) ; 
-    }
-    ~kokkos_runtime_impl_t() {
-        Kokkos::finalize() ; 
-    } 
+void initialize(int& argc, char* argv[]) ;
 
-    friend class utils::singleton_holder<kokkos_runtime_impl_t,memory::default_create> ; 
-    friend class memory::new_delete_creator<kokkos_runtime_impl_t, memory::new_delete_allocator> ; //!< Give access
-
-    static constexpr size_t longevity = KOKKOS_RUNTIME ; 
-} ; 
-
-using kokkos_runtime = utils::singleton_holder<kokkos_runtime_impl_t,memory::default_create> ;
 
 } /* namespace thunder */
 
-#endif /* INCLUDE_THUNDER_SYSTEM_KOKKOS_RUNTIME */
+#endif /* INCLUDE_THUNDER_SYSTEM_THUNDER_INITIALIZE */

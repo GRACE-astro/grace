@@ -49,8 +49,6 @@ $<TARGET_OBJECTS:thunder_singleton> )
 
 add_library(p4est_tests_main mains/p4est_tests_main.cc)
 target_include_directories(p4est_tests_main PRIVATE "${HEADER_LIST}")
-target_compile_options( p4est_tests_main PRIVATE -g)
-
 target_link_libraries(  p4est_tests_main PRIVATE 
 Catch2::Catch2
 thunder_objects
@@ -62,7 +60,6 @@ Kokkos::kokkos )
 
 add_executable( connectivity_test test_connectivities.cc )
 target_include_directories(connectivity_test PRIVATE "${HEADER_LIST}")
-target_compile_options( connectivity_test PRIVATE -g)
 target_link_libraries(  connectivity_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
@@ -75,8 +72,6 @@ p4est::p4est )
 
 add_library(kokkos_tests_main mains/kokkos_tests_main.cc)
 target_include_directories(kokkos_tests_main PRIVATE "${HEADER_LIST}")
-target_compile_options( kokkos_tests_main PRIVATE -g)
-
 target_link_libraries(  kokkos_tests_main PRIVATE 
 Catch2::Catch2
 $<TARGET_OBJECTS:thunder_error_handlers>
@@ -87,7 +82,6 @@ Kokkos::kokkos )
 
 add_executable( sc_wrappers_test test_sc_wrappers.cpp )
 target_include_directories(sc_wrappers_test PRIVATE "${HEADER_LIST}")
-target_compile_options( sc_wrappers_test PRIVATE -g)
 target_link_libraries(  sc_wrappers_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
@@ -97,7 +91,6 @@ p4est::p4est )
 
 add_executable( forest_test test_forest.cpp )
 target_include_directories(forest_test PRIVATE "${HEADER_LIST}")
-target_compile_options( forest_test PRIVATE -g)
 target_link_libraries(  forest_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
@@ -109,7 +102,6 @@ p4est::p4est )
 
 add_executable( varlist_test test_variable_list.cpp )
 target_include_directories(varlist_test PRIVATE "${HEADER_LIST}")
-target_compile_options( varlist_test PRIVATE -g)
 target_link_libraries(  varlist_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
@@ -123,10 +115,14 @@ Kokkos::kokkos)
 
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND parser_test)
-add_test(NAME sc_wrappers_test COMMAND sc_wrappers_test)
-add_test(NAME connectivity_test COMMAND connectivity_test)
-add_test(NAME forest_test COMMAND forest_test)
-add_test(NAME varlist_test COMMAND varlist_test)
+add_test(NAME sc_wrappers_test COMMAND 
+        sc_wrappers_test --thunder-parfile ./configs/basic_config.yaml)
+add_test(NAME connectivity_test COMMAND 
+        connectivity_test --thunder-parfile ./configs/basic_config.yaml)
+add_test(NAME forest_test COMMAND 
+        forest_test --thunder-parfile ./configs/basic_config.yaml)
+add_test(NAME varlist_test COMMAND 
+        varlist_test --thunder-parfile ./configs/basic_config.yaml )
 
 
 
