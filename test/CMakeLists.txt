@@ -112,6 +112,19 @@ p4est::sc
 p4est::p4est 
 Kokkos::kokkos)
 
+add_executable( coordinate_test test_coordinates.cpp )
+target_include_directories(coordinate_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  coordinate_test PRIVATE 
+p4est_tests_main
+Catch2::Catch2
+thunder_objects
+yaml_cpp::yaml
+Kokkos::kokkos
+MPI::MPI_CXX
+p4est::sc
+p4est::p4est )
+
+
 
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND parser_test)
@@ -123,6 +136,7 @@ add_test(NAME forest_test COMMAND
         forest_test --thunder-parfile ./configs/basic_config.yaml)
 add_test(NAME varlist_test COMMAND 
         varlist_test --thunder-parfile ./configs/basic_config.yaml )
-
+        add_test(NAME coordinate_test COMMAND 
+        coordinate_test --thunder-parfile ./configs/basic_config.yaml )
 
 

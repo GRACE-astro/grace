@@ -39,6 +39,8 @@
 
 #include <thunder/amr/connectivities_impl.hh>
 
+#include <array>
+
 namespace thunder { namespace amr { 
 //**************************************************************************************************
 /**

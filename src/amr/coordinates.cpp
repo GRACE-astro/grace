@@ -60,7 +60,7 @@ void fill_coordinates()
     size_t ny {params["amr"]["npoints_block_y"].as<size_t>()} ; 
     size_t nz {params["amr"]["npoints_block_z"].as<size_t>()} ; 
     /* 2) Number of ghostzones for evolved vars */
-    size_t ngz { params["amr"]["n_ghostzones"].as<size_t>() } ;
+    long ngz { params["amr"]["n_ghostzones"].as<long>() } ;
 
     if( coord_system == "cartesian" )
     {
@@ -89,7 +89,7 @@ void fill_coordinates()
                 /* coordinates of lower left corner of quadrant */
                 auto const qcoords = quadrant.qcoords() ; 
                 auto quad_coords = ll_vertex_coords ; 
-                for( int idir=0; idir<quad_coords.size(); ++idir) quad_coords[idir] += dx_lev * qcoords[idir] ; 
+                for( int idir=0; idir<quad_coords.size(); ++idir) quad_coords[idir] += dx_lev * qcoords[idir] ;     
                 double VEC( qx{quad_coords[0]}, qy{quad_coords[1]}, qz{quad_coords[2]} ) ; 
                 size_t iquad_glob = iquad + quad_offset ; 
                 /* launch a tiny kernel to fill the coord array */ 

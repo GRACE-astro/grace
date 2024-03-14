@@ -29,7 +29,7 @@
 #define THUNDER_AMR_QUADRANT_HH 
 
 #include <thunder/amr/p4est_headers.hh> 
-
+#include <array>
 namespace thunder { namespace amr { 
 
 
@@ -54,7 +54,7 @@ class quadrant_t
         ret[2] = static_cast<p4est_qcoord_t>( _pquad -> z ) ;  
         #endif  
         if ( use_current_level ) {
-            for(auto& xx: ret) xx >> ( P4EST_MAXLEVEL - (int) _pquad->level ) ; 
+            for(auto& xx: ret) xx = xx >> ( P4EST_MAXLEVEL - (int) _pquad->level ) ; 
         }  
         return ret ; 
     }

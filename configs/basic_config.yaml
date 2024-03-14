@@ -1,5 +1,6 @@
 name: "thunder"
 amr: {
-  npoints_block_x: 16,
-  npoints_block_y: 16
+  npoints_block_x: 8,
+  npoints_block_y: 8,
+  n_ghostzones: 1
 }
