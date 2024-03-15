@@ -44,21 +44,7 @@
 
 namespace thunder { 
 //*****************************************************************************************************
-/**
- * @brief Create additional state. Allocates memory on device.
- * 
- * \ingroup variables
- * 
- * @tparam ndim Number of space dimensions.
- *
- * @param src State used to copy data and layout from.
- * @param initialize Copy data from source? 
- * 
- * Memory is released as soon as the caller's scope is exited.
- */
-template< size_t ndim=THUNDER_NSPACEDIM>
-static var_array_t<ndim> create_state(var_array_t<ndim> const& src, bool initialize=true) ; 
-
+size_t get_variable_index(std::string const& name) ;
 //*****************************************************************************************************
 /**
  * @brief Implementation of the variable list type.
