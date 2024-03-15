@@ -58,29 +58,58 @@ template< size_t ndim=THUNDER_NSPACEDIM>
 static var_array_t<ndim> create_state(var_array_t<ndim> const& src, bool initialize=true) ; 
 
 
-
+/**
+ * @brief Implementation of the variable list type.
+ * This class is wrapped with a <code>singleton_holder</code>
+ * and is used as a utility to collect all variables and coordinates
+ * and ensure they have the appropriate lifetime during Thunder's execution.
+ */
 class variable_list_impl_t
 {
 
 public: 
-    
+    /**
+     * @brief Get cell coordinates.
+     * 
+     * @return Cell coordinates. 
+     */
     THUNDER_ALWAYS_INLINE coord_array_t<THUNDER_NSPACEDIM> 
     getcoords() { return _coords ; } 
-    
+    /**
+     * @brief Get the auxiliary variables.
+     * 
+     * @return The auxiliary variables. 
+     */
     THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>  
     getaux() { return _aux ; }
-
+    /**
+     * @brief Get state vector
+     * 
+     * @return The state vector, containing all evolved variables
+     *         on all local cells.  
+     */
     THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>  
     getstate() { return _state ; }
-
+    /**
+     * @brief Get the scratch state vector 
+     * 
+     * @return The scratch state vector, used during time 
+     *         evolution to hold the previous state. 
+     */
     THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM> 
-    getscratch(int tl) { return _state_p ; }
+    getscratch() { return _state_p ; }
 
 
 private: 
-
+    /**
+     * @brief (Never) construct a new <code>variable_list_impl_t</code> object
+     * 
+     */
     variable_list_impl_t() ; 
-
+    /**
+     * @brief (Never) destroy the <code>variable_list_impl_t</code> object
+     * 
+     */
     ~variable_list_impl_t() = default; 
 
     coord_array_t<THUNDER_NSPACEDIM>  _coords  ;  //!< Gridpoint coordinates    
@@ -91,10 +120,12 @@ private:
     friend class utils::singleton_holder<variable_list_impl_t, memory::default_create> ; //!< Give access 
     friend class memory::new_delete_creator<variable_list_impl_t, memory::new_delete_allocator> ; //!< Give access 
 
-    static constexpr size_t longevity = THUNDER_VARIABLES ; 
+    static constexpr size_t longevity = THUNDER_VARIABLES ; //!< Schedule destruction at appropriate time.
 
 } ; 
-
+/**
+ * @brief Proxy holding all variables within Thunder.
+ */
 using variable_list = utils::singleton_holder<variable_list_impl_t > ; 
 
 } /* thunder */

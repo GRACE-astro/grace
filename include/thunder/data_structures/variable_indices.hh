@@ -1,7 +1,7 @@
 /**
  * @file variable_indices.h
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Global utilities for variable registration / indexing in Thunder.
  * @version 0.1
  * @date 2023-06-13
  * 

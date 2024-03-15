@@ -28,24 +28,23 @@
 #include <thunder_config.h>
 
 #include <Kokkos_Core.hpp>
-#include <thunder/amr/p4est_headers.hh>
 
-#include <thunder/amr/coordinates.hh>
-#include <thunder/amr/connectivity.hh>
-#include <thunder/amr/forest.hh>
+#include <thunder/amr/thunder_amr.hh>
 
 #include <thunder/config/config_parser.hh>
 
 #include <thunder/data_structures/variables.hh>
 #include <thunder/data_structures/macros.hh>
 
-#include <thunder/utils/device.h>
-#include <thunder/utils/math.hh> 
+#include <thunder/utils/thunder_utils.hh>
 
 #include <string> 
 
 namespace thunder { 
-
+/**
+ * @brief 
+ * 
+ */
 void fill_coordinates() 
 {
     auto& forest = thunder::amr::forest::get()        ; 
@@ -67,19 +66,19 @@ void fill_coordinates()
         /* 
         * Here we do the following: 
         * 1) We loop over all local trees and determine their vertex coordinates 
-        * 2) We loop over the quadrants in each tree and determine the cell coordinates 
-        * 3) We write this to device 
+        * 2) We loop over the quadrants in each tree 
+        * 3) We launch a small nx x ny x nz kernel to fill cell coordinates in each quadrant. 
         */ 
         auto trees = forest.trees() ; 
-        for( int itree=forest.first_local_tree(); itree<forest.last_local_tree(); ++itree)
+        for( int itree=forest.first_local_tree(); itree<=forest.last_local_tree(); ++itree)
         {
             auto tree = amr::tree_t( reinterpret_cast<p4est_tree_t*>(&trees[itree]) ) ; 
             auto quadrants = tree.quadrants() ;
             size_t quad_offset = tree.quadrants_offset() ; 
             /* coordinates of lower left corner vertex */  
-            auto const ll_vertex_coords = conn.get_vertex_coordinates(itree,0UL) ; 
+            auto const ll_vertex_coords = conn.vertex_coordinates(itree,0UL) ; 
             /* coordinates of lower right corner vertex */ 
-            auto const lr_vertex_coords = conn.get_vertex_coordinates(itree,1UL) ;
+            auto const lr_vertex_coords = conn.vertex_coordinates(itree,1UL) ;
             /* each tree is a square (resp. cube) in coordinate space */ 
             auto const dx = lr_vertex_coords[0] - ll_vertex_coords[0] ; 
             for( int iquad=0; iquad<quadrants.size(); ++iquad ) {
@@ -107,12 +106,52 @@ void fill_coordinates()
             }
         }
     } else if ( coord_system == "spherical" ) {
+        #ifndef THUNDER_3D 
+        
 
+        #else 
+
+        #endif 
     } else {
         ASSERT(0, "Should never be here.") ; 
     }
+}
+/**
+ * @brief Convert logical to physical coordinates within a given tree 
+ *        and quadrant when the grid is cartesian.
+ * 
+ * @param iquad Local quadrant index 
+ * @param itree Local tree index 
+ * @param lcoords Logical coordinates
+ * @return Physical coordinates of the point.
+ * Logical coordinates each span [0,1] within a quadrant.
+ * NB: Host only.
+ */
+/*
+std::array<double, THUNDER_NSPACEDIM> HOST 
+logical_to_physical_coordinates_cartesian( size_t iquad, size_t itree
+                                            , std::array<double, THUNDER_NSPACEDIM>const& lcoords )
+{
+    auto& conn = thunder::amr::connectivity::get() ; 
+    auto const tree_coords = conn.vertex_coordinates(itree, 0UL) ; */
+    /* In cartesian coordinates , all trees are cubes. */
+    /*
+    auto const dx_tree = conn.tree_coordinate_extents(itree)[0] ; 
+    auto& forest = thunder::amr::forest::get() ; 
+    auto tree = forest.tree(itree); 
+
+    auto quadrant = tree.quadrant(iquad) ; 
+
+    auto quad_coords = quadrant.qcoords() ; 
+    auto const dx_quad = dx_tree / ( 1 << quadrant.level() ) ; 
+
+    return std::array<double,THUNDER_NSPACEDIM>{ VEC( tree_coords[0] + ( static_cast<double>(quad_coords[0]) + lcoords[0] ) * dx_quad
+                                                    , tree_coords[1] + ( static_cast<double>(quad_coords[1]) + lcoords[1] ) * dx_quad
+                                                    , tree_coords[2] + ( static_cast<double>(quad_coords[2]) + lcoords[2] ) * dx_quad  )} ; 
 
 
 }
+*/
+
 
 } /* namespace thunder */ 

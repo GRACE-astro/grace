@@ -99,7 +99,7 @@ new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
 //**************************************************************************************************
 //**************************************************************************************************
 p4est_connectivity_t*
-new_spherical_connectivity( double rmin, double rmax, double rmax_log, bool extend_with_logr )
+new_spherical_connectivity( double L, double R, double Rlog, bool extend_with_logr )
 {
     const p4est_topidx_t num_vertices =  16 + extend_with_logr * 8 ;
     const p4est_topidx_t num_trees    =  7  + extend_with_logr * 6 ;
@@ -113,67 +113,85 @@ new_spherical_connectivity( double rmin, double rmax, double rmax_log, bool exte
     if( extend_with_logr ) {
        double const isqrt2 = 1./sqrt(2) ; 
         const double vertices [ 24 * 3 ] = { 
-            - rmin * isqrt2, - rmin * isqrt2, - rmin * isqrt2,            // 0 
-              rmin * isqrt2, - rmin * isqrt2, - rmin * isqrt2,            // 1
-            - rmin * isqrt2,   rmin * isqrt2, - rmin * isqrt2,            // 2
-              rmin * isqrt2,   rmin * isqrt2, - rmin * isqrt2,            // 3
-            - rmin * isqrt2, - rmin * isqrt2,   rmin * isqrt2,            // 4 
-              rmin * isqrt2, - rmin * isqrt2,   rmin * isqrt2,            // 5
-            - rmin * isqrt2,   rmin * isqrt2,   rmin * isqrt2,            // 6
-              rmin * isqrt2,   rmin * isqrt2,   rmin * isqrt2,            // 7
-            - rmax  * isqrt2, - rmax  * isqrt2, - rmax  * isqrt2,         // 8 
-              rmax  * isqrt2, - rmax  * isqrt2, - rmax  * isqrt2,         // 9
-            - rmax  * isqrt2,   rmax  * isqrt2, - rmax  * isqrt2,         // 10
-              rmax  * isqrt2,   rmax  * isqrt2, - rmax  * isqrt2,         // 11
-            - rmax  * isqrt2, - rmax  * isqrt2,   rmax  * isqrt2,         // 12 
-              rmax  * isqrt2, - rmax  * isqrt2,   rmax  * isqrt2,         // 13
-            - rmax  * isqrt2,   rmax  * isqrt2,   rmax  * isqrt2,         // 14
-              rmax  * isqrt2,   rmax  * isqrt2,   rmax  * isqrt2,         // 15
-            - rmax_log  * isqrt2, - rmax_log  * isqrt2, - rmax_log  * isqrt2,         // 8 
-              rmax_log  * isqrt2, - rmax_log  * isqrt2, - rmax_log  * isqrt2,         // 9
-            - rmax_log  * isqrt2,   rmax_log  * isqrt2, - rmax_log  * isqrt2,         // 10
-              rmax_log  * isqrt2,   rmax_log  * isqrt2, - rmax_log  * isqrt2,         // 11
-            - rmax_log  * isqrt2, - rmax_log  * isqrt2,   rmax_log  * isqrt2,         // 12 
-              rmax_log  * isqrt2, - rmax_log  * isqrt2,   rmax_log  * isqrt2,         // 13
-            - rmax_log  * isqrt2,   rmax_log  * isqrt2,   rmax_log  * isqrt2,         // 14
-              rmax_log  * isqrt2,   rmax_log  * isqrt2,   rmax_log  * isqrt2,         // 15
+            - L, - L, - L,            // 0 
+              L, - L, - L,            // 1
+            - L,   L, - L,            // 2
+              L,   L, - L,            // 3
+            - L, - L,   L,            // 4 
+              L, - L,   L,            // 5
+            - L,   L,   L,            // 6
+              L,   L,   L,            // 7
+            - R * isqrt2, - R * isqrt2, - R * isqrt2,         // 8 
+              R * isqrt2, - R * isqrt2, - R * isqrt2,         // 9
+            - R * isqrt2,   R * isqrt2, - R * isqrt2,         // 10
+              R * isqrt2,   R * isqrt2, - R * isqrt2,         // 11
+            - R * isqrt2, - R * isqrt2,   R * isqrt2,         // 12 
+              R * isqrt2, - R * isqrt2,   R * isqrt2,         // 13
+            - R * isqrt2,   R * isqrt2,   R * isqrt2,         // 14
+              R * isqrt2,   R * isqrt2,   R * isqrt2,         // 15
+            - Rlog * isqrt2, - Rlog * isqrt2, - Rlog * isqrt2,         // 8 
+              Rlog * isqrt2, - Rlog * isqrt2, - Rlog * isqrt2,         // 9
+            - Rlog * isqrt2,   Rlog * isqrt2, - Rlog * isqrt2,         // 10
+              Rlog * isqrt2,   Rlog * isqrt2, - Rlog * isqrt2,         // 11
+            - Rlog * isqrt2, - Rlog * isqrt2,   Rlog * isqrt2,         // 12 
+              Rlog * isqrt2, - Rlog * isqrt2,   Rlog * isqrt2,         // 13
+            - Rlog * isqrt2,   Rlog * isqrt2,   Rlog * isqrt2,         // 14
+              Rlog * isqrt2,   Rlog * isqrt2,   Rlog * isqrt2,         // 15
         }; 
 
         const p4est_topidx_t tree_to_vertex [ 13 * 8 ] = 
         { 
-            0, 1, 2 , 3 , 4 , 5 , 6 , 7 , // 0
-            8, 9, 10, 11, 0 , 1 , 2 , 3 , // 1
-            1, 9, 3 , 11, 5 , 13, 7 , 15, // 2 
-            4, 5, 6 , 7 , 12, 13, 14, 15, // 3
-            8, 0, 10, 2 , 12, 4 , 14, 6 , // 4
-            8, 9, 0 , 1 , 12, 13, 4 , 5 , // 5
-            2, 3, 10, 11, 6 , 7 , 14, 15, // 6
-            16, 17, 18, 19, 8, 9, 10, 11, // 7 
-            9,  17, 
+            0,1,2,3,4,5,6,7,     // 0
+            0,8,4,12,2,10,6,14,  // 1
+            1,9,3,11,5,13,7,15,  // 2 
+            0,8,1,9,4,12,5,13,   // 3
+            2,10,6,14,3,11,7,15, // 4
+            0,8,2,10,1,9,3,11,   // 5
+            4,12,5,13,6,14,7,15,  // 6
+            8,16,12,20,10,18,14,22, // 7 
+            9,17,11,19,13,21,15,23,  // 8
+            8,16,9,17,12,20,13,21,  // 9
+            10,18,14,22,11,19,15,23, // 10 
+            8,16,10,18,9,17,11,19,
+            12,20,13,21,14,22,15,23
+
         } ;
 
         const p4est_topidx_t tree_to_tree [ 13 * 6 ] = 
         { 
-            4, 2, 5, 6, 1, 3, // 0 
-            4, 2, 5, 6, 1, 0, // 1
-            0, 2, 5, 6, 1, 3, // 2
-            4, 2, 5, 6, 0, 3, // 3
-            4, 0, 5, 6, 1, 3, // 4
-            4, 2, 5, 0, 1, 3, // 5
-            4, 2, 0, 6, 1, 3  // 6
+            1,2,3,4,5,6, // 0
+            0,7,5,6,3,4, // 1
+            0,8,3,4,5,6, // 2
+            0,9,1,2,5,6, // 3
+            0,10,5,6,1,2, // 4
+            0,11,3,4,1,2, // 5
+            0,12,1,2,3,4,  // 6
+            1,7,11,12,9,10, // 7
+            2,8,9,10,11,12, // 8 
+            3,9,7,8,11,12, // 9
+            4,10,11,12,7,8, // 10
+            5,11,9,10,7,8, // 11
+            6,12,7,8,9,10  // 12
+
         } ; 
 
         const int8_t tree_to_face [ 13 * 6 ] =
         { 
-            1, 0, 3, 2, 5, 4,
-            4, 10, 4, 16, 4, 4, 
-            1, 1, 7, 1, 7, 1,
-            11, 5, 17, 5, 5, 5,
-            0, 0, 0, 6, 0, 6, 
-            2, 8, 2, 2, 2, 14, 
-            9, 3, 3, 3, 15, 3
+            0,0,0,0,0,0, // 0 
+            0,0,4,2,2,4, // 1
+            1,0,3,5,5,3, // 2
+            2,0,4,2,2,4, // 3
+            3,0,3,5,5,3, // 4
+            4,0,4,2,2,4, // 5
+            5,0,3,5,5,3,  // 6 
+            1,1,4,2,2,4,
+            1,1,3,5,5,3,
+            1,1,4,2,2,4,
+            1,1,3,5,5,3,
+            1,1,4,2,2,4,
+            1,1,3,5,5,3
 
-        } ; 
+        } ;  
       conn = p4est_connectivity_new_copy (num_vertices, num_trees,
                                       num_edges, num_corners,
                                       vertices, tree_to_vertex,
@@ -184,55 +202,55 @@ new_spherical_connectivity( double rmin, double rmax, double rmax_log, bool exte
     } else { 
         double const isqrt2 = 1./sqrt(2) ; 
         const double vertices [ 16 * 3 ] = { 
-            - rmin * isqrt2, - rmin * isqrt2, - rmin * isqrt2,            // 0 
-              rmin * isqrt2, - rmin * isqrt2, - rmin * isqrt2,            // 1
-            - rmin * isqrt2,   rmin * isqrt2, - rmin * isqrt2,            // 2
-              rmin * isqrt2,   rmin * isqrt2, - rmin * isqrt2,            // 3
-            - rmin * isqrt2, - rmin * isqrt2,   rmin * isqrt2,            // 4 
-              rmin * isqrt2, - rmin * isqrt2,   rmin * isqrt2,            // 5
-            - rmin * isqrt2,   rmin * isqrt2,   rmin * isqrt2,            // 6
-              rmin * isqrt2,   rmin * isqrt2,   rmin * isqrt2,            // 7
-            - rmax  * isqrt2, - rmax  * isqrt2, - rmax  * isqrt2,         // 8 
-              rmax  * isqrt2, - rmax  * isqrt2, - rmax  * isqrt2,         // 9
-            - rmax  * isqrt2,   rmax  * isqrt2, - rmax  * isqrt2,         // 10
-              rmax  * isqrt2,   rmax  * isqrt2, - rmax  * isqrt2,         // 11
-            - rmax  * isqrt2, - rmax  * isqrt2,   rmax  * isqrt2,         // 12 
-              rmax  * isqrt2, - rmax  * isqrt2,   rmax  * isqrt2,         // 13
-            - rmax  * isqrt2,   rmax  * isqrt2,   rmax  * isqrt2,         // 14
-              rmax  * isqrt2,   rmax  * isqrt2,   rmax  * isqrt2,         // 15
+            - L, - L, - L,            // 0 
+              L, - L, - L,            // 1
+            - L,   L, - L,            // 2
+              L,   L, - L,            // 3
+            - L, - L,   L,            // 4 
+              L, - L,   L,            // 5
+            - L,   L,   L,            // 6
+              L,   L,   L,            // 7
+            - R * isqrt2, - R * isqrt2, - R * isqrt2,         // 8 
+              R * isqrt2, - R * isqrt2, - R * isqrt2,         // 9
+            - R * isqrt2,   R * isqrt2, - R * isqrt2,         // 10
+              R * isqrt2,   R * isqrt2, - R * isqrt2,         // 11
+            - R * isqrt2, - R * isqrt2,   R * isqrt2,         // 12 
+              R * isqrt2, - R * isqrt2,   R * isqrt2,         // 13
+            - R * isqrt2,   R * isqrt2,   R * isqrt2,         // 14
+              R * isqrt2,   R * isqrt2,   R * isqrt2,         // 15
         }; 
 
         const p4est_topidx_t tree_to_vertex [ 7 * 8 ] = 
         { 
-            0, 1, 2 , 3 , 4 , 5 , 6 , 7 , // 0
-            8, 9, 10, 11, 0 , 1 , 2 , 3 , // 1
-            1, 9, 3 , 11, 5 , 13, 7 , 15, // 2 
-            4, 5, 6 , 7 , 12, 13, 14, 15, // 3
-            8, 0, 10, 2 , 12, 4 , 14, 6 , // 4
-            8, 9, 0 , 1 , 12, 13, 4 , 5 , // 5
-            2, 3, 10, 11, 6 , 7 , 14, 15  // 6
+            0,1,2,3,4,5,6,7,     // 0
+            0,8,4,12,2,10,6,14,  // 1
+            1,9,3,11,5,13,7,15,  // 2 
+            0,8,1,9,4,12,5,13,   // 3
+            2,10,6,14,3,11,7,15, // 4
+            0,8,2,10,1,9,3,11,   // 5
+            4,12,5,13,6,14,7,15  // 6
         } ;
 
         const p4est_topidx_t tree_to_tree [ 7 * 6 ] = 
         { 
-            4, 2, 5, 6, 1, 3, // 0 
-            4, 2, 5, 6, 1, 0, // 1
-            0, 2, 5, 6, 1, 3, // 2
-            4, 2, 5, 6, 0, 3, // 3
-            4, 0, 5, 6, 1, 3, // 4
-            4, 2, 5, 0, 1, 3, // 5
-            4, 2, 0, 6, 1, 3  // 6
+            1,2,3,4,5,6, // 0
+            0,1,5,6,3,4, // 1
+            0,2,3,4,5,6, // 2
+            0,3,1,2,5,6, // 3
+            0,4,5,6,1,2, // 4
+            0,5,3,4,1,2, // 5
+            0,6,1,2,3,4  // 6
         } ; 
 
         const int8_t tree_to_face [ 7 * 6 ] =
         { 
-            1, 0, 3, 2, 5, 4,
-            4, 10, 4, 16, 4, 4, 
-            1, 1, 7, 1, 7, 1,
-            11, 5, 17, 5, 5, 5,
-            0, 0, 0, 6, 0, 6, 
-            2, 8, 2, 2, 2, 14, 
-            9, 3, 3, 3, 15, 3
+            0,0,0,0,0,0, // 0 
+            0,1,4,2,2,4, // 1
+            1,1,3,5,5,3, // 2
+            2,1,4,2,2,4, // 3
+            3,1,3,5,5,3, // 4
+            4,1,4,2,2,4, // 5
+            5,1,3,5,5,3  // 6
 
         } ; 
       conn = p4est_connectivity_new_copy (num_vertices, num_trees,
@@ -252,7 +270,7 @@ new_spherical_connectivity( double rmin, double rmax, double rmax_log, bool exte
 //**************************************************************************************************
 #else 
 p4est_connectivity_t*
-new_spherical_connectivity( double rmin, double rmax, double rmax_log, bool extend_with_logr )
+new_spherical_connectivity( double L, double R, double Rlog, bool extend_with_logr )
 {
     int32_t const num_trees    = 1 + 4 + 4 * extend_with_logr ; 
     int32_t const num_vertices = 4 + 4 + 4 * extend_with_logr ; 
@@ -261,102 +279,100 @@ new_spherical_connectivity( double rmin, double rmax, double rmax_log, bool exte
 
     auto const isqrt2 = 1./sqrt(2) ; 
     if ( extend_with_logr ) {
-        double const isqrt2 = 1./sqrt(2) ; 
         const double vertices [ 12 * 3 ] = {  
-            - rmin * isqrt2, - rmin * isqrt2, 0,            // 0 
-              rmin * isqrt2, - rmin * isqrt2, 0,            // 1
-            - rmin * isqrt2,   rmin * isqrt2, 0,            // 2
-              rmin * isqrt2,   rmin * isqrt2, 0,            // 3
-            - rmax * isqrt2, - rmax * isqrt2, 0,            // 4
-              rmax * isqrt2, - rmax * isqrt2, 0,            // 5
-            - rmax * isqrt2,   rmax * isqrt2, 0,            // 6
-              rmax * isqrt2,   rmax * isqrt2, 0,            // 7
-            - rmax_log  * isqrt2, - rmax_log  * isqrt2, 0,  // 8
-              rmax_log  * isqrt2, - rmax_log  * isqrt2, 0,  // 9
-            - rmax_log  * isqrt2,   rmax_log  * isqrt2, 0,  // 10
-              rmax_log  * isqrt2,   rmax_log  * isqrt2, 0,  // 11 
-        } ;
+        - L, - L, 0,                                // 0 
+          L, - L, 0,                                // 1
+        - L,   L, 0,                                // 2
+          L,   L, 0,                                // 3
+        - R * isqrt2,   - R * isqrt2, 0,            // 4
+          R * isqrt2,   - R * isqrt2, 0,            // 5
+        - R * isqrt2,     R * isqrt2, 0,            // 6
+          R * isqrt2,     R * isqrt2, 0,            // 7
+        - Rlog * isqrt2,   - Rlog * isqrt2, 0,      // 8
+          Rlog * isqrt2,   - Rlog * isqrt2, 0,      // 9
+        - Rlog * isqrt2,     Rlog * isqrt2, 0,      // 10
+          Rlog * isqrt2,     Rlog * isqrt2, 0,      // 11  
+      } ;
 
-        const p4est_topidx_t tree_to_vertex [ 9 * 4 ] = 
-        { 
-            0, 1, 2, 3, // 0
-            4, 5, 0, 1, // 1
-            1, 5, 3, 7, // 2 
-            2, 3, 6, 7, // 3
-            4, 0, 6, 2, // 4
-            8, 9, 4, 5, // 5
-            5, 9, 7, 11,// 6
-            6, 7, 10,11,// 7
-            8, 4, 10, 6 // 8 
-        } ; 
+      const p4est_topidx_t tree_to_vertex [ 9 * 4 ] = 
+      { 
+          0,1,2,3,  // 0
+          0,2,4,6,  // 1
+          1,5,3,7,  // 2 
+          0,4,1,5,  // 3
+          3,7,2,6,  // 4
+          4,8,6,10, // 5
+          5,9,7,11, // 6
+          4,8,5,9,  // 7
+          6,10,7,11 // 8
+      } ; 
 
-        const p4est_topidx_t tree_to_tree [ 9 * 4 ] = 
-        { 
-            4, 2, 1, 3, // 0 
-            4, 2, 5, 0, // 1
-            0, 6, 1, 3, // 2
-            4, 2, 0, 7, // 3
-            8, 0, 1, 3, // 4
-            8, 6, 5, 1, // 5
-            2, 6, 5, 7, // 6
-            8, 6, 3, 7, // 7 
-            8, 4, 5, 7  // 8 
-        } ; 
+      const p4est_topidx_t tree_to_tree [9 * 4 ] = 
+      { 
+          1,2,3,4, // 0 
+          0,5,3,4, // 1
+          0,6,3,4, // 2
+          0,7,1,2, // 3
+          0,8,1,2, // 4
+          1,5,7,8, // 5
+          2,6,7,8, // 6
+          3,7,5,6, // 7
+          4,8,5,6  // 8
+      } ; 
 
-        const int8_t tree_to_face [ 9 * 4 ] =
-        {
-            1, 0, 3, 2,
-            2, 6, 3, 2,
-            1, 0, 5, 1,
-            7, 3, 3, 2,
-            1, 0, 0, 4,
-            2, 6, 2, 2,
-            1, 1, 5, 1,
-            7, 3, 3, 3,
-            0, 0, 0, 4 
-        } ; 
-        conn =  p4est_connectivity_new_copy (num_vertices, num_trees, 0,
-                                            vertices, tree_to_vertex,
-                                            tree_to_tree, tree_to_face,
-                                            NULL, &num_ctt, NULL, NULL) ; 
+      const int8_t tree_to_face [ 9 * 4 ] =
+      {
+          0, 0, 0, 0, // 0
+          0, 0, 2, 2, // 1
+          1, 0, 3, 3, // 2
+          2, 0, 2, 2, // 3
+          3, 0, 3, 3, // 4
+          1, 1, 3, 2, // 5
+          1, 1, 3, 2, // 6
+          1, 1, 3, 2, // 7
+          1, 1, 3, 2  // 8
+      } ;  
+      conn =  p4est_connectivity_new_copy (num_vertices, num_trees, 0,
+                                          vertices, tree_to_vertex,
+                                          tree_to_tree, tree_to_face,
+                                          NULL, &num_ctt, NULL, NULL) ;
     } else { 
-        double const isqrt2 = 1./sqrt(2) ; 
         const double vertices [ 8 * 3 ] = {  
-            - rmin * isqrt2, - rmin * isqrt2, 0,            // 0 
-              rmin * isqrt2, - rmin * isqrt2, 0,            // 1
-            - rmin * isqrt2,   rmin * isqrt2, 0,            // 2
-              rmin * isqrt2,   rmin * isqrt2, 0,            // 3
-            - rmax * isqrt2, - rmax * isqrt2, 0,            // 4
-              rmax * isqrt2, - rmax * isqrt2, 0,            // 5
-            - rmax * isqrt2,   rmax * isqrt2, 0,            // 6
-              rmax * isqrt2,   rmax * isqrt2, 0,            // 7
+            - L, - L, 0,                                // 0 
+              L, - L, 0,                                // 1
+            - L,   L, 0,                                // 2
+              L,   L, 0,                                // 3
+            - R * isqrt2,   - R * isqrt2, 0,            // 4
+              R * isqrt2,   - R * isqrt2, 0,            // 5
+            - R * isqrt2,     R * isqrt2, 0,            // 6
+              R * isqrt2,     R * isqrt2, 0             // 7
         } ;
 
         const p4est_topidx_t tree_to_vertex [ 5 * 4 ] = 
         { 
-            0, 1, 2, 3, // 0
-            4, 5, 0, 1, // 1
-            1, 5, 3, 7, // 2 
-            2, 3, 6, 7, // 3
-            4, 0, 6, 2  // 4
+          0,1,2,3, // 0
+          0,4,2,6, // 1
+          1,5,3,7, // 2 
+          0,4,1,5, // 3
+          2,6,3,7, // 4
         } ; 
 
         const p4est_topidx_t tree_to_tree [ 5 * 4 ] = 
         { 
-            4, 2, 1, 3, // 0 
-            4, 2, 5, 0, // 1
-            0, 6, 1, 3, // 2
-            4, 2, 0, 7, // 3
-            8, 0, 1, 3  // 4
+            1,2,3,4, // 0 
+            0,1,3,4, // 1
+            0,2,3,4, // 2
+            0,3,1,2, // 3
+            0,4,1,2  // 4
         } ; 
 
         const int8_t tree_to_face [ 5 * 4 ] =
         {
-            1, 0, 3, 2,
-            2, 6, 2, 2,
-            1, 1, 5, 1,
-            7, 3, 3, 3,
-            0, 0, 0, 4 
+            0, 0, 0, 0,
+            0, 1, 2, 2,
+            1, 1, 3, 3,
+            2, 1, 2, 2,
+            3, 1, 3, 3 
         } ;  
         conn =  p4est_connectivity_new_copy (num_vertices, num_trees, 0,
                                             vertices, tree_to_vertex,

@@ -1,7 +1,7 @@
 /**
  * @file memory_defaults.hh
  * @author your name (you@domain.com)
- * @brief 
+ * @brief Default space for memory allocation / parallel dispatch in Thunder.
  * @version 0.1
  * @date 2023-06-16
  * 

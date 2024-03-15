@@ -44,20 +44,31 @@ namespace thunder { namespace amr {
  * @brief Thin wrapper around p4est_tree_t 
  * \ingroup amr 
  * 
- * 
+ * Designed to make access of members easier and safer for user code.
  */
 class tree_t 
 {
  //**************************************************************************************************
  public: 
    //**************************************************************************************************
+   /**
+    * @brief Construct a new tree_t starting from the p4est pointer.
+    */
    tree_t(p4est_tree_t* ptree): _ptree(ptree) {} ;
-
+   /**
+    * @brief Return an array of p4est_quadrant_t containing the 
+    *        local quadrants on this tree.
+    */
    THUNDER_ALWAYS_INLINE sc_array_view_t<p4est_quadrant_t> quadrants() 
    {
       return sc_array_view_t<p4est_quadrant_t>{&(_ptree->quadrants)};  
    }
-
+   /**
+    * @brief Return the ith local quadrant on this tree.
+    * 
+    * @param iquad Index in the local quadrant list.
+    * @return The quadrant_t object 
+    */
    THUNDER_ALWAYS_INLINE quadrant_t quadrant( size_t iquad )
    {
       sc_array_view_t<p4est_quadrant_t> quads{&(_ptree->quadrants)} ; 
@@ -65,16 +76,25 @@ class tree_t
                , "Requested out of bounds quadrant." ) ;
       return quadrant_t(&quads[iquad]) ; 
    }
-
-   THUNDER_ALWAYS_INLINE size_t quadrants_offset() const { return _ptree->quadrants_offset ; } ;
-
+   /**
+    * @brief Return the local offset of the local quadrants on this tree. 
+    * This is the cumulative sum of all quadrants from local trees on this rank.
+    * All local <code>Kokkos::View</code> objects should be accessed with this 
+    * offset. 
+    */
+   THUNDER_ALWAYS_INLINE size_t
+   quadrants_offset() const { return _ptree->quadrants_offset ; } ;
+   /**
+    * @brief Return the number of local quadrants on this tree.
+    */
    THUNDER_ALWAYS_INLINE size_t num_quadrants() 
    {
       return sc_array_view_t<p4est_quadrant_t>( &(_ptree->quadrants) ).size() ;  
    }
-
+   /**
+    * @brief Get the pointer to the underlying p4est_tree_t.
+    */
    p4est_tree_t* get() const { return _ptree ; }
-
 
  //**************************************************************************************************
  private:

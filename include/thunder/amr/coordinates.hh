@@ -33,7 +33,8 @@
 namespace thunder { 
 
 /**
- * @brief Fill coordinates arrays.
+ * @brief Fill cell coordinates array.
+ * \ingroup amr 
  */
 void fill_coordinates() ; 
 

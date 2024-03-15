@@ -1,45 +1,46 @@
 /**
- * @file device.h
+ * @file thunder_amr.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
- * @version 0.1
- * @date 2024-03-11
+ * @brief Single include for all amr related utilities in thunder.
+ * @date 2024-03-14
  * 
  * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference 
- * methods to simulate relativistic astrophysical systems and plasma
- * dynamics.
+ * Thunder is an evolution framework that uses Finite Difference
+ * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
- *                                                                    
+ *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- *  
+ *   
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *  
+ *   
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
+#ifndef THUNDER_AMR_THUNDER_AMR_HH
+#define THUNDER_AMR_THUNDER_AMR_HH
 
 #include <thunder_config.h>
 
-#ifndef THUNDER_UTILS_DEVICE_H
-#define THUNDER_UTILS_DEVICE_H
+#include <thunder/utils/inline.h>
+#include <thunder/utils/device.h>
 
-#if defined(THUNDER_ENABLE_CUDA) or defined (THUNDER_ENABLE_HIP)
-#define THUNDER_DEVICE __device__ 
-#define THUNDER_HOST   __host__ 
-#define HOST_DEVICE __host__ __device__ 
-#else 
-#define THUNDER_DEVICE 
-#define THUNDER_HOST 
-#define THUNDER_HOST_DEVICE 
-#endif 
+#include <thunder/data_structures/macros.hh>
 
+#include<thunder/amr/p4est_headers.hh>
 
-#endif 
+#include <thunder/amr/quadrant.hh>
+#include <thunder/amr/tree.hh>
+#include <thunder/amr/amr_flags.hh>
+#include <thunder/amr/connectivity.hh>
+#include <thunder/amr/forest.hh>
+#include <thunder/amr/coordinates.hh>
+#include <thunder/amr/amr_functions.hh>
+
+#endif /* THUNDER_AMR_THUNDER_AMR_HH */

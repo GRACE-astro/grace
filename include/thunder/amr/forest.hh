@@ -47,7 +47,7 @@ namespace thunder { namespace amr {
 /**
  * @brief Wrapper around the p4est structure.
  * 
- * @tparam THUNDER_NSPACEDIM Number of space dimensions.
+ * \ingroup amr 
  * 
  */
 class forest_impl_t 
@@ -104,8 +104,14 @@ class forest_impl_t
     friend class memory::new_delete_creator<forest_impl_t, memory::new_delete_allocator> ; //!< Give access
 
 } ; 
-
+/**
+ * @brief Thunder forest singleton type. This 
+ *        global object can be accessed from user code 
+ *        to get information about the grid structure.
+ * 
+ */
 using forest = utils::singleton_holder<forest_impl_t > ; 
 
 }} /* thunder::amr */
+
 #endif /* THUNDER_AMR_FOREST_HH */

@@ -25,9 +25,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
+
+#include <thunder_config.h>
+
 #ifndef C412D999_BF0F_4E79_9C1D_C17BE6E275CB
 #define C412D999_BF0F_4E79_9C1D_C17BE6E275CB
-
+// TODO: this either goes into utils or we define these directly in thunder config 
+/**
+ * @brief Macros designed to help with writing dimension independent code.
+ * \ingroup utilities 
+ * 
+ */
 #ifdef THUNDER_3D 
 #define VEC(X,Y,Z) X,Y,Z
 #define EXPR(X,Y,Z) X Y Z

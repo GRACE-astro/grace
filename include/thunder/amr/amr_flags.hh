@@ -30,9 +30,14 @@
 
 #include <thunder/amr/p4est_headers.hh> 
 #include <thunder/amr/quadrant.hh> 
+#include <thunder/errors/error.hh>
 
 namespace thunder { namespace amr { 
 
+/**
+ * @brief Possible quadrant states.
+ * \cond thunder_detail
+ */
 enum quadrant_flags_t 
 {
     DEFAULT_STATE=0,
@@ -41,13 +46,21 @@ enum quadrant_flags_t
     INVALID_STATE=-1
 } ; 
 
+/**
+ * @brief Quadrant user data. Used in 
+ *        Thunder to retain information
+ *        about amr operations that 
+ *        need to be transmitted to 
+ *        the Device. 
+ * \cond thunder_detail
+ */
 struct amr_flags_t {
     quadrant_flags_t quadrant_status ; 
 } ; 
 
 /**
  * @brief Initialize a quadrant to default state.
- * 
+ * \cond thunder_detail 
  * @param p4est        The oct-tree forest. 
  * @param which_tree   Id of the tree where the quadrants live.
  * @param quad         Quadrant being initialized 
@@ -61,7 +74,7 @@ static void initialize_quadrant(p4est_t* p4est, p4est_topidx_t which_tree, p4est
 /**
  * @brief Flag quadrants in need of prolongation and/or restriction
  *        after refinement and coarsening.
- * 
+ * \cond thunder_detail 
  * @param p4est        The oct-tree forest. 
  * @param which_tree   Id of the tree where the quadrants live.
  * @param num_outgoing Number of outgoing quadrants (1 for refinement, P4EST_CHILDREN for coarsening)

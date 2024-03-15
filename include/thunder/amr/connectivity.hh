@@ -47,6 +47,11 @@ namespace thunder { namespace amr {
  * \defgroup amr Grid handling routines.
  */
 //**************************************************************************************************
+#ifndef THUNDER_3D 
+
+#else 
+
+#endif 
 /**
  * @brief Wrapper around p4est connectivity. 
  * \ingroup amr 
@@ -79,28 +84,18 @@ class connectivity_impl_t
     p4est_connectivity_t* get() { return pconn_ ; }; 
     //**************************************************************************************************
 
+     
     //**************************************************************************************************
     /**
-     * @brief get raw pointer to p4est connectivity
+     * @brief Get coordinates of tree vertex 
      * 
-     * @return p4est_connectivity_t* the connectivity 
+     * @param which_tree Tree index 
+     * @param which_vertex Vertex index (in Morton ordering)
+     * @return The coordinates of the requested vertex.
      */
-    THUNDER_ALWAYS_INLINE std::array<double, THUNDER_NSPACEDIM> 
-    get_tree_vertex(size_t which_tree, size_t which_vertex) const { 
-      #ifndef THUNDER_3D 
-        return std::array<double, 2> {  pconn_->tree_to_vertex[ which_tree * P4EST_CHILDREN  + which_vertex      ]
-                                     ,  pconn_->tree_to_vertex[ which_tree * P4EST_CHILDREN  + which_vertex + 1UL] } ;
-      #else 
-        return std::array<double, 3> {  pconn_->tree_to_vertex[ which_tree * P4EST_CHILDREN  + 3UL * which_vertex      ]
-                                     ,  pconn_->tree_to_vertex[ which_tree * P4EST_CHILDREN  + 3UL * which_vertex + 1UL]
-                                     ,  pconn_->tree_to_vertex[ which_tree * P4EST_CHILDREN  + 3UL * which_vertex + 2UL] } ;
-      #endif 
-    }; 
-    //**************************************************************************************************
-
     THUNDER_ALWAYS_INLINE std::array<double,THUNDER_NSPACEDIM> 
-    get_vertex_coordinates( size_t which_tree, size_t which_vertex ) const { 
-      size_t nv = pconn_->tree_to_vertex[ P4EST_CHILDREN * which_tree + which_vertex ] ; 
+    vertex_coordinates( size_t which_tree, size_t which_vertex ) const { 
+      size_t nv = get_tree_vertex(which_tree, which_vertex) ; 
       #ifndef THUNDER_3D 
         return std::array<double, 2> {  pconn_->vertices[ 3UL*nv     ]
                                      ,  pconn_->vertices[ 3UL*nv + 1UL] } ;
@@ -110,7 +105,27 @@ class connectivity_impl_t
                                      ,  pconn_->vertices[ 3UL*nv + 2UL] } ;
       #endif 
     }; 
-
+    //**************************************************************************************************
+    /**
+     * @brief Get coordinate extents of given tree.
+     * @param which_tree Tree index 
+     * @return Array containing coordinate extents of the tree in each direction.
+     */
+    THUNDER_ALWAYS_INLINE std::array<double, THUNDER_NSPACEDIM> 
+    tree_coordinate_exents(size_t which_tree) const { 
+      auto const l_coords = vertex_coordinates(which_tree, 0UL) ; 
+      auto const x_l = l_coords[0] ; 
+      auto const x_r = vertex_coordinates(which_tree, 1UL)[0] ; 
+      auto const y_l = l_coords[1] ; 
+      auto const y_r = vertex_coordinates(which_tree, 2UL)[1] ; 
+      #ifndef THUNDER_3D
+      return std::array<double,2> { x_r-x_l, y_r-y_l } ; 
+      #else 
+      auto const z_l = l_coords[2] ; 
+      auto const z_r = vertex_coordinates(which_tree, 3UL)[2] ; 
+      return std::array<double,3> { x_r-x_l, y_r-y_l, z_r-z_l } ;
+      #endif 
+    };
     //**Checkpointing***********************************************************************************
     /**
      * @brief save to file 
@@ -133,6 +148,18 @@ class connectivity_impl_t
     
     //**************************************************************************************************
     private:
+    //**************************************************************************************************
+    /**
+     * @brief Get tree_to_vertex entry 
+     * \cond thunder_detail
+     * @param which_tree Tree index 
+     * @param which_vertex Vertex index (in Morton ordering)
+     * @return The index of the requested vertex
+     */
+    THUNDER_ALWAYS_INLINE size_t
+    get_tree_vertex(size_t which_tree, size_t which_vertex) const { 
+        return pconn_->tree_to_vertex[ which_tree * P4EST_CHILDREN  + which_vertex ] ; 
+    }; 
     //**************************************************************************************************
     static constexpr unsigned int longevity = thunder::AMR_CONNECTIVITY ; //!< Longevity 
     //**************************************************************************************************
