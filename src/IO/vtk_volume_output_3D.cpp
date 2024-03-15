@@ -53,6 +53,10 @@
 #include <thunder/errors/error.hh>
 #include <thunder/errors/assert.hh> 
 
+#include <tuple>
+#include <array>
+#include <string>
+
 namespace thunder { namespace IO {
 
 
