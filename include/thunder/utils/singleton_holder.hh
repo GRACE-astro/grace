@@ -89,7 +89,7 @@ public:
     /**
     * @brief Shorthand to initialize the instance 
     * 
-    * @tparam ArgT ArgT The parameter pack is forwarded to the object constructor.
+    * @tparam ArgT The parameter pack is forwarded to the object constructor.
     * @param args Forwarded to constructor.
     */
     //**************************************************************************************************

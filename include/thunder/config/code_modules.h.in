@@ -41,16 +41,16 @@
 
 
 namespace thunder { namespace detail { 
-
+//*****************************************************************************************************
 const std::vector< std::string > code_modules { 
     "amr",
     "system"
 } ;
-
+//*****************************************************************************************************
 const std::vector< std::string > code_modules_default_configs { 
      "${CMAKE_SOURCE_DIR}/include/thunder/amr/amr-defaults.yaml",
      "${CMAKE_SOURCE_DIR}/include/thunder/system/system-defaults.yaml"
 } ;
-
-}}
+//*****************************************************************************************************
+}} /* namespace thunder::detail */
 #endif /* BAF4B02D_A6A3_4DB8_87E0_FB248A6ECFA4 */

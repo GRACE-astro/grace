@@ -33,17 +33,22 @@
 #include <thunder/data_structures/memory_defaults.hh>
 
 namespace thunder {
-
+//*****************************************************************************************************
+//*****************************************************************************************************
 /**
  * @brief Helper class 
  * \cond thunder_detail
+ * \ingroup variables
  */
 template< size_t ndim > 
 struct variable_properties_t 
 { } ; 
+//*****************************************************************************************************
 /**
  * @brief Helper class 
  * \cond thunder_detail
+ *  
+ * \ingroup variables
  */
 template<> 
 struct variable_properties_t<2>
@@ -55,9 +60,11 @@ struct variable_properties_t<2>
     std::string name ; 
 
 } ; 
+//*****************************************************************************************************
 /**
  * @brief Helper class 
  * \cond thunder_detail
+ * \ingroup variables
  */
 template<> 
 struct variable_properties_t<3>
@@ -68,40 +75,48 @@ struct variable_properties_t<3>
 
     std::string name ;
 } ; 
-
+//*****************************************************************************************************
 /**
  * @brief Helper class 
  * \cond thunder_detail
+ * \ingroup variables
  */
 template< size_t ndim >
 struct coord_array_impl_t {} ;
+//*****************************************************************************************************
 /**
  * @brief Helper class 
  * \cond thunder_detail
+ * \ingroup variables
  */
 template<> 
 struct coord_array_impl_t<2> { using view_t = Kokkos::View<double ****, DefaultSpace>; };
+//*****************************************************************************************************
 /**
  * @brief Helper class 
  * \cond thunder_detail
+ * \ingroup variables
  */
 template<> 
 struct coord_array_impl_t<3> { using view_t = Kokkos::View<double *****, DefaultSpace>; } ;
+//*****************************************************************************************************
 /**
  * @brief Proxy for variable <code>View</code> type in Thunder
- * 
+ * \ingroup variables
  * @tparam ndim Number of spatial dimension
  */
 template< size_t ndim = THUNDER_NSPACEDIM > 
-using var_array_t = variable_properties_t<ndim>::view_t ;  
+using var_array_t = variable_properties_t<ndim>::view_t ; 
+//***************************************************************************************************** 
 /**
  * @brief Proxy for coordinate <code>View</code> type in Thunder
- * 
+ * \ingroup variables
  * @tparam ndim Number of spatial dimension
  */
 template< size_t ndim = THUNDER_NSPACEDIM > 
 using coord_array_t = coord_array_impl_t<ndim>::view_t ; 
-
+//*****************************************************************************************************
+//*****************************************************************************************************
 } /* namespace thunder */
 
 #endif /* THUNDER_DATA_STRUCTURES_VARIABLE_PROPERTIES_HH */

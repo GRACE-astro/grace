@@ -45,14 +45,11 @@ namespace thunder {
  * @brief 
  * 
  */
-void fill_coordinates() 
+void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords) 
 {
     auto& forest = thunder::amr::forest::get()        ; 
     auto& conn   = thunder::amr::connectivity::get()  ; 
     auto& params = thunder::config_parser::get()      ;
-    auto& vars   = thunder::variable_list::get()      ;  
-
-    auto coords = vars.getcoords() ; 
 
     std::string coord_system = params["amr"]["physical_coordinates"].as<std::string>() ; 
     size_t nx {params["amr"]["npoints_block_x"].as<size_t>()} ; 
@@ -98,9 +95,9 @@ void fill_coordinates()
                         , KOKKOS_LAMBDA ( VEC(int i, int j, int k) )
                         {
                             EXPR(
-                            coords(VEC(i,j,k),0,iquad_glob) = qx + ( i - ngz ) * dx_quad ;,
-                            coords(VEC(i,j,k),1,iquad_glob) = qy + ( j - ngz ) * dy_quad ;,
-                            coords(VEC(i,j,k),2,iquad_glob) = qz + ( k - ngz ) * dz_quad ; 
+                            coords(VEC(i,j,k),0,iquad_glob) = qx + ( i - ngz + 0.5 ) * dx_quad ;,
+                            coords(VEC(i,j,k),1,iquad_glob) = qy + ( j - ngz + 0.5 ) * dy_quad ;,
+                            coords(VEC(i,j,k),2,iquad_glob) = qz + ( k - ngz + 0.5 ) * dz_quad ; 
                             ) 
                         } ) ;  
             }
@@ -117,25 +114,23 @@ void fill_coordinates()
     }
 }
 /**
- * @brief Convert logical to physical coordinates within a given tree 
+ * @brief Convert quadrant-logical to physical coordinates within a given tree 
  *        and quadrant when the grid is cartesian.
  * 
  * @param iquad Local quadrant index 
  * @param itree Local tree index 
  * @param lcoords Logical coordinates
- * @return Physical coordinates of the point.
- * Logical coordinates each span [0,1] within a quadrant.
+ * @return Physical coordinates (cartesian xyz in the embedding space) of the point.
+ * Quadrant-logical coordinates each span [0,1] within a quadrant.
  * NB: Host only.
  */
-/*
 std::array<double, THUNDER_NSPACEDIM> HOST 
 logical_to_physical_coordinates_cartesian( size_t iquad, size_t itree
                                             , std::array<double, THUNDER_NSPACEDIM>const& lcoords )
 {
     auto& conn = thunder::amr::connectivity::get() ; 
-    auto const tree_coords = conn.vertex_coordinates(itree, 0UL) ; */
+    auto const tree_coords = conn.vertex_coordinates(itree, 0UL) ; 
     /* In cartesian coordinates , all trees are cubes. */
-    /*
     auto const dx_tree = conn.tree_coordinate_extents(itree)[0] ; 
     auto& forest = thunder::amr::forest::get() ; 
     auto tree = forest.tree(itree); 
@@ -151,7 +146,6 @@ logical_to_physical_coordinates_cartesian( size_t iquad, size_t itree
 
 
 }
-*/
 
 
 } /* namespace thunder */ 

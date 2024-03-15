@@ -34,8 +34,7 @@
 /// This header contains
 /// a `mock` MPI implementation
 /// in case we don't actually link to
-/// MPI. NB: this drags the whole sc.h
-/// in here.
+/// MPI. 
 #include <sc.h>
 
 

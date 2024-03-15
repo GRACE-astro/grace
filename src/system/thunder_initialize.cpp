@@ -81,7 +81,7 @@ void initialize(int& argc, char* argv[])
     thunder::amr::connectivity::initialize() ; 
     thunder::amr::forest::initialize()       ;
     thunder::variable_list::initialize() ; 
-    thunder::fill_coordinates() ; 
+    thunder::fill_cell_coordinates(thunder::variable_list::get().getcoords()) ; 
 }
 
 

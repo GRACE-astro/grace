@@ -38,7 +38,7 @@
 #include <thunder/amr/quadrant.hh> 
 
 namespace thunder { namespace amr {
-
+//*****************************************************************************************************
 //**************************************************************************************************
 /**
  * @brief Thin wrapper around p4est_tree_t 
@@ -55,6 +55,7 @@ class tree_t
     * @brief Construct a new tree_t starting from the p4est pointer.
     */
    tree_t(p4est_tree_t* ptree): _ptree(ptree) {} ;
+   //*****************************************************************************************************
    /**
     * @brief Return an array of p4est_quadrant_t containing the 
     *        local quadrants on this tree.
@@ -63,6 +64,7 @@ class tree_t
    {
       return sc_array_view_t<p4est_quadrant_t>{&(_ptree->quadrants)};  
    }
+   //*****************************************************************************************************
    /**
     * @brief Return the ith local quadrant on this tree.
     * 
@@ -76,6 +78,7 @@ class tree_t
                , "Requested out of bounds quadrant." ) ;
       return quadrant_t(&quads[iquad]) ; 
    }
+   //*****************************************************************************************************
    /**
     * @brief Return the local offset of the local quadrants on this tree. 
     * This is the cumulative sum of all quadrants from local trees on this rank.
@@ -84,13 +87,15 @@ class tree_t
     */
    THUNDER_ALWAYS_INLINE size_t
    quadrants_offset() const { return _ptree->quadrants_offset ; } ;
+   //*****************************************************************************************************
    /**
     * @brief Return the number of local quadrants on this tree.
     */
    THUNDER_ALWAYS_INLINE size_t num_quadrants() 
    {
-      return sc_array_view_t<p4est_quadrant_t>( &(_ptree->quadrants) ).size() ;  
+      return sc_array_view_t<p4est_quadrant_t>( &(_ptree->quadrants) ).size() ; 
    }
+   //*****************************************************************************************************
    /**
     * @brief Get the pointer to the underlying p4est_tree_t.
     */
@@ -100,7 +105,8 @@ class tree_t
  private:
     p4est_tree_t * _ptree ; //!< Pointer to p4est_tree 
 } ; 
-
+//*****************************************************************************************************
+//*****************************************************************************************************
 } } /* thunder::amr */ 
 
  #endif /* THUNDER_AMR_TREE_HH */

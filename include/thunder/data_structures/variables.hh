@@ -43,9 +43,11 @@
 #include<thunder/utils/lifetime_tracker.hh>
 
 namespace thunder { 
-
+//*****************************************************************************************************
 /**
  * @brief Create additional state. Allocates memory on device.
+ * 
+ * \ingroup variables
  * 
  * @tparam ndim Number of space dimensions.
  *
@@ -57,9 +59,12 @@ namespace thunder {
 template< size_t ndim=THUNDER_NSPACEDIM>
 static var_array_t<ndim> create_state(var_array_t<ndim> const& src, bool initialize=true) ; 
 
-
+//*****************************************************************************************************
 /**
  * @brief Implementation of the variable list type.
+ * 
+ * \ingroup variables
+ * 
  * This class is wrapped with a <code>singleton_holder</code>
  * and is used as a utility to collect all variables and coordinates
  * and ensure they have the appropriate lifetime during Thunder's execution.
@@ -67,7 +72,8 @@ static var_array_t<ndim> create_state(var_array_t<ndim> const& src, bool initial
 class variable_list_impl_t
 {
 
-public: 
+public:
+    //*****************************************************************************************************
     /**
      * @brief Get cell coordinates.
      * 
@@ -75,6 +81,7 @@ public:
      */
     THUNDER_ALWAYS_INLINE coord_array_t<THUNDER_NSPACEDIM> 
     getcoords() { return _coords ; } 
+    //*****************************************************************************************************
     /**
      * @brief Get the auxiliary variables.
      * 
@@ -82,6 +89,7 @@ public:
      */
     THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>  
     getaux() { return _aux ; }
+    //*****************************************************************************************************
     /**
      * @brief Get state vector
      * 
@@ -90,6 +98,7 @@ public:
      */
     THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>  
     getstate() { return _state ; }
+    //*****************************************************************************************************
     /**
      * @brief Get the scratch state vector 
      * 
@@ -98,36 +107,47 @@ public:
      */
     THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM> 
     getscratch() { return _state_p ; }
-
+    //*****************************************************************************************************
 
 private: 
+    //*****************************************************************************************************
     /**
      * @brief (Never) construct a new <code>variable_list_impl_t</code> object
      * 
      */
     variable_list_impl_t() ; 
+    //*****************************************************************************************************
     /**
      * @brief (Never) destroy the <code>variable_list_impl_t</code> object
      * 
      */
     ~variable_list_impl_t() = default; 
-
+    //*****************************************************************************************************
+    //******** Member variables ***************************************************************************
+    //*****************************************************************************************************
     coord_array_t<THUNDER_NSPACEDIM>  _coords  ;  //!< Gridpoint coordinates    
     var_array_t<THUNDER_NSPACEDIM> _state   ;     //!< State variables 
     var_array_t<THUNDER_NSPACEDIM> _state_p ;     //!< Second timelevel, allocated at all times 
     var_array_t<THUNDER_NSPACEDIM> _aux     ;     //!< Auxiliary variables 
-
+    //*****************************************************************************************************
     friend class utils::singleton_holder<variable_list_impl_t, memory::default_create> ; //!< Give access 
     friend class memory::new_delete_creator<variable_list_impl_t, memory::new_delete_allocator> ; //!< Give access 
-
+    //*****************************************************************************************************
     static constexpr size_t longevity = THUNDER_VARIABLES ; //!< Schedule destruction at appropriate time.
-
+    //*****************************************************************************************************
 } ; 
+//*****************************************************************************************************
 /**
- * @brief Proxy holding all variables within Thunder.
+ * @brief Proxy holding all variables within Thunder. Only a unique instance 
+ *        of this class exists at runtime and its reference can be obtained 
+ *        via the <code>get()</code> static method. See references on 
+ *        <code>singleton_holder</code> for details.
+ * \ingroup variables
  */
 using variable_list = utils::singleton_holder<variable_list_impl_t > ; 
+//*****************************************************************************************************
+//*****************************************************************************************************
 
-} /* thunder */
+} /* namespace thunder */
 
 #endif /* THUNDER_DATA_STRUCTURES_VARIABLES_HH */ 

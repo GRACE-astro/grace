@@ -36,26 +36,45 @@
 #include <thunder/utils/lifetime_tracker.hh> 
 
 namespace thunder {
-
+//*****************************************************************************************************
+//*****************************************************************************************************
+/**
+ * @brief Small class used to ensure <code>Kokkos</code> is initialized and finalized at appropriate times.
+ * \ingroup system
+ */
 class kokkos_runtime_impl_t 
 {
  private:
-    
+    //*****************************************************************************************************
+    /**
+     * @brief (Never) construct a new <code>kokkos_runtime_impl_t</code> object
+     */
     kokkos_runtime_impl_t(int* argc, char* argv[]) {
         Kokkos::initialize(*argc, argv) ; 
     }
+    //*****************************************************************************************************
+    /**
+     * @brief (Never) destroy the <code>kokkos_runtime_impl_t</code> object
+     * 
+     */
     ~kokkos_runtime_impl_t() {
         Kokkos::finalize() ; 
     } 
-
-    friend class utils::singleton_holder<kokkos_runtime_impl_t,memory::default_create> ; 
+    //*****************************************************************************************************
+    friend class utils::singleton_holder<kokkos_runtime_impl_t,memory::default_create> ;           //!< Give access
     friend class memory::new_delete_creator<kokkos_runtime_impl_t, memory::new_delete_allocator> ; //!< Give access
-
-    static constexpr size_t longevity = KOKKOS_RUNTIME ; 
+    //*****************************************************************************************************
+    static constexpr size_t longevity = KOKKOS_RUNTIME ; //!< Schedule destruction 
+    //*****************************************************************************************************
 } ; 
-
+//*****************************************************************************************************
+/**
+ * @brief Unique proxy for Kokkos runtime.
+ * \ingroup system
+ */
 using kokkos_runtime = utils::singleton_holder<kokkos_runtime_impl_t,memory::default_create> ;
-
+//*****************************************************************************************************
+//*****************************************************************************************************
 } /* namespace thunder */
 
 #endif /* INCLUDE_THUNDER_SYSTEM_KOKKOS_RUNTIME */

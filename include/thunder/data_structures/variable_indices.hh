@@ -37,10 +37,14 @@
 #include <array>
 
 namespace thunder { namespace variables { 
-
+//*****************************************************************************************************
+/**
+ * \defgroup variables Routines and classes to hadle variables and their storage/access. 
+ */
+//*****************************************************************************************************
 /**
 * @brief Register a variable within Thunder.
-* 
+* \ingroup variables
 * @param name            Name of the variable.
 * @param staggered       Staggering of variable in each direction.
 * @param need_ghostzones Whether the variable needs extra ghostzone storage.
@@ -53,9 +57,16 @@ static int register_variable( std::string const& name
                             , bool need_ghostzones 
                             , bool is_evolved 
                             , bool need_fluxes ) ;
-
+//*****************************************************************************************************
 /**
  * @brief Register all variables.
+ * \ingroup variables
+ * Whenever a new physics module needs to be defined, the indices for 
+ * its variables need to be defined as <code>extern int</code>s with 
+ * unique uppercase identifiers in this file. These variables are then 
+ * filled with values in the correct order within this routine, which 
+ * needs to be updated with appropriate calls to <code>register_variable</code>
+ * for the new grid functions. 
  */
 void register_variables() ; 
 

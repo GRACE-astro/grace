@@ -43,21 +43,25 @@
 #include <thunder/parallel/mpi_wrappers.hh> 
 
 namespace thunder { namespace amr {
-
+//*****************************************************************************************************
+//*****************************************************************************************************
 /**
  * @brief Wrapper around the p4est structure.
  * 
  * \ingroup amr 
  * 
  */
+//*****************************************************************************************************
 class forest_impl_t 
 {
  private:
+   //*****************************************************************************************************
     p4est_t * _p4est ; //!< Pointer to the p4est object 
-
+   //*****************************************************************************************************
  public: 
+    //*****************************************************************************************************
     /**
-     * @brief Get the trees object
+     * @brief Get the trees array
      * 
      * @return sc_array_view_t<p4est_tree_t> Array view containing the local trees on this rank.
      * NB: the entries in this array are only valid starting at <code>first_local_tree</code> 
@@ -65,53 +69,79 @@ class forest_impl_t
      */
     sc_array_view_t<p4est_tree_t> THUNDER_ALWAYS_INLINE
     trees() const { return sc_array_view_t<p4est_tree_t>(_p4est->trees) ; } ; 
+    //*****************************************************************************************************
+    /**
+     * @brief Get a <code>tree_t</code> containing the ith local tree
+     * 
+     * @param which_tree Tree index (must be a valid index of local tree)
+     * 
+     * @return Return the requested tree wrapped into a <code>tree_t</code>
+     * NB: The index must be comprised between <code>first_local_tree</code> 
+     *     and <code>last_local_tree</code>. This is only enforced in 
+     *     debug mode.
+     */
+    tree_t THUNDER_ALWAYS_INLINE
+    tree(size_t which_tree) const { 
+      ASSERT_DBG( which_tree > _p4est->first_local_tree 
+              and which_tree <= _p4est->last_local_tree,
+              "Requested tree number " << which_tree << " but"
+              " first local tree is " << _p4est->first_local_tree << " and"
+              " last local tree is " << _p4est->last_local_tree << '\n' ) ; 
+      return tree_t( &(trees()[which_tree]) ); 
+    } ;
+    //*****************************************************************************************************
     /**
      * @brief Get first valid index of tree array on this rank.
      */
     size_t THUNDER_ALWAYS_INLINE 
     first_local_tree() const { return static_cast<size_t>( _p4est->first_local_tree) ; }
+    //*****************************************************************************************************
     /**
      * @brief Get last valid index of tree array on this rank.
      */
     size_t THUNDER_ALWAYS_INLINE
     last_local_tree() const { return static_cast<size_t>( _p4est->last_local_tree) ; }
+    //*****************************************************************************************************
     /**
      * @brief Get number of local quadrants on this rank.
      */
     size_t THUNDER_ALWAYS_INLINE
     local_num_quadrants() const { return static_cast<size_t>( _p4est->local_num_quadrants) ; }
+    //*****************************************************************************************************
     /**
      * @brief Get pointer to underlying p4est object. 
      */
     THUNDER_ALWAYS_INLINE p4est_t* 
     get() const { return _p4est ; }
-
+   //*****************************************************************************************************
  private:
-
-    static constexpr unsigned int longevity = AMR_FOREST ; //!< Longevity of p4est object. 
-
+   //*****************************************************************************************************
     /**
      * @brief Never construct a new forest_impl_t object
      */
     forest_impl_t() ; 
+   //*****************************************************************************************************
     /**
      * @brief Never destroy the forest_impl_t object
      * 
      */
     ~forest_impl_t() ; 
-    
-    friend class utils::singleton_holder<forest_impl_t, memory::default_create> ; //!< Give access 
+   //*****************************************************************************************************
+    friend class utils::singleton_holder<forest_impl_t, memory::default_create> ;          //!< Give access 
     friend class memory::new_delete_creator<forest_impl_t, memory::new_delete_allocator> ; //!< Give access
-
+    static constexpr unsigned int longevity = AMR_FOREST ; //!< Longevity of p4est object. 
+   //*****************************************************************************************************
 } ; 
+//*****************************************************************************************************
 /**
  * @brief Thunder forest singleton type. This 
  *        global object can be accessed from user code 
  *        to get information about the grid structure.
- * 
+ * \ingroup amr
  */
 using forest = utils::singleton_holder<forest_impl_t > ; 
-
+//*****************************************************************************************************
+//*****************************************************************************************************
 }} /* thunder::amr */
 
 #endif /* THUNDER_AMR_FOREST_HH */

@@ -51,7 +51,7 @@ namespace thunder { namespace amr {
 
 #else 
 
-#endif 
+#endif /* THUNDER_AMR_CONNECTIVITY_HH */
 /**
  * @brief Wrapper around p4est connectivity. 
  * \ingroup amr 
@@ -185,8 +185,14 @@ class connectivity_impl_t
 //**************************************************************************************************
 
 //**************************************************************************************************
+/**
+ * @brief Global connectivity object. Used as interface from user code to 
+ *        obtain access to the unique connectivity instance at runtime.
+ * \ingroup amr 
+ */
 using connectivity = utils::singleton_holder< connectivity_impl_t > ; 
-
+//*****************************************************************************************************
+//*****************************************************************************************************
 } } // namespace thunder::amr 
 
-#endif 
+#endif /* THUNDER_AMR_CONNECTIVITY_HH */

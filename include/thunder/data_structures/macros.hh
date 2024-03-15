@@ -33,7 +33,7 @@
 // TODO: this either goes into utils or we define these directly in thunder config 
 /**
  * @brief Macros designed to help with writing dimension independent code.
- * \ingroup utilities 
+ * \ingroup utils 
  * 
  */
 #ifdef THUNDER_3D 

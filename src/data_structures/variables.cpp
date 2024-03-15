@@ -52,7 +52,6 @@ variable_list_impl_t::variable_list_impl_t()
     size_t ngz { params["amr"]["n_ghostzones"].as<size_t>() } ;  
     /* register all variables known to Thunder */
     variables::register_variables() ;
-
     /* allocate memory for states */ 
     size_t nq          = forest.local_num_quadrants() ;
     Kokkos::realloc( _coords

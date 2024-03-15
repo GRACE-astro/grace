@@ -24,8 +24,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#ifndef THUNDER_MATH_UTILS_HH
-#define THUNDER_MATH_UTILS_HH
+#ifndef THUNDER_UTILS_MATH_HH
+#define THUNDER_UTILS_MATH_HH
+
+#include <thunder_config.h>
+#include <thunder/utils/inline.h>
+#include <thunder/utils/device.h>
 
 #include <cstdlib>
 #include <cmath>
@@ -44,7 +48,7 @@ namespace math
   template< typename T, size_t N>
   struct int_pow_impl
   {
-    static inline __attribute__((always_inline))
+    static THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE
     T get(T const& x)
     {
       if constexpr ( N==0 )
@@ -65,7 +69,7 @@ namespace math
    * @return T x to the power of N
    */
   template<size_t N, typename T> 
-  static inline __attribute__((always_inline))
+  static THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE
   T int_pow(T const& x )
   {
     return detail::int_pow_impl<T,N>::get(x) ; 
@@ -78,11 +82,11 @@ namespace math
    * @return T absolute value of x
    */
   template < typename T >
-  static inline __attribute__((always_inline))
+  static THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE
   T abs ( T const & x ) {
     return ( x > static_cast<T>(0) ) ? x : -x ;
   }
   
 }
 
-#endif 
+#endif /* THUNDER_UTILS_MATH_HH */

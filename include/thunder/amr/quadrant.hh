@@ -35,7 +35,8 @@
 #include <array>
 
 namespace thunder { namespace amr { 
-
+//*****************************************************************************************************
+//*****************************************************************************************************
 /**
  * @brief Thin wrapper around p4est_quadrant_t* 
  * \ingroup amr  
@@ -43,19 +44,23 @@ namespace thunder { namespace amr {
 class quadrant_t
 {
  private:
+    //*****************************************************************************************************
     p4est_quadrant_t * _pquad ; //!< Pointer to underlying p4est object
-
+    //*****************************************************************************************************
  public: 
+    //*****************************************************************************************************
     /**
      * @brief Construct a new quadrant_t object
      * 
      * @param pquad Pointer to p4est_quadrant_t
      */
     quadrant_t( p4est_quadrant_t * pquad) : _pquad(pquad) {} ; 
+    //*****************************************************************************************************
     /**
      * @brief Destroy the quadrant_t object
      */
     ~quadrant_t() = default; 
+    //*****************************************************************************************************
     /**
      * @brief Get integer quadrant coordinates.
      * 
@@ -78,12 +83,14 @@ class quadrant_t
         }  
         return ret ; 
     }
+    //*****************************************************************************************************
     /**
      * @brief Get quadrant's refinement level.
      * 
      * @return int The quadrant's level.
      */
     int THUNDER_ALWAYS_INLINE level() { return static_cast<int>( _pquad->level ) ; }
+    //*****************************************************************************************************
     /**
      * @brief Return linear (morton) index of the quadrant
      *        in a uniform grid at a certain level.
@@ -96,6 +103,7 @@ class quadrant_t
     linearid(int level) {
         return p4est_quadrant_linear_id(_pquad, level) ; 
     }
+    //*****************************************************************************************************
     /**
      * @brief Set user data of this quadrant.
      * \cond thunder_detail
@@ -111,8 +119,10 @@ class quadrant_t
     {
         memcpy(_pquad->p.user_data, (void*) &data, sizeof(T)) ; 
     }
+    //*****************************************************************************************************
 } ; 
-
+//*****************************************************************************************************
+//*****************************************************************************************************
 }} /* thunder::amr */
  
 #endif /* THUNDER_AMR_QUADRANT_HH */

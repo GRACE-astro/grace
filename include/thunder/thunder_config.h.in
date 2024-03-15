@@ -32,22 +32,6 @@
 
 namespace thunder {
 
-
-//*****************************************************************************************************
-/**
- * @brief Lifetimes of thunder singleton objects
- * \ingroup system
- * 
- * Objects get deleted from top to bottom in this 
- * list at finalization.
- */
-//*****************************************************************************************************
-enum unique_objects_lifetimes {
-    AMR_CONNECTIVITY=0,
-    AMR_FOREST,
-    SYSTEM_UTILITIES,
-    thunder_NUM_GLOBAL_OBJECTS 
-} ;
 //*****************************************************************************************************
 //*****************************************************************************************************
 
