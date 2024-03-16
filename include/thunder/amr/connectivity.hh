@@ -156,7 +156,7 @@ class connectivity_impl_t
         return pconn_->tree_to_vertex[ which_tree * P4EST_CHILDREN  + which_vertex ] ; 
     }; 
     //**************************************************************************************************
-    static constexpr unsigned int longevity = thunder::AMR_CONNECTIVITY ; //!< Longevity 
+    static constexpr unsigned int longevity = AMR_CONNECTIVITY ; //!< Longevity 
     //**************************************************************************************************
     /**
      * @brief Construct a new connectivity object

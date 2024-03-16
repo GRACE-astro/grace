@@ -113,39 +113,6 @@ void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords)
         ASSERT(0, "Should never be here.") ; 
     }
 }
-/**
- * @brief Convert quadrant-logical to physical coordinates within a given tree 
- *        and quadrant when the grid is cartesian.
- * 
- * @param iquad Local quadrant index 
- * @param itree Local tree index 
- * @param lcoords Logical coordinates
- * @return Physical coordinates (cartesian xyz in the embedding space) of the point.
- * Quadrant-logical coordinates each span [0,1] within a quadrant.
- * NB: Host only.
- */
-std::array<double, THUNDER_NSPACEDIM> HOST 
-logical_to_physical_coordinates_cartesian( size_t iquad, size_t itree
-                                            , std::array<double, THUNDER_NSPACEDIM>const& lcoords )
-{
-    auto& conn = thunder::amr::connectivity::get() ; 
-    auto const tree_coords = conn.vertex_coordinates(itree, 0UL) ; 
-    /* In cartesian coordinates , all trees are cubes. */
-    auto const dx_tree = conn.tree_coordinate_extents(itree)[0] ; 
-    auto& forest = thunder::amr::forest::get() ; 
-    auto tree = forest.tree(itree); 
-
-    auto quadrant = tree.quadrant(iquad) ; 
-
-    auto quad_coords = quadrant.qcoords() ; 
-    auto const dx_quad = dx_tree / ( 1 << quadrant.level() ) ; 
-
-    return std::array<double,THUNDER_NSPACEDIM>{ VEC( tree_coords[0] + ( static_cast<double>(quad_coords[0]) + lcoords[0] ) * dx_quad
-                                                    , tree_coords[1] + ( static_cast<double>(quad_coords[1]) + lcoords[1] ) * dx_quad
-                                                    , tree_coords[2] + ( static_cast<double>(quad_coords[2]) + lcoords[2] ) * dx_quad  )} ; 
-
-
-}
 
 
 } /* namespace thunder */ 

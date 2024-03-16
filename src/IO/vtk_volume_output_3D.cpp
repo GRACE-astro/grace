@@ -298,11 +298,11 @@ vtkSmartPointer<vtkDoubleArray> vtk_create_cell_data(ViewT data_view, std::strin
         data_view.extent(0) * data_view.extent(1) * data_view.extent(2) * data_view.extent(THUNDER_NSPACEDIM+1) 
     ) ;
     if( is_vector ) {
-        std::string comp_name = name.append("_x") ; 
+        std::string comp_name = name + "[0]" ; 
         data->SetComponentName(0,comp_name) ; 
-        comp_name = name.append("_y") ;
+        comp_name = name + "[1]" ;
         data->SetComponentName(1,comp_name) ; 
-        comp_name = name.append("_z") ;
+        comp_name = name + "[2]" ;
         data->SetComponentName(2,comp_name) ; 
     } else {
         data->SetComponentName(0,name.c_str()) ; 

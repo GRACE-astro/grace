@@ -53,12 +53,12 @@ struct variable_properties_t
 template<> 
 struct variable_properties_t<2>
 {
-    using view_t = Kokkos::View<double ****, DefaultSpace, Kokkos::LayoutLeft> ; 
+    using view_t = Kokkos::View<double ****, DefaultSpace> ; 
     std::array<bool, 2> staggering; 
     bool has_gz ; 
 
     std::string name ; 
-
+    
 } ; 
 //*****************************************************************************************************
 /**
@@ -69,7 +69,7 @@ struct variable_properties_t<2>
 template<> 
 struct variable_properties_t<3>
 {
-    using view_t = Kokkos::View<double *****, DefaultSpace, Kokkos::LayoutLeft> ; 
+    using view_t = Kokkos::View<double *****, DefaultSpace> ; 
     std::array<bool, 3> staggering; 
     bool has_gz ; 
 

@@ -79,8 +79,8 @@ extern int num_auxiliary ;
 extern int num_fluxes    ;
 extern int last_flux     ;  
 
-extern std::vector<variable_properties_t<THUNDER_NSPACEDIM>> _varprops ; 
-extern std::vector<variable_properties_t<THUNDER_NSPACEDIM>> _auxprops ; 
+extern std::vector<std::string> _varprops ; 
+extern std::vector<std::string> _auxprops ; 
 
 } /* namespace thunder::variables::detail */
 

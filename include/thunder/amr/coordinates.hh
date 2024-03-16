@@ -30,13 +30,15 @@
 
 #include <thunder_config.h>
 
+#include <thunder/data_structures/variable_properties.hh>
+
 namespace thunder { 
 
 /**
  * @brief Fill cell coordinates array.
  * \ingroup amr 
  */
-void fill_coordinates() ; 
+void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM>) ; 
 
 
 } /* namespace thunder */ 

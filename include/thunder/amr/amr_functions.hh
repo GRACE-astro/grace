@@ -91,7 +91,7 @@ get_quadrant_owner(size_t iquad)
         itree <= forest.last_local_tree(); 
         itree+=1UL)
     {
-        if( forest.tree(itree).quadrants_offset > iquad ){
+        if( forest.tree(itree).quadrants_offset() > iquad ){
             return itree ; 
         }
     }

@@ -26,12 +26,39 @@
 */
 
 #include <thunder/data_structures/variables.hh>
+#include <thunder/data_structures/variable_indices.hh>
 
 #include <thunder/config/config_parser.hh>
 #include <thunder/amr/forest.hh>
 
+#include <thunder/errors/assert.hh>
+
+#include <vector>
+#include <algorithm>
+#include <string> 
+
 namespace thunder 
 {
+
+size_t get_variable_index(std::string const& name)
+{
+    using namespace thunder::variables::detail ; 
+    /* first check if it's a state variable */
+    auto it = std::find(_varprops.begin(), _varprops.end(), name);
+    if (it != _varprops.end())
+    {
+        return std::distance(_varprops.begin(),it) ; 
+    } 
+    it = std::find(_auxprops.begin(), _auxprops.end(), name); 
+    if (it != _auxprops.end())
+    {
+        return std::distance(_varprops.begin(),it) ; 
+    } 
+    ASSERT_DBG(0, 
+    "In get_variable_index, variable "
+    << name << " not found.") ; 
+    return -1; 
+}
 
 variable_list_impl_t::variable_list_impl_t() 
     : _coords("coordinates", VEC(0,0,0), 0,0)

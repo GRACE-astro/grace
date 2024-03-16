@@ -31,6 +31,8 @@
 #include <thunder/data_structures/variable_indices.hh>
 #include <thunder/data_structures/macros.hh>
 
+#include <string> 
+
 namespace thunder { namespace variables { 
 
 
@@ -45,8 +47,8 @@ int last_flux     = -1 ;
 int first_flux    = -1 ; 
 
 
-std::vector<variable_properties_t<THUNDER_NSPACEDIM>> _varprops ; 
-std::vector<variable_properties_t<THUNDER_NSPACEDIM>> _auxprops ; 
+std::vector<std::string> _varprops ; 
+std::vector<std::string> _auxprops ; 
 
 } /* namespace thunder::variables::detail */
 
@@ -186,10 +188,6 @@ static int register_variable(  std::string const& name
                                 , bool need_fluxes ) 
 {
     using namespace detail ; 
-    variable_properties_t<THUNDER_NSPACEDIM> props ;
-    props.name       = name ; 
-    props.staggering = staggered ; 
-    props.has_gz     = need_ghostzones ;
 
     if( need_fluxes ) {
         if( first_flux == -1 ){
@@ -210,10 +208,10 @@ static int register_variable(  std::string const& name
     if( is_evolved ){
         last_evolved = num_vars; 
         num_evolved ++ ; 
-        _varprops.push_back( props ) ; 
+        _varprops.push_back( name ) ; 
     } else {
         num_auxiliary ++ ; 
-        _auxprops.push_back(props)   ; 
+        _auxprops.push_back( name )   ; 
     }
     return is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
 }
