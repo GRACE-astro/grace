@@ -20,6 +20,7 @@ find_package(p4est REQUIRED)
 
 include(setup_gsl)
 include(setup_yaml)
+include(setup_vtk)
 include(setup_kokkos)
 
 

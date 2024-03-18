@@ -30,8 +30,8 @@
 #include <string> 
 #include <vector> 
 
-#define THUNDER_ENABLE_HYDRO_BASE 
-#define THUNDER_ENABLE_ADM_BASE 
+#define THUNDER_ENABLE_HYDROBASE 
+#define THUNDER_ENABLE_ADMBASE 
 
 #cmakedefine THUNDER_ENABLE_GRMHD 
 #cmakedefine THUNDER_ENABLE_COWLING 
@@ -44,12 +44,14 @@ namespace thunder { namespace detail {
 //*****************************************************************************************************
 const std::vector< std::string > code_modules { 
     "amr",
-    "system"
+    "system",
+    "IO"
 } ;
 //*****************************************************************************************************
 const std::vector< std::string > code_modules_default_configs { 
      "${CMAKE_SOURCE_DIR}/include/thunder/amr/amr-defaults.yaml",
-     "${CMAKE_SOURCE_DIR}/include/thunder/system/system-defaults.yaml"
+     "${CMAKE_SOURCE_DIR}/include/thunder/system/system-defaults.yaml",
+     "${CMAKE_SOURCE_DIR}/include/thunder/IO/IO-defaults.yaml"
 } ;
 //*****************************************************************************************************
 }} /* namespace thunder::detail */

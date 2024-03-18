@@ -29,34 +29,245 @@
 
 #include <thunder_config.h>
 
+#include <thunder/utils/inline.h>
 #include <thunder/utils/singleton_holder.hh> 
 #include <thunder/utils/creation_policies.hh>
 #include <thunder/utils/lifetime_tracker.hh> 
+
+#include <thunder/system/runtime_functions.hh>
 
 #include <thunder/config/config_parser.hh>
 
 #include <thunder/parallel/mpi_wrappers.hh>
 
-#include <string> 
+#include <thunder/data_structures/variable_indices.hh>
+
+#include <string>
+#include <vector> 
 #include <iostream>
+#include <algorithm> 
+#include <filesystem> 
 
 namespace thunder {
 
 class thunder_runtime_impl_t 
 {
- public:
+ private:
+    /* Volume output */
+    std::vector<std::string> _cell_volume_output_scalar_vars ;
+    std::vector<std::string> _cell_volume_output_vector_vars ;
+    std::vector<std::string> _cell_volume_output_scalar_aux ;
+    std::vector<std::string> _cell_volume_output_vector_aux ;
+    /* Surface output */
+    std::vector<std::string> _cell_surface_output_scalar_vars ;
+    std::vector<std::string> _cell_surface_output_vector_vars ;
+    std::vector<std::string> _cell_surface_output_scalar_aux ;
+    std::vector<std::string> _cell_surface_output_vector_aux ;
+    /* Output parameters */ 
+    bool   _volume_output        ;
+    bool   _surface_output       ; 
+    size_t _volume_output_every  ; 
+    size_t _surface_output_every ; 
+    std::filesystem::path _volume_io_basepath ;
+    std::filesystem::path _surface_io_basepath ;
+    std::string _volume_io_basename  ; 
+    std::string _surface_io_basename ;
+    /* iteration count */ 
+    size_t _iter ; 
+ public: 
+    
+    size_t THUNDER_ALWAYS_INLINE 
+    iteration() const { return _iter ; }
 
-    int master_rank ; //!< The master rank is the one which is allowed to print to stdout 
-    int print_threshold ; //!< Maximum level warnings / messages printed 
+    void THUNDER_ALWAYS_INLINE  
+    increment_iteration() {
+        _iter++ ; 
+    }
+
+    size_t THUNDER_ALWAYS_INLINE 
+    volume_output_every()  const { return _volume_output_every ; }
+
+    size_t THUNDER_ALWAYS_INLINE 
+    surface_output_every() const { return _surface_output_every ; }
+
+    std::string THUNDER_ALWAYS_INLINE
+    volume_io_basepath() const { return _volume_io_basepath ; }
+
+    std::string THUNDER_ALWAYS_INLINE
+    surface_io_basepath() const { return _surface_io_basepath ; }
+
+    std::string THUNDER_ALWAYS_INLINE
+    volume_io_basename() const { return _volume_io_basename ; }
+
+    std::string THUNDER_ALWAYS_INLINE
+    surface_io_basename() const { return _surface_io_basename ; }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_volume_output_scalar_vars() const {
+        return _cell_volume_output_scalar_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_volume_output_vector_vars() const {
+        return _cell_volume_output_vector_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_volume_output_scalar_aux() const {
+        return _cell_volume_output_scalar_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_volume_output_vector_aux() const {
+        return _cell_volume_output_vector_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_surface_output_scalar_vars() const {
+        return _cell_surface_output_scalar_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_surface_output_vector_vars() const {
+        return _cell_surface_output_vector_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_surface_output_scalar_aux() const {
+        return _cell_surface_output_scalar_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_surface_output_vector_aux() const {
+        return _cell_surface_output_vector_aux; 
+    }
+
  private:
 
     thunder_runtime_impl_t() {
         auto& params = thunder::config_parser::get() ; 
-        master_rank = params["system"]["master_rank"].as<int>() ; 
-        print_threshold = params["system"]["print_threshold"].as<int>() ; 
-        if( parallel::mpi_comm_rank() == master_rank ) 
+        /* 
+         * parse IO section of parfile and sort variables into aux and state 
+         * and into scalars and vectors.
+        */
+        _surface_output = params["IO"]["surface_output"].as<bool>() ; 
+        _volume_output = params["IO"]["volume_output"].as<bool>() ; 
+        _surface_output_every = params["IO"]["surface_output_every"].as<size_t>() ; 
+        _volume_output_every = params["IO"]["volume_output_every"].as<size_t>() ; 
+        _volume_io_basename  = params["IO"]["volume_output_base_filename"].as<std::string>(); 
+        _surface_io_basename  = params["IO"]["surface_output_base_filename"].as<std::string>();
+        _volume_io_basepath  = 
+            std::filesystem::path(params["IO"]["volume_output_base_directory"].as<std::string>()); 
+        _surface_io_basepath  = 
+            std::filesystem::path(params["IO"]["surface_output_base_directory"].as<std::string>()); 
+
+        if( not std::filesystem::exists( _volume_io_basepath ) ){
+            std::filesystem::create_directory(_volume_io_basepath) ; 
+        }
+
+        if( not std::filesystem::exists( _surface_io_basepath ) ){
+            std::filesystem::create_directory(_surface_io_basepath) ; 
+        }
+
+        auto out_cell_vars_volume = 
+            params["IO"]["volume_output_cell_variables"].as<std::vector<std::string>>() ; 
+        auto out_cell_vars_surface = 
+            params["IO"]["surface_output_cell_variables"].as<std::vector<std::string>>() ; 
+        auto& vnames = thunder::variables::detail::_varnames ; 
+        auto& vprops = thunder::variables::detail::_varprops ; 
+        auto& auxnames = thunder::variables::detail::_auxnames ;
+        auto& auxprops = thunder::variables::detail::_auxprops ;  
+        for( auto const& x: out_cell_vars_volume ) {
+            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
+                if( vprops[x].is_vector ){
+                     _cell_volume_output_vector_vars.push_back(vprops[x].name) ; 
+                } else {
+                    _cell_volume_output_scalar_vars.push_back(x) ;
+                }
+            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
+                if( auxprops[x].is_vector ){
+                     _cell_volume_output_vector_aux.push_back(auxprops[x].name) ; 
+                } else {
+                    _cell_volume_output_scalar_aux.push_back(x) ;
+                } 
+            } else { 
+                /* WARN(1, "variable " << x " not found.") ; */
+            }
+        } 
+
+        for( auto const& x: out_cell_vars_surface ) {
+            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
+                if( vprops[x].is_vector ){
+                     _cell_surface_output_vector_vars.push_back(vprops[x].name) ; 
+                } else {
+                    _cell_surface_output_scalar_vars.push_back(x) ;
+                }
+            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
+                if( auxprops[x].is_vector ){
+                     _cell_surface_output_vector_aux.push_back(auxprops[x].name) ; 
+                } else {
+                    _cell_surface_output_scalar_aux.push_back(x) ;
+                } 
+            } else { 
+                /* WARN(1, "variable " << x " not found.") ; */
+            }
+        } 
+        /****************************/
+        /* Set iteration count to 0 */ 
+        _iter = 0UL ; 
+        /****************************/
+        if( parallel::mpi_comm_rank() == thunder::master_rank() ) 
         {
-            std::cout << THUNDER_BANNER ; 
+            std::cout << THUNDER_BANNER ;
+            if ( _volume_output ) 
+            {
+                std::cout << "===========================================================\n";
+                std::cout << "Volume output requested every " << _volume_output_every << " iterations\n" ; 
+                std::cout << "Variables registered for volume (co-dimension 0) output: \n\n" ; 
+                std::cout << "Scalars: \n\n";
+                for(auto const& x: _cell_volume_output_scalar_vars){
+                    std::cout << x << std::endl ; 
+                }
+                std::cout << "\nVectors: \n\n";
+                for(auto const& x: _cell_volume_output_vector_vars){
+                    std::cout << x << std::endl ; 
+                }
+                std::cout << "\n\nAuxiliaries: \n\n";
+                std::cout << "Scalars: \n\n";
+                for(auto const& x: _cell_volume_output_scalar_aux){
+                    std::cout << x << std::endl ; 
+                }
+                std::cout << "\nVectors: \n\n";
+                for(auto const& x: _cell_volume_output_vector_aux){
+                    std::cout << x << std::endl ; 
+                }      
+                std::cout << "===========================================================\n";
+            }
+            if ( _surface_output )
+            {
+                std::cout << "===========================================================\n";
+                std::cout << "Surface output requested every " << _surface_output_every << " iterations\n" ; 
+                std::cout << "Variables registered for surface (co-dimension 1) output: \n\n" ; 
+                std::cout << "Scalars: \n\n";
+                for(auto const& x: _cell_surface_output_scalar_vars){
+                    std::cout << x << std::endl ; 
+                }
+                std::cout << "\nVectors: \n\n";
+                for(auto const& x: _cell_surface_output_vector_vars){
+                    std::cout << x << std::endl ; 
+                }
+                std::cout << "\n\nAuxiliaries: \n\n";
+                std::cout << "Scalars: \n\n";
+                for(auto const& x: _cell_surface_output_scalar_aux){
+                    std::cout << x << std::endl ; 
+                }
+                std::cout << "\nVectors: \n\n";
+                for(auto const& x: _cell_surface_output_vector_aux){
+                    std::cout << x << std::endl ; 
+                }    
+                std::cout << "===========================================================\n";
+                std::cout << "===========================================================\n";
+            }
         }
     }
     ~thunder_runtime_impl_t() {} 

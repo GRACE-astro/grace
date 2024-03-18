@@ -27,11 +27,11 @@
 #define THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH
 
 #include <vtkHexahedron.h>
-#include <vtkBiQuadraticHexahedron.h> 
+#include <vtkBiQuadraticQuadraticHexahedron.h> 
 
 #include <vtkSmartPointer.h>
 
-#include <vtkUnStructuredGrid.h>
+#include <vtkUnstructuredGrid.h>
 
 namespace thunder { namespace IO {
 
@@ -45,26 +45,36 @@ enum coordinate_types_impl_t
 } ; 
 
 template<size_t coordinate_type> 
-cell_type_impl_t 
+struct cell_type_impl_t 
 { } ; 
 
 template<> 
-cell_type_impl_t<CARTESIAN> 
+struct cell_type_impl_t<CARTESIAN> 
 {
     static constexpr size_t n_vertex = 8 ; 
     using type = vtkHexahedron ; 
 } ; 
 
 template<> 
-cell_type_impl_t<SPHERICAL> 
+struct cell_type_impl_t<SPHERICAL> 
 {
     static constexpr size_t n_vertex = 24 ; 
-    using type = vtkBiQuadraticHexahedron ; 
+    using type = vtkBiQuadraticQuadraticHexahedron ; 
 } ; 
+
+vtkSmartPointer<vtkUnstructuredGrid> 
+setup_vtk_grid_cartesian() ;
+
+vtkSmartPointer<vtkUnstructuredGrid> 
+setup_vtk_grid_spherical() ; 
 
 } /* namespace detail */
 
-vtkSmartPointer<vtkUnstructuredGrid> setup_vtk_grid(coord_array_t<3> cell_coords)
+vtkSmartPointer<vtkUnstructuredGrid> setup_vtk_volume_grid() ;
+
+vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() ; 
+
+void write_volume_cell_data() ; 
 
 }} /* namespace thunder::IO */
 

@@ -6,7 +6,10 @@
 #include <thunder/parallel/mpi_wrappers.hh>
 #include <thunder/utils/singleton_holder.hh> 
 #include <thunder/utils/creation_policies.hh>
-#include <thunder/utils/lifetime_tracker.hh> 
+#include <thunder/utils/lifetime_tracker.hh>
+#include <thunder/utils/inline.h>
+
+#include <thunder/config/config_parser.hh>
 
 namespace thunder {
 //*****************************************************************************************************
@@ -17,8 +20,12 @@ namespace thunder {
  */
 class mpi_runtime_impl_t 
 {
+ private:
+    int _master_rank ;     //!< The master rank is the one which is allowed to print to stdout 
+    int _print_threshold ; //!< Maximum level warnings / messages printed 
  public:
-    
+    THUNDER_ALWAYS_INLINE int master_rank() const { return _master_rank ; }
+    THUNDER_ALWAYS_INLINE int print_threshold() const { return _print_threshold ; }
  private:
     //*****************************************************************************************************
     /**
@@ -26,6 +33,9 @@ class mpi_runtime_impl_t
      */
     mpi_runtime_impl_t(int argc, char* argv[] ) {
         parallel::mpi_init(&argc, &argv) ; 
+        auto& params = thunder::config_parser::get() ; 
+        _master_rank = params["system"]["master_rank"].as<int>() ; 
+        _print_threshold = params["system"]["print_threshold"].as<int>() ; 
     }
     //*****************************************************************************************************
     /**

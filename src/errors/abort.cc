@@ -71,8 +71,8 @@ std::ostream& operator<<(std::ostream& os, backtrace_handler const& /*unused*/)
 
     int element_count = backtrace(trace_elements.data(), max_stack_depth); 
 
-    std::unique_ptr<char*, decltype(free)*> stack_syms {
-        backtrace_symbols(trace_elements.data(), element_count), free 
+    std::unique_ptr<char*> stack_syms {
+        backtrace_symbols(trace_elements.data(), element_count)
     } ;
 
     for( int i=3; i<element_count; ++i) {

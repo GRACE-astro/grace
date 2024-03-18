@@ -16,8 +16,6 @@ add_compile_options(
     $<$<CONFIG:RELEASE>:-O3>
 )
 
-set(CMAKE_CXX_FLAGS "-g3 -ldl")
-
 add_compile_definitions(
     $<$<CONFIG:DEBUG>:THUNDER_DEBUG>
 )

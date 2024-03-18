@@ -4,3 +4,6 @@ amr: {
   npoints_block_y: 8,
   n_ghostzones: 1
 }
+IO: {
+  volume_output_cell_variables: ["dens", "beta[0]"]
+}

@@ -77,10 +77,10 @@ void initialize(int& argc, char* argv[])
     thunder::config_parser::initialize(parfile) ; 
     thunder::kokkos_runtime::initialize(&argc, argv) ; 
     thunder::mpi_runtime::initialize(argc, argv)  ; 
-    thunder::runtime::initialize() ; 
     thunder::amr::connectivity::initialize() ; 
     thunder::amr::forest::initialize()       ;
-    thunder::variable_list::initialize() ; 
+    thunder::variable_list::initialize() ;
+    thunder::runtime::initialize() ;  
     thunder::fill_cell_coordinates(thunder::variable_list::get().getcoords()) ; 
 }
 

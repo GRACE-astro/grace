@@ -114,7 +114,7 @@ private:
     coord_array_t<THUNDER_NSPACEDIM>  _coords  ;  //!< Gridpoint coordinates    
     var_array_t<THUNDER_NSPACEDIM> _state   ;     //!< State variables 
     var_array_t<THUNDER_NSPACEDIM> _state_p ;     //!< Second timelevel, allocated at all times 
-    var_array_t<THUNDER_NSPACEDIM> _aux     ;     //!< Auxiliary variables 
+    var_array_t<THUNDER_NSPACEDIM> _aux     ;     //!< Auxiliary variables  
     //*****************************************************************************************************
     friend class utils::singleton_holder<variable_list_impl_t, memory::default_create> ; //!< Give access 
     friend class memory::new_delete_creator<variable_list_impl_t, memory::new_delete_allocator> ; //!< Give access 

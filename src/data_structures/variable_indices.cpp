@@ -47,8 +47,13 @@ int last_flux     = -1 ;
 int first_flux    = -1 ; 
 
 
-std::vector<std::string> _varprops ; 
-std::vector<std::string> _auxprops ; 
+std::vector<std::string> _varnames ; 
+std::vector<std::string> _auxnames ; 
+
+std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>> 
+    _varprops; 
+std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>> 
+    _auxprops; 
 
 } /* namespace thunder::variables::detail */
 
@@ -77,95 +82,121 @@ int BETAZ = -1 ;
 void register_variables() {
     #ifdef THUNDER_ENABLE_HYDROBASE 
     /* Valencia hydrodynamics */
-    int DENS = register_variable( "dens"
+    DENS = register_variable( "dens"
                                 , {VEC(false,false,false)}
                                 , true 
                                 , true 
-                                , true ) ; 
-    int SX = register_variable( "Sx"
+                                , true
+                                , false ) ; 
+    SX = register_variable( "S[0]"
                                 , {VEC(false,false,false)}
                                 , true 
                                 , true 
-                                , true ) ;
-    int SY = register_variable( "Sy"
+                                , true
+                                , true
+                                , "S" ) ;
+    SY = register_variable( "S[1]"
                                 , {VEC(false,false,false)}
                                 , true 
                                 , true 
-                                , true ) ;
-    int SZ = register_variable( "Sz"
+                                , true
+                                , true 
+                                , "S") ;
+    SZ = register_variable( "S[2]"
                                 , {VEC(false,false,false)}
                                 , true 
                                 , true 
-                                , true ) ;
-    int TAU = register_variable( "tau"
+                                , true
+                                , true  
+                                , "S") ;
+    TAU = register_variable( "tau"
                                 , {VEC(false,false,false)}
                                 , true 
                                 , true 
-                                , true ) ;
+                                , true
+                                , false ) ;
     #endif
     #ifdef THUNDER_ENABLE_ADMBASE 
     /* registration of metric variables */
-    int GXX = register_variable( "gxx"
+    GXX = register_variable( "gxx"
                             , {VEC(false,false,false)} 
                             , true 
                             , true
+                            , false 
                             , false ) ; 
 
-    int GXY = register_variable( "gxy"
+    GXY = register_variable( "gxy"
                             , {VEC(false,false,false)} 
                             , true 
                             , true
-                            , false ) ;
+                            , false 
+                            , false 
+                            ) ;
 
-    int GXZ = register_variable( "gxz"
+    GXZ = register_variable( "gxz"
                             , {VEC(false,false,false)} 
                             , true 
                             , true
-                            , false ) ;
+                            , false 
+                            , false) ;
 
-    int GYY = register_variable( "gyy"
+    GYY = register_variable( "gyy"
                             , {VEC(false,false,false)} 
                             , true 
                             , true
-                            , false ) ;
+                            , false 
+                            , false 
+                            ) ;
 
-    int GYZ = register_variable( "gyz"
+    GYZ = register_variable( "gyz"
                             , {VEC(false,false,false)} 
                             , true 
                             , true
-                            , false ) ;
+                            , false
+                            , false  ) ;
 
-    int GZZ = register_variable( "gzz"
+    GZZ = register_variable( "gzz"
                             , {VEC(false,false,false)} 
                             , true 
                             , true
+                            , false 
                             , false ) ;
 
-    int ALP = register_variable( "alp"
+    ALP = register_variable( "alp"
                             , {VEC(false,false,false)} 
                             , true 
                             , true
-                            , false ) ;
+                            , false
+                            , false 
+                            ) ;
 
-    int BETAX = register_variable( "betax"
+    BETAX = register_variable( "beta[0]"
                                 , {VEC(false,false,false)} 
                                 , true 
                                 , true
-                                , false ) ;
+                                , false 
+                                , true 
+                                , "beta"
+                                ) ;
 
 
-    int BETAY = register_variable( "betay"
+    BETAY = register_variable( "beta[1]"
                                 , {VEC(false,false,false)} 
                                 , true 
                                 , true
-                                , false ) ;
+                                , false 
+                                , true 
+                                , "beta"
+                                ) ;
 
 
-    int BETAZ = register_variable( "betaz"
+    BETAZ = register_variable( "beta[2]"
                                 , {VEC(false,false,false)} 
                                 , true 
                                 , true
-                                , false ) ;
+                                , false 
+                                , true 
+                                , "beta" ) ;
     #endif 
 
 }
@@ -185,9 +216,18 @@ static int register_variable(  std::string const& name
                                 , std::array<bool, THUNDER_NSPACEDIM> staggered  
                                 , bool need_ghostzones 
                                 , bool is_evolved 
-                                , bool need_fluxes ) 
+                                , bool need_fluxes
+                                , bool is_vector=false
+                                , std::string const& vec_name) 
 {
     using namespace detail ; 
+
+    variable_properties_t<THUNDER_NSPACEDIM> props ;
+    props.staggering = staggered ; 
+    props.has_gz     = is_evolved ; 
+    props.is_vector  = is_vector  ; 
+    props.name   = vec_name   ;
+
 
     if( need_fluxes ) {
         if( first_flux == -1 ){
@@ -208,10 +248,12 @@ static int register_variable(  std::string const& name
     if( is_evolved ){
         last_evolved = num_vars; 
         num_evolved ++ ; 
-        _varprops.push_back( name ) ; 
+        _varnames.push_back( name ) ; 
+        _varprops[name] = props ; 
     } else {
         num_auxiliary ++ ; 
-        _auxprops.push_back( name )   ; 
+        _auxnames.push_back( name )   ; 
+        _auxprops[name] = props ;
     }
     return is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
 }

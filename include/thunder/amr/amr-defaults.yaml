@@ -32,7 +32,7 @@ amr: {
   # For spherical coordinates (and cylindrical in 3D) only!
   # Near the center, to avoid coordinate singularities,
   # a patch of cartesian
-  inner_region_radius: 1.,
+  inner_region_side: 1.,
   outer_region_radius: 10.,
   logarithmic_outer_radius: 10000., 
   use_logarithmic_radial_zone: false,

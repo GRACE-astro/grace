@@ -82,7 +82,7 @@ class forest_impl_t
      */
     tree_t THUNDER_ALWAYS_INLINE
     tree(size_t which_tree) const { 
-      ASSERT_DBG( which_tree > _p4est->first_local_tree 
+      ASSERT_DBG( which_tree >= _p4est->first_local_tree 
               and which_tree <= _p4est->last_local_tree,
               "Requested tree number " << which_tree << " but"
               " first local tree is " << _p4est->first_local_tree << " and"

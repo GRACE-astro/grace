@@ -28,6 +28,7 @@
 #define INCLUDE_THUNDER_SYSTEM_PRINT
 
 #include <thunder_config.h>
+
 #include <thunder/utils/make_string.hh>
 #include <thunder/system/print_impl.hh>
 

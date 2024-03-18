@@ -95,20 +95,40 @@ void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords)
                         , KOKKOS_LAMBDA ( VEC(int i, int j, int k) )
                         {
                             EXPR(
-                            coords(VEC(i,j,k),0,iquad_glob) = qx + ( i - ngz + 0.5 ) * dx_quad ;,
-                            coords(VEC(i,j,k),1,iquad_glob) = qy + ( j - ngz + 0.5 ) * dy_quad ;,
-                            coords(VEC(i,j,k),2,iquad_glob) = qz + ( k - ngz + 0.5 ) * dz_quad ; 
+                            coords(VEC(i,j,k),iquad_glob,0) = qx + ( i - ngz + 0.5 ) * dx_quad ;,
+                            coords(VEC(i,j,k),iquad_glob,1) = qy + ( j - ngz + 0.5 ) * dy_quad ;,
+                            coords(VEC(i,j,k),iquad_glob,2) = qz + ( k - ngz + 0.5 ) * dz_quad ; 
                             ) 
                         } ) ;  
             }
         }
     } else if ( coord_system == "spherical" ) {
-        #ifndef THUNDER_3D 
-        
-
-        #else 
-
-        #endif 
+        for( int itree=forest.first_local_tree(); itree<=forest.last_local_tree(); ++itree)
+        {
+            auto tree = forest.tree(itree) ; 
+            auto quadrants = tree.quadrants() ;
+            size_t quad_offset = tree.quadrants_offset() ;  
+            for( int iquad=0; iquad<quadrants.size(); ++iquad ) {
+                amr::quadrant_t quadrant = tree.quadrant(iquad) ; 
+                auto const dx_lev = 1.0 / ( 1UL<<quadrant.level() ) ; 
+                auto const VEC(dx_quad{dx_lev/nx}, dy_quad{dx_lev/ny}, dz_quad{dx_lev/nz}) ; 
+                /* coordinates of lower left corner of quadrant */
+                auto const qcoords = quadrant.qcoords() ; 
+                size_t iquad_glob = iquad + quad_offset ; 
+                /* launch a tiny kernel to fill the coord array */ 
+                Kokkos::parallel_for( "fill_coords_cartesian"
+                        , Kokkos::MDRangePolicy<Kokkos::Rank<THUNDER_NSPACEDIM>>( {VEC(0,0,0)}
+                                                                  , {VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz )} )
+                        , KOKKOS_LAMBDA ( VEC(int i, int j, int k) )
+                        {
+                            EXPR(
+                            coords(VEC(i,j,k),iquad_glob,0) = dx_lev * qcoords[0] + ( i - ngz + 0.5 ) * dx_quad ;,
+                            coords(VEC(i,j,k),iquad_glob,1) = dx_lev * qcoords[1] + ( j - ngz + 0.5 ) * dy_quad ;,
+                            coords(VEC(i,j,k),iquad_glob,2) = dx_lev * qcoords[2] + ( k - ngz + 0.5 ) * dz_quad ; 
+                            ) 
+                        } ) ;  
+            }
+        }
     } else {
         ASSERT(0, "Should never be here.") ; 
     }

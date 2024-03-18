@@ -72,6 +72,6 @@ inline std::ostream& operator<<(std::ostream& os, const make_string& t) {
   return os << std::string{t};
 }
 
-}
+} 
 
  #endif 

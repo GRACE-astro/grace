@@ -36,5 +36,6 @@
 #include <thunder/utils/bits.hh>
 #include <thunder/utils/sc_wrappers.hh>
 #include <thunder/utils/iterator.hh>
+#include <thunder/utils/string_manip.hh>
 
 #endif /* THUNDER_UTILS_THUNDER_UTILS_HH */

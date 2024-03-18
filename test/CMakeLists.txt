@@ -124,19 +124,35 @@ MPI::MPI_CXX
 p4est::sc
 p4est::p4est )
 
-
+add_executable( volume_output_test test_output.cpp )
+target_include_directories(volume_output_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  volume_output_test PRIVATE 
+p4est_tests_main
+Catch2::Catch2
+thunder_objects
+$<TARGET_OBJECTS:thunder_volume_output>
+yaml_cpp::yaml
+Kokkos::kokkos
+MPI::MPI_CXX
+p4est::sc
+p4est::p4est 
+VTK::VTK )
+vtk_module_autoinit(
+    TARGETS volume_output_test
+    MODULES ${VTK_LIBRARIES}
+    )
 
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
-add_test(NAME parser_test COMMAND parser_test)
+add_test(NAME parser_test COMMAND ./parser_test)
 add_test(NAME sc_wrappers_test COMMAND 
-        sc_wrappers_test --thunder-parfile ./configs/basic_config.yaml)
+        mpirun -n 1 ./sc_wrappers_test --thunder-parfile ./configs/basic_config.yaml)
 add_test(NAME connectivity_test COMMAND 
-        connectivity_test --thunder-parfile ./configs/basic_config.yaml)
+        mpirun -n 1 ./connectivity_test --thunder-parfile ./configs/basic_config.yaml)
 add_test(NAME forest_test COMMAND 
-        forest_test --thunder-parfile ./configs/basic_config.yaml)
+        mpirun -n 1 ./forest_test --thunder-parfile ./configs/basic_config.yaml)
 add_test(NAME varlist_test COMMAND 
-        varlist_test --thunder-parfile ./configs/basic_config.yaml )
-        add_test(NAME coordinate_test COMMAND 
-        coordinate_test --thunder-parfile ./configs/basic_config.yaml )
+        mpirun -n 1 ./varlist_test --thunder-parfile ./configs/basic_config.yaml )
+add_test(NAME coordinate_test COMMAND 
+        mpirun -n 2 ./coordinate_test --thunder-parfile ./configs/basic_config.yaml )
 
 

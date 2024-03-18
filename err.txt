@@ -1,0 +1,4 @@
+clang: warning: -ldl: 'linker' input unused [-Wunused-command-line-argument]
+gmake[2]: *** [src/IO/CMakeFiles/thunder_volume_output.dir/build.make:76: src/IO/CMakeFiles/thunder_volume_output.dir/vtk_volume_output.cpp.o] Interrupt
+gmake[1]: *** [CMakeFiles/Makefile2:547: src/IO/CMakeFiles/thunder_volume_output.dir/all] Interrupt
+gmake: *** [Makefile:101: all] Interrupt

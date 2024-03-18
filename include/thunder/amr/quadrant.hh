@@ -70,7 +70,7 @@ class quadrant_t
      *         in a uniform grid at its level or at P4EST_MAXLEVEL.
      */
     std::array< p4est_qcoord_t, THUNDER_NSPACEDIM > THUNDER_ALWAYS_INLINE 
-    qcoords(bool use_current_level=true)
+    qcoords(bool use_current_level=true) const 
     {   
         std::array< p4est_qcoord_t, THUNDER_NSPACEDIM > ret ; 
         ret[0] = static_cast<p4est_qcoord_t>( _pquad -> x ) ; 
@@ -89,7 +89,7 @@ class quadrant_t
      * 
      * @return int The quadrant's level.
      */
-    int THUNDER_ALWAYS_INLINE level() { return static_cast<int>( _pquad->level ) ; }
+    int THUNDER_ALWAYS_INLINE level() const { return static_cast<int>( _pquad->level ) ; }
     //*****************************************************************************************************
     /**
      * @brief Return linear (morton) index of the quadrant
@@ -100,7 +100,7 @@ class quadrant_t
      * @return uint64_t Morton index of the quadrant.
      */
     uint64_t THUNDER_ALWAYS_INLINE 
-    linearid(int level) {
+    linearid(int level) const {
         return p4est_quadrant_linear_id(_pquad, level) ; 
     }
     //*****************************************************************************************************

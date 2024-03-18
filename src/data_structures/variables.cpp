@@ -44,15 +44,15 @@ size_t get_variable_index(std::string const& name)
 {
     using namespace thunder::variables::detail ; 
     /* first check if it's a state variable */
-    auto it = std::find(_varprops.begin(), _varprops.end(), name);
-    if (it != _varprops.end())
+    auto it = std::find(_varnames.begin(), _varnames.end(), name);
+    if (it != _varnames.end())
     {
-        return std::distance(_varprops.begin(),it) ; 
+        return std::distance(_varnames.begin(),it) ; 
     } 
-    it = std::find(_auxprops.begin(), _auxprops.end(), name); 
-    if (it != _auxprops.end())
+    it = std::find(_auxnames.begin(), _auxnames.end(), name); 
+    if (it != _auxnames.end())
     {
-        return std::distance(_varprops.begin(),it) ; 
+        return std::distance(_varnames.begin(),it) ; 
     } 
     ASSERT_DBG(0, 
     "In get_variable_index, variable "
@@ -83,21 +83,24 @@ variable_list_impl_t::variable_list_impl_t()
     size_t nq          = forest.local_num_quadrants() ;
     Kokkos::realloc( _coords
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , nq 
                    , THUNDER_NSPACEDIM
-                   , nq ) ;
+                   ) ;
     Kokkos::realloc( _state
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , nq 
                    , variables::detail::num_evolved
-                   , nq ) ;
+                   ) ;
     Kokkos::realloc( _state_p
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , nq 
                    , variables::detail::num_evolved
-                   , nq ) ;
+                   ) ;
     Kokkos::realloc( _aux
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , nq 
                    , variables::detail::num_auxiliary
-                   , nq ) ;
-    /* all done */
-}
+                   ) ;
+    /* all done */}
 
 } /* namespace thunder */

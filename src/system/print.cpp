@@ -26,16 +26,15 @@
  */
 
 #include <thunder/system/print_impl.hh> 
-#include <thunder/system/thunder_runtime.hh>
 #include <thunder/parallel/mpi_wrappers.hh> 
+#include <thunder/system/runtime_functions.hh> 
 
 #include <iostream>
 
 void print_message(int level, std::string const& message)
 {
-    auto& runtime = thunder::runtime::get() ; 
     int rank = parallel::mpi_comm_rank() ; 
-    if( rank == runtime.master_rank and level < runtime.print_threshold )
+    if( rank == thunder::master_rank() and level < thunder::print_threshold() )
     {
         std::cout << message << std::endl ;
     }

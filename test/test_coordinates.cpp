@@ -30,10 +30,10 @@ TEST_CASE("amr_forest'\t'[amr_forest]")
         for( int ii=0; ii<nx; ii++){
             for( int ij=0; ij<ny; ++ij){
                 for( int ik=0; ik<nz; ++ik){
-                    fout << iq << '\t' << ii << '\t'<< ij << '\t'<< ik << '\t'<< h_coords(VEC(ii,ij,ik),0,iq) <<  '\t'
-                    << h_coords(VEC(ii,ij,ik),1,iq) 
+                    fout << iq << '\t' << ii << '\t'<< ij << '\t'<< ik << '\t'<< h_coords(VEC(ii,ij,ik),iq,0) <<  '\t'
+                    << h_coords(VEC(ii,ij,ik),iq,1) 
                     #ifdef THUNDER_3D
-                    <<  '\t' << h_coords(VEC(ii,ij,ik),2,iq)  << std::endl ;
+                    <<  '\t' << h_coords(VEC(ii,ij,ik),iq,2)  << std::endl ;
                     #else 
                     << std::endl ; 
                     #endif 

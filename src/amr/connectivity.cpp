@@ -454,15 +454,15 @@ connectivity_impl_t::connectivity_impl_t() {
                                                   ,zmin, zmax, periodic_z) ; 
     #endif 
   } else if ( coord_system == "spherical" ) { 
-    double  rmin{ params["amr"]["inner_region_radius"].as<double>() }
-          , rmax{ params["amr"]["outer_region_radius"].as<double>() }
-          , rlog{ params["amr"]["logarithmic_outer_radius"].as<double>() } ; 
+    double  L{ params["amr"]["inner_region_side"].as<double>() }
+          , R{ params["amr"]["outer_region_radius"].as<double>() }
+          , Rl{ params["amr"]["logarithmic_outer_radius"].as<double>() } ; 
     bool use_log_r { params["amr"]["use_logarithmic_radial_zone"].as<bool>() } ; 
 
     #ifndef THUNDER_3D 
-      pconn_ = detail::new_spherical_connectivity(rmin, rmax, rlog, use_log_r) ; 
+      pconn_ = detail::new_spherical_connectivity(L, R, Rl, use_log_r) ; 
     #else 
-      pconn_ = detail::new_spherical_connectivity(rmin, rmax, rlog, use_log_r) ;  
+      pconn_ = detail::new_spherical_connectivity(L, R, Rl, use_log_r) ;  
     #endif 
   } else { 
     ERROR("Unknown coordinate system.") ; 

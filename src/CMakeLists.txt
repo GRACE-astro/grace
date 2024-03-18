@@ -12,6 +12,7 @@ add_subdirectory(system)
 
 add_subdirectory(data_structures)
 
+add_subdirectory(IO)
 
 add_library( thunder_objects INTERFACE )
 target_sources( thunder_objects INTERFACE 
@@ -21,7 +22,8 @@ target_sources( thunder_objects INTERFACE
                 $<TARGET_OBJECTS:thunder_runtime_utilities>
                 $<TARGET_OBJECTS:thunder_connectivity> 
                 $<TARGET_OBJECTS:thunder_forest>
+                $<TARGET_OBJECTS:thunder_amr_functions>
                 $<TARGET_OBJECTS:thunder_coordinates>
                 $<TARGET_OBJECTS:thunder_init> 
                 $<TARGET_OBJECTS:thunder_variable_list>
-                $<TARGET_OBJECTS:thunder_variable_registration>)
+                $<TARGET_OBJECTS:thunder_variable_registration> )

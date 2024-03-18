@@ -57,5 +57,4 @@ int mpi_comm_rank(sc_MPI_Comm comm)
     return rank ;
 }
 
-
 }

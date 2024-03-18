@@ -1,0 +1,16 @@
+IO: {
+  volume_output : true, 
+  surface_output: true,
+  
+  volume_output_every : 10, 
+  surface_output_every: 10,
+
+  volume_output_base_filename: "volume_out",
+  volume_output_base_directory: "output_volume",
+
+  surface_output_base_filename: "surface_out",
+  surface_output_base_directory: "output_surface",
+
+  volume_output_cell_variables : [],
+  surface_output_cell_variables: []
+}

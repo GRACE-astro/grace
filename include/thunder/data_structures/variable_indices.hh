@@ -30,11 +30,15 @@
 #define INCLUDE_THUNDER_DATA_STRUCTURES_VARIABLE_INDICES
 
 #include <thunder_config.h>
+#include <code_modules.h> 
+
+#include <thunder/utils/device.h>
 
 #include <thunder/data_structures/variable_properties.hh>
 
 #include <vector>
 #include <array>
+#include <unordered_map> 
 
 namespace thunder { namespace variables { 
 //*****************************************************************************************************
@@ -50,13 +54,16 @@ namespace thunder { namespace variables {
 * @param need_ghostzones Whether the variable needs extra ghostzone storage.
 * @param is_evolved      Whether the variable is evolved.
 * @param need_fluxes     Whether the variables needs fluxes. 
+* @param is_vector       True if the variable is a component of a vector.
 * @return int            Index of the variable in respective state array.
 */
 static int register_variable( std::string const& name
                             , std::array<bool,THUNDER_NSPACEDIM> staggered  
                             , bool need_ghostzones 
                             , bool is_evolved 
-                            , bool need_fluxes ) ;
+                            , bool need_fluxes
+                            , bool is_vector 
+                            , std::string const& vecname="" ) ;
 //*****************************************************************************************************
 /**
  * @brief Register all variables.
@@ -78,9 +85,15 @@ extern int last_evolved  ;
 extern int num_auxiliary ; 
 extern int num_fluxes    ;
 extern int last_flux     ;  
+extern int first_flux     ;  
 
-extern std::vector<std::string> _varprops ; 
-extern std::vector<std::string> _auxprops ; 
+extern std::vector<std::string> _varnames ; 
+extern std::vector<std::string> _auxnames ; 
+
+extern std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>> 
+    _varprops; 
+extern std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>> 
+    _auxprops; 
 
 } /* namespace thunder::variables::detail */
 
@@ -109,5 +122,10 @@ extern int BETAZ ;
 
 } } /* namespace thunder::variables */
 
+#define DECLARE_VARIABLE_INDICES \
+int const DENS_ = DENS ;    \
+int const BETAX_ = BETAX ;  \
+int const BETAY_ = BETAY ;  \
+int const BETAZ_ = BETAZ    \
 
 #endif /* INCLUDE_THUNDER_DATA_STRUCTURES_VARIABLE_INDICES */
