@@ -125,10 +125,10 @@ get_physical_coordinates( std::array<size_t, THUNDER_NSPACEDIM> const& ijk
     double L,R,Rl ; 
     if( coord_system == "spherical" ) {
         L = params["amr"]["inner_region_side"].as<double>() ;
-        R = params["amr"]["outer_region_radius"].as<double>()   ;
-        Rl = params["amr"]["logarithmic_outer_radius"].as<double>()  ;
+        R = params["amr"]["inner_region_radius"].as<double>()   ;
+        Rl = params["amr"]["outer_region_radius"].as<double>()  ;
     }
-
+    bool use_logr = params["amr"]["use_logarithmic_radial_zone"].as<bool>() ;
     size_t itree              = thunder::amr::get_quadrant_owner(iq) ; 
     thunder::amr::quadrant_t const quadrant = thunder::amr::get_quadrant(itree, iq) ;  
     auto const dx_quad        = 1.0 / ( 1<<quadrant.level()) ; 
@@ -159,7 +159,9 @@ get_physical_coordinates( std::array<size_t, THUNDER_NSPACEDIM> const& ijk
         auto const XI = tan(M_PI/4. * (2.*lcoords[2]-1)) ; 
         auto const rho = sqrt( 1 + math::int_pow<2>(H) + math::int_pow<2>(XI) ) ; 
         auto const zeta     = ((1.-lcoords[0]) * L + lcoords[0]*R/rho)  ;
-        auto const zeta_log = sqrt( std::pow(R, 2*(1-lcoords[0])) * std::pow(Rl, 2*lcoords[0]) ) / rho ;
+        auto const zeta_log = 
+            use_logr  * sqrt( std::pow(R, 2*(1-lcoords[0])) * std::pow(Rl, 2*lcoords[0]) ) / rho 
+        + (!use_logr) * ((1.-lcoords[0]) * R/rho + lcoords[0]*Rl/rho) ;
         switch( itree )
         {
             case MX_TREE: 

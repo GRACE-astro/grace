@@ -45,12 +45,6 @@ namespace thunder { namespace amr {
 
 void regrid() ; 
 
-void refine() ; 
-
-void coarsen() ; 
-
-void partition() ; 
-
 }} /* namespace thunder::amr */ 
 
 #endif /* THUNDER_AMR_REGRID_HH */

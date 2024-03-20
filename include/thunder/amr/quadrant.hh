@@ -54,7 +54,9 @@ class quadrant_t
      * 
      * @param pquad Pointer to p4est_quadrant_t
      */
-    quadrant_t( p4est_quadrant_t * pquad) : _pquad(pquad) {} ; 
+    quadrant_t( p4est_quadrant_t * pquad) : _pquad(pquad) {
+        ASSERT_DBG(_pquad!=nullptr, "Quadrant object initialized with dangling pointer.") ;
+    } ; 
     //*****************************************************************************************************
     /**
      * @brief Destroy the quadrant_t object

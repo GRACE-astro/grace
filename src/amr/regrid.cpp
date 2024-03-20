@@ -26,14 +26,17 @@
  */
 
 #include <Kokkos_Core.hpp>
+#include <Kokkos_Vector.hpp>
 
 #include <thunder/amr/regrid.hh>
-#include <thunder/amr/regriding_policy_kernels.tpp> 
+#include <thunder/amr/regridding_policy_kernels.tpp> 
 #include <thunder/amr/prolongation_kernels.tpp> 
 #include <thunder/amr/restriction_kernels.tpp> 
 #include <thunder/amr/regrid_helpers.tpp>
+#include <thunder/amr/amr_functions.hh>
 
 #include <thunder/data_structures/thunder_data_structures.hh>
+#include <thunder/config/config_parser.hh>
 
 namespace thunder { namespace amr { 
 
@@ -41,24 +44,41 @@ void regrid() {
 
     using namespace thunder ; 
 
-    auto& params = config_parser::get() ; 
-    auto  state  = variable_list::get().getstate() ; 
-    size_t thunder_maxlevel = params["amr"]["max_refinement_level"].as<size_t>() ; 
-    size_t nx,ny,nz ; 
-    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    size_t nq = amr::get_local_num_quadrants() ; 
+    auto& params = config_parser::get()             ; 
+    auto&  state  = variable_list::get().getstate() ; 
+    int nvars = state.extent(THUNDER_NSPACEDIM+1)   ; 
+
+    size_t thunder_maxlevel = 
+        params["amr"]["max_refinement_level"].as<size_t>() ; 
+    size_t nx,ny,nz                                        ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents()       ; 
+    auto ngz = amr::get_n_ghosts()                         ; 
+    size_t nq = amr::get_local_num_quadrants()             ; 
     /* create host and device views to hold refinement / coarsening flags */ 
-    Kokkos::View<int *, DefaultSpace> d_regrid_flags("regrid_flags", nq) ; 
-    auto h_regrid_flags = Kokkos::create_mirror_view(d_regrid_flags)             ;
-
-    std::string ref_criterion = params["amr"]["refinement_criterion"].as<std::string>() ; 
-
+    Kokkos::View<int *, default_space> d_regrid_flags("regrid_flags", nq) ; 
+    auto h_regrid_flags = Kokkos::create_mirror_view(d_regrid_flags)      ;
+     
+    std::string ref_criterion = 
+        params["amr"]["refinement_criterion"].as<std::string>() ;
+    auto varname = params["amr"]["refinement_criterion_var"].as<std::string>() ;
+    auto u = Kokkos::subview(state, VEC(  Kokkos::ALL() 
+                                        , Kokkos::ALL() 
+                                        , Kokkos::ALL() )
+                                    , Kokkos::ALL() 
+                                    , get_variable_index(varname)
+                                    ) ; 
     if( ref_criterion == "FLASH_second_deriv") {
         double eps = params["amr"]["FLASH_criterion_eps"].as<double>() ; 
+        amr::flash_second_deriv_criterion<decltype(u)> kernel{ u } ; 
         evaluate_regrid_criterion(
                   d_regrid_flags
-                , amr::flash_second_deriv_criterion<subview_t>
+                , kernel 
                 , eps) ;
+    } else if ( ref_criterion == "simple_threshold" ) {
+        amr::simple_threshold_criterion<decltype(u)> kernel{ u } ; 
+        evaluate_regrid_criterion(
+                  d_regrid_flags
+                , kernel) ;
     } else {
         ERROR("Unsupported refinement criterion.") ; 
     }
@@ -69,75 +89,92 @@ void regrid() {
     {
         auto quad = amr::get_quadrant(iq) ;
         quad.set_user_data(
-            amr::amr_flags_t{
-                (h_regrid_flags(q) == REGRID)  * REGRID 
-            +   (h_regrid_flags(q) == COARSEN) * COARSEN 
-            +   ((h_regrid_flags(q) != REGRID) and (h_regrid_flags(q) != COARSEN)) * DEFAULT_STATE 
+            amr::amr_flags_t{ static_cast<quadrant_flags_t>(
+                (h_regrid_flags(iq) == REFINE)  * REFINE 
+            +   (h_regrid_flags(iq) == COARSEN) * COARSEN 
+            +   ((h_regrid_flags(iq) != REFINE) and (h_regrid_flags(iq) != COARSEN)) * DEFAULT_STATE )
             }
         ) ; 
     }  
-    /*
-    * Call to p4est_refine 
-    * The arguments are: 
-    * p4est_t* p4est   --> The forest object pointer.
-    * refine_recursive --> Wether we allow for recursive refinement (never).
-    * maxlevel         --> Maximum allowed refinement level (parameter).
-    * refine_fn        --> Function called on each quadrant to determine 
-    *                      whether it should be refined (see amr_flags.hh).
-    * init_fn          --> Function to initialize new quadrants.  
-    * replace_fn       --> Function to modify the new quadrants. 
-    */ 
+    /******************************************************************************************/
+    /* Call to p4est_refine                                                                   */  
+    /* The arguments are:                                                                     */
+    /* p4est_t* p4est   --> The forest object pointer.                                        */
+    /* refine_recursive --> Wether we allow for recursive refinement (never).                 */
+    /* maxlevel         --> Maximum allowed refinement level (parameter).                     */
+    /* refine_fn        --> Function called on each quadrant to determine                     */
+    /*                      whether it should be refined (see amr_flags.hh).                  */
+    /* init_fn          --> Function to initialize new quadrants.                             */
+    /* replace_fn       --> Function to modify the new quadrants.                             */
+    /******************************************************************************************/ 
     p4est_refine_ext( amr::forest::get().get() 
                     , 0, thunder_maxlevel 
                     , amr::refine_cback
                     , amr::initialize_quadrant 
                     , amr::set_quadrant_flag ) ; 
-
-    /*
-    * Call to p4est_coarsen 
-    * The arguments are: 
-    * p4est_t* p4est    --> The forest object pointer.
-    * coarsen_recursive --> Wether we allow for recursive coarsening (never).
-    * callback_orphans  --> Allow passing orphan nodes into coarsen_fn.
-    * coarsen_fn        --> Function called on each quadrant family to determine 
-    *                       whether it should be coarsened (see amr_flags.hh).
-    * init_fn           --> Function to initialize new quadrants.  
-    * replace_fn        --> Function to modify the new quadrants. 
-    */ 
+    /******************************************************************************************/
+    /* Call to p4est_coarsen                                                                  */
+    /* The arguments are:                                                                     */
+    /* p4est_t* p4est    --> The forest object pointer.                                       */
+    /* coarsen_recursive --> Wether we allow for recursive coarsening (never).                */
+    /* callback_orphans  --> Allow passing orphan nodes into coarsen_fn.                      */
+    /* coarsen_fn        --> Function called on each quadrant family to determine             */
+    /*                       whether it should be coarsened (see amr_flags.hh).               */
+    /* init_fn           --> Function to initialize new quadrants.                            */
+    /* replace_fn        --> Function to modify the new quadrants.                            */
+    /******************************************************************************************/
     p4est_coarsen_ext( amr::forest::get().get() 
-                      , 0, 1 
+                      , 0, 0 
                       , amr::coarsen_cback
                       , amr::initialize_quadrant 
                       , amr::set_quadrant_flag ) ; 
-
-    /* Initialize new data */
-    /* State: we use state_p as swap space */ 
-    size_t nq_new = amr::local_num_quadrants() ;
-    Kokkos::realloc(state,    VEC( nx + 2*ngz 
-                                 , nx + 2*ngz 
-                                 , nz + 2*ngz )
-                            , nq_new 
-                            , variables::nvars_state() 
+    /******************************************************************************************/
+    /*                       Resize variable arrays, we use state_p                           */
+    /*                       as swap state, then copy data over                               */
+    /******************************************************************************************/
+    size_t nq_new = amr::get_local_num_quadrants() ; 
+    auto& state_swap = variable_list::get().getscratch() ;
+    Kokkos::realloc(state_swap   , VEC( nx + 2*ngz 
+                                 ,      ny + 2*ngz 
+                                 ,      nz + 2*ngz )
+                                 , nq_new 
+                                 , nvars
     ) ; 
-
-    auto state_swap = variable_list::get().getscratch() ;
-
-    Kokkos::vector<int, Device> refine_incoming, coarsen_incoming ;
-    Kokkos::vector<int, Device> refine_outgoing, coarsen_outgoing ; 
-    size_t iq_new{0UL}, iq_old{0UL} ;  
+    /******************************************************************************************/
+    /*                      Collect indices of outgoing and incoming                          */
+    /*                      quadrants in their respective z-ordering.                         */
+    /******************************************************************************************/
+    Kokkos::vector<int,default_space> refine_incoming, coarsen_incoming ;
+    Kokkos::vector<int,default_space> refine_outgoing, coarsen_outgoing ; 
+    unsigned long iq_new{0UL}, iq_old{0UL} ;  
     while(iq_new < nq_new)
     {       
         quadrant_t quadrant = amr::get_quadrant(iq_new) ; 
-        auto flag = quadrant.get_user_data<amr_flags_t>()->quadrant_status; 
-        if ( flag == DEFAULT_STATE )
+        int flag = 
+            static_cast<int>(quadrant.get_user_data<amr_flags_t>()->quadrant_status); 
+        if ( (flag == DEFAULT_STATE) or (flag==REFINE) or (flag==COARSEN) )
         {
+            /* Copy over data that does not need anything done */
+            auto sview_state = Kokkos::subview( state
+                                              , VEC( Kokkos::ALL()
+                                                   , Kokkos::ALL()
+                                                   , Kokkos::ALL())
+                                              , iq_old
+                                              , Kokkos::ALL()) ;
+            auto sview_swap  = Kokkos::subview( state_swap
+                                              , VEC( Kokkos::ALL()
+                                                   , Kokkos::ALL()
+                                                   , Kokkos::ALL())
+                                              , iq_new
+                                              , Kokkos::ALL()) ;
+            Kokkos::deep_copy(default_execution_space{}, sview_swap, sview_state) ; 
             iq_new++; iq_old++ ; 
         } else if ( flag == NEED_PROLONGATION )
         {
-            refine_outgoing.push_back(iq_old) ; 
+            refine_outgoing.push_back(static_cast<int>(iq_old)) ; 
             iq_old++ ; 
             for( int ichild=0; ichild<P4EST_CHILDREN; ++ichild){
-                refine_incoming.push_back(iq_new) ; 
+                refine_incoming.push_back(static_cast<int>(iq_new)) ; 
                 iq_new++ ;
             }
         } else if ( flag == NEED_RESTRICTION )
@@ -145,40 +182,83 @@ void regrid() {
             coarsen_incoming.push_back(iq_new) ; 
             iq_new++ ; 
             for( int ichild=0; ichild<P4EST_CHILDREN; ++ichild){
-                coarsen_outgoing.push_back(old) ; 
+                coarsen_outgoing.push_back(static_cast<int>(iq_old)) ; 
                 iq_old++ ;
             }
-        }
+        } else if (flag == INVALID_STATE) {
+            ERROR("Invalid state " << flag << " for quadrant " << iq_new << '\n') ;
+        } 
     }
-    auto idx = variable_list::get().getinvspacings() ; 
+    refine_incoming.host_to_device() ;
+    refine_outgoing.host_to_device() ; 
+    coarsen_incoming.host_to_device() ; 
+    coarsen_outgoing.host_to_device() ;
+    
+    ASSERT_DBG( iq_old == nq, "Something went really wrong.") ;
 
+    auto& idx = variable_list::get().getinvspacings() ;
+    /******************************************************************************************/
+    /*                      Prolongate data on refined quadrants                              */
+    /******************************************************************************************/
     std::string interp = params["amr"]["prolongation_interpolator_type"].as<std::string>(); 
-
     if( interp == "linear" ) 
     {
-        prolongate_variables<utils::linear_interp_t<THUNDER_NSPACEDIM>>
-            ( 
-              state
-            , state_swap 
+        prolongate_variables<utils::linear_interp_t<THUNDER_NSPACEDIM>> ( 
+              state_swap
+            , state 
             , idx 
+            , refine_incoming
             , refine_outgoing 
-            , refine_incoming 
-            ) ;
+        ) ;
     } else {
         ERROR("Requested interpolator for prolongation is not implemented.") ; 
     }
-
-
-
+    /******************************************************************************************/
+    /*                      Restrict data on coarsened quadrants                              */
+    /******************************************************************************************/
+    std::string reduce = params["amr"]["restriction_interpolator_type"].as<std::string>(); 
+    if (reduce=="linear")
+    {
+        restrict_variables<utils::linear_interp_t<THUNDER_NSPACEDIM>>(
+              state_swap
+            , state
+            , idx
+            , coarsen_incoming
+            , coarsen_outgoing
+        ) ;
+    } else {
+        ERROR("Requested interpolator for restriction is not implemented.") ; 
+    }
+    /******************************************************************************************/
+    /*                              Copy data and recompute coordinates                       */
+    /******************************************************************************************/ 
+    Kokkos::realloc( state      ,   VEC(  nx + 2*ngz 
+                                        , ny + 2*ngz 
+                                        , nz + 2*ngz )
+                                ,   nq_new 
+                                ,   nvars ) ;
+    Kokkos::deep_copy( default_execution_space{}, state, state_swap ) ; 
+    auto& coords = variable_list::get().getcoords() ; 
+    Kokkos::resize( coords      ,   VEC(  nx + 2*ngz 
+                                        , ny + 2*ngz 
+                                        , nz + 2*ngz )
+                                ,   nq_new 
+                                ,   THUNDER_NSPACEDIM ) ;
+    Kokkos::realloc( idx        ,   nq_new 
+                                ,   THUNDER_NSPACEDIM ) ;
+    fill_cell_coordinates(coords, idx) ;
+    /******************************************************************************************/
+    /*                            Auxiliary vars are reallocated                              */
+    /*                            but not re-initialized.                                     */
+    /******************************************************************************************/
+    auto & aux = variable_list::get().getaux() ; 
+    int nvars_aux = aux.extent(THUNDER_NSPACEDIM+1) ; 
+    Kokkos::resize( aux         ,   VEC(  nx + 2*ngz 
+                                        , ny + 2*ngz 
+                                        , nz + 2*ngz )
+                                ,   nq_new 
+                                ,   nvars_aux ) ;
+    Kokkos::fence() ; 
 }; 
-
-void refine() 
-{
-    
-}; 
-
-void coarsen() ; 
-
-void partition() ; 
 
 }} /* namespace thunder::amr */ 

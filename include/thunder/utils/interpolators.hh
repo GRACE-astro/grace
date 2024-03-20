@@ -101,6 +101,16 @@ struct linear_interp_t<3>
 
     double *x, *y; 
 
+    static THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+    void get_parametric_coordinates(int xp[])
+    {   
+        for( int is=0; is<8; ++is){
+            xp[3*is + 0UL] = (is%2) ; 
+            xp[3*is + 1UL] = (is/2)%2 ; 
+            xp[3*is + 2UL] = (is/2)/2 ;
+        }
+    }
+
     double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
     interpolate( double const& x0, double const& y0, double const& z0 )
     {

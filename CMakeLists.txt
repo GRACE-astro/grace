@@ -29,7 +29,26 @@ include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
 
 configure_file("${CMAKE_SOURCE_DIR}/include/thunder/thunder_config.h.in" thunder_config.h)
 
+set(HEADER_DIR "${PROJECT_SOURCE_DIR}/include/")
+
 add_subdirectory(src)
+
+add_executable(thunder src/thunder.cpp)
+target_include_directories(thunder PRIVATE "${HEADER_DIR}")
+target_link_libraries(thunder PRIVATE 
+        thunder_objects
+        $<TARGET_OBJECTS:thunder_volume_output>
+        yaml_cpp::yaml
+        MPI::MPI_CXX
+        Kokkos::kokkos 
+        p4est::p4est 
+        p4est::sc
+        VTK::VTK
+        )
+vtk_module_autoinit(
+    TARGETS thunder
+    MODULES ${VTK_LIBRARIES}
+)
 
 option(thunder_TESTS "Build the tests" ON)
 if(thunder_TESTS)

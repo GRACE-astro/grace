@@ -35,6 +35,8 @@
 
 #include <thunder/data_structures/variables.hh>
 #include <thunder/data_structures/macros.hh>
+#include <thunder/data_structures/memory_defaults.hh>
+
 
 #include <thunder/utils/thunder_utils.hh>
 
@@ -45,8 +47,9 @@ namespace thunder {
  * @brief 
  * 
  */
-void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords, coord_array_t<THUNDER_NSPACEDIM> ispacing) 
+void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM>& coords, scalar_array_t<THUNDER_NSPACEDIM>& ispacing) 
 {
+    using namespace thunder ; 
     auto& forest = thunder::amr::forest::get()        ; 
     auto& conn   = thunder::amr::connectivity::get()  ; 
     auto& params = thunder::config_parser::get()      ;
@@ -80,7 +83,8 @@ void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords, coord_array_
             auto const dx = lr_vertex_coords[0] - ll_vertex_coords[0] ; 
             for( int iquad=0; iquad<quadrants.size(); ++iquad ) {
                 amr::quadrant_t quadrant = tree.quadrant(iquad) ; 
-                auto const dx_lev = dx / ( 1UL<<quadrant.level() ) ; 
+                int const level   = quadrant.level();
+                auto const dx_lev = dx / ( 1UL<<level ) ; 
                 auto const VEC(dx_quad{dx_lev/nx}, dy_quad{dx_lev/ny}, dz_quad{dx_lev/nz}) ; 
                 /* coordinates of lower left corner of quadrant */
                 auto const qcoords = quadrant.qcoords() ; 
@@ -89,8 +93,8 @@ void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords, coord_array_
                 double VEC( qx{quad_coords[0]}, qy{quad_coords[1]}, qz{quad_coords[2]} ) ; 
                 size_t iquad_glob = iquad + quad_offset ; 
                 /* launch a tiny kernel to fill the coord array */ 
-                Kokkos::parallel_for( "fill_coords_cartesian"
-                        , Kokkos::MDRangePolicy<Kokkos::Rank<THUNDER_NSPACEDIM>>( {VEC(0,0,0)}
+                Kokkos::parallel_for( THUNDER_EXECUTION_TAG("AMR","fill_coords_cartesian")
+                        , Kokkos::MDRangePolicy<Kokkos::Rank<THUNDER_NSPACEDIM>, default_execution_space>( {VEC(0,0,0)}
                                                                   , {VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz )} )
                         , KOKKOS_LAMBDA ( VEC(int i, int j, int k) )
                         {
@@ -100,9 +104,9 @@ void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords, coord_array_
                             coords(VEC(i,j,k),iquad_glob,2) = qz + ( k - ngz + 0.5 ) * dz_quad ; 
                             ) 
                             EXPR(
-                            ispacing(VEC(i,j,k),iquad_glob,0) = 1./dx_quad ;,
-                            ispacing(VEC(i,j,k),iquad_glob,1) = 1./dy_quad ;,
-                            ispacing(VEC(i,j,k),iquad_glob,2) = 1./dz_quad ; 
+                            ispacing(iquad_glob,0) = 1./ ( 1UL<<level )/nx ;,
+                            ispacing(iquad_glob,1) = 1./ ( 1UL<<level )/ny ;,
+                            ispacing(iquad_glob,2) = 1./ ( 1UL<<level )/nz ; 
                             ) 
                         } ) ;  
             }
@@ -121,8 +125,8 @@ void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords, coord_array_
                 auto const qcoords = quadrant.qcoords() ; 
                 size_t iquad_glob = iquad + quad_offset ; 
                 /* launch a tiny kernel to fill the coord array */ 
-                Kokkos::parallel_for( "fill_coords_cartesian"
-                        , Kokkos::MDRangePolicy<Kokkos::Rank<THUNDER_NSPACEDIM>>( {VEC(0,0,0)}
+                Kokkos::parallel_for( THUNDER_EXECUTION_TAG("AMR","fill_coords_spherical")
+                        , Kokkos::MDRangePolicy<Kokkos::Rank<THUNDER_NSPACEDIM>,default_execution_space>( {VEC(0,0,0)}
                                                                   , {VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz )} )
                         , KOKKOS_LAMBDA ( VEC(int i, int j, int k) )
                         {
@@ -132,9 +136,9 @@ void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords, coord_array_
                             coords(VEC(i,j,k),iquad_glob,2) = dx_lev * qcoords[2] + ( k - ngz + 0.5 ) * dz_quad ; 
                             ) 
                             EXPR(
-                            ispacing(VEC(i,j,k),iquad_glob,0) = 1./dx_quad ;,
-                            ispacing(VEC(i,j,k),iquad_glob,1) = 1./dy_quad ;,
-                            ispacing(VEC(i,j,k),iquad_glob,2) = 1./dz_quad ; 
+                            ispacing(iquad_glob,0) = 1./dx_quad ;,
+                            ispacing(iquad_glob,1) = 1./dy_quad ;,
+                            ispacing(iquad_glob,2) = 1./dz_quad ; 
                             ) 
                         } ) ;  
             }

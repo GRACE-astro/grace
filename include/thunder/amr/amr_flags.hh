@@ -101,15 +101,16 @@ static void set_quadrant_flag( p4est_t* p4est
         quadrant.set_user_data( amr_flags_t{INVALID_STATE} ) ;
         for(int iquad=0; iquad<P4EST_CHILDREN; ++iquad) {
             quadrant = quadrant_t(incoming[iquad] ) ; 
-            quadrant.set_user_data( amr_flags_t{NEED_RESTRICTION} ) ;
+            quadrant.set_user_data( amr_flags_t{NEED_PROLONGATION} ) ;
         } 
-    } else if ( num_outgoing == 1 and num_incoming == P4EST_CHILDREN ) // coarsening 
+    } else if ( num_outgoing == P4EST_CHILDREN and num_incoming == 1 ) // coarsening 
     {
         quadrant_t quadrant( incoming[0] ) ; 
-        quadrant.set_user_data( amr_flags_t{INVALID_STATE} ) ;
+        quadrant.set_user_data( amr_flags_t{NEED_RESTRICTION} ) ;
         for(int iquad=0; iquad<P4EST_CHILDREN; ++iquad) {
-            quadrant = quadrant_t(outgoing[iquad] ) ; 
-            quadrant.set_user_data( amr_flags_t{NEED_PROLONGATION} ) ;
+            if( outgoing[iquad] != nullptr )
+            {quadrant = quadrant_t(outgoing[iquad] ) ; 
+            quadrant.set_user_data( amr_flags_t{INVALID_STATE} ) ;}
         } 
     } else {
         ERROR( "In call to initialize_quadrant, num_incoming"
@@ -148,11 +149,13 @@ static int coarsen_cback( p4est_t* p4est
     int ncoarsen ;
     for( int ichild=0; ichild<P4EST_CHILDREN; ++ichild)
     {
-        if( quadrants[ichild] == nullptr )
+        if( quadrants[ichild] == nullptr ) {
             continue ; 
+        } else {
         quadrant_t quad(quadrants[ichild]) ; 
         ncoarsen += 
             (quad.get_user_data<amr_flags_t>()->quadrant_status == COARSEN);
+        }
     }
      
     

@@ -97,8 +97,8 @@ setup_vtk_grid_spherical()
 {
     auto& params = thunder::config_parser::get()  ;  
     auto const L = params["amr"]["inner_region_side"].as<double>() ;
-    auto const R = params["amr"]["outer_region_radius"].as<double>()   ;
-    auto const Rl = params["amr"]["logarithmic_outer_radius"].as<double>()  ;
+    auto const R = params["amr"]["inner_region_radius"].as<double>()   ;
+    auto const Rl = params["amr"]["outer_region_radius"].as<double>()  ;
     vtkSmartPointer<vtkUnstructuredGrid> grid = vtkSmartPointer<vtkUnstructuredGrid>::New() ;
 
     size_t nx,ny,nz; 

@@ -32,97 +32,80 @@
 
 namespace thunder { namespace amr { 
 
-template< typename StateViewT
+template< typename InterpT 
+        , typename StateViewT
         , typename CoordViewT >  
 struct prolongator_t {
-    size_t VEC( nx, ny, nz ) ; 
-    StateViewT state ; 
-    CoordViewT idx   ; 
+    long VEC( nx, ny, nz )   ; //!< Quadrant extents (unchanged)
+    int ngz                  ; //!< Number of ghost cells 
+    StateViewT state         ; //!< Old state
+    CoordViewT idx_parent    ; //!< Old idx 
 
-    template< typename InterpT >
-    double THUNDER_HOST_DEVICE 
+    double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
     operator() ( VEC( int const& i
                     , int const& j 
                     , int const& k )
                 , int const& iq 
                 , int const& ivar 
-                , int const& ichild )
+                , int const& ichild ) const 
     {
         /* 
-        * First we compute the coordinates
-        * of the requested point in the parent's 
-        * coordinates 
-        */ 
-        #ifdef THUNDER_3D 
-        double const x0 = 
-              ( ichild % 2 ) / ( idx(iq,0) * 2.0 )
-            + ( i + 0.5 ) / idx(iq,0) ; 
-
-        double const y0 = 
-              (( ichild / 2 ) % 2) / ( idx(iq,1) * 2.0 )
-            + ( j + 0.5 ) / idx(iq,1) ; 
-
-        double const z0 = 
-              (( ichild / 2 ) / 2) / ( idx(iq,2) * 2.0 )
-            + ( k + 0.5 ) / idx(iq,2) ; 
-        #else 
-        double const x0 = 
-              ( ichild % 2 ) / ( idx(iq,0) * 2.0 )
-            + ( i + 0.5 ) / idx(iq,0) ; 
-
-        double const y0 = 
-              ( ichild / 2 ) / ( idx(iq,1) * 2.0 )
-            + ( j + 0.5 ) / idx(iq,1) ;
-        #endif 
-        /* 
-        * Then we need to find the index 
+        * First we need to find the index 
         * in the parent quadrant closest 
         * to the requested index in the child
         * quadrant. 
         */ 
-        #ifdef THUNDER_3D 
-        size_t const i0 = 
-              ( ( ichild % 2 ) * nx + i ) / 2 ;
+        EXPR( 
+        int const iquad_x = ichild % 2 ;, 
+        int const iquad_y = static_cast<int>(Kokkos::floor(ichild/2))%2;,
+        int const iquad_z = Kokkos::floor(Kokkos::floor(ichild/2)/2);
+        )
+        EXPR(
+        int const i0 = 
+              Kokkos::floor((iquad_x * nx + i ) / 2) ;,
 
-        double const j0 = 
-              ((( ichild / 2 ) % 2)* ny + j ) / 2 ;
+        int const j0 = 
+              Kokkos::floor((iquad_y * ny + j ) / 2) ;,
 
-        double const k0 = 
-              ((( ichild / 2 ) / 2)*nz + k  ) / 2 ;
-        #else 
-        size_t const i0 = 
-              ( ( ichild % 2 ) * nx + i ) / 2 ;
-
-        double const j0 = 
-              (( ichild / 2 )* ny + j ) / 2 ;
-        #endif
-
-
+        int const k0 = 
+              Kokkos::floor((iquad_z * nz + k ) / 2) ; 
+        )
+        /* 
+        * Then we compute the coordinates
+        * of the requested point in the child's 
+        * coordinates 
+        */ 
+        EXPR(
+            const double x0 = (iquad_x*nx + i + 0.5) / idx_parent(iq,0) / 2.;,
+            const double y0 = (iquad_y*ny + j + 0.5) / idx_parent(iq,1) / 2.;,
+            const double z0 = (iquad_z*nz + k + 0.5) / idx_parent(iq,2) / 2.;
+        ) 
         /* 
         *  Then we construct a stencil of 
         *  the appropriate size for the 
         *  interpolator.
         */ 
-        size_t const stencil = InterpT::stencil_size ; 
-        double x_interp[ THUNDER_NSPACEDIM * EXPR( stencil, *stencil, *stencil)] ; 
-        double y_interp[ EXPR( stencil, *stencil, *stencil) ] ;
-        int x_param[ THUNDER_NSPACEDIM * EXPR( stencil, *stencil, *stencil) ]
+        size_t constexpr stencil = InterpT::stencil_size              ;
+        size_t constexpr npoints = EXPR( stencil, *stencil, *stencil) ; 
+        double x_interp[ THUNDER_NSPACEDIM * npoints ] ;
+        int x_param[ THUNDER_NSPACEDIM * npoints ]     ; 
+        double y_interp[ npoints ]                     ;
         InterpT::get_parametric_coordinates(x_param) ; 
-        int s_min = stencil/2 - 1; 
-        for( size_t istencil=0; istencil<EXPR( stencil, *stencil, *stencil); ++istencil)
+        int s_min = 0; 
+        for( size_t istencil=0; istencil<npoints; ++istencil)
         {   
             EXPR(
             x_interp[ THUNDER_NSPACEDIM*istencil + 0UL ] = 
-                (i0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 0UL]) / idx(iq,0);,
+                (i0+0.5 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 0UL]) / idx_parent(iq,0);,
             x_interp[ THUNDER_NSPACEDIM*istencil + 1UL ] = 
-                (j0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 1UL]) / idx(iq,1);,
+                (j0+0.5 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 1UL]) / idx_parent(iq,1);,
             x_interp[ THUNDER_NSPACEDIM*istencil + 2UL ] = 
-                (k0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 2UL]) / idx(iq,2); 
+                (k0+0.5 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 2UL]) / idx_parent(iq,2); 
             )
             y_interp[ istencil ] = state(VEC(
-                i0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 0UL],
-                j0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 1UL]
-                k0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 2UL]
+                ngz + i0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 0UL],
+                ngz + j0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 1UL],
+                ngz + k0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 2UL]
             ),iq,ivar) ; 
         }
         InterpT interpolator(x_interp,y_interp) ; 
@@ -131,7 +114,7 @@ struct prolongator_t {
         * to obtain the desired prolongated 
         * value. 
         */ 
-        return interpolator.interpolate(VEC(x0,y0,z0))
+        return interpolator.interpolate(VEC(x0,y0,z0)) ; 
     }
 }  ; 
 

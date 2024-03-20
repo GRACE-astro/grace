@@ -33,27 +33,28 @@
 #include <thunder/amr/amr_functions.hh>
 #include <thunder/config/config_parser.hh>
 #include <thunder/data_structures/variables.hh>
-
+#include <thunder/data_structures/memory_defaults.hh>
 #include <thunder/amr/regridding_policy_kernels.tpp>
 
 #include <thunder/utils/interpolators.hh>
 
 #include <Kokkos_Core.hpp>
+#include <Kokkos_Vector.hpp>
 
 namespace thunder { namespace amr {
 
 #ifdef THUNDER_3D 
-using subview_t =  Kokkos::View<double****, DefaultSpace> ; 
+using subview_t =  Kokkos::View<double****, default_space> ; 
 #else 
-using subview_t =  Kokkos::View<double***, DefaultSpace> ; 
+using subview_t =  Kokkos::View<double***, default_space> ; 
 #endif 
 
 template< typename ViewT 
     , typename KerT 
     , typename ... KerArgT> 
 void evaluate_regrid_criterion( ViewT flag_view
-                            , KerT kernel  
-                            , KerArgT&& ... kernel_args) 
+                              , KerT kernel  
+                              , KerArgT&& ... kernel_args) 
 {
     using namespace thunder  ;  
     auto& params = config_parser::get() ; 
@@ -68,18 +69,10 @@ void evaluate_regrid_criterion( ViewT flag_view
 
     double CTORE = params["amr"]["refinement_criterion_CTORE"].as<double>() ; 
     double CTODE = params["amr"]["refinement_criterion_CTODE"].as<double>() ;
-    auto varname = params["amr"]["refinement_criterion_var"].as<std::string>() ;
-
-    auto u = Kokkos::subview(state, VEC( Kokkos::ALL() 
-                                        , Kokkos::ALL() 
-                                        , Kokkos::ALL() )
-                                    , Kokkos::ALL() 
-                                    , get_variable_index(varname)
-                                    ) ; 
-
+    
     /* Each thread league deals with a single quadrant */ 
-    Kokkos::TeamPolicy<> policy(nq, Kokkos::AUTO() ) ; 
-    using member_type = Kokkos::TeamPolicy<>::member_type ; 
+    Kokkos::TeamPolicy<default_execution_space> policy(nq, Kokkos::AUTO() ) ; 
+    using member_type = Kokkos::TeamPolicy<default_execution_space>::member_type ; 
     Kokkos::parallel_for( THUNDER_EXECUTION_TAG("AMR","eval_refine_coarsen_criterion")
                         , policy 
                         , KOKKOS_LAMBDA (member_type team_member)
@@ -98,7 +91,7 @@ void evaluate_regrid_criterion( ViewT flag_view
                 reduce_range 
             , KOKKOS_LAMBDA (VEC(int& i, int& j, int& k), double& leps )
             {
-                leps = Kokkos::fmax(leps, kernel(u, VEC(i+ngz,j+ngz,k+ngz), q, kernel_args...)) ; 
+                leps = Kokkos::fmax(leps, kernel(VEC(i+ngz,j+ngz,k+ngz), q, kernel_args...)) ; 
             } 
             , eps 
         ) ; 
@@ -110,34 +103,37 @@ void evaluate_regrid_criterion( ViewT flag_view
     }) ;
 }
 
-template< InterpT
-        , InViewT
-        , OutViewT
-        , CoordViewT 
-        , KerT >
-void prolongate_variables( InViewT  in_state 
+template< typename InterpT
+        , typename InViewT
+        , typename OutViewT
+        , typename CoordViewT >
+void prolongate_variables(    InViewT  in_state 
                             , OutViewT out_state
                             , CoordViewT out_inv_spacing    
-                            , Kokkos::vector<size_t, Device> in_idx 
-                            , Kokkos::vector<size_t, Device> out_idx ) 
+                            , Kokkos::vector<int,thunder::default_space>& in_idx 
+                            , Kokkos::vector<int,thunder::default_space>& out_idx ) 
 {  
-    size_t nx,ny,nz ; 
+    using namespace thunder ; 
+    using namespace Kokkos  ; 
+    long nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    size_t in_n_quad  = in_state.extent(THUNDER_NSPACEDIM)  ; 
-    size_t out_n_quad = out_state.extent(THUNDER_NSPACEDIM) ;
-    int nvar = in_state.extent(THUNDER_NSPACEDIM+1)
-    ASSERT_DBG( in_n_quad == amr::local_num_quadrants() 
-                , "Sanity check failed in prolongation, "
-                "inconsistent number of incoming quadrants." ) ;
+    auto ngz = amr::get_n_ghosts()                   ; 
+    long in_n_quad  = in_idx.size()                  ; 
+    long out_n_quad = out_idx.size()                 ;
+    int nvar = in_state.extent(THUNDER_NSPACEDIM+1)  ; 
 
-    auto p_in_idx  = in_idx.data()  ; 
-    auto p_out_idx = out_idx.data() ; 
+    auto p_in_idx  = in_idx.d_view  ; 
+    auto p_out_idx = out_idx.d_view ; 
 
-    amr::prolongator_t kernel{ VEC(nx,ny,nz), out_state, out_inv_spacing } ; 
-
-
-    Kokkos::TeamPolicy<> policy( out_n_quad, Kokkos::AUTO() ) ;
-    using member_type = Kokkos::TeamPolicy<>::member_type ; 
+    amr::prolongator_t<InterpT,decltype(out_state),decltype(out_inv_spacing)> kernel{ 
+          VEC(nx,ny,nz)
+        , ngz
+        , out_state
+        , out_inv_spacing 
+    } ; 
+    /*
+    Kokkos::TeamPolicy<default_execution_space> policy( out_n_quad, Kokkos::AUTO() ) ;
+    using member_type = Kokkos::TeamPolicy<default_execution_space>::member_type ; 
 
     Kokkos::parallel_for( THUNDER_EXECUTION_TAG("AMR","prolongate_variables")
                         , policy 
@@ -147,24 +143,95 @@ void prolongate_variables( InViewT  in_state
         size_t q_out = p_out_idx[team.league_rank()] ; 
         auto team_range = 
         Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM+2>, member_type>( 
-                team_member 
-            , VEC(nx,ny,nz),nvar,P4EST_CHILDREN ) ;
+              team 
+            , VEC(nx,ny,nz)
+            , nvar
+            , P4EST_CHILDREN 
+        ) ;
         
         parallel_for( team_range
-                    , KOKKOS_LAMBDA ( VEC(int& i, int& j, int& k), int& ivar, int& ichild)
+                    , KOKKOS_LAMBDA ( VEC(int& i, int& j, int& k), int& ivar, int& ichild )
                     {
                         size_t q_in  = p_in_idx[team.league_rank()*P4EST_CHILDREN+ichild]; 
-                        in_state(VEC(i+ngz,j+ngz,k+ngz),q_in+ichild,ivar) = 
-                            kernel(VEC(i+ngz,j+ngz,k+ngz),q_out,ivar,ichild) ;
+                        in_state(VEC(i+ngz,j+ngz,k+ngz),q_in,ivar) = 
+                            kernel(VEC(i,j,k),q_out,ivar,ichild) ;
                     }
         ) ; 
     }) ; 
+    */
+   MDRangePolicy<Rank<THUNDER_NSPACEDIM+2>,default_execution_space>
+        policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,out_n_quad}) ; 
+
+    parallel_for(THUNDER_EXECUTION_TAG("AMR","prolongate_variables")
+                        , policy 
+                        , KOKKOS_LAMBDA (
+                            VEC(const unsigned int& i
+                               ,const unsigned int& j
+                               ,const unsigned int& k)
+                            ,const unsigned int& ivar
+                            ,const unsigned int& iq_parent)
+                        {
+                            size_t q_out = p_out_idx(iq_parent) ; 
+                            for( int ichild=0; ichild<P4EST_CHILDREN; ++ichild){
+                                size_t q_in  = p_in_idx(P4EST_CHILDREN*iq_parent + ichild) ; 
+                                in_state(VEC(i+ngz,j+ngz,k+ngz),q_in,ivar) = 
+                                    kernel(VEC(i,j,k),q_out,ivar,ichild) ;
+                            }
+                        }
+    ); 
 }; 
 
-template< InViewT
-        , OutViewT 
-        , KerT >
-void restrict_variables() ;
+template< typename InterpT
+        , typename InViewT
+        , typename OutViewT 
+        , typename CoordViewT >
+void restrict_variables(      InViewT  in_state 
+                            , OutViewT out_state
+                            , CoordViewT out_inv_spacing    
+                            , Kokkos::vector<int, thunder::default_space>& in_idx 
+                            , Kokkos::vector<int, thunder::default_space>& out_idx )  
+{
+    using namespace thunder ; 
+    size_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents()        ;
+    auto ngz = amr::get_n_ghosts()                          ;  
+    size_t in_n_quad  = in_idx.size()                       ; 
+    size_t out_n_quad = out_idx.size()                      ;
+    int nvar = in_state.extent(THUNDER_NSPACEDIM+1) ; 
+
+    auto p_in_idx  = in_idx.d_view  ; 
+    auto p_out_idx = out_idx.d_view ; 
+
+    amr::restrictor_t<InterpT,decltype(out_state),decltype(out_inv_spacing)> kernel{ VEC(nx,ny,nz), ngz, out_state, out_inv_spacing } ; 
+
+    Kokkos::TeamPolicy<default_execution_space> policy( in_n_quad, Kokkos::AUTO() ) ;
+    using member_type = Kokkos::TeamPolicy<default_execution_space>::member_type ; 
+
+    Kokkos::parallel_for( THUNDER_EXECUTION_TAG("AMR","restrict_variables")
+                        , policy 
+                        , KOKKOS_LAMBDA (member_type team)
+    {
+        
+        size_t q_in = p_in_idx[team.league_rank()] ; 
+        auto team_range = 
+        Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM+1>, member_type>( 
+                team 
+            , VEC(nx,ny,nz),nvar ) ;
+        
+        parallel_for( team_range
+                    , KOKKOS_LAMBDA ( VEC(int& i, int& j, int& k), int& ivar)
+                    {
+                        int q_out[P4EST_CHILDREN]; 
+                        for(int ichild=0;ichild<P4EST_CHILDREN;++ichild) {
+                            q_out[ichild] = 
+                                p_out_idx(team.league_rank()*P4EST_CHILDREN+ichild); 
+                        }
+                        in_state(VEC(i+ngz,j+ngz,k+ngz),q_in,ivar) = 
+                            kernel(VEC(i,j,k),q_out,ivar) ;
+                    }
+        ) ; 
+    }) ; 
+} ;
 
 }} /* namespace thunder::amr */ 
 

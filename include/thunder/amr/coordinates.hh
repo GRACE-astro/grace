@@ -38,7 +38,7 @@ namespace thunder {
  * @brief Fill cell coordinates array.
  * \ingroup amr 
  */
-void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM>, coord_array_t<THUNDER_NSPACEDIM>) ; 
+void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM>&, scalar_array_t<THUNDER_NSPACEDIM>&) ; 
 
 
 } /* namespace thunder */ 

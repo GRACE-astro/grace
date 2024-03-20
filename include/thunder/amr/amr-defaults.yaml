@@ -33,8 +33,8 @@ amr: {
   # Near the center, to avoid coordinate singularities,
   # a patch of cartesian
   inner_region_side: 1.,
-  outer_region_radius: 10.,
-  logarithmic_outer_radius: 10000., 
+  inner_region_radius: 2.,
+  outer_region_radius: 10., 
   use_logarithmic_radial_zone: false,
 
   npoints_block_x: 16,
@@ -51,5 +51,7 @@ amr: {
   refinement_criterion_CTORE: 0.8,
   refinement_criterion_CTODE: 0.2,
   refinement_criterion_var:   "dens",
-  FLASH_criterion_eps     : 0.01 
+  FLASH_criterion_eps     : 0.01,
+  restriction_interpolator_type: "linear",
+  prolongation_interpolator_type: "linear"
 }

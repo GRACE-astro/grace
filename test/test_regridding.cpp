@@ -8,7 +8,7 @@
 
 
 
-TEST_CASE("Volume VTK output", "[vol_vtk_out]")
+TEST_CASE("Simple regrid", "[regrid]")
 {
     using namespace thunder::variables ; 
 
@@ -17,8 +17,9 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
     DECLARE_VARIABLE_INDICES ; 
 
     std::cout << DENS_ << std::endl ; 
-    std::cout << thunder::get_variable_index("dens") << std::endl ;  
-    auto state  = thunder::variable_list::get().getstate() ;
+    std::cout << thunder::get_variable_index("dens") << std::endl ; 
+    
+    auto& state  = thunder::variable_list::get().getstate() ;
     size_t nx,ny,nz; 
     std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
     size_t nq = thunder::amr::get_local_num_quadrants() ; 
@@ -51,16 +52,13 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
         h_state_mirror(VEC(i,j,k),q,DENS) = exp( - r2 / 0.5 ) ; 
     }
     Kokkos::deep_copy(state, h_state_mirror) ; 
-    Kokkos::parallel_for("Fill_beta_vector"
-                        , Kokkos::MDRangePolicy<Kokkos::Rank<THUNDER_NSPACEDIM+1>, thunder::default_execution_space>
-                          ({VEC(0,0,0),0}, {VEC(nx,ny,nz),nq})
-                        , KOKKOS_LAMBDA (VEC(int i, int j, int k), int q)
-                        {
-                            state(VEC(i,j,k),q,BETAX_) = 1.0 ; 
-                            state(VEC(i,j,k),q,BETAY_) = 0.0 ; 
-                            state(VEC(i,j,k),q,BETAZ_) = 0.0 ; 
-                        }) ; 
-    std::cout << "Calling output routine..." << std::endl ;
+    auto& swap = thunder::variable_list::get().getscratch() ; 
+    Kokkos::deep_copy(swap, state) ; 
+    thunder::IO::write_volume_cell_data() ;
+    thunder::runtime::get().increment_iteration() ; 
+    std::cout << "Starting regrid\n" << std::endl ;
+    thunder::amr::regrid() ;  
+    
     thunder::IO::write_volume_cell_data() ; 
 
 }

@@ -53,7 +53,7 @@ struct variable_properties_t
 template<> 
 struct variable_properties_t<2>
 {
-    using view_t = Kokkos::View<double ****, DefaultSpace> ; 
+    using view_t = Kokkos::View<double ****, default_space> ; 
     std::array<bool, 2> staggering; 
     bool has_gz ; 
     bool is_vector ;  
@@ -69,7 +69,7 @@ struct variable_properties_t<2>
 template<> 
 struct variable_properties_t<3>
 {
-    using view_t = Kokkos::View<double *****, DefaultSpace> ; 
+    using view_t = Kokkos::View<double *****, default_space> ; 
     std::array<bool, 3> staggering; 
     bool has_gz ; 
     bool is_vector;
@@ -91,7 +91,7 @@ struct coord_array_impl_t {} ;
  * \ingroup variables
  */
 template<> 
-struct coord_array_impl_t<2> { using view_t = Kokkos::View<double ****, DefaultSpace>; };
+struct coord_array_impl_t<2> { using view_t = Kokkos::View<double ****, default_space>; };
 //*****************************************************************************************************
 /**
  * @brief Helper class 
@@ -99,7 +99,15 @@ struct coord_array_impl_t<2> { using view_t = Kokkos::View<double ****, DefaultS
  * \ingroup variables
  */
 template<> 
-struct coord_array_impl_t<3> { using view_t = Kokkos::View<double *****, DefaultSpace>; } ;
+struct coord_array_impl_t<3> { using view_t = Kokkos::View<double *****, default_space>; } ;
+//*****************************************************************************************************
+/**
+ * @brief Helper class 
+ * \cond thunder_detail
+ * \ingroup variables
+ */
+template< size_t ndim >
+struct scalar_array_impl_t { using view_t = Kokkos::View<double **, default_space>; } ;
 //*****************************************************************************************************
 /**
  * @brief Proxy for variable <code>View</code> type in Thunder
@@ -116,6 +124,14 @@ using var_array_t = variable_properties_t<ndim>::view_t ;
  */
 template< size_t ndim = THUNDER_NSPACEDIM > 
 using coord_array_t = coord_array_impl_t<ndim>::view_t ; 
+//*****************************************************************************************************
+/**
+ * @brief Proxy for scalar <code>View</code> type in Thunder
+ * \ingroup variables
+ * @tparam ndim Number of spatial dimension
+ */
+template< size_t ndim = THUNDER_NSPACEDIM > 
+using scalar_array_t = scalar_array_impl_t<ndim>::view_t ; 
 //*****************************************************************************************************
 //*****************************************************************************************************
 } /* namespace thunder */

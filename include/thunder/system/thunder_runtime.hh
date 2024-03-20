@@ -221,52 +221,47 @@ class thunder_runtime_impl_t
             std::cout << THUNDER_BANNER ;
             if ( _volume_output ) 
             {
-                std::cout << "===========================================================\n";
                 std::cout << "Volume output requested every " << _volume_output_every << " iterations\n" ; 
-                std::cout << "Variables registered for volume (co-dimension 0) output: \n\n" ; 
-                std::cout << "Scalars: \n\n";
+                std::cout << "Variables registered for volume (co-dimension 0) output:\n" ; 
+                std::cout << "Scalars: \n";
                 for(auto const& x: _cell_volume_output_scalar_vars){
                     std::cout << x << std::endl ; 
                 }
-                std::cout << "\nVectors: \n\n";
+                std::cout << "Vectors: \n";
                 for(auto const& x: _cell_volume_output_vector_vars){
                     std::cout << x << std::endl ; 
                 }
-                std::cout << "\n\nAuxiliaries: \n\n";
-                std::cout << "Scalars: \n\n";
+                std::cout << "Auxiliaries: \n";
+                std::cout << "Scalars: \n";
                 for(auto const& x: _cell_volume_output_scalar_aux){
                     std::cout << x << std::endl ; 
                 }
-                std::cout << "\nVectors: \n\n";
+                std::cout << "Vectors: \n";
                 for(auto const& x: _cell_volume_output_vector_aux){
                     std::cout << x << std::endl ; 
                 }      
-                std::cout << "===========================================================\n";
             }
             if ( _surface_output )
             {
-                std::cout << "===========================================================\n";
                 std::cout << "Surface output requested every " << _surface_output_every << " iterations\n" ; 
-                std::cout << "Variables registered for surface (co-dimension 1) output: \n\n" ; 
-                std::cout << "Scalars: \n\n";
+                std::cout << "Variables registered for surface (co-dimension 1) output: \n" ; 
+                std::cout << "Scalars: \n";
                 for(auto const& x: _cell_surface_output_scalar_vars){
                     std::cout << x << std::endl ; 
                 }
-                std::cout << "\nVectors: \n\n";
+                std::cout << "Vectors: \n";
                 for(auto const& x: _cell_surface_output_vector_vars){
                     std::cout << x << std::endl ; 
                 }
-                std::cout << "\n\nAuxiliaries: \n\n";
-                std::cout << "Scalars: \n\n";
+                std::cout << "Auxiliaries: \n";
+                std::cout << "Scalars: \n";
                 for(auto const& x: _cell_surface_output_scalar_aux){
                     std::cout << x << std::endl ; 
                 }
-                std::cout << "\nVectors: \n\n";
+                std::cout << "Vectors: \n";
                 for(auto const& x: _cell_surface_output_vector_aux){
                     std::cout << x << std::endl ; 
                 }    
-                std::cout << "===========================================================\n";
-                std::cout << "===========================================================\n";
             }
         }
     }

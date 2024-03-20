@@ -145,10 +145,30 @@ vtk_module_autoinit(
 
 add_executable( interpolator_test test_interpolators.cpp )
 target_include_directories( interpolator_test PRIVATE "${HEADER_LIST}")
+target_compile_options(interpolator_test PRIVATE -Wno-dangling-field)
 target_link_libraries( interpolator_test PRIVATE
         kokkos_tests_main
         Catch2::Catch2 
         Kokkos::kokkos ) 
+
+
+add_executable( regrid_test test_regridding.cpp )
+target_include_directories(regrid_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  regrid_test PRIVATE 
+p4est_tests_main
+Catch2::Catch2
+thunder_objects
+$<TARGET_OBJECTS:thunder_volume_output>
+yaml_cpp::yaml
+Kokkos::kokkos
+MPI::MPI_CXX
+p4est::sc
+p4est::p4est 
+VTK::VTK )
+vtk_module_autoinit(
+    TARGETS regrid_test
+    MODULES ${VTK_LIBRARIES}
+    )
 
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)
@@ -162,5 +182,7 @@ add_test(NAME varlist_test COMMAND
         mpirun -n 1 ./varlist_test --thunder-parfile ./configs/basic_config.yaml )
 add_test(NAME coordinate_test COMMAND 
         mpirun -n 2 ./coordinate_test --thunder-parfile ./configs/basic_config.yaml )
+add_test(NAME interpolator_test COMMAND 
+        ./interpolator_test )
 
 

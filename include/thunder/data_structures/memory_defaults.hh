@@ -30,10 +30,12 @@
 
 #include <thunder_config.h>
 
+#include <Kokkos_Core.hpp>
+
 namespace thunder { 
 //*****************************************************************************************************
 /**
- * @brief Typedef that defines the default execution space in Thunder.
+ * @brief Typedef that defines the default Memory and Execution space(s) in Thunder.
  *        The hierarchy of precedence goes as follows:
  *        1) If a device is enabled, we use it
  *        2) If a host parallel mode is enabled, we use Host memory and 
@@ -44,12 +46,13 @@ namespace thunder {
  */
 //*****************************************************************************************************
 #if defined(THUNDER_ENABLE_CUDA)
-using DefaultSpace = Kokkos::CudaSpace   ; 
+using default_space = Kokkos::CudaSpace   ;  
 #elif defined(THUNDER_ENABLE_HIP)
-using DefaultSpace = Kokkos::HIPSpace    ;
+using default_space = Kokkos::HIPSpace    ;
 #elif defined(THUNDER_ENABLE_OMP) or defined(THUNDER_ENABLE_SERIAL)
-using DefaultSpace = Kokkos::HostSpace   ;
+using default_space = Kokkos::HostSpace   ;
 #endif   
+using default_execution_space = default_space::execution_space ;
 //*****************************************************************************************************
 //*****************************************************************************************************
 } /* namespace thunder */

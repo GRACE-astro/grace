@@ -36,37 +36,58 @@
 namespace thunder { namespace amr {
 
 template< typename ViewT > 
-double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
-flash_second_deriv_criterion( ViewT u 
-                            , VEC( int const & i 
-                                 , int const & j
-                                 , int const & k ) 
-                            , int const& q
-                            , double const& eps )
-{
-    double VEC(
-        Ex{ Kokkos::fabs( u(VEC(i+1,j,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i-1,j,k),q) )
-            / (   Kokkos::fabs(u(VEC(i+1,j,k),q) - u(VEC(i,j,k),q)) 
-                + Kokkos::fabs(u(VEC(i,j,k),q) - u(VEC(i-1,j,k),q))
-                + eps* Kokkos::fabs( u(VEC(i+1,j,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i-1,j,k),q) )
-            )}
-    ,   Ey{ Kokkos::fabs( u(VEC(i,j+1,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j-1,k),q) )
-            / (   Kokkos::fabs(u(VEC(i,j+1,k),q) - u(VEC(i,j,k),q)) 
-                + Kokkos::fabs(u(VEC(i,j,k),q) - u(VEC(i,j-1,k),q))
-                + eps* Kokkos::fabs( u(VEC(i,j+1,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j-1,k),q) )
-            )}
-    ,   Ez{ Kokkos::fabs( u(VEC(i,j,k+1),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j,k-1),q) )
-            / (   Kokkos::fabs(u(VEC(i,j,k+1),q) - u(VEC(i,j,k),q)) 
-                + Kokkos::fabs(u(VEC(i,j,k),q) - u(VEC(i,j,k-1),q))
-                + eps* Kokkos::fabs( u(VEC(i,j,k+1),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j,k-1),q) )
-            )}
-    ) ; 
-    double maxerr = Kokkos::fmax( Ex, Ey ) ; 
-    #ifdef THUNDER_3D 
-    maxerr = Kokkos::fmax(ret, Ez) ; 
-    #endif 
-    return maxerr ; 
-}
+struct flash_second_deriv_criterion {
+
+    ViewT u ; 
+    static constexpr double tiny = 1e-99; 
+
+    double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+    operator()  ( VEC( int const & i 
+                     , int const & j
+                     , int const & k ) 
+                , int const& q
+                , double const& eps ) const 
+    {
+        double VEC(
+            Ex{ Kokkos::fabs( u(VEC(i+1,j,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i-1,j,k),q) )
+                / (   Kokkos::fabs(u(VEC(i+1,j,k),q) - u(VEC(i,j,k),q)) 
+                    + Kokkos::fabs(u(VEC(i,j,k),q) - u(VEC(i-1,j,k),q))
+                    + eps*Kokkos::fabs(u(VEC(i+1,j,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i-1,j,k),q)) + tiny
+                )}
+        ,   Ey{ Kokkos::fabs( u(VEC(i,j+1,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j-1,k),q) )
+                / (   Kokkos::fabs(u(VEC(i,j+1,k),q) - u(VEC(i,j,k),q)) 
+                    + Kokkos::fabs(u(VEC(i,j,k),q) - u(VEC(i,j-1,k),q))
+                    + eps*Kokkos::fabs(u(VEC(i,j+1,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j-1,k),q)) + tiny
+                )}
+        ,   Ez{ Kokkos::fabs( u(VEC(i,j,k+1),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j,k-1),q) )
+                / (   Kokkos::fabs(u(VEC(i,j,k+1),q) - u(VEC(i,j,k),q)) 
+                    + Kokkos::fabs(u(VEC(i,j,k),q) - u(VEC(i,j,k-1),q))
+                    + eps*Kokkos::fabs(u(VEC(i,j,k+1),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j,k-1),q)) + tiny
+                )}
+        ) ; 
+        double maxerr = Kokkos::fmax( Ex, Ey ) ; 
+        #ifdef THUNDER_3D 
+        maxerr = Kokkos::fmax(ret, Ez) ; 
+        #endif 
+        return maxerr ; 
+    }
+} ; 
+
+template< typename ViewT > 
+struct simple_threshold_criterion {
+
+    ViewT u ; 
+
+    double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+    operator()  ( VEC( int const & i 
+                     , int const & j
+                     , int const & k ) 
+                , int const& q ) const 
+    {
+        return u(VEC(i,j,k),q) ; 
+    }
+} ; 
+
 
 }} /* namespace thunder::amr */
 

@@ -65,7 +65,7 @@ public:
      * 
      * @return Cell coordinates. 
      */
-    THUNDER_ALWAYS_INLINE coord_array_t<THUNDER_NSPACEDIM> 
+    THUNDER_ALWAYS_INLINE coord_array_t<THUNDER_NSPACEDIM>&
     getcoords() { return _coords ; } 
     //*****************************************************************************************************
     /**
@@ -73,7 +73,7 @@ public:
      * 
      * @return Spacing of cell coordinates  
      */
-    THUNDER_ALWAYS_INLINE coord_array_t<THUNDER_NSPACEDIM> 
+    THUNDER_ALWAYS_INLINE scalar_array_t<THUNDER_NSPACEDIM>&
     getinvspacings() { return _coords_ispacing ; } 
     //*****************************************************************************************************
     /**
@@ -81,7 +81,7 @@ public:
      * 
      * @return The auxiliary variables. 
      */
-    THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>  
+    THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>&  
     getaux() { return _aux ; }
     //*****************************************************************************************************
     /**
@@ -90,7 +90,7 @@ public:
      * @return The state vector, containing all evolved variables
      *         on all local cells.  
      */
-    THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>  
+    THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>&  
     getstate() { return _state ; }
     //*****************************************************************************************************
     /**
@@ -99,9 +99,14 @@ public:
      * @return The scratch state vector, used during time 
      *         evolution to hold the previous state. 
      */
-    THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM> 
+    THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>& 
     getscratch() { return _state_p ; }
     //*****************************************************************************************************
+    template< typename ... ArgT >
+    void realloc_state(ArgT&& ... args)
+    {
+        Kokkos::realloc(_state, args...) ; 
+    } 
 
 private: 
     //*****************************************************************************************************
@@ -120,7 +125,7 @@ private:
     //******** Member variables ***************************************************************************
     //*****************************************************************************************************
     coord_array_t<THUNDER_NSPACEDIM>  _coords  ;  //!< Gridpoint coordinates 
-    coord_array_t<THUNDER_NSPACEDIM>  _coords_ispacing  ;  //!< Spacing of coordinate system
+    scalar_array_t<THUNDER_NSPACEDIM>  _coords_ispacing  ;  //!< Spacing of coordinate system
     var_array_t<THUNDER_NSPACEDIM> _state   ;     //!< State variables 
     var_array_t<THUNDER_NSPACEDIM> _state_p ;     //!< Second timelevel, allocated at all times 
     var_array_t<THUNDER_NSPACEDIM> _aux     ;     //!< Auxiliary variables  

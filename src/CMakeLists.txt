@@ -26,4 +26,6 @@ target_sources( thunder_objects INTERFACE
                 $<TARGET_OBJECTS:thunder_coordinates>
                 $<TARGET_OBJECTS:thunder_init> 
                 $<TARGET_OBJECTS:thunder_variable_list>
-                $<TARGET_OBJECTS:thunder_variable_registration> )
+                $<TARGET_OBJECTS:thunder_variable_registration>
+                $<TARGET_OBJECTS:thunder_regrid> )
+
