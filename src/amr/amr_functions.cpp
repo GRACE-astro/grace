@@ -42,7 +42,7 @@ get_quadrant_extents()
     auto& config = thunder::config_parser::get() ; 
     auto const nx = config["amr"]["npoints_block_x"].as<size_t>() ; 
     auto const ny = config["amr"]["npoints_block_y"].as<size_t>() ; 
-    auto const nz = config["amr"]["npoints_block_x"].as<size_t>() ; 
+    auto const nz = config["amr"]["npoints_block_z"].as<size_t>() ; 
     return std::make_tuple(nx,ny,nz) ;  
 }
 
@@ -83,6 +83,14 @@ quadrant_t
 get_quadrant(size_t which_tree, size_t iquad)
 {
     tree_t tree = thunder::amr::forest::get().tree(which_tree) ;
+    return tree.quadrant(iquad-tree.quadrants_offset()) ; 
+}
+
+quadrant_t  
+get_quadrant(size_t iquad)
+{
+    tree_t tree = 
+        thunder::amr::forest::get().tree(get_quadrant_owner(iquad)) ;
     return tree.quadrant(iquad-tree.quadrants_offset()) ; 
 }
 
@@ -161,8 +169,8 @@ get_physical_coordinates( std::array<size_t, THUNDER_NSPACEDIM> const& ijk
                 break ; 
             case PX_TREE: 
                 pcoords[0] = zeta      ; 
-                pcoords[1] = zeta * XI ;
-                pcoords[2] = zeta * H  ;
+                pcoords[1] = zeta * H  ;
+                pcoords[2] = zeta * XI ;
                 break; 
             case MY_TREE:
                 pcoords[0] =  zeta * H  ;
@@ -182,7 +190,7 @@ get_physical_coordinates( std::array<size_t, THUNDER_NSPACEDIM> const& ijk
             case PZ_TREE:
                 pcoords[0] =  zeta * H  ;
                 pcoords[1] =  zeta * XI ;
-                pcoords[2] = -zeta      ;
+                pcoords[2] =  zeta      ;
                 break;
             case MXL_TREE: 
                 pcoords[0] = -zeta_log     ; 
@@ -191,8 +199,8 @@ get_physical_coordinates( std::array<size_t, THUNDER_NSPACEDIM> const& ijk
                 break ; 
             case PXL_TREE: 
                 pcoords[0] = zeta_log      ; 
-                pcoords[1] = zeta_log * XI ;
-                pcoords[2] = zeta_log * H  ;
+                pcoords[1] = zeta_log * H  ;
+                pcoords[2] = zeta_log * XI ;
                 break; 
             case MYL_TREE:
                 pcoords[0] =  zeta_log * H  ;
@@ -212,7 +220,7 @@ get_physical_coordinates( std::array<size_t, THUNDER_NSPACEDIM> const& ijk
             case PZL_TREE:
                 pcoords[0] =  zeta_log * H  ;
                 pcoords[1] =  zeta_log * XI ;
-                pcoords[2] = -zeta_log      ;
+                pcoords[2] =  zeta_log      ;
                 break;
         }
         #else 

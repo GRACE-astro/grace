@@ -75,13 +75,13 @@ setup_vtk_grid_cartesian()
     for( size_t icell=0UL; icell<ncells; icell+=1UL )
     {
         vtkNew<cell_type> cell ; 
-        auto lcoords = cell->GetParametricCoords() ;
+        auto par_coords = cell->GetParametricCoords() ;
         for( int iv=0; iv<nvertex; ++iv) { 
             size_t ipoint = iv + icell * nvertex ; 
             auto const coords = get_cell_coordinates( icell 
-                                                    , lcoords[0]
-                                                    , lcoords[1]
-                                                    , lcoords[2] ) ; 
+                                                    , par_coords[3*iv + 0]
+                                                    , par_coords[3*iv + 1]
+                                                    , par_coords[3*iv + 2] ) ; 
             points->SetPoint(ipoint, coords[0], coords[1], coords[2]) ; 
             cell->GetPointIds()->SetId(iv, ipoint) ; 
         }
@@ -158,8 +158,8 @@ setup_vtk_grid_spherical()
                     break ; 
                 case PX_TREE: 
                     pcoords[0] = zeta      ; 
-                    pcoords[1] = zeta * XI ;
-                    pcoords[2] = zeta * H  ;
+                    pcoords[1] = zeta * H  ;
+                    pcoords[2] = zeta * XI ;
                     break; 
                 case MY_TREE:
                     pcoords[0] =  zeta * H  ;
@@ -179,7 +179,7 @@ setup_vtk_grid_spherical()
                 case PZ_TREE:
                     pcoords[0] =  zeta * H  ;
                     pcoords[1] =  zeta * XI ;
-                    pcoords[2] = -zeta      ;
+                    pcoords[2] = +zeta      ;
                     break;
                 case MXL_TREE: 
                     pcoords[0] = -zeta_log     ; 
@@ -188,8 +188,8 @@ setup_vtk_grid_spherical()
                     break ; 
                 case PXL_TREE: 
                     pcoords[0] = zeta_log      ; 
-                    pcoords[1] = zeta_log * XI ;
-                    pcoords[2] = zeta_log * H  ;
+                    pcoords[1] = zeta_log * H  ;
+                    pcoords[2] = zeta_log * XI ;
                     break; 
                 case MYL_TREE:
                     pcoords[0] =  zeta_log * H  ;
@@ -209,7 +209,7 @@ setup_vtk_grid_spherical()
                 case PZL_TREE:
                     pcoords[0] =  zeta_log * H  ;
                     pcoords[1] =  zeta_log * XI ;
-                    pcoords[2] = -zeta_log      ;
+                    pcoords[2] =  zeta_log      ;
                     break;
 
             }
@@ -220,13 +220,13 @@ setup_vtk_grid_spherical()
     for( size_t icell=0UL; icell<ncells; icell+=1UL )
     {
         vtkNew<cell_type> cell ; 
-        auto lcoords = cell->GetParametricCoords() ;
+        auto par_coords = cell->GetParametricCoords() ;
         for( int iv=0; iv<nvertex; ++iv) { 
             size_t ipoint = iv + icell * nvertex ; 
             auto const coords = get_cell_coordinates( icell 
-                                                    , lcoords[0]
-                                                    , lcoords[1]
-                                                    , lcoords[2] ) ; 
+                                                    , par_coords[3*iv + 0]
+                                                    , par_coords[3*iv + 1]
+                                                    , par_coords[3*iv + 2] ) ; 
             points->SetPoint(ipoint, coords[0], coords[1], coords[2]) ; 
             cell->GetPointIds()->SetId(iv, ipoint) ; 
         }

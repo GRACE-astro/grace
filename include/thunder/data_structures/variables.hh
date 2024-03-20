@@ -69,6 +69,14 @@ public:
     getcoords() { return _coords ; } 
     //*****************************************************************************************************
     /**
+     * @brief Get inverse spacing of cell coordinates.
+     * 
+     * @return Spacing of cell coordinates  
+     */
+    THUNDER_ALWAYS_INLINE coord_array_t<THUNDER_NSPACEDIM> 
+    getinvspacings() { return _coords_ispacing ; } 
+    //*****************************************************************************************************
+    /**
      * @brief Get the auxiliary variables.
      * 
      * @return The auxiliary variables. 
@@ -111,7 +119,8 @@ private:
     //*****************************************************************************************************
     //******** Member variables ***************************************************************************
     //*****************************************************************************************************
-    coord_array_t<THUNDER_NSPACEDIM>  _coords  ;  //!< Gridpoint coordinates    
+    coord_array_t<THUNDER_NSPACEDIM>  _coords  ;  //!< Gridpoint coordinates 
+    coord_array_t<THUNDER_NSPACEDIM>  _coords_ispacing  ;  //!< Spacing of coordinate system
     var_array_t<THUNDER_NSPACEDIM> _state   ;     //!< State variables 
     var_array_t<THUNDER_NSPACEDIM> _state_p ;     //!< Second timelevel, allocated at all times 
     var_array_t<THUNDER_NSPACEDIM> _aux     ;     //!< Auxiliary variables  

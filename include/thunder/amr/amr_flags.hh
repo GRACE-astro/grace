@@ -41,6 +41,8 @@ namespace thunder { namespace amr {
 enum quadrant_flags_t 
 {
     DEFAULT_STATE=0,
+    REFINE,
+    COARSEN, 
     NEED_PROLONGATION,
     NEED_RESTRICTION,
     INVALID_STATE=-1
@@ -99,7 +101,7 @@ static void set_quadrant_flag( p4est_t* p4est
         quadrant.set_user_data( amr_flags_t{INVALID_STATE} ) ;
         for(int iquad=0; iquad<P4EST_CHILDREN; ++iquad) {
             quadrant = quadrant_t(incoming[iquad] ) ; 
-            quadrant.set_user_data( amr_flags_t{NEED_PROLONGATION} ) ;
+            quadrant.set_user_data( amr_flags_t{NEED_RESTRICTION} ) ;
         } 
     } else if ( num_outgoing == 1 and num_incoming == P4EST_CHILDREN ) // coarsening 
     {
@@ -107,13 +109,54 @@ static void set_quadrant_flag( p4est_t* p4est
         quadrant.set_user_data( amr_flags_t{INVALID_STATE} ) ;
         for(int iquad=0; iquad<P4EST_CHILDREN; ++iquad) {
             quadrant = quadrant_t(outgoing[iquad] ) ; 
-            quadrant.set_user_data( amr_flags_t{NEED_RESTRICTION} ) ;
+            quadrant.set_user_data( amr_flags_t{NEED_PROLONGATION} ) ;
         } 
     } else {
         ERROR( "In call to initialize_quadrant, num_incoming"
                "and num_outgoing incompatible with both refinement and coarsening. ") ; 
     } 
 
+}
+/**
+ * @brief Callback for quadrant refinement.
+ * 
+ * @param p4est 
+ * @param which_tree 
+ * @param quadrant 
+ * @return int 
+ */
+static int refine_cback( p4est_t* p4est 
+                       , p4est_topidx_t which_tree 
+                       , p4est_quadrant_t * quadrant )
+{
+    quadrant_t quad{quadrant} ; 
+    return  quad.get_user_data<amr_flags_t>()->quadrant_status == REFINE ; 
+}
+
+/**
+ * @brief Callback for quadrant coarsening.
+ * 
+ * @param p4est 
+ * @param which_tree 
+ * @param quadrant 
+ * @return int 
+ */
+static int coarsen_cback( p4est_t* p4est 
+                       , p4est_topidx_t which_tree 
+                       , p4est_quadrant_t * quadrants[] )
+{
+    int ncoarsen ;
+    for( int ichild=0; ichild<P4EST_CHILDREN; ++ichild)
+    {
+        if( quadrants[ichild] == nullptr )
+            continue ; 
+        quadrant_t quad(quadrants[ichild]) ; 
+        ncoarsen += 
+            (quad.get_user_data<amr_flags_t>()->quadrant_status == COARSEN);
+    }
+     
+    
+    return  ncoarsen > (P4EST_CHILDREN/2)  ; 
 }
 
 }} /* thunder::amr */

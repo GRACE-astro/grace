@@ -89,6 +89,14 @@ get_quadrant_owner(size_t iquad) ;
 quadrant_t  
 get_quadrant(size_t which_tree, size_t iquad) ; 
 /**
+ * @brief Get a quadrant given its cumulative local index.
+ * 
+ * @param iquad       Quadrant cumulative local index.
+ * @return quadrant_t The quadrant.
+ */
+quadrant_t  
+get_quadrant(size_t iquad) ; 
+/**
  * @brief Free function form of <code>amr::connectivity().tree_vertex</code>
  * 
  * @param which_tree Tree index 

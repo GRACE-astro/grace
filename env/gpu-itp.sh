@@ -14,4 +14,4 @@ export P4EST_ROOT=/mnt/rafast/musolino/libs/p4est-install-hip-openmpi
 export CATCH2_ROOT=/mnt/rafast/musolino/libs/Catch2-install-gnu
 export YAML_ROOT=/mnt/rafast/musolino/libs/yaml-cpp-install-gnu
 export KOKKOS_ROOT=/mnt/rafast/musolino/libs/kokkos-install-hip
-export VTK_ROOT=/mnt/rafast/musolino/libs/vtk/install-gnu
+export VTK_ROOT=/mnt/rafast/musolino/libs/vtk/install-gnu-openmpi

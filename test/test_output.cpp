@@ -22,7 +22,11 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
     std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
     size_t nq = thunder::amr::get_local_num_quadrants() ; 
     int ngz = thunder::amr::get_n_ghosts() ; 
-
+    std::cout << "nx,ny(,nz),nq: " << EXPR(
+        nx << ", " <<,
+        ny << ", " <<,
+        nz << ", " <<
+    ) nq << std::endl ;
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
 
     auto const ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 

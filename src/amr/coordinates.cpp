@@ -45,7 +45,7 @@ namespace thunder {
  * @brief 
  * 
  */
-void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords) 
+void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords, coord_array_t<THUNDER_NSPACEDIM> ispacing) 
 {
     auto& forest = thunder::amr::forest::get()        ; 
     auto& conn   = thunder::amr::connectivity::get()  ; 
@@ -99,6 +99,11 @@ void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords)
                             coords(VEC(i,j,k),iquad_glob,1) = qy + ( j - ngz + 0.5 ) * dy_quad ;,
                             coords(VEC(i,j,k),iquad_glob,2) = qz + ( k - ngz + 0.5 ) * dz_quad ; 
                             ) 
+                            EXPR(
+                            ispacing(VEC(i,j,k),iquad_glob,0) = 1./dx_quad ;,
+                            ispacing(VEC(i,j,k),iquad_glob,1) = 1./dy_quad ;,
+                            ispacing(VEC(i,j,k),iquad_glob,2) = 1./dz_quad ; 
+                            ) 
                         } ) ;  
             }
         }
@@ -125,6 +130,11 @@ void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM> coords)
                             coords(VEC(i,j,k),iquad_glob,0) = dx_lev * qcoords[0] + ( i - ngz + 0.5 ) * dx_quad ;,
                             coords(VEC(i,j,k),iquad_glob,1) = dx_lev * qcoords[1] + ( j - ngz + 0.5 ) * dy_quad ;,
                             coords(VEC(i,j,k),iquad_glob,2) = dx_lev * qcoords[2] + ( k - ngz + 0.5 ) * dz_quad ; 
+                            ) 
+                            EXPR(
+                            ispacing(VEC(i,j,k),iquad_glob,0) = 1./dx_quad ;,
+                            ispacing(VEC(i,j,k),iquad_glob,1) = 1./dy_quad ;,
+                            ispacing(VEC(i,j,k),iquad_glob,2) = 1./dz_quad ; 
                             ) 
                         } ) ;  
             }

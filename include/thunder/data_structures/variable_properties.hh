@@ -72,6 +72,7 @@ struct variable_properties_t<3>
     using view_t = Kokkos::View<double *****, DefaultSpace> ; 
     std::array<bool, 3> staggering; 
     bool has_gz ; 
+    bool is_vector;
     
     std::string name ;
 } ; 

@@ -36,9 +36,10 @@
 namespace thunder { namespace IO {
 
 template< typename ViewT > 
-static vtkSmartPointer<vtkDoubleArray> vtk_create_cell_data(ViewT data_view, std::string const& name, bool is_vector=false)
+static vtkSmartPointer<vtkDoubleArray> vtk_create_cell_data(ViewT data_view, std::string const& name)
 {
     auto data = vtkSmartPointer<vtkDoubleArray>::New() ;
+    static constexpr bool is_vector = (ViewT::Rank == 5) ; 
     data->SetNumberOfComponents( 1 + 2*is_vector ) ; 
     data->SetNumberOfTuples( 
         data_view.extent(0) 
@@ -54,7 +55,7 @@ static vtkSmartPointer<vtkDoubleArray> vtk_create_cell_data(ViewT data_view, std
         comp_name = name + "[2]" ;
         data->SetComponentName(2,comp_name.c_str()) ; 
     } else {
-        data->SetComponentName(0,name.c_str()) ; 
+        data->SetName(name.c_str()) ; 
     }   
     size_t const  nq{data_view.extent(THUNDER_NSPACEDIM) }
                 , nz{data_view.extent(2)}
@@ -65,9 +66,14 @@ static vtkSmartPointer<vtkDoubleArray> vtk_create_cell_data(ViewT data_view, std
         for(size_t iz=0UL; iz<nz; iz+=1UL) {
             for(size_t iy=0UL; iy<ny; iy+=1UL) {
                 for(size_t ix=0UL; ix<nx; ix+=1UL) {
-                    size_t icell = ix + nx*(iy+ny*(iz+nz*iq)) ; 
-                    for( int icomp=0; icomp<1+2*is_vector; icomp++) 
-                        data->SetComponent(icell,icomp,data_view(ix,iy,iz,iq,icomp)) ;
+                    size_t icell = ix + nx*(iy+ny*(iz+nz*iq)) ;
+                    if constexpr(is_vector) 
+                    {
+                        for( int icomp=0; icomp<1+2*is_vector; icomp++) 
+                            data->SetComponent(icell,icomp,data_view(ix,iy,iz,iq,icomp)) ;
+                    } else {
+                        data->SetComponent(icell,0, data_view(ix,iy,iz,iq) ) ;
+                    }
                 }
             }
         }

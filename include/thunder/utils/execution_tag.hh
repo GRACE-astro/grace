@@ -1,46 +1,38 @@
 /**
- * @file coordinates.hh
+ * @file execution_tag.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
  * @version 0.1
- * @date 2023-06-14
+ * @date 2024-03-19
  * 
  * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference 
- * methods to simulate relativistic astrophysical systems and plasma
- * dynamics.
+ * Thunder is an evolution framework that uses Finite Difference
+ * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
- *                                                                    
+ * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- *  
+ * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *  
+ * 
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#ifndef F25FCED7_32FD_48EF_A294_4D29ABC78524
-#define F25FCED7_32FD_48EF_A294_4D29ABC78524
+#ifndef THUNDER_UTILS_EXECUTION_TAG
+#define THUNDER_UTILS_EXECUTION_TAG
 
-#include <thunder_config.h>
+#include <thunder/utils/make_string.hh>
 
-#include <thunder/data_structures/variable_properties.hh>
+#define THUNDER_EXECUTION_TAG(d,t)              \
+std::string( utils::make_string{}               \
+<< d                                     \
+<< static_cast<const char*>(__PRETTY_FUNCTION__)\
+<< t ).c_str()                                  \
 
-namespace thunder { 
-
-/**
- * @brief Fill cell coordinates array.
- * \ingroup amr 
- */
-void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM>, coord_array_t<THUNDER_NSPACEDIM>) ; 
-
-
-} /* namespace thunder */ 
-
-#endif /* F25FCED7_32FD_48EF_A294_4D29ABC78524 */
+#endif /* UTILS_EXECUTION_TAG */

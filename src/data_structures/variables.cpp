@@ -62,6 +62,7 @@ size_t get_variable_index(std::string const& name)
 
 variable_list_impl_t::variable_list_impl_t() 
     : _coords("coordinates", VEC(0,0,0), 0,0)
+    , _coords_ispacing("inverse_grid_spacing", VEC(0,0,0), 0,0)
     , _state("state", VEC(0,0,0),0,0)
     , _state_p("scratch_state", VEC(0,0,0),0,0)
     , _aux("auxiliaries", VEC(0,0,0),0,0)
@@ -82,6 +83,11 @@ variable_list_impl_t::variable_list_impl_t()
     /* allocate memory for states */ 
     size_t nq          = forest.local_num_quadrants() ;
     Kokkos::realloc( _coords
+                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , nq 
+                   , THUNDER_NSPACEDIM
+                   ) ;
+    Kokkos::realloc( _coords_ispacing
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
                    , nq 
                    , THUNDER_NSPACEDIM

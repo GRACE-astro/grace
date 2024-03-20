@@ -47,6 +47,10 @@
 /* memory */
 #include <vtkSmartPointer.h>
 #include <vtkNew.h>
+/* VTK MPI */
+#include <vtkMPI.h>
+#include <vtkMPICommunicator.h>
+#include <vtkMPIController.h>
 /* thunder includes */
 #include <thunder/data_structures/variable_properties.hh>
 #include <thunder/system/thunder_runtime.hh> 
@@ -102,7 +106,6 @@ vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() {
 
     auto vars = thunder::variable_list::get().getstate() ; 
     auto aux  = thunder::variable_list::get().getaux()   ; 
-    std::cout << "Setting up mirrors " << std::endl ; 
     auto scalar_host_mirror = 
     variable_properties_t<THUNDER_NSPACEDIM>::view_t::HostMirror(
           "scalar_output_mirror"
@@ -117,11 +120,9 @@ vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() {
         ,  nq 
         ,  3 * vectors.size() 
     ) ; 
-
     using exec_space = decltype(vars)::execution_space ; 
-    std::cout << "Setting up grid...  " << std::endl ;
     auto grid = setup_vtk_volume_grid() ; 
-
+    
     for( int ivar=0; ivar<scalars.size(); ++ivar )
     {
         size_t varidx = thunder::get_variable_index(scalars[ivar]) ; 
@@ -147,6 +148,7 @@ vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() {
                                                           ) ;
         grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,scalars[ivar])) ; 
     }
+    
     /* 
     * In the following we perform a series of 
     * calls to deep_copy for each variable group 
@@ -285,7 +287,7 @@ vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() {
                                                           ) ;
         grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,aux_vectors[ivar])) ; 
     }
-    */ 
+    */
     return grid ; 
 }; 
 
@@ -293,29 +295,36 @@ void write_volume_cell_data()
 {   
     auto& runtime = thunder::runtime::get() ;
     std::filesystem::path base_path (runtime.volume_io_basepath()) ;
-    std::string fname = runtime.volume_io_basename() + "_" + utils::zero_padded(runtime.iteration(),3)
-                                                     + "_" + utils::zero_padded(parallel::mpi_comm_rank(),2) 
-                                                     + ".vtu";
-    std::filesystem::path out_path = base_path / fname ; 
+    std::string pfname = runtime.volume_io_basename() + "_" + utils::zero_padded(runtime.iteration(),3)
+                                                            + ".pvtu" ;
+     
+    std::filesystem::path out_path = base_path / pfname ;
 
     auto grid = setup_volume_cell_data() ; 
 
-    vtkNew<vtkXMLUnstructuredGridWriter> writer ;
-    writer->SetFileName(out_path.string().c_str()) ; 
-    writer->SetInputData(grid)               ;
-    writer->Write() ;
+    vtkNew<vtkXMLPUnstructuredGridWriter> pwriter ;
 
-    if( parallel::mpi_comm_rank() == thunder::master_rank() ) 
-    {
-        std::string pfname = runtime.volume_io_basename() + "_" + utils::zero_padded(runtime.iteration(),3)
-                                                               + ".pvtu" ;
-        vtkNew<vtkXMLPUnstructuredGridWriter> pwriter ; 
-        out_path = base_path / pfname ;
-        pwriter->SetFileName(out_path.string().c_str()) ; 
-        pwriter->SetNumberOfPieces( parallel::mpi_comm_size() ) ; 
-        pwriter->SetInputData( grid ) ; 
-        pwriter->Update() ; 
-    }
+    vtkSmartPointer<vtkMPICommunicator> vtk_comm 
+        = vtkSmartPointer<vtkMPICommunicator>::New();
+    auto mpi_comm = parallel::get_comm_world() ;
+    vtkMPICommunicatorOpaqueComm vtk_opaque_comm(&mpi_comm);
+    vtk_comm->InitializeExternal(&vtk_opaque_comm);
+
+    vtkSmartPointer<vtkMPIController> vtk_mpi_ctrl 
+        = vtkSmartPointer<vtkMPIController>::New();
+    vtk_mpi_ctrl->SetCommunicator(vtk_comm);
+
+    pwriter->SetController(vtk_mpi_ctrl);
+    
+    pwriter->SetFileName(out_path.string().c_str()) ; 
+    pwriter->SetNumberOfPieces( parallel::mpi_comm_size() ) ; 
+    pwriter->SetInputData( grid ) ;
+    pwriter->SetStartPiece(parallel::mpi_comm_rank()) ;
+    pwriter->SetEndPiece(parallel::mpi_comm_rank()) ;
+    pwriter->SetDataModeToBinary() ; 
+    pwriter->SetCompressorTypeToZLib();  
+    pwriter->Write() ; 
+    
 
 
 }

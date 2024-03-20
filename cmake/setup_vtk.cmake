@@ -11,6 +11,7 @@ find_package(VTK REQUIRED
   CommonDataModel
   IOXML
   IOParallelXML
+  ParallelMPI
 )
 
 message(STATUS "VTK libraries: ${VTK_LIBRARIES}")

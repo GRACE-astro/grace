@@ -1,0 +1,14 @@
+name: "thunder"
+amr: {
+  npoints_block_x: 8,
+  npoints_block_y: 8,
+  npoints_block_z: 8,
+  n_ghostzones: 1,
+  physical_coordinates: "spherical",
+  initial_refinement_level: 4,
+  inner_region_side: 0.25, 
+  outer_region_radius: 1. 
+}
+IO: {
+  volume_output_cell_variables: ["dens", "beta[0]"]
+}

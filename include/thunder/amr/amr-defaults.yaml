@@ -41,5 +41,15 @@ amr: {
   npoints_block_y: 16,
   npoints_block_z: 16,
 
-  n_ghostzones: 4
+  n_ghostzones: 4,
+
+
+  max_refinement_level: 11,
+
+  refinement_criterion: "FLASH_second_deriv",
+  refinement_criterion_reduction: "max", 
+  refinement_criterion_CTORE: 0.8,
+  refinement_criterion_CTODE: 0.2,
+  refinement_criterion_var:   "dens",
+  FLASH_criterion_eps     : 0.01 
 }

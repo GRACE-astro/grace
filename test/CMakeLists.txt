@@ -142,6 +142,14 @@ vtk_module_autoinit(
     MODULES ${VTK_LIBRARIES}
     )
 
+
+add_executable( interpolator_test test_interpolators.cpp )
+target_include_directories( interpolator_test PRIVATE "${HEADER_LIST}")
+target_link_libraries( interpolator_test PRIVATE
+        kokkos_tests_main
+        Catch2::Catch2 
+        Kokkos::kokkos ) 
+
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)
 add_test(NAME sc_wrappers_test COMMAND 
