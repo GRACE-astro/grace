@@ -31,6 +31,8 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Vector.hpp>
 
+#include <bc_helpers.hh> 
+
 namespace thunder { namespace amr {
 
 void thunder_iterate_faces( p4est_iterater_face_info_t * info 
@@ -38,9 +40,8 @@ void thunder_iterate_faces( p4est_iterater_face_info_t * info
 {
     using namespace thunder; 
 
-
-    auto physical_boundary_info = 
-        reinterpret_cast<Kokkos::vector<>*>(user_data) ; 
+    auto face_iter_data = reinterpret_cast<iterate_face_data_t*>(user_data) ; 
+    auto physical_boundary_info = face_iter_data->phys_bc_idx ; 
     
     sc_array_view_t<p4est_iter_face_side_t> sides{
         &(info->sides)
@@ -80,10 +81,20 @@ void thunder_iterate_faces( p4est_iterater_face_info_t * info
     ASSERT( orientation == 0
           , "Twisted grid topologies not yet implemented"
             " in ghost exchange." ) ; 
+    auto mpi_context = face_data->context ; 
+
+    p4est_ghost_t* ghost_quads = info->ghost_layer ; 
+    
+    ASSERT_DBG( ghost_quads != nullptr, "Ghost layer is null.");
     
     for( auto const& side: sides )
     {
-        
+        if( side.is_ghost )
+        {
+
+        } else {
+            
+        }
     }
 
 

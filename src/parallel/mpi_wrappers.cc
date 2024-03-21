@@ -57,4 +57,24 @@ int mpi_comm_rank(sc_MPI_Comm comm)
     return rank ;
 }
 
+void mpi_waitall(thunder_transfer_context_t& context)
+{
+    int mpi_retval; 
+    if ( context._snd_rq.size() > 0 ) {
+        mpi_retval = 
+            sc_MPI_Waitall ( context._snd_rq.size(), context._snd_rq.data()
+                           , sc_MPI_STATUSES_IGNORE ) ;
+        ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+                "mpi_waitall call failed.") ;
+    } 
+    if ( context._rcv_rq.size() > 0 )
+    {
+        mpi_retval =
+            sc_MPI_Waitall ( context._rcv_rq.size(), context._rcv_rq.data()
+                           , sc_MPI_STATUSES_IGNORE ) ;
+        ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+                "mpi_waitall call failed.") ;
+    }
+}
+
 }

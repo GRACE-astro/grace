@@ -105,6 +105,11 @@ class quadrant_t
     linearid(int level) const {
         return p4est_quadrant_linear_id(_pquad, level) ; 
     }
+    /**
+     * @brief Get the index of tree containing this quadrant.
+     */
+    int64_t THUNDER_ALWAYS_INLINE 
+    tree_index() const { return _pquad->p.which_tree; }
     //*****************************************************************************************************
     /**
      * @brief Set user data of this quadrant.
@@ -135,6 +140,48 @@ class quadrant_t
     get_user_data() 
     {
         return reinterpret_cast<T*>(_pquad->p.user_data); 
+    }
+    //*****************************************************************************************************
+    /**
+     * @brief For halo quadrants: get tree index.
+     * \cond thunder_detail
+    */
+    THUNDER_ALWAYS_INLINE p4est_topidx_t  
+    halo_owner_tree() 
+    {
+        return _pquad->p.piggy3.which_tree; 
+    }
+    //*****************************************************************************************************
+    /**
+     * @brief For halo quadrants: get owner's local index of this quadrant.
+     * \cond thunder_detail
+    */
+    THUNDER_ALWAYS_INLINE p4est_topidx_t  
+    halo_owner_locidx() 
+    {
+        return _pquad->p.piggy3.local_num; 
+    }
+    //*****************************************************************************************************
+    /**
+     * @brief For halo quadrants: get owner's rank.
+     * \cond thunder_detail
+    */
+    THUNDER_ALWAYS_INLINE int  
+    halo_owner_rank() 
+    {
+        return _pquad->p.piggy1.owner_rank; 
+    }
+    //*****************************************************************************************************
+
+    //*****************************************************************************************************
+    /**
+     * @brief Get the raw pointer to the p4est_quadrant_t.
+     * \cond thunder_detail
+    */
+    THUNDER_ALWAYS_INLINE p4est_quadrant_t*  
+    get() 
+    {
+        return _pquad; 
     }
     //*****************************************************************************************************
 } ; 

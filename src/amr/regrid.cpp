@@ -46,7 +46,7 @@ void regrid() {
 
     auto& params = config_parser::get()             ; 
     auto&  state  = variable_list::get().getstate() ; 
-    int nvars = state.extent(THUNDER_NSPACEDIM+1)   ; 
+    int nvars = state.extent(THUNDER_NSPACEDIM)   ; 
 
     size_t thunder_maxlevel = 
         params["amr"]["max_refinement_level"].as<size_t>() ; 
@@ -64,8 +64,8 @@ void regrid() {
     auto u = Kokkos::subview(state, VEC(  Kokkos::ALL() 
                                         , Kokkos::ALL() 
                                         , Kokkos::ALL() )
-                                    , Kokkos::ALL() 
                                     , get_variable_index(varname)
+                                    , Kokkos::ALL() 
                                     ) ; 
     if( ref_criterion == "FLASH_second_deriv") {
         double eps = params["amr"]["FLASH_criterion_eps"].as<double>() ; 
@@ -145,8 +145,8 @@ void regrid() {
     Kokkos::realloc(state_swap   , VEC( nx + 2*ngz 
                                  ,      ny + 2*ngz 
                                  ,      nz + 2*ngz )
-                                 , nq_new 
                                  , nvars
+                                 , nq_new                          
     ) ; 
     /******************************************************************************************/
     /*                      Collect indices of outgoing and incoming                          */
@@ -167,14 +167,14 @@ void regrid() {
                                               , VEC( Kokkos::ALL()
                                                    , Kokkos::ALL()
                                                    , Kokkos::ALL())
-                                              , iq_old
-                                              , Kokkos::ALL()) ;
+                                              , Kokkos::ALL()
+                                              , iq_old) ;
             auto sview_swap  = Kokkos::subview( state_swap
                                               , VEC( Kokkos::ALL()
                                                    , Kokkos::ALL()
                                                    , Kokkos::ALL())
-                                              , iq_new
-                                              , Kokkos::ALL()) ;
+                                              , Kokkos::ALL()
+                                              , iq_new) ;
             Kokkos::deep_copy(default_execution_space{}, sview_swap, sview_state) ; 
             iq_new++; iq_old++ ; 
         } else if ( flag == NEED_PROLONGATION )
@@ -254,7 +254,7 @@ void regrid() {
     auto const new_glob_qoffsets = amr::get_global_quadrant_offsets() ; 
     size_t const quadrant_data_size = EXPR(   (nx+2*ngz)
                                           , * (ny+2*ngz)
-                                          , * (nz+2*ngz)  ) * sizeof(double); 
+                                          , * (nz+2*ngz)  ) * nvars * sizeof(double); 
     size_t const nq_local = amr::get_local_num_quadrants() ; 
     /******************************************************************************************/
     /*                              Realloc data and partition forest                         */
@@ -262,63 +262,61 @@ void regrid() {
     Kokkos::realloc( state      ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 
                                         , nz + 2*ngz )
+                                ,   nvars
                                 ,   nq_local 
-                                ,   nvars ) ;
+                                 ) ;
     /******************************************************************************************/
     /*                                Transfer data                                           */
     /******************************************************************************************/
-    //p4est_transfer_context_t* contexts[nvars] ; 
-    for( int ivar=0; ivar<nvars; ++ivar){
-        auto var_state = 
-            Kokkos::subview(state, 
-                            VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                            ,Kokkos::ALL(), ivar) ;
-        auto var_swap =
-            Kokkos::subview(state_swap, 
-                            VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                            ,Kokkos::ALL(), ivar) ;
-        //contexts[ivar] = 
-        p4est_transfer_fixed (
+
+    auto context = 
+        p4est_transfer_fixed_begin (
                 new_glob_qoffsets.data() 
                 , glob_qoffsets.data()
                 , parallel::get_comm_world() 
-                , parallel::THUNDER_PARTITION_TAG + parallel::THUNDER_N_MPI_TAGS * ivar 
-                , reinterpret_cast<void*>(var_state.data())
-                , reinterpret_cast<void*>(var_swap.data())
+                , parallel::THUNDER_PARTITION_TAG 
+                , reinterpret_cast<void*>(state.data())
+                , reinterpret_cast<void*>(state_swap.data())
                 , quadrant_data_size 
         ) ; 
-    }
+
     auto& coords = variable_list::get().getcoords() ; 
     Kokkos::resize( coords      ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 
                                         , nz + 2*ngz )
+                                ,   THUNDER_NSPACEDIM
                                 ,   nq_local 
-                                ,   THUNDER_NSPACEDIM ) ;
-    Kokkos::realloc( idx        ,   nq_local 
-                                ,   THUNDER_NSPACEDIM ) ;
+                                 ) ;
+    Kokkos::realloc( idx        , THUNDER_NSPACEDIM
+                                ,   nq_local 
+                                 ) ;
     fill_cell_coordinates(coords, idx) ;
     /******************************************************************************************/
     /*                            Auxiliary vars are reallocated                              */
     /*                            but not re-initialized.                                     */
     /******************************************************************************************/
     auto & aux = variable_list::get().getaux() ; 
-    int nvars_aux = aux.extent(THUNDER_NSPACEDIM+1) ; 
+    int nvars_aux = aux.extent(THUNDER_NSPACEDIM) ; 
     Kokkos::resize( aux         ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 
                                         , nz + 2*ngz )
+                                ,   nvars_aux
                                 ,   nq_local 
-                                ,   nvars_aux ) ;
-
+                                ) ;    
+    /******************************************************************************************/
+    /*                                Synchronize everything                                  */
+    /******************************************************************************************/
+    p4est_transfer_fixed_end(context) ;  
+    /******************************************************************************************/
+    /*                                Copy state to scratch                                   */
+    /******************************************************************************************/
     Kokkos::realloc( state_swap ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 
                                         , nz + 2*ngz )
+                                ,   nvars
                                 ,   nq_local 
-                                ,   nvars ) ;
-    Kokkos::deep_copy(default_execution_space{}, state_swap, state) ; 
-    /******************************************************************************************/
-    /*                                Synchronize everything                                  */
-    /******************************************************************************************/ 
-    Kokkos::fence() ;
+                                ) ;
+    Kokkos::deep_copy(state_swap, state) ; 
     /******************************************************************************************/
     /*                                      All done                                          */
     /******************************************************************************************/

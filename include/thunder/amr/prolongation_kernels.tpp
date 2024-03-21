@@ -126,7 +126,7 @@ struct prolongator_t {
                 ngz + i0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 0UL],
                 ngz + j0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 1UL],
                 ngz + k0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 2UL]
-            ),iq,ivar) ; 
+            ),ivar,iq) ; 
         }
         InterpT interpolator(x_interp,y_interp) ; 
         /* 

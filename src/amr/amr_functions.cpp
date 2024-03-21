@@ -100,6 +100,38 @@ get_quadrant(size_t iquad)
     return tree.quadrant(iquad-tree.quadrants_offset()) ; 
 }
 
+int64_t 
+get_quadrant_locidx(quadrant_t quad)
+{
+    auto tree = forest::get().tree(quad.tree_index()); 
+    int64_t locidx{0L} ; 
+    for( int64_t locidx=0; locidx<tree.num_quadrants(); ++locidx ){
+        auto q = tree.quadrant(locidx) ; 
+        if ( p4est_quadrant_is_equal(q.get(), quad.get()) ){
+            break ; 
+        } ;
+    }
+    return locidx + tree.quadrants_offset() ;
+}
+
+int64_t 
+get_quadrant_locidx(p4est_quadrant_t* quad)
+{
+    return get_quadrant_locidx(quadrant_t(quad)) ; 
+}
+
+int 
+get_halo_quad_owner(quadrant_t& quad)
+{
+    return quad.halo_owner_rank() ; 
+};
+
+int 
+get_halo_quad_owner(p4est_quadrant_t* quad)
+{
+    return quadrant_t(quad).halo_owner_rank() ;
+}
+
 std::array<double,THUNDER_NSPACEDIM> 
 get_tree_vertex(size_t which_tree, size_t which_vertex)
 {

@@ -99,14 +99,14 @@ void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM>& coords, scalar_arra
                         , KOKKOS_LAMBDA ( VEC(int i, int j, int k) )
                         {
                             EXPR(
-                            coords(VEC(i,j,k),iquad_glob,0) = qx + ( i - ngz + 0.5 ) * dx_quad ;,
-                            coords(VEC(i,j,k),iquad_glob,1) = qy + ( j - ngz + 0.5 ) * dy_quad ;,
-                            coords(VEC(i,j,k),iquad_glob,2) = qz + ( k - ngz + 0.5 ) * dz_quad ; 
+                            coords(VEC(i,j,k),0,iquad_glob) = qx + ( i - ngz + 0.5 ) * dx_quad ;,
+                            coords(VEC(i,j,k),1,iquad_glob) = qy + ( j - ngz + 0.5 ) * dy_quad ;,
+                            coords(VEC(i,j,k),2,iquad_glob) = qz + ( k - ngz + 0.5 ) * dz_quad ; 
                             ) 
                             EXPR(
-                            ispacing(iquad_glob,0) = 1./ ( 1UL<<level )/nx ;,
-                            ispacing(iquad_glob,1) = 1./ ( 1UL<<level )/ny ;,
-                            ispacing(iquad_glob,2) = 1./ ( 1UL<<level )/nz ; 
+                            ispacing(0,iquad_glob) = 1./ ( 1UL<<level )/nx ;,
+                            ispacing(1,iquad_glob) = 1./ ( 1UL<<level )/ny ;,
+                            ispacing(2,iquad_glob) = 1./ ( 1UL<<level )/nz ; 
                             ) 
                         } ) ;  
             }
@@ -131,14 +131,14 @@ void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM>& coords, scalar_arra
                         , KOKKOS_LAMBDA ( VEC(int i, int j, int k) )
                         {
                             EXPR(
-                            coords(VEC(i,j,k),iquad_glob,0) = dx_lev * qcoords[0] + ( i - ngz + 0.5 ) * dx_quad ;,
-                            coords(VEC(i,j,k),iquad_glob,1) = dx_lev * qcoords[1] + ( j - ngz + 0.5 ) * dy_quad ;,
-                            coords(VEC(i,j,k),iquad_glob,2) = dx_lev * qcoords[2] + ( k - ngz + 0.5 ) * dz_quad ; 
+                            coords(VEC(i,j,k),0,iquad_glob) = dx_lev * qcoords[0] + ( i - ngz + 0.5 ) * dx_quad ;,
+                            coords(VEC(i,j,k),1,iquad_glob) = dx_lev * qcoords[1] + ( j - ngz + 0.5 ) * dy_quad ;,
+                            coords(VEC(i,j,k),2,iquad_glob) = dx_lev * qcoords[2] + ( k - ngz + 0.5 ) * dz_quad ; 
                             ) 
                             EXPR(
-                            ispacing(iquad_glob,0) = 1./dx_quad ;,
-                            ispacing(iquad_glob,1) = 1./dy_quad ;,
-                            ispacing(iquad_glob,2) = 1./dz_quad ; 
+                            ispacing(0,iquad_glob) = 1./dx_quad ;,
+                            ispacing(1,iquad_glob) = 1./dy_quad ;,
+                            ispacing(2,iquad_glob) = 1./dz_quad ; 
                             ) 
                         } ) ;  
             }

@@ -45,7 +45,7 @@ static vtkSmartPointer<vtkDoubleArray> vtk_create_cell_data(ViewT data_view, std
         data_view.extent(0) 
       * data_view.extent(1) 
       * data_view.extent(2) 
-      * data_view.extent(THUNDER_NSPACEDIM) 
+      * data_view.extent(THUNDER_NSPACEDIM+1*is_vector) 
     ) ;
     if( is_vector ) {
         std::string comp_name = name + "[0]" ; 
@@ -57,7 +57,7 @@ static vtkSmartPointer<vtkDoubleArray> vtk_create_cell_data(ViewT data_view, std
     } else {
         data->SetName(name.c_str()) ; 
     }   
-    size_t const  nq{data_view.extent(THUNDER_NSPACEDIM) }
+    size_t const  nq{data_view.extent(THUNDER_NSPACEDIM+1*is_vector) }
                 , nz{data_view.extent(2)}
                 , ny{data_view.extent(1)}
                 , nx{data_view.extent(0)} ; 
@@ -70,7 +70,7 @@ static vtkSmartPointer<vtkDoubleArray> vtk_create_cell_data(ViewT data_view, std
                     if constexpr(is_vector) 
                     {
                         for( int icomp=0; icomp<1+2*is_vector; icomp++) 
-                            data->SetComponent(icell,icomp,data_view(ix,iy,iz,iq,icomp)) ;
+                            data->SetComponent(icell,icomp,data_view(ix,iy,iz,icomp,iq)) ;
                     } else {
                         data->SetComponent(icell,0, data_view(ix,iy,iz,iq) ) ;
                     }

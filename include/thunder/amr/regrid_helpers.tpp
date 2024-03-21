@@ -120,7 +120,7 @@ void prolongate_variables(    InViewT  in_state
     auto ngz = amr::get_n_ghosts()                   ; 
     long in_n_quad  = in_idx.size()                  ; 
     long out_n_quad = out_idx.size()                 ;
-    int nvar = in_state.extent(THUNDER_NSPACEDIM+1)  ; 
+    int nvar = in_state.extent(THUNDER_NSPACEDIM)  ; 
 
     auto p_in_idx  = in_idx.d_view  ; 
     auto p_out_idx = out_idx.d_view ; 
@@ -174,7 +174,7 @@ void prolongate_variables(    InViewT  in_state
                             size_t q_out = p_out_idx(iq_parent) ; 
                             for( int ichild=0; ichild<P4EST_CHILDREN; ++ichild){
                                 size_t q_in  = p_in_idx(P4EST_CHILDREN*iq_parent + ichild) ; 
-                                in_state(VEC(i+ngz,j+ngz,k+ngz),q_in,ivar) = 
+                                in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) = 
                                     kernel(VEC(i,j,k),q_out,ivar,ichild) ;
                             }
                         }
@@ -197,7 +197,7 @@ void restrict_variables(      InViewT  in_state
     auto ngz = amr::get_n_ghosts()                          ;  
     size_t in_n_quad  = in_idx.size()                       ; 
     size_t out_n_quad = out_idx.size()                      ;
-    int nvar = in_state.extent(THUNDER_NSPACEDIM+1) ; 
+    int nvar = in_state.extent(THUNDER_NSPACEDIM) ; 
 
     auto p_in_idx  = in_idx.d_view  ; 
     auto p_out_idx = out_idx.d_view ; 
@@ -226,7 +226,7 @@ void restrict_variables(      InViewT  in_state
                             q_out[ichild] = 
                                 p_out_idx(team.league_rank()*P4EST_CHILDREN+ichild); 
                         }
-                        in_state(VEC(i+ngz,j+ngz,k+ngz),q_in,ivar) = 
+                        in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) = 
                             kernel(VEC(i,j,k),q_out,ivar) ;
                     }
         ) ; 

@@ -37,6 +37,7 @@
 /// MPI. 
 #include <sc.h>
 
+#include <vector>
 
 #define mpi_comm sc_MPI_Comm
 #define mpi_op sc_MPI_Op 
@@ -66,6 +67,7 @@ namespace parallel {
 enum Thunder_MPI_Tags_t
 {
     THUNDER_PARTITION_TAG=0,
+    THUNDER_HALO_EXCHANGE_TAG,
     THUNDER_N_MPI_TAGS 
 } ; 
 
@@ -95,6 +97,12 @@ namespace detail {
     MPI_PRIMITIVE_TYPE(long double,           sc_MPI_UNSIGNED_LONG_LONG) ;
     #undef MPI_PRIMITIVE_TYPE
 }
+
+struct thunder_transfer_context_t 
+{ 
+    std::vector<sc_MPI_Request> _rcv_rq ; 
+    std::vector<sc_MPI_Request> _snd_rq ; 
+} ; 
 
 void mpi_init(int* argc, char *** argv) ;
 
@@ -386,6 +394,9 @@ void mpi_irecv(T* recv_buffer, int size,
     ASSERT( mpi_retval == sc_MPI_SUCCESS, 
             "mpi_irecv call failed.") ;
 }
+
+void mpi_waitall(thunder_transfer_context_t& context);
+
 
 }
 

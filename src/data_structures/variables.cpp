@@ -84,27 +84,27 @@ variable_list_impl_t::variable_list_impl_t()
     size_t nq          = forest.local_num_quadrants() ;
     Kokkos::realloc( _coords
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
-                   , nq 
                    , THUNDER_NSPACEDIM
+                   , nq 
                    ) ;
     Kokkos::realloc( _coords_ispacing
-                   , nq 
                    , THUNDER_NSPACEDIM
+                   , nq 
                    ) ;
     Kokkos::realloc( _state
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
-                   , nq 
                    , variables::detail::num_evolved
+                   , nq 
                    ) ;
     Kokkos::realloc( _state_p
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
-                   , nq 
                    , variables::detail::num_evolved
+                   , nq 
                    ) ;
     Kokkos::realloc( _aux
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
-                   , nq 
                    , variables::detail::num_auxiliary
+                   , nq 
                    ) ;
     /* all done */}
 

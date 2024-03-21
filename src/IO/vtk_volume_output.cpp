@@ -105,189 +105,66 @@ vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() {
     size_t ngz = thunder::amr::get_n_ghosts() ; 
 
     auto vars = thunder::variable_list::get().getstate() ; 
-    auto aux  = thunder::variable_list::get().getaux()   ; 
-    auto scalar_host_mirror = 
-    variable_properties_t<THUNDER_NSPACEDIM>::view_t::HostMirror(
-          "scalar_output_mirror"
-        , VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz)
-        ,  nq
-        ,  scalars.size() 
-    ) ; 
-    auto vector_host_mirror = 
-    variable_properties_t<THUNDER_NSPACEDIM>::view_t::HostMirror(
-          "vector_output_mirror"
-        , VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz)
-        ,  nq 
-        ,  3 * vectors.size() 
-    ) ; 
+    auto aux  = thunder::variable_list::get().getaux()   ;
     using exec_space = decltype(vars)::execution_space ; 
     auto grid = setup_vtk_volume_grid() ; 
-    
+    auto h_mirror = Kokkos::create_mirror_view(vars) ;
+    Kokkos::deep_copy(h_mirror, vars ) ; 
+    auto aux_h_mirror = Kokkos::create_mirror_view(aux) ; 
+    Kokkos::deep_copy(exec_space{}, aux_h_mirror, aux)  ; 
     for( int ivar=0; ivar<scalars.size(); ++ivar )
     {
         size_t varidx = thunder::get_variable_index(scalars[ivar]) ; 
-        auto h_sview = Kokkos::subview(scalar_host_mirror, VEC(  Kokkos::ALL()
+        
+        auto h_sview = Kokkos::subview(h_mirror           , VEC(  Kokkos::ALL()
                                                                , Kokkos::ALL()
                                                                , Kokkos::ALL() )
-                                                          , Kokkos::ALL()
-                                                          , ivar) ; 
-        auto d_sview = Kokkos::subview(vars               , VEC( Kokkos::ALL()
-                                                               , Kokkos::ALL()
-                                                               , Kokkos::ALL() )
-                                                          , Kokkos::ALL()
-                                                          , varidx) ;
-        Kokkos::deep_copy(h_sview, d_sview ) ;
-    }
-    for( int ivar=0; ivar<scalars.size(); ++ivar )
-    {
-        auto h_sview = Kokkos::subview(scalar_host_mirror, VEC(  Kokkos::pair(ngz, nx+ngz)
-                                                               , Kokkos::pair(ngz, ny+ngz)
-                                                               , Kokkos::pair(ngz, nz+ngz) )
-                                                          , Kokkos::ALL()
                                                           , ivar
-                                                          ) ;
-        grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,scalars[ivar])) ; 
-    }
-    
-    /* 
-    * In the following we perform a series of 
-    * calls to deep_copy for each variable group 
-    * separately. These calls are asynchronous 
-    * when the backend is CUDA or HIP and this 
-    * allows us to overlap the data transfer 
-    * from device to host and the writing of 
-    * data to the vtkUnstructuredGrid object. 
-    */
-    /*
-    for( int ivar=0; ivar<scalars.size(); ++ivar )
-    {
-        size_t varidx = thunder::get_variable_index(scalars[ivar]) ; 
-        auto h_sview = Kokkos::subview(scalar_host_mirror, VEC(  Kokkos::ALL()
-                                                               , Kokkos::ALL()
-                                                               , Kokkos::ALL() )
                                                           , Kokkos::ALL()
-                                                          , ivar) ; 
-        auto d_sview = Kokkos::subview(vars               , VEC( Kokkos::ALL()
-                                                               , Kokkos::ALL()
-                                                               , Kokkos::ALL() )
-                                                          , Kokkos::ALL()
-                                                          , varidx) ;
-        Kokkos::deep_copy(exec_space{}, h_sview, d_sview ) ;
+                                                          ) ;  
+        grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,scalars[ivar])) ;
+
     }
-    Kokkos::fence() ; 
-    std::cout << "Copied scalars...  " << std::endl ;
     for( int ivar=0; ivar<vectors.size(); ++ivar )
     {
-        size_t varidx = thunder::get_variable_index(vectors[ivar]+"[0]") ; 
-        auto h_sview = Kokkos::subview(vector_host_mirror, VEC(  Kokkos::ALL()
+        size_t varidx = thunder::get_variable_index(scalars[ivar]) ; 
+        
+        auto h_sview = Kokkos::subview(h_mirror           , VEC(  Kokkos::ALL()
                                                                , Kokkos::ALL()
                                                                , Kokkos::ALL() )
+                                                          , Kokkos::pair(ivar,ivar+3)
                                                           , Kokkos::ALL()
-                                                          , Kokkos::pair(ivar, ivar+3)
-                                                          ) ; 
-        auto d_sview = Kokkos::subview(vars               , VEC( Kokkos::ALL()
-                                                               , Kokkos::ALL()
-                                                               , Kokkos::ALL() )
-                                                          , Kokkos::ALL()
-                                                          , Kokkos::pair(varidx, varidx+3)
-                                                          ) ;
-        Kokkos::deep_copy(exec_space{}, h_sview, d_sview ) ;
-    }
+                                                          ) ;  
+        grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,scalars[ivar])) ;
 
-    for( int ivar=0; ivar<scalars.size(); ++ivar )
-    {
-        auto h_sview = Kokkos::subview(scalar_host_mirror, VEC(  Kokkos::pair(ngz, nx+ngz)
-                                                               , Kokkos::pair(ngz, ny+ngz)
-                                                               , Kokkos::pair(ngz, nz+ngz) )
-                                                          , Kokkos::ALL()
-                                                          , ivar
-                                                          ) ;
-        grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,scalars[ivar])) ; 
     }
-
-    Kokkos::fence() ; 
-    std::cout << "Copied vectors...  " << std::endl ;
-    
-    Kokkos::resize(  scalar_host_mirror
-                  ,  VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz)
-                  ,  nq 
-                  ,  aux_scalars.size() 
-                  ) ; 
+    Kokkos::fence() ;
     for( int ivar=0; ivar<aux_scalars.size(); ++ivar )
     {
         size_t varidx = thunder::get_variable_index(aux_scalars[ivar]) ; 
-        auto h_sview = Kokkos::subview(scalar_host_mirror, VEC(  Kokkos::ALL()
+        
+        auto h_sview = Kokkos::subview(aux_h_mirror       , VEC(  Kokkos::ALL()
                                                                , Kokkos::ALL()
                                                                , Kokkos::ALL() )
-                                                          , Kokkos::ALL()
                                                           , ivar
-                                                          ) ; 
-        auto d_sview = Kokkos::subview(aux                , VEC( Kokkos::ALL()
-                                                               , Kokkos::ALL()
-                                                               , Kokkos::ALL() ) 
                                                           , Kokkos::ALL()
-                                                          , varidx
-                                                          ) ;
-        Kokkos::deep_copy(exec_space{}, h_sview, d_sview ) ;
-    }
+                                                          ) ;  
+        grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,aux_scalars[ivar])) ;
 
-    for( int ivar=0; ivar<vectors.size(); ++ivar )
-    {
-        auto h_sview = Kokkos::subview(vector_host_mirror, VEC(  Kokkos::pair(ngz, nx+ngz)
-                                                               , Kokkos::pair(ngz, ny+ngz)
-                                                               , Kokkos::pair(ngz, nz+ngz) )
-                                                          , Kokkos::ALL()
-                                                          , Kokkos::pair(ivar, ivar+3)
-                                                          ) ;
-        grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,vectors[ivar])) ; 
     }
-    Kokkos::fence() ; 
-    
-    Kokkos::resize(  vector_host_mirror
-                  ,  VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz)
-                  ,  nq
-                  ,  3*aux_vectors.size() 
-                ) ; 
     for( int ivar=0; ivar<aux_vectors.size(); ++ivar )
     {
-        size_t varidx = thunder::get_variable_index(aux_vectors[ivar]+"[0]") ; 
-        auto h_sview = Kokkos::subview(scalar_host_mirror, VEC(  Kokkos::ALL()
+        size_t varidx = thunder::get_variable_index(aux_vectors[ivar]) ; 
+        
+        auto h_sview = Kokkos::subview(aux_h_mirror       , VEC(  Kokkos::ALL()
                                                                , Kokkos::ALL()
                                                                , Kokkos::ALL() )
+                                                          , Kokkos::pair(ivar,ivar+3)
                                                           , Kokkos::ALL()
-                                                          , Kokkos::pair(ivar, ivar+3)
-                                                          ) ; 
-        auto d_sview = Kokkos::subview(aux                , VEC( Kokkos::ALL()
-                                                               , Kokkos::ALL()
-                                                               , Kokkos::ALL() ) 
-                                                          , Kokkos::ALL()
-                                                          , Kokkos::pair(varidx, varidx+3)
-                                                          ) ;
-        Kokkos::deep_copy(exec_space{}, h_sview, d_sview ) ;
-    }
+                                                          ) ;  
+        grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,aux_vectors[ivar])) ;
 
-    for( int ivar=0; ivar<aux_scalars.size(); ++ivar )
-    {
-        auto h_sview = Kokkos::subview(scalar_host_mirror, VEC(  Kokkos::pair(ngz, nx+ngz)
-                                                               , Kokkos::pair(ngz, ny+ngz)
-                                                               , Kokkos::pair(ngz, nz+ngz) )
-                                                          , Kokkos::ALL()
-                                                          , ivar
-                                                          ) ;
-        grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,aux_scalars[ivar])) ; 
     }
-    Kokkos::fence() ; 
-    for( int ivar=0; ivar<aux_vectors.size(); ++ivar )
-    {
-        auto h_sview = Kokkos::subview(vector_host_mirror, VEC(  Kokkos::pair(ngz, nx+ngz)
-                                                               , Kokkos::pair(ngz, ny+ngz)
-                                                               , Kokkos::pair(ngz, nz+ngz) )
-                                                          , Kokkos::ALL()
-                                                          , Kokkos::pair(ivar, ivar+3)
-                                                          ) ;
-        grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,aux_vectors[ivar])) ; 
-    }
-    */
     return grid ; 
 }; 
 

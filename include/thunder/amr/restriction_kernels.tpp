@@ -94,7 +94,7 @@ struct restrictor_t {
                 ngz + i0 - s_min + x_param[THUNDER_NSPACEDIM*is + 0UL],
                 ngz + j0 - s_min + x_param[THUNDER_NSPACEDIM*is + 1UL],
                 ngz + k0 - s_min + x_param[THUNDER_NSPACEDIM*is + 2UL]
-                ),iq_child,ivar) ;
+                ),ivar,iq_child) ;
 
         }
         AvgT averager(x,y) ; 

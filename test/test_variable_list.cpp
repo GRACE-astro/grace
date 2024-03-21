@@ -17,5 +17,5 @@ TEST_CASE("variable_list", "[variable_list]")
     std::cout << state.label() << std::endl ; 
     int rank = THUNDER_NSPACEDIM + 2 ;
     int nvars_evolved = variables::detail::num_evolved ; 
-    REQUIRE( state.extent(rank-1) == nvars_evolved ) ; 
+    REQUIRE( state.extent(rank-2) == nvars_evolved ) ; 
 } 

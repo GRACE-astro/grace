@@ -48,7 +48,7 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
         double const r2 = EXPR( math::int_pow<2>(coords[0]),
                               + math::int_pow<2>(coords[1]),
                               + math::int_pow<2>(coords[2]) )  ; 
-        h_state_mirror(VEC(i,j,k),q,DENS) = exp( - r2 / 0.5 ) ; 
+        h_state_mirror(VEC(i,j,k),DENS,q) = exp( - r2 / 0.5 ) ; 
     }
     Kokkos::deep_copy(state, h_state_mirror) ; 
     Kokkos::parallel_for("Fill_beta_vector"
@@ -56,9 +56,9 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
                           ({VEC(0,0,0),0}, {VEC(nx,ny,nz),nq})
                         , KOKKOS_LAMBDA (VEC(int i, int j, int k), int q)
                         {
-                            state(VEC(i,j,k),q,BETAX_) = 1.0 ; 
-                            state(VEC(i,j,k),q,BETAY_) = 0.0 ; 
-                            state(VEC(i,j,k),q,BETAZ_) = 0.0 ; 
+                            state(VEC(i,j,k),BETAX_,q) = 1.0 ; 
+                            state(VEC(i,j,k),BETAY_,q) = 0.0 ; 
+                            state(VEC(i,j,k),BETAZ_,q) = 0.0 ; 
                         }) ; 
     std::cout << "Calling output routine..." << std::endl ;
     thunder::IO::write_volume_cell_data() ; 

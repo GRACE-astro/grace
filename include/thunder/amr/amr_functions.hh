@@ -98,6 +98,32 @@ get_quadrant(size_t which_tree, size_t iquad) ;
 quadrant_t  
 get_quadrant(size_t iquad) ; 
 /**
+ * @brief Get local index of
+ *        a quadrant 
+ */
+int64_t 
+get_quadrant_locidx(quadrant_t quad);
+/**
+ * @brief Get local index of
+ *        a quadrant 
+ */
+int64_t 
+get_quadrant_locidx(p4est_quadrant_t* quad);
+/**
+ * @brief For halo quadrants: get owner mpi 
+ *        rank.
+ * \cond thunder_detail
+ */
+int 
+get_halo_quad_owner(quadrant_t& quad);
+/**
+ * @brief For halo quadrants: get owner mpi 
+ *        rank.
+ * \cond thunder_detail
+ */
+int 
+get_halo_quad_owner(p4est_quadrant_t* quad);
+/**
  * @brief Free function form of <code>amr::connectivity().tree_vertex</code>
  * 
  * @param which_tree Tree index 
