@@ -43,6 +43,18 @@
 
 namespace thunder { namespace amr { 
 
+/**
+ * @brief Perform a regridding operation.
+ * 
+ * This function refines and coarsens the grid based on 
+ * the user-provided refinement criterion, it prolongates 
+ * and restricts state variables on the new grid structure,
+ * and then partitions the grid in parallel. Auxiliary variables
+ * are re-allocated according to the new grid structure but 
+ * they are not re-computed, and the aux array is empty coming
+ * out of this routine. The coordinates are re-computed on the 
+ * new grid.
+ */
 void regrid() ; 
 
 }} /* namespace thunder::amr */ 

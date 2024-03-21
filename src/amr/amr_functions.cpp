@@ -79,6 +79,12 @@ get_quadrant_owner(size_t iquad)
     return -1 ; 
 }
 
+size_t get_local_quadrants_offset(size_t itree)
+{
+    tree_t tree = thunder::amr::forest::get().tree(itree);
+    return tree.quadrants_offset() ; 
+}
+
 quadrant_t  
 get_quadrant(size_t which_tree, size_t iquad)
 {

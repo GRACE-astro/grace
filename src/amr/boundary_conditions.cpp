@@ -1,11 +1,11 @@
 /**
- * @file thunder_amr.hh
+ * @file boundary_conditions.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief Single include for all amr related utilities in thunder.
- * @date 2024-03-14
+ * @brief 
+ * @date 2024-03-21
  * 
  * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * Thunder is an evolution framework that uses Finite Differences
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -23,26 +23,25 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#ifndef THUNDER_AMR_THUNDER_AMR_HH
-#define THUNDER_AMR_THUNDER_AMR_HH
 
-#include <thunder_config.h>
+#include <Kokkos_Core.hpp>
 
-#include <thunder/utils/inline.h>
-#include <thunder/utils/device.h>
-
+#include <thunder/amr/thunder_amr.hh>
+#include <thunder/system/thunder_system.hh>
+#include <thunder/utils/thunder_utils.hh>
 #include <thunder/data_structures/macros.hh>
+#include <thunder/data_structures/memory_defaults.hh>
+#include <thunder/data_structures/variable_indices.hh>
+#include <thunder/data_structures/variables.hh>
+#include <thunder/config/config_parser.hh>
 
-#include<thunder/amr/p4est_headers.hh>
+#include <thunder/amr/bc_helpers.hh>
 
-#include <thunder/amr/quadrant.hh>
-#include <thunder/amr/tree.hh>
-#include <thunder/amr/amr_flags.hh>
-#include <thunder/amr/connectivity.hh>
-#include <thunder/amr/forest.hh>
-#include <thunder/amr/coordinates.hh>
-#include <thunder/amr/amr_functions.hh>
-#include <thunder/amr/regrid.hh>
-#include <thunder/amr/boundary_conditions.hh>
+namespace thunder { namespace amr {
 
-#endif /* THUNDER_AMR_THUNDER_AMR_HH */
+void apply_boundary_conditions() {
+    using namespace thunder ;
+
+}
+
+}} /* namespace thunder::amr */

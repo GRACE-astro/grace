@@ -129,6 +129,14 @@ void regrid() {
                       , amr::initialize_quadrant 
                       , amr::set_quadrant_flag ) ; 
     /******************************************************************************************/
+    /* Call to p4est_balance                                                                  */
+    /* This ensures the grid is 2:1 balanced.                                                 */
+    /******************************************************************************************/
+    p4est_balance_ext( amr::forest::get().get() 
+                      , P4EST_CONNECT_FACE
+                      , amr::initialize_quadrant 
+                      , amr::set_quadrant_flag ) ;
+    /******************************************************************************************/
     /*                       Resize variable arrays, we use state_p                           */
     /*                       as swap state, then copy data over                               */
     /******************************************************************************************/
@@ -227,6 +235,7 @@ void regrid() {
     } else {
         ERROR("Requested interpolator for restriction is not implemented.") ; 
     }
+    Kokkos::fence(); 
     /******************************************************************************************/
     /*                      Partition the new forest in parallel                              */
     /*                      we store global quadrant offsets, then                            */
@@ -243,9 +252,9 @@ void regrid() {
                                                , 0
                                                , nullptr  ) ; 
     auto const new_glob_qoffsets = amr::get_global_quadrant_offsets() ; 
-    size_t const quadrant_data_size = EXPR(   (nx+2*ngz)*nvars
-                                          , * (ny+2*ngz)*nvars
-                                          , * (nz+2*ngz)*nvars  ) ; 
+    size_t const quadrant_data_size = EXPR(   (nx+2*ngz)
+                                          , * (ny+2*ngz)
+                                          , * (nz+2*ngz)  ) * sizeof(double); 
     size_t const nq_local = amr::get_local_num_quadrants() ; 
     /******************************************************************************************/
     /*                              Realloc data and partition forest                         */
@@ -256,18 +265,29 @@ void regrid() {
                                 ,   nq_local 
                                 ,   nvars ) ;
     /******************************************************************************************/
-    /*                                Start transfer                                          */
+    /*                                Transfer data                                           */
     /******************************************************************************************/
-    auto transfer_context = 
-        p4est_transfer_fixed_begin (
-              new_glob_qoffsets.data() 
-            , glob_qoffsets.data()
-            , parallel::get_comm_world() 
-            , parallel::THUNDER_PARTITION_TAG
-            , reinterpret_cast<void*>(state.data())
-            , reinterpret_cast<void*>(state_swap.data())
-            , quadrant_data_size 
-    ) ; 
+    //p4est_transfer_context_t* contexts[nvars] ; 
+    for( int ivar=0; ivar<nvars; ++ivar){
+        auto var_state = 
+            Kokkos::subview(state, 
+                            VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                            ,Kokkos::ALL(), ivar) ;
+        auto var_swap =
+            Kokkos::subview(state_swap, 
+                            VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                            ,Kokkos::ALL(), ivar) ;
+        //contexts[ivar] = 
+        p4est_transfer_fixed (
+                new_glob_qoffsets.data() 
+                , glob_qoffsets.data()
+                , parallel::get_comm_world() 
+                , parallel::THUNDER_PARTITION_TAG + parallel::THUNDER_N_MPI_TAGS * ivar 
+                , reinterpret_cast<void*>(var_state.data())
+                , reinterpret_cast<void*>(var_swap.data())
+                , quadrant_data_size 
+        ) ; 
+    }
     auto& coords = variable_list::get().getcoords() ; 
     Kokkos::resize( coords      ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 
@@ -298,7 +318,6 @@ void regrid() {
     /******************************************************************************************/
     /*                                Synchronize everything                                  */
     /******************************************************************************************/ 
-    p4est_transfer_fixed_end ( transfer_context ) ;
     Kokkos::fence() ;
     /******************************************************************************************/
     /*                                      All done                                          */

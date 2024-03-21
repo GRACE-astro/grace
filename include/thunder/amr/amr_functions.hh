@@ -117,15 +117,36 @@ get_tree_vertex(size_t which_tree, size_t which_vertex) ;
  */
 std::array<double,THUNDER_NSPACEDIM> 
 get_tree_spacing(size_t which_tree) ;
-
+/**
+ * @brief Get a vector containing the first global quadrant of each rank
+ *        + 1 (the last entry is the total number of quadrant across all ranks).
+ */
 std::vector<int64_t>
 get_global_quadrant_offsets() ; 
-
+/**
+ * @brief Get physical coordinates of a point inside a local cell.
+ * 
+ * @param icell Index of the local cell 
+ * @param local_coords Logical coordinates \f$[0,1]^{d}\f$ of the points inside the cell
+ * @param include_gzs Include ghostzones in the calculation
+ * 
+ */
 std::array<double, THUNDER_NSPACEDIM> 
 get_physical_coordinates( size_t icell
                         , std::array<double,THUNDER_NSPACEDIM> const& local_coords = {VEC(0.,0.,0.)} 
                         , bool include_gzs=false) ; 
-
+/**
+ * @brief Get physical coordinates of a point inside a local cell, given 
+ *        the quadrant and spatial indices.
+ * 
+ * @param ijk Spatial indices of cell inside the quadrant
+ * @param nq  Local quadrant index  
+ * @param local_coords Logical coordinates \f$[0,1]^{d}\f$ of the points inside the cell
+ * @param include_gzs Include ghostzones in the calculation
+ * 
+ * NB: Including ghostzones means that \f$ijk={0,0(,0)}\f$ has negative logical coordinates,
+ *     and the logical coordinates origin lies at \f$ijk={ngz,ngz(,ngz)}\f$.
+ */
 std::array<double, THUNDER_NSPACEDIM> 
 get_physical_coordinates( std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
                         , size_t nq 

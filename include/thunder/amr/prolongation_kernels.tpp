@@ -32,15 +32,35 @@
 
 namespace thunder { namespace amr { 
 
-template< typename InterpT 
-        , typename StateViewT
-        , typename CoordViewT >  
+/**
+ * @brief Prolongation functor
+ * 
+ * @tparam InterpT    Type of interpolator
+ * @tparam StateViewT Type of state vector 
+ * @tparam CoordViewT Type of coordinate spacing vector
+ */
+template< typename InterpT      // Type of interpolator
+        , typename StateViewT   // Type of state vector 
+        , typename CoordViewT > // Type of coordinate spacing vector
 struct prolongator_t {
     long VEC( nx, ny, nz )   ; //!< Quadrant extents (unchanged)
     int ngz                  ; //!< Number of ghost cells 
     StateViewT state         ; //!< Old state
     CoordViewT idx_parent    ; //!< Old idx 
 
+    /**
+     * @brief Prolongate requested variable at the requested
+     *        point in the child quadrant
+     * 
+     * @param i       x-index of point in child quadrant
+     * @param j       y-index of point in child quadrant 
+     * @param z       z-index of point in child quadrant (3D only)
+     * @param iq      (Parent) quadrant index
+     * @param ivar    Variable index 
+     * @param ichild  Child quadrant index in z-ordering
+     * @return double Prolongated variable at requested point 
+     *                in the child quadrant.
+     */
     double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
     operator() ( VEC( int const& i
                     , int const& j 
