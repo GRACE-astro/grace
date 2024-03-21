@@ -114,6 +114,16 @@ class forest_impl_t
     THUNDER_ALWAYS_INLINE p4est_t* 
     get() const { return _p4est ; }
    //*****************************************************************************************************
+   /**
+   * @brief Get pointer to underlying p4est object. 
+   */
+    THUNDER_ALWAYS_INLINE int
+    global_quadrant_offset(size_t rank) const 
+    { 
+      return _p4est->global_first_quadrant[rank] ; 
+    }
+   //*****************************************************************************************************
+
  private:
    //*****************************************************************************************************
     /**

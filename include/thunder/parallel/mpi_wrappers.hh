@@ -63,6 +63,12 @@
 
 namespace parallel {
 
+enum Thunder_MPI_Tags_t
+{
+    THUNDER_PARTITION_TAG=0,
+    THUNDER_N_MPI_TAGS 
+} ; 
+
 namespace detail {
     template< typename T >
     struct mpi_type_utils {

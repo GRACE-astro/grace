@@ -106,6 +106,15 @@ get_tree_spacing(size_t which_tree)
     return thunder::amr::connectivity::get().tree_coordinate_exents(which_tree);
 }
 
+std::vector<int64_t>
+get_global_quadrant_offsets()
+{
+    std::vector<int64_t> offsets(parallel::mpi_comm_size()+1) ; 
+    for(int i=0; i<=parallel::mpi_comm_size(); ++i)
+        offsets[i] = forest::get().global_quadrant_offset(i) ; 
+    return std::move(offsets) ; 
+}
+
 std::array<double, THUNDER_NSPACEDIM> 
 get_physical_coordinates( std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
                         , size_t iq 

@@ -189,10 +189,8 @@ void regrid() {
             ERROR("Invalid state " << flag << " for quadrant " << iq_new << '\n') ;
         } 
     }
-    refine_incoming.host_to_device() ;
-    refine_outgoing.host_to_device() ; 
-    coarsen_incoming.host_to_device() ; 
-    coarsen_outgoing.host_to_device() ;
+    refine_incoming.host_to_device() ; refine_outgoing.host_to_device() ; 
+    coarsen_incoming.host_to_device() ; coarsen_outgoing.host_to_device() ;
     
     ASSERT_DBG( iq_old == nq, "Something went really wrong.") ;
 
@@ -230,21 +228,53 @@ void regrid() {
         ERROR("Requested interpolator for restriction is not implemented.") ; 
     }
     /******************************************************************************************/
-    /*                              Copy data and recompute coordinates                       */
+    /*                      Partition the new forest in parallel                              */
+    /*                      we store global quadrant offsets, then                            */
+    /*                      partition the forest, transfer state data                         */
+    /*                      asynchronously, and realloc other fields                          */
+    /*                      in the meanwhile. Coordinates are recomputed                      */
+    /*                      but the auxiliary fields are left empty.                          */
+    /******************************************************************************************/
+    auto const glob_qoffsets = amr::get_global_quadrant_offsets() ;
+    /******************************************************************************************/
+    /*                                    Partition forest                                    */
+    /******************************************************************************************/
+    size_t transfer_count = p4est_partition_ext( forest::get().get()
+                                               , 0
+                                               , nullptr  ) ; 
+    auto const new_glob_qoffsets = amr::get_global_quadrant_offsets() ; 
+    size_t const quadrant_data_size = EXPR(   (nx+2*ngz)*nvars
+                                          , * (ny+2*ngz)*nvars
+                                          , * (nz+2*ngz)*nvars  ) ; 
+    size_t const nq_local = amr::get_local_num_quadrants() ; 
+    /******************************************************************************************/
+    /*                              Realloc data and partition forest                         */
     /******************************************************************************************/ 
     Kokkos::realloc( state      ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 
                                         , nz + 2*ngz )
-                                ,   nq_new 
+                                ,   nq_local 
                                 ,   nvars ) ;
-    Kokkos::deep_copy( default_execution_space{}, state, state_swap ) ; 
+    /******************************************************************************************/
+    /*                                Start transfer                                          */
+    /******************************************************************************************/
+    auto transfer_context = 
+        p4est_transfer_fixed_begin (
+              new_glob_qoffsets.data() 
+            , glob_qoffsets.data()
+            , parallel::get_comm_world() 
+            , parallel::THUNDER_PARTITION_TAG
+            , reinterpret_cast<void*>(state.data())
+            , reinterpret_cast<void*>(state_swap.data())
+            , quadrant_data_size 
+    ) ; 
     auto& coords = variable_list::get().getcoords() ; 
     Kokkos::resize( coords      ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 
                                         , nz + 2*ngz )
-                                ,   nq_new 
+                                ,   nq_local 
                                 ,   THUNDER_NSPACEDIM ) ;
-    Kokkos::realloc( idx        ,   nq_new 
+    Kokkos::realloc( idx        ,   nq_local 
                                 ,   THUNDER_NSPACEDIM ) ;
     fill_cell_coordinates(coords, idx) ;
     /******************************************************************************************/
@@ -256,9 +286,23 @@ void regrid() {
     Kokkos::resize( aux         ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 
                                         , nz + 2*ngz )
-                                ,   nq_new 
+                                ,   nq_local 
                                 ,   nvars_aux ) ;
-    Kokkos::fence() ; 
+
+    Kokkos::realloc( state_swap ,   VEC(  nx + 2*ngz 
+                                        , ny + 2*ngz 
+                                        , nz + 2*ngz )
+                                ,   nq_local 
+                                ,   nvars ) ;
+    Kokkos::deep_copy(default_execution_space{}, state_swap, state) ; 
+    /******************************************************************************************/
+    /*                                Synchronize everything                                  */
+    /******************************************************************************************/ 
+    p4est_transfer_fixed_end ( transfer_context ) ;
+    Kokkos::fence() ;
+    /******************************************************************************************/
+    /*                                      All done                                          */
+    /******************************************************************************************/
 }; 
 
 }} /* namespace thunder::amr */ 

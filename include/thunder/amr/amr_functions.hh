@@ -37,6 +37,7 @@
 #include <thunder/data_structures/macros.hh>
 #include <thunder/amr/quadrant.hh>
 
+#include <vector>
 #include <array>
 #include <tuple>
 #include <cstdlib>
@@ -116,6 +117,9 @@ get_tree_vertex(size_t which_tree, size_t which_vertex) ;
  */
 std::array<double,THUNDER_NSPACEDIM> 
 get_tree_spacing(size_t which_tree) ;
+
+std::vector<int64_t>
+get_global_quadrant_offsets() ; 
 
 std::array<double, THUNDER_NSPACEDIM> 
 get_physical_coordinates( size_t icell
