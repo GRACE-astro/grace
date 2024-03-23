@@ -132,6 +132,12 @@ get_halo_quad_owner(p4est_quadrant_t* quad)
     return quadrant_t(quad).halo_owner_rank() ;
 }
 
+int 
+trees_have_opposite_polarity( int64_t treeid, int face )
+{
+    return connectivity::get().tree_to_tree_polarity(treeid, face) ; 
+}
+
 std::array<double,THUNDER_NSPACEDIM> 
 get_tree_vertex(size_t which_tree, size_t which_vertex)
 {
@@ -196,9 +202,9 @@ get_physical_coordinates( std::array<size_t, THUNDER_NSPACEDIM> const& ijk
     std::array<double,THUNDER_NSPACEDIM> pcoords ;
     if( coord_system == "cartesian" or itree == CARTESIAN_TREE ){ 
         auto const tree_coords    = thunder::amr::get_tree_vertex(itree, 0UL) ; 
-        auto const dx_tree        = thunder::amr::get_tree_spacing(itree)[0]  ;
+        auto const dx_tree        = thunder::amr::get_tree_spacing(itree)  ;
         for(int idir=0; idir<THUNDER_NSPACEDIM; ++idir) {
-            pcoords[idir] = tree_coords[idir] + lcoords[idir] * dx_tree ;
+            pcoords[idir] = tree_coords[idir] + lcoords[idir] * dx_tree[idir] ;
         }
     } else {
         #ifdef THUNDER_3D 
@@ -335,7 +341,7 @@ get_physical_coordinates( size_t icell
     size_t const iq = 
         (icell/(nx + include_gzs*2*ngz)/(ny + include_gzs*2*ngz)/(nz + include_gzs*2*ngz)) ;
     #else 
-    size_t const iq = (icell/(nx + include_gzs*2*ngz)/(nx + include_gzs*2*ngz)) ; 
+    size_t const iq = (icell/(nx + include_gzs*2*ngz)/(ny + include_gzs*2*ngz)) ; 
     #endif 
     return get_physical_coordinates({VEC(ix,iy,iz)}, iq, local_coords, include_gzs) ; 
 }; 

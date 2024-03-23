@@ -14,6 +14,7 @@ endif()
 add_compile_options(
     $<$<CONFIG:DEBUG>:-O0>
     $<$<CONFIG:RELEASE>:-O3>
+    -Wno-deprecated-declarations
 )
 
 add_compile_definitions(

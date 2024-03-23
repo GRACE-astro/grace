@@ -33,5 +33,7 @@
 #include <thunder/data_structures/variable_properties.hh>
 #include <thunder/data_structures/variable_indices.hh>
 #include <thunder/data_structures/variables.hh>
+#include <thunder/data_structures/variable_utils.hh>
+
 
 #endif /* THUNDER_DATA_STRUCTURES_DATA_STRUCTURES_HH */ 

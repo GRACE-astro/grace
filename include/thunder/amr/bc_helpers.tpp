@@ -27,53 +27,61 @@
 #ifndef THUNDER_AMR_BC_HELPERS_TPP
 #define THUNDER_AMR_BC_HELPERS_TPP
 
+#include <Kokkos_Core.hpp>
+#include <Kokkos_Vector.hpp>
+
+#include <thunder/amr/thunder_amr.hh> 
+#include <thunder/utils/thunder_utils.hh>
+#include <thunder/data_structures/macros.hh>
+
+#include <thunder/amr/bc_kernels.tpp>
+
 namespace thunder { namespace amr {
 
-template< typename ViewAT
-        , typename ViewBT >
-void exchange_interior_boundary(
-    ViewAT& viewA,
-    ViewBT& viewB,
-    size_t faceA,
-    size_t faceB,
-    size_t iqA,
-    size_t iqB,
-    VEC(nx,ny,nz),
-    size_t ngz ) 
-{   
-    auto& a_interior = Kokkos::subview(
-        viewA 
-      , VEC( Kokkos::pair(ngz,2*ngz)
-           , Kokkos::pair(ngz,2*ngz)
-           , Kokkos::pair(ngz,2*ngz) )
-      , iqA
-      , Kokkos::ALL()
-    ) ; 
-    auto& b_interior = Kokkos::subview(
-        viewA 
-      , VEC( Kokkos::pair(ngz,2*ngz)
-           , Kokkos::pair(ngz,2*ngz)
-           , Kokkos::pair(ngz,2*ngz) )
-      , iqB
-      , Kokkos::ALL()
-    ) ; 
+template< typename BCT
+        , typename ViewT >
+void apply_phys_bc(
+    ViewT& u,
+    Kokkos::vector<int64_t>& face_info ) 
+{     
+  using namespace thunder ;
+  using namespace Kokkos  ; 
 
-    auto& a_exterior = Kokkos::subview(
-        viewA 
-      , VEC( Kokkos::pair(ngz,2*ngz)
-           , Kokkos::pair(ngz,2*ngz)
-           , Kokkos::pair(ngz,2*ngz) )
-      , iqA
-      , Kokkos::ALL()
-    ) ; 
-    auto& b_exterior = Kokkos::subview(
-        viewA 
-      , VEC( Kokkos::pair(ngz,2*ngz)
-           , Kokkos::pair(ngz,2*ngz)
-           , Kokkos::pair(ngz,2*ngz) )
-      , iqB
-      , Kokkos::ALL()
-    ) ;
+  size_t const nq = face_info.size() ; 
+  auto& d_face_info = face_info.d_view ; 
+
+  size_t nx,ny,nz ; 
+  std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+  int64_t ngz = amr::get_n_ghosts() ;
+  
+  TeamPolicy<default_execution_space> 
+        policy( nq, AUTO() ) ; 
+  using member_t = decltype(policy)::member_type ;
+
+  parallel_for(
+      THUNDER_EXECUTION_TAG("AMR","impose_physical_BC")
+    , policy
+    , KOKKOS_LAMBDA( const member_t& team )
+    {
+      int which_face = d_face_info(team.league_rank()) % P4EST_FACES ; 
+      int64_t iq     = d_face_info(team.league_rank()) / P4EST_FACES ; 
+
+      int n0 = (which_face/2==0) * nx + ((which_face/2==1) * ny) + ((which_face/2==2) * nz) ;
+      int n1 = (which_face/2==0) * ny + ((which_face/2==1) * nx) + ((which_face/2==2) * nx) ;
+      int n2 = (which_face/2==0) * nz + ((which_face/2==1) * nz) + ((which_face/2==2) * ny) ;
+      #ifdef THUNDER_3D 
+      TeamThreadMDRange<Rank<2>,member_t>
+                team_range( team, n1,n2) ; 
+      #else 
+      auto team_range = TeamThreadRange(team,0,n1); 
+      #endif 
+      parallel_for( team_range 
+                  , KOKKOS_LAMBDA (VECD(int& j, int& k))
+                  {
+                    BCT::apply(u,ngz,n0,VECD(j+ngz,k+ngz),which_face,iq) ; 
+                  }) ; 
+    }
+  ); 
 
 }
 

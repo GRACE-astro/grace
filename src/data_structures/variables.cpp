@@ -65,6 +65,7 @@ variable_list_impl_t::variable_list_impl_t()
     , _coords_ispacing("inverse_grid_spacing", 0,0)
     , _state("state", VEC(0,0,0),0,0)
     , _state_p("scratch_state", VEC(0,0,0),0,0)
+    , _halo("halo", VEC(0,0,0),0,0)
     , _aux("auxiliaries", VEC(0,0,0),0,0)
 {
     using namespace thunder; 

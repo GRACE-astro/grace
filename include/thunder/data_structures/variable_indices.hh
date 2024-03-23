@@ -62,8 +62,11 @@ static int register_variable( std::string const& name
                             , bool need_ghostzones 
                             , bool is_evolved 
                             , bool need_fluxes
-                            , bool is_vector 
-                            , std::string const& vecname="" ) ;
+                            , std::string const& bc_type=""
+                            , bool is_vector=false
+                            , bool is_tensor=false 
+                            , std::string const& vecname=""
+                             ) ;
 //*****************************************************************************************************
 /**
  * @brief Register all variables.
@@ -87,8 +90,12 @@ extern int num_fluxes    ;
 extern int last_flux     ;  
 extern int first_flux     ;  
 
+extern int num_vector_vars ; 
+extern int num_tensor_vars ; 
+
 extern std::vector<std::string> _varnames ; 
 extern std::vector<std::string> _auxnames ; 
+extern std::vector<std::string> _var_bc_types  ; 
 
 extern std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>> 
     _varprops; 

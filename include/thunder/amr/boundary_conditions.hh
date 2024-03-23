@@ -27,7 +27,48 @@
 #ifndef THUNDER_AMR_BC_HH 
 #define THUNDER_AMR_BC_HH 
 
+#include <Kokkos_Vector.hpp>
+
 namespace thunder { namespace amr {
+
+struct simple_face_info_t 
+{
+    int has_polarity_flip;
+    int is_ghost     ; 
+    int which_face_a ; 
+    int which_face_b ; 
+    int64_t qid_a    ;
+    int64_t qid_b    ; 
+
+} ; 
+
+struct hanging_face_info_t 
+{
+    int has_polarity_flip;
+    int level_a      ;
+    int level_b      ; 
+    int is_ghost_a   ; 
+    int is_ghost_b   ; 
+    int is_ghost_c   ; 
+    int which_face_a ; 
+    int which_face_b ; 
+    int64_t qid_a    ;
+    int64_t qid_b    ;
+    int64_t qid_c    ;
+    #ifdef THUNDER_3D 
+    int is_ghost_d   ;
+    int is_ghost_e   ;
+    int64_t qid_d    ;
+    int64_t qid_e    ;
+    #endif 
+} ; 
+
+struct thunder_face_info_t 
+{
+    Kokkos::vector<int64_t>             phys_boundary_info   ;
+    Kokkos::vector<simple_face_info_t>  simple_interior_info ; 
+    Kokkos::vector<hanging_face_info_t> hanging_interior_info; 
+} ; 
 
 void apply_boundary_conditions() ;
 

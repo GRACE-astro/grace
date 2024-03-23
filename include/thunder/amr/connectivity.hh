@@ -121,6 +121,17 @@ class connectivity_impl_t
       return std::array<double,3> { x_r-x_l, y_r-y_l, z_r-z_l } ;
       #endif 
     };
+    //**************************************************************************************************
+    /**
+     * @brief Determine whether coordinates flip across tree boundary.
+     * @param which_tree Tree index
+     * @param which_face Face index in z-order 
+     * @return 1 if trees have opposite polarity, 0 otherwise
+     */
+    THUNDER_ALWAYS_INLINE int
+    tree_to_tree_polarity(size_t which_tree, int which_face) const { 
+      return t2t_polarity_[ which_tree * P4EST_FACES + which_face ] ;  
+    };
     //**Checkpointing***********************************************************************************
     /**
      * @brief save to file 
@@ -172,7 +183,8 @@ class connectivity_impl_t
      */
     ~connectivity_impl_t() = default;
     //**************************************************************************************************
-    p4est_connectivity_t * pconn_ ;  //!< The p4est connectivity object 
+    p4est_connectivity_t * pconn_  ;  //!< The p4est connectivity object 
+    std::vector<int> t2t_polarity_ ;  //!< Polarity of tree boundaries 
     //**************************************************************************************************
     friend class utils::singleton_holder<connectivity_impl_t, memory::default_create> ; //!< Give access 
     friend class memory::new_delete_creator<connectivity_impl_t, memory::new_delete_allocator> ;

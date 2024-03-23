@@ -80,13 +80,19 @@ get_local_num_quadrants() ;
 size_t 
 get_quadrant_owner(size_t iquad) ;
 /**
+ * @brief Get the local quadrants offset of a tree.
+ * 
+ * @param itree The tree
+ */
+size_t get_local_quadrants_offset(size_t itree) ;
+/**
  * @brief Get a quadrant given its cumulative local index
  *        and the index of the owning tree.
  * 
  * @param which_tree Tree owning the quadrant. 
  * @param iquad      Quadrant cumulative local index.
  * @return quadrant_t The quadrant.
- */
+ */ 
 quadrant_t  
 get_quadrant(size_t which_tree, size_t iquad) ; 
 /**
@@ -123,6 +129,15 @@ get_halo_quad_owner(quadrant_t& quad);
  */
 int 
 get_halo_quad_owner(p4est_quadrant_t* quad);
+/**
+ * @brief Determine whether coordinates flip across 
+ *        tree boundary.
+ * 
+ * @param treeid Index of tree
+ * @param face   Face index in z-order
+ * @return int 1 if coordinates flip 0 otherwise 
+ */
+int trees_have_opposite_polarity( int64_t treeid, int face ); 
 /**
  * @brief Free function form of <code>amr::connectivity().tree_vertex</code>
  * 

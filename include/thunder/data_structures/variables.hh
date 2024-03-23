@@ -102,6 +102,12 @@ public:
     THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>& 
     getscratch() { return _state_p ; }
     //*****************************************************************************************************
+    /**
+     * @brief Get the halo state vector 
+     */
+    THUNDER_ALWAYS_INLINE var_array_t<THUNDER_NSPACEDIM>& 
+    gethalo() { return _halo ; }
+    //*****************************************************************************************************
     template< typename ... ArgT >
     void realloc_state(ArgT&& ... args)
     {
@@ -128,6 +134,7 @@ private:
     scalar_array_t<THUNDER_NSPACEDIM>  _coords_ispacing  ;  //!< Spacing of coordinate system
     var_array_t<THUNDER_NSPACEDIM> _state   ;     //!< State variables 
     var_array_t<THUNDER_NSPACEDIM> _state_p ;     //!< Second timelevel, allocated at all times 
+    var_array_t<THUNDER_NSPACEDIM> _halo    ;     //!< Halo exchange buffer, allocated when necessary
     var_array_t<THUNDER_NSPACEDIM> _aux     ;     //!< Auxiliary variables  
     //*****************************************************************************************************
     friend class utils::singleton_holder<variable_list_impl_t, memory::default_create> ; //!< Give access 

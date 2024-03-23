@@ -116,18 +116,19 @@ vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() {
     {
         size_t varidx = thunder::get_variable_index(scalars[ivar]) ; 
         
-        auto h_sview = Kokkos::subview(h_mirror           , VEC(  Kokkos::ALL()
-                                                               , Kokkos::ALL()
-                                                               , Kokkos::ALL() )
+        auto h_sview = Kokkos::subview(h_mirror           , VEC( Kokkos::pair(ngz,nx+ngz)
+                                                               , Kokkos::pair(ngz,ny+ngz)
+                                                               , Kokkos::pair(ngz,nz+ngz) )
                                                           , ivar
                                                           , Kokkos::ALL()
                                                           ) ;  
         grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,scalars[ivar])) ;
 
     }
+    /*
     for( int ivar=0; ivar<vectors.size(); ++ivar )
     {
-        size_t varidx = thunder::get_variable_index(scalars[ivar]) ; 
+        size_t varidx = thunder::get_variable_index(vectors[ivar]+"[0]") ; 
         
         auto h_sview = Kokkos::subview(h_mirror           , VEC(  Kokkos::ALL()
                                                                , Kokkos::ALL()
@@ -135,26 +136,28 @@ vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() {
                                                           , Kokkos::pair(ivar,ivar+3)
                                                           , Kokkos::ALL()
                                                           ) ;  
-        grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,scalars[ivar])) ;
+        grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,vectors[ivar])) ;
 
     }
+    */
     Kokkos::fence() ;
     for( int ivar=0; ivar<aux_scalars.size(); ++ivar )
     {
         size_t varidx = thunder::get_variable_index(aux_scalars[ivar]) ; 
         
-        auto h_sview = Kokkos::subview(aux_h_mirror       , VEC(  Kokkos::ALL()
-                                                               , Kokkos::ALL()
-                                                               , Kokkos::ALL() )
+        auto h_sview = Kokkos::subview(aux_h_mirror       , VEC( Kokkos::pair(ngz,nx+ngz)
+                                                               , Kokkos::pair(ngz,ny+ngz)
+                                                               , Kokkos::pair(ngz,nz+ngz) )
                                                           , ivar
                                                           , Kokkos::ALL()
                                                           ) ;  
         grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,aux_scalars[ivar])) ;
 
     }
+    /*
     for( int ivar=0; ivar<aux_vectors.size(); ++ivar )
     {
-        size_t varidx = thunder::get_variable_index(aux_vectors[ivar]) ; 
+        size_t varidx = thunder::get_variable_index(aux_vectors[ivar]+"[0]") ; 
         
         auto h_sview = Kokkos::subview(aux_h_mirror       , VEC(  Kokkos::ALL()
                                                                , Kokkos::ALL()
@@ -165,6 +168,7 @@ vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() {
         grid->GetCellData()->AddArray(vtk_create_cell_data(h_sview,aux_vectors[ivar])) ;
 
     }
+    */
     return grid ; 
 }; 
 

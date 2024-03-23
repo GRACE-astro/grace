@@ -97,21 +97,32 @@ static void set_quadrant_flag( p4est_t* p4est
 
     if( num_outgoing == 1 and num_incoming == P4EST_CHILDREN ) // refinement 
     {
-        quadrant_t quadrant( outgoing[0] ) ; 
+        quadrant_t quadrant( outgoing[0] ) ;
+        auto prev_state = 
+            quadrant.get_user_data<amr_flags_t>()->quadrant_status ; 
         quadrant.set_user_data( amr_flags_t{INVALID_STATE} ) ;
         for(int iquad=0; iquad<P4EST_CHILDREN; ++iquad) {
             quadrant = quadrant_t(incoming[iquad] ) ; 
-            quadrant.set_user_data( amr_flags_t{NEED_PROLONGATION} ) ;
+            quadrant.set_user_data( amr_flags_t{
+                prev_state == NEED_RESTRICTION ? DEFAULT_STATE : NEED_PROLONGATION
+                } ) ;
         } 
     } else if ( num_outgoing == P4EST_CHILDREN and num_incoming == 1 ) // coarsening 
     {
-        quadrant_t quadrant( incoming[0] ) ; 
-        quadrant.set_user_data( amr_flags_t{NEED_RESTRICTION} ) ;
+        int prev_state = -1 ;
         for(int iquad=0; iquad<P4EST_CHILDREN; ++iquad) {
             if( outgoing[iquad] != nullptr )
-            {quadrant = quadrant_t(outgoing[iquad] ) ; 
-            quadrant.set_user_data( amr_flags_t{INVALID_STATE} ) ;}
-        } 
+            {
+                quadrant_t quadrant = quadrant_t(outgoing[iquad] ) ;
+                prev_state = 
+                    quadrant.get_user_data<amr_flags_t>()->quadrant_status ; 
+                quadrant.set_user_data( amr_flags_t{INVALID_STATE} ) ;
+            }
+        }
+        quadrant_t quadrant( incoming[0] ) ; 
+        quadrant.set_user_data( amr_flags_t{
+            prev_state==NEED_PROLONGATION ? DEFAULT_STATE : NEED_RESTRICTION
+            } ) ;
     } else {
         ERROR( "In call to initialize_quadrant, num_incoming"
                "and num_outgoing incompatible with both refinement and coarsening. ") ; 

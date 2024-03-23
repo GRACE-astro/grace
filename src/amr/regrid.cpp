@@ -200,7 +200,9 @@ void regrid() {
     refine_incoming.host_to_device() ; refine_outgoing.host_to_device() ; 
     coarsen_incoming.host_to_device() ; coarsen_outgoing.host_to_device() ;
     
-    ASSERT_DBG( iq_old == nq, "Something went really wrong.") ;
+    ASSERT_DBG( iq_old == nq, 
+              "Something went really wrong. "
+              "nq= " << nq << " iq= " << iq_old <<".") ;
 
     auto& idx = variable_list::get().getinvspacings() ;
     /******************************************************************************************/
@@ -318,8 +320,26 @@ void regrid() {
                                 ) ;
     Kokkos::deep_copy(state_swap, state) ; 
     /******************************************************************************************/
+    /*                         Reset quadrants to default state                               */
+    /******************************************************************************************/
+    set_quadrants_to_default(); 
+    /******************************************************************************************/
     /*                                      All done                                          */
     /******************************************************************************************/
 }; 
 
+
+void set_quadrants_to_default()  
+{
+    for(int itree=forest::get().first_local_tree();
+            itree<=forest::get().last_local_tree();
+            ++itree) 
+    {
+        auto quadrants = forest::get().tree(itree).quadrants() ; 
+        for( int iquad=0; iquad<quadrants.size(); ++iquad) {
+            quadrant_t quad{ &(quadrants[iquad]) } ;
+            quad.set_user_data( amr_flags_t{DEFAULT_STATE} ) ; 
+        }
+    }
+}
 }} /* namespace thunder::amr */ 

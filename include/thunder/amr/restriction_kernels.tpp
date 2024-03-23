@@ -53,7 +53,7 @@ struct restrictor_t {
         /* P4EST_CHILDREN cells of the children  */
         /* quadrants.                            */
 
-        /* Indices in parent quadrant            */ 
+        /* Indices in child quadrant            */ 
         EXPR(
             const int i0 = (2*i) % nx ;,
             const int j0 = (2*j) % ny ;,
@@ -68,9 +68,12 @@ struct restrictor_t {
               ];
         /* Coordinates in parent quadrant        */ 
         EXPR(
-            const double x0 = (i + 0.5) / idx_child(iq_child,0) * 2. ;,
-            const double y0 = (j + 0.5) / idx_child(iq_child,1) * 2. ;,
-            const double z0 = (k + 0.5) / idx_child(iq_child,2) * 2. ;
+            const double x0 = ((i + 0.5) * 2. 
+                            - (iq_child%2) * nx) / idx_child(iq_child,0);,
+            const double y0 = ((j + 0.5)  * 2. 
+                            - (iq_child/2)%2 * ny) / idx_child(iq_child,1);,
+            const double z0 = ((k + 0.5) * 2. 
+                            - (iq_child/2)/2 * nz) / idx_child(iq_child,2);
         ) 
 
         size_t constexpr stencil = AvgT::stencil_size ;

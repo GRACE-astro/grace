@@ -341,7 +341,6 @@ connectivity_impl_t::connectivity_impl_t() {
          periodic_y{ params["amr"]["periodic_y"].as<bool>() } , 
          periodic_z{ params["amr"]["periodic_z"].as<bool>() } ; 
 
-    
     #ifndef THUNDER_3D 
       pconn_ = detail::new_cartesian_connectivity(xmin, xmax, periodic_x
                                                   ,ymin, ymax, periodic_y) ; 
@@ -350,6 +349,8 @@ connectivity_impl_t::connectivity_impl_t() {
                                                   ,ymin, ymax, periodic_y
                                                   ,zmin, zmax, periodic_z) ; 
     #endif 
+    t2t_polarity_.resize(pconn_->num_trees * P4EST_FACES) ; 
+    for( auto& x: t2t_polarity_ ) x = 0 ; 
   } else if ( coord_system == "spherical" ) { 
     double  L{ params["amr"]["inner_region_side"].as<double>() }
           , R{ params["amr"]["inner_region_radius"].as<double>() }
@@ -358,11 +359,49 @@ connectivity_impl_t::connectivity_impl_t() {
 
     #ifndef THUNDER_3D 
       pconn_ = detail::new_spherical_connectivity(L, R, Rl) ; 
+      t2t_polarity_ = {
+        1, 0, 1, 0, // 0
+        1, 0, 1, 0, // 1
+        0, 0, 0, 1, // 2
+        1, 0, 1, 0, // 3 
+        0, 0, 0, 1, // 4
+        0, 0, 1, 0, // 5
+        0, 0, 0, 1, // 6 
+        0, 0, 1, 0, // 7 
+        0, 0, 0, 1  // 8 
+    } ;
     #else 
       pconn_ = detail::new_spherical_connectivity(L, R, Rl) ;  
+      t2t_polarity_ = {
+        1,0,1,0,1,0, // 0
+        1,0,0,0,1,0, // 1
+        0,0,0,1,0,1, // 2
+        1,0,1,0,1,0, // 3
+        0,0,0,1,0,1, // 4
+        1,0,1,0,0,0, // 5
+        0,0,0,1,0,1, // 6
+        0,0,0,0,1,0, // 7
+        0,0,0,1,0,1, // 8
+        0,0,1,0,1,0, // 9
+        0,0,0,1,0,1, // 10
+        0,0,1,0,0,0, // 11
+        0,0,0,1,0,1, // 12
+      }
     #endif 
   } else { 
     ERROR("Unknown coordinate system.") ; 
+  }
+  for( unsigned itree=0; itree<pconn_->num_trees; ++itree) {
+    for( unsigned iface=0; iface<P4EST_FACES; ++iface){
+      int jtree = pconn_->tree_to_tree[itree*P4EST_FACES+iface] ; 
+      int jface = pconn_->tree_to_face[itree*P4EST_FACES+iface];
+      ASSERT(
+        t2t_polarity_[ itree*P4EST_FACES + iface] 
+        ==
+        t2t_polarity_[ jtree*P4EST_FACES + jface],
+        "Polarity not symmetric at " << itree << ", " << iface << ".\n"
+      ) ; 
+    }
   }
 }
 //**************************************************************************************************

@@ -57,6 +57,13 @@ namespace thunder { namespace amr {
  */
 void regrid() ; 
 
+/**
+ * @brief Set the all quadrants to DEFAULT_STATE
+ * \ingroup amr 
+ * \cond thunder_detail
+ */
+void set_quadrants_to_default(); 
+
 }} /* namespace thunder::amr */ 
 
 #endif /* THUNDER_AMR_REGRID_HH */

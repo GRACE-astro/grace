@@ -57,6 +57,7 @@ struct variable_properties_t<2>
     std::array<bool, 2> staggering; 
     bool has_gz ; 
     bool is_vector ;  
+    bool is_tensor ; 
 
     std::string name ; 
 } ; 

@@ -46,9 +46,12 @@ int num_fluxes    = 0 ;
 int last_flux     = -1 ; 
 int first_flux    = -1 ; 
 
+int num_vector_vars = 0 ;
+int num_tensor_vars = 0 ; 
 
 std::vector<std::string> _varnames ; 
 std::vector<std::string> _auxnames ; 
+std::vector<std::string> _var_bc_types ; 
 
 std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>> 
     _varprops; 
@@ -87,33 +90,41 @@ void register_variables() {
                                 , true 
                                 , true 
                                 , true
+                                , "outgoing"
                                 , false ) ; 
     SX = register_variable( "S[0]"
                                 , {VEC(false,false,false)}
                                 , true 
                                 , true 
                                 , true
+                                , "outgoing"
                                 , true
+                                , false
                                 , "S" ) ;
     SY = register_variable( "S[1]"
                                 , {VEC(false,false,false)}
                                 , true 
                                 , true 
                                 , true
-                                , true 
+                                , "outgoing"
+                                , true
+                                , false 
                                 , "S") ;
     SZ = register_variable( "S[2]"
                                 , {VEC(false,false,false)}
                                 , true 
                                 , true 
                                 , true
-                                , true  
+                                , "outgoing"
+                                , true
+                                , false 
                                 , "S") ;
     TAU = register_variable( "tau"
                                 , {VEC(false,false,false)}
                                 , true 
                                 , true 
                                 , true
+                                , "outgoing"
                                 , false ) ;
     #endif
     #ifdef THUNDER_ENABLE_ADMBASE 
@@ -122,15 +133,22 @@ void register_variables() {
                             , {VEC(false,false,false)} 
                             , true 
                             , true
-                            , false 
-                            , false ) ; 
+                            , false
+                            , "outgoing" 
+                            , false
+                            , true
+                            , "gamma" 
+                             ) ; 
 
     GXY = register_variable( "gxy"
                             , {VEC(false,false,false)} 
                             , true 
                             , true
                             , false 
-                            , false 
+                            , "outgoing"
+                            , false
+                            , true
+                            , "gamma" 
                             ) ;
 
     GXZ = register_variable( "gxz"
@@ -138,14 +156,20 @@ void register_variables() {
                             , true 
                             , true
                             , false 
-                            , false) ;
+                            , "outgoing"
+                            , false
+                            , true
+                            , "gamma") ;
 
     GYY = register_variable( "gyy"
                             , {VEC(false,false,false)} 
                             , true 
                             , true
                             , false 
-                            , false 
+                            , "outgoing"
+                            , false
+                            , true
+                            , "gamma" 
                             ) ;
 
     GYZ = register_variable( "gyz"
@@ -153,20 +177,27 @@ void register_variables() {
                             , true 
                             , true
                             , false
-                            , false  ) ;
+                            , "outgoing"
+                            , false
+                            , true
+                            , "gamma"  ) ;
 
     GZZ = register_variable( "gzz"
                             , {VEC(false,false,false)} 
                             , true 
                             , true
                             , false 
-                            , false ) ;
+                            , "outgoing"
+                            , false
+                            , true
+                            , "gamma" ) ;
 
     ALP = register_variable( "alp"
                             , {VEC(false,false,false)} 
                             , true 
                             , true
                             , false
+                            , "outgoing"
                             , false 
                             ) ;
 
@@ -175,7 +206,9 @@ void register_variables() {
                                 , true 
                                 , true
                                 , false 
-                                , true 
+                                , "outgoing"
+                                , true
+                                , false 
                                 , "beta"
                                 ) ;
 
@@ -185,7 +218,9 @@ void register_variables() {
                                 , true 
                                 , true
                                 , false 
-                                , true 
+                                , "outgoing"
+                                , true
+                                , false 
                                 , "beta"
                                 ) ;
 
@@ -195,10 +230,14 @@ void register_variables() {
                                 , true 
                                 , true
                                 , false 
-                                , true 
+                                , "outgoing"
+                                , true
+                                , false 
                                 , "beta" ) ;
     #endif 
-
+    ASSERT_DBG( detail::_var_bc_types.size() == detail::num_evolved, 
+                detail::num_evolved << " evolved variables but "
+                "only " << detail::_var_bc_types.size() << " have BCs.\n") ; 
 }
 
 
@@ -217,8 +256,10 @@ static int register_variable(  std::string const& name
                                 , bool need_ghostzones 
                                 , bool is_evolved 
                                 , bool need_fluxes
-                                , bool is_vector=false
-                                , std::string const& vec_name) 
+                                , std::string const & bc_type 
+                                , bool is_vector
+                                , bool is_tensor
+                                , std::string const& vec_name ) 
 {
     using namespace detail ; 
 
@@ -226,8 +267,11 @@ static int register_variable(  std::string const& name
     props.staggering = staggered ; 
     props.has_gz     = is_evolved ; 
     props.is_vector  = is_vector  ; 
-    props.name   = vec_name   ;
+    props.is_tensor  = is_tensor  ; 
+    props.name   = (is_tensor || is_vector) ?  vec_name : name  ;
 
+    num_vector_vars += static_cast<int>(is_vector) ; 
+    num_tensor_vars += static_cast<int>(is_tensor) ; 
 
     if( need_fluxes ) {
         if( first_flux == -1 ){
@@ -250,12 +294,14 @@ static int register_variable(  std::string const& name
         num_evolved ++ ; 
         _varnames.push_back( name ) ; 
         _varprops[name] = props ; 
+        _var_bc_types.push_back(bc_type) ; 
     } else {
         num_auxiliary ++ ; 
         _auxnames.push_back( name )   ; 
         _auxprops[name] = props ;
     }
-    return is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
+
+    return  is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
 }
 
 } } /* namespace thunder::variables */

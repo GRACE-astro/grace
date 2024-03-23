@@ -1,8 +1,8 @@
 /**
- * @file bc_helpers.hh
+ * @file variable_utils.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-03-21
+ * @date 2024-03-22
  * 
  * @copyright This file is part of Thunder.
  * Thunder is an evolution framework that uses Finite Differences
@@ -24,33 +24,32 @@
  * 
  */
 
-#ifndef THUNDER_AMR_BC_HELPERS_HH 
-#define THUNDER_AMR_BC_HELPERS_HH
+#ifndef THUNDER_DATA_STRUCTURES_VARIABLE_UTILS_HH
+#define THUNDER_DATA_STRUCTURES_VARIABLE_UTILS_HH
 
-#include <thunder_config.h>
+#include <string> 
+#include <cstdlib> 
 
-#include <thunder/parallel/mpi_wrappers.hh>
-#include <thunder/amr/p4est_headers.hh>
-#include <thunder/utils/interpolators.hh>
-#include <thunder/amr/boundary_conditions.hh>
+namespace thunder { namespace variables {
 
-#include <Kokkos_Vector.hpp>
+int 
+get_n_evolved() ; 
 
-namespace thunder{ namespace amr {
+std::string
+get_bc_type( int64_t var_idx )  ;
 
-void thunder_iterate_faces( p4est_iter_face_info_t* info 
-                          , void* user_data ) ;
+std::string
+get_var_name(int64_t var_idx)   ; 
 
+int64_t 
+get_varidx_state( std::string const& name ) ; 
 
-void copy_interior_ghostzones( Kokkos::vector<simple_face_info_t>& ) ;
+int64_t
+get_varidx_aux( std::string const& name ) ; 
 
-template< typename InterpT >
-void interp_hanging_ghostzones( Kokkos::vector<hanging_face_info_t>& ) ;
+int64_t 
+get_varidx( std::string const& name, bool& isaux) ; 
 
+} } /* namespace thunder::variables */
 
-extern template 
-void interp_hanging_ghostzones<utils::linear_interp_t<THUNDER_NSPACEDIM>>( Kokkos::vector<hanging_face_info_t>& ) ; 
-
-}}
-
-#endif /* THUNDER_AMR_BC_HELPERS_HH */
+#endif /* THUNDER_DATA_STRUCTURES_VARIABLE_UTILS_HH */
