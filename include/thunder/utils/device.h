@@ -41,5 +41,13 @@
 #define THUNDER_HOST_DEVICE 
 #endif 
 
+namespace thunder {
+void device_malloc(void** ptr, size_t nbyte);
 
+void memcpy_device_to_host(void* dest, void* src, size_t nbyte);
+
+void memcpy_host_to_device(void* dest, void* src, size_t nbyte);
+
+void device_free(void* ptr) noexcept; 
+}
 #endif 

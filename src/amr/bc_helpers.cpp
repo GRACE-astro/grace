@@ -44,13 +44,12 @@ void thunder_iterate_faces( p4est_iter_face_info_t * info
 {
     using namespace thunder; 
     auto face_info = reinterpret_cast<thunder_face_info_t*>(user_data) ; 
-    
     sc_array_view_t<p4est_iter_face_side_t> sides{
         &(info->sides)
     } ; 
-    auto physical_boundary_info = face_info->phys_boundary_info ; 
-    auto simple_info    = face_info->simple_interior_info       ;
-    auto hanging_info   = face_info->hanging_interior_info      ;
+    auto& physical_boundary_info = face_info->phys_boundary_info ; 
+    auto& simple_info    = face_info->simple_interior_info       ;
+    auto& hanging_info   = face_info->hanging_interior_info      ;
     /**************************************************/
     /* This means we are at a physical boundary       */
     /* we store the index in user_info and return     */
@@ -101,6 +100,8 @@ void thunder_iterate_faces( p4est_iter_face_info_t * info
     {
         hanging_face_info_t this_face_info{} ; 
         this_face_info.has_polarity_flip = polarity_flip    ;
+        this_face_info.which_tree_a = sides[0].treeid ; 
+        this_face_info.which_tree_b = sides[1].treeid ; 
         this_face_info.which_face_a = sides[0].face          ;
         this_face_info.is_ghost_a   = sides[0].is.full.is_ghost ;
         this_face_info.qid_a        = sides[0].is.full.quadid ;
@@ -135,6 +136,8 @@ void thunder_iterate_faces( p4est_iter_face_info_t * info
         hanging_info.push_back(this_face_info) ; 
     } else if(side1_hanging) {
         hanging_face_info_t this_face_info{} ; 
+        this_face_info.which_tree_a = sides[1].treeid ; 
+        this_face_info.which_tree_b = sides[0].treeid ; 
         this_face_info.has_polarity_flip = polarity_flip    ;
         this_face_info.which_face_a = sides[1].face          ;
         this_face_info.is_ghost_a   = sides[1].is.full.is_ghost ;
@@ -176,6 +179,8 @@ void thunder_iterate_faces( p4est_iter_face_info_t * info
             this_face_info.is_ghost = 1 ; 
             this_face_info.which_face_a = sides[1].face ; 
             this_face_info.which_face_b = sides[0].face ;
+            this_face_info.which_tree_a = sides[1].treeid ; 
+            this_face_info.which_tree_b = sides[0].treeid ; 
             this_face_info.qid_a = sides[1].is.full.quadid 
                 + offset ;
             this_face_info.qid_b = sides[0].is.full.quadid ;
@@ -184,6 +189,8 @@ void thunder_iterate_faces( p4est_iter_face_info_t * info
             this_face_info.is_ghost = 1 ; 
             this_face_info.which_face_a = sides[0].face ; 
             this_face_info.which_face_b = sides[1].face ;
+            this_face_info.which_tree_a = sides[0].treeid ; 
+            this_face_info.which_tree_b = sides[1].treeid ; 
             this_face_info.qid_a = sides[0].is.full.quadid 
                 + offset ;
             this_face_info.qid_b = sides[1].is.full.quadid ; 
@@ -192,6 +199,8 @@ void thunder_iterate_faces( p4est_iter_face_info_t * info
             this_face_info.is_ghost = 0 ; 
             this_face_info.which_face_a = sides[0].face ; 
             this_face_info.which_face_b = sides[1].face ;
+            this_face_info.which_tree_a = sides[0].treeid ; 
+            this_face_info.which_tree_b = sides[1].treeid ; 
             this_face_info.qid_a = sides[0].is.full.quadid 
             + offset ;
             offset = get_local_quadrants_offset(sides[1].treeid);
@@ -243,98 +252,243 @@ void copy_interior_ghostzones(
             auto& view_a = vars ; 
             auto& view_b = (is_ghost) ? halo : vars ;  
 
-            TeamThreadMDRange<Rank<THUNDER_NSPACEDIM+1>,member_t>
-                team_range( team, VEC(ngz, n1,n2), nvars) ; 
+            TeamThreadMDRange<Rank<THUNDER_NSPACEDIM>,member_t>
+                team_range( team, VECD(n1,n2), nvars) ; 
             parallel_for( team_range
-                        , KOKKOS_LAMBDA(VEC(int& ig, int& j, int& k), int& ivar)
+                        , KOKKOS_LAMBDA(VECD(int& j, int& k), int& ivar)
                     {
-                        int i_a = EXPR((which_face_a==0) * 
-                                  ( (!polarity)*ig 
-                                  + (polarity)*(ngz-1-ig) ) 
-                                + (which_face_a==1) * 
-                                  ( (!polarity)*(nx+ig) 
-                                  + (polarity)*(nx+ngz-1-ig) ),
-                                + (which_face_a/2==1) * (j+ngz), 
-                                + (which_face_a/2==2) * (j+ngz)) ;
+                        for( int ig=0; ig<ngz; ++ig){
+                            int i_a = EXPR((which_face_a==0) * 
+                                    ( (!polarity)*ig 
+                                    + (polarity)*(ngz-1-ig) ) 
+                                    + (which_face_a==1) * 
+                                    ( (!polarity)*(nx+ngz+ig) 
+                                    + (polarity)*(nx+2*ngz-1-ig) ),
+                                    + (which_face_a/2==1) * (j+ngz), 
+                                    + (which_face_a/2==2) * (j+ngz)) ;
 
-                        int j_a = EXPR((which_face_a==2) * 
-                                  ( (!polarity)*ig 
-                                  + (polarity)*(ngz-1-ig) )
-                                + (which_face_a==3) * 
-                                  ( (!polarity)*(ny+ig)  
-                                  + (polarity)*(ny+ngz-1-ig) ), 
-                                + (which_face_a/2==0) * (j+ngz), 
-                                + (which_face_a/2==2) * (k+ngz));  
-                        
-                        int i_b = EXPR((which_face_b==0)*(ngz+ig) 
-                                + (which_face_b==1)*(nx-(ngz-ig)), 
-                                + (which_face_b/2==1) * (j+ngz),
-                                + (which_face_b/2==2) * (j+ngz)) ;
-                        
-                        int j_b = EXPR((which_face_b==2)*(ngz+ig) 
-                                + (which_face_b==3)*(ny-(ngz-ig)),
-                                + (which_face_b/2==0) * (j+ngz),
-                                + (which_face_b/2==2) * (k+ngz)) ; 
+                            int j_a = EXPR((which_face_a==2) * 
+                                    ( (!polarity)*ig 
+                                    + (polarity)*(ngz-1-ig) )
+                                    + (which_face_a==3) * 
+                                    ( (!polarity)*(ny+ngz+ig)  
+                                    + (polarity)*(ny+2*ngz-1-ig) ), 
+                                    + (which_face_a/2==0) * (j+ngz), 
+                                    + (which_face_a/2==2) * (k+ngz));  
+                            
+                            int i_b = EXPR((which_face_b==0)*(ngz+ig) 
+                                    + (which_face_b==1)*(nx+ig), 
+                                    + (which_face_b/2==1) * (j+ngz),
+                                    + (which_face_b/2==2) * (j+ngz)) ;
+                            
+                            int j_b = EXPR((which_face_b==2)*(ngz+ig) 
+                                    + (which_face_b==3)*(ny+ig),
+                                    + (which_face_b/2==0) * (j+ngz),
+                                    + (which_face_b/2==2) * (k+ngz)) ; 
 
-                        #ifdef THUNDER_3D
-                        int k_a = (which_face_a==4) * 
-                                  ( (!polarity)*ig 
-                                  + (polarity)*(ngz-1-ig) )
-                                + (which_face_a==5) * 
-                                  ( (!polarity)*(nz+ig)  
-                                  + (polarity)*(nz+ngz-1-ig) )
-                                + (which_face_a/2!=2) * (k+ngz) ;
+                            #ifdef THUNDER_3D
+                            int k_a = (which_face_a==4) * 
+                                    ( (!polarity)*ig 
+                                    + (polarity)*(ngz-1-ig) )
+                                    + (which_face_a==5) * 
+                                    ( (!polarity)*(nz+ngz+ig)  
+                                    + (polarity)*(nz+2*ngz-1-ig) )
+                                    + (which_face_a/2!=2) * (k+ngz) ;
 
-                        int k_b = (which_face_b==4)*(ngz+ig)
-                                + (which_face_b==5)*(nz-(ngz-ig))
-                                + (which_face_b/2!=2) * (k + ngz) ;
-                        #endif 
+                            int k_b = (which_face_b==4)*(ngz+ig)
+                                    + (which_face_b==5)*(nz+ig)
+                                    + (which_face_b/2!=2) * (k + ngz) ;
+                            #endif 
 
-                        view_a(VEC(i_a,j_a,k_a),ivar,qid_a) =  view_b(VEC(i_b,j_b,k_b),ivar,qid_b) ; 
+                            view_a(VEC(i_a,j_a,k_a),ivar,qid_a) =  view_b(VEC(i_b,j_b,k_b),ivar,qid_b) ; 
 
-                        i_b = EXPR((which_face_b==0) * 
-                                  ( (!polarity)*ig 
-                                  + (polarity)*(ngz-1-ig) )
-                                + (which_face_b==1) * 
-                                  ( (!polarity)*(nx+ig)  
-                                  + (polarity)*(nx+ngz-1-ig) ),
-                                + (which_face_b/2==1) * (j+ngz), 
-                                + (which_face_b/2==2) * (j+ngz)) ;
+                            i_b = EXPR((which_face_b==0) * 
+                                    ( (!polarity)*ig 
+                                    + (polarity)*(ngz-1-ig) )
+                                    + (which_face_b==1) * 
+                                    ( (!polarity)*(nx+ngz+ig)  
+                                    + (polarity)*(nx+2*ngz-1-ig) ),
+                                    + (which_face_b/2==1) * (j+ngz), 
+                                    + (which_face_b/2==2) * (j+ngz)) ;
 
-                        j_b = EXPR((which_face_b==2) * 
-                                  ( (!polarity)*ig 
-                                  + (polarity)*(ngz-1-ig) )
-                                + (which_face_b==3) * 
-                                  ( (!polarity)*(ny+ig)  
-                                  + (polarity)*(ny+ngz-1-ig) ), 
-                                + (which_face_b/2==0) * (j+ngz), 
-                                + (which_face_b/2==2) * (k+ngz)) ;  
-                        
-                        i_b = EXPR((which_face_a==0)*(ngz+ig) 
-                                + (which_face_a==1)*(nx-(ngz-ig)), 
-                                + (which_face_a/2==1) * (j+ngz),
-                                + (which_face_a/2==2) * (j+ngz)) ;
-                        
-                        j_b = EXPR((which_face_a==2)*(ngz+ig) 
-                                + (which_face_a==3)*(ny-(ngz-ig)),
-                                + (which_face_a/2==0) * (j+ngz),
-                                + (which_face_a/2==2) * (k+ngz)) ; 
+                            j_b = EXPR((which_face_b==2) * 
+                                    ( (!polarity)*ig 
+                                    + (polarity)*(ngz-1-ig) )
+                                    + (which_face_b==3) * 
+                                    ( (!polarity)*(ny+ngz+ig)  
+                                    + (polarity)*(ny+2*ngz-1-ig) ), 
+                                    + (which_face_b/2==0) * (j+ngz), 
+                                    + (which_face_b/2==2) * (k+ngz)) ;  
+                            
+                            i_a = EXPR((which_face_a==0)*(ngz+ig) 
+                                    + (which_face_a==1)*(nx+ig), 
+                                    + (which_face_a/2==1) * (j+ngz),
+                                    + (which_face_a/2==2) * (j+ngz)) ;
+                            
+                            j_a = EXPR((which_face_a==2)*(ngz+ig) 
+                                    + (which_face_a==3)*(ny+ig),
+                                    + (which_face_a/2==0) * (j+ngz),
+                                    + (which_face_a/2==2) * (k+ngz)) ; 
 
-                        #ifdef THUNDER_3D
-                        k_b =     (which_face_b==4) * 
-                                  ( (!polarity)*ig 
-                                  + (polarity)*(ngz-1-ig) )
-                                + (which_face_b==5) * 
-                                  ( (!polarity)*(nz+ig)  
-                                  + (polarity)*(nz+ngz-1-ig) )
-                                + (which_face_b/2!=2) * (k+ngz) ;
+                            #ifdef THUNDER_3D
+                            k_b =     (which_face_b==4) * 
+                                    ( (!polarity)*ig 
+                                    + (polarity)*(ngz-1-ig) )
+                                    + (which_face_b==5) * 
+                                    ( (!polarity)*(nz+ngz+ig)  
+                                    + (polarity)*(nz+2*ngz-1-ig) )
+                                    + (which_face_b/2!=2) * (k+ngz) ;
 
-                        k_a =     (which_face_a==4)*(ngz+ig)
-                                + (which_face_a==5)*(nz-(ngz-ig))
-                                + (which_face_a/2!=2) * (k + ngz) ;
-                        #endif  
-                        
-                        view_b(VEC(i_b,j_b,k_b),ivar,qid_b) =  view_a(VEC(i_a,j_a,k_a),ivar,qid_a) ; 
+                            k_a =     (which_face_a==4)*(ngz+ig)
+                                    + (which_face_a==5)*(nz+ig)
+                                    + (which_face_a/2!=2) * (k + ngz) ;
+                            #endif  
+                            
+                            view_b(VEC(i_b,j_b,k_b),ivar,qid_b) =  view_a(VEC(i_a,j_a,k_a),ivar,qid_a) ; 
+                        }
+
+                    } );
+
+        }
+    )   ;  
+}
+
+template< typename InterpT >
+void interp_simple_ghostzones(
+    Kokkos::vector<simple_face_info_t>& interior_faces
+)
+{
+    using namespace thunder; 
+    using namespace Kokkos ; 
+
+    size_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int64_t ngz = amr::get_n_ghosts() ;
+    int64_t nq  = amr::get_local_num_quadrants() ;
+    auto& vars = variable_list::get().getstate() ; 
+    auto& halo = variable_list::get().gethalo()  ;
+    int nvars  = variables::get_n_evolved()      ;
+    auto const n_faces = interior_faces.size()   ;
+    auto& d_face_info = interior_faces.d_view    ; 
+
+
+    TeamPolicy<default_execution_space> 
+        policy( n_faces, AUTO() ) ; 
+    using member_t = decltype(policy)::member_type ;
+
+    parallel_for( THUNDER_EXECUTION_TAG("AMR","copy_interior_ghostzones")
+                , policy 
+                , KOKKOS_LAMBDA( const member_t& team )
+        {
+            int polarity     =  d_face_info(team.league_rank()).has_polarity_flip ;
+            int is_ghost     =  d_face_info(team.league_rank()).is_ghost          ; 
+            int which_face_a =  d_face_info(team.league_rank()).which_face_a      ; 
+            int which_face_b =  d_face_info(team.league_rank()).which_face_b      ;
+            int which_tree_a =  d_face_info(team.league_rank()).which_tree_a      ;
+            int which_tree_b =  d_face_info(team.league_rank()).which_tree_b      ;
+            int64_t qid_a    =  d_face_info(team.league_rank()).qid_a             ;
+            int64_t qid_b    =  d_face_info(team.league_rank()).qid_b             ; 
+            
+            int64_t n1 = (which_face_a/2==0) * ny + ((which_face_a/2==1) * nx) + ((which_face_a/2==2) * nx) ;
+            int64_t n2 = (which_face_a/2==0) * nz + ((which_face_a/2==1) * nz) + ((which_face_a/2==2) * ny) ;
+            
+            auto& view_a = vars ; 
+            auto& view_b = (is_ghost) ? halo : vars ;  
+
+            TeamThreadMDRange<Rank<THUNDER_NSPACEDIM>,member_t>
+                team_range( team, VECD(n1,n2), nvars) ; 
+            parallel_for( team_range
+                        , KOKKOS_LAMBDA(VECD(int& j, int& k), int& ivar)
+                    {
+                        for( int ig=0; ig<ngz; ++ig){
+                            int i_a = EXPR((which_face_a==0) * 
+                                    ( (!polarity)*ig 
+                                    + (polarity)*(ngz-1-ig) ) 
+                                    + (which_face_a==1) * 
+                                    ( (!polarity)*(nx+ngz+ig) 
+                                    + (polarity)*(nx+2*ngz-1-ig) ),
+                                    + (which_face_a/2==1) * (j+ngz), 
+                                    + (which_face_a/2==2) * (j+ngz)) ;
+
+                            int j_a = EXPR((which_face_a==2) * 
+                                    ( (!polarity)*ig 
+                                    + (polarity)*(ngz-1-ig) )
+                                    + (which_face_a==3) * 
+                                    ( (!polarity)*(ny+ngz+ig)  
+                                    + (polarity)*(ny+2*ngz-1-ig) ), 
+                                    + (which_face_a/2==0) * (j+ngz), 
+                                    + (which_face_a/2==2) * (k+ngz));  
+                            
+                            int i_b = EXPR((which_face_b==0)*(ngz+ig) 
+                                    + (which_face_b==1)*(nx+ig), 
+                                    + (which_face_b/2==1) * (j+ngz),
+                                    + (which_face_b/2==2) * (j+ngz)) ;
+                            
+                            int j_b = EXPR((which_face_b==2)*(ngz+ig) 
+                                    + (which_face_b==3)*(ny+ig),
+                                    + (which_face_b/2==0) * (j+ngz),
+                                    + (which_face_b/2==2) * (k+ngz)) ; 
+
+                            #ifdef THUNDER_3D
+                            int k_a = (which_face_a==4) * 
+                                    ( (!polarity)*ig 
+                                    + (polarity)*(ngz-1-ig) )
+                                    + (which_face_a==5) * 
+                                    ( (!polarity)*(nz+ngz+ig)  
+                                    + (polarity)*(nz+2*ngz-1-ig) )
+                                    + (which_face_a/2!=2) * (k+ngz) ;
+
+                            int k_b = (which_face_b==4)*(ngz+ig)
+                                    + (which_face_b==5)*(nz+ig)
+                                    + (which_face_b/2!=2) * (k + ngz) ;
+                            #endif 
+
+                            view_a(VEC(i_a,j_a,k_a),ivar,qid_a) =  view_b(VEC(i_b,j_b,k_b),ivar,qid_b) ; 
+
+                            i_b = EXPR((which_face_b==0) * 
+                                    ( (!polarity)*ig 
+                                    + (polarity)*(ngz-1-ig) )
+                                    + (which_face_b==1) * 
+                                    ( (!polarity)*(nx+ngz+ig)  
+                                    + (polarity)*(nx+2*ngz-1-ig) ),
+                                    + (which_face_b/2==1) * (j+ngz), 
+                                    + (which_face_b/2==2) * (j+ngz)) ;
+
+                            j_b = EXPR((which_face_b==2) * 
+                                    ( (!polarity)*ig 
+                                    + (polarity)*(ngz-1-ig) )
+                                    + (which_face_b==3) * 
+                                    ( (!polarity)*(ny+ngz+ig)  
+                                    + (polarity)*(ny+2*ngz-1-ig) ), 
+                                    + (which_face_b/2==0) * (j+ngz), 
+                                    + (which_face_b/2==2) * (k+ngz)) ;  
+                            
+                            i_a = EXPR((which_face_a==0)*(ngz+ig) 
+                                    + (which_face_a==1)*(nx+ig), 
+                                    + (which_face_a/2==1) * (j+ngz),
+                                    + (which_face_a/2==2) * (j+ngz)) ;
+                            
+                            j_a = EXPR((which_face_a==2)*(ngz+ig) 
+                                    + (which_face_a==3)*(ny+ig),
+                                    + (which_face_a/2==0) * (j+ngz),
+                                    + (which_face_a/2==2) * (k+ngz)) ; 
+
+                            #ifdef THUNDER_3D
+                            k_b =     (which_face_b==4) * 
+                                    ( (!polarity)*ig 
+                                    + (polarity)*(ngz-1-ig) )
+                                    + (which_face_b==5) * 
+                                    ( (!polarity)*(nz+ngz+ig)  
+                                    + (polarity)*(nz+2*ngz-1-ig) )
+                                    + (which_face_b/2!=2) * (k+ngz) ;
+
+                            k_a =     (which_face_a==4)*(ngz+ig)
+                                    + (which_face_a==5)*(nz+ig)
+                                    + (which_face_a/2!=2) * (k + ngz) ;
+                            #endif  
+                            
+                            view_b(VEC(i_b,j_b,k_b),ivar,qid_b) =  view_a(VEC(i_a,j_a,k_a),ivar,qid_a) ; 
+                        }
 
                     } );
 
@@ -404,7 +558,7 @@ void interp_hanging_ghostzones(
                 {
                     qid_b, qid_c
                     #ifdef THUNDER_3D 
-                    ,quid_d, quid_e
+                    ,qid_d, qid_e
                     #endif
                 } ; 
 

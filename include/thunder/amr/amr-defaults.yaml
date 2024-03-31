@@ -1,7 +1,4 @@
 amr: {
-  # physical coordinate system
-  # possible values: "cartesian", "spherical", "cylindrical"
-  physical_coordinates: "cartesian",
   # Physical extent of the coordinates.
   # If the code is compiled for 2 spatial dimensions, z-parameters
   # are ignored. 

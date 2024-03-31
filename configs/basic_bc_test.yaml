@@ -1,0 +1,21 @@
+name: "thunder"
+amr: {
+  npoints_block_x: 6,
+  npoints_block_y: 6,
+  npoints_block_z: 6,
+  xmin: 0.,
+  xmax: 1.,
+  ymin: 0.,
+  ymax: 1.,
+  zmin: 0.,
+  zmax: 1.,
+  n_ghostzones: 3,
+  physical_coordinates: "cartesian",
+  initial_refinement_level: 1,
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_CTORE: 0.5,
+  refinement_criterion_CTODE: 0.01
+}
+IO: {
+  volume_output_cell_variables: ["dens"]
+}

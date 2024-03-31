@@ -35,7 +35,7 @@
 
 namespace thunder { namespace IO {
 
-
+/*
 namespace detail {
 
 enum coordinate_types_impl_t 
@@ -68,8 +68,8 @@ setup_vtk_grid_cartesian() ;
 vtkSmartPointer<vtkUnstructuredGrid> 
 setup_vtk_grid_spherical() ; 
 
-} /* namespace detail */
-
+} 
+*/
 vtkSmartPointer<vtkUnstructuredGrid> setup_vtk_volume_grid() ;
 
 vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() ; 

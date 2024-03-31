@@ -44,9 +44,14 @@ void thunder_iterate_faces( p4est_iter_face_info_t* info
 
 void copy_interior_ghostzones( Kokkos::vector<simple_face_info_t>& ) ;
 
+template< typename InterpT > 
+void interp_simple_ghostzones( Kokkos::vector<simple_face_info_t>& ) ;
+
 template< typename InterpT >
 void interp_hanging_ghostzones( Kokkos::vector<hanging_face_info_t>& ) ;
 
+//extern template 
+//void interp_simple_ghostzones<utils::linear_interp_t<THUNDER_NSPACEDIM>>( Kokkos::vector<hanging_face_info_t>& ) ; 
 
 extern template 
 void interp_hanging_ghostzones<utils::linear_interp_t<THUNDER_NSPACEDIM>>( Kokkos::vector<hanging_face_info_t>& ) ; 

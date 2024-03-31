@@ -40,7 +40,6 @@
 #include <thunder/amr/amr_flags.hh>
 #include <thunder/amr/connectivity.hh>
 #include <thunder/amr/forest.hh>
-#include <thunder/amr/coordinates.hh>
 #include <thunder/amr/amr_functions.hh>
 #include <thunder/amr/regrid.hh>
 #include <thunder/amr/boundary_conditions.hh>

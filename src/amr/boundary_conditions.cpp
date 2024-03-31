@@ -30,6 +30,7 @@
 #include <thunder/amr/bc_helpers.hh> 
 #include <thunder/amr/bc_helpers.tpp> 
 #include <thunder/amr/bc_kernels.tpp>
+#include <thunder/coordinates/coordinates.hh>
 #include <thunder/system/thunder_system.hh>
 #include <thunder/utils/thunder_utils.hh>
 #include <thunder/data_structures/macros.hh>
@@ -51,11 +52,15 @@ void apply_boundary_conditions() {
     /******************************************************/
     size_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = get_quadrant_extents() ;
-    int64_t ngz = get_n_ghosts() ; 
+    int64_t ngz = get_n_ghosts() ;
+    int64_t nq  = get_local_num_quadrants()  ;  
+    size_t nvars = variables::get_n_evolved() ;
+    /******************************************************/
     auto& vars = variable_list::get().getstate()    ;
     auto& halo = variable_list::get().gethalo()    ;
-    size_t nvars = variables::get_n_evolved() ; 
-    /* Create ghost layer */
+    /******************************************************/
+    /*                Create ghost layer                  */
+    /******************************************************/
     p4est_ghost_t * halos = p4est_ghost_new( 
           forest::get().get() 
         , P4EST_CONNECT_FACE  
@@ -63,8 +68,10 @@ void apply_boundary_conditions() {
     sc_array_view_t<p4est_quadrant_t> 
           halo_quads{ &(halos->ghosts) }
         , mirror_quads{ &(halos->mirrors) }  ;
-
     Kokkos::realloc(halo, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars,halo_quads.size());  
+    /******************************************************/
+    /*                Receive ghost data                  */
+    /******************************************************/
     size_t send_size = EXPR(nx, *ny, *nz) * nvars ; 
     parallel::thunder_transfer_context_t context ;
     size_t rank = parallel::mpi_comm_rank() ; 
@@ -72,7 +79,7 @@ void apply_boundary_conditions() {
         size_t first_halo  = halos->proc_offsets[iproc]   ; 
         size_t last_halo   = halos->proc_offsets[iproc+1] ;
         for( int ihalo=first_halo; ihalo<last_halo; ++ihalo ) {
-            size_t iq_loc = get_quadrant_locidx(&(mirror_quads[ihalo])) ;
+            
             context._rcv_rq.push_back(sc_MPI_Request{}) ; 
             auto hsview = Kokkos::subview(
                   halo
@@ -87,7 +94,17 @@ void apply_boundary_conditions() {
                 , parallel::get_comm_world()
                 , &(context._rcv_rq.back())
             ) ; 
-
+        }
+    }
+    /******************************************************/
+    /*                Send ghost data                     */
+    /******************************************************/
+    for( int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
+        size_t first_mirror = halos->mirror_proc_offsets[iproc]   ; 
+        size_t last_mirror  = halos->mirror_proc_offsets[iproc+1] ; 
+        for( int imirror=first_mirror; imirror<last_mirror; ++imirror){
+            size_t iq_loc = 
+                (mirror_quads[halos->mirror_proc_mirrors[imirror]]).p.piggy3.local_num ;
             context._snd_rq.push_back(sc_MPI_Request{}) ; 
             auto sview = Kokkos::subview(
                   vars
@@ -117,6 +134,9 @@ void apply_boundary_conditions() {
         , reinterpret_cast<void*>( &face_info )
         , nullptr
         , thunder_iterate_faces 
+        #ifdef THUNDER_3D 
+        , nullptr 
+        #endif 
         , nullptr) ;
     /******************************************************/
     /* Third step:                                        */
@@ -148,13 +168,22 @@ void apply_boundary_conditions() {
     /* boundaries.                                        */
     /******************************************************/
     parallel::mpi_waitall(context) ;
-    auto simple_interior_info = face_info.simple_interior_info ; 
-    simple_interior_info.host_to_device() ;
-    copy_interior_ghostzones(simple_interior_info) ; 
-    auto hanging_interior_info = face_info.hanging_interior_info ; 
-    hanging_interior_info.host_to_device() ;
     auto interp_type = 
         config_parser::get()["amr"]["prolongation_interpolator_type"].as<std::string>() ; 
+    auto simple_interior_info = face_info.simple_interior_info ; 
+    std::cout << "In halo exchange: got " << simple_interior_info.size() << " simple interior faces " << std::endl ; 
+    simple_interior_info.host_to_device() ;
+    #if defined(THUNDER_CARTESIAN_COORDINATES)
+    copy_interior_ghostzones(simple_interior_info) ; 
+    #else
+    if( interp_type == "linear" ){
+        //interp_simple_ghostzones<utils::linear_interp_t<THUNDER_NSPACEDIM>>(simple_interior_info) ; 
+    } else {
+        ERROR("Unsupported interpolator in ghost-zone exchange.") ; 
+    }
+    #endif 
+    auto hanging_interior_info = face_info.hanging_interior_info ; 
+    hanging_interior_info.host_to_device() ;
     if( interp_type == "linear" ){
         interp_hanging_ghostzones<utils::linear_interp_t<THUNDER_NSPACEDIM>>(hanging_interior_info) ; 
     } else {

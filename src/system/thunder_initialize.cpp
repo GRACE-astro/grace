@@ -38,7 +38,8 @@
 
 #include <thunder/amr/connectivity.hh>
 #include <thunder/amr/forest.hh>
-#include <thunder/amr/coordinates.hh>
+#include <thunder/coordinates/coordinate_systems.hh>
+#include <thunder/coordinates/coordinates.hh>
 
 #include <thunder/data_structures/variables.hh>
 
@@ -80,7 +81,8 @@ void initialize(int& argc, char* argv[])
     thunder::amr::connectivity::initialize() ; 
     thunder::amr::forest::initialize()       ;
     thunder::variable_list::initialize() ;
-    thunder::runtime::initialize() ;  
+    thunder::runtime::initialize() ; 
+    thunder::coordinate_system::initialize() ;  
     thunder::fill_cell_coordinates(thunder::variable_list::get().getcoords(),thunder::variable_list::get().getinvspacings()) ; 
 }
 

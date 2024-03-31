@@ -37,7 +37,7 @@
 #include <thunder/amr/tree.hh>
 #include <thunder/amr/connectivity.hh>
 #include <thunder/amr/forest.hh>
-#include <thunder/amr/coordinates.hh>
+#include <thunder/coordinates/coordinates.hh>
 #include <thunder/amr/amr_flags.hh>
 #include <thunder/amr/amr_functions.hh>
 

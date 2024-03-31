@@ -49,6 +49,7 @@ enum unique_objects_lifetimes {
     THUNDER_RUNTIME, 
     AMR_CONNECTIVITY,
     AMR_FOREST,
+    THUNDER_COORDINATE_SYSTEM,
     THUNDER_VARIABLES,
     thunder_NUM_GLOBAL_OBJECTS 
 } ;

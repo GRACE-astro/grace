@@ -1,6 +1,22 @@
 
-option( THUNDER_CARTESIAN_COORDINATES "Build the code with cartesian coordinates" OFF) 
-option( THUNDER_SPHERICAL_COORDINATES "Build the code with spherical coordinates" ON) 
+option( THUNDER_CARTESIAN_COORDINATES "Build the code with cartesian coordinates" ON) 
+option( THUNDER_SPHERICAL_COORDINATES "Build the code with spherical coordinates" OFF) 
+
+if( THUNDER_SPHERICAL_COORDINATES )
+    message(STATUS  "Spherical cordinate system enabled.")
+    if( THUNDER_CARTESIAN_COORDINATES)
+        set(THUNDER_CARTESIAN_COORDINATES OFF)
+        message(STATUS  "Switching off Cartesian coordinate system.")
+    endif()
+endif() 
+
+if( THUNDER_CARTESIAN_COORDINATES )
+    message(STATUS  "Cartesian cordinate system enabled.")
+    if( THUNDER_SPHERICAL_COORDINATES)
+        set(THUNDER_SPHERICAL_COORDINATES OFF)
+        message(STATUS  "Switching off spherical coordinate system.")
+    endif()
+endif() 
 
 if( NOT THUNDER_NSPACEDIM )
     set(THUNDER_NSPACEDIM 2)

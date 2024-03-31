@@ -67,7 +67,7 @@ struct flash_second_deriv_criterion {
         ) ; 
         double maxerr = Kokkos::fmax( Ex, Ey ) ; 
         #ifdef THUNDER_3D 
-        maxerr = Kokkos::fmax(ret, Ez) ; 
+        maxerr = Kokkos::fmax(maxerr, Ez) ; 
         #endif 
         return maxerr ; 
     }

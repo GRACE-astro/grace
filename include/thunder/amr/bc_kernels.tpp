@@ -41,28 +41,28 @@ struct outgoing_bc_t
         for(int ig=0; ig<ngz; ++ig)
         {
             EXPR(
-            int I = VECD((face==0) * ig 
-                  + (face==1) * (n0+ig)
+            int I = EXPRD((face==0) * ig 
+                  + (face==1) * (n0+ngz+ig)
                   + (face/2==1) * j, 
                   + (face/2==2) * k)  ;,
-            int J = VECD((face==2) * ig 
-                  + (face==3) * (n0+ig)
+            int J = EXPRD((face==2) * ig 
+                  + (face==3) * (n0+ngz+ig)
                   + (face/2==0) * j, 
                   + (face/2==2) * k)  ;,
-            int K = VECD((face==4) * ig 
-                  + (face==5) * (n0+ig)
+            int K = EXPRD((face==4) * ig 
+                  + (face==5) * (n0+ngz+ig)
                   + (face/2==0) * k, 
                   + (face/2==1) * k)  ;)
             EXPR(
-            int I0 = VECD((face==0) * ngz 
+            int I0 = EXPRD((face==0) * ngz 
                   + (face==1) * (n0+ngz-1)
                   + (face/2==1) * j, 
                   + (face/2==2) * k)  ;,
-            int J0 = VECD((face==2) * ngz 
+            int J0 = EXPRD((face==2) * ngz 
                   + (face==3) * (n0+ngz-1)
                   + (face/2==0) * j, 
                   + (face/2==2) * k)  ;,
-            int K0 = VECD((face==4) * ngz 
+            int K0 = EXPRD((face==4) * ngz 
                   + (face==5) * (n0+ngz-1)
                   + (face/2==0) * k, 
                   + (face/2==1) * k)  ;)

@@ -117,7 +117,7 @@ class connectivity_impl_t
       return std::array<double,2> { x_r-x_l, y_r-y_l } ; 
       #else 
       auto const z_l = l_coords[2] ; 
-      auto const z_r = vertex_coordinates(which_tree, 3UL)[2] ; 
+      auto const z_r = vertex_coordinates(which_tree, 4UL)[2] ; 
       return std::array<double,3> { x_r-x_l, y_r-y_l, z_r-z_l } ;
       #endif 
     };

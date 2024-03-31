@@ -170,6 +170,24 @@ vtk_module_autoinit(
     MODULES ${VTK_LIBRARIES}
     )
 
+add_executable( bc_test test_bc.cpp )
+target_include_directories(bc_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  bc_test PRIVATE 
+p4est_tests_main
+Catch2::Catch2
+thunder_objects
+$<TARGET_OBJECTS:thunder_volume_output>
+yaml_cpp::yaml
+Kokkos::kokkos
+MPI::MPI_CXX
+p4est::sc
+p4est::p4est 
+VTK::VTK )
+vtk_module_autoinit(
+TARGETS bc_test
+MODULES ${VTK_LIBRARIES}
+)
+
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)
 add_test(NAME sc_wrappers_test COMMAND 
@@ -184,5 +202,18 @@ add_test(NAME coordinate_test COMMAND
         mpirun -n 2 ./coordinate_test --thunder-parfile ./configs/basic_config.yaml )
 add_test(NAME interpolator_test COMMAND 
         ./interpolator_test )
-
-
+add_test(NAME regrid_test_cartesian COMMAND 
+        mpirun -n 2 ./regrid_test --thunder-parfile ./configs/regrid_test_cartesian.yaml )
+add_test(NAME regrid_test_spherical COMMAND 
+        mpirun -n 2 ./regrid_test --thunder-parfile ./configs/regrid_test_spherical.yaml )
+add_test(NAME bc_test_cartesian COMMAND 
+        mpirun -n 2 ./bc_test --thunder-parfile ./configs/regrid_test_cartesian.yaml )
+add_test(NAME bc_test_spherical COMMAND 
+        mpirun -n 2 ./bc_test --thunder-parfile ./configs/regrid_test_spherical.yaml )
+##add_custom_command(
+#        TARGET
+#        COMMENT "Run tests"
+#        POST_BUILD 
+#        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/test" 
+#        COMMAND ${CMAKE_CTEST_COMMAND} -C $<CONFIGURATION> -R "Unit tests" --output-on-failure
+#)

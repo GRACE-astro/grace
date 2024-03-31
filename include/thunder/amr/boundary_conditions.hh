@@ -39,6 +39,8 @@ struct simple_face_info_t
     int which_face_b ; 
     int64_t qid_a    ;
     int64_t qid_b    ; 
+    int which_tree_a ; 
+    int which_tree_b ; 
 
 } ; 
 
@@ -52,6 +54,8 @@ struct hanging_face_info_t
     int is_ghost_c   ; 
     int which_face_a ; 
     int which_face_b ; 
+    int which_tree_a ; 
+    int which_tree_b ; 
     int64_t qid_a    ;
     int64_t qid_b    ;
     int64_t qid_c    ;

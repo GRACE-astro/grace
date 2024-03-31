@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <Kokkos_Core.hpp>
 #include <thunder/amr/thunder_amr.hh>
+#include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/data_structures/thunder_data_structures.hh>
 #include <thunder/utils/thunder_utils.hh>
 #include <thunder/IO/vtk_volume_output.hh>
@@ -44,7 +45,7 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
         #else 
         size_t const q = (icell/(nx + 2*ngz)/(nx + 2*ngz)) ; 
         #endif 
-        auto const coords = thunder::amr::get_physical_coordinates(icell, {VEC(0.5,0.5,0.5)}, true) ; 
+        auto const coords = thunder::get_physical_coordinates({VEC(i,j,k)},q, {VEC(0.5,0.5,0.5)}, true) ; 
         double const r2 = EXPR( math::int_pow<2>(coords[0]),
                               + math::int_pow<2>(coords[1]),
                               + math::int_pow<2>(coords[2]) )  ; 

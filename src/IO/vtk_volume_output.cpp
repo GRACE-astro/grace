@@ -53,7 +53,8 @@
 #include <vtkMPIController.h>
 /* thunder includes */
 #include <thunder/data_structures/variable_properties.hh>
-#include <thunder/system/thunder_runtime.hh> 
+#include <thunder/system/thunder_runtime.hh>
+#include <thunder/coordinates/coordinate_systems.hh> 
 #include <thunder/IO/vtk_volume_output.hh>
 #ifdef THUNDER_3D 
 #include <thunder/IO/vtk_output_3D.tpp>
@@ -73,21 +74,6 @@
 
 
 namespace thunder { namespace IO {
-
-
-vtkSmartPointer<vtkUnstructuredGrid> setup_vtk_volume_grid()
-{
-    auto& params = thunder::config_parser::get() ; 
-    std::string coord_system = params["amr"]["physical_coordinates"].as<std::string>() ; 
-    if( coord_system == "cartesian" ) {
-        return detail::setup_vtk_grid_cartesian() ; 
-    } else if (coord_system == "spherical" ) {
-        std::cout << "Setting up spherical grid..." << std::endl ;
-        return detail::setup_vtk_grid_spherical() ; 
-    } else {
-        ERROR("Should not be here.") ; 
-    }
-}
 
 
 

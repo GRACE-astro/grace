@@ -75,7 +75,9 @@ class tree_t
    {
       sc_array_view_t<p4est_quadrant_t> quads{&(_ptree->quadrants)} ; 
       ASSERT_DBG( iquad < quads.size()
-               , "Requested out of bounds quadrant." ) ;
+               , "Requested out of bounds quadrant."
+                " Requested: " << iquad << ", last: " 
+                << quads.size()-1 << ".\n" ) ;
       return quadrant_t(&quads[iquad]) ; 
    }
    //*****************************************************************************************************

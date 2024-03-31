@@ -34,7 +34,7 @@
 #include <thunder/amr/restriction_kernels.tpp> 
 #include <thunder/amr/regrid_helpers.tpp>
 #include <thunder/amr/amr_functions.hh>
-
+#include <thunder/coordinates/coordinates.hh>
 #include <thunder/data_structures/thunder_data_structures.hh>
 #include <thunder/config/config_parser.hh>
 

@@ -40,12 +40,14 @@
 #define VEC(X,Y,Z) X,Y,Z
 #define EXPR(X,Y,Z) X Y Z
 #define PICK_D(X,Y) Y 
-#define VECD(X,Y) X,Y 
+#define VECD(X,Y) X,Y
+#define EXPRD(X,Y) X Y 
 #else 
 #define VEC(X,Y,Z) X,Y
 #define EXPR(X,Y,Z) X Y
 #define PICK_D(X,Y) X 
 #define VECD(X,Y) X
+#define EXPRD(X,Y) X
 #endif 
 
 #endif /* C412D999_BF0F_4E79_9C1D_C17BE6E275CB */

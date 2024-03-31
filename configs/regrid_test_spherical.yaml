@@ -4,14 +4,13 @@ amr: {
   npoints_block_y: 6,
   npoints_block_z: 6,
   n_ghostzones: 2,
-  physical_coordinates: "spherical",
   inner_region_side: 0.2, 
   inner_region_radius: 1,
   outer_region_radius: 2,
   initial_refinement_level: 2,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 0.5,
-  refinement_criterion_CTODE: -1000
+  refinement_criterion_CTODE:  0.01
 }
 IO: {
   volume_output_cell_variables: ["dens"]
