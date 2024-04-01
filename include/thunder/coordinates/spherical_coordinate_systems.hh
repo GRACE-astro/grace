@@ -39,12 +39,16 @@
 
 namespace thunder { 
 typedef void (*coord_transform_t) (double,double*,double*,double*,double*,double*) ; 
-typedef void (*coord_transfer_t) (int,int,double*,double*) ; 
+typedef void (*coord_transfer_t) ( double          // L 
+                                 , double*,double* // Fa Sa
+                                 , double*,double* // Fb Sb 
+                                 , double*,double* // Ra Rb 
+                                 , double*,double* ) ; 
 
 
 namespace detail {
 THUNDER_DEVICE coord_transform_t l2p[2*P4EST_FACES+1], p2l[2*P4EST_FACES+1] ; 
-THUNDER_DEVICE coord_transfer_t gl2l[2*P4EST_FACES] ;
+THUNDER_DEVICE coord_transfer_t gl2l[(2*P4EST_FACES+1)*P4EST_FACES] ;
 }
 
 struct spherical_device_coordinate_system_impl_t 
@@ -63,11 +67,11 @@ struct spherical_device_coordinate_system_impl_t
     {
         double F[2] = {
             ((itree-1)/P4EST_FACES==0) * grid_params_(1) + ((itree-1)/P4EST_FACES==1) * grid_params_(5),
-            ((itree-1)/P4EST_FACES==0) * grid_params_(2) + ((itree-1)/P4EST_FACES==1) * grid_params_(6),
+            ((itree-1)/P4EST_FACES==0) * grid_params_(2) + ((itree-1)/P4EST_FACES==1) * grid_params_(6)
         } ; 
         double S[2] = {
             ((itree-1)/P4EST_FACES==0) * grid_params_(3) + ((itree-1)/P4EST_FACES==1) * grid_params_(7),
-            ((itree-1)/P4EST_FACES==0) * grid_params_(4) + ((itree-1)/P4EST_FACES==1) * grid_params_(8),
+            ((itree-1)/P4EST_FACES==0) * grid_params_(4) + ((itree-1)/P4EST_FACES==1) * grid_params_(8)
         } ;
         int const midx = (itree>0) * (itree-1)%P4EST_FACES; // just to prevent indexing at -1 
         auto const R = Kokkos::subview(rotation_matrices_, Kokkos::ALL(),midx) ;  
@@ -92,11 +96,45 @@ struct spherical_device_coordinate_system_impl_t
     }
 
     void THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
-    transfer_coordinates( int tree_a, int tree_b, 
+    transfer_coordinates( int itree_a, int itree_b, 
                           int face_a, int face_b,
                           double * l_coords_a, double * l_coords_b  ) const 
     {
-        //detail::gl2l[P4EST_FACES * tree_a + face_a](l_coords_a, l_coords_b ) ; 
+        if( itree_a==itree_b ){
+            EXPR(
+                l_coords_b[0] = l_coords_a[0];,
+                l_coords_b[1] = l_coords_a[1];,
+                l_coords_b[2] = l_coords_a[2];
+            )
+            return ; 
+        }
+        int const midx_a = (itree_a>0) * (itree_a-1)%P4EST_FACES;
+        int const midx_b = (itree_b>0) * (itree_b-1)%P4EST_FACES;
+
+        double Fa[2] = {
+            ((itree_a-1)/P4EST_FACES==0) * grid_params_(1) + ((itree_a-1)/P4EST_FACES==1) * grid_params_(5),
+            ((itree_a-1)/P4EST_FACES==0) * grid_params_(2) + ((itree_a-1)/P4EST_FACES==1) * grid_params_(6)
+        } ; 
+        double Fb[2] = {
+            ((itree_b-1)/P4EST_FACES==0) * grid_params_(1) + ((itree_b-1)/P4EST_FACES==1) * grid_params_(5),
+            ((itree_b-1)/P4EST_FACES==0) * grid_params_(2) + ((itree_b-1)/P4EST_FACES==1) * grid_params_(6)
+        } ;
+        double Sa[2] = {
+            ((itree_a-1)/P4EST_FACES==0) * grid_params_(3) + ((itree_a-1)/P4EST_FACES==1) * grid_params_(7),
+            ((itree_a-1)/P4EST_FACES==0) * grid_params_(4) + ((itree_a-1)/P4EST_FACES==1) * grid_params_(8)
+        } ;
+        double Sb[2] = {
+            ((itree_b-1)/P4EST_FACES==0) * grid_params_(3) + ((itree_b-1)/P4EST_FACES==1) * grid_params_(7),
+            ((itree_b-1)/P4EST_FACES==0) * grid_params_(4) + ((itree_b-1)/P4EST_FACES==1) * grid_params_(8)
+        } ;
+
+        auto const Ra = Kokkos::subview(rotation_matrices_, Kokkos::ALL(),midx_a) ;  
+        auto const Rb = Kokkos::subview(inverse_rotation_matrices_, Kokkos::ALL(),midx_b) ;  
+        
+        detail::gl2l[itree_a * P4EST_FACES + face_a](
+            grid_params_(0),Fa,Sa,Fb,Sb,Ra.data(),Rb.data(),l_coords_a,l_coords_b
+        ) ; 
+
     }
     #ifdef THUNDER_3D 
     static constexpr size_t ntrees = 13UL;
@@ -105,7 +143,7 @@ struct spherical_device_coordinate_system_impl_t
     #endif 
  private: 
 
-    Kokkos::View<double*, thunder::default_space> grid_params_ ;
+    Kokkos::View<double* , thunder::default_space> grid_params_ ;
     Kokkos::View<double**, thunder::default_space> rotation_matrices_ ;
     Kokkos::View<double**, thunder::default_space> inverse_rotation_matrices_ ;
 
@@ -141,13 +179,13 @@ class spherical_coordinate_system_impl_t
             = [&] (double const sin, double const sout,
                 double const rin, double const rout, bool log_radius)
             {
-                return log_radius ? log(rin*rout) : sin*rin ; 
+                return log_radius ? .5*log(rin*rout) : sin*rin ; 
             }; 
         auto const get_Sr
             = [&] (double const sin, double const sout,
                 double const rin, double const rout, bool log_radius)
             {
-                return log_radius ? log(rout/rin) : (-sin*rin + sout*rout) ; 
+                return log_radius ? .5*log(rout/rin) : (-sin*rin + sout*rout) ; 
             };
         _F0 =   get_F0(0.,1.,_L,_Ri,false)  ; _F1  = get_F0(1.,1.,_Ri,_Ro,_use_logr) ;  
         _Fr =   get_Fr(0.,1.,_L,_Ri,false)  ; _Fr1 = get_Fr(1.,1.,_Ri,_Ro,_use_logr) ; 
@@ -226,6 +264,31 @@ class spherical_coordinate_system_impl_t
                                                : logical_to_physical_sph  ; jj++;
                 } 
                 /* Fill coordinate transfer pointers */
+                /* Cartesian grid */
+                int itree = 0 ; 
+                for( int iface=0; iface<P4EST_FACES; ++iface){
+                    detail::gl2l[P4EST_FACES*itree + iface] = cart_to_sph_transfer; 
+                }
+                itree++ ; 
+                for(int sph_tree=0; sph_tree<P4EST_FACES; ++sph_tree){
+                    detail::gl2l[P4EST_FACES*itree + 0] = sph_to_cart_transfer ; 
+                    detail::gl2l[P4EST_FACES*itree + 1] = sph_to_sph_positive_r_transfer ;
+                    for( int iface=2; iface<P4EST_FACES; ++iface){
+                        detail::gl2l[P4EST_FACES*itree + iface] = sph_to_sph_angular_transfer ;
+                    } 
+                    itree++ ; 
+                }
+                for(int sph_tree=0; sph_tree<P4EST_FACES; ++sph_tree){
+                    detail::gl2l[P4EST_FACES*itree + 0] = use_logr ? sph_to_sph_negative_r_transfer_log 
+                                                                   : sph_to_sph_negative_r_transfer ; 
+                    detail::gl2l[P4EST_FACES*itree + 1] = use_logr ? sph_to_sph_positive_r_transfer_log 
+                                                                   : sph_to_sph_positive_r_transfer ;
+                    for( int iface=2; iface<P4EST_FACES; ++iface){
+                        detail::gl2l[P4EST_FACES*itree + iface] = use_logr ? sph_to_sph_angular_transfer_log
+                                                                           : sph_to_sph_angular_transfer ;
+                    } 
+                    itree++ ; 
+                }
             }
         ) ; 
     }; 

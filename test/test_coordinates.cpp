@@ -13,6 +13,7 @@
 #include <thunder/data_structures/macros.hh>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+/* #undef TEST_DBG_ */
 
 TEST_CASE("coordinates'\t'[coords_test]")
 {
@@ -43,7 +44,6 @@ TEST_CASE("coordinates'\t'[coords_test]")
     auto& coord_system = coordinate_system::get() ; 
     auto device_coords = coord_system.get_device_coord_system();
     for(int itree=first_tree; itree<=last_tree; ++itree){
-        std::cout << "Tree: " << itree << std::endl ; 
         auto tree = amr::forest::get().tree(itree) ; 
         int q_offset = tree.quadrants_offset() ; 
         int num_quadrants = tree.num_quadrants()     ;
@@ -69,7 +69,6 @@ TEST_CASE("coordinates'\t'[coords_test]")
     deep_copy(lcoords_mirror,lcoords); deep_copy(pcoords_mirror,pcoords);
 
     for(int itree=first_tree; itree<=last_tree; ++itree){
-        std::cout << "Tree " << itree << std::endl ; 
         auto tree = amr::forest::get().tree(itree) ; 
         int q_offset = tree.quadrants_offset() ; 
         int num_quadrants = tree.num_quadrants()     ;
@@ -105,13 +104,15 @@ TEST_CASE("coordinates'\t'[coords_test]")
             auto const phys_coords = coord_system.get_physical_coordinates({VEC(i,j,k)},q,false) ;
             auto const log_coords = coord_system.get_logical_coordinates(itree,phys_coords) ; 
             auto const log_coords2 = coord_system.get_logical_coordinates(phys_coords) ;
-
-            std::cout << q << ", " << i << ", " << j << '\n'
+            #ifdef TEST_DBG_ 
+            std::cout << "Tree " << itree << '\n'
+                      << q << ", " << i << ", " << j << '\n'
                       << phys_coords[0] << ", " << phys_coords[1] << '\n'
                       << true_lcoords[0] << ", " << true_lcoords[1] << '\n' 
                       << log_coords[0] << ", " << log_coords[1] << '\n' 
                       << pcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),0,q) << ", " << pcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),1,q) << '\n'
                       << lcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),0,q) << ", " << lcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),1,q) << '\n'; 
+            #endif 
             EXPR(
                 REQUIRE_THAT(log_coords[0],
                 Catch::Matchers::WithinAbs(

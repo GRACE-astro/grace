@@ -157,7 +157,7 @@ spherical_coordinate_system_impl_t::get_logical_coordinates(
         auto const s0 =  ((itree-1) / P4EST_FACES == 0) * _S0 
                       +  ((itree-1) / P4EST_FACES == 1) * _S1 ;
         if( _use_logr and ((itree-1) / P4EST_FACES == 1)){
-            l_coords[0] = (log(r)-_S1)/_Sr1 ; 
+            l_coords[0] = 0.5*((log(r)-_S1)/_Sr1+1) ; 
         } else {
             auto const z_coeff = fr + sr * z / r ; 
             auto const z0      = f0 + s0 * z / r ;
@@ -251,7 +251,7 @@ spherical_coordinate_system_impl_t::get_zeta( double const& z
                                             , bool use_logr) const 
 {
     if( use_logr ){
-        return exp(S[0] + S[1]*z) * one_over_rho; 
+        return exp(S[0] + S[1]*(2*z-1)) * one_over_rho; 
     } else { 
         auto const z_coeff = F[1] + S[1]*one_over_rho ;   
         auto const z0      = F[0] + S[0]*one_over_rho ; 
