@@ -25,6 +25,7 @@
  */
 
 #include <thunder/amr/thunder_amr.hh> 
+#include <thunder/coordinates/cell_volume_kernels.h>
 #include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/coordinates/rotation_matrices.hh>
 #include <thunder/coordinates/spherical_coordinate_systems.hh>
@@ -37,7 +38,6 @@
 #include <array> 
 
 namespace thunder { 
-
 
 std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
 spherical_coordinate_system_impl_t::get_physical_coordinates(
@@ -80,6 +80,8 @@ spherical_coordinate_system_impl_t::get_physical_coordinates(
                  , z * xi
                  , z * eta )};
         return detail::apply_discrete_rotation(pcoords, (itree-1)%P4EST_FACES ) ; 
+    } else {
+        ERROR("Logical coordinates failed sanity check.");
     }
 }
 
@@ -89,6 +91,29 @@ spherical_coordinate_system_impl_t::get_physical_coordinates(
     , int64_t q 
     , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
     , bool use_ghostzones )
+{
+    using namespace thunder ; 
+    int64_t itree = amr::get_quadrant_owner(q)   ; 
+    return get_physical_coordinates(itree, get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones)) ; 
+}
+
+
+std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+spherical_coordinate_system_impl_t::get_physical_coordinates(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+    , int64_t q 
+    , bool use_ghostzones )
+{
+    return get_physical_coordinates(ijk,q,{VEC(0.5,0.5,0.5)},use_ghostzones);
+} 
+
+
+std::array<double, THUNDER_NSPACEDIM>
+THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+    , int64_t q 
+    , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
+    , bool use_ghostzones)
 {
     using namespace thunder ;
 
@@ -109,25 +134,13 @@ spherical_coordinate_system_impl_t::get_physical_coordinates(
     auto const dz_cell = dx_quad / nz ;
     ) 
 
-    std::array<double,THUNDER_NSPACEDIM> lcoords {
+    return {
         VEC(
             qcoords[0] * dx_quad + (ijk[0] + cell_coordinates[0] - use_ghostzones * ngz) * dx_cell, 
             qcoords[1] * dx_quad + (ijk[1] + cell_coordinates[1] - use_ghostzones * ngz) * dy_cell, 
             qcoords[2] * dx_quad + (ijk[2] + cell_coordinates[2] - use_ghostzones * ngz) * dz_cell 
         ) 
     } ; 
-
-    return get_physical_coordinates(itree, lcoords) ; 
-}
-
-
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
-spherical_coordinate_system_impl_t::get_physical_coordinates(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
-    , int64_t q 
-    , bool use_ghostzones )
-{
-    return get_physical_coordinates(ijk,q,{VEC(0.5,0.5,0.5)},use_ghostzones);
 } 
 
 std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
@@ -237,9 +250,176 @@ spherical_coordinate_system_impl_t::get_logical_coordinates(
             } else {
                 return get_logical_coordinates(3, physical_coordinates) ; 
             }
+        } else {
+            ERROR("Physical coordinates sanity check failed.") ; 
         }
 
     }
+
+}
+
+double
+THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int64_t q
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) 
+{
+    auto lcoords = get_logical_coordinates(ijk,q,{VEC(0.,0.,0.)},use_ghostzones) ; 
+
+    if( EXPR(
+           lcoords[0] < 0 or lcoords[0] > 1,
+        or lcoords[1] < 0 or lcoords[1] > 1,
+        or lcoords[2] < 0 or lcoords[2] > 1
+    )) {
+        return get_cell_volume_buffer_zone(ijk,itree,lcoords,dxl);
+    }
+    if( itree == 0 ) {
+        return math::int_pow<THUNDER_NSPACEDIM>(2.*_L) * EXPR(dxl[0],*dxl[1],*dxl[2]) ; 
+    } else if( (itree-1)/P4EST_FACES == 0 ) {
+        return dVol_sph(_L,_Ri, VECD(dxl[1],dxl[2]),dxl[0], VECD(lcoords[1],lcoords[2]),lcoords[0]) ; 
+    } else {
+        if( _use_logr ){
+            return dVol_sph_log(_Ri,_Ro, VECD(dxl[1],dxl[2]),dxl[0], VECD(lcoords[1],lcoords[2]),lcoords[0]) ; 
+        } else { 
+            return dVol_sph_ext(_Ri,_Ro, VECD(dxl[1],dxl[2]),dxl[0], VECD(lcoords[1],lcoords[2]),lcoords[0]) ;
+        }
+    }
+
+
+}
+
+double
+THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume_buffer_zone(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& lcoords
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) 
+{
+    using namespace thunder ; 
+    int ngz = amr::get_n_ghosts() ; 
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int iface = EXPR(
+          (ijk[0] < ngz) * 0 
+        + (ijk[0] > nx + ngz-1) * 1,
+        + (ijk[1] < ngz) * 2 
+        + (ijk[1] > ny + ngz-1) * 3,
+        + (ijk[2] < ngz) * 4 
+        + (ijk[2] > nz + ngz-1) * 5) ;
+    if( iface >= P4EST_FACES) iface = 0;   
+    auto& conn = amr::connectivity::get();
+    int    itree_b  = conn.tree_to_tree(itree, iface) ; 
+    int8_t iface_b  = conn.tree_to_face(itree, iface) ; 
+    int    polarity = conn.tree_to_tree_polarity(itree,iface) ;
+    /****************************************/
+    /* First index below is the distance    */
+    /* in index space from tree boundary.   */
+    /* The other two are simply the indices */
+    /* orthogonal to the face.              */
+    /****************************************/
+    EXPR(
+    int ig = EXPR( 
+          (iface==0) * (ngz-1-ijk[0])
+        + (iface==1) * (ijk[0]-nx-ngz),
+        + (iface==2) * (ngz-1-ijk[1])
+        + (iface==3) * (ijk[1]-ny-ngz),
+        + (iface==4) * (ngz-1-ijk[2])
+        + (iface==5) * (ijk[2]-nz-ngz)  ) ;, 
+    int j  = EXPR( 
+          (iface/2==0) * ijk[1],
+        + (iface/2==1) * ijk[0],
+        + (iface/2==2) * ijk[0] ) ;, 
+    int k  = EXPR( 
+          (iface/2==0) * ijk[2],
+        + (iface/2==1) * ijk[2],
+        + (iface/2==2) * ijk[1] ) ; )
+
+    EXPR(
+    int i_b = EXPR(
+          (iface_b==0) * (
+            (!polarity) * (ngz+ig)
+          + (polarity)  * (2*ngz-1-ig) )
+        + (iface_b==1) * (
+            (!polarity) * (nx+ngz+ig)
+          + (polarity)  * (nx+2*ngz-ig-1) ),
+        + (iface_b/2==1) * j,
+        + (iface_b/2==2) * j  );,
+    int j_b = EXPR(
+          (iface_b==2) * (
+            (!polarity) * (ngz+ig)
+          + (polarity)  * (2*ngz-1-ig) )
+        + (iface_b==3) * (
+            (!polarity) * (ny+ngz+ig)
+          + (polarity)  * (ny+2*ngz-ig-1) ),
+        + (iface_b/2==0) * j,
+        + (iface_b/2==2) * k 
+    );,
+    int k_b = EXPR(
+          (iface_b==4) * (
+            (!polarity) * (ngz+ig)
+          + (polarity)  * (2*ngz-1-ig) )
+        + (iface_b==5) * (
+            (!polarity) * (nz+ngz+ig)
+          + (polarity)  * (nz+2*ngz-ig-1) ),
+        + (iface_b/2==0) * k,
+        + (iface_b/2==1) * k 
+    ) ;
+    )
+    /******************************************/
+    /* Now we find the logical coordinates    */
+    /* of the appropriate cell in the         */
+    /* neighbor tree.                         */
+    /* We do this as follows:                 */
+    /* First we find the physical coordinates */
+    /* of the quadrant corner which sits on   */
+    /* the tree boundary. Then we transform   */
+    /* these to tree logical coordinates of   */
+    /* the neighbor tree.                     */
+    /******************************************/
+    EXPR(
+    double const x = lcoords[0]
+        + (iface%2 == 1    ) * dxl[0] * nx;,
+    double const y = lcoords[1]
+        + ((iface/2)%2 == 1) * dxl[1] * ny;,
+    double const z = lcoords[2]
+        + ((iface/2)/2 == 1) * dxl[2] * nz;
+    )
+    auto pcoords = get_physical_coordinates(
+          itree
+        , lcoords 
+    ) ; 
+    auto lcoords_b = get_logical_coordinates(
+          itree_b 
+        , pcoords
+    ) ; 
+    /*******************************************/
+    /* Now we can compute the cell coordinates */
+    /*******************************************/
+    EXPR(
+    lcoords_b[0] += dxl[0] * i_b ;,
+    lcoords_b[1] += dxl[1] * j_b ;,
+    lcoords_b[2] += dxl[2] * k_b ;
+    )
+    if( itree_b == 0 ) {
+        return math::int_pow<THUNDER_NSPACEDIM>(2.*_L) * EXPR(dxl[0],*dxl[1],*dxl[2]) ; 
+    } else if( (itree_b-1)/P4EST_FACES == 0 ) {
+        return dVol_sph(_L,_Ri 
+                , VECD(dxl[1],dxl[2]),dxl[0]
+                , VECD(lcoords_b[1],lcoords_b[1]),lcoords_b[0] ) ; 
+    } else {
+        if( _use_logr ){
+            return dVol_sph_log(_Ri,_Ro
+                    , VECD(dxl[1],dxl[2]),dxl[0]
+                    , VECD(lcoords_b[1],lcoords_b[1]),lcoords_b[0] ) ; 
+        } else { 
+            return dVol_sph_ext(_Ri,_Ro
+                    , VECD(dxl[1],dxl[2]),dxl[0]
+                    , VECD(lcoords_b[1],lcoords_b[1]),lcoords_b[0] ) ;
+        }
+    }
+
 
 }
 

@@ -112,6 +112,13 @@ class cartesian_coordinate_system_impl_t
         , bool use_ghostzones 
     ) ;
 
+    std::array<double, THUNDER_NSPACEDIM>
+    THUNDER_HOST get_logical_coordinates(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+    , int64_t q 
+    , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
+    , bool use_ghostzones) ;
+
     std::array<double,THUNDER_NSPACEDIM> 
     THUNDER_HOST get_logical_coordinates(
           int itree
@@ -127,6 +134,14 @@ class cartesian_coordinate_system_impl_t
     THUNDER_HOST get_jacobian(
         std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates 
     ) ; 
+
+    double
+    THUNDER_HOST get_cell_volume(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int64_t q
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) ;
 
     cartesian_device_coordinate_system_impl_t THUNDER_ALWAYS_INLINE 
     get_device_coord_system() {

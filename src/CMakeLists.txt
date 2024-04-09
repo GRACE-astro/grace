@@ -26,6 +26,7 @@ target_sources( thunder_objects INTERFACE
                 $<TARGET_OBJECTS:thunder_connectivity> 
                 $<TARGET_OBJECTS:thunder_forest>
                 $<TARGET_OBJECTS:thunder_amr_functions>
+                $<TARGET_OBJECTS:spherical_cell_volume_kernels>
                 $<TARGET_OBJECTS:thunder_coordinates>
                 $<TARGET_OBJECTS:thunder_init> 
                 $<TARGET_OBJECTS:thunder_variable_list>
@@ -34,7 +35,7 @@ target_sources( thunder_objects INTERFACE
                 $<TARGET_OBJECTS:thunder_cartesian_coordinates>
                 $<TARGET_OBJECTS:thunder_spherical_coordinates>
                 $<TARGET_OBJECTS:thunder_coordinate_systems>
-                $<TARGET_OBJECTS:thunder_regrid>
-                $<TARGET_OBJECTS:thunder_BC_helpers>
-                $<TARGET_OBJECTS:thunder_BC> )
+                $<TARGET_OBJECTS:thunder_regrid> )
+#                $<TARGET_OBJECTS:thunder_BC_helpers>
+#                $<TARGET_OBJECTS:thunder_BC> )
 

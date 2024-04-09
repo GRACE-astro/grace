@@ -31,6 +31,7 @@
 
 #include <thunder/amr/thunder_amr.hh>
 #include <thunder/coordinates/coordinates.hh>
+#include <thunder/coordinates/coordinate_systems.hh>
 
 #include <thunder/config/config_parser.hh>
 
@@ -45,7 +46,10 @@
 
 namespace thunder { 
 
-void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM>& coords, scalar_array_t<THUNDER_NSPACEDIM>& ispacing) 
+void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
+                          , scalar_array_t<THUNDER_NSPACEDIM>& ispacing
+                          , scalar_array_t<THUNDER_NSPACEDIM>& spacing
+                          , cell_vol_array_t<THUNDER_NSPACEDIM>& volume) 
 {
     using namespace thunder ; 
     auto& forest = thunder::amr::forest::get()        ; 
@@ -55,39 +59,60 @@ void fill_cell_coordinates(coord_array_t<THUNDER_NSPACEDIM>& coords, scalar_arra
     size_t nx {params["amr"]["npoints_block_x"].as<size_t>()} ; 
     size_t ny {params["amr"]["npoints_block_y"].as<size_t>()} ; 
     size_t nz {params["amr"]["npoints_block_z"].as<size_t>()} ; 
+
+    auto h_coords = Kokkos::create_mirror_view(coords) ; 
+    auto h_idx = Kokkos::create_mirror_view(ispacing) ; 
+    auto h_dx  = Kokkos::create_mirror_view(spacing) ; 
+    auto h_vol = Kokkos::create_mirror_view(volume) ; 
+
+    auto& coord_system = coordinate_system::get() ;
     /* 2) Number of ghostzones for evolved vars */
     long ngz { params["amr"]["n_ghostzones"].as<long>() } ;
-for( int itree=forest.first_local_tree(); itree<=forest.last_local_tree(); ++itree)
-{
-    auto tree = forest.tree(itree) ; 
-    auto quadrants = tree.quadrants() ;
-    size_t quad_offset = tree.quadrants_offset() ;  
-    for( int iquad=0; iquad<quadrants.size(); ++iquad ) {
-        amr::quadrant_t quadrant = tree.quadrant(iquad) ; 
-        auto const dx_lev = 1.0 / ( 1UL<<quadrant.level() ) ; 
-        auto const VEC(dx_quad{dx_lev/nx}, dy_quad{dx_lev/ny}, dz_quad{dx_lev/nz}) ; 
-        /* coordinates of lower left corner of quadrant */
-        auto const qcoords = quadrant.qcoords() ; 
-        size_t iquad_glob = iquad + quad_offset ; 
-        /* launch a tiny kernel to fill the coord array */ 
-        Kokkos::parallel_for( THUNDER_EXECUTION_TAG("AMR","fill_coords_spherical")
-                , Kokkos::MDRangePolicy<Kokkos::Rank<THUNDER_NSPACEDIM>,default_execution_space>( {VEC(0,0,0)}
-                                                            , {VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz )} )
-                , KOKKOS_LAMBDA ( VEC(int i, int j, int k) )
-                {
-                    EXPR(
-                    coords(VEC(i,j,k),0,iquad_glob) = dx_lev * qcoords[0] + ( i - ngz + 0.5 ) * dx_quad ;,
-                    coords(VEC(i,j,k),1,iquad_glob) = dx_lev * qcoords[1] + ( j - ngz + 0.5 ) * dy_quad ;,
-                    coords(VEC(i,j,k),2,iquad_glob) = dx_lev * qcoords[2] + ( k - ngz + 0.5 ) * dz_quad ; 
-                    ) 
-                    EXPR(
-                    ispacing(0,iquad_glob) = 1./dx_quad ;,
-                    ispacing(1,iquad_glob) = 1./dy_quad ;,
-                    ispacing(2,iquad_glob) = 1./dz_quad ; 
-                    ) 
-                } ) ;  
-    }
-}
+    for( int itree=forest.first_local_tree(); itree<=forest.last_local_tree(); ++itree)
+    {
+        auto tree = forest.tree(itree) ; 
+        auto quadrants = tree.quadrants() ;
+        size_t quad_offset = tree.quadrants_offset() ;  
+        for( int iquad=0; iquad<quadrants.size(); ++iquad ) {
+            amr::quadrant_t quadrant = tree.quadrant(iquad) ; 
+            auto const dx_lev = 1.0 / ( 1UL<<quadrant.level() ) ; 
+            auto const VEC(dx_quad{dx_lev/nx}, dy_quad{dx_lev/ny}, dz_quad{dx_lev/nz}) ; 
+            /* coordinates of lower left corner of quadrant */
+            auto const qcoords = quadrant.qcoords() ; 
+            size_t iquad_glob = iquad + quad_offset ; 
+            h_coords(0,iquad_glob) = qcoords[0] * dx_lev; 
+            h_coords(1,iquad_glob) = qcoords[1] * dx_lev;
+            h_coords(2,iquad_glob) = qcoords[2] * dx_lev;
+            EXPR(
+            h_idx(0,iquad_glob) = 1./dx_quad ;, 
+            h_idx(1,iquad_glob) = 1./dy_quad ;,
+            h_idx(2,iquad_glob) = 1./dz_quad ;)
+            EXPR(
+            h_dx(0,iquad_glob) = dx_quad ;,
+            h_dx(1,iquad_glob) = dy_quad ;,
+            h_dx(2,iquad_glob) = dz_quad ;)
+            EXPR(
+            for(size_t i=0; i<nx+2*ngz; ++i){,
+                for(size_t j=0; j<ny+2*ngz; ++j){,
+                    for(size_t k=0; k<nz+2*ngz; ++k){
+            )
+                        h_vol(VEC(i,j,k),iquad_glob) = coord_system.get_cell_volume(
+                              {VEC(i,j,k)}
+                            , iquad_glob
+                            , itree 
+                            , {VEC(dx_quad,dy_quad,dz_quad)}
+                            , true )  ; 
+            EXPR(
+                    },
+                },
+            })
+        } /* quadrant loop */
+    } /* tree loop */
+    Kokkos::deep_copy(coords,h_coords) ; 
+    Kokkos::deep_copy(ispacing,h_idx) ; 
+    Kokkos::deep_copy(spacing,h_dx) ; 
+    Kokkos::deep_copy(volume,h_vol) ;
+
     
 }
 

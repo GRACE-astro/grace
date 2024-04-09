@@ -133,7 +133,7 @@ void regrid() {
     /* This ensures the grid is 2:1 balanced.                                                 */
     /******************************************************************************************/
     p4est_balance_ext( amr::forest::get().get() 
-                      , P4EST_CONNECT_FACE
+                      , P4EST_CONNECT_FULL
                       , amr::initialize_quadrant 
                       , amr::set_quadrant_flag ) ;
     /******************************************************************************************/
@@ -282,17 +282,24 @@ void regrid() {
                 , quadrant_data_size 
         ) ; 
 
-    auto& coords = variable_list::get().getcoords() ; 
-    Kokkos::resize( coords      ,   VEC(  nx + 2*ngz 
-                                        , ny + 2*ngz 
-                                        , nz + 2*ngz )
-                                ,   THUNDER_NSPACEDIM
+    auto& coords = variable_list::get().getcoords()   ;
+    auto& dx = variable_list::get().getspacings()     ; 
+    auto& vol = variable_list::get().getvolumes()     ; 
+    Kokkos::resize( coords      ,   THUNDER_NSPACEDIM
                                 ,   nq_local 
                                  ) ;
     Kokkos::realloc( idx        , THUNDER_NSPACEDIM
                                 ,   nq_local 
                                  ) ;
-    fill_cell_coordinates(coords, idx) ;
+    Kokkos::realloc( dx         , THUNDER_NSPACEDIM
+                                ,   nq_local 
+                                 ) ;
+    Kokkos::realloc( vol        , VEC(  nx + 2*ngz 
+                                      , ny + 2*ngz 
+                                      , nz + 2*ngz )
+                                ,  nq_local 
+                                 ) ;
+    fill_cell_coordinates(coords, idx, dx, vol) ;
     /******************************************************************************************/
     /*                            Auxiliary vars are reallocated                              */
     /*                            but not re-initialized.                                     */

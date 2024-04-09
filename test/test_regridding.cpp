@@ -2,6 +2,7 @@
 #include <Kokkos_Core.hpp>
 #include <thunder/amr/thunder_amr.hh>
 #include <thunder/data_structures/thunder_data_structures.hh>
+#include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/utils/thunder_utils.hh>
 #include <thunder/IO/vtk_volume_output.hh>
 #include <iostream>
@@ -17,6 +18,7 @@ TEST_CASE("Simple regrid", "[regrid]")
     
     auto& state  = thunder::variable_list::get().getstate()  ;
     auto& coords = thunder::variable_list::get().getcoords() ; 
+    auto& dx     = thunder::variable_list::get().getspacings(); 
     size_t nx,ny,nz; 
     std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
     size_t nq = thunder::amr::get_local_num_quadrants() ; 
@@ -41,7 +43,12 @@ TEST_CASE("Simple regrid", "[regrid]")
                         , policy 
                         , KOKKOS_LAMBDA( VEC(const int i, const int j, const int k), const int q)
         {
-            state(VEC(i,j,k),DENS_,q) =  func(VEC(coords(VEC(i,j,k),0,q),coords(VEC(i,j,k),1,q),coords(VEC(i,j,k),2,q))) ; 
+            EXPR(
+            double x = coords(0,q) + (i-ngz+0.5) * dx(0,q);,
+            double y = coords(1,q) + (j-ngz+0.5) * dx(1,q);,
+            double z = coords(2,q) + (k-ngz+0.5) * dx(2,q);
+            )
+            state(VEC(i,j,k),DENS_,q) =  func(VEC(x,y,z)) ; 
         }
     
     );
@@ -56,6 +63,7 @@ TEST_CASE("Simple regrid", "[regrid]")
     Kokkos::deep_copy(h_state_mirror, state) ; 
     auto h_coord_mirror = Kokkos::create_mirror_view(coords) ; 
     Kokkos::deep_copy(h_coord_mirror, coords) ; 
+    auto& coord_system = thunder::coordinate_system::get() ; 
     nq = thunder::amr::get_local_num_quadrants() ;
     ncells = EXPR((nx),*(ny),*(nz))*nq ;
      
@@ -71,9 +79,15 @@ TEST_CASE("Simple regrid", "[regrid]")
         #else 
         size_t const q = (icell/(nx)/(ny)) ; 
         #endif 
+        auto lcoords = coord_system.get_logical_coordinates(
+              {VEC(i,j,k)}
+            , q
+            , {VEC(0.5,0.5,0.5)}
+            , false 
+        ) ; 
         REQUIRE_THAT(h_state_mirror(VEC(i+ngz,j+ngz,k+ngz),DENS,q)
         , Catch::Matchers::WithinAbs(
-                  h_func(VEC(h_coord_mirror(VEC(i+ngz,j+ngz,k+ngz),0,q),h_coord_mirror(VEC(i+ngz,j+ngz,k+ngz),1,q),h_coord_mirror(VEC(i+ngz,j+ngz,k+ngz),2,q)))
+                  h_func(VEC(lcoords[0],lcoords[1],lcoords[2]))
                 , 1e-12)) ;
     } 
 }

@@ -20,7 +20,7 @@ TEST_CASE("coordinates'\t'[coords_test]")
     using namespace thunder ;
     using namespace Kokkos ; 
     auto& vars = thunder::variable_list::get() ; 
-
+    auto& params = thunder::config_parser::get() ; 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ;
@@ -33,7 +33,8 @@ TEST_CASE("coordinates'\t'[coords_test]")
     View<double ****, default_space> pcoords("physical_coordinates", nx+2*ngz,ny+2*ngz,2,nq) ;
     #endif 
 
-    auto& grid_coords = vars.getcoords() ; 
+    auto& grid_coords = vars.getcoords() ;
+    auto& dx = vars.getspacings() ;  
 
     auto const lcoords_mirror = create_mirror_view(lcoords);
     auto const pcoords_mirror = create_mirror_view(pcoords);
@@ -53,9 +54,9 @@ TEST_CASE("coordinates'\t'[coords_test]")
             KOKKOS_LAMBDA (VEC(size_t const& i, size_t const& j, size_t const& k), int const q){
                 double _pcoords[THUNDER_NSPACEDIM] ; 
                 double _lcoords[THUNDER_NSPACEDIM] = 
-                {VEC(grid_coords(VEC(i,j,k),0,q)
-                    ,grid_coords(VEC(i,j,k),1,q)
-                    ,grid_coords(VEC(i,j,k),2,q))};
+                {VEC(grid_coords(0,q) + (i - ngz + 0.5) * dx(0,q)
+                    ,grid_coords(1,q) + (j - ngz + 0.5) * dx(1,q)
+                    ,grid_coords(2,q) + (k - ngz + 0.5) * dx(2,q))};
                 device_coords.get_physical_coordinates(itree,_lcoords,_pcoords) ;
                 device_coords.get_logical_coordinates(itree,_pcoords,_lcoords) ;  
                 for(int idim=0; idim<THUNDER_NSPACEDIM; ++idim){
@@ -67,7 +68,31 @@ TEST_CASE("coordinates'\t'[coords_test]")
     }
 
     deep_copy(lcoords_mirror,lcoords); deep_copy(pcoords_mirror,pcoords);
-
+    auto cell_volume_mirror = create_mirror_view(
+        thunder::variable_list::get().getvolumes()
+    ); 
+    deep_copy(cell_volume_mirror, thunder::variable_list::get().getvolumes()) ; 
+    #ifdef THUNDER_CARTESIAN_COORDINATES 
+    EXPR(
+    double x_extent = 
+        params["amr"]["xmax"].as<double>() - params["amr"]["xmin"].as<double>() ;,
+    double y_extent = 
+        params["amr"]["ymax"].as<double>() - params["amr"]["ymin"].as<double>() ;,
+    double z_extent = 
+        params["amr"]["zmax"].as<double>() - params["amr"]["zmin"].as<double>() ;)
+    double const total_grid_volume = EXPR(
+        x_extent, * y_extent, * z_extent 
+    ) ; 
+    #elif defined(THUNDER_SPHERICAL_COORDINATES)
+    double Ro = params["amr"]["outer_region_radius"].as<double>() ; 
+    #ifdef THUNDER_3D 
+    double const total_grid_volume = 
+        4./3.*M_PI * math::int_pow<3>(Ro) ; 
+    #else 
+    double const total_grid_volume = M_PI * math::int_pow<2>(Ro) ; 
+    #endif 
+    #endif
+    double vol_test = 0 ;
     for(int itree=first_tree; itree<=last_tree; ++itree){
         auto tree = amr::forest::get().tree(itree) ; 
         int q_offset = tree.quadrants_offset() ; 
@@ -86,7 +111,9 @@ TEST_CASE("coordinates'\t'[coords_test]")
             #else 
             size_t const q = (icell/(nx)/(ny)) + q_offset; 
             #endif 
-            
+            vol_test += cell_volume_mirror(
+                VEC(ngz+i,ngz+j,ngz+k),q 
+            ) ; 
             auto quad = amr::get_quadrant(itree, q) ;  
             auto qcoords = quad.qcoords() ; 
             auto dx_quad = 1./(1<<quad.level()); 
@@ -113,6 +140,7 @@ TEST_CASE("coordinates'\t'[coords_test]")
                       << pcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),0,q) << ", " << pcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),1,q) << '\n'
                       << lcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),0,q) << ", " << lcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),1,q) << '\n'; 
             #endif 
+             
             EXPR(
                 REQUIRE_THAT(log_coords[0],
                 Catch::Matchers::WithinAbs(
@@ -174,5 +202,9 @@ TEST_CASE("coordinates'\t'[coords_test]")
         }
 
     }
+    REQUIRE_THAT(vol_test,
+                Catch::Matchers::WithinAbs(
+                   total_grid_volume, 1e-12 
+    ));
     
 }

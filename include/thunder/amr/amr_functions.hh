@@ -52,7 +52,6 @@ namespace thunder { namespace amr {
  *         in each direction.
  */
 std::tuple<size_t,size_t,size_t> get_quadrant_extents() ; 
-
 /**
  * @brief Get the number of ghost cells. 
  * \ingroup amr 
@@ -60,7 +59,6 @@ std::tuple<size_t,size_t,size_t> get_quadrant_extents() ;
  */
 int 
 get_n_ghosts() ; 
-
 /**
  * @brief Get the number of local quadrants. 
  * \ingroup amr 
@@ -68,7 +66,6 @@ get_n_ghosts() ;
  */
 size_t 
 get_local_num_quadrants() ; 
-
 /**
  * @brief Find the tree that owns a quadrant 
  *        given the quadrant's cumulative local index. 

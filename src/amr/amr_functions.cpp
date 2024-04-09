@@ -147,7 +147,7 @@ get_tree_vertex(size_t which_tree, size_t which_vertex)
 std::array<double,THUNDER_NSPACEDIM> 
 get_tree_spacing(size_t which_tree)
 {
-    return thunder::amr::connectivity::get().tree_coordinate_exents(which_tree);
+    return thunder::amr::connectivity::get().tree_coordinate_extents(which_tree);
 }
 
 std::vector<int64_t>

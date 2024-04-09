@@ -83,7 +83,11 @@ void initialize(int& argc, char* argv[])
     thunder::variable_list::initialize() ;
     thunder::runtime::initialize() ; 
     thunder::coordinate_system::initialize() ;  
-    thunder::fill_cell_coordinates(thunder::variable_list::get().getcoords(),thunder::variable_list::get().getinvspacings()) ; 
+    thunder::fill_cell_coordinates(
+            thunder::variable_list::get().getcoords()
+        ,   thunder::variable_list::get().getinvspacings()
+        ,   thunder::variable_list::get().getspacings()
+        ,   thunder::variable_list::get().getvolumes()) ; 
 }
 
 

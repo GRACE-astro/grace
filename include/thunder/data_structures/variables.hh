@@ -61,11 +61,11 @@ class variable_list_impl_t
 public:
     //*****************************************************************************************************
     /**
-     * @brief Get cell coordinates.
+     * @brief Get quadrant coordinates.
      * 
-     * @return Cell coordinates. 
+     * @return Quadrant coordinates. 
      */
-    THUNDER_ALWAYS_INLINE coord_array_t<THUNDER_NSPACEDIM>&
+    THUNDER_ALWAYS_INLINE scalar_array_t<THUNDER_NSPACEDIM>&
     getcoords() { return _coords ; } 
     //*****************************************************************************************************
     /**
@@ -73,8 +73,24 @@ public:
      * 
      * @return Spacing of cell coordinates  
      */
+    THUNDER_ALWAYS_INLINE cell_vol_array_t<THUNDER_NSPACEDIM>&
+    getvolumes() { return _cell_volumes ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get inverse spacing of cell coordinates.
+     * 
+     * @return Spacing of cell coordinates  
+     */
     THUNDER_ALWAYS_INLINE scalar_array_t<THUNDER_NSPACEDIM>&
-    getinvspacings() { return _coords_ispacing ; } 
+    getinvspacings() { return _coords_ispacing ; }  
+    //*****************************************************************************************************
+    /**
+     * @brief Get spacing of cell coordinates.
+     * 
+     * @return Spacing of cell coordinates  
+     */
+    THUNDER_ALWAYS_INLINE scalar_array_t<THUNDER_NSPACEDIM>&
+    getspacings() { return _coords_spacing ; } 
     //*****************************************************************************************************
     /**
      * @brief Get the auxiliary variables.
@@ -130,8 +146,10 @@ private:
     //*****************************************************************************************************
     //******** Member variables ***************************************************************************
     //*****************************************************************************************************
-    coord_array_t<THUNDER_NSPACEDIM>  _coords  ;  //!< Gridpoint coordinates 
-    scalar_array_t<THUNDER_NSPACEDIM>  _coords_ispacing  ;  //!< Spacing of coordinate system
+    scalar_array_t<THUNDER_NSPACEDIM>  _coords  ;  //!< tree-logical coordinates of quadrant corners 
+    scalar_array_t<THUNDER_NSPACEDIM>  _coords_ispacing  ;  //!< Inverse spacing of coordinate system
+    scalar_array_t<THUNDER_NSPACEDIM>  _coords_spacing  ;  //!< Spacing of coordinate system
+    cell_vol_array_t<THUNDER_NSPACEDIM> _cell_volumes ; //!< Volume of cells 
     var_array_t<THUNDER_NSPACEDIM> _state   ;     //!< State variables 
     var_array_t<THUNDER_NSPACEDIM> _state_p ;     //!< Second timelevel, allocated at all times 
     var_array_t<THUNDER_NSPACEDIM> _halo    ;     //!< Halo exchange buffer, allocated when necessary

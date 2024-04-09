@@ -109,6 +109,30 @@ struct coord_array_impl_t<3> { using view_t = Kokkos::View<double *****, default
  * \ingroup variables
  */
 template< size_t ndim >
+struct cell_vol_array_impl_t {} ;
+//*****************************************************************************************************
+/**
+ * @brief Helper class 
+ * \cond thunder_detail
+ * \ingroup variables
+ */
+template<> 
+struct cell_vol_array_impl_t<2> { using view_t = Kokkos::View<double ***, default_space>; };
+//*****************************************************************************************************
+/**
+ * @brief Helper class 
+ * \cond thunder_detail
+ * \ingroup variables
+ */
+template<> 
+struct cell_vol_array_impl_t<3> { using view_t = Kokkos::View<double ****, default_space>; } ;
+//*****************************************************************************************************
+/**
+ * @brief Helper class 
+ * \cond thunder_detail
+ * \ingroup variables
+ */
+template< size_t ndim >
 struct scalar_array_impl_t { using view_t = Kokkos::View<double **, default_space>; } ;
 //*****************************************************************************************************
 /**
@@ -134,6 +158,14 @@ using coord_array_t = coord_array_impl_t<ndim>::view_t ;
  */
 template< size_t ndim = THUNDER_NSPACEDIM > 
 using scalar_array_t = scalar_array_impl_t<ndim>::view_t ; 
+//*****************************************************************************************************
+/**
+ * @brief Proxy for volume cell <code>View</code> type in Thunder
+ * \ingroup variables
+ * @tparam ndim Number of spatial dimension
+ */
+template< size_t ndim = THUNDER_NSPACEDIM > 
+using cell_vol_array_t = cell_vol_array_impl_t<ndim>::view_t ; 
 //*****************************************************************************************************
 //*****************************************************************************************************
 } /* namespace thunder */

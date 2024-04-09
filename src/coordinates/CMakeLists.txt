@@ -12,11 +12,15 @@ target_link_libraries( thunder_cartesian_coordinates PRIVATE
                         p4est::p4est 
                         Kokkos::kokkos )
 
+add_library(spherical_cell_volume_kernels OBJECT cell_volume_kernels.cpp)
+target_include_directories( spherical_cell_volume_kernels PRIVATE "${HEADER_DIR}" )
+
 add_library( thunder_spherical_coordinates OBJECT spherical_coordinate_system.cpp )
 target_include_directories( thunder_spherical_coordinates PRIVATE "${HEADER_DIR}" )
 target_compile_options(thunder_spherical_coordinates PRIVATE -Wno-dangling-field)
 target_link_libraries( thunder_spherical_coordinates PRIVATE 
                         $<TARGET_OBJECTS:thunder_parallel> 
+                        $<TARGET_OBJECTS:spherical_cell_volume_kernels>
                         $<TARGET_OBJECTS:thunder_singleton> 
                         $<TARGET_OBJECTS:thunder_connectivity> 
                         $<TARGET_OBJECTS:thunder_forest>

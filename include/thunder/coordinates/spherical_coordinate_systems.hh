@@ -136,6 +136,21 @@ struct spherical_device_coordinate_system_impl_t
         ) ; 
 
     }
+    void THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+    transform_indices( int itree_a, int itree_b, 
+                       int face_a, int face_b,
+                       VEC(int  i_a, int  j_a, int  k_a),
+                       VEC(int* i_b, int* j_b, int* k_b) ) const 
+    {
+        int const midx_a = (itree_a>0) * (itree_a-1)%P4EST_FACES;
+        int const midx_b = (itree_b>0) * (itree_b-1)%P4EST_FACES;
+
+        auto const Ra = Kokkos::subview(rotation_matrices_, Kokkos::ALL(),midx_a) ;  
+        auto const Rb = Kokkos::subview(inverse_rotation_matrices_, Kokkos::ALL(),midx_b) ;  
+        
+        
+
+    }
     #ifdef THUNDER_3D 
     static constexpr size_t ntrees = 13UL;
     #else 
@@ -314,6 +329,14 @@ class spherical_coordinate_system_impl_t
         , bool use_ghostzones
     ) ;
 
+    std::array<double, THUNDER_NSPACEDIM>
+    THUNDER_HOST get_logical_coordinates(
+          std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+        , int64_t q 
+        , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
+        , bool use_ghostzones
+    ) ;
+
     std::array<double,THUNDER_NSPACEDIM> 
     THUNDER_HOST get_logical_coordinates(
           int itree 
@@ -330,6 +353,15 @@ class spherical_coordinate_system_impl_t
         std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates 
     ) ; 
 
+    double
+    THUNDER_HOST get_cell_volume(
+        std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+        , int64_t q
+        , int itree
+        , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+        , bool use_ghostzones
+    ) ; 
+
     spherical_device_coordinate_system_impl_t
     get_device_coord_system(){
         return spherical_device_coordinate_system_impl_t {
@@ -340,6 +372,13 @@ class spherical_coordinate_system_impl_t
     }
 
  private:  
+
+    double
+    THUNDER_HOST get_cell_volume_buffer_zone(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& lcoords
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) ;
 
     double THUNDER_HOST 
     get_zeta( double const& z

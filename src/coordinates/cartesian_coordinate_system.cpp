@@ -26,6 +26,7 @@
 
 #include <thunder/amr/thunder_amr.hh> 
 #include <thunder/coordinates/coordinate_systems.hh>
+#include <thunder/errors/assert.hh>
 #include <thunder/coordinates/cartesian_coordinate_systems.hh>
 #include <thunder/utils/thunder_utils.hh>
 #include <thunder/data_structures/thunder_data_structures.hh>
@@ -91,8 +92,29 @@ cartesian_coordinate_system_impl_t::get_physical_coordinates(
     , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
     , bool use_ghostzones )
 {
-    using namespace thunder ;
+    using namespace thunder ; 
+    int64_t itree = amr::get_quadrant_owner(q)   ; 
+    return get_physical_coordinates(itree, get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones)) ; 
+}
 
+
+std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+cartesian_coordinate_system_impl_t::get_physical_coordinates(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+    , int64_t q 
+    , bool use_ghostzones )
+{   
+    return get_physical_coordinates(ijk,q,{VEC(0.5,0.5,0.5)},use_ghostzones);
+} 
+
+std::array<double, THUNDER_NSPACEDIM>
+THUNDER_HOST cartesian_coordinate_system_impl_t::get_logical_coordinates(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+    , int64_t q 
+    , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
+    , bool use_ghostzones)
+{
+    using namespace thunder ; 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int64_t nq = amr::get_local_num_quadrants()      ;
@@ -110,26 +132,14 @@ cartesian_coordinate_system_impl_t::get_physical_coordinates(
     auto const dz_cell = dx_quad / nz ;
     ) 
 
-    std::array<double,THUNDER_NSPACEDIM> lcoords {
+    return {
         VEC(
             qcoords[0] * dx_quad + (ijk[0] + cell_coordinates[0] - use_ghostzones * ngz) * dx_cell, 
             qcoords[1] * dx_quad + (ijk[1] + cell_coordinates[1] - use_ghostzones * ngz) * dy_cell, 
             qcoords[2] * dx_quad + (ijk[2] + cell_coordinates[2] - use_ghostzones * ngz) * dz_cell
         ) 
     } ; 
-
-    return get_physical_coordinates(itree, lcoords) ; 
 }
-
-
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
-cartesian_coordinate_system_impl_t::get_physical_coordinates(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
-    , int64_t q 
-    , bool use_ghostzones )
-{
-    return get_physical_coordinates(ijk,q,{VEC(0.5,0.5,0.5)},use_ghostzones);
-} 
 
 std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
 cartesian_coordinate_system_impl_t::get_logical_coordinates(
@@ -186,6 +196,54 @@ cartesian_coordinate_system_impl_t::get_logical_coordinates(
     << "of a point in the ghost-zones "
     << "please use the version of this function "
     << "that takes the tree index as input.") ; 
+}
+
+double
+THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int64_t q
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) 
+{
+    using namespace thunder ; 
+    int ngz = amr::get_n_ghosts() ; 
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    auto lcoords = get_logical_coordinates(ijk,q,{VEC(0.5,0.5,0.5)},use_ghostzones) ; 
+    auto& conn = amr::connectivity::get();
+    ASSERT_DBG(
+            itree < amr::connectivity::get().get()->num_trees,
+            "Tree out of bounds " << itree << 
+            " at " << ijk[0] << " " << ijk[1] 
+        ) ;
+    auto dx_tree = amr::get_tree_spacing(itree) ; 
+    
+    if( EXPR(
+           lcoords[0] < 0 or lcoords[0] > 1,
+        or lcoords[1] < 0 or lcoords[1] > 1,
+        or lcoords[2] < 0 or lcoords[2] > 1
+    )) {
+        int iface = 0 + EXPR(
+          (ijk[0] < ngz) * 0 
+        + (ijk[0] > nx + ngz-1) * 1,
+        + (ijk[1] < ngz) * 2 
+        + (ijk[1] > ny + ngz-1) * 3,
+        + (ijk[2] < ngz) * 4 
+        + (ijk[2] > nz + ngz-1) * 5) ;
+        if( iface >= P4EST_FACES ) {
+            iface = 0 ; // in corner ghostzones we can put anything 
+        }
+        int    itree_b  = conn.tree_to_tree(itree, iface) ;
+        dx_tree = amr::get_tree_spacing(itree_b) ;  
+    }
+    
+    return EXPR(
+          dx_tree[0] * dxl[0], 
+        * dx_tree[1] * dxl[1],
+        * dx_tree[2] * dxl[2]
+    ) ; 
+
 }
 
 } /* namespace thunder */ 

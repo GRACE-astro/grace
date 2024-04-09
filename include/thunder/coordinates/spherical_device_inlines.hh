@@ -239,5 +239,4 @@ sph_to_sph_angular_transfer_log(double L, double * F1, double * S1, double * F2,
     physical_to_logical_sph_log(L,F2,S2,R2,pcoords,lcoords_sph2) ; 
 }
 
-
 #endif /* THUNDER_COORDINATES_DEVICE_SPHERICAL_INLINES_HH */

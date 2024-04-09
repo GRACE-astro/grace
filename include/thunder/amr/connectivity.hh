@@ -31,6 +31,7 @@
 #include <thunder_config.h>
 
 #include <thunder/amr/p4est_headers.hh>
+#include <thunder/errors/assert.hh>
 
 #include <thunder/utils/inline.h>
 #include <thunder/utils/singleton_holder.hh>
@@ -107,7 +108,11 @@ class connectivity_impl_t
      * @return Array containing coordinate extents of the tree in each direction.
      */
     THUNDER_ALWAYS_INLINE std::array<double, THUNDER_NSPACEDIM> 
-    tree_coordinate_exents(size_t which_tree) const { 
+    tree_coordinate_extents(size_t which_tree) const { 
+      ASSERT_DBG( which_tree < pconn_->num_trees,
+                  "In tree_coordinate_extents: "
+                  "requested tree " << which_tree 
+                  << "does not exist (num_trees= " << pconn_->num_trees << ")" ) ; 
       auto const l_coords = vertex_coordinates(which_tree, 0UL) ; 
       auto const x_l = l_coords[0] ; 
       auto const x_r = vertex_coordinates(which_tree, 1UL)[0] ; 
@@ -120,6 +125,28 @@ class connectivity_impl_t
       auto const z_r = vertex_coordinates(which_tree, 4UL)[2] ; 
       return std::array<double,3> { x_r-x_l, y_r-y_l, z_r-z_l } ;
       #endif 
+    };
+    //**************************************************************************************************
+    /**
+     * @brief Find tree connecting across a face.
+     * @param which_tree Tree index
+     * @param which_face Face index in z-order 
+     * @return Index of tree across requested face.
+     */
+    THUNDER_ALWAYS_INLINE int
+    tree_to_tree(size_t which_tree, int which_face) const { 
+      return pconn_->tree_to_tree[ which_tree * P4EST_FACES + which_face ] ;  
+    };
+    //**************************************************************************************************
+    /**
+     * @brief Find face connecting across a face.
+     * @param which_tree Tree index
+     * @param which_face Face index in z-order 
+     * @return Index of face across requested face.
+     */
+    THUNDER_ALWAYS_INLINE int8_t
+    tree_to_face(size_t which_tree, int which_face) const { 
+      return pconn_->tree_to_face[ which_tree * P4EST_FACES + which_face ] % P4EST_FACES;  
     };
     //**************************************************************************************************
     /**
