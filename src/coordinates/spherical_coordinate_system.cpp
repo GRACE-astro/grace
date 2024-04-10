@@ -1,5 +1,5 @@
 /**
- * @file coordinate_systems.cpp
+ * @file spherical_coordinate_system.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
  * @date 2024-03-26
@@ -256,6 +256,29 @@ spherical_coordinate_system_impl_t::get_logical_coordinates(
 
     }
 
+}
+
+double
+THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
+    std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+  , int64_t q
+  , bool use_ghostzones)
+{
+    using namespace thunder ;
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int64_t itree = amr::get_quadrant_owner(q)   ; 
+    amr::quadrant_t quad = amr::get_quadrant(itree,q) ; 
+
+    auto const dx_quad  = 1./(1<<quad.level()) ; 
+    auto const qcoords = quad.qcoords()     ; 
+
+    EXPR(
+    auto const dx_cell = dx_quad / nx ;, 
+    auto const dy_cell = dx_quad / ny ;,
+    auto const dz_cell = dx_quad / nz ;
+    )
+    return get_cell_volume(ijk,q,itree,{VEC(dx_cell,dy_cell,dz_cell)},use_ghostzones);
 }
 
 double

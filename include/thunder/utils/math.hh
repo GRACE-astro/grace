@@ -36,56 +36,69 @@
 
 namespace math
 {
-  namespace detail {
-  //! \cond thunder_detail 
-  /**
-   * @brief Compute integer powers.
-   * \ingroup utils
-   * @tparam T type of argument 
-   * @tparam N power
-   * Implemented as a struct to allow for partial specialization.
-   */
-  template< typename T, size_t N>
-  struct int_pow_impl
+namespace detail {
+//! \cond thunder_detail 
+/**
+ * @brief Compute integer powers.
+ * \ingroup utils
+ * @tparam T type of argument 
+ * @tparam N power
+ * Implemented as a struct to allow for partial specialization.
+ */
+template< typename T, size_t N>
+struct int_pow_impl
+{
+  static THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE
+  T get(T const& x)
   {
-    static THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE
-    T get(T const& x)
-    {
-      if constexpr ( N==0 )
-        return static_cast<T>(1.); 
-      else
-        return x * int_pow_impl<T,N-1>::get(x) ; 
-    } ; 
+    if constexpr ( N==0 )
+      return static_cast<T>(1.); 
+    else
+      return x * int_pow_impl<T,N-1>::get(x) ; 
   } ; 
-  //! \endcond
-  } // namespace detail
+} ; 
+//! \endcond
+} // namespace detail
 
-  /**
-   * @brief Compute integer powers.
-   * 
-   * @tparam T type of argument 
-   * @tparam N power
-   * @param x value to be exponentiated
-   * @return T x to the power of N
-   */
-  template<size_t N, typename T> 
-  static THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE
-  T int_pow(T const& x )
-  {
-    return detail::int_pow_impl<T,N>::get(x) ; 
-  } ;
+/**
+ * @brief Compute integer powers.
+ * 
+ * @tparam T type of argument 
+ * @tparam N power
+ * @param x value to be exponentiated
+ * @return T x to the power of N
+ */
+template<size_t N, typename T> 
+static THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE
+T int_pow(T const& x )
+{
+  return detail::int_pow_impl<T,N>::get(x) ; 
+} ;
 
-  /**
-   * @brief compute absolute value (type agnostic).
-   * @tparam T type of parameter
-   * @param x value whose absolute value we want
-   * @return T absolute value of x
-   */
-  template < typename T >
-  static THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE
-  T abs ( T const & x ) {
-    return ( x > static_cast<T>(0) ) ? x : -x ;
-  }
+/**
+ * @brief compute absolute value (type agnostic).
+ * @tparam T type of parameter
+ * @param x value whose absolute value we want
+ * @return T absolute value of x
+ */
+template < typename T >
+static THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE
+T abs ( T const & x ) {
+  return ( x > static_cast<T>(0) ) ? x : -x ;
+}
+
+/**
+ * @brief Signum
+ * 
+ * @tparam T Type of input
+ * @param val Value whose sign is sought
+ * @return int The signum of val.
+ */
+template< typename T > 
+int THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+sgn(T const& val) {
+    return (static_cast<T>(0)<val) - (static_cast<T>(0)>val) ; 
+}
   
 }
 

@@ -24,8 +24,7 @@ TEST_CASE("Simple regrid", "[regrid]")
     size_t nq = thunder::amr::get_local_num_quadrants() ; 
     int ngz = thunder::amr::get_n_ghosts() ; 
 
-
-    auto ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
+    auto ncells = EXPR((nx),*(ny),*(nz))*nq ; 
 
     auto const func = KOKKOS_LAMBDA (VEC(const double& x,const double& y,const double &z))
     {
@@ -35,7 +34,9 @@ TEST_CASE("Simple regrid", "[regrid]")
     {
         return EXPR(8.5 * x, - 5.1 * y, ) - 3.14 ; 
     } ; 
-
+    
+    
+    /* fill data */
     Kokkos::MDRangePolicy<Kokkos::Rank<THUNDER_NSPACEDIM+1>,thunder::default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 
 
@@ -52,21 +53,47 @@ TEST_CASE("Simple regrid", "[regrid]")
         }
     
     );
+    /* copy data to swap before regrid */
     auto& swap = thunder::variable_list::get().getscratch() ; 
     Kokkos::deep_copy(swap, state) ; 
-    
+    /* copy data to host */
+    auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
+    Kokkos::deep_copy(h_state_mirror,state); 
+    auto& coord_system = thunder::coordinate_system::get() ; 
+    /* compute total volume integrated value */
+    double exact_total{0} ; 
+    double total_volume{0} ; 
+    for( size_t icell=0UL; icell<ncells; icell+=1UL)
+    {
+        size_t const i = icell%(nx) ; 
+        size_t const j = (icell/(nx)) % (ny) ;
+        #ifdef THUNDER_3D 
+        size_t const k = 
+            (icell/(nx)/(ny)) % (nz) ; 
+        size_t const q = 
+            (icell/(nx)/(ny)/(nz)) ;
+        #else 
+        size_t const q = (icell/(nx)/(ny)) ; 
+        #endif 
+
+        auto const cell_volume = coord_system.get_cell_volume(
+              {VEC(i,j,k)}
+            , q
+            , false
+        ) ; 
+        exact_total += h_state_mirror(VEC(i+ngz,j+ngz,k+ngz),DENS,q) * cell_volume ;
+    }
+    /*write output and regrid*/
     thunder::IO::write_volume_cell_data() ;
     thunder::amr::regrid() ;  
     thunder::runtime::get().increment_iteration() ; 
     thunder::IO::write_volume_cell_data() ; 
-    auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
-    Kokkos::deep_copy(h_state_mirror, state) ; 
-    auto h_coord_mirror = Kokkos::create_mirror_view(coords) ; 
-    Kokkos::deep_copy(h_coord_mirror, coords) ; 
-    auto& coord_system = thunder::coordinate_system::get() ; 
+    /* compute the new volume integrated value */
     nq = thunder::amr::get_local_num_quadrants() ;
     ncells = EXPR((nx),*(ny),*(nz))*nq ;
-     
+    auto h_state_mirror_new = Kokkos::create_mirror_view(state) ; 
+    Kokkos::deep_copy(h_state_mirror_new,state); 
+    double total{0};
     for( size_t icell=0UL; icell<ncells; icell+=1UL)
     {
         size_t const i = icell%(nx) ; 
@@ -85,9 +112,20 @@ TEST_CASE("Simple regrid", "[regrid]")
             , {VEC(0.5,0.5,0.5)}
             , false 
         ) ; 
-        REQUIRE_THAT(h_state_mirror(VEC(i+ngz,j+ngz,k+ngz),DENS,q)
+        auto const cell_volume = coord_system.get_cell_volume(
+              {VEC(i,j,k)}
+            , q
+            , false
+        ) ; 
+        total += h_state_mirror_new(VEC(i+ngz,j+ngz,k+ngz),DENS,q) * cell_volume ; 
+        
+        REQUIRE_THAT(h_state_mirror_new(VEC(i+ngz,j+ngz,k+ngz),DENS,q)
         , Catch::Matchers::WithinAbs(
                   h_func(VEC(lcoords[0],lcoords[1],lcoords[2]))
                 , 1e-12)) ;
     } 
+    REQUIRE_THAT(total
+                , Catch::Matchers::WithinAbs(
+                  exact_total
+                , 1e-12)) ;
 }

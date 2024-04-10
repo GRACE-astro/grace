@@ -355,6 +355,12 @@ class spherical_coordinate_system_impl_t
 
     double
     THUNDER_HOST get_cell_volume(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int64_t q
+    , bool use_ghostzones);
+
+    double
+    THUNDER_HOST get_cell_volume(
         std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
         , int64_t q
         , int itree

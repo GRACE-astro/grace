@@ -50,5 +50,6 @@ amr: {
   refinement_criterion_var:   "dens",
   FLASH_criterion_eps     : 0.01,
   restriction_interpolator_type: "linear",
+  prolongation_limiter_type: "minmod",
   prolongation_interpolator_type: "linear"
 }

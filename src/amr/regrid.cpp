@@ -37,6 +37,8 @@
 #include <thunder/coordinates/coordinates.hh>
 #include <thunder/data_structures/thunder_data_structures.hh>
 #include <thunder/config/config_parser.hh>
+#include <thunder/utils/prolongation.hh>
+#include <thunder/utils/limiters.hh>
 
 namespace thunder { namespace amr { 
 
@@ -204,20 +206,61 @@ void regrid() {
               "Something went really wrong. "
               "nq= " << nq << " iq= " << iq_old <<".") ;
 
-    auto& idx = variable_list::get().getinvspacings() ;
+    auto& dx = variable_list::get().getspacings()    ;
+    auto& coords = variable_list::get().getcoords()  ; 
+    auto& vol = variable_list::get().getvolumes() ;
+    /******************************************************************************************/
+    /*                     Allocate temporary coordinate arrays                               */
+    /******************************************************************************************/
+    cell_vol_array_t<THUNDER_NSPACEDIM> in_vol( 
+        "temporary_cell_volumes", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz), nq_new 
+    ) ; 
+    scalar_array_t<THUNDER_NSPACEDIM> in_dx(
+        "temporary_cell_spacing", THUNDER_NSPACEDIM, nq_new 
+    ) ; 
+    scalar_array_t<THUNDER_NSPACEDIM> in_idx(
+        "temporary_cell_inv_spacing", THUNDER_NSPACEDIM, nq_new 
+    ) ;
+    scalar_array_t<THUNDER_NSPACEDIM> in_coords(
+        "temporary_quadrant_coordinates", THUNDER_NSPACEDIM, nq_new 
+    ) ;
+    fill_cell_coordinates(in_coords,in_idx,in_dx,in_vol) ; 
     /******************************************************************************************/
     /*                      Prolongate data on refined quadrants                              */
     /******************************************************************************************/
     std::string interp = params["amr"]["prolongation_interpolator_type"].as<std::string>(); 
+    std::string limiter = params["amr"]["prolongation_limiter_type"].as<std::string>();
     if( interp == "linear" ) 
     {
-        prolongate_variables<utils::linear_interp_t<THUNDER_NSPACEDIM>> ( 
-              state_swap
-            , state 
-            , idx 
-            , refine_incoming
-            , refine_outgoing 
-        ) ;
+        if( limiter == "minmod"){
+            prolongate_variables<utils::linear_prolongator_t<thunder::minmod>> ( 
+                state_swap
+                , state 
+                , dx
+                , in_dx 
+                , coords
+                , in_coords
+                , vol
+                , in_vol
+                , refine_incoming
+                , refine_outgoing 
+            ) ;
+        } else if (limiter == "monotonized-central") {
+            prolongate_variables<utils::linear_prolongator_t<thunder::MCbeta>> ( 
+                state_swap
+                , state 
+                , dx
+                , in_dx 
+                , coords
+                , in_coords
+                , vol
+                , in_vol
+                , refine_incoming
+                , refine_outgoing 
+            ) ;
+        } else {
+            ERROR("Requested limiter for prolongation is not implemented.") ;
+        }
     } else {
         ERROR("Requested interpolator for prolongation is not implemented.") ; 
     }
@@ -227,10 +270,11 @@ void regrid() {
     std::string reduce = params["amr"]["restriction_interpolator_type"].as<std::string>(); 
     if (reduce=="linear")
     {
-        restrict_variables<utils::linear_interp_t<THUNDER_NSPACEDIM>>(
+        restrict_variables(
               state_swap
             , state
-            , idx
+            , vol
+            , in_vol
             , coarsen_incoming
             , coarsen_outgoing
         ) ;
@@ -282,16 +326,15 @@ void regrid() {
                 , quadrant_data_size 
         ) ; 
 
-    auto& coords = variable_list::get().getcoords()   ;
-    auto& dx = variable_list::get().getspacings()     ; 
-    auto& vol = variable_list::get().getvolumes()     ; 
+    auto& idx = variable_list::get().getinvspacings()  ; 
+    
     Kokkos::resize( coords      ,   THUNDER_NSPACEDIM
                                 ,   nq_local 
                                  ) ;
     Kokkos::realloc( idx        , THUNDER_NSPACEDIM
                                 ,   nq_local 
                                  ) ;
-    Kokkos::realloc( dx         , THUNDER_NSPACEDIM
+    Kokkos::realloc(  dx        , THUNDER_NSPACEDIM
                                 ,   nq_local 
                                  ) ;
     Kokkos::realloc( vol        , VEC(  nx + 2*ngz 

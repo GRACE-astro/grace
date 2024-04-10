@@ -41,12 +41,19 @@ namespace thunder { namespace amr {
  */
 template< typename InterpT      // Type of interpolator
         , typename StateViewT   // Type of state vector 
-        , typename CoordViewT > // Type of coordinate spacing vector
+        , typename CoordViewT   // Type of coordinate spacing vector
+        , typename VolViewT >   // Type of cell volume
 struct prolongator_t {
     long VEC( nx, ny, nz )   ; //!< Quadrant extents (unchanged)
     int ngz                  ; //!< Number of ghost cells 
     StateViewT state         ; //!< Old state
-    CoordViewT idx_parent    ; //!< Old idx 
+    CoordViewT dx_parent     ; //!< Old dx
+    CoordViewT dx_child      ; //!< Old dx 
+    VolViewT   vol_parent    ; 
+    VolViewT   vol_child     ; 
+    CoordViewT x_parent      ;
+    CoordViewT x_child       ; 
+
 
     /**
      * @brief Prolongate requested variable at the requested
@@ -65,9 +72,10 @@ struct prolongator_t {
     operator() ( VEC( int const& i
                     , int const& j 
                     , int const& k )
-                , int const& iq 
+                , int const& iq_parent
+                , int const& iq_child
                 , int const& ivar 
-                , int const& ichild ) const 
+                , int const& ichild) const 
     {
         /* 
         * First we need to find the index 
@@ -90,51 +98,18 @@ struct prolongator_t {
         int const k0 = 
               Kokkos::floor((iquad_z * nz + k ) / 2) ; 
         )
-        /* 
-        * Then we compute the coordinates
-        * of the requested point in the child's 
-        * coordinates 
-        */ 
-        EXPR(
-            const double x0 = (iquad_x*nx + i + 0.5) / idx_parent(iq,0) / 2.;,
-            const double y0 = (iquad_y*ny + j + 0.5) / idx_parent(iq,1) / 2.;,
-            const double z0 = (iquad_z*nz + k + 0.5) / idx_parent(iq,2) / 2.;
-        ) 
-        /* 
-        *  Then we construct a stencil of 
-        *  the appropriate size for the 
-        *  interpolator.
-        */ 
-        size_t constexpr stencil = InterpT::stencil_size              ;
-        size_t constexpr npoints = EXPR( stencil, *stencil, *stencil) ; 
-        double x_interp[ THUNDER_NSPACEDIM * npoints ] ;
-        int x_param[ THUNDER_NSPACEDIM * npoints ]     ; 
-        double y_interp[ npoints ]                     ;
-        InterpT::get_parametric_coordinates(x_param) ; 
-        int s_min = 0; 
-        for( size_t istencil=0; istencil<npoints; ++istencil)
-        {   
-            EXPR(
-            x_interp[ THUNDER_NSPACEDIM*istencil + 0UL ] = 
-                (i0+0.5 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 0UL]) / idx_parent(iq,0);,
-            x_interp[ THUNDER_NSPACEDIM*istencil + 1UL ] = 
-                (j0+0.5 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 1UL]) / idx_parent(iq,1);,
-            x_interp[ THUNDER_NSPACEDIM*istencil + 2UL ] = 
-                (k0+0.5 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 2UL]) / idx_parent(iq,2); 
-            )
-            y_interp[ istencil ] = state(VEC(
-                ngz + i0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 0UL],
-                ngz + j0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 1UL],
-                ngz + k0 - s_min + x_param[THUNDER_NSPACEDIM*istencil + 2UL]
-            ),ivar,iq) ; 
-        }
-        InterpT interpolator(x_interp,y_interp) ; 
-        /* 
-        * Finally we call the interpolator 
-        * to obtain the desired prolongated 
-        * value. 
-        */ 
-        return interpolator.interpolate(VEC(x0,y0,z0)) ; 
+        return InterpT::interpolate(
+              VEC(i,j,k)
+            , VEC(i0+ngz,j0+ngz,k0+ngz)
+            , iq_child, iq_parent, ngz, ivar
+            , x_child
+            , x_parent
+            , dx_child
+            , dx_parent 
+            , state 
+            , vol_child
+            , vol_parent
+        ) ; 
     }
 }  ; 
 

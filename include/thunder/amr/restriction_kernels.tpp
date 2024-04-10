@@ -32,32 +32,35 @@
 
 namespace thunder { namespace amr { 
 
-template< typename AvgT 
-        , typename StateViewT
-        , typename CoordViewT >  
+template< typename StateViewT 
+        , typename VolViewT >  
 struct restrictor_t {
     size_t VEC( nx, ny, nz ) ; //!< Quadrant extents (unchanged)
     int ngz                  ; //!< Number of ghost cells
     StateViewT state         ; //!< Old state 
-    CoordViewT idx_child     ; //!< Old idx 
+    VolViewT   vol_child     ; //!< Child volume
+    VolViewT   vol_parent    ; //!< Parent volume
 
     double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
     operator() ( VEC( int const& i
                     , int const& j 
                     , int const& k )
                 , int* iq
+                , int iq_parent 
                 , int const& ivar ) const 
     {
+        /*****************************************/
         /* We are assuming cell centered data,   */
         /* which implies we need to average over */
         /* P4EST_CHILDREN cells of the children  */
         /* quadrants.                            */
+        /*****************************************/
 
         /* Indices in child quadrant            */ 
         EXPR(
-            const int i0 = (2*i) % nx ;,
-            const int j0 = (2*j) % ny ;,
-            const int k0 = (2*k) % nz ;
+            const int i0 = (2*i) % nx + ngz;,
+            const int j0 = (2*j) % ny + ngz;,
+            const int k0 = (2*k) % nz + ngz;
         ) 
         /* Index of child containing point */ 
         int const iq_child =
@@ -66,42 +69,18 @@ struct restrictor_t {
               , + (2*j)/ny * 2 
               , + (2*k)/nz * 2 * 2 )
               ];
-        /* Coordinates in parent quadrant        */ 
-        EXPR(
-            const double x0 = ((i + 0.5) * 2. 
-                            - (iq_child%2) * nx) / idx_child(iq_child,0);,
-            const double y0 = ((j + 0.5)  * 2. 
-                            - (iq_child/2)%2 * ny) / idx_child(iq_child,1);,
-            const double z0 = ((k + 0.5) * 2. 
-                            - (iq_child/2)/2 * nz) / idx_child(iq_child,2);
-        ) 
+        
+        return (EXPR(
+              state(VEC(i0,j0,k0),ivar,iq_child)*vol_child(VEC(i0,j0,k0),iq_child)
+            + state(VEC(i0+1,j0,k0),ivar,iq_child)*vol_child(VEC(i0+1,j0,k0),iq_child),
+            + state(VEC(i0,j0+1,k0),ivar,iq_child)*vol_child(VEC(i0,j0+1,k0),iq_child)
+            + state(VEC(i0+1,j0+1,k0),ivar,iq_child)*vol_child(VEC(i0+1,j0+1,k0),iq_child),
+            + state(VEC(i0,j0,k0+1),ivar,iq_child)*vol_child(VEC(i0,j0,k0+1),iq_child)
+            + state(VEC(i0,j0+1,k0+1),ivar,iq_child)*vol_child(VEC(i0,j0+1,k0+1),iq_child)
+            + state(VEC(i0+1,j0,k0+1),ivar,iq_child)*vol_child(VEC(i0+1,j0,k0+1),iq_child)
+            + state(VEC(i0+1,j0+1,k0+1),ivar,iq_child)*vol_child(VEC(i0+1,j0+1,k0+1),iq_child)
+        )) / vol_parent(VEC(i+ngz,j+ngz,k+ngz),iq_parent) ; 
 
-        size_t constexpr stencil = AvgT::stencil_size ;
-        size_t constexpr npoints = EXPR(stencil,*stencil,*stencil) ; 
-        int x_param[THUNDER_NSPACEDIM*npoints] ; 
-        AvgT::get_parametric_coordinates(x_param) ; 
-        double x[THUNDER_NSPACEDIM*npoints] ;
-        double y[npoints]; 
-        int s_min = Kokkos::floor(stencil/2) - 1;
-        for(size_t is=0; is<npoints;++is)
-        {
-            EXPR(
-            x[THUNDER_NSPACEDIM*is + 0UL] 
-                = (i0+0.5 - s_min + x_param[THUNDER_NSPACEDIM*is + 0UL]) / idx_child(iq_child,0) ;,
-            x[THUNDER_NSPACEDIM*is + 1UL] 
-                = (j0+0.5 - s_min + x_param[THUNDER_NSPACEDIM*is + 1UL]) / idx_child(iq_child,1) ;, 
-            x[THUNDER_NSPACEDIM*is + 2UL] 
-                = (k0+0.5 - s_min + x_param[THUNDER_NSPACEDIM*is + 2UL]) / idx_child(iq_child,2) ; 
-            )
-            y[is] = state( VEC(
-                ngz + i0 - s_min + x_param[THUNDER_NSPACEDIM*is + 0UL],
-                ngz + j0 - s_min + x_param[THUNDER_NSPACEDIM*is + 1UL],
-                ngz + k0 - s_min + x_param[THUNDER_NSPACEDIM*is + 2UL]
-                ),ivar,iq_child) ;
-
-        }
-        AvgT averager(x,y) ; 
-        return averager.interpolate(VEC(x0,y0,z0)) ; 
     }
 } ;
 
