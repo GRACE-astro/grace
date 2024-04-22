@@ -428,7 +428,7 @@ class spherical_coordinate_system_impl_t
     THUNDER_HOST get_physical_coordinates(
           int const itree 
         , std::array<double,THUNDER_NSPACEDIM> const& logical_coordinates
-    ) ; 
+    ) const ; 
     //**************************************************************************************************
     /**
      * @brief Get the physical coordinates of a point
@@ -447,7 +447,7 @@ class spherical_coordinate_system_impl_t
         , int64_t q 
         , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
         , bool use_ghostzones
-    ) ;
+    ) const ;
     //**************************************************************************************************
     /**
      * @brief Get the physical coordinates of a cell centre
@@ -464,7 +464,7 @@ class spherical_coordinate_system_impl_t
           std::array<size_t, THUNDER_NSPACEDIM> const& ijk
         , int64_t q 
         , bool use_ghostzones
-    ) ;
+    ) const ;
     //**************************************************************************************************
     /**
      * @brief Get the logical coordinates of a point
@@ -483,7 +483,7 @@ class spherical_coordinate_system_impl_t
         , int64_t q 
         , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
         , bool use_ghostzones
-    ) ;
+    ) const ;
     //**************************************************************************************************
     /**
      * @brief Get the logical coordinates of a point
@@ -497,7 +497,7 @@ class spherical_coordinate_system_impl_t
     THUNDER_HOST get_logical_coordinates(
           int itree 
         , std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates
-    ) ; 
+    ) const ; 
     //**************************************************************************************************
     /**
      * @brief Get the determinant of the Jacobian matrix of the coordinate transformation at a given point
@@ -514,7 +514,7 @@ class spherical_coordinate_system_impl_t
         , int64_t q 
         , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
         , bool use_ghostzones 
-    ) ; 
+    ) const ; 
     //**************************************************************************************************
     /**
      * @brief Get the determinant of the Jacobian matrix of the coordinate transformation at a given point
@@ -533,7 +533,7 @@ class spherical_coordinate_system_impl_t
         , int itree
         , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
         , bool use_ghostzones 
-    ) ; 
+    ) const ; 
     //**************************************************************************************************
     /**
      * @brief Get the determinant of the Jacobian matrix of the coordinate transformation at a given point
@@ -547,7 +547,7 @@ class spherical_coordinate_system_impl_t
     THUNDER_HOST get_jacobian(
           int itree
         , std::array<double,THUNDER_NSPACEDIM> const& lcoords 
-    ) ;
+    ) const;
     //**************************************************************************************************
     /**
      * @brief Get the determinant of the Jacobian matrix 
@@ -565,7 +565,7 @@ class spherical_coordinate_system_impl_t
         , int64_t q 
         , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
         , bool use_ghostzones 
-    ) ; 
+    ) const; 
     //**************************************************************************************************
     /**
      * @brief Get the determinant of the Jacobian matrix 
@@ -584,7 +584,7 @@ class spherical_coordinate_system_impl_t
         , int itree
         , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
         , bool use_ghostzones 
-    ) ; 
+    ) const; 
     //**************************************************************************************************
     /**
      * @brief Get the determinant of the Jacobian matrix 
@@ -598,7 +598,7 @@ class spherical_coordinate_system_impl_t
     THUNDER_HOST get_inverse_jacobian(
           int itree
         , std::array<double,THUNDER_NSPACEDIM> const& lcoords 
-    ) ;
+    ) const;
     //**************************************************************************************************
     /**
      * @brief Get the Jacobian matrix of the coordinate transformation at a given point
@@ -615,7 +615,7 @@ class spherical_coordinate_system_impl_t
         , int64_t q 
         , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
         , bool use_ghostzones 
-    ) ; 
+    ) const; 
     //**************************************************************************************************
     /**
      * @brief Get the Jacobian matrix of the coordinate transformation at a given point
@@ -634,7 +634,7 @@ class spherical_coordinate_system_impl_t
         , int itree
         , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
         , bool use_ghostzones 
-    ) ; 
+    ) const; 
     //**************************************************************************************************
     /**
      * @brief Get the Jacobian matrix of the coordinate transformation at a given point
@@ -648,7 +648,7 @@ class spherical_coordinate_system_impl_t
     THUNDER_HOST get_jacobian_matrix(
           int itree
         , std::array<double,THUNDER_NSPACEDIM> const& lcoords 
-    ) ;
+    ) const;
     //**************************************************************************************************
     /**
      * @brief Get the Jacobian matrix of the inverse coordinate transformation at a given point
@@ -665,7 +665,7 @@ class spherical_coordinate_system_impl_t
         , int64_t q 
         , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
         , bool use_ghostzones 
-    ) ; 
+    ) const; 
     //**************************************************************************************************
     /**
      * @brief Get the Jacobian matrix of the inverse coordinate transformation at a given point
@@ -684,7 +684,7 @@ class spherical_coordinate_system_impl_t
         , int itree
         , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
         , bool use_ghostzones 
-    ) ; 
+    ) const; 
     //**************************************************************************************************
     /**
      * @brief Get the Jacobian matrix of the inverse coordinate transformation at a given point
@@ -698,7 +698,7 @@ class spherical_coordinate_system_impl_t
     THUNDER_HOST get_inverse_jacobian_matrix(
           int itree
         , std::array<double,THUNDER_NSPACEDIM> const& lcoords 
-    ) ; 
+    ) const; 
     //**************************************************************************************************
     /**
      * @brief Get the volume of a cell
@@ -713,7 +713,7 @@ class spherical_coordinate_system_impl_t
     THUNDER_HOST get_cell_volume(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
     , int64_t q
-    , bool use_ghostzones);
+    , bool use_ghostzones) const ;
     //**************************************************************************************************
     /**
      * @brief Get the volume of a cell
@@ -733,7 +733,25 @@ class spherical_coordinate_system_impl_t
         , int itree
         , std::array<double, THUNDER_NSPACEDIM> const& dxl 
         , bool use_ghostzones
-    ) ; 
+    ) const ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the volume of a cell
+     * 
+     * @param lcoords Logical coordinates of cell lower left corner.
+     * @param itree Index of the tree containing the cell.
+     * @param dxl Cell spacing in logical coordinates
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return double The volume of the requested cell.
+     */
+    double
+    THUNDER_HOST get_cell_volume(
+          std::array<double,THUNDER_NSPACEDIM> const& lcoords
+        , int itree
+        , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+        , bool use_ghostzones
+    ) const ; 
     //**************************************************************************************************
     double 
     THUNDER_HOST 
@@ -741,7 +759,7 @@ class spherical_coordinate_system_impl_t
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
     , int64_t q
     , int8_t face 
-    , bool use_ghostzones) ; 
+    , bool use_ghostzones) const ; 
     //**************************************************************************************************
     double 
     THUNDER_HOST 
@@ -751,7 +769,7 @@ class spherical_coordinate_system_impl_t
     , int8_t face 
     , int itree
     , std::array<double, THUNDER_NSPACEDIM> const& dxl 
-    , bool use_ghostzones) ; 
+    , bool use_ghostzones) const ; 
     //**************************************************************************************************
     /**
      * @brief Get the device coord system object
@@ -760,7 +778,7 @@ class spherical_coordinate_system_impl_t
      *                                                   whose methods are accessible from device.
      */
     spherical_device_coordinate_system_impl_t
-    get_device_coord_system(){
+    get_device_coord_system() const {
         return spherical_device_coordinate_system_impl_t {
               grid_params_
             , rotation_matrices_
@@ -780,7 +798,7 @@ class spherical_coordinate_system_impl_t
      * @return false If the point is within the tree boundaries.
      */
     bool THUNDER_HOST 
-    is_outside_tree(std::array<double,THUNDER_NSPACEDIM> const& lcoords, bool check_exact_boundary=false) ; 
+    is_outside_tree(std::array<double,THUNDER_NSPACEDIM> const& lcoords, bool check_exact_boundary=false) const ; 
     //**************************************************************************************************
     /**
      * @brief Check whether a tree boundary is physical or internal.
@@ -792,7 +810,7 @@ class spherical_coordinate_system_impl_t
      * @return false If the tree boundary faces another tree in the grid.
      */
     bool THUNDER_HOST 
-    is_physical_boundary(std::array<double,THUNDER_NSPACEDIM> const& lcoords, int itree, bool check_exact_boundary=false) ; 
+    is_physical_boundary(std::array<double,THUNDER_NSPACEDIM> const& lcoords, int itree, bool check_exact_boundary=false) const ; 
     //**************************************************************************************************
     /**
      * @brief Get the neighbor tree and face indices in buffer zone.
@@ -810,7 +828,7 @@ class spherical_coordinate_system_impl_t
     THUNDER_HOST get_neighbor_tree_and_face(
           int itree
         , std::array<size_t,THUNDER_NSPACEDIM> const& ijk 
-    ); 
+    ) const ; 
     //**************************************************************************************************
     /**
      * @brief Get the neighbor tree and face indices in buffer zone.
@@ -827,7 +845,7 @@ class spherical_coordinate_system_impl_t
           int itree
         , std::array<double,THUNDER_NSPACEDIM> const& lcoords
         , bool check_exact_boundary=false
-    );
+    ) const ;
     //**************************************************************************************************
     /**
      * @brief Get the logical coordinates of a point in the buffer zone.
@@ -842,7 +860,7 @@ class spherical_coordinate_system_impl_t
     std::array<double, THUNDER_NSPACEDIM> 
     THUNDER_HOST get_logical_coordinates_buffer_zone(
         int itree
-      , std::array<double, THUNDER_NSPACEDIM> const& lcoords ) ;
+      , std::array<double, THUNDER_NSPACEDIM> const& lcoords ) const ;
     //**************************************************************************************************
     /**
      * @brief Get the volume of a cell in the buffer zone.
@@ -858,9 +876,8 @@ class spherical_coordinate_system_impl_t
     double
     THUNDER_HOST get_cell_volume_buffer_zone(
       int itree
-    , int64_t q
     , std::array<double, THUNDER_NSPACEDIM> const& lcoords
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) ;
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) const ;
     //**************************************************************************************************
     /**
      * @brief Get the suface of a cell face in the buffer zone.
@@ -879,7 +896,7 @@ class spherical_coordinate_system_impl_t
     , int8_t face
     , int64_t q
     , std::array<double, THUNDER_NSPACEDIM> const& lcoords
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) ;
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) const ;
     //**************************************************************************************************
     /**
      * @brief Compute physical coordinates in the cartesian coordinate patch
@@ -892,7 +909,7 @@ class spherical_coordinate_system_impl_t
     THUNDER_HOST get_physical_coordinates_cart(
         double L,
         std::array<double, THUNDER_NSPACEDIM> const& lcoords
-    ) ; 
+    ) const ; 
     //**************************************************************************************************
     /**
      * @brief Compute physical coordinates in a spherical coordinate patch
@@ -915,7 +932,7 @@ class spherical_coordinate_system_impl_t
         std::array<double,2> const& S ,
         std::array<double, THUNDER_NSPACEDIM> const& lcoords,
         bool logr=false
-    ) ;
+    ) const ;
     //**************************************************************************************************
     /**
      * @brief Get physical zeta given the logical one.
@@ -953,21 +970,21 @@ class spherical_coordinate_system_impl_t
       double const& ri, double const& ro
     , double const& zeta0, double const& dzeta 
     , double const& xi0, double const& dxi 
-    , double const& eta ) ; 
+    , double const& eta ) const ; 
     //**************************************************************************************************
     double THUNDER_HOST 
     get_volume_element_sph_ext(
       double const& ri, double const& ro
     , double const& zeta0, double const& dzeta 
     , double const& xi0, double const& dxi 
-    , double const& eta ) ; 
+    , double const& eta ) const ; 
     //**************************************************************************************************
     double THUNDER_HOST
     get_volume_element_sph_ext_log(
       double const& ri, double const& ro
     , double const& zeta0, double const& dzeta 
     , double const& xi0, double const& dxi 
-    , double const& eta ) ;
+    , double const& eta ) const ;
     //**************************************************************************************************
     #endif 
     double THUNDER_HOST 
@@ -975,13 +992,13 @@ class spherical_coordinate_system_impl_t
       int8_t iface
     , double const& si, double const& so 
     , double const& ri, double const& ro
-    , VEC(double const& zeta, double const& eta, double const& xi) ) ; 
+    , VEC(double const& zeta, double const& eta, double const& xi) ) const ; 
     //**************************************************************************************************
     double THUNDER_HOST
     get_surface_element_sph_log(
       int8_t iface
     , double const& ri, double const& ro
-    , VEC(double const& zeta, double const& eta, double const& xi) ) ; 
+    , VEC(double const& zeta, double const& eta, double const& xi) ) const ; 
     //**************************************************************************************************
     bool   _use_logr ;                                      //!< Is the outer patch logarithmic in radius?
     double _L,_Ri,_Ro,_F0,_F1,_Fr,_Fr1,_S0,_S1,_Sr,_Sr1 ;   //!< Sphere and frustum rates

@@ -74,7 +74,7 @@ cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
 std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
 cartesian_coordinate_system_impl_t::get_physical_coordinates(
       int const itree
-    , std::array<double, THUNDER_NSPACEDIM> const& logical_coordinates ) 
+    , std::array<double, THUNDER_NSPACEDIM> const& logical_coordinates ) const
 {
     auto const tree_coords = amr::get_tree_vertex(itree,0UL) ; 
     auto const dx_tree     = amr::get_tree_spacing(itree) ;
@@ -90,7 +90,7 @@ cartesian_coordinate_system_impl_t::get_physical_coordinates(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk
     , int64_t q 
     , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
-    , bool use_ghostzones )
+    , bool use_ghostzones ) const
 {
     using namespace thunder ; 
     int64_t itree = amr::get_quadrant_owner(q)   ; 
@@ -102,7 +102,7 @@ std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST
 cartesian_coordinate_system_impl_t::get_physical_coordinates(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk
     , int64_t q 
-    , bool use_ghostzones )
+    , bool use_ghostzones ) const
 {   
     return get_physical_coordinates(ijk,q,{VEC(0.5,0.5,0.5)},use_ghostzones);
 } 
@@ -112,7 +112,7 @@ THUNDER_HOST cartesian_coordinate_system_impl_t::get_logical_coordinates(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk
     , int64_t q 
     , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
-    , bool use_ghostzones)
+    , bool use_ghostzones) const
 {
     using namespace thunder ; 
     int64_t nx,ny,nz ; 
@@ -147,7 +147,7 @@ THUNDER_HOST cartesian_coordinate_system_impl_t::get_logical_coordinates(
 std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
 cartesian_coordinate_system_impl_t::get_logical_coordinates(
       int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& physical_coordinates )
+    , std::array<double, THUNDER_NSPACEDIM> const& physical_coordinates ) const
 { 
     auto const tree_coords = amr::get_tree_vertex(itree,0UL) ; 
     auto const dx_tree     = amr::get_tree_spacing(itree) ;
@@ -160,7 +160,7 @@ cartesian_coordinate_system_impl_t::get_logical_coordinates(
 
 std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
 cartesian_coordinate_system_impl_t::get_logical_coordinates(
-    std::array<double, THUNDER_NSPACEDIM> const& physical_coordinates )
+    std::array<double, THUNDER_NSPACEDIM> const& physical_coordinates ) const
 {
     int ntrees = amr::connectivity::get().get()->num_trees; 
 
@@ -205,7 +205,7 @@ double
 THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
     , int64_t q
-    , bool use_ghostzones) 
+    , bool use_ghostzones) const
 {
     using namespace thunder ;
     int64_t nx,ny,nz ; 
@@ -230,13 +230,27 @@ THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
     , int64_t q
     , int itree
     , std::array<double, THUNDER_NSPACEDIM> const& dxl 
-    , bool use_ghostzones) 
+    , bool use_ghostzones) const
 {
     using namespace thunder ; 
     int ngz = amr::get_n_ghosts() ; 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     auto lcoords = get_logical_coordinates(ijk,q,{VEC(0.5,0.5,0.5)},use_ghostzones) ; 
+    return get_cell_volume(lcoords,itree,dxl,use_ghostzones) ; 
+}
+
+double
+THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
+      std::array<double, THUNDER_NSPACEDIM> const& lcoords 
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const
+{
+    using namespace thunder ; 
+    int ngz = amr::get_n_ghosts() ; 
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     auto& conn = amr::connectivity::get();
     ASSERT_DBG(
             itree < amr::connectivity::get().get()->num_trees,
@@ -251,12 +265,12 @@ THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
         or lcoords[2] < 0 or lcoords[2] > 1
     )) {
         int iface = 0 + EXPR(
-          (ijk[0] < ngz) * 0 
-        + (ijk[0] > nx + ngz-1) * 1,
-        + (ijk[1] < ngz) * 2 
-        + (ijk[1] > ny + ngz-1) * 3,
-        + (ijk[2] < ngz) * 4 
-        + (ijk[2] > nz + ngz-1) * 5) ;
+          (lcoords[0] < 0) * 0 
+        + (lcoords[0] >= 1) * 1,
+        + (lcoords[1] < 0) * 2 
+        + (lcoords[1] >= 1) * 3,
+        + (lcoords[2] < 0) * 4 
+        + (lcoords[2] >= 1) * 5) ;
         if( iface >= P4EST_FACES ) {
             iface = 0 ; // in corner ghostzones we can put anything 
         }

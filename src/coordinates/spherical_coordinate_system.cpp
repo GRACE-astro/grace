@@ -50,7 +50,7 @@ namespace thunder {
 std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
 spherical_coordinate_system_impl_t::get_physical_coordinates(
       int const itree
-    , std::array<double, THUNDER_NSPACEDIM> const& lcoords ) 
+    , std::array<double, THUNDER_NSPACEDIM> const& lcoords ) const
 {
     auto lcoords_b = lcoords ; 
     auto itree_b   = itree   ; 
@@ -84,7 +84,7 @@ spherical_coordinate_system_impl_t::get_physical_coordinates(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk
     , int64_t q 
     , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
-    , bool use_ghostzones )
+    , bool use_ghostzones ) const
 {
     using namespace thunder ; 
     int64_t itree = amr::get_quadrant_owner(q)   ; 
@@ -96,7 +96,7 @@ std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST
 spherical_coordinate_system_impl_t::get_physical_coordinates(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk
     , int64_t q 
-    , bool use_ghostzones )
+    , bool use_ghostzones ) const
 {
     return get_physical_coordinates(ijk,q,{VEC(0.5,0.5,0.5)},use_ghostzones);
 } 
@@ -107,7 +107,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk
     , int64_t q 
     , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
-    , bool use_ghostzones)
+    , bool use_ghostzones) const
 {
     using namespace thunder ;
 
@@ -140,7 +140,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates(
 std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
 spherical_coordinate_system_impl_t::get_logical_coordinates(
       int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& physical_coordinates )
+    , std::array<double, THUNDER_NSPACEDIM> const& physical_coordinates ) const
 {
     if( itree == 0 ){
         return {VEC(
@@ -184,7 +184,7 @@ spherical_coordinate_system_impl_t::get_jacobian(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
     , int64_t q 
     , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
-    , bool use_ghostzones ) 
+    , bool use_ghostzones ) const
 {
     return utils::det<THUNDER_NSPACEDIM>(
         get_jacobian_matrix(ijk,q,cell_coordinates,use_ghostzones) 
@@ -197,7 +197,7 @@ spherical_coordinate_system_impl_t::get_jacobian(
     , int64_t q 
     , int itree
     , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
-    , bool use_ghostzones ) 
+    , bool use_ghostzones ) const
 {
     return utils::det<THUNDER_NSPACEDIM>(
         get_jacobian_matrix(ijk,q,itree,cell_coordinates,use_ghostzones) 
@@ -207,7 +207,7 @@ spherical_coordinate_system_impl_t::get_jacobian(
 double THUNDER_HOST 
 spherical_coordinate_system_impl_t::get_jacobian(
       int itree
-    , std::array<double,THUNDER_NSPACEDIM> const& lcoords) 
+    , std::array<double,THUNDER_NSPACEDIM> const& lcoords) const
 {
     return utils::det<THUNDER_NSPACEDIM>(
         get_jacobian_matrix(itree,lcoords) 
@@ -219,7 +219,7 @@ spherical_coordinate_system_impl_t::get_inverse_jacobian(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
     , int64_t q 
     , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
-    , bool use_ghostzones ) 
+    , bool use_ghostzones ) const
 {
     return utils::det<THUNDER_NSPACEDIM>(
         get_inverse_jacobian_matrix(ijk,q,cell_coordinates,use_ghostzones)
@@ -232,7 +232,7 @@ spherical_coordinate_system_impl_t::get_inverse_jacobian(
     , int64_t q 
     , int itree
     , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
-    , bool use_ghostzones ) 
+    , bool use_ghostzones ) const
 {
     return utils::det<THUNDER_NSPACEDIM>(
         get_inverse_jacobian_matrix(ijk,q,itree,cell_coordinates,use_ghostzones) 
@@ -242,7 +242,7 @@ spherical_coordinate_system_impl_t::get_inverse_jacobian(
 double THUNDER_HOST 
 spherical_coordinate_system_impl_t::get_inverse_jacobian(
       int itree
-    , std::array<double,THUNDER_NSPACEDIM> const& lcoords) 
+    , std::array<double,THUNDER_NSPACEDIM> const& lcoords) const
 {
     return utils::det<THUNDER_NSPACEDIM>(
         get_inverse_jacobian_matrix(itree,lcoords) 
@@ -254,7 +254,7 @@ spherical_coordinate_system_impl_t::get_jacobian_matrix(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
     , int64_t q 
     , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
-    , bool use_ghostzones ) 
+    , bool use_ghostzones ) const
 { 
     using namespace thunder ;
     int itree = amr::get_quadrant_owner(q) ;
@@ -267,7 +267,7 @@ spherical_coordinate_system_impl_t::get_jacobian_matrix(
     , int64_t q 
     , int itree 
     , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
-    , bool use_ghostzones ) 
+    , bool use_ghostzones ) const
 {
     using namespace thunder ; 
     auto lcoords =  get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
@@ -277,7 +277,7 @@ spherical_coordinate_system_impl_t::get_jacobian_matrix(
 std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> THUNDER_HOST 
 spherical_coordinate_system_impl_t::get_jacobian_matrix(
       int itree
-    , std::array<double,THUNDER_NSPACEDIM> const& lcoords ) 
+    , std::array<double,THUNDER_NSPACEDIM> const& lcoords ) const
 {
     using namespace thunder; 
     int itree_b = itree ; 
@@ -337,7 +337,7 @@ spherical_coordinate_system_impl_t::get_inverse_jacobian_matrix(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
     , int64_t q 
     , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
-    , bool use_ghostzones ) 
+    , bool use_ghostzones ) const
 { 
     using namespace thunder ;
     int itree = amr::get_quadrant_owner(q) ;
@@ -350,7 +350,7 @@ spherical_coordinate_system_impl_t::get_inverse_jacobian_matrix(
     , int64_t q 
     , int itree 
     , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
-    , bool use_ghostzones ) 
+    , bool use_ghostzones ) const
 {
     using namespace thunder ; 
     auto lcoords =  get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
@@ -360,7 +360,7 @@ spherical_coordinate_system_impl_t::get_inverse_jacobian_matrix(
 std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> THUNDER_HOST 
 spherical_coordinate_system_impl_t::get_inverse_jacobian_matrix(
       int itree
-    , std::array<double,THUNDER_NSPACEDIM> const& lcoords ) 
+    , std::array<double,THUNDER_NSPACEDIM> const& lcoords ) const
 {
     using namespace thunder; 
     int itree_b = itree ; 
@@ -419,7 +419,7 @@ double
 THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
     std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
   , int64_t q
-  , bool use_ghostzones)
+  , bool use_ghostzones) const
 {
     using namespace thunder ;
     int64_t nx,ny,nz ; 
@@ -444,12 +444,23 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
     , int64_t q
     , int itree
     , std::array<double, THUNDER_NSPACEDIM> const& dxl 
-    , bool use_ghostzones) 
+    , bool use_ghostzones)  const
 {
     auto lcoords = get_logical_coordinates(ijk,q,{VEC(0.,0.,0.)},use_ghostzones) ; 
+    return  get_cell_volume(lcoords,itree,dxl,use_ghostzones) ; 
+}  
+
+double
+THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
+      std::array<double, THUNDER_NSPACEDIM> const& lcoords
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones)  const
+{
+    using namespace thunder ;
     int ngz = thunder::amr::get_n_ghosts();
     if( is_outside_tree(lcoords,true) and !is_physical_boundary(lcoords,itree,true) and use_ghostzones) {
-        return get_cell_volume_buffer_zone(itree,q,lcoords,dxl);
+        return get_cell_volume_buffer_zone(itree,lcoords,dxl);
     }
     if( itree == 0 ) {
         return math::int_pow<THUNDER_NSPACEDIM>(2.*_L) * EXPR(dxl[0],*dxl[1],*dxl[2]) ; 
@@ -475,12 +486,13 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
         }
     }
 }
+
 double
 THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
     std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
   , int64_t q
   , int8_t face 
-  , bool use_ghostzones)
+  , bool use_ghostzones) const
 {
     using namespace thunder ;
     int64_t nx,ny,nz ; 
@@ -506,7 +518,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
     , int8_t face 
     , int itree
     , std::array<double, THUNDER_NSPACEDIM> const& dxl 
-    , bool use_ghostzones) 
+    , bool use_ghostzones) const 
 {
     std::array<double, THUNDER_NSPACEDIM> cell_coordinates 
     {
@@ -661,7 +673,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
 bool 
 THUNDER_HOST spherical_coordinate_system_impl_t::is_outside_tree(
     std::array<double, THUNDER_NSPACEDIM> const& lcoords, bool check_exact_boundary
-) 
+) const
 {
     return EXPR(
            lcoords[0] < 0 or (check_exact_boundary and lcoords[0] >= 1) or (!check_exact_boundary and lcoords[0] > 1), 
@@ -672,7 +684,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::is_outside_tree(
 
 bool 
 THUNDER_HOST spherical_coordinate_system_impl_t::is_physical_boundary(
-    std::array<double,THUNDER_NSPACEDIM> const& lcoords, int itree, bool check_exact_boundary) 
+    std::array<double,THUNDER_NSPACEDIM> const& lcoords, int itree, bool check_exact_boundary) const
 {
     ASSERT_DBG(is_outside_tree(lcoords,check_exact_boundary), "In is_physical_boundary: lcoords not in buffer zone"); 
     int itree_b; int8_t iface,iface_b ; 
@@ -683,7 +695,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::is_physical_boundary(
 std::tuple<int, int8_t, int8_t>
 THUNDER_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
       int itree
-    , std::array<size_t,THUNDER_NSPACEDIM> const& ijk ) 
+    , std::array<size_t,THUNDER_NSPACEDIM> const& ijk ) const
 {
     using namespace thunder ; 
     size_t nx,ny,nz ; 
@@ -733,7 +745,7 @@ std::tuple<int, int8_t, int8_t>
 THUNDER_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
       int itree
     , std::array<double,THUNDER_NSPACEDIM> const& lcoords 
-    , bool check_exact_boundary) 
+    , bool check_exact_boundary) const
 {
     using namespace thunder ; 
     size_t nx,ny,nz ; 
@@ -782,7 +794,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
 std::array<double, THUNDER_NSPACEDIM> 
 THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_zone(
       int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& lcoords ) 
+    , std::array<double, THUNDER_NSPACEDIM> const& lcoords ) const
 {
     using namespace thunder ;
     int itree_b ; 
@@ -858,9 +870,8 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_
 double
 THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume_buffer_zone(
       int itree
-    , int64_t q
     , std::array<double, THUNDER_NSPACEDIM> const& lcoords
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) 
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) const
 {
     using namespace thunder ;
 
@@ -911,7 +922,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume_buffer_zone(
 std::array<double, THUNDER_NSPACEDIM>
 THUNDER_HOST spherical_coordinate_system_impl_t::get_physical_coordinates_cart(
     double L,
-    std::array<double, THUNDER_NSPACEDIM> const& lcoords )
+    std::array<double, THUNDER_NSPACEDIM> const& lcoords ) const
 {
     return {VEC(
             (lcoords[0] * 2. - 1.) * L,
@@ -928,7 +939,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_physical_coordinates_sph(
     , std::array<double,2> const& F 
     , std::array<double,2> const& S
     , std::array<double, THUNDER_NSPACEDIM> const& lcoords
-    , bool logr )
+    , bool logr ) const
 {
     auto const eta = (2*lcoords[1]-1); 
     #ifdef THUNDER_3D 
@@ -1020,7 +1031,7 @@ spherical_coordinate_system_impl_t::get_volume_element_sph(
       double const& r1, double const& r2
     , double const& zeta0, double const& dzeta 
     , double const& xi0, double const& dxi 
-    , double const& eta )
+    , double const& eta ) const
 {
     using namespace thunder; 
     #ifdef THUNDER_3D 
@@ -1041,7 +1052,7 @@ spherical_coordinate_system_impl_t::get_volume_element_sph_ext(
       double const& r1, double const& r2
     , double const& zeta0, double const& dzeta 
     , double const& xi0, double const& dxi 
-    , double const& eta )
+    , double const& eta ) const
 {
     using namespace thunder; 
     #ifdef THUNDER_3D 
@@ -1062,7 +1073,7 @@ spherical_coordinate_system_impl_t::get_volume_element_sph_ext_log(
       double const& r1, double const& r2
     , double const& zeta0, double const& dzeta 
     , double const& xi0, double const& dxi 
-    , double const& eta )
+    , double const& eta ) const
 {
     using namespace thunder;
     #ifdef THUNDER_3D 
@@ -1082,7 +1093,7 @@ spherical_coordinate_system_impl_t::get_surface_element_sph(
       int8_t iface
     , double const& si, double const& so 
     , double const& ri, double const& ro
-    , VEC(double const& zeta, double const& eta, double const& xi) )
+    , VEC(double const& zeta, double const& eta, double const& xi) ) const
 {
     #ifdef THUNDER_3D 
     std::array<double,4> J ;
@@ -1123,7 +1134,7 @@ double THUNDER_HOST
 spherical_coordinate_system_impl_t::get_surface_element_sph_log(
       int8_t iface 
     , double const& ri, double const& ro
-    , VEC(double const& zeta, double const& eta, double const& xi) )
+    , VEC(double const& zeta, double const& eta, double const& xi) ) const
 {
     #ifdef THUNDER_3D 
     std::array<double,4> J ;

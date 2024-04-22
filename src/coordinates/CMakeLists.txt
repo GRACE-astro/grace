@@ -71,6 +71,7 @@ target_link_libraries( thunder_coordinates PRIVATE
                        $<TARGET_OBJECTS:thunder_cartesian_coordinates>
                        yaml_cpp::yaml
                        MPI::MPI_CXX
+                       OpenMP::OpenMP_CXX
                        p4est::sc
                        p4est::p4est 
                        Kokkos::kokkos )

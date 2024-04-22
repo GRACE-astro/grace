@@ -54,6 +54,7 @@ Catch2::Catch2
 thunder_objects
 yaml_cpp::yaml
 MPI::MPI_CXX
+OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
 Kokkos::kokkos )
@@ -66,6 +67,7 @@ Catch2::Catch2
 thunder_objects
 yaml_cpp::yaml
 MPI::MPI_CXX
+OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est )
 
@@ -86,6 +88,7 @@ target_link_libraries(  sc_wrappers_test PRIVATE
 p4est_tests_main
 Catch2::Catch2
 MPI::MPI_CXX
+OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est )
 
@@ -97,6 +100,7 @@ Catch2::Catch2
 thunder_objects
 yaml_cpp::yaml
 MPI::MPI_CXX
+OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est )
 
@@ -108,6 +112,7 @@ Catch2::Catch2
 thunder_objects
 yaml_cpp::yaml
 MPI::MPI_CXX
+OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
 Kokkos::kokkos)
@@ -122,6 +127,7 @@ yaml_cpp::yaml
 Kokkos::kokkos
 $<TARGET_OBJECTS:thunder_volume_output>
 MPI::MPI_CXX
+OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
 VTK::VTK )
@@ -140,6 +146,7 @@ $<TARGET_OBJECTS:thunder_volume_output>
 yaml_cpp::yaml
 Kokkos::kokkos
 MPI::MPI_CXX
+OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
 VTK::VTK )
@@ -174,6 +181,7 @@ $<TARGET_OBJECTS:thunder_volume_output>
 yaml_cpp::yaml
 Kokkos::kokkos
 MPI::MPI_CXX
+OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
 VTK::VTK )

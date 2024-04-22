@@ -62,39 +62,44 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
     size_t nx {params["amr"]["npoints_block_x"].as<size_t>()} ; 
     size_t ny {params["amr"]["npoints_block_y"].as<size_t>()} ; 
     size_t nz {params["amr"]["npoints_block_z"].as<size_t>()} ; 
+    
+    auto nq = amr::get_local_num_quadrants() ; 
 
     auto h_coords = Kokkos::create_mirror_view(coords) ; 
     auto h_idx = Kokkos::create_mirror_view(ispacing) ; 
     auto h_dx  = Kokkos::create_mirror_view(spacing) ; 
     auto h_vol = Kokkos::create_mirror_view(volume) ; 
 
-    auto& coord_system = coordinate_system::get() ;
-    auto clock_start = std::chrono::high_resolution_clock::now() ; 
+    auto clock_start = std::chrono::high_resolution_clock::now() ;
+    double avg_time = 0. ;  
     /* 2) Number of ghostzones for evolved vars */
     long ngz { params["amr"]["n_ghostzones"].as<long>() } ;
-    #pragma omp parallel for collapse(2)
-    for( int iquad=0; iquad<amr::get_local_num_quadrants(); ++iquad ) {
+    #pragma omp parallel for schedule(static), reduction(+:avg_time)
+    for( int iquad=0; iquad<nq; ++iquad ) {
+        auto const& coord_system = coordinate_system::get() ;
+        auto itree = amr::get_quadrant_owner(iquad) ;  
+        amr::quadrant_t quadrant = amr::get_quadrant(itree,iquad) ; 
+        auto const dx_lev = 1.0 / ( 1UL<<quadrant.level() ) ; 
+        auto const VEC(dx_quad{dx_lev/nx}, dy_quad{dx_lev/ny}, dz_quad{dx_lev/nz}) ; 
+        /* coordinates of lower left corner of quadrant */
+        auto const qcoords = quadrant.qcoords() ; 
+        h_coords(0,iquad) = qcoords[0] * dx_lev; 
+        h_coords(1,iquad) = qcoords[1] * dx_lev;
+        h_coords(2,iquad) = qcoords[2] * dx_lev;
+        EXPR(
+        h_idx(0,iquad) = 1./dx_quad ;, 
+        h_idx(1,iquad) = 1./dy_quad ;,
+        h_idx(2,iquad) = 1./dz_quad ;)
+        EXPR(
+        h_dx(0,iquad) = dx_quad ;,
+        h_dx(1,iquad) = dy_quad ;,
+        h_dx(2,iquad) = dz_quad ;)
+        auto thread_clock_start = std::chrono::high_resolution_clock::now() ;
         EXPR( for(size_t i=0; i<nx+2*ngz; ++i), for(size_t j=0; j<ny+2*ngz; ++j), for(size_t k=0; k<nz+2*ngz; ++k) ) {
-            auto itree = amr::get_quadrant_owner(iquad) ;  
-            amr::quadrant_t quadrant = amr::get_quadrant(itree,iquad) ; 
-            auto const dx_lev = 1.0 / ( 1UL<<quadrant.level() ) ; 
-            auto const VEC(dx_quad{dx_lev/nx}, dy_quad{dx_lev/ny}, dz_quad{dx_lev/nz}) ; 
-            /* coordinates of lower left corner of quadrant */
-            auto const qcoords = quadrant.qcoords() ; 
-            h_coords(0,iquad) = qcoords[0] * dx_lev; 
-            h_coords(1,iquad) = qcoords[1] * dx_lev;
-            h_coords(2,iquad) = qcoords[2] * dx_lev;
-            EXPR(
-            h_idx(0,iquad) = 1./dx_quad ;, 
-            h_idx(1,iquad) = 1./dy_quad ;,
-            h_idx(2,iquad) = 1./dz_quad ;)
-            EXPR(
-            h_dx(0,iquad) = dx_quad ;,
-            h_dx(1,iquad) = dy_quad ;,
-            h_dx(2,iquad) = dz_quad ;)
             h_vol(VEC(i,j,k),iquad) = coord_system.get_cell_volume(
-                    {VEC(i,j,k)}
-                , iquad
+                  {VEC( qcoords[0] * dx_lev + (int(i)-ngz) * dx_quad
+                      , qcoords[1] * dx_lev + (int(j)-ngz) * dy_quad
+                      , qcoords[2] * dx_lev + (int(k)-ngz) * dz_quad) }
                 , itree 
                 , {VEC(dx_quad,dy_quad,dz_quad)}
                 , true )  ; 
@@ -119,10 +124,13 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
                     ,<< ", " << h_coords(2,iquad) + dz_quad * (k-ngz)) << ", " << dx_quad 
             ) ;
         }
+        auto thread_clock_end = std::chrono::high_resolution_clock::now() ;
+        avg_time += double(std::chrono::duration_cast <std::chrono::microseconds> (thread_clock_end - thread_clock_start).count());
     } /* quadrant loop */
     auto clock_end = std::chrono::high_resolution_clock::now() ;
     float currentTime = float(std::chrono::duration_cast <std::chrono::microseconds> (clock_end - clock_start).count());
     THUNDER_INFO(1, "AMR", "Coordinate filling loop took " << currentTime << " mus.") ; 
+    THUNDER_INFO(1, "AMR", "Average time for volume filling: " << avg_time/nq << " mus.") ;  
     clock_start = std::chrono::high_resolution_clock::now() ; 
     Kokkos::deep_copy(coords,h_coords) ; 
     Kokkos::deep_copy(ispacing,h_idx) ; 

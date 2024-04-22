@@ -41,6 +41,7 @@ target_link_libraries(thunder PRIVATE
         $<TARGET_OBJECTS:thunder_volume_output>
         yaml_cpp::yaml
         MPI::MPI_CXX
+        OpenMP::OpenMP_CXX
         Kokkos::kokkos 
         p4est::p4est 
         p4est::sc

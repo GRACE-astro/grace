@@ -108,7 +108,7 @@ class cartesian_coordinate_system_impl_t
     std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
     get_physical_coordinates( 
           int const itree
-        , std::array<double, THUNDER_NSPACEDIM> const& logical_coordinates );  
+        , std::array<double, THUNDER_NSPACEDIM> const& logical_coordinates ) const ;  
     //**************************************************************************************************
     /**
      * @brief Get the physical coordinates of a point
@@ -127,7 +127,7 @@ class cartesian_coordinate_system_impl_t
         , int64_t q 
         , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
         , bool use_ghostzones 
-    ) ;
+    ) const ;
     //**************************************************************************************************
     /**
      * @brief Get the physical coordinates of a cell centre
@@ -144,7 +144,7 @@ class cartesian_coordinate_system_impl_t
            std::array<size_t, THUNDER_NSPACEDIM> const& ijk
         , int64_t q 
         , bool use_ghostzones 
-    ) ;
+    ) const ;
     //**************************************************************************************************
     /**
      * @brief Get the logical coordinates of a point
@@ -162,7 +162,7 @@ class cartesian_coordinate_system_impl_t
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk
     , int64_t q 
     , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
-    , bool use_ghostzones) ;
+    , bool use_ghostzones) const ;
     //**************************************************************************************************
     /**
      * @brief Get the logical coordinates of a point
@@ -176,7 +176,7 @@ class cartesian_coordinate_system_impl_t
     THUNDER_HOST get_logical_coordinates(
           int itree
         , std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates
-    ) ; 
+    ) const ; 
     //**************************************************************************************************
     /**
      * @brief Get the logical coordinates of a point
@@ -188,7 +188,7 @@ class cartesian_coordinate_system_impl_t
     std::array<double,THUNDER_NSPACEDIM> 
     THUNDER_HOST get_logical_coordinates(
         std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates
-    ) ;
+    ) const ;
     //**************************************************************************************************
     /**
      * @brief Get the Jacobian matrix of the coordinate transformation at a given point
@@ -199,7 +199,7 @@ class cartesian_coordinate_system_impl_t
     std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM>
     THUNDER_HOST get_jacobian(
         std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates 
-    ) ; 
+    ) const ; 
     //**************************************************************************************************
     /**
      * @brief Get the volume of a cell
@@ -214,7 +214,7 @@ class cartesian_coordinate_system_impl_t
     THUNDER_HOST get_cell_volume(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
     , int64_t q
-    , bool use_ghostzones); 
+    , bool use_ghostzones) const ; 
     //**************************************************************************************************
     /**
      * @brief Get the volume of a cell
@@ -233,7 +233,24 @@ class cartesian_coordinate_system_impl_t
     , int64_t q
     , int itree
     , std::array<double, THUNDER_NSPACEDIM> const& dxl 
-    , bool use_ghostzones) ;
+    , bool use_ghostzones) const ;
+    //**************************************************************************************************
+    /**
+     * @brief Get the volume of a cell
+     * 
+     * @param lcoords Logical coordinates of cell left bottom corner.
+     * @param itree Index of the tree containing the cell.
+     * @param dxl Cell spacing in logical coordinates
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return double The volume of the requested cell.
+     */
+    double
+    THUNDER_HOST get_cell_volume(
+      std::array<double, THUNDER_NSPACEDIM> const& lcoords 
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const ;
     //**************************************************************************************************
     /**
      * @brief Get the device coord system object
@@ -242,7 +259,7 @@ class cartesian_coordinate_system_impl_t
      *                                                   whose methods are accessible from device.
      */
     cartesian_device_coordinate_system_impl_t THUNDER_ALWAYS_INLINE 
-    get_device_coord_system() {
+    get_device_coord_system() const {
         return cartesian_device_coordinate_system_impl_t{tree_vertices_,tree_spacings_} ;
     }
 
