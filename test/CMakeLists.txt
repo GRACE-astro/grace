@@ -120,9 +120,15 @@ Catch2::Catch2
 thunder_objects
 yaml_cpp::yaml
 Kokkos::kokkos
+$<TARGET_OBJECTS:thunder_volume_output>
 MPI::MPI_CXX
 p4est::sc
-p4est::p4est )
+p4est::p4est 
+VTK::VTK )
+vtk_module_autoinit(
+    TARGETS coordinate_test
+    MODULES ${VTK_LIBRARIES}
+    )
 
 add_executable( volume_output_test test_output.cpp )
 target_include_directories(volume_output_test PRIVATE "${HEADER_LIST}")
@@ -150,6 +156,12 @@ target_link_libraries( interpolator_test PRIVATE
         kokkos_tests_main
         Catch2::Catch2 
         Kokkos::kokkos ) 
+
+add_executable( integrator_test test_integration.cpp )
+target_include_directories( integrator_test PRIVATE "${HEADER_LIST}")
+target_compile_options(integrator_test PRIVATE -O3)
+target_link_libraries( integrator_test PRIVATE
+        Catch2::Catch2WithMain ) 
 
 
 add_executable( regrid_test test_regridding.cpp )
@@ -198,14 +210,18 @@ add_test(NAME forest_test COMMAND
         mpirun -n 1 ./forest_test --thunder-parfile ./configs/basic_config.yaml)
 add_test(NAME varlist_test COMMAND 
         mpirun -n 1 ./varlist_test --thunder-parfile ./configs/basic_config.yaml )
-add_test(NAME coordinate_test COMMAND 
-        mpirun -n 2 ./coordinate_test --thunder-parfile ./configs/basic_config.yaml )
+add_test(NAME coordinate_test_nolog COMMAND 
+        mpirun -n 1 ./coordinate_test --thunder-parfile ./configs/basic_config.yaml )
+add_test(NAME coordinate_test_log COMMAND 
+        mpirun -n 1 ./coordinate_test --thunder-parfile ./configs/regrid_test_spherical_log.yaml )
 add_test(NAME interpolator_test COMMAND 
         ./interpolator_test )
 add_test(NAME regrid_test_cartesian COMMAND 
-        mpirun -n 2 ./regrid_test --thunder-parfile ./configs/regrid_test_cartesian.yaml )
-add_test(NAME regrid_test_spherical COMMAND 
-        mpirun -n 2 ./regrid_test --thunder-parfile ./configs/regrid_test_spherical.yaml )
+        mpirun -n 1 ./regrid_test --thunder-parfile ./configs/regrid_test_cartesian.yaml)
+add_test(NAME regrid_test_nolog COMMAND 
+        mpirun -n 1 ./regrid_test --thunder-parfile ./configs/regrid_test_spherical.yaml )
+add_test(NAME regrid_test_log COMMAND 
+        mpirun -n 1 ./regrid_test --thunder-parfile ./configs/regrid_test_spherical_log.yaml )
 #add_test(NAME bc_test_cartesian COMMAND 
 #        mpirun -n 2 ./bc_test --thunder-parfile ./configs/regrid_test_cartesian.yaml )
 #add_test(NAME bc_test_spherical COMMAND 

@@ -32,6 +32,8 @@
 #include <thunder/utils/device.h>
 #include <thunder/utils/make_string.hh>
 #include <thunder/utils/math.hh>
+#include <thunder/utils/matrix_helpers.tpp>
+#include <thunder/utils/integration.hh>
 #include <thunder/utils/type_name.hh>
 #include <thunder/utils/bits.hh>
 #include <thunder/utils/sc_wrappers.hh>

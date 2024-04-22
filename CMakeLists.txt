@@ -16,13 +16,14 @@ include(setup_flags)
 
 include(setup_mpi)
 
+find_package(OpenMP REQUIRED)
+
 find_package(p4est REQUIRED)
 
 include(setup_gsl)
 include(setup_yaml)
 include(setup_vtk)
 include(setup_kokkos)
-
 
 configure_file( "${CMAKE_SOURCE_DIR}/include/thunder/config/code_modules.h.in" code_modules.h )
 include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
@@ -59,6 +60,8 @@ if(thunder_TESTS)
                   "${CMAKE_BINARY_DIR}/test/configs/regrid_test_cartesian.yaml" COPYONLY)
     configure_file("${CMAKE_SOURCE_DIR}/configs/regrid_test_spherical.yaml" 
                    "${CMAKE_BINARY_DIR}/test/configs/regrid_test_spherical.yaml" COPYONLY)
+    configure_file("${CMAKE_SOURCE_DIR}/configs/regrid_test_spherical_log.yaml" 
+                   "${CMAKE_BINARY_DIR}/test/configs/regrid_test_spherical_log.yaml" COPYONLY)
     enable_testing()
     include(setup_catch2)
     add_subdirectory(test)

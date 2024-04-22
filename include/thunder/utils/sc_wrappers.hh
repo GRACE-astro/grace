@@ -40,7 +40,7 @@ namespace thunder {
 
 /**
  * @brief View of an sc_array
- * 
+ * \ingroup utils
  * @tparam T Data type contained in the array 
  * 
  * This is a non-owning view of an <code>sc_array_t</code>.

@@ -32,7 +32,7 @@
 #include <thunder/utils/device.h>
 
 #include <cstdlib>
-#include <cmath>
+#include <cmath> 
 
 namespace math
 {
@@ -62,6 +62,7 @@ struct int_pow_impl
 
 /**
  * @brief Compute integer powers.
+ * \ingroup utils
  * 
  * @tparam T type of argument 
  * @tparam N power
@@ -77,6 +78,7 @@ T int_pow(T const& x )
 
 /**
  * @brief compute absolute value (type agnostic).
+ * \ingroup utils
  * @tparam T type of parameter
  * @param x value whose absolute value we want
  * @return T absolute value of x
@@ -89,7 +91,7 @@ T abs ( T const & x ) {
 
 /**
  * @brief Signum
- * 
+ * \ingroup utils
  * @tparam T Type of input
  * @param val Value whose sign is sought
  * @return int The signum of val.
@@ -98,6 +100,112 @@ template< typename T >
 int THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
 sgn(T const& val) {
     return (static_cast<T>(0)<val) - (static_cast<T>(0)>val) ; 
+}
+namespace detail {
+/**
+ * @brief Specialization of max function for doubles.
+ * \ingroup utils
+ * \cond thunder_detail
+ */
+double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+dmax(double const& A, double const& B){
+  return (B<A) ? A : B ; 
+}
+/**
+ * @brief Specialization of min function for doubles.
+ * \ingroup utils
+ * \cond thunder_detail
+ */
+double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+dmin(double const& A, double const& B){
+  return (B<A) ? B : A ; 
+}
+}
+/**
+ * @brief Maximum between two numeric values.
+ * \ingroup utils
+ * 
+ * @tparam T Type of the numeric values
+ * @param A Value A.
+ * @param B Value B. 
+ * @return T The max between A and B.
+ */
+template< typename T > 
+T THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+max(T const& A, T const& B) {
+  return (A>B) ? A : B ; 
+}
+/**
+ * @brief Maximum of a set of floating point values.
+ * \ingroup utils
+ * 
+ * @tparam Arg_t Type(s) of other arguments.
+ * @param A Value A.
+ * @param B Value B.
+ * @param args Other arguments.
+ * @return double The max between A,B and other arguments.
+ * NB: This function \b will downcast any <code>long double</code> 
+ *     passed into it.
+ */
+template < typename ... Arg_t > 
+double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+max(double const& A, double const& B, Arg_t && ... args ) {
+  if constexpr ( sizeof...(Arg_t) == 0 ) {
+    return detail::dmax(A,B) ; 
+  } else {
+    return detail::dmax(A, max(B,args...)) ; 
+  }
+}
+/**
+ * @brief Minimum between two numeric values.
+ * \ingroup utils
+ * 
+ * @tparam T Type of the numeric values
+ * @param A Value A.
+ * @param B Value B. 
+ * @return T The min between A and B.
+ */
+template< typename T > 
+T THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+min(T const& A, T const& B) {
+  return (A<B) ? A : B ; 
+}
+/**
+ * @brief Minimum of a set of floating point values.
+ * \ingroup utils
+ * 
+ * @tparam Arg_t Type(s) of other arguments.
+ * @param A Value A.
+ * @param B Value B.
+ * @param args Other arguments.
+ * @return double The min between A,B and other arguments.
+ * NB: This function \b will downcast any <code>long double</code> 
+ *     passed into it.
+ */
+template < typename ... Arg_t > 
+double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+min(double const& A, double const& B, Arg_t && ... args ) {
+  if constexpr ( sizeof...(Arg_t) == 0 ) {
+    return detail::dmin(A,B) ; 
+  } else {
+    return detail::dmin(A, max(B,args...)) ; 
+  }
+}
+/**
+ * @brief Clamp a value between a max and a min.
+ * \ingroup utils
+ * 
+ * @tparam T Type of the value.
+ * @param val The value being clamped.
+ * @param vmin The minimum allowed value for <code>val</code>.
+ * @param vmax The maximum allowed value for <code>val</code>.
+ * @return T The clamped value.
+ */
+template< typename T>
+T THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+clamp(T const& val, T const& vmin, T const& vmax)
+{
+  return max(vmin, min(vmax, val)) ; 
 }
   
 }

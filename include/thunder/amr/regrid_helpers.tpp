@@ -48,7 +48,18 @@ using subview_t =  Kokkos::View<double****, default_space> ;
 #else 
 using subview_t =  Kokkos::View<double***, default_space> ; 
 #endif 
-
+/**
+ * @brief Decide whether a quadrant needs to be refined/coarsened
+ *        based on custom criterion.
+ * \ingroup amr
+ * 
+ * @tparam ViewT Type of variable view.
+ * @tparam KerT  Type of the kernel.
+ * @tparam KerArgT Type of extra arguments to the kernel.
+ * @param flag_view View containing regrid flags. 
+ * @param kernel    Cell-wise kernel to decide whether to regrid.
+ * @param kernel_args Extra arguments to kernel.
+ */
 template< typename ViewT 
     , typename KerT 
     , typename ... KerArgT> 
@@ -102,7 +113,26 @@ void evaluate_regrid_criterion( ViewT flag_view
         } 
     }) ;
 }
-
+/**
+ * @brief Prolongate all state variables on refined cells.
+ * \ingroup amr
+ * 
+ * @tparam InterpT  Type of prolongation operator.
+ * @tparam InViewT  Type of view for refiend state.
+ * @tparam OutViewT Type of view for old state.
+ * @tparam CoordViewT Type of quadrant coordinate view.
+ * @tparam VolViewT   Type of view containing cell volumes.
+ * @param in_state    New state. 
+ * @param out_state   Old state.
+ * @param out_spacing  Old coordinate spacings. 
+ * @param in_spacing   New coordinate spacings.
+ * @param out_coords   Old quadrant coordinates.
+ * @param in_coords    New quadrant coordinates.
+ * @param out_vol      Old cell volumes.
+ * @param in_vol       New cell volumes.
+ * @param in_idx       New inverse spacings.
+ * @param out_idx      Old inverse spacings.
+ */
 template< typename InterpT
         , typename InViewT
         , typename OutViewT
@@ -165,7 +195,19 @@ void prolongate_variables(    InViewT  in_state
                         }
     ); 
 }; 
-
+/**
+ * @brief Restrict all state variables to coarsened cells
+ * \ingroup amr
+ * @tparam InViewT  Type of view for new state.
+ * @tparam OutViewT Type of view for old state.
+ * @tparam VolViewT Type of view for cell volumes.
+ * @param in_state  New state.
+ * @param out_state Old state.
+ * @param out_vol   Old cell volumes.
+ * @param in_vol    New cell volumes. 
+ * @param in_idx    New inverse spacings.
+ * @param out_idx   Old inverse spacings.
+ */
 template< typename InViewT
         , typename OutViewT 
         , typename VolViewT >

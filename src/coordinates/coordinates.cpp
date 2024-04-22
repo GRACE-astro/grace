@@ -32,7 +32,7 @@
 #include <thunder/amr/thunder_amr.hh>
 #include <thunder/coordinates/coordinates.hh>
 #include <thunder/coordinates/coordinate_systems.hh>
-
+#include <thunder/system/print.hh>
 #include <thunder/config/config_parser.hh>
 
 #include <thunder/data_structures/variables.hh>
@@ -42,6 +42,9 @@
 
 #include <thunder/utils/thunder_utils.hh>
 
+#include <omp.h>
+
+#include <chrono>
 #include <string> 
 
 namespace thunder { 
@@ -66,54 +69,68 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
     auto h_vol = Kokkos::create_mirror_view(volume) ; 
 
     auto& coord_system = coordinate_system::get() ;
+    auto clock_start = std::chrono::high_resolution_clock::now() ; 
     /* 2) Number of ghostzones for evolved vars */
     long ngz { params["amr"]["n_ghostzones"].as<long>() } ;
-    for( int itree=forest.first_local_tree(); itree<=forest.last_local_tree(); ++itree)
-    {
-        auto tree = forest.tree(itree) ; 
-        auto quadrants = tree.quadrants() ;
-        size_t quad_offset = tree.quadrants_offset() ;  
-        for( int iquad=0; iquad<quadrants.size(); ++iquad ) {
-            amr::quadrant_t quadrant = tree.quadrant(iquad) ; 
+    #pragma omp parallel for collapse(2)
+    for( int iquad=0; iquad<amr::get_local_num_quadrants(); ++iquad ) {
+        EXPR( for(size_t i=0; i<nx+2*ngz; ++i), for(size_t j=0; j<ny+2*ngz; ++j), for(size_t k=0; k<nz+2*ngz; ++k) ) {
+            auto itree = amr::get_quadrant_owner(iquad) ;  
+            amr::quadrant_t quadrant = amr::get_quadrant(itree,iquad) ; 
             auto const dx_lev = 1.0 / ( 1UL<<quadrant.level() ) ; 
             auto const VEC(dx_quad{dx_lev/nx}, dy_quad{dx_lev/ny}, dz_quad{dx_lev/nz}) ; 
             /* coordinates of lower left corner of quadrant */
             auto const qcoords = quadrant.qcoords() ; 
-            size_t iquad_glob = iquad + quad_offset ; 
-            h_coords(0,iquad_glob) = qcoords[0] * dx_lev; 
-            h_coords(1,iquad_glob) = qcoords[1] * dx_lev;
-            h_coords(2,iquad_glob) = qcoords[2] * dx_lev;
+            h_coords(0,iquad) = qcoords[0] * dx_lev; 
+            h_coords(1,iquad) = qcoords[1] * dx_lev;
+            h_coords(2,iquad) = qcoords[2] * dx_lev;
             EXPR(
-            h_idx(0,iquad_glob) = 1./dx_quad ;, 
-            h_idx(1,iquad_glob) = 1./dy_quad ;,
-            h_idx(2,iquad_glob) = 1./dz_quad ;)
+            h_idx(0,iquad) = 1./dx_quad ;, 
+            h_idx(1,iquad) = 1./dy_quad ;,
+            h_idx(2,iquad) = 1./dz_quad ;)
             EXPR(
-            h_dx(0,iquad_glob) = dx_quad ;,
-            h_dx(1,iquad_glob) = dy_quad ;,
-            h_dx(2,iquad_glob) = dz_quad ;)
-            EXPR(
-            for(size_t i=0; i<nx+2*ngz; ++i){,
-                for(size_t j=0; j<ny+2*ngz; ++j){,
-                    for(size_t k=0; k<nz+2*ngz; ++k){
-            )
-                        h_vol(VEC(i,j,k),iquad_glob) = coord_system.get_cell_volume(
-                              {VEC(i,j,k)}
-                            , iquad_glob
-                            , itree 
-                            , {VEC(dx_quad,dy_quad,dz_quad)}
-                            , true )  ; 
-            EXPR(
-                    },
-                },
-            })
-        } /* quadrant loop */
-    } /* tree loop */
+            h_dx(0,iquad) = dx_quad ;,
+            h_dx(1,iquad) = dy_quad ;,
+            h_dx(2,iquad) = dz_quad ;)
+            h_vol(VEC(i,j,k),iquad) = coord_system.get_cell_volume(
+                    {VEC(i,j,k)}
+                , iquad
+                , itree 
+                , {VEC(dx_quad,dy_quad,dz_quad)}
+                , true )  ; 
+            ASSERT_DBG(
+                !std::isnan(h_vol(VEC(i,j,k),iquad)),
+                "Cell volume NaN at " 
+                EXPR(<< i ,<< ", " << j,<< ", " << k)
+                << ", " << iquad << ", " << itree << '\n'
+                EXPR(<< h_coords(0,iquad) + dx_quad * (i-ngz) 
+                    ,<< ", " << h_coords(1,iquad) + dy_quad * (j-ngz)
+                    ,<< ", " << h_coords(2,iquad) + dz_quad * (k-ngz)) << ", " << dx_quad 
+            ) ;
+            
+            ASSERT_DBG(
+                h_vol(VEC(i,j,k),iquad)>0,
+                "Non positive cell volume " << h_vol(VEC(i,j,k),iquad)
+                << " at " 
+                EXPR(<< i ,<< ", " << j,<< ", " << k)
+                << ", " << iquad << ", " << itree << '\n'
+                EXPR(<< h_coords(0,iquad) + dx_quad * (i-ngz) 
+                    ,<< ", " << h_coords(1,iquad) + dy_quad * (j-ngz)
+                    ,<< ", " << h_coords(2,iquad) + dz_quad * (k-ngz)) << ", " << dx_quad 
+            ) ;
+        }
+    } /* quadrant loop */
+    auto clock_end = std::chrono::high_resolution_clock::now() ;
+    float currentTime = float(std::chrono::duration_cast <std::chrono::microseconds> (clock_end - clock_start).count());
+    THUNDER_INFO(1, "AMR", "Coordinate filling loop took " << currentTime << " mus.") ; 
+    clock_start = std::chrono::high_resolution_clock::now() ; 
     Kokkos::deep_copy(coords,h_coords) ; 
     Kokkos::deep_copy(ispacing,h_idx) ; 
     Kokkos::deep_copy(spacing,h_dx) ; 
     Kokkos::deep_copy(volume,h_vol) ;
-
-    
+    clock_end = std::chrono::high_resolution_clock::now() ; 
+    currentTime = float(std::chrono::duration_cast <std::chrono::microseconds> (clock_end - clock_start).count());
+    THUNDER_INFO(1, "AMR", "Copying coordinates to Device took " << currentTime << " mus.") ;
 }
 
 } /* namespace thunder */ 

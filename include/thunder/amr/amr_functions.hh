@@ -69,6 +69,7 @@ get_local_num_quadrants() ;
 /**
  * @brief Find the tree that owns a quadrant 
  *        given the quadrant's cumulative local index. 
+ * \ingroup amr
  * 
  * @param iquad Index of the quadrant between 
  *        0 and <code>forest::local_num_quadrants()</code>
@@ -78,6 +79,7 @@ size_t
 get_quadrant_owner(size_t iquad) ;
 /**
  * @brief Get the local quadrants offset of a tree.
+ * \ingroup amr
  * 
  * @param itree The tree
  */
@@ -85,6 +87,7 @@ size_t get_local_quadrants_offset(size_t itree) ;
 /**
  * @brief Get a quadrant given its cumulative local index
  *        and the index of the owning tree.
+ * \ingroup amr
  * 
  * @param which_tree Tree owning the quadrant. 
  * @param iquad      Quadrant cumulative local index.
@@ -94,6 +97,7 @@ quadrant_t
 get_quadrant(size_t which_tree, size_t iquad) ; 
 /**
  * @brief Get a quadrant given its cumulative local index.
+ * \ingroup amr
  * 
  * @param iquad       Quadrant cumulative local index.
  * @return quadrant_t The quadrant.
@@ -102,19 +106,22 @@ quadrant_t
 get_quadrant(size_t iquad) ; 
 /**
  * @brief Get local index of
- *        a quadrant 
+ *        a quadrant.
+ * \ingroup amr
  */
 int64_t 
 get_quadrant_locidx(quadrant_t quad);
 /**
  * @brief Get local index of
- *        a quadrant 
+ *        a quadrant.
+ * \ingroup amr
  */
 int64_t 
 get_quadrant_locidx(p4est_quadrant_t* quad);
 /**
  * @brief For halo quadrants: get owner mpi 
  *        rank.
+ * \ingroup amr
  * \cond thunder_detail
  */
 int 
@@ -122,6 +129,7 @@ get_halo_quad_owner(quadrant_t& quad);
 /**
  * @brief For halo quadrants: get owner mpi 
  *        rank.
+ * \ingroup amr
  * \cond thunder_detail
  */
 int 
@@ -129,6 +137,7 @@ get_halo_quad_owner(p4est_quadrant_t* quad);
 /**
  * @brief Determine whether coordinates flip across 
  *        tree boundary.
+ * \ingroup amr
  * 
  * @param treeid Index of tree
  * @param face   Face index in z-order
@@ -136,7 +145,8 @@ get_halo_quad_owner(p4est_quadrant_t* quad);
  */
 int trees_have_opposite_polarity( int64_t treeid, int face ); 
 /**
- * @brief Free function form of <code>amr::connectivity().tree_vertex</code>
+ * @brief Free function form of <code>amr::connectivity().tree_vertex</code>.
+ * \ingroup amr
  * 
  * @param which_tree Tree index 
  * @param which_vertex Vertex index in z-ordering
@@ -147,7 +157,8 @@ get_tree_vertex(size_t which_tree, size_t which_vertex) ;
 
 /**
  * @brief Free function form of 
- *        <code>amr::connectivity().tree_spacing</code>
+ *        <code>amr::connectivity().tree_spacing</code>.
+ * \ingroup amr
  * 
  * @param which_tree Tree index 
  * @return Array containing physical coordinate extent of the tree in each direction.
@@ -158,6 +169,7 @@ get_tree_spacing(size_t which_tree) ;
 /**
  * @brief Get a vector containing the first global quadrant of each rank
  *        + 1 (the last entry is the total number of quadrant across all ranks).
+ * \ingroup amr
  */
 std::vector<int64_t>
 get_global_quadrant_offsets() ; 

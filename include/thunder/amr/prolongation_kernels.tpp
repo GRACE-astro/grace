@@ -34,7 +34,7 @@ namespace thunder { namespace amr {
 
 /**
  * @brief Prolongation functor
- * 
+ * \ingroup amr
  * @tparam InterpT    Type of interpolator
  * @tparam StateViewT Type of state vector 
  * @tparam CoordViewT Type of coordinate spacing vector
@@ -49,16 +49,16 @@ struct prolongator_t {
     StateViewT state         ; //!< Old state
     CoordViewT dx_parent     ; //!< Old dx
     CoordViewT dx_child      ; //!< Old dx 
-    VolViewT   vol_parent    ; 
-    VolViewT   vol_child     ; 
-    CoordViewT x_parent      ;
-    CoordViewT x_child       ; 
+    VolViewT   vol_parent    ; //!< Old cell volumes
+    VolViewT   vol_child     ; //!< New cell volumes
+    CoordViewT x_parent      ; //!< Old quadrant coordinates
+    CoordViewT x_child       ; //!< New quadrant coordinates
 
 
     /**
      * @brief Prolongate requested variable at the requested
      *        point in the child quadrant
-     * 
+     * \ingroup amr
      * @param i       x-index of point in child quadrant
      * @param j       y-index of point in child quadrant 
      * @param z       z-index of point in child quadrant (3D only)
@@ -99,7 +99,7 @@ struct prolongator_t {
               Kokkos::floor((iquad_z * nz + k ) / 2) ; 
         )
         return InterpT::interpolate(
-              VEC(i,j,k)
+              VEC(i+ngz,j+ngz,k+ngz)
             , VEC(i0+ngz,j0+ngz,k0+ngz)
             , iq_child, iq_parent, ngz, ivar
             , x_child

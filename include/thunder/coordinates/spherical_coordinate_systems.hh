@@ -35,7 +35,8 @@
 #include <thunder/data_structures/thunder_data_structures.hh>
 #include <thunder/coordinates/spherical_device_inlines.hh>
 
-#include<array>
+#include <array>
+#include <tuple>
 
 namespace thunder { 
 typedef void (*coord_transform_t) (double,double*,double*,double*,double*,double*) ; 
@@ -92,7 +93,6 @@ struct spherical_device_coordinate_system_impl_t
         int const midx = (itree>0) * (itree-1)%P4EST_FACES; // just to prevent indexing at -1 
         auto const R = Kokkos::subview(inverse_rotation_matrices_, Kokkos::ALL(),midx) ;  
         detail::p2l[itree](grid_params_(0),F,S,R.data(),p_coords,l_coords) ; 
- 
     }
 
     void THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
@@ -163,10 +163,69 @@ struct spherical_device_coordinate_system_impl_t
     Kokkos::View<double**, thunder::default_space> inverse_rotation_matrices_ ;
 
 } ;
-
+//**************************************************************************************************
+/**
+ * @brief Implementation of coordinate system class for spherical grids.
+ * \ingroup thunder_coordinates
+ * 
+ * Spherical coordinates in thunder are implemented using a central patch of Cartesian coordinates
+ * which corresponds with tree 0 in the p4est connectivity. The cartesian patch is surrounded 
+ * by P4EST_FACES (4 in 2D, 6 in 3D) wedges (each of which is a tree) where the coordinates go 
+ * from Cartesian to Spherical along the logical radius. The logical coordinates in each tree 
+ * are as usual indicated by \f$(\zeta,\eta,\xi)\f$ and each span \f$[0,1]\f$. There is then a 
+ * second layer of wedges where the coordinates are purely spherical in each patch, with the option
+ * of using a logaritmhmic distribution for the radial coordinate. By convention, the first logical
+ * coordinate (\f$\zeta\f$) is the radial one in each tree. The other two logical coordinates are then
+ * chosen as to form a right handed basis where the angular logical coordinates align with the axes 
+ * of the physical coordinates in the embedding space. 
+ * In particular, the coordinate transformation is constructed as follows. Let \f$L\f$ be half of 
+ * the length of the side of the central Cartesian patch, \f$R_i\f$ be the radius of the inner spherical
+ * face and \f$R_o\f$ be the radius of the outer grid boundary. These variables can be chosen from the 
+ * <code>Thunder</code> config file. We can then define the sphere and frustum functions as follows:
+ * \f{eqnarray*}{
+ *   S &=& S_0 + \zeta~S_r, \\
+ *   F &=& F_0 + \zeta~F_r.
+ * \f}
+ * Here the frustum rates \f$F_0,F_r\f$, and the sphere rates \f$S_0,S_r\f$ are defined as
+ * \f{eqnarray*}{
+ *   F_0 &=& -r {\left(\mathit{s_i} - 1\right)}, \\
+ *   F_r &=&  r {\left(\mathit{s_i} - 1\right)} - R {\left(\mathit{s_o} - 1\right)}, \\
+ *   S_0 &=&  r \mathit{s_i}, \\
+ *   S_r &=& -r \mathit{s_i} + R \mathit{s_o}.
+ * \f}
+ * Where \f$r\f$ is \f$L\f$ [[resp. \f$R_i\f$]] for the inner [[resp. outer]] and 
+ * \f$R=R_i\f$ [[resp. \f$R_o\f$]], whereas \f$\mathit{s_i},\mathit{s_o}\f$ are the 
+ * sphericities of the inner and outer face which are \f$0,1\f$ for a flat or spherical face.
+ * We can now define the coordinate transformation which reads (in the case of the \f$+x\f$ wedge)
+ * \f{eqnarray*}{
+ *  x &=& F + \frac{S}{\rho}~, \\
+ *  y &=& x~\left(2~\eta-1\right)~,  \\
+ *  z &=& x~\left(2~\xi-1 \right)~.
+ * \f}
+ * Where the function \f$\rho\f$ is given by
+ * \f[
+ *   \rho=\sqrt{1+(2~\eta-1)^2+(2~\xi-1)^2}~.
+ * \f]
+ * When the radial points are radially sampled, the frustum rates are zero and the sphere rates 
+ * change to 
+ * \f{eqnarray*}{
+ *   S_0 &=&  \frac{1}{2}\log(r~R)~, \\
+ *   S_r &=&  \frac{1}{2}\log(R/r)~.
+ * \f}
+ * And the radial coordinate is computed as
+ * \f[
+ *  x = \frac{1}{\rho}~e^{S_0+S_r~\left(2~\zeta-1\right)}~.
+ * \f] 
+ * 
+ */ 
+//**************************************************************************************************
 class spherical_coordinate_system_impl_t 
 {
- public:
+ private:
+    //**************************************************************************************************
+    /**
+     * @brief Construct a new spherical coordinate system.
+     */
     spherical_coordinate_system_impl_t() 
     {
         using namespace thunder ; 
@@ -246,7 +305,49 @@ class spherical_coordinate_system_impl_t
                 {0,1,1,0}
             } ; 
         #else 
-
+        double rot_mat_tmp_[P4EST_FACES][THUNDER_NSPACEDIM*THUNDER_NSPACEDIM]
+            = {
+                {-1,0,0,
+                0,0,1,
+                0,1,0},
+                {1,0,0,
+                0,1,0,
+                0,0,1},
+                {0,-1,0,
+                1,0,0,
+                0,0,1},
+                {0,1,0,
+                0,0,1,
+                0,1,0},
+                {0,0,-1,
+                0,1,0,
+                1,0,0},
+                {0,0,1,
+                1,0,0,
+                0,1,0}
+            } ; 
+        double inv_rot_mat_tmp_[P4EST_FACES][THUNDER_NSPACEDIM*THUNDER_NSPACEDIM]
+            =
+            {
+                {-1,0,0,
+                0,0,1,
+                0,1,0},
+                {1,0,0,
+                0,1,0,
+                0,0,1},
+                {0,1,0,
+                -1,0,0,
+                0,0,1},
+                {0,0,1,
+                1,0,0,
+                0,1,},
+                {0,0,1,
+                0,1,0,
+                -1,0,0},
+                {0,1,0,
+                0,0,1,
+                1,0,0}
+            } ; 
         #endif 
         for(int iface=0; iface<P4EST_FACES; ++iface){
             for(int i=0;i<THUNDER_NSPACEDIM;++i){
@@ -307,13 +408,39 @@ class spherical_coordinate_system_impl_t
             }
         ) ; 
     }; 
-
+    //**************************************************************************************************
+    /**
+     * @brief Destroy the spherical coordinate system
+     */
+    ~spherical_coordinate_system_impl_t() = default ; 
+    //**************************************************************************************************
+ public:
+    //**************************************************************************************************
+    /**
+     * @brief Get the physical coordinates of a point
+     * 
+     * @param itree Index of the tree containing the point
+     * @param logical_coordinates Logical coordinates of the point within the tree
+     * @return std::array<double, THUNDER_NSPACEDIM> An array containing the point's 
+     *                                               physical coordinates.
+     */
     std::array<double, THUNDER_NSPACEDIM>
     THUNDER_HOST get_physical_coordinates(
           int const itree 
         , std::array<double,THUNDER_NSPACEDIM> const& logical_coordinates
     ) ; 
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the physical coordinates of a point
+     * 
+     * @param ijk Indices of the cell containing the point.
+     * @param q Local quadrant index
+     * @param cell_coordinates Coordinates of point within the cell (should be in \f$[0,1]^N_d\f$)
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return std::array<double, THUNDER_NSPACEDIM> An array containing the point's 
+     *                                               physical coordinates.
+     */
     std::array<double, THUNDER_NSPACEDIM>
     THUNDER_HOST get_physical_coordinates(
           std::array<size_t, THUNDER_NSPACEDIM> const& ijk
@@ -321,14 +448,35 @@ class spherical_coordinate_system_impl_t
         , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
         , bool use_ghostzones
     ) ;
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the physical coordinates of a cell centre
+     * 
+     * @param ijk Cell indices
+     * @param q Local quadrant index
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return std::array<double, THUNDER_NSPACEDIM> An array containing the point's 
+     *                                               physical coordinates.
+     */
     std::array<double, THUNDER_NSPACEDIM>
     THUNDER_HOST get_physical_coordinates(
           std::array<size_t, THUNDER_NSPACEDIM> const& ijk
         , int64_t q 
         , bool use_ghostzones
     ) ;
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the logical coordinates of a point
+     * 
+     * @param ijk Indices of the cell containing the point.
+     * @param q Local quadrant index
+     * @param cell_coordinates Coordinates of point within the cell (should be in \f$[0,1]^N_d\f$)
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return std::array<double, THUNDER_NSPACEDIM> An array containing the point's 
+     *                                               logical coordinates.
+     */
     std::array<double, THUNDER_NSPACEDIM>
     THUNDER_HOST get_logical_coordinates(
           std::array<size_t, THUNDER_NSPACEDIM> const& ijk
@@ -336,29 +484,248 @@ class spherical_coordinate_system_impl_t
         , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
         , bool use_ghostzones
     ) ;
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the logical coordinates of a point
+     * 
+     * @param itree Index of tree containing the point
+     * @param physical_coordinates Physical coordinates of requested point
+     * @return std::array<double, THUNDER_NSPACEDIM> An array containing the point's 
+     *                                               logical coordinates.
+     */
     std::array<double,THUNDER_NSPACEDIM> 
     THUNDER_HOST get_logical_coordinates(
           int itree 
         , std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates
     ) ; 
-
-    std::array<double,THUNDER_NSPACEDIM> 
-    THUNDER_HOST get_logical_coordinates(
-        std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates
-    ) ; 
-
-    std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM>
-    THUNDER_HOST get_jacobian(
-        std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates 
-    ) ; 
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the determinant of the Jacobian matrix of the coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return double The Jacobian matrix determinant.
+     */
     double
+    THUNDER_HOST get_jacobian(
+          std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the determinant of the Jacobian matrix of the coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param itree Index of tree containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return double The Jacobian matrix determinant.
+     */
+    double
+    THUNDER_HOST get_jacobian(
+          std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , int itree
+        , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the determinant of the Jacobian matrix of the coordinate transformation at a given point
+     * 
+     * @param itree Index of tree containing the point
+     * @param lcoords Logical coordinates of point
+     * @return double The Jacobian matrix determinant.
+     * NB: This function checks for tree boundaries.
+     */
+    double
+    THUNDER_HOST get_jacobian(
+          int itree
+        , std::array<double,THUNDER_NSPACEDIM> const& lcoords 
+    ) ;
+    //**************************************************************************************************
+    /**
+     * @brief Get the determinant of the Jacobian matrix 
+     *        of the inverse coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return double The inverse Jacobian matrix determinant.
+     */
+    double
+    THUNDER_HOST get_inverse_jacobian(
+          std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the determinant of the Jacobian matrix 
+     *        of the inverse coordinate transformation at a given point      
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param itree Index of tree containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return double The inverse Jacobian matrix determinant.
+     */
+    double
+    THUNDER_HOST get_inverse_jacobian(
+          std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , int itree
+        , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the determinant of the Jacobian matrix 
+     *        of the inverse coordinate transformation at a given point  
+     * @param itree Index of tree containing the point
+     * @param lcoords Logical coordinates of point
+     * @return double The invesre Jacobian matrix determinant.
+     * NB: This function checks for tree boundaries.
+     */
+    double
+    THUNDER_HOST get_inverse_jacobian(
+          int itree
+        , std::array<double,THUNDER_NSPACEDIM> const& lcoords 
+    ) ;
+    //**************************************************************************************************
+    /**
+     * @brief Get the Jacobian matrix of the coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> The Jacobian matrix.
+     */
+    std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM>
+    THUNDER_HOST get_jacobian_matrix(
+          std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the Jacobian matrix of the coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param itree Index of tree containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> The Jacobian matrix.
+     */
+    std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM>
+    THUNDER_HOST get_jacobian_matrix(
+          std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , int itree
+        , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the Jacobian matrix of the coordinate transformation at a given point
+     * 
+     * @param itree Index of tree containing the point
+     * @param lcoords Logical coordinates of point
+     * @return std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> The Jacobian matrix.
+     * NB: This function checks for tree boundaries.
+     */
+    std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM>
+    THUNDER_HOST get_jacobian_matrix(
+          int itree
+        , std::array<double,THUNDER_NSPACEDIM> const& lcoords 
+    ) ;
+    //**************************************************************************************************
+    /**
+     * @brief Get the Jacobian matrix of the inverse coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> The inverse Jacobian matrix.
+     */
+    std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM>
+    THUNDER_HOST get_inverse_jacobian_matrix(
+          std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the Jacobian matrix of the inverse coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param itree Index of tree containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> The inverse Jacobian matrix.
+     */
+    std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM>
+    THUNDER_HOST get_inverse_jacobian_matrix(
+          std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , int itree
+        , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the Jacobian matrix of the inverse coordinate transformation at a given point
+     * 
+     * @param itree Index of tree containing the point
+     * @param lcoords Logical coordinates of point
+     * @return std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> The inverse Jacobian matrix.
+     * NB: This function checks for tree boundaries.
+     */
+    std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM>
+    THUNDER_HOST get_inverse_jacobian_matrix(
+          int itree
+        , std::array<double,THUNDER_NSPACEDIM> const& lcoords 
+    ) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the volume of a cell
+     * 
+     * @param ijk Indices of the cell.
+     * @param q Local quadrant index.
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return double The volume of the requested cell.
+     */
+    double  
     THUNDER_HOST get_cell_volume(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
     , int64_t q
     , bool use_ghostzones);
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the volume of a cell
+     * 
+     * @param ijk Indices of the cell.
+     * @param q Local quadrant index.
+     * @param itree Index of the tree containing the cell.
+     * @param dxl Cell spacing in logical coordinates
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return double The volume of the requested cell.
+     */
     double
     THUNDER_HOST get_cell_volume(
         std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
@@ -367,7 +734,31 @@ class spherical_coordinate_system_impl_t
         , std::array<double, THUNDER_NSPACEDIM> const& dxl 
         , bool use_ghostzones
     ) ; 
-
+    //**************************************************************************************************
+    double 
+    THUNDER_HOST 
+    get_cell_face_surface(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int64_t q
+    , int8_t face 
+    , bool use_ghostzones) ; 
+    //**************************************************************************************************
+    double 
+    THUNDER_HOST 
+    get_cell_face_surface(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int64_t q
+    , int8_t face 
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the device coord system object
+     * 
+     * @return spherical_device_coordinate_system_impl_t A lightweight coordinate system object
+     *                                                   whose methods are accessible from device.
+     */
     spherical_device_coordinate_system_impl_t
     get_device_coord_system(){
         return spherical_device_coordinate_system_impl_t {
@@ -376,34 +767,236 @@ class spherical_coordinate_system_impl_t
             , inverse_rotation_matrices_
         } ; 
     }
+    //**************************************************************************************************
 
  private:  
-
+    //**************************************************************************************************
+    /**
+     * @brief Check whether a point is in the buffer zone.
+     * 
+     * @param lcoords  Logical coordinates
+     * @param check_exact_boundary Does the upper boundary count as first point in the next tree?
+     * @return true If the point is in the buffer zone.
+     * @return false If the point is within the tree boundaries.
+     */
+    bool THUNDER_HOST 
+    is_outside_tree(std::array<double,THUNDER_NSPACEDIM> const& lcoords, bool check_exact_boundary=false) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Check whether a tree boundary is physical or internal.
+     * 
+     * @param lcoords  Logical coordinates w.r.t. source tree.
+     * @param itree    Source tree id.
+     * @param check_exact_boundary Does the upper boundary count as first point in the next tree?
+     * @return true If the tree boundary faces the outside of the grid.
+     * @return false If the tree boundary faces another tree in the grid.
+     */
+    bool THUNDER_HOST 
+    is_physical_boundary(std::array<double,THUNDER_NSPACEDIM> const& lcoords, int itree, bool check_exact_boundary=false) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the neighbor tree and face indices in buffer zone.
+     * 
+     * @param itree    Source tree index
+     * @param ijk      Cell indices w.r.t. source tree
+     * @param check_exact_boundary Does the upper boundary count as first point in the next tree?
+     * @return std::tuple<int, int8_t, int8_t> The index <code>itree_b</code> of the tree across 
+     *         the boundary, the face <code>iface_b</code> of that tree and the face <code>iface</code>
+     *         of this tree.
+     * NB: this function does not check that the quadrant actually touches the face. It's the caller's
+     *     responsibility to ensure this.
+     */
+    std::tuple<int, int8_t, int8_t>
+    THUNDER_HOST get_neighbor_tree_and_face(
+          int itree
+        , std::array<size_t,THUNDER_NSPACEDIM> const& ijk 
+    ); 
+    //**************************************************************************************************
+    /**
+     * @brief Get the neighbor tree and face indices in buffer zone.
+     * 
+     * @param itree    Source tree index
+     * @param lcoords  Logical coordinates w.r.t. source tree
+     * @param check_exact_boundary Does the upper boundary count as first point in the next tree?
+     * @return std::tuple<int, int8_t, int8_t> The index <code>itree_b</code> of the tree across 
+     *         the boundary, the face <code>iface_b</code> of that tree and the face <code>iface</code>
+     *         of this tree.
+     */
+    std::tuple<int, int8_t, int8_t>
+    THUNDER_HOST get_neighbor_tree_and_face(
+          int itree
+        , std::array<double,THUNDER_NSPACEDIM> const& lcoords
+        , bool check_exact_boundary=false
+    );
+    //**************************************************************************************************
+    /**
+     * @brief Get the logical coordinates of a point in the buffer zone.
+     * 
+     * @param itree   Source tree id
+     * @param lcoords Logical coordinates of cell's lowest corner (z-ordering) in 
+     *                tree <code>itree</code>'s coordinate system.
+     * @return double The logical coordinates w.r.t the tree across the boundary
+     *                of the cell in the buffer zone of tree <code>itree</code>.
+     * NB: By buffer zone we mean the ghost zone layer that crosses a tree boundary.
+     */
+    std::array<double, THUNDER_NSPACEDIM> 
+    THUNDER_HOST get_logical_coordinates_buffer_zone(
+        int itree
+      , std::array<double, THUNDER_NSPACEDIM> const& lcoords ) ;
+    //**************************************************************************************************
+    /**
+     * @brief Get the volume of a cell in the buffer zone.
+     * 
+     * @param itree   Source tree id
+     * @param q       Quadrant index
+     * @param lcoords Logical coordinates of cell's lowest corner (z-ordering) in 
+     *                tree <code>itree</code>'s coordinate system.
+     * @param dxl     (Logical) Cell coordinate spacing 
+     * @return double The volume of the cell in the buffer zone of tree <code>itree</code>.
+     * NB: By buffer zone we mean the ghost zone layer that crosses a tree boundary.
+     */
     double
     THUNDER_HOST get_cell_volume_buffer_zone(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
-    , int itree
+      int itree
+    , int64_t q
     , std::array<double, THUNDER_NSPACEDIM> const& lcoords
     , std::array<double, THUNDER_NSPACEDIM> const& dxl ) ;
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the suface of a cell face in the buffer zone.
+     * 
+     * @param itree   Source tree id
+     * @param q       Quadrant index
+     * @param lcoords Logical coordinates of cell's lowest corner (z-ordering) in 
+     *                tree <code>itree</code>'s coordinate system.
+     * @param dxl     (Logical) Cell coordinate spacing 
+     * @return double The volume of the cell in the buffer zone of tree <code>itree</code>.
+     * NB: By buffer zone we mean the ghost zone layer that crosses a tree boundary.
+     */
+    double
+    THUNDER_HOST get_cell_face_surface_buffer_zone(
+      int itree
+    , int8_t face
+    , int64_t q
+    , std::array<double, THUNDER_NSPACEDIM> const& lcoords
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) ;
+    //**************************************************************************************************
+    /**
+     * @brief Compute physical coordinates in the cartesian coordinate patch
+     * 
+     * @param L       Half length of inner face's side
+     * @param lcoords Logical coordinates \f$(\zeta,\eta,\xi)\f$
+     * @return std::array<double, THUNDER_NSPACEDIM> Array containing physical coordinates of the point.
+     */
+    std::array<double, THUNDER_NSPACEDIM>
+    THUNDER_HOST get_physical_coordinates_cart(
+        double L,
+        std::array<double, THUNDER_NSPACEDIM> const& lcoords
+    ) ; 
+    //**************************************************************************************************
+    /**
+     * @brief Compute physical coordinates in a spherical coordinate patch
+     * 
+     * @param irot Rotation index, determines which coordinate is radial.
+     * @param Ri   Inner radius
+     * @param Ro   Outer radius
+     * @param F    Frustum and scaled frustum rates
+     * @param S    Sphere and scaled sphere rates
+     * @param lcoords Logical coordinates \f$(\zeta,\eta,\xi)\f$
+     * @param logr Is the radial point distribution logarithmic?
+     * @return std::array<double, THUNDER_NSPACEDIM> Array containing physical coordinates of the point.
+     */
+    std::array<double, THUNDER_NSPACEDIM>
+    THUNDER_HOST get_physical_coordinates_sph(
+        int irot,
+        double Ri,
+        double Ro, 
+        std::array<double,2> const& F, 
+        std::array<double,2> const& S ,
+        std::array<double, THUNDER_NSPACEDIM> const& lcoords,
+        bool logr=false
+    ) ;
+    //**************************************************************************************************
+    /**
+     * @brief Get physical zeta given the logical one.
+     * 
+     * @param z Zeroth logical coordinate in a spherical grid patch
+     * @param one_over_rho Inverse of rho
+     * @param F Frustum and scaled frustum rates
+     * @param S Sphere and scaled sphere rates
+     * @param use_logr Is the radial point distribution logarithmic?
+     * @return double Physical radial coordinate
+     */
     double THUNDER_HOST 
     get_zeta( double const& z
             , double const& one_over_rho
             , std::array<double,2> const& F
             , std::array<double,2> const& S
             , bool use_logr) const ; 
-
-    bool   _use_logr ; 
-    double _L,_Ri,_Ro,_F0,_F1,_Fr,_Fr1,_S0,_S1,_Sr,_Sr1 ;
-
-    Kokkos::View<double* , thunder::default_space> grid_params_ ;
-    Kokkos::View<double**, thunder::default_space> rotation_matrices_ ;
-    Kokkos::View<double**, thunder::default_space> inverse_rotation_matrices_ ;
-
-    static constexpr size_t longevity = THUNDER_COORDINATE_SYSTEM ; 
-
-    friend class utils::singleton_holder<spherical_coordinate_system_impl_t, memory::default_create> ; 
-    friend class memory::new_delete_creator<spherical_coordinate_system_impl_t,memory::new_delete_allocator> ;
+    //**************************************************************************************************
+    #if 0
+    double THUNDER_HOST 
+    get_jacobian_determinant_sph(
+      double const& si, double const& so 
+    , double const& ri, double const& ro
+    , VEC(double const& zeta, double const& eta, double const& xi) ) ; 
+    //**************************************************************************************************
+    double THUNDER_HOST
+    get_jacobian_determinant_sph_log(
+      double const& ri, double const& ro
+    , VEC(double const& zeta, double const& eta, double const& xi) ) ;
+    #endif 
+    //**************************************************************************************************
+    #ifdef THUNDER_3D 
+    double THUNDER_HOST 
+    get_volume_element_sph(
+      double const& ri, double const& ro
+    , double const& zeta0, double const& dzeta 
+    , double const& xi0, double const& dxi 
+    , double const& eta ) ; 
+    //**************************************************************************************************
+    double THUNDER_HOST 
+    get_volume_element_sph_ext(
+      double const& ri, double const& ro
+    , double const& zeta0, double const& dzeta 
+    , double const& xi0, double const& dxi 
+    , double const& eta ) ; 
+    //**************************************************************************************************
+    double THUNDER_HOST
+    get_volume_element_sph_ext_log(
+      double const& ri, double const& ro
+    , double const& zeta0, double const& dzeta 
+    , double const& xi0, double const& dxi 
+    , double const& eta ) ;
+    //**************************************************************************************************
+    #endif 
+    double THUNDER_HOST 
+    get_surface_element_sph(
+      int8_t iface
+    , double const& si, double const& so 
+    , double const& ri, double const& ro
+    , VEC(double const& zeta, double const& eta, double const& xi) ) ; 
+    //**************************************************************************************************
+    double THUNDER_HOST
+    get_surface_element_sph_log(
+      int8_t iface
+    , double const& ri, double const& ro
+    , VEC(double const& zeta, double const& eta, double const& xi) ) ; 
+    //**************************************************************************************************
+    bool   _use_logr ;                                      //!< Is the outer patch logarithmic in radius?
+    double _L,_Ri,_Ro,_F0,_F1,_Fr,_Fr1,_S0,_S1,_Sr,_Sr1 ;   //!< Sphere and frustum rates
+    //**************************************************************************************************
+    Kokkos::View<double* , thunder::default_space> grid_params_ ;               //!< Grid parameters
+    Kokkos::View<double**, thunder::default_space> rotation_matrices_ ;         //!< Discrete rotation matrices
+    Kokkos::View<double**, thunder::default_space> inverse_rotation_matrices_ ; //!< Inverses of discrete rotation matrices
+    //**************************************************************************************************
+    static constexpr size_t longevity = THUNDER_COORDINATE_SYSTEM ; //!< Longevity of coordinate system
+    //**************************************************************************************************
+    friend class utils::singleton_holder<spherical_coordinate_system_impl_t, memory::default_create> ;         //!< Give access 
+    friend class memory::new_delete_creator<spherical_coordinate_system_impl_t,memory::new_delete_allocator> ; //!< Give access
+    //**************************************************************************************************
+    static constexpr double eps_volume = 1e-12 ;
+    //**************************************************************************************************
 } ; 
  
 

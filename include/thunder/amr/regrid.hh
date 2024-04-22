@@ -45,7 +45,7 @@ namespace thunder { namespace amr {
 
 /**
  * @brief Perform a regridding operation.
- * 
+ * \ingroup amr
  * This function refines and coarsens the grid based on 
  * the user-provided refinement criterion, it prolongates 
  * and restricts state variables on the new grid structure,

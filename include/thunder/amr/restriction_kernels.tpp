@@ -31,7 +31,16 @@
 #include <thunder_config.h>
 
 namespace thunder { namespace amr { 
-
+/**
+ * @brief Helper class for restriction
+ * \ingroup amr 
+ * @tparam StateViewT Type of variable view
+ * @tparam VolViewT   Type of cell volume view
+ * 
+ * The <code>operator()</code> of this class performs 
+ * a volume averaged restriction of fine data onto a coarse
+ * cell. The refinement factor is assumed to be two. 
+ */
 template< typename StateViewT 
         , typename VolViewT >  
 struct restrictor_t {
@@ -40,7 +49,26 @@ struct restrictor_t {
     StateViewT state         ; //!< Old state 
     VolViewT   vol_child     ; //!< Child volume
     VolViewT   vol_parent    ; //!< Parent volume
-
+    /**
+     * @brief Restrict variable from fine to coarse grid.
+     * 
+     * @param i x-index in parent quadrant (zero-offset).
+     * @param j y-index in parent quadrant (zero-offset).
+     * @param k z-index in parent quadrant (zero-offset).
+     * @param iq Quadrant indices of children.
+     * @param iq_parent Quadrant index of parent. 
+     * @param ivar Variable index. 
+     * @return double The restricted variable at the coarse point.
+     * 
+     * The restriction operator acts on the fine data as follows
+     * 
+     * \f[
+     * \frac{\sum_{\{i,j,k\} \in I^{(i_0,j_0,k_0)}_{\rm c} } U^{l+1}_{i,j,k}\,V^{l+1}_{i,j,k}}
+     *  {\sum_{\{i,j,k\} \in I^{(i_0,j_0,k_0)}_{\rm c} } V^{l+1}_{i,j,k} }
+     * \f]
+     * Where \f$ I^{(i_0,j_0,k_0)}_{\rm c} \f$ contains the indices of children cells of 
+     * the coarse cell \f$(i_0,j_0,k_0)\f$.
+     */
     double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
     operator() ( VEC( int const& i
                     , int const& j 
@@ -56,13 +84,13 @@ struct restrictor_t {
         /* quadrants.                            */
         /*****************************************/
 
-        /* Indices in child quadrant            */ 
+        /* Indices in child quadrant                */ 
         EXPR(
             const int i0 = (2*i) % nx + ngz;,
             const int j0 = (2*j) % ny + ngz;,
             const int k0 = (2*k) % nz + ngz;
         ) 
-        /* Index of child containing point */ 
+        /* Index of child quadrant containing point */ 
         int const iq_child =
             iq[ EXPR(
                   (2*i)/nx

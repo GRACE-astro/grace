@@ -87,16 +87,40 @@ struct cartesian_device_coordinate_system_impl_t
     Kokkos::View<double*,thunder::default_space> tree_vertices_, tree_spacings_ ;
 
 } ; 
-
+//**************************************************************************************************
+/**
+ * @brief Implementation of coordinate system class for cartesian grids.
+ * \ingroup thunder_coordinates
+ */
+//**************************************************************************************************
 class cartesian_coordinate_system_impl_t 
 {
  public: 
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the physical coordinates of a point
+     * 
+     * @param itree Index of the tree containing the point
+     * @param logical_coordinates Logical coordinates of the point within the tree
+     * @return std::array<double, THUNDER_NSPACEDIM> An array containing the point's 
+     *                                               physical coordinates.
+     */
     std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
     get_physical_coordinates( 
           int const itree
         , std::array<double, THUNDER_NSPACEDIM> const& logical_coordinates );  
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the physical coordinates of a point
+     * 
+     * @param ijk Indices of the cell containing the point.
+     * @param q Local quadrant index
+     * @param cell_coordinates Coordinates of point within the cell (should be in \f$[0,1]^N_d\f$)
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return std::array<double, THUNDER_NSPACEDIM> An array containing the point's 
+     *                                               physical coordinates.
+     */
     std::array<double, THUNDER_NSPACEDIM>
     THUNDER_HOST get_physical_coordinates(
            std::array<size_t, THUNDER_NSPACEDIM> const& ijk
@@ -104,43 +128,105 @@ class cartesian_coordinate_system_impl_t
         , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
         , bool use_ghostzones 
     ) ;
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the physical coordinates of a cell centre
+     * 
+     * @param ijk Cell indices
+     * @param q Local quadrant index
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return std::array<double, THUNDER_NSPACEDIM> An array containing the point's 
+     *                                               physical coordinates.
+     */
     std::array<double, THUNDER_NSPACEDIM>
     THUNDER_HOST get_physical_coordinates(
            std::array<size_t, THUNDER_NSPACEDIM> const& ijk
         , int64_t q 
         , bool use_ghostzones 
     ) ;
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the logical coordinates of a point
+     * 
+     * @param ijk Indices of the cell containing the point.
+     * @param q Local quadrant index
+     * @param cell_coordinates Coordinates of point within the cell (should be in \f$[0,1]^N_d\f$)
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return std::array<double, THUNDER_NSPACEDIM> An array containing the point's 
+     *                                               logical coordinates.
+     */
     std::array<double, THUNDER_NSPACEDIM>
     THUNDER_HOST get_logical_coordinates(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk
     , int64_t q 
     , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
     , bool use_ghostzones) ;
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the logical coordinates of a point
+     * 
+     * @param itree Index of tree containing the point
+     * @param physical_coordinates Physical coordinates of requested point
+     * @return std::array<double, THUNDER_NSPACEDIM> An array containing the point's 
+     *                                               logical coordinates.
+     */
     std::array<double,THUNDER_NSPACEDIM> 
     THUNDER_HOST get_logical_coordinates(
           int itree
         , std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates
     ) ; 
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the logical coordinates of a point
+     * 
+     * @param physical_coordinates Physical coordinates of requested point
+     * @return std::array<double, THUNDER_NSPACEDIM> An array containing the point's 
+     *                                               logical coordinates.
+     */
     std::array<double,THUNDER_NSPACEDIM> 
     THUNDER_HOST get_logical_coordinates(
         std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates
     ) ;
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the Jacobian matrix of the coordinate transformation at a given point
+     * 
+     * @param physical_coordinates Physical coordinates of requested point
+     * @return std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> The Jacobian matrix.\
+     */
     std::array<double, THUNDER_NSPACEDIM*THUNDER_NSPACEDIM>
     THUNDER_HOST get_jacobian(
         std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates 
     ) ; 
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the volume of a cell
+     * 
+     * @param ijk Indices of the cell.
+     * @param q Local quadrant index.
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return double The volume of the requested cell.
+     */
     double
     THUNDER_HOST get_cell_volume(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
     , int64_t q
     , bool use_ghostzones); 
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the volume of a cell
+     * 
+     * @param ijk Indices of the cell.
+     * @param q Local quadrant index.
+     * @param itree Index of the tree containing the cell.
+     * @param dxl Cell spacing in logical coordinates
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return double The volume of the requested cell.
+     */
     double
     THUNDER_HOST get_cell_volume(
       std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
@@ -148,21 +234,38 @@ class cartesian_coordinate_system_impl_t
     , int itree
     , std::array<double, THUNDER_NSPACEDIM> const& dxl 
     , bool use_ghostzones) ;
-
+    //**************************************************************************************************
+    /**
+     * @brief Get the device coord system object
+     * 
+     * @return cartesian_device_coordinate_system_impl_t A lightweight coordinate system object
+     *                                                   whose methods are accessible from device.
+     */
     cartesian_device_coordinate_system_impl_t THUNDER_ALWAYS_INLINE 
     get_device_coord_system() {
         return cartesian_device_coordinate_system_impl_t{tree_vertices_,tree_spacings_} ;
     }
 
- private:        
+ private:
+    //**************************************************************************************************
+    //! Tree vertices and spacings        
     Kokkos::View<double*,thunder::default_space> tree_vertices_, tree_spacings_ ;
-    
+    //**************************************************************************************************
+    /**
+     * @brief Construct a new cartesian coordinate system.
+     */
     cartesian_coordinate_system_impl_t() ; 
-
-    static constexpr size_t longevity = THUNDER_COORDINATE_SYSTEM ; 
-
-    friend class utils::singleton_holder<cartesian_coordinate_system_impl_t, memory::default_create> ; 
-    friend class memory::new_delete_creator<cartesian_coordinate_system_impl_t,memory::new_delete_allocator> ;
+    //**************************************************************************************************
+    /**
+     * @brief Destroy the cartesian coordinate system
+     */
+    ~cartesian_coordinate_system_impl_t() = default ; 
+    //**************************************************************************************************
+    static constexpr size_t longevity = THUNDER_COORDINATE_SYSTEM ; //!< Singleton longevity
+    //**************************************************************************************************
+    friend class utils::singleton_holder<cartesian_coordinate_system_impl_t, memory::default_create> ;         //!< Give access
+    friend class memory::new_delete_creator<cartesian_coordinate_system_impl_t,memory::new_delete_allocator> ; //!< Give access
+    //**************************************************************************************************
 } ; 
 
 

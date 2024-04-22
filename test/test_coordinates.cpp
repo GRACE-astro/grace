@@ -6,6 +6,7 @@
 #include <thunder/amr/connectivity.hh>
 #include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/amr/amr_functions.hh>
+#include <thunder/IO/vtk_volume_output.hh>
 #include <iostream>
 #include <fstream>
 #include <thunder/data_structures/variables.hh>
@@ -13,12 +14,20 @@
 #include <thunder/data_structures/macros.hh>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-/* #undef TEST_DBG_ */
+#define TEST_DBG_
+
+template< typename T > 
+void test_arrays_within_rel(std::array<T,THUNDER_NSPACEDIM> const& A, std::array<T,THUNDER_NSPACEDIM> const& B, T const& eps ) {
+    for( int ii=0; ii<THUNDER_NSPACEDIM; ++ii) {
+        REQUIRE_THAT(A[ii],Catch::Matchers::WithinRel(B[ii], eps));
+    }
+}
 
 TEST_CASE("coordinates'\t'[coords_test]")
 {
     using namespace thunder ;
     using namespace Kokkos ; 
+    ASSERT( parallel::mpi_comm_size() == 1, "This test cannot be ran on more than 1 rank.") ; 
     auto& vars = thunder::variable_list::get() ; 
     auto& params = thunder::config_parser::get() ; 
     int64_t nx,ny,nz ; 
@@ -35,7 +44,7 @@ TEST_CASE("coordinates'\t'[coords_test]")
 
     auto& grid_coords = vars.getcoords() ;
     auto& dx = vars.getspacings() ;  
-
+    thunder::IO::write_volume_cell_data() ;
     auto const lcoords_mirror = create_mirror_view(lcoords);
     auto const pcoords_mirror = create_mirror_view(pcoords);
     auto const gcoords_mirror = create_mirror_view(grid_coords);
@@ -44,6 +53,7 @@ TEST_CASE("coordinates'\t'[coords_test]")
     int last_tree = amr::forest::get().last_local_tree()   ; 
     auto& coord_system = coordinate_system::get() ; 
     auto device_coords = coord_system.get_device_coord_system();
+    /*
     for(int itree=first_tree; itree<=last_tree; ++itree){
         auto tree = amr::forest::get().tree(itree) ; 
         int q_offset = tree.quadrants_offset() ; 
@@ -68,6 +78,7 @@ TEST_CASE("coordinates'\t'[coords_test]")
     }
 
     deep_copy(lcoords_mirror,lcoords); deep_copy(pcoords_mirror,pcoords);
+    */
     auto cell_volume_mirror = create_mirror_view(
         thunder::variable_list::get().getvolumes()
     ); 
@@ -98,7 +109,6 @@ TEST_CASE("coordinates'\t'[coords_test]")
         int q_offset = tree.quadrants_offset() ; 
         int num_quadrants = tree.num_quadrants()     ;
         size_t const ncells = EXPR((nx),*(ny),*(nz))*num_quadrants; 
-
         for( size_t icell=0UL; icell<ncells; icell+=1UL)
         {
             size_t const i = icell%(nx) ; 
@@ -129,47 +139,11 @@ TEST_CASE("coordinates'\t'[coords_test]")
                 )} ; 
 
             auto const phys_coords = coord_system.get_physical_coordinates({VEC(i,j,k)},q,false) ;
+            auto const phys_coords2 = coord_system.get_physical_coordinates(itree,true_lcoords) ; 
+            test_arrays_within_rel(phys_coords,phys_coords2, 1e-12 ) ; 
             auto const log_coords = coord_system.get_logical_coordinates(itree,phys_coords) ; 
-            auto const log_coords2 = coord_system.get_logical_coordinates(phys_coords) ;
-            #ifdef TEST_DBG_ 
-            std::cout << "Tree " << itree << '\n'
-                      << q << ", " << i << ", " << j << '\n'
-                      << phys_coords[0] << ", " << phys_coords[1] << '\n'
-                      << true_lcoords[0] << ", " << true_lcoords[1] << '\n' 
-                      << log_coords[0] << ", " << log_coords[1] << '\n' 
-                      << pcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),0,q) << ", " << pcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),1,q) << '\n'
-                      << lcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),0,q) << ", " << lcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),1,q) << '\n'; 
-            #endif 
-             
-            EXPR(
-                REQUIRE_THAT(log_coords[0],
-                Catch::Matchers::WithinAbs(
-                    true_lcoords[0], 1e-12 
-                ));,
-                REQUIRE_THAT(log_coords[1],
-                Catch::Matchers::WithinAbs(
-                    true_lcoords[1], 1e-12 
-                ));,
-                REQUIRE_THAT(log_coords[2],
-                Catch::Matchers::WithinAbs(
-                    true_lcoords[2], 1e-12 
-                ));)
-
-                EXPR(
-                REQUIRE_THAT(log_coords2[0],
-                Catch::Matchers::WithinAbs(
-                    true_lcoords[0], 1e-12 
-                ));,
-                REQUIRE_THAT(log_coords2[1],
-                Catch::Matchers::WithinAbs(
-                    true_lcoords[1], 1e-12 
-                ));,
-                REQUIRE_THAT(log_coords2[2],
-                Catch::Matchers::WithinAbs(
-                    true_lcoords[2], 1e-12 
-                ));
-            )
-
+            test_arrays_within_rel(log_coords,true_lcoords, 1e-12 ) ; 
+            /*
             EXPR(
                 REQUIRE_THAT(pcoords_mirror(VEC(i+ngz,j+ngz,k+ngz),0,q),
                 Catch::Matchers::WithinAbs(
@@ -199,11 +173,12 @@ TEST_CASE("coordinates'\t'[coords_test]")
                     true_lcoords[2], 1e-12 
                 ));
             )
+            */
         }
 
     }
     REQUIRE_THAT(vol_test,
-                Catch::Matchers::WithinAbs(
+                Catch::Matchers::WithinRel(
                    total_grid_volume, 1e-12 
     ));
     

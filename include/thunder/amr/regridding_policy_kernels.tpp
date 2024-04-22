@@ -1,7 +1,7 @@
 /**
  * @file regrid_kernels.tpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Implementation of policy kernels for regridding.
  * @version 0.1
  * @date 2024-03-19
  * 
@@ -34,11 +34,17 @@
 #include <thunder/utils/thunder_utils.hh>
 
 namespace thunder { namespace amr {
-
+/**
+ * @brief Second derivative FLASH-like kernel
+ *        for regridding.
+ * \ingroup amr
+ * 
+ * @tparam ViewT Type of variable view.
+ */
 template< typename ViewT > 
 struct flash_second_deriv_criterion {
 
-    ViewT u ; 
+    ViewT u ; //!< Variable on which the criterion is evaluated.
     static constexpr double tiny = 1e-99; 
 
     double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
@@ -72,12 +78,20 @@ struct flash_second_deriv_criterion {
         return maxerr ; 
     }
 } ; 
-
+/**
+* @brief Regrid criterion based on simple threshold on grid variable.
+* \ingroup amr 
+* @tparam ViewT The view type for the grid variable.
+*/
 template< typename ViewT > 
 struct simple_threshold_criterion {
 
-    ViewT u ; 
+    ViewT u ; //!< Variable where the criterion is evaluated
 
+    /**
+    * @brief Evaluate regrid criterion.
+    * This function returns the variable at the chosen point.
+    */
     double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
     operator()  ( VEC( int const & i 
                      , int const & j

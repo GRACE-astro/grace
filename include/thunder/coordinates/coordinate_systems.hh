@@ -33,20 +33,39 @@
 #include <thunder/coordinates/spherical_coordinate_systems.hh>
 
 namespace thunder { 
-
+/**
+ * \defgroup thunder_coordinates Coordinate utilities for Thunder
+ */
+/*****************************************************************************************/
+/*****************************************************************************************/
+/*                          Coordinate system                                            */
+/*****************************************************************************************/
+/*****************************************************************************************/
+/**
+ * @brief The coordinate system is a singleton that holds access to all coordinate
+ *        related functions in thunder
+*/
 #ifdef THUNDER_CARTESIAN_COORDINATES 
+/*****************************************************************************************/
 using coordinate_system = utils::singleton_holder<cartesian_coordinate_system_impl_t> ; 
 using device_coordinate_system = cartesian_device_coordinate_system_impl_t ; 
+/*****************************************************************************************/
 #elif defined(THUNDER_SPHERICAL_COORDINATES)
+/*****************************************************************************************/
 using coordinate_system = utils::singleton_holder<spherical_coordinate_system_impl_t> ; 
 using device_coordinate_system = spherical_device_coordinate_system_impl_t ; 
+/*****************************************************************************************/
 #endif 
 /*****************************************************************************************/
+/*****************************************************************************************/
 /*                          Global coordinate utilities                                  */
+/*****************************************************************************************/
 /*****************************************************************************************/
 /**
  * @brief Get physical coordinates of a point inside a local cell, given 
  *        the quadrant and spatial indices.
+ * 
+ * \ingroup thunder_coordinates
  * 
  * @param itree Tree index 
  * @param lcoords Logical coordinates \f$[0,1]^{d}\f$ of the points inside the tree
@@ -57,7 +76,7 @@ get_physical_coordinates(
       int const itree 
     , std::array<double,THUNDER_NSPACEDIM> const& logical_coords
 ) ;
-
+/*****************************************************************************************/
 /**
  * @brief Get physical coordinates of a point inside a local cell, given 
  *        the quadrant and spatial indices.
@@ -66,6 +85,8 @@ get_physical_coordinates(
  * @param nq  Local quadrant index  
  * @param cell_coordinates Logical coordinates \f$[0,1]^{d}\f$ of the points inside the cell
  * @param include_gzs Include ghostzones in the calculation
+ * 
+ * \ingroup thunder_coordinates
  * 
  * NB: Including ghostzones means that \f$ijk={0,0(,0)}\f$ has negative logical coordinates,
  *     and the logical coordinates origin lies at \f$ijk={ngz,ngz(,ngz)}\f$.
@@ -77,7 +98,7 @@ get_physical_coordinates(
     , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates={VEC(0.5,0.5,0.5)}
     , bool include_gzs = false
 ) ; 
-
+/*****************************************************************************************/
 /**
  * @brief Get tree-logical coordinates of a point given tree index and physical coordinates.
  * 
@@ -85,6 +106,8 @@ get_physical_coordinates(
  * @param nq  Local quadrant index  
  * @param local_coords Logical coordinates \f$[0,1]^{d}\f$ of the points inside the cell
  * @param include_gzs Include ghostzones in the calculation
+ * 
+ * \ingroup thunder_coordinates
  * 
  * NB: Including ghostzones means that \f$ijk={0,0(,0)}\f$ has negative logical coordinates,
  *     and the logical coordinates origin lies at \f$ijk={ngz,ngz(,ngz)}\f$.
@@ -94,7 +117,7 @@ get_logical_coordinates(
       int itree
     , std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates      
 ) ; 
-
+/*****************************************************************************************/
 } /* namespace thunder::amr */
 
 #endif /* THUNDER_AMR_COORDINATES_SYSTEMS_HH */

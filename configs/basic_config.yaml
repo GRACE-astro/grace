@@ -1,8 +1,10 @@
 name: "thunder"
 amr: {
-  npoints_block_x: 8,
-  npoints_block_y: 8,
-  n_ghostzones: 1
+  npoints_block_x: 6,
+  npoints_block_y: 6,
+  npoints_block_z: 6,
+  n_ghostzones: 1,
+  initial_refinement_level: 0
 }
 IO: {
   volume_output_cell_variables: ["dens", "beta[0]"]

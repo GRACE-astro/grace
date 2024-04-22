@@ -29,13 +29,17 @@ namespace thunder{ namespace IO {
 
 
 vtkSmartPointer<vtkUnstructuredGrid> 
-setup_vtk_volume_grid()
+setup_vtk_volume_grid(bool include_gzs)
 {
     vtkSmartPointer<vtkUnstructuredGrid> grid = vtkSmartPointer<vtkUnstructuredGrid>::New() ;
     auto& coord_system = thunder::coordinate_system::get() ; 
-    size_t nx,ny,nz; 
-    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
+    size_t _nx,_ny,_nz; 
+    std::tie(_nx,_ny,_nz) = thunder::amr::get_quadrant_extents() ; 
+    int ngz = thunder::amr::get_n_ghosts() ; 
     size_t nq = thunder::amr::get_local_num_quadrants() ; 
+    size_t nx = include_gzs ? _nx + 2 * ngz : _nx ; 
+    size_t ny = include_gzs ? _ny + 2 * ngz : _ny ; 
+    size_t nz = include_gzs ? _nz + 2 * ngz : _nz ;
     size_t ncells = nx*ny*nz*nq ; // these are cells not vertices 
     #ifdef THUNDER_CARTESIAN_COORDINATES
     using cell_type = vtkHexahedron ; 
@@ -47,7 +51,7 @@ setup_vtk_volume_grid()
 
     vtkNew<vtkPoints> points ; 
     points->SetNumberOfPoints( nvertex * ncells ) ; 
-
+     
     auto const get_cell_coordinates = [&] ( size_t icell
                                           , double lx=0
                                           , double ly=0
@@ -59,7 +63,7 @@ setup_vtk_volume_grid()
         size_t const iz = (icell/nx/ny) % nz ; 
         size_t const iq = (icell/nx/ny/nz) ;
         return coord_system.get_physical_coordinates(
-            {ix,iy,iz},iq,{lx,ly,lz},false
+            {ix,iy,iz},iq,{lx,ly,lz},include_gzs
         ) ;  
     } ; 
 

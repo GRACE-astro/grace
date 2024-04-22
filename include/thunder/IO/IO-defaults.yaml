@@ -12,5 +12,8 @@ IO: {
   surface_output_base_directory: "output_surface",
 
   volume_output_cell_variables : [],
-  surface_output_cell_variables: []
+  surface_output_cell_variables: [],
+
+  output_ghostzones: false, 
+  output_extra_quantities: true
 }

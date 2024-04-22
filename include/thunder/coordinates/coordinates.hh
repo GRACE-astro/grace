@@ -33,15 +33,16 @@
 #include <thunder/data_structures/variable_properties.hh>
 
 namespace thunder { 
-
+/*****************************************************************************************/
 /**
  * @brief Fill cell coordinates array.
- * \ingroup amr 
+ * \ingroup coordinates 
  */
 void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>&
                           , scalar_array_t<THUNDER_NSPACEDIM>&
                           , scalar_array_t<THUNDER_NSPACEDIM>&
                           , cell_vol_array_t<THUNDER_NSPACEDIM>&) ; 
+/*****************************************************************************************/
 } /* namespace thunder */ 
 
 #endif /* F25FCED7_32FD_48EF_A294_4D29ABC78524 */

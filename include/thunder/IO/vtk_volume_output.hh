@@ -70,9 +70,12 @@ setup_vtk_grid_spherical() ;
 
 } 
 */
-vtkSmartPointer<vtkUnstructuredGrid> setup_vtk_volume_grid() ;
+vtkSmartPointer<vtkUnstructuredGrid> setup_vtk_volume_grid(bool) ;
 
-vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() ; 
+vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data(bool) ; 
+
+void flag_ghost_cells(vtkSmartPointer<vtkUnstructuredGrid>) ; 
+void add_extra_output_quantities(vtkSmartPointer<vtkUnstructuredGrid>, bool) ;
 
 void write_volume_cell_data() ; 
 

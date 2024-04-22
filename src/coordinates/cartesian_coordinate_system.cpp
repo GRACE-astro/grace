@@ -134,9 +134,12 @@ THUNDER_HOST cartesian_coordinate_system_impl_t::get_logical_coordinates(
 
     return {
         VEC(
-            qcoords[0] * dx_quad + (ijk[0] + cell_coordinates[0] - use_ghostzones * ngz) * dx_cell, 
-            qcoords[1] * dx_quad + (ijk[1] + cell_coordinates[1] - use_ghostzones * ngz) * dy_cell, 
-            qcoords[2] * dx_quad + (ijk[2] + cell_coordinates[2] - use_ghostzones * ngz) * dz_cell
+            qcoords[0] * dx_quad 
+                + (ijk[0] + cell_coordinates[0] - use_ghostzones * ngz) * dx_cell, 
+            qcoords[1] * dx_quad 
+                + (ijk[1] + cell_coordinates[1] - use_ghostzones * ngz) * dy_cell, 
+            qcoords[2] * dx_quad 
+                + (ijk[2] + cell_coordinates[2] - use_ghostzones * ngz) * dz_cell
         ) 
     } ; 
 }
