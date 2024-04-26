@@ -45,11 +45,9 @@ namespace thunder { namespace amr {
 void regrid() {
 
     using namespace thunder ; 
-
     auto& params = config_parser::get()             ; 
     auto&  state  = variable_list::get().getstate() ; 
     int nvars = state.extent(THUNDER_NSPACEDIM)   ; 
-
     size_t thunder_maxlevel = 
         params["amr"]["max_refinement_level"].as<size_t>() ; 
     size_t nx,ny,nz                                        ; 
@@ -63,11 +61,13 @@ void regrid() {
     std::string ref_criterion = 
         params["amr"]["refinement_criterion"].as<std::string>() ;
     auto varname = params["amr"]["refinement_criterion_var"].as<std::string>() ;
+    auto varidx = get_variable_index(varname) ; 
+    ASSERT(varidx>=0, "Index of variable " << varname << " not found.") ; 
     auto u = Kokkos::subview(state, VEC(  Kokkos::ALL() 
                                         , Kokkos::ALL() 
                                         , Kokkos::ALL() )
-                                    , get_variable_index(varname)
-                                    , Kokkos::ALL() 
+                                        , varidx
+                                        , Kokkos::ALL() 
                                     ) ; 
     if( ref_criterion == "FLASH_second_deriv") {
         double eps = params["amr"]["FLASH_criterion_eps"].as<double>() ; 
@@ -208,7 +208,8 @@ void regrid() {
 
     auto& dx = variable_list::get().getspacings()    ;
     auto& coords = variable_list::get().getcoords()  ; 
-    auto& vol = variable_list::get().getvolumes() ;
+    auto& vol = variable_list::get().getvolumes()    ;
+    auto& staggered_coords = variable_list::get().getstaggeredcoords() ;
     /******************************************************************************************/
     /*                     Allocate temporary coordinate arrays                               */
     /******************************************************************************************/
@@ -224,7 +225,10 @@ void regrid() {
     scalar_array_t<THUNDER_NSPACEDIM> in_coords(
         "temporary_quadrant_coordinates", THUNDER_NSPACEDIM, nq_new 
     ) ;
-    fill_cell_coordinates(in_coords,in_idx,in_dx,in_vol) ; 
+    staggered_coordinate_arrays_t in_staggered_coords(
+        VEC(nx,ny,nz), ngz, nq_new 
+    ) ; 
+    fill_cell_coordinates(in_coords,in_idx,in_dx,in_vol,in_staggered_coords) ; 
     /******************************************************************************************/
     /*                      Prolongate data on refined quadrants                              */
     /******************************************************************************************/
@@ -314,7 +318,6 @@ void regrid() {
     /******************************************************************************************/
     /*                                Transfer data                                           */
     /******************************************************************************************/
-
     auto context = 
         p4est_transfer_fixed_begin (
                 new_glob_qoffsets.data() 
@@ -342,7 +345,8 @@ void regrid() {
                                       , nz + 2*ngz )
                                 ,  nq_local 
                                  ) ;
-    fill_cell_coordinates(coords, idx, dx, vol) ;
+    staggered_coords.realloc(VEC(nx,ny,nz),ngz,nq_local) ; 
+    fill_cell_coordinates(coords, idx, dx, vol,staggered_coords) ;
     /******************************************************************************************/
     /*                            Auxiliary vars are reallocated                              */
     /*                            but not re-initialized.                                     */

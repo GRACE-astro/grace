@@ -225,11 +225,11 @@ add_test(NAME coordinate_test_log COMMAND
 add_test(NAME interpolator_test COMMAND 
         ./interpolator_test )
 add_test(NAME regrid_test_cartesian COMMAND 
-        mpirun -n 1 ./regrid_test --thunder-parfile ./configs/regrid_test_cartesian.yaml)
+        mpirun -n 8 ./regrid_test --thunder-parfile ./configs/regrid_test_cartesian.yaml)
 add_test(NAME regrid_test_nolog COMMAND 
-        mpirun -n 1 ./regrid_test --thunder-parfile ./configs/regrid_test_spherical.yaml )
+        mpirun -n 8 ./regrid_test --thunder-parfile ./configs/regrid_test_spherical.yaml )
 add_test(NAME regrid_test_log COMMAND 
-        mpirun -n 1 ./regrid_test --thunder-parfile ./configs/regrid_test_spherical_log.yaml )
+        mpirun -n 8 ./regrid_test --thunder-parfile ./configs/regrid_test_spherical_log.yaml )
 #add_test(NAME bc_test_cartesian COMMAND 
 #        mpirun -n 2 ./bc_test --thunder-parfile ./configs/regrid_test_cartesian.yaml )
 #add_test(NAME bc_test_spherical COMMAND 

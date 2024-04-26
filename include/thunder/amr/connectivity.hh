@@ -159,6 +159,17 @@ class connectivity_impl_t
     tree_to_tree_polarity(size_t which_tree, int which_face) const { 
       return t2t_polarity_[ which_tree * P4EST_FACES + which_face ] ;  
     };
+    //**************************************************************************************************
+    /**
+     * @brief Determine whether coordinates flip across tree boundary.
+     * @param which_tree Tree index
+     * @param which_face Face index in z-order 
+     * @return 1 if trees have opposite polarity, 0 otherwise
+     */
+    THUNDER_ALWAYS_INLINE std::vector<int>
+    tree_to_tree_polarity_array() const { 
+      return t2t_polarity_ ;  
+    };
     //**Checkpointing***********************************************************************************
     /**
      * @brief save to file 

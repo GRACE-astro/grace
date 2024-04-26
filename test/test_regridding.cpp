@@ -31,6 +31,7 @@
 #include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/utils/thunder_utils.hh>
 #include <thunder/IO/vtk_volume_output.hh>
+#include <thunder/parallel/mpi_wrappers.hh>
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
@@ -149,7 +150,6 @@ TEST_CASE("Simple regrid", "[regrid]")
     using namespace thunder::variables ; 
 
     DECLARE_VARIABLE_INDICES ; 
-    
     auto& state  = thunder::variable_list::get().getstate()  ;
     auto& coords = thunder::variable_list::get().getcoords() ; 
     auto& dx     = thunder::variable_list::get().getspacings(); 
@@ -201,7 +201,7 @@ TEST_CASE("Simple regrid", "[regrid]")
     /* here the ghostzones are excluded.     */
     /*****************************************/
     ncells = EXPR((nx),*(ny),*(nz))*nq ;
-    double exact_total{0} ;  
+    double exact_total{0}, exact_total_local{0} ;  
     for( size_t icell=0UL; icell<ncells; icell+=1UL)
     {
         size_t const i = icell%(nx) ; 
@@ -220,8 +220,9 @@ TEST_CASE("Simple regrid", "[regrid]")
             , q
             , false
         ) ; 
-        exact_total += h_state_mirror(VEC(i+ngz,j+ngz,k+ngz),DENS,q) * cell_volume ;
+        exact_total_local += h_state_mirror(VEC(i+ngz,j+ngz,k+ngz),DENS,q) * cell_volume ;
     }
+    parallel::mpi_allreduce(&exact_total_local,&exact_total,1,sc_MPI_SUM) ; 
     /*write output and regrid*/
     //thunder::IO::write_volume_cell_data() ;
     thunder::amr::regrid() ;  
@@ -233,7 +234,7 @@ TEST_CASE("Simple regrid", "[regrid]")
     /* Copy data from device after regrid      */
     auto h_state_mirror_new = Kokkos::create_mirror_view(state) ; 
     Kokkos::deep_copy(h_state_mirror_new,state); 
-    double total{0}; 
+    double total_local{0},total{0}; 
     for( size_t icell=0UL; icell<ncells; icell+=1UL)
     {
         size_t const i = icell%(nx) ; 
@@ -257,7 +258,7 @@ TEST_CASE("Simple regrid", "[regrid]")
             q,
             false
         ) ; 
-        total += h_state_mirror_new(VEC(i+ngz,j+ngz,k+ngz),DENS,q) * cell_volume ; 
+        total_local += h_state_mirror_new(VEC(i+ngz,j+ngz,k+ngz),DENS,q) * cell_volume ; 
         #ifdef THUNDER_CARTESIAN_COORDINATES
         /* In spherical coordinates this won't work (and it should not!) */
         REQUIRE_THAT(h_state_mirror_new(VEC(i+ngz,j+ngz,k+ngz),DENS,q)
@@ -266,7 +267,7 @@ TEST_CASE("Simple regrid", "[regrid]")
                 , 1e-12)) ;
         #endif 
     } 
-    
+    parallel::mpi_allreduce(&total_local,&total,1,sc_MPI_SUM) ; 
     REQUIRE_THAT(total
                 , Catch::Matchers::WithinRel(
                   exact_total

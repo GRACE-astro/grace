@@ -65,9 +65,37 @@ static int register_variable( std::string const& name
                             , std::string const& bc_type=""
                             , bool is_vector=false
                             , bool is_tensor=false 
+                            , int  comp_num=0
                             , std::string const& vecname=""
                              ) ;
 //*****************************************************************************************************
+namespace detail {
+
+static int register_scalar( std::string const& name
+                          , bool is_evolved 
+                          , bool need_fluxes 
+                          , std::string const& bc_type ) ;
+ 
+static int register_staggered_variable( std::string const& name
+                                      , bool is_evolved 
+                                      , bool need_fluxes 
+                                      , std::string const& bc_type 
+                                      , std::array<bool,THUNDER_NSPACEDIM> const& staggering ) ;
+
+static int register_vector( std::string const& name
+                          , bool is_evolved 
+                          , bool need_fluxes
+                          , int num_comp
+                          , std::string const & bc_type ) ; 
+
+static int register_tensor( std::string const& name
+                          , bool is_evolved 
+                          , bool need_fluxes
+                          , int num_comp
+                          , std::string const & bc_type ) ; 
+
+}
+
 /**
  * @brief Register all variables.
  * \ingroup variables
@@ -83,19 +111,71 @@ void register_variables() ;
 namespace detail {
 
 extern int num_vars      ; 
-extern int num_evolved   ;
 extern int last_evolved  ; 
-extern int num_auxiliary ; 
 extern int num_fluxes    ;
 extern int last_flux     ;  
 extern int first_flux     ;  
 
-extern int num_vector_vars ; 
-extern int num_tensor_vars ; 
+/****************************************************/
+/*                Variable arrays sizes             */
+/****************************************************/
+extern int num_evolved   ;
+extern int num_auxiliary ;
 
+extern int num_face_staggered_vars ;
+extern int num_face_staggered_aux  ;
+
+extern int num_edge_staggered_vars ;
+extern int num_edge_staggered_aux  ;
+
+extern int num_corner_staggered_vars ;
+extern int num_corner_staggered_aux  ;
+
+extern int num_vector_vars ;
+extern int num_tensor_vars ; 
+/****************************************************/
+/****************************************************/
+
+/****************************************************/
+/*                Variable name arrays              */
+/****************************************************/
 extern std::vector<std::string> _varnames ; 
 extern std::vector<std::string> _auxnames ; 
-extern std::vector<std::string> _var_bc_types  ; 
+
+extern std::vector<std::string> _face_staggered_varnames ;
+extern std::vector<std::string> _face_staggered_auxnames ;
+
+extern std::vector<std::string> _edge_staggered_varnames ; 
+extern std::vector<std::string> _edge_staggered_auxnames ; 
+
+extern std::vector<std::string> _corner_staggered_varnames ; 
+extern std::vector<std::string> _corner_staggered_auxnames ;
+/****************************************************/
+/****************************************************/
+ 
+/****************************************************/
+/*             Boundary condition arrays            */
+/****************************************************/
+extern std::vector<std::string> _var_bc_types ;
+extern std::vector<std::string> _aux_bc_types ;
+
+extern std::vector<std::string> _face_vars_bc_types ;
+extern std::vector<std::string> _face_aux_bc_types ;
+
+extern std::vector<std::string> _edge_vars_bc_types ;
+extern std::vector<std::string> _edge_aux_bc_types ;
+
+extern std::vector<std::string> _corner_vars_bc_types ;
+extern std::vector<std::string> _corner_aux_bc_types ;
+/****************************************************/
+/****************************************************/
+ 
+/****************************************************/
+/*              Handling of vector/tensor           */
+/*                    components                    */
+/****************************************************/
+extern std::vector<int> _vector_var_indices ; 
+extern std::vector<int> _tensor_var_indices ; 
 
 extern std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>> 
     _varprops; 

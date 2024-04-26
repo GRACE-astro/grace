@@ -36,8 +36,9 @@
 #include <thunder/coordinates/volume_elements/vol_sph_3D.hh>
 #include <thunder/coordinates/volume_elements/vol_sph_3D_log.hh>
 #include <thunder/coordinates/volume_elements/dVol_sph_3D_log_analytic.hh>
-#include <thunder/coordinates/volume_elements/cell_volume_3D_helpers.hh>
-#include <thunder/coordinates/surface_elements/cell_surface_3D_helpers.hh>
+#include <thunder/coordinates/volume_elements/cell_volume_helpers.hh>
+#include <thunder/coordinates/surface_elements/cell_surface_helpers.hh>
+#include <thunder/coordinates/line_elements/line_element_helpers.hh>
 #include <thunder/utils/thunder_utils.hh>
 #include <thunder/data_structures/thunder_data_structures.hh>
 #include <thunder/config/config_parser.hh>
@@ -55,14 +56,14 @@ spherical_coordinate_system_impl_t::get_physical_coordinates(
     auto lcoords_b = lcoords ; 
     auto itree_b   = itree   ; 
     /* First we handle buffer zones */
-    if( is_outside_tree(lcoords) ) {
+    if( spherical_coordinate_system_impl_t::is_outside_tree(lcoords) ) {
         /* Check if the boundary is internal */
-        if( !is_physical_boundary(lcoords,itree) ) {
+        if( !spherical_coordinate_system_impl_t::is_physical_boundary(lcoords,itree) ) {
             /* In this case we just need to transfer the coordinates */
             /* and proceed as normal.                                */
-            lcoords_b = get_logical_coordinates_buffer_zone(itree, lcoords);
             int8_t iface, iface_b ; 
             std::tie(itree_b,iface_b,iface) = get_neighbor_tree_and_face(itree,lcoords) ; 
+            lcoords_b = spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_zone(itree, itree_b,iface,iface_b,lcoords);
             if ( itree_b == -1 ) {
                 return {VEC(1,1,1)} ; 
             }
@@ -282,13 +283,13 @@ spherical_coordinate_system_impl_t::get_jacobian_matrix(
     using namespace thunder; 
     int itree_b = itree ; 
     auto lcoords_b = lcoords ; 
-    if( is_outside_tree(lcoords) and !is_physical_boundary(lcoords,itree) ) {
-        int8_t dummy1, dummy2 ; 
-        std::tie(itree_b,dummy1,dummy2) =
+    if( spherical_coordinate_system_impl_t::is_outside_tree(lcoords) and !spherical_coordinate_system_impl_t::is_physical_boundary(lcoords,itree) ) {
+        int8_t iface_b, iface ; 
+        std::tie(itree_b,iface_b,iface) =
             get_neighbor_tree_and_face(itree,lcoords) ; 
         
-        lcoords_b = get_logical_coordinates_buffer_zone(
-            itree,
+        lcoords_b = spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_zone(
+            itree,itree_b,iface,iface_b,
             lcoords
         ) ; 
     }
@@ -365,13 +366,13 @@ spherical_coordinate_system_impl_t::get_inverse_jacobian_matrix(
     using namespace thunder; 
     int itree_b = itree ; 
     auto lcoords_b = lcoords ; 
-    if( is_outside_tree(lcoords) and !is_physical_boundary(lcoords,itree) ) {
-        int8_t dummy1, dummy2 ; 
-        std::tie(itree_b,dummy1,dummy2) =
+    if( spherical_coordinate_system_impl_t::is_outside_tree(lcoords) and !spherical_coordinate_system_impl_t::is_physical_boundary(lcoords,itree) ) {
+        int8_t iface_b, iface ; 
+        std::tie(itree_b,iface_b,iface) =
             get_neighbor_tree_and_face(itree,lcoords) ; 
         
-        lcoords_b = get_logical_coordinates_buffer_zone(
-            itree,
+        lcoords_b = spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_zone(
+            itree,itree_b,iface,iface_b,
             lcoords
         ) ; 
     }
@@ -458,46 +459,38 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
     , bool use_ghostzones)  const
 {
     using namespace thunder ;
+    using namespace thunder::detail  ; 
     int ngz = thunder::amr::get_n_ghosts();
-    if( is_outside_tree(lcoords,true) and !is_physical_boundary(lcoords,itree,true) and use_ghostzones) {
+    if( spherical_coordinate_system_impl_t::is_outside_tree(lcoords,true) and !spherical_coordinate_system_impl_t::is_physical_boundary(lcoords,itree,true) and use_ghostzones) {
         return get_cell_volume_buffer_zone(itree,lcoords,dxl);
     }
     if( itree == 0 ) {
         return math::int_pow<THUNDER_NSPACEDIM>(2.*_L) * EXPR(dxl[0],*dxl[1],*dxl[2]) ; 
     } else if( (itree-1)/P4EST_FACES == 0 ) {
-        #ifndef THUNDER_3D 
-        return dVol_sph(_L,_Ri, dxl[1],dxl[0], lcoords[1],lcoords[0]) ; 
-        #else
-        return detail::get_cell_volume_3D<5UL>(0.,1.,_L,_Ri,lcoords[0],lcoords[1],lcoords[2],dxl[0],dxl[1],dxl[2]) ;
-        #endif 
+        return detail::get_cell_volume_int<5UL>(_L,_Ri,VEC(lcoords[0],lcoords[1],lcoords[2])
+                                              ,VEC(dxl[0],dxl[1],dxl[2])  ) ; 
     } else {
-        if( _use_logr ){
-            #ifndef THUNDER_3D 
-            return dVol_sph_log(_Ri,_Ro, dxl[1],dxl[0], lcoords[1],lcoords[0]) ;
-            #else  
-            return detail::get_cell_volume_3D_log(_Ri,_Ro,lcoords[0],lcoords[1],lcoords[2],dxl[0],dxl[1],dxl[2]) ;
-            #endif  
+        if( _use_logr ){  
+            return detail::get_cell_volume_log(_Ri,_Ro,VEC(lcoords[0],lcoords[1],lcoords[2]),VEC(dxl[0],dxl[1],dxl[2]));
         } else { 
-            #ifndef THUNDER_3D
-            return dVol_sph_ext(_Ri,_Ro, dxl[1],dxl[0], lcoords[1],lcoords[0]) ;
-            #else 
-            return detail::get_cell_volume_3D<5UL>(1.,1.,_Ri,_Ro,lcoords[0],lcoords[1],lcoords[2],dxl[0],dxl[1],dxl[2]) ;
-            #endif 
+             return detail::get_cell_volume_ext( _Ri,_Ro
+                                               , VEC(lcoords[0],lcoords[1],lcoords[2])
+                                               , VEC(dxl[0],dxl[1],dxl[2])  ) ; 
         }
     }
 }
 
 double
 THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
-    std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
-  , int64_t q
-  , int8_t face 
-  , bool use_ghostzones) const
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int64_t q
+    , int8_t face 
+    , bool use_ghostzones) const 
 {
     using namespace thunder ;
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    int64_t itree = amr::get_quadrant_owner(q)   ; 
+    int itree = amr::get_quadrant_owner(q)   ; 
     amr::quadrant_t quad = amr::get_quadrant(itree,q) ; 
 
     auto const dx_quad  = 1./(1<<quad.level()) ; 
@@ -508,7 +501,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
     auto const dy_cell = dx_quad / ny ;,
     auto const dz_cell = dx_quad / nz ;
     )
-    return get_cell_face_surface(ijk,q,face,itree,{VEC(dx_cell,dy_cell,dz_cell)},use_ghostzones);
+    return get_cell_face_surface(ijk,q,face,itree,{VEC(dx_cell,dy_cell,dz_cell)},use_ghostzones) ; 
 }
 
 double
@@ -521,15 +514,24 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
     , bool use_ghostzones) const 
 {
     std::array<double, THUNDER_NSPACEDIM> cell_coordinates 
-    {
-        VEC( (face==1)*dxl[0]
-           , (face==3)*dxl[1]
-           , (face==5)*dxl[2] )
-    } ; 
+    { VEC( 0.,0.,0.) } ;
     auto lcoords = get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
+    return get_cell_face_surface(lcoords,face,itree,dxl,use_ghostzones) ; 
+}
+/* NB: by convention index i,j,k and face idx if corresponds to face */
+/*     i-delta_{i,if}/2, j-delta_{j,if}/2, k-delta_{k,if}/2          */
+double
+THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
+      std::array<double, THUNDER_NSPACEDIM> const& lcoords
+    , int8_t face 
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const 
+{
+    using namespace thunder::detail ;
     int ngz = thunder::amr::get_n_ghosts();
-    if( is_outside_tree(lcoords) and !is_physical_boundary(lcoords,itree) and use_ghostzones) {
-        //return get_cell_face_surface_buffer_zone(ijk,q,face,itree,{VEC(dx_cell,dy_cell,dz_cell)}) ; 
+    if( spherical_coordinate_system_impl_t::is_outside_tree(lcoords) and !spherical_coordinate_system_impl_t::is_physical_boundary(lcoords,itree) and use_ghostzones) {
+        return get_cell_face_surface_buffer_zone(face,itree,lcoords,dxl); 
     }
     if( itree == 0 ) {
         EXPRD(
@@ -547,133 +549,171 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
         return math::int_pow<THUNDER_NSPACEDIM-1>(2.*_L) * EXPRD(dh,*dt) ; 
     } else if( (itree-1)/P4EST_FACES == 0 ) {
         if( face / 2 == 0 ) {
-            auto const zeta = lcoords[0] ; 
-            auto const integrand = [&] (VECD( double const& eta 
-                                            , double const& xi) ) 
-            { 
-                return get_surface_element_sph(face,0.,1.,_L,_Ri,VEC(zeta,eta,xi) ) ; 
-            } ; 
-            std::array<double,THUNDER_NSPACEDIM-1> a{ VECD( lcoords[1],
-                                                            lcoords[2] )}
-                                                ,  b{ VECD( lcoords[1]+dxl[1],
-                                                            lcoords[2]+dxl[2]) } ;
-            return utils::nd_quadrature_integrate<THUNDER_NSPACEDIM-1,5>(a,b,integrand) ;
+            return get_cell_surface_zeta_int<5UL>(_L,_Ri
+                                       ,VEC(lcoords[0],lcoords[1],lcoords[2])
+                                       ,VECD(dxl[1],dxl[2]));
+
         } else if ( face/2 == 1 ) { 
-            auto const eta = lcoords[1] ; 
-            auto const integrand = [&] (VECD( double const& zeta 
-                                            , double const& xi) ) 
-            { 
-                return get_surface_element_sph(face,0.,1.,_L,_Ri,VEC(zeta,eta,xi) ) ; 
-            } ; 
-            std::array<double,THUNDER_NSPACEDIM-1> a{ VECD( lcoords[0],
-                                                            lcoords[2] )}
-                                                ,  b{ VECD( lcoords[0]+dxl[0],
-                                                            lcoords[2]+dxl[2]) } ;
-            return utils::nd_quadrature_integrate<THUNDER_NSPACEDIM-1,5>(a,b,integrand) ;
-            #ifdef THUNDER_3D
-        } else if ( face/2 == 2) {
-            auto const xi = lcoords[2] ; 
-            auto const integrand = [&] (VECD( double const& zeta 
-                                            , double const& eta) ) 
-            { 
-                return get_surface_element_sph(face,0.,1.,_L,_Ri,VEC(zeta,eta,xi) ) ; 
-            } ; 
-            std::array<double,THUNDER_NSPACEDIM-1> a{ VECD( lcoords[0],
-                                                            lcoords[1] )}
-                                                ,  b{ VECD( lcoords[0]+dxl[0],
-                                                            lcoords[1]+dxl[1]) } ;
-            return utils::nd_quadrature_integrate<THUNDER_NSPACEDIM-1,5>(a,b,integrand) ;
-            #endif 
+            return get_cell_surface_eta_int(_L,_Ri
+                                       ,VEC(lcoords[0],lcoords[1],lcoords[2])
+                                       ,VECD(dxl[0],dxl[2]));                        
+        } 
+        #ifdef THUNDER_3D 
+        else if ( face/2 == 2) {
+            return get_cell_surface_xi_int(_L,_Ri
+                                       ,VEC(lcoords[0],lcoords[1],lcoords[2])
+                                       ,VECD(dxl[0],dxl[1]));
         }
-        
+        #endif 
+        else {
+            ERROR("Invalid face code " << face ) ; 
+        }
     } else {
         if( _use_logr ){
             if( face / 2 == 0 ) {
-                auto const zeta = lcoords[0] ; 
-                auto const integrand = [&] (VECD( double const& eta 
-                                                , double const& xi) ) 
-                { 
-                    return get_surface_element_sph_log(face,_Ri,_Ro,VEC(zeta,eta,xi) ) ; 
-                } ; 
-                std::array<double,THUNDER_NSPACEDIM-1> a{ VECD( lcoords[1],
-                                                                lcoords[2] )}
-                                                    ,  b{ VECD( lcoords[1]+dxl[1],
-                                                                lcoords[2]+dxl[2]) } ;
-                return utils::nd_quadrature_integrate<THUNDER_NSPACEDIM-1,5>(a,b,integrand) ;
+            return get_cell_surface_zeta_log(_Ri,_Ro
+                                       ,VEC(lcoords[0],lcoords[1],lcoords[2])
+                                       ,VECD(dxl[1],dxl[2]));
+
             } else if ( face/2 == 1 ) { 
-                auto const eta = lcoords[1] ; 
-                auto const integrand = [&] (VECD( double const& zeta 
-                                                , double const& xi) ) 
-                { 
-                    return get_surface_element_sph_log(face,_Ri,_Ro,VEC(zeta,eta,xi) ) ; 
-                } ; 
-                std::array<double,THUNDER_NSPACEDIM-1> a{ VECD( lcoords[0],
-                                                                lcoords[2] )}
-                                                    ,  b{ VECD( lcoords[0]+dxl[0],
-                                                                lcoords[2]+dxl[2]) } ;
-                return utils::nd_quadrature_integrate<THUNDER_NSPACEDIM-1,5>(a,b,integrand) ;
+                return get_cell_surface_eta_log(_Ri,_Ro
+                                        ,VEC(lcoords[0],lcoords[1],lcoords[2])
+                                        ,VECD(dxl[0],dxl[2]));                        
+            } 
             #ifdef THUNDER_3D 
-            } else if ( face/2 == 2) {
-                auto const xi = lcoords[2] ; 
-                auto const integrand = [&] (VECD( double const& zeta 
-                                                , double const& eta) ) 
-                { 
-                    return get_surface_element_sph_log(face,_Ri,_Ro,VEC(zeta,eta,xi) ) ; 
-                } ; 
-                std::array<double,THUNDER_NSPACEDIM-1> a{ VECD( lcoords[0],
-                                                                lcoords[1] )}
-                                                    ,  b{ VECD( lcoords[0]+dxl[0],
-                                                                lcoords[1]+dxl[1]) } ;
-                return utils::nd_quadrature_integrate<THUNDER_NSPACEDIM-1,5>(a,b,integrand) ;
-            #endif
+            else if ( face/2 == 2) {
+                return get_cell_surface_xi_log(_Ri,_Ro
+                                        ,VEC(lcoords[0],lcoords[1],lcoords[2])
+                                        ,VECD(dxl[0],dxl[1]));
+            }
+            #endif 
+            else {
+                ERROR("Invalid face code " << face ) ; 
             }
         } else { 
             if( face / 2 == 0 ) {
-                auto const zeta = lcoords[0] ; 
-                auto const integrand = [&] (VECD( double const& eta 
-                                                , double const& xi) ) 
-                { 
-                    return get_surface_element_sph(face,1.,1.,_Ri,_Ro,VEC(zeta,eta,xi) ) ; 
-                } ; 
-                std::array<double,THUNDER_NSPACEDIM-1> a{ VECD( lcoords[1],
-                                                                lcoords[2] )}
-                                                    ,  b{ VECD( lcoords[1]+dxl[1],
-                                                                lcoords[2]+dxl[2]) } ;
-                return utils::nd_quadrature_integrate<THUNDER_NSPACEDIM-1,5>(a,b,integrand) ;
+            return get_cell_surface_zeta_ext(_Ri,_Ro
+                                       ,VEC(lcoords[0],lcoords[1],lcoords[2])
+                                       ,VECD(dxl[1],dxl[2]));
+
             } else if ( face/2 == 1 ) { 
-                auto const eta = lcoords[1] ; 
-                auto const integrand = [&] (VECD( double const& zeta 
-                                                , double const& xi) ) 
-                { 
-                    return get_surface_element_sph(face,1.,1.,_Ri,_Ro,VEC(zeta,eta,xi) ) ; 
-                } ; 
-                std::array<double,THUNDER_NSPACEDIM-1> a{ VECD( lcoords[0],
-                                                                lcoords[2] )}
-                                                    ,  b{ VECD( lcoords[0]+dxl[0],
-                                                                lcoords[2]+dxl[2]) } ;
-                return utils::nd_quadrature_integrate<THUNDER_NSPACEDIM-1,5>(a,b,integrand) ;
-            #ifdef THUNDER_3D
-            } else if ( face/2 == 2) {
-                auto const xi = lcoords[2] ; 
-                auto const integrand = [&] (VECD( double const& zeta 
-                                                , double const& eta) ) 
-                { 
-                    return get_surface_element_sph(face,1.,1.,_Ri,_Ro,VEC(zeta,eta,xi) ) ; 
-                } ; 
-                std::array<double,THUNDER_NSPACEDIM-1> a{ VECD( lcoords[0],
-                                                                lcoords[1] )}
-                                                    ,  b{ VECD( lcoords[0]+dxl[0],
-                                                                lcoords[1]+dxl[1]) } ;
-                return utils::nd_quadrature_integrate<THUNDER_NSPACEDIM-1,5>(a,b,integrand) ;
-            #endif
+                return get_cell_surface_eta_ext(_Ri,_Ro
+                                        ,VEC(lcoords[0],lcoords[1],lcoords[2])
+                                        ,VECD(dxl[0],dxl[2]));                        
+            } 
+            #ifdef THUNDER_3D 
+            else if ( face/2 == 2) {
+                return get_cell_surface_xi_ext(_Ri,_Ro
+                                        ,VEC(lcoords[0],lcoords[1],lcoords[2])
+                                        ,VECD(dxl[0],dxl[1]));
+            }
+            #endif 
+            else {
+                ERROR("Invalid face code " << face ) ; 
             }
         }
     }
+} 
+
+double 
+THUNDER_HOST 
+spherical_coordinate_system_impl_t::get_cell_edge_length(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int64_t q
+    , int8_t edge
+    , bool use_ghostzones) const
+{
+    using namespace thunder ;
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int itree = amr::get_quadrant_owner(q)   ; 
+    amr::quadrant_t quad = amr::get_quadrant(itree,q) ; 
+
+    auto const dx_quad  = 1./(1<<quad.level()) ; 
+    auto const qcoords = quad.qcoords()     ; 
+
+    EXPR(
+    auto const dx_cell = dx_quad / nx ;, 
+    auto const dy_cell = dx_quad / ny ;,
+    auto const dz_cell = dx_quad / nz ;
+    )
+ 
+    return get_cell_edge_length(ijk,q,edge,itree,{VEC(dx_cell,dy_cell,dz_cell)},use_ghostzones) ; 
 }
+
+double 
+THUNDER_HOST 
+spherical_coordinate_system_impl_t::get_cell_edge_length(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int64_t q
+    , int8_t edge 
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const
+{
+    std::array<double, THUNDER_NSPACEDIM> cell_coordinates {
+        VEC(0.,0.,0.)
+    } ; 
+    auto lcoords = get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
+    return get_cell_edge_length(lcoords,edge,itree,dxl,use_ghostzones) ; 
+}
+/* NB: by convention index i,j,k and edge idx ie corresponds to edge    */
+/*     i-1/2+delta_{i,ie}/2, j-1/2+delta_{j,ie}/2, k-1/2+delta_{k,ie}/2 */
+double 
+THUNDER_HOST 
+spherical_coordinate_system_impl_t::get_cell_edge_length(
+      std::array<double, THUNDER_NSPACEDIM> const & lcoords 
+    , int8_t edge 
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const
+{
+    using namespace thunder::detail ;
+    if( spherical_coordinate_system_impl_t::is_outside_tree(lcoords) and !spherical_coordinate_system_impl_t::is_physical_boundary(lcoords,itree) and use_ghostzones) {
+        return get_cell_edge_length_buffer_zone(edge,itree,lcoords,dxl); 
+    }
+    if ( itree == 0 ) {
+        return 2.*_L * EXPR( (edge==0) * dxl[0], + (edge==1) * dxl[1], + (edge==2) * dxl[2] ) ;
+    } else if ( (itree-1)/P4EST_FACES==0 ) {
+        switch (edge) {
+            case 0:
+            return get_line_element_zeta_int(_L,_Ri,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[0]); 
+            case 1:
+            return get_line_element_eta_int<5UL>(_L,_Ri,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[1]);
+            case 2:
+            return get_line_element_xi_int<5UL>(_L,_Ri,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[2]);
+        } 
+    } else if ( (itree-1)/P4EST_FACES==1 ) {
+        if( _use_logr ) {
+            switch (edge) {
+            case 0:
+            return get_line_element_zeta_log(_Ri,_Ro,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[0]); 
+            case 1:
+            return get_line_element_eta_log(_Ri,_Ro,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[1]);
+            case 2:
+            return get_line_element_xi_log(_Ri,_Ro,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[2]);
+            } 
+        } else {
+            switch (edge) {
+            case 0:
+            return get_line_element_zeta_ext(_Ri,_Ro,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[0]); 
+            case 1:
+            return get_line_element_eta_ext(_Ri,_Ro,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[1]);
+            case 2:
+            return get_line_element_xi_ext(_Ri,_Ro,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[2]);
+            } 
+        }
+    } else {
+        ERROR("Invalid tree index in get_edge_length.") ; 
+        return 0 ; // Compiler is throwing a warning without this.
+    }
+}
+
+
 bool 
 THUNDER_HOST spherical_coordinate_system_impl_t::is_outside_tree(
     std::array<double, THUNDER_NSPACEDIM> const& lcoords, bool check_exact_boundary
-) const
+)
 {
     return EXPR(
            lcoords[0] < 0 or (check_exact_boundary and lcoords[0] >= 1) or (!check_exact_boundary and lcoords[0] > 1), 
@@ -684,13 +724,14 @@ THUNDER_HOST spherical_coordinate_system_impl_t::is_outside_tree(
 
 bool 
 THUNDER_HOST spherical_coordinate_system_impl_t::is_physical_boundary(
-    std::array<double,THUNDER_NSPACEDIM> const& lcoords, int itree, bool check_exact_boundary) const
+    std::array<double,THUNDER_NSPACEDIM> const& lcoords, int itree, bool check_exact_boundary) const 
 {
-    ASSERT_DBG(is_outside_tree(lcoords,check_exact_boundary), "In is_physical_boundary: lcoords not in buffer zone"); 
+    ASSERT_DBG(spherical_coordinate_system_impl_t::is_outside_tree(lcoords,check_exact_boundary), "In is_physical_boundary: lcoords not in buffer zone"); 
     int itree_b; int8_t iface,iface_b ; 
     std::tie(itree_b,iface_b,iface) = get_neighbor_tree_and_face(itree,lcoords,check_exact_boundary) ; 
     return (itree_b==itree) and (iface_b==iface) ; 
 }
+
 
 std::tuple<int, int8_t, int8_t>
 THUNDER_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
@@ -748,10 +789,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
     , bool check_exact_boundary) const
 {
     using namespace thunder ; 
-    size_t nx,ny,nz ; 
-    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ;
-    int ngz = amr::get_n_ghosts() ; 
-    ASSERT_DBG(is_outside_tree(lcoords,check_exact_boundary), "In get neighbor tree: lcoords not outside tree.") ; 
+    ASSERT_DBG(spherical_coordinate_system_impl_t::is_outside_tree(lcoords,check_exact_boundary), "In get neighbor tree: lcoords not outside tree.") ; 
     int iface ; 
     int nghost = 0 ; 
     if ( lcoords[0] < 0 ) {
@@ -793,19 +831,14 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
 
 std::array<double, THUNDER_NSPACEDIM> 
 THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_zone(
-      int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& lcoords ) const
+      int itree, int itree_b, int8_t iface, int8_t iface_b
+    , std::array<double, THUNDER_NSPACEDIM> const& lcoords )
 {
-    using namespace thunder ;
-    int itree_b ; 
-    int8_t iface, iface_b ;
-    std::tie(itree_b,iface_b,iface) =
-        get_neighbor_tree_and_face(itree, lcoords, true) ; 
+    using namespace thunder ; 
     // corner neighbor -- unused 
     if(itree_b==-1){
         return {VEC(1,1,1)} ; 
     }
-    
     std::array<double, THUNDER_NSPACEDIM> lcoords_b ; 
     
     EXPR(
@@ -874,50 +907,208 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume_buffer_zone(
     , std::array<double, THUNDER_NSPACEDIM> const& dxl ) const
 {
     using namespace thunder ;
-
+    using namespace thunder::detail ;
     int    itree_b  ;
-    int8_t dummy1, dummy2 ; 
-    std::tie(itree_b,dummy1,dummy2) =
+    int8_t iface_b, iface ; 
+    std::tie(itree_b,iface_b,iface) =
         get_neighbor_tree_and_face(itree,lcoords,true) ; 
     if(itree_b==-1){ return 1. ;}
-    auto lcoords_b = get_logical_coordinates_buffer_zone(
-        itree,
-        lcoords
+    auto lcoords_b = spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_zone(
+        itree,itree_b,iface,iface_b,lcoords
     ) ; 
+    int polarity = amr::connectivity::get().tree_to_tree_polarity(itree,iface);
+    EXPR(
+    lcoords_b[0] += polarity * dxl[0]*( (iface_b==0)-(iface_b==1) );,
+    lcoords_b[1] += polarity * dxl[1]*( (iface_b==2)-(iface_b==3) );,
+    lcoords_b[2] += polarity * dxl[2]*( (iface_b==4)-(iface_b==5) );
+    )
     double Vol = 0;
     if( itree_b == 0 ) {
         Vol = math::int_pow<THUNDER_NSPACEDIM>(2.*_L) * EXPR(dxl[0],*dxl[1],*dxl[2]) ; 
     } else if( (itree_b-1)/P4EST_FACES == 0 ) {
-        #ifndef THUNDER_3D 
-        Vol = dVol_sph(_L,_Ri 
-                , VECD(dxl[1],dxl[2]),dxl[0]
-                , VECD(lcoords_b[1],lcoords_b[2]),lcoords_b[0] ) ; 
-        #else 
-        Vol = detail::get_cell_volume_3D<5UL>(0.,1.,_L,_Ri,lcoords_b[0],lcoords_b[1],lcoords_b[2],dxl[0],dxl[1],dxl[2]) ;
-        #endif 
+        Vol = detail::get_cell_volume_int<5UL>(_L,_Ri,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
+                                              ,VEC(dxl[0],dxl[1],dxl[2])  ) ; 
     } else {
         if( _use_logr ){
-            #ifndef THUNDER_3D 
-            Vol = dVol_sph_log(_Ri,_Ro
-                    , VECD(dxl[1],dxl[2]),dxl[0]
-                    , VECD(lcoords_b[1],lcoords_b[2]),lcoords_b[0] ) ; 
-            #else 
-            Vol = detail::get_cell_volume_3D_log(_Ri,_Ro,lcoords_b[0],lcoords_b[1],lcoords_b[2],dxl[0],dxl[1],dxl[2]) ;
-            #endif 
+            Vol = detail::get_cell_volume_log(_Ri,_Ro,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2]),VEC(dxl[0],dxl[1],dxl[2])); 
         } else { 
-            #ifndef THUNDER_3D 
-            Vol = dVol_sph_ext(_Ri,_Ro
-                    , VECD(dxl[1],dxl[2]),dxl[0]
-                    , VECD(lcoords_b[1],lcoords_b[2]),lcoords_b[0] ) ;
-            #else 
-            Vol = detail::get_cell_volume_3D<5UL>(1.,1.,_Ri,_Ro,lcoords_b[0],lcoords_b[1],lcoords_b[2],dxl[0],dxl[1],dxl[2]) ;
-            #endif 
+            Vol =  detail::get_cell_volume_ext( _Ri,_Ro
+                                                , VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
+                                                , VEC(dxl[0],dxl[1],dxl[2])  ) ; 
         }
     }
     return Vol ; 
 
 }
 
+double
+THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface_buffer_zone(
+      int8_t icell_face 
+    , int itree 
+    , std::array<double, THUNDER_NSPACEDIM> const& lcoords
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) const
+{
+    using namespace thunder ;
+    using namespace thunder::detail ;
+    int    itree_b  ;
+    int8_t iface_b, iface ; 
+    std::tie(itree_b,iface_b,iface) =
+        get_neighbor_tree_and_face(itree,lcoords,true) ; 
+    if(itree_b==-1){ return 1. ;}
+    auto lcoords_b = spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_zone(
+        itree,itree_b,iface,iface_b,
+        lcoords
+    ) ; 
+    int polarity = amr::connectivity::get().tree_to_tree_polarity(itree,iface);
+    EXPR(
+    lcoords_b[0] += polarity * dxl[0]*( (iface_b==0)-(iface_b==1) ) * (icell_face!=0);,
+    lcoords_b[1] += polarity * dxl[1]*( (iface_b==2)-(iface_b==3) ) * (icell_face!=1);,
+    lcoords_b[2] += polarity * dxl[2]*( (iface_b==4)-(iface_b==5) ) * (icell_face!=2);
+    )
+    double Surf = 0;
+    if( itree_b == 0 ) {
+        EXPRD(
+        double const dh = EXPR(
+               (icell_face/2==0)*dxl[1],
+             + (icell_face/2==1)*dxl[0],
+             + (icell_face/2==2)*dxl[0]
+        ) ;,
+        double const dt = EXPR(
+               (icell_face/2==0)*dxl[2],
+             + (icell_face/2==1)*dxl[1],
+             + (icell_face/2==2)*dxl[1]
+        ) ;
+        )
+        Surf = math::int_pow<THUNDER_NSPACEDIM-1>(2.*_L) * EXPRD(dh,*dt) ; 
+    } else if( (itree_b-1)/P4EST_FACES == 0 ) {
+        if( icell_face / 2 == 0 ) {
+            Surf = get_cell_surface_zeta_int<5UL>(_L,_Ri
+                                       ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
+                                       ,VECD(dxl[1],dxl[2]));
+
+        } else if ( icell_face/2 == 1 ) { 
+            Surf = get_cell_surface_eta_int(_L,_Ri
+                                       ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
+                                       ,VECD(dxl[0],dxl[2]));                        
+        } 
+        #ifdef THUNDER_3D 
+        else if ( icell_face/2 == 2) {
+            Surf = get_cell_surface_xi_int(_L,_Ri
+                                       ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
+                                       ,VECD(dxl[0],dxl[1]));
+        }
+        #endif
+        else {
+            ERROR("Invalid face code in get_surface_buffer_zone") ; 
+        }
+    } else {
+        if( _use_logr ){
+            if( icell_face / 2 == 0 ) {
+                Surf= get_cell_surface_zeta_log(_Ri,_Ro
+                                       ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
+                                       ,VECD(dxl[1],dxl[2]));
+
+            } else if ( icell_face/2 == 1 ) { 
+                Surf= get_cell_surface_eta_log(_Ri,_Ro
+                                        ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
+                                        ,VECD(dxl[0],dxl[2]));                        
+            } 
+            #ifdef THUNDER_3D 
+            else if ( icell_face/2 == 2) {
+                Surf= get_cell_surface_xi_log(_Ri,_Ro
+                                        ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
+                                        ,VECD(dxl[0],dxl[1]));
+            }
+            #endif 
+            else {
+                ERROR("Invalid face code " << icell_face ) ; 
+            }
+        } else { 
+            if( icell_face / 2 == 0 ) {
+                Surf = get_cell_surface_zeta_ext(_Ri,_Ro
+                                       ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
+                                       ,VECD(dxl[1],dxl[2]));
+
+            } else if ( icell_face/2 == 1 ) { 
+                Surf = get_cell_surface_eta_ext(_Ri,_Ro
+                                        ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
+                                        ,VECD(dxl[0],dxl[2]));                        
+            } 
+            #ifdef THUNDER_3D 
+            else if ( icell_face/2 == 2) {
+                Surf= get_cell_surface_xi_ext(_Ri,_Ro
+                                        ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
+                                        ,VECD(dxl[0],dxl[1]));
+            }
+            #endif 
+            else {
+                ERROR("Invalid face code " << icell_face ) ; 
+            }
+        }
+    }
+    return Surf ; 
+
+}
+
+double
+THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_edge_length_buffer_zone(
+      int8_t icell_edge
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& lcoords
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) const
+{
+    using namespace thunder::detail ;
+    int    itree_b  ;
+    int8_t iface_b, iface ; 
+    std::tie(itree_b,iface_b,iface) =
+        get_neighbor_tree_and_face(itree,lcoords,true) ; 
+    if(itree_b==-1){ return 1. ;}
+    auto lcoords_b = spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_zone(
+        itree,itree_b,iface,iface_b,lcoords
+    ) ; 
+    int polarity = amr::connectivity::get().tree_to_tree_polarity(itree,iface);
+    EXPR(
+    lcoords_b[0] += polarity * dxl[0]*( (iface_b==0)-(iface_b==1) ) * (icell_edge==0);,
+    lcoords_b[1] += polarity * dxl[1]*( (iface_b==2)-(iface_b==3) ) * (icell_edge==1);,
+    lcoords_b[2] += polarity * dxl[2]*( (iface_b==4)-(iface_b==5) ) * (icell_edge==2);
+    )
+    double Length{0.};
+    if ( itree_b == 0 ) {
+        Length= 2.*_L * EXPR( (icell_edge==0) * dxl[0], + (icell_edge==1) * dxl[1], + (icell_edge==2) * dxl[2] ) ;
+    } else if ( (itree_b-1)/P4EST_FACES==0 ) {
+        switch (icell_edge) {
+            case 0:
+            Length = get_line_element_zeta_int(_L,_Ri,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2]),dxl[0]); 
+            case 1:
+            Length = get_line_element_eta_int<5UL>(_L,_Ri,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2]),dxl[1]);
+            case 2:
+            Length = get_line_element_xi_int<5UL>(_L,_Ri,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2]),dxl[2]);
+        } 
+    } else if ( (itree_b-1)/P4EST_FACES==1 ) {
+        if( _use_logr ) {
+            switch (icell_edge) {
+            case 0:
+            Length = get_line_element_zeta_log(_Ri,_Ro,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2]),dxl[0]); 
+            case 1:
+            Length = get_line_element_eta_log(_Ri,_Ro,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2]),dxl[1]);
+            case 2:
+            Length = get_line_element_xi_log(_Ri,_Ro,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2]),dxl[2]);
+            } 
+        } else {
+            switch (icell_edge) {
+            case 0:
+            Length = get_line_element_zeta_ext(_Ri,_Ro,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2]),dxl[0]); 
+            case 1:
+            Length = get_line_element_eta_ext(_Ri,_Ro,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2]),dxl[1]);
+            case 2:
+            Length = get_line_element_xi_ext(_Ri,_Ro,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2]),dxl[2]);
+            } 
+        }
+    } else {
+        ERROR("Invalid tree index in get_edge_length.") ; 
+    }
+    return Length ; 
+}
 
 std::array<double, THUNDER_NSPACEDIM>
 THUNDER_HOST spherical_coordinate_system_impl_t::get_physical_coordinates_cart(
@@ -957,7 +1148,6 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_physical_coordinates_sph(
 }
 
 
-
 double THUNDER_HOST 
 spherical_coordinate_system_impl_t::get_zeta( double const& z
                                             , double const& one_over_rho
@@ -973,202 +1163,5 @@ spherical_coordinate_system_impl_t::get_zeta( double const& z
         return z*z_coeff + z0 ; 
     }
 } 
-
-#if 0
-double THUNDER_HOST
-spherical_coordinate_system_impl_t::get_jacobian_determinant_sph(
-      double const& si, double const& so 
-    , double const& r1, double const& r2
-    , VEC(double const& zeta, double const& eta, double const& xi) )
-{
-    using namespace thunder; 
-    #ifdef THUNDER_3D 
-    /* 
-    std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> const J { 
-        Jac_sph_3D_00(r1,r2, eta, si,so, xi), Jac_sph_3D_01(r1,r2, eta, si,so, xi,zeta), Jac_sph_3D_02(r1,r2, eta, si,so, xi,zeta),
-        Jac_sph_3D_10(r1,r2, eta, si,so, xi), Jac_sph_3D_11(r1,r2, eta, si,so, xi,zeta), Jac_sph_3D_12(r1,r2, eta, si,so, xi,zeta),
-        Jac_sph_3D_20(r1,r2, eta, si,so, xi), Jac_sph_3D_21(r1,r2, eta, si,so, xi,zeta), Jac_sph_3D_22(r1,r2, eta, si,so, xi,zeta)
-    };
-    */
-    #else 
-    std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> const J { 
-        Jac_sph_2D_00(r1,r2, eta, si,so), Jac_sph_2D_01(r1,r2, eta, si,so, zeta), 
-        Jac_sph_2D_10(r1,r2, eta, si,so), Jac_sph_2D_11(r1,r2, eta, si,so, zeta)
-    };
-    #endif 
-    //return utils::det<THUNDER_NSPACEDIM>(J) ; 
-    return J_sph_3D(r1,r2,eta,si,so,xi,zeta) ; 
-}
-
-
-
-double THUNDER_HOST
-spherical_coordinate_system_impl_t::get_jacobian_determinant_sph_log(
-      double const& r1, double const& r2
-    , VEC(double const& zeta, double const& eta, double const& xi) )
-{
-    using namespace thunder;
-    #ifdef THUNDER_3D 
-    /*
-    std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> const J {
-                Jac_sph_log_3D_00(r1,r2, eta, xi,zeta), Jac_sph_log_3D_01(r1,r2, eta, xi,zeta), Jac_sph_log_3D_02(r1,r2, eta, xi,zeta),
-                Jac_sph_log_3D_10(r1,r2, eta, xi,zeta), Jac_sph_log_3D_11(r1,r2, eta, xi,zeta), Jac_sph_log_3D_12(r1,r2, eta, xi,zeta),
-                Jac_sph_log_3D_20(r1,r2, eta, xi,zeta), Jac_sph_log_3D_21(r1,r2, eta, xi,zeta), Jac_sph_log_3D_22(r1,r2, eta, xi,zeta)
-            };*/
-    #else 
-    std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> const J {
-                Jac_sph_log_2D_00(r1,r2, eta,zeta), Jac_sph_log_2D_01(r1,r2, eta, zeta), 
-                Jac_sph_log_2D_10(r1,r2, eta,zeta), Jac_sph_log_2D_11(r1,r2, eta, zeta)
-            };
-    #endif 
-    //return utils::det<THUNDER_NSPACEDIM>(J) ; 
-    return J_sph_log_3D(r1,r2,eta,xi,zeta) ; 
-}
-#endif 
-#ifdef THUNDER_3D
-double THUNDER_HOST
-spherical_coordinate_system_impl_t::get_volume_element_sph(
-      double const& r1, double const& r2
-    , double const& zeta0, double const& dzeta 
-    , double const& xi0, double const& dxi 
-    , double const& eta ) const
-{
-    using namespace thunder; 
-    #ifdef THUNDER_3D 
-    /* 
-    std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> const J { 
-        Jac_sph_3D_00(r1,r2, eta, si,so, xi), Jac_sph_3D_01(r1,r2, eta, si,so, xi,zeta), Jac_sph_3D_02(r1,r2, eta, si,so, xi,zeta),
-        Jac_sph_3D_10(r1,r2, eta, si,so, xi), Jac_sph_3D_11(r1,r2, eta, si,so, xi,zeta), Jac_sph_3D_12(r1,r2, eta, si,so, xi,zeta),
-        Jac_sph_3D_20(r1,r2, eta, si,so, xi), Jac_sph_3D_21(r1,r2, eta, si,so, xi,zeta), Jac_sph_3D_22(r1,r2, eta, si,so, xi,zeta)
-    };
-    */
-    #endif 
-    //return utils::det<THUNDER_NSPACEDIM>(J) ; 
-    return dVol_sph_3D(r1,r2,dxi,dzeta,eta,xi0,zeta0) ; 
-}
-
-double THUNDER_HOST
-spherical_coordinate_system_impl_t::get_volume_element_sph_ext(
-      double const& r1, double const& r2
-    , double const& zeta0, double const& dzeta 
-    , double const& xi0, double const& dxi 
-    , double const& eta ) const
-{
-    using namespace thunder; 
-    #ifdef THUNDER_3D 
-    /* 
-    std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> const J { 
-        Jac_sph_3D_00(r1,r2, eta, si,so, xi), Jac_sph_3D_01(r1,r2, eta, si,so, xi,zeta), Jac_sph_3D_02(r1,r2, eta, si,so, xi,zeta),
-        Jac_sph_3D_10(r1,r2, eta, si,so, xi), Jac_sph_3D_11(r1,r2, eta, si,so, xi,zeta), Jac_sph_3D_12(r1,r2, eta, si,so, xi,zeta),
-        Jac_sph_3D_20(r1,r2, eta, si,so, xi), Jac_sph_3D_21(r1,r2, eta, si,so, xi,zeta), Jac_sph_3D_22(r1,r2, eta, si,so, xi,zeta)
-    };
-    */
-    #endif 
-    //return utils::det<THUNDER_NSPACEDIM>(J) ; 
-    return dVol_sph_3D_ext(r1,r2,dxi,dzeta,eta,xi0,zeta0) ; 
-}
-
-double THUNDER_HOST
-spherical_coordinate_system_impl_t::get_volume_element_sph_ext_log(
-      double const& r1, double const& r2
-    , double const& zeta0, double const& dzeta 
-    , double const& xi0, double const& dxi 
-    , double const& eta ) const
-{
-    using namespace thunder;
-    #ifdef THUNDER_3D 
-    /*
-    std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> const J {
-                Jac_sph_log_3D_00(r1,r2, eta, xi,zeta), Jac_sph_log_3D_01(r1,r2, eta, xi,zeta), Jac_sph_log_3D_02(r1,r2, eta, xi,zeta),
-                Jac_sph_log_3D_10(r1,r2, eta, xi,zeta), Jac_sph_log_3D_11(r1,r2, eta, xi,zeta), Jac_sph_log_3D_12(r1,r2, eta, xi,zeta),
-                Jac_sph_log_3D_20(r1,r2, eta, xi,zeta), Jac_sph_log_3D_21(r1,r2, eta, xi,zeta), Jac_sph_log_3D_22(r1,r2, eta, xi,zeta)
-            };*/
-    #endif 
-    //return utils::det<THUNDER_NSPACEDIM>(J) ; 
-    return dVol_sph_3D_log(r1,r2,dxi,dzeta,eta,xi0,zeta0) ; 
-}
-#endif 
-double THUNDER_HOST
-spherical_coordinate_system_impl_t::get_surface_element_sph(
-      int8_t iface
-    , double const& si, double const& so 
-    , double const& ri, double const& ro
-    , VEC(double const& zeta, double const& eta, double const& xi) ) const
-{
-    #ifdef THUNDER_3D 
-    std::array<double,4> J ;
-    switch(iface/2) {
-        case 0:
-        J[0 + 2*0] =  dA_3D_zeta_00(ri,ro,eta,si,so,xi,zeta) ; 
-        J[1 + 2*0] =  dA_3D_zeta_01(ri,ro,eta,si,so,xi,zeta) ; 
-        J[0 + 2*1] =  dA_3D_zeta_10(ri,ro,eta,si,so,xi,zeta) ; 
-        J[1 + 2*1] =  dA_3D_zeta_11(ri,ro,eta,si,so,xi,zeta) ; 
-        break ;
-        case 1:
-        J[0 + 2*0] =  dA_3D_eta_00(ri,ro,eta,si,so,xi,zeta) ; 
-        J[1 + 2*0] =  dA_3D_eta_01(ri,ro,eta,si,so,xi,zeta) ; 
-        J[0 + 2*1] =  dA_3D_eta_10(ri,ro,eta,si,so,xi,zeta) ; 
-        J[1 + 2*1] =  dA_3D_eta_11(ri,ro,eta,si,so,xi,zeta) ; 
-        break ; 
-        case 2:
-        J[0 + 2*0] =  dA_3D_xi_00(ri,ro,eta,si,so,xi,zeta) ; 
-        J[1 + 2*0] =  dA_3D_xi_01(ri,ro,eta,si,so,xi,zeta) ; 
-        J[0 + 2*1] =  dA_3D_xi_10(ri,ro,eta,si,so,xi,zeta) ; 
-        J[1 + 2*1] =  dA_3D_xi_11(ri,ro,eta,si,so,xi,zeta) ; 
-        break ; 
-    }
-    return sqrt(utils::det<THUNDER_NSPACEDIM-1>(J)) ; 
-    #else 
-    switch(iface/2) {
-        case 0:
-        return dA_2D_zeta(ri,ro,eta,si,so,zeta) ; 
-        case 1:
-        return dA_2D_eta(ri,ro,eta,si,so,zeta) ; 
-    }
-    #endif 
-}
-
-
-
-double THUNDER_HOST
-spherical_coordinate_system_impl_t::get_surface_element_sph_log(
-      int8_t iface 
-    , double const& ri, double const& ro
-    , VEC(double const& zeta, double const& eta, double const& xi) ) const
-{
-    #ifdef THUNDER_3D 
-    std::array<double,4> J ;
-    switch(iface/2) {
-        case 0:
-        J[0 + 2*0] =  dA_3D_zeta_log_00(ri,ro,eta,xi,zeta) ; 
-        J[1 + 2*0] =  dA_3D_zeta_log_01(ri,ro,eta,xi,zeta) ; 
-        J[0 + 2*1] =  dA_3D_zeta_log_10(ri,ro,eta,xi,zeta) ; 
-        J[1 + 2*1] =  dA_3D_zeta_log_11(ri,ro,eta,xi,zeta) ; 
-        break ;
-        case 1:
-        J[0 + 2*0] =  dA_3D_eta_log_00(ri,ro,eta,xi,zeta) ; 
-        J[1 + 2*0] =  dA_3D_eta_log_01(ri,ro,eta,xi,zeta) ; 
-        J[0 + 2*1] =  dA_3D_eta_log_10(ri,ro,eta,xi,zeta) ; 
-        J[1 + 2*1] =  dA_3D_eta_log_11(ri,ro,eta,xi,zeta) ; 
-        break ; 
-        case 2:
-        J[0 + 2*0] =  dA_3D_xi_log_00(ri,ro,eta,xi,zeta) ; 
-        J[1 + 2*0] =  dA_3D_xi_log_01(ri,ro,eta,xi,zeta) ; 
-        J[0 + 2*1] =  dA_3D_xi_log_10(ri,ro,eta,xi,zeta) ; 
-        J[1 + 2*1] =  dA_3D_xi_log_11(ri,ro,eta,xi,zeta) ; 
-        break ; 
-    }
-    return sqrt(utils::det<THUNDER_NSPACEDIM-1>(J)) ; 
-    #else 
-    switch(iface/2) {
-        case 0:
-        return dA_2D_zeta_log(ri,ro,eta,zeta) ; 
-        case 1:
-        return dA_2D_eta_log(ri,ro,eta,zeta) ; 
-    }
-    #endif 
-}
-
-
 
 }

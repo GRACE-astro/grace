@@ -75,18 +75,30 @@ cell_vol_3D_analytic(double si, double so, double ri, double ro, double zeta, do
 // TODO: check if this simplifies when si,so are fixed
 template< size_t N >
 double THUNDER_ALWAYS_INLINE
-get_cell_volume_3D(double si, double so, double ri, double ro, double z0, double e0, double x0, double dz, double de, double dx) {
+get_cell_volume_3D_int(double ri, double ro, double z0, double e0, double x0, double dz, double de, double dx) {
 
-  double const dV2 = cell_vol_3D_numerical<N>(si,so,ri,ro,z0,e0,x0,dx) + cell_vol_3D_numerical<N>(si,so,ri,ro,z0+dz,e0+de,x0,dx)
-    - (cell_vol_3D_numerical<N>(si,so,ri,ro,z0+dz,e0,x0,dx) + cell_vol_3D_numerical<N>(si,so,ri,ro,z0,e0+de,x0,dx)) ;
+  double const dV2 = cell_vol_3D_numerical<N>(0.,1.,ri,ro,z0,e0,x0,dx) + cell_vol_3D_numerical<N>(0.,1.,ri,ro,z0+dz,e0+de,x0,dx)
+    - (cell_vol_3D_numerical<N>(0.,1.,ri,ro,z0+dz,e0,x0,dx) + cell_vol_3D_numerical<N>(0.,1.,ri,ro,z0,e0+de,x0,dx)) ;
 
-  double const dV1 = ( cell_vol_3D_analytic(si,so,ri,ro,z0,e0,x0+dx) + cell_vol_3D_analytic(si,so,ri,ro,z0+dz,e0+de,x0+dx)
-		       - (cell_vol_3D_analytic(si,so,ri,ro,z0+dz,e0,x0+dx) + cell_vol_3D_analytic(si,so,ri,ro,z0,e0+de,x0+dx)) )
-    -( cell_vol_3D_analytic(si,so,ri,ro,z0,e0,x0) + cell_vol_3D_analytic(si,so,ri,ro,z0+dz,e0+de,x0)
-       - (cell_vol_3D_analytic(si,so,ri,ro,z0+dz,e0,x0) + cell_vol_3D_analytic(si,so,ri,ro,z0,e0+de,x0))) ;
+  double const dV1 = ( cell_vol_3D_analytic(0.,1.,ri,ro,z0,e0,x0+dx) + cell_vol_3D_analytic(0.,1.,ri,ro,z0+dz,e0+de,x0+dx)
+		       - (cell_vol_3D_analytic(0.,1.,ri,ro,z0+dz,e0,x0+dx) + cell_vol_3D_analytic(0.,1.,ri,ro,z0,e0+de,x0+dx)) )
+    -( cell_vol_3D_analytic(0.,1.,ri,ro,z0,e0,x0) + cell_vol_3D_analytic(0.,1.,ri,ro,z0+dz,e0+de,x0)
+       - (cell_vol_3D_analytic(0.,1.,ri,ro,z0+dz,e0,x0) + cell_vol_3D_analytic(0.,1.,ri,ro,z0,e0+de,x0))) ;
   return dV1 + dV2 ; 
 }
 
+double THUNDER_ALWAYS_INLINE 
+get_cell_volume_3D_ext_aux(double ri, double ro, double zeta, double eta, double xi) {
+  return (math::int_pow<3>(ri - ri*zeta + ro*zeta)*atan(((-1 + 2*eta)*(-1 + 2*xi))/sqrt(3 + 4*(-1 + eta)*eta + 4*(-1 + xi)*xi)))/3. ; 
+}
+
+double THUNDER_ALWAYS_INLINE 
+get_cell_volume_3D_ext(double ri, double ro,  double zeta0, double eta0, double xi0, double dzeta, double deta, double dxi){
+  auto const _integrand = [&] (double zeta, double eta, double xi) {
+    return get_cell_volume_3D_ext_aux(ri,ro,zeta,eta,xi) ; 
+  } ; 
+  return utils::eval_3d_primitive(zeta0,eta0,xi0,zeta0+dzeta,eta0+deta,xi0+dxi,_integrand) ; 
+}
 
 double THUNDER_ALWAYS_INLINE 
 get_cell_volume_3D_log_aux(double ri, double ro, double zeta, double eta, double xi) {

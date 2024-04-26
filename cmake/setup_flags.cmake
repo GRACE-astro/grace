@@ -29,6 +29,8 @@ endif()
 
 add_compile_options(
     $<$<CONFIG:DEBUG>:-O0>
+    $<$<CONFIG:DEBUG>:-gdwarf-4>
+    $<$<CONFIG:RELWITHDEBINFO>:-gdwarf-4>
     $<$<CONFIG:RELEASE>:-O3>
     -Wno-deprecated-declarations
 )

@@ -26,6 +26,8 @@
 #ifndef THUNDER_UTILS_MATRIX_HELPERS_TPP 
 #define THUNDER_UTILS_MATRIX_HELPERS_TPP
 
+#include <thunder_config.h>
+
 #include <thunder/utils/inline.h>
 
 #include <array> 
@@ -120,6 +122,10 @@ double THUNDER_ALWAYS_INLINE
 det(std::array<double,N*N> const& A) {
     return detail::det_impl_t<N>{}(A) ; 
 }
+
+template< size_t N = THUNDER_NSPACEDIM>
+int THUNDER_ALWAYS_INLINE 
+delta(int i, int j) { return i==j ; }
 
 } /* namespace utils */
 

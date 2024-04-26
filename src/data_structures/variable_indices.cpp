@@ -4,8 +4,8 @@
  * @brief 
  * @date 2024-03-12
  * 
- * @copyright This file is part of MagMA.
- * MagMA is an evolution framework that uses Discontinuous Galerkin
+ * @copyright This file is part of Thunder.
+ * Thunder is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -30,6 +30,7 @@
 #include <thunder/errors/assert.hh>
 #include <thunder/data_structures/variable_indices.hh>
 #include <thunder/data_structures/macros.hh>
+#include <thunder/errors/error.hh>
 
 #include <string> 
 
@@ -39,24 +40,107 @@ namespace thunder { namespace variables {
 namespace detail {
 
 int num_vars      = 0 ; 
-int num_evolved   = 0 ;
 int last_evolved  = -1 ; 
-int num_auxiliary = 0 ;
 int num_fluxes    = 0 ;
 int last_flux     = -1 ; 
 int first_flux    = -1 ; 
 
+/****************************************************/
+/*                Variable arrays sizes             */
+/****************************************************/
+int num_evolved   = 0 ;
+int num_auxiliary = 0 ;
+
+int num_face_staggered_vars = 0 ;
+int num_face_staggered_aux = 0 ;
+
+int num_edge_staggered_vars = 0 ;
+int num_edge_staggered_aux = 0 ;
+
+int num_corner_staggered_vars = 0 ;
+int num_corner_staggered_aux  = 0 ;
+
 int num_vector_vars = 0 ;
 int num_tensor_vars = 0 ; 
+/****************************************************/
+/****************************************************/
 
+/****************************************************/
+/*                Variable name arrays              */
+/****************************************************/
 std::vector<std::string> _varnames ; 
 std::vector<std::string> _auxnames ; 
-std::vector<std::string> _var_bc_types ; 
 
+std::vector<std::string> _face_staggered_varnames ;
+std::vector<std::string> _face_staggered_auxnames ;
+
+std::vector<std::string> _edge_staggered_varnames ; 
+std::vector<std::string> _edge_staggered_auxnames ; 
+
+std::vector<std::string> _corner_staggered_varnames ; 
+std::vector<std::string> _corner_staggered_auxnames ;
+/****************************************************/
+/****************************************************/
+
+/****************************************************/
+/*             Boundary condition arrays            */
+/****************************************************/
+std::vector<std::string> _var_bc_types ;
+std::vector<std::string> _aux_bc_types ;
+
+std::vector<std::string> _face_vars_bc_types ;
+std::vector<std::string> _face_aux_bc_types ;
+
+std::vector<std::string> _edge_vars_bc_types ;
+std::vector<std::string> _edge_aux_bc_types ;
+
+std::vector<std::string> _corner_vars_bc_types ;
+std::vector<std::string> _corner_aux_bc_types ;
+/****************************************************/
+/****************************************************/
+
+/****************************************************/
+/*              Handling of vector/tensor           */
+/*                    components                    */
+/****************************************************/
+std::vector<int> _vector_var_indices ; 
+std::vector<int> _tensor_var_indices ; 
+/****************************************************/
+/* NB: here we assume that all face/edge staggered  */
+/*     variables are vector components.             */
+/****************************************************/
+
+/****************************************************/
+/*              Reconstructed variables             */
+/*                    indices                       */
+/****************************************************/
+std::vector<int> _recon_var_indices ; 
+std::vector<int> _recon_aux_indices ; 
+
+std::vector<int> _face_staggered_recon_var_indices ; 
+std::vector<int> _face_staggered_recon_aux_indices ; 
+
+std::vector<int> _edge_staggered_recon_var_indices ; 
+std::vector<int> _edge_staggered_recon_aux_indices ; 
+
+std::vector<int> _corner_staggered_recon_var_indices ;
+std::vector<int> _corner_staggered_recon_aux_indices ;
+/****************************************************/
+/****************************************************/
 std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>> 
     _varprops; 
 std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>> 
     _auxprops; 
+
+
+std::vector<int> flux_var_indices         ; 
+std::vector<int> prolongation_var_indices ;
+
+std::vector<int> face_staggered_flux_var_indices         ;
+std::vector<int> face_staggered_prolongation_var_indices ;
+
+std::vector<int> edge_staggered_flux_var_indices         ;
+std::vector<int> edge_staggered_prolongation_var_indices ;
 
 } /* namespace thunder::variables::detail */
 
@@ -100,6 +184,7 @@ void register_variables() {
                                 , "outgoing"
                                 , true
                                 , false
+                                , 0
                                 , "S" ) ;
     SY = register_variable( "S[1]"
                                 , {VEC(false,false,false)}
@@ -109,6 +194,7 @@ void register_variables() {
                                 , "outgoing"
                                 , true
                                 , false 
+                                , 1 
                                 , "S") ;
     SZ = register_variable( "S[2]"
                                 , {VEC(false,false,false)}
@@ -118,6 +204,7 @@ void register_variables() {
                                 , "outgoing"
                                 , true
                                 , false 
+                                , 2
                                 , "S") ;
     TAU = register_variable( "tau"
                                 , {VEC(false,false,false)}
@@ -137,6 +224,7 @@ void register_variables() {
                             , "outgoing" 
                             , false
                             , true
+                            , 0
                             , "gamma" 
                              ) ; 
 
@@ -148,6 +236,7 @@ void register_variables() {
                             , "outgoing"
                             , false
                             , true
+                            , 1
                             , "gamma" 
                             ) ;
 
@@ -159,6 +248,7 @@ void register_variables() {
                             , "outgoing"
                             , false
                             , true
+                            , 2
                             , "gamma") ;
 
     GYY = register_variable( "gyy"
@@ -169,6 +259,7 @@ void register_variables() {
                             , "outgoing"
                             , false
                             , true
+                            , 3
                             , "gamma" 
                             ) ;
 
@@ -180,6 +271,7 @@ void register_variables() {
                             , "outgoing"
                             , false
                             , true
+                            , 4
                             , "gamma"  ) ;
 
     GZZ = register_variable( "gzz"
@@ -190,6 +282,7 @@ void register_variables() {
                             , "outgoing"
                             , false
                             , true
+                            , 5
                             , "gamma" ) ;
 
     ALP = register_variable( "alp"
@@ -209,6 +302,7 @@ void register_variables() {
                                 , "outgoing"
                                 , true
                                 , false 
+                                , 0
                                 , "beta"
                                 ) ;
 
@@ -221,6 +315,7 @@ void register_variables() {
                                 , "outgoing"
                                 , true
                                 , false 
+                                , 1
                                 , "beta"
                                 ) ;
 
@@ -233,45 +328,143 @@ void register_variables() {
                                 , "outgoing"
                                 , true
                                 , false 
+                                , 2
                                 , "beta" ) ;
     #endif 
     ASSERT_DBG( detail::_var_bc_types.size() == detail::num_evolved, 
                 detail::num_evolved << " evolved variables but "
                 "only " << detail::_var_bc_types.size() << " have BCs.\n") ; 
 }
+namespace detail {
+static int register_scalar( std::string const& name
+                          , bool is_evolved 
+                          , bool need_fluxes
+                          , std::string const & bc_type )
+{
+    using namespace detail ; 
+    if( need_fluxes ) {
+        if( first_flux == -1 ){
+            ASSERT(num_vars == 0,
+                   "The first registered evolved variable"
+                   " must be a flux variable." ) ; 
+            first_flux = num_vars ;
+        } else {
+            ASSERT( last_flux == num_vars - 1,
+                    "Flux variables need to be a contiguous"
+                    " block at the start of the evolved array" ) ; 
+        } 
+        last_flux = num_vars ; 
+        num_fluxes ++ ; 
+    }
+    num_vars++ ; 
+    if( is_evolved ){
+        last_evolved = num_vars; 
+        num_evolved ++ ; 
+        _varnames.push_back(name) ; 
+        _var_bc_types.push_back(bc_type) ; 
+    } else {
+        num_auxiliary ++ ; 
+        _auxnames.push_back(name) ; 
+        _aux_bc_types.push_back(bc_type) ;
+    }
 
+    return  is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
+}
 
-/**
- * @brief Register a variable within Thunder.
- * 
- * @param name Name of the variable.
- * @param staggered Staggering of variable in each direction.
- * @param need_ghostzones Whether the variable needs to be reconstructed.
- * @param is_evolved Whether the variable is evolved.
- * @param need_fluxes Whether the variables needs fluxes. 
- * @return size_t Index of the variable in respective state array.
- */
-static int register_variable(  std::string const& name
-                                , std::array<bool, THUNDER_NSPACEDIM> staggered  
-                                , bool need_ghostzones 
-                                , bool is_evolved 
-                                , bool need_fluxes
-                                , std::string const & bc_type 
-                                , bool is_vector
-                                , bool is_tensor
-                                , std::string const& vec_name ) 
+static int register_staggered_variable( std::string const& name
+                                      , bool is_evolved 
+                                      , bool need_fluxes
+                                      , std::string const & bc_type 
+                                      , std::array<bool,THUNDER_NSPACEDIM> const& staggering )
+{
+    using namespace detail ; 
+    num_vars++;
+    int nstagger = 0 ; 
+    for( int idim=0; idim<THUNDER_NSPACEDIM; ++idim) nstagger += int(staggering[idim]) ;
+    if( nstagger == 1 ) {
+        if( is_evolved ) {
+            _face_staggered_varnames.push_back(name) ; 
+            _face_vars_bc_types.push_back(bc_type) ;
+            return (num_face_staggered_vars ++) - 1 ; 
+        } else {
+            _face_staggered_auxnames.push_back(name) ; 
+            _face_aux_bc_types.push_back(bc_type) ; 
+            return (num_face_staggered_aux ++) - 1 ; 
+        }
+    } else if (nstagger == 2) {
+        if( is_evolved ) {
+            _edge_staggered_varnames.push_back(name) ; 
+            _edge_vars_bc_types.push_back(bc_type) ; 
+            return (num_edge_staggered_vars ++) - 1 ; 
+        } else {
+            _face_staggered_auxnames.push_back(name) ; 
+            _edge_aux_bc_types.push_back(bc_type) ; 
+            return (num_edge_staggered_aux ++) - 1 ; 
+        }
+    } else if (nstagger == 3) {
+        if( is_evolved ) {
+            _corner_staggered_varnames.push_back(name) ; 
+            _corner_vars_bc_types.push_back(bc_type) ; 
+            return (num_corner_staggered_vars ++) - 1 ; 
+        } else {
+            _corner_staggered_auxnames.push_back(name) ; 
+            _corner_aux_bc_types.push_back(bc_type) ; 
+            return (num_corner_staggered_aux ++) - 1 ; 
+        }
+    } else {
+        ERROR("Something wrong!") ; 
+    }
+}
+
+static int register_vector( std::string const& name
+                          , bool is_evolved 
+                          , bool need_fluxes
+                          , int num_comp
+                          , std::string const & bc_type )
 {
     using namespace detail ; 
 
-    variable_properties_t<THUNDER_NSPACEDIM> props ;
-    props.staggering = staggered ; 
-    props.has_gz     = is_evolved ; 
-    props.is_vector  = is_vector  ; 
-    props.is_tensor  = is_tensor  ; 
-    props.name   = (is_tensor || is_vector) ?  vec_name : name  ;
 
-    num_vector_vars += static_cast<int>(is_vector) ; 
-    num_tensor_vars += static_cast<int>(is_tensor) ; 
+    if( need_fluxes ) {
+        if( first_flux == -1 ){
+            ASSERT(num_vars == 0,
+                   "The first registered evolved variable"
+                   " must be a flux variable." ) ; 
+            first_flux = num_vars ;
+        } else {
+            ASSERT( last_flux == num_vars - 1,
+                    "Flux variables need to be a contiguous"
+                    " block at the start of the evolved array" ) ; 
+        } 
+        last_flux = num_vars ; 
+        num_fluxes ++ ; 
+    }
+    num_vars++ ; 
+    if( is_evolved ){
+        _varnames.push_back(name) ;
+        if( num_comp == 0 ) {
+            _vector_var_indices.push_back(num_evolved) ; 
+        }
+        last_evolved = num_vars; 
+        num_evolved ++ ; 
+        _var_bc_types.push_back(bc_type) ; 
+    } else {
+        _auxnames.push_back(name) ; 
+        num_auxiliary ++ ; 
+        _aux_bc_types.push_back(bc_type) ;
+    }
+
+    return  is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
+}
+
+static int register_tensor( std::string const& name
+                          , bool is_evolved 
+                          , bool need_fluxes
+                          , int num_comp
+                          , std::string const & bc_type )
+{
+    using namespace detail ; 
+
 
     if( need_fluxes ) {
         if( first_flux == -1 ){
@@ -290,18 +483,68 @@ static int register_variable(  std::string const& name
     }
     num_vars++ ; 
     if( is_evolved ){
+        _varnames.push_back(name) ; 
+        if( num_comp == 0 ) {
+            _tensor_var_indices.push_back(num_evolved) ; 
+        }
         last_evolved = num_vars; 
         num_evolved ++ ; 
-        _varnames.push_back( name ) ; 
-        _varprops[name] = props ; 
         _var_bc_types.push_back(bc_type) ; 
     } else {
+        _auxnames.push_back(name) ; 
         num_auxiliary ++ ; 
-        _auxnames.push_back( name )   ; 
-        _auxprops[name] = props ;
+        _aux_bc_types.push_back(bc_type) ;
     }
 
     return  is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
 }
+}
 
+
+/**
+ * @brief Register a variable within Thunder.
+ * 
+ * @param name Name of the variable.
+ * @param staggered Staggering of variable in each direction.
+ * @param need_prolongation Whether the variable needs to be prlongated/restricted.
+ * @param is_evolved Whether the variable is evolved.
+ * @param need_fluxes Whether the variables needs fluxes. 
+ * @return size_t Index of the variable in respective state array.
+ */
+static int register_variable(     std::string const& name
+                                , std::array<bool, THUNDER_NSPACEDIM> staggering  
+                                , bool need_prolongation
+                                , bool is_evolved 
+                                , bool need_fluxes
+                                , std::string const & bc_type 
+                                , bool is_vector
+                                , bool is_tensor
+                                , int comp_num
+                                , std::string const& vec_name ) 
+{
+    using namespace detail ; 
+
+    variable_properties_t<THUNDER_NSPACEDIM> props ;
+    props.staggering = staggering ; 
+    props.has_gz     = is_evolved ; 
+    props.is_vector  = is_vector  ; 
+    props.is_tensor  = is_tensor  ; 
+    props.name   = (is_tensor || is_vector) ?  vec_name : name  ;
+
+    num_vector_vars += static_cast<int>(is_vector) ; 
+    num_tensor_vars += static_cast<int>(is_tensor) ; 
+    bool is_staggered = false ; 
+    for( auto const & s: staggering ) is_staggered |= s ; 
+    if( is_staggered ) {
+        return register_staggered_variable(name,is_evolved,need_fluxes,bc_type,staggering) ; 
+    } else {
+        if ( is_vector ) {
+            return register_vector(name,is_evolved,need_fluxes,comp_num,bc_type) ; 
+        } else if ( is_tensor ) {
+            return register_tensor(name,is_evolved,need_fluxes,comp_num,bc_type) ; 
+        } else {
+            return register_scalar(name,is_evolved,need_fluxes,bc_type) ; 
+        }   
+    }
+}
 } } /* namespace thunder::variables */

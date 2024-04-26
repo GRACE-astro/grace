@@ -69,6 +69,14 @@ public:
     getcoords() { return _coords ; } 
     //*****************************************************************************************************
     /**
+     * @brief Get quadrant coordinates.
+     * 
+     * @return Quadrant coordinates. 
+     */
+    THUNDER_ALWAYS_INLINE staggered_coordinate_arrays_t&
+    getstaggeredcoords() { return _staggered_coords ; } 
+    //*****************************************************************************************************
+    /**
      * @brief Get inverse spacing of cell coordinates.
      * 
      * @return Spacing of cell coordinates  
@@ -154,6 +162,10 @@ private:
     var_array_t<THUNDER_NSPACEDIM> _state_p ;     //!< Second timelevel, allocated at all times 
     var_array_t<THUNDER_NSPACEDIM> _halo    ;     //!< Halo exchange buffer, allocated when necessary
     var_array_t<THUNDER_NSPACEDIM> _aux     ;     //!< Auxiliary variables  
+    staggered_coordinate_arrays_t _staggered_coords ; //!< Staggered coordinate utilities (surfaces, lengths) 
+    staggered_variable_arrays_t   _staggered_vars   ; //!< Staggered variable arrays 
+    staggered_variable_arrays_t   _staggered_vars_p ; //!< Staggered scratch state
+    staggered_variable_arrays_t   _staggered_aux    ; //!< Auxiliary variables on staggered grids.
     //*****************************************************************************************************
     friend class utils::singleton_holder<variable_list_impl_t, memory::default_create> ; //!< Give access 
     friend class memory::new_delete_creator<variable_list_impl_t, memory::new_delete_allocator> ; //!< Give access 

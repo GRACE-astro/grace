@@ -41,7 +41,8 @@ namespace thunder {
 void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>&
                           , scalar_array_t<THUNDER_NSPACEDIM>&
                           , scalar_array_t<THUNDER_NSPACEDIM>&
-                          , cell_vol_array_t<THUNDER_NSPACEDIM>&) ; 
+                          , cell_vol_array_t<THUNDER_NSPACEDIM>&
+                          , staggered_coordinate_arrays_t& ) ; 
 /*****************************************************************************************/
 } /* namespace thunder */ 
 

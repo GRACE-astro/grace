@@ -88,7 +88,8 @@ void initialize(int& argc, char* argv[])
             thunder::variable_list::get().getcoords()
         ,   thunder::variable_list::get().getinvspacings()
         ,   thunder::variable_list::get().getspacings()
-        ,   thunder::variable_list::get().getvolumes()) ; 
+        ,   thunder::variable_list::get().getvolumes()
+        ,   thunder::variable_list::get().getstaggeredcoords() ) ; 
     std::cout << "After fill coordinates \n" ;  
 }
 

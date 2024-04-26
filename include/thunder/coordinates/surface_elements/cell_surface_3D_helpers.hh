@@ -1,5 +1,5 @@
 /**
- * @file cell_surface_3d_helpers.hh
+ * @file cell_surface_3D_helpers.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
  * @date 2024-04-17
@@ -56,23 +56,6 @@ cell_surface_xi_3D_log_aux(double ri, double ro, double zeta, double eta, double
    atan((-1 + 2*eta)/sqrt(2 + 4*(-1 + xi)*xi)) ; 
 }
 
-double THUNDER_ALWAYS_INLINE 
-get_cell_surface_zeta_3D_log(double ri, double ro, double zeta0, double eta0, double xi0, double deta, double dxi) {
-    return (cell_surface_zeta_3D_log_aux(ri,ro,zeta0,eta0,xi0) + cell_surface_zeta_3D_log_aux(ri,ro,zeta0,eta0+deta,xi0+dxi))
-    - (cell_surface_zeta_3D_log_aux(ri,ro,zeta0,eta0+deta,xi0) + cell_surface_zeta_3D_log_aux(ri,ro,zeta0,eta0,xi0+dxi)) ; 
-}
-
-double THUNDER_ALWAYS_INLINE 
-get_cell_surface_eta_3D_log(double ri, double ro, double zeta0, double eta0, double xi0, double dzeta, double dxi) {
-    return (cell_surface_eta_3D_log_aux(ri,ro,zeta0,eta0,xi0) + cell_surface_eta_3D_log_aux(ri,ro,zeta0+dzeta,eta0,xi0+dxi))
-    - (cell_surface_eta_3D_log_aux(ri,ro,zeta0+dzeta,eta0,xi0) + cell_surface_eta_3D_log_aux(ri,ro,zeta0,eta0,xi0+dxi)) ; 
-}
-
-double THUNDER_ALWAYS_INLINE 
-get_cell_surface_zxi_3D_log(double ri, double ro, double zeta0, double eta0, double xi0, double dzeta, double deta) {
-    return (cell_surface_xi_3D_log_aux(ri,ro,zeta0,eta0,xi0) + cell_surface_xi_3D_log_aux(ri,ro,zeta0+dzeta,eta0+deta,xi0))
-    - (cell_surface_xi_3D_log_aux(ri,ro,zeta0,eta0+deta,xi0) + cell_surface_xi_3D_log_aux(ri,ro,zeta0+dzeta,eta0,xi0)) ; 
-}
 /*******************************************************************************************************************************************************/
 /*******************************************************************************************************************************************************/
 /*                                              NON LOGARITHMIC RADIUS DISTRIBUTION                                                                    */
@@ -132,18 +115,18 @@ cell_surface_xi_3D_int_aux(double ri, double ro, double zeta, double eta, double
      pow((1 + 2*(-1 + xi)*xi)*pow(ro - ri*pow(3 + 4*(-1 + eta)*eta + 4*(-1 + xi)*xi,0.5),2)*
        pow(ro*zeta + ri*(pow(3 + 4*(-1 + eta)*eta + 4*(-1 + xi)*xi,0.5) - zeta*pow(3 + 4*(-1 + eta)*eta + 4*(-1 + xi)*xi,0.5)),2),-0.5)*math::sgn(-0.5 + eta))/2.; 
 }
-
+/* External */
 double THUNDER_ALWAYS_INLINE 
-cell_surface_zeta_3D_ext(double ri, double ro, double zeta, double eta0, double xi0, double deta, double dxi)
+get_cell_surface_zeta_3D_ext(double ri, double ro, double zeta, double eta0, double xi0, double deta, double dxi)
 {
     auto const func = [&] ( double eta, double xi ) {
         return cell_surface_zeta_3D_ext_aux(ri,ro,zeta,eta,xi) ; 
     } ; 
-    return utils::nd_quadrature_integrate<2,5,double>({eta0,xi0},{eta0+deta,xi0+dxi},func) ; 
+    return utils::eval_2d_primitive(eta0,xi0,eta0+deta,xi0+dxi,func) ; 
 }
 
 double THUNDER_ALWAYS_INLINE 
-cell_surface_eta_3D_ext(double ri, double ro, double zeta0, double eta, double xi0, double dzeta, double dxi)
+get_cell_surface_eta_3D_ext(double ri, double ro, double zeta0, double eta, double xi0, double dzeta, double dxi)
 {
     auto const func = [&] ( double zeta, double xi ) {
         return cell_surface_eta_3D_ext_aux(ri,ro,zeta,eta,xi) ; 
@@ -152,25 +135,27 @@ cell_surface_eta_3D_ext(double ri, double ro, double zeta0, double eta, double x
 }
 
 double THUNDER_ALWAYS_INLINE 
-cell_surface_xi_3D_ext(double ri, double ro, double zeta0, double eta0, double xi, double dzeta, double deta)
+get_cell_surface_xi_3D_ext(double ri, double ro, double zeta0, double eta0, double xi, double dzeta, double deta)
 {
     auto const func = [&] ( double zeta, double eta ) {
         return cell_surface_xi_3D_ext_aux(ri,ro,zeta,eta,xi) ; 
     } ; 
     return utils::eval_2d_primitive(zeta0,eta0,zeta0+dzeta,eta0+deta,func) ; 
 }
-
+/* Internal */
+template<size_t N>
 double THUNDER_ALWAYS_INLINE 
-cell_surface_zeta_3D_int(double ri, double ro, double zeta, double eta0, double xi0, double deta, double dxi)
+get_cell_surface_zeta_3D_int(double ri, double ro, double zeta, double eta0, double xi0, double deta, double dxi)
 {
     auto const func = [&] ( double eta, double xi ) {
         return cell_surface_zeta_3D_int_aux(ri,ro,zeta,eta,xi) ; 
     } ; 
-    return utils::eval_2d_primitive(eta0,xi0,eta0+deta,xi0+dxi,func) ; 
+    return utils::nd_quadrature_integrate<2,N,double>({eta0,xi0},{eta0+deta,xi0+dxi},func) ; 
 }
 
+
 double THUNDER_ALWAYS_INLINE 
-cell_surface_eta_3D_int(double ri, double ro, double zeta0, double eta, double xi0, double dzeta, double dxi)
+get_cell_surface_eta_3D_int(double ri, double ro, double zeta0, double eta, double xi0, double dzeta, double dxi)
 {
     auto const func = [&] ( double zeta, double xi ) {
         return cell_surface_eta_3D_int_aux(ri,ro,zeta,eta,xi) ; 
@@ -179,15 +164,41 @@ cell_surface_eta_3D_int(double ri, double ro, double zeta0, double eta, double x
 }
 
 double THUNDER_ALWAYS_INLINE 
-cell_surface_xi_3D_int(double ri, double ro, double zeta0, double eta0, double xi, double dzeta, double deta)
+get_cell_surface_xi_3D_int(double ri, double ro, double zeta0, double eta0, double xi, double dzeta, double deta)
 {
     auto const func = [&] ( double zeta, double eta ) {
         return cell_surface_xi_3D_int_aux(ri,ro,zeta,eta,xi) ; 
     } ; 
     return utils::eval_2d_primitive(zeta0,eta0,zeta0+dzeta,eta0+deta,func) ; 
 }
+/* Logarithmic */
+double THUNDER_ALWAYS_INLINE 
+get_cell_surface_zeta_3D_log(double ri, double ro, double zeta, double eta0, double xi0, double deta, double dxi)
+{
+    auto const func = [&] ( double eta, double xi ) {
+        return cell_surface_zeta_3D_log_aux(ri,ro,zeta,eta,xi) ; 
+    } ; 
+    return utils::eval_2d_primitive(eta0,xi0,eta0+deta,xi0+dxi,func) ; 
+}
 
 
+double THUNDER_ALWAYS_INLINE 
+get_cell_surface_eta_3D_log(double ri, double ro, double zeta0, double eta, double xi0, double dzeta, double dxi)
+{
+    auto const func = [&] ( double zeta, double xi ) {
+        return cell_surface_eta_3D_log_aux(ri,ro,zeta,eta,xi) ; 
+    } ; 
+    return utils::eval_2d_primitive(zeta0,xi0,zeta0+dzeta,xi0+dxi,func) ; 
+}
+
+double THUNDER_ALWAYS_INLINE 
+get_cell_surface_xi_3D_log(double ri, double ro, double zeta0, double eta0, double xi, double dzeta, double deta)
+{
+    auto const func = [&] ( double zeta, double eta ) {
+        return cell_surface_xi_3D_log_aux(ri,ro,zeta,eta,xi) ; 
+    } ; 
+    return utils::eval_2d_primitive(zeta0,eta0,zeta0+dzeta,eta0+deta,func) ; 
+}
 }}
 
 #endif 

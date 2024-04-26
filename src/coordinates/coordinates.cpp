@@ -52,7 +52,8 @@ namespace thunder {
 void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
                           , scalar_array_t<THUNDER_NSPACEDIM>& ispacing
                           , scalar_array_t<THUNDER_NSPACEDIM>& spacing
-                          , cell_vol_array_t<THUNDER_NSPACEDIM>& volume) 
+                          , cell_vol_array_t<THUNDER_NSPACEDIM>& volume
+                          , staggered_coordinate_arrays_t& surfaces_and_edges) 
 {
     using namespace thunder ; 
     auto& forest = thunder::amr::forest::get()        ; 
@@ -69,6 +70,21 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
     auto h_idx = Kokkos::create_mirror_view(ispacing) ; 
     auto h_dx  = Kokkos::create_mirror_view(spacing) ; 
     auto h_vol = Kokkos::create_mirror_view(volume) ; 
+    
+    auto h_surfx = Kokkos::create_mirror_view(surfaces_and_edges.cell_face_surfaces_x) ; 
+    auto h_surfy = Kokkos::create_mirror_view(surfaces_and_edges.cell_face_surfaces_y) ; 
+    auto h_surfz = Kokkos::create_mirror_view(surfaces_and_edges.cell_face_surfaces_z) ; 
+
+    auto h_edgexy = Kokkos::create_mirror_view(surfaces_and_edges.cell_edge_lengths_xy) ; 
+    auto h_edgeyz = Kokkos::create_mirror_view(surfaces_and_edges.cell_edge_lengths_yz) ; 
+    auto h_edgexz = Kokkos::create_mirror_view(surfaces_and_edges.cell_edge_lengths_xz) ; 
+
+    decltype(h_surfx) surf[THUNDER_NSPACEDIM] = {
+        VEC(h_surfx, h_surfy, h_surfz)
+    } ; 
+    decltype(h_edgexy) edge[THUNDER_NSPACEDIM] = {
+        VEC(h_edgeyz,h_edgexz,h_edgexy) 
+    } ; 
 
     auto clock_start = std::chrono::high_resolution_clock::now() ;
     double avg_time = 0. ;  
@@ -124,6 +140,32 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
                     ,<< ", " << h_coords(2,iquad) + dz_quad * (k-ngz)) << ", " << dx_quad 
             ) ;
         }
+
+        for(int idim=0; idim<THUNDER_NSPACEDIM; ++idim) { 
+            EXPR( for(size_t i=0; i<nx+2*ngz+utils::delta(0,idim); ++i), for(size_t j=0; j<ny+2*ngz+utils::delta(1,idim); ++j), for(size_t k=0; k<nz+2*ngz+utils::delta(2,idim); ++k) ) 
+            {
+                surf[idim](VEC(i,j,k),iquad) = coord_system.get_cell_face_surface(
+                    {VEC( qcoords[0] * dx_lev + (int(i)-ngz) * dx_quad
+                      , qcoords[1] * dx_lev + (int(j)-ngz) * dy_quad
+                      , qcoords[2] * dx_lev + (int(k)-ngz) * dz_quad) }
+                    , idim
+                    , itree 
+                    , {VEC(dx_quad,dy_quad,dz_quad)}
+                    , true ) ; 
+            }
+            EXPR( for(size_t i=0; i<nx+2*ngz+1-utils::delta(0,idim); ++i), for(size_t j=0; j<ny+2*ngz+1-utils::delta(1,idim); ++j), for(size_t k=0; k<nz+2*ngz+1-utils::delta(2,idim); ++k) ) 
+            {
+                edge[idim](VEC(i,j,k),iquad) = coord_system.get_cell_edge_length(
+                    {VEC( qcoords[0] * dx_lev + (int(i)-ngz) * dx_quad
+                      , qcoords[1] * dx_lev + (int(j)-ngz) * dy_quad
+                      , qcoords[2] * dx_lev + (int(k)-ngz) * dz_quad) }
+                    , idim
+                    , itree 
+                    , {VEC(dx_quad,dy_quad,dz_quad)}
+                    , true ) ; 
+            }
+
+        }
         auto thread_clock_end = std::chrono::high_resolution_clock::now() ;
         avg_time += double(std::chrono::duration_cast <std::chrono::microseconds> (thread_clock_end - thread_clock_start).count());
     } /* quadrant loop */
@@ -136,6 +178,12 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
     Kokkos::deep_copy(ispacing,h_idx) ; 
     Kokkos::deep_copy(spacing,h_dx) ; 
     Kokkos::deep_copy(volume,h_vol) ;
+    Kokkos::deep_copy(surfaces_and_edges.cell_face_surfaces_x, h_surfx) ; 
+    Kokkos::deep_copy(surfaces_and_edges.cell_face_surfaces_y, h_surfy) ; 
+    Kokkos::deep_copy(surfaces_and_edges.cell_face_surfaces_z, h_surfz) ; 
+    Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_xy, h_edgexy) ; 
+    Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_xz, h_edgexz) ; 
+    Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_yz, h_edgeyz) ; 
     clock_end = std::chrono::high_resolution_clock::now() ; 
     currentTime = float(std::chrono::duration_cast <std::chrono::microseconds> (clock_end - clock_start).count());
     THUNDER_INFO(1, "AMR", "Copying coordinates to Device took " << currentTime << " mus.") ;

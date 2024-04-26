@@ -69,6 +69,10 @@ variable_list_impl_t::variable_list_impl_t()
     , _state_p("scratch_state", VEC(0,0,0),0,0)
     , _halo("halo", VEC(0,0,0),0,0)
     , _aux("auxiliaries", VEC(0,0,0),0,0)
+    , _staggered_coords()
+    , _staggered_vars() 
+    , _staggered_vars_p() 
+    , _staggered_aux() 
 {
     using namespace thunder; 
     /* Get param parser and forest object */
@@ -116,6 +120,25 @@ variable_list_impl_t::variable_list_impl_t()
                    , variables::detail::num_auxiliary
                    , nq 
                    ) ;
-    /* all done */}
+    
+    _staggered_coords.realloc(VEC(nx,ny,nz),ngz,nq) ; 
+    _staggered_vars.realloc( VEC(nx,ny,nz),ngz,nq
+                           , variables::detail::num_face_staggered_vars
+                           , variables::detail::num_edge_staggered_vars 
+                           , variables::detail::num_corner_staggered_vars) ;
+    _staggered_vars_p.realloc( VEC(nx,ny,nz),ngz,nq
+                             , variables::detail::num_face_staggered_vars
+                             , variables::detail::num_edge_staggered_vars 
+                             , variables::detail::num_corner_staggered_vars) ;
+    _staggered_aux.realloc( VEC(nx,ny,nz),ngz,nq
+                          , variables::detail::num_face_staggered_aux
+                          , variables::detail::num_edge_staggered_aux
+                          , variables::detail::num_corner_staggered_aux) ;
+    
+    ASSERT(variables::detail::_varnames.size() == variables::detail::num_evolved, 
+    "Num evolved is " << variables::detail::num_evolved << " but varnames.size() is " << variables::detail::_varnames.size() ) ; 
+
+    /* all done */
+}
 
 } /* namespace thunder */
