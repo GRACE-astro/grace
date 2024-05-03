@@ -47,6 +47,22 @@ namespace thunder { namespace variables {
  */
 //*****************************************************************************************************
 /**
+ * @brief Enum for variable types in Thunder.
+ * \ingroup variables
+ */
+enum thunder_variable_types {
+    EVOLVED=0,
+    AUXILIARY,
+    FACE_STAGGERED,
+    FACE_STAGGERED_AUXILIARY,
+    EDGE_STAGGERED,
+    EDGE_STAGGERED_AUXILIARY,
+    CORNER_STAGGERED,
+    CORNER_STAGGERED_AUXILIARY,
+    N_THUNDER_VARIABLE_TYPES 
+} ; 
+//*****************************************************************************************************
+/**
 * @brief Register a variable within Thunder.
 * \ingroup variables
 * @param name            Name of the variable.

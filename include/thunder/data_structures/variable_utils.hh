@@ -29,14 +29,18 @@
 
 #include <string> 
 #include <cstdlib> 
+#include <thunder/data_structures/variable_indices.hh>
 
 namespace thunder { namespace variables {
 
 int 
 get_n_evolved() ; 
 
+int 
+get_n_auxiliary() ; 
+
 std::string
-get_bc_type( int64_t var_idx )  ;
+get_bc_type( int64_t var_idx, size_t const& var_type = thunder::variables::EVOLVED)  ;
 
 std::string
 get_var_name(int64_t var_idx)   ; 

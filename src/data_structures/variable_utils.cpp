@@ -28,6 +28,8 @@
 #include <thunder/data_structures/variable_properties.hh>
 #include <thunder/data_structures/variable_utils.hh>
 #include <thunder/errors/assert.hh>
+#include <thunder/errors/error.hh> 
+
 namespace thunder { namespace variables  {
 
 int 
@@ -36,12 +38,51 @@ get_n_evolved()
     return detail::num_evolved ;
 } 
 
-std::string 
-get_bc_type(int64_t varidx)
+int 
+get_n_auxiliary()
 {
-    ASSERT_DBG( varidx < detail::_var_bc_types.size(), 
-              "Requested variable " << varidx << " does not have registered BCs."); 
-    return detail::_var_bc_types[varidx]  ; 
+    return detail::num_auxiliary ;
+} 
+
+
+std::string 
+get_bc_type(int64_t varidx, size_t const& var_type)
+{
+    if ( var_type == EVOLVED ) {
+        ASSERT_DBG( varidx < detail::_var_bc_types.size(), 
+                "Requested variable " << varidx << " does not have registered BCs."); 
+        return detail::_var_bc_types[varidx]  ;
+    } else if ( var_type == AUXILIARY ) {
+        ASSERT_DBG( varidx < detail::_aux_bc_types.size(), 
+                "Requested auxiliary variable " << varidx << " does not have registered BCs."); 
+        return detail::_aux_bc_types[varidx]  ;
+    } else if ( var_type == FACE_STAGGERED ) {
+        ASSERT_DBG( varidx < detail::_face_vars_bc_types.size(), 
+                "Requested face-staggered variable " << varidx << " does not have registered BCs."); 
+        return detail::_face_vars_bc_types[varidx]  ;
+    } else if ( var_type == FACE_STAGGERED_AUXILIARY) {
+        ASSERT_DBG( varidx < detail::_face_aux_bc_types.size(), 
+                "Requested face-staggered auxiliary variable " << varidx << " does not have registered BCs."); 
+        return detail::_face_aux_bc_types[varidx]  ;
+    } else if ( var_type == EDGE_STAGGERED) {
+        ASSERT_DBG( varidx < detail::_edge_vars_bc_types.size(), 
+                "Requested edge-staggered variable " << varidx << " does not have registered BCs."); 
+        return detail::_edge_vars_bc_types[varidx]  ;
+    } else if ( var_type == EDGE_STAGGERED_AUXILIARY) {
+        ASSERT_DBG( varidx < detail::_edge_aux_bc_types.size(), 
+                "Requested edge-staggered auxiliary variable " << varidx << " does not have registered BCs."); 
+        return detail::_edge_aux_bc_types[varidx]  ;
+    } else if ( var_type == CORNER_STAGGERED) {
+        ASSERT_DBG( varidx < detail::_corner_vars_bc_types.size(), 
+                "Requested corner-staggered variable " << varidx << " does not have registered BCs."); 
+        return detail::_corner_vars_bc_types[varidx]  ;
+    } else if ( var_type == CORNER_STAGGERED_AUXILIARY) {
+        ASSERT_DBG( varidx < detail::_corner_aux_bc_types.size(), 
+                "Requested corner-staggered auxiliary variable " << varidx << " does not have registered BCs."); 
+        return detail::_corner_aux_bc_types[varidx]  ;
+    } else {
+        ERROR("Unrecognized variable type in get_bc_type.") ; 
+    }
 }
 
 std::vector<int> 

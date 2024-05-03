@@ -25,6 +25,10 @@
  */
 
 #include <thunder/amr/bc_helpers.hh>
+#include <thunder/amr/prolongation_kernels.tpp> 
+#include <thunder/amr/restriction_kernels.tpp> 
+#include <thunder/utils/prolongation.hh>
+#include <thunder/utils/limiters.hh> 
 #include <thunder/amr/boundary_conditions.hh>
 #include <thunder/amr/p4est_headers.hh>
 #include <thunder/amr/bc_helpers.tpp>
@@ -215,7 +219,9 @@ void thunder_iterate_faces( p4est_iter_face_info_t * info
 
 
 void copy_interior_ghostzones(
-    Kokkos::vector<simple_face_info_t>& interior_faces
+      thunder::var_array_t<THUNDER_NSPACEDIM>& vars
+    , thunder::var_array_t<THUNDER_NSPACEDIM>& halo 
+    , Kokkos::vector<simple_face_info_t>& interior_faces
 )
 {
     using namespace thunder; 
@@ -225,14 +231,9 @@ void copy_interior_ghostzones(
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int64_t ngz = amr::get_n_ghosts() ;
     int64_t nq  = amr::get_local_num_quadrants() ;
-    auto& vars = variable_list::get().getstate() ; 
-    auto& halo = variable_list::get().gethalo()  ;
     int nvars  = variables::get_n_evolved()      ;
     auto const n_faces = interior_faces.size()   ;
     auto& d_face_info = interior_faces.d_view    ; 
-    /* get coord utils */
-    auto& coord_system = coordinate_system::get() ; 
-    auto device_coord_system = coord_system.get_device_coord_system() ;
 
     TeamPolicy<default_execution_space> 
         policy( n_faces, AUTO() ) ; 
@@ -363,18 +364,22 @@ void copy_interior_ghostzones(
 
 template< typename InterpT > 
 void interp_hanging_ghostzones(
-    Kokkos::vector<hanging_face_info_t>& hanging_faces
+      thunder::var_array_t<THUNDER_NSPACEDIM>& state
+    , thunder::var_array_t<THUNDER_NSPACEDIM>& halo 
+    , thunder::scalar_array_t<THUNDER_NSPACEDIM>& coords 
+    , thunder::scalar_array_t<THUNDER_NSPACEDIM>& halo_coords 
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>& vols 
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>& halo_vols 
+    , Kokkos::vector<hanging_face_info_t>& hanging_faces
 ) 
 {
     using namespace thunder ;
     using namespace Kokkos  ; 
 
-    size_t nx,ny,nz ; 
+    int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    int64_t ngz = amr::get_n_ghosts() ;
+    int ngz = amr::get_n_ghosts() ;
     int64_t nq  = amr::get_local_num_quadrants() ;
-    auto& vars = variable_list::get().getstate() ; 
-    auto& halo = variable_list::get().gethalo()  ; 
     int const nvars = variables::get_n_evolved() ;
     auto const n_faces = hanging_faces.size()   ;
     auto& d_face_info = hanging_faces.d_view    ; 
@@ -385,8 +390,17 @@ void interp_hanging_ghostzones(
         policy( n_faces, AUTO() ) ; 
     using member_t = decltype(policy)::member_type ;
 
+    ghostzone_restrictor_t<decltype(state),decltype(vols)> restriction_kernel{
+        ngz, state, halo, vols, halo_vols 
+    } ; 
+
+    /*************************************************/
+    /* Kernel 1:                                     */
+    /* Restrict data onto coarse quadrants from fine */
+    /* neighboring quadrants.                        */
+    /*************************************************/
     parallel_for
-    (             THUNDER_EXECUTION_TAG("AMR","prolongate_restrict_hanging_faces")
+    (             THUNDER_EXECUTION_TAG("AMR","restrict_hanging_faces")
                 , policy 
                 , KOKKOS_LAMBDA( const member_t& team )
         {
@@ -406,10 +420,96 @@ void interp_hanging_ghostzones(
             int64_t qid_e    =  d_face_info(team.league_rank()).qid_e        ;
             #endif 
             
-            int64_t n1 = (which_face_a/2==0) * ny + ((which_face_a/2==1) * nx) + ((which_face_a/2==2) * nx) ;
-            int64_t n2 = (which_face_a/2==0) * nz + ((which_face_a/2==1) * nz) + ((which_face_a/2==2) * ny) ;
-            
-            auto& view_a = (is_ghost_a) ? halo : vars ;
+            int64_t ng = (which_face_b/2==0) * nx + ((which_face_b/2==1) * ny) + ((which_face_b/2==2) * nz) ;
+            int64_t n1 = (which_face_b/2==0) * ny + ((which_face_b/2==1) * nx) + ((which_face_b/2==2) * nx) ;
+            int64_t n2 = (which_face_b/2==0) * nz + ((which_face_b/2==1) * nz) + ((which_face_b/2==2) * ny) ;
+            auto& view_a = is_ghost_a ? halo : state ; 
+            int fine_view_is_ghost[] = {
+                    (is_ghost_b) ,
+                    (is_ghost_c) ,
+                    #ifdef THUNDER_3D 
+                    (is_ghost_d) ,
+                    (is_ghost_e) 
+                    #endif
+            } ; 
+
+            int64_t fine_iqs[THUNDER_FACE_CHILDREN]  =
+                {
+                    qid_b, qid_c
+                    #ifdef THUNDER_3D 
+                    ,qid_d, qid_e
+                    #endif
+                } ; 
+
+            TeamThreadMDRange<Rank<THUNDER_NSPACEDIM+1>,member_t>
+                team_range( team, VEC(ngz, n1,n2), nvars) ; 
+            parallel_for( team_range
+                        , KOKKOS_LAMBDA(VEC(int& ig, int& j, int& k), int& ivar)
+                    { 
+                        /* Compute indices of cell to be filled */
+                        EXPR( 
+                        int const i0 = 
+                            (which_face_a == 0) * (ig)
+                        +   (which_face_a == 1) * (nx + ngz + ig)
+                        +   (which_face_a/2!=0) * (j+ngz); ,
+                        int const j0 = EXPR(
+                            (which_face_a == 2) * (ig)
+                        +   (which_face_a == 3) * (ny + ngz + ig),
+                        +   (which_face_a/2==0) * (j+ngz), 
+                        +   (which_face_a/2==2) * (k+ngz)); ,
+                        int const k0 = 
+                            (which_face_a == 4) * (ig)
+                        +   (which_face_a == 5) * (nz + ngz + ig)
+                        +   (which_face_a/2!=2) * (k+ngz) ; 
+                        )  
+                        /* Call restriction operator on fine data */ 
+                        view_a(VEC(i0,j0,k0),ivar,qid_a) = 
+                            restriction_kernel(
+                                VEC(ig,j,k)
+                            ,   VEC(ng,n1,n2)
+                            ,   fine_iqs
+                            ,   ivar
+                            ,   which_face_b
+                            ,   polarity
+                            ,   fine_view_is_ghost 
+                            ) ; 
+                    } );
+
+        }
+    )   ;
+    ghostzone_prolongator_t<InterpT, decltype(state), decltype(coords), decltype(vols)>
+        prolongation_kernel{
+              VEC(nx,ny,nz), ngz 
+            , state, halo 
+            , vols, halo_vols 
+            , coords, halo_coords
+        } ; 
+    /*************************************************/
+    /* Kernel 2:                                     */
+    /* Prolongate data onto fine quadrants ghost     */
+    /* zones from coarse neighboring quadrants.      */
+    /*************************************************/
+    parallel_for
+    (             THUNDER_EXECUTION_TAG("AMR","prolongate_hanging_faces")
+                , policy 
+                , KOKKOS_LAMBDA( const member_t& team )
+        {
+            int polarity     =  d_face_info(team.league_rank()).has_polarity_flip ; 
+            int is_ghost_a   =  d_face_info(team.league_rank()).is_ghost_a   ; 
+            int is_ghost_b   =  d_face_info(team.league_rank()).is_ghost_b   ; 
+            int is_ghost_c   =  d_face_info(team.league_rank()).is_ghost_a   ; 
+            int which_face_coarse =  d_face_info(team.league_rank()).which_face_a ; 
+            int which_face_fine   =  d_face_info(team.league_rank()).which_face_b ; 
+            int64_t qid_a    =  d_face_info(team.league_rank()).qid_a        ;
+            int64_t qid_b    =  d_face_info(team.league_rank()).qid_b        ;
+            int64_t qid_c    =  d_face_info(team.league_rank()).qid_c        ; 
+            #ifdef THUNDER_3D 
+            int is_ghost_d   =  d_face_info(team.league_rank()).is_ghost_d   ; 
+            int is_ghost_e   =  d_face_info(team.league_rank()).is_ghost_e   ;
+            int64_t qid_d    =  d_face_info(team.league_rank()).qid_d        ;
+            int64_t qid_e    =  d_face_info(team.league_rank()).qid_e        ;
+            #endif 
+
             int fine_view_is_ghost[] = {
                     (is_ghost_b) ,
                     (is_ghost_c) ,
@@ -426,251 +526,57 @@ void interp_hanging_ghostzones(
                     ,qid_d, qid_e
                     #endif
                 } ; 
+            /* We store the quadrant level for efficiency and to avoid passing         */
+            /* around two different cell spacing arrays.                               */
+            EXPR(
+            double const dx_fine =  1./(1L<<d_face_info(team.league_rank()).level_b)/nx;,
+            double const dy_fine =  1./(1L<<d_face_info(team.league_rank()).level_b)/ny;,
+            double const dz_fine =  1./(1L<<d_face_info(team.league_rank()).level_b)/nz; ) 
+            
+            int64_t n1 = (which_face_fine/2==0) * ny + ((which_face_fine/2==1) * nx) + ((which_face_fine/2==2) * nx) ;
+            int64_t n2 = (which_face_fine/2==0) * nz + ((which_face_fine/2==1) * nz) + ((which_face_fine/2==2) * ny) ;
 
-            
-            double const dx_parent =  1./(1L<<d_face_info(team.league_rank()).level_a)/nx;
-            double const dy_parent =  1./(1L<<d_face_info(team.league_rank()).level_a)/ny;
-            double const dz_parent =  1./(1L<<d_face_info(team.league_rank()).level_a)/nz;
-            
-            double const dx_child =  1./(1L<<d_face_info(team.league_rank()).level_b)/nx;
-            double const dy_child =  1./(1L<<d_face_info(team.league_rank()).level_b)/ny;
-            double const dz_child =  1./(1L<<d_face_info(team.league_rank()).level_b)/nz;
-            
-
-            TeamThreadMDRange<Rank<THUNDER_NSPACEDIM>,member_t>
-                team_range( team, VEC(ngz, n1,n2)) ; 
+            TeamThreadMDRange<Rank<THUNDER_NSPACEDIM+1>,member_t>
+                team_range( team, VEC(ngz, n1,n2), nvars) ; 
             parallel_for( team_range
-                        , KOKKOS_LAMBDA(VEC(int& ig, int& j, int& k))
-                    {
-                        int fine_idx = 
-                            (2*j)/n1 
-                            #ifdef THUNDER_3D 
-                            + (2*k)/n2 * 2 
-                            #endif 
-                        ;
-                        /***********************************************/
-                        /* Coordinate spacings orthogonal and parallel */ 
-                        /* to face in parent quadrant.                 */
-                        /***********************************************/
-                        double dx0 = EXPR( (which_face_a/2==0) * dx_parent,
-                                   + (which_face_a/2==1) * dy_parent, 
-                                   + (which_face_a/2==2) * dz_parent ) ;
-                        double dx1 = EXPR( (which_face_a/2==0) * dy_parent,
-                                   + (which_face_a/2==1) * dx_parent, 
-                                   + (which_face_a/2==2) * dx_parent ) ;
-                        double dx2 = EXPR( (which_face_a/2==0) * dz_parent,
-                                   + (which_face_a/2==1) * dz_parent, 
-                                   + (which_face_a/2==2) * dy_parent ) ; 
-                        /***********************************************/
-                        /* indices in coarse quadrant                  */
-                        /* these are in ghost-zone                     */
-                        /***********************************************/
-                        int i_a = EXPR((which_face_a==0) * 
-                                  ( (!polarity)*ig 
-                                  + (polarity)*(ngz-1-ig) )
-                                + (which_face_a==1) * 
-                                  ( (!polarity)*(nx+ig)  
-                                  + (polarity)*(nx+ngz-1-ig) ),
-                                + (which_face_a/2==1) * (j+ngz), 
-                                + (which_face_a/2==2) * (j+ngz)) ;
-
-                        int j_a = EXPR((which_face_a==2) * 
-                                  ( (!polarity)*ig 
-                                  + (polarity)*(ngz-1-ig) )
-                                + (which_face_a==3) * 
-                                  ( (!polarity)*(ny+ig)  
-                                  + (polarity)*(ny+ngz-1-ig) ), 
-                                + (which_face_a/2==0) * (j+ngz), 
-                                + (which_face_a/2==2) * (k+ngz)) ;  
-                        /***********************************************/
-                        /* Interpolation coordinates (defined in fine) */
-                        /* grid's coordinate system                    */
-                        /***********************************************/
-                        EXPR( 
-                        double x0 = EXPR(((which_face_b==0) * (ig + 0.5)      
-                                  +  (which_face_b==0) * (nx - ig - 0.5)) * dx0,
-                                  + (which_face_b/2==1) * ((2 * j)%nx)    * dx1, 
-                                  + (which_face_b/2==2) * ((2 * j)%nx)    * dx1);,
-                        double y0 = EXPR(((which_face_b==2) * (ig + 0.5) 
-                                  +  (which_face_b==3) * (ny - ig - 0.5)) * dx0,
-                                  + (which_face_b/2==0) * ((2 * j)%ny)    * dx1, 
-                                  + (which_face_b/2==2) * ((2 * k)%ny)    * dx2);,
-                        double z0 = EXPR(((which_face_b==4) * (ig + 0.5) 
-                                  +  (which_face_b==5) * (nz - ig - 0.5)) * dx0, 
-                                  + (which_face_b/2==0) * ((2 * k)%nz)    * dx2, 
-                                  + (which_face_b/2==1) * ((2 * k)%nz)    * dx2);
+                        , KOKKOS_LAMBDA(VEC(int& ig, int& j, int& k), int& ivar)
+                    { 
+                        /* First we compute the indices of the point */
+                        /* we are calculating.                       */
+                        EXPR(
+                        int const i_f = 
+                                (which_face_fine==0) * ig 
+                          +     (which_face_fine==1) * (nx + ngz + ig)
+                          +     (which_face_fine/2!=0) * (j + ngz) ;,  
+                        int const j_f = EXPR(
+                                (which_face_fine==2) * ig 
+                          +     (which_face_fine==3) * (ny + ngz + ig),
+                          +     (which_face_fine/2==0) * (j + ngz), 
+                          +     (which_face_fine/2==2) * (k + ngz) );, 
+                        int const k_f = 
+                                (which_face_fine==4) * ig 
+                          +     (which_face_fine==5) * (nz + ngz + ig)
+                          +     (which_face_fine/2!=2) * (k + ngz) ; 
                         )
-                        /***********************************************/
-                        /* indices in fine quadrant                    */
-                        /* these are within the physical grid          */
-                        /***********************************************/
-                        int i_b = (which_face_b==0) * (ngz+Kokkos::floor((x0-dx_child/2)/dx_child)-1)
-                                + (which_face_b!=0) * (Kokkos::floor(x0/dx_child) + ngz);
-                        
-                        int j_b = (which_face_b==2) * (ngz+Kokkos::floor((y0-dy_child/2)/dy_child)-1)
-                                + (which_face_b!=2) * (Kokkos::floor(y0/dy_child) + ngz);
-                        /***********************************************/
-                        #ifdef THUNDER_3D
-                        int k_a = (which_face_a==4) * 
-                                  ( (!polarity)*ig 
-                                  + (polarity)*(ngz-1-ig) )
-                                + (which_face_a==5) * 
-                                  ( (!polarity)*(nz+ig)  
-                                  + (polarity)*(nz+ngz-1-ig) )
-                                + (which_face_a/2!=2) * (k+ngz) ;
-
-                        int k_b = (which_face_b==4) * (ngz+Kokkos::floor((z0-dz_child/2)/dz_child)-1)
-                                + (which_face_b!=4) * (Kokkos::floor(z0/dz_child) + ngz);
-                        /***********************************************/
-                        #endif 
-                        /* fine variable view and quadrant index       */
-                        auto& view_2 = (fine_view_is_ghost[fine_idx]) ? halo : vars ; 
-                        auto iq_fine = fine_iqs[fine_idx]   ;
-                        size_t constexpr stencil = InterpT::stencil_size ; 
-                        size_t constexpr npoints = stencil*stencil       ;
-                        int x_param[THUNDER_NSPACEDIM*npoints]           ; 
-                        InterpT::get_parametric_coordinates(x_param )    ; 
-                        double x[THUNDER_NSPACEDIM*npoints]              ;
-                        double y[THUNDER_NSPACEDIM*npoints]              ; 
-                        int smin = Kokkos::floor(stencil/2) - 1          ;
-                        for(size_t is=0; is<npoints;++is)
-                        {
-                            EXPR(
-                            x[THUNDER_NSPACEDIM*is + 0]  
-                                = (i_b + 0.5 - smin - ngz + x_param[THUNDER_NSPACEDIM*is+0]) * dx_child;,
-
-                            x[THUNDER_NSPACEDIM*is + 1]  
-                                = (j_b + 0.5 - smin - ngz + x_param[THUNDER_NSPACEDIM*is+1]) * dy_child;,
-
-                            x[THUNDER_NSPACEDIM*is + 2]  
-                                = ( k_b + 0.5 - smin - ngz + x_param[THUNDER_NSPACEDIM*is+2]) * dz_child;
-                            ); 
-                        }
-                        for(int ivar=0; ivar<nvars; ++ivar){
-                            for(size_t is=0; is<npoints;++is)
-                            {
-                                y[is] = view_2 (
-                                    VEC( i_b - smin + x_param[THUNDER_NSPACEDIM*is+0]
-                                       , j_b - smin + x_param[THUNDER_NSPACEDIM*is+1]
-                                       , k_b - smin + x_param[THUNDER_NSPACEDIM*is+2] )
-                                    , ivar, iq_fine ) ; 
-                            }
-                            InterpT interpolator(x,y);
-                            view_a(VEC(i_a,j_a,k_a),ivar,qid_a) = interpolator.interpolate(VEC(x0,y0,z0)) ; 
-                        }
-                        /******************************************************/
-                        /* Now we play the same game, this time interpolating */
-                        /* from coarse to fine                                */
-                        /******************************************************/
-                        /* Fine quadrant (ghost) indices */
-                        i_b = EXPR((which_face_b==0) * 
-                                  ( (!polarity)*ig 
-                                  + (polarity)*(ngz-1-ig) )
-                                + (which_face_b==1) * 
-                                  ( (!polarity)*(nx+ig)  
-                                  + (polarity)*(nx+ngz-1-ig) ),
-                                + (which_face_b/2==1) * (j+ngz),     
-                                + (which_face_b/2==2) * (j+ngz));    
-                        
-                        j_b = EXPR((which_face_b==2) * 
-                                  ( (!polarity)*ig 
-                                  + (polarity)*(ngz-1-ig) )
-                                + (which_face_b==3) * 
-                                  ( (!polarity)*(ny+ig)  
-                                  + (polarity)*(ny+ngz-1-ig) ), 
-                                + (which_face_b/2==0) * (j+ngz), 
-                                + (which_face_b/2==2) * (k+ngz)); 
-                        #ifdef THUNDER_3D 
-                        k_b =     (which_face_b==4) * 
-                                  ( (!polarity)*ig 
-                                  + (polarity)*(ngz-1-ig) )
-                                + (which_face_b==5) * 
-                                  ( (!polarity)*(nz+ig)  
-                                  + (polarity)*(nz+ngz-1-ig) ) 
-                                + (which_face_b/2==0) * (k+ngz) 
-                                + (which_face_b/2==1) * (k+ngz); 
-                        #endif 
-                        /* Right handed cordinates across face (0) */
-                        /* and orthogonal to it (1,2)              */
-                        dx0 = EXPR( (which_face_b/2==0) * dx_child,
-                              + (which_face_b/2==1) * dy_child, 
-                              + (which_face_b/2==2) * dz_child ) ;
-                        dx1 = EXPR( (which_face_b/2==0) * dy_child,
-                              + (which_face_b/2==1) * dx_child, 
-                              + (which_face_b/2==2) * dx_child ) ;
-                        dx2 = EXPR( (which_face_b/2==0) * dz_child,
-                              + (which_face_b/2==1) * dz_child, 
-                              + (which_face_b/2==2) * dy_child ) ;
-                        for( int ifine = 0; ifine <n_neighbors ; ++ifine)
-                        {
-                            int const iquad_1 = ifine % 2 ;
-                            #ifdef THUNDER_3D 
-                            int const iquad_2 = static_cast<int>(Kokkos::floor(ifine/2));
-                            #endif 
-                            /* coordinates of the interpolated point wrt the coarse grid */
-                            EXPR( 
-                            x0 = EXPR(((which_face_a==0) * (ig + 0.5)      
-                                 +  (which_face_a==0) * (nx - ig - 0.5)) * dx0,
-                                 + (which_face_a/2==1) * (iquad_1 * nx + j + 0.5) * dx1, 
-                                 + (which_face_a/2==2) * (iquad_1 * nx + j + 0.5) * dx1);,
-                            y0 = EXPR(((which_face_a==2) * (ig + 0.5) 
-                                 +  (which_face_a==3) * (ny - ig - 0.5)) * dx0,
-                                 + (which_face_a/2==0) * (iquad_1 * ny + j + 0.5) * dx1, 
-                                 + (which_face_a/2==2) * (iquad_2 * ny + k + 0.5) * dx2);,
-                            z0 = EXPR(((which_face_a==4) * (ig + 0.5) 
-                                 +  (which_face_a==5) * (nz - ig - 0.5)) * dx0, 
-                                 + (which_face_a/2==0) * (iquad_2 * nz + k + 0.5) * dx2, 
-                                 + (which_face_a/2==1) * (iquad_2 * nz + k + 0.5) * dx2);
-                            )
-                            /* coarse (physical) indices   */
-                            /* TODO: this can be optimized */
-                            i_a =     (which_face_a==0)   * (ngz+Kokkos::floor((x0+0.5*dx_parent)/2)-1)
-                                    + (which_face_a==1)   * (Kokkos::floor(x0/dx_parent) + ngz)
-                                    + (which_face_a/2==1) * (Kokkos::floor(x0/dx_parent) + ngz) 
-                                    + (which_face_a/2==2) * (Kokkos::floor(x0/dx_parent) + ngz);
-
-                            j_a =     (which_face_a==2)   * (ngz+Kokkos::floor((y0+0.5*dy_parent)/2)-1)
-                                    + (which_face_a==3)   * (Kokkos::floor(y0/dy_parent) + ngz)
-                                    + (which_face_a/2==0) * (Kokkos::floor(y0/dy_parent) + ngz) 
-                                    + (which_face_a/2==2) * (Kokkos::floor(y0/dy_parent) + ngz);
-
-                            #ifdef THUNDER_3D              
-                            k_a =     (which_face_a==4)   * (ngz+Kokkos::floor((z0+0.5*dz_parent)/2)-1)
-                                    + (which_face_a==5)   * (Kokkos::floor(z0/dz_parent) + ngz)
-                                    + (which_face_a/2==0) * (Kokkos::floor(z0/dz_parent) + ngz) 
-                                    + (which_face_a/2==1) * (Kokkos::floor(z0/dz_parent) + ngz); 
-                            #endif 
-                            auto& view_3  = (fine_view_is_ghost[ifine]) ? halo : vars ; 
-                            iq_fine = fine_iqs[ifine]   ; 
-                            for(size_t is=0; is<npoints;++is)
-                            {
-                                EXPR(
-                                x[THUNDER_NSPACEDIM*is + 0]  
-                                    = (i_a + 0.5 - smin - ngz + x_param[THUNDER_NSPACEDIM*is+0]) * dx_parent;,
-
-                                x[THUNDER_NSPACEDIM*is + 1]  
-                                    = (j_a + 0.5 - smin - ngz + x_param[THUNDER_NSPACEDIM*is+1]) * dy_parent;,
-
-                                x[THUNDER_NSPACEDIM*is + 2]  
-                                    = (k_a + 0.5 - smin - ngz + x_param[THUNDER_NSPACEDIM*is+2]) * dz_parent;
-                                ); 
-                            }
-                            
-                            
-                            for(int ivar=0; ivar<nvars; ++ivar){
-                                for(size_t is=0; is<npoints;++is)
-                                {
-                                    y[is] = view_3 (
-                                        VEC( i_a - smin + x_param[THUNDER_NSPACEDIM*is+0]
-                                           , j_a - smin + x_param[THUNDER_NSPACEDIM*is+1]
-                                           , k_a - smin + x_param[THUNDER_NSPACEDIM*is+2] )
-                                        , ivar, qid_a ) ; 
-                                }
-                                InterpT interpolator(x,y);
-                                view_a(VEC(i_b,j_b,k_b),ivar,iq_fine) = interpolator.interpolate(VEC(x0,y0,z0)) ; 
-                            }
-                        }
-
+                        /* Then we loop over all child quadrants */
+                        /* and call the prolongation kernel.     */
+                        #pragma unroll 4
+                        for( int ichild=0; ichild<n_neighbors; ++ichild) {
+                            int64_t iq_fine = fine_iqs[ichild] ; 
+                            auto& fine_view = fine_view_is_ghost[ichild] 
+                                        ? halo 
+                                        : state ; 
+                            fine_view(VEC(i_f,j_f,k_f), ivar, iq_fine)
+                                = prolongation_kernel( VEC(ig,j,k),VEC(i_f,j_f,k_f)
+                                                     , VEC(dx_fine,dy_fine,dz_fine)
+                                                     , qid_a, iq_fine
+                                                     , ivar, ichild 
+                                                     , polarity
+                                                     , which_face_coarse 
+                                                     , which_face_fine 
+                                                     , is_ghost_a 
+                                                     , fine_view_is_ghost[ichild]  ) ; 
+                        }  
                     } );
 
         }
@@ -678,6 +584,24 @@ void interp_hanging_ghostzones(
 }
 
 template void 
-interp_hanging_ghostzones<utils::linear_interp_t<THUNDER_NSPACEDIM>>(Kokkos::vector<hanging_face_info_t>&) ; 
+interp_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
+      thunder::var_array_t<THUNDER_NSPACEDIM>& 
+    , thunder::var_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+    , Kokkos::vector<hanging_face_info_t>& 
+) ; 
+template void 
+interp_hanging_ghostzones<utils::linear_prolongator_t<thunder::MCbeta>>(
+      thunder::var_array_t<THUNDER_NSPACEDIM>& 
+    , thunder::var_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+    , Kokkos::vector<hanging_face_info_t>& 
+) ; 
 
 }} /* namespace thunder::amr */

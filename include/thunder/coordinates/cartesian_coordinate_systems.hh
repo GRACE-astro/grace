@@ -253,6 +253,151 @@ class cartesian_coordinate_system_impl_t
     , bool use_ghostzones) const ;
     //**************************************************************************************************
     /**
+     * @brief Get the suface of a cell face.
+     * 
+     * @param ijk     Cell indices.
+     * @param q       Local quadrant index.
+     * @param face    Cell face index.
+     * @param dxl     (Logical) Cell coordinate spacing.
+     * @param use_ghostzones Set to false if coordinates are always physical.
+     * @return double The surface of the cell face.
+     * NB: By convention, cell face indices are staggered backwards, meaning that given an index \f$i_f\f$
+     * of a face, this routine returns the surface of the face whose center is located at index:
+     * \f[
+     *   (I,J,K) = (i-\frac{\delta_{i,i_f}}{2}, j-\frac{\delta_{j,i_f}}{2}, k-\frac{\delta_{k,i_f}}{2})
+     * \f]
+     */
+    double 
+    THUNDER_HOST 
+    get_cell_face_surface(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int64_t q
+    , int8_t face 
+    , bool use_ghostzones) const ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the suface of a cell face.
+     * 
+     * @param ijk     Cell indices.
+     * @param q       Local quadrant index.
+     * @param face    Cell face index.
+     * @param itree   Source tree id.
+     * @param dxl     (Logical) Cell coordinate spacing.
+     * @param use_ghostzones Set to false if coordinates are always physical.
+     * @return double The surface of the cell face.
+     * NB: By convention, cell face indices are staggered backwards, meaning that given an index \f$i_f\f$
+     * of a face, this routine returns the surface of the face whose center is located at index:
+     * \f[
+     *   (I,J,K) = (i-\frac{\delta_{i,i_f}}{2}, j-\frac{\delta_{j,i_f}}{2}, k-\frac{\delta_{k,i_f}}{2})
+     * \f]
+     */
+    double 
+    THUNDER_HOST 
+    get_cell_face_surface(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int64_t q
+    , int8_t face 
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the suface of a cell face.
+     * 
+     * @param lcoords Logical coordinates of cell's lowest corner (z-ordering) in 
+     *                tree <code>itree</code>'s coordinate system.
+     * @param face    Cell face index.
+     * @param itree   Source tree id.
+     * @param dxl     (Logical) Cell coordinate spacing.
+     * @param use_ghostzones Set to false if coordinates are always physical.
+     * @return double The surface of the cell face.
+     * NB: By convention, cell face indices are staggered backwards, meaning that given an index \f$i_f\f$
+     * of a face, this routine returns the surface of the face whose center is located at index:
+     * \f[
+     *   (I,J,K) = (i-\frac{\delta_{i,i_f}}{2}, j-\frac{\delta_{j,i_f}}{2}, k-\frac{\delta_{k,i_f}}{2})
+     * \f]
+     */
+    double 
+    THUNDER_HOST 
+    get_cell_face_surface(
+      std::array<double, THUNDER_NSPACEDIM> const& lcoords 
+    , int8_t face 
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const ;
+    //**************************************************************************************************
+    /**
+     * @brief Get the length of a cell edge.
+     * 
+     * @param ijk     Cell indices.
+     * @param q       Local quadrant index.
+     * @param edge    Cell edge index (between 0 and <code>THUNDER_NSPACEDIM</code>).
+     * @param dxl     (Logical) Cell coordinate spacing.
+     * @param use_ghostzones Set to true if indices are 0-offset, false if they are ngz-offset
+     * @return double The length of the cell edge. 
+     * NB: By convention, cell edge indices are staggered backwards, meaning that given an index \f$i_e\f$
+     * of an edge, this routine returns the length of the edge whose center is located at index:
+     * \f[
+     *   (I,J,K) = (i-\frac{1-\delta_{i,i_f}}{2}, j-\frac{1-\delta_{j,i_f}}{2}, k-\frac{1-\delta_{k,i_f}}{2})
+     * \f]
+     */
+    double THUNDER_HOST 
+    get_cell_edge_length(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+    , int64_t q 
+    , int8_t edge
+    , bool use_ghostzones) const ;
+    //**************************************************************************************************
+    /**
+     * @brief Get the length of a cell edge.
+     * 
+     * @param ijk     Cell indices.
+     * @param q       Local quadrant index.
+     * @param itree   Source tree id.
+     * @param edge    Cell edge index (between 0 and <code>THUNDER_NSPACEDIM</code>).
+     * @param dxl     (Logical) Cell coordinate spacing.
+     * @param use_ghostzones Set to true if indices are 0-offset, false if they are ngz-offset
+     * @return double The length of the cell edge. 
+     * NB: By convention, cell edge indices are staggered backwards, meaning that given an index \f$i_e\f$
+     * of an edge, this routine returns the length of the edge whose center is located at index:
+     * \f[
+     *   (I,J,K) = (i-\frac{1-\delta_{i,i_f}}{2}, j-\frac{1-\delta_{j,i_f}}{2}, k-\frac{1-\delta_{k,i_f}}{2})
+     * \f]
+     */
+    double THUNDER_HOST 
+    get_cell_edge_length(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+    , int64_t q 
+    , int8_t edge
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const ;
+    //**************************************************************************************************
+    /**
+     * @brief Get the length of a cell edge.
+     * 
+     * @param lcoords Logical coordinates of cell's lowest corner (z-ordering) in 
+     *                tree <code>itree</code>'s coordinate system.
+     * @param itree   Source tree id.
+     * @param edge    Cell edge index (between 0 and <code>THUNDER_NSPACEDIM</code>).
+     * @param dxl     (Logical) Cell coordinate spacing.
+     * @param use_ghostzones Set to false if coordinates are always physical.
+     * @return double The length of the cell edge. 
+     * NB: By convention, cell edge indices are staggered backwards, meaning that given an index \f$i_e\f$
+     * of an edge, this routine returns the length of the edge whose center is located at index:
+     * \f[
+     *   (I,J,K) = (i-\frac{1-\delta_{i,i_f}}{2}, j-\frac{1-\delta_{j,i_f}}{2}, k-\frac{1-\delta_{k,i_f}}{2})
+     * \f]
+     */
+    double
+    THUNDER_HOST get_cell_edge_length(
+      std::array<double, THUNDER_NSPACEDIM> const& lcoords
+    , int8_t edge
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const ;
+    //**************************************************************************************************
+    /**
      * @brief Get the device coord system object
      * 
      * @return cartesian_device_coordinate_system_impl_t A lightweight coordinate system object

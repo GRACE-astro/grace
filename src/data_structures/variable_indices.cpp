@@ -36,7 +36,6 @@
 
 namespace thunder { namespace variables { 
 
-
 namespace detail {
 
 int num_vars      = 0 ; 

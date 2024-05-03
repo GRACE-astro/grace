@@ -65,5 +65,12 @@ namespace thunder {
 "You should have received a copy of the GNU General Public License\n"           \
 "along with this program.  If not, see <https://www.gnu.org/licenses/>.\n\n"    \
 
+
+#ifdef THUNDER_3D 
+#define THUNDER_FACE_CHILDREN 4 
+#else 
+#define THUNDER_FACE_CHILDREN 2 
+#endif 
+
 }
 #endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

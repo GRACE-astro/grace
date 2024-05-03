@@ -34,6 +34,13 @@
 #include <cstdlib>
 #include <cmath> 
 
+#ifdef __CUDACC__
+#include <cuda_runtime.h>
+#elif defined(__HIPCC__)
+#include <hip/hip_runtime.h>
+#endif
+
+
 namespace math
 {
 namespace detail {
@@ -207,7 +214,20 @@ clamp(T const& val, T const& vmin, T const& vmax)
 {
   return max(vmin, min(vmax, val)) ; 
 }
-  
+
+template< typename T >
+int THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+floor_int(T const& val)
+{
+  #ifdef __CUDA_ARCH__
+    return static_cast<int>(floor(val));
+  #elif defined(__HIP_DEVICE_COMPILE__)
+    return static_cast<int>(floor(val));
+  #else
+    return static_cast<int>(std::floor(val));
+  #endif
+}
+
 }
 
 #endif /* THUNDER_UTILS_MATH_HH */

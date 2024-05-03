@@ -260,9 +260,9 @@ THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
     auto dx_tree = amr::get_tree_spacing(itree) ; 
     
     if( EXPR(
-           lcoords[0] < 0 or lcoords[0] > 1,
-        or lcoords[1] < 0 or lcoords[1] > 1,
-        or lcoords[2] < 0 or lcoords[2] > 1
+           lcoords[0] < 0 or lcoords[0] >= 1,
+        or lcoords[1] < 0 or lcoords[1] >= 1,
+        or lcoords[2] < 0 or lcoords[2] >= 1
     )) {
         int iface = 0 + EXPR(
           (lcoords[0] < 0) * 0 
@@ -286,4 +286,168 @@ THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
 
 }
 
+double 
+THUNDER_HOST 
+cartesian_coordinate_system_impl_t::get_cell_face_surface(
+    std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+  , int64_t q
+  , int8_t face 
+  , bool use_ghostzones) const 
+{
+    using namespace thunder ;
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int64_t itree = amr::get_quadrant_owner(q)   ; 
+    amr::quadrant_t quad = amr::get_quadrant(itree,q) ; 
+
+    auto const dx_quad  = 1./(1<<quad.level()) ; 
+    auto const qcoords = quad.qcoords()     ; 
+
+    EXPR(
+    auto const dx_cell = dx_quad / nx ;, 
+    auto const dy_cell = dx_quad / ny ;,
+    auto const dz_cell = dx_quad / nz ;
+    )
+    return get_cell_face_surface(ijk,q,face,itree,{VEC(dx_cell,dy_cell,dz_cell)},use_ghostzones) ; 
+}; 
+
+double 
+THUNDER_HOST 
+cartesian_coordinate_system_impl_t::get_cell_face_surface(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    , int64_t q
+    , int8_t face 
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const 
+{
+    std::array<double, THUNDER_NSPACEDIM> cell_coordinates 
+    { VEC( 0.,0.,0.) } ;
+    auto lcoords = get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
+    return get_cell_face_surface(lcoords,face,itree,dxl,use_ghostzones) ;
+}; 
+
+double 
+THUNDER_HOST 
+cartesian_coordinate_system_impl_t::get_cell_face_surface(
+      std::array<double, THUNDER_NSPACEDIM> const& lcoords 
+    , int8_t face 
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const 
+{
+    using namespace thunder ;
+    auto& conn = amr::connectivity::get();
+    ASSERT_DBG(
+            itree < amr::connectivity::get().get()->num_trees,
+            "Tree out of bounds " << itree << 
+            " at " << ijk[0] << " " << ijk[1] 
+        ) ;
+    auto dx_tree = amr::get_tree_spacing(itree) ; 
+    
+    if( EXPR(
+           lcoords[0] < 0 or lcoords[0] > 1,
+        or lcoords[1] < 0 or lcoords[1] > 1,
+        or lcoords[2] < 0 or lcoords[2] > 1
+    )) {
+        int iface = 0 + EXPR(
+          (lcoords[0] < 0) * 0 
+        + (lcoords[0] > 1) * 1,
+        + (lcoords[1] < 0) * 2 
+        + (lcoords[1] > 1) * 3,
+        + (lcoords[2] < 0) * 4 
+        + (lcoords[2] > 1) * 5) ;
+        if( iface >= P4EST_FACES ) {
+            iface = 0 ; // in corner ghostzones we can put anything 
+        }
+        int    itree_b  = conn.tree_to_tree(itree, iface) ;
+        dx_tree = amr::get_tree_spacing(itree_b) ;  
+    }
+    EXPRD(
+    int const idir = (face==0) * 1 + (face==1) * 0 + (face==2) * 0 ;,
+    int const jdir = (face==0) * 2 + (face==1) * 2 + (face==2) * 1 ;
+    )
+    return EXPRD(
+          dx_tree[idir] * dxl[idir], 
+        * dx_tree[jdir] * dxl[jdir]
+    ) ; 
+}; 
+
+double THUNDER_HOST 
+cartesian_coordinate_system_impl_t::get_cell_edge_length(
+    std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+  , int64_t q 
+  , int8_t edge
+  , bool use_ghostzones) const 
+{
+    using namespace thunder ;
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int64_t itree = amr::get_quadrant_owner(q)   ; 
+    amr::quadrant_t quad = amr::get_quadrant(itree,q) ; 
+
+    auto const dx_quad  = 1./(1<<quad.level()) ; 
+    auto const qcoords = quad.qcoords()     ; 
+
+    EXPR(
+    auto const dx_cell = dx_quad / nx ;, 
+    auto const dy_cell = dx_quad / ny ;,
+    auto const dz_cell = dx_quad / nz ;
+    )
+    return get_cell_edge_length(ijk,q,edge,itree,{VEC(dx_cell,dy_cell,dz_cell)},use_ghostzones) ;
+};
+
+double THUNDER_HOST 
+cartesian_coordinate_system_impl_t::get_cell_edge_length(
+      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+    , int64_t q 
+    , int8_t edge
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const 
+{
+    std::array<double, THUNDER_NSPACEDIM> cell_coordinates 
+    { VEC( 0.,0.,0.) } ;
+    auto lcoords = get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
+    return get_cell_edge_length(lcoords,edge,itree,dxl,use_ghostzones) ;
+}
+
+double THUNDER_HOST 
+cartesian_coordinate_system_impl_t::get_cell_edge_length(
+      std::array<double, THUNDER_NSPACEDIM> const& lcoords
+    , int8_t edge
+    , int itree
+    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , bool use_ghostzones) const 
+{
+    using namespace thunder ;
+    auto& conn = amr::connectivity::get();
+    ASSERT_DBG(
+            itree < amr::connectivity::get().get()->num_trees,
+            "Tree out of bounds " << itree << 
+            " at " << ijk[0] << " " << ijk[1] 
+        ) ;
+    auto dx_tree = amr::get_tree_spacing(itree) ; 
+    
+    if( EXPR(
+           lcoords[0] < 0 or lcoords[0] > 1,
+        or lcoords[1] < 0 or lcoords[1] > 1,
+        or lcoords[2] < 0 or lcoords[2] > 1
+    )) {
+        int iface = 0 + EXPR(
+          (lcoords[0] < 0) * 0 
+        + (lcoords[0] > 1) * 1,
+        + (lcoords[1] < 0) * 2 
+        + (lcoords[1] > 1) * 3,
+        + (lcoords[2] < 0) * 4 
+        + (lcoords[2] > 1) * 5) ;
+        if( iface >= P4EST_FACES ) {
+            iface = 0 ; // in corner ghostzones we can put anything 
+        }
+        int    itree_b  = conn.tree_to_tree(itree, iface) ;
+        dx_tree = amr::get_tree_spacing(itree_b) ;  
+    }
+
+    return dx_tree[edge] * dxl[edge] ;
+}
 } /* namespace thunder */ 

@@ -33,6 +33,9 @@
 #include <thunder/amr/p4est_headers.hh>
 #include <thunder/utils/interpolators.hh>
 #include <thunder/amr/boundary_conditions.hh>
+#include <thunder/utils/prolongation.hh>
+#include <thunder/utils/limiters.hh> 
+#include <thunder/data_structures/variable_properties.hh>
 
 #include <Kokkos_Vector.hpp>
 
@@ -42,19 +45,44 @@ void thunder_iterate_faces( p4est_iter_face_info_t* info
                           , void* user_data ) ;
 
 
-void copy_interior_ghostzones( Kokkos::vector<simple_face_info_t>& ) ;
+void copy_interior_ghostzones(
+      thunder::var_array_t<THUNDER_NSPACEDIM>& 
+    , thunder::var_array_t<THUNDER_NSPACEDIM>&  
+    , Kokkos::vector<simple_face_info_t>&  ) ;
 
-template< typename InterpT > 
-void interp_simple_ghostzones( Kokkos::vector<simple_face_info_t>& ) ;
 
 template< typename InterpT >
-void interp_hanging_ghostzones( Kokkos::vector<hanging_face_info_t>& ) ;
+void interp_hanging_ghostzones(
+      thunder::var_array_t<THUNDER_NSPACEDIM>& 
+    , thunder::var_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+    , Kokkos::vector<hanging_face_info_t>& 
+) ;
 
-//extern template 
-//void interp_simple_ghostzones<utils::linear_interp_t<THUNDER_NSPACEDIM>>( Kokkos::vector<hanging_face_info_t>& ) ; 
+extern template void 
+interp_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
+      thunder::var_array_t<THUNDER_NSPACEDIM>& 
+    , thunder::var_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+    , Kokkos::vector<hanging_face_info_t>& 
+) ;
 
-extern template 
-void interp_hanging_ghostzones<utils::linear_interp_t<THUNDER_NSPACEDIM>>( Kokkos::vector<hanging_face_info_t>& ) ; 
+extern template void 
+interp_hanging_ghostzones<utils::linear_prolongator_t<thunder::MCbeta>>(
+      thunder::var_array_t<THUNDER_NSPACEDIM>& 
+    , thunder::var_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+    , Kokkos::vector<hanging_face_info_t>& 
+) ; 
 
 }}
 

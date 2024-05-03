@@ -33,6 +33,8 @@
 #include <thunder/coordinates/coordinates.hh>
 #include <thunder/system/thunder_system.hh>
 #include <thunder/utils/thunder_utils.hh>
+#include <thunder/utils/prolongation.hh>
+#include <thunder/utils/limiters.hh>
 #include <thunder/data_structures/macros.hh>
 #include <thunder/data_structures/memory_defaults.hh>
 #include <thunder/data_structures/variable_indices.hh>
@@ -56,8 +58,12 @@ void apply_boundary_conditions() {
     int64_t nq  = get_local_num_quadrants()  ;  
     size_t nvars = variables::get_n_evolved() ;
     /******************************************************/
-    auto& vars = variable_list::get().getstate()    ;
-    auto& halo = variable_list::get().gethalo()    ;
+    auto& vars = variable_list::get().getstate()     ;
+    auto& qcoords = variable_list::get().getcoords() ;
+    auto& vols   = variable_list::get().getvolumes() ; 
+    auto& halo = variable_list::get().gethalo()      ;
+    /******************************************************/
+    auto& params = config_parser::get() ;  
     /******************************************************/
     /*                Create ghost layer                  */
     /******************************************************/
@@ -69,17 +75,21 @@ void apply_boundary_conditions() {
           halo_quads{ &(halos->ghosts) }
         , mirror_quads{ &(halos->mirrors) }  ;
     Kokkos::realloc(halo, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars,halo_quads.size());  
+    cell_vol_array_t<THUNDER_NSPACEDIM> halo_vols("halo cell volumes", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),halo_quads.size()) ; 
+    scalar_array_t<THUNDER_NSPACEDIM> halo_coords("halo quadrant coordinates",THUNDER_NSPACEDIM, halo_quads.size() ); 
     /******************************************************/
-    /*                Receive ghost data                  */
+    /*                Receive halo data                   */
     /******************************************************/
-    size_t send_size = EXPR(nx, *ny, *nz) * nvars ; 
+    size_t send_size_coords = THUNDER_NSPACEDIM ; 
+    size_t send_size_vol = EXPR(nx, *ny, *nz) ; 
+    size_t send_size = send_size_vol * nvars ; 
     parallel::thunder_transfer_context_t context ;
     size_t rank = parallel::mpi_comm_rank() ; 
     for(int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
         size_t first_halo  = halos->proc_offsets[iproc]   ; 
         size_t last_halo   = halos->proc_offsets[iproc+1] ;
         for( int ihalo=first_halo; ihalo<last_halo; ++ihalo ) {
-            
+            /* Receive variables */
             context._rcv_rq.push_back(sc_MPI_Request{}) ; 
             auto hsview = Kokkos::subview(
                   halo
@@ -94,10 +104,40 @@ void apply_boundary_conditions() {
                 , parallel::get_comm_world()
                 , &(context._rcv_rq.back())
             ) ; 
+            /* Receive cell volumes */
+            context._rcv_rq.push_back(sc_MPI_Request{}) ; 
+            auto hvsview = Kokkos::subview(
+                  halo_vols
+                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                , ihalo 
+            ) ; 
+            parallel::mpi_irecv(
+                  hvsview.data()
+                , send_size_vol 
+                , iproc
+                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::get_comm_world()
+                , &(context._rcv_rq.back())
+            ) ; 
+            /* Receive quadrant coordinates */
+            context._rcv_rq.push_back(sc_MPI_Request{}) ; 
+            auto hcsview = Kokkos::subview(
+                  halo_coords
+                , Kokkos::ALL()
+                , ihalo 
+            ) ; 
+            parallel::mpi_irecv(
+                  hcsview.data()
+                , send_size_coords 
+                , iproc
+                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::get_comm_world()
+                , &(context._rcv_rq.back())
+            ) ; 
         }
     }
     /******************************************************/
-    /*                Send ghost data                     */
+    /*                Send halo data                      */
     /******************************************************/
     for( int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
         size_t first_mirror = halos->mirror_proc_offsets[iproc]   ; 
@@ -105,16 +145,44 @@ void apply_boundary_conditions() {
         for( int imirror=first_mirror; imirror<last_mirror; ++imirror){
             size_t iq_loc = 
                 (mirror_quads[halos->mirror_proc_mirrors[imirror]]).p.piggy3.local_num ;
+            /* Send variables */
             context._snd_rq.push_back(sc_MPI_Request{}) ; 
             auto sview = Kokkos::subview(
                   vars
                 , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
                 ,Kokkos::ALL()
-                , iq_loc ) ;
-             
+                , iq_loc ) ; 
             parallel::mpi_isend(
                   sview.data()
                 , send_size
+                , iproc
+                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::get_comm_world()
+                , &(context._snd_rq.back())
+            ) ; 
+            /* Send cell volumes */
+            context._snd_rq.push_back(sc_MPI_Request{}) ; 
+            auto svview = Kokkos::subview(
+                  vols
+                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                , iq_loc ) ;
+            parallel::mpi_isend(
+                  svview.data()
+                , send_size_vol
+                , iproc
+                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::get_comm_world()
+                , &(context._snd_rq.back())
+            ) ; 
+            /* Send quadrant coordinates */
+            context._snd_rq.push_back(sc_MPI_Request{}) ; 
+            auto scview = Kokkos::subview(
+                  qcoords
+                , Kokkos::ALL()
+                , iq_loc ) ;
+            parallel::mpi_isend(
+                  svview.data()
+                , send_size_coords
                 , iproc
                 , parallel::THUNDER_HALO_EXCHANGE_TAG
                 , parallel::get_comm_world()
@@ -158,34 +226,80 @@ void apply_boundary_conditions() {
                   var
                 , phys_boundary_info
             ) ; 
+        } else if (bc_type == "none" ) {
+            /* Nothing to do here */
+        } else {
+            ERROR("Unrecognized bc type for variable " << ivar << ".\n") ;
+        }
+    }
+    /******************************************************/
+    /* Physical boundary conditions can also be applied   */
+    /* to auxiliary variables (e.g. primitives).          */
+    /******************************************************/
+    size_t nvars_aux = variables::get_n_auxiliary() ;
+    auto& aux = variable_list::get().getaux()       ; 
+    for(int ivar=0; ivar<nvars_aux; ++ivar){
+        auto bc_type = variables::get_bc_type(ivar, thunder::variables::AUXILIARY) ; 
+        if( bc_type == "outgoing" )
+        {
+            auto var = Kokkos::subview( aux
+                                      , VEC( Kokkos::ALL() 
+                                           , Kokkos::ALL() 
+                                           , Kokkos::ALL() )
+                                      , ivar 
+                                      , Kokkos::ALL() ) ; 
+            apply_phys_bc<outgoing_bc_t>(
+                  var
+                , phys_boundary_info
+            ) ; 
+        } else if (bc_type == "none" ) {
+            /* Nothing to do here */
         } else {
             ERROR("Unrecognized bc type for variable " << ivar << ".\n") ;
         }
     }
     /******************************************************/
     /* Fourth step:                                       */
-    /* Copy and interpolate face data from internal       */
-    /* boundaries.                                        */
+    /* Copy and prolongate/restrict face data from        */
+    /* internal boundaries.                               */
     /******************************************************/
     parallel::mpi_waitall(context) ;
-    auto interp_type = 
-        config_parser::get()["amr"]["prolongation_interpolator_type"].as<std::string>() ; 
-    auto simple_interior_info = face_info.simple_interior_info ; 
-    std::cout << "In halo exchange: got " << simple_interior_info.size() << " simple interior faces " << std::endl ; 
+    std::string interp = params["amr"]["prolongation_interpolator_type"].as<std::string>(); 
+    std::string limiter = params["amr"]["prolongation_limiter_type"].as<std::string>();
+    //std::cout << "In halo exchange: got " << simple_interior_info.size() << " simple interior faces " << std::endl ; 
+    /******************************************************/
+    /*                       Copy                         */
+    /******************************************************/
+    auto simple_interior_info = face_info.simple_interior_info ;
     simple_interior_info.host_to_device() ;
-    #if defined(THUNDER_CARTESIAN_COORDINATES)
-    copy_interior_ghostzones(simple_interior_info) ; 
-    #else
-    if( interp_type == "linear" ){
-        //interp_simple_ghostzones<utils::linear_interp_t<THUNDER_NSPACEDIM>>(simple_interior_info) ; 
-    } else {
-        ERROR("Unsupported interpolator in ghost-zone exchange.") ; 
-    }
-    #endif 
+    copy_interior_ghostzones(vars,halo,simple_interior_info) ; 
+    /******************************************************/
+    /*       Restrict and prolongate hanging faces        */
+    /******************************************************/
     auto hanging_interior_info = face_info.hanging_interior_info ; 
     hanging_interior_info.host_to_device() ;
-    if( interp_type == "linear" ){
-        interp_hanging_ghostzones<utils::linear_interp_t<THUNDER_NSPACEDIM>>(hanging_interior_info) ; 
+    if( interp == "linear" ){
+        if( limiter == "minmod" ) {
+            interp_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
+                      vars 
+                    , halo 
+                    , qcoords 
+                    , halo_coords 
+                    , vols 
+                    , halo_vols
+                    , hanging_interior_info) ; 
+        } else if ( limiter == "monotonized-central") {
+            interp_hanging_ghostzones<utils::linear_prolongator_t<thunder::MCbeta>>(
+                      vars 
+                    , halo 
+                    , qcoords 
+                    , halo_coords 
+                    , vols 
+                    , halo_vols
+                    , hanging_interior_info) ;
+        } else {
+            ERROR("Unsupported limiter in ghost-zone exchange.") ; 
+        }
     } else {
         ERROR("Unsupported interpolator in ghost-zone exchange.") ; 
     }
