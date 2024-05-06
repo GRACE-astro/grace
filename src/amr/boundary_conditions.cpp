@@ -80,6 +80,10 @@ void apply_boundary_conditions() {
     /******************************************************/
     /*                Receive halo data                   */
     /******************************************************/
+    THUNDER_INFO(VERBOSE, "AMR-BC", "Shipping halo quadrants with " 
+        << nq << " total quadrants and " 
+        <<  halo_quads.size() << " halo quadrants.") ; 
+    std::cout << "About to ship " << halo_quads.size() << " halo quadrants.\n" ; 
     size_t send_size_coords = THUNDER_NSPACEDIM ; 
     size_t send_size_vol = EXPR(nx, *ny, *nz) ; 
     size_t send_size = send_size_vol * nvars ; 
@@ -115,7 +119,7 @@ void apply_boundary_conditions() {
                   hvsview.data()
                 , send_size_vol 
                 , iproc
-                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::THUNDER_HALO_EXCHANGE_TAG+1
                 , parallel::get_comm_world()
                 , &(context._rcv_rq.back())
             ) ; 
@@ -130,7 +134,7 @@ void apply_boundary_conditions() {
                   hcsview.data()
                 , send_size_coords 
                 , iproc
-                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::THUNDER_HALO_EXCHANGE_TAG+2
                 , parallel::get_comm_world()
                 , &(context._rcv_rq.back())
             ) ; 
@@ -170,7 +174,7 @@ void apply_boundary_conditions() {
                   svview.data()
                 , send_size_vol
                 , iproc
-                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::THUNDER_HALO_EXCHANGE_TAG+1
                 , parallel::get_comm_world()
                 , &(context._snd_rq.back())
             ) ; 
@@ -184,7 +188,7 @@ void apply_boundary_conditions() {
                   svview.data()
                 , send_size_coords
                 , iproc
-                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::THUNDER_HALO_EXCHANGE_TAG+2
                 , parallel::get_comm_world()
                 , &(context._snd_rq.back())
             ) ; 
@@ -195,6 +199,7 @@ void apply_boundary_conditions() {
     /* Iterate over all quadrant faces and store face     */
     /* information.                                       */
     /******************************************************/
+    parallel::mpi_waitall(context) ;
     thunder_face_info_t face_info{} ;
     p4est_iterate(
           forest::get().get()
@@ -206,6 +211,16 @@ void apply_boundary_conditions() {
         , nullptr 
         #endif 
         , nullptr) ;
+    THUNDER_INFO(VERBOSE,"AMR-BC", "After iter-faces: obtained\n" 
+        << face_info.simple_interior_info.size() << " simple faces of which " 
+        << face_info.n_simple_ghost_faces << " cross processor boundaries,\n"
+        << face_info.hanging_interior_info.size() << " hanging faces of which " 
+        << face_info.n_hanging_ghost_faces << " cross processor boundaries,\n"
+        << face_info.phys_boundary_info.size() << " faces on a physical boundary.\n"
+        << "Second ghost exchange will send/receive " << face_info.coarse_hanging_quads_info.snd_quadid.size() 
+        << "/" << face_info.coarse_hanging_quads_info.rcv_quadid.size() << " coarse quadrants."  ) ; 
+    THUNDER_INFO(VERBOSE, "AMR-BC", "Applying physical boundary conditions on " 
+    << face_info.phys_boundary_info.size() << " quadrants." ) ; 
     /******************************************************/
     /* Third step:                                        */
     /* Apply physical boundary conditions.                */
@@ -263,24 +278,97 @@ void apply_boundary_conditions() {
     /* Copy and prolongate/restrict face data from        */
     /* internal boundaries.                               */
     /******************************************************/
-    parallel::mpi_waitall(context) ;
     std::string interp = params["amr"]["prolongation_interpolator_type"].as<std::string>(); 
     std::string limiter = params["amr"]["prolongation_limiter_type"].as<std::string>();
     //std::cout << "In halo exchange: got " << simple_interior_info.size() << " simple interior faces " << std::endl ; 
     /******************************************************/
     /*                       Copy                         */
     /******************************************************/
+    THUNDER_INFO(VERBOSE, "AMR-BC", "Copying interior ghostzones across simple boundaries on " 
+    << face_info.simple_interior_info.size() << " quadrants." ) ;
     auto simple_interior_info = face_info.simple_interior_info ;
     simple_interior_info.host_to_device() ;
     copy_interior_ghostzones(vars,halo,simple_interior_info) ; 
     /******************************************************/
     /*       Restrict and prolongate hanging faces        */
     /******************************************************/
+    THUNDER_INFO(VERBOSE, "AMR-BC", "Restricting and prolongating data on "
+    "interior ghostzones across hanging boundaries on " 
+    << face_info.hanging_interior_info.size() << " quadrants." ) ;
     auto hanging_interior_info = face_info.hanging_interior_info ; 
     hanging_interior_info.host_to_device() ;
+    /******************************************************/
+    /*       1) Restriction                               */
+    /******************************************************/
+    restrict_hanging_ghostzones(
+              vars 
+            , halo 
+            , vols 
+            , halo_vols
+            , hanging_interior_info) ;
+    Kokkos::fence() ; 
+    /******************************************************/
+    /*       2) Exchange coarse quadrants again           */
+    /******************************************************/
+    auto coarse_hanging_info = face_info.coarse_hanging_quads_info ; 
+    context.reset() ; 
+    for(int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
+        size_t first_halo  = halos->proc_offsets[iproc]   ; 
+        size_t last_halo   = halos->proc_offsets[iproc+1] ;
+        for( int ihalo=first_halo; ihalo<last_halo; ++ihalo ) {
+            /* Receive variables */
+            if(  std::find(coarse_hanging_info.rcv_quadid.begin(), coarse_hanging_info.rcv_quadid.end(), ihalo) == coarse_hanging_info.rcv_quadid.end() ) {
+                continue ; 
+            }
+            context._rcv_rq.push_back(sc_MPI_Request{}) ; 
+            auto hsview = Kokkos::subview(
+                  halo
+                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                , Kokkos::ALL()
+                , ihalo) ; 
+            parallel::mpi_irecv(
+                  hsview.data()
+                , send_size
+                , iproc
+                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::get_comm_world()
+                , &(context._rcv_rq.back())
+            ) ; 
+        }
+    }
+    for( int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
+        size_t first_mirror = halos->mirror_proc_offsets[iproc]   ; 
+        size_t last_mirror  = halos->mirror_proc_offsets[iproc+1] ; 
+        for( int imirror=first_mirror; imirror<last_mirror; ++imirror){
+            size_t iq_loc = 
+                (mirror_quads[halos->mirror_proc_mirrors[imirror]]).p.piggy3.local_num ;
+            if( std::find(coarse_hanging_info.snd_quadid.begin(), coarse_hanging_info.snd_quadid.end(), iq_loc) == coarse_hanging_info.snd_quadid.end() ) {
+                continue ; 
+            }
+            /* Send variables */
+            context._snd_rq.push_back(sc_MPI_Request{}) ; 
+            auto sview = Kokkos::subview(
+                  vars
+                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                , Kokkos::ALL()
+                , iq_loc ) ; 
+            parallel::mpi_isend(
+                  sview.data()
+                , send_size
+                , iproc
+                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::get_comm_world()
+                , &(context._snd_rq.back())
+            ) ; 
+        }
+    }
+    /******************************************************/
+    /*       3) Prolongation                              */
+    /******************************************************/
+    parallel::mpi_waitall(context) ;
     if( interp == "linear" ){
         if( limiter == "minmod" ) {
-            interp_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
+            prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
                       vars 
                     , halo 
                     , qcoords 
@@ -289,7 +377,7 @@ void apply_boundary_conditions() {
                     , halo_vols
                     , hanging_interior_info) ; 
         } else if ( limiter == "monotonized-central") {
-            interp_hanging_ghostzones<utils::linear_prolongator_t<thunder::MCbeta>>(
+            prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::MCbeta>>(
                       vars 
                     , halo 
                     , qcoords 
@@ -303,7 +391,6 @@ void apply_boundary_conditions() {
     } else {
         ERROR("Unsupported interpolator in ghost-zone exchange.") ; 
     }
-    Kokkos::fence() ;
     /******************************************************/
     /* Transform vector and tensor components             */
     /* across tree boundaries (where applicable)          */

@@ -1,0 +1,72 @@
+/**
+ * @file restriction.hh
+ * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @brief 
+ * @date 2024-05-04
+ * 
+ * @copyright This file is part of Thunder.
+ * Thunder is an evolution framework that uses Finite Differences
+ * methods to simulate relativistic spacetimes and plasmas
+ * Copyright (C) 2023 Carlo Musolino
+ *                                    
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *   
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *   
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ */
+
+#include <thunder_config.h>
+#include <thunder/utils/device.h>
+#include <thunder/utils/inline.h> 
+#include <thunder/utils/math.hh>
+#include <thunder/data_structures/macros.hh>
+
+#include <Kokkos_Core.hpp> 
+
+#ifndef THUNDER_UTILS_RESTRICTION_HH
+#define THUNDER_UTILS_RESTRICTION_HH
+
+namespace utils {
+
+struct vol_average_restictor_t {
+template< typename StateViewT
+        , typename VolViewT >
+static double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+apply(
+      VEC(int const& i, int const& j, int const& k)
+    , StateViewT& state 
+    , VolViewT& vol 
+    , int64_t iq 
+    , int ivar  ) 
+{
+    return  (EXPR(
+      state(VEC(i,j,k),ivar,iq)*vol(VEC(i,j,k),iq)
+    + state(VEC(i+1,j,k),ivar,iq)*vol(VEC(i+1,j,k),iq),
+    + state(VEC(i,j+1,k),ivar,iq)*vol(VEC(i,j+1,k),iq)
+    + state(VEC(i+1,j+1,k),ivar,iq)*vol(VEC(i+1,j+1,k),iq),
+    + state(VEC(i,j,k+1),ivar,iq)*vol(VEC(i,j,k+1),iq)
+    + state(VEC(i,j+1,k+1),ivar,iq)*vol(VEC(i,j+1,k+1),iq)
+    + state(VEC(i+1,j,k+1),ivar,iq)*vol(VEC(i+1,j,k+1),iq)
+    + state(VEC(i+1,j+1,k+1),ivar,iq)*vol(VEC(i+1,j+1,k+1),iq)
+    )) / (EXPR(
+      vol(VEC(i,j,k),iq)   + vol(VEC(i+1,j,k),iq  ),
+    + vol(VEC(i,j+1,k),iq) + vol(VEC(i+1,j+1,k),iq),
+    + vol(VEC(i,j,k+1),iq) + vol(VEC(i,j+1,k+1),iq)
+    + vol(VEC(i+1,j,k+1),iq) + vol(VEC(i+1,j+1,k+1),iq)
+    )) ; 
+}
+
+} ; 
+
+}
+
+#endif /* THUNDER_UTILS_RESTRICTION_HH */

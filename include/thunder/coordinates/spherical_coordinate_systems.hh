@@ -826,6 +826,7 @@ class spherical_coordinate_system_impl_t
     , int itree
     , std::array<double, THUNDER_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const ;
+    #ifdef THUNDER_3D 
     //**************************************************************************************************
     /**
      * @brief Get the length of a cell edge.
@@ -897,6 +898,7 @@ class spherical_coordinate_system_impl_t
     , int itree
     , std::array<double, THUNDER_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const ;
+    #endif 
     //**************************************************************************************************
     /**
      * @brief Get the device coord system object
@@ -1031,6 +1033,7 @@ class spherical_coordinate_system_impl_t
     , int itree
     , std::array<double, THUNDER_NSPACEDIM> const& lcoords
     , std::array<double, THUNDER_NSPACEDIM> const& dxl ) const ;
+    #ifdef THUNDER_3D 
     //**************************************************************************************************
     /**
      * @brief Get the length of a cell edge in the buffer zone.
@@ -1054,6 +1057,7 @@ class spherical_coordinate_system_impl_t
     , int itree
     , std::array<double, THUNDER_NSPACEDIM> const& lcoords
     , std::array<double, THUNDER_NSPACEDIM> const& dxl ) const ;
+    #endif 
     //**************************************************************************************************
     /**
      * @brief Compute physical coordinates in the cartesian coordinate patch

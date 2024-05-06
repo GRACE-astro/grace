@@ -164,7 +164,7 @@ TEST_CASE("Simple regrid", "[regrid]")
 
     auto const h_func = [&] (VEC(const double& x,const double& y,const double &z))
     {
-        return EXPR(8.5 * x, - 5.1 * y, ) - 3.14 ; 
+        return EXPR(8.5 * x, - 5.1 * y, -2*z) - 3.14 ; 
     } ; 
     /*************************************************/
     /*                   fill data                   */
@@ -224,10 +224,10 @@ TEST_CASE("Simple regrid", "[regrid]")
     }
     parallel::mpi_allreduce(&exact_total_local,&exact_total,1,sc_MPI_SUM) ; 
     /*write output and regrid*/
-    //thunder::IO::write_volume_cell_data() ;
+    thunder::IO::write_volume_cell_data() ;
     thunder::amr::regrid() ;  
-    //thunder::runtime::get().increment_iteration() ; 
-    //thunder::IO::write_volume_cell_data() ; 
+    thunder::runtime::get().increment_iteration() ; 
+    thunder::IO::write_volume_cell_data() ; 
     /* compute the new volume integrated value */
     nq = thunder::amr::get_local_num_quadrants() ; // new number of quadrants (after regrid)
     ncells = EXPR((nx),*(ny),*(nz))*nq ;

@@ -29,6 +29,8 @@
 
 #include <Kokkos_Vector.hpp>
 
+#include <vector> 
+
 namespace thunder { namespace amr {
 
 struct simple_face_info_t 
@@ -67,11 +69,20 @@ struct hanging_face_info_t
     #endif 
 } ; 
 
+struct hanging_coarse_quadrant_info_t 
+{
+    std::vector<int64_t> snd_quadid ; 
+    std::vector<int64_t> rcv_quadid ; 
+} ; 
+
 struct thunder_face_info_t 
 {
-    Kokkos::vector<int64_t>             phys_boundary_info   ;
-    Kokkos::vector<simple_face_info_t>  simple_interior_info ; 
-    Kokkos::vector<hanging_face_info_t> hanging_interior_info; 
+    int n_hanging_ghost_faces{0}; 
+    int n_simple_ghost_faces{0} ;
+    Kokkos::vector<int64_t>             phys_boundary_info        ;
+    Kokkos::vector<simple_face_info_t>  simple_interior_info      ; 
+    Kokkos::vector<hanging_face_info_t> hanging_interior_info     ; 
+    hanging_coarse_quadrant_info_t      coarse_hanging_quads_info ;  
 } ; 
 
 void apply_boundary_conditions() ;

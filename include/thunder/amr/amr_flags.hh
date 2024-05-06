@@ -157,7 +157,7 @@ static int coarsen_cback( p4est_t* p4est
                        , p4est_topidx_t which_tree 
                        , p4est_quadrant_t * quadrants[] )
 {
-    int ncoarsen ;
+    int ncoarsen{0};
     for( int ichild=0; ichild<P4EST_CHILDREN; ++ichild)
     {
         if( quadrants[ichild] == nullptr ) {

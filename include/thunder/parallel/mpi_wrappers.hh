@@ -102,6 +102,10 @@ struct thunder_transfer_context_t
 { 
     std::vector<sc_MPI_Request> _rcv_rq ; 
     std::vector<sc_MPI_Request> _snd_rq ; 
+    void reset() { 
+        _rcv_rq.resize(0) ; 
+        _snd_rq.resize(0) ; 
+    } ; 
 } ; 
 
 void mpi_init(int* argc, char *** argv) ;

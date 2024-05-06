@@ -74,18 +74,19 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
     auto h_surfx = Kokkos::create_mirror_view(surfaces_and_edges.cell_face_surfaces_x) ; 
     auto h_surfy = Kokkos::create_mirror_view(surfaces_and_edges.cell_face_surfaces_y) ; 
     auto h_surfz = Kokkos::create_mirror_view(surfaces_and_edges.cell_face_surfaces_z) ; 
-
+    #ifdef THUNDER_3D 
     auto h_edgexy = Kokkos::create_mirror_view(surfaces_and_edges.cell_edge_lengths_xy) ; 
     auto h_edgeyz = Kokkos::create_mirror_view(surfaces_and_edges.cell_edge_lengths_yz) ; 
     auto h_edgexz = Kokkos::create_mirror_view(surfaces_and_edges.cell_edge_lengths_xz) ; 
-
+    #endif 
     decltype(h_surfx) surf[THUNDER_NSPACEDIM] = {
         VEC(h_surfx, h_surfy, h_surfz)
     } ; 
+    #ifdef THUNDER_3D 
     decltype(h_edgexy) edge[THUNDER_NSPACEDIM] = {
         VEC(h_edgeyz,h_edgexz,h_edgexy) 
     } ; 
-
+    #endif 
     auto clock_start = std::chrono::high_resolution_clock::now() ;
     double avg_time = 0. ;  
     /* 2) Number of ghostzones for evolved vars */
@@ -153,6 +154,7 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
                     , {VEC(dx_quad,dy_quad,dz_quad)}
                     , true ) ; 
             }
+            #ifdef THUNDER_3D 
             EXPR( for(size_t i=0; i<nx+2*ngz+1-utils::delta(0,idim); ++i), for(size_t j=0; j<ny+2*ngz+1-utils::delta(1,idim); ++j), for(size_t k=0; k<nz+2*ngz+1-utils::delta(2,idim); ++k) ) 
             {
                 edge[idim](VEC(i,j,k),iquad) = coord_system.get_cell_edge_length(
@@ -164,6 +166,7 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
                     , {VEC(dx_quad,dy_quad,dz_quad)}
                     , true ) ; 
             }
+            #endif 
 
         }
         auto thread_clock_end = std::chrono::high_resolution_clock::now() ;
@@ -181,9 +184,11 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
     Kokkos::deep_copy(surfaces_and_edges.cell_face_surfaces_x, h_surfx) ; 
     Kokkos::deep_copy(surfaces_and_edges.cell_face_surfaces_y, h_surfy) ; 
     Kokkos::deep_copy(surfaces_and_edges.cell_face_surfaces_z, h_surfz) ; 
+    #ifdef THUNDER_3D 
     Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_xy, h_edgexy) ; 
     Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_xz, h_edgexz) ; 
-    Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_yz, h_edgeyz) ; 
+    Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_yz, h_edgeyz) ;
+    #endif  
     clock_end = std::chrono::high_resolution_clock::now() ; 
     currentTime = float(std::chrono::duration_cast <std::chrono::microseconds> (clock_end - clock_start).count());
     THUNDER_INFO(1, "AMR", "Copying coordinates to Device took " << currentTime << " mus.") ;

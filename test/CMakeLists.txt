@@ -190,23 +190,41 @@ vtk_module_autoinit(
     MODULES ${VTK_LIBRARIES}
     )
 
-#add_executable( bc_test test_bc.cpp )
-#target_include_directories(bc_test PRIVATE "${HEADER_LIST}")
-#target_link_libraries(  bc_test PRIVATE 
-#p4est_tests_main
-#Catch2::Catch2
-#thunder_objects
-#$<TARGET_OBJECTS:thunder_volume_output>
-#yaml_cpp::yaml
-#Kokkos::kokkos
-#MPI::MPI_CXX
-#p4est::sc
-#p4est::p4est 
-#VTK::VTK )
-#vtk_module_autoinit(
-#TARGETS bc_test
-#MODULES ${VTK_LIBRARIES}
-#)
+add_executable( bc_test test_bc.cpp )
+target_include_directories(bc_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  bc_test PRIVATE 
+p4est_tests_main
+Catch2::Catch2
+thunder_objects
+$<TARGET_OBJECTS:thunder_volume_output>
+yaml_cpp::yaml
+Kokkos::kokkos
+MPI::MPI_CXX
+p4est::sc
+p4est::p4est 
+VTK::VTK )
+vtk_module_autoinit(
+TARGETS bc_test
+MODULES ${VTK_LIBRARIES}
+)
+
+add_executable( bc_test_unigrid test_bc_unigrid.cpp )
+target_include_directories(bc_test_unigrid PRIVATE "${HEADER_LIST}")
+target_link_libraries(  bc_test_unigrid PRIVATE 
+p4est_tests_main
+Catch2::Catch2
+thunder_objects
+$<TARGET_OBJECTS:thunder_volume_output>
+yaml_cpp::yaml
+Kokkos::kokkos
+MPI::MPI_CXX
+p4est::sc
+p4est::p4est 
+VTK::VTK )
+vtk_module_autoinit(
+TARGETS bc_test
+MODULES ${VTK_LIBRARIES}
+)
 
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)

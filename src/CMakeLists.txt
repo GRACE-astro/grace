@@ -46,7 +46,7 @@ target_sources( thunder_objects INTERFACE
                 $<TARGET_OBJECTS:thunder_cartesian_coordinates>
                 $<TARGET_OBJECTS:thunder_spherical_coordinates>
                 $<TARGET_OBJECTS:thunder_coordinate_systems>
-                $<TARGET_OBJECTS:thunder_regrid> )
-#                $<TARGET_OBJECTS:thunder_BC_helpers>
-#                $<TARGET_OBJECTS:thunder_BC> )
+                $<TARGET_OBJECTS:thunder_regrid> 
+                $<TARGET_OBJECTS:thunder_BC_helpers>
+                $<TARGET_OBJECTS:thunder_BC> )
 

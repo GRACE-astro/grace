@@ -50,9 +50,16 @@ void copy_interior_ghostzones(
     , thunder::var_array_t<THUNDER_NSPACEDIM>&  
     , Kokkos::vector<simple_face_info_t>&  ) ;
 
+void restrict_hanging_ghostzones(
+      thunder::var_array_t<THUNDER_NSPACEDIM>& 
+    , thunder::var_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+    , Kokkos::vector<hanging_face_info_t>& 
+) ;
 
 template< typename InterpT >
-void interp_hanging_ghostzones(
+void prolongate_hanging_ghostzones(
       thunder::var_array_t<THUNDER_NSPACEDIM>& 
     , thunder::var_array_t<THUNDER_NSPACEDIM>&  
     , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
@@ -63,7 +70,7 @@ void interp_hanging_ghostzones(
 ) ;
 
 extern template void 
-interp_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
+prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
       thunder::var_array_t<THUNDER_NSPACEDIM>& 
     , thunder::var_array_t<THUNDER_NSPACEDIM>&  
     , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
@@ -74,7 +81,7 @@ interp_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
 ) ;
 
 extern template void 
-interp_hanging_ghostzones<utils::linear_prolongator_t<thunder::MCbeta>>(
+prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::MCbeta>>(
       thunder::var_array_t<THUNDER_NSPACEDIM>& 
     , thunder::var_array_t<THUNDER_NSPACEDIM>&  
     , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  

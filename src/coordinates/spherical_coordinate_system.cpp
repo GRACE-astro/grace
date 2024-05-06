@@ -614,7 +614,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
         }
     }
 } 
-
+#ifdef THUNDER_3D 
 double 
 THUNDER_HOST 
 spherical_coordinate_system_impl_t::get_cell_edge_length(
@@ -708,8 +708,7 @@ spherical_coordinate_system_impl_t::get_cell_edge_length(
         return 0 ; // Compiler is throwing a warning without this.
     }
 }
-
-
+#endif 
 bool 
 THUNDER_HOST spherical_coordinate_system_impl_t::is_outside_tree(
     std::array<double, THUNDER_NSPACEDIM> const& lcoords, bool check_exact_boundary
@@ -1049,7 +1048,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface_buffer_zo
     return Surf ; 
 
 }
-
+#ifdef THUNDER_3D 
 double
 THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_edge_length_buffer_zone(
       int8_t icell_edge
@@ -1109,7 +1108,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_edge_length_buffer_zon
     }
     return Length ; 
 }
-
+#endif 
 std::array<double, THUNDER_NSPACEDIM>
 THUNDER_HOST spherical_coordinate_system_impl_t::get_physical_coordinates_cart(
     double L,

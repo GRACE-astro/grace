@@ -173,52 +173,61 @@ using cell_vol_array_t = cell_vol_array_impl_t<ndim>::view_t ;
 /*****************************************************************************************************/
 /*****************************************************************************************************/
 struct staggered_coordinate_arrays_t {
-    cell_vol_array_t<THUNDER_NSPACEDIM> cell_face_surfaces_x, cell_face_surfaces_y, cell_face_surfaces_z ; 
+    cell_vol_array_t<THUNDER_NSPACEDIM> cell_face_surfaces_x, cell_face_surfaces_y, cell_face_surfaces_z ;
+    #ifdef THUNDER_3D  
     cell_vol_array_t<THUNDER_NSPACEDIM> cell_edge_lengths_xy, cell_edge_lengths_xz, cell_edge_lengths_yz ;
-
+    #endif 
     staggered_coordinate_arrays_t()
         : VEC( cell_face_surfaces_x("Cell face surfaces X", VEC(0,0,0),0)
              , cell_face_surfaces_y("Cell face surfaces Y", VEC(0,0,0),0)
              , cell_face_surfaces_z("Cell face surfaces Z", VEC(0,0,0),0) ) 
+        #ifdef THUNDER_3D 
         , VEC( cell_edge_lengths_xy("Cell edge lengths XY", VEC(0,0,0),0) 
              , cell_edge_lengths_xz("Cell edge lengths XZ", VEC(0,0,0),0) 
              , cell_edge_lengths_yz("Cell edge lengths YZ", VEC(0,0,0),0) )
+        #endif 
     {} 
 
     staggered_coordinate_arrays_t(VEC(int nx, int ny, int nz), int ngz, int nq)
         : VEC( cell_face_surfaces_x("Cell face surfaces X", VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nq)
              , cell_face_surfaces_y("Cell face surfaces Y", VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz),nq)
-             , cell_face_surfaces_z("Cell face surfaces Z", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz+1),nq) ) 
+             , cell_face_surfaces_z("Cell face surfaces Z", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz+1),nq) )
+        #ifdef THUNDER_3D  
         , VEC( cell_edge_lengths_xy("Cell edge lengths XY", VEC(nx+2*ngz+1,ny+2*ngz+1,nz+2*ngz),nq) 
              , cell_edge_lengths_xz("Cell edge lengths XZ", VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz+1),nq) 
              , cell_edge_lengths_yz("Cell edge lengths YZ", VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz+1),nq) )
+        #endif 
     {}
 
     void realloc(VEC(int nx, int ny, int nz), int ngz, int nq) {
         EXPR(
-        Kokkos::realloc(cell_face_surfaces_x, VEC(nx + 2*ngz + 1, ny + 2*ngz, nz+2*ngz), nq) ;
-        Kokkos::realloc(cell_edge_lengths_xy, VEC(nx + 2*ngz + 1, ny + 2*ngz + 1, nz+2*ngz), nq ) ;
-        ,
-        Kokkos::realloc(cell_face_surfaces_y, VEC(nx + 2*ngz, ny + 2*ngz + 1, nz+2*ngz), nq) ;
-        Kokkos::realloc(cell_edge_lengths_xz, VEC(nx + 2*ngz + 1, ny + 2*ngz, nz+2*ngz + 1), nq ) ;
-        ,
+        Kokkos::realloc(cell_face_surfaces_x, VEC(nx + 2*ngz + 1, ny + 2*ngz, nz+2*ngz), nq) ;,
+        Kokkos::realloc(cell_face_surfaces_y, VEC(nx + 2*ngz, ny + 2*ngz + 1, nz+2*ngz), nq) ;,
         Kokkos::realloc(cell_face_surfaces_z , VEC(nx + 2*ngz, ny + 2*ngz, nz+2*ngz + 1), nq) ;
-        Kokkos::realloc(cell_edge_lengths_yz , VEC(nx + 2*ngz, ny + 2*ngz+1, nz+2*ngz + 1), nq ) ;
         ) 
+        #ifdef THUNDER_3D 
+        Kokkos::realloc(cell_edge_lengths_xy, VEC(nx + 2*ngz + 1, ny + 2*ngz + 1, nz+2*ngz), nq ) ;
+        Kokkos::realloc(cell_edge_lengths_xz, VEC(nx + 2*ngz + 1, ny + 2*ngz, nz+2*ngz + 1), nq ) ;
+        Kokkos::realloc(cell_edge_lengths_yz , VEC(nx + 2*ngz, ny + 2*ngz+1, nz+2*ngz + 1), nq ) ;
+        #endif 
     }
 } ;   
 struct staggered_variable_arrays_t {
     var_array_t<THUNDER_NSPACEDIM> face_staggered_fields_x, face_staggered_fields_y, face_staggered_fields_z ; 
+    #ifdef THUNDER_3D 
     var_array_t<THUNDER_NSPACEDIM> edge_staggered_fields_xy, edge_staggered_fields_xz, edge_staggered_fields_yz ; 
+    #endif 
     var_array_t<THUNDER_NSPACEDIM> corner_staggered_fields ;
 
     staggered_variable_arrays_t() 
       : VEC( face_staggered_fields_x("x-face staggered variables", VEC(0,0,0),0,0)
            , face_staggered_fields_y("y-face staggered variables", VEC(0,0,0),0,0)
            , face_staggered_fields_z("z-face staggered variables", VEC(0,0,0),0,0) )
+    #ifdef THUNDER_3D 
       , VEC( edge_staggered_fields_xy("xy-face staggered variables", VEC(0,0,0),0,0)
            , edge_staggered_fields_xz("xz-face staggered variables", VEC(0,0,0),0,0)
            , edge_staggered_fields_yz("yz-face staggered variables", VEC(0,0,0),0,0) )
+    #endif 
       , corner_staggered_fields("corner staggered variables", VEC(0,0,0),0,0) 
     {} 
 
@@ -226,14 +235,16 @@ struct staggered_variable_arrays_t {
     realloc(VEC(int nx, int ny, int nz), int ngz, int nq, int nvars_face, int nvars_edge, int nvars_corner) {
         EXPR(
         Kokkos::realloc(face_staggered_fields_x, VEC(nx + 2*ngz + 1, ny + 2*ngz, nz+2*ngz), nvars_face, nq) ;
-        Kokkos::realloc(edge_staggered_fields_xy, VEC(nx + 2*ngz+1, ny + 2*ngz + 1, nz+2*ngz), nvars_edge, nq) ;
         ,
         Kokkos::realloc(face_staggered_fields_y, VEC(nx + 2*ngz, ny + 2*ngz + 1, nz+2*ngz), nvars_face, nq) ;
-        Kokkos::realloc(edge_staggered_fields_xz, VEC(nx + 2*ngz + 1, ny + 2*ngz, nz+2*ngz + 1), nvars_edge, nq) ;
         ,
         Kokkos::realloc(face_staggered_fields_z, VEC(nx + 2*ngz, ny + 2*ngz, nz+2*ngz + 1), nvars_face, nq) ;
-        Kokkos::realloc(edge_staggered_fields_yz, VEC(nx + 2*ngz, ny + 2*ngz + 1, nz+2*ngz+1), nvars_edge, nq) ;
-        ) 
+        )
+        #ifdef THUNDER_3D 
+        Kokkos::realloc(edge_staggered_fields_xy, VEC(nx + 2*ngz + 1, ny + 2*ngz + 1, nz+2*ngz), nvars_edge, nq) ;
+        Kokkos::realloc(edge_staggered_fields_xz, VEC(nx + 2*ngz + 1, ny + 2*ngz, nz+2*ngz + 1), nvars_edge, nq) ;
+        Kokkos::realloc(edge_staggered_fields_yz, VEC(nx + 2*ngz, ny + 2*ngz + 1, nz+2*ngz + 1), nvars_edge, nq) ;
+        #endif 
         Kokkos::realloc(corner_staggered_fields, VEC(nx + 2*ngz+1, ny + 2*ngz+1, nz+2*ngz+1), nvars_corner, nq) ;
     }
 } ; 

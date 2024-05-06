@@ -109,19 +109,8 @@ TEST_CASE("Apply BC", "[boundaries]")
             true
         ) ; 
         h_state(VEC(i,j,k),DENS_,q) = h_func(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
-    }
-    Kokkos::deep_copy(state, h_state) ; 
-    auto& swap = thunder::variable_list::get().getscratch() ; 
-    Kokkos::deep_copy(swap, state) ; 
-    
-    /* Regrid */
-    thunder::amr::regrid() ;  
-    /* Set ghostzone values to NaN before filling */
-    nq = thunder::amr::get_local_num_quadrants() ;
-    ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
-    ncells_noghost = EXPR((nx),*(ny),*(nz))*nq ;
-    h_state = Kokkos::create_mirror_view(state) ; 
-    Kokkos::deep_copy(h_state, state) ; 
+    } 
+    /* Set ghostzone values to NaN before filling */ 
     for( size_t icell=0UL; icell<ncells; icell+=1UL)
     {
         long const i = icell%(nx+2*ngz); 
