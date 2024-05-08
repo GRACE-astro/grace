@@ -42,9 +42,4 @@ int master_rank()
     return thunder::mpi_runtime::get().master_rank() ; 
 }
 
-int print_threshold()
-{
-    return thunder::mpi_runtime::get().print_threshold() ; 
-}
-
 } /* namespace */ 

@@ -100,11 +100,9 @@ namespace detail {
 
 struct thunder_transfer_context_t 
 { 
-    std::vector<sc_MPI_Request> _rcv_rq ; 
-    std::vector<sc_MPI_Request> _snd_rq ; 
+    std::vector<sc_MPI_Request> _requests ; 
     void reset() { 
-        _rcv_rq.resize(0) ; 
-        _snd_rq.resize(0) ; 
+        _requests.clear() ; 
     } ; 
 } ; 
 

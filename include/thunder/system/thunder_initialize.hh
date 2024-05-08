@@ -31,6 +31,7 @@ namespace thunder {
 
 void initialize(int& argc, char* argv[]) ;
 
+void initialize_loggers() ; 
 
 } /* namespace thunder */
 

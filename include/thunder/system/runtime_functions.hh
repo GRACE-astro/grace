@@ -31,8 +31,6 @@ namespace thunder {
 
 int master_rank() ;
 
-int print_threshold() ; 
-
 }
 
 #endif 

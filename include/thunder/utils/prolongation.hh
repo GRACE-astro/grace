@@ -192,8 +192,7 @@ struct linear_prolongator_t
                 , int64_t q_f, int64_t q_c, int ngz, int ivar
                 , VEC(int const sign_x, int const sign_y, int const sign_z)
                 , VarViewT& coarse_view 
-                , VolViewT& fine_vol 
-                , VolViewT& coarse_vol )
+                , VolViewT& fine_vol )
     {
         LimT limiter{} ; 
         double eta ; 

@@ -29,28 +29,87 @@
 
 #include <thunder_config.h>
 
-#include <thunder/utils/make_string.hh>
-#include <thunder/system/print_impl.hh>
+#include <thunder/parallel/mpi_wrappers.hh> 
+#include <thunder/system/runtime_functions.hh> 
 
-enum message_print_thresholds {
-    HIGH_PRIORITY=0,
-    VERBOSE,
-    VERYVERBOSE 
-} ; 
+#include <string> 
+#include <spdlog/spdlog.h>
 
 
 
-#define THUNDER_INFO(l,t,m)                 \
-do {                                        \
- utils::make_string msg ;                   \
- msg << "[" << t << "]: " ;                 \
- print_message(l,msg << m) ;                \
-} while(false)                              \
+#define THUNDER_INFO(...)                          \
+do {                                               \
+ int rank = parallel::mpi_comm_rank() ;            \
+ if( rank == 0 )                                   \
+ {                                                 \
+    auto console = spdlog::get("output_console") ; \
+    console->info(__VA_ARGS__) ;                   \
+ }                                                 \
+ std::string logger_name =                         \
+    std::string("file_logger_")                    \
+  + std::to_string(rank) ;                         \
+ auto logfile = spdlog::get(logger_name) ;         \
+ logfile->info(__VA_ARGS__) ;                      \
+} while(false)                                     \
 
-#define THUNDER_PRINT(m)                                  \
-do {                                                      \
- print_message(HIGH_PRIORITY,utils::make_string{} << m) ; \
-} while(false)                                            \
+#define THUNDER_CRITICAL(...)        \
+do {                                               \
+ int rank = parallel::mpi_comm_rank() ;            \
+ if( rank == 0 )                                   \
+ {                                                 \
+    auto console = spdlog::get("output_console") ; \
+    console->critical(__VA_ARGS__) ;               \
+ }                                                 \
+ std::string logger_name =                         \
+    std::string("file_logger_")                    \
+  + std::to_string(rank) ;                         \
+ auto logfile = spdlog::get(logger_name) ;         \
+ logfile->critical(__VA_ARGS__) ;                  \
+} while(false)                                     \
 
+#define THUNDER_WARN(...)          \
+do {                                               \
+ int rank = parallel::mpi_comm_rank() ;            \
+ if( rank == 0 )                                   \
+ {                                                 \
+    auto console = spdlog::get("output_console") ; \
+    console->warn(__VA_ARGS__) ;                   \
+ }                                                 \
+ std::string logger_name =                         \
+    std::string("file_logger_")                    \
+  + std::to_string(rank) ;                         \
+ auto logfile = spdlog::get(logger_name) ;         \
+ logfile->warn(__VA_ARGS__) ;                      \
+} while(false)                                     \
+
+#define THUNDER_VERBOSE(...)        \
+do {                                               \
+ int rank = parallel::mpi_comm_rank() ;            \
+ if( rank == 0 )                                   \
+ {                                                 \
+    auto console = spdlog::get("output_console") ; \
+    console->debug(__VA_ARGS__) ;                  \
+ }                                                 \
+ std::string logger_name =                         \
+    std::string("file_logger_")                    \
+  + std::to_string(rank) ;                         \
+ auto logfile = spdlog::get(logger_name) ;         \
+ logfile->debug(__VA_ARGS__) ;                     \
+} while(false)                                     \
+
+#define THUNDER_TRACE(...)          \
+do {                                               \
+ int rank = parallel::mpi_comm_rank() ;            \
+ if( rank == 0 )                                   \
+ {                                                 \
+    auto console = spdlog::get("output_console") ; \
+    console->trace(__VA_ARGS__) ;                  \
+ }                                                 \
+ std::string logger_name =                         \
+    std::string("file_logger_")                    \
+  + std::to_string(rank) ;                         \
+ auto logfile = spdlog::get(logger_name) ;         \
+ logfile->trace(__VA_ARGS__) ;                     \
+} while(false)                                     \
 
 #endif /* INCLUDE_THUNDER_SYSTEM_PRINT */

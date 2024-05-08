@@ -41,11 +41,105 @@
 #include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/coordinates/coordinates.hh>
 
+#include <thunder/errors/error.hh>
+
+#include <thunder/parallel/mpi_wrappers.hh>
+
 #include <thunder/data_structures/variables.hh>
 
 #include <thunder/system/print.hh>
 
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/common.h>
+
+#include <Kokkos_Core.hpp> 
+
+#include <map> 
+#include <string> 
+#include <filesystem>
+#include <chrono> 
+
+
+
 namespace thunder {
+
+void initialize_loggers() {
+    auto& params = thunder::config_parser::get() ; 
+
+    std::map<std::string, spdlog::level::level_enum> logging_levels {
+       { "critical", spdlog::level::critical} ,
+       { "err"     , spdlog::level::err     } , 
+       { "warn"    , spdlog::level::warn    } ,
+       { "info"    , spdlog::level::info    } ,
+       { "verbose" , spdlog::level::debug   } , 
+       { "trace"   , spdlog::level::trace   }
+    } ; 
+    int const rank = parallel::mpi_comm_rank() ; 
+
+    std::string const console_log_level = params["system"]["console_log_level"].as<std::string>()     ; 
+    std::string const file_log_level    = params["system"]["file_log_level"].as<std::string>()        ; 
+    bool const flush_on_severity        = params["system"]["flush_logs_based_on_severity"].as<bool>() ;
+    std::string const flush_level       = params["system"]["file_log_level"].as<std::string>()        ; 
+    bool const flush_on_time            = params["system"]["flush_logs_based_on_time"].as<bool>()     ;
+    double const flush_time             = params["system"]["flush_time"].as<double>()                 ;
+    
+    auto const file_log_basedir  = 
+        std::filesystem::path(params["IO"]["log_output_base_directory"].as<std::string>()) ; 
+    
+    if( not std::filesystem::exists( file_log_basedir ) ){
+            std::filesystem::create_directory(file_log_basedir) ; 
+    }
+    std::string const file_log_filename =  params["IO"]["log_output_base_filename"].as<std::string>() ; 
+
+    std::filesystem::path log_fname = 
+        file_log_basedir / (file_log_filename + "_" + std::to_string(rank) + ".out" );
+    std::filesystem::path error_log_fname = 
+        file_log_basedir / (file_log_filename + "_" + std::to_string(rank) + ".err" ); 
+     std::filesystem::path backtrace_log_fname = 
+        file_log_basedir / (std::string("backtrace") + "_" + std::to_string(rank) + ".err" ); 
+    
+    if( rank == 0) {
+        auto stdout_logger = spdlog::stdout_color_mt("output_console") ; 
+        auto stderr_logger = spdlog::stderr_color_mt("error_console")  ; 
+        
+        stdout_logger->set_pattern("[%^%l%$] %v") ; 
+        stderr_logger->set_pattern("[%^%l%$] %v") ; 
+
+        stdout_logger->set_level(logging_levels[console_log_level]) ; 
+        stderr_logger->set_level(logging_levels[console_log_level]) ; 
+    }
+    
+    std::string logger_name = std::string("file_logger_") + std::to_string(rank) ; 
+
+    auto file_logger = spdlog::basic_logger_mt(logger_name, log_fname.string()) ; 
+    file_logger->set_pattern("[%d-%m-%Y %H.%M:%S.%e] [%^%l%$] %v") ; 
+    file_logger->set_level(logging_levels[file_log_level]) ; 
+    logger_name = std::string("error_file_logger_") + std::to_string(rank) ; 
+    auto error_file_logger = spdlog::basic_logger_mt(logger_name, error_log_fname.string()) ; 
+    error_file_logger->set_pattern("[%d-%m-%Y %H.%M:%S.%e] [%^%l%$] %v") ; 
+    error_file_logger->set_level(logging_levels[file_log_level]) ; 
+    logger_name = std::string("backtrace_logger_") + std::to_string(rank) ; 
+    auto backtrace_logger = spdlog::basic_logger_mt(logger_name, backtrace_log_fname.string()) ; 
+    backtrace_logger->set_pattern( "[%d-%m-%Y %H.%M:%S.%e] [%^%l%$] %v") ; 
+    backtrace_logger->set_level(spdlog::level::err) ;
+
+    file_logger->info("Startup of file logger completed.") ; 
+    
+    error_file_logger->flush_on(spdlog::level::err); 
+    backtrace_logger->flush_on(spdlog::level::err); 
+
+    if(flush_on_time)
+        spdlog::flush_every(std::chrono::duration<double>(flush_time)) ; 
+    if(flush_on_severity)
+        file_logger->flush_on(logging_levels[flush_level]) ;  
+
+    spdlog::enable_backtrace(32);
+
+    return ;
+}
+
 
 void initialize(int& argc, char* argv[])
 {
@@ -75,22 +169,25 @@ void initialize(int& argc, char* argv[])
     argc = argc_new;
     argv = argv_new;  
     /* Initialize global objects in correct order */ 
+    install_signal_handlers(); 
     thunder::config_parser::initialize(parfile) ; 
     thunder::kokkos_runtime::initialize(&argc, argv) ; 
     thunder::mpi_runtime::initialize(argc, argv)  ; 
+    thunder::initialize_loggers() ; 
     thunder::amr::connectivity::initialize() ; 
     thunder::amr::forest::initialize()       ;
     thunder::variable_list::initialize() ;
     thunder::runtime::initialize() ; 
     thunder::coordinate_system::initialize() ;  
-    std::cout << "Before fill coordinates \n" ;  
     thunder::fill_cell_coordinates(
             thunder::variable_list::get().getcoords()
         ,   thunder::variable_list::get().getinvspacings()
         ,   thunder::variable_list::get().getspacings()
         ,   thunder::variable_list::get().getvolumes()
         ,   thunder::variable_list::get().getstaggeredcoords() ) ; 
-    std::cout << "After fill coordinates \n" ;  
+    //THUNDER_INFO("Thunder running on {} backend", THUNDER_BACKEND) ; 
+    //THUNDER_INFO("Thunder running on {} total devices.", Kokkos::num_devices() ) ; 
+    THUNDER_INFO("Rank {} mapped to device_id {}", parallel::mpi_comm_rank(), Kokkos::device_id() ) ;
 }
 
 

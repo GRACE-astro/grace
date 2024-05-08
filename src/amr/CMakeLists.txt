@@ -6,7 +6,8 @@ target_link_libraries( thunder_connectivity PRIVATE
                        yaml_cpp::yaml
                        MPI::MPI_CXX
                        p4est::sc
-                       p4est::p4est )
+                       p4est::p4est 
+                       spdlog::spdlog )
 
 add_library( thunder_forest OBJECT forest.cpp )
 target_include_directories( thunder_forest PRIVATE "${HEADER_DIR}" )
@@ -17,7 +18,8 @@ target_link_libraries( thunder_forest PRIVATE
                        yaml_cpp::yaml
                        MPI::MPI_CXX
                        p4est::sc
-                       p4est::p4est )
+                       p4est::p4est 
+                       spdlog::spdlog )
 
 add_library( thunder_amr_functions OBJECT amr_functions.cpp )
 target_include_directories( thunder_amr_functions PRIVATE "${HEADER_DIR}" )
@@ -29,7 +31,8 @@ target_link_libraries( thunder_amr_functions PRIVATE
                         yaml_cpp::yaml
                         MPI::MPI_CXX
                         p4est::sc
-                        p4est::p4est  )
+                        p4est::p4est  
+                        spdlog::spdlog )
 
 
 add_library( thunder_regrid OBJECT regrid.cpp )
@@ -45,7 +48,8 @@ target_link_libraries( thunder_regrid PRIVATE
                         MPI::MPI_CXX
                         p4est::sc
                         p4est::p4est 
-                        Kokkos::kokkos )
+                        Kokkos::kokkos
+                        spdlog::spdlog )
 
 add_library( thunder_BC_helpers OBJECT bc_helpers.cpp )
 target_include_directories( thunder_BC_helpers PRIVATE "${HEADER_DIR}" )
@@ -60,7 +64,8 @@ target_link_libraries( thunder_BC_helpers PRIVATE
                         MPI::MPI_CXX
                         p4est::sc
                         p4est::p4est 
-                        Kokkos::kokkos )
+                        Kokkos::kokkos 
+                        spdlog::spdlog )
 
 add_library( thunder_BC OBJECT boundary_conditions.cpp )
 target_include_directories( thunder_BC PRIVATE "${HEADER_DIR}" )
@@ -76,4 +81,5 @@ target_link_libraries( thunder_BC PRIVATE
                         MPI::MPI_CXX
                         p4est::sc
                         p4est::p4est 
-                        Kokkos::kokkos )
+                        Kokkos::kokkos 
+                        spdlog::spdlog )

@@ -5,7 +5,11 @@ add_executable( errors_test test_errors.cc )
 target_include_directories(errors_test PRIVATE "${HEADER_LIST}")
 target_compile_options(errors_test PRIVATE -g)
 target_link_libraries( errors_test PRIVATE 
-                        $<TARGET_OBJECTS:thunder_error_handlers> )
+                        $<TARGET_OBJECTS:thunder_error_handlers>
+                        $<TARGET_OBJECTS:thunder_parallel>
+                        MPI::MPI_CXX 
+                        p4est::sc 
+                        spdlog::spdlog )
 
 add_library(mpi_tests_main mains/mpi_tests_main.cc)
 target_include_directories(mpi_tests_main PRIVATE "${HEADER_LIST}")
@@ -14,7 +18,8 @@ Catch2::Catch2
 $<TARGET_OBJECTS:thunder_parallel>
 $<TARGET_OBJECTS:thunder_error_handlers>
 MPI::MPI_CXX
-p4est::sc )
+p4est::sc 
+spdlog::spdlog )
 
 add_executable( parallel_test test_parallel.cc )
 target_include_directories(parallel_test PRIVATE "${HEADER_LIST}")
@@ -24,7 +29,8 @@ Catch2::Catch2
 $<TARGET_OBJECTS:thunder_parallel>
 $<TARGET_OBJECTS:thunder_error_handlers>
 MPI::MPI_CXX
-p4est::sc )
+p4est::sc 
+spdlog::spdlog )
 
 
 
@@ -35,7 +41,11 @@ target_link_libraries(  parser_tests_main PRIVATE
 Catch2::Catch2
 yaml_cpp::yaml
 $<TARGET_OBJECTS:thunder_error_handlers>
-$<TARGET_OBJECTS:thunder_singleton> )
+$<TARGET_OBJECTS:thunder_parallel>
+$<TARGET_OBJECTS:thunder_singleton> 
+MPI::MPI_CXX
+p4est::sc 
+spdlog::spdlog  )
 
 add_executable( parser_test test_parser.cc )
 target_include_directories(parser_test PRIVATE "${HEADER_LIST}")
@@ -44,8 +54,12 @@ target_link_libraries(  parser_test PRIVATE
 parser_tests_main
 yaml_cpp::yaml
 Catch2::Catch2
+$<TARGET_OBJECTS:thunder_parallel>
 $<TARGET_OBJECTS:thunder_error_handlers>
-$<TARGET_OBJECTS:thunder_singleton> )
+$<TARGET_OBJECTS:thunder_singleton> 
+MPI::MPI_CXX
+p4est::sc 
+spdlog::spdlog )
 
 add_library(p4est_tests_main mains/p4est_tests_main.cc)
 target_include_directories(p4est_tests_main PRIVATE "${HEADER_LIST}")
@@ -57,7 +71,8 @@ MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
-Kokkos::kokkos )
+Kokkos::kokkos
+spdlog::spdlog )
 
 add_executable( connectivity_test test_connectivities.cc )
 target_include_directories(connectivity_test PRIVATE "${HEADER_LIST}")
@@ -69,7 +84,8 @@ yaml_cpp::yaml
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
-p4est::p4est )
+p4est::p4est
+spdlog::spdlog )
 
 
 add_library(kokkos_tests_main mains/kokkos_tests_main.cc)
@@ -77,9 +93,13 @@ target_include_directories(kokkos_tests_main PRIVATE "${HEADER_LIST}")
 target_link_libraries(  kokkos_tests_main PRIVATE 
 Catch2::Catch2
 $<TARGET_OBJECTS:thunder_error_handlers>
+$<TARGET_OBJECTS:thunder_parallel>
 $<TARGET_OBJECTS:thunder_singleton>
 yaml_cpp::yaml
-Kokkos::kokkos )
+Kokkos::kokkos
+MPI::MPI_CXX
+p4est::sc 
+spdlog::spdlog )
 
 
 add_executable( sc_wrappers_test test_sc_wrappers.cpp )
@@ -90,7 +110,8 @@ Catch2::Catch2
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
-p4est::p4est )
+p4est::p4est
+spdlog::spdlog )
 
 add_executable( forest_test test_forest.cpp )
 target_include_directories(forest_test PRIVATE "${HEADER_LIST}")
@@ -102,7 +123,8 @@ yaml_cpp::yaml
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
-p4est::p4est )
+p4est::p4est
+spdlog::spdlog )
 
 add_executable( varlist_test test_variable_list.cpp )
 target_include_directories(varlist_test PRIVATE "${HEADER_LIST}")
@@ -115,7 +137,8 @@ MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
-Kokkos::kokkos)
+Kokkos::kokkos
+spdlog::spdlog)
 
 add_executable( coordinate_test test_coordinates.cpp )
 target_include_directories(coordinate_test PRIVATE "${HEADER_LIST}")
@@ -130,7 +153,8 @@ MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
-VTK::VTK )
+VTK::VTK 
+spdlog::spdlog)
 vtk_module_autoinit(
     TARGETS coordinate_test
     MODULES ${VTK_LIBRARIES}
@@ -149,7 +173,8 @@ MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
-VTK::VTK )
+VTK::VTK 
+spdlog::spdlog)
 vtk_module_autoinit(
     TARGETS volume_output_test
     MODULES ${VTK_LIBRARIES}
@@ -184,7 +209,8 @@ MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
-VTK::VTK )
+VTK::VTK 
+spdlog::spdlog)
 vtk_module_autoinit(
     TARGETS regrid_test
     MODULES ${VTK_LIBRARIES}
@@ -202,7 +228,8 @@ Kokkos::kokkos
 MPI::MPI_CXX
 p4est::sc
 p4est::p4est 
-VTK::VTK )
+VTK::VTK 
+spdlog::spdlog )
 vtk_module_autoinit(
 TARGETS bc_test
 MODULES ${VTK_LIBRARIES}
@@ -220,7 +247,8 @@ Kokkos::kokkos
 MPI::MPI_CXX
 p4est::sc
 p4est::p4est 
-VTK::VTK )
+VTK::VTK 
+spdlog::spdlog )
 vtk_module_autoinit(
 TARGETS bc_test
 MODULES ${VTK_LIBRARIES}
@@ -248,10 +276,14 @@ add_test(NAME regrid_test_nolog COMMAND
         mpirun -n 8 ./regrid_test --thunder-parfile ./configs/regrid_test_spherical.yaml )
 add_test(NAME regrid_test_log COMMAND 
         mpirun -n 8 ./regrid_test --thunder-parfile ./configs/regrid_test_spherical_log.yaml )
-#add_test(NAME bc_test_cartesian COMMAND 
-#        mpirun -n 2 ./bc_test --thunder-parfile ./configs/regrid_test_cartesian.yaml )
-#add_test(NAME bc_test_spherical COMMAND 
-#        mpirun -n 2 ./bc_test --thunder-parfile ./configs/regrid_test_spherical.yaml )
+add_test(NAME bc_test_unigrid_cartesian COMMAND 
+        mpirun -n 8 ./bc_test_unigrid --thunder-parfile ./configs/regrid_test_cartesian.yaml )
+add_test(NAME bc_test_unigrid_spherical COMMAND 
+        mpirun -n 2 ./bc_test_unigrid --thunder-parfile ./configs/regrid_test_spherical.yaml )
+add_test(NAME bc_test_cartesian COMMAND 
+        mpirun -n 8 ./bc_test --thunder-parfile ./configs/regrid_test_cartesian.yaml )
+add_test(NAME bc_test_spherical COMMAND 
+        mpirun -n 2 ./bc_test --thunder-parfile ./configs/regrid_test_spherical.yaml )
 ##add_custom_command(
 #        TARGET
 #        COMMENT "Run tests"

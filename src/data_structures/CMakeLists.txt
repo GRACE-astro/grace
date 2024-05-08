@@ -9,7 +9,8 @@ target_link_libraries(  thunder_variable_list PRIVATE
                         MPI::MPI_CXX 
                         p4est::sc 
                         p4est::p4est 
-                        Kokkos::kokkos )
+                        Kokkos::kokkos 
+                        spdlog::spdlog )
 
 
 add_library(thunder_variable_registration OBJECT variable_indices.cpp)
@@ -22,7 +23,8 @@ target_link_libraries(  thunder_variable_registration PRIVATE
                         MPI::MPI_CXX 
                         p4est::sc 
                         p4est::p4est 
-                        Kokkos::kokkos )
+                        Kokkos::kokkos 
+                        spdlog::spdlog )
 
 
 add_library(thunder_variable_utils OBJECT variable_utils.cpp)
@@ -37,5 +39,6 @@ target_link_libraries(  thunder_variable_utils PRIVATE
                         MPI::MPI_CXX 
                         p4est::sc 
                         p4est::p4est 
-                        Kokkos::kokkos )
+                        Kokkos::kokkos 
+                        spdlog::spdlog )
 

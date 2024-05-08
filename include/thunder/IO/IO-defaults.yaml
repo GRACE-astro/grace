@@ -5,6 +5,10 @@ IO: {
   volume_output_every : 10, 
   surface_output_every: 10,
 
+  log_output_base_filename: "thunder_log",
+  log_output_base_directory: "./logs", 
+  one_log_per_rank: false,
+
   volume_output_base_filename: "volume_out",
   volume_output_base_directory: "output_volume",
 

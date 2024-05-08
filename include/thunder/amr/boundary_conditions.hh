@@ -30,6 +30,7 @@
 #include <Kokkos_Vector.hpp>
 
 #include <vector> 
+#include <set> 
 
 namespace thunder { namespace amr {
 
@@ -49,30 +50,24 @@ struct simple_face_info_t
 struct hanging_face_info_t 
 {
     int has_polarity_flip;
-    int level_a      ;
-    int level_b      ; 
-    int is_ghost_a   ; 
-    int is_ghost_b   ; 
-    int is_ghost_c   ; 
-    int which_face_a ; 
-    int which_face_b ; 
-    int which_tree_a ; 
-    int which_tree_b ; 
-    int64_t qid_a    ;
-    int64_t qid_b    ;
-    int64_t qid_c    ;
-    #ifdef THUNDER_3D 
-    int is_ghost_d   ;
-    int is_ghost_e   ;
-    int64_t qid_d    ;
-    int64_t qid_e    ;
-    #endif 
+    int level_coarse       ;
+    int level_fine         ; 
+    int8_t which_face_coarse ; 
+    int8_t which_face_fine   ; 
+    int which_tree_coarse ; 
+    int which_tree_fine   ;
+    int8_t is_ghost_coarse ;
+    int8_t is_ghost_fine[P4EST_CHILDREN/2] ; 
+    int64_t qid_coarse ; 
+    int64_t qid_fine[P4EST_CHILDREN/2] ; 
 } ; 
 
 struct hanging_coarse_quadrant_info_t 
 {
     std::vector<int64_t> snd_quadid ; 
+    std::vector<std::set<int>>     snd_procid ; 
     std::vector<int64_t> rcv_quadid ; 
+    std::vector<int>     rcv_procid ; 
 } ; 
 
 struct thunder_face_info_t 

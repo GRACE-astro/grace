@@ -15,3 +15,4 @@ export CATCH2_ROOT=/mnt/rafast/musolino/libs/Catch2-install-gnu
 export YAML_ROOT=/mnt/rafast/musolino/libs/yaml-cpp-install-gnu
 export KOKKOS_ROOT=/mnt/rafast/musolino/libs/kokkos-new-gnu-ompi-hip
 export VTK_ROOT=/mnt/rafast/musolino/libs/vtk/install-gnu-openmpi
+export SPDLOG_ROOT=/mnt/rafast/musolino/libs/spdlog-install

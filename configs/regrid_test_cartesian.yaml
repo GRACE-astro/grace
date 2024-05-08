@@ -3,7 +3,7 @@ amr: {
   npoints_block_x: 6,
   npoints_block_y: 6,
   npoints_block_z: 6,
-  xmin: 0.,
+  xmin: -1.,
   xmax: 1.,
   ymin: 0.,
   ymax: 1.,
@@ -17,4 +17,10 @@ amr: {
 }
 IO: {
   volume_output_cell_variables: ["dens"]
+}
+system: {
+  console_log_level: "verbose",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  flush_level: "trace"
 }

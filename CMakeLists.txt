@@ -9,21 +9,16 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 
 include(check_compiler)
-
 include(prohibit_in_source_build)
-
 include(setup_flags)
-
 include(setup_mpi)
-
 find_package(OpenMP REQUIRED)
-
 find_package(p4est REQUIRED)
-
 include(setup_gsl)
 include(setup_yaml)
 include(setup_vtk)
 include(setup_kokkos)
+include(setup_spdlog)
 
 configure_file( "${CMAKE_SOURCE_DIR}/include/thunder/config/code_modules.h.in" code_modules.h )
 include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
@@ -46,6 +41,7 @@ target_link_libraries(thunder PRIVATE
         p4est::p4est 
         p4est::sc
         VTK::VTK
+        spdlog::spdlog
         )
 vtk_module_autoinit(
     TARGETS thunder

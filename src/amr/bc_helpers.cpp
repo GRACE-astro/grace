@@ -108,112 +108,109 @@ void thunder_iterate_faces( p4est_iter_face_info_t * info
                 sides[0].face
             ) ; 
     }
-    int   side1_hanging{sides[0].is_hanging}
-        , side2_hanging{}  ; 
 
     if( sides[1].is_hanging )
     {
         hanging_face_info_t this_face_info{} ; 
-        this_face_info.has_polarity_flip = polarity_flip    ;
-        this_face_info.which_tree_a = sides[0].treeid ; 
-        this_face_info.which_tree_b = sides[1].treeid ; 
-        this_face_info.which_face_a = sides[0].face   ;
-        this_face_info.which_face_b = sides[1].face   ;
-        this_face_info.is_ghost_a   = sides[0].is.full.is_ghost ;
-        this_face_info.is_ghost_b   = sides[1].is.hanging.is_ghost[0] ;
-        this_face_info.is_ghost_c   = sides[1].is.hanging.is_ghost[1] ;
-        #ifdef THUNDER_3D 
-        this_face_info.is_ghost_d   = sides[1].is.hanging.is_ghost[2] ;
-        this_face_info.is_ghost_e   = sides[1].is.hanging.is_ghost[3] ;
-        #endif 
-        this_face_info.qid_a        = sides[0].is.full.quadid ;
-        if( !this_face_info.is_ghost_a ){
-            this_face_info.qid_a += get_local_quadrants_offset(sides[0].treeid); 
+        this_face_info.has_polarity_flip = polarity_flip ; 
+        this_face_info.level_coarse = static_cast<int>(sides[0].is.full.quad->level) ;
+        this_face_info.level_fine   = this_face_info.level_coarse + 1 ;
+        this_face_info.which_face_coarse = sides[0].face ;
+        this_face_info.which_face_fine   = sides[1].face ; 
+        this_face_info.is_ghost_coarse   = sides[0].is.full.is_ghost ; 
+        this_face_info.qid_coarse        = sides[0].is.full.quadid   
+            + ( this_face_info.is_ghost_coarse ? 0 : get_local_quadrants_offset(sides[0].treeid)  ) ; 
+        int any_fine_ghost{0} ; 
+        for(int ii=0; ii<P4EST_CHILDREN/2; ++ii) {
+            this_face_info.is_ghost_fine[ii] = sides[1].is.hanging.is_ghost[ii] ; 
+            any_fine_ghost += this_face_info.is_ghost_fine[ii] ; 
+            this_face_info.qid_fine[ii] = sides[1].is.hanging.quadid[ii]
+                + ( this_face_info.is_ghost_fine[ii] ? 0 : get_local_quadrants_offset(sides[1].treeid)  ) ; 
+            ASSERT_DBG(this_face_info.is_ghost_fine[ii] == 0 or this_face_info.is_ghost_fine[ii] == 1
+                      , "Is ghost fine neither true or false.") ; 
+            ASSERT_DBG(this_face_info.qid_fine[ii]>=0, "Negative quadrant id in thunder iter faces.") ; 
         }
-        this_face_info.level_a      = static_cast<int>(sides[0].is.full.quad->level) ;
-        this_face_info.which_face_b = sides[1].face          ;
-        this_face_info.is_ghost_b   = sides[1].is.hanging.is_ghost[0]   ; 
-        this_face_info.level_b      = static_cast<int>(sides[1].is.hanging.quad[0]->level) ;
-        this_face_info.is_ghost_c   = sides[1].is.hanging.is_ghost[1]   ; 
-        this_face_info.qid_b        = sides[1].is.hanging.quadid[0]     ; 
-        if( !this_face_info.is_ghost_b ){
-            this_face_info.qid_b += get_local_quadrants_offset(sides[1].treeid); 
-        }
-        this_face_info.qid_c        = sides[1].is.hanging.quadid[1]  ;
-        if( !this_face_info.is_ghost_c ){
-            this_face_info.qid_c += get_local_quadrants_offset(sides[1].treeid); 
-        }
-        #ifdef THUNDER_3D
-        this_face_info.is_ghost_d   = sides[1].is.hanging.is_ghost[2]   ; 
-        this_face_info.is_ghost_e   = sides[1].is.hanging.is_ghost[3]   ; 
-        this_face_info.qid_d        = sides[1].is.hanging.quadid[2]     ;  
-        if( !this_face_info.is_ghost_d ){
-            this_face_info.qid_d += get_local_quadrants_offset(sides[1].treeid); 
-        }
-        this_face_info.qid_e        = sides[1].is.hanging.quadid[3]     ;
-        if( !this_face_info.is_ghost_e ){
-            this_face_info.qid_e += get_local_quadrants_offset(sides[1].treeid); 
-        }
-        #endif 
-        if( this_face_info.is_ghost_a ) { 
-            coarse_hanging_info.rcv_quadid.push_back(this_face_info.qid_a) ;
+        if( this_face_info.is_ghost_coarse ) { 
+            auto halos = info->ghost_layer ; 
+            coarse_hanging_info.rcv_quadid.push_back( this_face_info.qid_coarse ) ;
+            for( int iproc = 0; iproc<parallel::mpi_comm_size(); ++iproc ) {
+                size_t first_halo  = halos->proc_offsets[iproc]   ; 
+                size_t last_halo   = halos->proc_offsets[iproc+1] ;
+                if( this_face_info.qid_coarse >= first_halo and this_face_info.qid_coarse < last_halo ) {
+                    coarse_hanging_info.rcv_procid.push_back( iproc ) ; 
+                }
+            }
             face_info->n_hanging_ghost_faces ++ ;  
-        } else if (  this_face_info.is_ghost_b or this_face_info.is_ghost_c 
-                  #ifdef THUNDER_3D 
-                  or this_face_info.is_ghost_d or this_face_info.is_ghost_e
-                  #endif 
-                  ) {
-            coarse_hanging_info.snd_quadid.push_back(this_face_info.qid_a) ; 
+        } else if (  any_fine_ghost ) {
+            auto halos = info->ghost_layer ; 
+            sc_array_view_t<p4est_quadrant_t>  mirror_quads { &(halos->mirrors) } ; 
+            coarse_hanging_info.snd_quadid.push_back(this_face_info.qid_coarse) ; 
+            std::set<int> _snd_procid;
+            for( int ii=0; ii<P4EST_CHILDREN/2; ++ii){
+                if( this_face_info.is_ghost_fine[ii] ) {
+                    for( int iproc = 0; iproc<parallel::mpi_comm_size(); ++iproc ) {
+                        size_t first_halo  = halos->proc_offsets[iproc]   ; 
+                        size_t last_halo   = halos->proc_offsets[iproc+1] ;
+                        if( this_face_info.qid_fine[ii] >= first_halo and this_face_info.qid_fine[ii] < last_halo ) {
+                            _snd_procid.insert( iproc ) ; 
+                        }
+                    }
+                }
+            }
+            coarse_hanging_info.snd_procid.push_back(_snd_procid) ; 
             face_info->n_hanging_ghost_faces ++ ;
         }
         hanging_info.push_back(this_face_info) ; 
-    } else if(side1_hanging) {
+    } else if(sides[0].is_hanging) {
         hanging_face_info_t this_face_info{} ; 
-        this_face_info.which_tree_a = sides[1].treeid ; 
-        this_face_info.which_tree_b = sides[0].treeid ; 
-        this_face_info.has_polarity_flip = polarity_flip    ;
-        this_face_info.which_face_a = sides[1].face          ;
-        this_face_info.is_ghost_a   = sides[1].is.full.is_ghost ;
-        this_face_info.level_a      = static_cast<int>(sides[1].is.full.quad->level) ;
-        this_face_info.qid_a        = sides[1].is.full.quadid  ;
-        if( !this_face_info.is_ghost_a ){
-            this_face_info.qid_a += get_local_quadrants_offset(sides[1].treeid); 
-        }  
-        this_face_info.which_face_b = sides[0].face          ;
-        this_face_info.is_ghost_b   = sides[0].is.hanging.is_ghost[0]   ;
-        this_face_info.level_b      = static_cast<int>(sides[0].is.hanging.quad[0]->level) ;  
-        this_face_info.is_ghost_c   = sides[0].is.hanging.is_ghost[1]   ; 
-        this_face_info.qid_b        = sides[0].is.hanging.quadid[0] ; 
-        if( !this_face_info.is_ghost_b ){
-            this_face_info.qid_b += get_local_quadrants_offset(sides[0].treeid); 
+        this_face_info.has_polarity_flip = polarity_flip ; 
+        this_face_info.level_coarse = static_cast<int>(sides[1].is.full.quad->level) ;
+        this_face_info.level_fine   = this_face_info.level_coarse + 1 ;
+        this_face_info.which_face_coarse = sides[1].face ;
+        this_face_info.which_face_fine   = sides[0].face ; 
+        this_face_info.is_ghost_coarse   = sides[1].is.full.is_ghost ; 
+        this_face_info.qid_coarse        = sides[1].is.full.quadid   
+            + ( this_face_info.is_ghost_coarse ? 0 : get_local_quadrants_offset(sides[1].treeid)  ) ; 
+        int any_fine_ghost{0} ; 
+        for(int ii=0; ii<P4EST_CHILDREN/2; ++ii) {
+            this_face_info.is_ghost_fine[ii] = sides[0].is.hanging.is_ghost[ii] ; 
+            any_fine_ghost += this_face_info.is_ghost_fine[ii] ; 
+            this_face_info.qid_fine[ii] = sides[0].is.hanging.quadid[ii]
+                + ( this_face_info.is_ghost_fine[ii] ? 0 : get_local_quadrants_offset(sides[0].treeid)  ) ; 
+            ASSERT_DBG(this_face_info.is_ghost_fine[ii] == 0 or this_face_info.is_ghost_fine[ii] == 1
+                      , "Is ghost fine neither true or false.") ; 
+            ASSERT_DBG(this_face_info.qid_fine[ii]>=0, "Negative quadrant id in thunder iter faces.") ; 
         }
-        this_face_info.qid_c        = sides[0].is.hanging.quadid[1] ; 
-        if( !this_face_info.is_ghost_c ){
-            this_face_info.qid_c += get_local_quadrants_offset(sides[0].treeid); 
-        }
-        #ifdef THUNDER_3D
-        this_face_info.is_ghost_d   = sides[0].is.hanging.is_ghost[2]   ; 
-        this_face_info.is_ghost_e   = sides[0].is.hanging.is_ghost[3]   ; 
-        this_face_info.qid_d        = sides[0].is.hanging.quadid[2]  ;
-        if( !this_face_info.is_ghost_d ){
-            this_face_info.qid_d += get_local_quadrants_offset(sides[0].treeid); 
-        }
-        this_face_info.qid_e        = sides[0].is.hanging.quadid[3];  
-        if( !this_face_info.is_ghost_e ){
-            this_face_info.qid_e += get_local_quadrants_offset(sides[0].treeid); 
-        }
-        #endif 
-        if( this_face_info.is_ghost_a ) {  
-            coarse_hanging_info.rcv_quadid.push_back(this_face_info.qid_a) ;
+        if( this_face_info.is_ghost_coarse ) { 
+            auto halos = info->ghost_layer ; 
+            coarse_hanging_info.rcv_quadid.push_back( this_face_info.qid_coarse ) ;
+            for( int iproc = 0; iproc<parallel::mpi_comm_size(); ++iproc ) {
+                size_t first_halo  = halos->proc_offsets[iproc]   ; 
+                size_t last_halo   = halos->proc_offsets[iproc+1] ;
+                if( this_face_info.qid_coarse >= first_halo and this_face_info.qid_coarse < last_halo ) {
+                    coarse_hanging_info.rcv_procid.push_back( iproc ) ; 
+                }
+            }
+            face_info->n_hanging_ghost_faces ++ ;  
+        } else if (  any_fine_ghost ) {
+            auto halos = info->ghost_layer ; 
+            sc_array_view_t<p4est_quadrant_t>  mirror_quads { &(halos->mirrors) } ; 
+            coarse_hanging_info.snd_quadid.push_back(this_face_info.qid_coarse) ; 
+            std::set<int> _snd_procid;
+            for( int ii=0; ii<P4EST_CHILDREN/2; ++ii){
+                if( this_face_info.is_ghost_fine[ii] ) {
+                    for( int iproc = 0; iproc<parallel::mpi_comm_size(); ++iproc ) {
+                        size_t first_halo  = halos->proc_offsets[iproc]   ; 
+                        size_t last_halo   = halos->proc_offsets[iproc+1] ;
+                        if( this_face_info.qid_fine[ii] >= first_halo and this_face_info.qid_fine[ii] < last_halo ) {
+                            _snd_procid.insert( iproc ) ; 
+                        }
+                    }
+                }
+            }
+            coarse_hanging_info.snd_procid.push_back(_snd_procid) ; 
             face_info->n_hanging_ghost_faces ++ ;
-        } else if (  this_face_info.is_ghost_b or this_face_info.is_ghost_c 
-                  #ifdef THUNDER_3D 
-                  or this_face_info.is_ghost_d or this_face_info.is_ghost_e
-                  #endif 
-                  ) {
-            coarse_hanging_info.snd_quadid.push_back(this_face_info.qid_a) ; 
-            face_info->n_hanging_ghost_faces ++ ; 
-        } 
+        }
         hanging_info.push_back(this_face_info) ;
     } else {
         simple_face_info_t this_face_info {} ;
@@ -275,7 +272,9 @@ void copy_interior_ghostzones(
     int nvars  = variables::get_n_evolved()      ;
     auto const n_faces = interior_faces.size()   ;
     auto& d_face_info = interior_faces.d_view    ; 
-
+    if( n_faces == 0 ) {
+        return ; 
+    }
     TeamPolicy<default_execution_space> 
         policy( n_faces, AUTO() ) ; 
     using member_t = decltype(policy)::member_type ;
@@ -420,6 +419,9 @@ void restrict_hanging_ghostzones(
     int64_t nq  = amr::get_local_num_quadrants() ;
     int const nvars = variables::get_n_evolved() ;
     auto const n_faces = hanging_faces.size()   ;
+    if( n_faces == 0 ) {
+        return ; 
+    }
     auto& d_face_info = hanging_faces.d_view    ; 
 
     constexpr const int n_neighbors = PICK_D(2,4) ;  
@@ -438,58 +440,35 @@ void restrict_hanging_ghostzones(
                 , policy 
                 , KOKKOS_LAMBDA( const member_t& team )
         {
-            int polarity     =  d_face_info(team.league_rank()).has_polarity_flip ; 
-            int is_ghost_a   =  d_face_info(team.league_rank()).is_ghost_a   ; 
-            int is_ghost_b   =  d_face_info(team.league_rank()).is_ghost_b   ; 
-            int is_ghost_c   =  d_face_info(team.league_rank()).is_ghost_c   ; 
-            int which_face_coarse =  d_face_info(team.league_rank()).which_face_a ; 
-            int which_face_fine   =  d_face_info(team.league_rank()).which_face_b ; 
-            int64_t qid_a    =  d_face_info(team.league_rank()).qid_a        ;
-            int64_t qid_b    =  d_face_info(team.league_rank()).qid_b        ;
-            int64_t qid_c    =  d_face_info(team.league_rank()).qid_c        ; 
-            #ifdef THUNDER_3D 
-            int is_ghost_d   =  d_face_info(team.league_rank()).is_ghost_d   ; 
-            int is_ghost_e   =  d_face_info(team.league_rank()).is_ghost_e   ;
-            int64_t qid_d    =  d_face_info(team.league_rank()).qid_d        ;
-            int64_t qid_e    =  d_face_info(team.league_rank()).qid_e        ;
-            #endif 
-
+            int polarity     =  d_face_info(team.league_rank()).has_polarity_flip         ; 
+            int8_t is_ghost_coarse   =  d_face_info(team.league_rank()).is_ghost_coarse   ; 
+            int64_t qid_coarse       =  d_face_info(team.league_rank()).qid_coarse        ;
+            int8_t which_face_coarse =  d_face_info(team.league_rank()).which_face_coarse    ; 
+            int8_t which_face_fine   =  d_face_info(team.league_rank()).which_face_fine      ; 
+            int8_t is_ghost_fine[P4EST_CHILDREN/2] ; 
+            int64_t qid_fine[P4EST_CHILDREN/2] ;
+            for( int ii=0; ii<P4EST_CHILDREN/2; ++ ii){
+                is_ghost_fine[ii] = d_face_info(team.league_rank()).is_ghost_fine[ii] ;
+                qid_fine[ii]      = d_face_info(team.league_rank()).qid_fine[ii]      ; 
+            } 
             int64_t const ng = (which_face_fine/2==0) * nx + ((which_face_fine/2==1) * ny) + ((which_face_fine/2==2) * nz) ;
             int64_t const n1 = (which_face_fine/2==0) * ny + ((which_face_fine/2==1) * nx) + ((which_face_fine/2==2) * nx) ;
             int64_t const n2 = (which_face_fine/2==0) * nz + ((which_face_fine/2==1) * nz) + ((which_face_fine/2==2) * ny) ;
-
-            auto& coarse_view = is_ghost_a ? halo : state ; 
-            if( ! is_ghost_a )
+            if( ! is_ghost_coarse )
             {
-            int64_t fine_iqs[]  =
-                                {
-                                    qid_b, qid_c
-                                    #ifdef THUNDER_3D 
-                                    ,qid_d, qid_e
-                                    #endif
-                                } ; 
-            int fine_view_is_ghost[] = 
-                    {
-                            (is_ghost_b) ,
-                            (is_ghost_c) ,
-                            #ifdef THUNDER_3D 
-                            (is_ghost_d) ,
-                            (is_ghost_e) 
-                            #endif
-                    } ;
-
             TeamThreadMDRange<Rank<THUNDER_NSPACEDIM>,member_t>
                 team_range( team, VECD(n1,n2), nvars) ; 
             parallel_for( team_range
                         , KOKKOS_LAMBDA(VECD(int& j, int& k), int& ivar)
                     { 
-                        const int ichild = EXPRD(
-                                (2*j)/n1 
-                            , + (2*k)/n2 * 2
+                        const int8_t ichild = EXPRD(
+                                math::floor_int((2*j)/n1)
+                            , + math::floor_int((2*k)/n2) * 2
                             ) ; 
-                        int64_t iq_b = fine_iqs[ichild] ; 
-                        auto& fine_view = fine_view_is_ghost[ichild] ? halo : state ; 
-                        auto& fine_vol  = fine_view_is_ghost[ichild] ? halo_vols : vols ; 
+                        int64_t qid_b   = qid_fine[ichild] ; 
+                        auto& fine_view = is_ghost_fine[ichild] ? halo : state ; 
+                        auto& fine_vol  = is_ghost_fine[ichild] ? halo_vols : vols ; 
+                        #pragma unroll
                         for(int ig=0; ig<ngz; ++ig){
                             /* Compute indices of cell to be filled */
                             EXPR( 
@@ -538,8 +517,8 @@ void restrict_hanging_ghostzones(
                             ) 
                              
                             /* Call restriction operator on fine data */ 
-                            coarse_view(VEC(i_c,j_c,k_c),ivar,qid_a) = 
-                                utils::vol_average_restictor_t::apply(VEC(i_f,j_f,k_f), fine_view, fine_vol, iq_b, ivar) ;  
+                            state(VEC(i_c,j_c,k_c),ivar,qid_coarse) = 
+                                utils::vol_average_restictor_t::apply(VEC(i_f,j_f,k_f), fine_view, fine_vol, qid_b, ivar) ;  
                         }
                     } );
             }
@@ -570,7 +549,9 @@ void prolongate_hanging_ghostzones(
     int const nvars = variables::get_n_evolved() ;
     auto const n_faces = hanging_faces.size()   ;
     auto& d_face_info = hanging_faces.d_view    ; 
-
+    if( n_faces == 0 ) {
+        return ; 
+    }
     constexpr const int n_neighbors = PICK_D(2,4) ;  
 
     TeamPolicy<default_execution_space> 
@@ -587,52 +568,32 @@ void prolongate_hanging_ghostzones(
                 , policy 
                 , KOKKOS_LAMBDA( const member_t& team )
         {
-            int polarity     =  d_face_info(team.league_rank()).has_polarity_flip ; 
-            int is_ghost_a   =  d_face_info(team.league_rank()).is_ghost_a   ; 
-            int is_ghost_b   =  d_face_info(team.league_rank()).is_ghost_b   ; 
-            int is_ghost_c   =  d_face_info(team.league_rank()).is_ghost_c   ; 
-            int which_face_coarse =  d_face_info(team.league_rank()).which_face_a ; 
-            int which_face_fine   =  d_face_info(team.league_rank()).which_face_b ; 
-            int64_t iq_coarse    =  d_face_info(team.league_rank()).qid_a        ;
-            int64_t qid_b    =  d_face_info(team.league_rank()).qid_b        ;
-            int64_t qid_c    =  d_face_info(team.league_rank()).qid_c        ; 
-            #ifdef THUNDER_3D 
-            int is_ghost_d   =  d_face_info(team.league_rank()).is_ghost_d   ; 
-            int is_ghost_e   =  d_face_info(team.league_rank()).is_ghost_e   ;
-            int64_t qid_d    =  d_face_info(team.league_rank()).qid_d        ;
-            int64_t qid_e    =  d_face_info(team.league_rank()).qid_e        ;
-            #endif 
+            int polarity     =  d_face_info(team.league_rank()).has_polarity_flip         ; 
+            int8_t is_ghost_coarse   =  d_face_info(team.league_rank()).is_ghost_coarse   ; 
+            int64_t iq_coarse        =  d_face_info(team.league_rank()).qid_coarse        ;
+            int8_t which_face_coarse =  d_face_info(team.league_rank()).which_face_coarse    ; 
+            int8_t which_face_fine   =  d_face_info(team.league_rank()).which_face_fine      ; 
+            int8_t is_ghost_fine[P4EST_CHILDREN/2] ; 
+            int64_t qid_fine[P4EST_CHILDREN/2] ;
+            for( int ii=0; ii<P4EST_CHILDREN/2; ++ ii){
+                is_ghost_fine[ii] = d_face_info(team.league_rank()).is_ghost_fine[ii] ;
+                qid_fine[ii]      = d_face_info(team.league_rank()).qid_fine[ii]      ; 
 
-            int fine_view_is_ghost[] = {
-                    (is_ghost_b) ,
-                    (is_ghost_c) ,
-                    #ifdef THUNDER_3D 
-                    (is_ghost_d) ,
-                    (is_ghost_e) 
-                    #endif
-            } ; 
-
-            int64_t fine_iqs[]  =
-                {
-                    qid_b, qid_c
-                    #ifdef THUNDER_3D 
-                    ,qid_d, qid_e
-                    #endif
-                } ; 
+            }  
             /* We store the quadrant level for efficiency and to avoid passing         */
             /* around two different cell spacing arrays.                               */
             EXPR(
-            double const dx_fine =  1./(1L<<d_face_info(team.league_rank()).level_b)/nx;,
-            double const dy_fine =  1./(1L<<d_face_info(team.league_rank()).level_b)/ny;,
-            double const dz_fine =  1./(1L<<d_face_info(team.league_rank()).level_b)/nz; ) 
+            double const dx_fine =  1./(1L<<d_face_info(team.league_rank()).level_fine)/nx;,
+            double const dy_fine =  1./(1L<<d_face_info(team.league_rank()).level_fine)/ny;,
+            double const dz_fine =  1./(1L<<d_face_info(team.league_rank()).level_fine)/nz; ) 
             
             int64_t n1 = (which_face_fine/2==0) * ny + ((which_face_fine/2==1) * nx) + ((which_face_fine/2==2) * nx) ;
             int64_t n2 = (which_face_fine/2==0) * nz + ((which_face_fine/2==1) * nz) + ((which_face_fine/2==2) * ny) ;
 
-            auto& coarse_view = is_ghost_a ? halo : state ; 
-            auto& coarse_vol  = is_ghost_a ? halo_vols : vols ; 
-            auto& coarse_coords = is_ghost_a ? halo_coords : coords ;  
-
+            auto& coarse_view   = is_ghost_coarse ? halo : state ; 
+            #if 0
+            auto& coarse_coords = is_ghost_coarse ? halo_coords : coords ;  
+            #endif 
             TeamThreadMDRange<Rank<THUNDER_NSPACEDIM+1>,member_t>
                 team_range( team, VEC(ngz, n1,n2), nvars) ; 
             parallel_for( team_range
@@ -669,16 +630,15 @@ void prolongate_hanging_ghostzones(
                         /* and call the prolongation kernel.     */
                         #pragma unroll 4
                         for( int ichild=0; ichild<THUNDER_FACE_CHILDREN; ++ichild) {
-                            int64_t iq_fine = fine_iqs[ichild] ; 
-                            auto& fine_view = fine_view_is_ghost[ichild] 
-                                        ? halo 
-                                        : state ; 
-                            auto& fine_vol = fine_view_is_ghost[ichild] 
-                                        ? halo_vols  
-                                        : vols ; 
-                            auto& fine_coords = fine_view_is_ghost[ichild] 
+                            if( is_ghost_fine[ichild] ) continue ; 
+                            int64_t iq_fine = qid_fine[ichild] ; 
+                            auto& fine_view = state ; 
+                            auto& fine_vol =  vols ; 
+                            #if 0
+                            auto& fine_coords = is_ghost_fine[ichild] 
                                         ? halo_coords  
                                         : coords ; 
+                            #endif 
                             /* 
                             * First we need to find the index 
                             * in the parent quadrant closest 
@@ -728,14 +688,13 @@ void prolongate_hanging_ghostzones(
                                              + (which_face_coarse/2 != 2) * (
                                                 (k % 2==1) - (k % 2==0)
                                                 ) ; )
-                            fine_view(VEC(i_f,j_f,k_f), ivar, iq_fine)
+                            state(VEC(i_f,j_f,k_f), ivar, iq_fine)
                                 = InterpT::interpolate( VEC(i_f,j_f,k_f)
                                                       , VEC(i_c,j_c,k_c)
                                                       , iq_fine, iq_coarse, ngz, ivar
                                                       , VEC(sign_x, sign_y, sign_z)
                                                       , coarse_view 
-                                                      , fine_vol
-                                                      , coarse_vol  ) ; 
+                                                      , vols ) ; 
                         }  
                     } );
 

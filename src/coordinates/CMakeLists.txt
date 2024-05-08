@@ -10,7 +10,8 @@ target_link_libraries( thunder_cartesian_coordinates PRIVATE
                         MPI::MPI_CXX
                         p4est::sc
                         p4est::p4est 
-                        Kokkos::kokkos )
+                        Kokkos::kokkos 
+                        spdlog::spdlog )
 
 add_library(spherical_cell_volume_kernels OBJECT cell_volume_kernels.cpp)
 target_include_directories( spherical_cell_volume_kernels PRIVATE "${HEADER_DIR}" )
@@ -58,7 +59,8 @@ target_link_libraries( thunder_spherical_coordinates PRIVATE
                         MPI::MPI_CXX
                         p4est::sc
                         p4est::p4est 
-                        Kokkos::kokkos )
+                        Kokkos::kokkos 
+                        spdlog::spdlog )
 
 add_library( thunder_coordinates OBJECT coordinates.cpp )
 target_include_directories( thunder_coordinates PRIVATE "${HEADER_DIR}" )
@@ -74,7 +76,8 @@ target_link_libraries( thunder_coordinates PRIVATE
                        OpenMP::OpenMP_CXX
                        p4est::sc
                        p4est::p4est 
-                       Kokkos::kokkos )
+                       Kokkos::kokkos 
+                       spdlog::spdlog )
 
 add_library( thunder_coordinate_systems OBJECT coordinate_systems.cpp )
 target_include_directories( thunder_coordinate_systems PRIVATE "${HEADER_DIR}" )
@@ -89,4 +92,5 @@ target_link_libraries( thunder_coordinate_systems PRIVATE
                        MPI::MPI_CXX
                        p4est::sc
                        p4est::p4est 
-                       Kokkos::kokkos )
+                       Kokkos::kokkos 
+                       spdlog::spdlog )

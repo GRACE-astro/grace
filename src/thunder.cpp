@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
     Kokkos::deep_copy(swap, state) ; 
     thunder::runtime::get().increment_iteration() ; 
     thunder::amr::regrid() ;  
-    //thunder::amr::apply_boundary_conditions() ; 
+    thunder::amr::apply_boundary_conditions() ; 
     thunder::IO::write_volume_cell_data() ; 
 
     return EXIT_SUCCESS ; 

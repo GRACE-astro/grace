@@ -43,6 +43,8 @@
 #include <thunder/data_structures/variable_utils.hh>
 #include <thunder/config/config_parser.hh>
 
+#include <spdlog/stopwatch.h>
+
 namespace thunder { namespace amr {
 
 void apply_boundary_conditions() {
@@ -52,6 +54,7 @@ void apply_boundary_conditions() {
     /* Asynchronous data exchange for quadrants in the    */
     /* halo.                                              */
     /******************************************************/
+    spdlog::stopwatch sw ; 
     size_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = get_quadrant_extents() ;
     int64_t ngz = get_n_ghosts() ;
@@ -80,12 +83,10 @@ void apply_boundary_conditions() {
     /******************************************************/
     /*                Receive halo data                   */
     /******************************************************/
-    THUNDER_INFO(VERBOSE, "AMR-BC", "Shipping halo quadrants with " 
-        << nq << " total quadrants and " 
-        <<  halo_quads.size() << " halo quadrants.") ; 
-    std::cout << "About to ship " << halo_quads.size() << " halo quadrants.\n" ; 
+    THUNDER_VERBOSE( "Shipping halo quadrants with {}" 
+                     " total quadrants and {} halo quadrants.", nq, halo_quads.size()) ; 
     size_t send_size_coords = THUNDER_NSPACEDIM ; 
-    size_t send_size_vol = EXPR(nx, *ny, *nz) ; 
+    size_t send_size_vol = EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) ; 
     size_t send_size = send_size_vol * nvars ; 
     parallel::thunder_transfer_context_t context ;
     size_t rank = parallel::mpi_comm_rank() ; 
@@ -94,7 +95,7 @@ void apply_boundary_conditions() {
         size_t last_halo   = halos->proc_offsets[iproc+1] ;
         for( int ihalo=first_halo; ihalo<last_halo; ++ihalo ) {
             /* Receive variables */
-            context._rcv_rq.push_back(sc_MPI_Request{}) ; 
+            context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview = Kokkos::subview(
                   halo
                 , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
@@ -106,10 +107,10 @@ void apply_boundary_conditions() {
                 , iproc
                 , parallel::THUNDER_HALO_EXCHANGE_TAG
                 , parallel::get_comm_world()
-                , &(context._rcv_rq.back())
+                , &(context._requests.back())
             ) ; 
             /* Receive cell volumes */
-            context._rcv_rq.push_back(sc_MPI_Request{}) ; 
+            context._requests.push_back(sc_MPI_Request{}) ; 
             auto hvsview = Kokkos::subview(
                   halo_vols
                 , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
@@ -121,10 +122,11 @@ void apply_boundary_conditions() {
                 , iproc
                 , parallel::THUNDER_HALO_EXCHANGE_TAG+1
                 , parallel::get_comm_world()
-                , &(context._rcv_rq.back())
+                , &(context._requests.back())
             ) ; 
+            #if 0 
             /* Receive quadrant coordinates */
-            context._rcv_rq.push_back(sc_MPI_Request{}) ; 
+            context._requests.push_back(sc_MPI_Request{}) ; 
             auto hcsview = Kokkos::subview(
                   halo_coords
                 , Kokkos::ALL()
@@ -136,8 +138,9 @@ void apply_boundary_conditions() {
                 , iproc
                 , parallel::THUNDER_HALO_EXCHANGE_TAG+2
                 , parallel::get_comm_world()
-                , &(context._rcv_rq.back())
+                , &(context._requests.back())
             ) ; 
+            #endif 
         }
     }
     /******************************************************/
@@ -150,11 +153,11 @@ void apply_boundary_conditions() {
             size_t iq_loc = 
                 (mirror_quads[halos->mirror_proc_mirrors[imirror]]).p.piggy3.local_num ;
             /* Send variables */
-            context._snd_rq.push_back(sc_MPI_Request{}) ; 
+            context._requests.push_back(sc_MPI_Request{}) ; 
             auto sview = Kokkos::subview(
                   vars
                 , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                ,Kokkos::ALL()
+                , Kokkos::ALL()
                 , iq_loc ) ; 
             parallel::mpi_isend(
                   sview.data()
@@ -162,10 +165,10 @@ void apply_boundary_conditions() {
                 , iproc
                 , parallel::THUNDER_HALO_EXCHANGE_TAG
                 , parallel::get_comm_world()
-                , &(context._snd_rq.back())
+                , &(context._requests.back())
             ) ; 
             /* Send cell volumes */
-            context._snd_rq.push_back(sc_MPI_Request{}) ; 
+            context._requests.push_back(sc_MPI_Request{}) ; 
             auto svview = Kokkos::subview(
                   vols
                 , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
@@ -176,22 +179,24 @@ void apply_boundary_conditions() {
                 , iproc
                 , parallel::THUNDER_HALO_EXCHANGE_TAG+1
                 , parallel::get_comm_world()
-                , &(context._snd_rq.back())
+                , &(context._requests.back())
             ) ; 
             /* Send quadrant coordinates */
-            context._snd_rq.push_back(sc_MPI_Request{}) ; 
+            #if 0
+            context._requests.push_back(sc_MPI_Request{}) ; 
             auto scview = Kokkos::subview(
                   qcoords
                 , Kokkos::ALL()
                 , iq_loc ) ;
             parallel::mpi_isend(
-                  svview.data()
+                  scview.data()
                 , send_size_coords
                 , iproc
                 , parallel::THUNDER_HALO_EXCHANGE_TAG+2
                 , parallel::get_comm_world()
-                , &(context._snd_rq.back())
+                , &(context._requests.back())
             ) ; 
+            #endif 
         }
     } 
     /******************************************************/
@@ -199,7 +204,6 @@ void apply_boundary_conditions() {
     /* Iterate over all quadrant faces and store face     */
     /* information.                                       */
     /******************************************************/
-    parallel::mpi_waitall(context) ;
     thunder_face_info_t face_info{} ;
     p4est_iterate(
           forest::get().get()
@@ -211,16 +215,23 @@ void apply_boundary_conditions() {
         , nullptr 
         #endif 
         , nullptr) ;
-    THUNDER_INFO(VERBOSE,"AMR-BC", "After iter-faces: obtained\n" 
-        << face_info.simple_interior_info.size() << " simple faces of which " 
-        << face_info.n_simple_ghost_faces << " cross processor boundaries,\n"
-        << face_info.hanging_interior_info.size() << " hanging faces of which " 
-        << face_info.n_hanging_ghost_faces << " cross processor boundaries,\n"
-        << face_info.phys_boundary_info.size() << " faces on a physical boundary.\n"
-        << "Second ghost exchange will send/receive " << face_info.coarse_hanging_quads_info.snd_quadid.size() 
-        << "/" << face_info.coarse_hanging_quads_info.rcv_quadid.size() << " coarse quadrants."  ) ; 
-    THUNDER_INFO(VERBOSE, "AMR-BC", "Applying physical boundary conditions on " 
-    << face_info.phys_boundary_info.size() << " quadrants." ) ; 
+    THUNDER_VERBOSE("After iter-faces: obtained\n" 
+          " {:d} simple faces of which " 
+          " {:d} cross processor boundaries,\n"
+          " {:d} hanging faces of which " 
+          " {:d} cross processor boundaries,\n"
+          " {:d} faces on a physical boundary.\n"
+          "Second ghost exchange will send/receive {:d}" 
+          "/{:d} coarse quadrants."
+        , face_info.simple_interior_info.size()
+        , face_info.n_simple_ghost_faces
+        , face_info.hanging_interior_info.size() 
+        , face_info.n_hanging_ghost_faces 
+        , face_info.phys_boundary_info.size()
+        , face_info.coarse_hanging_quads_info.snd_quadid.size()  
+        , face_info.coarse_hanging_quads_info.rcv_quadid.size() ) ; 
+    THUNDER_VERBOSE( "Applying physical boundary conditions on " 
+    " {:d} quadrants.", face_info.phys_boundary_info.size() ) ; 
     /******************************************************/
     /* Third step:                                        */
     /* Apply physical boundary conditions.                */
@@ -280,21 +291,21 @@ void apply_boundary_conditions() {
     /******************************************************/
     std::string interp = params["amr"]["prolongation_interpolator_type"].as<std::string>(); 
     std::string limiter = params["amr"]["prolongation_limiter_type"].as<std::string>();
-    //std::cout << "In halo exchange: got " << simple_interior_info.size() << " simple interior faces " << std::endl ; 
     /******************************************************/
     /*                       Copy                         */
     /******************************************************/
-    THUNDER_INFO(VERBOSE, "AMR-BC", "Copying interior ghostzones across simple boundaries on " 
-    << face_info.simple_interior_info.size() << " quadrants." ) ;
+    parallel::mpi_waitall(context) ;
+    THUNDER_VERBOSE( "Copying interior ghostzones across simple boundaries on " 
+    " {:d} quadrants.", face_info.simple_interior_info.size() ) ;
     auto simple_interior_info = face_info.simple_interior_info ;
     simple_interior_info.host_to_device() ;
     copy_interior_ghostzones(vars,halo,simple_interior_info) ; 
     /******************************************************/
     /*       Restrict and prolongate hanging faces        */
     /******************************************************/
-    THUNDER_INFO(VERBOSE, "AMR-BC", "Restricting and prolongating data on "
+    THUNDER_VERBOSE( "Restricting and prolongating data on "
     "interior ghostzones across hanging boundaries on " 
-    << face_info.hanging_interior_info.size() << " quadrants." ) ;
+    "{:d} quadrants.", face_info.hanging_interior_info.size() ) ;
     auto hanging_interior_info = face_info.hanging_interior_info ; 
     hanging_interior_info.host_to_device() ;
     /******************************************************/
@@ -312,60 +323,55 @@ void apply_boundary_conditions() {
     /******************************************************/
     auto coarse_hanging_info = face_info.coarse_hanging_quads_info ; 
     context.reset() ; 
-    for(int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
-        size_t first_halo  = halos->proc_offsets[iproc]   ; 
-        size_t last_halo   = halos->proc_offsets[iproc+1] ;
-        for( int ihalo=first_halo; ihalo<last_halo; ++ihalo ) {
-            /* Receive variables */
-            if(  std::find(coarse_hanging_info.rcv_quadid.begin(), coarse_hanging_info.rcv_quadid.end(), ihalo) == coarse_hanging_info.rcv_quadid.end() ) {
-                continue ; 
-            }
-            context._rcv_rq.push_back(sc_MPI_Request{}) ; 
-            auto hsview = Kokkos::subview(
-                  halo
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , Kokkos::ALL()
-                , ihalo) ; 
-            parallel::mpi_irecv(
-                  hsview.data()
-                , send_size
-                , iproc
-                , parallel::THUNDER_HALO_EXCHANGE_TAG
-                , parallel::get_comm_world()
-                , &(context._rcv_rq.back())
-            ) ; 
-        }
+    for(int ircv=0; ircv<coarse_hanging_info.rcv_quadid.size(); ++ircv){
+        int ihalo = coarse_hanging_info.rcv_quadid[ircv] ; 
+        int iproc = coarse_hanging_info.rcv_procid[ircv] ; 
+        THUNDER_VERBOSE("Receive iproc {}", iproc);
+        #if 1
+        context._requests.push_back(sc_MPI_Request{}) ; 
+        auto hsview = Kokkos::subview(
+              halo
+            , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+            , Kokkos::ALL()
+            , ihalo) ; 
+        parallel::mpi_irecv(
+              hsview.data()
+            , send_size
+            , iproc
+            , parallel::THUNDER_HALO_EXCHANGE_TAG
+            , parallel::get_comm_world()
+            , &(context._requests.back())
+        ) ; 
+        #endif 
     }
-    for( int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
-        size_t first_mirror = halos->mirror_proc_offsets[iproc]   ; 
-        size_t last_mirror  = halos->mirror_proc_offsets[iproc+1] ; 
-        for( int imirror=first_mirror; imirror<last_mirror; ++imirror){
-            size_t iq_loc = 
-                (mirror_quads[halos->mirror_proc_mirrors[imirror]]).p.piggy3.local_num ;
-            if( std::find(coarse_hanging_info.snd_quadid.begin(), coarse_hanging_info.snd_quadid.end(), iq_loc) == coarse_hanging_info.snd_quadid.end() ) {
-                continue ; 
-            }
-            /* Send variables */
-            context._snd_rq.push_back(sc_MPI_Request{}) ; 
-            auto sview = Kokkos::subview(
-                  vars
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , Kokkos::ALL()
-                , iq_loc ) ; 
+    for( int isend=0; isend<coarse_hanging_info.snd_quadid.size(); ++isend){
+        /* Send variables */
+        int64_t iq_loc =  coarse_hanging_info.snd_quadid[isend] ; 
+        auto sview = Kokkos::subview( 
+                          vars
+                        , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                        , Kokkos::ALL()
+                        , iq_loc ) ; 
+        for( auto const& iproc: coarse_hanging_info.snd_procid[isend] ) {
+            THUNDER_VERBOSE("Send iproc {}", iproc);
+            #if 1
+            context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
                   sview.data()
                 , send_size
                 , iproc
                 , parallel::THUNDER_HALO_EXCHANGE_TAG
                 , parallel::get_comm_world()
-                , &(context._snd_rq.back())
-            ) ; 
-        }
+                , &(context._requests.back())
+            ) ;
+            #endif 
+        }         
     }
     /******************************************************/
     /*       3) Prolongation                              */
     /******************************************************/
     parallel::mpi_waitall(context) ;
+    THUNDER_VERBOSE("Initiating prolongation on {} quadrants.", hanging_interior_info.size());
     if( interp == "linear" ){
         if( limiter == "minmod" ) {
             prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
@@ -391,6 +397,7 @@ void apply_boundary_conditions() {
     } else {
         ERROR("Unsupported interpolator in ghost-zone exchange.") ; 
     }
+    Kokkos::fence() ; 
     /******************************************************/
     /* Transform vector and tensor components             */
     /* across tree boundaries (where applicable)          */
@@ -400,6 +407,11 @@ void apply_boundary_conditions() {
     /* De-allocate halo quadrant data                     */
     /******************************************************/
     Kokkos::realloc(halo, VEC(0,0,0), 0,0);
+    parallel::mpi_barrier() ; 
+    THUNDER_TRACE("All done in BC. Total number of cells processed: {}.\n"
+                  "Total time elapsed {} s.\n"\
+                , EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) * nq * nvars 
+                , sw ) ; 
 }
 
 }} /* namespace thunder::amr */

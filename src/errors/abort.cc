@@ -23,6 +23,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
+#include <thunder/errors/abort.hh>
+#include <thunder/parallel/mpi_wrappers.hh>
+
+#include <spdlog/spdlog.h>
+
 #include <array>
 #include <cstdlib>
 #include <execinfo.h>
@@ -33,7 +38,6 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
-#include <thunder/errors/abort.hh>
 
 //! \cond thunder_detail
 
@@ -104,17 +108,33 @@ std::ostream& operator<<(std::ostream& os, backtrace_handler const& /*unused*/)
                                       const std::string& message  )
 {
     std::ostringstream os ;
+    std::ostringstream btrace ; 
+    btrace << backtrace_handler{} ; 
     os << '\n'
        << "========== ASSERTION FAILED ==========\n"
        << expression << " not fulfilled \n"
+       << message << '\n'
        << "File " << file << '\n'
        << "Line " << line << '\n'
        << "Function " << function << '\n'
        << "Stack trace follows:\n"
-       << backtrace_handler{} << "\n"
-       << message << "\n"
+       << btrace.str() <<  '\n'
        << "======================================\n\n" ;
-    throw std::runtime_error(os.str()) ; 
+    /* Log error into file before aborting */
+    int rank = parallel::mpi_comm_rank();
+    std::string logger_name = std::string("error_file_logger_") + std::to_string(rank) ; 
+    auto logfile = spdlog::get(logger_name) ;  
+    logfile->error(os.str()) ; 
+    logger_name = std::string("backtrace_logger_") + std::to_string(rank) ; 
+    auto backtrace = spdlog::get(logger_name) ; 
+    backtrace->critical(btrace.str()) ;
+    if( rank == 0 ) {
+        auto err_console = spdlog::get("error_console") ; 
+        err_console->error(os.str()) ; 
+    } 
+    spdlog::dump_backtrace() ; 
+    throw std::runtime_error("Application has terminated anomalously, "
+                             "please check logs and backtraces to diagnose the issue.") ; 
 } 
 
 /**
@@ -127,6 +147,8 @@ std::ostream& operator<<(std::ostream& os, backtrace_handler const& /*unused*/)
                                       const std::string& message  )
 {
     std::ostringstream os ;
+    std::ostringstream btrace ; 
+    btrace << backtrace_handler{} ;
     os << '\n'
        << "========== FATAL ERROR ==========\n"
        << message << '\n'
@@ -134,7 +156,21 @@ std::ostream& operator<<(std::ostream& os, backtrace_handler const& /*unused*/)
        << "Line " << line << '\n'
        << "Function " << function << '\n'
        << "Stack trace follows:\n"
-       << backtrace_handler{} 
+       << btrace.str() << '\n'
        << "=================================\n\n" ;
-    throw std::runtime_error(os.str()) ; 
+    /* Log error into file before aborting */
+    int rank = parallel::mpi_comm_rank();
+    std::string logger_name = std::string("error_file_logger_") + std::to_string(rank) ; 
+    auto logfile = spdlog::get(logger_name) ;  
+    logfile->error(os.str()) ; 
+    logger_name = std::string("backtrace_logger_") + std::to_string(rank) ; 
+    auto backtrace = spdlog::get(logger_name) ; 
+    backtrace->critical(btrace.str()) ;
+    if( rank == 0 ) {
+        auto err_console = spdlog::get("error_console") ; 
+        err_console->error(os.str()) ; 
+    }
+    spdlog::dump_backtrace() ; 
+    throw std::runtime_error("Application has terminated anomalously, "
+                             "please check logs and backtraces to diagnose the issue.") ; 
 }

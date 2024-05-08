@@ -12,7 +12,8 @@ target_link_libraries(  thunder_volume_output PRIVATE
                         p4est::sc 
                         p4est::p4est 
                         Kokkos::kokkos 
-                        VTK::VTK  )
+                        VTK::VTK  
+                        spdlog::spdlog )
 
 vtk_module_autoinit(
     TARGETS thunder_volume_output

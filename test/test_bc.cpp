@@ -10,7 +10,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <numeric>
 
-/*#undef DBG_GHOSTZONE_TEST*/
+/* #undef DBG_GHOSTZONE_TEST */ 
 
 static inline bool is_outside_grid(VEC(size_t i,size_t j, size_t k), int64_t q)
 {
@@ -49,7 +49,7 @@ static inline bool is_corner_ghostzone(VEC(long i, long j, long k), VEC(long nx,
 
 static inline bool is_ghostzone(VEC(int i, int j, int k), VEC(int nx, int ny, int nz), int ngz)
 {
-    return (EXPR((i<ngz) + (i>nx+ngz-1), + (j<ngz) + (j>ny+ngz-1), + (k<ngz) + (k>nz+ngz-1))) > 0 ; 
+    return (EXPR((i<ngz) or (i>nx+ngz-1), or (j<ngz) or (j>ny+ngz-1), or (k<ngz) or (k>nz+ngz-1))) ; 
 }
 
 TEST_CASE("Apply BC", "[boundaries]")
@@ -66,10 +66,8 @@ TEST_CASE("Apply BC", "[boundaries]")
     std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
     size_t nq = thunder::amr::get_local_num_quadrants() ; 
     int ngz = thunder::amr::get_n_ghosts() ; 
-    std::cout << "nx,ny,nz,ngz " << nx << ", " << ny << ", " << nz << ", " << ngz << std::endl ; 
     auto ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
     auto ncells_noghost = EXPR(nx,*ny,*nz)*nq ; 
-
     auto const h_func = [&] (VEC(const double& x,const double& y,const double &z))
     {
         return EXPR(8.5 * x, - 5.1 * y, + 2*z) - 3.14 ; 
@@ -88,7 +86,6 @@ TEST_CASE("Apply BC", "[boundaries]")
     auto& coord_system = thunder::coordinate_system::get() ;
     /*************************************************/
     /*                   fill data                   */
-    /*        here we don't fill ghostzones.         */
     /*************************************************/
     for( size_t icell=0UL; icell<ncells; icell+=1UL)
     {
@@ -134,6 +131,8 @@ TEST_CASE("Apply BC", "[boundaries]")
         #else 
         long const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
         #endif 
+        ASSERT(!std::isnan(h_state(VEC(i,j,k),DENS,q))
+        , "We have a NaN at " << q << ", " EXPR(<< i ,<< ", " << j ,<< ", " << k) << '\n' ) ; 
         if(   is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ) 
         {
             h_state(VEC(i,j,k),DENS,q) = std::numeric_limits<double>::quiet_NaN() ; 
@@ -189,12 +188,6 @@ TEST_CASE("Apply BC", "[boundaries]")
             continue ; 
         }
         #ifdef DBG_GHOSTZONE_TEST
-        std::cout << "Cell " << icell << std::endl ;
-        std::cout << "Quadrant, indices " << q EXPR(<< ", " << i ,<< ", " << j ,<< ", " << k) << '\n'  
-                  << "Coordinates " << EXPR(pcoords[0] ,<< ", " << pcoords[1], << ", " << pcoords[2]) << '\n'
-                  << "Quadrant level " << thunder::amr::get_quadrant(q).level() << std::endl ;  
-        std::cout << (is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ? "in ghostzones\n" : "not in ghostzones\n") ; 
-        std::cout << (is_corner_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ? "in corner ghostzones\n" : "not in corner ghostzones\n") ; 
         if(  std::isnan(h_state(VEC(i,j,k),DENS,q)) || std::fabs(h_state(VEC(i,j,k),DENS,q) - h_func(VEC(pcoords[0],pcoords[1],pcoords[2]) ) ) > 1e-12 ) {
             std::cout << "Rank: " << parallel::mpi_comm_rank() << '\n'
                       << "Quadrant, indices " << q EXPR(<< ", " << i ,<< ", " << j ,<< ", " << k) << '\n'  

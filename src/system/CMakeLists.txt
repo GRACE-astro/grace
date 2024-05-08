@@ -1,4 +1,4 @@
-add_library( thunder_runtime_utilities OBJECT print.cpp runtime_functions.cpp )
+add_library( thunder_runtime_utilities OBJECT runtime_functions.cpp )
 target_include_directories( thunder_runtime_utilities PRIVATE "${HEADER_DIR}" )
 target_link_libraries( thunder_runtime_utilities PRIVATE 
                        $<TARGET_OBJECTS:thunder_parallel> 
@@ -6,7 +6,8 @@ target_link_libraries( thunder_runtime_utilities PRIVATE
                        yaml_cpp::yaml
                        MPI::MPI_CXX
                        p4est::sc
-                       Kokkos::kokkos )
+                       Kokkos::kokkos
+                       spdlog::spdlog )
 
 add_library( thunder_init OBJECT thunder_initialize.cpp )
 target_include_directories( thunder_init PRIVATE "${HEADER_DIR}" )
@@ -19,4 +20,5 @@ target_link_libraries( thunder_init PRIVATE
                         MPI::MPI_CXX
                         p4est::sc
                         p4est::p4est 
-                        Kokkos::kokkos )
+                        Kokkos::kokkos
+                        spdlog::spdlog )

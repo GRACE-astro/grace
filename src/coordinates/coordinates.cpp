@@ -174,8 +174,7 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
     } /* quadrant loop */
     auto clock_end = std::chrono::high_resolution_clock::now() ;
     float currentTime = float(std::chrono::duration_cast <std::chrono::microseconds> (clock_end - clock_start).count());
-    THUNDER_INFO(1, "AMR", "Coordinate filling loop took " << currentTime << " mus.") ; 
-    THUNDER_INFO(1, "AMR", "Average time for volume filling: " << avg_time/nq << " mus.") ;  
+    THUNDER_VERBOSE("Coordinate filling loop took {:.3e} mus.",currentTime) ; 
     clock_start = std::chrono::high_resolution_clock::now() ; 
     Kokkos::deep_copy(coords,h_coords) ; 
     Kokkos::deep_copy(ispacing,h_idx) ; 
@@ -191,7 +190,7 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
     #endif  
     clock_end = std::chrono::high_resolution_clock::now() ; 
     currentTime = float(std::chrono::duration_cast <std::chrono::microseconds> (clock_end - clock_start).count());
-    THUNDER_INFO(1, "AMR", "Copying coordinates to Device took " << currentTime << " mus.") ;
+    THUNDER_VERBOSE("Coordinate filling loop took {:.3e} mus.",currentTime) ;
 }
 
 } /* namespace thunder */ 
