@@ -28,9 +28,18 @@
 #define INCLUDE_THUNDER_SYSTEM_THUNDER_INITIALIZE
 
 namespace thunder {
-
+/**
+ * @brief Initialize thunder and all global objects in the appropriate order.
+ * 
+ * @param argc Argument count (from console invocation of Thunder).
+ * @param argv Argument values (from console invocation of Thunder).
+ * NB: This function should \b never be called by user code.
+ */
 void initialize(int& argc, char* argv[]) ;
-
+/**
+ * @brief Initialize file and console loggers.
+ * 
+ */
 void initialize_loggers() ; 
 
 } /* namespace thunder */

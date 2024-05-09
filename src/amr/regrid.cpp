@@ -43,7 +43,7 @@
 namespace thunder { namespace amr { 
 
 void regrid() {
-
+    Kokkos::Profiling::pushRegion("regrid") ; 
     using namespace thunder ; 
     auto& params = config_parser::get()             ; 
     auto&  state  = variable_list::get().getstate() ; 
@@ -380,6 +380,7 @@ void regrid() {
     /******************************************************************************************/
     /*                                      All done                                          */
     /******************************************************************************************/
+    Kokkos::Profiling::popRegion() ;
 }; 
 
 

@@ -28,6 +28,7 @@
 #define THUNDER_SYSTEM_THUNDER_SYSTEM_HH
 
 #include <thunder/system/thunder_initialize.hh>
+#include <thunder/system/thunder_finalize.hh> 
 #include <thunder/system/thunder_runtime.hh>
 #include <thunder/system/mpi_runtime.hh>
 #include <thunder/system/kokkos_runtime.hh>

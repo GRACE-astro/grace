@@ -42,6 +42,8 @@
 
 #include <thunder/data_structures/variable_indices.hh>
 
+#include <spdlog/stopwatch.h>
+
 #include <string>
 #include <vector> 
 #include <iostream>
@@ -74,6 +76,8 @@ class thunder_runtime_impl_t
     std::string _surface_io_basename ;
     /* iteration count */ 
     size_t _iter ; 
+    /* total runtime clock */
+    spdlog::stopwatch _runtime ; 
  public: 
     
     size_t THUNDER_ALWAYS_INLINE 
@@ -140,6 +144,11 @@ class thunder_runtime_impl_t
     decltype(auto) THUNDER_ALWAYS_INLINE 
     cell_surface_output_vector_aux() const {
         return _cell_surface_output_vector_aux; 
+    }
+
+    double THUNDER_ALWAYS_INLINE 
+    elapsed() {
+        return _runtime.elapsed().count() ; 
     }
 
  private:

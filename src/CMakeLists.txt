@@ -40,6 +40,7 @@ target_sources( thunder_objects INTERFACE
                 $<TARGET_OBJECTS:spherical_volume_element_3D_log_exact>
                 $<TARGET_OBJECTS:thunder_coordinates>
                 $<TARGET_OBJECTS:thunder_init> 
+                $<TARGET_OBJECTS:thunder_finalize>
                 $<TARGET_OBJECTS:thunder_variable_list>
                 $<TARGET_OBJECTS:thunder_variable_registration>
                 $<TARGET_OBJECTS:thunder_variable_utils>

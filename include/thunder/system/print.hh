@@ -36,7 +36,11 @@
 #include <spdlog/spdlog.h>
 
 
-
+/**
+ * @brief Log a message with "info" priority on files and
+ *        console.
+ * \ingroup system
+ */
 #define THUNDER_INFO(...)                          \
 do {                                               \
  int rank = parallel::mpi_comm_rank() ;            \
@@ -52,6 +56,11 @@ do {                                               \
  logfile->info(__VA_ARGS__) ;                      \
 } while(false)                                     \
 
+/**
+ * @brief Log a message with "critical" priority on files and
+ *        console.
+ * \ingroup system
+ */
 #define THUNDER_CRITICAL(...)        \
 do {                                               \
  int rank = parallel::mpi_comm_rank() ;            \
@@ -67,6 +76,11 @@ do {                                               \
  logfile->critical(__VA_ARGS__) ;                  \
 } while(false)                                     \
 
+/**
+ * @brief Log a message with "warn" priority on files and
+ *        console.
+ * \ingroup system
+ */
 #define THUNDER_WARN(...)          \
 do {                                               \
  int rank = parallel::mpi_comm_rank() ;            \
@@ -82,6 +96,11 @@ do {                                               \
  logfile->warn(__VA_ARGS__) ;                      \
 } while(false)                                     \
 
+/**
+ * @brief Log a message with "debug" priority on files and
+ *        console.
+ * \ingroup system
+ */
 #define THUNDER_VERBOSE(...)        \
 do {                                               \
  int rank = parallel::mpi_comm_rank() ;            \
@@ -97,6 +116,11 @@ do {                                               \
  logfile->debug(__VA_ARGS__) ;                     \
 } while(false)                                     \
 
+/**
+ * @brief Log a message with "trace" priority on files and
+ *        console.
+ * \ingroup system
+ */
 #define THUNDER_TRACE(...)          \
 do {                                               \
  int rank = parallel::mpi_comm_rank() ;            \

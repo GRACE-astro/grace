@@ -28,8 +28,18 @@
 #define THUNDER_SYSTEM_RUNTIME_FUNCTIONS
 
 namespace thunder {
-
+/**
+ * @brief Get the master rank.
+ * 
+ * @return int The rank which is allowed to print to console.
+ */
 int master_rank() ;
+/**
+ * @brief Get the total runtime of this simulation.
+ * 
+ * @return double The runtime since <code>thunder_initialize</code> was called (in seconds).
+ */
+double get_total_runtime() ; 
 
 }
 

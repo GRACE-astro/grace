@@ -1,49 +1,39 @@
 /**
- * @file runtime_functions.cpp
+ * @file thunder_finalize.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @version 0.1
- * @date 2024-03-18
+ * @date 2024-05-09
  * 
  * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * Thunder is an evolution framework that uses Finite Differences
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
- * 
+ *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- * 
+ *   
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *   
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
 
- #include <thunder_config.h>
- 
- #include <thunder/system/thunder_runtime.hh>
- #include <thunder/system/mpi_runtime.hh>
- #include <thunder/system/kokkos_runtime.hh>
- #include <thunder/system/p4est_runtime.hh>
- #include <thunder/system/runtime_functions.hh>
-
- #include <thunder/config/config_parser.hh>
+#include <thunder/system/thunder_finalize.hh>
+#include <thunder/system/runtime_functions.hh>
+#include <thunder/system/print.hh>
 
 namespace thunder {
 
-int master_rank()
-{
-    return thunder::mpi_runtime::get().master_rank() ; 
+void thunder_finalize() {
+
+THUNDER_INFO("Termination sequence initiated, total runtime: {:.3e} s.", thunder::get_total_runtime() ) ; 
+
 }
 
-double get_total_runtime() {
-    return thunder::runtime::get().elapsed() ; 
 }
-
-} /* namespace */ 

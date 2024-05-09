@@ -31,8 +31,7 @@
 
 #define THUNDER_EXECUTION_TAG(d,t)              \
 std::string( utils::make_string{}               \
-<< d                                     \
-<< static_cast<const char*>(__PRETTY_FUNCTION__)\
+<< d << "::"                                    \
 << t ).c_str()                                  \
 
 #endif /* UTILS_EXECUTION_TAG */

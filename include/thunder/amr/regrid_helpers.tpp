@@ -43,11 +43,6 @@
 
 namespace thunder { namespace amr {
 
-#ifdef THUNDER_3D 
-using subview_t =  Kokkos::View<double****, default_space> ; 
-#else 
-using subview_t =  Kokkos::View<double***, default_space> ; 
-#endif 
 /**
  * @brief Decide whether a quadrant needs to be refined/coarsened
  *        based on custom criterion.

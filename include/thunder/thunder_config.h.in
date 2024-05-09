@@ -47,6 +47,13 @@ namespace thunder {
 #cmakedefine THUNDER_SPHERICAL_COORDINATES
 
 #define THUNDER_BANNER                                                          \
+"                                                                           \n" \
+" ________                __                                                \n" \
+"/_  __/ /  __ _____  ___/ /__ ____                                         \n" \
+" / / / _ \\/ // / _ \\/ _  / -_) __/                                       \n" \
+"/_/ /_//_/\\_,_/_//_/\\_,_/\\__/_/                                         \n" \
+"                                                                           \n" \
+"                                                                           \n" \
 "This is Thunder @CMAKE_PROJECT_VERSION_MAJOR@.@CMAKE_PROJECT_VERSION_MINOR@\n" \
 "thunder is an evolution framework that uses Finite Difference\n"               \
 "methods to simulate relativistic spacetimes and plasmas\n"                     \
@@ -72,5 +79,12 @@ namespace thunder {
 #define THUNDER_FACE_CHILDREN 2 
 #endif 
 
+#ifdef THUNDER_ENABLE_CUDA 
+#define THUNDER_BACKEND "CUDA"
+#elif defined(THUNDER_ENABLE_HIP)
+#define THUNDER_BACKEND "HIP"
+#else 
+#define THUNDER_BACKEND "HOST"
+#endif 
 }
 #endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

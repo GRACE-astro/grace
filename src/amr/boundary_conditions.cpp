@@ -48,6 +48,7 @@
 namespace thunder { namespace amr {
 
 void apply_boundary_conditions() {
+    Kokkos::Profiling::pushRegion("BC") ; 
     using namespace thunder ;
     /******************************************************/
     /* First step:                                        */
@@ -204,6 +205,7 @@ void apply_boundary_conditions() {
     /* Iterate over all quadrant faces and store face     */
     /* information.                                       */
     /******************************************************/
+    spdlog::stopwatch sw1 ; 
     thunder_face_info_t face_info{} ;
     p4est_iterate(
           forest::get().get()
@@ -215,6 +217,7 @@ void apply_boundary_conditions() {
         , nullptr 
         #endif 
         , nullptr) ;
+    THUNDER_TRACE("Iter faces took {} s.", sw1) ; 
     THUNDER_VERBOSE("After iter-faces: obtained\n" 
           " {:d} simple faces of which " 
           " {:d} cross processor boundaries,\n"
@@ -412,6 +415,7 @@ void apply_boundary_conditions() {
                   "Total time elapsed {} s.\n"\
                 , EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) * nq * nvars 
                 , sw ) ; 
+    Kokkos::Profiling::popRegion() ; 
 }
 
 }} /* namespace thunder::amr */

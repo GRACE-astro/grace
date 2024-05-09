@@ -190,7 +190,7 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
     #endif  
     clock_end = std::chrono::high_resolution_clock::now() ; 
     currentTime = float(std::chrono::duration_cast <std::chrono::microseconds> (clock_end - clock_start).count());
-    THUNDER_VERBOSE("Coordinate filling loop took {:.3e} mus.",currentTime) ;
+    THUNDER_VERBOSE("Coordinate view copy (h2d) took {:.3e} mus.",currentTime) ;
 }
 
 } /* namespace thunder */ 
