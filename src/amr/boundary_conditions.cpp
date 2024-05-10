@@ -380,8 +380,6 @@ void apply_boundary_conditions() {
             prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
                       vars 
                     , halo 
-                    , qcoords 
-                    , halo_coords 
                     , vols 
                     , halo_vols
                     , hanging_interior_info) ; 
@@ -389,8 +387,6 @@ void apply_boundary_conditions() {
             prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::MCbeta>>(
                       vars 
                     , halo 
-                    , qcoords 
-                    , halo_coords 
                     , vols 
                     , halo_vols
                     , hanging_interior_info) ;

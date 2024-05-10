@@ -301,57 +301,56 @@ void copy_interior_ghostzones(
             auto& view_a = vars ; 
             auto& view_b = (is_ghost) ? halo : vars ;  
 
-            TeamThreadMDRange<Rank<THUNDER_NSPACEDIM>,member_t>
-                team_range( team, VECD(n1,n2), nvars) ; 
+            TeamThreadMDRange<Rank<THUNDER_NSPACEDIM+1>,member_t>
+                team_range( team, ngz, VECD(n1,n2), nvars) ; 
             parallel_for( team_range
-                        , KOKKOS_LAMBDA(VECD(int& j, int& k), int& ivar)
+                        , KOKKOS_LAMBDA(int& ig, VECD(int& j, int& k), int& ivar)
                     {
+                    int i_a = EXPR((which_face_a==0) * 
+                                ( (!polarity)*ig 
+                                + (polarity)*(ngz-1-ig) ) 
+                                + (which_face_a==1) * 
+                                ( (!polarity)*(nx+ngz+ig) 
+                                + (polarity)*(nx+2*ngz-1-ig) ),
+                                + (which_face_a/2==1) * (j+ngz), 
+                                + (which_face_a/2==2) * (j+ngz)) ;
+
+                    int j_a = EXPR((which_face_a==2) * 
+                            ( (!polarity)*ig 
+                            + (polarity)*(ngz-1-ig) )
+                            + (which_face_a==3) * 
+                            ( (!polarity)*(ny+ngz+ig)  
+                            + (polarity)*(ny+2*ngz-1-ig) ), 
+                            + (which_face_a/2==0) * (j+ngz), 
+                            + (which_face_a/2==2) * (k+ngz));  
                     
-                    for( int ig=0; ig<ngz; ++ig){
-                        int i_a = EXPR((which_face_a==0) * 
-                                    ( (!polarity)*ig 
-                                    + (polarity)*(ngz-1-ig) ) 
-                                    + (which_face_a==1) * 
-                                    ( (!polarity)*(nx+ngz+ig) 
-                                    + (polarity)*(nx+2*ngz-1-ig) ),
-                                    + (which_face_a/2==1) * (j+ngz), 
-                                    + (which_face_a/2==2) * (j+ngz)) ;
+                    int i_b = EXPR((which_face_b==0)*(ngz+ig) 
+                            + (which_face_b==1)*(nx+ig), 
+                            + (which_face_b/2==1) * (j+ngz),
+                            + (which_face_b/2==2) * (j+ngz)) ;
+                    
+                    int j_b = EXPR((which_face_b==2)*(ngz+ig) 
+                            + (which_face_b==3)*(ny+ig),
+                            + (which_face_b/2==0) * (j+ngz),
+                            + (which_face_b/2==2) * (k+ngz)) ; 
 
-                        int j_a = EXPR((which_face_a==2) * 
-                                ( (!polarity)*ig 
-                                + (polarity)*(ngz-1-ig) )
-                                + (which_face_a==3) * 
-                                ( (!polarity)*(ny+ngz+ig)  
-                                + (polarity)*(ny+2*ngz-1-ig) ), 
-                                + (which_face_a/2==0) * (j+ngz), 
-                                + (which_face_a/2==2) * (k+ngz));  
-                        
-                        int i_b = EXPR((which_face_b==0)*(ngz+ig) 
-                                + (which_face_b==1)*(nx+ig), 
-                                + (which_face_b/2==1) * (j+ngz),
-                                + (which_face_b/2==2) * (j+ngz)) ;
-                        
-                        int j_b = EXPR((which_face_b==2)*(ngz+ig) 
-                                + (which_face_b==3)*(ny+ig),
-                                + (which_face_b/2==0) * (j+ngz),
-                                + (which_face_b/2==2) * (k+ngz)) ; 
+                    #ifdef THUNDER_3D
+                    int k_a = (which_face_a==4) * 
+                            ( (!polarity)*ig 
+                            + (polarity)*(ngz-1-ig) )
+                            + (which_face_a==5) * 
+                            ( (!polarity)*(nz+ngz+ig)  
+                            + (polarity)*(nz+2*ngz-1-ig) )
+                            + (which_face_a/2!=2) * (k+ngz) ;
 
-                        #ifdef THUNDER_3D
-                        int k_a = (which_face_a==4) * 
-                                ( (!polarity)*ig 
-                                + (polarity)*(ngz-1-ig) )
-                                + (which_face_a==5) * 
-                                ( (!polarity)*(nz+ngz+ig)  
-                                + (polarity)*(nz+2*ngz-1-ig) )
-                                + (which_face_a/2!=2) * (k+ngz) ;
+                    int k_b = (which_face_b==4)*(ngz+ig)
+                            + (which_face_b==5)*(nz+ig)
+                            + (which_face_b/2!=2) * (k + ngz) ;
+                    #endif 
 
-                        int k_b = (which_face_b==4)*(ngz+ig)
-                                + (which_face_b==5)*(nz+ig)
-                                + (which_face_b/2!=2) * (k + ngz) ;
-                        #endif 
-
-                        view_a(VEC(i_a,j_a,k_a),ivar,qid_a) =  view_b(VEC(i_b,j_b,k_b),ivar,qid_b) ; 
-
+                    view_a(VEC(i_a,j_a,k_a),ivar,qid_a) =  view_b(VEC(i_b,j_b,k_b),ivar,qid_b) ; 
+                    
+                    if( ! is_ghost ) {
                         i_b = EXPR((which_face_b==0) * 
                                 ( (!polarity)*ig 
                                 + (polarity)*(ngz-1-ig) )
@@ -532,8 +531,6 @@ template< typename InterpT >
 void prolongate_hanging_ghostzones(
       thunder::var_array_t<THUNDER_NSPACEDIM>& state
     , thunder::var_array_t<THUNDER_NSPACEDIM>& halo 
-    , thunder::scalar_array_t<THUNDER_NSPACEDIM>& coords 
-    , thunder::scalar_array_t<THUNDER_NSPACEDIM>& halo_coords 
     , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>& vols 
     , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>& halo_vols 
     , Kokkos::vector<hanging_face_info_t>& hanging_faces
@@ -585,9 +582,6 @@ void prolongate_hanging_ghostzones(
             int64_t n2 = (which_face_fine/2==0) * nz + ((which_face_fine/2==1) * nz) + ((which_face_fine/2==2) * ny) ;
 
             auto& coarse_view   = is_ghost_coarse ? halo : state ; 
-            #if 0
-            auto& coarse_coords = is_ghost_coarse ? halo_coords : coords ;  
-            #endif 
             TeamThreadMDRange<Rank<THUNDER_NSPACEDIM+1>,member_t>
                 team_range( team, VEC(ngz, n1,n2), nvars) ; 
             parallel_for( team_range
@@ -626,15 +620,10 @@ void prolongate_hanging_ghostzones(
                         for( int ichild=0; ichild<THUNDER_FACE_CHILDREN; ++ichild) {
                             if( is_ghost_fine[ichild] ) continue ; 
                             int64_t iq_fine = qid_fine[ichild] ; 
-                            #if 0
-                            auto& fine_coords = is_ghost_fine[ichild] 
-                                        ? halo_coords  
-                                        : coords ; 
-                            #endif 
                             /* 
-                            * First we need to find the index 
-                            * in the parent quadrant closest 
-                            * to the requested index in the child
+                            * First we need to find the physical index 
+                            * in the coarse quadrant closest 
+                            * to the requested ghost index in the fine
                             * quadrant. 
                             */ 
                             EXPRD( 
@@ -660,14 +649,14 @@ void prolongate_hanging_ghostzones(
                                   + (which_face_coarse == 5) * (nz + ngz - 1 - math::floor_int( (ngz - 1 - ig) / 2 ) )
                                   + (which_face_coarse/2!=2) * I2 ;
                             )
-                            /* Get coordinates of cell centres */
+                            /* Get signs for slope corrections */
                             EXPR(  
                             int const sign_x = (which_face_coarse == 0) * (
                                                   (!polarity) * ( (ig%2==1) - (ig%2==0) )
-                                                + (polarity) *  ( ((ig+(ngz%2))%2==0) - ((ig+(ngz%2))%2==1) )
+                                                + (polarity) *  ( ((ig)%2==0) - ((ig)%2==1) )
                                                 )
                                              + (which_face_coarse == 1) * (
-                                                  (!polarity) * ( ((ig+(ngz%2))%2==1) - ((ig+(ngz%2))%2==0) )
+                                                  (!polarity) * ( (ig%2==1) - (ig%2==0) )
                                                 + (polarity) *  ( (ig%2==0) - (ig%2==1) )
                                                 )
                                              + (which_face_coarse/2 != 0) * (
@@ -675,10 +664,10 @@ void prolongate_hanging_ghostzones(
                                                 ) ;,
                             int const sign_y = EXPR((which_face_coarse == 2) * (
                                                   (!polarity) * ( (ig%2==1) - (ig%2==0) )
-                                                + (polarity) *  ( ((ig+(ngz%2))%2==0) - ((ig+(ngz%2))%2==1) )
+                                                + (polarity) *  ( (ig%2==0) - (ig%2==1) )
                                                 )
                                              + (which_face_coarse == 3) * (
-                                                  (!polarity) * ( ((ig+(ngz%2))%2==1) - ((ig+(ngz%2))%2==0) )
+                                                  (!polarity) * ( (ig%2==1) - (ig%2==0) )
                                                 + (polarity) *  ( (ig%2==0) - (ig%2==1) )
                                                 ),
                                              + (which_face_coarse/2 == 0) * (
@@ -689,10 +678,10 @@ void prolongate_hanging_ghostzones(
                                                 ) );, 
                             int const sign_z = (which_face_coarse == 4) * (
                                                   (!polarity) * ( (ig%2==1) - (ig%2==0) )
-                                                + (polarity) *  ( ((ig+(ngz%2))%2==0) - ((ig+(ngz%2))%2==1) )
+                                                + (polarity) *  ( (ig%2==0) - (ig%2==1) )
                                                 )
                                              + (which_face_coarse == 5) * (
-                                                  (!polarity) * ( ((ig+(ngz%2))%2==1) - ((ig+(ngz%2))%2==0) )
+                                                  (!polarity) * ( (ig%2==1) - (ig%2==0) )
                                                 + (polarity) *  ( (ig%2==0) - (ig%2==1) )
                                                 )
                                              + (which_face_coarse/2 != 2) * (
@@ -717,8 +706,6 @@ template void
 prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
       thunder::var_array_t<THUNDER_NSPACEDIM>& 
     , thunder::var_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
     , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
     , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
     , Kokkos::vector<hanging_face_info_t>& 
@@ -726,9 +713,7 @@ prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
 template void 
 prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::MCbeta>>(
       thunder::var_array_t<THUNDER_NSPACEDIM>& 
-    , thunder::var_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
+    , thunder::var_array_t<THUNDER_NSPACEDIM>&   
     , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
     , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
     , Kokkos::vector<hanging_face_info_t>& 

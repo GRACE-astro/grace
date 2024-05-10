@@ -31,6 +31,7 @@
 
 #define THUNDER_EXECUTION_TAG(d,t)              \
 std::string( utils::make_string{}               \
+<< "Thunder::"                                  \
 << d << "::"                                    \
 << t ).c_str()                                  \
 

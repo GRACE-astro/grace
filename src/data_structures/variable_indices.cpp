@@ -34,6 +34,12 @@
 
 #include <string> 
 
+#undef DECLARE_VAR_INDEX_IMPL
+#define DECLARE_VAR_INDEX_IMPL(var) int var = -1 ;
+DECLARE_VARIABLE_INDICES;
+#undef DECLARE_VAR_INDEX_IMPL
+ 
+
 namespace thunder { namespace variables { 
 
 namespace detail {
@@ -142,28 +148,6 @@ std::vector<int> edge_staggered_flux_var_indices         ;
 std::vector<int> edge_staggered_prolongation_var_indices ;
 
 } /* namespace thunder::variables::detail */
-
-#ifdef THUNDER_ENABLE_HYDROBASE 
-/* Valencia GRMHD conservatives */
-int DENS= -1 ; 
-int SX  = -1 ; 
-int SY  = -1 ; 
-int SZ  = -1 ; 
-int TAU = -1 ; 
-#endif 
-#ifdef THUNDER_ENABLE_ADMBASE 
-/* AMD metric functions */
-int GXX = -1 ;
-int GXY = -1 ;
-int GXZ = -1 ;
-int GYY = -1 ;
-int GYZ = -1 ;
-int GZZ = -1 ;
-int ALP = -1 ;
-int BETAX = -1 ;
-int BETAY = -1 ;
-int BETAZ = -1 ;
-#endif 
 
 void register_variables() {
     #ifdef THUNDER_ENABLE_HYDROBASE 

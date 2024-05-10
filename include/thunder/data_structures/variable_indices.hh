@@ -200,35 +200,48 @@ extern std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>>
 
 } /* namespace thunder::variables::detail */
 
+} } /* namespace thunder::variables */
+
 #ifdef THUNDER_ENABLE_HYDROBASE 
 /* Valencia GRMHD conservatives */
-extern int DENS ; 
-extern int SX   ; 
-extern int SY   ; 
-extern int SZ   ; 
-extern int TAU  ; 
+#define VARIABLE_LIST_HYDROBASE                     \
+DECLARE_VAR_INDEX_IMPL(DENS)                        \
+DECLARE_VAR_INDEX_IMPL(SX)                          \
+DECLARE_VAR_INDEX_IMPL(SY)                          \
+DECLARE_VAR_INDEX_IMPL(SZ)                          \
+DECLARE_VAR_INDEX_IMPL(TAU)                         \
+DECLARE_VAR_INDEX_IMPL(RHO)                         \
+DECLARE_VAR_INDEX_IMPL(PRESS)                       \
+DECLARE_VAR_INDEX_IMPL(TEMP)                        \
+DECLARE_VAR_INDEX_IMPL(EPS)                          
+#else 
+#define VARIABLE_LIST_HYDROBASE
 #endif 
 #ifdef THUNDER_ENABLE_ADMBASE 
 /* AMD metric functions */
-extern int GXX ;
-extern int GXY ;
-extern int GXZ ;
-extern int GYY ;
-extern int GYZ ;
-extern int GZZ ;
-extern int ALP ;
-extern int BETAX ;
-extern int BETAY ;
-extern int BETAZ ;
+#define VARIABLE_LIST_ADMBASE                     \
+DECLARE_VAR_INDEX_IMPL(GXX)                       \
+DECLARE_VAR_INDEX_IMPL(GXY)                       \
+DECLARE_VAR_INDEX_IMPL(GXZ)                       \
+DECLARE_VAR_INDEX_IMPL(GYY)                       \
+DECLARE_VAR_INDEX_IMPL(GYZ)                       \
+DECLARE_VAR_INDEX_IMPL(GZZ)                       \
+DECLARE_VAR_INDEX_IMPL(ALP)                       \
+DECLARE_VAR_INDEX_IMPL(BETAX)                     \
+DECLARE_VAR_INDEX_IMPL(BETAY)                     \
+DECLARE_VAR_INDEX_IMPL(BETAZ)                      
+#else 
+#define VARIABLE_LIST_ADMBASE 
 #endif 
 
+#define DECLARE_VARIABLE_INDICES    \
+VARIABLE_LIST_HYDROBASE             \
+VARIABLE_LIST_ADMBASE    
 
-} } /* namespace thunder::variables */
+#define DECLARE_VAR_INDEX_IMPL(var) extern int var;
+DECLARE_VARIABLE_INDICES
+#undef DECLARE_VAR_INDEX_IMPL
 
-#define DECLARE_VARIABLE_INDICES \
-int const DENS_ = DENS ;    \
-int const BETAX_ = BETAX ;  \
-int const BETAY_ = BETAY ;  \
-int const BETAZ_ = BETAZ    \
+#define DECLARE_VAR_INDEX_IMPL(name) int const name##_= name;
 
 #endif /* INCLUDE_THUNDER_DATA_STRUCTURES_VARIABLE_INDICES */

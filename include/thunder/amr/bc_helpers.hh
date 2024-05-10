@@ -62,8 +62,6 @@ template< typename InterpT >
 void prolongate_hanging_ghostzones(
       thunder::var_array_t<THUNDER_NSPACEDIM>& 
     , thunder::var_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
     , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
     , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
     , Kokkos::vector<hanging_face_info_t>& 
@@ -73,8 +71,6 @@ extern template void
 prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
       thunder::var_array_t<THUNDER_NSPACEDIM>& 
     , thunder::var_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
     , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
     , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
     , Kokkos::vector<hanging_face_info_t>& 
@@ -84,8 +80,6 @@ extern template void
 prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::MCbeta>>(
       thunder::var_array_t<THUNDER_NSPACEDIM>& 
     , thunder::var_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::scalar_array_t<THUNDER_NSPACEDIM>&  
     , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
     , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
     , Kokkos::vector<hanging_face_info_t>& 

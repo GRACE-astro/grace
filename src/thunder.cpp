@@ -73,7 +73,7 @@ int main(int argc, char* argv[])
         double const r = std::sqrt( EXPR( math::int_pow<2>(coords[0]),
                                         + math::int_pow<2>(coords[1]),
                                         + math::int_pow<2>(coords[2]) ) ) ; 
-        h_state_mirror(VEC(i,j,k),DENS,q) = exp(-(r-0.5)*(r-0.5)*0.5/(0.1*0.1)) ; 
+        h_state_mirror(VEC(i,j,k),DENS_,q) = exp(-(r-0.5)*(r-0.5)*0.5/(0.1*0.1)) ; 
     }
     Kokkos::deep_copy(state, h_state_mirror) ; 
  
