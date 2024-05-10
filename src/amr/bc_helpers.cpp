@@ -580,12 +580,6 @@ void prolongate_hanging_ghostzones(
                 qid_fine[ii]      = d_face_info(team.league_rank()).qid_fine[ii]      ; 
 
             }  
-            /* We store the quadrant level for efficiency and to avoid passing         */
-            /* around two different cell spacing arrays.                               */
-            EXPR(
-            double const dx_fine =  1./(1L<<d_face_info(team.league_rank()).level_fine)/nx;,
-            double const dy_fine =  1./(1L<<d_face_info(team.league_rank()).level_fine)/ny;,
-            double const dz_fine =  1./(1L<<d_face_info(team.league_rank()).level_fine)/nz; ) 
             
             int64_t n1 = (which_face_fine/2==0) * ny + ((which_face_fine/2==1) * nx) + ((which_face_fine/2==2) * nx) ;
             int64_t n2 = (which_face_fine/2==0) * nz + ((which_face_fine/2==1) * nz) + ((which_face_fine/2==2) * ny) ;
@@ -632,8 +626,6 @@ void prolongate_hanging_ghostzones(
                         for( int ichild=0; ichild<THUNDER_FACE_CHILDREN; ++ichild) {
                             if( is_ghost_fine[ichild] ) continue ; 
                             int64_t iq_fine = qid_fine[ichild] ; 
-                            auto& fine_view = state ; 
-                            auto& fine_vol =  vols ; 
                             #if 0
                             auto& fine_coords = is_ghost_fine[ichild] 
                                         ? halo_coords  
@@ -670,21 +662,39 @@ void prolongate_hanging_ghostzones(
                             )
                             /* Get coordinates of cell centres */
                             EXPR(  
-                            int const sign_x = (which_face_coarse == 0) * ( (ig%2==1) - (ig%2==0) )
-                                             + (which_face_coarse == 1) * ( (ig%2==1) - (ig%2==0) )
+                            int const sign_x = (which_face_coarse == 0) * (
+                                                  (!polarity) * ( (ig%2==1) - (ig%2==0) )
+                                                + (polarity) *  ( ((ig+(ngz%2))%2==0) - ((ig+(ngz%2))%2==1) )
+                                                )
+                                             + (which_face_coarse == 1) * (
+                                                  (!polarity) * ( ((ig+(ngz%2))%2==1) - ((ig+(ngz%2))%2==0) )
+                                                + (polarity) *  ( (ig%2==0) - (ig%2==1) )
+                                                )
                                              + (which_face_coarse/2 != 0) * (
                                                 (j % 2==1) - (j % 2==0)
                                                 ) ;,
-                            int const sign_y = EXPR((which_face_coarse == 2) * ( (ig%2==1) - (ig%2==0) )
-                                             + (which_face_coarse == 3) * ( (ig%2==1) - (ig%2==0) ),
+                            int const sign_y = EXPR((which_face_coarse == 2) * (
+                                                  (!polarity) * ( (ig%2==1) - (ig%2==0) )
+                                                + (polarity) *  ( ((ig+(ngz%2))%2==0) - ((ig+(ngz%2))%2==1) )
+                                                )
+                                             + (which_face_coarse == 3) * (
+                                                  (!polarity) * ( ((ig+(ngz%2))%2==1) - ((ig+(ngz%2))%2==0) )
+                                                + (polarity) *  ( (ig%2==0) - (ig%2==1) )
+                                                ),
                                              + (which_face_coarse/2 == 0) * (
                                                 (j % 2==1) - (j % 2==0)
                                                 ),
                                              + (which_face_coarse/2 == 2) * (
                                                 (k % 2==1) - (k % 2==0)
                                                 ) );, 
-                            int const sign_z = (which_face_coarse == 4) * ( (ig%2==1) - (ig%2==0) )
-                                             + (which_face_coarse == 5) * ( (ig%2==1) - (ig%2==0) )
+                            int const sign_z = (which_face_coarse == 4) * (
+                                                  (!polarity) * ( (ig%2==1) - (ig%2==0) )
+                                                + (polarity) *  ( ((ig+(ngz%2))%2==0) - ((ig+(ngz%2))%2==1) )
+                                                )
+                                             + (which_face_coarse == 5) * (
+                                                  (!polarity) * ( ((ig+(ngz%2))%2==1) - ((ig+(ngz%2))%2==0) )
+                                                + (polarity) *  ( (ig%2==0) - (ig%2==1) )
+                                                )
                                              + (which_face_coarse/2 != 2) * (
                                                 (k % 2==1) - (k % 2==0)
                                                 ) ; )

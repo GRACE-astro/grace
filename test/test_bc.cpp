@@ -10,7 +10,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <numeric>
 
-/* #undef DBG_GHOSTZONE_TEST */ 
+#define DBG_GHOSTZONE_TEST 
 
 static inline bool is_outside_grid(VEC(size_t i,size_t j, size_t k), int64_t q)
 {

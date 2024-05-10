@@ -60,6 +60,7 @@
 #include <string> 
 #include <filesystem>
 #include <chrono> 
+#include <iostream> 
 
 
 
@@ -167,13 +168,16 @@ void initialize(int& argc, char* argv[])
         }
     }
     argc = argc_new;
-    argv = argv_new;  
+    argv = argv_new; 
     /* Initialize global objects in correct order */ 
     install_signal_handlers(); 
     thunder::config_parser::initialize(parfile) ; 
-    thunder::kokkos_runtime::initialize(&argc, argv) ; 
-    thunder::mpi_runtime::initialize(argc, argv)  ; 
+    thunder::mpi_runtime::initialize(argc, argv)  ;
+    thunder::kokkos_runtime::initialize(&argc, argv) ;  
     thunder::initialize_loggers() ; 
+    if( parallel::mpi_comm_rank() == 0 ) {
+        std::cout << THUNDER_BANNER ; 
+    }
     thunder::amr::connectivity::initialize() ; 
     thunder::amr::forest::initialize()       ;
     thunder::variable_list::initialize() ;
@@ -185,7 +189,7 @@ void initialize(int& argc, char* argv[])
         ,   thunder::variable_list::get().getspacings()
         ,   thunder::variable_list::get().getvolumes()
         ,   thunder::variable_list::get().getstaggeredcoords() ) ; 
-    //THUNDER_INFO("Thunder running on {} backend", THUNDER_BACKEND) ; 
+    THUNDER_INFO("Thunder running on {} backend", THUNDER_BACKEND) ; 
     //THUNDER_INFO("Thunder running on {} total devices.", Kokkos::num_devices() ) ; 
     THUNDER_INFO("Rank {} mapped to device_id {}", parallel::mpi_comm_rank(), Kokkos::device_id() ) ;
 }

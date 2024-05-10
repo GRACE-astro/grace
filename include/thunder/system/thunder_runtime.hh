@@ -227,7 +227,6 @@ class thunder_runtime_impl_t
         /****************************/
         if( parallel::mpi_comm_rank() == thunder::master_rank() ) 
         {
-            std::cout << THUNDER_BANNER ;
             if ( _volume_output ) 
             {
                 std::cout << "Volume output requested every " << _volume_output_every << " iterations\n" ; 
