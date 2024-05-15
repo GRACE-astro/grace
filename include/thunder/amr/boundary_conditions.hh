@@ -27,6 +27,8 @@
 #ifndef THUNDER_AMR_BC_HH 
 #define THUNDER_AMR_BC_HH 
 
+#include <thunder/data_structures/variable_properties.hh>
+
 #include <Kokkos_Vector.hpp>
 
 #include <vector> 
@@ -81,6 +83,9 @@ struct thunder_face_info_t
 } ; 
 
 void apply_boundary_conditions() ;
+
+void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) ;
+
 
 }} /* namespace thunder::amr */
 

@@ -65,7 +65,6 @@ add_library(p4est_tests_main mains/p4est_tests_main.cc)
 target_include_directories(p4est_tests_main PRIVATE "${HEADER_LIST}")
 target_link_libraries(  p4est_tests_main PRIVATE 
 Catch2::Catch2
-thunder_objects
 yaml_cpp::yaml
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
@@ -107,6 +106,7 @@ target_include_directories(sc_wrappers_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  sc_wrappers_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
+thunder_objects
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc

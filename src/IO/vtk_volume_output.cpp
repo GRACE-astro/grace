@@ -48,6 +48,8 @@
 /* memory */
 #include <vtkSmartPointer.h>
 #include <vtkNew.h>
+#include <vtkXMLDataElement.h>
+#include <vtkXMLUtilities.h>
 /* VTK MPI */
 #include <vtkMPI.h>
 #include <vtkMPICommunicator.h>
@@ -77,7 +79,13 @@
 
 namespace thunder { namespace IO {
 
+namespace detail {
 
+std::vector<std::string> _volume_filenames ; 
+std::vector<int> _volume_iterations ; 
+std::vector<double> _volume_times   ; 
+
+}
 
 vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() {
 
@@ -140,7 +148,7 @@ vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() {
     Kokkos::fence() ;
     for( int ivar=0; ivar<aux_scalars.size(); ++ivar )
     {
-        size_t varidx = thunder::get_variable_index(aux_scalars[ivar]) ; 
+        size_t varidx = thunder::get_variable_index(aux_scalars[ivar],true) ; 
         
         auto h_sview = Kokkos::subview(aux_h_mirror       , VEC( Kokkos::pair(ngz,nx+ngz)
                                                                , Kokkos::pair(ngz,ny+ngz)
@@ -154,7 +162,7 @@ vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data() {
     /*
     for( int ivar=0; ivar<aux_vectors.size(); ++ivar )
     {
-        size_t varidx = thunder::get_variable_index(aux_vectors[ivar]+"[0]") ; 
+        size_t varidx = thunder::get_variable_index(aux_vectors[ivar]+"[0]",true) ; 
         
         auto h_sview = Kokkos::subview(aux_h_mirror       , VEC(  Kokkos::ALL()
                                                                , Kokkos::ALL()
@@ -203,8 +211,40 @@ void write_volume_cell_data()
     pwriter->SetCompressorTypeToZLib();  
     pwriter->Write() ; 
     
+    detail::_volume_filenames.push_back(pfname) ; 
+    detail::_volume_iterations.push_back(thunder::get_iteration()) ; 
+    detail::_volume_times.push_back(thunder::get_simulation_time()) ; 
+    if( parallel::mpi_comm_rank() == 0 ) {
+        std::string pvd_basefilename = runtime.volume_io_basename() + ".pvd" ; 
+        std::filesystem::path pvd_filename = base_path / pvd_basefilename ;
+        write_pvd_file(pvd_filename.string()) ;
+    } 
 
+}
 
+void write_pvd_file(std::string const& pvdFilename) {
+    vtkNew<vtkXMLDataElement> collection;
+    collection->SetName("Collection");
+    for (size_t i = 0; i < detail::_volume_filenames.size(); ++i) {
+        vtkNew<vtkXMLDataElement> dataSet;
+        dataSet->SetName("DataSet");
+        dataSet->SetDoubleAttribute("timestep", detail::_volume_times[i]);
+        dataSet->SetAttribute("group", "");
+        dataSet->SetAttribute("part", "0");
+        dataSet->SetAttribute("file", detail::_volume_filenames[i].c_str());
+        collection->AddNestedElement(dataSet);
+    }
+
+    vtkNew<vtkXMLDataElement> root;
+    root->SetName("VTKFile");
+    root->SetAttribute("type", "Collection");
+    root->SetAttribute("version", "0.1");
+    root->SetAttribute("byte_order", "LittleEndian");
+    root->SetAttribute("compressor", "vtkZLibDataCompressor");
+    root->AddNestedElement(collection);
+
+    vtkNew<vtkXMLUtilities> xmlUtilities;
+    xmlUtilities->WriteElementToFile(root, pvdFilename.c_str(), nullptr);
 }
 
 void flag_ghost_cells(vtkSmartPointer<vtkUnstructuredGrid> grid)

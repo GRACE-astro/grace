@@ -16,6 +16,10 @@ add_subdirectory(data_structures)
 
 add_subdirectory(IO)
 
+add_subdirectory(evolution)
+
+add_subdirectory(physics)
+
 add_library( thunder_objects INTERFACE )
 target_sources( thunder_objects INTERFACE 
                 $<TARGET_OBJECTS:thunder_error_handlers>
@@ -49,5 +53,8 @@ target_sources( thunder_objects INTERFACE
                 $<TARGET_OBJECTS:thunder_coordinate_systems>
                 $<TARGET_OBJECTS:thunder_regrid> 
                 $<TARGET_OBJECTS:thunder_BC_helpers>
-                $<TARGET_OBJECTS:thunder_BC> )
+                $<TARGET_OBJECTS:thunder_BC>
+                $<TARGET_OBJECTS:thunder_evolution> 
+                $<TARGET_OBJECTS:thunder_scalar_adv>
+                $<TARGET_OBJECTS:thunder_initial_data> )
 

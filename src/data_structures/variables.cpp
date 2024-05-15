@@ -40,20 +40,23 @@
 namespace thunder 
 {
 
-size_t get_variable_index(std::string const& name)
+size_t get_variable_index(std::string const& name, bool is_aux)
 {
     using namespace thunder::variables::detail ; 
     /* first check if it's a state variable */
-    auto it = std::find(_varnames.begin(), _varnames.end(), name);
-    if (it != _varnames.end())
-    {
-        return std::distance(_varnames.begin(),it) ; 
-    } 
-    it = std::find(_auxnames.begin(), _auxnames.end(), name); 
-    if (it != _auxnames.end())
-    {
-        return std::distance(_varnames.begin(),it) ; 
-    } 
+    if( !is_aux ) {
+        auto it = std::find(_varnames.begin(), _varnames.end(), name);
+        if (it != _varnames.end())
+        {
+            return std::distance(_varnames.begin(),it) ; 
+        } 
+    } else {
+        auto it = std::find(_auxnames.begin(), _auxnames.end(), name); 
+        if (it != _auxnames.end())
+        {
+            return std::distance(_varnames.begin(),it) ; 
+        } 
+    }
     ASSERT_DBG(0, 
     "In get_variable_index, variable "
     << name << " not found.") ; 

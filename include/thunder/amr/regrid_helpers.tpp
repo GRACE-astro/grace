@@ -65,7 +65,7 @@ void evaluate_regrid_criterion( ViewT flag_view
     using namespace thunder  ;  
     auto& params = config_parser::get() ; 
     auto  state  = variable_list::get().getstate() ; 
-    size_t nx,ny,nz ; 
+    int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     size_t nq = amr::get_local_num_quadrants() ; 
     size_t ngz = amr::get_n_ghosts() ; 
@@ -89,18 +89,27 @@ void evaluate_regrid_criterion( ViewT flag_view
         * over quadrant cells 
         */ 
         auto reduce_range = 
-            Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM>, member_type>( 
+            Kokkos::TeamThreadRange( 
                     team_member 
-                , VEC(nx,ny,nz) ) ; 
+                , EXPR(nx,*ny,*nz) ) ; 
         int const q = team_member.league_rank() ; 
-        Kokkos::parallel_reduce( 
+        Kokkos::parallel_reduce(  
                 reduce_range 
-            , KOKKOS_LAMBDA (VEC(int& i, int& j, int& k), double& leps )
+            , KOKKOS_LAMBDA (int64_t& icell, double& leps )
             {
-                leps = Kokkos::fmax(leps, kernel(VEC(i+ngz,j+ngz,k+ngz), q, kernel_args...)) ; 
+                int const i = icell%nx ;
+                int const j = icell/nx%ny; 
+                #ifdef THUNDER_3D 
+                int const k = icell/nx/ny ; 
+                #endif  
+                auto eps_new = kernel(VEC(i+ngz,j+ngz,k+ngz), q, kernel_args...) ; 
+                if( eps_new > leps ) {
+                    leps = eps_new ;
+                }
             } 
-            , eps 
+            , Kokkos::Max<double>(eps)  
         ) ; 
+        team_member.team_barrier() ; 
         if( team_member.team_rank() == 0 ) 
         {
             flag_view(q) = REFINE_FLAG  * ( eps > CTORE )

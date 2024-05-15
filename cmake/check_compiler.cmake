@@ -1,3 +1,10 @@
+if("${CMAKE_CXX_COMPILER}" MATCHES "hipcc")
+    message(STATUS "Compiling with hipcc")
+    add_compile_options(-fgpu-rdc)
+    add_link_options(-fgpu-rdc --hip-link)
+    string(REPLACE "-fno-gpu-rdc" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+endif()
+
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     message("Using Intel compiler.")

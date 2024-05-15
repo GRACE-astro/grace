@@ -48,6 +48,11 @@
 
 namespace thunder { 
 
+namespace detail {
+THUNDER_DEVICE coord_transform_t l2p[2*P4EST_FACES+1], p2l[2*P4EST_FACES+1] ; 
+THUNDER_DEVICE coord_transfer_t gl2l[(2*P4EST_FACES+1)*P4EST_FACES] ;
+}
+
 std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
 spherical_coordinate_system_impl_t::get_physical_coordinates(
       int const itree

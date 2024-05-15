@@ -58,7 +58,10 @@ TEST_CASE("Apply BC", "[boundaries]")
     using namespace thunder ;
     using namespace Kokkos ; 
 
-    DECLARE_VARIABLE_INDICES ; 
+    #ifdef THUNDER_ENABLE_BURGERS 
+    int const DENS = U ; 
+    int const DENS_ = U ; 
+    #endif  
     
     auto& state  = thunder::variable_list::get().getstate()  ;
     auto& coords = thunder::variable_list::get().getcoords() ; 
@@ -108,7 +111,7 @@ TEST_CASE("Apply BC", "[boundaries]")
             q,
             true
         ) ; 
-        h_state(VEC(i,j,k),DENS_,q) = h_func(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
+        h_state(VEC(i,j,k),DENS,q) = h_func(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
     } 
     /* Set ghostzone values to NaN before filling */ 
     for( size_t icell=0UL; icell<ncells; icell+=1UL)

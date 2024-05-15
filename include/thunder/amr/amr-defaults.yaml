@@ -40,7 +40,7 @@ amr: {
 
   n_ghostzones: 4,
 
-
+  regrid_every: 100, 
   max_refinement_level: 11,
 
   refinement_criterion: "FLASH_second_deriv",
@@ -48,6 +48,7 @@ amr: {
   refinement_criterion_CTORE: 0.8,
   refinement_criterion_CTODE: 0.2,
   refinement_criterion_var:   "dens",
+  refinement_criterion_var_is_aux: false,
   FLASH_criterion_eps     : 0.01,
   restriction_interpolator_type: "linear",
   prolongation_limiter_type: "minmod",

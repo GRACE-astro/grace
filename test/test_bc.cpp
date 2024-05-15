@@ -57,9 +57,10 @@ TEST_CASE("Apply BC", "[boundaries]")
     using namespace thunder::variables ; 
     using namespace thunder ;
     using namespace Kokkos ; 
-
-    DECLARE_VARIABLE_INDICES ; 
-    
+    #ifdef THUNDER_ENABLE_BURGERS 
+    int const DENS = U ; 
+    int const DENS_ = U ; 
+    #endif 
     auto& state  = thunder::variable_list::get().getstate()  ;
     auto& coords = thunder::variable_list::get().getcoords() ; 
     long nx,ny,nz; 
@@ -105,7 +106,7 @@ TEST_CASE("Apply BC", "[boundaries]")
             q,
             true
         ) ; 
-        h_state(VEC(i,j,k),DENS_,q) = h_func(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
+        h_state(VEC(i,j,k),DENS,q) = h_func(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
     }
     Kokkos::deep_copy(state, h_state) ; 
     auto& swap = thunder::variable_list::get().getscratch() ; 

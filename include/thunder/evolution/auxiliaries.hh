@@ -1,8 +1,8 @@
 /**
- * @file vtk_volume_output_3D.hh
+ * @file auxiliaries.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-03-15
+ * @date 2024-05-13
  * 
  * @copyright This file is part of Thunder.
  * Thunder is an evolution framework that uses Finite Differences
@@ -23,39 +23,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#ifndef THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH
-#define THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH
 
-#include <vtkHexahedron.h>
-#include <vtkBiQuadraticQuadraticHexahedron.h> 
+#ifndef THUNDER_EVOLUTION_AUXILIARIES_HH
+#define THUNDER_EVOLUTION_AUXILIARIES_HH
 
-#include <vtkSmartPointer.h>
+#include <thunder/data_structures/variable_properties.hh>
 
-#include <vtkUnstructuredGrid.h>
+namespace thunder {
 
-#include <vector>
+void compute_auxiliary_quantities() ; 
 
-namespace thunder { namespace IO {
+void compute_auxiliary_quantities(
+      thunder::var_array_t<THUNDER_NSPACEDIM>& 
+    , thunder::var_array_t<THUNDER_NSPACEDIM>& 
+) ; 
 
-namespace detail {
-extern std::vector<std::string> _volume_filenames ; 
-extern std::vector<int> _volume_iterations ; 
-extern std::vector<double> _volume_times   ; 
 }
 
-
-vtkSmartPointer<vtkUnstructuredGrid> setup_vtk_volume_grid(bool) ;
-
-vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data(bool) ; 
-
-void flag_ghost_cells(vtkSmartPointer<vtkUnstructuredGrid>) ; 
-void add_extra_output_quantities(vtkSmartPointer<vtkUnstructuredGrid>, bool) ;
-
-void write_pvd_file(std::string const&) ; 
-
-void write_volume_cell_data() ; 
-
-}} /* namespace thunder::IO */
-
-
-#endif /* THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH */
+#endif /* THUNDER_EVOLUTION_AUXILIARIES_HH */

@@ -39,6 +39,12 @@ get_n_evolved()
 } 
 
 int 
+get_n_hrsc()
+{
+    return detail::num_fluxes ;
+} 
+
+int 
 get_n_auxiliary()
 {
     return detail::num_auxiliary ;

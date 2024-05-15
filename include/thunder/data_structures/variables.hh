@@ -44,7 +44,7 @@
 
 namespace thunder { 
 //*****************************************************************************************************
-size_t get_variable_index(std::string const& name) ;
+size_t get_variable_index(std::string const& name, bool is_aux=false) ;
 //*****************************************************************************************************
 /**
  * @brief Implementation of the variable list type.

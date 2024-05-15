@@ -40,7 +40,39 @@ int master_rank() ;
  * @return double The runtime since <code>thunder_initialize</code> was called (in seconds).
  */
 double get_total_runtime() ; 
-
+/**
+ * @brief Get the simulation time.
+ * 
+ * @return double The simulation time.
+ */
+double get_simulation_time() ; 
+/**
+ * @brief Increment the simulation time 
+ *        by the current timestep.
+ */
+void increment_simulation_time() ; 
+/**
+ * @brief Get the iteration count.
+ * 
+ * @return size_t Current iteration count.
+ */
+size_t get_iteration() ; 
+/**
+ * @brief Increment iteration count.
+ */
+void increment_iteration() ; 
+/**
+ * @brief Set the timestep size.
+ * 
+ * @param _new_dt New timestep.
+ */
+void set_timestep(double const& _new_dt ) ; 
+/**
+ * @brief Get the timestep.
+ * 
+ * @return double The timestep size.
+ */
+double get_timestep() ;
 }
 
 #endif 

@@ -202,7 +202,20 @@ extern std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>>
 
 } } /* namespace thunder::variables */
 
-#ifdef THUNDER_ENABLE_HYDROBASE 
+#ifdef THUNDER_ENABLE_BURGERS 
+#define VARIABLE_LIST_BURGERS \
+DECLARE_VAR_INDEX_IMPL(U)     
+#else 
+#define VARIABLE_LIST_BURGERS
+#endif 
+#ifdef THUNDER_ENABLE_SCALAR_ADV
+#define VARIABLE_LIST_SCALAR_ADV \
+DECLARE_VAR_INDEX_IMPL(U)        \
+DECLARE_VAR_INDEX_IMPL(ERR)      
+#else
+#define VARIABLE_LIST_SCALAR_ADV
+#endif 
+#ifdef THUNDER_ENABLE_GRMHD 
 /* Valencia GRMHD conservatives */
 #define VARIABLE_LIST_HYDROBASE                     \
 DECLARE_VAR_INDEX_IMPL(DENS)                        \
@@ -213,11 +226,7 @@ DECLARE_VAR_INDEX_IMPL(TAU)                         \
 DECLARE_VAR_INDEX_IMPL(RHO)                         \
 DECLARE_VAR_INDEX_IMPL(PRESS)                       \
 DECLARE_VAR_INDEX_IMPL(TEMP)                        \
-DECLARE_VAR_INDEX_IMPL(EPS)                          
-#else 
-#define VARIABLE_LIST_HYDROBASE
-#endif 
-#ifdef THUNDER_ENABLE_ADMBASE 
+DECLARE_VAR_INDEX_IMPL(EPS)                         
 /* AMD metric functions */
 #define VARIABLE_LIST_ADMBASE                     \
 DECLARE_VAR_INDEX_IMPL(GXX)                       \
@@ -232,16 +241,23 @@ DECLARE_VAR_INDEX_IMPL(BETAY)                     \
 DECLARE_VAR_INDEX_IMPL(BETAZ)                      
 #else 
 #define VARIABLE_LIST_ADMBASE 
+#define VARIABLE_LIST_HYDROBASE
 #endif 
 
 #define DECLARE_VARIABLE_INDICES    \
 VARIABLE_LIST_HYDROBASE             \
-VARIABLE_LIST_ADMBASE    
+VARIABLE_LIST_ADMBASE               \
+VARIABLE_LIST_BURGERS               \
+VARIABLE_LIST_SCALAR_ADV
 
 #define DECLARE_VAR_INDEX_IMPL(var) extern int var;
 DECLARE_VARIABLE_INDICES
 #undef DECLARE_VAR_INDEX_IMPL
 
-#define DECLARE_VAR_INDEX_IMPL(name) int const name##_= name;
+#define  DECLARE_VAR_INDEX_IMPL(var) extern THUNDER_DEVICE int var##_;
+DECLARE_VARIABLE_INDICES
+#undef DECLARE_VAR_INDEX_IMPL
+
+#define DECLARE_VAR_INDEX_IMPL(name) 
 
 #endif /* INCLUDE_THUNDER_DATA_STRUCTURES_VARIABLE_INDICES */

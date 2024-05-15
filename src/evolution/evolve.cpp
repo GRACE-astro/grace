@@ -1,0 +1,240 @@
+/**
+ * @file evolve.cpp
+ * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @brief 
+ * @date 2024-05-13
+ * 
+ * @copyright This file is part of Thunder.
+ * Thunder is an evolution framework that uses Finite Differences
+ * methods to simulate relativistic spacetimes and plasmas
+ * Copyright (C) 2023 Carlo Musolino
+ *                                    
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *   
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *   
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ */
+
+#include <thunder_config.h>
+
+#include <thunder/evolution/evolve.hh>
+#include <thunder/evolution/auxiliaries.hh>
+#include <thunder/evolution/evolution_kernel_tags.hh>
+
+#include <thunder/system/thunder_system.hh>
+
+#include <thunder/config/config_parser.hh>
+
+#include <thunder/amr/boundary_conditions.hh>
+
+#include <thunder/data_structures/thunder_data_structures.hh>
+
+#include <thunder/utils/thunder_utils.hh>
+#include <thunder/utils/reconstruction.hh>
+#include <thunder/utils/riemann_solvers.hh>
+#ifdef THUNDER_ENABLE_BURGERS 
+#include <thunder/physics/burgers.hh>
+#endif 
+#ifdef THUNDER_ENABLE_SCALAR_ADV
+#include <thunder/physics/scalar_advection.hh>
+#endif  
+#include <thunder/amr/thunder_amr.hh>
+
+#include <string> 
+
+namespace thunder {
+
+void evolve() {
+    using namespace thunder ; 
+
+    auto& parser = thunder::config_parser::get() ;
+
+    std::string tstepper = 
+        parser["evolution"]["time_stepper"].as<std::string>() ; 
+
+    double const t  = get_simulation_time() ; 
+    double const dt = get_timestep()        ;
+    
+    auto& state   = thunder::variable_list::get().getstate()   ; 
+    auto& state_p = thunder::variable_list::get().getscratch() ;
+
+    auto& aux     = thunder::variable_list::get().getaux()     ; 
+
+    auto& cvol    = thunder::variable_list::get().getvolumes() ; 
+    auto& fsurf   = thunder::variable_list::get().getstaggeredcoords() ; 
+    /* Copy the current state to scratch memory */
+    //amr::apply_boundary_conditions(state) ; 
+    Kokkos::deep_copy(state_p, state) ; 
+
+    if ( tstepper == "euler" ) {
+        compute_auxiliary_quantities(state, aux) ;
+        advance_substep(t,dt,1.0,state,state_p,aux,cvol,fsurf) ; 
+        amr::apply_boundary_conditions() ; 
+    } else if (tstepper == "rk2" ) {
+        /* Compute auxiliaries at current timelevel */
+        compute_auxiliary_quantities(state, aux) ;
+        advance_substep(t,dt,0.5,state_p,state,aux,cvol,fsurf) ; 
+        amr::apply_boundary_conditions(state_p) ; 
+        compute_auxiliary_quantities(state_p, aux) ;
+        advance_substep(t,dt,1.0,state,state_p,aux,cvol,fsurf) ;
+        amr::apply_boundary_conditions(state) ; 
+    } else if (tstepper == "rk3" ) {
+
+    } else {
+        ERROR("Unrecognised time-stepper.") ; 
+    }
+    Kokkos::deep_copy(state_p,state) ; 
+}
+
+void advance_substep( double const t, double const dt, double const dtfact 
+                    , var_array_t<THUNDER_NSPACEDIM>& new_state 
+                    , var_array_t<THUNDER_NSPACEDIM>& old_state 
+                    , var_array_t<THUNDER_NSPACEDIM>& aux 
+                    , cell_vol_array_t<THUNDER_NSPACEDIM>& cvol
+                    , staggered_coordinate_arrays_t& surfs_and_edges )
+{
+    using namespace thunder ; 
+    using namespace Kokkos  ; 
+
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int ngz = amr::get_n_ghosts() ; 
+    
+    int64_t nq = amr::get_local_num_quadrants() ;
+    
+    int nvars_hrsc = variables::get_n_evolved() ; 
+
+    flux_array_t fluxes(
+          "Fluxes"
+        , VEC( nx + 1 
+             , ny + 1 
+             , nz + 1)
+        , nvars_hrsc 
+        , THUNDER_NSPACEDIM
+        , nq 
+    ) ; 
+
+    #ifdef THUNDER_ENABLE_SCALAR_ADV
+    auto& params = thunder::config_parser::get() ; 
+    double VEC(ax,ay,az) ; 
+    EXPR(
+    ax = params["scalar_advection"]["ax"].as<double>() ;,
+    ay = params["scalar_advection"]["ay"].as<double>() ;,
+    az = params["scalar_advection"]["az"].as<double>() ; )
+    scalar_advection_system_t<slope_limited_reconstructor_t<minmod>>  
+        scalar_adv_system{ old_state, aux, VEC(ax,ay,az) } ; 
+    #endif 
+    #ifdef THUNDER_ENABLE_BURGERS 
+    burgers_equation_system_t<slope_limited_reconstructor_t<minmod>,hll_riemann_solver_t>
+        burgers_eq_system{ old_state, aux } ; 
+    #endif 
+
+    TeamPolicy<default_execution_space> policy( nq, AUTO() ) ;
+    using member_type = TeamPolicy<default_execution_space>::member_type ; 
+
+    parallel_for( THUNDER_EXECUTION_TAG("EVOL", "advance_substep")
+                , policy 
+                , KOKKOS_LAMBDA (member_type team)
+    {
+        auto team_range_x = 
+        Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM>, member_type>( 
+              team 
+            , VEC(nx+1,ny,nz) ) ;
+        auto team_range_y = 
+        Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM>, member_type>( 
+              team 
+            , VEC(nx,ny+1,nz) ) ;
+        #ifdef THUNDER_3D 
+        auto team_range_z = 
+        Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM>, member_type>( 
+              team 
+            , VEC(nx,ny,nz+1) ) ;
+        #endif 
+        auto team_range = 
+        Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM>, member_type>( 
+              team 
+            , VEC(nx,ny,nz) ) ;
+
+        int64_t q = team.league_rank() ; 
+
+        auto surfx = subview( surfs_and_edges.cell_face_surfaces_x 
+                             , VEC(ALL(),ALL(),ALL()), q ) ; 
+        auto surfy = subview( surfs_and_edges.cell_face_surfaces_y 
+                             , VEC(ALL(),ALL(),ALL()), q ) ; 
+        auto surfz = subview( surfs_and_edges.cell_face_surfaces_z 
+                             , VEC(ALL(),ALL(),ALL()), q ) ; 
+        
+        parallel_for( team_range_x 
+                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k))
+        {
+            #ifdef THUNDER_ENABLE_BURGERS
+            burgers_eq_system(x_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
+            #endif
+            #ifdef THUNDER_ENABLE_SCALAR_ADV
+            scalar_adv_system(x_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
+            #endif 
+        }) ; 
+        parallel_for( team_range_y 
+                    , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
+        {
+            #ifdef THUNDER_ENABLE_BURGERS
+            burgers_eq_system(y_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
+            #endif
+            #ifdef THUNDER_ENABLE_SCALAR_ADV
+            scalar_adv_system(y_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
+            #endif 
+        }) ; 
+        #ifdef THUNDER_3D 
+        parallel_for( team_range_z 
+                    , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
+        {
+            #ifdef THUNDER_ENABLE_BURGERS
+            burgers_eq_system(z_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
+            #endif
+            #ifdef THUNDER_ENABLE_SCALAR_ADV
+            scalar_adv_system(z_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
+            #endif 
+        }) ; 
+        #endif 
+        parallel_for( team_range 
+                    , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
+        {
+            #ifdef THUNDER_ENABLE_BURGERS
+            burgers_eq_system(sources_computation_kernel_t{}, team, VEC(i,j,k), new_state, dt, dtfact ) ; 
+            #endif 
+            #ifdef THUNDER_ENABLE_SCALAR_ADV
+            scalar_adv_system(sources_computation_kernel_t{}, team, VEC(i,j,k), new_state, dt, dtfact ) ; 
+            #endif 
+        }) ;
+        team.team_barrier() ; 
+
+        auto team_range_vars = 
+        Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM+1>, member_type>( 
+              team 
+            , VEC(nx,ny,nz), nvars_hrsc ) ;
+        parallel_for( team_range_vars 
+                    , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k), int const& ivar)
+        {
+            int const VEC(I{i+ngz},J{j+ngz},K{k+ngz}) ; 
+            new_state(VEC(I,J,K),ivar,team.league_rank()) += 
+                dt * dtfact * (
+                EXPR(   (surfx(VEC(I,J,K)) * fluxes(VEC(i,j,k),ivar,0,q) - surfx(VEC(I+1,J,K)) * fluxes(VEC(i+1,j,k),ivar,0,q))
+                    , + (surfy(VEC(I,J,K)) * fluxes(VEC(i,j,k),ivar,1,q) - surfy(VEC(I,J+1,K)) * fluxes(VEC(i,j+1,k),ivar,1,q))
+                    , + (surfz(VEC(I,J,K)) * fluxes(VEC(i,j,k),ivar,2,q) - surfz(VEC(I,J,K+1)) * fluxes(VEC(i,j,k+1),ivar,2,q)) )
+                ) / cvol(VEC(I,J,K),q) ; 
+        }) ;
+        
+    }) ; 
+
+}
+
+}

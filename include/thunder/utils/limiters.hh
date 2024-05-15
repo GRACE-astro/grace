@@ -39,10 +39,9 @@ namespace thunder {
 struct minmod {
     double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
     operator() (double const& slopeL, double const& slopeR){
-        auto const sign = math::sgn(slopeR) ;
-        return sign 
-            * Kokkos::max( 0.
-                         , Kokkos::min(Kokkos::fabs(slopeR),sign*slopeL)) ;
+        auto const signL = math::sgn(slopeL) ;
+        auto const signR = math::sgn(slopeR) ; 
+        return 0.5 * ( signL + signR ) * math::min(Kokkos::fabs(slopeL),Kokkos::fabs(slopeR)) ; 
     }
 } ; 
 

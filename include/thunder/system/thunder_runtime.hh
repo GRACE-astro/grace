@@ -76,6 +76,8 @@ class thunder_runtime_impl_t
     std::string _surface_io_basename ;
     /* iteration count */ 
     size_t _iter ; 
+    /* current simulation time */
+    double _time, _dt ; 
     /* total runtime clock */
     spdlog::stopwatch _runtime ; 
  public: 
@@ -86,6 +88,31 @@ class thunder_runtime_impl_t
     void THUNDER_ALWAYS_INLINE  
     increment_iteration() {
         _iter++ ; 
+    }
+
+    double THUNDER_ALWAYS_INLINE
+    time() const {
+        return _time ;
+    }
+
+    double THUNDER_ALWAYS_INLINE 
+    timestep() const {
+        return _dt ; 
+    }
+
+    void THUNDER_ALWAYS_INLINE 
+    increment_time() {
+        _time += _dt ; 
+    }
+
+    double THUNDER_ALWAYS_INLINE 
+    timestep_size() const {
+        return _dt ; 
+    }
+
+    void THUNDER_ALWAYS_INLINE 
+    set_timestep(double const& _new_dt ) {
+        _dt = _new_dt ; 
     }
 
     size_t THUNDER_ALWAYS_INLINE 
@@ -224,6 +251,9 @@ class thunder_runtime_impl_t
         /****************************/
         /* Set iteration count to 0 */ 
         _iter = 0UL ; 
+        /* Set time to 0            */
+        _time = 0.0 ; 
+        _dt   = 0.0 ;  
         /****************************/
         if( parallel::mpi_comm_rank() == thunder::master_rank() ) 
         {

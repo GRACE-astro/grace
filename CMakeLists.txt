@@ -7,17 +7,17 @@ set(CMAKE_CXX_STANDARD 20)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-
+include(code_modules)
 include(check_compiler)
 include(prohibit_in_source_build)
 include(setup_flags)
 include(setup_mpi)
 find_package(OpenMP REQUIRED)
 find_package(p4est REQUIRED)
+include(setup_kokkos)
 include(setup_gsl)
 include(setup_yaml)
 include(setup_vtk)
-include(setup_kokkos)
 include(setup_spdlog)
 
 configure_file( "${CMAKE_SOURCE_DIR}/include/thunder/config/code_modules.h.in" code_modules.h )

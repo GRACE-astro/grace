@@ -1,8 +1,8 @@
 /**
- * @file vtk_volume_output_3D.hh
+ * @file riemann_solvers.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-03-15
+ * @date 2024-05-13
  * 
  * @copyright This file is part of Thunder.
  * Thunder is an evolution framework that uses Finite Differences
@@ -23,39 +23,34 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#ifndef THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH
-#define THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH
 
-#include <vtkHexahedron.h>
-#include <vtkBiQuadraticQuadraticHexahedron.h> 
+#ifndef THUNDER_UTILS_RIEMANN_SOLVERS_HH 
+#define THUNDER_UTILS_RIEMANN_SOLVERS_HH
 
-#include <vtkSmartPointer.h>
+#include <thunder_config.h>
 
-#include <vtkUnstructuredGrid.h>
+#include <thunder/utils/math.hh>
+#include <thunder/utils/inline.h>
+#include <thunder/utils/device.h> 
+#include <thunder/data_structures/macros.hh>
 
-#include <vector>
+namespace thunder {
 
-namespace thunder { namespace IO {
+struct hll_riemann_solver_t 
+{
+    double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+    operator() (
+          double const fL
+        , double const fR 
+        , double const uL 
+        , double const uR 
+        , double const cmin 
+        , double const cmax  ) 
+    {
+        return (cmin*fL + cmax*fR - cmax*cmin*(uR-uL))/(cmax+cmin) ; 
+    }
+} ; 
 
-namespace detail {
-extern std::vector<std::string> _volume_filenames ; 
-extern std::vector<int> _volume_iterations ; 
-extern std::vector<double> _volume_times   ; 
 }
 
-
-vtkSmartPointer<vtkUnstructuredGrid> setup_vtk_volume_grid(bool) ;
-
-vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data(bool) ; 
-
-void flag_ghost_cells(vtkSmartPointer<vtkUnstructuredGrid>) ; 
-void add_extra_output_quantities(vtkSmartPointer<vtkUnstructuredGrid>, bool) ;
-
-void write_pvd_file(std::string const&) ; 
-
-void write_volume_cell_data() ; 
-
-}} /* namespace thunder::IO */
-
-
-#endif /* THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH */
+#endif /* THUNDER_UTILS_RIEMANN_SOLVERS_HH */

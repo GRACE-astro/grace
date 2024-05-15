@@ -46,7 +46,8 @@ void regrid() {
     Kokkos::Profiling::pushRegion("regrid") ; 
     using namespace thunder ; 
     auto& params = config_parser::get()             ; 
-    auto&  state  = variable_list::get().getstate() ; 
+    auto& state  = variable_list::get().getstate()  ; 
+    auto& aux = variable_list::get().getaux()       ; 
     int nvars = state.extent(THUNDER_NSPACEDIM)   ; 
     size_t thunder_maxlevel = 
         params["amr"]["max_refinement_level"].as<size_t>() ; 
@@ -61,14 +62,15 @@ void regrid() {
     std::string ref_criterion = 
         params["amr"]["refinement_criterion"].as<std::string>() ;
     auto varname = params["amr"]["refinement_criterion_var"].as<std::string>() ;
-    auto varidx = get_variable_index(varname) ; 
+    bool var_is_aux = params["amr"]["refinement_criterion_var_is_aux"].as<bool>() ; 
+    auto varidx = get_variable_index(varname, var_is_aux) ; 
     ASSERT(varidx>=0, "Index of variable " << varname << " not found.") ; 
-    auto u = Kokkos::subview(state, VEC(  Kokkos::ALL() 
-                                        , Kokkos::ALL() 
-                                        , Kokkos::ALL() )
-                                        , varidx
-                                        , Kokkos::ALL() 
-                                    ) ; 
+    auto& criterion_view = var_is_aux ? aux : state ; 
+    auto u = Kokkos::subview(criterion_view, VEC( Kokkos::ALL() 
+                                                , Kokkos::ALL() 
+                                                , Kokkos::ALL() )
+                                           , varidx
+                                           , Kokkos::ALL() ) ; 
     if( ref_criterion == "FLASH_second_deriv") {
         double eps = params["amr"]["FLASH_criterion_eps"].as<double>() ; 
         amr::flash_second_deriv_criterion<decltype(u)> kernel{ u } ; 
@@ -86,7 +88,6 @@ void regrid() {
     }
     /* copy flags from device to host */ 
     Kokkos::deep_copy(h_regrid_flags, d_regrid_flags) ; 
-    
     for( size_t iq=0UL; iq<amr::get_local_num_quadrants(); ++iq)
     {
         auto quad = amr::get_quadrant(iq) ;
@@ -351,7 +352,6 @@ void regrid() {
     /*                            Auxiliary vars are reallocated                              */
     /*                            but not re-initialized.                                     */
     /******************************************************************************************/
-    auto & aux = variable_list::get().getaux() ; 
     int nvars_aux = aux.extent(THUNDER_NSPACEDIM) ; 
     Kokkos::resize( aux         ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 

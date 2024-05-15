@@ -467,7 +467,6 @@ void restrict_hanging_ghostzones(
                         int64_t qid_b   = qid_fine[ichild] ; 
                         auto& fine_view = is_ghost_fine[ichild] ? halo : state ; 
                         auto& fine_vol  = is_ghost_fine[ichild] ? halo_vols : vols ; 
-                        #pragma unroll
                         for(int ig=0; ig<ngz; ++ig){
                             /* Compute indices of cell to be filled */
                             EXPR( 

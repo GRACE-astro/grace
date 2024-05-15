@@ -48,6 +48,11 @@
 namespace thunder { namespace amr {
 
 void apply_boundary_conditions() {
+    auto& vars = variable_list::get().getstate() ;
+    apply_boundary_conditions(vars)              ; 
+}
+
+void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
     Kokkos::Profiling::pushRegion("BC") ; 
     using namespace thunder ;
     /******************************************************/
@@ -62,7 +67,6 @@ void apply_boundary_conditions() {
     int64_t nq  = get_local_num_quadrants()  ;  
     size_t nvars = variables::get_n_evolved() ;
     /******************************************************/
-    auto& vars = variable_list::get().getstate()     ;
     auto& qcoords = variable_list::get().getcoords() ;
     auto& vols   = variable_list::get().getvolumes() ; 
     auto& halo = variable_list::get().gethalo()      ;

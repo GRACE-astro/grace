@@ -46,4 +46,28 @@ double get_total_runtime() {
     return thunder::runtime::get().elapsed() ; 
 }
 
+double get_simulation_time() { 
+    return thunder::runtime::get().time() ; 
+}
+
+size_t get_iteration() {
+    return thunder::runtime::get().iteration() ; 
+}
+
+void increment_simulation_time() {
+    thunder::runtime::get().increment_time() ; 
+}
+
+void increment_iteration() {
+    thunder::runtime::get().increment_iteration() ; 
+}
+
+void set_timestep(double const& _new_dt ) {
+    thunder::runtime::get().set_timestep(_new_dt) ; 
+}
+
+double get_timestep() {
+    return thunder::runtime::get().timestep() ; 
+}
+
 } /* namespace */ 

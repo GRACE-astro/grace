@@ -26,11 +26,16 @@
 
 #include <code_modules.h>
 #include <thunder_config.h>
+#include <thunder/utils/device.h>
+#include <thunder/utils/execution_tag.hh>
 
 #include <thunder/errors/assert.hh>
 #include <thunder/data_structures/variable_indices.hh>
 #include <thunder/data_structures/macros.hh>
 #include <thunder/errors/error.hh>
+
+
+#include <Kokkos_Core.hpp>
 
 #include <string> 
 
@@ -38,7 +43,12 @@
 #define DECLARE_VAR_INDEX_IMPL(var) int var = -1 ;
 DECLARE_VARIABLE_INDICES;
 #undef DECLARE_VAR_INDEX_IMPL
+
+#define DECLARE_VAR_INDEX_IMPL(var) THUNDER_DEVICE int var##_ ;
+DECLARE_VARIABLE_INDICES;
+#undef DECLARE_VAR_INDEX_IMPL
  
+
 
 namespace thunder { namespace variables { 
 
@@ -150,7 +160,29 @@ std::vector<int> edge_staggered_prolongation_var_indices ;
 } /* namespace thunder::variables::detail */
 
 void register_variables() {
-    #ifdef THUNDER_ENABLE_HYDROBASE 
+    #ifdef THUNDER_ENABLE_BURGERS 
+    U = register_variable("U", {VEC(false,false,false)}
+                                , true 
+                                , true 
+                                , true
+                                , "outgoing"
+                                , false ) ; 
+    #endif 
+    #ifdef THUNDER_ENABLE_SCALAR_ADV
+    U = register_variable("U", {VEC(false,false,false)}
+                                , true 
+                                , true 
+                                , true
+                                , "outgoing"
+                                , false ) ; 
+    ERR = register_variable("err", {VEC(false,false,false)}
+                                , true 
+                                , false 
+                                , false
+                                , "none"
+                                , false ) ; 
+    #endif 
+    #ifdef THUNDER_ENABLE_GRMHD 
     /* Valencia hydrodynamics */
     DENS = register_variable( "dens"
                                 , {VEC(false,false,false)}
@@ -196,8 +228,6 @@ void register_variables() {
                                 , true
                                 , "outgoing"
                                 , false ) ;
-    #endif
-    #ifdef THUNDER_ENABLE_ADMBASE 
     /* registration of metric variables */
     GXX = register_variable( "gxx"
                             , {VEC(false,false,false)} 
@@ -317,6 +347,15 @@ void register_variables() {
     ASSERT_DBG( detail::_var_bc_types.size() == detail::num_evolved, 
                 detail::num_evolved << " evolved variables but "
                 "only " << detail::_var_bc_types.size() << " have BCs.\n") ; 
+    #define DECLARE_VAR_INDEX_IMPL(var) int const var##0 = var;
+    DECLARE_VARIABLE_INDICES ;
+    #undef DECLARE_VAR_INDEX_IMPL
+    #define DECLARE_VAR_INDEX_IMPL(var) var##_ = var##0;
+    Kokkos::parallel_for(THUNDER_EXECUTION_TAG("SYSTEM","init_var_indices"), 1, 
+                        KOKKOS_LAMBDA (int const i) {
+                            DECLARE_VARIABLE_INDICES ; 
+                        } ) ; 
+    #undef DECLARE_VAR_INDEX_IMPL
 }
 namespace detail {
 static int register_scalar( std::string const& name

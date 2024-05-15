@@ -14,10 +14,16 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
     using namespace thunder::variables ; 
 
     std::cout << "Starting..." << std::endl ;
-
+    #ifdef THUNDER_ENABLE_BURGERS 
+    int const DENS = U ; 
+    int const DENS_ = U ; 
+    int const BETAX_ = U ; 
+    int const BETAY_ = U ; 
+    int const BETAZ_ = U ; 
+    #endif 
     DECLARE_VARIABLE_INDICES ; 
 
-    std::cout << DENS_ << std::endl ; 
+    std::cout << DENS << std::endl ; 
     std::cout << thunder::get_variable_index("dens") << std::endl ;  
     auto state  = thunder::variable_list::get().getstate() ;
     size_t nx,ny,nz; 

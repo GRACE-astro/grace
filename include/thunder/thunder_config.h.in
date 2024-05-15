@@ -46,6 +46,10 @@ namespace thunder {
 #cmakedefine THUNDER_CARTESIAN_COORDINATES
 #cmakedefine THUNDER_SPHERICAL_COORDINATES
 
+#cmakedefine THUNDER_ENABLE_GRMHD
+#cmakedefine THUNDER_ENABLE_BURGERS
+#cmakedefine THUNDER_ENABLE_SCALAR_ADV
+
 #define THUNDER_BANNER                                                          \
 "                                                                           \n" \
 " ________                __                                                \n" \
@@ -86,5 +90,25 @@ namespace thunder {
 #else 
 #define THUNDER_BACKEND "HOST"
 #endif 
+
+/**
+ * @brief Macros designed to help with writing dimension independent code.
+ * \ingroup utils 
+ * 
+ */
+#ifdef THUNDER_3D 
+#define VEC(X,Y,Z) X,Y,Z
+#define EXPR(X,Y,Z) X Y Z
+#define PICK_D(X,Y) Y 
+#define VECD(X,Y) X,Y
+#define EXPRD(X,Y) X Y 
+#else 
+#define VEC(X,Y,Z) X,Y
+#define EXPR(X,Y,Z) X Y
+#define PICK_D(X,Y) X 
+#define VECD(X,Y) X
+#define EXPRD(X,Y) X
+#endif 
+
 }
 #endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

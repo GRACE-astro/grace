@@ -1,8 +1,8 @@
 /**
- * @file vtk_volume_output_3D.hh
+ * @file initial_data.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-03-15
+ * @date 2024-05-15
  * 
  * @copyright This file is part of Thunder.
  * Thunder is an evolution framework that uses Finite Differences
@@ -23,39 +23,27 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#ifndef THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH
-#define THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH
 
-#include <vtkHexahedron.h>
-#include <vtkBiQuadraticQuadraticHexahedron.h> 
+#include <thunder_config.h>
 
-#include <vtkSmartPointer.h>
+#include <thunder/evolution/initial_data.hh>
 
-#include <vtkUnstructuredGrid.h>
+#include <thunder/physics/thunder_physical_systems.hh>
+#include <thunder/amr/thunder_amr.hh>
+#include <thunder/system/thunder_system.hh>
+#include <thunder/data_structures/thunder_data_structures.hh>
+#include <thunder/utils/thunder_utils.hh>
 
-#include <vector>
+namespace thunder {
 
-namespace thunder { namespace IO {
+void set_initial_data() {
 
-namespace detail {
-extern std::vector<std::string> _volume_filenames ; 
-extern std::vector<int> _volume_iterations ; 
-extern std::vector<double> _volume_times   ; 
+    using namespace thunder ;
+
+    #ifdef THUNDER_ENABLE_SCALAR_ADV 
+    set_scalar_advection_initial_data() ; 
+    #endif 
+
+} 
+
 }
-
-
-vtkSmartPointer<vtkUnstructuredGrid> setup_vtk_volume_grid(bool) ;
-
-vtkSmartPointer<vtkUnstructuredGrid> setup_volume_cell_data(bool) ; 
-
-void flag_ghost_cells(vtkSmartPointer<vtkUnstructuredGrid>) ; 
-void add_extra_output_quantities(vtkSmartPointer<vtkUnstructuredGrid>, bool) ;
-
-void write_pvd_file(std::string const&) ; 
-
-void write_volume_cell_data() ; 
-
-}} /* namespace thunder::IO */
-
-
-#endif /* THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH */

@@ -29,6 +29,7 @@
 #include <thunder_config.h>
 
 #include <thunder/utils/inline.h>
+#include <thunder/utils/device.h>
 
 #include <array> 
 #include <cstdlib> 
@@ -124,7 +125,7 @@ det(std::array<double,N*N> const& A) {
 }
 
 template< size_t N = THUNDER_NSPACEDIM>
-int THUNDER_ALWAYS_INLINE 
+int THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE
 delta(int i, int j) { return i==j ; }
 
 } /* namespace utils */

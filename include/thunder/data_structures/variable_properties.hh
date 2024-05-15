@@ -167,6 +167,13 @@ using scalar_array_t = scalar_array_impl_t<ndim>::view_t ;
  */
 template< size_t ndim = THUNDER_NSPACEDIM > 
 using cell_vol_array_t = cell_vol_array_impl_t<ndim>::view_t ; 
+//*****************************************************************************************************
+/**
+ * @brief Proxy for flux <code>View</code> type in Thunder
+ * \ingroup variables
+ * @tparam ndim Number of spatial dimension
+ */
+using flux_array_t = Kokkos::View<double EXPR(*,*,*) ***, default_space> ; 
 /*****************************************************************************************************/
 /*****************************************************************************************************/
 /*                               STAGGERED FIELDS UTILS                                              */

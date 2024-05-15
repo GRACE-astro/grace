@@ -44,6 +44,10 @@ get_coords_buffer_zone(
     coords_t& coord_system
 ){
     using namespace thunder ; 
+    #ifdef THUNDER_ENABLE_BURGERS 
+    int const DENS = U ; 
+    int const DENS_ = U ; 
+    #endif 
     int ngz = amr::get_n_ghosts() ; 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
@@ -149,7 +153,10 @@ TEST_CASE("Simple regrid", "[regrid]")
 {
     using namespace thunder::variables ; 
 
-    DECLARE_VARIABLE_INDICES ; 
+    #ifdef THUNDER_ENABLE_BURGERS 
+    int const DENS = U ; 
+    int const DENS_ = U ; 
+    #endif 
     auto& state  = thunder::variable_list::get().getstate()  ;
     auto& coords = thunder::variable_list::get().getcoords() ; 
     auto& dx     = thunder::variable_list::get().getspacings(); 
@@ -188,7 +195,7 @@ TEST_CASE("Simple regrid", "[regrid]")
             q,
             true
         ) ; 
-        h_state_mirror(VEC(i,j,k),DENS_,q) = h_func(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
+        h_state_mirror(VEC(i,j,k),DENS,q) = h_func(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
     }
     
     /* copy data to device */

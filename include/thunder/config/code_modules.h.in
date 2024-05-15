@@ -27,17 +27,10 @@
 #ifndef BAF4B02D_A6A3_4DB8_87E0_FB248A6ECFA4
 #define BAF4B02D_A6A3_4DB8_87E0_FB248A6ECFA4
 
+#include <thunder_config.h>
+
 #include <string> 
 #include <vector> 
-
-#define THUNDER_ENABLE_HYDROBASE 
-#define THUNDER_ENABLE_ADMBASE 
-
-#cmakedefine THUNDER_ENABLE_GRMHD 
-#cmakedefine THUNDER_ENABLE_COWLING 
-#cmakedefine THUNDER_ENABLE_BSSN 
-#cmakedefine THUNDER_ENABLE_Z4C 
-#cmakedefine THUNDER_ENABLE_M1
 
 
 namespace thunder { namespace detail { 
@@ -45,13 +38,21 @@ namespace thunder { namespace detail {
 const std::vector< std::string > code_modules { 
     "amr",
     "system",
-    "IO"
+    "IO",
+    "evolution"
+    #ifdef THUNDER_ENABLE_SCALAR_ADV
+    , "scalar_advection"
+    #endif 
 } ;
 //*****************************************************************************************************
 const std::vector< std::string > code_modules_default_configs { 
      "${CMAKE_SOURCE_DIR}/include/thunder/amr/amr-defaults.yaml",
      "${CMAKE_SOURCE_DIR}/include/thunder/system/system-defaults.yaml",
-     "${CMAKE_SOURCE_DIR}/include/thunder/IO/IO-defaults.yaml"
+     "${CMAKE_SOURCE_DIR}/include/thunder/IO/IO-defaults.yaml",
+     "${CMAKE_SOURCE_DIR}/include/thunder/evolution/evolution-defaults.yaml"
+     #ifdef THUNDER_ENABLE_SCALAR_ADV
+     , "${CMAKE_SOURCE_DIR}/include/thunder/physics/scalar_advection-defaults.yaml"
+     #endif 
 } ;
 //*****************************************************************************************************
 }} /* namespace thunder::detail */
