@@ -43,6 +43,9 @@ void set_initial_data() {
     #ifdef THUNDER_ENABLE_SCALAR_ADV 
     set_scalar_advection_initial_data() ; 
     #endif 
+    #ifdef THUNDER_ENABLE_BURGERS
+    set_burgers_initial_data() ; 
+    #endif 
 
 } 
 

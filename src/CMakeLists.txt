@@ -54,7 +54,8 @@ target_sources( thunder_objects INTERFACE
                 $<TARGET_OBJECTS:thunder_regrid> 
                 $<TARGET_OBJECTS:thunder_BC_helpers>
                 $<TARGET_OBJECTS:thunder_BC>
-                $<TARGET_OBJECTS:thunder_evolution> 
                 $<TARGET_OBJECTS:thunder_scalar_adv>
+                $<TARGET_OBJECTS:thunder_burgers_eq>
+                $<TARGET_OBJECTS:thunder_evolution> 
                 $<TARGET_OBJECTS:thunder_initial_data> )
 

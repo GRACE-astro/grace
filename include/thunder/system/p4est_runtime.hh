@@ -7,15 +7,29 @@
 #include <thunder/utils/singleton_holder.hh> 
 #include <thunder/utils/creation_policies.hh>
 #include <thunder/utils/lifetime_tracker.hh> 
-
+#include <thunder/system/print.hh>
+#include <spdlog/spdlog.h>
 namespace thunder {
+
+namespace detail {
+static void thunder_sc_log_hijacker(FILE* log_stream,
+                                    const char* filename,
+                                    int lineno,
+                                    int package,
+                                    int category,
+                                    int priority,
+                                    const char* msg)
+{
+    THUNDER_VERBOSE(msg) ;
+}
+}
 
 class p4est_runtime_impl_t 
 {
  private:
     
     p4est_runtime_impl_t() {
-        p4est_init(NULL, SC_LP_DEFAULT) ; 
+        p4est_init(detail::thunder_sc_log_hijacker, SC_LP_DEFAULT) ; 
     }
     ~p4est_runtime_impl_t() { } 
 

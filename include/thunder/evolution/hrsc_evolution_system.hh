@@ -105,7 +105,17 @@ struct hrsc_evolution_system_t {
                ,      const int k)
                , int64_t q ) const 
     {
-        return static_cast<EvolSystem_t const *>(this)->compute_auxiliaries(VEC(i,j,k),q) ; 
+        static_cast<EvolSystem_t const *>(this)->compute_auxiliaries(VEC(i,j,k),q) ; 
+    }
+
+    double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
+    operator() ( eigenspeed_kernel_t _tag
+               , VEC( const int i 
+               ,      const int j 
+               ,      const int k)
+               , int64_t q ) const 
+    {
+        return static_cast<EvolSystem_t const *>(this)->compute_max_eigenspeed(VEC(i,j,k),q) ; 
     }
     
  protected: 

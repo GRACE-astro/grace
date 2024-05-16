@@ -41,6 +41,8 @@ amr: {
   n_ghostzones: 4,
 
   regrid_every: 100, 
+  regrid_at_postinitial: true,
+  postinitial_regrid_depth: 1,
   max_refinement_level: 11,
 
   refinement_criterion: "FLASH_second_deriv",

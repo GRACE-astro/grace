@@ -20,6 +20,13 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
     int const BETAX_ = U ; 
     int const BETAY_ = U ; 
     int const BETAZ_ = U ; 
+    #endif
+    #ifdef THUNDER_ENABLE_SCALAR_ADV 
+    int const DENS = U ; 
+    int const DENS_ = U ; 
+    int const BETAX_ = U ; 
+    int const BETAY_ = U ; 
+    int const BETAZ_ = U ; 
     #endif 
     DECLARE_VARIABLE_INDICES ; 
 

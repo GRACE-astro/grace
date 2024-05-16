@@ -1,4 +1,4 @@
-add_library( thunder_evolution OBJECT auxiliaries.cpp evolve.cpp )
+add_library( thunder_evolution OBJECT auxiliaries.cpp evolve.cpp find_stable_timestep.cpp )
 target_include_directories( thunder_evolution PRIVATE "${HEADER_DIR}")
 target_link_libraries( thunder_evolution PRIVATE 
                        $<TARGET_OBJECTS:thunder_error_handlers>

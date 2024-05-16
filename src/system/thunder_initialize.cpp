@@ -175,9 +175,8 @@ void initialize(int& argc, char* argv[])
     thunder::mpi_runtime::initialize(argc, argv)  ;
     thunder::kokkos_runtime::initialize(&argc, argv) ;  
     thunder::initialize_loggers() ; 
-    if( parallel::mpi_comm_rank() == 0 ) {
-        std::cout << THUNDER_BANNER ; 
-    }
+    thunder::p4est_runtime::initialize() ; 
+    THUNDER_INFO(THUNDER_BANNER) ; 
     thunder::amr::connectivity::initialize() ; 
     thunder::amr::forest::initialize()       ;
     thunder::variable_list::initialize() ;

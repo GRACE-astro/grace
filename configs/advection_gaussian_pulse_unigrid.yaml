@@ -1,27 +1,27 @@
 name: "thunder"
 amr: {
-  npoints_block_x: 9,
-  npoints_block_y: 9,
-  npoints_block_z: 9,
-  xmin: -6.,
-  xmax: 6.,
-  ymin: -0.5,
-  ymax: 0.5,
+  npoints_block_x: 16,
+  npoints_block_y: 16,
+  npoints_block_z: 16,
+  xmin: -1.,
+  xmax: 1.,
+  ymin: -1.,
+  ymax: 1.,
   zmin: -2.,
   zmax: 2.,
   n_ghostzones: 2,
-  initial_refinement_level: 3,
+  initial_refinement_level: 4,
   refinement_criterion: "simple_threshold",
-  refinement_criterion_CTORE: 2.,
-  refinement_criterion_CTODE: 1.,
+  refinement_criterion_CTORE: 2.5,
+  refinement_criterion_CTODE: 2.,
   refinement_criterion_var: "U",
   max_refinement_level: 7,
   regrid_every: -1,
   regrid_at_postinitial: false
 }
 IO: {
-  volume_output_cell_variables: ["U"],
-  volume_output_every: 4
+  volume_output_cell_variables: ["U", "err"],
+  volume_output_every: -1
 }
 system: {
   console_log_level: "info",
@@ -32,8 +32,5 @@ system: {
 evolution: {
   time_stepper: "rk2",
   cfl_factor: 0.2,
-  final_time: 3.
-}
-burgers_equation: {
-  id_type: "oned_N_wave"
+  final_time: 1.
 }

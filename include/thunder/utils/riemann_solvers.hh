@@ -47,8 +47,12 @@ struct hll_riemann_solver_t
         , double const cmin 
         , double const cmax  ) 
     {
-        return (cmin*fL + cmax*fR - cmax*cmin*(uR-uL))/(cmax+cmin) ; 
+        return ( cmin <= speed_eps ) ? fL : (
+            (cmax <= speed_eps) ? fR : (cmin*fL + cmax*fR - cmax*cmin*(uR-uL))/(cmax+cmin)
+        ) ; 
     }
+ private:
+    static constexpr double speed_eps = 1e-15 ; 
 } ; 
 
 }

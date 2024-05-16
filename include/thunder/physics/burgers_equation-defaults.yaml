@@ -1,0 +1,10 @@
+burgers_equation: {
+  which_id: "gaussian",
+  gaussian_sigma: 0.1,
+  gaussian_x_c: 0.,
+  gaussian_y_c: 0.,
+  gaussian_z_c: 0.,
+  shocktube_x_location: 0., 
+  shocktube_left_state: -1.,
+  shocktube_right_state: 1.
+}

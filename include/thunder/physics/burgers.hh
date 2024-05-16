@@ -58,7 +58,7 @@ struct burgers_equation_system_t
                   ,      const int j 
                   ,      const int k)
                   , int ngz
-                  , thunder::flux_array_t& fluxes) const 
+                  , thunder::flux_array_t const  fluxes) const 
     {
         getflux<0>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
     }
@@ -69,7 +69,7 @@ struct burgers_equation_system_t
                   ,      const int j 
                   ,      const int k)
                   , int ngz
-                  , thunder::flux_array_t& fluxes) const 
+                  , thunder::flux_array_t const  fluxes) const 
     {
         getflux<1>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
     }
@@ -80,7 +80,7 @@ struct burgers_equation_system_t
                   ,      const int j 
                   ,      const int k)
                   , int ngz
-                  , thunder::flux_array_t& fluxes) const 
+                  , thunder::flux_array_t const  fluxes) const 
     {
         getflux<2>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
     }
@@ -91,18 +91,29 @@ struct burgers_equation_system_t
                          , VEC( const int i 
                          ,      const int j 
                          ,      const int k)
-                         , thunder::var_array_t<THUNDER_NSPACEDIM>& state_new
+                         , thunder::var_array_t<THUNDER_NSPACEDIM> const state_new
                          , double const dt 
                          , double const dtfact ) const 
     { }
 
-    template< typename thread_team_t >
+
     void THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
-    compute_auxiliaries( thread_team_t& team 
-                        , VEC( const int i 
+    compute_auxiliaries(  VEC( const int i 
                         ,      const int j 
-                        ,      const int k) ) const 
+                        ,      const int k) 
+                        , int64_t q ) const 
     { }
+
+    double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE
+    compute_max_eigenspeed( VEC( const int i 
+                          ,      const int j 
+                          ,      const int k) 
+                          , int64_t q ) const 
+    {
+        return Kokkos::fabs(
+            this->_state(VEC(i,j,k),U_,q)
+        ) ; 
+    }
 
  private:
     template< int idir >
@@ -112,7 +123,7 @@ struct burgers_equation_system_t
             ,      const int k)
             , const int64_t q 
             , int ngz
-            , thunder::flux_array_t& fluxes) const 
+            , thunder::flux_array_t const fluxes) const 
     {
         recon_t reconstructor{} ; 
         riemann_t solver{}      ;
@@ -135,6 +146,8 @@ struct burgers_equation_system_t
      
 
 } ; 
+
+void set_burgers_initial_data() ; 
 
 }
 

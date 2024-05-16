@@ -68,8 +68,8 @@ class thunder_runtime_impl_t
     /* Output parameters */ 
     bool   _volume_output        ;
     bool   _surface_output       ; 
-    size_t _volume_output_every  ; 
-    size_t _surface_output_every ; 
+    int _volume_output_every  ; 
+    int _surface_output_every ; 
     std::filesystem::path _volume_io_basepath ;
     std::filesystem::path _surface_io_basepath ;
     std::string _volume_io_basename  ; 
@@ -115,10 +115,10 @@ class thunder_runtime_impl_t
         _dt = _new_dt ; 
     }
 
-    size_t THUNDER_ALWAYS_INLINE 
+    int THUNDER_ALWAYS_INLINE 
     volume_output_every()  const { return _volume_output_every ; }
 
-    size_t THUNDER_ALWAYS_INLINE 
+    int THUNDER_ALWAYS_INLINE 
     surface_output_every() const { return _surface_output_every ; }
 
     std::string THUNDER_ALWAYS_INLINE
@@ -188,8 +188,8 @@ class thunder_runtime_impl_t
         */
         _surface_output = params["IO"]["surface_output"].as<bool>() ; 
         _volume_output = params["IO"]["volume_output"].as<bool>() ; 
-        _surface_output_every = params["IO"]["surface_output_every"].as<size_t>() ; 
-        _volume_output_every = params["IO"]["volume_output_every"].as<size_t>() ; 
+        _surface_output_every = params["IO"]["surface_output_every"].as<int>() ; 
+        _volume_output_every = params["IO"]["volume_output_every"].as<int>() ; 
         _volume_io_basename  = params["IO"]["volume_output_base_filename"].as<std::string>(); 
         _surface_io_basename  = params["IO"]["surface_output_base_filename"].as<std::string>();
         _volume_io_basepath  = 

@@ -1,7 +1,7 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-project(thunder VERSION 0.0 LANGUAGES CXX C)
+project(thunder VERSION 0.5 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 

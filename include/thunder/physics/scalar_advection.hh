@@ -99,13 +99,28 @@ struct scalar_advection_system_t
                          , double const dtfact ) const 
     { }
 
-    template< typename thread_team_t >
     void THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
-    compute_auxiliaries( thread_team_t& team 
-                        , VEC( const int i 
+    compute_auxiliaries(  VEC( const int i 
                         ,      const int j 
-                        ,      const int k) ) const 
+                        ,      const int k) 
+                        , int64_t q ) const 
     { }
+
+    double THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE
+    compute_max_eigenspeed( VEC( const int i 
+                          ,      const int j 
+                          ,      const int k) 
+                          , int64_t q ) const 
+    {
+        return Kokkos::max(
+              Kokkos::fabs(ax)
+            #ifdef THUNDER_3D 
+            , Kokkos::max(Kokkos::fabs(ay),Kokkos::fabs(az))
+            #else
+            , Kokkos::fabs(ay)
+            #endif 
+        ) ; 
+    }
 
  private:
     template< int idir >

@@ -43,6 +43,9 @@ const std::vector< std::string > code_modules {
     #ifdef THUNDER_ENABLE_SCALAR_ADV
     , "scalar_advection"
     #endif 
+    #ifdef THUNDER_ENABLE_BURGERS
+    , "burgers_equation"
+    #endif 
 } ;
 //*****************************************************************************************************
 const std::vector< std::string > code_modules_default_configs { 
@@ -52,6 +55,9 @@ const std::vector< std::string > code_modules_default_configs {
      "${CMAKE_SOURCE_DIR}/include/thunder/evolution/evolution-defaults.yaml"
      #ifdef THUNDER_ENABLE_SCALAR_ADV
      , "${CMAKE_SOURCE_DIR}/include/thunder/physics/scalar_advection-defaults.yaml"
+     #endif 
+     #ifdef THUNDER_ENABLE_BURGERS
+     , "${CMAKE_SOURCE_DIR}/include/thunder/physics/burgers_equation-defaults.yaml"
      #endif 
 } ;
 //*****************************************************************************************************

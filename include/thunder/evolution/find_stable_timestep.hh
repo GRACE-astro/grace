@@ -1,9 +1,9 @@
 /**
- * @file evolution_kernel_tags.hh
+ * @file find_stable_timestep.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
  * @version 0.1
- * @date 2024-05-13
+ * @date 2024-05-16
  * 
  * @copyright This file is part of Thunder.
  * Thunder is an evolution framework that uses Finite Difference
@@ -25,24 +25,15 @@
  * 
  */
 
-#ifndef THUNDER_EVOLUTION_EVOLUTION_KERNEL_TAGS_HH 
-#define THUNDER_EVOLUTION_EVOLUTION_KERNEL_TAGS_HH
+#ifndef THUNDER_EVOLUTION_FIND_STABLE_TIMESTEP_HH
+#define THUNDER_EVOLUTION_FIND_STABLE_TIMESTEP_HH
+
+#include <thunder_config.h> 
 
 namespace thunder {
 
-struct x_flux_computation_kernel_t {};
-
-struct y_flux_computation_kernel_t {};
-
-struct z_flux_computation_kernel_t {};
-
-
-struct sources_computation_kernel_t {}; 
-
-struct auxiliaries_computation_kernel_t {} ;
-
-struct eigenspeed_kernel_t {} ; 
+void find_stable_timestep() ; 
 
 }
 
-#endif /* THUNDER_EVOLUTION_EVOLUTION_KERNEL_TAGS_HH */
+#endif 

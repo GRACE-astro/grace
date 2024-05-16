@@ -25,8 +25,7 @@
  */
 
 #include <thunder_config.h>
-
-#include <thunder/physics/scalar_advection.hh>
+#include <thunder/physics/thunder_physical_systems.hh>
 #include <thunder/config/config_parser.hh>
 #include <thunder/amr/amr_functions.hh>
 #include <thunder/utils/thunder_utils.hh>
@@ -43,8 +42,11 @@ namespace thunder {
 void set_scalar_advection_initial_data() { 
     using namespace thunder ; 
     using namespace Kokkos  ; 
+
     #ifndef THUNDER_ENABLE_SCALAR_ADV 
     int const U = -1 ; 
+    ERROR("Should not run scalar advection equation ID" 
+          "if scalar advection equation evolution is not enabled.") ; 
     #endif 
     auto& state = thunder::variable_list::get().getstate() ; 
 

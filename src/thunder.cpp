@@ -24,10 +24,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-
+/**********************************************************************************/
+/**********************************************************************************/
 #include <thunder_config.h>
 #include <code_modules.h>
-
+/**********************************************************************************/
+/**********************************************************************************/
 #include <thunder/system/thunder_system.hh>
 #include <thunder/amr/thunder_amr.hh>
 #include <thunder/coordinates/coordinate_systems.hh>
@@ -38,48 +40,70 @@
 #include <thunder/evolution/evolve.hh>
 #include <thunder/evolution/initial_data.hh>
 #include <thunder/evolution/auxiliaries.hh>
+#include <thunder/evolution/find_stable_timestep.hh>
 #include <thunder/IO/vtk_volume_output.hh>
-
+/**********************************************************************************/
+/**********************************************************************************/
 int main(int argc, char* argv[])
 {
+    /**********************************************************************************/
+    /*                               Initialize runtime                               */
+    /**********************************************************************************/
     thunder::initialize(argc, argv) ; 
-
+    /**********************************************************************************/
+    /**********************************************************************************/
     using namespace thunder::variables ;
     using namespace Kokkos ;
     using namespace thunder ; 
-    
+    /**********************************************************************************/
+    /**********************************************************************************/
     auto& params = thunder::config_parser::get() ; 
-
+    /**********************************************************************************/
+    /*                                 Initial data                                   */
+    /**********************************************************************************/
     thunder::set_initial_data() ; 
-
-    thunder::amr::regrid() ;  
-    thunder::amr::apply_boundary_conditions() ; 
-
-
+    bool regrid_at_postinitial = params["amr"]["regrid_at_postinitial"].as<bool>() ; 
+    int postinitial_regrid_depth = params["amr"]["postinitial_regrid_depth"].as<int>() ; 
+    /**********************************************************************************/
+    /*                                 Post-Initial data                              */
+    /**********************************************************************************/
+    if( regrid_at_postinitial ) {
+        for( int ilev=0; ilev<postinitial_regrid_depth; ++ilev){
+            thunder::amr::regrid() ;  
+            thunder::amr::apply_boundary_conditions() ; 
+        }
+    }
     thunder::IO::write_volume_cell_data() ;
-    
-    double final_time = 1. ; 
-    double dt = 1e-04 ; 
-    thunder::set_timestep(dt) ; 
-
+    /**********************************************************************************/
+    /**********************************************************************************/
+    double final_time = params["evolution"]["final_time"].as<double>() ; 
     int64_t regrid_every = params["amr"]["regrid_every"].as<int64_t>() ; 
     int64_t volume_output_every = params["IO"]["volume_output_every"].as<int64_t>() ; 
-
-    for( ; thunder::get_simulation_time() < final_time ; thunder::increment_iteration(), thunder::increment_simulation_time() ) {
-        THUNDER_INFO("Iter {} time {}", thunder::get_iteration(), thunder::get_simulation_time() ) ; 
+    /**********************************************************************************/
+    /*                           Evolution loop                                       */
+    /**********************************************************************************/
+    for( ; thunder::get_simulation_time() < final_time 
+         ; thunder::increment_iteration(), thunder::increment_simulation_time() ) 
+    {
+        thunder::find_stable_timestep() ;
+        THUNDER_INFO("Iter {} time {:.3f} dt {:.3e} ave M/h {:.3e}", thunder::get_iteration(), thunder::get_simulation_time(), thunder::get_timestep(), thunder::get_simulation_time()/thunder::get_total_runtime()*3.6e03 ) ; 
         thunder::evolve() ; 
-        if ( thunder::get_iteration() % regrid_every == 0) {
+        if (    (thunder::get_iteration() % regrid_every == 0) 
+            and (regrid_every>0)) 
+        {
             thunder::amr::regrid() ;  
             thunder::amr::apply_boundary_conditions() ;
         }
-        if( thunder::get_iteration() % volume_output_every == 0 ) {
+        if(    (thunder::get_iteration() % volume_output_every == 0) 
+           and (volume_output_every>0) ) 
+        {
             thunder::compute_auxiliary_quantities() ; 
             thunder::IO::write_volume_cell_data() ;
         } 
     }
     
-
-
     thunder::thunder_finalize() ; 
     return EXIT_SUCCESS ; 
 }
+/**********************************************************************************/
+/**********************************************************************************/
