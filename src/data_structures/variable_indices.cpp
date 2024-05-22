@@ -167,6 +167,33 @@ void register_variables() {
                                 , true
                                 , "outgoing"
                                 , false ) ; 
+    X_SOURCE = register_variable("source[0]", {VEC(false,false,false)}
+                                , true 
+                                , false 
+                                , false
+                                , "none"
+                                , false
+                                , false
+                                , 0
+                                , "source" ) ; 
+    Y_SOURCE = register_variable("source[1]", {VEC(false,false,false)}
+                                , true 
+                                , false 
+                                , false
+                                , "none"
+                                , false
+                                , false
+                                , 1
+                                , "source" ) ;
+    Z_SOURCE = register_variable("source[2]", {VEC(false,false,false)}
+                                , true 
+                                , false 
+                                , false
+                                , "none"
+                                , false
+                                , false
+                                , 2
+                                , "source" ) ;
     #endif 
     #ifdef THUNDER_ENABLE_SCALAR_ADV
     U = register_variable("U", {VEC(false,false,false)}
@@ -552,7 +579,11 @@ static int register_variable(     std::string const& name
     props.is_vector  = is_vector  ; 
     props.is_tensor  = is_tensor  ; 
     props.name   = (is_tensor || is_vector) ?  vec_name : name  ;
-
+    if ( is_evolved ) {
+        detail::_varprops[name] = props ; 
+    } else {
+        detail::_auxprops[name] = props ; 
+    }
     num_vector_vars += static_cast<int>(is_vector) ; 
     num_tensor_vars += static_cast<int>(is_tensor) ; 
     bool is_staggered = false ; 

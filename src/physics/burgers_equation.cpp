@@ -35,6 +35,7 @@
 #include <thunder/data_structures/variables.hh>
 #include <thunder/system/thunder_system.hh>
 #include <thunder/coordinates/coordinate_systems.hh>
+#include <thunder/physics/burgers.hh>
 
 #include <Kokkos_Core.hpp>
 #include <cmath>
@@ -147,6 +148,55 @@ static void set_burgers_shocktube_id() {
     Kokkos::deep_copy(state,h_state_mirror) ;
 }
 
+static void set_burgers_three_state_shocktube_id() {
+    using namespace thunder ; 
+    using namespace Kokkos  ; 
+    #ifndef THUNDER_ENABLE_BURGERS 
+    int const U = -1 ; 
+    #endif 
+    auto& state = thunder::variable_list::get().getstate() ; 
+
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int ngz = amr::get_n_ghosts() ; 
+    int64_t nq = amr::get_local_num_quadrants() ;
+    auto& params = thunder::config_parser::get() ; 
+
+    double uL = params["burgers_equation"]["shocktube_left_state"].as<double>() ;
+    double uC = params["burgers_equation"]["shocktube_central_state"].as<double>() ;
+    double uR = params["burgers_equation"]["shocktube_right_state"].as<double>() ;
+
+    double xc  = params["burgers_equation"]["shocktube_x_location"].as<double>() ;
+    double xc2 = params["burgers_equation"]["shocktube_x_location_2"].as<double>() ;
+
+    auto& coord_system = thunder::coordinate_system::get() ; 
+    auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
+
+    int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
+    for( int64_t icell=0; icell<ncells; ++icell) {
+        size_t const i = icell%(nx+2*ngz); 
+        size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
+        #ifdef THUNDER_3D 
+        size_t const k = 
+            (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
+        size_t const q = 
+            (icell/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ;
+        #else 
+        size_t const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
+        #endif 
+        /* Physical coordinates of cell center */
+        auto pcoords = coord_system.get_physical_coordinates(
+            {VEC(i,j,k)},
+            q,
+            true
+        ) ; 
+
+        h_state_mirror(VEC(i,j,k),U,q) = pcoords[0] <= xc ? uL : 
+        ( pcoords[0] <= xc2 ? uC : uR ) ;  
+    }
+    Kokkos::deep_copy(state,h_state_mirror) ;
+}
+
 static void set_burgers_N_wave_id() {
     using namespace thunder ; 
     using namespace Kokkos  ; 
@@ -203,6 +253,8 @@ void set_burgers_initial_data() {
         set_burgers_gaussian_id() ; 
     } else if ( which_id == "shocktube" ) {
         set_burgers_shocktube_id() ; 
+    } else if ( which_id == "three_states_shocktube") {
+        set_burgers_three_state_shocktube_id() ; 
     } else if ( which_id == "oned_N_wave") {
         set_burgers_N_wave_id() ; 
     } else {

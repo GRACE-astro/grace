@@ -1,0 +1,41 @@
+name: "thunder"
+amr: {
+  npoints_block_x: 9,
+  npoints_block_y: 9,
+  npoints_block_z: 9,
+  xmin: -5.,
+  xmax: 5.,
+  ymin: -0.5,
+  ymax: 0.5,
+  zmin: -2.,
+  zmax: 2.,
+  n_ghostzones: 2,
+  initial_refinement_level: 3,
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_CTORE: 2.,
+  refinement_criterion_CTODE: 1.,
+  refinement_criterion_var: "U",
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+IO: {
+  volume_output_cell_variables: ["U"],
+  volume_output_every: 4
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: false,
+  flush_level: "trace"
+}
+evolution: {
+  time_stepper: "rk2",
+  cfl_factor: 0.2,
+  final_time: 3.
+}
+burgers_equation: {
+  id_type: "shocktube",
+  shocktube_right_state: 0.2,
+  shocktube_left_state: 0.8
+}

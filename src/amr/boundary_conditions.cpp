@@ -24,6 +24,8 @@
  * 
  */
 
+#include <thunder_config.h>
+
 #include <Kokkos_Core.hpp>
 
 #include <thunder/amr/thunder_amr.hh>
@@ -334,7 +336,6 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
         int ihalo = coarse_hanging_info.rcv_quadid[ircv] ; 
         int iproc = coarse_hanging_info.rcv_procid[ircv] ; 
         THUNDER_VERBOSE("Receive iproc {}", iproc);
-        #if 1
         context._requests.push_back(sc_MPI_Request{}) ; 
         auto hsview = Kokkos::subview(
               halo
@@ -349,7 +350,6 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
             , parallel::get_comm_world()
             , &(context._requests.back())
         ) ; 
-        #endif 
     }
     for( int isend=0; isend<coarse_hanging_info.snd_quadid.size(); ++isend){
         /* Send variables */
@@ -361,7 +361,6 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
                         , iq_loc ) ; 
         for( auto const& iproc: coarse_hanging_info.snd_procid[isend] ) {
             THUNDER_VERBOSE("Send iproc {}", iproc);
-            #if 1
             context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
                   sview.data()
@@ -371,7 +370,6 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            #endif 
         }         
     }
     /******************************************************/

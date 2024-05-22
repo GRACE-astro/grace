@@ -41,7 +41,7 @@
 #include <thunder/evolution/initial_data.hh>
 #include <thunder/evolution/auxiliaries.hh>
 #include <thunder/evolution/find_stable_timestep.hh>
-#include <thunder/IO/vtk_volume_output.hh>
+#include <thunder/IO/vtk_output.hh>
 /**********************************************************************************/
 /**********************************************************************************/
 int main(int argc, char* argv[])
@@ -73,17 +73,24 @@ int main(int argc, char* argv[])
             thunder::amr::apply_boundary_conditions() ; 
         }
     }
-    thunder::IO::write_volume_cell_data() ;
+    bool reset_id_after_regrid = params["evolution"]["reset_id_after_regrid"].as<bool>() ; 
+    if (reset_id_after_regrid) {
+        thunder::set_initial_data() ; 
+    }
+    thunder::IO::write_cell_output(true,true,true) ;
     /**********************************************************************************/
     /**********************************************************************************/
     double final_time = params["evolution"]["final_time"].as<double>() ; 
     int64_t regrid_every = params["amr"]["regrid_every"].as<int64_t>() ; 
     int64_t volume_output_every = params["IO"]["volume_output_every"].as<int64_t>() ; 
+    int64_t plane_surface_output_every = 
+        params["IO"]["plane_surface_output_every"].as<int64_t>() ; 
+    int64_t sphere_surface_output_every = 
+        params["IO"]["sphere_surface_output_every"].as<int64_t>() ;
     /**********************************************************************************/
     /*                           Evolution loop                                       */
     /**********************************************************************************/
-    for( ; thunder::get_simulation_time() < final_time 
-         ; thunder::increment_iteration(), thunder::increment_simulation_time() ) 
+    while( thunder::get_simulation_time() < final_time ) 
     {
         thunder::find_stable_timestep() ;
         THUNDER_INFO("Iter {} time {:.3f} dt {:.3e} ave M/h {:.3e}", thunder::get_iteration(), thunder::get_simulation_time(), thunder::get_timestep(), thunder::get_simulation_time()/thunder::get_total_runtime()*3.6e03 ) ; 
@@ -94,11 +101,19 @@ int main(int argc, char* argv[])
             thunder::amr::regrid() ;  
             thunder::amr::apply_boundary_conditions() ;
         }
-        if(    (thunder::get_iteration() % volume_output_every == 0) 
-           and (volume_output_every>0) ) 
+        thunder::increment_iteration(); thunder::increment_simulation_time() ; 
+        thunder::compute_auxiliary_quantities() ;
+        if(    (volume_output_every>0) 
+           or  (plane_surface_output_every>0) 
+           or  (sphere_surface_output_every>0) ) 
         {
-            thunder::compute_auxiliary_quantities() ; 
-            thunder::IO::write_volume_cell_data() ;
+            bool do_out_vol = 
+                (volume_output_every>0) and (thunder::get_iteration() % volume_output_every == 0) ; 
+            bool do_out_planes =
+                (plane_surface_output_every>0) and (thunder::get_iteration() % plane_surface_output_every == 0) ; 
+            bool do_out_spheres = 
+                (sphere_surface_output_every>0) and (thunder::get_iteration() % sphere_surface_output_every == 0) ; 
+            thunder::IO::write_cell_output(do_out_vol,do_out_planes,do_out_spheres) ;
         } 
     }
     

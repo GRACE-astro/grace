@@ -25,6 +25,10 @@
  * 
  */
 
+#include <vtkSmartPointer.h>
+#include <vtkUnstructuredGrid.h>
+#include <vtkXMLPUnstructuredGridWriter.h>
+
 
 #include <vector>
 #include <string>
@@ -35,17 +39,24 @@
 
 namespace thunder { namespace IO {
 
-void write_volume_data( std::string const& outfname 
-                      , std::vector<std::string> const& cell_scalar_vars 
-                      , std::vector<std::string> const& cell_vector_vars 
-                      , std::vector<std::vector<std::string>> const& cell_vector_vnames 
-                      , std::vector<std::string> const& cell_tensor_vars 
-                      , std::vector<std::vector<std::string>> const& cell_tensor_vnames
-                      , std::vector<std::string> const& point_scalar_vars 
-                      , std::vector<std::string> const& point_vector_vars 
-                      , std::vector<std::vector<std::string>> const& point_vector_vnames 
-                      , std::vector<std::string> const& point_tensor_vars 
-                      , std::vector<std::vector<std::string>> const& point_tensor_vnames)
+enum thunder_vtk_output_t {
+    VOLUME=0,
+    PLANE_SURFACE,
+    SPHERE_SURFACE
+} ; 
+
+void write_cell_output(bool volume_output, bool surface_output_plane, bool surface_output_sphere ) ; 
+
+void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t which_output) ;
+
+void write_pvd_file( std::string const& pvdFilename
+                   , std::vector<std::string> const& vtkFilenames 
+                   , std::vector<double> const& times ) ; 
+
+vtkSmartPointer<vtkUnstructuredGrid> setup_vtk_volume_grid(bool) ;
+
+void add_extra_output_quantities(vtkSmartPointer<vtkUnstructuredGrid>, bool) ;
+
 
 }} /* namespace thunder::IO */
 

@@ -27,6 +27,7 @@
 #define THUNDER_AMR_BC_KERNELS_TPP
 
 #include <thunder_config.h>
+
 #include <thunder/utils/thunder_utils.hh>
 #include <thunder/data_structures/macros.hh>
 
@@ -38,8 +39,21 @@ struct outgoing_bc_t
     static THUNDER_ALWAYS_INLINE THUNDER_HOST_DEVICE 
     void apply(ViewT& u, int ngz, int n0, VECD(int j, int k), int face, int64_t iq)
     {
-        for(int ig=0; ig<ngz; ++ig)
-        {
+      EXPR(
+      int const I0 = EXPRD((face==0) * ngz 
+                         + (face==1) * (n0+ngz-1)
+                         + (face/2==1) * (j+ngz), 
+                         + (face/2==2) * (j+ngz))  ;,
+      int const J0 = EXPRD((face==2) * ngz 
+                         + (face==3) * (n0+ngz-1)
+                         + (face/2==0) * (j+ngz), 
+                         + (face/2==2) * (k+ngz))  ;,
+      int const K0 = EXPRD((face==4) * ngz 
+                         + (face==5) * (n0+ngz-1)
+                         + (face/2==0) * (k+ngz), 
+                         + (face/2==1) * (k+ngz))  ;)
+      for(int ig=0; ig<ngz; ++ig)
+      {
             EXPR(
             int I = EXPRD((face==0) * ig 
                   + (face==1) * (n0+ngz+ig)
@@ -53,22 +67,8 @@ struct outgoing_bc_t
                   + (face==5) * (n0+ngz+ig)
                   + (face/2==0) * (k+ngz), 
                   + (face/2==1) * (k+ngz))  ;)
-            EXPR(
-            int I0 = EXPRD((face==0) * ngz 
-                  + (face==1) * (n0+ngz-1)
-                  + (face/2==1) * (j+ngz), 
-                  + (face/2==2) * (k+ngz))  ;,
-            int J0 = EXPRD((face==2) * ngz 
-                  + (face==3) * (n0+ngz-1)
-                  + (face/2==0) * (j+ngz), 
-                  + (face/2==2) * (k+ngz))  ;,
-            int K0 = EXPRD((face==4) * ngz 
-                  + (face==5) * (n0+ngz-1)
-                  + (face/2==0) * (k+ngz), 
-                  + (face/2==1) * (k+ngz))  ;)
-
             u(VEC(I,J,K),iq) = u(VEC(I0,J0,K0),iq); 
-        }       
+      }       
     }
 } ;
 

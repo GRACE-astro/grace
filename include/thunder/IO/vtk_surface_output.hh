@@ -1,8 +1,8 @@
 /**
- * @file vtk_volume_output_3D.hh
+ * @file vtk_surface_output.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-03-15
+ * @date 2024-05-17
  * 
  * @copyright This file is part of Thunder.
  * Thunder is an evolution framework that uses Finite Differences
@@ -23,22 +23,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#ifndef THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH
-#define THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH
+
+#ifndef THUNDER_IO_VTK_SURFACE_OUTPUT_HH
+#define THUNDER_IO_VTK_SURFACE_OUTPUT_HH
 
 #include <vtkSmartPointer.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkXMLPUnstructuredGridWriter.h>
-
-
-#include <vector>
+#include <vtkXMLPPolyDataWriter.h>
 
 namespace thunder { namespace IO {
 
-void write_volume_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
-                           , vtkSmartPointer<vtkXMLPUnstructuredGridWriter> pwriter) ; 
+void write_plane_surface_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
+                                  , vtkSmartPointer<vtkXMLPPolyDataWriter> pwriter ) ;
 
-}} /* namespace thunder::IO */
+void write_sphere_surface_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
+                                   , vtkSmartPointer<vtkXMLPPolyDataWriter> pwriter ) ; 
+
+}}
 
 
-#endif /* THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH */
+#endif /* THUNDER_IO_VTK_SURFACE_OUTPUT_HH */

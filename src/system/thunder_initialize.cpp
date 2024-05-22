@@ -48,6 +48,7 @@
 #include <thunder/data_structures/variables.hh>
 
 #include <thunder/system/print.hh>
+#include <thunder/IO/vtk_output_auxiliaries.hh>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -187,7 +188,9 @@ void initialize(int& argc, char* argv[])
         ,   thunder::variable_list::get().getinvspacings()
         ,   thunder::variable_list::get().getspacings()
         ,   thunder::variable_list::get().getvolumes()
-        ,   thunder::variable_list::get().getstaggeredcoords() ) ; 
+        ,   thunder::variable_list::get().getstaggeredcoords() ) ;
+    thunder::IO::detail::init_auxiliaries()  ;
+
     THUNDER_INFO("Thunder running on {} backend", THUNDER_BACKEND) ; 
     //THUNDER_INFO("Thunder running on {} total devices.", Kokkos::num_devices() ) ; 
     THUNDER_INFO("Rank {} mapped to device_id {}", parallel::mpi_comm_rank(), Kokkos::device_id() ) ;

@@ -53,3 +53,6 @@ Might make sense to have a struct which is just a very thin layer around a view 
 Maybe or maybe not I'm not sure at all on this point.
 
 AI : easy questions are easy to ask and easy to answer.
+
+## Macro for reading parameters 
+Define a macro to read a parameter that catches the exception and throws a reasonable error. 

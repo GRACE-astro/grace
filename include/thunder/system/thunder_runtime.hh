@@ -39,7 +39,7 @@
 #include <thunder/config/config_parser.hh>
 
 #include <thunder/parallel/mpi_wrappers.hh>
-
+#include <thunder/system/print.hh>
 #include <thunder/data_structures/variable_indices.hh>
 
 #include <spdlog/stopwatch.h>
@@ -61,15 +61,32 @@ class thunder_runtime_impl_t
     std::vector<std::string> _cell_volume_output_scalar_aux ;
     std::vector<std::string> _cell_volume_output_vector_aux ;
     /* Surface output */
-    std::vector<std::string> _cell_surface_output_scalar_vars ;
-    std::vector<std::string> _cell_surface_output_vector_vars ;
-    std::vector<std::string> _cell_surface_output_scalar_aux ;
-    std::vector<std::string> _cell_surface_output_vector_aux ;
+    std::vector<std::string> _cell_plane_surface_output_scalar_vars ;
+    std::vector<std::string> _cell_plane_surface_output_vector_vars ;
+    std::vector<std::string> _cell_plane_surface_output_scalar_aux ;
+    std::vector<std::string> _cell_plane_surface_output_vector_aux ;
+    /* Sphere surface output */
+    std::vector<std::string> _cell_sphere_surface_output_scalar_vars ;
+    std::vector<std::string> _cell_sphere_surface_output_vector_vars ;
+    std::vector<std::string> _cell_sphere_surface_output_scalar_aux ;
+    std::vector<std::string> _cell_sphere_surface_output_vector_aux ;
+    /* Output planes */
+    int _n_output_planes ; 
+    std::vector<std::array<double,3>> _output_planes_origins ; 
+    std::vector<std::array<double,3>> _output_planes_normals ; 
+    std::vector<std::string>          _output_planes_names   ; 
+    /* Output spheres */
+    int _n_output_spheres ; 
+    std::vector<std::array<double,3>> _output_spheres_centers  ; 
+    std::vector<double>               _output_spheres_radii    ; 
+    std::vector<std::string>          _output_spheres_names    ; 
+    std::vector<std::string>          _output_spheres_tracking ;
     /* Output parameters */ 
     bool   _volume_output        ;
     bool   _surface_output       ; 
     int _volume_output_every  ; 
-    int _surface_output_every ; 
+    int _plane_surface_output_every ; 
+    int _sphere_surface_output_every ; 
     std::filesystem::path _volume_io_basepath ;
     std::filesystem::path _surface_io_basepath ;
     std::string _volume_io_basename  ; 
@@ -78,8 +95,8 @@ class thunder_runtime_impl_t
     size_t _iter ; 
     /* current simulation time */
     double _time, _dt ; 
-    /* total runtime clock */
-    spdlog::stopwatch _runtime ; 
+    /* total walltime clock */
+    spdlog::stopwatch _walltime ; 
  public: 
     
     size_t THUNDER_ALWAYS_INLINE 
@@ -119,7 +136,10 @@ class thunder_runtime_impl_t
     volume_output_every()  const { return _volume_output_every ; }
 
     int THUNDER_ALWAYS_INLINE 
-    surface_output_every() const { return _surface_output_every ; }
+    plane_surface_output_every() const { return _plane_surface_output_every ; }
+
+    int THUNDER_ALWAYS_INLINE 
+    sphere_surface_output_every() const { return _sphere_surface_output_every ; }
 
     std::string THUNDER_ALWAYS_INLINE
     volume_io_basepath() const { return _volume_io_basepath ; }
@@ -154,28 +174,100 @@ class thunder_runtime_impl_t
     }
 
     decltype(auto) THUNDER_ALWAYS_INLINE 
-    cell_surface_output_scalar_vars() const {
-        return _cell_surface_output_scalar_vars; 
+    cell_plane_surface_output_scalar_vars() const {
+        return _cell_plane_surface_output_scalar_vars; 
     }
 
     decltype(auto) THUNDER_ALWAYS_INLINE 
-    cell_surface_output_vector_vars() const {
-        return _cell_surface_output_vector_vars; 
+    cell_plane_surface_output_vector_vars() const {
+        return _cell_plane_surface_output_vector_vars; 
     }
 
     decltype(auto) THUNDER_ALWAYS_INLINE 
-    cell_surface_output_scalar_aux() const {
-        return _cell_surface_output_scalar_aux; 
+    cell_plane_surface_output_scalar_aux() const {
+        return _cell_plane_surface_output_scalar_aux; 
     }
 
     decltype(auto) THUNDER_ALWAYS_INLINE 
-    cell_surface_output_vector_aux() const {
-        return _cell_surface_output_vector_aux; 
+    cell_plane_surface_output_vector_aux() const {
+        return _cell_plane_surface_output_vector_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_sphere_surface_output_scalar_vars() const {
+        return _cell_sphere_surface_output_scalar_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_sphere_surface_output_vector_vars() const {
+        return _cell_sphere_surface_output_vector_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_sphere_surface_output_scalar_aux() const {
+        return _cell_sphere_surface_output_scalar_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_sphere_surface_output_vector_aux() const {
+        return _cell_sphere_surface_output_vector_aux; 
+    }
+
+    int THUNDER_ALWAYS_INLINE 
+    n_surface_output_planes() const {
+        return _n_output_planes ; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_plane_surface_output_origins() const {
+        return _output_planes_origins ;  
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_plane_surface_output_normals() const {
+        return _output_planes_normals ; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_plane_surface_output_names() const {
+        return _output_planes_names ; 
+    }
+
+    int THUNDER_ALWAYS_INLINE 
+    n_surface_output_spheres() const {
+        return _n_output_spheres ; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_sphere_surface_output_centers() const {
+        return _output_spheres_centers ; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_sphere_surface_output_radii() const {
+        return _output_spheres_radii ; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_sphere_surface_output_names() const {
+        return _output_spheres_names ;
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    cell_sphere_surface_output_tracking() const {
+        return _output_spheres_tracking ;
+    }
+
+    void THUNDER_ALWAYS_INLINE 
+    set_output_sphere_center(int isphere, std::array<double,3>const& new_center)
+    {
+        for( int ii=0; ii<3; ++ii)
+            _output_spheres_centers[isphere][ii] = new_center[ii] ;
     }
 
     double THUNDER_ALWAYS_INLINE 
     elapsed() {
-        return _runtime.elapsed().count() ; 
+        return _walltime.elapsed().count() ; 
     }
 
  private:
@@ -188,7 +280,8 @@ class thunder_runtime_impl_t
         */
         _surface_output = params["IO"]["surface_output"].as<bool>() ; 
         _volume_output = params["IO"]["volume_output"].as<bool>() ; 
-        _surface_output_every = params["IO"]["surface_output_every"].as<int>() ; 
+        _sphere_surface_output_every = params["IO"]["sphere_surface_output_every"].as<int>() ; 
+        _plane_surface_output_every = params["IO"]["plane_surface_output_every"].as<int>() ; 
         _volume_output_every = params["IO"]["volume_output_every"].as<int>() ; 
         _volume_io_basename  = params["IO"]["volume_output_base_filename"].as<std::string>(); 
         _surface_io_basename  = params["IO"]["surface_output_base_filename"].as<std::string>();
@@ -204,11 +297,77 @@ class thunder_runtime_impl_t
         if( not std::filesystem::exists( _surface_io_basepath ) ){
             std::filesystem::create_directory(_surface_io_basepath) ; 
         }
+        _n_output_planes = params["IO"]["n_output_planes"].as<int>() ;
+        #define READ_IO_PARAM(s,t) params["IO"][s].as<t>()  
+        #define AS_TYPE(t) t
+        _output_planes_origins.resize(_n_output_planes) ;
+        _output_planes_normals.resize(_n_output_planes) ;
+        _output_planes_names.resize(_n_output_planes)   ; 
+        for (int iplane=0; iplane < _n_output_planes; ++iplane) {
+            std::ostringstream oss_x,oss_y,oss_z;
+            oss_x << "output_plane_x_origin_" << iplane;
+            oss_y << "output_plane_y_origin_" << iplane;
+            oss_z << "output_plane_z_origin_" << iplane;
+            _output_planes_origins[iplane] = {
+                READ_IO_PARAM(oss_x.str(), AS_TYPE(double)),
+                READ_IO_PARAM(oss_y.str(), AS_TYPE(double)),
+                READ_IO_PARAM(oss_z.str(), AS_TYPE(double))
+            } ; 
+            oss_x.str("");  // Reset content to empty string
+            oss_x.clear();
+            oss_y.str("");  // Reset content to empty string
+            oss_y.clear();
+            oss_z.str("");  // Reset content to empty string
+            oss_z.clear();
+            oss_x << "output_plane_x_normal_" << iplane;
+            oss_y << "output_plane_y_normal_" << iplane;
+            oss_z << "output_plane_z_normal_" << iplane;
+            _output_planes_normals[iplane] = {
+                READ_IO_PARAM(oss_x.str(), AS_TYPE(double)),
+                READ_IO_PARAM(oss_y.str(), AS_TYPE(double)),
+                READ_IO_PARAM(oss_z.str(), AS_TYPE(double))
+            } ; 
+            oss_x.str("");  // Reset content to empty string
+            oss_x.clear();
+            oss_x << "output_plane_name_" << iplane;
+            _output_planes_names[iplane] = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
+        }
 
+        _n_output_spheres = params["IO"]["n_output_spheres"].as<int>() ;
+        _output_spheres_centers.resize(_n_output_spheres)  ;
+        _output_spheres_radii.resize(_n_output_spheres)    ;
+        _output_spheres_names.resize(_n_output_spheres)    ;
+        _output_spheres_tracking.resize(_n_output_spheres) ;
+        for (int isphere=0; isphere < _n_output_spheres; ++isphere) {
+            std::ostringstream oss_x,oss_y,oss_z;
+            oss_x << "output_sphere_x_center_" << isphere;
+            oss_y << "output_sphere_y_center_" << isphere;
+            oss_z << "output_sphere_z_center_" << isphere;
+            _output_spheres_centers[isphere] = {
+                READ_IO_PARAM(oss_x.str(), AS_TYPE(double)),
+                READ_IO_PARAM(oss_y.str(), AS_TYPE(double)),
+                READ_IO_PARAM(oss_z.str(), AS_TYPE(double))
+            } ; 
+            oss_x.str("");  // Reset content to empty string
+            oss_x.clear();
+            oss_x << "output_sphere_radius_" << isphere;
+            _output_spheres_radii[isphere]    = READ_IO_PARAM(oss_x.str(), AS_TYPE(double)) ; 
+            oss_x.str("");  // Reset content to empty string
+            oss_x.clear();
+            oss_x << "output_sphere_name_" << isphere;
+            _output_spheres_names[isphere]    = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
+            oss_x.str("");  // Reset content to empty string
+            oss_x.clear();
+            oss_x << "output_sphere_tracking_" << isphere;
+            _output_spheres_tracking[isphere] = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
+        }
+        #undef READ_IO_PARAM
         auto out_cell_vars_volume = 
             params["IO"]["volume_output_cell_variables"].as<std::vector<std::string>>() ; 
-        auto out_cell_vars_surface = 
-            params["IO"]["surface_output_cell_variables"].as<std::vector<std::string>>() ; 
+        auto out_cell_vars_plane_surface = 
+            params["IO"]["plane_surface_output_cell_variables"].as<std::vector<std::string>>() ; 
+        auto out_cell_vars_sphere_surface = 
+            params["IO"]["sphere_surface_output_cell_variables"].as<std::vector<std::string>>() ; 
         auto& vnames = thunder::variables::detail::_varnames ; 
         auto& vprops = thunder::variables::detail::_varprops ; 
         auto& auxnames = thunder::variables::detail::_auxnames ;
@@ -227,24 +386,45 @@ class thunder_runtime_impl_t
                     _cell_volume_output_scalar_aux.push_back(x) ;
                 } 
             } else { 
+                THUNDER_WARN("Variable {} not found (requested for volume output).", x) ; 
                 /* WARN(1, "variable " << x " not found.") ; */
             }
         } 
 
-        for( auto const& x: out_cell_vars_surface ) {
+        for( auto const& x: out_cell_vars_plane_surface ) {
             if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
                 if( vprops[x].is_vector ){
-                     _cell_surface_output_vector_vars.push_back(vprops[x].name) ; 
+                     _cell_plane_surface_output_vector_vars.push_back(vprops[x].name) ; 
                 } else {
-                    _cell_surface_output_scalar_vars.push_back(x) ;
+                    _cell_plane_surface_output_scalar_vars.push_back(x) ;
                 }
             } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
                 if( auxprops[x].is_vector ){
-                     _cell_surface_output_vector_aux.push_back(auxprops[x].name) ; 
+                     _cell_plane_surface_output_vector_aux.push_back(auxprops[x].name) ; 
                 } else {
-                    _cell_surface_output_scalar_aux.push_back(x) ;
+                    _cell_plane_surface_output_scalar_aux.push_back(x) ;
                 } 
             } else { 
+                THUNDER_WARN("Variable {} not found (requested for plane surface output).", x) ; 
+                /* WARN(1, "variable " << x " not found.") ; */
+            }
+        } 
+
+        for( auto const& x: out_cell_vars_sphere_surface ) {
+            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
+                if( vprops[x].is_vector ){
+                     _cell_sphere_surface_output_vector_vars.push_back(vprops[x].name) ; 
+                } else {
+                    _cell_sphere_surface_output_scalar_vars.push_back(x) ;
+                }
+            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
+                if( auxprops[x].is_vector ){
+                     _cell_sphere_surface_output_vector_aux.push_back(auxprops[x].name) ; 
+                } else {
+                    _cell_sphere_surface_output_scalar_aux.push_back(x) ;
+                } 
+            } else { 
+                THUNDER_WARN("Variable {} not found (requested for sphere surface output).", x) ; 
                 /* WARN(1, "variable " << x " not found.") ; */
             }
         } 
@@ -281,23 +461,42 @@ class thunder_runtime_impl_t
             }
             if ( _surface_output )
             {
-                std::cout << "Surface output requested every " << _surface_output_every << " iterations\n" ; 
-                std::cout << "Variables registered for surface (co-dimension 1) output: \n" ; 
+                std::cout << "Plane surface output requested every " << _plane_surface_output_every << " iterations\n" ; 
+                std::cout << "Sphere surface output requested every " << _sphere_surface_output_every << " iterations\n" ; 
+                std::cout << "Variables registered for plane surface (co-dimension 1) output: \n" ; 
                 std::cout << "Scalars: \n";
-                for(auto const& x: _cell_surface_output_scalar_vars){
+                for(auto const& x: _cell_plane_surface_output_scalar_vars){
                     std::cout << x << std::endl ; 
                 }
                 std::cout << "Vectors: \n";
-                for(auto const& x: _cell_surface_output_vector_vars){
+                for(auto const& x: _cell_plane_surface_output_vector_vars){
                     std::cout << x << std::endl ; 
                 }
                 std::cout << "Auxiliaries: \n";
                 std::cout << "Scalars: \n";
-                for(auto const& x: _cell_surface_output_scalar_aux){
+                for(auto const& x: _cell_plane_surface_output_scalar_aux){
                     std::cout << x << std::endl ; 
                 }
                 std::cout << "Vectors: \n";
-                for(auto const& x: _cell_surface_output_vector_aux){
+                for(auto const& x: _cell_plane_surface_output_vector_aux){
+                    std::cout << x << std::endl ; 
+                }  
+                std::cout << "Variables registered for sphere surface (co-dimension 1) output: \n" ; 
+                std::cout << "Scalars: \n";
+                for(auto const& x: _cell_sphere_surface_output_scalar_vars){
+                    std::cout << x << std::endl ; 
+                }
+                std::cout << "Vectors: \n";
+                for(auto const& x: _cell_sphere_surface_output_vector_vars){
+                    std::cout << x << std::endl ; 
+                }
+                std::cout << "Auxiliaries: \n";
+                std::cout << "Scalars: \n";
+                for(auto const& x: _cell_sphere_surface_output_scalar_aux){
+                    std::cout << x << std::endl ; 
+                }
+                std::cout << "Vectors: \n";
+                for(auto const& x: _cell_sphere_surface_output_vector_aux){
                     std::cout << x << std::endl ; 
                 }    
             }

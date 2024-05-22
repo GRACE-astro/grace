@@ -33,7 +33,7 @@ add_executable(thunder src/thunder.cpp)
 target_include_directories(thunder PRIVATE "${HEADER_DIR}")
 target_link_libraries(thunder PRIVATE 
         thunder_objects
-        $<TARGET_OBJECTS:thunder_volume_output>
+        $<TARGET_OBJECTS:thunder_vtk_output>
         yaml_cpp::yaml
         MPI::MPI_CXX
         OpenMP::OpenMP_CXX

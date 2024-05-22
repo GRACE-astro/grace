@@ -48,6 +48,7 @@ target_sources( thunder_objects INTERFACE
                 $<TARGET_OBJECTS:thunder_variable_list>
                 $<TARGET_OBJECTS:thunder_variable_registration>
                 $<TARGET_OBJECTS:thunder_variable_utils>
+                $<TARGET_OBJECTS:thunder_output_aux>
                 $<TARGET_OBJECTS:thunder_cartesian_coordinates>
                 $<TARGET_OBJECTS:thunder_spherical_coordinates>
                 $<TARGET_OBJECTS:thunder_coordinate_systems>

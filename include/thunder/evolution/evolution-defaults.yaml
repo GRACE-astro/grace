@@ -1,5 +1,6 @@
 evolution: {
   time_stepper: "euler",
   cfl_factor: 1.,
-  final_time: 2.
+  final_time: 2.,
+  reset_id_after_regrid: false
 }

@@ -1,8 +1,8 @@
 /**
- * @file vtk_volume_output_3D.hh
+ * @file vtk_output_auxiliaries.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-03-15
+ * @date 2024-05-17
  * 
  * @copyright This file is part of Thunder.
  * Thunder is an evolution framework that uses Finite Differences
@@ -23,22 +23,34 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#ifndef THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH
-#define THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH
 
-#include <vtkSmartPointer.h>
-#include <vtkUnstructuredGrid.h>
-#include <vtkXMLPUnstructuredGridWriter.h>
-
-
-#include <vector>
+#include <thunder/IO/vtk_output_auxiliaries.hh>
+#include <thunder/system/thunder_runtime.hh>
 
 namespace thunder { namespace IO {
 
-void write_volume_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
-                           , vtkSmartPointer<vtkXMLPUnstructuredGridWriter> pwriter) ; 
+namespace detail {
 
-}} /* namespace thunder::IO */
+std::vector<std::string> _volume_filenames ; 
+std::vector<int> _volume_iterations ; 
+std::vector<double> _volume_times   ; 
 
+std::vector<std::vector<std::string>> _surface_plane_filenames ; 
+std::vector<int> _surface_plane_iterations ; 
+std::vector<double> _surface_plane_times   ; 
 
-#endif /* THUNDER_IO_VTK_VOLUME_OUTPUT_3D_HH */
+std::vector<std::vector<std::string>> _surface_sphere_filenames ; 
+std::vector<int> _surface_sphere_iterations ; 
+std::vector<double> _surface_sphere_times   ; 
+
+void init_auxiliaries() {
+    auto& runtime = thunder::runtime::get() ;
+    int n_planes = runtime.n_surface_output_planes() ; 
+    int n_spheres = runtime.n_surface_output_spheres() ; 
+    _surface_plane_filenames.resize(n_planes) ; 
+    _surface_sphere_filenames.resize(n_spheres) ; 
+}
+
+}
+
+}}

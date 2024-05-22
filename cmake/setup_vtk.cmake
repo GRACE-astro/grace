@@ -9,6 +9,7 @@ find_package(VTK REQUIRED
   COMPONENTS 
   CommonCore
   CommonDataModel
+  FiltersCore
   IOXML
   IOParallelXML
   ParallelMPI

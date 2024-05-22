@@ -26,6 +26,7 @@
 
 #ifndef THUNDER_AMR_BC_HELPERS_TPP
 #define THUNDER_AMR_BC_HELPERS_TPP
+#include <thunder_config.h>
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Vector.hpp>
