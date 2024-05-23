@@ -254,6 +254,25 @@ TARGETS bc_test
 MODULES ${VTK_LIBRARIES}
 )
 
+add_executable( scalar_reductions_test test_scalar_reductions.cpp )
+target_include_directories(scalar_reductions_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  scalar_reductions_test PRIVATE 
+p4est_tests_main
+Catch2::Catch2
+thunder_objects
+$<TARGET_OBJECTS:thunder_vtk_output>
+yaml_cpp::yaml
+Kokkos::kokkos
+MPI::MPI_CXX
+p4est::sc
+p4est::p4est 
+VTK::VTK 
+spdlog::spdlog )
+vtk_module_autoinit(
+TARGETS bc_test
+MODULES ${VTK_LIBRARIES}
+)
+
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)
 add_test(NAME sc_wrappers_test COMMAND 
@@ -284,6 +303,8 @@ add_test(NAME bc_test_cartesian COMMAND
         mpirun -n 8 ./bc_test --thunder-parfile ./configs/regrid_test_cartesian.yaml )
 add_test(NAME bc_test_spherical COMMAND 
         mpirun -n 2 ./bc_test --thunder-parfile ./configs/regrid_test_spherical.yaml )
+add_test(NAME scalar_reductions_test COMMAND 
+        mpirun -n 1 ./scalar_reductions_test --thunder-parfile ./configs/scalar_reductions_test.yaml )
 ##add_custom_command(
 #        TARGET
 #        COMMENT "Run tests"

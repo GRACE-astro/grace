@@ -31,11 +31,13 @@
 #include <thunder/parallel/mpi_wrappers.hh> 
 #include <thunder/amr/connectivity.hh>
 #include <thunder/config/config_parser.hh>
+#include <thunder/system/print.hh>
 
 namespace thunder { namespace amr {
 
 forest_impl_t::forest_impl_t() 
 { 
+    THUNDER_INFO("Initializing forest of oct-trees...")  ;
     auto & params       = thunder::config_parser::get()   ; 
     auto & connectivity = thunder::amr::connectivity::get() ; 
     int min_level( params["amr"]["initial_refinement_level"].as<int>() ) ; 
@@ -47,6 +49,8 @@ forest_impl_t::forest_impl_t()
                             , sizeof(amr_flags_t)
                             , initialize_quadrant
                             , nullptr ) ; 
+    THUNDER_INFO("Forest initialized with {} ({}) total (local) quadrants."
+                 , _p4est->global_num_quadrants, _p4est->local_num_quadrants ) ; 
 }
 
 forest_impl_t::~forest_impl_t() 

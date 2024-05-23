@@ -1,8 +1,8 @@
 /**
- * @file initial_data.cpp
+ * @file scalar_output.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-05-15
+ * @date 2024-05-22
  * 
  * @copyright This file is part of Thunder.
  * Thunder is an evolution framework that uses Finite Differences
@@ -24,31 +24,47 @@
  * 
  */
 
+#ifndef THUNDER_IO_SCALAR_OUTPUT_HH
+#define THUNDER_IO_SCALAR_OUTPUT_HH 
+
 #include <thunder_config.h>
 
-#include <thunder/evolution/initial_data.hh>
-
-#include <thunder/physics/thunder_physical_systems.hh>
-#include <thunder/amr/thunder_amr.hh>
+#include <thunder/utils/thunder_utils.hh>
 #include <thunder/system/thunder_system.hh>
 #include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/utils/thunder_utils.hh>
+#include <thunder/config/config_parser.hh>
+#include <thunder/amr/amr_functions.hh>
 
-#include <Kokkos_Core.hpp>
+#include <map>
+#include <string>
 
-namespace thunder {
+namespace thunder { namespace IO {
 
-void set_initial_data() {
-    Kokkos::Profiling::pushRegion("ID") ; 
-    using namespace thunder ;
+template< typename T> 
+struct minmax_res_t {
+    T min_val; T max_val ; 
+} ; 
 
-    #ifdef THUNDER_ENABLE_SCALAR_ADV 
-    set_scalar_advection_initial_data() ; 
-    #endif 
-    #ifdef THUNDER_ENABLE_BURGERS
-    set_burgers_initial_data() ; 
-    #endif 
-    Kokkos::Profiling::popRegion() ; 
-} 
+namespace detail {
+extern std::map<std::string,minmax_res_t<double>> _minmax_reduction_vars_results ;
+extern std::map<std::string,minmax_res_t<double>> _minmax_reduction_aux_results  ;
+extern std::map<std::string,double> _norm2_reduction_vars_results    ;
+extern std::map<std::string,double> _norm2_reduction_aux_results     ;
+extern std::map<std::string,double> _integral_reduction_vars_results ;
+extern std::map<std::string,double> _integral_reduction_aux_results  ;
 
 }
+
+void compute_reductions() ; 
+
+void write_scalar_output() ; 
+
+void initialize_output_files() ; 
+
+void info_output() ; 
+
+
+
+}}
+
+#endif 

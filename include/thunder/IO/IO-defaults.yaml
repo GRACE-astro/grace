@@ -5,10 +5,12 @@ IO: {
   volume_output_every : 10, 
   plane_surface_output_every: 10,
   sphere_surface_output_every: 10,
+  scalar_output_every: 10,
   info_output_every: 10,
 
-  info_output_vars: [],
-  info_output_reductions: [],
+  info_output_max_reductions: [],
+  info_output_min_reductions: [],
+  info_output_norm2_reductions: [],
 
   log_output_base_filename: "thunder_log",
   log_output_base_directory: "./logs", 
@@ -20,9 +22,15 @@ IO: {
   surface_output_base_filename: "surface_out",
   surface_output_base_directory: "output_surface",
 
+  scalar_output_base_filename: "",
+  scalar_output_base_directory: "output_scalar",
+
   volume_output_cell_variables : [],
   plane_surface_output_cell_variables: [],
   sphere_surface_output_cell_variables: [],
+  scalar_output_minmax: [],
+  scalar_output_norm2: [],
+  scalar_output_integral: [],
 
   output_ghostzones: false, 
   output_extra_quantities: true,

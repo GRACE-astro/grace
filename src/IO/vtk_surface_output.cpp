@@ -125,12 +125,10 @@ void write_plane_surface_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
 
         detail::_surface_plane_filenames[iplane].push_back(pfname)        ;
         if( parallel::mpi_comm_rank() == 0 ) {
-                    std::cout << "Plane " << plane_names[iplane] 
-                              << " npoints " << cutter->GetOutput()->GetNumberOfPoints() << std::endl 
-                              << " origin " << plane_origins[iplane][0] 
-                              << ", " << plane_origins[iplane][1] << ", " << plane_origins[iplane][2] << '\n'
-                              << " normal " << plane_normals[iplane][0] 
-                              << ", " << plane_normals[iplane][1] << ", " << plane_normals[iplane][2] << std::endl ;
+            THUNDER_TRACE("Plane {} npoints {}\n origin {} {} {}\n normal {} {} {}."
+                         ,plane_names[iplane],cutter->GetOutput()->GetNumberOfPoints()
+                         ,plane_origins[iplane][0],plane_origins[iplane][1],plane_origins[iplane][2]
+                         ,plane_normals[iplane][0],plane_normals[iplane][1],plane_normals[iplane][2]);
             std::string pvd_basefilename = runtime.surface_io_basename() 
                                         + "_plane_" + plane_names[iplane]
                                         + ".pvd" ; 

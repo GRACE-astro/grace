@@ -16,9 +16,9 @@ export YAML_ROOT=/mnt/rafast/musolino/libs/yaml-cpp-install-gnu
 export KOKKOS_ROOT=/mnt/rafast/musolino/libs/kokkos-hip-rdc
 export VTK_ROOT=/mnt/rafast/musolino/libs/vtk/install-gnu-openmpi
 export SPDLOG_ROOT=/mnt/rafast/musolino/libs/spdlog-install
-export KOKKOS_TOOLS_LIB=/mnt/rafast/musolino/libs/kokkos-tools-vtune-install/lib
+export KOKKOS_TOOLS_LIB=/mnt/rafast/musolino/libs/kokkos-tools-install/lib
 
 
 export LD_LIBRARY_PATH=${KOKKOS_TOOLS_LIB}:${LD_LIBRARY_PATH}
 
-export PATH=/mnt/rafast/musolino/libs/valgrind-install:/mnt/rafast/musolino/libs/kokkos-tools-vtune-install/bin:${PATH}
+export PATH=/mnt/rafast/musolino/libs/valgrind-install:${PATH}

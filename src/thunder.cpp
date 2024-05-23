@@ -42,6 +42,7 @@
 #include <thunder/evolution/auxiliaries.hh>
 #include <thunder/evolution/find_stable_timestep.hh>
 #include <thunder/IO/vtk_output.hh>
+#include <thunder/IO/scalar_output.hh>
 /**********************************************************************************/
 /**********************************************************************************/
 int main(int argc, char* argv[])
@@ -61,6 +62,7 @@ int main(int argc, char* argv[])
     /**********************************************************************************/
     /*                                 Initial data                                   */
     /**********************************************************************************/
+    THUNDER_INFO("Setting initial data.") ; 
     thunder::set_initial_data() ; 
     bool regrid_at_postinitial = params["amr"]["regrid_at_postinitial"].as<bool>() ; 
     int postinitial_regrid_depth = params["amr"]["postinitial_regrid_depth"].as<int>() ; 
@@ -68,6 +70,7 @@ int main(int argc, char* argv[])
     /*                                 Post-Initial data                              */
     /**********************************************************************************/
     if( regrid_at_postinitial ) {
+        THUNDER_INFO("Performing initial regrid.") ;
         for( int ilev=0; ilev<postinitial_regrid_depth; ++ilev){
             thunder::amr::regrid() ;  
             thunder::amr::apply_boundary_conditions() ; 
@@ -75,9 +78,14 @@ int main(int argc, char* argv[])
     }
     bool reset_id_after_regrid = params["evolution"]["reset_id_after_regrid"].as<bool>() ; 
     if (reset_id_after_regrid) {
+        THUNDER_INFO("Resetting initial data after regrid.") ;
         thunder::set_initial_data() ; 
     }
     thunder::IO::write_cell_output(true,true,true) ;
+    thunder::IO::compute_reductions() ; 
+    thunder::IO::initialize_output_files() ; 
+    thunder::IO::write_scalar_output() ; 
+    thunder::IO::info_output() ;
     /**********************************************************************************/
     /**********************************************************************************/
     double final_time = params["evolution"]["final_time"].as<double>() ; 
@@ -87,34 +95,58 @@ int main(int argc, char* argv[])
         params["IO"]["plane_surface_output_every"].as<int64_t>() ; 
     int64_t sphere_surface_output_every = 
         params["IO"]["sphere_surface_output_every"].as<int64_t>() ;
+    int64_t scalar_output_every =
+        params["IO"]["scalar_output_every"].as<int64_t>() ; 
+    int64_t info_output_every =
+        params["IO"]["info_output_every"].as<int64_t>() ; 
     /**********************************************************************************/
     /*                           Evolution loop                                       */
     /**********************************************************************************/
+    THUNDER_INFO("Starting evolution.") ; 
     while( thunder::get_simulation_time() < final_time ) 
-    {
+    {   
+        /**********************************************************************************/
         thunder::find_stable_timestep() ;
-        THUNDER_INFO("Iter {} time {:.3f} dt {:.3e} ave M/h {:.3e}", thunder::get_iteration(), thunder::get_simulation_time(), thunder::get_timestep(), thunder::get_simulation_time()/thunder::get_total_runtime()*3.6e03 ) ; 
         thunder::evolve() ; 
-        if (    (thunder::get_iteration() % regrid_every == 0) 
+        /**********************************************************************************/
+        thunder::increment_iteration(); thunder::increment_simulation_time() ;
+        int64_t iter = thunder::get_iteration() ; 
+        if (    (iter % regrid_every == 0) 
             and (regrid_every>0)) 
         {
             thunder::amr::regrid() ;  
             thunder::amr::apply_boundary_conditions() ;
         }
-        thunder::increment_iteration(); thunder::increment_simulation_time() ; 
         thunder::compute_auxiliary_quantities() ;
         if(    (volume_output_every>0) 
            or  (plane_surface_output_every>0) 
            or  (sphere_surface_output_every>0) ) 
         {
             bool do_out_vol = 
-                (volume_output_every>0) and (thunder::get_iteration() % volume_output_every == 0) ; 
+                (volume_output_every>0) and (iter % volume_output_every == 0) ; 
             bool do_out_planes =
-                (plane_surface_output_every>0) and (thunder::get_iteration() % plane_surface_output_every == 0) ; 
+                (plane_surface_output_every>0) and (iter % plane_surface_output_every == 0) ; 
             bool do_out_spheres = 
-                (sphere_surface_output_every>0) and (thunder::get_iteration() % sphere_surface_output_every == 0) ; 
+                (sphere_surface_output_every>0) and (iter % sphere_surface_output_every == 0) ; 
             thunder::IO::write_cell_output(do_out_vol,do_out_planes,do_out_spheres) ;
         } 
+        if(  ((scalar_output_every>0)
+          and (iter % scalar_output_every == 0))
+          or ((info_output_every>0)
+          and (iter % info_output_every == 0)))
+        {
+            thunder::IO::compute_reductions() ; 
+        }
+        if(   (scalar_output_every>0)
+          and (iter % scalar_output_every == 0))
+        {
+            thunder::IO::write_scalar_output() ; 
+        }
+        if(   (info_output_every>0)
+          and (iter % info_output_every == 0))
+        {
+            thunder::IO::info_output() ; 
+        }
     }
     
     thunder::thunder_finalize() ; 

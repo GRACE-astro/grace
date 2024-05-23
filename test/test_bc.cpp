@@ -1,11 +1,13 @@
 #include <catch2/catch_test_macros.hpp>
+
+#include <thunder_config.h>
 #include <Kokkos_Core.hpp>
 #include <thunder/amr/thunder_amr.hh>
 #include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/config/config_parser.hh>
 #include <thunder/data_structures/thunder_data_structures.hh>
 #include <thunder/utils/thunder_utils.hh>
-#include <thunder/IO/vtk_volume_output.hh>
+#include <thunder/IO/vtk_output.hh>
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <numeric>
@@ -60,6 +62,14 @@ TEST_CASE("Apply BC", "[boundaries]")
     #ifdef THUNDER_ENABLE_BURGERS 
     int const DENS = U ; 
     int const DENS_ = U ; 
+    auto params = thunder::config_parser::get()["amr"] ; 
+    params["refinement_criterion_var"] = "U" ; 
+    #endif 
+    #ifdef THUNDER_ENABLE_SCALAR_ADV
+    int const DENS = U ; 
+    int const DENS_ = U ; 
+    auto params = thunder::config_parser::get()["amr"] ; 
+    params["refinement_criterion_var"] = "U" ; 
     #endif 
     auto& state  = thunder::variable_list::get().getstate()  ;
     auto& coords = thunder::variable_list::get().getcoords() ; 
@@ -111,9 +121,8 @@ TEST_CASE("Apply BC", "[boundaries]")
     Kokkos::deep_copy(state, h_state) ; 
     auto& swap = thunder::variable_list::get().getscratch() ; 
     Kokkos::deep_copy(swap, state) ; 
-    
     /* Regrid */
-    thunder::amr::regrid() ;  
+    thunder::amr::regrid() ; 
     /* Set ghostzone values to NaN before filling */
     nq = thunder::amr::get_local_num_quadrants() ;
     ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
@@ -144,7 +153,7 @@ TEST_CASE("Apply BC", "[boundaries]")
     /* Fill boundaries and ghost-zones */
     thunder::amr::apply_boundary_conditions() ; 
     //thunder::runtime::get().increment_iteration() ; 
-    thunder::IO::write_volume_cell_data() ; 
+    //thunder::IO::write_cell_output(true,true,true) ; 
 
     /* Check values in ghost-zones */
     auto& idx = thunder::variable_list::get().getinvspacings() ; 

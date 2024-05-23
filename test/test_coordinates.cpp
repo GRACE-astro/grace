@@ -6,7 +6,7 @@
 #include <thunder/amr/connectivity.hh>
 #include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/amr/amr_functions.hh>
-#include <thunder/IO/vtk_volume_output.hh>
+#include <thunder/IO/vtk_output.hh>
 #include <iostream>
 #include <fstream>
 #include <thunder/data_structures/variables.hh>
@@ -44,7 +44,6 @@ TEST_CASE("coordinates'\t'[coords_test]")
 
     auto& grid_coords = vars.getcoords() ;
     auto& dx = vars.getspacings() ;  
-    thunder::IO::write_volume_cell_data() ;
     auto const lcoords_mirror = create_mirror_view(lcoords);
     auto const pcoords_mirror = create_mirror_view(pcoords);
     auto const gcoords_mirror = create_mirror_view(grid_coords);

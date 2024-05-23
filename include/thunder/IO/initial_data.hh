@@ -1,5 +1,5 @@
 /**
- * @file initial_data.cpp
+ * @file initial_data.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
  * @date 2024-05-15
@@ -23,32 +23,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-
-#include <thunder_config.h>
-
-#include <thunder/evolution/initial_data.hh>
-
-#include <thunder/physics/thunder_physical_systems.hh>
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/system/thunder_system.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/utils/thunder_utils.hh>
-
-#include <Kokkos_Core.hpp>
+#ifndef THUNDER_EVOLUTION_INITIAL_DATA_HH
+#define THUNDER_EVOLUTION_INITIAL_DATA_HH
 
 namespace thunder {
 
-void set_initial_data() {
-    Kokkos::Profiling::pushRegion("ID") ; 
-    using namespace thunder ;
-
-    #ifdef THUNDER_ENABLE_SCALAR_ADV 
-    set_scalar_advection_initial_data() ; 
-    #endif 
-    #ifdef THUNDER_ENABLE_BURGERS
-    set_burgers_initial_data() ; 
-    #endif 
-    Kokkos::Profiling::popRegion() ; 
-} 
+void set_initial_data() ; 
 
 }
+
+#endif 

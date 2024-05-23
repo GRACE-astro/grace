@@ -136,7 +136,7 @@ void advance_substep( double const t, double const dt, double const dtfact
         scalar_adv_system{ old_state, aux, VEC(ax,ay,az) } ; 
     #endif 
     #ifdef THUNDER_ENABLE_BURGERS 
-    burgers_equation_system_t<slope_limited_reconstructor_t<minmod>,hll_riemann_solver_t>
+    burgers_equation_system_t<slope_limited_reconstructor_t<MCbeta>,hll_riemann_solver_t>
         burgers_eq_system{ old_state, aux } ; 
     #endif 
 
@@ -238,30 +238,6 @@ void advance_substep( double const t, double const dt, double const dtfact
                 ) / cvol(VEC(I,J,K),q) ; 
         }) ;
     }) ; 
-    fence() ;
-    auto copy_range = MDRangePolicy<Rank<4>>({VEC(0,0,0),0}, {VEC(nx,ny,nz),nq}) ; 
-    parallel_for(copy_range, KOKKOS_LAMBDA(VEC(int const i, int const j, int const k), int const q) {
-        int const VEC(I{i+ngz},J{j+ngz},K{k+ngz}) ;
-        auto surfx = subview( surfs_and_edges.cell_face_surfaces_x 
-                             , VEC(ALL(),ALL(),ALL()), q ) ; 
-        auto surfy = subview( surfs_and_edges.cell_face_surfaces_y 
-                             , VEC(ALL(),ALL(),ALL()), q ) ; 
-        auto surfz = subview( surfs_and_edges.cell_face_surfaces_z 
-                             , VEC(ALL(),ALL(),ALL()), q ) ;
-        aux(VEC(i+ngz,j+ngz,k+ngz),X_SOURCE_,q) = dt * dtfact * (
-                  ( surfx(VEC(I,J,K))   * fluxes(VEC(i,j,k)  ,U_,0,q) 
-                  - surfx(VEC(I+1,J,K)) * fluxes(VEC(i+1,j,k),U_,0,q) )
-                ) / cvol(VEC(I,J,K),q) ;
-        aux(VEC(i+ngz,j+ngz,k+ngz),Y_SOURCE_,q) = 
-                dt * dtfact * (
-                  ( surfy(VEC(I,J,K))   * fluxes(VEC(i,j,k)  ,U_,1,q) 
-                  - surfy(VEC(I,J+1,K)) * fluxes(VEC(i,j+1,k),U_,1,q) )
-                ) / cvol(VEC(I,J,K),q) ;
-        aux(VEC(i+ngz,j+ngz,k+ngz),Z_SOURCE_,q) = dt * dtfact * (
-                 ( surfz(VEC(I,J,K))   * fluxes(VEC(i,j,k)  ,U_,2,q) 
-                 - surfz(VEC(I,J,K+1)) * fluxes(VEC(i,j,k+1),U_,2,q) ) 
-                ) / cvol(VEC(I,J,K),q) ;
-    }) ;  
     Kokkos::Profiling::popRegion() ; 
 }
 

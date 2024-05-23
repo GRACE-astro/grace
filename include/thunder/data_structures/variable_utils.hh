@@ -45,15 +45,6 @@ get_bc_type( int64_t var_idx, size_t const& var_type = thunder::variables::EVOLV
 std::string
 get_var_name(int64_t var_idx)   ; 
 
-int64_t 
-get_varidx_state( std::string const& name ) ; 
-
-int64_t
-get_varidx_aux( std::string const& name ) ; 
-
-int64_t 
-get_varidx( std::string const& name, bool& isaux) ; 
-
 } } /* namespace thunder::variables */
 
 #endif /* THUNDER_DATA_STRUCTURES_VARIABLE_UTILS_HH */

@@ -167,33 +167,6 @@ void register_variables() {
                                 , true
                                 , "outgoing"
                                 , false ) ; 
-    X_SOURCE = register_variable("source[0]", {VEC(false,false,false)}
-                                , true 
-                                , false 
-                                , false
-                                , "none"
-                                , false
-                                , false
-                                , 0
-                                , "source" ) ; 
-    Y_SOURCE = register_variable("source[1]", {VEC(false,false,false)}
-                                , true 
-                                , false 
-                                , false
-                                , "none"
-                                , false
-                                , false
-                                , 1
-                                , "source" ) ;
-    Z_SOURCE = register_variable("source[2]", {VEC(false,false,false)}
-                                , true 
-                                , false 
-                                , false
-                                , "none"
-                                , false
-                                , false
-                                , 2
-                                , "source" ) ;
     #endif 
     #ifdef THUNDER_ENABLE_SCALAR_ADV
     U = register_variable("U", {VEC(false,false,false)}

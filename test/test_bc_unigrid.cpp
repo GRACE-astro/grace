@@ -5,7 +5,7 @@
 #include <thunder/config/config_parser.hh>
 #include <thunder/data_structures/thunder_data_structures.hh>
 #include <thunder/utils/thunder_utils.hh>
-#include <thunder/IO/vtk_volume_output.hh>
+#include <thunder/IO/vtk_output.hh>
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <numeric>
@@ -136,7 +136,7 @@ TEST_CASE("Apply BC", "[boundaries]")
     /* Fill boundaries and ghost-zones */
     thunder::amr::apply_boundary_conditions() ; 
     //thunder::runtime::get().increment_iteration() ; 
-    thunder::IO::write_volume_cell_data() ; 
+    //thunder::IO::write_cell_output(true,true,true) ; 
 
     /* Check values in ghost-zones */
     auto& idx = thunder::variable_list::get().getinvspacings() ; 

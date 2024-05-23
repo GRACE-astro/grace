@@ -41,7 +41,7 @@
 namespace thunder {
 
 void find_stable_timestep() {
-    Kokkos::Profiling::pushRegion("timestep_update") ; 
+    Kokkos::Profiling::pushRegion("Timestep update") ; 
     using namespace Kokkos ;
     using namespace thunder ;
 

@@ -178,11 +178,20 @@ void initialize(int& argc, char* argv[])
     thunder::initialize_loggers() ; 
     thunder::p4est_runtime::initialize() ; 
     THUNDER_INFO(THUNDER_BANNER) ; 
+    #ifdef THUNDER_CARTESIAN_COORDINATES
+    THUNDER_INFO("Thunder running with cartesian coordinates.");
+    #endif
+    #ifdef THUNDER_SPHERICAL_COORDINATES
+    THUNDER_INFO("Thunder running with spherical coordinates.");
+    #endif 
+    THUNDER_INFO("Inititalizing connectivity object...") ; 
     thunder::amr::connectivity::initialize() ; 
     thunder::amr::forest::initialize()       ;
+    THUNDER_INFO("Allocating memory...");
     thunder::variable_list::initialize() ;
     thunder::runtime::initialize() ; 
-    thunder::coordinate_system::initialize() ;  
+    thunder::coordinate_system::initialize() ;
+    THUNDER_INFO("Filling coordinate arrays...") ;
     thunder::fill_cell_coordinates(
             thunder::variable_list::get().getcoords()
         ,   thunder::variable_list::get().getinvspacings()
@@ -190,7 +199,7 @@ void initialize(int& argc, char* argv[])
         ,   thunder::variable_list::get().getvolumes()
         ,   thunder::variable_list::get().getstaggeredcoords() ) ;
     thunder::IO::detail::init_auxiliaries()  ;
-
+    THUNDER_INFO("Initialization done.");
     THUNDER_INFO("Thunder running on {} backend", THUNDER_BACKEND) ; 
     //THUNDER_INFO("Thunder running on {} total devices.", Kokkos::num_devices() ) ; 
     THUNDER_INFO("Rank {} mapped to device_id {}", parallel::mpi_comm_rank(), Kokkos::device_id() ) ;

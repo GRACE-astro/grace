@@ -1,8 +1,8 @@
 /**
- * @file initial_data.cpp
+ * @file reductors.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-05-15
+ * @date 2024-05-22
  * 
  * @copyright This file is part of Thunder.
  * Thunder is an evolution framework that uses Finite Differences
@@ -23,32 +23,27 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-
+#ifndef THUNDER_UTILS_REDUCTORS_HH
+#define THUNDER_UTILS_REDUCTORS_HH
 #include <thunder_config.h>
-
-#include <thunder/evolution/initial_data.hh>
-
-#include <thunder/physics/thunder_physical_systems.hh>
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/system/thunder_system.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/utils/thunder_utils.hh>
+#include <thunder/utils/math.hh>
+#include <thunder/utils/inline.hh>
+#include <thunder/utils/device.h>
+#include <thunder/data_structures/variable_properties.hh>
 
 #include <Kokkos_Core.hpp>
 
-namespace thunder {
+namespace utils {
 
-void set_initial_data() {
-    Kokkos::Profiling::pushRegion("ID") ; 
-    using namespace thunder ;
+struct thunder_min_reduction_t      {} ; 
+struct thunder_max_reduction_t      {} ; 
+struct thunder_integral_reduction_t {} ;  
+struct thunder_norm2_reduction_t    {} ;
+struct thunder_sum_reduction_t      {} ; 
 
-    #ifdef THUNDER_ENABLE_SCALAR_ADV 
-    set_scalar_advection_initial_data() ; 
-    #endif 
-    #ifdef THUNDER_ENABLE_BURGERS
-    set_burgers_initial_data() ; 
-    #endif 
-    Kokkos::Profiling::popRegion() ; 
-} 
+
+
 
 }
+
+#endif /* THUNDER_UTILS_REDUCTORS_HH */

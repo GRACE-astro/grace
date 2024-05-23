@@ -4,7 +4,7 @@
 #include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/data_structures/thunder_data_structures.hh>
 #include <thunder/utils/thunder_utils.hh>
-#include <thunder/IO/vtk_volume_output.hh>
+#include <thunder/IO/vtk_output.hh>
 #include <iostream>
 
 
@@ -75,6 +75,6 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
                             state(VEC(i,j,k),BETAZ_,q) = 0.0 ; 
                         }) ; 
     std::cout << "Calling output routine..." << std::endl ;
-    thunder::IO::write_volume_cell_data() ; 
+    thunder::IO::write_cell_output(true,true,true) ; 
 
 }

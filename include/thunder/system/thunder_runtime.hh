@@ -70,6 +70,27 @@ class thunder_runtime_impl_t
     std::vector<std::string> _cell_sphere_surface_output_vector_vars ;
     std::vector<std::string> _cell_sphere_surface_output_scalar_aux ;
     std::vector<std::string> _cell_sphere_surface_output_vector_aux ;
+    /* Scalar output         */
+    std::vector<std::string> _scalar_output_minmax_vars   ; 
+    std::vector<std::string> _scalar_output_minmax_aux    ;
+    std::vector<std::string> _scalar_output_norm2_vars    ; 
+    std::vector<std::string> _scalar_output_norm2_aux     ;
+    std::vector<std::string> _scalar_output_integral_vars ; 
+    std::vector<std::string> _scalar_output_integral_aux  ;
+    /* Info output         */
+    std::vector<std::string> _info_output_max_vars   ; 
+    std::vector<std::string> _info_output_max_aux    ;
+    std::vector<std::string> _info_output_min_vars   ; 
+    std::vector<std::string> _info_output_min_aux    ;
+    std::vector<std::string> _info_output_norm2_vars ; 
+    std::vector<std::string> _info_output_norm2_aux  ;
+    /* Reduction variable lists */
+    std::vector<std::string> _minmax_reduction_vars   ;
+    std::vector<std::string> _minmax_reduction_aux    ;
+    std::vector<std::string> _norm2_reduction_vars    ;
+    std::vector<std::string> _norm2_reduction_aux     ;
+    std::vector<std::string> _integral_reduction_vars ;
+    std::vector<std::string> _integral_reduction_aux  ;
     /* Output planes */
     int _n_output_planes ; 
     std::vector<std::array<double,3>> _output_planes_origins ; 
@@ -87,10 +108,14 @@ class thunder_runtime_impl_t
     int _volume_output_every  ; 
     int _plane_surface_output_every ; 
     int _sphere_surface_output_every ; 
+    int _scalar_output_every         ; 
+    int _info_output_every           ;
     std::filesystem::path _volume_io_basepath ;
     std::filesystem::path _surface_io_basepath ;
+    std::filesystem::path _scalar_io_basepath ;
     std::string _volume_io_basename  ; 
     std::string _surface_io_basename ;
+    std::string _scalar_io_basename ;
     /* iteration count */ 
     size_t _iter ; 
     /* current simulation time */
@@ -141,6 +166,12 @@ class thunder_runtime_impl_t
     int THUNDER_ALWAYS_INLINE 
     sphere_surface_output_every() const { return _sphere_surface_output_every ; }
 
+    int THUNDER_ALWAYS_INLINE 
+    scalar_output_every() const { return _scalar_output_every ; }
+
+    int THUNDER_ALWAYS_INLINE 
+    info_output_every() const { return _info_output_every ; }
+
     std::string THUNDER_ALWAYS_INLINE
     volume_io_basepath() const { return _volume_io_basepath ; }
 
@@ -148,10 +179,16 @@ class thunder_runtime_impl_t
     surface_io_basepath() const { return _surface_io_basepath ; }
 
     std::string THUNDER_ALWAYS_INLINE
+    scalar_io_basepath() const { return _scalar_io_basepath ; }
+
+    std::string THUNDER_ALWAYS_INLINE
     volume_io_basename() const { return _volume_io_basename ; }
 
     std::string THUNDER_ALWAYS_INLINE
     surface_io_basename() const { return _surface_io_basename ; }
+
+    std::string THUNDER_ALWAYS_INLINE
+    scalar_io_basename() const { return _scalar_io_basename ; }
 
     decltype(auto) THUNDER_ALWAYS_INLINE 
     cell_volume_output_scalar_vars() const {
@@ -211,6 +248,96 @@ class thunder_runtime_impl_t
     decltype(auto) THUNDER_ALWAYS_INLINE 
     cell_sphere_surface_output_vector_aux() const {
         return _cell_sphere_surface_output_vector_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    scalar_output_minmax_vars() const {
+        return _scalar_output_minmax_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    scalar_output_minmax_aux() const {
+        return _scalar_output_minmax_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    scalar_output_norm2_vars() const {
+        return _scalar_output_norm2_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    scalar_output_norm2_aux() const {
+        return _scalar_output_norm2_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    scalar_output_integral_vars() const {
+        return _scalar_output_integral_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    scalar_output_integral_aux() const {
+        return _scalar_output_integral_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    info_output_max_vars() const {
+        return _info_output_max_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    info_output_max_aux() const {
+        return _info_output_max_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    info_output_min_vars() const {
+        return _info_output_min_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    info_output_min_aux() const {
+        return _info_output_min_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    info_output_norm2_vars() const {
+        return _info_output_norm2_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    info_output_norm2_aux() const {
+        return _info_output_norm2_aux; 
+    }
+    
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    minmax_reduction_vars() const {
+        return _minmax_reduction_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    minmax_reduction_aux() const {
+        return _minmax_reduction_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    norm2_reduction_vars() const {
+        return _norm2_reduction_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    norm2_reduction_aux() const {
+        return _norm2_reduction_aux; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    integral_reduction_vars() const {
+        return _integral_reduction_vars; 
+    }
+
+    decltype(auto) THUNDER_ALWAYS_INLINE 
+    integral_reduction_aux() const {
+        return _integral_reduction_aux; 
     }
 
     int THUNDER_ALWAYS_INLINE 
@@ -280,16 +407,23 @@ class thunder_runtime_impl_t
         */
         _surface_output = params["IO"]["surface_output"].as<bool>() ; 
         _volume_output = params["IO"]["volume_output"].as<bool>() ; 
+        /* Output frequencies              */
         _sphere_surface_output_every = params["IO"]["sphere_surface_output_every"].as<int>() ; 
         _plane_surface_output_every = params["IO"]["plane_surface_output_every"].as<int>() ; 
         _volume_output_every = params["IO"]["volume_output_every"].as<int>() ; 
+        _scalar_output_every = params["IO"]["scalar_output_every"].as<int>() ; 
+        _info_output_every = params["IO"]["info_output_every"].as<int>() ; 
+        /* Output filenames and directories */
         _volume_io_basename  = params["IO"]["volume_output_base_filename"].as<std::string>(); 
         _surface_io_basename  = params["IO"]["surface_output_base_filename"].as<std::string>();
+        _scalar_io_basename  = params["IO"]["scalar_output_base_filename"].as<std::string>();
         _volume_io_basepath  = 
             std::filesystem::path(params["IO"]["volume_output_base_directory"].as<std::string>()); 
         _surface_io_basepath  = 
             std::filesystem::path(params["IO"]["surface_output_base_directory"].as<std::string>()); 
-
+        _scalar_io_basepath  = 
+            std::filesystem::path(params["IO"]["scalar_output_base_directory"].as<std::string>()); 
+        /* Create output directories if they don't exist */
         if( not std::filesystem::exists( _volume_io_basepath ) ){
             std::filesystem::create_directory(_volume_io_basepath) ; 
         }
@@ -297,6 +431,11 @@ class thunder_runtime_impl_t
         if( not std::filesystem::exists( _surface_io_basepath ) ){
             std::filesystem::create_directory(_surface_io_basepath) ; 
         }
+
+        if( not std::filesystem::exists( _scalar_io_basepath ) ){
+            std::filesystem::create_directory(_scalar_io_basepath) ; 
+        }
+        /* Set output planes and spheres properties      */
         _n_output_planes = params["IO"]["n_output_planes"].as<int>() ;
         #define READ_IO_PARAM(s,t) params["IO"][s].as<t>()  
         #define AS_TYPE(t) t
@@ -362,6 +501,7 @@ class thunder_runtime_impl_t
             _output_spheres_tracking[isphere] = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
         }
         #undef READ_IO_PARAM
+        /* Volume and surface output variables */
         auto out_cell_vars_volume = 
             params["IO"]["volume_output_cell_variables"].as<std::vector<std::string>>() ; 
         auto out_cell_vars_plane_surface = 
@@ -387,7 +527,6 @@ class thunder_runtime_impl_t
                 } 
             } else { 
                 THUNDER_WARN("Variable {} not found (requested for volume output).", x) ; 
-                /* WARN(1, "variable " << x " not found.") ; */
             }
         } 
 
@@ -406,7 +545,6 @@ class thunder_runtime_impl_t
                 } 
             } else { 
                 THUNDER_WARN("Variable {} not found (requested for plane surface output).", x) ; 
-                /* WARN(1, "variable " << x " not found.") ; */
             }
         } 
 
@@ -425,9 +563,161 @@ class thunder_runtime_impl_t
                 } 
             } else { 
                 THUNDER_WARN("Variable {} not found (requested for sphere surface output).", x) ; 
-                /* WARN(1, "variable " << x " not found.") ; */
             }
         } 
+        /* Scalar output variables */
+        auto out_minmax = 
+            params["IO"]["scalar_output_minmax"].as<std::vector<std::string>>() ;
+        auto out_norm2 = 
+            params["IO"]["scalar_output_norm2"].as<std::vector<std::string>>() ;
+        auto out_integral = 
+            params["IO"]["scalar_output_integral"].as<std::vector<std::string>>() ;
+        for( auto const& x: out_minmax ) {
+            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
+                _scalar_output_minmax_vars.push_back(x) ;
+            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
+                _scalar_output_minmax_aux.push_back(x) ;
+            } else { 
+                THUNDER_WARN("Variable {} not found (requested for scalar minmax output).", x) ; 
+            }
+        } 
+        for( auto const& x: out_norm2 ) {
+            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
+                _scalar_output_norm2_vars.push_back(x) ;
+            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
+                _scalar_output_norm2_aux.push_back(x) ;
+            } else { 
+                THUNDER_WARN("Variable {} not found (requested for scalar norm2 output).", x) ; 
+            }
+        } 
+        for( auto const& x: out_integral ) {
+            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
+                _scalar_output_integral_vars.push_back(x) ;
+            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
+                _scalar_output_integral_aux.push_back(x) ;
+            } else { 
+                THUNDER_WARN("Variable {} not found (requested for scalar integral output).", x) ; 
+            }
+        } 
+        /* Info output variables */
+        auto out_info_max = 
+            params["IO"]["info_output_max_reductions"].as<std::vector<std::string>>() ;
+        auto out_info_min = 
+            params["IO"]["info_output_min_reductions"].as<std::vector<std::string>>() ;
+        auto out_info_norm2 = 
+            params["IO"]["info_output_norm2_reductions"].as<std::vector<std::string>>() ;
+        for( auto const& x: out_info_max ) {
+            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
+                _info_output_max_vars.push_back(x) ;
+            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
+                _info_output_max_aux.push_back(x) ;
+            } else { 
+                THUNDER_WARN("Variable {} not found (requested for info minmax output).", x) ; 
+            }
+        } 
+        for( auto const& x: out_info_min ) {
+            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
+                _info_output_min_vars.push_back(x) ;
+            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
+                _info_output_min_aux.push_back(x) ;
+            } else { 
+                THUNDER_WARN("Variable {} not found (requested for info norm2 output).", x) ; 
+            }
+        } 
+        for( auto const& x: out_info_norm2 ) {
+            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
+                _info_output_norm2_vars.push_back(x) ;
+            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
+                _info_output_norm2_aux.push_back(x) ;
+            } else { 
+                THUNDER_WARN("Variable {} not found (requested for info integral output).", x) ; 
+            }
+        } 
+        /***************************************************************/
+        /* Now we create a vector containing all unique variable names */
+        /* requested for reductions.                                   */
+        /***************************************************************/
+        /* Minmax */
+        for( auto const& x: _info_output_max_vars ) {
+            if(std::find( _minmax_reduction_vars.begin()
+                        , _minmax_reduction_vars.end(), x ) == _minmax_reduction_vars.end()) {
+                _minmax_reduction_vars.push_back(x) ; 
+            }
+        }
+        for( auto const& x: _info_output_min_vars ) {
+            if(std::find( _minmax_reduction_vars.begin()
+                        , _minmax_reduction_vars.end(), x ) == _minmax_reduction_vars.end()) {
+                _minmax_reduction_vars.push_back(x) ; 
+            }
+        }
+        for( auto const& x: _scalar_output_minmax_vars   ) {
+            if(std::find( _minmax_reduction_vars.begin()
+                        , _minmax_reduction_vars.end(), x ) == _minmax_reduction_vars.end()) {
+                _minmax_reduction_vars.push_back(x) ; 
+            }
+        }
+        /***************************************************************/
+        for( auto const& x: _info_output_max_aux ) {
+            if(std::find( _minmax_reduction_aux.begin()
+                        , _minmax_reduction_aux.end(), x ) == _minmax_reduction_aux.end()) {
+                _minmax_reduction_aux.push_back(x) ; 
+            }
+        }
+        for( auto const& x: _info_output_min_aux ) {
+            if(std::find( _minmax_reduction_aux.begin()
+                        , _minmax_reduction_aux.end(), x ) == _minmax_reduction_aux.end()) {
+                _minmax_reduction_aux.push_back(x) ; 
+            }
+        }
+        for( auto const& x: _scalar_output_minmax_aux   ) {
+            if(std::find( _minmax_reduction_aux.begin()
+                        , _minmax_reduction_aux.end(), x ) == _minmax_reduction_aux.end()) {
+                _minmax_reduction_aux.push_back(x) ; 
+            }
+        }
+        /***************************************************************/
+        /* Norm 2 */
+        for( auto const& x: _info_output_norm2_vars ) {
+            if(std::find( _norm2_reduction_vars.begin()
+                        , _norm2_reduction_vars.end(), x ) == _norm2_reduction_vars.end()) {
+                _norm2_reduction_vars.push_back(x) ; 
+            }
+        }
+        for( auto const& x: _scalar_output_norm2_vars ) {
+            if(std::find( _norm2_reduction_vars.begin()
+                        , _norm2_reduction_vars.end(), x ) == _norm2_reduction_vars.end()) {
+                _norm2_reduction_vars.push_back(x) ; 
+            }
+        }
+        /***************************************************************/
+        for( auto const& x: _info_output_norm2_aux ) {
+            if(std::find( _norm2_reduction_aux.begin()
+                        , _norm2_reduction_aux.end(), x ) == _norm2_reduction_aux.end()) {
+                _norm2_reduction_aux.push_back(x) ; 
+            }
+        }
+        for( auto const& x: _scalar_output_norm2_aux ) {
+            if(std::find( _norm2_reduction_aux.begin()
+                        , _norm2_reduction_aux.end(), x ) == _norm2_reduction_aux.end()) {
+                _norm2_reduction_aux.push_back(x) ; 
+            }
+        }
+        /***************************************************************/
+        /* Integral */
+        for( auto const& x: _scalar_output_integral_vars   ) {
+            if(std::find( _integral_reduction_vars.begin()
+                        , _integral_reduction_vars.end(), x ) == _integral_reduction_vars.end()) {
+                _integral_reduction_vars.push_back(x) ; 
+            }
+        }
+        /***************************************************************/
+        for( auto const& x: _scalar_output_integral_aux   ) {
+            if(std::find( _integral_reduction_aux.begin()
+                        , _integral_reduction_aux.end(), x ) == _integral_reduction_aux.end()) {
+                _integral_reduction_aux.push_back(x) ; 
+            }
+        }
+        /***************************************************************/
         /****************************/
         /* Set iteration count to 0 */ 
         _iter = 0UL ; 

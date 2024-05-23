@@ -54,6 +54,7 @@ void compute_auxiliary_quantities(
       thunder::var_array_t<THUNDER_NSPACEDIM>& state
     , thunder::var_array_t<THUNDER_NSPACEDIM>& aux  ) 
 {
+    Kokkos::Profiling::pushRegion("Compute auxiliaries") ; 
     using namespace thunder ; 
     using namespace Kokkos  ; 
 
@@ -122,6 +123,7 @@ void compute_auxiliary_quantities(
     }
     Kokkos::deep_copy(aux,h_aux_mirror) ; 
     #endif 
+    Kokkos::Profiling::popRegion() ; 
 }
 
 }

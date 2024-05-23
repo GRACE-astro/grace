@@ -59,6 +59,8 @@ if(thunder_TESTS)
                    "${CMAKE_BINARY_DIR}/test/configs/regrid_test_spherical.yaml" COPYONLY)
     configure_file("${CMAKE_SOURCE_DIR}/configs/regrid_test_spherical_log.yaml" 
                    "${CMAKE_BINARY_DIR}/test/configs/regrid_test_spherical_log.yaml" COPYONLY)
+    configure_file("${CMAKE_SOURCE_DIR}/configs/scalar_reductions_test.yaml" 
+                   "${CMAKE_BINARY_DIR}/test/configs/scalar_reductions_test.yaml" COPYONLY)
     enable_testing()
     include(setup_catch2)
     add_subdirectory(test)

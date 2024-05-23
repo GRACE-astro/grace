@@ -85,7 +85,7 @@ void write_cell_output(bool volume_output, bool surface_output_plane, bool surfa
     {
         return ; 
     }
-
+    Kokkos::Profiling::pushRegion("VTK cell output") ; 
     vtkSmartPointer<vtkMPICommunicator> vtk_comm 
         = vtkSmartPointer<vtkMPICommunicator>::New();
     auto mpi_comm = parallel::get_comm_world() ;
@@ -124,7 +124,7 @@ void write_cell_output(bool volume_output, bool surface_output_plane, bool surfa
     if ( surface_output_sphere ) {
         write_sphere_surface_cell_data(grid,ppolywriter) ; 
     }
-
+    Kokkos::Profiling::popRegion() ; 
     return ; 
 }
 

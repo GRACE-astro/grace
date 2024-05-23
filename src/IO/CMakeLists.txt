@@ -1,4 +1,4 @@
-add_library(thunder_vtk_output OBJECT vtk_output.cpp vtk_volume_output.cpp vtk_surface_output.cpp )
+add_library(thunder_vtk_output OBJECT vtk_output.cpp vtk_volume_output.cpp vtk_surface_output.cpp scalar_output.cpp)
 target_include_directories( thunder_vtk_output PRIVATE "${HEADER_DIR}" )
 target_link_libraries(  thunder_vtk_output PRIVATE
                         $<TARGET_OBJECTS:thunder_parallel>  

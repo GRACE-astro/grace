@@ -30,7 +30,7 @@
 #include <thunder/data_structures/thunder_data_structures.hh>
 #include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/utils/thunder_utils.hh>
-#include <thunder/IO/vtk_volume_output.hh>
+#include <thunder/IO/vtk_output.hh>
 #include <thunder/parallel/mpi_wrappers.hh>
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -156,6 +156,14 @@ TEST_CASE("Simple regrid", "[regrid]")
     #ifdef THUNDER_ENABLE_BURGERS 
     int const DENS = U ; 
     int const DENS_ = U ; 
+    auto params = thunder::config_parser::get()["amr"] ; 
+    params["refinement_criterion_var"] = "U" ; 
+    #endif 
+    #ifdef THUNDER_ENABLE_SCALAR_ADV
+    int const DENS = U ; 
+    int const DENS_ = U ; 
+    auto params = thunder::config_parser::get()["amr"] ; 
+    params["refinement_criterion_var"] = "U" ; 
     #endif 
     auto& state  = thunder::variable_list::get().getstate()  ;
     auto& coords = thunder::variable_list::get().getcoords() ; 
@@ -231,10 +239,10 @@ TEST_CASE("Simple regrid", "[regrid]")
     }
     parallel::mpi_allreduce(&exact_total_local,&exact_total,1,sc_MPI_SUM) ; 
     /*write output and regrid*/
-    thunder::IO::write_volume_cell_data() ;
+    //thunder::IO::write_cell_output(true,true,true) ; 
     thunder::amr::regrid() ;  
     thunder::runtime::get().increment_iteration() ; 
-    thunder::IO::write_volume_cell_data() ; 
+    //thunder::IO::write_cell_output(true,true,true) ; 
     /* compute the new volume integrated value */
     nq = thunder::amr::get_local_num_quadrants() ; // new number of quadrants (after regrid)
     ncells = EXPR((nx),*(ny),*(nz))*nq ;
