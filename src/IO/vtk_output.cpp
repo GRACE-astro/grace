@@ -67,7 +67,6 @@
 #include <thunder/errors/error.hh>
 #include <thunder/errors/assert.hh> 
 #include <thunder/data_structures/variables.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
 /* stdlib includes */
 #include <tuple>
 #include <array>

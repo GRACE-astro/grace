@@ -19,6 +19,8 @@ include(setup_gsl)
 include(setup_yaml)
 include(setup_vtk)
 include(setup_spdlog)
+include(setup_HDF5)
+include(setup_XDMF)
 
 configure_file( "${CMAKE_SOURCE_DIR}/include/thunder/config/code_modules.h.in" code_modules.h )
 include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
@@ -42,6 +44,8 @@ target_link_libraries(thunder PRIVATE
         p4est::sc
         VTK::VTK
         spdlog::spdlog
+        HDF5::HDF5 
+        XDMF::XDMF
         )
 vtk_module_autoinit(
     TARGETS thunder

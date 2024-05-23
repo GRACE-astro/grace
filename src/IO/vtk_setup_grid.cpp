@@ -1,5 +1,5 @@
 /**
- * @file vtk_volume_output_3D.cpp
+ * @file vtk_volume_output_2D.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
  * @version 0.1
@@ -24,23 +24,45 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
+#include <thunder/IO/vtk_setup_grid_2D.hh>
+#include <thunder/coordinates/coordinate_systems.hh>
+#include <thunder/amr/amr_functions.hh>
+#include <thunder/utils/thunder_utils.hh>
+/* VTK includes */
+/* grid type */
+#include <vtkUnstructuredGrid.h>
+/* points */
+#include <vtkPointData.h>
+#include <vtkDoubleArray.h>
+#include <vtkUnsignedCharArray.h>
+#include <vtkPoints.h>
+/* cell types */
+#include <vtkCellData.h>
+#include <vtkHexahedron.h>
+#include <vtkBiQuadraticQuadraticHexahedron.h> 
+#include <vtkQuad.h>
+#include <vtkQuadraticLinearQuad.h> 
+/* memory */
+#include <vtkSmartPointer.h>
+#include <vtkNew.h>
+#include <vtkXMLDataElement.h>
+#include <vtkXMLUtilities.h>
 
 namespace thunder{ namespace IO { 
 
-
 vtkSmartPointer<vtkUnstructuredGrid> 
-setup_vtk_volume_grid(bool include_gzs)
+setup_vtk_volume_grid()
 {
-    vtkSmartPointer<vtkUnstructuredGrid> grid = vtkSmartPointer<vtkUnstructuredGrid>::New() ;
+    vtkSmartPointer<vtkUnstructuredGrid> grid 
+        = vtkSmartPointer<vtkUnstructuredGrid>::New() ;
     auto& coord_system = thunder::coordinate_system::get() ; 
-    size_t _nx,_ny,_nz; 
-    std::tie(_nx,_ny,_nz) = thunder::amr::get_quadrant_extents() ; 
-    int ngz = thunder::amr::get_n_ghosts() ; 
+    size_t nx,ny,nz; 
+    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
+    int ngz = thunder::amr::get_n_ghosts() ;
     size_t nq = thunder::amr::get_local_num_quadrants() ; 
-    size_t nx = include_gzs ? _nx + 2 * ngz : _nx ; 
-    size_t ny = include_gzs ? _ny + 2 * ngz : _ny ; 
-    size_t nz = include_gzs ? _nz + 2 * ngz : _nz ;
-    size_t ncells = nx*ny*nz*nq ; // these are cells not vertices 
+
+    size_t ncells = nx*ny*nq ; // these are cells not vertices 
+    #ifdef THUNDER_3D 
     #ifdef THUNDER_CARTESIAN_COORDINATES
     using cell_type = vtkHexahedron ; 
     size_t constexpr nvertex = 8 ;
@@ -48,36 +70,61 @@ setup_vtk_volume_grid(bool include_gzs)
     using cell_type = vtkBiQuadraticQuadraticHexahedron ; 
     size_t constexpr nvertex = 24 ;
     #endif 
-
+    #else 
+    #ifdef THUNDER_CARTESIAN_COORDINATES
+    size_t nvertex = 4 ; 
+    using cell_type = vtkQuad ; 
+    #elif defined(THUNDER_SPHERICAL_COORDINATES)
+    size_t nvertex = 6 ; 
+    using cell_type = vtkQuadraticLinearQuad ;
+    #endif 
+    #endif 
     vtkNew<vtkPoints> points ; 
     points->SetNumberOfPoints( nvertex * ncells ) ; 
-     
+   
     auto const get_cell_coordinates = [&] ( size_t icell
                                           , double lx=0
                                           , double ly=0
                                           , double lz=0 )
     {
         /* unpack index assuming LayoutLeft */
+        #ifdef THUNDER_3D
         size_t const ix = icell%nx ; 
         size_t const iy = (icell/nx) % ny ;
         size_t const iz = (icell/nx/ny) % nz ; 
         size_t const iq = (icell/nx/ny/nz) ;
+        #else
+        size_t const ix = icell%nx ; 
+        size_t const iy = (icell/nx) % ny ;
+        size_t const iq = (icell/nx/ny) ;
+        #endif 
         return coord_system.get_physical_coordinates(
-            {ix,iy,iz},iq,{lx,ly,lz},include_gzs
-        ) ;  
+            {VEC(ix,iy,iz)},iq,{VEC(lx,ly,lz)},false
+        ) ; 
     } ; 
 
     for( size_t icell=0UL; icell<ncells; icell+=1UL )
     {
         vtkNew<cell_type> cell ; 
-        auto par_coords = cell->GetParametricCoords() ;
+        auto lcoords = cell->GetParametricCoords() ;
         for( int iv=0; iv<nvertex; ++iv) { 
             size_t ipoint = iv + icell * nvertex ; 
             auto const coords = get_cell_coordinates( icell 
-                                                    , par_coords[3*iv + 0]
-                                                    , par_coords[3*iv + 1]
-                                                    , par_coords[3*iv + 2] ) ; 
-            points->SetPoint(ipoint, coords[0], coords[1], coords[2]) ; 
+                                                    , lcoords[3*iv + 0]
+                                                    , lcoords[3*iv + 1]
+                                                    #ifdef THUNDER_3D 
+                                                    , lcoords[3*iv + 2]
+                                                    #endif 
+                                                    ) ; 
+            points->SetPoint( ipoint
+                            , coords[0]
+                            , coords[1]
+                            #ifdef THUNDER_3D
+                            , coords[2]
+                            #else 
+                            , 0.0
+                            #endif 
+                            ) ; 
             cell->GetPointIds()->SetId(iv, ipoint) ; 
         }
         grid->InsertNextCell( cell->GetCellType(), cell->GetPointIds() ) ; 
@@ -87,4 +134,5 @@ setup_vtk_volume_grid(bool include_gzs)
     return grid; 
 }
 
-} } /* namespace thunder::IO::detail */
+
+} }  /* namespace thunder::IO::detail */

@@ -17,7 +17,8 @@ export KOKKOS_ROOT=/mnt/rafast/musolino/libs/kokkos-hip-rdc
 export VTK_ROOT=/mnt/rafast/musolino/libs/vtk/install-gnu-openmpi
 export SPDLOG_ROOT=/mnt/rafast/musolino/libs/spdlog-install
 export KOKKOS_TOOLS_LIB=/mnt/rafast/musolino/libs/kokkos-tools-install/lib
-
+export HDF5_ROOT=/mnt/rafast/musolino/libs/hdf5-rocm-install
+export LIBXDMF_ROOT=/mnt/rafast/musolino/libs/libxdmf-install
 
 export LD_LIBRARY_PATH=${KOKKOS_TOOLS_LIB}:${LD_LIBRARY_PATH}
 
