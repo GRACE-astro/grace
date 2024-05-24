@@ -72,6 +72,8 @@
 #include <thunder/errors/assert.hh> 
 #include <thunder/data_structures/variables.hh>
 #include <thunder/coordinates/coordinate_systems.hh>
+/* Kokkos */
+#include <Kokkos_Core.hpp>
 /* stdlib includes */
 #include <tuple>
 #include <array>
@@ -80,9 +82,9 @@
 
 namespace thunder { namespace IO {
 
-void write_plane_surface_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
-                                  , vtkSmartPointer<vtkXMLPPolyDataWriter> pwriter ) {
-
+void write_plane_surface_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
+                                      , vtkSmartPointer<vtkXMLPPolyDataWriter> pwriter ) {
+    Kokkos::Profiling::pushRegion("VTK plane output") ;                                    
     auto& runtime = thunder::runtime::get() ;
 
     int n_planes = runtime.n_surface_output_planes() ; 
@@ -138,12 +140,13 @@ void write_plane_surface_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
                           , detail::_surface_plane_times ) ;
         }
     }
+    Kokkos::Profiling::popRegion() ;
     return ; 
 }
 
-void write_sphere_surface_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
-                                   , vtkSmartPointer<vtkXMLPPolyDataWriter> pwriter ) {
-
+void write_sphere_surface_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
+                                       , vtkSmartPointer<vtkXMLPPolyDataWriter> pwriter ) {
+    Kokkos::Profiling::pushRegion("VTK sphere output") ; 
     auto& runtime = thunder::runtime::get() ;
 
     int n_spheres = runtime.n_surface_output_spheres() ; 
@@ -191,6 +194,7 @@ void write_sphere_surface_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
                           , detail::_surface_sphere_times ) ;
         }
     }
+    Kokkos::Profiling::popRegion() ;
     return ; 
 }
 

@@ -45,15 +45,13 @@ enum thunder_vtk_output_t {
     SPHERE_SURFACE
 } ; 
 
-void write_cell_output(bool volume_output, bool surface_output_plane, bool surface_output_sphere ) ; 
+void write_cell_data_vtk(bool volume_output, bool surface_output_plane, bool surface_output_sphere ) ; 
 
 void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t which_output) ;
 
 void write_pvd_file( std::string const& pvdFilename
                    , std::vector<std::string> const& vtkFilenames 
                    , std::vector<double> const& times ) ; 
-
-vtkSmartPointer<vtkUnstructuredGrid> setup_vtk_volume_grid(bool) ;
 
 void add_extra_output_quantities(vtkSmartPointer<vtkUnstructuredGrid>, bool) ;
 

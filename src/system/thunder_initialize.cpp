@@ -38,6 +38,7 @@
 
 #include <thunder/amr/connectivity.hh>
 #include <thunder/amr/forest.hh>
+#include <thunder/amr/amr_functions.hh>
 #include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/coordinates/coordinates.hh>
 
@@ -187,6 +188,10 @@ void initialize(int& argc, char* argv[])
     THUNDER_INFO("Inititalizing connectivity object...") ; 
     thunder::amr::connectivity::initialize() ; 
     thunder::amr::forest::initialize()       ;
+    thunder::amr::detail::_nx = thunder::config_parser::get()["amr"]["npoints_block_x"].as<int64_t>() ;
+    thunder::amr::detail::_ny = thunder::config_parser::get()["amr"]["npoints_block_y"].as<int64_t>() ;
+    thunder::amr::detail::_nz = thunder::config_parser::get()["amr"]["npoints_block_z"].as<int64_t>() ;
+    thunder::amr::detail::_ngz = thunder::config_parser::get()["amr"]["n_ghostzones"].as<int>() ;
     THUNDER_INFO("Allocating memory...");
     thunder::variable_list::initialize() ;
     thunder::runtime::initialize() ; 

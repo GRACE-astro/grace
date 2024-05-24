@@ -24,7 +24,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#include <thunder/IO/vtk_setup_grid_2D.hh>
+#include <thunder_config.h>
+
+#include <thunder/IO/vtk_setup_grid.hh>
 #include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/amr/amr_functions.hh>
 #include <thunder/utils/thunder_utils.hh>
@@ -102,11 +104,11 @@ setup_vtk_volume_grid()
             {VEC(ix,iy,iz)},iq,{VEC(lx,ly,lz)},false
         ) ; 
     } ; 
-
+    vtkNew<cell_type> _tmpcell ;
+    auto lcoords = _tmpcell->GetParametricCoords() ;
     for( size_t icell=0UL; icell<ncells; icell+=1UL )
     {
         vtkNew<cell_type> cell ; 
-        auto lcoords = cell->GetParametricCoords() ;
         for( int iv=0; iv<nvertex; ++iv) { 
             size_t ipoint = iv + icell * nvertex ; 
             auto const coords = get_cell_coordinates( icell 

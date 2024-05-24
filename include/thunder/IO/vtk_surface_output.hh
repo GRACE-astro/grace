@@ -34,11 +34,11 @@
 
 namespace thunder { namespace IO {
 
-void write_plane_surface_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
-                                  , vtkSmartPointer<vtkXMLPPolyDataWriter> pwriter ) ;
+void write_plane_surface_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
+                                      , vtkSmartPointer<vtkXMLPPolyDataWriter> pwriter ) ;
 
-void write_sphere_surface_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
-                                   , vtkSmartPointer<vtkXMLPPolyDataWriter> pwriter ) ; 
+void write_sphere_surface_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
+                                       , vtkSmartPointer<vtkXMLPPolyDataWriter> pwriter ) ; 
 
 }}
 

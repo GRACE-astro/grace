@@ -273,6 +273,28 @@ TARGETS bc_test
 MODULES ${VTK_LIBRARIES}
 )
 
+add_executable( hdf5_output_test test_hdf5_IO.cpp )
+target_include_directories(hdf5_output_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  hdf5_output_test PRIVATE 
+p4est_tests_main
+Catch2::Catch2
+thunder_objects
+yaml_cpp::yaml
+Kokkos::kokkos
+$<TARGET_OBJECTS:thunder_vtk_output>
+$<TARGET_OBJECTS:thunder_hdf5_output>
+MPI::MPI_CXX
+OpenMP::OpenMP_CXX
+p4est::sc
+p4est::p4est 
+VTK::VTK 
+spdlog::spdlog
+HDF5::HDF5 )
+vtk_module_autoinit(
+    TARGETS hdf5_output_test
+    MODULES ${VTK_LIBRARIES}
+    )
+
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)
 add_test(NAME sc_wrappers_test COMMAND 

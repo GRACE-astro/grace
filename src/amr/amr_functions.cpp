@@ -35,22 +35,23 @@
 #include <thunder/config/config_parser.hh>
 
 namespace thunder { namespace amr {
+namespace detail {
+int64_t _nx; 
+int64_t _ny;
+int64_t _nz;
+int _ngz ;
+}
 
 std::tuple<size_t,size_t,size_t>
 get_quadrant_extents()
 {
-    auto& config = thunder::config_parser::get() ; 
-    auto const nx = config["amr"]["npoints_block_x"].as<size_t>() ; 
-    auto const ny = config["amr"]["npoints_block_y"].as<size_t>() ; 
-    auto const nz = config["amr"]["npoints_block_z"].as<size_t>() ; 
-    return std::make_tuple(nx,ny,nz) ;  
+    return std::make_tuple(detail::_nx,detail::_ny,detail::_nz) ;  
 }
 
 int 
 get_n_ghosts()
 {
-    auto& config = thunder::config_parser::get() ; 
-    return config["amr"]["n_ghostzones"].as<int>() ; 
+    return detail::_ngz ; 
 }
 
 size_t 

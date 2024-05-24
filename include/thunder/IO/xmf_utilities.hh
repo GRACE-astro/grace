@@ -1,9 +1,9 @@
 /**
- * @file hdf5_output.hh
+ * @file xmf_utilities.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
  * @version 0.1
- * @date 2024-05-23
+ * @date 2024-05-24
  * 
  * @copyright This file is part of Thunder.
  * Thunder is an evolution framework that uses Finite Difference
@@ -24,33 +24,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
+#ifndef THUNDER_IO_XMF_UTILITIES_HH
+#define THUNDER_IO_XMF_UTILITIES_HH
 
-#ifndef THUNDER_IO_HDF5_OUTPUT_HH
-#define THUNDER_IO_HDF5_OUTPUT_HH
+#include <string> 
 
-#include <hdf5.h>
+namespace thunder { namespace IO{
 
-#include <string>
-#include <vector>
+void write_xmf_file( const std::string &filename 
+                   , std::vector<int64_t> const & iters
+                   , std::vector<int64_t> const& ncells 
+                   , std::vector<double> const& times 
+                   , std::vector<std::string> const& filenames ) ; 
 
-namespace thunder { namespace IO {
+}}
 
-namespace detail {
-extern std::vector<int64_t> _volume_output_iterations ;
-extern std::vector<double>  _volume_output_times ;
-extern std::vector<int64_t> _volume_output_ncells ; 
-extern std::vector<std::string> _volume_output_filenames ; 
-}
-
-void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere) ; 
-
-void write_volume_cell_data_hdf5() ; 
-
-void write_grid_structure_hdf5(hid_t file_id, size_t compression_level) ; 
-
-void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level) ; 
-
-
-}} /* namespace thunder::IO */
-
-#endif /* THUNDER_IO_HDF5_OUTPUT_HH */
+#endif /* THUNDER_IO_XMF_UTILITIES_HH */

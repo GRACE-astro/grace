@@ -65,6 +65,8 @@
 #include <thunder/errors/assert.hh> 
 #include <thunder/data_structures/variables.hh>
 #include <thunder/coordinates/coordinate_systems.hh>
+/* Kokkos */
+#include <Kokkos_Core.hpp>
 /* stdlib includes */
 #include <tuple>
 #include <array>
@@ -75,9 +77,10 @@
 namespace thunder { namespace IO {
 
 
-void write_volume_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
-                           , vtkSmartPointer<vtkXMLPUnstructuredGridWriter> pwriter ) 
+void write_volume_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
+                               , vtkSmartPointer<vtkXMLPUnstructuredGridWriter> pwriter ) 
 {   
+    Kokkos::Profiling::pushRegion("VTK volume cell output") ; 
     auto& runtime = thunder::runtime::get() ;
     std::filesystem::path base_path (runtime.volume_io_basepath()) ;
     std::string pfname = runtime.volume_io_basename() + "_" + utils::zero_padded(runtime.iteration(),3)
@@ -101,7 +104,7 @@ void write_volume_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
                       , detail::_volume_filenames
                       , detail::_volume_times ) ;
     } 
-
+    Kokkos::Profiling::popRegion() ;
 }
 
 }} /* namespace thunder::IO */

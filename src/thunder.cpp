@@ -41,7 +41,7 @@
 #include <thunder/evolution/initial_data.hh>
 #include <thunder/evolution/auxiliaries.hh>
 #include <thunder/evolution/find_stable_timestep.hh>
-#include <thunder/IO/vtk_output.hh>
+#include <thunder/IO/cell_output.hh>
 #include <thunder/IO/scalar_output.hh>
 /**********************************************************************************/
 /**********************************************************************************/

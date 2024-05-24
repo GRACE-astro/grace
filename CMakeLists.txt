@@ -14,13 +14,13 @@ include(setup_flags)
 include(setup_mpi)
 find_package(OpenMP REQUIRED)
 find_package(p4est REQUIRED)
+find_package(LibXml2 REQUIRED)
 include(setup_kokkos)
 include(setup_gsl)
 include(setup_yaml)
 include(setup_vtk)
 include(setup_spdlog)
 include(setup_HDF5)
-include(setup_XDMF)
 
 configure_file( "${CMAKE_SOURCE_DIR}/include/thunder/config/code_modules.h.in" code_modules.h )
 include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
@@ -36,6 +36,8 @@ target_include_directories(thunder PRIVATE "${HEADER_DIR}")
 target_link_libraries(thunder PRIVATE 
         thunder_objects
         $<TARGET_OBJECTS:thunder_vtk_output>
+        $<TARGET_OBJECTS:thunder_hdf5_output>
+        $<TARGET_OBJECTS:thunder_cell_output>
         yaml_cpp::yaml
         MPI::MPI_CXX
         OpenMP::OpenMP_CXX
@@ -45,15 +47,14 @@ target_link_libraries(thunder PRIVATE
         VTK::VTK
         spdlog::spdlog
         HDF5::HDF5 
-        XDMF::XDMF
         )
 vtk_module_autoinit(
     TARGETS thunder
     MODULES ${VTK_LIBRARIES}
 )
 
-option(thunder_TESTS "Build the tests" ON)
-if(thunder_TESTS)
+option(THUNDER_ENABLE_TESTING "Build the tests" ON)
+if(THUNDER_ENABLE_TESTING)
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/test/configs)
     configure_file("${CMAKE_SOURCE_DIR}/configs/basic_config.yaml" 
                   "${CMAKE_BINARY_DIR}/test/configs/basic_config.yaml" COPYONLY)
@@ -68,4 +69,9 @@ if(thunder_TESTS)
     enable_testing()
     include(setup_catch2)
     add_subdirectory(test)
+endif()
+
+option(THUNDER_ENABLE_BENCHMARKS "Build the benchmarks" ON)
+if(THUNDER_ENABLE_BENCHMARKS)
+add_subdirectory(profiling)
 endif()

@@ -1,19 +1,15 @@
 #include <catch2/catch_test_macros.hpp>
 #include <Kokkos_Core.hpp>
+#include <thunder_config.h>
+#include <thunder/IO/hdf5_output.hh>
 #include <thunder/amr/thunder_amr.hh>
 #include <thunder/coordinates/coordinate_systems.hh>
 #include <thunder/data_structures/thunder_data_structures.hh>
 #include <thunder/utils/thunder_utils.hh>
 #include <thunder/IO/vtk_output.hh>
 #include <iostream>
-
-
-
-TEST_CASE("Volume VTK output", "[vol_vtk_out]")
+TEST_CASE("Volume hdf5 output", "[vol_hdf5_out]")
 {
-    using namespace thunder::variables ; 
-
-    std::cout << "Starting..." << std::endl ;
     #ifdef THUNDER_ENABLE_BURGERS 
     int const DENS = U ; 
     int const DENS_ = U ; 
@@ -21,27 +17,11 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
     int const BETAY_ = U ; 
     int const BETAZ_ = U ; 
     #endif
-    #ifdef THUNDER_ENABLE_SCALAR_ADV 
-    int const DENS = U ; 
-    int const DENS_ = U ; 
-    int const BETAX_ = U ; 
-    int const BETAY_ = U ; 
-    int const BETAZ_ = U ; 
-    #endif 
-    DECLARE_VARIABLE_INDICES ; 
-
-    std::cout << DENS << std::endl ; 
-    std::cout << thunder::get_variable_index("dens") << std::endl ;  
     auto state  = thunder::variable_list::get().getstate() ;
     size_t nx,ny,nz; 
     std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
     size_t nq = thunder::amr::get_local_num_quadrants() ; 
     int ngz = thunder::amr::get_n_ghosts() ; 
-    std::cout << "nx,ny(,nz),nq: " << EXPR(
-        nx << ", " <<,
-        ny << ", " <<,
-        nz << ", " <<
-    ) nq << std::endl ;
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
 
     auto const ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
@@ -64,17 +44,8 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
                               + math::int_pow<2>(coords[2]) )  ; 
         h_state_mirror(VEC(i,j,k),DENS,q) = exp( - r2 / 0.5 ) ; 
     }
-    Kokkos::deep_copy(state, h_state_mirror) ; 
-    Kokkos::parallel_for("Fill_beta_vector"
-                        , Kokkos::MDRangePolicy<Kokkos::Rank<THUNDER_NSPACEDIM+1>, thunder::default_execution_space>
-                          ({VEC(0,0,0),0}, {VEC(nx,ny,nz),nq})
-                        , KOKKOS_LAMBDA (VEC(int i, int j, int k), int q)
-                        {
-                            state(VEC(i,j,k),BETAX_,q) = 1.0 ; 
-                            state(VEC(i,j,k),BETAY_,q) = 0.0 ; 
-                            state(VEC(i,j,k),BETAZ_,q) = 0.0 ; 
-                        }) ; 
-    std::cout << "Calling output routine..." << std::endl ;
-    thunder::IO::write_cell_data_vtk(true,true,true) ; 
+    Kokkos::deep_copy(state, h_state_mirror) ;
 
+    thunder::IO::write_cell_data_hdf5(true,true,true) ; 
+    thunder::IO::write_cell_data_vtk(true,false,false) ; 
 }

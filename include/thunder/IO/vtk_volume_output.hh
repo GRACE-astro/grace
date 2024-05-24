@@ -35,8 +35,8 @@
 
 namespace thunder { namespace IO {
 
-void write_volume_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
-                           , vtkSmartPointer<vtkXMLPUnstructuredGridWriter> pwriter) ; 
+void write_volume_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
+                               , vtkSmartPointer<vtkXMLPUnstructuredGridWriter> pwriter) ; 
 
 }} /* namespace thunder::IO */
 

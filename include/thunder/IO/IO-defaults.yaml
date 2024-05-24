@@ -25,6 +25,9 @@ IO: {
   scalar_output_base_filename: "",
   scalar_output_base_directory: "output_scalar",
 
+  output_use_hdf5: false,
+  hdf5_compression_level: 9,
+
   volume_output_cell_variables : [],
   plane_surface_output_cell_variables: [],
   sphere_surface_output_cell_variables: [],
@@ -32,8 +35,7 @@ IO: {
   scalar_output_norm2: [],
   scalar_output_integral: [],
 
-  output_ghostzones: false, 
-  output_extra_quantities: true,
+  output_extra_quantities: false,
 
   n_output_planes: 3,
   output_plane_x_origin_0: 0,

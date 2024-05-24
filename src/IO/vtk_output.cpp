@@ -59,6 +59,7 @@
 #include <thunder/coordinates/coordinate_systems.hh> 
 #include <thunder/IO/vtk_output.tpp>
 #include <thunder/IO/vtk_output.hh>
+#include <thunder/IO/vtk_setup_grid.hh>
 #include <thunder/IO/vtk_volume_output.hh>
 #include <thunder/IO/vtk_output_auxiliaries.hh>
 #include <thunder/IO/vtk_surface_output.hh>
@@ -76,7 +77,7 @@
 namespace thunder { namespace IO {
 
 
-void write_cell_output(bool volume_output, bool surface_output_plane, bool surface_output_sphere )
+void write_cell_data_vtk(bool volume_output, bool surface_output_plane, bool surface_output_sphere )
 {
     if(     (not volume_output)
         and (not surface_output_plane)
@@ -112,18 +113,18 @@ void write_cell_output(bool volume_output, bool surface_output_plane, bool surfa
     ppolywriter->SetCompressorTypeToZLib();  
 
 
-    auto grid = setup_vtk_volume_grid(false) ; 
+    auto grid = setup_vtk_volume_grid() ; 
 
     if( volume_output ) {
-        write_volume_cell_data(grid,pwriter) ; 
+        write_volume_vtk_cell_data(grid,pwriter) ; 
     }
     if( surface_output_plane ) {
-        write_plane_surface_cell_data(grid,ppolywriter) ; 
+        write_plane_surface_vtk_cell_data(grid,ppolywriter) ; 
     } 
     if ( surface_output_sphere ) {
-        write_sphere_surface_cell_data(grid,ppolywriter) ; 
+        write_sphere_surface_vtk_cell_data(grid,ppolywriter) ; 
     }
-    Kokkos::Profiling::popRegion() ; 
+    Kokkos::Profiling::popRegion() ;
     return ; 
 }
 
@@ -364,8 +365,3 @@ void add_extra_output_quantities(vtkSmartPointer<vtkUnstructuredGrid> grid, bool
 
 }}
 
-#ifdef THUNDER_3D 
-#include "vtk_volume_output_3D.cpp"
-#else 
-#include "vtk_volume_output_2D.cpp"
-#endif 

@@ -173,6 +173,13 @@ get_tree_spacing(size_t which_tree) ;
  */
 std::vector<int64_t>
 get_global_quadrant_offsets() ; 
+
+namespace detail {
+extern int64_t _nx; 
+extern int64_t _ny;
+extern int64_t _nz;
+extern int _ngz;
+}
 } } /* thunder::amr */ 
 
  #endif 
