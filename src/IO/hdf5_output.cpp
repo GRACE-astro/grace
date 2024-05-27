@@ -149,6 +149,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     #else 
     #ifdef THUNDER_CARTESIAN_COORDINATES
     size_t nvertex = 4 ; 
+    using cell_type = vtkQuad ; 
     #elif defined(THUNDER_SPHERICAL_COORDINATES)
     size_t nvertex = 6 ; 
     using cell_type = vtkQuadraticLinearQuad ;
@@ -177,18 +178,18 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
 
     detail::_volume_output_ncells.push_back(ncells_glob) ; 
 
-    double*  points = (double*)  malloc(sizeof(double)  * npoints * THUNDER_NSPACEDIM ) ; 
+    double*  points = (double*)  malloc(sizeof(double)  * npoints * 3 ) ; 
     unsigned int* cells  = (unsigned int*) malloc(sizeof(unsigned int) * ncells * nvertex ) ; 
-
+    const size_t global_point_offset = local_quad_offset * ncells_quad * nvertex;  
     unsigned int icell  = 0L ; 
     unsigned int ipoint = 0U ; 
     #pragma omp parallel for collapse 4
     for(int64_t iq=0; iq<nq; ++iq) {
-        for( size_t i=0; i<nx; ++i) {
-            for( size_t j=0; j<ny; ++j) {
-                #ifdef THUNDER_3D
-                for(size_t k=0; k<nz; ++k){
-                #endif 
+        #ifdef THUNDER_3D
+        for(size_t k=0; k<nz; ++k  ) {
+        #endif  
+            for( size_t j=0; j<ny; ++j) { 
+                for(size_t i=0; i<nx; ++i){
                 for( int iv=0; iv<nvertex; ++iv ) {
                     auto const pcoords = 
                         coord_system.get_physical_coordinates( {VEC(i,j,k)}
@@ -199,10 +200,15 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
                                                              , false) ; 
                     points[THUNDER_NSPACEDIM*(nvertex*icell + iv) + 0 ] = pcoords[0] ; 
                     points[THUNDER_NSPACEDIM*(nvertex*icell + iv) + 1 ] = pcoords[1] ;
+                    
+                    points[THUNDER_NSPACEDIM*(nvertex*icell + iv) + 2 ] 
                     #ifdef THUNDER_3D 
-                    points[THUNDER_NSPACEDIM*(nvertex*icell + iv) + 2 ] = pcoords[2] ;
-                    #endif 
-                    cells[nvertex * icell + iv] = ipoint ; 
+                        = pcoords[2] ;
+                    #else 
+                        = 0.0 ; 
+                    #endif  
+
+                    cells[nvertex * icell + iv] = ipoint + global_point_offset; 
                     ipoint ++ ; 
                 }
 
@@ -222,7 +228,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
 
     /* Create/open datasets */
     hid_t points_space_id_glob ;
-    hsize_t points_dset_dims_glob[2] = {npoints_glob, THUNDER_NSPACEDIM} ;   
+    hsize_t points_dset_dims_glob[2] = {npoints_glob, 3} ;   
     /* Create global space for points dataset */
     HDF5_CALL(points_space_id_glob, H5Screate_simple(2, points_dset_dims_glob, NULL)) ; 
     hid_t cells_space_id_glob ;
@@ -233,7 +239,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     hid_t points_dset_id, cells_dset_id  ;
     hid_t points_prop_id, cells_prop_id  ;
     HDF5_CALL(points_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
-    hsize_t points_chunk_dim[2] = {chunk_size,THUNDER_NSPACEDIM} ;
+    hsize_t points_chunk_dim[2] = {chunk_size,3} ;
     HDF5_CALL(err, H5Pset_chunk(points_prop_id,2,points_chunk_dim)) ; 
     HDF5_CALL(err, H5Pset_deflate(points_prop_id, compression_level)) ; 
     HDF5_CALL( points_dset_id
@@ -298,7 +304,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     hsize_t points_dset_dims[2] = {npoints, THUNDER_NSPACEDIM} ;
     HDF5_CALL(points_space_id, H5Screate_simple(2, points_dset_dims, NULL)) ; 
     /* Select hyperslab for this rank's output */
-    hsize_t points_slab_start[2]  = {local_quad_offset * ncells_quad * nvertex,0} ;
+    hsize_t points_slab_start[2]  = {global_point_offset,0} ;
     THUNDER_VERBOSE("Slab offset {}, size {}, total {}", points_slab_start[0], npoints, npoints_glob) ;  
     hsize_t points_slab_count[2]  = {npoints,THUNDER_NSPACEDIM} ;
     HDF5_CALL( err
@@ -386,7 +392,7 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
     /*    memory layout on device which           */
     /*    usually follows the FORTRAN convention. */
     /**********************************************/
-    Kokkos::View<double EXPR(*,*,*)*, Kokkos::LayoutRight> 
+    Kokkos::View<double EXPR(*,*,*)*, Kokkos::LayoutLeft> 
         d_mirror("Device output mirror", VEC(nx,ny,nz), nq) ; 
     auto h_mirror = Kokkos::create_mirror_view(d_mirror) ; 
     for( int ivar=0; ivar<scalars.size(); ++ivar)

@@ -48,6 +48,7 @@ struct xmf_grid_node {
     int64_t npoints ; 
     int nvertex ; 
     double time ; 
+    std::string topology;
     std::string h5fname ;
     std::vector<xmf_cell_centered_attr_node> attrs ; 
 } ; 
@@ -78,10 +79,10 @@ std::ostream& operator<<(std::ostream& os, xmf_grid_node& grid ) {
     os << R"(<Grid Name="Grid_)" << grid.iteration << R"(">)" << '\n'
        << R"(<Time Value=")" << grid.time << R"("/>)" << '\n'
        << R"( <Geometry Origin="" Type="XYZ">)" << '\n'
-       << R"(<DataItem DataType="Float" Dimensions=")"  << grid.npoints << " " << THUNDER_NSPACEDIM << R"(" Format="HDF" Precision="8">)"
+       << R"(<DataItem DataType="Float" Dimensions=")"  << grid.npoints << " " << 3 << R"(" Format="HDF" Precision="8">)"
        << grid.h5fname << R"(:/Points</DataItem>)" << '\n'
        << R"(</Geometry>)" << '\n'
-       << R"(<Topology Dimensions=")" << grid.ncells << R"(" Type="Hexahedron">)" << '\n'
+       << R"(<Topology Dimensions=")" << grid.ncells << R"(" Type=")" << grid.topology << R"(">)" << '\n'
        << R"(<DataItem DataType="UInt" Dimensions=")" << grid.ncells << " " << grid.nvertex << R"(" Format="HDF" Precision="4">)"
        << grid.h5fname << R"(:/Cells</DataItem>)" << '\n'
        << R"(</Topology>)" << '\n' ; 
@@ -138,7 +139,13 @@ void write_xmf_file( const std::string &filename
         double const time = times[i] ; 
         int64_t const it  = iters[i] ; 
         int64_t const ncells = ncells_vec[i]  ; 
+        #ifdef THUNDER_3D 
         int64_t const nvertex = 8 ;
+        std::string const topology = "Hexahedron" ; 
+        #else 
+        int64_t const nvertex = 4 ;
+        std::string const topology = "Quadrilateral" ;
+        #endif 
         int64_t const npoints = nvertex * ncells ; 
         std::string  const h5fname = filenames[i] ;
 
@@ -154,7 +161,7 @@ void write_xmf_file( const std::string &filename
         for( auto& vname: aux_vectors ) {
             attributes.push_back( xmf_cell_centered_attr_node{ncells,vname,h5fname,"Vector"} ) ; 
         }
-        grids.push_back(xmf_grid_node{it,ncells,npoints,nvertex,time,h5fname,attributes}) ; 
+        grids.push_back(xmf_grid_node{it,ncells,npoints,nvertex,time,topology,h5fname,attributes}) ; 
     }
 
     xmf_grid_collection_node collection{"Collection",grids} ; 

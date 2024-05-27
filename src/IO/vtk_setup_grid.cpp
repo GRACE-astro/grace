@@ -63,7 +63,7 @@ setup_vtk_volume_grid()
     int ngz = thunder::amr::get_n_ghosts() ;
     size_t nq = thunder::amr::get_local_num_quadrants() ; 
 
-    size_t ncells = nx*ny*nq ; // these are cells not vertices 
+    size_t ncells = EXPR(nx,*ny,*nz)*nq ; // these are cells not vertices 
     #ifdef THUNDER_3D 
     #ifdef THUNDER_CARTESIAN_COORDINATES
     using cell_type = vtkHexahedron ; 
