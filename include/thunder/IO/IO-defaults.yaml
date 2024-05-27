@@ -27,6 +27,7 @@ IO: {
 
   output_use_hdf5: false,
   hdf5_compression_level: 9,
+  hdf5_chunk_size: 1000,
 
   volume_output_cell_variables : [],
   plane_surface_output_cell_variables: [],

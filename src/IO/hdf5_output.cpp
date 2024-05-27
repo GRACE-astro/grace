@@ -93,7 +93,8 @@ void write_volume_cell_data_hdf5() {
     detail::_volume_output_filenames.push_back(pfname) ;
 
     auto& params = thunder::config_parser::get() ;
-    size_t compression_level = params["IO"]["hdf5_compression_level"].as<size_t>() ; 
+    size_t compression_level = params["IO"]["hdf5_compression_level"].as<size_t>() ;
+    size_t chunk_size = params["IO"]["hdf5_chunk_size"].as<size_t>() ;
 
     auto comm = parallel::get_comm_world() ; 
     auto rank = parallel::mpi_comm_rank()  ; 
@@ -108,9 +109,9 @@ void write_volume_cell_data_hdf5() {
     hid_t file_id ; 
     HDF5_CALL(file_id,H5Fcreate(out_path.string().c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plist_id)) ;
     /* Write grid structure to hdf5 file      */
-    write_grid_structure_hdf5(file_id, compression_level) ; 
+    write_grid_structure_hdf5(file_id, compression_level,chunk_size) ; 
     /* Write requested variables to hdf5 file */
-    write_volume_data_arrays_hdf5(file_id, compression_level) ;
+    write_volume_data_arrays_hdf5(file_id, compression_level,chunk_size) ;
     parallel::mpi_barrier() ; 
     /* Close the file */
     HDF5_CALL(err,H5Fclose(file_id)) ; 
@@ -128,7 +129,7 @@ void write_volume_cell_data_hdf5() {
     Kokkos::Profiling::popRegion() ; 
 }
 
-void write_grid_structure_hdf5(hid_t file_id, size_t compression_level) {
+void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) {
     herr_t err ; 
 
     auto& coord_system = thunder::coordinate_system::get() ; 
@@ -212,6 +213,8 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level) {
             }
         }
     }
+    ASSERT(icell == ncells, "Something went really wrong") ; 
+    ASSERT(ipoint == npoints, "Something went really wrong") ; 
     /* Create parallel dataset properties */
     hid_t dxpl ; 
     HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER)) ; 
@@ -230,7 +233,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level) {
     hid_t points_dset_id, cells_dset_id  ;
     hid_t points_prop_id, cells_prop_id  ;
     HDF5_CALL(points_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
-    hsize_t points_chunk_dim[2] = {EXPR(nx,*ny,*nz)*20,THUNDER_NSPACEDIM} ;
+    hsize_t points_chunk_dim[2] = {chunk_size,THUNDER_NSPACEDIM} ;
     HDF5_CALL(err, H5Pset_chunk(points_prop_id,2,points_chunk_dim)) ; 
     HDF5_CALL(err, H5Pset_deflate(points_prop_id, compression_level)) ; 
     HDF5_CALL( points_dset_id
@@ -243,7 +246,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level) {
                         , H5P_DEFAULT) ) ;
 
     HDF5_CALL(cells_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ;
-    hsize_t cells_chunk_dim[2] = {EXPR(nx,*ny,*nz)*20,nvertex} ;
+    hsize_t cells_chunk_dim[2] = {chunk_size,nvertex} ;
     HDF5_CALL(err, H5Pset_chunk(cells_prop_id,2,cells_chunk_dim)) ; 
     HDF5_CALL(err, H5Pset_deflate(cells_prop_id, compression_level)) ; 
     HDF5_CALL( cells_dset_id
@@ -254,35 +257,8 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level) {
                             , H5P_DEFAULT
                             , cells_prop_id
                             , H5P_DEFAULT) ) ;
-    HDF5_CALL(err, H5Pclose(cells_prop_id)) ;
-    HDF5_CALL(err, H5Pclose(points_prop_id)) ; 
+      
 
-    /* Write points dataset */
-    /* Create local space for this rank */
-    hid_t points_space_id ; 
-    hsize_t points_dset_dims[2] = {npoints, THUNDER_NSPACEDIM} ;
-    HDF5_CALL(points_space_id, H5Screate_simple(2, points_dset_dims, NULL)) ; 
-    /* Select hyperslab for this rank's output */
-    hsize_t points_slab_start[2]  = {local_quad_offset * ncells_quad * nvertex,0} ; 
-    hsize_t points_slab_count[2]  = {npoints,THUNDER_NSPACEDIM} ;
-    HDF5_CALL( err
-             , H5Sselect_hyperslab( points_space_id_glob
-                                  , H5S_SELECT_SET
-                                  , points_slab_start
-                                  , NULL
-                                  , points_slab_count 
-                                  , NULL )) ;
-    /* Write data corresponding to this rank to disk */
-    HDF5_CALL( err
-             , H5Dwrite( points_dset_id
-                       , H5T_NATIVE_DOUBLE
-                       , points_space_id
-                       , points_space_id_glob 
-                       , dxpl 
-                       , points )) ; 
-    HDF5_CALL(err, H5Dclose(points_dset_id)) ; 
-    HDF5_CALL(err, H5Sclose(points_space_id)) ; 
-    HDF5_CALL(err, H5Sclose(points_space_id_glob)) ; 
     /* Write cells dataset */
     /* Create local space for this rank */
     hid_t cells_space_id ; 
@@ -291,6 +267,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level) {
     /* Select hyperslab for this rank's output */
     hsize_t cells_slab_start[2]  = {local_quad_offset * ncells_quad,0} ; 
     hsize_t cells_slab_count[2]  = {ncells,nvertex} ;
+    THUNDER_VERBOSE("Slab offset {}, size {}, total {}", cells_slab_start[0], ncells, ncells_glob) ;  
     HDF5_CALL( err
              , H5Sselect_hyperslab( cells_space_id_glob
                                   , H5S_SELECT_SET
@@ -306,19 +283,51 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level) {
                        , cells_space_id
                        , cells_space_id_glob 
                        , dxpl 
-                       , cells )) ; 
+                       , reinterpret_cast<void*>(cells) )) ; 
 
     HDF5_CALL(err, H5Dclose(cells_dset_id)) ; 
     HDF5_CALL(err, H5Sclose(cells_space_id)) ; 
     HDF5_CALL(err, H5Sclose(cells_space_id_glob)) ; 
+    HDF5_CALL(err, H5Pclose(cells_prop_id)) ;
+    /* Release resources */
+    free(cells) ; 
+
+    /* Write points dataset */
+    /* Create local space for this rank */
+    hid_t points_space_id ; 
+    hsize_t points_dset_dims[2] = {npoints, THUNDER_NSPACEDIM} ;
+    HDF5_CALL(points_space_id, H5Screate_simple(2, points_dset_dims, NULL)) ; 
+    /* Select hyperslab for this rank's output */
+    hsize_t points_slab_start[2]  = {local_quad_offset * ncells_quad * nvertex,0} ;
+    THUNDER_VERBOSE("Slab offset {}, size {}, total {}", points_slab_start[0], npoints, npoints_glob) ;  
+    hsize_t points_slab_count[2]  = {npoints,THUNDER_NSPACEDIM} ;
+    HDF5_CALL( err
+             , H5Sselect_hyperslab( points_space_id_glob
+                                  , H5S_SELECT_SET
+                                  , points_slab_start
+                                  , NULL
+                                  , points_slab_count 
+                                  , NULL )) ;
+    /* Write data corresponding to this rank to disk */
+    HDF5_CALL( err
+             , H5Dwrite( points_dset_id
+                       , H5T_NATIVE_DOUBLE
+                       , points_space_id
+                       , points_space_id_glob 
+                       , dxpl 
+                       , reinterpret_cast<void*>(points) )) ; 
+    HDF5_CALL(err, H5Dclose(points_dset_id)) ; 
+    HDF5_CALL(err, H5Sclose(points_space_id)) ; 
+    HDF5_CALL(err, H5Sclose(points_space_id_glob)) ;
+    HDF5_CALL(err, H5Pclose(points_prop_id)) ;
 
     HDF5_CALL(err, H5Pclose(dxpl)) ;
     /* Release resources*/
     free(points);
-    free(cells) ; 
+    
 }
 
-void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level) {
+void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) {
 
     herr_t err ;
 
@@ -362,7 +371,7 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level) {
     HDF5_CALL(sclars_space_id_glob, H5Screate_simple(1, scalars_dset_dims_glob, NULL)) ;
     hid_t scalars_dset_id, scalars_prop_id ;
     HDF5_CALL(scalars_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
-    hsize_t scalars_chunk_dim[1] = {EXPR(nx,*ny,*nz)*20} ;
+    hsize_t scalars_chunk_dim[1] = {chunk_size} ;
     HDF5_CALL(err, H5Pset_chunk(scalars_prop_id,1,scalars_chunk_dim)) ; 
     HDF5_CALL(err, H5Pset_deflate(scalars_prop_id, compression_level)) ;  
     /* Create local space for this rank */
@@ -433,7 +442,7 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level) {
                             , scalars_space_id
                             , sclars_space_id_glob 
                             , dxpl 
-                            , h_mirror.data() )) ;
+                            , reinterpret_cast<void*>(h_mirror.data()) )) ;
 
         
         HDF5_CALL(err, H5Dclose(scalars_dset_id)) ; 

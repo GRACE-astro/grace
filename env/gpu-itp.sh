@@ -22,4 +22,4 @@ export LIBXDMF_ROOT=/mnt/rafast/musolino/libs/libxdmf-install
 
 export LD_LIBRARY_PATH=${KOKKOS_TOOLS_LIB}:${LD_LIBRARY_PATH}
 
-export PATH=/mnt/rafast/musolino/libs/valgrind-install:${PATH}
+export PATH=/mnt/rafast/musolino/libs/valgrind-install/bin:${KOKKOS_TOOLS_LIB}/bin:${PATH}

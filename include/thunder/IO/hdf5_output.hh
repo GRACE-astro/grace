@@ -46,9 +46,9 @@ void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere) ;
 
 void write_volume_cell_data_hdf5() ; 
 
-void write_grid_structure_hdf5(hid_t file_id, size_t compression_level) ; 
+void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) ; 
 
-void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level) ; 
+void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) ; 
 
 
 }} /* namespace thunder::IO */
