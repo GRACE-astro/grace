@@ -99,6 +99,10 @@ int main(int argc, char* argv[])
         params["IO"]["scalar_output_every"].as<int64_t>() ; 
     int64_t info_output_every =
         params["IO"]["info_output_every"].as<int64_t>() ; 
+    std::string tstep_mode = params["evolution"]["timestep_selection_mode"].as<std::string>() ;
+    if ( tstep_mode == "manual" ) {
+        thunder::set_timestep(params["evolution"]["timestep"].as<double>()) ; 
+    }
     /**********************************************************************************/
     /*                           Evolution loop                                       */
     /**********************************************************************************/
@@ -106,7 +110,9 @@ int main(int argc, char* argv[])
     while( thunder::get_simulation_time() < final_time ) 
     {   
         /**********************************************************************************/
-        thunder::find_stable_timestep() ;
+        if(tstep_mode == "automatic"){
+            thunder::find_stable_timestep() ;
+        }
         thunder::evolve() ; 
         /**********************************************************************************/
         thunder::increment_iteration(); thunder::increment_simulation_time() ;

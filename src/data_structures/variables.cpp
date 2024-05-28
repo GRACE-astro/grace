@@ -54,7 +54,7 @@ size_t get_variable_index(std::string const& name, bool is_aux)
         auto it = std::find(_auxnames.begin(), _auxnames.end(), name); 
         if (it != _auxnames.end())
         {
-            return std::distance(_varnames.begin(),it) ; 
+            return std::distance(_auxnames.begin(),it) ; 
         } 
     }
     ASSERT_DBG(0, 

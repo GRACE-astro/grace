@@ -10,7 +10,7 @@ amr: {
   zmin: -0.5,
   zmax: 0.5,
   n_ghostzones: 2,
-  initial_refinement_level: 3,
+  initial_refinement_level: 6,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
   refinement_criterion_CTODE: 1.,
@@ -21,9 +21,20 @@ amr: {
 }
 IO: {
   volume_output_cell_variables: ["U"],
-  volume_output_every: 100,
+  volume_output_every: 1000,
+  volume_output_base_directory: "output_volume_lev6",
   plane_surface_output_cell_variables: ["U"],
-  plane_surface_output_every: 8
+  plane_surface_output_every: 8,
+  nfo_output_every: 20,
+  info_output_max_reductions: ["U"],
+  info_output_min_reductions: ["U"], 
+  scalar_output_every: 50,
+  scalar_output_minmax: ["U"],
+  scalar_output_norm2: ["U"],
+  scalar_output_integral: ["U"],
+  output_use_hdf5: true, 
+  hdf5_compression_level: 6,
+  hdf5_chunk_size: 4096
 }
 system: {
   console_log_level: "info",
@@ -34,7 +45,9 @@ system: {
 evolution: {
   time_stepper: "rk2",
   cfl_factor: 0.4,
-  final_time: 2.
+  final_time: 2.,
+  timestep: 0.00025,
+  timestep_selection_mode: "manual"
 }
 burgers_equation: {
   id_type: "three_states_shocktube",

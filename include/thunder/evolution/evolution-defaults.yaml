@@ -2,5 +2,7 @@ evolution: {
   time_stepper: "euler",
   cfl_factor: 1.,
   final_time: 2.,
-  reset_id_after_regrid: false
+  reset_id_after_regrid: false,
+  timestep_selection_mode: "automatic",
+  timestep: 0.1
 }

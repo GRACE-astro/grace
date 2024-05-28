@@ -150,6 +150,7 @@ void compute_reductions() {
     } 
     for( auto const& vname: norm2_aux ) {
         auto const vidx = get_variable_index(vname, true) ; 
+        THUNDER_TRACE("Performing norm2 reduction of variable {} index {}", vname, vidx) ; 
         auto policy =
             MDRangePolicy<Rank<THUNDER_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
         auto const u = subview(aux, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
@@ -166,6 +167,7 @@ void compute_reductions() {
                                , 1
                                , sc_MPI_SUM) ; 
         detail::_norm2_reduction_aux_results[vname] = std::sqrt(detail::_norm2_reduction_aux_results[vname]) ; 
+        THUNDER_TRACE("norm {}", std::sqrt(res)) ; 
     }
     /* Then: compute integral reductions */ 
     auto const integral_vars = thunder_runtime.integral_reduction_vars() ; 

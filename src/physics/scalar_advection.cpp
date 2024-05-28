@@ -42,7 +42,7 @@ namespace thunder {
 void set_scalar_advection_initial_data() { 
     using namespace thunder ; 
     using namespace Kokkos  ; 
-
+    THUNDER_INFO("Setting initial gaussian data for scalar advection problem.") ; 
     #ifndef THUNDER_ENABLE_SCALAR_ADV 
     int const U = -1 ; 
     ERROR("Should not run scalar advection equation ID" 
@@ -100,14 +100,7 @@ void set_scalar_advection_initial_data() {
         double const r = sqrt( EXPR(
             math::int_pow<2>(x0), + math::int_pow<2>(y0), + math::int_pow<2>(z0)
         )) ; 
-        //h_state_mirror(VEC(i,j,k),U,q) = exp(- 0.5 * math::int_pow<2>(r)/math::int_pow<2>(sigma)) / sigma / sqrt(2*M_PI) ;
-        double xc = -1; 
-        double xc2 = 1.;
-        double uL = 4.; 
-        double uC = 2.;
-        double uR = 0. ; 
-        h_state_mirror(VEC(i,j,k),U,q) = pcoords[0] <= xc ? uL : 
-        ( pcoords[0] <= xc2 ? uC : uR ) ; 
+        h_state_mirror(VEC(i,j,k),U,q) = exp(- 0.5 * math::int_pow<2>(r)/math::int_pow<2>(sigma)) / sigma / sqrt(2*M_PI) ;
         
     }
     Kokkos::deep_copy(state,h_state_mirror) ;

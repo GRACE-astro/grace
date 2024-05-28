@@ -51,6 +51,8 @@
 /* stl */
 #include <string>
 #include <filesystem>
+#include <sstream>
+#include <iomanip>
 
 #define HDF5_CALL(result,cmd) \
     do {  \
@@ -87,14 +89,29 @@ void write_volume_cell_data_hdf5() {
 
     auto& runtime = thunder::runtime::get() ; 
     std::filesystem::path base_path (runtime.volume_io_basepath()) ;
-    std::string pfname = runtime.volume_io_basename() + "_" + utils::zero_padded(runtime.iteration(),3)
-                                                            + ".h5" ;
+    std::ostringstream oss;
+    oss << runtime.volume_io_basename() << "_" 
+        << std::setw(6) << std::setfill('0') << thunder::get_iteration() << ".h5";
+    std::string pfname = oss.str();
     std::filesystem::path out_path = base_path / pfname ;
     detail::_volume_output_filenames.push_back(pfname) ;
 
     auto& params = thunder::config_parser::get() ;
     size_t compression_level = params["IO"]["hdf5_compression_level"].as<size_t>() ;
     size_t chunk_size = params["IO"]["hdf5_chunk_size"].as<size_t>() ;
+
+    auto _p4est = thunder::amr::forest::get().get() ; 
+    /* Get global number of quadrants and quadrant offset for this rank */
+    unsigned long const nq_glob = _p4est->global_num_quadrants ;
+    size_t nx,ny,nz; 
+    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
+    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+    /* Global number of cells  */
+    unsigned long const ncells_glob = ncells_quad * nq_glob ; 
+    if( chunk_size > ncells_glob ) {
+        THUNDER_WARN("Chunk size {} < number of cells {} will be overridden." , chunk_size, ncells_glob) ; 
+        chunk_size = ncells_glob; 
+    }
 
     auto comm = parallel::get_comm_world() ; 
     auto rank = parallel::mpi_comm_rank()  ; 
@@ -108,6 +125,28 @@ void write_volume_cell_data_hdf5() {
     // Create a new file 
     hid_t file_id ; 
     HDF5_CALL(file_id,H5Fcreate(out_path.string().c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plist_id)) ;
+    hid_t attr_id, attr_dataspace_id;
+    std::string file_attr_name = "Time";
+    const double file_attr_data = thunder::get_simulation_time() ;
+    // Create a dataspace for the attribute
+    HDF5_CALL(attr_dataspace_id,H5Screate(H5S_SCALAR));
+    // Create the attribute
+    HDF5_CALL(attr_id,H5Acreate2(file_id, file_attr_name.c_str(), H5T_NATIVE_DOUBLE, attr_dataspace_id, H5P_DEFAULT, H5P_DEFAULT));
+    // Write the attribute data
+    HDF5_CALL(err,H5Awrite(attr_id, H5T_NATIVE_DOUBLE, &file_attr_data));
+    // Close the attribute and dataspace
+    HDF5_CALL(err,H5Aclose(attr_id));
+    HDF5_CALL(err,H5Sclose(attr_dataspace_id));
+    file_attr_name = "Iteration" ; 
+    const unsigned int iter = thunder::get_iteration(); 
+    HDF5_CALL(attr_dataspace_id,H5Screate(H5S_SCALAR));
+    // Create the attribute
+    HDF5_CALL(attr_id,H5Acreate2(file_id, file_attr_name.c_str(), H5T_NATIVE_UINT, attr_dataspace_id, H5P_DEFAULT, H5P_DEFAULT));
+    // Write the attribute data
+    HDF5_CALL(err,H5Awrite(attr_id, H5T_NATIVE_UINT, &iter));
+    // Close the attribute and dataspace
+    HDF5_CALL(err,H5Aclose(attr_id));
+    HDF5_CALL(err,H5Sclose(attr_dataspace_id));
     /* Write grid structure to hdf5 file      */
     write_grid_structure_hdf5(file_id, compression_level,chunk_size) ; 
     /* Write requested variables to hdf5 file */
@@ -263,7 +302,22 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
                             , H5P_DEFAULT
                             , cells_prop_id
                             , H5P_DEFAULT) ) ;
-      
+    hid_t attr_id, attr_dataspace_id; 
+    const std::string dataset_attr_name = "CellTopology";
+    const char * dataset_attr_data = 
+    #ifdef THUNDER_3D
+        "Hexahedron";
+    #else 
+        "Quadrilateral";
+    #endif 
+    hid_t str_type ; 
+    HDF5_CALL(str_type,H5Tcopy(H5T_C_S1));
+    HDF5_CALL(err,H5Tset_size(str_type, H5T_VARIABLE));
+    HDF5_CALL(attr_dataspace_id, H5Screate(H5S_SCALAR));
+    HDF5_CALL(attr_id,H5Acreate2(cells_dset_id, dataset_attr_name.c_str(), str_type, attr_dataspace_id, H5P_DEFAULT, H5P_DEFAULT));
+    HDF5_CALL(err,H5Awrite(attr_id, str_type, &dataset_attr_data));
+    HDF5_CALL(err,H5Aclose(attr_id));
+    HDF5_CALL(err,H5Sclose(attr_dataspace_id));
 
     /* Write cells dataset */
     /* Create local space for this rank */
@@ -408,6 +462,24 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
                             , H5P_DEFAULT
                             , scalars_prop_id
                             , H5P_DEFAULT) ) ;
+        hid_t attr_id, attr_dataspace_id; 
+        std::string dataset_attr_name = "VariableType";
+        const char * dataset_attr_data = "Scalar";
+        HDF5_CALL(attr_dataspace_id, H5Screate(H5S_SCALAR));
+        hid_t str_type ; 
+        HDF5_CALL(str_type,H5Tcopy(H5T_C_S1));
+        HDF5_CALL(err,H5Tset_size(str_type, H5T_VARIABLE));
+        HDF5_CALL(attr_id,H5Acreate2(scalars_dset_id, dataset_attr_name.c_str(), str_type, attr_dataspace_id, H5P_DEFAULT, H5P_DEFAULT));
+        HDF5_CALL(err,H5Awrite(attr_id, str_type, &dataset_attr_data));
+        HDF5_CALL(err,H5Aclose(attr_id));
+        HDF5_CALL(err,H5Sclose(attr_dataspace_id));
+        dataset_attr_name = "VariableStaggering";
+        const char* variable_staggering_attr = "Cell";
+        HDF5_CALL(attr_dataspace_id, H5Screate(H5S_SCALAR));
+        HDF5_CALL(attr_id,H5Acreate2(scalars_dset_id, dataset_attr_name.c_str(), str_type, attr_dataspace_id, H5P_DEFAULT, H5P_DEFAULT));
+        HDF5_CALL(err,H5Awrite(attr_id, str_type, &variable_staggering_attr));
+        HDF5_CALL(err,H5Aclose(attr_id));
+        HDF5_CALL(err,H5Sclose(attr_dataspace_id));
         for( int iq=0; iq<nq; ++iq){
             /* Copy data d2d */
             auto sview = Kokkos::subview( vars

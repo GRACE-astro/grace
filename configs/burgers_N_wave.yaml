@@ -21,14 +21,15 @@ amr: {
 }
 IO: {
   volume_output_cell_variables: ["U"],
-  volume_output_every: 100,
+  volume_output_base_directory: "output_volume_8ranks",
+  volume_output_every: 2500,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: 800,
   sphere_surface_output_every: -1,
-  info_output_every: 1,
+  info_output_every: 20,
   info_output_max_reductions: ["U"],
   info_output_min_reductions: ["U"], 
-  scalar_output_every: 10,
+  scalar_output_every: 50,
   scalar_output_minmax: ["U"],
   scalar_output_norm2: ["U"],
   scalar_output_integral: ["U"],
@@ -44,8 +45,10 @@ system: {
 }
 evolution: {
   time_stepper: "rk2",
-  cfl_factor: 0.4,
-  final_time: 3.
+  cfl_factor: 0.8,
+  final_time: 2.,
+  #timestep: 0.00025,
+  #timestep_selection_mode: "manual"
 }
 burgers_equation: {
   id_type: "oned_N_wave"

@@ -64,7 +64,7 @@ void compute_auxiliary_quantities(
     
     int64_t nq = amr::get_local_num_quadrants() ;
 
-
+    #if 0
     #ifdef THUNDER_ENABLE_SCALAR_ADV
     auto& params = thunder::config_parser::get() ; 
     double VEC(ax,ay,az) ; 
@@ -119,9 +119,10 @@ void compute_auxiliary_quantities(
         )) ; 
         double const exact_solution = exp(- 0.5 * math::int_pow<2>(r)/math::int_pow<2>(sigma)) / sigma / sqrt(2*M_PI) ; 
 
-        h_aux_mirror(VEC(i,j,k),ERR,q) = fabs( exact_solution - h_state_mirror(VEC(i,j,k),U,q)) / exact_solution ; 
+        h_aux_mirror(VEC(i,j,k),ERR,q) = fabs( exact_solution - h_state_mirror(VEC(i,j,k),U,q))  ; 
     }
     Kokkos::deep_copy(aux,h_aux_mirror) ; 
+    #endif 
     #endif 
     Kokkos::Profiling::popRegion() ; 
 }

@@ -1,3 +1,4 @@
+
 #!/bin/bash
 spack load gcc@11.4.0 cmake openmpi%gcc@11.4.0
 
