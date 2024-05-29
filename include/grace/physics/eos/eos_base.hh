@@ -39,9 +39,31 @@ enum EOS_ERROR_T {
 } ; 
 
 template< typename eos_impl_t >
-class eos_t {
+class eos_base_t {
     using error_type = unsigned int; 
  public:
+
+    eos_base_t() = default ; 
+
+    eos_base_t( double _energy_shift, double _eos_rhomax, double _eos_rhomin
+              , double _eos_tempmax, double _eos_tempmin
+              , double _eos_yemax, double _eos_yemin
+              , double _baryon_mass, double _c2p_ye_atm
+              , double _c2p_rho_atm, double _c2p_temp_atm 
+              , double _c2p_eps_atm, double _c2p_eps_min
+              , double _c2p_eps_max, double _c2p_h_min
+              , double _c2p_h_max, bool _atm_is_beta_eq
+              , bool _extend_table_high )
+     : energy_shift(_energy_shift), eos_rhomax(_eos_rhomax), eos_rhomin(_eos_rhomin)
+     , eos_tempmax(_eos_tempmax), eos_tempmin(_eos_tempmin)
+     , eos_yemax(_eos_yemax), eos_yemin(_eos_yemin)
+     , baryon_mass(_baryon_mass), c2p_ye_atm(_c2p_ye_atm)
+     , c2p_rho_atm(_c2p_rho_atm), c2p_temp_atm(_c2p_temp_atm)
+     , c2p_eps_atm(_c2p_eps_atm), c2p_eps_min(_c2p_eps_min), c2p_eps_max(_c2p_eps_max)
+     , c2p_h_min(_c2p_h_min), c2p_h_max(_c2p_h_max)
+     , atm_is_beta_eq(_atm_is_beta_eq), extend_table_high(_extend_table_high)
+    {}
+
     double GRACE_HOST_DEVICE
     press__eps_rho_ye(double& eps, double& rho, double& ye, error_type& err) const 
     {
@@ -104,7 +126,7 @@ class eos_t {
 
     double GRACE_HOST_DEVICE
     press_h_csnd2__eps_rho_ye( double &h, double &csnd2, double &eps
-                             , double &rho, double &ye,
+                             , double &rho, double &ye
                              , error_type &err) const 
     {
         return static_cast<eos_impl_t const*>(this)->press_h_csnd2__eps_rho_ye_impl(h,csnd2,eps,rho,ye,err) ; 
@@ -112,7 +134,7 @@ class eos_t {
 
     double GRACE_HOST_DEVICE
     press_h_csnd2__temp_rho_ye( double &h, double &csnd2, double &temp
-                              , double &rho, double &ye,
+                              , double &rho, double &ye
                               , error_type &err) const 
     {
         return static_cast<eos_impl_t const*>(this)->press_h_csnd2__temp_rho_ye_impl(h,csnd2,temp,rho,ye,err) ; 
@@ -120,7 +142,7 @@ class eos_t {
 
     double GRACE_HOST_DEVICE
     eps_h_csnd2__press_rho_ye( double &h, double &csnd2, double &press
-                             , double &rho, double &ye,
+                             , double &rho, double &ye
                              , error_type &err) const 
     {
         return static_cast<eos_impl_t const*>(this)->eps_h_csnd2__press_rho_ye_impl(h,csnd2,press,rho,ye,err) ; 
@@ -128,7 +150,7 @@ class eos_t {
 
     double GRACE_HOST_DEVICE
     press_eps_csnd2__temp_rho_ye( double &eps, double &csnd2, double &temp
-                                , double &rho, double &ye,
+                                , double &rho, double &ye
                                 , error_type& err) const 
     {
         return static_cast<eos_impl_t const*>(this)->press_eps_csnd2__temp_rho_ye_impl(eps,csnd2,temp,rho,ye,err) ; 
@@ -172,7 +194,7 @@ class eos_t {
                                    , double& rho, double& temp
                                    , error_type& err) const 
     {
-        return static_cast<eos_impl_t const*>(this)->press_eps_ye__beta_eq__rho_temp_impl(eps,ye,rho,temperr) ; 
+        return static_cast<eos_impl_t const*>(this)->press_eps_ye__beta_eq__rho_temp_impl(eps,ye,rho,temp,err) ; 
     }
 
     double GRACE_HOST_DEVICE

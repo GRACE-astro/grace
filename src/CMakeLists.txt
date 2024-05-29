@@ -57,6 +57,7 @@ target_sources( grace_objects INTERFACE
                 $<TARGET_OBJECTS:grace_BC>
                 $<TARGET_OBJECTS:grace_scalar_adv>
                 $<TARGET_OBJECTS:grace_burgers_eq>
+                $<TARGET_OBJECTS:grace_eos>
                 $<TARGET_OBJECTS:grace_evolution> 
                 $<TARGET_OBJECTS:grace_initial_data> )
 

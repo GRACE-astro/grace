@@ -39,8 +39,11 @@ namespace grace {
 
 class piecewise_polytropic_eos_t
 {
+    using error_type = unsigned int ; 
  public:
     static constexpr unsigned int max_n_pieces = 8 ; 
+
+    piecewise_polytropic_eos_t() = default ; 
 
     piecewise_polytropic_eos_t(
           Kokkos::View<double [max_n_pieces], grace::default_space> k
@@ -52,7 +55,7 @@ class piecewise_polytropic_eos_t
         , double rhomax
         , double rhomin )
       : _k(k), _gamma(gamma), _rho(rho), _eps(eps), _press(press)
-      , num_pices(n_pieces), eos_rhomax(rhomax), eos_rhomin(rhomin)
+      , num_pieces(n_pieces), eos_rhomax(rhomax), eos_rhomin(rhomin)
     {} 
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -65,7 +68,7 @@ class piecewise_polytropic_eos_t
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    csnd2__rho(double& rho) const {
+    dpress_cold_drho__rho(double& rho, error_type& err) const {
         auto idx = find_index_rho(rho, err) ; 
         auto press_cold = _k(idx) * Kokkos::pow(rho, _gamma(idx)) ; 
         return _gamma(idx) * press_cold / rho ; 

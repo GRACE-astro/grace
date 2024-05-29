@@ -72,7 +72,7 @@ class eos_storage_t {
     }
  private:
 
-    static constexpr longevity = GRACE_EOS_STORAGE ; 
+    static constexpr size_t longevity = GRACE_EOS_STORAGE ; 
 
     eos_storage_t() ; 
 

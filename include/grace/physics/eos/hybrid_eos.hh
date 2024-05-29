@@ -41,14 +41,17 @@ template < typename cold_eos_t >
 class hybrid_eos_t
     : public eos_base_t<hybrid_eos_t<cold_eos_t>> 
 {
+    using error_type = unsigned int ; 
  public:
     
+    hybrid_eos_t() = default ; 
+
     hybrid_eos_t( cold_eos_t _cold_eos 
                 , double _gamma_th_m1 
                 , double baryon_mass
                 , double c2p_rho_atm
                 , double c2p_eps_max )
-     : eos_base_t<hybrid_eos_t<cold_eos_t>>{ 0.,_cold_eos.eos_rhomax, _cold_eos.eos_rhomin
+     : eos_base_t<hybrid_eos_t<cold_eos_t>>{ 0, _cold_eos.eos_rhomax, _cold_eos.eos_rhomin
                                            , 1e99, 0
                                            , 1e99, 0
                                            , baryon_mass
@@ -76,7 +79,7 @@ class hybrid_eos_t
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    press_temp__eps_rho_ye_impl(double& eps, double& rho, double& ye, error_type& err) const
+    press_temp__eps_rho_ye_impl(double& temp, double& eps, double& rho, double& ye, error_type& err) const
     {
         double eps_cold ; 
         auto press_cold = cold_eos.press_cold_eps_cold__rho(eps_cold,rho,err) ; 
@@ -145,8 +148,8 @@ class hybrid_eos_t
     {
         double eps_cold ; 
         auto press_cold = cold_eos.press_cold_eps_cold__rho(eps_cold, rho, err);
-        eps_min = math::min(eps_cold,c2p_eps_max) ; 
-        eps_max = c2p_eps_max ; 
+        eps_min = math::min(eps_cold,this->c2p_eps_max) ; 
+        eps_max = this->c2p_eps_max ; 
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -155,14 +158,14 @@ class hybrid_eos_t
     {
         double eps_cold ; 
         auto press_cold = cold_eos.press_cold_eps_cold__rho(eps_cold, rho, err);
-        auto const eps_th_max = c2p_eps_max - eps_cold ; 
+        auto const eps_th_max = this->c2p_eps_max - eps_cold ; 
         s_min = entropy__eps_th_rho(1e-05,rho) ; 
         s_max = entropy__eps_th_rho(eps_th_max, rho) ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     press_h_csnd2__eps_rho_ye_impl( double &h, double &csnd2, double &eps
-                                  , double &rho, double &ye,
+                                  , double &rho, double &ye
                                   , error_type &err) const
     {
         double eps_cold ; 
@@ -171,13 +174,13 @@ class hybrid_eos_t
         const double eps_th = eps-eps_cold ; 
         const double press  = press_cold + eps_th * rho * gamma_th_m1 ; 
         h = 1. + eps + press/rho ; 
-        csnd2 = cold_eos.csnd2__rho(rho) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
+        csnd2 = (cold_eos.dpress_cold_drho__rho(rho,err) + gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
         return press ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     press_h_csnd2__temp_rho_ye_impl( double &h, double &csnd2, double &temp
-                                   , double &rho, double &ye,
+                                   , double &rho, double &ye
                                    , error_type &err) const
     {
         double eps_cold ; 
@@ -186,13 +189,13 @@ class hybrid_eos_t
         const double eps_th = eps_th__temp(temp) ; 
         const double press  = press_cold + eps_th * rho * gamma_th_m1 ; 
         h = 1. + eps_cold + eps_th + press/rho ; 
-        csnd2 = cold_eos.csnd2__rho(rho) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
+        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
         return press ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     eps_h_csnd2__press_rho_ye_impl( double &h, double &csnd2, double &press
-                                  , double &rho, double &ye,
+                                  , double &rho, double &ye
                                   , error_type &err) const
     {
         double eps_cold ; 
@@ -200,13 +203,13 @@ class hybrid_eos_t
         press = math::max(press,press_cold) ; 
         const double eps_th = eps_th__press_press_cold_rho(press,press_cold,rho) ; 
         h = 1. + eps_th + eps_cold + press/rho ; 
-        csnd2 = cold_eos.csnd2__rho(rho) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
+        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
         return eps_th + eps_cold ;
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     press_eps_csnd2__temp_rho_ye_impl( double &eps, double &csnd2, double &temp
-                                     , double &rho, double &ye,
+                                     , double &rho, double &ye
                                      , error_type& err) const 
     {
         double eps_cold ; 
@@ -216,7 +219,7 @@ class hybrid_eos_t
         const double press  = press_cold + eps_th * rho * gamma_th_m1 ; 
         eps = eps_cold + eps_th ;
         double const h = 1. + eps + press/rho ; 
-        csnd2 = cold_eos.csnd2__rho(rho) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
+        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
         return press ; 
     }
 
@@ -232,7 +235,7 @@ class hybrid_eos_t
         double const eps_th = eps-eps_cold ;
         double const press  = press_cold + eps_th * rho * gamma_th_m1 ; 
         h = 1. + eps + press / rho ; 
-        csnd2 = cold_eos.csnd2__rho(rho) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
+        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
         entropy = entropy__eps_th_rho(eps_th,rho) ; 
         temp = temp__eps_th(eps_th) ; 
         return press ; 
@@ -250,7 +253,7 @@ class hybrid_eos_t
         const double press  = press_cold + eps_th * rho * gamma_th_m1 ;
         const double eps = eps_th + eps_cold ; 
         const double h = 1. + eps + press / rho ; 
-        csnd2 = cold_eos.csnd2__rho(rho) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
+        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
         entropy = entropy__eps_th_rho(eps_th,rho) ; 
         return eps ; 
     }
@@ -262,12 +265,12 @@ class hybrid_eos_t
     {
         double eps_cold ; 
         auto press_cold = cold_eos.press_cold_eps_cold__rho(eps_cold, rho, err);
-        const double eps_th = Kokkos::eps(gamma_th_m1*entropy) * Kokkos::pow(rho,gamma_th_m1) ; 
+        const double eps_th = Kokkos::exp(gamma_th_m1*entropy) * Kokkos::pow(rho,gamma_th_m1) ; 
         const double press  = press_cold + eps_th * rho * gamma_th_m1 ; 
 
         eps = eps_cold + eps_th ; 
         h   = 1. + eps + press/rho ; 
-        csnd2 = cold_eos.csnd2__rho(rho) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
+        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
         return press ;
     }
 
@@ -282,7 +285,7 @@ class hybrid_eos_t
         const double eps_th = eps_th__press_press_cold_rho(press,press_cold,rho) ; 
         double const eps = eps_th + eps_cold ; 
         h   = 1. + eps + press/rho ; 
-        csnd2 = cold_eos.csnd2__rho(rho) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
+        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
         entropy = entropy__eps_th_rho(eps_th,rho) ; 
 
         temp = temp__eps_th(eps_th) ; 
@@ -333,7 +336,7 @@ class hybrid_eos_t
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    eps_th__press_press_cold_rho( double& press, double& press_cold) const 
+    eps_th__press_press_cold_rho( double& press, double& press_cold, double& rho) const 
     {
         return math::max(0, (press-press_cold) / (rho*gamma_th_m1)) ; 
     }
@@ -356,7 +359,8 @@ class hybrid_eos_t
     {
         return math::max(0, temp / gamma_th_m1 ) ;
     }
-
+    
+    
 } ; 
 
 }

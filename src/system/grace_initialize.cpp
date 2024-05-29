@@ -51,6 +51,8 @@
 #include <grace/system/print.hh>
 #include <grace/IO/vtk_output_auxiliaries.hh>
 
+#include <grace/physics/eos/eos_storage.hh>
+
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -204,6 +206,7 @@ void initialize(int& argc, char* argv[])
         ,   grace::variable_list::get().getvolumes()
         ,   grace::variable_list::get().getstaggeredcoords() ) ;
     grace::IO::detail::init_auxiliaries()  ;
+    grace::eos::initialize() ;
     GRACE_INFO("Initialization done.");
     GRACE_INFO("GRACE running on {} backend", GRACE_BACKEND) ; 
     //GRACE_INFO("GRACE running on {} total devices.", Kokkos::num_devices() ) ; 

@@ -35,7 +35,7 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
-#include <grace/physics/eos/constants.hh> //! Todo 
+#include <grace/physics/eos/physical_constants.hh> //! Todo 
 
 #include <grace/physics/eos/eos_storage.hh>
 
@@ -43,7 +43,97 @@
 
 namespace grace {
 
-eos_storage_t::eos_storage_t {
+static piecewise_polytropic_eos_t setup_cold_politrope() 
+{
+    auto& params = grace::config_parser::get() ;
+
+    unsigned int _pwpoly_n_pieces = 
+                params["eos"]["piecewise_polytrope"]["n_pieces"].as<unsigned int>() ; 
+            
+    double _pwpoly_kappas_0 =
+        params["eos"]["piecewise_polytrope"]["kappa_0"].as<double>() ; 
+    std::vector<double> _pwpoly_gammas_vec  =
+        params["eos"]["piecewise_polytrope"]["gammas"].as<std::vector<double>>() ; 
+    std::vector<double> _pwpoly_rhos_vec  =
+        params["eos"]["piecewise_polytrope"]["rhos"].as<std::vector<double>>() ; 
+    
+    
+    ASSERT( _pwpoly_gammas_vec.size() == _pwpoly_n_pieces
+          , "Number of gammas does not coincide with n_pieces.") ;
+    ASSERT( _pwpoly_rhos_vec.size() == _pwpoly_n_pieces - 1 
+          , "The piecewise polytrope densities must be n_pieces-1.") ;
+    /* Add 0 as first density */
+    _pwpoly_rhos_vec.insert(_pwpoly_rhos_vec.begin(), 0.);
+    for( int i=0; i<_pwpoly_rhos_vec.size()-1; ++i)
+        ASSERT( _pwpoly_rhos_vec[i+1] > _pwpoly_rhos_vec[i]
+              , "Piecewise polytrope densities must be in ascending order.") ; 
+    
+    /* Fill kappas eps and press */
+    std::vector<double> _pwpoly_kappas_vec(_pwpoly_n_pieces)
+                      , _pwpoly_press_vec(_pwpoly_n_pieces)
+                      , _pwpoly_eps_vec(_pwpoly_n_pieces) ; 
+    
+    _pwpoly_kappas_vec[0] = _pwpoly_kappas_0 ; 
+    _pwpoly_press_vec[0]  = 0 ; 
+    _pwpoly_eps_vec[0]    = 0 ; 
+
+    for( int i=0; i < _pwpoly_n_pieces; ++i ) {
+        _pwpoly_kappas_vec[i] = 
+            _pwpoly_kappas_vec[i-1] * 
+            pow( _pwpoly_rhos_vec[i], _pwpoly_gammas_vec[i-1]-_pwpoly_gammas_vec[i]) ; 
+        _pwpoly_eps_vec[i]  = 
+            _pwpoly_eps_vec[i-1] +
+            _pwpoly_kappas_vec[i-1] *
+                pow(_pwpoly_rhos_vec[i], _pwpoly_gammas_vec[i-1]-1.) 
+                / ( _pwpoly_gammas_vec[i-1]-1. ) -
+            _pwpoly_kappas_vec[i] *
+                pow(_pwpoly_rhos_vec[i], _pwpoly_gammas_vec[i]-1.) 
+                / ( _pwpoly_gammas_vec[i]-1. ) ; 
+        _pwpoly_press_vec[i] =
+            _pwpoly_kappas_vec[i] *
+            pow(_pwpoly_rhos_vec[i], _pwpoly_gammas_vec[i]) ; 
+    }
+
+
+    Kokkos::View<double [piecewise_polytropic_eos_t::max_n_pieces], grace::default_space> 
+        _pwpoly_kappas("Piecewise polytropic indices") ; 
+    Kokkos::View<double [piecewise_polytropic_eos_t::max_n_pieces], grace::default_space> 
+        _pwpoly_gammas("Piecewise polytropic adiabatic compressibilities") ; 
+    Kokkos::View<double [piecewise_polytropic_eos_t::max_n_pieces], grace::default_space> 
+        _pwpoly_rhos("Piecewise polytropic densities") ;
+    Kokkos::View<double [piecewise_polytropic_eos_t::max_n_pieces], grace::default_space> 
+        _pwpoly_press("Piecewise polytropic pressures") ;
+    Kokkos::View<double [piecewise_polytropic_eos_t::max_n_pieces], grace::default_space> 
+        _pwpoly_eps("Piecewise polytropic specific internal energies") ;
+    
+    #define DEEP_COPY_VEC_TO_VIEW(vec,view) \
+            do { \
+                auto host_view = Kokkos::create_mirror_view(view) ; \
+                for( int i=0; i < vec.size(); ++i){                 \
+                    host_view(i) = vec[i] ;                         \
+                }                                                   \
+                Kokkos::deep_copy(view,host_view) ;                 \
+            } while(0)
+    DEEP_COPY_VEC_TO_VIEW(_pwpoly_gammas_vec,_pwpoly_gammas) ; 
+    DEEP_COPY_VEC_TO_VIEW(_pwpoly_kappas_vec,_pwpoly_kappas) ;
+    DEEP_COPY_VEC_TO_VIEW(_pwpoly_rhos_vec,_pwpoly_rhos) ;
+    DEEP_COPY_VEC_TO_VIEW(_pwpoly_press_vec,_pwpoly_press) ;
+    DEEP_COPY_VEC_TO_VIEW(_pwpoly_eps_vec,_pwpoly_eps) ; 
+
+    return std::move(piecewise_polytropic_eos_t{
+          _pwpoly_kappas
+        , _pwpoly_gammas
+        , _pwpoly_rhos
+        , _pwpoly_eps
+        , _pwpoly_press
+        , _pwpoly_n_pieces
+        , 1
+        , 1e-20
+    }) ; 
+
+}
+
+eos_storage_t::eos_storage_t() {
     auto& params = grace::config_parser::get() ;
 
     std::string eos_type = 
@@ -65,56 +155,7 @@ eos_storage_t::eos_storage_t {
 
         if( cold_eos_type == "piecewise_polytrope" ) {
 
-            unsigned int _pwpoly_n_pieces = 
-                params["eos"]["piecewise_polytrope"]["n_pieces"].as<unsigned int>() ; 
-            
-            std::vector<double> _pwpoly_kappas_vec =
-                params["eos"]["piecewise_polytrope"]["kappas"].as<std::vector<double>>() ; 
-            std::vector<double> _pwpoly_gammas_vec  =
-                params["eos"]["piecewise_polytrope"]["gammas"].as<std::vector<double>>() ; 
-            std::vector<double> _pwpoly_rhos_vec  =
-                params["eos"]["piecewise_polytrope"]["rhos"].as<std::vector<double>>() ; 
-            std::vector<double> _pwpoly_press_vec  =
-                params["eos"]["piecewise_polytrope"]["pressures"].as<std::vector<double>>() ; 
-            std::vector<double> _pwpoly_eps_vec  =
-                params["eos"]["piecewise_polytrope"]["eps"].as<std::vector<double>>() ; 
-
-            #define DEEP_COPY_VEC_TO_VIEW(vec,view) \
-            do { \
-                auto host_view = Kokkos::create_mirror_view(view) ; \
-                for( int i=0; i < vec.size(); ++i){                 \
-                    host_view(i) = vec[i] ;                         \
-                }                                                   \
-                Kokkos::deep_copy(view,host_view) ;                 \
-            } while(0)
-
-            Kokkos::View<double [piecewise_polytropic_eos_t::max_n_pieces], grace::default_space> 
-                _pwpoly_kappas("Piecewise polytropic indices") ; 
-            Kokkos::View<double [piecewise_polytropic_eos_t::max_n_pieces], grace::default_space> 
-                _pwpoly_gammas("Piecewise polytropic adiabatic compressibilities") ; 
-            Kokkos::View<double [piecewise_polytropic_eos_t::max_n_pieces], grace::default_space> 
-                _pwpoly_rhos("Piecewise polytropic densities") ;
-            Kokkos::View<double [piecewise_polytropic_eos_t::max_n_pieces], grace::default_space> 
-                _pwpoly_press("Piecewise polytropic pressures") ;
-            Kokkos::View<double [piecewise_polytropic_eos_t::max_n_pieces], grace::default_space> 
-                _pwpoly_eps("Piecewise polytropic specific internal energies") ;
-            
-            DEEP_COPY_VEC_TO_VIEW(_pwpoly_kappas_vec,_pwpoly_kappas) ;
-            DEEP_COPY_VEC_TO_VIEW(_pwpoly_gammas_vec,_pwpoly_gammas) ;
-            DEEP_COPY_VEC_TO_VIEW(_pwpoly_rhos_vec,_pwpoly_rhos) ;
-            DEEP_COPY_VEC_TO_VIEW(_pwpoly_press_vec,_pwpoly_press) ;
-            DEEP_COPY_VEC_TO_VIEW(_pwpoly_eps_vec,_pwpoly_eps) ;
-
-            piecewise_polytropic_eos_t _pwpoly{
-                  _pwpoly_kappas
-                , _pwpoly_gammas
-                , _pwpoly_rhos
-                , _pwpoly_eps
-                , _pwpoly_press
-                , _pwpoly_n_pieces
-                , 1
-                , 1e-20
-            } ; 
+            auto _pwpoly = setup_cold_politrope() ; 
 
             _hybrid_pwpoly = hybrid_eos_t<piecewise_polytropic_eos_t>{
                   _pwpoly 

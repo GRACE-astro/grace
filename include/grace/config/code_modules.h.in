@@ -46,6 +46,7 @@ const std::vector< std::string > code_modules {
     #ifdef GRACE_ENABLE_BURGERS
     , "burgers_equation"
     #endif 
+    , "eos"
 } ;
 //*****************************************************************************************************
 const std::vector< std::string > code_modules_default_configs { 
@@ -59,6 +60,7 @@ const std::vector< std::string > code_modules_default_configs {
      #ifdef GRACE_ENABLE_BURGERS
      , "${CMAKE_SOURCE_DIR}/include/grace/physics/burgers_equation-defaults.yaml"
      #endif 
+     , "${CMAKE_SOURCE_DIR}/include/grace/physics/eos/eos-defaults.yaml"
 } ;
 //*****************************************************************************************************
 }} /* namespace grace::detail */
