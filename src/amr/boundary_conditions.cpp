@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-03-21
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -24,39 +25,39 @@
  * 
  */
 
-#include <thunder_config.h>
+#include <grace_config.h>
 
 #include <Kokkos_Core.hpp>
 
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/amr/bc_helpers.hh> 
-#include <thunder/amr/bc_helpers.tpp> 
-#include <thunder/amr/bc_kernels.tpp>
-#include <thunder/coordinates/coordinates.hh>
-#include <thunder/system/thunder_system.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/utils/prolongation.hh>
-#include <thunder/utils/limiters.hh>
-#include <thunder/data_structures/macros.hh>
-#include <thunder/data_structures/memory_defaults.hh>
-#include <thunder/data_structures/variable_indices.hh>
-#include <thunder/data_structures/variable_properties.hh>
-#include <thunder/data_structures/variables.hh>
-#include <thunder/data_structures/variable_utils.hh>
-#include <thunder/config/config_parser.hh>
+#include <grace/amr/grace_amr.hh>
+#include <grace/amr/bc_helpers.hh> 
+#include <grace/amr/bc_helpers.tpp> 
+#include <grace/amr/bc_kernels.tpp>
+#include <grace/coordinates/coordinates.hh>
+#include <grace/system/grace_system.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/utils/prolongation.hh>
+#include <grace/utils/limiters.hh>
+#include <grace/data_structures/macros.hh>
+#include <grace/data_structures/memory_defaults.hh>
+#include <grace/data_structures/variable_indices.hh>
+#include <grace/data_structures/variable_properties.hh>
+#include <grace/data_structures/variables.hh>
+#include <grace/data_structures/variable_utils.hh>
+#include <grace/config/config_parser.hh>
 
 #include <spdlog/stopwatch.h>
 
-namespace thunder { namespace amr {
+namespace grace { namespace amr {
 
 void apply_boundary_conditions() {
     auto& vars = variable_list::get().getstate() ;
     apply_boundary_conditions(vars)              ; 
 }
 
-void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
+void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     Kokkos::Profiling::pushRegion("BC") ; 
-    using namespace thunder ;
+    using namespace grace ;
     /******************************************************/
     /* First step:                                        */
     /* Asynchronous data exchange for quadrants in the    */
@@ -85,17 +86,17 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
           halo_quads{ &(halos->ghosts) }
         , mirror_quads{ &(halos->mirrors) }  ;
     Kokkos::realloc(halo, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars,halo_quads.size());  
-    cell_vol_array_t<THUNDER_NSPACEDIM> halo_vols("halo cell volumes", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),halo_quads.size()) ; 
-    scalar_array_t<THUNDER_NSPACEDIM> halo_coords("halo quadrant coordinates",THUNDER_NSPACEDIM, halo_quads.size() ); 
+    cell_vol_array_t<GRACE_NSPACEDIM> halo_vols("halo cell volumes", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),halo_quads.size()) ; 
+    scalar_array_t<GRACE_NSPACEDIM> halo_coords("halo quadrant coordinates",GRACE_NSPACEDIM, halo_quads.size() ); 
     /******************************************************/
     /*                Receive halo data                   */
     /******************************************************/
-    THUNDER_VERBOSE( "Shipping halo quadrants with {}" 
+    GRACE_VERBOSE( "Shipping halo quadrants with {}" 
                      " total quadrants and {} halo quadrants.", nq, halo_quads.size()) ; 
-    size_t send_size_coords = THUNDER_NSPACEDIM ; 
+    size_t send_size_coords = GRACE_NSPACEDIM ; 
     size_t send_size_vol = EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) ; 
     size_t send_size = send_size_vol * nvars ; 
-    parallel::thunder_transfer_context_t context ;
+    parallel::grace_transfer_context_t context ;
     size_t rank = parallel::mpi_comm_rank() ; 
     for(int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
         size_t first_halo  = halos->proc_offsets[iproc]   ; 
@@ -112,7 +113,7 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
                   hsview.data()
                 , send_size
                 , iproc
-                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::GRACE_HALO_EXCHANGE_TAG
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
@@ -127,7 +128,7 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
                   hvsview.data()
                 , send_size_vol 
                 , iproc
-                , parallel::THUNDER_HALO_EXCHANGE_TAG+1
+                , parallel::GRACE_HALO_EXCHANGE_TAG+1
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
@@ -143,7 +144,7 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
                   hcsview.data()
                 , send_size_coords 
                 , iproc
-                , parallel::THUNDER_HALO_EXCHANGE_TAG+2
+                , parallel::GRACE_HALO_EXCHANGE_TAG+2
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
@@ -170,7 +171,7 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
                   sview.data()
                 , send_size
                 , iproc
-                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::GRACE_HALO_EXCHANGE_TAG
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
@@ -184,7 +185,7 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
                   svview.data()
                 , send_size_vol
                 , iproc
-                , parallel::THUNDER_HALO_EXCHANGE_TAG+1
+                , parallel::GRACE_HALO_EXCHANGE_TAG+1
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
@@ -199,7 +200,7 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
                   scview.data()
                 , send_size_coords
                 , iproc
-                , parallel::THUNDER_HALO_EXCHANGE_TAG+2
+                , parallel::GRACE_HALO_EXCHANGE_TAG+2
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
@@ -212,19 +213,19 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
     /* information.                                       */
     /******************************************************/
     spdlog::stopwatch sw1 ; 
-    thunder_face_info_t face_info{} ;
+    grace_face_info_t face_info{} ;
     p4est_iterate(
           forest::get().get()
         , halos 
         , reinterpret_cast<void*>( &face_info )
         , nullptr
-        , thunder_iterate_faces 
-        #ifdef THUNDER_3D 
+        , grace_iterate_faces 
+        #ifdef GRACE_3D 
         , nullptr 
         #endif 
         , nullptr) ;
-    THUNDER_TRACE("Iter faces took {} s.", sw1) ; 
-    THUNDER_VERBOSE("After iter-faces: obtained\n" 
+    GRACE_TRACE("Iter faces took {} s.", sw1) ; 
+    GRACE_VERBOSE("After iter-faces: obtained\n" 
           " {:d} simple faces of which " 
           " {:d} cross processor boundaries,\n"
           " {:d} hanging faces of which " 
@@ -239,7 +240,7 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
         , face_info.phys_boundary_info.size()
         , face_info.coarse_hanging_quads_info.snd_quadid.size()  
         , face_info.coarse_hanging_quads_info.rcv_quadid.size() ) ; 
-    THUNDER_VERBOSE( "Applying physical boundary conditions on " 
+    GRACE_VERBOSE( "Applying physical boundary conditions on " 
     " {:d} quadrants.", face_info.phys_boundary_info.size() ) ; 
     /******************************************************/
     /* Third step:                                        */
@@ -274,7 +275,7 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
     size_t nvars_aux = variables::get_n_auxiliary() ;
     auto& aux = variable_list::get().getaux()       ; 
     for(int ivar=0; ivar<nvars_aux; ++ivar){
-        auto bc_type = variables::get_bc_type(ivar, thunder::variables::AUXILIARY) ; 
+        auto bc_type = variables::get_bc_type(ivar, grace::variables::AUXILIARY) ; 
         if( bc_type == "outgoing" )
         {
             auto var = Kokkos::subview( aux
@@ -304,7 +305,7 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
     /*                       Copy                         */
     /******************************************************/
     parallel::mpi_waitall(context) ;
-    THUNDER_VERBOSE( "Copying interior ghostzones across simple boundaries on " 
+    GRACE_VERBOSE( "Copying interior ghostzones across simple boundaries on " 
     " {:d} quadrants.", face_info.simple_interior_info.size() ) ;
     auto simple_interior_info = face_info.simple_interior_info ;
     simple_interior_info.host_to_device() ;
@@ -312,7 +313,7 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
     /******************************************************/
     /*       Restrict and prolongate hanging faces        */
     /******************************************************/
-    THUNDER_VERBOSE( "Restricting and prolongating data on "
+    GRACE_VERBOSE( "Restricting and prolongating data on "
     "interior ghostzones across hanging boundaries on " 
     "{:d} quadrants.", face_info.hanging_interior_info.size() ) ;
     auto hanging_interior_info = face_info.hanging_interior_info ; 
@@ -335,7 +336,7 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
     for(int ircv=0; ircv<coarse_hanging_info.rcv_quadid.size(); ++ircv){
         int ihalo = coarse_hanging_info.rcv_quadid[ircv] ; 
         int iproc = coarse_hanging_info.rcv_procid[ircv] ; 
-        THUNDER_VERBOSE("Receive iproc {}", iproc);
+        GRACE_VERBOSE("Receive iproc {}", iproc);
         context._requests.push_back(sc_MPI_Request{}) ; 
         auto hsview = Kokkos::subview(
               halo
@@ -346,7 +347,7 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
               hsview.data()
             , send_size
             , iproc
-            , parallel::THUNDER_HALO_EXCHANGE_TAG
+            , parallel::GRACE_HALO_EXCHANGE_TAG
             , parallel::get_comm_world()
             , &(context._requests.back())
         ) ; 
@@ -360,13 +361,13 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
                         , Kokkos::ALL()
                         , iq_loc ) ; 
         for( auto const& iproc: coarse_hanging_info.snd_procid[isend] ) {
-            THUNDER_VERBOSE("Send iproc {}", iproc);
+            GRACE_VERBOSE("Send iproc {}", iproc);
             context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
                   sview.data()
                 , send_size
                 , iproc
-                , parallel::THUNDER_HALO_EXCHANGE_TAG
+                , parallel::GRACE_HALO_EXCHANGE_TAG
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
@@ -376,17 +377,17 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
     /*       3) Prolongation                              */
     /******************************************************/
     parallel::mpi_waitall(context) ;
-    THUNDER_VERBOSE("Initiating prolongation on {} quadrants.", hanging_interior_info.size());
+    GRACE_VERBOSE("Initiating prolongation on {} quadrants.", hanging_interior_info.size());
     if( interp == "linear" ){
         if( limiter == "minmod" ) {
-            prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
+            prolongate_hanging_ghostzones<utils::linear_prolongator_t<grace::minmod>>(
                       vars 
                     , halo 
                     , vols 
                     , halo_vols
                     , hanging_interior_info) ; 
         } else if ( limiter == "monotonized-central") {
-            prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::MCbeta>>(
+            prolongate_hanging_ghostzones<utils::linear_prolongator_t<grace::MCbeta>>(
                       vars 
                     , halo 
                     , vols 
@@ -409,11 +410,11 @@ void apply_boundary_conditions(thunder::var_array_t<THUNDER_NSPACEDIM>& vars) {
     /******************************************************/
     Kokkos::realloc(halo, VEC(0,0,0), 0,0);
     parallel::mpi_barrier() ; 
-    THUNDER_TRACE("All done in BC. Total number of cells processed: {}.\n"
+    GRACE_TRACE("All done in BC. Total number of cells processed: {}.\n"
                   "Total time elapsed {} s.\n"\
                 , EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) * nq * nvars 
                 , sw ) ; 
     Kokkos::Profiling::popRegion() ; 
 }
 
-}} /* namespace thunder::amr */
+}} /* namespace grace::amr */

@@ -1,7 +1,7 @@
 # Major open points:
 
 ## Variable storage / handling 
-There are several options on how to handle variables within Thunder.
+There are several options on how to handle variables within GRACE.
 Some of the most reasonable include the following: 
 
 1) Have a gigantic state view that has rank ndim + 2. The ndim ranks 
@@ -44,7 +44,7 @@ points of a given variable.
 The fluxes are obviously computed one direction at a time. It does not (in my opinion), make so much sense to store 
 flux arrays at all times. It probably makes more sense to allocate a temporary view containing the fluxes for all 
 evolved variables that has ngz = 1 in all directions (assuming we want second order derivatives). Fluxes are not 
-staggered gfs in Thunder terminology (makes no sense to alloc/dealloc fluxes within the direction loop, probably very 
+staggered gfs in GRACE terminology (makes no sense to alloc/dealloc fluxes within the direction loop, probably very 
 slow and only saves on one point in ndim-1 dimensions anyway. )
 
 ## State struct 

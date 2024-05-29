@@ -1,27 +1,27 @@
 #include <catch2/catch_test_macros.hpp>
 #include <Kokkos_Core.hpp>
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/IO/vtk_output.hh>
+#include <grace/amr/grace_amr.hh>
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/data_structures/grace_data_structures.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/IO/vtk_output.hh>
 #include <iostream>
 
 
 
 TEST_CASE("Volume VTK output", "[vol_vtk_out]")
 {
-    using namespace thunder::variables ; 
+    using namespace grace::variables ; 
 
     std::cout << "Starting..." << std::endl ;
-    #ifdef THUNDER_ENABLE_BURGERS 
+    #ifdef GRACE_ENABLE_BURGERS 
     int const DENS = U ; 
     int const DENS_ = U ; 
     int const BETAX_ = U ; 
     int const BETAY_ = U ; 
     int const BETAZ_ = U ; 
     #endif
-    #ifdef THUNDER_ENABLE_SCALAR_ADV 
+    #ifdef GRACE_ENABLE_SCALAR_ADV 
     int const DENS = U ; 
     int const DENS_ = U ; 
     int const BETAX_ = U ; 
@@ -31,12 +31,12 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
     DECLARE_VARIABLE_INDICES ; 
 
     std::cout << DENS << std::endl ; 
-    std::cout << thunder::get_variable_index("dens") << std::endl ;  
-    auto state  = thunder::variable_list::get().getstate() ;
+    std::cout << grace::get_variable_index("dens") << std::endl ;  
+    auto state  = grace::variable_list::get().getstate() ;
     size_t nx,ny,nz; 
-    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
-    size_t nq = thunder::amr::get_local_num_quadrants() ; 
-    int ngz = thunder::amr::get_n_ghosts() ; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    size_t nq = grace::amr::get_local_num_quadrants() ; 
+    int ngz = grace::amr::get_n_ghosts() ; 
     std::cout << "nx,ny(,nz),nq: " << EXPR(
         nx << ", " <<,
         ny << ", " <<,
@@ -50,7 +50,7 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
     {
         size_t const i = icell%(nx + 2*ngz) ; 
         size_t const j = (icell/(nx + 2*ngz)) % (ny + 2*ngz) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx + 2*ngz)/(ny + 2*ngz)) % (nz + 2*ngz) ; 
         size_t const q = 
@@ -58,7 +58,7 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
         #else 
         size_t const q = (icell/(nx + 2*ngz)/(nx + 2*ngz)) ; 
         #endif 
-        auto const coords = thunder::get_physical_coordinates({VEC(i,j,k)},q, {VEC(0.5,0.5,0.5)}, true) ; 
+        auto const coords = grace::get_physical_coordinates({VEC(i,j,k)},q, {VEC(0.5,0.5,0.5)}, true) ; 
         double const r2 = EXPR( math::int_pow<2>(coords[0]),
                               + math::int_pow<2>(coords[1]),
                               + math::int_pow<2>(coords[2]) )  ; 
@@ -66,7 +66,7 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
     }
     Kokkos::deep_copy(state, h_state_mirror) ; 
     Kokkos::parallel_for("Fill_beta_vector"
-                        , Kokkos::MDRangePolicy<Kokkos::Rank<THUNDER_NSPACEDIM+1>, thunder::default_execution_space>
+                        , Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>, grace::default_execution_space>
                           ({VEC(0,0,0),0}, {VEC(nx,ny,nz),nq})
                         , KOKKOS_LAMBDA (VEC(int i, int j, int k), int q)
                         {
@@ -75,6 +75,6 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
                             state(VEC(i,j,k),BETAZ_,q) = 0.0 ; 
                         }) ; 
     std::cout << "Calling output routine..." << std::endl ;
-    thunder::IO::write_cell_data_vtk(true,true,true) ; 
+    grace::IO::write_cell_data_vtk(true,true,true) ; 
 
 }

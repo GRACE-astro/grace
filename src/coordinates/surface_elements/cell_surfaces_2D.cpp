@@ -3,9 +3,9 @@
  *                                                                            *
  *              See http://www.sympy.org/ for more information.               *
  *                                                                            *
- *                       This file is part of 'Thunder'                       *
+ *                       This file is part of 'GRACE'                       *
  ******************************************************************************/
-#include <thunder/coordinates/surface_elements/cell_surfaces_2D.hh>
+#include <grace/coordinates/surface_elements/cell_surfaces_2D.hh>
 #include <math.h>
 
 double dA_2D_eta(double L, double R, double eta, double si, double so, double zeta) {

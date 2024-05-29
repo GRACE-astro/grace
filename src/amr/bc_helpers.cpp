@@ -4,8 +4,9 @@
  * @brief Index fiesta.
  * @date 2024-03-21
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -24,32 +25,32 @@
  * 
  */
 
-#include <thunder/amr/bc_helpers.hh>
-#include <thunder/amr/prolongation_kernels.tpp> 
-#include <thunder/amr/restriction_kernels.tpp> 
-#include <thunder/utils/prolongation.hh>
-#include <thunder/utils/limiters.hh> 
-#include <thunder/utils/restriction.hh>
-#include <thunder/amr/boundary_conditions.hh>
-#include <thunder/amr/p4est_headers.hh>
-#include <thunder/amr/bc_helpers.tpp>
-#include <thunder/amr/thunder_amr.hh> 
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/utils/interpolators.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
+#include <grace/amr/bc_helpers.hh>
+#include <grace/amr/prolongation_kernels.tpp> 
+#include <grace/amr/restriction_kernels.tpp> 
+#include <grace/utils/prolongation.hh>
+#include <grace/utils/limiters.hh> 
+#include <grace/utils/restriction.hh>
+#include <grace/amr/boundary_conditions.hh>
+#include <grace/amr/p4est_headers.hh>
+#include <grace/amr/bc_helpers.tpp>
+#include <grace/amr/grace_amr.hh> 
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/utils/interpolators.hh>
+#include <grace/data_structures/grace_data_structures.hh>
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Vector.hpp>
 
 
-namespace thunder { namespace amr {
+namespace grace { namespace amr {
 
-void thunder_iterate_faces( p4est_iter_face_info_t * info 
+void grace_iterate_faces( p4est_iter_face_info_t * info 
                           , void* user_data  )
 {
-    using namespace thunder; 
-    auto face_info = reinterpret_cast<thunder_face_info_t*>(user_data) ; 
+    using namespace grace; 
+    auto face_info = reinterpret_cast<grace_face_info_t*>(user_data) ; 
     sc_array_view_t<p4est_iter_face_side_t> sides{
         &(info->sides)
     } ; 
@@ -72,7 +73,7 @@ void thunder_iterate_faces( p4est_iter_face_info_t * info
             physical_boundary_info.push_back(
                 (offset+sides[0].is.hanging.quadid[1]) * P4EST_FACES + sides[0].face
             ); 
-            #ifdef THUNDER_3D 
+            #ifdef GRACE_3D 
             physical_boundary_info.push_back(
                 (offset+sides[0].is.hanging.quadid[2]) * P4EST_FACES + sides[0].face
             ); 
@@ -128,7 +129,7 @@ void thunder_iterate_faces( p4est_iter_face_info_t * info
                 + ( this_face_info.is_ghost_fine[ii] ? 0 : get_local_quadrants_offset(sides[1].treeid)  ) ; 
             ASSERT_DBG(this_face_info.is_ghost_fine[ii] == 0 or this_face_info.is_ghost_fine[ii] == 1
                       , "Is ghost fine neither true or false.") ; 
-            ASSERT_DBG(this_face_info.qid_fine[ii]>=0, "Negative quadrant id in thunder iter faces.") ; 
+            ASSERT_DBG(this_face_info.qid_fine[ii]>=0, "Negative quadrant id in grace iter faces.") ; 
         }
         if( this_face_info.is_ghost_coarse ) { 
             auto halos = info->ghost_layer ; 
@@ -179,7 +180,7 @@ void thunder_iterate_faces( p4est_iter_face_info_t * info
                 + ( this_face_info.is_ghost_fine[ii] ? 0 : get_local_quadrants_offset(sides[0].treeid)  ) ; 
             ASSERT_DBG(this_face_info.is_ghost_fine[ii] == 0 or this_face_info.is_ghost_fine[ii] == 1
                       , "Is ghost fine neither true or false.") ; 
-            ASSERT_DBG(this_face_info.qid_fine[ii]>=0, "Negative quadrant id in thunder iter faces.") ; 
+            ASSERT_DBG(this_face_info.qid_fine[ii]>=0, "Negative quadrant id in grace iter faces.") ; 
         }
         if( this_face_info.is_ghost_coarse ) { 
             auto halos = info->ghost_layer ; 
@@ -257,12 +258,12 @@ void thunder_iterate_faces( p4est_iter_face_info_t * info
 
 
 void copy_interior_ghostzones(
-      thunder::var_array_t<THUNDER_NSPACEDIM>& vars
-    , thunder::var_array_t<THUNDER_NSPACEDIM>& halo 
+      grace::var_array_t<GRACE_NSPACEDIM>& vars
+    , grace::var_array_t<GRACE_NSPACEDIM>& halo 
     , Kokkos::vector<simple_face_info_t>& interior_faces
 )
 {
-    using namespace thunder; 
+    using namespace grace; 
     using namespace Kokkos ; 
 
     size_t nx,ny,nz ; 
@@ -279,7 +280,7 @@ void copy_interior_ghostzones(
         policy( n_faces, AUTO() ) ; 
     using member_t = decltype(policy)::member_type ;
 
-    parallel_for( THUNDER_EXECUTION_TAG("AMR","copy_interior_ghostzones")
+    parallel_for( GRACE_EXECUTION_TAG("AMR","copy_interior_ghostzones")
                 , policy 
                 , KOKKOS_LAMBDA( const member_t& team )
         {
@@ -301,7 +302,7 @@ void copy_interior_ghostzones(
             auto& view_a = vars ; 
             auto& view_b = (is_ghost) ? halo : vars ;  
 
-            TeamThreadMDRange<Rank<THUNDER_NSPACEDIM+1>,member_t>
+            TeamThreadMDRange<Rank<GRACE_NSPACEDIM+1>,member_t>
                 team_range( team, ngz, VECD(n1,n2), nvars) ; 
             parallel_for( team_range
                         , KOKKOS_LAMBDA(int& ig, VECD(int& j, int& k), int& ivar)
@@ -334,7 +335,7 @@ void copy_interior_ghostzones(
                             + (which_face_b/2==0) * (j+ngz),
                             + (which_face_b/2==2) * (k+ngz)) ; 
 
-                    #ifdef THUNDER_3D
+                    #ifdef GRACE_3D
                     int k_a = (which_face_a==4) * 
                             ( (!polarity)*ig 
                             + (polarity)*(ngz-1-ig) )
@@ -379,7 +380,7 @@ void copy_interior_ghostzones(
                                 + (which_face_a/2==0) * (j+ngz),
                                 + (which_face_a/2==2) * (k+ngz)) ; 
 
-                        #ifdef THUNDER_3D
+                        #ifdef GRACE_3D
                         k_b =     (which_face_b==4) * 
                                 ( (!polarity)*ig 
                                 + (polarity)*(ngz-1-ig) )
@@ -402,14 +403,14 @@ void copy_interior_ghostzones(
 }
 
 void restrict_hanging_ghostzones(
-      thunder::var_array_t<THUNDER_NSPACEDIM>& state
-    , thunder::var_array_t<THUNDER_NSPACEDIM>& halo 
-    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>& vols 
-    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>& halo_vols 
+      grace::var_array_t<GRACE_NSPACEDIM>& state
+    , grace::var_array_t<GRACE_NSPACEDIM>& halo 
+    , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols 
+    , grace::cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols 
     , Kokkos::vector<hanging_face_info_t>& hanging_faces
 ) 
 {
-    using namespace thunder ;
+    using namespace grace ;
     using namespace Kokkos  ; 
 
     int64_t nx,ny,nz ; 
@@ -435,7 +436,7 @@ void restrict_hanging_ghostzones(
     /* neighboring quadrants.                        */
     /*************************************************/
     parallel_for
-    (             THUNDER_EXECUTION_TAG("AMR","restrict_hanging_faces")
+    (             GRACE_EXECUTION_TAG("AMR","restrict_hanging_faces")
                 , policy 
                 , KOKKOS_LAMBDA( const member_t& team )
         {
@@ -455,7 +456,7 @@ void restrict_hanging_ghostzones(
             int64_t const n2 = (which_face_fine/2==0) * nz + ((which_face_fine/2==1) * nz) + ((which_face_fine/2==2) * ny) ;
             if( ! is_ghost_coarse )
             {
-            TeamThreadMDRange<Rank<THUNDER_NSPACEDIM>,member_t>
+            TeamThreadMDRange<Rank<GRACE_NSPACEDIM>,member_t>
                 team_range( team, VECD(n1,n2), nvars) ; 
             parallel_for( team_range
                         , KOKKOS_LAMBDA(VECD(int& j, int& k), int& ivar)
@@ -528,14 +529,14 @@ void restrict_hanging_ghostzones(
 
 template< typename InterpT > 
 void prolongate_hanging_ghostzones(
-      thunder::var_array_t<THUNDER_NSPACEDIM>& state
-    , thunder::var_array_t<THUNDER_NSPACEDIM>& halo 
-    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>& vols 
-    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>& halo_vols 
+      grace::var_array_t<GRACE_NSPACEDIM>& state
+    , grace::var_array_t<GRACE_NSPACEDIM>& halo 
+    , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols 
+    , grace::cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols 
     , Kokkos::vector<hanging_face_info_t>& hanging_faces
 ) 
 {
-    using namespace thunder ;
+    using namespace grace ;
     using namespace Kokkos  ; 
 
     int64_t nx,ny,nz ; 
@@ -560,7 +561,7 @@ void prolongate_hanging_ghostzones(
     /* zones from coarse neighboring quadrants.      */
     /*************************************************/
     parallel_for
-    (             THUNDER_EXECUTION_TAG("AMR","prolongate_hanging_faces")
+    (             GRACE_EXECUTION_TAG("AMR","prolongate_hanging_faces")
                 , policy 
                 , KOKKOS_LAMBDA( const member_t& team )
         {
@@ -581,7 +582,7 @@ void prolongate_hanging_ghostzones(
             int64_t n2 = (which_face_fine/2==0) * nz + ((which_face_fine/2==1) * nz) + ((which_face_fine/2==2) * ny) ;
 
             auto& coarse_view   = is_ghost_coarse ? halo : state ; 
-            TeamThreadMDRange<Rank<THUNDER_NSPACEDIM+1>,member_t>
+            TeamThreadMDRange<Rank<GRACE_NSPACEDIM+1>,member_t>
                 team_range( team, VEC(ngz, n1,n2), nvars) ; 
             parallel_for( team_range
                         , KOKKOS_LAMBDA(VEC(int& ig, int& j, int& k), int& ivar)
@@ -616,7 +617,7 @@ void prolongate_hanging_ghostzones(
                         /* Then we loop over all child quadrants */
                         /* and call the prolongation kernel.     */
                         #pragma unroll 4
-                        for( int ichild=0; ichild<THUNDER_FACE_CHILDREN; ++ichild) {
+                        for( int ichild=0; ichild<GRACE_FACE_CHILDREN; ++ichild) {
                             if( is_ghost_fine[ichild] ) continue ; 
                             int64_t iq_fine = qid_fine[ichild] ; 
                             /* 
@@ -702,20 +703,20 @@ void prolongate_hanging_ghostzones(
 }
 
 template void 
-prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::minmod>>(
-      thunder::var_array_t<THUNDER_NSPACEDIM>& 
-    , thunder::var_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+prolongate_hanging_ghostzones<utils::linear_prolongator_t<grace::minmod>>(
+      grace::var_array_t<GRACE_NSPACEDIM>& 
+    , grace::var_array_t<GRACE_NSPACEDIM>&  
+    , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
+    , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
     , Kokkos::vector<hanging_face_info_t>& 
 ) ; 
 template void 
-prolongate_hanging_ghostzones<utils::linear_prolongator_t<thunder::MCbeta>>(
-      thunder::var_array_t<THUNDER_NSPACEDIM>& 
-    , thunder::var_array_t<THUNDER_NSPACEDIM>&   
-    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
-    , thunder::cell_vol_array_t<THUNDER_NSPACEDIM>&  
+prolongate_hanging_ghostzones<utils::linear_prolongator_t<grace::MCbeta>>(
+      grace::var_array_t<GRACE_NSPACEDIM>& 
+    , grace::var_array_t<GRACE_NSPACEDIM>&   
+    , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
+    , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
     , Kokkos::vector<hanging_face_info_t>& 
 ) ; 
 
-}} /* namespace thunder::amr */
+}} /* namespace grace::amr */

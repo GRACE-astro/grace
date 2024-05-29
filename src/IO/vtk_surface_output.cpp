@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2024-05-17
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  * 
@@ -25,7 +25,7 @@
  * 
  */
 
-#include <thunder/IO/vtk_surface_output.hh>
+#include <grace/IO/vtk_surface_output.hh>
 /* VTK includes */
 /* grid type */
 #include <vtkUnstructuredGrid.h>
@@ -58,20 +58,20 @@
 #include <vtkMPI.h>
 #include <vtkMPICommunicator.h>
 #include <vtkMPIController.h>
-/* thunder includes */
-#include <thunder/data_structures/variable_properties.hh>
-#include <thunder/system/thunder_runtime.hh>
-#include <thunder/coordinates/coordinate_systems.hh> 
-#include <thunder/IO/vtk_output.hh>
-#include <thunder/IO/vtk_surface_output.hh>
-#include <thunder/IO/vtk_output_auxiliaries.hh>
-#include <thunder/IO/vtk_output.tpp>
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/errors/error.hh>
-#include <thunder/errors/assert.hh> 
-#include <thunder/data_structures/variables.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
+/* grace includes */
+#include <grace/data_structures/variable_properties.hh>
+#include <grace/system/grace_runtime.hh>
+#include <grace/coordinates/coordinate_systems.hh> 
+#include <grace/IO/vtk_output.hh>
+#include <grace/IO/vtk_surface_output.hh>
+#include <grace/IO/vtk_output_auxiliaries.hh>
+#include <grace/IO/vtk_output.tpp>
+#include <grace/amr/grace_amr.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/errors/error.hh>
+#include <grace/errors/assert.hh> 
+#include <grace/data_structures/variables.hh>
+#include <grace/coordinates/coordinate_systems.hh>
 /* Kokkos */
 #include <Kokkos_Core.hpp>
 /* stdlib includes */
@@ -80,12 +80,12 @@
 #include <string>
 #include <filesystem>
 
-namespace thunder { namespace IO {
+namespace grace { namespace IO {
 
 void write_plane_surface_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
                                       , vtkSmartPointer<vtkXMLPPolyDataWriter> pwriter ) {
     Kokkos::Profiling::pushRegion("VTK plane output") ;                                    
-    auto& runtime = thunder::runtime::get() ;
+    auto& runtime = grace::runtime::get() ;
 
     int n_planes = runtime.n_surface_output_planes() ; 
 
@@ -95,7 +95,7 @@ void write_plane_surface_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> gri
 
     std::filesystem::path base_path (runtime.surface_io_basepath()) ;
 
-    setup_volume_cell_data(grid, thunder_vtk_output_t::PLANE_SURFACE) ; 
+    setup_volume_cell_data(grid, grace_vtk_output_t::PLANE_SURFACE) ; 
 
     detail::_surface_plane_iterations.push_back(runtime.iteration())  ;
     detail::_surface_plane_times.push_back(runtime.time())            ; 
@@ -127,7 +127,7 @@ void write_plane_surface_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> gri
 
         detail::_surface_plane_filenames[iplane].push_back(pfname)        ;
         if( parallel::mpi_comm_rank() == 0 ) {
-            THUNDER_TRACE("Plane {} npoints {}\n origin {} {} {}\n normal {} {} {}."
+            GRACE_TRACE("Plane {} npoints {}\n origin {} {} {}\n normal {} {} {}."
                          ,plane_names[iplane],cutter->GetOutput()->GetNumberOfPoints()
                          ,plane_origins[iplane][0],plane_origins[iplane][1],plane_origins[iplane][2]
                          ,plane_normals[iplane][0],plane_normals[iplane][1],plane_normals[iplane][2]);
@@ -147,7 +147,7 @@ void write_plane_surface_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> gri
 void write_sphere_surface_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
                                        , vtkSmartPointer<vtkXMLPPolyDataWriter> pwriter ) {
     Kokkos::Profiling::pushRegion("VTK sphere output") ; 
-    auto& runtime = thunder::runtime::get() ;
+    auto& runtime = grace::runtime::get() ;
 
     int n_spheres = runtime.n_surface_output_spheres() ; 
 
@@ -157,7 +157,7 @@ void write_sphere_surface_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> gr
 
     std::filesystem::path base_path (runtime.surface_io_basepath()) ;
 
-    setup_volume_cell_data(grid, thunder_vtk_output_t::SPHERE_SURFACE) ;
+    setup_volume_cell_data(grid, grace_vtk_output_t::SPHERE_SURFACE) ;
     detail::_surface_sphere_iterations.push_back(runtime.iteration())  ;
     detail::_surface_sphere_times.push_back(runtime.time())            ; 
     for ( int isphere=0; isphere<n_spheres; ++isphere ) {

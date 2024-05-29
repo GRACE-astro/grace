@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2024-05-23
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  * 
@@ -25,15 +25,15 @@
  * 
  */
 
-#include <thunder_config.h>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/system/thunder_system.hh>
-#include <thunder/IO/hdf5_output.hh>
+#include <grace_config.h>
+#include <grace/utils/grace_utils.hh>
+#include <grace/amr/grace_amr.hh>
+#include <grace/config/config_parser.hh>
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/system/grace_system.hh>
+#include <grace/IO/hdf5_output.hh>
 
-#include <thunder/parallel/mpi_wrappers.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 
 #include <hdf5.h>
 #include <omp.h>
@@ -47,7 +47,7 @@
 #include <vtkSmartPointer.h>
 #include <vtkNew.h>
 /* xdmf */
-#include <thunder/IO/xmf_utilities.hh>
+#include <grace/IO/xmf_utilities.hh>
 /* stl */
 #include <string>
 #include <filesystem>
@@ -61,7 +61,7 @@
         } \
     } while(false)
 
-namespace thunder { namespace IO {
+namespace grace { namespace IO {
 
 namespace detail {
 
@@ -84,32 +84,32 @@ void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere) {
 void write_volume_cell_data_hdf5() {
     Kokkos::Profiling::pushRegion("HDF5 volume output") ;
 
-    detail::_volume_output_iterations.push_back(thunder::get_iteration())  ; 
-    detail::_volume_output_times.push_back(thunder::get_simulation_time()) ;
+    detail::_volume_output_iterations.push_back(grace::get_iteration())  ; 
+    detail::_volume_output_times.push_back(grace::get_simulation_time()) ;
 
-    auto& runtime = thunder::runtime::get() ; 
+    auto& runtime = grace::runtime::get() ; 
     std::filesystem::path base_path (runtime.volume_io_basepath()) ;
     std::ostringstream oss;
     oss << runtime.volume_io_basename() << "_" 
-        << std::setw(6) << std::setfill('0') << thunder::get_iteration() << ".h5";
+        << std::setw(6) << std::setfill('0') << grace::get_iteration() << ".h5";
     std::string pfname = oss.str();
     std::filesystem::path out_path = base_path / pfname ;
     detail::_volume_output_filenames.push_back(pfname) ;
 
-    auto& params = thunder::config_parser::get() ;
+    auto& params = grace::config_parser::get() ;
     size_t compression_level = params["IO"]["hdf5_compression_level"].as<size_t>() ;
     size_t chunk_size = params["IO"]["hdf5_chunk_size"].as<size_t>() ;
 
-    auto _p4est = thunder::amr::forest::get().get() ; 
+    auto _p4est = grace::amr::forest::get().get() ; 
     /* Get global number of quadrants and quadrant offset for this rank */
     unsigned long const nq_glob = _p4est->global_num_quadrants ;
     size_t nx,ny,nz; 
-    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
     unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
     /* Global number of cells  */
     unsigned long const ncells_glob = ncells_quad * nq_glob ; 
     if( chunk_size > ncells_glob ) {
-        THUNDER_WARN("Chunk size {} < number of cells {} will be overridden." , chunk_size, ncells_glob) ; 
+        GRACE_WARN("Chunk size {} < number of cells {} will be overridden." , chunk_size, ncells_glob) ; 
         chunk_size = ncells_glob; 
     }
 
@@ -127,7 +127,7 @@ void write_volume_cell_data_hdf5() {
     HDF5_CALL(file_id,H5Fcreate(out_path.string().c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plist_id)) ;
     hid_t attr_id, attr_dataspace_id;
     std::string file_attr_name = "Time";
-    const double file_attr_data = thunder::get_simulation_time() ;
+    const double file_attr_data = grace::get_simulation_time() ;
     // Create a dataspace for the attribute
     HDF5_CALL(attr_dataspace_id,H5Screate(H5S_SCALAR));
     // Create the attribute
@@ -138,7 +138,7 @@ void write_volume_cell_data_hdf5() {
     HDF5_CALL(err,H5Aclose(attr_id));
     HDF5_CALL(err,H5Sclose(attr_dataspace_id));
     file_attr_name = "Iteration" ; 
-    const unsigned int iter = thunder::get_iteration(); 
+    const unsigned int iter = grace::get_iteration(); 
     HDF5_CALL(attr_dataspace_id,H5Screate(H5S_SCALAR));
     // Create the attribute
     HDF5_CALL(attr_id,H5Acreate2(file_id, file_attr_name.c_str(), H5T_NATIVE_UINT, attr_dataspace_id, H5P_DEFAULT, H5P_DEFAULT));
@@ -171,25 +171,25 @@ void write_volume_cell_data_hdf5() {
 void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) {
     herr_t err ; 
 
-    auto& coord_system = thunder::coordinate_system::get() ; 
+    auto& coord_system = grace::coordinate_system::get() ; 
     size_t nx,ny,nz; 
-    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
-    int ngz = thunder::amr::get_n_ghosts() ;
-    size_t nq = thunder::amr::get_local_num_quadrants() ; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    int ngz = grace::amr::get_n_ghosts() ;
+    size_t nq = grace::amr::get_local_num_quadrants() ; 
 
-    #ifdef THUNDER_3D 
-    #ifdef THUNDER_CARTESIAN_COORDINATES
+    #ifdef GRACE_3D 
+    #ifdef GRACE_CARTESIAN_COORDINATES
     using cell_type = vtkHexahedron ; 
     size_t constexpr nvertex = 8 ;
-    #elif defined(THUNDER_SPHERICAL_COORDINATES)
+    #elif defined(GRACE_SPHERICAL_COORDINATES)
     using cell_type = vtkBiQuadraticQuadraticHexahedron ; 
     size_t constexpr nvertex = 24 ;
     #endif 
     #else 
-    #ifdef THUNDER_CARTESIAN_COORDINATES
+    #ifdef GRACE_CARTESIAN_COORDINATES
     size_t nvertex = 4 ; 
     using cell_type = vtkQuad ; 
-    #elif defined(THUNDER_SPHERICAL_COORDINATES)
+    #elif defined(GRACE_SPHERICAL_COORDINATES)
     size_t nvertex = 6 ; 
     using cell_type = vtkQuadraticLinearQuad ;
     #endif 
@@ -197,7 +197,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
 
     auto const rank = parallel::mpi_comm_rank() ; 
     /* Get the p4est pointer */
-    auto _p4est = thunder::amr::forest::get().get() ; 
+    auto _p4est = grace::amr::forest::get().get() ; 
     /* Get global number of quadrants and quadrant offset for this rank */
     unsigned long const nq_glob = _p4est->global_num_quadrants ; 
     unsigned long const local_quad_offset = _p4est->global_first_quadrant[rank] ; 
@@ -224,7 +224,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     unsigned int ipoint = 0U ; 
     #pragma omp parallel for collapse 4
     for(int64_t iq=0; iq<nq; ++iq) {
-        #ifdef THUNDER_3D
+        #ifdef GRACE_3D
         for(size_t k=0; k<nz; ++k  ) {
         #endif  
             for( size_t j=0; j<ny; ++j) { 
@@ -237,11 +237,11 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
                                                                    , lcoords[3*iv+1]
                                                                    , lcoords[3*iv+2])}
                                                              , false) ; 
-                    points[THUNDER_NSPACEDIM*(nvertex*icell + iv) + 0 ] = pcoords[0] ; 
-                    points[THUNDER_NSPACEDIM*(nvertex*icell + iv) + 1 ] = pcoords[1] ;
+                    points[GRACE_NSPACEDIM*(nvertex*icell + iv) + 0 ] = pcoords[0] ; 
+                    points[GRACE_NSPACEDIM*(nvertex*icell + iv) + 1 ] = pcoords[1] ;
                     
-                    points[THUNDER_NSPACEDIM*(nvertex*icell + iv) + 2 ] 
-                    #ifdef THUNDER_3D 
+                    points[GRACE_NSPACEDIM*(nvertex*icell + iv) + 2 ] 
+                    #ifdef GRACE_3D 
                         = pcoords[2] ;
                     #else 
                         = 0.0 ; 
@@ -252,7 +252,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
                 }
 
                 icell ++ ; 
-                #ifdef THUNDER_3D
+                #ifdef GRACE_3D
                 }
                 #endif 
             }
@@ -305,7 +305,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     hid_t attr_id, attr_dataspace_id; 
     const std::string dataset_attr_name = "CellTopology";
     const char * dataset_attr_data = 
-    #ifdef THUNDER_3D
+    #ifdef GRACE_3D
         "Hexahedron";
     #else 
         "Quadrilateral";
@@ -327,7 +327,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     /* Select hyperslab for this rank's output */
     hsize_t cells_slab_start[2]  = {local_quad_offset * ncells_quad,0} ; 
     hsize_t cells_slab_count[2]  = {ncells,nvertex} ;
-    THUNDER_VERBOSE("Slab offset {}, size {}, total {}", cells_slab_start[0], ncells, ncells_glob) ;  
+    GRACE_VERBOSE("Slab offset {}, size {}, total {}", cells_slab_start[0], ncells, ncells_glob) ;  
     HDF5_CALL( err
              , H5Sselect_hyperslab( cells_space_id_glob
                                   , H5S_SELECT_SET
@@ -355,12 +355,12 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     /* Write points dataset */
     /* Create local space for this rank */
     hid_t points_space_id ; 
-    hsize_t points_dset_dims[2] = {npoints, THUNDER_NSPACEDIM} ;
+    hsize_t points_dset_dims[2] = {npoints, GRACE_NSPACEDIM} ;
     HDF5_CALL(points_space_id, H5Screate_simple(2, points_dset_dims, NULL)) ; 
     /* Select hyperslab for this rank's output */
     hsize_t points_slab_start[2]  = {global_point_offset,0} ;
-    THUNDER_VERBOSE("Slab offset {}, size {}, total {}", points_slab_start[0], npoints, npoints_glob) ;  
-    hsize_t points_slab_count[2]  = {npoints,THUNDER_NSPACEDIM} ;
+    GRACE_VERBOSE("Slab offset {}, size {}, total {}", points_slab_start[0], npoints, npoints_glob) ;  
+    hsize_t points_slab_count[2]  = {npoints,GRACE_NSPACEDIM} ;
     HDF5_CALL( err
              , H5Sselect_hyperslab( points_space_id_glob
                                   , H5S_SELECT_SET
@@ -391,7 +391,7 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
 
     herr_t err ;
 
-    auto& runtime = thunder::runtime::get() ;
+    auto& runtime = grace::runtime::get() ;
 
     auto const scalars     = runtime.cell_volume_output_scalar_vars() ; 
     auto const aux_scalars = runtime.cell_volume_output_scalar_aux()  ;
@@ -399,17 +399,17 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
     auto const aux_vectors = runtime.cell_volume_output_vector_aux()  ;
 
     size_t nx,ny,nz,nq; 
-    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
-    nq = thunder::amr::get_local_num_quadrants() ; 
-    size_t ngz = thunder::amr::get_n_ghosts() ; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    nq = grace::amr::get_local_num_quadrants() ; 
+    size_t ngz = grace::amr::get_n_ghosts() ; 
 
-    auto vars = thunder::variable_list::get().getstate() ; 
-    auto aux  = thunder::variable_list::get().getaux()   ;
+    auto vars = grace::variable_list::get().getstate() ; 
+    auto aux  = grace::variable_list::get().getaux()   ;
     using exec_space = decltype(vars)::execution_space   ;
 
     auto const rank = parallel::mpi_comm_rank() ; 
     /* Get the p4est pointer */
-    auto _p4est = thunder::amr::forest::get().get() ; 
+    auto _p4est = grace::amr::forest::get().get() ; 
     /* Get global number of quadrants and quadrant offset for this rank */
     unsigned long const nq_glob = _p4est->global_num_quadrants ; 
     unsigned long const local_quad_offset = _p4est->global_first_quadrant[rank] ; 
@@ -451,7 +451,7 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
     auto h_mirror = Kokkos::create_mirror_view(d_mirror) ; 
     for( int ivar=0; ivar<scalars.size(); ++ivar)
     {
-        size_t varidx = thunder::get_variable_index(scalars[ivar]) ; 
+        size_t varidx = grace::get_variable_index(scalars[ivar]) ; 
         /* create HDF5 dataset */
         std::string dset_name = "/" + scalars[ivar] ; 
         HDF5_CALL( scalars_dset_id
@@ -485,7 +485,7 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
             auto sview = Kokkos::subview( vars
                                         , Kokkos::pair<int,int>(ngz,nx+ngz)
                                         , Kokkos::pair<int,int>(ngz,ny+ngz)
-                                        #ifdef THUNDER_3D
+                                        #ifdef GRACE_3D
                                         , Kokkos::pair<int,int>(ngz,nz+ngz)
                                         #endif 
                                         , varidx 
@@ -493,7 +493,7 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
             auto mirror_sview = Kokkos::subview( d_mirror
                                         , Kokkos::ALL()
                                         , Kokkos::ALL()
-                                        #ifdef THUNDER_3D
+                                        #ifdef GRACE_3D
                                         , Kokkos::ALL()
                                         #endif 
                                         , iq ) ; 
@@ -501,7 +501,7 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
             Kokkos::deep_copy(mirror_sview, sview) ; 
         }
         /* Copy data d2h */
-        Kokkos::deep_copy(thunder::default_execution_space{},h_mirror,d_mirror) ; 
+        Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
         /* Select hyperslab for this rank's output */
         hsize_t sclars_slab_start[1]  = {local_quad_offset * ncells_quad} ; 
         hsize_t sclars_slab_count[1]  = {ncells} ;
@@ -533,4 +533,4 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
      
 }
 
-}} /* namespace thunder::IO */
+}} /* namespace grace::IO */

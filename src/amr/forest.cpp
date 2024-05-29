@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2024-02-29
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  * 
@@ -25,21 +25,21 @@
  * 
  */
 
-#include <thunder/amr/forest.hh>
+#include <grace/amr/forest.hh>
 
-#include <thunder/amr/amr_flags.hh>
-#include <thunder/parallel/mpi_wrappers.hh> 
-#include <thunder/amr/connectivity.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/system/print.hh>
+#include <grace/amr/amr_flags.hh>
+#include <grace/parallel/mpi_wrappers.hh> 
+#include <grace/amr/connectivity.hh>
+#include <grace/config/config_parser.hh>
+#include <grace/system/print.hh>
 
-namespace thunder { namespace amr {
+namespace grace { namespace amr {
 
 forest_impl_t::forest_impl_t() 
 { 
-    THUNDER_INFO("Initializing forest of oct-trees...")  ;
-    auto & params       = thunder::config_parser::get()   ; 
-    auto & connectivity = thunder::amr::connectivity::get() ; 
+    GRACE_INFO("Initializing forest of oct-trees...")  ;
+    auto & params       = grace::config_parser::get()   ; 
+    auto & connectivity = grace::amr::connectivity::get() ; 
     int min_level( params["amr"]["initial_refinement_level"].as<int>() ) ; 
     _p4est =  p4est_new_ext(  parallel::get_comm_world()
                             , connectivity.get()   
@@ -49,7 +49,7 @@ forest_impl_t::forest_impl_t()
                             , sizeof(amr_flags_t)
                             , initialize_quadrant
                             , nullptr ) ; 
-    THUNDER_INFO("Forest initialized with {} ({}) total (local) quadrants."
+    GRACE_INFO("Forest initialized with {} ({}) total (local) quadrants."
                  , _p4est->global_num_quadrants, _p4est->local_num_quadrants ) ; 
 }
 
@@ -58,4 +58,4 @@ forest_impl_t::~forest_impl_t()
     p4est_destroy(_p4est) ; 
 }
 
-} } /* namespace thunder::amr */
+} } /* namespace grace::amr */

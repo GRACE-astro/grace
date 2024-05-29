@@ -1,4 +1,4 @@
-#include <thunder/parallel/mpi_wrappers.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 
 namespace parallel {
 
@@ -57,7 +57,7 @@ int mpi_comm_rank(sc_MPI_Comm comm)
     return rank ;
 }
 
-void mpi_waitall(thunder_transfer_context_t& context)
+void mpi_waitall(grace_transfer_context_t& context)
 {
     int mpi_retval; 
     if ( context._requests.size() > 0 ) {

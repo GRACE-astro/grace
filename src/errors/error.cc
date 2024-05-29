@@ -1,17 +1,17 @@
-#include <thunder/errors/error.hh>
+#include <grace/errors/error.hh>
 
 #include<csignal>
 #include<signal.h>
 
 namespace detail {
-//! \cond thunder_detail
+//! \cond grace_detail
 /**
  * @brief Magma signal handler. Catches signals 
  *        and aborts with <code>ERROR</code>.
  * 
  * @param sg signal caught. 
  */
-[[noreturn]] void thunder_signal_handler(int sg){
+[[noreturn]] void grace_signal_handler(int sg){
     switch (sg) {
 
         case SIGFPE:
@@ -42,7 +42,7 @@ namespace detail {
  */
 void install_signal_handlers() {
     struct sigaction signal_handler ;
-    signal_handler.sa_handler = detail::thunder_signal_handler;
+    signal_handler.sa_handler = detail::grace_signal_handler;
 
     if ( sigaction(SIGBUS, &signal_handler, nullptr) < 0 )
     {

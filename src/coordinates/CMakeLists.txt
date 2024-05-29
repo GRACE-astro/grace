@@ -1,11 +1,11 @@
-add_library( thunder_cartesian_coordinates OBJECT cartesian_coordinate_system.cpp )
-target_include_directories( thunder_cartesian_coordinates PRIVATE "${HEADER_DIR}" )
-target_compile_options(thunder_cartesian_coordinates PRIVATE -Wno-dangling-field)
-target_link_libraries( thunder_cartesian_coordinates PRIVATE 
-                        $<TARGET_OBJECTS:thunder_parallel> 
-                        $<TARGET_OBJECTS:thunder_singleton> 
-                        $<TARGET_OBJECTS:thunder_connectivity> 
-                        $<TARGET_OBJECTS:thunder_forest>
+add_library( grace_cartesian_coordinates OBJECT cartesian_coordinate_system.cpp )
+target_include_directories( grace_cartesian_coordinates PRIVATE "${HEADER_DIR}" )
+target_compile_options(grace_cartesian_coordinates PRIVATE -Wno-dangling-field)
+target_link_libraries( grace_cartesian_coordinates PRIVATE 
+                        $<TARGET_OBJECTS:grace_parallel> 
+                        $<TARGET_OBJECTS:grace_singleton> 
+                        $<TARGET_OBJECTS:grace_connectivity> 
+                        $<TARGET_OBJECTS:grace_forest>
                         yaml_cpp::yaml
                         MPI::MPI_CXX
                         p4est::sc
@@ -40,15 +40,15 @@ add_library(spherical_volume_element_3D_log_exact OBJECT volume_elements/dVol_sp
 target_include_directories( spherical_volume_element_3D_log_exact PRIVATE "${HEADER_DIR}" )
 
                                        
-add_library( thunder_spherical_coordinates OBJECT spherical_coordinate_system.cpp )
-target_include_directories( thunder_spherical_coordinates PRIVATE "${HEADER_DIR}" )
-target_compile_options(thunder_spherical_coordinates PRIVATE -Wno-dangling-field)
-target_link_libraries( thunder_spherical_coordinates PRIVATE 
-                        $<TARGET_OBJECTS:thunder_parallel> 
+add_library( grace_spherical_coordinates OBJECT spherical_coordinate_system.cpp )
+target_include_directories( grace_spherical_coordinates PRIVATE "${HEADER_DIR}" )
+target_compile_options(grace_spherical_coordinates PRIVATE -Wno-dangling-field)
+target_link_libraries( grace_spherical_coordinates PRIVATE 
+                        $<TARGET_OBJECTS:grace_parallel> 
                         $<TARGET_OBJECTS:spherical_cell_volume_kernels>
-                        $<TARGET_OBJECTS:thunder_singleton> 
-                        $<TARGET_OBJECTS:thunder_connectivity> 
-                        $<TARGET_OBJECTS:thunder_forest>
+                        $<TARGET_OBJECTS:grace_singleton> 
+                        $<TARGET_OBJECTS:grace_connectivity> 
+                        $<TARGET_OBJECTS:grace_forest>
                         $<TARGET_OBJECTS:spherical_jacobians_2D>
                         $<TARGET_OBJECTS:spherical_jacobians_3D>
                         $<TARGET_OBJECTS:spherical_jacobians_inv_2D>
@@ -62,15 +62,15 @@ target_link_libraries( thunder_spherical_coordinates PRIVATE
                         Kokkos::kokkos 
                         spdlog::spdlog )
 
-add_library( thunder_coordinates OBJECT coordinates.cpp )
-target_include_directories( thunder_coordinates PRIVATE "${HEADER_DIR}" )
-target_link_libraries( thunder_coordinates PRIVATE 
-                       $<TARGET_OBJECTS:thunder_parallel> 
-                       $<TARGET_OBJECTS:thunder_singleton> 
-                       $<TARGET_OBJECTS:thunder_connectivity> 
-                       $<TARGET_OBJECTS:thunder_forest>
-                       $<TARGET_OBJECTS:thunder_amr_functions>
-                       $<TARGET_OBJECTS:thunder_cartesian_coordinates>
+add_library( grace_coordinates OBJECT coordinates.cpp )
+target_include_directories( grace_coordinates PRIVATE "${HEADER_DIR}" )
+target_link_libraries( grace_coordinates PRIVATE 
+                       $<TARGET_OBJECTS:grace_parallel> 
+                       $<TARGET_OBJECTS:grace_singleton> 
+                       $<TARGET_OBJECTS:grace_connectivity> 
+                       $<TARGET_OBJECTS:grace_forest>
+                       $<TARGET_OBJECTS:grace_amr_functions>
+                       $<TARGET_OBJECTS:grace_cartesian_coordinates>
                        yaml_cpp::yaml
                        MPI::MPI_CXX
                        OpenMP::OpenMP_CXX
@@ -79,15 +79,15 @@ target_link_libraries( thunder_coordinates PRIVATE
                        Kokkos::kokkos 
                        spdlog::spdlog )
 
-add_library( thunder_coordinate_systems OBJECT coordinate_systems.cpp )
-target_include_directories( thunder_coordinate_systems PRIVATE "${HEADER_DIR}" )
-target_link_libraries( thunder_coordinate_systems PRIVATE 
-                       $<TARGET_OBJECTS:thunder_parallel> 
-                       $<TARGET_OBJECTS:thunder_singleton> 
-                       $<TARGET_OBJECTS:thunder_connectivity> 
-                       $<TARGET_OBJECTS:thunder_forest>
-                       $<TARGET_OBJECTS:thunder_amr_functions>
-                       $<TARGET_OBJECTS:thunder_cartesian_coordinates>
+add_library( grace_coordinate_systems OBJECT coordinate_systems.cpp )
+target_include_directories( grace_coordinate_systems PRIVATE "${HEADER_DIR}" )
+target_link_libraries( grace_coordinate_systems PRIVATE 
+                       $<TARGET_OBJECTS:grace_parallel> 
+                       $<TARGET_OBJECTS:grace_singleton> 
+                       $<TARGET_OBJECTS:grace_connectivity> 
+                       $<TARGET_OBJECTS:grace_forest>
+                       $<TARGET_OBJECTS:grace_amr_functions>
+                       $<TARGET_OBJECTS:grace_cartesian_coordinates>
                        yaml_cpp::yaml
                        MPI::MPI_CXX
                        p4est::sc

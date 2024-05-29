@@ -3,11 +3,11 @@
  *                                                                            *
  *              See http://www.sympy.org/ for more information.               *
  *                                                                            *
- *                       This file is part of 'Thunder'                       *
+ *                       This file is part of 'GRACE'                       *
  ******************************************************************************/
-#include <thunder/coordinates/jacobians/Jacobians_inverse_sph_2D.hh>
+#include <grace/coordinates/jacobians/Jacobians_inverse_sph_2D.hh>
 #include <math.h>
-namespace thunder { 
+namespace grace { 
 double Jac_sph_inv_2D_00(double L, double R, double eta, double si, double so, double zeta) {
 
    double Jac_sph_inv_2D_00_result;

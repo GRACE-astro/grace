@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2024-02-29
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  * 
@@ -25,22 +25,22 @@
  * 
  */
 
-#include <thunder_config.h>
+#include <grace_config.h>
 
-#include <thunder/utils/inline.h>
+#include <grace/utils/inline.h>
 
-#include <thunder/amr/connectivities_impl.hh>
-#include <thunder/amr/connectivity.hh>
+#include <grace/amr/connectivities_impl.hh>
+#include <grace/amr/connectivity.hh>
 
-#include <thunder/config/config_parser.hh>
+#include <grace/config/config_parser.hh>
 
 #include <cstdlib>
 
-namespace thunder{ namespace amr { 
+namespace grace{ namespace amr { 
 
 namespace detail{
 
-#ifdef THUNDER_3D 
+#ifdef GRACE_3D 
 //**************************************************************************************************
 p4est_connectivity_t*
 new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
@@ -327,8 +327,8 @@ new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
  * 
  */
 connectivity_impl_t::connectivity_impl_t() {
-  auto& params = thunder::config_parser::get() ; 
-  #if defined(THUNDER_CARTESIAN_COORDINATES)
+  auto& params = grace::config_parser::get() ; 
+  #if defined(GRACE_CARTESIAN_COORDINATES)
   double xmin{ params["amr"]["xmin"].as<double>() } ,
           xmax{ params["amr"]["xmax"].as<double>() } ,
           ymin{ params["amr"]["ymin"].as<double>() } ,
@@ -339,7 +339,7 @@ connectivity_impl_t::connectivity_impl_t() {
         periodic_y{ params["amr"]["periodic_y"].as<bool>() } , 
         periodic_z{ params["amr"]["periodic_z"].as<bool>() } ; 
 
-  #ifndef THUNDER_3D 
+  #ifndef GRACE_3D 
     pconn_ = detail::new_cartesian_connectivity(xmin, xmax, periodic_x
                                                 ,ymin, ymax, periodic_y) ; 
   #else 
@@ -349,13 +349,13 @@ connectivity_impl_t::connectivity_impl_t() {
   #endif 
   t2t_polarity_.resize(pconn_->num_trees * P4EST_FACES) ; 
   for( auto& x: t2t_polarity_ ) x = 0 ; 
-  #elif defined(THUNDER_SPHERICAL_COORDINATES)
+  #elif defined(GRACE_SPHERICAL_COORDINATES)
   double  L{ params["amr"]["inner_region_side"].as<double>() }
         , R{ params["amr"]["inner_region_radius"].as<double>() }
         , Rl{ params["amr"]["outer_region_radius"].as<double>() } ; 
   bool use_log_r { params["amr"]["use_logarithmic_radial_zone"].as<bool>() } ; 
 
-  #ifndef THUNDER_3D 
+  #ifndef GRACE_3D 
     pconn_ = detail::new_spherical_connectivity(L, R, Rl) ; 
     t2t_polarity_ = {
       1, 0, 1, 0, // 0
@@ -404,4 +404,4 @@ connectivity_impl_t::connectivity_impl_t() {
 }
 //**************************************************************************************************
 
-}} /* namespace thunder::amr */
+}} /* namespace grace::amr */

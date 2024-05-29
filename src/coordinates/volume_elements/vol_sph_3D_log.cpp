@@ -3,10 +3,10 @@
  *                                                                            *
  *              See http://www.sympy.org/ for more information.               *
  *                                                                            *
- *                       This file is part of 'Thunder'                       *
+ *                       This file is part of 'GRACE'                       *
  ******************************************************************************/
-#include <thunder/coordinates/volume_elements/vol_sph_3D_log.hh>
-#include <thunder/utils/math.hh>
+#include <grace/coordinates/volume_elements/vol_sph_3D_log.hh>
+#include <grace/utils/math.hh>
 #include <math.h>
 
 double dVol_sph_3D_log(double L, double R, double dxi, double dzeta, double eta, double xi0, double zeta0) {

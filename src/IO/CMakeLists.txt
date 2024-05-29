@@ -1,12 +1,12 @@
-add_library(thunder_vtk_output OBJECT vtk_output.cpp vtk_setup_grid.cpp vtk_volume_output.cpp vtk_surface_output.cpp scalar_output.cpp)
-target_include_directories( thunder_vtk_output PRIVATE "${HEADER_DIR}" )
-target_link_libraries(  thunder_vtk_output PRIVATE
-                        $<TARGET_OBJECTS:thunder_parallel>  
-                        $<TARGET_OBJECTS:thunder_connectivity> 
-                        $<TARGET_OBJECTS:thunder_forest>
-                        $<TARGET_OBJECTS:thunder_coordinates>
-                        $<TARGET_OBJECTS:thunder_variable_list>
-                        $<TARGET_OBJECTS:thunder_amr_functions>
+add_library(grace_vtk_output OBJECT vtk_output.cpp vtk_setup_grid.cpp vtk_volume_output.cpp vtk_surface_output.cpp scalar_output.cpp)
+target_include_directories( grace_vtk_output PRIVATE "${HEADER_DIR}" )
+target_link_libraries(  grace_vtk_output PRIVATE
+                        $<TARGET_OBJECTS:grace_parallel>  
+                        $<TARGET_OBJECTS:grace_connectivity> 
+                        $<TARGET_OBJECTS:grace_forest>
+                        $<TARGET_OBJECTS:grace_coordinates>
+                        $<TARGET_OBJECTS:grace_variable_list>
+                        $<TARGET_OBJECTS:grace_amr_functions>
                         yaml_cpp::yaml
                         MPI::MPI_CXX 
                         p4est::sc 
@@ -16,19 +16,19 @@ target_link_libraries(  thunder_vtk_output PRIVATE
                         spdlog::spdlog )
 
 vtk_module_autoinit(
-    TARGETS thunder_vtk_output
+    TARGETS grace_vtk_output
     MODULES ${VTK_LIBRARIES}
     )
 
-add_library(thunder_hdf5_output OBJECT hdf5_output.cpp xmf_utilities.cpp )
-target_include_directories( thunder_hdf5_output PRIVATE "${HEADER_DIR}" )
-target_link_libraries(  thunder_hdf5_output PRIVATE
-                        $<TARGET_OBJECTS:thunder_parallel>  
-                        $<TARGET_OBJECTS:thunder_connectivity> 
-                        $<TARGET_OBJECTS:thunder_forest>
-                        $<TARGET_OBJECTS:thunder_coordinates>
-                        $<TARGET_OBJECTS:thunder_variable_list>
-                        $<TARGET_OBJECTS:thunder_amr_functions>
+add_library(grace_hdf5_output OBJECT hdf5_output.cpp xmf_utilities.cpp )
+target_include_directories( grace_hdf5_output PRIVATE "${HEADER_DIR}" )
+target_link_libraries(  grace_hdf5_output PRIVATE
+                        $<TARGET_OBJECTS:grace_parallel>  
+                        $<TARGET_OBJECTS:grace_connectivity> 
+                        $<TARGET_OBJECTS:grace_forest>
+                        $<TARGET_OBJECTS:grace_coordinates>
+                        $<TARGET_OBJECTS:grace_variable_list>
+                        $<TARGET_OBJECTS:grace_amr_functions>
                         yaml_cpp::yaml
                         MPI::MPI_CXX 
                         p4est::sc 
@@ -38,21 +38,21 @@ target_link_libraries(  thunder_hdf5_output PRIVATE
                         HDF5::HDF5 
                         spdlog::spdlog )
 vtk_module_autoinit(
-    TARGETS thunder_hdf5_output
+    TARGETS grace_hdf5_output
     MODULES ${VTK_LIBRARIES}
     )
 
-add_library(thunder_cell_output OBJECT cell_output.cpp)
-target_include_directories( thunder_cell_output PRIVATE "${HEADER_DIR}" )
-target_link_libraries(  thunder_cell_output PRIVATE
-                        $<TARGET_OBJECTS:thunder_parallel>  
-                        $<TARGET_OBJECTS:thunder_connectivity> 
-                        $<TARGET_OBJECTS:thunder_forest>
-                        $<TARGET_OBJECTS:thunder_coordinates>
-                        $<TARGET_OBJECTS:thunder_variable_list>
-                        $<TARGET_OBJECTS:thunder_amr_functions>
-                        $<TARGET_OBJECTS:thunder_hdf5_output>
-                        $<TARGET_OBJECTS:thunder_vtk_output>
+add_library(grace_cell_output OBJECT cell_output.cpp)
+target_include_directories( grace_cell_output PRIVATE "${HEADER_DIR}" )
+target_link_libraries(  grace_cell_output PRIVATE
+                        $<TARGET_OBJECTS:grace_parallel>  
+                        $<TARGET_OBJECTS:grace_connectivity> 
+                        $<TARGET_OBJECTS:grace_forest>
+                        $<TARGET_OBJECTS:grace_coordinates>
+                        $<TARGET_OBJECTS:grace_variable_list>
+                        $<TARGET_OBJECTS:grace_amr_functions>
+                        $<TARGET_OBJECTS:grace_hdf5_output>
+                        $<TARGET_OBJECTS:grace_vtk_output>
                         yaml_cpp::yaml
                         MPI::MPI_CXX 
                         p4est::sc 
@@ -63,14 +63,14 @@ target_link_libraries(  thunder_cell_output PRIVATE
                         OpenMP::OpenMP_CXX
                         spdlog::spdlog )
 vtk_module_autoinit(
-    TARGETS thunder_cell_output
+    TARGETS grace_cell_output
     MODULES ${VTK_LIBRARIES}
     )
 
 
-add_library(thunder_output_aux OBJECT vtk_output_auxiliaries.cpp )
-target_include_directories( thunder_output_aux PRIVATE "${HEADER_DIR}" )
-target_link_libraries(  thunder_output_aux PRIVATE
+add_library(grace_output_aux OBJECT vtk_output_auxiliaries.cpp )
+target_include_directories( grace_output_aux PRIVATE "${HEADER_DIR}" )
+target_link_libraries(  grace_output_aux PRIVATE
                         yaml_cpp::yaml
                         MPI::MPI_CXX 
                         p4est::sc

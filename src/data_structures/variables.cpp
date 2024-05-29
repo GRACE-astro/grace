@@ -5,8 +5,8 @@
 * @version 0.1
 * @date 2024-03-07
 * 
-* @copyright This file is part of Thunder.
-* Thunder is an evolution framework that uses Finite Difference
+* @copyright This file is part of GRACE.
+* GRACE is an evolution framework that uses Finite Difference
 * methods to simulate relativistic spacetimes and plasmas
 * Copyright (C) 2023 Carlo Musolino
 * 
@@ -25,24 +25,24 @@
 * 
 */
 
-#include <thunder/data_structures/variables.hh>
-#include <thunder/data_structures/variable_indices.hh>
+#include <grace/data_structures/variables.hh>
+#include <grace/data_structures/variable_indices.hh>
 
-#include <thunder/config/config_parser.hh>
-#include <thunder/amr/forest.hh>
+#include <grace/config/config_parser.hh>
+#include <grace/amr/forest.hh>
 
-#include <thunder/errors/assert.hh>
+#include <grace/errors/assert.hh>
 
 #include <vector>
 #include <algorithm>
 #include <string> 
 
-namespace thunder 
+namespace grace 
 {
 
 size_t get_variable_index(std::string const& name, bool is_aux)
 {
-    using namespace thunder::variables::detail ; 
+    using namespace grace::variables::detail ; 
     /* first check if it's a state variable */
     if( !is_aux ) {
         auto it = std::find(_varnames.begin(), _varnames.end(), name);
@@ -77,7 +77,7 @@ variable_list_impl_t::variable_list_impl_t()
     , _staggered_vars_p() 
     , _staggered_aux() 
 {
-    using namespace thunder; 
+    using namespace grace; 
     /* Get param parser and forest object */
     auto& params = config_parser::get() ; 
     auto& forest = amr::forest::get()   ; 
@@ -88,20 +88,20 @@ variable_list_impl_t::variable_list_impl_t()
     size_t nz {params["amr"]["npoints_block_z"].as<size_t>()} ; 
     /* 2) Number of ghostzones for evolved vars */
     size_t ngz { params["amr"]["n_ghostzones"].as<size_t>() } ;  
-    /* register all variables known to Thunder */
+    /* register all variables known to GRACE */
     variables::register_variables() ;
     /* allocate memory for states */ 
     size_t nq          = forest.local_num_quadrants() ;
     Kokkos::realloc( _coords
-                   , THUNDER_NSPACEDIM
+                   , GRACE_NSPACEDIM
                    , nq 
                    ) ;
     Kokkos::realloc( _coords_ispacing
-                   , THUNDER_NSPACEDIM
+                   , GRACE_NSPACEDIM
                    , nq 
                    ) ;
     Kokkos::realloc( _coords_spacing
-                   , THUNDER_NSPACEDIM
+                   , GRACE_NSPACEDIM
                    , nq 
                    ) ;
     Kokkos::realloc( _cell_volumes
@@ -144,4 +144,4 @@ variable_list_impl_t::variable_list_impl_t()
     /* all done */
 }
 
-} /* namespace thunder */
+} /* namespace grace */

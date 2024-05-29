@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-03-26
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -24,34 +25,34 @@
  * 
  */
 
-#include <thunder/amr/thunder_amr.hh> 
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/errors/assert.hh>
-#include <thunder/coordinates/cartesian_coordinate_systems.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/data_structures/macros.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/errors/error.hh> 
+#include <grace/amr/grace_amr.hh> 
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/errors/assert.hh>
+#include <grace/coordinates/cartesian_coordinate_systems.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/data_structures/grace_data_structures.hh>
+#include <grace/data_structures/macros.hh>
+#include <grace/config/config_parser.hh>
+#include <grace/errors/error.hh> 
 
 #include <array> 
 #include <cstring>
 
-namespace thunder { 
+namespace grace { 
 
 cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
 {
-    using namespace thunder ;
+    using namespace grace ;
     using namespace Kokkos ; 
     
     int ntrees = amr::connectivity::get().get()->num_trees;
 
     tree_vertices_ =
         View<double*, default_space>( "device_coords_tree_vertices"
-                                    , THUNDER_NSPACEDIM*ntrees ) ;
+                                    , GRACE_NSPACEDIM*ntrees ) ;
     tree_spacings_ =
         View<double*, default_space>( "device_coords_tree_vertices"
-                                    , THUNDER_NSPACEDIM*ntrees ) ;
+                                    , GRACE_NSPACEDIM*ntrees ) ;
 
     auto h_tree_spacings = create_mirror_view(tree_spacings_) ;
     auto h_tree_vertices = create_mirror_view(tree_vertices_) ; 
@@ -59,9 +60,9 @@ cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
     {
         auto const _vertex = amr::get_tree_vertex(itree,0UL) ;
         auto const dx      = amr::get_tree_spacing(itree)    ; 
-        for(int idim=0; idim<THUNDER_NSPACEDIM; ++idim){
-            h_tree_vertices(THUNDER_NSPACEDIM*itree+idim) = _vertex[idim] ; 
-            h_tree_spacings(THUNDER_NSPACEDIM*itree+idim) = dx[idim]      ; 
+        for(int idim=0; idim<GRACE_NSPACEDIM; ++idim){
+            h_tree_vertices(GRACE_NSPACEDIM*itree+idim) = _vertex[idim] ; 
+            h_tree_spacings(GRACE_NSPACEDIM*itree+idim) = dx[idim]      ; 
         }
          
     }
@@ -71,10 +72,10 @@ cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
 }
 
 
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_physical_coordinates(
       int const itree
-    , std::array<double, THUNDER_NSPACEDIM> const& logical_coordinates ) const
+    , std::array<double, GRACE_NSPACEDIM> const& logical_coordinates ) const
 {
     auto const tree_coords = amr::get_tree_vertex(itree,0UL) ; 
     auto const dx_tree     = amr::get_tree_spacing(itree) ;
@@ -85,36 +86,36 @@ cartesian_coordinate_system_impl_t::get_physical_coordinates(
     )} ; 
 }
 
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_physical_coordinates(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk
     , int64_t q 
-    , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
+    , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates
     , bool use_ghostzones ) const
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     int64_t itree = amr::get_quadrant_owner(q)   ; 
     return get_physical_coordinates(itree, get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones)) ; 
 }
 
 
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_physical_coordinates(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk
     , int64_t q 
     , bool use_ghostzones ) const
 {   
     return get_physical_coordinates(ijk,q,{VEC(0.5,0.5,0.5)},use_ghostzones);
 } 
 
-std::array<double, THUNDER_NSPACEDIM>
-THUNDER_HOST cartesian_coordinate_system_impl_t::get_logical_coordinates(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+std::array<double, GRACE_NSPACEDIM>
+GRACE_HOST cartesian_coordinate_system_impl_t::get_logical_coordinates(
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk
     , int64_t q 
-    , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
+    , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates
     , bool use_ghostzones) const
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int64_t nq = amr::get_local_num_quadrants()      ;
@@ -144,10 +145,10 @@ THUNDER_HOST cartesian_coordinate_system_impl_t::get_logical_coordinates(
     } ; 
 }
 
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_logical_coordinates(
       int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& physical_coordinates ) const
+    , std::array<double, GRACE_NSPACEDIM> const& physical_coordinates ) const
 { 
     auto const tree_coords = amr::get_tree_vertex(itree,0UL) ; 
     auto const dx_tree     = amr::get_tree_spacing(itree) ;
@@ -158,9 +159,9 @@ cartesian_coordinate_system_impl_t::get_logical_coordinates(
     )} ; 
 }
 
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_logical_coordinates(
-    std::array<double, THUNDER_NSPACEDIM> const& physical_coordinates ) const
+    std::array<double, GRACE_NSPACEDIM> const& physical_coordinates ) const
 {
     int ntrees = amr::connectivity::get().get()->num_trees; 
 
@@ -169,7 +170,7 @@ cartesian_coordinate_system_impl_t::get_logical_coordinates(
         auto const tree_000 = amr::get_tree_vertex(itree,0UL) ; 
         auto const tree_100 = amr::get_tree_vertex(itree,1UL) ; 
         auto const tree_010 = amr::get_tree_vertex(itree,2UL) ; 
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         auto const tree_001 = amr::get_tree_vertex(itree,4UL) ; 
         #endif 
         if(
@@ -177,7 +178,7 @@ cartesian_coordinate_system_impl_t::get_logical_coordinates(
             and physical_coordinates[0] < tree_100[0]  
             and physical_coordinates[1] > tree_000[1]  
             and physical_coordinates[1] < tree_010[1]  
-            #ifdef THUNDER_3D 
+            #ifdef GRACE_3D 
             and physical_coordinates[2] > tree_000[2]  
             and physical_coordinates[2] < tree_001[2]  
             #endif 
@@ -191,7 +192,7 @@ cartesian_coordinate_system_impl_t::get_logical_coordinates(
     }
     ERROR("Point (" << physical_coordinates[0] 
     << "," << physical_coordinates[1] 
-    #ifdef THUNDER_3D 
+    #ifdef GRACE_3D 
     << physical_coordinates[2] 
     #endif 
     << ") is ouside the grid."
@@ -202,12 +203,12 @@ cartesian_coordinate_system_impl_t::get_logical_coordinates(
 }
 
 double
-THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+GRACE_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q
     , bool use_ghostzones) const
 {
-    using namespace thunder ;
+    using namespace grace ;
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int64_t itree = amr::get_quadrant_owner(q)   ; 
@@ -225,14 +226,14 @@ THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
 }
 
 double
-THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+GRACE_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     int ngz = amr::get_n_ghosts() ; 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
@@ -241,13 +242,13 @@ THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
 }
 
 double
-THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
-      std::array<double, THUNDER_NSPACEDIM> const& lcoords 
+GRACE_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
+      std::array<double, GRACE_NSPACEDIM> const& lcoords 
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     int ngz = amr::get_n_ghosts() ; 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
@@ -287,14 +288,14 @@ THUNDER_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
 }
 
 double 
-THUNDER_HOST 
+GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_cell_face_surface(
-    std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+    std::array<size_t, GRACE_NSPACEDIM> const& ijk 
   , int64_t q
   , int8_t face 
   , bool use_ghostzones) const 
 {
-    using namespace thunder ;
+    using namespace grace ;
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int64_t itree = amr::get_quadrant_owner(q)   ; 
@@ -312,31 +313,31 @@ cartesian_coordinate_system_impl_t::get_cell_face_surface(
 }; 
 
 double 
-THUNDER_HOST 
+GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_cell_face_surface(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q
     , int8_t face 
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const 
 {
-    std::array<double, THUNDER_NSPACEDIM> cell_coordinates 
+    std::array<double, GRACE_NSPACEDIM> cell_coordinates 
     { VEC( 0.,0.,0.) } ;
     auto lcoords = get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
     return get_cell_face_surface(lcoords,face,itree,dxl,use_ghostzones) ;
 }; 
 
 double 
-THUNDER_HOST 
+GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_cell_face_surface(
-      std::array<double, THUNDER_NSPACEDIM> const& lcoords 
+      std::array<double, GRACE_NSPACEDIM> const& lcoords 
     , int8_t face 
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const 
 {
-    using namespace thunder ;
+    using namespace grace ;
     auto& conn = amr::connectivity::get();
     ASSERT_DBG(
             itree < amr::connectivity::get().get()->num_trees,
@@ -373,14 +374,14 @@ cartesian_coordinate_system_impl_t::get_cell_face_surface(
     ) ; 
 }; 
 
-double THUNDER_HOST 
+double GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_cell_edge_length(
-    std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+    std::array<size_t, GRACE_NSPACEDIM> const& ijk
   , int64_t q 
   , int8_t edge
   , bool use_ghostzones) const 
 {
-    using namespace thunder ;
+    using namespace grace ;
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int64_t itree = amr::get_quadrant_owner(q)   ; 
@@ -397,30 +398,30 @@ cartesian_coordinate_system_impl_t::get_cell_edge_length(
     return get_cell_edge_length(ijk,q,edge,itree,{VEC(dx_cell,dy_cell,dz_cell)},use_ghostzones) ;
 };
 
-double THUNDER_HOST 
+double GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_cell_edge_length(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk
     , int64_t q 
     , int8_t edge
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const 
 {
-    std::array<double, THUNDER_NSPACEDIM> cell_coordinates 
+    std::array<double, GRACE_NSPACEDIM> cell_coordinates 
     { VEC( 0.,0.,0.) } ;
     auto lcoords = get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
     return get_cell_edge_length(lcoords,edge,itree,dxl,use_ghostzones) ;
 }
 
-double THUNDER_HOST 
+double GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_cell_edge_length(
-      std::array<double, THUNDER_NSPACEDIM> const& lcoords
+      std::array<double, GRACE_NSPACEDIM> const& lcoords
     , int8_t edge
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const 
 {
-    using namespace thunder ;
+    using namespace grace ;
     auto& conn = amr::connectivity::get();
     ASSERT_DBG(
             itree < amr::connectivity::get().get()->num_trees,
@@ -450,4 +451,4 @@ cartesian_coordinate_system_impl_t::get_cell_edge_length(
 
     return dx_tree[edge] * dxl[edge] ;
 }
-} /* namespace thunder */ 
+} /* namespace grace */ 

@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-05-22
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -26,45 +27,45 @@
 #include <catch2/catch_test_macros.hpp>
 #include <Kokkos_Core.hpp>
 
-#include <thunder_config.h>
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/IO/vtk_output.hh>
-#include <thunder/IO/scalar_output.hh>
-#include <thunder/parallel/mpi_wrappers.hh>
+#include <grace_config.h>
+#include <grace/amr/grace_amr.hh>
+#include <grace/data_structures/grace_data_structures.hh>
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/IO/vtk_output.hh>
+#include <grace/IO/scalar_output.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 TEST_CASE("Reductions", "[reductions]")
 {
-    using namespace thunder::variables ; 
-    using namespace thunder ; 
+    using namespace grace::variables ; 
+    using namespace grace ; 
     using namespace Kokkos ; 
-    #ifdef THUNDER_ENABLE_BURGERS 
+    #ifdef GRACE_ENABLE_BURGERS 
     int const DENS = U ; 
     int const DENS_ = U ; 
-    auto params = thunder::config_parser::get()["IO"] ; 
+    auto params = grace::config_parser::get()["IO"] ; 
     params["scalar_output_minmax"][0] = "U" ; 
     params["scalar_output_norm2"][0] = "U" ; 
     params["scalar_output_integral"][0] = "U" ; 
     #endif 
-    #ifdef THUNDER_ENABLE_SCALAR_ADV
+    #ifdef GRACE_ENABLE_SCALAR_ADV
     int const DENS = U ; 
     int const DENS_ = U ; 
-    auto params = thunder::config_parser::get()["IO"] ; 
+    auto params = grace::config_parser::get()["IO"] ; 
     params["scalar_output_minmax"][0] = "U" ; 
     params["scalar_output_norm2"][0] = "U" ; 
     params["scalar_output_integral"][0] = "U" ;  
     #endif 
 
-    auto& state  = thunder::variable_list::get().getstate()  ;
-    auto& coord_system = thunder::coordinate_system::get() ; 
+    auto& state  = grace::variable_list::get().getstate()  ;
+    auto& coord_system = grace::coordinate_system::get() ; 
     size_t nx,ny,nz; 
-    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
-    size_t nq = thunder::amr::get_local_num_quadrants() ; 
-    int ngz = thunder::amr::get_n_ghosts() ; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    size_t nq = grace::amr::get_local_num_quadrants() ; 
+    int ngz = grace::amr::get_n_ghosts() ; 
     auto ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
 
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
@@ -82,7 +83,7 @@ TEST_CASE("Reductions", "[reductions]")
     {
         size_t const i = icell%(nx+2*ngz) ; 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
         size_t const q = 
@@ -114,7 +115,7 @@ TEST_CASE("Reductions", "[reductions]")
 
     double constexpr umin_exact = 0.;
 
-    #ifdef THUNDER_3D 
+    #ifdef GRACE_3D 
     double constexpr umax_exact  = 3.845968535513439      ; 
     double constexpr unorm_exact = 53.888666613           ; 
     double constexpr uint_exact  = 0.0628318531           ; 

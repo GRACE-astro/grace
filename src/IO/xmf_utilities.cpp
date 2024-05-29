@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-05-24
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -23,17 +24,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#include <thunder_config.h>
-#include <thunder/IO/hdf5_output.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/IO/xmf_utilities.hh>
-#include <thunder/system/thunder_system.hh>
+#include <grace_config.h>
+#include <grace/IO/hdf5_output.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/IO/xmf_utilities.hh>
+#include <grace/system/grace_system.hh>
 
 #include <string>
 #include <vector>
 #include <fstream>
 
-namespace thunder { namespace IO {
+namespace grace { namespace IO {
 
 struct xmf_cell_centered_attr_node {
     int64_t ncells ; 
@@ -124,7 +125,7 @@ void write_xmf_file( const std::string &filename
                    , std::vector<std::string> const& filenames ) 
 {
 
-    auto& runtime = thunder::runtime::get() ;
+    auto& runtime = grace::runtime::get() ;
 
     auto const scalars     = runtime.cell_volume_output_scalar_vars() ; 
     auto const aux_scalars = runtime.cell_volume_output_scalar_aux()  ;
@@ -139,7 +140,7 @@ void write_xmf_file( const std::string &filename
         double const time = times[i] ; 
         int64_t const it  = iters[i] ; 
         int64_t const ncells = ncells_vec[i]  ; 
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         int64_t const nvertex = 8 ;
         std::string const topology = "Hexahedron" ; 
         #else 

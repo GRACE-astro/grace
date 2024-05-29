@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2024-03-18
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  * 
@@ -24,12 +24,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#include <thunder_config.h>
+#include <grace_config.h>
 
-#include <thunder/IO/vtk_setup_grid.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/amr/amr_functions.hh>
-#include <thunder/utils/thunder_utils.hh>
+#include <grace/IO/vtk_setup_grid.hh>
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/amr/amr_functions.hh>
+#include <grace/utils/grace_utils.hh>
 /* VTK includes */
 /* grid type */
 #include <vtkUnstructuredGrid.h>
@@ -50,33 +50,33 @@
 #include <vtkXMLDataElement.h>
 #include <vtkXMLUtilities.h>
 
-namespace thunder{ namespace IO { 
+namespace grace{ namespace IO { 
 
 vtkSmartPointer<vtkUnstructuredGrid> 
 setup_vtk_volume_grid()
 {
     vtkSmartPointer<vtkUnstructuredGrid> grid 
         = vtkSmartPointer<vtkUnstructuredGrid>::New() ;
-    auto& coord_system = thunder::coordinate_system::get() ; 
+    auto& coord_system = grace::coordinate_system::get() ; 
     size_t nx,ny,nz; 
-    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
-    int ngz = thunder::amr::get_n_ghosts() ;
-    size_t nq = thunder::amr::get_local_num_quadrants() ; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    int ngz = grace::amr::get_n_ghosts() ;
+    size_t nq = grace::amr::get_local_num_quadrants() ; 
 
     size_t ncells = EXPR(nx,*ny,*nz)*nq ; // these are cells not vertices 
-    #ifdef THUNDER_3D 
-    #ifdef THUNDER_CARTESIAN_COORDINATES
+    #ifdef GRACE_3D 
+    #ifdef GRACE_CARTESIAN_COORDINATES
     using cell_type = vtkHexahedron ; 
     size_t constexpr nvertex = 8 ;
-    #elif defined(THUNDER_SPHERICAL_COORDINATES)
+    #elif defined(GRACE_SPHERICAL_COORDINATES)
     using cell_type = vtkBiQuadraticQuadraticHexahedron ; 
     size_t constexpr nvertex = 24 ;
     #endif 
     #else 
-    #ifdef THUNDER_CARTESIAN_COORDINATES
+    #ifdef GRACE_CARTESIAN_COORDINATES
     size_t nvertex = 4 ; 
     using cell_type = vtkQuad ; 
-    #elif defined(THUNDER_SPHERICAL_COORDINATES)
+    #elif defined(GRACE_SPHERICAL_COORDINATES)
     size_t nvertex = 6 ; 
     using cell_type = vtkQuadraticLinearQuad ;
     #endif 
@@ -90,7 +90,7 @@ setup_vtk_volume_grid()
                                           , double lz=0 )
     {
         /* unpack index assuming LayoutLeft */
-        #ifdef THUNDER_3D
+        #ifdef GRACE_3D
         size_t const ix = icell%nx ; 
         size_t const iy = (icell/nx) % ny ;
         size_t const iz = (icell/nx/ny) % nz ; 
@@ -114,14 +114,14 @@ setup_vtk_volume_grid()
             auto const coords = get_cell_coordinates( icell 
                                                     , lcoords[3*iv + 0]
                                                     , lcoords[3*iv + 1]
-                                                    #ifdef THUNDER_3D 
+                                                    #ifdef GRACE_3D 
                                                     , lcoords[3*iv + 2]
                                                     #endif 
                                                     ) ; 
             points->SetPoint( ipoint
                             , coords[0]
                             , coords[1]
-                            #ifdef THUNDER_3D
+                            #ifdef GRACE_3D
                             , coords[2]
                             #else 
                             , 0.0
@@ -137,4 +137,4 @@ setup_vtk_volume_grid()
 }
 
 
-} }  /* namespace thunder::IO::detail */
+} }  /* namespace grace::IO::detail */

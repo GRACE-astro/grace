@@ -4,8 +4,8 @@
  * @brief Implementation of <code>abort_with_error_message</code>.
  * @date 2023-03-14
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -23,8 +23,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#include <thunder/errors/abort.hh>
-#include <thunder/parallel/mpi_wrappers.hh>
+#include <grace/errors/abort.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 
 #include <spdlog/spdlog.h>
 
@@ -39,7 +39,7 @@
 #include <sstream>
 #include <stdexcept>
 
-//! \cond thunder_detail
+//! \cond grace_detail
 
 //! utility for printing backtraces.
 //! \ingroup system
@@ -95,7 +95,7 @@ std::ostream& operator<<(std::ostream& os, backtrace_handler const& /*unused*/)
     }
     return os ;
 }
-//! \endcond thunder_detail
+//! \endcond grace_detail
 
 /**
  * This function uses <code>backtrace_handler</code> to append

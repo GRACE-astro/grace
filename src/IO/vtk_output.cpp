@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2024-05-17
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  * 
@@ -24,7 +24,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#include <thunder_config.h>
+#include <grace_config.h>
 #include <Kokkos_Core.hpp>
 /* VTK includes */
 /* grid type */
@@ -53,28 +53,28 @@
 #include <vtkMPI.h>
 #include <vtkMPICommunicator.h>
 #include <vtkMPIController.h>
-/* thunder includes */
-#include <thunder/data_structures/variable_properties.hh>
-#include <thunder/system/thunder_runtime.hh>
-#include <thunder/coordinates/coordinate_systems.hh> 
-#include <thunder/IO/vtk_output.tpp>
-#include <thunder/IO/vtk_output.hh>
-#include <thunder/IO/vtk_setup_grid.hh>
-#include <thunder/IO/vtk_volume_output.hh>
-#include <thunder/IO/vtk_output_auxiliaries.hh>
-#include <thunder/IO/vtk_surface_output.hh>
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/errors/error.hh>
-#include <thunder/errors/assert.hh> 
-#include <thunder/data_structures/variables.hh>
+/* grace includes */
+#include <grace/data_structures/variable_properties.hh>
+#include <grace/system/grace_runtime.hh>
+#include <grace/coordinates/coordinate_systems.hh> 
+#include <grace/IO/vtk_output.tpp>
+#include <grace/IO/vtk_output.hh>
+#include <grace/IO/vtk_setup_grid.hh>
+#include <grace/IO/vtk_volume_output.hh>
+#include <grace/IO/vtk_output_auxiliaries.hh>
+#include <grace/IO/vtk_surface_output.hh>
+#include <grace/amr/grace_amr.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/errors/error.hh>
+#include <grace/errors/assert.hh> 
+#include <grace/data_structures/variables.hh>
 /* stdlib includes */
 #include <tuple>
 #include <array>
 #include <string>
 #include <filesystem>
 
-namespace thunder { namespace IO {
+namespace grace { namespace IO {
 
 
 void write_cell_data_vtk(bool volume_output, bool surface_output_plane, bool surface_output_sphere )
@@ -135,8 +135,8 @@ void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t wh
     // Clear any cell data arrays
     grid->GetCellData()->Initialize();
 
-    auto& runtime = thunder::runtime::get() ;
-    auto params  = thunder::config_parser::get()["IO"] ; 
+    auto& runtime = grace::runtime::get() ;
+    auto params  = grace::config_parser::get()["IO"] ; 
     
     bool output_extra = params["output_extra_quantities"].as<bool>() ; 
     std::vector<std::string> scalars, aux_scalars, vectors, aux_vectors ; 
@@ -157,12 +157,12 @@ void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t wh
         aux_vectors = runtime.cell_sphere_surface_output_vector_aux()  ; 
     }
     size_t nx,ny,nz,nq; 
-    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
-    nq = thunder::amr::get_local_num_quadrants() ; 
-    size_t ngz = thunder::amr::get_n_ghosts() ; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    nq = grace::amr::get_local_num_quadrants() ; 
+    size_t ngz = grace::amr::get_n_ghosts() ; 
 
-    auto vars = thunder::variable_list::get().getstate() ; 
-    auto aux  = thunder::variable_list::get().getaux()   ;
+    auto vars = grace::variable_list::get().getstate() ; 
+    auto aux  = grace::variable_list::get().getaux()   ;
     using exec_space = decltype(vars)::execution_space ; 
 
 
@@ -175,7 +175,7 @@ void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t wh
     Kokkos::deep_copy(exec_space{}, aux_h_mirror, aux)  ; 
     for( int ivar=0; ivar<scalars.size(); ++ivar )
     {
-        size_t varidx = thunder::get_variable_index(scalars[ivar]) ; 
+        size_t varidx = grace::get_variable_index(scalars[ivar]) ; 
         
         auto h_sview = Kokkos::subview(h_mirror           , VEC( Kokkos::pair(ngz,nx+ngz)
                                                                , Kokkos::pair(ngz,ny+ngz)
@@ -189,12 +189,12 @@ void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t wh
     
     for( int ivar=0; ivar<vectors.size(); ++ivar )
     {
-        size_t varidx = thunder::get_variable_index(vectors[ivar]+"[0]") ; 
+        size_t varidx = grace::get_variable_index(vectors[ivar]+"[0]") ; 
         
         auto h_sview = Kokkos::subview(h_mirror           , VEC(  Kokkos::ALL()
                                                                , Kokkos::ALL()
                                                                , Kokkos::ALL() )
-                                                          , Kokkos::pair(ivar,ivar+THUNDER_NSPACEDIM)
+                                                          , Kokkos::pair(ivar,ivar+GRACE_NSPACEDIM)
                                                           , Kokkos::ALL()
                                                           ) ;  
         grid->GetCellData()->AddArray(vtk_create_vector_cell_data(VEC(nx,ny,nz),nq,h_sview,vectors[ivar])) ;
@@ -204,7 +204,7 @@ void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t wh
     Kokkos::fence() ;
     for( int ivar=0; ivar<aux_scalars.size(); ++ivar )
     {
-        size_t varidx = thunder::get_variable_index(aux_scalars[ivar],true) ; 
+        size_t varidx = grace::get_variable_index(aux_scalars[ivar],true) ; 
         
         auto h_sview = Kokkos::subview(aux_h_mirror       , VEC( Kokkos::pair(ngz,nx+ngz)
                                                                , Kokkos::pair(ngz,ny+ngz)
@@ -218,12 +218,12 @@ void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t wh
     
     for( int ivar=0; ivar<aux_vectors.size(); ++ivar )
     {
-        size_t varidx = thunder::get_variable_index(aux_vectors[ivar]+"[0]",true) ; 
+        size_t varidx = grace::get_variable_index(aux_vectors[ivar]+"[0]",true) ; 
         
         auto h_sview = Kokkos::subview(aux_h_mirror       , VEC(  Kokkos::ALL()
                                                                , Kokkos::ALL()
                                                                , Kokkos::ALL() )
-                                                          , Kokkos::pair(ivar,ivar+THUNDER_NSPACEDIM)
+                                                          , Kokkos::pair(ivar,ivar+GRACE_NSPACEDIM)
                                                           , Kokkos::ALL()
                                                           ) ;  
         grid->GetCellData()->AddArray(vtk_create_vector_cell_data(VEC(nx,ny,nz),nq,h_sview,aux_vectors[ivar])) ;
@@ -263,14 +263,14 @@ void write_pvd_file( std::string const& pvdFilename
 
 void add_extra_output_quantities(vtkSmartPointer<vtkUnstructuredGrid> grid, bool include_gzs)
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     size_t nx,ny,nz; 
-    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
-    int ngz = thunder::amr::get_n_ghosts() ; 
-    size_t nq = thunder::amr::get_local_num_quadrants() ; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    int ngz = grace::amr::get_n_ghosts() ; 
+    size_t nq = grace::amr::get_local_num_quadrants() ; 
     size_t ncells = EXPR(nx,*ny,*nz)*nq ;
-    auto vol_mirror = Kokkos::create_mirror_view(thunder::variable_list::get().getvolumes()) ; 
-    Kokkos::deep_copy(vol_mirror,thunder::variable_list::get().getvolumes()) ; 
+    auto vol_mirror = Kokkos::create_mirror_view(grace::variable_list::get().getvolumes()) ; 
+    Kokkos::deep_copy(vol_mirror,grace::variable_list::get().getvolumes()) ; 
     auto mpi_rank_array      = vtkSmartPointer<vtkIntArray>::New() ; 
     auto treeid_array        = vtkSmartPointer<vtkIntArray>::New() ; 
     auto quadid_array        = vtkSmartPointer<vtkIntArray>::New() ;
@@ -295,12 +295,12 @@ void add_extra_output_quantities(vtkSmartPointer<vtkUnstructuredGrid> grid, bool
     reflevel_array->SetNumberOfComponents(1) ;
     reflevel_array->SetName("refinement_level") ;
 
-    lcoords_array->SetNumberOfTuples(ncells*THUNDER_NSPACEDIM) ; 
-    lcoords_array->SetNumberOfComponents(THUNDER_NSPACEDIM) ;
+    lcoords_array->SetNumberOfTuples(ncells*GRACE_NSPACEDIM) ; 
+    lcoords_array->SetNumberOfComponents(GRACE_NSPACEDIM) ;
     lcoords_array->SetName("logical_coordinates") ;
 
-    pcoords_array->SetNumberOfTuples(ncells*THUNDER_NSPACEDIM) ; 
-    pcoords_array->SetNumberOfComponents(THUNDER_NSPACEDIM) ;
+    pcoords_array->SetNumberOfTuples(ncells*GRACE_NSPACEDIM) ; 
+    pcoords_array->SetNumberOfComponents(GRACE_NSPACEDIM) ;
     pcoords_array->SetName("physical_coordinates") ;
 
     cell_volumes_array->SetNumberOfTuples(ncells) ; 
@@ -314,10 +314,10 @@ void add_extra_output_quantities(vtkSmartPointer<vtkUnstructuredGrid> grid, bool
     for(size_t iq=0UL; iq<nq ; iq+=1UL) {
         for(size_t ix=0UL; ix<nx; ix+=1UL) {
             for(size_t iy=0UL; iy<ny; iy+=1UL) {
-                #ifdef THUNDER_3D
+                #ifdef GRACE_3D
                 for(size_t iz=0UL; iz<nz; iz+=1UL) {
                 #endif 
-                    #ifndef THUNDER_3D 
+                    #ifndef GRACE_3D 
                     size_t icell = ix + nx*(iy+ny*iq) ;
                     #else 
                     size_t icell = ix + nx*(iy+ny*(iz+nz*iq)) ;
@@ -343,11 +343,11 @@ void add_extra_output_quantities(vtkSmartPointer<vtkUnstructuredGrid> grid, bool
                     quadid_array->SetComponent(icell, 0, iquad_glob) ;
                     reflevel_array->SetComponent(icell, 0, level) ;
                     cell_volumes_array->SetComponent(icell, 0, vol_mirror(VEC(ix+ngz,iy+ngz,iz+ngz),iq)) ;
-                    for(int idim=0; idim<THUNDER_NSPACEDIM; ++idim){
+                    for(int idim=0; idim<GRACE_NSPACEDIM; ++idim){
                         lcoords_array->SetComponent(icell, idim, lcoords[idim]) ;
                         pcoords_array->SetComponent(icell, idim, pcoords[idim]) ;
                     }
-                #ifdef THUNDER_3D
+                #ifdef GRACE_3D
                 }
                 #endif 
             }

@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2024-03-18
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  * 
@@ -25,49 +25,49 @@
  * 
  */
 
- #include <thunder_config.h>
+ #include <grace_config.h>
  
- #include <thunder/system/thunder_runtime.hh>
- #include <thunder/system/mpi_runtime.hh>
- #include <thunder/system/kokkos_runtime.hh>
- #include <thunder/system/p4est_runtime.hh>
- #include <thunder/system/runtime_functions.hh>
+ #include <grace/system/grace_runtime.hh>
+ #include <grace/system/mpi_runtime.hh>
+ #include <grace/system/kokkos_runtime.hh>
+ #include <grace/system/p4est_runtime.hh>
+ #include <grace/system/runtime_functions.hh>
 
- #include <thunder/config/config_parser.hh>
+ #include <grace/config/config_parser.hh>
 
-namespace thunder {
+namespace grace {
 
 int master_rank()
 {
-    return thunder::mpi_runtime::get().master_rank() ; 
+    return grace::mpi_runtime::get().master_rank() ; 
 }
 
 double get_total_runtime() {
-    return thunder::runtime::get().elapsed() ; 
+    return grace::runtime::get().elapsed() ; 
 }
 
 double get_simulation_time() { 
-    return thunder::runtime::get().time() ; 
+    return grace::runtime::get().time() ; 
 }
 
 size_t get_iteration() {
-    return thunder::runtime::get().iteration() ; 
+    return grace::runtime::get().iteration() ; 
 }
 
 void increment_simulation_time() {
-    thunder::runtime::get().increment_time() ; 
+    grace::runtime::get().increment_time() ; 
 }
 
 void increment_iteration() {
-    thunder::runtime::get().increment_iteration() ; 
+    grace::runtime::get().increment_iteration() ; 
 }
 
 void set_timestep(double const& _new_dt ) {
-    thunder::runtime::get().set_timestep(_new_dt) ; 
+    grace::runtime::get().set_timestep(_new_dt) ; 
 }
 
 double get_timestep() {
-    return thunder::runtime::get().timestep() ; 
+    return grace::runtime::get().timestep() ; 
 }
 
 } /* namespace */ 

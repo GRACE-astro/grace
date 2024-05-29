@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
-#include <thunder/utils/interpolators.hh>
-#include <thunder/data_structures/memory_defaults.hh>
+#include <grace/utils/interpolators.hh>
+#include <grace/data_structures/memory_defaults.hh>
 #include <Kokkos_Core.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
@@ -8,7 +8,7 @@
 
 TEST_CASE("linterp_nd", "[linterp_nd]")
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     SECTION(
     "oned"
     ) {

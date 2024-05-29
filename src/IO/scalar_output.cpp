@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-05-22
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -24,14 +25,14 @@
  * 
  */
 
-#include <thunder_config.h>
+#include <grace_config.h>
 
-#include <thunder/IO/scalar_output.hh>
-#include <thunder/system/thunder_system.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/parallel/mpi_wrappers.hh>
+#include <grace/IO/scalar_output.hh>
+#include <grace/system/grace_system.hh>
+#include <grace/data_structures/grace_data_structures.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/config/config_parser.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -40,7 +41,7 @@
 #include <iostream>
 #include <iomanip>
 
-namespace thunder { namespace IO {
+namespace grace { namespace IO {
 
 namespace detail {
 
@@ -56,7 +57,7 @@ std::map<std::string,double> _integral_reduction_aux_results  ;
 
 void compute_reductions() {
     Kokkos::Profiling::pushRegion("Scalar reductions") ; 
-    using namespace thunder ; 
+    using namespace grace ; 
     using namespace Kokkos  ; 
 
     int64_t nx,ny,nz ; 
@@ -68,20 +69,20 @@ void compute_reductions() {
     auto& aux   = variable_list::get().getaux()     ; 
     auto& cvols = variable_list::get().getvolumes() ; 
 
-    auto& thunder_runtime = thunder::runtime::get() ; 
+    auto& grace_runtime = grace::runtime::get() ; 
 
     /* First: compute minmax reductions */  
-    auto const minmax_vars = thunder_runtime.minmax_reduction_vars() ; 
-    auto const minmax_aux  = thunder_runtime.minmax_reduction_aux()  ; 
+    auto const minmax_vars = grace_runtime.minmax_reduction_vars() ; 
+    auto const minmax_aux  = grace_runtime.minmax_reduction_aux()  ; 
 
     for( auto const& vname: minmax_vars ) {
-        THUNDER_TRACE("Performing minmax reduction of variable {}", vname) ; 
+        GRACE_TRACE("Performing minmax reduction of variable {}", vname) ; 
         auto const vidx = get_variable_index(vname, false) ; 
         auto policy =
-            MDRangePolicy<Rank<THUNDER_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
+            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
         auto const u = subview(state, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
         MinMaxScalar<double> res ; 
-        parallel_reduce( THUNDER_EXECUTION_TAG("IO","minmax_reduction_vars") 
+        parallel_reduce( GRACE_EXECUTION_TAG("IO","minmax_reduction_vars") 
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, MinMaxScalar<double>& lres)
         {
@@ -97,15 +98,15 @@ void compute_reductions() {
                                , &detail::_minmax_reduction_vars_results[vname].max_val
                                , 1
                                , sc_MPI_MAX) ; 
-        THUNDER_TRACE("Min {}, Max {}", res.min_val, res.max_val) ; 
+        GRACE_TRACE("Min {}, Max {}", res.min_val, res.max_val) ; 
     }
     for( auto const& vname: minmax_aux ) {
         auto const vidx = get_variable_index(vname, true) ; 
         auto policy =
-            MDRangePolicy<Rank<THUNDER_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
+            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
         auto const u = subview(aux, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
         MinMaxScalar<double> res ; 
-        parallel_reduce( THUNDER_EXECUTION_TAG("IO","minmax_reduction_aux") 
+        parallel_reduce( GRACE_EXECUTION_TAG("IO","minmax_reduction_aux") 
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, MinMaxScalar<double>& lres)
         {
@@ -124,17 +125,17 @@ void compute_reductions() {
     }
 
     /* Then: compute norm2 reductions */ 
-    auto const norm2_vars = thunder_runtime.norm2_reduction_vars() ; 
-    auto const norm2_aux  = thunder_runtime.norm2_reduction_aux()  ; 
+    auto const norm2_vars = grace_runtime.norm2_reduction_vars() ; 
+    auto const norm2_aux  = grace_runtime.norm2_reduction_aux()  ; 
 
     for( auto const& vname: norm2_vars ) {
-        THUNDER_TRACE("Performing norm2 reduction of variable {}", vname) ; 
+        GRACE_TRACE("Performing norm2 reduction of variable {}", vname) ; 
         auto const vidx = get_variable_index(vname, false) ; 
         auto policy =
-            MDRangePolicy<Rank<THUNDER_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
+            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
         auto const u = subview(state, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
         double res ; 
-        parallel_reduce( THUNDER_EXECUTION_TAG("IO","norm2_reduction_vars") 
+        parallel_reduce( GRACE_EXECUTION_TAG("IO","norm2_reduction_vars") 
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
         {
@@ -146,16 +147,16 @@ void compute_reductions() {
                                , 1
                                , sc_MPI_SUM) ; 
         detail::_norm2_reduction_vars_results[vname] = std::sqrt(detail::_norm2_reduction_vars_results[vname]) ; 
-        THUNDER_TRACE("norm {}", std::sqrt(res)) ; 
+        GRACE_TRACE("norm {}", std::sqrt(res)) ; 
     } 
     for( auto const& vname: norm2_aux ) {
         auto const vidx = get_variable_index(vname, true) ; 
-        THUNDER_TRACE("Performing norm2 reduction of variable {} index {}", vname, vidx) ; 
+        GRACE_TRACE("Performing norm2 reduction of variable {} index {}", vname, vidx) ; 
         auto policy =
-            MDRangePolicy<Rank<THUNDER_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
+            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
         auto const u = subview(aux, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
         double res ; 
-        parallel_reduce( THUNDER_EXECUTION_TAG("IO","norm2_reduction_aux") 
+        parallel_reduce( GRACE_EXECUTION_TAG("IO","norm2_reduction_aux") 
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
         {
@@ -167,20 +168,20 @@ void compute_reductions() {
                                , 1
                                , sc_MPI_SUM) ; 
         detail::_norm2_reduction_aux_results[vname] = std::sqrt(detail::_norm2_reduction_aux_results[vname]) ; 
-        THUNDER_TRACE("norm {}", std::sqrt(res)) ; 
+        GRACE_TRACE("norm {}", std::sqrt(res)) ; 
     }
     /* Then: compute integral reductions */ 
-    auto const integral_vars = thunder_runtime.integral_reduction_vars() ; 
-    auto const integral_aux  = thunder_runtime.integral_reduction_aux()  ; 
+    auto const integral_vars = grace_runtime.integral_reduction_vars() ; 
+    auto const integral_aux  = grace_runtime.integral_reduction_aux()  ; 
 
     for( auto const& vname: integral_vars ) {
-        THUNDER_TRACE("Performing integral reduction of variable {}", vname) ; 
+        GRACE_TRACE("Performing integral reduction of variable {}", vname) ; 
         auto const vidx = get_variable_index(vname, false) ; 
         auto policy =
-            MDRangePolicy<Rank<THUNDER_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
+            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
         auto const u = subview(state, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
         double res ; 
-        parallel_reduce( THUNDER_EXECUTION_TAG("IO","integral_reduction_vars") 
+        parallel_reduce( GRACE_EXECUTION_TAG("IO","integral_reduction_vars") 
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
         {
@@ -191,15 +192,15 @@ void compute_reductions() {
                                , &detail::_integral_reduction_vars_results[vname]
                                , 1
                                , sc_MPI_SUM) ; 
-        THUNDER_TRACE("Integral {}", res) ; 
+        GRACE_TRACE("Integral {}", res) ; 
     } 
     for( auto const& vname: integral_aux ) {
         auto const vidx = get_variable_index(vname, true) ; 
         auto policy =
-            MDRangePolicy<Rank<THUNDER_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
+            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
         auto const u = subview(aux, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
         double res ; 
-        parallel_reduce( THUNDER_EXECUTION_TAG("IO","integral_reduction_aux") 
+        parallel_reduce( GRACE_EXECUTION_TAG("IO","integral_reduction_aux") 
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
         {
@@ -216,33 +217,33 @@ void compute_reductions() {
 
 void write_scalar_output() {
     Kokkos::Profiling::pushRegion("Scalar output") ;
-    using namespace thunder ; 
+    using namespace grace ; 
     using namespace Kokkos  ; 
 
-    THUNDER_VERBOSE("Performing scalar output iteration at {}.", thunder::get_iteration() ) ; 
+    GRACE_VERBOSE("Performing scalar output iteration at {}.", grace::get_iteration() ) ; 
 
     if( parallel::mpi_comm_rank() == 0 ) {
         
-    auto& thunder_runtime = thunder::runtime::get() ; 
+    auto& grace_runtime = grace::runtime::get() ; 
 
-    std::filesystem::path bdir = thunder_runtime.scalar_io_basepath() ; 
+    std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ; 
 
-    size_t const iter = thunder_runtime.iteration() ; 
-    double const time = thunder_runtime.time()      ; 
+    size_t const iter = grace_runtime.iteration() ; 
+    double const time = grace_runtime.time()      ; 
 
     static constexpr size_t width = 20 ;
 
-    auto const out_minmax_vars = thunder_runtime.scalar_output_minmax_vars() ; 
-    auto const out_minmax_aux  = thunder_runtime.scalar_output_minmax_aux()  ; 
+    auto const out_minmax_vars = grace_runtime.scalar_output_minmax_vars() ; 
+    auto const out_minmax_aux  = grace_runtime.scalar_output_minmax_aux()  ; 
     for( auto const& vname: out_minmax_vars ) {
-        std::string const pfname = thunder_runtime.scalar_io_basename() + vname + "_min.dat" ;
+        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::fixed << std::setprecision(15) ; 
         outfile << std::left << std::setw(width) << iter 
                 << std::left << std::setw(width) << time 
                 << std::left << std::setw(width) << detail::_minmax_reduction_vars_results[vname].min_val << '\n' ; 
-        std::string const pfname_max = thunder_runtime.scalar_io_basename() + vname + "_max.dat" ;
+        std::string const pfname_max = grace_runtime.scalar_io_basename() + vname + "_max.dat" ;
         std::filesystem::path fname_max = bdir /  pfname_max ; 
         std::ofstream outfile_max(fname_max.string(),std::ios::app) ; 
         outfile_max << std::fixed << std::setprecision(15) ; 
@@ -251,14 +252,14 @@ void write_scalar_output() {
                     << std::left << std::setw(width) << detail::_minmax_reduction_vars_results[vname].max_val << '\n' ;
     }
     for( auto const& vname: out_minmax_aux ) {
-        std::string const pfname = thunder_runtime.scalar_io_basename() + vname + "_min.dat" ;
+        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::fixed << std::setprecision(15) ; 
         outfile << std::left << std::setw(width) << iter 
                 << std::left << std::setw(width) << time 
                 << std::left << std::setw(width) << detail::_minmax_reduction_aux_results[vname].min_val << '\n' ; 
-        std::string const pfname_max = thunder_runtime.scalar_io_basename() + vname + "_max.dat" ;
+        std::string const pfname_max = grace_runtime.scalar_io_basename() + vname + "_max.dat" ;
         std::filesystem::path fname_max = bdir /  pfname_max ; 
         std::ofstream outfile_max(fname_max.string(),std::ios::app) ; 
         outfile_max << std::fixed << std::setprecision(15) ; 
@@ -267,10 +268,10 @@ void write_scalar_output() {
                     << std::left << std::setw(width) << detail::_minmax_reduction_aux_results[vname].max_val << '\n' ; 
     }
 
-    auto const out_norm2_vars = thunder_runtime.scalar_output_norm2_vars() ; 
-    auto const out_norm2_aux  = thunder_runtime.scalar_output_norm2_aux()  ; 
+    auto const out_norm2_vars = grace_runtime.scalar_output_norm2_vars() ; 
+    auto const out_norm2_aux  = grace_runtime.scalar_output_norm2_aux()  ; 
     for( auto const& vname: out_norm2_vars ) {
-        std::string const pfname = thunder_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
+        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::fixed << std::setprecision(15) ; 
@@ -279,7 +280,7 @@ void write_scalar_output() {
                 << std::left << std::setw(width) << detail::_norm2_reduction_vars_results[vname] << '\n' ; 
     }
     for( auto const& vname: out_norm2_aux ) {
-        std::string const pfname = thunder_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
+        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ;
         outfile << std::fixed << std::setprecision(15) ;  
@@ -288,10 +289,10 @@ void write_scalar_output() {
                 << std::left << std::setw(width) << detail::_norm2_reduction_aux_results[vname] << '\n' ; 
     }
 
-    auto const out_integral_vars = thunder_runtime.scalar_output_integral_vars() ; 
-    auto const out_integral_aux  = thunder_runtime.scalar_output_integral_aux()  ; 
+    auto const out_integral_vars = grace_runtime.scalar_output_integral_vars() ; 
+    auto const out_integral_aux  = grace_runtime.scalar_output_integral_aux()  ; 
     for( auto const& vname: out_integral_vars ) {
-        std::string const pfname = thunder_runtime.scalar_io_basename() + vname + "_integral.dat" ;
+        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_integral.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::fixed << std::setprecision(15) ; 
@@ -300,7 +301,7 @@ void write_scalar_output() {
                 << std::left << std::setw(width) << detail::_integral_reduction_vars_results[vname] << '\n' ; 
     }
     for( auto const& vname: out_integral_aux ) {
-        std::string const pfname = thunder_runtime.scalar_io_basename() + vname + "_integral.dat" ;
+        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_integral.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::fixed << std::setprecision(15) ; 
@@ -317,55 +318,55 @@ void write_scalar_output() {
 
 void initialize_output_files() {
     if( parallel::mpi_comm_rank() == 0 ) {
-    auto& thunder_runtime = thunder::runtime::get() ; 
+    auto& grace_runtime = grace::runtime::get() ; 
     static constexpr const size_t width = 20 ; 
-    std::filesystem::path bdir = thunder_runtime.scalar_io_basepath() ; 
-    auto const out_minmax_vars = thunder_runtime.scalar_output_minmax_vars() ; 
-    auto const out_minmax_aux  = thunder_runtime.scalar_output_minmax_aux()  ; 
+    std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ; 
+    auto const out_minmax_vars = grace_runtime.scalar_output_minmax_vars() ; 
+    auto const out_minmax_aux  = grace_runtime.scalar_output_minmax_aux()  ; 
     for( auto const& vname: out_minmax_vars ) {
-        std::string const pfname = thunder_runtime.scalar_io_basename() + vname + "_min.dat" ;
+        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ; 
-        std::string const pfname_max = thunder_runtime.scalar_io_basename() + vname + "_max.dat" ;
+        std::string const pfname_max = grace_runtime.scalar_io_basename() + vname + "_max.dat" ;
         std::filesystem::path fname_max = bdir /  pfname_max ; 
         std::ofstream outfile_max(fname_max.string(),std::ios::app) ;
         outfile_max << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ; 
     }
     for( auto const& vname: out_minmax_aux ) {
-        std::string const pfname = thunder_runtime.scalar_io_basename() + vname + "_min.dat" ;
+        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ; 
-        std::string const pfname_max = thunder_runtime.scalar_io_basename() + vname + "_max.dat" ;
+        std::string const pfname_max = grace_runtime.scalar_io_basename() + vname + "_max.dat" ;
         std::filesystem::path fname_max = bdir /  pfname_max ; 
         std::ofstream outfile_max(fname_max.string(),std::ios::app) ;
         outfile_max << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ; 
     }
-    auto const out_norm2_vars = thunder_runtime.scalar_output_norm2_vars() ; 
-    auto const out_norm2_aux  = thunder_runtime.scalar_output_norm2_aux()  ; 
+    auto const out_norm2_vars = grace_runtime.scalar_output_norm2_vars() ; 
+    auto const out_norm2_aux  = grace_runtime.scalar_output_norm2_aux()  ; 
     for( auto const& vname: out_norm2_vars ) {
-        std::string const pfname = thunder_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
+        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;
     }
     for( auto const& vname: out_norm2_aux ) {
-        std::string const pfname = thunder_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
+        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;
     }
-    auto const out_integral_vars = thunder_runtime.scalar_output_integral_vars() ; 
-    auto const out_integral_aux  = thunder_runtime.scalar_output_integral_aux()  ; 
+    auto const out_integral_vars = grace_runtime.scalar_output_integral_vars() ; 
+    auto const out_integral_aux  = grace_runtime.scalar_output_integral_aux()  ; 
     for( auto const& vname: out_integral_vars ) {
-        std::string const pfname = thunder_runtime.scalar_io_basename() + vname + "_integral.dat" ;
+        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_integral.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ;
         outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;
     }
     for( auto const& vname: out_integral_aux ) {
-        std::string const pfname = thunder_runtime.scalar_io_basename() + vname + "_integral.dat" ;
+        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_integral.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ;
         outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;
@@ -376,25 +377,25 @@ void initialize_output_files() {
 
 void info_output() {
 
-    using namespace thunder ;
+    using namespace grace ;
 
-    int64_t iter = thunder::get_iteration() ; 
-    double  time = thunder::get_simulation_time() ;
-    double walltime = thunder::get_total_runtime() ; 
+    int64_t iter = grace::get_iteration() ; 
+    double  time = grace::get_simulation_time() ;
+    double walltime = grace::get_total_runtime() ; 
     double rate = time / walltime * 3.6e03 ; 
 
-    int64_t outinfo_every = thunder::config_parser::get()["IO"]["info_output_every"].as<int64_t>() * 10 ; 
+    int64_t outinfo_every = grace::config_parser::get()["IO"]["info_output_every"].as<int64_t>() * 10 ; 
 
     std::ostringstream os ; 
     os << std::fixed << std::setprecision(5) ; 
 
-    auto& thunder_runtime = thunder::runtime::get() ; 
-    auto const max_vars = thunder_runtime.info_output_max_vars() ; 
-    auto const max_aux  = thunder_runtime.info_output_max_aux()  ; 
-    auto const min_vars = thunder_runtime.info_output_min_vars() ; 
-    auto const min_aux  = thunder_runtime.info_output_min_aux()  ;
-    auto const norm_vars = thunder_runtime.info_output_norm2_vars() ; 
-    auto const norm_aux  = thunder_runtime.info_output_norm2_aux()  ; 
+    auto& grace_runtime = grace::runtime::get() ; 
+    auto const max_vars = grace_runtime.info_output_max_vars() ; 
+    auto const max_aux  = grace_runtime.info_output_max_aux()  ; 
+    auto const min_vars = grace_runtime.info_output_min_vars() ; 
+    auto const min_aux  = grace_runtime.info_output_min_aux()  ;
+    auto const norm_vars = grace_runtime.info_output_norm2_vars() ; 
+    auto const norm_aux  = grace_runtime.info_output_norm2_aux()  ; 
 
     static constexpr const size_t width = 15 ; 
 
@@ -417,7 +418,7 @@ void info_output() {
         APPEND_OUTPUT(norm_vars,"[norm2]") ;
         APPEND_OUTPUT(norm_aux, "[norm2]") ; 
         os << '\n' ; 
-        THUNDER_INFO(os.str().c_str()) ;
+        GRACE_INFO(os.str().c_str()) ;
         os.str("");  // Reset content to empty string
         os.clear();
     }
@@ -447,7 +448,7 @@ void info_output() {
     #undef APPEND_MAX
     #undef APPEND_MIN 
     #undef APPEND_OUTPUT
-    THUNDER_INFO(os.str().c_str()) ; 
+    GRACE_INFO(os.str().c_str()) ; 
 }
 
 }}

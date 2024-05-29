@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2024-05-16
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  * 
@@ -24,26 +24,26 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#include <thunder_config.h>
-#include <thunder/evolution/find_stable_timestep.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/system/thunder_system.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/amr/amr_functions.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/physics/thunder_physical_systems.hh>
-#include <thunder/evolution/evolution_kernel_tags.hh> 
-#include <thunder/utils/reconstruction.hh>
-#include <thunder/utils/riemann_solvers.hh>
-#include <thunder/parallel/mpi_wrappers.hh>
+#include <grace_config.h>
+#include <grace/evolution/find_stable_timestep.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/system/grace_system.hh>
+#include <grace/data_structures/grace_data_structures.hh>
+#include <grace/amr/amr_functions.hh>
+#include <grace/config/config_parser.hh>
+#include <grace/physics/grace_physical_systems.hh>
+#include <grace/evolution/evolution_kernel_tags.hh> 
+#include <grace/utils/reconstruction.hh>
+#include <grace/utils/riemann_solvers.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 #include <Kokkos_Core.hpp>
 
-namespace thunder {
+namespace grace {
 
 void find_stable_timestep() {
     Kokkos::Profiling::pushRegion("Timestep update") ; 
     using namespace Kokkos ;
-    using namespace thunder ;
+    using namespace grace ;
 
 
     int64_t nx,ny,nz ; 
@@ -58,7 +58,7 @@ void find_stable_timestep() {
     auto& params = config_parser::get() ; 
     double const CFL = params["evolution"]["cfl_factor"].as<double>() ; 
 
-    #ifdef THUNDER_ENABLE_SCALAR_ADV 
+    #ifdef GRACE_ENABLE_SCALAR_ADV 
     double VEC(ax,ay,az) ; 
     EXPR(
     ax = params["scalar_advection"]["ax"].as<double>() ;,
@@ -67,29 +67,29 @@ void find_stable_timestep() {
     scalar_advection_system_t<slope_limited_reconstructor_t<minmod>>  
         scalar_adv_system{ state, aux, VEC(ax,ay,az) } ; 
     #endif 
-    #ifdef THUNDER_ENABLE_BURGERS 
+    #ifdef GRACE_ENABLE_BURGERS 
     burgers_equation_system_t<slope_limited_reconstructor_t<minmod>,hll_riemann_solver_t>
         burgers_eq_system{ state, aux } ;
     #endif 
 
     double dt_local ; 
 
-    MDRangePolicy<Rank<THUNDER_NSPACEDIM+1>,default_execution_space>
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy( {VEC(ngz,ngz,ngz),0}, {VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
 
-    parallel_reduce( THUNDER_EXECUTION_TAG("EVOL","find_timestep")
+    parallel_reduce( GRACE_EXECUTION_TAG("EVOL","find_timestep")
                    , policy
                    , KOKKOS_LAMBDA(VEC(int const& i, int const& j, int const& k), int const& q, double& dtmax)
     {
         double cmax ; 
-        #ifdef THUNDER_ENABLE_SCALAR_ADV 
+        #ifdef GRACE_ENABLE_SCALAR_ADV 
         cmax = scalar_adv_system(eigenspeed_kernel_t{}, VEC(i,j,k),q) ; 
         #endif 
-        #ifdef THUNDER_ENABLE_BURGERS
+        #ifdef GRACE_ENABLE_BURGERS
         cmax = burgers_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q) ; 
         #endif 
         double L    ; 
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         L = Kokkos::cbrt(cvol(VEC(i,j,k),q)) ; 
         #else 
         L = Kokkos::sqrt(cvol(VEC(i,j,k),q)) ;
@@ -99,7 +99,7 @@ void find_stable_timestep() {
     }, Kokkos::Min<double>(dt_local)) ; 
     double dt_new ; 
     parallel::mpi_allreduce(&dt_local,&dt_new,1,sc_MPI_MIN) ; 
-    thunder::set_timestep(dt_new) ; 
+    grace::set_timestep(dt_new) ; 
     Kokkos::Profiling::popRegion() ; 
 }
 

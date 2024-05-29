@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-05-17
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -24,10 +25,10 @@
  * 
  */
 
-#include <thunder/IO/vtk_output_auxiliaries.hh>
-#include <thunder/system/thunder_runtime.hh>
+#include <grace/IO/vtk_output_auxiliaries.hh>
+#include <grace/system/grace_runtime.hh>
 
-namespace thunder { namespace IO {
+namespace grace { namespace IO {
 
 namespace detail {
 
@@ -44,7 +45,7 @@ std::vector<int> _surface_sphere_iterations ;
 std::vector<double> _surface_sphere_times   ; 
 
 void init_auxiliaries() {
-    auto& runtime = thunder::runtime::get() ;
+    auto& runtime = grace::runtime::get() ;
     int n_planes = runtime.n_surface_output_planes() ; 
     int n_spheres = runtime.n_surface_output_spheres() ; 
     _surface_plane_filenames.resize(n_planes) ; 

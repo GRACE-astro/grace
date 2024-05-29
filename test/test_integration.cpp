@@ -1,11 +1,11 @@
 #include <catch2/catch_test_macros.hpp>
-#include <thunder/utils/integration.hh>
+#include <grace/utils/integration.hh>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <iostream>
 
 TEST_CASE("integrate_nd", "[integrate_nd]")
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     auto const f_oned = [&] (double x) {
         return sin(x) ; 
     } ; 

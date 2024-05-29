@@ -4,8 +4,8 @@
  * @brief 
  * @date 2024-03-26
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Differences
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -24,39 +24,39 @@
  * 
  */
 
-#include <thunder/amr/thunder_amr.hh> 
-#include <thunder/coordinates/cell_volume_kernels.h>
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/coordinates/rotation_matrices.hh>
-#include <thunder/coordinates/spherical_coordinate_systems.hh>
-#include <thunder/coordinates/spherical_device_inlines.hh>
-#include <thunder/coordinates/spherical_coordinate_jacobian_utils.hh>
-#include <thunder/coordinates/surface_elements/cell_surfaces_2D.hh>
-#include <thunder/coordinates/surface_elements/cell_surfaces_3D.hh>
-#include <thunder/coordinates/volume_elements/vol_sph_3D.hh>
-#include <thunder/coordinates/volume_elements/vol_sph_3D_log.hh>
-#include <thunder/coordinates/volume_elements/dVol_sph_3D_log_analytic.hh>
-#include <thunder/coordinates/volume_elements/cell_volume_helpers.hh>
-#include <thunder/coordinates/surface_elements/cell_surface_helpers.hh>
-#include <thunder/coordinates/line_elements/line_element_helpers.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/errors/error.hh> 
+#include <grace/amr/grace_amr.hh> 
+#include <grace/coordinates/cell_volume_kernels.h>
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/coordinates/rotation_matrices.hh>
+#include <grace/coordinates/spherical_coordinate_systems.hh>
+#include <grace/coordinates/spherical_device_inlines.hh>
+#include <grace/coordinates/spherical_coordinate_jacobian_utils.hh>
+#include <grace/coordinates/surface_elements/cell_surfaces_2D.hh>
+#include <grace/coordinates/surface_elements/cell_surfaces_3D.hh>
+#include <grace/coordinates/volume_elements/vol_sph_3D.hh>
+#include <grace/coordinates/volume_elements/vol_sph_3D_log.hh>
+#include <grace/coordinates/volume_elements/dVol_sph_3D_log_analytic.hh>
+#include <grace/coordinates/volume_elements/cell_volume_helpers.hh>
+#include <grace/coordinates/surface_elements/cell_surface_helpers.hh>
+#include <grace/coordinates/line_elements/line_element_helpers.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/data_structures/grace_data_structures.hh>
+#include <grace/config/config_parser.hh>
+#include <grace/errors/error.hh> 
 
 #include <array> 
 
-namespace thunder { 
+namespace grace { 
 
 namespace detail {
-THUNDER_DEVICE coord_transform_t l2p[2*P4EST_FACES+1], p2l[2*P4EST_FACES+1] ; 
-THUNDER_DEVICE coord_transfer_t gl2l[(2*P4EST_FACES+1)*P4EST_FACES] ;
+GRACE_DEVICE coord_transform_t l2p[2*P4EST_FACES+1], p2l[2*P4EST_FACES+1] ; 
+GRACE_DEVICE coord_transfer_t gl2l[(2*P4EST_FACES+1)*P4EST_FACES] ;
 }
 
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 spherical_coordinate_system_impl_t::get_physical_coordinates(
       int const itree
-    , std::array<double, THUNDER_NSPACEDIM> const& lcoords ) const
+    , std::array<double, GRACE_NSPACEDIM> const& lcoords ) const
 {
     auto lcoords_b = lcoords ; 
     auto itree_b   = itree   ; 
@@ -85,22 +85,22 @@ spherical_coordinate_system_impl_t::get_physical_coordinates(
     }
 }
 
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 spherical_coordinate_system_impl_t::get_physical_coordinates(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk
     , int64_t q 
-    , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
+    , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates
     , bool use_ghostzones ) const
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     int64_t itree = amr::get_quadrant_owner(q)   ; 
     return get_physical_coordinates(itree, get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones)) ; 
 }
 
 
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 spherical_coordinate_system_impl_t::get_physical_coordinates(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk
     , int64_t q 
     , bool use_ghostzones ) const
 {
@@ -108,14 +108,14 @@ spherical_coordinate_system_impl_t::get_physical_coordinates(
 } 
 
 
-std::array<double, THUNDER_NSPACEDIM>
-THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+std::array<double, GRACE_NSPACEDIM>
+GRACE_HOST spherical_coordinate_system_impl_t::get_logical_coordinates(
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk
     , int64_t q 
-    , std::array<double, THUNDER_NSPACEDIM> const& cell_coordinates
+    , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates
     , bool use_ghostzones) const
 {
-    using namespace thunder ;
+    using namespace grace ;
 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
@@ -143,10 +143,10 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates(
     } ; 
 } 
 
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 spherical_coordinate_system_impl_t::get_logical_coordinates(
       int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& physical_coordinates ) const
+    , std::array<double, GRACE_NSPACEDIM> const& physical_coordinates ) const
 {
     if( itree == 0 ){
         return {VEC(
@@ -185,107 +185,107 @@ spherical_coordinate_system_impl_t::get_logical_coordinates(
     } 
 }
 
-double THUNDER_HOST 
+double GRACE_HOST 
 spherical_coordinate_system_impl_t::get_jacobian(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q 
-    , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+    , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
     , bool use_ghostzones ) const
 {
-    return utils::det<THUNDER_NSPACEDIM>(
+    return utils::det<GRACE_NSPACEDIM>(
         get_jacobian_matrix(ijk,q,cell_coordinates,use_ghostzones) 
     ) ; 
 }
 
-double THUNDER_HOST 
+double GRACE_HOST 
 spherical_coordinate_system_impl_t::get_jacobian(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q 
     , int itree
-    , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+    , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
     , bool use_ghostzones ) const
 {
-    return utils::det<THUNDER_NSPACEDIM>(
+    return utils::det<GRACE_NSPACEDIM>(
         get_jacobian_matrix(ijk,q,itree,cell_coordinates,use_ghostzones) 
     ) ; 
 }
 
-double THUNDER_HOST 
+double GRACE_HOST 
 spherical_coordinate_system_impl_t::get_jacobian(
       int itree
-    , std::array<double,THUNDER_NSPACEDIM> const& lcoords) const
+    , std::array<double,GRACE_NSPACEDIM> const& lcoords) const
 {
-    return utils::det<THUNDER_NSPACEDIM>(
+    return utils::det<GRACE_NSPACEDIM>(
         get_jacobian_matrix(itree,lcoords) 
     ) ; 
 }
 
-double THUNDER_HOST 
+double GRACE_HOST 
 spherical_coordinate_system_impl_t::get_inverse_jacobian(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q 
-    , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+    , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
     , bool use_ghostzones ) const
 {
-    return utils::det<THUNDER_NSPACEDIM>(
+    return utils::det<GRACE_NSPACEDIM>(
         get_inverse_jacobian_matrix(ijk,q,cell_coordinates,use_ghostzones)
     ) ; 
 }
 
-double THUNDER_HOST 
+double GRACE_HOST 
 spherical_coordinate_system_impl_t::get_inverse_jacobian(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q 
     , int itree
-    , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+    , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
     , bool use_ghostzones ) const
 {
-    return utils::det<THUNDER_NSPACEDIM>(
+    return utils::det<GRACE_NSPACEDIM>(
         get_inverse_jacobian_matrix(ijk,q,itree,cell_coordinates,use_ghostzones) 
     ) ; 
 }
 
-double THUNDER_HOST 
+double GRACE_HOST 
 spherical_coordinate_system_impl_t::get_inverse_jacobian(
       int itree
-    , std::array<double,THUNDER_NSPACEDIM> const& lcoords) const
+    , std::array<double,GRACE_NSPACEDIM> const& lcoords) const
 {
-    return utils::det<THUNDER_NSPACEDIM>(
+    return utils::det<GRACE_NSPACEDIM>(
         get_inverse_jacobian_matrix(itree,lcoords) 
     ) ; 
 }
 
-std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double,GRACE_NSPACEDIM*GRACE_NSPACEDIM> GRACE_HOST 
 spherical_coordinate_system_impl_t::get_jacobian_matrix(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q 
-    , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+    , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
     , bool use_ghostzones ) const
 { 
-    using namespace thunder ;
+    using namespace grace ;
     int itree = amr::get_quadrant_owner(q) ;
     return get_jacobian_matrix(ijk,q,itree,cell_coordinates,use_ghostzones) ; 
 }
 
-std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double,GRACE_NSPACEDIM*GRACE_NSPACEDIM> GRACE_HOST 
 spherical_coordinate_system_impl_t::get_jacobian_matrix(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q 
     , int itree 
-    , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+    , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
     , bool use_ghostzones ) const
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     auto lcoords =  get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
     return get_jacobian_matrix(itree,lcoords) ; 
 } 
 
-std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double,GRACE_NSPACEDIM*GRACE_NSPACEDIM> GRACE_HOST 
 spherical_coordinate_system_impl_t::get_jacobian_matrix(
       int itree
-    , std::array<double,THUNDER_NSPACEDIM> const& lcoords ) const
+    , std::array<double,GRACE_NSPACEDIM> const& lcoords ) const
 {
-    using namespace thunder; 
+    using namespace grace; 
     int itree_b = itree ; 
     auto lcoords_b = lcoords ; 
     if( spherical_coordinate_system_impl_t::is_outside_tree(lcoords) and !spherical_coordinate_system_impl_t::is_physical_boundary(lcoords,itree) ) {
@@ -301,7 +301,7 @@ spherical_coordinate_system_impl_t::get_jacobian_matrix(
     double si, so; 
     double r1,r2 ; 
     if( itree_b == 0 ) {
-        auto J = utils::identity_matrix<THUNDER_NSPACEDIM>() ; 
+        auto J = utils::identity_matrix<GRACE_NSPACEDIM>() ; 
         for( auto& x: J ) x /= (2.*_L) ; 
     } else if ( (itree_b-1)/P4EST_FACES == 0 ) { 
         si=0; so=1.; r1=_L; r2=_Ri;
@@ -309,7 +309,7 @@ spherical_coordinate_system_impl_t::get_jacobian_matrix(
         si = 1.; so=1; 
         r1 = _Ri; r2=_Ro;
         if( _use_logr ) {
-            #ifdef THUNDER_3D 
+            #ifdef GRACE_3D 
             return {
                 Jac_sph_log_3D_00(r1,r2, lcoords_b[1], lcoords_b[2],lcoords_b[0]), Jac_sph_log_3D_01(r1,r2, lcoords_b[1], lcoords_b[2],lcoords_b[0]), Jac_sph_log_3D_02(r1,r2, lcoords_b[1], lcoords_b[2],lcoords_b[0]),
                 Jac_sph_log_3D_10(r1,r2, lcoords_b[1], lcoords_b[2],lcoords_b[0]), Jac_sph_log_3D_11(r1,r2, lcoords_b[1], lcoords_b[2],lcoords_b[0]), Jac_sph_log_3D_12(r1,r2, lcoords_b[1], lcoords_b[2],lcoords_b[0]),
@@ -323,7 +323,7 @@ spherical_coordinate_system_impl_t::get_jacobian_matrix(
             #endif
         } 
     }
-    #ifdef THUNDER_3D 
+    #ifdef GRACE_3D 
     return {
         Jac_sph_3D_00(r1,r2, lcoords_b[1], si,so, lcoords_b[2]), Jac_sph_3D_01(r1,r2, lcoords_b[1], si,so, lcoords_b[2],lcoords_b[0]), Jac_sph_3D_02(r1,r2, lcoords_b[1], si,so, lcoords_b[2],lcoords_b[0]),
         Jac_sph_3D_10(r1,r2, lcoords_b[1], si,so, lcoords_b[2]), Jac_sph_3D_11(r1,r2, lcoords_b[1], si,so, lcoords_b[2],lcoords_b[0]), Jac_sph_3D_12(r1,r2, lcoords_b[1], si,so, lcoords_b[2],lcoords_b[0]),
@@ -338,37 +338,37 @@ spherical_coordinate_system_impl_t::get_jacobian_matrix(
 }
 
 
-std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double,GRACE_NSPACEDIM*GRACE_NSPACEDIM> GRACE_HOST 
 spherical_coordinate_system_impl_t::get_inverse_jacobian_matrix(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q 
-    , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+    , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
     , bool use_ghostzones ) const
 { 
-    using namespace thunder ;
+    using namespace grace ;
     int itree = amr::get_quadrant_owner(q) ;
     return get_inverse_jacobian_matrix(ijk,q,itree,cell_coordinates,use_ghostzones) ; 
 }
 
-std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double,GRACE_NSPACEDIM*GRACE_NSPACEDIM> GRACE_HOST 
 spherical_coordinate_system_impl_t::get_inverse_jacobian_matrix(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q 
     , int itree 
-    , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates 
+    , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
     , bool use_ghostzones ) const
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     auto lcoords =  get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
     return get_inverse_jacobian_matrix(itree,lcoords) ; 
 } 
 
-std::array<double,THUNDER_NSPACEDIM*THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double,GRACE_NSPACEDIM*GRACE_NSPACEDIM> GRACE_HOST 
 spherical_coordinate_system_impl_t::get_inverse_jacobian_matrix(
       int itree
-    , std::array<double,THUNDER_NSPACEDIM> const& lcoords ) const
+    , std::array<double,GRACE_NSPACEDIM> const& lcoords ) const
 {
-    using namespace thunder; 
+    using namespace grace; 
     int itree_b = itree ; 
     auto lcoords_b = lcoords ; 
     if( spherical_coordinate_system_impl_t::is_outside_tree(lcoords) and !spherical_coordinate_system_impl_t::is_physical_boundary(lcoords,itree) ) {
@@ -384,7 +384,7 @@ spherical_coordinate_system_impl_t::get_inverse_jacobian_matrix(
     double si, so; \
     double r1, r2 ;
     if( itree_b == 0 ) {
-        auto J = utils::identity_matrix<THUNDER_NSPACEDIM>() ; 
+        auto J = utils::identity_matrix<GRACE_NSPACEDIM>() ; 
         for( auto& x: J ) x *= (2.*_L) ; 
     } else if ( (itree_b-1)/P4EST_FACES == 0 ) { 
         si=0; so=1.; 
@@ -393,7 +393,7 @@ spherical_coordinate_system_impl_t::get_inverse_jacobian_matrix(
         si = 1.; so=1; 
         r1 = _Ri; r2 = _Ro; 
         if( _use_logr ) {
-            #ifdef THUNDER_3D 
+            #ifdef GRACE_3D 
             return {
                 Jac_sph_log_inv_3D_00(r1,r2, lcoords_b[1],lcoords_b[2],lcoords_b[0]), Jac_sph_log_inv_3D_01(r1,r2, lcoords_b[1],lcoords_b[2],lcoords_b[0]), Jac_sph_log_inv_3D_02(r1,r2, lcoords_b[1],lcoords_b[2],lcoords_b[0]),
                 Jac_sph_log_inv_3D_10(r1,r2, lcoords_b[1],lcoords_b[2],lcoords_b[0]), Jac_sph_log_inv_3D_11(r1,r2, lcoords_b[1],lcoords_b[2],lcoords_b[0]), Jac_sph_log_inv_3D_12(r1,r2, lcoords_b[1],lcoords_b[2],lcoords_b[0]),
@@ -407,7 +407,7 @@ spherical_coordinate_system_impl_t::get_inverse_jacobian_matrix(
             #endif
         }
     }
-    #ifdef THUNDER_3D 
+    #ifdef GRACE_3D 
     return {
         Jac_sph_inv_3D_00(r1,r2, lcoords_b[1], si,so, lcoords_b[2],lcoords_b[0]), Jac_sph_inv_3D_01(r1,r2, lcoords_b[1], si,so, lcoords_b[2],lcoords_b[0]), Jac_sph_inv_3D_02(r1,r2, lcoords_b[1], si,so, lcoords_b[2],lcoords_b[0]),
         Jac_sph_inv_3D_10(r1,r2, lcoords_b[1], si,so, lcoords_b[2],lcoords_b[0]), Jac_sph_inv_3D_11(r1,r2, lcoords_b[1], si,so, lcoords_b[2],lcoords_b[0]), 0.0,
@@ -422,12 +422,12 @@ spherical_coordinate_system_impl_t::get_inverse_jacobian_matrix(
 }
 
 double
-THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
-    std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+GRACE_HOST spherical_coordinate_system_impl_t::get_cell_volume(
+    std::array<size_t, GRACE_NSPACEDIM> const& ijk 
   , int64_t q
   , bool use_ghostzones) const
 {
-    using namespace thunder ;
+    using namespace grace ;
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int64_t itree = amr::get_quadrant_owner(q)   ; 
@@ -445,11 +445,11 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
 }
 
 double
-THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+GRACE_HOST spherical_coordinate_system_impl_t::get_cell_volume(
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones)  const
 {
     auto lcoords = get_logical_coordinates(ijk,q,{VEC(0.,0.,0.)},use_ghostzones) ; 
@@ -457,20 +457,20 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
 }  
 
 double
-THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
-      std::array<double, THUNDER_NSPACEDIM> const& lcoords
+GRACE_HOST spherical_coordinate_system_impl_t::get_cell_volume(
+      std::array<double, GRACE_NSPACEDIM> const& lcoords
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones)  const
 {
-    using namespace thunder ;
-    using namespace thunder::detail  ; 
-    int ngz = thunder::amr::get_n_ghosts();
+    using namespace grace ;
+    using namespace grace::detail  ; 
+    int ngz = grace::amr::get_n_ghosts();
     if( spherical_coordinate_system_impl_t::is_outside_tree(lcoords,true) and !spherical_coordinate_system_impl_t::is_physical_boundary(lcoords,itree,true) and use_ghostzones) {
         return get_cell_volume_buffer_zone(itree,lcoords,dxl);
     }
     if( itree == 0 ) {
-        return math::int_pow<THUNDER_NSPACEDIM>(2.*_L) * EXPR(dxl[0],*dxl[1],*dxl[2]) ; 
+        return math::int_pow<GRACE_NSPACEDIM>(2.*_L) * EXPR(dxl[0],*dxl[1],*dxl[2]) ; 
     } else if( (itree-1)/P4EST_FACES == 0 ) {
         return detail::get_cell_volume_int<5UL>(_L,_Ri,VEC(lcoords[0],lcoords[1],lcoords[2])
                                               ,VEC(dxl[0],dxl[1],dxl[2])  ) ; 
@@ -486,13 +486,13 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume(
 }
 
 double
-THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+GRACE_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q
     , int8_t face 
     , bool use_ghostzones) const 
 {
-    using namespace thunder ;
+    using namespace grace ;
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int itree = amr::get_quadrant_owner(q)   ; 
@@ -510,15 +510,15 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
 }
 
 double
-THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+GRACE_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q
     , int8_t face 
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const 
 {
-    std::array<double, THUNDER_NSPACEDIM> cell_coordinates 
+    std::array<double, GRACE_NSPACEDIM> cell_coordinates 
     { VEC( 0.,0.,0.) } ;
     auto lcoords = get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
     return get_cell_face_surface(lcoords,face,itree,dxl,use_ghostzones) ; 
@@ -526,15 +526,15 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
 /* NB: by convention index i,j,k and face idx if corresponds to face */
 /*     i-delta_{i,if}/2, j-delta_{j,if}/2, k-delta_{k,if}/2          */
 double
-THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
-      std::array<double, THUNDER_NSPACEDIM> const& lcoords
+GRACE_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
+      std::array<double, GRACE_NSPACEDIM> const& lcoords
     , int8_t face 
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const 
 {
-    using namespace thunder::detail ;
-    int ngz = thunder::amr::get_n_ghosts();
+    using namespace grace::detail ;
+    int ngz = grace::amr::get_n_ghosts();
     if( spherical_coordinate_system_impl_t::is_outside_tree(lcoords) and !spherical_coordinate_system_impl_t::is_physical_boundary(lcoords,itree) and use_ghostzones) {
         return get_cell_face_surface_buffer_zone(face,itree,lcoords,dxl); 
     }
@@ -551,7 +551,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
              + (face/2==2)*dxl[1]
         ) ;
         )
-        return math::int_pow<THUNDER_NSPACEDIM-1>(2.*_L) * EXPRD(dh,*dt) ; 
+        return math::int_pow<GRACE_NSPACEDIM-1>(2.*_L) * EXPRD(dh,*dt) ; 
     } else if( (itree-1)/P4EST_FACES == 0 ) {
         if( face / 2 == 0 ) {
             return get_cell_surface_zeta_int<5UL>(_L,_Ri
@@ -563,7 +563,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
                                        ,VEC(lcoords[0],lcoords[1],lcoords[2])
                                        ,VECD(dxl[0],dxl[2]));                        
         } 
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         else if ( face/2 == 2) {
             return get_cell_surface_xi_int(_L,_Ri
                                        ,VEC(lcoords[0],lcoords[1],lcoords[2])
@@ -585,7 +585,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
                                         ,VEC(lcoords[0],lcoords[1],lcoords[2])
                                         ,VECD(dxl[0],dxl[2]));                        
             } 
-            #ifdef THUNDER_3D 
+            #ifdef GRACE_3D 
             else if ( face/2 == 2) {
                 return get_cell_surface_xi_log(_Ri,_Ro
                                         ,VEC(lcoords[0],lcoords[1],lcoords[2])
@@ -606,7 +606,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
                                         ,VEC(lcoords[0],lcoords[1],lcoords[2])
                                         ,VECD(dxl[0],dxl[2]));                        
             } 
-            #ifdef THUNDER_3D 
+            #ifdef GRACE_3D 
             else if ( face/2 == 2) {
                 return get_cell_surface_xi_ext(_Ri,_Ro
                                         ,VEC(lcoords[0],lcoords[1],lcoords[2])
@@ -619,16 +619,16 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface(
         }
     }
 } 
-#ifdef THUNDER_3D 
+#ifdef GRACE_3D 
 double 
-THUNDER_HOST 
+GRACE_HOST 
 spherical_coordinate_system_impl_t::get_cell_edge_length(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q
     , int8_t edge
     , bool use_ghostzones) const
 {
-    using namespace thunder ;
+    using namespace grace ;
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int itree = amr::get_quadrant_owner(q)   ; 
@@ -647,16 +647,16 @@ spherical_coordinate_system_impl_t::get_cell_edge_length(
 }
 
 double 
-THUNDER_HOST 
+GRACE_HOST 
 spherical_coordinate_system_impl_t::get_cell_edge_length(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk 
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk 
     , int64_t q
     , int8_t edge 
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const
 {
-    std::array<double, THUNDER_NSPACEDIM> cell_coordinates {
+    std::array<double, GRACE_NSPACEDIM> cell_coordinates {
         VEC(0.,0.,0.)
     } ; 
     auto lcoords = get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
@@ -665,15 +665,15 @@ spherical_coordinate_system_impl_t::get_cell_edge_length(
 /* NB: by convention index i,j,k and edge idx ie corresponds to edge    */
 /*     i-1/2+delta_{i,ie}/2, j-1/2+delta_{j,ie}/2, k-1/2+delta_{k,ie}/2 */
 double 
-THUNDER_HOST 
+GRACE_HOST 
 spherical_coordinate_system_impl_t::get_cell_edge_length(
-      std::array<double, THUNDER_NSPACEDIM> const & lcoords 
+      std::array<double, GRACE_NSPACEDIM> const & lcoords 
     , int8_t edge 
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl 
+    , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const
 {
-    using namespace thunder::detail ;
+    using namespace grace::detail ;
     if( spherical_coordinate_system_impl_t::is_outside_tree(lcoords) and !spherical_coordinate_system_impl_t::is_physical_boundary(lcoords,itree) and use_ghostzones) {
         return get_cell_edge_length_buffer_zone(edge,itree,lcoords,dxl); 
     }
@@ -715,8 +715,8 @@ spherical_coordinate_system_impl_t::get_cell_edge_length(
 }
 #endif 
 bool 
-THUNDER_HOST spherical_coordinate_system_impl_t::is_outside_tree(
-    std::array<double, THUNDER_NSPACEDIM> const& lcoords, bool check_exact_boundary
+GRACE_HOST spherical_coordinate_system_impl_t::is_outside_tree(
+    std::array<double, GRACE_NSPACEDIM> const& lcoords, bool check_exact_boundary
 )
 {
     return EXPR(
@@ -727,8 +727,8 @@ THUNDER_HOST spherical_coordinate_system_impl_t::is_outside_tree(
 }
 
 bool 
-THUNDER_HOST spherical_coordinate_system_impl_t::is_physical_boundary(
-    std::array<double,THUNDER_NSPACEDIM> const& lcoords, int itree, bool check_exact_boundary) const 
+GRACE_HOST spherical_coordinate_system_impl_t::is_physical_boundary(
+    std::array<double,GRACE_NSPACEDIM> const& lcoords, int itree, bool check_exact_boundary) const 
 {
     ASSERT_DBG(spherical_coordinate_system_impl_t::is_outside_tree(lcoords,check_exact_boundary), "In is_physical_boundary: lcoords not in buffer zone"); 
     int itree_b; int8_t iface,iface_b ; 
@@ -738,11 +738,11 @@ THUNDER_HOST spherical_coordinate_system_impl_t::is_physical_boundary(
 
 
 std::tuple<int, int8_t, int8_t>
-THUNDER_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
+GRACE_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
       int itree
-    , std::array<size_t,THUNDER_NSPACEDIM> const& ijk ) const
+    , std::array<size_t,GRACE_NSPACEDIM> const& ijk ) const
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     size_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ;
     int ngz = amr::get_n_ghosts() ; 
@@ -765,7 +765,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
         iface = 3 ; 
         ++nghost ; 
     }
-    #ifdef THUNDER_3D 
+    #ifdef GRACE_3D 
     if ( ijk[2] < ngz ) {
         iface = 4 ;
         ++nghost ; 
@@ -787,12 +787,12 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
 }
 
 std::tuple<int, int8_t, int8_t>
-THUNDER_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
+GRACE_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
       int itree
-    , std::array<double,THUNDER_NSPACEDIM> const& lcoords 
+    , std::array<double,GRACE_NSPACEDIM> const& lcoords 
     , bool check_exact_boundary) const
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     ASSERT_DBG(spherical_coordinate_system_impl_t::is_outside_tree(lcoords,check_exact_boundary), "In get neighbor tree: lcoords not outside tree.") ; 
     int iface ; 
     int nghost = 0 ; 
@@ -812,7 +812,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
         iface = 3 ; 
         ++nghost ; 
     }
-    #ifdef THUNDER_3D 
+    #ifdef GRACE_3D 
     if ( lcoords[2] < 0 ) {
         iface = 4 ;
         ++nghost ; 
@@ -833,17 +833,17 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_neighbor_tree_and_face(
     ) ; 
 }
 
-std::array<double, THUNDER_NSPACEDIM> 
-THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_zone(
+std::array<double, GRACE_NSPACEDIM> 
+GRACE_HOST spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_zone(
       int itree, int itree_b, int8_t iface, int8_t iface_b
-    , std::array<double, THUNDER_NSPACEDIM> const& lcoords )
+    , std::array<double, GRACE_NSPACEDIM> const& lcoords )
 {
-    using namespace thunder ; 
+    using namespace grace ; 
     // corner neighbor -- unused 
     if(itree_b==-1){
         return {VEC(1,1,1)} ; 
     }
-    std::array<double, THUNDER_NSPACEDIM> lcoords_b ; 
+    std::array<double, GRACE_NSPACEDIM> lcoords_b ; 
     
     EXPR(
     double const dl = 
@@ -860,7 +860,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_
           + (iface/2==1) * lcoords[0],
           + (iface/2==2) * lcoords[0]
     ) ;
-    #ifdef THUNDER_3D 
+    #ifdef GRACE_3D 
     EXPR(
     double const dt =
             (iface/2==0) * lcoords[2], 
@@ -882,7 +882,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_
         + (iface_b/2==0) * dh, 
         + (iface_b/2==2) * dt 
     ) ;
-    #ifdef THUNDER_3D
+    #ifdef GRACE_3D
     EXPR(
     lcoords_b[2] = 
           (iface_b==4) * dl 
@@ -891,7 +891,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_
         + (iface_b/2==1) * dt 
     ) ;
     #endif 
-    for(int idir=0; idir<THUNDER_NSPACEDIM; ++idir){
+    for(int idir=0; idir<GRACE_NSPACEDIM; ++idir){
         ASSERT_DBG(
             lcoords_b[idir] >=0 and lcoords_b[idir] <=1,
             "Out of bounds logical coordinates "
@@ -905,13 +905,13 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_logical_coordinates_buffer_
 }
 
 double
-THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume_buffer_zone(
+GRACE_HOST spherical_coordinate_system_impl_t::get_cell_volume_buffer_zone(
       int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& lcoords
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) const
+    , std::array<double, GRACE_NSPACEDIM> const& lcoords
+    , std::array<double, GRACE_NSPACEDIM> const& dxl ) const
 {
-    using namespace thunder ;
-    using namespace thunder::detail ;
+    using namespace grace ;
+    using namespace grace::detail ;
     int    itree_b  ;
     int8_t iface_b, iface ; 
     std::tie(itree_b,iface_b,iface) =
@@ -928,7 +928,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume_buffer_zone(
     )
     double Vol = 0;
     if( itree_b == 0 ) {
-        Vol = math::int_pow<THUNDER_NSPACEDIM>(2.*_L) * EXPR(dxl[0],*dxl[1],*dxl[2]) ; 
+        Vol = math::int_pow<GRACE_NSPACEDIM>(2.*_L) * EXPR(dxl[0],*dxl[1],*dxl[2]) ; 
     } else if( (itree_b-1)/P4EST_FACES == 0 ) {
         Vol = detail::get_cell_volume_int<5UL>(_L,_Ri,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
                                               ,VEC(dxl[0],dxl[1],dxl[2])  ) ; 
@@ -946,14 +946,14 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_volume_buffer_zone(
 }
 
 double
-THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface_buffer_zone(
+GRACE_HOST spherical_coordinate_system_impl_t::get_cell_face_surface_buffer_zone(
       int8_t icell_face 
     , int itree 
-    , std::array<double, THUNDER_NSPACEDIM> const& lcoords
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) const
+    , std::array<double, GRACE_NSPACEDIM> const& lcoords
+    , std::array<double, GRACE_NSPACEDIM> const& dxl ) const
 {
-    using namespace thunder ;
-    using namespace thunder::detail ;
+    using namespace grace ;
+    using namespace grace::detail ;
     int    itree_b  ;
     int8_t iface_b, iface ; 
     std::tie(itree_b,iface_b,iface) =
@@ -983,7 +983,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface_buffer_zo
              + (icell_face/2==2)*dxl[1]
         ) ;
         )
-        Surf = math::int_pow<THUNDER_NSPACEDIM-1>(2.*_L) * EXPRD(dh,*dt) ; 
+        Surf = math::int_pow<GRACE_NSPACEDIM-1>(2.*_L) * EXPRD(dh,*dt) ; 
     } else if( (itree_b-1)/P4EST_FACES == 0 ) {
         if( icell_face / 2 == 0 ) {
             Surf = get_cell_surface_zeta_int<5UL>(_L,_Ri
@@ -995,7 +995,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface_buffer_zo
                                        ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
                                        ,VECD(dxl[0],dxl[2]));                        
         } 
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         else if ( icell_face/2 == 2) {
             Surf = get_cell_surface_xi_int(_L,_Ri
                                        ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
@@ -1017,7 +1017,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface_buffer_zo
                                         ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
                                         ,VECD(dxl[0],dxl[2]));                        
             } 
-            #ifdef THUNDER_3D 
+            #ifdef GRACE_3D 
             else if ( icell_face/2 == 2) {
                 Surf= get_cell_surface_xi_log(_Ri,_Ro
                                         ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
@@ -1038,7 +1038,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface_buffer_zo
                                         ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
                                         ,VECD(dxl[0],dxl[2]));                        
             } 
-            #ifdef THUNDER_3D 
+            #ifdef GRACE_3D 
             else if ( icell_face/2 == 2) {
                 Surf= get_cell_surface_xi_ext(_Ri,_Ro
                                         ,VEC(lcoords_b[0],lcoords_b[1],lcoords_b[2])
@@ -1053,15 +1053,15 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_face_surface_buffer_zo
     return Surf ; 
 
 }
-#ifdef THUNDER_3D 
+#ifdef GRACE_3D 
 double
-THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_edge_length_buffer_zone(
+GRACE_HOST spherical_coordinate_system_impl_t::get_cell_edge_length_buffer_zone(
       int8_t icell_edge
     , int itree
-    , std::array<double, THUNDER_NSPACEDIM> const& lcoords
-    , std::array<double, THUNDER_NSPACEDIM> const& dxl ) const
+    , std::array<double, GRACE_NSPACEDIM> const& lcoords
+    , std::array<double, GRACE_NSPACEDIM> const& dxl ) const
 {
-    using namespace thunder::detail ;
+    using namespace grace::detail ;
     int    itree_b  ;
     int8_t iface_b, iface ; 
     std::tie(itree_b,iface_b,iface) =
@@ -1114,10 +1114,10 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_cell_edge_length_buffer_zon
     return Length ; 
 }
 #endif 
-std::array<double, THUNDER_NSPACEDIM>
-THUNDER_HOST spherical_coordinate_system_impl_t::get_physical_coordinates_cart(
+std::array<double, GRACE_NSPACEDIM>
+GRACE_HOST spherical_coordinate_system_impl_t::get_physical_coordinates_cart(
     double L,
-    std::array<double, THUNDER_NSPACEDIM> const& lcoords ) const
+    std::array<double, GRACE_NSPACEDIM> const& lcoords ) const
 {
     return {VEC(
             (lcoords[0] * 2. - 1.) * L,
@@ -1126,25 +1126,25 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_physical_coordinates_cart(
         )} ;
 }
 
-std::array<double, THUNDER_NSPACEDIM>
-THUNDER_HOST spherical_coordinate_system_impl_t::get_physical_coordinates_sph(
+std::array<double, GRACE_NSPACEDIM>
+GRACE_HOST spherical_coordinate_system_impl_t::get_physical_coordinates_sph(
       int irot   
     , double Ri
     , double Ro 
     , std::array<double,2> const& F 
     , std::array<double,2> const& S
-    , std::array<double, THUNDER_NSPACEDIM> const& lcoords
+    , std::array<double, GRACE_NSPACEDIM> const& lcoords
     , bool logr ) const
 {
     auto const eta = (2*lcoords[1]-1); 
-    #ifdef THUNDER_3D 
+    #ifdef GRACE_3D 
     auto const xi = (2*lcoords[2]-1) ; 
     #endif
     auto const one_over_rho = 1./sqrt(EXPR( 1
                                         , + math::int_pow<2>(eta)
                                         , + math::int_pow<2>(xi) )) ;
     auto const z = get_zeta(lcoords[0], one_over_rho, F, S, logr);   
-    std::array<double, THUNDER_NSPACEDIM> pcoords =
+    std::array<double, GRACE_NSPACEDIM> pcoords =
         { VEC( z
              , z * eta
              , z * xi )};
@@ -1152,7 +1152,7 @@ THUNDER_HOST spherical_coordinate_system_impl_t::get_physical_coordinates_sph(
 }
 
 
-double THUNDER_HOST 
+double GRACE_HOST 
 spherical_coordinate_system_impl_t::get_zeta( double const& z
                                             , double const& one_over_rho
                                             , std::array<double,2> const& F

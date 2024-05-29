@@ -1,10 +1,10 @@
 add_executable(bm_IO bm_IO.cpp)
 target_include_directories(bm_IO PRIVATE "${HEADER_DIR}")
 target_link_libraries(bm_IO PRIVATE 
-        thunder_objects
-        $<TARGET_OBJECTS:thunder_vtk_output>
-        $<TARGET_OBJECTS:thunder_hdf5_output>
-        $<TARGET_OBJECTS:thunder_cell_output>
+        grace_objects
+        $<TARGET_OBJECTS:grace_vtk_output>
+        $<TARGET_OBJECTS:grace_hdf5_output>
+        $<TARGET_OBJECTS:grace_cell_output>
         yaml_cpp::yaml
         MPI::MPI_CXX
         OpenMP::OpenMP_CXX

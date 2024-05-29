@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2024-03-19
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  * 
@@ -28,28 +28,28 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Vector.hpp>
 
-#include <thunder/amr/regrid.hh>
-#include <thunder/amr/regridding_policy_kernels.tpp> 
-#include <thunder/amr/prolongation_kernels.tpp> 
-#include <thunder/amr/restriction_kernels.tpp> 
-#include <thunder/amr/regrid_helpers.tpp>
-#include <thunder/amr/amr_functions.hh>
-#include <thunder/coordinates/coordinates.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/utils/prolongation.hh>
-#include <thunder/utils/limiters.hh>
+#include <grace/amr/regrid.hh>
+#include <grace/amr/regridding_policy_kernels.tpp> 
+#include <grace/amr/prolongation_kernels.tpp> 
+#include <grace/amr/restriction_kernels.tpp> 
+#include <grace/amr/regrid_helpers.tpp>
+#include <grace/amr/amr_functions.hh>
+#include <grace/coordinates/coordinates.hh>
+#include <grace/data_structures/grace_data_structures.hh>
+#include <grace/config/config_parser.hh>
+#include <grace/utils/prolongation.hh>
+#include <grace/utils/limiters.hh>
 
-namespace thunder { namespace amr { 
+namespace grace { namespace amr { 
 
 void regrid() {
     Kokkos::Profiling::pushRegion("regrid") ; 
-    using namespace thunder ; 
+    using namespace grace ; 
     auto& params = config_parser::get()             ; 
     auto& state  = variable_list::get().getstate()  ; 
     auto& aux = variable_list::get().getaux()       ; 
-    int nvars = state.extent(THUNDER_NSPACEDIM)   ; 
-    size_t thunder_maxlevel = 
+    int nvars = state.extent(GRACE_NSPACEDIM)   ; 
+    size_t grace_maxlevel = 
         params["amr"]["max_refinement_level"].as<size_t>() ; 
     size_t nx,ny,nz                                        ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents()       ; 
@@ -111,7 +111,7 @@ void regrid() {
     /* replace_fn       --> Function to modify the new quadrants.                             */
     /******************************************************************************************/ 
     p4est_refine_ext( amr::forest::get().get() 
-                    , 0, thunder_maxlevel 
+                    , 0, grace_maxlevel 
                     , amr::refine_cback
                     , amr::initialize_quadrant 
                     , amr::set_quadrant_flag ) ; 
@@ -214,17 +214,17 @@ void regrid() {
     /******************************************************************************************/
     /*                     Allocate temporary coordinate arrays                               */
     /******************************************************************************************/
-    cell_vol_array_t<THUNDER_NSPACEDIM> in_vol( 
+    cell_vol_array_t<GRACE_NSPACEDIM> in_vol( 
         "temporary_cell_volumes", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz), nq_new 
     ) ; 
-    scalar_array_t<THUNDER_NSPACEDIM> in_dx(
-        "temporary_cell_spacing", THUNDER_NSPACEDIM, nq_new 
+    scalar_array_t<GRACE_NSPACEDIM> in_dx(
+        "temporary_cell_spacing", GRACE_NSPACEDIM, nq_new 
     ) ; 
-    scalar_array_t<THUNDER_NSPACEDIM> in_idx(
-        "temporary_cell_inv_spacing", THUNDER_NSPACEDIM, nq_new 
+    scalar_array_t<GRACE_NSPACEDIM> in_idx(
+        "temporary_cell_inv_spacing", GRACE_NSPACEDIM, nq_new 
     ) ;
-    scalar_array_t<THUNDER_NSPACEDIM> in_coords(
-        "temporary_quadrant_coordinates", THUNDER_NSPACEDIM, nq_new 
+    scalar_array_t<GRACE_NSPACEDIM> in_coords(
+        "temporary_quadrant_coordinates", GRACE_NSPACEDIM, nq_new 
     ) ;
     staggered_coordinate_arrays_t in_staggered_coords(
         VEC(nx,ny,nz), ngz, nq_new 
@@ -238,7 +238,7 @@ void regrid() {
     if( interp == "linear" ) 
     {
         if( limiter == "minmod"){
-            prolongate_variables<utils::linear_prolongator_t<thunder::minmod>> ( 
+            prolongate_variables<utils::linear_prolongator_t<grace::minmod>> ( 
                 state_swap
                 , state 
                 , dx
@@ -251,7 +251,7 @@ void regrid() {
                 , refine_outgoing 
             ) ;
         } else if (limiter == "monotonized-central") {
-            prolongate_variables<utils::linear_prolongator_t<thunder::MCbeta>> ( 
+            prolongate_variables<utils::linear_prolongator_t<grace::MCbeta>> ( 
                 state_swap
                 , state 
                 , dx
@@ -324,7 +324,7 @@ void regrid() {
                 new_glob_qoffsets.data() 
                 , glob_qoffsets.data()
                 , parallel::get_comm_world() 
-                , parallel::THUNDER_PARTITION_TAG 
+                , parallel::GRACE_PARTITION_TAG 
                 , reinterpret_cast<void*>(state.data())
                 , reinterpret_cast<void*>(state_swap.data())
                 , quadrant_data_size 
@@ -332,13 +332,13 @@ void regrid() {
 
     auto& idx = variable_list::get().getinvspacings()  ; 
     
-    Kokkos::resize( coords      ,   THUNDER_NSPACEDIM
+    Kokkos::resize( coords      ,   GRACE_NSPACEDIM
                                 ,   nq_local 
                                  ) ;
-    Kokkos::realloc( idx        , THUNDER_NSPACEDIM
+    Kokkos::realloc( idx        , GRACE_NSPACEDIM
                                 ,   nq_local 
                                  ) ;
-    Kokkos::realloc(  dx        , THUNDER_NSPACEDIM
+    Kokkos::realloc(  dx        , GRACE_NSPACEDIM
                                 ,   nq_local 
                                  ) ;
     Kokkos::realloc( vol        , VEC(  nx + 2*ngz 
@@ -352,7 +352,7 @@ void regrid() {
     /*                            Auxiliary vars are reallocated                              */
     /*                            but not re-initialized.                                     */
     /******************************************************************************************/
-    int nvars_aux = aux.extent(THUNDER_NSPACEDIM) ; 
+    int nvars_aux = aux.extent(GRACE_NSPACEDIM) ; 
     Kokkos::resize( aux         ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 
                                         , nz + 2*ngz )
@@ -397,4 +397,4 @@ void set_quadrants_to_default()
         }
     }
 }
-}} /* namespace thunder::amr */ 
+}} /* namespace grace::amr */ 

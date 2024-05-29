@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-05-15
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -24,38 +25,38 @@
  * 
  */
 
-#include <thunder_config.h>
-#include <thunder/physics/thunder_physical_systems.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/amr/amr_functions.hh>
-#include <thunder/utils/thunder_utils.hh>
+#include <grace_config.h>
+#include <grace/physics/grace_physical_systems.hh>
+#include <grace/config/config_parser.hh>
+#include <grace/amr/amr_functions.hh>
+#include <grace/utils/grace_utils.hh>
 
-#include <thunder/data_structures/variable_indices.hh>
-#include <thunder/data_structures/variables.hh>
-#include <thunder/system/thunder_system.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
+#include <grace/data_structures/variable_indices.hh>
+#include <grace/data_structures/variables.hh>
+#include <grace/system/grace_system.hh>
+#include <grace/coordinates/coordinate_systems.hh>
 
 #include <Kokkos_Core.hpp>
 #include <cmath>
 
-namespace thunder {
+namespace grace {
 void set_scalar_advection_initial_data() { 
-    using namespace thunder ; 
+    using namespace grace ; 
     using namespace Kokkos  ; 
-    THUNDER_INFO("Setting initial gaussian data for scalar advection problem.") ; 
-    #ifndef THUNDER_ENABLE_SCALAR_ADV 
+    GRACE_INFO("Setting initial gaussian data for scalar advection problem.") ; 
+    #ifndef GRACE_ENABLE_SCALAR_ADV 
     int const U = -1 ; 
     ERROR("Should not run scalar advection equation ID" 
           "if scalar advection equation evolution is not enabled.") ; 
     #endif 
-    auto& state = thunder::variable_list::get().getstate() ; 
+    auto& state = grace::variable_list::get().getstate() ; 
 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ; 
     
     int64_t nq = amr::get_local_num_quadrants() ;
-    auto& params = thunder::config_parser::get() ; 
+    auto& params = grace::config_parser::get() ; 
     double VEC(ax,ay,az) ; 
     EXPR(
     ax = params["scalar_advection"]["ax"].as<double>() ;,
@@ -68,14 +69,14 @@ void set_scalar_advection_initial_data() {
     double yc = params["scalar_advection"]["gaussian_y_c"].as<double>() ;,
     double zc = params["scalar_advection"]["gaussian_z_c"].as<double>() ; 
     )
-    auto& coord_system = thunder::coordinate_system::get() ; 
+    auto& coord_system = grace::coordinate_system::get() ; 
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
 
     int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
     for( int64_t icell=0; icell<ncells; ++icell) {
         size_t const i = icell%(nx+2*ngz); 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
         size_t const q = 

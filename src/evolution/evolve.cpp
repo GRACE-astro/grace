@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-05-13
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -24,40 +25,40 @@
  * 
  */
 
-#include <thunder_config.h>
+#include <grace_config.h>
 
-#include <thunder/evolution/evolve.hh>
-#include <thunder/evolution/auxiliaries.hh>
-#include <thunder/evolution/evolution_kernel_tags.hh>
+#include <grace/evolution/evolve.hh>
+#include <grace/evolution/auxiliaries.hh>
+#include <grace/evolution/evolution_kernel_tags.hh>
 
-#include <thunder/system/thunder_system.hh>
+#include <grace/system/grace_system.hh>
 
-#include <thunder/config/config_parser.hh>
+#include <grace/config/config_parser.hh>
 
-#include <thunder/amr/boundary_conditions.hh>
+#include <grace/amr/boundary_conditions.hh>
 
-#include <thunder/data_structures/thunder_data_structures.hh>
+#include <grace/data_structures/grace_data_structures.hh>
 
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/utils/reconstruction.hh>
-#include <thunder/utils/riemann_solvers.hh>
-#ifdef THUNDER_ENABLE_BURGERS 
-#include <thunder/physics/burgers.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/utils/reconstruction.hh>
+#include <grace/utils/riemann_solvers.hh>
+#ifdef GRACE_ENABLE_BURGERS 
+#include <grace/physics/burgers.hh>
 #endif 
-#ifdef THUNDER_ENABLE_SCALAR_ADV
-#include <thunder/physics/scalar_advection.hh>
+#ifdef GRACE_ENABLE_SCALAR_ADV
+#include <grace/physics/scalar_advection.hh>
 #endif  
 
-#include <thunder/amr/thunder_amr.hh>
+#include <grace/amr/grace_amr.hh>
 
 #include <string> 
 
-namespace thunder {
+namespace grace {
 
 void evolve() {
-    using namespace thunder ; 
+    using namespace grace ; 
 
-    auto& parser = thunder::config_parser::get() ;
+    auto& parser = grace::config_parser::get() ;
 
     std::string tstepper = 
         parser["evolution"]["time_stepper"].as<std::string>() ; 
@@ -65,13 +66,13 @@ void evolve() {
     double const t  = get_simulation_time() ; 
     double const dt = get_timestep()        ;
     
-    auto& state   = thunder::variable_list::get().getstate()   ; 
-    auto& state_p = thunder::variable_list::get().getscratch() ;
+    auto& state   = grace::variable_list::get().getstate()   ; 
+    auto& state_p = grace::variable_list::get().getscratch() ;
 
-    auto& aux     = thunder::variable_list::get().getaux()     ; 
+    auto& aux     = grace::variable_list::get().getaux()     ; 
 
-    auto& cvol    = thunder::variable_list::get().getvolumes() ; 
-    auto& fsurf   = thunder::variable_list::get().getstaggeredcoords() ; 
+    auto& cvol    = grace::variable_list::get().getvolumes() ; 
+    auto& fsurf   = grace::variable_list::get().getstaggeredcoords() ; 
     /* Copy the current state to scratch memory */
     //amr::apply_boundary_conditions(state) ; 
     Kokkos::deep_copy(state_p, state) ; 
@@ -97,14 +98,14 @@ void evolve() {
 }
 
 void advance_substep( double const t, double const dt, double const dtfact 
-                    , var_array_t<THUNDER_NSPACEDIM>& new_state 
-                    , var_array_t<THUNDER_NSPACEDIM>& old_state 
-                    , var_array_t<THUNDER_NSPACEDIM>& aux 
-                    , cell_vol_array_t<THUNDER_NSPACEDIM>& cvol
+                    , var_array_t<GRACE_NSPACEDIM>& new_state 
+                    , var_array_t<GRACE_NSPACEDIM>& old_state 
+                    , var_array_t<GRACE_NSPACEDIM>& aux 
+                    , cell_vol_array_t<GRACE_NSPACEDIM>& cvol
                     , staggered_coordinate_arrays_t& surfs_and_edges )
 {
     Kokkos::Profiling::pushRegion("evolve") ; 
-    using namespace thunder ; 
+    using namespace grace ; 
     using namespace Kokkos  ; 
 
     int64_t nx,ny,nz ; 
@@ -121,12 +122,12 @@ void advance_substep( double const t, double const dt, double const dtfact
              , ny + 1 
              , nz + 1)
         , nvars_hrsc 
-        , THUNDER_NSPACEDIM
+        , GRACE_NSPACEDIM
         , nq 
     ) ; 
 
-    #ifdef THUNDER_ENABLE_SCALAR_ADV
-    auto& params = thunder::config_parser::get() ; 
+    #ifdef GRACE_ENABLE_SCALAR_ADV
+    auto& params = grace::config_parser::get() ; 
     double VEC(ax,ay,az) ; 
     EXPR(
     ax = params["scalar_advection"]["ax"].as<double>() ;,
@@ -135,7 +136,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     scalar_advection_system_t<slope_limited_reconstructor_t<minmod>>  
         scalar_adv_system{ old_state, aux, VEC(ax,ay,az) } ; 
     #endif 
-    #ifdef THUNDER_ENABLE_BURGERS 
+    #ifdef GRACE_ENABLE_BURGERS 
     burgers_equation_system_t<slope_limited_reconstructor_t<MCbeta>,hll_riemann_solver_t>
         burgers_eq_system{ old_state, aux } ; 
     #endif 
@@ -143,26 +144,26 @@ void advance_substep( double const t, double const dt, double const dtfact
     TeamPolicy<default_execution_space> policy( nq, AUTO() ) ;
     using member_type = TeamPolicy<default_execution_space>::member_type ; 
 
-    parallel_for( THUNDER_EXECUTION_TAG("EVOL", "advance_substep")
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "advance_substep")
                 , policy 
                 , KOKKOS_LAMBDA (member_type team)
     {
         auto team_range_x = 
-        Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM>, member_type>( 
+        Kokkos::TeamThreadMDRange<Kokkos::Rank<GRACE_NSPACEDIM>, member_type>( 
               team 
             , VEC(nx+1,ny,nz) ) ;
         auto team_range_y = 
-        Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM>, member_type>( 
+        Kokkos::TeamThreadMDRange<Kokkos::Rank<GRACE_NSPACEDIM>, member_type>( 
               team 
             , VEC(nx,ny+1,nz) ) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         auto team_range_z = 
-        Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM>, member_type>( 
+        Kokkos::TeamThreadMDRange<Kokkos::Rank<GRACE_NSPACEDIM>, member_type>( 
               team 
             , VEC(nx,ny,nz+1) ) ;
         #endif 
         auto team_range = 
-        Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM>, member_type>( 
+        Kokkos::TeamThreadMDRange<Kokkos::Rank<GRACE_NSPACEDIM>, member_type>( 
               team 
             , VEC(nx,ny,nz) ) ;
 
@@ -178,31 +179,31 @@ void advance_substep( double const t, double const dt, double const dtfact
         parallel_for( team_range_x 
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k))
         {
-            #ifdef THUNDER_ENABLE_BURGERS
+            #ifdef GRACE_ENABLE_BURGERS
             burgers_eq_system(x_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
             #endif
-            #ifdef THUNDER_ENABLE_SCALAR_ADV
+            #ifdef GRACE_ENABLE_SCALAR_ADV
             scalar_adv_system(x_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
             #endif 
         }) ; 
         parallel_for( team_range_y 
                     , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
         {
-            #ifdef THUNDER_ENABLE_BURGERS
+            #ifdef GRACE_ENABLE_BURGERS
             burgers_eq_system(y_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ;
             #endif
-            #ifdef THUNDER_ENABLE_SCALAR_ADV
+            #ifdef GRACE_ENABLE_SCALAR_ADV
             scalar_adv_system(y_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
             #endif 
         }) ; 
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         parallel_for( team_range_z 
                     , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
         {
-            #ifdef THUNDER_ENABLE_BURGERS
+            #ifdef GRACE_ENABLE_BURGERS
             burgers_eq_system(z_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ;
             #endif
-            #ifdef THUNDER_ENABLE_SCALAR_ADV
+            #ifdef GRACE_ENABLE_SCALAR_ADV
             scalar_adv_system(z_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
             #endif 
         }) ; 
@@ -210,17 +211,17 @@ void advance_substep( double const t, double const dt, double const dtfact
         parallel_for( team_range 
                     , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
         {
-            #ifdef THUNDER_ENABLE_BURGERS
+            #ifdef GRACE_ENABLE_BURGERS
             burgers_eq_system(sources_computation_kernel_t{}, team, VEC(i,j,k), new_state, dt, dtfact ) ; 
             #endif 
-            #ifdef THUNDER_ENABLE_SCALAR_ADV
+            #ifdef GRACE_ENABLE_SCALAR_ADV
             scalar_adv_system(sources_computation_kernel_t{}, team, VEC(i,j,k), new_state, dt, dtfact ) ; 
             #endif 
         }) ;
         team.team_barrier() ; 
 
         auto team_range_vars = 
-        Kokkos::TeamThreadMDRange<Kokkos::Rank<THUNDER_NSPACEDIM+1>, member_type>( 
+        Kokkos::TeamThreadMDRange<Kokkos::Rank<GRACE_NSPACEDIM+1>, member_type>( 
               team 
             , VEC(nx,ny,nz), nvars_hrsc ) ;
         parallel_for( team_range_vars 

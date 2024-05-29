@@ -20,16 +20,16 @@ add_subdirectory(evolution)
 
 add_subdirectory(physics)
 
-add_library( thunder_objects INTERFACE )
-target_sources( thunder_objects INTERFACE 
-                $<TARGET_OBJECTS:thunder_error_handlers>
-                $<TARGET_OBJECTS:thunder_device_lowlevel>
-                $<TARGET_OBJECTS:thunder_parallel>
-                $<TARGET_OBJECTS:thunder_singleton>
-                $<TARGET_OBJECTS:thunder_runtime_utilities>
-                $<TARGET_OBJECTS:thunder_connectivity> 
-                $<TARGET_OBJECTS:thunder_forest>
-                $<TARGET_OBJECTS:thunder_amr_functions>
+add_library( grace_objects INTERFACE )
+target_sources( grace_objects INTERFACE 
+                $<TARGET_OBJECTS:grace_error_handlers>
+                $<TARGET_OBJECTS:grace_device_lowlevel>
+                $<TARGET_OBJECTS:grace_parallel>
+                $<TARGET_OBJECTS:grace_singleton>
+                $<TARGET_OBJECTS:grace_runtime_utilities>
+                $<TARGET_OBJECTS:grace_connectivity> 
+                $<TARGET_OBJECTS:grace_forest>
+                $<TARGET_OBJECTS:grace_amr_functions>
                 $<TARGET_OBJECTS:spherical_cell_volume_kernels>
                 $<TARGET_OBJECTS:spherical_jacobians_2D>
                 $<TARGET_OBJECTS:spherical_jacobians_3D>
@@ -42,21 +42,21 @@ target_sources( thunder_objects INTERFACE
                 $<TARGET_OBJECTS:spherical_volume_element_3D>
                 $<TARGET_OBJECTS:spherical_volume_element_3D_log>
                 $<TARGET_OBJECTS:spherical_volume_element_3D_log_exact>
-                $<TARGET_OBJECTS:thunder_coordinates>
-                $<TARGET_OBJECTS:thunder_init> 
-                $<TARGET_OBJECTS:thunder_finalize>
-                $<TARGET_OBJECTS:thunder_variable_list>
-                $<TARGET_OBJECTS:thunder_variable_registration>
-                $<TARGET_OBJECTS:thunder_variable_utils>
-                $<TARGET_OBJECTS:thunder_output_aux>
-                $<TARGET_OBJECTS:thunder_cartesian_coordinates>
-                $<TARGET_OBJECTS:thunder_spherical_coordinates>
-                $<TARGET_OBJECTS:thunder_coordinate_systems>
-                $<TARGET_OBJECTS:thunder_regrid> 
-                $<TARGET_OBJECTS:thunder_BC_helpers>
-                $<TARGET_OBJECTS:thunder_BC>
-                $<TARGET_OBJECTS:thunder_scalar_adv>
-                $<TARGET_OBJECTS:thunder_burgers_eq>
-                $<TARGET_OBJECTS:thunder_evolution> 
-                $<TARGET_OBJECTS:thunder_initial_data> )
+                $<TARGET_OBJECTS:grace_coordinates>
+                $<TARGET_OBJECTS:grace_init> 
+                $<TARGET_OBJECTS:grace_finalize>
+                $<TARGET_OBJECTS:grace_variable_list>
+                $<TARGET_OBJECTS:grace_variable_registration>
+                $<TARGET_OBJECTS:grace_variable_utils>
+                $<TARGET_OBJECTS:grace_output_aux>
+                $<TARGET_OBJECTS:grace_cartesian_coordinates>
+                $<TARGET_OBJECTS:grace_spherical_coordinates>
+                $<TARGET_OBJECTS:grace_coordinate_systems>
+                $<TARGET_OBJECTS:grace_regrid> 
+                $<TARGET_OBJECTS:grace_BC_helpers>
+                $<TARGET_OBJECTS:grace_BC>
+                $<TARGET_OBJECTS:grace_scalar_adv>
+                $<TARGET_OBJECTS:grace_burgers_eq>
+                $<TARGET_OBJECTS:grace_evolution> 
+                $<TARGET_OBJECTS:grace_initial_data> )
 

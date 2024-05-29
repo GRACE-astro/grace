@@ -1,7 +1,7 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-project(thunder VERSION 0.5 LANGUAGES CXX C)
+project(GRACE VERSION 0.5 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -22,22 +22,22 @@ include(setup_vtk)
 include(setup_spdlog)
 include(setup_HDF5)
 
-configure_file( "${CMAKE_SOURCE_DIR}/include/thunder/config/code_modules.h.in" code_modules.h )
+configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )
 include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
 
-configure_file("${CMAKE_SOURCE_DIR}/include/thunder/thunder_config.h.in" thunder_config.h)
+configure_file("${CMAKE_SOURCE_DIR}/include/grace/grace_config.h.in" grace_config.h)
 
 set(HEADER_DIR "${PROJECT_SOURCE_DIR}/include/")
 
 add_subdirectory(src)
 
-add_executable(thunder src/thunder.cpp)
-target_include_directories(thunder PRIVATE "${HEADER_DIR}")
-target_link_libraries(thunder PRIVATE 
-        thunder_objects
-        $<TARGET_OBJECTS:thunder_vtk_output>
-        $<TARGET_OBJECTS:thunder_hdf5_output>
-        $<TARGET_OBJECTS:thunder_cell_output>
+add_executable(grace src/grace.cpp)
+target_include_directories(grace PRIVATE "${HEADER_DIR}")
+target_link_libraries(grace PRIVATE 
+        grace_objects
+        $<TARGET_OBJECTS:grace_vtk_output>
+        $<TARGET_OBJECTS:grace_hdf5_output>
+        $<TARGET_OBJECTS:grace_cell_output>
         yaml_cpp::yaml
         MPI::MPI_CXX
         OpenMP::OpenMP_CXX
@@ -49,12 +49,12 @@ target_link_libraries(thunder PRIVATE
         HDF5::HDF5 
         )
 vtk_module_autoinit(
-    TARGETS thunder
+    TARGETS grace
     MODULES ${VTK_LIBRARIES}
 )
 
-option(THUNDER_ENABLE_TESTING "Build the tests" ON)
-if(THUNDER_ENABLE_TESTING)
+option(GRACE_ENABLE_TESTING "Build the tests" ON)
+if(GRACE_ENABLE_TESTING)
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/test/configs)
     configure_file("${CMAKE_SOURCE_DIR}/configs/basic_config.yaml" 
                   "${CMAKE_BINARY_DIR}/test/configs/basic_config.yaml" COPYONLY)
@@ -71,7 +71,7 @@ if(THUNDER_ENABLE_TESTING)
     add_subdirectory(test)
 endif()
 
-option(THUNDER_ENABLE_BENCHMARKS "Build the benchmarks" ON)
-if(THUNDER_ENABLE_BENCHMARKS)
+option(GRACE_ENABLE_BENCHMARKS "Build the benchmarks" ON)
+if(GRACE_ENABLE_BENCHMARKS)
 add_subdirectory(profiling)
 endif()

@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-05-24
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -24,11 +25,11 @@
  * 
  */
 
-#include <thunder/IO/hdf5_output.hh>
-#include <thunder/IO/vtk_output.hh>
-#include <thunder/config/config_parser.hh>
+#include <grace/IO/hdf5_output.hh>
+#include <grace/IO/vtk_output.hh>
+#include <grace/config/config_parser.hh>
 
-namespace thunder { namespace IO {
+namespace grace { namespace IO {
 
 void write_cell_output(bool volume_output, bool surface_output_plane, bool surface_output_sphere )
 {
@@ -39,7 +40,7 @@ void write_cell_output(bool volume_output, bool surface_output_plane, bool surfa
         return ; 
     }
 
-    auto& params = thunder::config_parser::get() ; 
+    auto& params = grace::config_parser::get() ; 
     bool output_hdf5 = params["IO"]["output_use_hdf5"].as<bool>() ; 
 
     if( output_hdf5 ) {

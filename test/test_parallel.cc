@@ -1,5 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
-#include <thunder/parallel/mpi_wrappers.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 #include <iostream>
 TEST_CASE("MPI wrappers", "[mpi_wrappers]")
 {   

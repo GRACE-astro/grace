@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-05-15
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -24,28 +25,28 @@
  * 
  */
 
-#include <thunder_config.h>
+#include <grace_config.h>
 
-#include <thunder/evolution/initial_data.hh>
+#include <grace/evolution/initial_data.hh>
 
-#include <thunder/physics/thunder_physical_systems.hh>
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/system/thunder_system.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/utils/thunder_utils.hh>
+#include <grace/physics/grace_physical_systems.hh>
+#include <grace/amr/grace_amr.hh>
+#include <grace/system/grace_system.hh>
+#include <grace/data_structures/grace_data_structures.hh>
+#include <grace/utils/grace_utils.hh>
 
 #include <Kokkos_Core.hpp>
 
-namespace thunder {
+namespace grace {
 
 void set_initial_data() {
     Kokkos::Profiling::pushRegion("ID") ; 
-    using namespace thunder ;
+    using namespace grace ;
 
-    #ifdef THUNDER_ENABLE_SCALAR_ADV 
+    #ifdef GRACE_ENABLE_SCALAR_ADV 
     set_scalar_advection_initial_data() ; 
     #endif 
-    #ifdef THUNDER_ENABLE_BURGERS
+    #ifdef GRACE_ENABLE_BURGERS
     set_burgers_initial_data() ; 
     #endif 
     Kokkos::Profiling::popRegion() ; 

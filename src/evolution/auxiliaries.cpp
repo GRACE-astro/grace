@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-05-13
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -23,39 +24,39 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#include <thunder_config.h>
+#include <grace_config.h>
 
-#include <thunder/evolution/auxiliaries.hh>
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/data_structures/variable_indices.hh>
-#include <thunder/data_structures/variable_properties.hh>
-#include <thunder/data_structures/variable_utils.hh>
-#include <thunder/system/thunder_system.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/utils/thunder_utils.hh>
-#ifdef THUNDER_ENABLE_BURGERS 
-#include <thunder/physics/burgers.hh>
+#include <grace/evolution/auxiliaries.hh>
+#include <grace/amr/grace_amr.hh>
+#include <grace/config/config_parser.hh>
+#include <grace/data_structures/variable_indices.hh>
+#include <grace/data_structures/variable_properties.hh>
+#include <grace/data_structures/variable_utils.hh>
+#include <grace/system/grace_system.hh>
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/utils/grace_utils.hh>
+#ifdef GRACE_ENABLE_BURGERS 
+#include <grace/physics/burgers.hh>
 #endif 
-#ifdef THUNDER_ENABLE_SCALAR_ADV
-#include <thunder/physics/scalar_advection.hh>
+#ifdef GRACE_ENABLE_SCALAR_ADV
+#include <grace/physics/scalar_advection.hh>
 #endif
 #include <Kokkos_Core.hpp>  
 #include <cmath>
-namespace thunder {
+namespace grace {
 
 void compute_auxiliary_quantities() {
-    auto& state = thunder::variable_list::get().getstate() ; 
-    auto& aux   = thunder::variable_list::get().getaux()   ;
+    auto& state = grace::variable_list::get().getstate() ; 
+    auto& aux   = grace::variable_list::get().getaux()   ;
     compute_auxiliary_quantities(state,aux) ; 
 }
 
 void compute_auxiliary_quantities(
-      thunder::var_array_t<THUNDER_NSPACEDIM>& state
-    , thunder::var_array_t<THUNDER_NSPACEDIM>& aux  ) 
+      grace::var_array_t<GRACE_NSPACEDIM>& state
+    , grace::var_array_t<GRACE_NSPACEDIM>& aux  ) 
 {
     Kokkos::Profiling::pushRegion("Compute auxiliaries") ; 
-    using namespace thunder ; 
+    using namespace grace ; 
     using namespace Kokkos  ; 
 
     int64_t nx,ny,nz ; 
@@ -65,8 +66,8 @@ void compute_auxiliary_quantities(
     int64_t nq = amr::get_local_num_quadrants() ;
 
     #if 0
-    #ifdef THUNDER_ENABLE_SCALAR_ADV
-    auto& params = thunder::config_parser::get() ; 
+    #ifdef GRACE_ENABLE_SCALAR_ADV
+    auto& params = grace::config_parser::get() ; 
     double VEC(ax,ay,az) ; 
     EXPR(
     ax = params["scalar_advection"]["ax"].as<double>() ;,
@@ -79,20 +80,20 @@ void compute_auxiliary_quantities(
     double yc = params["scalar_advection"]["gaussian_y_c"].as<double>() ;,
     double zc = params["scalar_advection"]["gaussian_z_c"].as<double>() ; 
     )
-    auto& coord_system = thunder::coordinate_system::get() ; 
+    auto& coord_system = grace::coordinate_system::get() ; 
     auto h_aux_mirror = Kokkos::create_mirror_view(aux) ; 
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
 
     Kokkos::deep_copy(h_state_mirror, state) ; 
     Kokkos::deep_copy(h_aux_mirror, aux)     ; 
 
-    double t = thunder::get_simulation_time() ; 
+    double t = grace::get_simulation_time() ; 
 
     int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
     for( int64_t icell=0; icell<ncells; ++icell) {
         size_t const i = icell%(nx+2*ngz); 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
         size_t const q = 

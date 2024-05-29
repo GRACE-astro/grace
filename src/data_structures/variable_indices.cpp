@@ -4,8 +4,8 @@
  * @brief 
  * @date 2024-03-12
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Volume
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -25,14 +25,14 @@
  */
 
 #include <code_modules.h>
-#include <thunder_config.h>
-#include <thunder/utils/device.h>
-#include <thunder/utils/execution_tag.hh>
+#include <grace_config.h>
+#include <grace/utils/device.h>
+#include <grace/utils/execution_tag.hh>
 
-#include <thunder/errors/assert.hh>
-#include <thunder/data_structures/variable_indices.hh>
-#include <thunder/data_structures/macros.hh>
-#include <thunder/errors/error.hh>
+#include <grace/errors/assert.hh>
+#include <grace/data_structures/variable_indices.hh>
+#include <grace/data_structures/macros.hh>
+#include <grace/errors/error.hh>
 
 
 #include <Kokkos_Core.hpp>
@@ -44,13 +44,13 @@
 DECLARE_VARIABLE_INDICES;
 #undef DECLARE_VAR_INDEX_IMPL
 
-#define DECLARE_VAR_INDEX_IMPL(var) THUNDER_DEVICE int var##_ ;
+#define DECLARE_VAR_INDEX_IMPL(var) GRACE_DEVICE int var##_ ;
 DECLARE_VARIABLE_INDICES;
 #undef DECLARE_VAR_INDEX_IMPL
  
 
 
-namespace thunder { namespace variables { 
+namespace grace { namespace variables { 
 
 namespace detail {
 
@@ -142,9 +142,9 @@ std::vector<int> _corner_staggered_recon_var_indices ;
 std::vector<int> _corner_staggered_recon_aux_indices ;
 /****************************************************/
 /****************************************************/
-std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>> 
+std::unordered_map<std::string, variable_properties_t<GRACE_NSPACEDIM>> 
     _varprops; 
-std::unordered_map<std::string, variable_properties_t<THUNDER_NSPACEDIM>> 
+std::unordered_map<std::string, variable_properties_t<GRACE_NSPACEDIM>> 
     _auxprops; 
 
 
@@ -157,10 +157,10 @@ std::vector<int> face_staggered_prolongation_var_indices ;
 std::vector<int> edge_staggered_flux_var_indices         ;
 std::vector<int> edge_staggered_prolongation_var_indices ;
 
-} /* namespace thunder::variables::detail */
+} /* namespace grace::variables::detail */
 
 void register_variables() {
-    #ifdef THUNDER_ENABLE_BURGERS 
+    #ifdef GRACE_ENABLE_BURGERS 
     U = register_variable("U", {VEC(false,false,false)}
                                 , true 
                                 , true 
@@ -168,7 +168,7 @@ void register_variables() {
                                 , "outgoing"
                                 , false ) ; 
     #endif 
-    #ifdef THUNDER_ENABLE_SCALAR_ADV
+    #ifdef GRACE_ENABLE_SCALAR_ADV
     U = register_variable("U", {VEC(false,false,false)}
                                 , true 
                                 , true 
@@ -182,7 +182,7 @@ void register_variables() {
                                 , "none"
                                 , false ) ; 
     #endif 
-    #ifdef THUNDER_ENABLE_GRMHD 
+    #ifdef GRACE_ENABLE_GRMHD 
     /* Valencia hydrodynamics */
     DENS = register_variable( "dens"
                                 , {VEC(false,false,false)}
@@ -351,7 +351,7 @@ void register_variables() {
     DECLARE_VARIABLE_INDICES ;
     #undef DECLARE_VAR_INDEX_IMPL
     #define DECLARE_VAR_INDEX_IMPL(var) var##_ = var##0;
-    Kokkos::parallel_for(THUNDER_EXECUTION_TAG("SYSTEM","init_var_indices"), 1, 
+    Kokkos::parallel_for(GRACE_EXECUTION_TAG("SYSTEM","init_var_indices"), 1, 
                         KOKKOS_LAMBDA (int const i) {
                             DECLARE_VARIABLE_INDICES ; 
                         } ) ; 
@@ -397,12 +397,12 @@ static int register_staggered_variable( std::string const& name
                                       , bool is_evolved 
                                       , bool need_fluxes
                                       , std::string const & bc_type 
-                                      , std::array<bool,THUNDER_NSPACEDIM> const& staggering )
+                                      , std::array<bool,GRACE_NSPACEDIM> const& staggering )
 {
     using namespace detail ; 
     num_vars++;
     int nstagger = 0 ; 
-    for( int idim=0; idim<THUNDER_NSPACEDIM; ++idim) nstagger += int(staggering[idim]) ;
+    for( int idim=0; idim<GRACE_NSPACEDIM; ++idim) nstagger += int(staggering[idim]) ;
     if( nstagger == 1 ) {
         if( is_evolved ) {
             _face_staggered_varnames.push_back(name) ; 
@@ -524,7 +524,7 @@ static int register_tensor( std::string const& name
 
 
 /**
- * @brief Register a variable within Thunder.
+ * @brief Register a variable within GRACE.
  * 
  * @param name Name of the variable.
  * @param staggered Staggering of variable in each direction.
@@ -534,7 +534,7 @@ static int register_tensor( std::string const& name
  * @return size_t Index of the variable in respective state array.
  */
 static int register_variable(     std::string const& name
-                                , std::array<bool, THUNDER_NSPACEDIM> staggering  
+                                , std::array<bool, GRACE_NSPACEDIM> staggering  
                                 , bool need_prolongation
                                 , bool is_evolved 
                                 , bool need_fluxes
@@ -546,7 +546,7 @@ static int register_variable(     std::string const& name
 {
     using namespace detail ; 
 
-    variable_properties_t<THUNDER_NSPACEDIM> props ;
+    variable_properties_t<GRACE_NSPACEDIM> props ;
     props.staggering = staggering ; 
     props.has_gz     = is_evolved ; 
     props.is_vector  = is_vector  ; 
@@ -573,4 +573,4 @@ static int register_variable(     std::string const& name
         }   
     }
 }
-} } /* namespace thunder::variables */
+} } /* namespace grace::variables */

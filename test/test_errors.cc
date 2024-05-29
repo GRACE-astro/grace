@@ -1,7 +1,7 @@
 #define magma_DEBUG
-#include <thunder/errors/abort.hh>
-#include <thunder/errors/error.hh>
-#include <thunder/errors/assert.hh>
+#include <grace/errors/abort.hh>
+#include <grace/errors/error.hh>
+#include <grace/errors/assert.hh>
 
 void test_abort()
 {

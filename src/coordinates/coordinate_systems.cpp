@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-03-26
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -24,28 +25,28 @@
  * 
  */
 
-#include <thunder/amr/thunder_amr.hh> 
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/errors/error.hh> 
+#include <grace/amr/grace_amr.hh> 
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/data_structures/grace_data_structures.hh>
+#include <grace/errors/error.hh> 
 
 #include <array> 
 
-namespace thunder { 
+namespace grace { 
 
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 get_physical_coordinates(
       int const itree 
-    , std::array<double,THUNDER_NSPACEDIM> const& logical_coords) {
+    , std::array<double,GRACE_NSPACEDIM> const& logical_coords) {
         return coordinate_system::get().get_physical_coordinates(itree,logical_coords) ; 
 }
 
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 get_physical_coordinates(
-      std::array<size_t, THUNDER_NSPACEDIM> const& ijk
+      std::array<size_t, GRACE_NSPACEDIM> const& ijk
     , size_t nq 
-    , std::array<double,THUNDER_NSPACEDIM> const& cell_coordinates
+    , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates
     , bool include_gzs)
 {
     return coordinate_system::get().get_physical_coordinates(
@@ -53,10 +54,10 @@ get_physical_coordinates(
     ) ; 
 } 
 
-std::array<double, THUNDER_NSPACEDIM> THUNDER_HOST 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 get_logical_coordinates(
       int itree
-    , std::array<double,THUNDER_NSPACEDIM> const& physical_coordinates) 
+    , std::array<double,GRACE_NSPACEDIM> const& physical_coordinates) 
 {
     return coordinate_system::get().get_logical_coordinates(
         itree, physical_coordinates

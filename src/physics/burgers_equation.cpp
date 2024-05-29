@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2024-05-16
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  * 
@@ -25,37 +25,37 @@
  * 
  */
 
-#include <thunder_config.h>
-#include <thunder/physics/thunder_physical_systems.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/amr/amr_functions.hh>
-#include <thunder/utils/thunder_utils.hh>
+#include <grace_config.h>
+#include <grace/physics/grace_physical_systems.hh>
+#include <grace/config/config_parser.hh>
+#include <grace/amr/amr_functions.hh>
+#include <grace/utils/grace_utils.hh>
 
-#include <thunder/data_structures/variable_indices.hh>
-#include <thunder/data_structures/variables.hh>
-#include <thunder/system/thunder_system.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/physics/burgers.hh>
+#include <grace/data_structures/variable_indices.hh>
+#include <grace/data_structures/variables.hh>
+#include <grace/system/grace_system.hh>
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/physics/burgers.hh>
 
 #include <Kokkos_Core.hpp>
 #include <cmath>
 #include <string> 
 
-namespace thunder {
+namespace grace {
 
 static void set_burgers_gaussian_id() {
-    using namespace thunder ; 
+    using namespace grace ; 
     using namespace Kokkos  ; 
-    #ifndef THUNDER_ENABLE_BURGERS 
+    #ifndef GRACE_ENABLE_BURGERS 
     int const U = -1 ; 
     #endif 
-    auto& state = thunder::variable_list::get().getstate() ; 
+    auto& state = grace::variable_list::get().getstate() ; 
 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ; 
     int64_t nq = amr::get_local_num_quadrants() ;
-    auto& params = thunder::config_parser::get() ; 
+    auto& params = grace::config_parser::get() ; 
 
     double sigma = params["burgers_equation"]["gaussian_sigma"].as<double>() ;
     EXPR(
@@ -64,14 +64,14 @@ static void set_burgers_gaussian_id() {
     double zc = params["burgers_equation"]["gaussian_z_c"].as<double>() ; 
     )
 
-    auto& coord_system = thunder::coordinate_system::get() ; 
+    auto& coord_system = grace::coordinate_system::get() ; 
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
 
     int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
     for( int64_t icell=0; icell<ncells; ++icell) {
         size_t const i = icell%(nx+2*ngz); 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
         size_t const q = 
@@ -103,32 +103,32 @@ static void set_burgers_gaussian_id() {
 }
 
 static void set_burgers_shocktube_id() {
-    using namespace thunder ; 
+    using namespace grace ; 
     using namespace Kokkos  ; 
-    #ifndef THUNDER_ENABLE_BURGERS 
+    #ifndef GRACE_ENABLE_BURGERS 
     int const U = -1 ; 
     #endif 
-    auto& state = thunder::variable_list::get().getstate() ; 
+    auto& state = grace::variable_list::get().getstate() ; 
 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ; 
     int64_t nq = amr::get_local_num_quadrants() ;
-    auto& params = thunder::config_parser::get() ; 
+    auto& params = grace::config_parser::get() ; 
 
     double uL = params["burgers_equation"]["shocktube_left_state"].as<double>() ;
     double uR = params["burgers_equation"]["shocktube_right_state"].as<double>() ;
 
     double xc = params["burgers_equation"]["shocktube_x_location"].as<double>() ;
 
-    auto& coord_system = thunder::coordinate_system::get() ; 
+    auto& coord_system = grace::coordinate_system::get() ; 
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
 
     int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
     for( int64_t icell=0; icell<ncells; ++icell) {
         size_t const i = icell%(nx+2*ngz); 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
         size_t const q = 
@@ -149,18 +149,18 @@ static void set_burgers_shocktube_id() {
 }
 
 static void set_burgers_three_state_shocktube_id() {
-    using namespace thunder ; 
+    using namespace grace ; 
     using namespace Kokkos  ; 
-    #ifndef THUNDER_ENABLE_BURGERS 
+    #ifndef GRACE_ENABLE_BURGERS 
     int const U = -1 ; 
     #endif 
-    auto& state = thunder::variable_list::get().getstate() ; 
+    auto& state = grace::variable_list::get().getstate() ; 
 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ; 
     int64_t nq = amr::get_local_num_quadrants() ;
-    auto& params = thunder::config_parser::get() ; 
+    auto& params = grace::config_parser::get() ; 
 
     double uL = params["burgers_equation"]["shocktube_left_state"].as<double>() ;
     double uC = params["burgers_equation"]["shocktube_central_state"].as<double>() ;
@@ -169,14 +169,14 @@ static void set_burgers_three_state_shocktube_id() {
     double xc  = params["burgers_equation"]["shocktube_x_location"].as<double>() ;
     double xc2 = params["burgers_equation"]["shocktube_x_location_2"].as<double>() ;
 
-    auto& coord_system = thunder::coordinate_system::get() ; 
+    auto& coord_system = grace::coordinate_system::get() ; 
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
 
     int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
     for( int64_t icell=0; icell<ncells; ++icell) {
         size_t const i = icell%(nx+2*ngz); 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
         size_t const q = 
@@ -198,27 +198,27 @@ static void set_burgers_three_state_shocktube_id() {
 }
 
 static void set_burgers_N_wave_id() {
-    using namespace thunder ; 
+    using namespace grace ; 
     using namespace Kokkos  ; 
-    #ifndef THUNDER_ENABLE_BURGERS 
+    #ifndef GRACE_ENABLE_BURGERS 
     int const U = -1 ; 
     #endif 
-    auto& state = thunder::variable_list::get().getstate() ; 
+    auto& state = grace::variable_list::get().getstate() ; 
 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ; 
     int64_t nq = amr::get_local_num_quadrants() ;
-    auto& params = thunder::config_parser::get() ; 
+    auto& params = grace::config_parser::get() ; 
 
-    auto& coord_system = thunder::coordinate_system::get() ; 
+    auto& coord_system = grace::coordinate_system::get() ; 
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
 
     int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
     for( int64_t icell=0; icell<ncells; ++icell) {
         size_t const i = icell%(nx+2*ngz); 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
         size_t const q = 
@@ -239,13 +239,13 @@ static void set_burgers_N_wave_id() {
 }
 
 void set_burgers_initial_data() {
-    using namespace thunder ; 
+    using namespace grace ; 
     using namespace Kokkos ; 
-    #ifndef THUNDER_ENABLE_BURGERS
+    #ifndef GRACE_ENABLE_BURGERS
     ERROR("Should not run Burgers equation ID" 
           "if Burgers equation evolution is not enabled.") ; 
     #endif 
-    auto& params = thunder::config_parser::get() ;
+    auto& params = grace::config_parser::get() ;
 
     std::string which_id = params["burgers_equation"]["id_type"].as<std::string>() ;
 

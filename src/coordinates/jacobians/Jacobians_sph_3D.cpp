@@ -3,12 +3,12 @@
  *                                                                            *
  *              See http://www.sympy.org/ for more information.               *
  *                                                                            *
- *                       This file is part of 'Thunder'                       *
+ *                       This file is part of 'GRACE'                       *
  ******************************************************************************/
-#include <thunder/coordinates/jacobians/Jacobians_sph_3D.hh> 
-#include <thunder/utils/math.hh>
+#include <grace/coordinates/jacobians/Jacobians_sph_3D.hh> 
+#include <grace/utils/math.hh>
 #include <math.h>
-namespace thunder { 
+namespace grace { 
 double Jac_sph_3D_00(double L, double R, double eta, double si, double so, double xi) {
 
    double Jac_sph_3D_00_result;

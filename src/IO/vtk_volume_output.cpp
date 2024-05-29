@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2023-03-01
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference 
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference 
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                                                    
@@ -51,20 +51,20 @@
 #include <vtkMPI.h>
 #include <vtkMPICommunicator.h>
 #include <vtkMPIController.h>
-/* thunder includes */
-#include <thunder/data_structures/variable_properties.hh>
-#include <thunder/system/thunder_runtime.hh>
-#include <thunder/coordinates/coordinate_systems.hh> 
-#include <thunder/IO/vtk_output.hh>
-#include <thunder/IO/vtk_volume_output.hh>
-#include <thunder/IO/vtk_output_auxiliaries.hh>
-#include <thunder/IO/vtk_output.tpp>
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/errors/error.hh>
-#include <thunder/errors/assert.hh> 
-#include <thunder/data_structures/variables.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
+/* grace includes */
+#include <grace/data_structures/variable_properties.hh>
+#include <grace/system/grace_runtime.hh>
+#include <grace/coordinates/coordinate_systems.hh> 
+#include <grace/IO/vtk_output.hh>
+#include <grace/IO/vtk_volume_output.hh>
+#include <grace/IO/vtk_output_auxiliaries.hh>
+#include <grace/IO/vtk_output.tpp>
+#include <grace/amr/grace_amr.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/errors/error.hh>
+#include <grace/errors/assert.hh> 
+#include <grace/data_structures/variables.hh>
+#include <grace/coordinates/coordinate_systems.hh>
 /* Kokkos */
 #include <Kokkos_Core.hpp>
 /* stdlib includes */
@@ -74,29 +74,29 @@
 #include <filesystem>
 
 
-namespace thunder { namespace IO {
+namespace grace { namespace IO {
 
 
 void write_volume_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
                                , vtkSmartPointer<vtkXMLPUnstructuredGridWriter> pwriter ) 
 {   
     Kokkos::Profiling::pushRegion("VTK volume cell output") ; 
-    auto& runtime = thunder::runtime::get() ;
+    auto& runtime = grace::runtime::get() ;
     std::filesystem::path base_path (runtime.volume_io_basepath()) ;
     std::string pfname = runtime.volume_io_basename() + "_" + utils::zero_padded(runtime.iteration(),3)
                                                             + ".pvtu" ;
      
     std::filesystem::path out_path = base_path / pfname ;
 
-    setup_volume_cell_data(grid, thunder_vtk_output_t::VOLUME) ; 
+    setup_volume_cell_data(grid, grace_vtk_output_t::VOLUME) ; 
     
     pwriter->SetFileName(out_path.string().c_str()) ; ; 
     pwriter->SetInputData( grid ) ;
     pwriter->Write() ; 
     
     detail::_volume_filenames.push_back(pfname) ; 
-    detail::_volume_iterations.push_back(thunder::get_iteration()) ; 
-    detail::_volume_times.push_back(thunder::get_simulation_time()) ; 
+    detail::_volume_iterations.push_back(grace::get_iteration()) ; 
+    detail::_volume_times.push_back(grace::get_simulation_time()) ; 
     if( parallel::mpi_comm_rank() == 0 ) {
         std::string pvd_basefilename = runtime.volume_io_basename() + ".pvd" ; 
         std::filesystem::path pvd_filename = base_path / pvd_basefilename ;
@@ -107,5 +107,5 @@ void write_volume_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> grid
     Kokkos::Profiling::popRegion() ;
 }
 
-}} /* namespace thunder::IO */
+}} /* namespace grace::IO */
 

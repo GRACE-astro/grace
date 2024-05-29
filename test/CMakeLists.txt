@@ -5,8 +5,8 @@ add_executable( errors_test test_errors.cc )
 target_include_directories(errors_test PRIVATE "${HEADER_LIST}")
 target_compile_options(errors_test PRIVATE -g)
 target_link_libraries( errors_test PRIVATE 
-                        $<TARGET_OBJECTS:thunder_error_handlers>
-                        $<TARGET_OBJECTS:thunder_parallel>
+                        $<TARGET_OBJECTS:grace_error_handlers>
+                        $<TARGET_OBJECTS:grace_parallel>
                         MPI::MPI_CXX 
                         p4est::sc 
                         spdlog::spdlog )
@@ -15,8 +15,8 @@ add_library(mpi_tests_main mains/mpi_tests_main.cc)
 target_include_directories(mpi_tests_main PRIVATE "${HEADER_LIST}")
 target_link_libraries(  mpi_tests_main PRIVATE 
 Catch2::Catch2
-$<TARGET_OBJECTS:thunder_parallel>
-$<TARGET_OBJECTS:thunder_error_handlers>
+$<TARGET_OBJECTS:grace_parallel>
+$<TARGET_OBJECTS:grace_error_handlers>
 MPI::MPI_CXX
 p4est::sc 
 spdlog::spdlog )
@@ -26,8 +26,8 @@ target_include_directories(parallel_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  parallel_test PRIVATE 
 mpi_tests_main
 Catch2::Catch2
-$<TARGET_OBJECTS:thunder_parallel>
-$<TARGET_OBJECTS:thunder_error_handlers>
+$<TARGET_OBJECTS:grace_parallel>
+$<TARGET_OBJECTS:grace_error_handlers>
 MPI::MPI_CXX
 p4est::sc 
 spdlog::spdlog )
@@ -40,9 +40,9 @@ target_include_directories(parser_tests_main PRIVATE "${HEADER_LIST}")
 target_link_libraries(  parser_tests_main PRIVATE 
 Catch2::Catch2
 yaml_cpp::yaml
-$<TARGET_OBJECTS:thunder_error_handlers>
-$<TARGET_OBJECTS:thunder_parallel>
-$<TARGET_OBJECTS:thunder_singleton> 
+$<TARGET_OBJECTS:grace_error_handlers>
+$<TARGET_OBJECTS:grace_parallel>
+$<TARGET_OBJECTS:grace_singleton> 
 MPI::MPI_CXX
 p4est::sc 
 spdlog::spdlog  )
@@ -54,9 +54,9 @@ target_link_libraries(  parser_test PRIVATE
 parser_tests_main
 yaml_cpp::yaml
 Catch2::Catch2
-$<TARGET_OBJECTS:thunder_parallel>
-$<TARGET_OBJECTS:thunder_error_handlers>
-$<TARGET_OBJECTS:thunder_singleton> 
+$<TARGET_OBJECTS:grace_parallel>
+$<TARGET_OBJECTS:grace_error_handlers>
+$<TARGET_OBJECTS:grace_singleton> 
 MPI::MPI_CXX
 p4est::sc 
 spdlog::spdlog )
@@ -78,7 +78,7 @@ target_include_directories(connectivity_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  connectivity_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
-thunder_objects
+grace_objects
 yaml_cpp::yaml
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
@@ -91,9 +91,9 @@ add_library(kokkos_tests_main mains/kokkos_tests_main.cc)
 target_include_directories(kokkos_tests_main PRIVATE "${HEADER_LIST}")
 target_link_libraries(  kokkos_tests_main PRIVATE 
 Catch2::Catch2
-$<TARGET_OBJECTS:thunder_error_handlers>
-$<TARGET_OBJECTS:thunder_parallel>
-$<TARGET_OBJECTS:thunder_singleton>
+$<TARGET_OBJECTS:grace_error_handlers>
+$<TARGET_OBJECTS:grace_parallel>
+$<TARGET_OBJECTS:grace_singleton>
 yaml_cpp::yaml
 Kokkos::kokkos
 MPI::MPI_CXX
@@ -106,7 +106,7 @@ target_include_directories(sc_wrappers_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  sc_wrappers_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
-thunder_objects
+grace_objects
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
@@ -118,7 +118,7 @@ target_include_directories(forest_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  forest_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
-thunder_objects
+grace_objects
 yaml_cpp::yaml
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
@@ -131,7 +131,7 @@ target_include_directories(varlist_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  varlist_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
-thunder_objects
+grace_objects
 yaml_cpp::yaml
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
@@ -145,10 +145,10 @@ target_include_directories(coordinate_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  coordinate_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
-thunder_objects
+grace_objects
 yaml_cpp::yaml
 Kokkos::kokkos
-$<TARGET_OBJECTS:thunder_vtk_output>
+$<TARGET_OBJECTS:grace_vtk_output>
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
@@ -165,8 +165,8 @@ target_include_directories(volume_output_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  volume_output_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
-thunder_objects
-$<TARGET_OBJECTS:thunder_vtk_output>
+grace_objects
+$<TARGET_OBJECTS:grace_vtk_output>
 yaml_cpp::yaml
 Kokkos::kokkos
 MPI::MPI_CXX
@@ -201,8 +201,8 @@ target_include_directories(regrid_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  regrid_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
-thunder_objects
-$<TARGET_OBJECTS:thunder_vtk_output>
+grace_objects
+$<TARGET_OBJECTS:grace_vtk_output>
 yaml_cpp::yaml
 Kokkos::kokkos
 MPI::MPI_CXX
@@ -221,8 +221,8 @@ target_include_directories(bc_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  bc_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
-thunder_objects
-$<TARGET_OBJECTS:thunder_vtk_output>
+grace_objects
+$<TARGET_OBJECTS:grace_vtk_output>
 yaml_cpp::yaml
 Kokkos::kokkos
 MPI::MPI_CXX
@@ -240,8 +240,8 @@ target_include_directories(bc_test_unigrid PRIVATE "${HEADER_LIST}")
 target_link_libraries(  bc_test_unigrid PRIVATE 
 p4est_tests_main
 Catch2::Catch2
-thunder_objects
-$<TARGET_OBJECTS:thunder_vtk_output>
+grace_objects
+$<TARGET_OBJECTS:grace_vtk_output>
 yaml_cpp::yaml
 Kokkos::kokkos
 MPI::MPI_CXX
@@ -259,8 +259,8 @@ target_include_directories(scalar_reductions_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  scalar_reductions_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
-thunder_objects
-$<TARGET_OBJECTS:thunder_vtk_output>
+grace_objects
+$<TARGET_OBJECTS:grace_vtk_output>
 yaml_cpp::yaml
 Kokkos::kokkos
 MPI::MPI_CXX
@@ -278,11 +278,11 @@ target_include_directories(hdf5_output_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  hdf5_output_test PRIVATE 
 p4est_tests_main
 Catch2::Catch2
-thunder_objects
+grace_objects
 yaml_cpp::yaml
 Kokkos::kokkos
-$<TARGET_OBJECTS:thunder_vtk_output>
-$<TARGET_OBJECTS:thunder_hdf5_output>
+$<TARGET_OBJECTS:grace_vtk_output>
+$<TARGET_OBJECTS:grace_hdf5_output>
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
@@ -298,35 +298,35 @@ vtk_module_autoinit(
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)
 add_test(NAME sc_wrappers_test COMMAND 
-        mpirun -n 1 ./sc_wrappers_test --thunder-parfile ./configs/basic_config.yaml)
+        mpirun -n 1 ./sc_wrappers_test --grace-parfile ./configs/basic_config.yaml)
 add_test(NAME connectivity_test COMMAND 
-        mpirun -n 1 ./connectivity_test --thunder-parfile ./configs/basic_config.yaml)
+        mpirun -n 1 ./connectivity_test --grace-parfile ./configs/basic_config.yaml)
 add_test(NAME forest_test COMMAND 
-        mpirun -n 1 ./forest_test --thunder-parfile ./configs/basic_config.yaml)
+        mpirun -n 1 ./forest_test --grace-parfile ./configs/basic_config.yaml)
 add_test(NAME varlist_test COMMAND 
-        mpirun -n 1 ./varlist_test --thunder-parfile ./configs/basic_config.yaml )
+        mpirun -n 1 ./varlist_test --grace-parfile ./configs/basic_config.yaml )
 add_test(NAME coordinate_test_nolog COMMAND 
-        mpirun -n 1 ./coordinate_test --thunder-parfile ./configs/basic_config.yaml )
+        mpirun -n 1 ./coordinate_test --grace-parfile ./configs/basic_config.yaml )
 add_test(NAME coordinate_test_log COMMAND 
-        mpirun -n 1 ./coordinate_test --thunder-parfile ./configs/regrid_test_spherical_log.yaml )
+        mpirun -n 1 ./coordinate_test --grace-parfile ./configs/regrid_test_spherical_log.yaml )
 add_test(NAME interpolator_test COMMAND 
         ./interpolator_test )
 add_test(NAME regrid_test_cartesian COMMAND 
-        mpirun -n 8 ./regrid_test --thunder-parfile ./configs/regrid_test_cartesian.yaml)
+        mpirun -n 8 ./regrid_test --grace-parfile ./configs/regrid_test_cartesian.yaml)
 add_test(NAME regrid_test_nolog COMMAND 
-        mpirun -n 8 ./regrid_test --thunder-parfile ./configs/regrid_test_spherical.yaml )
+        mpirun -n 8 ./regrid_test --grace-parfile ./configs/regrid_test_spherical.yaml )
 add_test(NAME regrid_test_log COMMAND 
-        mpirun -n 8 ./regrid_test --thunder-parfile ./configs/regrid_test_spherical_log.yaml )
+        mpirun -n 8 ./regrid_test --grace-parfile ./configs/regrid_test_spherical_log.yaml )
 add_test(NAME bc_test_unigrid_cartesian COMMAND 
-        mpirun -n 8 ./bc_test_unigrid --thunder-parfile ./configs/regrid_test_cartesian.yaml )
+        mpirun -n 8 ./bc_test_unigrid --grace-parfile ./configs/regrid_test_cartesian.yaml )
 add_test(NAME bc_test_unigrid_spherical COMMAND 
-        mpirun -n 2 ./bc_test_unigrid --thunder-parfile ./configs/regrid_test_spherical.yaml )
+        mpirun -n 2 ./bc_test_unigrid --grace-parfile ./configs/regrid_test_spherical.yaml )
 add_test(NAME bc_test_cartesian COMMAND 
-        mpirun -n 8 ./bc_test --thunder-parfile ./configs/regrid_test_cartesian.yaml )
+        mpirun -n 8 ./bc_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
 add_test(NAME bc_test_spherical COMMAND 
-        mpirun -n 2 ./bc_test --thunder-parfile ./configs/regrid_test_spherical.yaml )
+        mpirun -n 2 ./bc_test --grace-parfile ./configs/regrid_test_spherical.yaml )
 add_test(NAME scalar_reductions_test COMMAND 
-        mpirun -n 1 ./scalar_reductions_test --thunder-parfile ./configs/scalar_reductions_test.yaml )
+        mpirun -n 1 ./scalar_reductions_test --grace-parfile ./configs/scalar_reductions_test.yaml )
 ##add_custom_command(
 #        TARGET
 #        COMMENT "Run tests"

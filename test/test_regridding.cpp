@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2024-04-12
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  * 
@@ -26,25 +26,25 @@
  */
 #include <catch2/catch_test_macros.hpp>
 #include <Kokkos_Core.hpp>
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/IO/vtk_output.hh>
-#include <thunder/parallel/mpi_wrappers.hh>
+#include <grace/amr/grace_amr.hh>
+#include <grace/data_structures/grace_data_structures.hh>
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/IO/vtk_output.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 template< typename coords_t > 
-std::array<double,THUNDER_NSPACEDIM>
+std::array<double,GRACE_NSPACEDIM>
 get_coords_buffer_zone(
-    std::array<size_t,THUNDER_NSPACEDIM>const& ijk,
-    std::array<double,THUNDER_NSPACEDIM>const& lcoords,
+    std::array<size_t,GRACE_NSPACEDIM>const& ijk,
+    std::array<double,GRACE_NSPACEDIM>const& lcoords,
     int64_t q,
     coords_t& coord_system
 ){
-    using namespace thunder ; 
-    #ifdef THUNDER_ENABLE_BURGERS 
+    using namespace grace ; 
+    #ifdef GRACE_ENABLE_BURGERS 
     int const DENS = U ; 
     int const DENS_ = U ; 
     #endif 
@@ -119,7 +119,7 @@ get_coords_buffer_zone(
         {VEC(0,0,0)},q,{VEC(0.,0.,0.)},false
     ) ; 
     auto quad = amr::get_quadrant(q); 
-    std::array<double,THUNDER_NSPACEDIM> dxl =
+    std::array<double,GRACE_NSPACEDIM> dxl =
     {VEC(
         1./(1<<quad.level())/nx,
         1./(1<<quad.level())/ny,
@@ -151,31 +151,31 @@ get_coords_buffer_zone(
 
 TEST_CASE("Simple regrid", "[regrid]")
 {
-    using namespace thunder::variables ; 
+    using namespace grace::variables ; 
 
-    #ifdef THUNDER_ENABLE_BURGERS 
+    #ifdef GRACE_ENABLE_BURGERS 
     int const DENS = U ; 
     int const DENS_ = U ; 
-    auto params = thunder::config_parser::get()["amr"] ; 
+    auto params = grace::config_parser::get()["amr"] ; 
     params["refinement_criterion_var"] = "U" ; 
     #endif 
-    #ifdef THUNDER_ENABLE_SCALAR_ADV
+    #ifdef GRACE_ENABLE_SCALAR_ADV
     int const DENS = U ; 
     int const DENS_ = U ; 
-    auto params = thunder::config_parser::get()["amr"] ; 
+    auto params = grace::config_parser::get()["amr"] ; 
     params["refinement_criterion_var"] = "U" ; 
     #endif 
-    auto& state  = thunder::variable_list::get().getstate()  ;
-    auto& coords = thunder::variable_list::get().getcoords() ; 
-    auto& dx     = thunder::variable_list::get().getspacings(); 
+    auto& state  = grace::variable_list::get().getstate()  ;
+    auto& coords = grace::variable_list::get().getcoords() ; 
+    auto& dx     = grace::variable_list::get().getspacings(); 
     size_t nx,ny,nz; 
-    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
-    size_t nq = thunder::amr::get_local_num_quadrants() ; 
-    int ngz = thunder::amr::get_n_ghosts() ; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    size_t nq = grace::amr::get_local_num_quadrants() ; 
+    int ngz = grace::amr::get_n_ghosts() ; 
     auto ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
     
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
-    auto& coord_system = thunder::coordinate_system::get() ; 
+    auto& coord_system = grace::coordinate_system::get() ; 
 
     auto const h_func = [&] (VEC(const double& x,const double& y,const double &z))
     {
@@ -189,7 +189,7 @@ TEST_CASE("Simple regrid", "[regrid]")
     {
         size_t const i = icell%(nx+2*ngz) ; 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
         size_t const q = 
@@ -208,7 +208,7 @@ TEST_CASE("Simple regrid", "[regrid]")
     
     /* copy data to device */
     Kokkos::deep_copy(state,h_state_mirror); 
-    //auto& swap = thunder::variable_list::get().getscratch() ; 
+    //auto& swap = grace::variable_list::get().getscratch() ; 
     //Kokkos::deep_copy(swap, state) ; 
     
     /*****************************************/
@@ -221,7 +221,7 @@ TEST_CASE("Simple regrid", "[regrid]")
     {
         size_t const i = icell%(nx) ; 
         size_t const j = (icell/(nx)) % (ny) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx)/(ny)) % (nz) ; 
         size_t const q = 
@@ -239,12 +239,12 @@ TEST_CASE("Simple regrid", "[regrid]")
     }
     parallel::mpi_allreduce(&exact_total_local,&exact_total,1,sc_MPI_SUM) ; 
     /*write output and regrid*/
-    //thunder::IO::write_cell_output(true,true,true) ; 
-    thunder::amr::regrid() ;  
-    thunder::runtime::get().increment_iteration() ; 
-    //thunder::IO::write_cell_output(true,true,true) ; 
+    //grace::IO::write_cell_output(true,true,true) ; 
+    grace::amr::regrid() ;  
+    grace::runtime::get().increment_iteration() ; 
+    //grace::IO::write_cell_output(true,true,true) ; 
     /* compute the new volume integrated value */
-    nq = thunder::amr::get_local_num_quadrants() ; // new number of quadrants (after regrid)
+    nq = grace::amr::get_local_num_quadrants() ; // new number of quadrants (after regrid)
     ncells = EXPR((nx),*(ny),*(nz))*nq ;
     /* Copy data from device after regrid      */
     auto h_state_mirror_new = Kokkos::create_mirror_view(state) ; 
@@ -254,7 +254,7 @@ TEST_CASE("Simple regrid", "[regrid]")
     {
         size_t const i = icell%(nx) ; 
         size_t const j = (icell/(nx)) % (ny) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx)/(ny)) % (nz) ; 
         size_t const q = 
@@ -274,7 +274,7 @@ TEST_CASE("Simple regrid", "[regrid]")
             false
         ) ; 
         total_local += h_state_mirror_new(VEC(i+ngz,j+ngz,k+ngz),DENS,q) * cell_volume ; 
-        #ifdef THUNDER_CARTESIAN_COORDINATES
+        #ifdef GRACE_CARTESIAN_COORDINATES
         /* In spherical coordinates this won't work (and it should not!) */
         REQUIRE_THAT(h_state_mirror_new(VEC(i+ngz,j+ngz,k+ngz),DENS,q)
         , Catch::Matchers::WithinAbs(

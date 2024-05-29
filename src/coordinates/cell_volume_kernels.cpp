@@ -5,9 +5,9 @@
  *                                                                            *
  *                       This file is part of 'project'                       *
  ******************************************************************************/
-#include <thunder/coordinates/cell_volume_kernels.h>
+#include <grace/coordinates/cell_volume_kernels.h>
 #include <math.h>
-namespace thunder {
+namespace grace {
 
 double dVol_sph(double L, double R, double deta, double dzeta, double eta0, double zeta0) {
 
@@ -32,4 +32,4 @@ double dVol_sph_log(double L, double R, double deta, double dzeta, double eta0, 
    return dVol_sph_2D_log_result;
 }
 
-} /* namespace thunder */
+} /* namespace grace */

@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2024-03-18
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  * 
@@ -25,16 +25,16 @@
  * 
  */
 
-#include <thunder/amr/amr_functions.hh>
+#include <grace/amr/amr_functions.hh>
 
-#include <thunder/data_structures/macros.hh>
-#include <thunder/amr/tree.hh>
-#include <thunder/amr/connectivity.hh>
-#include <thunder/amr/forest.hh> 
+#include <grace/data_structures/macros.hh>
+#include <grace/amr/tree.hh>
+#include <grace/amr/connectivity.hh>
+#include <grace/amr/forest.hh> 
 
-#include <thunder/config/config_parser.hh>
+#include <grace/config/config_parser.hh>
 
-namespace thunder { namespace amr {
+namespace grace { namespace amr {
 namespace detail {
 int64_t _nx; 
 int64_t _ny;
@@ -57,13 +57,13 @@ get_n_ghosts()
 size_t 
 get_local_num_quadrants()
 {
-    return thunder::amr::forest::get().local_num_quadrants() ; 
+    return grace::amr::forest::get().local_num_quadrants() ; 
 }
 
 size_t 
 get_quadrant_owner(size_t iquad)
 {
-    auto& forest = thunder::amr::forest::get() ;
+    auto& forest = grace::amr::forest::get() ;
     for(size_t itree=forest.first_local_tree();
         itree <= forest.last_local_tree(); 
         itree+=1UL)
@@ -82,14 +82,14 @@ get_quadrant_owner(size_t iquad)
 
 size_t get_local_quadrants_offset(size_t itree)
 {
-    tree_t tree = thunder::amr::forest::get().tree(itree);
+    tree_t tree = grace::amr::forest::get().tree(itree);
     return tree.quadrants_offset() ; 
 }
 
 quadrant_t  
 get_quadrant(size_t which_tree, size_t iquad)
 {
-    tree_t tree = thunder::amr::forest::get().tree(which_tree) ;
+    tree_t tree = grace::amr::forest::get().tree(which_tree) ;
     return tree.quadrant(iquad-tree.quadrants_offset()) ; 
 }
 
@@ -97,7 +97,7 @@ quadrant_t
 get_quadrant(size_t iquad)
 {
     tree_t tree = 
-        thunder::amr::forest::get().tree(get_quadrant_owner(iquad)) ;
+        grace::amr::forest::get().tree(get_quadrant_owner(iquad)) ;
     return tree.quadrant(iquad-tree.quadrants_offset()) ; 
 }
 
@@ -139,16 +139,16 @@ trees_have_opposite_polarity( int64_t treeid, int face )
     return connectivity::get().tree_to_tree_polarity(treeid, face) ; 
 }
 
-std::array<double,THUNDER_NSPACEDIM> 
+std::array<double,GRACE_NSPACEDIM> 
 get_tree_vertex(size_t which_tree, size_t which_vertex)
 {
-    return thunder::amr::connectivity::get().vertex_coordinates(which_tree,which_vertex);
+    return grace::amr::connectivity::get().vertex_coordinates(which_tree,which_vertex);
 }
 
-std::array<double,THUNDER_NSPACEDIM> 
+std::array<double,GRACE_NSPACEDIM> 
 get_tree_spacing(size_t which_tree)
 {
-    return thunder::amr::connectivity::get().tree_coordinate_extents(which_tree);
+    return grace::amr::connectivity::get().tree_coordinate_extents(which_tree);
 }
 
 std::vector<int64_t>
@@ -160,4 +160,4 @@ get_global_quadrant_offsets()
     return std::move(offsets) ; 
 }
 
-}} /* namespace thunder::amr */ 
+}} /* namespace grace::amr */ 

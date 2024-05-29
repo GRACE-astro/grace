@@ -7,7 +7,7 @@
 #include <catch2/catch_session.hpp>
 #include <mpi.h>
 #include <sstream>
-#include <thunder/parallel/mpi_wrappers.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 
 int main( int argc, char* argv[] ) {
     parallel::mpi_init(&argc, &argv);

@@ -5,15 +5,15 @@
 */
 #define CATCH_CONFIG_RUNNER
 #include <catch2/catch_session.hpp>
-#include <thunder_config.h> 
+#include <grace_config.h> 
 
-#include <thunder/system/thunder_initialize.hh>
+#include <grace/system/grace_initialize.hh>
 #include <iostream>
-#include <thunder/parallel/mpi_wrappers.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 #include <sstream>
 
 int main( int argc, char* argv[] ) {
-    thunder::initialize(argc,argv) ; 
+    grace::initialize(argc,argv) ; 
     std::stringstream ss;
     /* save old buffer and redirect output to string stream */
     auto cout_buf = std::cout.rdbuf( ss.rdbuf() ); 

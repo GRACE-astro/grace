@@ -5,8 +5,8 @@
 * @version 0.1
 * @date 2024-03-12
 * 
-* @copyright This file is part of Thunder.
-* Thunder is an evolution framework that uses Finite Difference
+* @copyright This file is part of GRACE.
+* GRACE is an evolution framework that uses Finite Difference
 * methods to simulate relativistic spacetimes and plasmas
 * Copyright (C) 2023 Carlo Musolino
 * 
@@ -25,40 +25,40 @@
 * 
 */
 
-#include <thunder_config.h>
+#include <grace_config.h>
 
 #include <Kokkos_Core.hpp>
 
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/coordinates/coordinates.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/system/print.hh>
-#include <thunder/config/config_parser.hh>
+#include <grace/amr/grace_amr.hh>
+#include <grace/coordinates/coordinates.hh>
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/system/print.hh>
+#include <grace/config/config_parser.hh>
 
-#include <thunder/data_structures/variables.hh>
-#include <thunder/data_structures/macros.hh>
-#include <thunder/data_structures/memory_defaults.hh>
+#include <grace/data_structures/variables.hh>
+#include <grace/data_structures/macros.hh>
+#include <grace/data_structures/memory_defaults.hh>
 
 
-#include <thunder/utils/thunder_utils.hh>
+#include <grace/utils/grace_utils.hh>
 
 #include <omp.h>
 
 #include <chrono>
 #include <string> 
 
-namespace thunder { 
+namespace grace { 
 
-void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
-                          , scalar_array_t<THUNDER_NSPACEDIM>& ispacing
-                          , scalar_array_t<THUNDER_NSPACEDIM>& spacing
-                          , cell_vol_array_t<THUNDER_NSPACEDIM>& volume
+void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>& coords
+                          , scalar_array_t<GRACE_NSPACEDIM>& ispacing
+                          , scalar_array_t<GRACE_NSPACEDIM>& spacing
+                          , cell_vol_array_t<GRACE_NSPACEDIM>& volume
                           , staggered_coordinate_arrays_t& surfaces_and_edges) 
 {
-    using namespace thunder ; 
-    auto& forest = thunder::amr::forest::get()        ; 
-    auto& conn   = thunder::amr::connectivity::get()  ; 
-    auto& params = thunder::config_parser::get()      ;
+    using namespace grace ; 
+    auto& forest = grace::amr::forest::get()        ; 
+    auto& conn   = grace::amr::connectivity::get()  ; 
+    auto& params = grace::config_parser::get()      ;
 
     size_t nx {params["amr"]["npoints_block_x"].as<size_t>()} ; 
     size_t ny {params["amr"]["npoints_block_y"].as<size_t>()} ; 
@@ -74,16 +74,16 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
     auto h_surfx = Kokkos::create_mirror_view(surfaces_and_edges.cell_face_surfaces_x) ; 
     auto h_surfy = Kokkos::create_mirror_view(surfaces_and_edges.cell_face_surfaces_y) ; 
     auto h_surfz = Kokkos::create_mirror_view(surfaces_and_edges.cell_face_surfaces_z) ; 
-    #ifdef THUNDER_3D 
+    #ifdef GRACE_3D 
     auto h_edgexy = Kokkos::create_mirror_view(surfaces_and_edges.cell_edge_lengths_xy) ; 
     auto h_edgeyz = Kokkos::create_mirror_view(surfaces_and_edges.cell_edge_lengths_yz) ; 
     auto h_edgexz = Kokkos::create_mirror_view(surfaces_and_edges.cell_edge_lengths_xz) ; 
     #endif 
-    decltype(h_surfx) surf[THUNDER_NSPACEDIM] = {
+    decltype(h_surfx) surf[GRACE_NSPACEDIM] = {
         VEC(h_surfx, h_surfy, h_surfz)
     } ; 
-    #ifdef THUNDER_3D 
-    decltype(h_edgexy) edge[THUNDER_NSPACEDIM] = {
+    #ifdef GRACE_3D 
+    decltype(h_edgexy) edge[GRACE_NSPACEDIM] = {
         VEC(h_edgeyz,h_edgexz,h_edgexy) 
     } ; 
     #endif 
@@ -142,7 +142,7 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
             ) ;
         }
 
-        for(int idim=0; idim<THUNDER_NSPACEDIM; ++idim) { 
+        for(int idim=0; idim<GRACE_NSPACEDIM; ++idim) { 
             EXPR( for(size_t i=0; i<nx+2*ngz+utils::delta(0,idim); ++i), for(size_t j=0; j<ny+2*ngz+utils::delta(1,idim); ++j), for(size_t k=0; k<nz+2*ngz+utils::delta(2,idim); ++k) ) 
             {
                 surf[idim](VEC(i,j,k),iquad) = coord_system.get_cell_face_surface(
@@ -154,7 +154,7 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
                     , {VEC(dx_quad,dy_quad,dz_quad)}
                     , true ) ; 
             }
-            #ifdef THUNDER_3D 
+            #ifdef GRACE_3D 
             EXPR( for(size_t i=0; i<nx+2*ngz+1-utils::delta(0,idim); ++i), for(size_t j=0; j<ny+2*ngz+1-utils::delta(1,idim); ++j), for(size_t k=0; k<nz+2*ngz+1-utils::delta(2,idim); ++k) ) 
             {
                 edge[idim](VEC(i,j,k),iquad) = coord_system.get_cell_edge_length(
@@ -174,7 +174,7 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
     } /* quadrant loop */
     auto clock_end = std::chrono::high_resolution_clock::now() ;
     float currentTime = float(std::chrono::duration_cast <std::chrono::microseconds> (clock_end - clock_start).count());
-    THUNDER_VERBOSE("Coordinate filling loop took {:.3e} mus.",currentTime) ; 
+    GRACE_VERBOSE("Coordinate filling loop took {:.3e} mus.",currentTime) ; 
     clock_start = std::chrono::high_resolution_clock::now() ; 
     Kokkos::deep_copy(coords,h_coords) ; 
     Kokkos::deep_copy(ispacing,h_idx) ; 
@@ -183,14 +183,14 @@ void fill_cell_coordinates( scalar_array_t<THUNDER_NSPACEDIM>& coords
     Kokkos::deep_copy(surfaces_and_edges.cell_face_surfaces_x, h_surfx) ; 
     Kokkos::deep_copy(surfaces_and_edges.cell_face_surfaces_y, h_surfy) ; 
     Kokkos::deep_copy(surfaces_and_edges.cell_face_surfaces_z, h_surfz) ; 
-    #ifdef THUNDER_3D 
+    #ifdef GRACE_3D 
     Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_xy, h_edgexy) ; 
     Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_xz, h_edgexz) ; 
     Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_yz, h_edgeyz) ;
     #endif  
     clock_end = std::chrono::high_resolution_clock::now() ; 
     currentTime = float(std::chrono::duration_cast <std::chrono::microseconds> (clock_end - clock_start).count());
-    THUNDER_VERBOSE("Coordinate view copy (h2d) took {:.3e} mus.",currentTime) ;
+    GRACE_VERBOSE("Coordinate view copy (h2d) took {:.3e} mus.",currentTime) ;
 }
 
-} /* namespace thunder */ 
+} /* namespace grace */ 

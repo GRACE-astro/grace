@@ -1,10 +1,10 @@
 #include <catch2/catch_test_macros.hpp>
-#include <thunder/utils/sc_wrappers.hh>
+#include <grace/utils/sc_wrappers.hh>
 #include <iostream>
 
 TEST_CASE("sc_array_view_t", "[sc_array_view]") 
 {
-    using namespace thunder ; 
+    using namespace grace ; 
 
     sc_array_t * _arr = sc_array_new_count(sizeof(int), 100) ; 
     sc_array_view_t<int> view(_arr) ; 

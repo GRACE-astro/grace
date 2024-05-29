@@ -5,8 +5,8 @@
  * @version 0.1
  * @date 2023-03-13
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Difference 
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference 
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                                                    
@@ -24,7 +24,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#include <thunder/utils/lifetime_tracker.hh>
+#include <grace/utils/lifetime_tracker.hh>
 namespace utils { namespace pvt {
 //**************************************************************************************************
 unsigned int elements = 0 ;

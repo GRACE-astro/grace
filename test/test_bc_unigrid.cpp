@@ -1,11 +1,11 @@
 #include <catch2/catch_test_macros.hpp>
 #include <Kokkos_Core.hpp>
-#include <thunder/amr/thunder_amr.hh>
-#include <thunder/coordinates/coordinate_systems.hh>
-#include <thunder/config/config_parser.hh>
-#include <thunder/data_structures/thunder_data_structures.hh>
-#include <thunder/utils/thunder_utils.hh>
-#include <thunder/IO/vtk_output.hh>
+#include <grace/amr/grace_amr.hh>
+#include <grace/coordinates/coordinate_systems.hh>
+#include <grace/config/config_parser.hh>
+#include <grace/data_structures/grace_data_structures.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/IO/vtk_output.hh>
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <numeric>
@@ -14,9 +14,9 @@
 
 static inline bool is_outside_grid(VEC(size_t i,size_t j, size_t k), int64_t q)
 {
-    auto params = thunder::config_parser::get()["amr"] ; 
-    auto pcoords = thunder::get_physical_coordinates({VEC(i,j,k)},q,{VEC(0.5,0.5,0.5)}, true) ;
-    #ifdef THUNDER_CARTESIAN_COORDINATES 
+    auto params = grace::config_parser::get()["amr"] ; 
+    auto pcoords = grace::get_physical_coordinates({VEC(i,j,k)},q,{VEC(0.5,0.5,0.5)}, true) ;
+    #ifdef GRACE_CARTESIAN_COORDINATES 
         double xmin = params["xmin"].as<double>() ;
         double ymin = params["ymin"].as<double>() ;
         double zmin = params["zmin"].as<double>() ;
@@ -26,7 +26,7 @@ static inline bool is_outside_grid(VEC(size_t i,size_t j, size_t k), int64_t q)
         double zmax = params["zmax"].as<double>() ; 
 
         return (pcoords[0]<xmin) || (pcoords[0]>xmax) || pcoords[1]<ymin || pcoords[1]>ymax 
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         || (pcoords[2]<zmin) || (pcoords[2]>zmax)
         #endif 
         ;
@@ -54,21 +54,21 @@ static inline bool is_ghostzone(VEC(int i, int j, int k), VEC(int nx, int ny, in
 
 TEST_CASE("Apply BC", "[boundaries]")
 {
-    using namespace thunder::variables ; 
-    using namespace thunder ;
+    using namespace grace::variables ; 
+    using namespace grace ;
     using namespace Kokkos ; 
 
-    #ifdef THUNDER_ENABLE_BURGERS 
+    #ifdef GRACE_ENABLE_BURGERS 
     int const DENS = U ; 
     int const DENS_ = U ; 
     #endif  
     
-    auto& state  = thunder::variable_list::get().getstate()  ;
-    auto& coords = thunder::variable_list::get().getcoords() ; 
+    auto& state  = grace::variable_list::get().getstate()  ;
+    auto& coords = grace::variable_list::get().getcoords() ; 
     long nx,ny,nz; 
-    std::tie(nx,ny,nz) = thunder::amr::get_quadrant_extents() ; 
-    size_t nq = thunder::amr::get_local_num_quadrants() ; 
-    int ngz = thunder::amr::get_n_ghosts() ; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    size_t nq = grace::amr::get_local_num_quadrants() ; 
+    int ngz = grace::amr::get_n_ghosts() ; 
     std::cout << "nx,ny,nz,ngz " << nx << ", " << ny << ", " << nz << ", " << ngz << std::endl ; 
     auto ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
     auto ncells_noghost = EXPR(nx,*ny,*nz)*nq ; 
@@ -79,7 +79,7 @@ TEST_CASE("Apply BC", "[boundaries]")
     } ; 
     auto const h_func_derivative = [&] (VEC(const double& x,const double& y,const double &z))
     {
-        return std::array<double,THUNDER_NSPACEDIM>{
+        return std::array<double,GRACE_NSPACEDIM>{
             VEC(
                 8.5,
                 -5.1,
@@ -88,7 +88,7 @@ TEST_CASE("Apply BC", "[boundaries]")
         } ; 
     } ; 
     auto h_state = Kokkos::create_mirror_view( state ) ; 
-    auto& coord_system = thunder::coordinate_system::get() ;
+    auto& coord_system = grace::coordinate_system::get() ;
     /*************************************************/
     /*                   fill data                   */
     /*        here we don't fill ghostzones.         */
@@ -97,7 +97,7 @@ TEST_CASE("Apply BC", "[boundaries]")
     {
         size_t const i = icell%(nx+2*ngz); 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
         size_t const q = 
@@ -118,7 +118,7 @@ TEST_CASE("Apply BC", "[boundaries]")
     {
         long const i = icell%(nx+2*ngz); 
         long const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         long const k = 
             (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
         long const q = 
@@ -132,19 +132,19 @@ TEST_CASE("Apply BC", "[boundaries]")
         }
     }
     Kokkos::deep_copy(state, h_state) ; 
-    //thunder::IO::write_volume_cell_data() ; 
+    //grace::IO::write_volume_cell_data() ; 
     /* Fill boundaries and ghost-zones */
-    thunder::amr::apply_boundary_conditions() ; 
-    //thunder::runtime::get().increment_iteration() ; 
-    //thunder::IO::write_cell_output(true,true,true) ; 
+    grace::amr::apply_boundary_conditions() ; 
+    //grace::runtime::get().increment_iteration() ; 
+    //grace::IO::write_cell_output(true,true,true) ; 
 
     /* Check values in ghost-zones */
-    auto& idx = thunder::variable_list::get().getinvspacings() ; 
+    auto& idx = grace::variable_list::get().getinvspacings() ; 
     auto h_idx = Kokkos::create_mirror_view(idx) ; 
     Kokkos::deep_copy(h_idx,idx)  ; 
     Kokkos::deep_copy(h_state, state) ; 
-    thunder::var_array_t<THUNDER_NSPACEDIM> dxdens(
-        "Density derivatives", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz), THUNDER_NSPACEDIM, nq  
+    grace::var_array_t<GRACE_NSPACEDIM> dxdens(
+        "Density derivatives", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz), GRACE_NSPACEDIM, nq  
     ) ; 
     auto h_dxdens = Kokkos::create_mirror_view(dxdens) ; 
 
@@ -152,7 +152,7 @@ TEST_CASE("Apply BC", "[boundaries]")
     {
         size_t const i = icell%(nx+2*ngz); 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
         size_t const q = 
@@ -172,7 +172,7 @@ TEST_CASE("Apply BC", "[boundaries]")
            or is_outside_grid(VEC(i-2,j,k),q) 
            or is_outside_grid(VEC(i,j+2,k),q) 
            or is_outside_grid(VEC(i,j-2,k),q) 
-           #ifdef THUNDER_3D 
+           #ifdef GRACE_3D 
            or is_outside_grid(VEC(i,j,k+2),q) 
            or is_outside_grid(VEC(i,j,k-2),q) 
            #endif 
@@ -184,14 +184,14 @@ TEST_CASE("Apply BC", "[boundaries]")
         std::cout << "Cell " << icell << std::endl ;
         std::cout << "Quadrant, indices " << q EXPR(<< ", " << i ,<< ", " << j ,<< ", " << k) << '\n'  
                   << "Coordinates " << EXPR(pcoords[0] ,<< ", " << pcoords[1], << ", " << pcoords[2]) << '\n'
-                  << "Quadrant level " << thunder::amr::get_quadrant(q).level() << std::endl ;  
+                  << "Quadrant level " << grace::amr::get_quadrant(q).level() << std::endl ;  
         std::cout << (is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ? "in ghostzones\n" : "not in ghostzones\n") ; 
         std::cout << (is_corner_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ? "in corner ghostzones\n" : "not in corner ghostzones\n") ; 
         if(  std::isnan(h_state(VEC(i,j,k),DENS,q)) || std::fabs(h_state(VEC(i,j,k),DENS,q) - h_func(VEC(pcoords[0],pcoords[1],pcoords[2]) ) ) > 1e-12 ) {
             std::cout << "Rank: " << parallel::mpi_comm_rank() << '\n'
                       << "Quadrant, indices " << q EXPR(<< ", " << i ,<< ", " << j ,<< ", " << k) << '\n'  
                       << "Coordinates " << EXPR(pcoords[0] ,<< ", " << pcoords[1], << ", " << pcoords[2]) << '\n'
-                      << "Quadrant level " << thunder::amr::get_quadrant(q).level() << std::endl ; 
+                      << "Quadrant level " << grace::amr::get_quadrant(q).level() << std::endl ; 
         }
         #endif 
         CHECK_THAT(
@@ -205,7 +205,7 @@ TEST_CASE("Apply BC", "[boundaries]")
     {
         size_t const i = icell%(nx) + ngz ; 
         size_t const j = (icell/(nx)) % (ny) + ngz ;
-        #ifdef THUNDER_3D 
+        #ifdef GRACE_3D 
         size_t const k = 
             (icell/(nx)/(ny)) % (nz) + ngz ; 
         size_t const q = 
@@ -228,7 +228,7 @@ TEST_CASE("Apply BC", "[boundaries]")
            or is_outside_grid(VEC(i-2,j,k),q) 
            or is_outside_grid(VEC(i,j+2,k),q) 
            or is_outside_grid(VEC(i,j-2,k),q) 
-           #ifdef THUNDER_3D 
+           #ifdef GRACE_3D 
            or is_outside_grid(VEC(i,j,k+2),q) 
            or is_outside_grid(VEC(i,j,k-2),q) 
            #endif 
@@ -238,9 +238,9 @@ TEST_CASE("Apply BC", "[boundaries]")
         }
 
         
-        auto itree = thunder::amr::get_quadrant_owner(q) ; 
-        auto dx_tree = thunder::amr::get_tree_spacing(itree) ; 
-        std::array<double,THUNDER_NSPACEDIM> idxphys{
+        auto itree = grace::amr::get_quadrant_owner(q) ; 
+        auto dx_tree = grace::amr::get_tree_spacing(itree) ; 
+        std::array<double,GRACE_NSPACEDIM> idxphys{
             VEC(
                 h_idx(0,q) / dx_tree[0],
                 h_idx(1,q) / dx_tree[1],
@@ -249,7 +249,7 @@ TEST_CASE("Apply BC", "[boundaries]")
         } ; 
         auto der_exact = h_func_derivative(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
         
-        for(int idim=0; idim<THUNDER_NSPACEDIM; ++idim){ 
+        for(int idim=0; idim<GRACE_NSPACEDIM; ++idim){ 
             h_dxdens(VEC(i,j,k),idim,q) = 
               0.5*(h_state(VEC(i+utils::delta(idim,0),j+utils::delta(idim,1),k+utils::delta(idim,2)), DENS, q)
             - h_state(VEC(i-utils::delta(idim,0),j-utils::delta(idim,1),k-utils::delta(idim,2)), DENS, q))*idxphys[idim]; 

@@ -4,8 +4,9 @@
  * @brief 
  * @date 2024-03-23
  * 
- * @copyright This file is part of Thunder.
- * Thunder is an evolution framework that uses Finite Differences
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
  *                                    
@@ -24,13 +25,13 @@
  * 
  */
 
-#include <thunder/data_structures/variable_indices.hh>
-#include <thunder/data_structures/variable_properties.hh>
-#include <thunder/data_structures/variable_utils.hh>
-#include <thunder/errors/assert.hh>
-#include <thunder/errors/error.hh> 
+#include <grace/data_structures/variable_indices.hh>
+#include <grace/data_structures/variable_properties.hh>
+#include <grace/data_structures/variable_utils.hh>
+#include <grace/errors/assert.hh>
+#include <grace/errors/error.hh> 
 
-namespace thunder { namespace variables  {
+namespace grace { namespace variables  {
 
 int 
 get_n_evolved()
