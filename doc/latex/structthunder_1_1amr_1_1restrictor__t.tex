@@ -1,0 +1,84 @@
+\hypertarget{structthunder_1_1amr_1_1restrictor__t}{}\doxysection{thunder\+::amr\+::restrictor\+\_\+t$<$ State\+ViewT, Vol\+ViewT $>$ Struct Template Reference}
+\label{structthunder_1_1amr_1_1restrictor__t}\index{thunder::amr::restrictor\_t$<$ StateViewT, VolViewT $>$@{thunder::amr::restrictor\_t$<$ StateViewT, VolViewT $>$}}
+
+
+Helper class for restriction.  
+
+
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structthunder_1_1amr_1_1restrictor__t_a124e620629030e82fcf5b3560a681734}\label{structthunder_1_1amr_1_1restrictor__t_a124e620629030e82fcf5b3560a681734}} 
+size\+\_\+t \mbox{\hyperlink{structthunder_1_1amr_1_1restrictor__t_a124e620629030e82fcf5b3560a681734}{VEC}} (nx, ny, nz)
+\begin{DoxyCompactList}\small\item\em Quadrant extents (unchanged) \end{DoxyCompactList}\item 
+double THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE THUNDER\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{structthunder_1_1amr_1_1restrictor__t_ad8ba46645a75f6ccedaef57d27dadec4}{operator()}} (\mbox{\hyperlink{structthunder_1_1amr_1_1restrictor__t_a124e620629030e82fcf5b3560a681734}{VEC}}(int const \&i, int const \&j, int const \&k), int iq\mbox{[}P4\+EST\+\_\+\+CHILDREN\mbox{]}, int iq\+\_\+parent, int const \&ivar) const
+\begin{DoxyCompactList}\small\item\em Restrict variable from fine to coarse grid. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structthunder_1_1amr_1_1restrictor__t_ac394797ba559b138aad5f371f400542b}\label{structthunder_1_1amr_1_1restrictor__t_ac394797ba559b138aad5f371f400542b}} 
+int \mbox{\hyperlink{structthunder_1_1amr_1_1restrictor__t_ac394797ba559b138aad5f371f400542b}{ngz}}
+\begin{DoxyCompactList}\small\item\em Number of ghost cells. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structthunder_1_1amr_1_1restrictor__t_a90df4532def9c7ef8c4d340cf0e9e4a1}\label{structthunder_1_1amr_1_1restrictor__t_a90df4532def9c7ef8c4d340cf0e9e4a1}} 
+State\+ViewT \mbox{\hyperlink{structthunder_1_1amr_1_1restrictor__t_a90df4532def9c7ef8c4d340cf0e9e4a1}{state}}
+\begin{DoxyCompactList}\small\item\em Old state. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structthunder_1_1amr_1_1restrictor__t_a13e6e76ca1bd6dfcb1f846a8cfb317a8}\label{structthunder_1_1amr_1_1restrictor__t_a13e6e76ca1bd6dfcb1f846a8cfb317a8}} 
+Vol\+ViewT \mbox{\hyperlink{structthunder_1_1amr_1_1restrictor__t_a13e6e76ca1bd6dfcb1f846a8cfb317a8}{vol\+\_\+child}}
+\begin{DoxyCompactList}\small\item\em Child volume. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structthunder_1_1amr_1_1restrictor__t_abadc3a0104c80de8c2db5567771b8ed8}\label{structthunder_1_1amr_1_1restrictor__t_abadc3a0104c80de8c2db5567771b8ed8}} 
+Vol\+ViewT \mbox{\hyperlink{structthunder_1_1amr_1_1restrictor__t_abadc3a0104c80de8c2db5567771b8ed8}{vol\+\_\+parent}}
+\begin{DoxyCompactList}\small\item\em Parent volume. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\subsubsection*{template$<$typename State\+ViewT, typename Vol\+ViewT$>$\newline
+struct thunder\+::amr\+::restrictor\+\_\+t$<$ State\+View\+T, Vol\+View\+T $>$}
+
+Helper class for restriction. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em State\+ViewT} & Type of variable view \\
+\hline
+{\em Vol\+ViewT} & Type of cell volume view\\
+\hline
+\end{DoxyTemplParams}
+The {\ttfamily operator()} of this class performs a volume averaged restriction of fine data onto a coarse cell. The refinement factor is assumed to be two. 
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{structthunder_1_1amr_1_1restrictor__t_ad8ba46645a75f6ccedaef57d27dadec4}\label{structthunder_1_1amr_1_1restrictor__t_ad8ba46645a75f6ccedaef57d27dadec4}} 
+\index{thunder::amr::restrictor\_t$<$ StateViewT, VolViewT $>$@{thunder::amr::restrictor\_t$<$ StateViewT, VolViewT $>$}!operator()@{operator()}}
+\index{operator()@{operator()}!thunder::amr::restrictor\_t$<$ StateViewT, VolViewT $>$@{thunder::amr::restrictor\_t$<$ StateViewT, VolViewT $>$}}
+\doxysubsubsection{\texorpdfstring{operator()()}{operator()()}}
+{\footnotesize\ttfamily template$<$typename State\+ViewT , typename Vol\+ViewT $>$ \\
+double THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE THUNDER\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{structthunder_1_1amr_1_1restrictor__t}{thunder\+::amr\+::restrictor\+\_\+t}}$<$ State\+ViewT, Vol\+ViewT $>$\+::operator() (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structthunder_1_1amr_1_1restrictor__t_a124e620629030e82fcf5b3560a681734}{VEC}}(int const  \&i, int const  \&j, int const  \&k)}]{,  }\item[{int}]{iq\mbox{[}\+P4\+EST\+\_\+\+CHILDREN\mbox{]},  }\item[{int}]{iq\+\_\+parent,  }\item[{int const \&}]{ivar }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Restrict variable from fine to coarse grid. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em i} & x-\/index in parent quadrant (zero-\/offset). \\
+\hline
+{\em j} & y-\/index in parent quadrant (zero-\/offset). \\
+\hline
+{\em k} & z-\/index in parent quadrant (zero-\/offset). \\
+\hline
+{\em iq} & Quadrant indices of children. \\
+\hline
+{\em iq\+\_\+parent} & Quadrant index of parent. \\
+\hline
+{\em ivar} & Variable index. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The restricted variable at the coarse point.
+\end{DoxyReturn}
+The restriction operator acts on the fine data as follows
+
+\[ \frac{\sum_{\{i,j,k\} \in I^{(i_0,j_0,k_0)}_{\rm c} } U^{l+1}_{i,j,k}\,V^{l+1}_{i,j,k}} {\sum_{\{i,j,k\} \in I^{(i_0,j_0,k_0)}_{\rm c} } V^{l+1}_{i,j,k} } \] Where $ I^{(i_0,j_0,k_0)}_{\rm c} $ contains the indices of children cells of the coarse cell $(i_0,j_0,k_0)$. 
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/thunder/amr/\mbox{\hyperlink{restriction__kernels_8tpp}{restriction\+\_\+kernels.\+tpp}}\end{DoxyCompactItemize}

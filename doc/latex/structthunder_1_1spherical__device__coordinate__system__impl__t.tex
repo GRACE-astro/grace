@@ -1,0 +1,31 @@
+\hypertarget{structthunder_1_1spherical__device__coordinate__system__impl__t}{}\doxysection{thunder\+::spherical\+\_\+device\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t Struct Reference}
+\label{structthunder_1_1spherical__device__coordinate__system__impl__t}\index{thunder::spherical\_device\_coordinate\_system\_impl\_t@{thunder::spherical\_device\_coordinate\_system\_impl\_t}}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structthunder_1_1spherical__device__coordinate__system__impl__t_aecaf82067dc7b298375464e3df322cfb}\label{structthunder_1_1spherical__device__coordinate__system__impl__t_aecaf82067dc7b298375464e3df322cfb}} 
+{\bfseries spherical\+\_\+device\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t} (Kokkos\+::\+View$<$ double $\ast$, thunder\+::default\+\_\+space $>$ \+\_\+params, Kokkos\+::\+View$<$ double $\ast$$\ast$, thunder\+::default\+\_\+space $>$ \+\_\+rotmat, Kokkos\+::\+View$<$ double $\ast$$\ast$, thunder\+::default\+\_\+space $>$ \+\_\+invrotmat)
+\item 
+\mbox{\Hypertarget{structthunder_1_1spherical__device__coordinate__system__impl__t_a34d1a55f2d63490ced17c64065d86266}\label{structthunder_1_1spherical__device__coordinate__system__impl__t_a34d1a55f2d63490ced17c64065d86266}} 
+void THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE THUNDER\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries get\+\_\+physical\+\_\+coordinates} (int itree, double $\ast$l\+\_\+coords, double $\ast$p\+\_\+coords) const
+\item 
+\mbox{\Hypertarget{structthunder_1_1spherical__device__coordinate__system__impl__t_aba3b3f3bb3cb291d27c6b090999fd826}\label{structthunder_1_1spherical__device__coordinate__system__impl__t_aba3b3f3bb3cb291d27c6b090999fd826}} 
+void THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE THUNDER\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries get\+\_\+logical\+\_\+coordinates} (int itree, double $\ast$p\+\_\+coords, double $\ast$l\+\_\+coords) const
+\item 
+\mbox{\Hypertarget{structthunder_1_1spherical__device__coordinate__system__impl__t_a390f25617c48483643be48e720aec89c}\label{structthunder_1_1spherical__device__coordinate__system__impl__t_a390f25617c48483643be48e720aec89c}} 
+void THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE THUNDER\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries transfer\+\_\+coordinates} (int itree\+\_\+a, int itree\+\_\+b, int face\+\_\+a, int face\+\_\+b, double $\ast$l\+\_\+coords\+\_\+a, double $\ast$l\+\_\+coords\+\_\+b) const
+\item 
+\mbox{\Hypertarget{structthunder_1_1spherical__device__coordinate__system__impl__t_af8f03c5c3379a0f773609b045ade70f3}\label{structthunder_1_1spherical__device__coordinate__system__impl__t_af8f03c5c3379a0f773609b045ade70f3}} 
+void THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE THUNDER\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries transform\+\_\+indices} (int itree\+\_\+a, int itree\+\_\+b, int face\+\_\+a, int face\+\_\+b, \mbox{\hyperlink{group__utils_ga5e8a87ef5e7f1ed5313072bc02be4aac}{VEC}}(int i\+\_\+a, int j\+\_\+a, int k\+\_\+a), \mbox{\hyperlink{group__utils_ga5e8a87ef5e7f1ed5313072bc02be4aac}{VEC}}(int $\ast$i\+\_\+b, int $\ast$j\+\_\+b, int $\ast$k\+\_\+b)) const
+\end{DoxyCompactItemize}
+\doxysubsection*{Static Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structthunder_1_1spherical__device__coordinate__system__impl__t_a0d61e413cae9342c0a376c4b5a328ba3}\label{structthunder_1_1spherical__device__coordinate__system__impl__t_a0d61e413cae9342c0a376c4b5a328ba3}} 
+static constexpr size\+\_\+t {\bfseries ntrees} = 5UL
+\end{DoxyCompactItemize}
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/thunder/coordinates/spherical\+\_\+coordinate\+\_\+systems.\+hh\end{DoxyCompactItemize}

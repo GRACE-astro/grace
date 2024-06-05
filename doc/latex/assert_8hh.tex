@@ -1,0 +1,99 @@
+\hypertarget{assert_8hh}{}\doxysection{include/grace/errors/assert.hh File Reference}
+\label{assert_8hh}\index{include/grace/errors/assert.hh@{include/grace/errors/assert.hh}}
+{\ttfamily \#include $<$cassert$>$}\newline
+{\ttfamily \#include $<$iostream$>$}\newline
+{\ttfamily \#include $<$sstream$>$}\newline
+{\ttfamily \#include $<$string$>$}\newline
+{\ttfamily \#include $<$grace/utils/make\+\_\+string.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/errors/abort.\+hh$>$}\newline
+Include dependency graph for assert.\+hh\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{assert_8hh__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{assert_8hh__dep__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{assert_8hh_a5adcf100d253123688feb831c645019e}{ASSERT\+\_\+\+DBG}}(a,  m)
+\begin{DoxyCompactList}\small\item\em Assert for a condition only when in debug mode. \end{DoxyCompactList}\item 
+\#define \mbox{\hyperlink{assert_8hh_af170f3984e3d0f809b2558dbd981ca35}{ASSERT}}(a,  m)
+\begin{DoxyCompactList}\small\item\em Assert for a condition. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyVersion}{Version}
+0.\+1 
+\end{DoxyVersion}
+\begin{DoxyDate}{Date}
+2023-\/03-\/13
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of GRACE. GRACE is an evolution framework that uses Finite Difference methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{assert_8hh_af170f3984e3d0f809b2558dbd981ca35}\label{assert_8hh_af170f3984e3d0f809b2558dbd981ca35}} 
+\index{assert.hh@{assert.hh}!ASSERT@{ASSERT}}
+\index{ASSERT@{ASSERT}!assert.hh@{assert.hh}}
+\doxysubsubsection{\texorpdfstring{ASSERT}{ASSERT}}
+{\footnotesize\ttfamily \#define ASSERT(\begin{DoxyParamCaption}\item[{}]{a,  }\item[{}]{m }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\textcolor{keywordflow}{do} \{                                                                      \(\backslash\)}
+\DoxyCodeLine{    if(!(a)) \{                                                            \(\backslash\)}
+\DoxyCodeLine{        utils::make\_string error\_message\_ASSERT;                          \(\backslash\)}
+\DoxyCodeLine{        error\_message\_ASSERT << m ;                                       \(\backslash\)}
+\DoxyCodeLine{        abort\_with\_message(\#a,                                            \(\backslash\)}
+\DoxyCodeLine{                           \_\_FILE\_\_,\_\_LINE\_\_,                             \(\backslash\)}
+\DoxyCodeLine{                           \textcolor{keyword}{static\_cast<}\textcolor{keyword}{const }\textcolor{keywordtype}{char}*\textcolor{keyword}{>}(\_\_PRETTY\_FUNCTION\_\_),       \(\backslash\)}
+\DoxyCodeLine{                           error\_message\_ASSERT);                   \(\backslash\)}
+\DoxyCodeLine{    \}                                                                     \(\backslash\)}
+\DoxyCodeLine{\} \textcolor{keywordflow}{while} (\textcolor{keyword}{false})}
+
+\end{DoxyCode}
+
+
+Assert for a condition. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em a} & boolean condition to check. \\
+\hline
+{\em m} & string stream to be printed in case of failure. \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{assert_8hh_a5adcf100d253123688feb831c645019e}\label{assert_8hh_a5adcf100d253123688feb831c645019e}} 
+\index{assert.hh@{assert.hh}!ASSERT\_DBG@{ASSERT\_DBG}}
+\index{ASSERT\_DBG@{ASSERT\_DBG}!assert.hh@{assert.hh}}
+\doxysubsubsection{\texorpdfstring{ASSERT\_DBG}{ASSERT\_DBG}}
+{\footnotesize\ttfamily \#define ASSERT\+\_\+\+DBG(\begin{DoxyParamCaption}\item[{}]{a,  }\item[{}]{m }\end{DoxyParamCaption})}
+
+
+
+Assert for a condition only when in debug mode. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em a} & boolean condition to check. \\
+\hline
+{\em m} & string stream to be printed in case of failure. NB\+: This is a no-\/op in production mode. \\
+\hline
+\end{DoxyParams}

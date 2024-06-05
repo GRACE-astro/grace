@@ -1,0 +1,84 @@
+\hypertarget{structgrace_1_1amr_1_1restrictor__t}{}\doxysection{grace\+::amr\+::restrictor\+\_\+t$<$ State\+ViewT, Vol\+ViewT $>$ Struct Template Reference}
+\label{structgrace_1_1amr_1_1restrictor__t}\index{grace::amr::restrictor\_t$<$ StateViewT, VolViewT $>$@{grace::amr::restrictor\_t$<$ StateViewT, VolViewT $>$}}
+
+
+Helper class for restriction.  
+
+
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structgrace_1_1amr_1_1restrictor__t_a6989dfc924f258e944fcb94f36954b32}\label{structgrace_1_1amr_1_1restrictor__t_a6989dfc924f258e944fcb94f36954b32}} 
+size\+\_\+t \mbox{\hyperlink{structgrace_1_1amr_1_1restrictor__t_a6989dfc924f258e944fcb94f36954b32}{VEC}} (nx, ny, nz)
+\begin{DoxyCompactList}\small\item\em Quadrant extents (unchanged) \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{structgrace_1_1amr_1_1restrictor__t_a357d63c1ea9a3cdacf91e00ca316d40c}{operator()}} (\mbox{\hyperlink{structgrace_1_1amr_1_1restrictor__t_a6989dfc924f258e944fcb94f36954b32}{VEC}}(int const \&i, int const \&j, int const \&k), int iq\mbox{[}P4\+EST\+\_\+\+CHILDREN\mbox{]}, int iq\+\_\+parent, int const \&ivar) const
+\begin{DoxyCompactList}\small\item\em Restrict variable from fine to coarse grid. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structgrace_1_1amr_1_1restrictor__t_af1091f7c1e963392cd84e8f8a1ce1bc5}\label{structgrace_1_1amr_1_1restrictor__t_af1091f7c1e963392cd84e8f8a1ce1bc5}} 
+int \mbox{\hyperlink{structgrace_1_1amr_1_1restrictor__t_af1091f7c1e963392cd84e8f8a1ce1bc5}{ngz}}
+\begin{DoxyCompactList}\small\item\em Number of ghost cells. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structgrace_1_1amr_1_1restrictor__t_a9fb6cadad17b209c3542eb2b96a88656}\label{structgrace_1_1amr_1_1restrictor__t_a9fb6cadad17b209c3542eb2b96a88656}} 
+State\+ViewT \mbox{\hyperlink{structgrace_1_1amr_1_1restrictor__t_a9fb6cadad17b209c3542eb2b96a88656}{state}}
+\begin{DoxyCompactList}\small\item\em Old state. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structgrace_1_1amr_1_1restrictor__t_a3f228ccaf52dbee87b9ed52bc317b04b}\label{structgrace_1_1amr_1_1restrictor__t_a3f228ccaf52dbee87b9ed52bc317b04b}} 
+Vol\+ViewT \mbox{\hyperlink{structgrace_1_1amr_1_1restrictor__t_a3f228ccaf52dbee87b9ed52bc317b04b}{vol\+\_\+child}}
+\begin{DoxyCompactList}\small\item\em Child volume. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structgrace_1_1amr_1_1restrictor__t_a3511e962d5b91d45d6d2299a77003e46}\label{structgrace_1_1amr_1_1restrictor__t_a3511e962d5b91d45d6d2299a77003e46}} 
+Vol\+ViewT \mbox{\hyperlink{structgrace_1_1amr_1_1restrictor__t_a3511e962d5b91d45d6d2299a77003e46}{vol\+\_\+parent}}
+\begin{DoxyCompactList}\small\item\em Parent volume. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\subsubsection*{template$<$typename State\+ViewT, typename Vol\+ViewT$>$\newline
+struct grace\+::amr\+::restrictor\+\_\+t$<$ State\+View\+T, Vol\+View\+T $>$}
+
+Helper class for restriction. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em State\+ViewT} & Type of variable view \\
+\hline
+{\em Vol\+ViewT} & Type of cell volume view\\
+\hline
+\end{DoxyTemplParams}
+The {\ttfamily operator()} of this class performs a volume averaged restriction of fine data onto a coarse cell. The refinement factor is assumed to be two. 
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{structgrace_1_1amr_1_1restrictor__t_a357d63c1ea9a3cdacf91e00ca316d40c}\label{structgrace_1_1amr_1_1restrictor__t_a357d63c1ea9a3cdacf91e00ca316d40c}} 
+\index{grace::amr::restrictor\_t$<$ StateViewT, VolViewT $>$@{grace::amr::restrictor\_t$<$ StateViewT, VolViewT $>$}!operator()@{operator()}}
+\index{operator()@{operator()}!grace::amr::restrictor\_t$<$ StateViewT, VolViewT $>$@{grace::amr::restrictor\_t$<$ StateViewT, VolViewT $>$}}
+\doxysubsubsection{\texorpdfstring{operator()()}{operator()()}}
+{\footnotesize\ttfamily template$<$typename State\+ViewT , typename Vol\+ViewT $>$ \\
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{structgrace_1_1amr_1_1restrictor__t}{grace\+::amr\+::restrictor\+\_\+t}}$<$ State\+ViewT, Vol\+ViewT $>$\+::operator() (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{structgrace_1_1amr_1_1restrictor__t_a6989dfc924f258e944fcb94f36954b32}{VEC}}(int const  \&i, int const  \&j, int const  \&k)}]{,  }\item[{int}]{iq\mbox{[}\+P4\+EST\+\_\+\+CHILDREN\mbox{]},  }\item[{int}]{iq\+\_\+parent,  }\item[{int const \&}]{ivar }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Restrict variable from fine to coarse grid. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em i} & x-\/index in parent quadrant (zero-\/offset). \\
+\hline
+{\em j} & y-\/index in parent quadrant (zero-\/offset). \\
+\hline
+{\em k} & z-\/index in parent quadrant (zero-\/offset). \\
+\hline
+{\em iq} & Quadrant indices of children. \\
+\hline
+{\em iq\+\_\+parent} & Quadrant index of parent. \\
+\hline
+{\em ivar} & Variable index. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The restricted variable at the coarse point.
+\end{DoxyReturn}
+The restriction operator acts on the fine data as follows
+
+\[ \frac{\sum_{\{i,j,k\} \in I^{(i_0,j_0,k_0)}_{\rm c} } U^{l+1}_{i,j,k}\,V^{l+1}_{i,j,k}} {\sum_{\{i,j,k\} \in I^{(i_0,j_0,k_0)}_{\rm c} } V^{l+1}_{i,j,k} } \] Where $ I^{(i_0,j_0,k_0)}_{\rm c} $ contains the indices of children cells of the coarse cell $(i_0,j_0,k_0)$. 
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/grace/amr/\mbox{\hyperlink{restriction__kernels_8tpp}{restriction\+\_\+kernels.\+tpp}}\end{DoxyCompactItemize}

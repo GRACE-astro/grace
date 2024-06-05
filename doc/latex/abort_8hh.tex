@@ -1,0 +1,98 @@
+\hypertarget{abort_8hh}{}\doxysection{include/grace/errors/abort.hh File Reference}
+\label{abort_8hh}\index{include/grace/errors/abort.hh@{include/grace/errors/abort.hh}}
+{\ttfamily \#include $<$string$>$}\newline
+{\ttfamily \#include $<$grace\+\_\+config.\+h$>$}\newline
+Include dependency graph for abort.\+hh\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=230pt]{abort_8hh__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{abort_8hh__dep__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \mbox{\hyperlink{abort_8hh_aa83799ac99790c4f669cd14755b7b32d}{abort\+\_\+with\+\_\+message}} (const char $\ast$expression, const char $\ast$file, int line, const char $\ast$function, const std\+::string \&message)
+\begin{DoxyCompactList}\small\item\em Abort execution by throwing {\ttfamily std\+::runtime\+\_\+error} and printing a message. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{abort_8hh_a15b29517014c7a32001f8e8f08ff2600}{abort\+\_\+with\+\_\+message}} (const char $\ast$file, int line, const char $\ast$function, const std\+::string \&message)
+\begin{DoxyCompactList}\small\item\em Abort execution by throwing {\ttfamily std\+::runtime\+\_\+error} and printing a message. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyVersion}{Version}
+0.\+1 
+\end{DoxyVersion}
+\begin{DoxyDate}{Date}
+2023-\/03-\/13
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of GRACE. GRACE is an evolution framework that uses Finite Difference methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{abort_8hh_aa83799ac99790c4f669cd14755b7b32d}\label{abort_8hh_aa83799ac99790c4f669cd14755b7b32d}} 
+\index{abort.hh@{abort.hh}!abort\_with\_message@{abort\_with\_message}}
+\index{abort\_with\_message@{abort\_with\_message}!abort.hh@{abort.hh}}
+\doxysubsubsection{\texorpdfstring{abort\_with\_message()}{abort\_with\_message()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily void abort\+\_\+with\+\_\+message (\begin{DoxyParamCaption}\item[{const char $\ast$}]{expression,  }\item[{const char $\ast$}]{file,  }\item[{int}]{line,  }\item[{const char $\ast$}]{function,  }\item[{const std\+::string \&}]{message }\end{DoxyParamCaption})}
+
+
+
+Abort execution by throwing {\ttfamily std\+::runtime\+\_\+error} and printing a message. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em expression} & failed assertion. \\
+\hline
+{\em file} & file where assertion failed. \\
+\hline
+{\em line} & line where assertion failed. \\
+\hline
+{\em function} & function where assertion failed. \\
+\hline
+{\em message} & error message to be displayed.\\
+\hline
+\end{DoxyParams}
+The message gets appended to a backtrace.
+
+Abort execution by throwing {\ttfamily std\+::runtime\+\_\+error} and printing a message.
+
+This function uses {\ttfamily \mbox{\hyperlink{structbacktrace__handler}{backtrace\+\_\+handler}}} to append a stack trace to the user-\/provided error message. \mbox{\Hypertarget{abort_8hh_a15b29517014c7a32001f8e8f08ff2600}\label{abort_8hh_a15b29517014c7a32001f8e8f08ff2600}} 
+\index{abort.hh@{abort.hh}!abort\_with\_message@{abort\_with\_message}}
+\index{abort\_with\_message@{abort\_with\_message}!abort.hh@{abort.hh}}
+\doxysubsubsection{\texorpdfstring{abort\_with\_message()}{abort\_with\_message()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily void abort\+\_\+with\+\_\+message (\begin{DoxyParamCaption}\item[{const char $\ast$}]{file,  }\item[{int}]{line,  }\item[{const char $\ast$}]{function,  }\item[{const std\+::string \&}]{message }\end{DoxyParamCaption})}
+
+
+
+Abort execution by throwing {\ttfamily std\+::runtime\+\_\+error} and printing a message. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em file} & file where assertion failed. \\
+\hline
+{\em line} & line where assertion failed. \\
+\hline
+{\em function} & function where assertion failed. \\
+\hline
+{\em message} & error message to be displayed.\\
+\hline
+\end{DoxyParams}
+The message gets appended to a backtrace.
+
+This function uses {\ttfamily \mbox{\hyperlink{structbacktrace__handler}{backtrace\+\_\+handler}}} to append a stack trace to the user-\/provided error message. 

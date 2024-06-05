@@ -1,0 +1,15 @@
+# DOC: used to generate docs
+
+breathe>=4.34
+sphinx
+sphinx_rtd_theme~=2.0
+sphinx-tabs
+sphinxcontrib-svg2pdfconverter
+pygments>=2.9
+sphinx-notfound-page
+sphinx-copybutton
+sphinx-togglebutton
+sphinx-sitemap
+
+# Doxygen doxmlparser
+doxmlparser

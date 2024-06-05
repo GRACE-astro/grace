@@ -1,0 +1,59 @@
+\hypertarget{matrix__helpers_8tpp}{}\doxysection{include/grace/utils/matrix\+\_\+helpers.tpp File Reference}
+\label{matrix__helpers_8tpp}\index{include/grace/utils/matrix\_helpers.tpp@{include/grace/utils/matrix\_helpers.tpp}}
+{\ttfamily \#include $<$grace\+\_\+config.\+h$>$}\newline
+{\ttfamily \#include $<$grace/utils/inline.\+h$>$}\newline
+{\ttfamily \#include $<$grace/utils/device.\+h$>$}\newline
+{\ttfamily \#include $<$array$>$}\newline
+{\ttfamily \#include $<$cstdlib$>$}\newline
+Include dependency graph for matrix\+\_\+helpers.\+tpp\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{matrix__helpers_8tpp__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{matrix__helpers_8tpp__dep__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structutils_1_1detail_1_1det__impl__t}{utils\+::detail\+::det\+\_\+impl\+\_\+t$<$ N $>$}}
+\begin{DoxyCompactList}\small\item\em Helper struct for small matrix determinant computation. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structutils_1_1detail_1_1det__impl__t_3_011UL_01_4}{utils\+::detail\+::det\+\_\+impl\+\_\+t$<$ 1\+UL $>$}}
+\begin{DoxyCompactList}\small\item\em Helper struct for small matrix determinant computation. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structutils_1_1detail_1_1det__impl__t_3_012UL_01_4}{utils\+::detail\+::det\+\_\+impl\+\_\+t$<$ 2\+UL $>$}}
+\begin{DoxyCompactList}\small\item\em Helper struct for small matrix determinant computation. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structutils_1_1detail_1_1det__impl__t_3_013UL_01_4}{utils\+::detail\+::det\+\_\+impl\+\_\+t$<$ 3\+UL $>$}}
+\begin{DoxyCompactList}\small\item\em Helper struct for small matrix determinant computation. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$size\+\_\+t N$>$ }\\std\+::array$<$ double, N $\ast$N $>$ GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{group__utils_ga84fdea53673256dd78a1e5f9cdbe420a}{utils\+::identity\+\_\+matrix}} ()
+\begin{DoxyCompactList}\small\item\em Return the NxN identity matrix. \end{DoxyCompactList}\item 
+{\footnotesize template$<$size\+\_\+t N$>$ }\\double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{group__utils_gaf8b5e7d4190c9b3fdec8c1d7fc1be46b}{utils\+::det}} (std\+::array$<$ double, N $\ast$N $>$ const \&A)
+\begin{DoxyCompactList}\small\item\em Compute the determinant of a small square matrix. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{matrix__helpers_8tpp_a6c5cc0b527fc923d31da47d3a3cfb415}\label{matrix__helpers_8tpp_a6c5cc0b527fc923d31da47d3a3cfb415}} 
+{\footnotesize template$<$size\+\_\+t N = GRACE\+\_\+\+NSPACEDIM$>$ }\\int GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries utils\+::delta} (int i, int j)
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyDate}{Date}
+2024-\/04-\/14
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of of the General Relativistic Astrophysics Code for Exascale. GRACE is an evolution framework that uses Finite Volume methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 

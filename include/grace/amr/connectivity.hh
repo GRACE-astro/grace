@@ -46,6 +46,7 @@ namespace grace { namespace amr {
 //**************************************************************************************************
 /**
  * \defgroup amr Grid handling routines.
+ * \details See the [full documentation](doc/amr.md) for details.
  */
 //**************************************************************************************************
 /**

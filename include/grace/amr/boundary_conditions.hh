@@ -36,7 +36,11 @@
 #include <set> 
 
 namespace grace { namespace amr {
-
+/**
+ * @brief Struct containing information about
+ *        a simple interior face.
+ * \ingroup amr
+ */
 struct simple_face_info_t 
 {
     int has_polarity_flip;
@@ -49,7 +53,11 @@ struct simple_face_info_t
     int which_tree_b ; 
 
 } ; 
-
+/**
+ * @brief Struct containing information about a 
+ *        hanging interior face.
+ * \ingroup amr
+ */
 struct hanging_face_info_t 
 {
     int has_polarity_flip;
@@ -64,7 +72,11 @@ struct hanging_face_info_t
     int64_t qid_coarse ; 
     int64_t qid_fine[P4EST_CHILDREN/2] ; 
 } ; 
-
+/**
+ * @brief Struct containing the information about 
+ *        the coarse quadrants touching hanging faces.
+ * \ingroup amr
+ */
 struct hanging_coarse_quadrant_info_t 
 {
     std::vector<int64_t> snd_quadid ; 
@@ -72,7 +84,12 @@ struct hanging_coarse_quadrant_info_t
     std::vector<int64_t> rcv_quadid ; 
     std::vector<int>     rcv_procid ; 
 } ; 
-
+/**
+ * @brief The user data passed to <code>p4est_iterate</code>
+ * \ingroup amr
+ * This struct holds all the necessary information to apply 
+ * boundary conditions and fill ghostzones.
+ */
 struct grace_face_info_t 
 {
     int n_hanging_ghost_faces{0}; 
@@ -82,9 +99,29 @@ struct grace_face_info_t
     Kokkos::vector<hanging_face_info_t> hanging_interior_info     ; 
     hanging_coarse_quadrant_info_t      coarse_hanging_quads_info ;  
 } ; 
-
+/**
+ * @brief Apply all boundary conditions and fill ghostzones on state array.
+ * \ingroup amr
+ * This function fills all the ghost-cells in the <code>state</code> array.
+ * This includes applying physical boundary conditions at domain edges, as 
+ * well as filling all internal ghost-zones across simple and hanging faces.
+ * The state array needs to be in a valid state at all interior points when entering 
+ * this function. No assumptions are made on the content of the ghostzones of each
+ * quadrant and each variable for the state array when entering this function. Auxiliries
+ * and scratch state are left untouched by this function, unless a non-trivial boundary 
+ * condition is requested on an auxiliary variable. When this function returns, \b all 
+ * ghostzones for all quadrants are in a valid state for the <code>state</code> array.
+ * All interior ghost-zones operations are guaranteed to be second order accurate, total 
+ * variation diminishing, and volume average preserving.
+ */
 void apply_boundary_conditions() ;
-
+/**
+ * @brief Apply all boundary conditions on the var array.
+ * \ingroup amr
+ * @param vars The state array where BCs are applied.
+ * Specialized version of \ref apply_boundary_conditions which allows 
+ * the caller to specify which state array needs its ghostzones to be filled.
+ */
 void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) ;
 
 

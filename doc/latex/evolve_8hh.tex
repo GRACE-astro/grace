@@ -1,0 +1,50 @@
+\hypertarget{evolve_8hh}{}\doxysection{include/grace/evolution/evolve.hh File Reference}
+\label{evolve_8hh}\index{include/grace/evolution/evolve.hh@{include/grace/evolution/evolve.hh}}
+{\ttfamily \#include $<$grace\+\_\+config.\+h$>$}\newline
+{\ttfamily \#include $<$grace/data\+\_\+structures/variable\+\_\+properties.\+hh$>$}\newline
+Include dependency graph for evolve.\+hh\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{evolve_8hh__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=316pt]{evolve_8hh__dep__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Namespaces}
+\begin{DoxyCompactItemize}
+\item 
+ \mbox{\hyperlink{namespacegrace}{grace}}
+\begin{DoxyCompactList}\small\item\em Todo. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{namespacegrace_a0a20e5510607eb2a19a2925f79e66f7f}\label{namespacegrace_a0a20e5510607eb2a19a2925f79e66f7f}} 
+void \mbox{\hyperlink{namespacegrace_a0a20e5510607eb2a19a2925f79e66f7f}{grace\+::evolve}} ()
+\begin{DoxyCompactList}\small\item\em Perform a timestep.
+
+This function advances all variables in the state array by a full timestep. The timestep size is controlled by the function find\+\_\+stable\+\_\+timestep. The kind of timestepper used is controlled by the parameter evolution\+::time\+\_\+stepper. Coming out of this routine all the variables in the state array are in a valid state (at all gridpoints) and at time $t+dt$. Auxiliaries are not filled by this function and neither is the scratched space, both of which are left in an invalid state. This function assumes that the state is in a valid state as input, for all gridpoints including ghostzones. It also assumes that auxiliaries are filled at all gridpoints and up to date w.\+r.\+t. the evolution time. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{namespacegrace_ab331e05219ab9d9e53c0e7ed9958f771}{grace\+::advance\+\_\+substep}} (double const t, double const dt, double const dtfact, \mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ \&state, \mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ \&state\+\_\+p, \mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ \&aux, \mbox{\hyperlink{group__variables_ga223ea490a183b7ac7ecf0ee708389477}{grace\+::cell\+\_\+vol\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ \&cvol, \mbox{\hyperlink{structgrace_1_1staggered__coordinate__arrays__t}{grace\+::staggered\+\_\+coordinate\+\_\+arrays\+\_\+t}} \&surfs\+\_\+and\+\_\+edges)
+\begin{DoxyCompactList}\small\item\em Advance all variables by a substep. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyDate}{Date}
+2024-\/05-\/13
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of of the General Relativistic Astrophysics Code for Exascale. GRACE is an evolution framework that uses Finite Volume methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 

@@ -35,16 +35,53 @@
 namespace grace {
 
 enum EOS_ERROR_T {
-
+    EOS_NO_ERROR=0,
+    EOS_RHO_TOO_HIGH,
+    EOS_RHO_TOO_LOW,
+    EOS_NUM_ERRORS
 } ; 
 
+/**
+ * @brief Base class for eos handling.
+ * \ingroup eos
+ * @tparam eos_impl_t Concrete eos type.
+ * Equation of state classes derive from this 
+ * interface class through CRTP inheritance. The 
+ * minimal eos interface that needs to be implemented 
+ * corresponds with the set of public methods of 
+ * this class.
+ */
 template< typename eos_impl_t >
 class eos_base_t {
     using error_type = unsigned int; 
  public:
-
+    /**
+     * @brief Default ctor.
+     * 
+     */
     eos_base_t() = default ; 
-
+    /**
+     * @brief Constructor
+     * 
+     * @param _energy_shift Table energy shift.
+     * @param _eos_rhomax   Max rest-mass density.
+     * @param _eos_rhomin   Min rest-mass density.
+     * @param _eos_tempmax 
+     * @param _eos_tempmin 
+     * @param _eos_yemax 
+     * @param _eos_yemin 
+     * @param _baryon_mass 
+     * @param _c2p_ye_atm 
+     * @param _c2p_rho_atm 
+     * @param _c2p_temp_atm 
+     * @param _c2p_eps_atm 
+     * @param _c2p_eps_min 
+     * @param _c2p_eps_max 
+     * @param _c2p_h_min 
+     * @param _c2p_h_max 
+     * @param _atm_is_beta_eq 
+     * @param _extend_table_high 
+     */
     eos_base_t( double _energy_shift, double _eos_rhomax, double _eos_rhomin
               , double _eos_tempmax, double _eos_tempmin
               , double _eos_yemax, double _eos_yemin

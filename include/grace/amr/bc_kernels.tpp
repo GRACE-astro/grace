@@ -33,7 +33,10 @@
 #include <grace/data_structures/macros.hh>
 
 namespace grace { namespace amr {
-
+/**
+ * @brief Apply outgoing boundary conditions.
+ * \ingroup amr
+ */
 struct outgoing_bc_t 
 {
     template< typename ViewT>

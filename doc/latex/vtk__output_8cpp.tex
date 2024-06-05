@@ -1,0 +1,89 @@
+\hypertarget{vtk__output_8cpp}{}\doxysection{src/\+IO/vtk\+\_\+output.cpp File Reference}
+\label{vtk__output_8cpp}\index{src/IO/vtk\_output.cpp@{src/IO/vtk\_output.cpp}}
+{\ttfamily \#include $<$grace\+\_\+config.\+h$>$}\newline
+{\ttfamily \#include $<$Kokkos\+\_\+\+Core.\+hpp$>$}\newline
+{\ttfamily \#include $<$vtk\+Unstructured\+Grid.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+Point\+Data.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+Double\+Array.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+Unsigned\+Char\+Array.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+Points.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+XMLUnstructured\+Grid\+Writer.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+XMLPUnstructured\+Grid\+Writer.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+XMLPPoly\+Data\+Writer.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+Cell\+Data.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+Hexahedron.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+Bi\+Quadratic\+Quadratic\+Hexahedron.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+Quad.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+Quadratic\+Linear\+Quad.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+Smart\+Pointer.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+New.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+XMLData\+Element.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+XMLUtilities.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+MPI.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+MPICommunicator.\+h$>$}\newline
+{\ttfamily \#include $<$vtk\+MPIController.\+h$>$}\newline
+{\ttfamily \#include $<$grace/data\+\_\+structures/variable\+\_\+properties.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/system/grace\+\_\+runtime.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/coordinates/coordinate\+\_\+systems.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/\+IO/vtk\+\_\+output.\+tpp$>$}\newline
+{\ttfamily \#include $<$grace/\+IO/vtk\+\_\+output.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/\+IO/vtk\+\_\+setup\+\_\+grid.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/\+IO/vtk\+\_\+volume\+\_\+output.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/\+IO/vtk\+\_\+output\+\_\+auxiliaries.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/\+IO/vtk\+\_\+surface\+\_\+output.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/amr/grace\+\_\+amr.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/utils/grace\+\_\+utils.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/errors/error.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/errors/assert.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/data\+\_\+structures/variables.\+hh$>$}\newline
+{\ttfamily \#include $<$tuple$>$}\newline
+{\ttfamily \#include $<$array$>$}\newline
+{\ttfamily \#include $<$string$>$}\newline
+{\ttfamily \#include $<$filesystem$>$}\newline
+Include dependency graph for vtk\+\_\+output.\+cpp\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{vtk__output_8cpp__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Namespaces}
+\begin{DoxyCompactItemize}
+\item 
+ \mbox{\hyperlink{namespacegrace}{grace}}
+\begin{DoxyCompactList}\small\item\em Todo. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{vtk__output_8hh_a3b4ee290c58a27c943b3de1e8579a4ea}\label{vtk__output_8hh_a3b4ee290c58a27c943b3de1e8579a4ea}} 
+void {\bfseries grace\+::\+IO\+::write\+\_\+cell\+\_\+data\+\_\+vtk} (bool volume\+\_\+output, bool surface\+\_\+output\+\_\+plane, bool surface\+\_\+output\+\_\+sphere)
+\item 
+\mbox{\Hypertarget{vtk__output_8hh_af40a2a2fdee0da33f76e7822a403b7ad}\label{vtk__output_8hh_af40a2a2fdee0da33f76e7822a403b7ad}} 
+void {\bfseries grace\+::\+IO\+::setup\+\_\+volume\+\_\+cell\+\_\+data} (vtk\+Smart\+Pointer$<$ vtk\+Unstructured\+Grid $>$ grid, size\+\_\+t which\+\_\+output)
+\item 
+\mbox{\Hypertarget{vtk__output_8hh_a1e6afc91bc0286503d8a57b13e7e18c4}\label{vtk__output_8hh_a1e6afc91bc0286503d8a57b13e7e18c4}} 
+void {\bfseries grace\+::\+IO\+::write\+\_\+pvd\+\_\+file} (std\+::string const \&pvd\+Filename, std\+::vector$<$ std\+::string $>$ const \&vtk\+Filenames, std\+::vector$<$ double $>$ const \&times)
+\item 
+\mbox{\Hypertarget{vtk__output_8hh_aa252c9ea34d8c1e5b91805264c14645a}\label{vtk__output_8hh_aa252c9ea34d8c1e5b91805264c14645a}} 
+void {\bfseries grace\+::\+IO\+::add\+\_\+extra\+\_\+output\+\_\+quantities} (vtk\+Smart\+Pointer$<$ vtk\+Unstructured\+Grid $>$, bool)
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyVersion}{Version}
+0.\+1 
+\end{DoxyVersion}
+\begin{DoxyDate}{Date}
+2024-\/05-\/17
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of GRACE. GRACE is an evolution framework that uses Finite Difference methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 

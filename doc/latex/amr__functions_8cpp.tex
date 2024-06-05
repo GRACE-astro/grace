@@ -1,0 +1,73 @@
+\hypertarget{amr__functions_8cpp}{}\doxysection{src/amr/amr\+\_\+functions.cpp File Reference}
+\label{amr__functions_8cpp}\index{src/amr/amr\_functions.cpp@{src/amr/amr\_functions.cpp}}
+{\ttfamily \#include $<$grace/amr/amr\+\_\+functions.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/data\+\_\+structures/macros.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/amr/tree.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/amr/connectivity.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/amr/forest.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/config/config\+\_\+parser.\+hh$>$}\newline
+Include dependency graph for amr\+\_\+functions.\+cpp\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{amr__functions_8cpp__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Namespaces}
+\begin{DoxyCompactItemize}
+\item 
+ \mbox{\hyperlink{namespacegrace}{grace}}
+\begin{DoxyCompactList}\small\item\em Todo. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+std\+::tuple$<$ size\+\_\+t, size\+\_\+t, size\+\_\+t $>$ \mbox{\hyperlink{group__amr_ga4547101696931a7a2d329f1856afa32e}{grace\+::amr\+::get\+\_\+quadrant\+\_\+extents}} ()
+\begin{DoxyCompactList}\small\item\em Get the number of grid cells per quadrant in each direction. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__amr_ga1c274004243af1a52a9a6840467f1a74}{grace\+::amr\+::get\+\_\+n\+\_\+ghosts}} ()
+\begin{DoxyCompactList}\small\item\em Get the number of ghost cells. \end{DoxyCompactList}\item 
+size\+\_\+t \mbox{\hyperlink{group__amr_gae46530ab7c4b74d4d49c1358ca720fd9}{grace\+::amr\+::get\+\_\+local\+\_\+num\+\_\+quadrants}} ()
+\begin{DoxyCompactList}\small\item\em Get the number of local quadrants. \end{DoxyCompactList}\item 
+size\+\_\+t \mbox{\hyperlink{group__amr_gaab7c8355b0f9b99ad04f9a8b3a0556e9}{grace\+::amr\+::get\+\_\+quadrant\+\_\+owner}} (size\+\_\+t iquad)
+\begin{DoxyCompactList}\small\item\em Find the tree that owns a quadrant given the quadrant\textquotesingle{}s cumulative local index. \end{DoxyCompactList}\item 
+size\+\_\+t \mbox{\hyperlink{group__amr_ga77e955ea31d063c224420330cc1d6d11}{grace\+::amr\+::get\+\_\+local\+\_\+quadrants\+\_\+offset}} (size\+\_\+t itree)
+\begin{DoxyCompactList}\small\item\em Get the local quadrants offset of a tree. \end{DoxyCompactList}\item 
+quadrant\+\_\+t \mbox{\hyperlink{group__amr_gaaeac82435374e425c4fcc72c52271bef}{grace\+::amr\+::get\+\_\+quadrant}} (size\+\_\+t which\+\_\+tree, size\+\_\+t iquad)
+\begin{DoxyCompactList}\small\item\em Get a quadrant given its cumulative local index and the index of the owning tree. \end{DoxyCompactList}\item 
+quadrant\+\_\+t \mbox{\hyperlink{group__amr_gaf7ae6819a2261579a7e49d82376bc2cf}{grace\+::amr\+::get\+\_\+quadrant}} (size\+\_\+t iquad)
+\begin{DoxyCompactList}\small\item\em Get a quadrant given its cumulative local index. \end{DoxyCompactList}\item 
+int64\+\_\+t \mbox{\hyperlink{group__amr_ga5db85f35d88b9b0afe45d7f8251bc4fe}{grace\+::amr\+::get\+\_\+quadrant\+\_\+locidx}} (quadrant\+\_\+t quad)
+\begin{DoxyCompactList}\small\item\em Get local index of a quadrant. \end{DoxyCompactList}\item 
+int64\+\_\+t \mbox{\hyperlink{group__amr_ga21ed1cc79ce9ccd75b327fb9794e5899}{grace\+::amr\+::get\+\_\+quadrant\+\_\+locidx}} (p4est\+\_\+quadrant\+\_\+t $\ast$quad)
+\begin{DoxyCompactList}\small\item\em Get local index of a quadrant. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__amr_ga0a206bd5e3cc5d4b567f38e21d421266}{grace\+::amr\+::get\+\_\+halo\+\_\+quad\+\_\+owner}} (quadrant\+\_\+t \&quad)
+\begin{DoxyCompactList}\small\item\em For halo quadrants\+: get owner mpi rank. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__amr_gab3bd22f2409b193be92a28115679c5b9}{grace\+::amr\+::get\+\_\+halo\+\_\+quad\+\_\+owner}} (p4est\+\_\+quadrant\+\_\+t $\ast$quad)
+\begin{DoxyCompactList}\small\item\em For halo quadrants\+: get owner mpi rank. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__amr_ga13db3c6fdd585ca0d79234e09038dd23}{grace\+::amr\+::trees\+\_\+have\+\_\+opposite\+\_\+polarity}} (int64\+\_\+t treeid, int face)
+\begin{DoxyCompactList}\small\item\em Determine whether coordinates flip across tree boundary. \end{DoxyCompactList}\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ \mbox{\hyperlink{group__amr_gad4566b6bb04a90aa28dedbf0c6252115}{grace\+::amr\+::get\+\_\+tree\+\_\+vertex}} (size\+\_\+t which\+\_\+tree, size\+\_\+t which\+\_\+vertex)
+\begin{DoxyCompactList}\small\item\em Free function form of {\ttfamily \mbox{\hyperlink{group__amr_gac55075b9404b095f55b2bdaf90675676}{amr\+::connectivity()}}.tree\+\_\+vertex}. \end{DoxyCompactList}\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ \mbox{\hyperlink{group__amr_ga0df7bac5f620180268671213c88e6ac6}{grace\+::amr\+::get\+\_\+tree\+\_\+spacing}} (size\+\_\+t which\+\_\+tree)
+\begin{DoxyCompactList}\small\item\em Free function form of {\ttfamily \mbox{\hyperlink{group__amr_gac55075b9404b095f55b2bdaf90675676}{amr\+::connectivity()}}.tree\+\_\+spacing}. \end{DoxyCompactList}\item 
+std\+::vector$<$ int64\+\_\+t $>$ \mbox{\hyperlink{group__amr_ga3097406bb52d8bea74c37a5bcf9e7849}{grace\+::amr\+::get\+\_\+global\+\_\+quadrant\+\_\+offsets}} ()
+\begin{DoxyCompactList}\small\item\em Get a vector containing the first global quadrant of each rank. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyVersion}{Version}
+0.\+1 
+\end{DoxyVersion}
+\begin{DoxyDate}{Date}
+2024-\/03-\/18
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of GRACE. GRACE is an evolution framework that uses Finite Difference methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 

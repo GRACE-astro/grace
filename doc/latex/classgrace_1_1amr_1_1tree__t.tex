@@ -1,0 +1,62 @@
+\hypertarget{classgrace_1_1amr_1_1tree__t}{}\doxysection{grace\+::amr\+::tree\+\_\+t Class Reference}
+\label{classgrace_1_1amr_1_1tree__t}\index{grace::amr::tree\_t@{grace::amr::tree\_t}}
+
+
+Thin wrapper around p4est\+\_\+tree\+\_\+t.  
+
+
+
+
+{\ttfamily \#include $<$tree.\+hh$>$}
+
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classgrace_1_1amr_1_1tree__t_a4d2463bb4722df5689f4f1c1bac3bcd8}\label{classgrace_1_1amr_1_1tree__t_a4d2463bb4722df5689f4f1c1bac3bcd8}} 
+\mbox{\hyperlink{classgrace_1_1amr_1_1tree__t_a4d2463bb4722df5689f4f1c1bac3bcd8}{tree\+\_\+t}} (p4est\+\_\+tree\+\_\+t $\ast$ptree)
+\begin{DoxyCompactList}\small\item\em Construct a new \mbox{\hyperlink{classgrace_1_1amr_1_1tree__t}{tree\+\_\+t}} starting from the p4est pointer. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classgrace_1_1amr_1_1tree__t_ae5afbe5a8ce2f18c494a4279d8ba725d}\label{classgrace_1_1amr_1_1tree__t_ae5afbe5a8ce2f18c494a4279d8ba725d}} 
+GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classgrace_1_1sc__array__view__t}{sc\+\_\+array\+\_\+view\+\_\+t}}$<$ p4est\+\_\+quadrant\+\_\+t $>$ \mbox{\hyperlink{classgrace_1_1amr_1_1tree__t_ae5afbe5a8ce2f18c494a4279d8ba725d}{quadrants}} ()
+\begin{DoxyCompactList}\small\item\em Return an array of p4est\+\_\+quadrant\+\_\+t containing the local quadrants on this tree. \end{DoxyCompactList}\item 
+GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t}{quadrant\+\_\+t}} \mbox{\hyperlink{classgrace_1_1amr_1_1tree__t_a85d05d1b4fb257b5a63042f3aa4c461e}{quadrant}} (size\+\_\+t iquad)
+\begin{DoxyCompactList}\small\item\em Return the ith local quadrant on this tree. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classgrace_1_1amr_1_1tree__t_a9ff1d128467aa6a04c8b1bab544fcd43}\label{classgrace_1_1amr_1_1tree__t_a9ff1d128467aa6a04c8b1bab544fcd43}} 
+GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE size\+\_\+t \mbox{\hyperlink{classgrace_1_1amr_1_1tree__t_a9ff1d128467aa6a04c8b1bab544fcd43}{quadrants\+\_\+offset}} () const
+\begin{DoxyCompactList}\small\item\em Return the local offset of the local quadrants on this tree. This is the cumulative sum of all quadrants from local trees on this rank. All local {\ttfamily Kokkos\+::\+View} objects should be accessed with this offset. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classgrace_1_1amr_1_1tree__t_af6aed041bcd6ff41f6d14168d745c250}\label{classgrace_1_1amr_1_1tree__t_af6aed041bcd6ff41f6d14168d745c250}} 
+GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE size\+\_\+t \mbox{\hyperlink{classgrace_1_1amr_1_1tree__t_af6aed041bcd6ff41f6d14168d745c250}{num\+\_\+quadrants}} ()
+\begin{DoxyCompactList}\small\item\em Return the number of local quadrants on this tree. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classgrace_1_1amr_1_1tree__t_ad78f44d05e74495514ea4591f2cda5e7}\label{classgrace_1_1amr_1_1tree__t_ad78f44d05e74495514ea4591f2cda5e7}} 
+p4est\+\_\+tree\+\_\+t $\ast$ \mbox{\hyperlink{classgrace_1_1amr_1_1tree__t_ad78f44d05e74495514ea4591f2cda5e7}{get}} () const
+\begin{DoxyCompactList}\small\item\em Get the pointer to the underlying p4est\+\_\+tree\+\_\+t. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Thin wrapper around p4est\+\_\+tree\+\_\+t. 
+
+Designed to make access of members easier and safer for user code. 
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{classgrace_1_1amr_1_1tree__t_a85d05d1b4fb257b5a63042f3aa4c461e}\label{classgrace_1_1amr_1_1tree__t_a85d05d1b4fb257b5a63042f3aa4c461e}} 
+\index{grace::amr::tree\_t@{grace::amr::tree\_t}!quadrant@{quadrant}}
+\index{quadrant@{quadrant}!grace::amr::tree\_t@{grace::amr::tree\_t}}
+\doxysubsubsection{\texorpdfstring{quadrant()}{quadrant()}}
+{\footnotesize\ttfamily GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t}{quadrant\+\_\+t}} grace\+::amr\+::tree\+\_\+t\+::quadrant (\begin{DoxyParamCaption}\item[{size\+\_\+t}]{iquad }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Return the ith local quadrant on this tree. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em iquad} & Index in the local quadrant list. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+The \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t}{quadrant\+\_\+t}} object 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/grace/amr/\mbox{\hyperlink{tree_8hh}{tree.\+hh}}\end{DoxyCompactItemize}

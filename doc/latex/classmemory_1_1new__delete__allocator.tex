@@ -1,0 +1,68 @@
+\hypertarget{classmemory_1_1new__delete__allocator}{}\doxysection{memory\+::new\+\_\+delete\+\_\+allocator Class Reference}
+\label{classmemory_1_1new__delete__allocator}\index{memory::new\_delete\_allocator@{memory::new\_delete\_allocator}}
+
+
+Thin wrapper around {\ttfamily malloc}, {\ttfamily realloc} and {\ttfamily free}.  
+
+
+
+
+{\ttfamily \#include $<$allocators.\+hh$>$}
+
+\doxysubsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static void $\ast$ \mbox{\hyperlink{classmemory_1_1new__delete__allocator_a3d7068e59dab78bb12d0dbc249da9802}{allocate}} (std\+::size\+\_\+t size, std\+::size\+\_\+t alignment)
+\begin{DoxyCompactList}\small\item\em Allocate memory using global allocator. \end{DoxyCompactList}\item 
+static void \mbox{\hyperlink{classmemory_1_1new__delete__allocator_a905712cc5b1d2d417f7e4b2310d8a628}{deallocate}} (void $\ast$ptr, std\+::size\+\_\+t size, std\+::size\+\_\+t alignment) noexcept
+\begin{DoxyCompactList}\small\item\em deallocate pointer allocated by this class. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Thin wrapper around {\ttfamily malloc}, {\ttfamily realloc} and {\ttfamily free}. 
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{classmemory_1_1new__delete__allocator_a3d7068e59dab78bb12d0dbc249da9802}\label{classmemory_1_1new__delete__allocator_a3d7068e59dab78bb12d0dbc249da9802}} 
+\index{memory::new\_delete\_allocator@{memory::new\_delete\_allocator}!allocate@{allocate}}
+\index{allocate@{allocate}!memory::new\_delete\_allocator@{memory::new\_delete\_allocator}}
+\doxysubsubsection{\texorpdfstring{allocate()}{allocate()}}
+{\footnotesize\ttfamily static void$\ast$ memory\+::new\+\_\+delete\+\_\+allocator\+::allocate (\begin{DoxyParamCaption}\item[{std\+::size\+\_\+t}]{size,  }\item[{std\+::size\+\_\+t}]{alignment }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+
+
+Allocate memory using global allocator. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em size} & size (in bytes) of requested allocation. \\
+\hline
+{\em alignment} & aligment. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+void$\ast$ pointer to allocated memory 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classmemory_1_1new__delete__allocator_a905712cc5b1d2d417f7e4b2310d8a628}\label{classmemory_1_1new__delete__allocator_a905712cc5b1d2d417f7e4b2310d8a628}} 
+\index{memory::new\_delete\_allocator@{memory::new\_delete\_allocator}!deallocate@{deallocate}}
+\index{deallocate@{deallocate}!memory::new\_delete\_allocator@{memory::new\_delete\_allocator}}
+\doxysubsubsection{\texorpdfstring{deallocate()}{deallocate()}}
+{\footnotesize\ttfamily static void memory\+::new\+\_\+delete\+\_\+allocator\+::deallocate (\begin{DoxyParamCaption}\item[{void $\ast$}]{ptr,  }\item[{std\+::size\+\_\+t}]{size,  }\item[{std\+::size\+\_\+t}]{alignment }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}, {\ttfamily [noexcept]}}
+
+
+
+deallocate pointer allocated by this class. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ptr} & pointer to bre free\textquotesingle{}d \\
+\hline
+{\em size} & size (in bytes) of memory owned by {\ttfamily  ptr }. \\
+\hline
+{\em alignment} & aligment of {\ttfamily  ptr }. \\
+\hline
+\end{DoxyParams}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/grace/utils/allocators.\+hh\end{DoxyCompactItemize}

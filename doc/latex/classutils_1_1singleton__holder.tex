@@ -1,0 +1,150 @@
+\hypertarget{classutils_1_1singleton__holder}{}\doxysection{utils\+::singleton\+\_\+holder$<$ T, creation\+\_\+policy $>$ Class Template Reference}
+\label{classutils_1_1singleton__holder}\index{utils::singleton\_holder$<$ T, creation\_policy $>$@{utils::singleton\_holder$<$ T, creation\_policy $>$}}
+
+
+\mbox{\hyperlink{classutils_1_1singleton__holder}{singleton\+\_\+holder}} class.  
+
+
+
+
+{\ttfamily \#include $<$singleton\+\_\+holder.\+hh$>$}
+
+\doxysubsection*{Public Types}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classutils_1_1singleton__holder_a3ecfe5456ee21dc635da6bad19843566}\label{classutils_1_1singleton__holder_a3ecfe5456ee21dc635da6bad19843566}} 
+using {\bfseries Type} = \mbox{\hyperlink{classutils_1_1singleton__holder}{singleton\+\_\+holder}}$<$ T, creation\+\_\+policy $>$
+\item 
+\mbox{\Hypertarget{classutils_1_1singleton__holder_ab7987b332ec29b7b58516015077d88a6}\label{classutils_1_1singleton__holder_ab7987b332ec29b7b58516015077d88a6}} 
+using \mbox{\hyperlink{classutils_1_1singleton__holder_ab7987b332ec29b7b58516015077d88a6}{object\+\_\+type}} = T
+\begin{DoxyCompactList}\small\item\em Type of object held by \mbox{\hyperlink{classutils_1_1singleton__holder}{singleton\+\_\+holder}}. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classutils_1_1singleton__holder_a9b6e4131ea2e334d3f7dc5414b79835d}\label{classutils_1_1singleton__holder_a9b6e4131ea2e334d3f7dc5414b79835d}} 
+using \mbox{\hyperlink{classutils_1_1singleton__holder_a9b6e4131ea2e334d3f7dc5414b79835d}{pointer\+\_\+type}} = T $\ast$
+\begin{DoxyCompactList}\small\item\em Type of pointer to object held by \mbox{\hyperlink{classutils_1_1singleton__holder}{singleton\+\_\+holder}}. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classutils_1_1singleton__holder_a486e8813087ef3965ad814b112f04cb5}\label{classutils_1_1singleton__holder_a486e8813087ef3965ad814b112f04cb5}} 
+using \mbox{\hyperlink{classutils_1_1singleton__holder_a486e8813087ef3965ad814b112f04cb5}{ref\+\_\+type}} = T \&
+\begin{DoxyCompactList}\small\item\em Type of reference to object held by \mbox{\hyperlink{classutils_1_1singleton__holder}{singleton\+\_\+holder}}. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+static \mbox{\hyperlink{classutils_1_1singleton__holder_a486e8813087ef3965ad814b112f04cb5}{ref\+\_\+type}} \mbox{\hyperlink{classutils_1_1singleton__holder_a9152ac23c985f084b44d335d167c68e0}{get}} ()
+\begin{DoxyCompactList}\small\item\em get reference to protected instance. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename ... ArgT$>$ }\\static void \mbox{\hyperlink{classutils_1_1singleton__holder_a729d0062c51520d132c91b3ac9263a62}{initialize}} (ArgT ... args)
+\begin{DoxyCompactList}\small\item\em Shorthand to initialize the instance. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{classutils_1_1singleton__holder_a0ab7f1441f5bb215607f936ece1b37b4}{singleton\+\_\+holder}} ()
+\begin{DoxyCompactList}\small\item\em (Never) construct a new singleton holder object \end{DoxyCompactList}\item 
+\mbox{\hyperlink{classutils_1_1singleton__holder_ab3a8b0f04b760c9b1b8a972c9e26ff33}{$\sim$singleton\+\_\+holder}} ()
+\begin{DoxyCompactList}\small\item\em (Never) destroy the singleton holder object \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Static Protected Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classutils_1_1singleton__holder_aeefa0d63febd7bb28a553ab7fa16c2d4}\label{classutils_1_1singleton__holder_aeefa0d63febd7bb28a553ab7fa16c2d4}} 
+static void \mbox{\hyperlink{classutils_1_1singleton__holder_aeefa0d63febd7bb28a553ab7fa16c2d4}{destroy}} () noexcept
+\begin{DoxyCompactList}\small\item\em Destroy the singleton. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Static Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classutils_1_1singleton__holder_a2c69a7ea9e52fcc07e560ab005215cd3}\label{classutils_1_1singleton__holder_a2c69a7ea9e52fcc07e560ab005215cd3}} 
+static \mbox{\hyperlink{classutils_1_1singleton__holder_a9b6e4131ea2e334d3f7dc5414b79835d}{pointer\+\_\+type}} \mbox{\hyperlink{classutils_1_1singleton__holder_a2c69a7ea9e52fcc07e560ab005215cd3}{instance\+\_\+}} = nullptr
+\begin{DoxyCompactList}\small\item\em Pointer to protected instance. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classutils_1_1singleton__holder_a4f0d7d2e5a5602f8e71b9ab4d0a4a904}\label{classutils_1_1singleton__holder_a4f0d7d2e5a5602f8e71b9ab4d0a4a904}} 
+static bool \mbox{\hyperlink{classutils_1_1singleton__holder_a4f0d7d2e5a5602f8e71b9ab4d0a4a904}{deleted\+\_\+}} = false
+\begin{DoxyCompactList}\small\item\em Is the pointer valid. ~\newline
+ \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classutils_1_1singleton__holder_a71e5ffd61f53a2d853454f8dc48472b8}\label{classutils_1_1singleton__holder_a71e5ffd61f53a2d853454f8dc48472b8}} 
+class {\bfseries pvt\+::concrete\+\_\+lifetime\+\_\+tracker$<$ Type $>$}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\subsubsection*{template$<$typename T, template$<$ typename $>$ class creation\+\_\+policy = memory\+::default\+\_\+create$>$\newline
+class utils\+::singleton\+\_\+holder$<$ T, creation\+\_\+policy $>$}
+
+\mbox{\hyperlink{classutils_1_1singleton__holder}{singleton\+\_\+holder}} class. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & type of the object being managed\\
+\hline
+\end{DoxyTemplParams}
+A \mbox{\hyperlink{classutils_1_1singleton__holder}{singleton\+\_\+holder}} manages the lifetime of a unique object of type {\ttfamily T}. It ensures that at most one instance of {\ttfamily T} exists at any given time and that the singleton object lives as long as required by the application. It also provides a static method to access the reference to the singleton itself. 
+
+\doxysubsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classutils_1_1singleton__holder_a0ab7f1441f5bb215607f936ece1b37b4}\label{classutils_1_1singleton__holder_a0ab7f1441f5bb215607f936ece1b37b4}} 
+\index{utils::singleton\_holder$<$ T, creation\_policy $>$@{utils::singleton\_holder$<$ T, creation\_policy $>$}!singleton\_holder@{singleton\_holder}}
+\index{singleton\_holder@{singleton\_holder}!utils::singleton\_holder$<$ T, creation\_policy $>$@{utils::singleton\_holder$<$ T, creation\_policy $>$}}
+\doxysubsubsection{\texorpdfstring{singleton\_holder()}{singleton\_holder()}}
+{\footnotesize\ttfamily template$<$typename T , template$<$ typename $>$ class creation\+\_\+policy = memory\+::default\+\_\+create$>$ \\
+\mbox{\hyperlink{classutils_1_1singleton__holder}{utils\+::singleton\+\_\+holder}}$<$ T, creation\+\_\+policy $>$\+::\mbox{\hyperlink{classutils_1_1singleton__holder}{singleton\+\_\+holder}} (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [protected]}}
+
+
+
+(Never) construct a new singleton holder object 
+
+Private because the singleton lifetime is protected from user interference \mbox{\Hypertarget{classutils_1_1singleton__holder_ab3a8b0f04b760c9b1b8a972c9e26ff33}\label{classutils_1_1singleton__holder_ab3a8b0f04b760c9b1b8a972c9e26ff33}} 
+\index{utils::singleton\_holder$<$ T, creation\_policy $>$@{utils::singleton\_holder$<$ T, creation\_policy $>$}!````~singleton\_holder@{$\sim$singleton\_holder}}
+\index{````~singleton\_holder@{$\sim$singleton\_holder}!utils::singleton\_holder$<$ T, creation\_policy $>$@{utils::singleton\_holder$<$ T, creation\_policy $>$}}
+\doxysubsubsection{\texorpdfstring{$\sim$singleton\_holder()}{~singleton\_holder()}}
+{\footnotesize\ttfamily template$<$typename T , template$<$ typename $>$ class creation\+\_\+policy = memory\+::default\+\_\+create$>$ \\
+\mbox{\hyperlink{classutils_1_1singleton__holder}{utils\+::singleton\+\_\+holder}}$<$ T, creation\+\_\+policy $>$\+::$\sim$\mbox{\hyperlink{classutils_1_1singleton__holder}{singleton\+\_\+holder}} (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [protected]}}
+
+
+
+(Never) destroy the singleton holder object 
+
+Private because the singleton lifetime is protected from user interference 
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{classutils_1_1singleton__holder_a9152ac23c985f084b44d335d167c68e0}\label{classutils_1_1singleton__holder_a9152ac23c985f084b44d335d167c68e0}} 
+\index{utils::singleton\_holder$<$ T, creation\_policy $>$@{utils::singleton\_holder$<$ T, creation\_policy $>$}!get@{get}}
+\index{get@{get}!utils::singleton\_holder$<$ T, creation\_policy $>$@{utils::singleton\_holder$<$ T, creation\_policy $>$}}
+\doxysubsubsection{\texorpdfstring{get()}{get()}}
+{\footnotesize\ttfamily template$<$typename T , template$<$ typename $>$ class creation\+\_\+policy$>$ \\
+T \& \mbox{\hyperlink{classutils_1_1singleton__holder}{utils\+::singleton\+\_\+holder}}$<$ T, creation\+\_\+policy $>$\+::get\hspace{0.3cm}{\ttfamily [static]}}
+
+
+
+get reference to protected instance. 
+
+\begin{DoxyReturn}{Returns}
+ref\+\_\+type reference to unique instance of object\+\_\+type.
+\end{DoxyReturn}
+Usage\+: Calling {\ttfamily \mbox{\hyperlink{classutils_1_1singleton__holder_a9152ac23c985f084b44d335d167c68e0}{singleton\+\_\+holder$<$\+T$>$\+::get()}}} returns a reference to the unique instance of type {\ttfamily T}. To enforce uniqueness of the singleton, constructors and destructors of {\ttfamily  T } are inaccessible to user code. For this reason it is important to enforce that the result of this function is assigned to a reference and that no copy is performed. 
+\begin{DoxyCode}{0}
+\DoxyCodeLine{\textcolor{keyword}{auto} \& x = \mbox{\hyperlink{classutils_1_1singleton__holder_a9152ac23c985f084b44d335d167c68e0}{singleton\_holder<my\_type>::get}}() \textcolor{comment}{//OK }}
+\DoxyCodeLine{auto x = \mbox{\hyperlink{classutils_1_1singleton__holder_a0ab7f1441f5bb215607f936ece1b37b4}{singleton\_holder}}<my\_type>::\mbox{\hyperlink{classutils_1_1singleton__holder_a9152ac23c985f084b44d335d167c68e0}{get}}() \textcolor{comment}{// COMPILATION ERROR : \string~my\_type() noexcept is inaccessible }}
+
+\end{DoxyCode}
+ \mbox{\Hypertarget{classutils_1_1singleton__holder_a729d0062c51520d132c91b3ac9263a62}\label{classutils_1_1singleton__holder_a729d0062c51520d132c91b3ac9263a62}} 
+\index{utils::singleton\_holder$<$ T, creation\_policy $>$@{utils::singleton\_holder$<$ T, creation\_policy $>$}!initialize@{initialize}}
+\index{initialize@{initialize}!utils::singleton\_holder$<$ T, creation\_policy $>$@{utils::singleton\_holder$<$ T, creation\_policy $>$}}
+\doxysubsubsection{\texorpdfstring{initialize()}{initialize()}}
+{\footnotesize\ttfamily template$<$typename T , template$<$ typename $>$ class creation\+\_\+policy$>$ \\
+template$<$typename ... ArgT$>$ \\
+void \mbox{\hyperlink{classutils_1_1singleton__holder}{utils\+::singleton\+\_\+holder}}$<$ T, creation\+\_\+policy $>$\+::initialize (\begin{DoxyParamCaption}\item[{ArgT ...}]{args }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [static]}}
+
+
+
+Shorthand to initialize the instance. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em ArgT} & The parameter pack is forwarded to the object constructor. \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em args} & Forwarded to constructor. \\
+\hline
+\end{DoxyParams}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/grace/utils/\mbox{\hyperlink{singleton__holder_8hh}{singleton\+\_\+holder.\+hh}}\end{DoxyCompactItemize}

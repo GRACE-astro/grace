@@ -1,0 +1,73 @@
+\hypertarget{cell__surface__helpers_8hh}{}\doxysection{include/grace/coordinates/surface\+\_\+elements/cell\+\_\+surface\+\_\+helpers.hh File Reference}
+\label{cell__surface__helpers_8hh}\index{include/grace/coordinates/surface\_elements/cell\_surface\_helpers.hh@{include/grace/coordinates/surface\_elements/cell\_surface\_helpers.hh}}
+{\ttfamily \#include $<$grace\+\_\+config.\+h$>$}\newline
+{\ttfamily \#include $<$grace/utils/grace\+\_\+utils.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/utils/integration.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/coordinates/surface\+\_\+elements/cell\+\_\+surface\+\_\+2\+D\+\_\+helpers.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/coordinates/surface\+\_\+elements/cell\+\_\+surface\+\_\+3\+D\+\_\+helpers.\+hh$>$}\newline
+Include dependency graph for cell\+\_\+surface\+\_\+helpers.\+hh\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{cell__surface__helpers_8hh__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=222pt]{cell__surface__helpers_8hh__dep__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Namespaces}
+\begin{DoxyCompactItemize}
+\item 
+ \mbox{\hyperlink{namespacegrace}{grace}}
+\begin{DoxyCompactList}\small\item\em Todo. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{cell__surface__helpers_8hh_a90d6aeacb0244675e07a02271cb83b4c}\label{cell__surface__helpers_8hh_a90d6aeacb0244675e07a02271cb83b4c}} 
+{\footnotesize template$<$size\+\_\+t N$>$ }\\double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE {\bfseries grace\+::detail\+::get\+\_\+cell\+\_\+surface\+\_\+zeta\+\_\+int} (double ri, double ro, VEC(double zeta, double eta0, double xi0), VECD(double deta, double dxi))
+\item 
+\mbox{\Hypertarget{cell__surface__helpers_8hh_a3e537135a49f8536743c77ce8bbf0183}\label{cell__surface__helpers_8hh_a3e537135a49f8536743c77ce8bbf0183}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE {\bfseries grace\+::detail\+::get\+\_\+cell\+\_\+surface\+\_\+eta\+\_\+int} (double ri, double ro, VEC(double zeta0, double eta, double xi0), VECD(double dzeta, double dxi))
+\item 
+\mbox{\Hypertarget{cell__surface__helpers_8hh_ac24758a2b537aba5ebedafac0c73fd8e}\label{cell__surface__helpers_8hh_ac24758a2b537aba5ebedafac0c73fd8e}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE {\bfseries grace\+::detail\+::get\+\_\+cell\+\_\+surface\+\_\+xi\+\_\+int} (double ri, double ro, VEC(double zeta0, double eta0, double xi), VECD(double dzeta, double deta))
+\item 
+\mbox{\Hypertarget{cell__surface__helpers_8hh_a6c72724100536d2173b64041f82ab96c}\label{cell__surface__helpers_8hh_a6c72724100536d2173b64041f82ab96c}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE {\bfseries grace\+::detail\+::get\+\_\+cell\+\_\+surface\+\_\+zeta\+\_\+ext} (double ri, double ro, VEC(double zeta, double eta0, double xi0), VECD(double deta, double dxi))
+\item 
+\mbox{\Hypertarget{cell__surface__helpers_8hh_a4c7bbbdcf0ce93843bd530c1a7ae3cc2}\label{cell__surface__helpers_8hh_a4c7bbbdcf0ce93843bd530c1a7ae3cc2}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE {\bfseries grace\+::detail\+::get\+\_\+cell\+\_\+surface\+\_\+eta\+\_\+ext} (double ri, double ro, VEC(double zeta0, double eta, double xi0), VECD(double dzeta, double dxi))
+\item 
+\mbox{\Hypertarget{cell__surface__helpers_8hh_a214409dc3c91c57efa68a994807d741d}\label{cell__surface__helpers_8hh_a214409dc3c91c57efa68a994807d741d}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE {\bfseries grace\+::detail\+::get\+\_\+cell\+\_\+surface\+\_\+xi\+\_\+ext} (double ri, double ro, VEC(double zeta0, double eta0, double xi), VECD(double dzeta, double deta))
+\item 
+\mbox{\Hypertarget{cell__surface__helpers_8hh_a26665a00d405c4a2fe8c6d866ac33566}\label{cell__surface__helpers_8hh_a26665a00d405c4a2fe8c6d866ac33566}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE {\bfseries grace\+::detail\+::get\+\_\+cell\+\_\+surface\+\_\+zeta\+\_\+log} (double ri, double ro, VEC(double zeta, double eta0, double xi0), VECD(double deta, double dxi))
+\item 
+\mbox{\Hypertarget{cell__surface__helpers_8hh_a28a5dee83164c7937ea6b79d4045bdd7}\label{cell__surface__helpers_8hh_a28a5dee83164c7937ea6b79d4045bdd7}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE {\bfseries grace\+::detail\+::get\+\_\+cell\+\_\+surface\+\_\+eta\+\_\+log} (double ri, double ro, VEC(double zeta0, double eta, double xi0), VECD(double dzeta, double dxi))
+\item 
+\mbox{\Hypertarget{cell__surface__helpers_8hh_a84d2ac46f9ba3d22037fd9608072c955}\label{cell__surface__helpers_8hh_a84d2ac46f9ba3d22037fd9608072c955}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE {\bfseries grace\+::detail\+::get\+\_\+cell\+\_\+surface\+\_\+xi\+\_\+log} (double ri, double ro, VEC(double zeta0, double eta0, double xi), VECD(double dzeta, double deta))
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyDate}{Date}
+2024-\/04-\/17
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of of the General Relativistic Astrophysics Code for Exascale. GRACE is an evolution framework that uses Finite Volume methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 

@@ -28,7 +28,16 @@
 #define GRACE_IO_CELL_OUTPUT_HH
 
 namespace grace { namespace IO {
-
+/**
+ * @brief Write cell variable output to disk.
+ * 
+ * @param volume_output Do volume output.
+ * @param surface_output_plane Do plane surface output.
+ * @param surface_output_sphere Do sphere surface output.
+ * 
+ * Whether the output is performed in vtk or hdf5 output is determined by
+ * the IO::output_use_hdf5 parameter.
+ */
 void write_cell_output(bool volume_output, bool surface_output_plane, bool surface_output_sphere ) ;
 
 }}

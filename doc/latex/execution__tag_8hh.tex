@@ -1,0 +1,58 @@
+\hypertarget{execution__tag_8hh}{}\doxysection{include/grace/utils/execution\+\_\+tag.hh File Reference}
+\label{execution__tag_8hh}\index{include/grace/utils/execution\_tag.hh@{include/grace/utils/execution\_tag.hh}}
+{\ttfamily \#include $<$grace/utils/make\+\_\+string.\+hh$>$}\newline
+Include dependency graph for execution\+\_\+tag.\+hh\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=226pt]{execution__tag_8hh__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{execution__tag_8hh__dep__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define {\bfseries GRACE\+\_\+\+EXECUTION\+\_\+\+TAG}(d,  t)
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyVersion}{Version}
+0.\+1 
+\end{DoxyVersion}
+\begin{DoxyDate}{Date}
+2024-\/03-\/19
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of GRACE. GRACE is an evolution framework that uses Finite Difference methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 
+
+\doxysubsection{Macro Definition Documentation}
+\mbox{\Hypertarget{execution__tag_8hh_ab3ce44a67b95757402caa28339f6c283}\label{execution__tag_8hh_ab3ce44a67b95757402caa28339f6c283}} 
+\index{execution\_tag.hh@{execution\_tag.hh}!GRACE\_EXECUTION\_TAG@{GRACE\_EXECUTION\_TAG}}
+\index{GRACE\_EXECUTION\_TAG@{GRACE\_EXECUTION\_TAG}!execution\_tag.hh@{execution\_tag.hh}}
+\doxysubsubsection{\texorpdfstring{GRACE\_EXECUTION\_TAG}{GRACE\_EXECUTION\_TAG}}
+{\footnotesize\ttfamily \#define GRACE\+\_\+\+EXECUTION\+\_\+\+TAG(\begin{DoxyParamCaption}\item[{}]{d,  }\item[{}]{t }\end{DoxyParamCaption})}
+
+{\bfseries Value\+:}
+\begin{DoxyCode}{0}
+\DoxyCodeLine{std::string( \mbox{\hyperlink{classutils_1_1make__string}{utils::make\_string}}\{\}               \(\backslash\)}
+\DoxyCodeLine{<< \textcolor{stringliteral}{"{}GRACE::"{}}                                  \(\backslash\)}
+\DoxyCodeLine{<< d << \textcolor{stringliteral}{"{}::"{}}                                    \(\backslash\)}
+\DoxyCodeLine{<< t ).c\_str()                                  \(\backslash\)}
+
+\end{DoxyCode}

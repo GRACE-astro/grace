@@ -1,0 +1,62 @@
+\hypertarget{structthunder_1_1scalar__advection__system__t}{}\doxysection{thunder\+::scalar\+\_\+advection\+\_\+system\+\_\+t$<$ recon\+\_\+t $>$ Struct Template Reference}
+\label{structthunder_1_1scalar__advection__system__t}\index{thunder::scalar\_advection\_system\_t$<$ recon\_t $>$@{thunder::scalar\_advection\_system\_t$<$ recon\_t $>$}}
+
+
+Scalar advection equation evlution system.  
+
+
+
+
+{\ttfamily \#include $<$scalar\+\_\+advection.\+hh$>$}
+
+
+
+Inheritance diagram for thunder\+::scalar\+\_\+advection\+\_\+system\+\_\+t$<$ recon\+\_\+t $>$\+:
+% FIG 0
+
+
+Collaboration diagram for thunder\+::scalar\+\_\+advection\+\_\+system\+\_\+t$<$ recon\+\_\+t $>$\+:
+% FIG 1
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structthunder_1_1scalar__advection__system__t_afea073e1f1a9bf2ad0f1257381565896}\label{structthunder_1_1scalar__advection__system__t_afea073e1f1a9bf2ad0f1257381565896}} 
+{\bfseries scalar\+\_\+advection\+\_\+system\+\_\+t} (\mbox{\hyperlink{group__variables_gaf626ed29310e3fa073f3eac141623cbf}{thunder\+::var\+\_\+array\+\_\+t}}$<$ THUNDER\+\_\+\+NSPACEDIM $>$ state\+\_\+, \mbox{\hyperlink{group__variables_gaf626ed29310e3fa073f3eac141623cbf}{thunder\+::var\+\_\+array\+\_\+t}}$<$ THUNDER\+\_\+\+NSPACEDIM $>$ aux\+\_\+, VEC(double ax\+\_\+, double ay\+\_\+, double az\+\_\+))
+\item 
+\mbox{\Hypertarget{structthunder_1_1scalar__advection__system__t_a688406262408a5bf5bd750fa89f6fffc}\label{structthunder_1_1scalar__advection__system__t_a688406262408a5bf5bd750fa89f6fffc}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE THUNDER\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+x\+\_\+flux} (thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), int ngz, \mbox{\hyperlink{group__variables_ga4530927b5520cf93a3a8a65b634658f3}{thunder\+::flux\+\_\+array\+\_\+t}} const fluxes) const
+\item 
+\mbox{\Hypertarget{structthunder_1_1scalar__advection__system__t_a78e257f79fd317006714c1ca318b2d08}\label{structthunder_1_1scalar__advection__system__t_a78e257f79fd317006714c1ca318b2d08}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE THUNDER\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+y\+\_\+flux} (thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), int ngz, \mbox{\hyperlink{group__variables_ga4530927b5520cf93a3a8a65b634658f3}{thunder\+::flux\+\_\+array\+\_\+t}} const fluxes) const
+\item 
+\mbox{\Hypertarget{structthunder_1_1scalar__advection__system__t_ae213a8d01305652efcf0e18155049254}\label{structthunder_1_1scalar__advection__system__t_ae213a8d01305652efcf0e18155049254}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE THUNDER\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+z\+\_\+flux} (thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), int ngz, \mbox{\hyperlink{group__variables_ga4530927b5520cf93a3a8a65b634658f3}{thunder\+::flux\+\_\+array\+\_\+t}} const fluxes) const
+\item 
+\mbox{\Hypertarget{structthunder_1_1scalar__advection__system__t_a92286cd91b4fa6d39c4ba67de1ad7cea}\label{structthunder_1_1scalar__advection__system__t_a92286cd91b4fa6d39c4ba67de1ad7cea}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE THUNDER\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+source\+\_\+terms} (thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), \mbox{\hyperlink{group__variables_gaf626ed29310e3fa073f3eac141623cbf}{thunder\+::var\+\_\+array\+\_\+t}}$<$ THUNDER\+\_\+\+NSPACEDIM $>$ const state\+\_\+new, double const dt, double const dtfact) const
+\item 
+\mbox{\Hypertarget{structthunder_1_1scalar__advection__system__t_a8666336d91f05f73b6acd6573ae7721a}\label{structthunder_1_1scalar__advection__system__t_a8666336d91f05f73b6acd6573ae7721a}} 
+void THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE THUNDER\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+auxiliaries} (VEC(const int i, const int j, const int k), int64\+\_\+t q) const
+\item 
+\mbox{\Hypertarget{structthunder_1_1scalar__advection__system__t_a82d5a7b5518764daf50d45c9a8680661}\label{structthunder_1_1scalar__advection__system__t_a82d5a7b5518764daf50d45c9a8680661}} 
+double THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE THUNDER\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+max\+\_\+eigenspeed} (VEC(const int i, const int j, const int k), int64\+\_\+t q) const
+\end{DoxyCompactItemize}
+\doxysubsection*{Additional Inherited Members}
+
+
+\doxysubsection{Detailed Description}
+\subsubsection*{template$<$typename recon\+\_\+t$>$\newline
+struct thunder\+::scalar\+\_\+advection\+\_\+system\+\_\+t$<$ recon\+\_\+t $>$}
+
+Scalar advection equation evlution system. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em recon\+\_\+t} & Reconstruction type. \\
+\hline
+\end{DoxyTemplParams}
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/thunder/physics/\mbox{\hyperlink{scalar__advection_8hh}{scalar\+\_\+advection.\+hh}}\end{DoxyCompactItemize}

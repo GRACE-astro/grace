@@ -1,0 +1,233 @@
+\hypertarget{classthunder_1_1amr_1_1connectivity__impl__t}{}\doxysection{thunder\+::amr\+::connectivity\+\_\+impl\+\_\+t Class Reference}
+\label{classthunder_1_1amr_1_1connectivity__impl__t}\index{thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}}
+
+
+Wrapper around p4est connectivity.  
+
+
+
+
+{\ttfamily \#include $<$connectivity.\+hh$>$}
+
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+bool \mbox{\hyperlink{classthunder_1_1amr_1_1connectivity__impl__t_a16342a7923a2efd5dd343c2c50c01b9b}{is\+\_\+valid}} () const
+\begin{DoxyCompactList}\small\item\em check integrity of stored connectivity \end{DoxyCompactList}\item 
+p4est\+\_\+connectivity\+\_\+t $\ast$ \mbox{\hyperlink{classthunder_1_1amr_1_1connectivity__impl__t_a553f5a221c218a520c3ed0fff2f09020}{get}} ()
+\begin{DoxyCompactList}\small\item\em get raw pointer to p4est connectivity \end{DoxyCompactList}\item 
+THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ \mbox{\hyperlink{classthunder_1_1amr_1_1connectivity__impl__t_a67fa38262766aa23423ee673dc84248c}{vertex\+\_\+coordinates}} (size\+\_\+t which\+\_\+tree, size\+\_\+t which\+\_\+vertex) const
+\begin{DoxyCompactList}\small\item\em Get coordinates of tree vertex. \end{DoxyCompactList}\item 
+THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ \mbox{\hyperlink{classthunder_1_1amr_1_1connectivity__impl__t_a1144e8d327bdd2c21094a4fb74ea7ade}{tree\+\_\+coordinate\+\_\+extents}} (size\+\_\+t which\+\_\+tree) const
+\begin{DoxyCompactList}\small\item\em Get coordinate extents of given tree. \end{DoxyCompactList}\item 
+THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE int \mbox{\hyperlink{classthunder_1_1amr_1_1connectivity__impl__t_a02dc7f60d6f7eee05f4179d624da5cc1}{tree\+\_\+to\+\_\+tree}} (size\+\_\+t which\+\_\+tree, int which\+\_\+face) const
+\begin{DoxyCompactList}\small\item\em Find tree connecting across a face. \end{DoxyCompactList}\item 
+THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE int8\+\_\+t \mbox{\hyperlink{classthunder_1_1amr_1_1connectivity__impl__t_a28707715e0569f9c13ae3820c9a82504}{tree\+\_\+to\+\_\+face}} (size\+\_\+t which\+\_\+tree, int which\+\_\+face) const
+\begin{DoxyCompactList}\small\item\em Find face connecting across a face. \end{DoxyCompactList}\item 
+THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE int \mbox{\hyperlink{classthunder_1_1amr_1_1connectivity__impl__t_add7edf0d3af344e96eb422dcaa589335}{tree\+\_\+to\+\_\+tree\+\_\+polarity}} (size\+\_\+t which\+\_\+tree, int which\+\_\+face) const
+\begin{DoxyCompactList}\small\item\em Determine whether coordinates flip across tree boundary. \end{DoxyCompactList}\item 
+THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE std\+::vector$<$ int $>$ \mbox{\hyperlink{classthunder_1_1amr_1_1connectivity__impl__t_ab74ae6548f9303002fed34f2b1bcca52}{tree\+\_\+to\+\_\+tree\+\_\+polarity\+\_\+array}} () const
+\begin{DoxyCompactList}\small\item\em Determine whether coordinates flip across tree boundary. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{classthunder_1_1amr_1_1connectivity__impl__t_a4c85dc0e5e13a83c35af0e5a4a47010b}{save}} (std\+::string const \&fname) const
+\begin{DoxyCompactList}\small\item\em save to file \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{classthunder_1_1amr_1_1connectivity__impl__t_a40105478db8b07030d7803eee6868bf7}{load}} (std\+::string const \&fname)
+\begin{DoxyCompactList}\small\item\em load from file \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classthunder_1_1amr_1_1connectivity__impl__t_a0d3f30355c2d49f4c9b527311c326287}\label{classthunder_1_1amr_1_1connectivity__impl__t_a0d3f30355c2d49f4c9b527311c326287}} 
+class \mbox{\hyperlink{classthunder_1_1amr_1_1connectivity__impl__t_a0d3f30355c2d49f4c9b527311c326287}{utils\+::singleton\+\_\+holder$<$ connectivity\+\_\+impl\+\_\+t, memory\+::default\+\_\+create $>$}}
+\begin{DoxyCompactList}\small\item\em Give access. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classthunder_1_1amr_1_1connectivity__impl__t_ad23c6bee73823ee46fad242c055bb4fa}\label{classthunder_1_1amr_1_1connectivity__impl__t_ad23c6bee73823ee46fad242c055bb4fa}} 
+class {\bfseries memory\+::new\+\_\+delete\+\_\+creator$<$ connectivity\+\_\+impl\+\_\+t, memory\+::new\+\_\+delete\+\_\+allocator $>$}
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Wrapper around p4est connectivity. 
+
+In the code this is wrapped by singleton\+\_\+holder. See p4est\+\_\+connectivity.\+h for API information. 
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1connectivity__impl__t_a553f5a221c218a520c3ed0fff2f09020}\label{classthunder_1_1amr_1_1connectivity__impl__t_a553f5a221c218a520c3ed0fff2f09020}} 
+\index{thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}!get@{get}}
+\index{get@{get}!thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get()}{get()}}
+{\footnotesize\ttfamily p4est\+\_\+connectivity\+\_\+t$\ast$ thunder\+::amr\+::connectivity\+\_\+impl\+\_\+t\+::get (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+get raw pointer to p4est connectivity 
+
+\begin{DoxyReturn}{Returns}
+p4est\+\_\+connectivity\+\_\+t$\ast$ the connectivity 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1connectivity__impl__t_a16342a7923a2efd5dd343c2c50c01b9b}\label{classthunder_1_1amr_1_1connectivity__impl__t_a16342a7923a2efd5dd343c2c50c01b9b}} 
+\index{thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}!is\_valid@{is\_valid}}
+\index{is\_valid@{is\_valid}!thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{is\_valid()}{is\_valid()}}
+{\footnotesize\ttfamily bool thunder\+::amr\+::connectivity\+\_\+impl\+\_\+t\+::is\+\_\+valid (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+check integrity of stored connectivity 
+
+\begin{DoxyReturn}{Returns}
+true if the connectivity is valid 
+
+false if the connectivity is invalid 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1connectivity__impl__t_a40105478db8b07030d7803eee6868bf7}\label{classthunder_1_1amr_1_1connectivity__impl__t_a40105478db8b07030d7803eee6868bf7}} 
+\index{thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}!load@{load}}
+\index{load@{load}!thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{load()}{load()}}
+{\footnotesize\ttfamily void thunder\+::amr\+::connectivity\+\_\+impl\+\_\+t\+::load (\begin{DoxyParamCaption}\item[{std\+::string const \&}]{fname }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+load from file 
+
+
+\begin{DoxyParams}{Parameters}
+{\em fname} & name of file from which to load the connectivity. \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1connectivity__impl__t_a4c85dc0e5e13a83c35af0e5a4a47010b}\label{classthunder_1_1amr_1_1connectivity__impl__t_a4c85dc0e5e13a83c35af0e5a4a47010b}} 
+\index{thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}!save@{save}}
+\index{save@{save}!thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{save()}{save()}}
+{\footnotesize\ttfamily void thunder\+::amr\+::connectivity\+\_\+impl\+\_\+t\+::save (\begin{DoxyParamCaption}\item[{std\+::string const \&}]{fname }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+save to file 
+
+
+\begin{DoxyParams}{Parameters}
+{\em fname} & name of file where to save the connectivity. \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1connectivity__impl__t_a1144e8d327bdd2c21094a4fb74ea7ade}\label{classthunder_1_1amr_1_1connectivity__impl__t_a1144e8d327bdd2c21094a4fb74ea7ade}} 
+\index{thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}!tree\_coordinate\_extents@{tree\_coordinate\_extents}}
+\index{tree\_coordinate\_extents@{tree\_coordinate\_extents}!thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{tree\_coordinate\_extents()}{tree\_coordinate\_extents()}}
+{\footnotesize\ttfamily THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE std\+::array$<$double, THUNDER\+\_\+\+NSPACEDIM$>$ thunder\+::amr\+::connectivity\+\_\+impl\+\_\+t\+::tree\+\_\+coordinate\+\_\+extents (\begin{DoxyParamCaption}\item[{size\+\_\+t}]{which\+\_\+tree }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Get coordinate extents of given tree. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em which\+\_\+tree} & Tree index \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+Array containing coordinate extents of the tree in each direction. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1connectivity__impl__t_a28707715e0569f9c13ae3820c9a82504}\label{classthunder_1_1amr_1_1connectivity__impl__t_a28707715e0569f9c13ae3820c9a82504}} 
+\index{thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}!tree\_to\_face@{tree\_to\_face}}
+\index{tree\_to\_face@{tree\_to\_face}!thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{tree\_to\_face()}{tree\_to\_face()}}
+{\footnotesize\ttfamily THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE int8\+\_\+t thunder\+::amr\+::connectivity\+\_\+impl\+\_\+t\+::tree\+\_\+to\+\_\+face (\begin{DoxyParamCaption}\item[{size\+\_\+t}]{which\+\_\+tree,  }\item[{int}]{which\+\_\+face }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Find face connecting across a face. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em which\+\_\+tree} & Tree index \\
+\hline
+{\em which\+\_\+face} & Face index in z-\/order \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+Index of face across requested face. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1connectivity__impl__t_a02dc7f60d6f7eee05f4179d624da5cc1}\label{classthunder_1_1amr_1_1connectivity__impl__t_a02dc7f60d6f7eee05f4179d624da5cc1}} 
+\index{thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}!tree\_to\_tree@{tree\_to\_tree}}
+\index{tree\_to\_tree@{tree\_to\_tree}!thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{tree\_to\_tree()}{tree\_to\_tree()}}
+{\footnotesize\ttfamily THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE int thunder\+::amr\+::connectivity\+\_\+impl\+\_\+t\+::tree\+\_\+to\+\_\+tree (\begin{DoxyParamCaption}\item[{size\+\_\+t}]{which\+\_\+tree,  }\item[{int}]{which\+\_\+face }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Find tree connecting across a face. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em which\+\_\+tree} & Tree index \\
+\hline
+{\em which\+\_\+face} & Face index in z-\/order \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+Index of tree across requested face. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1connectivity__impl__t_add7edf0d3af344e96eb422dcaa589335}\label{classthunder_1_1amr_1_1connectivity__impl__t_add7edf0d3af344e96eb422dcaa589335}} 
+\index{thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}!tree\_to\_tree\_polarity@{tree\_to\_tree\_polarity}}
+\index{tree\_to\_tree\_polarity@{tree\_to\_tree\_polarity}!thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{tree\_to\_tree\_polarity()}{tree\_to\_tree\_polarity()}}
+{\footnotesize\ttfamily THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE int thunder\+::amr\+::connectivity\+\_\+impl\+\_\+t\+::tree\+\_\+to\+\_\+tree\+\_\+polarity (\begin{DoxyParamCaption}\item[{size\+\_\+t}]{which\+\_\+tree,  }\item[{int}]{which\+\_\+face }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Determine whether coordinates flip across tree boundary. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em which\+\_\+tree} & Tree index \\
+\hline
+{\em which\+\_\+face} & Face index in z-\/order \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+1 if trees have opposite polarity, 0 otherwise 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1connectivity__impl__t_ab74ae6548f9303002fed34f2b1bcca52}\label{classthunder_1_1amr_1_1connectivity__impl__t_ab74ae6548f9303002fed34f2b1bcca52}} 
+\index{thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}!tree\_to\_tree\_polarity\_array@{tree\_to\_tree\_polarity\_array}}
+\index{tree\_to\_tree\_polarity\_array@{tree\_to\_tree\_polarity\_array}!thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{tree\_to\_tree\_polarity\_array()}{tree\_to\_tree\_polarity\_array()}}
+{\footnotesize\ttfamily THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE std\+::vector$<$int$>$ thunder\+::amr\+::connectivity\+\_\+impl\+\_\+t\+::tree\+\_\+to\+\_\+tree\+\_\+polarity\+\_\+array (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Determine whether coordinates flip across tree boundary. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em which\+\_\+tree} & Tree index \\
+\hline
+{\em which\+\_\+face} & Face index in z-\/order \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+1 if trees have opposite polarity, 0 otherwise 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1connectivity__impl__t_a67fa38262766aa23423ee673dc84248c}\label{classthunder_1_1amr_1_1connectivity__impl__t_a67fa38262766aa23423ee673dc84248c}} 
+\index{thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}!vertex\_coordinates@{vertex\_coordinates}}
+\index{vertex\_coordinates@{vertex\_coordinates}!thunder::amr::connectivity\_impl\_t@{thunder::amr::connectivity\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{vertex\_coordinates()}{vertex\_coordinates()}}
+{\footnotesize\ttfamily THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE std\+::array$<$double,THUNDER\+\_\+\+NSPACEDIM$>$ thunder\+::amr\+::connectivity\+\_\+impl\+\_\+t\+::vertex\+\_\+coordinates (\begin{DoxyParamCaption}\item[{size\+\_\+t}]{which\+\_\+tree,  }\item[{size\+\_\+t}]{which\+\_\+vertex }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Get coordinates of tree vertex. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em which\+\_\+tree} & Tree index \\
+\hline
+{\em which\+\_\+vertex} & Vertex index (in Morton ordering) \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+The coordinates of the requested vertex. 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+include/thunder/amr/\mbox{\hyperlink{connectivity_8hh}{connectivity.\+hh}}\item 
+src/amr/\mbox{\hyperlink{connectivity_8cpp}{connectivity.\+cpp}}\end{DoxyCompactItemize}

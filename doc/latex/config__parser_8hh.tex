@@ -1,0 +1,66 @@
+\hypertarget{config__parser_8hh}{}\doxysection{include/grace/config/config\+\_\+parser.hh File Reference}
+\label{config__parser_8hh}\index{include/grace/config/config\_parser.hh@{include/grace/config/config\_parser.hh}}
+
+
+this header contains the definition of grace\textquotesingle{}s configuration file parser.  
+
+
+{\ttfamily \#include $<$grace\+\_\+config.\+h$>$}\newline
+{\ttfamily \#include $<$grace/utils/singleton\+\_\+holder.\+hh$>$}\newline
+{\ttfamily \#include $<$code\+\_\+modules.\+h$>$}\newline
+{\ttfamily \#include $<$yaml-\/cpp/yaml.\+h$>$}\newline
+{\ttfamily \#include $<$fstream$>$}\newline
+Include dependency graph for config\+\_\+parser.\+hh\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{config__parser_8hh__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{config__parser_8hh__dep__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+class \mbox{\hyperlink{classgrace_1_1detail_1_1config__parser__impl__t}{grace\+::detail\+::config\+\_\+parser\+\_\+impl\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em configuration file parser implementation.
+
+This class will be wrapped by a singleton\+\_\+holder since only one instance of the parameters can exist at any given time. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Namespaces}
+\begin{DoxyCompactItemize}
+\item 
+ \mbox{\hyperlink{namespacegrace}{grace}}
+\begin{DoxyCompactList}\small\item\em Todo. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{namespacegrace_aba6f2d2ecb66dbddf3b83f2014fc7531}\label{namespacegrace_aba6f2d2ecb66dbddf3b83f2014fc7531}} 
+using \mbox{\hyperlink{namespacegrace_aba6f2d2ecb66dbddf3b83f2014fc7531}{grace\+::config\+\_\+parser}} = \mbox{\hyperlink{classutils_1_1singleton__holder}{utils\+::singleton\+\_\+holder}}$<$ detail\+::config\+\_\+parser\+\_\+impl\+\_\+t $>$
+\begin{DoxyCompactList}\small\item\em configuration parser singleton. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+this header contains the definition of grace\textquotesingle{}s configuration file parser. 
+
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyVersion}{Version}
+0.\+1 
+\end{DoxyVersion}
+\begin{DoxyDate}{Date}
+2023-\/03-\/13
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of GRACE. GRACE is an evolution framework that uses Finite Difference methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 

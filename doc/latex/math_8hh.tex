@@ -1,0 +1,68 @@
+\hypertarget{math_8hh}{}\doxysection{include/grace/utils/math.hh File Reference}
+\label{math_8hh}\index{include/grace/utils/math.hh@{include/grace/utils/math.hh}}
+{\ttfamily \#include $<$grace\+\_\+config.\+h$>$}\newline
+{\ttfamily \#include $<$grace/utils/inline.\+h$>$}\newline
+{\ttfamily \#include $<$grace/utils/device.\+h$>$}\newline
+{\ttfamily \#include $<$cstdlib$>$}\newline
+{\ttfamily \#include $<$cmath$>$}\newline
+Include dependency graph for math.\+hh\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{math_8hh__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{math_8hh__dep__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structmath_1_1detail_1_1int__pow__impl}{math\+::detail\+::int\+\_\+pow\+\_\+impl$<$ T, N $>$}}
+\begin{DoxyCompactList}\small\item\em Compute integer powers. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$typename T $>$ }\\int GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga067ddec81531d945f268bd0fd4138531}{math\+::sgn}} (T const \&val)
+\begin{DoxyCompactList}\small\item\em Signum. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga6956341198e83672f152765f5dee9ee3}{math\+::detail\+::dmax}} (double const \&A, double const \&B)
+\begin{DoxyCompactList}\small\item\em Specialization of max function for doubles. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga00066dd5cf372b07baeab7d4b500cde6}{math\+::detail\+::dmin}} (double const \&A, double const \&B)
+\begin{DoxyCompactList}\small\item\em Specialization of min function for doubles. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T $>$ }\\T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga2a307482a8830fb6b184d31befdee335}{math\+::max}} (T const \&A, T const \&B)
+\begin{DoxyCompactList}\small\item\em Maximum between two numeric values. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename ... Arg\+\_\+t$>$ }\\double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga28538a0ee85eb656e3bf70a40a5aae9c}{math\+::max}} (double const \&A, double const \&B, Arg\+\_\+t \&\&... args)
+\begin{DoxyCompactList}\small\item\em Maximum of a set of floating point values. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T $>$ }\\T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga09e63326a30af37a33a44028239eaf64}{math\+::min}} (T const \&A, T const \&B)
+\begin{DoxyCompactList}\small\item\em Minimum between two numeric values. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename ... Arg\+\_\+t$>$ }\\double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_gaf864904eef634e7080d8ca5783b1e9f3}{math\+::min}} (double const \&A, double const \&B, Arg\+\_\+t \&\&... args)
+\begin{DoxyCompactList}\small\item\em Minimum of a set of floating point values. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T $>$ }\\T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga79d7803c27e24bfacacae60357e14e38}{math\+::clamp}} (T const \&val, T const \&vmin, T const \&vmax)
+\begin{DoxyCompactList}\small\item\em Clamp a value between a max and a min. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{math_8hh_a87b36ef445a47346a007894a981e36c4}\label{math_8hh_a87b36ef445a47346a007894a981e36c4}} 
+{\footnotesize template$<$typename T $>$ }\\int GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries math\+::floor\+\_\+int} (T const \&val)
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyVersion}{Version}
+0.\+1 
+\end{DoxyVersion}
+\begin{DoxyDate}{Date}
+2023-\/03-\/13
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of GRACE. GRACE is an evolution framework that uses Finite Difference methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 

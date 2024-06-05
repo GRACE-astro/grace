@@ -1,0 +1,30 @@
+.. My Project documentation master file
+
+.. _grace-home:
+
+GRACE Project Documentation
+=======================================
+
+Welcome to the GRACE Project's documentation!
+Grace (the General Relativistic Astrophysics Code for Exascale) is an open source GRMHD evolution
+framework designed to run on GPU backends. It is based on the `Kokkos`_ performance portability layer 
+and on the `p4est`_ adaptive mesh refinement library. 
+
+.. _Kokkos: https://github.com/kokkos/kokkos
+.. _p4est: https://www.p4est.org/
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contents
+
+   introduction/index.rst
+   userguide/index.rst
+   building/index.rst
+   project/index.rst
+   
+
+
+Indices and tables
+***************************
+
+* :ref:`genindex`

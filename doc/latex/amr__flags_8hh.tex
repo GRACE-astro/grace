@@ -1,0 +1,63 @@
+\hypertarget{amr__flags_8hh}{}\doxysection{include/grace/amr/amr\+\_\+flags.hh File Reference}
+\label{amr__flags_8hh}\index{include/grace/amr/amr\_flags.hh@{include/grace/amr/amr\_flags.hh}}
+{\ttfamily \#include $<$grace/amr/p4est\+\_\+headers.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/amr/quadrant.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/errors/error.\+hh$>$}\newline
+Include dependency graph for amr\+\_\+flags.\+hh\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{amr__flags_8hh__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{amr__flags_8hh__dep__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structgrace_1_1amr_1_1amr__flags__t}{grace\+::amr\+::amr\+\_\+flags\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em Quadrant user data. Used in GRACE to retain information about amr operations that need to be transmitted to the Device. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Namespaces}
+\begin{DoxyCompactItemize}
+\item 
+ \mbox{\hyperlink{namespacegrace}{grace}}
+\begin{DoxyCompactList}\small\item\em Todo. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{amr__flags_8hh_a2dd6d9908987dc18bd7a4d0166b91f97}\label{amr__flags_8hh_a2dd6d9908987dc18bd7a4d0166b91f97}} 
+enum \mbox{\hyperlink{amr__flags_8hh_a2dd6d9908987dc18bd7a4d0166b91f97}{grace\+::amr\+::quadrant\+\_\+flags\+\_\+t}} \{ \newline
+{\bfseries DEFAULT\+\_\+\+STATE} =0
+, {\bfseries REFINE}
+, {\bfseries COARSEN}
+, {\bfseries NEED\+\_\+\+PROLONGATION}
+, \newline
+{\bfseries NEED\+\_\+\+RESTRICTION}
+, {\bfseries INVALID\+\_\+\+STATE} =-\/1
+ \}
+\begin{DoxyCompactList}\small\item\em Possible quadrant states. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyVersion}{Version}
+0.\+1 
+\end{DoxyVersion}
+\begin{DoxyDate}{Date}
+2024-\/02-\/29
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of GRACE. GRACE is an evolution framework that uses Finite Difference methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 

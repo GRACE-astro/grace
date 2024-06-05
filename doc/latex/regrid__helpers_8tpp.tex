@@ -1,0 +1,59 @@
+\hypertarget{regrid__helpers_8tpp}{}\doxysection{include/grace/amr/regrid\+\_\+helpers.tpp File Reference}
+\label{regrid__helpers_8tpp}\index{include/grace/amr/regrid\_helpers.tpp@{include/grace/amr/regrid\_helpers.tpp}}
+{\ttfamily \#include $<$grace\+\_\+config.\+h$>$}\newline
+{\ttfamily \#include $<$grace/amr/amr\+\_\+functions.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/config/config\+\_\+parser.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/data\+\_\+structures/variables.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/data\+\_\+structures/memory\+\_\+defaults.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/amr/regridding\+\_\+policy\+\_\+kernels.\+tpp$>$}\newline
+{\ttfamily \#include $<$grace/utils/interpolators.\+hh$>$}\newline
+{\ttfamily \#include $<$Kokkos\+\_\+\+Core.\+hpp$>$}\newline
+{\ttfamily \#include $<$Kokkos\+\_\+\+Vector.\+hpp$>$}\newline
+Include dependency graph for regrid\+\_\+helpers.\+tpp\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{regrid__helpers_8tpp__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=216pt]{regrid__helpers_8tpp__dep__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Namespaces}
+\begin{DoxyCompactItemize}
+\item 
+ \mbox{\hyperlink{namespacegrace}{grace}}
+\begin{DoxyCompactList}\small\item\em Todo. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$typename ViewT , typename KerT , typename ... Ker\+ArgT$>$ }\\void \mbox{\hyperlink{group__amr_ga0321f41712329743c2725f24c6d2e7e4}{grace\+::amr\+::evaluate\+\_\+regrid\+\_\+criterion}} (ViewT flag\+\_\+view, KerT kernel, Ker\+ArgT \&\&... kernel\+\_\+args)
+\begin{DoxyCompactList}\small\item\em Decide whether a quadrant needs to be refined/coarsened based on custom criterion. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename InterpT , typename In\+ViewT , typename Out\+ViewT , typename Coord\+ViewT , typename Vol\+ViewT $>$ }\\void \mbox{\hyperlink{group__amr_gad0530491a3ddcbd7b7ee68c691719d8b}{grace\+::amr\+::prolongate\+\_\+variables}} (In\+ViewT in\+\_\+state, Out\+ViewT out\+\_\+state, Coord\+ViewT out\+\_\+spacing, Coord\+ViewT in\+\_\+spacing, Coord\+ViewT out\+\_\+coords, Coord\+ViewT in\+\_\+coords, Vol\+ViewT out\+\_\+vol, Vol\+ViewT in\+\_\+vol, Kokkos\+::vector$<$ int, grace\+::default\+\_\+space $>$ \&in\+\_\+idx, Kokkos\+::vector$<$ int, grace\+::default\+\_\+space $>$ \&out\+\_\+idx)
+\begin{DoxyCompactList}\small\item\em Prolongate all state variables on refined cells. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename In\+ViewT , typename Out\+ViewT , typename Vol\+ViewT $>$ }\\void \mbox{\hyperlink{group__amr_ga5e0f5253662d51f902a5f82386f2f413}{grace\+::amr\+::restrict\+\_\+variables}} (In\+ViewT in\+\_\+state, Out\+ViewT out\+\_\+state, Vol\+ViewT out\+\_\+vol, Vol\+ViewT in\+\_\+vol, Kokkos\+::vector$<$ int, grace\+::default\+\_\+space $>$ \&in\+\_\+idx, Kokkos\+::vector$<$ int, grace\+::default\+\_\+space $>$ \&out\+\_\+idx)
+\begin{DoxyCompactList}\small\item\em Restrict all state variables to coarsened cells. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyVersion}{Version}
+0.\+1 
+\end{DoxyVersion}
+\begin{DoxyDate}{Date}
+2024-\/03-\/20
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of GRACE. GRACE is an evolution framework that uses Finite Difference methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 

@@ -1,0 +1,55 @@
+\hypertarget{memory__defaults_8hh}{}\doxysection{include/grace/data\+\_\+structures/memory\+\_\+defaults.hh File Reference}
+\label{memory__defaults_8hh}\index{include/grace/data\_structures/memory\_defaults.hh@{include/grace/data\_structures/memory\_defaults.hh}}
+
+
+Default space for memory allocation / parallel dispatch in GRACE.  
+
+
+{\ttfamily \#include $<$grace\+\_\+config.\+h$>$}\newline
+{\ttfamily \#include $<$Kokkos\+\_\+\+Core.\+hpp$>$}\newline
+Include dependency graph for memory\+\_\+defaults.\+hh\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=286pt]{memory__defaults_8hh__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{memory__defaults_8hh__dep__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Namespaces}
+\begin{DoxyCompactItemize}
+\item 
+ \mbox{\hyperlink{namespacegrace}{grace}}
+\begin{DoxyCompactList}\small\item\em Todo. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+using \mbox{\hyperlink{group__variables_ga4687b68242d7de1ea586fa8de91ace17}{grace\+::default\+\_\+execution\+\_\+space}} = default\+\_\+space\+::execution\+\_\+space
+\begin{DoxyCompactList}\small\item\em Typedef that defines the default Memory and Execution space(s) in GRACE. The hierarchy of precedence goes as follows\+: 1) If a device is enabled, we use it 2) If a host parallel mode is enabled, we use Host memory and host-\/parallel execution 3) If only host serial is available, that\textquotesingle{}s what we use. (for debug only hopefully!) See the general README on how to enable backends during GRACE\textquotesingle{}s build process. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Default space for memory allocation / parallel dispatch in GRACE. 
+
+\begin{DoxyAuthor}{Author}
+your name (\href{mailto:you@domain.com}{\texttt{ you@domain.\+com}}) 
+\end{DoxyAuthor}
+\begin{DoxyVersion}{Version}
+0.\+1 
+\end{DoxyVersion}
+\begin{DoxyDate}{Date}
+2023-\/06-\/16
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of GRACE. GRACE is an evolution framework that uses Finite Difference methods to simulate relativistic astrophysical systems and plasma dynamics. Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 

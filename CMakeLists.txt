@@ -66,9 +66,16 @@ if(GRACE_ENABLE_TESTING)
                    "${CMAKE_BINARY_DIR}/test/configs/regrid_test_spherical_log.yaml" COPYONLY)
     configure_file("${CMAKE_SOURCE_DIR}/configs/scalar_reductions_test.yaml" 
                    "${CMAKE_BINARY_DIR}/test/configs/scalar_reductions_test.yaml" COPYONLY)
+    configure_file("${CMAKE_SOURCE_DIR}/configs/pwpoly_test_config.yaml" 
+                   "${CMAKE_BINARY_DIR}/test/configs/pwpoly_test_config.yaml" COPYONLY)
     enable_testing()
     include(setup_catch2)
     add_subdirectory(test)
+endif()
+
+option(GRACE_BUILD_DOCS "Build the docs" OFF)
+if(GRACE_BUILD_DOCS) 
+    add_subdirectory(doc)
 endif()
 
 option(GRACE_ENABLE_BENCHMARKS "Build the benchmarks" ON)

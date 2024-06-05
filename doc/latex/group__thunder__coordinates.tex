@@ -1,0 +1,88 @@
+\hypertarget{group__thunder__coordinates}{}\doxysection{Coordinate utilities for Thunder}
+\label{group__thunder__coordinates}\index{Coordinate utilities for Thunder@{Coordinate utilities for Thunder}}
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+class \mbox{\hyperlink{classthunder_1_1cartesian__coordinate__system__impl__t}{thunder\+::cartesian\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em Implementation of coordinate system class for cartesian grids. \end{DoxyCompactList}\item 
+class \mbox{\hyperlink{classthunder_1_1spherical__coordinate__system__impl__t}{thunder\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em Implementation of coordinate system class for spherical grids. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ THUNDER\+\_\+\+HOST \mbox{\hyperlink{group__thunder__coordinates_ga6d2b1720a4b109b40ee10dce53c81f5d}{thunder\+::get\+\_\+physical\+\_\+coordinates}} (int const itree, std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ const \&logical\+\_\+coords)
+\begin{DoxyCompactList}\small\item\em The coordinate system is a singleton that holds access to all coordinate related functions in thunder. \end{DoxyCompactList}\item 
+std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ THUNDER\+\_\+\+HOST \mbox{\hyperlink{group__thunder__coordinates_gafd148633c32d881a44fb8832515ec69d}{thunder\+::get\+\_\+physical\+\_\+coordinates}} (std\+::array$<$ size\+\_\+t, THUNDER\+\_\+\+NSPACEDIM $>$ const \&ijk, size\+\_\+t nq, std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ const \&cell\+\_\+coordinates=\{\mbox{\hyperlink{group__utils_ga5e8a87ef5e7f1ed5313072bc02be4aac}{VEC}}(0.\+5, 0.\+5, 0.\+5)\}, bool include\+\_\+gzs=false)
+\begin{DoxyCompactList}\small\item\em Get physical coordinates of a point inside a local cell, given the quadrant and spatial indices. \end{DoxyCompactList}\item 
+std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ THUNDER\+\_\+\+HOST \mbox{\hyperlink{group__thunder__coordinates_ga5eb57c1c0c6dd609c6b1a7c87361f9ac}{thunder\+::get\+\_\+logical\+\_\+coordinates}} (int itree, std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ const \&physical\+\_\+coordinates)
+\begin{DoxyCompactList}\small\item\em Get tree-\/logical coordinates of a point given tree index and physical coordinates. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{group__thunder__coordinates_ga5eb57c1c0c6dd609c6b1a7c87361f9ac}\label{group__thunder__coordinates_ga5eb57c1c0c6dd609c6b1a7c87361f9ac}} 
+\index{Coordinate utilities for Thunder@{Coordinate utilities for Thunder}!get\_logical\_coordinates@{get\_logical\_coordinates}}
+\index{get\_logical\_coordinates@{get\_logical\_coordinates}!Coordinate utilities for Thunder@{Coordinate utilities for Thunder}}
+\doxysubsubsection{\texorpdfstring{get\_logical\_coordinates()}{get\_logical\_coordinates()}}
+{\footnotesize\ttfamily std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ THUNDER\+\_\+\+HOST thunder\+::get\+\_\+logical\+\_\+coordinates (\begin{DoxyParamCaption}\item[{int}]{itree,  }\item[{std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ const \&}]{physical\+\_\+coordinates }\end{DoxyParamCaption})}
+
+
+
+Get tree-\/logical coordinates of a point given tree index and physical coordinates. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Spatial indices of cell inside the quadrant \\
+\hline
+{\em nq} & Local quadrant index ~\newline
+ \\
+\hline
+{\em local\+\_\+coords} & Logical coordinates $[0,1]^{d}$ of the points inside the cell \\
+\hline
+{\em include\+\_\+gzs} & Include ghostzones in the calculation\\
+\hline
+\end{DoxyParams}
+NB\+: Including ghostzones means that $ijk={0,0(,0)}$ has negative logical coordinates, and the logical coordinates origin lies at $ijk={ngz,ngz(,ngz)}$. \mbox{\Hypertarget{group__thunder__coordinates_ga6d2b1720a4b109b40ee10dce53c81f5d}\label{group__thunder__coordinates_ga6d2b1720a4b109b40ee10dce53c81f5d}} 
+\index{Coordinate utilities for Thunder@{Coordinate utilities for Thunder}!get\_physical\_coordinates@{get\_physical\_coordinates}}
+\index{get\_physical\_coordinates@{get\_physical\_coordinates}!Coordinate utilities for Thunder@{Coordinate utilities for Thunder}}
+\doxysubsubsection{\texorpdfstring{get\_physical\_coordinates()}{get\_physical\_coordinates()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ THUNDER\+\_\+\+HOST thunder\+::get\+\_\+physical\+\_\+coordinates (\begin{DoxyParamCaption}\item[{int const}]{itree,  }\item[{std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ const \&}]{logical\+\_\+coords }\end{DoxyParamCaption})}
+
+
+
+The coordinate system is a singleton that holds access to all coordinate related functions in thunder. 
+
+Get physical coordinates of a point inside a local cell, given the quadrant and spatial indices.
+
+
+\begin{DoxyParams}{Parameters}
+{\em itree} & Tree index \\
+\hline
+{\em lcoords} & Logical coordinates $[0,1]^{d}$ of the points inside the tree \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{group__thunder__coordinates_gafd148633c32d881a44fb8832515ec69d}\label{group__thunder__coordinates_gafd148633c32d881a44fb8832515ec69d}} 
+\index{Coordinate utilities for Thunder@{Coordinate utilities for Thunder}!get\_physical\_coordinates@{get\_physical\_coordinates}}
+\index{get\_physical\_coordinates@{get\_physical\_coordinates}!Coordinate utilities for Thunder@{Coordinate utilities for Thunder}}
+\doxysubsubsection{\texorpdfstring{get\_physical\_coordinates()}{get\_physical\_coordinates()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ THUNDER\+\_\+\+HOST thunder\+::get\+\_\+physical\+\_\+coordinates (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, THUNDER\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{size\+\_\+t}]{nq,  }\item[{std\+::array$<$ double, THUNDER\+\_\+\+NSPACEDIM $>$ const \&}]{cell\+\_\+coordinates = {\ttfamily \{\mbox{\hyperlink{group__utils_ga5e8a87ef5e7f1ed5313072bc02be4aac}{VEC}}(0.5,0.5,0.5)\}},  }\item[{bool}]{include\+\_\+gzs = {\ttfamily false} }\end{DoxyParamCaption})}
+
+
+
+Get physical coordinates of a point inside a local cell, given the quadrant and spatial indices. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Spatial indices of cell inside the quadrant \\
+\hline
+{\em nq} & Local quadrant index ~\newline
+ \\
+\hline
+{\em cell\+\_\+coordinates} & Logical coordinates $[0,1]^{d}$ of the points inside the cell \\
+\hline
+{\em include\+\_\+gzs} & Include ghostzones in the calculation\\
+\hline
+\end{DoxyParams}
+NB\+: Including ghostzones means that $ijk={0,0(,0)}$ has negative logical coordinates, and the logical coordinates origin lies at $ijk={ngz,ngz(,ngz)}$. 

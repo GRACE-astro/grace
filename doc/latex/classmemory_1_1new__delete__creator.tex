@@ -1,0 +1,67 @@
+\hypertarget{classmemory_1_1new__delete__creator}{}\doxysection{memory\+::new\+\_\+delete\+\_\+creator$<$ T, allocator $>$ Class Template Reference}
+\label{classmemory_1_1new__delete__creator}\index{memory::new\_delete\_creator$<$ T, allocator $>$@{memory::new\_delete\_creator$<$ T, allocator $>$}}
+
+
+defines new\+\_\+delete creator and its instantiations  
+
+
+
+
+{\ttfamily \#include $<$creation\+\_\+policies.\+hh$>$}
+
+\doxysubsection*{Static Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$typename ... ArgT$>$ }\\static \mbox{\hyperlink{classmemory_1_1new__delete__creator_a6a80a5be0fc367f90c4ce4253a6e832a}{\+\_\+\+\_\+attribute\+\_\+\+\_\+}} ((always\+\_\+inline)) T $\ast$create(ArgT ... args)
+\begin{DoxyCompactList}\small\item\em create an object of type T using placement {\ttfamily  \+::operator new }. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classmemory_1_1new__delete__creator_a6a1a938eff0537c23674dc24e1e6e17d}\label{classmemory_1_1new__delete__creator_a6a1a938eff0537c23674dc24e1e6e17d}} 
+static \mbox{\hyperlink{classmemory_1_1new__delete__creator_a6a1a938eff0537c23674dc24e1e6e17d}{\+\_\+\+\_\+attribute\+\_\+\+\_\+}} ((always\+\_\+inline)) void destroy(T $\ast$ptr)
+\begin{DoxyCompactList}\small\item\em destroy object created by this class \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\subsubsection*{template$<$typename T, typename allocator$>$\newline
+class memory\+::new\+\_\+delete\+\_\+creator$<$ T, allocator $>$}
+
+defines new\+\_\+delete creator and its instantiations 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & type of the object to be created \\
+\hline
+{\em allocator} & memory allocator to be used \\
+\hline
+\end{DoxyTemplParams}
+
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{classmemory_1_1new__delete__creator_a6a80a5be0fc367f90c4ce4253a6e832a}\label{classmemory_1_1new__delete__creator_a6a80a5be0fc367f90c4ce4253a6e832a}} 
+\index{memory::new\_delete\_creator$<$ T, allocator $>$@{memory::new\_delete\_creator$<$ T, allocator $>$}!\_\_attribute\_\_@{\_\_attribute\_\_}}
+\index{\_\_attribute\_\_@{\_\_attribute\_\_}!memory::new\_delete\_creator$<$ T, allocator $>$@{memory::new\_delete\_creator$<$ T, allocator $>$}}
+\doxysubsubsection{\texorpdfstring{\_\_attribute\_\_()}{\_\_attribute\_\_()}}
+{\footnotesize\ttfamily template$<$typename T , typename allocator $>$ \\
+template$<$typename ... ArgT$>$ \\
+static \mbox{\hyperlink{classmemory_1_1new__delete__creator}{memory\+::new\+\_\+delete\+\_\+creator}}$<$ T, allocator $>$\+::\+\_\+\+\_\+attribute\+\_\+\+\_\+ (\begin{DoxyParamCaption}\item[{(always\+\_\+inline)}]{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}, {\ttfamily [static]}}
+
+
+
+create an object of type T using placement {\ttfamily  \+::operator new }. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em ArgT} & parameter pack to be passed to the constructor. \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em args} & arguments forwarded to the constructor. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+T$\ast$ pointer to dynamically allocated object. 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/grace/utils/creation\+\_\+policies.\+hh\end{DoxyCompactItemize}

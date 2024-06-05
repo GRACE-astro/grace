@@ -27,22 +27,55 @@
 
 #ifndef GRACE_EVOLVE_HH
 #define GRACE_EVOLVE_HH
-
+//*****************************************************************************************************
 #include <grace_config.h>
-
+//*****************************************************************************************************
 #include <grace/data_structures/variable_properties.hh>
-
+//*****************************************************************************************************
 namespace grace {
-
+//*****************************************************************************************************
+//*****************************************************************************************************
+//*****************************************************************************************************
+/**
+ * @brief Perform a timestep.
+ * \ingroup evol
+ * This function advances all variables in the state array by a full timestep. The timestep size is 
+ * controlled by the function \ref find_stable_timestep. The kind of timestepper used is controlled 
+ * by the parameter evolution::time_stepper. Coming out of this routine all the variables in the state
+ * array are in a valid state (at all gridpoints) and at time \f$t+dt\f$. Auxiliaries are not filled 
+ * by this function and neither is the scratched space, both of which are left in an invalid state. 
+ * This function assumes that the state is in a valid state as input, for all gridpoints including 
+ * ghostzones. It also assumes that auxiliaries are filled at all gridpoints and up to date w.r.t. the 
+ * evolution time.
+ */
 void evolve() ; 
-
+//*****************************************************************************************************
+//*****************************************************************************************************
+/**
+ * @brief Advance all variables by a substep.
+ * \ingroup evol
+ * @param t Current time.
+ * @param dt Timestep size.
+ * @param dtfact Timestep factor.
+ * @param state  State array.
+ * @param state_p Scratch state array.
+ * @param aux Auxiliaries.
+ * @param cvol Cell volumes.
+ * @param surfs_and_edges Cell face surfaces and edge lengths.
+ * 
+ * This routine advances all variables by a substep. It is agnostic to the time-stepper used 
+ * and assumes that all input variable arrays are in a valid state at all gridcells. The output 
+ * is applied in-place on <code>state</code>, whereas <code>state_p</code> and <code>aux</code>
+ * are left unchanged.
+ */
 void advance_substep( double const t, double const dt, double const dtfact 
                     , grace::var_array_t<GRACE_NSPACEDIM>& state 
                     , grace::var_array_t<GRACE_NSPACEDIM>& state_p 
                     , grace::var_array_t<GRACE_NSPACEDIM>& aux 
                     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& cvol
                     , grace::staggered_coordinate_arrays_t& surfs_and_edges ) ; 
-
-}
-
+//*****************************************************************************************************
+//*****************************************************************************************************
+} /* namespace grace */
+//*****************************************************************************************************
 #endif /* GRACE_EVOLVE_HH */

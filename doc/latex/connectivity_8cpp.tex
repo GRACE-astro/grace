@@ -1,0 +1,49 @@
+\hypertarget{connectivity_8cpp}{}\doxysection{src/amr/connectivity.cpp File Reference}
+\label{connectivity_8cpp}\index{src/amr/connectivity.cpp@{src/amr/connectivity.cpp}}
+{\ttfamily \#include $<$grace\+\_\+config.\+h$>$}\newline
+{\ttfamily \#include $<$grace/utils/inline.\+h$>$}\newline
+{\ttfamily \#include $<$grace/amr/connectivities\+\_\+impl.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/amr/connectivity.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/config/config\+\_\+parser.\+hh$>$}\newline
+{\ttfamily \#include $<$cstdlib$>$}\newline
+Include dependency graph for connectivity.\+cpp\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{connectivity_8cpp__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Namespaces}
+\begin{DoxyCompactItemize}
+\item 
+ \mbox{\hyperlink{namespacegrace}{grace}}
+\begin{DoxyCompactList}\small\item\em Todo. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{connectivity_8cpp_a2f6a693a86fec40ea6afe8ff87a3b3b2}\label{connectivity_8cpp_a2f6a693a86fec40ea6afe8ff87a3b3b2}} 
+p4est\+\_\+connectivity\+\_\+t $\ast$ {\bfseries grace\+::amr\+::detail\+::new\+\_\+spherical\+\_\+connectivity} (double L, double R, double Rlog)
+\item 
+\mbox{\Hypertarget{connectivities__impl_8hh_a4d3f1e51bcd36ed6d90e7b865aa2c2d9}\label{connectivities__impl_8hh_a4d3f1e51bcd36ed6d90e7b865aa2c2d9}} 
+p4est\+\_\+connectivity\+\_\+t $\ast$ {\bfseries grace\+::amr\+::detail\+::new\+\_\+cartesian\+\_\+connectivity} (double xmin, double xmax, bool periodic\+\_\+x, double ymin, double ymax, bool periodic\+\_\+y)
+\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyVersion}{Version}
+0.\+1 
+\end{DoxyVersion}
+\begin{DoxyDate}{Date}
+2024-\/02-\/29
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of GRACE. GRACE is an evolution framework that uses Finite Difference methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 

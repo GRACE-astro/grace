@@ -39,7 +39,14 @@
 #include <grace/amr/bc_kernels.tpp>
 
 namespace grace { namespace amr {
-
+/**
+ * @brief Apply physical boundary conditions on a single variable.
+ * \ingroup amr
+ * @tparam BCT Boundary condition kernel.
+ * @tparam ViewT Type of variable view.
+ * @param u View containing a single variable.
+ * @param face_info Information on physical boundary faces (quadrant ids and face ids).
+ */
 template< typename BCT
         , typename ViewT >
 void apply_phys_bc(

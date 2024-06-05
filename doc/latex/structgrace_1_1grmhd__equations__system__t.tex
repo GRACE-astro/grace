@@ -1,0 +1,50 @@
+\hypertarget{structgrace_1_1grmhd__equations__system__t}{}\doxysection{grace\+::grmhd\+\_\+equations\+\_\+system\+\_\+t$<$ eos\+\_\+t, recon\+\_\+t, riemann\+\_\+t $>$ Struct Template Reference}
+\label{structgrace_1_1grmhd__equations__system__t}\index{grace::grmhd\_equations\_system\_t$<$ eos\_t, recon\_t, riemann\_t $>$@{grace::grmhd\_equations\_system\_t$<$ eos\_t, recon\_t, riemann\_t $>$}}
+
+
+Inheritance diagram for grace\+::grmhd\+\_\+equations\+\_\+system\+\_\+t$<$ eos\+\_\+t, recon\+\_\+t, riemann\+\_\+t $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{structgrace_1_1grmhd__equations__system__t__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for grace\+::grmhd\+\_\+equations\+\_\+system\+\_\+t$<$ eos\+\_\+t, recon\+\_\+t, riemann\+\_\+t $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{structgrace_1_1grmhd__equations__system__t__coll__graph}
+\end{center}
+\end{figure}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structgrace_1_1grmhd__equations__system__t_a5b896f40ff2fd5511843be61cd8931d4}\label{structgrace_1_1grmhd__equations__system__t_a5b896f40ff2fd5511843be61cd8931d4}} 
+{\bfseries grmhd\+\_\+equations\+\_\+system\+\_\+t} (eos\+\_\+t eos\+\_\+, \mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ state\+\_\+, \mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ aux\+\_\+)
+\item 
+\mbox{\Hypertarget{structgrace_1_1grmhd__equations__system__t_abc69d44f1a52e9392180b4b840db43a5}\label{structgrace_1_1grmhd__equations__system__t_abc69d44f1a52e9392180b4b840db43a5}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+x\+\_\+flux} (thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), int ngz, \mbox{\hyperlink{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}{grace\+::flux\+\_\+array\+\_\+t}} const fluxes) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1grmhd__equations__system__t_ac0606919d0d6d6435f03ac04a42bf026}\label{structgrace_1_1grmhd__equations__system__t_ac0606919d0d6d6435f03ac04a42bf026}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+y\+\_\+flux} (thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), int ngz, \mbox{\hyperlink{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}{grace\+::flux\+\_\+array\+\_\+t}} const fluxes) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1grmhd__equations__system__t_abe8c27c4a3666a8495515c74f357d4eb}\label{structgrace_1_1grmhd__equations__system__t_abe8c27c4a3666a8495515c74f357d4eb}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+z\+\_\+flux} (thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), int ngz, \mbox{\hyperlink{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}{grace\+::flux\+\_\+array\+\_\+t}} const fluxes) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1grmhd__equations__system__t_a67281c91a628d4e98e7027458c27c6f7}\label{structgrace_1_1grmhd__equations__system__t_a67281c91a628d4e98e7027458c27c6f7}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+source\+\_\+terms} (thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), \mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ const state\+\_\+new, double const dt, double const dtfact) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1grmhd__equations__system__t_ab7712023e971f53a5b601a1852d26b1e}\label{structgrace_1_1grmhd__equations__system__t_ab7712023e971f53a5b601a1852d26b1e}} 
+void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+auxiliaries} (VEC(const int i, const int j, const int k), int64\+\_\+t q) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1grmhd__equations__system__t_a71ee9971744891c46381e2d85dc8b4ce}\label{structgrace_1_1grmhd__equations__system__t_a71ee9971744891c46381e2d85dc8b4ce}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+max\+\_\+eigenspeed} (VEC(const int i, const int j, const int k), int64\+\_\+t q) const
+\end{DoxyCompactItemize}
+\doxysubsection*{Additional Inherited Members}
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/grace/physics/\mbox{\hyperlink{grmhd_8hh}{grmhd.\+hh}}\end{DoxyCompactItemize}

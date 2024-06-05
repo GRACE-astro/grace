@@ -1,0 +1,50 @@
+\hypertarget{structgrace_1_1scalar__advection__system__t}{}\doxysection{grace\+::scalar\+\_\+advection\+\_\+system\+\_\+t$<$ recon\+\_\+t $>$ Struct Template Reference}
+\label{structgrace_1_1scalar__advection__system__t}\index{grace::scalar\_advection\_system\_t$<$ recon\_t $>$@{grace::scalar\_advection\_system\_t$<$ recon\_t $>$}}
+
+
+Inheritance diagram for grace\+::scalar\+\_\+advection\+\_\+system\+\_\+t$<$ recon\+\_\+t $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=241pt]{structgrace_1_1scalar__advection__system__t__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for grace\+::scalar\+\_\+advection\+\_\+system\+\_\+t$<$ recon\+\_\+t $>$\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=241pt]{structgrace_1_1scalar__advection__system__t__coll__graph}
+\end{center}
+\end{figure}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structgrace_1_1scalar__advection__system__t_a24a1834e28a0e6d9d6c4543a039b69c1}\label{structgrace_1_1scalar__advection__system__t_a24a1834e28a0e6d9d6c4543a039b69c1}} 
+{\bfseries scalar\+\_\+advection\+\_\+system\+\_\+t} (\mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ state\+\_\+, \mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ aux\+\_\+, VEC(double ax\+\_\+, double ay\+\_\+, double az\+\_\+))
+\item 
+\mbox{\Hypertarget{structgrace_1_1scalar__advection__system__t_a9a59dca4a00e159d6d8e568fca3997e6}\label{structgrace_1_1scalar__advection__system__t_a9a59dca4a00e159d6d8e568fca3997e6}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+x\+\_\+flux} (thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), int ngz, \mbox{\hyperlink{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}{grace\+::flux\+\_\+array\+\_\+t}} const fluxes) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1scalar__advection__system__t_ab58933a0aa15c98156f9c688cc21b4c5}\label{structgrace_1_1scalar__advection__system__t_ab58933a0aa15c98156f9c688cc21b4c5}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+y\+\_\+flux} (thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), int ngz, \mbox{\hyperlink{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}{grace\+::flux\+\_\+array\+\_\+t}} const fluxes) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1scalar__advection__system__t_a2999878147aa51c5923db0d6b9dda1b6}\label{structgrace_1_1scalar__advection__system__t_a2999878147aa51c5923db0d6b9dda1b6}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+z\+\_\+flux} (thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), int ngz, \mbox{\hyperlink{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}{grace\+::flux\+\_\+array\+\_\+t}} const fluxes) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1scalar__advection__system__t_ab1f37a03358695a259221de737b0d804}\label{structgrace_1_1scalar__advection__system__t_ab1f37a03358695a259221de737b0d804}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+source\+\_\+terms} (thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), \mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ const state\+\_\+new, double const dt, double const dtfact) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1scalar__advection__system__t_abb8f35f9a6863e4216f74e2c9d555b01}\label{structgrace_1_1scalar__advection__system__t_abb8f35f9a6863e4216f74e2c9d555b01}} 
+void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+auxiliaries} (VEC(const int i, const int j, const int k), int64\+\_\+t q) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1scalar__advection__system__t_a17bc769f866a1ae30cda9fba497cb202}\label{structgrace_1_1scalar__advection__system__t_a17bc769f866a1ae30cda9fba497cb202}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries compute\+\_\+max\+\_\+eigenspeed} (VEC(const int i, const int j, const int k), int64\+\_\+t q) const
+\end{DoxyCompactItemize}
+\doxysubsection*{Additional Inherited Members}
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/grace/physics/\mbox{\hyperlink{scalar__advection_8hh}{scalar\+\_\+advection.\+hh}}\end{DoxyCompactItemize}

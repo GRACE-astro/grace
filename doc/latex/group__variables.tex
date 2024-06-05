@@ -1,0 +1,157 @@
+\hypertarget{group__variables}{}\doxysection{Routines and classes to hadle variables and their storage/access.}
+\label{group__variables}\index{Routines and classes to hadle variables and their storage/access.@{Routines and classes to hadle variables and their storage/access.}}
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structgrace_1_1variable__properties__t}{grace\+::variable\+\_\+properties\+\_\+t$<$ ndim $>$}}
+\begin{DoxyCompactList}\small\item\em Helper class. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structgrace_1_1variable__properties__t_3_012_01_4}{grace\+::variable\+\_\+properties\+\_\+t$<$ 2 $>$}}
+\begin{DoxyCompactList}\small\item\em Helper class. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structgrace_1_1variable__properties__t_3_013_01_4}{grace\+::variable\+\_\+properties\+\_\+t$<$ 3 $>$}}
+\begin{DoxyCompactList}\small\item\em Helper class. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structgrace_1_1coord__array__impl__t}{grace\+::coord\+\_\+array\+\_\+impl\+\_\+t$<$ ndim $>$}}
+\begin{DoxyCompactList}\small\item\em Helper class. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structgrace_1_1coord__array__impl__t_3_012_01_4}{grace\+::coord\+\_\+array\+\_\+impl\+\_\+t$<$ 2 $>$}}
+\begin{DoxyCompactList}\small\item\em Helper class. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structgrace_1_1coord__array__impl__t_3_013_01_4}{grace\+::coord\+\_\+array\+\_\+impl\+\_\+t$<$ 3 $>$}}
+\begin{DoxyCompactList}\small\item\em Helper class. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structgrace_1_1cell__vol__array__impl__t}{grace\+::cell\+\_\+vol\+\_\+array\+\_\+impl\+\_\+t$<$ ndim $>$}}
+\begin{DoxyCompactList}\small\item\em Helper class. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structgrace_1_1cell__vol__array__impl__t_3_012_01_4}{grace\+::cell\+\_\+vol\+\_\+array\+\_\+impl\+\_\+t$<$ 2 $>$}}
+\begin{DoxyCompactList}\small\item\em Helper class. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structgrace_1_1cell__vol__array__impl__t_3_013_01_4}{grace\+::cell\+\_\+vol\+\_\+array\+\_\+impl\+\_\+t$<$ 3 $>$}}
+\begin{DoxyCompactList}\small\item\em Helper class. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structgrace_1_1scalar__array__impl__t}{grace\+::scalar\+\_\+array\+\_\+impl\+\_\+t$<$ ndim $>$}}
+\begin{DoxyCompactList}\small\item\em Helper class. \end{DoxyCompactList}\item 
+class \mbox{\hyperlink{classgrace_1_1variable__list__impl__t}{grace\+::variable\+\_\+list\+\_\+impl\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em Implementation of the variable list type. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{group__variables_ga4687b68242d7de1ea586fa8de91ace17}\label{group__variables_ga4687b68242d7de1ea586fa8de91ace17}} 
+using \mbox{\hyperlink{group__variables_ga4687b68242d7de1ea586fa8de91ace17}{grace\+::default\+\_\+execution\+\_\+space}} = default\+\_\+space\+::execution\+\_\+space
+\begin{DoxyCompactList}\small\item\em Typedef that defines the default Memory and Execution space(s) in GRACE. The hierarchy of precedence goes as follows\+: 1) If a device is enabled, we use it 2) If a host parallel mode is enabled, we use Host memory and host-\/parallel execution 3) If only host serial is available, that\textquotesingle{}s what we use. (for debug only hopefully!) See the general README on how to enable backends during GRACE\textquotesingle{}s build process. \end{DoxyCompactList}\item 
+{\footnotesize template$<$size\+\_\+t ndim = GRACE\+\_\+\+NSPACEDIM$>$ }\\using \mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}} = \mbox{\hyperlink{structgrace_1_1variable__properties__t}{variable\+\_\+properties\+\_\+t}}$<$ ndim $>$\+::view\+\_\+t
+\begin{DoxyCompactList}\small\item\em Proxy for variable {\ttfamily View} type in GRACE. \end{DoxyCompactList}\item 
+{\footnotesize template$<$size\+\_\+t ndim = GRACE\+\_\+\+NSPACEDIM$>$ }\\using \mbox{\hyperlink{group__variables_ga402b79d7f447c93ac1abccd235caa079}{grace\+::coord\+\_\+array\+\_\+t}} = \mbox{\hyperlink{structgrace_1_1coord__array__impl__t}{coord\+\_\+array\+\_\+impl\+\_\+t}}$<$ ndim $>$\+::view\+\_\+t
+\begin{DoxyCompactList}\small\item\em Proxy for coordinate {\ttfamily View} type in GRACE. \end{DoxyCompactList}\item 
+{\footnotesize template$<$size\+\_\+t ndim = GRACE\+\_\+\+NSPACEDIM$>$ }\\using \mbox{\hyperlink{group__variables_ga7f23f8d960b3d1bfc964143b966290d8}{grace\+::scalar\+\_\+array\+\_\+t}} = \mbox{\hyperlink{structgrace_1_1scalar__array__impl__t}{scalar\+\_\+array\+\_\+impl\+\_\+t}}$<$ ndim $>$\+::view\+\_\+t
+\begin{DoxyCompactList}\small\item\em Proxy for scalar {\ttfamily View} type in GRACE. \end{DoxyCompactList}\item 
+{\footnotesize template$<$size\+\_\+t ndim = GRACE\+\_\+\+NSPACEDIM$>$ }\\using \mbox{\hyperlink{group__variables_ga223ea490a183b7ac7ecf0ee708389477}{grace\+::cell\+\_\+vol\+\_\+array\+\_\+t}} = \mbox{\hyperlink{structgrace_1_1cell__vol__array__impl__t}{cell\+\_\+vol\+\_\+array\+\_\+impl\+\_\+t}}$<$ ndim $>$\+::view\+\_\+t
+\begin{DoxyCompactList}\small\item\em Proxy for volume cell {\ttfamily View} type in GRACE. \end{DoxyCompactList}\item 
+using \mbox{\hyperlink{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}{grace\+::flux\+\_\+array\+\_\+t}} = Kokkos\+::\+View$<$ double EXPR($\ast$, $\ast$, $\ast$) $\ast$$\ast$$\ast$, default\+\_\+space $>$
+\begin{DoxyCompactList}\small\item\em Proxy for flux {\ttfamily View} type in GRACE. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{group__variables_ga9ee9bb17728482426db05fd347a16053}\label{group__variables_ga9ee9bb17728482426db05fd347a16053}} 
+using \mbox{\hyperlink{group__variables_ga9ee9bb17728482426db05fd347a16053}{grace\+::variable\+\_\+list}} = \mbox{\hyperlink{classutils_1_1singleton__holder}{utils\+::singleton\+\_\+holder}}$<$ \mbox{\hyperlink{classgrace_1_1variable__list__impl__t}{variable\+\_\+list\+\_\+impl\+\_\+t}} $>$
+\begin{DoxyCompactList}\small\item\em Proxy holding all variables within GRACE. Only a unique instance of this class exists at runtime and its reference can be obtained via the {\ttfamily get()} static method. See references on {\ttfamily singleton\+\_\+holder} for details. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{group__variables_ga2046599bb63ab71cb4ec7cdb2b49f731}\label{group__variables_ga2046599bb63ab71cb4ec7cdb2b49f731}} 
+enum \mbox{\hyperlink{group__variables_ga2046599bb63ab71cb4ec7cdb2b49f731}{grace\+::variables\+::grace\+\_\+variable\+\_\+types}} \{ \newline
+{\bfseries EVOLVED} =0
+, {\bfseries AUXILIARY}
+, {\bfseries FACE\+\_\+\+STAGGERED}
+, {\bfseries FACE\+\_\+\+STAGGERED\+\_\+\+AUXILIARY}
+, \newline
+{\bfseries EDGE\+\_\+\+STAGGERED}
+, {\bfseries EDGE\+\_\+\+STAGGERED\+\_\+\+AUXILIARY}
+, {\bfseries CORNER\+\_\+\+STAGGERED}
+, {\bfseries CORNER\+\_\+\+STAGGERED\+\_\+\+AUXILIARY}
+, \newline
+{\bfseries N\+\_\+\+GRACE\+\_\+\+VARIABLE\+\_\+\+TYPES}
+ \}
+\begin{DoxyCompactList}\small\item\em Enum for variable types in GRACE. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{group__variables_gae845961f6a283be532503dc1f15d32b9}\label{group__variables_gae845961f6a283be532503dc1f15d32b9}} 
+void \mbox{\hyperlink{group__variables_gae845961f6a283be532503dc1f15d32b9}{grace\+::variables\+::register\+\_\+variables}} ()
+\begin{DoxyCompactList}\small\item\em Register all variables.
+
+Whenever a new physics module needs to be defined, the indices for its variables need to be defined as {\ttfamily extern int}s with unique uppercase identifiers in this file. These variables are then filled with values in the correct order within this routine, which needs to be updated with appropriate calls to {\ttfamily register\+\_\+variable} for the new grid functions. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+
+
+\doxysubsection{Typedef Documentation}
+\mbox{\Hypertarget{group__variables_ga223ea490a183b7ac7ecf0ee708389477}\label{group__variables_ga223ea490a183b7ac7ecf0ee708389477}} 
+\index{Routines and classes to hadle variables and their storage/access.@{Routines and classes to hadle variables and their storage/access.}!cell\_vol\_array\_t@{cell\_vol\_array\_t}}
+\index{cell\_vol\_array\_t@{cell\_vol\_array\_t}!Routines and classes to hadle variables and their storage/access.@{Routines and classes to hadle variables and their storage/access.}}
+\doxysubsubsection{\texorpdfstring{cell\_vol\_array\_t}{cell\_vol\_array\_t}}
+{\footnotesize\ttfamily template$<$size\+\_\+t ndim = GRACE\+\_\+\+NSPACEDIM$>$ \\
+using \mbox{\hyperlink{group__variables_ga223ea490a183b7ac7ecf0ee708389477}{grace\+::cell\+\_\+vol\+\_\+array\+\_\+t}} = typedef \mbox{\hyperlink{structgrace_1_1cell__vol__array__impl__t}{cell\+\_\+vol\+\_\+array\+\_\+impl\+\_\+t}}$<$ndim$>$\+::view\+\_\+t}
+
+
+
+Proxy for volume cell {\ttfamily View} type in GRACE. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em ndim} & Number of spatial dimension \\
+\hline
+\end{DoxyTemplParams}
+\mbox{\Hypertarget{group__variables_ga402b79d7f447c93ac1abccd235caa079}\label{group__variables_ga402b79d7f447c93ac1abccd235caa079}} 
+\index{Routines and classes to hadle variables and their storage/access.@{Routines and classes to hadle variables and their storage/access.}!coord\_array\_t@{coord\_array\_t}}
+\index{coord\_array\_t@{coord\_array\_t}!Routines and classes to hadle variables and their storage/access.@{Routines and classes to hadle variables and their storage/access.}}
+\doxysubsubsection{\texorpdfstring{coord\_array\_t}{coord\_array\_t}}
+{\footnotesize\ttfamily template$<$size\+\_\+t ndim = GRACE\+\_\+\+NSPACEDIM$>$ \\
+using \mbox{\hyperlink{group__variables_ga402b79d7f447c93ac1abccd235caa079}{grace\+::coord\+\_\+array\+\_\+t}} = typedef \mbox{\hyperlink{structgrace_1_1coord__array__impl__t}{coord\+\_\+array\+\_\+impl\+\_\+t}}$<$ndim$>$\+::view\+\_\+t}
+
+
+
+Proxy for coordinate {\ttfamily View} type in GRACE. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em ndim} & Number of spatial dimension \\
+\hline
+\end{DoxyTemplParams}
+\mbox{\Hypertarget{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}\label{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}} 
+\index{Routines and classes to hadle variables and their storage/access.@{Routines and classes to hadle variables and their storage/access.}!flux\_array\_t@{flux\_array\_t}}
+\index{flux\_array\_t@{flux\_array\_t}!Routines and classes to hadle variables and their storage/access.@{Routines and classes to hadle variables and their storage/access.}}
+\doxysubsubsection{\texorpdfstring{flux\_array\_t}{flux\_array\_t}}
+{\footnotesize\ttfamily using \mbox{\hyperlink{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}{grace\+::flux\+\_\+array\+\_\+t}} = typedef Kokkos\+::\+View$<$double EXPR($\ast$,$\ast$,$\ast$) $\ast$$\ast$$\ast$, default\+\_\+space$>$}
+
+
+
+Proxy for flux {\ttfamily View} type in GRACE. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em ndim} & Number of spatial dimension \\
+\hline
+\end{DoxyTemplParams}
+\mbox{\Hypertarget{group__variables_ga7f23f8d960b3d1bfc964143b966290d8}\label{group__variables_ga7f23f8d960b3d1bfc964143b966290d8}} 
+\index{Routines and classes to hadle variables and their storage/access.@{Routines and classes to hadle variables and their storage/access.}!scalar\_array\_t@{scalar\_array\_t}}
+\index{scalar\_array\_t@{scalar\_array\_t}!Routines and classes to hadle variables and their storage/access.@{Routines and classes to hadle variables and their storage/access.}}
+\doxysubsubsection{\texorpdfstring{scalar\_array\_t}{scalar\_array\_t}}
+{\footnotesize\ttfamily template$<$size\+\_\+t ndim = GRACE\+\_\+\+NSPACEDIM$>$ \\
+using \mbox{\hyperlink{group__variables_ga7f23f8d960b3d1bfc964143b966290d8}{grace\+::scalar\+\_\+array\+\_\+t}} = typedef \mbox{\hyperlink{structgrace_1_1scalar__array__impl__t}{scalar\+\_\+array\+\_\+impl\+\_\+t}}$<$ndim$>$\+::view\+\_\+t}
+
+
+
+Proxy for scalar {\ttfamily View} type in GRACE. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em ndim} & Number of spatial dimension \\
+\hline
+\end{DoxyTemplParams}
+\mbox{\Hypertarget{group__variables_ga5db882ec84cf1d393084092a8d27b001}\label{group__variables_ga5db882ec84cf1d393084092a8d27b001}} 
+\index{Routines and classes to hadle variables and their storage/access.@{Routines and classes to hadle variables and their storage/access.}!var\_array\_t@{var\_array\_t}}
+\index{var\_array\_t@{var\_array\_t}!Routines and classes to hadle variables and their storage/access.@{Routines and classes to hadle variables and their storage/access.}}
+\doxysubsubsection{\texorpdfstring{var\_array\_t}{var\_array\_t}}
+{\footnotesize\ttfamily template$<$size\+\_\+t ndim = GRACE\+\_\+\+NSPACEDIM$>$ \\
+using \mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}} = typedef \mbox{\hyperlink{structgrace_1_1variable__properties__t}{variable\+\_\+properties\+\_\+t}}$<$ndim$>$\+::view\+\_\+t}
+
+
+
+Proxy for variable {\ttfamily View} type in GRACE. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em ndim} & Number of spatial dimension \\
+\hline
+\end{DoxyTemplParams}

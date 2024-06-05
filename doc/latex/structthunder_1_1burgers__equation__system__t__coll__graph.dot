@@ -1,0 +1,10 @@
+digraph "thunder::burgers_equation_system_t&lt; recon_t, riemann_t &gt;"
+{
+ // LATEX_PDF_SIZE
+  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
+  node [fontname="Helvetica",fontsize="10",shape=record];
+  rankdir="LR";
+  Node1 [label="thunder::burgers_equation\l_system_t\< recon_t, riemann_t \>",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black",tooltip="Burgers equation evolution system."];
+  Node2 -> Node1 [dir="back",color="midnightblue",fontsize="10",style="solid"];
+  Node2 [label="thunder::hrsc_evolution\l_system_t\< burgers_equation\l_system_t\< recon_t, riemann_t \> \>",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$structthunder_1_1hrsc__evolution__system__t.html",tooltip=" "];
+}

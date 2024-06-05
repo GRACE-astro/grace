@@ -1,0 +1,40 @@
+\hypertarget{structgrace_1_1hrsc__evolution__system__t}{}\doxysection{grace\+::hrsc\+\_\+evolution\+\_\+system\+\_\+t$<$ Evol\+System\+\_\+t $>$ Struct Template Reference}
+\label{structgrace_1_1hrsc__evolution__system__t}\index{grace::hrsc\_evolution\_system\_t$<$ EvolSystem\_t $>$@{grace::hrsc\_evolution\_system\_t$<$ EvolSystem\_t $>$}}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structgrace_1_1hrsc__evolution__system__t_addedff7b5c4f07d6b63cb8671e1ba0cf}\label{structgrace_1_1hrsc__evolution__system__t_addedff7b5c4f07d6b63cb8671e1ba0cf}} 
+{\bfseries hrsc\+\_\+evolution\+\_\+system\+\_\+t} (\mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ state\+\_\+, \mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ aux\+\_\+)
+\item 
+\mbox{\Hypertarget{structgrace_1_1hrsc__evolution__system__t_a89f6cadecb517cdd33e11f8cce23cec7}\label{structgrace_1_1hrsc__evolution__system__t_a89f6cadecb517cdd33e11f8cce23cec7}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries operator()} (\mbox{\hyperlink{structgrace_1_1x__flux__computation__kernel__t}{x\+\_\+flux\+\_\+computation\+\_\+kernel\+\_\+t}} \+\_\+tag, thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), int ngz, \mbox{\hyperlink{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}{grace\+::flux\+\_\+array\+\_\+t}} const fluxes) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1hrsc__evolution__system__t_ae3e2e187b137de61d48740a0b22ad9d4}\label{structgrace_1_1hrsc__evolution__system__t_ae3e2e187b137de61d48740a0b22ad9d4}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries operator()} (\mbox{\hyperlink{structgrace_1_1y__flux__computation__kernel__t}{y\+\_\+flux\+\_\+computation\+\_\+kernel\+\_\+t}} \+\_\+tag, thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), int ngz, \mbox{\hyperlink{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}{grace\+::flux\+\_\+array\+\_\+t}} const fluxes) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1hrsc__evolution__system__t_aeb8c4708400340389ee49cd22b1bf36d}\label{structgrace_1_1hrsc__evolution__system__t_aeb8c4708400340389ee49cd22b1bf36d}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries operator()} (\mbox{\hyperlink{structgrace_1_1z__flux__computation__kernel__t}{z\+\_\+flux\+\_\+computation\+\_\+kernel\+\_\+t}} \+\_\+tag, thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), int ngz, \mbox{\hyperlink{group__variables_ga4cfe2ef014b31ded226a53f6132c2a53}{grace\+::flux\+\_\+array\+\_\+t}} const fluxes) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1hrsc__evolution__system__t_a3973c614e4b5255453cdf04a3fdabb03}\label{structgrace_1_1hrsc__evolution__system__t_a3973c614e4b5255453cdf04a3fdabb03}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries operator()} (\mbox{\hyperlink{structgrace_1_1sources__computation__kernel__t}{sources\+\_\+computation\+\_\+kernel\+\_\+t}} \+\_\+tag, thread\+\_\+team\+\_\+t \&team, VEC(const int i, const int j, const int k), \mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ const state\+\_\+new, double const dt, double const dtfact) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1hrsc__evolution__system__t_a7f20bd04577753bbf7461b6b4be80390}\label{structgrace_1_1hrsc__evolution__system__t_a7f20bd04577753bbf7461b6b4be80390}} 
+{\footnotesize template$<$typename thread\+\_\+team\+\_\+t $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries operator()} (\mbox{\hyperlink{structgrace_1_1auxiliaries__computation__kernel__t}{auxiliaries\+\_\+computation\+\_\+kernel\+\_\+t}} \+\_\+tag, VEC(const int i, const int j, const int k), int64\+\_\+t q) const
+\item 
+\mbox{\Hypertarget{structgrace_1_1hrsc__evolution__system__t_acfb36aa9710f77a26afda19480c87a69}\label{structgrace_1_1hrsc__evolution__system__t_acfb36aa9710f77a26afda19480c87a69}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE {\bfseries operator()} (\mbox{\hyperlink{structgrace_1_1eigenspeed__kernel__t}{eigenspeed\+\_\+kernel\+\_\+t}} \+\_\+tag, VEC(const int i, const int j, const int k), int64\+\_\+t q) const
+\end{DoxyCompactItemize}
+\doxysubsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structgrace_1_1hrsc__evolution__system__t_aa30c0d6278b28dc0fb521a84674d9c49}\label{structgrace_1_1hrsc__evolution__system__t_aa30c0d6278b28dc0fb521a84674d9c49}} 
+\mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ {\bfseries \+\_\+state}
+\item 
+\mbox{\Hypertarget{structgrace_1_1hrsc__evolution__system__t_a9106a75a1dc41e1d4abdf173193c535f}\label{structgrace_1_1hrsc__evolution__system__t_a9106a75a1dc41e1d4abdf173193c535f}} 
+\mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ {\bfseries \+\_\+aux}
+\end{DoxyCompactItemize}
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/grace/evolution/\mbox{\hyperlink{hrsc__evolution__system_8hh}{hrsc\+\_\+evolution\+\_\+system.\+hh}}\end{DoxyCompactItemize}

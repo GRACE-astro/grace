@@ -295,6 +295,20 @@ vtk_module_autoinit(
     MODULES ${VTK_LIBRARIES}
     )
 
+add_executable( pwpoly_test test_pwpoly_eos.cpp )
+target_include_directories(pwpoly_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  pwpoly_test PRIVATE 
+p4est_tests_main
+    Catch2::Catch2
+    grace_objects
+    yaml_cpp::yaml
+    Kokkos::kokkos
+    MPI::MPI_CXX
+    OpenMP::OpenMP_CXX
+    p4est::sc
+    p4est::p4est 
+    spdlog::spdlog)
+
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)
 add_test(NAME sc_wrappers_test COMMAND 
@@ -327,6 +341,9 @@ add_test(NAME bc_test_spherical COMMAND
         mpirun -n 2 ./bc_test --grace-parfile ./configs/regrid_test_spherical.yaml )
 add_test(NAME scalar_reductions_test COMMAND 
         mpirun -n 1 ./scalar_reductions_test --grace-parfile ./configs/scalar_reductions_test.yaml )
+add_test(NAME pwpoly_test COMMAND 
+        mpirun -n 1 ./pwpoly_test --grace-parfile ./configs/pwpoly_test_config.yaml.yaml )
+
 ##add_custom_command(
 #        TARGET
 #        COMMENT "Run tests"

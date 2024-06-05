@@ -1,0 +1,442 @@
+\hypertarget{group__utils}{}\doxysection{Utilities for GRACE.}
+\label{group__utils}\index{Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structutils_1_1detail_1_1integrator__t}{utils\+::detail\+::integrator\+\_\+t$<$ T, F, Ndim $>$}}
+\begin{DoxyCompactList}\small\item\em Helper class for N dimensional integration over a hyperrectangle. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structutils_1_1detail_1_1integrator__t_3_01T_00_01F_00_011_01_4}{utils\+::detail\+::integrator\+\_\+t$<$ T, F, 1 $>$}}
+\begin{DoxyCompactList}\small\item\em Specialization of helper class for N dimensional integration over a hyperrectangle to 1D. \end{DoxyCompactList}\item 
+class \mbox{\hyperlink{classutils_1_1pvt_1_1lifetime__tracker}{utils\+::pvt\+::lifetime\+\_\+tracker}}
+\begin{DoxyCompactList}\small\item\em \mbox{\hyperlink{classutils_1_1pvt_1_1lifetime__tracker}{lifetime\+\_\+tracker}} implementation. \end{DoxyCompactList}\item 
+class \mbox{\hyperlink{classutils_1_1pvt_1_1concrete__lifetime__tracker}{utils\+::pvt\+::concrete\+\_\+lifetime\+\_\+tracker$<$ destroyer $>$}}
+\begin{DoxyCompactList}\small\item\em concrete implementation of \mbox{\hyperlink{classutils_1_1pvt_1_1lifetime__tracker}{lifetime\+\_\+tracker}} for object of type T. \end{DoxyCompactList}\item 
+class \mbox{\hyperlink{classutils_1_1make__string}{utils\+::make\+\_\+string}}
+\begin{DoxyCompactList}\small\item\em make a string out of a stream
+
+Usage\+: \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structmath_1_1detail_1_1int__pow__impl}{math\+::detail\+::int\+\_\+pow\+\_\+impl$<$ T, N $>$}}
+\begin{DoxyCompactList}\small\item\em Compute integer powers. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structutils_1_1detail_1_1det__impl__t}{utils\+::detail\+::det\+\_\+impl\+\_\+t$<$ N $>$}}
+\begin{DoxyCompactList}\small\item\em Helper struct for small matrix determinant computation. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structutils_1_1detail_1_1det__impl__t_3_011UL_01_4}{utils\+::detail\+::det\+\_\+impl\+\_\+t$<$ 1\+UL $>$}}
+\begin{DoxyCompactList}\small\item\em Helper struct for small matrix determinant computation. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structutils_1_1detail_1_1det__impl__t_3_012UL_01_4}{utils\+::detail\+::det\+\_\+impl\+\_\+t$<$ 2\+UL $>$}}
+\begin{DoxyCompactList}\small\item\em Helper struct for small matrix determinant computation. \end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{structutils_1_1detail_1_1det__impl__t_3_013UL_01_4}{utils\+::detail\+::det\+\_\+impl\+\_\+t$<$ 3\+UL $>$}}
+\begin{DoxyCompactList}\small\item\em Helper struct for small matrix determinant computation. \end{DoxyCompactList}\item 
+class \mbox{\hyperlink{classgrace_1_1sc__array__view__t}{grace\+::sc\+\_\+array\+\_\+view\+\_\+t$<$ T $>$}}
+\begin{DoxyCompactList}\small\item\em View of an sc\+\_\+array. \end{DoxyCompactList}\item 
+class \mbox{\hyperlink{classutils_1_1singleton__holder}{utils\+::singleton\+\_\+holder$<$ T, creation\+\_\+policy $>$}}
+\begin{DoxyCompactList}\small\item\em \mbox{\hyperlink{classutils_1_1singleton__holder}{singleton\+\_\+holder}} class. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+{\footnotesize template$<$typename T , typename F $>$ }\\T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{group__utils_gada5d026655e45832527d6c92bd733da7}{utils\+::detail\+::trapezoid\+\_\+impl}} (T const \&s, T const \&a, T const \&b, int n, F \&\&func)
+\begin{DoxyCompactList}\small\item\em Perform recursive trapezoidal integration in 1D. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T , typename F $>$ }\\T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{group__utils_ga3fb0e9d348ced368195cfd60afb81a1a}{utils\+::simpson}} (T const \&a, T const \&b, T const \&eps, F \&\&func, size\+\_\+t const imax=30)
+\begin{DoxyCompactList}\small\item\em Perform simpson integration of a 1D function to a required tolerance using a recursive trapezoidal rule. \end{DoxyCompactList}\item 
+{\footnotesize template$<$size\+\_\+t Ndim, typename T , typename F $>$ }\\T \mbox{\hyperlink{group__utils_ga55caa0c5a4e74c008994218a2ffc50bb}{utils\+::nd\+\_\+simpson\+\_\+integrate}} (std\+::array$<$ T, Ndim $>$const \&a, std\+::array$<$ T, Ndim $>$ const \&b, T const \&eps, F const \&func, size\+\_\+t const imax=30)
+\begin{DoxyCompactList}\small\item\em Perform an integral of a scalar function over an N-\/dimensional hyperrectangle using Simpson\textquotesingle{}s rule. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__utils_gafd80e7fc3717c2226938d3d86ae3bacb}{utils\+::pvt\+::at\+\_\+exit\+\_\+func}} ()
+\begin{DoxyCompactList}\small\item\em Function scheduled by. \end{DoxyCompactList}\item 
+{\footnotesize template$<$class destroyer $>$ }\\void \mbox{\hyperlink{group__utils_ga8097863f86728149f7f87e52c5f64afc}{utils\+::set\+\_\+longevity}} (unsigned int longevity)
+\begin{DoxyCompactList}\small\item\em Set the longevity of dynamically allocated object of type T. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T $>$ }\\int GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga067ddec81531d945f268bd0fd4138531}{math\+::sgn}} (T const \&val)
+\begin{DoxyCompactList}\small\item\em Signum. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{group__utils_ga6956341198e83672f152765f5dee9ee3}\label{group__utils_ga6956341198e83672f152765f5dee9ee3}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga6956341198e83672f152765f5dee9ee3}{math\+::detail\+::dmax}} (double const \&A, double const \&B)
+\begin{DoxyCompactList}\small\item\em Specialization of max function for doubles. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{group__utils_ga00066dd5cf372b07baeab7d4b500cde6}\label{group__utils_ga00066dd5cf372b07baeab7d4b500cde6}} 
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga00066dd5cf372b07baeab7d4b500cde6}{math\+::detail\+::dmin}} (double const \&A, double const \&B)
+\begin{DoxyCompactList}\small\item\em Specialization of min function for doubles. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T $>$ }\\T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga2a307482a8830fb6b184d31befdee335}{math\+::max}} (T const \&A, T const \&B)
+\begin{DoxyCompactList}\small\item\em Maximum between two numeric values. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename ... Arg\+\_\+t$>$ }\\double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga28538a0ee85eb656e3bf70a40a5aae9c}{math\+::max}} (double const \&A, double const \&B, Arg\+\_\+t \&\&... args)
+\begin{DoxyCompactList}\small\item\em Maximum of a set of floating point values. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T $>$ }\\T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga09e63326a30af37a33a44028239eaf64}{math\+::min}} (T const \&A, T const \&B)
+\begin{DoxyCompactList}\small\item\em Minimum between two numeric values. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename ... Arg\+\_\+t$>$ }\\double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_gaf864904eef634e7080d8ca5783b1e9f3}{math\+::min}} (double const \&A, double const \&B, Arg\+\_\+t \&\&... args)
+\begin{DoxyCompactList}\small\item\em Minimum of a set of floating point values. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T $>$ }\\T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE \mbox{\hyperlink{group__utils_ga79d7803c27e24bfacacae60357e14e38}{math\+::clamp}} (T const \&val, T const \&vmin, T const \&vmax)
+\begin{DoxyCompactList}\small\item\em Clamp a value between a max and a min. \end{DoxyCompactList}\item 
+{\footnotesize template$<$size\+\_\+t N$>$ }\\std\+::array$<$ double, N $\ast$N $>$ GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{group__utils_ga84fdea53673256dd78a1e5f9cdbe420a}{utils\+::identity\+\_\+matrix}} ()
+\begin{DoxyCompactList}\small\item\em Return the NxN identity matrix. \end{DoxyCompactList}\item 
+{\footnotesize template$<$size\+\_\+t N$>$ }\\double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{group__utils_gaf8b5e7d4190c9b3fdec8c1d7fc1be46b}{utils\+::det}} (std\+::array$<$ double, N $\ast$N $>$ const \&A)
+\begin{DoxyCompactList}\small\item\em Compute the determinant of a small square matrix. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T $>$ }\\constexpr auto \mbox{\hyperlink{group__utils_ga1db4dd556325c30c739ae143077aa529}{utils\+::type\+\_\+name}} ()
+\begin{DoxyCompactList}\small\item\em Format a type-\/name nicely. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+
+
+\doxysubsection{Function Documentation}
+\mbox{\Hypertarget{group__utils_gafd80e7fc3717c2226938d3d86ae3bacb}\label{group__utils_gafd80e7fc3717c2226938d3d86ae3bacb}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!at\_exit\_func@{at\_exit\_func}}
+\index{at\_exit\_func@{at\_exit\_func}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{at\_exit\_func()}{at\_exit\_func()}}
+{\footnotesize\ttfamily void utils\+::pvt\+::at\+\_\+exit\+\_\+func (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Function scheduled by. 
+
+Scheduled at termination.
+
+
+\begin{DoxyCode}{0}
+\DoxyCodeLine{std::atexit() }
+
+\end{DoxyCode}
+.
+
+This function pops objects from the top of the ptracker\+\_\+array stack in the order of their longevity, triggering the destruction of the associated \mbox{\hyperlink{classutils_1_1pvt_1_1concrete__lifetime__tracker}{concrete\+\_\+lifetime\+\_\+tracker}} which itself destroys the object. forward declaration
+
+This function calls destructors of the singletons in increasing order of their longevity. \mbox{\Hypertarget{group__utils_ga79d7803c27e24bfacacae60357e14e38}\label{group__utils_ga79d7803c27e24bfacacae60357e14e38}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!clamp@{clamp}}
+\index{clamp@{clamp}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{clamp()}{clamp()}}
+{\footnotesize\ttfamily template$<$typename T $>$ \\
+T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE math\+::clamp (\begin{DoxyParamCaption}\item[{T const \&}]{val,  }\item[{T const \&}]{vmin,  }\item[{T const \&}]{vmax }\end{DoxyParamCaption})}
+
+
+
+Clamp a value between a max and a min. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & Type of the value. \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em val} & The value being clamped. \\
+\hline
+{\em vmin} & The minimum allowed value for {\ttfamily val}. \\
+\hline
+{\em vmax} & The maximum allowed value for {\ttfamily val}. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+T The clamped value. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__utils_gaf8b5e7d4190c9b3fdec8c1d7fc1be46b}\label{group__utils_gaf8b5e7d4190c9b3fdec8c1d7fc1be46b}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!det@{det}}
+\index{det@{det}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{det()}{det()}}
+{\footnotesize\ttfamily template$<$size\+\_\+t N$>$ \\
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE utils\+::det (\begin{DoxyParamCaption}\item[{std\+::array$<$ double, N $\ast$N $>$ const \&}]{A }\end{DoxyParamCaption})}
+
+
+
+Compute the determinant of a small square matrix. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em N} & Number of rows and columns of the matrix (must be $<$=3) \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em A} & Matrix. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The determinant of the matrix. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__utils_ga84fdea53673256dd78a1e5f9cdbe420a}\label{group__utils_ga84fdea53673256dd78a1e5f9cdbe420a}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!identity\_matrix@{identity\_matrix}}
+\index{identity\_matrix@{identity\_matrix}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{identity\_matrix()}{identity\_matrix()}}
+{\footnotesize\ttfamily template$<$size\+\_\+t N$>$ \\
+std\+::array$<$double, N$\ast$N$>$ GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE utils\+::identity\+\_\+matrix (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+Return the NxN identity matrix. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em N} & Number of rows and columns of the matrix. \\
+\hline
+\end{DoxyTemplParams}
+\begin{DoxyReturn}{Returns}
+std\+::array$<$double, N$\ast$\+N$>$ The identity matrix. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__utils_ga28538a0ee85eb656e3bf70a40a5aae9c}\label{group__utils_ga28538a0ee85eb656e3bf70a40a5aae9c}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!max@{max}}
+\index{max@{max}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{max()}{max()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily template$<$typename ... Arg\+\_\+t$>$ \\
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE math\+::max (\begin{DoxyParamCaption}\item[{double const \&}]{A,  }\item[{double const \&}]{B,  }\item[{Arg\+\_\+t \&\&...}]{args }\end{DoxyParamCaption})}
+
+
+
+Maximum of a set of floating point values. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Arg\+\_\+t} & Type(s) of other arguments. \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em A} & Value A. \\
+\hline
+{\em B} & Value B. \\
+\hline
+{\em args} & Other arguments. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The max between A,B and other arguments. NB\+: This function {\bfseries{will}} downcast any {\ttfamily long double} passed into it. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__utils_ga2a307482a8830fb6b184d31befdee335}\label{group__utils_ga2a307482a8830fb6b184d31befdee335}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!max@{max}}
+\index{max@{max}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{max()}{max()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily template$<$typename T $>$ \\
+T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE math\+::max (\begin{DoxyParamCaption}\item[{T const \&}]{A,  }\item[{T const \&}]{B }\end{DoxyParamCaption})}
+
+
+
+Maximum between two numeric values. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & Type of the numeric values \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em A} & Value A. \\
+\hline
+{\em B} & Value B. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+T The max between A and B. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__utils_gaf864904eef634e7080d8ca5783b1e9f3}\label{group__utils_gaf864904eef634e7080d8ca5783b1e9f3}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!min@{min}}
+\index{min@{min}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{min()}{min()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily template$<$typename ... Arg\+\_\+t$>$ \\
+double GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE math\+::min (\begin{DoxyParamCaption}\item[{double const \&}]{A,  }\item[{double const \&}]{B,  }\item[{Arg\+\_\+t \&\&...}]{args }\end{DoxyParamCaption})}
+
+
+
+Minimum of a set of floating point values. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Arg\+\_\+t} & Type(s) of other arguments. \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em A} & Value A. \\
+\hline
+{\em B} & Value B. \\
+\hline
+{\em args} & Other arguments. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The min between A,B and other arguments. NB\+: This function {\bfseries{will}} downcast any {\ttfamily long double} passed into it. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__utils_ga09e63326a30af37a33a44028239eaf64}\label{group__utils_ga09e63326a30af37a33a44028239eaf64}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!min@{min}}
+\index{min@{min}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{min()}{min()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily template$<$typename T $>$ \\
+T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE math\+::min (\begin{DoxyParamCaption}\item[{T const \&}]{A,  }\item[{T const \&}]{B }\end{DoxyParamCaption})}
+
+
+
+Minimum between two numeric values. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & Type of the numeric values \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em A} & Value A. \\
+\hline
+{\em B} & Value B. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+T The min between A and B. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__utils_ga55caa0c5a4e74c008994218a2ffc50bb}\label{group__utils_ga55caa0c5a4e74c008994218a2ffc50bb}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!nd\_simpson\_integrate@{nd\_simpson\_integrate}}
+\index{nd\_simpson\_integrate@{nd\_simpson\_integrate}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{nd\_simpson\_integrate()}{nd\_simpson\_integrate()}}
+{\footnotesize\ttfamily template$<$size\+\_\+t Ndim, typename T , typename F $>$ \\
+T utils\+::nd\+\_\+simpson\+\_\+integrate (\begin{DoxyParamCaption}\item[{std\+::array$<$ T, Ndim $>$const \&}]{a,  }\item[{std\+::array$<$ T, Ndim $>$ const \&}]{b,  }\item[{T const \&}]{eps,  }\item[{F const \&}]{func,  }\item[{size\+\_\+t const}]{imax = {\ttfamily 30} }\end{DoxyParamCaption})}
+
+
+
+Perform an integral of a scalar function over an N-\/dimensional hyperrectangle using Simpson\textquotesingle{}s rule. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Ndim} & Number of dimensions. \\
+\hline
+{\em T} & Type of integrand argument(s). \\
+\hline
+{\em F} & Type of integrand function. \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em a} & Array containing the lower bounds of integration. \\
+\hline
+{\em b} & Array containing the upper bounds of integration. \\
+\hline
+{\em eps} & Relative error tolerance. \\
+\hline
+{\em func} & Integrand function $ f: I^{N_d} \subset R^{N_d} \rightarrow R$ \\
+\hline
+{\em imax} & Maximum level of recursion for achieving requested tolerance. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+T The integral of the specified function over the hyper-\/rectangular domain $~\bigotimes_{i=1}^{N_d}~[a_i,b_i]$ 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__utils_ga8097863f86728149f7f87e52c5f64afc}\label{group__utils_ga8097863f86728149f7f87e52c5f64afc}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!set\_longevity@{set\_longevity}}
+\index{set\_longevity@{set\_longevity}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{set\_longevity()}{set\_longevity()}}
+{\footnotesize\ttfamily template$<$class destroyer $>$ \\
+void utils\+::set\+\_\+longevity (\begin{DoxyParamCaption}\item[{unsigned int}]{longevity }\end{DoxyParamCaption})}
+
+
+
+Set the longevity of dynamically allocated object of type T. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em destroyer} & struct which provides the correct deleter for the object. \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em longevity} & longevity of the object.\\
+\hline
+\end{DoxyParams}
+This function schedules the execution of the destructor from {\ttfamily concrete\+\_\+lifetime\+\_\+tracker} by means of {\ttfamily std\+::atexit()}. \mbox{\Hypertarget{group__utils_ga067ddec81531d945f268bd0fd4138531}\label{group__utils_ga067ddec81531d945f268bd0fd4138531}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!sgn@{sgn}}
+\index{sgn@{sgn}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{sgn()}{sgn()}}
+{\footnotesize\ttfamily template$<$typename T $>$ \\
+int GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE GRACE\+\_\+\+HOST\+\_\+\+DEVICE math\+::sgn (\begin{DoxyParamCaption}\item[{T const \&}]{val }\end{DoxyParamCaption})}
+
+
+
+Signum. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & Type of input \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em val} & Value whose sign is sought \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+int The signum of val. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__utils_ga3fb0e9d348ced368195cfd60afb81a1a}\label{group__utils_ga3fb0e9d348ced368195cfd60afb81a1a}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!simpson@{simpson}}
+\index{simpson@{simpson}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{simpson()}{simpson()}}
+{\footnotesize\ttfamily template$<$typename T , typename F $>$ \\
+T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE utils\+::simpson (\begin{DoxyParamCaption}\item[{T const \&}]{a,  }\item[{T const \&}]{b,  }\item[{T const \&}]{eps,  }\item[{F \&\&}]{func,  }\item[{size\+\_\+t const}]{imax = {\ttfamily 30} }\end{DoxyParamCaption})}
+
+
+
+Perform simpson integration of a 1D function to a required tolerance using a recursive trapezoidal rule. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & Type of integrand argument. \\
+\hline
+{\em F} & Type of integrand function. \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em a} & Lower bound of integration interval. \\
+\hline
+{\em b} & Upper bound of integration interval. \\
+\hline
+{\em eps} & Relative error tolerance. \\
+\hline
+{\em func} & Integrand function. \\
+\hline
+{\em imax} & Maximum recursion level. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+T Integral of {\ttfamily func} between {\ttfamily a} and {\ttfamily b}. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__utils_gada5d026655e45832527d6c92bd733da7}\label{group__utils_gada5d026655e45832527d6c92bd733da7}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!trapezoid\_impl@{trapezoid\_impl}}
+\index{trapezoid\_impl@{trapezoid\_impl}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{trapezoid\_impl()}{trapezoid\_impl()}}
+{\footnotesize\ttfamily template$<$typename T , typename F $>$ \\
+T GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE utils\+::detail\+::trapezoid\+\_\+impl (\begin{DoxyParamCaption}\item[{T const \&}]{s,  }\item[{T const \&}]{a,  }\item[{T const \&}]{b,  }\item[{int}]{n,  }\item[{F \&\&}]{func }\end{DoxyParamCaption})}
+
+
+
+Perform recursive trapezoidal integration in 1D. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & Type of integrand argument. \\
+\hline
+{\em F} & Type of integrand function. \\
+\hline
+\end{DoxyTemplParams}
+
+\begin{DoxyParams}{Parameters}
+{\em s} & Result of previous recursion. \\
+\hline
+{\em a} & Lower bound of integration interval. \\
+\hline
+{\em b} & Upper bound of integration interval. \\
+\hline
+{\em n} & Level of recursion. \\
+\hline
+{\em func} & Integrand function. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+T Integral of {\ttfamily func} between {\ttfamily a} and {\ttfamily b}. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__utils_ga1db4dd556325c30c739ae143077aa529}\label{group__utils_ga1db4dd556325c30c739ae143077aa529}} 
+\index{Utilities for GRACE.@{Utilities for GRACE.}!type\_name@{type\_name}}
+\index{type\_name@{type\_name}!Utilities for GRACE.@{Utilities for GRACE.}}
+\doxysubsubsection{\texorpdfstring{type\_name()}{type\_name()}}
+{\footnotesize\ttfamily template$<$typename T $>$ \\
+constexpr auto utils\+::type\+\_\+name (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [constexpr]}}
+
+
+
+Format a type-\/name nicely. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em T} & type-\/name to be formatted. \\
+\hline
+\end{DoxyTemplParams}
+\begin{DoxyReturn}{Returns}
+constexpr auto {\ttfamily std\+::string\+\_\+view} containing formatted type-\/name. 
+\end{DoxyReturn}

@@ -1,0 +1,154 @@
+\hypertarget{classthunder_1_1amr_1_1quadrant__t}{}\doxysection{thunder\+::amr\+::quadrant\+\_\+t Class Reference}
+\label{classthunder_1_1amr_1_1quadrant__t}\index{thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}}
+
+
+Thin wrapper around p4est\+\_\+quadrant\+\_\+t$\ast$ $<$$>$  
+
+
+
+
+{\ttfamily \#include $<$quadrant.\+hh$>$}
+
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_a7422fa66c81876968bf15a77747aa7fe}{quadrant\+\_\+t}} (p4est\+\_\+quadrant\+\_\+t $\ast$pquad)
+\begin{DoxyCompactList}\small\item\em Construct a new \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t}{quadrant\+\_\+t}} object. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classthunder_1_1amr_1_1quadrant__t_abcdefa3851e91c7157f99442c96a5130}\label{classthunder_1_1amr_1_1quadrant__t_abcdefa3851e91c7157f99442c96a5130}} 
+\mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_abcdefa3851e91c7157f99442c96a5130}{$\sim$quadrant\+\_\+t}} ()=default
+\begin{DoxyCompactList}\small\item\em Destroy the \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t}{quadrant\+\_\+t}} object. \end{DoxyCompactList}\item 
+std\+::array$<$ p4est\+\_\+qcoord\+\_\+t, THUNDER\+\_\+\+NSPACEDIM $>$ THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_ab4179379625e035938906289e05877cf}{qcoords}} (bool use\+\_\+current\+\_\+level=true) const
+\begin{DoxyCompactList}\small\item\em Get integer quadrant coordinates. \end{DoxyCompactList}\item 
+int THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_ac386e0006c252e69bd451222ed9b3462}{level}} () const
+\begin{DoxyCompactList}\small\item\em Get quadrant\textquotesingle{}s refinement level. \end{DoxyCompactList}\item 
+uint64\+\_\+t THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_acff09d9d57467b33e84d74d2b88c34ef}{linearid}} (int \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_ac386e0006c252e69bd451222ed9b3462}{level}}) const
+\begin{DoxyCompactList}\small\item\em Return linear (morton) index of the quadrant in a uniform grid at a certain level. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classthunder_1_1amr_1_1quadrant__t_a0e9a4fc2e41ac2e387465bbbef674730}\label{classthunder_1_1amr_1_1quadrant__t_a0e9a4fc2e41ac2e387465bbbef674730}} 
+int64\+\_\+t THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_a0e9a4fc2e41ac2e387465bbbef674730}{tree\+\_\+index}} () const
+\begin{DoxyCompactList}\small\item\em Get the index of tree containing this quadrant. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T $>$ }\\void THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_aea1c58374e46c17edad86150ded318fe}{set\+\_\+user\+\_\+data}} (T const \&data)
+\begin{DoxyCompactList}\small\item\em Set user data of this quadrant. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T $>$ }\\THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE T $\ast$ \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_a0870e5f7c2464bcf151c7e6c081b6db6}{get\+\_\+user\+\_\+data}} ()
+\begin{DoxyCompactList}\small\item\em Get user data of this quadrant. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classthunder_1_1amr_1_1quadrant__t_acd73eeb910ce7015566d21d818c94bc0}\label{classthunder_1_1amr_1_1quadrant__t_acd73eeb910ce7015566d21d818c94bc0}} 
+THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE p4est\+\_\+topidx\+\_\+t \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_acd73eeb910ce7015566d21d818c94bc0}{halo\+\_\+owner\+\_\+tree}} ()
+\begin{DoxyCompactList}\small\item\em For halo quadrants\+: get tree index. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classthunder_1_1amr_1_1quadrant__t_adb45a97f2d543355061204695cc4d8d2}\label{classthunder_1_1amr_1_1quadrant__t_adb45a97f2d543355061204695cc4d8d2}} 
+THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE p4est\+\_\+topidx\+\_\+t \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_adb45a97f2d543355061204695cc4d8d2}{halo\+\_\+owner\+\_\+locidx}} ()
+\begin{DoxyCompactList}\small\item\em For halo quadrants\+: get owner\textquotesingle{}s local index of this quadrant. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classthunder_1_1amr_1_1quadrant__t_a6fc2d9ba1f12cddbcb5e89b2544d3f5f}\label{classthunder_1_1amr_1_1quadrant__t_a6fc2d9ba1f12cddbcb5e89b2544d3f5f}} 
+THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE int \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_a6fc2d9ba1f12cddbcb5e89b2544d3f5f}{halo\+\_\+owner\+\_\+rank}} ()
+\begin{DoxyCompactList}\small\item\em For halo quadrants\+: get owner\textquotesingle{}s rank. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classthunder_1_1amr_1_1quadrant__t_a504aa29b5ce741cc7c70842df81f83e7}\label{classthunder_1_1amr_1_1quadrant__t_a504aa29b5ce741cc7c70842df81f83e7}} 
+THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE p4est\+\_\+quadrant\+\_\+t $\ast$ \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t_a504aa29b5ce741cc7c70842df81f83e7}{get}} ()
+\begin{DoxyCompactList}\small\item\em Get the raw pointer to the p4est\+\_\+quadrant\+\_\+t. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Thin wrapper around p4est\+\_\+quadrant\+\_\+t$\ast$ $<$$>$ 
+
+\doxysubsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1quadrant__t_a7422fa66c81876968bf15a77747aa7fe}\label{classthunder_1_1amr_1_1quadrant__t_a7422fa66c81876968bf15a77747aa7fe}} 
+\index{thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}!quadrant\_t@{quadrant\_t}}
+\index{quadrant\_t@{quadrant\_t}!thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}}
+\doxysubsubsection{\texorpdfstring{quadrant\_t()}{quadrant\_t()}}
+{\footnotesize\ttfamily thunder\+::amr\+::quadrant\+\_\+t\+::quadrant\+\_\+t (\begin{DoxyParamCaption}\item[{p4est\+\_\+quadrant\+\_\+t $\ast$}]{pquad }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Construct a new \mbox{\hyperlink{classthunder_1_1amr_1_1quadrant__t}{quadrant\+\_\+t}} object. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em pquad} & Pointer to p4est\+\_\+quadrant\+\_\+t \\
+\hline
+\end{DoxyParams}
+
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1quadrant__t_a0870e5f7c2464bcf151c7e6c081b6db6}\label{classthunder_1_1amr_1_1quadrant__t_a0870e5f7c2464bcf151c7e6c081b6db6}} 
+\index{thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}!get\_user\_data@{get\_user\_data}}
+\index{get\_user\_data@{get\_user\_data}!thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}}
+\doxysubsubsection{\texorpdfstring{get\_user\_data()}{get\_user\_data()}}
+{\footnotesize\ttfamily template$<$typename T $>$ \\
+THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE T$\ast$ thunder\+::amr\+::quadrant\+\_\+t\+::get\+\_\+user\+\_\+data (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Get user data of this quadrant. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Type} & of user data. NB\+: this is a simple {\ttfamily reinterpret\+\_\+cast$<$\+T$\ast$$>$} use at your own risk. \\
+\hline
+\end{DoxyTemplParams}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1quadrant__t_ac386e0006c252e69bd451222ed9b3462}\label{classthunder_1_1amr_1_1quadrant__t_ac386e0006c252e69bd451222ed9b3462}} 
+\index{thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}!level@{level}}
+\index{level@{level}!thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}}
+\doxysubsubsection{\texorpdfstring{level()}{level()}}
+{\footnotesize\ttfamily int THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE thunder\+::amr\+::quadrant\+\_\+t\+::level (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Get quadrant\textquotesingle{}s refinement level. 
+
+\begin{DoxyReturn}{Returns}
+int The quadrant\textquotesingle{}s level. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1quadrant__t_acff09d9d57467b33e84d74d2b88c34ef}\label{classthunder_1_1amr_1_1quadrant__t_acff09d9d57467b33e84d74d2b88c34ef}} 
+\index{thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}!linearid@{linearid}}
+\index{linearid@{linearid}!thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}}
+\doxysubsubsection{\texorpdfstring{linearid()}{linearid()}}
+{\footnotesize\ttfamily uint64\+\_\+t THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE thunder\+::amr\+::quadrant\+\_\+t\+::linearid (\begin{DoxyParamCaption}\item[{int}]{level }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Return linear (morton) index of the quadrant in a uniform grid at a certain level. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em level} & The level of the grid where the Morton index is computed. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+uint64\+\_\+t Morton index of the quadrant. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1quadrant__t_ab4179379625e035938906289e05877cf}\label{classthunder_1_1amr_1_1quadrant__t_ab4179379625e035938906289e05877cf}} 
+\index{thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}!qcoords@{qcoords}}
+\index{qcoords@{qcoords}!thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}}
+\doxysubsubsection{\texorpdfstring{qcoords()}{qcoords()}}
+{\footnotesize\ttfamily std\+::array$<$ p4est\+\_\+qcoord\+\_\+t, THUNDER\+\_\+\+NSPACEDIM $>$ THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE thunder\+::amr\+::quadrant\+\_\+t\+::qcoords (\begin{DoxyParamCaption}\item[{bool}]{use\+\_\+current\+\_\+level = {\ttfamily true} }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Get integer quadrant coordinates. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em use\+\_\+current\+\_\+level} & Return coordinates at quadrant\textquotesingle{}s level as opposed to P4\+EST\+\_\+\+MAXLEVEL. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+Array containing the integer coordinates of the quadrant in a uniform grid at its level or at P4\+EST\+\_\+\+MAXLEVEL. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classthunder_1_1amr_1_1quadrant__t_aea1c58374e46c17edad86150ded318fe}\label{classthunder_1_1amr_1_1quadrant__t_aea1c58374e46c17edad86150ded318fe}} 
+\index{thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}!set\_user\_data@{set\_user\_data}}
+\index{set\_user\_data@{set\_user\_data}!thunder::amr::quadrant\_t@{thunder::amr::quadrant\_t}}
+\doxysubsubsection{\texorpdfstring{set\_user\_data()}{set\_user\_data()}}
+{\footnotesize\ttfamily template$<$typename T $>$ \\
+void THUNDER\+\_\+\+ALWAYS\+\_\+\+INLINE thunder\+::amr\+::quadrant\+\_\+t\+::set\+\_\+user\+\_\+data (\begin{DoxyParamCaption}\item[{T const \&}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Set user data of this quadrant. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Type} & of user data. The user data is used internally in Thunder to register amr information into the quadrants. This includes information about whether the quadrant has been modified by amr routines such as refinement and coarsening. \\
+\hline
+\end{DoxyTemplParams}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/thunder/amr/\mbox{\hyperlink{quadrant_8hh}{quadrant.\+hh}}\end{DoxyCompactItemize}

@@ -1,0 +1,70 @@
+\hypertarget{classutils_1_1iterator}{}\doxysection{utils\+::iterator$<$ value\+\_\+type, difference\+\_\+type $>$ Class Template Reference}
+\label{classutils_1_1iterator}\index{utils::iterator$<$ value\_type, difference\_type $>$@{utils::iterator$<$ value\_type, difference\_type $>$}}
+
+
+Generic iterator class.  
+
+
+
+
+{\ttfamily \#include $<$iterator.\+hh$>$}
+
+\doxysubsection*{Public Types}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classutils_1_1iterator_a4aac461886c90d076ed54b6df952fb5a}\label{classutils_1_1iterator_a4aac461886c90d076ed54b6df952fb5a}} 
+using \mbox{\hyperlink{classutils_1_1iterator_a4aac461886c90d076ed54b6df952fb5a}{pointer}} = value\+\_\+type $\ast$
+\begin{DoxyCompactList}\small\item\em Type of pointer. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classutils_1_1iterator_a5802794c234b5594b757c6415530c22b}\label{classutils_1_1iterator_a5802794c234b5594b757c6415530c22b}} 
+using \mbox{\hyperlink{classutils_1_1iterator_a5802794c234b5594b757c6415530c22b}{reference}} = value\+\_\+type \&
+\begin{DoxyCompactList}\small\item\em Type of reference. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classutils_1_1iterator_aa2639f0e50021d7c9ab1d29392f72492}\label{classutils_1_1iterator_aa2639f0e50021d7c9ab1d29392f72492}} 
+using \mbox{\hyperlink{classutils_1_1iterator_aa2639f0e50021d7c9ab1d29392f72492}{iterator\+\_\+category}} = std\+::forward\+\_\+iterator\+\_\+tag
+\begin{DoxyCompactList}\small\item\em Tag. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classutils_1_1iterator_aec4ccd6bb58ef8dfcfc4c29ec77ea604}\label{classutils_1_1iterator_aec4ccd6bb58ef8dfcfc4c29ec77ea604}} 
+\mbox{\hyperlink{classutils_1_1iterator_aec4ccd6bb58ef8dfcfc4c29ec77ea604}{iterator}} (\mbox{\hyperlink{classutils_1_1iterator_a4aac461886c90d076ed54b6df952fb5a}{pointer}} ptr)
+\begin{DoxyCompactList}\small\item\em Construct a new iterator object. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classutils_1_1iterator_ab0e965faef979d65ac798ce5617db661}\label{classutils_1_1iterator_ab0e965faef979d65ac798ce5617db661}} 
+\mbox{\hyperlink{classutils_1_1iterator_ab0e965faef979d65ac798ce5617db661}{iterator}} (const \mbox{\hyperlink{classutils_1_1iterator}{iterator}} \&other)=default
+\begin{DoxyCompactList}\small\item\em Copy constructor. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classutils_1_1iterator_a436ae16f6018d87a855a03c97a7e6ff6}\label{classutils_1_1iterator_a436ae16f6018d87a855a03c97a7e6ff6}} 
+\mbox{\hyperlink{classutils_1_1iterator_a436ae16f6018d87a855a03c97a7e6ff6}{$\sim$iterator}} ()=default
+\begin{DoxyCompactList}\small\item\em Destroy the iterator object. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classutils_1_1iterator_a84e0a0996ee574a60409a87e6a5abacf}\label{classutils_1_1iterator_a84e0a0996ee574a60409a87e6a5abacf}} 
+\mbox{\hyperlink{classutils_1_1iterator}{iterator}} \& \mbox{\hyperlink{classutils_1_1iterator_a84e0a0996ee574a60409a87e6a5abacf}{operator++}} ()
+\begin{DoxyCompactList}\small\item\em Increment operator. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classutils_1_1iterator_a541f31864d00c549141f53ffa65bf249}\label{classutils_1_1iterator_a541f31864d00c549141f53ffa65bf249}} 
+\mbox{\hyperlink{classutils_1_1iterator}{iterator}} \mbox{\hyperlink{classutils_1_1iterator_a541f31864d00c549141f53ffa65bf249}{operator++}} (int)
+\begin{DoxyCompactList}\small\item\em Forward increment operator. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classutils_1_1iterator_a5b1cac2ee77c1d91bd34f6607004b816}\label{classutils_1_1iterator_a5b1cac2ee77c1d91bd34f6607004b816}} 
+bool \mbox{\hyperlink{classutils_1_1iterator_a5b1cac2ee77c1d91bd34f6607004b816}{operator==}} (\mbox{\hyperlink{classutils_1_1iterator}{iterator}} other)
+\begin{DoxyCompactList}\small\item\em Equality operator. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classutils_1_1iterator_adeb6ff6b772d63227c32ed3e60388b95}\label{classutils_1_1iterator_adeb6ff6b772d63227c32ed3e60388b95}} 
+bool \mbox{\hyperlink{classutils_1_1iterator_adeb6ff6b772d63227c32ed3e60388b95}{operator!=}} (\mbox{\hyperlink{classutils_1_1iterator}{iterator}} other)
+\begin{DoxyCompactList}\small\item\em Inequality operator. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classutils_1_1iterator_a5d3b8c4c1910a4376342a5ad3acf45f4}\label{classutils_1_1iterator_a5d3b8c4c1910a4376342a5ad3acf45f4}} 
+\mbox{\hyperlink{classutils_1_1iterator_a5802794c234b5594b757c6415530c22b}{reference}} \mbox{\hyperlink{classutils_1_1iterator_a5d3b8c4c1910a4376342a5ad3acf45f4}{operator$\ast$}} () const
+\begin{DoxyCompactList}\small\item\em Dereference operator. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\subsubsection*{template$<$typename value\+\_\+type, typename difference\+\_\+type = std\+::ptrdiff\+\_\+t$>$\newline
+class utils\+::iterator$<$ value\+\_\+type, difference\+\_\+type $>$}
+
+Generic iterator class. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em value\+\_\+type} & Type of value in the container \\
+\hline
+{\em difference\+\_\+type} & Type of difference between iterators \\
+\hline
+\end{DoxyTemplParams}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/grace/utils/\mbox{\hyperlink{iterator_8hh}{iterator.\+hh}}\end{DoxyCompactItemize}

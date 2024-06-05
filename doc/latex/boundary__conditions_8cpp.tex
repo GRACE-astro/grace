@@ -1,0 +1,59 @@
+\hypertarget{boundary__conditions_8cpp}{}\doxysection{src/amr/boundary\+\_\+conditions.cpp File Reference}
+\label{boundary__conditions_8cpp}\index{src/amr/boundary\_conditions.cpp@{src/amr/boundary\_conditions.cpp}}
+{\ttfamily \#include $<$grace\+\_\+config.\+h$>$}\newline
+{\ttfamily \#include $<$Kokkos\+\_\+\+Core.\+hpp$>$}\newline
+{\ttfamily \#include $<$grace/amr/grace\+\_\+amr.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/amr/bc\+\_\+helpers.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/amr/bc\+\_\+helpers.\+tpp$>$}\newline
+{\ttfamily \#include $<$grace/amr/bc\+\_\+kernels.\+tpp$>$}\newline
+{\ttfamily \#include $<$grace/coordinates/coordinates.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/system/grace\+\_\+system.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/utils/grace\+\_\+utils.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/utils/prolongation.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/utils/limiters.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/data\+\_\+structures/macros.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/data\+\_\+structures/memory\+\_\+defaults.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/data\+\_\+structures/variable\+\_\+indices.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/data\+\_\+structures/variable\+\_\+properties.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/data\+\_\+structures/variables.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/data\+\_\+structures/variable\+\_\+utils.\+hh$>$}\newline
+{\ttfamily \#include $<$grace/config/config\+\_\+parser.\+hh$>$}\newline
+{\ttfamily \#include $<$spdlog/stopwatch.\+h$>$}\newline
+Include dependency graph for boundary\+\_\+conditions.\+cpp\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{boundary__conditions_8cpp__incl}
+\end{center}
+\end{figure}
+\doxysubsection*{Namespaces}
+\begin{DoxyCompactItemize}
+\item 
+ \mbox{\hyperlink{namespacegrace}{grace}}
+\begin{DoxyCompactList}\small\item\em Todo. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \mbox{\hyperlink{group__amr_gaed7fb71096241e953588a044067c35bd}{grace\+::amr\+::apply\+\_\+boundary\+\_\+conditions}} ()
+\begin{DoxyCompactList}\small\item\em Apply all boundary conditions and fill ghostzones on state array.
+
+This function fills all the ghost-\/cells in the {\ttfamily state} array. This includes applying physical boundary conditions at domain edges, as well as filling all internal ghost-\/zones across simple and hanging faces. The state array needs to be in a valid state at all interior points when entering this function. No assumptions are made on the content of the ghostzones of each quadrant and each variable for the state array when entering this function. Auxiliries and scratch state are left untouched by this function, unless a non-\/trivial boundary condition is requested on an auxiliary variable. When this function returns, {\bfseries{all}} ghostzones for all quadrants are in a valid state for the {\ttfamily state} array. All interior ghost-\/zones operations are guaranteed to be second order accurate, total variation diminishing, and volume average preserving. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__amr_ga7a425b0a4ff0074bbda4a988972d34d6}{grace\+::amr\+::apply\+\_\+boundary\+\_\+conditions}} (\mbox{\hyperlink{group__variables_ga5db882ec84cf1d393084092a8d27b001}{grace\+::var\+\_\+array\+\_\+t}}$<$ GRACE\+\_\+\+NSPACEDIM $>$ \&vars)
+\begin{DoxyCompactList}\small\item\em Apply all boundary conditions on the var array. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+\begin{DoxyAuthor}{Author}
+Carlo Musolino (\href{mailto:musolino@itp.uni-frankfurt.de}{\texttt{ musolino@itp.\+uni-\/frankfurt.\+de}}) 
+\end{DoxyAuthor}
+\begin{DoxyDate}{Date}
+2024-\/03-\/21
+\end{DoxyDate}
+\begin{DoxyCopyright}{Copyright}
+This file is part of of the General Relativistic Astrophysics Code for Exascale. GRACE is an evolution framework that uses Finite Volume methods to simulate relativistic spacetimes and plasmas Copyright (C) 2023 Carlo Musolino
+\end{DoxyCopyright}
+This program is free software\+: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with this program. If not, see \href{https://www.gnu.org/licenses/}{\texttt{ https\+://www.\+gnu.\+org/licenses/}}. 

@@ -31,14 +31,24 @@
 #include <grace/data_structures/variable_properties.hh>
 
 namespace grace {
-
+//*****************************************************************************************************
+/**
+ * @brief Fill the <code>aux</code> array.
+ * \ingroup evol
+ */
 void compute_auxiliary_quantities() ; 
-
+//*****************************************************************************************************
+/**
+ * @brief Fill the <code>aux</code> array
+ * \ingroup evol
+ * @param state The state to be used to compute auxiliaries.
+ * @param aux   The array where to store computed aux variables.
+ */
 void compute_auxiliary_quantities(
-      grace::var_array_t<GRACE_NSPACEDIM>& 
-    , grace::var_array_t<GRACE_NSPACEDIM>& 
+      grace::var_array_t<GRACE_NSPACEDIM>& state
+    , grace::var_array_t<GRACE_NSPACEDIM>& aux 
 ) ; 
-
+//*****************************************************************************************************
 }
 
 #endif /* GRACE_EVOLUTION_AUXILIARIES_HH */

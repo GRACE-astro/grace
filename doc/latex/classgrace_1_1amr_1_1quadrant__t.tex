@@ -1,0 +1,154 @@
+\hypertarget{classgrace_1_1amr_1_1quadrant__t}{}\doxysection{grace\+::amr\+::quadrant\+\_\+t Class Reference}
+\label{classgrace_1_1amr_1_1quadrant__t}\index{grace::amr::quadrant\_t@{grace::amr::quadrant\_t}}
+
+
+Thin wrapper around p4est\+\_\+quadrant\+\_\+t$\ast$ $<$$>$  
+
+
+
+
+{\ttfamily \#include $<$quadrant.\+hh$>$}
+
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_a2c4ec88d27cc9b45ff28f9d9085ba9dc}{quadrant\+\_\+t}} (p4est\+\_\+quadrant\+\_\+t $\ast$pquad)
+\begin{DoxyCompactList}\small\item\em Construct a new \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t}{quadrant\+\_\+t}} object. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classgrace_1_1amr_1_1quadrant__t_af70518f4cee838aec686699df59fef8d}\label{classgrace_1_1amr_1_1quadrant__t_af70518f4cee838aec686699df59fef8d}} 
+\mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_af70518f4cee838aec686699df59fef8d}{$\sim$quadrant\+\_\+t}} ()=default
+\begin{DoxyCompactList}\small\item\em Destroy the \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t}{quadrant\+\_\+t}} object. \end{DoxyCompactList}\item 
+std\+::array$<$ p4est\+\_\+qcoord\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_acfb90452d29c862f708770504db12115}{qcoords}} (bool use\+\_\+current\+\_\+level=true) const
+\begin{DoxyCompactList}\small\item\em Get integer quadrant coordinates. \end{DoxyCompactList}\item 
+int GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_a07aa09ebe39039c18d231b94aba338e3}{level}} () const
+\begin{DoxyCompactList}\small\item\em Get quadrant\textquotesingle{}s refinement level. \end{DoxyCompactList}\item 
+uint64\+\_\+t GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_a4ecffd27dc0bda2eebe731c5c73fb9a7}{linearid}} (int \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_a07aa09ebe39039c18d231b94aba338e3}{level}}) const
+\begin{DoxyCompactList}\small\item\em Return linear (morton) index of the quadrant in a uniform grid at a certain level. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classgrace_1_1amr_1_1quadrant__t_a0c162bd07c183b27b4cf6184652345fe}\label{classgrace_1_1amr_1_1quadrant__t_a0c162bd07c183b27b4cf6184652345fe}} 
+int64\+\_\+t GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_a0c162bd07c183b27b4cf6184652345fe}{tree\+\_\+index}} () const
+\begin{DoxyCompactList}\small\item\em Get the index of tree containing this quadrant. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T $>$ }\\void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_a917079eeee1d39b1e7c35973e179b353}{set\+\_\+user\+\_\+data}} (T const \&data)
+\begin{DoxyCompactList}\small\item\em Set user data of this quadrant. \end{DoxyCompactList}\item 
+{\footnotesize template$<$typename T $>$ }\\GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE T $\ast$ \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_a2f5359be7403a31f51f22d70b642fa27}{get\+\_\+user\+\_\+data}} ()
+\begin{DoxyCompactList}\small\item\em Get user data of this quadrant. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classgrace_1_1amr_1_1quadrant__t_aaf86ed3401a557a8d95dafbbf2820506}\label{classgrace_1_1amr_1_1quadrant__t_aaf86ed3401a557a8d95dafbbf2820506}} 
+GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE p4est\+\_\+topidx\+\_\+t \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_aaf86ed3401a557a8d95dafbbf2820506}{halo\+\_\+owner\+\_\+tree}} ()
+\begin{DoxyCompactList}\small\item\em For halo quadrants\+: get tree index. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classgrace_1_1amr_1_1quadrant__t_a5213bf2d548e4402d20298be6e43ef9a}\label{classgrace_1_1amr_1_1quadrant__t_a5213bf2d548e4402d20298be6e43ef9a}} 
+GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE p4est\+\_\+topidx\+\_\+t \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_a5213bf2d548e4402d20298be6e43ef9a}{halo\+\_\+owner\+\_\+locidx}} ()
+\begin{DoxyCompactList}\small\item\em For halo quadrants\+: get owner\textquotesingle{}s local index of this quadrant. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classgrace_1_1amr_1_1quadrant__t_ab0ebd79c2118b2e5a6e6c6e69a15addc}\label{classgrace_1_1amr_1_1quadrant__t_ab0ebd79c2118b2e5a6e6c6e69a15addc}} 
+GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE int \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_ab0ebd79c2118b2e5a6e6c6e69a15addc}{halo\+\_\+owner\+\_\+rank}} ()
+\begin{DoxyCompactList}\small\item\em For halo quadrants\+: get owner\textquotesingle{}s rank. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classgrace_1_1amr_1_1quadrant__t_af00366748a0b3006f7ba6ebcd50155a9}\label{classgrace_1_1amr_1_1quadrant__t_af00366748a0b3006f7ba6ebcd50155a9}} 
+GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE p4est\+\_\+quadrant\+\_\+t $\ast$ \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t_af00366748a0b3006f7ba6ebcd50155a9}{get}} ()
+\begin{DoxyCompactList}\small\item\em Get the raw pointer to the p4est\+\_\+quadrant\+\_\+t. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Thin wrapper around p4est\+\_\+quadrant\+\_\+t$\ast$ $<$$>$ 
+
+\doxysubsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{classgrace_1_1amr_1_1quadrant__t_a2c4ec88d27cc9b45ff28f9d9085ba9dc}\label{classgrace_1_1amr_1_1quadrant__t_a2c4ec88d27cc9b45ff28f9d9085ba9dc}} 
+\index{grace::amr::quadrant\_t@{grace::amr::quadrant\_t}!quadrant\_t@{quadrant\_t}}
+\index{quadrant\_t@{quadrant\_t}!grace::amr::quadrant\_t@{grace::amr::quadrant\_t}}
+\doxysubsubsection{\texorpdfstring{quadrant\_t()}{quadrant\_t()}}
+{\footnotesize\ttfamily grace\+::amr\+::quadrant\+\_\+t\+::quadrant\+\_\+t (\begin{DoxyParamCaption}\item[{p4est\+\_\+quadrant\+\_\+t $\ast$}]{pquad }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Construct a new \mbox{\hyperlink{classgrace_1_1amr_1_1quadrant__t}{quadrant\+\_\+t}} object. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em pquad} & Pointer to p4est\+\_\+quadrant\+\_\+t \\
+\hline
+\end{DoxyParams}
+
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{classgrace_1_1amr_1_1quadrant__t_a2f5359be7403a31f51f22d70b642fa27}\label{classgrace_1_1amr_1_1quadrant__t_a2f5359be7403a31f51f22d70b642fa27}} 
+\index{grace::amr::quadrant\_t@{grace::amr::quadrant\_t}!get\_user\_data@{get\_user\_data}}
+\index{get\_user\_data@{get\_user\_data}!grace::amr::quadrant\_t@{grace::amr::quadrant\_t}}
+\doxysubsubsection{\texorpdfstring{get\_user\_data()}{get\_user\_data()}}
+{\footnotesize\ttfamily template$<$typename T $>$ \\
+GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE T$\ast$ grace\+::amr\+::quadrant\+\_\+t\+::get\+\_\+user\+\_\+data (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Get user data of this quadrant. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Type} & of user data. NB\+: this is a simple {\ttfamily reinterpret\+\_\+cast$<$\+T$\ast$$>$} use at your own risk. \\
+\hline
+\end{DoxyTemplParams}
+\mbox{\Hypertarget{classgrace_1_1amr_1_1quadrant__t_a07aa09ebe39039c18d231b94aba338e3}\label{classgrace_1_1amr_1_1quadrant__t_a07aa09ebe39039c18d231b94aba338e3}} 
+\index{grace::amr::quadrant\_t@{grace::amr::quadrant\_t}!level@{level}}
+\index{level@{level}!grace::amr::quadrant\_t@{grace::amr::quadrant\_t}}
+\doxysubsubsection{\texorpdfstring{level()}{level()}}
+{\footnotesize\ttfamily int GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE grace\+::amr\+::quadrant\+\_\+t\+::level (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Get quadrant\textquotesingle{}s refinement level. 
+
+\begin{DoxyReturn}{Returns}
+int The quadrant\textquotesingle{}s level. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1amr_1_1quadrant__t_a4ecffd27dc0bda2eebe731c5c73fb9a7}\label{classgrace_1_1amr_1_1quadrant__t_a4ecffd27dc0bda2eebe731c5c73fb9a7}} 
+\index{grace::amr::quadrant\_t@{grace::amr::quadrant\_t}!linearid@{linearid}}
+\index{linearid@{linearid}!grace::amr::quadrant\_t@{grace::amr::quadrant\_t}}
+\doxysubsubsection{\texorpdfstring{linearid()}{linearid()}}
+{\footnotesize\ttfamily uint64\+\_\+t GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE grace\+::amr\+::quadrant\+\_\+t\+::linearid (\begin{DoxyParamCaption}\item[{int}]{level }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Return linear (morton) index of the quadrant in a uniform grid at a certain level. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em level} & The level of the grid where the Morton index is computed. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+uint64\+\_\+t Morton index of the quadrant. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1amr_1_1quadrant__t_acfb90452d29c862f708770504db12115}\label{classgrace_1_1amr_1_1quadrant__t_acfb90452d29c862f708770504db12115}} 
+\index{grace::amr::quadrant\_t@{grace::amr::quadrant\_t}!qcoords@{qcoords}}
+\index{qcoords@{qcoords}!grace::amr::quadrant\_t@{grace::amr::quadrant\_t}}
+\doxysubsubsection{\texorpdfstring{qcoords()}{qcoords()}}
+{\footnotesize\ttfamily std\+::array$<$ p4est\+\_\+qcoord\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE grace\+::amr\+::quadrant\+\_\+t\+::qcoords (\begin{DoxyParamCaption}\item[{bool}]{use\+\_\+current\+\_\+level = {\ttfamily true} }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Get integer quadrant coordinates. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em use\+\_\+current\+\_\+level} & Return coordinates at quadrant\textquotesingle{}s level as opposed to P4\+EST\+\_\+\+MAXLEVEL. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+Array containing the integer coordinates of the quadrant in a uniform grid at its level or at P4\+EST\+\_\+\+MAXLEVEL. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1amr_1_1quadrant__t_a917079eeee1d39b1e7c35973e179b353}\label{classgrace_1_1amr_1_1quadrant__t_a917079eeee1d39b1e7c35973e179b353}} 
+\index{grace::amr::quadrant\_t@{grace::amr::quadrant\_t}!set\_user\_data@{set\_user\_data}}
+\index{set\_user\_data@{set\_user\_data}!grace::amr::quadrant\_t@{grace::amr::quadrant\_t}}
+\doxysubsubsection{\texorpdfstring{set\_user\_data()}{set\_user\_data()}}
+{\footnotesize\ttfamily template$<$typename T $>$ \\
+void GRACE\+\_\+\+ALWAYS\+\_\+\+INLINE grace\+::amr\+::quadrant\+\_\+t\+::set\+\_\+user\+\_\+data (\begin{DoxyParamCaption}\item[{T const \&}]{data }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Set user data of this quadrant. 
+
+
+\begin{DoxyTemplParams}{Template Parameters}
+{\em Type} & of user data. The user data is used internally in GRACE to register amr information into the quadrants. This includes information about whether the quadrant has been modified by amr routines such as refinement and coarsening. \\
+\hline
+\end{DoxyTemplParams}
+
+
+The documentation for this class was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+include/grace/amr/\mbox{\hyperlink{quadrant_8hh}{quadrant.\+hh}}\end{DoxyCompactItemize}

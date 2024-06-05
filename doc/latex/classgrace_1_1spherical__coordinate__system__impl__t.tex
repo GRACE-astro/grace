@@ -1,0 +1,644 @@
+\hypertarget{classgrace_1_1spherical__coordinate__system__impl__t}{}\doxysection{grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t Class Reference}
+\label{classgrace_1_1spherical__coordinate__system__impl__t}\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+
+
+Implementation of coordinate system class for spherical grids.  
+
+
+
+
+{\ttfamily \#include $<$spherical\+\_\+coordinate\+\_\+systems.\+hh$>$}
+
+\doxysubsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a39954b6e6fd69098460a8689f58132ac}{get\+\_\+physical\+\_\+coordinates}} (int const itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&logical\+\_\+coordinates) const
+\begin{DoxyCompactList}\small\item\em Get the physical coordinates of a point. \end{DoxyCompactList}\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a0562a8c24e826b6756fd53a678edb802}{get\+\_\+physical\+\_\+coordinates}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&cell\+\_\+coordinates, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the physical coordinates of a point. \end{DoxyCompactList}\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a70efa93a36bbde29f3ca53a470500e28}{get\+\_\+physical\+\_\+coordinates}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the physical coordinates of a cell centre. \end{DoxyCompactList}\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_af1b477ea58950766ff809e3e4628334b}{get\+\_\+logical\+\_\+coordinates}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&cell\+\_\+coordinates, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the logical coordinates of a point. \end{DoxyCompactList}\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_ae67b6c6dd151c64f77f4739a0e20afdd}{get\+\_\+logical\+\_\+coordinates}} (int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&physical\+\_\+coordinates) const
+\begin{DoxyCompactList}\small\item\em Get the logical coordinates of a point. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_aef09eb70731dd6f8be934f4cf979c1fd}{get\+\_\+jacobian}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&cell\+\_\+coordinates, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the determinant of the Jacobian matrix of the coordinate transformation at a given point. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_ae236ef214f010e34bc883ad51b12c3fb}{get\+\_\+jacobian}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&cell\+\_\+coordinates, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the determinant of the Jacobian matrix of the coordinate transformation at a given point. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_ae7f64de5fe67f5a835ccc11ce4789917}{get\+\_\+jacobian}} (int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&lcoords) const
+\begin{DoxyCompactList}\small\item\em Get the determinant of the Jacobian matrix of the coordinate transformation at a given point. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_aabd5e2cd83f04cffab1df453b2a8c904}{get\+\_\+inverse\+\_\+jacobian}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&cell\+\_\+coordinates, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the determinant of the Jacobian matrix of the inverse coordinate transformation at a given point. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_aa18be8cb8e9909a83e96c55dd95cb1c6}{get\+\_\+inverse\+\_\+jacobian}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&cell\+\_\+coordinates, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the determinant of the Jacobian matrix of the inverse coordinate transformation at a given point ~\newline
+ \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a8b99a57c9d90de668740072bca978458}{get\+\_\+inverse\+\_\+jacobian}} (int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&lcoords) const
+\begin{DoxyCompactList}\small\item\em Get the determinant of the Jacobian matrix of the inverse coordinate transformation at a given point ~\newline
+ \end{DoxyCompactList}\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $\ast$GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_aaf25d3dad62dc087467aa113aa2c5cb4}{get\+\_\+jacobian\+\_\+matrix}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&cell\+\_\+coordinates, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the Jacobian matrix of the coordinate transformation at a given point. \end{DoxyCompactList}\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $\ast$GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a75e71f3f40fddfcc725ae90b34706661}{get\+\_\+jacobian\+\_\+matrix}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&cell\+\_\+coordinates, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the Jacobian matrix of the coordinate transformation at a given point. \end{DoxyCompactList}\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $\ast$GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_afd51b82434fa94ad4ed0583e6932b2b0}{get\+\_\+jacobian\+\_\+matrix}} (int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&lcoords) const
+\begin{DoxyCompactList}\small\item\em Get the Jacobian matrix of the coordinate transformation at a given point. \end{DoxyCompactList}\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $\ast$GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a2f5148ab3241f49182e255b3647cf9cb}{get\+\_\+inverse\+\_\+jacobian\+\_\+matrix}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&cell\+\_\+coordinates, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the Jacobian matrix of the inverse coordinate transformation at a given point. \end{DoxyCompactList}\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $\ast$GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a89c8ac302aaa1561bb347060c0e429d2}{get\+\_\+inverse\+\_\+jacobian\+\_\+matrix}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&cell\+\_\+coordinates, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the Jacobian matrix of the inverse coordinate transformation at a given point. \end{DoxyCompactList}\item 
+std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $\ast$GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a41760e5d2f0d441005ed5300310a3750}{get\+\_\+inverse\+\_\+jacobian\+\_\+matrix}} (int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&lcoords) const
+\begin{DoxyCompactList}\small\item\em Get the Jacobian matrix of the inverse coordinate transformation at a given point. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a573cab640baa5172e7e8d7b83f641fd7}{get\+\_\+cell\+\_\+volume}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the volume of a cell. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_ac0d7ef9110c0efd13ff49172fbfcdb27}{get\+\_\+cell\+\_\+volume}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&dxl, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the volume of a cell. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a9a53e78518598c3d25251c91c70d5a19}{get\+\_\+cell\+\_\+volume}} (std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&lcoords, int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&dxl, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the volume of a cell. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_aa27e5c229a13fde11cd9b6b95378b08a}{get\+\_\+cell\+\_\+face\+\_\+surface}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, int8\+\_\+t face, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the suface of a cell face. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a63ed8471f8730a4e1eaf10b950072c7e}{get\+\_\+cell\+\_\+face\+\_\+surface}} (std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&ijk, int64\+\_\+t q, int8\+\_\+t face, int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&dxl, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the suface of a cell face. \end{DoxyCompactList}\item 
+double GRACE\+\_\+\+HOST \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a2656909ce8f3cefe206c3150b8ea9d5e}{get\+\_\+cell\+\_\+face\+\_\+surface}} (std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&lcoords, int8\+\_\+t face, int itree, std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&dxl, bool use\+\_\+ghostzones) const
+\begin{DoxyCompactList}\small\item\em Get the suface of a cell face. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{structgrace_1_1spherical__device__coordinate__system__impl__t}{spherical\+\_\+device\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t}} \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a07488b6febb8f8ac9954012fa4d364fd}{get\+\_\+device\+\_\+coord\+\_\+system}} () const
+\begin{DoxyCompactList}\small\item\em Get the device coord system object. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\doxysubsection*{Friends}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a70d0d473285c28e522d48afdcbebc442}\label{classgrace_1_1spherical__coordinate__system__impl__t_a70d0d473285c28e522d48afdcbebc442}} 
+class \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_a70d0d473285c28e522d48afdcbebc442}{utils\+::singleton\+\_\+holder$<$ spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t, memory\+::default\+\_\+create $>$}}
+\begin{DoxyCompactList}\small\item\em Give access. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_afa542fe425e2c41847cb42e4d3e15416}\label{classgrace_1_1spherical__coordinate__system__impl__t_afa542fe425e2c41847cb42e4d3e15416}} 
+class \mbox{\hyperlink{classgrace_1_1spherical__coordinate__system__impl__t_afa542fe425e2c41847cb42e4d3e15416}{memory\+::new\+\_\+delete\+\_\+creator$<$ spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t, memory\+::new\+\_\+delete\+\_\+allocator $>$}}
+\begin{DoxyCompactList}\small\item\em Give access. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\doxysubsection{Detailed Description}
+Implementation of coordinate system class for spherical grids. 
+
+Spherical coordinates in grace are implemented using a central patch of Cartesian coordinates which corresponds with tree 0 in the p4est connectivity. The cartesian patch is surrounded by P4\+EST\+\_\+\+FACES (4 in 2D, 6 in 3D) wedges (each of which is a tree) where the coordinates go from Cartesian to Spherical along the logical radius. The logical coordinates in each tree are as usual indicated by $(\zeta,\eta,\xi)$ and each span $[0,1]$. There is then a second layer of wedges where the coordinates are purely spherical in each patch, with the option of using a logaritmhmic distribution for the radial coordinate. By convention, the first logical coordinate ( $\zeta$) is the radial one in each tree. The other two logical coordinates are then chosen as to form a right handed basis where the angular logical coordinates align with the axes of the physical coordinates in the embedding space. In particular, the coordinate transformation is constructed as follows. Let $L$ be half of the length of the side of the central Cartesian patch, $R_i$ be the radius of the inner spherical face and $R_o$ be the radius of the outer grid boundary. These variables can be chosen from the {\ttfamily GRACE} config file. We can then define the sphere and frustum functions as follows\+: \begin{eqnarray*} S &=& S_0 + \zeta~S_r, \\ F &=& F_0 + \zeta~F_r. \end{eqnarray*} Here the frustum rates $F_0,F_r$, and the sphere rates $S_0,S_r$ are defined as \begin{eqnarray*} F_0 &=& -r {\left(\mathit{s_i} - 1\right)}, \\ F_r &=& r {\left(\mathit{s_i} - 1\right)} - R {\left(\mathit{s_o} - 1\right)}, \\ S_0 &=& r \mathit{s_i}, \\ S_r &=& -r \mathit{s_i} + R \mathit{s_o}. \end{eqnarray*} Where $r$ is $L$ \mbox{[}\mbox{[}resp. $R_i$\mbox{]}\mbox{]} for the inner \mbox{[}\mbox{[}resp. outer\mbox{]}\mbox{]} and $R=R_i$ \mbox{[}\mbox{[}resp. $R_o$\mbox{]}\mbox{]}, whereas $\mathit{s_i},\mathit{s_o}$ are the sphericities of the inner and outer face which are $0,1$ for a flat or spherical face. We can now define the coordinate transformation which reads (in the case of the $+x$ wedge) \begin{eqnarray*} x &=& F + \frac{S}{\rho}~, \\ y &=& x~\left(2~\eta-1\right)~, \\ z &=& x~\left(2~\xi-1 \right)~. \end{eqnarray*} Where the function $\rho$ is given by \[ \rho=\sqrt{1+(2~\eta-1)^2+(2~\xi-1)^2}~. \] When the radial points are radially sampled, the frustum rates are zero and the sphere rates change to \begin{eqnarray*} S_0 &=& \frac{1}{2}\log(r~R)~, \\ S_r &=& \frac{1}{2}\log(R/r)~. \end{eqnarray*} And the radial coordinate is computed as \[ x = \frac{1}{\rho}~e^{S_0+S_r~\left(2~\zeta-1\right)}~. \] 
+
+\doxysubsection{Member Function Documentation}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a2656909ce8f3cefe206c3150b8ea9d5e}\label{classgrace_1_1spherical__coordinate__system__impl__t_a2656909ce8f3cefe206c3150b8ea9d5e}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_cell\_face\_surface@{get\_cell\_face\_surface}}
+\index{get\_cell\_face\_surface@{get\_cell\_face\_surface}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_cell\_face\_surface()}{get\_cell\_face\_surface()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily double GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+cell\+\_\+face\+\_\+surface (\begin{DoxyParamCaption}\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{lcoords,  }\item[{int8\+\_\+t}]{face,  }\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{dxl,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the suface of a cell face. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em lcoords} & Logical coordinates of cell\textquotesingle{}s lowest corner (z-\/ordering) in tree {\ttfamily itree}\textquotesingle{}s coordinate system. \\
+\hline
+{\em face} & Cell face index. \\
+\hline
+{\em itree} & Source tree id. \\
+\hline
+{\em dxl} & (Logical) Cell coordinate spacing. \\
+\hline
+{\em use\+\_\+ghostzones} & Set to false if coordinates are always physical. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The surface of the cell face. NB\+: By convention, cell face indices are staggered backwards, meaning that given an index $i_f$ of a face, this routine returns the surface of the face whose center is located at index\+: \[ (I,J,K) = (i-\frac{\delta_{i,i_f}}{2}, j-\frac{\delta_{j,i_f}}{2}, k-\frac{\delta_{k,i_f}}{2}) \] 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_aa27e5c229a13fde11cd9b6b95378b08a}\label{classgrace_1_1spherical__coordinate__system__impl__t_aa27e5c229a13fde11cd9b6b95378b08a}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_cell\_face\_surface@{get\_cell\_face\_surface}}
+\index{get\_cell\_face\_surface@{get\_cell\_face\_surface}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_cell\_face\_surface()}{get\_cell\_face\_surface()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily double GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+cell\+\_\+face\+\_\+surface (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{int8\+\_\+t}]{face,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the suface of a cell face. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Cell indices. \\
+\hline
+{\em q} & Local quadrant index. \\
+\hline
+{\em face} & Cell face index. \\
+\hline
+{\em dxl} & (Logical) Cell coordinate spacing. \\
+\hline
+{\em use\+\_\+ghostzones} & Set to false if coordinates are always physical. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The surface of the cell face. NB\+: By convention, cell face indices are staggered backwards, meaning that given an index $i_f$ of a face, this routine returns the surface of the face whose center is located at index\+: \[ (I,J,K) = (i-\frac{\delta_{i,i_f}}{2}, j-\frac{\delta_{j,i_f}}{2}, k-\frac{\delta_{k,i_f}}{2}) \] 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a63ed8471f8730a4e1eaf10b950072c7e}\label{classgrace_1_1spherical__coordinate__system__impl__t_a63ed8471f8730a4e1eaf10b950072c7e}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_cell\_face\_surface@{get\_cell\_face\_surface}}
+\index{get\_cell\_face\_surface@{get\_cell\_face\_surface}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_cell\_face\_surface()}{get\_cell\_face\_surface()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily double GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+cell\+\_\+face\+\_\+surface (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{int8\+\_\+t}]{face,  }\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{dxl,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the suface of a cell face. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Cell indices. \\
+\hline
+{\em q} & Local quadrant index. \\
+\hline
+{\em face} & Cell face index. \\
+\hline
+{\em itree} & Source tree id. \\
+\hline
+{\em dxl} & (Logical) Cell coordinate spacing. \\
+\hline
+{\em use\+\_\+ghostzones} & Set to false if coordinates are always physical. \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The surface of the cell face. NB\+: By convention, cell face indices are staggered backwards, meaning that given an index $i_f$ of a face, this routine returns the surface of the face whose center is located at index\+: \[ (I,J,K) = (i-\frac{\delta_{i,i_f}}{2}, j-\frac{\delta_{j,i_f}}{2}, k-\frac{\delta_{k,i_f}}{2}) \] 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a9a53e78518598c3d25251c91c70d5a19}\label{classgrace_1_1spherical__coordinate__system__impl__t_a9a53e78518598c3d25251c91c70d5a19}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_cell\_volume@{get\_cell\_volume}}
+\index{get\_cell\_volume@{get\_cell\_volume}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_cell\_volume()}{get\_cell\_volume()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily double GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+cell\+\_\+volume (\begin{DoxyParamCaption}\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{lcoords,  }\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{dxl,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the volume of a cell. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em lcoords} & Logical coordinates of cell lower left corner. \\
+\hline
+{\em itree} & Index of the tree containing the cell. \\
+\hline
+{\em dxl} & Cell spacing in logical coordinates \\
+\hline
+{\em use\+\_\+ghostzones} & Set to true if the indices are zero-\/offset, false if they are ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The volume of the requested cell. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a573cab640baa5172e7e8d7b83f641fd7}\label{classgrace_1_1spherical__coordinate__system__impl__t_a573cab640baa5172e7e8d7b83f641fd7}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_cell\_volume@{get\_cell\_volume}}
+\index{get\_cell\_volume@{get\_cell\_volume}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_cell\_volume()}{get\_cell\_volume()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily double GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+cell\+\_\+volume (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the volume of a cell. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Indices of the cell. \\
+\hline
+{\em q} & Local quadrant index. \\
+\hline
+{\em use\+\_\+ghostzones} & Set to true if the indices are zero-\/offset, false if they are ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The volume of the requested cell. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_ac0d7ef9110c0efd13ff49172fbfcdb27}\label{classgrace_1_1spherical__coordinate__system__impl__t_ac0d7ef9110c0efd13ff49172fbfcdb27}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_cell\_volume@{get\_cell\_volume}}
+\index{get\_cell\_volume@{get\_cell\_volume}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_cell\_volume()}{get\_cell\_volume()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily double GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+cell\+\_\+volume (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{dxl,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the volume of a cell. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Indices of the cell. \\
+\hline
+{\em q} & Local quadrant index. \\
+\hline
+{\em itree} & Index of the tree containing the cell. \\
+\hline
+{\em dxl} & Cell spacing in logical coordinates \\
+\hline
+{\em use\+\_\+ghostzones} & Set to true if the indices are zero-\/offset, false if they are ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The volume of the requested cell. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a07488b6febb8f8ac9954012fa4d364fd}\label{classgrace_1_1spherical__coordinate__system__impl__t_a07488b6febb8f8ac9954012fa4d364fd}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_device\_coord\_system@{get\_device\_coord\_system}}
+\index{get\_device\_coord\_system@{get\_device\_coord\_system}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_device\_coord\_system()}{get\_device\_coord\_system()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{structgrace_1_1spherical__device__coordinate__system__impl__t}{spherical\+\_\+device\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t}} grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+device\+\_\+coord\+\_\+system (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption}) const\hspace{0.3cm}{\ttfamily [inline]}}
+
+
+
+Get the device coord system object. 
+
+\begin{DoxyReturn}{Returns}
+\mbox{\hyperlink{structgrace_1_1spherical__device__coordinate__system__impl__t}{spherical\+\_\+device\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t}} A lightweight coordinate system object whose methods are accessible from device. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a8b99a57c9d90de668740072bca978458}\label{classgrace_1_1spherical__coordinate__system__impl__t_a8b99a57c9d90de668740072bca978458}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_inverse\_jacobian@{get\_inverse\_jacobian}}
+\index{get\_inverse\_jacobian@{get\_inverse\_jacobian}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_inverse\_jacobian()}{get\_inverse\_jacobian()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily double GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+inverse\+\_\+jacobian (\begin{DoxyParamCaption}\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{lcoords }\end{DoxyParamCaption}) const}
+
+
+
+Get the determinant of the Jacobian matrix of the inverse coordinate transformation at a given point ~\newline
+ 
+
+
+\begin{DoxyParams}{Parameters}
+{\em itree} & Index of tree containing the point \\
+\hline
+{\em lcoords} & Logical coordinates of point \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The invesre Jacobian matrix determinant. NB\+: This function checks for tree boundaries. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_aa18be8cb8e9909a83e96c55dd95cb1c6}\label{classgrace_1_1spherical__coordinate__system__impl__t_aa18be8cb8e9909a83e96c55dd95cb1c6}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_inverse\_jacobian@{get\_inverse\_jacobian}}
+\index{get\_inverse\_jacobian@{get\_inverse\_jacobian}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_inverse\_jacobian()}{get\_inverse\_jacobian()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily double GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+inverse\+\_\+jacobian (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{cell\+\_\+coordinates,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the determinant of the Jacobian matrix of the inverse coordinate transformation at a given point ~\newline
+ 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Indices of cell containing the point \\
+\hline
+{\em q} & Local index of quadrant containing the point \\
+\hline
+{\em itree} & Index of tree containing the point \\
+\hline
+{\em cell\+\_\+coordinates} & Coordinates of point within the cell \\
+\hline
+{\em use\+\_\+ghostzones} & True if indices are zero-\/offset, false if ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The inverse Jacobian matrix determinant. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_aabd5e2cd83f04cffab1df453b2a8c904}\label{classgrace_1_1spherical__coordinate__system__impl__t_aabd5e2cd83f04cffab1df453b2a8c904}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_inverse\_jacobian@{get\_inverse\_jacobian}}
+\index{get\_inverse\_jacobian@{get\_inverse\_jacobian}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_inverse\_jacobian()}{get\_inverse\_jacobian()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily double GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+inverse\+\_\+jacobian (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{cell\+\_\+coordinates,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the determinant of the Jacobian matrix of the inverse coordinate transformation at a given point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Indices of cell containing the point \\
+\hline
+{\em q} & Local index of quadrant containing the point \\
+\hline
+{\em cell\+\_\+coordinates} & Coordinates of point within the cell \\
+\hline
+{\em use\+\_\+ghostzones} & True if indices are zero-\/offset, false if ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The inverse Jacobian matrix determinant. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a41760e5d2f0d441005ed5300310a3750}\label{classgrace_1_1spherical__coordinate__system__impl__t_a41760e5d2f0d441005ed5300310a3750}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_inverse\_jacobian\_matrix@{get\_inverse\_jacobian\_matrix}}
+\index{get\_inverse\_jacobian\_matrix@{get\_inverse\_jacobian\_matrix}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_inverse\_jacobian\_matrix()}{get\_inverse\_jacobian\_matrix()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $\ast$GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+inverse\+\_\+jacobian\+\_\+matrix (\begin{DoxyParamCaption}\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{lcoords }\end{DoxyParamCaption}) const}
+
+
+
+Get the Jacobian matrix of the inverse coordinate transformation at a given point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em itree} & Index of tree containing the point \\
+\hline
+{\em lcoords} & Logical coordinates of point \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::array$<$double, GRACE\+\_\+\+NSPACEDIM$\ast$\+GRACE\+\_\+\+NSPACEDIM$>$ The inverse Jacobian matrix. NB\+: This function checks for tree boundaries. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a89c8ac302aaa1561bb347060c0e429d2}\label{classgrace_1_1spherical__coordinate__system__impl__t_a89c8ac302aaa1561bb347060c0e429d2}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_inverse\_jacobian\_matrix@{get\_inverse\_jacobian\_matrix}}
+\index{get\_inverse\_jacobian\_matrix@{get\_inverse\_jacobian\_matrix}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_inverse\_jacobian\_matrix()}{get\_inverse\_jacobian\_matrix()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $\ast$GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+inverse\+\_\+jacobian\+\_\+matrix (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{cell\+\_\+coordinates,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the Jacobian matrix of the inverse coordinate transformation at a given point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Indices of cell containing the point \\
+\hline
+{\em q} & Local index of quadrant containing the point \\
+\hline
+{\em itree} & Index of tree containing the point \\
+\hline
+{\em cell\+\_\+coordinates} & Coordinates of point within the cell \\
+\hline
+{\em use\+\_\+ghostzones} & True if indices are zero-\/offset, false if ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::array$<$double, GRACE\+\_\+\+NSPACEDIM$\ast$\+GRACE\+\_\+\+NSPACEDIM$>$ The inverse Jacobian matrix. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a2f5148ab3241f49182e255b3647cf9cb}\label{classgrace_1_1spherical__coordinate__system__impl__t_a2f5148ab3241f49182e255b3647cf9cb}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_inverse\_jacobian\_matrix@{get\_inverse\_jacobian\_matrix}}
+\index{get\_inverse\_jacobian\_matrix@{get\_inverse\_jacobian\_matrix}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_inverse\_jacobian\_matrix()}{get\_inverse\_jacobian\_matrix()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $\ast$GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+inverse\+\_\+jacobian\+\_\+matrix (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{cell\+\_\+coordinates,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the Jacobian matrix of the inverse coordinate transformation at a given point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Indices of cell containing the point \\
+\hline
+{\em q} & Local index of quadrant containing the point \\
+\hline
+{\em cell\+\_\+coordinates} & Coordinates of point within the cell \\
+\hline
+{\em use\+\_\+ghostzones} & True if indices are zero-\/offset, false if ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::array$<$double, GRACE\+\_\+\+NSPACEDIM$\ast$\+GRACE\+\_\+\+NSPACEDIM$>$ The inverse Jacobian matrix. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_ae7f64de5fe67f5a835ccc11ce4789917}\label{classgrace_1_1spherical__coordinate__system__impl__t_ae7f64de5fe67f5a835ccc11ce4789917}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_jacobian@{get\_jacobian}}
+\index{get\_jacobian@{get\_jacobian}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_jacobian()}{get\_jacobian()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily double GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+jacobian (\begin{DoxyParamCaption}\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{lcoords }\end{DoxyParamCaption}) const}
+
+
+
+Get the determinant of the Jacobian matrix of the coordinate transformation at a given point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em itree} & Index of tree containing the point \\
+\hline
+{\em lcoords} & Logical coordinates of point \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The Jacobian matrix determinant. NB\+: This function checks for tree boundaries. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_ae236ef214f010e34bc883ad51b12c3fb}\label{classgrace_1_1spherical__coordinate__system__impl__t_ae236ef214f010e34bc883ad51b12c3fb}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_jacobian@{get\_jacobian}}
+\index{get\_jacobian@{get\_jacobian}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_jacobian()}{get\_jacobian()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily double GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+jacobian (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{cell\+\_\+coordinates,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the determinant of the Jacobian matrix of the coordinate transformation at a given point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Indices of cell containing the point \\
+\hline
+{\em q} & Local index of quadrant containing the point \\
+\hline
+{\em itree} & Index of tree containing the point \\
+\hline
+{\em cell\+\_\+coordinates} & Coordinates of point within the cell \\
+\hline
+{\em use\+\_\+ghostzones} & True if indices are zero-\/offset, false if ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The Jacobian matrix determinant. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_aef09eb70731dd6f8be934f4cf979c1fd}\label{classgrace_1_1spherical__coordinate__system__impl__t_aef09eb70731dd6f8be934f4cf979c1fd}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_jacobian@{get\_jacobian}}
+\index{get\_jacobian@{get\_jacobian}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_jacobian()}{get\_jacobian()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily double GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+jacobian (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{cell\+\_\+coordinates,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the determinant of the Jacobian matrix of the coordinate transformation at a given point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Indices of cell containing the point \\
+\hline
+{\em q} & Local index of quadrant containing the point \\
+\hline
+{\em cell\+\_\+coordinates} & Coordinates of point within the cell \\
+\hline
+{\em use\+\_\+ghostzones} & True if indices are zero-\/offset, false if ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+double The Jacobian matrix determinant. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_afd51b82434fa94ad4ed0583e6932b2b0}\label{classgrace_1_1spherical__coordinate__system__impl__t_afd51b82434fa94ad4ed0583e6932b2b0}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_jacobian\_matrix@{get\_jacobian\_matrix}}
+\index{get\_jacobian\_matrix@{get\_jacobian\_matrix}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_jacobian\_matrix()}{get\_jacobian\_matrix()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $\ast$GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+jacobian\+\_\+matrix (\begin{DoxyParamCaption}\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{lcoords }\end{DoxyParamCaption}) const}
+
+
+
+Get the Jacobian matrix of the coordinate transformation at a given point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em itree} & Index of tree containing the point \\
+\hline
+{\em lcoords} & Logical coordinates of point \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::array$<$double, GRACE\+\_\+\+NSPACEDIM$\ast$\+GRACE\+\_\+\+NSPACEDIM$>$ The Jacobian matrix. NB\+: This function checks for tree boundaries. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a75e71f3f40fddfcc725ae90b34706661}\label{classgrace_1_1spherical__coordinate__system__impl__t_a75e71f3f40fddfcc725ae90b34706661}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_jacobian\_matrix@{get\_jacobian\_matrix}}
+\index{get\_jacobian\_matrix@{get\_jacobian\_matrix}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_jacobian\_matrix()}{get\_jacobian\_matrix()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $\ast$GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+jacobian\+\_\+matrix (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{cell\+\_\+coordinates,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the Jacobian matrix of the coordinate transformation at a given point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Indices of cell containing the point \\
+\hline
+{\em q} & Local index of quadrant containing the point \\
+\hline
+{\em itree} & Index of tree containing the point \\
+\hline
+{\em cell\+\_\+coordinates} & Coordinates of point within the cell \\
+\hline
+{\em use\+\_\+ghostzones} & True if indices are zero-\/offset, false if ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::array$<$double, GRACE\+\_\+\+NSPACEDIM$\ast$\+GRACE\+\_\+\+NSPACEDIM$>$ The Jacobian matrix. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_aaf25d3dad62dc087467aa113aa2c5cb4}\label{classgrace_1_1spherical__coordinate__system__impl__t_aaf25d3dad62dc087467aa113aa2c5cb4}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_jacobian\_matrix@{get\_jacobian\_matrix}}
+\index{get\_jacobian\_matrix@{get\_jacobian\_matrix}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_jacobian\_matrix()}{get\_jacobian\_matrix()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $\ast$GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+jacobian\+\_\+matrix (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{cell\+\_\+coordinates,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the Jacobian matrix of the coordinate transformation at a given point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Indices of cell containing the point \\
+\hline
+{\em q} & Local index of quadrant containing the point \\
+\hline
+{\em cell\+\_\+coordinates} & Coordinates of point within the cell \\
+\hline
+{\em use\+\_\+ghostzones} & True if indices are zero-\/offset, false if ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::array$<$double, GRACE\+\_\+\+NSPACEDIM$\ast$\+GRACE\+\_\+\+NSPACEDIM$>$ The Jacobian matrix. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_ae67b6c6dd151c64f77f4739a0e20afdd}\label{classgrace_1_1spherical__coordinate__system__impl__t_ae67b6c6dd151c64f77f4739a0e20afdd}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_logical\_coordinates@{get\_logical\_coordinates}}
+\index{get\_logical\_coordinates@{get\_logical\_coordinates}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_logical\_coordinates()}{get\_logical\_coordinates()}\hspace{0.1cm}{\footnotesize\ttfamily [1/2]}}
+{\footnotesize\ttfamily std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+logical\+\_\+coordinates (\begin{DoxyParamCaption}\item[{int}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{physical\+\_\+coordinates }\end{DoxyParamCaption}) const}
+
+
+
+Get the logical coordinates of a point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em itree} & Index of tree containing the point \\
+\hline
+{\em physical\+\_\+coordinates} & Physical coordinates of requested point \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::array$<$double, GRACE\+\_\+\+NSPACEDIM$>$ An array containing the point\textquotesingle{}s logical coordinates. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_af1b477ea58950766ff809e3e4628334b}\label{classgrace_1_1spherical__coordinate__system__impl__t_af1b477ea58950766ff809e3e4628334b}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_logical\_coordinates@{get\_logical\_coordinates}}
+\index{get\_logical\_coordinates@{get\_logical\_coordinates}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_logical\_coordinates()}{get\_logical\_coordinates()}\hspace{0.1cm}{\footnotesize\ttfamily [2/2]}}
+{\footnotesize\ttfamily std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+logical\+\_\+coordinates (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{cell\+\_\+coordinates,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the logical coordinates of a point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Indices of the cell containing the point. \\
+\hline
+{\em q} & Local quadrant index \\
+\hline
+{\em cell\+\_\+coordinates} & Coordinates of point within the cell (should be in $[0,1]^N_d$) \\
+\hline
+{\em use\+\_\+ghostzones} & Set to true if the indices are zero-\/offset, false if they are ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::array$<$double, GRACE\+\_\+\+NSPACEDIM$>$ An array containing the point\textquotesingle{}s logical coordinates. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a39954b6e6fd69098460a8689f58132ac}\label{classgrace_1_1spherical__coordinate__system__impl__t_a39954b6e6fd69098460a8689f58132ac}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_physical\_coordinates@{get\_physical\_coordinates}}
+\index{get\_physical\_coordinates@{get\_physical\_coordinates}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_physical\_coordinates()}{get\_physical\_coordinates()}\hspace{0.1cm}{\footnotesize\ttfamily [1/3]}}
+{\footnotesize\ttfamily std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+physical\+\_\+coordinates (\begin{DoxyParamCaption}\item[{int const}]{itree,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{logical\+\_\+coordinates }\end{DoxyParamCaption}) const}
+
+
+
+Get the physical coordinates of a point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em itree} & Index of the tree containing the point \\
+\hline
+{\em logical\+\_\+coordinates} & Logical coordinates of the point within the tree \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::array$<$double, GRACE\+\_\+\+NSPACEDIM$>$ An array containing the point\textquotesingle{}s physical coordinates. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a70efa93a36bbde29f3ca53a470500e28}\label{classgrace_1_1spherical__coordinate__system__impl__t_a70efa93a36bbde29f3ca53a470500e28}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_physical\_coordinates@{get\_physical\_coordinates}}
+\index{get\_physical\_coordinates@{get\_physical\_coordinates}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_physical\_coordinates()}{get\_physical\_coordinates()}\hspace{0.1cm}{\footnotesize\ttfamily [2/3]}}
+{\footnotesize\ttfamily std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+physical\+\_\+coordinates (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the physical coordinates of a cell centre. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Cell indices \\
+\hline
+{\em q} & Local quadrant index \\
+\hline
+{\em use\+\_\+ghostzones} & Set to true if the indices are zero-\/offset, false if they are ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::array$<$double, GRACE\+\_\+\+NSPACEDIM$>$ An array containing the point\textquotesingle{}s physical coordinates. 
+\end{DoxyReturn}
+\mbox{\Hypertarget{classgrace_1_1spherical__coordinate__system__impl__t_a0562a8c24e826b6756fd53a678edb802}\label{classgrace_1_1spherical__coordinate__system__impl__t_a0562a8c24e826b6756fd53a678edb802}} 
+\index{grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}!get\_physical\_coordinates@{get\_physical\_coordinates}}
+\index{get\_physical\_coordinates@{get\_physical\_coordinates}!grace::spherical\_coordinate\_system\_impl\_t@{grace::spherical\_coordinate\_system\_impl\_t}}
+\doxysubsubsection{\texorpdfstring{get\_physical\_coordinates()}{get\_physical\_coordinates()}\hspace{0.1cm}{\footnotesize\ttfamily [3/3]}}
+{\footnotesize\ttfamily std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ GRACE\+\_\+\+HOST grace\+::spherical\+\_\+coordinate\+\_\+system\+\_\+impl\+\_\+t\+::get\+\_\+physical\+\_\+coordinates (\begin{DoxyParamCaption}\item[{std\+::array$<$ size\+\_\+t, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{ijk,  }\item[{int64\+\_\+t}]{q,  }\item[{std\+::array$<$ double, GRACE\+\_\+\+NSPACEDIM $>$ const \&}]{cell\+\_\+coordinates,  }\item[{bool}]{use\+\_\+ghostzones }\end{DoxyParamCaption}) const}
+
+
+
+Get the physical coordinates of a point. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em ijk} & Indices of the cell containing the point. \\
+\hline
+{\em q} & Local quadrant index \\
+\hline
+{\em cell\+\_\+coordinates} & Coordinates of point within the cell (should be in $[0,1]^N_d$) \\
+\hline
+{\em use\+\_\+ghostzones} & Set to true if the indices are zero-\/offset, false if they are ngz-\/offset \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+std\+::array$<$double, GRACE\+\_\+\+NSPACEDIM$>$ An array containing the point\textquotesingle{}s physical coordinates. 
+\end{DoxyReturn}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+include/grace/coordinates/spherical\+\_\+coordinate\+\_\+systems.\+hh\item 
+src/coordinates/\mbox{\hyperlink{spherical__coordinate__system_8cpp}{spherical\+\_\+coordinate\+\_\+system.\+cpp}}\end{DoxyCompactItemize}
