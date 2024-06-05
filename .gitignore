@@ -1,4 +1,6 @@
-doc/*
+doc/html/*
+doc/_build/*
+doc/latex/*
 build*
 *.test
 *.o
