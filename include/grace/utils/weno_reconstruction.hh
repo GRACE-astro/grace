@@ -46,12 +46,23 @@
 #define UP(d) u(VEC(i+d*utils::delta(0,idir),j+d*utils::delta(1,idir),k+d*utils::delta(2,idir)))
 
 namespace grace {
-
+/**
+ * @brief WENO reconstruction class. Specialized
+ *        to 3rd and 5th order below.
+ * 
+ * @tparam order Formal order of accuracy of the method
+ *         on smooth data and away from extrema.
+ */
 template< size_t order >
 struct weno_reconstructor_t ; 
+
 /**
  * @brief Piecewise linear WENO reconstruction
  * \ingroup numerics 
+ * NB: This class is constructed to act on cell-centered 
+ * data which is interpreted to represent volume averaged
+ * quantities. This class does \b not produce correct 
+ * results for Finite Differencing. 
  */
 template<>
 struct weno_reconstructor_t<3> 
@@ -61,7 +72,25 @@ struct weno_reconstructor_t<3>
     static constexpr double d1 = 1./3.;
     
  public: 
-
+    /**
+     * @brief Perform 3rd order accurate WENO reconstruction
+     *        of a cell-centered (volume averaged) variable.
+     * 
+     * @tparam ViewT Type of variable view.
+     * @param u Variable view.
+     * @param uL Reconstructed value at \f$i-1/2-\epsilon\f$.
+     * @param uR Reconstructed value at \f$i-1/2+\epsilon\f$.
+     * @param idir Direction of reconstruction.
+     * 
+     * The weights for WENO reconstruction are taken from Jiang, Liu 1996
+     * (https://apps.dtic.mil/sti/tr/pdf/ADA301993.pdf), see Tab. 1 and 2.
+     * NB: Following GRACE convention on reconstruction, we want out of this 
+     * routine the values  \f$U_{i-1/2 \pm \epsilon}\f$. This is different 
+     * from the notation of most papers / codes where the reconstruction is 
+     * performed at \f$U_{i-1/2 + \epsilon}\f$ and \f$U_{i+1/2 - \epsilon}\f$.
+     * For this reason some of the coefficients are in a different order from
+     * what appears in the tables.
+     */
     template< typename ViewT >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() (
@@ -90,7 +119,7 @@ struct weno_reconstructor_t<3>
         } ; 
         double const wL = 1./( alphaL[0] + alphaL[1] ) ; 
         double const wR = 1./( alphaR[0] + alphaR[1] ) ; 
-        
+
         uR = 0.5 * wR * ( alphaR[0] * (  U0    +    UP(1) ) 
                         + alphaR[1] * ( -UM(1) + 3.*U0    )) ;
         
@@ -101,7 +130,11 @@ struct weno_reconstructor_t<3>
 
 /**
  * @brief Piecewise parabolic WENO reconstruction
- * \ingroup numerics 
+ * \ingroup numerics
+ * NB: This class is constructed to act on cell-centered 
+ * data which is interpreted to represent volume averaged
+ * quantities. This class does \b not produce correct 
+ * results for Finite Differencing. 
  */
 template<>
 struct weno_reconstructor_t<5> 
@@ -115,7 +148,27 @@ struct weno_reconstructor_t<5>
     static constexpr double WENO5_1_BY_6   = 1.0/6.0   ; 
     
  public: 
-
+    /**
+     * @brief Perform 5rd order accurate WENO reconstruction
+     *        of a cell-centered (volume averaged) variable.
+     * 
+     * @tparam ViewT Type of variable view.
+     * @param u Variable view.
+     * @param uL Reconstructed value at \f$i-1/2-\epsilon\f$.
+     * @param uR Reconstructed value at \f$i-1/2+\epsilon\f$.
+     * @param idir Direction of reconstruction.
+     * 
+     * The weights for WENO reconstruction are taken from Jiang, Liu 1996
+     * https://apps.dtic.mil/sti/tr/pdf/ADA301993.pdf, (see Tab. 1 and 2)
+     * as well as Titarev, Toro https://www.newton.ac.uk/files/preprints/ni03057.pdf
+     * (see Eqs. (25-29)).
+     * NB: Following GRACE convention on reconstruction, we want out of this 
+     * routine the values  \f$U_{i-1/2 \pm \epsilon}\f$. This is different 
+     * from the notation of most papers / codes where the reconstruction is 
+     * performed at \f$U_{i-1/2 + \epsilon}\f$ and \f$U_{i+1/2 - \epsilon}\f$.
+     * For this reason some of the coefficients are in a different order from
+     * what appears in the tables.
+     */
     template< typename ViewT >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() (
