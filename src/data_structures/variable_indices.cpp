@@ -1,7 +1,7 @@
 /**
  * @file variable_indices.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Macros galore.
  * @date 2024-03-12
  * 
  * @copyright This file is part of GRACE.
@@ -31,6 +31,7 @@
 
 #include <grace/errors/assert.hh>
 #include <grace/data_structures/variable_indices.hh>
+#include <grace/data_structures/variable_registration_helpers.hh>
 #include <grace/data_structures/macros.hh>
 #include <grace/errors/error.hh>
 
@@ -183,166 +184,31 @@ void register_variables() {
                                 , false ) ; 
     #endif 
     #ifdef GRACE_ENABLE_GRMHD 
+    /********************************************************************************/
     /* Valencia hydrodynamics */
-    DENS = register_variable( "dens"
-                                , {VEC(false,false,false)}
-                                , true 
-                                , true 
-                                , true
-                                , "outgoing"
-                                , false ) ; 
-    SX = register_variable( "S[0]"
-                                , {VEC(false,false,false)}
-                                , true 
-                                , true 
-                                , true
-                                , "outgoing"
-                                , true
-                                , false
-                                , 0
-                                , "S" ) ;
-    SY = register_variable( "S[1]"
-                                , {VEC(false,false,false)}
-                                , true 
-                                , true 
-                                , true
-                                , "outgoing"
-                                , true
-                                , false 
-                                , 1 
-                                , "S") ;
-    SZ = register_variable( "S[2]"
-                                , {VEC(false,false,false)}
-                                , true 
-                                , true 
-                                , true
-                                , "outgoing"
-                                , true
-                                , false 
-                                , 2
-                                , "S") ;
-    TAU = register_variable( "tau"
-                                , {VEC(false,false,false)}
-                                , true 
-                                , true 
-                                , true
-                                , "outgoing"
-                                , false ) ;
+    /* Conserved variables    */
+    REGISTER_EVOLVED_SCALAR(DENS,"dens","outgoing") ; 
+    REGISTER_EVOLVED_VECTOR(SX,SY,SZ,"stilde","outgoing") ;
+    REGISTER_EVOLVED_SCALAR(TAU,"tau","outgoing") ; 
+    REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing") ; 
+    REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing") ;
+    /* GRMHD primitives */
+    REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
+    REGISTER_AUX_VECTOR(VELX,VELY,VELZ,"vel","none") ; 
+    REGISTER_AUX_SCALAR(YE,"ye","none") ; 
+    REGISTER_AUX_SCALAR(TEMP,"temperature", "none") ;
+    REGISTER_AUX_SCALAR(ENTROPY,"entropy","none") ; 
+    REGISTER_AUX_SCALAR(EPS,"eps","none") ; 
+    REGISTER_AUX_SCALAR(PRESS,"press","none") ; 
     /* registration of metric variables */
-    GXX = register_variable( "gxx"
-                            , {VEC(false,false,false)} 
-                            , true 
-                            , true
-                            , false
-                            , "outgoing" 
-                            , false
-                            , true
-                            , 0
-                            , "gamma" 
-                             ) ; 
-
-    GXY = register_variable( "gxy"
-                            , {VEC(false,false,false)} 
-                            , true 
-                            , true
-                            , false 
-                            , "outgoing"
-                            , false
-                            , true
-                            , 1
-                            , "gamma" 
-                            ) ;
-
-    GXZ = register_variable( "gxz"
-                            , {VEC(false,false,false)} 
-                            , true 
-                            , true
-                            , false 
-                            , "outgoing"
-                            , false
-                            , true
-                            , 2
-                            , "gamma") ;
-
-    GYY = register_variable( "gyy"
-                            , {VEC(false,false,false)} 
-                            , true 
-                            , true
-                            , false 
-                            , "outgoing"
-                            , false
-                            , true
-                            , 3
-                            , "gamma" 
-                            ) ;
-
-    GYZ = register_variable( "gyz"
-                            , {VEC(false,false,false)} 
-                            , true 
-                            , true
-                            , false
-                            , "outgoing"
-                            , false
-                            , true
-                            , 4
-                            , "gamma"  ) ;
-
-    GZZ = register_variable( "gzz"
-                            , {VEC(false,false,false)} 
-                            , true 
-                            , true
-                            , false 
-                            , "outgoing"
-                            , false
-                            , true
-                            , 5
-                            , "gamma" ) ;
-
-    ALP = register_variable( "alp"
-                            , {VEC(false,false,false)} 
-                            , true 
-                            , true
-                            , false
-                            , "outgoing"
-                            , false 
-                            ) ;
-
-    BETAX = register_variable( "beta[0]"
-                                , {VEC(false,false,false)} 
-                                , true 
-                                , true
-                                , false 
-                                , "outgoing"
-                                , true
-                                , false 
-                                , 0
-                                , "beta"
-                                ) ;
-
-
-    BETAY = register_variable( "beta[1]"
-                                , {VEC(false,false,false)} 
-                                , true 
-                                , true
-                                , false 
-                                , "outgoing"
-                                , true
-                                , false 
-                                , 1
-                                , "beta"
-                                ) ;
-
-
-    BETAZ = register_variable( "beta[2]"
-                                , {VEC(false,false,false)} 
-                                , true 
-                                , true
-                                , false 
-                                , "outgoing"
-                                , true
-                                , false 
-                                , 2
-                                , "beta" ) ;
+    REGISTER_AUX_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","none") ; 
+    REGISTER_AUX_SCALAR(ALP,"alp","none") ; 
+    REGISTER_AUX_VECTOR(BETA,"beta","none");
+    /********************************************************************************/
+    /********************************************************************************/
+    /*                           COPY INDICES TO GPU                                */
+    /********************************************************************************/
+    /********************************************************************************/
     #endif 
     ASSERT_DBG( detail::_var_bc_types.size() == detail::num_evolved, 
                 detail::num_evolved << " evolved variables but "
@@ -356,6 +222,8 @@ void register_variables() {
                             DECLARE_VARIABLE_INDICES ; 
                         } ) ; 
     #undef DECLARE_VAR_INDEX_IMPL
+    /********************************************************************************/
+    /********************************************************************************/
 }
 namespace detail {
 static int register_scalar( std::string const& name
