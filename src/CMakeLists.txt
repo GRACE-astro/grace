@@ -16,6 +16,8 @@ add_subdirectory(data_structures)
 
 add_subdirectory(IO)
 
+add_subdirectory(profiling)
+
 add_subdirectory(evolution)
 
 add_subdirectory(physics)
@@ -59,5 +61,6 @@ target_sources( grace_objects INTERFACE
                 $<TARGET_OBJECTS:grace_burgers_eq>
                 $<TARGET_OBJECTS:grace_eos>
                 $<TARGET_OBJECTS:grace_evolution> 
-                $<TARGET_OBJECTS:grace_initial_data> )
+                $<TARGET_OBJECTS:grace_initial_data> 
+                $<TARGET_OBJECTS:grace_profiling>)
 

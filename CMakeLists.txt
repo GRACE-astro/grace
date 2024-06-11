@@ -22,6 +22,13 @@ include(setup_vtk)
 include(setup_spdlog)
 include(setup_HDF5)
 
+option(GRACE_ENABLE_PROFILING "Build profiling hooks" ON)
+if( GRACE_ENABLE_PROFILING )
+    message(STATUS "Profiling enabled.")
+else()
+    message(STATUS "Profiling disabled.")
+endif()
+
 configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )
 include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
 

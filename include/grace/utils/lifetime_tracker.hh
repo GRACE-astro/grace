@@ -44,6 +44,7 @@
 enum unique_objects_lifetimes {
     SYSTEM_UTILITIES=0,
     MPI_RUNTIME,
+    GRACE_PROFILING_RUNTIME,
     KOKKOS_RUNTIME,
     P4EST_RUNTIME,
     GRACE_RUNTIME, 
