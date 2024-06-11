@@ -12,10 +12,7 @@ in est ante in nibh mauris cursus. Dui sapien eget mi proin.
 Input parameters
 ******************
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
-Purus sit amet volutpat consequat mauris nunc congue nisi vitae. Urna nec tincidunt praesent semper. Vulputate dignissim suspendisse 
-in est ante in nibh mauris cursus. Dui sapien eget mi proin. 
-
+Input parameters control the runtime behaviour of GRACE. 
 Output Formats
 *****************
 

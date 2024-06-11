@@ -36,7 +36,16 @@
 #include <Kokkos_Core.hpp>
 
 namespace grace {
-
+/**
+ * @brief Concrete cold EOS type corresponding to 
+ *        a (piece-wise) polytrope. This class 
+ *        should not be used on its own but rather
+ *        serve as a template parameter for the 
+ *        <code>hybrid_eos_t</code> class.
+ * \ingroup eos
+ * This class implements the minimum interface required
+ * for the hybrid thermal extension.
+ */
 class piecewise_polytropic_eos_t
 {
     using error_type = unsigned int ; 
@@ -106,6 +115,6 @@ class piecewise_polytropic_eos_t
 
 } ; 
 
-}
+} /* namespace grace */
 
 #endif /* GRACE_PHYSICS_EOS_PWPOLY_EOS_HH */

@@ -37,10 +37,36 @@
 #include <grace/data_structures/variable_properties.hh>
 
 namespace grace {
-
+/**
+ * @brief Class for slope-limited, second order accurate
+ *        reconstruction.
+ * \ingroup numerics
+ * @tparam limiter_t Limiter type.
+ */
 template< typename limiter_t >
 struct slope_limited_reconstructor_t  
 {
+    /**
+     * @brief Compute reconstruction of state 
+     *        at the left and right of interface.
+     * 
+     * @tparam ViewT Variable view type.
+     * @param u Variable view.
+     * @param uL Left state.
+     * @param uR Right state.
+     * @param idir Direction of reconstruction.
+     * The reconstruction is performed as 
+     * \f{eqnarray*}{
+     *  u^L_i &:=& u_{i-1/2-\epsilon} = u_{i-1} + 0.5 \Delta u_{i-1}~, \\ 
+     *  u^R_i &:=& u_{i-1/2+\epsilon} = u_{i} - 0.5 \Delta u_{i}~.     \\
+     * \f}
+     * Where \f$\Delta u_i\f$ is the limited slope computed as:
+     * \f[
+     * \Delta u_i = \text{limiter}(u_i-u_{i-1}, u_{i+1}-u_i).
+     * \f]
+     * NB: The limiter can be minmod or monotonized-central. See 
+     * the relative APIs in the documentation of limiters.hh
+     */
     template< typename ViewT >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() (

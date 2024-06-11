@@ -33,6 +33,7 @@
 
 #include <cstdlib>
 #include <cmath> 
+#include <type_traits>
 
 #ifdef __CUDACC__
 #include <cuda_runtime.h>
@@ -82,20 +83,6 @@ T int_pow(T const& x )
 {
   return detail::int_pow_impl<T,N>::get(x) ; 
 } ;
-
-/**
- * @brief compute absolute value (type agnostic).
- * \ingroup utils
- * @tparam T type of parameter
- * @param x value whose absolute value we want
- * @return T absolute value of x
- */
-template < typename T >
-static GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-T abs ( T const & x ) {
-  return ( x > static_cast<T>(0) ) ? x : -x ;
-}
-
 /**
  * @brief Signum
  * \ingroup utils
@@ -108,25 +95,33 @@ int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
 sgn(T const& val) {
     return (static_cast<T>(0)<val) - (static_cast<T>(0)>val) ; 
 }
-namespace detail {
 /**
- * @brief Specialization of max function for doubles.
+ * @brief compute absolute value (efficient version for 
+ *        integral input types).
  * \ingroup utils
- * \cond grace_detail
+ * @tparam T type of parameter
+ * @param x value whose absolute value we want
+ * @return T absolute value of x
  */
-double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-dmax(double const& A, double const& B){
-  return (B<A) ? A : B ; 
+template<typename T>
+GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+typename std::enable_if<std::is_integral<T>::value, T>::type
+abs(T const& x) {
+    T mask = x >> (sizeof(T) * 8 - 1);
+    return (x + mask) ^ mask;
 }
 /**
- * @brief Specialization of min function for doubles.
+ * @brief compute absolute value (type agnostic).
  * \ingroup utils
- * \cond grace_detail
+ * @tparam T type of parameter
+ * @param x value whose absolute value we want
+ * @return T absolute value of x
  */
-double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-dmin(double const& A, double const& B){
-  return (B<A) ? B : A ; 
-}
+template < typename T >
+static GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+typename std::enable_if<!std::is_integral<T>::value, T>::type
+abs ( T const & x ) {
+  return DEVICE_CONDITIONAL((x>static_cast<T>(0)), x, -x) ; 
 }
 /**
  * @brief Maximum between two numeric values.
@@ -140,7 +135,7 @@ dmin(double const& A, double const& B){
 template< typename T > 
 T GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 max(T const& A, T const& B) {
-  return (A>B) ? A : B ; 
+  return DEVICE_CONDITIONAL((A>B), A, B) ; 
 }
 /**
  * @brief Maximum of a set of floating point values.
@@ -155,12 +150,17 @@ max(T const& A, T const& B) {
  *     passed into it.
  */
 template < typename ... Arg_t > 
-double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+decltype(auto) constexpr GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 max(double const& A, double const& B, Arg_t && ... args ) {
+  using return_t = std::common_type_t<Arg_t...> ; 
   if constexpr ( sizeof...(Arg_t) == 0 ) {
-    return detail::dmax(A,B) ; 
+    return static_cast<return_t>(
+      max(static_cast<return_t>(A),static_cast<return_t>(B))
+    ) ; 
   } else {
-    return detail::dmax(A, max(B,args...)) ; 
+    return static_cast<return_t>(
+      max(static_cast<return_t>(A), max(static_cast<return_t>(B),args...))
+    ) ; 
   }
 }
 /**
@@ -175,7 +175,7 @@ max(double const& A, double const& B, Arg_t && ... args ) {
 template< typename T > 
 T GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 min(T const& A, T const& B) {
-  return (A<B) ? A : B ; 
+  return DEVICE_CONDITIONAL((A<B), A, B) ; 
 }
 /**
  * @brief Minimum of a set of floating point values.
@@ -190,12 +190,17 @@ min(T const& A, T const& B) {
  *     passed into it.
  */
 template < typename ... Arg_t > 
-double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+decltype(auto) GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 min(double const& A, double const& B, Arg_t && ... args ) {
+  using return_t = std::common_type_t<Arg_t...> ; 
   if constexpr ( sizeof...(Arg_t) == 0 ) {
-    return detail::dmin(A,B) ; 
+    return static_cast<return_t>(
+      min(static_cast<return_t>(A),static_cast<return_t>(B))
+    ) ; 
   } else {
-    return detail::dmin(A, max(B,args...)) ; 
+    return static_cast<return_t>(
+      min(static_cast<return_t>(A), min(static_cast<return_t>(B),args...))
+    ) ; 
   }
 }
 /**

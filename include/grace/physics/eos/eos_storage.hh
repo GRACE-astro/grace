@@ -47,44 +47,90 @@ namespace grace {
  */
 //**************************************************************************************************
 /**
- * @brief EOS storage class
+ * @brief EOS storage class.
  * \ingroup eos 
  *
- * 
+ * This class holds an instance of all possible EOS types.
+ * Only the object corresponding to the active EOS type (selected
+ * through the parfile) will be in a meaningful state.
  */
 class eos_storage_t {
 
  public:
-
+    /**
+     * @brief Get the hybrid piecewise polytropic EOS object.
+     * 
+     * This should only be called if the active EOS type is 
+     * hybrid piecewise polytrope.
+     * 
+     * @return decltype(auto) The hybrid piecewise polytropic EOS object.
+     */
     decltype(auto) GRACE_ALWAYS_INLINE 
     get_hybrid_pwpoly() {
         return _hybrid_pwpoly ; 
     }
-
+    /**
+     * @brief Get the hybrid tabulated EOS object.
+     * 
+     * This should only be called if the active EOS type is 
+     * hybrid tabulated.
+     * 
+     * @return decltype(auto) The hybrid tabulated EOS object.
+     */
     decltype(auto) GRACE_ALWAYS_INLINE 
     get_hybrid_tabulated() {
         ERROR("Not implemented yet.") ;  
     }
-
+    /**
+     * @brief Get the tabulated EOS object.
+     * 
+     * This should only be called if the active EOS type is 
+     * tabulated.
+     * 
+     * @return decltype(auto) The tabulated EOS object.
+     */
     decltype(auto) GRACE_ALWAYS_INLINE 
     get_tabulated() {
         ERROR("Not implemented yet.") ;  
     }
+
  private:
-
+    //! Longevity of EOS utils.
     static constexpr size_t longevity = GRACE_EOS_STORAGE ; 
-
+    /**
+     * @brief (Never) construct a new eos_storage_t object
+     * 
+     */
     eos_storage_t() ; 
-
+    /**
+     * @brief (Never) destroy the eos_storage_t object
+     */
     ~eos_storage_t() {}; 
 
+    //! The hybrid EOS object.
     hybrid_eos_t<piecewise_polytropic_eos_t> _hybrid_pwpoly ; 
-
+    //! Give access.
     friend class utils::singleton_holder<eos_storage_t, memory::default_create>  ;
+    //! Give access.
     friend class memory::new_delete_creator<eos_storage_t, memory::new_delete_allocator> ; 
-
 } ; 
-
+/**
+ * @brief 
+ * \ingroup eos
+ * Singleton wrapping EOS storage in GRACE. To obtain 
+ * a specific EOS object the API is:
+ * \code 
+ * auto const tabulated_eos = grace::eos::get().get_tabulated();
+ * auto const hybrid_pwpoly_eos = grace::eos::get().get_hybrid_pwpoly();
+ * auto const hybrid_tabulated_eos = grace::eos::get().get_hybrid_tabulated();
+ * \endcode 
+ * Note that all the EOS types are trivially copy-able and constructible on device.
+ * This allows for seemless inter-operation with GPU code. This is achieved by having 
+ * all data members of the concrete EOS types be either trivially copy-able or views 
+ * referencing GPU memory. However, this means that in general EOS methods are \b not 
+ * safe to call from host. If you really need to, a workaround needs to be found (e.g. 
+ * initializing a temporary host-eos object whose views are on host).
+ */
 using eos = utils::singleton_holder< eos_storage_t > ; 
 
 }

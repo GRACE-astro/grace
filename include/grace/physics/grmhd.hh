@@ -65,11 +65,14 @@ enum GRMHD_PRIMS_LOC_INDICES {
     VYL,
     VZL,
     YEL,
+    TEMPL,
     EPSL,
     ENTL,
+    #ifdef GRACE_DO_MHD
     BXL,
     BYL,
     BZL,
+    #endif 
     NUM_PRIMS_LOC
 } ; 
 enum GRMHD_CONS_LOC_INDICES {
@@ -118,7 +121,17 @@ struct grmhd_equations_system_t
                             , grace::var_array_t<GRACE_NSPACEDIM> aux_   ) 
      : base_t(state_,aux_), _eos(eos_)
     { } ;
-
+    /**
+     * @brief Compute GRMHD fluxes in direction \f$x^1\f$
+     * 
+     * @tparam thread_team_t Type of the thread team.
+     * @param team Thread team.
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param ngz  Number of ghost cells.
+     * @param fluxes Flux array.
+     */
     template< typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_x_flux( thread_team_t& team 
@@ -130,7 +143,17 @@ struct grmhd_equations_system_t
     {
         getflux<0>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
     }
-
+    /**
+     * @brief Compute GRMHD fluxes in direction \f$x^2\f$
+     * 
+     * @tparam thread_team_t Type of the thread team.
+     * @param team Thread team.
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param ngz  Number of ghost cells.
+     * @param fluxes Flux array.
+     */
     template< typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_y_flux( thread_team_t& team 
@@ -142,7 +165,17 @@ struct grmhd_equations_system_t
     {
         getflux<1>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
     }
-
+    /**
+     * @brief Compute GRMHD fluxes in direction \f$x^3\f$
+     * 
+     * @tparam thread_team_t Type of the thread team.
+     * @param team Thread team.
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param ngz  Number of ghost cells.
+     * @param fluxes Flux array.
+     */
     template< typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_z_flux(  thread_team_t& team 
@@ -154,7 +187,18 @@ struct grmhd_equations_system_t
     {
         getflux<2>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
     }
-
+    /**
+     * @brief Compute geometric source terms for GRMHD equations.
+     * 
+     * @tparam thread_team_t Thread team type.
+     * @param team Thread team.
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param state_new State where sources are added.
+     * @param dt Timestep.
+     * @param dtfact Timestep factor.
+     */
     template< typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_source_terms( thread_team_t& team 
@@ -164,13 +208,28 @@ struct grmhd_equations_system_t
                          , grace::var_array_t<GRACE_NSPACEDIM> const state_new
                          , double const dt 
                          , double const dtfact ) const ;
-
+    /**
+     * @brief Compute GRMHD auxiliary quantities.
+     *        This is essentially a call to c2p.
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param q Quadrant index.
+     */
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_auxiliaries(  VEC( const int i 
                         ,      const int j 
                         ,      const int k) 
                         , int64_t q ) const ;
-
+    /**
+     * @brief Compute maximum absolute value eigenspeed.
+     * 
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param q Quadrant index.
+     * @return double Maximum eigenspeed of GRMHD equations.
+     */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     compute_max_eigenspeed( VEC( const int i 
                           ,      const int j 
@@ -178,10 +237,18 @@ struct grmhd_equations_system_t
                           , int64_t q ) const ;
 
  private:
+    //! Number of reconstructed variables.
     static constexpr unsigned int GRMHD_NUM_RECON_VARS = 7 ; 
-    
+    //! Equation of State object.
     eos_t _eos ;
-
+    /**
+     * @brief 
+     * 
+     * @tparam idir 
+     * @param q 
+     * @param ngz 
+     * @param fluxes 
+     */
     template< int idir >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     getflux(  VEC( const int i 
@@ -229,15 +296,16 @@ struct grmhd_equations_system_t
                 , TEMP_
                 , ENTROPY_
             } ; 
+        
         std::array<size_t, GRMHD_NUM_RECON_VARS>
             recon_indices_loc{
                   RHOL
-                , VELXL
-                , VELYL
-                , VELZL
+                , VXL
+                , VYL
+                , VZL
                 , YEL
-                , EPSL
-                , ENTROPYL
+                , TEMPL
+                , ENTL
             } ;
         grmhd_prims_array_t primL, primR ; 
         for( int i=0; i<GRMHD_NUM_RECON_VARS; ++i) {
@@ -273,7 +341,7 @@ struct grmhd_equations_system_t
         /* Left */
         double epsl, epsr ;
         double cs2l, cs2r ; 
-        primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(epsl, cs2l, primL[EPSL], primL[RHOL], primL[YEL], eos_err) ; 
+        primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(epsl, cs2l, primL[TEMPL], primL[RHOL], primL[YEL], eos_err) ; 
         primL[EPSL]   = epsl ;
         primL[VXL] = alp * primL[VXL] / wl - metric_center.shift(0) ;
         primL[VYL] = alp * primL[VYL] / wl - metric_center.shift(1) ;

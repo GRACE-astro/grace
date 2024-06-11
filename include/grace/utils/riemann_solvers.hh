@@ -36,9 +36,28 @@
 #include <grace/data_structures/macros.hh>
 
 namespace grace {
-
+/**
+ * @brief HLLE approximate Riemann solver.
+ * \ingroup numerics
+ */
 struct hll_riemann_solver_t 
 {
+    /**
+     * @brief Compute the physical flux given 
+     *        fluxes and states on both sides
+     *        according to the HLL prescription.
+     * 
+     * @param fL Flux at left side of the interface.
+     * @param fR Flux at right side of the interface.
+     * @param uL State at left side of the interface.
+     * @param uR State at right side of the interface.
+     * @param cmin Minimum eigenspeed at interface.
+     * @param cmax Maximum eigenspeed at interface.
+     * @return double The physical flux in the HLLE prescription.
+     * NB: Here cmin and cmax mean the maximum absolute value left
+     * going wavespeed and the maximum absolute value right going 
+     * wavespeed, respectively.
+     */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() (
           double const fL
@@ -53,7 +72,7 @@ struct hll_riemann_solver_t
         ) ; 
     }
  private:
-    static constexpr double speed_eps = 1e-15 ; 
+    static constexpr double speed_eps = 1e-15 ; //!< Speed below which we consider the interface supersonic.
 } ; 
 
 }

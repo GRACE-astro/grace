@@ -28,12 +28,24 @@
 #define GRACE_UTILS_AFFINE_TRANSFORMATION_HH
 
 #include <grace/utils/inline.h>
+#include <grace/utils/device.h>
 
 #include <array>
 namespace utils {
 
+/**
+ * @brief Apply an affine transformation.
+ * 
+ * @tparam T Type of data.
+ * @param x Point to be transformed.
+ * @param A Starting point of old interval.
+ * @param B End point of old interval.
+ * @param a Starting point of new interval.
+ * @param b End point of new interval.
+ * @return T The mapping of x from \f$[A,B]\f$ to \f$[a,b]\f$.
+ */
 template< typename T >
-static T GRACE_ALWAYS_INLINE
+static T GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
 affine_transformation(
     T const& x,
     T const& A, T const& B, 

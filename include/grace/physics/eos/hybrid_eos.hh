@@ -36,7 +36,15 @@
 #include <Kokkos_Core.hpp>
 
 namespace grace {
-
+/**
+ * @brief Concrete EOS type corresponding to 
+ *        a cold EOS with a ideal gas thermal 
+ *        extension.
+ * \ingroup eos
+ * @tparam cold_eos_t Type of cold EOS. 
+ * The methods of this class are explicit implementations
+ * of public methods from <code>eos_base_t</code>.
+ */
 template < typename cold_eos_t >
 class hybrid_eos_t
     : public eos_base_t<hybrid_eos_t<cold_eos_t>> 
@@ -363,6 +371,6 @@ class hybrid_eos_t
     
 } ; 
 
-}
+} /* namespace grace */
 
-#endif 
+#endif /* GRACE_PHYSICS_HYBRID_EOS_HH */

@@ -41,7 +41,7 @@ namespace grace { namespace amr {
 //*****************************************************************************************************
 //**************************************************************************************************
 /**
- * @brief Thin wrapper around p4est_tree_t 
+ * @brief Thin wrapper around p4est_tree_t*
  * \ingroup amr 
  * 
  * Designed to make access of members easier and safer for user code.

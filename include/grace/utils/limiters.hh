@@ -1,7 +1,7 @@
 /**
  * @file limiters.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief 
+ * @brief Slope limiters for use in reconstruction and/or prolongation.
  * @version 0.1
  * @date 2024-04-09
  * 
@@ -35,8 +35,18 @@
 #include <Kokkos_Core.hpp> 
 
 namespace grace {
-
+/**
+ * @brief Minmod limiter.
+ * \ingroup numerics
+ */
 struct minmod {
+    /**
+     * @brief Apply minmod limiter.
+     * 
+     * @param slopeL Left slope.
+     * @param slopeR Right slope.
+     * @return double Limited slope.
+     */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() (double const& slopeL, double const& slopeR){
         auto const signL = math::sgn(slopeL) ;
@@ -44,9 +54,19 @@ struct minmod {
         return 0.5 * ( signL + signR ) * math::min(Kokkos::fabs(slopeL),Kokkos::fabs(slopeR)) ; 
     }
 } ; 
-
+/**
+ * @brief monotonized-central limiter with \f$\beta=2\f$.
+ * \ingroup numerics
+ */
 struct MCbeta {
     double const beta = 2. ; 
+    /**
+     * @brief Apply mc limiter.
+     * 
+     * @param slopeL Left slope.
+     * @param slopeR Right slope.
+     * @return double Limited slope.
+     */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() (double const& slopeL, double const& slopeR){
         auto const slopeC = 0.5 * (slopeR + slopeL) ; 

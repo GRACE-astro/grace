@@ -132,10 +132,11 @@ static void set_quadrant_flag( p4est_t* p4est
 /**
  * @brief Callback for quadrant refinement.
  * 
- * @param p4est 
- * @param which_tree 
- * @param quadrant 
- * @return int 
+ * @param p4est Pointer to the forest.
+ * @param which_tree Index of tree containing the quadrant.
+ * @param quadrant Quadrant being processed.
+ * @return int Returns <code>true</code> if the quadrant is flagged for refinement,
+ *         <code>false</code> otherwise.
  */
 static int refine_cback( p4est_t* p4est 
                        , p4est_topidx_t which_tree 
@@ -148,10 +149,11 @@ static int refine_cback( p4est_t* p4est
 /**
  * @brief Callback for quadrant coarsening.
  * 
- * @param p4est 
- * @param which_tree 
- * @param quadrant 
- * @return int 
+ * @param p4est Pointer to the forest.
+ * @param which_tree Index of tree containing the quadrants.
+ * @param quadrant Quadrants being processed.
+ * @return int Returns <code>true</code> if more than half of the children 
+ *         quadrants are flagged for coarsening, <code>false</code> otherwise.
  */
 static int coarsen_cback( p4est_t* p4est 
                        , p4est_topidx_t which_tree 
