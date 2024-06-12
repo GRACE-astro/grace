@@ -25,7 +25,7 @@ add_subdirectory(physics)
 add_library( grace_objects INTERFACE )
 target_sources( grace_objects INTERFACE 
                 $<TARGET_OBJECTS:grace_error_handlers>
-                $<TARGET_OBJECTS:grace_device_lowlevel>
+                #$<TARGET_OBJECTS:grace_device_lowlevel>
                 $<TARGET_OBJECTS:grace_parallel>
                 $<TARGET_OBJECTS:grace_singleton>
                 $<TARGET_OBJECTS:grace_runtime_utilities>

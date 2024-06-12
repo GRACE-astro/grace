@@ -41,7 +41,7 @@
 #include <grace/amr/amr_functions.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/coordinates/coordinates.hh>
-#include <grace/profiling/profilint_runtime.hh>
+#include <grace/profiling/profiling_runtime.hh>
 
 #include <grace/errors/error.hh>
 
@@ -179,7 +179,7 @@ void initialize(int& argc, char* argv[])
     grace::config_parser::initialize(parfile) ; 
     grace::mpi_runtime::initialize(argc, argv)  ;
     #ifdef GRACE_ENABLE_PROFILING
-    grace::profiling_runtime:initialize() ; 
+    grace::profiling_runtime::initialize() ; 
     #endif
     grace::kokkos_runtime::initialize(&argc, argv) ;  
     grace::initialize_loggers() ; 

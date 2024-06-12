@@ -2,10 +2,6 @@ add_library( grace_cartesian_coordinates OBJECT cartesian_coordinate_system.cpp 
 target_include_directories( grace_cartesian_coordinates PRIVATE "${HEADER_DIR}" )
 target_compile_options(grace_cartesian_coordinates PRIVATE -Wno-dangling-field)
 target_link_libraries( grace_cartesian_coordinates PRIVATE 
-                        $<TARGET_OBJECTS:grace_parallel> 
-                        $<TARGET_OBJECTS:grace_singleton> 
-                        $<TARGET_OBJECTS:grace_connectivity> 
-                        $<TARGET_OBJECTS:grace_forest>
                         yaml_cpp::yaml
                         MPI::MPI_CXX
                         p4est::sc
@@ -44,17 +40,6 @@ add_library( grace_spherical_coordinates OBJECT spherical_coordinate_system.cpp 
 target_include_directories( grace_spherical_coordinates PRIVATE "${HEADER_DIR}" )
 target_compile_options(grace_spherical_coordinates PRIVATE -Wno-dangling-field)
 target_link_libraries( grace_spherical_coordinates PRIVATE 
-                        $<TARGET_OBJECTS:grace_parallel> 
-                        $<TARGET_OBJECTS:spherical_cell_volume_kernels>
-                        $<TARGET_OBJECTS:grace_singleton> 
-                        $<TARGET_OBJECTS:grace_connectivity> 
-                        $<TARGET_OBJECTS:grace_forest>
-                        $<TARGET_OBJECTS:spherical_jacobians_2D>
-                        $<TARGET_OBJECTS:spherical_jacobians_3D>
-                        $<TARGET_OBJECTS:spherical_jacobians_inv_2D>
-                        $<TARGET_OBJECTS:spherical_jacobians_inv_3D>
-                        $<TARGET_OBJECTS:spherical_jacobians_inv_phys_2D>
-                        $<TARGET_OBJECTS:spherical_jacobians_inv_phys_3D>
                         yaml_cpp::yaml
                         MPI::MPI_CXX
                         p4est::sc
@@ -65,12 +50,6 @@ target_link_libraries( grace_spherical_coordinates PRIVATE
 add_library( grace_coordinates OBJECT coordinates.cpp )
 target_include_directories( grace_coordinates PRIVATE "${HEADER_DIR}" )
 target_link_libraries( grace_coordinates PRIVATE 
-                       $<TARGET_OBJECTS:grace_parallel> 
-                       $<TARGET_OBJECTS:grace_singleton> 
-                       $<TARGET_OBJECTS:grace_connectivity> 
-                       $<TARGET_OBJECTS:grace_forest>
-                       $<TARGET_OBJECTS:grace_amr_functions>
-                       $<TARGET_OBJECTS:grace_cartesian_coordinates>
                        yaml_cpp::yaml
                        MPI::MPI_CXX
                        OpenMP::OpenMP_CXX
@@ -82,12 +61,6 @@ target_link_libraries( grace_coordinates PRIVATE
 add_library( grace_coordinate_systems OBJECT coordinate_systems.cpp )
 target_include_directories( grace_coordinate_systems PRIVATE "${HEADER_DIR}" )
 target_link_libraries( grace_coordinate_systems PRIVATE 
-                       $<TARGET_OBJECTS:grace_parallel> 
-                       $<TARGET_OBJECTS:grace_singleton> 
-                       $<TARGET_OBJECTS:grace_connectivity> 
-                       $<TARGET_OBJECTS:grace_forest>
-                       $<TARGET_OBJECTS:grace_amr_functions>
-                       $<TARGET_OBJECTS:grace_cartesian_coordinates>
                        yaml_cpp::yaml
                        MPI::MPI_CXX
                        p4est::sc

@@ -149,10 +149,10 @@ max(T const& A, T const& B) {
  * NB: This function \b will downcast any <code>long double</code> 
  *     passed into it.
  */
-template < typename ... Arg_t > 
+template < typename Ta, typename Tb, typename ... Arg_t > 
 decltype(auto) constexpr GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-max(double const& A, double const& B, Arg_t && ... args ) {
-  using return_t = std::common_type_t<Arg_t...> ; 
+max(Ta const& A,Tb const& B, Arg_t && ... args ) {
+  using return_t = std::common_type_t<Ta,Tb,Arg_t...> ; 
   if constexpr ( sizeof...(Arg_t) == 0 ) {
     return static_cast<return_t>(
       max(static_cast<return_t>(A),static_cast<return_t>(B))
@@ -189,10 +189,10 @@ min(T const& A, T const& B) {
  * NB: This function \b will downcast any <code>long double</code> 
  *     passed into it.
  */
-template < typename ... Arg_t > 
+template < typename Ta, typename Tb, typename ... Arg_t > 
 decltype(auto) GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-min(double const& A, double const& B, Arg_t && ... args ) {
-  using return_t = std::common_type_t<Arg_t...> ; 
+min(Ta const& A,Tb const& B, Arg_t && ... args ) {
+  using return_t = std::common_type_t<Ta,Tb,Arg_t...> ; 
   if constexpr ( sizeof...(Arg_t) == 0 ) {
     return static_cast<return_t>(
       min(static_cast<return_t>(A),static_cast<return_t>(B))

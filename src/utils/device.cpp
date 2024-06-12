@@ -28,6 +28,7 @@
 #include <grace_config.h>
 
 #include <grace/errors/assert.hh>
+#include <grace/system/print.hh>
 #include <grace/utils/device.h> 
 
 #if defined(GRACE_ENABLE_HIP)
@@ -52,7 +53,7 @@ void device_malloc(void** ptr, size_t nbytes)
     auto ret = cudaMalloc(ptr,nbytes) ; 
     ASSERT(ret == cudaSuccess, "Call to malloc failed");
     #else 
-    ERROR("Malloc device does not work with no device.") ; 
+    GRACE_ERROR("Malloc device does not work with no device.") ; 
     #endif 
 }
 

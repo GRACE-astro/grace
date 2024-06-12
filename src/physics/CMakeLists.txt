@@ -1,17 +1,6 @@
 add_library(grace_scalar_adv OBJECT scalar_advection.cpp )
 target_include_directories(  grace_scalar_adv PRIVATE "${HEADER_DIR}")
 target_link_libraries( grace_scalar_adv PRIVATE
-                       $<TARGET_OBJECTS:grace_error_handlers>
-                       $<TARGET_OBJECTS:grace_parallel>
-                       $<TARGET_OBJECTS:grace_singleton>
-                       $<TARGET_OBJECTS:grace_connectivity> 
-                       $<TARGET_OBJECTS:grace_forest> 
-                       $<TARGET_OBJECTS:grace_amr_functions>
-                       $<TARGET_OBJECTS:grace_BC_helpers>
-                       $<TARGET_OBJECTS:grace_BC>
-                       $<TARGET_OBJECTS:grace_variable_list>
-                       $<TARGET_OBJECTS:grace_variable_registration>
-                       $<TARGET_OBJECTS:grace_variable_utils>
                        yaml_cpp::yaml
                        MPI::MPI_CXX 
                        p4est::sc 
@@ -21,17 +10,6 @@ target_link_libraries( grace_scalar_adv PRIVATE
 add_library(grace_burgers_eq OBJECT burgers_equation.cpp )
 target_include_directories(  grace_burgers_eq PRIVATE "${HEADER_DIR}")
 target_link_libraries( grace_burgers_eq PRIVATE
-                        $<TARGET_OBJECTS:grace_error_handlers>
-                        $<TARGET_OBJECTS:grace_parallel>
-                        $<TARGET_OBJECTS:grace_singleton>
-                        $<TARGET_OBJECTS:grace_connectivity> 
-                        $<TARGET_OBJECTS:grace_forest> 
-                        $<TARGET_OBJECTS:grace_amr_functions>
-                        $<TARGET_OBJECTS:grace_BC_helpers>
-                        $<TARGET_OBJECTS:grace_BC>
-                        $<TARGET_OBJECTS:grace_variable_list>
-                        $<TARGET_OBJECTS:grace_variable_registration>
-                        $<TARGET_OBJECTS:grace_variable_utils>
                         yaml_cpp::yaml
                         MPI::MPI_CXX 
                         p4est::sc 

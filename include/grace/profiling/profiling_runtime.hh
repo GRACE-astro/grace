@@ -31,12 +31,13 @@
 
 #include <grace/utils/grace_utils.hh>
 #include <grace/profiling/profiling.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 #include <grace/system/runtime_functions.hh>
 #include <grace/config/config_parser.hh>
 
 #ifdef GRACE_ENABLE_HIP
-#include <roctracer/roctracer.h>
-#include <roctracer/roctracer_ext.h>
+#include <hip/hip_runtime.h>
+#include <rocprofiler/v2/rocprofiler.h>
 #endif 
 
 #include <stack>
@@ -64,12 +65,21 @@ class profiling_runtime_impl_t
 {
  private:
     //*********************************************************************************************************************
-    //! Timers for host code sections
+    //! Timers for host code sections.
     std::stack<std::pair<std::string,std::chrono::high_resolution_clock::time_point>> _host_timers ; 
-    //! Durations of timers for host code sections (in microseconds)
+    //! Durations of timers for host code sections (in microseconds).
     std::unordered_map<std::string, std::pair<long,long long>> _host_timers_results ;
-    //! Base path for profiling output
+    //! Base path for profiling output.
     std::filesystem::path _base_outpath ; 
+    #ifdef GRACE_ENABLE_HIP
+    //! GPU profiling regions LIFO queue.
+    std::stack< rocm_profiling_context_t > _gpu_profiling_active_regions ;
+    //! Names of GPU profiling regions currently in the queue.
+    std::stack< std::string >  _gpu_profiling_active_regions_names       ;
+    //! Hardware or derived counters requested for sampling.
+    std::vector<const char*> _gpu_profiling_active_counters              ; 
+    #endif 
+
     //*********************************************************************************************************************
  public:
     //*********************************************************************************************************************
@@ -82,31 +92,42 @@ class profiling_runtime_impl_t
     out_basepath() const {
         return _base_outpath ; 
     }
+    std::string GRACE_ALWAYS_INLINE 
+    top_gpu_region_name() const {
+        return _gpu_profiling_active_regions_names.top() ; 
+    }
     //*********************************************************************************************************************
     /**
      * @brief Initiate a device profiling region.
      * 
      * @param name Name of the profiling region.
-     * When the backend is HIP, this translates to a roctracer call.
-     * Ensure that roctracer is available on your system or deactivate
+     * When the backend is HIP, this translates to a rocprofiler call.
+     * Ensure that rocprofiler is available on your system or deactivate
      * profiling altogether.
      */
     void push_device_region(std::string const& name) {
         #ifdef GRACE_ENABLE_HIP
-        roctracer_start() ; 
+        _gpu_profiling_active_regions.emplace(
+            rocprofiler_session_id_t{}, rocprofiler_buffer_id_t{}
+        ); 
+        _gpu_profiling_active_regions_names.emplace(  name  ) ; 
+        // Create new session and start collecting kernel data
+        rocm_initiate_profiling_session(_gpu_profiling_active_regions.top(), _gpu_profiling_active_counters) ; 
         #endif 
     }
     //*********************************************************************************************************************
     /**
      * @brief End the last device profiling region.
      * 
-     * When the backend is HIP, this translates to a roctracer call.
-     * Ensure that roctracer is available on your system or deactivate
+     * When the backend is HIP, this translates to a rocprofiler call.
+     * Ensure that rocprofiler is available on your system or deactivate
      * profiling altogether. 
      */
-    void pop_device_region() const {
+    void pop_device_region() {
         #ifdef GRACE_ENABLE_HIP
-        roctracer_pop() ; 
+        rocm_terminate_profiling_session(_gpu_profiling_active_regions.top());
+        _gpu_profiling_active_regions.pop() ; 
+        _gpu_profiling_active_regions_names.pop() ; 
         #endif 
     }
     //*********************************************************************************************************************
@@ -126,11 +147,11 @@ class profiling_runtime_impl_t
      */
     void pop_host_region() {
         auto end_time = std::chrono::high_resolution_clock::now();
-        auto start_time = timers.top().second;
+        auto start_time = _host_timers.top().second;
         auto label = _host_timers.top().first;
         _host_timers.pop();
         auto elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-        _host_timers_results[label].push_back({grace::get_iteration(), elapsed_time}); 
+        _host_timers_results[label] = {grace::get_iteration(), elapsed_time}; 
         write_host_timers() ;
     } 
     //*********************************************************************************************************************
@@ -141,18 +162,15 @@ class profiling_runtime_impl_t
      * 
      */
     profiling_runtime_impl_t() {
-        #ifdef GRACE_ENABLE_HIP
-        roctracer_properties_t properties{};
-        properties.buffer_size = 0x1000;  // Example buffer size
-        properties.counters |= ROCTRACER_COUNTER_INSTRUCTION_COUNT;
-        properties.counters |= ROCTRACER_COUNTER_MEM_BYTES;
-        roctracer_open_pool(&properties);
-        roctracer_enable_domain_callback(ACTIVITY_DOMAIN_HIP_API, roctracer_activity_callback, nullptr);
-        #endif 
-        auto& params = grace::config_parser::get() ; 
+        auto& params = grace::config_parser::get() ;  
+        auto const counters 
+            = params["profiling"]["enabled_hardware_counters"].as<std::vector<std::string>>() ;
+        for( auto const& x: counters) _gpu_profiling_active_counters.push_back(x.c_str()) ;  
         _base_outpath = 
             static_cast<std::filesystem::path>(params["profiling"]["output_base_directory"].as<std::string>()) ; 
-        
+        #ifdef GRACE_ENABLE_HIP
+        rocprofiler_initialize();
+        #endif         
     }
     //*********************************************************************************************************************
     /**
@@ -161,8 +179,7 @@ class profiling_runtime_impl_t
      */
     ~profiling_runtime_impl_t() {
         #ifdef GRACE_ENABLE_HIP
-        roctracer_disable_domain_callback(ACTIVITY_DOMAIN_HIP_API);
-        roctracer_close_pool();
+        rocprofiler_finalize();
         #endif 
     }
     //*********************************************************************************************************************
@@ -178,18 +195,20 @@ class profiling_runtime_impl_t
      * 
      */
     void write_host_timers() {
-        for( const auto& entry: _host_timers_results) {
-            std::filesystem::path outf = 
-                _base_outpath / (entry.first + "_host_timers.dat") ; 
-            if( not std::filesystem::exists(outf) ) {
-                std::ofstream outfile { _base_outpath.string() };
-                outfile << std::left  << std::setw(20) << "Iteration"
-                        << std::left  << std::setw(20) << "Time [mus]\n" ;
+        if( parallel::mpi_comm_rank() == 0 ) {
+            for( const auto& entry: _host_timers_results) {
+                std::filesystem::path outf = 
+                    _base_outpath / (entry.first + "_host_timers.dat") ; 
+                if( not std::filesystem::exists(outf) ) {
+                    std::ofstream outfile { _base_outpath.string() };
+                    outfile << std::left  << std::setw(20) << "Iteration"
+                            << std::left  << std::setw(20) << "Time [mus]\n" ;
+                }
+                std::ofstream outfile { _base_outpath.string(), std::ios::app} ; 
+                outfile << std::fixed << std::setprecision(15) ; 
+                outfile << std::left  << std::setw(20) << entry.second.first 
+                        << std::left  << std::setw(20) << entry.second.second << '\n'; 
             }
-            std::ofstream outfile { _base_outpath.string(), std::ios::app} ; 
-            outfile << std::fixed << std::setprecision(15) ; 
-            outfile << std::left  << std::setw(20) << entry.second.first 
-                    << std::left  << std::setw(20) << entry.second.second << '\n'; 
         }
     }
     //*********************************************************************************************************************

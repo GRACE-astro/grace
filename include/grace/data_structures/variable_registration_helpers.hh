@@ -75,7 +75,7 @@ idx1 = register_variable( name "[1]"\
                         , true \
                         , false \
                         , 1 \
-                        , name ) ;
+                        , name ) ; \
 idx2 = register_variable( name "[2]"\
                         , {VEC(false,false,false)} \
                         , true \
@@ -128,7 +128,7 @@ idx1 = register_variable( name "[1]"\
                         , true \
                         , false \
                         , 1 \
-                        , name ) ;
+                        , name ) ; \
 idx2 = register_variable( name "[2]"\
                         , {VEC(false,false,false)} \
                         , true \
