@@ -16,7 +16,9 @@ add_subdirectory(data_structures)
 
 add_subdirectory(IO)
 
-add_subdirectory(profiling)
+if( GRACE_ENABLE_PROFILING )
+ add_subdirectory(profiling)
+endif()
 
 add_subdirectory(evolution)
 
@@ -62,5 +64,5 @@ target_sources( grace_objects INTERFACE
                 $<TARGET_OBJECTS:grace_eos>
                 $<TARGET_OBJECTS:grace_evolution> 
                 $<TARGET_OBJECTS:grace_initial_data> 
-                $<TARGET_OBJECTS:grace_profiling>)
+                $<$<BOOL:${GRACE_ENABLE_PROFILING}>:$<TARGET_OBJECTS:grace_profiling>>)
 

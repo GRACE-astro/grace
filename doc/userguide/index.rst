@@ -3,16 +3,21 @@
 User Guide
 ============
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
-Purus sit amet volutpat consequat mauris nunc congue nisi vitae. Urna nec tincidunt praesent semper. Vulputate dignissim suspendisse 
-in est ante in nibh mauris cursus. Dui sapien eget mi proin. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
-Purus sit amet volutpat consequat mauris nunc congue nisi vitae. Urna nec tincidunt praesent semper. Vulputate dignissim suspendisse 
-in est ante in nibh mauris cursus. Dui sapien eget mi proin. 
+Welcome to the GRACE user guide! Below is a description of how to run GRACE for a variety of configurations, as well 
+as of how to analyze the output it produces. 
+If you're looking for a guide on how to build the code, please see the :doc:`related page <building/index>`.
+If you're wondering what grace even is, please refer to the :doc:`Introduction <introduction/index>`.
 
 Input parameters
 ******************
 
-Input parameters control the runtime behaviour of GRACE. 
+Input parameters control the runtime behaviour of GRACE. They can be provided through a file, aptly called parameter file, which has 
+to be written in `YAML <https://en.wikipedia.org/wiki/YAML>`__ format. The parameter file can be passed to the GRACE executable with 
+the following invocation:
+.. code-block:: bash
+
+    $ mpirun -n <num_procs> ./grace --grace-parfile ./<parfile_name>.yaml
+
 Output Formats
 *****************
 

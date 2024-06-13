@@ -25,6 +25,11 @@ include(setup_HDF5)
 option(GRACE_ENABLE_PROFILING "Build profiling hooks" ON)
 if( GRACE_ENABLE_PROFILING )
     message(STATUS "Profiling enabled.")
+    if( GRACE_ENABLE_HIP )
+        include(setup_rocmprofiler)
+    elseif( GRACE_ENABLE_CUDA )
+        message(FATAL_ERROR "CUDA GPU profiling is not supported yet.")
+    endif()
 else()
     message(STATUS "Profiling disabled.")
 endif()
@@ -54,6 +59,7 @@ target_link_libraries(grace PRIVATE
         VTK::VTK
         spdlog::spdlog
         HDF5::HDF5 
+        $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
         )
 vtk_module_autoinit(
     TARGETS grace
