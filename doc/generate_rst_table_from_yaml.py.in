@@ -1,0 +1,65 @@
+import yaml
+import textwrap
+import os 
+
+def wrap_text(text, width):
+    wrapper = textwrap.TextWrapper(width=width, break_long_words=True)
+    return "\n".join(wrapper.wrap(text))
+
+def wrap_in_role(text, role):
+    return f':{role}:`{text}`'
+
+def generate_list_table_from_yaml(yaml_file, rst_file, title, max_col_widths):
+    with open(yaml_file, 'r') as file:
+        data = yaml.safe_load(file)
+
+    headers = ["Name", "Type", "Default Value", "Allowed Range", "Description"]
+    rows = [
+        [
+            wrap_in_role(wrap_text(item.get("Name", ""), max_col_widths[0]), "param-name"),
+            wrap_in_role(wrap_text(item.get("Type", ""), max_col_widths[1]), "data-type"),
+            wrap_in_role(wrap_text(item.get("Default Value", ""), max_col_widths[2]), "default-value"),
+            wrap_in_role(wrap_text(item.get("Allowed Range", ""), max_col_widths[3]), "allowed-range"),
+            wrap_text(item.get("Description", ""), max_col_widths[4])
+        ] for item in data
+    ]
+    
+    with open(rst_file, 'w') as file:
+        file.write(
+            '''.. raw:: html\n\n  <div class="custom-list-table-container">\n\n''')
+        file.write(f".. list-table:: {title}\n")
+        #file.write("   :widths: 20 20 50 50 70\n")
+        file.write("   :header-rows: 1\n")
+        file.write("   :class: custom-list-table\n\n")
+
+        # Write headers
+        file.write("   * - " + "\n     - ".join(headers) + "\n")
+
+        # Write rows
+        for row in rows:
+            row_str = "   * - " + row[0].replace('\n', '\n       ')
+            for entry in row[1:]:
+                row_str += "\n     - " + entry.replace('\n', '\n       ')
+            file.write(row_str+"\n")
+        file.write(
+            '''\n.. raw:: html\n\n  </div>\n\n''')
+
+
+if __name__=="__main__":
+    code_modules = ["system","IO","amr","evolution","burgers","scalar-advection","eos","profiling"]
+    titles = ["System Parameters", "IO Parameters", "AMR Parameters", "Evolution Parameters"
+              , "Burgers Equation Parameters", "Scalar Advection Equation Parameters", "EOS Parameters", "Profiling Parameters"]
+    max_col_widths = [200, 50, 100, 100, 250]  # Example column widths in percentage
+
+    for i,mod in enumerate(code_modules):
+        yaml_file = mod+"-params.yaml"
+        csv_file  = mod+"-params-table.csv"
+        rst_file   = mod+"-params-table.rst"
+        yaml_file = os.path.join('@GRACE_CURRENT_SOURCE_DIR@', yaml_file)
+        #csv_file  = os.path.join('@GRACE_CURRENT_SOURCE_DIR@/userguide', csv_file)
+        rst_file  = os.path.join('@GRACE_CURRENT_SOURCE_DIR@/userguide', rst_file)
+        #generate_csv_from_yaml(yaml_file, csv_file, max_col_widths)
+        generate_list_table_from_yaml(yaml_file, rst_file, titles[i], max_col_widths)
+
+
+

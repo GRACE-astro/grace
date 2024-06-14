@@ -11,6 +11,21 @@ include(code_modules)
 include(check_compiler)
 include(prohibit_in_source_build)
 include(setup_flags)
+
+configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )
+include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
+
+configure_file("${CMAKE_SOURCE_DIR}/include/grace/grace_config.h.in" grace_config.h)
+
+set(HEADER_DIR "${PROJECT_SOURCE_DIR}/include/")
+
+option(GRACE_BUILD_DOCS "Build the docs" OFF)
+option(GRACE_BUILD_DOCS_ONLY "Only build docs" OFF)
+if(GRACE_BUILD_DOCS OR GRACE_BUILD_DOCS_ONLY ) 
+    add_subdirectory(doc)
+endif()
+
+if( NOT GRACE_BUILD_DOCS_ONLY )
 include(setup_mpi)
 find_package(OpenMP REQUIRED)
 find_package(p4est REQUIRED)
@@ -33,13 +48,6 @@ if( GRACE_ENABLE_PROFILING )
 else()
     message(STATUS "Profiling disabled.")
 endif()
-
-configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )
-include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
-
-configure_file("${CMAKE_SOURCE_DIR}/include/grace/grace_config.h.in" grace_config.h)
-
-set(HEADER_DIR "${PROJECT_SOURCE_DIR}/include/")
 
 add_subdirectory(src)
 
@@ -86,12 +94,9 @@ if(GRACE_ENABLE_TESTING)
     add_subdirectory(test)
 endif()
 
-option(GRACE_BUILD_DOCS "Build the docs" OFF)
-if(GRACE_BUILD_DOCS) 
-    add_subdirectory(doc)
-endif()
-
 option(GRACE_ENABLE_BENCHMARKS "Build the benchmarks" ON)
 if(GRACE_ENABLE_BENCHMARKS)
 add_subdirectory(profiling)
+endif()
+
 endif()

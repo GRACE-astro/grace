@@ -1,4 +1,4 @@
-.. My Project documentation master file
+.. GRACE documentation master file
 
 .. _grace-home:
 
@@ -19,12 +19,12 @@ and on the `p4est`_ adaptive mesh refinement library.
 
    introduction/index.rst
    userguide/index.rst
-   building/index.rst
+   code_building_guide/index.rst
    project/index.rst
    
 
 
-Indices and tables
+Indices and Tables
 ***************************
 
 * :ref:`genindex`

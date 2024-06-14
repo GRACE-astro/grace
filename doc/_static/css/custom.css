@@ -936,3 +936,55 @@ dark-mode-toggle::part(toggleLabel){
   #search-se-menu ul li.selected .fa-check {
     display: inline;
   }
+
+.custom-list-table-container {
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+    padding: 10px;
+}
+.custom-list-table {
+    width: 90%;  /* Set the table width as a percentage of the page width */
+    border-collapse: collapse;
+    table-layout: fixed;  /* Ensure columns have fixed width */
+}
+.custom-list-table th, .custom-list-table td {
+    padding: 5px;
+    border: 1px solid #ccc;
+    text-align: left;
+    word-wrap: break-word;  /* Enable word wrapping */
+}
+
+.custom-list-table th:nth-child(1), .custom-list-table td:nth-child(1) {
+    width: 30%;  /* Set width as a percentage of the table width */
+}
+.custom-list-table th:nth-child(2), .custom-list-table td:nth-child(2) {
+    width: 70%;  /* Set width as a percentage of the table width */
+}
+.data-type {
+    font-family: "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "Courier", "monospace";
+    color: #012A4A;
+    background-color: var(--code-background-color);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 2px 4px;
+    border-radius: 3px;
+    border: 1px solid var(--code-border-color);
+}
+.default-value, .allowed-range {
+    font-family: "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "Courier", "monospace";
+}
+.default-value {
+    color: #005897;
+    background-color: var(--code-background-color);
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 2px 4px;
+    border-radius: 3px;
+    border: 1px solid var(--code-border-color);
+}
+
+.param-description {
+    font-size: 14px;
+    font-family: "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "Courier", "monospace";
+}

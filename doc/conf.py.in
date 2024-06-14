@@ -2,8 +2,17 @@
 
 import os
 import sys
+from docutils import nodes
+from docutils.parsers.rst import roles
+
+def make_span(role, rawtext, text, lineno, inliner, options={}, content=[]):
+    node = nodes.inline(text, text, **options)
+    node['classes'].append(role)
+    return [node], []
 
 sys.path.insert(0, os.path.abspath('.'))
+
+
 
 project = 'G.R.A.C.E.'
 author = 'Carlo Musolino'
@@ -54,6 +63,12 @@ html_context = {
         "API": f"{reference_prefix}/doxygen/html/index.html"
     }
 }
+
+roles.register_local_role('param-name', make_span)
+roles.register_local_role('data-type', make_span)
+roles.register_local_role('default-value', make_span)
+roles.register_local_role('allowed-range', make_span)
+roles.register_local_role('param-description', make_span)
 
 source_suffix = ['.rst', '.md']
 master_doc = 'index'

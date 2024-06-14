@@ -2,8 +2,17 @@
 
 import os
 import sys
+from docutils import nodes
+from docutils.parsers.rst import roles
+
+def make_span(role, rawtext, text, lineno, inliner, options={}, content=[]):
+    node = nodes.inline(text, text, **options)
+    node['classes'].append(role)
+    return [node], []
 
 sys.path.insert(0, os.path.abspath('.'))
+
+
 
 project = 'G.R.A.C.E.'
 author = 'Carlo Musolino'
@@ -23,7 +32,7 @@ extensions = [
     "sphinx_togglebutton"
 ]
 
-templates_path = [os.path.join('/mnt/rafast/musolino/grace/doc', '_templates')]
+templates_path = [os.path.join('/Users/carlomusolino/grace/doc', '_templates')]
 
 breathe_projects = {'G.R.A.C.E.': "doxygen/xml"}
 breathe_default_project = 'G.R.A.C.E.'
@@ -32,10 +41,10 @@ html_theme = 'sphinx_rtd_theme'
 html_theme_options = {
     "prev_next_buttons_location": None
 }
-html_static_path = [os.path.join('/mnt/rafast/musolino/grace/doc', '_static')]
+html_static_path = [os.path.join('/Users/carlomusolino/grace/doc', '_static')]
 
 html_title = "G.R.A.C.E. Project Documentation"
-html_logo  = os.path.join('/mnt/rafast/musolino/grace/doc', '_static','images',"GRACE_logo_padded.png")
+html_logo  = os.path.join('/Users/carlomusolino/grace/doc', '_static','images',"GRACE_logo_padded.png")
 html_favicon = html_logo 
 reference_prefix = ""
 docs_title="Docs"
@@ -54,6 +63,12 @@ html_context = {
         "API": f"{reference_prefix}/doxygen/html/index.html"
     }
 }
+
+roles.register_local_role('param-name', make_span)
+roles.register_local_role('data-type', make_span)
+roles.register_local_role('default-value', make_span)
+roles.register_local_role('allowed-range', make_span)
+roles.register_local_role('param-description', make_span)
 
 source_suffix = ['.rst', '.md']
 master_doc = 'index'

@@ -25,8 +25,8 @@ IO: {
   scalar_output_base_filename: "",
   scalar_output_base_directory: "output_scalar",
 
-  output_use_hdf5: false,
-  hdf5_compression_level: 9,
+  output_use_hdf5: true,
+  hdf5_compression_level: 6,
   hdf5_chunk_size: 1000,
 
   volume_output_cell_variables : [],

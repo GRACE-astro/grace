@@ -4,7 +4,9 @@ burgers_equation: {
   gaussian_x_c: 0.,
   gaussian_y_c: 0.,
   gaussian_z_c: 0.,
-  shocktube_x_location: 0., 
-  shocktube_left_state: -1.,
-  shocktube_right_state: 1.
+  shocktube_x_location: -1.,
+  shocktube_x_location_2: 1.,
+  shocktube_left_state: 4.,
+  shocktube_central_state: 2.,
+  shocktube_right_state: 0.
 }

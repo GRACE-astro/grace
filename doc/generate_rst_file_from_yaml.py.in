@@ -1,0 +1,81 @@
+import yaml
+import os
+import textwrap
+import re
+
+def wrap_text(text, width):
+    wrapper = textwrap.TextWrapper(width=width, break_long_words=True)
+    return "\n".join(wrapper.wrap(text))
+
+def wrap_in_role(text, role):
+    # Split the text into parts, preserving code literals (``text``)
+    parts = re.split(r'(``[^`]*``)', text)
+    wrapped_parts = []
+
+    for part in parts:
+        if part.startswith("``") and part.endswith("``"):
+            wrapped_parts.append(part)  # Preserve code literals
+        else:
+            wrapped_parts.append(f':{role}:`{part}`')  # Wrap non-code text in role
+    
+    return " ".join(wrapped_parts)
+
+def wrap_in_bold(text):
+    return f'**{text}**'
+
+def generate_rst_from_yaml(yaml_file, rst_file, title, mod, parfile_example):
+    with open(yaml_file, 'r') as file:
+        data = yaml.safe_load(file)
+
+    with open(rst_file, 'w') as file:
+        file.write(f".. GRACE documentation {title} file\n\n")
+        file.write(f".. _{mod}-parameters:\n\n")
+        file.write(f"{title}\n{'*' * len(title)}\n\n")
+        file.write(f'''This page contains a full reference of all parameters available for the {mod} module.\nAt the bottom of the page you can find an example parameter block that can be used in your parameter file.\n\n''')
+        file.write("----\n\n")
+        for i,item in enumerate(data):
+            file.write(
+            '''.. raw:: html\n\n  <div class="custom-list-table-container">\n\n''')
+            file.write(f".. list-table:: \n")
+            file.write("   :header-rows: 0\n")
+            file.write("   :class: custom-list-table\n\n")
+
+            file.write("   * - " + wrap_in_bold("Name:") + "\n     - " + f"``{item.get('Name', '')}``\n")
+            file.write("   * - " + wrap_in_bold("Type:") + "\n     - " + wrap_in_role(item.get('Type', ''),"data-type") + "\n")
+            file.write("   * - " + wrap_in_bold("Default Value:") + "\n     - " + wrap_in_role(item.get('Default Value', ''),"default-value")+"\n")
+            file.write("   * - " + wrap_in_bold("Allowed Range:") + "\n     - " + wrap_in_role(item.get('Allowed Range', ''),"allowed-range")+"\n")
+            file.write("   * - " + wrap_in_bold("Description:") + "\n     - " + wrap_in_role(item.get('Description', ''),"param-description")+"\n")
+            file.write(
+            '''\n.. raw:: html\n\n  </div>\n\n''')
+            file.write("----\n\n")
+        file.write(f"The following snippet is an example of how to set all the parameters for the {mod} module to their default value.")
+        file.write("\n\n.. code-block:: yaml\n\n")
+        for line in(parfile_example.split('\n')):
+            file.write("   " + line + "\n")
+        file.write("\n\n")
+
+
+
+
+if __name__=="__main__":
+    code_modules = ["system","IO","amr","evolution","burgers","scalar-advection","eos","profiling"]
+    titles = ["System Parameters", "IO Parameters", "AMR Parameters", "Evolution Parameters"
+              , "Burgers Equation Parameters", "Scalar Advection Equation Parameters", "EOS Parameters", "Profiling Parameters"]
+    parfile_examples = [
+        "@GRACE_SOURCE_DIR@/include/grace/system/system-defaults.yaml",
+        "@GRACE_SOURCE_DIR@/include/grace/IO/IO-defaults.yaml",
+        "@GRACE_SOURCE_DIR@/include/grace/amr/amr-defaults.yaml",
+        "@GRACE_SOURCE_DIR@/include/grace/evolution/evolution-defaults.yaml",
+        "@GRACE_SOURCE_DIR@/include/grace/physics/burgers_equation-defaults.yaml",
+        "@GRACE_SOURCE_DIR@/include/grace/physics/scalar_advection-defaults.yaml",
+        "@GRACE_SOURCE_DIR@/include/grace/physics/eos/eos-defaults.yaml",
+        "@GRACE_SOURCE_DIR@/include/grace/profiling/profiling-defaults.yaml"
+    ]
+    for i,mod in enumerate(code_modules):
+        yaml_file = mod+"-params.yaml"
+        rst_file   = "params-" + mod + ".rst"
+        yaml_file = os.path.join('@GRACE_CURRENT_SOURCE_DIR@', yaml_file)
+        rst_file  = os.path.join('@GRACE_CURRENT_SOURCE_DIR@/userguide', rst_file)
+        with open(parfile_examples[i], "r") as f:
+            parfile_example = f.read()
+        generate_rst_from_yaml(yaml_file, rst_file, titles[i], mod, parfile_example)
