@@ -40,6 +40,7 @@
 #ifdef GRACE_ENABLE_HIP
 
 namespace detail {
+#if 0
 static inline std::string rocmprofiler_cxx_demangle(const std::string& symbol) {
   amd_comgr_data_t mangled_data;
   amd_comgr_create_data(AMD_COMGR_DATA_KIND_BYTES, &mangled_data);
@@ -59,6 +60,39 @@ static inline std::string rocmprofiler_cxx_demangle(const std::string& symbol) {
   amd_comgr_release_data(demangled_data);
   return demangled_str;
 }
+#endif
+static inline std::string rocmprofiler_cxx_demangle(const std::string& symbol) {
+    amd_comgr_data_t mangled_data;
+    amd_comgr_status_t status;
+    size_t demangled_size = 0;
+
+    // Create and set the mangled data
+    status = amd_comgr_create_data(AMD_COMGR_DATA_KIND_BYTES, &mangled_data);
+    ASSERT(status == AMD_COMGR_STATUS_SUCCESS, "Failed to create AMD COMGR data for mangled name.");
+
+    status = amd_comgr_set_data(mangled_data, symbol.size(), symbol.data());
+    ASSERT(status == AMD_COMGR_STATUS_SUCCESS, "Failed to set AMD COMGR data for mangled name.");
+
+    // Demangle the symbol name
+    amd_comgr_data_t demangled_data;
+    status = amd_comgr_demangle_symbol_name(mangled_data, &demangled_data);
+    ASSERT(status == AMD_COMGR_STATUS_SUCCESS, "Failed to demangle symbol name.");
+
+    // Get the size of the demangled data
+    status = amd_comgr_get_data(demangled_data, &demangled_size, nullptr);
+    ASSERT(status == AMD_COMGR_STATUS_SUCCESS, "Failed to get size of demangled data.");
+
+    // Resize the string and retrieve the demangled data
+    std::string demangled_str(demangled_size, '\0');
+    status = amd_comgr_get_data(demangled_data, &demangled_size, &demangled_str[0]);
+    ASSERT(status == AMD_COMGR_STATUS_SUCCESS, "Failed to get demangled data.");
+
+    // Clean up
+    amd_comgr_release_data(mangled_data);
+    amd_comgr_release_data(demangled_data);
+
+    return demangled_str;
+}
 }
 /**
  * @brief Rocm profiling context.
@@ -77,7 +111,7 @@ struct rocm_profiling_context_t {
  * See the available profiling parameters for the possible counters 
  * that can be requested. See profiling_runtime.hh for where this is called.
  */
-void rocm_initiate_profiling_session( rocm_profiling_context_t& context, std::vector<const char*> counters ) ;
+void rocm_initiate_profiling_session( rocm_profiling_context_t& context, std::vector<std::string>const& counters ) ;
 /**
  * @brief Finalize rocm profiling session and write data.
  * 
@@ -106,6 +140,9 @@ extern "C" void write_buffer_records( const rocprofiler_record_header_t* begin_r
                                     , const rocprofiler_record_header_t* end_records 
                                     , rocprofiler_session_id_t session_id 
                                     , rocprofiler_buffer_id_t buffer_id ) ; 
+void write_profile_data( const rocprofiler_record_profiler_t* profiler_record 
+                       , const std::string& outfname, int rank, const std::string& kernel_name
+                       , rocprofiler_session_id_t session_id) ; 
 #endif
 
 #endif /* GRACE_PROFILING_GPU_PROFILING_HH */

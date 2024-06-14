@@ -68,8 +68,8 @@ template<>
 struct weno_reconstructor_t<3> 
 {
  private:
-    static constexpr double d0 = 2./3.; 
-    static constexpr double d1 = 1./3.;
+    static constexpr double d0 = 1./3.; 
+    static constexpr double d1 = 2./3.;
     
  public: 
     /**
@@ -114,17 +114,17 @@ struct weno_reconstructor_t<3>
             d1 / math::int_pow<2>( WENO_EPS + beta[1] )
         } ; 
         std::array<double,2> const alphaR { 
-            d1 / math::int_pow<2>( WENO_EPS + beta[1] ),
-            d0 / math::int_pow<2>( WENO_EPS + beta[2] )
+            d0 / math::int_pow<2>( WENO_EPS + beta[2] ),
+            d1 / math::int_pow<2>( WENO_EPS + beta[1] )
         } ; 
         double const wL = 1./( alphaL[0] + alphaL[1] ) ; 
         double const wR = 1./( alphaR[0] + alphaR[1] ) ; 
 
-        uR = 0.5 * wR * ( alphaR[0] * (  U0    +    UP(1) ) 
-                        + alphaR[1] * ( -UM(1) + 3.*U0    )) ;
+        uR = 0.5 * wR * ( alphaR[0] * ( 3.*U0    -    UP(1) ) 
+                        + alphaR[1] * (    UM(1) +    U0    )) ;
         
-        uL = 0.5 * wL * ( alphaL[0] * ( -U0    + 3.*UM(1) ) 
-                        + alphaL[1] * (  UM(2) +    UM(1) )) ;
+        uL = 0.5 * wL * ( alphaL[1] * (  U0    +    UM(1) ) 
+                        + alphaL[0] * ( -UM(2) + 3.*UM(1) )) ;
     }
 } ;
 
@@ -181,10 +181,10 @@ struct weno_reconstructor_t<5>
         , int8_t idir )
     {
         std::array<double,4> const gamma {
-             WENO5_13_BY_12 * math::int_pow<2>(U0-2.*UP(1)+UP(2)),
-             WENO5_13_BY_12 * math::int_pow<2>(UM(1)-2.*U0+UP(1)),
-             WENO5_13_BY_12 * math::int_pow<2>(UM(2)-2.*UM(1)+U0),
-             WENO5_13_BY_12 * math::int_pow<2>(UM(3)-2.*UM(2)+UM(1))
+             WENO5_12_BY_13 * math::int_pow<2>(U0-2.*UP(1)+UP(2)),
+             WENO5_12_BY_13 * math::int_pow<2>(UM(1)-2.*U0+UP(1)),
+             WENO5_12_BY_13 * math::int_pow<2>(UM(2)-2.*UM(1)+U0),
+             WENO5_12_BY_13 * math::int_pow<2>(UM(3)-2.*UM(2)+UM(1))
         } ; 
 
         std::array<double,3> const betaL {

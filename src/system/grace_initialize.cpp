@@ -178,13 +178,14 @@ void initialize(int& argc, char* argv[])
     install_signal_handlers(); 
     grace::config_parser::initialize(parfile) ; 
     grace::mpi_runtime::initialize(argc, argv)  ;
+    grace::kokkos_runtime::initialize(&argc, argv) ; 
+    grace::initialize_loggers() ; 
+    GRACE_INFO(GRACE_BANNER) ; 
     #ifdef GRACE_ENABLE_PROFILING
     grace::profiling_runtime::initialize() ; 
     #endif
-    grace::kokkos_runtime::initialize(&argc, argv) ;  
-    grace::initialize_loggers() ; 
     grace::p4est_runtime::initialize() ; 
-    GRACE_INFO(GRACE_BANNER) ; 
+    
     #ifdef GRACE_CARTESIAN_COORDINATES
     GRACE_INFO("GRACE running with cartesian coordinates.");
     #endif

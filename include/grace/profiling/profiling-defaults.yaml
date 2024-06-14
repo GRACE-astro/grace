@@ -11,19 +11,11 @@ profiling: {
   # refer to GRACE documentation and the GPU technical specifications to find 
   # suitable options.
   enabled_hardware_counters: [
-  # 1) Coarse metrics regarding time spent
-  "GPUBusy", # Percentage of time the GPU was busy
-  "MemUnitBusy", # Percentage of time the GPU memory unit was busy
   # 2) ALU instruction metrics 
-  "WaveFronts", # Total number of wavefronts executed
+  "Wavefronts", # Total number of wavefronts executed
   "VALUInsts",  # Avg number of Vector ALU instructions per wavefront
   "SALUInsts",  # Avg number of Scalar ALU instructions per wavefront
-  "VALUUtilization", # % of active VALU threads in a wave
-  "VALUBusy", # % of GPU time spent in VALU instructions
-  "SALUBusy", # % of GPU time spent in SALU instructions
   # 3) Memory statistics
   "FetchSize", # total # of Kilobytes fetched from video memory 
-  "WriteSize", # total # of Kilobytes written to video memory
-  "L2CacheHit"  # % of write read atomic and other data insts that hit L2 cache data.
   ] #warning: only change these if you REALLY know what you're doing
 }

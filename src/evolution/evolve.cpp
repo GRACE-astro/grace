@@ -38,9 +38,10 @@
 #include <grace/amr/boundary_conditions.hh>
 
 #include <grace/data_structures/grace_data_structures.hh>
-
+#include <grace/profiling/profiling.hh>
 #include <grace/utils/grace_utils.hh>
 #include <grace/utils/reconstruction.hh>
+#include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
 #ifdef GRACE_ENABLE_BURGERS 
 #include <grace/physics/burgers.hh>
@@ -104,7 +105,7 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , cell_vol_array_t<GRACE_NSPACEDIM>& cvol
                     , staggered_coordinate_arrays_t& surfs_and_edges )
 {
-    Kokkos::Profiling::pushRegion("evolve") ; 
+    GRACE_PROFILING_PUSH_REGION("evol") ;
     using namespace grace ; 
     using namespace Kokkos  ; 
 
@@ -137,7 +138,7 @@ void advance_substep( double const t, double const dt, double const dtfact
         scalar_adv_system{ old_state, aux, VEC(ax,ay,az) } ; 
     #endif 
     #ifdef GRACE_ENABLE_BURGERS 
-    burgers_equation_system_t<slope_limited_reconstructor_t<MCbeta>,hll_riemann_solver_t>
+    burgers_equation_system_t<weno_reconstructor_t<3>,hll_riemann_solver_t>
         burgers_eq_system{ old_state, aux } ; 
     #endif 
 
@@ -239,7 +240,7 @@ void advance_substep( double const t, double const dt, double const dtfact
                 ) / cvol(VEC(I,J,K),q) ; 
         }) ;
     }) ; 
-    Kokkos::Profiling::popRegion() ; 
+    GRACE_PROFILING_POP_REGION ; 
 }
 
 }

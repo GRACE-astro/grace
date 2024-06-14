@@ -34,7 +34,8 @@
 #include <grace/parallel/mpi_wrappers.hh>
 #include <grace/system/runtime_functions.hh>
 #include <grace/config/config_parser.hh>
-
+#include <grace/errors/error.hh>
+#include <grace/system/print.hh>
 #ifdef GRACE_ENABLE_HIP
 #include <hip/hip_runtime.h>
 #include <rocprofiler/v2/rocprofiler.h>
@@ -77,7 +78,7 @@ class profiling_runtime_impl_t
     //! Names of GPU profiling regions currently in the queue.
     std::stack< std::string >  _gpu_profiling_active_regions_names       ;
     //! Hardware or derived counters requested for sampling.
-    std::vector<const char*> _gpu_profiling_active_counters              ; 
+    std::vector<std::string> _gpu_profiling_active_counters              ; 
     #endif 
 
     //*********************************************************************************************************************
@@ -91,6 +92,10 @@ class profiling_runtime_impl_t
     std::string GRACE_ALWAYS_INLINE 
     out_basepath() const {
         return _base_outpath ; 
+    }
+    std::vector<std::string> GRACE_ALWAYS_INLINE 
+    active_hardware_counters() const {
+        return _gpu_profiling_active_counters ; 
     }
     std::string GRACE_ALWAYS_INLINE 
     top_gpu_region_name() const {
@@ -163,12 +168,27 @@ class profiling_runtime_impl_t
      */
     profiling_runtime_impl_t() {
         auto& params = grace::config_parser::get() ;  
-        auto const counters 
+        _gpu_profiling_active_counters
             = params["profiling"]["enabled_hardware_counters"].as<std::vector<std::string>>() ;
-        for( auto const& x: counters) _gpu_profiling_active_counters.push_back(x.c_str()) ;  
+         
         _base_outpath = 
             static_cast<std::filesystem::path>(params["profiling"]["output_base_directory"].as<std::string>()) ; 
+        if (!std::filesystem::exists(_base_outpath)) {
+            // Create the directory if it doesn't exist
+            if (!std::filesystem::create_directory(_base_outpath)) {
+                ERROR("Failed to create directory.") ;
+            }
+        }
         #ifdef GRACE_ENABLE_HIP
+        std::stringstream os ; 
+        os << "GPU profiling enabled on HIP gpu (rocprofiler)\n" ;
+        os << "   requested counters: [ " ; 
+        for(int i=0; i<_gpu_profiling_active_counters.size(); ++i) {
+            os << _gpu_profiling_active_counters[i] ; 
+            if( i!=_gpu_profiling_active_counters.size()-1) os << ", " ;
+        }
+        os << " ]\n" ; 
+        GRACE_INFO(os.str()) ; 
         rocprofiler_initialize();
         #endif         
     }
