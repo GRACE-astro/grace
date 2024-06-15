@@ -5,4 +5,5 @@ target_link_libraries( grace_profiling PRIVATE
                        MPI::MPI_CXX 
                        p4est::sc 
                        Kokkos::kokkos 
-                       spdlog::spdlog )
+                       spdlog::spdlog 
+                       $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)

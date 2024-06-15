@@ -15,7 +15,8 @@ target_link_libraries( grace_init PRIVATE
                         p4est::sc
                         p4est::p4est 
                         Kokkos::kokkos
-                        spdlog::spdlog )
+                        spdlog::spdlog 
+                        $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
 add_library( grace_finalize OBJECT grace_finalize.cpp )
 target_include_directories( grace_finalize PRIVATE "${HEADER_DIR}" )

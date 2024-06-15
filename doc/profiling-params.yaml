@@ -5,6 +5,6 @@
   Description: "The profiling output files will be placed in this directory."
 - Name: "enabled_hardware_counters"
   Type: "list of strings"
-  Default Value: '["GPUBusy","MemUnitBusy","WaveFronts","VALUInsts","SALUInsts","VALUUtilization","VALUBusy","SALUBusy","FetchSize","WriteSize","L2CacheHit"]'
+  Default Value: '[ "GPUBusy", "MemUnitBusy", "WaveFronts", "VALUInsts", "SALUInsts", "VALUUtilization", "VALUBusy", "SALUBusy", "FetchSize", "WriteSize", "L2CacheHit" ]'
   Allowed Range: "Any valid hardware counter for the platform's microarchitecture."
   Description: "The default counters are valid for AMD GPUs starting at microarchitecture gfx906 (codename Vega20)."

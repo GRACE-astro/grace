@@ -322,6 +322,21 @@ p4est_tests_main
     spdlog::spdlog
     $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
+add_executable( metric_test test_metric.cpp )
+target_include_directories(metric_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  metric_test PRIVATE 
+        p4est_tests_main
+        Catch2::Catch2
+        grace_objects
+        yaml_cpp::yaml
+        Kokkos::kokkos
+        MPI::MPI_CXX
+        OpenMP::OpenMP_CXX
+        p4est::sc
+        p4est::p4est 
+        spdlog::spdlog
+        $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
+
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)
 add_test(NAME sc_wrappers_test COMMAND 
@@ -355,7 +370,7 @@ add_test(NAME bc_test_spherical COMMAND
 add_test(NAME scalar_reductions_test COMMAND 
         mpirun -n 1 ./scalar_reductions_test --grace-parfile ./configs/scalar_reductions_test.yaml )
 add_test(NAME pwpoly_test COMMAND 
-        mpirun -n 1 ./pwpoly_test --grace-parfile ./configs/pwpoly_test_config.yaml.yaml )
+        mpirun -n 1 ./pwpoly_test --grace-parfile ./configs/pwpoly_test_config.yaml )
 
 ##add_custom_command(
 #        TARGET
