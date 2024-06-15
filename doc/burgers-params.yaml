@@ -1,4 +1,4 @@
-- Name: "which_id"
+- Name: "id_type"
   Type: "keyword"
   Default Value: "gaussian"
   Allowed Range: "gaussian, shocktube, three_states_shocktube, oned_N_wave"

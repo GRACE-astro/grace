@@ -80,7 +80,7 @@ class profiling_runtime_impl_t
     //! Hardware or derived counters requested for sampling.
     std::vector<std::string> _gpu_profiling_active_counters              ; 
     #endif 
-
+    bool _do_gpu_profiling ; 
     //*********************************************************************************************************************
  public:
     //*********************************************************************************************************************
@@ -111,14 +111,16 @@ class profiling_runtime_impl_t
      * profiling altogether.
      */
     void push_device_region(std::string const& name) {
+        if(_do_gpu_profiling){
         #ifdef GRACE_ENABLE_HIP
-        _gpu_profiling_active_regions.emplace(
-            rocprofiler_session_id_t{}, rocprofiler_buffer_id_t{}
-        ); 
-        _gpu_profiling_active_regions_names.emplace(  name  ) ; 
-        // Create new session and start collecting kernel data
-        rocm_initiate_profiling_session(_gpu_profiling_active_regions.top(), _gpu_profiling_active_counters) ; 
+            _gpu_profiling_active_regions.emplace(
+                rocprofiler_session_id_t{}, rocprofiler_buffer_id_t{}
+            ); 
+            _gpu_profiling_active_regions_names.emplace(  name  ) ; 
+            // Create new session and start collecting kernel data
+            rocm_initiate_profiling_session(_gpu_profiling_active_regions.top(), _gpu_profiling_active_counters) ; 
         #endif 
+        }
     }
     //*********************************************************************************************************************
     /**
@@ -129,11 +131,13 @@ class profiling_runtime_impl_t
      * profiling altogether. 
      */
     void pop_device_region() {
+        if(_do_gpu_profiling){
         #ifdef GRACE_ENABLE_HIP
-        rocm_terminate_profiling_session(_gpu_profiling_active_regions.top());
-        _gpu_profiling_active_regions.pop() ; 
-        _gpu_profiling_active_regions_names.pop() ; 
+            rocm_terminate_profiling_session(_gpu_profiling_active_regions.top());
+            _gpu_profiling_active_regions.pop() ; 
+            _gpu_profiling_active_regions_names.pop() ; 
         #endif 
+        }
     }
     //*********************************************************************************************************************
     /**
@@ -167,30 +171,34 @@ class profiling_runtime_impl_t
      * 
      */
     profiling_runtime_impl_t() {
-        auto& params = grace::config_parser::get() ;  
-        _gpu_profiling_active_counters
-            = params["profiling"]["enabled_hardware_counters"].as<std::vector<std::string>>() ;
-         
+        auto const counters 
+            = grace::get_param<std::vector<std::string>>("profiling","enabled_hardware_counters") ;
+        for( auto const& x: counters) _gpu_profiling_active_counters.push_back(x.c_str()) ;  
         _base_outpath = 
-            static_cast<std::filesystem::path>(params["profiling"]["output_base_directory"].as<std::string>()) ; 
+            static_cast<std::filesystem::path>(
+                grace::get_param<std::string>("profiling","output_base_directory") 
+            ) ;
+        _do_gpu_profiling = grace::get_param<bool>("profiling", "do_gpu_profiling") ;  
         if (!std::filesystem::exists(_base_outpath)) {
             // Create the directory if it doesn't exist
             if (!std::filesystem::create_directory(_base_outpath)) {
                 ERROR("Failed to create directory.") ;
             }
         }
+        if(_do_gpu_profiling){
         #ifdef GRACE_ENABLE_HIP
-        std::stringstream os ; 
-        os << "GPU profiling enabled on HIP gpu (rocprofiler)\n" ;
-        os << "   requested counters: [ " ; 
-        for(int i=0; i<_gpu_profiling_active_counters.size(); ++i) {
-            os << _gpu_profiling_active_counters[i] ; 
-            if( i!=_gpu_profiling_active_counters.size()-1) os << ", " ;
-        }
-        os << " ]\n" ; 
-        GRACE_INFO(os.str()) ; 
-        rocprofiler_initialize();
-        #endif         
+            std::stringstream os ; 
+            os << "GPU profiling enabled on HIP gpu (rocprofiler)\n" ;
+            os << "   requested counters: [ " ; 
+            for(int i=0; i<_gpu_profiling_active_counters.size(); ++i) {
+                os << _gpu_profiling_active_counters[i] ; 
+                if( i!=_gpu_profiling_active_counters.size()-1) os << ", " ;
+            }
+            os << " ]\n" ; 
+            GRACE_INFO(os.str()) ; 
+            rocprofiler_initialize();
+        #endif    
+        }      
     }
     //*********************************************************************************************************************
     /**
@@ -198,9 +206,11 @@ class profiling_runtime_impl_t
      * 
      */
     ~profiling_runtime_impl_t() {
+        if(_do_gpu_profiling){
         #ifdef GRACE_ENABLE_HIP
-        rocprofiler_finalize();
+            rocprofiler_finalize();
         #endif 
+        }
     }
     //*********************************************************************************************************************
     

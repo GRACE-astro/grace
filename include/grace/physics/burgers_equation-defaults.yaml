@@ -1,5 +1,5 @@
 burgers_equation: {
-  which_id: "gaussian",
+  id_type: "gaussian",
   gaussian_sigma: 0.1,
   gaussian_x_c: 0.,
   gaussian_y_c: 0.,

@@ -56,18 +56,17 @@ void set_scalar_advection_initial_data() {
     int ngz = amr::get_n_ghosts() ; 
     
     int64_t nq = amr::get_local_num_quadrants() ;
-    auto& params = grace::config_parser::get() ; 
     double VEC(ax,ay,az) ; 
     EXPR(
-    ax = params["scalar_advection"]["ax"].as<double>() ;,
-    ay = params["scalar_advection"]["ay"].as<double>() ;,
-    az = params["scalar_advection"]["az"].as<double>() ; )
+    ax = grace::get_param<double>("scalar_advection","ax") ;,
+    ay = grace::get_param<double>("scalar_advection","ay") ;,
+    az = grace::get_param<double>("scalar_advection","az") ; )
 
-    double sigma = params["scalar_advection"]["gaussian_sigma"].as<double>() ;
+    double sigma = grace::get_param<double>("scalar_advection","gaussian_sigma") ;
     EXPR(
-    double xc = params["scalar_advection"]["gaussian_x_c"].as<double>() ;,
-    double yc = params["scalar_advection"]["gaussian_y_c"].as<double>() ;,
-    double zc = params["scalar_advection"]["gaussian_z_c"].as<double>() ; 
+    double xc = grace::get_param<double>("scalar_advection","gaussian_x_c") ;,
+    double yc = grace::get_param<double>("scalar_advection","gaussian_y_c") ;,
+    double zc = grace::get_param<double>("scalar_advection","gaussian_z_c") ; 
     )
     auto& coord_system = grace::coordinate_system::get() ; 
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 

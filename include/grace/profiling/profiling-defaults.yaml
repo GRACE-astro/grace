@@ -17,5 +17,6 @@ profiling: {
   "SALUInsts",  # Avg number of Scalar ALU instructions per wavefront
   # 3) Memory statistics
   "FetchSize", # total # of Kilobytes fetched from video memory 
-  ] #warning: only change these if you REALLY know what you're doing
+  ], #warning: only change these if you REALLY know what you're doing
+  do_gpu_profiling: true # Runtime switch for counters collection
 }

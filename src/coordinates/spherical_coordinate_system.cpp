@@ -47,12 +47,7 @@
 #include <array> 
 
 namespace grace { 
-
-namespace detail {
-GRACE_DEVICE coord_transform_t l2p[2*P4EST_FACES+1], p2l[2*P4EST_FACES+1] ; 
-GRACE_DEVICE coord_transfer_t gl2l[(2*P4EST_FACES+1)*P4EST_FACES] ;
-}
-
+    
 std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 spherical_coordinate_system_impl_t::get_physical_coordinates(
       int const itree

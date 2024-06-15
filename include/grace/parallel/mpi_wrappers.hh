@@ -28,6 +28,7 @@
 #ifndef GRACE_MPI_WRAPPERS_HH
 #define GRACE_MPI_WRAPPERS_HH
 
+#include <grace_config.h>
 
 #include <grace/errors/assert.hh>
 #include <grace/utils/type_traits.hh>
@@ -38,6 +39,12 @@
 #include <sc.h>
 
 #include <vector>
+
+#ifdef GRACE_ENABLE_OLD_SC_VERS
+#define sc_MPI_LONG_DOUBLE MPI_LONG_DOUBLE 
+#else 
+#define sc_MPI_UNSIGNED_LONG_LONG MPI_UNSIGNED_LONG_LONG
+#endif 
 
 #define mpi_comm sc_MPI_Comm
 #define mpi_op sc_MPI_Op 
@@ -94,7 +101,7 @@ namespace detail {
     MPI_PRIMITIVE_TYPE(unsigned long long,    sc_MPI_UNSIGNED_LONG_LONG) ;
     MPI_PRIMITIVE_TYPE(float,                 sc_MPI_FLOAT) ;
     MPI_PRIMITIVE_TYPE(double,                sc_MPI_DOUBLE) ;
-    MPI_PRIMITIVE_TYPE(long double,           sc_MPI_UNSIGNED_LONG_LONG) ;
+    MPI_PRIMITIVE_TYPE(long double,           sc_MPI_LONG_DOUBLE) ;
     #undef MPI_PRIMITIVE_TYPE
 }
 

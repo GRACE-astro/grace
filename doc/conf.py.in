@@ -68,7 +68,6 @@ roles.register_local_role('param-name', make_span)
 roles.register_local_role('data-type', make_span)
 roles.register_local_role('default-value', make_span)
 roles.register_local_role('allowed-range', make_span)
-roles.register_local_role('param-description', make_span)
 
 source_suffix = ['.rst', '.md']
 master_doc = 'index'

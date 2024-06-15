@@ -31,10 +31,12 @@
 #include <grace_config.h>
 #include <grace/utils/singleton_holder.hh>
 #include <code_modules.h> 
-
+#include <grace/utils/inline.h>
+#include <grace/utils/type_name.hh>
 #include <yaml-cpp/yaml.h>
 
 #include <fstream>
+#include <string>
 
 namespace grace { namespace detail {
 
@@ -163,7 +165,27 @@ class config_parser_impl_t
  */
 using config_parser = utils::singleton_holder<detail::config_parser_impl_t> ;
 //*****************************************************************************************************
-
+/**
+ * @brief Get a parameter from the config file.
+ * 
+ * @tparam T Type to which the parameter should be cast (always explicit)
+ * @param module Code module where to fetch the param.
+ * @param name   Name of the parameter to be fetched.
+ * @return T The parameter interpreted as a <code>T</code>.
+ */
+template< typename T >
+static GRACE_ALWAYS_INLINE T 
+get_param(std::string const& module, std::string const& name) {
+    auto& parfile = grace::config_parser::get();
+    try {
+        return parfile[module][name].as<T>() ; 
+    } catch( const std::exception& e) {
+        ERROR("Parameter " << name 
+             << " from module " << module << " could not be retrieved as a "
+             << utils::type_name<T>() <<" .\n Exception raised:\n"
+             << e.what()) ; 
+    }
+}
 //*****************************************************************************************************
 } // namespace grace 
 

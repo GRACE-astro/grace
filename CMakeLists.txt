@@ -26,6 +26,9 @@ if(GRACE_BUILD_DOCS OR GRACE_BUILD_DOCS_ONLY )
 endif()
 
 if( NOT GRACE_BUILD_DOCS_ONLY )
+
+option(GRACE_ENABLE_OLD_SC_VERS "Using old version of libs" OFF)
+
 include(setup_mpi)
 find_package(OpenMP REQUIRED)
 find_package(p4est REQUIRED)

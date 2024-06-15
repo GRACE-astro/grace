@@ -128,12 +128,11 @@ void advance_substep( double const t, double const dt, double const dtfact
     ) ; 
 
     #ifdef GRACE_ENABLE_SCALAR_ADV
-    auto& params = grace::config_parser::get() ; 
     double VEC(ax,ay,az) ; 
     EXPR(
-    ax = params["scalar_advection"]["ax"].as<double>() ;,
-    ay = params["scalar_advection"]["ay"].as<double>() ;,
-    az = params["scalar_advection"]["az"].as<double>() ; )
+    ax = grace::get_param<double>("scalar_advection","ax");,
+    ay = grace::get_param<double>("scalar_advection","ay");,
+    az = grace::get_param<double>("scalar_advection","az"); )
     scalar_advection_system_t<slope_limited_reconstructor_t<minmod>>  
         scalar_adv_system{ old_state, aux, VEC(ax,ay,az) } ; 
     #endif 

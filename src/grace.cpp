@@ -58,14 +58,15 @@ int main(int argc, char* argv[])
     using namespace grace ; 
     /**********************************************************************************/
     /**********************************************************************************/
-    auto& params = grace::config_parser::get() ; 
+
     /**********************************************************************************/
     /*                                 Initial data                                   */
     /**********************************************************************************/
     GRACE_INFO("Setting initial data.") ; 
     grace::set_initial_data() ; 
-    bool regrid_at_postinitial = params["amr"]["regrid_at_postinitial"].as<bool>() ; 
-    int postinitial_regrid_depth = params["amr"]["postinitial_regrid_depth"].as<int>() ; 
+    bool regrid_at_postinitial = grace::get_param<bool>("amr","regrid_at_postinitial") ; 
+    int postinitial_regrid_depth = 
+        grace::get_param<int>("amr","postinitial_regrid_depth") ;
     /**********************************************************************************/
     /*                                 Post-Initial data                              */
     /**********************************************************************************/
@@ -76,7 +77,8 @@ int main(int argc, char* argv[])
             grace::amr::apply_boundary_conditions() ; 
         }
     }
-    bool reset_id_after_regrid = params["evolution"]["reset_id_after_regrid"].as<bool>() ; 
+    bool reset_id_after_regrid = 
+        grace::get_param<bool>("evolution","reset_id_after_regrid") ; 
     if (reset_id_after_regrid) {
         GRACE_INFO("Resetting initial data after regrid.") ;
         grace::set_initial_data() ; 
@@ -88,20 +90,20 @@ int main(int argc, char* argv[])
     grace::IO::info_output() ;
     /**********************************************************************************/
     /**********************************************************************************/
-    double final_time = params["evolution"]["final_time"].as<double>() ; 
-    int64_t regrid_every = params["amr"]["regrid_every"].as<int64_t>() ; 
-    int64_t volume_output_every = params["IO"]["volume_output_every"].as<int64_t>() ; 
+    double final_time = grace::get_param<double>("evolution","final_time") ; 
+    int64_t regrid_every = grace::get_param<int64_t>("amr","regrid_every") ;  
+    int64_t volume_output_every = grace::get_param<int64_t>("IO","volume_output_every") ;
     int64_t plane_surface_output_every = 
-        params["IO"]["plane_surface_output_every"].as<int64_t>() ; 
+        grace::get_param<int64_t>("IO","plane_surface_output_every") ;
     int64_t sphere_surface_output_every = 
-        params["IO"]["sphere_surface_output_every"].as<int64_t>() ;
+        grace::get_param<int64_t>("IO","sphere_surface_output_every") ;
     int64_t scalar_output_every =
-        params["IO"]["scalar_output_every"].as<int64_t>() ; 
+        grace::get_param<int64_t>("IO","scalar_output_every") ;
     int64_t info_output_every =
-        params["IO"]["info_output_every"].as<int64_t>() ; 
-    std::string tstep_mode = params["evolution"]["timestep_selection_mode"].as<std::string>() ;
+        grace::get_param<int64_t>("IO","info_output_every") ;
+    std::string tstep_mode = grace::get_param<std::string>("evolution","timestep_selection_mode") ;
     if ( tstep_mode == "manual" ) {
-        grace::set_timestep(params["evolution"]["timestep"].as<double>()) ; 
+        grace::set_timestep(grace::get_param<double>("evolution","timestep")) ; 
     }
     /**********************************************************************************/
     /*                           Evolution loop                                       */

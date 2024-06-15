@@ -953,6 +953,8 @@ dark-mode-toggle::part(toggleLabel){
     border: 1px solid #ccc;
     text-align: left;
     word-wrap: break-word;  /* Enable word wrapping */
+    font-size: 14px;
+    font-family: "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "Courier", "monospace";
 }
 
 .custom-list-table th:nth-child(1), .custom-list-table td:nth-child(1) {
@@ -984,7 +986,3 @@ dark-mode-toggle::part(toggleLabel){
     border: 1px solid var(--code-border-color);
 }
 
-.param-description {
-    font-size: 14px;
-    font-family: "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "Courier", "monospace";
-}

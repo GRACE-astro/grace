@@ -8,17 +8,7 @@ def wrap_text(text, width):
     return "\n".join(wrapper.wrap(text))
 
 def wrap_in_role(text, role):
-    # Split the text into parts, preserving code literals (``text``)
-    parts = re.split(r'(``[^`]*``)', text)
-    wrapped_parts = []
-
-    for part in parts:
-        if part.startswith("``") and part.endswith("``"):
-            wrapped_parts.append(part)  # Preserve code literals
-        else:
-            wrapped_parts.append(f':{role}:`{part}`')  # Wrap non-code text in role
-    
-    return " ".join(wrapped_parts)
+    return f':{role}:`{text}`'
 
 def wrap_in_bold(text):
     return f'**{text}**'
@@ -44,7 +34,7 @@ def generate_rst_from_yaml(yaml_file, rst_file, title, mod, parfile_example):
             file.write("   * - " + wrap_in_bold("Type:") + "\n     - " + wrap_in_role(item.get('Type', ''),"data-type") + "\n")
             file.write("   * - " + wrap_in_bold("Default Value:") + "\n     - " + wrap_in_role(item.get('Default Value', ''),"default-value")+"\n")
             file.write("   * - " + wrap_in_bold("Allowed Range:") + "\n     - " + wrap_in_role(item.get('Allowed Range', ''),"allowed-range")+"\n")
-            file.write("   * - " + wrap_in_bold("Description:") + "\n     - " + wrap_in_role(item.get('Description', ''),"param-description")+"\n")
+            file.write("   * - " + wrap_in_bold("Description:") + "\n     - " + f"{item.get('Description', '')}\n")
             file.write(
             '''\n.. raw:: html\n\n  </div>\n\n''')
             file.write("----\n\n")

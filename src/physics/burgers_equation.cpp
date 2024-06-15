@@ -55,13 +55,12 @@ static void set_burgers_gaussian_id() {
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ; 
     int64_t nq = amr::get_local_num_quadrants() ;
-    auto& params = grace::config_parser::get() ; 
 
-    double sigma = params["burgers_equation"]["gaussian_sigma"].as<double>() ;
+    double sigma = grace::get_param<double>("burgers_equation","gaussian_sigma") ;
     EXPR(
-    double xc = params["burgers_equation"]["gaussian_x_c"].as<double>() ;,
-    double yc = params["burgers_equation"]["gaussian_y_c"].as<double>() ;,
-    double zc = params["burgers_equation"]["gaussian_z_c"].as<double>() ; 
+    double xc = grace::get_param<double>("burgers_equation","gaussian_x_c") ;,
+    double yc = grace::get_param<double>("burgers_equation","gaussian_y_c") ;,
+    double zc = grace::get_param<double>("burgers_equation","gaussian_z_c") ; 
     )
 
     auto& coord_system = grace::coordinate_system::get() ; 
@@ -114,12 +113,11 @@ static void set_burgers_shocktube_id() {
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ; 
     int64_t nq = amr::get_local_num_quadrants() ;
-    auto& params = grace::config_parser::get() ; 
 
-    double uL = params["burgers_equation"]["shocktube_left_state"].as<double>() ;
-    double uR = params["burgers_equation"]["shocktube_right_state"].as<double>() ;
+    double uL = grace::get_param<double>("burgers_equation","shocktube_left_state") ;
+    double uR = grace::get_param<double>("burgers_equation","shocktube_right_state") ;
 
-    double xc = params["burgers_equation"]["shocktube_x_location"].as<double>() ;
+    double xc = grace::get_param<double>("burgers_equation","shocktube_x_location") ;
 
     auto& coord_system = grace::coordinate_system::get() ; 
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
@@ -160,14 +158,13 @@ static void set_burgers_three_state_shocktube_id() {
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ; 
     int64_t nq = amr::get_local_num_quadrants() ;
-    auto& params = grace::config_parser::get() ; 
 
-    double uL = params["burgers_equation"]["shocktube_left_state"].as<double>() ;
-    double uC = params["burgers_equation"]["shocktube_central_state"].as<double>() ;
-    double uR = params["burgers_equation"]["shocktube_right_state"].as<double>() ;
+    double uL = grace::get_param<double>("burgers_equation","shocktube_left_state") ;
+    double uC = grace::get_param<double>("burgers_equation","shocktube_central_state") ;
+    double uR = grace::get_param<double>("burgers_equation","shocktube_right_state") ;
 
-    double xc  = params["burgers_equation"]["shocktube_x_location"].as<double>() ;
-    double xc2 = params["burgers_equation"]["shocktube_x_location_2"].as<double>() ;
+    double xc  = grace::get_param<double>("burgers_equation","shocktube_x_location") ;
+    double xc2 = grace::get_param<double>("burgers_equation","shocktube_x_location_2") ;
 
     auto& coord_system = grace::coordinate_system::get() ; 
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
@@ -245,9 +242,9 @@ void set_burgers_initial_data() {
     ERROR("Should not run Burgers equation ID" 
           "if Burgers equation evolution is not enabled.") ; 
     #endif 
-    auto& params = grace::config_parser::get() ;
 
-    std::string which_id = params["burgers_equation"]["id_type"].as<std::string>() ;
+    std::string const which_id = 
+        grace::get_param<std::string>("burgers_equation","id_type") ;
 
     if( which_id == "gaussian") {
         set_burgers_gaussian_id() ; 
