@@ -527,6 +527,10 @@ kbd, .kbd,
     position: fixed; /* Was fixed */
 }
 
+.wy-menu-vertical {
+    padding-top: 15px; /* Adjust this value as needed */
+}
+
 @media only screen and (min-width: 769px) {
     /* Simulate a drop shadow that only affects the bottom edge */
     /* This is used to indicate the search bar is fixed */
@@ -630,20 +634,42 @@ kbd, .kbd,
     color: var(--navbar-level-3-color);
     opacity: 0.9;
     margin-right: 8px;
+    font-size: 16px; /* Adjust the font size as needed */
 }
 
 .wy-side-nav-search, .wy-menu-vertical a, .wy-menu-vertical a:hover span.toctree-expand,
 .wy-menu-vertical li.toctree-l2 a:hover span.toctree-expand {
     color: var(--navbar-level-2-color);
     opacity: 1;
+    font-size: 16px; /* Adjust the font size as needed */
 }
 
 .wy-side-nav-search, .wy-menu-vertical a, .wy-menu-vertical a:active span.toctree-expand,
 .wy-menu-vertical li.toctree-l2 a:active span.toctree-expand {
     color: var(--navbar-level-1-color);
     opacity: 1;
+    font-size: 16px; /* Adjust the font size as needed */
 }
 
+.wy-side-nav-search, .wy-menu-vertical a, .wy-menu-vertical a:active span.toctree-expand,
+.wy-menu-vertical li.toctree-l3 a:active span.toctree-expand {
+    color: var(--navbar-level-1-color);
+    opacity: 1;
+    font-size: 16px; /* Adjust the font size as needed */
+}
+
+.wy-menu-vertical li.toctree-l1.current > a {
+    border: none;
+    font-size: 16px; /* Ensure current level 1 items have consistent font size */
+}
+
+.wy-menu-vertical li.toctree-l2.current > a {
+    font-size: 16px; /* Ensure current level 2 items have consistent font size */
+}
+
+.wy-menu-vertical li.toctree-l3.current > a {
+    font-size: 16px; /* Ensure current level 2 items have consistent font size */
+}
 /* Second (and higher) levels of navigation items */
 
 .wy-menu-vertical li.current a {

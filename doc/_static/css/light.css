@@ -63,10 +63,10 @@
     --highlight-operator-color: #666666;
     --highlight-string-color: #4070a0;
 
-    --admonition-note-background-color: #A9D6E5;
+    --admonition-note-background-color: #e7f2fa;
     --admonition-note-color: #404040;
-    --admonition-note-title-background-color: #89C2D9;
-    --admonition-note-title-color: #404040;
+    --admonition-note-title-background-color: #6ab0de;
+    --admonition-note-title-color: #fff;
     --admonition-attention-background-color: #ffedcc;
     --admonition-attention-color: #404040;
     --admonition-attention-title-background-color: #f0b37e;
