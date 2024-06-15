@@ -26,11 +26,11 @@
     --navbar-scrollbar-active-color: #89c2d98c;
     --navbar-scrollbar-background: #01497c63;
 
-    --link-color: #468FAF;
-    --link-color-hover: #61A5C2;
-    --link-color-active: #61A5C2;
-    --link-color-visited: #89C2D9;
-    --external-reference-icon: url("data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjEyIiB3aWR0aD0iMTIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjk4MGI5Ij48cGF0aCBkPSJtNy41IDcuMXYzLjRoLTZ2LTZoMy40Ii8+PHBhdGggZD0ibTUuNzY1IDFoNS4yMzV2NS4zOWwtMS41NzMgMS41NDctMS4zMS0xLjMxLTIuNzI0IDIuNzIzLTIuNjktMi42ODggMi44MS0yLjgwOC0xLjMxMy0xLjMxeiIvPjwvZz48L3N2Zz4K");
+    --link-color:  #2980B9;
+    --link-color-hover: #3091d1;
+    --link-color-active: #3091d1;
+    --link-color-visited: #9B59B6;
+    --external-reference-icon: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGhlaWdodD0iMTIiIHdpZHRoPSIxMiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiMyOTgwYjkiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICA8cGF0aCBkPSJNMTAgMTRMMjEgMyIvPgogIDxwYXRoIGQ9Ik0yMSAzSDE0Ii8+CiAgPHBhdGggZD0iTTIxIDNWMTAiLz4KICA8cGF0aCBkPSJNMyAxMHYxMWExIDEgMCAwIDAgMSAxaDExIi8+Cjwvc3ZnPgo=");
     --classref-badge-text-color: hsl(0, 0%, 45%);
 
     --hr-color: #e1e4e5;
