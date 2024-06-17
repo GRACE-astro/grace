@@ -14,6 +14,7 @@ target_link_libraries(bm_IO PRIVATE
         VTK::VTK
         spdlog::spdlog
         HDF5::HDF5 
+        $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
         )
 vtk_module_autoinit(
     TARGETS bm_IO

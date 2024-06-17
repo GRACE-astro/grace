@@ -111,7 +111,7 @@ struct grhd_c2p_t {
         } ; 
         double const zm{ 0.5*k/Kokkos::sqrt(1-math::int_pow<2>(0.5*k))} 
                    , zp{ 1e-06 + k/Kokkos::sqrt(1-math::int_pow<2>(k))} ; 
-        double const zeta = utils::bisection(func,zm,zp,1e-12) ; 
+        double const zeta = utils::brent(func,zm,zp,1e-15) ; 
         double const W = Wtilde(zeta) ; 
         grmhd_prims_array_t prims ; 
         prims[RHOL] = D/W ;

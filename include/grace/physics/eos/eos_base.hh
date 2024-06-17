@@ -452,7 +452,30 @@ class eos_base_t {
             mup,mun,Xa,Xh,Xn,Xp,Abar,Zbar,temp,rho,ye,err
             ) ; 
     }
-
+    /**
+     * @brief Get the atmosphere rest-mass density.
+     * 
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    rho_atmosphere() const { return c2p_rho_atm ; }
+    /**
+     * @brief Get the atmosphere temperature.
+     * 
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    temp_atmosphere() const { return c2p_temp_atm ; }
+    /**
+     * @brief Get the atmosphere electron fraction.
+     * 
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    ye_atmosphere() const { return c2p_ye_atm ; }
+    /**
+     * @brief Get the atmosphere specific internal energy.
+     * 
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    eps_atmosphere() const { return c2p_eps_atm ; }
  protected:
     //! Does this EOS depend on ye?
     static constexpr bool has_ye = eos_impl_t::has_ye ; 

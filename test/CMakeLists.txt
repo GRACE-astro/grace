@@ -386,7 +386,12 @@ add_test(NAME scalar_reductions_test COMMAND
         mpirun -n 1 ./scalar_reductions_test --grace-parfile ./configs/scalar_reductions_test.yaml )
 add_test(NAME pwpoly_test COMMAND 
         mpirun -n 1 ./pwpoly_test --grace-parfile ./configs/pwpoly_test_config.yaml )
-
+add_test(NAME metric_test COMMAND 
+        mpirun -n 1 ./metric_test --grace-parfile ./configs/basic_config.yaml )
+add_test(NAME gamma2_c2p_test COMMAND 
+        mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_gamma2.yaml )
+add_test(NAME sly4_pw_c2p_test COMMAND 
+        mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_sly4_pw.yaml )
 ##add_custom_command(
 #        TARGET
 #        COMMENT "Run tests"

@@ -44,7 +44,6 @@
 #include <fstream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-#define N 100
 
 static void fill_data_vectors( std::vector<double>& rho
                              , std::vector<double>& press
@@ -71,7 +70,11 @@ static void fill_data_vectors( std::vector<double>& rho
 
 TEST_CASE("EOS", "[pwpolytrope]") {
     auto eos = grace::eos::get().get_hybrid_pwpoly() ; 
-        
+    std::vector<double> rho,press,eps ; 
+
+    fill_data_vectors(rho,press,eps) ; 
+    size_t const N = rho.size() ; 
+    
     Kokkos::View<double *> d_rho("rho", N) ; 
     Kokkos::View<double *> d_press("press", N) ; 
     Kokkos::View<double *> d_eps("eps", N) ; 
@@ -80,9 +83,7 @@ TEST_CASE("EOS", "[pwpolytrope]") {
     auto h_press = Kokkos::create_mirror_view(d_press);
     auto h_eps   = Kokkos::create_mirror_view(d_eps)  ;
 
-    std::vector<double> rho,press,eps ; 
-
-    fill_data_vectors(rho,press,eps) ; 
+    
 
 
     #define DEEP_COPY_VEC_TO_VIEW(vec,view) \

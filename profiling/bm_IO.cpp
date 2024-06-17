@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
         double const r2 = EXPR( math::int_pow<2>(coords[0]),
                               + math::int_pow<2>(coords[1]),
                               + math::int_pow<2>(coords[2]) )  ; 
-        h_state_mirror(VEC(i,j,k),U,q) = exp( - r2 / 0.5 ) ; 
+        h_state_mirror(VEC(i,j,k),0,q) = exp( - r2 / 0.5 ) ; 
     }
     Kokkos::deep_copy(state, h_state_mirror) ;
 

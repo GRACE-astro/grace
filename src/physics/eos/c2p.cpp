@@ -50,8 +50,7 @@ conservs_to_prims( grmhd_cons_array_t& cons
     /* Undensitize conservs */
     for( auto& c: cons) c /= metric.sqrtg() ; 
     /* First we check whether we are in the atmosphere */
-    //auto const dens_atmo = eos.rho_atmosphere() ; 
-    auto const dens_atmo = 1e-14 ;
+    auto const dens_atmo = eos.rho_atmosphere() ; 
     if( cons[DENSL] > dens_atmo ) {
         c2p_impl_t c2p(eos,metric,cons) ; 
         double residual ;
@@ -66,9 +65,9 @@ conservs_to_prims( grmhd_cons_array_t& cons
       or  metric.alp() < lapse_excision )
     {  
         prims[RHOL]  = dens_atmo ;
-        prims[TEMPL] = 0.;//eos.temp_atmosphere() ;  
-        prims[YEL]   = 0.;//eos.ye_atmosphere()   ;
-        prims[EPSL]  = 0.;//eos.eps_atmosphere()  ; 
+        prims[TEMPL] = eos.temp_atmosphere() ;  
+        prims[YEL]   = eos.ye_atmosphere()   ;
+        prims[EPSL]  = eos.eps_atmosphere()  ; 
         prims[VXL]   = 0. ; 
         prims[VYL]   = 0. ; 
         prims[VZL]   = 0. ; 

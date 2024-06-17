@@ -101,7 +101,7 @@ compute_residual(grace::grmhd_prims_array_t const& new_prims, grace::grmhd_prims
 static void GRACE_ALWAYS_INLINE
 fill_primitive_views(Kokkos::View<double *> lrho, Kokkos::View<double *> ltemp) {
     double const start_logrho{-12};
-    double const end_logrho{-2}   ; 
+    double const end_logrho{-2.8}   ; 
     double const start_logT{-1}   ; 
     double const end_logT{2.3}    ;
     double const dlrho{(end_logrho-start_logrho)/N}, dlT{(end_logT-start_logT)/N} ; 

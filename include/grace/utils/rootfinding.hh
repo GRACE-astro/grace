@@ -67,71 +67,168 @@ bisection(F&& func, double const& a, double const& b, double const& tol)
     } while( math::abs(xa-xb) > tol ) ; 
     return xc ; 
 }
-void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-brent_bracket(double& a, double& b, double& fa, double& fb) {
-    double s, fs ; 
-    if ( math::abs(fa) < math::abs(fb) ) {
-        s = b ; 
-        b = a ; 
-        a = s ; 
-        fs = fb ; 
-        fb = fa ;
-        fa = fs ; 
-    }
-}
-template< typename F >
-double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-brent(F&& func, double const& a, double const& b, double const& tol)
+
+
+template <typename F>
+double GRACE_HOST_DEVICE
+brent(F& f, const double &a, const double &b, const double t)
+
+//****************************************************************************80
+//
+//  Purpose:
+//
+//    ZERO seeks the root of a function F(X) in an interval [A,B].
+//
+//  Discussion:
+//
+//    The interval [A,B] must be a change of sign interval for F.
+//    That is, F(A) and F(B) must be of opposite signs.  Then
+//    assuming that F is continuous implies the existence of at least
+//    one value C between A and B for which F(C) = 0.
+//
+//    The location of the zero is determined to within an accuracy
+//    of 6 * MACHEPS * abs ( C ) + 2 * T.
+//
+//    Thanks to Thomas Secretin for pointing out a transcription error in the
+//    setting of the value of P, 11 February 2013.
+//
+//  Licensing:
+//
+//    This code is distributed under the GNU LGPL license.
+//
+//  Modified:
+//
+//    11 February 2013
+//
+//  Author:
+//
+//    Original FORTRAN77 version by Richard Brent.
+//    C++ version by John Burkardt.
+//
+//  Reference:
+//
+//    Richard Brent,
+//    Algorithms for Minimization Without Derivatives,
+//    Dover, 2002,
+//    ISBN: 0-486-41998-3,
+//    LC: QA402.5.B74.
+//
+//  Parameters:
+//
+//    Input, double A, B, the endpoints of the change of sign interval.
+//
+//    Input, double T, a positive error tolerance.
+//
+//    Input, func_base& F, the name of a user-supplied c++ functor
+//    whose zero is being sought.  The input and output
+//    of F() are of type double.
+//
+//    Output, double ZERO, the estimated value of a zero of
+//    the function F.
+//
 {
-    double xa{a}, xb{b}, xc, xd, xs, fa{func(a)}, fb{func(b)}, fs, fc, fd ;
-    if ( fa * fb > 0 ) {
-        return std::numeric_limits<double>::quiet_NaN(); 
-    }
-    if ( fa == 0  ) {
-        return a ;
-    } else if ( fb == 0 ) {
-        return b ; 
-    }
-    brent_bracket(xa,xb,fa,fb) ; 
-    xc = xa ; fc = fa ;
-    bool mflag{true} ; 
+  double c;
+  double d;
+  double e;
+  double fa;
+  double fb;
+  double fc;
+  double m;
+  double p;
+  double q;
+  double r;
+  double s;
+  double sa;
+  double sb;
+  double tol;
+  //
+  //  Make local copies of A and B.
+  //
+  sa = a;
+  sb = b;
+  fa = f(sa);
+  fb = f(sb);
 
-    bool noconv{true} ;
-    do {
-        if ( fa != fs and fb != fs ) {
-            xs = xb * fb*fs / ( fa - fb ) / ( fa - fs ) 
-               + xa * fa*fs / ( fb - fa ) / ( fb - fs ) 
-               + xs * fa*fb / ( fs - fa ) / ( fs - fb ) ; 
-        } else {
-            xs = xb - fb * (xb-xa) / (fb-fa) ; 
-        }
-        if (  not ( 0.25*(3.*xa+xb) < xs and xs < xb)
-           or (mflag and ( math::abs(xs-xb)>=0.5*math::abs(xb-xc)))
-           or (!mflag and (math::abs(xs-xb)>=0.5*math::abs(xc-xd)))
-           or (mflag and math::abs(xb-xc) < tol)
-           or (!mflag and math::abs(xc-xd)<tol )) {
-            xs = 0.5 * (xa+xb) ; 
-        } else {
-            mflag = false; 
-        }
-        fs = func(xs) ; 
-        xd = xc ;
-        fd = fc ; 
-        xc = xb ;
-        fc = fb ; 
-        if( fa*fs < 0 ) {
-            xb = xs ;
-            fb = fs ;
-        } else {
-            xa = xs ; 
-            fs = fs ;
-        }
+  c = sa;
+  fc = fa;
+  e = sb - sa;
+  d = e;
 
-        noconv =  math::abs(xa-xb) < tol 
-              or fs == 0. ; 
-    } while( noconv ) ;
-    return xs ; 
+  constexpr double macheps = std::numeric_limits<double>::epsilon();
+
+  for (;;) {
+    if (std::fabs(fc) < std::fabs(fb)) {
+      sa = sb;
+      sb = c;
+      c = sa;
+      fa = fb;
+      fb = fc;
+      fc = fa;
+    }
+
+    tol = 2.0 * macheps * std::fabs(sb) + t;
+    m = 0.5 * (c - sb);
+
+    if (std::fabs(m) <= tol || fb == 0.0) {
+      break;
+    }
+
+    if (std::fabs(e) < tol || std::fabs(fa) <= std::fabs(fb)) {
+      e = m;
+      d = e;
+    } else {
+      s = fb / fa;
+
+      if (sa == c) {
+        p = 2.0 * m * s;
+        q = 1.0 - s;
+      } else {
+        q = fa / fc;
+        r = fb / fc;
+        p = s * (2.0 * m * q * (q - r) - (sb - sa) * (r - 1.0));
+        q = (q - 1.0) * (r - 1.0) * (s - 1.0);
+      }
+
+      if (0.0 < p) {
+        q = -q;
+      } else {
+        p = -p;
+      }
+
+      s = e;
+      e = d;
+
+      if (2.0 * p < 3.0 * m * q - std::fabs(tol * q) &&
+          p < std::fabs(0.5 * s * q)) {
+        d = p / q;
+      } else {
+        e = m;
+        d = e;
+      }
+    }
+    sa = sb;
+    fa = fb;
+
+    if (tol < std::fabs(d)) {
+      sb = sb + d;
+    } else if (0.0 < m) {
+      sb = sb + tol;
+    } else {
+      sb = sb - tol;
+    }
+
+    fb = f(sb);
+
+    if ((0.0 < fb && 0.0 < fc) || (fb <= 0.0 && fc <= 0.0)) {
+      c = sa;
+      fc = fa;
+      e = sb - sa;
+      d = e;
+    }
+  }
+  return sb;
 }
+//****************************************************************************80
 
 }
 
