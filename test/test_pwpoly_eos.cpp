@@ -97,9 +97,6 @@ TEST_CASE("EOS", "[pwpolytrope]") {
     DEEP_COPY_VEC_TO_VIEW(rho,d_rho) ; 
 
 
-
-
-
     Kokkos::parallel_for("pwp_test_fill",N,
     KOKKOS_LAMBDA (int i){
         double eps,csnd2; 

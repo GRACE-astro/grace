@@ -53,21 +53,26 @@ namespace grace {
  * primitives.
  */
 template< typename eos_t >
-void conservs_to_prims( grmhd_cons_array_t& cons 
-                      , grmhd_prims_array_t& prims
-                      , metric_array_t const& metric 
-                      , eos_t const& eos
-                      , double const& lapse_excision) ; 
+void GRACE_HOST_DEVICE
+conservs_to_prims( grace::grmhd_cons_array_t& cons 
+                  , grace::grmhd_prims_array_t& prims
+                  , grace::metric_array_t const& metric 
+                  , eos_t const& eos
+                  , double const& lapse_excision) ; 
 
-
+void GRACE_HOST_DEVICE
+prims_to_conservs( grace::grmhd_prims_array_t& prims
+                 , grace::grmhd_cons_array_t& cons 
+                 , grace::metric_array_t const& metric ) ; 
 // Explicit template instantiation
-#define INSTANTIATE_TEMPLATE(EOST) \
-template \
-void conservs_to_prims<EOS>( grmhd_cons_array_t&  \
-                           , grmhd_prims_array_t&  \
-                           , metric_array_t const&  \
-                           , EOST const& eos \
-                           , double const& ) 
+#define INSTANTIATE_TEMPLATE(EOS) \
+extern template \
+void GRACE_HOST_DEVICE \
+conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
+                      , grace::grmhd_prims_array_t&  \
+                      , grace::metric_array_t const&  \
+                      , EOS const& eos \
+                      , double const& ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE
 }

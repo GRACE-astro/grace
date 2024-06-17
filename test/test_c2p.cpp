@@ -39,98 +39,190 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
-#include <grace/physics/c2p.hh>
+#include <grace/physics/eos/c2p.hh>
 #include <grace/system/grace_system.hh>
-#include <iostream>
-#include <fstream>
+#include <grace/physics/grmhd.hh>
+
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-#define N 10000
+#include <Kokkos_Core.hpp>
 
-static GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-conservs_from_prims(grmhd_cons_array_t& cons, grmhd_prims_array_t& prims, metric_array_t const& metric)
+
+#include <fstream>
+#include <filesystem>
+#include <iostream>
+#include <iomanip>
+
+#define N 100
+#define DUMP_RESIDUAL_TO_FILE
+
+static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+conservs_from_prims(grace::grmhd_cons_array_t& cons, grace::grmhd_prims_array_t& prims, grace::metric_array_t const& metric)
 {
     double const v2 = metric.square_vec({prims[VXL],prims[VYL],prims[VZL]}) ; 
+    double const alp_sqrtgamma = metric.alp() * metric.sqrtg() ;
     double const W  = 1./Kokkos::sqrt(1-v2) ; 
-    cons[DENSL] = W * metric.sqrtgamma() * prims[RHOL] ; 
+    double const u0 = W / metric.alp();
+    cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
+    double const b2{0.}, smallbt{0.} ; 
+    double const one_over_alp2 = 1./math::int_pow<2>(metric.alp());
+    double const rho0_h_plus_b2 = (prims[RHOL]*(1+prims[EPSL])) + prims[PRESSL] + b2 ;
+    double const alp2_sqrtgamma = math::int_pow<2>(metric.alp()) * metric.sqrtg() ;
+    double const g4uptt = -one_over_alp2 ; 
+    
+    double const P_plus_half_b2 = (prims[PRESSL] + 0.5*b2);
+    double const Tuptt = rho0_h_plus_b2 * math::int_pow<2>(u0) + P_plus_half_b2 * g4uptt - math::int_pow<2>(smallbt) ; 
+    cons[TAUL] = alp2_sqrtgamma * Tuptt - cons[DENSL] ;
 
+    std::array<double,4> smallb{0.,0.,0.,0.}, smallbD{0.,0.,0.,0.} ;
+    /* After initialization this is the Eulerian 3-vel (not that it matters in Minkowski)*/ 
+    auto vD = metric.lower({prims[VXL],prims[VYL],prims[VZL]}) ; 
+
+    cons[STXL] = metric.sqrtg() * (rho0_h_plus_b2*math::int_pow<2>(W)*vD[0]-smallb[0]*smallbD[1]) ; 
+    cons[STYL] = metric.sqrtg() * (rho0_h_plus_b2*math::int_pow<2>(W)*vD[1]-smallb[0]*smallbD[2]) ; 
+    cons[STZL] = metric.sqrtg() * (rho0_h_plus_b2*math::int_pow<2>(W)*vD[2]-smallb[0]*smallbD[3]) ;
+    cons[YESL] = prims[YEL] * cons[DENSL] ; 
+    cons[ENTSL] = cons[DENSL] * prims[ENTL] ;
+    return ; 
 }
 
-static void fill_data_vectors( std::vector<double>& rho
-                             , std::vector<double>& press
-                             , std::vector<double>& eps ) 
+
+static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+compute_residual(grace::grmhd_prims_array_t const& new_prims, grace::grmhd_prims_array_t& old_prims)
 {
-    std::ifstream file("sly_eos_test.txt");
-    if (!file.is_open()) {
-        return ;
+    double err{0.} ; 
+    std::array<unsigned int, 5> indices {RHOL, EPSL,VXL,VYL,VZL} ; 
+    for( auto const i: indices ) {
+        err += math::abs((new_prims[i]-old_prims[i])/(old_prims[i]+1e-50)) ; 
     }
-    std::string line;
-    while (std::getline(file, line)) {
-        std::istringstream iss(line);
-        double val1, val2, val3;
-        if (!(iss >> val1 >> val2 >> val3)) {
-            std::cerr << "Error reading line: " << line << std::endl;
-            return ;
+    return 1./indices.size() * (err) ; 
+}
+
+static void GRACE_ALWAYS_INLINE
+fill_primitive_views(Kokkos::View<double *> lrho, Kokkos::View<double *> ltemp) {
+    double const start_logrho{-12};
+    double const end_logrho{-2}   ; 
+    double const start_logT{-1}   ; 
+    double const end_logT{2.3}    ;
+    double const dlrho{(end_logrho-start_logrho)/N}, dlT{(end_logT-start_logT)/N} ; 
+    Kokkos::parallel_for("fill_views", N, 
+    KOKKOS_LAMBDA(int const& i) {
+        lrho(i) = start_logrho + static_cast<double>(i)*dlrho ; 
+        ltemp(i) = start_logT + static_cast<double>(i)*dlT ; 
+    }) ; 
+}
+
+// Function to generate a random unit vector of 3 components
+static void generateRandomUnitVector(double &x, double &y, double &z) {
+    // Seed the random number generator
+    std::srand(std::time(0));
+
+    // Generate random angles for spherical coordinates
+    double theta = ((double) std::rand() / RAND_MAX) * 2.0 * M_PI; // Random angle theta in [0, 2*pi)
+    double phi = ((double) std::rand() / RAND_MAX) * M_PI;         // Random angle phi in [0, pi)
+
+    // Convert spherical coordinates to Cartesian coordinates
+    x = std::sin(phi) * std::cos(theta);
+    y = std::sin(phi) * std::sin(theta);
+    z = std::cos(phi);
+}
+
+static void get_velocity_from_W(double const& W, Kokkos::View<double ***> vel) {
+    double const v = Kokkos::sqrt( math::int_pow<2>(W) -  1) / W; 
+    auto h_vel = Kokkos::create_mirror_view(vel) ; 
+    for( int i=0; i<N;++i) { 
+        for( int j=0; j<N; ++j){
+            generateRandomUnitVector(h_vel(i,j,0),h_vel(i,j,1),h_vel(i,j,2)) ; 
+            //h_vel(i,j,0) = 0.; h_vel(i,j,1)=1.; h_vel(i,j,2) = 0.;
+            for(int iv=0; iv<3; ++iv)
+                h_vel(i,j,iv) *= v ; 
         }
-        rho.push_back(val1);
-        press.push_back(val2);
-        eps.push_back(val3);
     }
-    file.close();
+    Kokkos::deep_copy(vel,h_vel) ; 
+}
+
+template<typename eos_t>
+static void check_c2p(eos_t eos){
+    using namespace grace ;
+    metric_array_t minkowski_metric ({1.,0.,0.,1.,0.,1.},{0.,0.,0.},1.) ; 
+        
+    double const W = 2. ; 
+
+    Kokkos::View<double *> d_logrho("logrho", N) ; 
+    Kokkos::View<double *> d_logT("logT", N) ;
+    Kokkos::View<double ***> d_vel("vel", N,N,3) ; 
+    Kokkos::View<double **> d_res("residual", N,N) ;
+    Kokkos::View<double **> d_eps("eps", N,N) ;
+    Kokkos::View<double **> d_press("press", N,N) ;
+    fill_primitive_views(d_logrho,d_logT) ; 
+    get_velocity_from_W(W, d_vel) ; 
+    double const ye = 0.1 ; 
+
+    Kokkos::parallel_for("check_c2p_residual", Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0,0},{N,N}),
+    KOKKOS_LAMBDA( int const& i, int const& j ) {
+        grmhd_prims_array_t prims ; 
+        prims[RHOL] = Kokkos::pow(10.,d_logrho(i)) ; 
+        prims[TEMPL] = Kokkos::pow(10.,d_logT(j))  ; 
+        prims[YEL] = ye; 
+        prims[VXL] = d_vel(i,j,0) ; 
+        prims[VYL] = d_vel(i,j,1) ; 
+        prims[VZL] = d_vel(i,j,2) ; 
+        
+        double csnd2 ;
+        unsigned int err ;  
+        double temp{0} ; 
+        prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(prims[EPSL],csnd2,prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
+        grmhd_cons_array_t cons ; 
+        conservs_from_prims(cons,prims,minkowski_metric) ; 
+        d_eps(i,j) = cons[STYL] ;
+        grmhd_prims_array_t new_prims = prims ; 
+        conservs_to_prims<eos_t>(cons,new_prims,minkowski_metric,eos,0.) ; 
+
+        d_res(i,j) = compute_residual(new_prims,prims) ;
+         //d_press(i,j) = new_prims[PRESSL] ;  
+        d_press(i,j) = d_vel(i,j,0)*d_vel(i,j,0) 
+                     + d_vel(i,j,1)*d_vel(i,j,1)
+                     + d_vel(i,j,2)*d_vel(i,j,2) ; 
+
+    }) ; 
+    auto h_res = Kokkos::create_mirror_view(d_res) ;
+    auto h_eps = Kokkos::create_mirror_view(d_eps) ;
+    auto h_press = Kokkos::create_mirror_view(d_press) ; 
+    Kokkos::deep_copy(h_res,d_res) ; 
+    Kokkos::deep_copy(h_eps,d_eps) ; 
+    Kokkos::deep_copy(h_press,d_press) ; 
+    #ifdef DUMP_RESIDUAL_TO_FILE
+    std::ofstream outfile{"c2p_residual.txt"} ;
+    outfile << std::setprecision(15) ; 
+    auto h_rho = Kokkos::create_mirror_view(d_logrho) ; 
+    Kokkos::deep_copy(h_rho,d_logrho) ;
+    auto h_temp = Kokkos::create_mirror_view(d_logT) ; 
+    Kokkos::deep_copy(h_temp,d_logT) ;
+    int const width=20;
+    #endif 
+    
+    for( int i=0; i<N; ++i){
+        for(int j=0; j<N; ++j){
+            #ifdef DUMP_RESIDUAL_TO_FILE
+            outfile << std::fixed << std::setprecision(15) ;
+            outfile << std::left << std::setw(width) << h_rho(i)
+                    << std::left << std::setw(width) << h_temp(j)
+                    << std::left << std::setw(width) << h_eps(i,j)
+                    << std::left << std::setw(width) << h_press(i,j)
+                    << std::left << std::setw(width) << h_res(i,j) << std::endl ; 
+            #endif 
+            #if 1
+            CHECK_THAT(
+                h_res(i,j),
+                Catch::Matchers::WithinAbs(0., 1e-6)
+            ) ; 
+            #endif
+        }
+    }
 }
 
 TEST_CASE("c2p", "[c2p-hydro]") {
     auto eos = grace::eos::get().get_hybrid_pwpoly() ; 
+    check_c2p(eos) ; 
+}    
 
-    metric_array_t minkowski_metric ({1.,0.,0.,1.,0.,1.},{0.,0.,0.},1.) ; 
-        
-    Kokkos::View<double *> d_w_lorentz("W", N) ; 
-    Kokkos::View<double *> d_logrho("logrho", N) ; 
-    Kokkos::View<double *> d_logT("logT", N) ; 
-
-
-    auto h_press = Kokkos::create_mirror_view(d_press);
-    auto h_eps   = Kokkos::create_mirror_view(d_eps)  ;
-
-    std::vector<double> rho,press,eps ; 
-
-    fill_data_vectors(rho,press,eps) ; 
-
-
-    #define DEEP_COPY_VEC_TO_VIEW(vec,view) \
-            do { \
-                auto host_view = Kokkos::create_mirror_view(view) ; \
-                for( int i=0; i < vec.size(); ++i){                 \
-                    host_view(i) = vec[i] ;                         \
-                }                                                   \
-                Kokkos::deep_copy(view,host_view) ;                 \
-            } while(0)
-    
-    DEEP_COPY_VEC_TO_VIEW(rho,d_rho) ; 
-
-
-
-
-
-    Kokkos::parallel_for("pwp_test_fill",N,
-    KOKKOS_LAMBDA (int i){
-        double eps,csnd2; 
-        double temp{0.}, rho{2e-11}, ye{0} ; 
-        unsigned int err ; 
-        d_press(i) = eos.press_eps_csnd2__temp_rho_ye(eps,csnd2,temp,d_rho(i),ye,err) ;
-        d_eps(i)   = eps;  
-    }) ; 
-    Kokkos::deep_copy(h_press,d_press);
-    Kokkos::deep_copy(h_eps, d_eps)   ;
-    
-    for( int i=0; i<N; ++i){
-        CHECK_THAT(
-            h_press(i),
-            Catch::Matchers::WithinAbs(press[i], 1e-4)
-        ) ; 
-        CHECK_THAT(
-            h_eps(i),
-            Catch::Matchers::WithinAbs(eps[i], 1e-4)
-        ) ; 
-    }
-}

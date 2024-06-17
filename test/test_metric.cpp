@@ -65,7 +65,6 @@
                 var = host_view(0) ;                                \
             } while(0)
 
-#define N 10000
 TEST_CASE("metric", "[metric-tests]") {
     /* First: test copying metric into a kernel */
     Kokkos::View<double*> v("v",3), v2("v2",1) ;
@@ -81,6 +80,15 @@ TEST_CASE("metric", "[metric-tests]") {
         v2(0) = minkowski.square_vec({v(0),v(1),v(2)}) ; 
     }) ; 
     double v2h ;
+    DEEP_COPY_VIEW_TO_SYMBOL(v2,v2h) ; 
+    CHECK_THAT(
+            v2h,
+            Catch::Matchers::WithinAbs(3., 1e-4)
+        ) ;
+    Kokkos::parallel_for("Test-contraction",1,
+    KOKKOS_LAMBDA (int const& i) {
+        v2(0) = minkowski.square_covec({v(0),v(1),v(2)}) ; 
+    }) ; 
     DEEP_COPY_VIEW_TO_SYMBOL(v2,v2h) ; 
     CHECK_THAT(
             v2h,
@@ -110,7 +118,7 @@ TEST_CASE("metric", "[metric-tests]") {
     KOKKOS_LAMBDA (int const& i) {
         for( int iv=0; iv<3; ++iv)
             beta(iv) = minkowski.beta(iv) ; 
-        for( int iv=0; iv<3; ++iv){
+        for( int iv=0; iv<6; ++iv){
             gamma(iv) = minkowski.gamma(iv);
             gammainv(iv) = minkowski.invgamma(iv);
         } 
@@ -135,7 +143,6 @@ TEST_CASE("metric", "[metric-tests]") {
         ) ;
     }
     for( int iv=0; iv<6; ++iv) {
-        std::cout << iv << ", " << hgamma[iv] << std::endl ;
         CHECK_THAT(
             hgamma[iv],
             Catch::Matchers::WithinAbs(gamma_ex[iv], 1e-12)
@@ -145,7 +152,6 @@ TEST_CASE("metric", "[metric-tests]") {
             Catch::Matchers::WithinAbs(gamma_ex[iv], 1e-12)
         ) ;
     }
-
     CHECK_THAT(
             halp,
             Catch::Matchers::WithinAbs(1., 1e-12)
@@ -154,5 +160,28 @@ TEST_CASE("metric", "[metric-tests]") {
             hsqrtg,
             Catch::Matchers::WithinAbs(1., 1e-12)
         ) ;
-
+    /* Test other vector related methods */
+    Kokkos::View<double*> vlow("v_low",3), vup("v_up",3) ;
+    Kokkos::parallel_for("Test-contraction",1,
+    KOKKOS_LAMBDA (int const& i) {
+        auto const vl = minkowski.lower({v(0),v(1),v(2)}) ; 
+        auto const vu = minkowski.raise({v(0),v(1),v(2)}) ; 
+        for( int iv=0; iv<3; ++iv) {
+            vlow(iv)= vl[i] ; 
+            vup(iv) = vu[i] ;
+        }
+    }) ; 
+    std::vector<double> vuh, vlh ; 
+    DEEP_COPY_VIEW_TO_VEC(vlow,vlh) ;
+    DEEP_COPY_VIEW_TO_VEC(vup,vuh) ; 
+    for( int iv=0; iv<3; ++iv ) {
+        CHECK_THAT(
+            vlh[iv],
+            Catch::Matchers::WithinAbs(vh[iv], 1e-12)
+        ) ;
+        CHECK_THAT(
+            vuh[iv],
+            Catch::Matchers::WithinAbs(vh[iv], 1e-12)
+        ) ;
+    }
 }

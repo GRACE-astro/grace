@@ -223,11 +223,21 @@ DECLARE_VAR_INDEX_IMPL(SX)                          \
 DECLARE_VAR_INDEX_IMPL(SY)                          \
 DECLARE_VAR_INDEX_IMPL(SZ)                          \
 DECLARE_VAR_INDEX_IMPL(TAU)                         \
+DECLARE_VAR_INDEX_IMPL(YESTAR)                      \
+DECLARE_VAR_INDEX_IMPL(ENTROPYSTAR)                 \
 DECLARE_VAR_INDEX_IMPL(RHO)                         \
 DECLARE_VAR_INDEX_IMPL(PRESS)                       \
+DECLARE_VAR_INDEX_IMPL(VELX)                        \
+DECLARE_VAR_INDEX_IMPL(VELY)                        \
+DECLARE_VAR_INDEX_IMPL(VELZ)                        \
+DECLARE_VAR_INDEX_IMPL(ZVECX)                        \
+DECLARE_VAR_INDEX_IMPL(ZVECY)                        \
+DECLARE_VAR_INDEX_IMPL(ZVECZ)                        \
 DECLARE_VAR_INDEX_IMPL(TEMP)                        \
+DECLARE_VAR_INDEX_IMPL(YE)                          \
+DECLARE_VAR_INDEX_IMPL(ENTROPY)                     \
 DECLARE_VAR_INDEX_IMPL(EPS)                         
-/* AMD metric functions */
+/* ADM metric functions */
 #define VARIABLE_LIST_ADMBASE                     \
 DECLARE_VAR_INDEX_IMPL(GXX)                       \
 DECLARE_VAR_INDEX_IMPL(GXY)                       \

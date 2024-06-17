@@ -44,6 +44,9 @@ namespace grace {
  * \ingroup numerics
  */
 struct metric_array_t {
+
+GRACE_HOST_DEVICE
+metric_array_t() = default;
 /**
  * @brief Constructor. This is marked 
  *        <code>__host__ __device__</code>
@@ -67,10 +70,10 @@ metric_array_t( std::array<double,6>const& g_
              - _g[0]*math::int_pow<2>(_g[4]) 
              - math::int_pow<2>(_g[1])*_g[5] 
              + _g[0]*_g[3]*_g[5]    ;
-    _ginv[0] = (_g[3] - math::int_pow<2>(_g[4]))/_sqrtg;
-    _ginv[1] = (-_g[1] + _g[2]*_g[4])/_sqrtg;
+    _ginv[0] = (_g[3]*_g[5] - math::int_pow<2>(_g[4]))/_sqrtg;
+    _ginv[1] = (-_g[1]*_g[5] + _g[2]*_g[4])/_sqrtg;
     _ginv[2] = (-(_g[2]*_g[3]) + _g[1]*_g[4])/_sqrtg;
-    _ginv[3] = (2*_g[0] - math::int_pow<2>(_g[2]))/_sqrtg;
+    _ginv[3] = (_g[5]*_g[0] - math::int_pow<2>(_g[2]))/_sqrtg;
     _ginv[4] = (_g[1]*_g[2] - _g[0]*_g[4])/_sqrtg ; 
     _ginv[5] = (-math::int_pow<2>(_g[1]) + _g[0]*_g[3]) / _sqrtg;
 }

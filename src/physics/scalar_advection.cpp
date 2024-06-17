@@ -26,6 +26,7 @@
  */
 
 #include <grace_config.h>
+#ifdef GRACE_ENABLE_SCALAR_ADV
 #include <grace/physics/grace_physical_systems.hh>
 #include <grace/config/config_parser.hh>
 #include <grace/amr/amr_functions.hh>
@@ -106,3 +107,4 @@ void set_scalar_advection_initial_data() {
     Kokkos::deep_copy(state,h_state_mirror) ;
 }
 }
+#endif

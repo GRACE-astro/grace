@@ -34,6 +34,39 @@
 
 namespace utils {
 
+template< typename F >
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+bisection(F&& func, double const& a, double const& b, double const& tol)
+{
+    double xa{a}, xb{b}, xc; 
+    double fa{func(a)}, fb{func(b)}, fc ; 
+    if ( fa * fb > 0 ) {
+        return std::numeric_limits<double>::quiet_NaN(); 
+    }
+    if ( fa == 0  ) {
+        return a ;
+    } else if ( fb == 0 ) {
+        return b ; 
+    }
+    do {
+        xc = 0.5 * ( xa + xb ) ; 
+        fc = func(xc) ; 
+        if( fa * fc < 0 ) { 
+            fb = fc ; 
+            xb = xc ; 
+        } else if(fb*fc < 0) {
+            fa = fc ; 
+            xa = xc ;
+        } else if ( fa == 0 ) {
+            return xa ; 
+        } else if ( fb == 0 ) {
+            return xb ; 
+        } else if ( fc == 0 ) {
+            return xc ; 
+        }
+    } while( math::abs(xa-xb) > tol ) ; 
+    return xc ; 
+}
 void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 brent_bracket(double& a, double& b, double& fa, double& fb) {
     double s, fs ; 
@@ -50,9 +83,9 @@ template< typename F >
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
 brent(F&& func, double const& a, double const& b, double const& tol)
 {
-    double xa{a}, xb{b}, xc, xd, xs, fa{func(a)}, fb{func(b)}, fs, fd ;
+    double xa{a}, xb{b}, xc, xd, xs, fa{func(a)}, fb{func(b)}, fs, fc, fd ;
     if ( fa * fb > 0 ) {
-        return std::numeric_limits<double>::quiet_Nan(); 
+        return std::numeric_limits<double>::quiet_NaN(); 
     }
     if ( fa == 0  ) {
         return a ;
@@ -73,7 +106,7 @@ brent(F&& func, double const& a, double const& b, double const& tol)
             xs = xb - fb * (xb-xa) / (fb-fa) ; 
         }
         if (  not ( 0.25*(3.*xa+xb) < xs and xs < xb)
-           or (mflag and ( math::abs(s-b)>=0.5*math::abs(xb-xc)))
+           or (mflag and ( math::abs(xs-xb)>=0.5*math::abs(xb-xc)))
            or (!mflag and (math::abs(xs-xb)>=0.5*math::abs(xc-xd)))
            or (mflag and math::abs(xb-xc) < tol)
            or (!mflag and math::abs(xc-xd)<tol )) {
@@ -81,7 +114,7 @@ brent(F&& func, double const& a, double const& b, double const& tol)
         } else {
             mflag = false; 
         }
-        fs = func(s) ; 
+        fs = func(xs) ; 
         xd = xc ;
         fd = fc ; 
         xc = xb ;
@@ -95,7 +128,7 @@ brent(F&& func, double const& a, double const& b, double const& tol)
         }
 
         noconv =  math::abs(xa-xb) < tol 
-              or fx == 0. ; 
+              or fs == 0. ; 
     } while( noconv ) ;
     return xs ; 
 }

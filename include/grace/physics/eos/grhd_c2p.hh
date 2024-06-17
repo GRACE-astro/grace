@@ -70,18 +70,23 @@ struct grhd_c2p_t {
     {   
 
         StildeU = metric.raise({conservs[STXL],conservs[STYL],conservs[STZL]}) ; 
-        auto const StildeNorm = 
+        auto StildeNorm = 
             Kokkos::sqrt(conservs[STXL]*StildeU[0] + conservs[STYL]*StildeU[1] + conservs[STZL]*StildeU[2] ) ; 
-        cons[TAUL] = math::max(0, cons[TAUL]) ; 
-        Stilde = math::min(1., StildeNorm) ; 
-        conservs[STXL] /= math::max(1., StildeNorm) ; 
-        conservs[STYL] /= math::max(1., StildeNorm)  ;
-        conservs[STZL] /= math::max(1., StildeNorm)  ;
-        StildeU = metric.raise({conservs[STXL],conservs[STYL],conservs[STZL]}) ;
+        conservs[TAUL] = math::max(0, conservs[TAUL]) ;
         D  = conservs[DENSL] ; 
+        /* Acausal momentum */
+        if ( StildeNorm > D+conservs[TAUL] ) {
+            double const fact = 0.9999*(D+conservs[TAUL]) ; 
+            conservs[STXL] *= fact/StildeNorm ; 
+            conservs[STYL] *= fact/StildeNorm  ;
+            conservs[STZL] *= fact/StildeNorm  ;
+            StildeNorm = fact ; 
+            StildeU = metric.raise({conservs[STXL],conservs[STYL],conservs[STZL]}) ; 
+        } 
+        
         ye = conservs[YESL] / D ;
         q  = conservs[TAUL] / D ; 
-        r = Stilde / D ; 
+        r = StildeNorm / D ; 
         k = r / ( 1 + q ) ;  
     }
 
@@ -100,26 +105,29 @@ struct grhd_c2p_t {
      */
     grmhd_prims_array_t GRACE_HOST_DEVICE
     invert(double& error) {
-        auto const func = [=] (double const& zeta) {
+
+        auto const func = [&] (double const& zeta) {
             return zeta - r / htilde(zeta) ; 
         } ; 
         double const zm{ 0.5*k/Kokkos::sqrt(1-math::int_pow<2>(0.5*k))} 
                    , zp{ 1e-06 + k/Kokkos::sqrt(1-math::int_pow<2>(k))} ; 
-        double const zeta = utils::brent(func,zm,zp) ; 
+        double const zeta = utils::bisection(func,zm,zp,1e-12) ; 
         double const W = Wtilde(zeta) ; 
         grmhd_prims_array_t prims ; 
         prims[RHOL] = D/W ;
         prims[YEL]  = ye ;
         /* Enforce range on eps tilde */
         double epsmin, epsmax; 
+        unsigned int err ;
         eos.eps_range__rho_ye(epsmin,epsmax,prims[RHOL],prims[YEL],err) ; 
-        prims[EPSL] = math::min(epsmax, math::max(epsmin, epstilde(W,zeta))) ; 
-        unsigned int err ; 
+        prims[EPSL]   = math::min( epsmax
+                                 , math::max( epsmin
+                                            , epstilde(W,zeta) ) ) ; 
         prims[PRESSL] = W ; 
         double const h = htilde(zeta) ; 
-        prims[VXL] = StildeU[0] / D / h ; 
-        prims[VYL] = StildeU[1] / D / h ; 
-        prims[VZL] = StildeU[2] / D / h ; 
+        prims[VXL] = StildeU[0] / D / h / W; 
+        prims[VYL] = StildeU[1] / D / h / W; 
+        prims[VZL] = StildeU[2] / D / h / W; 
         error = func(zeta) ;
         return std::move(prims) ; 
     }
@@ -158,24 +166,25 @@ struct grhd_c2p_t {
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    atilde(double const& rho, double const& eps) const {
-        double const rho  = rhotilde(Wtilde(z))
+    atilde(double& rho, double& eps) const {
         unsigned int err ;
-        auto const press = eos.press__eps_rho_ye(eps,rho,ye,err) ; 
+        double yel{ye} ; 
+        auto const press = eos.press__eps_rho_ye(eps,rho,yel,err) ; 
         return press / (rho * ( 1 + eps )) ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     htilde(double const& z) const {
         auto const W   = Wtilde(z) ; 
-        auto const rho = rhotilde(W) ; 
+        auto rho = rhotilde(W) ; 
         double epsmin, epsmax; 
+        double yel{ye} ; 
         unsigned int err; 
-        eos.eps_range__rho_ye(epsmin,epsmax,rho,ye,err) ; 
-        auto const eps = math::max(epsmin,math::min(epsmax,epstilde(W,z))) ; 
+        eos.eps_range__rho_ye(epsmin,epsmax,rho,yel,err) ; 
+        auto eps = math::max(epsmin,math::min(epsmax,epstilde(W,z))) ; 
         return (1+eps) * (1+atilde(rho,eps)) ; 
     }
-}
+} ; 
 
 }
 

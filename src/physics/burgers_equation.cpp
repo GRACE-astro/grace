@@ -26,6 +26,8 @@
  */
 
 #include <grace_config.h>
+
+#ifdef GRACE_ENABLE_BURGERS
 #include <grace/physics/grace_physical_systems.hh>
 #include <grace/config/config_parser.hh>
 #include <grace/amr/amr_functions.hh>
@@ -46,9 +48,6 @@ namespace grace {
 static void set_burgers_gaussian_id() {
     using namespace grace ; 
     using namespace Kokkos  ; 
-    #ifndef GRACE_ENABLE_BURGERS 
-    int const U = -1 ; 
-    #endif 
     auto& state = grace::variable_list::get().getstate() ; 
 
     int64_t nx,ny,nz ; 
@@ -260,3 +259,5 @@ void set_burgers_initial_data() {
 }
 
 }
+
+#endif

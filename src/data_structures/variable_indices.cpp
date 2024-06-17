@@ -195,6 +195,7 @@ void register_variables() {
     /* GRMHD primitives */
     REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
     REGISTER_AUX_VECTOR(VELX,VELY,VELZ,"vel","none") ; 
+    REGISTER_AUX_VECTOR(ZVECX,ZVECY,ZVECZ,"zvec","none") ; 
     REGISTER_AUX_SCALAR(YE,"ye","none") ; 
     REGISTER_AUX_SCALAR(TEMP,"temperature", "none") ;
     REGISTER_AUX_SCALAR(ENTROPY,"entropy","none") ; 
@@ -203,7 +204,7 @@ void register_variables() {
     /* registration of metric variables */
     REGISTER_AUX_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","none") ; 
     REGISTER_AUX_SCALAR(ALP,"alp","none") ; 
-    REGISTER_AUX_VECTOR(BETA,"beta","none");
+    REGISTER_AUX_VECTOR(BETAX,BETAY,BETAZ,"beta","none");
     /********************************************************************************/
     /********************************************************************************/
     /*                           COPY INDICES TO GPU                                */

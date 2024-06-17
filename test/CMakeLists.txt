@@ -337,6 +337,21 @@ target_link_libraries(  metric_test PRIVATE
         spdlog::spdlog
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
+add_executable( c2p_test test_c2p.cpp )
+target_include_directories(c2p_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  c2p_test PRIVATE 
+                p4est_tests_main
+                Catch2::Catch2
+                grace_objects
+                yaml_cpp::yaml
+                Kokkos::kokkos
+                MPI::MPI_CXX
+                OpenMP::OpenMP_CXX
+                p4est::sc
+                p4est::p4est 
+                spdlog::spdlog
+                $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
+
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)
 add_test(NAME sc_wrappers_test COMMAND 

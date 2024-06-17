@@ -190,11 +190,11 @@ struct weno_reconstructor_t<5>
         std::array<double,3> const betaL {
             gamma[0] + 0.25 * math::int_pow<2>(3.*U0-4.*UP(1)+UP(2)) ,
             gamma[1] + 0.25 * math::int_pow<2>(UM(1)-UP(1)) ,
-            gamma[2] + 0.25 * math::int_pow<2>(UM(2)-4.*UM(1)+3.*U) 
+            gamma[2] + 0.25 * math::int_pow<2>(UM(2)-4.*UM(1)+3.*U0) 
         } ;
 
         std::array<double,3> const betaR {
-            gamma[1] + 0.25 * math::int_pow<2>(3.*UM(1)-4.*U+UP(1)) ,
+            gamma[1] + 0.25 * math::int_pow<2>(3.*UM(1)-4.*U0+UP(1)) ,
             gamma[2] + 0.25 * math::int_pow<2>(UM(2)-U0) ,
             gamma[3] + 0.25 * math::int_pow<2>(UM(3)-4.*UM(2)+3.*UM(1)) 
         } ;
