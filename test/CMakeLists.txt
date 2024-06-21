@@ -320,6 +320,7 @@ p4est_tests_main
     p4est::sc
     p4est::p4est 
     spdlog::spdlog
+    HDF5::HDF5 
     $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
 add_executable( metric_test test_metric.cpp )

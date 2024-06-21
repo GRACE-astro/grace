@@ -28,6 +28,7 @@
 #include <grace_config.h>
 
 #include <grace/utils/grace_utils.hh>
+#include <grace/utils/format_utils.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/config/config_parser.hh>
@@ -125,23 +126,11 @@ static piecewise_polytropic_eos_t setup_cold_politrope()
     std::ostringstream _pwpoly_gammas_str, _pwpoly_rhos_str
                      , _pwpoly_kappas_str, _pwpoly_press_str
                      , _pwpoly_eps_str;
-    _pwpoly_gammas_str <<  "[ " ; 
-    _pwpoly_rhos_str <<  "[ " ; 
-    _pwpoly_kappas_str <<  "[ " ; 
-    _pwpoly_press_str <<  "[ " ;
-    _pwpoly_eps_str << "[ " ; 
-    for(int i=0; i<_pwpoly_n_pieces; ++i){
-        _pwpoly_gammas_str << _pwpoly_gammas_vec[i] << " "; 
-        _pwpoly_rhos_str << _pwpoly_rhos_vec[i] << " "; 
-        _pwpoly_kappas_str << _pwpoly_kappas_vec[i] << " ";
-        _pwpoly_press_str << _pwpoly_press_vec[i] << " "; 
-        _pwpoly_eps_str << _pwpoly_eps_vec[i] << " ";  
-    } 
-    _pwpoly_gammas_str << "]" ; 
-    _pwpoly_rhos_str << "]" ; 
-    _pwpoly_press_str << "]" ; 
-    _pwpoly_eps_str << "]" ; 
-    _pwpoly_kappas_str << "]" ; 
+    _pwpoly_gammas_str << _pwpoly_gammas_vec ; 
+    _pwpoly_rhos_str << _pwpoly_rhos_vec ; 
+    _pwpoly_kappas_str << _pwpoly_kappas_vec ; 
+    _pwpoly_press_str << _pwpoly_press_vec ; 
+    _pwpoly_eps_str << _pwpoly_eps_vec ; 
 
     GRACE_INFO("Polytropic has {} segments.", _pwpoly_n_pieces) ;
     GRACE_INFO("Polytropic Gammas: {}.", _pwpoly_gammas_str.str()) ;

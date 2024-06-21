@@ -92,8 +92,8 @@ if(GRACE_ENABLE_TESTING)
                    "${CMAKE_BINARY_DIR}/test/configs/scalar_reductions_test.yaml" COPYONLY)
     configure_file("${CMAKE_SOURCE_DIR}/configs/pwpoly_test_config.yaml" 
                    "${CMAKE_BINARY_DIR}/test/configs/pwpoly_test_config.yaml" COPYONLY)
-    configure_file("${CMAKE_SOURCE_DIR}/test/sly_eos_test.txt" 
-                   "${CMAKE_BINARY_DIR}/test/sly_eos_test.txt" COPYONLY)
+    configure_file("${CMAKE_SOURCE_DIR}/test/sly.h5" 
+                   "${CMAKE_BINARY_DIR}/test/sly.h5" COPYONLY)
     configure_file("${CMAKE_SOURCE_DIR}/configs/c2p_test_gamma2.yaml" 
                    "${CMAKE_BINARY_DIR}/test/configs/c2p_test_gamma2.yaml" COPYONLY)
     configure_file("${CMAKE_SOURCE_DIR}/configs/c2p_test_sly4_pw.yaml" 

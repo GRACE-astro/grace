@@ -49,6 +49,7 @@ namespace grace {
 
 void find_stable_timestep() {
     auto const eos_type = grace::get_param<std::string>("eos", "eos_type") ;
+    GRACE_VERBOSE("Computing timestep at iteration {}, old timestep {}", grace::get_iteration(), grace::get_timestep()) ; 
     if( eos_type == "hybrid" ) {
         auto const cold_eos_type = 
             grace::get_param<std::string>("eos", "cold_eos_type") ;
@@ -60,6 +61,7 @@ void find_stable_timestep() {
     } else if ( eos_type == "tabulated" ) {
         ERROR("Not implemented yet.") ; 
     }
+    GRACE_VERBOSE("New timestep {}", grace::get_timestep()) ; 
 }
 
 template< typename eos_t >
@@ -131,6 +133,8 @@ void find_stable_timestep_impl() {
     #undef GET_CMAX
     Kokkos::Profiling::popRegion() ; 
 }
+
+/* Instantiate templates */
 #define INSTANTIATE_TEMPLATE(EOS)     \
 template                              \
 void find_stable_timestep_impl<EOS>()

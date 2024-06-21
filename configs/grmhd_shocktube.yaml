@@ -20,15 +20,15 @@ amr: {
   regrid_at_postinitial: false
 }
 IO: {
-  volume_output_cell_variables: ["dens","stilde[0]"],
+  volume_output_cell_variables: ["dens","rho"],
   volume_output_base_directory: "output_volume",
   volume_output_every: 150,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
   info_output_every: 20,
-  info_output_max_reductions: ["alp","press"],
-  info_output_min_reductions: ["alp","press"], 
+  info_output_max_reductions: ["dens","press"],
+  info_output_min_reductions: ["rho","press"], 
   scalar_output_every: 50,
   scalar_output_minmax: ["rho","press","eps"],
   scalar_output_norm2: [],

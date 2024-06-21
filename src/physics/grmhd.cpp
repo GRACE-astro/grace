@@ -61,8 +61,8 @@ static void set_grmhd_shocktube_initial_data() {
     auto const press_L = get_param<double>("grmhd","shocktube_press_L") ; 
     auto const press_R = get_param<double>("grmhd","shocktube_press_R") ;
 
-    auto& state = grace::variable_list::get().getstate() ; 
-
+    auto& aux   = variable_list::get().getaux() ; 
+    auto& state = variable_list::get().getstate() ;
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ; 
@@ -70,7 +70,7 @@ static void set_grmhd_shocktube_initial_data() {
     int64_t nq = amr::get_local_num_quadrants() ;
 
     auto& coord_system = grace::coordinate_system::get() ; 
-    auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
+    auto h_state_mirror = Kokkos::create_mirror_view(aux) ; 
 
 
     int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
@@ -104,10 +104,9 @@ static void set_grmhd_shocktube_initial_data() {
             h_state_mirror(VEC(i,j,k),RHO,q) = rho_R ;
             h_state_mirror(VEC(i,j,k),PRESS,q) = press_R ;
         }
-        
     }
-    Kokkos::deep_copy(state,h_state_mirror) ;
-    auto& aux = variable_list::get().getaux() ;
+    Kokkos::deep_copy(aux,h_state_mirror) ;
+    
     auto const& _eos = eos::get().get_eos<eos_t>() ; 
     parallel_for( GRACE_EXECUTION_TAG("ID","shocktube_ID")
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
@@ -165,7 +164,7 @@ void set_conservs_from_prims() {
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric, aux, q, VEC(i,j,k)) ; 
         grmhd_prims_array_t prims ; 
-        FILL_PRIMS_ARRAY(prims,state,q,VEC(i,j,k)) ; 
+        FILL_PRIMS_ARRAY(prims,aux,q,VEC(i,j,k)) ; 
         grmhd_cons_array_t cons ;
         prims_to_conservs(prims,cons,metric) ; 
         state(VEC(i,j,k),DENS_,q) = cons[DENSL] ; 

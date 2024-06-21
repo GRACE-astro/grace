@@ -64,6 +64,7 @@ namespace grace {
 
 void evolve() {
     auto const eos_type = grace::get_param<std::string>("eos", "eos_type") ;
+    GRACE_VERBOSE("Performing timestep integration at iteration {}", grace::get_iteration()) ; 
     if( eos_type == "hybrid" ) {
         auto const cold_eos_type = 
             grace::get_param<std::string>("eos", "cold_eos_type") ;

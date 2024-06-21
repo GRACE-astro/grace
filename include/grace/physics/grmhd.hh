@@ -46,29 +46,6 @@
 
 #include <Kokkos_Core.hpp>
 
-#define FILL_METRIC_ARRAY(g, view, q, ...)                    \
-g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \
-                          , view(__VA_ARGS__,GXY_,q)     \
-                          , view(__VA_ARGS__,GXZ_,q)     \
-                          , view(__VA_ARGS__,GYY_,q)     \
-                          , view(__VA_ARGS__,GYZ_,q)     \
-                          , view(__VA_ARGS__,GZZ_,q) }   \
-                          , { view(__VA_ARGS__,BETAX_,q) \
-                          , view(__VA_ARGS__,BETAY_,q)   \
-                          , view(__VA_ARGS__,BETAZ_,q) } \
-                          , view(__VA_ARGS__,ALP_,q) } 
-#define FILL_PRIMS_ARRAY(prims,state,q,...)        \
-prims[RHOL] = state(__VA_ARGS__,RHO_,q);      \
-prims[PRESSL] = state(__VA_ARGS__,PRESS_,q) ; \
-prims[VXL] = state(__VA_ARGS__,VELX_,q) ;     \
-prims[VYL] = state(__VA_ARGS__,VELY_,q) ;     \
-prims[VZL] = state(__VA_ARGS__,VELZ_,q) ;     \
-prims[YEL] = state(__VA_ARGS__,YE_,q) ;       \
-prims[TEMPL] = state(__VA_ARGS__,TEMP_,q) ;   \
-prims[EPSL] = state(__VA_ARGS__,EPS_,q) ;     \
-prims[ENTL] = state(__VA_ARGS__,ENTROPY_,q)
-
-
 //**************************************************************************************************/
 /**
  * \defgroup physics Physics Modules.
@@ -214,7 +191,15 @@ struct grmhd_equations_system_t
     {
         using namespace grace ;
         using namespace Kokkos ; 
-        auto const vars = subview(
+        auto vars = subview(
+              this->_state
+            , VEC( i
+                 , j
+                 , k )
+            , ALL()
+            , q
+        ) ;
+        auto aux = subview(
               this->_state
             , VEC( i
                  , j
@@ -236,15 +221,15 @@ struct grmhd_equations_system_t
         conservs_to_prims<eos_t>( cons, prims, metric
                                 , this->_eos, this->_lapse_excision ) ;
         /* Write new prims */
-        vars(RHO_) = prims[RHOL]     ; 
-        vars(EPS_) = prims[EPSL]     ; 
-        vars(PRESS_) = prims[PRESSL] ; 
-        vars(VELX_) = prims[VXL]     ;
-        vars(VELY_) = prims[VYL]     ; 
-        vars(VELZ_) = prims[VZL]     ; 
-        vars(TEMP_) = prims[TEMPL]   ; 
-        vars(ENTROPY_) = prims[ENTL]  ; 
-        vars(YE_)   = prims[YEL]     ;
+        aux(RHO_) = prims[RHOL]     ; 
+        aux(EPS_) = prims[EPSL]     ; 
+        aux(PRESS_) = prims[PRESSL] ; 
+        aux(VELX_) = prims[VXL]     ;
+        aux(VELY_) = prims[VYL]     ; 
+        aux(VELZ_) = prims[VZL]     ; 
+        aux(TEMP_) = prims[TEMPL]   ; 
+        aux(ENTROPY_) = prims[ENTL]  ; 
+        aux(YE_)   = prims[YEL]     ;
         /* Compute ZVEC */
         double const one_over_alp = 1./metric.alp(); 
         std::array<double,3> const vN {
@@ -255,9 +240,9 @@ struct grmhd_equations_system_t
 
         double const W = 1./Kokkos::sqrt(metric.square_vec(vN)) ;
 
-        vars(ZVECX_) = W * vN[0] ; 
-        vars(ZVECY_) = W * vN[1] ; 
-        vars(ZVECZ_) = W * vN[2] ; 
+        aux(ZVECX_) = W * vN[0] ; 
+        aux(ZVECY_) = W * vN[1] ; 
+        aux(ZVECZ_) = W * vN[2] ; 
         /* Overwrite conserved */
         vars(DENS_)  = cons[DENSL]       ; 
         vars(SX_)    = cons[STXL]        ; 
@@ -294,7 +279,7 @@ struct grmhd_equations_system_t
         ) ; 
         /* Get prims */
         grmhd_prims_array_t prims ;
-        FILL_PRIMS_ARRAY(prims,this->_state,q,VEC(i,j,k)) ;
+        FILL_PRIMS_ARRAY(prims,this->_aux,q,VEC(i,j,k)) ;
         /* Get metric */
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric,this->_aux,q,VEC(i,j,k));
@@ -305,7 +290,7 @@ struct grmhd_equations_system_t
                                                       , prims[RHOL], prims[YEL], err ) ;
         /* Compute magnetosonic speed */
         double const b2{0.} ;
-        double const v_A_sq = b2 / ( b2 + prims[RHOL]*h) ; 
+        double const v_A_sq = 0. ; // b2 / ( b2 + prims[RHOL]*h) ; 
         double const v02 = v_A_sq + csnd2 * ( 1. - v_A_sq ) ;
         /* Find maximum eigenvalue (amongst all directions) */
         double cmax ; 

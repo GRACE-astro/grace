@@ -94,7 +94,7 @@ class hybrid_eos_t
 
         eps = math::max(eps,eps_cold) ; 
 
-        const double eps_th = eps-eps_cold ; 
+        double eps_th = eps-eps_cold ; 
         temp = temp__eps_th(eps_th) ;
 
         return press_cold + eps_th * rho * gamma_th_m1 ; 
@@ -197,7 +197,7 @@ class hybrid_eos_t
         const double eps_th = eps_th__temp(temp) ; 
         const double press  = press_cold + eps_th * rho * gamma_th_m1 ; 
         h = 1. + eps_cold + eps_th + press/rho ; 
-        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
+        csnd2 = (cold_eos.dpress_cold_drho__rho(rho,err) + gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
         return press ; 
     }
 
@@ -211,7 +211,7 @@ class hybrid_eos_t
         press = math::max(press,press_cold) ; 
         const double eps_th = eps_th__press_press_cold_rho(press,press_cold,rho) ; 
         h = 1. + eps_th + eps_cold + press/rho ; 
-        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
+        csnd2 = (cold_eos.dpress_cold_drho__rho(rho,err) + gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
         return eps_th + eps_cold ;
     }
 
@@ -227,7 +227,7 @@ class hybrid_eos_t
         const double press  = press_cold + eps_th * rho * gamma_th_m1 ; 
         eps = eps_cold + eps_th ;
         double const h = 1. + eps + press/rho ; 
-        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
+        csnd2 = (cold_eos.dpress_cold_drho__rho(rho,err) + gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h; 
         return press ; 
     }
 
@@ -243,7 +243,7 @@ class hybrid_eos_t
         double eps_th = eps-eps_cold ;
         double const press  = press_cold + eps_th * rho * gamma_th_m1 ; 
         h = 1. + eps + press / rho ; 
-        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
+        csnd2 = (cold_eos.dpress_cold_drho__rho(rho,err) + gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
         entropy = entropy__eps_th_rho(eps_th,rho) ; 
         temp = temp__eps_th(eps_th) ; 
         return press ; 
@@ -257,11 +257,11 @@ class hybrid_eos_t
         double eps_cold ; 
         auto press_cold = cold_eos.press_cold_eps_cold__rho(eps_cold, rho, err);
         temp = math::max(temp,0) ; 
-        const double eps_th = eps_th__temp(temp) ; 
+        double eps_th = eps_th__temp(temp) ; 
         const double press  = press_cold + eps_th * rho * gamma_th_m1 ;
         const double eps = eps_th + eps_cold ; 
         const double h = 1. + eps + press / rho ; 
-        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
+        csnd2 = (cold_eos.dpress_cold_drho__rho(rho,err) + gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
         entropy = entropy__eps_th_rho(eps_th,rho) ; 
         return eps ; 
     }
@@ -273,12 +273,12 @@ class hybrid_eos_t
     {
         double eps_cold ; 
         auto press_cold = cold_eos.press_cold_eps_cold__rho(eps_cold, rho, err);
-        const double eps_th = Kokkos::exp(gamma_th_m1*entropy) * Kokkos::pow(rho,gamma_th_m1) ; 
+        double eps_th = Kokkos::exp(gamma_th_m1*entropy) * Kokkos::pow(rho,gamma_th_m1) ; 
         const double press  = press_cold + eps_th * rho * gamma_th_m1 ; 
-
+        temp = temp__eps_th(eps_th);
         eps = eps_cold + eps_th ; 
         h   = 1. + eps + press/rho ; 
-        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
+        csnd2 = (cold_eos.dpress_cold_drho__rho(rho,err) + gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
         return press ;
     }
 
@@ -293,7 +293,7 @@ class hybrid_eos_t
         double eps_th = eps_th__press_press_cold_rho(press,press_cold,rho) ; 
         double const eps = eps_th + eps_cold ; 
         h   = 1. + eps + press/rho ; 
-        csnd2 = cold_eos.dpress_cold_drho__rho(rho,err) + (gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
+        csnd2 = (cold_eos.dpress_cold_drho__rho(rho,err) + gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
         entropy = entropy__eps_th_rho(eps_th,rho) ; 
 
         temp = temp__eps_th(eps_th) ; 

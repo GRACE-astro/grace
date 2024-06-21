@@ -72,7 +72,7 @@ class piecewise_polytropic_eos_t
     press_cold_eps_cold__rho(double& eps_cold, double& rho, error_type& err) const 
     {
         auto idx = find_index_rho(rho, err) ; 
-        auto press_cold = _k(idx) * Kokkos::pow(rho, _gamma(idx)) ; 
+        double const press_cold = _k(idx) * Kokkos::pow(rho, _gamma(idx)) ; 
         eps_cold = _eps(idx) + press_cold / (rho*(_gamma(idx)-1.)) ;
         return press_cold ; 
     }

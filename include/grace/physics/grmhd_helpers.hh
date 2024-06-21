@@ -81,4 +81,27 @@ using grmhd_prims_array_t = std::array<double,NUM_PRIMS_LOC> ;
 using grmhd_cons_array_t  = std::array<double,NUM_CONS_LOC>  ;
 } /* namespace grace */
 
+#define FILL_METRIC_ARRAY(g, view, q, ...)                    \
+g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \
+                          , view(__VA_ARGS__,GXY_,q)     \
+                          , view(__VA_ARGS__,GXZ_,q)     \
+                          , view(__VA_ARGS__,GYY_,q)     \
+                          , view(__VA_ARGS__,GYZ_,q)     \
+                          , view(__VA_ARGS__,GZZ_,q) }   \
+                          , { view(__VA_ARGS__,BETAX_,q) \
+                          , view(__VA_ARGS__,BETAY_,q)   \
+                          , view(__VA_ARGS__,BETAZ_,q) } \
+                          , view(__VA_ARGS__,ALP_,q) } 
+                          
+#define FILL_PRIMS_ARRAY(prims,vview,q,...)        \
+prims[RHOL] = vview(__VA_ARGS__,RHO_,q);      \
+prims[PRESSL] = vview(__VA_ARGS__,PRESS_,q) ; \
+prims[VXL] = vview(__VA_ARGS__,VELX_,q) ;     \
+prims[VYL] = vview(__VA_ARGS__,VELY_,q) ;     \
+prims[VZL] = vview(__VA_ARGS__,VELZ_,q) ;     \
+prims[YEL] = vview(__VA_ARGS__,YE_,q) ;       \
+prims[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
+prims[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
+prims[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)
+
 #endif /* GRACE_PHYSICS_GRMHD_HELPERS_HH */

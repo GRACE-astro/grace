@@ -14,15 +14,15 @@ eos: {
   temp_atmosphere: 0,
   rho_atmosphere: 1.e-14,
   eps_maximum: 1.e+05,
-  gamma_th: 0.,
+  gamma_th: 1.8,
 
   atm_is_beta_eq: true,
   extend_table_high: false,
 
   piecewise_polytrope: {
     n_pieces: 7,
-    gammas: [ 1.58425 , 1.28733     , 0.62223     , 1.35692     , 3.005       , 2.988       , 2.851],
-    rhos:   [ 3.951156e-11, 6.125960e-07, 4.254672e-06, 2.367449e-04, 8.114721e-04, 1.619100e-03],
+    gammas: [1.58425, 1.28733, 0.62223, 1.35692, 3.005  , 2.988  , 2.851],
+    rhos:   [ 3.951156e-11, 6.125960e-07, 4.254672e-06, 2.36769968e-04, 8.114721e-04, 1.619100e-03],
     kappa_0: 1.685819e+02
   }
 }

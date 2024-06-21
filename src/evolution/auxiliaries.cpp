@@ -78,7 +78,9 @@ void compute_auxiliary_quantities(
       grace::var_array_t<GRACE_NSPACEDIM>& state
     , grace::var_array_t<GRACE_NSPACEDIM>& aux  ) 
 {
-    Kokkos::Profiling::pushRegion("Compute auxiliaries") ; 
+    Kokkos::Profiling::pushRegion("Compute auxiliaries") ;
+    GRACE_VERBOSE("Computing auxiliary quantities at iteration {}", grace::get_iteration()) ; 
+     
     using namespace grace ; 
     using namespace Kokkos  ; 
 
