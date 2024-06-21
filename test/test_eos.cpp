@@ -61,21 +61,9 @@ get_linspace(double const& xmin, double const& xmax, size_t N) {
     } 
     return std::move(res) ; 
 }
-/**
- * @brief Test EOS implementation.
- * 
- * @tparam eos_t The eos type to be tested.
- * @param _temp Input temperature.
- * @param group HDF5 group where results are stored.
- * @param test_filename HDF5 file where results are stored.
- * 
- * This test calls the whole eos API (except for mue_mun_mup_<etc> and press_cold__) and tests it in two ways:
- * Each thermodynamic variable coming as output (press, eps, enthalpy, entropy, sound speed) are checked 
- * against a known-to-be-good result stored in an hdf5 file. Moreover, the remaining API calls that should 
- * return the same variable are checked to yield the exact same result. This way the full API should be ironclad.
- */
+
 template< typename eos_t >
-static void test_eos_implementation(double _temp, double _ye, std::string const& group, std::string const& test_filename)
+static void test_eos_implementation(double _temp, std::string const& group, std::string const& test_filename)
 {
     auto eos = grace::eos::get().get_eos<eos_t>() ; 
     std::vector<double> rho,press,eps,h,entropy,csnd ;
@@ -118,10 +106,10 @@ static void test_eos_implementation(double _temp, double _ye, std::string const&
     
     DEEP_COPY_VEC_TO_VIEW(rho,d_rho) ; 
 
-    Kokkos::parallel_for("eos_API_tests",N,
+    Kokkos::parallel_for("pwp_test_fill",N,
     KOKKOS_LAMBDA (int i){
         double eps,csnd2; 
-        double rho{d_rho(i)}, temp{_temp}, ye{_ye} ; 
+        double rho{d_rho(i)}, temp{_temp}, ye{0} ; 
         int ww{0} ;
         unsigned int err ; 
 
@@ -210,7 +198,7 @@ static void test_eos_implementation(double _temp, double _ye, std::string const&
         d_err(i,ww) = math::abs(temp-tloc); ww++;            //31
         d_err(i,ww) = math::abs(entropy-entropyloc) ; ww++;  //32
 
-        /* Write remaining results */
+         
         d_h(i)    = h ;
         d_csnd(i) = csnd;
         d_ent(i)  = entropy; 
@@ -221,10 +209,10 @@ static void test_eos_implementation(double _temp, double _ye, std::string const&
     Kokkos::deep_copy(h_csnd, d_csnd) ;
     Kokkos::deep_copy(h_ent, d_ent) ;
     Kokkos::deep_copy(h_err, d_err) ;
-    #if 0 
+
     std::ofstream errfile{"err.txt"} ;
+
     std::ofstream resfile("results.dat"); 
-    #endif 
     for( int i=0; i<N; ++i){
         for( int j=0; j<33; ++j) {
             // This is needed to prevent a failure because for T=0 eps cannot be recovered from the entropy
@@ -271,10 +259,8 @@ static void test_eos_implementation(double _temp, double _ye, std::string const&
                 << std::left << std::setw(40) << h_csnd(i)<< '\n' ; 
         #endif 
     }
-    #if 0 
     errfile.close() ; 
     resfile.close() ; 
-    #endif 
 }
 
 TEST_CASE("EOS", "[pwpolytrope]") {
@@ -286,10 +272,9 @@ TEST_CASE("EOS", "[pwpolytrope]") {
         auto const cold_eos_type = 
             grace::get_param<std::string>("eos", "cold_eos_type") ;
         if( cold_eos_type == "piecewise_polytrope" ) {
-            double ye{0} ; // Hybrid EOS has no Y_e.
             int i{0} ; 
             for( auto temp: temperatures ) {
-                test_eos_implementation<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>(temp,ye,std::to_string(i),"sly.h5") ; 
+                test_eos_implementation<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>(temp,std::to_string(i),"sly.h5") ; 
                 ++i;
             }
         } else if ( cold_eos_type == "tabulated" ) {

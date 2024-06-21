@@ -307,9 +307,9 @@ vtk_module_autoinit(
     MODULES ${VTK_LIBRARIES}
     )
 
-add_executable( pwpoly_test test_pwpoly_eos.cpp )
-target_include_directories(pwpoly_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  pwpoly_test PRIVATE 
+add_executable( eos_test test_eos.cpp )
+target_include_directories(eos_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  eos_test PRIVATE 
 p4est_tests_main
     Catch2::Catch2
     grace_objects
@@ -386,7 +386,7 @@ add_test(NAME bc_test_spherical COMMAND
 add_test(NAME scalar_reductions_test COMMAND 
         mpirun -n 1 ./scalar_reductions_test --grace-parfile ./configs/scalar_reductions_test.yaml )
 add_test(NAME pwpoly_test COMMAND 
-        mpirun -n 1 ./pwpoly_test --grace-parfile ./configs/pwpoly_test_config.yaml )
+        mpirun -n 1 ./eos_test --grace-parfile ./configs/pwpoly_test_config.yaml )
 add_test(NAME metric_test COMMAND 
         mpirun -n 1 ./metric_test --grace-parfile ./configs/basic_config.yaml )
 add_test(NAME gamma2_c2p_test COMMAND 
