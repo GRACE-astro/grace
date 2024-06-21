@@ -403,9 +403,6 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
     nq = grace::amr::get_local_num_quadrants() ; 
     size_t ngz = grace::amr::get_n_ghosts() ; 
 
-    auto vars = grace::variable_list::get().getstate() ; 
-    auto aux  = grace::variable_list::get().getaux()   ;
-    using exec_space = decltype(vars)::execution_space   ;
 
     auto const rank = parallel::mpi_comm_rank() ; 
     /* Get the p4est pointer */
@@ -424,20 +421,99 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
     hid_t dxpl ; 
     HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER)) ; 
     HDF5_CALL(err, H5Pset_dxpl_mpio(dxpl,H5FD_MPIO_COLLECTIVE)) ;
+
+    /* Scalars */
     /* Create/open datasets */
-    hid_t sclars_space_id_glob ;
+    hid_t scalars_space_id_glob ;
     hsize_t scalars_dset_dims_glob[1] = {ncells_glob} ;
+
     /* Create global space for points dataset */
-    HDF5_CALL(sclars_space_id_glob, H5Screate_simple(1, scalars_dset_dims_glob, NULL)) ;
-    hid_t scalars_dset_id, scalars_prop_id ;
+    HDF5_CALL(scalars_space_id_glob, H5Screate_simple(1, scalars_dset_dims_glob, NULL)) ;
+
+    /* Create dataset properties and set chunking / compression mode */
+    hid_t scalars_prop_id ;
     HDF5_CALL(scalars_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
     hsize_t scalars_chunk_dim[1] = {chunk_size} ;
     HDF5_CALL(err, H5Pset_chunk(scalars_prop_id,1,scalars_chunk_dim)) ; 
     HDF5_CALL(err, H5Pset_deflate(scalars_prop_id, compression_level)) ;  
+
     /* Create local space for this rank */
     hid_t scalars_space_id ; 
     hsize_t scalars_dset_dims[1] = {ncells} ;
     HDF5_CALL(scalars_space_id, H5Screate_simple(1, scalars_dset_dims, NULL)) ; 
+
+    /* Write data to file */
+    write_var_arrays_hdf5( scalars,file_id,dxpl,scalars_space_id_glob
+                         , scalars_space_id,scalars_prop_id,ncells,ncells_glob,local_quad_offset,false) ; 
+    write_var_arrays_hdf5( aux_scalars,file_id,dxpl,scalars_space_id_glob
+                         , scalars_space_id,scalars_prop_id,ncells,ncells_glob,local_quad_offset,true) ; 
+
+    /* Close data spaces */
+    HDF5_CALL(err, H5Sclose(scalars_space_id)) ; 
+    HDF5_CALL(err, H5Sclose(scalars_space_id_glob)) ;
+    HDF5_CALL(err, H5Pclose(scalars_prop_id)) ;
+
+    /* Vectors */
+    /* Create/open datasets */
+    hid_t vectors_space_id_glob ;
+    hsize_t vectors_dset_dims_glob[2] = {ncells_glob, 3} ;
+
+    /* Create global space for points dataset */
+    HDF5_CALL(vectors_space_id_glob, H5Screate_simple(2, vectors_dset_dims_glob, NULL)) ;
+
+    /* Create dataset properties and set chunking / compression mode */
+    hid_t vectors_prop_id ;
+    HDF5_CALL(vectors_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
+    hsize_t vectors_chunk_dim[2] = {chunk_size, 3} ;
+    HDF5_CALL(err, H5Pset_chunk(vectors_prop_id,2,vectors_chunk_dim)) ; 
+    HDF5_CALL(err, H5Pset_deflate(vectors_prop_id, compression_level)) ;  
+
+    /* Create local space for this rank */
+    hid_t vectors_space_id ; 
+    hsize_t vectors_dset_dims[2] = {ncells, 3} ;
+    HDF5_CALL(vectors_space_id, H5Screate_simple(2, vectors_dset_dims, NULL)) ; 
+
+    /* Write to file */
+    write_vector_var_arrays_hdf5( vectors,file_id,dxpl,vectors_space_id_glob
+                                , vectors_space_id,vectors_prop_id,ncells,ncells_glob,local_quad_offset,false) ; 
+    write_vector_var_arrays_hdf5( aux_vectors,file_id,dxpl,vectors_space_id_glob
+                                 , vectors_space_id,vectors_prop_id,ncells,ncells_glob,local_quad_offset,true) ; 
+    
+    /* Close data spaces */
+    HDF5_CALL(err, H5Sclose(vectors_space_id)) ; 
+    HDF5_CALL(err, H5Sclose(vectors_space_id_glob)) ;
+    HDF5_CALL(err, H5Pclose(vectors_prop_id)) ;
+
+    /* Cleanup and exit */
+    HDF5_CALL(err, H5Pclose(dxpl)) ;
+     
+}
+
+void write_var_arrays_hdf5( std::vector<std::string> const& varlist 
+                          , hid_t file_id 
+                          , hid_t dxpl
+                          , hid_t space_id_glob
+                          , hid_t space_id
+                          , hid_t prop_id
+                          , hsize_t ncells
+                          , hsize_t ncells_glob
+                          , hsize_t local_quad_offset
+                          , bool isaux  ) 
+{
+    herr_t err ; 
+    /* Get cell and quadrant counts */
+    size_t nx,ny,nz,nq; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    nq = grace::amr::get_local_num_quadrants() ; 
+    size_t ngz = grace::amr::get_n_ghosts() ;
+    /* Number of cells per quadrant */
+    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+
+    /* Fetch variable arrays */
+    auto vars = grace::variable_list::get().getstate() ; 
+    auto aux  = grace::variable_list::get().getaux()   ;
+    auto& view = isaux ? aux : vars ;
+
     /**********************************************/
     /* We need an extra device mirror because:    */
     /* 1) The view is not contiguous since we     */
@@ -449,40 +525,31 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
     Kokkos::View<double EXPR(*,*,*)*, Kokkos::LayoutLeft> 
         d_mirror("Device output mirror", VEC(nx,ny,nz), nq) ; 
     auto h_mirror = Kokkos::create_mirror_view(d_mirror) ; 
-    for( int ivar=0; ivar<scalars.size(); ++ivar)
+    for( int ivar=0; ivar<varlist.size(); ++ivar)
     {
-        size_t varidx = grace::get_variable_index(scalars[ivar]) ; 
+        size_t varidx = grace::get_variable_index(varlist[ivar],isaux) ; 
+        GRACE_TRACE("Writing var {} to output. Variable index {} from auxiliaries? {}"
+                   , varlist[ivar], varidx, isaux) ; 
         /* create HDF5 dataset */
-        std::string dset_name = "/" + scalars[ivar] ; 
-        HDF5_CALL( scalars_dset_id
+        std::string dset_name = "/" + varlist[ivar] ; 
+        hid_t dset_id ; 
+        HDF5_CALL( dset_id
                 , H5Dcreate2( file_id
                             , dset_name.c_str()
                             , H5T_NATIVE_DOUBLE
-                            , sclars_space_id_glob
+                            , space_id_glob
                             , H5P_DEFAULT
-                            , scalars_prop_id
+                            , prop_id
                             , H5P_DEFAULT) ) ;
-        hid_t attr_id, attr_dataspace_id; 
-        std::string dataset_attr_name = "VariableType";
-        const char * dataset_attr_data = "Scalar";
-        HDF5_CALL(attr_dataspace_id, H5Screate(H5S_SCALAR));
-        hid_t str_type ; 
-        HDF5_CALL(str_type,H5Tcopy(H5T_C_S1));
-        HDF5_CALL(err,H5Tset_size(str_type, H5T_VARIABLE));
-        HDF5_CALL(attr_id,H5Acreate2(scalars_dset_id, dataset_attr_name.c_str(), str_type, attr_dataspace_id, H5P_DEFAULT, H5P_DEFAULT));
-        HDF5_CALL(err,H5Awrite(attr_id, str_type, &dataset_attr_data));
-        HDF5_CALL(err,H5Aclose(attr_id));
-        HDF5_CALL(err,H5Sclose(attr_dataspace_id));
-        dataset_attr_name = "VariableStaggering";
-        const char* variable_staggering_attr = "Cell";
-        HDF5_CALL(attr_dataspace_id, H5Screate(H5S_SCALAR));
-        HDF5_CALL(attr_id,H5Acreate2(scalars_dset_id, dataset_attr_name.c_str(), str_type, attr_dataspace_id, H5P_DEFAULT, H5P_DEFAULT));
-        HDF5_CALL(err,H5Awrite(attr_id, str_type, &variable_staggering_attr));
-        HDF5_CALL(err,H5Aclose(attr_id));
-        HDF5_CALL(err,H5Sclose(attr_dataspace_id));
+
+        /* Write attributes to dataset */
+        write_dataset_string_attribute_hdf5(dset_id, "VariableType", "Scalar");
+        write_dataset_string_attribute_hdf5(dset_id, "VariableStaggering", "Cell");
+
+        /* Shuffle data around to put it in the right form */
         for( int iq=0; iq<nq; ++iq){
             /* Copy data d2d */
-            auto sview = Kokkos::subview( vars
+            auto sview = Kokkos::subview( view
                                         , Kokkos::pair<int,int>(ngz,nx+ngz)
                                         , Kokkos::pair<int,int>(ngz,ny+ngz)
                                         #ifdef GRACE_3D
@@ -502,35 +569,163 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
         }
         /* Copy data d2h */
         Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
+
         /* Select hyperslab for this rank's output */
-        hsize_t sclars_slab_start[1]  = {local_quad_offset * ncells_quad} ; 
-        hsize_t sclars_slab_count[1]  = {ncells} ;
+        hsize_t slab_start[1]  = {local_quad_offset * ncells_quad} ; 
+        hsize_t slab_count[1]  = {ncells} ;
         HDF5_CALL( err
-                , H5Sselect_hyperslab( sclars_space_id_glob
+                , H5Sselect_hyperslab( space_id_glob
                                     , H5S_SELECT_SET
-                                    , sclars_slab_start
+                                    , slab_start
                                     , NULL
-                                    , sclars_slab_count 
+                                    , slab_count 
                                     , NULL )) ;
         Kokkos::fence() ; 
         /* write to dataset */
         HDF5_CALL( err
-                    , H5Dwrite( scalars_dset_id
+                    , H5Dwrite( dset_id
                             , H5T_NATIVE_DOUBLE
-                            , scalars_space_id
-                            , sclars_space_id_glob 
+                            , space_id
+                            , space_id_glob 
                             , dxpl 
                             , reinterpret_cast<void*>(h_mirror.data()) )) ;
 
-        
-        HDF5_CALL(err, H5Dclose(scalars_dset_id)) ; 
+        /* Close dataset */
+        HDF5_CALL(err, H5Dclose(dset_id)) ; 
     }
-
-    HDF5_CALL(err, H5Sclose(scalars_space_id)) ; 
-    HDF5_CALL(err, H5Sclose(sclars_space_id_glob)) ;
-    HDF5_CALL(err, H5Pclose(scalars_prop_id)) ;
-    HDF5_CALL(err, H5Pclose(dxpl)) ;
-     
 }
 
+void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist 
+                                 , hid_t file_id 
+                                 , hid_t dxpl
+                                 , hid_t space_id_glob
+                                 , hid_t space_id
+                                 , hid_t prop_id
+                                 , hsize_t ncells
+                                 , hsize_t ncells_glob
+                                 , hsize_t local_quad_offset
+                                 , bool isaux  ) 
+{
+    herr_t err ;
+    /* Get cell and quadrant counts */
+    size_t nx,ny,nz,nq; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    nq = grace::amr::get_local_num_quadrants() ; 
+    size_t ngz = grace::amr::get_n_ghosts() ;
+    /* Number of cells per quadrant */
+    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+
+    /* Fetch variable arrays */
+    auto vars = grace::variable_list::get().getstate() ; 
+    auto aux  = grace::variable_list::get().getaux()   ;
+    auto& view = isaux ? aux : vars ;
+
+    /**********************************************/
+    /* We need an extra device mirror because:    */
+    /* 1) The view is not contiguous since we     */
+    /*    cut out the ghost-zones.                */
+    /* 2) The layout may differ from the          */
+    /*    memory layout on device which           */
+    /*    usually follows the FORTRAN convention. */
+    /**********************************************/
+    Kokkos::View<double *EXPR(*,*,*)*, Kokkos::LayoutLeft> 
+        d_mirror("Device output mirror", 3, VEC(nx,ny,nz), nq) ; 
+    auto h_mirror = Kokkos::create_mirror_view(d_mirror) ; 
+    for( int ivar=0; ivar<varlist.size(); ++ivar)
+    {
+        size_t varidx = grace::get_variable_index(varlist[ivar]+"[0]",isaux) ; 
+        GRACE_TRACE("Writing var {} to output. Variable index {} from auxiliaries? {}"
+                   , varlist[ivar], varidx, isaux) ; 
+        /* create HDF5 dataset */
+        std::string dset_name = "/" + varlist[ivar] ; 
+        hid_t dset_id ; 
+        HDF5_CALL( dset_id
+                , H5Dcreate2( file_id
+                            , dset_name.c_str()
+                            , H5T_NATIVE_DOUBLE
+                            , space_id_glob
+                            , H5P_DEFAULT
+                            , prop_id
+                            , H5P_DEFAULT) ) ;
+        /* Write dataset attributes */
+        write_dataset_string_attribute_hdf5(dset_id, "VariableType", "Vector");
+        write_dataset_string_attribute_hdf5(dset_id, "VariableStaggering", "Cell");
+
+        /* Shuffle data around to put it in the right form */
+        for( int iq=0; iq<nq; ++iq){
+            for( int icomp=0; icomp<3; ++icomp){
+                /* Copy data d2d */
+                auto sview = Kokkos::subview( view
+                                            , Kokkos::pair<int,int>(ngz,nx+ngz)
+                                            , Kokkos::pair<int,int>(ngz,ny+ngz)
+                                            #ifdef GRACE_3D
+                                            , Kokkos::pair<int,int>(ngz,nz+ngz)
+                                            #endif 
+                                            , varidx+icomp
+                                            , iq ) ; 
+                auto mirror_sview = Kokkos::subview( d_mirror
+                                            , icomp
+                                            , Kokkos::ALL()
+                                            , Kokkos::ALL()
+                                            #ifdef GRACE_3D
+                                            , Kokkos::ALL()
+                                            #endif 
+                                            , iq  ) ; 
+                /* This deep copy operation is asynchronous */
+                Kokkos::deep_copy(mirror_sview, sview) ; 
+            }
+        }
+        /* Copy data d2h */
+        Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
+
+        /* Select hyperslab for this rank's output */
+        hsize_t slab_start[2]  = {local_quad_offset * ncells_quad, 0} ; 
+        hsize_t slab_count[2]  = {ncells, 3} ;
+        HDF5_CALL( err
+                , H5Sselect_hyperslab( space_id_glob
+                                    , H5S_SELECT_SET
+                                    , slab_start
+                                    , NULL
+                                    , slab_count 
+                                    , NULL )) ;
+        Kokkos::fence() ; 
+
+        /* write to dataset */
+        HDF5_CALL( err
+                    , H5Dwrite( dset_id
+                            , H5T_NATIVE_DOUBLE
+                            , space_id
+                            , space_id_glob 
+                            , dxpl 
+                            , reinterpret_cast<void*>(h_mirror.data()) )) ;
+        
+
+        /* Close dataset */
+        HDF5_CALL(err, H5Dclose(dset_id)) ; 
+    }
+}
+
+void write_dataset_string_attribute_hdf5(hid_t dset_id, std::string const& attr_name, std::string const& attr_data)
+{
+    hid_t attr_id, attr_dataspace_id, str_type;
+    herr_t err;
+
+    // Create a scalar dataspace for the attribute
+    HDF5_CALL(attr_dataspace_id, H5Screate(H5S_SCALAR));
+    
+    // Create a variable-length string datatype
+    HDF5_CALL(str_type, H5Tcopy(H5T_C_S1));
+    HDF5_CALL(err, H5Tset_size(str_type, H5T_VARIABLE));
+
+    // Create the attribute
+    HDF5_CALL(attr_id, H5Acreate2(dset_id, attr_name.c_str(), str_type, attr_dataspace_id, H5P_DEFAULT, H5P_DEFAULT));
+
+    // Write the attribute data
+    const char* attr_data_cstr = attr_data.c_str();
+    HDF5_CALL(err, H5Awrite(attr_id, str_type, &attr_data_cstr));
+
+    // Close the attribute and dataspace
+    HDF5_CALL(err, H5Aclose(attr_id));
+    HDF5_CALL(err, H5Sclose(attr_dataspace_id));
+}
 }} /* namespace grace::IO */

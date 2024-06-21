@@ -32,7 +32,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#define C2P_TOLERANCE 1e-12
+#define C2P_TOLERANCE 1e-15
 
 namespace grace {
 

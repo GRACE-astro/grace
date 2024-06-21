@@ -49,6 +49,12 @@
 #ifdef GRACE_ENABLE_SCALAR_ADV
 #include <grace/physics/scalar_advection.hh>
 #endif  
+#ifdef GRACE_ENABLE_GRMHD
+#include <grace/physics/grmhd.hh>
+#include <grace/physics/eos/eos_base.hh>
+#include <grace/physics/eos/eos_storage.hh>
+#endif
+#include <grace/physics/eos/eos_types.hh>
 
 #include <grace/amr/grace_amr.hh>
 
@@ -57,6 +63,22 @@
 namespace grace {
 
 void evolve() {
+    auto const eos_type = grace::get_param<std::string>("eos", "eos_type") ;
+    if( eos_type == "hybrid" ) {
+        auto const cold_eos_type = 
+            grace::get_param<std::string>("eos", "cold_eos_type") ;
+        if( cold_eos_type == "piecewise_polytrope" ) {
+            evolve_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ;
+        } else if ( cold_eos_type == "tabulated" ) {
+            ERROR("Not implemented yet.") ;
+        }
+    } else if ( eos_type == "tabulated" ) {
+        ERROR("Not implemented yet.") ; 
+    }
+}
+
+template< typename eos_t >
+void evolve_impl() {
     using namespace grace ; 
 
     auto& parser = grace::config_parser::get() ;
@@ -79,25 +101,25 @@ void evolve() {
     Kokkos::deep_copy(state_p, state) ; 
 
     if ( tstepper == "euler" ) {
-        compute_auxiliary_quantities(state, aux) ;
-        advance_substep(t,dt,1.0,state,state_p,aux,cvol,fsurf) ; 
+        compute_auxiliary_quantities<eos_t>(state, aux) ;
+        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,cvol,fsurf) ; 
         amr::apply_boundary_conditions() ; 
     } else if (tstepper == "rk2" ) {
         /* Compute auxiliaries at current timelevel */
-        compute_auxiliary_quantities(state, aux) ;
-        advance_substep(t,dt,0.5,state_p,state,aux,cvol,fsurf) ; 
+        compute_auxiliary_quantities<eos_t>(state, aux) ;
+        advance_substep<eos_t>(t,dt,0.5,state_p,state,aux,cvol,fsurf) ; 
         amr::apply_boundary_conditions(state_p) ; 
-        compute_auxiliary_quantities(state_p, aux) ;
-        advance_substep(t,dt,1.0,state,state_p,aux,cvol,fsurf) ;
+        compute_auxiliary_quantities<eos_t>(state_p, aux) ;
+        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,cvol,fsurf) ;
         amr::apply_boundary_conditions(state) ; 
     } else if (tstepper == "rk3" ) {
-
+        ERROR("Not implemented yet.") ; 
     } else {
         ERROR("Unrecognised time-stepper.") ; 
     }
     Kokkos::deep_copy(state_p,state) ; 
 }
-
+template< typename eos_t >
 void advance_substep( double const t, double const dt, double const dtfact 
                     , var_array_t<GRACE_NSPACEDIM>& new_state 
                     , var_array_t<GRACE_NSPACEDIM>& old_state 
@@ -115,8 +137,11 @@ void advance_substep( double const t, double const dt, double const dtfact
     
     int64_t nq = amr::get_local_num_quadrants() ;
     
-    int nvars_hrsc = variables::get_n_evolved() ; 
-
+    int nvars_hrsc = variables::get_n_evolved() ;
+    /*********************************************/ 
+    /* Define the flux array and allocate memory */
+    /* NB this array has NO ghostzones!          */
+    /*********************************************/ 
     flux_array_t fluxes(
           "Fluxes"
         , VEC( nx + 1 
@@ -126,7 +151,7 @@ void advance_substep( double const t, double const dt, double const dtfact
         , GRACE_NSPACEDIM
         , nq 
     ) ; 
-
+    /* Define the equation system (a couple ugly ifdef's!)*/
     #ifdef GRACE_ENABLE_SCALAR_ADV
     double VEC(ax,ay,az) ; 
     EXPR(
@@ -135,12 +160,41 @@ void advance_substep( double const t, double const dt, double const dtfact
     az = grace::get_param<double>("scalar_advection","az"); )
     scalar_advection_system_t<slope_limited_reconstructor_t<minmod>>  
         scalar_adv_system{ old_state, aux, VEC(ax,ay,az) } ; 
+    #define GET_X_FLUX \
+    scalar_adv_system(x_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) 
+    #define GET_Y_FLUX \
+    scalar_adv_system(y_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes)
+    #define GET_Z_FLUX \
+    scalar_adv_system(z_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes)
+    #define GET_SOURCES \
+    scalar_adv_system(sources_computation_kernel_t{}, team, VEC(i,j,k), new_state, dt, dtfact )
     #endif 
     #ifdef GRACE_ENABLE_BURGERS 
     burgers_equation_system_t<weno_reconstructor_t<3>,hll_riemann_solver_t>
         burgers_eq_system{ old_state, aux } ; 
+    #define GET_X_FLUX \
+    burgers_eq_system(x_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) 
+    #define GET_Y_FLUX \
+    burgers_eq_system(y_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes)
+    #define GET_Z_FLUX \
+    burgers_eq_system(z_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes)
+    #define GET_SOURCES \
+    burgers_eq_system(sources_computation_kernel_t{}, team, VEC(i,j,k), new_state, dt, dtfact )
     #endif 
-
+    #ifdef GRACE_ENABLE_GRMHD
+    auto eos = eos::get().get_eos<eos_t>() ;  
+    grmhd_equations_system_t<eos_t,weno_reconstructor_t<3>,hll_riemann_solver_t>
+        grmhd_eq_system(eos,old_state,aux) ; 
+    #define GET_X_FLUX \
+    grmhd_eq_system(x_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) 
+    #define GET_Y_FLUX \
+    grmhd_eq_system(y_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes)
+    #define GET_Z_FLUX \
+    grmhd_eq_system(z_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes)
+    #define GET_SOURCES \
+    grmhd_eq_system(sources_computation_kernel_t{}, team, VEC(i,j,k), new_state, dt, dtfact )
+    #endif 
+    
     TeamPolicy<default_execution_space> policy( nq, AUTO() ) ;
     using member_type = TeamPolicy<default_execution_space>::member_type ; 
 
@@ -179,44 +233,24 @@ void advance_substep( double const t, double const dt, double const dtfact
         parallel_for( team_range_x 
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k))
         {
-            #ifdef GRACE_ENABLE_BURGERS
-            burgers_eq_system(x_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
-            #endif
-            #ifdef GRACE_ENABLE_SCALAR_ADV
-            scalar_adv_system(x_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
-            #endif 
+            GET_X_FLUX ;
         }) ; 
         parallel_for( team_range_y 
                     , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
         {
-            #ifdef GRACE_ENABLE_BURGERS
-            burgers_eq_system(y_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ;
-            #endif
-            #ifdef GRACE_ENABLE_SCALAR_ADV
-            scalar_adv_system(y_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
-            #endif 
+            GET_Y_FLUX ; 
         }) ; 
         #ifdef GRACE_3D 
         parallel_for( team_range_z 
                     , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
         {
-            #ifdef GRACE_ENABLE_BURGERS
-            burgers_eq_system(z_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ;
-            #endif
-            #ifdef GRACE_ENABLE_SCALAR_ADV
-            scalar_adv_system(z_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes) ; 
-            #endif 
+            GET_Z_FLUX ;
         }) ; 
         #endif 
         parallel_for( team_range 
                     , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
         {
-            #ifdef GRACE_ENABLE_BURGERS
-            burgers_eq_system(sources_computation_kernel_t{}, team, VEC(i,j,k), new_state, dt, dtfact ) ; 
-            #endif 
-            #ifdef GRACE_ENABLE_SCALAR_ADV
-            scalar_adv_system(sources_computation_kernel_t{}, team, VEC(i,j,k), new_state, dt, dtfact ) ; 
-            #endif 
+            GET_SOURCES ; 
         }) ;
         team.team_barrier() ; 
 
@@ -239,7 +273,24 @@ void advance_substep( double const t, double const dt, double const dtfact
                 ) / cvol(VEC(I,J,K),q) ; 
         }) ;
     }) ; 
+    #undef GET_X_FLUX
+    #undef GET_Y_FLUX
+    #undef GET_Z_FLUX
+    #undef GET_SOURCES
     GRACE_PROFILING_POP_REGION ; 
 }
+// Explicit template instantiation
+#define INSTANTIATE_TEMPLATE(EOS)                                     \
+template                                                              \
+void advance_substep<EOS>( double const , double const , double const \
+                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \
+                         , grace::staggered_coordinate_arrays_t&  ) ; \
+template                                                              \
+void evolve_impl<EOS>()
 
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+#undef INSTANTIATE_TEMPLATE
 }

@@ -35,7 +35,7 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
-#include <grace/physics/grmhd.hh>
+#include <grace/physics/grmhd_helpers.hh>
 
 
 namespace grace {
@@ -54,7 +54,7 @@ namespace grace {
  */
 template< typename eos_t >
 void GRACE_HOST_DEVICE
-conservs_to_prims( grace::grmhd_cons_array_t& cons 
+conservs_to_prims(  grace::grmhd_cons_array_t& cons 
                   , grace::grmhd_prims_array_t& prims
                   , grace::metric_array_t const& metric 
                   , eos_t const& eos

@@ -182,7 +182,7 @@ get_param(std::string const& module, std::string const& name) {
     } catch( const std::exception& e) {
         ERROR("Parameter " << name 
              << " from module " << module << " could not be retrieved as a "
-             << utils::type_name<T>() <<" .\n Exception raised:\n"
+             << utils::type_name<T>() <<".\n Exception raised:\n"
              << e.what()) ; 
     }
 }

@@ -29,11 +29,33 @@
 #define GRACE_EVOLUTION_FIND_STABLE_TIMESTEP_HH
 
 #include <grace_config.h> 
+#include <grace/physics/eos/eos_types.hh>
 
 namespace grace {
 //*****************************************************************************************************
-void find_stable_timestep() ; 
+/**
+ * @brief Find a stable timestep by computing the maximum eigenspeed
+ *        over the whole grid. Notice that the timestep is modified by this 
+ *        function to be the maximum stable timestep over the whole grid 
+ *        multiplied by the cfl_factor parameter.
+ * \ingroup evol
+ */
+void find_stable_timestep() ;
 //*****************************************************************************************************
+/**
+ * @brief Implementation of find_stable_timestep for a concrete EOS type.
+ * \ingroup evol
+ * \cond grace_detail
+ * @tparam eos_t Type of concrete EOS.
+ */
+template< typename eos_t >
+void find_stable_timestep_impl() ;  
+//*****************************************************************************************************
+#define INSTANTIATE_TEMPLATE(EOS)     \
+extern template                       \
+void find_stable_timestep_impl<EOS>()
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+#undef INSTANTIATE_TEMPLATE
 }
 
 #endif 

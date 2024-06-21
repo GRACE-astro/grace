@@ -36,11 +36,34 @@
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
 #include <grace/parallel/mpi_wrappers.hh>
+#ifdef GRACE_ENABLE_GRMHD
+#include <grace/physics/grmhd.hh>
+#include <grace/physics/eos/eos_base.hh>
+#include <grace/physics/eos/eos_storage.hh>
+#endif
+#include <grace/physics/eos/eos_types.hh>
+
 #include <Kokkos_Core.hpp>
 
 namespace grace {
 
 void find_stable_timestep() {
+    auto const eos_type = grace::get_param<std::string>("eos", "eos_type") ;
+    if( eos_type == "hybrid" ) {
+        auto const cold_eos_type = 
+            grace::get_param<std::string>("eos", "cold_eos_type") ;
+        if( cold_eos_type == "piecewise_polytrope" ) {
+            find_stable_timestep_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ; 
+        } else if ( cold_eos_type == "tabulated" ) {
+            ERROR("Not implemented yet.") ;
+        }
+    } else if ( eos_type == "tabulated" ) {
+        ERROR("Not implemented yet.") ; 
+    }
+}
+
+template< typename eos_t >
+void find_stable_timestep_impl() {
     Kokkos::Profiling::pushRegion("Timestep update") ; 
     using namespace Kokkos ;
     using namespace grace ;
@@ -66,10 +89,21 @@ void find_stable_timestep() {
     az = params["scalar_advection"]["az"].as<double>() ; )
     scalar_advection_system_t<slope_limited_reconstructor_t<minmod>>  
         scalar_adv_system{ state, aux, VEC(ax,ay,az) } ; 
+    #define GET_CMAX \
+    scalar_adv_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
     #endif 
     #ifdef GRACE_ENABLE_BURGERS 
     burgers_equation_system_t<slope_limited_reconstructor_t<minmod>,hll_riemann_solver_t>
         burgers_eq_system{ state, aux } ;
+    #define GET_CMAX \
+    burgers_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
+    #endif 
+    #ifdef GRACE_ENABLE_GRMHD
+    auto eos = eos::get().get_eos<eos_t>() ;  
+    grmhd_equations_system_t<eos_t,weno_reconstructor_t<3>,hll_riemann_solver_t>
+        grmhd_eq_system(eos,state,aux) ; 
+    #define GET_CMAX \
+    grmhd_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
     #endif 
 
     double dt_local ; 
@@ -81,13 +115,7 @@ void find_stable_timestep() {
                    , policy
                    , KOKKOS_LAMBDA(VEC(int const& i, int const& j, int const& k), int const& q, double& dtmax)
     {
-        double cmax ; 
-        #ifdef GRACE_ENABLE_SCALAR_ADV 
-        cmax = scalar_adv_system(eigenspeed_kernel_t{}, VEC(i,j,k),q) ; 
-        #endif 
-        #ifdef GRACE_ENABLE_BURGERS
-        cmax = burgers_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q) ; 
-        #endif 
+        double const cmax = GET_CMAX; 
         double L    ; 
         #ifdef GRACE_3D 
         L = Kokkos::cbrt(cvol(VEC(i,j,k),q)) ; 
@@ -100,7 +128,12 @@ void find_stable_timestep() {
     double dt_new ; 
     parallel::mpi_allreduce(&dt_local,&dt_new,1,sc_MPI_MIN) ; 
     grace::set_timestep(dt_new) ; 
+    #undef GET_CMAX
     Kokkos::Profiling::popRegion() ; 
 }
-
+#define INSTANTIATE_TEMPLATE(EOS)     \
+template                              \
+void find_stable_timestep_impl<EOS>()
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+#undef INSTANTIATE_TEMPLATE
 }

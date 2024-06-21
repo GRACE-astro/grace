@@ -32,6 +32,8 @@
 //*****************************************************************************************************
 #include <grace/data_structures/variable_properties.hh>
 //*****************************************************************************************************
+#include <grace/physics/eos/eos_types.hh>
+//*****************************************************************************************************
 namespace grace {
 //*****************************************************************************************************
 //*****************************************************************************************************
@@ -52,8 +54,21 @@ void evolve() ;
 //*****************************************************************************************************
 //*****************************************************************************************************
 /**
+ * @brief Perform a timestep.
+ * @tparam eos_t Type of the active EOS.
+ * \ingroup evol
+ * \cond grace_detail
+ * This function implements the actual evolution for a concrete EOS type.
+ */
+template< typename eos_t >
+void evolve_impl() ; 
+//*****************************************************************************************************
+
+//*****************************************************************************************************
+/**
  * @brief Advance all variables by a substep.
  * \ingroup evol
+ * @tparam eos_t Type of active EOS.
  * @param t Current time.
  * @param dt Timestep size.
  * @param dtfact Timestep factor.
@@ -68,6 +83,7 @@ void evolve() ;
  * is applied in-place on <code>state</code>, whereas <code>state_p</code> and <code>aux</code>
  * are left unchanged.
  */
+template< typename eos_t >
 void advance_substep( double const t, double const dt, double const dtfact 
                     , grace::var_array_t<GRACE_NSPACEDIM>& state 
                     , grace::var_array_t<GRACE_NSPACEDIM>& state_p 
@@ -76,6 +92,20 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , grace::staggered_coordinate_arrays_t& surfs_and_edges ) ; 
 //*****************************************************************************************************
 //*****************************************************************************************************
+// Explicit template instantiation
+#define INSTANTIATE_TEMPLATE(EOS)                                     \
+extern template                                                       \
+void advance_substep<EOS>( double const , double const , double const \
+                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \
+                         , grace::staggered_coordinate_arrays_t&  ) ; \
+extern template                                                       \
+void evolve_impl<EOS>()
+
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+#undef INSTANTIATE_TEMPLATE
 } /* namespace grace */
 //*****************************************************************************************************
 #endif /* GRACE_EVOLVE_HH */

@@ -29,6 +29,7 @@
 #define GRACE_EVOLUTION_AUXILIARIES_HH
 
 #include <grace/data_structures/variable_properties.hh>
+#include <grace/physics/eos/eos_types.hh>
 
 namespace grace {
 //*****************************************************************************************************
@@ -41,14 +42,25 @@ void compute_auxiliary_quantities() ;
 /**
  * @brief Fill the <code>aux</code> array
  * \ingroup evol
+ * @tparam eos_t Type of active EOS.
  * @param state The state to be used to compute auxiliaries.
  * @param aux   The array where to store computed aux variables.
  */
+template< typename eos_t >
 void compute_auxiliary_quantities(
       grace::var_array_t<GRACE_NSPACEDIM>& state
     , grace::var_array_t<GRACE_NSPACEDIM>& aux 
 ) ; 
 //*****************************************************************************************************
+// Explicit template instantiation
+#define INSTANTIATE_TEMPLATE(EOS)                                       \
+extern template                                                         \
+void compute_auxiliary_quantities<EOS>(                                 \
+                           grace::var_array_t<GRACE_NSPACEDIM>&         \
+                         , grace::var_array_t<GRACE_NSPACEDIM>& aux )
+
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+#undef INSTANTIATE_TEMPLATE
 }
 
 #endif /* GRACE_EVOLUTION_AUXILIARIES_HH */

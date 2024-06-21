@@ -1,0 +1,8 @@
+grmhd: {
+  lapse_excision: 0.05,
+  id_type: "shocktube",
+  shocktube_press_L: 13.3,
+  shocktube_press_R: 0.66e-06,
+  shocktube_rho_L: 10.,
+  shocktube_rho_R: 1. 
+}

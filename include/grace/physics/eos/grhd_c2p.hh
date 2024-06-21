@@ -37,7 +37,7 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
-#include <grace/physics/grmhd.hh>
+#include <grace/physics/grmhd_helpers.hh>
 
 #include <Kokkos_Core.hpp>
 

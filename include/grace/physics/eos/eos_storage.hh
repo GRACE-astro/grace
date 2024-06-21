@@ -93,7 +93,20 @@ class eos_storage_t {
     get_tabulated() {
         ERROR("Not implemented yet.") ;  
     }
-
+    /**
+     * @brief Get an eos object.
+     * @tparam eos_t Type of requested eos, always explicit.
+     */
+    template< typename eos_t >
+    eos_t GRACE_ALWAYS_INLINE 
+    get_eos() {
+        if constexpr ( std::is_same_v<eos_t,hybrid_eos_t<piecewise_polytropic_eos_t>> )
+        {
+            return _hybrid_pwpoly; 
+        } else {
+            ERROR("Not implemented yet.") ;  
+        }
+    }
  private:
     //! Longevity of EOS utils.
     static constexpr size_t longevity = GRACE_EOS_STORAGE ; 

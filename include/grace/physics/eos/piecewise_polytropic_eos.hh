@@ -32,6 +32,7 @@
 
 #include <grace/utils/grace_utils.hh>
 #include <grace/physics/eos/eos_base.hh>
+#include <grace/data_structures/memory_defaults.hh>
 
 #include <Kokkos_Core.hpp>
 

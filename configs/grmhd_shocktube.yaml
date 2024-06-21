@@ -3,14 +3,14 @@ amr: {
   npoints_block_x: 16,
   npoints_block_y: 16,
   npoints_block_z: 16,
-  xmin: -6.,
-  xmax: 6.,
-  ymin: -0.5,
-  ymax: 0.5,
-  zmin: -0.5,
-  zmax: 0.5,
+  xmin: -0.5,
+  xmax: 0.5,
+  ymin: -0.1,
+  ymax: 0.1,
+  zmin: -0.1,
+  zmax: 0.1,
   n_ghostzones: 2,
-  initial_refinement_level: 5,
+  initial_refinement_level: 2,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
   refinement_criterion_CTODE: 1.,
@@ -20,19 +20,19 @@ amr: {
   regrid_at_postinitial: false
 }
 IO: {
-  volume_output_cell_variables: ["U"],
+  volume_output_cell_variables: ["dens","stilde[0]"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 2500,
+  volume_output_every: 150,
   plane_surface_output_cell_variables: [],
-  plane_surface_output_every: 800,
+  plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
   info_output_every: 20,
-  info_output_max_reductions: ["U"],
-  info_output_min_reductions: ["U"], 
+  info_output_max_reductions: ["alp","press"],
+  info_output_min_reductions: ["alp","press"], 
   scalar_output_every: 50,
-  scalar_output_minmax: ["U"],
-  scalar_output_norm2: ["U"],
-  scalar_output_integral: ["U"],
+  scalar_output_minmax: ["rho","press","eps"],
+  scalar_output_norm2: [],
+  scalar_output_integral: [],
   output_use_hdf5: true, 
   hdf5_compression_level: 6,
   hdf5_chunk_size: 8192
@@ -50,6 +50,24 @@ evolution: {
   #timestep: 0.00025,
   #timestep_selection_mode: "manual"
 }
-burgers_equation: {
-  id_type: "oned_N_wave"
+grmhd: {
+  id_type: "shocktube"
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+
+  ye_atmosphere: 0,
+  temp_atmosphere: 0,
+  rho_atmosphere: 1.e-14,
+  eps_maximum: 1.e+05,
+  gamma_th: 1.333,
+
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [2.],
+    rhos:   [],
+    kappa_0: 0.
+  }
 }

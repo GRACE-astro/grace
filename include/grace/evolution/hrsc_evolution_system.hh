@@ -98,7 +98,6 @@ struct hrsc_evolution_system_t {
         return static_cast<EvolSystem_t const *>(this)->compute_source_terms(team,VEC(i,j,k),state_new,dt,dtfact) ; 
     }
 
-    template< typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() ( auxiliaries_computation_kernel_t _tag
                , VEC( const int i 

@@ -46,6 +46,9 @@ const std::vector< std::string > code_modules {
     #ifdef GRACE_ENABLE_BURGERS
     , "burgers_equation"
     #endif 
+    #ifdef GRACE_ENABLE_GRMHD
+    , "grmhd"
+    #endif 
     , "eos"
     , "profiling"
 } ;
@@ -61,6 +64,9 @@ const std::vector< std::string > code_modules_default_configs {
      #ifdef GRACE_ENABLE_BURGERS
      , "${CMAKE_SOURCE_DIR}/include/grace/physics/burgers_equation-defaults.yaml"
      #endif 
+     #ifdef GRACE_ENABLE_GRMHD
+     , "${CMAKE_SOURCE_DIR}/include/grace/physics/grmhd-defaults.yaml"
+     #endif
      , "${CMAKE_SOURCE_DIR}/include/grace/physics/eos/eos-defaults.yaml"
      , "${CMAKE_SOURCE_DIR}/include/grace/profiling/profiling-defaults.yaml"
 } ;

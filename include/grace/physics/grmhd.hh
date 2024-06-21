@@ -34,62 +34,46 @@
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/parallel/mpi_wrappers.hh>
 #include <grace/utils/metric_utils.hh>
+#include <grace/physics/eos/eos_base.hh>
+#include <grace/physics/eos/c2p.hh>
+#include <grace/physics/grmhd_helpers.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
+#include <grace/utils/reconstruction.hh>
+#include <grace/utils/weno_reconstruction.hh>
+#include <grace/utils/riemann_solvers.hh>
 
 #include <Kokkos_Core.hpp>
 
 #define FILL_METRIC_ARRAY(g, view, q, ...)                    \
-g = grace::metric_array_t{  { view(VEC(__VA_ARGS__),GXX_,q)   \
-                          , view(VEC(__VA_ARGS__),GXY_,q)     \
-                          , view(VEC(__VA_ARGS__),GXZ_,q)     \
-                          , view(VEC(__VA_ARGS__),GYY_,q)     \
-                          , view(VEC(__VA_ARGS__),GYZ_,q)     \
-                          , view(VEC(__VA_ARGS__),GZZ_,q) }   \
-                          , { view(VEC(__VA_ARGS__),BETAX_,q) \
-                          , view(VEC(__VA_ARGS__),BETAY_,q)   \
-                          , view(VEC(__VA_ARGS__),BETAZ_,q) } \
-                          , view(VEC(__VA_ARGS__),ALP_,q) } 
+g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \
+                          , view(__VA_ARGS__,GXY_,q)     \
+                          , view(__VA_ARGS__,GXZ_,q)     \
+                          , view(__VA_ARGS__,GYY_,q)     \
+                          , view(__VA_ARGS__,GYZ_,q)     \
+                          , view(__VA_ARGS__,GZZ_,q) }   \
+                          , { view(__VA_ARGS__,BETAX_,q) \
+                          , view(__VA_ARGS__,BETAY_,q)   \
+                          , view(__VA_ARGS__,BETAZ_,q) } \
+                          , view(__VA_ARGS__,ALP_,q) } 
+#define FILL_PRIMS_ARRAY(prims,state,q,...)        \
+prims[RHOL] = state(__VA_ARGS__,RHO_,q);      \
+prims[PRESSL] = state(__VA_ARGS__,PRESS_,q) ; \
+prims[VXL] = state(__VA_ARGS__,VELX_,q) ;     \
+prims[VYL] = state(__VA_ARGS__,VELY_,q) ;     \
+prims[VZL] = state(__VA_ARGS__,VELZ_,q) ;     \
+prims[YEL] = state(__VA_ARGS__,YE_,q) ;       \
+prims[TEMPL] = state(__VA_ARGS__,TEMP_,q) ;   \
+prims[EPSL] = state(__VA_ARGS__,EPS_,q) ;     \
+prims[ENTL] = state(__VA_ARGS__,ENTROPY_,q)
 
 
 //**************************************************************************************************/
 /**
  * \defgroup physics Physics Modules.
  */
-//**************************************************************************************************/
-/* Auxiliaries */
-//**************************************************************************************************/
-enum GRMHD_PRIMS_LOC_INDICES {
-    RHOL = 0,
-    PRESSL,
-    VXL,
-    VYL,
-    VZL,
-    YEL,
-    TEMPL,
-    EPSL,
-    ENTL,
-    #ifdef GRACE_DO_MHD
-    BXL,
-    BYL,
-    BZL,
-    #endif 
-    NUM_PRIMS_LOC
-} ; 
-enum GRMHD_CONS_LOC_INDICES {
-    DENSL=0,
-    STXL,
-    STYL,
-    STZL,
-    TAUL,
-    YESL,
-    ENTSL,
-    NUM_CONS_LOC
-} ; 
 namespace grace {
-using grmhd_prims_array_t = std::array<double,NUM_PRIMS_LOC> ; 
-using grmhd_cons_array_t  = std::array<double,NUM_CONS_LOC>  ;
 //**************************************************************************************************/ 
 //**************************************************************************************************
 /**
@@ -101,8 +85,8 @@ using grmhd_cons_array_t  = std::array<double,NUM_CONS_LOC>  ;
  */
 //**************************************************************************************************/
 template< typename eos_t 
-        , typename recon_t 
-        , typename riemann_t >
+        , typename recon_t   = grace::weno_reconstructor_t<3>
+        , typename riemann_t = grace::hll_riemann_solver_t    >
 struct grmhd_equations_system_t 
     : public hrsc_evolution_system_t<grmhd_equations_system_t<eos_t,recon_t,riemann_t>>
 {
@@ -121,9 +105,11 @@ struct grmhd_equations_system_t
      */
     grmhd_equations_system_t( eos_t eos_ 
                             , grace::var_array_t<GRACE_NSPACEDIM> state_
-                            , grace::var_array_t<GRACE_NSPACEDIM> aux_   ) 
+                            , grace::var_array_t<GRACE_NSPACEDIM> aux_ ) 
      : base_t(state_,aux_), _eos(eos_)
-    { } ;
+    { 
+        _lapse_excision = grace::get_param<double>("grmhd","lapse_excision") ; 
+    } ;
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^1\f$
      * 
@@ -210,7 +196,8 @@ struct grmhd_equations_system_t
                          ,      const int k)
                          , grace::var_array_t<GRACE_NSPACEDIM> const state_new
                          , double const dt 
-                         , double const dtfact ) const ;
+                         , double const dtfact ) const 
+    {} ;
     /**
      * @brief Compute GRMHD auxiliary quantities.
      *        This is essentially a call to c2p.
@@ -223,7 +210,63 @@ struct grmhd_equations_system_t
     compute_auxiliaries(  VEC( const int i 
                         ,      const int j 
                         ,      const int k) 
-                        , int64_t q ) const ;
+                        , int64_t q ) const 
+    {
+        using namespace grace ;
+        using namespace Kokkos ; 
+        auto const vars = subview(
+              this->_state
+            , VEC( i
+                 , j
+                 , k )
+            , ALL()
+            , q
+        ) ; 
+        grmhd_cons_array_t cons ;
+        cons[DENSL] = vars(DENS_)        ; 
+        cons[STXL]  = vars(SX_)          ;
+        cons[STYL]  = vars(SX_)          ;
+        cons[STZL]  = vars(SX_)          ;
+        cons[TAUL]  = vars(TAU_)         ;
+        cons[YESL]  = vars(YESTAR_)      ; 
+        cons[ENTSL] = vars(ENTROPYSTAR_) ; 
+        metric_array_t metric ; 
+        FILL_METRIC_ARRAY(metric,this->_aux,q,VEC(i,j,k)) ;
+        grmhd_prims_array_t prims ;
+        conservs_to_prims<eos_t>( cons, prims, metric
+                                , this->_eos, this->_lapse_excision ) ;
+        /* Write new prims */
+        vars(RHO_) = prims[RHOL]     ; 
+        vars(EPS_) = prims[EPSL]     ; 
+        vars(PRESS_) = prims[PRESSL] ; 
+        vars(VELX_) = prims[VXL]     ;
+        vars(VELY_) = prims[VYL]     ; 
+        vars(VELZ_) = prims[VZL]     ; 
+        vars(TEMP_) = prims[TEMPL]   ; 
+        vars(ENTROPY_) = prims[ENTL]  ; 
+        vars(YE_)   = prims[YEL]     ;
+        /* Compute ZVEC */
+        double const one_over_alp = 1./metric.alp(); 
+        std::array<double,3> const vN {
+              one_over_alp * (prims[VXL] + metric.beta(0))
+            , one_over_alp * (prims[VYL] + metric.beta(1))
+            , one_over_alp * (prims[VZL] + metric.beta(2))
+        } ; 
+
+        double const W = 1./Kokkos::sqrt(metric.square_vec(vN)) ;
+
+        vars(ZVECX_) = W * vN[0] ; 
+        vars(ZVECY_) = W * vN[1] ; 
+        vars(ZVECZ_) = W * vN[2] ; 
+        /* Overwrite conserved */
+        vars(DENS_)  = cons[DENSL]       ; 
+        vars(SX_)    = cons[STXL]        ; 
+        vars(SY_)    = cons[STYL]        ;
+        vars(SZ_)    = cons[STZL]        ;
+        vars(TAU_)   = cons[TAUL]        ;
+        vars(YESTAR_) = cons[YESL]       ; 
+        vars(ENTROPYSTAR_) = cons[ENTSL] ; 
+    };
     /**
      * @brief Compute maximum absolute value eigenspeed.
      * 
@@ -237,13 +280,55 @@ struct grmhd_equations_system_t
     compute_max_eigenspeed( VEC( const int i 
                           ,      const int j 
                           ,      const int k) 
-                          , int64_t q ) const ;
+                          , int64_t q ) const 
+    {
+        using namespace grace; 
+        using namespace Kokkos ; 
+        auto const vars = subview(
+              this->_state
+            , VEC( i
+                 , j
+                 , k )
+            , ALL()
+            , q
+        ) ; 
+        /* Get prims */
+        grmhd_prims_array_t prims ;
+        FILL_PRIMS_ARRAY(prims,this->_state,q,VEC(i,j,k)) ;
+        /* Get metric */
+        metric_array_t metric ; 
+        FILL_METRIC_ARRAY(metric,this->_aux,q,VEC(i,j,k));
+        /* Get soundspeed, enthalpy */
+        double csnd2, h ; 
+        unsigned int err ; 
+        double dummy = _eos.press_h_csnd2__temp_rho_ye( h, csnd2, prims[TEMPL]
+                                                      , prims[RHOL], prims[YEL], err ) ;
+        /* Compute magnetosonic speed */
+        double const b2{0.} ;
+        double const v_A_sq = b2 / ( b2 + prims[RHOL]*h) ; 
+        double const v02 = v_A_sq + csnd2 * ( 1. - v_A_sq ) ;
+        /* Find maximum eigenvalue (amongst all directions) */
+        double cmax ; 
+        std::array<unsigned int, 3> const metric_comp{ 0, 3, 5 } ; 
+        double const u0 = compute_u0(prims,metric) ;  
+        for( int idir=0; idir<3; ++idir){ 
+            double cp, cm ; 
+            compute_cp_cm( cp, cm, v02, u0, prims[VXL+idir]
+                         , 1./math::int_pow<2>(metric.alp())
+                         , metric.beta(idir)
+                         , metric.invgamma(metric_comp[idir]) );
+            cmax = math::max(cmax,math::abs(cp),math::abs(cm)) ; 
+        }
+        return cmax ; 
+    };
 
  private:
     //! Number of reconstructed variables.
     static constexpr unsigned int GRMHD_NUM_RECON_VARS = 7 ; 
     //! Equation of State object.
     eos_t _eos ;
+    //! Excision lapse.
+    double _lapse_excision ; 
     /**
      * @brief 
      * 
@@ -312,6 +397,7 @@ struct grmhd_equations_system_t
                 , ENTL
             } ;
         grmhd_prims_array_t primL, primR ; 
+        #pragma unroll GRMHD_NUM_RECON_VARS
         for( int i=0; i<GRMHD_NUM_RECON_VARS; ++i) {
             auto u = Kokkos::subview( this->_aux
                                     , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()) 
@@ -339,22 +425,19 @@ struct grmhd_equations_system_t
         /* Right now we have:                                                  */
         /* 1) The correct rho                                                  */
         /* 2) No pressure (computed below)                                     */
-        /* 3) The temperature in place of eps (swapped below)                  */
-        /* 4) The z vector (w v_{n}^i) as opposed to v^i (swapped below)       */
+        /* 3) The temperature but no eps                                       */
+        /* 4) The z vector (W v_{n}^i) as opposed to v^i (swapped below)       */
         /***********************************************************************/
         double const alp = metric_face.alp() ; 
         /* Left */
-        double epsl, epsr ;
         double cs2l, cs2r ; 
         unsigned int eos_err; 
-        primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(epsl, cs2l, primL[TEMPL], primL[RHOL], primL[YEL], eos_err) ; 
-        primL[EPSL]   = epsl ;
+        primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primL[EPSL], cs2l, primL[TEMPL], primL[RHOL], primL[YEL], eos_err) ; 
         primL[VXL] = alp * primL[VXL] / wl - metric_face.beta(0) ;
         primL[VYL] = alp * primL[VYL] / wl - metric_face.beta(1) ;
         primL[VZL] = alp * primL[VZL] / wl - metric_face.beta(2) ; 
         /* Right */
-        primR[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(epsr, cs2r, primR[TEMPL], primR[RHOL], primR[YEL], eos_err) ; 
-        primR[EPSL]   = epsr ; 
+        primR[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primR[EPSL], cs2r, primR[TEMPL], primR[RHOL], primR[YEL], eos_err) ; 
         primR[VXL] = alp * primR[VXL] / wr - metric_face.beta(0) ;
         primR[VYL] = alp * primR[VYL] / wr - metric_face.beta(1) ;
         primR[VZL] = alp * primR[VZL] / wr - metric_face.beta(2) ; 
@@ -499,7 +582,7 @@ struct grmhd_equations_system_t
      */
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_v02( double& h, double& v02, double const& cs2, double const& b2
-               , grmhd_prims_array_t const& prims )
+               , grmhd_prims_array_t const& prims ) const
     {
         h = 1. + prims[EPSL] + prims[PRESSL] / prims[RHOL] ; 
         double const v_A_sq = b2 / ( b2 + prims[RHOL]*h) ; 
@@ -522,7 +605,7 @@ struct grmhd_equations_system_t
     compute_cp_cm( double& cp, double& cm
                  , double const& v02, double const& u0
                  , double const& vd, double const& one_over_alp2 
-                 , double const& betad, double const& gupdd )
+                 , double const& betad, double const& gupdd ) const
     {
         double const u0_sq = math::int_pow<2>(u0) ; 
         double const a = u0_sq * ( 1- v02 ) + v02 * one_over_alp2 ; 
@@ -537,8 +620,40 @@ struct grmhd_equations_system_t
         cp = math::max(c1,c2) ; 
         cm = math::min(c1,c2) ; 
     }
+    /**
+     * @brief Utility to compute \f$u^t\f$
+     * 
+     * @param prims Primitive variables.
+     * @param metric Metric tensor.
+     * @return double The 0th component of contravariant 4-velocity.
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_u0( grace::grmhd_prims_array_t const& prims 
+              , grace::metric_array_t const& metric ) const 
+    {
+        double const one_over_alp = 1./metric.alp() ;
+        std::array<double,3> const vN {
+              one_over_alp * ( prims[VXL] + metric.beta(0) )
+            , one_over_alp * ( prims[VYL] + metric.beta(1) )
+            , one_over_alp * ( prims[VZL] + metric.beta(2) )
+        } ; 
+        double const W = 1./Kokkos::sqrt(1-metric.square_vec(vN)) ; 
+        return one_over_alp * W ; 
+    }
 } ; 
 
+template< typename eos_t >
+void set_grmhd_initial_data() ; 
+
+void set_conservs_from_prims() ;
+
+// Explicit template instantiation
+#define INSTANTIATE_TEMPLATE(EOS)        \
+extern template                          \
+void set_grmhd_initial_data<EOS>( )
+
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+#undef INSTANTIATE_TEMPLATE
 }
 
 #endif /*GRACE_PHYSICS_GRMHD_HH*/

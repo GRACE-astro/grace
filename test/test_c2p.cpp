@@ -41,7 +41,7 @@
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
 #include <grace/physics/eos/c2p.hh>
 #include <grace/system/grace_system.hh>
-#include <grace/physics/grmhd.hh>
+#include <grace/physics/grmhd_helpers.hh>
 
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 

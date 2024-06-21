@@ -28,18 +28,40 @@
 #include <grace_config.h>
 
 #include <grace/evolution/initial_data.hh>
-
+#include <grace/config/config_parser.hh>
 #include <grace/physics/grace_physical_systems.hh>
 #include <grace/amr/grace_amr.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/utils/grace_utils.hh>
+#ifdef GRACE_ENABLE_GRMHD
+#include <grace/physics/grmhd.hh>
+#include <grace/physics/eos/eos_base.hh>
+#include <grace/physics/eos/eos_storage.hh>
+#endif
+#include <grace/physics/eos/eos_types.hh>
 
 #include <Kokkos_Core.hpp>
 
 namespace grace {
 
 void set_initial_data() {
+    auto const eos_type = grace::get_param<std::string>("eos", "eos_type") ;
+    if( eos_type == "hybrid" ) {
+        auto const cold_eos_type = 
+            grace::get_param<std::string>("eos", "cold_eos_type") ;
+        if( cold_eos_type == "piecewise_polytrope" ) {
+            set_initial_data_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ; 
+        } else if ( cold_eos_type == "tabulated" ) {
+            ERROR("Not implemented yet.") ;
+        }
+    } else if ( eos_type == "tabulated" ) {
+        ERROR("Not implemented yet.") ; 
+    }
+}
+
+template< typename eos_t >
+void set_initial_data_impl() {
     Kokkos::Profiling::pushRegion("ID") ; 
     using namespace grace ;
 
@@ -49,7 +71,14 @@ void set_initial_data() {
     #ifdef GRACE_ENABLE_BURGERS
     set_burgers_initial_data() ; 
     #endif 
+    #ifdef GRACE_ENABLE_GRMHD
+    set_grmhd_initial_data<eos_t>();
+    #endif 
     Kokkos::Profiling::popRegion() ; 
 } 
-
+#define INSTANTIATE_TEMPLATE(EOS)   \
+template                            \
+void set_initial_data_impl<EOS>()
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+#undef INSTANTIATE_TEMPLATE
 }

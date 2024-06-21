@@ -1,10 +1,10 @@
 /**
- * @file initial_data.hh
+ * @file eos_types.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-05-15
+ * @date 2024-06-17
  * 
- * @copyright This file is part of of the General Relativistic Astrophysics
+ * @copyright This file is part of the General Relativistic Astrophysics
  * Code for Exascale.
  * GRACE is an evolution framework that uses Finite Volume
  * methods to simulate relativistic spacetimes and plasmas
@@ -24,37 +24,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#ifndef GRACE_EVOLUTION_INITIAL_DATA_HH
-#define GRACE_EVOLUTION_INITIAL_DATA_HH
 
-#include <grace_config.h>
-#include <grace/physics/eos/eos_types.hh>
+#ifndef GRACE_PHYSICS_EOS_EOS_TYPES_HH
+#define GRACE_PHYSICS_EOS_EOS_TYPES_HH
 
-namespace grace {
-/**
- * \defgroup id Initial Data
- * 
- */
-
-/**
- * @brief Set the initial data.
- * \ingroup id
- */
-void set_initial_data() ; 
-/**
- * @brief Implementation of set_initial_data for a concrete EOS type.
- * \ingroup id
- * \cond grace_detail
- * @tparam eos_t Type of active EOS.
- */
-template< typename eos_t >
-void set_initial_data_impl() ;
-
-#define INSTANTIATE_TEMPLATE(EOS)   \
-extern template                     \
-void set_initial_data_impl<EOS>()
-INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
-#undef INSTANTIATE_TEMPLATE
-}
+#include <grace/physics/eos/hybrid_eos.hh>
+#include <grace/physics/eos/piecewise_polytropic_eos.hh>
 
 #endif 
