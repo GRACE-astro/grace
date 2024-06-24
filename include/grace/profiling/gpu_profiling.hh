@@ -37,6 +37,9 @@
 #include <amd_comgr/amd_comgr.h>
 #endif 
 
+#include <functional>
+#include <unordered_map>
+
 #ifdef GRACE_ENABLE_HIP
 
 namespace detail {
@@ -111,7 +114,7 @@ struct rocm_profiling_context_t {
  * See the available profiling parameters for the possible counters 
  * that can be requested. See profiling_runtime.hh for where this is called.
  */
-void rocm_initiate_profiling_session( rocm_profiling_context_t& context, std::vector<std::string>const& counters ) ;
+void rocm_initiate_profiling_session( rocm_profiling_context_t& context, std::unordered_map<size_t,std::string>const& counters ) ;
 /**
  * @brief Finalize rocm profiling session and write data.
  * 

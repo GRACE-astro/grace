@@ -43,18 +43,18 @@
 
 #ifdef GRACE_ENABLE_HIP
 #ifndef CHECK_ROCPROFILER
-#define CHECK_ROCPROFILER(call)                                                                    \
-  do {                                                                                             \
-    if ((call) != ROCPROFILER_STATUS_SUCCESS)                                                      \
-        ERROR("ROCProfiler API call error!");                                    \
+#define CHECK_ROCPROFILER(call)                                                                     \
+  do {                                                                                              \
+  rocprofiler_status_t errcode = (call) ;                                                           \
+    if (errcode != ROCPROFILER_STATUS_SUCCESS)                                                      \
+        ERROR("ROCProfiler API call error! Error code " << errcode );                               \
   } while (false)
 #endif 
 
-void rocm_initiate_profiling_session( rocm_profiling_context_t& context, std::vector<std::string> const& _counters ) 
+void rocm_initiate_profiling_session( rocm_profiling_context_t& context, std::unordered_map<size_t,std::string> const& _counters ) 
 {
     std::vector<const char*> counters ; 
-    for( auto const& x: _counters) counters.push_back(x.c_str()) ; 
-
+    for( auto const& x: _counters) counters.push_back(x.second.c_str()) ; 
     CHECK_ROCPROFILER(rocprofiler_create_session(ROCPROFILER_NONE_REPLAY_MODE, &context._sid) ) ;
     CHECK_ROCPROFILER(rocprofiler_create_buffer(
           context._sid
@@ -88,6 +88,7 @@ extern "C" void write_buffer_records( const rocprofiler_record_header_t* begin_r
                                     , rocprofiler_session_id_t session_id, rocprofiler_buffer_id_t buffer_id ) 
 {
     while( begin_records < end_records ) {
+        if( begin_records == nullptr ) return ; 
         const rocprofiler_record_profiler_t* profiler_record =
             reinterpret_cast<const rocprofiler_record_profiler_t*>(begin_records);
         flush_profiler_record(profiler_record, session_id, buffer_id);
@@ -130,7 +131,7 @@ void write_profile_data( const rocprofiler_record_profiler_t* profiler_record
                        , const std::string& outfname, int rank, const std::string& kernel_name
                        , rocprofiler_session_id_t session_id ) 
 {
-    auto const counter_names = grace::profiling_runtime::get().active_hardware_counters(); 
+    auto counter_names = grace::profiling_runtime::get().active_hardware_counters(); 
     std::ofstream output_file{outfname, std::ios::app};
     if (!output_file.is_open()) {
         ERROR("Failed to open file for profilers output.") ; 
@@ -138,34 +139,45 @@ void write_profile_data( const rocprofiler_record_profiler_t* profiler_record
     }
     static const uint32_t lds_block_size = 128 * 4;
     std::stringstream ss;
-    ss << "Rank[" << rank << "], "
-       << "dispatch[" << profiler_record->header.id.handle << "], "
-       << "gpu_id(" << profiler_record->gpu_id.handle << "), "
-       << "queue_id(" << profiler_record->queue_id.handle << "), "
-       << "queue_index(" << profiler_record->queue_idx.value << "), "
-       << "tid(" << profiler_record->thread_id.value << "), "
-       << "grd(" << profiler_record->kernel_properties.grid_size << "), "
-       << "wgr(" << profiler_record->kernel_properties.workgroup_size << "), "
-       << "lds(" << ((profiler_record->kernel_properties.lds_size + (lds_block_size - 1)) & ~(lds_block_size - 1)) << "),\n "
-       << "scr(" << profiler_record->kernel_properties.scratch_size << "), "
-       << "arch_vgpr(" << profiler_record->kernel_properties.arch_vgpr_count << "), "
-       << "accum_vgpr(" << profiler_record->kernel_properties.accum_vgpr_count << "), "
-       << "sgpr(" << profiler_record->kernel_properties.sgpr_count << "), "
-       << "wave_size(" << profiler_record->kernel_properties.wave_size << "), "
-       << "sig(" << profiler_record->kernel_properties.signal_handle << "), "
-       << "obj(" << profiler_record->kernel_id.handle << "), "
-       << "kernel-name(\"" << kernel_name << "\"), "
-       << "time(" << profiler_record->timestamps.begin.value << ")";
+    ss << "iteration(" << grace::get_iteration() << ")\n"
+    << "kernel-name(\"" << kernel_name << "\"),\n"
+    << "dispatch[" << profiler_record->header.id.handle << "],\n"
+    << "gpu_id(" << profiler_record->gpu_id.handle << "),\n"
+    << "queue_id(" << profiler_record->queue_id.handle << "),\n"
+    << "queue_index(" << profiler_record->queue_idx.value << "),\n"
+    << "tid(" << profiler_record->thread_id.value << "),\n"
+    << "Kernel Properties:\n"
+    << "    grd(" << profiler_record->kernel_properties.grid_size << "),\n"
+    << "    wgr(" << profiler_record->kernel_properties.workgroup_size << "),\n"
+    << "    lds(" << ((profiler_record->kernel_properties.lds_size + (lds_block_size - 1)) & ~(lds_block_size - 1)) << "),\n"
+    << "    scr(" << profiler_record->kernel_properties.scratch_size << "),\n"
+    << "    arch_vgpr(" << profiler_record->kernel_properties.arch_vgpr_count << "),\n"
+    << "    accum_vgpr(" << profiler_record->kernel_properties.accum_vgpr_count << "),\n"
+    << "    sgpr(" << profiler_record->kernel_properties.sgpr_count << "),\n"
+    << "    wave_size(" << profiler_record->kernel_properties.wave_size << "),\n"
+    << "    sig(" << profiler_record->kernel_properties.signal_handle << "),\n"
+    << "    obj(" << profiler_record->kernel_id.handle << "),\n"
+    << "Timestamps (in nanoseconds):\n"
+    << "    time-begin(" << profiler_record->timestamps.begin.value << "),\n"
+    << "    time-end(" << profiler_record->timestamps.end.value << "),\n"
+    << "    duration(" << profiler_record->timestamps.end.value - profiler_record->timestamps.begin.value << ")";
 
     output_file << ss.str() << std::endl;
 
     if (profiler_record->counters) {
+        output_file << "Counters:\n" ; 
         for (uint64_t i = 0; i < profiler_record->counters_count.value; ++i) {
             if (profiler_record->counters[i].counter_handler.handle > 0) {
-                output_file << ", " << counter_names[i] << " (" << profiler_record->counters[i].value.value << ")" << std::endl;
+                std::string const counter_name = 
+                    counter_names[profiler_record->counters[i].counter_handler.handle] ; 
+                ASSERT(counter_name != "", "Counter name returned empty string in rocprofiler, this should never happen.") ; 
+                GRACE_TRACE( "Writing profiling counter data: counter id {}, name {}"
+                           , profiler_record->counters[i].counter_handler.handle, counter_name ) ; 
+                output_file << "    " << counter_name << " (" << profiler_record->counters[i].value.value << ")" << std::endl;
             }
         }
     }
+    output_file << '\n'; 
 }
 #undef CHECK_ROCPROFILER
 #endif

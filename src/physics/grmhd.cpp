@@ -25,7 +25,6 @@
  * 
  */
 #include <grace_config.h>
-
 #include <grace/utils/grace_utils.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/data_structures/grace_data_structures.hh>
@@ -41,8 +40,8 @@
 #include <grace/physics/eos/eos_storage.hh>
 #include <grace/physics/grmhd_helpers.hh>
 #include <grace/physics/grmhd.hh>
-#include <grace/config/config_parser.hh>
 
+#include <grace/config/config_parser.hh>
 #include <Kokkos_Core.hpp>
 
 #include <string>

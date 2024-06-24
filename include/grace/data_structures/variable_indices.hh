@@ -215,7 +215,7 @@ DECLARE_VAR_INDEX_IMPL(ERR)
 #else
 #define VARIABLE_LIST_SCALAR_ADV
 #endif 
-#ifdef GRACE_ENABLE_GRMHD 
+//#ifdef GRACE_ENABLE_GRMHD 
 /* Valencia GRMHD conservatives */
 #define VARIABLE_LIST_HYDROBASE                     \
 DECLARE_VAR_INDEX_IMPL(DENS)                        \
@@ -249,10 +249,10 @@ DECLARE_VAR_INDEX_IMPL(ALP)                       \
 DECLARE_VAR_INDEX_IMPL(BETAX)                     \
 DECLARE_VAR_INDEX_IMPL(BETAY)                     \
 DECLARE_VAR_INDEX_IMPL(BETAZ)                      
-#else 
-#define VARIABLE_LIST_ADMBASE 
-#define VARIABLE_LIST_HYDROBASE
-#endif 
+//#else 
+//#define VARIABLE_LIST_ADMBASE 
+//#define VARIABLE_LIST_HYDROBASE
+//#endif 
 
 #define DECLARE_VARIABLE_INDICES    \
 VARIABLE_LIST_HYDROBASE             \

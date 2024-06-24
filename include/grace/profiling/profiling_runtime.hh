@@ -48,6 +48,8 @@
 #include <vector>
 #include <iostream>
 #include <iomanip>
+#include <functional>
+#include <unordered_map>
 
 namespace grace {
 //*********************************************************************************************************************
@@ -68,17 +70,15 @@ class profiling_runtime_impl_t
     //*********************************************************************************************************************
     //! Timers for host code sections.
     std::stack<std::pair<std::string,std::chrono::high_resolution_clock::time_point>> _host_timers ; 
-    //! Durations of timers for host code sections (in microseconds).
-    std::unordered_map<std::string, std::pair<long,long long>> _host_timers_results ;
     //! Base path for profiling output.
     std::filesystem::path _base_outpath ; 
     #ifdef GRACE_ENABLE_HIP
     //! GPU profiling regions LIFO queue.
-    std::stack< rocm_profiling_context_t > _gpu_profiling_active_regions ;
+    std::stack< rocm_profiling_context_t > _gpu_profiling_active_regions  ;
     //! Names of GPU profiling regions currently in the queue.
-    std::stack< std::string >  _gpu_profiling_active_regions_names       ;
+    std::stack< std::string >  _gpu_profiling_active_regions_names        ;
     //! Hardware or derived counters requested for sampling.
-    std::vector<std::string> _gpu_profiling_active_counters              ; 
+    std::unordered_map<size_t,std::string> _gpu_profiling_active_counters ;
     #endif 
     bool _do_gpu_profiling ; 
     //*********************************************************************************************************************
@@ -93,8 +93,8 @@ class profiling_runtime_impl_t
     out_basepath() const {
         return _base_outpath ; 
     }
-    std::vector<std::string> GRACE_ALWAYS_INLINE 
-    active_hardware_counters() const {
+    std::unordered_map<size_t,std::string> GRACE_ALWAYS_INLINE 
+    active_hardware_counters() {
         return _gpu_profiling_active_counters ; 
     }
     std::string GRACE_ALWAYS_INLINE 
@@ -118,7 +118,9 @@ class profiling_runtime_impl_t
             ); 
             _gpu_profiling_active_regions_names.emplace(  name  ) ; 
             // Create new session and start collecting kernel data
-            rocm_initiate_profiling_session(_gpu_profiling_active_regions.top(), _gpu_profiling_active_counters) ; 
+            rocm_initiate_profiling_session(_gpu_profiling_active_regions.top(), _gpu_profiling_active_counters) ;
+            GRACE_TRACE("Entering profiling region (sid {})", 
+            static_cast<int>(_gpu_profiling_active_regions.top()._sid.handle)) ;  
         #endif 
         }
     }
@@ -134,6 +136,8 @@ class profiling_runtime_impl_t
         if(_do_gpu_profiling){
         #ifdef GRACE_ENABLE_HIP
             rocm_terminate_profiling_session(_gpu_profiling_active_regions.top());
+            GRACE_TRACE("Exiting profiling region (sid {})", 
+            static_cast<int>(_gpu_profiling_active_regions.top()._sid.handle)) ; 
             _gpu_profiling_active_regions.pop() ; 
             _gpu_profiling_active_regions_names.pop() ; 
         #endif 
@@ -160,8 +164,7 @@ class profiling_runtime_impl_t
         auto label = _host_timers.top().first;
         _host_timers.pop();
         auto elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-        _host_timers_results[label] = {grace::get_iteration(), elapsed_time}; 
-        write_host_timers() ;
+        write_host_timer(label, grace::get_iteration(), elapsed_time) ;
     } 
     //*********************************************************************************************************************
  private:
@@ -171,9 +174,11 @@ class profiling_runtime_impl_t
      * 
      */
     profiling_runtime_impl_t() {
+        auto hasher = std::hash<std::string>{} ; 
         auto const counters 
             = grace::get_param<std::vector<std::string>>("profiling","enabled_hardware_counters") ;
-        for( auto const& x: counters) _gpu_profiling_active_counters.push_back(x.c_str()) ;  
+        for( auto const& x: counters) 
+            _gpu_profiling_active_counters.emplace(std::make_pair(hasher(x),x)) ;  
         _base_outpath = 
             static_cast<std::filesystem::path>(
                 grace::get_param<std::string>("profiling","output_base_directory") 
@@ -190,11 +195,9 @@ class profiling_runtime_impl_t
             std::stringstream os ; 
             os << "GPU profiling enabled on HIP gpu (rocprofiler)\n" ;
             os << "   requested counters: [ " ; 
-            for(int i=0; i<_gpu_profiling_active_counters.size(); ++i) {
-                os << _gpu_profiling_active_counters[i] ; 
-                if( i!=_gpu_profiling_active_counters.size()-1) os << ", " ;
-            }
-            os << " ]\n" ; 
+            for( auto const& x: _gpu_profiling_active_counters)
+                os << x.second << " " ; 
+            os << "]\n" ; 
             GRACE_INFO(os.str()) ; 
             rocprofiler_initialize();
         #endif    
@@ -224,21 +227,20 @@ class profiling_runtime_impl_t
      * @brief Write host timers to files.
      * 
      */
-    void write_host_timers() {
+    void write_host_timer(std::string const& name, size_t iter, double time) {
         if( parallel::mpi_comm_rank() == 0 ) {
-            for( const auto& entry: _host_timers_results) {
-                std::filesystem::path outf = 
-                    _base_outpath / (entry.first + "_host_timers.dat") ; 
-                if( not std::filesystem::exists(outf) ) {
-                    std::ofstream outfile { _base_outpath.string() };
-                    outfile << std::left  << std::setw(20) << "Iteration"
-                            << std::left  << std::setw(20) << "Time [mus]\n" ;
-                }
-                std::ofstream outfile { _base_outpath.string(), std::ios::app} ; 
-                outfile << std::fixed << std::setprecision(15) ; 
-                outfile << std::left  << std::setw(20) << entry.second.first 
-                        << std::left  << std::setw(20) << entry.second.second << '\n'; 
+            GRACE_TRACE("Writing host profiling data at iteration {}", iter) ; 
+            std::filesystem::path outf = 
+                _base_outpath / (name + "_host_timers.dat") ; 
+            if( not std::filesystem::exists(outf) ) {
+                std::ofstream outfile { outf.string() };
+                outfile << std::left  << std::setw(20) << "Iteration"
+                        << std::left  << std::setw(20) << "Time [mus]\n" ;
             }
+            std::ofstream outfile { outf.string(), std::ios::app} ; 
+            outfile << std::fixed << std::setprecision(15) ; 
+            outfile << std::left  << std::setw(20) << iter 
+                    << std::left  << std::setw(20) << time << '\n'; 
         }
     }
     //*********************************************************************************************************************

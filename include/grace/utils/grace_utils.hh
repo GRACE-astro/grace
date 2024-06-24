@@ -41,6 +41,5 @@
 #include <grace/utils/iterator.hh>
 #include <grace/utils/string_manip.hh>
 #include <grace/utils/execution_tag.hh>
-#include <grace/utils/format_utils.hh>
 
 #endif /* GRACE_UTILS_GRACE_UTILS_HH */

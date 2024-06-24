@@ -1,0 +1,64 @@
+name: "grace"
+amr: {
+  npoints_block_x: 9,
+  npoints_block_y: 9,
+  npoints_block_z: 9,
+  xmin: -3.,
+  xmax: 3.,
+  ymin: -0.5,
+  ymax: 0.5,
+  zmin: -0.5,
+  zmax: 0.5,
+  n_ghostzones: 2,
+  initial_refinement_level: 4,
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_CTORE: 2.,
+  refinement_criterion_CTODE: 1.,
+  refinement_criterion_var: "U",
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+IO: {
+  volume_output_cell_variables: ["U"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: -1,
+  plane_surface_output_cell_variables: [],
+  plane_surface_output_every: 800,
+  sphere_surface_output_every: -1,
+  info_output_every: 20,
+  info_output_max_reductions: ["U"],
+  info_output_min_reductions: ["U"], 
+  scalar_output_every: 50,
+  scalar_output_minmax: ["U"],
+  scalar_output_norm2: ["U"],
+  scalar_output_integral: ["U"],
+  output_use_hdf5: true, 
+  hdf5_compression_level: 6,
+  hdf5_chunk_size: 8192
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  flush_level: "trace"
+}
+evolution: {
+  time_stepper: "rk2",
+  cfl_factor: 0.8,
+  final_time: 0.1
+  #timestep: 0.00025,
+  #timestep_selection_mode: "manual"
+}
+burgers_equation: {
+  id_type: "three_states_shocktube",
+  shocktube_x_location: -1.,
+  shocktube_x_location_2: 1.,
+  shocktube_left_state: 4.,
+  shocktube_central_state: 2.,
+  shocktube_right_state: 0.
+}
+profiling: {
+  enabled_hardware_counters: ["FetchSize",  "Wavefronts", "VALUInsts", "SALUInsts"], #warning: only change these if you REALLY know what you're doing
+  do_gpu_profiling: true # Runtime switch for counters collection
+}
