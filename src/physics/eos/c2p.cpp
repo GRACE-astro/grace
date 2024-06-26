@@ -32,7 +32,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#define C2P_TOLERANCE 1e-15
+#define C2P_TOLERANCE 1e-09
 
 namespace grace {
 
@@ -44,44 +44,44 @@ conservs_to_prims( grmhd_cons_array_t& cons
                  , eos_t const& eos
                  , double const& lapse_excision ) 
 {
-    using c2p_impl_t = grhd_c2p_t<eos_t> ; 
-    bool c2p_failed{ false }      ; 
-    double W ; 
+    using c2p_impl_t = grhd_c2p_t<eos_t> ;
+    bool c2p_failed{ false }             ;
+    double W                             ;
     /* Undensitize conservs */
-    for( auto& c: cons) c /= metric.sqrtg() ; 
+    for( auto& c: cons) c /= metric.sqrtg() ;
     /* First we check whether we are in the atmosphere */
-    auto const dens_atmo = eos.rho_atmosphere() ; 
+    auto const dens_atmo = eos.rho_atmosphere() ;
     if( cons[DENSL] > dens_atmo ) {
-        c2p_impl_t c2p(eos,metric,cons) ; 
+        c2p_impl_t c2p(eos,metric,cons) ;
         double residual ;
-        prims =  c2p.invert(residual) ; 
-        c2p_failed = (residual > C2P_TOLERANCE) ; 
+        prims =  c2p.invert(residual) ;
+        c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
         W = prims[PRESSL] ; // W was stored here for convenience
     } else {
-        c2p_failed = true ; 
+        c2p_failed = true ;
     }
     if(   prims[RHOL] < (1.+1e-03) * dens_atmo
-      or  c2p_failed 
+      or  c2p_failed
       or  metric.alp() < lapse_excision )
     {  
         prims[RHOL]  = dens_atmo ;
-        prims[TEMPL] = eos.temp_atmosphere() ;  
+        prims[TEMPL] = eos.temp_atmosphere() ;
         prims[YEL]   = eos.ye_atmosphere()   ;
         prims[EPSL]  = eos.eps_atmosphere()  ; 
-        prims[VXL]   = 0. ; 
-        prims[VYL]   = 0. ; 
-        prims[VZL]   = 0. ; 
-        W = 1. ; 
+        prims[VXL]   = 0. ;
+        prims[VYL]   = 0. ;
+        prims[VZL]   = 0. ;
+        W = 1. ;
     }
     /* Set pressure entropy and temperature */
     double h, csnd2;
     unsigned int err ;
     prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
         h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
-    ) ; 
+    ) ;
     /* Go from z-vec to velocity and remove */
     /* shift contribution.                  */
-    double const u0 = W / metric.alp() ; 
+    double const u0 = W / metric.alp() ;
     /* The 3-velocity in grace is not in the */
     /* ZAMO frame.                           */
     prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;
@@ -89,9 +89,9 @@ conservs_to_prims( grmhd_cons_array_t& cons
     prims[VZL] = metric.alp()*prims[VZL] - metric.beta(2) ;
     /* Re-compute conservative variables based  */
     /* on new primitives.                       */
-    prims_to_conservs(prims,cons,metric) ; 
+    //prims_to_conservs(prims,cons,metric) ;
     /* Re-densitize conservs */
-    for( auto& c: cons) c *= metric.sqrtg() ; 
+    for( auto& c: cons) c *= metric.sqrtg() ;
 }
 
 void GRACE_HOST_DEVICE
@@ -101,8 +101,8 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
 {
     std::array<double,3> vZAMO {
           (prims[VXL]+metric.beta(0))/metric.alp()
-        , (prims[VXL]+metric.beta(1))/metric.alp()
-        , (prims[VXL]+metric.beta(2))/metric.alp()
+        , (prims[VYL]+metric.beta(1))/metric.alp()
+        , (prims[VZL]+metric.beta(2))/metric.alp()
     } ; 
     double const v2 = metric.square_vec(vZAMO) ; 
     double const W  = 1./Kokkos::sqrt(1-v2) ; 

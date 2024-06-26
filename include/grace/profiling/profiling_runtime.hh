@@ -93,10 +93,20 @@ class profiling_runtime_impl_t
     out_basepath() const {
         return _base_outpath ; 
     }
+    /**
+     * @brief Get hash table containing currently active hardware counters.
+     * 
+     * @return std::unordered_map<size_t,std::string> hash table containing currently active hardware counters.
+     */
     std::unordered_map<size_t,std::string> GRACE_ALWAYS_INLINE 
     active_hardware_counters() {
         return _gpu_profiling_active_counters ; 
     }
+    /**
+     * @brief Get the currently active gpu profiling region name.
+     * 
+     * @return std::string Name of currently active gpu profiling section.
+     */
     std::string GRACE_ALWAYS_INLINE 
     top_gpu_region_name() const {
         return _gpu_profiling_active_regions_names.top() ; 

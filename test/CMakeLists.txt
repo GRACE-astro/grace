@@ -370,17 +370,17 @@ add_test(NAME coordinate_test_log COMMAND
 add_test(NAME interpolator_test COMMAND 
         ./interpolator_test )
 add_test(NAME regrid_test_cartesian COMMAND 
-        mpirun -n 8 ./regrid_test --grace-parfile ./configs/regrid_test_cartesian.yaml)
+        mpirun -n 2 ./regrid_test --grace-parfile ./configs/regrid_test_cartesian.yaml)
 add_test(NAME regrid_test_nolog COMMAND 
-        mpirun -n 8 ./regrid_test --grace-parfile ./configs/regrid_test_spherical.yaml )
+        mpirun -n 2 ./regrid_test --grace-parfile ./configs/regrid_test_spherical.yaml )
 add_test(NAME regrid_test_log COMMAND 
-        mpirun -n 8 ./regrid_test --grace-parfile ./configs/regrid_test_spherical_log.yaml )
+        mpirun -n 2 ./regrid_test --grace-parfile ./configs/regrid_test_spherical_log.yaml )
 add_test(NAME bc_test_unigrid_cartesian COMMAND 
-        mpirun -n 8 ./bc_test_unigrid --grace-parfile ./configs/regrid_test_cartesian.yaml )
+        mpirun -n 2 ./bc_test_unigrid --grace-parfile ./configs/regrid_test_cartesian.yaml )
 add_test(NAME bc_test_unigrid_spherical COMMAND 
         mpirun -n 2 ./bc_test_unigrid --grace-parfile ./configs/regrid_test_spherical.yaml )
 add_test(NAME bc_test_cartesian COMMAND 
-        mpirun -n 8 ./bc_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
+        mpirun -n 2 ./bc_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
 add_test(NAME bc_test_spherical COMMAND 
         mpirun -n 2 ./bc_test --grace-parfile ./configs/regrid_test_spherical.yaml )
 add_test(NAME scalar_reductions_test COMMAND 

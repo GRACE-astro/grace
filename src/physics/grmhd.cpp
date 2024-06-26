@@ -119,14 +119,14 @@ static void set_grmhd_shocktube_initial_data() {
                     double ye = _eos.ye_atmosphere();
                     unsigned int err ; 
                     /* Set eps temp and entropy */
-                    state(VEC(i,j,k),EPS_,q) = 
-                        _eos.eps_h_csnd2_temp_entropy__press_rho_ye( h, csnd2, state(VEC(i,j,k),TEMP_,q)
-                                                                   , state(VEC(i,j,k),ENTROPY_,q)
-                                                                   , state(VEC(i,j,k),PRESS_,q)
-                                                                   , state(VEC(i,j,k),RHO_,q)
+                    aux(VEC(i,j,k),EPS_,q) = 
+                        _eos.eps_h_csnd2_temp_entropy__press_rho_ye( h, csnd2, aux(VEC(i,j,k),TEMP_,q)
+                                                                   , aux(VEC(i,j,k),ENTROPY_,q)
+                                                                   , aux(VEC(i,j,k),PRESS_,q)
+                                                                   , aux(VEC(i,j,k),RHO_,q)
                                                                    , ye,err);
                     /* Set ye */
-                    state(VEC(i,j,k),YE_,q) = ye ; 
+                    aux(VEC(i,j,k),YE_,q) = ye ; 
                 }) ;
 }
 

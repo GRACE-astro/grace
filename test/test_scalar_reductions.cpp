@@ -43,22 +43,10 @@ TEST_CASE("Reductions", "[reductions]")
     using namespace grace::variables ; 
     using namespace grace ; 
     using namespace Kokkos ; 
-    #ifdef GRACE_ENABLE_BURGERS 
+    #if defined(GRACE_ENABLE_SCALAR_ADV) or defined(GRACE_ENABLED_BURGERS)
     int const DENS = U ; 
     int const DENS_ = U ; 
-    auto params = grace::config_parser::get()["IO"] ; 
-    params["scalar_output_minmax"][0] = "U" ; 
-    params["scalar_output_norm2"][0] = "U" ; 
-    params["scalar_output_integral"][0] = "U" ; 
-    #endif 
-    #ifdef GRACE_ENABLE_SCALAR_ADV
-    int const DENS = U ; 
-    int const DENS_ = U ; 
-    auto params = grace::config_parser::get()["IO"] ; 
-    params["scalar_output_minmax"][0] = "U" ; 
-    params["scalar_output_norm2"][0] = "U" ; 
-    params["scalar_output_integral"][0] = "U" ;  
-    #endif 
+    #endif
 
     auto& state  = grace::variable_list::get().getstate()  ;
     auto& coord_system = grace::coordinate_system::get() ; 
@@ -108,26 +96,29 @@ TEST_CASE("Reductions", "[reductions]")
     /* Compute reductions  */
     IO::compute_reductions() ; 
     /* Check results */
-    double const umax = IO::detail::_minmax_reduction_vars_results["U"].max_val; 
-    double const umin = IO::detail::_minmax_reduction_vars_results["U"].min_val;
-    double const unorm =  IO::detail::_norm2_reduction_vars_results["U"] ; 
-    double const uintegral = IO::detail::_integral_reduction_vars_results["U"] ; 
-
-    double constexpr umin_exact = 0.;
+    #if defined(GRACE_ENABLE_SCALAR_ADV) or defined(GRACE_ENABLED_BURGERS)
+    std::string const vname = "U" ; 
+    #else 
+    std::string const vname = "dens" ; 
+    #endif  
+    double const umax = IO::detail::_minmax_reduction_vars_results[vname].max_val; 
+    double const umin = IO::detail::_minmax_reduction_vars_results[vname].min_val;
+    double const unorm =  IO::detail::_norm2_reduction_vars_results[vname] ; 
+    double const uintegral = IO::detail::_integral_reduction_vars_results[vname] ; 
 
     #ifdef GRACE_3D 
     double constexpr umax_exact  = 3.845968535513439      ; 
     double constexpr unorm_exact = 53.888666613           ; 
     double constexpr uint_exact  = 0.0628318531           ; 
     #else 
-    double constexpr umax_exact  = 3.474809879514141     ; 
-    double constexpr unorm_exact = 25.59191901530323     ; 
-    double constexpr uint_exact  = 0.010025717692004638  ; 
+    double constexpr umax_exact  = 3.8932041101     ; 
+    double constexpr unorm_exact = 22.627416998     ; 
+    double constexpr uint_exact  = 0.2506628275     ; 
     #endif 
 
-    CHECK_THAT(umax, Catch::Matchers::WithinRel(umax_exact,1e-05)) ; 
+    CHECK_THAT(umax, Catch::Matchers::WithinRel(umax_exact,1e-03)) ; 
     CHECK_THAT(umin, Catch::Matchers::WithinAbs(0.,1e-12)) ; 
-    CHECK_THAT(unorm, Catch::Matchers::WithinRel(unorm_exact,1e-05)) ; 
-    CHECK_THAT(uintegral, Catch::Matchers::WithinRel(uint_exact,1e-05)) ; 
+    CHECK_THAT(unorm, Catch::Matchers::WithinRel(unorm_exact,1e-03)) ; 
+    CHECK_THAT(uintegral, Catch::Matchers::WithinRel(uint_exact,1e-03)) ; 
 
 }

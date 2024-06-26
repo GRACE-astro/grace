@@ -104,7 +104,8 @@ void evolve_impl() {
     if ( tstepper == "euler" ) {
         compute_auxiliary_quantities<eos_t>(state, aux) ;
         advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,cvol,fsurf) ; 
-        amr::apply_boundary_conditions() ; 
+        amr::apply_boundary_conditions(state) ; 
+        //compute_auxiliary_quantities<eos_t>(state, aux) ;
     } else if (tstepper == "rk2" ) {
         /* Compute auxiliaries at current timelevel */
         compute_auxiliary_quantities<eos_t>(state, aux) ;
@@ -113,6 +114,7 @@ void evolve_impl() {
         compute_auxiliary_quantities<eos_t>(state_p, aux) ;
         advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,cvol,fsurf) ;
         amr::apply_boundary_conditions(state) ; 
+        //compute_auxiliary_quantities<eos_t>(state, aux) ;
     } else if (tstepper == "rk3" ) {
         ERROR("Not implemented yet.") ; 
     } else {

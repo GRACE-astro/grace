@@ -240,7 +240,7 @@ struct burgers_equation_system_t
         double const fR = 0.5 * math::int_pow<2>(uR) ; 
         
         double const cmin = - math::min(0., math::min(uL,uR)) ; 
-        double const cmax = math::max(0., math::max(uL,uR))   ; 
+        double const cmax =   math::max(0., math::max(uL,uR))   ; 
 
         fluxes(VEC(i,j,k),U_,idir,q) 
             = solver(fL,fR,uL,uR,cmin,cmax) ; 

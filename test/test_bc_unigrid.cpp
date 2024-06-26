@@ -58,7 +58,7 @@ TEST_CASE("Apply BC", "[boundaries]")
     using namespace grace ;
     using namespace Kokkos ; 
 
-    #ifdef GRACE_ENABLE_BURGERS 
+    #if defined(GRACE_ENABLE_BURGERS) or defined(GRACE_ENABLE_SCALAR_ADV)
     int const DENS = U ; 
     int const DENS_ = U ; 
     #endif  

@@ -14,9 +14,9 @@ amr: {
 }
 IO: {
   volume_output_cell_variables: ["U"],
-  scalar_output_minmax: ["U"],
-  scalar_output_norm2: ["U"],
-  scalar_output_integral: ["U"]
+  scalar_output_minmax: ["U","dens"],
+  scalar_output_norm2: ["U","dens"],
+  scalar_output_integral: ["U","dens"]
 }
 system: {
   console_log_level: "info",

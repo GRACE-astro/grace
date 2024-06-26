@@ -44,7 +44,7 @@ get_coords_buffer_zone(
     coords_t& coord_system
 ){
     using namespace grace ; 
-    #ifdef GRACE_ENABLE_BURGERS 
+    #if defined(GRACE_ENABLE_BURGERS) or defined(GRACE_ENABLE_SCALAR_ADV)
     int const DENS = U ; 
     int const DENS_ = U ; 
     #endif 
@@ -152,19 +152,16 @@ get_coords_buffer_zone(
 TEST_CASE("Simple regrid", "[regrid]")
 {
     using namespace grace::variables ; 
-
-    #ifdef GRACE_ENABLE_BURGERS 
+    #if defined(GRACE_ENABLE_BURGERS) or defined(GRACE_ENABLE_SCALAR_ADV)
     int const DENS = U ; 
     int const DENS_ = U ; 
     auto params = grace::config_parser::get()["amr"] ; 
     params["refinement_criterion_var"] = "U" ; 
-    #endif 
-    #ifdef GRACE_ENABLE_SCALAR_ADV
-    int const DENS = U ; 
-    int const DENS_ = U ; 
+    #else
     auto params = grace::config_parser::get()["amr"] ; 
-    params["refinement_criterion_var"] = "U" ; 
-    #endif 
+    params["refinement_criterion_var"] = "dens" ; 
+    #endif
+    
     auto& state  = grace::variable_list::get().getstate()  ;
     auto& coords = grace::variable_list::get().getcoords() ; 
     auto& dx     = grace::variable_list::get().getspacings(); 

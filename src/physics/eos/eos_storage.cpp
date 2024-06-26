@@ -146,7 +146,7 @@ static piecewise_polytropic_eos_t setup_cold_politrope()
         , _pwpoly_eps
         , _pwpoly_press
         , _pwpoly_n_pieces
-        , 1
+        , 1e+10
         , 1e-20
     }) ; 
 

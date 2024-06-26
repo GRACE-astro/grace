@@ -93,15 +93,15 @@ g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \
                           , view(__VA_ARGS__,BETAZ_,q) } \
                           , view(__VA_ARGS__,ALP_,q) } 
                           
-#define FILL_PRIMS_ARRAY(prims,vview,q,...)        \
-prims[RHOL] = vview(__VA_ARGS__,RHO_,q);      \
-prims[PRESSL] = vview(__VA_ARGS__,PRESS_,q) ; \
-prims[VXL] = vview(__VA_ARGS__,VELX_,q) ;     \
-prims[VYL] = vview(__VA_ARGS__,VELY_,q) ;     \
-prims[VZL] = vview(__VA_ARGS__,VELZ_,q) ;     \
-prims[YEL] = vview(__VA_ARGS__,YE_,q) ;       \
-prims[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
-prims[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
-prims[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)
+#define FILL_PRIMS_ARRAY(primsarr,vview,q,...)        \
+primsarr[RHOL] = vview(__VA_ARGS__,RHO_,q);      \
+primsarr[PRESSL] = vview(__VA_ARGS__,PRESS_,q) ; \
+primsarr[VXL] = vview(__VA_ARGS__,VELX_,q) ;     \
+primsarr[VYL] = vview(__VA_ARGS__,VELY_,q) ;     \
+primsarr[VZL] = vview(__VA_ARGS__,VELZ_,q) ;     \
+primsarr[YEL] = vview(__VA_ARGS__,YE_,q) ;       \
+primsarr[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
+primsarr[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
+primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)
 
 #endif /* GRACE_PHYSICS_GRMHD_HELPERS_HH */

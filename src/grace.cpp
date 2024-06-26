@@ -86,7 +86,8 @@ int main(int argc, char* argv[])
     grace::IO::write_cell_output(true,true,true) ;
     grace::IO::compute_reductions() ; 
     grace::IO::initialize_output_files() ; 
-    grace::IO::write_scalar_output() ; 
+    grace::IO::write_scalar_output() ;
+    GRACE_INFO("Starting evolution.") ; 
     grace::IO::info_output() ;
     /**********************************************************************************/
     /**********************************************************************************/
@@ -108,7 +109,6 @@ int main(int argc, char* argv[])
     /**********************************************************************************/
     /*                           Evolution loop                                       */
     /**********************************************************************************/
-    GRACE_INFO("Starting evolution.") ; 
     while( grace::get_simulation_time() < final_time ) 
     {   
         /**********************************************************************************/
