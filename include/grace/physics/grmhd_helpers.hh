@@ -104,4 +104,55 @@ primsarr[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
 primsarr[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
 primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)
 
+#define AM2 -0.0625
+#define AM1  0.5625
+#define A0   0.5625
+#define A1  -0.0625
+#ifdef GRACE_3D
+#define COMPUTE_FCVAL_HELPER(mview,i,j,k,ivar,q,idir)                                          \
+  AM2*mview(i-2*utils::delta(0,idir),j-2*utils::delta(1,idir),k-2*utils::delta(2,idir),ivar,q) \
++ AM1*mview(i-utils::delta(0,idir),j-utils::delta(1,idir),k-utils::delta(2,idir),ivar,q)       \
++ A0*mview(i,j,k,ivar,q)                                                                       \
++ A1*mview(i+utils::delta(0,idir),j+utils::delta(1,idir),k+utils::delta(2,idir),ivar,q)        
+#define COMPUTE_FCVAL(g,mview,i,j,k,q,idir)                     \
+g = grace::metric_array_t{                                      \
+      {                                                         \
+          COMPUTE_FCVAL_HELPER(mview,i,j,k,GXX_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GXY_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GXZ_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYY_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYZ_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GZZ_,q,idir)         \
+      }                                                         \
+    , {                                                         \
+          COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAX_,q,idir)       \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAY_,q,idir)       \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAZ_,q,idir)       \
+      }                                                         \
+    , COMPUTE_FCVAL_HELPER(mview,i,j,k,ALP_,q,idir)             \
+}
+#else
+#define COMPUTE_FCVAL_HELPER(mview,i,j,ivar,q,idir)                   \
+  AM2*mview(i-2*utils::delta(0,idir),j-2*utils::delta(1,idir),ivar,q) \
++ AM1*mview(i-utils::delta(0,idir),j-utils::delta(1,idir),ivar,q)     \
++ A0*mview(i,j,ivar,q)                                                \
++ A1*mview(i+utils::delta(0,idir),j+utils::delta(1,idir),ivar,q)        
+#define COMPUTE_FCVAL(g,mview,i,j,q,idir)                     \
+g = grace::metric_array_t{                                    \
+      {                                                       \
+          COMPUTE_FCVAL_HELPER(mview,i,j,GXX_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,GXY_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,GXZ_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,GYY_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,GYZ_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,GZZ_,q,idir)         \
+      }                                                       \
+    , {                                                       \
+          COMPUTE_FCVAL_HELPER(mview,i,j,BETAX_,q,idir)       \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,BETAY_,q,idir)       \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,BETAZ_,q,idir)       \
+      }                                                       \
+    , COMPUTE_FCVAL_HELPER(mview,i,j,ALP_,q,idir)             \
+}
+#endif 
 #endif /* GRACE_PHYSICS_GRMHD_HELPERS_HH */

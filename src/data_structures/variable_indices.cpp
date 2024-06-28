@@ -205,6 +205,7 @@ void register_variables() {
     REGISTER_AUX_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","none") ; 
     REGISTER_AUX_SCALAR(ALP,"alp","none") ; 
     REGISTER_AUX_VECTOR(BETAX,BETAY,BETAZ,"beta","none");
+    REGISTER_AUX_TENSOR(KXX,KXY,KXZ,KYY,KYZ,KZZ,"ext_curv","none") ; 
     /********************************************************************************/
     /********************************************************************************/
     /*                           COPY INDICES TO GPU                                */

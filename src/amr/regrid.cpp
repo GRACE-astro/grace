@@ -352,8 +352,9 @@ void regrid() {
     /*                            Auxiliary vars are reallocated                              */
     /*                            but not re-initialized.                                     */
     /******************************************************************************************/
-    int nvars_aux = aux.extent(GRACE_NSPACEDIM) ; 
-    Kokkos::resize( aux         ,   VEC(  nx + 2*ngz 
+    int nvars_aux = grace::variables::get_n_auxiliary() ; 
+    GRACE_TRACE("Resizing aux array {} aux vars registered, new quad count {}", nvars_aux, nq_local) ; 
+    Kokkos::realloc( aux        ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 
                                         , nz + 2*ngz )
                                 ,   nvars_aux

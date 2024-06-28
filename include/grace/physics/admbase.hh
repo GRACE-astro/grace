@@ -27,15 +27,93 @@
 #ifndef GRACE_PHYSICS_ADMBASE_HH 
 #define GRACE_PHYSICS_ADMBASE_HH
 
+#include <grace_config.h>
+#include <grace/utils/device.h>
+#include <grace/utils/inline.h>
+#include <grace/utils/grace_utils.hh>
+#include <grace/errors/error.hh>
+#include <grace/data_structures/variable_properties.hh>
+#include <grace/evolution/evolution_kernel_tags.hh>
+#include <grace/data_structures/variable_indices.hh>
+#include <grace/config/config_parser.hh>
+
+#include <string>
+
 namespace grace 
 {
 
-class admbase 
-{
+enum static_metric_t {
+    MINKOWSKI=0,
+    NUM_STATIC_METRICS
+} ; 
 
+class adm_equations_system_t {
 
+ public:
+    adm_equations_system_t()  = default ; 
+
+    adm_equations_system_t(grace::var_array_t<GRACE_NSPACEDIM> const aux)
+        : _aux(aux)
+    {
+        std::string metric_type = 
+            grace::get_param<std::string>("admbase","metric_kind") ;
+
+        if ( metric_type == "Minkowski" ) {
+            _static_metric_t = MINKOWSKI ; 
+        } else {
+            ERROR("Metric type " << metric_type << " not supported.") ;
+        }
+    }; 
+
+    ~adm_equations_system_t() = default ;
+
+    /**
+     * @brief Compute GRMHD auxiliary quantities.
+     *        This is essentially a call to c2p.
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param q Quadrant index.
+     */
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    operator() ( auxiliaries_computation_kernel_t _tag
+               , VEC( const int i 
+               ,      const int j 
+               ,      const int k)
+               , int64_t q ) const
+    {
+        if ( _static_metric_t == MINKOWSKI ) { 
+            _aux(VEC(i,j,k),GXX_,q) = 1. ;
+            _aux(VEC(i,j,k),GYY_,q) = 1. ;
+            _aux(VEC(i,j,k),GZZ_,q) = 1. ;
+            _aux(VEC(i,j,k),GXY_,q) = 0. ;
+            _aux(VEC(i,j,k),GXZ_,q) = 0. ;
+            _aux(VEC(i,j,k),GYZ_,q) = 0. ;
+
+            _aux(VEC(i,j,k),KXX_,q) = 0. ;
+            _aux(VEC(i,j,k),KYY_,q) = 0. ;
+            _aux(VEC(i,j,k),KZZ_,q) = 0. ;
+            _aux(VEC(i,j,k),KXY_,q) = 0. ;
+            _aux(VEC(i,j,k),KXZ_,q) = 0. ;
+            _aux(VEC(i,j,k),KYZ_,q) = 0. ;
+
+            _aux(VEC(i,j,k),BETAX_,q) = 0. ;
+            _aux(VEC(i,j,k),BETAY_,q) = 0. ;
+            _aux(VEC(i,j,k),BETAZ_,q) = 0. ;
+
+            _aux(VEC(i,j,k),ALP_,q) = 1. ;
+        }
+    }
+
+ private:
+    grace::var_array_t<GRACE_NSPACEDIM> _aux ; 
+    bool   _metric_is_static{true} ; 
+    size_t _static_metric_t ; 
 
 } ; 
+
+void set_admbase_id() ;
+
 
 } /* namespace grace */
 

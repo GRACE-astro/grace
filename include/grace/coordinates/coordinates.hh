@@ -44,6 +44,12 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>&
                           , cell_vol_array_t<GRACE_NSPACEDIM>&
                           , staggered_coordinate_arrays_t& ) ; 
 /*****************************************************************************************/
+/**
+ * @brief Fill a device view with physical coordinates on the grid. 
+ * 
+ * @param pcoords The view to be filled with coordinates.
+ */
+void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords ) ; 
 } /* namespace grace */ 
 
 #endif /* F25FCED7_32FD_48EF_A294_4D29ABC78524 */

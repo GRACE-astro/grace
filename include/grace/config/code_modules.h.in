@@ -48,6 +48,7 @@ const std::vector< std::string > code_modules {
     #endif 
     #ifdef GRACE_ENABLE_GRMHD
     , "grmhd"
+    , "admbase"
     #endif 
     , "eos"
     , "profiling"
@@ -66,6 +67,7 @@ const std::vector< std::string > code_modules_default_configs {
      #endif 
      #ifdef GRACE_ENABLE_GRMHD
      , "${CMAKE_SOURCE_DIR}/include/grace/physics/grmhd-defaults.yaml"
+     , "${CMAKE_SOURCE_DIR}/include/grace/physics/admbase-defaults.yaml"
      #endif
      , "${CMAKE_SOURCE_DIR}/include/grace/physics/eos/eos-defaults.yaml"
      , "${CMAKE_SOURCE_DIR}/include/grace/profiling/profiling-defaults.yaml"

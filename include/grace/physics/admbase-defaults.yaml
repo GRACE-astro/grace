@@ -1,0 +1,4 @@
+admbase: {
+  metric_is_static: true,
+  metric_kind: "Minkowski"
+}

@@ -96,23 +96,24 @@ void evolve_impl() {
     auto& aux     = grace::variable_list::get().getaux()     ; 
 
     auto& cvol    = grace::variable_list::get().getvolumes() ; 
-    auto& fsurf   = grace::variable_list::get().getstaggeredcoords() ; 
+    auto& fsurf   = grace::variable_list::get().getstaggeredcoords() ;
+    auto& idx     = grace::variable_list::get().getinvspacings() ;  
     /* Copy the current state to scratch memory */
     //amr::apply_boundary_conditions(state) ; 
     Kokkos::deep_copy(state_p, state) ; 
 
     if ( tstepper == "euler" ) {
         compute_auxiliary_quantities<eos_t>(state, aux) ;
-        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,cvol,fsurf) ; 
+        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,cvol,fsurf) ; 
         amr::apply_boundary_conditions(state) ; 
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
     } else if (tstepper == "rk2" ) {
         /* Compute auxiliaries at current timelevel */
         compute_auxiliary_quantities<eos_t>(state, aux) ;
-        advance_substep<eos_t>(t,dt,0.5,state_p,state,aux,cvol,fsurf) ; 
+        advance_substep<eos_t>(t,dt,0.5,state_p,state,aux,idx,cvol,fsurf) ; 
         amr::apply_boundary_conditions(state_p) ; 
         compute_auxiliary_quantities<eos_t>(state_p, aux) ;
-        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,cvol,fsurf) ;
+        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,cvol,fsurf) ;
         amr::apply_boundary_conditions(state) ; 
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
     } else if (tstepper == "rk3" ) {
@@ -127,6 +128,7 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , var_array_t<GRACE_NSPACEDIM>& new_state 
                     , var_array_t<GRACE_NSPACEDIM>& old_state 
                     , var_array_t<GRACE_NSPACEDIM>& aux 
+                    , scalar_array_t<GRACE_NSPACEDIM>& idx
                     , cell_vol_array_t<GRACE_NSPACEDIM>& cvol
                     , staggered_coordinate_arrays_t& surfs_and_edges )
 {
@@ -170,7 +172,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     #define GET_Z_FLUX \
     scalar_adv_system(z_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes)
     #define GET_SOURCES \
-    scalar_adv_system(sources_computation_kernel_t{}, team, VEC(i,j,k), new_state, dt, dtfact )
+    scalar_adv_system(sources_computation_kernel_t{}, team, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 
     #ifdef GRACE_ENABLE_BURGERS 
     burgers_equation_system_t<weno_reconstructor_t<3>,hll_riemann_solver_t>
@@ -182,7 +184,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     #define GET_Z_FLUX \
     burgers_eq_system(z_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes)
     #define GET_SOURCES \
-    burgers_eq_system(sources_computation_kernel_t{}, team, VEC(i,j,k), new_state, dt, dtfact )
+    burgers_eq_system(sources_computation_kernel_t{}, team, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
@@ -195,7 +197,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     #define GET_Z_FLUX \
     grmhd_eq_system(z_flux_computation_kernel_t{}, team, VEC(i,j,k), ngz, fluxes)
     #define GET_SOURCES \
-    grmhd_eq_system(sources_computation_kernel_t{}, team, VEC(i,j,k), new_state, dt, dtfact )
+    grmhd_eq_system(sources_computation_kernel_t{}, team, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 
     
     TeamPolicy<default_execution_space> policy( nq, AUTO() ) ;
@@ -250,11 +252,13 @@ void advance_substep( double const t, double const dt, double const dtfact
             GET_Z_FLUX ;
         }) ; 
         #endif 
+        #if 1
         parallel_for( team_range 
                     , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
         {
             GET_SOURCES ; 
         }) ;
+        #endif 
         team.team_barrier() ; 
 
         auto team_range_vars = 
@@ -289,6 +293,7 @@ void advance_substep<EOS>( double const , double const , double const \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \
                          , grace::staggered_coordinate_arrays_t&  ) ; \
 template                                                              \

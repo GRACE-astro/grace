@@ -193,4 +193,44 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>& coords
     GRACE_VERBOSE("Coordinate view copy (h2d) took {:.3e} mus.",currentTime) ;
 }
 
+void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords ) {
+    using namespace grace ; 
+    auto& params = grace::config_parser::get(); 
+    size_t nx {params["amr"]["npoints_block_x"].as<size_t>()} ; 
+    size_t ny {params["amr"]["npoints_block_y"].as<size_t>()} ; 
+    size_t nz {params["amr"]["npoints_block_z"].as<size_t>()} ; 
+    
+    auto nq = amr::get_local_num_quadrants() ;
+    auto const ngz = amr::get_n_ghosts() ; 
+
+    auto h_coords = Kokkos::create_mirror_view(pcoords) ; 
+    auto& coord_system = grace::coordinate_system::get() ; 
+
+    int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
+    for( int64_t icell=0; icell<ncells; ++icell) {
+        size_t const i = icell%(nx+2*ngz); 
+        size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
+        #ifdef GRACE_3D 
+        size_t const k = 
+            (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
+        size_t const q = 
+            (icell/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ;
+        #else 
+        size_t const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
+        #endif 
+        /* Physical coordinates of cell center */
+        auto const pcoords_loc = coord_system.get_physical_coordinates(
+            {VEC(i,j,k)},
+            q,
+            true
+        ) ;
+
+        EXPR(
+        h_coords(VEC(i,j,k),0,q) = pcoords_loc[0] ;,
+        h_coords(VEC(i,j,k),1,q) = pcoords_loc[1] ;,
+        h_coords(VEC(i,j,k),2,q) = pcoords_loc[2] ; 
+        )
+    }
+    Kokkos::deep_copy(pcoords,h_coords) ; 
+}
 } /* namespace grace */ 

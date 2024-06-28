@@ -127,6 +127,50 @@ alp() const { return _alp ; }
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 sqrtg() const { return _sqrtg ; }
 /**
+ * @brief Get the covariant components of the 4-metric.
+ * 
+ * @return std::array<double,10> \f$g_{\mu\nu}\f$.
+ */
+std::array<double,10> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+gmunu() const {
+    std::array<double,10> glmunu ; 
+    int ww{0} ; 
+    glmunu[ww] = - math::int_pow<2>(_alp) + square_vec(_beta) ; ww++; 
+    auto const betal = lower(_beta) ; 
+    for( int ii=0; ii<3; ++ii ) { 
+        glmunu[ww] = betal[ii] ; ww++;
+    }
+    for( int ii=0; ii<6; ++ii) {
+        glmunu[ww] = _g[ii] ; ww++; 
+    }
+    return std::move(glmunu) ; 
+}
+/**
+ * @brief Get the contravariant components of the 4-metric.
+ * 
+ * @return std::array<double,10> \f$g^{\mu\nu}\f$.
+ */
+std::array<double,10> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+invgmunu() const {
+    std::array<double,10> gumunu ; 
+    int ww{0} ; 
+    auto const one_over_alp2 = 1./math::int_pow<2>(_alp);
+    gumunu[ww] = - one_over_alp2 ; ww++;
+    for( int ii=0; ii<3; ++ii ) { 
+        gumunu[ww] = one_over_alp2 * _beta[ii] ; ww++;
+    }
+    int vv=0;
+    for( int ii=0; ii<3; ++ii) {
+        for( int jj=ii; jj<3; ++jj){
+            gumunu[ww] = _ginv[vv] 
+                - one_over_alp2 * _beta[ii] * _beta[jj] ; 
+            ww++; vv++;
+        }
+    }
+    return std::move(gumunu) ; 
+}
+
+/**
  * @brief Raise the index of a 3-covector.
  * 
  * @param v Components of the 3-covector.
@@ -245,16 +289,54 @@ contract_symm_2tensors_low( std::array<double,6> const& A
  * @return double \f$A_{i j} B^{i j}\f$.
  */
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-contract_symm_2tensors( std::array<double,6> const& A
-                      , std::array<double,6> const& B ) const 
+contract_sym2tens_sym2tens( std::array<double,6> const& A
+                          , std::array<double,6> const& B ) const 
 {
-    return A[XX]*B[XX] + 2*A[XY]*B[XY] + 2*A[XZ]*B[XZ] + A[YY]*B[YY] + 2*A[YZ]*B[YZ] + A[ZZ]*B[ZZ];
+    return A[XX]*B[XX] + A[YY]*B[YY] + A[ZZ]*B[ZZ] 
+        +  2*( A[XY]*B[XY] 
+             + A[XZ]*B[XZ]  
+             + A[YZ]*B[YZ] ) ;
+}
+
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_vec_vec_sym2tens( std::array<double,3> const& v
+                         , std::array<double,3> const& w 
+                         , std::array<double,6> const& A ) const 
+{
+    return A[XX]*v[X]*w[X] + A[XY]*v[Y]*w[X] + A[XZ]*v[Z]*w[X] 
+         + A[XY]*v[X]*w[Y] + A[YY]*v[Y]*w[Y] + A[YZ]*v[Z]*w[Y] 
+         + A[XZ]*v[X]*w[Z] + A[YZ]*v[Y]*w[Z] + A[ZZ]*v[Z]*w[Z];
+}
+
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_vec_sym2tens( std::array<double,3> const& v
+                     , std::array<double,6> const& A ) const 
+{
+    return contract_vec_vec_sym2tens(v,v,A) ; 
+}
+
+/**
+ * @brief Compute the full contraction of two
+ *        symmetric rank 2 4 tensors.
+ * 
+ * @param A Covariant components of the first 2-tensor.
+ * @param B Contravariant components of the other 2-tensor.
+ * @return double \f$A_{\mu \nu} B^{\mu \nu}\f$.
+ */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_4dsym2tens_4dsym2tens( std::array<double,10> const& A
+                              , std::array<double,10> const& B ) const 
+{
+    return A[0]*B[0] + A[4]*B[4] + A[7]*B[7] + A[9]*B[9]
+         + 2*( A[1]*B[1]  + A[2]*B[2] 
+             + A[3]*B[3]  + A[5]*B[5] 
+             + A[6]*B[6]  + A[8]*B[8] ) ;
 }
 
 std::array<double,6> _g, _ginv ; //!< Spatial metric and inverse components.
 std::array<double,3> _beta     ; //!< Contravariant shift vector. 
-double _alp               ; //!< Lapse function.
-double _sqrtg             ; //!< Square root of spatial metric determinant.
+double _alp                    ; //!< Lapse function.
+double _sqrtg                  ; //!< Square root of spatial metric determinant.
 
  private: 
     //! Helpers for tensor and vector indices.

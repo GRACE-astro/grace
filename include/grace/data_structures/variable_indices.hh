@@ -248,7 +248,13 @@ DECLARE_VAR_INDEX_IMPL(GZZ)                       \
 DECLARE_VAR_INDEX_IMPL(ALP)                       \
 DECLARE_VAR_INDEX_IMPL(BETAX)                     \
 DECLARE_VAR_INDEX_IMPL(BETAY)                     \
-DECLARE_VAR_INDEX_IMPL(BETAZ)                      
+DECLARE_VAR_INDEX_IMPL(BETAZ)                     \
+DECLARE_VAR_INDEX_IMPL(KXX)                       \
+DECLARE_VAR_INDEX_IMPL(KXY)                       \
+DECLARE_VAR_INDEX_IMPL(KXZ)                       \
+DECLARE_VAR_INDEX_IMPL(KYY)                       \
+DECLARE_VAR_INDEX_IMPL(KYZ)                       \
+DECLARE_VAR_INDEX_IMPL(KZZ)                       
 //#else 
 //#define VARIABLE_LIST_ADMBASE 
 //#define VARIABLE_LIST_HYDROBASE

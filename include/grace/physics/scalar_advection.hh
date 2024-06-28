@@ -94,6 +94,7 @@ struct scalar_advection_system_t
                          , VEC( const int i 
                          ,      const int j 
                          ,      const int k)
+                         , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
                          , grace::var_array_t<GRACE_NSPACEDIM> const state_new 
                          , double const dt 
                          , double const dtfact ) const 

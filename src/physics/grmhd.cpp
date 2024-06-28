@@ -111,10 +111,6 @@ static void set_grmhd_shocktube_initial_data() {
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
-                    aux(VEC(i,j,k),GXX_,q) = 1. ; aux(VEC(i,j,k),GXY_,q) = 0. ; aux(VEC(i,j,k),GXZ_,q) = 0. ;
-                    aux(VEC(i,j,k),GYY_,q) = 1. ; aux(VEC(i,j,k),GYZ_,q) = 0. ; aux(VEC(i,j,k),GZZ_,q) = 1. ;
-                    aux(VEC(i,j,k),BETAX_,q) = 0. ; aux(VEC(i,j,k),BETAY_,q) = 0. ; aux(VEC(i,j,k),BETAZ_,q) = 0. ;
-                    aux(VEC(i,j,k),ALP_,q) = 1. ;
                     double h, csnd2; 
                     double ye = _eos.ye_atmosphere();
                     unsigned int err ; 
@@ -160,6 +156,12 @@ void set_conservs_from_prims() {
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
+        aux(VEC(i,j,k),GXX_,q)   = 1. ; aux(VEC(i,j,k),GXY_,q)   = 0. ; aux(VEC(i,j,k),GXZ_,q)   = 0. ;
+        aux(VEC(i,j,k),GYY_,q)   = 1. ; aux(VEC(i,j,k),GYZ_,q)   = 0. ; aux(VEC(i,j,k),GZZ_,q)   = 1. ;
+        aux(VEC(i,j,k),BETAX_,q) = 0. ; aux(VEC(i,j,k),BETAY_,q) = 0. ; aux(VEC(i,j,k),BETAZ_,q) = 0. ;
+        aux(VEC(i,j,k),ALP_,q) = 1. ;
+        aux(VEC(i,j,k),KXX_,q) = 0. ; aux(VEC(i,j,k),KXY_,q) = 0. ; aux(VEC(i,j,k),KXZ_,q) = 0. ;
+        aux(VEC(i,j,k),KYY_,q) = 0. ; aux(VEC(i,j,k),KYZ_,q) = 0. ; aux(VEC(i,j,k),KZZ_,q) = 0. ;
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric, aux, q, VEC(i,j,k)) ; 
         grmhd_prims_array_t prims ; 

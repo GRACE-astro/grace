@@ -17,7 +17,7 @@ target_link_libraries( grace_burgers_eq PRIVATE
                         Kokkos::kokkos 
                         spdlog::spdlog ) 
 
-add_library(grace_grmhd OBJECT grmhd.cpp )
+add_library(grace_grmhd OBJECT grmhd.cpp admbase.cpp )
 target_include_directories(  grace_grmhd PRIVATE "${HEADER_DIR}")
 target_link_libraries( grace_grmhd PRIVATE
                         yaml_cpp::yaml
