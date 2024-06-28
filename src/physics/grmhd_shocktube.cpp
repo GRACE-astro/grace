@@ -49,23 +49,16 @@
 namespace grace{
 
 template< typename eos_t >
-static void set_grmhd_kelvinhelmholtz_initial_data() {
+static void set_grmhd_shocktube_initial_data() {
     using namespace grace ;
     using namespace Kokkos ; 
 
     GRACE_VERBOSE("Setting Shocktube initial data.") ; 
 
-    /* 
-       We implement here the 2D initial conditions for the KHI following
-       Schaal et al. (2015) in https://arxiv.org/pdf/1506.06140. 
-       Note that (x,y) in [0,1]^2. 
-    */
-
-    auto const rho_center = get_param<double>("grmhd","khi_rho_center") ; 
-    auto const rho_other = get_param<double>("grmhd","khi_rho_other") ; 
-    auto const press = get_param<double>("grmhd","khi_press") ; 
-    auto const vx_center = get_param<double>("grmhd","khi_vx_center") ;
-    auto const vx_other = get_param<double>("grmhd","khi_vx_other") ;
+    auto const rho_L = get_param<double>("grmhd","shocktube_rho_L") ; 
+    auto const rho_R = get_param<double>("grmhd","shocktube_rho_R") ; 
+    auto const press_L = get_param<double>("grmhd","shocktube_press_L") ; 
+    auto const press_R = get_param<double>("grmhd","shocktube_press_R") ;
 
     auto& aux   = variable_list::get().getaux() ; 
     auto& state = variable_list::get().getstate() ;
@@ -97,36 +90,24 @@ static void set_grmhd_kelvinhelmholtz_initial_data() {
             q,
             true
         ) ; 
-         /* 
-            Velocity vy is calculated as: 
-
-            vy = w0 * sin(4*x*pi)*{exp[-(y-0.25)^2/(2*sigma^2)]+exp[-(y-0.75)^2/(2*sigma^2)]}
-
-            where w0=0.01; sigma= 0.05/sqrt(2.0). Would be nice to have as an extra function!
-        */
-        double w0 = 0.1 ;
-        double sigma2 = pow(0.05/sqrt(2.),2.) ;
-        h_state_mirror(VEC(i,j,k),VELY,q) = w0 * sin(4.*M_PI*pcoords[0])*(exp(-pow(pcoords[1]-0.25,2.)/(2.*sigma2))+exp(-pow(pcoords[1]-0.75,2.)/(2.*sigma2))) ;
+        h_state_mirror(VEC(i,j,k),VELX,q) = 0. ;
+        h_state_mirror(VEC(i,j,k),VELY,q) = 0. ;
         h_state_mirror(VEC(i,j,k),VELZ,q) = 0. ;
-        h_state_mirror(VEC(i,j,k),PRESS,q) = press ;
-        if ( pcoords[1] > 0.25 && pcoords[1] < 0.75  ) {
-            h_state_mirror(VEC(i,j,k),RHO,q) = rho_center ;
-            h_state_mirror(VEC(i,j,k),VELX,q) = vx_center ;
-        } else {
-            h_state_mirror(VEC(i,j,k),RHO,q) = rho_other ;
-            h_state_mirror(VEC(i,j,k),VELX,q) = vx_other ;
-        }
-        // determine zvec_i = lfac * v_i  
-        double v_squared =pow(h_state_mirror(VEC(i,j,k),VELX,q),2.)+pow(h_state_mirror(VEC(i,j,k),VELY,q),2.)+pow(h_state_mirror(VEC(i,j,k),VELZ,q),2.) ;        
-        double lfac = 1/sqrt(1-v_squared) ; 
-        h_state_mirror(VEC(i,j,k),ZVECX,q) = lfac * h_state_mirror(VEC(i,j,k),VELX,q) ;
-        h_state_mirror(VEC(i,j,k),ZVECY,q) = lfac * h_state_mirror(VEC(i,j,k),VELY,q) ;
+        h_state_mirror(VEC(i,j,k),ZVECX,q) = 0. ;
+        h_state_mirror(VEC(i,j,k),ZVECY,q) = 0. ;
         h_state_mirror(VEC(i,j,k),ZVECZ,q) = 0. ;
+        if ( pcoords[0] <= 0 ) {
+            h_state_mirror(VEC(i,j,k),RHO,q) = rho_L ;
+            h_state_mirror(VEC(i,j,k),PRESS,q) = press_L ;
+        } else {
+            h_state_mirror(VEC(i,j,k),RHO,q) = rho_R ;
+            h_state_mirror(VEC(i,j,k),PRESS,q) = press_R ;
+        }
     }
     Kokkos::deep_copy(aux,h_state_mirror) ;
     
     auto const& _eos = eos::get().get_eos<eos_t>() ; 
-    parallel_for( GRACE_EXECUTION_TAG("ID","kelvinhelmholtz_ID")
+    parallel_for( GRACE_EXECUTION_TAG("ID","shocktube_ID")
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
@@ -148,8 +129,8 @@ static void set_grmhd_kelvinhelmholtz_initial_data() {
 template< typename eos_t >
 void set_grmhd_initial_data() {
     auto const id_type = get_param<std::string>("grmhd","id_type") ; 
-    if( id_type == "kelvinhelmholtz" ) {
-        set_grmhd_kelvinhelmholtz_initial_data<eos_t>() ; 
+    if( id_type == "shocktube" ) {
+        set_grmhd_shocktube_initial_data<eos_t>() ; 
     } else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }

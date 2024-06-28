@@ -4,5 +4,10 @@ grmhd: {
   shocktube_press_L: 13.3,
   shocktube_press_R: 0.66e-06,
   shocktube_rho_L: 10.,
-  shocktube_rho_R: 1. 
+  shocktube_rho_R: 1., 
+  khi_rho_center: 2.0,
+  khi_rho_other: 1.0,
+  khi_press: 2.5,
+  khi_vx_center: 0.5,
+  khi_vx_other: -0.5
 }
