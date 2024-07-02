@@ -45,43 +45,49 @@ struct hrsc_evolution_system_t {
      : _state(state_), _aux(aux_)
     {} 
 
-    template< typename thread_team_t >
+    template< typename riemann_t 
+            , typename recon_t 
+            , typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    operator() ( x_flux_computation_kernel_t _tag
-               , thread_team_t& team 
-               , VEC( const int i 
-               ,      const int j 
-               ,      const int k)
-               , int ngz
-               , grace::flux_array_t const fluxes) const 
+    compute_x_flux( thread_team_t& team 
+                  , VEC( const int i 
+                  ,      const int j 
+                  ,      const int k)
+                  , int ngz
+                  , grace::flux_array_t const fluxes) const 
     {
-        static_cast<EvolSystem_t const *>(this)->compute_x_flux(team,VEC(i,j,k),ngz,fluxes) ;
+        static_cast<EvolSystem_t const *>(this)->template 
+            compute_x_flux_impl<riemann_t,recon_t,thread_team_t>(team,VEC(i,j,k),ngz,fluxes) ;
     }
 
-    template< typename thread_team_t >
+    template< typename riemann_t 
+            , typename recon_t 
+            , typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    operator() ( y_flux_computation_kernel_t _tag
-               , thread_team_t& team 
-               , VEC( const int i 
-               ,      const int j 
-               ,      const int k)
-               , int ngz
-               , grace::flux_array_t const fluxes) const 
+    compute_y_flux( thread_team_t& team 
+                  , VEC( const int i 
+                  ,      const int j 
+                  ,      const int k)
+                  , int ngz
+                  , grace::flux_array_t const fluxes) const 
     {
-        static_cast<EvolSystem_t const *>(this)->compute_y_flux(team,VEC(i,j,k),ngz,fluxes) ; 
+        static_cast<EvolSystem_t const *>(this)->template 
+            compute_y_flux_impl<riemann_t,recon_t,thread_team_t>(team,VEC(i,j,k),ngz,fluxes) ; 
     }
 
-    template< typename thread_team_t >
+    template< typename riemann_t 
+            , typename recon_t 
+            , typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    operator() ( z_flux_computation_kernel_t _tag
-               , thread_team_t& team 
-               , VEC( const int i 
-               ,      const int j 
-               ,      const int k)
-               , int ngz
-               , grace::flux_array_t const fluxes) const 
+    compute_z_flux( thread_team_t& team 
+                  , VEC( const int i 
+                  ,      const int j 
+                  ,      const int k)
+                  , int ngz
+                  , grace::flux_array_t const fluxes) const  
     {
-        static_cast<EvolSystem_t const *>(this)->compute_z_flux(team,VEC(i,j,k),ngz,fluxes) ;
+        static_cast<EvolSystem_t const *>(this)->template 
+            compute_z_flux_impl<riemann_t,recon_t,thread_team_t>(team,VEC(i,j,k),ngz,fluxes) ; 
     }
 
     template< typename thread_team_t >

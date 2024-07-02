@@ -95,7 +95,7 @@ void compute_auxiliary_quantities(
     adm_equations_system_t adm_equations{aux} ; 
 
     auto eos = eos::get().get_eos<eos_t>() ;  
-    grmhd_equations_system_t<eos_t,weno_reconstructor_t<3>,hll_riemann_solver_t>
+    grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,state,aux) ; 
     #define GET_AUX \
     adm_equations(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q); \

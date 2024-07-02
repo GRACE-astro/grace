@@ -43,8 +43,6 @@ namespace grace {
 /**
  * @brief Burgers' equation evolution module.
  * \ingroup physics
- * @tparam recon_t Type of reconstruction.
- * @tparam riemann_t Type of Riemann solver.
  * 
  * This class implements the necessary methods to evolve 
  * Burgers' equation with HRSC methods in GRACE. The Burgers'
@@ -64,10 +62,8 @@ namespace grace {
  * simple to read template on how to implement a system of equations 
  * to be solved with HRSC methods in GRACE.
  */
-template< typename recon_t 
-        , typename riemann_t > 
 struct burgers_equation_system_t 
-    : public hrsc_evolution_system_t<burgers_equation_system_t<recon_t,riemann_t>>
+    : public hrsc_evolution_system_t<burgers_equation_system_t>
 {
     /**
      * @brief Construct a new Burgers' system object.
@@ -77,7 +73,7 @@ struct burgers_equation_system_t
      */
     burgers_equation_system_t( grace::var_array_t<GRACE_NSPACEDIM> state_
                              , grace::var_array_t<GRACE_NSPACEDIM> aux_   ) 
-     : hrsc_evolution_system_t<burgers_equation_system_t<recon_t,riemann_t>>(state_,aux_)
+     : hrsc_evolution_system_t<burgers_equation_system_t>(state_,aux_)
     { } ;
     /**
      * @brief Compute Burgers' fluxes in direction \f$x^1\f$
@@ -90,20 +86,24 @@ struct burgers_equation_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename thread_team_t >
+    template< typename riemann_t 
+            , typename recon_t 
+            , typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_x_flux( thread_team_t& team 
-                  , VEC( const int i 
-                  ,      const int j 
-                  ,      const int k)
-                  , int ngz
-                  , grace::flux_array_t const  fluxes) const 
+    compute_x_flux_impl( thread_team_t& team 
+                       , VEC( const int i 
+                       ,      const int j 
+                       ,      const int k)
+                       , int ngz
+                       , grace::flux_array_t const  fluxes) const 
     {
-        getflux<0>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
+        getflux<0,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
     }
     /**
      * @brief Compute Burgers' fluxes in direction \f$x^2\f$
      * 
+     * @tparam recon_t Type of reconstruction.
+     * @tparam riemann_t Type of Riemann solver.
      * @tparam thread_team_t Type of the thread team.
      * @param team Thread team.
      * @param i Cell index in \f$x^1\f$ direction.
@@ -112,20 +112,24 @@ struct burgers_equation_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename thread_team_t >
+    template< typename riemann_t 
+            , typename recon_t 
+            , typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_y_flux( thread_team_t& team 
-                  , VEC( const int i 
-                  ,      const int j 
-                  ,      const int k)
-                  , int ngz
-                  , grace::flux_array_t const  fluxes) const 
+    compute_y_flux_impl( thread_team_t& team 
+                       , VEC( const int i 
+                       ,      const int j 
+                       ,      const int k)
+                       , int ngz
+                       , grace::flux_array_t const  fluxes) const 
     {
-        getflux<1>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
+        getflux<1,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
     }
     /**
      * @brief Compute Burgers' fluxes in direction \f$x^3\f$
      * 
+     * @tparam recon_t Type of reconstruction.
+     * @tparam riemann_t Type of Riemann solver.
      * @tparam thread_team_t Type of the thread team.
      * @param team Thread team.
      * @param i Cell index in \f$x^1\f$ direction.
@@ -134,21 +138,25 @@ struct burgers_equation_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename thread_team_t >
+    template< typename riemann_t 
+            , typename recon_t 
+            , typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_z_flux(  thread_team_t& team 
-                  , VEC( const int i 
-                  ,      const int j 
-                  ,      const int k)
-                  , int ngz
-                  , grace::flux_array_t const  fluxes) const 
+    compute_z_flux_impl( thread_team_t& team 
+                       , VEC( const int i 
+                       ,      const int j 
+                       ,      const int k)
+                       , int ngz
+                       , grace::flux_array_t const  fluxes) const 
     {
-        getflux<2>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
+        getflux<2,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
     }
     /**
      * @brief Compute geometric source terms for Burgers' equation.
      * 
-     * @tparam thread_team_t Thread team type.
+     * @tparam recon_t Type of reconstruction.
+     * @tparam riemann_t Type of Riemann solver.
+     * @tparam thread_team_t Type of the thread team.
      * @param team Thread team.
      * @param i Cell index in \f$x^1\f$ direction.
      * @param j Cell index in \f$x^2\f$ direction.
@@ -208,6 +216,8 @@ struct burgers_equation_system_t
      *        in a prescribed direction.
      * 
      * @tparam idir Direction.
+     * @tparam recon_t Type of reconstruction.
+     * @tparam riemann_t Type of Riemann solver.
      * @param i Cell index in \f$x^1\f$ direction.
      * @param j Cell index in \f$x^2\f$ direction.
      * @param k Cell index in \f$x^3\f$ direction.
@@ -220,7 +230,9 @@ struct burgers_equation_system_t
      * physical flux at the interface \f$(i-1/2+\epsilon,j,k)\f$
      * (assuming <code>idir==0</code>) using the Riemann solver.
      */
-    template< int idir >
+    template< int idir 
+            , typename riemann_t 
+            , typename recon_t   >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     getflux(  VEC( const int i 
             ,      const int j 

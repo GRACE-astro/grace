@@ -43,8 +43,11 @@
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
+#include <grace/utils/advanced_riemann_solvers.hh>
 
 #include <Kokkos_Core.hpp>
+
+#include <type_traits>
 
 //**************************************************************************************************/
 /**
@@ -57,19 +60,15 @@ namespace grace {
  * @brief GRMHD equations system.
  * \ingroup physics 
  * @tparam eos_t Type of equation of state used.
- * @tparam recon_t Type of reconstruction used.
- * @tparam riemann_t Type of Riemann solver used.
  */
 //**************************************************************************************************/
-template< typename eos_t 
-        , typename recon_t   = grace::weno_reconstructor_t<3>
-        , typename riemann_t = grace::hll_riemann_solver_t    >
+template< typename eos_t >
 struct grmhd_equations_system_t 
-    : public hrsc_evolution_system_t<grmhd_equations_system_t<eos_t,recon_t,riemann_t>>
+    : public hrsc_evolution_system_t<grmhd_equations_system_t<eos_t>>
 {
  private:
     //! Base class type 
-    using base_t = hrsc_evolution_system_t<grmhd_equations_system_t<eos_t,recon_t,riemann_t>>;
+    using base_t = hrsc_evolution_system_t<grmhd_equations_system_t<eos_t>>;
 
  public:
 
@@ -90,6 +89,8 @@ struct grmhd_equations_system_t
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^1\f$
      * 
+     * @tparam recon_t Type of reconstruction.
+     * @tparam riemann_t Type of Riemann solver.
      * @tparam thread_team_t Type of the thread team.
      * @param team Thread team.
      * @param i Cell index in \f$x^1\f$ direction.
@@ -98,20 +99,24 @@ struct grmhd_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename thread_team_t >
+    template< typename riemann_t 
+            , typename recon_t 
+            , typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_x_flux( thread_team_t& team 
-                  , VEC( const int i 
-                  ,      const int j 
-                  ,      const int k)
-                  , int ngz
-                  , grace::flux_array_t const  fluxes) const 
+    compute_x_flux_impl( thread_team_t& team 
+                       , VEC( const int i 
+                       ,      const int j 
+                       ,      const int k)
+                       , int ngz
+                       , grace::flux_array_t const  fluxes) const 
     {
-        getflux<0>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
+        getflux<0,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^2\f$
      * 
+     * @tparam recon_t Type of reconstruction.
+     * @tparam riemann_t Type of Riemann solver.
      * @tparam thread_team_t Type of the thread team.
      * @param team Thread team.
      * @param i Cell index in \f$x^1\f$ direction.
@@ -120,20 +125,24 @@ struct grmhd_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename thread_team_t >
+    template< typename riemann_t 
+            , typename recon_t 
+            , typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_y_flux( thread_team_t& team 
-                  , VEC( const int i 
-                  ,      const int j 
-                  ,      const int k)
-                  , int ngz
-                  , grace::flux_array_t const  fluxes) const 
+    compute_y_flux_impl( thread_team_t& team 
+                       , VEC( const int i 
+                       ,      const int j 
+                       ,      const int k)
+                       , int ngz
+                       , grace::flux_array_t const  fluxes) const 
     {
-        getflux<1>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
+        getflux<1,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^3\f$
      * 
+     * @tparam recon_t Type of reconstruction.
+     * @tparam riemann_t Type of Riemann solver.
      * @tparam thread_team_t Type of the thread team.
      * @param team Thread team.
      * @param i Cell index in \f$x^1\f$ direction.
@@ -142,16 +151,18 @@ struct grmhd_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename thread_team_t >
+    template< typename riemann_t 
+            , typename recon_t 
+            , typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_z_flux(  thread_team_t& team 
-                  , VEC( const int i 
-                  ,      const int j 
-                  ,      const int k)
-                  , int ngz
-                  , grace::flux_array_t const  fluxes) const 
+    compute_z_flux_impl( thread_team_t& team 
+                       , VEC( const int i 
+                       ,      const int j 
+                       ,      const int k)
+                       , int ngz
+                       , grace::flux_array_t const  fluxes) const 
     {
-        getflux<2>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
+        getflux<2,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
     }
     /**
      * @brief Compute geometric source terms for GRMHD equations.
@@ -486,6 +497,8 @@ struct grmhd_equations_system_t
      * @brief Compute fluxes for gmrmhd equations.
      * 
      * @tparam idir Direction the fluxes are computed in.
+     * @tparam recon_t Type of reconstruction.
+     * @tparam riemann_t Type of Riemann solver.
      * @param i zero-offset x cell index.
      * @param j zero-offset y cell index.
      * @param k zero-offset z cell index.
@@ -493,8 +506,285 @@ struct grmhd_equations_system_t
      * @param ngz Number of ghost-zones.
      * @param fluxes Flux array.
      */
-    template< int idir >
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    template< int idir 
+            , typename riemann_t
+            , typename recon_t   >
+    std::enable_if<std::is_same_v<riemann_t,grace::hllc_riemann_solver_t<idir>>,void>::type
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    getflux(  VEC( const int i 
+            ,      const int j 
+            ,      const int k)
+            , const int64_t q 
+            , int ngz
+            , grace::flux_array_t const fluxes) const 
+    {
+        /***********************************************************************/
+        /* Initialize reconstructor                                            */
+        /***********************************************************************/
+        recon_t reconstructor{} ; 
+        
+
+        /***********************************************************************/
+        /* Define and interpolate metric                                       */
+        /***********************************************************************/
+        metric_array_t metric_l, metric_r;
+        FILL_METRIC_ARRAY( metric_l, this->_aux, q
+                         , VEC( i+ngz-utils::delta(idir,0)
+                              , j+ngz-utils::delta(idir,1)
+                              , k+ngz-utils::delta(idir,2))) ; 
+        FILL_METRIC_ARRAY( metric_r, this->_aux, q
+                         , VEC( i+ngz
+                              , j+ngz
+                              , k+ngz )) ;
+        /***********************************************************************/
+        /* 2nd order interpolation at cell interface                           */
+        /***********************************************************************/
+        metric_array_t const metric_face{
+            { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
+            , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
+            , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
+            , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
+            , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
+            , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
+        ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
+            + 0.5*(metric_l.beta(1) + metric_r.beta(1))
+            + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
+        ,   0.5 * (metric_l.alp() + metric_r.alp())
+        } ; 
+        
+        /***********************************************************************/
+        /* Initialize Riemann solver                                           */
+        /***********************************************************************/
+        riemann_t solver     {metric_face} ;
+
+        /***********************************************************************/
+        /*              Reconstruct primitive variables                        */
+        /***********************************************************************/
+        /* Indices of variables being reconstructed                            */
+        /* NB: reconstruction is done on zvec = W v_n                          */
+        /*     to avoid getting acausal velocities at the                      */
+        /*     interface.                                                      */
+        /***********************************************************************/
+        std::array<int, GRMHD_NUM_RECON_VARS>
+            recon_indices{
+                  RHO_
+                , ZVECX_
+                , ZVECY_
+                , ZVECZ_
+                , YE_
+                , TEMP_
+                , ENTROPY_
+            } ; 
+        /* Local indices in prims array (note z^k -> v^k) */
+        std::array<int, GRMHD_NUM_RECON_VARS>
+            recon_indices_loc{
+                  RHOL
+                , VXL
+                , VYL
+                , VZL
+                , YEL
+                , TEMPL
+                , ENTL
+            } ;
+        /* Reconstruction                                  */
+        grmhd_prims_array_t primL, primR ; 
+        #pragma unroll GRMHD_NUM_RECON_VARS
+        for( int ivar=0; ivar<GRMHD_NUM_RECON_VARS; ++ivar) {
+            auto u = Kokkos::subview( this->_aux
+                                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()) 
+                                    , recon_indices[ivar] 
+                                    , q ) ;
+            reconstructor( u, VEC(i+ngz,j+ngz,k+ngz)
+                         , primL[recon_indices_loc[ivar]]
+                         , primR[recon_indices_loc[ivar]]
+                         , idir) ;
+        }
+
+        /***********************************************************************/
+        /* Compute u0 on both sides                                            */
+        /***********************************************************************/
+        /* Lorentz factors  */
+        /* W = sqrt(1+z^2)  */
+        double const alp = metric_face.alp() ;
+        double const wl   = Kokkos::sqrt(1. 
+            + metric_face.square_vec({primL[VXL], primL[VYL], primL[VZL]}));
+        double const wr   = Kokkos::sqrt(1. 
+            + metric_face.square_vec({primR[VXL], primR[VYL], primR[VZL]}));
+        
+        /* u^0             */
+        double u0_l = wl / alp ; 
+        double u0_r = wr / alp ; 
+
+        /***********************************************************************/
+        /* Fill up primitive array on both sides of the face.                  */
+        /* Right now we have:                                                  */
+        /* 1) The correct rho                                                  */
+        /* 2) No pressure (computed below)                                     */
+        /* 3) The temperature but no eps                                       */
+        /* 4) The z vector (W v_{n}^i) as opposed to v^i (swapped below)       */
+        /***********************************************************************/
+        
+        /* Left */
+        double cs2l, cs2r ; 
+        unsigned int eos_err; 
+        primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primL[EPSL], cs2l, primL[TEMPL], primL[RHOL], primL[YEL], eos_err) ; 
+        primL[VXL] = alp * primL[VXL] / wl - metric_face.beta(0) ;
+        primL[VYL] = alp * primL[VYL] / wl - metric_face.beta(1) ;
+        primL[VZL] = alp * primL[VZL] / wl - metric_face.beta(2) ; 
+
+        /* Right */
+        primR[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primR[EPSL], cs2r, primR[TEMPL], primR[RHOL], primR[YEL], eos_err) ; 
+        primR[VXL] = alp * primR[VXL] / wr - metric_face.beta(0) ;
+        primR[VYL] = alp * primR[VYL] / wr - metric_face.beta(1) ;
+        primR[VZL] = alp * primR[VZL] / wr - metric_face.beta(2) ;
+
+        std::array<double,3> uD_l, uD_r ; 
+        solver.transform_velocities_to_tetrad_frame(u0_l, primL, uD_l) ; 
+        solver.transform_velocities_to_tetrad_frame(u0_r, primR, uD_r) ; 
+
+        /* Compute specific enthalpies */
+        double h_l = 1 + primL[EPSL] + primL[PRESSL]/primL[RHOL] ;
+        double h_r = 1 + primR[EPSL] + primR[PRESSL]/primR[RHOL] ;
+        
+        grmhd_cons_array_t fL, fR, uL, uR; 
+
+        /* Get wavespeeds      */ 
+        double cpr, cmr, cpl, cml;
+        compute_cp_cm( cpl, cml, cs2l, u0_l, primL[VXL+idir], 1
+                     , 0, 1) ;
+        compute_cp_cm( cpr, cmr, cs2r, u0_r, primR[VXL+idir], 1
+                     , 0, 1) ;
+        double cmin = -math::min(0., math::min(cml,cmr)) ; 
+        double cmax =  math::max(0., math::max(cpl,cpr)) ; 
+        /* Add some diffusion in weakly hyperbolic limit */
+        if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
+        /***********************************************************************/
+        /*                          Get dens flux                              */
+        /***********************************************************************/
+        double const alpha_sqrtgamma = alp * metric_face.sqrtg() ;
+        uL[DENSL] = alp * primL[RHOL] * u0_l ;
+        uR[DENSL] = alp * primR[RHOL] * u0_r ;
+
+        fL[DENSL] = uL[DENSL] * primL[VXL+idir] ; 
+        fR[DENSL] = uR[DENSL] * primR[VXL+idir] ; 
+
+        /***********************************************************************/
+        /*                          Get ye_star flux                           */
+        /***********************************************************************/
+        uL[YESL] = uL[DENSL] * primL[YEL] ; 
+        uR[YESL] = uR[DENSL] * primR[YEL] ; 
+        
+        fL[YESL] = uL[YESL] * primL[VXL+idir] ; 
+        fR[YESL] = uR[YESL] * primR[VXL+idir] ; 
+
+        /***********************************************************************/
+        /*                          Get s_star flux                            */
+        /***********************************************************************/
+        uL[ENTSL] = uL[DENSL] * primL[ENTL] ; 
+        uR[ENTSL] = uR[DENSL] * primR[ENTL] ; 
+
+        fL[ENTSL] = uL[ENTSL] * primL[VXL+idir] ; 
+        fR[ENTSL] = uR[ENTSL] * primR[VXL+idir] ; 
+
+        /***********************************************************************/ 
+        /*                           Get tau flux                              */
+        /***********************************************************************/
+        double const tau_plus_P_l = uL[DENSL] * ( alp * h_l * u0_l - 1. ) ; 
+        double const tau_plus_P_r = uR[DENSL] * ( alp * h_r * u0_r - 1. ) ;
+        /***************************************************************************/
+        /* \tau = \sqrt{\gamma} D (Wh-P/D-1)                                       */
+        /***************************************************************************/
+        uL[TAUL] = tau_plus_P_l - primL[PRESSL] ; 
+        uR[TAUL] = tau_plus_P_r - primR[PRESSL] ;
+        /***************************************************************************/
+        /* F^{d}_{\rm tau} = \sqrt{\gamma} (\tau + P) v^d                          */
+        /***************************************************************************/
+        fL[TAUL] = tau_plus_P_l * primL[VXL+idir] ;
+        fR[TAUL] = tau_plus_P_r * primR[VXL+idir] ;
+        /***********************************************************************/
+        /* Momentum flux in direction d for S_j : \alpha \sqrt{\gamma} T^d_j   */
+        /***********************************************************************/
+
+        /***********************************************************************/
+        /* Get S_x flux                                                        */
+        /***********************************************************************/
+        
+        /***********************************************************************/
+        /* F^d_{S_x} = \alpha \sqrt{\gamma} T^d_x                              */
+        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_x                */
+        /*                         + p \delta^d_x - b^d b_x )                  */  
+        /***********************************************************************/
+        double const D_h_l = uL[DENSL] * h_l ; 
+        double const D_h_r = uR[DENSL] * h_r ; 
+
+        uL[STXL] = D_h_l * uD_l[0] ;
+        uR[STXL] = D_h_r * uD_r[0] ;
+
+        fL[STXL] = uL[STXL] * primL[VXL+idir] + primL[PRESSL] * utils::delta(idir,0) ;
+        fR[STXL] = uR[STXL] * primR[VXL+idir] + primR[PRESSL] * utils::delta(idir,0) ;
+
+        /***********************************************************************/
+        /* Get S_y flux                                                        */
+        /***********************************************************************/
+
+        /***********************************************************************/
+        /* F^d_{S_y} = \alpha \sqrt{\gamma} T^d_y                              */
+        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_y                */
+        /*                         + p \delta^d_y - b^d b_y )                  */  
+        /***********************************************************************/
+        uL[STYL] = D_h_l * uD_l[1] ;
+        uR[STYL] = D_h_r * uD_r[1] ;
+
+        fL[STYL] = uL[STYL] * primL[VXL+idir] + primL[PRESSL] * utils::delta(idir,1) ;
+        fR[STYL] = uR[STYL] * primR[VXL+idir] + primR[PRESSL] * utils::delta(idir,1) ; 
+
+        /***********************************************************************/
+        /* Get S_z flux                                                        */
+        /***********************************************************************/
+
+        /***********************************************************************/
+        /* F^d_{S_z} = \alpha \sqrt{\gamma} T^d_z                              */
+        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_z                */
+        /*                         + p \delta^d_z - b^d b_z )                  */  
+        /***********************************************************************/
+        uL[STZL] = D_h_l * uD_l[2] ;
+        uR[STZL] = D_h_r * uD_r[2] ;
+
+        fL[STZL] = uL[STZL] * primL[VXL+idir] 
+            + primL[PRESSL] * utils::delta(idir,2) ;
+        fR[STZL] = uR[STZL] * primR[VXL+idir] 
+            + primR[PRESSL] * utils::delta(idir,2) ; 
+        /***********************************************************************/
+        grmhd_cons_array_t fHLLC = 
+            solver(fL,fR,uL,uR,primL,primR,cmin,cmax) ; 
+        /***********************************************************************/
+        fluxes(VEC(i,j,k),DENS_,idir,q)        = alpha_sqrtgamma * fHLLC[DENSL] ; 
+        fluxes(VEC(i,j,k),YESTAR_,idir,q)      = alpha_sqrtgamma * fHLLC[YESL]  ; 
+        fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = alpha_sqrtgamma * fHLLC[ENTSL] ;
+        fluxes(VEC(i,j,k),TAU_,idir,q)         = alpha_sqrtgamma * fHLLC[TAUL]  ;
+        fluxes(VEC(i,j,k),SX_,idir,q)          = alpha_sqrtgamma * fHLLC[STXL]  ;
+        fluxes(VEC(i,j,k),SY_,idir,q)          = alpha_sqrtgamma * fHLLC[STYL]  ;
+        fluxes(VEC(i,j,k),SZ_,idir,q)          = alpha_sqrtgamma * fHLLC[STZL]  ;
+        /***********************************************************************/
+    };
+    /**
+     * @brief Compute fluxes for gmrmhd equations.
+     * 
+     * @tparam idir Direction the fluxes are computed in.
+     * @tparam recon_t Type of reconstruction.
+     * @tparam riemann_t Type of Riemann solver.
+     * @param i zero-offset x cell index.
+     * @param j zero-offset y cell index.
+     * @param k zero-offset z cell index.
+     * @param q quadrant index.
+     * @param ngz Number of ghost-zones.
+     * @param fluxes Flux array.
+     */
+    template< int idir 
+            , typename riemann_t 
+            , typename recon_t   >
+    std::enable_if<std::is_same_v<riemann_t,grace::hll_riemann_solver_t>,void>::type 
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     getflux(  VEC( const int i 
             ,      const int j 
             ,      const int k)

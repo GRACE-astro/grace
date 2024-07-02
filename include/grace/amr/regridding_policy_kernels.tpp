@@ -53,31 +53,87 @@ struct flash_second_deriv_criterion {
                      , int const & k ) 
                 , int const& q
                 , double const& eps ) const 
-    {
-        double VEC(
-            Ex{ Kokkos::fabs( u(VEC(i+1,j,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i-1,j,k),q) )
-                / (   Kokkos::fabs(u(VEC(i+1,j,k),q) - u(VEC(i,j,k),q)) 
-                    + Kokkos::fabs(u(VEC(i,j,k),q) - u(VEC(i-1,j,k),q))
-                    + eps*Kokkos::fabs(u(VEC(i+1,j,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i-1,j,k),q)) + tiny
-                )}
-        ,   Ey{ Kokkos::fabs( u(VEC(i,j+1,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j-1,k),q) )
-                / (   Kokkos::fabs(u(VEC(i,j+1,k),q) - u(VEC(i,j,k),q)) 
-                    + Kokkos::fabs(u(VEC(i,j,k),q) - u(VEC(i,j-1,k),q))
-                    + eps*Kokkos::fabs(u(VEC(i,j+1,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j-1,k),q)) + tiny
-                )}
-        ,   Ez{ Kokkos::fabs( u(VEC(i,j,k+1),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j,k-1),q) )
-                / (   Kokkos::fabs(u(VEC(i,j,k+1),q) - u(VEC(i,j,k),q)) 
-                    + Kokkos::fabs(u(VEC(i,j,k),q) - u(VEC(i,j,k-1),q))
-                    + eps*Kokkos::fabs(u(VEC(i,j,k+1),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j,k-1),q)) + tiny
-                )}
+    {   
+        using Kokkos::fabs ; 
+        double const num = EXPR(
+              math::int_pow<2>(u(VEC(i+1,j,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i-1,j,k),q)),
+            + math::int_pow<2>(u(VEC(i,j+1,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j-1,k),q)),
+            + math::int_pow<2>(u(VEC(i,j,k+1),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j,k-1),q))
         ) ; 
-        double maxerr = Kokkos::fmax( Ex, Ey ) ; 
-        #ifdef GRACE_3D 
-        maxerr = Kokkos::fmax(maxerr, Ez) ; 
-        #endif 
-        return maxerr ; 
+        double const denom = EXPR(
+              fabs(u(VEC(i+1,j,k),q) - u(VEC(i,j,k),q)) 
+            + fabs(u(VEC(i,j,k),q) - u(VEC(i-1,j,k),q))
+            + eps * (fabs(u(VEC(i+1,j,k),q)) + 2.*fabs(u(VEC(i,j,k),q)) + fabs(u(VEC(i-1,j,k),q))),
+            + fabs(u(VEC(i,j+1,k),q) - u(VEC(i,j,k),q)) 
+            + fabs(u(VEC(i,j,k),q) - u(VEC(i,j-1,k),q))
+            + eps * (fabs(u(VEC(i,j+1,k),q)) + 2.*fabs(u(VEC(i,j,k),q)) + fabs(u(VEC(i,j-1,k),q))),
+            + fabs(u(VEC(i,j,k+1),q) - u(VEC(i,j,k),q)) 
+            + fabs(u(VEC(i,j,k),q) - u(VEC(i,j,k-1),q))
+            + eps * (fabs(u(VEC(i,j,k+1),q)) + 2.*fabs(u(VEC(i,j,k),q)) + fabs(u(VEC(i,j,k-1),q)))
+        ) ; 
+        return num / denom ; 
     }
 } ; 
+/**
+ * @brief Gradient based kernel
+ *        for regridding.
+ * \ingroup amr
+ * 
+ * @tparam ViewT Type of variable view.
+ */
+template< typename ViewT > 
+struct gradient_criterion {
+
+    ViewT u ; //!< Variable on which the criterion is evaluated.
+    static constexpr double tiny = 1e-99; 
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    operator()  ( VEC( int const & i 
+                     , int const & j
+                     , int const & k ) 
+                , int const& q ) const 
+    {
+        double grad[] = 
+            {
+                VEC( u(VEC(i+1,j,k),q)-u(VEC(i-1,j,k),q) 
+                   , u(VEC(i,j+1,k),q)-u(VEC(i,j-1,k),q) 
+                   , u(VEC(i+1,j,k+1),q)-u(VEC(i,j,k-1),q))
+            } ; 
+        return 0.5*Kokkos::sqrt(EXPR(grad[0]*grad[0],+grad[1]*grad[1],+grad[2]*grad[2])) / (u(VEC(i,j,k),q)+tiny) ; 
+    }
+} ;
+/**
+ * @brief Shear based kernel
+ *        for regridding.
+ * \ingroup amr
+ * 
+ * @tparam ViewT Type of variable view.
+ */
+template< typename ViewT > 
+struct shear_criterion {
+
+    ViewT VEC(vx,vy,vz) ; //!< Velocity components.
+    static constexpr double tiny = 1e-99; 
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    operator()  ( VEC( int const & i 
+                     , int const & j
+                     , int const & k ) 
+                , int const& q ) const 
+    {
+        using Kokkos::fabs ; 
+        return math::max( 
+              0.5*fabs(vy(VEC(i+1,j,k),q) - vy(VEC(i-1,j,k),q))
+            , 0.5*fabs(vx(VEC(i,j+1,k),q) - vx(VEC(i,j-1,k),q))
+            #ifdef GRACE_3D 
+            , 0.5*(vy(VEC(i,j,k+1),q) - vy(VEC(i,j,k-1),q))
+            , 0.5*(vx(VEC(i,j,k+1),q) - vx(VEC(i,j,k-1),q))
+            , 0.5*(vz(VEC(i+1,j,k),q) - vz(VEC(i-1,j,k),q))
+            , 0.5*(vz(VEC(i,j+1,k),q) - vz(VEC(i,j-1,k),q))
+            #endif 
+        ) ; 
+    }
+} ;
 /**
 * @brief Regrid criterion based on simple threshold on grid variable.
 * \ingroup amr 

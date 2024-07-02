@@ -151,6 +151,11 @@ void write_volume_cell_data_hdf5() {
     write_grid_structure_hdf5(file_id, compression_level,chunk_size) ; 
     /* Write requested variables to hdf5 file */
     write_volume_data_arrays_hdf5(file_id, compression_level,chunk_size) ;
+    /* Write extra quantities if requested */
+    bool output_extra = grace::get_param<bool>("IO","output_extra_quantities") ; 
+    if( output_extra ) {
+        write_extra_arrays_hdf5(file_id, compression_level, chunk_size) ; 
+    }
     parallel::mpi_barrier() ; 
     /* Close the file */
     HDF5_CALL(err,H5Fclose(file_id)) ; 
@@ -703,6 +708,146 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
         /* Close dataset */
         HDF5_CALL(err, H5Dclose(dset_id)) ; 
     }
+}
+
+void write_extra_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) {
+    herr_t err ;
+    /* Get cell and quadrant counts */
+    size_t nx,ny,nz,nq; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    nq = grace::amr::get_local_num_quadrants() ; 
+    size_t ngz = grace::amr::get_n_ghosts() ;
+
+    auto const rank_loc = parallel::mpi_comm_rank() ; 
+    /* Get the p4est pointer */
+    auto _p4est = grace::amr::forest::get().get() ; 
+    /* Get global number of quadrants and quadrant offset for this rank */
+    unsigned long const nq_glob = _p4est->global_num_quadrants ; 
+    unsigned long const local_quad_offset = _p4est->global_first_quadrant[rank_loc] ; 
+
+    /* Number of cells per quadrant */
+    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+    /* Local number of cells   */
+    unsigned long const ncells = ncells_quad * nq ; 
+    /* Global number of cells  */
+    unsigned long const ncells_glob = ncells_quad * nq_glob ; 
+
+    unsigned int* lev   = (unsigned int*) malloc(sizeof(unsigned int) * ncells ) ;
+    unsigned int* rank  = (unsigned int*) malloc(sizeof(unsigned int) * ncells ) ;
+    unsigned int* tree_id    = (unsigned int*) malloc(sizeof(unsigned int) * ncells ) ;
+    unsigned long long* qid  = (unsigned long long*) malloc(sizeof(unsigned long long) * ncells ) ;  
+
+    unsigned int icell  = 0L ; 
+    #pragma omp parallel for collapse 4
+    for(int64_t iq=0; iq<nq; ++iq) {
+        #ifdef GRACE_3D
+        for(size_t k=0; k<nz; ++k  ) {
+        #endif  
+            for( size_t j=0; j<ny; ++j) { 
+                for(size_t i=0; i<nx; ++i){
+                unsigned int itree = amr::get_quadrant_owner(iq) ; 
+                auto quad  = amr::get_quadrant(itree,iq) ; 
+                unsigned int level = quad.level() ;
+                size_t iquad_glob = iq + amr::forest::get().global_quadrant_offset(rank_loc) ;
+
+                rank[icell]    = rank_loc   ;
+                lev[icell]     = level      ;
+                tree_id[icell] = itree      ;
+                qid[icell]     = iquad_glob ; 
+                icell ++ ; 
+                #ifdef GRACE_3D
+                }
+                #endif 
+            }
+        }
+    }
+
+    ASSERT(icell == ncells, "Something went really wrong") ; 
+
+    /* Create parallel dataset properties */
+    hid_t dxpl ; 
+    HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER)) ; 
+    HDF5_CALL(err, H5Pset_dxpl_mpio(dxpl,H5FD_MPIO_COLLECTIVE)) ; 
+    auto const offset = local_quad_offset * ncells_quad ; 
+    write_scalar_dataset( static_cast<void*>(rank),H5T_NATIVE_UINT,file_id,dxpl
+                        , ncells,ncells_glob,offset,chunk_size,compression_level,"/Rank") ; 
+    write_scalar_dataset( static_cast<void*>(lev),H5T_NATIVE_UINT,file_id,dxpl
+                        , ncells,ncells_glob,offset,chunk_size,compression_level,"/Level") ; 
+    write_scalar_dataset( static_cast<void*>(tree_id),H5T_NATIVE_UINT,file_id,dxpl
+                        , ncells,ncells_glob,offset,chunk_size,compression_level,"/Tree_ID") ; 
+    write_scalar_dataset( static_cast<void*>(qid),H5T_NATIVE_ULLONG,file_id,dxpl
+                        , ncells,ncells_glob,offset,chunk_size,compression_level,"/Quad_ID") ;
+    
+    /* Release resources */
+    free(rank) ;
+    free(lev) ;
+    free(tree_id) ;
+    free(qid) ;
+
+    /* Cleanup and exit */
+    HDF5_CALL(err, H5Pclose(dxpl)) ;
+
+    
+}
+
+void write_scalar_dataset( void* data, hid_t mem_type_id, hid_t file_id, hid_t dxpl
+                         , hsize_t dset_size, hsize_t dset_size_glob, hsize_t offset
+                         , size_t chunk_size, unsigned int compression_level
+                         , std::string const& dset_name ) 
+{
+    herr_t err ;
+    /* Create/open datasets */
+    hid_t space_id_glob ;
+    hsize_t dset_dims_glob[1] = {dset_size_glob} ;   
+    /* Create global space for points dataset */
+    HDF5_CALL(space_id_glob, H5Screate_simple(1, dset_dims_glob, NULL)) ; 
+
+    hid_t dset_id ;
+    hid_t prop_id ;
+    HDF5_CALL(prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
+    hsize_t chunk_dim[1] = {chunk_size} ;
+    HDF5_CALL(err, H5Pset_chunk(prop_id,1,chunk_dim)) ; 
+    HDF5_CALL(err, H5Pset_deflate(prop_id, compression_level)) ; 
+    HDF5_CALL( dset_id
+             , H5Dcreate2( file_id
+                         , dset_name.c_str()
+                         , mem_type_id
+                         , space_id_glob
+                         , H5P_DEFAULT
+                         , prop_id
+                         , H5P_DEFAULT) ) ;;
+
+    write_dataset_string_attribute_hdf5(dset_id, "VariableType", "Scalar");
+    write_dataset_string_attribute_hdf5(dset_id, "VariableStaggering", "Cell");
+    
+    /* Write points dataset */
+    /* Create local space for this rank */
+    hid_t space_id ; 
+    hsize_t dset_dims[1] = {dset_size} ;
+    HDF5_CALL(space_id, H5Screate_simple(1, dset_dims, NULL)) ; 
+    /* Select hyperslab for this rank's output */
+    hsize_t slab_start[1]  = {offset} ;
+    hsize_t slab_count[1]  = {dset_size} ;
+    HDF5_CALL( err
+             , H5Sselect_hyperslab( space_id_glob
+                                  , H5S_SELECT_SET
+                                  , slab_start
+                                  , NULL
+                                  , slab_count 
+                                  , NULL )) ;
+    /* Write data corresponding to this rank to disk */
+    HDF5_CALL( err
+             , H5Dwrite( dset_id
+                       , mem_type_id
+                       , space_id
+                       , space_id_glob 
+                       , dxpl 
+                       , data )) ; 
+    HDF5_CALL(err, H5Dclose(dset_id)) ; 
+    HDF5_CALL(err, H5Sclose(space_id)) ; 
+    HDF5_CALL(err, H5Sclose(space_id_glob)) ;
+    HDF5_CALL(err, H5Pclose(prop_id)) ;
+
 }
 
 void write_dataset_string_attribute_hdf5(hid_t dset_id, std::string const& attr_name, std::string const& attr_data)

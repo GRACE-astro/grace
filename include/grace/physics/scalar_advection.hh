@@ -41,51 +41,90 @@
 
 namespace grace {
 
-template< typename recon_t >
+
 struct scalar_advection_system_t 
-    : public hrsc_evolution_system_t<scalar_advection_system_t<recon_t>>
+    : public hrsc_evolution_system_t<scalar_advection_system_t>
 {
     scalar_advection_system_t( grace::var_array_t<GRACE_NSPACEDIM> state_
                              , grace::var_array_t<GRACE_NSPACEDIM> aux_ 
                              , VEC( double ax_ 
                                   , double ay_ 
                                   , double az_))
-     : hrsc_evolution_system_t<scalar_advection_system_t<recon_t>>(state_,aux_)
+     : hrsc_evolution_system_t<scalar_advection_system_t>(state_,aux_)
      , VEC(ax(ax_),ay(ay_),az(az_))
     { } ;
 
-    template< typename thread_team_t >
+    /**
+     * @brief Compute Burgers' fluxes in direction \f$x^1\f$
+     * 
+     * @tparam thread_team_t Type of the thread team.
+     * @param team Thread team.
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param ngz  Number of ghost cells.
+     * @param fluxes Flux array.
+     */
+    template< typename riemann_t 
+            , typename recon_t 
+            , typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_x_flux( thread_team_t& team 
-                  , VEC( const int i 
-                  ,      const int j 
-                  ,      const int k)
-                  , int ngz
-                  , grace::flux_array_t const fluxes) const 
+    compute_x_flux_impl( thread_team_t& team 
+                       , VEC( const int i 
+                       ,      const int j 
+                       ,      const int k)
+                       , int ngz
+                       , grace::flux_array_t const  fluxes) const 
     {
-        getflux<0>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
+        getflux<0,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
     }
-    template< typename thread_team_t >
+    /**
+     * @brief Compute Burgers' fluxes in direction \f$x^2\f$
+     * 
+     * @tparam thread_team_t Type of the thread team.
+     * @param team Thread team.
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param ngz  Number of ghost cells.
+     * @param fluxes Flux array.
+     */
+    template< typename riemann_t 
+            , typename recon_t 
+            , typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_y_flux( thread_team_t& team 
-                  , VEC( const int i 
-                  ,      const int j 
-                  ,      const int k)
-                  , int ngz
-                  , grace::flux_array_t const fluxes) const 
+    compute_y_flux_impl( thread_team_t& team 
+                       , VEC( const int i 
+                       ,      const int j 
+                       ,      const int k)
+                       , int ngz
+                       , grace::flux_array_t const  fluxes) const 
     {
-        getflux<1>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
+        getflux<1,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
     }
-    template< typename thread_team_t >
+    /**
+     * @brief Compute Burgers' fluxes in direction \f$x^3\f$
+     * 
+     * @tparam thread_team_t Type of the thread team.
+     * @param team Thread team.
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param ngz  Number of ghost cells.
+     * @param fluxes Flux array.
+     */
+    template< typename riemann_t 
+            , typename recon_t 
+            , typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_z_flux(  thread_team_t& team 
-                  , VEC( const int i 
-                  ,      const int j 
-                  ,      const int k)
-                  , int ngz
-                  , grace::flux_array_t const fluxes) const 
+    compute_z_flux_impl( thread_team_t& team 
+                       , VEC( const int i 
+                       ,      const int j 
+                       ,      const int k)
+                       , int ngz
+                       , grace::flux_array_t const  fluxes) const 
     {
-        getflux<2>(VEC(i,j,k),team.league_rank(),ngz,fluxes); 
+        getflux<2,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
     }
 
     template< typename thread_team_t >
@@ -124,7 +163,9 @@ struct scalar_advection_system_t
     }
 
  private:
-    template< int idir >
+    template< int idir 
+            , typename riemann_t 
+            , typename recon_t   >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     getflux(  VEC( const int i 
             ,      const int j 

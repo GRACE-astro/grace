@@ -72,6 +72,13 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
                                  , hsize_t local_quad_offset
                                  , bool isaux  ) ; 
 
+void write_extra_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) ; 
+
+void write_scalar_dataset( void* data, hid_t mem_type_id, hid_t file_id, hid_t dxpl
+                         , hsize_t dset_size, hsize_t dset_size_glob, hsize_t offset
+                         , size_t chunk_size, unsigned int compression_level
+                         , std::string const& dset_name ) ; 
+
 void write_dataset_string_attribute_hdf5(hid_t dset_id, std::string const& attr_name, std::string const& attr_data) ; 
 }} /* namespace grace::IO */
 
