@@ -75,7 +75,26 @@ struct hllc_riemann_solver_t {
             prims[VXL+ii]  = uD[ii] / u0 ; 
         }
     }
-
+    /**
+     * @brief Compute HLLC fluxes for relativistic Hydro.
+     * 
+     * @param fL Left fluxes.
+     * @param fR Right fluxes.
+     * @param uL Left conserved state.
+     * @param uR Right conserved state.
+     * @param pL Left primitive state (in local frame).
+     * @param pR Right primitive state (in local frame).
+     * @param cmin lambdaL (this has \b positive sign).
+     * @param cmax lambdaR (this has \b positive sign).
+     * @return grace::grmhd_cons_array_t The HLLC flux.
+     * 
+     * Note that in GRACE notation the velocity is not the eulerian one but rather
+     * \f$v^i=u^i/u^t\f$. Also, our conserved energy density \f$\tau\f$ follows the 
+     * Valencia notation and is defined as \f$n^\mu n^\nu T_{\mu\nu} - D\f$. For this
+     * reason some of the terms in this function are different from what appears in 
+     * https://arxiv.org/abs/2205.04487 which is the main source followed in this 
+     * implementation.
+     */
     grace::grmhd_cons_array_t 
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() ( 
@@ -91,7 +110,7 @@ struct hllc_riemann_solver_t {
         grace::grmhd_cons_array_t uHLLE, fHLLE, uHLLC, fHLLC; 
         hll_riemann_solver_t hlle_solver ; 
         int var_indices[] = {DENSL, TAUL, STXL, STYL, STZL} ; 
-        for( int ii=0; ii<4; ++ii) {
+        for( int ii=0; ii<5; ++ii) {
             int const ivar = var_indices[ii] ; 
             fHLLE[ivar] = 
                 hlle_solver(fL[ivar],fR[ivar],uL[ivar],uR[ivar],cmin,cmax) ; 
@@ -101,7 +120,7 @@ struct hllc_riemann_solver_t {
 
         double const vi = 0. ; // get_interface_velocity() ; !TODO
         double const lambdaC = get_contact_wave_speed(uHLLE,fHLLE) ; 
-        double const pressC  = -lambdaC * (fHLLE[TAUL]-fHLLE[DENSL]) + fHLLE[STXL+idir] ;
+        double const pressC  = -lambdaC * (fHLLE[TAUL]+fHLLE[DENSL]) + fHLLE[STXL+idir] ;
 
         grace::grmhd_cons_array_t ucL, ucR ; 
 
@@ -142,7 +161,18 @@ struct hllc_riemann_solver_t {
         int midx [] = { 0,3,5 } ; 
         return metric.beta(idir) / Kokkos::sqrt(metric.gamma(midx[idir])) / metric.alp() ; 
     }
-
+    /**
+     * @brief Get the contact wave speed in the local frame.
+     * 
+     * @param cons Conserved variables in HLLE state. 
+     * @param f    Fluxes in HLLE state.
+     * @return double The contact wave speed.
+     * 
+     * This function solves the second order equation (3.70)
+     * in Kiuchi+. Note that we always keep the solution with 
+     * the minus sign as that's the one that is causal (see 
+     * Mignone+ for a proof).
+     */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     get_contact_wave_speed( grace::grmhd_cons_array_t const& cons
                           , grace::grmhd_cons_array_t const& f ) const 
