@@ -89,20 +89,20 @@ void find_stable_timestep_impl() {
     ax = params["scalar_advection"]["ax"].as<double>() ;,
     ay = params["scalar_advection"]["ay"].as<double>() ;,
     az = params["scalar_advection"]["az"].as<double>() ; )
-    scalar_advection_system_t<slope_limited_reconstructor_t<minmod>>  
+    scalar_advection_system_t  
         scalar_adv_system{ state, aux, VEC(ax,ay,az) } ; 
     #define GET_CMAX \
     scalar_adv_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
     #endif 
     #ifdef GRACE_ENABLE_BURGERS 
-    burgers_equation_system_t<slope_limited_reconstructor_t<minmod>,hll_riemann_solver_t>
+    burgers_equation_system_t
         burgers_eq_system{ state, aux } ;
     #define GET_CMAX \
     burgers_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
     #endif 
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
-    grmhd_equations_system_t<eos_t,weno_reconstructor_t<3>,hll_riemann_solver_t>
+    grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,state,aux) ; 
     #define GET_CMAX \
     grmhd_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)

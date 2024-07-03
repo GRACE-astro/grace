@@ -231,6 +231,32 @@ square_covec(std::array<double,3> const& v ) const {
                  + _ginv[YZ] * v[Y] * v[Z] ) ; 
 }
 /**
+ * @brief Contract a vector and covector
+ * 
+ * @param v Contravariant components of the vector.
+ * @param w Contravariant components of the covector.
+ * @return double \f$v^{\mu} w_{\mu}\f$.
+ */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_4dvec_4dcovec( std::array<double,4> const& v
+                      , std::array<double,4> const& w ) const
+{
+    return v[0]*w[0] + v[1] * w[1] + v[2] * w[2] + v[3] * w[3] ; 
+}
+/**
+ * @brief Contract a spatial vector and covector
+ * 
+ * @param v Contravariant components of the vector.
+ * @param w Contravariant components of the covector.
+ * @return double \f$v^{i} w_{i}\f$.
+ */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_vec_covec( std::array<double,3> const& v
+                  , std::array<double,3> const& w ) const
+{
+    return v[0]*w[0] + v[1] * w[1] + v[2] * w[2] ; 
+}
+/**
  * @brief Compute the full contraction of two
  *        symmetric rank 2 spatial tensors given
  *        their contravariant components.

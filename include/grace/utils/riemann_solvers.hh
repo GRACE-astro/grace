@@ -69,6 +69,32 @@ struct hll_riemann_solver_t
     {
         return (cmax*fL + cmin*fR - cmax*cmin*(uR-uL))/(cmax+cmin) ; 
     }
+
+    /**
+     * @brief Compute the HLL state.
+     * 
+     * @param fL Flux at left side of the interface.
+     * @param fR Flux at right side of the interface.
+     * @param uL State at left side of the interface.
+     * @param uR State at right side of the interface.
+     * @param cmin Minimum eigenspeed at interface.
+     * @param cmax Maximum eigenspeed at interface.
+     * @return double The physical flux in the HLLE prescription.
+     * NB: Here cmin and cmax mean the maximum absolute value left
+     * going wavespeed and the maximum absolute value right going 
+     * wavespeed, respectively.
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    get_state (
+          double const fL
+        , double const fR 
+        , double const uL 
+        , double const uR 
+        , double const cmin 
+        , double const cmax  ) 
+    {
+        return (cmax*uR + cmin*uL + fL - fR)/(cmax+cmin) ; 
+    }
  private:
     static constexpr double speed_eps = 1e-15 ; //!< Speed below which we consider the interface supersonic.
 } ; 

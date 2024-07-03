@@ -83,6 +83,32 @@ void regrid() {
         evaluate_regrid_criterion(
                   d_regrid_flags
                 , kernel) ;
+    } else if ( ref_criterion == "gradient" ) {
+        amr::gradient_criterion<decltype(u)> kernel{ u } ; 
+        evaluate_regrid_criterion(
+                  d_regrid_flags
+                , kernel) ;
+    } else if ( ref_criterion == "shear" ) { 
+        auto vx = Kokkos::subview(aux, VEC( Kokkos::ALL() 
+                                          , Kokkos::ALL() 
+                                          , Kokkos::ALL() )
+                                          , VELX
+                                          , Kokkos::ALL() ) ; 
+        auto vy = Kokkos::subview(aux, VEC( Kokkos::ALL() 
+                                          , Kokkos::ALL() 
+                                          , Kokkos::ALL() )
+                                          , VELY
+                                          , Kokkos::ALL() ) ; 
+    #ifdef GRACE_3D
+        auto vz = Kokkos::subview(aux, VEC( Kokkos::ALL() 
+                                          , Kokkos::ALL() 
+                                          , Kokkos::ALL() )
+                                          , VELZ
+                                          , Kokkos::ALL() ) ; 
+    #endif 
+        amr::shear_criterion<decltype(vx)> kernel{ VEC(vx,vy,vz) } ; 
+        evaluate_regrid_criterion( d_regrid_flags
+                                 , kernel) ;
     } else {
         ERROR("Unsupported refinement criterion.") ; 
     }

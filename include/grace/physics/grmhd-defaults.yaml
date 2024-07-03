@@ -5,6 +5,8 @@ grmhd: {
   shocktube_press_R: 0.66e-06,
   shocktube_rho_L: 10.,
   shocktube_rho_R: 1., 
+  blastwave_over_pressure_factor: 2.5,
+  blastwave_initial_radius: 0.5
   khi_rho_center: 2.0,
   khi_rho_other: 1.0,
   khi_press: 2.5,
