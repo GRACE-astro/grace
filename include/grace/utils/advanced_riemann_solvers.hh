@@ -41,6 +41,11 @@
 
 namespace grace {
 
+/**
+ * @brief HLLC riemann solver in direction idir.
+ * 
+ * @tparam idir The direction of the riemann problem being solved. 
+ */
 template< int idir > 
 struct hllc_riemann_solver_t {
 

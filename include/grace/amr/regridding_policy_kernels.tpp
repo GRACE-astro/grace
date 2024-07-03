@@ -35,7 +35,7 @@
 
 namespace grace { namespace amr {
 /**
- * @brief Second derivative FLASH-like kernel
+ * @brief Second derivative Löhner-like criterion
  *        for regridding.
  * \ingroup amr
  * 
@@ -46,7 +46,13 @@ struct flash_second_deriv_criterion {
 
     ViewT u ; //!< Variable on which the criterion is evaluated.
     static constexpr double tiny = 1e-99; 
-
+    /**
+     * @brief Evaluates the regridding criterion at a cell.
+     * 
+     * @param q Quadrant index.
+     * @param eps Amplitude of denominator correction.
+     * @return double The error estimate according to the Löhner criterion.
+     */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator()  ( VEC( int const & i 
                      , int const & j
@@ -63,13 +69,14 @@ struct flash_second_deriv_criterion {
         double const denom = EXPR(
               fabs(u(VEC(i+1,j,k),q) - u(VEC(i,j,k),q)) 
             + fabs(u(VEC(i,j,k),q) - u(VEC(i-1,j,k),q))
-            + eps * (fabs(u(VEC(i+1,j,k),q)) + 2.*fabs(u(VEC(i,j,k),q)) + fabs(u(VEC(i-1,j,k),q))),
+            + eps * (fabs(u(VEC(i+1,j,k),q)) - 2.*fabs(u(VEC(i,j,k),q)) + fabs(u(VEC(i-1,j,k),q))),
             + fabs(u(VEC(i,j+1,k),q) - u(VEC(i,j,k),q)) 
             + fabs(u(VEC(i,j,k),q) - u(VEC(i,j-1,k),q))
-            + eps * (fabs(u(VEC(i,j+1,k),q)) + 2.*fabs(u(VEC(i,j,k),q)) + fabs(u(VEC(i,j-1,k),q))),
+            + eps * (fabs(u(VEC(i,j+1,k),q)) - 2.*fabs(u(VEC(i,j,k),q)) + fabs(u(VEC(i,j-1,k),q))),
             + fabs(u(VEC(i,j,k+1),q) - u(VEC(i,j,k),q)) 
             + fabs(u(VEC(i,j,k),q) - u(VEC(i,j,k-1),q))
-            + eps * (fabs(u(VEC(i,j,k+1),q)) + 2.*fabs(u(VEC(i,j,k),q)) + fabs(u(VEC(i,j,k-1),q)))
+            + eps * (fabs(u(VEC(i,j,k+1),q)) - 2.*fabs(u(VEC(i,j,k),q)) + fabs(u(VEC(i,j,k-1),q)))
+            + tiny
         ) ; 
         return num / denom ; 
     }
@@ -86,7 +93,12 @@ struct gradient_criterion {
 
     ViewT u ; //!< Variable on which the criterion is evaluated.
     static constexpr double tiny = 1e-99; 
-
+    /**
+     * @brief Evaluate the regridding criterion.
+     * 
+     * @param q Quadrant index.
+     * @return double Error estimate.
+     */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator()  ( VEC( int const & i 
                      , int const & j
@@ -114,7 +126,12 @@ struct shear_criterion {
 
     ViewT VEC(vx,vy,vz) ; //!< Velocity components.
     static constexpr double tiny = 1e-99; 
-
+    /**
+     * @brief Evaluate the regridding criterion.
+     * 
+     * @param q Quadrant index.
+     * @return double The error estimate.
+     */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator()  ( VEC( int const & i 
                      , int const & j
@@ -126,10 +143,10 @@ struct shear_criterion {
               0.5*fabs(vy(VEC(i+1,j,k),q) - vy(VEC(i-1,j,k),q))
             , 0.5*fabs(vx(VEC(i,j+1,k),q) - vx(VEC(i,j-1,k),q))
             #ifdef GRACE_3D 
-            , 0.5*(vy(VEC(i,j,k+1),q) - vy(VEC(i,j,k-1),q))
-            , 0.5*(vx(VEC(i,j,k+1),q) - vx(VEC(i,j,k-1),q))
-            , 0.5*(vz(VEC(i+1,j,k),q) - vz(VEC(i-1,j,k),q))
-            , 0.5*(vz(VEC(i,j+1,k),q) - vz(VEC(i,j-1,k),q))
+            , 0.5*fabs(vy(VEC(i,j,k+1),q) - vy(VEC(i,j,k-1),q))
+            , 0.5*fabs(vx(VEC(i,j,k+1),q) - vx(VEC(i,j,k-1),q))
+            , 0.5*fabs(vz(VEC(i+1,j,k),q) - vz(VEC(i-1,j,k),q))
+            , 0.5*fabs(vz(VEC(i,j+1,k),q) - vz(VEC(i,j-1,k),q))
             #endif 
         ) ; 
     }
