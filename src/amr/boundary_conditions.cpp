@@ -33,6 +33,7 @@
 #include <grace/amr/bc_helpers.hh> 
 #include <grace/amr/bc_helpers.tpp> 
 #include <grace/amr/bc_kernels.tpp>
+#include <grace/amr/index_helpers.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/utils/grace_utils.hh>
@@ -400,11 +401,6 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
         ERROR("Unsupported interpolator in ghost-zone exchange.") ; 
     }
     Kokkos::fence() ; 
-    /******************************************************/
-    /* Transform vector and tensor components             */
-    /* across tree boundaries (where applicable)          */
-    /******************************************************/
-    
     /******************************************************/
     /* De-allocate halo quadrant data                     */
     /******************************************************/

@@ -289,6 +289,8 @@ void copy_interior_ghostzones(
             int is_ghost     =  d_face_info(team.league_rank()).is_ghost          ; 
             int which_face_a =  d_face_info(team.league_rank()).which_face_a      ; 
             int which_face_b =  d_face_info(team.league_rank()).which_face_b      ; 
+            int tid_a        =  d_face_info(team.league_rank()).which_tree_a      ;
+            int tid_b        =  d_face_info(team.league_rank()).which_tree_b      ;
             int64_t qid_a    =  d_face_info(team.league_rank()).qid_a             ;
             int64_t qid_b    =  d_face_info(team.league_rank()).qid_b             ; 
             /* Get extents in direction(s) orthogonal to the face */
@@ -301,27 +303,21 @@ void copy_interior_ghostzones(
             /* Get correct array to read from / write to */
             auto& view_a = vars ; 
             auto& view_b = (is_ghost) ? halo : vars ;  
-
+            #ifndef GRACE_CARTESIAN_COORDINATES
+            index_helper_t mapper{} ; 
+            #endif 
             TeamThreadMDRange<Rank<GRACE_NSPACEDIM+1>,member_t>
                 team_range( team, ngz, VECD(n1,n2), nvars) ; 
             parallel_for( team_range
                         , KOKKOS_LAMBDA(int& ig, VECD(int& j, int& k), int& ivar)
                     {
-                    int i_a = EXPR((which_face_a==0) * 
-                                ( (!polarity)*ig 
-                                + (polarity)*(ngz-1-ig) ) 
-                                + (which_face_a==1) * 
-                                ( (!polarity)*(nx+ngz+ig) 
-                                + (polarity)*(nx+2*ngz-1-ig) ),
+                    int i_a = EXPR((which_face_a==0) *ig 
+                                + (which_face_a==1) * *(nx+ngz+ig),
                                 + (which_face_a/2==1) * (j+ngz), 
                                 + (which_face_a/2==2) * (j+ngz)) ;
 
-                    int j_a = EXPR((which_face_a==2) * 
-                            ( (!polarity)*ig 
-                            + (polarity)*(ngz-1-ig) )
-                            + (which_face_a==3) * 
-                            ( (!polarity)*(ny+ngz+ig)  
-                            + (polarity)*(ny+2*ngz-1-ig) ), 
+                    int j_a = EXPR((which_face_a==2) * ig 
+                            + (which_face_a==3) * (ny+ngz+ig), 
                             + (which_face_a/2==0) * (j+ngz), 
                             + (which_face_a/2==2) * (k+ngz));  
                     
@@ -336,37 +332,30 @@ void copy_interior_ghostzones(
                             + (which_face_b/2==2) * (k+ngz)) ; 
 
                     #ifdef GRACE_3D
-                    int k_a = (which_face_a==4) * 
-                            ( (!polarity)*ig 
-                            + (polarity)*(ngz-1-ig) )
-                            + (which_face_a==5) * 
-                            ( (!polarity)*(nz+ngz+ig)  
-                            + (polarity)*(nz+2*ngz-1-ig) )
+                    int k_a = (which_face_a==4) * ig 
+                            + (which_face_a==5) *  (nz+ngz+ig)
                             + (which_face_a/2!=2) * (k+ngz) ;
 
                     int k_b = (which_face_b==4)*(ngz+ig)
                             + (which_face_b==5)*(nz+ig)
                             + (which_face_b/2!=2) * (k + ngz) ;
                     #endif 
+                    #ifndef GRACE_CARTESIAN_COORDINATES
+                    // TODO HERE  WE ASSUME Nx==Ny==Nz
+                    auto const lmn = mapper({VEC(i_a,j_a,k_a)}, tid_b, tid_a, {ng,n1,n2}) ;
+                    i_a = lmn[0]; j_a = lmn[1]; k_a = lmn[2] ; 
+                    #endif 
 
                     view_a(VEC(i_a,j_a,k_a),ivar,qid_a) =  view_b(VEC(i_b,j_b,k_b),ivar,qid_b) ; 
                     
                     if( ! is_ghost ) {
-                        i_b = EXPR((which_face_b==0) * 
-                                ( (!polarity)*ig 
-                                + (polarity)*(ngz-1-ig) )
-                                + (which_face_b==1) * 
-                                ( (!polarity)*(nx+ngz+ig)  
-                                + (polarity)*(nx+2*ngz-1-ig) ),
+                        i_b = EXPR((which_face_b==0) * ig 
+                                + (which_face_b==1) * (nx+ngz+ig),
                                 + (which_face_b/2==1) * (j+ngz), 
                                 + (which_face_b/2==2) * (j+ngz)) ;
 
-                        j_b = EXPR((which_face_b==2) * 
-                                ( (!polarity)*ig 
-                                + (polarity)*(ngz-1-ig) )
-                                + (which_face_b==3) * 
-                                ( (!polarity)*(ny+ngz+ig)  
-                                + (polarity)*(ny+2*ngz-1-ig) ), 
+                        j_b = EXPR((which_face_b==2) * ig
+                                + (which_face_b==3) * (ny+ngz+ig), 
                                 + (which_face_b/2==0) * (j+ngz), 
                                 + (which_face_b/2==2) * (k+ngz)) ;  
                         
@@ -381,23 +370,22 @@ void copy_interior_ghostzones(
                                 + (which_face_a/2==2) * (k+ngz)) ; 
 
                         #ifdef GRACE_3D
-                        k_b =     (which_face_b==4) * 
-                                ( (!polarity)*ig 
-                                + (polarity)*(ngz-1-ig) )
-                                + (which_face_b==5) * 
-                                ( (!polarity)*(nz+ngz+ig)  
-                                + (polarity)*(nz+2*ngz-1-ig) )
+                        k_b =     (which_face_b==4) *ig 
+                                + (which_face_b==5) * (nz+ngz+ig)
                                 + (which_face_b/2!=2) * (k+ngz) ;
 
                         k_a =     (which_face_a==4)*(ngz+ig)
                                 + (which_face_a==5)*(nz+ig)
                                 + (which_face_a/2!=2) * (k + ngz) ;
                         #endif  
-                        
+                        #ifndef GRACE_CARTESIAN_COORDINATES
+                        // TODO HERE  WE ASSUME Nx==Ny==Nz
+                        auto const lmn = mapper({VEC(i_b,j_b,k_b)}, tid_a, tid_b, {ng,n1,n2}) ;
+                        i_b = lmn[0]; j_b = lmn[1]; k_b = lmn[2] ; 
+                        #endif 
                         view_b(VEC(i_b,j_b,k_b),ivar,qid_b) =  view_a(VEC(i_a,j_a,k_a),ivar,qid_a) ;
                     }
                     } );
-
         }
     )   ;  
 }
@@ -445,6 +433,8 @@ void restrict_hanging_ghostzones(
             int64_t qid_coarse       =  d_face_info(team.league_rank()).qid_coarse        ;
             int8_t which_face_coarse =  d_face_info(team.league_rank()).which_face_coarse    ; 
             int8_t which_face_fine   =  d_face_info(team.league_rank()).which_face_fine      ; 
+            int tid_coarse = d_face_info(team.league_rank()).which_tree_coarse ; 
+            int tid_fine   = d_face_info(team.league_rank()).which_tree_fine   ;
             int8_t is_ghost_fine[P4EST_CHILDREN/2] ; 
             int64_t qid_fine[P4EST_CHILDREN/2] ;
             for( int ii=0; ii<P4EST_CHILDREN/2; ++ ii){
@@ -454,6 +444,9 @@ void restrict_hanging_ghostzones(
             int64_t const ng = (which_face_fine/2==0) * nx + ((which_face_fine/2==1) * ny) + ((which_face_fine/2==2) * nz) ;
             int64_t const n1 = (which_face_fine/2==0) * ny + ((which_face_fine/2==1) * nx) + ((which_face_fine/2==2) * nx) ;
             int64_t const n2 = (which_face_fine/2==0) * nz + ((which_face_fine/2==1) * nz) + ((which_face_fine/2==2) * ny) ;
+            #ifdef GRACE_SPHERICAL_COORDINATES
+            index_helper_t mapper{} ; 
+            #endif 
             if( ! is_ghost_coarse )
             {
             TeamThreadMDRange<Rank<GRACE_NSPACEDIM>,member_t>
@@ -471,31 +464,41 @@ void restrict_hanging_ghostzones(
                         for(int ig=0; ig<ngz; ++ig){
                             /* Compute indices of cell to be filled */
                             EXPR( 
-                            int const i_c = EXPR((which_face_coarse==0) * 
-                                        ( (!polarity)*ig 
-                                        + (polarity)*(ngz-1-ig) ) 
-                                        + (which_face_coarse==1) * 
-                                        ( (!polarity)*(nx+ngz+ig) 
-                                        + (polarity)*(nx+2*ngz-1-ig) ),
-                                        + (which_face_coarse/2==1) * (j+ngz), 
-                                        + (which_face_coarse/2==2) * (j+ngz)) ;,
-                            int const j_c = EXPR((which_face_coarse==2) * 
-                                        ( (!polarity)*ig 
-                                        + (polarity)*(ngz-1-ig) )
-                                        + (which_face_coarse==3) * 
-                                        ( (!polarity)*(ny+ngz+ig)  
-                                        + (polarity)*(ny+2*ngz-1-ig) ), 
-                                        + (which_face_coarse/2==0) * (j+ngz), 
-                                        + (which_face_coarse/2==2) * (k+ngz));  ,
-                            int const k_c = (which_face_coarse==4) * 
-                                        ( (!polarity)*ig 
-                                        + (polarity)*(ngz-1-ig) )
-                                        + (which_face_coarse==5) * 
-                                        ( (!polarity)*(nz+ngz+ig)  
-                                        + (polarity)*(nz+2*ngz-1-ig) )
-                                        + (which_face_coarse/2!=2) * (k+ngz) ;
+                            int const i_c = EXPR((which_face_coarse==0) * ig 
+                                          + (which_face_coarse==1) * (nx+ngz+ig),
+                                          + (which_face_coarse/2==1) * (j+ngz), 
+                                          + (which_face_coarse/2==2) * (j+ngz)) ;,
+                            int const j_c = EXPR((which_face_coarse==2) * ig
+                                          + (which_face_coarse==3) * *(ny+ngz+ig), 
+                                          + (which_face_coarse/2==0) * (j+ngz), 
+                                          + (which_face_coarse/2==2) * (k+ngz));  ,
+                            int const k_c = (which_face_coarse==4) * ig 
+                                          + (which_face_coarse==5) * (nz+ngz+ig)  
+                                          + (which_face_coarse/2!=2) * (k+ngz) ;
                             )  
-                            
+                            #ifdef GRACE_SPHERICAL_COORDINATES
+                            int64_t const VEC( Ig{ (2*ig)%ng }, I1{ (2*j)%n1 + ngz }, I2{ (2*k)%n2 + ngz } ) ; 
+                            EXPR(
+                                int i_f = 
+                                    (which_face_fine == 0) * ( ngz + Ig      )
+                                +   (which_face_fine == 1) * ( ng - ngz + Ig )
+                                +   (which_face_fine/2 == 1) * I1 
+                                +   (which_face_fine/2 == 2) * I1 ;, 
+                                int j_f = EXPR(
+                                    (which_face_fine == 2) * ( ngz + Ig      )
+                                +   (which_face_fine == 3) * ( ng - ngz + Ig ),
+                                +   (which_face_fine/2 == 0) * I1, 
+                                +   (which_face_fine/2 == 2) * I2) ;, 
+                                int k_f = 
+                                    (which_face_fine == 4) * ( ngz + Ig      )
+                                +   (which_face_fine == 5) * ( ng - ngz + Ig )
+                                +   (which_face_fine/2 == 0) * I2 
+                                +   (which_face_fine/2 == 1) * I2 ;
+                            )
+                            // HERE WE ASSUME N1==N2==N3
+                            lmn = mapper({VEC(i_f,j_f,k_f)}, tid_coearse, tid_fine, {VEC(ng,n1,n2)}) ; 
+                            i_f = lmn[0]; j_f = lmn[1]; k_f = lmn[2];
+                            #else 
                             int64_t const VEC( Ig{ (2*ig)%ng }, I1{ (2*j)%n1 + ngz }, I2{ (2*k)%n2 + ngz } ) ; 
                             EXPR(
                                 const int i_f = 
@@ -513,8 +516,8 @@ void restrict_hanging_ghostzones(
                                 +   (which_face_fine == 5) * ( ng - ngz + Ig )
                                 +   (which_face_fine/2 == 0) * I2 
                                 +   (which_face_fine/2 == 1) * I2 ;
-                            ) 
-                             
+                            )
+                            #endif 
                             /* Call restriction operator on fine data */ 
                             state(VEC(i_c,j_c,k_c),ivar,qid_coarse) = 
                                 utils::vol_average_restictor_t::apply(VEC(i_f,j_f,k_f), fine_view, fine_vol, qid_b, ivar) ;  
@@ -570,6 +573,8 @@ void prolongate_hanging_ghostzones(
             int64_t iq_coarse        =  d_face_info(team.league_rank()).qid_coarse        ;
             int8_t which_face_coarse =  d_face_info(team.league_rank()).which_face_coarse    ; 
             int8_t which_face_fine   =  d_face_info(team.league_rank()).which_face_fine      ; 
+            int tid_coarse           =  d_face_info(team.league_rank()).which_tree_coarse    ; 
+            int tid_fine             =  d_face_info(team.league_rank()).which_tree_fine      ; 
             int8_t is_ghost_fine[P4EST_CHILDREN/2] ; 
             int64_t qid_fine[P4EST_CHILDREN/2] ;
             for( int ii=0; ii<P4EST_CHILDREN/2; ++ ii){
@@ -582,6 +587,10 @@ void prolongate_hanging_ghostzones(
             int64_t n2 = (which_face_fine/2==0) * nz + ((which_face_fine/2==1) * nz) + ((which_face_fine/2==2) * ny) ;
 
             auto& coarse_view   = is_ghost_coarse ? halo : state ; 
+
+            #ifndef GRACE_CARTESIAN_COORDINATES
+            index_helper_t mapper{} ;
+            #endif 
             TeamThreadMDRange<Rank<GRACE_NSPACEDIM+1>,member_t>
                 team_range( team, VEC(ngz, n1,n2), nvars) ; 
             parallel_for( team_range
@@ -590,28 +599,16 @@ void prolongate_hanging_ghostzones(
                         /* First we compute the indices of the point */
                         /* we are calculating.                       */
                         EXPR( 
-                        int const i_f = EXPR((which_face_fine==0) * 
-                                    ( (!polarity)*ig 
-                                    + (polarity)*(ngz-1-ig) ) 
-                                    + (which_face_fine==1) * 
-                                    ( (!polarity)*(nx+ngz+ig) 
-                                    + (polarity)*(nx+2*ngz-1-ig) ),
+                        int const i_f = EXPR((which_face_fine==0) * *ig 
+                                    + (which_face_fine==1) * (nx+ngz+ig),
                                     + (which_face_fine/2==1) * (j+ngz), 
                                     + (which_face_fine/2==2) * (j+ngz)) ;,
-                        int const j_f = EXPR((which_face_fine==2) * 
-                                    ( (!polarity)*ig 
-                                    + (polarity)*(ngz-1-ig) )
-                                    + (which_face_fine==3) * 
-                                    ( (!polarity)*(ny+ngz+ig)  
-                                    + (polarity)*(ny+2*ngz-1-ig) ), 
+                        int const j_f = EXPR((which_face_fine==2) * ig
+                                    + (which_face_fine==3) * (ny+ngz+ig), 
                                     + (which_face_fine/2==0) * (j+ngz), 
                                     + (which_face_fine/2==2) * (k+ngz));  ,
-                        int const k_f = (which_face_fine==4) * 
-                                    ( (!polarity)*ig 
-                                    + (polarity)*(ngz-1-ig) )
-                                    + (which_face_fine==5) * 
-                                    ( (!polarity)*(nz+ngz+ig)  
-                                    + (polarity)*(nz+2*ngz-1-ig) )
+                        int const k_f = (which_face_fine==4) * ig 
+                                    + (which_face_fine==5) * (nz+ngz+ig)  
                                     + (which_face_fine/2!=2) * (k+ngz) ;
                         )
                         /* Then we loop over all child quadrants */
@@ -619,6 +616,7 @@ void prolongate_hanging_ghostzones(
                         #pragma unroll 4
                         for( int ichild=0; ichild<GRACE_FACE_CHILDREN; ++ichild) {
                             if( is_ghost_fine[ichild] ) continue ; 
+                            /* WARNING! No relative orientation assumed here */
                             int64_t iq_fine = qid_fine[ichild] ; 
                             /* 
                             * First we need to find the physical index 
@@ -632,6 +630,7 @@ void prolongate_hanging_ghostzones(
                             )
                             int const VECD( I1{ math::floor_int((iquad_1 * n1 + j ) / 2) + ngz }
                                           , I2{ math::floor_int((iquad_2 * n2 + k ) / 2) + ngz } ) ; 
+                            #ifdef GRACE_CARTESIAN_COORDINATES
                             EXPR(
                             int const i_c = 
                                     (which_face_coarse == 0) * (ngz + math::floor_int( ig / 2 ) )
@@ -649,6 +648,27 @@ void prolongate_hanging_ghostzones(
                                   + (which_face_coarse == 5) * (nz + ngz - 1 - math::floor_int( (ngz - 1 - ig) / 2 ) )
                                   + (which_face_coarse/2!=2) * I2 ;
                             )
+                            #else 
+                            EXPR(
+                            int i_c = 
+                                    (which_face_coarse == 0) * (ngz + math::floor_int( ig / 2 ) )
+                                  + (which_face_coarse == 1) * (nx + ngz - 1 - math::floor_int( (ngz - 1 - ig) / 2 ) )
+                                  + (which_face_coarse/2!=0) * I1 ;,
+
+                            int j_c = EXPR(
+                                    (which_face_coarse == 2) * (ngz + math::floor_int( ig / 2 ) )
+                                  + (which_face_coarse == 3) * (ny + ngz - 1 - math::floor_int( (ngz - 1 - ig) / 2 ) ),
+                                  + (which_face_coarse/2==0) * I1, 
+                                  + (which_face_coarse/2==2) * I2 );,
+
+                            int k_c =  
+                                    (which_face_coarse == 4) * (ngz + math::floor_int( ig / 2 ) )
+                                  + (which_face_coarse == 5) * (nz + ngz - 1 - math::floor_int( (ngz - 1 - ig) / 2 ) )
+                                  + (which_face_coarse/2!=2) * I2 ;
+                            )
+                            auto const lmn = mapper({VEC(i_c,j_c,k_c)}, tid_fine,tid_coarse, {ng,n1,n2}) ; 
+                            i_c = lmn[0]; j_c = lmn[1] ; k_c = lmn[2] ;
+                            #endif  
                             /* Get signs for slope corrections */
                             EXPR(  
                             int const sign_x = (which_face_coarse == 0) * (
