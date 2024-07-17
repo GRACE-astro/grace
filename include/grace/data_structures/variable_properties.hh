@@ -54,7 +54,7 @@ struct variable_properties_t
 template<> 
 struct variable_properties_t<2>
 {
-    using view_t = Kokkos::View<double ****, default_space> ; 
+    using view_t = Kokkos::View<double ****, Kokkos::LayoutLeft, default_space> ; 
     std::array<bool, 2> staggering; 
     bool has_gz ; 
     bool is_vector ;  
@@ -71,7 +71,7 @@ struct variable_properties_t<2>
 template<> 
 struct variable_properties_t<3>
 {
-    using view_t = Kokkos::View<double *****, default_space> ; 
+    using view_t = Kokkos::View<double *****, Kokkos::LayoutLeft, default_space> ; 
     std::array<bool, 3> staggering; 
     bool has_gz ; 
     bool is_vector;
@@ -94,7 +94,7 @@ struct coord_array_impl_t {} ;
  * \ingroup variables
  */
 template<> 
-struct coord_array_impl_t<2> { using view_t = Kokkos::View<double ****, default_space>; };
+struct coord_array_impl_t<2> { using view_t = Kokkos::View<double ****, Kokkos::LayoutLeft, default_space>; };
 //*****************************************************************************************************
 /**
  * @brief Helper class 
@@ -102,7 +102,7 @@ struct coord_array_impl_t<2> { using view_t = Kokkos::View<double ****, default_
  * \ingroup variables
  */
 template<> 
-struct coord_array_impl_t<3> { using view_t = Kokkos::View<double *****, default_space>; } ;
+struct coord_array_impl_t<3> { using view_t = Kokkos::View<double *****, Kokkos::LayoutLeft, default_space>; } ;
 //*****************************************************************************************************
 /**
  * @brief Helper class 
@@ -118,7 +118,7 @@ struct cell_vol_array_impl_t {} ;
  * \ingroup variables
  */
 template<> 
-struct cell_vol_array_impl_t<2> { using view_t = Kokkos::View<double ***, default_space>; };
+struct cell_vol_array_impl_t<2> { using view_t = Kokkos::View<double ***, Kokkos::LayoutLeft, default_space>; };
 //*****************************************************************************************************
 /**
  * @brief Helper class 
@@ -126,7 +126,7 @@ struct cell_vol_array_impl_t<2> { using view_t = Kokkos::View<double ***, defaul
  * \ingroup variables
  */
 template<> 
-struct cell_vol_array_impl_t<3> { using view_t = Kokkos::View<double ****, default_space>; } ;
+struct cell_vol_array_impl_t<3> { using view_t = Kokkos::View<double ****, Kokkos::LayoutLeft, default_space>; } ;
 //*****************************************************************************************************
 /**
  * @brief Helper class 
@@ -134,7 +134,7 @@ struct cell_vol_array_impl_t<3> { using view_t = Kokkos::View<double ****, defau
  * \ingroup variables
  */
 template< size_t ndim >
-struct scalar_array_impl_t { using view_t = Kokkos::View<double **, default_space>; } ;
+struct scalar_array_impl_t { using view_t = Kokkos::View<double **, Kokkos::LayoutLeft, default_space>; } ;
 //*****************************************************************************************************
 /**
  * @brief Proxy for variable <code>View</code> type in GRACE
@@ -173,7 +173,7 @@ using cell_vol_array_t = cell_vol_array_impl_t<ndim>::view_t ;
  * \ingroup variables
  * @tparam ndim Number of spatial dimension
  */
-using flux_array_t = Kokkos::View<double EXPR(*,*,*) ***, default_space> ; 
+using flux_array_t = Kokkos::View<double EXPR(*,*,*) ***, Kokkos::LayoutLeft, default_space> ; 
 /*****************************************************************************************************/
 /*****************************************************************************************************/
 /*                               STAGGERED FIELDS UTILS                                              */
