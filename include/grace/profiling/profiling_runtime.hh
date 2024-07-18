@@ -98,6 +98,7 @@ class profiling_runtime_impl_t
      * 
      * @return std::unordered_map<size_t,std::string> hash table containing currently active hardware counters.
      */
+  #ifdef GRACE_ENABLE_HIP
     std::unordered_map<size_t,std::string> GRACE_ALWAYS_INLINE 
     active_hardware_counters() {
         return _gpu_profiling_active_counters ; 
@@ -111,6 +112,7 @@ class profiling_runtime_impl_t
     top_gpu_region_name() const {
         return _gpu_profiling_active_regions_names.top() ; 
     }
+  #endif 
     //*********************************************************************************************************************
     /**
      * @brief Initiate a device profiling region.
@@ -184,7 +186,8 @@ class profiling_runtime_impl_t
      * 
      */
     profiling_runtime_impl_t() {
-        auto hasher = std::hash<std::string>{} ; 
+        auto hasher = std::hash<std::string>{} ;
+	#ifdef GRACE_ENABLE_HIP
         auto const counters 
             = grace::get_param<std::vector<std::string>>("profiling","enabled_hardware_counters") ;
         for( auto const& x: counters) 
@@ -193,6 +196,7 @@ class profiling_runtime_impl_t
             static_cast<std::filesystem::path>(
                 grace::get_param<std::string>("profiling","output_base_directory") 
             ) ;
+	#endif 
         _do_gpu_profiling = grace::get_param<bool>("profiling", "do_gpu_profiling") ;  
         if (!std::filesystem::exists(_base_outpath)) {
             // Create the directory if it doesn't exist

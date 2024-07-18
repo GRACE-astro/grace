@@ -227,7 +227,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     const size_t global_point_offset = local_quad_offset * ncells_quad * nvertex;  
     unsigned int icell  = 0L ; 
     unsigned int ipoint = 0U ; 
-    #pragma omp parallel for collapse 4
+    //#pragma omp parallel for collapse(GRACE_NSPACEDIM+1) reduction(+:icell,ipoint)
     for(int64_t iq=0; iq<nq; ++iq) {
         #ifdef GRACE_3D
         for(size_t k=0; k<nz; ++k  ) {
@@ -738,7 +738,7 @@ void write_extra_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chu
     unsigned long long* qid  = (unsigned long long*) malloc(sizeof(unsigned long long) * ncells ) ;  
 
     unsigned int icell  = 0L ; 
-    #pragma omp parallel for collapse 4
+    //#pragma omp parallel for collapse(GRACE_NSPACEDIM+1) reduction(+:icell)
     for(int64_t iq=0; iq<nq; ++iq) {
         #ifdef GRACE_3D
         for(size_t k=0; k<nz; ++k  ) {

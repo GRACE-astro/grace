@@ -3,7 +3,7 @@ if (NOT KOKKOS_ROOT)
     set(KOKKOS_ROOT "$ENV{KOKKOS_ROOT}")
 endif()
 message(STATUS "Kokkos root ${KOKKOS_ROOT}")
-find_package(Kokkos REQUIRED PATHS ${KOKKOS_ROOT}/lib/cmake/Kokkos )
+find_package(Kokkos REQUIRED PATHS ${KOKKOS_ROOT}/lib/cmake/Kokkos ${KOKKOS_ROOT}/lib64/cmake/Kokkos)
 
 option(GRACE_ENABLE_CUDA  "Enable CUDA device support" OFF) 
 option(GRACE_ENABLE_HIP   "Enable HIP device support"  OFF)

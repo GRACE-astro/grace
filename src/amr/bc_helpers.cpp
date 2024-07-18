@@ -312,7 +312,7 @@ void copy_interior_ghostzones(
                         , KOKKOS_LAMBDA(int& ig, VECD(int& j, int& k), int& ivar)
                     {
                     int i_a = EXPR((which_face_a==0) *ig 
-                                + (which_face_a==1) * *(nx+ngz+ig),
+                                + (which_face_a==1) * (nx+ngz+ig),
                                 + (which_face_a/2==1) * (j+ngz), 
                                 + (which_face_a/2==2) * (j+ngz)) ;
 
@@ -469,7 +469,7 @@ void restrict_hanging_ghostzones(
                                           + (which_face_coarse/2==1) * (j+ngz), 
                                           + (which_face_coarse/2==2) * (j+ngz)) ;,
                             int const j_c = EXPR((which_face_coarse==2) * ig
-                                          + (which_face_coarse==3) * *(ny+ngz+ig), 
+                                          + (which_face_coarse==3) * (ny+ngz+ig), 
                                           + (which_face_coarse/2==0) * (j+ngz), 
                                           + (which_face_coarse/2==2) * (k+ngz));  ,
                             int const k_c = (which_face_coarse==4) * ig 
@@ -599,7 +599,7 @@ void prolongate_hanging_ghostzones(
                         /* First we compute the indices of the point */
                         /* we are calculating.                       */
                         EXPR( 
-                        int const i_f = EXPR((which_face_fine==0) * *ig 
+                        int const i_f = EXPR((which_face_fine==0) * ig 
                                     + (which_face_fine==1) * (nx+ngz+ig),
                                     + (which_face_fine/2==1) * (j+ngz), 
                                     + (which_face_fine/2==2) * (j+ngz)) ;,

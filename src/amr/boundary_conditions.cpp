@@ -33,7 +33,6 @@
 #include <grace/amr/bc_helpers.hh> 
 #include <grace/amr/bc_helpers.tpp> 
 #include <grace/amr/bc_kernels.tpp>
-#include <grace/amr/index_helpers.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/utils/grace_utils.hh>

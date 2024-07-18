@@ -73,6 +73,8 @@ static void set_grmhd_shocktube_initial_data() {
 
 
     int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
+    
+    #pragma omp parallel for 
     for( int64_t icell=0; icell<ncells; ++icell) {
         size_t const i = icell%(nx+2*ngz); 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
@@ -150,6 +152,7 @@ static void set_grmhd_spherical_blastwave_initial_data() {
 
 
     int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
+    #pragma omp parallel for 
     for( int64_t icell=0; icell<ncells; ++icell) {
         size_t const i = icell%(nx+2*ngz); 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
@@ -169,7 +172,7 @@ static void set_grmhd_spherical_blastwave_initial_data() {
         ) ; 
 
         double const r = 
-            sqrt( EXPR( pcoords[0]*pcoords[0], + pcoords[1]*pcoords[1], + pcoords[2] * pcoords[2])) ;
+	  Kokkos::sqrt( EXPR( pcoords[0]*pcoords[0], + pcoords[1]*pcoords[1], + pcoords[2] * pcoords[2])) ;
 
         
         h_state_mirror(VEC(i,j,k),VELX,q) = 0. ;

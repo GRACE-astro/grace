@@ -4,4 +4,6 @@ doc/latex/*
 build*
 *.test
 *.o
+\#*
+*~
 .vscode
