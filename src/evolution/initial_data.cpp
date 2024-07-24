@@ -33,6 +33,7 @@
 #include <grace/amr/grace_amr.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/data_structures/grace_data_structures.hh>
+#include <grace/coordinates/coordinates.hh>
 #include <grace/utils/grace_utils.hh>
 #ifdef GRACE_ENABLE_GRMHD
 #include <grace/physics/admbase.hh>
@@ -76,8 +77,147 @@ void set_initial_data_impl() {
     set_admbase_id() ; 
     set_grmhd_initial_data<eos_t>();
     #endif 
+    transform_to_logical_frame() ; 
     Kokkos::Profiling::popRegion() ; 
 } 
+
+
+void transform_to_logical_frame() {
+    DECLARE_GRID_EXTENTS ; 
+    using namespace grace  ; 
+    using namespace Kokkos ;
+    /************************************************/
+    /* Fill coordinate jacobian matrices on device  */
+    /* at cell centers                              */
+    /************************************************/
+    jacobian_array_t jac, invjac ; 
+    fill_jacobian_matrices(jac,invjac) ;  
+    /************************************************/
+    /* Retrieve vector and tensor variables and     */
+    /* auxiliaries                                  */
+    /************************************************/
+    auto const h_vec_vars = variables::get_vector_state_variables_indices()  ;
+    auto const h_tens_vars = variables::get_tensor_state_variables_indices() ;
+    auto const h_vec_aux = variables::get_vector_aux_variables_indices()     ;
+    auto const h_tens_aux = variables::get_tensor_aux_variables_indices()    ;
+    for( int i=0; i<h_vec_vars.size(); ++i){
+        GRACE_TRACE("Vector var (state): {}", variables::get_var_name(h_vec_vars[i],false)) ; 
+    }
+    for( int i=0; i<h_tens_vars.size(); ++i){
+        GRACE_TRACE("Tensor var (state): {}", variables::get_var_name(h_tens_vars[i],false)) ; 
+    }
+    for( int i=0; i<h_vec_aux.size(); ++i){
+        GRACE_TRACE("Vector var (aux): {}", variables::get_var_name(h_vec_aux[i],true)) ; 
+    }
+    for( int i=0; i<h_tens_aux.size(); ++i){
+        GRACE_TRACE("Tensor var (aux): {}", variables::get_var_name(h_tens_aux[i],true)) ; 
+    }
+    Kokkos::View<size_t* , default_execution_space> 
+        vec_vars("vector_var_indices", h_vec_vars.size())
+      , tens_vars("tensor_var_indices", h_tens_vars.size())
+      , vec_aux("vector_aux_indices", h_vec_aux.size())
+      , tens_aux("tensor_aux_indices", h_tens_aux.size()) ; 
+    size_t const n_vec_vars = h_vec_vars.size() ; 
+    size_t const n_tens_vars = h_tens_vars.size() ; 
+    size_t const n_vec_aux = h_vec_aux.size() ;
+    size_t const n_tens_aux = h_tens_aux.size() ; 
+    deep_copy_vec_to_view(vec_vars, h_vec_vars) ; 
+    deep_copy_vec_to_view(tens_vars, h_tens_vars) ; 
+    deep_copy_vec_to_view(vec_aux, h_vec_aux) ; 
+    deep_copy_vec_to_view(tens_aux, h_tens_aux) ; 
+    /************************************************/
+    /* Launch a kernel to apply jacobians to tensor */
+    /* and vector variables                         */
+    /************************************************/
+    auto& state = variable_list::get().getstate() ; 
+    auto& aux   = variable_list::get().getaux()   ; 
+    GRACE_TRACE("Starting conversion to logical coordinates.") ; 
+    parallel_for(GRACE_EXECUTION_TAG("ID","convert_to_logical")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
+                {
+                    for(int iv=0; iv<n_vec_vars; ++iv){
+                        std::array<double,3> const vin
+                        {
+                              state(VEC(i,j,k),vec_vars(iv)  ,q)
+                            , state(VEC(i,j,k),vec_vars(iv)+1,q)
+                            , state(VEC(i,j,k),vec_vars(iv)+2,q)
+                        } ; 
+                        auto J = Kokkos::subview(invjac, VEC(i,j,k), ALL(), ALL(),  q) ; 
+                        auto const vout = detail::apply_jacobian_vec(vin, J) ;
+                        state(VEC(i,j,k),vec_vars(iv)  ,q) = vout[0] ; 
+                        state(VEC(i,j,k),vec_vars(iv)+1,q) = vout[1] ; 
+                        #ifdef GRACE_3D 
+                        state(VEC(i,j,k),vec_vars(iv)+2,q) = vout[2] ; 
+                        #endif
+                    }
+
+                    for(int iv=0; iv<n_tens_vars; ++iv){
+                        std::array<double,6> const vin
+                        {
+                              state(VEC(i,j,k),tens_vars(iv)  ,q)
+                            , state(VEC(i,j,k),tens_vars(iv)+1,q)
+                            , state(VEC(i,j,k),tens_vars(iv)+2,q)
+                            , state(VEC(i,j,k),tens_vars(iv)+3,q)
+                            , state(VEC(i,j,k),tens_vars(iv)+4,q)
+                            , state(VEC(i,j,k),tens_vars(iv)+5,q)
+                        } ; 
+                        auto J = Kokkos::subview(invjac, VEC(i,j,k), ALL(), ALL(),  q) ; 
+                        auto const vout = detail::apply_jacobian_symtens(vin, J) ;
+                        state(VEC(i,j,k),tens_vars(iv)  ,q) = vout[0] ; 
+                        state(VEC(i,j,k),tens_vars(iv)+1,q) = vout[1] ; 
+                        #ifdef GRACE_3D
+                        state(VEC(i,j,k),tens_vars(iv)+2,q) = vout[2] ; 
+                        #endif 
+                        state(VEC(i,j,k),tens_vars(iv)+3,q) = vout[3] ; 
+                        #ifdef GRACE_3D 
+                        state(VEC(i,j,k),tens_vars(iv)+4,q) = vout[4] ; 
+                        state(VEC(i,j,k),tens_vars(iv)+5,q) = vout[5] ;
+                        #endif   
+                    }
+
+                    for(int iv=0; iv<n_vec_aux; ++iv){
+                        std::array<double,3> const vin
+                        {
+                              aux(VEC(i,j,k),vec_aux(iv)  ,q)
+                            , aux(VEC(i,j,k),vec_aux(iv)+1,q)
+                            , aux(VEC(i,j,k),vec_aux(iv)+2,q)
+                        } ; 
+                        auto J = Kokkos::subview(invjac, VEC(i,j,k), ALL(), ALL(),  q) ; 
+                        auto const vout = detail::apply_jacobian_vec(vin, J) ;
+                        aux(VEC(i,j,k),vec_aux(iv)  ,q) = vout[0] ; 
+                        aux(VEC(i,j,k),vec_aux(iv)+1,q) = vout[1] ; 
+                        #ifdef GRACE_3D
+                        aux(VEC(i,j,k),vec_aux(iv)+2,q) = vout[2] ;
+                        #endif
+                    }
+
+                    for(int iv=0; iv<n_tens_aux; ++iv){
+                        std::array<double,6> const vin
+                        {
+                              aux(VEC(i,j,k),tens_aux(iv)  ,q)
+                            , aux(VEC(i,j,k),tens_aux(iv)+1,q)
+                            , aux(VEC(i,j,k),tens_aux(iv)+2,q)
+                            , aux(VEC(i,j,k),tens_aux(iv)+3,q)
+                            , aux(VEC(i,j,k),tens_aux(iv)+4,q)
+                            , aux(VEC(i,j,k),tens_aux(iv)+5,q)
+                        } ; 
+                        auto J = Kokkos::subview(invjac, VEC(i,j,k), ALL(), ALL(),  q) ; 
+                        auto const vout = detail::apply_jacobian_symtens(vin, J) ;
+                        aux(VEC(i,j,k),tens_aux(iv)  ,q) = vout[0] ; 
+                        aux(VEC(i,j,k),tens_aux(iv)+1,q) = vout[1] ; 
+                        #ifdef GRACE_3D
+                        aux(VEC(i,j,k),tens_aux(iv)+2,q) = vout[2] ; 
+                        #endif 
+                        aux(VEC(i,j,k),tens_aux(iv)+3,q) = vout[3] ; 
+                        #ifdef GRACE_3D
+                        aux(VEC(i,j,k),tens_aux(iv)+4,q) = vout[4] ; 
+                        aux(VEC(i,j,k),tens_aux(iv)+5,q) = vout[5] ;
+                        #endif 
+                    }
+                } ) ; 
+}
+
 #define INSTANTIATE_TEMPLATE(EOS)   \
 template                            \
 void set_initial_data_impl<EOS>()

@@ -92,30 +92,62 @@ get_bc_type(int64_t varidx, size_t const& var_type)
     }
 }
 
-std::vector<int> 
-get_vector_var_indices()
-{
-    std::vector<int> indices ; 
-    int idx =0 ;
-    for( auto const& props: detail::_varprops){
-        if(props.second.is_vector)
-            indices.push_back(idx) ; 
-        idx++ ; 
-    }
-    return indices  ;
+std::string get_var_name(int64_t var_idx, bool is_aux) {
+    return is_aux ? detail::_auxnames[var_idx]
+                  : detail::_varnames[var_idx] ; 
 }
 
-std::vector<int> 
-get_tensor_var_indices() 
-{
-    std::vector<int> indices ; 
-    int idx =0 ;
-    for( auto const& props: detail::_varprops){
-        if(props.second.is_tensor)
-            indices.push_back(idx) ; 
-        idx++ ; 
+std::vector<std::size_t>
+get_vector_state_variables_indices() {
+    std::vector<std::size_t> indices ; 
+    for( int i=0; i<detail::_varnames.size(); ++i){
+        auto const& props = detail::_varprops[detail::_varnames[i]] ;
+        if(props.is_vector) {
+            indices.push_back(i); 
+            i += 2; 
+        }
     }
-    return indices  ;
+    return std::move(indices)  ;
 }
 
-}}
+std::vector<std::size_t>
+get_tensor_state_variables_indices() {
+    std::vector<std::size_t> indices ; 
+    for( int i=0; i<detail::_varnames.size(); ++i){
+        auto const& props = detail::_varprops[detail::_varnames[i]] ;
+        if(props.is_tensor) {
+            indices.push_back(i); 
+            i += 5; 
+        }
+    }
+    return std::move(indices)  ;
+}
+
+std::vector<std::size_t>
+get_vector_aux_variables_indices() {
+    std::vector<std::size_t> indices ; 
+    for( int i=0; i<detail::_auxnames.size(); ++i){
+        auto const& props = detail::_auxprops[detail::_auxnames[i]] ;
+        if(props.is_vector) {
+            indices.push_back(i); 
+            i += 2; 
+        }
+    }
+    return std::move(indices)  ;
+}
+
+std::vector<std::size_t>
+get_tensor_aux_variables_indices() {
+    std::vector<std::size_t> indices ; 
+    for( int i=0; i<detail::_auxnames.size(); ++i){
+        auto const& props = detail::_auxprops[detail::_auxnames[i]] ;
+        if(props.is_tensor) {
+            indices.push_back(i); 
+            i += 5; 
+        }
+    }
+    return std::move(indices)  ;
+}
+
+
+}} /* namespace grace::variables */

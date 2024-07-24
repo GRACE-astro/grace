@@ -33,6 +33,10 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/grmhd_helpers.hh>
+#include <grace/physics/id/shocktube.hh>
+//#include <grace/physics/id/blastwave.hh>
+//#include <grace/physics/id/tov.hh>
+#include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
@@ -209,11 +213,55 @@ static void set_grmhd_spherical_blastwave_initial_data() {
                 }) ;
 }
 
+template< typename eos_t
+        , typename id_t 
+        , typename ... arg_t > 
+static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
+{
+    DECLARE_GRID_EXTENTS ; 
+    using namespace grace  ; 
+    using namespace Kokkos ; 
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+    grace::fill_physical_coordinates(pcoords) ; 
+    GRACE_TRACE("Filled physical coordinates array.") ; 
+    GRACE_TRACE("Size of array {} {} {} {}", pcoords.extent(0), pcoords.extent(1), pcoords.extent(2), pcoords.extent(3) );
+    auto& state = grace::variable_list::get().getstate() ; 
+    auto& aux   = grace::variable_list::get().getaux()   ; 
+    id_t id_kernel{ state, aux, pcoords, kernel_args... } ; 
+    auto const& _eos = eos::get().get_eos<eos_t>() ; 
+    parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    id_kernel(VEC(i,j,k), q, _eos) ; 
+                    double h, csnd2; 
+                    double ye = _eos.ye_atmosphere();
+                    unsigned int err ; 
+                    /* Set eps temp and entropy */
+                    aux(VEC(i,j,k),EPS_,q) = 
+                        _eos.eps_h_csnd2_temp_entropy__press_rho_ye( h, csnd2, aux(VEC(i,j,k),TEMP_,q)
+                                                                   , aux(VEC(i,j,k),ENTROPY_,q)
+                                                                   , aux(VEC(i,j,k),PRESS_,q)
+                                                                   , aux(VEC(i,j,k),RHO_,q)
+                                                                   , ye,err);
+                    /* Set ye */
+                    aux(VEC(i,j,k),YE_,q) = ye ; 
+                }) ; 
+}
+
 template< typename eos_t >
 void set_grmhd_initial_data() {
-    auto const id_type = get_param<std::string>("grmhd","id_type") ; 
+    auto const id_type = get_param<std::string>("grmhd","id_type") ;
+    GRACE_VERBOSE("Setting grmhd initial data of type {}.", id_type) ;  
+    /* Set requested initial data */
     if( id_type == "shocktube" ) {
-        set_grmhd_shocktube_initial_data<eos_t>() ; 
+        auto const rho_L = get_param<double>("grmhd","shocktube_rho_L") ; 
+        auto const rho_R = get_param<double>("grmhd","shocktube_rho_R") ; 
+        auto const press_L = get_param<double>("grmhd","shocktube_press_L") ; 
+        auto const press_R = get_param<double>("grmhd","shocktube_press_R") ;
+        set_grmhd_initial_data_impl<eos_t,shocktube_id_t<eos_t>>(rho_L, rho_R, press_L, press_R) ;
+        Kokkos::fence() ; 
+        GRACE_TRACE("Done with hydro ID.") ;  
     } else if ( id_type == "blastwave" ) {
         set_grmhd_spherical_blastwave_initial_data<eos_t>() ; 
     } else {

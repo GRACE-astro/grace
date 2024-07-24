@@ -171,9 +171,13 @@ using cell_vol_array_t = cell_vol_array_impl_t<ndim>::view_t ;
 /**
  * @brief Proxy for flux <code>View</code> type in GRACE
  * \ingroup variables
- * @tparam ndim Number of spatial dimension
  */
 using flux_array_t = Kokkos::View<double EXPR(*,*,*) ***, Kokkos::LayoutLeft, default_space> ; 
+/**
+ * @brief Proxy for jacobian matrix <code>View</code> type in GRACE
+ * \ingroup variables
+ */
+using jacobian_array_t = Kokkos::View<double EXPR(*,*,*) ***, Kokkos::LayoutLeft, default_space> ; 
 /*****************************************************************************************************/
 /*****************************************************************************************************/
 /*                               STAGGERED FIELDS UTILS                                              */

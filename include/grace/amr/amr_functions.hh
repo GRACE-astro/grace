@@ -180,6 +180,13 @@ extern int64_t _ny;
 extern int64_t _nz;
 extern int _ngz;
 }
+
+#define DECLARE_GRID_EXTENTS                              \
+size_t nx, ny, nz;                                        \
+std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; \
+auto const ngz = grace::amr::get_n_ghosts()             ; \
+auto const nq  = grace::amr::get_local_num_quadrants()    
+
 } } /* grace::amr */ 
 
  #endif 

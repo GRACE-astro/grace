@@ -173,6 +173,32 @@ class eos_base_t {
         return static_cast<eos_impl_t const*>(this)->press_cold__rho_ye_impl(rho,ye,err) ; 
     }
     /**
+     * @brief Get cold energy density given press and ye.
+     * 
+     * @param press Pressure.
+     * @param ye Electron fraction.
+     * @param err Error code.
+     * @return double The pressure at \f$T=0\f$
+     */
+    double GRACE_HOST_DEVICE
+    rho__press_cold_ye(double& press_cold, double& ye, error_type& err) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->rho__press_cold_ye_impl(press_cold,ye,err) ; 
+    }
+    /**
+     * @brief Get cold energy density given press and ye.
+     * 
+     * @param press Pressure.
+     * @param ye Electron fraction.
+     * @param err Error code.
+     * @return double The pressure at \f$T=0\f$
+     */
+    double GRACE_HOST_DEVICE
+    energy_cold__press_cold_ye(double& press_cold, double& ye, error_type& err) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->energy_cold__press_cold_ye_impl(press_cold,ye,err) ; 
+    }
+    /**
      * @brief Cold specific internal energy given rho and ye.
      * 
      * @param rho Rest-mass density.

@@ -30,6 +30,7 @@
 #include <grace/amr/grace_amr.hh>
 #include <grace/config/config_parser.hh>
 #include <grace/coordinates/coordinate_systems.hh>
+#include <grace/coordinates/coordinates.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/IO/hdf5_output.hh>
 
@@ -611,6 +612,8 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
                                  , hsize_t local_quad_offset
                                  , bool isaux  ) 
 {
+    using namespace grace; 
+    using namespace Kokkos; 
     herr_t err ;
     /* Get cell and quadrant counts */
     size_t nx,ny,nz,nq; 
@@ -676,10 +679,38 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
                                             , Kokkos::ALL()
                                             #endif 
                                             , iq  ) ; 
-                /* This deep copy operation is asynchronous */
+                /* This deep copy operation is synchronous */
                 Kokkos::deep_copy(mirror_sview, sview) ; 
             }
         }
+        /************************************************/
+        /* Transform variable to physical frame         */
+        /************************************************/
+        /* Fill coordinate jacobian matrices on device  */
+        /* at cell centers                              */
+        /************************************************/
+        jacobian_array_t jac, invjac ; 
+        fill_jacobian_matrices(jac,invjac) ;  
+        parallel_for(GRACE_EXECUTION_TAG("IO","convert_to_physical")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
+                {
+                    std::array<double,3> const vin
+                    {
+                          d_mirror(0, VEC(i,j,k), q)
+                        , d_mirror(1, VEC(i,j,k), q)
+                        , d_mirror(2, VEC(i,j,k), q)
+                    } ; 
+                    auto J = Kokkos::subview(jac, VEC(i,j,k), ALL(), ALL(),  q) ; 
+                    auto const vout = ::grace::detail::apply_jacobian_vec(vin, J) ;
+                    d_mirror(0, VEC(i,j,k), q) = vout[0] ; 
+                    d_mirror(1, VEC(i,j,k), q) = vout[1] ; 
+                    d_mirror(2, VEC(i,j,k), q) = vout[2] ;
+                    }
+        ) ;
+        /* just to be sure add a fence */
+        Kokkos::fence() ;
+
         /* Copy data d2h */
         Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
 

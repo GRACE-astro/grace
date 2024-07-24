@@ -32,6 +32,8 @@
 
 #include <grace/data_structures/variable_properties.hh>
 
+#include <array> 
+
 namespace grace { 
 /*****************************************************************************************/
 /**
@@ -46,10 +48,72 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>&
 /*****************************************************************************************/
 /**
  * @brief Fill a device view with physical coordinates on the grid. 
- * 
- * @param pcoords The view to be filled with coordinates.
+ * \ingroup coordinates
+ * @param pcoords           The view to be filled with coordinates.
+ * @param cell_coordinates  Coordinates within the cell where physical coordinates
+ *                          should be computed (defaults to 0.5 in all directions, i.e. 
+ *                          the center of the cell).
  */
-void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords ) ; 
+void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
+                              , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates = {VEC(0.5,0.5,0.5)} 
+                              ) ; 
+/*****************************************************************************************/
+/**
+ * @brief Fill a device view with jacobians of the logical-to-physical 
+ *        coordinate transformation and its inverse. 
+ * \ingroup coordinates
+ * @param jac               The view to be filled with the jacobian matrix.
+ * @param inv_jac           The view to be filled with the inverse jacobian matrix.
+ * @param cell_coordinates  Coordinates within the cell where jacobian matrices
+ *                          should be computed (defaults to 0.5 in all directions, i.e. 
+ *                          the center of the cell).
+ */
+void fill_jacobian_matrices( jacobian_array_t& jac 
+                           , jacobian_array_t& inv_jac 
+                           , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates = {VEC(0.5,0.5,0.5)} 
+                           ) ; 
+/*****************************************************************************************/
+namespace detail{
+template< typename ViewT >
+static GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE std::array<double,3> 
+apply_jacobian_vec(std::array<double,3> const& v, ViewT& J)
+{
+    std::array<double,3> w{0,0,0} ; 
+    #pragma unroll 9
+    for( int ii=0; ii<GRACE_NSPACEDIM; ++ii){
+        for(int jj=0; jj<GRACE_NSPACEDIM; ++jj){
+            w[ii] += J(ii,jj) * v[jj] ;  
+        }
+    }
+    return std::move(w) ; 
+}
+
+template< typename ViewT >
+static GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE std::array<double,6> 
+apply_jacobian_symtens(std::array<double,6> const& v, ViewT& J)
+{
+    int idx[3][3] = {
+          {0,1,2}
+        , {1,3,4}
+        , {2,4,5}
+    } ; 
+
+    std::array<double,6> w{0,0,0,0,0,0} ; 
+    #pragma unroll 
+    for( int ii=0; ii<GRACE_NSPACEDIM; ++ii){
+        for(int jj=0; jj<GRACE_NSPACEDIM; ++jj){
+            for( int kk=0; kk<GRACE_NSPACEDIM; ++kk){
+                for( int ll=0; ll<GRACE_NSPACEDIM; ++ll){
+                    w[idx[ii][jj]] += J(ii,ll) * J(jj,kk) * v[idx[ll][kk]] ; 
+                }
+            }
+        }
+    }
+    return std::move(w) ; 
+}
+
+} /* namespace detail*/
+
 } /* namespace grace */ 
 
 #endif /* F25FCED7_32FD_48EF_A294_4D29ABC78524 */

@@ -192,15 +192,206 @@ class cartesian_coordinate_system_impl_t
     ) const ;
     //**************************************************************************************************
     /**
+     * @brief Get the determinant of the Jacobian matrix of the coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return double The Jacobian matrix determinant.
+     */
+    double
+    GRACE_HOST get_jacobian(
+          std::array<size_t, GRACE_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) const ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the determinant of the Jacobian matrix of the coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param itree Index of tree containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return double The Jacobian matrix determinant.
+     */
+    double
+    GRACE_HOST get_jacobian(
+          std::array<size_t, GRACE_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , int itree
+        , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) const ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the determinant of the Jacobian matrix of the coordinate transformation at a given point
+     * 
+     * @param itree Index of tree containing the point
+     * @param lcoords Logical coordinates of point
+     * @return double The Jacobian matrix determinant.
+     * NB: This function checks for tree boundaries.
+     */
+    double
+    GRACE_HOST get_jacobian(
+          int itree
+        , std::array<double,GRACE_NSPACEDIM> const& lcoords 
+    ) const;
+    //**************************************************************************************************
+    /**
+     * @brief Get the determinant of the Jacobian matrix 
+     *        of the inverse coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return double The inverse Jacobian matrix determinant.
+     */
+    double
+    GRACE_HOST get_inverse_jacobian(
+          std::array<size_t, GRACE_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) const; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the determinant of the Jacobian matrix 
+     *        of the inverse coordinate transformation at a given point      
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param itree Index of tree containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return double The inverse Jacobian matrix determinant.
+     */
+    double
+    GRACE_HOST get_inverse_jacobian(
+          std::array<size_t, GRACE_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , int itree
+        , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) const; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the determinant of the Jacobian matrix 
+     *        of the inverse coordinate transformation at a given point  
+     * @param itree Index of tree containing the point
+     * @param lcoords Logical coordinates of point
+     * @return double The invesre Jacobian matrix determinant.
+     * NB: This function checks for tree boundaries.
+     */
+    double
+    GRACE_HOST get_inverse_jacobian(
+          int itree
+        , std::array<double,GRACE_NSPACEDIM> const& lcoords 
+    ) const;
+    //**************************************************************************************************
+    /**
      * @brief Get the Jacobian matrix of the coordinate transformation at a given point
      * 
-     * @param physical_coordinates Physical coordinates of requested point
-     * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The Jacobian matrix.\
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The Jacobian matrix.
      */
     std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
-    GRACE_HOST get_jacobian(
-        std::array<double,GRACE_NSPACEDIM> const& physical_coordinates 
-    ) const ; 
+    GRACE_HOST get_jacobian_matrix(
+          std::array<size_t, GRACE_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) const; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the Jacobian matrix of the coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param itree Index of tree containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The Jacobian matrix.
+     */
+    std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+    GRACE_HOST get_jacobian_matrix(
+          std::array<size_t, GRACE_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , int itree
+        , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) const; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the Jacobian matrix of the coordinate transformation at a given point
+     * 
+     * @param itree Index of tree containing the point
+     * @param lcoords Logical coordinates of point
+     * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The Jacobian matrix.
+     * NB: This function checks for tree boundaries.
+     */
+    std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+    GRACE_HOST get_jacobian_matrix(
+          int itree
+        , std::array<double,GRACE_NSPACEDIM> const& lcoords 
+    ) const;
+    //**************************************************************************************************
+    /**
+     * @brief Get the Jacobian matrix of the inverse coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The inverse Jacobian matrix.
+     */
+    std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+    GRACE_HOST get_inverse_jacobian_matrix(
+          std::array<size_t, GRACE_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) const; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the Jacobian matrix of the inverse coordinate transformation at a given point
+     * 
+     * @param ijk Indices of cell containing the point 
+     * @param q   Local index of quadrant containing the point
+     * @param itree Index of tree containing the point
+     * @param cell_coordinates Coordinates of point within the cell 
+     * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
+     * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The inverse Jacobian matrix.
+     */
+    std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+    GRACE_HOST get_inverse_jacobian_matrix(
+          std::array<size_t, GRACE_NSPACEDIM> const& ijk 
+        , int64_t q 
+        , int itree
+        , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
+        , bool use_ghostzones 
+    ) const; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the Jacobian matrix of the inverse coordinate transformation at a given point
+     * 
+     * @param itree Index of tree containing the point
+     * @param lcoords Logical coordinates of point
+     * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The inverse Jacobian matrix.
+     * NB: This function checks for tree boundaries.
+     */
+    std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+    GRACE_HOST get_inverse_jacobian_matrix(
+          int itree
+        , std::array<double,GRACE_NSPACEDIM> const& lcoords 
+    ) const; 
+    //************************************************************************************************** 
     //**************************************************************************************************
     /**
      * @brief Get the volume of a cell

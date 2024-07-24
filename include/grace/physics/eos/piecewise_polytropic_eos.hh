@@ -84,6 +84,20 @@ class piecewise_polytropic_eos_t
         return _gamma(idx) * press_cold / rho ; 
     }
 
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    rho__press_cold(double & press, error_type& err) const {
+        unsigned int idx = find_index_press(press, err) ; 
+        return Kokkos::pow(press/_k(idx), 1./_gamma(idx)) ; 
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    energy_cold__press_cold(double & press, error_type& err) const {
+        unsigned int idx = find_index_press(press, err) ; 
+        double const rho =  Kokkos::pow(press/_k(idx), 1./_gamma(idx));
+        double const eps = _eps(idx) + press / (rho*(_gamma(idx)-1.)) ;
+        return rho * ( 1 + eps ) ; 
+    }
+
  private:
     
 
@@ -107,6 +121,23 @@ class piecewise_polytropic_eos_t
             }
         }
         return num_pieces - 1 ;
+    } 
+
+    unsigned int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    find_index_press(double& press, error_type& err) const {
+        if( press < _press(0) ) {
+            press = _press(0) ; 
+            error = 1 ; 
+            return _rho(0) ; 
+        }
+
+        int idx = num_pieces-1; 
+        for( int nn=1; nn<num_pieces; ++nn) {
+            if( press <= _press(nn) and press > _press(nn-1)) {
+                idx = nn - 1 ; 
+            }
+        }
+        return idx ;
     } 
 
  public:

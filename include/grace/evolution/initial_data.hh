@@ -50,6 +50,14 @@ void set_initial_data() ;
 template< typename eos_t >
 void set_initial_data_impl() ;
 
+/**
+ * @brief Transform vector and tensor variables
+ *        from physical coordinates grid coordinates.
+ * \ingroup id
+ * \cond detail 
+ */
+void transform_to_logical_frame() ; 
+
 #define INSTANTIATE_TEMPLATE(EOS)   \
 extern template                     \
 void set_initial_data_impl<EOS>()

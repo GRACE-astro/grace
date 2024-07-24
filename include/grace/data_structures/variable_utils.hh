@@ -44,7 +44,20 @@ std::string
 get_bc_type( int64_t var_idx, size_t const& var_type = grace::variables::EVOLVED)  ;
 
 std::string
-get_var_name(int64_t var_idx)   ; 
+get_var_name(int64_t var_idx, bool is_aux)   ; 
+
+std::vector<std::size_t>
+get_vector_state_variables_indices() ; 
+
+std::vector<std::size_t>
+get_tensor_state_variables_indices() ; 
+
+std::vector<std::size_t>
+get_vector_aux_variables_indices() ; 
+
+std::vector<std::size_t>
+get_tensor_aux_variables_indices() ; 
+
 
 } } /* namespace grace::variables */
 

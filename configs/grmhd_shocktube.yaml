@@ -10,7 +10,7 @@ amr: {
   zmin: -0.1,
   zmax: 0.1,
   n_ghostzones: 2,
-  initial_refinement_level: 4,
+  initial_refinement_level: 3,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
   refinement_criterion_CTODE: 1.,
@@ -22,7 +22,7 @@ amr: {
 IO: {
   volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 1100,
+  volume_output_every: -1,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
@@ -47,7 +47,7 @@ system: {
 }
 evolution: {
   time_stepper: "rk2",
-  cfl_factor: 0.4,
+  cfl_factor: 1.0,
   final_time: 0.4,
   #timestep: 0.00025,
   #timestep_selection_mode: "manual"

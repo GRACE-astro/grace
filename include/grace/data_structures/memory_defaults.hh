@@ -30,7 +30,12 @@
 
 #include <grace_config.h>
 
+#include <grace/utils/inline.h>
+#include <grace/utils/device.h>
+
 #include <Kokkos_Core.hpp>
+
+#include <vector> 
 
 namespace grace { 
 //*****************************************************************************************************
@@ -55,6 +60,21 @@ using default_space = Kokkos::HostSpace   ;
 using default_execution_space = default_space::execution_space ;
 //*****************************************************************************************************
 //*****************************************************************************************************
+template< typename ViewT
+        , typename T >
+static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+deep_copy_vec_to_view(ViewT view, std::vector<T> const& vec)
+{
+    static_assert(std::is_same_v<T,typename ViewT::value_type>
+                 , "In deep_copy_vec_to_view: data types mismatch.") ;
+    static_assert( ViewT::rank() == 1
+                 , "In deep_copy_vec_to_view: view must have rank 1.") ; 
+    Kokkos::realloc(view, vec.size()) ; 
+    auto h_view = Kokkos::create_mirror_view(view) ; 
+    for(int i=0; i<vec.size(); ++i) h_view(i) = vec[i] ; 
+    Kokkos::deep_copy(view,h_view) ; 
+}
+
 } /* namespace grace */
 
 #endif /* B8F66784_D4E4_4051_84B1_B8AFB588A053 */
