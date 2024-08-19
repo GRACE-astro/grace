@@ -18,7 +18,8 @@ target_link_libraries(  grace_variable_registration PRIVATE
                         p4est::sc 
                         p4est::p4est 
                         Kokkos::kokkos 
-                        spdlog::spdlog )
+                        spdlog::spdlog 
+                        yaml_cpp::yaml)
 
 
 add_library(grace_variable_utils OBJECT variable_utils.cpp)

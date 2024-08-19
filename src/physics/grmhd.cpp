@@ -35,7 +35,7 @@
 #include <grace/physics/grmhd_helpers.hh>
 #include <grace/physics/id/shocktube.hh>
 //#include <grace/physics/id/blastwave.hh>
-//#include <grace/physics/id/tov.hh>
+#include <grace/physics/id/tov.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
@@ -224,16 +224,61 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
     coord_array_t<GRACE_NSPACEDIM> pcoords ; 
     grace::fill_physical_coordinates(pcoords) ; 
     GRACE_TRACE("Filled physical coordinates array.") ; 
-    GRACE_TRACE("Size of array {} {} {} {}", pcoords.extent(0), pcoords.extent(1), pcoords.extent(2), pcoords.extent(3) );
     auto& state = grace::variable_list::get().getstate() ; 
     auto& aux   = grace::variable_list::get().getaux()   ; 
-    id_t id_kernel{ state, aux, pcoords, kernel_args... } ; 
+
     auto const& _eos = eos::get().get_eos<eos_t>() ; 
+
+    id_t id_kernel{ _eos, pcoords, kernel_args... } ; 
+    Kokkos::fence() ; 
     parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID")
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
-                    id_kernel(VEC(i,j,k), q, _eos) ; 
+
+                    auto const id = id_kernel(VEC(i,j,k), q) ; 
+                    
+                    aux(VEC(i,j,k),RHO_,q)   = id.rho; 
+                    aux(VEC(i,j,k),PRESS_,q) = id.press ; 
+
+                    state(VEC(i,j,k),ALP_,q) = id.alp ;
+
+                    state(VEC(i,j,k),BETAX_,q) = id.betax ;
+                    state(VEC(i,j,k),BETAY_,q) = id.betay ;
+                    state(VEC(i,j,k),BETAZ_,q) = id.betaz ;
+
+                    state(VEC(i,j,k),GXX_,q) = id.gxx ; 
+                    state(VEC(i,j,k),GXY_,q) = id.gxy ; 
+                    state(VEC(i,j,k),GXZ_,q) = id.gxz ; 
+                    state(VEC(i,j,k),GYY_,q) = id.gyy ; 
+                    state(VEC(i,j,k),GYZ_,q) = id.gyz ;
+                    state(VEC(i,j,k),GZZ_,q) = id.gzz ;
+
+                    state(VEC(i,j,k),KXX_,q) = id.kxx ; 
+                    state(VEC(i,j,k),KXY_,q) = id.kxy ; 
+                    state(VEC(i,j,k),KXZ_,q) = id.kxz ; 
+                    state(VEC(i,j,k),KYY_,q) = id.kyy ; 
+                    state(VEC(i,j,k),KYZ_,q) = id.kyz ;
+                    state(VEC(i,j,k),KZZ_,q) = id.kzz ;
+
+                    auto const v2 = id.gxx * id.vx * id.vx +
+                                    id.gyy * id.vy * id.vy +
+                                    id.gzz * id.vz * id.vz +
+                                    2. * ( 
+                                        id.gxy * id.vx * id.vy +
+                                        id.gxz * id.vx * id.vz +
+                                        id.gyz * id.vy * id.vz 
+                                    ) ; 
+                    auto const w = 1./Kokkos::sqrt( 1 - v2  ) ; 
+
+                    aux(VEC(i,j,k),ZVECX_,q)  = w * id.vx ; 
+                    aux(VEC(i,j,k),ZVECY_,q)  = w * id.vy ; 
+                    aux(VEC(i,j,k),ZVECZ_,q)  = w * id.vz ; 
+
+                    aux(VEC(i,j,k),VELX_,q)  = id.alp * id.vx - id.betax ; 
+                    aux(VEC(i,j,k),VELY_,q)  = id.alp * id.vy - id.betay ; 
+                    aux(VEC(i,j,k),VELZ_,q)  = id.alp * id.vz - id.betaz ; 
+                    
                     double h, csnd2; 
                     double ye = _eos.ye_atmosphere();
                     unsigned int err ; 
@@ -289,14 +334,14 @@ void set_conservs_from_prims() {
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
-        aux(VEC(i,j,k),GXX_,q)   = 1. ; aux(VEC(i,j,k),GXY_,q)   = 0. ; aux(VEC(i,j,k),GXZ_,q)   = 0. ;
-        aux(VEC(i,j,k),GYY_,q)   = 1. ; aux(VEC(i,j,k),GYZ_,q)   = 0. ; aux(VEC(i,j,k),GZZ_,q)   = 1. ;
-        aux(VEC(i,j,k),BETAX_,q) = 0. ; aux(VEC(i,j,k),BETAY_,q) = 0. ; aux(VEC(i,j,k),BETAZ_,q) = 0. ;
-        aux(VEC(i,j,k),ALP_,q) = 1. ;
-        aux(VEC(i,j,k),KXX_,q) = 0. ; aux(VEC(i,j,k),KXY_,q) = 0. ; aux(VEC(i,j,k),KXZ_,q) = 0. ;
-        aux(VEC(i,j,k),KYY_,q) = 0. ; aux(VEC(i,j,k),KYZ_,q) = 0. ; aux(VEC(i,j,k),KZZ_,q) = 0. ;
+        state(VEC(i,j,k),GXX_,q)   = 1. ; state(VEC(i,j,k),GXY_,q)   = 0. ; state(VEC(i,j,k),GXZ_,q)   = 0. ;
+        state(VEC(i,j,k),GYY_,q)   = 1. ; state(VEC(i,j,k),GYZ_,q)   = 0. ; state(VEC(i,j,k),GZZ_,q)   = 1. ;
+        state(VEC(i,j,k),BETAX_,q) = 0. ; state(VEC(i,j,k),BETAY_,q) = 0. ; state(VEC(i,j,k),BETAZ_,q) = 0. ;
+        state(VEC(i,j,k),ALP_,q) = 1. ;
+        state(VEC(i,j,k),KXX_,q) = 0. ; state(VEC(i,j,k),KXY_,q) = 0. ; state(VEC(i,j,k),KXZ_,q) = 0. ;
+        state(VEC(i,j,k),KYY_,q) = 0. ; state(VEC(i,j,k),KYZ_,q) = 0. ; state(VEC(i,j,k),KZZ_,q) = 0. ;
         metric_array_t metric ; 
-        FILL_METRIC_ARRAY(metric, aux, q, VEC(i,j,k)) ; 
+        FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k)) ; 
         grmhd_prims_array_t prims ; 
         FILL_PRIMS_ARRAY(prims,aux,q,VEC(i,j,k)) ; 
         grmhd_cons_array_t cons ;

@@ -45,7 +45,7 @@ namespace grace {
  * controlled by the function \ref find_stable_timestep. The kind of timestepper used is controlled 
  * by the parameter evolution::time_stepper. Coming out of this routine all the variables in the state
  * array are in a valid state (at all gridpoints) and at time \f$t+dt\f$. Auxiliaries are not filled 
- * by this function and neither is the scratched space, both of which are left in an invalid state. 
+ * by this function and neither is the scratch space, both of which are left in an invalid state. 
  * This function assumes that the state is in a valid state as input, for all gridpoints including 
  * ghostzones. It also assumes that auxiliaries are filled at all gridpoints and up to date w.r.t. the 
  * evolution time.

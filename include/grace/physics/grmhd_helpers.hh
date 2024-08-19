@@ -155,4 +155,15 @@ g = grace::metric_array_t{                                    \
     , COMPUTE_FCVAL_HELPER(mview,i,j,ALP_,q,idir)             \
 }
 #endif 
+
+struct grmhd_id_t {
+  double rho;
+  double press;
+  double gxx,gxy,gxz,gyy,gyz,gzz; 
+  double kxx,kxy,kxz,kyy,kyz,kzz;
+  double alp;  
+  double betax, betay, betaz ; 
+  double vx, vy, vz;
+} ; 
+
 #endif /* GRACE_PHYSICS_GRMHD_HELPERS_HH */

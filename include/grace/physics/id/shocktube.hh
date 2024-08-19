@@ -47,35 +47,36 @@ struct shocktube_id_t {
     using state_t = grace::var_array_t<GRACE_NSPACEDIM> ; 
     
     shocktube_id_t(
-          state_t state, state_t aux
-        , eos_t eos 
+          eos_t eos 
         , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
         , double rhoL, double rhoR 
         , double pL  , double pR )
-        : _state(state), _aux(aux), _eos(eos)
+        : _eos(eos)
         , _pcoords(pcoords), _rhoL(rhoL)
         , _rhoR(rhoR), _pL(pL), _pR(pR)
     {} 
 
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    operator() (VEC(int i, int j, int k), int q, eos_t const& eos) const 
+    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    operator() (VEC(int const i, int const j, int const k), int const q) const 
     {
+        grmhd_id_t id ; 
         if( _pcoords(VEC(i,j,k),0,q) <= 0 ) {
-            _aux(VEC(i,j,k),RHO_,q)     = _rhoL ; 
-            _aux(VEC(i,j,k),PRESS_,q)   = _pL   ; 
+            id.rho     = _rhoL ; 
+            id.press   = _pL   ; 
         } else {
-            _aux(VEC(i,j,k),RHO_,q)     = _rhoR ; 
-            _aux(VEC(i,j,k),PRESS_,q)   = _pR   ;
+            id.rho     = _rhoR ; 
+            id.press   = _pR   ;
         }
-        _aux(VEC(i,j,k),VELX_,q) = 0. ; 
-        _aux(VEC(i,j,k),VELY_,q) = 0. ; 
-        _aux(VEC(i,j,k),VELZ_,q) = 0. ;
-        _aux(VEC(i,j,k),ZVECX_,q) = 0. ; 
-        _aux(VEC(i,j,k),ZVECY_,q) = 0. ; 
-        _aux(VEC(i,j,k),ZVECZ_,q) = 0. ;
+        id.vx = 0; id.vy = 0.; id.vz = 0.;
+        id.betax = 0; id.betay=0; id.betaz = 0; 
+        id.alp = 1 ; 
+        id.gxx = 1; id.gyy = 1; id.gzz = 1;
+        id.gxy = 0; id.gxz = 0; id.gyz = 0 ;
+        id.kxx = 0; id.kyy = 0; id.kzz = 0 ;
+        id.kxy = 0; id.kxz =0 ; id.kyz = 0 ; 
+        return std::move(id) ; 
     }
 
-    state_t _state, _aux ;                            //!< State and aux arrays
     eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
     double _rhoL, _rhoR, _pL, _pR;                    //!< Left and right states  

@@ -5,37 +5,37 @@ amr: {
   npoints_block_z: 16,
   xmin: -0.5,
   xmax: 0.5,
-  ymin: -0.05,
-  ymax: 0.05,
-  zmin: -0.05,
-  zmax: 0.05,
+  ymin: -0.1,
+  ymax: 0.1,
+  zmin: -0.1,
+  zmax: 0.1,
   n_ghostzones: 2,
-  initial_refinement_level: 5,
+  initial_refinement_level: 4,
   refinement_criterion: "simple_threshold",
-  refinement_criterion_CTORE: 4.,
-  refinement_criterion_CTODE: 2,
-  refinement_criterion_var: "dens",
-  max_refinement_level: 6,
-  regrid_every: 10,
+  refinement_criterion_CTORE: 2.,
+  refinement_criterion_CTODE: 1.,
+  refinement_criterion_var: "U",
+  max_refinement_level: 7,
+  regrid_every: -1,
   regrid_at_postinitial: false
 }
 IO: {
-  volume_output_cell_variables: ["rho","press","eps","vel[0]"],
-  volume_output_base_directory: "output_volume_amr",
-  volume_output_every: 200,
+  volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: 1100,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
   info_output_every: 10,
-  info_output_max_reductions: ["eps","rho","press","alp"],
+  info_output_max_reductions: ["eps","rho","vel[0]"],
   #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
-  info_output_min_reductions: ["eps","rho","press"],
-  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"], 
+  info_output_min_reductions: ["eps","rho","vel[0]"],
+  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
   scalar_output_every: 50,
   scalar_output_minmax: ["rho","press","eps"],
   scalar_output_norm2: [],
   scalar_output_integral: [],
-  output_use_hdf5: true, 
+  output_use_hdf5: true,
   hdf5_compression_level: 6,
   hdf5_chunk_size: 8192
 }
@@ -53,11 +53,7 @@ evolution: {
   #timestep_selection_mode: "manual"
 }
 grmhd: {
-  id_type: "shocktube",
-  shocktube_press_L: 1000.,
-  shocktube_press_R: 0.01,
-  shocktube_rho_L: 1.,
-  shocktube_rho_R: 1. 
+  id_type: "shocktube"
 }
 
 eos: {
@@ -76,8 +72,4 @@ eos: {
     rhos:   [],
     kappa_0: 0.
   }
-}
-
-profiling: {
-  do_gpu_profiling: false
 }

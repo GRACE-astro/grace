@@ -36,7 +36,7 @@
 #include <grace/coordinates/coordinates.hh>
 #include <grace/utils/grace_utils.hh>
 #ifdef GRACE_ENABLE_GRMHD
-#include <grace/physics/admbase.hh>
+//#include <grace/physics/admbase.hh>
 #include <grace/physics/grmhd.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
@@ -74,10 +74,9 @@ void set_initial_data_impl() {
     set_burgers_initial_data() ; 
     #endif 
     #ifdef GRACE_ENABLE_GRMHD
-    set_admbase_id() ; 
     set_grmhd_initial_data<eos_t>();
     #endif 
-    transform_to_logical_frame() ; 
+    //transform_to_logical_frame() ; 
     Kokkos::Profiling::popRegion() ; 
 } 
 

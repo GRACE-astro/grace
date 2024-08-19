@@ -207,7 +207,7 @@ struct grmhd_equations_system_t
 
         /* Read in the metric                                                                             */
         metric_array_t metric ; 
-        FILL_METRIC_ARRAY(metric,this->_aux,q,VEC(i,j,k)) ;
+        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
 
         /* Compute inverse (contravariant) four-metric                                                    */
         auto const gupmunu = metric.invgmunu() ;
@@ -250,12 +250,12 @@ struct grmhd_equations_system_t
         }
         /* Read in the extrinsic curvature                                                                */
         std::array<double,6> Kij{ 
-              this->_aux(VEC(i,j,k),KXX_,q)
-            , this->_aux(VEC(i,j,k),KXY_,q)
-            , this->_aux(VEC(i,j,k),KXZ_,q)
-            , this->_aux(VEC(i,j,k),KYY_,q)
-            , this->_aux(VEC(i,j,k),KYZ_,q)
-            , this->_aux(VEC(i,j,k),KZZ_,q)
+              this->_state(VEC(i,j,k),KXX_,q)
+            , this->_state(VEC(i,j,k),KXY_,q)
+            , this->_state(VEC(i,j,k),KXZ_,q)
+            , this->_state(VEC(i,j,k),KYY_,q)
+            , this->_state(VEC(i,j,k),KYZ_,q)
+            , this->_state(VEC(i,j,k),KZZ_,q)
         } ; 
         //for( auto& x: Kij ) x = 0 ; 
         /* Source for the conserved energy (added piece by piece below)                                   */
@@ -291,12 +291,12 @@ struct grmhd_equations_system_t
 
             /* Read metric components at neighor cell centres for metric derivative                           */
             metric_array_t metric_m, metric_p ; 
-            FILL_METRIC_ARRAY( metric_m, this->_aux
+            FILL_METRIC_ARRAY( metric_m, this->_state
                              , q
                              , VEC( i-utils::delta(0,idir)
                                   , j-utils::delta(1,idir)
                                   , k-utils::delta(2,idir)) ) ; 
-            FILL_METRIC_ARRAY( metric_p, this->_aux
+            FILL_METRIC_ARRAY( metric_p, this->_state
                              , q
                              , VEC( i+utils::delta(0,idir)
                                   , j+utils::delta(1,idir)
@@ -390,7 +390,7 @@ struct grmhd_equations_system_t
         cons[YESL]  = vars(YESTAR_)      ; 
         cons[ENTSL] = vars(ENTROPYSTAR_) ; 
         metric_array_t metric ; 
-        FILL_METRIC_ARRAY(metric,this->_aux,q,VEC(i,j,k)) ;
+        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
         grmhd_prims_array_t prims ;
         conservs_to_prims<eos_t>( cons, prims, metric
                                 , this->_eos, this->_lapse_excision ) ;
@@ -427,7 +427,6 @@ struct grmhd_equations_system_t
         vars(YESTAR_) = cons[YESL]       ; 
         vars(ENTROPYSTAR_) = cons[ENTSL] ; 
         #endif
-        
     };
     /**
      * @brief Compute maximum absolute value eigenspeed.
@@ -459,7 +458,7 @@ struct grmhd_equations_system_t
         FILL_PRIMS_ARRAY(prims,this->_aux,q,VEC(i,j,k)) ;
         /* Get metric */
         metric_array_t metric ; 
-        FILL_METRIC_ARRAY(metric,this->_aux,q,VEC(i,j,k));
+        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k));
         /* Get soundspeed, enthalpy */
         double csnd2, h ; 
         unsigned int err ; 
@@ -528,11 +527,11 @@ struct grmhd_equations_system_t
         /* Define and interpolate metric                                       */
         /***********************************************************************/
         metric_array_t metric_l, metric_r;
-        FILL_METRIC_ARRAY( metric_l, this->_aux, q
+        FILL_METRIC_ARRAY( metric_l, this->_state, q
                          , VEC( i+ngz-utils::delta(idir,0)
                               , j+ngz-utils::delta(idir,1)
                               , k+ngz-utils::delta(idir,2))) ; 
-        FILL_METRIC_ARRAY( metric_r, this->_aux, q
+        FILL_METRIC_ARRAY( metric_r, this->_state, q
                          , VEC( i+ngz
                               , j+ngz
                               , k+ngz )) ;
@@ -802,11 +801,11 @@ struct grmhd_equations_system_t
         /* Define and interpolate metric                                       */
         /***********************************************************************/
         metric_array_t metric_l, metric_r;
-        FILL_METRIC_ARRAY( metric_l, this->_aux, q
+        FILL_METRIC_ARRAY( metric_l, this->_state, q
                          , VEC( i+ngz-utils::delta(idir,0)
                               , j+ngz-utils::delta(idir,1)
                               , k+ngz-utils::delta(idir,2))) ; 
-        FILL_METRIC_ARRAY( metric_r, this->_aux, q
+        FILL_METRIC_ARRAY( metric_r, this->_state, q
                          , VEC( i+ngz
                               , j+ngz
                               , k+ngz )) ;

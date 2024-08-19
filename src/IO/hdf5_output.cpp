@@ -642,7 +642,7 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
     for( int ivar=0; ivar<varlist.size(); ++ivar)
     {
         size_t varidx = grace::get_variable_index(varlist[ivar]+"[0]",isaux) ; 
-        GRACE_TRACE("Writing var {} to output. Variable index {} from auxiliaries? {}"
+        GRACE_TRACE("Writing vector var {} to output. Variable index {} from auxiliaries? {}"
                    , varlist[ivar], varidx, isaux) ; 
         /* create HDF5 dataset */
         std::string dset_name = "/" + varlist[ivar] ; 
@@ -689,6 +689,7 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
         /* Fill coordinate jacobian matrices on device  */
         /* at cell centers                              */
         /************************************************/
+        #if 0
         jacobian_array_t jac, invjac ; 
         fill_jacobian_matrices(jac,invjac) ;  
         parallel_for(GRACE_EXECUTION_TAG("IO","convert_to_physical")
@@ -710,7 +711,8 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
         ) ;
         /* just to be sure add a fence */
         Kokkos::fence() ;
-
+        #endif
+        
         /* Copy data d2h */
         Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
 

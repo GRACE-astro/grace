@@ -1,6 +1,6 @@
 /**
  * @file memory_defaults.hh
- * @author your name (you@domain.com)
+ * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief Default space for memory allocation / parallel dispatch in GRACE.
  * @version 0.1
  * @date 2023-06-16
@@ -60,6 +60,14 @@ using default_space = Kokkos::HostSpace   ;
 using default_execution_space = default_space::execution_space ;
 //*****************************************************************************************************
 //*****************************************************************************************************
+/**
+ * @brief Deep copy a <code>std::vector<T></code> to a <code>Kokkos::View<T*></code> on device
+ * \ingroup utils
+ * @tparam ViewT Type of the View
+ * @tparam T     Data type
+ * @param view   View where the data will be copied
+ * @param vec    Vector from which the data will be copied
+ */
 template< typename ViewT
         , typename T >
 static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE

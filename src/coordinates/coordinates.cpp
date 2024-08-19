@@ -204,8 +204,8 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
 
     auto h_coords = Kokkos::create_mirror_view(pcoords) ; 
     auto& coord_system = grace::coordinate_system::get() ; 
-
-    grace::host_grid_loop<true>(
+    # if 0 
+    grace::host_grid_loop<false>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             auto pcoordsl = 
                 coord_system.get_physical_coordinates(
@@ -221,6 +221,24 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
             )
         }, true 
     ) ; 
+    #endif 
+
+    for( int q=0; q<nq; ++q ) {
+        EXPR( for(size_t i=0; i<nx+2*ngz; ++i), for(size_t j=0; j<ny+2*ngz; ++j), for(size_t k=0; k<nz+2*ngz; ++k) ) {
+            auto pcoordsl = 
+                coord_system.get_physical_coordinates(
+                          {VEC(i,j,k)}
+                        , q
+                        , cell_coordinates
+                        , true 
+            ) ;
+            EXPR(
+            h_coords(VEC(i,j,k),0,q) = pcoordsl[0] ;,
+            h_coords(VEC(i,j,k),1,q) = pcoordsl[1] ;,
+            h_coords(VEC(i,j,k),2,q) = pcoordsl[2] ; 
+            )
+        }
+    }
  
     Kokkos::deep_copy(pcoords,h_coords) ; 
 }

@@ -1,0 +1,49 @@
+import yaml
+import os
+import textwrap
+import re
+
+def wrap_text(text, width):
+    wrapper = textwrap.TextWrapper(width=width, break_long_words=True)
+    return "\n".join(wrapper.wrap(text))
+
+def wrap_in_role(text, role):
+    return f':{role}:`{text}`'
+
+def wrap_in_bold(text):
+    return f'**{text}**'
+
+def generate_config_rst_file_from_yaml(yaml_file, rst_file, title, mod):
+    with open(yaml_file, 'r') as file:
+        data = yaml.safe_load(file)
+
+    with open(rst_file, 'w') as file:
+        file.write(f".. GRACE documentation {title} file\n\n")
+        file.write(f".. _{mod}-parameters:\n\n")
+        file.write(f"{title}\n{'*' * len(title)}\n\n")
+        file.write(data.get("Header",'')+"\n\n")
+        file.write("----\n\n")
+        for i,item in enumerate(data):
+            file.write(
+            '''.. raw:: html\n\n  <div class="custom-list-table-container">\n\n''')
+            file.write(f".. list-table:: \n")
+            file.write("   :header-rows: 0\n")
+            file.write("   :class: custom-list-table\n\n")
+
+            file.write("   * - " + wrap_in_bold("Name:") + "\n     - " + f"``{item.get('Name', '')}``\n")
+            file.write("   * - " + wrap_in_bold("Default Value:") + "\n     - " + wrap_in_role(item.get('Default Value', ''),"default-value")+"\n")
+            file.write("   * - " + wrap_in_bold("Description:") + "\n     - " + f"{item.get('Description', '')}\n")
+            file.write(
+            '''\n.. raw:: html\n\n  </div>\n\n''')
+            file.write("----\n\n")
+        
+        
+if __name__=="__main__":
+    code_modules = ["cmake","backend","grace"]
+    titles = ["CMake configure options", "Backend configure options", "GRACE configure options"]
+    for i,mod in enumerate(code_modules):
+        yaml_file = mod+"-config-params.yaml"
+        rst_file   = "config-params-" + mod + ".rst"
+        yaml_file = os.path.join('@GRACE_CURRENT_SOURCE_DIR@', yaml_file)
+        rst_file  = os.path.join('@GRACE_CURRENT_SOURCE_DIR@/code_building_guide', rst_file)
+        generate_config_rst_file_from_yaml(yaml_file, rst_file, titles[i], mod)

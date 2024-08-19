@@ -38,6 +38,9 @@ int
 get_n_evolved() ; 
 
 int 
+get_n_hrsc() ; 
+
+int 
 get_n_auxiliary() ; 
 
 std::string

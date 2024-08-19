@@ -143,7 +143,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     
     int64_t nq = amr::get_local_num_quadrants() ;
     
-    int nvars_hrsc = variables::get_n_evolved() ;
+    int nvars_hrsc = variables::get_n_hrsc() ;
     /*********************************************/ 
     /* Define the flux array and allocate memory */
     /* NB this array has NO ghostzones!          */
@@ -202,7 +202,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     #endif 
     
     TeamPolicy<default_execution_space> policy( nq, AUTO() ) ;
-    using member_type = TeamPolicy<default_execution_space>::member_type ; 
+    using member_type = TeamPolicy<default_execution_space>::member_type ;
 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "advance_substep")
                 , policy 

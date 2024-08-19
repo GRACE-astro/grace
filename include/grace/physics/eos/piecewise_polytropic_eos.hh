@@ -127,7 +127,7 @@ class piecewise_polytropic_eos_t
     find_index_press(double& press, error_type& err) const {
         if( press < _press(0) ) {
             press = _press(0) ; 
-            error = 1 ; 
+            err = 1 ; 
             return _rho(0) ; 
         }
 

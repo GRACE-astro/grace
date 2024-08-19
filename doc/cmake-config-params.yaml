@@ -1,0 +1,22 @@
+Header: """As discussed in the in depth guide, GRACE is parallelized in essentially three distinct ways: MPI for inter-node communication, OpenMP for 
+host parallelization of tasks that are unsuitable for massive SMP parallelism, and a backend thread-pallel model. The design philosophy of GRACE 
+focuses on generating efficient code to run on GPU backends, meaning that the backend threading platform can be either CUDA, HIP or SYCL (experimental).
+However, GRACE can run on CPU only systems as well, in which case the backend can simply be OpenMP or even host Serial for testing and debugging. 
+The decision of which backend to use to parallelize GRACE's compute intensive loops has to be made at compile time, and the version of Kokkos being 
+linked into the executable must also have been compiled with the relevant backend enabled. Moreover, you should note that the compiler used to build 
+GRACE should be compatible with the backend (use nvcc for CUDA backend and hipcc for hip, in the case of CUDA Kokkos's nvcc_wrapper might be a better choice.)"""
+Options: 
+  - Name: "GRACE_ENABLE_HIP"
+    Default Value: "OFF"
+    Description: "Enable HIP backend"
+  - Name: "GRACE_ENABLE_CUDA"
+    Default Value: "OFF"
+    Description: "Enable CUDA backend"
+  - Name: "GRACE_ENABLE_OMP"
+    Default Value: "OFF"
+    Description: "Enable host OpenMP backend"
+  - Name: "GRACE_ENABLE_SERIAL"
+    Default Value: "ON"
+    Description: "Enable host serial backend"
+
+  

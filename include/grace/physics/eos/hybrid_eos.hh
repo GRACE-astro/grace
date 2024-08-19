@@ -151,6 +151,10 @@ class hybrid_eos_t
         return 0. ; 
     }
 
+    double ye_beta_eq__press_cold_impl(double const& press, error_type& err) const {
+        return 0. ; 
+    }
+
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     eps__press_temp_rho_ye_impl( double& press, double& temp
                                , double& rho, double& ye, error_type& err) const 

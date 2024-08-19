@@ -42,7 +42,7 @@
 #include <grace/physics/scalar_advection.hh>
 #endif
 #ifdef GRACE_ENABLE_GRMHD
-#include <grace/physics/admbase.hh>
+//#include <grace/physics/admbase.hh>
 #include <grace/physics/grmhd.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
@@ -55,6 +55,7 @@
 #include <Kokkos_Core.hpp>  
 #include <cmath>
 namespace grace {
+
 
 void compute_auxiliary_quantities() {
     auto& state = grace::variable_list::get().getstate() ; 
@@ -92,13 +93,10 @@ void compute_auxiliary_quantities(
     int64_t nq = amr::get_local_num_quadrants() ;
 
     #ifdef GRACE_ENABLE_GRMHD
-    adm_equations_system_t adm_equations{aux} ; 
-
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,state,aux) ; 
     #define GET_AUX \
-    adm_equations(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q); \
     grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q)
     #else 
     #define GET_AUX

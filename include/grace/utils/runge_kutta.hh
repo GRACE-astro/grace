@@ -38,88 +38,135 @@
 namespace grace {
 
 
-template< typename N >
+template< size_t N >
 struct rk45_t {
 
-template< typename F> 
-std::array<double,N> GRACE_HOST_DEVICE 
-solve(F&& rhs) const 
-{
-    std::array<double, N> state{id} ; 
-    t = domain[0] ; 
-    dt = ( domain[1] - domain[0] ) / 100. ; 
-    while( t < domain[1] ) {
-        advance_step(rhs, state) ; 
-        t += dt ; 
-    }
-    return state ; 
-}
-template< typename F> 
-void GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
-advance_step(F&& rhs, std::array<double,N>& state) {
-    bool accepted = false ; 
-    do{
-        if ( dt < dt_min )
-            break ; 
-        auto k = compute_k(rhs,state) ; 
-        double err = 0. ; 
-        #pragma unroll 6
-        for( int ik=0; ik<6; ++ik) {
-            for( int iv=0; iv<N; ++iv){
-                err += Kokkos::fabs((b5[ik] - b4[ik]) * k[ik][iv]) ;
-            } 
-        }
-        err *= dt / N ; 
-        if ( err > tol ) {
-            accepted = false ; 
-            dt *= 0.9 * math::int_pow<2>(tol/err); 
-        } else if ( err < tol * 1e-2 ) {
-            accepted = true ; 
-            dt *= 0.9 * math::int_pow<2>((tol * 1e-2)/err) ; 
-        }    
-    } while ( not accepted  ) ;
+rk45_t(std::array<double,2> _domain, std::array<double,N> _id, double _abs_tol, double _rel_tol=0.)
+    : domain(_domain), id(_id), abs_tol(_abs_tol), rel_tol(_rel_tol), state(id), t(domain[0]), dt((domain[1]-domain[0])/100)
+  {}
 
+template< typename F>
+void GRACE_HOST_DEVICE
+solve(F&& rhs)
+{
+    while( t < domain[1] ) {
+      advance_step(std::forward<F>(rhs)) ;
+    }
+}
+
+template< typename F>
+void GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
+advance_step(F&& rhs) {
+    bool accepted = false ;
+    bool must_accept = false ;
+    std::array<std::array<double,N>,6> k ;
+
+    double dt_max = domain[1]-t ;
+    do{
+      dt = std::min(dt, dt_max) ;
+      k = compute_k(std::forward<F>(rhs)) ;
+      double const err = compute_error(k);
+      double ynorm = 0 ;
+      for( int i=0; i<N; ++i) {
+        ynorm += state[i] * state[i] ;
+      }
+      double const tol = abs_tol + rel_tol * Kokkos::sqrt(ynorm) ;
+      if ( err < tol or must_accept ) {
+        t += dt ;
+        update_state(k);
+        dt *= Kokkos::min(5.0, 0.9 * Kokkos::pow(tol/err,0.2)) ;
+        accepted = true ;
+      } else {
+        dt *= Kokkos::max(0.1, 0.9 * Kokkos::pow(tol/err, 0.2)) ;
+        accepted = false ;
+      }
+
+      if( dt < dt_min ) {
+        dt = dt_min ;
+        must_accept = true ;
+      }
+
+    } while ( not accepted ) ;
+}
+
+private: 
+
+void GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
+update_state(std::array<std::array<double,N>,6> const& k) {
     for( int iv=0 ;iv < N; ++iv ){
-        double update = 0; 
+        double update = 0;
         #pragma unroll 6
         for( int ik=0; ik<6; ++ik) {
-            update += b4[ik] * k[ik] ; 
+            update += b4[ik] * k[ik][iv] ;
         }
-        state[iv] += dt * update ; 
+        state[iv] += dt * update ;
     }
+
+}
+
+double GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
+compute_error(std::array<std::array<double,N>,6> const& k) const {
+
+  auto const scale = compute_scale() ;
+  double err = 0 ;
+  for( int i=0 ; i< N; ++i  ){
+    double eps = 0 ;
+    for( int j=0; j<6; ++j) {
+      eps += ( b5[j] - b4[j] ) * k[j][i] ;
+    }
+    err += math::int_pow<2>(eps / scale[i] ) ;
+  }
+
+  return Kokkos::sqrt(err / N) * dt + 1e-99 ;
+
+}
+
+std::array<double,N> GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
+compute_scale() const {
+    std::array<double, N> scale ;
+
+    #pragma unroll N
+    for( int i=0; i<N; ++i) {
+        scale[i] = abs_tol + rel_tol * Kokkos::fabs(state[i]) ;
+    }
+
+    return std::move(scale) ;
 }
 
 template< typename F> 
 std::array<std::array<double,N>,6> GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
 compute_k(F&& rhs, std::array<double,N>& state)
 {
-    std::array<std::array<double,N>,6> k ; 
-    k[0] = rhs(t, state) ; 
+    std::array<std::array<double,N>,6> k ;
+    k[0] = rhs(t, state) ;
     for( int ik=1; ik<6; ++ik) {
-        auto tmpstate{ state } ; 
-        auto tmpt { t }
-        
+        auto tmpstate{ state } ;
+        auto tmpt { t } ;
+
         for( int jk=0; jk<ik; ++jk) {
             for( int iv=0; iv<N; ++iv){
-                tmpstate[iv] += a[ik][jk] * k[jk][iv] ;
+                tmpstate[iv] += dt * a[ik][jk] * k[jk][iv] ;
             }
-            tmpt += c[jk] * dt ; 
+            tmpt += c[jk] * dt ;
         }
-        
-        k[ik] = rhs(tmpt, tmpstate) ; 
+
+        k[ik] = rhs(tmpt, tmpstate) ;
     }
-    return std::move(k) ; 
+    return std::move(k) ;
 }
+
+public:
 
 std::array<double,2> domain ; 
 std::array<double,N> id     ; 
-double tol ; 
+double abs_tol, rel_tol ;
 double t, dt  ; 
+std::array<double, N> state;
 
-constexpr const std::array<double,6> c  { 0., 0.25, 3./8., 12./13., 1., 0.5 } ; 
-constexpr const std::array<double,6> b5 {16./135., 0., 6656./12825., 28561./56430, -9./50., 2./55.} ; 
-constexpr const std::array<double,6> b4 {25./216., 0., 1408./2565., 2197./4104., -0.2, 0} ; 
-constexpr const std::array<std::array<double, 6>, 6> a {{
+static constexpr const std::array<double,6> c  { 0., 0.25, 3./8., 12./13., 1., 0.5 } ; 
+static constexpr const std::array<double,6> b5 {16./135., 0., 6656./12825., 28561./56430, -9./50., 2./55.} ; 
+static constexpr const std::array<double,6> b4 {25./216., 0., 1408./2565., 2197./4104., -0.2, 0} ; 
+static constexpr const std::array<std::array<double, 6>, 6> a {{
     { 0., 0., 0., 0., 0., 0. },
     { 0.25, 0., 0., 0., 0., 0. },
     { 3./32., 9./32., 0., 0., 0., 0. },
@@ -127,7 +174,7 @@ constexpr const std::array<std::array<double, 6>, 6> a {{
     { 439./216., -8., 3680./513., -845./4104., 0., 0. },
     { -8./27., 2., -3544./2565., 1859./4104., -11./40., 0. }
 }};
-constexpr const double dt_min = 1e-13 ; 
+static constexpr const double dt_min = 1e-13 ; 
 
 } ; 
 

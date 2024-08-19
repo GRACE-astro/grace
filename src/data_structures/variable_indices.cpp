@@ -29,6 +29,7 @@
 #include <grace/utils/device.h>
 #include <grace/utils/execution_tag.hh>
 
+#include <grace/system/grace_system.hh>
 #include <grace/errors/assert.hh>
 #include <grace/data_structures/variable_indices.hh>
 #include <grace/data_structures/variable_registration_helpers.hh>
@@ -39,6 +40,8 @@
 #include <Kokkos_Core.hpp>
 
 #include <string> 
+#include <sstream>
+
 
 #undef DECLARE_VAR_INDEX_IMPL
 #define DECLARE_VAR_INDEX_IMPL(var) int var = -1 ;
@@ -187,11 +190,11 @@ void register_variables() {
     /********************************************************************************/
     /* Valencia hydrodynamics */
     /* Conserved variables    */
-    REGISTER_EVOLVED_SCALAR(DENS,"dens","outgoing") ; 
-    REGISTER_EVOLVED_VECTOR(SX,SY,SZ,"stilde","outgoing") ;
-    REGISTER_EVOLVED_SCALAR(TAU,"tau","outgoing") ; 
-    REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing") ; 
-    REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing") ;
+    REGISTER_EVOLVED_SCALAR(DENS,"dens","outgoing",true) ; 
+    REGISTER_EVOLVED_VECTOR(SX,SY,SZ,"stilde","outgoing",true) ;
+    REGISTER_EVOLVED_SCALAR(TAU,"tau","outgoing",true) ; 
+    REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing",true) ; 
+    REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing",true) ;
     /* GRMHD primitives */
     REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
     REGISTER_AUX_VECTOR(VELX,VELY,VELZ,"vel","none") ; 
@@ -202,14 +205,16 @@ void register_variables() {
     REGISTER_AUX_SCALAR(EPS,"eps","none") ; 
     REGISTER_AUX_SCALAR(PRESS,"press","none") ; 
     /* registration of metric variables */
-    REGISTER_AUX_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","none") ; 
-    REGISTER_AUX_SCALAR(ALP,"alp","none") ; 
-    REGISTER_AUX_VECTOR(BETAX,BETAY,BETAZ,"beta","none");
-    REGISTER_AUX_TENSOR(KXX,KXY,KXZ,KYY,KYZ,KZZ,"ext_curv","none") ; 
+    REGISTER_EVOLVED_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","outgoing",false) ; 
+    REGISTER_EVOLVED_SCALAR(ALP,"alp","outgoing",false) ; 
+    REGISTER_EVOLVED_VECTOR(BETAX,BETAY,BETAZ,"beta","outgoing",false);
+    REGISTER_EVOLVED_TENSOR(KXX,KXY,KXZ,KYY,KYZ,KZZ,"ext_curv","outgoing",false) ; 
     /********************************************************************************/
     /********************************************************************************/
     /*                           COPY INDICES TO GPU                                */
     /********************************************************************************/
+    /********************************************************************************/
+    /*                           DON'T TOUCH THIS CODE!!                            */
     /********************************************************************************/
     #endif 
     ASSERT_DBG( detail::_var_bc_types.size() == detail::num_evolved, 
@@ -226,6 +231,33 @@ void register_variables() {
     #undef DECLARE_VAR_INDEX_IMPL
     /********************************************************************************/
     /********************************************************************************/
+    GRACE_INFO("{} total variables registered, of which {} evolved, {} auxiliary. {} variables require fluxes.", 
+                detail::num_vars, detail::num_evolved, detail::num_auxiliary, detail::num_fluxes ) ; 
+    std::ostringstream ss ; 
+    ss << "Evolved variables:\n" ; 
+    for( int ii=0; ii<detail::num_evolved; ++ii) {
+        auto const vname = detail::_varnames[ii] ; 
+        ss << vname << " needs fluxes: " << (ii<detail::num_fluxes ? "yes" : "no"); 
+        if ( ii < detail::num_evolved - 1 ){ 
+            ss << ",\n" ;  
+        } else {
+            ss << "\n" ; 
+        }
+    }
+    GRACE_VERBOSE(ss.str()) ; 
+    ss.str("");          // Clear the buffer
+    ss.clear();          // Clear the error flags
+    ss << "Auxiliary variables:\n" ; 
+    for( int ii=0; ii<detail::num_auxiliary; ++ii) {
+        auto const vname = detail::_auxnames[ii] ; 
+        ss << vname ; 
+        if ( ii < detail::num_evolved - 1 ){ 
+            ss << ",\n" ;  
+        } else {
+            ss << "\n" ; 
+        }
+    }
+    GRACE_VERBOSE(ss.str()) ; 
 }
 namespace detail {
 static int register_scalar( std::string const& name
@@ -415,6 +447,10 @@ static int register_variable(     std::string const& name
                                 , std::string const& vec_name ) 
 {
     using namespace detail ; 
+
+    if ( need_fluxes ) {
+        ASSERT(is_evolved, "Not evolved variable can't need fluxes.") ; 
+    }
 
     variable_properties_t<GRACE_NSPACEDIM> props ;
     props.staggering = staggering ; 
