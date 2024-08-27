@@ -301,7 +301,7 @@ class cartesian_coordinate_system_impl_t
      * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
      * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The Jacobian matrix.
      */
-    std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+    std::array<double, 9>
     GRACE_HOST get_jacobian_matrix(
           std::array<size_t, GRACE_NSPACEDIM> const& ijk 
         , int64_t q 
@@ -317,9 +317,9 @@ class cartesian_coordinate_system_impl_t
      * @param itree Index of tree containing the point
      * @param cell_coordinates Coordinates of point within the cell 
      * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
-     * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The Jacobian matrix.
+     * @return std::array<double, 9> The Jacobian matrix.
      */
-    std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+    std::array<double, 9>
     GRACE_HOST get_jacobian_matrix(
           std::array<size_t, GRACE_NSPACEDIM> const& ijk 
         , int64_t q 
@@ -336,7 +336,7 @@ class cartesian_coordinate_system_impl_t
      * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The Jacobian matrix.
      * NB: This function checks for tree boundaries.
      */
-    std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+    std::array<double, 9>
     GRACE_HOST get_jacobian_matrix(
           int itree
         , std::array<double,GRACE_NSPACEDIM> const& lcoords 
@@ -351,7 +351,7 @@ class cartesian_coordinate_system_impl_t
      * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
      * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The inverse Jacobian matrix.
      */
-    std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+    std::array<double, 9>
     GRACE_HOST get_inverse_jacobian_matrix(
           std::array<size_t, GRACE_NSPACEDIM> const& ijk 
         , int64_t q 
@@ -369,7 +369,7 @@ class cartesian_coordinate_system_impl_t
      * @param use_ghostzones True if indices are zero-offset, false if ngz-offset
      * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The inverse Jacobian matrix.
      */
-    std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+    std::array<double, 9>
     GRACE_HOST get_inverse_jacobian_matrix(
           std::array<size_t, GRACE_NSPACEDIM> const& ijk 
         , int64_t q 
@@ -386,7 +386,7 @@ class cartesian_coordinate_system_impl_t
      * @return std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM> The inverse Jacobian matrix.
      * NB: This function checks for tree boundaries.
      */
-    std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+    std::array<double, 9>
     GRACE_HOST get_inverse_jacobian_matrix(
           int itree
         , std::array<double,GRACE_NSPACEDIM> const& lcoords 
@@ -621,8 +621,6 @@ class cartesian_coordinate_system_impl_t
     friend class memory::new_delete_creator<cartesian_coordinate_system_impl_t,memory::new_delete_allocator> ; //!< Give access
     //**************************************************************************************************
 } ; 
-
-
 
 } /* namespace grace */
 

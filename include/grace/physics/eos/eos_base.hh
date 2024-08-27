@@ -449,6 +449,18 @@ class eos_base_t {
         return static_cast<eos_impl_t const*>(this)->press_eps_ye__beta_eq__rho_temp_impl(eps,ye,rho,temp,err) ; 
     }
     /**
+     * @brief Get beta-equilibrium ye at T=0 given cold pressure.
+     * 
+     * @param press_cold Cold pressure.
+     * @param err        Error code.
+     * @return double The charge fraction at cold beta-eq.
+     */
+    double GRACE_HOST_DEVICE 
+    ye_beta_eq__press_cold(double& press_cold, error_type& err) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->ye_beta_eq__press_cold_impl(press_cold,err) ; 
+    }
+    /**
      * @brief Electron, proton, neutron chemical potentials, 
      *        alpha particles, hydrogen, neutron and proton fractions,
      *        average mass number and average charge number given  

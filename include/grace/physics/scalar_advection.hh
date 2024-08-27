@@ -74,9 +74,12 @@ struct scalar_advection_system_t
                        ,      const int j 
                        ,      const int k)
                        , int ngz
-                       , grace::flux_array_t const  fluxes) const 
+                       , grace::flux_array_t const  fluxes
+                       , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
+                       , double const dt 
+                       , double const dtfact ) const 
     {
-        getflux<0,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
+        getflux<0,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute Burgers' fluxes in direction \f$x^2\f$
@@ -98,9 +101,12 @@ struct scalar_advection_system_t
                        ,      const int j 
                        ,      const int k)
                        , int ngz
-                       , grace::flux_array_t const  fluxes) const 
+                       , grace::flux_array_t const  fluxes
+                       , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
+                       , double const dt 
+                       , double const dtfact ) const 
     {
-        getflux<1,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
+        getflux<1,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute Burgers' fluxes in direction \f$x^3\f$
@@ -122,9 +128,12 @@ struct scalar_advection_system_t
                        ,      const int j 
                        ,      const int k)
                        , int ngz
-                       , grace::flux_array_t const  fluxes) const 
+                       , grace::flux_array_t const  fluxes
+                       , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
+                       , double const dt 
+                       , double const dtfact ) const 
     {
-        getflux<2,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
+        getflux<2,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes,dx,dt,dtfact);
     }
 
     template< typename thread_team_t >
@@ -172,7 +181,10 @@ struct scalar_advection_system_t
             ,      const int k)
             , const int64_t q 
             , int ngz 
-            , grace::flux_array_t const fluxes) const 
+            , grace::flux_array_t const fluxes
+            , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
+            , double const dt 
+            , double const dtfact ) const 
     {
         recon_t reconstructor{} ;
         auto u = Kokkos::subview(  this->_state

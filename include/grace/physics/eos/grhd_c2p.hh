@@ -80,10 +80,10 @@ struct grhd_c2p_t {
             conservs[STXL] *= fact/StildeNorm ; 
             conservs[STYL] *= fact/StildeNorm  ;
             conservs[STZL] *= fact/StildeNorm  ;
-            StildeNorm = fact ; 
             StildeU = metric.raise({conservs[STXL],conservs[STYL],conservs[STZL]}) ; 
+            StildeNorm = fact ; 
+            //    Kokkos::sqrt(conservs[STXL]*StildeU[0] + conservs[STYL]*StildeU[1] + conservs[STZL]*StildeU[2] ) ; 
         } 
-        
         ye = conservs[YESL] / D ;
         q  = conservs[TAUL] / D ; 
         r = StildeNorm / D ; 

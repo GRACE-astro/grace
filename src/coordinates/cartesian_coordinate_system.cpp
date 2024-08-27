@@ -40,6 +40,7 @@
 
 namespace grace { 
 
+
 cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
 {
     using namespace grace ;
@@ -275,7 +276,7 @@ cartesian_coordinate_system_impl_t::get_inverse_jacobian(
     return 1./get_jacobian(itree,lcoords) ;  
 }
 
-std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+std::array<double, 9>
 GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_jacobian_matrix(
       std::array<size_t, GRACE_NSPACEDIM> const& ijk 
@@ -287,7 +288,7 @@ cartesian_coordinate_system_impl_t::get_jacobian_matrix(
     return get_jacobian_matrix(ijk,q,itree,cell_coordinates,use_ghostzones) ; 
 }
 
-std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+std::array<double, 9>
 GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_jacobian_matrix(
         std::array<size_t, GRACE_NSPACEDIM> const& ijk 
@@ -300,23 +301,22 @@ cartesian_coordinate_system_impl_t::get_jacobian_matrix(
     return get_jacobian_matrix(itree,lcoords) ; 
 }
 
-std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+std::array<double, 9>
 GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_jacobian_matrix(
         int itree
     , std::array<double,GRACE_NSPACEDIM> const& lcoords ) const
 {
     auto const dx_tree = amr::get_tree_spacing(itree) ; 
-    return std::array<double,GRACE_NSPACEDIM*GRACE_NSPACEDIM>{
-        VEC(
-              VEC(dx_tree[0], 0         , 0          ) 
-            , VEC(0         , dx_tree[1], 0          )
-            , VEC(0         , 0         , dx_tree[2] )
-        )
+    return std::array<double,9>{
+          dx_tree[0], 0         , 0           
+        , 0         , dx_tree[0], 0          
+        , 0         , 0         , dx_tree[0] 
+        
     } ; 
 }
 
-std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+std::array<double, 9>
 GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_inverse_jacobian_matrix(
       std::array<size_t, GRACE_NSPACEDIM> const& ijk 
@@ -328,7 +328,7 @@ cartesian_coordinate_system_impl_t::get_inverse_jacobian_matrix(
     return get_inverse_jacobian_matrix(ijk,q,itree,cell_coordinates,use_ghostzones) ; 
 }
 
-std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+std::array<double, 9>
 GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_inverse_jacobian_matrix(
         std::array<size_t, GRACE_NSPACEDIM> const& ijk 
@@ -341,19 +341,18 @@ cartesian_coordinate_system_impl_t::get_inverse_jacobian_matrix(
     return get_inverse_jacobian_matrix(itree,lcoords) ; 
 }
 
-std::array<double, GRACE_NSPACEDIM*GRACE_NSPACEDIM>
+std::array<double, 9>
 GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_inverse_jacobian_matrix(
         int itree
     , std::array<double,GRACE_NSPACEDIM> const& lcoords ) const
 {
     auto const dx_tree = amr::get_tree_spacing(itree) ; 
-    return std::array<double,GRACE_NSPACEDIM*GRACE_NSPACEDIM> {
-        VEC(
-              VEC(1./dx_tree[0], 0            , 0             ) 
-            , VEC(0            , 1./dx_tree[1], 0             )
-            , VEC(0            , 0            , 1./dx_tree[2] )
-        )
+    return std::array<double,9>{
+          1./dx_tree[0], 0            , 0           
+        , 0            , 1./dx_tree[0], 0          
+        , 0            , 0            , 1./dx_tree[0] 
+        
     } ; 
 }
 
@@ -607,4 +606,6 @@ cartesian_coordinate_system_impl_t::get_cell_edge_length(
 
     return dx_tree[edge] * dxl[edge] ;
 }
+
+
 } /* namespace grace */ 

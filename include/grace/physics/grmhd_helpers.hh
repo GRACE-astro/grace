@@ -104,6 +104,26 @@ primsarr[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
 primsarr[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
 primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)
 
+#define FILL_PRIMS_ARRAY_ZVEC(primsarr,vview,q,...)        \
+primsarr[RHOL] = vview(__VA_ARGS__,RHO_,q);      \
+primsarr[PRESSL] = vview(__VA_ARGS__,PRESS_,q) ; \
+primsarr[VXL] = vview(__VA_ARGS__,ZVECX_,q) ;     \
+primsarr[VYL] = vview(__VA_ARGS__,ZVECY_,q) ;     \
+primsarr[VZL] = vview(__VA_ARGS__,ZVECZ_,q) ;     \
+primsarr[YEL] = vview(__VA_ARGS__,YE_,q) ;       \
+primsarr[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
+primsarr[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
+primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)
+
+#define FILL_CONS_ARRAY(consarr, vview,q,...)      \
+consarr[DENSL] = vview(__VA_ARGS__,DENS_,q);       \
+consarr[TAUL] = vview(__VA_ARGS__,TAU_,q);         \
+consarr[STXL] = vview(__VA_ARGS__,SX_,q);          \
+consarr[STYL] = vview(__VA_ARGS__,SY_,q);          \
+consarr[STZL] = vview(__VA_ARGS__,SZ_,q);          \
+consarr[YESL] = vview(__VA_ARGS__,YESTAR_,q);      \
+consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q) 
+
 #define AM2 -0.0625
 #define AM1  0.5625
 #define A0   0.5625
@@ -159,6 +179,7 @@ g = grace::metric_array_t{                                    \
 struct grmhd_id_t {
   double rho;
   double press;
+  double ye;
   double gxx,gxy,gxz,gyy,gyz,gzz; 
   double kxx,kxy,kxz,kyy,kyz,kzz;
   double alp;  

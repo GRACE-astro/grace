@@ -102,17 +102,18 @@ struct prolongator_t {
         int const k0 = 
               math::floor_int((iquad_z * nz + k ) / 2) ; 
         )
+        EXPR(
+            int const sign_x = (i%2==1) - (i%2==0) ;, 
+            int const sign_y = (j%2==1) - (j%2==0) ;, 
+            int const sign_z = (k%2==1) - (k%2==0) ; 
+        )
         return InterpT::interpolate(
               VEC(i+ngz,j+ngz,k+ngz)
             , VEC(i0+ngz,j0+ngz,k0+ngz)
             , iq_child, iq_parent, ngz, ivar
-            , x_child
-            , x_parent
-            , dx_child
-            , dx_parent 
+            , VEC(sign_x,sign_y,sign_z)
             , state 
             , vol_child
-            , vol_parent
         ) ; 
     }
 }  ; 

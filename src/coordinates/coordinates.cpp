@@ -99,19 +99,22 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>& coords
         amr::quadrant_t quadrant = amr::get_quadrant(itree,iquad) ; 
         auto const dx_lev = 1.0 / ( 1UL<<quadrant.level() ) ; 
         auto const VEC(dx_quad{dx_lev/nx}, dy_quad{dx_lev/ny}, dz_quad{dx_lev/nz}) ; 
+        //! HERE TO SWICH COORDS
+        auto const tree_spacing = amr::get_tree_spacing(itree)[0] ; 
+        auto const VEC(dx_phys{dx_quad*tree_spacing}, dy_phys{dy_quad*tree_spacing}, dz_phys{dz_quad*tree_spacing}) ; 
         /* coordinates of lower left corner of quadrant */
         auto const qcoords = quadrant.qcoords() ; 
         h_coords(0,iquad) = qcoords[0] * dx_lev; 
         h_coords(1,iquad) = qcoords[1] * dx_lev;
         h_coords(2,iquad) = qcoords[2] * dx_lev;
         EXPR(
-        h_idx(0,iquad) = 1./dx_quad ;, 
-        h_idx(1,iquad) = 1./dy_quad ;,
-        h_idx(2,iquad) = 1./dz_quad ;)
+        h_idx(0,iquad) = 1./dx_phys ;, 
+        h_idx(1,iquad) = 1./dy_phys ;,
+        h_idx(2,iquad) = 1./dz_phys ;)
         EXPR(
-        h_dx(0,iquad) = dx_quad ;,
-        h_dx(1,iquad) = dy_quad ;,
-        h_dx(2,iquad) = dz_quad ;)
+        h_dx(0,iquad) = dx_phys ;,
+        h_dx(1,iquad) = dy_phys ;,
+        h_dx(2,iquad) = dz_phys ;)
         auto thread_clock_start = std::chrono::high_resolution_clock::now() ;
         EXPR( for(size_t i=0; i<nx+2*ngz; ++i), for(size_t j=0; j<ny+2*ngz; ++j), for(size_t k=0; k<nz+2*ngz; ++k) ) {
             h_vol(VEC(i,j,k),iquad) = coord_system.get_cell_volume(

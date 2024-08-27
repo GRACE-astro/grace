@@ -35,6 +35,7 @@
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/utils/grace_utils.hh>
+#include <grace/data_structures/index_helpers.hh>
 #ifdef GRACE_ENABLE_GRMHD
 //#include <grace/physics/admbase.hh>
 #include <grace/physics/grmhd.hh>
@@ -80,7 +81,7 @@ void set_initial_data_impl() {
     Kokkos::Profiling::popRegion() ; 
 } 
 
-
+#if 0
 void transform_to_logical_frame() {
     DECLARE_GRID_EXTENTS ; 
     using namespace grace  ; 
@@ -99,6 +100,13 @@ void transform_to_logical_frame() {
     auto const h_tens_vars = variables::get_tensor_state_variables_indices() ;
     auto const h_vec_aux = variables::get_vector_aux_variables_indices()     ;
     auto const h_tens_aux = variables::get_tensor_aux_variables_indices()    ;
+    
+    auto const h_vec_kind     = variables::get_vector_state_variables_kinds() ; 
+    auto const h_tens_kind    = variables::get_tensor_state_variables_kinds() ;
+    auto const h_vec_aux_kind = variables::get_vector_aux_variables_kinds()   ;
+    auto const h_tens_aux_kind = variables::get_tensor_aux_variables_kinds()   ;
+
+
     for( int i=0; i<h_vec_vars.size(); ++i){
         GRACE_TRACE("Vector var (state): {}", variables::get_var_name(h_vec_vars[i],false)) ; 
     }
@@ -112,18 +120,25 @@ void transform_to_logical_frame() {
         GRACE_TRACE("Tensor var (aux): {}", variables::get_var_name(h_tens_aux[i],true)) ; 
     }
     Kokkos::View<size_t* , default_execution_space> 
-        vec_vars("vector_var_indices", h_vec_vars.size())
-      , tens_vars("tensor_var_indices", h_tens_vars.size())
-      , vec_aux("vector_aux_indices", h_vec_aux.size())
-      , tens_aux("tensor_aux_indices", h_tens_aux.size()) ; 
+        vec_vars("vector_var_indices", h_vec_vars.size()), vec_vars_idx("vector_var_kind", h_vec_vars.size())
+      , tens_vars("tensor_var_indices", h_tens_vars.size()), tens_vars_idx("tensor_var_kind", h_tens_vars.size())
+      , vec_aux("vector_aux_indices", h_vec_aux.size()), vec_aux_idx("vector_aux_kind", h_vec_aux.size())
+      , tens_aux("tensor_aux_indices", h_tens_aux.size()), tens_aux_idx("tensor_aux_kind", h_tens_aux.size()) ; 
     size_t const n_vec_vars = h_vec_vars.size() ; 
     size_t const n_tens_vars = h_tens_vars.size() ; 
     size_t const n_vec_aux = h_vec_aux.size() ;
     size_t const n_tens_aux = h_tens_aux.size() ; 
+
     deep_copy_vec_to_view(vec_vars, h_vec_vars) ; 
-    deep_copy_vec_to_view(tens_vars, h_tens_vars) ; 
+    deep_copy_vec_to_view(tens_vars, h_tens_kind) ; 
     deep_copy_vec_to_view(vec_aux, h_vec_aux) ; 
     deep_copy_vec_to_view(tens_aux, h_tens_aux) ; 
+
+    deep_copy_vec_to_view(vec_vars_idx, h_vec_kind) ; 
+    deep_copy_vec_to_view(tens_vars_idx, h_tens_vars) ; 
+    deep_copy_vec_to_view(vec_aux_idx, h_vec_aux_kind) ; 
+    deep_copy_vec_to_view(tens_aux_idx, h_tens_aux_kind) ; 
+
     /************************************************/
     /* Launch a kernel to apply jacobians to tensor */
     /* and vector variables                         */
@@ -136,13 +151,14 @@ void transform_to_logical_frame() {
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
                 {
                     for(int iv=0; iv<n_vec_vars; ++iv){
+                        auto& jview = vec_vars_idx(iv) == UP ? invjac : jac ; 
                         std::array<double,3> const vin
                         {
                               state(VEC(i,j,k),vec_vars(iv)  ,q)
                             , state(VEC(i,j,k),vec_vars(iv)+1,q)
                             , state(VEC(i,j,k),vec_vars(iv)+2,q)
                         } ; 
-                        auto J = Kokkos::subview(invjac, VEC(i,j,k), ALL(), ALL(),  q) ; 
+                        auto J = Kokkos::subview(jview, VEC(i,j,k), ALL(), ALL(),  q) ; 
                         auto const vout = detail::apply_jacobian_vec(vin, J) ;
                         state(VEC(i,j,k),vec_vars(iv)  ,q) = vout[0] ; 
                         state(VEC(i,j,k),vec_vars(iv)+1,q) = vout[1] ; 
@@ -152,6 +168,7 @@ void transform_to_logical_frame() {
                     }
 
                     for(int iv=0; iv<n_tens_vars; ++iv){
+                        auto& jview = tens_vars_idx(iv) == UPUP ? invjac : jac ; 
                         std::array<double,6> const vin
                         {
                               state(VEC(i,j,k),tens_vars(iv)  ,q)
@@ -161,7 +178,7 @@ void transform_to_logical_frame() {
                             , state(VEC(i,j,k),tens_vars(iv)+4,q)
                             , state(VEC(i,j,k),tens_vars(iv)+5,q)
                         } ; 
-                        auto J = Kokkos::subview(invjac, VEC(i,j,k), ALL(), ALL(),  q) ; 
+                        auto J = Kokkos::subview(jview, VEC(i,j,k), ALL(), ALL(),  q) ; 
                         auto const vout = detail::apply_jacobian_symtens(vin, J) ;
                         state(VEC(i,j,k),tens_vars(iv)  ,q) = vout[0] ; 
                         state(VEC(i,j,k),tens_vars(iv)+1,q) = vout[1] ; 
@@ -176,13 +193,14 @@ void transform_to_logical_frame() {
                     }
 
                     for(int iv=0; iv<n_vec_aux; ++iv){
+                        auto& jview = vec_aux_idx(iv) == UP ? invjac : jac ; 
                         std::array<double,3> const vin
                         {
                               aux(VEC(i,j,k),vec_aux(iv)  ,q)
                             , aux(VEC(i,j,k),vec_aux(iv)+1,q)
                             , aux(VEC(i,j,k),vec_aux(iv)+2,q)
                         } ; 
-                        auto J = Kokkos::subview(invjac, VEC(i,j,k), ALL(), ALL(),  q) ; 
+                        auto J = Kokkos::subview(jview, VEC(i,j,k), ALL(), ALL(),  q) ; 
                         auto const vout = detail::apply_jacobian_vec(vin, J) ;
                         aux(VEC(i,j,k),vec_aux(iv)  ,q) = vout[0] ; 
                         aux(VEC(i,j,k),vec_aux(iv)+1,q) = vout[1] ; 
@@ -192,6 +210,7 @@ void transform_to_logical_frame() {
                     }
 
                     for(int iv=0; iv<n_tens_aux; ++iv){
+                        auto& jview = tens_aux_idx(iv) == UPUP ? invjac : jac ; 
                         std::array<double,6> const vin
                         {
                               aux(VEC(i,j,k),tens_aux(iv)  ,q)
@@ -201,7 +220,7 @@ void transform_to_logical_frame() {
                             , aux(VEC(i,j,k),tens_aux(iv)+4,q)
                             , aux(VEC(i,j,k),tens_aux(iv)+5,q)
                         } ; 
-                        auto J = Kokkos::subview(invjac, VEC(i,j,k), ALL(), ALL(),  q) ; 
+                        auto J = Kokkos::subview(jview, VEC(i,j,k), ALL(), ALL(),  q) ; 
                         auto const vout = detail::apply_jacobian_symtens(vin, J) ;
                         aux(VEC(i,j,k),tens_aux(iv)  ,q) = vout[0] ; 
                         aux(VEC(i,j,k),tens_aux(iv)+1,q) = vout[1] ; 
@@ -216,7 +235,7 @@ void transform_to_logical_frame() {
                     }
                 } ) ; 
 }
-
+#endif 
 #define INSTANTIATE_TEMPLATE(EOS)   \
 template                            \
 void set_initial_data_impl<EOS>()

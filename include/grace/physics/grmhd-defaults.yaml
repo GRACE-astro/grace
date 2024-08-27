@@ -6,5 +6,6 @@ grmhd: {
   shocktube_rho_L: 10.,
   shocktube_rho_R: 1.,
   blastwave_over_pressure_factor: 2.5,
-  blastwave_initial_radius: 0.5
+  blastwave_initial_radius: 0.5,
+  TOV_central_density: 1.28e-03
 }

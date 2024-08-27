@@ -32,7 +32,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#define C2P_TOLERANCE 1e-09
+#define C2P_TOLERANCE 10
 
 namespace grace {
 
@@ -89,9 +89,9 @@ conservs_to_prims( grmhd_cons_array_t& cons
     prims[VZL] = metric.alp()*prims[VZL] - metric.beta(2) ;
     /* Re-compute conservative variables based  */
     /* on new primitives.                       */
-    //prims_to_conservs(prims,cons,metric) ;
+    prims_to_conservs(prims,cons,metric) ;
     /* Re-densitize conservs */
-    for( auto& c: cons) c *= metric.sqrtg() ;
+    //for( auto& c: cons) c *= metric.sqrtg() ;
 }
 
 void GRACE_HOST_DEVICE

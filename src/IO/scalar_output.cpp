@@ -240,32 +240,32 @@ void write_scalar_output() {
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::fixed << std::setprecision(15) ; 
-        outfile << std::left << std::setw(width) << iter 
-                << std::left << std::setw(width) << time 
-                << std::left << std::setw(width) << detail::_minmax_reduction_vars_results[vname].min_val << '\n' ; 
+        outfile << std::left << iter << '\t'
+                << std::left << time << '\t' 
+                << std::left << detail::_minmax_reduction_vars_results[vname].min_val << '\n' ; 
         std::string const pfname_max = grace_runtime.scalar_io_basename() + vname + "_max.dat" ;
         std::filesystem::path fname_max = bdir /  pfname_max ; 
         std::ofstream outfile_max(fname_max.string(),std::ios::app) ; 
         outfile_max << std::fixed << std::setprecision(15) ; 
-        outfile_max << std::left << std::setw(width) << iter 
-                    << std::left << std::setw(width) << time 
-                    << std::left << std::setw(width) << detail::_minmax_reduction_vars_results[vname].max_val << '\n' ;
+        outfile_max << std::left << iter << '\t'
+                    << std::left << time << '\t' 
+                    << std::left << detail::_minmax_reduction_vars_results[vname].max_val << '\n' ;
     }
     for( auto const& vname: out_minmax_aux ) {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::fixed << std::setprecision(15) ; 
-        outfile << std::left << std::setw(width) << iter 
-                << std::left << std::setw(width) << time 
-                << std::left << std::setw(width) << detail::_minmax_reduction_aux_results[vname].min_val << '\n' ; 
+        outfile << std::left << iter << '\t'
+                << std::left << time << '\t' 
+                << std::left << detail::_minmax_reduction_aux_results[vname].min_val << '\n' ; 
         std::string const pfname_max = grace_runtime.scalar_io_basename() + vname + "_max.dat" ;
         std::filesystem::path fname_max = bdir /  pfname_max ; 
         std::ofstream outfile_max(fname_max.string(),std::ios::app) ; 
         outfile_max << std::fixed << std::setprecision(15) ; 
-        outfile_max << std::left << std::setw(width) << iter 
-                    << std::left << std::setw(width) << time 
-                    << std::left << std::setw(width) << detail::_minmax_reduction_aux_results[vname].max_val << '\n' ; 
+        outfile_max << std::left << iter << '\t'
+                    << std::left << time << '\t' 
+                    << std::left << detail::_minmax_reduction_aux_results[vname].max_val << '\n' ; 
     }
 
     auto const out_norm2_vars = grace_runtime.scalar_output_norm2_vars() ; 
@@ -275,18 +275,18 @@ void write_scalar_output() {
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::fixed << std::setprecision(15) ; 
-        outfile << std::left << std::setw(width) << iter 
-                << std::left << std::setw(width) << time 
-                << std::left << std::setw(width) << detail::_norm2_reduction_vars_results[vname] << '\n' ; 
+        outfile << std::left << iter << '\t'
+                << std::left << time << '\t'
+                << std::left << detail::_norm2_reduction_vars_results[vname] << '\n' ; 
     }
     for( auto const& vname: out_norm2_aux ) {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ;
         outfile << std::fixed << std::setprecision(15) ;  
-        outfile << std::left << std::setw(width) << iter 
-                << std::left << std::setw(width) << time 
-                << std::left << std::setw(width) << detail::_norm2_reduction_aux_results[vname] << '\n' ; 
+        outfile << std::left << iter << '\t'
+                << std::left << time << '\t' 
+                << std::left << detail::_norm2_reduction_aux_results[vname] << '\n' ; 
     }
 
     auto const out_integral_vars = grace_runtime.scalar_output_integral_vars() ; 
@@ -296,18 +296,18 @@ void write_scalar_output() {
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::fixed << std::setprecision(15) ; 
-        outfile << std::left << std::setw(width) << iter 
-                << std::left << std::setw(width) << time 
-                << std::left << std::setw(width) << detail::_integral_reduction_vars_results[vname] << '\n' ; 
+        outfile << std::left << iter << '\t'
+                << std::left << time << '\t' 
+                << std::left << detail::_integral_reduction_vars_results[vname] << '\n' ; 
     }
     for( auto const& vname: out_integral_aux ) {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_integral.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
         outfile << std::fixed << std::setprecision(15) ; 
-        outfile << std::left << std::setw(width) << iter 
-                << std::left << std::setw(width) << time 
-                << std::left << std::setw(width) << detail::_integral_reduction_aux_results[vname] << '\n' ; 
+        outfile << std::left << iter << '\t'
+                << std::left << time << '\t'
+                << std::left << detail::_integral_reduction_aux_results[vname] << '\n' ; 
     }
 
     }

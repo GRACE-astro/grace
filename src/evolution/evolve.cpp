@@ -99,22 +99,23 @@ void evolve_impl() {
     auto& cvol    = grace::variable_list::get().getvolumes() ; 
     auto& fsurf   = grace::variable_list::get().getstaggeredcoords() ;
     auto& idx     = grace::variable_list::get().getinvspacings() ;  
+    auto& dx     = grace::variable_list::get().getspacings() ;  
     /* Copy the current state to scratch memory */
     //amr::apply_boundary_conditions(state) ; 
     Kokkos::deep_copy(state_p, state) ; 
 
     if ( tstepper == "euler" ) {
         compute_auxiliary_quantities<eos_t>(state, aux) ;
-        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,cvol,fsurf) ; 
+        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,dx,cvol,fsurf) ; 
         amr::apply_boundary_conditions(state) ; 
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
     } else if (tstepper == "rk2" ) {
         /* Compute auxiliaries at current timelevel */
         compute_auxiliary_quantities<eos_t>(state, aux) ;
-        advance_substep<eos_t>(t,dt,0.5,state_p,state,aux,idx,cvol,fsurf) ; 
+        advance_substep<eos_t>(t,dt,0.5,state_p,state,aux,idx,dx,cvol,fsurf) ; 
         amr::apply_boundary_conditions(state_p) ; 
         compute_auxiliary_quantities<eos_t>(state_p, aux) ;
-        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,cvol,fsurf) ;
+        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,dx,cvol,fsurf) ;
         amr::apply_boundary_conditions(state) ; 
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
     } else if (tstepper == "rk3" ) {
@@ -130,6 +131,7 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , var_array_t<GRACE_NSPACEDIM>& old_state 
                     , var_array_t<GRACE_NSPACEDIM>& aux 
                     , scalar_array_t<GRACE_NSPACEDIM>& idx
+                    , scalar_array_t<GRACE_NSPACEDIM>& dx
                     , cell_vol_array_t<GRACE_NSPACEDIM>& cvol
                     , staggered_coordinate_arrays_t& surfs_and_edges )
 {
@@ -167,11 +169,11 @@ void advance_substep( double const t, double const dt, double const dtfact
     scalar_advection_system_t 
         scalar_adv_system{ old_state, aux, VEC(ax,ay,az) } ; 
     #define GET_X_FLUX \
-    scalar_adv_system.template compute_x_flux<slope_limited_reconstructor_t<minmod>>(team, VEC(i,j,k), ngz, fluxes) 
+    scalar_adv_system.template compute_x_flux<slope_limited_reconstructor_t<minmod>>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
     #define GET_Y_FLUX \
-    scalar_adv_system.template compute_y_flux<slope_limited_reconstructor_t<minmod>>(team, VEC(i,j,k), ngz, fluxes)
+    scalar_adv_system.template compute_y_flux<slope_limited_reconstructor_t<minmod>>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_Z_FLUX \
-    scalar_adv_system.template compute_z_flux<slope_limited_reconstructor_t<minmod>>(team, VEC(i,j,k), ngz, fluxes)
+    scalar_adv_system.template compute_z_flux<slope_limited_reconstructor_t<minmod>>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_SOURCES \
     scalar_adv_system(sources_computation_kernel_t{}, team, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 
@@ -179,11 +181,11 @@ void advance_substep( double const t, double const dt, double const dtfact
     burgers_equation_system_t
         burgers_eq_system{ old_state, aux } ; 
     #define GET_X_FLUX \
-    burgers_eq_system.template compute_x_flux<hll_riemann_solver_t,weno_reconstructor_t<3>>(team, VEC(i,j,k), ngz, fluxes) 
+    burgers_eq_system.template compute_x_flux<hll_riemann_solver_t,weno_reconstructor_t<3>>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
     #define GET_Y_FLUX \
-    burgers_eq_system.template compute_y_flux<hll_riemann_solver_t,weno_reconstructor_t<3>>(team, VEC(i,j,k), ngz, fluxes)
+    burgers_eq_system.template compute_y_flux<hll_riemann_solver_t,weno_reconstructor_t<3>>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_Z_FLUX \
-    burgers_eq_system.template compute_z_flux<hll_riemann_solver_t,weno_reconstructor_t<3>>(eam, VEC(i,j,k), ngz, fluxes)
+    burgers_eq_system.template compute_z_flux<hll_riemann_solver_t,weno_reconstructor_t<3>>(eam, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_SOURCES \
     burgers_eq_system(sources_computation_kernel_t{}, team, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 
@@ -191,12 +193,13 @@ void advance_substep( double const t, double const dt, double const dtfact
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,old_state,aux) ; 
+    #define RECON slope_limited_reconstructor_t<minmod>
     #define GET_X_FLUX \
-    grmhd_eq_system.template compute_x_flux<hllc_riemann_solver_t<0>,weno_reconstructor_t<3>>(team, VEC(i,j,k), ngz, fluxes) 
+    grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,RECON>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
     #define GET_Y_FLUX \
-    grmhd_eq_system.template compute_y_flux<hllc_riemann_solver_t<1>,weno_reconstructor_t<3>>(team, VEC(i,j,k), ngz, fluxes)
+    grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,RECON>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_Z_FLUX \
-    grmhd_eq_system.template compute_z_flux<hllc_riemann_solver_t<2>,weno_reconstructor_t<3>>(team, VEC(i,j,k), ngz, fluxes)
+    grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,RECON>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_SOURCES \
     grmhd_eq_system(sources_computation_kernel_t{}, team, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 
@@ -294,6 +297,7 @@ void advance_substep<EOS>( double const , double const , double const \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \
                          , grace::staggered_coordinate_arrays_t&  ) ; \

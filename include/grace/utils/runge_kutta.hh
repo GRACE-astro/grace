@@ -41,6 +41,7 @@ namespace grace {
 template< size_t N >
 struct rk45_t {
 
+GRACE_HOST_DEVICE
 rk45_t(std::array<double,2> _domain, std::array<double,N> _id, double _abs_tol, double _rel_tol=0.)
     : domain(_domain), id(_id), abs_tol(_abs_tol), rel_tol(_rel_tol), state(id), t(domain[0]), dt((domain[1]-domain[0])/100)
   {}
@@ -133,9 +134,9 @@ compute_scale() const {
     return std::move(scale) ;
 }
 
-template< typename F> 
-std::array<std::array<double,N>,6> GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
-compute_k(F&& rhs, std::array<double,N>& state)
+template< typename F>
+std::array<std::array<double,N>,6> GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
+compute_k(F&& rhs)
 {
     std::array<std::array<double,N>,6> k ;
     k[0] = rhs(t, state) ;

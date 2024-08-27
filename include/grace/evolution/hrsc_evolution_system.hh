@@ -54,10 +54,13 @@ struct hrsc_evolution_system_t {
                   ,      const int j 
                   ,      const int k)
                   , int ngz
-                  , grace::flux_array_t const fluxes) const 
+                  , grace::flux_array_t const fluxes
+                  , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
+                  , double const dt 
+                  , double const dtfact ) const 
     {
         static_cast<EvolSystem_t const *>(this)->template 
-            compute_x_flux_impl<riemann_t,recon_t,thread_team_t>(team,VEC(i,j,k),ngz,fluxes) ;
+            compute_x_flux_impl<riemann_t,recon_t,thread_team_t>(team,VEC(i,j,k),ngz,fluxes,dx,dt,dtfact) ;
     }
 
     template< typename riemann_t 
@@ -69,10 +72,13 @@ struct hrsc_evolution_system_t {
                   ,      const int j 
                   ,      const int k)
                   , int ngz
-                  , grace::flux_array_t const fluxes) const 
+                  , grace::flux_array_t const fluxes
+                  , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
+                  , double const dt 
+                  , double const dtfact ) const 
     {
         static_cast<EvolSystem_t const *>(this)->template 
-            compute_y_flux_impl<riemann_t,recon_t,thread_team_t>(team,VEC(i,j,k),ngz,fluxes) ; 
+            compute_y_flux_impl<riemann_t,recon_t,thread_team_t>(team,VEC(i,j,k),ngz,fluxes,dx,dt,dtfact) ; 
     }
 
     template< typename riemann_t 
@@ -84,10 +90,13 @@ struct hrsc_evolution_system_t {
                   ,      const int j 
                   ,      const int k)
                   , int ngz
-                  , grace::flux_array_t const fluxes) const  
+                  , grace::flux_array_t const fluxes
+                  , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
+                  , double const dt 
+                  , double const dtfact ) const  
     {
         static_cast<EvolSystem_t const *>(this)->template 
-            compute_z_flux_impl<riemann_t,recon_t,thread_team_t>(team,VEC(i,j,k),ngz,fluxes) ; 
+            compute_z_flux_impl<riemann_t,recon_t,thread_team_t>(team,VEC(i,j,k),ngz,fluxes,dx,dt,dtfact) ; 
     }
 
     template< typename thread_team_t >

@@ -108,9 +108,12 @@ struct grmhd_equations_system_t
                        ,      const int j 
                        ,      const int k)
                        , int ngz
-                       , grace::flux_array_t const  fluxes) const 
+                       , grace::flux_array_t const  fluxes
+                       , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
+                       , double const dt 
+                       , double const dtfact ) const 
     {
-        getflux<0,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
+        getflux<0,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^2\f$
@@ -134,9 +137,12 @@ struct grmhd_equations_system_t
                        ,      const int j 
                        ,      const int k)
                        , int ngz
-                       , grace::flux_array_t const  fluxes) const 
+                       , grace::flux_array_t const  fluxes
+                       , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
+                       , double const dt 
+                       , double const dtfact ) const
     {
-        getflux<1,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
+        getflux<1,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^3\f$
@@ -160,9 +166,12 @@ struct grmhd_equations_system_t
                        ,      const int j 
                        ,      const int k)
                        , int ngz
-                       , grace::flux_array_t const  fluxes) const 
+                       , grace::flux_array_t const  fluxes
+                       , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
+                       , double const dt 
+                       , double const dtfact ) const
     {
-        getflux<2,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes);
+        getflux<2,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute geometric source terms for GRMHD equations.
@@ -201,7 +210,7 @@ struct grmhd_equations_system_t
         static constexpr int XZ4=6;
         static constexpr int YY4=7;
         static constexpr int YZ4=8;
-        static constexpr int ZZ4=4;
+        static constexpr int ZZ4=9;
         /**************************************************************************************************/
         int64_t const q = team.league_rank() ; 
 
@@ -515,7 +524,10 @@ struct grmhd_equations_system_t
             ,      const int k)
             , const int64_t q 
             , int ngz
-            , grace::flux_array_t const fluxes) const 
+            , grace::flux_array_t const fluxes
+            , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
+            , double const dt 
+            , double const dtfact ) const 
     {
         /***********************************************************************/
         /* Initialize reconstructor                                            */
@@ -789,13 +801,15 @@ struct grmhd_equations_system_t
             ,      const int k)
             , const int64_t q 
             , int ngz
-            , grace::flux_array_t const fluxes) const 
+            , grace::flux_array_t const fluxes
+            , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
+            , double const dt 
+            , double const dtfact ) const 
     {
         /***********************************************************************/
         /* Initialize reconstructor and riemann solver                         */
         /***********************************************************************/
         recon_t reconstructor{} ; 
-        riemann_t solver     {} ;
 
         /***********************************************************************/
         /* Define and interpolate metric                                       */
@@ -867,7 +881,94 @@ struct grmhd_equations_system_t
                          , primR[recon_indices_loc[ivar]]
                          , idir) ;
         }
+        // Compute HLL fluxes
+        grmhd_cons_array_t f_HLL ; 
+        compute_mhd_fluxes<idir,riemann_t>( primL, primR, metric_face, f_HLL, 1, 1, true) ; 
+        #if 1
+        /***********************************************************************/
+        // And LLF fluxes to mix in for positivity preserving limiter 
+        /***********************************************************************/
+        FILL_PRIMS_ARRAY_ZVEC( primL, this->_aux, q 
+                        , VEC( i+ngz-utils::delta(idir,0)
+                             , j+ngz-utils::delta(idir,1)
+                             , k+ngz-utils::delta(idir,2) )) ;
+        FILL_PRIMS_ARRAY_ZVEC( primR, this->_aux, q 
+                        , VEC( i+ngz
+                             , j+ngz
+                             , k+ngz )) ; 
+        /***********************************************************************/ 
+        /*                      Compute LLF flux                               */
+        /***********************************************************************/
+        grmhd_cons_array_t f_LLF ;  
+        compute_mhd_fluxes<idir,riemann_t>( primL, primR, metric_face, f_LLF, 1., 1., false ) ;
+        /***********************************************************************/
+        // Get conserves 
+        grmhd_cons_array_t consL, consR ;
+        FILL_CONS_ARRAY(consL, this->_state, q 
+                     , VEC(   i+ngz-utils::delta(idir,0)
+                            , j+ngz-utils::delta(idir,1)
+                            , k+ngz-utils::delta(idir,2) ) ) ; 
+        FILL_CONS_ARRAY(consR, this->_state, q
+                       , VEC(i+ngz,j+ngz,k+ngz)) ; 
+        /***********************************************************************/
+        // Mix fluxes 
+        double const a2CFL = 6. * (dt*dtfact/dx(idir,q)) ; 
+        double theta = 1 ; 
+        double rho_atm = _eos.rho_atmosphere() ; 
+        
+        double const dens_min_r = rho_atm * metric_r.sqrtg() ; 
+        double const dens_min_l = rho_atm * metric_l.sqrtg() ; 
 
+        double const dens_LLF_m = consR[DENSL] + a2CFL * f_LLF[DENSL] ; 
+        double const dens_LLF_p = consL[DENSL] - a2CFL * f_LLF[DENSL] ;
+
+        double const dens_m = consR[DENSL] + a2CFL * f_HLL[DENSL] ; 
+        double const dens_p = consL[DENSL] - a2CFL * f_HLL[DENSL] ; 
+
+        double theta_p = 1.; 
+        double theta_m = 1.; 
+
+        if (dens_m < dens_min_r) {
+            theta_m = math::min(theta, math::max(0, (dens_min_r-dens_LLF_m)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ; 
+        }
+        if ( dens_p < dens_min_l ) {
+            theta_p = math::min(theta, math::max(0, -(dens_min_l-dens_LLF_p)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ; 
+        }
+
+        theta = math::min(theta_m, theta_p) ;
+        /***********************************************************************/
+        #endif 
+        /***********************************************************************/
+        fluxes(VEC(i,j,k),DENS_,idir,q)        = theta * f_HLL[DENSL]    
+                                               + (1. - theta) * f_LLF[DENSL] ; 
+        fluxes(VEC(i,j,k),YESTAR_,idir,q)      = theta * f_HLL[YESL]    
+                                               + (1. - theta) * f_LLF[YESL] ; 
+        fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = theta * f_HLL[ENTSL]    
+                                               + (1. - theta) * f_LLF[ENTSL] ; 
+        fluxes(VEC(i,j,k),TAU_,idir,q)         = theta * f_HLL[TAUL]    
+                                               + (1. - theta) * f_LLF[TAUL] ; 
+        fluxes(VEC(i,j,k),SX_,idir,q)          = theta * f_HLL[STXL]    
+                                               + (1. - theta) * f_LLF[STXL] ; 
+        fluxes(VEC(i,j,k),SY_,idir,q)          = theta * f_HLL[STYL]    
+                                               + (1. - theta) * f_LLF[STYL] ; 
+        fluxes(VEC(i,j,k),SZ_,idir,q)          = theta * f_HLL[STZL]    
+                                               + (1. - theta) * f_LLF[STZL] ; 
+        /***********************************************************************/
+    }
+
+    template< size_t idir
+            , typename riemann_t >
+    GRACE_HOST_DEVICE 
+    void compute_mhd_fluxes( grmhd_prims_array_t& primL
+                           , grmhd_prims_array_t& primR 
+                           , metric_array_t const& metric_face 
+                           , grmhd_cons_array_t& f
+                           , double const cmin_loc = 1
+                           , double const cmax_loc = 1 
+                           , bool recompute_cp_cm = true ) const 
+    {
+
+        riemann_t solver     {} ;
         /***********************************************************************/
         /* Compute u0 on both sides                                            */
         /***********************************************************************/
@@ -919,16 +1020,23 @@ struct grmhd_equations_system_t
 
         /* Get wavespeeds      */
         double const one_over_alp2 = 1./math::int_pow<2>(alp); 
-        double cpr, cmr, cpl, cml;
-        int metric_comps[3] { 0, 3, 5} ; 
-        compute_cp_cm( cpl, cml, v02l, u0_l, primL[VXL+idir], one_over_alp2
-                     , metric_face.beta(idir), metric_face.invgamma(metric_comps[idir])) ;
-        compute_cp_cm( cpr, cmr, v02r, u0_r, primR[VXL+idir], one_over_alp2
-                     , metric_face.beta(idir), metric_face.invgamma(metric_comps[idir])) ;
-        double cmin = -math::min(0., math::min(cml,cmr)) ; 
-        double cmax =  math::max(0., math::max(cpl,cpr)) ; 
-        /* Add some diffusion in weakly hyperbolic limit */
-        if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
+
+        double cmin, cmax ;
+        if ( recompute_cp_cm ) {
+            double cpr, cmr, cpl, cml;
+            int metric_comps[3] { 0, 3, 5} ; 
+            compute_cp_cm( cpl, cml, v02l, u0_l, primL[VXL+idir], one_over_alp2
+                        , metric_face.beta(idir), metric_face.invgamma(metric_comps[idir])) ;
+            compute_cp_cm( cpr, cmr, v02r, u0_r, primR[VXL+idir], one_over_alp2
+                        , metric_face.beta(idir), metric_face.invgamma(metric_comps[idir])) ;
+            cmin = -math::min(0., math::min(cml,cmr)) ; 
+            cmax =  math::max(0., math::max(cpl,cpr)) ; 
+            /* Add some diffusion in weakly hyperbolic limit */
+            if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
+        } else {
+            cmin = cmin_loc ; 
+            cmax = cmax_loc ; 
+        }
         /***********************************************************************/
         /*                          Get dens flux                              */
         /***********************************************************************/
@@ -939,7 +1047,7 @@ struct grmhd_equations_system_t
         double fl = dens_l * primL[VXL+idir] ; 
         double fr = dens_r * primR[VXL+idir] ; 
 
-        fluxes(VEC(i,j,k),DENS_,idir,q) = solver(fl,fr,dens_l,dens_r,cmin,cmax) ; 
+        f[DENSL] = solver(fl,fr,dens_l,dens_r,cmin,cmax) ; 
 
         /***********************************************************************/
         /*                          Get ye_star flux                           */
@@ -950,7 +1058,7 @@ struct grmhd_equations_system_t
         fl = ye_star_l * primL[VXL+idir] ; 
         fr = ye_star_l * primR[VXL+idir] ; 
 
-        fluxes(VEC(i,j,k),YESTAR_,idir,q) = solver(fl,fr,ye_star_l,ye_star_r,cmin,cmax) ;
+        f[YESL] = solver(fl,fr,ye_star_l,ye_star_r,cmin,cmax) ;
 
         /***********************************************************************/
         /*                          Get s_star flux                            */
@@ -961,7 +1069,7 @@ struct grmhd_equations_system_t
         fl = s_star_l * primL[VXL+idir] ; 
         fr = s_star_r * primR[VXL+idir] ; 
 
-        fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = solver(fl,fr,s_star_l,s_star_r,cmin,cmax) ;
+        f[ENTSL] = solver(fl,fr,s_star_l,s_star_r,cmin,cmax) ;
 
         /***********************************************************************/ 
         /*                           Get tau flux                              */
@@ -1024,7 +1132,7 @@ struct grmhd_equations_system_t
         double const tau_r = alp2_sqrtgamma * Tuptt_r - dens_r ; 
 
         /***************************************************************************/
-        fluxes(VEC(i,j,k),TAU_,idir,q) = solver(fl,fr,tau_l,tau_r,cmin,cmax) ; 
+        f[TAUL] = solver(fl,fr,tau_l,tau_r,cmin,cmax) ; 
         /***************************************************************************/
 
         /***********************************************************************/
@@ -1060,7 +1168,7 @@ struct grmhd_equations_system_t
                                                 - smallbR[0]*smallbDR[0] ) ; 
 
         /***********************************************************************/
-        fluxes(VEC(i,j,k),SX_,idir,q) = solver(fl,fr,s_x_l,s_x_r,cmin,cmax) ; 
+        f[STXL] = solver(fl,fr,s_x_l,s_x_r,cmin,cmax) ; 
         /***********************************************************************/
 
         /***********************************************************************/
@@ -1085,7 +1193,7 @@ struct grmhd_equations_system_t
                                                - smallbR[0]*smallbDR[1] ) ; 
         
         /***********************************************************************/
-        fluxes(VEC(i,j,k),SY_,idir,q) = solver(fl,fr,s_y_l,s_y_r,cmin,cmax) ;
+        f[STYL] = solver(fl,fr,s_y_l,s_y_r,cmin,cmax) ;
         /***********************************************************************/
 
         /***********************************************************************/
@@ -1109,7 +1217,7 @@ struct grmhd_equations_system_t
                                                - smallbR[0]*smallbDR[2] ) ; 
 
         /***********************************************************************/
-        fluxes(VEC(i,j,k),SZ_,idir,q) = solver(fl,fr,s_z_l,s_z_r,cmin,cmax) ; 
+        f[STZL] = solver(fl,fr,s_z_l,s_z_r,cmin,cmax) ; 
         /***********************************************************************/
         /***********************************************************************/
     };
