@@ -883,8 +883,8 @@ struct grmhd_equations_system_t
         }
         // Compute HLL fluxes
         grmhd_cons_array_t f_HLL ; 
-        compute_mhd_fluxes<idir,riemann_t>( primL, primR, metric_face, f_HLL, 1, 1, true) ; 
-        #if 1
+        compute_mhd_fluxes<idir,riemann_t,true>( primL, primR, metric_face, f_HLL, 1, 1) ; 
+        #ifdef GRMHD_USE_PPLIM
         /***********************************************************************/
         // And LLF fluxes to mix in for positivity preserving limiter 
         /***********************************************************************/
@@ -900,7 +900,7 @@ struct grmhd_equations_system_t
         /*                      Compute LLF flux                               */
         /***********************************************************************/
         grmhd_cons_array_t f_LLF ;  
-        compute_mhd_fluxes<idir,riemann_t>( primL, primR, metric_face, f_LLF, 1., 1., false ) ;
+        compute_mhd_fluxes<idir,riemann_t,false>( primL, primR, metric_face, f_LLF, 1., 1.) ;
         /***********************************************************************/
         // Get conserves 
         grmhd_cons_array_t consL, consR ;
@@ -937,7 +937,6 @@ struct grmhd_equations_system_t
 
         theta = math::min(theta_m, theta_p) ;
         /***********************************************************************/
-        #endif 
         /***********************************************************************/
         fluxes(VEC(i,j,k),DENS_,idir,q)        = theta * f_HLL[DENSL]    
                                                + (1. - theta) * f_LLF[DENSL] ; 
@@ -954,18 +953,29 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SZ_,idir,q)          = theta * f_HLL[STZL]    
                                                + (1. - theta) * f_LLF[STZL] ; 
         /***********************************************************************/
+        #else 
+        /***********************************************************************/
+        fluxes(VEC(i,j,k),DENS_,idir,q)        = f_HLL[DENSL] ; 
+        fluxes(VEC(i,j,k),YESTAR_,idir,q)      = f_HLL[YESL] ; 
+        fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = f_HLL[ENTSL] ; 
+        fluxes(VEC(i,j,k),TAU_,idir,q)         = f_HLL[TAUL] ; 
+        fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[STXL] ; 
+        fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL] ; 
+        fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ; 
+        /***********************************************************************/
+        #endif 
     }
 
     template< size_t idir
-            , typename riemann_t >
-    GRACE_HOST_DEVICE 
+            , typename riemann_t 
+            , bool recompute_cp_cm >
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
     void compute_mhd_fluxes( grmhd_prims_array_t& primL
                            , grmhd_prims_array_t& primR 
                            , metric_array_t const& metric_face 
                            , grmhd_cons_array_t& f
                            , double const cmin_loc = 1
-                           , double const cmax_loc = 1 
-                           , bool recompute_cp_cm = true ) const 
+                           , double const cmax_loc = 1 ) const 
     {
 
         riemann_t solver     {} ;
@@ -1022,15 +1032,15 @@ struct grmhd_equations_system_t
         double const one_over_alp2 = 1./math::int_pow<2>(alp); 
 
         double cmin, cmax ;
-        if ( recompute_cp_cm ) {
+        if constexpr ( recompute_cp_cm ) {
             double cpr, cmr, cpl, cml;
             int metric_comps[3] { 0, 3, 5} ; 
             compute_cp_cm( cpl, cml, v02l, u0_l, primL[VXL+idir], one_over_alp2
                         , metric_face.beta(idir), metric_face.invgamma(metric_comps[idir])) ;
             compute_cp_cm( cpr, cmr, v02r, u0_r, primR[VXL+idir], one_over_alp2
                         , metric_face.beta(idir), metric_face.invgamma(metric_comps[idir])) ;
-            cmin = -math::min(0., math::min(cml,cmr)) ; 
-            cmax =  math::max(0., math::max(cpl,cpr)) ; 
+            cmin = -Kokkos::min(0., Kokkos::min(cml,cmr)) ; 
+            cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ; 
             /* Add some diffusion in weakly hyperbolic limit */
             if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
         } else {
@@ -1274,8 +1284,8 @@ struct grmhd_equations_system_t
         double const c1 =  0.5*(det-b) / a ; 
         double const c2 = -0.5*(det+b) / a ; 
 
-        cp = math::max(c1,c2) ; 
-        cm = math::min(c1,c2) ; 
+        cp = Kokkos::max(c1,c2) ; 
+        cm = Kokkos::min(c1,c2) ; 
     }
     /***********************************************************************/
     /**

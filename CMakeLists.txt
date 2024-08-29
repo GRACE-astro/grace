@@ -33,6 +33,7 @@ include(setup_mpi)
 find_package(OpenMP REQUIRED)
 find_package(p4est REQUIRED)
 find_package(LibXml2 REQUIRED)
+find_package(ZLIB REQUIRED)
 include(setup_kokkos)
 #include(setup_gsl)
 include(setup_yaml)
@@ -69,7 +70,8 @@ target_link_libraries(grace PRIVATE
         p4est::sc
         VTK::VTK
         spdlog::spdlog
-        HDF5::HDF5 
+        HDF5::HDF5
+	ZLIB::ZLIB
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
         )
 vtk_module_autoinit(

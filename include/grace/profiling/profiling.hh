@@ -76,14 +76,14 @@ Kokkos::Profiling::popRegion();\
 //*********************************************************************************************************************
 #else
 //*********************************************************************************************************************
-#define GRACE_KOKKOS_PROFILING_PUSH_REGION(name)
-#define GRACE_DEVICE_PROFILING_PUSH_REGION(name)
-#define GRACE_HOST_PROFILING_PUSH_REGION(name)
-#define GRACE_PROFILING_PUSH_REGION(name)
-#define GRACE_KOKKOS_PROFILING_POP_REGION
-#define GRACE_DEVICE_PROFILING_POP_REGION
-#define GRACE_HOST_PROFILING_POP_REGION
-#define GRACE_PROFILING_POP_REGION
+#define GRACE_KOKKOS_PROFILING_PUSH_REGION(name) Kokkos::Profiling::pushRegion(name)
+#define GRACE_DEVICE_PROFILING_PUSH_REGION(name) Kokkos::Profiling::pushRegion(name)
+#define GRACE_HOST_PROFILING_PUSH_REGION(name) Kokkos::Profiling::pushRegion(name)
+#define GRACE_PROFILING_PUSH_REGION(name) Kokkos::Profiling::pushRegion(name)
+#define GRACE_KOKKOS_PROFILING_POP_REGION Kokkos::Profiling::popRegion()
+#define GRACE_DEVICE_PROFILING_POP_REGION Kokkos::Profiling::popRegion()
+#define GRACE_HOST_PROFILING_POP_REGION Kokkos::Profiling::popRegion()
+#define GRACE_PROFILING_POP_REGION Kokkos::Profiling::popRegion()
 //*********************************************************************************************************************
 #endif
 //*********************************************************************************************************************

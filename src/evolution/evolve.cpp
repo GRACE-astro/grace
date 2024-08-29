@@ -105,19 +105,19 @@ void evolve_impl() {
     Kokkos::deep_copy(state_p, state) ; 
 
     if ( tstepper == "euler" ) {
-        compute_auxiliary_quantities<eos_t>(state, aux) ;
+        //compute_auxiliary_quantities<eos_t>(state, aux) ;
         advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,dx,cvol,fsurf) ; 
         amr::apply_boundary_conditions(state) ; 
-        //compute_auxiliary_quantities<eos_t>(state, aux) ;
+        compute_auxiliary_quantities<eos_t>(state, aux) ;
     } else if (tstepper == "rk2" ) {
         /* Compute auxiliaries at current timelevel */
-        compute_auxiliary_quantities<eos_t>(state, aux) ;
+        //compute_auxiliary_quantities<eos_t>(state, aux) ;
         advance_substep<eos_t>(t,dt,0.5,state_p,state,aux,idx,dx,cvol,fsurf) ; 
         amr::apply_boundary_conditions(state_p) ; 
         compute_auxiliary_quantities<eos_t>(state_p, aux) ;
         advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,dx,cvol,fsurf) ;
         amr::apply_boundary_conditions(state) ; 
-        //compute_auxiliary_quantities<eos_t>(state, aux) ;
+        compute_auxiliary_quantities<eos_t>(state, aux) ;
     } else if (tstepper == "rk3" ) {
         ERROR("Not implemented yet.") ; 
     } else {
@@ -231,14 +231,14 @@ void advance_substep( double const t, double const dt, double const dtfact
             , VEC(nx,ny,nz) ) ;
 
         int64_t q = team.league_rank() ; 
-
+        #ifndef GRACE_CARTESIAN_COORDINATES
         auto surfx = subview( surfs_and_edges.cell_face_surfaces_x 
                              , VEC(ALL(),ALL(),ALL()), q ) ; 
         auto surfy = subview( surfs_and_edges.cell_face_surfaces_y 
                              , VEC(ALL(),ALL(),ALL()), q ) ; 
         auto surfz = subview( surfs_and_edges.cell_face_surfaces_z 
                              , VEC(ALL(),ALL(),ALL()), q ) ; 
-        
+        #endif 
         parallel_for( team_range_x 
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k))
         {
@@ -256,13 +256,13 @@ void advance_substep( double const t, double const dt, double const dtfact
             GET_Z_FLUX ;
         }) ; 
         #endif 
-        #if 1
+        
         parallel_for( team_range 
                     , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
         {
             GET_SOURCES ; 
         }) ;
-        #endif 
+        
         team.team_barrier() ; 
 
         auto team_range_vars = 
@@ -273,6 +273,7 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k), int const& ivar)
         {
             int const VEC(I{i+ngz},J{j+ngz},K{k+ngz}) ; 
+            #ifndef GRACE_CARTESIAN_COORDINATES
             new_state(VEC(I,J,K),ivar,team.league_rank()) += 
                 dt * dtfact * (
                 EXPR(   ( surfx(VEC(I,J,K))   * fluxes(VEC(i,j,k)  ,ivar,0,q) 
@@ -282,6 +283,14 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , + ( surfz(VEC(I,J,K))   * fluxes(VEC(i,j,k)  ,ivar,2,q) 
                         - surfz(VEC(I,J,K+1)) * fluxes(VEC(i,j,k+1),ivar,2,q) ) )
                 ) / cvol(VEC(I,J,K),q) ; 
+            #else 
+            new_state(VEC(I,J,K),ivar,q) += 
+                dt * dtfact * (
+                EXPR(   ( fluxes(VEC(i,j,k)  ,ivar,0,q) - fluxes(VEC(i+1,j,k),ivar,0,q) ) * idx(0,q)
+                    , + ( fluxes(VEC(i,j,k)  ,ivar,1,q) - fluxes(VEC(i,j+1,k),ivar,1,q) ) * idx(1,q)
+                    , + ( fluxes(VEC(i,j,k)  ,ivar,2,q) - fluxes(VEC(i,j,k+1),ivar,2,q) ) * idx(2,q))
+                ) ; 
+            #endif 
         }) ;
     }) ; 
     #undef GET_X_FLUX

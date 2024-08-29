@@ -67,22 +67,23 @@ int main(int argc, char* argv[])
     bool regrid_at_postinitial = grace::get_param<bool>("amr","regrid_at_postinitial") ; 
     int postinitial_regrid_depth = 
         grace::get_param<int>("amr","postinitial_regrid_depth") ;
+    bool reset_id_after_regrid = 
+        grace::get_param<bool>("evolution","reset_id_after_regrid") ; 
     /**********************************************************************************/
     /*                                 Post-Initial data                              */
     /**********************************************************************************/
     if( regrid_at_postinitial ) {
         GRACE_INFO("Performing initial regrid.") ;
         for( int ilev=0; ilev<postinitial_regrid_depth; ++ilev){
+            GRACE_INFO("Regrid level {}.", ilev+1) ;
             grace::amr::regrid() ;  
             grace::amr::apply_boundary_conditions() ; 
+            if (reset_id_after_regrid) {
+                grace::set_initial_data() ; 
+            }
         }
     }
-    bool reset_id_after_regrid = 
-        grace::get_param<bool>("evolution","reset_id_after_regrid") ; 
-    if (reset_id_after_regrid) {
-        GRACE_INFO("Resetting initial data after regrid.") ;
-        grace::set_initial_data() ; 
-    }
+    
     grace::IO::write_cell_output(true,true,true) ;
     grace::IO::compute_reductions() ; 
     grace::IO::initialize_output_files() ; 
@@ -124,8 +125,8 @@ int main(int argc, char* argv[])
         {
             grace::amr::regrid() ;  
             grace::amr::apply_boundary_conditions() ;
+	    grace::compute_auxiliary_quantities() ;
         }
-        grace::compute_auxiliary_quantities() ;
         if(    (volume_output_every>0) 
            or  (plane_surface_output_every>0) 
            or  (sphere_surface_output_every>0) ) 
