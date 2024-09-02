@@ -100,10 +100,9 @@ struct grmhd_equations_system_t
      * @param fluxes Flux array.
      */
     template< typename riemann_t 
-            , typename recon_t 
-            , typename thread_team_t >
+            , typename recon_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_x_flux_impl( thread_team_t& team 
+    compute_x_flux_impl( int const q 
                        , VEC( const int i 
                        ,      const int j 
                        ,      const int k)
@@ -113,7 +112,7 @@ struct grmhd_equations_system_t
                        , double const dt 
                        , double const dtfact ) const 
     {
-        getflux<0,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes,dx,dt,dtfact);
+        getflux<0,riemann_t,recon_t>(VEC(i,j,k),q,ngz,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^2\f$
@@ -129,10 +128,9 @@ struct grmhd_equations_system_t
      * @param fluxes Flux array.
      */
     template< typename riemann_t 
-            , typename recon_t 
-            , typename thread_team_t >
+            , typename recon_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_y_flux_impl( thread_team_t& team 
+    compute_y_flux_impl( int const q 
                        , VEC( const int i 
                        ,      const int j 
                        ,      const int k)
@@ -142,7 +140,7 @@ struct grmhd_equations_system_t
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<1,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes,dx,dt,dtfact);
+        getflux<1,riemann_t,recon_t>(VEC(i,j,k),q,ngz,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^3\f$
@@ -158,10 +156,9 @@ struct grmhd_equations_system_t
      * @param fluxes Flux array.
      */
     template< typename riemann_t 
-            , typename recon_t 
-            , typename thread_team_t >
+            , typename recon_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_z_flux_impl( thread_team_t& team 
+    compute_z_flux_impl( int const q 
                        , VEC( const int i 
                        ,      const int j 
                        ,      const int k)
@@ -171,7 +168,7 @@ struct grmhd_equations_system_t
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<2,riemann_t,recon_t>(VEC(i,j,k),team.league_rank(),ngz,fluxes,dx,dt,dtfact);
+        getflux<2,riemann_t,recon_t>(VEC(i,j,k),q,ngz,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute geometric source terms for GRMHD equations.
@@ -186,9 +183,8 @@ struct grmhd_equations_system_t
      * @param dt Timestep.
      * @param dtfact Timestep factor.
      */
-    template< typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_source_terms( thread_team_t& team 
+    compute_source_terms( const int q 
                          , VEC( const int i 
                          ,      const int j 
                          ,      const int k)
@@ -212,7 +208,6 @@ struct grmhd_equations_system_t
         static constexpr int YZ4=8;
         static constexpr int ZZ4=9;
         /**************************************************************************************************/
-        int64_t const q = team.league_rank() ; 
 
         /* Read in the metric                                                                             */
         metric_array_t metric ; 

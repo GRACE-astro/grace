@@ -37,6 +37,112 @@
 
 namespace grace {
 
+template< size_t N >
+struct rk4_t {
+
+using sol_t = Kokkos::View<double*> ; 
+
+GRACE_HOST_DEVICE
+rk4_t(std::array<double,2> _domain, std::array<double,N> _id, size_t _Nt)
+    : domain(_domain), id(_id), state(id), dt((domain[1]-domain[0])/_Nt), Nt(_Nt)
+  {
+    t = sol_t ; 
+    y = std::array<sol_t, N> ; 
+    for( auto& xx: y) {
+      xx.realloc(Nt) ; 
+    }
+    for( int ii=0; ii<Nt; ++ii) { 
+      t(ii) = static_cast<double>(ii) * dt + domain[0]; 
+    }
+  }
+
+template< typename F>
+void GRACE_HOST_DEVICE
+solve(F&& rhs)
+{
+    while( t < domain[1] ) {
+      advance_step(std::forward<F>(rhs)) ;
+    }
+}
+
+template< typename F>
+void GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
+advance_step(F&& rhs) {
+    bool accepted = false ;
+    bool must_accept = false ;
+    std::array<std::array<double,N>,6> k ;
+
+    for( int it=0; it<Nt; ++it) {
+      k = compute_k(std::forward<F>(rhs)) ;
+      update_state(k);
+      for( int iv=0; iv<N; ++iv)
+        y[iv](it) = state[iv] ; 
+    }
+
+}
+
+private: 
+
+void GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
+update_state(std::array<std::array<double,N>,6> const& k) {
+    for( int iv=0 ;iv < N; ++iv ){
+        double update = 0;
+        #pragma unroll 6
+        for( int ik=0; ik<6; ++ik) {
+            update += b[ik] * k[ik][iv] ;
+        }
+        state[iv] += dt * update ;
+    }
+
+}
+
+
+template< typename F>
+std::array<std::array<double,N>,6> GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
+compute_k(F&& rhs)
+{
+    std::array<std::array<double,N>,6> k ;
+    k[0] = rhs(t, state) ;
+    for( int ik=1; ik<6; ++ik) {
+        auto tmpstate{ state } ;
+        auto tmpt { t } ;
+
+        for( int jk=0; jk<ik; ++jk) {
+            for( int iv=0; iv<N; ++iv){
+                tmpstate[iv] += dt * a[ik][jk] * k[jk][iv] ;
+            }
+            tmpt += c[jk] * dt ;
+        }
+
+        k[ik] = rhs(tmpt, tmpstate) ;
+    }
+    return std::move(k) ;
+}
+
+public:
+
+std::array<double,2> domain ; 
+std::array<double,N> id     ; 
+double abs_tol, rel_tol ;
+double dt  ; 
+size_t Nt ; 
+std::array<double, N> state;
+
+sol_t t ; 
+std::array<sol_t, N> y ; 
+
+
+static constexpr const std::array<double,4> c  { 0., 0.5, 0.5, 1. } ; 
+static constexpr const std::array<double,4> b  {1./6., 1./3., 1./3., 1./6.} ; 
+static constexpr const std::array<std::array<double, 4>, 4> a {{
+    { 0., 0., 0., 0., },
+    { 0.5, 0., 0., 0. },
+    { 0., 0.5, 0., 0. },
+    { 0., 0.,  0., 1. }
+}};
+
+} ; 
+
 
 template< size_t N >
 struct rk45_t {

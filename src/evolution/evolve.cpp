@@ -195,42 +195,77 @@ void advance_substep( double const t, double const dt, double const dtfact
         grmhd_eq_system(eos,old_state,aux) ; 
     #define RECON slope_limited_reconstructor_t<minmod>
     #define GET_X_FLUX \
-    grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,RECON>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
+    grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
     #define GET_Y_FLUX \
-    grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,RECON>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
+    grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_Z_FLUX \
-    grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,RECON>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
+    grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_SOURCES \
-    grmhd_eq_system(sources_computation_kernel_t{}, team, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
+    grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 
-    
-    TeamPolicy<default_execution_space> policy( nq, AUTO() ) ;
-    using member_type = TeamPolicy<default_execution_space>::member_type ;
-
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "advance_substep")
-                , policy 
-                , KOKKOS_LAMBDA (member_type team)
+    //**************************************************************************************************/
+    auto flux_x_policy = 
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(0,0,0),0}
+            , {VEC(nx+1,ny,nz),nq}
+            //, {VEC(16,8,8),1}
+        ) ; 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux")
+                , flux_x_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+        GET_X_FLUX ;
+    }) ; 
+    //**************************************************************************************************/
+    auto flux_y_policy = 
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(0,0,0),0}
+            , {VEC(nx,ny+1,nz),nq}
+            //, {VEC(8,16,8),1}
+        ) ;
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
+                , flux_y_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+        GET_Y_FLUX ;
+    }) ; 
+    //**************************************************************************************************/
+    auto flux_z_policy = 
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(0,0,0),0}
+            , {VEC(nx,ny,nz+1),nq}
+            //, {VEC(8,8,16),1}
+        ) ;
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
+                , flux_z_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+        GET_Z_FLUX ;
+    }) ; 
+    //**************************************************************************************************/
+    auto geom_sources_policy = 
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(0,0,0),0}
+            , {VEC(nx,ny,nz),nq}
+            //, {VEC(8,8,8),1}
+        ) ; 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_sources")
+                , geom_sources_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+        GET_SOURCES ;
+    }) ;  
+    //**************************************************************************************************/
+    Kokkos::fence() ; 
+    //**************************************************************************************************/
+    auto advance_policy = 
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
+              {VEC(0,0,0),0,0}
+            , {VEC(nx,ny,nz),nvars_hrsc,nq}
+            , {VEC(8,8,8),4,4}
+        ) ; 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "add_fluxes")
+                , advance_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& ivar, int const& q)
     {
-        auto team_range_x = 
-        Kokkos::TeamThreadMDRange<Kokkos::Rank<GRACE_NSPACEDIM>, member_type>( 
-              team 
-            , VEC(nx+1,ny,nz) ) ;
-        auto team_range_y = 
-        Kokkos::TeamThreadMDRange<Kokkos::Rank<GRACE_NSPACEDIM>, member_type>( 
-              team 
-            , VEC(nx,ny+1,nz) ) ;
-        #ifdef GRACE_3D 
-        auto team_range_z = 
-        Kokkos::TeamThreadMDRange<Kokkos::Rank<GRACE_NSPACEDIM>, member_type>( 
-              team 
-            , VEC(nx,ny,nz+1) ) ;
-        #endif 
-        auto team_range = 
-        Kokkos::TeamThreadMDRange<Kokkos::Rank<GRACE_NSPACEDIM>, member_type>( 
-              team 
-            , VEC(nx,ny,nz) ) ;
 
-        int64_t q = team.league_rank() ; 
+        int const VEC(I{i+ngz},J{j+ngz},K{k+ngz}) ; 
         #ifndef GRACE_CARTESIAN_COORDINATES
         auto surfx = subview( surfs_and_edges.cell_face_surfaces_x 
                              , VEC(ALL(),ALL(),ALL()), q ) ; 
@@ -238,60 +273,23 @@ void advance_substep( double const t, double const dt, double const dtfact
                              , VEC(ALL(),ALL(),ALL()), q ) ; 
         auto surfz = subview( surfs_and_edges.cell_face_surfaces_z 
                              , VEC(ALL(),ALL(),ALL()), q ) ; 
+        new_state(VEC(I,J,K),ivar,q) += 
+            dt * dtfact * (
+            EXPR(   ( surfx(VEC(I,J,K))   * fluxes(VEC(i,j,k)  ,ivar,0,q) 
+                    - surfx(VEC(I+1,J,K)) * fluxes(VEC(i+1,j,k),ivar,0,q) )
+                , + ( surfy(VEC(I,J,K))   * fluxes(VEC(i,j,k)  ,ivar,1,q) 
+                    - surfy(VEC(I,J+1,K)) * fluxes(VEC(i,j+1,k),ivar,1,q) )
+                , + ( surfz(VEC(I,J,K))   * fluxes(VEC(i,j,k)  ,ivar,2,q) 
+                    - surfz(VEC(I,J,K+1)) * fluxes(VEC(i,j,k+1),ivar,2,q) ) )
+            ) / cvol(VEC(I,J,K),q) ; 
+        #else 
+        new_state(VEC(I,J,K),ivar,q) += 
+            dt * dtfact * (
+            EXPR(   ( fluxes(VEC(i,j,k)  ,ivar,0,q) - fluxes(VEC(i+1,j,k),ivar,0,q) ) * idx(0,q)
+                , + ( fluxes(VEC(i,j,k)  ,ivar,1,q) - fluxes(VEC(i,j+1,k),ivar,1,q) ) * idx(1,q)
+                , + ( fluxes(VEC(i,j,k)  ,ivar,2,q) - fluxes(VEC(i,j,k+1),ivar,2,q) ) * idx(2,q))
+            ) ; 
         #endif 
-        parallel_for( team_range_x 
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k))
-        {
-            GET_X_FLUX ;
-        }) ; 
-        parallel_for( team_range_y 
-                    , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
-        {
-            GET_Y_FLUX ; 
-        }) ; 
-        #ifdef GRACE_3D 
-        parallel_for( team_range_z 
-                    , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
-        {
-            GET_Z_FLUX ;
-        }) ; 
-        #endif 
-        
-        parallel_for( team_range 
-                    , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k))
-        {
-            GET_SOURCES ; 
-        }) ;
-        
-        team.team_barrier() ; 
-
-        auto team_range_vars = 
-        Kokkos::TeamThreadMDRange<Kokkos::Rank<GRACE_NSPACEDIM+1>, member_type>( 
-              team 
-            , VEC(nx,ny,nz), nvars_hrsc ) ;
-        parallel_for( team_range_vars 
-                    , KOKKOS_LAMBDA ( VEC(int const& i, int const& j, int const& k), int const& ivar)
-        {
-            int const VEC(I{i+ngz},J{j+ngz},K{k+ngz}) ; 
-            #ifndef GRACE_CARTESIAN_COORDINATES
-            new_state(VEC(I,J,K),ivar,team.league_rank()) += 
-                dt * dtfact * (
-                EXPR(   ( surfx(VEC(I,J,K))   * fluxes(VEC(i,j,k)  ,ivar,0,q) 
-                        - surfx(VEC(I+1,J,K)) * fluxes(VEC(i+1,j,k),ivar,0,q) )
-                    , + ( surfy(VEC(I,J,K))   * fluxes(VEC(i,j,k)  ,ivar,1,q) 
-                        - surfy(VEC(I,J+1,K)) * fluxes(VEC(i,j+1,k),ivar,1,q) )
-                    , + ( surfz(VEC(I,J,K))   * fluxes(VEC(i,j,k)  ,ivar,2,q) 
-                        - surfz(VEC(I,J,K+1)) * fluxes(VEC(i,j,k+1),ivar,2,q) ) )
-                ) / cvol(VEC(I,J,K),q) ; 
-            #else 
-            new_state(VEC(I,J,K),ivar,q) += 
-                dt * dtfact * (
-                EXPR(   ( fluxes(VEC(i,j,k)  ,ivar,0,q) - fluxes(VEC(i+1,j,k),ivar,0,q) ) * idx(0,q)
-                    , + ( fluxes(VEC(i,j,k)  ,ivar,1,q) - fluxes(VEC(i,j+1,k),ivar,1,q) ) * idx(1,q)
-                    , + ( fluxes(VEC(i,j,k)  ,ivar,2,q) - fluxes(VEC(i,j,k+1),ivar,2,q) ) * idx(2,q))
-                ) ; 
-            #endif 
-        }) ;
     }) ; 
     #undef GET_X_FLUX
     #undef GET_Y_FLUX

@@ -46,10 +46,9 @@ struct hrsc_evolution_system_t {
     {} 
 
     template< typename riemann_t 
-            , typename recon_t 
-            , typename thread_team_t >
+            , typename recon_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_x_flux( thread_team_t& team 
+    compute_x_flux( int const q  
                   , VEC( const int i 
                   ,      const int j 
                   ,      const int k)
@@ -60,14 +59,13 @@ struct hrsc_evolution_system_t {
                   , double const dtfact ) const 
     {
         static_cast<EvolSystem_t const *>(this)->template 
-            compute_x_flux_impl<riemann_t,recon_t,thread_team_t>(team,VEC(i,j,k),ngz,fluxes,dx,dt,dtfact) ;
+            compute_x_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),ngz,fluxes,dx,dt,dtfact) ;
     }
 
     template< typename riemann_t 
-            , typename recon_t 
-            , typename thread_team_t >
+            , typename recon_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_y_flux( thread_team_t& team 
+    compute_y_flux( int const q
                   , VEC( const int i 
                   ,      const int j 
                   ,      const int k)
@@ -78,14 +76,13 @@ struct hrsc_evolution_system_t {
                   , double const dtfact ) const 
     {
         static_cast<EvolSystem_t const *>(this)->template 
-            compute_y_flux_impl<riemann_t,recon_t,thread_team_t>(team,VEC(i,j,k),ngz,fluxes,dx,dt,dtfact) ; 
+            compute_y_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),ngz,fluxes,dx,dt,dtfact) ; 
     }
 
     template< typename riemann_t 
-            , typename recon_t 
-            , typename thread_team_t >
+            , typename recon_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_z_flux( thread_team_t& team 
+    compute_z_flux( int const q  
                   , VEC( const int i 
                   ,      const int j 
                   ,      const int k)
@@ -96,13 +93,12 @@ struct hrsc_evolution_system_t {
                   , double const dtfact ) const  
     {
         static_cast<EvolSystem_t const *>(this)->template 
-            compute_z_flux_impl<riemann_t,recon_t,thread_team_t>(team,VEC(i,j,k),ngz,fluxes,dx,dt,dtfact) ; 
+            compute_z_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),ngz,fluxes,dx,dt,dtfact) ; 
     }
 
-    template< typename thread_team_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() ( sources_computation_kernel_t _tag
-               , thread_team_t& team 
+               , const int q 
                , VEC( const int i 
                ,      const int j 
                ,      const int k)
@@ -111,7 +107,7 @@ struct hrsc_evolution_system_t {
                , double const dt 
                , double const dtfact ) const 
     {
-        return static_cast<EvolSystem_t const *>(this)->compute_source_terms(team,VEC(i,j,k),idx,state_new,dt,dtfact) ; 
+        return static_cast<EvolSystem_t const *>(this)->compute_source_terms(q,VEC(i,j,k),idx,state_new,dt,dtfact) ; 
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
