@@ -1,5 +1,5 @@
 #!/bin/bash
-module load rocm 
+module load mpi/openmpi/5.0.5-rocm ucx/1.17.0 rocm
 export PATH=${ROCM_PATH}/bin:${PATH}
 export LD_LIBRARY_PATH=${ROCM_PATH}/lib:${LD_LIBRARY_PATH}
 export OMPI_ROOT=/home/astro/musolino/libs/ompi-install
