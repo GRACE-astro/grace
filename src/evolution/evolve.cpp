@@ -208,7 +208,6 @@ void advance_substep( double const t, double const dt, double const dtfact
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,0,0),0}
             , {VEC(nx+1,ny,nz),nq}
-            //, {VEC(16,8,8),1}
         ) ; 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux")
                 , flux_x_policy 
@@ -220,7 +219,6 @@ void advance_substep( double const t, double const dt, double const dtfact
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,0,0),0}
             , {VEC(nx,ny+1,nz),nq}
-            //, {VEC(8,16,8),1}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
                 , flux_y_policy 
@@ -232,7 +230,6 @@ void advance_substep( double const t, double const dt, double const dtfact
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,0,0),0}
             , {VEC(nx,ny,nz+1),nq}
-            //, {VEC(8,8,16),1}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
                 , flux_z_policy 
@@ -244,7 +241,6 @@ void advance_substep( double const t, double const dt, double const dtfact
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,0,0),0}
             , {VEC(nx,ny,nz),nq}
-            //, {VEC(8,8,8),1}
         ) ; 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_sources")
                 , geom_sources_policy 
@@ -258,7 +254,6 @@ void advance_substep( double const t, double const dt, double const dtfact
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
               {VEC(0,0,0),0,0}
             , {VEC(nx,ny,nz),nvars_hrsc,nq}
-            , {VEC(8,8,8),4,4}
         ) ; 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "add_fluxes")
                 , advance_policy 

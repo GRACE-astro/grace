@@ -271,11 +271,104 @@ void copy_interior_ghostzones(
     int64_t ngz = amr::get_n_ghosts() ;
     int64_t nq  = amr::get_local_num_quadrants() ;
     int nvars  = variables::get_n_evolved()      ;
-    auto const n_faces = interior_faces.size()   ;
+    size_t const n_faces = interior_faces.size()   ;
     auto& d_face_info = interior_faces.d_view    ; 
     if( n_faces == 0 ) {
         return ; 
     }
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
+        policy(
+            {0,VECD(0,0), 0,0},
+            {ngz, VECD(static_cast<long>(nx),static_cast<long>(ny)), static_cast<long>(nvars), static_cast<long>(n_faces)}
+        ) ;
+    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones")
+                , policy 
+                , KOKKOS_LAMBDA(const size_t& ig, VECD(const size_t& j, const size_t& k), const size_t& ivar, const size_t& iface)
+        {
+            /* Get information about quadrants sharing the face */
+            int polarity     =  d_face_info(iface).has_polarity_flip ;
+            int is_ghost     =  d_face_info(iface).is_ghost          ; 
+            int which_face_a =  d_face_info(iface).which_face_a      ; 
+            int which_face_b =  d_face_info(iface).which_face_b      ; 
+            int tid_a        =  d_face_info(iface).which_tree_a      ;
+            int tid_b        =  d_face_info(iface).which_tree_b      ;
+            int64_t qid_a    =  d_face_info(iface).qid_a             ;
+            int64_t qid_b    =  d_face_info(iface).qid_b             ; 
+
+            /* Get correct array to read from / write to */
+            auto& view_a = vars ; 
+            auto& view_b = (is_ghost) ? halo : vars ; 
+            int i_a = EXPR((which_face_a==0) *ig 
+                        + (which_face_a==1) * (nx+ngz+ig),
+                        + (which_face_a/2==1) * (j+ngz), 
+                        + (which_face_a/2==2) * (j+ngz)) ;
+
+            int j_a = EXPR((which_face_a==2) * ig 
+                    + (which_face_a==3) * (ny+ngz+ig), 
+                    + (which_face_a/2==0) * (j+ngz), 
+                    + (which_face_a/2==2) * (k+ngz));  
+            
+            int i_b = EXPR((which_face_b==0)*(ngz+ig) 
+                    + (which_face_b==1)*(nx+ig), 
+                    + (which_face_b/2==1) * (j+ngz),
+                    + (which_face_b/2==2) * (j+ngz)) ;
+            
+            int j_b = EXPR((which_face_b==2)*(ngz+ig) 
+                    + (which_face_b==3)*(ny+ig),
+                    + (which_face_b/2==0) * (j+ngz),
+                    + (which_face_b/2==2) * (k+ngz)) ; 
+
+            #ifdef GRACE_3D
+            int k_a = (which_face_a==4) * ig 
+                    + (which_face_a==5) *  (nz+ngz+ig)
+                    + (which_face_a/2!=2) * (k+ngz) ;
+
+            int k_b = (which_face_b==4)*(ngz+ig)
+                    + (which_face_b==5)*(nz+ig)
+                    + (which_face_b/2!=2) * (k + ngz) ;
+            #endif 
+
+            view_a(VEC(i_a,j_a,k_a),ivar,qid_a) =  view_b(VEC(i_b,j_b,k_b),ivar,qid_b) ; 
+            
+            if( ! is_ghost ) {
+                i_b = EXPR((which_face_b==0) * ig 
+                        + (which_face_b==1) * (nx+ngz+ig),
+                        + (which_face_b/2==1) * (j+ngz), 
+                        + (which_face_b/2==2) * (j+ngz)) ;
+
+                j_b = EXPR((which_face_b==2) * ig
+                        + (which_face_b==3) * (ny+ngz+ig), 
+                        + (which_face_b/2==0) * (j+ngz), 
+                        + (which_face_b/2==2) * (k+ngz)) ;  
+                
+                i_a = EXPR((which_face_a==0)*(ngz+ig) 
+                        + (which_face_a==1)*(nx+ig), 
+                        + (which_face_a/2==1) * (j+ngz),
+                        + (which_face_a/2==2) * (j+ngz)) ;
+                
+                j_a = EXPR((which_face_a==2)*(ngz+ig) 
+                        + (which_face_a==3)*(ny+ig),
+                        + (which_face_a/2==0) * (j+ngz),
+                        + (which_face_a/2==2) * (k+ngz)) ; 
+
+                #ifdef GRACE_3D
+                k_b =     (which_face_b==4) *ig 
+                        + (which_face_b==5) * (nz+ngz+ig)
+                        + (which_face_b/2!=2) * (k+ngz) ;
+
+                k_a =     (which_face_a==4)*(ngz+ig)
+                        + (which_face_a==5)*(nz+ig)
+                        + (which_face_a/2!=2) * (k + ngz) ;
+                #endif  
+                #ifndef GRACE_CARTESIAN_COORDINATES
+                // TODO HERE  WE ASSUME Nx==Ny==Nz
+                auto const lmn = mapper({VEC(i_b,j_b,k_b)}, tid_a, tid_b, {ng,n1,n2}) ;
+                i_b = lmn[0]; j_b = lmn[1]; k_b = lmn[2] ; 
+                #endif 
+                view_b(VEC(i_b,j_b,k_b),ivar,qid_b) =  view_a(VEC(i_a,j_a,k_a),ivar,qid_a) ;
+            }
+        });
+    #if 0 
     TeamPolicy<default_execution_space> 
         policy( n_faces, AUTO() ) ; 
     using member_t = decltype(policy)::member_type ;
@@ -388,6 +481,7 @@ void copy_interior_ghostzones(
                     } );
         }
     )   ;  
+    #endif 
 }
 
 void restrict_hanging_ghostzones(
