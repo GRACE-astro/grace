@@ -23,10 +23,3 @@ export HDF5_ROOT=/mnt/rafast/musolino/libs/hdf5-rocm-install
 export LD_LIBRARY_PATH=${KOKKOS_TOOLS_LIB}:${LD_LIBRARY_PATH}
 
 export PATH=/mnt/rafast/musolino/libs/valgrind-install/bin:${KOKKOS_TOOLS_ROOT}/bin:${PATH}
-
-#TODO: Old libraries are built with an incompatible libstdc++
-#      Likely everything here (bar MPI) needs to be rebuilt.
-#      The current libstdc++ supported by clang17 (which is the 
-#      compiler underlyig hipcc) is found at /usr/lib/x86-64-linux-gnu
-#      VTune is outdated, Kokkos Tools are linked against it and likely
-#      broken too.
