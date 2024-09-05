@@ -48,7 +48,7 @@ namespace grace{ namespace amr {
  * \ingroup amr
  * @param info <code>p4est</code>'s struct containing information   
  *             regarding the quadrant face.
- * @param user_data Type erased <code>grace_face_info_t</code> 
+ * @param user_data Type erased <code>grace_neighbor_info_t</code> 
  *                  where information is stored.
  * This function is used as callback in <code>p4est_iterate</code> to store 
  * all the necessary information to apply interior and exterior boundary conditions.
@@ -59,6 +59,42 @@ namespace grace{ namespace amr {
  */
 void grace_iterate_faces( p4est_iter_face_info_t* info 
                           , void* user_data ) ;
+/**
+ * @brief Iterate through all the corners of grid quadrants to
+ *        store boundary information.
+ * \ingroup amr
+ * @param info <code>p4est</code>'s struct containing information   
+ *             regarding the quadrant corner.
+ * @param user_data Type erased <code>grace_neighbor_info_t</code> 
+ *                  where information is stored.
+ * This function is used as callback in <code>p4est_iterate</code> to store 
+ * all the necessary information to apply interior and exterior boundary conditions.
+ * In particular, this function stores, for all corners, the quadrant id's which share 
+ * this corner, whether this corner is hanging or simple, whether it's internal or external,
+ * its corner orientation code, the tree(s) containing the quadrants on each side, and whether
+ * any of the quadrants on this corner are in the halo.
+ */
+void grace_iterate_corners( p4est_iter_corner_info_t* info 
+                          , void* user_data ) ;
+#ifdef GRACE_3D 
+/**
+ * @brief Iterate through all the edges of grid quadrants to
+ *        store boundary information.
+ * \ingroup amr
+ * @param info <code>p4est</code>'s struct containing information   
+ *             regarding the quadrant edge.
+ * @param user_data Type erased <code>grace_neighbor_info_t</code> 
+ *                  where information is stored.
+ * This function is used as callback in <code>p4est_iterate</code> to store 
+ * all the necessary information to apply interior and exterior boundary conditions.
+ * In particular, this function stores, for all edges, the quadrant id's which share 
+ * this edge, whether this edge is hanging or simple, whether it's internal or external,
+ * its edge orientation code, the tree(s) containing the quadrants on each side, and whether
+ * any of the quadrants on this edge are in the halo.
+ */
+void grace_iterate_edges( p8est_iter_edge_info_t* info 
+                          , void* user_data ) ;
+#endif 
 /**************************************************************************************************/
 /**
  * @brief Copy ghostzones across simple interior faces.
@@ -74,7 +110,12 @@ void grace_iterate_faces( p4est_iter_face_info_t* info
 void copy_interior_ghostzones(
       grace::var_array_t<GRACE_NSPACEDIM>& vars
     , grace::var_array_t<GRACE_NSPACEDIM>& halo
-    , Kokkos::vector<simple_face_info_t>&  interior_faces) ;
+    , Kokkos::vector<simple_face_info_t>&  interior_faces 
+    , Kokkos::vector<simple_corner_info_t>&  interior_corners 
+    #ifdef GRACE_3D 
+    , Kokkos::vector<simple_edge_info_t>&  interior_edges 
+    #endif 
+    ) ;
 /**************************************************************************************************/
 /**
  * @brief Restrict all variables to ghostzones across all hanging faces.

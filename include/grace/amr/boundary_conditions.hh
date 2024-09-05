@@ -73,6 +73,74 @@ struct hanging_face_info_t
     int64_t qid_fine[P4EST_CHILDREN/2] ; 
 } ; 
 /**
+ * @brief Struct containing information about
+ *        a simple interior edge.
+ * \ingroup amr
+ */
+struct simple_edge_info_t 
+{
+    int is_ghost     ; 
+    int which_edge_a ; 
+    int which_edge_b ; 
+    int64_t qid_a    ;
+    int64_t qid_b    ; 
+    int which_tree_a ; 
+    int which_tree_b ; 
+
+} ; 
+/**
+ * @brief Struct containing information about a 
+ *        hanging interior edge.
+ * \ingroup amr
+ */
+struct hanging_edge_info_t 
+{
+    int level_coarse       ;
+    int level_fine         ; 
+    int8_t which_edge_coarse ; 
+    int8_t which_edge_fine   ; 
+    int which_tree_coarse ; 
+    int which_tree_fine   ;
+    int8_t is_ghost_coarse ;
+    int8_t is_ghost_fine[2] ; 
+    int64_t qid_coarse ; 
+    int64_t qid_fine[2] ; 
+} ; 
+/**
+ * @brief Struct containing information about
+ *        a simple interior corner.
+ * \ingroup amr
+ */
+struct simple_corner_info_t 
+{
+    int is_ghost     ; 
+    int which_corner_a ; 
+    int which_corner_b ; 
+    int64_t qid_a    ;
+    int64_t qid_b    ; 
+    int which_tree_a ; 
+    int which_tree_b ; 
+
+} ; 
+/**
+ * @brief Struct containing information about a 
+ *        hanging interior corner.
+ * \ingroup amr
+ */
+struct hanging_corner_info_t 
+{
+    int level_coarse       ;
+    int level_fine         ; 
+    int8_t which_corner_coarse ; 
+    int8_t which_corner_fine   ; 
+    int which_tree_coarse ; 
+    int which_tree_fine   ;
+    int8_t is_ghost_coarse ;
+    int8_t is_ghost_fine   ; 
+    int64_t qid_coarse ; 
+    int64_t qid_fine   ; 
+} ; 
+/**
  * @brief Struct containing the information about 
  *        the coarse quadrants touching hanging faces.
  * \ingroup amr
@@ -85,10 +153,8 @@ struct hanging_coarse_quadrant_info_t
     std::vector<int>     rcv_procid ; 
 } ; 
 /**
- * @brief The user data passed to <code>p4est_iterate</code>
+ * @brief Collection of informations about face neighbors.
  * \ingroup amr
- * This struct holds all the necessary information to apply 
- * boundary conditions and fill ghostzones.
  */
 struct grace_face_info_t 
 {
@@ -98,6 +164,42 @@ struct grace_face_info_t
     Kokkos::vector<simple_face_info_t>  simple_interior_info      ; 
     Kokkos::vector<hanging_face_info_t> hanging_interior_info     ; 
     hanging_coarse_quadrant_info_t      coarse_hanging_quads_info ;  
+} ; 
+/**
+ * @brief Collection of informations about edge neighbors.
+ * \ingroup amr
+ */
+struct grace_edge_info_t 
+{
+    int n_hanging_ghost_edges{0}; 
+    int n_simple_ghost_edges{0} ;
+    Kokkos::vector<simple_edge_info_t>  simple_interior_info      ; 
+    Kokkos::vector<hanging_edge_info_t> hanging_interior_info     ; 
+} ; 
+/**
+ * @brief Collection of informations about corner neighbors.
+ * \ingroup amr
+ */
+struct grace_corner_info_t 
+{
+    int n_hanging_ghost_corners{0}; 
+    int n_simple_ghost_corners{0} ;
+    Kokkos::vector<simple_corner_info_t>  simple_interior_info      ; 
+    Kokkos::vector<hanging_corner_info_t> hanging_interior_info     ; 
+} ; 
+/**
+ * @brief The user data passed to <code>p4est_iterate</code>
+ * \ingroup amr
+ * This struct holds all the necessary information to apply 
+ * boundary conditions and fill ghostzones.
+ */
+struct grace_neighbor_info_t 
+{
+    grace_face_info_t   face_info   ;
+    grace_corner_info_t corner_info ; 
+    #ifdef GRACE_3D 
+    grace_edge_info_t   edge_info   ; 
+    #endif
 } ; 
 /**
  * @brief Apply all boundary conditions and fill ghostzones on state array.

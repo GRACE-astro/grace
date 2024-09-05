@@ -71,7 +71,7 @@ target_link_libraries(grace PRIVATE
         VTK::VTK
         spdlog::spdlog
         HDF5::HDF5
-	ZLIB::ZLIB
+	    ZLIB::ZLIB
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
         )
 vtk_module_autoinit(

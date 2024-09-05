@@ -9,7 +9,8 @@ target_link_libraries( errors_test PRIVATE
                         $<TARGET_OBJECTS:grace_parallel>
                         MPI::MPI_CXX 
                         p4est::sc 
-                        spdlog::spdlog )
+                        spdlog::spdlog 
+                        ZLIB::ZLIB)
 
 add_library(mpi_tests_main mains/mpi_tests_main.cc)
 target_include_directories(mpi_tests_main PRIVATE "${HEADER_LIST}")
@@ -19,7 +20,8 @@ $<TARGET_OBJECTS:grace_parallel>
 $<TARGET_OBJECTS:grace_error_handlers>
 MPI::MPI_CXX
 p4est::sc 
-spdlog::spdlog )
+spdlog::spdlog 
+ZLIB::ZLIB)
 
 add_executable( parallel_test test_parallel.cc )
 target_include_directories(parallel_test PRIVATE "${HEADER_LIST}")
@@ -30,7 +32,8 @@ $<TARGET_OBJECTS:grace_parallel>
 $<TARGET_OBJECTS:grace_error_handlers>
 MPI::MPI_CXX
 p4est::sc 
-spdlog::spdlog )
+spdlog::spdlog 
+ZLIB::ZLIB)
 
 
 
@@ -45,7 +48,8 @@ $<TARGET_OBJECTS:grace_parallel>
 $<TARGET_OBJECTS:grace_singleton> 
 MPI::MPI_CXX
 p4est::sc 
-spdlog::spdlog  )
+spdlog::spdlog  
+ZLIB::ZLIB)
 
 add_executable( parser_test test_parser.cc )
 target_include_directories(parser_test PRIVATE "${HEADER_LIST}")
@@ -59,7 +63,8 @@ $<TARGET_OBJECTS:grace_error_handlers>
 $<TARGET_OBJECTS:grace_singleton> 
 MPI::MPI_CXX
 p4est::sc 
-spdlog::spdlog )
+spdlog::spdlog 
+ZLIB::ZLIB)
 
 add_library(p4est_tests_main mains/p4est_tests_main.cc)
 target_include_directories(p4est_tests_main PRIVATE "${HEADER_LIST}")
@@ -72,6 +77,7 @@ p4est::sc
 p4est::p4est 
 Kokkos::kokkos
 spdlog::spdlog 
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling> )
 
 add_executable( connectivity_test test_connectivities.cc )
@@ -86,6 +92,7 @@ OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est
 spdlog::spdlog 
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
 
@@ -114,6 +121,7 @@ OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est
 spdlog::spdlog 
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
 add_executable( forest_test test_forest.cpp )
@@ -128,6 +136,7 @@ OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est
 spdlog::spdlog 
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
 add_executable( varlist_test test_variable_list.cpp )
@@ -143,6 +152,7 @@ p4est::sc
 p4est::p4est 
 Kokkos::kokkos
 spdlog::spdlog
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
 add_executable( coordinate_test test_coordinates.cpp )
@@ -160,6 +170,7 @@ p4est::sc
 p4est::p4est 
 VTK::VTK 
 spdlog::spdlog
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
     TARGETS coordinate_test
@@ -181,6 +192,7 @@ p4est::sc
 p4est::p4est 
 VTK::VTK 
 spdlog::spdlog
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
     TARGETS volume_output_test
@@ -218,6 +230,7 @@ p4est::sc
 p4est::p4est 
 VTK::VTK 
 spdlog::spdlog
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
     TARGETS regrid_test
@@ -238,6 +251,7 @@ p4est::sc
 p4est::p4est 
 VTK::VTK 
 spdlog::spdlog 
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
 TARGETS bc_test
@@ -258,6 +272,7 @@ p4est::sc
 p4est::p4est 
 VTK::VTK 
 spdlog::spdlog 
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
 TARGETS bc_test
@@ -278,6 +293,7 @@ p4est::sc
 p4est::p4est 
 VTK::VTK 
 spdlog::spdlog 
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
 TARGETS bc_test
@@ -301,6 +317,7 @@ p4est::p4est
 VTK::VTK 
 spdlog::spdlog
 HDF5::HDF5 
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
     TARGETS hdf5_output_test
@@ -321,6 +338,7 @@ p4est_tests_main
     p4est::p4est 
     spdlog::spdlog
     HDF5::HDF5 
+    ZLIB::ZLIB
     $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
 add_executable( metric_test test_metric.cpp )
@@ -336,6 +354,7 @@ target_link_libraries(  metric_test PRIVATE
         p4est::sc
         p4est::p4est 
         spdlog::spdlog
+        ZLIB::ZLIB
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
 add_executable( c2p_test test_c2p.cpp )
@@ -351,6 +370,7 @@ target_link_libraries(  c2p_test PRIVATE
                 p4est::sc
                 p4est::p4est 
                 spdlog::spdlog
+                ZLIB::ZLIB
                 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)

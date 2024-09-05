@@ -46,31 +46,31 @@ struct outgoing_bc_t
       EXPR(
       int const I0 = EXPRD((face==0) * ngz 
                          + (face==1) * (n0+ngz-1)
-                         + (face/2==1) * (j+ngz), 
-                         + (face/2==2) * (j+ngz))  ;,
+                         + (face/2==1) * (j), 
+                         + (face/2==2) * (j))  ;,
       int const J0 = EXPRD((face==2) * ngz 
                          + (face==3) * (n0+ngz-1)
-                         + (face/2==0) * (j+ngz), 
-                         + (face/2==2) * (k+ngz))  ;,
+                         + (face/2==0) * (j), 
+                         + (face/2==2) * (k))  ;,
       int const K0 = EXPRD((face==4) * ngz 
                          + (face==5) * (n0+ngz-1)
-                         + (face/2==0) * (k+ngz), 
-                         + (face/2==1) * (k+ngz))  ;)
+                         + (face/2==0) * (k), 
+                         + (face/2==1) * (k))  ;)
       for(int ig=0; ig<ngz; ++ig)
       {
             EXPR(
             int I = EXPRD((face==0) * ig 
                   + (face==1) * (n0+ngz+ig)
-                  + (face/2==1) * (j+ngz), 
-                  + (face/2==2) * (j+ngz))  ;,
+                  + (face/2==1) * (j), 
+                  + (face/2==2) * (j))  ;,
             int J = EXPRD((face==2) * ig 
                   + (face==3) * (n0+ngz+ig)
-                  + (face/2==0) * (j+ngz), 
-                  + (face/2==2) * (k+ngz))  ;,
+                  + (face/2==0) * (j), 
+                  + (face/2==2) * (k))  ;,
             int K = EXPRD((face==4) * ig 
                   + (face==5) * (n0+ngz+ig)
-                  + (face/2==0) * (k+ngz), 
-                  + (face/2==1) * (k+ngz))  ;)
+                  + (face/2==0) * (k), 
+                  + (face/2==1) * (k))  ;)
             u(VEC(I,J,K),iq) = u(VEC(I0,J0,K0),iq); 
       }       
     }

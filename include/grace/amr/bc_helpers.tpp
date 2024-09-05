@@ -80,9 +80,9 @@ void apply_phys_bc(
       int n2 = (which_face/2==0) * nz + ((which_face/2==1) * nz) + ((which_face/2==2) * ny) ;
       #ifdef GRACE_3D 
       TeamThreadMDRange<Rank<2>,member_t>
-                team_range( team, n1,n2) ; 
+                team_range( team, n1+2*ngz,n2+2*ngz) ; 
       #else 
-      auto team_range = TeamThreadRange(team,0,n1); 
+      auto team_range = TeamThreadRange(team,0,n1+2*ngz); 
       #endif 
       parallel_for( team_range 
                   , KOKKOS_LAMBDA (VECD(int& j, int& k))

@@ -80,7 +80,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     /******************************************************/
     p4est_ghost_t * halos = p4est_ghost_new( 
           forest::get().get() 
-        , P4EST_CONNECT_FACE  
+        , P4EST_CONNECT_FULL // CHANGED 
     ) ; 
     sc_array_view_t<p4est_quadrant_t> 
           halo_quads{ &(halos->ghosts) }
@@ -213,17 +213,17 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     /* information.                                       */
     /******************************************************/
     spdlog::stopwatch sw1 ; 
-    grace_face_info_t face_info{} ;
+    grace_neighbor_info_t neighbor_info{} ;
     p4est_iterate(
           forest::get().get()
         , halos 
-        , reinterpret_cast<void*>( &face_info )
+        , reinterpret_cast<void*>( &neighbor_info )//! TODO neighbors_info is a grace_neighbor_info_t object  
         , nullptr
         , grace_iterate_faces 
         #ifdef GRACE_3D 
-        , nullptr 
+        , grace_iterate_edges 
         #endif 
-        , nullptr) ;
+        , grace_iterate_corners ) ;
     GRACE_TRACE("Iter faces took {} s.", sw1) ; 
     GRACE_VERBOSE("After iter-faces: obtained\n" 
           " {:d} simple faces of which " 
@@ -233,69 +233,18 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
           " {:d} faces on a physical boundary.\n"
           "Second ghost exchange will send/receive {:d}" 
           "/{:d} coarse quadrants."
-        , face_info.simple_interior_info.size()
-        , face_info.n_simple_ghost_faces
-        , face_info.hanging_interior_info.size() 
-        , face_info.n_hanging_ghost_faces 
-        , face_info.phys_boundary_info.size()
-        , face_info.coarse_hanging_quads_info.snd_quadid.size()  
-        , face_info.coarse_hanging_quads_info.rcv_quadid.size() ) ; 
+        , neighbor_info.face_info.simple_interior_info.size()
+        , neighbor_info.face_info.n_simple_ghost_faces
+        , neighbor_info.face_info.hanging_interior_info.size() 
+        , neighbor_info.face_info.n_hanging_ghost_faces 
+        , neighbor_info.face_info.phys_boundary_info.size()
+        , neighbor_info.face_info.coarse_hanging_quads_info.snd_quadid.size()  
+        , neighbor_info.face_info.coarse_hanging_quads_info.rcv_quadid.size() ) ; 
     GRACE_VERBOSE( "Applying physical boundary conditions on " 
-    " {:d} quadrants.", face_info.phys_boundary_info.size() ) ; 
+    " {:d} quadrants.", neighbor_info.face_info.phys_boundary_info.size() ) ; 
+    
     /******************************************************/
     /* Third step:                                        */
-    /* Apply physical boundary conditions.                */
-    /******************************************************/
-    auto phys_boundary_info = face_info.phys_boundary_info ; 
-    phys_boundary_info.host_to_device() ; 
-    for(int ivar=0; ivar<nvars; ++ivar){
-        auto bc_type = variables::get_bc_type(ivar) ; 
-        if( bc_type == "outgoing" )
-        {
-            auto var = Kokkos::subview( vars
-                                      , VEC( Kokkos::ALL() 
-                                           , Kokkos::ALL() 
-                                           , Kokkos::ALL() )
-                                      , ivar 
-                                      , Kokkos::ALL() ) ; 
-            apply_phys_bc<outgoing_bc_t>(
-                  var
-                , phys_boundary_info
-            ) ; 
-        } else if (bc_type == "none" ) {
-            /* Nothing to do here */
-        } else {
-            ERROR("Unrecognized bc type for variable " << ivar << ".\n") ;
-        }
-    }
-    /******************************************************/
-    /* Physical boundary conditions can also be applied   */
-    /* to auxiliary variables (e.g. primitives).          */
-    /******************************************************/
-    size_t nvars_aux = variables::get_n_auxiliary() ;
-    auto& aux = variable_list::get().getaux()       ; 
-    for(int ivar=0; ivar<nvars_aux; ++ivar){
-        auto bc_type = variables::get_bc_type(ivar, grace::variables::AUXILIARY) ; 
-        if( bc_type == "outgoing" )
-        {
-            auto var = Kokkos::subview( aux
-                                      , VEC( Kokkos::ALL() 
-                                           , Kokkos::ALL() 
-                                           , Kokkos::ALL() )
-                                      , ivar 
-                                      , Kokkos::ALL() ) ; 
-            apply_phys_bc<outgoing_bc_t>(
-                  var
-                , phys_boundary_info
-            ) ; 
-        } else if (bc_type == "none" ) {
-            /* Nothing to do here */
-        } else {
-            ERROR("Unrecognized bc type for variable " << ivar << ".\n") ;
-        }
-    }
-    /******************************************************/
-    /* Fourth step:                                       */
     /* Copy and prolongate/restrict face data from        */
     /* internal boundaries.                               */
     /******************************************************/
@@ -306,18 +255,40 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     /******************************************************/
     parallel::mpi_waitall(context) ;
     GRACE_VERBOSE( "Copying interior ghostzones across simple boundaries on " 
-    " {:d} quadrants.", face_info.simple_interior_info.size() ) ;
-    auto simple_interior_info = face_info.simple_interior_info ;
-    simple_interior_info.host_to_device() ;
-    copy_interior_ghostzones(vars,halo,simple_interior_info) ; 
+    " {:d} quadrants.", neighbor_info.face_info.simple_interior_info.size() ) ;
+    auto simple_interior_face_info = neighbor_info.face_info.simple_interior_info ;
+    auto simple_interior_corner_info = neighbor_info.corner_info.simple_interior_info ;
+    #ifdef GRACE_3D 
+    auto simple_interior_edge_info = neighbor_info.edge_info.simple_interior_info ;
+    #endif 
+    simple_interior_face_info.host_to_device() ;
+    simple_interior_corner_info.host_to_device() ; 
+    #ifdef GRACE_3D 
+    simple_interior_edge_info.host_to_device() ;
+    #endif 
+    copy_interior_ghostzones( vars,halo
+                            , simple_interior_face_info
+                            , simple_interior_corner_info
+                            #ifdef GRACE_3D 
+                            , simple_interior_edge_info
+                            #endif 
+                            ) ; 
     /******************************************************/
     /*       Restrict and prolongate hanging faces        */
     /******************************************************/
     GRACE_VERBOSE( "Restricting and prolongating data on "
     "interior ghostzones across hanging boundaries on " 
-    "{:d} quadrants.", face_info.hanging_interior_info.size() ) ;
-    auto hanging_interior_info = face_info.hanging_interior_info ; 
-    hanging_interior_info.host_to_device() ;
+    "{:d} quadrants.", neighbor_info.face_info.hanging_interior_info.size() ) ;
+    auto hanging_interior_face_info = neighbor_info.face_info.hanging_interior_info ; 
+    auto hanging_interior_corner_info = neighbor_info.corner_info.hanging_interior_info ; 
+    #ifdef GRACE_3D 
+    auto hanging_interior_edge_info = neighbor_info.edge_info.hanging_interior_info ; 
+    #endif 
+    hanging_interior_face_info.host_to_device() ;
+    hanging_interior_corner_info.host_to_device() ;
+    #ifdef GRACE_3D 
+    hanging_interior_edge_info.host_to_device() ; 
+    #endif 
     /******************************************************/
     /*       1) Restriction                               */
     /******************************************************/
@@ -326,12 +297,12 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
             , halo 
             , vols 
             , halo_vols
-            , hanging_interior_info) ;
+            , hanging_interior_face_info) ;
     Kokkos::fence() ; 
     /******************************************************/
     /*       2) Exchange coarse quadrants again           */
     /******************************************************/
-    auto coarse_hanging_info = face_info.coarse_hanging_quads_info ; 
+    auto coarse_hanging_info = neighbor_info.face_info.coarse_hanging_quads_info ; 
     context.reset() ; 
     for(int ircv=0; ircv<coarse_hanging_info.rcv_quadid.size(); ++ircv){
         int ihalo = coarse_hanging_info.rcv_quadid[ircv] ; 
@@ -377,7 +348,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     /*       3) Prolongation                              */
     /******************************************************/
     parallel::mpi_waitall(context) ;
-    GRACE_VERBOSE("Initiating prolongation on {} quadrants.", hanging_interior_info.size());
+    GRACE_VERBOSE("Initiating prolongation on {} quadrants.", hanging_interior_face_info.size());
     if( interp == "linear" ){
         if( limiter == "minmod" ) {
             prolongate_hanging_ghostzones<utils::linear_prolongator_t<grace::minmod>>(
@@ -385,14 +356,14 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
                     , halo 
                     , vols 
                     , halo_vols
-                    , hanging_interior_info) ; 
+                    , hanging_interior_face_info) ; 
         } else if ( limiter == "monotonized-central") {
             prolongate_hanging_ghostzones<utils::linear_prolongator_t<grace::MCbeta>>(
                       vars 
                     , halo 
                     , vols 
                     , halo_vols
-                    , hanging_interior_info) ;
+                    , hanging_interior_face_info) ;
         } else {
             ERROR("Unsupported limiter in ghost-zone exchange.") ; 
         }
@@ -400,6 +371,32 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
         ERROR("Unsupported interpolator in ghost-zone exchange.") ; 
     }
     Kokkos::fence() ; 
+    /******************************************************/
+    /* Fourth step:                                       */
+    /* Apply physical boundary conditions.                */
+    /******************************************************/
+    auto phys_boundary_info = neighbor_info.face_info.phys_boundary_info ; 
+    phys_boundary_info.host_to_device() ; 
+    for(int ivar=0; ivar<nvars; ++ivar){
+        auto bc_type = variables::get_bc_type(ivar) ; 
+        if( bc_type == "outgoing" )
+        {
+            auto var = Kokkos::subview( vars
+                                      , VEC( Kokkos::ALL() 
+                                           , Kokkos::ALL() 
+                                           , Kokkos::ALL() )
+                                      , ivar 
+                                      , Kokkos::ALL() ) ; 
+            apply_phys_bc<outgoing_bc_t>(
+                  var
+                , phys_boundary_info
+            ) ; 
+        } else if (bc_type == "none" ) {
+            /* Nothing to do here */
+        } else {
+            ERROR("Unrecognized bc type for variable " << ivar << ".\n") ;
+        }
+    }
     /******************************************************/
     /* De-allocate halo quadrant data                     */
     /******************************************************/

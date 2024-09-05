@@ -50,14 +50,14 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
                           , void* user_data  )
 {
     using namespace grace; 
-    auto face_info = reinterpret_cast<grace_face_info_t*>(user_data) ; 
+    auto face_info = reinterpret_cast<grace_neighbor_info_t*>(user_data)->face_info ; 
     sc_array_view_t<p4est_iter_face_side_t> sides{
         &(info->sides)
     } ; 
-    auto& physical_boundary_info = face_info->phys_boundary_info ; 
-    auto& simple_info    = face_info->simple_interior_info       ;
-    auto& hanging_info   = face_info->hanging_interior_info      ;
-    auto& coarse_hanging_info = face_info->coarse_hanging_quads_info ; 
+    auto& physical_boundary_info = face_info.phys_boundary_info ; 
+    auto& simple_info    = face_info.simple_interior_info       ;
+    auto& hanging_info   = face_info.hanging_interior_info      ;
+    auto& coarse_hanging_info = face_info.coarse_hanging_quads_info ; 
     /**************************************************/
     /* This means we are at a physical boundary       */
     /* we store the index in user_info and return     */
@@ -141,7 +141,7 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
                     coarse_hanging_info.rcv_procid.push_back( iproc ) ; 
                 }
             }
-            face_info->n_hanging_ghost_faces ++ ;  
+            face_info.n_hanging_ghost_faces ++ ;  
         } else if (  any_fine_ghost ) {
             auto halos = info->ghost_layer ; 
             sc_array_view_t<p4est_quadrant_t>  mirror_quads { &(halos->mirrors) } ; 
@@ -159,7 +159,7 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
                 }
             }
             coarse_hanging_info.snd_procid.push_back(_snd_procid) ; 
-            face_info->n_hanging_ghost_faces ++ ;
+            face_info.n_hanging_ghost_faces ++ ;
         }
         hanging_info.push_back(this_face_info) ; 
     } else if(sides[0].is_hanging) {
@@ -192,7 +192,7 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
                     coarse_hanging_info.rcv_procid.push_back( iproc ) ; 
                 }
             }
-            face_info->n_hanging_ghost_faces ++ ;  
+            face_info.n_hanging_ghost_faces ++ ;  
         } else if (  any_fine_ghost ) {
             auto halos = info->ghost_layer ; 
             sc_array_view_t<p4est_quadrant_t>  mirror_quads { &(halos->mirrors) } ; 
@@ -210,7 +210,7 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
                 }
             }
             coarse_hanging_info.snd_procid.push_back(_snd_procid) ; 
-            face_info->n_hanging_ghost_faces ++ ;
+            face_info.n_hanging_ghost_faces ++ ;
         }
         hanging_info.push_back(this_face_info) ;
     } else {
@@ -226,7 +226,7 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
             this_face_info.qid_a = sides[1].is.full.quadid 
                 + offset ;
             this_face_info.qid_b = sides[0].is.full.quadid ;
-            face_info->n_simple_ghost_faces ++ ; 
+            face_info.n_simple_ghost_faces ++ ; 
         } else if(sides[1].is.full.is_ghost){
             auto offset = get_local_quadrants_offset(sides[0].treeid);
             this_face_info.is_ghost = 1 ; 
@@ -237,7 +237,7 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
             this_face_info.qid_a = sides[0].is.full.quadid 
                 + offset ;
             this_face_info.qid_b = sides[1].is.full.quadid ; 
-            face_info->n_simple_ghost_faces ++ ; 
+            face_info.n_simple_ghost_faces ++ ; 
         } else {
             auto offset = get_local_quadrants_offset(sides[0].treeid);
             this_face_info.is_ghost = 0 ; 
@@ -257,10 +257,294 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
 }
 
 
+void grace_iterate_edges( p8est_iter_edge_info_t * info 
+                        , void* user_data  )
+{
+    using namespace grace; 
+    auto edge_info = reinterpret_cast<grace_neighbor_info_t*>(user_data)->edge_info ;  
+    sc_array_view_t<p8est_iter_edge_side_t> sides{
+        &(info->sides)
+    } ; 
+    /* Physical boundaries are handled by face neighbors no need to store it here. */
+    auto& simple_info         = edge_info.simple_interior_info      ;
+    auto& hanging_info        = edge_info.hanging_interior_info     ;
+    /**************************************************/
+    /* This means we are at a physical boundary       */
+    /* we store the index in user_info and return     */
+    /* since physical boundary conditions are handled */
+    /* separately.                                    */
+    /**************************************************/
+    if( sides.size() < 4 ) { 
+        return ; 
+    }
+    ASSERT(  sides.size() == 4
+           , "Something went wrong in iter_edges, sides.size() != 4.") ; 
+    /***************************************************/
+    /* Group quadrants in 2 pairs of true edge         */
+    /* neighbors by checking which of them share a face*/
+    /***************************************************/
+    //! TODO maybe we want these in z-order ?
+    int side_idx_pairs[2][2] ; 
+    side_idx_pairs[0][0] = 0 ; 
+    bool share_a_face =  (sides[0].faces[0] == sides[1].faces[0])
+                      or (sides[0].faces[1] == sides[1].faces[0])
+                      or (sides[0].faces[1] == sides[1].faces[1])
+                      or (sides[0].faces[0] == sides[1].faces[1]) ; 
+    
+    if( share_a_face ) {
+        side_idx_pairs[1][0] = 1 ;
+        share_a_face =  (sides[0].faces[0] == sides[2].faces[0])
+                     or (sides[0].faces[1] == sides[2].faces[0])
+                     or (sides[0].faces[1] == sides[2].faces[1])
+                     or (sides[0].faces[0] == sides[2].faces[1]) ; 
+        side_idx_pairs[0][1] = share_a_face
+                             ? 3
+                             : 2 ;
+        side_idx_pairs[1][1] = share_a_face
+                            ? 2
+                            : 3 ;
+    } else {
+        side_idx_pairs[0][1] = 1 ;
+        side_idx_pairs[1][0] = 2 ;
+        side_idx_pairs[1][1] = 3 ;
+    }
+    /***************************************************/
+    /* Now we have two pairs of "sides" of the edge    */
+    /* that do not share a face. We will store info    */
+    /* about these two "sides" (whether they are full) */
+    /* or hanging, the quadid's involved on either side*/
+    /* etc. in the following.                          */
+    /***************************************************/
+    
+    for( int i=0 ; i<2; ++i) {
+        auto const& sidea = sides[side_idx_pairs[i][0]] ; 
+        auto const& sideb = sides[side_idx_pairs[i][1]] ; 
+        if ( sidea.is_hanging ) {
+            hanging_edge_info_t info {} ;  
+            info.level_coarse = static_cast<int>(sideb.is.full.quad->level) ; 
+            info.level_fine   = info.level_coarse + 1;
+            info.which_edge_coarse = sideb.edge ; 
+            info.which_edge_fine   = sidea.edge ; 
+            info.is_ghost_coarse   = sideb.is.full.is_ghost ; 
+            info.qid_coarse        = sideb.is.full.quadid
+                + (info.is_ghost_coarse ? 0 : get_local_quadrants_offset(sideb.treeid)) ; 
+            for( int ii=0; ii<2; ++ii) {
+                info.is_ghost_fine[ii] = sidea.is.hanging.is_ghost[ii] ; 
+                info.qid_fine[ii] = sidea.is.hanging.quadid[ii]
+                    + (info.is_ghost_fine[ii] ? 0 : get_local_quadrants_offset(sidea.treeid)) ; 
+            }
+            edge_info.n_hanging_ghost_edges ++ ; 
+            hanging_info.push_back(info) ; 
+        } else if (sideb.is_hanging) {
+            hanging_edge_info_t info {} ;  
+            info.level_coarse = static_cast<int>(sidea.is.full.quad->level) ; 
+            info.level_fine   = info.level_coarse + 1;
+            info.which_edge_coarse = sidea.edge ; 
+            info.which_edge_fine   = sideb.edge ; 
+            info.is_ghost_coarse   = sidea.is.full.is_ghost ; 
+            info.qid_coarse        = sidea.is.full.quadid
+                + (info.is_ghost_coarse ? 0 : get_local_quadrants_offset(sidea.treeid)) ; 
+            for( int ii=0; ii<2; ++ii) {
+                info.is_ghost_fine[ii] = sideb.is.hanging.is_ghost[ii] ; 
+                info.qid_fine[ii] = sideb.is.hanging.quadid[ii]
+                    + (info.is_ghost_fine[ii] ? 0 : get_local_quadrants_offset(sideb.treeid)) ; 
+            }
+            edge_info.n_hanging_ghost_edges ++ ;
+            hanging_info.push_back(info) ; 
+        } else {
+            simple_edge_info_t info {} ; 
+            if( sidea.is.full.is_ghost) {
+                auto offset = get_local_quadrants_offset(sideb.treeid);
+                info.is_ghost     = 1 ; 
+                info.which_edge_a = sideb.edge ; 
+                info.which_edge_b = sidea.edge ;
+                info.which_tree_a = sideb.treeid ; 
+                info.which_tree_b = sidea.treeid ; 
+                info.qid_a = sideb.is.full.quadid 
+                    + offset ;
+                info.qid_b = sidea.is.full.quadid ;
+                edge_info.n_simple_ghost_edges ++ ; 
+            } else if(sideb.is.full.is_ghost){
+                auto offset = get_local_quadrants_offset(sideb.treeid);
+                info.is_ghost     = 1 ; 
+                info.which_edge_a = sidea.edge ; 
+                info.which_edge_b = sideb.edge ;
+                info.which_tree_a = sidea.treeid ; 
+                info.which_tree_b = sideb.treeid ; 
+                info.qid_a = sideb.is.full.quadid 
+                    + offset ;
+                info.qid_b = sideb.is.full.quadid ;
+                edge_info.n_simple_ghost_edges ++ ; 
+            } else {
+                auto offset = get_local_quadrants_offset(sidea.treeid);
+                info.is_ghost = 0 ; 
+                info.which_edge_a = sidea.edge ; 
+                info.which_edge_b = sideb.edge ;
+                info.which_tree_a = sidea.treeid ; 
+                info.which_tree_b = sideb.treeid ; 
+                info.qid_a = sidea.is.full.quadid 
+                    + offset ;
+                offset = get_local_quadrants_offset(sideb.treeid);
+                info.qid_b = sideb.is.full.quadid
+                    + offset ;
+            }
+            simple_info.push_back(info) ; 
+        }
+    }
+
+}
+
+
+void grace_iterate_corners( p4est_iter_corner_info_t * info 
+                          , void* user_data  )
+{
+    using namespace grace; 
+    auto corner_info = reinterpret_cast<grace_neighbor_info_t*>(user_data)->corner_info ;  
+    sc_array_view_t<p4est_iter_corner_side_t> sides{
+        &(info->sides)
+    } ; 
+    /* Physical boundaries are handled by face neighbors no need to store it here. */
+    auto& simple_info         = corner_info.simple_interior_info      ;
+    auto& hanging_info        = corner_info.hanging_interior_info     ;
+    /**************************************************/
+    /* This means we are at a physical boundary       */
+    /* we store the index in user_info and return     */
+    /* since physical boundary conditions are handled */
+    /* separately.                                    */
+    /**************************************************/
+    if( sides.size() < P4EST_CHILDREN ) { 
+        return ; 
+    }
+    ASSERT(  sides.size() == P4EST_CHILDREN
+           , "Something went wrong in iter_corners, sides.size() != P4EST_CHILDREN.") ; 
+    /***************************************************/
+    /* Group quadrants in 4 pairs of true corner       */
+    /* neighbors by checking which of them share a face*/
+    /***************************************************/
+    int side_idx_pairs[4][2] ; 
+    
+    auto is_corner_neighbor = [&](int i, int j) {
+        for (int iff = 0; iff < 3; ++iff) {
+            for (int jff = 0; jff < 3; ++jff) {
+                if (sides[i].faces[iff] == sides[j].faces[jff] ||
+                    sides[i].edges[iff] == sides[j].edges[jff]) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+    std::vector<bool> found(8, false);
+    int ip = 0;
+    
+    for(int in=0; in<8; ++in){
+        if (found[in]) continue;
+        for (int jn = in + 1; jn < 8; ++jn) { 
+            if (found[jn]) continue;
+            if( is_corner_neighbor(in,jn) and not (in==jn)) {
+                side_idx_pairs[ip][0] = in ;
+                side_idx_pairs[ip][1] = jn ;
+                found[in] = true ; 
+                found[jn] = true ;  
+                ip++ ; 
+                break ;
+            }
+        }
+    } 
+    
+    /***************************************************/
+    /* Now we have two pairs of "sides" of the corner    */
+    /* that do not share a face. We will store info    */
+    /* about these two "sides" (whether they are full) */
+    /* or hanging, the quadid's involved on either side*/
+    /* etc. in the following.                          */
+    /***************************************************/
+    
+    for( int i=0 ; i<4; ++i) {
+        auto const& sidea = sides[side_idx_pairs[i][0]] ; 
+        auto const& sideb = sides[side_idx_pairs[i][1]] ; 
+        int level_a = static_cast<int>(sidea.quad->level) ; 
+        int level_b = static_cast<int>(sidea.quad->level) ; 
+        if ( level_a > level_b ) {
+            hanging_corner_info_t info {} ;  
+            info.level_coarse = level_b ; 
+            info.level_fine   = info.level_coarse + 1;
+            info.which_corner_coarse = sideb.corner ; 
+            info.which_corner_fine   = sidea.corner ; 
+            info.is_ghost_coarse   = sideb.is_ghost ; 
+            info.qid_coarse        = sideb.quadid
+                + (info.is_ghost_coarse ? 0 : get_local_quadrants_offset(sideb.treeid)) ; 
+            info.is_ghost_fine = sidea.is_ghost ; 
+            info.qid_fine = sidea.quadid
+                + (info.is_ghost_fine ? 0 : get_local_quadrants_offset(sidea.treeid)) ; 
+            corner_info.n_hanging_ghost_corners ++ ; 
+            hanging_info.push_back(info) ; 
+        } else if (level_a < level_b) {
+            hanging_corner_info_t info {} ;  
+            info.level_coarse = level_a ; 
+            info.level_fine   = info.level_coarse + 1;
+            info.which_corner_coarse = sidea.corner ; 
+            info.which_corner_fine   = sideb.corner ; 
+            info.is_ghost_coarse   = sidea.is_ghost ; 
+            info.qid_coarse        = sidea.quadid
+                + (info.is_ghost_coarse ? 0 : get_local_quadrants_offset(sidea.treeid)) ; 
+            info.is_ghost_fine = sideb.is_ghost ; 
+            info.qid_fine = sideb.quadid
+                + (info.is_ghost_fine ? 0 : get_local_quadrants_offset(sideb.treeid)) ; 
+            corner_info.n_hanging_ghost_corners ++ ;
+            hanging_info.push_back(info) ; 
+        } else {
+            simple_corner_info_t info {} ; 
+            if( sidea.is_ghost) {
+                auto offset = get_local_quadrants_offset(sideb.treeid);
+                info.is_ghost     = 1 ; 
+                info.which_corner_a = sideb.corner ; 
+                info.which_corner_b = sidea.corner ;
+                info.which_tree_a = sideb.treeid ; 
+                info.which_tree_b = sidea.treeid ; 
+                info.qid_a = sideb.quadid 
+                    + offset ;
+                info.qid_b = sidea.quadid ;
+                corner_info.n_simple_ghost_corners ++ ; 
+            } else if(sideb.is_ghost){
+                auto offset = get_local_quadrants_offset(sideb.treeid);
+                info.is_ghost     = 1 ; 
+                info.which_corner_a = sidea.corner ; 
+                info.which_corner_b = sideb.corner ;
+                info.which_tree_a = sidea.treeid ; 
+                info.which_tree_b = sideb.treeid ; 
+                info.qid_a = sideb.quadid 
+                    + offset ;
+                info.qid_b = sideb.quadid ;
+                corner_info.n_simple_ghost_corners ++ ; 
+            } else {
+                auto offset = get_local_quadrants_offset(sidea.treeid);
+                info.is_ghost = 0 ; 
+                info.which_corner_a = sidea.corner ; 
+                info.which_corner_b = sideb.corner ;
+                info.which_tree_a = sidea.treeid ; 
+                info.which_tree_b = sideb.treeid ; 
+                info.qid_a = sidea.quadid 
+                + offset ;
+                offset = get_local_quadrants_offset(sideb.treeid);
+                info.qid_b = sideb.quadid
+                + offset ;
+            }
+            simple_info.push_back(info) ; 
+        }
+    }
+
+}
+
+
 void copy_interior_ghostzones(
       grace::var_array_t<GRACE_NSPACEDIM>& vars
     , grace::var_array_t<GRACE_NSPACEDIM>& halo 
     , Kokkos::vector<simple_face_info_t>& interior_faces
+    , Kokkos::vector<simple_corner_info_t>& interior_corners
+    #ifdef GRACE_3D
+    , Kokkos::vector<simple_edge_info_t>& interior_edges
+    #endif 
 )
 {
     using namespace grace; 
@@ -272,7 +556,15 @@ void copy_interior_ghostzones(
     int64_t nq  = amr::get_local_num_quadrants() ;
     int nvars  = variables::get_n_evolved()      ;
     size_t const n_faces = interior_faces.size()   ;
+    size_t const n_corners = interior_corners.size()   ;
+    #ifdef GRACE_3D
+    size_t const n_edges = interior_edges.size()   ;
+    #endif 
     auto& d_face_info = interior_faces.d_view    ; 
+    auto& d_corner_info = interior_corners.d_view    ; 
+    #ifdef GRACE_3D
+    auto& d_edge_info = interior_edges.d_view    ; 
+    #endif
     if( n_faces == 0 ) {
         return ; 
     }
@@ -281,7 +573,7 @@ void copy_interior_ghostzones(
             {0,VECD(0,0), 0,0},
             {ngz, VECD(static_cast<long>(nx),static_cast<long>(ny)), static_cast<long>(nvars), static_cast<long>(n_faces)}
         ) ;
-    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones")
+    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones_across_faces")
                 , policy 
                 , KOKKOS_LAMBDA(const size_t& ig, VECD(const size_t& j, const size_t& k), const size_t& ivar, const size_t& iface)
         {
@@ -368,119 +660,141 @@ void copy_interior_ghostzones(
                 view_b(VEC(i_b,j_b,k_b),ivar,qid_b) =  view_a(VEC(i_a,j_a,k_a),ivar,qid_a) ;
             }
         });
-    #if 0 
-    TeamPolicy<default_execution_space> 
-        policy( n_faces, AUTO() ) ; 
-    using member_t = decltype(policy)::member_type ;
-
-    parallel_for( GRACE_EXECUTION_TAG("AMR","copy_interior_ghostzones")
-                , policy 
-                , KOKKOS_LAMBDA( const member_t& team )
+        #if 0
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
+        policy_corner(
+            {0,VECD(0,0), 0,0},
+            {ngz, VECD(ngz, ngz), static_cast<long>(nvars), static_cast<long>(n_corners)}
+        ) ;
+    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones_across_corners")
+                , policy_corner 
+                , KOKKOS_LAMBDA(const size_t& ig, VECD(const size_t& jg, const size_t& kg), const size_t& ivar, const size_t& icorner)
         {
-            /* Get information about quadrants sharing the face */
-            int polarity     =  d_face_info(team.league_rank()).has_polarity_flip ;
-            int is_ghost     =  d_face_info(team.league_rank()).is_ghost          ; 
-            int which_face_a =  d_face_info(team.league_rank()).which_face_a      ; 
-            int which_face_b =  d_face_info(team.league_rank()).which_face_b      ; 
-            int tid_a        =  d_face_info(team.league_rank()).which_tree_a      ;
-            int tid_b        =  d_face_info(team.league_rank()).which_tree_b      ;
-            int64_t qid_a    =  d_face_info(team.league_rank()).qid_a             ;
-            int64_t qid_b    =  d_face_info(team.league_rank()).qid_b             ; 
-            /* Get extents in direction(s) orthogonal to the face */
-            int64_t n1 = (which_face_a/2==0) * ny 
-                       + ((which_face_a/2==1) * nx) 
-                       + ((which_face_a/2==2) * nx) ;
-            int64_t n2 = (which_face_a/2==0) * nz   
-                       + ((which_face_a/2==1) * nz) 
-                       + ((which_face_a/2==2) * ny) ;
+            /* Get information about quadrants sharing the corner */
+            int is_ghost     =  d_corner_info(icorner).is_ghost          ; 
+            int which_corner_a =  d_corner_info(icorner).which_corner_a      ; 
+            int which_corner_b =  d_corner_info(icorner).which_corner_b      ; 
+            int tid_a        =  d_corner_info(icorner).which_tree_a      ;
+            int tid_b        =  d_corner_info(icorner).which_tree_b      ;
+            int64_t qid_a    =  d_corner_info(icorner).qid_a             ;
+            int64_t qid_b    =  d_corner_info(icorner).qid_b             ; 
+            /* Helper lambda that maps corner indices in and out of ghostzones. */
+            auto const index_mapping = [&] ( int const ii, 
+                                             int const jj, 
+                                             int const kk, 
+                                             int const ca, 
+                                             int const cb, 
+                                             int ijk[GRACE_NSPACEDIM], 
+                                             int lmn[GRACE_NSPACEDIM] ) 
+            {
+                int x = (ca >> 0) & 1;  
+                int y = (ca >> 1) & 1;  
+                int z = (ca >> 2) & 1;  
+                EXPR(
+                ijk[0] = (x == 0) ? ii : (nx + ngz + ii);,
+                ijk[1] = (y == 0) ? jj : (ny + ngz + jj);,
+                ijk[2] = (z == 0) ? kk : (nz + ngz + kk);)
+                x = (cb >> 0) & 1;  
+                y = (cb >> 1) & 1;  
+                z = (cb >> 2) & 1;
+                EXPR(
+                lmn[0] = (x == 0) ? (ngz + ii) : (nx + ii);,
+                lmn[1] = (y == 0) ? (ngz + jj) : (ny + jj);,
+                lmn[2] = (z == 0) ? (ngz + kk) : (nz + kk);)
+            } ; 
             /* Get correct array to read from / write to */
             auto& view_a = vars ; 
-            auto& view_b = (is_ghost) ? halo : vars ;  
-            #ifndef GRACE_CARTESIAN_COORDINATES
-            index_helper_t mapper{} ; 
-            #endif 
-            TeamThreadMDRange<Rank<GRACE_NSPACEDIM+1>,member_t>
-                team_range( team, ngz, VECD(n1,n2), nvars) ; 
-            parallel_for( team_range
-                        , KOKKOS_LAMBDA(int& ig, VECD(int& j, int& k), int& ivar)
-                    {
-                    int i_a = EXPR((which_face_a==0) *ig 
-                                + (which_face_a==1) * (nx+ngz+ig),
-                                + (which_face_a/2==1) * (j+ngz), 
-                                + (which_face_a/2==2) * (j+ngz)) ;
+            auto& view_b = (is_ghost) ? halo : vars ; 
+            int ijk_a [GRACE_NSPACEDIM], ijk_b [GRACE_NSPACEDIM] ; 
+            index_mapping(ig,jg,kg,which_corner_a,which_corner_b, ijk_a,ijk_b) ; 
+            view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) =  view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) ; 
+            if( ! is_ghost ) {
+                index_mapping(ig,jg,kg,which_corner_b,which_corner_a, ijk_b,ijk_a) ;
+                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) =  view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) ;
+            }
+        });
+    #ifdef GRACE_3D
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
+        policy_edge(
+            {0,0,0, 0,0},
+            {ngz, ngz, static_cast<long>(nx), static_cast<long>(nvars), static_cast<long>(n_edges)}
+        ) ;
+    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones_across_edges")
+                , policy_edge 
+                , KOKKOS_LAMBDA(const size_t& ig, const size_t& jg, const size_t& k, const size_t& ivar, const size_t& iedge)
+        {
+            /* Get information about quadrants sharing the edge */
+            int is_ghost     =  d_edge_info(iedge).is_ghost          ; 
+            int which_edge_a =  d_edge_info(iedge).which_edge_a      ; 
+            int which_edge_b =  d_edge_info(iedge).which_edge_b      ; 
+            int tid_a        =  d_edge_info(iedge).which_tree_a      ;
+            int tid_b        =  d_edge_info(iedge).which_tree_b      ;
+            int64_t qid_a    =  d_edge_info(iedge).qid_a             ;
+            int64_t qid_b    =  d_edge_info(iedge).qid_b             ; 
+            #define ALONG_EDGE -1 
+            #define NEGATIVE_EDGE 0
+            #define POSITIVE_EDGE 1
+            /* Helper lambda that maps edge indices in and out of ghostzones. */
+            auto const index_mapping = [&] ( int const ig, 
+                                             int const jg, 
+                                             int const k, 
+                                             int const ea, 
+                                             int const eb, 
+                                             int ijk[GRACE_NSPACEDIM], 
+                                             int lmn[GRACE_NSPACEDIM] ) 
+            {
+                static const int edge_directions[3][12] = {
+                    {ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, 
+                    NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE,
+                     NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE},  // x directions
 
-                    int j_a = EXPR((which_face_a==2) * ig 
-                            + (which_face_a==3) * (ny+ngz+ig), 
-                            + (which_face_a/2==0) * (j+ngz), 
-                            + (which_face_a/2==2) * (k+ngz));  
-                    
-                    int i_b = EXPR((which_face_b==0)*(ngz+ig) 
-                            + (which_face_b==1)*(nx+ig), 
-                            + (which_face_b/2==1) * (j+ngz),
-                            + (which_face_b/2==2) * (j+ngz)) ;
-                    
-                    int j_b = EXPR((which_face_b==2)*(ngz+ig) 
-                            + (which_face_b==3)*(ny+ig),
-                            + (which_face_b/2==0) * (j+ngz),
-                            + (which_face_b/2==2) * (k+ngz)) ; 
+                    {NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, 
+                    ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE,
+                    NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE}, // y directions
 
-                    #ifdef GRACE_3D
-                    int k_a = (which_face_a==4) * ig 
-                            + (which_face_a==5) *  (nz+ngz+ig)
-                            + (which_face_a/2!=2) * (k+ngz) ;
+                    {NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
+                    NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
+                    ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE}  // z directions
+                };
+                // Extract directional values for edges ea and eb
+                int x_ea = edge_directions[0][ea];
+                int y_ea = edge_directions[1][ea];
+                int z_ea = edge_directions[2][ea];
 
-                    int k_b = (which_face_b==4)*(ngz+ig)
-                            + (which_face_b==5)*(nz+ig)
-                            + (which_face_b/2!=2) * (k + ngz) ;
-                    #endif 
-                    #ifndef GRACE_CARTESIAN_COORDINATES
-                    // TODO HERE  WE ASSUME Nx==Ny==Nz
-                    auto const lmn = mapper({VEC(i_a,j_a,k_a)}, tid_b, tid_a, {ng,n1,n2}) ;
-                    i_a = lmn[0]; j_a = lmn[1]; k_a = lmn[2] ; 
-                    #endif 
+                // Map indices for ijk based on edge ea
+                ijk[0] = (x_ea == ALONG_EDGE) ? (k+ngz) : (x_ea == NEGATIVE_EDGE ? ig : (nx + ngz + ig));
+                ijk[1] = (y_ea == ALONG_EDGE) 
+                            ? (k+ngz) 
+                            : (x_ea == ALONG_EDGE 
+                                ? (y_ea == NEGATIVE_EDGE ? ig : (ny + ngz + ig)) 
+                                : (y_ea == NEGATIVE_EDGE ? jg : (ny + ngz + jg)));
+                ijk[2] = (z_ea == ALONG_EDGE) ? (k+ngz) : (z_ea == NEGATIVE_EDGE ? jg : (nz + ngz + jg));
 
-                    view_a(VEC(i_a,j_a,k_a),ivar,qid_a) =  view_b(VEC(i_b,j_b,k_b),ivar,qid_b) ; 
-                    
-                    if( ! is_ghost ) {
-                        i_b = EXPR((which_face_b==0) * ig 
-                                + (which_face_b==1) * (nx+ngz+ig),
-                                + (which_face_b/2==1) * (j+ngz), 
-                                + (which_face_b/2==2) * (j+ngz)) ;
+                int x_eb = edge_directions[0][eb];
+                int y_eb = edge_directions[1][eb];
+                int z_eb = edge_directions[2][eb];
 
-                        j_b = EXPR((which_face_b==2) * ig
-                                + (which_face_b==3) * (ny+ngz+ig), 
-                                + (which_face_b/2==0) * (j+ngz), 
-                                + (which_face_b/2==2) * (k+ngz)) ;  
-                        
-                        i_a = EXPR((which_face_a==0)*(ngz+ig) 
-                                + (which_face_a==1)*(nx+ig), 
-                                + (which_face_a/2==1) * (j+ngz),
-                                + (which_face_a/2==2) * (j+ngz)) ;
-                        
-                        j_a = EXPR((which_face_a==2)*(ngz+ig) 
-                                + (which_face_a==3)*(ny+ig),
-                                + (which_face_a/2==0) * (j+ngz),
-                                + (which_face_a/2==2) * (k+ngz)) ; 
-
-                        #ifdef GRACE_3D
-                        k_b =     (which_face_b==4) *ig 
-                                + (which_face_b==5) * (nz+ngz+ig)
-                                + (which_face_b/2!=2) * (k+ngz) ;
-
-                        k_a =     (which_face_a==4)*(ngz+ig)
-                                + (which_face_a==5)*(nz+ig)
-                                + (which_face_a/2!=2) * (k + ngz) ;
-                        #endif  
-                        #ifndef GRACE_CARTESIAN_COORDINATES
-                        // TODO HERE  WE ASSUME Nx==Ny==Nz
-                        auto const lmn = mapper({VEC(i_b,j_b,k_b)}, tid_a, tid_b, {ng,n1,n2}) ;
-                        i_b = lmn[0]; j_b = lmn[1]; k_b = lmn[2] ; 
-                        #endif 
-                        view_b(VEC(i_b,j_b,k_b),ivar,qid_b) =  view_a(VEC(i_a,j_a,k_a),ivar,qid_a) ;
-                    }
-                    } );
-        }
-    )   ;  
+                // Map indices for lmn based on edge eb
+                lmn[0] = (x_eb == ALONG_EDGE) ? (k+ngz) : (x_eb == NEGATIVE_EDGE ? (ngz + ig) : (nx + ig));
+                lmn[1] = (y_eb == ALONG_EDGE) 
+                            ? (k+ngz)
+                            : (x_eb == ALONG_EDGE 
+                                ? (y_eb == NEGATIVE_EDGE ? (ngz + ig) : (ny + ig)) 
+                                : (y_eb == NEGATIVE_EDGE ? (ngz + jg) : (ny + jg)));
+                lmn[2] = (z_eb == ALONG_EDGE) ? (k+ngz) : (z_eb == NEGATIVE_EDGE ? (ngz + jg) : (nz + jg));
+            } ; 
+            /* Get correct array to read from / write to */
+            auto& view_a = vars ; 
+            auto& view_b = (is_ghost) ? halo : vars ; 
+            int ijk_a [GRACE_NSPACEDIM], ijk_b [GRACE_NSPACEDIM] ; 
+            index_mapping(ig,jg,k,which_edge_a,which_edge_b, ijk_a,ijk_b) ; 
+            view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) =  view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) ; 
+            if( ! is_ghost ) {
+                index_mapping(ig,jg,k,which_edge_b,which_edge_a, ijk_b,ijk_a) ;
+                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) =  view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) ;
+            }
+        }) ;
+    #endif 
     #endif 
 }
 
