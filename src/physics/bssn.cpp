@@ -154,6 +154,22 @@ compute_bssn_rhs( grace::var_array_t<GRACE_NSPACEDIM> const state
     double const gtyzdydz=grace::fd_der<der_order,1,2>(state,GTYZ_,VEC(i,j,k),q);
     double const gtzzdydz=grace::fd_der<der_order,1,2>(state,GTZZ_,VEC(i,j,k),q);
 
+    // conformal factor
+    double const phi=state(PHI_);
+
+    // first derivatives of the conformal factor
+    double const phidx=grace::fd_der<der_order,0>(state,PHI_);
+    double const phidy=grace::fd_der<der_order,1>(state,PHI_);
+    double const phidz=grace::fd_der<der_order,2>(state,PHI_);
+
+    // second derivatives of the conformal factor 
+    double const phidxdx=grace::fd_der<der_order,0,0>(state,PHI_);
+    double const phidxdy=grace::fd_der<der_order,0,1>(state,PHI_);
+    double const phidydy=grace::fd_der<der_order,1,1>(state,PHI_);
+    double const phidxdz=grace::fd_der<der_order,0,2>(state,PHI_);
+    double const phidydz=grace::fd_der<der_order,1,2>(state,PHI_);
+    double const phidzdz=grace::fd_der<der_order,2,2>(state,PHI_);
+
     // lapse function
     double const alp=state(ALP_);
 
@@ -386,7 +402,6 @@ compute_bssn_rhs( grace::var_array_t<GRACE_NSPACEDIM> const state
     double const Gammat323dz=(gtyydzdz*gtYZ + gtXZdz*(gtxydz + gtxzdy - gtyzdx) + gtXZ*(gtxydzdz + gtxzdydz - gtyzdxdz) + gtyydz*gtYZdz + gtZZ*gtzzdydz + gtzzdy*gtZZdz)/2.;
     double const Gammat333dz=(2*gtxzdz*gtXZdz + 2*gtXZ*gtxzdzdz + 2*gtyzdz*gtYZdz + 2*gtYZ*gtyzdzdz - gtXZdz*gtzzdx - gtXZ*gtzzdxdz - gtYZdz*gtzzdy - gtYZ*gtzzdydz + gtzzdz*gtZZdz + gtZZ*gtzzdzdz)/2.;
 
-
     // three ways to express the contracted conformal Christoffel symbols (GammaTCode in Mathematica notebook BSSN.nb)
     // 1. from the previous evolution step:
     double const GammatX=state(VEC(i,j,k),GAMMAX_,q);
@@ -408,6 +423,22 @@ compute_bssn_rhs( grace::var_array_t<GRACE_NSPACEDIM> const state
     double const Rtyy=-(Gammat112*Gammat112) - Gammat112dy + Gammat111*Gammat122 + Gammat122dx - Gammat122*Gammat212 + Gammat112*Gammat222 - 2*Gammat123*Gammat312 + Gammat122*Gammat313 + Gammat113*Gammat322 - Gammat223*Gammat322 + Gammat322dz + Gammat222*Gammat323 - Gammat323*Gammat323 - Gammat323dy + Gammat322*Gammat333;
     double const Rtyz=-Gammat112dz + Gammat111*Gammat123 + Gammat123dx - Gammat122*Gammat213 - Gammat222dz + Gammat112*(-Gammat113 + Gammat223) + Gammat223dy - Gammat133*Gammat312 - Gammat233*Gammat322 + Gammat113*Gammat323 + Gammat223*Gammat323;
     double const Rtzz=-(Gammat113*Gammat113) - Gammat113dz + Gammat111*Gammat133 + Gammat133dx + Gammat133*Gammat212 - 2*Gammat123*Gammat213 - Gammat223*Gammat223 - Gammat223dz + Gammat112*Gammat233 + Gammat222*Gammat233 + Gammat233dy - Gammat133*Gammat313 - Gammat233*Gammat323 + Gammat113*Gammat333 + Gammat223*Gammat333;
+
+    // components of the phi contribution to the relation between the Ricci tensor and the conformal Ricci tensor: Rdd=Rtdd+Rtphidd 
+    double const Rtphixx= (-(Gammat111*phidx) + phidxdx - Gammat211*phidy - Gammat311*phidz + (gtxx*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
+    double const Rtphixy= (-(Gammat112*phidx) + phidxdy - Gammat212*phidy - Gammat312*phidz + (gtxy*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
+    double const Rtphixz= (-(Gammat113*phidx) + phidxdz - Gammat213*phidy - Gammat313*phidz + (gtxz*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
+    double const Rtphiyy= (-(Gammat122*phidx) - Gammat222*phidy + phidydy - Gammat322*phidz + (gtyy*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
+    double const Rtphiyz= (-(Gammat123*phidx) - Gammat223*phidy + phidydz - Gammat323*phidz + (gtyz*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
+    double const Rtphizz= (-(Gammat133*phidx) - Gammat233*phidy - Gammat333*phidz + phidzdz + (gtzz*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
+    
+    // components of Ricci tensor
+    double const Rxx=Rtxx+Rtphixx;
+    double const Rxy=Rtxy+Rtphixy;
+    double const Rxz=Rtxz+Rtphixz;
+    double const Ryy=Rtyy+Rtphiyy;
+    double const Ryz=Rtyz+Rtphiyz;
+    double const Rzz=Rtzz+Rtphizz;
 
     // BSSN eq.1: time derivatives of the conformal metric components (Eq1Code in Mathematica notebook BSSN.nb)
     double const gtxxdt=-2*alp*Atxx - (2*(-2*betaXdx + betaYdy + betaZdz)*gtxx)/3. + betaX*gtxxdx + betaY*gtxxdy + betaZ*gtxxdz + 2*betaYdx*gtxy + 2*betaZdx*gtxz;
