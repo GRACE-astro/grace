@@ -265,6 +265,8 @@ p4est_tests_main
 Catch2::Catch2
 grace_objects
 $<TARGET_OBJECTS:grace_vtk_output>
+$<TARGET_OBJECTS:grace_hdf5_output>
+$<TARGET_OBJECTS:grace_cell_output>
 yaml_cpp::yaml
 Kokkos::kokkos
 MPI::MPI_CXX
@@ -273,6 +275,7 @@ p4est::p4est
 VTK::VTK 
 spdlog::spdlog 
 ZLIB::ZLIB
+HDF5::HDF5
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
 TARGETS bc_test

@@ -50,14 +50,15 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
                           , void* user_data  )
 {
     using namespace grace; 
-    auto face_info = reinterpret_cast<grace_neighbor_info_t*>(user_data)->face_info ; 
+    auto& face_info = reinterpret_cast<grace_neighbor_info_t*>(user_data)->face_info ; 
     sc_array_view_t<p4est_iter_face_side_t> sides{
         &(info->sides)
     } ; 
     auto& physical_boundary_info = face_info.phys_boundary_info ; 
     auto& simple_info    = face_info.simple_interior_info       ;
     auto& hanging_info   = face_info.hanging_interior_info      ;
-    auto& coarse_hanging_info = face_info.coarse_hanging_quads_info ; 
+    auto& coarse_hanging_info = 
+        reinterpret_cast<grace_neighbor_info_t*>(user_data)->coarse_hanging_quads_info ; 
     /**************************************************/
     /* This means we are at a physical boundary       */
     /* we store the index in user_info and return     */
@@ -109,9 +110,10 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
                 sides[0].face
             ) ; 
     }
-
+    /* If the first side is hanging */
     if( sides[1].is_hanging )
     {
+        /* Collect quadrant information */
         hanging_face_info_t this_face_info{} ; 
         this_face_info.has_polarity_flip = polarity_flip ; 
         this_face_info.level_coarse = static_cast<int>(sides[0].is.full.quad->level) ;
@@ -121,6 +123,7 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
         this_face_info.is_ghost_coarse   = sides[0].is.full.is_ghost ; 
         this_face_info.qid_coarse        = sides[0].is.full.quadid   
             + ( this_face_info.is_ghost_coarse ? 0 : get_local_quadrants_offset(sides[0].treeid)  ) ; 
+        /* Collect fine quadrant information */
         int any_fine_ghost{0} ; 
         for(int ii=0; ii<P4EST_CHILDREN/2; ++ii) {
             this_face_info.is_ghost_fine[ii] = sides[1].is.hanging.is_ghost[ii] ; 
@@ -131,7 +134,11 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
                       , "Is ghost fine neither true or false.") ; 
             ASSERT_DBG(this_face_info.qid_fine[ii]>=0, "Negative quadrant id in grace iter faces.") ; 
         }
+        
         if( this_face_info.is_ghost_coarse ) { 
+            /* If the coarse quadrant is not local, we add the coarse quad */
+            /* to the list of those that have to be received after the     */               
+            /* restriction.                                                */
             auto halos = info->ghost_layer ; 
             coarse_hanging_info.rcv_quadid.push_back( this_face_info.qid_coarse ) ;
             for( int iproc = 0; iproc<parallel::mpi_comm_size(); ++iproc ) {
@@ -141,8 +148,11 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
                     coarse_hanging_info.rcv_procid.push_back( iproc ) ; 
                 }
             }
-            face_info.n_hanging_ghost_faces ++ ;  
+            face_info.n_hanging_ghost_faces ++ ;
         } else if (  any_fine_ghost ) {
+            /* If any of the fine quadrants is not local, we add the coarse */
+            /* quadrant to the list of those that have to be received after */
+            /* restriction.                                                 */
             auto halos = info->ghost_layer ; 
             sc_array_view_t<p4est_quadrant_t>  mirror_quads { &(halos->mirrors) } ; 
             coarse_hanging_info.snd_quadid.push_back(this_face_info.qid_coarse) ; 
@@ -183,6 +193,9 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
             ASSERT_DBG(this_face_info.qid_fine[ii]>=0, "Negative quadrant id in grace iter faces.") ; 
         }
         if( this_face_info.is_ghost_coarse ) { 
+            /* If the coarse quadrant is not local, we add the coarse quad */
+            /* to the list of those that have to be received after the     */               
+            /* restriction.                                                */
             auto halos = info->ghost_layer ; 
             coarse_hanging_info.rcv_quadid.push_back( this_face_info.qid_coarse ) ;
             for( int iproc = 0; iproc<parallel::mpi_comm_size(); ++iproc ) {
@@ -194,6 +207,9 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
             }
             face_info.n_hanging_ghost_faces ++ ;  
         } else if (  any_fine_ghost ) {
+            /* If any of the fine quadrants is not local, we add the coarse */
+            /* quadrant to the list of those that have to be received after */
+            /* restriction.                                                 */
             auto halos = info->ghost_layer ; 
             sc_array_view_t<p4est_quadrant_t>  mirror_quads { &(halos->mirrors) } ; 
             coarse_hanging_info.snd_quadid.push_back(this_face_info.qid_coarse) ; 
@@ -261,20 +277,24 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
                         , void* user_data  )
 {
     using namespace grace; 
-    auto edge_info = reinterpret_cast<grace_neighbor_info_t*>(user_data)->edge_info ;  
+    auto& edge_info = reinterpret_cast<grace_neighbor_info_t*>(user_data)->edge_info ;  
     sc_array_view_t<p8est_iter_edge_side_t> sides{
         &(info->sides)
     } ; 
     /* Physical boundaries are handled by face neighbors no need to store it here. */
     auto& simple_info         = edge_info.simple_interior_info      ;
     auto& hanging_info        = edge_info.hanging_interior_info     ;
+    auto& coarse_hanging_info = 
+        reinterpret_cast<grace_neighbor_info_t*>(user_data)->coarse_hanging_quads_info ; 
     /**************************************************/
     /* This means we are at a physical boundary       */
     /* we store the index in user_info and return     */
     /* since physical boundary conditions are handled */
     /* separately.                                    */
     /**************************************************/
+    edge_info.n_edges_total ++ ; 
     if( sides.size() < 4 ) { 
+        edge_info.n_exterior_edges ++ ; 
         return ; 
     }
     ASSERT(  sides.size() == 4
@@ -285,29 +305,32 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
     /***************************************************/
     //! TODO maybe we want these in z-order ?
     int side_idx_pairs[2][2] ; 
-    side_idx_pairs[0][0] = 0 ; 
-    bool share_a_face =  (sides[0].faces[0] == sides[1].faces[0])
-                      or (sides[0].faces[1] == sides[1].faces[0])
-                      or (sides[0].faces[1] == sides[1].faces[1])
-                      or (sides[0].faces[0] == sides[1].faces[1]) ; 
-    
-    if( share_a_face ) {
-        side_idx_pairs[1][0] = 1 ;
-        share_a_face =  (sides[0].faces[0] == sides[2].faces[0])
-                     or (sides[0].faces[1] == sides[2].faces[0])
-                     or (sides[0].faces[1] == sides[2].faces[1])
-                     or (sides[0].faces[0] == sides[2].faces[1]) ; 
-        side_idx_pairs[0][1] = share_a_face
-                             ? 3
-                             : 2 ;
-        side_idx_pairs[1][1] = share_a_face
-                            ? 2
-                            : 3 ;
-    } else {
-        side_idx_pairs[0][1] = 1 ;
-        side_idx_pairs[1][0] = 2 ;
-        side_idx_pairs[1][1] = 3 ;
-    }
+    auto is_edge_neighbor = [&](int i, int j) {
+        for (int iff = 0; iff < 2; ++iff) {
+            for (int jff = 0; jff < 2; ++jff) {
+                if (sides[i].faces[iff] == sides[j].faces[jff] ) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+    std::vector<int> found(4, 0);
+    int ip = 0;
+    for(int in=0; in<4; ++in){
+        if (found[in]) continue;
+        for (int jn = in + 1; jn < 4; ++jn) { 
+            if (found[jn]) continue;
+            if( is_edge_neighbor(in,jn) ) {
+                side_idx_pairs[ip][0] = in ;
+                side_idx_pairs[ip][1] = jn ;
+                found[in] = 1 ; 
+                found[jn] = 1 ;  
+                ip++ ; 
+                break ;
+            }
+        }
+    } 
     /***************************************************/
     /* Now we have two pairs of "sides" of the edge    */
     /* that do not share a face. We will store info    */
@@ -315,7 +338,6 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
     /* or hanging, the quadid's involved on either side*/
     /* etc. in the following.                          */
     /***************************************************/
-    
     for( int i=0 ; i<2; ++i) {
         auto const& sidea = sides[side_idx_pairs[i][0]] ; 
         auto const& sideb = sides[side_idx_pairs[i][1]] ; 
@@ -328,12 +350,49 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
             info.is_ghost_coarse   = sideb.is.full.is_ghost ; 
             info.qid_coarse        = sideb.is.full.quadid
                 + (info.is_ghost_coarse ? 0 : get_local_quadrants_offset(sideb.treeid)) ; 
+            int any_fine_ghost{0} ; 
             for( int ii=0; ii<2; ++ii) {
                 info.is_ghost_fine[ii] = sidea.is.hanging.is_ghost[ii] ; 
                 info.qid_fine[ii] = sidea.is.hanging.quadid[ii]
-                    + (info.is_ghost_fine[ii] ? 0 : get_local_quadrants_offset(sidea.treeid)) ; 
+                    + (info.is_ghost_fine[ii] ? 0 : get_local_quadrants_offset(sidea.treeid)) ;
+                any_fine_ghost += info.is_ghost_fine[ii] ;  
             }
-            edge_info.n_hanging_ghost_edges ++ ; 
+            if( info.is_ghost_coarse ) {
+                /* If the coarse quadrant is not local, we add the coarse quad */
+                /* to the list of those that have to be received after the     */               
+                /* restriction.                                                */ 
+                auto halos = info->ghost_layer ; 
+                coarse_hanging_info.rcv_quadid.push_back( info.qid_coarse ) ;
+                for( int iproc = 0; iproc<parallel::mpi_comm_size(); ++iproc ) {
+                    size_t first_halo  = halos->proc_offsets[iproc]   ; 
+                    size_t last_halo   = halos->proc_offsets[iproc+1] ;
+                    if( info.qid_coarse >= first_halo and info.qid_coarse < last_halo ) {
+                        coarse_hanging_info.rcv_procid.push_back( iproc ) ; 
+                    }
+                }
+                face_info.n_hanging_ghost_edges ++ ;
+            } else if (  any_fine_ghost ) {
+                /* If any of the fine quadrants is not local, we add the coarse */
+                /* quadrant to the list of those that have to be received after */
+                /* restriction.                                                 */
+                auto halos = info->ghost_layer ; 
+                sc_array_view_t<p4est_quadrant_t>  mirror_quads { &(halos->mirrors) } ; 
+                coarse_hanging_info.snd_quadid.push_back(info.qid_coarse) ; 
+                std::set<int> _snd_procid;
+                for( int ii=0; ii<2; ++ii){
+                    if( info.is_ghost_fine[ii] ) {
+                        for( int iproc = 0; iproc<parallel::mpi_comm_size(); ++iproc ) {
+                            size_t first_halo  = halos->proc_offsets[iproc]   ; 
+                            size_t last_halo   = halos->proc_offsets[iproc+1] ;
+                            if( info.qid_fine[ii] >= first_halo and info.qid_fine[ii] < last_halo ) {
+                                _snd_procid.insert( iproc ) ; 
+                            }
+                        }
+                    }
+                }
+                coarse_hanging_info.snd_procid.push_back(_snd_procid) ; 
+                face_info.n_hanging_ghost_edges ++ ;
+            }
             hanging_info.push_back(info) ; 
         } else if (sideb.is_hanging) {
             hanging_edge_info_t info {} ;  
@@ -344,12 +403,49 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
             info.is_ghost_coarse   = sidea.is.full.is_ghost ; 
             info.qid_coarse        = sidea.is.full.quadid
                 + (info.is_ghost_coarse ? 0 : get_local_quadrants_offset(sidea.treeid)) ; 
+            int any_fine_ghost{0} ;
             for( int ii=0; ii<2; ++ii) {
                 info.is_ghost_fine[ii] = sideb.is.hanging.is_ghost[ii] ; 
                 info.qid_fine[ii] = sideb.is.hanging.quadid[ii]
                     + (info.is_ghost_fine[ii] ? 0 : get_local_quadrants_offset(sideb.treeid)) ; 
+                any_fine_ghost += info.is_ghost_fine[ii];
             }
-            edge_info.n_hanging_ghost_edges ++ ;
+            if( info.is_ghost_coarse ) {
+                /* If the coarse quadrant is not local, we add the coarse quad */
+                /* to the list of those that have to be received after the     */               
+                /* restriction.                                                */ 
+                auto halos = info->ghost_layer ; 
+                coarse_hanging_info.rcv_quadid.push_back( info.qid_coarse ) ;
+                for( int iproc = 0; iproc<parallel::mpi_comm_size(); ++iproc ) {
+                    size_t first_halo  = halos->proc_offsets[iproc]   ; 
+                    size_t last_halo   = halos->proc_offsets[iproc+1] ;
+                    if( info.qid_coarse >= first_halo and info.qid_coarse < last_halo ) {
+                        coarse_hanging_info.rcv_procid.push_back( iproc ) ; 
+                    }
+                }
+                edge_info.n_hanging_ghost_edges ++ ;
+            } else if (  any_fine_ghost ) {
+                /* If any of the fine quadrants is not local, we add the coarse */
+                /* quadrant to the list of those that have to be received after */
+                /* restriction.                                                 */
+                auto halos = info->ghost_layer ; 
+                sc_array_view_t<p4est_quadrant_t>  mirror_quads { &(halos->mirrors) } ; 
+                coarse_hanging_info.snd_quadid.push_back(info.qid_coarse) ; 
+                std::set<int> _snd_procid;
+                for( int ii=0; ii<2; ++ii){
+                    if( info.is_ghost_fine[ii] ) {
+                        for( int iproc = 0; iproc<parallel::mpi_comm_size(); ++iproc ) {
+                            size_t first_halo  = halos->proc_offsets[iproc]   ; 
+                            size_t last_halo   = halos->proc_offsets[iproc+1] ;
+                            if( info.qid_fine[ii] >= first_halo and info.qid_fine[ii] < last_halo ) {
+                                _snd_procid.insert( iproc ) ; 
+                            }
+                        }
+                    }
+                }
+                coarse_hanging_info.snd_procid.push_back(_snd_procid) ; 
+                edge_info.n_hanging_ghost_edges ++ ;
+            }
             hanging_info.push_back(info) ; 
         } else {
             simple_edge_info_t info {} ; 
@@ -365,13 +461,13 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
                 info.qid_b = sidea.is.full.quadid ;
                 edge_info.n_simple_ghost_edges ++ ; 
             } else if(sideb.is.full.is_ghost){
-                auto offset = get_local_quadrants_offset(sideb.treeid);
+                auto offset = get_local_quadrants_offset(sidea.treeid);
                 info.is_ghost     = 1 ; 
                 info.which_edge_a = sidea.edge ; 
                 info.which_edge_b = sideb.edge ;
                 info.which_tree_a = sidea.treeid ; 
                 info.which_tree_b = sideb.treeid ; 
-                info.qid_a = sideb.is.full.quadid 
+                info.qid_a = sidea.is.full.quadid 
                     + offset ;
                 info.qid_b = sideb.is.full.quadid ;
                 edge_info.n_simple_ghost_edges ++ ; 
@@ -399,13 +495,15 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
                           , void* user_data  )
 {
     using namespace grace; 
-    auto corner_info = reinterpret_cast<grace_neighbor_info_t*>(user_data)->corner_info ;  
+    auto& corner_info = reinterpret_cast<grace_neighbor_info_t*>(user_data)->corner_info ;  
     sc_array_view_t<p4est_iter_corner_side_t> sides{
         &(info->sides)
     } ; 
     /* Physical boundaries are handled by face neighbors no need to store it here. */
     auto& simple_info         = corner_info.simple_interior_info      ;
     auto& hanging_info        = corner_info.hanging_interior_info     ;
+    auto& coarse_hanging_info = 
+        reinterpret_cast<grace_neighbor_info_t*>(user_data)->coarse_hanging_quads_info ; 
     /**************************************************/
     /* This means we are at a physical boundary       */
     /* we store the index in user_info and return     */
@@ -428,11 +526,11 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
             for (int jff = 0; jff < 3; ++jff) {
                 if (sides[i].faces[iff] == sides[j].faces[jff] ||
                     sides[i].edges[iff] == sides[j].edges[jff]) {
-                    return true;
+                    return false;
                 }
             }
         }
-        return false;
+        return true;
     };
     std::vector<bool> found(8, false);
     int ip = 0;
@@ -477,7 +575,38 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
             info.is_ghost_fine = sidea.is_ghost ; 
             info.qid_fine = sidea.quadid
                 + (info.is_ghost_fine ? 0 : get_local_quadrants_offset(sidea.treeid)) ; 
-            corner_info.n_hanging_ghost_corners ++ ; 
+            if( info.is_ghost_coarse ) {
+                /* If the coarse quadrant is not local, we add the coarse quad */
+                /* to the list of those that have to be received after the     */               
+                /* restriction.                                                */ 
+                auto halos = info->ghost_layer ; 
+                coarse_hanging_info.rcv_quadid.push_back( info.qid_coarse ) ;
+                for( int iproc = 0; iproc<parallel::mpi_comm_size(); ++iproc ) {
+                    size_t first_halo  = halos->proc_offsets[iproc]   ; 
+                    size_t last_halo   = halos->proc_offsets[iproc+1] ;
+                    if( info.qid_coarse >= first_halo and info.qid_coarse < last_halo ) {
+                        coarse_hanging_info.rcv_procid.push_back( iproc ) ; 
+                    }
+                }
+                corner_info.n_hanging_ghost_corners ++ ;
+            } else if (  info.is_ghost_fine ) {
+                /* If any of the fine quadrants is not local, we add the coarse */
+                /* quadrant to the list of those that have to be received after */
+                /* restriction.                                                 */
+                auto halos = info->ghost_layer ; 
+                sc_array_view_t<p4est_quadrant_t>  mirror_quads { &(halos->mirrors) } ; 
+                coarse_hanging_info.snd_quadid.push_back(info.qid_coarse) ; 
+                std::set<int> _snd_procid;
+                for( int iproc = 0; iproc<parallel::mpi_comm_size(); ++iproc ) {
+                    size_t first_halo  = halos->proc_offsets[iproc]   ; 
+                    size_t last_halo   = halos->proc_offsets[iproc+1] ;
+                    if( info.qid_fine[ii] >= first_halo and info.qid_fine[ii] < last_halo ) {
+                        _snd_procid.insert( iproc ) ; 
+                    }
+                }
+                coarse_hanging_info.snd_procid.push_back(_snd_procid) ; 
+                corner_info.n_hanging_ghost_corners ++ ;
+            } 
             hanging_info.push_back(info) ; 
         } else if (level_a < level_b) {
             hanging_corner_info_t info {} ;  
@@ -507,13 +636,13 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
                 info.qid_b = sidea.quadid ;
                 corner_info.n_simple_ghost_corners ++ ; 
             } else if(sideb.is_ghost){
-                auto offset = get_local_quadrants_offset(sideb.treeid);
+                auto offset = get_local_quadrants_offset(sidea.treeid);
                 info.is_ghost     = 1 ; 
                 info.which_corner_a = sidea.corner ; 
                 info.which_corner_b = sideb.corner ;
                 info.which_tree_a = sidea.treeid ; 
                 info.which_tree_b = sideb.treeid ; 
-                info.qid_a = sideb.quadid 
+                info.qid_a = sidea.quadid 
                     + offset ;
                 info.qid_b = sideb.quadid ;
                 corner_info.n_simple_ghost_corners ++ ; 
@@ -660,7 +789,7 @@ void copy_interior_ghostzones(
                 view_b(VEC(i_b,j_b,k_b),ivar,qid_b) =  view_a(VEC(i_a,j_a,k_a),ivar,qid_a) ;
             }
         });
-        #if 0
+        #if 1
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
         policy_corner(
             {0,VECD(0,0), 0,0},
@@ -735,53 +864,53 @@ void copy_interior_ghostzones(
             #define NEGATIVE_EDGE 0
             #define POSITIVE_EDGE 1
             /* Helper lambda that maps edge indices in and out of ghostzones. */
-            auto const index_mapping = [&] ( int const ig, 
-                                             int const jg, 
-                                             int const k, 
+            auto const index_mapping = [&] ( int const iig, 
+                                             int const jjg, 
+                                             int const kk, 
                                              int const ea, 
                                              int const eb, 
                                              int ijk[GRACE_NSPACEDIM], 
                                              int lmn[GRACE_NSPACEDIM] ) 
             {
-                static const int edge_directions[3][12] = {
+                const int edge_directions_x[12] = 
                     {ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, 
                     NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE,
-                     NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE},  // x directions
-
+                     NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE};  // x directions
+                const int edge_directions_y[12] =
                     {NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, 
                     ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE,
-                    NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE}, // y directions
-
+                    NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE}; // y directions
+                const int edge_directions_z[12] =
                     {NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
                     NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
-                    ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE}  // z directions
-                };
+                    ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE};  // z directions
+                
                 // Extract directional values for edges ea and eb
-                int x_ea = edge_directions[0][ea];
-                int y_ea = edge_directions[1][ea];
-                int z_ea = edge_directions[2][ea];
+                int x_ea = edge_directions_x[ea];
+                int y_ea = edge_directions_y[ea];
+                int z_ea = edge_directions_z[ea];
 
                 // Map indices for ijk based on edge ea
-                ijk[0] = (x_ea == ALONG_EDGE) ? (k+ngz) : (x_ea == NEGATIVE_EDGE ? ig : (nx + ngz + ig));
+                ijk[0] = (x_ea == ALONG_EDGE) ? (kk+ngz) : (x_ea == NEGATIVE_EDGE ? iig : (nx + ngz + iig));
                 ijk[1] = (y_ea == ALONG_EDGE) 
-                            ? (k+ngz) 
+                            ? (kk+ngz) 
                             : (x_ea == ALONG_EDGE 
-                                ? (y_ea == NEGATIVE_EDGE ? ig : (ny + ngz + ig)) 
-                                : (y_ea == NEGATIVE_EDGE ? jg : (ny + ngz + jg)));
-                ijk[2] = (z_ea == ALONG_EDGE) ? (k+ngz) : (z_ea == NEGATIVE_EDGE ? jg : (nz + ngz + jg));
+                                ? (y_ea == NEGATIVE_EDGE ? iig : (ny + ngz + iig)) 
+                                : (y_ea == NEGATIVE_EDGE ? jjg : (ny + ngz + jjg)));
+                ijk[2] = (z_ea == ALONG_EDGE) ? (kk+ngz) : (z_ea == NEGATIVE_EDGE ? jjg : (nz + ngz + jjg));
 
-                int x_eb = edge_directions[0][eb];
-                int y_eb = edge_directions[1][eb];
-                int z_eb = edge_directions[2][eb];
+                int x_eb = edge_directions_x[eb];
+                int y_eb = edge_directions_y[eb];
+                int z_eb = edge_directions_z[eb];
 
                 // Map indices for lmn based on edge eb
-                lmn[0] = (x_eb == ALONG_EDGE) ? (k+ngz) : (x_eb == NEGATIVE_EDGE ? (ngz + ig) : (nx + ig));
+                lmn[0] = (x_eb == ALONG_EDGE) ? (kk+ngz) : (x_eb == NEGATIVE_EDGE ? (ngz + iig) : (nx + iig));
                 lmn[1] = (y_eb == ALONG_EDGE) 
-                            ? (k+ngz)
+                            ? (kk+ngz)
                             : (x_eb == ALONG_EDGE 
-                                ? (y_eb == NEGATIVE_EDGE ? (ngz + ig) : (ny + ig)) 
-                                : (y_eb == NEGATIVE_EDGE ? (ngz + jg) : (ny + jg)));
-                lmn[2] = (z_eb == ALONG_EDGE) ? (k+ngz) : (z_eb == NEGATIVE_EDGE ? (ngz + jg) : (nz + jg));
+                                ? (y_eb == NEGATIVE_EDGE ? (ngz + iig) : (ny + iig)) 
+                                : (y_eb == NEGATIVE_EDGE ? (ngz + jjg) : (ny + jjg)));
+                lmn[2] = (z_eb == ALONG_EDGE) ? (kk+ngz) : (z_eb == NEGATIVE_EDGE ? (ngz + jjg) : (nz + jjg));
             } ; 
             /* Get correct array to read from / write to */
             auto& view_a = vars ; 

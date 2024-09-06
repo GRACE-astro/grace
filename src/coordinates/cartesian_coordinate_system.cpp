@@ -410,8 +410,7 @@ GRACE_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
     auto& conn = amr::connectivity::get();
     ASSERT_DBG(
             itree < amr::connectivity::get().get()->num_trees,
-            "Tree out of bounds " << itree << 
-            " at " << ijk[0] << " " << ijk[1] 
+            "Tree out of bounds " << itree 
         ) ;
     auto dx_tree = amr::get_tree_spacing(itree) ; 
     
@@ -496,8 +495,7 @@ cartesian_coordinate_system_impl_t::get_cell_face_surface(
     auto& conn = amr::connectivity::get();
     ASSERT_DBG(
             itree < amr::connectivity::get().get()->num_trees,
-            "Tree out of bounds " << itree << 
-            " at " << ijk[0] << " " << ijk[1] 
+            "Tree out of bounds " << itree 
         ) ;
     auto dx_tree = amr::get_tree_spacing(itree) ; 
     
@@ -580,8 +578,7 @@ cartesian_coordinate_system_impl_t::get_cell_edge_length(
     auto& conn = amr::connectivity::get();
     ASSERT_DBG(
             itree < amr::connectivity::get().get()->num_trees,
-            "Tree out of bounds " << itree << 
-            " at " << ijk[0] << " " << ijk[1] 
+            "Tree out of bounds " << itree 
         ) ;
     auto dx_tree = amr::get_tree_spacing(itree) ; 
     

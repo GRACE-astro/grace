@@ -163,7 +163,6 @@ struct grace_face_info_t
     Kokkos::vector<int64_t>             phys_boundary_info        ;
     Kokkos::vector<simple_face_info_t>  simple_interior_info      ; 
     Kokkos::vector<hanging_face_info_t> hanging_interior_info     ; 
-    hanging_coarse_quadrant_info_t      coarse_hanging_quads_info ;  
 } ; 
 /**
  * @brief Collection of informations about edge neighbors.
@@ -173,6 +172,8 @@ struct grace_edge_info_t
 {
     int n_hanging_ghost_edges{0}; 
     int n_simple_ghost_edges{0} ;
+    int n_exterior_edges{0}     ; 
+    int n_edges_total{0}     ; 
     Kokkos::vector<simple_edge_info_t>  simple_interior_info      ; 
     Kokkos::vector<hanging_edge_info_t> hanging_interior_info     ; 
 } ; 
@@ -200,6 +201,7 @@ struct grace_neighbor_info_t
     #ifdef GRACE_3D 
     grace_edge_info_t   edge_info   ; 
     #endif
+    hanging_coarse_quadrant_info_t      coarse_hanging_quads_info ;  
 } ; 
 /**
  * @brief Apply all boundary conditions and fill ghostzones on state array.

@@ -240,6 +240,29 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
         , neighbor_info.face_info.phys_boundary_info.size()
         , neighbor_info.face_info.coarse_hanging_quads_info.snd_quadid.size()  
         , neighbor_info.face_info.coarse_hanging_quads_info.rcv_quadid.size() ) ; 
+    GRACE_VERBOSE("After iter-edges: obtained\n"
+        "{:d} edges in total of which "
+        "{:d} edges facing the exterior\n"
+        "{:d} simple edge pairs of which "
+        "{:d} cross processor boundaries\n"
+        "{:d} hanging edges of which "
+        "{:d} cross processor boundaries."
+        , neighbor_info.edge_info.n_edges_total
+        , neighbor_info.edge_info.n_exterior_edges
+        , neighbor_info.edge_info.simple_interior_info.size()
+        , neighbor_info.edge_info.n_simple_ghost_edges
+        , neighbor_info.edge_info.hanging_interior_info.size() 
+        , neighbor_info.edge_info.n_hanging_ghost_edges) ; 
+    GRACE_VERBOSE("After iter-corners: obtained\n"
+        "{:d} simple corner pairs of which "
+        "{:d} cross processor boundaries\n"
+        "{:d} hanging corners of which "
+        "{:d} cross processor boundaries."
+        , neighbor_info.corner_info.simple_interior_info.size()
+        , neighbor_info.corner_info.n_simple_ghost_corners
+        , neighbor_info.corner_info.hanging_interior_info.size() 
+        , neighbor_info.corner_info.n_hanging_ghost_corners) ; 
+
     GRACE_VERBOSE( "Applying physical boundary conditions on " 
     " {:d} quadrants.", neighbor_info.face_info.phys_boundary_info.size() ) ; 
     
