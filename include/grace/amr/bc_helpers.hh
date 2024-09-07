@@ -124,7 +124,9 @@ void copy_interior_ghostzones(
  * @param halo  Halo quadrants.
  * @param vols  Cell volumes.
  * @param halo_vols Halo cell volumes.
- * @param hanging_faces Information on hanging faces.
+ * @param hanging_faces Information on hanging face neighbors.
+ * @param hanging_corners Information on hanging corner neighbors.
+ * @param hanging_edges Information on hanging edge neighbors.
  * Hanging faces are those where quadrants are not at the same refinement level
  * on the two sides. This function performs restriction of all variables on the 
  * coarse side of all hanging faces. Restriction is performed in a second order 
@@ -136,6 +138,10 @@ void restrict_hanging_ghostzones(
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols
     , Kokkos::vector<hanging_face_info_t>& hanging_faces
+    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    #ifdef GRACE_3D 
+    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    #endif 
 ) ;
 /**************************************************************************************************/
 /**
@@ -147,6 +153,8 @@ void restrict_hanging_ghostzones(
  * @param vols  Cell volumes.
  * @param halo_vols Halo cell volumes.
  * @param hanging_faces Information on hanging faces.
+ * @param hanging_corners Information on hanging corner neighbors.
+ * @param hanging_edges Information on hanging edge neighbors.
  * Hanging faces are those where quadrants are not at the same refinement level
  * on the two sides. This function performs prolongation of all variables on the 
  * fine side of all hanging faces. By default prolongation is performed in a second order 
@@ -160,6 +168,10 @@ void prolongate_hanging_ghostzones(
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols 
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols_halo
     , Kokkos::vector<hanging_face_info_t>& hanging_faces
+    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    #ifdef GRACE_3D 
+    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    #endif
 ) ;
 /**************************************************************************************************/
 /*                                  Instantiate templates                                         */
@@ -171,6 +183,11 @@ prolongate_hanging_ghostzones<utils::linear_prolongator_t<grace::minmod>>(
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
     , Kokkos::vector<hanging_face_info_t>& 
+    , Kokkos::vector<hanging_corner_info_t>&
+    #ifdef GRACE_3D 
+    , Kokkos::vector<hanging_edge_info_t>&
+    #endif
+
 ) ;
 /**************************************************************************************************/
 extern template void 
@@ -180,6 +197,10 @@ prolongate_hanging_ghostzones<utils::linear_prolongator_t<grace::MCbeta>>(
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
     , Kokkos::vector<hanging_face_info_t>& 
+    , Kokkos::vector<hanging_corner_info_t>&
+    #ifdef GRACE_3D 
+    , Kokkos::vector<hanging_edge_info_t>&
+    #endif
 ) ; 
 /**************************************************************************************************/
 }}

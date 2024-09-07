@@ -144,6 +144,81 @@ struct linear_prolongator_t
         )
         return u_fine + coarse_view(VEC(i_c,j_c,k_c),ivar,q_c); 
     }
+    #ifdef GRACE_CARTESIAN_COORDINATES
+    /**
+     * @brief Return slope limited interpolated value of coarse 
+     *        state at fine grid point. Overload valid for 
+     *        Cartesian coordinates that does not require 
+     *        cell volumes as input.
+     *
+     * @tparam VarViewT Type of variable view
+     * @tparam CoordViewT Type of quadrant coordinate view
+     * @tparam VolViewT Type of cell volume view
+     * @param i_f x-index of fine cell (ngz-offset)
+     * @param j_f y-index of fine cell (ngz-offset)
+     * @param k_f z-index of fine cell (ngz-offset)
+     * @param i_c x-index of coarse cell (ngz-offset)
+     * @param j_c y-index of coarse cell (ngz-offset)
+     * @param k_c z-index of coarse cell (ngz-offset)
+     * @param q_f Fine quadrant idx 
+     * @param q_c Coarse quadrant idx
+     * @param ngz Number of ghost cells
+     * @param ivar Var index
+     * @param fine_coords Fine quadrant coordinates view
+     * @param coarse_coords Coarse quadrant coordinates view
+     * @param sign_x Whether the fine point lies ahead or behind the 
+     *               center of the coarse cell along the x-axis.
+     * @param sign_y Whether the fine point lies ahead or behind the 
+     *               center of the coarse cell along the y-axis.
+     * @param sign_z Whether the fine point lies ahead or behind the 
+     *               center of the coarse cell along the z-axis.
+     * @param coarse_view Coarse state view
+     * @return double Interpolated value at fine cell.
+     * 
+     * The prolongation operator acts on the coarse data as follows
+     * 
+     * \f[
+     *  U^l_{i_c,j_c,k_c} + \sum_{i_d=1}^{N_d} \Delta\bar{U} 
+     *      \frac{x^{i_d, l+1}_{i_f,j_f,k_f}-x^{i_d, l}_{i_c,j_c,k_c} }{\Delta x^(i_d,l)} 
+     *      \left( 1 - \frac{ V^{l+1}_{i_f,j_f,k_f} }{ \sum V^{l+1}_{i^\prime_f,j^\prime_f,k^\prime_f} } \right)
+     * \f]
+     * Where \f$(i_f,j_f,k_f)\f$ are the indices of the children of cell \f$(i_c,j_c,k_c)\f$
+     * and the partial volume sum extends over the two fine cells along direction \f$i_d\f$.
+     * The limited slope \f$\Delta\bar{U}\f$ is computed with the limiter given by <code>LimT</code>.
+     */
+    template< typename VarViewT >
+    static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    interpolate(  VEC(int i_f, int j_f, int k_f)
+                , VEC(int i_c, int j_c, int k_c)
+                , int64_t q_f, int64_t q_c, int ngz, int ivar
+                , VEC(int const sign_x, int const sign_y, int const sign_z)
+                , VarViewT& coarse_view )
+    {
+        LimT limiter{} ; 
+        double eta ; 
+        double slopeR ; 
+        double slopeL ; 
+        double u_fine{0.};
+        EXPR(
+        eta = sign_x * 0.25 ; 
+        slopeL = coarse_view(VEC(i_c,j_c,k_c),ivar,q_c) - coarse_view(VEC(i_c-1,j_c,k_c),ivar,q_c);
+        slopeR = coarse_view(VEC(i_c+1,j_c,k_c),ivar,q_c) - coarse_view(VEC(i_c,j_c,k_c),ivar,q_c);
+        u_fine += eta*limiter(slopeL,slopeR);,
+        
+        eta = sign_y * 0.25 ; 
+        slopeL = coarse_view(VEC(i_c,j_c,k_c),ivar,q_c) - coarse_view(VEC(i_c,j_c-1,k_c),ivar,q_c);
+        slopeR = coarse_view(VEC(i_c,j_c+1,k_c),ivar,q_c) - coarse_view(VEC(i_c,j_c,k_c),ivar,q_c);
+        u_fine += eta*limiter(slopeL,slopeR);,
+
+        eta = sign_z * 0.25 ; 
+        slopeL = coarse_view(VEC(i_c,j_c,k_c),ivar,q_c) - coarse_view(VEC(i_c,j_c,k_c-1),ivar,q_c);
+        slopeR = coarse_view(VEC(i_c,j_c,k_c+1),ivar,q_c) - coarse_view(VEC(i_c,j_c,k_c),ivar,q_c);
+        u_fine += eta*limiter(slopeL,slopeR);
+        )
+        return u_fine + coarse_view(VEC(i_c,j_c,k_c),ivar,q_c); 
+    }
+
+    #endif 
     /**
      * @brief Return slope limited interpolated value of coarse 
      *        state at fine grid point
@@ -163,12 +238,12 @@ struct linear_prolongator_t
      * @param ivar Var index
      * @param fine_coords Fine quadrant coordinates view
      * @param coarse_coords Coarse quadrant coordinates view
-     * @param fine_dx Fine cell spacing in x-direction
-     * @param fine_dy Fine cell spacing in y-direction
-     * @param fine_dz Fine cell spacing in z-direction
-     * @param coarse_dx Coarse cell spacing in x-direction
-     * @param coarse_dy Coarse cell spacing in y-direction
-     * @param coarse_dz Coarse cell spacing in z-direction
+     * @param sign_x Whether the fine point lies ahead or behind the 
+     *               center of the coarse cell along the first axis.
+     * @param sign_y Whether the fine point lies ahead or behind the 
+     *               center of the coarse cell along the second axis.
+     * @param sign_z Whether the fine point lies ahead or behind the 
+     *               center of the coarse cell along the third axis.
      * @param coarse_view Coarse state view
      * @param fine_vol Fine cell volume view
      * @param coarse_vol Coarse cell volume view
@@ -222,25 +297,6 @@ struct linear_prolongator_t
         slopeR = coarse_view(VEC(i_c,j_c,k_c+1),ivar,q_c) - coarse_view(VEC(i_c,j_c,k_c),ivar,q_c);
         u_fine += eta*limiter(slopeL,slopeR);
         )
-        #if 0
-        EXPR(
-        eta = sign_x * 0.25 ; 
-        slopeL = coarse_view(VEC(i_c,j_c,k_c),ivar,q_c) - coarse_view(VEC(i_c-1,j_c,k_c),ivar,q_c);
-        slopeR = coarse_view(VEC(i_c+1,j_c,k_c),ivar,q_c) - coarse_view(VEC(i_c,j_c,k_c),ivar,q_c);
-        u_fine += eta*limiter(slopeL,slopeR);,
-        
-        eta = sign_y * 0.25; 
-        slopeL = coarse_view(VEC(i_c,j_c,k_c),ivar,q_c) - coarse_view(VEC(i_c,j_c-1,k_c),ivar,q_c);
-        slopeR = coarse_view(VEC(i_c,j_c+1,k_c),ivar,q_c) - coarse_view(VEC(i_c,j_c,k_c),ivar,q_c);
-        u_fine += eta*limiter(slopeL,slopeR);,
-
-        eta = sign_z * 0.25 ; 
-        slopeL = coarse_view(VEC(i_c,j_c,k_c),ivar,q_c) - coarse_view(VEC(i_c,j_c,k_c-1),ivar,q_c);
-        slopeR = coarse_view(VEC(i_c,j_c,k_c+1),ivar,q_c) - coarse_view(VEC(i_c,j_c,k_c),ivar,q_c);
-        u_fine += eta*limiter(slopeL,slopeR);
-
-        )
-        #endif
         return u_fine + coarse_view(VEC(i_c,j_c,k_c),ivar,q_c); 
     }
 } ; 

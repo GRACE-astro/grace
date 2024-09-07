@@ -238,8 +238,8 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
         , neighbor_info.face_info.hanging_interior_info.size() 
         , neighbor_info.face_info.n_hanging_ghost_faces 
         , neighbor_info.face_info.phys_boundary_info.size()
-        , neighbor_info.face_info.coarse_hanging_quads_info.snd_quadid.size()  
-        , neighbor_info.face_info.coarse_hanging_quads_info.rcv_quadid.size() ) ; 
+        , neighbor_info.coarse_hanging_quads_info.snd_quadid.size()  
+        , neighbor_info.coarse_hanging_quads_info.rcv_quadid.size() ) ; 
     GRACE_VERBOSE("After iter-edges: obtained\n"
         "{:d} edges in total of which "
         "{:d} edges facing the exterior\n"
@@ -320,12 +320,17 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
             , halo 
             , vols 
             , halo_vols
-            , hanging_interior_face_info) ;
+            , hanging_interior_face_info
+            , hanging_interior_corner_info 
+            #ifdef GRACE_3D 
+            , hanging_interior_edge_info
+            #endif 
+            ) ;
     Kokkos::fence() ; 
     /******************************************************/
     /*       2) Exchange coarse quadrants again           */
     /******************************************************/
-    auto coarse_hanging_info = neighbor_info.face_info.coarse_hanging_quads_info ; 
+    auto coarse_hanging_info = neighbor_info.coarse_hanging_quads_info ; 
     context.reset() ; 
     for(int ircv=0; ircv<coarse_hanging_info.rcv_quadid.size(); ++ircv){
         int ihalo = coarse_hanging_info.rcv_quadid[ircv] ; 
@@ -379,14 +384,24 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
                     , halo 
                     , vols 
                     , halo_vols
-                    , hanging_interior_face_info) ; 
+                    , hanging_interior_face_info
+                    , hanging_interior_corner_info 
+                    #ifdef GRACE_3D 
+                    , hanging_interior_edge_info
+                    #endif 
+                    ) ; 
         } else if ( limiter == "monotonized-central") {
             prolongate_hanging_ghostzones<utils::linear_prolongator_t<grace::MCbeta>>(
                       vars 
                     , halo 
                     , vols 
                     , halo_vols
-                    , hanging_interior_face_info) ;
+                    , hanging_interior_face_info
+                    , hanging_interior_corner_info 
+                    #ifdef GRACE_3D 
+                    , hanging_interior_edge_info
+                    #endif 
+                    ) ;
         } else {
             ERROR("Unsupported limiter in ghost-zone exchange.") ; 
         }

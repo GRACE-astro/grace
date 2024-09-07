@@ -45,8 +45,8 @@ struct simple_face_info_t
 {
     int has_polarity_flip;
     int is_ghost     ; 
-    int which_face_a ; 
-    int which_face_b ; 
+    int8_t which_face_a ; 
+    int8_t which_face_b ; 
     int64_t qid_a    ;
     int64_t qid_b    ; 
     int which_tree_a ; 
@@ -80,8 +80,8 @@ struct hanging_face_info_t
 struct simple_edge_info_t 
 {
     int is_ghost     ; 
-    int which_edge_a ; 
-    int which_edge_b ; 
+    int8_t which_edge_a ; 
+    int8_t which_edge_b ; 
     int64_t qid_a    ;
     int64_t qid_b    ; 
     int which_tree_a ; 
@@ -114,8 +114,8 @@ struct hanging_edge_info_t
 struct simple_corner_info_t 
 {
     int is_ghost     ; 
-    int which_corner_a ; 
-    int which_corner_b ; 
+    int8_t which_corner_a ; 
+    int8_t which_corner_b ; 
     int64_t qid_a    ;
     int64_t qid_b    ; 
     int which_tree_a ; 
