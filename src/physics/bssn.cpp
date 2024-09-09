@@ -203,21 +203,21 @@ compute_bssn_rhs( grace::var_array_t<GRACE_NSPACEDIM> const state
     double const betaZdz=grace::fd_der<der_order,2>(state,BETAZ_,VEC(i,j,k),q);
 
     // second derivatives of the shift vector components (with upper indices)
-    // x-component
+    // x-components
     double const betaXdxdx=grace::fd_der<der_order,0,0>(state,BETAX_,VEC(i,j,k),q);
     double const betaXdxdy=grace::fd_der<der_order,0,1>(state,BETAX_,VEC(i,j,k),q);
     double const betaXdxdz=grace::fd_der<der_order,0,2>(state,BETAX_,VEC(i,j,k),q);
     double const betaXdydy=grace::fd_der<der_order,1,1>(state,BETAX_,VEC(i,j,k),q);
     double const betaXdydz=grace::fd_der<der_order,1,2>(state,BETAX_,VEC(i,j,k),q);
     double const betaXdzdz=grace::fd_der<der_order,2,2>(state,BETAX_,VEC(i,j,k),q);
-    // y-component
+    // y-components
     double const betaYdxdx=grace::fd_der<der_order,0,0>(state,BETAY_,VEC(i,j,k),q);
     double const betaYdxdy=grace::fd_der<der_order,0,1>(state,BETAY_,VEC(i,j,k),q);
     double const betaYdxdz=grace::fd_der<der_order,0,2>(state,BETAY_,VEC(i,j,k),q);
     double const betaYdydy=grace::fd_der<der_order,1,1>(state,BETAY_,VEC(i,j,k),q);
     double const betaYdydz=grace::fd_der<der_order,1,2>(state,BETAY_,VEC(i,j,k),q);
     double const betaYdzdz=grace::fd_der<der_order,2,2>(state,BETAY_,VEC(i,j,k),q);
-    // z-component
+    // z-components
     double const betaZdxdx=grace::fd_der<der_order,0,0>(state,BETAZ_,VEC(i,j,k),q);
     double const betaZdxdy=grace::fd_der<der_order,0,1>(state,BETAZ_,VEC(i,j,k),q);
     double const betaZdxdz=grace::fd_der<der_order,0,2>(state,BETAZ_,VEC(i,j,k),q);
@@ -273,7 +273,7 @@ compute_bssn_rhs( grace::var_array_t<GRACE_NSPACEDIM> const state
     double const Atzz=state(VEC(i,j,k),ATZZ_,q);
 
     // in order to reduce the number of terms in the BSSN equations it is usefull to 
-    // to use implicit definitions of upper-lower and upper-upper index components
+    // use implicit definitions of upper-lower and upper-upper index components
     // of the conformal (tilde) trace-free extrinsic curvature. (AtudCode in Mathematica notebook BSSN.nb)
     // first index raised 
     double const AtXx=(Atxx*gtXX + Atxy*gtXY + Atxz*gtXZ)*(phi*phi);
@@ -425,14 +425,14 @@ compute_bssn_rhs( grace::var_array_t<GRACE_NSPACEDIM> const state
     double const Rtzz=-(Gammat113*Gammat113) - Gammat113dz + Gammat111*Gammat133 + Gammat133dx + Gammat133*Gammat212 - 2*Gammat123*Gammat213 - Gammat223*Gammat223 - Gammat223dz + Gammat112*Gammat233 + Gammat222*Gammat233 + Gammat233dy - Gammat133*Gammat313 - Gammat233*Gammat323 + Gammat113*Gammat333 + Gammat223*Gammat333;
 
     // components of the phi contribution to the relation between the Ricci tensor and the conformal Ricci tensor: Rdd=Rtdd+Rtphidd 
-    double const Rtphixx= (-(Gammat111*phidx) + phidxdx - Gammat211*phidy - Gammat311*phidz + (gtxx*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
-    double const Rtphixy= (-(Gammat112*phidx) + phidxdy - Gammat212*phidy - Gammat312*phidz + (gtxy*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
-    double const Rtphixz= (-(Gammat113*phidx) + phidxdz - Gammat213*phidy - Gammat313*phidz + (gtxz*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
-    double const Rtphiyy= (-(Gammat122*phidx) - Gammat222*phidy + phidydy - Gammat322*phidz + (gtyy*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
-    double const Rtphiyz= (-(Gammat123*phidx) - Gammat223*phidy + phidydz - Gammat323*phidz + (gtyz*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
-    double const Rtphizz= (-(Gammat133*phidx) - Gammat233*phidy - Gammat333*phidz + phidzdz + (gtzz*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
+    double const Rtphixx=(-(Gammat111*phidx) + phidxdx - Gammat211*phidy - Gammat311*phidz + (gtxx*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
+    double const Rtphixy=(-(Gammat112*phidx) + phidxdy - Gammat212*phidy - Gammat312*phidz + (gtxy*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
+    double const Rtphixz=(-(Gammat113*phidx) + phidxdz - Gammat213*phidy - Gammat313*phidz + (gtxz*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
+    double const Rtphiyy=(-(Gammat122*phidx) - Gammat222*phidy + phidydy - Gammat322*phidz + (gtyy*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
+    double const Rtphiyz=(-(Gammat123*phidx) - Gammat223*phidy + phidydz - Gammat323*phidz + (gtyz*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
+    double const Rtphizz=(-(Gammat133*phidx) - Gammat233*phidy - Gammat333*phidz + phidzdz + (gtzz*(-2 + phi)*(-9*GammatX*phidx + gtXX*phidxdx + 2*gtXY*phidxdy + 2*gtXZ*phidxdz - 9*GammatY*phidy + gtYY*phidydy + 2*gtYZ*phidydz - 9*GammatZ*phidz + gtZZ*phidzdz))/phi)/phi;
     
-    // components of Ricci tensor
+    // components of the Ricci tensor
     double const Rxx=Rtxx+Rtphixx;
     double const Rxy=Rtxy+Rtphixy;
     double const Rxz=Rtxz+Rtphixz;
@@ -466,6 +466,18 @@ compute_bssn_rhs( grace::var_array_t<GRACE_NSPACEDIM> const state
     double const GammatXdt=(-6*(alpdx*AtXX + alpdy*AtXY + alpdz*AtXZ) - 3*betaXdx*GammatX + 2*(betaXdx + betaYdy + betaZdz)*GammatX + 3*betaX*GammatXdx + 3*betaY*GammatXdy + 3*betaZ*GammatXdz - 3*betaXdy*GammatY - 3*betaXdz*GammatZ + 4*betaXdxdx*gtXX + betaYdxdy*gtXX + betaZdxdz*gtXX + 7*betaXdxdy*gtXY + betaYdydy*gtXY + betaZdydz*gtXY + 7*betaXdxdz*gtXZ + betaYdydz*gtXZ + betaZdzdz*gtXZ + 3*betaXdydy*gtYY + 6*betaXdydz*gtYZ + 3*betaXdzdz*gtZZ + 6*alp*(AtXX*Gammat111 + 2*AtXY*Gammat112 + 2*AtXZ*Gammat113 + AtYY*Gammat122 + 2*AtYZ*Gammat123 + AtZZ*Gammat133 - (2*(gtXX*Kdx + gtXY*Kdy + gtXZ*Kdz))/3. - (3*(AtXX*phidx + AtXY*phidy + AtXZ*phidz))/phi) - 48*alp*pi*(gtXX*Sx + gtXY*Sy + gtXZ*Sz))/3.;
     double const GammatYdt=(-6*(alpdx*AtXY + alpdy*AtYY + alpdz*AtYZ) - 3*betaYdx*GammatX - 3*betaYdy*GammatY + 2*(betaXdx + betaYdy + betaZdz)*GammatY + 3*betaX*GammatYdx + 3*betaY*GammatYdy + 3*betaZ*GammatYdz - 3*betaYdz*GammatZ + 3*betaYdxdx*gtXX + betaXdxdx*gtXY + 7*betaYdxdy*gtXY + betaZdxdz*gtXY + 6*betaYdxdz*gtXZ + betaXdxdy*gtYY + 4*betaYdydy*gtYY + betaZdydz*gtYY + betaXdxdz*gtYZ + 7*betaYdydz*gtYZ + betaZdzdz*gtYZ + 3*betaYdzdz*gtZZ + 6*alp*(AtXX*Gammat211 + 2*AtXY*Gammat212 + 2*AtXZ*Gammat213 + AtYY*Gammat222 + 2*AtYZ*Gammat223 + AtZZ*Gammat233 - (2*(gtXY*Kdx + gtYY*Kdy + gtYZ*Kdz))/3. - (3*(AtXY*phidx + AtYY*phidy + AtYZ*phidz))/phi) - 48*alp*pi*(gtXY*Sx + gtYY*Sy + gtYZ*Sz))/3.;
     double const GammatZdt=(-6*(alpdx*AtXZ + alpdy*AtYZ + alpdz*AtZZ) - 3*betaZdx*GammatX - 3*betaZdy*GammatY - 3*betaZdz*GammatZ + 2*(betaXdx + betaYdy + betaZdz)*GammatZ + 3*betaX*GammatZdx + 3*betaY*GammatZdy + 3*betaZ*GammatZdz + 3*betaZdxdx*gtXX + 6*betaZdxdy*gtXY + betaXdxdx*gtXZ + betaYdxdy*gtXZ + 7*betaZdxdz*gtXZ + 3*betaZdydy*gtYY + betaXdxdy*gtYZ + betaYdydy*gtYZ + 7*betaZdydz*gtYZ + betaXdxdz*gtZZ + betaYdydz*gtZZ + 4*betaZdzdz*gtZZ + 6*alp*(AtXX*Gammat311 + 2*AtXY*Gammat312 + 2*AtXZ*Gammat313 + AtYY*Gammat322 + 2*AtYZ*Gammat323 + AtZZ*Gammat333 - (2*(gtXZ*Kdx + gtYZ*Kdy + gtZZ*Kdz))/3. - (3*(AtXZ*phidx + AtYZ*phidy + AtZZ*phidz))/phi) - 48*alp*pi*(gtXZ*Sx + gtYZ*Sy + gtZZ*Sz))/3.;
+
+    // 1+log slicing condition
+    double const muL=2/alp;
+    double const muS=1/(alp**alp);
+
+    // gauge condition for the lapse function
+    double const alpdt=alpdx*betaX + alpdy*betaY + alpdz*betaZ - alp*alp*K*muL;
+
+    // gauge condition for the shift vector
+    double const betaXdt=betaXdy*betaY + betaXdz*betaZ + betaX*(betaXdx - eta) + alp*alp*GammatX*muS;
+    double const betaYdt=betaX*betaYdx + betaYdz*betaZ + betaY*(betaYdy - eta) + alp*alp*GammatY*muS;
+    double const betaZdt=betaX*betaZdx + betaY*betaZdy + betaZ*betaZdz - betaZ*eta + alp*alp*GammatZ*muS;
 
     /*
      * state --> contains all evolved variables 
