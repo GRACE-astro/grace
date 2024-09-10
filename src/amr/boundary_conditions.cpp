@@ -268,8 +268,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     
     /******************************************************/
     /* Third step:                                        */
-    /* Copy and prolongate/restrict face data from        */
-    /* internal boundaries.                               */
+    /* Copy and data from internal boundaries.            */
     /******************************************************/
     std::string interp = params["amr"]["prolongation_interpolator_type"].as<std::string>(); 
     std::string limiter = params["amr"]["prolongation_limiter_type"].as<std::string>();
@@ -297,7 +296,8 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
                             #endif 
                             ) ; 
     /******************************************************/
-    /*       Restrict and prolongate hanging faces        */
+    /* Fourth step:                                       */
+    /* Restrict data on internal hanging boundaries.      */
     /******************************************************/
     GRACE_VERBOSE( "Restricting and prolongating data on "
     "interior ghostzones across hanging boundaries on " 
@@ -313,7 +313,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     hanging_interior_edge_info.host_to_device() ; 
     #endif 
     /******************************************************/
-    /*       1) Restriction                               */
+    /*          Restriction                               */
     /******************************************************/
     restrict_hanging_ghostzones(
               vars 
@@ -326,9 +326,36 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
             , hanging_interior_edge_info
             #endif 
             ) ;
+    /******************************************************/
+    /* Fifth step:                                        */
+    /* Apply physical boundary conditions.                */
+    /******************************************************/
+    auto phys_boundary_info = neighbor_info.face_info.phys_boundary_info ; 
+    phys_boundary_info.host_to_device() ; 
+    for(int ivar=0; ivar<nvars; ++ivar){
+        auto bc_type = variables::get_bc_type(ivar) ; 
+        if( bc_type == "outgoing" )
+        {
+            auto var = Kokkos::subview( vars
+                                      , VEC( Kokkos::ALL() 
+                                           , Kokkos::ALL() 
+                                           , Kokkos::ALL() )
+                                      , ivar 
+                                      , Kokkos::ALL() ) ; 
+            apply_phys_bc<outgoing_bc_t>(
+                  var
+                , phys_boundary_info
+            ) ; 
+        } else if (bc_type == "none" ) {
+            /* Nothing to do here */
+        } else {
+            ERROR("Unrecognized bc type for variable " << ivar << ".\n") ;
+        }
+    }
     Kokkos::fence() ; 
     /******************************************************/
-    /*       2) Exchange coarse quadrants again           */
+    /* Sixth step:                                        */
+    /* Exchange coarse quadrants again                    */
     /******************************************************/
     auto coarse_hanging_info = neighbor_info.coarse_hanging_quads_info ; 
     context.reset() ; 
@@ -373,7 +400,8 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
         }         
     }
     /******************************************************/
-    /*       3) Prolongation                              */
+    /* Seventh step:                                      */
+    /* Exchange coarse quadrants again                    */
     /******************************************************/
     parallel::mpi_waitall(context) ;
     GRACE_VERBOSE("Initiating prolongation on {} quadrants.", hanging_interior_face_info.size());
@@ -408,33 +436,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     } else {
         ERROR("Unsupported interpolator in ghost-zone exchange.") ; 
     }
-    Kokkos::fence() ; 
-    /******************************************************/
-    /* Fourth step:                                       */
-    /* Apply physical boundary conditions.                */
-    /******************************************************/
-    auto phys_boundary_info = neighbor_info.face_info.phys_boundary_info ; 
-    phys_boundary_info.host_to_device() ; 
-    for(int ivar=0; ivar<nvars; ++ivar){
-        auto bc_type = variables::get_bc_type(ivar) ; 
-        if( bc_type == "outgoing" )
-        {
-            auto var = Kokkos::subview( vars
-                                      , VEC( Kokkos::ALL() 
-                                           , Kokkos::ALL() 
-                                           , Kokkos::ALL() )
-                                      , ivar 
-                                      , Kokkos::ALL() ) ; 
-            apply_phys_bc<outgoing_bc_t>(
-                  var
-                , phys_boundary_info
-            ) ; 
-        } else if (bc_type == "none" ) {
-            /* Nothing to do here */
-        } else {
-            ERROR("Unrecognized bc type for variable " << ivar << ".\n") ;
-        }
-    }
+    Kokkos::fence() ;
     /******************************************************/
     /* De-allocate halo quadrant data                     */
     /******************************************************/

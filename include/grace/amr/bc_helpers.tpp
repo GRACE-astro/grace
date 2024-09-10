@@ -51,7 +51,8 @@ template< typename BCT
         , typename ViewT >
 void apply_phys_bc(
     ViewT& u,
-    Kokkos::vector<int64_t>& face_info ) 
+    Kokkos::vector<int64_t>& face_info
+  ) 
 {     
   using namespace grace ;
   using namespace Kokkos  ; 

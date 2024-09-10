@@ -57,6 +57,13 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
     auto& physical_boundary_info = face_info.phys_boundary_info ; 
     auto& simple_info    = face_info.simple_interior_info       ;
     auto& hanging_info   = face_info.hanging_interior_info      ;
+    /*************************************************************/
+    /* This is a vector storing all the unique hanging faces     */
+    /* in the local forest. It does so in the format             */
+    /* hanging_faces_info[ P4EST_FACES * iquad + iface ] = 0 / 1 */
+    /*************************************************************/
+    auto& hanging_faces_info  = 
+        reinterpret_cast<grace_neighbor_info_t*>(user_data)->fine_hanging_faces_info   ; 
     auto& coarse_hanging_info = 
         reinterpret_cast<grace_neighbor_info_t*>(user_data)->coarse_hanging_quads_info ; 
     /**************************************************/
@@ -123,6 +130,7 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
         this_face_info.is_ghost_coarse   = sides[0].is.full.is_ghost ; 
         this_face_info.qid_coarse        = sides[0].is.full.quadid   
             + ( this_face_info.is_ghost_coarse ? 0 : get_local_quadrants_offset(sides[0].treeid)  ) ; 
+        
         /* Collect fine quadrant information */
         int any_fine_ghost{0} ; 
         for(int ii=0; ii<P4EST_CHILDREN/2; ++ii) {
@@ -132,7 +140,11 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
                 + ( this_face_info.is_ghost_fine[ii] ? 0 : get_local_quadrants_offset(sides[1].treeid)  ) ; 
             ASSERT_DBG(this_face_info.is_ghost_fine[ii] == 0 or this_face_info.is_ghost_fine[ii] == 1
                       , "Is ghost fine neither true or false.") ; 
-            ASSERT_DBG(this_face_info.qid_fine[ii]>=0, "Negative quadrant id in grace iter faces.") ; 
+            ASSERT_DBG(this_face_info.qid_fine[ii]>=0, "Negative quadrant id in grace iter faces.") ;
+            if( ! this_face_info.is_ghost_fine[ii] ) {
+                /* add this information to the hanging_faces_info data structure */
+                hanging_faces_info[P4EST_FACES * this_face_info.qid_fine[ii] + this_face_info.which_face_fine ] = 1 ;
+            }
         }
         
         if( this_face_info.is_ghost_coarse ) { 
@@ -196,6 +208,10 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
             ASSERT_DBG(this_face_info.is_ghost_fine[ii] == 0 or this_face_info.is_ghost_fine[ii] == 1
                       , "Is ghost fine neither true or false.") ; 
             ASSERT_DBG(this_face_info.qid_fine[ii]>=0, "Negative quadrant id in grace iter faces.") ; 
+            if( ! this_face_info.is_ghost_fine[ii] ) {
+                /* add this information to the hanging_faces_info data structure */
+                hanging_faces_info[P4EST_FACES * this_face_info.qid_fine[ii] + this_face_info.which_face_fine ] = 1 ;
+            }
         }
         if( this_face_info.is_ghost_coarse ) { 
             /* If the coarse quadrant is not local, we add the coarse quad */
@@ -293,8 +309,24 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
     /* Physical boundaries are handled by face neighbors no need to store it here. */
     auto& simple_info         = edge_info.simple_interior_info      ;
     auto& hanging_info        = edge_info.hanging_interior_info     ;
+    auto& phys_boundary_info        = edge_info.simple_phys_boundary_info     ;
+    auto& hanging_phys_boundary_info = edge_info.hanging_phys_boundary_info ; 
     auto& coarse_hanging_info = 
         reinterpret_cast<grace_neighbor_info_t*>(user_data)->coarse_hanging_quads_info ; 
+    /*************************************************************/
+    /* This is a vector storing all the unique hanging faces     */
+    /* in the local forest. It does so in the format             */
+    /* hanging_faces_info[ P4EST_FACES * iquad + iface ] = 0 / 1 */
+    /*************************************************************/
+    auto& hanging_faces_info  = 
+        reinterpret_cast<grace_neighbor_info_t*>(user_data)->fine_hanging_faces_info   ;
+    /*************************************************************/
+    /* This is a vector storing all the unique hanging edges     */
+    /* in the local forest. It does so in the format             */
+    /* hanging_edges_info[ P8EST_EDGES * iquad + iedge ] = 0 / 1 */
+    /*************************************************************/ 
+    auto& hanging_edges_info  = 
+        reinterpret_cast<grace_neighbor_info_t*>(user_data)->fine_hanging_edges_info   ; 
     /**************************************************/
     /* This means we are at a physical boundary       */
     /* we store the index in user_info and return     */
@@ -303,6 +335,65 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
     /**************************************************/
     edge_info.n_edges_total ++ ; 
     if( sides.size() < 4 ) { 
+        /*************************************************************/
+        /* This section of code performs the following operations    */
+        /* For each side of the edge (meaning each quadrant touching */
+        /* this edge):                                               */
+        /*   i) Check if the quadrant(s) is(are) local or ghost      */
+        /*  ii) If local, checks whether any of the faces touching   */
+        /*      the edge are hanging.                                */
+        /* iii) If hanging, store qid and edgeid info in the hanging */
+        /*      phys_bc vector, else in the simple_phys_bc vector    */
+        /*************************************************************/
+        auto nsides = sides.size() ; 
+        auto const is_hanging = [&] (int64_t qid, int8_t edge) {
+            /* I think that if the side of the */
+            /* edge is hanging it is enough to */
+            /* check one of the two quadrants. */
+            for( int iff=0; iff<2; ++iff) {
+                // first get the quadid 
+                int8_t face = p8est_edge_faces[edge][iff] ; 
+                if( hanging_faces_info[P4EST_FACES * qid + face] ) {
+                    return true ; 
+                }
+            }
+            return false ; 
+        } ;  
+        for( int iside=0; iside<nsides; ++iside) { 
+            auto& side = sides[iside] ; 
+            if( side.is_hanging ) {
+                for( int ic=0; ic<2; ++ic){
+                    if( side.is.hanging.is_ghost[ic])
+                        continue ;
+                    int64_t const qid =  
+                        side.is.hanging.quadid[ic] + amr::get_local_quadrants_offset(side.treeid);
+                    int8_t const edge = side.edge ;
+                    int64_t this_edge_info = 
+                        P4EST_CHILDREN * qid + edge ; 
+                    if ( is_hanging(qid,edge) ) {
+                        hanging_phys_boundary_info.push_back(this_edge_info) ; 
+                    } else {
+                        phys_boundary_info.push_back(this_edge_info) ; 
+                    }
+                }
+
+            } else {
+                if( side.is.full.is_ghost)
+                    continue ; 
+                int64_t const qid =  
+                    side.is.full.quadid + amr::get_local_quadrants_offset(side.treeid);
+                int8_t const edge = side.edge ;
+                int64_t this_edge_info = 
+                    P4EST_CHILDREN * qid + edge ; 
+                if ( is_hanging(qid,edge) ) {
+                    hanging_phys_boundary_info.push_back(this_edge_info) ; 
+                } else {
+                    phys_boundary_info.push_back(this_edge_info) ; 
+                }
+            }
+            
+        }
+
         edge_info.n_exterior_edges ++ ; 
         return ; 
     }
@@ -416,9 +507,12 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
                 this_edge_info.is_ghost_fine[ii] = sidea.is.hanging.is_ghost[ii] ; 
                 this_edge_info.qid_fine[ii] = sidea.is.hanging.quadid[ii]
                     + (this_edge_info.is_ghost_fine[ii] ? 0 : get_local_quadrants_offset(sidea.treeid)) ;
-                any_fine_ghost += this_edge_info.is_ghost_fine[ii] ;  
+                any_fine_ghost += this_edge_info.is_ghost_fine[ii] ;
+                /* Store info about hanging edge for use in iterate_corners */
+                if( !this_edge_info.is_ghost_fine[ii] )
+                    hanging_edges_info[ P8EST_EDGES * this_edge_info.qid_fine[ii] + this_edge_info.which_edge_fine ] = 1 ; 
             }
-            #if 0 
+            #if 0
             if( this_edge_info.is_ghost_coarse ) {
                 /* If the coarse quadrant is not local, we add the coarse quad */
                 /* to the list of those that have to be received after the     */               
@@ -478,8 +572,11 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
                 this_edge_info.qid_fine[ii] = sideb.is.hanging.quadid[ii]
                     + (this_edge_info.is_ghost_fine[ii] ? 0 : get_local_quadrants_offset(sideb.treeid)) ; 
                 any_fine_ghost += this_edge_info.is_ghost_fine[ii];
+                /* Store info about hanging edge for use in iterate_corners */
+                if( !this_edge_info.is_ghost_fine[ii] )
+                    hanging_edges_info[ P8EST_EDGES * this_edge_info.qid_fine[ii] + this_edge_info.which_edge_fine ] = 1 ; 
             }
-            #if 0 
+            #if 0
             if( this_edge_info.is_ghost_coarse ) {
                 /* If the coarse quadrant is not local, we add the coarse quad */
                 /* to the list of those that have to be received after the     */               
@@ -574,8 +671,21 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
         &(info->sides)
     } ; 
     /* Physical boundaries are handled by face neighbors no need to store it here. */
-    auto& simple_info         = corner_info.simple_interior_info      ;
-    auto& hanging_info        = corner_info.hanging_interior_info     ;
+    auto& simple_info         = corner_info.simple_interior_info         ;
+    auto& hanging_info        = corner_info.hanging_interior_info        ;
+    #if 1
+    auto& phys_boundary_info  = corner_info.simple_phys_boundary_info         ; 
+    auto& hanging_phys_boundary_info = corner_info.hanging_phys_boundary_info ; 
+    /*************************************************************/
+    /* This is a vector storing all the unique hanging edges     */
+    /* in the local forest. It does so in the format             */
+    /* hanging_edges_info[ P8EST_EDGES * iquad + iedge ] = 0 / 1 */
+    /*************************************************************/ 
+    auto& hanging_edges_info  = 
+        reinterpret_cast<grace_neighbor_info_t*>(user_data)->fine_hanging_edges_info   ; 
+    auto& hanging_faces_info  = 
+        reinterpret_cast<grace_neighbor_info_t*>(user_data)->fine_hanging_faces_info   ; 
+    #endif 
     auto& coarse_hanging_info = 
         reinterpret_cast<grace_neighbor_info_t*>(user_data)->coarse_hanging_quads_info ; 
     /**************************************************/
@@ -585,6 +695,107 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
     /* separately.                                    */
     /**************************************************/
     if( sides.size() < P4EST_CHILDREN ) { 
+        /**********************************************************************/
+        /* First we determine if any faces or edges sharing this corner are   */
+        /* hanging. Reasons to check this:                                    */
+        /*   i) Hanging edges indicate that boundary conditions (BCs) depend  */
+        /*      on ghost-zones filled by prolongation at the end. If no edges */
+        /*      are hanging, BCs must be filled before the second coarse halo */
+        /*      transfer to ensure all ghost-zones are populated.             */
+        /*  ii) Hanging faces signify an interior face. Additionally, there   */
+        /*      will be another corner connected to this face that is not a   */
+        /*      corner for the neighboring quadrant. This requires additional */
+        /*      information about that corner.                                */
+        /* Once determined, if the quadrant is local, store its info in the   */
+        /* appropriate vector: (P4EST_CHILDREN * qid + icorner). Use          */
+        /* simple_bc_info for case i) and hanging_bc_info for case ii).       */
+        /**********************************************************************/
+        #if 1
+        auto nsides = sides.size() ;
+        /* Figure out if any edge connected to this corner is hanging */ 
+        auto const is_edge_hanging = [&] (int64_t qid, int8_t corner) {
+            for( int iff=0; iff<3; ++iff) {
+                int8_t edge = p8est_corner_edges[corner][iff] ; 
+                if( hanging_edges_info[P8EST_EDGES * qid + edge] ) {
+                    return true ; 
+                }
+            }
+            return false ; 
+        } ; 
+        /* Figure out if a face is hanging */ 
+        auto const is_face_hanging = [&] (int64_t qid, int8_t face) {
+            if( hanging_faces_info[P4EST_FACES * qid + face] ) {
+                return true ; 
+            }
+            return false ; 
+        } ;
+
+        /* Get the edge shared by a face and a corner           */
+        auto const get_edge = [&] ( int8_t face, int8_t corner ) {
+            for( int ie=0; ie<3; ++ie) {
+                auto edgei = p8est_corner_edges[corner][ie] ; 
+                for( int je=0; je<4; ++je) {
+                    auto edgej = p8est_face_edges[face][je] ; 
+                    if ( edgei == edgej ) {
+                        return edgei ; 
+                    }
+                }
+            }
+            return -1 ;
+        } ;
+        /* Get the other corner on the edge shared by a corner and a face */
+        auto const get_other_corner = [&] ( int8_t face, int8_t corner ) -> int8_t {
+            int8_t edge = get_edge(face,corner) ; 
+            for( int ic=0; ic<2; ++ic){
+                int8_t other_corner = p8est_edge_corners[edge][ic]; 
+                if (other_corner != corner) {
+                    return other_corner ; 
+                }
+            }
+            return -1 ; 
+        } ; 
+        /* Loop over sides of this corner and figure out if they are local */
+        for( int iside=0; iside<nsides; ++iside) { 
+            auto& side = sides[iside] ; 
+            if( side.is_ghost ) 
+                continue ; 
+            // Get quadrant id (with tree offset)
+            int64_t qid   = 
+                side.quadid + amr::get_local_quadrants_offset(side.treeid);
+            // Get this corner code 
+            int8_t corner = side.corner ; 
+            // This is what we will store in the vector
+            int64_t this_corner_info = 
+                P4EST_CHILDREN * qid + corner ; 
+            // Is any edge hanging? If so store in hanging_bc vec otherwise simple_bc
+            if ( is_edge_hanging(qid, corner) ) {
+                hanging_phys_boundary_info.push_back(this_corner_info) ; 
+            } else {
+                phys_boundary_info.push_back(this_corner_info) ; 
+            }
+            /*********************************************************/
+            /* Now figure out if any face is hanging. If so, we need */
+            /* to also store the other corner on the same edge since */
+            /* that corner will not be looped over by p4est_iterate  */
+            /*********************************************************/
+            for( int iff=0 ; iff< 3; ++iff){
+                int8_t face = p8est_corner_faces[corner][iff] ; 
+                /* Nothing to be done if the face does not */
+                /* hang.                                   */
+                if( !is_face_hanging(qid,face) ) 
+                    continue ; 
+                /* Find the other corner on the edge sharing */ 
+                /* corner and face.                          */
+                int8_t other_corner = get_other_corner(face,corner) ;
+                // Store it hanging vec, this is ALWAYS hanging
+                hanging_phys_boundary_info.push_back(
+                    P4EST_CHILDREN * qid + other_corner
+                ) ;
+            }
+            
+        }
+        #endif 
+        // Since this was a physical boundary we return now.
         return ; 
     }
     ASSERT(  sides.size() == P4EST_CHILDREN
@@ -592,9 +803,9 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
     /***************************************************/
     /* Group quadrants in 4 pairs of true corner       */
     /* neighbors by checking which of them share a face*/
+    /* or an edge.                                     */
     /***************************************************/
-    int side_idx_pairs[4][2] ; 
-    
+    int side_idx_pairs[4][2] ;
     auto is_corner_neighbor = [&](int i, int j) {
         for (int iff = 0; iff < 3; ++iff) {
             for (int jff = 0; jff < 3; ++jff) {
@@ -631,7 +842,6 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
     /* or hanging, the quadid's involved on either side*/
     /* etc. in the following.                          */
     /***************************************************/
-    
     for( int i=0 ; i<4; ++i) {
         auto const& sidea = sides[side_idx_pairs[i][0]] ; 
         auto const& sideb = sides[side_idx_pairs[i][1]] ; 

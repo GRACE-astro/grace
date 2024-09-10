@@ -56,6 +56,7 @@ struct outgoing_bc_t
                          + (face==5) * (n0+ngz-1)
                          + (face/2==0) * (k), 
                          + (face/2==1) * (k))  ;)
+      #pragma unroll 
       for(int ig=0; ig<ngz; ++ig)
       {
             EXPR(

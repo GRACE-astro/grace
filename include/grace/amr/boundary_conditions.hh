@@ -29,6 +29,7 @@
 #define GRACE_AMR_BC_HH 
 
 #include <grace/data_structures/variable_properties.hh>
+#include <grace/amr/amr_functions.hh>
 
 #include <Kokkos_Vector.hpp>
 
@@ -153,6 +154,56 @@ struct hanging_coarse_quadrant_info_t
     std::vector<int>     rcv_procid ; 
 } ; 
 /**
+ * @brief Struct containing information about which 
+ *        faces in the local forest are hanging.
+ * \ingroup amr
+ * The default constructor initializes the underlying 
+ * container to the correct size and fills it with zeroes.
+ */
+struct hanging_fine_face_info_t 
+{
+    std::vector<std::uint8_t> _is_hanging ; 
+
+    hanging_fine_face_info_t() 
+     : _is_hanging( P4EST_FACES * amr::get_local_num_quadrants(), 0)
+    {}
+
+    std::uint8_t& operator[] (size_t const& i)
+    {
+        return _is_hanging[i] ; 
+    }
+
+    std::uint8_t operator[] (size_t const& i) const 
+    {
+        return _is_hanging[i] ; 
+    }
+} ; 
+/**
+ * @brief Struct containing information about which 
+ *        edges in the local forest are hanging.
+ * \ingroup amr
+ * The default constructor initializes the underlying 
+ * container to the correct size and fills it with zeroes.
+ */
+struct hanging_fine_edge_info_t 
+{
+    std::vector<std::uint8_t> _is_hanging ; 
+
+    hanging_fine_edge_info_t() 
+     : _is_hanging( P8EST_EDGES * amr::get_local_num_quadrants(), 0)
+    {}
+
+    std::uint8_t& operator[] (size_t const& i)
+    {
+        return _is_hanging[i] ; 
+    }
+
+    std::uint8_t operator[] (size_t const& i) const 
+    {
+        return _is_hanging[i] ; 
+    }
+} ;
+/**
  * @brief Collection of informations about face neighbors.
  * \ingroup amr
  */
@@ -174,8 +225,10 @@ struct grace_edge_info_t
     int n_simple_ghost_edges{0} ;
     int n_exterior_edges{0}     ; 
     int n_edges_total{0}     ; 
-    Kokkos::vector<simple_edge_info_t>  simple_interior_info      ; 
-    Kokkos::vector<hanging_edge_info_t> hanging_interior_info     ; 
+    Kokkos::vector<simple_edge_info_t>  simple_interior_info       ; 
+    Kokkos::vector<hanging_edge_info_t> hanging_interior_info      ;
+    Kokkos::vector<int64_t>             simple_phys_boundary_info  ;
+    Kokkos::vector<int64_t>             hanging_phys_boundary_info ;
 } ; 
 /**
  * @brief Collection of informations about corner neighbors.
@@ -186,7 +239,9 @@ struct grace_corner_info_t
     int n_hanging_ghost_corners{0}; 
     int n_simple_ghost_corners{0} ;
     Kokkos::vector<simple_corner_info_t>  simple_interior_info      ; 
-    Kokkos::vector<hanging_corner_info_t> hanging_interior_info     ; 
+    Kokkos::vector<hanging_corner_info_t> hanging_interior_info     ;
+    Kokkos::vector<int64_t>             simple_phys_boundary_info   ;
+    Kokkos::vector<int64_t>             hanging_phys_boundary_info  ; 
 } ; 
 /**
  * @brief The user data passed to <code>p4est_iterate</code>
@@ -201,7 +256,9 @@ struct grace_neighbor_info_t
     #ifdef GRACE_3D 
     grace_edge_info_t   edge_info   ; 
     #endif
-    hanging_coarse_quadrant_info_t      coarse_hanging_quads_info ;  
+    hanging_coarse_quadrant_info_t      coarse_hanging_quads_info ; 
+    hanging_fine_face_info_t            fine_hanging_faces_info   ; 
+    hanging_fine_edge_info_t            fine_hanging_edges_info   ;
 } ; 
 /**
  * @brief Apply all boundary conditions and fill ghostzones on state array.
