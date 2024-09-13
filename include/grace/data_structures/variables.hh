@@ -46,6 +46,10 @@ namespace grace {
 //*****************************************************************************************************
 size_t get_variable_index(std::string const& name, bool is_aux=false) ;
 //*****************************************************************************************************
+size_t get_staggered_variable_index( std::string const& name, int& staggering, bool is_aux) ; 
+//*****************************************************************************************************
+size_t get_variable_index_ext(std::string const& name, int& staggering, bool is_aux) ; 
+//*****************************************************************************************************
 /**
  * @brief Implementation of the variable list type.
  * 
@@ -125,6 +129,24 @@ public:
      */
     GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>& 
     getscratch() { return _state_p ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the staggered state vector
+     * 
+     * @return The state vector, containing all evolved variables
+     *         on all local cells.  
+     */
+    GRACE_ALWAYS_INLINE staggered_variable_arrays_t&  
+    getstaggeredstate() { return _staggered_vars ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the scratch staggered state vector 
+     * 
+     * @return The scratch state vector, used during time 
+     *         evolution to hold the previous state. 
+     */
+    GRACE_ALWAYS_INLINE staggered_variable_arrays_t& 
+    getstaggeredscratch() { return _staggered_vars_p ; }
     //*****************************************************************************************************
     /**
      * @brief Get the halo state vector 

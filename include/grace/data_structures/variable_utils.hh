@@ -35,6 +35,15 @@
 namespace grace { namespace variables {
 
 int 
+get_n_evolved_face_staggered() ;
+
+int 
+get_n_evolved_edge_staggered() ;
+
+int 
+get_n_evolved_corner_staggered() ;
+
+int 
 get_n_evolved() ; 
 
 int 

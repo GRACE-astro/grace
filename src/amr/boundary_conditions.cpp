@@ -30,7 +30,11 @@
 #include <Kokkos_Core.hpp>
 
 #include <grace/amr/grace_amr.hh>
-#include <grace/amr/bc_helpers.hh> 
+#include <grace/amr/bc_iterate.hh> 
+#include <grace/amr/bc_copy_ghostzones.hh> 
+#include <grace/amr/bc_restrict_ghostzones.hh> 
+#include <grace/amr/bc_prolongate_ghostzones.hh> 
+#include <grace/amr/bc_helpers.hh>
 #include <grace/amr/bc_helpers.tpp> 
 #include <grace/amr/bc_kernels.tpp>
 #include <grace/coordinates/coordinates.hh>
@@ -52,10 +56,12 @@ namespace grace { namespace amr {
 
 void apply_boundary_conditions() {
     auto& vars = variable_list::get().getstate() ;
-    apply_boundary_conditions(vars)              ; 
+    auto& staggered_vars = variable_list::get().getstaggeredstate() ; 
+    apply_boundary_conditions(vars, staggered_vars) ; 
 }
 
-void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
+void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
+                              , grace::staggered_variable_arrays_t& staggered_vars) {
     Kokkos::Profiling::pushRegion("BC") ; 
     using namespace grace ;
     /******************************************************/
@@ -69,10 +75,14 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     int64_t ngz = get_n_ghosts() ;
     int64_t nq  = get_local_num_quadrants()  ;  
     size_t nvars = variables::get_n_evolved() ;
+    size_t nvars_face = variables::get_n_evolved_face_staggered() ; 
+    size_t nvars_edge = variables::get_n_evolved_edge_staggered() ; 
+    size_t nvars_corner = variables::get_n_evolved_corner_staggered() ; 
     /******************************************************/
     auto& qcoords = variable_list::get().getcoords() ;
     auto& vols   = variable_list::get().getvolumes() ; 
     auto& halo = variable_list::get().gethalo()      ;
+    staggered_variable_arrays_t staggered_halo{}     ; 
     /******************************************************/
     auto& params = config_parser::get() ;  
     /******************************************************/
@@ -86,127 +96,42 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
           halo_quads{ &(halos->ghosts) }
         , mirror_quads{ &(halos->mirrors) }  ;
     Kokkos::realloc(halo, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars,halo_quads.size());  
-    cell_vol_array_t<GRACE_NSPACEDIM> halo_vols("halo cell volumes", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),halo_quads.size()) ; 
-    scalar_array_t<GRACE_NSPACEDIM> halo_coords("halo quadrant coordinates",GRACE_NSPACEDIM, halo_quads.size() ); 
+    staggered_halo.realloc(VEC(nx,ny,nz),ngz,halo_quads.size(),nvars_face,nvars_edge,nvars_corner) ; 
     /******************************************************/
-    /*                Receive halo data                   */
+    /*     Allocate space to hold remote data on GPU      */
+    /******************************************************/
+    cell_vol_array_t<GRACE_NSPACEDIM> halo_vols(
+        "halo cell volumes", 
+        VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),
+        halo_quads.size()
+    ) ; 
+    scalar_array_t<GRACE_NSPACEDIM> halo_coords(
+        "halo quadrant coordinates",
+        GRACE_NSPACEDIM, halo_quads.size() 
+    ) ; 
+    /******************************************************/
+    /*                Halo transfer                       */
     /******************************************************/
     GRACE_VERBOSE( "Shipping halo quadrants with {}" 
                      " total quadrants and {} halo quadrants.", nq, halo_quads.size()) ; 
-    size_t send_size_coords = GRACE_NSPACEDIM ; 
-    size_t send_size_vol = EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) ; 
-    size_t send_size = send_size_vol * nvars ; 
-    parallel::grace_transfer_context_t context ;
-    size_t rank = parallel::mpi_comm_rank() ; 
-    for(int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
-        size_t first_halo  = halos->proc_offsets[iproc]   ; 
-        size_t last_halo   = halos->proc_offsets[iproc+1] ;
-        for( int ihalo=first_halo; ihalo<last_halo; ++ihalo ) {
-            /* Receive variables */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto hsview = Kokkos::subview(
-                  halo
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , Kokkos::ALL()
-                , ihalo) ; 
-            parallel::mpi_irecv(
-                  hsview.data()
-                , send_size
-                , iproc
-                , parallel::GRACE_HALO_EXCHANGE_TAG
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ; 
-            /* Receive cell volumes */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto hvsview = Kokkos::subview(
-                  halo_vols
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , ihalo 
-            ) ; 
-            parallel::mpi_irecv(
-                  hvsview.data()
-                , send_size_vol 
-                , iproc
-                , parallel::GRACE_HALO_EXCHANGE_TAG+1
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ; 
-            #if 0 
-            /* Receive quadrant coordinates */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto hcsview = Kokkos::subview(
-                  halo_coords
-                , Kokkos::ALL()
-                , ihalo 
-            ) ; 
-            parallel::mpi_irecv(
-                  hcsview.data()
-                , send_size_coords 
-                , iproc
-                , parallel::GRACE_HALO_EXCHANGE_TAG+2
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ; 
-            #endif 
-        }
-    }
-    /******************************************************/
-    /*                Send halo data                      */
-    /******************************************************/
-    for( int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
-        size_t first_mirror = halos->mirror_proc_offsets[iproc]   ; 
-        size_t last_mirror  = halos->mirror_proc_offsets[iproc+1] ; 
-        for( int imirror=first_mirror; imirror<last_mirror; ++imirror){
-            size_t iq_loc = 
-                (mirror_quads[halos->mirror_proc_mirrors[imirror]]).p.piggy3.local_num ;
-            /* Send variables */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto sview = Kokkos::subview(
-                  vars
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , Kokkos::ALL()
-                , iq_loc ) ; 
-            parallel::mpi_isend(
-                  sview.data()
-                , send_size
-                , iproc
-                , parallel::GRACE_HALO_EXCHANGE_TAG
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ; 
-            /* Send cell volumes */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto svview = Kokkos::subview(
-                  vols
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , iq_loc ) ;
-            parallel::mpi_isend(
-                  svview.data()
-                , send_size_vol
-                , iproc
-                , parallel::GRACE_HALO_EXCHANGE_TAG+1
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ; 
-            /* Send quadrant coordinates */
-            #if 0
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto scview = Kokkos::subview(
-                  qcoords
-                , Kokkos::ALL()
-                , iq_loc ) ;
-            parallel::mpi_isend(
-                  scview.data()
-                , send_size_coords
-                , iproc
-                , parallel::GRACE_HALO_EXCHANGE_TAG+2
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ; 
-            #endif 
-        }
-    } 
+    parallel::grace_transfer_context_t context{} ; 
+    grace_init_halo_transfer(
+        context, 
+        halos, 
+        halo_quads, 
+        mirror_quads, 
+        halo, 
+        staggered_halo,
+        halo_vols,
+        vars,
+        staggered_vars,
+        vols,
+        #ifdef GRACE_CARTESIAN_COORDINATES
+        false
+        #else
+        true
+        #endif
+    ) ; 
     /******************************************************/
     /* Second step:                                       */
     /* Iterate over all quadrant faces and store face     */
@@ -275,7 +200,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     /******************************************************/
     /*                       Copy                         */
     /******************************************************/
-    parallel::mpi_waitall(context) ;
+    grace_finalize_halo_transfer(context) ; 
     GRACE_VERBOSE( "Copying interior ghostzones across simple boundaries on " 
     " {:d} quadrants.", neighbor_info.face_info.simple_interior_info.size() ) ;
     auto simple_interior_face_info = neighbor_info.face_info.simple_interior_info ;
@@ -288,7 +213,9 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     #ifdef GRACE_3D 
     simple_interior_edge_info.host_to_device() ;
     #endif 
-    copy_interior_ghostzones( vars,halo
+    copy_interior_ghostzones( vars, halo
+                            , staggered_vars 
+                            , staggered_halo
                             , simple_interior_face_info
                             , simple_interior_corner_info
                             #ifdef GRACE_3D 
@@ -318,6 +245,8 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     restrict_hanging_ghostzones(
               vars 
             , halo 
+            , staggered_vars 
+            , stagered_halo
             , vols 
             , halo_vols
             , hanging_interior_face_info
@@ -359,83 +288,40 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     /******************************************************/
     auto coarse_hanging_info = neighbor_info.coarse_hanging_quads_info ; 
     context.reset() ; 
-    for(int ircv=0; ircv<coarse_hanging_info.rcv_quadid.size(); ++ircv){
-        int ihalo = coarse_hanging_info.rcv_quadid[ircv] ; 
-        int iproc = coarse_hanging_info.rcv_procid[ircv] ; 
-        GRACE_VERBOSE("Receive iproc {}", iproc);
-        context._requests.push_back(sc_MPI_Request{}) ; 
-        auto hsview = Kokkos::subview(
-              halo
-            , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-            , Kokkos::ALL()
-            , ihalo) ; 
-        parallel::mpi_irecv(
-              hsview.data()
-            , send_size
-            , iproc
-            , parallel::GRACE_HALO_EXCHANGE_TAG
-            , parallel::get_comm_world()
-            , &(context._requests.back())
-        ) ; 
-    }
-    for( int isend=0; isend<coarse_hanging_info.snd_quadid.size(); ++isend){
-        /* Send variables */
-        int64_t iq_loc =  coarse_hanging_info.snd_quadid[isend] ; 
-        auto sview = Kokkos::subview( 
-                          vars
-                        , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                        , Kokkos::ALL()
-                        , iq_loc ) ; 
-        for( auto const& iproc: coarse_hanging_info.snd_procid[isend] ) {
-            GRACE_VERBOSE("Send iproc {}", iproc);
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            parallel::mpi_isend(
-                  sview.data()
-                , send_size
-                , iproc
-                , parallel::GRACE_HALO_EXCHANGE_TAG
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ;
-        }         
-    }
+    grace_init_halo_transfer_custom(
+        context, 
+        coarse_hanging_info.snd_quadid, 
+        coarse_hanging_info.rcv_quadid, 
+        coarse_hanging_info.snd_procid, 
+        coarse_hanging_info.rcv_procid, 
+        halo,
+        staggered_halo,
+        halo_vols,
+        vars,
+        staggered_vars,
+        vols,
+        false
+    );
+    grace_finalize_halo_transfer(context) ; 
     /******************************************************/
     /* Seventh step:                                      */
     /* Exchange coarse quadrants again                    */
     /******************************************************/
-    parallel::mpi_waitall(context) ;
-    GRACE_VERBOSE("Initiating prolongation on {} quadrants.", hanging_interior_face_info.size());
-    if( interp == "linear" ){
-        if( limiter == "minmod" ) {
-            prolongate_hanging_ghostzones<utils::linear_prolongator_t<grace::minmod>>(
-                      vars 
-                    , halo 
-                    , vols 
-                    , halo_vols
-                    , hanging_interior_face_info
-                    , hanging_interior_corner_info 
-                    #ifdef GRACE_3D 
-                    , hanging_interior_edge_info
-                    #endif 
-                    ) ; 
-        } else if ( limiter == "monotonized-central") {
-            prolongate_hanging_ghostzones<utils::linear_prolongator_t<grace::MCbeta>>(
-                      vars 
-                    , halo 
-                    , vols 
-                    , halo_vols
-                    , hanging_interior_face_info
-                    , hanging_interior_corner_info 
-                    #ifdef GRACE_3D 
-                    , hanging_interior_edge_info
-                    #endif 
-                    ) ;
-        } else {
-            ERROR("Unsupported limiter in ghost-zone exchange.") ; 
-        }
-    } else {
-        ERROR("Unsupported interpolator in ghost-zone exchange.") ; 
-    }
+    GRACE_VERBOSE("Initiating prolongation on {} quadrants.", hanging_interior_face_info.size()) ;
+    prolongate_hanging_ghostzones(
+              vars 
+            , halo
+            , staggered_vars
+            , staggered_halo 
+            , vols 
+            , halo_vols
+            , hanging_interior_face_info
+            , hanging_interior_corner_info 
+            #ifdef GRACE_3D 
+            , hanging_interior_edge_info
+            #endif 
+            ) ; 
+    
     Kokkos::fence() ;
     /******************************************************/
     /* De-allocate halo quadrant data                     */

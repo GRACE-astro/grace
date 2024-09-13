@@ -1,0 +1,8 @@
+-- Figure out phys BCs, for hanging fine quads probably enough to just run through the whole face from 0 to nx + 2 ngz (or ??)
+-- Add second call to phys after restriction 
+-- Test restriction operators for corner staggering 
+-- Add full staggering support to IO and evolution 
+-- Make metric staggered if BSSN, also change FILL_METRIC_ARRAY behaviour when metric is staggered, also change metric_array_t behaviour for conformal metric.
+-- Add regridding capabilities for staggered variables 
+-- Test BSSN 
+-- Remove allocation of unnecessary coordinate helpers if Cartesian. 

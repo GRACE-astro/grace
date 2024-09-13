@@ -34,6 +34,12 @@
 namespace grace { namespace variables  {
 
 int 
+get_n_evolved_corner_staggered()
+{
+    return detail::num_corner_staggered_vars ;
+} 
+
+int 
 get_n_evolved()
 {
     return detail::num_evolved ;

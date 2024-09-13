@@ -280,10 +280,12 @@ void apply_boundary_conditions() ;
  * @brief Apply all boundary conditions on the var array.
  * \ingroup amr
  * @param vars The state array where BCs are applied.
+ * @param staggered_vars The staggered variable state array where BCs should be applied. 
  * Specialized version of \ref apply_boundary_conditions which allows 
  * the caller to specify which state array needs its ghostzones to be filled.
  */
-void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) ;
+void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
+                              , grace::staggered_variable_arrays_t& staggered_vars) ;
 
 
 }} /* namespace grace::amr */

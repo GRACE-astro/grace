@@ -299,12 +299,16 @@ static int register_staggered_variable( std::string const& name
                                       , bool is_evolved 
                                       , bool need_fluxes
                                       , std::string const & bc_type 
-                                      , std::array<bool,GRACE_NSPACEDIM> const& staggering )
+                                      , std::array<bool,GRACE_NSPACEDIM> const& staggering 
+                                      , bool is_vector 
+                                      , bool is_tensor
+                                      , int num_comp )
 {
     using namespace detail ; 
     num_vars++;
     int nstagger = 0 ; 
     for( int idim=0; idim<GRACE_NSPACEDIM; ++idim) nstagger += int(staggering[idim]) ;
+    
     if( nstagger == 1 ) {
         if( is_evolved ) {
             _face_staggered_varnames.push_back(name) ; 
@@ -468,7 +472,7 @@ static int register_variable(     std::string const& name
     bool is_staggered = false ; 
     for( auto const & s: staggering ) is_staggered |= s ; 
     if( is_staggered ) {
-        return register_staggered_variable(name,is_evolved,need_fluxes,bc_type,staggering) ; 
+        return register_staggered_variable(name,is_evolved,need_fluxes,bc_type,staggering, is_vector, is_tensor, comp_num) ; 
     } else {
         if ( is_vector ) {
             return register_vector(name,is_evolved,need_fluxes,comp_num,bc_type) ; 
