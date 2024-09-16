@@ -53,42 +53,42 @@ size_t get_staggered_variable_index( std::string const& name, int& staggering, b
 {
     using namespace grace::variables::detail ; 
     if( !is_aux ) {
-        auto itf = std::find(_face_staggered_varnames.begin(), _face_staggered_varnames.end());
+        auto itf = std::find(_face_staggered_varnames.begin(), _face_staggered_varnames.end(), name);
         if (itf != _face_staggered_varnames.end())
         {   
             staggering = 0 ; 
             return std::distance(_face_staggered_varnames.begin(),itf) ; 
         } 
-        auto itc = std::find(_corner_staggered_varnames.begin(), _corner_staggered_varnames.end());
+        auto itc = std::find(_corner_staggered_varnames.begin(), _corner_staggered_varnames.end(), name);
         if (itc != _corner_staggered_varnames.end())
         {   
             staggering = 1 ; 
             return std::distance(_corner_staggered_varnames.begin(),itc) ; 
         } 
-        auto ite = std::find(_edge_staggered_varnames.begin(), _edge_staggered_varnames.end());
+        auto ite = std::find(_edge_staggered_varnames.begin(), _edge_staggered_varnames.end(), name);
         if (ite != _edge_staggered_varnames.end())
         {   
             staggering = 2 ; 
             return std::distance(_edge_staggered_varnames.begin(),ite) ; 
         } 
     } else {
-        auto itf = std::find(_face_staggered_aux.begin(), _face_staggered_aux.end());
-        if (itf != _face_staggered_aux.end())
+        auto itf = std::find(_face_staggered_auxnames.begin(), _face_staggered_auxnames.end(), name);
+        if (itf != _face_staggered_auxnames.end())
         {   
             staggering = 0 ; 
-            return std::distance(_face_staggered_aux.begin(),itf) ; 
+            return std::distance(_face_staggered_auxnames.begin(),itf) ; 
         } 
-        auto itc = std::find(_corner_staggered_aux.begin(), _corner_staggered_aux.end());
-        if (itc != _corner_staggered_aux.end())
+        auto itc = std::find(_corner_staggered_auxnames.begin(), _corner_staggered_auxnames.end(), name);
+        if (itc != _corner_staggered_auxnames.end())
         {   
             staggering = 1 ; 
-            return std::distance(_corner_staggered_aux.begin(),itc) ; 
+            return std::distance(_corner_staggered_auxnames.begin(),itc) ; 
         } 
-        auto ite = std::find(_edge_staggered_aux.begin(), _edge_staggered_aux.end());
-        if (ite != _edge_staggered_aux.end())
+        auto ite = std::find(_edge_staggered_auxnames.begin(), _edge_staggered_auxnames.end(), name);
+        if (ite != _edge_staggered_auxnames.end())
         {   
             staggering = 2 ; 
-            return std::distance(_edge_staggered_aux.begin(),ite) ; 
+            return std::distance(_edge_staggered_auxnames.begin(),ite) ; 
         }
     }
     return -1; 

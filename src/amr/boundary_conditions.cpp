@@ -90,32 +90,39 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     /******************************************************/
     p4est_ghost_t * halos = p4est_ghost_new( 
           forest::get().get() 
-        , P4EST_CONNECT_FULL // CHANGED 
+        , P4EST_CONNECT_FULL 
     ) ; 
+    /* Create views around relevant halo arrays */
     sc_array_view_t<p4est_quadrant_t> 
           halo_quads{ &(halos->ghosts) }
         , mirror_quads{ &(halos->mirrors) }  ;
-    Kokkos::realloc(halo, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars,halo_quads.size());  
-    staggered_halo.realloc(VEC(nx,ny,nz),ngz,halo_quads.size(),nvars_face,nvars_edge,nvars_corner) ; 
     /******************************************************/
     /*     Allocate space to hold remote data on GPU      */
     /******************************************************/
-    cell_vol_array_t<GRACE_NSPACEDIM> halo_vols(
-        "halo cell volumes", 
+    Kokkos::realloc(halo, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars,halo_quads.size());  
+    staggered_halo.realloc(VEC(nx,ny,nz),ngz,halo_quads.size(),nvars_face,nvars_edge,nvars_corner) ; 
+    cell_vol_array_t<GRACE_NSPACEDIM> halo_vols("halo cell volumes") ; 
+    /******************************************************/
+    /* Cell volumes for halos are only needed in          */
+    /* nontrivial geometries.                             */
+    /******************************************************/
+    #ifndef GRACE_CARTESIAN_COORDINATES
+    Kokkos::realloc(
+        halo_vols, 
         VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),
         halo_quads.size()
     ) ; 
-    scalar_array_t<GRACE_NSPACEDIM> halo_coords(
-        "halo quadrant coordinates",
-        GRACE_NSPACEDIM, halo_quads.size() 
-    ) ; 
+    #endif 
     /******************************************************/
     /*                Halo transfer                       */
+    /* The halo data transfer happens asynchronously and  */
+    /* is done with direct transfer of GPU pointers.      */
     /******************************************************/
     GRACE_VERBOSE( "Shipping halo quadrants with {}" 
-                     " total quadrants and {} halo quadrants.", nq, halo_quads.size()) ; 
+                     " total quadrants and {} halo quadrants.", 
+                     nq, halo_quads.size()) ; 
     parallel::grace_transfer_context_t context{} ; 
-    grace_init_halo_transfer(
+    amr::grace_init_halo_transfer(
         context, 
         halos, 
         halo_quads, 
@@ -142,7 +149,7 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     p4est_iterate(
           forest::get().get()
         , halos 
-        , reinterpret_cast<void*>( &neighbor_info )//! TODO neighbors_info is a grace_neighbor_info_t object  
+        , reinterpret_cast<void*>( &neighbor_info ) 
         , nullptr
         , grace_iterate_faces 
         #ifdef GRACE_3D 
@@ -195,14 +202,13 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     /* Third step:                                        */
     /* Copy and data from internal boundaries.            */
     /******************************************************/
-    std::string interp = params["amr"]["prolongation_interpolator_type"].as<std::string>(); 
-    std::string limiter = params["amr"]["prolongation_limiter_type"].as<std::string>();
+    /* Now we need the halo data so we wait for it        */
     /******************************************************/
-    /*                       Copy                         */
+    amr::grace_finalize_halo_transfer(context) ; 
     /******************************************************/
-    grace_finalize_halo_transfer(context) ; 
     GRACE_VERBOSE( "Copying interior ghostzones across simple boundaries on " 
     " {:d} quadrants.", neighbor_info.face_info.simple_interior_info.size() ) ;
+    /******************************************************/
     auto simple_interior_face_info = neighbor_info.face_info.simple_interior_info ;
     auto simple_interior_corner_info = neighbor_info.corner_info.simple_interior_info ;
     #ifdef GRACE_3D 
@@ -229,16 +235,23 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     GRACE_VERBOSE( "Restricting and prolongating data on "
     "interior ghostzones across hanging boundaries on " 
     "{:d} quadrants.", neighbor_info.face_info.hanging_interior_info.size() ) ;
-    auto hanging_interior_face_info = neighbor_info.face_info.hanging_interior_info ; 
-    auto hanging_interior_corner_info = neighbor_info.corner_info.hanging_interior_info ; 
+    /********************************************************/
+    /* Gather information on hanging neighbors and transfer */
+    /* it to device.                                        */
+    /********************************************************/
+    /* Faces   */
+    auto hanging_interior_face_info = 
+        neighbor_info.face_info.hanging_interior_info ; 
+    hanging_interior_face_info.host_to_device() ;
+    /* Corners */
+    auto hanging_interior_corner_info = 
+        neighbor_info.corner_info.hanging_interior_info ;
+    hanging_interior_corner_info.host_to_device() ; 
+    /* Edges  */
     #ifdef GRACE_3D 
     auto hanging_interior_edge_info = neighbor_info.edge_info.hanging_interior_info ; 
-    #endif 
-    hanging_interior_face_info.host_to_device() ;
-    hanging_interior_corner_info.host_to_device() ;
-    #ifdef GRACE_3D 
     hanging_interior_edge_info.host_to_device() ; 
-    #endif 
+    #endif  
     /******************************************************/
     /*          Restriction                               */
     /******************************************************/
@@ -246,7 +259,7 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
               vars 
             , halo 
             , staggered_vars 
-            , stagered_halo
+            , staggered_halo
             , vols 
             , halo_vols
             , hanging_interior_face_info
@@ -285,10 +298,18 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     /******************************************************/
     /* Sixth step:                                        */
     /* Exchange coarse quadrants again                    */
+    /*                                                    */
+    /* This step is required because the prolongation     */
+    /* operator has a stencil which might be in any       */
+    /* direction. For this reason the coarse quadrants    */
+    /* have to have full ghostzones before this step.     */
+    /* Since above we only filled ghostzones of local     */
+    /* quadrants we need to transfer receive coarse       */
+    /* neighbor data with full ghostzones here.           */
     /******************************************************/
     auto coarse_hanging_info = neighbor_info.coarse_hanging_quads_info ; 
     context.reset() ; 
-    grace_init_halo_transfer_custom(
+    amr::grace_init_halo_transfer_custom(
         context, 
         coarse_hanging_info.snd_quadid, 
         coarse_hanging_info.rcv_quadid, 
@@ -302,10 +323,10 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
         vols,
         false
     );
-    grace_finalize_halo_transfer(context) ; 
+    amr::grace_finalize_halo_transfer(context) ; 
     /******************************************************/
     /* Seventh step:                                      */
-    /* Exchange coarse quadrants again                    */
+    /* Prolongate data on fine ghostzones                 */
     /******************************************************/
     GRACE_VERBOSE("Initiating prolongation on {} quadrants.", hanging_interior_face_info.size()) ;
     prolongate_hanging_ghostzones(
@@ -330,7 +351,7 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     parallel::mpi_barrier() ; 
     GRACE_TRACE("All done in BC. Total number of cells processed: {}.\n"
                   "Total time elapsed {} s.\n"\
-                , EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) * nq * nvars 
+                , EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) * nq  
                 , sw ) ; 
     Kokkos::Profiling::popRegion() ; 
 }

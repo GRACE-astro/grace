@@ -25,8 +25,8 @@
  * 
  */
 
-#ifndef GRACE_AMR_BC_HELPERS_HH 
-#define GRACE_AMR_BC_HELPERS_HH
+#ifndef GRACE_AMR_BC_RESTRICTION_HH 
+#define GRACE_AMR_BC_RESTRICTION_HH
 
 #include <grace_config.h>
 
@@ -129,4 +129,4 @@ void restrict_hanging_ghostzones_corners(
 /**************************************************************************************************/
 }}
 
-#endif /* GRACE_AMR_BC_HELPERS_HH */
+#endif /* GRACE_AMR_BC_RESTRICTION_HH */

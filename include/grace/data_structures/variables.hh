@@ -149,6 +149,14 @@ public:
     getstaggeredscratch() { return _staggered_vars_p ; }
     //*****************************************************************************************************
     /**
+     * @brief Get the staggered aux vector 
+     * 
+     * @return The staggered aux vector. 
+     */
+    GRACE_ALWAYS_INLINE staggered_variable_arrays_t& 
+    getstaggeredaux() { return _staggered_aux ; }
+    //*****************************************************************************************************
+    /**
      * @brief Get the halo state vector 
      */
     GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>& 

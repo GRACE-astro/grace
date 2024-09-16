@@ -125,7 +125,7 @@ void prolongate_hanging_ghostzones_corners(
     #ifdef GRACE_3D 
     , Kokkos::vector<hanging_edge_info_t>& hanging_edges
     #endif
-) 
+) ;  
 /**************************************************************************************************/
 /*                                  Instantiate templates                                         */
 /**************************************************************************************************/

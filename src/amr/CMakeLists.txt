@@ -37,7 +37,7 @@ target_link_libraries( grace_regrid PRIVATE
                         Kokkos::kokkos
                         spdlog::spdlog )
 
-add_library( grace_BC_helpers OBJECT bc_iterate.cpp bc_copy_ghostzones.cpp bc_restrict_ghostzones.cpp bc_prolongate_ghostzones.cpp )
+add_library( grace_BC_helpers OBJECT bc_iterate.cpp bc_copy_ghostzones.cpp bc_restrict_ghostzones.cpp bc_prolongate_ghostzones.cpp bc_helpers.cpp )
 target_include_directories( grace_BC_helpers PRIVATE "${HEADER_DIR}" )
 target_compile_options(grace_BC_helpers PRIVATE -Wno-dangling-field)
 target_link_libraries( grace_BC_helpers PRIVATE 

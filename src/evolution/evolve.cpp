@@ -94,7 +94,11 @@ void evolve_impl() {
     auto& state   = grace::variable_list::get().getstate()   ; 
     auto& state_p = grace::variable_list::get().getscratch() ;
 
+    auto& sstate   = grace::variable_list::get().getstaggeredstate()   ; 
+    auto& sstate_p = grace::variable_list::get().getstaggeredscratch() ;
+
     auto& aux     = grace::variable_list::get().getaux()     ; 
+    auto& saux    = grace::variable_list::get().getstaggeredaux() ;
 
     auto& cvol    = grace::variable_list::get().getvolumes() ; 
     auto& fsurf   = grace::variable_list::get().getstaggeredcoords() ;
@@ -103,20 +107,31 @@ void evolve_impl() {
     /* Copy the current state to scratch memory */
     //amr::apply_boundary_conditions(state) ; 
     Kokkos::deep_copy(state_p, state) ; 
-
+    sstate_p.deep_copy(sstate)        ;  
     if ( tstepper == "euler" ) {
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
-        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,dx,cvol,fsurf) ; 
-        amr::apply_boundary_conditions(state) ; 
+        advance_substep<eos_t>(
+            t,dt,1.0,state,state_p,aux,
+            sstate,sstate_p,saux,
+            idx,dx,cvol,fsurf) ; 
+        amr::apply_boundary_conditions(state,sstate) ; 
         compute_auxiliary_quantities<eos_t>(state, aux) ;
     } else if (tstepper == "rk2" ) {
         /* Compute auxiliaries at current timelevel */
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
-        advance_substep<eos_t>(t,dt,0.5,state_p,state,aux,idx,dx,cvol,fsurf) ; 
-        amr::apply_boundary_conditions(state_p) ; 
+        advance_substep<eos_t>(
+            t,dt,0.5,
+            state_p,state,aux,
+            sstate_p,sstate,saux,
+            idx,dx,cvol,fsurf) ; 
+        amr::apply_boundary_conditions(state_p,sstate_p) ; 
         compute_auxiliary_quantities<eos_t>(state_p, aux) ;
-        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,dx,cvol,fsurf) ;
-        amr::apply_boundary_conditions(state) ; 
+        advance_substep<eos_t>(
+            t,dt,1.0,
+            state,state_p,aux,
+            sstate,sstate_p,saux,
+            idx,dx,cvol,fsurf) ;
+        amr::apply_boundary_conditions(state,sstate) ; 
         compute_auxiliary_quantities<eos_t>(state, aux) ;
     } else if (tstepper == "rk3" ) {
         ERROR("Not implemented yet.") ; 
@@ -130,6 +145,9 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , var_array_t<GRACE_NSPACEDIM>& new_state 
                     , var_array_t<GRACE_NSPACEDIM>& old_state 
                     , var_array_t<GRACE_NSPACEDIM>& aux 
+                    , staggered_variable_arrays_t& staggered_new_state
+                    , staggered_variable_arrays_t& staggered_old_state 
+                    , staggered_variable_arrays_t& staggered_aux
                     , scalar_array_t<GRACE_NSPACEDIM>& idx
                     , scalar_array_t<GRACE_NSPACEDIM>& dx
                     , cell_vol_array_t<GRACE_NSPACEDIM>& cvol
@@ -299,6 +317,9 @@ void advance_substep<EOS>( double const , double const , double const \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::staggered_variable_arrays_t&        \
+                         , grace::staggered_variable_arrays_t&        \
+                         , grace::staggered_variable_arrays_t&        \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \

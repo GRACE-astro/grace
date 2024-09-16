@@ -155,7 +155,7 @@ void prolongate_variables(    InViewT  in_state
 {  
     using namespace grace ; 
     using namespace Kokkos  ; 
-    long nx,ny,nz ; 
+    int nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     auto ngz = amr::get_n_ghosts()                   ; 
     long in_n_quad  = in_idx.size()                  ; 
@@ -178,10 +178,9 @@ void prolongate_variables(    InViewT  in_state
         , in_coords
     } ; 
 
-   MDRangePolicy<Rank<GRACE_NSPACEDIM+2>,default_execution_space>
+   MDRangePolicy<IndexType<int>, Rank<GRACE_NSPACEDIM+2>,default_execution_space>
         policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,out_n_quad}) ; 
-
-    parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_variables")
+    parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_cell_centered_variables")
                         , policy 
                         , KOKKOS_LAMBDA (
                             VEC(const unsigned int& i
@@ -228,7 +227,7 @@ void restrict_variables(      InViewT  in_state
     auto ngz = amr::get_n_ghosts()                          ;  
     size_t in_n_quad  = in_idx.size()                       ; 
     size_t out_n_quad = out_idx.size()                      ;
-    int nvar = in_state.extent(GRACE_NSPACEDIM) ; 
+    int nvar = in_state.extent(GRACE_NSPACEDIM)             ; 
 
     auto p_in_idx  = in_idx.d_view  ; 
     auto p_out_idx = out_idx.d_view ; 
@@ -264,6 +263,43 @@ void restrict_variables(      InViewT  in_state
         ) ; 
     }) ; 
 } ;
+
+template< typename InViewT
+        , typename OutViewT >
+void restrict_corner_staggered_variables( InViewT  in_state 
+                                        , OutViewT out_state  
+                                        , Kokkos::vector<int, grace::default_space>& in_idx 
+                                        , Kokkos::vector<int, grace::default_space>& out_idx )  
+{
+    using namespace grace ; 
+    using namespace Kokkos; 
+
+    int nx,ny,nz                                         ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents()     ;
+    auto ngz = amr::get_n_ghosts()                       ;  
+    int in_n_quad  = in_idx.size()                       ; 
+    int out_n_quad = out_idx.size()                      ;
+
+    int nvar = in_state.extent(GRACE_NSPACEDIM)          ;
+
+    auto p_in_idx  = in_idx.d_view  ; 
+    auto p_out_idx = out_idx.d_view ; 
+
+    MDRangePolicy<IndexType<int>, Rank<GRACE_NSPACEDIM+2>, default_execution_space>
+        policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,in_n_quad}) ; 
+    parallel_for(GRACE_EXECUTION_TAG("AMR","regrid_restrict_corner_staggered"), policy, 
+        KOKKOS_LAMBDA( VEC(int i, int j, int k), int ivar, int icoarse )
+    {
+        int64_t qid_coarse = p_in_idx(icoarse) ; 
+        int8_t ichild = EXPRD( math::floor_int((2*j)/nx)
+                           , + math::floor_int((2*k)/ny) * 2 ) ;
+        int64_t qid_fine = p_out_idx(icoarse*P4EST_CHILDREN + ichild ) ; 
+        in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,qid_coarse) 
+            = out_state(VEC((2*i)%nx+ngz, (2*j)%ny+ngz, (2*k)%nz+ngz), ivar, qid_fine) ; 
+    } ) ;
+
+
+}
 
 }} /* namespace grace::amr */ 
 

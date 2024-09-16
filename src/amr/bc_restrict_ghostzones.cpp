@@ -65,10 +65,12 @@ void restrict_hanging_ghostzones(
     restrict_hanging_ghostzones_cell_centers(
           state
         , halo 
-        , interior_faces 
-        , interior_corners 
+        , vols 
+        , halo_vols
+        , hanging_faces 
+        , hanging_corners 
         #ifdef GRACE_3D 
-        , interior_edges 
+        , hanging_edges 
         #endif 
     ) ; 
     /******************************************************/
@@ -77,10 +79,10 @@ void restrict_hanging_ghostzones(
     restrict_hanging_ghostzones_corners(
           staggered_state.corner_staggered_fields
         , staggered_halo.corner_staggered_fields
-        , interior_faces 
-        , interior_corners 
+        , hanging_faces 
+        , hanging_corners 
         #ifdef GRACE_3D 
-        , interior_edges 
+        , hanging_edges 
         #endif 
     ) ;
 }
@@ -222,8 +224,13 @@ void restrict_hanging_ghostzones_cell_centers(
                 )
                 #endif 
                 /* Call restriction operator on fine data */ 
+                #ifndef GRACE_CARTESIAN_COORDINATES
                 state(VEC(i_c,j_c,k_c),ivar,qid_coarse) = 
                     utils::vol_average_restrictor_t::apply(VEC(i_f,j_f,k_f), fine_view, fine_vol, qid_b, ivar) ;  
+                #else 
+                state(VEC(i_c,j_c,k_c),ivar,qid_coarse) = 
+                    utils::vol_average_restrictor_t::apply(VEC(i_f,j_f,k_f), fine_view, qid_b, ivar); 
+                #endif  
                 
             }
         }
@@ -517,9 +524,8 @@ void restrict_hanging_ghostzones_corners(
                     +   (which_face_fine/2 == 0) * I2 
                     +   (which_face_fine/2 == 1) * I2 ;
                 )
-                #endif 
                 /* Call restriction operator on fine data */ 
-                state(VEC(i_c,j_c,k_c),ivar,qid_coarse) = fine_view(VEC(i_f,j_f,k_f, ivar, qid_b)) ;  
+                state(VEC(i_c,j_c,k_c),ivar,qid_coarse) = fine_view(VEC(i_f,j_f,k_f), ivar, qid_b) ;  
             }
         }
     )   ;

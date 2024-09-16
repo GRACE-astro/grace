@@ -258,6 +258,20 @@ struct staggered_variable_arrays_t {
         #endif 
         Kokkos::realloc(corner_staggered_fields, VEC(nx + 2*ngz+1, ny + 2*ngz+1, nz+2*ngz+1), nvars_corner, nq) ;
     }
+
+    void 
+    deep_copy(staggered_variable_arrays_t const& other)
+    {
+        Kokkos::deep_copy(face_staggered_fields_x,other.face_staggered_fields_x) ; 
+        Kokkos::deep_copy(face_staggered_fields_y,other.face_staggered_fields_y) ; 
+        Kokkos::deep_copy(face_staggered_fields_z,other.face_staggered_fields_z) ; 
+        #ifdef GRACE_3D
+        Kokkos::deep_copy(edge_staggered_fields_xy,other.edge_staggered_fields_xy) ; 
+        Kokkos::deep_copy(edge_staggered_fields_xz,other.edge_staggered_fields_xz) ; 
+        Kokkos::deep_copy(edge_staggered_fields_yz,other.edge_staggered_fields_yz) ; 
+        #endif 
+        Kokkos::deep_copy(corner_staggered_fields,other.corner_staggered_fields) ; 
+    }
 } ; 
 /*****************************************************************************************************/
 /*****************************************************************************************************/

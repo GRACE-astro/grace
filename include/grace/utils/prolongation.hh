@@ -45,16 +45,16 @@ template< size_t idir
 struct oned_lagrange_interp_t {
     template< typename view_t >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    interpolate( view_t& view, VEC(int i, int j, int k)) ; 
+    interpolate( view_t& view, VEC(int ic, int jc, int kc)) ; 
 } ; 
 
 template< size_t idir > 
 struct oned_lagrange_interp_t<idir,2> {
     template< typename view_t >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    interpolate( view_t& view, VEC(int i, int j, int k)) {
-        return 0.5*( view(VEC(i, j, k)) 
-                   + view(VEC(i+utils::delta(idir,0), j+utils::delta(idir,1), k+utils::delta(idir,2))) ) ; 
+    interpolate( view_t& view, VEC(int ic, int jc, int kc)) {
+        return 0.5*( view(VEC(ic, jc, kc)) 
+                   + view(VEC(ic+utils::delta(idir,0), jc+utils::delta(idir,1), kc+utils::delta(idir,2))) ) ; 
     }
 } ; 
 
@@ -62,7 +62,7 @@ template< size_t idir >
 struct oned_lagrange_interp_t<idir,4> {
     template< typename view_t >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    interpolate( view_t& view, VEC(int i, int j, int k)) {
+    interpolate( view_t& view, VEC(int ic, int jc, int kc)) {
         using utils::delta ;
         return  (-view(VEC(ic - delta(0,idir),jc - delta(1,idir),kc - delta(2,idir))) + 9*(view(VEC(ic,jc,kc)) + view(VEC(ic + delta(0,idir),jc + delta(1,idir),kc + delta(2,idir)))) - 
      view(VEC(ic + 2*delta(0,idir),jc + 2*delta(1,idir),kc + 2*delta(2,idir))))/16. ; 
@@ -83,9 +83,9 @@ template< size_t idir
 struct twod_lagrange_interp_t<idir,jdir,2> {
     template< typename view_t >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    interpolate( view_t& view, VEC(int i, int j, int k)) {
+    interpolate( view_t& view, VEC(int ic, int jc, int kc)) {
         using utils::delta; 
-        static_assert( not idir == jdir, "jdir and idir should never coincide in 2D lagrange.") ; 
+        static_assert( not (idir == jdir), "jdir and idir should never coincide in 2D lagrange.") ; 
         return (view(VEC(ic,jc,kc)) + view(VEC(ic + delta(0,idir),jc + delta(1,idir),kc + delta(2,idir))) + view(VEC(ic + delta(0,jdir),jc + delta(1,jdir),kc + delta(2,jdir))) + 
      view(VEC(ic + delta(0,idir) + delta(0,jdir),jc + delta(1,idir) + delta(1,jdir),kc + delta(2,idir) + delta(2,jdir))))/4.;
     }
@@ -96,9 +96,9 @@ template< size_t idir
 struct twod_lagrange_interp_t<idir,jdir,4> {
     template< typename view_t >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    interpolate( view_t& view, VEC(int i, int j, int k)) {
+    interpolate( view_t& view, VEC(int ic, int jc, int kc)) {
         using utils::delta; 
-        static_assert( not idir == jdir, "jdir and idir should never coincide in 2D lagrange.") ; 
+        static_assert( not (idir == jdir), "jdir and idir should never coincide in 2D lagrange.") ; 
         static constexpr double A0 = 1./256. ; 
         static constexpr double A1 = 9  ;
         static constexpr double A2 = 81  ; 
@@ -119,7 +119,7 @@ struct threed_lagrange_interp_t {
     template< typename view_t >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     interpolate( view_t& view, VEC(int ic, int jc, int kc)) ; 
-}
+} ; 
 
 template<> 
 struct threed_lagrange_interp_t<2> {
@@ -419,7 +419,7 @@ template< size_t order >
 struct lagrange_prolongator_t
 {
     template< typename VarViewT >
-    static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     interpolate(  VEC(int i_f, int j_f, int k_f)
                 , VEC(int i_c, int j_c, int k_c)
                 , VarViewT& coarse_view 
@@ -438,52 +438,52 @@ struct lagrange_prolongator_t
         #endif 
         /* Then interpolate along edges */
         fine_view(VEC(i_f+1,j_f,k_f)) = 
-            oned_lagrange_interp_t<0,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+            detail::oned_lagrange_interp_t<0,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
         fine_view(VEC(i_f,j_f+1,k_f)) =
-            oned_lagrange_interp_t<1,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+            detail::oned_lagrange_interp_t<1,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
         #ifdef GRACE_3D 
         fine_view(VEC(i_f,j_f,k_f+1)) =
-            oned_lagrange_interp_t<2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+            detail::oned_lagrange_interp_t<2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
         #endif
         fine_view(VEC(i_f+1,j_f+2,k_f)) =
-            oned_lagrange_interp_t<0,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c+1,k_c)) ; 
+            detail::oned_lagrange_interp_t<0,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c+1,k_c)) ; 
         fine_view(VEC(i_f+2,j_f+1,k_f)) =
-            oned_lagrange_interp_t<1,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c+1,j_c,k_c)) ;
+            detail::oned_lagrange_interp_t<1,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c+1,j_c,k_c)) ;
         #ifdef GRACE_3D
         fine_view(VEC(i_f+1,j_f,k_f+2)) =
-            oned_lagrange_interp_t<0,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c+1)) ;
+            detail::oned_lagrange_interp_t<0,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c+1)) ;
         fine_view(VEC(i_f,j_f+1,k_f+2)) =
-            oned_lagrange_interp_t<1,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c+1)) ;
+            detail::oned_lagrange_interp_t<1,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c+1)) ;
         fine_view(VEC(i_f+2,j_f,k_f+1)) =
-            oned_lagrange_interp_t<2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c+1,j_c,k_c)) ;
+            detail::oned_lagrange_interp_t<2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c+1,j_c,k_c)) ;
         fine_view(VEC(i_f+2,j_f+2,k_f+1)) =
-            oned_lagrange_interp_t<2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c+1,j_c+1,k_c)) ;
+            detail::oned_lagrange_interp_t<2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c+1,j_c+1,k_c)) ;
         fine_view(VEC(i_f,j_f+2,k_f+1)) =
-            oned_lagrange_interp_t<2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c+1,k_c)) ;
+            detail::oned_lagrange_interp_t<2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c+1,k_c)) ;
         fine_view(VEC(i_f+1,j_f+2,k_f+2)) =
-            oned_lagrange_interp_t<0,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c+1,k_c+1)) ;
+            detail::oned_lagrange_interp_t<0,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c+1,k_c+1)) ;
         fine_view(VEC(i_f+2,j_f+1,k_f+2)) =
-            oned_lagrange_interp_t<1,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c+1,j_c,k_c+1)) ;
+            detail::oned_lagrange_interp_t<1,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c+1,j_c,k_c+1)) ;
         #endif 
         /* Now do a 2D lagrange for corners within coarse face*/
         fine_view(VEC(i_f+1,j_f+1,k_f)) =
-            twod_lagrange_interp_t<0,1,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ;
+            detail::twod_lagrange_interp_t<0,1,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ;
         #ifdef GRACE_3D
         fine_view(VEC(i_f+1,j_f,k_f+1)) =
-            twod_lagrange_interp_t<0,2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+            detail::twod_lagrange_interp_t<0,2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
         fine_view(VEC(i_f,j_f+1,k_f+1)) =
-            twod_lagrange_interp_t<1,2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ;
+            detail::twod_lagrange_interp_t<1,2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ;
         
         fine_view(VEC(i_f+2,j_f+1,k_f+1)) =
-            twod_lagrange_interp_t<1,2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c+1,j_c,k_c)) ;
+            detail::twod_lagrange_interp_t<1,2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c+1,j_c,k_c)) ;
         fine_view(VEC(i_f+1,j_f+2,k_f+1)) =
-            twod_lagrange_interp_t<0,2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c+1,k_c)) ;
+            detail::twod_lagrange_interp_t<0,2,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c+1,k_c)) ;
         fine_view(VEC(i_f+1,j_f+1,k_f+2)) =
-            twod_lagrange_interp_t<0,1,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c+1)) ;
+            detail::twod_lagrange_interp_t<0,1,order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c+1)) ;
 
         /* Finally the one at the center */
         fine_view(VEC(i_f+1,j_f+1,k_f+1)) =
-            threed_lagrange_interp_t<order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+            detail::threed_lagrange_interp_t<order>::template interpolate<VarViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
         #endif 
     }
 } ;  
