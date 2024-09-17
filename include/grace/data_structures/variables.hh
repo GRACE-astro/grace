@@ -214,7 +214,65 @@ private:
 using variable_list = utils::singleton_holder<variable_list_impl_t > ; 
 //*****************************************************************************************************
 //*****************************************************************************************************
+template< typename IndexT_x 
+        , typename IndexT_y 
+        , typename IndexT_z 
+        , typename IndexT_q > 
+static decltype(auto) 
+get_variable_subview(
+      std::string const& vname
+    , VEC( IndexT_x xidx_subset 
+         , IndexT_y yidx_subset
+         , IndexT_z zidx_subset 
+    , IndexT_q qidx_subset )
+) 
+{
+    using namespace grace  ; 
+    using namespace Kokkos ; 
+    
 
+    auto& state = variables::get().getstate() ; 
+    auto& sstate = variables::get().getstaggeredstate() ; 
+    auto& aux = variables::get().getaux() ; 
+    auto& saux = variables::get().getstaggeredaux() ; 
+    if ( props.is_evolved ) {
+        if ( props.staggering == var_staggering_t::CELL_CENTER ) {
+            return Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), props.index, ALL()) ; 
+        } else if (props.staggering == var_staggering_t::FACE ) {
+            auto& fstate = (props.comp_num == 0) ? sstate.face_staggered_fields_x
+                : ( (props.comp_num == 1) ? sstate.face_staggered_fields_y : sstate.face_staggered_fields_z ) ; 
+            return Kokkos::subview(fstate, VEC(ALL(),ALL(),ALL()), props.index, ALL())  ; 
+        } else if (props.staggering == var_staggering_t::EDGE ) {
+            auto& estate = (props.comp_num == 0) ? sstate.edge_staggered_fields_yz
+                : ( (props.comp_num == 1) ? sstate.edge_staggered_fields_xz : sstate.edge_staggered_fields_xy ) ; 
+            return Kokkos::subview(estate, VEC(ALL(),ALL(),ALL()), props.index, ALL())  ; 
+        } else {
+            auto& cstate = sstate.corner_staggered_fields ;
+            return Kokkos::subview(cstate, VEC(ALL(),ALL(),ALL()), props.index, ALL())  ; 
+        }
+    } else {
+        if ( props.staggering == var_staggering_t::CELL_CENTER ) {
+            return Kokkos::subview(aux, VEC(ALL(),ALL(),ALL()), props.index, ALL()) ; 
+        } else if (props.staggering == var_staggering_t::FACE ) {
+            auto& fstate = (props.comp_num == 0) ? saux.face_staggered_fields_x
+                : ( (props.comp_num == 1) ? saux.face_staggered_fields_y : saux.face_staggered_fields_z ) ; 
+            return Kokkos::subview(fstate, VEC(ALL(),ALL(),ALL()), props.index, ALL())  ; 
+        } else if (props.staggering == var_staggering_t::EDGE ) {
+            auto& estate = (props.comp_num == 0) ? saux.edge_staggered_fields_yz
+                : ( (props.comp_num == 1) ? saux.edge_staggered_fields_xz : saux.edge_staggered_fields_xy ) ; 
+            return Kokkos::subview(estate, VEC(ALL(),ALL(),ALL()), props.index, ALL())  ; 
+        } else {
+            auto& cstate = saux.corner_staggered_fields ;
+            return Kokkos::subview(cstate, VEC(ALL(),ALL(),ALL()), props.index, ALL())  ; 
+        }
+    }
+} ; 
+
+static decltype(auto)
+get_variable_subview(std::string const& vname) 
+{
+    return get_variable_subview(vname, VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), Kokkos::ALL() ) ;
+}
 } /* namespace grace */
 
 #endif /* GRACE_DATA_STRUCTURES_VARIABLES_HH */ 

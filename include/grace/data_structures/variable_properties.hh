@@ -34,6 +34,22 @@
 #include <grace/data_structures/macros.hh>
 
 namespace grace {
+/*****************************************************************************************************/
+/*****************************************************************************************************/
+#ifdef GRACE_3D
+enum var_staggering_t {
+    CELL_CENTER=0,
+    FACE=1,
+    EDGE=2,
+    CORNER=3
+} ; 
+#else 
+enum var_staggering_t {
+    CELL_CENTER=0,
+    FACE=1,
+    CORNER=2
+} ; 
+#endif 
 //*****************************************************************************************************
 //*****************************************************************************************************
 /**
@@ -55,10 +71,12 @@ template<>
 struct variable_properties_t<2>
 {
     using view_t = Kokkos::View<double ****, Kokkos::LayoutLeft, default_space> ; 
-    std::array<bool, 2> staggering; 
-    bool has_gz ; 
+    var_staggering_t staggering; 
+    bool is_evolved ; 
     bool is_vector ;  
     bool is_tensor ; 
+    int8_t comp_num ; 
+    std::string bc_type ; 
 
     std::string name ; 
 } ; 
@@ -72,10 +90,12 @@ template<>
 struct variable_properties_t<3>
 {
     using view_t = Kokkos::View<double *****, Kokkos::LayoutLeft, default_space> ; 
-    std::array<bool, 3> staggering; 
-    bool has_gz ; 
+    var_staggering_t staggering; 
+    bool is_evolved ; 
     bool is_vector;
     bool is_tensor; 
+    int8_t comp_num ;
+    std::string bc_type ;  
     
     std::string name ;
 } ; 

@@ -33,6 +33,27 @@
 
 namespace grace { namespace variables  {
 
+bool var_exists(std::string const& vname) {
+    auto it = detail::_varprops.find(vname);
+    if (it == detail::_varprops.end()) {
+        return false ;
+    }
+    return true ;
+}
+
+grace::variable_properties_t<GRACE_NSPACEDIM>&
+get_variable_properties(std::string const& vname, int& err)
+{   
+    // Check if the variable exists in the map to avoid undefined behavior.
+    auto it = detail::_varprops.find(vname);
+    if (it == detail::_varprops.end()) {
+        err = -1 ; 
+        return grace::variable_properties_t<GRACE_NSPACEDIM>{}; 
+    }
+    err = 0 ;
+    return it->second; 
+}
+
 int 
 get_n_evolved_face_staggered()
 {
@@ -71,42 +92,26 @@ get_n_auxiliary()
 
 
 std::string 
-get_bc_type(int64_t varidx, size_t const& var_type)
+get_bc_type(int64_t varidx, var_staggering_t const& staggering)
 {
-    if ( var_type == EVOLVED ) {
+    if ( staggering == var_staggering_t::CELL_CENTER ) {
         ASSERT_DBG( varidx < detail::_var_bc_types.size(), 
                 "Requested variable " << varidx << " does not have registered BCs."); 
         return detail::_var_bc_types[varidx]  ;
-    } else if ( var_type == AUXILIARY ) {
-        ASSERT_DBG( varidx < detail::_aux_bc_types.size(), 
-                "Requested auxiliary variable " << varidx << " does not have registered BCs."); 
-        return detail::_aux_bc_types[varidx]  ;
-    } else if ( var_type == FACE_STAGGERED ) {
+    } else if ( staggering == var_staggering_t::FACE ) {
         ASSERT_DBG( varidx < detail::_face_vars_bc_types.size(), 
                 "Requested face-staggered variable " << varidx << " does not have registered BCs."); 
         return detail::_face_vars_bc_types[varidx]  ;
-    } else if ( var_type == FACE_STAGGERED_AUXILIARY) {
-        ASSERT_DBG( varidx < detail::_face_aux_bc_types.size(), 
-                "Requested face-staggered auxiliary variable " << varidx << " does not have registered BCs."); 
-        return detail::_face_aux_bc_types[varidx]  ;
-    } else if ( var_type == EDGE_STAGGERED) {
+    } else if ( staggering == var_staggering_t::EDGE ) {
         ASSERT_DBG( varidx < detail::_edge_vars_bc_types.size(), 
                 "Requested edge-staggered variable " << varidx << " does not have registered BCs."); 
         return detail::_edge_vars_bc_types[varidx]  ;
-    } else if ( var_type == EDGE_STAGGERED_AUXILIARY) {
-        ASSERT_DBG( varidx < detail::_edge_aux_bc_types.size(), 
-                "Requested edge-staggered auxiliary variable " << varidx << " does not have registered BCs."); 
-        return detail::_edge_aux_bc_types[varidx]  ;
-    } else if ( var_type == CORNER_STAGGERED) {
+    } else if ( staggering == var_staggering_t::CORNER) {
         ASSERT_DBG( varidx < detail::_corner_vars_bc_types.size(), 
                 "Requested corner-staggered variable " << varidx << " does not have registered BCs."); 
         return detail::_corner_vars_bc_types[varidx]  ;
-    } else if ( var_type == CORNER_STAGGERED_AUXILIARY) {
-        ASSERT_DBG( varidx < detail::_corner_aux_bc_types.size(), 
-                "Requested corner-staggered auxiliary variable " << varidx << " does not have registered BCs."); 
-        return detail::_corner_aux_bc_types[varidx]  ;
     } else {
-        ERROR("Unrecognized variable type in get_bc_type.") ; 
+        ERROR("Unrecognized variable staggering in get_bc_type.") ; 
     }
 }
 
@@ -145,7 +150,7 @@ std::vector<std::size_t>
 get_vector_aux_variables_indices() {
     std::vector<std::size_t> indices ; 
     for( int i=0; i<detail::_auxnames.size(); ++i){
-        auto const& props = detail::_auxprops[detail::_auxnames[i]] ;
+        auto const& props = detail::_varprops[detail::_auxnames[i]] ;
         if(props.is_vector) {
             indices.push_back(i); 
             i += 2; 
@@ -158,7 +163,7 @@ std::vector<std::size_t>
 get_tensor_aux_variables_indices() {
     std::vector<std::size_t> indices ; 
     for( int i=0; i<detail::_auxnames.size(); ++i){
-        auto const& props = detail::_auxprops[detail::_auxnames[i]] ;
+        auto const& props = detail::_varprops[detail::_auxnames[i]] ;
         if(props.is_tensor) {
             indices.push_back(i); 
             i += 5; 

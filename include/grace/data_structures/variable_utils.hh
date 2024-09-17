@@ -53,7 +53,7 @@ int
 get_n_auxiliary() ; 
 
 std::string
-get_bc_type( int64_t var_idx, size_t const& var_type = grace::variables::EVOLVED)  ;
+get_bc_type( int64_t var_idx, var_staggering_t const& staggering = grace::variables::var_staggering_t::CELL_CETER)  ;
 
 std::string
 get_var_name(int64_t var_idx, bool is_aux)   ; 

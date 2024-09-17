@@ -275,7 +275,7 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     auto phys_boundary_info = neighbor_info.face_info.phys_boundary_info ; 
     phys_boundary_info.host_to_device() ; 
     for(int ivar=0; ivar<nvars; ++ivar){
-        auto bc_type = variables::get_bc_type(ivar) ; 
+        auto bc_type = variables::get_bc_type(ivar, grace::variables::var_staggering_t::CELL_CENTER) ; 
         if( bc_type == "outgoing" )
         {
             auto var = Kokkos::subview( vars
