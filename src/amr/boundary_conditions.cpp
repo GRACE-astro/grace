@@ -101,7 +101,7 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     /******************************************************/
     Kokkos::realloc(halo, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars,halo_quads.size());  
     staggered_halo.realloc(VEC(nx,ny,nz),ngz,halo_quads.size(),nvars_face,nvars_edge,nvars_corner) ; 
-    cell_vol_array_t<GRACE_NSPACEDIM> halo_vols("halo cell volumes") ; 
+    cell_vol_array_t<GRACE_NSPACEDIM> halo_vols ; 
     /******************************************************/
     /* Cell volumes for halos are only needed in          */
     /* nontrivial geometries.                             */
@@ -309,6 +309,8 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     /******************************************************/
     auto coarse_hanging_info = neighbor_info.coarse_hanging_quads_info ; 
     context.reset() ; 
+    GRACE_VERBOSE("Second exchange will ship/receive {}/{} coarse quadrants",
+    coarse_hanging_info.snd_quadid.size(), coarse_hanging_info.rcv_quadid.size() ) ; 
     amr::grace_init_halo_transfer_custom(
         context, 
         coarse_hanging_info.snd_quadid, 

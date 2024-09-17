@@ -352,7 +352,7 @@ void copy_interior_ghostzones_corners(
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int64_t ngz = amr::get_n_ghosts() ;
     int64_t nq  = amr::get_local_num_quadrants() ;
-    int nvars  = variables::get_n_evolved_corner_staggered()      ; // todo
+    int nvars  = variables::get_n_evolved_corner_staggered()      ; 
     size_t const n_faces = interior_faces.size()   ;
     size_t const n_corners = interior_corners.size()   ;
     #ifdef GRACE_3D
@@ -363,7 +363,7 @@ void copy_interior_ghostzones_corners(
     #ifdef GRACE_3D
     auto& d_edge_info = interior_edges.d_view    ; 
     #endif
-    if( EXPR( n_faces == 0, and n_corners == 0, and n_edges==0) ) {
+    if( (EXPR( n_faces == 0, and n_corners == 0, and n_edges==0)) or nvars==0 ) {
         return ; 
     }
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 

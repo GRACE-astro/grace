@@ -149,7 +149,7 @@ void prolongate_hanging_ghostzones_cell_centers(
     auto const n_edges = hanging_edges.size()   ;
     #endif
     
-    if( EXPR(n_faces == 0, and n_corners == 0, and n_edges == 0) ){
+    if( (EXPR(n_faces == 0, and n_corners == 0, and n_edges == 0)) ){
         return ; 
     }
     auto& d_face_info = hanging_faces.d_view    ; 
@@ -567,14 +567,14 @@ void prolongate_hanging_ghostzones_corners(
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ;
     int64_t nq  = amr::get_local_num_quadrants() ;
-    int const nvars = variables::get_n_evolved() ;
+    int const nvars = variables::get_n_evolved_corner_staggered() ;
     auto const n_faces = hanging_faces.size()   ;
     auto const n_corners = hanging_corners.size()   ;
     #ifdef GRACE_3D
     auto const n_edges = hanging_edges.size()   ;
     #endif
     
-    if( EXPR(n_faces == 0, and n_corners == 0, and n_edges == 0) ){
+    if( (EXPR(n_faces == 0, and n_corners == 0, and n_edges == 0)) or nvars==0 ){
         return ; 
     }
     auto& d_face_info = hanging_faces.d_view    ; 

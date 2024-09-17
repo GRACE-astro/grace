@@ -427,7 +427,7 @@ void restrict_hanging_ghostzones_corners(
     #ifdef GRACE_3D
     auto const n_edges = hanging_edges.size()   ;
     #endif 
-    if( EXPR(n_faces == 0, and n_corners == 0, and n_edges == 0) ) {
+    if( (EXPR(n_faces == 0, and n_corners == 0, and n_edges == 0)) or nvars==0 ) {
         return ; 
     }
     auto& d_face_info = hanging_faces.d_view    ; 
