@@ -1,5 +1,5 @@
 # Define a function to add test targets and associated tests
-function(add_mpi_test target_name source_file main_library)
+function(add_mpi_test target_name source_file)
     add_executable(${target_name} ${source_file})
 
 
@@ -21,7 +21,7 @@ function(add_mpi_test target_name source_file main_library)
 endfunction()
 
 # Define a function to add test targets and associated tests
-function(add_kokkos_test target_name source_file main_library)
+function(add_kokkos_test target_name source_file)
     add_executable(${target_name} ${source_file})
 
 
@@ -42,7 +42,7 @@ endfunction()
 
 
 # Define a function to add test targets and associated tests
-function(add_parser_test target_name source_file main_library)
+function(add_parser_test target_name source_file)
     add_executable(${target_name} ${source_file})
 
 
@@ -66,7 +66,7 @@ function(add_parser_test target_name source_file main_library)
 endfunction()
 
 
-function(add_grace_test target_name source_file main_library)
+function(add_grace_test target_name source_file)
     add_executable(${target_name} ${source_file})
 
 
@@ -100,3 +100,16 @@ function(add_grace_test target_name source_file main_library)
         )
 endfunction()
 
+function(add_standalone_test target_name source_file)
+    add_executable(${target_name} ${source_file})
+
+
+    # Set common target properties
+    target_include_directories(${target_name} PRIVATE "${HEADER_LIST}")
+    target_compile_options(${target_name} PRIVATE -g)
+
+    # Common linking libraries
+    target_link_libraries(${target_name} PRIVATE 
+    Catch2::Catch2WithMain
+    )
+endfunction()

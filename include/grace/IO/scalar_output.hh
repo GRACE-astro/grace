@@ -48,7 +48,7 @@ struct minmax_res_t {
 
 namespace detail {
 extern std::map<std::string,minmax_res_t<double>> _minmax_reduction_vars_results ;
-=extern std::map<std::string,double> _norm2_reduction_vars_results    ;
+extern std::map<std::string,double> _norm2_reduction_vars_results    ;
 extern std::map<std::string,double> _integral_reduction_vars_results ;
 
 }

@@ -32,6 +32,7 @@
 
 #include <string>
 #include <vector>
+#include <set>
 
 namespace grace { namespace IO {
 
@@ -50,7 +51,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
 
 void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) ; 
 
-void write_var_arrays_hdf5( std::vector<std::string> const& varlist 
+void write_var_arrays_hdf5( std::set<std::string> const& varlist 
                           , hid_t file_id 
                           , hid_t dxpl
                           , hid_t space_id_glob
@@ -58,10 +59,9 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
                           , hid_t prop_id
                           , hsize_t ncells
                           , hsize_t ncells_glob
-                          , hsize_t local_quad_offset
-                          , bool isaux  ) ; 
+                          , hsize_t local_quad_offset) ; 
 
-void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist 
+void write_vector_var_arrays_hdf5( std::set<std::string> const& varlist 
                                  , hid_t file_id 
                                  , hid_t dxpl
                                  , hid_t space_id_glob
@@ -69,8 +69,7 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
                                  , hid_t prop_id
                                  , hsize_t ncells
                                  , hsize_t ncells_glob
-                                 , hsize_t local_quad_offset
-                                 , bool isaux  ) ; 
+                                 , hsize_t local_quad_offset) ; 
 
 void write_extra_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) ; 
 

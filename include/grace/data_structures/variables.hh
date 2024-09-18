@@ -243,33 +243,33 @@ get_variable_subview(
 
     if ( props.is_evolved ) {
         if ( props.staggering == var_staggering_t::CELL_CENTER ) {
-            return Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), props.index, ALL()) ; 
+            return Kokkos::subview(state, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset) ; 
         } else if (props.staggering == var_staggering_t::FACE ) {
             auto& fstate = (props.comp_num == 0) ? sstate.face_staggered_fields_x
                 : ( (props.comp_num == 1) ? sstate.face_staggered_fields_y : sstate.face_staggered_fields_z ) ; 
-            return Kokkos::subview(fstate, VEC(ALL(),ALL(),ALL()), props.index, ALL())  ; 
+            return Kokkos::subview(fstate, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset)  ; 
         } else if (props.staggering == var_staggering_t::EDGE ) {
             auto& estate = (props.comp_num == 0) ? sstate.edge_staggered_fields_yz
                 : ( (props.comp_num == 1) ? sstate.edge_staggered_fields_xz : sstate.edge_staggered_fields_xy ) ; 
-            return Kokkos::subview(estate, VEC(ALL(),ALL(),ALL()), props.index, ALL())  ; 
+            return Kokkos::subview(estate, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset)  ; 
         } else {
             auto& cstate = sstate.corner_staggered_fields ;
-            return Kokkos::subview(cstate, VEC(ALL(),ALL(),ALL()), props.index, ALL())  ; 
+            return Kokkos::subview(cstate, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset)  ; 
         }
     } else {
         if ( props.staggering == var_staggering_t::CELL_CENTER ) {
-            return Kokkos::subview(aux, VEC(ALL(),ALL(),ALL()), props.index, ALL()) ; 
+            return Kokkos::subview(aux, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset) ; 
         } else if (props.staggering == var_staggering_t::FACE ) {
             auto& fstate = (props.comp_num == 0) ? saux.face_staggered_fields_x
                 : ( (props.comp_num == 1) ? saux.face_staggered_fields_y : saux.face_staggered_fields_z ) ; 
-            return Kokkos::subview(fstate, VEC(ALL(),ALL(),ALL()), props.index, ALL())  ; 
+            return Kokkos::subview(fstate, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset)  ; 
         } else if (props.staggering == var_staggering_t::EDGE ) {
             auto& estate = (props.comp_num == 0) ? saux.edge_staggered_fields_yz
                 : ( (props.comp_num == 1) ? saux.edge_staggered_fields_xz : saux.edge_staggered_fields_xy ) ; 
-            return Kokkos::subview(estate, VEC(ALL(),ALL(),ALL()), props.index, ALL())  ; 
+            return Kokkos::subview(estate, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset)  ; 
         } else {
             auto& cstate = saux.corner_staggered_fields ;
-            return Kokkos::subview(cstate, VEC(ALL(),ALL(),ALL()), props.index, ALL())  ; 
+            return Kokkos::subview(cstate, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset)  ; 
         }
     }
 } ; 

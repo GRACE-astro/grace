@@ -157,7 +157,7 @@ void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t wh
 
     auto vars = grace::variable_list::get().getstate() ; 
     auto aux  = grace::variable_list::get().getaux()   ;
-    using exec_space = decltype(vars)::typename execution_space ; 
+    using exec_space = typename decltype(vars)::execution_space ; 
 
     Kokkos::View<double EXPR(*,*,*)*, Kokkos::LayoutLeft, grace::default_execution_space> 
         d_mirror("Device output mirror", VEC(nx,ny,nz), nq) ; 
@@ -170,7 +170,7 @@ void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t wh
     int ivar{ 0 } ;  
     for( auto const& vname : scalars  )
     {
-        auto sview   = grace::variables::get_variable_subview(
+        auto sview   = get_variable_subview(
             vname,
             VEC( Kokkos::pair(ngz,nx+ngz),
                  Kokkos::pair(ngz,ny+ngz),
@@ -181,10 +181,10 @@ void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t wh
         Kokkos::deep_copy(d_mirror, sview) ; 
         Kokkos::deep_copy(h_mirror, d_mirror) ; 
 
-        grid->GetCellData()->AddArray(vtk_create_cell_data(VEC(nx,ny,nz),nq,h_sview,vname)) ;
+        grid->GetCellData()->AddArray(vtk_create_cell_data(VEC(nx,ny,nz),nq,h_mirror,vname)) ;
 
     }
-    Kokkos::View<double EXPR(*,*,*)*, Kokkos::LayoutLeft, grace::default_execution_space> 
+    Kokkos::View<double EXPR(*,*,*)**, Kokkos::LayoutLeft, grace::default_execution_space> 
         d_vec_mirror("Device output mirror", VEC(nx,ny,nz), 3, nq) ; 
     auto h_vec_mirror = Kokkos::create_mirror_view(d_vec_mirror) ; 
     for( auto const& vname: vectors )
@@ -195,8 +195,8 @@ void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t wh
             vname + "[2]" 
         } ; 
         for( int icomp=0; icomp<3; ++icomp ) {
-            auto sview   = grace::variables::get_variable_subview(
-                vname,
+            auto sview   = get_variable_subview(
+                compnames[icomp],
                 VEC(Kokkos::pair(ngz,nx+ngz),
                     Kokkos::pair(ngz,ny+ngz),
                     Kokkos::pair(ngz,nz+ngz)),

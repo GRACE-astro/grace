@@ -33,6 +33,7 @@
 #include <grace/utils/iterator.hh>
 #include <grace/utils/type_name.hh> 
 #include <grace/data_structures/memory_defaults.hh>
+#include <grace/errors/assert.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -190,7 +191,7 @@ class device_vector {
      * @return index_type The size of the host-side vector.
      */
     size_type GRACE_ALWAYS_INLINE GRACE_HOST
-    size()  
+    size() const 
     {
         return h_view.size()  ;
     }
@@ -201,7 +202,7 @@ class device_vector {
      * @return index_type Size of device-side View.
      */
     size_type GRACE_ALWAYS_INLINE GRACE_HOST
-    device_size()  
+    device_size() const
     {
         return d_view.extent(0)  ;
     }

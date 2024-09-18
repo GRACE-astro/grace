@@ -78,7 +78,7 @@ void compute_reductions() {
         GRACE_TRACE("Performing minmax reduction of variable {}", vname) ; 
         auto policy =
             MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-        auto const u = variables::get_variable_subview(vname) ; 
+        auto const u = get_variable_subview(vname) ; 
         MinMaxScalar<double> res ; 
         parallel_reduce( GRACE_EXECUTION_TAG("IO","minmax_reduction_vars") 
                        , policy 
@@ -106,7 +106,7 @@ void compute_reductions() {
         GRACE_TRACE("Performing norm2 reduction of variable {}", vname) ; 
         auto policy =
             MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-        auto const u = variables::get_variable_subview(vname) ; 
+        auto const u = get_variable_subview(vname) ; 
         double res ; 
         parallel_reduce( GRACE_EXECUTION_TAG("IO","norm2_reduction_vars") 
                        , policy 
@@ -124,12 +124,11 @@ void compute_reductions() {
     } 
     /* Then: compute integral reductions */ 
     auto const integral_vars = grace_runtime.integral_reduction_vars() ; // TODO put everything here
-
     for( auto const& vname: integral_vars ) {
         GRACE_TRACE("Performing integral reduction of variable {}", vname) ; 
         auto policy =
             MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-        auto const u = variables::get_variable_subview(vname) ; 
+        auto const u = get_variable_subview(vname) ; 
         double res ; 
         parallel_reduce( GRACE_EXECUTION_TAG("IO","integral_reduction_vars") 
                        , policy 
@@ -221,7 +220,7 @@ void initialize_output_files() {
     static constexpr const size_t width = 20 ; 
     std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ; 
     auto const out_minmax_vars = grace_runtime.scalar_output_minmax_vars() ; 
-=    for( auto const& vname: out_minmax_vars ) {
+    for( auto const& vname: out_minmax_vars ) {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
@@ -266,11 +265,8 @@ void info_output() {
 
     auto& grace_runtime = grace::runtime::get() ; 
     auto const max_vars = grace_runtime.info_output_max_vars() ; 
-    auto const max_aux  = grace_runtime.info_output_max_aux()  ; 
     auto const min_vars = grace_runtime.info_output_min_vars() ; 
-    auto const min_aux  = grace_runtime.info_output_min_aux()  ;
     auto const norm_vars = grace_runtime.info_output_norm2_vars() ; 
-    auto const norm_aux  = grace_runtime.info_output_norm2_aux()  ; 
 
     static constexpr const size_t width = 15 ; 
 
@@ -287,11 +283,8 @@ void info_output() {
            << std::left << std::setw(width) << "Time" 
            << std::left << std::setw(width) << "M/h" ; 
         APPEND_OUTPUT(max_vars,"[max]") ;
-        APPEND_OUTPUT(max_aux, "[max]") ; 
         APPEND_OUTPUT(min_vars,"[min]") ;
-        APPEND_OUTPUT(min_aux, "[min]") ; 
         APPEND_OUTPUT(norm_vars,"[norm2]") ;
-        APPEND_OUTPUT(norm_aux, "[norm2]") ; 
         os << '\n' ; 
         GRACE_INFO(os.str().c_str()) ;
         os.str("");  // Reset content to empty string
@@ -314,11 +307,8 @@ void info_output() {
 
     os << std::left << std::setw(width) << iter << std::left << std::setw(width) << time << std::left << std::setw(width) << rate ; 
     APPEND_MAX(max_vars,detail::_minmax_reduction_vars_results) ; 
-    APPEND_MAX(max_aux,detail::_minmax_reduction_aux_results)   ; 
     APPEND_MIN(min_vars,detail::_minmax_reduction_vars_results) ; 
-    APPEND_MIN(min_aux,detail::_minmax_reduction_aux_results)   ;
     APPEND_OUTPUT(norm_vars,detail::_norm2_reduction_vars_results) ; 
-    APPEND_OUTPUT(norm_aux,detail::_norm2_reduction_aux_results) ; 
     os << '\n' ; 
     #undef APPEND_MAX
     #undef APPEND_MIN 

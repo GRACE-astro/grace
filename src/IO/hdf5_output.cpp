@@ -550,7 +550,7 @@ void write_var_arrays_hdf5( std::set<std::string> const& varlist
                                         , varidx 
                                         , iq ) ; 
             #endif 
-            auto sview = variables::get_variable_subview(
+            auto sview = get_variable_subview(
                       vname
                     , Kokkos::pair<int,int>(ngz,nx+ngz)
                     , Kokkos::pair<int,int>(ngz,ny+ngz)
@@ -667,7 +667,7 @@ void write_vector_var_arrays_hdf5( std::set<std::string> const& varlist
                                             , varidx+icomp
                                             , iq ) ; 
                 #endif 
-                auto sview = variables::get_variable_subview(
+                auto sview = get_variable_subview(
                       compnames[icomp]
                     , Kokkos::pair<int,int>(ngz,nx+ngz)
                     , Kokkos::pair<int,int>(ngz,ny+ngz)

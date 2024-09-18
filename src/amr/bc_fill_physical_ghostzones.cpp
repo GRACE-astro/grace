@@ -38,14 +38,14 @@
 #include <Kokkos_Core.hpp>
 
 namespace grace { namespace amr {
-// TODO header 
+
 void fill_physical_boundaries(
       grace::var_array_t<GRACE_NSPACEDIM>& vars 
     , grace::staggered_variable_arrays_t& staggered_vars 
-    , grace::device_vector<grace::amr::grace_phys_bc_info_t> const& face_phys_bc 
-    , grace::device_vector<grace::amr::grace_phys_bc_info_t> const& corner_phys_bc
+    , grace::device_vector<grace::amr::grace_phys_bc_info_t>& face_phys_bc 
+    , grace::device_vector<grace::amr::grace_phys_bc_info_t>& corner_phys_bc
     #ifdef GRACE_3D 
-    , grace::device_vector<grace::amr::grace_phys_bc_info_t> const& edge_phys_bc 
+    , grace::device_vector<grace::amr::grace_phys_bc_info_t>& edge_phys_bc 
     #endif
 )
 {

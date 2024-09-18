@@ -43,6 +43,11 @@ TEST_CASE("Volume hdf5 output", "[vol_hdf5_out]")
                               + math::int_pow<2>(coords[1]),
                               + math::int_pow<2>(coords[2]) )  ; 
         h_state_mirror(VEC(i,j,k),DENS,q) = exp( - r2 / 0.5 ) ; 
+
+        h_state_mirror(VEC(i,j,k),BETAX,q) = Kokkos::sqrt(r2) * sin(M_PI*coords[0]) ; 
+        h_state_mirror(VEC(i,j,k),BETAY,q) = Kokkos::sqrt(r2) * cos(M_PI*coords[1]) ; 
+        h_state_mirror(VEC(i,j,k),BETAZ,q) = coords[0] ; 
+
     }
     Kokkos::deep_copy(state, h_state_mirror) ;
 

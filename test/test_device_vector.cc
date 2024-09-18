@@ -26,7 +26,7 @@
  */
 #include <catch2/catch_test_macros.hpp>
 
-#include <grace_config.hh>
+#include <grace_config.h>
 #include <grace/utils/device_vector.hh>
 
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -84,7 +84,7 @@ TEST_CASE("device_vector","[devicevector]")
     // Test move ctor 
     {
         std::vector<int> v {1,2,3} ;
-        std::vector<int> w{v} 
+        std::vector<int> w{v} ;  
         device_vector<int> dvec{std::move(w)} ; 
         REQUIRE( dvec.size() == 3 ) ;
         REQUIRE( dvec.device_size() == 3 ) ;
@@ -108,6 +108,6 @@ TEST_CASE("device_vector","[devicevector]")
             REQUIRE(dvec[ii] == ii)  ;  
         }
     }
-    
+
     
 }

@@ -128,9 +128,7 @@ void write_xmf_file( const std::string &filename
     auto& runtime = grace::runtime::get() ;
 
     auto const scalars     = runtime.cell_volume_output_scalar_vars() ; 
-    auto const aux_scalars = runtime.cell_volume_output_scalar_aux()  ;
     auto const vectors     = runtime.cell_volume_output_vector_vars() ; 
-    auto const aux_vectors = runtime.cell_volume_output_vector_aux()  ;
 
     std::ofstream outfile(filename);
     std::vector<xmf_grid_node> grids ;
@@ -153,13 +151,7 @@ void write_xmf_file( const std::string &filename
         for( auto& vname: scalars ) {
             attributes.push_back( xmf_cell_centered_attr_node{ncells,vname,h5fname,"Scalar"} ) ; 
         } 
-        for( auto& vname: aux_scalars ) {
-            attributes.push_back( xmf_cell_centered_attr_node{ncells,vname,h5fname,"Scalar"} ) ; 
-        }
         for( auto& vname: vectors ) {
-            attributes.push_back( xmf_cell_centered_attr_node{ncells,vname,h5fname,"Vector"} ) ; 
-        }
-        for( auto& vname: aux_vectors ) {
             attributes.push_back( xmf_cell_centered_attr_node{ncells,vname,h5fname,"Vector"} ) ; 
         }
         grids.push_back(xmf_grid_node{it,ncells,npoints,nvertex,time,topology,h5fname,attributes}) ; 

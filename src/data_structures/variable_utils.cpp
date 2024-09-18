@@ -48,7 +48,7 @@ get_variable_properties(std::string const& vname, int& err)
     auto it = detail::_varprops.find(vname);
     if (it == detail::_varprops.end()) {
         err = -1 ; 
-        return grace::variable_properties_t<GRACE_NSPACEDIM>{}; 
+        return detail::_varprops.begin()->second; 
     }
     err = 0 ;
     return it->second; 

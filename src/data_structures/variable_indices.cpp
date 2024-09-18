@@ -321,7 +321,7 @@ static int register_staggered_variable( std::string const& name
             _face_aux_bc_types.push_back(bc_type) ; 
             return (num_face_staggered_aux ) - 1 ; 
         }
-    } else if (nstagger == EDGE) {
+    } else if (staggering == var_staggering_t::EDGE) {
         ASSERT(is_vector, "Edge staggered variables must be vectors.") ; 
         if( is_evolved ) {
             if( num_comp == 0) {
@@ -338,7 +338,7 @@ static int register_staggered_variable( std::string const& name
             _edge_aux_bc_types.push_back(bc_type) ; 
             return (num_edge_staggered_aux) - 1 ; 
         }
-    } else if (nstagger == CORNER) {
+    } else if (staggering == var_staggering_t::CORNER) {
         if( is_evolved ) {
             _corner_staggered_varnames.push_back(name) ; 
             _corner_vars_bc_types.push_back(bc_type) ; 
@@ -481,7 +481,7 @@ static int register_variable(     std::string const& name
 
     size_t varidx ; 
     if( not ( var_staggering == var_staggering_t::CELL_CENTER ) ) {
-        varidx = register_staggered_variable(name,is_evolved,need_fluxes,bc_type,var_staggering, is_vector, is_tensor, comp_num) ; 
+        varidx = register_staggered_variable(name,is_evolved,need_fluxes,bc_type,static_cast<var_staggering_t>(var_staggering), is_vector, is_tensor, comp_num) ; 
     } else {
         if ( is_vector ) {
             varidx = register_vector(name,is_evolved,need_fluxes,comp_num,bc_type) ; 

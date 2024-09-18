@@ -105,8 +105,7 @@ void apply_phys_bc(
         int const idir = (face%2==0) * (-1)    + (face%2==1) * (+1) ;  
 
         int const faceb2{ face / 2 } ; 
-
-        #pragma unroll  
+        
         for( int ig=lmin; ig!=lmax; ig+=idir ) {
           int const I = (faceb2==0) * ig + (faceb2!=0) * i ; 
           int const J = (faceb2==1) * ig + (faceb2==0) * i + (faceb2==2) * j ; 
@@ -159,7 +158,7 @@ void apply_phys_bc(
           }
         }     
         int64_t iq     = d_edge_info(iedge).qid    ;
-        #pragma unroll 
+
         for( int ig=lmin[0]; ig!=lmax[0]; ig+=idir[0] ) 
         for( int jg=lmin[1]; jg!=lmax[1]; jg+=idir[1] ) 
         for( int kg=lmin[2]; kg!=lmax[2]; kg+=idir[2] )
@@ -215,7 +214,6 @@ void apply_phys_bc(
         
       int64_t iq     = d_corner_info(icorner).qid       ;
 
-      #pragma unroll
       EXPR( for( int ig=lmin[0]; ig!=lmax[0]; ig+=idir[0]), 
             for( int jg=lmin[1]; jg!=lmax[1]; jg+=idir[1]), 
             for( int kg=lmin[2]; kg!=lmax[2]; kg+=idir[2])) 
