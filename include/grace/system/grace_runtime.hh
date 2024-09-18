@@ -46,6 +46,7 @@
 
 #include <string>
 #include <vector> 
+#include <set>
 #include <iostream>
 #include <algorithm> 
 #include <filesystem> 
@@ -56,41 +57,26 @@ class grace_runtime_impl_t
 {
  private:
     /* Volume output */
-    std::vector<std::string> _cell_volume_output_scalar_vars ;
-    std::vector<std::string> _cell_volume_output_vector_vars ;
-    std::vector<std::string> _cell_volume_output_scalar_aux ;
-    std::vector<std::string> _cell_volume_output_vector_aux ;
+    std::set<std::string> _cell_volume_output_scalar_vars ;
+    std::set<std::string> _cell_volume_output_vector_vars ;
     /* Surface output */
-    std::vector<std::string> _cell_plane_surface_output_scalar_vars ;
-    std::vector<std::string> _cell_plane_surface_output_vector_vars ;
-    std::vector<std::string> _cell_plane_surface_output_scalar_aux ;
-    std::vector<std::string> _cell_plane_surface_output_vector_aux ;
+    std::set<std::string> _cell_plane_surface_output_scalar_vars ;
+    std::set<std::string> _cell_plane_surface_output_vector_vars ;
     /* Sphere surface output */
-    std::vector<std::string> _cell_sphere_surface_output_scalar_vars ;
-    std::vector<std::string> _cell_sphere_surface_output_vector_vars ;
-    std::vector<std::string> _cell_sphere_surface_output_scalar_aux ;
-    std::vector<std::string> _cell_sphere_surface_output_vector_aux ;
+    std::set<std::string> _cell_sphere_surface_output_scalar_vars ;
+    std::set<std::string> _cell_sphere_surface_output_vector_vars ;
     /* Scalar output         */
-    std::vector<std::string> _scalar_output_minmax_vars   ; 
-    std::vector<std::string> _scalar_output_minmax_aux    ;
-    std::vector<std::string> _scalar_output_norm2_vars    ; 
-    std::vector<std::string> _scalar_output_norm2_aux     ;
-    std::vector<std::string> _scalar_output_integral_vars ; 
-    std::vector<std::string> _scalar_output_integral_aux  ;
+    std::set<std::string> _scalar_output_minmax_vars   ; 
+    std::set<std::string> _scalar_output_norm2_vars    ; 
+    std::set<std::string> _scalar_output_integral_vars ; 
     /* Info output         */
-    std::vector<std::string> _info_output_max_vars   ; 
-    std::vector<std::string> _info_output_max_aux    ;
-    std::vector<std::string> _info_output_min_vars   ; 
-    std::vector<std::string> _info_output_min_aux    ;
-    std::vector<std::string> _info_output_norm2_vars ; 
-    std::vector<std::string> _info_output_norm2_aux  ;
+    std::set<std::string> _info_output_max_vars   ; 
+    std::set<std::string> _info_output_min_vars   ; 
+    std::set<std::string> _info_output_norm2_vars ; 
     /* Reduction variable lists */
-    std::vector<std::string> _minmax_reduction_vars   ;
-    std::vector<std::string> _minmax_reduction_aux    ;
-    std::vector<std::string> _norm2_reduction_vars    ;
-    std::vector<std::string> _norm2_reduction_aux     ;
-    std::vector<std::string> _integral_reduction_vars ;
-    std::vector<std::string> _integral_reduction_aux  ;
+    std::set<std::string> _minmax_reduction_vars   ;
+    std::set<std::string> _norm2_reduction_vars    ;
+    std::set<std::string> _integral_reduction_vars ;
     /* Output planes */
     int _n_output_planes ; 
     std::vector<std::array<double,3>> _output_planes_origins ; 
@@ -200,15 +186,6 @@ class grace_runtime_impl_t
         return _cell_volume_output_vector_vars; 
     }
 
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_volume_output_scalar_aux() const {
-        return _cell_volume_output_scalar_aux; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_volume_output_vector_aux() const {
-        return _cell_volume_output_vector_aux; 
-    }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
     cell_plane_surface_output_scalar_vars() const {
@@ -220,15 +197,6 @@ class grace_runtime_impl_t
         return _cell_plane_surface_output_vector_vars; 
     }
 
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_plane_surface_output_scalar_aux() const {
-        return _cell_plane_surface_output_scalar_aux; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_plane_surface_output_vector_aux() const {
-        return _cell_plane_surface_output_vector_aux; 
-    }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
     cell_sphere_surface_output_scalar_vars() const {
@@ -240,44 +208,22 @@ class grace_runtime_impl_t
         return _cell_sphere_surface_output_vector_vars; 
     }
 
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_sphere_surface_output_scalar_aux() const {
-        return _cell_sphere_surface_output_scalar_aux; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_sphere_surface_output_vector_aux() const {
-        return _cell_sphere_surface_output_vector_aux; 
-    }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
     scalar_output_minmax_vars() const {
         return _scalar_output_minmax_vars; 
     }
 
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    scalar_output_minmax_aux() const {
-        return _scalar_output_minmax_aux; 
-    }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
     scalar_output_norm2_vars() const {
         return _scalar_output_norm2_vars; 
     }
 
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    scalar_output_norm2_aux() const {
-        return _scalar_output_norm2_aux; 
-    }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
     scalar_output_integral_vars() const {
         return _scalar_output_integral_vars; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    scalar_output_integral_aux() const {
-        return _scalar_output_integral_aux; 
     }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
@@ -286,18 +232,8 @@ class grace_runtime_impl_t
     }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
-    info_output_max_aux() const {
-        return _info_output_max_aux; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
     info_output_min_vars() const {
         return _info_output_min_vars; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    info_output_min_aux() const {
-        return _info_output_min_aux; 
     }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
@@ -305,19 +241,10 @@ class grace_runtime_impl_t
         return _info_output_norm2_vars; 
     }
 
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    info_output_norm2_aux() const {
-        return _info_output_norm2_aux; 
-    }
     
     decltype(auto) GRACE_ALWAYS_INLINE 
     minmax_reduction_vars() const {
         return _minmax_reduction_vars; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    minmax_reduction_aux() const {
-        return _minmax_reduction_aux; 
     }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
@@ -326,18 +253,8 @@ class grace_runtime_impl_t
     }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
-    norm2_reduction_aux() const {
-        return _norm2_reduction_aux; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
     integral_reduction_vars() const {
         return _integral_reduction_vars; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    integral_reduction_aux() const {
-        return _integral_reduction_aux; 
     }
 
     int GRACE_ALWAYS_INLINE 
@@ -508,63 +425,48 @@ class grace_runtime_impl_t
             params["IO"]["plane_surface_output_cell_variables"].as<std::vector<std::string>>() ; 
         auto out_cell_vars_sphere_surface = 
             params["IO"]["sphere_surface_output_cell_variables"].as<std::vector<std::string>>() ; 
-        auto& vnames = grace::variables::detail::_varnames ; 
-        auto& vprops = grace::variables::detail::_varprops ; 
-        auto& auxnames = grace::variables::detail::_auxnames ;
-        auto& auxprops = grace::variables::detail::_auxprops ;  
-        for( auto const& x: out_cell_vars_volume ) {
-            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
-                if( vprops[x].is_vector ){
-                     _cell_volume_output_vector_vars.push_back(vprops[x].name) ; 
-                } else {
-                    _cell_volume_output_scalar_vars.push_back(x) ;
-                }
-            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
-                if( auxprops[x].is_vector ){
-                     _cell_volume_output_vector_aux.push_back(auxprops[x].name) ; 
-                } else {
-                    _cell_volume_output_scalar_aux.push_back(x) ;
-                } 
-            } else { 
-                GRACE_WARN("Variable {} not found (requested for volume output).", x) ; 
-            }
-        } 
 
-        for( auto const& x: out_cell_vars_plane_surface ) {
-            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
-                if( vprops[x].is_vector ){
-                     _cell_plane_surface_output_vector_vars.push_back(vprops[x].name) ; 
+        auto const add_to_scalar_or_vector_list = 
+            [&] ( std::vector<std::string> const& in_vars, std::set<std::string>& svars, std::set<std::string>& vvars)
+        {
+            for( auto const& x: in_vars ) {
+                int err ; 
+                auto const& props = variables::get_variable_properties(x,err) ; 
+                if ( err < 0 ) {
+                    GRACE_WARN("Variable {} requested for output is not registered.", x) ; 
                 } else {
-                    _cell_plane_surface_output_scalar_vars.push_back(x) ;
+                    if( props.is_vector ) {
+                        vvars.insert(props.name) ; 
+                    } else {
+                        svars.insert(x) ; 
+                    }
                 }
-            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
-                if( auxprops[x].is_vector ){
-                     _cell_plane_surface_output_vector_aux.push_back(auxprops[x].name) ; 
-                } else {
-                    _cell_plane_surface_output_scalar_aux.push_back(x) ;
-                } 
-            } else { 
-                GRACE_WARN("Variable {} not found (requested for plane surface output).", x) ; 
-            }
-        } 
+            } 
+        } ;
 
-        for( auto const& x: out_cell_vars_sphere_surface ) {
-            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
-                if( vprops[x].is_vector ){
-                     _cell_sphere_surface_output_vector_vars.push_back(vprops[x].name) ; 
+        add_to_scalar_or_vector_list(out_cell_vars_volume,
+                                    _cell_volume_output_scalar_vars,
+                                    _cell_volume_output_vector_vars) ; 
+        add_to_scalar_or_vector_list(out_cell_vars_plane_surface,
+                                    _cell_plane_surface_output_scalar_vars,
+                                    _cell_plane_surface_output_vector_vars) ; 
+        add_to_scalar_or_vector_list(out_cell_vars_sphere_surface,
+                                    _cell_sphere_surface_output_scalar_vars,
+                                    _cell_sphere_surface_output_vector_vars) ; 
+
+        /* Define helper lambda */
+        auto const check_vars_exist_and_insert = 
+            [&] (std::vector<std::string> const& vlist, std::set<std::string>& olist, std::set<std::string> olist2 )
+        {
+            for( auto const& x: vlist ) {
+                if ( variables::var_exists(x) ) {
+                    olist.insert(x) ; 
+                    olist2.insert(x) ; 
                 } else {
-                    _cell_sphere_surface_output_scalar_vars.push_back(x) ;
+                    GRACE_WARN("Variable {} requested for output is not registered.", x ) ; 
                 }
-            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
-                if( auxprops[x].is_vector ){
-                     _cell_sphere_surface_output_vector_aux.push_back(auxprops[x].name) ; 
-                } else {
-                    _cell_sphere_surface_output_scalar_aux.push_back(x) ;
-                } 
-            } else { 
-                GRACE_WARN("Variable {} not found (requested for sphere surface output).", x) ; 
             }
-        } 
+        } ; 
         /* Scalar output variables */
         auto out_minmax = 
             params["IO"]["scalar_output_minmax"].as<std::vector<std::string>>() ;
@@ -572,33 +474,9 @@ class grace_runtime_impl_t
             params["IO"]["scalar_output_norm2"].as<std::vector<std::string>>() ;
         auto out_integral = 
             params["IO"]["scalar_output_integral"].as<std::vector<std::string>>() ;
-        for( auto const& x: out_minmax ) {
-            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
-                _scalar_output_minmax_vars.push_back(x) ;
-            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
-                _scalar_output_minmax_aux.push_back(x) ;
-            } else { 
-                GRACE_WARN("Variable {} not found (requested for scalar minmax output).", x) ; 
-            }
-        } 
-        for( auto const& x: out_norm2 ) {
-            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
-                _scalar_output_norm2_vars.push_back(x) ;
-            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
-                _scalar_output_norm2_aux.push_back(x) ;
-            } else { 
-                GRACE_WARN("Variable {} not found (requested for scalar norm2 output).", x) ; 
-            }
-        } 
-        for( auto const& x: out_integral ) {
-            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
-                _scalar_output_integral_vars.push_back(x) ;
-            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
-                _scalar_output_integral_aux.push_back(x) ;
-            } else { 
-                GRACE_WARN("Variable {} not found (requested for scalar integral output).", x) ; 
-            }
-        } 
+        check_vars_exist_and_insert(out_minmax,_scalar_output_minmax_vars,_minmax_reduction_vars) ; 
+        check_vars_exist_and_insert(out_norm2,_scalar_output_norm2_vars,_norm2_reduction_vars) ; 
+        check_vars_exist_and_insert(out_integral,_scalar_output_integral_vars,_integral_reduction_vars) ; 
         /* Info output variables */
         auto out_info_max = 
             params["IO"]["info_output_max_reductions"].as<std::vector<std::string>>() ;
@@ -606,118 +484,9 @@ class grace_runtime_impl_t
             params["IO"]["info_output_min_reductions"].as<std::vector<std::string>>() ;
         auto out_info_norm2 = 
             params["IO"]["info_output_norm2_reductions"].as<std::vector<std::string>>() ;
-        for( auto const& x: out_info_max ) {
-            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
-                _info_output_max_vars.push_back(x) ;
-            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
-                _info_output_max_aux.push_back(x) ;
-            } else { 
-                GRACE_WARN("Variable {} not found (requested for info minmax output).", x) ; 
-            }
-        } 
-        for( auto const& x: out_info_min ) {
-            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
-                _info_output_min_vars.push_back(x) ;
-            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
-                _info_output_min_aux.push_back(x) ;
-            } else { 
-                GRACE_WARN("Variable {} not found (requested for info norm2 output).", x) ; 
-            }
-        } 
-        for( auto const& x: out_info_norm2 ) {
-            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
-                _info_output_norm2_vars.push_back(x) ;
-            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
-                _info_output_norm2_aux.push_back(x) ;
-            } else { 
-                GRACE_WARN("Variable {} not found (requested for info integral output).", x) ; 
-            }
-        } 
-        /***************************************************************/
-        /* Now we create a vector containing all unique variable names */
-        /* requested for reductions.                                   */
-        /***************************************************************/
-        /* Minmax */
-        for( auto const& x: _info_output_max_vars ) {
-            if(std::find( _minmax_reduction_vars.begin()
-                        , _minmax_reduction_vars.end(), x ) == _minmax_reduction_vars.end()) {
-                _minmax_reduction_vars.push_back(x) ; 
-            }
-        }
-        for( auto const& x: _info_output_min_vars ) {
-            if(std::find( _minmax_reduction_vars.begin()
-                        , _minmax_reduction_vars.end(), x ) == _minmax_reduction_vars.end()) {
-                _minmax_reduction_vars.push_back(x) ; 
-            }
-        }
-        for( auto const& x: _scalar_output_minmax_vars   ) {
-            if(std::find( _minmax_reduction_vars.begin()
-                        , _minmax_reduction_vars.end(), x ) == _minmax_reduction_vars.end()) {
-                _minmax_reduction_vars.push_back(x) ; 
-            }
-        }
-        /***************************************************************/
-        for( auto const& x: _info_output_max_aux ) {
-            if(std::find( _minmax_reduction_aux.begin()
-                        , _minmax_reduction_aux.end(), x ) == _minmax_reduction_aux.end()) {
-                _minmax_reduction_aux.push_back(x) ; 
-            }
-        }
-        for( auto const& x: _info_output_min_aux ) {
-            if(std::find( _minmax_reduction_aux.begin()
-                        , _minmax_reduction_aux.end(), x ) == _minmax_reduction_aux.end()) {
-                _minmax_reduction_aux.push_back(x) ; 
-            }
-        }
-        for( auto const& x: _scalar_output_minmax_aux   ) {
-            if(std::find( _minmax_reduction_aux.begin()
-                        , _minmax_reduction_aux.end(), x ) == _minmax_reduction_aux.end()) {
-                _minmax_reduction_aux.push_back(x) ; 
-            }
-        }
-        /***************************************************************/
-        /* Norm 2 */
-        for( auto const& x: _info_output_norm2_vars ) {
-            if(std::find( _norm2_reduction_vars.begin()
-                        , _norm2_reduction_vars.end(), x ) == _norm2_reduction_vars.end()) {
-                _norm2_reduction_vars.push_back(x) ; 
-            }
-        }
-        for( auto const& x: _scalar_output_norm2_vars ) {
-            if(std::find( _norm2_reduction_vars.begin()
-                        , _norm2_reduction_vars.end(), x ) == _norm2_reduction_vars.end()) {
-                _norm2_reduction_vars.push_back(x) ; 
-            }
-        }
-        /***************************************************************/
-        for( auto const& x: _info_output_norm2_aux ) {
-            if(std::find( _norm2_reduction_aux.begin()
-                        , _norm2_reduction_aux.end(), x ) == _norm2_reduction_aux.end()) {
-                _norm2_reduction_aux.push_back(x) ; 
-            }
-        }
-        for( auto const& x: _scalar_output_norm2_aux ) {
-            if(std::find( _norm2_reduction_aux.begin()
-                        , _norm2_reduction_aux.end(), x ) == _norm2_reduction_aux.end()) {
-                _norm2_reduction_aux.push_back(x) ; 
-            }
-        }
-        /***************************************************************/
-        /* Integral */
-        for( auto const& x: _scalar_output_integral_vars   ) {
-            if(std::find( _integral_reduction_vars.begin()
-                        , _integral_reduction_vars.end(), x ) == _integral_reduction_vars.end()) {
-                _integral_reduction_vars.push_back(x) ; 
-            }
-        }
-        /***************************************************************/
-        for( auto const& x: _scalar_output_integral_aux   ) {
-            if(std::find( _integral_reduction_aux.begin()
-                        , _integral_reduction_aux.end(), x ) == _integral_reduction_aux.end()) {
-                _integral_reduction_aux.push_back(x) ; 
-            }
-        }
-        /***************************************************************/
+        check_vars_exist_and_insert(out_info_max,_info_output_max_vars,_minmax_reduction_vars) ; 
+        check_vars_exist_and_insert(out_info_min,_info_output_min_vars,_minmax_reduction_vars) ; 
+        check_vars_exist_and_insert(out_info_norm2,_info_output_norm2_vars,_norm2_reduction_vars) ; 
         /****************************/
         /* Set iteration count to 0 */ 
         _iter = 0UL ; 
@@ -738,15 +507,6 @@ class grace_runtime_impl_t
                 std::cout << "Vectors: \n";
                 for(auto const& x: _cell_volume_output_vector_vars){
                     std::cout << x << std::endl ; 
-                }
-                std::cout << "Auxiliaries: \n";
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_volume_output_scalar_aux){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_volume_output_vector_aux){
-                    std::cout << x << std::endl ; 
                 }      
             }
             if ( _surface_output )
@@ -762,15 +522,6 @@ class grace_runtime_impl_t
                 for(auto const& x: _cell_plane_surface_output_vector_vars){
                     std::cout << x << std::endl ; 
                 }
-                std::cout << "Auxiliaries: \n";
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_plane_surface_output_scalar_aux){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_plane_surface_output_vector_aux){
-                    std::cout << x << std::endl ; 
-                }  
                 std::cout << "Variables registered for sphere surface (co-dimension 1) output: \n" ; 
                 std::cout << "Scalars: \n";
                 for(auto const& x: _cell_sphere_surface_output_scalar_vars){
@@ -779,16 +530,7 @@ class grace_runtime_impl_t
                 std::cout << "Vectors: \n";
                 for(auto const& x: _cell_sphere_surface_output_vector_vars){
                     std::cout << x << std::endl ; 
-                }
-                std::cout << "Auxiliaries: \n";
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_sphere_surface_output_scalar_aux){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_sphere_surface_output_vector_aux){
-                    std::cout << x << std::endl ; 
-                }    
+                }  
             }
         }
     }

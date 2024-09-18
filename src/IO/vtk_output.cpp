@@ -139,22 +139,16 @@ void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t wh
     auto params  = grace::config_parser::get()["IO"] ; 
     
     bool output_extra = params["output_extra_quantities"].as<bool>() ; 
-    std::vector<std::string> scalars, aux_scalars, vectors, aux_vectors ; 
+    std::set<std::string> scalars, vectors ; 
     if( which_output == VOLUME ) {
         scalars     = runtime.cell_volume_output_scalar_vars() ; 
-        aux_scalars = runtime.cell_volume_output_scalar_aux() ;
         vectors     = runtime.cell_volume_output_vector_vars() ; 
-        aux_vectors = runtime.cell_volume_output_vector_aux() ; 
     } else if ( which_output == PLANE_SURFACE ) {
         scalars     = runtime.cell_plane_surface_output_scalar_vars() ; 
-        aux_scalars = runtime.cell_plane_surface_output_scalar_aux()  ;
         vectors     = runtime.cell_plane_surface_output_vector_vars() ; 
-        aux_vectors = runtime.cell_plane_surface_output_vector_aux()  ; 
     } else if ( which_output == SPHERE_SURFACE ) {
         scalars     = runtime.cell_sphere_surface_output_scalar_vars() ; 
-        aux_scalars = runtime.cell_sphere_surface_output_scalar_aux()  ;
         vectors     = runtime.cell_sphere_surface_output_vector_vars() ; 
-        aux_vectors = runtime.cell_sphere_surface_output_vector_aux()  ; 
     }
     size_t nx,ny,nz,nq; 
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
@@ -163,70 +157,59 @@ void setup_volume_cell_data(vtkSmartPointer<vtkUnstructuredGrid> grid, size_t wh
 
     auto vars = grace::variable_list::get().getstate() ; 
     auto aux  = grace::variable_list::get().getaux()   ;
-    using exec_space = decltype(vars)::execution_space ; 
+    using exec_space = decltype(vars)::typename execution_space ; 
 
+    Kokkos::View<double EXPR(*,*,*)*, Kokkos::LayoutLeft, grace::default_execution_space> 
+        d_mirror("Device output mirror", VEC(nx,ny,nz), nq) ; 
+    auto h_mirror = Kokkos::create_mirror_view(d_mirror) ; 
 
     if( output_extra ) {
         add_extra_output_quantities(grid, false) ;  
     }
-    auto h_mirror = Kokkos::create_mirror_view(vars) ;
-    Kokkos::deep_copy(h_mirror, vars ) ; 
-    auto aux_h_mirror = Kokkos::create_mirror_view(aux) ; 
-    Kokkos::deep_copy(exec_space{}, aux_h_mirror, aux)  ; 
-    for( int ivar=0; ivar<scalars.size(); ++ivar )
+     
+    int ivar{ 0 } ;  
+    for( auto const& vname : scalars  )
     {
-        size_t varidx = grace::get_variable_index(scalars[ivar]) ; 
-        
-        auto h_sview = Kokkos::subview(h_mirror           , VEC( Kokkos::pair(ngz,nx+ngz)
-                                                               , Kokkos::pair(ngz,ny+ngz)
-                                                               , Kokkos::pair(ngz,nz+ngz) )
-                                                          , ivar
-                                                          , Kokkos::ALL()
-                                                          ) ;  
-        grid->GetCellData()->AddArray(vtk_create_cell_data(VEC(nx,ny,nz),nq,h_sview,scalars[ivar])) ;
+        auto sview   = grace::variables::get_variable_subview(
+            vname,
+            VEC( Kokkos::pair(ngz,nx+ngz),
+                 Kokkos::pair(ngz,ny+ngz),
+                 Kokkos::pair(ngz,nz+ngz)),
+            Kokkos::ALL()
+        ) ; 
+        // Two copies because sview is not contiguous
+        Kokkos::deep_copy(d_mirror, sview) ; 
+        Kokkos::deep_copy(h_mirror, d_mirror) ; 
+
+        grid->GetCellData()->AddArray(vtk_create_cell_data(VEC(nx,ny,nz),nq,h_sview,vname)) ;
 
     }
-    
-    for( int ivar=0; ivar<vectors.size(); ++ivar )
-    {
-        size_t varidx = grace::get_variable_index(vectors[ivar]+"[0]") ; 
-        
-        auto h_sview = Kokkos::subview(h_mirror           , VEC(  Kokkos::ALL()
-                                                               , Kokkos::ALL()
-                                                               , Kokkos::ALL() )
-                                                          , Kokkos::pair(ivar,ivar+GRACE_NSPACEDIM)
-                                                          , Kokkos::ALL()
-                                                          ) ;  
-        grid->GetCellData()->AddArray(vtk_create_vector_cell_data(VEC(nx,ny,nz),nq,h_sview,vectors[ivar])) ;
-
-    }
-    
-    Kokkos::fence() ;
-    for( int ivar=0; ivar<aux_scalars.size(); ++ivar )
-    {
-        size_t varidx = grace::get_variable_index(aux_scalars[ivar],true) ; 
-        
-        auto h_sview = Kokkos::subview(aux_h_mirror       , VEC( Kokkos::pair(ngz,nx+ngz)
-                                                               , Kokkos::pair(ngz,ny+ngz)
-                                                               , Kokkos::pair(ngz,nz+ngz) )
-                                                          , ivar
-                                                          , Kokkos::ALL()
-                                                          ) ;  
-        grid->GetCellData()->AddArray(vtk_create_cell_data(VEC(nx,ny,nz),nq,h_sview,aux_scalars[ivar])) ;
-
-    }
-    
-    for( int ivar=0; ivar<aux_vectors.size(); ++ivar )
-    {
-        size_t varidx = grace::get_variable_index(aux_vectors[ivar]+"[0]",true) ; 
-        
-        auto h_sview = Kokkos::subview(aux_h_mirror       , VEC(  Kokkos::ALL()
-                                                               , Kokkos::ALL()
-                                                               , Kokkos::ALL() )
-                                                          , Kokkos::pair(ivar,ivar+GRACE_NSPACEDIM)
-                                                          , Kokkos::ALL()
-                                                          ) ;  
-        grid->GetCellData()->AddArray(vtk_create_vector_cell_data(VEC(nx,ny,nz),nq,h_sview,aux_vectors[ivar])) ;
+    Kokkos::View<double EXPR(*,*,*)*, Kokkos::LayoutLeft, grace::default_execution_space> 
+        d_vec_mirror("Device output mirror", VEC(nx,ny,nz), 3, nq) ; 
+    auto h_vec_mirror = Kokkos::create_mirror_view(d_vec_mirror) ; 
+    for( auto const& vname: vectors )
+    {   
+        std::array<std::string,3> compnames {
+            vname + "[0]",
+            vname + "[1]",
+            vname + "[2]" 
+        } ; 
+        for( int icomp=0; icomp<3; ++icomp ) {
+            auto sview   = grace::variables::get_variable_subview(
+                vname,
+                VEC(Kokkos::pair(ngz,nx+ngz),
+                    Kokkos::pair(ngz,ny+ngz),
+                    Kokkos::pair(ngz,nz+ngz)),
+                Kokkos::ALL()
+            ) ; 
+            auto d_sview = Kokkos::subview( 
+                d_vec_mirror, 
+                VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), 
+                icomp, Kokkos::ALL()) ; 
+            Kokkos::deep_copy(d_sview,sview) ; 
+        }
+        Kokkos::deep_copy(h_vec_mirror, d_vec_mirror);  
+        grid->GetCellData()->AddArray(vtk_create_vector_cell_data(VEC(nx,ny,nz),nq,h_vec_mirror,vname)) ;
 
     }
     

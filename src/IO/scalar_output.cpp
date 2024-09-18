@@ -68,19 +68,17 @@ void compute_reductions() {
     auto& state = variable_list::get().getstate()   ; 
     auto& aux   = variable_list::get().getaux()     ; 
     auto& cvols = variable_list::get().getvolumes() ; 
-
+    auto& dx    = variable_list::get().getspacings() ; 
     auto& grace_runtime = grace::runtime::get() ; 
 
     /* First: compute minmax reductions */  
-    auto const minmax_vars = grace_runtime.minmax_reduction_vars() ; 
-    auto const minmax_aux  = grace_runtime.minmax_reduction_aux()  ; 
+    auto const minmax_vars = grace_runtime.minmax_reduction_vars() ; // TODO put everything here 
 
     for( auto const& vname: minmax_vars ) {
         GRACE_TRACE("Performing minmax reduction of variable {}", vname) ; 
-        auto const vidx = get_variable_index(vname, false) ; 
         auto policy =
             MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-        auto const u = subview(state, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
+        auto const u = variables::get_variable_subview(vname) ; 
         MinMaxScalar<double> res ; 
         parallel_reduce( GRACE_EXECUTION_TAG("IO","minmax_reduction_vars") 
                        , policy 
@@ -100,40 +98,15 @@ void compute_reductions() {
                                , sc_MPI_MAX) ; 
         GRACE_TRACE("Min {}, Max {}", res.min_val, res.max_val) ; 
     }
-    for( auto const& vname: minmax_aux ) {
-        auto const vidx = get_variable_index(vname, true) ; 
-        auto policy =
-            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-        auto const u = subview(aux, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
-        MinMaxScalar<double> res ; 
-        parallel_reduce( GRACE_EXECUTION_TAG("IO","minmax_reduction_aux") 
-                       , policy 
-                       , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, MinMaxScalar<double>& lres)
-        {
-            lres.min_val = lres.min_val < u(VEC(i,j,k),q) ? lres.min_val    : u(VEC(i,j,k),q) ; 
-            lres.max_val = lres.max_val < u(VEC(i,j,k),q) ? u(VEC(i,j,k),q) : lres.max_val    ; 
-        }, MinMax<double>(res)) ; 
-        
-        parallel::mpi_allreduce( &res.min_val
-                               , &detail::_minmax_reduction_aux_results[vname].min_val
-                               , 1
-                               , sc_MPI_MIN) ; 
-        parallel::mpi_allreduce( &res.max_val
-                               , &detail::_minmax_reduction_aux_results[vname].max_val
-                               , 1
-                               , sc_MPI_MAX) ; 
-    }
 
     /* Then: compute norm2 reductions */ 
-    auto const norm2_vars = grace_runtime.norm2_reduction_vars() ; 
-    auto const norm2_aux  = grace_runtime.norm2_reduction_aux()  ; 
+    auto const norm2_vars = grace_runtime.norm2_reduction_vars() ; // TODO put everything here 
 
     for( auto const& vname: norm2_vars ) {
         GRACE_TRACE("Performing norm2 reduction of variable {}", vname) ; 
-        auto const vidx = get_variable_index(vname, false) ; 
         auto policy =
             MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-        auto const u = subview(state, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
+        auto const u = variables::get_variable_subview(vname) ; 
         double res ; 
         parallel_reduce( GRACE_EXECUTION_TAG("IO","norm2_reduction_vars") 
                        , policy 
@@ -149,43 +122,24 @@ void compute_reductions() {
         detail::_norm2_reduction_vars_results[vname] = std::sqrt(detail::_norm2_reduction_vars_results[vname]) ; 
         GRACE_TRACE("norm {}", std::sqrt(res)) ; 
     } 
-    for( auto const& vname: norm2_aux ) {
-        auto const vidx = get_variable_index(vname, true) ; 
-        GRACE_TRACE("Performing norm2 reduction of variable {} index {}", vname, vidx) ; 
-        auto policy =
-            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-        auto const u = subview(aux, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
-        double res ; 
-        parallel_reduce( GRACE_EXECUTION_TAG("IO","norm2_reduction_aux") 
-                       , policy 
-                       , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
-        {
-            lres += math::int_pow<2>(u(VEC(i,j,k),q)) ; 
-        }, Sum<double>(res)) ; 
-        
-        parallel::mpi_allreduce( &res
-                               , &detail::_norm2_reduction_aux_results[vname]
-                               , 1
-                               , sc_MPI_SUM) ; 
-        detail::_norm2_reduction_aux_results[vname] = std::sqrt(detail::_norm2_reduction_aux_results[vname]) ; 
-        GRACE_TRACE("norm {}", std::sqrt(res)) ; 
-    }
     /* Then: compute integral reductions */ 
-    auto const integral_vars = grace_runtime.integral_reduction_vars() ; 
-    auto const integral_aux  = grace_runtime.integral_reduction_aux()  ; 
+    auto const integral_vars = grace_runtime.integral_reduction_vars() ; // TODO put everything here
 
     for( auto const& vname: integral_vars ) {
         GRACE_TRACE("Performing integral reduction of variable {}", vname) ; 
-        auto const vidx = get_variable_index(vname, false) ; 
         auto policy =
             MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-        auto const u = subview(state, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
+        auto const u = variables::get_variable_subview(vname) ; 
         double res ; 
         parallel_reduce( GRACE_EXECUTION_TAG("IO","integral_reduction_vars") 
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
         {
+            #ifndef GRACE_CARTESIAN_COORDINATES
             lres += u(VEC(i,j,k),q) * cvols(VEC(i,j,k),q) ; 
+            #else 
+            lres += u(VEC(i,j,k),q) * EXPR(dx(0,q), *dx(1,q), *dx(2,q));
+            #endif 
         }, Sum<double>(res)) ; 
         
         parallel::mpi_allreduce( &res
@@ -194,24 +148,6 @@ void compute_reductions() {
                                , sc_MPI_SUM) ; 
         GRACE_TRACE("Integral {}", res) ; 
     } 
-    for( auto const& vname: integral_aux ) {
-        auto const vidx = get_variable_index(vname, true) ; 
-        auto policy =
-            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
-        auto const u = subview(aux, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
-        double res ; 
-        parallel_reduce( GRACE_EXECUTION_TAG("IO","integral_reduction_aux") 
-                       , policy 
-                       , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
-        {
-            lres += u(VEC(i,j,k),q) * cvols(VEC(i,j,k),q) ; 
-        }, Sum<double>(res)) ; 
-        
-        parallel::mpi_allreduce( &res
-                               , &detail::_integral_reduction_aux_results[vname]
-                               , 1
-                               , sc_MPI_SUM) ; 
-    }
     Kokkos::Profiling::popRegion() ; 
 }
 
@@ -234,7 +170,6 @@ void write_scalar_output() {
     static constexpr size_t width = 20 ;
 
     auto const out_minmax_vars = grace_runtime.scalar_output_minmax_vars() ; 
-    auto const out_minmax_aux  = grace_runtime.scalar_output_minmax_aux()  ; 
     for( auto const& vname: out_minmax_vars ) {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
@@ -251,25 +186,7 @@ void write_scalar_output() {
                     << std::left << time << '\t' 
                     << std::left << detail::_minmax_reduction_vars_results[vname].max_val << '\n' ;
     }
-    for( auto const& vname: out_minmax_aux ) {
-        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
-        std::filesystem::path fname = bdir /  pfname ; 
-        std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::fixed << std::setprecision(15) ; 
-        outfile << std::left << iter << '\t'
-                << std::left << time << '\t' 
-                << std::left << detail::_minmax_reduction_aux_results[vname].min_val << '\n' ; 
-        std::string const pfname_max = grace_runtime.scalar_io_basename() + vname + "_max.dat" ;
-        std::filesystem::path fname_max = bdir /  pfname_max ; 
-        std::ofstream outfile_max(fname_max.string(),std::ios::app) ; 
-        outfile_max << std::fixed << std::setprecision(15) ; 
-        outfile_max << std::left << iter << '\t'
-                    << std::left << time << '\t' 
-                    << std::left << detail::_minmax_reduction_aux_results[vname].max_val << '\n' ; 
-    }
-
     auto const out_norm2_vars = grace_runtime.scalar_output_norm2_vars() ; 
-    auto const out_norm2_aux  = grace_runtime.scalar_output_norm2_aux()  ; 
     for( auto const& vname: out_norm2_vars ) {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
@@ -279,18 +196,8 @@ void write_scalar_output() {
                 << std::left << time << '\t'
                 << std::left << detail::_norm2_reduction_vars_results[vname] << '\n' ; 
     }
-    for( auto const& vname: out_norm2_aux ) {
-        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
-        std::filesystem::path fname = bdir /  pfname ; 
-        std::ofstream outfile(fname.string(),std::ios::app) ;
-        outfile << std::fixed << std::setprecision(15) ;  
-        outfile << std::left << iter << '\t'
-                << std::left << time << '\t' 
-                << std::left << detail::_norm2_reduction_aux_results[vname] << '\n' ; 
-    }
 
     auto const out_integral_vars = grace_runtime.scalar_output_integral_vars() ; 
-    auto const out_integral_aux  = grace_runtime.scalar_output_integral_aux()  ; 
     for( auto const& vname: out_integral_vars ) {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_integral.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
@@ -300,15 +207,7 @@ void write_scalar_output() {
                 << std::left << time << '\t' 
                 << std::left << detail::_integral_reduction_vars_results[vname] << '\n' ; 
     }
-    for( auto const& vname: out_integral_aux ) {
-        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_integral.dat" ;
-        std::filesystem::path fname = bdir /  pfname ; 
-        std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::fixed << std::setprecision(15) ; 
-        outfile << std::left << iter << '\t'
-                << std::left << time << '\t'
-                << std::left << detail::_integral_reduction_aux_results[vname] << '\n' ; 
-    }
+
 
     }
     parallel::mpi_barrier() ;
@@ -322,54 +221,30 @@ void initialize_output_files() {
     static constexpr const size_t width = 20 ; 
     std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ; 
     auto const out_minmax_vars = grace_runtime.scalar_output_minmax_vars() ; 
-    auto const out_minmax_aux  = grace_runtime.scalar_output_minmax_aux()  ; 
-    for( auto const& vname: out_minmax_vars ) {
+=    for( auto const& vname: out_minmax_vars ) {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ; 
+        outfile << std::left << std::setw(width) << "# Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ; 
         std::string const pfname_max = grace_runtime.scalar_io_basename() + vname + "_max.dat" ;
         std::filesystem::path fname_max = bdir /  pfname_max ; 
         std::ofstream outfile_max(fname_max.string(),std::ios::app) ;
-        outfile_max << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ; 
+        outfile_max << std::left << std::setw(width) << "# Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ; 
     }
-    for( auto const& vname: out_minmax_aux ) {
-        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
-        std::filesystem::path fname = bdir /  pfname ; 
-        std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ; 
-        std::string const pfname_max = grace_runtime.scalar_io_basename() + vname + "_max.dat" ;
-        std::filesystem::path fname_max = bdir /  pfname_max ; 
-        std::ofstream outfile_max(fname_max.string(),std::ios::app) ;
-        outfile_max << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ; 
-    }
+
     auto const out_norm2_vars = grace_runtime.scalar_output_norm2_vars() ; 
-    auto const out_norm2_aux  = grace_runtime.scalar_output_norm2_aux()  ; 
     for( auto const& vname: out_norm2_vars ) {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;
-    }
-    for( auto const& vname: out_norm2_aux ) {
-        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
-        std::filesystem::path fname = bdir /  pfname ; 
-        std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;
+        outfile << std::left << std::setw(width) << "# Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;
     }
     auto const out_integral_vars = grace_runtime.scalar_output_integral_vars() ; 
-    auto const out_integral_aux  = grace_runtime.scalar_output_integral_aux()  ; 
     for( auto const& vname: out_integral_vars ) {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_integral.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ;
-        outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;
-    }
-    for( auto const& vname: out_integral_aux ) {
-        std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_integral.dat" ;
-        std::filesystem::path fname = bdir /  pfname ; 
-        std::ofstream outfile(fname.string(),std::ios::app) ;
-        outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;
+        outfile << std::left << std::setw(width) << "# Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;
     }
     }
     parallel::mpi_barrier() ;
@@ -409,7 +284,7 @@ void info_output() {
     
     if( iter%outinfo_every == 0 ) {
         os << std::left << std::setw(width) << "Iteration" 
-           << std::left << std::setw(width) <<  "Time" 
+           << std::left << std::setw(width) << "Time" 
            << std::left << std::setw(width) << "M/h" ; 
         APPEND_OUTPUT(max_vars,"[max]") ;
         APPEND_OUTPUT(max_aux, "[max]") ; 

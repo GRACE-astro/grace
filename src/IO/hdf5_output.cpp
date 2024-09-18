@@ -400,15 +400,12 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
     auto& runtime = grace::runtime::get() ;
 
     auto const scalars     = runtime.cell_volume_output_scalar_vars() ; 
-    auto const aux_scalars = runtime.cell_volume_output_scalar_aux()  ;
     auto const vectors     = runtime.cell_volume_output_vector_vars() ; 
-    auto const aux_vectors = runtime.cell_volume_output_vector_aux()  ;
 
     size_t nx,ny,nz,nq; 
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
     nq = grace::amr::get_local_num_quadrants() ; 
     size_t ngz = grace::amr::get_n_ghosts() ; 
-
 
     auto const rank = parallel::mpi_comm_rank() ; 
     /* Get the p4est pointer */
@@ -450,9 +447,7 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
 
     /* Write data to file */
     write_var_arrays_hdf5( scalars,file_id,dxpl,scalars_space_id_glob
-                         , scalars_space_id,scalars_prop_id,ncells,ncells_glob,local_quad_offset,false) ; 
-    write_var_arrays_hdf5( aux_scalars,file_id,dxpl,scalars_space_id_glob
-                         , scalars_space_id,scalars_prop_id,ncells,ncells_glob,local_quad_offset,true) ; 
+                         , scalars_space_id,scalars_prop_id,ncells,ncells_glob,local_quad_offset) ; 
 
     /* Close data spaces */
     HDF5_CALL(err, H5Sclose(scalars_space_id)) ; 
@@ -481,9 +476,7 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
 
     /* Write to file */
     write_vector_var_arrays_hdf5( vectors,file_id,dxpl,vectors_space_id_glob
-                                , vectors_space_id,vectors_prop_id,ncells,ncells_glob,local_quad_offset,false) ; 
-    write_vector_var_arrays_hdf5( aux_vectors,file_id,dxpl,vectors_space_id_glob
-                                 , vectors_space_id,vectors_prop_id,ncells,ncells_glob,local_quad_offset,true) ; 
+                                , vectors_space_id,vectors_prop_id,ncells,ncells_glob,local_quad_offset) ; 
     
     /* Close data spaces */
     HDF5_CALL(err, H5Sclose(vectors_space_id)) ; 
@@ -495,7 +488,7 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
      
 }
 
-void write_var_arrays_hdf5( std::vector<std::string> const& varlist 
+void write_var_arrays_hdf5( std::set<std::string> const& varlist 
                           , hid_t file_id 
                           , hid_t dxpl
                           , hid_t space_id_glob
@@ -503,8 +496,7 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
                           , hid_t prop_id
                           , hsize_t ncells
                           , hsize_t ncells_glob
-                          , hsize_t local_quad_offset
-                          , bool isaux  ) 
+                          , hsize_t local_quad_offset) // had isaux 
 {
     herr_t err ; 
     /* Get cell and quadrant counts */
@@ -514,11 +506,6 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
     size_t ngz = grace::amr::get_n_ghosts() ;
     /* Number of cells per quadrant */
     unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
-
-    /* Fetch variable arrays */
-    auto vars = grace::variable_list::get().getstate() ; 
-    auto aux  = grace::variable_list::get().getaux()   ;
-    auto& view = isaux ? aux : vars ;
 
     /**********************************************/
     /* We need an extra device mirror because:    */
@@ -531,13 +518,11 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
     Kokkos::View<double EXPR(*,*,*)*, Kokkos::LayoutLeft> 
         d_mirror("Device output mirror", VEC(nx,ny,nz), nq) ; 
     auto h_mirror = Kokkos::create_mirror_view(d_mirror) ; 
-    for( int ivar=0; ivar<varlist.size(); ++ivar)
+    for( auto const& vname: varlist )
     {
-        size_t varidx = grace::get_variable_index(varlist[ivar],isaux) ; 
-        GRACE_TRACE("Writing var {} to output. Variable index {} from auxiliaries? {}"
-                   , varlist[ivar], varidx, isaux) ; 
+        GRACE_TRACE("Writing var {} to output.", vname) ; 
         /* create HDF5 dataset */
-        std::string dset_name = "/" + varlist[ivar] ; 
+        std::string dset_name = "/" + vname ; 
         hid_t dset_id ; 
         HDF5_CALL( dset_id
                 , H5Dcreate2( file_id
@@ -555,6 +540,7 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
         /* Shuffle data around to put it in the right form */
         for( int iq=0; iq<nq; ++iq){
             /* Copy data d2d */
+            #if 0
             auto sview = Kokkos::subview( view
                                         , Kokkos::pair<int,int>(ngz,nx+ngz)
                                         , Kokkos::pair<int,int>(ngz,ny+ngz)
@@ -563,6 +549,16 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
                                         #endif 
                                         , varidx 
                                         , iq ) ; 
+            #endif 
+            auto sview = variables::get_variable_subview(
+                      vname
+                    , Kokkos::pair<int,int>(ngz,nx+ngz)
+                    , Kokkos::pair<int,int>(ngz,ny+ngz)
+                    #ifdef GRACE_3D
+                    , Kokkos::pair<int,int>(ngz,nz+ngz)
+                    #endif 
+                    , iq
+                ) ;
             auto mirror_sview = Kokkos::subview( d_mirror
                                         , Kokkos::ALL()
                                         , Kokkos::ALL()
@@ -601,7 +597,7 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
     }
 }
 
-void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist 
+void write_vector_var_arrays_hdf5( std::set<std::string> const& varlist 
                                  , hid_t file_id 
                                  , hid_t dxpl
                                  , hid_t space_id_glob
@@ -609,8 +605,7 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
                                  , hid_t prop_id
                                  , hsize_t ncells
                                  , hsize_t ncells_glob
-                                 , hsize_t local_quad_offset
-                                 , bool isaux  ) 
+                                 , hsize_t local_quad_offset ) // had isaux  
 {
     using namespace grace; 
     using namespace Kokkos; 
@@ -623,11 +618,6 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
     /* Number of cells per quadrant */
     unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
 
-    /* Fetch variable arrays */
-    auto vars = grace::variable_list::get().getstate() ; 
-    auto aux  = grace::variable_list::get().getaux()   ;
-    auto& view = isaux ? aux : vars ;
-
     /**********************************************/
     /* We need an extra device mirror because:    */
     /* 1) The view is not contiguous since we     */
@@ -639,13 +629,11 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
     Kokkos::View<double *EXPR(*,*,*)*, Kokkos::LayoutLeft> 
         d_mirror("Device output mirror", 3, VEC(nx,ny,nz), nq) ; 
     auto h_mirror = Kokkos::create_mirror_view(d_mirror) ; 
-    for( int ivar=0; ivar<varlist.size(); ++ivar)
+    for( auto const& vname: varlist )
     {
-        size_t varidx = grace::get_variable_index(varlist[ivar]+"[0]",isaux) ; 
-        GRACE_TRACE("Writing vector var {} to output. Variable index {} from auxiliaries? {}"
-                   , varlist[ivar], varidx, isaux) ; 
+        GRACE_TRACE("Writing vector var {} to output.") ; 
         /* create HDF5 dataset */
-        std::string dset_name = "/" + varlist[ivar] ; 
+        std::string dset_name = "/" + vname ; 
         hid_t dset_id ; 
         HDF5_CALL( dset_id
                 , H5Dcreate2( file_id
@@ -661,8 +649,15 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
 
         /* Shuffle data around to put it in the right form */
         for( int iq=0; iq<nq; ++iq){
+            std::array<std::string, 3> const compnames 
+                = {
+                    vname + "[0]",
+                    vname + "[1]",
+                    vname + "[2]"
+                } ; 
             for( int icomp=0; icomp<3; ++icomp){
                 /* Copy data d2d */
+                #if 0 
                 auto sview = Kokkos::subview( view
                                             , Kokkos::pair<int,int>(ngz,nx+ngz)
                                             , Kokkos::pair<int,int>(ngz,ny+ngz)
@@ -671,6 +666,16 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
                                             #endif 
                                             , varidx+icomp
                                             , iq ) ; 
+                #endif 
+                auto sview = variables::get_variable_subview(
+                      compnames[icomp]
+                    , Kokkos::pair<int,int>(ngz,nx+ngz)
+                    , Kokkos::pair<int,int>(ngz,ny+ngz)
+                    #ifdef GRACE_3D
+                    , Kokkos::pair<int,int>(ngz,nz+ngz)
+                    #endif 
+                    , iq
+                ) ; 
                 auto mirror_sview = Kokkos::subview( d_mirror
                                             , icomp
                                             , Kokkos::ALL()
@@ -683,36 +688,6 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
                 Kokkos::deep_copy(mirror_sview, sview) ; 
             }
         }
-        /************************************************/
-        /* Transform variable to physical frame         */
-        /************************************************/
-        /* Fill coordinate jacobian matrices on device  */
-        /* at cell centers                              */
-        /************************************************/
-        #if 0
-        jacobian_array_t jac, invjac ; 
-        fill_jacobian_matrices(jac,invjac) ;  
-        parallel_for(GRACE_EXECUTION_TAG("IO","convert_to_physical")
-                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
-                {
-                    std::array<double,3> const vin
-                    {
-                          d_mirror(0, VEC(i,j,k), q)
-                        , d_mirror(1, VEC(i,j,k), q)
-                        , d_mirror(2, VEC(i,j,k), q)
-                    } ; 
-                    auto J = Kokkos::subview(jac, VEC(i,j,k), ALL(), ALL(),  q) ; 
-                    auto const vout = ::grace::detail::apply_jacobian_vec(vin, J) ;
-                    d_mirror(0, VEC(i,j,k), q) = vout[0] ; 
-                    d_mirror(1, VEC(i,j,k), q) = vout[1] ; 
-                    d_mirror(2, VEC(i,j,k), q) = vout[2] ;
-                    }
-        ) ;
-        /* just to be sure add a fence */
-        Kokkos::fence() ;
-        #endif
-        
         /* Copy data d2h */
         Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
 

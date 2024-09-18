@@ -67,7 +67,6 @@ enum grace_variable_types {
 * \ingroup variables
 * @param name            Name of the variable.
 * @param staggered       Staggering of variable in each direction.
-* @param need_ghostzones Whether the variable needs extra ghostzone storage.
 * @param is_evolved      Whether the variable is evolved.
 * @param need_fluxes     Whether the variables needs fluxes. 
 * @param is_vector       True if the variable is a component of a vector.
@@ -75,42 +74,15 @@ enum grace_variable_types {
 */
 static int register_variable( std::string const& name
                             , std::array<bool,GRACE_NSPACEDIM> staggered  
-                            , bool need_ghostzones 
                             , bool is_evolved 
                             , bool need_fluxes
-                            , std::string const& bc_type=""
+                            , std::string const& bc_type="none"
                             , bool is_vector=false
                             , bool is_tensor=false 
-                            , int  comp_num=0
+                            , int  comp_num=-1
                             , std::string const& vecname=""
                              ) ;
-//*****************************************************************************************************
-namespace detail {
-
-static int register_scalar( std::string const& name
-                          , bool is_evolved 
-                          , bool need_fluxes 
-                          , std::string const& bc_type ) ;
- 
-static int register_staggered_variable( std::string const& name
-                                      , bool is_evolved 
-                                      , bool need_fluxes 
-                                      , std::string const& bc_type 
-                                      , std::array<bool,GRACE_NSPACEDIM> const& staggering ) ;
-
-static int register_vector( std::string const& name
-                          , bool is_evolved 
-                          , bool need_fluxes
-                          , int num_comp
-                          , std::string const & bc_type ) ; 
-
-static int register_tensor( std::string const& name
-                          , bool is_evolved 
-                          , bool need_fluxes
-                          , int num_comp
-                          , std::string const & bc_type ) ; 
-
-}
+//*****************************************************************************************************xw
 
 /**
  * @brief Register all variables.
