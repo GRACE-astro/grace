@@ -223,18 +223,24 @@ get_variable_subview(
       std::string const& vname
     , VEC( IndexT_x xidx_subset 
          , IndexT_y yidx_subset
-         , IndexT_z zidx_subset 
+         , IndexT_z zidx_subset )
     , IndexT_q qidx_subset )
-) 
 {
     using namespace grace  ; 
     using namespace Kokkos ; 
     
 
-    auto& state = variables::get().getstate() ; 
-    auto& sstate = variables::get().getstaggeredstate() ; 
-    auto& aux = variables::get().getaux() ; 
-    auto& saux = variables::get().getstaggeredaux() ; 
+    auto& state = variable_list::get().getstate() ; 
+    auto& sstate = variable_list::get().getstaggeredstate() ; 
+    auto& aux = variable_list::get().getaux() ; 
+    auto& saux = variable_list::get().getstaggeredaux() ; 
+
+    auto it = variables::detail::_varprops.find(vname);
+    if (it == variables::detail::_varprops.end()) {
+        ERROR("In get_variable_subview variable " << vname << " does not exist.") ;
+    }
+    auto const& props = it->second; 
+
     if ( props.is_evolved ) {
         if ( props.staggering == var_staggering_t::CELL_CENTER ) {
             return Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), props.index, ALL()) ; 

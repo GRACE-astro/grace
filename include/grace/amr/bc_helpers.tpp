@@ -53,7 +53,11 @@ template< typename BCT
 void apply_phys_bc(
     ViewT& u,
     int nx, int ny, int nz, int ngz,
-    grace::device_vector<grace::amr::grace_phys_bc_info_t>& face_info
+    grace::device_vector<grace::amr::grace_phys_bc_info_t>& face_info,
+    grace::device_vector<grace::amr::grace_phys_bc_info_t>& corner_info,
+    #ifdef GRACE_3D
+    grace::device_vector<grace::amr::grace_phys_bc_info_t>& edge_info
+    #endif
   )
 {     
   /******************************************************/
@@ -79,7 +83,7 @@ void apply_phys_bc(
   /* below in the loop over edges everything is serial  */
   /* for convenience                                    */
   /******************************************************/
-  MDRangePolicy< IndexType<grace_loop_index_t>
+  MDRangePolicy< IndexType<int>
                , grace::default_execution_space 
                , Rank<GRACE_NSPACEDIM> > 
     policy( {VECD(0,0), 0}, {VECD(nx+2*ngz,ny+2*ngz), n_faces}) ;
@@ -104,9 +108,9 @@ void apply_phys_bc(
 
         #pragma unroll  
         for( int ig=lmin; ig!=lmax; ig+=idir ) {
-          int const I = (faceb2==0) * ig + (faceb2!=0) * j ; 
-          int const J = (faceb2==1) * ig + (faceb2==0) * j + (faceb2==2) * k ; 
-          int const K = (faceb2==2) * ig + (faceb2!=2) * k ;  
+          int const I = (faceb2==0) * ig + (faceb2!=0) * i ; 
+          int const J = (faceb2==1) * ig + (faceb2==0) * i + (faceb2==2) * j ; 
+          int const K = (faceb2==2) * ig + (faceb2!=2) * j ;  
           BCT::apply(u,VEC(I,J,K), VEC(dx,dy,dz), iq) ;
         }
     }
@@ -160,7 +164,7 @@ void apply_phys_bc(
         for( int jg=lmin[1]; jg!=lmax[1]; jg+=idir[1] ) 
         for( int kg=lmin[2]; kg!=lmax[2]; kg+=idir[2] )
         { 
-          BCT::apply(u,VEC(ig,jg,kg), VEC(dx,dy,dz), iq) ;
+          BCT::apply(u,VEC(ig,jg,kg), VEC(dir[0],dir[1],dir[2]), iq) ;
         }
     }
   ) ; 
@@ -171,7 +175,7 @@ void apply_phys_bc(
 ;
   parallel_for(
     GRACE_EXECUTION_TAG("AMR","impose_corner_physical_BC"),
-    n_corners,
+    n_corner,
     KOKKOS_LAMBDA( int const icorner ) 
     {
 
@@ -216,7 +220,7 @@ void apply_phys_bc(
             for( int jg=lmin[1]; jg!=lmax[1]; jg+=idir[1]), 
             for( int kg=lmin[2]; kg!=lmax[2]; kg+=idir[2])) 
       {
-        BCT::apply(u,VEC(ig,jg,kg), VEC(dx,dy,dz), iq) ;
+        BCT::apply(u,VEC(ig,jg,kg), VEC(dir[0],dir[1],dir[2]), iq) ;
       }
     }
   ); 

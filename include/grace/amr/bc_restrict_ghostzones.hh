@@ -62,12 +62,12 @@ namespace grace{ namespace amr {
  * staggered variables are simply copied from the corresponding fine point. 
  */
 void restrict_hanging_ghostzones(
-      grace::var_array_t<GRACE_NSPACEDIM>& state
-    , grace::var_array_t<GRACE_NSPACEDIM>& halo 
-    , grace::staggered_variable_arrays_t& staggered_state
-    , grace::staggered_variable_arrays_t& staggered_halo 
-    , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols 
-    , grace::cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols 
+      var_array_t<GRACE_NSPACEDIM>& state
+    , var_array_t<GRACE_NSPACEDIM>& halo 
+    , staggered_variable_arrays_t& staggered_state
+    , staggered_variable_arrays_t& staggered_halo 
+    , cell_vol_array_t<GRACE_NSPACEDIM>& vols 
+    , cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols 
     , Kokkos::vector<hanging_face_info_t>& hanging_faces
     , Kokkos::vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
@@ -91,10 +91,10 @@ void restrict_hanging_ghostzones(
  * accurate, volume-average preserving way. 
  */
 void restrict_hanging_ghostzones_cell_centers(
-      grace::var_array_t<GRACE_NSPACEDIM>& state
-    , grace::var_array_t<GRACE_NSPACEDIM>& halo
-    , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols
-    , grace::cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols
+      var_array_t<GRACE_NSPACEDIM>& state
+    , var_array_t<GRACE_NSPACEDIM>& halo
+    , cell_vol_array_t<GRACE_NSPACEDIM>& vols
+    , cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols
     , Kokkos::vector<hanging_face_info_t>& hanging_faces
     , Kokkos::vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
@@ -117,8 +117,8 @@ void restrict_hanging_ghostzones_cell_centers(
  * coarse side of all hanging faces. 
  */
 void restrict_hanging_ghostzones_corners(
-      grace::var_array_t<GRACE_NSPACEDIM>& state
-    , grace::var_array_t<GRACE_NSPACEDIM>& halo 
+      var_array_t<GRACE_NSPACEDIM>& state
+    , var_array_t<GRACE_NSPACEDIM>& halo 
     , Kokkos::vector<hanging_face_info_t>& hanging_faces
     , Kokkos::vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 

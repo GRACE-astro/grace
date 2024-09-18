@@ -77,6 +77,7 @@ struct variable_properties_t<2>
     bool is_tensor ; 
     int8_t comp_num ; 
     std::string bc_type ; 
+    size_t index ;
 
     std::string name ; 
 } ; 
@@ -95,7 +96,8 @@ struct variable_properties_t<3>
     bool is_vector;
     bool is_tensor; 
     int8_t comp_num ;
-    std::string bc_type ;  
+    std::string bc_type ; 
+    size_t index ;  
     
     std::string name ;
 } ; 

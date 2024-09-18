@@ -86,7 +86,7 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
 
         } ; 
         if( sides[0].is_hanging ) {
-            for( int ic=0; ic<P4EST_HALF, ++ic) {
+            for( int ic=0; ic<P4EST_HALF; ++ic) {
                 grace_phys_bc_info_t this_face_info{} ; 
                 fill_bc_info(sides[0].is.hanging.quadid[ic], sides[0].face, this_face_info) ; 
                 physical_boundary_info.push_back(this_face_info) ; 
@@ -349,34 +349,25 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
         auto nsides = sides.size() ; 
         auto fill_bc_info_edge = [&] (int64_t const qid, int8_t edge, int64_t offset, grace_phys_bc_info_t& info)
         {
-            static constexpr const std::array<std::array<int8_t,P8EST_EDGES>,3> edges_directions {
-                {0,-1,-1}, //0
-                {0,+1,-1}, //1
-                {0,-1,+1}, //2
-                {0,+1,+1}, //3
-                {-1,0,-1}, //4 
-                {+1,0,-1}, //5
-                {-1,0,+1}, //6
-                {+1,0,+1}, //7
-                {-1,-1,0}, //8
-                {+1,-1,0},
-                {-1,+1,0},
-                {+1,+1,0}
+            /* here -1 corresponds to a negative edge, 0 to a along and +1 to a positive*/
+            static constexpr const int ALONG_EDGE    =  0 ;
+            static constexpr const int NEGATIVE_EDGE = -1 ;
+            static constexpr const int POSITIVE_EDGE = +1 ;
+            static constexpr const int8_t edges_directions[3][P8EST_EDGES] = {
+                {ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, 
+                    NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE,
+                    NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE},  // x directions
+                {NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, 
+                    ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE,
+                    NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE}, // y directions
+                {NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
+                    NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
+                    ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE} // z directions
             } ; 
             info.qid = qid + offset ; 
-            info.dir_x = edges_directions[edge][0] ; 
-            info.dir_y = edges_directions[edge][1] ;
-            info.dir_z = edges_directions[edge][2] ; 
-        } ; 
-        auto fill_bc_info_face = [&] (int64_t const qid, int8_t face, int64_t offset,  grace_phys_bc_info_t& info)
-        {
-            info.qid = offset+qid ;
-            info.dir_x = (iface == 0 ) ? -1 
-                                       : (iface==1 ? +1 : 0) ; 
-            info.dir_y = (iface == 2 ) ? -1 
-                                       : (iface==3 ? +1 : 0) ;
-            info.dir_z = (iface == 4 ) ? -1 
-                                       : (iface==5 ? +1 : 0) ;
+            info.dir_x = edges_directions[0][edge] ; 
+            info.dir_y = edges_directions[1][edge] ;
+            info.dir_z = edges_directions[2][edge] ; 
         } ; 
         /* This means that we are on the grid edge */
         /* We store this information as simple     */
@@ -397,68 +388,6 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
                 physical_boundary_info.push_back(this_edge_info) ;
             }
         }
-        #if 0
-        auto const is_hanging = [&] (int64_t qid, int8_t edge, int8_t& other_face ) {
-            /* I think that if the side of the */
-            /* edge is hanging it is enough to */
-            /* check one of the two quadrants. */
-
-            int iff = 0 ;
-            int8_t face = p8est_edge_faces[edge][iff] ; 
-            if( hanging_faces_info[P4EST_FACES * qid + face] ) {
-                other_face = p8est_edge_faces[edge][1]
-                return true ; 
-            }
-
-            iff = 1 ;
-            face = p8est_edge_faces[edge][iff] ; 
-            if( hanging_faces_info[P4EST_FACES * qid + face] ) {
-                other_face = p8est_edge_faces[edge][0]
-                return true ; 
-            }
-
-            other_face = -1 ;
-            return false ; 
-        } ;  
-        /* In this case we only store this edge if the face       */
-        /* on the inside of the grid is hanging (from the fine)   */
-        /* side. This is because we will need to fill these zones */
-        /* after prolongation has happened.                       */
-        for( int iside=0; iside<nsides; ++iside) { 
-            auto& side = sides[iside] ; 
-            if( side.is_hanging ) {
-                for( int ic=0; ic<2; ++ic){
-                    if( side.is.hanging.is_ghost[ic])
-                        continue ;
-                    int64_t const qid =  
-                        side.is.hanging.quadid[ic] ;
-                    int64_t const offset = amr::get_local_quadrants_offset(side.treeid);
-                    int8_t const edge = side.edge ;
-                    int8_t face ; 
-                    if ( is_hanging(qid,edge, face) ) {
-                        grace_phys_bc_info_t this_edge_info {} ;
-                        fill_bc_info_face(qid,face,offset,this_edge_info) ; 
-                        hanging_phys_boundary_info.push_back(this_edge_info) ; 
-                    } 
-                }
-
-            } else {
-                if( side.is.full.is_ghost)
-                    continue ; 
-                int64_t const qid =  
-                    side.is.full.quadid ; 
-                int64_t const offset = amr::get_local_quadrants_offset(side.treeid);
-                int8_t const edge = side.edge ;
-                int8_t face ; 
-                if ( is_hanging(qid,edge,face) ) {
-                    grace_phys_bc_info_t this_edge_info {} ;
-                    fill_bc_info_face(qid,face,offset,this_edge_info) ; 
-                    hanging_phys_boundary_info.push_back(this_edge_info) ; 
-                } 
-            }
-            
-        }
-        #endif 
         edge_info.n_exterior_edges ++ ; 
         return ; 
     }
@@ -776,9 +705,9 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
         auto fill_bc_info = [&] (int64_t qid, int8_t corner, grace_phys_bc_info_t& info)
         {
             info.qid = qid ; 
-            info.dir_x = (((ca >> 0) & 1) == 0) ? -1 : +1 ; 
-            info.dir_y = (((ca >> 1) & 1) == 0) ? -1 : +1 ; 
-            info.dir_z = (((ca >> 2) & 1) == 0) ? -1 : +1 ;
+            info.dir_x = (((corner >> 0) & 1) == 0) ? -1 : +1 ; 
+            info.dir_y = (((corner >> 1) & 1) == 0) ? -1 : +1 ; 
+            info.dir_z = (((corner >> 2) & 1) == 0) ? -1 : +1 ;
         } ; 
         /* This means that we are on the grid edge */
         if ( nsides == 1 ) {
@@ -790,91 +719,7 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
             physical_boundary_info.push_back(
                 info
             ) ; 
-        }
-        #if 0 
-        /* Figure out if any edge connected to this corner is hanging */ 
-        auto const is_edge_hanging = [&] (int64_t qid, int8_t corner) {
-            for( int iff=0; iff<3; ++iff) {
-                int8_t edge = p8est_corner_edges[corner][iff] ; 
-                if( hanging_edges_info[P8EST_EDGES * qid + edge] ) {
-                    return true ; 
-                }
-            }
-            return false ; 
-        } ; 
-        /* Figure out if a face is hanging */ 
-        auto const is_face_hanging = [&] (int64_t qid, int8_t face) {
-            if( hanging_faces_info[P4EST_FACES * qid + face] ) {
-                return true ; 
-            }
-            return false ; 
-        } ;
-
-        /* Get the edge shared by a face and a corner           */
-        auto const get_edge = [&] ( int8_t face, int8_t corner ) {
-            for( int ie=0; ie<3; ++ie) {
-                auto edgei = p8est_corner_edges[corner][ie] ; 
-                for( int je=0; je<4; ++je) {
-                    auto edgej = p8est_face_edges[face][je] ; 
-                    if ( edgei == edgej ) {
-                        return edgei ; 
-                    }
-                }
-            }
-            return -1 ;
-        } ;
-        /* Get the other corner on the edge shared by a corner and a face */
-        auto const get_other_corner = [&] ( int8_t face, int8_t corner ) -> int8_t {
-            int8_t edge = get_edge(face,corner) ; 
-            for( int ic=0; ic<2; ++ic){
-                int8_t other_corner = p8est_edge_corners[edge][ic]; 
-                if (other_corner != corner) {
-                    return other_corner ; 
-                }
-            }
-            return -1 ; 
-        } ; 
-        /* Loop over sides of this corner and figure out if they are local */
-        for( int iside=0; iside<nsides; ++iside) { 
-            auto& side = sides[iside] ; 
-            if( side.is_ghost ) 
-                continue ; 
-            // Get quadrant id (with tree offset)
-            int64_t qid   = 
-                side.quadid + amr::get_local_quadrants_offset(side.treeid);
-            // Get this corner code 
-            int8_t corner = side.corner ; 
-            // This is what we will store in the vector
-            int64_t this_corner_info = 
-                P4EST_CHILDREN * qid + corner ; 
-            // Is any edge hanging? If so store in hanging_bc vec otherwise simple_bc
-            if ( is_edge_hanging(qid, corner) ) {
-                hanging_phys_boundary_info.push_back(this_corner_info) ; 
-            } else {
-                phys_boundary_info.push_back(this_corner_info) ; 
-            }
-            /*********************************************************/
-            /* Now figure out if any face is hanging. If so, we need */
-            /* to also store the other corner on the same edge since */
-            /* that corner will not be looped over by p4est_iterate  */
-            /*********************************************************/
-            for( int iff=0 ; iff< 3; ++iff){
-                int8_t face = p8est_corner_faces[corner][iff] ; 
-                /* Nothing to be done if the face does not */
-                /* hang.                                   */
-                if( !is_face_hanging(qid,face) ) 
-                    continue ; 
-                /* Find the other corner on the edge sharing */ 
-                /* corner and face.                          */
-                int8_t other_corner = get_other_corner(face,corner) ;
-                // Store it hanging vec, this is ALWAYS hanging
-                hanging_phys_boundary_info.push_back(
-                    P4EST_CHILDREN * qid + other_corner
-                ) ;
-            }
-            
-        }
-        #endif 
+        }        
         // Since this was a physical boundary we return now.
         return ; 
     }

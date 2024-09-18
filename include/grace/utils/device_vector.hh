@@ -63,21 +63,20 @@ namespace grace {
  */
 template< typename T >
 class device_vector {
- public:
-    host_container_type    h_view ;
-    device_container_type  d_view ;
  
  private:
+    using host_container_type = std::vector<T> ;
+    using device_container_type = Kokkos::View<T*> ; 
     using size_type       = typename host_container_type::size_type ; //!< Type of index 
     using value_type      = typename host_container_type::value_type  ; //!< Type of values 
     using pointer         = typename host_container_type::pointer  ; //!< Type of pointer to values 
     using reference       = typename host_container_type::reference ; //!< Type of reference to values 
     using iterator        = typename host_container_type::iterator       ; //!< Iterator type 
     using const_iterator  = typename host_container_type::const_iterator ; //!< Const iterator type 
-    using host_container_type = std::vector<T> ;
-    using device_container_type = Kokkos::View<T*> ; 
-
-     
+    
+  public:
+    host_container_type    h_view ;
+    device_container_type  d_view ;    
 
  public: 
     /**
@@ -109,9 +108,9 @@ class device_vector {
      * @param rhs The vector used to initialize.
      */
     device_vector( host_container_type const& rhs )
-     : _host_container(rhs)
+     : h_view(rhs)
     {
-        to_device() ;
+        host_to_device() ;
     }
     /**
      * @brief Move constructor from a <code>std::vector<T></code>
@@ -119,9 +118,9 @@ class device_vector {
      * @param rhs The vector used to initialize.
      */
     device_vector( host_container_type && rhs )
-     : _host_container(rhs)
+     : h_view(rhs)
     {
-        to_device() ; 
+        host_to_device() ; 
     }
     /**
      * @brief Access to an element of the host-side vector.
@@ -184,15 +183,6 @@ class device_vector {
     pointer GRACE_ALWAYS_INLINE GRACE_HOST
     data() { return h_view.data(); }
     /**
-     * @brief Get the device-side <code>Kokkos::View<T*></code>.
-     * 
-     * @return device_container_type The device-side View.
-     */
-    device_container_type GRACE_ALWAYS_INLINE GRACE_HOST
-    d_view() {
-        return d_view ; 
-    }
-    /**
      * @brief Get the size of the host vector.
      * NB: This is \b not guaranteed to coincide with 
      * the size of the device view. To find that, use 
@@ -219,7 +209,7 @@ class device_vector {
      * @brief Sync data to device.
      */
     void GRACE_HOST
-    to_device()
+    host_to_device()
     {
         if ( ! (size() == device_size()) ) {
             Kokkos::realloc(d_view, size()) ; 
@@ -230,7 +220,7 @@ class device_vector {
      * @brief Sync data to host.
      */
     void GRACE_HOST
-    to_host() 
+    device_to_host() 
     {
         if ( ! (size() == device_size()) ) {
             h_view.resize(device_size()) ; 

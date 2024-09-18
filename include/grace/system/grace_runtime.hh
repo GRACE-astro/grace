@@ -41,6 +41,7 @@
 #include <grace/parallel/mpi_wrappers.hh>
 #include <grace/system/print.hh>
 #include <grace/data_structures/variable_indices.hh>
+#include <grace/data_structures/variable_utils.hh>
 
 #include <spdlog/stopwatch.h>
 

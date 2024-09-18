@@ -61,10 +61,10 @@ namespace grace{ namespace amr {
  * same refinement level.
  */
 void copy_interior_ghostzones(
-      grace::var_array_t<GRACE_NSPACEDIM>& vars
-    , grace::var_array_t<GRACE_NSPACEDIM>& halo
-    , grace::staggered_variable_arrays_t& staggered_state
-    , grace::staggered_variable_arrays_t& staggered_halo
+      var_array_t<GRACE_NSPACEDIM>& vars
+    , var_array_t<GRACE_NSPACEDIM>& halo
+    , staggered_variable_arrays_t& staggered_state
+    , staggered_variable_arrays_t& staggered_halo
     , Kokkos::vector<simple_face_info_t>&  interior_faces 
     , Kokkos::vector<simple_corner_info_t>&  interior_corners 
     #ifdef GRACE_3D 
@@ -88,8 +88,8 @@ void copy_interior_ghostzones(
  * same refinement level.
  */
 void copy_interior_ghostzones_cell_centers(
-      grace::var_array_t<GRACE_NSPACEDIM>& vars
-    , grace::var_array_t<GRACE_NSPACEDIM>& halo
+      var_array_t<GRACE_NSPACEDIM>& vars
+    , var_array_t<GRACE_NSPACEDIM>& halo
     , Kokkos::vector<simple_face_info_t>&  interior_faces 
     , Kokkos::vector<simple_corner_info_t>&  interior_corners 
     #ifdef GRACE_3D 
@@ -113,8 +113,8 @@ void copy_interior_ghostzones_cell_centers(
  * same refinement level.
  */
 void copy_interior_ghostzones_corners(
-      grace::var_array_t<GRACE_NSPACEDIM>& vars
-    , grace::var_array_t<GRACE_NSPACEDIM>& halo 
+      var_array_t<GRACE_NSPACEDIM>& vars
+    , var_array_t<GRACE_NSPACEDIM>& halo 
     , Kokkos::vector<simple_face_info_t>& interior_faces
     , Kokkos::vector<simple_corner_info_t>& interior_corners
     #ifdef GRACE_3D

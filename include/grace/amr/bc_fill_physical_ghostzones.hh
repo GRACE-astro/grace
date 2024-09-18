@@ -53,7 +53,7 @@ void fill_physical_boundaries(
     #ifdef GRACE_3D 
     , grace::device_vector<grace::amr::grace_phys_bc_info_t> const& edge_phys_bc 
     #endif
-)
+) ; 
 
 }} /* namespace grace::amr */
 #endif /* GRACE_AMR_BC_FILL_PHYSICAL_GHOSTZONES_HH */

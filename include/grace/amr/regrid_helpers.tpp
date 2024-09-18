@@ -94,7 +94,7 @@ void evaluate_regrid_criterion( ViewT flag_view
         int const q = team_member.league_rank() ; 
         Kokkos::parallel_reduce(  
                 reduce_range 
-            , KOKKOS_LAMBDA (int64_t& icell, double& leps )
+            , KOKKOS_LAMBDA (int& icell, double& leps )
             {
                 int const i = icell%nx ;
                 int const j = icell/nx%ny; 

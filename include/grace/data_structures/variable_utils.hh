@@ -34,6 +34,11 @@
 
 namespace grace { namespace variables {
 
+bool var_exists(std::string const& vname) ; 
+
+grace::variable_properties_t<GRACE_NSPACEDIM>&
+get_variable_properties(std::string const& vname, int& err) ; 
+
 int 
 get_n_evolved_face_staggered() ;
 
@@ -53,7 +58,7 @@ int
 get_n_auxiliary() ; 
 
 std::string
-get_bc_type( int64_t var_idx, var_staggering_t const& staggering = grace::variables::var_staggering_t::CELL_CETER)  ;
+get_bc_type( int64_t var_idx, var_staggering_t const& staggering = var_staggering_t::CELL_CENTER)  ;
 
 std::string
 get_var_name(int64_t var_idx, bool is_aux)   ; 
