@@ -30,6 +30,7 @@
 
 #include <grace/data_structures/variable_properties.hh>
 #include <grace/amr/amr_functions.hh>
+#include <grace/utils/device_vector.hh>
 
 #include <Kokkos_Vector.hpp>
 
@@ -204,6 +205,16 @@ struct hanging_fine_edge_info_t
     }
 } ;
 /**
+ * @brief 
+ * 
+ */
+struct grace_phys_bc_info_t {
+    int64_t qid ; //!< Index of quadrant facing the outside of the grid
+    int8_t  dir_x, dir_y, dir_z ; //!< Direction of boundary 
+    int8_t face, edge, corner   ; 
+} ; 
+
+/**
  * @brief Collection of informations about face neighbors.
  * \ingroup amr
  */
@@ -211,9 +222,9 @@ struct grace_face_info_t
 {
     int n_hanging_ghost_faces{0}; 
     int n_simple_ghost_faces{0} ;
-    Kokkos::vector<int64_t>             phys_boundary_info        ;
-    Kokkos::vector<simple_face_info_t>  simple_interior_info      ; 
-    Kokkos::vector<hanging_face_info_t> hanging_interior_info     ; 
+    Kokkos::vector<simple_face_info_t>         simple_interior_info       ; 
+    Kokkos::vector<hanging_face_info_t>        hanging_interior_info      ;
+    grace::device_vector<grace_phys_bc_info_t> phys_boundary_info         ; 
 } ; 
 /**
  * @brief Collection of informations about edge neighbors.
@@ -225,10 +236,9 @@ struct grace_edge_info_t
     int n_simple_ghost_edges{0} ;
     int n_exterior_edges{0}     ; 
     int n_edges_total{0}     ; 
-    Kokkos::vector<simple_edge_info_t>  simple_interior_info       ; 
-    Kokkos::vector<hanging_edge_info_t> hanging_interior_info      ;
-    Kokkos::vector<int64_t>             simple_phys_boundary_info  ;
-    Kokkos::vector<int64_t>             hanging_phys_boundary_info ;
+    Kokkos::vector<simple_edge_info_t>   simple_interior_info       ; 
+    Kokkos::vector<hanging_edge_info_t>  hanging_interior_info      ;
+    grace::device_vector<grace_phys_bc_info_t> phys_boundary_info  ; 
 } ; 
 /**
  * @brief Collection of informations about corner neighbors.
@@ -240,8 +250,7 @@ struct grace_corner_info_t
     int n_simple_ghost_corners{0} ;
     Kokkos::vector<simple_corner_info_t>  simple_interior_info      ; 
     Kokkos::vector<hanging_corner_info_t> hanging_interior_info     ;
-    Kokkos::vector<int64_t>             simple_phys_boundary_info   ;
-    Kokkos::vector<int64_t>             hanging_phys_boundary_info  ; 
+    grace::device_vector<grace_phys_bc_info_t>  phys_boundary_info  ; 
 } ; 
 /**
  * @brief The user data passed to <code>p4est_iterate</code>

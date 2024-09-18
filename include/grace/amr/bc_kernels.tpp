@@ -33,49 +33,59 @@
 #include <grace/data_structures/macros.hh>
 
 namespace grace { namespace amr {
+template< size_t order >
+struct extrap_bc_t 
+{
+      template< typename ViewT >
+      static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      apply(
+            ViewT& u,
+            VEC( int i, int j, int k),
+            VEC( int8_t dx, int8_t dy, int8_t dz), 
+            int64_t q 
+      ) ; 
+} ; 
+
+template<>
+struct extrap_bc_t<0>
+{
+      template< typename ViewT >
+      static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      apply(
+            ViewT& u,
+            VEC( int i, int j, int k),
+            VEC( int8_t dx, int8_t dy, int8_t dz), 
+            int64_t q 
+      ) 
+      {
+            u(VEC(i,j,k), q) = u(VEC(i-dx,j-dy,k-dz),q) ; 
+      }; 
+} ; 
+
+template<>
+struct extrap_bc_t<3>
+{
+      template< typename ViewT >
+      static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      apply(
+            ViewT& u,
+            VEC( int i, int j, int k),
+            VEC( int8_t dx, int8_t dy, int8_t dz), 
+            int64_t q 
+      ) 
+      {
+            u(VEC(i,j,k), q) =( 4*u(VEC(i-dx,j-dy,k-dz),q) 
+                              - 6*u(VEC(i-2*dx,j-2*dy,k-2*dz),q) 
+                              + 4*u(VEC(i-3*dx,j-3*dy,k-3*dz),q) 
+                              -   u(VEC(i-4*dx,j-4*dy,k-4*dz),q) ); 
+      }; 
+} ;
+
 /**
  * @brief Apply outgoing boundary conditions.
  * \ingroup amr
  */
-struct outgoing_bc_t 
-{
-    template< typename ViewT>
-    static GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    void apply(ViewT& u, int ngz, int n0, VECD(int j, int k), int face, int64_t iq)
-    {
-      EXPR(
-      int const I0 = EXPRD((face==0) * ngz 
-                         + (face==1) * (n0+ngz-1)
-                         + (face/2==1) * (j), 
-                         + (face/2==2) * (j))  ;,
-      int const J0 = EXPRD((face==2) * ngz 
-                         + (face==3) * (n0+ngz-1)
-                         + (face/2==0) * (j), 
-                         + (face/2==2) * (k))  ;,
-      int const K0 = EXPRD((face==4) * ngz 
-                         + (face==5) * (n0+ngz-1)
-                         + (face/2==0) * (k), 
-                         + (face/2==1) * (k))  ;)
-      #pragma unroll 
-      for(int ig=0; ig<ngz; ++ig)
-      {
-            EXPR(
-            int I = EXPRD((face==0) * ig 
-                  + (face==1) * (n0+ngz+ig)
-                  + (face/2==1) * (j), 
-                  + (face/2==2) * (j))  ;,
-            int J = EXPRD((face==2) * ig 
-                  + (face==3) * (n0+ngz+ig)
-                  + (face/2==0) * (j), 
-                  + (face/2==2) * (k))  ;,
-            int K = EXPRD((face==4) * ig 
-                  + (face==5) * (n0+ngz+ig)
-                  + (face/2==0) * (k), 
-                  + (face/2==1) * (k))  ;)
-            u(VEC(I,J,K),iq) = u(VEC(I0,J0,K0),iq); 
-      }       
-    }
-} ;
+using outgoing_bc_t = extrap_bc_t<0> ; 
 
 
 }}

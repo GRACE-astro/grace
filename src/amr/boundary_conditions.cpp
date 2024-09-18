@@ -272,29 +272,23 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     /* Fifth step:                                        */
     /* Apply physical boundary conditions.                */
     /******************************************************/
-    auto phys_boundary_info = neighbor_info.face_info.phys_boundary_info ; 
-    phys_boundary_info.host_to_device() ; 
-    for(int ivar=0; ivar<nvars; ++ivar){
-        auto bc_type = variables::get_bc_type(ivar) ; 
-        if( bc_type == "outgoing" )
-        {
-            auto var = Kokkos::subview( vars
-                                      , VEC( Kokkos::ALL() 
-                                           , Kokkos::ALL() 
-                                           , Kokkos::ALL() )
-                                      , ivar 
-                                      , Kokkos::ALL() ) ; 
-            apply_phys_bc<outgoing_bc_t>(
-                  var
-                , phys_boundary_info
-            ) ; 
-        } else if (bc_type == "none" ) {
-            /* Nothing to do here */
-        } else {
-            ERROR("Unrecognized bc type for variable " << ivar << ".\n") ;
-        }
-    }
-    Kokkos::fence() ; 
+    auto face_phys_boundary_info = neighbor_info.face_info.phys_boundary_info ; 
+    face_phys_boundary_info.host_to_device() ; 
+    auto corner_phys_boundary_info = neighbor_info.corner_info.phys_boundary_info ; 
+    corner_phys_boundary_info.host_to_device() ; 
+    #ifdef GRACE_3D
+    auto edge_phys_boundary_info = neighbor_info.edge_info.phys_boundary_info ; 
+    edge_phys_boundary_info.host_to_device() ; 
+    #endif 
+    fill_physical_boundaries(
+          vars
+        , staggered_vars 
+        , face_phys_boundary_info 
+        , corner_phys_boundary_info 
+        #ifdef GRACE_3D
+        , edge_phys_boundary_info 
+        #endif 
+    ); 
     /******************************************************/
     /* Sixth step:                                        */
     /* Exchange coarse quadrants again                    */
@@ -344,8 +338,19 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
             , hanging_interior_edge_info
             #endif 
             ) ; 
-    
-    Kokkos::fence() ;
+    /******************************************************/
+    /* Eigth step:                                        */
+    /* Fill physical boundaries again                     */
+    /******************************************************/
+    fill_physical_boundaries(
+          vars
+        , staggered_vars 
+        , face_phys_boundary_info 
+        , corner_phys_boundary_info 
+        #ifdef GRACE_3D
+        , edge_phys_boundary_info 
+        #endif 
+    ); 
     /******************************************************/
     /* De-allocate halo quadrant data                     */
     /******************************************************/

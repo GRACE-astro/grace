@@ -63,12 +63,11 @@ namespace grace {
  */
 template< typename T >
 class device_vector {
+ public:
+    host_container_type    h_view ;
+    device_container_type  d_view ;
  
  private:
-
-    host_container_type _host_array ;
-    device_container_type _device_array ;
-
     using size_type       = typename host_container_type::size_type ; //!< Type of index 
     using value_type      = typename host_container_type::value_type  ; //!< Type of values 
     using pointer         = typename host_container_type::pointer  ; //!< Type of pointer to values 
@@ -93,16 +92,16 @@ class device_vector {
      * @param N Size of the initial allocations.
      */
     device_vector( size_t N ) 
-     : _host_array(N), _device_array()
+     : h_view(N), d_view()
     {
-        Kokkos::realloc( _device_array, N ) ; 
+        Kokkos::realloc( d_view, N ) ; 
     } 
 
     device_vector( size_t N, T const& val ) 
-     : _host_array(N,val), _device_array()
+     : h_view(N,val), d_view()
     {
-        Kokkos::realloc( _device_array, N ) ;
-        grace::deep_copy_vec_to_view(_device_array, _host_array) ;  
+        Kokkos::realloc( d_view, N ) ;
+        grace::deep_copy_vec_to_view(d_view, h_view) ;  
     }   
     /**
      * @brief Construct a new device_vector object from a vector
@@ -135,7 +134,7 @@ class device_vector {
         ASSERT_DBG( idx < size()
                   , "Out-of-bounds access on host side of "
                     "device_array.") ; 
-        return _host_array[idx] ; 
+        return h_view[idx] ; 
     }
     /**
      * @brief Const-access to an element of the host-side vector.
@@ -148,23 +147,23 @@ class device_vector {
         ASSERT_DBG( idx < size()
                   , "Out-of-bounds access on host side of "
                     "device_array.") ; 
-        return _host_array[idx] ; 
+        return h_view[idx] ; 
     }
 
     iterator begin() {
-        return _host_array.begin() ; 
+        return h_view.begin() ; 
     }
 
     iterator end() {
-        return _host_array.end() ; 
+        return h_view.end() ; 
     }
 
     const_iterator cbegin() const {
-        return _host_array.cbegin() ; 
+        return h_view.cbegin() ; 
     }
 
     const_iterator cend() const {
-        return _host_array.cend() ; 
+        return h_view.cend() ; 
     }
     /**
      * @brief Append an element at the end of the host vector.
@@ -175,7 +174,7 @@ class device_vector {
      */
     void GRACE_HOST
     push_back( value_type const& val) {
-        _host_array.push_back(val) ; 
+        h_view.push_back(val) ; 
     }
     /**
      * @brief Get raw pointer to host vector.
@@ -183,7 +182,7 @@ class device_vector {
      * @return pointer Pointer to host vector memory.
      */
     pointer GRACE_ALWAYS_INLINE GRACE_HOST
-    data() { return _host_array.data(); }
+    data() { return h_view.data(); }
     /**
      * @brief Get the device-side <code>Kokkos::View<T*></code>.
      * 
@@ -191,7 +190,7 @@ class device_vector {
      */
     device_container_type GRACE_ALWAYS_INLINE GRACE_HOST
     d_view() {
-        return _device_array ; 
+        return d_view ; 
     }
     /**
      * @brief Get the size of the host vector.
@@ -203,7 +202,7 @@ class device_vector {
     size_type GRACE_ALWAYS_INLINE GRACE_HOST
     size()  
     {
-        return _host_array.size()  ;
+        return h_view.size()  ;
     }
     /**
      * @brief Size of device-side allocation.
@@ -214,7 +213,7 @@ class device_vector {
     size_type GRACE_ALWAYS_INLINE GRACE_HOST
     device_size()  
     {
-        return _device_array.extent(0)  ;
+        return d_view.extent(0)  ;
     }
     /**
      * @brief Sync data to device.
@@ -223,9 +222,9 @@ class device_vector {
     to_device()
     {
         if ( ! (size() == device_size()) ) {
-            Kokkos::realloc(_device_array, size()) ; 
+            Kokkos::realloc(d_view, size()) ; 
         }
-        grace::deep_copy_vec_to_view(_device_array,_host_array) ; 
+        grace::deep_copy_vec_to_view(d_view,h_view) ; 
     }
     /**
      * @brief Sync data to host.
@@ -234,9 +233,9 @@ class device_vector {
     to_host() 
     {
         if ( ! (size() == device_size()) ) {
-            _host_array.resize(device_size()) ; 
+            h_view.resize(device_size()) ; 
         }
-        grace::deep_copy_view_to_vec(_host_array,_device_array) ; 
+        grace::deep_copy_view_to_vec(h_view,d_view) ; 
     }
 
 } ; 

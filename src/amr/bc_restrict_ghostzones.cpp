@@ -1,7 +1,7 @@
 /**
  * @file bc_restrict_ghostzones.cpp
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief Index fiesta.
+ * @brief Index fiesta. NB these functions in general assume nx == ny == nz. This can be relaxed.
  * @date 2024-03-21
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics

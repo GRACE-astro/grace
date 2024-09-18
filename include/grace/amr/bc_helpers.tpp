@@ -34,6 +34,7 @@
 
 #include <grace/amr/grace_amr.hh> 
 #include <grace/utils/grace_utils.hh>
+#include <grace/utils/device_vector.hh>
 #include <grace/data_structures/macros.hh>
 
 #include <grace/amr/bc_kernels.tpp>
@@ -51,48 +52,177 @@ template< typename BCT
         , typename ViewT >
 void apply_phys_bc(
     ViewT& u,
-    Kokkos::vector<int64_t>& face_info
-  ) 
+    int nx,
+    int ny,
+    int nz,
+    int ngz,
+    grace::device_vector<grace::amr::grace_phys_bc_info_t>& face_info
+  )
 {     
+  /******************************************************/
+  /* This function applies physical boundary conditions */
+  /* to a single variable. Note that the loop in the    */
+  /* ghostzone direction(s) is (are) always serial.     */
+  /* This is because in general there might be loop     */
+  /* carry dependencies. Also note that we do first     */
+  /* faces then edges and corners, this is also because */
+  /* there might be dependencies.                       */
+  /******************************************************/
+
   using namespace grace ;
   using namespace Kokkos  ; 
 
-  size_t const nq = face_info.size() ; 
-  auto& d_face_info = face_info.d_view ; 
+  /* Faces */
+  int const n_faces = face_info.size() ; 
+  auto& d_face_info = face_info.d_view ;
 
-  size_t nx,ny,nz ; 
-  std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-  int64_t ngz = amr::get_n_ghosts() ;
-  
-  TeamPolicy<default_execution_space> 
-        policy( nq, AUTO() ) ; 
-  using member_t = decltype(policy)::member_type ;
-
+  /******************************************************/
+  /* In this case we have a heftier 2D loop over        */
+  /* the whole cell range so we do that in parallel     */
+  /* below in the loop over edges everything is serial  */
+  /* for convenience                                    */
+  /******************************************************/
+  MDRangePolicy< IndexType<grace_loop_index_t>
+               , grace::default_execution_space 
+               , Rank<GRACE_NSPACEDIM> > 
+    policy( {VECD(0,0), 0}, {VECD(nx+2*ngz,ny+2*ngz), n_faces}) ;
   parallel_for(
-      GRACE_EXECUTION_TAG("AMR","impose_physical_BC")
-    , policy
-    , KOKKOS_LAMBDA( const member_t& team )
+    GRACE_EXECUTION_TAG("AMR","impose_face_physical_BC"),
+    policy,
+    KOKKOS_LAMBDA( VECD(int const i, int const j), int const iface ) 
     {
-      int which_face = d_face_info(team.league_rank()) % P4EST_FACES ; 
-      int64_t iq     = d_face_info(team.league_rank()) / P4EST_FACES ; 
+        EXPR(
+        int8_t const dx = d_face_info(iface).dir_x ;, 
+        int8_t const dy = d_face_info(iface).dir_y ;, 
+        int8_t const dz = d_face_info(iface).dir_z ;
+        )
+        int64_t iq     = d_face_info(iface).qid    ;
+        int8_t face    = d_face_info(iface).face   ;
 
-      int n0 = (which_face/2==0) * nx + ((which_face/2==1) * ny) + ((which_face/2==2) * nz) ;
-      int n1 = (which_face/2==0) * ny + ((which_face/2==1) * nx) + ((which_face/2==2) * nx) ;
-      int n2 = (which_face/2==0) * nz + ((which_face/2==1) * nz) + ((which_face/2==2) * ny) ;
-      #ifdef GRACE_3D 
-      TeamThreadMDRange<Rank<2>,member_t>
-                team_range( team, n1+2*ngz,n2+2*ngz) ; 
-      #else 
-      auto team_range = TeamThreadRange(team,0,n1+2*ngz); 
-      #endif 
-      parallel_for( team_range 
-                  , KOKKOS_LAMBDA (VECD(int& j, int& k))
-                  {
-                    BCT::apply(u,ngz,n0,VECD(j,k),which_face,iq) ; 
-                  }) ; 
+        int const lmin = (face%2==0) * (ngz-1) + (face%2==1) * (nx+ngz) ; 
+        int const lmax = (face%2==0) * (-1)    + (face%2==1) * (nx+2*ngz) ;
+        int const idir = (face%2==0) * (-1)    + (face%2==1) * (+1) ;  
+
+        int const faceb2{ face / 2 } ; 
+
+        #pragma unroll  
+        for( int ig=lmin; ig!=lmax; ig+=idir ) {
+          int const I = (faceb2==0) * ig + (faceb2!=0) * j ; 
+          int const J = (faceb2==1) * ig + (faceb2==0) * j + (faceb2==2) * k ; 
+          int const K = (faceb2==2) * ig + (faceb2!=2) * k ;  
+          BCT::apply(u,VEC(I,J,K), VEC(dx,dy,dz), iq) ;
+        }
     }
   ); 
 
+  /* Edges */
+  int const n_edges = edge_info.size() ; 
+  auto& d_edge_info = edge_info.d_view ;
+  
+  parallel_for(
+    GRACE_EXECUTION_TAG("AMR","impose_edge_physical_BC"),
+    n_edges,
+    KOKKOS_LAMBDA( int const iedge ) 
+    {
+        int const lbnd[3] = {
+          nx + ngz,
+          ny + ngz,
+          nz + ngz 
+        } ;
+        int const ubnd[3] = {
+          nx + 2*ngz,
+          ny + 2*ngz,
+          nz + 2*ngz 
+        } ; 
+
+        int dir[3] = {
+          d_edge_info(iedge).dir_x,
+          d_edge_info(iedge).dir_y, 
+          d_edge_info(iedge).dir_z 
+        } ; 
+        
+        int lmin[3], lmax[3], idir[3] ;
+        for( int dd=0; dd<3; ++dd) {
+          if (dir[dd] < 0) {
+            lmin[dd] = ngz-1 ; 
+            lmax[dd] = -1    ; // the loop goes til ig != lmax 
+            idir[dd] = -1  ; 
+          } else if ( dir[dd] > 0 ) {
+            lmin[dd] = lbnd[dd]   ;
+            lmax[dd] = ubnd[dd]   ;
+            idir[dd] = +1 ;
+          } else {
+            lmin[dd] = 0          ;
+            lmax[dd] = ubnd[dd]   ;
+            idir[dd] = +1 ;
+          }
+        }     
+        int64_t iq     = d_edge_info(iedge).qid    ;
+        #pragma unroll 
+        for( int ig=lmin[0]; ig!=lmax[0]; ig+=idir[0] ) 
+        for( int jg=lmin[1]; jg!=lmax[1]; jg+=idir[1] ) 
+        for( int kg=lmin[2]; kg!=lmax[2]; kg+=idir[2] )
+        { 
+          BCT::apply(u,VEC(ig,jg,kg), VEC(dx,dy,dz), iq) ;
+        }
+    }
+  ) ; 
+  
+  /* Corners */
+  int const n_corner  = corner_info.size() ; 
+  auto& d_corner_info = corner_info.d_view ;
+;
+  parallel_for(
+    GRACE_EXECUTION_TAG("AMR","impose_corner_physical_BC"),
+    n_corners,
+    KOKKOS_LAMBDA( int const icorner ) 
+    {
+
+      int const lbnd[3] = {
+        nx + ngz,
+        ny + ngz,
+        nz + ngz 
+      } ;
+      int const ubnd[3] = {
+        nx + 2*ngz,
+        ny + 2*ngz,
+        nz + 2*ngz 
+      } ; 
+
+      int dir[3] = {
+        d_corner_info(icorner).dir_x,
+        d_corner_info(icorner).dir_y, 
+        d_corner_info(icorner).dir_z 
+      } ; 
+      
+      int lmin[GRACE_NSPACEDIM], lmax[GRACE_NSPACEDIM], idir[GRACE_NSPACEDIM] ;
+      for( int dd=0; dd<GRACE_NSPACEDIM; ++dd) {
+        if (dir[dd] < 0) {
+          lmin[dd] = ngz-1 ; 
+          lmax[dd] = -1    ; // the loop goes til ig != lmax 
+          idir[dd] = -1  ; 
+        } else if ( dir[dd] > 0 ) {
+          lmin[dd] = lbnd[dd]   ;
+          lmax[dd] = ubnd[dd]   ;
+          idir[dd] = +1 ;
+        } else {
+          lmin[dd] = 0          ;
+          lmax[dd] = ubnd[dd]   ;
+          idir[dd] = +1 ;
+        }
+      } 
+        
+      int64_t iq     = d_corner_info(icorner).qid       ;
+
+      #pragma unroll
+      EXPR( for( int ig=lmin[0]; ig!=lmax[0]; ig+=idir[0]), 
+            for( int jg=lmin[1]; jg!=lmax[1]; jg+=idir[1]), 
+            for( int kg=lmin[2]; kg!=lmax[2]; kg+=idir[2])) 
+      {
+        BCT::apply(u,VEC(ig,jg,kg), VEC(dx,dy,dz), iq) ;
+      }
+    }
+  ); 
 }
 
 }}
