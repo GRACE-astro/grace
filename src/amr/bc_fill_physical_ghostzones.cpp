@@ -55,7 +55,7 @@ void fill_physical_boundaries(
 
     int nvars_cell_center = variables::get_n_evolved() ; 
     for(int ivar=0; ivar<nvars_cell_center; ++ivar){
-        auto bc_type = variables::get_bc_type(ivar) ; 
+        auto bc_type = variables::get_bc_type(ivar, grace::var_staggering_t::CELL_CENTER) ; 
         if( bc_type == "outgoing" )
         {
             auto var = Kokkos::subview( vars
@@ -73,6 +73,22 @@ void fill_physical_boundaries(
                 , edge_phys_bc
                 #endif 
             ) ; 
+        } else if ( bc_type == "third_order_lagrange" ) { 
+            auto var = Kokkos::subview( vars
+                                      , VEC( Kokkos::ALL() 
+                                           , Kokkos::ALL() 
+                                           , Kokkos::ALL() )
+                                      , ivar 
+                                      , Kokkos::ALL() ) ; 
+            apply_phys_bc<extrap_bc_t<3>>(
+                  var
+                , nx,ny,nz,ngz 
+                , face_phys_bc
+                , corner_phys_bc
+                #ifdef GRACE_3D 
+                , edge_phys_bc
+                #endif 
+            ) ; 
         } else if (bc_type == "none" ) {
             /* Nothing to do here */
         } else {
@@ -80,12 +96,27 @@ void fill_physical_boundaries(
         }
     }
     
-
+    /* Corner staggered */
     int nvars_cell_corner = variables::get_n_evolved_corner_staggered() ; 
     for(int ivar=0; ivar<nvars_cell_corner; ++ivar){
-        auto bc_type = variables::get_bc_type(ivar) ; 
-        if( bc_type == "third_order_lagrange" )
-        {
+        auto bc_type = variables::get_bc_type(ivar, grace::var_staggering_t::CORNER) ; 
+        if ( bc_type == "outgoing" ) { 
+            auto var = Kokkos::subview( staggered_vars.corner_staggered_fields
+                                      , VEC( Kokkos::ALL() 
+                                           , Kokkos::ALL() 
+                                           , Kokkos::ALL() )
+                                      , ivar 
+                                      , Kokkos::ALL() ) ; 
+            apply_phys_bc<outgoing_bc_t>(
+                  var
+                , nx+1,ny+1,nz+1,ngz 
+                , face_phys_bc
+                , corner_phys_bc
+                #ifdef GRACE_3D 
+                , edge_phys_bc
+                #endif 
+            ) ;
+        } else if( bc_type == "third_order_lagrange" ) {
             auto var = Kokkos::subview( staggered_vars.corner_staggered_fields
                                       , VEC( Kokkos::ALL() 
                                            , Kokkos::ALL() 

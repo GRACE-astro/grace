@@ -52,10 +52,7 @@ template< typename BCT
         , typename ViewT >
 void apply_phys_bc(
     ViewT& u,
-    int nx,
-    int ny,
-    int nz,
-    int ngz,
+    int nx, int ny, int nz, int ngz,
     grace::device_vector<grace::amr::grace_phys_bc_info_t>& face_info
   )
 {     

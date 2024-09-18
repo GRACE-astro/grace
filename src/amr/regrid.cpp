@@ -177,6 +177,7 @@ void regrid() {
                                  , nvars
                                  , nq_new                          
     ) ; 
+    // TODO reallocate also staggered state
     /******************************************************************************************/
     /*                      Collect indices of outgoing and incoming                          */
     /*                      quadrants in their respective z-ordering.                         */
@@ -204,6 +205,7 @@ void regrid() {
                                                    , Kokkos::ALL())
                                               , Kokkos::ALL()
                                               , iq_new) ;
+            // TODO copy over also staggered fields 
             Kokkos::deep_copy(default_execution_space{}, sview_swap, sview_state) ; 
             iq_new++; iq_old++ ; 
         } else if ( flag == NEED_PROLONGATION )
@@ -261,6 +263,7 @@ void regrid() {
     /******************************************************************************************/
     std::string interp = params["amr"]["prolongation_interpolator_type"].as<std::string>(); 
     std::string limiter = params["amr"]["prolongation_limiter_type"].as<std::string>();
+    // TODO make this a standalone function
     if( interp == "linear" ) 
     {
         if( limiter == "minmod"){
@@ -298,6 +301,7 @@ void regrid() {
     /******************************************************************************************/
     /*                      Restrict data on coarsened quadrants                              */
     /******************************************************************************************/
+    // todo make this standalone 
     std::string reduce = params["amr"]["restriction_interpolator_type"].as<std::string>(); 
     if (reduce=="linear")
     {
@@ -345,6 +349,7 @@ void regrid() {
     /******************************************************************************************/
     /*                                Transfer data                                           */
     /******************************************************************************************/
+    // todo transfer staggered
     auto context = 
         p4est_transfer_fixed_begin (
                 new_glob_qoffsets.data() 
@@ -386,6 +391,7 @@ void regrid() {
                                 ,   nvars_aux
                                 ,   nq_local 
                                 ) ;    
+    // todo realloc staggered aux
     /******************************************************************************************/
     /*                                Synchronize everything                                  */
     /******************************************************************************************/

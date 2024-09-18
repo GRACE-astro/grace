@@ -31,6 +31,7 @@
 
 #include <grace/amr/grace_amr.hh>
 #include <grace/amr/bc_iterate.hh> 
+#include <grace/amr/bc_fill_physical_ghostzones.hh>
 #include <grace/amr/bc_copy_ghostzones.hh> 
 #include <grace/amr/bc_restrict_ghostzones.hh> 
 #include <grace/amr/bc_prolongate_ghostzones.hh> 

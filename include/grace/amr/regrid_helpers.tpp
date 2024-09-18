@@ -63,18 +63,17 @@ void evaluate_regrid_criterion( ViewT flag_view
                               , KerArgT&& ... kernel_args) 
 {
     using namespace grace  ;  
-    auto& params = config_parser::get() ; 
-    auto  state  = variable_list::get().getstate() ; 
-    int64_t nx,ny,nz ; 
+
+    int nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    size_t nq = amr::get_local_num_quadrants() ; 
-    size_t ngz = amr::get_n_ghosts() ; 
+    int nq = amr::get_local_num_quadrants() ; 
+    int const ngz = amr::get_n_ghosts() ; 
 
     size_t REFINE_FLAG  = amr::quadrant_flags_t::REFINE  ;  
     size_t COARSEN_FLAG = amr::quadrant_flags_t::COARSEN ; 
 
-    double CTORE = params["amr"]["refinement_criterion_CTORE"].as<double>() ; 
-    double CTODE = params["amr"]["refinement_criterion_CTODE"].as<double>() ;
+    double CTORE = grace::get_param<double>("amr", "refinement_criterion_CTORE") ;
+    double CTODE = grace::get_param<double>("amr", "refinement_criterion_CTODE") ;
     
     /* Each thread league deals with a single quadrant */ 
     Kokkos::TeamPolicy<default_execution_space> policy(nq, Kokkos::AUTO() ) ; 
