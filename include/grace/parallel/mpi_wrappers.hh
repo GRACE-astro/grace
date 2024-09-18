@@ -305,8 +305,8 @@ void mpi_send(T* send_buffer, int size,
 {
     #ifndef SC_ENABLE_MPI
     ASSERT(0, 
-           "Please make sure that a real MPI implementation"
-           "is linked before attempting to call mpi_send"
+           "Please make sure that a real MPI implementation "
+           "is linked before attempting to call mpi_send "
            "(build sc with --enable-mpi)") ;
     #endif 
     ASSERT_DBG( (send_buffer!=nullptr) or (size==0), 
@@ -331,8 +331,8 @@ sc_MPI_Status mpi_recv(T* recv_buffer, int size,
 {
     #ifndef SC_ENABLE_MPI
     ASSERT(0, 
-           "Please make sure that a real MPI implementation"
-           "is linked before attempting to call mpi_recv"
+           "Please make sure that a real MPI implementation "
+           "is linked before attempting to call mpi_recv "
            "(build sc with --enable-mpi)") ;
     #endif
     ASSERT_DBG( (recv_buffer!=nullptr) or (size==0), 

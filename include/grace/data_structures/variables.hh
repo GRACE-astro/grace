@@ -46,6 +46,10 @@ namespace grace {
 //*****************************************************************************************************
 size_t get_variable_index(std::string const& name, bool is_aux=false) ;
 //*****************************************************************************************************
+size_t get_staggered_variable_index( std::string const& name, int& staggering, bool is_aux) ; 
+//*****************************************************************************************************
+size_t get_variable_index_ext(std::string const& name, int& staggering, bool is_aux) ; 
+//*****************************************************************************************************
 /**
  * @brief Implementation of the variable list type.
  * 
@@ -127,6 +131,32 @@ public:
     getscratch() { return _state_p ; }
     //*****************************************************************************************************
     /**
+     * @brief Get the staggered state vector
+     * 
+     * @return The state vector, containing all evolved variables
+     *         on all local cells.  
+     */
+    GRACE_ALWAYS_INLINE staggered_variable_arrays_t&  
+    getstaggeredstate() { return _staggered_vars ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the scratch staggered state vector 
+     * 
+     * @return The scratch state vector, used during time 
+     *         evolution to hold the previous state. 
+     */
+    GRACE_ALWAYS_INLINE staggered_variable_arrays_t& 
+    getstaggeredscratch() { return _staggered_vars_p ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the staggered aux vector 
+     * 
+     * @return The staggered aux vector. 
+     */
+    GRACE_ALWAYS_INLINE staggered_variable_arrays_t& 
+    getstaggeredaux() { return _staggered_aux ; }
+    //*****************************************************************************************************
+    /**
      * @brief Get the halo state vector 
      */
     GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>& 
@@ -184,7 +214,71 @@ private:
 using variable_list = utils::singleton_holder<variable_list_impl_t > ; 
 //*****************************************************************************************************
 //*****************************************************************************************************
+template< typename IndexT_x 
+        , typename IndexT_y 
+        , typename IndexT_z 
+        , typename IndexT_q > 
+static decltype(auto) 
+get_variable_subview(
+      std::string const& vname
+    , VEC( IndexT_x xidx_subset 
+         , IndexT_y yidx_subset
+         , IndexT_z zidx_subset )
+    , IndexT_q qidx_subset )
+{
+    using namespace grace  ; 
+    using namespace Kokkos ; 
+    
 
+    auto& state = variable_list::get().getstate() ; 
+    auto& sstate = variable_list::get().getstaggeredstate() ; 
+    auto& aux = variable_list::get().getaux() ; 
+    auto& saux = variable_list::get().getstaggeredaux() ; 
+
+    auto it = variables::detail::_varprops.find(vname);
+    if (it == variables::detail::_varprops.end()) {
+        ERROR("In get_variable_subview variable " << vname << " does not exist.") ;
+    }
+    auto const& props = it->second; 
+
+    if ( props.is_evolved ) {
+        if ( props.staggering == var_staggering_t::CELL_CENTER ) {
+            return Kokkos::subview(state, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset) ; 
+        } else if (props.staggering == var_staggering_t::FACE ) {
+            auto& fstate = (props.comp_num == 0) ? sstate.face_staggered_fields_x
+                : ( (props.comp_num == 1) ? sstate.face_staggered_fields_y : sstate.face_staggered_fields_z ) ; 
+            return Kokkos::subview(fstate, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset)  ; 
+        } else if (props.staggering == var_staggering_t::EDGE ) {
+            auto& estate = (props.comp_num == 0) ? sstate.edge_staggered_fields_yz
+                : ( (props.comp_num == 1) ? sstate.edge_staggered_fields_xz : sstate.edge_staggered_fields_xy ) ; 
+            return Kokkos::subview(estate, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset)  ; 
+        } else {
+            auto& cstate = sstate.corner_staggered_fields ;
+            return Kokkos::subview(cstate, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset)  ; 
+        }
+    } else {
+        if ( props.staggering == var_staggering_t::CELL_CENTER ) {
+            return Kokkos::subview(aux, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset) ; 
+        } else if (props.staggering == var_staggering_t::FACE ) {
+            auto& fstate = (props.comp_num == 0) ? saux.face_staggered_fields_x
+                : ( (props.comp_num == 1) ? saux.face_staggered_fields_y : saux.face_staggered_fields_z ) ; 
+            return Kokkos::subview(fstate, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset)  ; 
+        } else if (props.staggering == var_staggering_t::EDGE ) {
+            auto& estate = (props.comp_num == 0) ? saux.edge_staggered_fields_yz
+                : ( (props.comp_num == 1) ? saux.edge_staggered_fields_xz : saux.edge_staggered_fields_xy ) ; 
+            return Kokkos::subview(estate, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset)  ; 
+        } else {
+            auto& cstate = saux.corner_staggered_fields ;
+            return Kokkos::subview(cstate, VEC(xidx_subset,yidx_subset,zidx_subset), props.index, qidx_subset)  ; 
+        }
+    }
+} ; 
+
+static decltype(auto)
+get_variable_subview(std::string const& vname) 
+{
+    return get_variable_subview(vname, VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), Kokkos::ALL() ) ;
+}
 } /* namespace grace */
 
 #endif /* GRACE_DATA_STRUCTURES_VARIABLES_HH */ 

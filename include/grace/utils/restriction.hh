@@ -38,7 +38,7 @@
 
 namespace utils {
 
-struct vol_average_restictor_t {
+struct vol_average_restrictor_t {
 template< typename StateViewT
         , typename VolViewT >
 static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -65,6 +65,36 @@ apply(
     + vol(VEC(i+1,j,k+1),iq) + vol(VEC(i+1,j+1,k+1),iq)
     )) ; 
 }
+#ifdef GRACE_CARTESIAN_COORDINATES
+/**
+ * @brief Overload of restriction operator for Cartesian coordinates.
+ * 
+ * @tparam StateViewT Type of state array.
+ * @param state state array.
+ * @param iq    quadrant index
+ * @param ivar  variable index
+ * @return double The restricted coarse value of var computed from the fine values.
+ */
+template< typename StateViewT >
+static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+apply(
+      VEC(int const& i, int const& j, int const& k)
+    , StateViewT& state 
+    , int64_t iq 
+    , int ivar  ) 
+{
+  return  (EXPR(
+      state(VEC(i,j,k),ivar,iq)
+    + state(VEC(i+1,j,k),ivar,iq),
+    + state(VEC(i,j+1,k),ivar,iq)
+    + state(VEC(i+1,j+1,k),ivar,iq),
+    + state(VEC(i,j,k+1),ivar,iq)
+    + state(VEC(i,j+1,k+1),ivar,iq)
+    + state(VEC(i+1,j,k+1),ivar,iq)
+    + state(VEC(i+1,j+1,k+1),ivar,iq)
+    )) / P4EST_CHILDREN ; 
+}
+#endif 
 
 } ; 
 

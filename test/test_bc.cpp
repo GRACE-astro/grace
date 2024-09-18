@@ -46,12 +46,17 @@ static inline bool is_outside_grid(VEC(size_t i,size_t j, size_t k), int64_t q)
 
 static inline bool is_corner_ghostzone(VEC(long i, long j, long k), VEC(long nx, long ny, long nz), int ngz)
 {
-    return (EXPR((i<ngz) + (i>nx+ngz-1), + (j<ngz) + (j>ny+ngz-1), + (k<ngz) + (k>nz+ngz-1))) > 1 ; 
+    return (EXPR((i<ngz) + (i>nx+ngz-1), + (j<ngz) + (j>ny+ngz-1), + (k<ngz) + (k>nz+ngz-1))) == GRACE_NSPACEDIM ; 
+}
+
+static inline bool is_edge_ghostzone(VEC(long i, long j, long k), VEC(long nx, long ny, long nz), int ngz)
+{
+    return (EXPR((i<ngz) + (i>nx+ngz-1), + (j<ngz) + (j>ny+ngz-1), + (k<ngz) + (k>nz+ngz-1))) == 2 ; 
 }
 
 static inline bool is_ghostzone(VEC(int i, int j, int k), VEC(int nx, int ny, int nz), int ngz)
 {
-    return (EXPR((i<ngz) or (i>nx+ngz-1), or (j<ngz) or (j>ny+ngz-1), or (k<ngz) or (k>nz+ngz-1))) ; 
+    return (EXPR((i<ngz) + (i>nx+ngz-1), + (j<ngz) + (j>ny+ngz-1), + (k<ngz) + (k>nz+ngz-1))) > 0 ; 
 }
 
 TEST_CASE("Apply BC", "[boundaries]")
@@ -193,7 +198,8 @@ TEST_CASE("Apply BC", "[boundaries]")
            or is_outside_grid(VEC(i,j,k+2),q) 
            or is_outside_grid(VEC(i,j,k-2),q) 
            #endif 
-          or  is_corner_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz)) 
+          //or  is_corner_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz)) 
+        )
         {
             continue ; 
         }
@@ -202,7 +208,16 @@ TEST_CASE("Apply BC", "[boundaries]")
             std::cout << "Rank: " << parallel::mpi_comm_rank() << '\n'
                       << "Quadrant, indices " << q EXPR(<< ", " << i ,<< ", " << j ,<< ", " << k) << '\n'  
                       << "Coordinates " << EXPR(pcoords[0] ,<< ", " << pcoords[1], << ", " << pcoords[2]) << '\n'
-                      << "Quadrant level " << grace::amr::get_quadrant(q).level() << std::endl ; 
+                      << "Quadrant level " << grace::amr::get_quadrant(q).level() << std::endl 
+                      << ( is_corner_ghostzone(VEC(i,j,k),VEC(nx,ny,nz), ngz) ? "in corners"
+                            :  ( is_edge_ghostzone(VEC(i,j,k),VEC(nx,ny,nz), ngz) ? "in edges" : "in face") ) << std::endl 
+                     << h_state(VEC(i,j,k),DENS,q) << std::endl  ; 
+        }
+        if ( (q == 42 || q == 44) and not is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz), ngz) and i < 2*ngz and k < 2*ngz ) {
+            std::cout << "Qid, indices  " << q EXPR(<< ", " << i ,<< ", " << j ,<< ", " << k) << '\n'
+                      << "Coordinates " << EXPR(pcoords[0] ,<< ", " << pcoords[1], << ", " << pcoords[2]) << '\n'
+                      << "Quadrant level " << grace::amr::get_quadrant(q).level() << std::endl 
+                      << h_state(VEC(i,j,k),DENS,q) << std::endl ; 
         }
         #endif 
         CHECK_THAT(

@@ -29,6 +29,8 @@
 #define GRACE_AMR_BC_HH 
 
 #include <grace/data_structures/variable_properties.hh>
+#include <grace/amr/amr_functions.hh>
+#include <grace/utils/device_vector.hh>
 
 #include <Kokkos_Vector.hpp>
 
@@ -45,8 +47,8 @@ struct simple_face_info_t
 {
     int has_polarity_flip;
     int is_ghost     ; 
-    int which_face_a ; 
-    int which_face_b ; 
+    int8_t which_face_a ; 
+    int8_t which_face_b ; 
     int64_t qid_a    ;
     int64_t qid_b    ; 
     int which_tree_a ; 
@@ -73,6 +75,74 @@ struct hanging_face_info_t
     int64_t qid_fine[P4EST_CHILDREN/2] ; 
 } ; 
 /**
+ * @brief Struct containing information about
+ *        a simple interior edge.
+ * \ingroup amr
+ */
+struct simple_edge_info_t 
+{
+    int is_ghost     ; 
+    int8_t which_edge_a ; 
+    int8_t which_edge_b ; 
+    int64_t qid_a    ;
+    int64_t qid_b    ; 
+    int which_tree_a ; 
+    int which_tree_b ; 
+
+} ; 
+/**
+ * @brief Struct containing information about a 
+ *        hanging interior edge.
+ * \ingroup amr
+ */
+struct hanging_edge_info_t 
+{
+    int level_coarse       ;
+    int level_fine         ; 
+    int8_t which_edge_coarse ; 
+    int8_t which_edge_fine   ; 
+    int which_tree_coarse ; 
+    int which_tree_fine   ;
+    int8_t is_ghost_coarse ;
+    int8_t is_ghost_fine[2] ; 
+    int64_t qid_coarse ; 
+    int64_t qid_fine[2] ; 
+} ; 
+/**
+ * @brief Struct containing information about
+ *        a simple interior corner.
+ * \ingroup amr
+ */
+struct simple_corner_info_t 
+{
+    int is_ghost     ; 
+    int8_t which_corner_a ; 
+    int8_t which_corner_b ; 
+    int64_t qid_a    ;
+    int64_t qid_b    ; 
+    int which_tree_a ; 
+    int which_tree_b ; 
+
+} ; 
+/**
+ * @brief Struct containing information about a 
+ *        hanging interior corner.
+ * \ingroup amr
+ */
+struct hanging_corner_info_t 
+{
+    int level_coarse       ;
+    int level_fine         ; 
+    int8_t which_corner_coarse ; 
+    int8_t which_corner_fine   ; 
+    int which_tree_coarse ; 
+    int which_tree_fine   ;
+    int8_t is_ghost_coarse ;
+    int8_t is_ghost_fine   ; 
+    int64_t qid_coarse ; 
+    int64_t qid_fine   ; 
+} ; 
+/**
  * @brief Struct containing the information about 
  *        the coarse quadrants touching hanging faces.
  * \ingroup amr
@@ -85,19 +155,119 @@ struct hanging_coarse_quadrant_info_t
     std::vector<int>     rcv_procid ; 
 } ; 
 /**
- * @brief The user data passed to <code>p4est_iterate</code>
+ * @brief Struct containing information about which 
+ *        faces in the local forest are hanging.
  * \ingroup amr
- * This struct holds all the necessary information to apply 
- * boundary conditions and fill ghostzones.
+ * The default constructor initializes the underlying 
+ * container to the correct size and fills it with zeroes.
+ */
+struct hanging_fine_face_info_t 
+{
+    std::vector<std::uint8_t> _is_hanging ; 
+
+    hanging_fine_face_info_t() 
+     : _is_hanging( P4EST_FACES * amr::get_local_num_quadrants(), 0)
+    {}
+
+    std::uint8_t& operator[] (size_t const& i)
+    {
+        return _is_hanging[i] ; 
+    }
+
+    std::uint8_t operator[] (size_t const& i) const 
+    {
+        return _is_hanging[i] ; 
+    }
+} ; 
+/**
+ * @brief Struct containing information about which 
+ *        edges in the local forest are hanging.
+ * \ingroup amr
+ * The default constructor initializes the underlying 
+ * container to the correct size and fills it with zeroes.
+ */
+struct hanging_fine_edge_info_t 
+{
+    std::vector<std::uint8_t> _is_hanging ; 
+
+    hanging_fine_edge_info_t() 
+     : _is_hanging( P8EST_EDGES * amr::get_local_num_quadrants(), 0)
+    {}
+
+    std::uint8_t& operator[] (size_t const& i)
+    {
+        return _is_hanging[i] ; 
+    }
+
+    std::uint8_t operator[] (size_t const& i) const 
+    {
+        return _is_hanging[i] ; 
+    }
+} ;
+/**
+ * @brief 
+ * 
+ */
+struct grace_phys_bc_info_t {
+    int64_t qid ; //!< Index of quadrant facing the outside of the grid
+    int8_t  dir_x, dir_y, dir_z ; //!< Direction of boundary 
+    int8_t face, edge, corner   ; 
+} ; 
+
+/**
+ * @brief Collection of informations about face neighbors.
+ * \ingroup amr
  */
 struct grace_face_info_t 
 {
     int n_hanging_ghost_faces{0}; 
     int n_simple_ghost_faces{0} ;
-    Kokkos::vector<int64_t>             phys_boundary_info        ;
-    Kokkos::vector<simple_face_info_t>  simple_interior_info      ; 
-    Kokkos::vector<hanging_face_info_t> hanging_interior_info     ; 
-    hanging_coarse_quadrant_info_t      coarse_hanging_quads_info ;  
+    Kokkos::vector<simple_face_info_t>         simple_interior_info       ; 
+    Kokkos::vector<hanging_face_info_t>        hanging_interior_info      ;
+    grace::device_vector<grace_phys_bc_info_t> phys_boundary_info         ; 
+} ; 
+/**
+ * @brief Collection of informations about edge neighbors.
+ * \ingroup amr
+ */
+struct grace_edge_info_t 
+{
+    int n_hanging_ghost_edges{0}; 
+    int n_simple_ghost_edges{0} ;
+    int n_exterior_edges{0}     ; 
+    int n_edges_total{0}     ; 
+    Kokkos::vector<simple_edge_info_t>   simple_interior_info       ; 
+    Kokkos::vector<hanging_edge_info_t>  hanging_interior_info      ;
+    grace::device_vector<grace_phys_bc_info_t> phys_boundary_info  ; 
+} ; 
+/**
+ * @brief Collection of informations about corner neighbors.
+ * \ingroup amr
+ */
+struct grace_corner_info_t 
+{
+    int n_hanging_ghost_corners{0}; 
+    int n_simple_ghost_corners{0} ;
+    Kokkos::vector<simple_corner_info_t>  simple_interior_info      ; 
+    Kokkos::vector<hanging_corner_info_t> hanging_interior_info     ;
+    grace::device_vector<grace_phys_bc_info_t>  phys_boundary_info  ; 
+} ; 
+/**
+ * @brief The user data passed to <code>p4est_iterate</code>
+ * \ingroup amr
+ * This struct holds all the necessary information to apply 
+ * boundary conditions and fill ghostzones.
+ */
+struct grace_neighbor_info_t 
+{
+    grace_face_info_t   face_info   ;
+    grace_corner_info_t corner_info ; 
+    #ifdef GRACE_3D 
+    grace_edge_info_t   edge_info   ; 
+    #endif
+    hanging_coarse_quadrant_info_t      coarse_hanging_quads_info ; 
+    hanging_fine_face_info_t            fine_hanging_faces_info   ; 
+    hanging_fine_edge_info_t            fine_hanging_edges_info   ;
 } ; 
 /**
  * @brief Apply all boundary conditions and fill ghostzones on state array.
@@ -119,10 +289,12 @@ void apply_boundary_conditions() ;
  * @brief Apply all boundary conditions on the var array.
  * \ingroup amr
  * @param vars The state array where BCs are applied.
+ * @param staggered_vars The staggered variable state array where BCs should be applied. 
  * Specialized version of \ref apply_boundary_conditions which allows 
  * the caller to specify which state array needs its ghostzones to be filled.
  */
-void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) ;
+void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
+                              , grace::staggered_variable_arrays_t& staggered_vars) ;
 
 
 }} /* namespace grace::amr */

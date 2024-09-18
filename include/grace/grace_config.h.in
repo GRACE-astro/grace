@@ -121,5 +121,14 @@ namespace grace {
 #define EXPRD(X,Y) X
 #endif 
 
+
+#cmakedefine GRACE_USE_SIZE_T 
+
+#ifdef GRACE_USE_SIZE_T 
+using grace_loop_idx_t = std::size_t ; 
+#else 
+using grace_loop_idx_t = int ; 
+#endif 
+
 }
 #endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

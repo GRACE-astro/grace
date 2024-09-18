@@ -75,6 +75,9 @@ void evolve_impl() ;
  * @param state  State array.
  * @param state_p Scratch state array.
  * @param aux Auxiliaries.
+ * @param staggered_state Staggered state array.
+ * @param staggered_state_p Staggered scratch array.
+ * @param staggered_aux Staggered auxiliary array.
  * @param idx Inverse of cell coordinate spacings.
  * @param cvol Cell volumes.
  * @param surfs_and_edges Cell face surfaces and edge lengths.
@@ -89,7 +92,11 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , grace::var_array_t<GRACE_NSPACEDIM>& state 
                     , grace::var_array_t<GRACE_NSPACEDIM>& state_p 
                     , grace::var_array_t<GRACE_NSPACEDIM>& aux 
+                    , grace::staggered_variable_arrays_t& staggered_state
+                    , grace::staggered_variable_arrays_t& staggered_state_p 
+                    , grace::staggered_variable_arrays_t& staggered_aux 
                     , grace::scalar_array_t<GRACE_NSPACEDIM>&  idx
+                    , grace::scalar_array_t<GRACE_NSPACEDIM>&  dx
                     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& cvol
                     , grace::staggered_coordinate_arrays_t& surfs_and_edges ) ; 
 //*****************************************************************************************************
@@ -101,10 +108,14 @@ void advance_substep<EOS>( double const , double const , double const \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::staggered_variable_arrays_t&        \
+                         , grace::staggered_variable_arrays_t&        \
+                         , grace::staggered_variable_arrays_t&        \
+                         , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \
                          , grace::staggered_coordinate_arrays_t&  ) ; \
-extern template                                                       \
+template                                                              \
 void evolve_impl<EOS>()
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;

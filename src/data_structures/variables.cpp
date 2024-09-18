@@ -40,6 +40,60 @@
 namespace grace 
 {
 
+size_t get_variable_index_ext(std::string const& name, int& staggering, bool is_aux) {
+    auto ivar = get_variable_index(name,is_aux) ; 
+    if ( ivar >= 0 ) {
+        staggering = -1 ; 
+        return ivar ; 
+    }
+    return get_staggered_variable_index(name, staggering, is_aux) ; 
+}
+
+size_t get_staggered_variable_index( std::string const& name, int& staggering, bool is_aux)
+{
+    using namespace grace::variables::detail ; 
+    if( !is_aux ) {
+        auto itf = std::find(_face_staggered_varnames.begin(), _face_staggered_varnames.end(), name);
+        if (itf != _face_staggered_varnames.end())
+        {   
+            staggering = 0 ; 
+            return std::distance(_face_staggered_varnames.begin(),itf) ; 
+        } 
+        auto itc = std::find(_corner_staggered_varnames.begin(), _corner_staggered_varnames.end(), name);
+        if (itc != _corner_staggered_varnames.end())
+        {   
+            staggering = 1 ; 
+            return std::distance(_corner_staggered_varnames.begin(),itc) ; 
+        } 
+        auto ite = std::find(_edge_staggered_varnames.begin(), _edge_staggered_varnames.end(), name);
+        if (ite != _edge_staggered_varnames.end())
+        {   
+            staggering = 2 ; 
+            return std::distance(_edge_staggered_varnames.begin(),ite) ; 
+        } 
+    } else {
+        auto itf = std::find(_face_staggered_auxnames.begin(), _face_staggered_auxnames.end(), name);
+        if (itf != _face_staggered_auxnames.end())
+        {   
+            staggering = 0 ; 
+            return std::distance(_face_staggered_auxnames.begin(),itf) ; 
+        } 
+        auto itc = std::find(_corner_staggered_auxnames.begin(), _corner_staggered_auxnames.end(), name);
+        if (itc != _corner_staggered_auxnames.end())
+        {   
+            staggering = 1 ; 
+            return std::distance(_corner_staggered_auxnames.begin(),itc) ; 
+        } 
+        auto ite = std::find(_edge_staggered_auxnames.begin(), _edge_staggered_auxnames.end(), name);
+        if (ite != _edge_staggered_auxnames.end())
+        {   
+            staggering = 2 ; 
+            return std::distance(_edge_staggered_auxnames.begin(),ite) ; 
+        }
+    }
+    return -1; 
+}
+
 size_t get_variable_index(std::string const& name, bool is_aux)
 {
     using namespace grace::variables::detail ; 
@@ -57,9 +111,6 @@ size_t get_variable_index(std::string const& name, bool is_aux)
             return std::distance(_auxnames.begin(),it) ; 
         } 
     }
-    ASSERT_DBG(0, 
-    "In get_variable_index, variable "
-    << name << " not found.") ; 
     return -1; 
 }
 

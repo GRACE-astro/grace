@@ -34,6 +34,22 @@
 #include <grace/data_structures/macros.hh>
 
 namespace grace {
+/*****************************************************************************************************/
+/*****************************************************************************************************/
+#ifdef GRACE_3D
+enum var_staggering_t {
+    CELL_CENTER=0,
+    FACE=1,
+    EDGE=2,
+    CORNER=3
+} ; 
+#else 
+enum var_staggering_t {
+    CELL_CENTER=0,
+    FACE=1,
+    CORNER=2
+} ; 
+#endif 
 //*****************************************************************************************************
 //*****************************************************************************************************
 /**
@@ -55,10 +71,13 @@ template<>
 struct variable_properties_t<2>
 {
     using view_t = Kokkos::View<double ****, Kokkos::LayoutLeft, default_space> ; 
-    std::array<bool, 2> staggering; 
-    bool has_gz ; 
+    var_staggering_t staggering; 
+    bool is_evolved ; 
     bool is_vector ;  
     bool is_tensor ; 
+    int8_t comp_num ; 
+    std::string bc_type ; 
+    size_t index ;
 
     std::string name ; 
 } ; 
@@ -72,10 +91,13 @@ template<>
 struct variable_properties_t<3>
 {
     using view_t = Kokkos::View<double *****, Kokkos::LayoutLeft, default_space> ; 
-    std::array<bool, 3> staggering; 
-    bool has_gz ; 
+    var_staggering_t staggering; 
+    bool is_evolved ; 
     bool is_vector;
     bool is_tensor; 
+    int8_t comp_num ;
+    std::string bc_type ; 
+    size_t index ;  
     
     std::string name ;
 } ; 
@@ -257,6 +279,20 @@ struct staggered_variable_arrays_t {
         Kokkos::realloc(edge_staggered_fields_yz, VEC(nx + 2*ngz, ny + 2*ngz + 1, nz+2*ngz + 1), nvars_edge, nq) ;
         #endif 
         Kokkos::realloc(corner_staggered_fields, VEC(nx + 2*ngz+1, ny + 2*ngz+1, nz+2*ngz+1), nvars_corner, nq) ;
+    }
+
+    void 
+    deep_copy(staggered_variable_arrays_t const& other)
+    {
+        Kokkos::deep_copy(face_staggered_fields_x,other.face_staggered_fields_x) ; 
+        Kokkos::deep_copy(face_staggered_fields_y,other.face_staggered_fields_y) ; 
+        Kokkos::deep_copy(face_staggered_fields_z,other.face_staggered_fields_z) ; 
+        #ifdef GRACE_3D
+        Kokkos::deep_copy(edge_staggered_fields_xy,other.edge_staggered_fields_xy) ; 
+        Kokkos::deep_copy(edge_staggered_fields_xz,other.edge_staggered_fields_xz) ; 
+        Kokkos::deep_copy(edge_staggered_fields_yz,other.edge_staggered_fields_yz) ; 
+        #endif 
+        Kokkos::deep_copy(corner_staggered_fields,other.corner_staggered_fields) ; 
     }
 } ; 
 /*****************************************************************************************************/

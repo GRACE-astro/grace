@@ -5,7 +5,7 @@
 #include <grace/config/config_parser.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/IO/vtk_output.hh>
+#include <grace/IO/cell_output.hh>
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <numeric>
@@ -44,7 +44,12 @@ static inline bool is_outside_grid(VEC(size_t i,size_t j, size_t k), int64_t q)
 
 static inline bool is_corner_ghostzone(VEC(long i, long j, long k), VEC(long nx, long ny, long nz), int ngz)
 {
-    return (EXPR((i<ngz) + (i>nx+ngz-1), + (j<ngz) + (j>ny+ngz-1), + (k<ngz) + (k>nz+ngz-1))) > 1 ; 
+    return (EXPR((i<ngz) + (i>nx+ngz-1), + (j<ngz) + (j>ny+ngz-1), + (k<ngz) + (k>nz+ngz-1))) == GRACE_NSPACEDIM ; 
+}
+
+static inline bool is_edge_ghostzone(VEC(long i, long j, long k), VEC(long nx, long ny, long nz), int ngz)
+{
+    return (EXPR((i<ngz) + (i>nx+ngz-1), + (j<ngz) + (j>ny+ngz-1), + (k<ngz) + (k>nz+ngz-1))) == 2 ; 
 }
 
 static inline bool is_ghostzone(VEC(int i, int j, int k), VEC(int nx, int ny, int nz), int ngz)
@@ -126,7 +131,7 @@ TEST_CASE("Apply BC", "[boundaries]")
         #else 
         long const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
         #endif 
-        if(   is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ) 
+        if(   is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) and not is_outside_grid(VEC(i,j,k),q)) 
         {
             h_state(VEC(i,j,k),DENS,q) = std::numeric_limits<double>::quiet_NaN() ; 
         }
@@ -176,21 +181,29 @@ TEST_CASE("Apply BC", "[boundaries]")
            or is_outside_grid(VEC(i,j,k+2),q) 
            or is_outside_grid(VEC(i,j,k-2),q) 
            #endif 
-          or  is_corner_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz)) 
+           //or  is_corner_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz)
+           //or  is_edge_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz))
+        ) 
+        
         {
             continue ; 
         }
         #ifdef DBG_GHOSTZONE_TEST
+        #if 0
         std::cout << "Cell " << icell << std::endl ;
         std::cout << "Quadrant, indices " << q EXPR(<< ", " << i ,<< ", " << j ,<< ", " << k) << '\n'  
                   << "Coordinates " << EXPR(pcoords[0] ,<< ", " << pcoords[1], << ", " << pcoords[2]) << '\n'
                   << "Quadrant level " << grace::amr::get_quadrant(q).level() << std::endl ;  
         std::cout << (is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ? "in ghostzones\n" : "not in ghostzones\n") ; 
         std::cout << (is_corner_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ? "in corner ghostzones\n" : "not in corner ghostzones\n") ; 
+        #endif 
         if(  std::isnan(h_state(VEC(i,j,k),DENS,q)) || std::fabs(h_state(VEC(i,j,k),DENS,q) - h_func(VEC(pcoords[0],pcoords[1],pcoords[2]) ) ) > 1e-12 ) {
             std::cout << "Rank: " << parallel::mpi_comm_rank() << '\n'
                       << "Quadrant, indices " << q EXPR(<< ", " << i ,<< ", " << j ,<< ", " << k) << '\n'  
                       << "Coordinates " << EXPR(pcoords[0] ,<< ", " << pcoords[1], << ", " << pcoords[2]) << '\n'
+                      << (is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ? "in ghostzones\n" : "not in ghostzones\n") 
+                      << (is_edge_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ? "in edge ghostzones\n" : "not in edge ghostzones\n") 
+                      << (is_corner_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz) ? "in corner ghostzones\n" : "not in corner ghostzones\n") 
                       << "Quadrant level " << grace::amr::get_quadrant(q).level() << std::endl ; 
         }
         #endif 
