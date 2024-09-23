@@ -76,7 +76,6 @@ add_grace_test(coordinate_test test_coordinates.cpp)
 add_grace_test(volume_output_test test_output.cpp)
 add_grace_test(regrid_test test_regridding.cpp)
 add_grace_test(bc_test test_bc.cpp)
-add_grace_test(bc_test_unigrid test_bc_unigrid.cpp)
 add_grace_test(scalar_reductions_test test_scalar_reductions.cpp)
 add_grace_test(hdf5_output_test test_hdf5_IO.cpp)
 add_grace_test(eos_test test_eos.cpp)
@@ -85,6 +84,7 @@ add_grace_test(c2p_test test_c2p.cpp)
 
 add_kokkos_test(interpolator_test test_interpolators.cpp)
 add_kokkos_test(device_vector_test test_device_vector.cc)
+add_kokkos_test(lagrange_prolongation_test test_lagrange_interpolators.cpp)
 
 add_standalone_test(integrator_test test_integration.cpp)
 
@@ -122,14 +122,10 @@ add_test(NAME regrid_test_nolog COMMAND
         mpirun -n 2 ./regrid_test --grace-parfile ./configs/regrid_test_spherical.yaml )
 add_test(NAME regrid_test_log COMMAND 
         mpirun -n 2 ./regrid_test --grace-parfile ./configs/regrid_test_spherical_log.yaml )
-add_test(NAME bc_test_unigrid_cartesian COMMAND 
-        mpirun -n 2 ./bc_test_unigrid --grace-parfile ./configs/regrid_test_cartesian.yaml )
-add_test(NAME bc_test_unigrid_spherical COMMAND 
-        mpirun -n 2 ./bc_test_unigrid --grace-parfile ./configs/regrid_test_spherical.yaml )
-add_test(NAME bc_test_cartesian COMMAND 
-        mpirun -n 2 ./bc_test --grace-parfile ./configs/regrid_test_cartesian.yaml )
-add_test(NAME bc_test_spherical COMMAND 
-        mpirun -n 2 ./bc_test --grace-parfile ./configs/regrid_test_spherical.yaml )
+add_test(NAME bc_test_unigrid COMMAND 
+        mpirun -n 2 ./bc_test_unigrid --grace-parfile ./configs/bc_test_unigrid.yaml )
+add_test(NAME bc_test COMMAND 
+        mpirun -n 2 ./bc_test --grace-parfile ./configs/bc_test.yaml )
 add_test(NAME scalar_reductions_test COMMAND 
         mpirun -n 1 ./scalar_reductions_test --grace-parfile ./configs/scalar_reductions_test.yaml )
 add_test(NAME pwpoly_test COMMAND 

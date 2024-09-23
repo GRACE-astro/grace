@@ -130,5 +130,12 @@ using grace_loop_idx_t = std::size_t ;
 using grace_loop_idx_t = int ; 
 #endif 
 
+#cmakedefine GRACE_ENABLE_COWLING_METRIC
+#cmakedefine GRACE_ENABLE_BSSN_METRIC
+
+#ifdef GRACE_ENABLE_BSSN_METRIC
+#define GRACE_METRIC_IS_CONFORMAL
+#endif
+
 }
 #endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

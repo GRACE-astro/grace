@@ -187,7 +187,6 @@ DECLARE_VAR_INDEX_IMPL(ERR)
 #else
 #define VARIABLE_LIST_SCALAR_ADV
 #endif 
-//#ifdef GRACE_ENABLE_GRMHD 
 /* Valencia GRMHD conservatives */
 #define VARIABLE_LIST_HYDROBASE                     \
 DECLARE_VAR_INDEX_IMPL(DENS)                        \
@@ -209,6 +208,7 @@ DECLARE_VAR_INDEX_IMPL(TEMP)                        \
 DECLARE_VAR_INDEX_IMPL(YE)                          \
 DECLARE_VAR_INDEX_IMPL(ENTROPY)                     \
 DECLARE_VAR_INDEX_IMPL(EPS)                         
+#ifdef GRACE_ENABLE_COWLING_METRIC
 /* ADM metric functions */
 #define VARIABLE_LIST_ADMBASE                     \
 DECLARE_VAR_INDEX_IMPL(GXX)                       \
@@ -227,10 +227,27 @@ DECLARE_VAR_INDEX_IMPL(KXZ)                       \
 DECLARE_VAR_INDEX_IMPL(KYY)                       \
 DECLARE_VAR_INDEX_IMPL(KYZ)                       \
 DECLARE_VAR_INDEX_IMPL(KZZ)                       
-//#else 
-//#define VARIABLE_LIST_ADMBASE 
-//#define VARIABLE_LIST_HYDROBASE
-//#endif 
+#elif defined(GRACE_ENABLE_BSSN_METRIC)
+#define VARIABLE_LIST_ADMBASE                    \
+DECLARE_VAR_INDEX_IMPL(GTXX)                     \
+DECLARE_VAR_INDEX_IMPL(GTXY)                     \
+DECLARE_VAR_INDEX_IMPL(GTXZ)                     \
+DECLARE_VAR_INDEX_IMPL(GTYY)                     \
+DECLARE_VAR_INDEX_IMPL(GTYZ)                     \
+DECLARE_VAR_INDEX_IMPL(GTZZ)                     \
+DECLARE_VAR_INDEX_IMPL(PHI)                      \
+DECLARE_VAR_INDEX_IMPL(ALP)                      \
+DECLARE_VAR_INDEX_IMPL(BETAX)                    \
+DECLARE_VAR_INDEX_IMPL(BETAY)                    \
+DECLARE_VAR_INDEX_IMPL(BETAZ)                    \
+DECLARE_VAR_INDEX_IMPL(ATXX)                     \
+DECLARE_VAR_INDEX_IMPL(ATXY)                     \
+DECLARE_VAR_INDEX_IMPL(ATXZ)                     \
+DECLARE_VAR_INDEX_IMPL(ATYY)                     \
+DECLARE_VAR_INDEX_IMPL(ATYZ)                     \
+DECLARE_VAR_INDEX_IMPL(ATZZ)                     \
+DECLARE_VAR_INDEX_IMPL(K)
+#endif 
 
 #define DECLARE_VARIABLE_INDICES    \
 VARIABLE_LIST_HYDROBASE             \

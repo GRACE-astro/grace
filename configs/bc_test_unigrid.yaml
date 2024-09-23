@@ -16,7 +16,8 @@ amr: {
   initial_refinement_level: 2,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 0.5,
-  refinement_criterion_CTODE: 0.01
+  refinement_criterion_CTODE: 0.01,
+  do_regrid_test: false
 }
 IO: {
   volume_output_cell_variables: ["dens"]

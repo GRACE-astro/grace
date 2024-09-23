@@ -2,6 +2,7 @@
 export OMPI_ROOT=/mnt/rafast/musolino/libs/ompi-rocm-install/
 export PATH=${OMPI_ROOT}/bin:${PATH}
 export LD_LIBRARY_PATH=${OMPI_ROOT}/lib:${LD_LIBRARY_PATH}
+export PATH=/opt/rocm-6.1.0/bin/:${PATH}
 
 export OMPI_CXX=hipcc 
 export MPI_CXX=${OMPI_ROOT}/bin/mpicxx

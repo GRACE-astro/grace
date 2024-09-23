@@ -79,7 +79,9 @@ void find_stable_timestep_impl() {
     auto& state = variable_list::get().getstate()   ; 
     auto& aux   = variable_list::get().getaux()     ; 
     auto& cvol  = variable_list::get().getvolumes() ; 
-
+    auto& sstate = variables_list::get().getstaggeredstate() ; 
+    auto& dx    = variables_list::get().getspacings() ; 
+    
     auto& params = config_parser::get() ; 
     double const CFL = params["evolution"]["cfl_factor"].as<double>() ; 
 
@@ -103,7 +105,7 @@ void find_stable_timestep_impl() {
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,state,aux) ; 
+        grmhd_eq_system(eos,state,aux,sstate) ; 
     #define GET_CMAX \
     grmhd_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
     #endif 
@@ -119,10 +121,14 @@ void find_stable_timestep_impl() {
     {
         double const cmax = GET_CMAX; 
         double L    ; 
+        #ifndef GRACE_CARTESIAN_COORDINATES
         #ifdef GRACE_3D 
         L = Kokkos::cbrt(cvol(VEC(i,j,k),q)) ; 
         #else 
         L = Kokkos::sqrt(cvol(VEC(i,j,k),q)) ;
+        #endif 
+        #else 
+        L = math::min(VEC(dx(0,q),dx(1,q),dx(2,q))) ; 
         #endif 
         dtmax = dtmax > CFL/cmax*L ? CFL/cmax*L : dtmax ;  
 

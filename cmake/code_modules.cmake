@@ -1,6 +1,9 @@
 option(GRACE_ENABLE_BURGERS  "Enable Burgers equation module" OFF) 
 option(GRACE_ENABLE_SCALAR_ADV  "Enable scalar advection equation module" OFF) 
 option(GRACE_ENABLE_GRMHD   "Enable GRMHD equation module"  ON)
+option(GRACE_ENABLE_COWLING_METRIC "Enable Cowling metric" ON)
+option(GRACE_ENABLE_BSSN_METRIC "Enable BSSN evolution of the metric" OFF)
+
 if( GRACE_ENABLE_SCALAR_ADV )
     message(STATUS "Scalar advection module enabled.")
     set(GRACE_ENABLE_GRMHD OFF)
@@ -13,4 +16,13 @@ if( GRACE_ENABLE_GRMHD )
     message(STATUS "GRMHD module enabled.")
     set(GRACE_ENABLE_BURGERS OFF)
 endif()
+
+if( GRACE_ENABLE_BSSN_METRIC )
+    message(STATUS "BSSN metric enabled")
+    set(GRACE_ENABLE_COWLING_METRIC OFF)
+endif() 
+if( GRACE_ENABLE_COWLING_METRIC )
+    message(STATUS "Cowling metric enabled")
+    set(GRACE_ENABLE_BSSN_METRIC OFF)
+endif() 
 

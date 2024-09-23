@@ -100,6 +100,10 @@ if(GRACE_ENABLE_TESTING)
                    "${CMAKE_BINARY_DIR}/test/configs/c2p_test_gamma2.yaml" COPYONLY)
     configure_file("${CMAKE_SOURCE_DIR}/configs/c2p_test_sly4_pw.yaml" 
                    "${CMAKE_BINARY_DIR}/test/configs/c2p_test_sly4_pw.yaml" COPYONLY)
+    configure_file("${CMAKE_SOURCE_DIR}/configs/bc_test.yaml" 
+                   "${CMAKE_BINARY_DIR}/test/configs/bc_test.yaml" COPYONLY)
+    configure_file("${CMAKE_SOURCE_DIR}/configs/bc_test_unigrid.yaml" 
+                   "${CMAKE_BINARY_DIR}/test/configs/bc_test_unigrid.yaml" COPYONLY)
     enable_testing()
     include(setup_catch2)
     add_subdirectory(test)

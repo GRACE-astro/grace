@@ -44,6 +44,7 @@
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
 #include <grace/utils/advanced_riemann_solvers.hh>
+#include <grace/physics/grmhd_metric_utils.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -81,8 +82,9 @@ struct grmhd_equations_system_t
      */
     grmhd_equations_system_t( eos_t eos_ 
                             , grace::var_array_t<GRACE_NSPACEDIM> state_
-                            , grace::var_array_t<GRACE_NSPACEDIM> aux_ ) 
-     : base_t(state_,aux_), _eos(eos_)
+                            , grace::var_array_t<GRACE_NSPACEDIM> aux_ 
+                            , grace::staggered_variables_array_t sstate_) 
+     : base_t(state_,aux_,sstate_), _eos(eos_)
     { 
         _lapse_excision = grace::get_param<double>("grmhd","lapse_excision") ; 
     } ;
@@ -210,8 +212,9 @@ struct grmhd_equations_system_t
         /**************************************************************************************************/
 
         /* Read in the metric                                                                             */
-        metric_array_t metric ; 
-        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
+        metric_array_t metric = 
+            get_metric_array_cell_center(this->_sstate.corner_staggered_fields,VEC(i,j,k),q);
+
 
         /* Compute inverse (contravariant) four-metric                                                    */
         auto const gupmunu = metric.invgmunu() ;
@@ -253,14 +256,7 @@ struct grmhd_equations_system_t
             }
         }
         /* Read in the extrinsic curvature                                                                */
-        std::array<double,6> Kij{ 
-              this->_state(VEC(i,j,k),KXX_,q)
-            , this->_state(VEC(i,j,k),KXY_,q)
-            , this->_state(VEC(i,j,k),KXZ_,q)
-            , this->_state(VEC(i,j,k),KYY_,q)
-            , this->_state(VEC(i,j,k),KYZ_,q)
-            , this->_state(VEC(i,j,k),KZZ_,q)
-        } ; 
+        auto const Kij = get_extrinsic_curvature(self->_sstate.corner_staggered_fields, VEC(i,j,k), q, metric) ; 
         //for( auto& x: Kij ) x = 0 ; 
         /* Source for the conserved energy (added piece by piece below)                                   */
         double tau_source{0.};
@@ -294,17 +290,20 @@ struct grmhd_equations_system_t
         for( int idir=0; idir<GRACE_NSPACEDIM; ++idir) {
 
             /* Read metric components at neighor cell centres for metric derivative                           */
-            metric_array_t metric_m, metric_p ; 
-            FILL_METRIC_ARRAY( metric_m, this->_state
-                             , q
-                             , VEC( i-utils::delta(0,idir)
-                                  , j-utils::delta(1,idir)
-                                  , k-utils::delta(2,idir)) ) ; 
-            FILL_METRIC_ARRAY( metric_p, this->_state
-                             , q
-                             , VEC( i+utils::delta(0,idir)
-                                  , j+utils::delta(1,idir)
-                                  , k+utils::delta(2,idir) ) ) ; 
+            metric_array_t metric_m = get_metric_array_cell_center(
+                this->_sstate.corner_staggered_fields,
+                VEC(  i-utils::delta(0,idir)
+                    , j-utils::delta(1,idir)
+                    , k-utils::delta(2,idir)),
+                q
+            ) ; 
+            metric_array_t metric_p = get_metric_array_cell_center(
+                this->_sstate.corner_staggered_fields,
+                VEC(  i+utils::delta(0,idir)
+                    , j+utils::delta(1,idir)
+                    , k+utils::delta(2,idir)),
+                q
+            ) ; 
             
             /**************************************************************************************************/
             /* Compute metric derivatives                                                                     */
@@ -393,8 +392,8 @@ struct grmhd_equations_system_t
         cons[TAUL]  = vars(TAU_)         ;
         cons[YESL]  = vars(YESTAR_)      ; 
         cons[ENTSL] = vars(ENTROPYSTAR_) ; 
-        metric_array_t metric ; 
-        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
+        metric_array_t metric = 
+            get_metric_array_cell_center(this->_sstate.corner_staggered_fields,VEC(i,j,k),q);
         grmhd_prims_array_t prims ;
         conservs_to_prims<eos_t>( cons, prims, metric
                                 , this->_eos, this->_lapse_excision ) ;
@@ -461,8 +460,8 @@ struct grmhd_equations_system_t
         grmhd_prims_array_t prims ;
         FILL_PRIMS_ARRAY(prims,this->_aux,q,VEC(i,j,k)) ;
         /* Get metric */
-        metric_array_t metric ; 
-        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k));
+        metric_array_t metric = 
+            get_metric_array_cell_center(this->_sstate.corner_staggered_fields,VEC(i,j,k),q);
         /* Get soundspeed, enthalpy */
         double csnd2, h ; 
         unsigned int err ; 
@@ -533,30 +532,12 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* Define and interpolate metric                                       */
         /***********************************************************************/
-        metric_array_t metric_l, metric_r;
-        FILL_METRIC_ARRAY( metric_l, this->_state, q
-                         , VEC( i+ngz-utils::delta(idir,0)
-                              , j+ngz-utils::delta(idir,1)
-                              , k+ngz-utils::delta(idir,2))) ; 
-        FILL_METRIC_ARRAY( metric_r, this->_state, q
-                         , VEC( i+ngz
-                              , j+ngz
-                              , k+ngz )) ;
-        /***********************************************************************/
-        /* 2nd order interpolation at cell interface                           */
-        /***********************************************************************/
-        metric_array_t const metric_face{
-            { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
-            , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
-            , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
-            , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
-            , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
-            , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
-        ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            + 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
-        ,   0.5 * (metric_l.alp() + metric_r.alp())
-        } ; 
+        metric_array_t metric_face =
+            get_metric_array_cell_face<idir>(
+                this->_sstate,
+                VEC(i,j,k),
+                q
+            ) ;
         
         /***********************************************************************/
         /* Initialize Riemann solver                                           */
@@ -809,30 +790,12 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* Define and interpolate metric                                       */
         /***********************************************************************/
-        metric_array_t metric_l, metric_r;
-        FILL_METRIC_ARRAY( metric_l, this->_state, q
-                         , VEC( i+ngz-utils::delta(idir,0)
-                              , j+ngz-utils::delta(idir,1)
-                              , k+ngz-utils::delta(idir,2))) ; 
-        FILL_METRIC_ARRAY( metric_r, this->_state, q
-                         , VEC( i+ngz
-                              , j+ngz
-                              , k+ngz )) ;
-        /***********************************************************************/
-        /* 2nd order interpolation at cell interface                           */
-        /***********************************************************************/
-        metric_array_t const metric_face{
-            { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
-            , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
-            , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
-            , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
-            , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
-            , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
-        ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            + 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
-        ,   0.5 * (metric_l.alp() + metric_r.alp())
-        } ; 
+        metric_array_t metric_face =
+            get_metric_array_cell_face<idir>(
+                this->_sstate,
+                VEC(i,j,k),
+                q
+            ) ;
         
         /***********************************************************************/
         /*              Reconstruct primitive variables                        */

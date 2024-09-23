@@ -49,6 +49,7 @@ void compute_auxiliary_quantities() ;
 template< typename eos_t >
 void compute_auxiliary_quantities(
       grace::var_array_t<GRACE_NSPACEDIM>& state
+    , grace::staggered_variable_arrays_t& sstate
     , grace::var_array_t<GRACE_NSPACEDIM>& aux 
 ) ; 
 //*****************************************************************************************************
@@ -57,6 +58,7 @@ void compute_auxiliary_quantities(
 extern template                                                         \
 void compute_auxiliary_quantities<EOS>(                                 \
                            grace::var_array_t<GRACE_NSPACEDIM>&         \
+                         , grace::staggered_variable_arrays_t&          \
                          , grace::var_array_t<GRACE_NSPACEDIM>& aux )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;

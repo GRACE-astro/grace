@@ -44,6 +44,7 @@
 #include <grace/physics/eos/eos_storage.hh>
 #include <grace/physics/grmhd_helpers.hh>
 #include <grace/physics/grmhd.hh>
+#include <grace/physics/grmhd_metric_utils.hh>
 
 #include <grace/config/config_parser.hh>
 #include <Kokkos_Core.hpp>
@@ -325,6 +326,7 @@ void set_conservs_from_prims() {
     GRACE_VERBOSE("Setting conservative variables from primitives.") ; 
 
     auto& state = grace::variable_list::get().getstate() ; 
+    auto& cstate = grace::variable_list::get().getstaggeredstate().corner_staggered_fields ;
 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
@@ -337,8 +339,11 @@ void set_conservs_from_prims() {
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
-        metric_array_t metric ; 
-        FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k)) ; 
+        metric_array_t metric = 
+            get_metric_array_cell_center(
+                cstate, VEC(i,j,k), q
+            ); 
+
         grmhd_prims_array_t prims ; 
         FILL_PRIMS_ARRAY(prims,aux,q,VEC(i,j,k)) ; 
         grmhd_cons_array_t cons ;

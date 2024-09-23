@@ -81,18 +81,7 @@ using grmhd_prims_array_t = std::array<double,NUM_PRIMS_LOC> ;
 using grmhd_cons_array_t  = std::array<double,NUM_CONS_LOC>  ;
 } /* namespace grace */
 
-#define FILL_METRIC_ARRAY(g, view, q, ...)                    \
-g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \
-                          , view(__VA_ARGS__,GXY_,q)     \
-                          , view(__VA_ARGS__,GXZ_,q)     \
-                          , view(__VA_ARGS__,GYY_,q)     \
-                          , view(__VA_ARGS__,GYZ_,q)     \
-                          , view(__VA_ARGS__,GZZ_,q) }   \
-                          , { view(__VA_ARGS__,BETAX_,q) \
-                          , view(__VA_ARGS__,BETAY_,q)   \
-                          , view(__VA_ARGS__,BETAZ_,q) } \
-                          , view(__VA_ARGS__,ALP_,q) } 
-                          
+
 #define FILL_PRIMS_ARRAY(primsarr,vview,q,...)        \
 primsarr[RHOL] = vview(__VA_ARGS__,RHO_,q);      \
 primsarr[PRESSL] = vview(__VA_ARGS__,PRESS_,q) ; \
@@ -124,57 +113,7 @@ consarr[STZL] = vview(__VA_ARGS__,SZ_,q);          \
 consarr[YESL] = vview(__VA_ARGS__,YESTAR_,q);      \
 consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q) 
 
-#define AM2 -0.0625
-#define AM1  0.5625
-#define A0   0.5625
-#define A1  -0.0625
-#ifdef GRACE_3D
-#define COMPUTE_FCVAL_HELPER(mview,i,j,k,ivar,q,idir)                                          \
-  AM2*mview(i-2*utils::delta(0,idir),j-2*utils::delta(1,idir),k-2*utils::delta(2,idir),ivar,q) \
-+ AM1*mview(i-utils::delta(0,idir),j-utils::delta(1,idir),k-utils::delta(2,idir),ivar,q)       \
-+ A0*mview(i,j,k,ivar,q)                                                                       \
-+ A1*mview(i+utils::delta(0,idir),j+utils::delta(1,idir),k+utils::delta(2,idir),ivar,q)        
-#define COMPUTE_FCVAL(g,mview,i,j,k,q,idir)                     \
-g = grace::metric_array_t{                                      \
-      {                                                         \
-          COMPUTE_FCVAL_HELPER(mview,i,j,k,GXX_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GXY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GXZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GZZ_,q,idir)         \
-      }                                                         \
-    , {                                                         \
-          COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAX_,q,idir)       \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAY_,q,idir)       \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAZ_,q,idir)       \
-      }                                                         \
-    , COMPUTE_FCVAL_HELPER(mview,i,j,k,ALP_,q,idir)             \
-}
-#else
-#define COMPUTE_FCVAL_HELPER(mview,i,j,ivar,q,idir)                   \
-  AM2*mview(i-2*utils::delta(0,idir),j-2*utils::delta(1,idir),ivar,q) \
-+ AM1*mview(i-utils::delta(0,idir),j-utils::delta(1,idir),ivar,q)     \
-+ A0*mview(i,j,ivar,q)                                                \
-+ A1*mview(i+utils::delta(0,idir),j+utils::delta(1,idir),ivar,q)        
-#define COMPUTE_FCVAL(g,mview,i,j,q,idir)                     \
-g = grace::metric_array_t{                                    \
-      {                                                       \
-          COMPUTE_FCVAL_HELPER(mview,i,j,GXX_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,GXY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,GXZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,GYY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,GYZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,GZZ_,q,idir)         \
-      }                                                       \
-    , {                                                       \
-          COMPUTE_FCVAL_HELPER(mview,i,j,BETAX_,q,idir)       \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,BETAY_,q,idir)       \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,BETAZ_,q,idir)       \
-      }                                                       \
-    , COMPUTE_FCVAL_HELPER(mview,i,j,ALP_,q,idir)             \
-}
-#endif 
+
 
 struct grmhd_id_t {
   double rho;

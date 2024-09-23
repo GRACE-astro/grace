@@ -210,7 +210,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,old_state,aux) ; 
+        grmhd_eq_system(eos,old_state,aux,staggered_old_state) ; 
     #define RECON slope_limited_reconstructor_t<minmod>
     #define GET_X_FLUX \
     grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 

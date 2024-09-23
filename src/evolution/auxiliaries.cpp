@@ -60,12 +60,13 @@ namespace grace {
 void compute_auxiliary_quantities() {
     auto& state = grace::variable_list::get().getstate() ; 
     auto& aux   = grace::variable_list::get().getaux()   ;
+    auto& sstate = grace::variable_list::get().getstaggeredstate() ; 
     auto const eos_type = grace::get_param<std::string>("eos", "eos_type") ;
     if( eos_type == "hybrid" ) {
         auto const cold_eos_type = 
             grace::get_param<std::string>("eos", "cold_eos_type") ;
         if( cold_eos_type == "piecewise_polytrope" ) {
-            compute_auxiliary_quantities<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>(state,aux) ; 
+            compute_auxiliary_quantities<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>(state,sstate,aux) ; 
         } else if ( cold_eos_type == "tabulated" ) {
             ERROR("Not implemented yet.") ;
         }
@@ -78,6 +79,7 @@ void compute_auxiliary_quantities() {
 template< typename eos_t >
 void compute_auxiliary_quantities(
       grace::var_array_t<GRACE_NSPACEDIM>& state
+    , grace::staggered_variable_arrays_t& sstate
     , grace::var_array_t<GRACE_NSPACEDIM>& aux  ) 
 {
     Kokkos::Profiling::pushRegion("Compute auxiliaries") ;
@@ -95,7 +97,7 @@ void compute_auxiliary_quantities(
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,state,aux) ; 
+        grmhd_eq_system(eos,state,aux,sstate) ; 
     #define GET_AUX \
     grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q)
     #else 
@@ -178,6 +180,7 @@ void compute_auxiliary_quantities(
 template                                                                \
 void compute_auxiliary_quantities<EOS>(                                 \
                            grace::var_array_t<GRACE_NSPACEDIM>&         \
+                         , grace::staggered_variables_array_t&          \
                          , grace::var_array_t<GRACE_NSPACEDIM>& aux )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;

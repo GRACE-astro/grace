@@ -202,10 +202,21 @@ void register_variables() {
     REGISTER_AUX_SCALAR(EPS,"eps","none") ; 
     REGISTER_AUX_SCALAR(PRESS,"press","none") ; 
     /* registration of metric variables */
+    #ifdef GRACE_ENABLE_COWLING_METRIC
     REGISTER_EVOLVED_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","outgoing",false) ; 
     REGISTER_EVOLVED_SCALAR(ALP,"alp","outgoing",false) ; 
     REGISTER_EVOLVED_VECTOR(BETAX,BETAY,BETAZ,"beta","outgoing",false);
     REGISTER_EVOLVED_TENSOR(KXX,KXY,KXZ,KYY,KYZ,KZZ,"ext_curv","outgoing",false) ; 
+    #elif defined(GRACE_ENABLE_BSSN_METRIC)
+    REGISTER_CORNER_STAGGERED_EVOLVED_TENSOR(GTXX,GTXY,GTXZ,GTYY,GTYZ,GTZZ,"gamma_tilde","third_order_lagrange",false) ; 
+    REGISTER_CORNER_STAGGERED_EVOLVED_SCALAR(PHI,"phi","third_order_lagrange",false) ; 
+    /* Extrinsic curvature */
+    REGISTER_CORNER_STAGGERED_EVOLVED_TENSOR(ATXX,ATXY,ATXZ,ATYY,ATYZ,ATZZ,"A_tilde","third_order_lagrange",false) ;
+    REGISTER_CORNER_STAGGERED_EVOLVED_SCALAR(K,"K","third_order_lagrange",false) ; 
+    /* Gauge */
+    REGISTER_CORNER_STAGGERED_EVOLVED_SCALAR(ALP,"alp","third_order_lagrange",false) ; 
+    REGISTER_CORNER_STAGGERED_EVOLVED_VECTOR(BETAX,BETAY,BETAZ,"beta","third_order_lagrange",false);
+    #endif
     /********************************************************************************/
     /********************************************************************************/
     /*                           COPY INDICES TO GPU                                */

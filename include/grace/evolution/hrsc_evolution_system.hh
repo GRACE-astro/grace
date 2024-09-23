@@ -41,8 +41,9 @@ template< typename EvolSystem_t >
 struct hrsc_evolution_system_t {
 
     hrsc_evolution_system_t( grace::var_array_t<GRACE_NSPACEDIM> state_
-                           , grace::var_array_t<GRACE_NSPACEDIM> aux_  )
-     : _state(state_), _aux(aux_)
+                           , grace::var_array_t<GRACE_NSPACEDIM> aux_  
+                           , grace::staggered_variables_arrays_t sstate_)
+     : _state(state_), _aux(aux_), _sstate(sstate_)
     {} 
 
     template< typename riemann_t 
@@ -132,6 +133,7 @@ struct hrsc_evolution_system_t {
     
  protected: 
     grace::var_array_t<GRACE_NSPACEDIM> _state, _aux ; 
+    grace::staggered_variables_arrays_t _sstate      ; 
 } ; 
 
 }

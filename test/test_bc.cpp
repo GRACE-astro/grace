@@ -121,19 +121,55 @@ TEST_CASE("Apply BC", "[boundaries]")
             q,
             true
         ) ; 
-        h_state(VEC(i,j,k),DENS,q) = h_func(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
+        
+        
+        h_state(VEC(i,j,k),DENS,q) = h_func(VEC(pcoords[0],pcoords[1],pcoords[2])) ;
+        
+    }
+    /* Corner staggered gfs */
+    size_t const ncorners = EXPR((nx+1+2*ngz),*(ny+1+2*ngz),*(nz+1+2*ngz))*nq ; 
+    auto& sstate = grace::variable_list::get().getstaggeredstate() ;
+    auto& cstate = sstate.corner_staggered_fields; 
+    auto h_corner_state = Kokkos::create_mirror_view(cstate) ; 
+    for( size_t icell=0UL; icell<ncorners; icell+=1UL)
+    {
+        size_t const i = icell%(nx+1+2*ngz); 
+        size_t const j = (icell/(nx+1+2*ngz)) % (ny+1+2*ngz) ;
+        #ifdef GRACE_3D 
+        size_t const k = 
+            (icell/(nx+1+2*ngz)/(ny+1+2*ngz)) % (nz+1+2*ngz) ; 
+        size_t const q = 
+            (icell/(nx+1+2*ngz)/(ny+1+2*ngz)/(nz+1+2*ngz)) ;
+        #else 
+        size_t const q = (icell/(nx+1+2*ngz)/(ny+1+2*ngz)) ; 
+        #endif 
+        auto pcoords_corner = coord_system.get_physical_coordinates(
+            {VEC(i,j,k)},
+            q,
+            {VEC(0,0,0)},
+            true
+        ) ; 
+        h_corner_state(VEC(i,j,k),PHI,q) = h_func(VEC(pcoords_corner[0],pcoords_corner[1],pcoords_corner[2])) ; 
     }
     Kokkos::deep_copy(state, h_state) ; 
+    Kokkos::deep_copy(cstate, h_corner_state) ; 
     auto& swap = grace::variable_list::get().getscratch() ; 
+    auto& sswap = grace::variable_list::get().getstaggeredscratch() ; 
     Kokkos::deep_copy(swap, state) ; 
+    Kokkos::deep_copy(sswap.corner_staggered_fields, cstate) ; 
     /* Regrid */
-    grace::amr::regrid() ; 
+    bool do_regrid = grace::get_param<bool>("amr","do_regrid_test") ; 
+    if( do_regrid ) {
+        grace::amr::regrid() ;
+    }
     /* Set ghostzone values to NaN before filling */
     nq = grace::amr::get_local_num_quadrants() ;
     ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
     ncells_noghost = EXPR((nx),*(ny),*(nz))*nq ;
     h_state = Kokkos::create_mirror_view(state) ; 
+    h_corner_state = Kokkos::create_mirror_view(cstate) ;
     Kokkos::deep_copy(h_state, state) ; 
+    Kokkos::deep_copy(h_corner_state, cstate) ; 
     for( size_t icell=0UL; icell<ncells; icell+=1UL)
     {
         long const i = icell%(nx+2*ngz); 
@@ -153,12 +189,30 @@ TEST_CASE("Apply BC", "[boundaries]")
             h_state(VEC(i,j,k),DENS,q) = std::numeric_limits<double>::quiet_NaN() ; 
         }
     }
+    for( size_t icell=0UL; icell<ncorners; icell+=1UL)
+    {
+        size_t const i = icell%(nx+1+2*ngz); 
+        size_t const j = (icell/(nx+1+2*ngz)) % (ny+1+2*ngz) ;
+        #ifdef GRACE_3D 
+        size_t const k = 
+            (icell/(nx+1+2*ngz)/(ny+1+2*ngz)) % (nz+1+2*ngz) ; 
+        size_t const q = 
+            (icell/(nx+1+2*ngz)/(ny+1+2*ngz)/(nz+1+2*ngz)) ;
+        #else 
+        size_t const q = (icell/(nx+1+2*ngz)/(ny+1+2*ngz)) ; 
+        #endif  
+        ASSERT(!std::isnan(h_corner_state(VEC(i,j,k),PHI,q))
+        , "We have a NaN at " << q << ", " EXPR(<< i ,<< ", " << j ,<< ", " << k) << '\n' ) ; 
+        if(   is_ghostzone(VEC(i,j,k),VEC(nx+1,ny+1,nz+1),ngz) ) 
+        {
+            h_corner_state(VEC(i,j,k),PHI,q) = std::numeric_limits<double>::quiet_NaN() ; 
+        }
+    }
     Kokkos::deep_copy(state, h_state) ; 
-    //grace::IO::write_volume_cell_data() ; 
+    Kokkos::deep_copy(cstate, h_corner_state) ;
+
     /* Fill boundaries and ghost-zones */
     grace::amr::apply_boundary_conditions() ; 
-    //grace::runtime::get().increment_iteration() ; 
-    //grace::IO::write_cell_output(true,true,true) ; 
 
     /* Check values in ghost-zones */
     auto& idx = grace::variable_list::get().getinvspacings() ; 
@@ -171,6 +225,31 @@ TEST_CASE("Apply BC", "[boundaries]")
     auto h_dxdens = Kokkos::create_mirror_view(dxdens) ; 
 
     for( size_t icell=0UL; icell<ncells; icell+=1UL)
+    {
+        size_t const i = icell%(nx+1+2*ngz); 
+        size_t const j = (icell/(nx+1+2*ngz)) % (ny+1+2*ngz) ;
+        #ifdef GRACE_3D 
+        size_t const k = 
+            (icell/(nx+1+2*ngz)/(ny+1+2*ngz)) % (nz+1+2*ngz) ; 
+        size_t const q = 
+            (icell/(nx+1+2*ngz)/(ny+1+2*ngz)/(nz+1+2*ngz)) ;
+        #else 
+        size_t const q = (icell/(nx+1+2*ngz)/(ny+1+2*ngz)) ; 
+        #endif 
+        auto pcoords_corner = coord_system.get_physical_coordinates(
+            {VEC(i,j,k)},
+            q,
+            {VEC(0,0,0)},
+            true
+        ) ;
+        CHECK_THAT(
+            h_corner_state(VEC(i,j,k),PHI,q),
+            Catch::Matchers::WithinAbs(h_func(VEC(pcoords_corner[0],pcoords_corner[1],pcoords_corner[2])),
+                1e-12 ) ) ; 
+
+    }
+
+    for( size_t icell=0UL; icell<ncorners; icell+=1UL)
     {
         size_t const i = icell%(nx+2*ngz); 
         size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
@@ -189,20 +268,6 @@ TEST_CASE("Apply BC", "[boundaries]")
             true
         ) ; 
         
-        if(   is_outside_grid(VEC(i,j,k),q) 
-           or is_outside_grid(VEC(i+2,j,k),q)  
-           or is_outside_grid(VEC(i-2,j,k),q) 
-           or is_outside_grid(VEC(i,j+2,k),q) 
-           or is_outside_grid(VEC(i,j-2,k),q) 
-           #ifdef GRACE_3D 
-           or is_outside_grid(VEC(i,j,k+2),q) 
-           or is_outside_grid(VEC(i,j,k-2),q) 
-           #endif 
-          //or  is_corner_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz)) 
-        )
-        {
-            continue ; 
-        }
         #ifdef DBG_GHOSTZONE_TEST
         if(  std::isnan(h_state(VEC(i,j,k),DENS,q)) || std::fabs(h_state(VEC(i,j,k),DENS,q) - h_func(VEC(pcoords[0],pcoords[1],pcoords[2]) ) ) > 1e-12 ) {
             std::cout << "Rank: " << parallel::mpi_comm_rank() << '\n'
@@ -226,64 +291,4 @@ TEST_CASE("Apply BC", "[boundaries]")
                 1e-12 ) ) ; 
 
     }
-    #if 0 
-    for( size_t icell=0UL; icell<ncells_noghost; icell+=1UL)
-    {
-        size_t const i = icell%(nx) + ngz ; 
-        size_t const j = (icell/(nx)) % (ny) + ngz ;
-        #ifdef GRACE_3D 
-        size_t const k = 
-            (icell/(nx)/(ny)) % (nz) + ngz ; 
-        size_t const q = 
-            (icell/(nx)/(ny)/(nz)) ;
-        #else 
-        size_t const q = (icell/(nx)/(ny)) ; 
-        #endif 
-        auto pcoords = coord_system.get_physical_coordinates(
-            {VEC(i,j,k)},
-            q,
-            false
-        ) ; 
-        #ifdef DBG_GHOSTZONE_TEST
-        std::cout << "Cell " << icell << std::endl ;
-        std::cout << "Quadrant, indices " << q EXPR(<< ", " << i ,<< ", " << j ,<< ", " << k) << '\n'  
-                  << "Coordinates " << EXPR(pcoords[0] ,<< ", " << pcoords[1], << ", " << pcoords[2]) << '\n' ; 
-        #endif 
-        if(   is_outside_grid(VEC(i,j,k),q) 
-           or is_outside_grid(VEC(i+2,j,k),q)  
-           or is_outside_grid(VEC(i-2,j,k),q) 
-           or is_outside_grid(VEC(i,j+2,k),q) 
-           or is_outside_grid(VEC(i,j-2,k),q) 
-           #ifdef GRACE_3D 
-           or is_outside_grid(VEC(i,j,k+2),q) 
-           or is_outside_grid(VEC(i,j,k-2),q) 
-           #endif 
-           ) 
-        {
-            continue ; 
-        }
-
-        
-        auto itree = grace::amr::get_quadrant_owner(q) ; 
-        auto dx_tree = grace::amr::get_tree_spacing(itree) ; 
-        std::array<double,GRACE_NSPACEDIM> idxphys{
-            VEC(
-                h_idx(0,q) / dx_tree[0],
-                h_idx(1,q) / dx_tree[1],
-                h_idx(2,q) / dx_tree[2]
-            ) 
-        } ; 
-        auto der_exact = h_func_derivative(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
-        
-        for(int idim=0; idim<GRACE_NSPACEDIM; ++idim){ 
-            h_dxdens(VEC(i,j,k),idim,q) = 
-              0.5*(h_state(VEC(i+utils::delta(idim,0),j+utils::delta(idim,1),k+utils::delta(idim,2)), DENS, q)
-            - h_state(VEC(i-utils::delta(idim,0),j-utils::delta(idim,1),k-utils::delta(idim,2)), DENS, q))*idxphys[idim]; 
-            CHECK_THAT( h_dxdens(VEC(i,j,k),idim,q)
-                , Catch::Matchers::WithinAbs(
-                  der_exact[idim]
-                , 1e-3)) ;
-        }
-    } 
-    #endif 
 }
