@@ -58,9 +58,9 @@ namespace grace { namespace amr {
 template< typename ViewT 
     , typename KerT 
     , typename ... KerArgT> 
-void evaluate_regrid_criterion( ViewT flag_view
-                              , KerT kernel  
-                              , KerArgT&& ... kernel_args) 
+void evaluate_regrid_criterion_kernel( ViewT flag_view
+                                     , KerT kernel  
+                                     , KerArgT&& ... kernel_args) 
 {
     using namespace grace  ;  
 

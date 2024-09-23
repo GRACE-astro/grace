@@ -1,4 +1,5 @@
 set(HEADER_DIR "${PROJECT_SOURCE_DIR}/include/")
+include(register_grace_object)
 
 add_subdirectory(parallel)
 

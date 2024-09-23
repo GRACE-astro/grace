@@ -11,7 +11,7 @@ include(code_modules)
 include(check_compiler)
 include(prohibit_in_source_build)
 include(setup_flags)
-
+include(register_grace_object)
 configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )
 include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
 

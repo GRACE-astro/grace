@@ -33,6 +33,7 @@
 #include <grace/amr/prolongation_kernels.tpp> 
 #include <grace/amr/restriction_kernels.tpp> 
 #include <grace/amr/regrid_helpers.tpp>
+#include <grace/amr/regrid_helpers.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/data_structures/grace_data_structures.hh>
@@ -43,77 +44,49 @@
 namespace grace { namespace amr { 
 
 void regrid() {
+    auto const criterion = grace::get_param<std::string>("amr", "regrid_criterion") ; 
+    auto const criterion_var = grace::get_param<std::string>("amr", "regrid_criterion_var") ; 
+    regrid(criterion,criterion_var) ; 
+}
+
+
+void regrid( std::string const& regrid_criterion
+           , std::string const& regrid_criterion_var ) 
+{
+
     Kokkos::Profiling::pushRegion("regrid") ; 
-    using namespace grace ; 
-    auto& params = config_parser::get()             ; 
-    auto& state  = variable_list::get().getstate()  ; 
-    auto& aux = variable_list::get().getaux()       ; 
-    int nvars = state.extent(GRACE_NSPACEDIM)   ; 
+    using namespace grace  ; 
+    using namespace Kokkos ;
+    /***************************************************/
+    /*                 Get var arrays                  */ 
+    /***************************************************/
+    auto& state  = variable_list::get().getstate()          ; 
+    auto& sstate = variable_list::get().getstaggeredstate() ; 
+    auto& aux = variable_list::get().getaux()               ;
+
+    int nvars_cell_center  = state.extent(GRACE_NSPACEDIM)   ; 
+    int nvars_face_stagger = ; 
+    int nvars_corner_stagger = ; 
+    int nvars_edge_stagger = ; 
+
+    /***************************************************/
+    /*                Get grid properties              */
+    /***************************************************/
     size_t grace_maxlevel = 
-        params["amr"]["max_refinement_level"].as<size_t>() ; 
+        grace::get_param<size_t>("amr", "max_refinement_level") ; 
     size_t nx,ny,nz                                        ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents()       ; 
     auto ngz = amr::get_n_ghosts()                         ; 
-    size_t nq = amr::get_local_num_quadrants()             ; 
+    size_t nq = amr::get_local_num_quadrants()             ;
+
+
     /* create host and device views to hold refinement / coarsening flags */ 
     Kokkos::View<int *, default_space> d_regrid_flags("regrid_flags", nq) ; 
-    auto h_regrid_flags = Kokkos::create_mirror_view(d_regrid_flags)      ;
-     
-    std::string ref_criterion = 
-        params["amr"]["refinement_criterion"].as<std::string>() ;
-    auto varname = params["amr"]["refinement_criterion_var"].as<std::string>() ;
-    bool var_is_aux = params["amr"]["refinement_criterion_var_is_aux"].as<bool>() ; 
-    auto varidx = get_variable_index(varname, var_is_aux) ; 
-    ASSERT(varidx>=0, "Index of variable " << varname << " not found.") ; 
-    auto& criterion_view = var_is_aux ? aux : state ; 
-    auto u = Kokkos::subview(criterion_view, VEC( Kokkos::ALL() 
-                                                , Kokkos::ALL() 
-                                                , Kokkos::ALL() )
-                                           , varidx
-                                           , Kokkos::ALL() ) ; 
-    if( ref_criterion == "FLASH_second_deriv") {
-        double eps = params["amr"]["FLASH_criterion_eps"].as<double>() ; 
-        amr::flash_second_deriv_criterion<decltype(u)> kernel{ u } ; 
-        evaluate_regrid_criterion(
-                  d_regrid_flags
-                , kernel 
-                , eps) ;
-    } else if ( ref_criterion == "simple_threshold" ) {
-        amr::simple_threshold_criterion<decltype(u)> kernel{ u } ; 
-        evaluate_regrid_criterion(
-                  d_regrid_flags
-                , kernel) ;
-    } else if ( ref_criterion == "gradient" ) {
-        amr::gradient_criterion<decltype(u)> kernel{ u } ; 
-        evaluate_regrid_criterion(
-                  d_regrid_flags
-                , kernel) ;
-    } else if ( ref_criterion == "shear" ) { 
-        auto vx = Kokkos::subview(aux, VEC( Kokkos::ALL() 
-                                          , Kokkos::ALL() 
-                                          , Kokkos::ALL() )
-                                          , VELX
-                                          , Kokkos::ALL() ) ; 
-        auto vy = Kokkos::subview(aux, VEC( Kokkos::ALL() 
-                                          , Kokkos::ALL() 
-                                          , Kokkos::ALL() )
-                                          , VELY
-                                          , Kokkos::ALL() ) ; 
-    #ifdef GRACE_3D
-        auto vz = Kokkos::subview(aux, VEC( Kokkos::ALL() 
-                                          , Kokkos::ALL() 
-                                          , Kokkos::ALL() )
-                                          , VELZ
-                                          , Kokkos::ALL() ) ; 
-    #endif 
-        amr::shear_criterion<decltype(vx)> kernel{ VEC(vx,vy,vz) } ; 
-        evaluate_regrid_criterion( d_regrid_flags
-                                 , kernel) ;
-    } else {
-        ERROR("Unsupported refinement criterion.") ; 
-    }
-    /* copy flags from device to host */ 
+    evaluate_regrid_criterion(regrid_criterion, regrid_criterion_var, d_regrid_flags) ; 
+    /* copy flags from device to host   */ 
+    auto h_regrid_flags = Kokkos::create_mirror_view(d_regrid_flags)      ;s
     Kokkos::deep_copy(h_regrid_flags, d_regrid_flags) ; 
+    /* Set data where p4est can read it */
     for( size_t iq=0UL; iq<amr::get_local_num_quadrants(); ++iq)
     {
         auto quad = amr::get_quadrant(iq) ;

@@ -7,6 +7,8 @@ target_link_libraries( grace_connectivity PRIVATE
                        p4est::p4est 
                        spdlog::spdlog )
 
+register_grace_object(grace_connectivity connectivity.cpp)
+
 add_library( grace_forest OBJECT forest.cpp )
 target_include_directories( grace_forest PRIVATE "${HEADER_DIR}" )
 target_link_libraries( grace_forest PRIVATE 
@@ -25,6 +27,7 @@ target_link_libraries( grace_amr_functions PRIVATE
                         p4est::p4est  
                         spdlog::spdlog )
 
+add_subdirectory(regrid_helpers)
 
 add_library( grace_regrid OBJECT regrid.cpp )
 target_include_directories( grace_regrid PRIVATE "${HEADER_DIR}" )
@@ -36,6 +39,8 @@ target_link_libraries( grace_regrid PRIVATE
                         p4est::p4est 
                         Kokkos::kokkos
                         spdlog::spdlog )
+
+add_subdirectory(bc_helpers)
 
 add_library( grace_BC_helpers OBJECT bc_iterate.cpp bc_copy_ghostzones.cpp bc_restrict_ghostzones.cpp bc_prolongate_ghostzones.cpp bc_helpers.cpp bc_fill_physical_ghostzones.cpp )
 target_include_directories( grace_BC_helpers PRIVATE "${HEADER_DIR}" )

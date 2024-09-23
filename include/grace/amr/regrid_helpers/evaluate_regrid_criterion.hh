@@ -1,0 +1,56 @@
+/**
+ * @file evaluate_regrid_criterion.hh
+ * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @brief 
+ * @date 2024-09-23
+ * 
+ * @copyright This file is part of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
+ * methods to simulate relativistic spacetimes and plasmas
+ * Copyright (C) 2023 Carlo Musolino
+ *                                    
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *   
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *   
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ */
+
+#ifndef GRACE_AMR_REGRID_HELPERS_EVALUATE_CRITERION_HH
+#define GRACE_AMR_REGRID_HELPERS_EVALUATE_CRITERION_HH
+
+#include <grace_config.h>
+#include <grace/data_structures/grace_data_structures.hh>
+
+#include <Kokkos_Core.hpp>
+
+#include <string>
+
+namespace grace { namespace amr {
+
+/**
+ * @brief Fill a flag view by evaluating the regrid criterion 
+ *        on the local grid.
+ * 
+ * @param criterion Name of criterion to be applied.
+ * @param criterion_var Name of variable on which the criterion is applied.
+ * @param regrid_flags View where the flag is stored.
+ */
+void evaluate_regrid_criterion(
+      std::string const& criterion
+    , std::string const& criterion_var
+    , Kokkos::View<int *, grace::default_space>& regrid_flags
+) ; 
+
+}} /* namespace grace::amr */
+
+#endif /* GRACE_AMR_REGRID_HELPERS_EVALUATE_CRITERION_HH */

@@ -1,0 +1,1 @@
+add_library( grace_regrid_helpers OBJECT evaluate_regrid_criterion.cpp)

@@ -71,24 +71,23 @@ TEST_CASE("lagrange_interp", "[lagrange_interp]")
     ) ;
 
     double const x0{-1}, x1{1} ; 
-    size_t const N = 6 ; 
-    double const h { (x1-x0)/N } ; 
+    double const h { (x1-x0)/nx } ; 
 
     auto coords_center = KOKKOS_LAMBDA (int i, int j, int k)
     {
         return std::array<double,3> {
-            x0 + (i + 0.5) * h , 
-            x0 + (j + 0.5) * h ,
-            x0 + (k + 0.5) * h 
+            x0 + (i - ngz + 0.5) * h , 
+            x0 + (j - ngz + 0.5) * h ,
+            x0 + (k - ngz + 0.5) * h 
         } ; 
     } ; 
 
     auto coords_corner = KOKKOS_LAMBDA (int i, int j, int k)
     {
         return std::array<double,3> {
-            x0 + i * h , 
-            x0 + j * h ,
-            x0 + k * h 
+            x0 + (i-ngz) * h , 
+            x0 + (j-ngz) * h ,
+            x0 + (k-ngz) * h 
         } ; 
     } ;
     MDRangePolicy<Rank<3>> policy_centers {
@@ -117,7 +116,7 @@ TEST_CASE("lagrange_interp", "[lagrange_interp]")
         {0,0,0},
         {nx, ny, nz}
     } ; 
-    parallel_for("fill_data",policy_corners,
+    parallel_for("interpolate_data",policy_interp_corners,
     KOKKOS_LAMBDA( int i, int j, int k) {
         int const ichild = math::floor_int((2*i)/nx) 
             + 2 * ( math::floor_int((2*j)/ny) + 2 * math::floor_int((2*k)/nz) ) ;
@@ -129,7 +128,6 @@ TEST_CASE("lagrange_interp", "[lagrange_interp]")
     }) ; 
 
     /* Check */
-    auto h_cell_centered = create_mirror_view(cell_centered_fine) ; 
     auto h_corner_staggered = create_mirror_view(corner_staggered_fine) ;
 
     deep_copy(h_corner_staggered,corner_staggered_fine) ; 
@@ -143,21 +141,21 @@ TEST_CASE("lagrange_interp", "[lagrange_interp]")
 
         std::array<double,3> xyz ; 
 
-        xyz[0] = i * 0.5*h + x0 + xq * quad_side ;
-        xyz[1] = j * 0.5*h + x0 + yq * quad_side ;
-        xyz[2] = k * 0.5*h + x0 + zq * quad_side ;
+        xyz[0] = (i-ngz) * 0.5*h + x0 + xq * quad_side ;
+        xyz[1] = (j-ngz) * 0.5*h + x0 + yq * quad_side ;
+        xyz[2] = (k-ngz) * 0.5*h + x0 + zq * quad_side ;
 
         return xyz ; 
     } ; 
 
-    for( int i=ngz; i<nx+2*ngz; ++i) {
-        for( int j=ngz; j<ny+2*ngz; ++j) {
-            for( int k=ngz; k<nz+2*ngz; ++k){
+    for( int i=ngz; i<nx+1+ngz; ++i) {
+        for( int j=ngz; j<ny+1+ngz; ++j) {
+            for( int k=ngz; k<nz+1+ngz; ++k){
                 for( int q=0; q<8; ++q) {
                     auto xyz = get_fine_coords_corner(i,j,k,q) ; 
                     auto yval = lin_func(xyz) ; 
 
-                    REQUIRE_THAT(
+                    CHECK_THAT(
                         h_corner_staggered(i,j,k,q),
                         Catch::Matchers::WithinAbs( yval, 1e-10)
                     ) ; 
