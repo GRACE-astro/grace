@@ -1,29 +1,3 @@
-add_library( grace_runtime_utilities OBJECT runtime_functions.cpp )
-target_include_directories( grace_runtime_utilities PRIVATE "${HEADER_DIR}" )
-target_link_libraries( grace_runtime_utilities PRIVATE 
-                       yaml_cpp::yaml
-                       MPI::MPI_CXX
-                       p4est::sc
-                       Kokkos::kokkos
-                       spdlog::spdlog )
-
-add_library( grace_init OBJECT grace_initialize.cpp )
-target_include_directories( grace_init PRIVATE "${HEADER_DIR}" )
-target_link_libraries( grace_init PRIVATE 
-                        yaml_cpp::yaml
-                        MPI::MPI_CXX
-                        p4est::sc
-                        p4est::p4est 
-                        Kokkos::kokkos
-                        spdlog::spdlog 
-                        $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-
-add_library( grace_finalize OBJECT grace_finalize.cpp )
-target_include_directories( grace_finalize PRIVATE "${HEADER_DIR}" )
-target_link_libraries( grace_finalize PRIVATE 
-                    yaml_cpp::yaml
-                    MPI::MPI_CXX
-                    p4est::sc
-                    p4est::p4est 
-                    Kokkos::kokkos
-                    spdlog::spdlog )
+register_grace_object(grace_runtime_utilities runtime_functions.cpp)
+register_grace_object(grace_init grace_initialize.cpp)
+register_grace_object(grace_finalize grace_finalize.cpp)

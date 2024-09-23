@@ -11,7 +11,6 @@ include(code_modules)
 include(check_compiler)
 include(prohibit_in_source_build)
 include(setup_flags)
-include(register_grace_object)
 configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )
 include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
 
@@ -29,17 +28,21 @@ if( NOT GRACE_BUILD_DOCS_ONLY )
 
 option(GRACE_ENABLE_OLD_SC_VERS "Using old version of libs" OFF)
 
+# Setup dependencies 
 include(setup_mpi)
 find_package(OpenMP REQUIRED)
 find_package(p4est REQUIRED)
 find_package(LibXml2 REQUIRED)
 find_package(ZLIB REQUIRED)
 include(setup_kokkos)
-#include(setup_gsl)
 include(setup_yaml)
-include(setup_vtk)
 include(setup_spdlog)
 include(setup_HDF5)
+
+option( GRACE_ENABLE_VTK ON "Enable VTK support")
+if ( GRACE_ENABLE_VTK )
+    include(setup_vtk)
+endif() 
 
 option(GRACE_ENABLE_PROFILING "Build profiling hooks" ON)
 if( GRACE_ENABLE_PROFILING )
@@ -68,16 +71,18 @@ target_link_libraries(grace PRIVATE
         Kokkos::kokkos 
         p4est::p4est 
         p4est::sc
-        VTK::VTK
         spdlog::spdlog
         HDF5::HDF5
 	    ZLIB::ZLIB
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
+        $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
         )
-vtk_module_autoinit(
-    TARGETS grace
-    MODULES ${VTK_LIBRARIES}
-)
+if ( GRACE_ENABLE_VTK )
+    vtk_module_autoinit(
+        TARGETS grace
+        MODULES ${VTK_LIBRARIES}
+    )
+endif() 
 
 option(GRACE_ENABLE_TESTING "Build the tests" ON)
 if(GRACE_ENABLE_TESTING)

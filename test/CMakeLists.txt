@@ -1,5 +1,3 @@
-set(HEADER_LIST "${PROJECT_SOURCE_DIR}/include/")
-
 # Utility functions to register tests 
 # in GRACE's unit-test framework
 include(register_test)
@@ -10,7 +8,7 @@ include(register_test)
 
 # Tests involving MPI
 add_library(mpi_tests_main mains/mpi_tests_main.cc)
-target_include_directories(mpi_tests_main PRIVATE "${HEADER_LIST}")
+target_include_directories(mpi_tests_main PRIVATE "${HEADER_DIR}")
 target_link_libraries(  mpi_tests_main PRIVATE 
 Catch2::Catch2
 $<TARGET_OBJECTS:grace_parallel>
@@ -22,7 +20,7 @@ ZLIB::ZLIB)
 
 # Tests involving the yaml parser
 add_library(parser_tests_main mains/parser_tests_main.cc)
-target_include_directories(parser_tests_main PRIVATE "${HEADER_LIST}")
+target_include_directories(parser_tests_main PRIVATE "${HEADER_DIR}")
 target_link_libraries(  parser_tests_main PRIVATE 
 Catch2::Catch2
 yaml_cpp::yaml
@@ -36,7 +34,7 @@ ZLIB::ZLIB)
 
 # Tests involving the whole grace infrastructure
 add_library(p4est_tests_main mains/p4est_tests_main.cc)
-target_include_directories(p4est_tests_main PRIVATE "${HEADER_LIST}")
+target_include_directories(p4est_tests_main PRIVATE "${HEADER_DIR}")
 target_link_libraries(  p4est_tests_main PRIVATE 
 Catch2::Catch2
 yaml_cpp::yaml
@@ -51,7 +49,7 @@ $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling> )
 
 # Tests involving Kokkos
 add_library(kokkos_tests_main mains/kokkos_tests_main.cc)
-target_include_directories(kokkos_tests_main PRIVATE "${HEADER_LIST}")
+target_include_directories(kokkos_tests_main PRIVATE "${HEADER_DIR}")
 target_link_libraries(  kokkos_tests_main PRIVATE 
 Catch2::Catch2
 $<TARGET_OBJECTS:grace_error_handlers>
@@ -89,7 +87,7 @@ add_kokkos_test(lagrange_prolongation_test test_lagrange_interpolators.cpp)
 add_standalone_test(integrator_test test_integration.cpp)
 
 add_executable( errors_test test_errors.cc ) 
-target_include_directories(errors_test PRIVATE "${HEADER_LIST}")
+target_include_directories(errors_test PRIVATE "${HEADER_DIR}")
 target_compile_options(errors_test PRIVATE -g)
 target_link_libraries( errors_test PRIVATE 
                         $<TARGET_OBJECTS:grace_error_handlers>

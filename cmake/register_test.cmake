@@ -4,7 +4,7 @@ function(add_mpi_test target_name source_file)
 
 
     # Set common target properties
-    target_include_directories(${target_name} PRIVATE "${HEADER_LIST}")
+    target_include_directories(${target_name} PRIVATE "${HEADER_DIR}")
     target_compile_options(${target_name} PRIVATE -g)
 
     # Common linking libraries
@@ -26,7 +26,7 @@ function(add_kokkos_test target_name source_file)
 
 
     # Set common target properties
-    target_include_directories(${target_name} PRIVATE "${HEADER_LIST}")
+    target_include_directories(${target_name} PRIVATE "${HEADER_DIR}")
     target_compile_options(${target_name} PRIVATE -g)
 
     # Common linking libraries
