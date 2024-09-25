@@ -1,8 +1,8 @@
 /**
- * @file regrid_helpers.hh
+ * @file partition_grid.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-09-23
+ * @date 2024-09-24
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
  * Code for Exascale.
@@ -25,11 +25,31 @@
  * 
  */
 
-#ifndef GRACE_AMR_REGRID_HELPERS_HH
-#define GRACE_AMR_REGRID_HELPERS_HH
+#ifndef GRACE_AMR_REGRID_HELPERS_PARTITION_GRID_HH
+#define GRACE_AMR_REGRID_HELPERS_PARTITION_GRID_HH
 
-#include <grace/amr/regrid_helpers/evaluate_regrid_criterion.hh>
-#include <grace/amr/regrid_helpers/partition_grid.hh>
-#include <grace/amr/regrid_helpers/grid_transfer_operators.hh>
+#include <grace_config.h>
 
-#endif /* GRACE_AMR_REGRID_HELPERS_HH */
+#include <grace/data_structures/grace_data_structures.hh>
+#include <grace/amr/p4est_headers.hh> 
+
+#include <vector>
+
+namespace grace { namespace amr {
+
+std::vector<p4est_transfer_context_t *> 
+grace_partition_begin(
+    grace::var_array_t<GRACE_NSPACEDIM>& state, 
+    grace::var_array_t<GRACE_NSPACEDIM>& state_swap,
+    grace::staggered_variable_arrays_t& sstate, 
+    grace::staggered_variable_arrays_t& sstate_swap
+) ; 
+
+void 
+grace_partition_finalize(std::vector<p4est_transfer_context_t *> context) ;
+
+
+}} /* namespace grace::amr */
+
+
+#endif /* GRACE_AMR_REGRID_HELPERS_PARTITION_GRID_HH */

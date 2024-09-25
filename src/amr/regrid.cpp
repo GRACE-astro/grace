@@ -32,7 +32,6 @@
 #include <grace/amr/regridding_policy_kernels.tpp> 
 #include <grace/amr/prolongation_kernels.tpp> 
 #include <grace/amr/restriction_kernels.tpp> 
-#include <grace/amr/regrid_helpers.tpp>
 #include <grace/amr/regrid_helpers.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/coordinates/coordinates.hh>
@@ -40,6 +39,7 @@
 #include <grace/config/config_parser.hh>
 #include <grace/utils/prolongation.hh>
 #include <grace/utils/limiters.hh>
+#include <grace/utils/device_vector.hh>
 
 namespace grace { namespace amr { 
 
@@ -64,10 +64,10 @@ void regrid( std::string const& regrid_criterion
     auto& sstate = variable_list::get().getstaggeredstate() ; 
     auto& aux = variable_list::get().getaux()               ;
 
-    int nvars_cell_center  = state.extent(GRACE_NSPACEDIM)   ; 
-    int nvars_face_stagger = ; 
-    int nvars_corner_stagger = ; 
-    int nvars_edge_stagger = ; 
+    int nvars_cell_center    = state.extent(GRACE_NSPACEDIM)               ; 
+    int nvars_face_stagger   = variables::get_n_evolved_face_staggered()   ; 
+    int nvars_corner_stagger = variables::get_n_evolved_edge_staggered()   ; 
+    int nvars_edge_stagger   = variables::get_n_evolved_corner_staggered() ; 
 
     /***************************************************/
     /*                Get grid properties              */
@@ -78,7 +78,6 @@ void regrid( std::string const& regrid_criterion
     std::tie(nx,ny,nz) = amr::get_quadrant_extents()       ; 
     auto ngz = amr::get_n_ghosts()                         ; 
     size_t nq = amr::get_local_num_quadrants()             ;
-
 
     /* create host and device views to hold refinement / coarsening flags */ 
     Kokkos::View<int *, default_space> d_regrid_flags("regrid_flags", nq) ; 
@@ -147,16 +146,26 @@ void regrid( std::string const& regrid_criterion
     Kokkos::realloc(state_swap   , VEC( nx + 2*ngz 
                                  ,      ny + 2*ngz 
                                  ,      nz + 2*ngz )
-                                 , nvars
+                                 , nvars_cell_center
                                  , nq_new                          
     ) ; 
-    // TODO reallocate also staggered state
+    auto& sstate_swap = variable_list::get().getstaggeredscratch() ; 
+    sstate_swap.realloc(
+        , VEC( nx 
+             , ny  
+             , nz  )
+             , ngz
+             , nq_new
+             , nvars_face 
+             , nvars_edge
+             , nvars_corner
+    ) ; 
     /******************************************************************************************/
     /*                      Collect indices of outgoing and incoming                          */
     /*                      quadrants in their respective z-ordering.                         */
     /******************************************************************************************/
-    Kokkos::vector<int,default_space> refine_incoming, coarsen_incoming ;
-    Kokkos::vector<int,default_space> refine_outgoing, coarsen_outgoing ; 
+    grace::device_vector<int> refine_incoming, coarsen_incoming ;
+    grace::device_vector<int> refine_outgoing, coarsen_outgoing ; 
     unsigned long iq_new{0UL}, iq_old{0UL} ;  
     while(iq_new < nq_new)
     {       
@@ -178,7 +187,10 @@ void regrid( std::string const& regrid_criterion
                                                    , Kokkos::ALL())
                                               , Kokkos::ALL()
                                               , iq_new) ;
-            // TODO copy over also staggered fields 
+            
+            auto ssview = sstate.subview(VEC(ALL(),ALL(),ALL()), ALL(), iq_old ) ; 
+            auto ssview_swap = sstate_swap.subview(VEC(ALL(),ALL(),ALL()), ALL(), iq_new ) ; 
+            ssview_swap.deep_copy_async(ssview) ; 
             Kokkos::deep_copy(default_execution_space{}, sview_swap, sview_state) ; 
             iq_new++; iq_old++ ; 
         } else if ( flag == NEED_PROLONGATION )
@@ -234,106 +246,31 @@ void regrid( std::string const& regrid_criterion
     /******************************************************************************************/
     /*                      Prolongate data on refined quadrants                              */
     /******************************************************************************************/
-    std::string interp = params["amr"]["prolongation_interpolator_type"].as<std::string>(); 
-    std::string limiter = params["amr"]["prolongation_limiter_type"].as<std::string>();
-    // TODO make this a standalone function
-    if( interp == "linear" ) 
-    {
-        if( limiter == "minmod"){
-            prolongate_variables<utils::linear_prolongator_t<grace::minmod>> ( 
-                state_swap
-                , state 
-                , dx
-                , in_dx 
-                , coords
-                , in_coords
-                , vol
-                , in_vol
-                , refine_incoming
-                , refine_outgoing 
-            ) ;
-        } else if (limiter == "monotonized-central") {
-            prolongate_variables<utils::linear_prolongator_t<grace::MCbeta>> ( 
-                state_swap
-                , state 
-                , dx
-                , in_dx 
-                , coords
-                , in_coords
-                , vol
-                , in_vol
-                , refine_incoming
-                , refine_outgoing 
-            ) ;
-        } else {
-            ERROR("Requested limiter for prolongation is not implemented.") ;
-        }
-    } else {
-        ERROR("Requested interpolator for prolongation is not implemented.") ; 
-    }
+    grace_prolongate_refined_quadrants(
+        state,state_swap,sstate,sstate_swap,in_vol,refine_incoming,refine_outgoing
+    ) ; 
     /******************************************************************************************/
     /*                      Restrict data on coarsened quadrants                              */
     /******************************************************************************************/
-    // todo make this standalone 
-    std::string reduce = params["amr"]["restriction_interpolator_type"].as<std::string>(); 
-    if (reduce=="linear")
-    {
-        restrict_variables(
-              state_swap
-            , state
-            , vol
-            , in_vol
-            , coarsen_incoming
-            , coarsen_outgoing
-        ) ;
-    } else {
-        ERROR("Requested interpolator for restriction is not implemented.") ; 
-    }
-    Kokkos::fence(); 
+    grace_restrict_coarsened_quadrants(
+        state, state_swap, sstate, sstate_swap, vol, coarsen_incoming, coarsen_outgoing
+    ) ; 
     /******************************************************************************************/
     /*                      Partition the new forest in parallel                              */
-    /*                      we store global quadrant offsets, then                            */
-    /*                      partition the forest, transfer state data                         */
-    /*                      asynchronously, and realloc other fields                          */
-    /*                      in the meanwhile. Coordinates are recomputed                      */
-    /*                      but the auxiliary fields are left empty.                          */
     /******************************************************************************************/
-    auto const glob_qoffsets = amr::get_global_quadrant_offsets() ;
+    auto context = grace_partition_begin(
+        state,
+        swap,
+        sstate,
+        sstate_swap
+    ) ; 
     /******************************************************************************************/
-    /*                                    Partition forest                                    */
+    /*                          Get new local forest size                                     */
     /******************************************************************************************/
-    size_t transfer_count = p4est_partition_ext( forest::get().get()
-                                               , 0
-                                               , nullptr  ) ; 
-    auto const new_glob_qoffsets = amr::get_global_quadrant_offsets() ; 
-    size_t const quadrant_data_size = EXPR(   (nx+2*ngz)
-                                          , * (ny+2*ngz)
-                                          , * (nz+2*ngz)  ) * nvars * sizeof(double); 
     size_t const nq_local = amr::get_local_num_quadrants() ; 
     /******************************************************************************************/
-    /*                              Realloc data and partition forest                         */
-    /******************************************************************************************/ 
-    Kokkos::realloc( state      ,   VEC(  nx + 2*ngz 
-                                        , ny + 2*ngz 
-                                        , nz + 2*ngz )
-                                ,   nvars
-                                ,   nq_local 
-                                 ) ;
+    /*                          Recompute coordinates                                         */
     /******************************************************************************************/
-    /*                                Transfer data                                           */
-    /******************************************************************************************/
-    // todo transfer staggered
-    auto context = 
-        p4est_transfer_fixed_begin (
-                new_glob_qoffsets.data() 
-                , glob_qoffsets.data()
-                , parallel::get_comm_world() 
-                , parallel::GRACE_PARTITION_TAG 
-                , reinterpret_cast<void*>(state.data())
-                , reinterpret_cast<void*>(state_swap.data())
-                , quadrant_data_size 
-        ) ; 
-
     auto& idx = variable_list::get().getinvspacings()  ; 
     
     Kokkos::resize( coords      ,   GRACE_NSPACEDIM
@@ -368,17 +305,25 @@ void regrid( std::string const& regrid_criterion
     /******************************************************************************************/
     /*                                Synchronize everything                                  */
     /******************************************************************************************/
-    p4est_transfer_fixed_end(context) ;  
+    grace_partition_finalize(context) ;  
     /******************************************************************************************/
     /*                                Copy state to scratch                                   */
     /******************************************************************************************/
     Kokkos::realloc( state_swap ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 
                                         , nz + 2*ngz )
-                                ,   nvars
+                                ,   nvars_cell_centered
                                 ,   nq_local 
                                 ) ;
     Kokkos::deep_copy(state_swap, state) ; 
+    sstate_swap.realloc(
+        VEC(nx,ny,nz),
+        ngz,nq_local,
+        nvars_face_staggered,
+        nvars_edge_staggered,
+        nvars_corner_staggered 
+    ) ; 
+    sstate_swap.deep_copy(sstate) ; 
     /******************************************************************************************/
     /*                         Reset quadrants to default state                               */
     /******************************************************************************************/

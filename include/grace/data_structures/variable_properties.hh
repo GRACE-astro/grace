@@ -294,7 +294,108 @@ struct staggered_variable_arrays_t {
         #endif 
         Kokkos::deep_copy(corner_staggered_fields,other.corner_staggered_fields) ; 
     }
+
+    template< typename ... IndexT > 
+    deep_copy_subview(staggered_variable_arrays_t const& other, IndexT const& ... indices) ; 
+    {
+        using execspace = typename face_staggered_fields_x::ExecutionSpace ;
+        auto sview_fx       = Kokkos::subview(face_staggered_fields_x, indices...) ; 
+        auto sview_fx_other = Kokkos::subview(other.face_staggered_fields_x, indices...) ; 
+        Kokkos::deep_copy(execspace{}, sview_fx,sview_fx_other) ; 
+        auto sview_fy       = Kokkos::subview(face_staggered_fields_y, indices...) ; 
+        auto sview_fy_other = Kokkos::subview(other.face_staggered_fields_y, indices...) ; 
+        Kokkos::deep_copy(execspace{}, sview_fy,sview_fy_other) ;  
+        auto sview_fz       = Kokkos::subview(face_staggered_fields_z, indices...) ; 
+        auto sview_fz_other = Kokkos::subview(other.face_staggered_fields_z, indices...) ; 
+        Kokkos::deep_copy(execspace{}, sview_fz,sview_fz_other) ;  
+        #ifdef GRACE_3D
+        auto sview_exy       = Kokkos::subview(edge_staggered_fields_xy, indices...) ; 
+        auto sview_exy_other = Kokkos::subview(other.edge_staggered_fields_xy, indices...) ; 
+        Kokkos::deep_copy(execspace{}, sview_exy,sview_exy_other) ; 
+        auto sview_exz       = Kokkos::subview(edge_staggered_fields_xz, indices...) ; 
+        auto sview_exz_other = Kokkos::subview(other.edge_staggered_fields_xz, indices...) ; 
+        Kokkos::deep_copy(execspace{}, sview_exz,sview_exz_other) ; 
+        auto sview_eyz       = Kokkos::subview(edge_staggered_fields_yz, indices...) ; 
+        auto sview_eyz_other = Kokkos::subview(other.edge_staggered_fields_yz, indices...) ; 
+        Kokkos::deep_copy(execspace{}, sview_eyz,sview_eyz_other) ;
+        #endif 
+        auto sview_c       = Kokkos::subview(corner_staggered_fields, indices...) ; 
+        auto sview_c_other = Kokkos::subview(other.corner_staggered_fields, indices...) ; 
+        Kokkos::deep_copy(execspace{},sview_c,sview_c_other) ;
+        Kokkos::fence() ; 
+    }
+
+    template< typename ... IndexT >
+    decltype(auto) subview(IndexT ... indices)
+    {
+        return staggered_variable_arrays_subview_t{
+            Kokkos::subview(face_staggered_fields_x, indices...) , 
+            Kokkos::subview(face_staggered_fields_y, indices...) , 
+            Kokkos::subview(face_staggered_fields_z, indices...) , 
+            #ifdef GRACE_3D 
+            Kokkos::subview(edge_staggered_fields_xy, indices...) , 
+            Kokkos::subview(edge_staggered_fields_xz, indices...) , 
+            Kokkos::subview(edge_staggered_fields_yz, indices...) , 
+            #endif 
+            Kokkos::subview(corner_staggered_fields, indices...) 
+        } ; 
+    }
+   
 } ; 
+
+template < typename SViewT >
+struct staggered_variable_arrays_subview_t {
+    SViewT face_staggered_fields_x, face_staggered_fields_y, face_staggered_fields_z ; 
+    #ifdef GRACE_3D 
+    SViewT edge_staggered_fields_xy, edge_staggered_fields_xz, edge_staggered_fields_yz ; 
+    #endif 
+    SViewT corner_staggered_fields ;
+
+    staggered_variable_arrays_subview_t(
+        SViewT _fx, SViewT _fy, SViewT _fz,
+        #ifdef GRACE_3D
+        SViewT _exy, SViewT _exz, SViewT _eyz,
+        #endif 
+        SViewT _c
+    )
+    : face_staggered_fields_x(_fx), face_staggered_fields_y(_fy), face_staggered_fields_z(_fz),
+    #ifdef GRACE_3D 
+      edge_staggered_fields_xy(_exy), edge_staggered_fields_xz(_exz), edge_staggered_fields_yz(_eyz),
+    #endif
+      corner_staggered_fields(_c)
+    {} ;
+
+    template < typename SViewT_B >
+    void deep_copy(staggered_variable_arrays_subview_t<SViewT_B> const& other )
+    {
+        Kokkos::deep_copy(face_staggered_fields_x,other.face_staggered_fields_x) ; 
+        Kokkos::deep_copy(face_staggered_fields_y,other.face_staggered_fields_y) ; 
+        Kokkos::deep_copy(face_staggered_fields_z,other.face_staggered_fields_z) ; 
+        #ifdef GRACE_3D
+        Kokkos::deep_copy(edge_staggered_fields_xy,other.edge_staggered_fields_xy) ; 
+        Kokkos::deep_copy(edge_staggered_fields_xz,other.edge_staggered_fields_xz) ; 
+        Kokkos::deep_copy(edge_staggered_fields_yz,other.edge_staggered_fields_yz) ; 
+        #endif 
+        Kokkos::deep_copy(corner_staggered_fields,other.corner_staggered_fields) ;
+    }
+
+    template < typename SViewT_B >
+    void deep_copy_async(staggered_variable_arrays_subview_t<SViewT_B> const& other )
+    {
+        using execspace = typename face_staggered_fields_x::ExecutionSpace ;
+        Kokkos::deep_copy(execspace{}, face_staggered_fields_x,other.face_staggered_fields_x) ; 
+        Kokkos::deep_copy(execspace{}, face_staggered_fields_y,other.face_staggered_fields_y) ; 
+        Kokkos::deep_copy(execspace{}, face_staggered_fields_z,other.face_staggered_fields_z) ; 
+        #ifdef GRACE_3D
+        Kokkos::deep_copy(execspace{}, edge_staggered_fields_xy,other.edge_staggered_fields_xy) ; 
+        Kokkos::deep_copy(execspace{}, edge_staggered_fields_xz,other.edge_staggered_fields_xz) ; 
+        Kokkos::deep_copy(execspace{}, edge_staggered_fields_yz,other.edge_staggered_fields_yz) ; 
+        #endif 
+        Kokkos::deep_copy(execspace{}, corner_staggered_fields,other.corner_staggered_fields) ;
+    }
+
+} ; 
+
 /*****************************************************************************************************/
 /*****************************************************************************************************/
 } /* namespace grace */
