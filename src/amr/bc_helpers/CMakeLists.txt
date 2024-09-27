@@ -1,7 +1,7 @@
 register_grace_object(grace_BC_helpers 
-bc_iterate.cpp 
-bc_copy_ghostzones.cpp 
-bc_restrict_ghostzones.cpp 
+bc_iterate.cpp
+bc_copy_ghostzones.cpp
+bc_restrict_ghostzones.cpp
 bc_prolongate_ghostzones.cpp 
-bc_helpers.cpp 
+bc_helpers.cpp
 bc_fill_physical_ghostzones.cpp)

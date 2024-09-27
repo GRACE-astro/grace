@@ -56,7 +56,7 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>&
  */
 void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
                               , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates = {VEC(0.5,0.5,0.5)} 
-                              ) ; 
+                              , std::array<bool, GRACE_NSPACEDIM> const& staggering = {VEC(false,false,false)} ) ; 
 /*****************************************************************************************/
 /**
  * @brief Fill a device view with jacobians of the logical-to-physical 

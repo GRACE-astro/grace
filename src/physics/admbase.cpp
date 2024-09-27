@@ -43,44 +43,4 @@
 
 namespace grace {
 
-
-static void set_admbase_minkowski_id() {
-    using namespace grace ;
-    using namespace Kokkos ;
-
-    auto& state   = variable_list::get().getstate() ; 
-    int64_t nx,ny,nz ; 
-    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    int ngz = amr::get_n_ghosts() ; 
-    
-    int64_t nq = amr::get_local_num_quadrants() ;
-    parallel_for( GRACE_EXECUTION_TAG("ID","admbase_Minkowski_ID")
-                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                {
-                    state(VEC(i,j,k),GXX_,q)   = 1. ; state(VEC(i,j,k),GXY_,q)   = 0. ; state(VEC(i,j,k),GXZ_,q)   = 0. ;
-                    state(VEC(i,j,k),GYY_,q)   = 1. ; state(VEC(i,j,k),GYZ_,q)   = 0. ; state(VEC(i,j,k),GZZ_,q)   = 1. ;
-                    state(VEC(i,j,k),BETAX_,q) = 0. ; state(VEC(i,j,k),BETAY_,q) = 0. ; state(VEC(i,j,k),BETAZ_,q) = 0. ;
-                    state(VEC(i,j,k),ALP_,q) = 1. ;
-                    state(VEC(i,j,k),KXX_,q) = 0. ; state(VEC(i,j,k),KXY_,q) = 0. ; state(VEC(i,j,k),KXZ_,q) = 0. ;
-                    state(VEC(i,j,k),KYY_,q) = 0. ; state(VEC(i,j,k),KYZ_,q) = 0. ; state(VEC(i,j,k),KZZ_,q) = 0. ;
-                }
-    ) ;
-}
-
-void set_admbase_id() {
-     
-
-    auto const metric_type = 
-        grace::get_param<std::string>("admbase","metric_kind") ;
-
-    GRACE_VERBOSE("Setting {} metric initial data.", metric_type) ;
-
-    if ( metric_type == "Minkowski" ) {
-        set_admbase_minkowski_id() ; 
-    } else {
-        ERROR("Metric type " << metric_type << " not supported.") ;
-    }
-}
-
 }

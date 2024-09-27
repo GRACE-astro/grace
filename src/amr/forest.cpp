@@ -27,7 +27,7 @@
 
 #include <grace/amr/forest.hh>
 
-#include <grace/amr/amr_flags.hh>
+#include <grace/amr/regrid_helpers.hh>
 #include <grace/parallel/mpi_wrappers.hh> 
 #include <grace/amr/connectivity.hh>
 #include <grace/config/config_parser.hh>

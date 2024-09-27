@@ -1,1 +1,1 @@
-register_grace_object_conditional(grace_profiling gpu_profiling.cpp GRACE_ENABLE_PROFILING)
+register_grace_object_conditional(grace_profiling GRACE_ENABLE_PROFILING gpu_profiling.cpp)

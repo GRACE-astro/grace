@@ -83,7 +83,7 @@ struct grmhd_equations_system_t
     grmhd_equations_system_t( eos_t eos_ 
                             , grace::var_array_t<GRACE_NSPACEDIM> state_
                             , grace::var_array_t<GRACE_NSPACEDIM> aux_ 
-                            , grace::staggered_variables_array_t sstate_) 
+                            , grace::staggered_variable_arrays_t sstate_) 
      : base_t(state_,aux_,sstate_), _eos(eos_)
     { 
         _lapse_excision = grace::get_param<double>("grmhd","lapse_excision") ; 
@@ -256,7 +256,7 @@ struct grmhd_equations_system_t
             }
         }
         /* Read in the extrinsic curvature                                                                */
-        auto const Kij = get_extrinsic_curvature(self->_sstate.corner_staggered_fields, VEC(i,j,k), q, metric) ; 
+        auto const Kij = get_extrinsic_curvature(this->_sstate.corner_staggered_fields, VEC(i,j,k), q, metric) ; 
         //for( auto& x: Kij ) x = 0 ; 
         /* Source for the conserved energy (added piece by piece below)                                   */
         double tau_source{0.};
@@ -792,7 +792,11 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         metric_array_t metric_face =
             get_metric_array_cell_face<idir>(
-                this->_sstate,
+                #ifdef GRACE_ENABLE_COWLING_METRIC
+                this->_state,
+                #elif defined(GRACE_ENABLE_BSSN_METRIC)
+                this->_sstate.corner_staggered_fields,
+                #endif
                 VEC(i,j,k),
                 q
             ) ;

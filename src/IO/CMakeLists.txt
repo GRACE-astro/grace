@@ -1,5 +1,9 @@
-register_grace_object_conditional(grace_vtk_output "vtk_setup_grid.cpp;vtk_volume_output.cpp;vtk_surface_output.cpp;scalar_output.cpp" GRACE_ENABLE_VTK)
-register_grace_object_conditional(grace_output_aux vtk_output_auxiliaries.cpp GRACE_ENABLE_VTK)
+register_grace_object_conditional(grace_vtk_output GRACE_ENABLE_VTK vtk_output.cpp vtk_setup_grid.cpp vtk_volume_output.cpp vtk_surface_output.cpp)
+register_grace_object_conditional(grace_output_aux GRACE_ENABLE_VTK vtk_output_auxiliaries.cpp)
 
-register_grace_object(grace_hdf5_output hdf5_output.cpp xmf_utilities.cpp)
+register_grace_object(grace_hdf5_output hdf5_output.cpp)
 register_grace_object(grace_cell_output cell_output.cpp)
+
+register_grace_object(grace_scalar_output scalar_output.cpp)
+
+register_grace_object(xmf_utilities xmf_utilities.cpp)

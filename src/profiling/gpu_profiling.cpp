@@ -25,6 +25,8 @@
  * 
  */
 
+#include <grace_config.h>
+
 #include <grace/profiling/gpu_profiling.hh>
 #include <grace/profiling/profiling_runtime.hh>
 #include <grace/system/grace_system.hh>
@@ -39,7 +41,6 @@
 #include <filesystem>
 #include <iostream>
 #include <iomanip>
-#define GRACE_ENABLE_HIP
 
 #ifdef GRACE_ENABLE_HIP
 #ifndef CHECK_ROCPROFILER

@@ -28,10 +28,27 @@
 #include <grace_config.h> 
 
 #include <grace/physics/bssn.hh>
+#include <grace/physics/grmhd_helpers.hh>
 
 #include <grace/utils/fd_utils.hh>
 
+#include <Kokkos_Core.hpp>
+
 namespace grace {
+
+void adm_to_bssn(
+    grmhd_id_t const& id, 
+    grace::var_array_t<GRACE_NSPACEDIM>& state,
+    VEC(int i, int j, int k), int q
+)
+{
+    double const sqrtgamma = 
+        Kokkos::sqrt() ; 
+
+    state(VEC(i,j,k), PHI_, q) = 1./(sqrtgamma*sqrtgamma*sqrtgamma) ; 
+
+    state(VEC(i,j,k), GTXX_, q) =
+}
 
 template< size_t der_order >
 bssn_state_t GRACE_HOST_DEVICE 

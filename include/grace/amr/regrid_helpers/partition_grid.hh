@@ -46,7 +46,7 @@ grace_partition_begin(
 ) ; 
 
 void 
-grace_partition_finalize(std::vector<p4est_transfer_context_t *> context) ;
+grace_partition_finalize(std::vector<p4est_transfer_context_t *>const & context) ;
 
 
 }} /* namespace grace::amr */

@@ -47,7 +47,7 @@ function(add_parser_test target_name source_file)
 
 
     # Set common target properties
-    target_include_directories(${target_name} PRIVATE "${HEADER_LIST}")
+    target_include_directories(${target_name} PRIVATE "${HEADER_DIR}")
     target_compile_options(${target_name} PRIVATE -g)
 
     # Common linking libraries
@@ -71,7 +71,7 @@ function(add_grace_test target_name source_file)
 
 
     # Set common target properties
-    target_include_directories(${target_name} PRIVATE "${HEADER_LIST}")
+    target_include_directories(${target_name} PRIVATE "${HEADER_DIR}")
     target_compile_options(${target_name} PRIVATE -g)
 
     # Common linking libraries
@@ -79,9 +79,6 @@ function(add_grace_test target_name source_file)
     p4est_tests_main
     Catch2::Catch2
     grace_objects
-    $<TARGET_OBJECTS:grace_vtk_output>
-    $<TARGET_OBJECTS:grace_hdf5_output>
-    $<TARGET_OBJECTS:grace_cell_output>
     yaml_cpp::yaml
     Kokkos::kokkos
     MPI::MPI_CXX
@@ -93,11 +90,14 @@ function(add_grace_test target_name source_file)
     ZLIB::ZLIB
     HDF5::HDF5
     $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
+    $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
     )
-    vtk_module_autoinit(
-        TARGETS volume_output_test
-        MODULES ${VTK_LIBRARIES}
-        )
+    if ( GRACE_ENABLE_VTK )
+            vtk_module_autoinit(
+                TARGETS grace
+                MODULES ${VTK_LIBRARIES}
+            )
+    endif()
 endfunction()
 
 function(add_standalone_test target_name source_file)
@@ -105,7 +105,7 @@ function(add_standalone_test target_name source_file)
 
 
     # Set common target properties
-    target_include_directories(${target_name} PRIVATE "${HEADER_LIST}")
+    target_include_directories(${target_name} PRIVATE "${HEADER_DIR}")
     target_compile_options(${target_name} PRIVATE -g)
 
     # Common linking libraries

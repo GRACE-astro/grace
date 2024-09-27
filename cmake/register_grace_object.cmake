@@ -1,4 +1,5 @@
-function(register_grace_object_conditional target_name sources condition)
+function(register_grace_object_conditional target_name condition)
+    set(sources "${ARGN}")
     # Check if the condition is true
     if(${condition})
         # Add the object library for the target
@@ -30,7 +31,8 @@ function(register_grace_object_conditional target_name sources condition)
     endif()
 endfunction()
 
-function(register_grace_object target_name sources)
+function(register_grace_object target_name)
+    set(sources "${ARGN}")
     # Add the object library for the target
     add_library(${target_name} OBJECT ${sources})
 

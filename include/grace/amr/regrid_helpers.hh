@@ -31,5 +31,7 @@
 #include <grace/amr/regrid_helpers/evaluate_regrid_criterion.hh>
 #include <grace/amr/regrid_helpers/partition_grid.hh>
 #include <grace/amr/regrid_helpers/grid_transfer_operators.hh>
+#include <grace/amr/regrid_helpers/amr_flags.hh>
+
 
 #endif /* GRACE_AMR_REGRID_HELPERS_HH */

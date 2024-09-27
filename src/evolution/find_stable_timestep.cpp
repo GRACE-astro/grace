@@ -79,8 +79,8 @@ void find_stable_timestep_impl() {
     auto& state = variable_list::get().getstate()   ; 
     auto& aux   = variable_list::get().getaux()     ; 
     auto& cvol  = variable_list::get().getvolumes() ; 
-    auto& sstate = variables_list::get().getstaggeredstate() ; 
-    auto& dx    = variables_list::get().getspacings() ; 
+    auto& sstate = variable_list::get().getstaggeredstate() ; 
+    auto& dx    = variable_list::get().getspacings() ; 
     
     auto& params = config_parser::get() ; 
     double const CFL = params["evolution"]["cfl_factor"].as<double>() ; 

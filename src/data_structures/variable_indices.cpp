@@ -239,8 +239,10 @@ void register_variables() {
     #undef DECLARE_VAR_INDEX_IMPL
     /********************************************************************************/
     /********************************************************************************/
-    GRACE_INFO("{} total variables registered, of which {} evolved, {} auxiliary. {} variables require fluxes.", 
-                detail::num_vars, detail::num_evolved, detail::num_auxiliary, detail::num_fluxes ) ; 
+    GRACE_INFO("{} total variables registered, of which {} evolved ( {} cell-center, {} face-staggered, {} edge-staggered, {} corner-staggered), {} auxiliary. {} variables require fluxes.", 
+                detail::num_vars, detail::num_evolved+detail::num_face_staggered_vars+detail::num_edge_staggered_vars+detail::num_corner_staggered_vars, 
+                detail::num_evolved, detail::num_face_staggered_vars, detail::num_edge_staggered_vars, detail::num_corner_staggered_vars, 
+                detail::num_auxiliary, detail::num_fluxes ) ; 
     std::ostringstream ss ; 
     ss << "Evolved variables:\n" ; 
     for( int ii=0; ii<detail::num_evolved; ++ii) {

@@ -118,12 +118,35 @@ consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q)
 struct grmhd_id_t {
   double rho;
   double press;
-  double ye;
+  double ye; 
+  double vx, vy, vz;
   double gxx,gxy,gxz,gyy,gyz,gzz; 
   double kxx,kxy,kxz,kyy,kyz,kzz;
   double alp;  
-  double betax, betay, betaz ; 
-  double vx, vy, vz;
+  double betax, betay, betaz ;
+} ; 
+struct grmhd_id_tag_t {} ; 
+
+struct metric_id_tag_t {} ; 
+
+enum adm_metric_vars_t {
+  _GXX_ = 0,
+  _GXY_,
+  _GXZ_,
+  _GYY_,
+  _GYZ_,
+  _GZZ_,
+  _BETAX_,
+  _BETAY_,
+  _BETAZ_,
+  _ALP_,
+  _KXX_,
+  _KXY_,
+  _KXZ_,
+  _KYY_,
+  _KYZ_,
+  _KZZ_,
+  _N_ADM_VARS_
 } ; 
 
 #endif /* GRACE_PHYSICS_GRMHD_HELPERS_HH */

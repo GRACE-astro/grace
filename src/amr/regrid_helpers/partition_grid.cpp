@@ -29,10 +29,12 @@
 
 #include <grace/amr/regrid_helpers.hh>
 #include <grace/amr/amr_functions.hh> 
+#include <grace/amr/forest.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/utils/grace_utils.hh>
 #include <grace/parallel/mpi_wrappers.hh>
 #include <grace/amr/p4est_headers.hh>
+#include <grace/system/grace_system.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -50,6 +52,7 @@ grace_partition_begin(
 ) {
     using namespace grace  ; 
     using namespace Kokkos ;
+    GRACE_VERBOSE("Initiating transfer of data for parallel partition.") ; 
     /***************************************************/
     /*                Get grid properties              */
     /***************************************************/
@@ -57,10 +60,10 @@ grace_partition_begin(
     std::tie(nx,ny,nz) = amr::get_quadrant_extents()       ; 
     auto ngz = amr::get_n_ghosts()                         ; 
     size_t nq = amr::get_local_num_quadrants()             ;
-    int const nvars_cell_center    = state.extent(GRACE_NSPACEDIM)               ; 
-    int const nvars_face_stagger   = variables::get_n_evolved_face_staggered()   ; 
-    int const nvars_corner_stagger = variables::get_n_evolved_edge_staggered()   ; 
-    int const nvars_edge_stagger   = variables::get_n_evolved_corner_staggered() ; 
+    int nvars_cell_centered      = state.extent(GRACE_NSPACEDIM)               ; 
+    int nvars_face_staggered     = variables::get_n_evolved_face_staggered()   ; 
+    int nvars_edge_staggered     = variables::get_n_evolved_edge_staggered()   ; 
+    int nvars_corner_staggered   = variables::get_n_evolved_corner_staggered() ; 
     /******************************************************************************************/
     /*                      Partition the new forest in parallel                              */
     /*                      we store global quadrant offsets, then                            */
@@ -82,7 +85,7 @@ grace_partition_begin(
     /******************************************************************************************/
     size_t const quadrant_data_size = EXPR(   (nx+2*ngz)
                                           , * (ny+2*ngz)
-                                          , * (nz+2*ngz)  ) * nvars_cell_center * sizeof(double); 
+                                          , * (nz+2*ngz)  ) * nvars_cell_centered * sizeof(double); 
     size_t const quadrant_data_size_face_x_staggered = 
         EXPR(   (nx+1+2*ngz)
             , * (ny+2*ngz)
@@ -116,11 +119,11 @@ grace_partition_begin(
     size_t const nq_local = amr::get_local_num_quadrants() ; 
     /******************************************************************************************/
     /*                              Realloc data and partition forest                         */
-    /******************************************************************************************/ 
+    /******************************************************************************************/  
     Kokkos::realloc( state      ,   VEC(  nx + 2*ngz 
                                         , ny + 2*ngz 
                                         , nz + 2*ngz )
-                                ,   nvars_cell_center
+                                ,   nvars_cell_centered
                                 ,   nq_local 
                                  ) ;
     sstate.realloc(VEC(nx,ny,nz), ngz, nq_local, nvars_face_staggered, nvars_edge_staggered, nvars_corner_staggered);
@@ -141,6 +144,7 @@ grace_partition_begin(
         ) ;
     ctx.push_back(context); 
     tag++ ; 
+    if( nvars_face_staggered > 0 ) {
     context = 
         p4est_transfer_fixed_begin (
                   new_glob_qoffsets.data() 
@@ -177,7 +181,9 @@ grace_partition_begin(
         ) ;
     ctx.push_back(context); 
     tag++ ;
+    }
     #ifdef GRACE_3D
+    if (nvars_edge_staggered > 0) {
     context = 
         p4est_transfer_fixed_begin (
                   new_glob_qoffsets.data() 
@@ -190,7 +196,6 @@ grace_partition_begin(
         ) ;
     ctx.push_back(context); 
     tag++ ;
-
     context = 
         p4est_transfer_fixed_begin (
                   new_glob_qoffsets.data() 
@@ -203,7 +208,6 @@ grace_partition_begin(
         ) ;
     ctx.push_back(context); 
     tag++ ;
-
     context = 
         p4est_transfer_fixed_begin (
                   new_glob_qoffsets.data() 
@@ -216,8 +220,10 @@ grace_partition_begin(
         ) ;
     ctx.push_back(context); 
     tag++ ;
+    }
     #endif 
-    context = 
+    if( nvars_corner_staggered > 0 ) {
+    auto context1 = 
         p4est_transfer_fixed_begin (
                   new_glob_qoffsets.data() 
                 , glob_qoffsets.data()
@@ -227,12 +233,13 @@ grace_partition_begin(
                 , reinterpret_cast<void*>(sstate_swap.corner_staggered_fields.data())
                 , quadrant_data_size_corner_staggered 
         ) ;
-    ctx.push_back(context); 
+    ctx.push_back(context1); 
     tag++ ;
+    }
     return ctx ; 
 }
 
-void grace_partition_finalize(std::vector<p4est_transfer_context_t *> context) {
+void grace_partition_finalize(std::vector<p4est_transfer_context_t *> const & context) {
     for( auto const ctx: context) 
         p4est_transfer_fixed_end(ctx) ; 
 }

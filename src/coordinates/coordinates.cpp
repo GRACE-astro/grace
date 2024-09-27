@@ -198,12 +198,19 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>& coords
 }
 
 void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
-                              , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates) 
+                              , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates
+                              , std::array<bool, GRACE_NSPACEDIM>  const& stagger ) 
 {
     DECLARE_GRID_EXTENTS ;
     using namespace grace ; 
 
-    Kokkos::realloc(pcoords,VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),GRACE_NSPACEDIM,nq) ; 
+    EXPR(
+    int ext_1 = nx + stagger[0] + 2*ngz ;,
+    int ext_2 = ny + stagger[1] + 2*ngz ;,
+    int ext_3 = nz + stagger[2] + 2*ngz ;
+    )
+
+    Kokkos::realloc(pcoords,VEC(ext_1,ext_2,ext_3),GRACE_NSPACEDIM,nq) ; 
 
     auto h_coords = Kokkos::create_mirror_view(pcoords) ; 
     auto& coord_system = grace::coordinate_system::get() ; 
@@ -227,7 +234,7 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
     #endif 
 
     for( int q=0; q<nq; ++q ) {
-        EXPR( for(size_t i=0; i<nx+2*ngz; ++i), for(size_t j=0; j<ny+2*ngz; ++j), for(size_t k=0; k<nz+2*ngz; ++k) ) {
+        EXPR( for(size_t i=0; i<ext_1; ++i), for(size_t j=0; j<ext_2; ++j), for(size_t k=0; k<ext_3; ++k) ) {
             auto pcoordsl = 
                 coord_system.get_physical_coordinates(
                           {VEC(i,j,k)}

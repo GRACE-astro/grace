@@ -35,6 +35,7 @@
 #include <grace/utils/inline.h>
 #include <grace/utils/device.h>
 #include <grace/utils/prolongation.hh>
+#include <grace/utils/lagrange_interpolators.hh>
 
 #define AM2 -0.0625
 #define AM1  0.5625
@@ -71,7 +72,7 @@ get_metric_array_cell_center(
         state(VEC(i,j,k), ALP_, q)
     } ; 
     #elif defined(GRACE_ENABLE_BSSN_METRIC)
-    using interp_t = utils::detail::threed_lagrange_interp_t<2> ; 
+    using interp_t = utils::corner_staggered_lagrange_interp_t<2> ; 
     std::array<int,6> gamma_indices {
         GTXX_,GTXY_,GTXZ_,GTYY_,GTYZ_,GTZZ_
     } ; 
@@ -80,20 +81,20 @@ get_metric_array_cell_center(
     double alpha, phi ; 
     for( int i=0; i<6; ++i ) {
         auto sview = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), gamma_indices[i], q) ; 
-        gamma[i] = interp_t::interpolate(sview, VEC(i,j,k)) ; 
+        gamma[i] = interp_t::threed_interp(sview, VEC(i,j,k)) ; 
     }
     std::array<int,3> beta_indices {
         BETAX_,BETAY_,BETAZ_
     } ;
     for( int i=0; i<3; ++i ) {
         auto sview = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), beta_indices[i], q) ; 
-        beta[i] = interp_t::interpolate(sview, VEC(i,j,k)) ; 
+        beta[i] = interp_t::threed_interp(sview, VEC(i,j,k)) ; 
     }
     auto sview_alp = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), ALP_, q) ; 
-    alpha = interp_t::interpolate(sview_alp, VEC(i,j,k)) ;
+    alpha = interp_t::threed_interp(sview_alp, VEC(i,j,k)) ;
 
     auto sview_phi = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), PHI_, q) ; 
-    phi = interp_t::interpolate(sview_phi, VEC(i,j,k)) ;
+    phi = interp_t::threed_interp(sview_phi, VEC(i,j,k)) ;
 
     return grace::metric_array_t {
         gamma, phi, beta, alpha 
@@ -133,7 +134,7 @@ get_metric_array_cell_face(
         std::array<int,2>{0,2},
         std::array<int,2>{0,1}
     } ;
-    using interp_t = utils::detail::twod_lagrange_interp_t<dirs[idir][0],dirs[idir][1],2> ; 
+    using interp_t = utils::corner_staggered_lagrange_interp_t<2> ; 
     std::array<int,6> gamma_indices {
         GTXX_,GTXY_,GTXZ_,GTYY_,GTYZ_,GTZZ_
     } ; 
@@ -142,20 +143,20 @@ get_metric_array_cell_face(
     double alpha, phi ; 
     for( int i=0; i<6; ++i ) {
         auto sview = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), gamma_indices[i], q) ; 
-        gamma[i] = interp_t::interpolate(sview, VEC(i,j,k)) ; 
+        gamma[i] = interp_t::twod_interp<dirs[idir][0],dirs[idir][1]>(sview, VEC(i,j,k)) ; 
     }
     std::array<int,3> beta_indices {
         BETAX_,BETAY_,BETAZ_
     } ;
     for( int i=0; i<3; ++i ) {
         auto sview = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), beta_indices[i], q) ; 
-        beta[i] = interp_t::interpolate(sview, VEC(i,j,k)) ; 
+        beta[i] = interp_t::twod_interp<dirs[idir][0],dirs[idir][1]>(sview, VEC(i,j,k)) ; 
     }
     auto sview_alp = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), ALP_, q) ; 
-    alpha = interp_t::interpolate(sview_alp, VEC(i,j,k)) ;
+    alpha = interp_t::twod_interp<dirs[idir][0],dirs[idir][1]>(sview_alp, VEC(i,j,k)) ;
 
     auto sview_phi = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), PHI_, q) ; 
-    phi = interp_t::interpolate(sview_phi, VEC(i,j,k)) ;
+    phi = interp_t::twod_interp<dirs[idir][0],dirs[idir][1]>(sview_phi, VEC(i,j,k)) ;
 
     return grace::metric_array_t {
         gamma, phi, beta, alpha 
@@ -182,19 +183,18 @@ get_extrinsic_curvature(
             , this->_state(VEC(i,j,k),KZZ_,q)
         } ; 
     #elif defined(GRACE_ENABLE_BSSN_METRIC)
-    using interp_t = utils::detail::threed_lagrange_interp_t<2> ; 
+    using interp_t = utils::corner_staggered_lagrange_interp_t<2> ; 
     auto sview = Kokkos::subview(state,VEC(ALL(),ALL(),ALL()), K_, q);
-    K = interp_t::interpolate(sview, VEC(i,j,k)) ; 
-    auto phi = 1./Kokkos::cbrt(gamma.srqtg()) ;
+    double const K = interp_t::threed_interp(sview, VEC(i,j,k)) ; 
+    auto phi = 1./Kokkos::cbrt(gamma.sqrtg()) ;
 
     std::array<int,6> A_indices {
         ATXX_,ATXY_,ATXZ_,ATYY_,ATYZ_,ATZZ_
     } ; 
     std::array<double,6> Kij ; 
-    double K ; 
     for( int i=0; i<6; ++i ) {
         auto sview = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), A_indices[i], q) ; 
-        Kij[i] = interp_t::interpolate(sview, VEC(i,j,k))/(phi*phi) + 1./3. * gamma.gamma(i) * K ; 
+        Kij[i] = interp_t::threed_interp(sview, VEC(i,j,k))/(phi*phi) + 1./3. * gamma.gamma(i) * K ; 
     }
      
     return Kij ; 

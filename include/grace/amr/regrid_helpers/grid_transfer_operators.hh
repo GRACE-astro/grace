@@ -53,8 +53,8 @@ void grace_prolongate_refined_quadrants(
     grace::staggered_variable_arrays_t & sstate,
     grace::staggered_variable_arrays_t & sstate_swap,
     grace::cell_vol_array_t<GRACE_NSPACEDIM> in_vol,
-    grace::device_vector<int> const& refine_incoming,
-    grace::device_vector<int> const& refine_outgoing
+    grace::device_vector<int> & refine_incoming,
+    grace::device_vector<int> & refine_outgoing
 ) ;
 
 void grace_restrict_coarsened_quadrants(
@@ -63,8 +63,8 @@ void grace_restrict_coarsened_quadrants(
     grace::staggered_variable_arrays_t & sstate,
     grace::staggered_variable_arrays_t & sstate_swap,
     grace::cell_vol_array_t<GRACE_NSPACEDIM> out_vol,
-    grace::device_vector<int> const& coarsen_incoming,
-    grace::device_vector<int> const& coarsen_outgoing,
+    grace::device_vector<int> & coarsen_incoming,
+    grace::device_vector<int> & coarsen_outgoing
 ) ; 
 
 template< typename LimT > 
@@ -72,8 +72,8 @@ void prolongate_variables_cell_centered(
     grace::var_array_t<GRACE_NSPACEDIM>& in_state,
     grace::var_array_t<GRACE_NSPACEDIM>& out_state,
     grace::cell_vol_array_t<GRACE_NSPACEDIM> in_vol,
-    grace::device_vector<int> const& in_idx,
-    grace::device_vector<int> const& out_idx
+    grace::device_vector<int> & in_idx,
+    grace::device_vector<int> & out_idx
 ) ; 
 
 
@@ -81,24 +81,23 @@ template< int order >
 void prolongate_variables_corner_staggered(
     grace::var_array_t<GRACE_NSPACEDIM>& in_state,
     grace::var_array_t<GRACE_NSPACEDIM>& out_state,
-    grace::device_vector<int> const& in_idx,
-    grace::device_vector<int> const& out_idx
+    grace::device_vector<int> & in_idx,
+    grace::device_vector<int> & out_idx
 ) ; 
 
 void restrict_variables_cell_centered(
     grace::var_array_t<GRACE_NSPACEDIM>& in_state,
     grace::var_array_t<GRACE_NSPACEDIM>& out_state,
     grace::cell_vol_array_t<GRACE_NSPACEDIM> out_vol,
-    grace::device_vector<int> const& in_idx,
-    grace::device_vector<int> const& out_idx
+    grace::device_vector<int> & in_idx,
+    grace::device_vector<int> & out_idx
 ) ; 
 
 void restrict_variables_corner_staggered(
     grace::var_array_t<GRACE_NSPACEDIM>& in_state,
     grace::var_array_t<GRACE_NSPACEDIM>& out_state,
-    grace::cell_vol_array_t<GRACE_NSPACEDIM> out_vol,
-    grace::device_vector<int> const& in_idx,
-    grace::device_vector<int> const& out_idx
+    grace::device_vector<int> & in_idx,
+    grace::device_vector<int> & out_idx
 ) ; 
 
 /***********************************************************/
@@ -110,21 +109,22 @@ void prolongate_variables_cell_centered<limiter>(   \
     grace::var_array_t<GRACE_NSPACEDIM>& ,          \
     grace::var_array_t<GRACE_NSPACEDIM>& ,          \
     grace::cell_vol_array_t<GRACE_NSPACEDIM> ,      \
-    grace::device_vector<int> const& ,              \
-    grace::device_vector<int> const&                \
+    grace::device_vector<int> & ,                   \
+    grace::device_vector<int> &                     \
 ) ;                                                 \
 extern template                                     \
 void prolongate_variables_corner_staggered<order>(  \
     grace::var_array_t<GRACE_NSPACEDIM>& ,          \
     grace::var_array_t<GRACE_NSPACEDIM>& ,          \
-    grace::device_vector<int> const& ,              \
-    grace::device_vector<int> const&                \
+    grace::device_vector<int> & ,                   \
+    grace::device_vector<int> &                     \
 ) 
 
-INSTANTIATE_TEMPLATE(grace::minmod, 2) ; 
-INSTANTIATE_TEMPLATE(grace::minmod, 4) ; 
-INSTANTIATE_TEMPLATE(grace::MCBeta, 2) ; 
-INSTANTIATE_TEMPLATE(grace::MCBeta, 4) ;
+INSTANTIATE_TEMPLATES(grace::minmod, 2) ; 
+INSTANTIATE_TEMPLATES(grace::minmod, 4) ; 
+INSTANTIATE_TEMPLATES(grace::MCbeta, 2) ; 
+INSTANTIATE_TEMPLATES(grace::MCbeta, 4) ;
+#undef INSTANTIATE_TEMPLATES
 }}
 
 #endif /* GRACE_AMR_REGRID_HELPERS_GRID_TRANSFER_OPERATORS_HH */

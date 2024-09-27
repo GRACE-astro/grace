@@ -221,7 +221,6 @@ struct tov_id_t {
             id.press = _press_atm ; 
         }
         id.vx = 0 ; id.vy = 0; id.vz = 0;
-
         /* Set the metric */
         id.alp   = 
             Kokkos::exp(sol[2]) ; 
@@ -273,7 +272,7 @@ struct tov_id_t {
         id.kyy = 0. ;
         id.kyz = 0. ;
         id.kzz = 0. ;
-        return std::move(id) ; 
+        return std::move(id); 
     }
     
 

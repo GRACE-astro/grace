@@ -28,9 +28,11 @@
 #include <grace_config.h>
 #include <grace/utils/grace_utils.hh>
 #include <grace/amr/amr_functions.hh>
-#include <grace/amr/regrid_helpers.tpp>
 #include <grace/amr/regrid_helpers.hh>
+#include <grace/amr/regrid_helpers.tpp>
+#include <grace/amr/regridding_policy_kernels.tpp>
 #include <grace/data_structures/grace_data_structures.hh>
+#include <grace/system/grace_system.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -39,11 +41,13 @@ namespace grace { namespace amr {
 void evaluate_regrid_criterion(
       std::string const& criterion
     , std::string const& criterion_var
-    , Kokkos::View<int *, grace::default_space>& regrid_flags
+    , Kokkos::View<int *, grace::default_space>& d_regrid_flags
 )
 {
     using namespace grace  ; 
     using namespace Kokkos ;
+    
+    GRACE_VERBOSE("Evaluating regrid criterion ({}).", criterion) ; 
 
     if ( criterion == "FLASH_second_deriv" ) {
         double const eps = get_param<double>("amr", "FLASH_criterion_eps") ; 
@@ -59,14 +63,14 @@ void evaluate_regrid_criterion(
         amr::simple_threshold_criterion<decltype(u)> kernel{ u } ;
         evaluate_regrid_criterion_kernel(
             d_regrid_flags,
-            kernel,
+            kernel
         ) ;  
     } else if ( criterion == "gradient" ) {
         auto u = get_variable_subview(criterion_var) ; 
         amr::gradient_criterion<decltype(u)> kernel{ u } ;
         evaluate_regrid_criterion_kernel(
             d_regrid_flags,
-            kernel,
+            kernel
         ) ;
     } else if ( criterion == "shear" ) {
         auto vx =  get_variable_subview("vel[0]") ; 

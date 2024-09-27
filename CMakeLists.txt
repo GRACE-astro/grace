@@ -39,8 +39,9 @@ include(setup_yaml)
 include(setup_spdlog)
 include(setup_HDF5)
 
-option( GRACE_ENABLE_VTK ON "Enable VTK support")
+option( GRACE_ENABLE_VTK "Enable VTK support" ON)
 if ( GRACE_ENABLE_VTK )
+    message(STATUS "VTK support enabled")
     include(setup_vtk)
 endif() 
 

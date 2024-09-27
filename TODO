@@ -6,3 +6,8 @@
 -- Add regridding capabilities for staggered variables 
 -- Test BSSN 
 -- Remove allocation of unnecessary coordinate helpers if Cartesian. 
+
+UPDATE 
+-- Test compilation without VTK (first remove dependency in HDF5 output)
+-- Test compiling 2D 
+-- Test compiling cowling

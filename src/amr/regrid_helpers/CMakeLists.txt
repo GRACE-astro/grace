@@ -1,2 +1,1 @@
-add_library( grace_regrid_helpers OBJECT evaluate_regrid_criterion.cpp)
-target_include_directories( grace_regrid PRIVATE "${HEADER_DIR}" )
+register_grace_object(grace_regrid_helpers evaluate_regrid_criterion.cpp grid_transfer_operators.cpp partition_grid.cpp)

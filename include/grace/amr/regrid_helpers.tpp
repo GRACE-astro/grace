@@ -116,6 +116,7 @@ void evaluate_regrid_criterion_kernel( ViewT flag_view
         } 
     }) ;
 }
+#if 0
 /**
  * @brief Prolongate all state variables on refined cells.
  * \ingroup amr
@@ -299,7 +300,7 @@ void restrict_corner_staggered_variables( InViewT  in_state
 
 
 }
-
+#endif
 }} /* namespace grace::amr */ 
 
 #endif 

@@ -1,4 +1,4 @@
 add_subdirectory(eos)
-register_grace_object_conditional(grace_scalar_adv scalar_advection.cpp GRACE_ENABLE_SCALAR_ADV)
-register_grace_object_conditional(grace_burgers_eq burgers_equation.cpp GRACE_ENABLE_BURGERS) 
-register_grace_object_conditional(grace_grmhd grmhd.cpp GRACE_ENABLE_GRMHD)
+register_grace_object_conditional(grace_scalar_adv GRACE_ENABLE_SCALAR_ADV scalar_advection.cpp )
+register_grace_object_conditional(grace_burgers_eq GRACE_ENABLE_BURGERS burgers_equation.cpp ) 
+register_grace_object_conditional(grace_grmhd GRACE_ENABLE_GRMHD grmhd.cpp )

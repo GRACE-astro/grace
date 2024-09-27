@@ -44,8 +44,8 @@
 namespace grace { namespace amr { 
 
 void regrid() {
-    auto const criterion = grace::get_param<std::string>("amr", "regrid_criterion") ; 
-    auto const criterion_var = grace::get_param<std::string>("amr", "regrid_criterion_var") ; 
+    auto const criterion = grace::get_param<std::string>("amr", "refinement_criterion") ; 
+    auto const criterion_var = grace::get_param<std::string>("amr", "refinement_criterion_var") ; 
     regrid(criterion,criterion_var) ; 
 }
 
@@ -64,10 +64,10 @@ void regrid( std::string const& regrid_criterion
     auto& sstate = variable_list::get().getstaggeredstate() ; 
     auto& aux = variable_list::get().getaux()               ;
 
-    int nvars_cell_center    = state.extent(GRACE_NSPACEDIM)               ; 
-    int nvars_face_stagger   = variables::get_n_evolved_face_staggered()   ; 
-    int nvars_corner_stagger = variables::get_n_evolved_edge_staggered()   ; 
-    int nvars_edge_stagger   = variables::get_n_evolved_corner_staggered() ; 
+    int nvars_cell_centered      = state.extent(GRACE_NSPACEDIM)               ; 
+    int nvars_face_staggered     = variables::get_n_evolved_face_staggered()   ; 
+    int nvars_edge_staggered     = variables::get_n_evolved_edge_staggered()   ; 
+    int nvars_corner_staggered   = variables::get_n_evolved_corner_staggered() ; 
 
     /***************************************************/
     /*                Get grid properties              */
@@ -83,7 +83,7 @@ void regrid( std::string const& regrid_criterion
     Kokkos::View<int *, default_space> d_regrid_flags("regrid_flags", nq) ; 
     evaluate_regrid_criterion(regrid_criterion, regrid_criterion_var, d_regrid_flags) ; 
     /* copy flags from device to host   */ 
-    auto h_regrid_flags = Kokkos::create_mirror_view(d_regrid_flags)      ;s
+    auto h_regrid_flags = Kokkos::create_mirror_view(d_regrid_flags)      ;
     Kokkos::deep_copy(h_regrid_flags, d_regrid_flags) ; 
     /* Set data where p4est can read it */
     for( size_t iq=0UL; iq<amr::get_local_num_quadrants(); ++iq)
@@ -146,19 +146,19 @@ void regrid( std::string const& regrid_criterion
     Kokkos::realloc(state_swap   , VEC( nx + 2*ngz 
                                  ,      ny + 2*ngz 
                                  ,      nz + 2*ngz )
-                                 , nvars_cell_center
+                                 , nvars_cell_centered
                                  , nq_new                          
     ) ; 
     auto& sstate_swap = variable_list::get().getstaggeredscratch() ; 
     sstate_swap.realloc(
-        , VEC( nx 
+          VEC( nx 
              , ny  
              , nz  )
              , ngz
              , nq_new
-             , nvars_face 
-             , nvars_edge
-             , nvars_corner
+             , nvars_face_staggered
+             , nvars_edge_staggered
+             , nvars_corner_staggered
     ) ; 
     /******************************************************************************************/
     /*                      Collect indices of outgoing and incoming                          */
@@ -167,6 +167,7 @@ void regrid( std::string const& regrid_criterion
     grace::device_vector<int> refine_incoming, coarsen_incoming ;
     grace::device_vector<int> refine_outgoing, coarsen_outgoing ; 
     unsigned long iq_new{0UL}, iq_old{0UL} ;  
+    GRACE_VERBOSE("Initiating copy of data after regrid.") ; 
     while(iq_new < nq_new)
     {       
         quadrant_t quadrant = amr::get_quadrant(iq_new) ; 
@@ -260,7 +261,7 @@ void regrid( std::string const& regrid_criterion
     /******************************************************************************************/
     auto context = grace_partition_begin(
         state,
-        swap,
+        state_swap,
         sstate,
         sstate_swap
     ) ; 
@@ -306,6 +307,7 @@ void regrid( std::string const& regrid_criterion
     /*                                Synchronize everything                                  */
     /******************************************************************************************/
     grace_partition_finalize(context) ;  
+    GRACE_VERBOSE("received.") ; 
     /******************************************************************************************/
     /*                                Copy state to scratch                                   */
     /******************************************************************************************/
@@ -328,6 +330,7 @@ void regrid( std::string const& regrid_criterion
     /*                         Reset quadrants to default state                               */
     /******************************************************************************************/
     set_quadrants_to_default(); 
+    GRACE_VERBOSE("All done.") ; 
     /******************************************************************************************/
     /*                                      All done                                          */
     /******************************************************************************************/

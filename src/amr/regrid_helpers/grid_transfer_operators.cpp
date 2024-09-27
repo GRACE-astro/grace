@@ -34,8 +34,11 @@
 #include <grace/utils/grace_utils.hh>
 #include <grace/utils/device_vector.hh>
 #include <grace/utils/limiters.hh>
+#include <grace/utils/prolongation.hh>
+#include <grace/utils/restriction.hh>
 #include <grace/parallel/mpi_wrappers.hh>
 #include <grace/amr/p4est_headers.hh>
+#include <grace/system/grace_system.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -49,8 +52,8 @@ void prolongate_variables_cell_centered(
     grace::var_array_t<GRACE_NSPACEDIM>& in_state,
     grace::var_array_t<GRACE_NSPACEDIM>& out_state,
     grace::cell_vol_array_t<GRACE_NSPACEDIM> in_vol,
-    grace::device_vector<int> const& in_idx,
-    grace::device_vector<int> const& out_idx
+    grace::device_vector<int>& in_idx,
+    grace::device_vector<int>& out_idx
 )
 {
     using namespace grace ; 
@@ -118,7 +121,7 @@ void prolongate_variables_cell_centered(
                     InterpT::interpolate(
                         VEC(i+ngz,j+ngz,k+ngz),
                         VEC(i0+ngz,j0+ngz,k0+ngz),
-                        iq_child,iq_parent,ngz,ivar,
+                        q_in,q_out,ngz,ivar,
                         VEC(sign_x,sign_y,sign_z),
                         out_state,
                         in_vol
@@ -128,7 +131,7 @@ void prolongate_variables_cell_centered(
                     InterpT::interpolate(
                         VEC(i+ngz,j+ngz,k+ngz),
                         VEC(i0+ngz,j0+ngz,k0+ngz),
-                        iq_child,iq_parent,ngz,ivar,
+                        q_in,q_out,ngz,ivar,
                         VEC(sign_x,sign_y,sign_z),
                         out_state                    
                     ) ;
@@ -143,13 +146,13 @@ template< int order >
 void prolongate_variables_corner_staggered(
     grace::var_array_t<GRACE_NSPACEDIM>& in_state,
     grace::var_array_t<GRACE_NSPACEDIM>& out_state,
-    grace::device_vector<int> const& in_idx,
-    grace::device_vector<int> const& out_idx
+    grace::device_vector<int> & in_idx,
+    grace::device_vector<int> & out_idx
 )
 {
     using namespace grace ; 
     using namespace Kokkos  ;
-    using interp_t = lagrange_prolongator_t<order> ; 
+    using interp_t = utils::lagrange_prolongator_t<order> ; 
 
     int nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
@@ -204,12 +207,13 @@ void prolongate_variables_corner_staggered(
             int const k0 = 
                 math::floor_int((iquad_z * nz + k ) / 2) ; 
             )
-            
-            InterpT::interpolate(
+            auto in_view = subview(in_state, VEC(ALL(),ALL(),ALL()), ivar, q_in ) ; 
+            auto out_view = subview(out_state, VEC(ALL(),ALL(),ALL()), ivar, q_out ) ; 
+            interp_t::interpolate(
                 VEC( (2*i)%nx + ngz, (2*j)%ny + ngz, (2*k)%nz + ngz ),
                 VEC( i + ngz, j + ngz, k + ngz ),
-                out_state,
-                in_state
+                out_view,
+                in_view
             ) ;
         }
     ) ; 
@@ -222,29 +226,29 @@ void grace_prolongate_refined_quadrants(
     grace::staggered_variable_arrays_t & sstate,
     grace::staggered_variable_arrays_t & sstate_swap,
     grace::cell_vol_array_t<GRACE_NSPACEDIM> in_vol,
-    grace::device_vector<int> const& refine_incoming,
-    grace::device_vector<int> const& refine_outgoing
+    grace::device_vector<int> & refine_incoming,
+    grace::device_vector<int> & refine_outgoing
 ) 
 {
     using namespace grace ; 
     using namespace Kokkos ; 
 
     auto const limiter = get_param<std::string>("amr", "prolongation_limiter_type") ; 
+
+    GRACE_VERBOSE("Initiating prolongation on refined quadrants.") ; 
     if ( limiter == "minmod" ) {
         prolongate_variables_cell_centered<grace::minmod> ( 
             state_swap,
             state,
             in_vol,
-            in_vol,
             refine_incoming,
             refine_outgoing
         ) ;
     } else if ( limiter == "monotonized-central") {
-        prolongate_variables_cell_centered<grace::MCBeta> ( 
+        prolongate_variables_cell_centered<grace::MCbeta> ( 
             state_swap,
             state,
             in_vol,
-            vol,
             refine_incoming,
             refine_outgoing
         ) ; 
@@ -276,8 +280,8 @@ void restrict_variables_cell_centered(
     grace::var_array_t<GRACE_NSPACEDIM>& in_state,
     grace::var_array_t<GRACE_NSPACEDIM>& out_state,
     grace::cell_vol_array_t<GRACE_NSPACEDIM> out_vol,
-    grace::device_vector<int> const& in_idx,
-    grace::device_vector<int> const& out_idx
+    grace::device_vector<int> & in_idx,
+    grace::device_vector<int> & out_idx
 )
 {
     using namespace grace  ;
@@ -323,10 +327,10 @@ void restrict_variables_cell_centered(
             )
             #ifndef GRACE_CARTESIAN_COORDINATES
             in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) 
-                = vol_average_restrictor_t::apply(VEC(i0,j0,k0),out_state,out_vol,iq,ivar) ; 
+                = utils::vol_average_restrictor_t::apply(VEC(i0,j0,k0),out_state,out_vol,iq,ivar) ; 
             #else
             in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) 
-                = vol_average_restrictor_t::apply(VEC(i0,j0,k0),out_state,q_in,ivar) ; 
+                = utils::vol_average_restrictor_t::apply(VEC(i0,j0,k0),out_state,q_in,ivar) ; 
             #endif 
         }
     ); 
@@ -335,9 +339,8 @@ void restrict_variables_cell_centered(
 void restrict_variables_corner_staggered(
     grace::var_array_t<GRACE_NSPACEDIM>& in_state,
     grace::var_array_t<GRACE_NSPACEDIM>& out_state,
-    grace::cell_vol_array_t<GRACE_NSPACEDIM> out_vol,
-    grace::device_vector<int> const& in_idx,
-    grace::device_vector<int> const& out_idx
+    grace::device_vector<int> & in_idx,
+    grace::device_vector<int> & out_idx
 )
 {
     using namespace grace ; 
@@ -399,13 +402,14 @@ void grace_restrict_coarsened_quadrants(
     grace::staggered_variable_arrays_t & sstate,
     grace::staggered_variable_arrays_t & sstate_swap,
     grace::cell_vol_array_t<GRACE_NSPACEDIM> out_vol,
-    grace::device_vector<int> const& coarsen_incoming,
-    grace::device_vector<int> const& coarsen_outgoing,
+    grace::device_vector<int> & coarsen_incoming,
+    grace::device_vector<int> & coarsen_outgoing
 ) 
 {
     using namespace grace ; 
 
-
+    GRACE_VERBOSE("Initiating restriction on coarsened quadrants.") ; 
+    
     restrict_variables_cell_centered(
         state_swap,
         state,
@@ -425,27 +429,28 @@ void grace_restrict_coarsened_quadrants(
 /***********************************************************/
 /*                  Intantiate templates                   */
 /***********************************************************/
-#define INSTANTIATE_TEMPLATES(limiter,order)        \
+#define INSTANTIATE_TEMPLATE1(limiter)              \
 template                                            \
 void prolongate_variables_cell_centered<limiter>(   \
     grace::var_array_t<GRACE_NSPACEDIM>& ,          \
     grace::var_array_t<GRACE_NSPACEDIM>& ,          \
     grace::cell_vol_array_t<GRACE_NSPACEDIM> ,      \
-    grace::device_vector<int> const& ,              \
-    grace::device_vector<int> const&                \
-) ;                                                 \
+    grace::device_vector<int> & ,                   \
+    grace::device_vector<int> &                     \
+)                                             
+#define INSTANTIATE_TEMPLATE2(order)                \
 template                                            \
 void prolongate_variables_corner_staggered<order>(  \
     grace::var_array_t<GRACE_NSPACEDIM>& ,          \
     grace::var_array_t<GRACE_NSPACEDIM>& ,          \
-    grace::device_vector<int> const& ,              \
-    grace::device_vector<int> const&                \
+    grace::device_vector<int> & ,                   \
+    grace::device_vector<int> &                     \
 ) 
 
-INSTANTIATE_TEMPLATE(grace::minmod, 2) ; 
-INSTANTIATE_TEMPLATE(grace::minmod, 4) ; 
-INSTANTIATE_TEMPLATE(grace::MCBeta, 2) ; 
-INSTANTIATE_TEMPLATE(grace::MCBeta, 4) ; 
+INSTANTIATE_TEMPLATE1(grace::minmod) ; 
+INSTANTIATE_TEMPLATE2(2) ; 
+INSTANTIATE_TEMPLATE1(grace::MCbeta) ; 
+INSTANTIATE_TEMPLATE2(4) ; 
 
 
 }} /* namespace grace::amr */

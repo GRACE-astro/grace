@@ -37,7 +37,7 @@
 
 #include <grace/amr/quadrant.hh>
 #include <grace/amr/tree.hh>
-#include <grace/amr/amr_flags.hh>
+#include <grace/amr/regrid_helpers.hh>
 #include <grace/amr/connectivity.hh>
 #include <grace/amr/forest.hh>
 #include <grace/amr/amr_functions.hh>

@@ -226,6 +226,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
     grace::fill_physical_coordinates(pcoords) ; 
     GRACE_TRACE("Filled physical coordinates array.") ; 
     auto& state = grace::variable_list::get().getstate() ; 
+    auto& sstate = grace::variable_list::get().getstaggeredstate() ;
     auto& aux   = grace::variable_list::get().getaux()   ; 
 
     auto const& _eos = eos::get().get_eos<eos_t>() ; 
@@ -242,7 +243,8 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),RHO_,q)   = id.rho; 
                     aux(VEC(i,j,k),PRESS_,q) = id.press ; 
 
-                    state(VEC(i,j,k),ALP_,q) = id.alp ;
+                    #ifdef GRACE_ENABLE_ADM_METRIC
+                    state(VEC(i,j,k),_ALP_,q) = id.alp ;
 
                     state(VEC(i,j,k),BETAX_,q) = id.betax ;
                     state(VEC(i,j,k),BETAY_,q) = id.betay ;
@@ -261,6 +263,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     state(VEC(i,j,k),KYY_,q) = id.kyy ; 
                     state(VEC(i,j,k),KYZ_,q) = id.kyz ;
                     state(VEC(i,j,k),KZZ_,q) = id.kzz ;
+                    #endif 
 
                     auto const v2 = id.gxx * id.vx * id.vx +
                                     id.gyy * id.vy * id.vy +
@@ -293,6 +296,19 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     /* Set ye */
                     aux(VEC(i,j,k),YE_,q) = ye ; 
                 }) ; 
+    #ifdef GRACE_ENABLE_BSSN_METRIC
+    grace::fill_physical_coordinates(pcoords, {VEC(0,0,0)}, {VEC(true,true,true)}) ;
+    parallel_for( GRACE_EXECUTION_TAG("ID","metric_ID")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+1+2*ngz,ny+1+2*ngz,nz+1+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    auto const id = id_kernel(VEC(i,j,k), q) ; 
+
+                    //amd_to_bssn(id, sstate.corner_staggered_fields, VEC(i,j,k), q) ; 
+                }
+    ) ; 
+
+    #endif 
 }
 
 template< typename eos_t >
