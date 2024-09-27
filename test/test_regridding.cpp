@@ -30,7 +30,7 @@
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/IO/vtk_output.hh>
+#include <grace/IO/cell_output.hh>
 #include <grace/parallel/mpi_wrappers.hh>
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -236,14 +236,17 @@ TEST_CASE("Simple regrid", "[regrid]")
     }
     parallel::mpi_allreduce(&exact_total_local,&exact_total,1,sc_MPI_SUM) ; 
     /*write output and regrid*/
-    //grace::IO::write_cell_output(true,true,true) ; 
+    grace::IO::write_cell_output(true,true,true) ; 
     grace::amr::regrid() ;  
     grace::runtime::get().increment_iteration() ; 
-    //grace::IO::write_cell_output(true,true,true) ; 
+    grace::runtime::get().set_timestep(1) ; 
+    grace::runtime::get().increment_time(); 
+    grace::IO::write_cell_output(true,true,true) ; 
     /* compute the new volume integrated value */
     nq = grace::amr::get_local_num_quadrants() ; // new number of quadrants (after regrid)
     ncells = EXPR((nx),*(ny),*(nz))*nq ;
     /* Copy data from device after regrid      */
+    std::cout << "New nq " << nq << std::endl ; 
     std::cout << "Starting check on " << ncells << " cells" << std::endl ;
     auto h_state_mirror_new = Kokkos::create_mirror_view(state) ; 
     Kokkos::deep_copy(h_state_mirror_new,state); 
@@ -274,7 +277,7 @@ TEST_CASE("Simple regrid", "[regrid]")
         total_local += h_state_mirror_new(VEC(i+ngz,j+ngz,k+ngz),DENS,q) * cell_volume ; 
         #ifdef GRACE_CARTESIAN_COORDINATES
         /* In spherical coordinates this won't work (and it should not!) */
-        REQUIRE_THAT(h_state_mirror_new(VEC(i+ngz,j+ngz,k+ngz),DENS,q)
+        CHECK_THAT(h_state_mirror_new(VEC(i+ngz,j+ngz,k+ngz),DENS,q)
         , Catch::Matchers::WithinAbs(
                   h_func(VEC(pcoords[0],pcoords[1],pcoords[2]))
                 , 1e-12)) ;

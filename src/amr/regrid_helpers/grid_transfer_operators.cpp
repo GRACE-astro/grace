@@ -112,9 +112,9 @@ void prolongate_variables_cell_centered(
                     math::floor_int((iquad_z * nz + k ) / 2) ; 
                 )
                 EXPR(
-                    int const sign_x = (i%2==1) - (i%2==0) ;, 
-                    int const sign_y = (j%2==1) - (j%2==0) ;, 
-                    int const sign_z = (k%2==1) - (k%2==0) ; 
+                int const sign_x = (i%2==1) - (i%2==0) ;, 
+                int const sign_y = (j%2==1) - (j%2==0) ;, 
+                int const sign_z = (k%2==1) - (k%2==0) ; 
                 )
                 #ifndef GRACE_CARTESIAN_COORDINATES
                 in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) = 
@@ -315,9 +315,11 @@ void restrict_variables_cell_centered(
             ,const unsigned int& iq_parent)
         {
             int const ichild = 
-                EXPR( (2*i)/nx, + (2*j)/ny * 2, + (2*k)/nz * 2 * 2 ) ; 
+                EXPR( math::floor_int((2*i)/nx), 
+                    + math::floor_int((2*j)/ny) * 2, 
+                    + math::floor_int((2*k)/nz) * 2 * 2 ) ; 
             int const q_out = 
-                p_out_idx( iq_parent + ichild * P4EST_CHILDREN ) ; 
+                p_out_idx( P4EST_CHILDREN * iq_parent + ichild  ) ; 
             int const q_in  = p_in_idx(iq_parent) ; 
 
             EXPR(
@@ -327,10 +329,10 @@ void restrict_variables_cell_centered(
             )
             #ifndef GRACE_CARTESIAN_COORDINATES
             in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) 
-                = utils::vol_average_restrictor_t::apply(VEC(i0,j0,k0),out_state,out_vol,iq,ivar) ; 
+                = utils::vol_average_restrictor_t::apply(VEC(i0,j0,k0),out_state,out_vol,q_out,ivar) ; 
             #else
             in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) 
-                = utils::vol_average_restrictor_t::apply(VEC(i0,j0,k0),out_state,q_in,ivar) ; 
+                = utils::vol_average_restrictor_t::apply(VEC(i0,j0,k0),out_state,q_out,ivar) ; 
             #endif 
         }
     ); 
@@ -366,8 +368,8 @@ void restrict_variables_corner_staggered(
     auto p_out_idx = out_idx.d_view ; 
 
     MDRangePolicy<IndexType<int>, Rank<GRACE_NSPACEDIM+2>,default_execution_space>
-        policy( {VEC(0,0,0),0,0}, {VEC(nx+1,ny+1,nz+1),nvar,in_n_quad}) ; 
-    parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_cell_centered_variables")
+        policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,in_n_quad}) ; 
+    parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_corner_staggered_variables")
         , policy 
         , KOKKOS_LAMBDA (
             VEC(const unsigned int& i
@@ -381,7 +383,7 @@ void restrict_variables_corner_staggered(
                     + math::floor_int((2*j)/ny) * 2, 
                     + math::floor_int((2*k)/nz) * 2 * 2 ) ; 
             int const q_out = 
-                p_out_idx( iq_parent + ichild * P4EST_CHILDREN ) ; 
+                p_out_idx( P4EST_CHILDREN * iq_parent + ichild ) ; 
             int const q_in  = p_in_idx(iq_parent) ; 
 
             EXPR(
@@ -391,7 +393,22 @@ void restrict_variables_corner_staggered(
             )
             
             in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) 
-                = out_state(VEC(i0,j0,k0),ivar,q_in) ; 
+                = out_state(VEC(i0,j0,k0),ivar,q_out) ; 
+            in_state(VEC(i+1+ngz,j+ngz,k+ngz),ivar,q_in) 
+                = out_state(VEC(i0+2,j0,k0),ivar,q_out) ;
+            in_state(VEC(i+ngz,j+1+ngz,k+ngz),ivar,q_in) 
+                = out_state(VEC(i0,j0+2,k0),ivar,q_out) ;
+            in_state(VEC(i+ngz,j+ngz,k+ngz+1),ivar,q_in) 
+                = out_state(VEC(i0,j0,k0+2),ivar,q_out) ;
+
+            in_state(VEC(i+1+ngz,j+1+ngz,k+ngz),ivar,q_in) 
+                = out_state(VEC(i0+2,j0+2,k0),ivar,q_out) ; 
+            in_state(VEC(i+1+ngz,j+ngz,k+1+ngz),ivar,q_in) 
+                = out_state(VEC(i0+2,j0,k0+2),ivar,q_out) ;
+            in_state(VEC(i+ngz,j+1+ngz,k+1+ngz),ivar,q_in) 
+                = out_state(VEC(i0,j0+2,k0+2),ivar,q_out) ;
+            in_state(VEC(i+1+ngz,j+1+ngz,k+ngz+1),ivar,q_in) 
+                = out_state(VEC(i0+2,j0+2,k0+2),ivar,q_out) ;
         }
     ); 
 }
@@ -424,6 +441,7 @@ void grace_restrict_coarsened_quadrants(
         coarsen_incoming,
         coarsen_outgoing
     ) ;
+
 }
 
 /***********************************************************/

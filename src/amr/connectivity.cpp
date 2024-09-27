@@ -49,37 +49,18 @@ new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
 {
     auto x_ext{xmax-xmin}, y_ext{ymax-ymin}, z_ext{zmax-zmin} ; 
 
-    uint32_t nx,ny,nz ; 
-    if( x_ext < y_ext ) { 
-        if( x_ext < z_ext ) { 
-            nx = 1 ; 
-            ny = static_cast<uint32_t>(y_ext / x_ext) ;
-            nz = static_cast<uint32_t>(z_ext / x_ext) ;
-            y_ext = ny * x_ext ; 
-            z_ext = nz * x_ext ; 
-        } else { 
-            nz = 1 ; 
-            nx = static_cast<uint32_t>(x_ext / z_ext) ;
-            ny = static_cast<uint32_t>(y_ext / z_ext) ;
-            x_ext = nx * z_ext ; 
-            y_ext = ny * z_ext ;
-        }
-    } else { 
-        if ( y_ext < z_ext ) {
-            ny = 1 ; 
-            nz = static_cast<uint32_t>(z_ext / y_ext) ;
-            nx = static_cast<uint32_t>(x_ext / y_ext) ;
-            x_ext = nx * y_ext ; 
-            z_ext = nz * y_ext ;
-        } else { 
-            nz = 1 ; 
-            nx = static_cast<uint32_t>(x_ext / z_ext) ;
-            ny = static_cast<uint32_t>(y_ext / z_ext) ;
-            x_ext = nx * z_ext ; 
-            y_ext = ny * z_ext ;
-        }
-    }
-    double x_tree { x_ext / nx } , y_tree { y_ext / ny }, z_tree { z_ext / nz } ; 
+    // Determine the minimum extent to base the grid size on
+    double min_ext = std::min({x_ext, y_ext, z_ext});
+
+    uint32_t nx = static_cast<uint32_t>(x_ext / min_ext);
+    uint32_t ny = static_cast<uint32_t>(y_ext / min_ext);
+    uint32_t nz = static_cast<uint32_t>(z_ext / min_ext);
+
+    // Adjust the extents to fit the grid
+    x_ext = nx * min_ext;
+    y_ext = ny * min_ext;
+    z_ext = nz * min_ext;
+    double x_tree { min_ext } , y_tree { min_ext }, z_tree { min_ext } ; 
     auto conn = p4est_connectivity_new_brick( nx,ny,nz, periodic_x,periodic_y,periodic_z ) ;
     // We manually set the vertices' coordinates to their physical value  
     auto vertices = conn->vertices; 

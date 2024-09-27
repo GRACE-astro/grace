@@ -78,7 +78,7 @@ void regrid( std::string const& regrid_criterion
     std::tie(nx,ny,nz) = amr::get_quadrant_extents()       ; 
     auto ngz = amr::get_n_ghosts()                         ; 
     size_t nq = amr::get_local_num_quadrants()             ;
-
+    GRACE_VERBOSE("Starting regrid with {} local quadrants", nq) ; 
     /* create host and device views to hold refinement / coarsening flags */ 
     Kokkos::View<int *, default_space> d_regrid_flags("regrid_flags", nq) ; 
     evaluate_regrid_criterion(regrid_criterion, regrid_criterion_var, d_regrid_flags) ; 
@@ -216,7 +216,7 @@ void regrid( std::string const& regrid_criterion
     }
     refine_incoming.host_to_device() ; refine_outgoing.host_to_device() ; 
     coarsen_incoming.host_to_device() ; coarsen_outgoing.host_to_device() ;
-    
+    GRACE_VERBOSE("Incoming (coarsen) {}, outgoing (coarsen) {}", coarsen_incoming.size(), coarsen_outgoing.size()) ; 
     ASSERT_DBG( iq_old == nq, 
               "Something went really wrong. "
               "nq= " << nq << " iq= " << iq_old <<".") ;
@@ -248,7 +248,7 @@ void regrid( std::string const& regrid_criterion
     /*                      Prolongate data on refined quadrants                              */
     /******************************************************************************************/
     grace_prolongate_refined_quadrants(
-        state,state_swap,sstate,sstate_swap,in_vol,refine_incoming,refine_outgoing
+        state, state_swap, sstate, sstate_swap, in_vol, refine_incoming, refine_outgoing
     ) ; 
     /******************************************************************************************/
     /*                      Restrict data on coarsened quadrants                              */
@@ -330,7 +330,7 @@ void regrid( std::string const& regrid_criterion
     /*                         Reset quadrants to default state                               */
     /******************************************************************************************/
     set_quadrants_to_default(); 
-    GRACE_VERBOSE("All done.") ; 
+    GRACE_VERBOSE("Finished regrid with {} local quadrants", nq_local) ; 
     /******************************************************************************************/
     /*                                      All done                                          */
     /******************************************************************************************/
