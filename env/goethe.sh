@@ -2,12 +2,8 @@
 module load mpi/openmpi/5.0.5-rocm ucx/1.17.0 rocm
 export PATH=${ROCM_PATH}/bin:${PATH}
 export LD_LIBRARY_PATH=${ROCM_PATH}/lib:${LD_LIBRARY_PATH}
-export OMPI_ROOT=/home/astro/musolino/libs/ompi-install
-export PATH=${OMPI_ROOT}/bin:${PATH}
-export LD_LIBRARY_PATH=${OMPI_ROOT}/lib:${LD_LIBRARY_PATH}
 
 export OMPI_CXX=hipcc 
-export MPI_CXX=${OMPI_ROOT}/bin/mpicxx
 
 alias mpirun='mpirun --mca pml ucx --mca osc ucx \
               --mca coll_ucc_enable 1 \
