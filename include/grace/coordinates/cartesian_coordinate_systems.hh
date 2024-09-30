@@ -36,8 +36,8 @@
 #include <grace/config/config_parser.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 
-#include<array>
-
+#include <array>
+#include <tuple>
 namespace grace { 
 
 struct cartesian_device_coordinate_system_impl_t
@@ -604,6 +604,10 @@ class cartesian_coordinate_system_impl_t
     //**************************************************************************************************
     //! Tree vertices and spacings        
     Kokkos::View<double*,grace::default_space> tree_vertices_, tree_spacings_ ;
+    //! Grid boundaries
+    std::array<std::pair<double,double>, GRACE_NSPACEDIM> grid_bnd_           ;
+    //! Grid periodicity
+    std::array<bool, GRACE_NSPACEDIM> is_periodic_                            ;
     //**************************************************************************************************
     /**
      * @brief Construct a new cartesian coordinate system.

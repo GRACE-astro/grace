@@ -68,6 +68,31 @@ cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
          
     }
 
+    std::pair<double,double> xbnd { 
+        grace::get_param<double>("amr", "xmin"),
+        grace::get_param<double>("amr", "xmax")
+    } ;
+    std::pair<double,double> ybnd { 
+        grace::get_param<double>("amr", "ymin"),
+        grace::get_param<double>("amr", "ymax")
+    } ;
+    std::pair<double,double> zbnd { 
+        grace::get_param<double>("amr", "zmin"),
+        grace::get_param<double>("amr", "zmax")
+    } ;
+    
+    grid_bnd_ = std::array<std::pair<double,double>, GRACE_NSPACEDIM>{
+        VEC(
+        xbnd,ybnd,zbnd
+        )
+    } ;
+
+    is_periodic_ = std::array<bool, GRACE_NSPACEDIM> {
+        VEC(grace::get_param<bool>("amr","periodic_x"), 
+            grace::get_param<bool>("amr","periodic_y"), 
+            grace::get_param<bool>("amr","periodic_z"))
+    } ; 
+
     deep_copy(tree_vertices_,h_tree_vertices);
     deep_copy(tree_spacings_,h_tree_spacings);
 }
@@ -79,7 +104,8 @@ cartesian_coordinate_system_impl_t::get_physical_coordinates(
     , std::array<double, GRACE_NSPACEDIM> const& logical_coordinates ) const
 {
     auto const tree_coords = amr::get_tree_vertex(itree,0UL) ; 
-    auto const dx_tree     = amr::get_tree_spacing(itree) ;
+    auto const dx_tree     = amr::get_tree_spacing(itree)    ;
+
     return {VEC(
         logical_coordinates[0] * dx_tree[0] + tree_coords[0],
         logical_coordinates[1] * dx_tree[1] + tree_coords[1],
@@ -96,7 +122,21 @@ cartesian_coordinate_system_impl_t::get_physical_coordinates(
 {
     using namespace grace ; 
     int64_t itree = amr::get_quadrant_owner(q)   ; 
-    return get_physical_coordinates(itree, get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones)) ; 
+    auto pcoords = get_physical_coordinates(itree, get_logical_coordinates(ijk,q,cell_coordinates,use_ghostzones)) ; 
+    // Check if coordinates are out of bounds and apply 
+    // periodicity if necessary
+    #pragma unroll GRACE_NSPACEDIM
+    for( int id=0; id<GRACE_NSPACEDIM; ++id){
+        if( is_periodic_[id] ) {
+            if ( pcoords[id] < grid_bnd_[id].first ) {
+                pcoords[id] = grid_bnd_[id].second - (grid_bnd_[id].first-pcoords[id]) ;
+            } else if ( pcoords[id] > grid_bnd_[id].second) {
+                pcoords[id] = grid_bnd_[id].first + (pcoords[id]-grid_bnd_[id].second) ; 
+            }
+        }
+    }
+
+    return pcoords;
 }
 
 
