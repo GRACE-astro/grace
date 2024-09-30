@@ -6,17 +6,18 @@ amr: {
   periodic_x: true,
   periodic_y: true,
   periodic_z: true,
-  xmin: -2.,
-  xmax: 2.,
+  xmin: -1.,
+  xmax: 1.,
   ymin: -1.,
   ymax: 1.,
   zmin: 0.,
   zmax: 1.,
-  n_ghostzones: 2,
-  initial_refinement_level: 2,
+  n_ghostzones: 4,
+  initial_refinement_level: 2, #2,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 0.5,
-  refinement_criterion_CTODE: 0.01
+  refinement_criterion_CTODE: 0.01,
+  prolongation_order: 4 
 }
 IO: {
   volume_output_cell_variables: ["dens"]

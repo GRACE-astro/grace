@@ -294,7 +294,7 @@ void fill_jacobian_matrices( jacobian_array_t& jac
                 }
             }
             
-        }, true 
+        }, {VEC(false,false,false)}, true 
     ) ; 
  
     Kokkos::deep_copy(jac    , hj ) ;

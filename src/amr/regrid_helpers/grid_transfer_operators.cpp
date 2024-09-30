@@ -175,7 +175,6 @@ void prolongate_variables_corner_staggered(
     /* interpolator fill all the corresponding */
     /* fine quadrants.                         */
     /*******************************************/
-
     MDRangePolicy<IndexType<int>, Rank<GRACE_NSPACEDIM+2>,default_execution_space>
         policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,out_n_quad}) ; 
     parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_corner_staggered_variables")
@@ -187,30 +186,28 @@ void prolongate_variables_corner_staggered(
             ,const unsigned int& ivar
             ,const unsigned int& iq_parent)
         {
-            size_t q_out = p_out_idx(iq_parent) ; 
-
-            EXPR( 
-            int8_t const iquad_x = math::floor_int(i/nx);, 
-            int8_t const iquad_y = math::floor_int(j/ny);,
-            int8_t const iquad_z = math::floor_int(k/nz);
-            )
-            int8_t const ichild = iquad_x + 2 * (iquad_y + 2*iquad_z) ;
-            size_t const q_in  = p_in_idx(P4EST_CHILDREN*iq_parent + ichild) ; 
-            
+            // Fine quadrant child index 
+            int const ichild = 
+                EXPR( math::floor_int((2*i)/nx), 
+                    + math::floor_int((2*j)/ny) * 2, 
+                    + math::floor_int((2*k)/nz) * 2 * 2 ) ; 
+            // Fine quadrant index 
+            int const q_in = 
+                p_in_idx( P4EST_CHILDREN * iq_parent + ichild ) ; 
+            // Coarse quadrant index
+            int const q_out  = p_out_idx(iq_parent) ; 
+            // Fine cell indices 
             EXPR(
-            int const i0 = 
-                math::floor_int((iquad_x * nx + i ) / 2) ;,
-
-            int const j0 = 
-                math::floor_int((iquad_y * ny + j ) / 2) ;,
-
-            int const k0 = 
-                math::floor_int((iquad_z * nz + k ) / 2) ; 
+            const int i0 = (2*i) % nx + ngz;,
+            const int j0 = (2*j) % ny + ngz;,
+            const int k0 = (2*k) % nz + ngz;
             )
+            // Fine subview (quad and var specialized)
             auto in_view = subview(in_state, VEC(ALL(),ALL(),ALL()), ivar, q_in ) ; 
+            // Coarse subview (quad and var specialized)
             auto out_view = subview(out_state, VEC(ALL(),ALL(),ALL()), ivar, q_out ) ; 
             interp_t::interpolate(
-                VEC( (2*i)%nx + ngz, (2*j)%ny + ngz, (2*k)%nz + ngz ),
+                VEC( i0,j0,k0 ),
                 VEC( i + ngz, j + ngz, k + ngz ),
                 out_view,
                 in_view
@@ -367,6 +364,13 @@ void restrict_variables_corner_staggered(
     auto p_in_idx  = in_idx.d_view  ; 
     auto p_out_idx = out_idx.d_view ; 
 
+    /***************************************************/
+    /*  Here we:                                       */
+    /*  Loop over the incoming (coarse) quadrants      */
+    /*  and cells. Find which child we are in and fill */
+    /*  the 8 vertices of the coarse cell with the     */
+    /*  corresponding fine data.                       */
+    /***************************************************/
     MDRangePolicy<IndexType<int>, Rank<GRACE_NSPACEDIM+2>,default_execution_space>
         policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,in_n_quad}) ; 
     parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_corner_staggered_variables")
@@ -378,20 +382,23 @@ void restrict_variables_corner_staggered(
             ,const unsigned int& ivar
             ,const unsigned int& iq_parent)
         {
+            // Fine quadrant child index 
             int const ichild = 
                 EXPR( math::floor_int((2*i)/nx), 
                     + math::floor_int((2*j)/ny) * 2, 
                     + math::floor_int((2*k)/nz) * 2 * 2 ) ; 
+            // Fine quadrant index 
             int const q_out = 
                 p_out_idx( P4EST_CHILDREN * iq_parent + ichild ) ; 
+            // Coarse quadrant index
             int const q_in  = p_in_idx(iq_parent) ; 
-
+            // Fine cell indices 
             EXPR(
             const int i0 = (2*i) % nx + ngz;,
             const int j0 = (2*j) % ny + ngz;,
             const int k0 = (2*k) % nz + ngz;
             )
-            
+            // Copy data fine to coarse 
             in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) 
                 = out_state(VEC(i0,j0,k0),ivar,q_out) ; 
             in_state(VEC(i+1+ngz,j+ngz,k+ngz),ivar,q_in) 
@@ -407,6 +414,7 @@ void restrict_variables_corner_staggered(
                 = out_state(VEC(i0+2,j0,k0+2),ivar,q_out) ;
             in_state(VEC(i+ngz,j+1+ngz,k+1+ngz),ivar,q_in) 
                 = out_state(VEC(i0,j0+2,k0+2),ivar,q_out) ;
+            
             in_state(VEC(i+1+ngz,j+1+ngz,k+ngz+1),ivar,q_in) 
                 = out_state(VEC(i0+2,j0+2,k0+2),ivar,q_out) ;
         }

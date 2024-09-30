@@ -29,6 +29,10 @@
 
 #include <grace/utils/gridloop.hh>
 
+#include <catch2/catch_test_macros.hpp>
+
+#include <Kokkos_Core.hpp>
+
 TEST_CASE("grid_loop", "[utils][hostutils]")
 {
     using namespace grace; 
@@ -42,17 +46,24 @@ TEST_CASE("grid_loop", "[utils][hostutils]")
     /* Set up an arrays on Host */ 
     /****************************/
     View<int EXPR(*,*,*)*, HostSpace> 
-        arr{"arr",VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz), nq} ,
-        arr_x"arr_x",{VEC(nx+1+2*ngz,ny+2*ngz,nz+2*ngz), nq} ,
-        arr_y{"arr_y",VEC(nx+2*ngz,ny+1+2*ngz,nz+2*ngz), nq} ,
-        arr_z{"arr_z",VEC(nx+2*ngz,ny+2*ngz,nz+1+2*ngz), nq} ,
-        arr_xy{"arr_xy",VEC(nx+1+2*ngz,ny+1+2*ngz,nz+2*ngz), nq} ,
-        arr_xz{"arr_xz",VEC(nx+1+2*ngz,ny+2*ngz,nz+1+2*ngz), nq} ,
-        arr_yz{"arr_yz",VEC(nx+2*ngz,ny+1+2*ngz,nz+1+2*ngz), nq} ,
+        arr{"arr",VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz), nq} ;
+    View<int EXPR(*,*,*)*, HostSpace> 
+        arr_x{"arr_x",VEC(nx+1+2*ngz,ny+2*ngz,nz+2*ngz), nq} ;
+    View<int EXPR(*,*,*)*, HostSpace> 
+        arr_y{"arr_y",VEC(nx+2*ngz,ny+1+2*ngz,nz+2*ngz), nq} ;
+    View<int EXPR(*,*,*)*, HostSpace> 
+        arr_z{"arr_z",VEC(nx+2*ngz,ny+2*ngz,nz+1+2*ngz), nq} ;
+    View<int EXPR(*,*,*)*, HostSpace> 
+        arr_xy{"arr_xy",VEC(nx+1+2*ngz,ny+1+2*ngz,nz+2*ngz), nq} ;
+    View<int EXPR(*,*,*)*, HostSpace> 
+        arr_xz{"arr_xz",VEC(nx+1+2*ngz,ny+2*ngz,nz+1+2*ngz), nq} ;
+    View<int EXPR(*,*,*)*, HostSpace> 
+        arr_yz{"arr_yz",VEC(nx+2*ngz,ny+1+2*ngz,nz+1+2*ngz), nq} ;
+    View<int EXPR(*,*,*)*, HostSpace> 
         arr_xyz{"arr_xyz",VEC(nx+1+2*ngz,ny+1+2*ngz,nz+1+2*ngz), nq} ; 
 
     // No stagger with gz 
-    host_grid_loop(
+    host_grid_loop<false>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q)
         {
             arr(VEC(i,j,k),q) = 42 ; 
@@ -61,7 +72,7 @@ TEST_CASE("grid_loop", "[utils][hostutils]")
         true 
     ) ; 
     // check 
-    auto ncells   = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
+    size_t const ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*((nz+2*ngz))) * nq ; 
     for( size_t icell=0UL; icell<ncells; icell+=1UL)
     {
         size_t const i = icell%(nx+2*ngz) ; 
@@ -74,6 +85,33 @@ TEST_CASE("grid_loop", "[utils][hostutils]")
         #else 
         size_t const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
         #endif
-        CHECK_THAT( arr(VEC(i,j,k),q) == 42 ) ; 
+        CHECK( arr(VEC(i,j,k),q) == 42 ) ; 
     } 
+
+    // No stagger with gz 
+    host_grid_loop<true>(
+        [&] (VEC(size_t i, size_t j, size_t k), size_t q)
+        {
+            arr(VEC(i,j,k),q) *= 2 ; 
+        },
+        {VEC(false,false,false)},
+        true 
+    ) ; 
+    // check 
+    
+    for( size_t icell=0UL; icell<ncells; icell+=1UL)
+    {
+        size_t const i = icell%(nx+2*ngz) ; 
+        size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
+        #ifdef GRACE_3D 
+        size_t const k = 
+            (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
+        size_t const q = 
+            (icell/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ;
+        #else 
+        size_t const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
+        #endif
+        CHECK( arr(VEC(i,j,k),q) == 84 ) ; 
+    } 
+
 }

@@ -194,18 +194,11 @@ struct corner_staggered_lagrange_interp_t<4>
     {
         using utils::delta; 
         static_assert( not (idir == jdir), "jdir and idir should never coincide in 2D lagrange.") ;  
-        return ( 81*view(VEC(ic,jc,kc)) 
-               -  9*view(VEC(ic - delta(0,idir),jc - delta(1,idir),kc - delta(2,idir))) 
-               + 81*view(VEC(ic + delta(0,idir),jc + delta(1,idir),kc + delta(2,idir))) 
-               -  9*view(VEC(ic - delta(0,jdir),jc - delta(1,jdir),kc - delta(2,jdir))) 
-               +    view(VEC(ic - delta(0,idir) - delta(0,jdir),jc - delta(1,idir) - delta(1,jdir),kc - delta(2,idir) - delta(2,jdir))) 
-               -  9*view(VEC(ic + delta(0,idir) - delta(0,jdir),jc + delta(1,idir) - delta(1,jdir),kc + delta(2,idir) - delta(2,jdir))) 
-               +    view(VEC(ic + 2*delta(0,idir) - delta(0,jdir),jc + 2*delta(1,idir) - delta(1,jdir),kc + 2*delta(2,idir) - delta(2,jdir))) + 81*view(VEC(ic + delta(0,jdir),jc + delta(1,jdir),kc + delta(2,jdir))) 
-               -  9*view(VEC(ic - delta(0,idir) + delta(0,jdir),jc - delta(1,idir) + delta(1,jdir),kc - delta(2,idir) + delta(2,jdir))) + 81*view(VEC(ic + delta(0,idir) + delta(0,jdir),jc + delta(1,idir) + delta(1,jdir),kc + delta(2,idir) + delta(2,jdir))) 
-               -  9*(view(VEC(ic + 2*delta(0,idir),jc + 2*delta(1,idir),kc + 2*delta(2,idir))) + view(VEC(ic + 2*delta(0,idir) + delta(0,jdir),jc + 2*delta(1,idir) + delta(1,jdir),kc + 2*delta(2,idir) + delta(2,jdir)))) 
-               -  9*view(VEC(ic + 2*delta(0,jdir),jc + 2*delta(1,jdir),kc + 2*delta(2,jdir))) + view(VEC(ic - delta(0,idir) + 2*delta(0,jdir),jc - delta(1,idir) + 2*delta(1,jdir),kc - delta(2,idir) + 2*delta(2,jdir))) 
-               -  9*view(VEC(ic + delta(0,idir) + 2*delta(0,jdir),jc + delta(1,idir) + 2*delta(1,jdir),kc + delta(2,idir) + 2*delta(2,jdir))) 
-               +    view(VEC(ic + 2*delta(0,idir) + 2*delta(0,jdir),jc + 2*delta(1,idir) + 2*delta(1,jdir),kc + 2*delta(2,idir) + 2*delta(2,jdir))))*0.00390625;
+        return (81*view(VEC(ic,jc,kc)) - 9*view(VEC(ic - delta(0,idir),jc - delta(1,idir),kc - delta(2,idir))) + 81*view(VEC(ic + delta(0,idir),jc + delta(1,idir),kc + delta(2,idir))) - 9*view(VEC(ic - delta(0,jdir),jc - delta(1,jdir),kc - delta(2,jdir))) + view(VEC(ic - delta(0,idir) - delta(0,jdir),jc - delta(1,idir) - delta(1,jdir),kc - delta(2,idir) - delta(2,jdir))) - 
+     9*view(VEC(ic + delta(0,idir) - delta(0,jdir),jc + delta(1,idir) - delta(1,jdir),kc + delta(2,idir) - delta(2,jdir))) + view(VEC(ic + 2*delta(0,idir) - delta(0,jdir),jc + 2*delta(1,idir) - delta(1,jdir),kc + 2*delta(2,idir) - delta(2,jdir))) + 81*view(VEC(ic + delta(0,jdir),jc + delta(1,jdir),kc + delta(2,jdir))) - 
+     9*view(VEC(ic - delta(0,idir) + delta(0,jdir),jc - delta(1,idir) + delta(1,jdir),kc - delta(2,idir) + delta(2,jdir))) + 81*view(VEC(ic + delta(0,idir) + delta(0,jdir),jc + delta(1,idir) + delta(1,jdir),kc + delta(2,idir) + delta(2,jdir))) - 
+     9*(view(VEC(ic + 2*delta(0,idir),jc + 2*delta(1,idir),kc + 2*delta(2,idir))) + view(VEC(ic + 2*delta(0,idir) + delta(0,jdir),jc + 2*delta(1,idir) + delta(1,jdir),kc + 2*delta(2,idir) + delta(2,jdir)))) - 9*view(VEC(ic + 2*delta(0,jdir),jc + 2*delta(1,jdir),kc + 2*delta(2,jdir))) + view(VEC(ic - delta(0,idir) + 2*delta(0,jdir),jc - delta(1,idir) + 2*delta(1,jdir),kc - delta(2,idir) + 2*delta(2,jdir))) - 
+     9*view(VEC(ic + delta(0,idir) + 2*delta(0,jdir),jc + delta(1,idir) + 2*delta(1,jdir),kc + delta(2,idir) + 2*delta(2,jdir))) + view(VEC(ic + 2*delta(0,idir) + 2*delta(0,jdir),jc + 2*delta(1,idir) + 2*delta(1,jdir),kc + 2*delta(2,idir) + 2*delta(2,jdir))))/256.;
     }
 
     template< typename view_t >
@@ -214,70 +207,12 @@ struct corner_staggered_lagrange_interp_t<4>
         view_t& view, VEC(int ic, int jc, int kc)
     ) 
     {
-        return (-    view(VEC(-1 + ic,-1 + jc,-1 + kc)) 
-               +   9*view(VEC(-1 + ic,-1 + jc,kc)) 
-               +   9*view(VEC(-1 + ic,-1 + jc,1 + kc)) 
-               -     view(VEC(-1 + ic,-1 + jc,2 + kc)) 
-               +   9*view(VEC(-1 + ic,jc,-1 + kc)) 
-               -  81*view(VEC(-1 + ic,jc,kc)) 
-               -  81*view(VEC(-1 + ic,jc,1 + kc)) 
-               +   9*view(VEC(-1 + ic,jc,2 + kc)) 
-               +   9*view(VEC(-1 + ic,1 + jc,-1 + kc)) 
-               -  81*view(VEC(-1 + ic,1 + jc,kc)) 
-               -  81*view(VEC(-1 + ic,1 + jc,1 + kc)) 
-               +   9*view(VEC(-1 + ic,1 + jc,2 + kc)) 
-               -     view(VEC(-1 + ic,2 + jc,-1 + kc)) 
-               +   9*view(VEC(-1 + ic,2 + jc,kc)) 
-               +   9*view(VEC(-1 + ic,2 + jc,1 + kc)) 
-               -     view(VEC(-1 + ic,2 + jc,2 + kc)) 
-               +   9*view(VEC(ic,-1 + jc,-1 + kc)) 
-               -  81*view(VEC(ic,-1 + jc,kc)) 
-               -  81*view(VEC(ic,-1 + jc,1 + kc)) 
-               +   9*view(VEC(ic,-1 + jc,2 + kc)) 
-               -  81*view(VEC(ic,jc,-1 + kc)) 
-               + 729*view(VEC(ic,jc,kc)) 
-               + 729*view(VEC(ic,jc,1 + kc)) 
-               -  81*view(VEC(ic,jc,2 + kc)) 
-               -  81*view(VEC(ic,1 + jc,-1 + kc)) 
-               + 729*view(VEC(ic,1 + jc,kc)) 
-               + 729*view(VEC(ic,1 + jc,1 + kc)) 
-               -  81*view(VEC(ic,1 + jc,2 + kc)) 
-               +   9*view(VEC(ic,2 + jc,-1 + kc)) 
-               -  81*view(VEC(ic,2 + jc,kc)) 
-               -  81*view(VEC(ic,2 + jc,1 + kc)) 
-               +   9*view(VEC(ic,2 + jc,2 + kc)) 
-               +   9*view(VEC(1 + ic,-1 + jc,-1 + kc)) 
-               -  81*view(VEC(1 + ic,-1 + jc,kc)) 
-               -  81*view(VEC(1 + ic,-1 + jc,1 + kc)) 
-               +   9*view(VEC(1 + ic,-1 + jc,2 + kc)) 
-               -  81*view(VEC(1 + ic,jc,-1 + kc)) 
-               + 729*view(VEC(1 + ic,jc,kc)) 
-               + 729*view(VEC(1 + ic,jc,1 + kc)) 
-               -  81*view(VEC(1 + ic,jc,2 + kc)) 
-               -  81*view(VEC(1 + ic,1 + jc,-1 + kc)) 
-               +  729*view(VEC(1 + ic,1 + jc,kc)) 
-               +  729*view(VEC(1 + ic,1 + jc,1 + kc)) 
-               -  81*view(VEC(1 + ic,1 + jc,2 + kc)) 
-               +   9*view(VEC(1 + ic,2 + jc,-1 + kc)) 
-               -  81*view(VEC(1 + ic,2 + jc,kc)) 
-               -  81*view(VEC(1 + ic,2 + jc,1 + kc)) 
-               +   9*view(VEC(1 + ic,2 + jc,2 + kc)) 
-               -     view(VEC(2 + ic,-1 + jc,-1 + kc)) 
-               +   9*view(VEC(2 + ic,-1 + jc,kc)) 
-               +   9*view(VEC(2 + ic,-1 + jc,1 + kc)) 
-               -     view(VEC(2 + ic,-1 + jc,2 + kc)) 
-               +   9*view(VEC(2 + ic,jc,-1 + kc)) 
-               -  81*view(VEC(2 + ic,jc,kc)) 
-               -  81*view(VEC(2 + ic,jc,1 + kc)) 
-               +   9*view(VEC(2 + ic,jc,2 + kc)) 
-               +   9*view(VEC(2 + ic,1 + jc,-1 + kc)) 
-               -  81*view(VEC(2 + ic,1 + jc,kc)) 
-               -  81*view(VEC(2 + ic,1 + jc,1 + kc)) 
-               +   9*view(VEC(2 + ic,1 + jc,2 + kc))
-               -     view(VEC(2 + ic,2 + jc,-1 + kc)) 
-               +  9*(view(VEC(2 + ic,2 + jc,kc)) 
-                   + view(VEC(2 + ic,2 + jc,1 + kc))) 
-               -     view(VEC(2 + ic,2 + jc,2 + kc)))*0.000244141 ; 
+        return (-view(VEC(-1 + ic,-1 + jc,-1 + kc)) + 9*view(VEC(-1 + ic,-1 + jc,kc)) + 9*view(VEC(-1 + ic,-1 + jc,1 + kc)) - view(VEC(-1 + ic,-1 + jc,2 + kc)) + 9*view(VEC(-1 + ic,jc,-1 + kc)) - 81*view(VEC(-1 + ic,jc,kc)) - 81*view(VEC(-1 + ic,jc,1 + kc)) + 9*view(VEC(-1 + ic,jc,2 + kc)) + 9*view(VEC(-1 + ic,1 + jc,-1 + kc)) - 81*view(VEC(-1 + ic,1 + jc,kc)) - 81*view(VEC(-1 + ic,1 + jc,1 + kc)) + 
+     9*view(VEC(-1 + ic,1 + jc,2 + kc)) - view(VEC(-1 + ic,2 + jc,-1 + kc)) + 9*view(VEC(-1 + ic,2 + jc,kc)) + 9*view(VEC(-1 + ic,2 + jc,1 + kc)) - view(VEC(-1 + ic,2 + jc,2 + kc)) + 9*view(VEC(ic,-1 + jc,-1 + kc)) - 81*view(VEC(ic,-1 + jc,kc)) - 81*view(VEC(ic,-1 + jc,1 + kc)) + 9*view(VEC(ic,-1 + jc,2 + kc)) - 81*view(VEC(ic,jc,-1 + kc)) + 729*view(VEC(ic,jc,kc)) + 729*view(VEC(ic,jc,1 + kc)) - 
+     81*view(VEC(ic,jc,2 + kc)) - 81*view(VEC(ic,1 + jc,-1 + kc)) + 729*view(VEC(ic,1 + jc,kc)) + 729*view(VEC(ic,1 + jc,1 + kc)) - 81*view(VEC(ic,1 + jc,2 + kc)) + 9*view(VEC(ic,2 + jc,-1 + kc)) - 81*view(VEC(ic,2 + jc,kc)) - 81*view(VEC(ic,2 + jc,1 + kc)) + 9*view(VEC(ic,2 + jc,2 + kc)) + 9*view(VEC(1 + ic,-1 + jc,-1 + kc)) - 81*view(VEC(1 + ic,-1 + jc,kc)) - 81*view(VEC(1 + ic,-1 + jc,1 + kc)) + 
+     9*view(VEC(1 + ic,-1 + jc,2 + kc)) - 81*view(VEC(1 + ic,jc,-1 + kc)) + 729*view(VEC(1 + ic,jc,kc)) + 729*view(VEC(1 + ic,jc,1 + kc)) - 81*view(VEC(1 + ic,jc,2 + kc)) - 81*view(VEC(1 + ic,1 + jc,-1 + kc)) + 729*view(VEC(1 + ic,1 + jc,kc)) + 729*view(VEC(1 + ic,1 + jc,1 + kc)) - 81*view(VEC(1 + ic,1 + jc,2 + kc)) + 9*view(VEC(1 + ic,2 + jc,-1 + kc)) - 81*view(VEC(1 + ic,2 + jc,kc)) - 
+     81*view(VEC(1 + ic,2 + jc,1 + kc)) + 9*view(VEC(1 + ic,2 + jc,2 + kc)) - view(VEC(2 + ic,-1 + jc,-1 + kc)) + 9*view(VEC(2 + ic,-1 + jc,kc)) + 9*view(VEC(2 + ic,-1 + jc,1 + kc)) - view(VEC(2 + ic,-1 + jc,2 + kc)) + 9*view(VEC(2 + ic,jc,-1 + kc)) - 81*view(VEC(2 + ic,jc,kc)) - 81*view(VEC(2 + ic,jc,1 + kc)) + 9*view(VEC(2 + ic,jc,2 + kc)) + 9*view(VEC(2 + ic,1 + jc,-1 + kc)) - 81*view(VEC(2 + ic,1 + jc,kc)) - 
+     81*view(VEC(2 + ic,1 + jc,1 + kc)) + 9*view(VEC(2 + ic,1 + jc,2 + kc)) - view(VEC(2 + ic,2 + jc,-1 + kc)) + 9*(view(VEC(2 + ic,2 + jc,kc)) + view(VEC(2 + ic,2 + jc,1 + kc))) - view(VEC(2 + ic,2 + jc,2 + kc)))/4096.; 
     }
 }; 
 

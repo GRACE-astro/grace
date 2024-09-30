@@ -56,7 +56,7 @@ TEST_CASE("lagrange_interp", "[lagrange_interp]")
         return 2.5 * x - 7.1 * y + 8.9 * z ; 
     } ; 
 
-    int nx{6},ny{6},nz{6}, ngz{2} ; 
+    int nx{8},ny{8},nz{8}, ngz{4} ; 
     View<double***, default_space> cell_centered(
         "cell_centered_data", nx+2*ngz,ny+2*ngz,nz+2*ngz 
     ) ; 
@@ -124,7 +124,7 @@ TEST_CASE("lagrange_interp", "[lagrange_interp]")
         int j_f = (2*j)%ny + ngz ; 
         int k_f = (2*k)%nz + ngz ; 
         auto fine_view = subview(corner_staggered_fine,ALL(),ALL(),ALL(),ichild) ;
-        lagrange_prolongator_t<2>::interpolate(i_f,j_f,k_f,i+ngz,j+ngz,k+ngz,corner_staggered, fine_view) ; 
+        lagrange_prolongator_t<4>::interpolate(i_f,j_f,k_f,i+ngz,j+ngz,k+ngz,corner_staggered, fine_view) ; 
     }) ; 
 
     /* Check */
