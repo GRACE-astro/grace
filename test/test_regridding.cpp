@@ -169,8 +169,8 @@ TEST_CASE("Simple regrid", "[regrid]")
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
     size_t nq = grace::amr::get_local_num_quadrants() ; 
     int ngz = grace::amr::get_n_ghosts() ; 
-    auto ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
-    
+    auto ncells   = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
+    auto ncorners = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
     auto& coord_system = grace::coordinate_system::get() ; 
 
@@ -283,9 +283,5 @@ TEST_CASE("Simple regrid", "[regrid]")
                 , 1e-12)) ;
         #endif 
     } 
-    //parallel::mpi_allreduce(&total_local,&total,1,sc_MPI_SUM) ; 
-    //REQUIRE_THAT(total
-    //            , Catch::Matchers::WithinRel(
-    //              exact_total
-    //, 1e-12)) ;
+    
 }

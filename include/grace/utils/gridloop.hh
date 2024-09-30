@@ -200,7 +200,8 @@ host_ndloop(Ft&& _func, Idxt&& ... args ) {
  * @tparam omp_parallel  Whether OMP parallelization should be used.
  * @tparam Ft            Type of loop body lambda.
  * @param _func          Loop body as a lambda.
- * @param include_ghosts Whether the loop should run in the ghostzones
+ * @param stagger        Whether the loop is staggered in each direction.
+ * @param include_ghosts Whether the loop should run in the ghostzones.
  * 
  * This could be utilized in very similar fashion to Kokkos::parallel_loop
  * except for the fact that this loop \b always runs on host. This is useful for a lot of 
@@ -245,7 +246,7 @@ host_ndloop(Ft&& _func, Idxt&& ... args ) {
 template< bool omp_parallel
         , typename Ft > 
 void GRACE_ALWAYS_INLINE GRACE_HOST 
-host_grid_loop(Ft&& _func, bool include_ghosts=false ) {
+host_grid_loop(Ft&& _func, std::array<GRACE_NSPACEDIM,bool> stagger={VEC(false,false,false)}, bool include_ghosts=false ) {
 
     using namespace grace ; 
     using namespace detail ; 
@@ -258,15 +259,15 @@ host_grid_loop(Ft&& _func, bool include_ghosts=false ) {
     
     std::pair<std::size_t, std::size_t> range_x{ 
           include_ghosts ? 0 : ngz 
-        , include_ghosts ? nx + 2*ngz : nx + ngz 
+        , include_ghosts ? nx + static_cast<int>(stagger[0]) + 2*ngz : nx + ngz 
     } ; 
     std::pair<std::size_t, std::size_t> range_y{ 
           include_ghosts ? 0 : ngz 
-        , include_ghosts ? ny + 2*ngz : ny + ngz 
+        , include_ghosts ? ny + static_cast<int>(stagger[1]) + 2*ngz : ny + ngz 
     } ;  
     std::pair<std::size_t, std::size_t> range_z{ 
           include_ghosts ? 0 : ngz 
-        , include_ghosts ? nz + 2*ngz : nz + ngz 
+        , include_ghosts ? nz + static_cast<int>(stagger[2]) + 2*ngz : nz + ngz 
     } ; 
     
     
