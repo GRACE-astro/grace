@@ -233,7 +233,13 @@ TEST_CASE("Apply BC", "[boundaries]")
         {VEC(false,false,false)},
         true
     ) ; 
-    #if 1 
+    auto pcc = coord_system.get_physical_coordinates(
+                {VEC(nx,ny,nz)},
+                nq-1,
+                {VEC(0,0,0)},
+                true
+            ) ;
+    
     host_grid_loop<false>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             auto pcoords = coord_system.get_physical_coordinates(
@@ -255,5 +261,5 @@ TEST_CASE("Apply BC", "[boundaries]")
         {VEC(true,true,true)},
         true
     ) ;
-    #endif 
+
 }

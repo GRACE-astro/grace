@@ -194,7 +194,6 @@ void copy_interior_ghostzones_cell_centers(
             size_t ijk_a[GRACE_NSPACEDIM], ijk_b[GRACE_NSPACEDIM] ; 
             index_mapping(VEC(ig,j,k), which_face_a, which_face_b, ijk_a, ijk_b) ; 
             view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) =  view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) ; 
-            
             if( ! is_ghost ) {
                 index_mapping(VEC(ig,j,k), which_face_b, which_face_a, ijk_b, ijk_a) ;
                 view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) =  view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) ;
@@ -366,6 +365,7 @@ void copy_interior_ghostzones_corners(
     if( (EXPR( n_faces == 0, and n_corners == 0, and n_edges==0)) or nvars==0 ) {
         return ; 
     }
+    #if 1
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
         policy(
             {0,VECD(0,0), 0,0},
@@ -465,6 +465,7 @@ void copy_interior_ghostzones_corners(
                 }
             }
         });
+    #endif
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
         policy_corner(
             {0,VECD(0,0), 0,0},
@@ -510,7 +511,7 @@ void copy_interior_ghostzones_corners(
             auto& view_a = vars ; 
             auto& view_b = (is_ghost) ? halo : vars ; 
             int ijk_a [GRACE_NSPACEDIM], ijk_b [GRACE_NSPACEDIM] ; 
-            index_mapping(ig,jg,kg,which_corner_a,which_corner_b, ijk_a,ijk_b) ; 
+            index_mapping(ig,jg,kg, which_corner_a,which_corner_b, ijk_a,ijk_b) ; 
             #pragma unroll P4EST_CHILDREN
             for( int icc=0; icc<P4EST_CHILDREN; ++icc ) {
                 int ix = (icc >> 0) & 1;  
@@ -520,7 +521,7 @@ void copy_interior_ghostzones_corners(
                     view_b(VEC(ijk_b[0]+ix,ijk_b[1]+iy,ijk_b[2]+iz),ivar,qid_b) ;
             }
             if( ! is_ghost ) {
-                index_mapping(ig,jg,kg,which_corner_b,which_corner_a, ijk_b,ijk_a) ;
+                index_mapping(ig,jg,kg, which_corner_b,which_corner_a, ijk_b,ijk_a) ;
                 #pragma unroll P4EST_CHILDREN
                 for( int icc=0; icc<P4EST_CHILDREN; ++icc ) {
                     int ix = (icc >> 0) & 1;  
@@ -537,7 +538,7 @@ void copy_interior_ghostzones_corners(
             {0,0,0, 0,0},
             {ngz, ngz, static_cast<long>(nx), static_cast<long>(nvars), static_cast<long>(n_edges)}
         ) ;
-    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones_across_edges_corner_staggered")
+    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones_across_edges")
                 , policy_edge 
                 , KOKKOS_LAMBDA(const size_t& ig, const size_t& jg, const size_t& k, const size_t& ivar, const size_t& iedge)
         {
@@ -604,6 +605,7 @@ void copy_interior_ghostzones_corners(
             auto& view_a = vars ; 
             auto& view_b = (is_ghost) ? halo : vars ; 
             int ijk_a [GRACE_NSPACEDIM], ijk_b [GRACE_NSPACEDIM] ; 
+            index_mapping(ig,jg,k,which_edge_a,which_edge_b, ijk_a,ijk_b) ; 
             #pragma unroll P4EST_CHILDREN
             for( int icc=0; icc<P4EST_CHILDREN; ++icc ) {
                 int ix = (icc >> 0) & 1;  
@@ -611,7 +613,7 @@ void copy_interior_ghostzones_corners(
                 int iz = (icc >> 2) & 1;
                 view_a(VEC(ijk_a[0]+ix,ijk_a[1]+iy,ijk_a[2]+iz),ivar,qid_a) =
                     view_b(VEC(ijk_b[0]+ix,ijk_b[1]+iy,ijk_b[2]+iz),ivar,qid_b) ;
-            } 
+            }
             if( ! is_ghost ) {
                 index_mapping(ig,jg,k,which_edge_b,which_edge_a, ijk_b,ijk_a) ;
                 #pragma unroll P4EST_CHILDREN

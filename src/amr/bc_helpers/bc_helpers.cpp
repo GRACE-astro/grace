@@ -57,15 +57,17 @@ void grace_init_halo_transfer(
     bool exchange_cell_volumes
 ) 
 {
-    size_t nx,ny,nz ; 
-    std::tie(nx,ny,nz) = get_quadrant_extents() ;
-    int64_t ngz = get_n_ghosts() ;
-    int64_t nq  = get_local_num_quadrants()  ;  
+    DECLARE_GRID_EXTENTS ; 
+    /******************************************************/
+    /*                  Fetch nvars                       */
+    /******************************************************/
     size_t nvars = variables::get_n_evolved() ;
     size_t nvars_face = variables::get_n_evolved_face_staggered() ; 
     size_t nvars_edge = variables::get_n_evolved_edge_staggered() ; 
     size_t nvars_corner = variables::get_n_evolved_corner_staggered() ; 
-    size_t const send_size_coords = GRACE_NSPACEDIM ; 
+    /******************************************************/
+    /*          Compute send / receive buffer sizes       */
+    /******************************************************/
     size_t const send_size_vol = EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) ; 
     size_t const send_size = send_size_vol * nvars ; 
     size_t const send_size_face_staggered_x = 
@@ -82,16 +84,16 @@ void grace_init_halo_transfer(
         EXPR((nx+2*ngz), *(ny+1+2*ngz), *(nz+1+2*ngz)) * nvars_edge;
     size_t const send_size_corner_staggered = 
         EXPR((nx+1+2*ngz), *(ny+1+2*ngz), *(nz+1+2*ngz)) * nvars_corner;
-
     /******************************************************/
     /*                Receive halo data                   */
     /******************************************************/
     size_t rank = parallel::mpi_comm_rank() ; 
     for(int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
+        int tag = parallel::GRACE_HALO_EXCHANGE_TAG ;
         size_t first_halo  = halos->proc_offsets[iproc]   ; 
         size_t last_halo   = halos->proc_offsets[iproc+1] ;
         for( int ihalo=first_halo; ihalo<last_halo; ++ihalo ) {
-            int tag = parallel::GRACE_HALO_EXCHANGE_TAG; 
+            GRACE_TRACE("Receiving halo number {} from procid {} tag {}", ihalo, iproc, tag) ; 
             /* Receive variables */
             context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview = Kokkos::subview(
@@ -107,8 +109,9 @@ void grace_init_halo_transfer(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
-            tag++;
+            //tag++;
             /* Receive face-staggered vars */
+            #if 0
             /* X-face */
             context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview_fx = Kokkos::subview(
@@ -124,7 +127,7 @@ void grace_init_halo_transfer(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
             /* Y-face */
             context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview_fy = Kokkos::subview(
@@ -140,7 +143,7 @@ void grace_init_halo_transfer(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
             /* Z-face */
             context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview_fz = Kokkos::subview(
@@ -156,7 +159,7 @@ void grace_init_halo_transfer(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
             /* Receive edge-staggered vars */
             #ifdef GRACE_3D 
             /* XY-edge */
@@ -174,7 +177,7 @@ void grace_init_halo_transfer(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
             /* XZ-edge */
             context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview_exz = Kokkos::subview(
@@ -190,7 +193,7 @@ void grace_init_halo_transfer(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
             /* YZ-edge */
             context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview_eyz = Kokkos::subview(
@@ -200,14 +203,15 @@ void grace_init_halo_transfer(
                 , ihalo) ; 
             parallel::mpi_irecv(
                     hsview_eyz.data()
-                , send_size_edge_staggered_xy
+                , send_size_edge_staggered_yz
                 , iproc
                 , tag
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
             #endif 
+            
             /* Receive corner-staggered vars */
             context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview_c = Kokkos::subview(
@@ -242,17 +246,21 @@ void grace_init_halo_transfer(
                 ) ; 
                 tag++;
             }
+            #endif 
         }
     }
     /******************************************************/
     /*                Send halo data                      */
     /******************************************************/
-    for( int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
+     
+    for( int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc) {
+        int tag = parallel::GRACE_HALO_EXCHANGE_TAG ;
         size_t first_mirror = halos->mirror_proc_offsets[iproc]   ; 
         size_t last_mirror  = halos->mirror_proc_offsets[iproc+1] ; 
         for( int imirror=first_mirror; imirror<last_mirror; ++imirror){
             size_t iq_loc = 
                 (mirror_quads[halos->mirror_proc_mirrors[imirror]]).p.piggy3.local_num ; 
+            GRACE_TRACE("Sending quad number {} to procid {} tag {}", iq_loc, iproc, tag) ; 
             auto sview = Kokkos::subview(
                     vars
                     , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
@@ -300,7 +308,7 @@ void grace_init_halo_transfer(
                     , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
                     , iq_loc ) ;
         
-            int tag = parallel::GRACE_HALO_EXCHANGE_TAG ; 
+            
             /* Send variables */
             context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
@@ -311,7 +319,8 @@ void grace_init_halo_transfer(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
-            tag++ ; 
+            //tag++; 
+            #if 0 
             /* Send face-staggered vars */
             /* X-face */
             context._requests.push_back(sc_MPI_Request{}) ; 
@@ -373,7 +382,7 @@ void grace_init_halo_transfer(
             /* YZ edge */
             context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
-                  sview_exy.data()
+                  sview_eyz.data()
                 , send_size_edge_staggered_yz
                 , iproc
                 , tag
@@ -382,6 +391,7 @@ void grace_init_halo_transfer(
             ) ; 
             tag++ ;
             #endif 
+            
             /* Send corner-staggered vars */
             context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
@@ -392,7 +402,7 @@ void grace_init_halo_transfer(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
-            tag++ ;
+            tag++;
             if( exchange_cell_volumes) {
                 /* Send cell volumes */
             context._requests.push_back(sc_MPI_Request{}) ; 
@@ -405,7 +415,9 @@ void grace_init_halo_transfer(
                 , &(context._requests.back())
             ) ; 
             tag++;
+            
             }
+            #endif
         }
     } 
 }
@@ -475,7 +487,7 @@ void grace_init_halo_transfer_custom(
             , parallel::get_comm_world()
             , &(context._requests.back())
         ) ; 
-        tag++;
+        //tag++
         /* Receive face-staggered vars */
         if( nvars_face > 0 ) {
             /* X-face */
@@ -493,7 +505,7 @@ void grace_init_halo_transfer_custom(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
             /* Y-face */
             context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview_fy = Kokkos::subview(
@@ -509,7 +521,7 @@ void grace_init_halo_transfer_custom(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
             /* Z-face */
             context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview_fz = Kokkos::subview(
@@ -525,7 +537,7 @@ void grace_init_halo_transfer_custom(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
         }
         /* Receive edge-staggered vars */
         #ifdef GRACE_3D 
@@ -545,7 +557,7 @@ void grace_init_halo_transfer_custom(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
             /* XZ-edge */
             context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview_exz = Kokkos::subview(
@@ -561,7 +573,7 @@ void grace_init_halo_transfer_custom(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
             /* YZ-edge */
             context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview_eyz = Kokkos::subview(
@@ -577,7 +589,7 @@ void grace_init_halo_transfer_custom(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
         }
         #endif 
         /* Receive corner-staggered vars */
@@ -596,7 +608,7 @@ void grace_init_halo_transfer_custom(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ;
-            tag++;
+            //tag++
         }
         if (exchange_cell_volumes) {
             /* Receive cell volumes */
@@ -614,7 +626,7 @@ void grace_init_halo_transfer_custom(
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
-            tag++;
+            //tag++
         }
     }
     /******************************************************/
@@ -779,7 +791,7 @@ void grace_init_halo_transfer_custom(
                     , parallel::get_comm_world()
                     , &(context._requests.back())
                 ) ; 
-                tag++;
+                //tag++
             }
         }
     } 

@@ -84,6 +84,8 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     auto& vols   = variable_list::get().getvolumes() ; 
     auto& halo = variable_list::get().gethalo()      ;
     staggered_variable_arrays_t staggered_halo{}     ; 
+    var_array_t<GRACE_NSPACEDIM> mirror ; 
+    staggered_variable_arrays_t staggered_mirror{}     ; 
     /******************************************************/
     auto& params = config_parser::get() ;  
     /******************************************************/
@@ -93,15 +95,30 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
           forest::get().get() 
         , P4EST_CONNECT_FULL 
     ) ; 
+    
     /* Create views around relevant halo arrays */
     sc_array_view_t<p4est_quadrant_t> 
           halo_quads{ &(halos->ghosts) }
         , mirror_quads{ &(halos->mirrors) }  ;
     /******************************************************/
+    /*                    Print info                      */
+    /******************************************************/    
+    for(int iproc=0; iproc<parallel::mpi_comm_size(); ++iproc){
+        GRACE_TRACE("Ghost info procid {}", iproc) ; 
+        for( int ihalo=halos->proc_offsets[iproc]; ihalo<halos->proc_offsets[iproc+1]; ++ihalo ) {
+            GRACE_TRACE("ihalo {} local_quadid {}", ihalo, halo_quads[ihalo].p.piggy3.local_num) ;
+        }
+        for( int ihalo=halos->mirror_proc_offsets[iproc]; ihalo<halos->mirror_proc_offsets[iproc+1]; ++ihalo ) {
+            GRACE_TRACE("imirror {} mirror_proc_mirror {} local_quadid {}", ihalo, halos->mirror_proc_mirrors[ihalo], (mirror_quads[halos->mirror_proc_mirrors[ihalo]]).p.piggy3.local_num) ;
+        }
+    }
+    /******************************************************/
     /*     Allocate space to hold remote data on GPU      */
     /******************************************************/
     Kokkos::realloc(halo, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars,halo_quads.size());  
+    Kokkos::realloc(mirror, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars,mirror_quads.size());  
     staggered_halo.realloc(VEC(nx,ny,nz),ngz,halo_quads.size(),nvars_face,nvars_edge,nvars_corner) ; 
+    staggered_mirror.realloc(VEC(nx,ny,nz),ngz,mirror_quads.size(),nvars_face,nvars_edge,nvars_corner) ; 
     cell_vol_array_t<GRACE_NSPACEDIM> halo_vols ; 
     /******************************************************/
     /* Cell volumes for halos are only needed in          */
