@@ -20,3 +20,14 @@ vtk_module_autoinit(
     TARGETS bm_IO
     MODULES ${VTK_LIBRARIES}
 )
+
+add_executable(bm_fluxes bm_flux_computation.cpp)
+target_include_directories(bm_fluxes PRIVATE "${HEADER_DIR}")
+target_link_libraries(bm_fluxes PRIVATE 
+        yaml_cpp::yaml
+        Kokkos::kokkos 
+        p4est::p4est 
+        p4est::sc
+        spdlog::spdlog
+        $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
+        )

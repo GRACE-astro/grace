@@ -105,14 +105,6 @@ namespace detail {
     #undef MPI_PRIMITIVE_TYPE
 }
 
-struct grace_transfer_context_t 
-{ 
-    std::vector<sc_MPI_Request> _requests ; 
-    void reset() { 
-        _requests.clear() ; 
-    } ; 
-} ; 
-
 void mpi_init(int* argc, char *** argv) ;
 
 void mpi_finalize() ;
@@ -404,7 +396,7 @@ void mpi_irecv(T* recv_buffer, int size,
             "mpi_irecv call failed.") ;
 }
 
-void mpi_waitall(grace_transfer_context_t& context);
+void mpi_waitall(std::vector<sc_MPI_Request>& requests);
 
 
 }

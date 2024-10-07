@@ -47,7 +47,7 @@ namespace grace{ namespace amr {
  * 
  */
 void grace_init_halo_transfer(
-    parallel::grace_transfer_context_t& context       ,
+    grace_transfer_context_t& context       ,
     p4est_ghost_t*                     halos          ,
     sc_array_view_t<p4est_quadrant_t>& halo_quads     , 
     sc_array_view_t<p4est_quadrant_t>& mirror_quads   ,
@@ -64,7 +64,7 @@ void grace_init_halo_transfer(
  * @brief Initiate an asynchronous exchange of halo quadrant data.
  */
 void grace_init_halo_transfer_custom(
-    parallel::grace_transfer_context_t& context       ,
+    grace_transfer_context_t& context       ,
     std::vector<int64_t> const& snd_quadid            ,
     std::vector<int64_t> const& rcv_quadid            ,  
     std::vector<std::set<int>> const& snd_procid      , 
@@ -82,7 +82,7 @@ void grace_init_halo_transfer_custom(
  * @brief Call mpi_waitall() and wait for all transfer in progress to complete.
  * @param context The MPI context.
  */
-void grace_finalize_halo_transfer(parallel::grace_transfer_context_t& context) ;
+void grace_finalize_halo_transfer(grace_transfer_context_t& context) ;
 /**************************************************************************************************/
 }}
 

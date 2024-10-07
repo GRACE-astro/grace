@@ -82,8 +82,8 @@ void prolongate_variables_cell_centered(
         , policy 
         , KOKKOS_LAMBDA (
             VEC(const unsigned int& i
-                ,const unsigned int& j
-                ,const unsigned int& k)
+               ,const unsigned int& j
+               ,const unsigned int& k)
             ,const unsigned int& ivar
             ,const unsigned int& iq_parent)
         {

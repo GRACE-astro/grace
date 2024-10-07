@@ -29,7 +29,15 @@
 
 #include <grace_config.h>
 
-#include <grace/utils/grace_utils.hh>
+#include <grace/utils/device.h>
+#include <grace/utils/inline.h>
+
+#ifndef ROCPROFILER_PLUGIN_SETUP
+#include <grace/errors/assert.hh>
+#else 
+#define ASSERT(cond,msg) \
+assert(cond)
+#endif 
 
 #ifdef GRACE_ENABLE_HIP
 #include <hip/hip_runtime.h>
@@ -39,6 +47,10 @@
 
 #include <functional>
 #include <unordered_map>
+
+#ifdef ROCPROFILER_PLUGIN_SETUP
+extern std::unordered_map<size_t,std::string> counter_names;
+#endif 
 
 #ifdef GRACE_ENABLE_HIP
 

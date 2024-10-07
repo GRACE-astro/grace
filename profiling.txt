@@ -1,0 +1,166 @@
+ (Type)   Total Time, Call Count, Avg. Time per Call, %Total Time in Kernels, %Total Program Time
+-------------------------------------------------------------------------
+
+Regions: 
+
+- HDF5 volume output
+ (REGION)   131.234771 1 131.234771 106.552079 45.856419
+- evol
+ (REGION)   55.781663 1028 0.054262 45.290224 19.491384
+- BC
+ (REGION)   44.185891 1028 0.042982 35.875390 15.439557
+- Compute auxiliaries
+ (REGION)   38.748421 1028 0.037693 31.460602 13.539581
+- Timestep update
+ (REGION)   2.037433 514 0.003964 1.654231 0.711925
+- Scalar output
+ (REGION)   1.388412 258 0.005381 1.127279 0.485143
+- ID
+ (REGION)   1.191930 1 1.191930 0.967751 0.416488
+- Scalar reductions
+ (REGION)   0.448641 258 0.001739 0.364261 0.156765
+
+-------------------------------------------------------------------------
+Kernels: 
+
+- GRACE::EVOL::get_auxiliaries
+ (ParFor)   38.735980 1028 0.037681 31.450500 13.535234
+- GRACE::AMR::copy_interior_ghostzones
+ (ParFor)   20.463603 1028 0.019906 16.614800 7.150449
+- GRACE::EVOL::compute_x_flux
+ (ParFor)   12.702733 1028 0.012357 10.313598 4.438624
+- GRACE::EVOL::compute_z_flux
+ (ParFor)   10.884009 1028 0.010588 8.836940 3.803121
+- GRACE::EVOL::compute_y_flux
+ (ParFor)   10.678537 1028 0.010388 8.670113 3.731324
+- GRACE::EVOL::compute_sources
+ (ParFor)   10.299139 1028 0.010019 8.362072 3.598754
+- GRACE::EVOL::add_fluxes
+ (ParFor)   7.001791 1028 0.006811 5.684891 2.446585
+- GRACE::AMR::impose_physical_BC
+ (ParFor)   3.577958 23644 0.000151 2.905014 1.250220
+- Kokkos::View::initialization [Fluxes] via memset
+ (ParFor)   2.966064 1028 0.002885 2.408206 1.036410
+- GRACE::EVOL::find_timestep
+ (ParRed)   2.030185 514 0.003950 1.648347 0.709393
+- Kokkos::View::initialization [_mirror] via memset
+ (ParFor)   1.974487 124389 0.000016 1.603125 0.689931
+- Kokkos::View::destruction [_mirror]
+ (ParFor)   0.842819 68876 0.000012 0.684301 0.294500
+- GRACE::IO::minmax_reduction_aux
+ (ParRed)   0.328541 774 0.000424 0.266749 0.114800
+- Kokkos::ViewCopy-3D
+ (ParFor)   0.125475 7168 0.000018 0.101876 0.043844
+- GRACE::IO::minmax_reduction_vars
+ (ParRed)   0.112421 258 0.000436 0.091277 0.039282
+- Kokkos::View::initialization [] via memset
+ (ParFor)   0.082172 124389 0.000001 0.066717 0.028713
+- Kokkos::ViewCopy-1D
+ (ParFor)   0.081328 124391 0.000001 0.066032 0.028418
+- Kokkos::View::initialization [Device output mirror_mirror] via memset
+ (ParFor)   0.071424 4 0.017856 0.057991 0.024957
+- Kokkos::View::destruction []
+ (ParFor)   0.039150 68876 0.000001 0.031787 0.013680
+- Kokkos::View::initialization [Cell edge lengths XY_mirror] via memset
+ (ParFor)   0.018668 1 0.018668 0.015157 0.006523
+- Kokkos::View::initialization [Cell edge lengths YZ_mirror] via memset
+ (ParFor)   0.018642 1 0.018642 0.015136 0.006514
+- Kokkos::View::initialization [Cell edge lengths XZ_mirror] via memset
+ (ParFor)   0.018626 1 0.018626 0.015123 0.006508
+- Kokkos::View::initialization [Cell face surfaces X_mirror] via memset
+ (ParFor)   0.018238 1 0.018238 0.014808 0.006373
+- Kokkos::View::initialization [Cell face surfaces Z_mirror] via memset
+ (ParFor)   0.018005 1 0.018005 0.014619 0.006291
+- Kokkos::View::initialization [Cell face surfaces Y_mirror] via memset
+ (ParFor)   0.017978 1 0.017978 0.014597 0.006282
+- Kokkos::View::initialization [cell_volumes_mirror] via memset
+ (ParFor)   0.017344 1 0.017344 0.014082 0.006060
+- GRACE::ID::grmhd_ID
+ (ParFor)   0.013746 1 0.013746 0.011161 0.004803
+- solve_tov
+ (ParFor)   0.006421 1 0.006421 0.005213 0.002244
+- GRACE::ID::set_conservs_from_prims
+ (ParFor)   0.005498 1 0.005498 0.004464 0.001921
+- Kokkos::View::initialization [scratch_state] via memset
+ (ParFor)   0.003981 1 0.003981 0.003232 0.001391
+- Kokkos::View::initialization [state] via memset
+ (ParFor)   0.003965 1 0.003965 0.003219 0.001386
+- Kokkos::View::initialization [auxiliaries] via memset
+ (ParFor)   0.001994 1 0.001994 0.001619 0.000697
+- Kokkos::View::initialization [DualView::modified_flags] via memset
+ (ParFor)   0.001409 2056 0.000001 0.001144 0.000492
+- Kokkos::View::initialization [Device output mirror] via memset
+ (ParFor)   0.001015 4 0.000254 0.000824 0.000355
+- Kokkos::View::initialization [Cell edge lengths XY] via memset
+ (ParFor)   0.000174 1 0.000174 0.000141 0.000061
+- Kokkos::View::initialization [Cell face surfaces Y] via memset
+ (ParFor)   0.000171 1 0.000171 0.000139 0.000060
+- Kokkos::View::initialization [Cell edge lengths XZ] via memset
+ (ParFor)   0.000170 1 0.000170 0.000138 0.000059
+- Kokkos::View::initialization [Cell edge lengths YZ] via memset
+ (ParFor)   0.000168 1 0.000168 0.000136 0.000059
+- Kokkos::View::initialization [Cell face surfaces X] via memset
+ (ParFor)   0.000168 1 0.000168 0.000136 0.000059
+- Kokkos::View::initialization [Cell face surfaces Z] via memset
+ (ParFor)   0.000168 1 0.000168 0.000136 0.000059
+- Kokkos::View::initialization [cell_volumes] via memset
+ (ParFor)   0.000164 1 0.000164 0.000133 0.000057
+- Kokkos::View::initialization [TOV_nu] via memset
+ (ParFor)   0.000060 4 0.000015 0.000049 0.000021
+- Kokkos::View::initialization [TOV_parameters] via memset
+ (ParFor)   0.000039 1 0.000039 0.000032 0.000014
+- Kokkos::View::initialization [device_coords_tree_vertices] via memset
+ (ParFor)   0.000038 2 0.000019 0.000031 0.000013
+- Kokkos::View::initialization [Piecewise polytropic indices] via memset
+ (ParFor)   0.000036 1 0.000036 0.000029 0.000013
+- GRACE::SYSTEM::init_var_indices
+ (ParFor)   0.000035 1 0.000035 0.000028 0.000012
+- Kokkos::View::initialization [TOV_mass] via memset
+ (ParFor)   0.000032 2 0.000016 0.000026 0.000011
+- Kokkos::View::initialization [TOV_press] via memset
+ (ParFor)   0.000029 2 0.000015 0.000024 0.000010
+- Kokkos::View::initialization [coordinates] via memset
+ (ParFor)   0.000020 1 0.000020 0.000016 0.000007
+- Kokkos::View::initialization [Piecewise polytropic adiabatic compressibilities] via memset
+ (ParFor)   0.000013 1 0.000013 0.000011 0.000005
+- Kokkos::View::initialization [Piecewise polytropic pressures] via memset
+ (ParFor)   0.000013 1 0.000013 0.000011 0.000005
+- Kokkos::View::initialization [Piecewise polytropic specific internal energies] via memset
+ (ParFor)   0.000013 1 0.000013 0.000011 0.000005
+- Kokkos::View::initialization [Piecewise polytropic densities] via memset
+ (ParFor)   0.000013 1 0.000013 0.000010 0.000004
+- Kokkos::View::initialization [inverse_grid_spacing] via memset
+ (ParFor)   0.000012 1 0.000012 0.000010 0.000004
+- Kokkos::View::initialization [grid_spacing] via memset
+ (ParFor)   0.000012 1 0.000012 0.000010 0.000004
+- Kokkos::View::initialization [Piecewise polytropic adiabatic compressibilities_mirror] via memset
+ (ParFor)   0.000002 1 0.000002 0.000002 0.000001
+- Kokkos::View::initialization [grid_spacing_mirror] via memset
+ (ParFor)   0.000002 1 0.000002 0.000002 0.000001
+- Kokkos::View::initialization [Piecewise polytropic indices_mirror] via memset
+ (ParFor)   0.000001 1 0.000001 0.000001 0.000000
+- Kokkos::View::initialization [Piecewise polytropic densities_mirror] via memset
+ (ParFor)   0.000001 1 0.000001 0.000001 0.000000
+- Kokkos::View::initialization [TOV_parameters_mirror] via memset
+ (ParFor)   0.000001 1 0.000001 0.000001 0.000000
+- Kokkos::View::initialization [inverse_grid_spacing_mirror] via memset
+ (ParFor)   0.000001 1 0.000001 0.000001 0.000000
+- Kokkos::View::initialization [Piecewise polytropic pressures_mirror] via memset
+ (ParFor)   0.000001 1 0.000001 0.000001 0.000000
+- Kokkos::View::initialization [device_coords_tree_vertices_mirror] via memset
+ (ParFor)   0.000001 2 0.000000 0.000001 0.000000
+- Kokkos::View::initialization [coordinates_mirror] via memset
+ (ParFor)   0.000001 1 0.000001 0.000001 0.000000
+- Kokkos::View::initialization [Piecewise polytropic specific internal energies_mirror] via memset
+ (ParFor)   0.000000 1 0.000000 0.000000 0.000000
+
+-------------------------------------------------------------------------
+Summary:
+
+Total Execution Time (incl. Kokkos + non-Kokkos):                 286.18626 seconds
+Total Time in Kokkos kernels:                                     123.16491 seconds
+   -> Time outside Kokkos kernels:                                163.02135 seconds
+   -> Percentage in Kokkos kernels:                                   43.04 %
+Total Calls to Kokkos Kernels:                                       553618
+
+-------------------------------------------------------------------------

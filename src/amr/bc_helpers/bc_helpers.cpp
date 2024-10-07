@@ -44,7 +44,7 @@
 namespace grace { namespace amr { 
 
 void grace_init_halo_transfer(
-    parallel::grace_transfer_context_t& context       ,
+    grace_transfer_context_t& context       ,
     p4est_ghost_t*                     halos          ,
     sc_array_view_t<p4est_quadrant_t>& halo_quads     , 
     sc_array_view_t<p4est_quadrant_t>& mirror_quads   ,
@@ -65,6 +65,10 @@ void grace_init_halo_transfer(
     size_t nvars_face = variables::get_n_evolved_face_staggered() ; 
     size_t nvars_edge = variables::get_n_evolved_edge_staggered() ; 
     size_t nvars_corner = variables::get_n_evolved_corner_staggered() ; 
+    GRACE_TRACE("Inside init_halo transfer nvars {}, nvars_corner {}", nvars, nvars_corner) ; 
+    GRACE_TRACE("Nhalo {} nmirror {}", halo_quads.size(), mirror_quads.size()) ; 
+    GRACE_TRACE("halo view shape {} {} {} {} {}", halo.extent(0), halo.extent(1), halo.extent(2), halo.extent(3), halo.extent(4)) ; 
+    GRACE_TRACE("staggered halo (corner) view shape {} {} {} {} {}", staggered_halo.corner_staggered_fields.extent(0), staggered_halo.corner_staggered_fields.extent(1), staggered_halo.corner_staggered_fields.extent(2), staggered_halo.corner_staggered_fields.extent(3), staggered_halo.corner_staggered_fields.extent(4)) ; 
     /******************************************************/
     /*          Compute send / receive buffer sizes       */
     /******************************************************/
@@ -92,161 +96,143 @@ void grace_init_halo_transfer(
         int tag = parallel::GRACE_HALO_EXCHANGE_TAG ;
         size_t first_halo  = halos->proc_offsets[iproc]   ; 
         size_t last_halo   = halos->proc_offsets[iproc+1] ;
-        for( int ihalo=first_halo; ihalo<last_halo; ++ihalo ) {
-            GRACE_TRACE("Receiving halo number {} from procid {} tag {}", ihalo, iproc, tag) ; 
+        int const n_halo = last_halo - first_halo ; 
+        GRACE_TRACE("Receiving {} ghost quadrants ({}-{}) from procid {}", n_halo,first_halo,last_halo,iproc) ; 
+        if ( n_halo > 0 ) {
             /* Receive variables */
             context._requests.push_back(sc_MPI_Request{}) ; 
             auto hsview = Kokkos::subview(
-                    halo
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , Kokkos::ALL()
-                , ihalo) ; 
+                      halo
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , first_halo) ;
             parallel::mpi_irecv(
-                    hsview.data()
-                , send_size
+                  hsview.data()
+                , send_size * n_halo 
                 , iproc
-                , tag
+                , parallel::GRACE_HALO_EXCHANGE_TAG
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
-            //tag++;
-            /* Receive face-staggered vars */
-            #if 0
-            /* X-face */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto hsview_fx = Kokkos::subview(
-                    staggered_halo.face_staggered_fields_x
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , Kokkos::ALL()
-                , ihalo) ; 
-            parallel::mpi_irecv(
-                    hsview_fx.data()
-                , send_size_face_staggered_x
-                , iproc
-                , tag
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ;
-            //tag++
-            /* Y-face */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto hsview_fy = Kokkos::subview(
-                    staggered_halo.face_staggered_fields_y
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , Kokkos::ALL()
-                , ihalo) ; 
-            parallel::mpi_irecv(
-                    hsview_fy.data()
-                , send_size_face_staggered_y
-                , iproc
-                , tag
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ;
-            //tag++
-            /* Z-face */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto hsview_fz = Kokkos::subview(
-                    staggered_halo.face_staggered_fields_z
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , Kokkos::ALL()
-                , ihalo) ; 
-            parallel::mpi_irecv(
-                    hsview_fz.data()
-                , send_size_face_staggered_z
-                , iproc
-                , tag
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ;
-            //tag++
-            /* Receive edge-staggered vars */
-            #ifdef GRACE_3D 
-            /* XY-edge */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto hsview_exy = Kokkos::subview(
-                    staggered_halo.edge_staggered_fields_xy
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , Kokkos::ALL()
-                , ihalo) ; 
-            parallel::mpi_irecv(
-                    hsview_exy.data()
-                , send_size_edge_staggered_xy
-                , iproc
-                , tag
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ;
-            //tag++
-            /* XZ-edge */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto hsview_exz = Kokkos::subview(
-                    staggered_halo.edge_staggered_fields_xz
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , Kokkos::ALL()
-                , ihalo) ; 
-            parallel::mpi_irecv(
-                    hsview_exz.data()
-                , send_size_edge_staggered_xz
-                , iproc
-                , tag
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ;
-            //tag++
-            /* YZ-edge */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto hsview_eyz = Kokkos::subview(
-                    staggered_halo.edge_staggered_fields_yz
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , Kokkos::ALL()
-                , ihalo) ; 
-            parallel::mpi_irecv(
-                    hsview_eyz.data()
-                , send_size_edge_staggered_yz
-                , iproc
-                , tag
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ;
-            //tag++
-            #endif 
-            
-            /* Receive corner-staggered vars */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            auto hsview_c = Kokkos::subview(
-                    staggered_halo.corner_staggered_fields
-                , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                , Kokkos::ALL()
-                , ihalo) ; 
-            parallel::mpi_irecv(
-                    hsview_c.data()
-                , send_size_corner_staggered
-                , iproc
-                , tag
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ;
-            tag++;
-            if (exchange_cell_volumes) {
-                /* Receive cell volumes */
+            if ( send_size_face_staggered_x > 0 ) {
+                /* X-face */
                 context._requests.push_back(sc_MPI_Request{}) ; 
-                auto hvsview = Kokkos::subview(
-                    halo_vols
+                auto hsview_fx = Kokkos::subview(
+                      staggered_halo.face_staggered_fields_x
                     , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                    , ihalo 
-                ) ; 
+                    , Kokkos::ALL()
+                    , first_halo) ; 
                 parallel::mpi_irecv(
-                    hvsview.data()
-                    , send_size_vol 
+                      hsview_fx.data()
+                    , send_size_face_staggered_x * n_halo 
                     , iproc
-                    , tag
+                    , parallel::GRACE_HALO_EXCHANGE_TAG+1
                     , parallel::get_comm_world()
                     , &(context._requests.back())
-                ) ; 
-                tag++;
+                ) ;
             }
-            #endif 
+            if ( send_size_face_staggered_y > 0 ) {
+                /* Y-face */
+                context._requests.push_back(sc_MPI_Request{}) ; 
+                auto hsview_fy = Kokkos::subview(
+                      staggered_halo.face_staggered_fields_y
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , first_halo) ; 
+                parallel::mpi_irecv(
+                      hsview_fy.data()
+                    , send_size_face_staggered_y * n_halo 
+                    , iproc
+                    , parallel::GRACE_HALO_EXCHANGE_TAG+2
+                    , parallel::get_comm_world()
+                    , &(context._requests.back())
+                ) ;
+            }
+            if ( send_size_face_staggered_z > 0 ) {
+                /* Z-face */
+                context._requests.push_back(sc_MPI_Request{}) ; 
+                auto hsview_fz = Kokkos::subview(
+                      staggered_halo.face_staggered_fields_z
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , first_halo) ; 
+                parallel::mpi_irecv(
+                      hsview_fz.data()
+                    , send_size_face_staggered_z * n_halo 
+                    , iproc
+                    , parallel::GRACE_HALO_EXCHANGE_TAG+3
+                    , parallel::get_comm_world()
+                    , &(context._requests.back())
+                ) ;
+            }
+            if ( send_size_edge_staggered_xy > 0 ) {
+                /* XY-edge */
+                context._requests.push_back(sc_MPI_Request{}) ; 
+                auto hsview_exy = Kokkos::subview(
+                      staggered_halo.edge_staggered_fields_xy 
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , first_halo) ; 
+                parallel::mpi_irecv(
+                      hsview_exy.data()
+                    , send_size_edge_staggered_xy * n_halo  
+                    , iproc
+                    , parallel::GRACE_HALO_EXCHANGE_TAG+4
+                    , parallel::get_comm_world()
+                    , &(context._requests.back())
+                ) ;
+            }
+            if ( send_size_edge_staggered_xz > 0 ) {
+                /* XZ-edge */
+                context._requests.push_back(sc_MPI_Request{}) ; 
+                auto hsview_exz = Kokkos::subview(
+                      staggered_halo.edge_staggered_fields_xz
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , first_halo) ; 
+                parallel::mpi_irecv(
+                      hsview_exz.data()
+                    , send_size_edge_staggered_xz * n_halo 
+                    , iproc
+                    , parallel::GRACE_HALO_EXCHANGE_TAG+5
+                    , parallel::get_comm_world()
+                    , &(context._requests.back())
+                ) ;
+            }
+            if ( send_size_edge_staggered_yz > 0 ) {
+                /* YZ-edge */
+                context._requests.push_back(sc_MPI_Request{}) ; 
+                auto hsview_eyz = Kokkos::subview(
+                      staggered_halo.edge_staggered_fields_yz
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , first_halo) ; 
+                parallel::mpi_irecv(
+                      hsview_eyz.data()
+                    , send_size_edge_staggered_yz * n_halo 
+                    , iproc
+                    , parallel::GRACE_HALO_EXCHANGE_TAG+6
+                    , parallel::get_comm_world()
+                    , &(context._requests.back())
+                ) ;
+            }
+            if ( send_size_corner_staggered > 0 ) {
+                /* corner */
+                context._requests.push_back(sc_MPI_Request{}) ; 
+                auto hsview_c = Kokkos::subview(
+                      staggered_halo.corner_staggered_fields
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , first_halo ) ; 
+                parallel::mpi_irecv(
+                      hsview_c.data()
+                    , send_size_corner_staggered * n_halo 
+                    , iproc
+                    , parallel::GRACE_HALO_EXCHANGE_TAG+7
+                    , parallel::get_comm_world()
+                    , &(context._requests.back())
+                ) ;
+            }
         }
     }
     /******************************************************/
@@ -257,173 +243,250 @@ void grace_init_halo_transfer(
         int tag = parallel::GRACE_HALO_EXCHANGE_TAG ;
         size_t first_mirror = halos->mirror_proc_offsets[iproc]   ; 
         size_t last_mirror  = halos->mirror_proc_offsets[iproc+1] ; 
-        for( int imirror=first_mirror; imirror<last_mirror; ++imirror){
+        int const n_mirrors = last_mirror - first_mirror ; 
+        if ( n_mirrors <= 0 ) {
+            continue ; 
+        }
+        grace::var_array_t<GRACE_NSPACEDIM> mirror(
+            "mirror_data", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz), nvars, n_mirrors
+        ) ; 
+        grace::staggered_variable_arrays_t staggered_mirror{};
+        staggered_mirror.realloc(VEC(nx,ny,nz),ngz,n_mirrors,nvars_face,nvars_edge,nvars_corner) ; 
+
+        context._buffs.push_back(
+            mirror
+        ) ; 
+        context._staggered_buffs.push_back(
+            staggered_mirror
+        ) ; 
+        GRACE_TRACE("Send procid {} first {} last {}", iproc, first_mirror, last_mirror) ; 
+        for( int imirror=0; imirror<n_mirrors; ++imirror){
             size_t iq_loc = 
-                (mirror_quads[halos->mirror_proc_mirrors[imirror]]).p.piggy3.local_num ; 
-            GRACE_TRACE("Sending quad number {} to procid {} tag {}", iq_loc, iproc, tag) ; 
-            auto sview = Kokkos::subview(
-                    vars
-                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                    , Kokkos::ALL()
-                    , iq_loc ) ;
-            auto sview_fx = Kokkos::subview(
-                    staggered_vars.face_staggered_fields_x
-                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                    , Kokkos::ALL()
-                    , iq_loc ) ;
-            auto sview_fy = Kokkos::subview(
-                    staggered_vars.face_staggered_fields_y
-                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                    , Kokkos::ALL()
-                    , iq_loc ) ;
-            auto sview_fz = Kokkos::subview(
-                    staggered_vars.face_staggered_fields_z
-                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                    , Kokkos::ALL()
-                    , iq_loc ) ; 
-            #ifdef GRACE_3D
-            auto sview_exy = Kokkos::subview(
-                    staggered_vars.edge_staggered_fields_xy
-                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                    , Kokkos::ALL()
-                    , iq_loc ) ;
-            auto sview_exz = Kokkos::subview(
-                    staggered_vars.edge_staggered_fields_xz
-                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                    , Kokkos::ALL()
-                    , iq_loc ) ;
-            auto sview_eyz = Kokkos::subview(
-                    staggered_vars.edge_staggered_fields_yz
-                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                    , Kokkos::ALL()
-                    , iq_loc ) ;
-            #endif 
-            auto sview_c = Kokkos::subview(
-                    staggered_vars.corner_staggered_fields
-                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                    , Kokkos::ALL()
-                    , iq_loc ) ;
-            auto svview = Kokkos::subview(
-                    vols
-                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
-                    , iq_loc ) ;
-        
-            
-            /* Send variables */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            parallel::mpi_isend(
-                  sview.data()
-                , send_size
-                , iproc
-                , tag
-                , parallel::get_comm_world()
-                , &(context._requests.back())
+                (mirror_quads[halos->mirror_proc_mirrors[imirror+first_mirror]]).p.piggy3.local_num ; 
+            // Do some range checking 
+            ASSERT(
+                iq_loc < vars.extent(GRACE_NSPACEDIM+1), 
+                "Out of bounds access for vars in mpi_isend."
             ) ; 
-            //tag++; 
-            #if 0 
-            /* Send face-staggered vars */
+            ASSERT(
+                imirror < mirror.extent(GRACE_NSPACEDIM+1),
+                "Out of bounds access for mirrors in mpi_isend."
+            ) ; 
+            auto sview = Kokkos::subview(
+                      vars
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , iq_loc ) ;
+            auto msview = Kokkos::subview(
+                      mirror
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , imirror ) ;
+            GRACE_TRACE("Copying {} to {}", reinterpret_cast<void*>(sview.data()) ,reinterpret_cast<void*>(msview.data()));
+            Kokkos::fence() ; 
+            Kokkos::deep_copy( msview, sview ) ; 
+            Kokkos::fence() ; 
+            GRACE_TRACE("Sending data ptr {}", reinterpret_cast<void*>(msview.data())) ; 
+            if( send_size_face_staggered_x > 0 ) {
+                /* X-Face */
+                auto sview = Kokkos::subview(
+                      staggered_vars.face_staggered_fields_x
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , iq_loc ) ;
+                auto msview = Kokkos::subview(
+                          staggered_mirror.face_staggered_fields_x
+                        , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                        , Kokkos::ALL()
+                        , imirror ) ;
+                Kokkos::deep_copy( msview, sview ) ; 
+            } 
+            if( send_size_face_staggered_y > 0 ) {
+                /* Y-Face */
+                auto sview = Kokkos::subview(
+                      staggered_vars.face_staggered_fields_y
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , iq_loc ) ;
+                auto msview = Kokkos::subview(
+                          staggered_mirror.face_staggered_fields_y
+                        , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                        , Kokkos::ALL()
+                        , imirror ) ;
+                Kokkos::deep_copy( msview, sview ) ; 
+            } 
+            if( send_size_face_staggered_y > 0 ) {
+                /* Z-Face */
+                auto sview = Kokkos::subview(
+                      staggered_vars.face_staggered_fields_z
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , iq_loc ) ;
+                auto msview = Kokkos::subview(
+                          staggered_mirror.face_staggered_fields_z
+                        , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                        , Kokkos::ALL()
+                        , imirror ) ;
+                Kokkos::deep_copy( msview, sview ) ; 
+            }  
+            if( send_size_edge_staggered_xy > 0 ) {
+                /* XY-Edge */
+                auto sview = Kokkos::subview(
+                      staggered_vars.edge_staggered_fields_xy
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , iq_loc ) ;
+                auto msview = Kokkos::subview(
+                          staggered_mirror.edge_staggered_fields_xy
+                        , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                        , Kokkos::ALL()
+                        , imirror ) ;
+                Kokkos::deep_copy( msview, sview ) ; 
+            } 
+            if( send_size_edge_staggered_xz > 0 ) {
+                /* XZ-Edge */
+                auto sview = Kokkos::subview(
+                      staggered_vars.edge_staggered_fields_xz
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , iq_loc ) ;
+                auto msview = Kokkos::subview(
+                          staggered_mirror.edge_staggered_fields_xz
+                        , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                        , Kokkos::ALL()
+                        , imirror ) ;
+                Kokkos::deep_copy( msview, sview ) ; 
+            } 
+            if( send_size_edge_staggered_yz > 0 ) {
+                /* YZ-Edge */
+                auto sview = Kokkos::subview(
+                      staggered_vars.edge_staggered_fields_yz
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , iq_loc ) ;
+                auto msview = Kokkos::subview(
+                          staggered_mirror.edge_staggered_fields_yz
+                        , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                        , Kokkos::ALL()
+                        , imirror ) ;
+                Kokkos::deep_copy( msview, sview ) ; 
+            }     
+            if( send_size_corner_staggered > 0 ) {
+                /* Corner */
+                auto sview = Kokkos::subview(
+                      staggered_vars.corner_staggered_fields
+                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                    , Kokkos::ALL()
+                    , iq_loc ) ;
+                auto msview = Kokkos::subview(
+                          staggered_mirror.corner_staggered_fields
+                        , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
+                        , Kokkos::ALL()
+                        , imirror ) ;
+                Kokkos::deep_copy( msview, sview ) ; 
+            }  
+        } // Loop over imirror 
+            
+        /* Send variables */
+        context._requests.push_back(sc_MPI_Request{}) ; 
+        parallel::mpi_isend(
+              mirror.data() 
+            , send_size * n_mirrors 
+            , iproc
+            , parallel::GRACE_HALO_EXCHANGE_TAG
+            , parallel::get_comm_world()
+            , &(context._requests.back())
+        ) ; 
+        if ( send_size_face_staggered_x > 0 ) {
             /* X-face */
             context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
-                  sview_fx.data()
-                , send_size_face_staggered_x
+                  staggered_mirror.face_staggered_fields_x.data()
+                , send_size_face_staggered_x * n_mirrors 
                 , iproc
-                , tag
+                , parallel::GRACE_HALO_EXCHANGE_TAG + 1 
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
-            tag++ ; 
+        }
+        if ( send_size_face_staggered_y > 0 ) {
             /* Y-face */
             context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
-                  sview_fy.data()
-                , send_size_face_staggered_y
+                  staggered_mirror.face_staggered_fields_y.data()
+                , send_size_face_staggered_y * n_mirrors 
                 , iproc
-                , tag
+                , parallel::GRACE_HALO_EXCHANGE_TAG + 2 
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
-            tag++ ; 
+        }
+        if ( send_size_face_staggered_z > 0 ) {
             /* Z-face */
             context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
-                  sview_fz.data()
-                , send_size_face_staggered_z
+                  staggered_mirror.face_staggered_fields_z.data()
+                , send_size_face_staggered_z * n_mirrors 
                 , iproc
-                , tag
+                , parallel::GRACE_HALO_EXCHANGE_TAG + 3 
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
-            tag++ ; 
-            /* Send edge-staggered vars */
-            #ifdef GRACE_3D
-            /* XY edge */
+        }
+        if ( send_size_edge_staggered_xy > 0 ) {
+            /* XY-edge */
             context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
-                  sview_exy.data()
-                , send_size_edge_staggered_xy
+                  staggered_mirror.edge_staggered_fields_xy.data()
+                , send_size_edge_staggered_xy * n_mirrors 
                 , iproc
-                , tag
+                , parallel::GRACE_HALO_EXCHANGE_TAG + 4 
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
-            tag++ ;  
-            /* XZ edge */
+        }
+        if ( send_size_edge_staggered_xz > 0 ) {
+            /* XZ-edge */
             context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
-                  sview_exz.data()
-                , send_size_edge_staggered_xz
+                  staggered_mirror.edge_staggered_fields_xz.data()
+                , send_size_edge_staggered_xz * n_mirrors 
                 , iproc
-                , tag
+                , parallel::GRACE_HALO_EXCHANGE_TAG + 5
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
-            tag++ ;
-            /* YZ edge */
+        }
+        if ( send_size_edge_staggered_yz > 0 ) {
+            /* YZ-edge */
             context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
-                  sview_eyz.data()
-                , send_size_edge_staggered_yz
+                  staggered_mirror.edge_staggered_fields_yz.data()
+                , send_size_edge_staggered_yz * n_mirrors 
                 , iproc
-                , tag
+                , parallel::GRACE_HALO_EXCHANGE_TAG + 6
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
-            tag++ ;
-            #endif 
-            
-            /* Send corner-staggered vars */
+        }
+        if ( send_size_corner_staggered > 0 ) {
+            GRACE_TRACE("sending corner.") ; 
+            /* Corner */
             context._requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
-                  sview_c.data()
-                , send_size_corner_staggered
+                  staggered_mirror.corner_staggered_fields.data()
+                , send_size_corner_staggered * n_mirrors 
                 , iproc
-                , tag
+                , parallel::GRACE_HALO_EXCHANGE_TAG + 7
                 , parallel::get_comm_world()
                 , &(context._requests.back())
             ) ; 
-            tag++;
-            if( exchange_cell_volumes) {
-                /* Send cell volumes */
-            context._requests.push_back(sc_MPI_Request{}) ; 
-            parallel::mpi_isend(
-                  svview.data()
-                , send_size_vol
-                , iproc
-                , tag
-                , parallel::get_comm_world()
-                , &(context._requests.back())
-            ) ; 
-            tag++;
-            
-            }
-            #endif
         }
     } 
 }
  
 void grace_init_halo_transfer_custom(
-    parallel::grace_transfer_context_t& context       ,
+    grace_transfer_context_t& context       ,
     std::vector<int64_t> const& snd_quadid            ,
     std::vector<int64_t> const& rcv_quadid            ,  
     std::vector<std::set<int>> const& snd_procid      , 
@@ -798,9 +861,11 @@ void grace_init_halo_transfer_custom(
 }; 
 
 
-void grace_finalize_halo_transfer(parallel::grace_transfer_context_t& context) 
+void grace_finalize_halo_transfer(grace_transfer_context_t& context) 
 {
-    parallel::mpi_waitall(context) ;
+    parallel::mpi_waitall(context._requests) ;
+    // Now we free the space 
+    context.reset() ; 
 }; 
 
 } } /* namespace grace::amr */

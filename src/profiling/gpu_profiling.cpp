@@ -28,10 +28,13 @@
 #include <grace_config.h>
 
 #include <grace/profiling/gpu_profiling.hh>
+#ifndef ROCPROFILER_PLUGIN_SETUP
 #include <grace/profiling/profiling_runtime.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/errors/error.hh>
 #include <grace/errors/assert.hh>
+#endif 
+
 #ifdef GRACE_ENABLE_HIP
 #include <hip/hip_runtime.h>
 #include <rocprofiler/v2/rocprofiler.h>
@@ -41,9 +44,26 @@
 #include <filesystem>
 #include <iostream>
 #include <iomanip>
+#include <fstream>
+#include <cassert> 
 
+#ifdef ROCPROFILER_PLUGIN_SETUP
+std::unordered_map<size_t,std::string> counter_names;
+#endif 
+#undef CHECK_ROCPROFILER
 #ifdef GRACE_ENABLE_HIP
-#ifndef CHECK_ROCPROFILER
+
+#ifdef ROCPROFILER_PLUGIN_SETUP
+#define CHECK_ROCPROFILER(call)                                                                     \
+  do {                                                                                              \
+  rocprofiler_status_t errcode = (call) ;                                                           \
+  if (errcode != ROCPROFILER_STATUS_SUCCESS)                                                        \
+  {                                                                                                 \
+    std::cerr << "rocprofiler call returned errorcode " << errcode << std::endl ;                   \
+    std::abort() ;                                                                                  \
+  }                                                                                                 \
+  } while (false)
+#else 
 #define CHECK_ROCPROFILER(call)                                                                     \
   do {                                                                                              \
   rocprofiler_status_t errcode = (call) ;                                                           \
@@ -79,6 +99,7 @@ void rocm_initiate_profiling_session( rocm_profiling_context_t& context, std::un
     CHECK_ROCPROFILER(rocprofiler_start_session(context._sid));
 }
 
+
 void rocm_terminate_profiling_session(rocm_profiling_context_t& context) {
     CHECK_ROCPROFILER(rocprofiler_terminate_session(context._sid)) ; 
     CHECK_ROCPROFILER(rocprofiler_flush_data(context._sid, context._bid)) ; 
@@ -96,6 +117,8 @@ extern "C" void write_buffer_records( const rocprofiler_record_header_t* begin_r
         rocprofiler_next_record(begin_records,&begin_records,session_id,buffer_id) ; 
     }
 }
+
+#ifndef ROCPROFILER_PLUGIN_SETUP
 extern "C" void flush_profiler_record( const rocprofiler_record_profiler_t* profiler_record 
                                      , rocprofiler_session_id_t session_id 
                                      , rocprofiler_buffer_id_t buffer_id )
@@ -180,5 +203,92 @@ void write_profile_data( const rocprofiler_record_profiler_t* profiler_record
     }
     output_file << '\n'; 
 }
+#else
+
+extern "C" void flush_profiler_record( const rocprofiler_record_profiler_t* profiler_record 
+                                     , rocprofiler_session_id_t session_id 
+                                     , rocprofiler_buffer_id_t buffer_id )
+{ 
+    std::filesystem::path basepath = "./" ; 
+    std::string const section_name = "default" ; 
+    static constexpr unsigned int width = 20 ; 
+    auto const iter = 0 ; 
+    auto const rank = 0 ; 
+    size_t name_length = 0;
+    CHECK_ROCPROFILER(rocprofiler_query_kernel_info_size(ROCPROFILER_KERNEL_NAME,
+                                                        profiler_record->kernel_id, &name_length));
+    // Taken from rocprofiler: The size hasn't changed in  recent past
+    static const uint32_t lds_block_size = 128 * 4;
+    const char* kernel_name_c = "";
+    if (name_length > 1) {
+        kernel_name_c = static_cast<const char*>(malloc(name_length * sizeof(char)));
+        assert(kernel_name_c != nullptr) ;
+        CHECK_ROCPROFILER(rocprofiler_query_kernel_info(ROCPROFILER_KERNEL_NAME,
+                                                        profiler_record->kernel_id, &kernel_name_c));
+    }
+    std::string kernel_name = detail::rocmprofiler_cxx_demangle(kernel_name_c);
+    // 
+    std::string const pfname = section_name + std::string("_gpu_counters_") + std::to_string(rank) + std::string(".dat") ;
+    std::filesystem::path outfname = 
+        basepath / pfname ; 
+    
+    write_profile_data(profiler_record, outfname.string(), rank, kernel_name, session_id) ; 
+    if( name_length > 1 ) {
+        free(const_cast<char*>(kernel_name_c)) ; 
+    }
+}
+void write_profile_data( const rocprofiler_record_profiler_t* profiler_record 
+                       , const std::string& outfname, int rank, const std::string& kernel_name
+                       , rocprofiler_session_id_t session_id ) 
+{
+    std::ofstream output_file{outfname, std::ios::app};
+    if (!output_file.is_open()) {
+        std::cerr << "Failed to open file for profilers output." ;
+        std::abort() ;  
+        return;        
+    }
+    static const uint32_t lds_block_size = 128 * 4;
+    std::stringstream ss;
+    ss << "kernel-name(\"" << kernel_name << "\"),\n"
+    << "dispatch[" << profiler_record->header.id.handle << "],\n"
+    << "gpu_id(" << profiler_record->gpu_id.handle << "),\n"
+    << "queue_id(" << profiler_record->queue_id.handle << "),\n"
+    << "queue_index(" << profiler_record->queue_idx.value << "),\n"
+    << "tid(" << profiler_record->thread_id.value << "),\n"
+    << "Kernel Properties:\n"
+    << "    grd(" << profiler_record->kernel_properties.grid_size << "),\n"
+    << "    wgr(" << profiler_record->kernel_properties.workgroup_size << "),\n"
+    << "    lds(" << ((profiler_record->kernel_properties.lds_size + (lds_block_size - 1)) & ~(lds_block_size - 1)) << "),\n"
+    << "    scr(" << profiler_record->kernel_properties.scratch_size << "),\n"
+    << "    arch_vgpr(" << profiler_record->kernel_properties.arch_vgpr_count << "),\n"
+    << "    accum_vgpr(" << profiler_record->kernel_properties.accum_vgpr_count << "),\n"
+    << "    sgpr(" << profiler_record->kernel_properties.sgpr_count << "),\n"
+    << "    wave_size(" << profiler_record->kernel_properties.wave_size << "),\n"
+    << "    sig(" << profiler_record->kernel_properties.signal_handle << "),\n"
+    << "    obj(" << profiler_record->kernel_id.handle << "),\n"
+    << "Timestamps (in nanoseconds):\n"
+    << "    time-begin(" << profiler_record->timestamps.begin.value << "),\n"
+    << "    time-end(" << profiler_record->timestamps.end.value << "),\n"
+    << "    duration(" << profiler_record->timestamps.end.value - profiler_record->timestamps.begin.value << ")";
+
+    output_file << ss.str() << std::endl;
+
+    if (profiler_record->counters) {
+        output_file << "Counters:\n" ; 
+        for (uint64_t i = 0; i < profiler_record->counters_count.value; ++i) {
+            if (profiler_record->counters[i].counter_handler.handle > 0) {
+                std::string const counter_name = 
+                    counter_names[profiler_record->counters[i].counter_handler.handle] ; 
+                assert(counter_name != "") ; 
+                output_file << "    " << counter_name << " (" << profiler_record->counters[i].value.value << ")" << std::endl;
+            }
+        }
+    }
+    output_file << '\n'; 
+}
+
+#endif 
+
+
 #undef CHECK_ROCPROFILER
 #endif

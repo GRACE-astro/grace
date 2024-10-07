@@ -115,6 +115,8 @@ if(GRACE_ENABLE_TESTING)
     add_subdirectory(test)
 endif()
 
+add_subdirectory(profiling)
+
 option(GRACE_ENABLE_BENCHMARKS "Build the benchmarks" OFF)
 if(GRACE_ENABLE_BENCHMARKS)
 add_subdirectory(profiling)

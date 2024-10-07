@@ -84,8 +84,6 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     auto& vols   = variable_list::get().getvolumes() ; 
     auto& halo = variable_list::get().gethalo()      ;
     staggered_variable_arrays_t staggered_halo{}     ; 
-    var_array_t<GRACE_NSPACEDIM> mirror ; 
-    staggered_variable_arrays_t staggered_mirror{}     ; 
     /******************************************************/
     auto& params = config_parser::get() ;  
     /******************************************************/
@@ -116,9 +114,7 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     /*     Allocate space to hold remote data on GPU      */
     /******************************************************/
     Kokkos::realloc(halo, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars,halo_quads.size());  
-    Kokkos::realloc(mirror, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars,mirror_quads.size());  
     staggered_halo.realloc(VEC(nx,ny,nz),ngz,halo_quads.size(),nvars_face,nvars_edge,nvars_corner) ; 
-    staggered_mirror.realloc(VEC(nx,ny,nz),ngz,mirror_quads.size(),nvars_face,nvars_edge,nvars_corner) ; 
     cell_vol_array_t<GRACE_NSPACEDIM> halo_vols ; 
     /******************************************************/
     /* Cell volumes for halos are only needed in          */
@@ -139,7 +135,7 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     GRACE_VERBOSE( "Shipping halo quadrants with {}" 
                      " total quadrants and {} halo quadrants.", 
                      nq, halo_quads.size()) ; 
-    parallel::grace_transfer_context_t context{} ; 
+    grace_transfer_context_t context{} ; 
     amr::grace_init_halo_transfer(
         context, 
         halos, 
@@ -223,6 +219,12 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     /* Now we need the halo data so we wait for it        */
     /******************************************************/
     amr::grace_finalize_halo_transfer(context) ; 
+    int opposite_corner [8] = {
+        7,6,5,4,3,2,1,0
+    } ;
+    for( auto const& c: neighbor_info.corner_info.simple_interior_info) {
+        ASSERT(c.which_corner_a == opposite_corner[c.which_corner_b], "Corner a " << static_cast<int>(c.which_corner_a) << " but corner b " << static_cast<int>(c.which_corner_b) ) ; 
+    }
     /******************************************************/
     GRACE_VERBOSE( "Copying interior ghostzones across simple boundaries on " 
     " {:d} quadrants.", neighbor_info.face_info.simple_interior_info.size() ) ;
@@ -246,6 +248,9 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
                             , simple_interior_edge_info
                             #endif 
                             ) ; 
+
+    Kokkos::fence() ; 
+    #if 0
     /******************************************************/
     /* Fourth step:                                       */
     /* Restrict data on internal hanging boundaries.      */
@@ -298,6 +303,7 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     auto edge_phys_boundary_info = neighbor_info.edge_info.phys_boundary_info ; 
     edge_phys_boundary_info.host_to_device() ; 
     #endif 
+    GRACE_VERBOSE("Filling physical boundaries.") ; 
     fill_physical_boundaries(
           vars
         , staggered_vars 
@@ -360,6 +366,7 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     /* Eigth step:                                        */
     /* Fill physical boundaries again                     */
     /******************************************************/
+    GRACE_VERBOSE("Filling physical boundaries.") ;
     fill_physical_boundaries(
           vars
         , staggered_vars 
@@ -378,6 +385,7 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
                   "Total time elapsed {} s.\n"\
                 , EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) * nq  
                 , sw ) ; 
+    #endif
     Kokkos::Profiling::popRegion() ; 
 }
 

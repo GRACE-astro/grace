@@ -57,12 +57,12 @@ int mpi_comm_rank(sc_MPI_Comm comm)
     return rank ;
 }
 
-void mpi_waitall(grace_transfer_context_t& context)
+void mpi_waitall(std::vector<sc_MPI_Request>& requests)
 {
     int mpi_retval; 
-    if ( context._requests.size() > 0 ) {
+    if ( requests.size() > 0 ) {
         mpi_retval = 
-            sc_MPI_Waitall ( context._requests.size(), context._requests.data()
+            sc_MPI_Waitall ( requests.size(), requests.data()
                            , sc_MPI_STATUSES_IGNORE ) ;
         ASSERT( mpi_retval == sc_MPI_SUCCESS, 
                 "mpi_waitall call failed.") ;

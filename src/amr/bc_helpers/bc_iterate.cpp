@@ -376,16 +376,15 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
     /* neighbors by checking which of them share a face*/
     /***************************************************/
     int side_idx_pairs[2][2] ; 
+
+    int opposite_edge [12] = {
+        3,2,1,0,7,6,5,4,11,10,9,8
+    } ; 
+
     auto is_edge_neighbor = [&](int i, int j) {
-        for (int iff = 0; iff < 2; ++iff) {
-            for (int jff = 0; jff < 2; ++jff) {
-                if (sides[i].faces[iff] == sides[j].faces[jff] ) {
-                    return false;
-                }
-            }
-        }
-        return true;
+        return (opposite_edge[sides[i].edge] == sides[j].edge) ; 
     };
+
     std::vector<int> found(4, 0);
     int ip = 0;
     for(int in=0; in<4; ++in){
@@ -525,6 +524,7 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
                     + offset ;
                 this_edge_info.qid_b = sidea.is.full.quadid ;
                 edge_info.n_simple_ghost_edges ++ ; 
+                simple_info.push_back(this_edge_info) ; 
                 GRACE_TRACE("Ghost edge A qid_a {} qid_b {}", this_edge_info.qid_a, this_edge_info.qid_b) ; 
             } else if(sideb.is.full.is_ghost and not sidea.is.full.is_ghost){
                 auto offset = get_local_quadrants_offset(sidea.treeid);
@@ -537,8 +537,10 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
                     + offset ;
                 this_edge_info.qid_b = sideb.is.full.quadid ;
                 edge_info.n_simple_ghost_edges ++ ; 
+                simple_info.push_back(this_edge_info) ; 
                 GRACE_TRACE("Ghost edge B qid_a {} qid_b {}", this_edge_info.qid_a, this_edge_info.qid_b) ; 
-            } else {
+            } else if ( ( not sidea.is.full.is_ghost ) and ( not sideb.is.full.is_ghost ) ) {
+                // need to ensure that both of them are not ghost.
                 auto offset = get_local_quadrants_offset(sidea.treeid);
                 this_edge_info.is_ghost = 0 ; 
                 this_edge_info.which_edge_a = sidea.edge ; 
@@ -550,8 +552,11 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
                 offset = get_local_quadrants_offset(sideb.treeid);
                 this_edge_info.qid_b = sideb.is.full.quadid
                     + offset ;
+                simple_info.push_back(this_edge_info) ; 
+            } else {
+                // skip 
             }
-            simple_info.push_back(this_edge_info) ; 
+            
         }
     }
 
@@ -626,16 +631,11 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
     /* or an edge.                                     */
     /***************************************************/
     int side_idx_pairs[4][2] ;
+    int opposite_corner [8] = {
+        7,6,5,4,3,2,1,0
+    } ; 
     auto is_corner_neighbor = [&](int i, int j) {
-        for (int iff = 0; iff < 3; ++iff) {
-            for (int jff = 0; jff < 3; ++jff) {
-                if (sides[i].faces[iff] == sides[j].faces[jff] ||
-                    sides[i].edges[iff] == sides[j].edges[jff]) {
-                    return false;
-                }
-            }
-        }
-        return true;
+        return (opposite_corner[sides[i].corner] == sides[j].corner) ; 
     };
     std::vector<bool> found(8, false);
     int ip = 0;
@@ -654,6 +654,12 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
             }
         }
     } 
+    for( int ip=0; ip<4; ++ip) {
+        GRACE_VERBOSE("Side pair {}: {} {}. Corners: {} {}, qids {} {}.",
+        ip, side_idx_pairs[ip][0], side_idx_pairs[ip][1],
+        sides[side_idx_pairs[ip][0]].corner, sides[side_idx_pairs[ip][1]].corner,
+        sides[side_idx_pairs[ip][0]].quadid, sides[side_idx_pairs[ip][1]].quadid) ; 
+    }
     
     /***************************************************/
     /* Now we have two pairs of "sides" of the corner    */
@@ -662,9 +668,9 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
     /* or hanging, the quadid's involved on either side*/
     /* etc. in the following.                          */
     /***************************************************/
-    for( int i=0 ; i<4; ++i) {
-        auto const& sidea = sides[side_idx_pairs[i][0]] ; 
-        auto const& sideb = sides[side_idx_pairs[i][1]] ; 
+    for( int ipp=0 ; ipp<4; ++ipp) {
+        auto const& sidea = sides[side_idx_pairs[ipp][0]] ; 
+        auto const& sideb = sides[side_idx_pairs[ipp][1]] ; 
         int level_a = static_cast<int>(sidea.quad->level) ; 
         int level_b = static_cast<int>(sideb.quad->level) ; 
         if ( level_a > level_b ) {
@@ -710,7 +716,10 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
                     + offset ;
                 this_corner_info.qid_b = sidea.quadid ;
                 corner_info.n_simple_ghost_corners ++ ;
-                GRACE_TRACE("Ghost corner A qid_a {} qid_b {}", this_corner_info.qid_a, this_corner_info.qid_b) ;  
+                GRACE_TRACE("Ghost corner A qid_a {} qid_b {} corner a {} corner b {}", 
+                this_corner_info.qid_a, this_corner_info.qid_b, 
+                this_corner_info.which_corner_a, this_corner_info.which_corner_b) ;  
+                simple_info.push_back(this_corner_info) ; 
             } else if(sideb.is_ghost and not sidea.is_ghost){
                 auto offset = get_local_quadrants_offset(sidea.treeid);
                 this_corner_info.is_ghost     = 1 ; 
@@ -722,8 +731,11 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
                     + offset ;
                 this_corner_info.qid_b = sideb.quadid ;
                 corner_info.n_simple_ghost_corners ++ ; 
-                GRACE_TRACE("Ghost corner B qid_a {} qid_b {}", this_corner_info.qid_a, this_corner_info.qid_b) ;  
-            } else {
+                simple_info.push_back(this_corner_info) ; 
+                GRACE_TRACE("Ghost corner B qid_a {} qid_b {} corner a {} corner b {}", 
+                this_corner_info.qid_a, this_corner_info.qid_b, 
+                this_corner_info.which_corner_a, this_corner_info.which_corner_b) ;    
+            } else if ( ( not sidea.is_ghost ) and ( not sideb.is_ghost ) ) {
                 auto offset = get_local_quadrants_offset(sidea.treeid);
                 this_corner_info.is_ghost = 0 ; 
                 this_corner_info.which_corner_a = sidea.corner ; 
@@ -735,8 +747,10 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
                 offset = get_local_quadrants_offset(sideb.treeid);
                 this_corner_info.qid_b = sideb.quadid
                 + offset ;
+                simple_info.push_back(this_corner_info) ; 
+            } else {
+                // skip 
             }
-            simple_info.push_back(this_corner_info) ; 
         }
     }
 

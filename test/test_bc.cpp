@@ -9,7 +9,7 @@
 #include <grace/utils/grace_utils.hh>
 #include <grace/utils/gridloop.hh>
 
-#include <grace/IO/vtk_output.hh>
+#include <grace/IO/cell_output.hh>
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <numeric>
@@ -205,6 +205,7 @@ TEST_CASE("Apply BC", "[boundaries]")
     /*************************************************/
     /*                 Apply BCs                     */
     /*************************************************/
+    grace::IO::write_cell_output(true,true,true) ; 
     grace::amr::apply_boundary_conditions() ; 
 
     /*************************************************/
@@ -214,7 +215,8 @@ TEST_CASE("Apply BC", "[boundaries]")
     Kokkos::deep_copy(h_state_mirror_new,state); 
     auto h_corner_mirror_new = Kokkos::create_mirror_view(sstate.corner_staggered_fields) ; 
     Kokkos::deep_copy(h_corner_mirror_new,sstate.corner_staggered_fields);  
-
+    std::cout << "Value: " << h_state_mirror_new(0,0,0,0,0) << std::endl ;
+    std::cout << "Other value: " << h_state_mirror_new(2,2,2,0,0) << std::endl ; 
     /*************************************************/
     /*                   Check                       */
     /*************************************************/
@@ -225,6 +227,11 @@ TEST_CASE("Apply BC", "[boundaries]")
                 q,
                 true
             ) ;
+            if(
+                std::fabs(h_state_mirror_new(VEC(i,j,k),DENS,q) - h_func(VEC(pcoords[0],pcoords[1],pcoords[2])))>1e-10
+            ) {
+                std::cout << pcoords[0] << ", " << pcoords[1] << ", " << pcoords[2] << std::endl ;
+            }
             REQUIRE_THAT( h_state_mirror_new(VEC(i,j,k),DENS,q)
                       , Catch::Matchers::WithinAbs(
                                   h_func(VEC(pcoords[0],pcoords[1],pcoords[2]))
@@ -233,12 +240,7 @@ TEST_CASE("Apply BC", "[boundaries]")
         {VEC(false,false,false)},
         true
     ) ; 
-    auto pcc = coord_system.get_physical_coordinates(
-                {VEC(nx,ny,nz)},
-                nq-1,
-                {VEC(0,0,0)},
-                true
-            ) ;
+
     
     host_grid_loop<false>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {

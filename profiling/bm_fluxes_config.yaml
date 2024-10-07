@@ -1,0 +1,8 @@
+amr: {
+  nx: 8,
+  ny: 8,
+  nz: 8,
+  ngz: 2,
+  nq: 1,
+  n_repetitions: 100
+}

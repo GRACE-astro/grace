@@ -69,9 +69,12 @@ void copy_interior_ghostzones(
         , interior_edges 
         #endif 
     ) ; 
+    Kokkos::fence() ; 
+    GRACE_VERBOSE("Done cell centers start corners.") ; 
     /******************************************************/
     /*                CELL CORNERS                        */
     /******************************************************/
+    #if 1
     copy_interior_ghostzones_corners(
           staggered_state.corner_staggered_fields
         , staggered_halo.corner_staggered_fields
@@ -81,6 +84,9 @@ void copy_interior_ghostzones(
         , interior_edges 
         #endif 
     ) ;
+    #endif 
+    Kokkos::fence() ;
+    GRACE_VERBOSE("All done in copy.") ; 
 }
 
 void copy_interior_ghostzones_cell_centers(
@@ -225,15 +231,15 @@ void copy_interior_ghostzones_cell_centers(
                                              int ijk[GRACE_NSPACEDIM], 
                                              int lmn[GRACE_NSPACEDIM] ) 
             {
-                int x = (ca >> 0) & 1;  
-                int y = (ca >> 1) & 1;  
-                int z = (ca >> 2) & 1;  
+                int x = (ca >> 0) & 1;
+                int y = (ca >> 1) & 1;
+                int z = (ca >> 2) & 1;
                 EXPR(
                 ijk[0] = (x == 0) ? ii : (nx + ngz + ii);,
                 ijk[1] = (y == 0) ? jj : (ny + ngz + jj);,
                 ijk[2] = (z == 0) ? kk : (nz + ngz + kk);)
-                x = (cb >> 0) & 1;  
-                y = (cb >> 1) & 1;  
+                x = (cb >> 0) & 1;
+                y = (cb >> 1) & 1;
                 z = (cb >> 2) & 1;
                 EXPR(
                 lmn[0] = (x == 0) ? (ngz + ii) : (nx + ii);,
@@ -241,14 +247,16 @@ void copy_interior_ghostzones_cell_centers(
                 lmn[2] = (z == 0) ? (ngz + kk) : (nz + kk);)
             } ; 
             /* Get correct array to read from / write to */
-            auto& view_a = vars ; 
-            auto& view_b = (is_ghost) ? halo : vars ; 
-            int ijk_a [GRACE_NSPACEDIM], ijk_b [GRACE_NSPACEDIM] ; 
-            index_mapping(ig,jg,kg,which_corner_a,which_corner_b, ijk_a,ijk_b) ; 
-            view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) =  view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) ;    
+            auto& view_a = vars ;
+            auto& view_b = (is_ghost) ? halo : vars ;
+            int ijk_a [GRACE_NSPACEDIM], ijk_b [GRACE_NSPACEDIM] ;
+            index_mapping(ig,jg,kg, which_corner_a,which_corner_b, ijk_a,ijk_b) ; 
+            view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) =
+                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) ;
             if( ! is_ghost ) {
                 index_mapping(ig,jg,kg,which_corner_b,which_corner_a, ijk_b,ijk_a) ;
-                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) =  view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) ;
+                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) =
+                    view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) ;
             }
         });
     #ifdef GRACE_3D
@@ -325,10 +333,12 @@ void copy_interior_ghostzones_cell_centers(
             auto& view_b = (is_ghost) ? halo : vars ; 
             int ijk_a [GRACE_NSPACEDIM], ijk_b [GRACE_NSPACEDIM] ; 
             index_mapping(ig,jg,k,which_edge_a,which_edge_b, ijk_a,ijk_b) ; 
-            view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) =  view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) ; 
+            view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) =
+                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) ; 
             if( ! is_ghost ) {
                 index_mapping(ig,jg,k,which_edge_b,which_edge_a, ijk_b,ijk_a) ;
-                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) =  view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) ;
+                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) =
+                    view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) ;
             }
         }) ;
     #endif 
@@ -346,6 +356,14 @@ void copy_interior_ghostzones_corners(
 {
     using namespace grace; 
     using namespace Kokkos ; 
+
+    for( int idim=0; idim<GRACE_NSPACEDIM+2; ++idim ) {
+        if ( idim == GRACE_NSPACEDIM+1 ) 
+            continue ; // Number of quads should not match.
+        ASSERT( vars.extent(idim) == halo.extent(idim), 
+        "Mismatch view dimensions direction " << idim << " in copy (corner-staggered).\n" << 
+        " vars extent " << vars.extent(idim) << " halo extent " << halo.extent(idim) << ".") ; 
+    }
 
     size_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
@@ -365,7 +383,7 @@ void copy_interior_ghostzones_corners(
     if( (EXPR( n_faces == 0, and n_corners == 0, and n_edges==0)) or nvars==0 ) {
         return ; 
     }
-    #if 1
+    GRACE_VERBOSE("Starting copy across face corner staggered.") ; 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
         policy(
             {0,VECD(0,0), 0,0},
@@ -465,7 +483,8 @@ void copy_interior_ghostzones_corners(
                 }
             }
         });
-    #endif
+    Kokkos::fence() ; 
+    GRACE_VERBOSE("Starting copy across corners corner staggered.") ; 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
         policy_corner(
             {0,VECD(0,0), 0,0},
@@ -532,6 +551,8 @@ void copy_interior_ghostzones_corners(
                 }
             }
         });
+    Kokkos::fence(); 
+    GRACE_VERBOSE("Starting copy across edges corner staggered.") ; 
     #ifdef GRACE_3D
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
         policy_edge(

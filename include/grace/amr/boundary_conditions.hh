@@ -31,6 +31,7 @@
 #include <grace/data_structures/variable_properties.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/utils/device_vector.hh>
+#include <grace/parallel/mpi_wrappers.hh>
 
 #include <Kokkos_Vector.hpp>
 
@@ -269,6 +270,25 @@ struct grace_neighbor_info_t
     hanging_fine_face_info_t            fine_hanging_faces_info   ; 
     hanging_fine_edge_info_t            fine_hanging_edges_info   ;
 } ; 
+
+struct grace_transfer_context_t 
+{ 
+    std::vector<sc_MPI_Request> _requests ; 
+    std::vector<grace::var_array_t<GRACE_NSPACEDIM>> _buffs ; 
+    std::vector<grace::staggered_variable_arrays_t>  _staggered_buffs ; 
+    void reset() { 
+        for( auto& x: _buffs ) {
+            Kokkos::realloc(x, VEC(0,0,0),0,0) ; 
+        }
+        for( auto& x: _staggered_buffs) {
+            x.realloc(VEC(0,0,0),0,0,0,0,0) ; 
+        }
+        _buffs.clear() ; 
+        _staggered_buffs.clear() ; 
+        _requests.clear() ;
+    } ; 
+} ; 
+
 /**
  * @brief Apply all boundary conditions and fill ghostzones on state array.
  * \ingroup amr
