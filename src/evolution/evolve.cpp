@@ -42,6 +42,7 @@
 #include <grace/utils/grace_utils.hh>
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
+#include <grace/utils/device_stream_pool.hh>
 #include <grace/utils/riemann_solvers.hh>
 #ifdef GRACE_ENABLE_BURGERS 
 #include <grace/physics/burgers.hh>
@@ -204,9 +205,12 @@ void advance_substep( double const t, double const dt, double const dtfact
     grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 
     //**************************************************************************************************/
+    auto& pool = grace::device_stream_pool::get(); 
+    auto& x_stream = pool.next() ; 
     auto flux_x_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(0,0,0),0}
+               x_stream._stream
+            , {VEC(0,0,0),0}
             , {VEC(nx+1,ny,nz),nq}
         ) ; 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux")
@@ -215,9 +219,11 @@ void advance_substep( double const t, double const dt, double const dtfact
         GET_X_FLUX ;
     }) ; 
     //**************************************************************************************************/
+    auto& y_stream = pool.next() ;
     auto flux_y_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(0,0,0),0}
+               y_stream._stream
+            , {VEC(0,0,0),0}
             , {VEC(nx,ny+1,nz),nq}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
@@ -226,9 +232,11 @@ void advance_substep( double const t, double const dt, double const dtfact
         GET_Y_FLUX ;
     }) ; 
     //**************************************************************************************************/
+    auto& z_stream = pool.next() ;
     auto flux_z_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(0,0,0),0}
+               z_stream._stream
+            , {VEC(0,0,0),0}
             , {VEC(nx,ny,nz+1),nq}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
@@ -237,9 +245,11 @@ void advance_substep( double const t, double const dt, double const dtfact
         GET_Z_FLUX ;
     }) ; 
     //**************************************************************************************************/
+    auto& src_stream = pool.next() ;
     auto geom_sources_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(0,0,0),0}
+               src_stream._stream
+            , {VEC(0,0,0),0}
             , {VEC(nx,ny,nz),nq}
         ) ; 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_sources")
@@ -248,7 +258,10 @@ void advance_substep( double const t, double const dt, double const dtfact
         GET_SOURCES ;
     }) ;  
     //**************************************************************************************************/
-    Kokkos::fence() ; 
+    x_stream.fence() ;
+    y_stream.fence() ; 
+    z_stream.fence() ; 
+    src_stream.fence() ;
     //**************************************************************************************************/
     auto advance_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (

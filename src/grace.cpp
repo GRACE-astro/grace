@@ -83,13 +83,7 @@ int main(int argc, char* argv[])
             }
         }
     }
-    
-    grace::IO::write_cell_output(true,true,true) ;
-    grace::IO::compute_reductions() ; 
-    grace::IO::initialize_output_files() ; 
-    grace::IO::write_scalar_output() ;
-    GRACE_INFO("Starting evolution.") ; 
-    grace::IO::info_output() ;
+    GRACE_INFO("Initialization complete.") ; 
     /**********************************************************************************/
     /**********************************************************************************/
     double final_time = grace::get_param<double>("evolution","final_time") ; 
@@ -107,6 +101,14 @@ int main(int argc, char* argv[])
     if ( tstep_mode == "manual" ) {
         grace::set_timestep(grace::get_param<double>("evolution","timestep")) ; 
     }
+    if ( volume_output_every > 0 )
+        grace::IO::write_cell_output(true,true,true) ;
+    grace::IO::compute_reductions() ; 
+    grace::IO::initialize_output_files() ; 
+    if ( scalar_output_every > 0 )
+        grace::IO::write_scalar_output() ;
+    GRACE_INFO("Starting evolution.") ; 
+    grace::IO::info_output() ;
     /**********************************************************************************/
     /*                           Evolution loop                                       */
     /**********************************************************************************/
