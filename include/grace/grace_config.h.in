@@ -52,8 +52,6 @@ namespace grace {
 
 #cmakedefine GRACE_ENABLE_PROFILING
 
-#cmakedefine GRACE_ENABLE_OLD_SC_VERS
-
 #define GRACE_BANNER                                                          \
 "                                                                           \n" \
 "                                                                           \n" \

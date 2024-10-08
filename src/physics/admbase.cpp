@@ -31,7 +31,6 @@
 #include <grace/amr/amr_functions.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/parallel/mpi_wrappers.hh>
-#include <grace/utils/metric_utils.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
 #include <grace/config/config_parser.hh>
 #include <grace/data_structures/grace_data_structures.hh>

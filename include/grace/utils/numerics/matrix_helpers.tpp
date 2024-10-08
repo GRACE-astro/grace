@@ -30,7 +30,7 @@
 #include <grace_config.h>
 
 #include <grace/utils/inline.h>
-#include <grace/utils/device.h>
+#include <grace/utils/device/device.h>
 
 #include <array> 
 #include <cstdlib> 

@@ -1,34 +1,37 @@
 /**
- * @file macros.hh
+ * @file grace_device_utils.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @version 0.1
- * @date 2023-06-13
+ * @date 2024-10-08
  * 
- * @copyright This file is part of GRACE.
- * GRACE is an evolution framework that uses Finite Difference
- * methods to simulate relativistic astrophysical systems and plasma
- * dynamics.
+ * @copyright This file is part of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
+ * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
- *                                                                    
+ *                                    
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- *  
+ *   
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *  
+ *   
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
 
-#include <grace_config.h>
+#ifndef GRACE_UTILS_DEVICE_UTILS_HH
+#define GRACE_UTILS_DEVICE_UTILS_HH
 
-#ifndef C412D999_BF0F_4E79_9C1D_C17BE6E275CB
-#define C412D999_BF0F_4E79_9C1D_C17BE6E275CB
+#include <grace/utils/device/device.h>
+#include <grace/utils/device/device_event.hh>
+#include <grace/utils/device/device_stream.hh>
+#include <grace/utils/device/device_stream_pool.hh>
+#include <grace/utils/device/kernel_launch.hh>
 
-#endif /* C412D999_BF0F_4E79_9C1D_C17BE6E275CB */
+#endif 

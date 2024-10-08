@@ -30,10 +30,10 @@
 
 #include <grace_config.h>
 
-#include <grace/utils/math.hh>
-#include <grace/utils/constexpr.hh>
+#include <grace/utils/numerics/math.hh>
+#include <grace/utils/numerics/constexpr.hh>
 #include <grace/utils/inline.h>
-#include <grace/utils/device.h>
+#include <grace/utils/device/device.h>
 
 #include <array> 
 

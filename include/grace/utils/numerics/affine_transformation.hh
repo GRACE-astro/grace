@@ -1,8 +1,8 @@
 /**
- * @file reductors.hh
+ * @file affine_transformation.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-05-22
+ * @date 2024-04-18
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics
  * Code for Exascale.
@@ -24,27 +24,37 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#ifndef GRACE_UTILS_REDUCTORS_HH
-#define GRACE_UTILS_REDUCTORS_HH
-#include <grace_config.h>
-#include <grace/utils/math.hh>
-#include <grace/utils/inline.hh>
-#include <grace/utils/device.h>
-#include <grace/data_structures/variable_properties.hh>
+#ifndef GRACE_UTILS_AFFINE_TRANSFORMATION_HH 
+#define GRACE_UTILS_AFFINE_TRANSFORMATION_HH
 
-#include <Kokkos_Core.hpp>
+#include <grace/utils/inline.h>
+#include <grace/utils/device/device.h>
 
+#include <array>
 namespace utils {
 
-struct grace_min_reduction_t      {} ; 
-struct grace_max_reduction_t      {} ; 
-struct grace_integral_reduction_t {} ;  
-struct grace_norm2_reduction_t    {} ;
-struct grace_sum_reduction_t      {} ; 
-
-
+/**
+ * @brief Apply an affine transformation.
+ * 
+ * @tparam T Type of data.
+ * @param x Point to be transformed.
+ * @param A Starting point of old interval.
+ * @param B End point of old interval.
+ * @param a Starting point of new interval.
+ * @param b End point of new interval.
+ * @return T The mapping of x from \f$[A,B]\f$ to \f$[a,b]\f$.
+ */
+template< typename T >
+static T GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+affine_transformation(
+    T const& x,
+    T const& A, T const& B, 
+    T const& a, T const& b ) 
+{
+    return b/(B-A)*(x-A)+a/(B-A)*(B-x) ; 
+}
 
 
 }
 
-#endif /* GRACE_UTILS_REDUCTORS_HH */
+#endif /*GRACE_UTILS_AFFINE_TRANSFORMATION_HH*/

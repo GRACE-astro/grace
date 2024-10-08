@@ -29,10 +29,10 @@
 #define GRACE_UTILS_RECONSTRUCTION_HH
 
 #include <grace_config.h>
-#include <grace/utils/device.h>
+#include <grace/utils/device/device.h>
 #include <grace/utils/inline.h>
-#include <grace/utils/limiters.hh>
-#include <grace/utils/matrix_helpers.tpp>
+#include <grace/utils/numerics/limiters.hh>
+#include <grace/utils/numerics/matrix_helpers.tpp>
 
 #include <grace/data_structures/variable_properties.hh>
 

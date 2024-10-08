@@ -30,7 +30,7 @@
 #include <grace/physics/bssn.hh>
 #include <grace/physics/grmhd_helpers.hh>
 
-#include <grace/utils/fd_utils.hh>
+#include <grace/utils/numerics/fd_utils.hh>
 
 #include <Kokkos_Core.hpp>
 

@@ -32,6 +32,37 @@
 #include <grace/profiling/gpu_profiling.hh>
 #include <grace/profiling/profiling_runtime.hh>
 
+#ifdef GRACE_ENABLE_PROFILING
+#ifdef GRACE_ENABLE_HIP
+#include <roctx.h>
+
+#define DEVICE_PUSH_TRACING_REGION(name) \
+roctxRangePush(name)
+
+#define DEVICE_POP_TRACING_REGION() \
+roctxRangePop()
+
+#define DEVICE_MARK_TRACING_POINT(name) \
+roctxMark(name)
+
+#elif defined(GRACE_ENABLE_CUDA) 
+#include <nvtx3/nvToolsExt.h>
+
+#define DEVICE_PUSH_TRACING_REGION(name) \
+nvtxRangePushA(name)
+
+#define DEVICE_POP_TRACING_REGION() \
+nvtxRangePop()
+
+#define DEVICE_MARK_TRACING_POINT(name) \
+nvtxMarkA(name)
+#endif 
+#else 
+#define DEVICE_PUSH_TRACING_REGION(name)
+#define DEVICE_POP_TRACING_REGION()
+#define DEVICE_MARK_TRACING_POINT(name)
+#endif 
+
 #include <Kokkos_Core.hpp>
 //*********************************************************************************************************************
 //*********************************************************************************************************************
@@ -53,6 +84,7 @@ do {\
 grace::profiling_runtime::get().push_host_region(name);\
 grace::profiling_runtime::get().push_device_region(name);\
 Kokkos::Profiling::pushRegion(name);\
+DEVICE_PUSH_TRACING_REGION(name);\
 } while(false)
 //*********************************************************************************************************************
 //*********************************************************************************************************************
@@ -72,6 +104,7 @@ do{\
 grace::profiling_runtime::get().pop_host_region();\
 grace::profiling_runtime::get().pop_device_region();\
 Kokkos::Profiling::popRegion();\
+DEVICE_POP_TRACING_REGION();\
 } while(false)
 //*********************************************************************************************************************
 #else

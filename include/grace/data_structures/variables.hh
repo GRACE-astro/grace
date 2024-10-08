@@ -35,7 +35,6 @@
 #include<code_modules.h>
 #include<grace/data_structures/variable_properties.hh>
 #include<grace/data_structures/variable_indices.hh>
-#include<grace/data_structures/macros.hh>
 
 #include<grace/utils/inline.h>
 #include<grace/utils/singleton_holder.hh> 

@@ -29,7 +29,7 @@
 #define GRACE_UTILS_INTERPOLATORS_HH
 
 #include <grace/utils/inline.h>
-#include <grace/utils/device.h>
+#include <grace/utils/device/device.h>
 
 namespace utils {
 

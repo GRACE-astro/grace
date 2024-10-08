@@ -31,7 +31,6 @@
 #include <grace_config.h>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/metric_utils.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>

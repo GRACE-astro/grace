@@ -25,11 +25,11 @@
  * 
  */
 
-#include <grace/utils/math.hh>
+#include <grace/utils/numerics/math.hh>
 #include <grace/utils/inline.h>
-#include <grace/utils/device.h>
-#include <grace/utils/limiters.hh>
-#include <grace/utils/matrix_helpers.tpp>
+#include <grace/utils/device/device.h>
+#include <grace/utils/numerics/limiters.hh>
+#include <grace/utils/numerics/matrix_helpers.tpp>
 
 #ifndef GRACE_UTILS_WENO_RECONSTRUCTION_HH
 #define GRACE_UTILS_WENO_RECONSTRUCTION_HH 

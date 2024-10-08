@@ -36,12 +36,10 @@
 #include <grace/config/config_parser.hh>
 
 #include <grace/data_structures/variables.hh>
-#include <grace/data_structures/macros.hh>
 #include <grace/data_structures/memory_defaults.hh>
 
 
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/gridloop.hh>
 
 #include <omp.h>
 

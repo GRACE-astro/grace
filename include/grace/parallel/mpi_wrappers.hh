@@ -40,9 +40,10 @@
 
 #include <vector>
 
-#ifdef GRACE_ENABLE_OLD_SC_VERS
+#ifndef sc_MPI_LONG_DOUBLE
 #define sc_MPI_LONG_DOUBLE MPI_LONG_DOUBLE 
-#else 
+#endif 
+#ifndef sc_MPI_UNSIGNED_LONG_LONG
 #define sc_MPI_UNSIGNED_LONG_LONG MPI_UNSIGNED_LONG_LONG
 #endif 
 

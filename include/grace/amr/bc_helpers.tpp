@@ -35,7 +35,7 @@
 #include <grace/amr/grace_amr.hh> 
 #include <grace/utils/grace_utils.hh>
 #include <grace/utils/device_vector.hh>
-#include <grace/data_structures/macros.hh>
+
 
 #include <grace/amr/bc_kernels.tpp>
 
