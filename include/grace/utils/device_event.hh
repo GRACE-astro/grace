@@ -116,9 +116,11 @@ struct device_event_t {
      */
     static float elapsed_time(const device_event_t& start, const device_event_t& stop) {
         float time_ms;
-        EVENT_ELAPSED_TIME(start._event, stop._event, &time_ms);
+        EVENT_ELAPSED_TIME(&time_ms, start._event, stop._event);
         return time_ms;
     }
 };
 
 }
+
+#endif 

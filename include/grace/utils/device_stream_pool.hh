@@ -46,14 +46,18 @@ namespace grace {
 
 //**************************************************************************************************
 /**
- * @brief 
+ * @brief A pool of device streams (hipStream_t or cudaStream_t depending on the backend).
+ * 
+ * The pool is initialized at startup and the streams remain active for the whole duration of the 
+ * application. Work can be scheduled on the streams in a round-robin fashion and kernels can be 
+ * synchronized using events (see <code>device_event_t</code>).
  * 
  */
 class device_stream_pool_impl_t 
 {
     //**************************************************************************************************
-    using stream_t = grace::default_execution_space ;//grace::device_stream_t ; 
-    using pool_t = std::vector<grace::default_execution_space> ; //std::vector<grace::device_stream_t> ;
+    using stream_t = grace::device_stream_t ; 
+    using pool_t = std::vector<grace::device_stream_t> ;  
     using size_type = pool_t::size_type ; 
     //**************************************************************************************************
  public:
@@ -85,9 +89,7 @@ class device_stream_pool_impl_t
     {
         auto const n_streams = grace::get_param<std::size_t>("system", "n_device_streams") ; 
         ASSERT( n_streams > 0, "Number of active streams must be positive." ) ;
-        //_pool.resize(n_streams) ; 
-        auto w = std::vector<double>(n_streams, 1) ;
-        _pool = Kokkos::Experimental::partition_space(grace::default_execution_space, )
+        _pool.resize(n_streams) ; 
     }
     //**************************************************************************************************
     ~device_stream_pool_impl_t() = default ;

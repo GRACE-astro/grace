@@ -43,6 +43,8 @@
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/device_stream_pool.hh>
+#include <grace/utils/device_event.hh>
+#include <grace/utils/hip_kernel_launch.hh>
 #include <grace/utils/riemann_solvers.hh>
 #ifdef GRACE_ENABLE_BURGERS 
 #include <grace/physics/burgers.hh>
@@ -140,11 +142,11 @@ void advance_substep( double const t, double const dt, double const dtfact
     using namespace grace ; 
     using namespace Kokkos  ; 
 
-    int64_t nx,ny,nz ; 
+    int nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ; 
     
-    int64_t nq = amr::get_local_num_quadrants() ;
+    int nq = amr::get_local_num_quadrants() ;
     
     int nvars_hrsc = variables::get_n_hrsc() ;
     /*********************************************/ 
@@ -205,66 +207,56 @@ void advance_substep( double const t, double const dt, double const dtfact
     grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 
     //**************************************************************************************************/
+    device_event_t x_flux_finished{}, y_flux_finished{}, z_flux_finished{}, sources_finished{} ; 
+    int threadsPerBlock = 1024; 
+    int numBlocks      = ((nx+1)*ny*nz*nq + threadsPerBlock - 1)/threadsPerBlock ;
     DEVICE_MARK_TRACING_POINT("x_flux") ; 
     auto& pool = grace::device_stream_pool::get(); 
     auto& x_stream = pool.next() ; 
-    auto flux_x_policy = 
-        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-               x_stream._stream
-            , {VEC(0,0,0),0}
-            , {VEC(nx+1,ny,nz),nq}
-        ) ; 
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux")
-                , flux_x_policy 
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-        GET_X_FLUX ;
-    }) ; 
+    auto flux_x_range  = MDRange<GRACE_NSPACEDIM+1, int> (
+          {VEC(0,0,0),0}
+        , {VEC(nx+1,ny,nz),nq}
+    ) ; 
+    launch_grace_kernel(flux_x_range, KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {  GET_X_FLUX ; },
+                        (dim3) numBlocks, (dim3) threadsPerBlock, 0, x_stream ) ; 
+    x_flux_finished.record(x_stream) ; 
+
     //**************************************************************************************************/
     DEVICE_MARK_TRACING_POINT("y_flux") ; 
     auto& y_stream = pool.next() ;
-    auto flux_y_policy = 
-        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-               y_stream._stream
-            , {VEC(0,0,0),0}
-            , {VEC(nx,ny+1,nz),nq}
-        ) ;
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
-                , flux_y_policy 
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-        GET_Y_FLUX ;
-    }) ; 
+    auto flux_y_range  = MDRange<GRACE_NSPACEDIM+1, int> (
+          {VEC(0,0,0),0}
+        , {VEC(nx,ny+1,nz),nq}
+    ) ;
+    launch_grace_kernel(flux_y_range, KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {  GET_Y_FLUX ; },
+                        (dim3) numBlocks, (dim3) threadsPerBlock, 0, y_stream ) ;  
+    y_flux_finished.record(y_stream) ; 
     //**************************************************************************************************/
     DEVICE_MARK_TRACING_POINT("z_flux") ;
     auto& z_stream = pool.next() ;
-    auto flux_z_policy = 
-        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-               z_stream._stream
-            , {VEC(0,0,0),0}
-            , {VEC(nx,ny,nz+1),nq}
-        ) ;
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
-                , flux_z_policy 
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-        GET_Z_FLUX ;
-    }) ; 
+    auto flux_z_range  = MDRange<GRACE_NSPACEDIM+1, int> (
+          {VEC(0,0,0),0}
+        , {VEC(nx,ny,nz+1),nq}
+    ) ;
+    launch_grace_kernel(flux_z_range, KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {  GET_Z_FLUX ; },
+                        (dim3) numBlocks, (dim3) threadsPerBlock, 0, z_stream ) ; 
+    z_flux_finished.record(z_stream) ;  
     //**************************************************************************************************/
+    DEVICE_MARK_TRACING_POINT("sources") ;
     auto& src_stream = pool.next() ;
-    auto geom_sources_policy = 
-        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-               src_stream._stream
-            , {VEC(0,0,0),0}
-            , {VEC(nx,ny,nz),nq}
-        ) ; 
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_sources")
-                , geom_sources_policy 
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-        GET_SOURCES ;
-    }) ;  
+    numBlocks      = (nx*ny*nz*nq + threadsPerBlock - 1)/threadsPerBlock ;
+    auto sources_range  = MDRange<GRACE_NSPACEDIM+1, int> (
+          {VEC(0,0,0),0}
+        , {VEC(nx,ny,nz),nq}
+    ) ;
+    launch_grace_kernel(sources_range, KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {  GET_SOURCES ; },
+                        (dim3) numBlocks, (dim3) threadsPerBlock, 0, src_stream ) ;  
+    sources_finished.record(src_stream) ; 
     //**************************************************************************************************/
-    x_stream.fence() ;
-    y_stream.fence() ; 
-    z_stream.fence() ; 
-    src_stream.fence() ;
+    x_flux_finished.synchronize() ; 
+    y_flux_finished.synchronize() ; 
+    z_flux_finished.synchronize() ;
+    sources_finished.synchronize() ; 
     //**************************************************************************************************/
     auto advance_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
