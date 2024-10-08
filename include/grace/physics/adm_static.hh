@@ -28,8 +28,6 @@
 #define GRACE_PHYSICS_ADMBASE_HH
 
 #include <grace_config.h>
-#include <grace/utils/device.h>
-#include <grace/utils/inline.h>
 #include <grace/utils/grace_utils.hh>
 #include <grace/errors/error.hh>
 #include <grace/data_structures/variable_properties.hh>

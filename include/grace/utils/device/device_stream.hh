@@ -31,39 +31,7 @@
 #include <grace_config.h>
 
 #include <grace/errors/error.hh>
-
-#ifdef GRACE_ENABLE_CUDA
-    #include <cuda_runtime.h>
-    #define CUDA_CALL(call)                                                               \
-    do {                                                                                  \
-        cudaError_t err = call;                                                           \
-        if (err != cudaSuccess) {                                                         \
-            ERROR("CUDA call returned error code " << cudaGetErrorString(err) << ".") ;   \
-        }                                                                                 \
-    } while (0)
-    using stream_t = cudaStream_t;
-    #define STREAM_CREATE(stream) CUDA_CALL(cudaStreamCreate(&(stream)))
-    #define STREAM_DESTROY(stream) CUDA_CALL(cudaStreamDestroy(stream))
-    #define STREAM_SYNCHRONIZE(stream) CUDA_CALL(cudaStreamSynchronize(stream))
-#elif defined(GRACE_ENABLE_HIP)
-    #include <hip/hip_runtime.h>
-    #define HIP_CALL(call)                                                              \
-    do {                                                                                \
-        hipError_t err = call;                                                          \
-        if (err != hipSuccess) {                                                        \
-            ERROR("HIP call returned error code " << hipGetErrorString(err) << ".") ;   \
-        }                                                                               \
-    } while (0)
-    using stream_t = hipStream_t;
-    #define STREAM_CREATE(stream) HIP_CALL(hipStreamCreate(&(stream)))
-    #define STREAM_DESTROY(stream) HIP_CALL(hipStreamDestroy(stream))
-    #define STREAM_SYNCHRONIZE(stream) HIP_CALL(hipStreamSynchronize(stream))
-#else 
-    using stream_t = char ;
-    #define STREAM_CREATE(stream) 
-    #define STREAM_DESTROY(stream) 
-    #define STREAM_SYNCHRONIZE(stream) 
-#endif 
+#include <grace/utils/device/device.h>
 
 
 namespace grace {

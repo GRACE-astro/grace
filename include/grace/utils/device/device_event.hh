@@ -31,32 +31,10 @@
 
 #include <grace_config.h>
 
-#include <grace/utils/device_stream.hh>
+#include <grace/utils/device/device.h>
+#include <grace/utils/device/device_stream.hh>
 
-#ifdef GRACE_ENABLE_CUDA
-    #include <cuda_runtime.h>
-    using event_t = cudaEvent_t;
-    #define EVENT_CREATE(event) cudaEventCreate(&(event))
-    #define EVENT_DESTROY(event) cudaEventDestroy(event)
-    #define EVENT_RECORD(event, stream) cudaEventRecord(event, stream)
-    #define EVENT_SYNCHRONIZE(event) cudaEventSynchronize(event)
-    #define EVENT_ELAPSED_TIME(ms, start, stop) cudaEventElapsedTime(ms, start, stop)
-#elif defined(GRACE_ENABLE_HIP)
-    #include <hip/hip_runtime.h>
-    using event_t = hipEvent_t;
-    #define EVENT_CREATE(event) hipEventCreate(&(event))
-    #define EVENT_DESTROY(event) hipEventDestroy(event)
-    #define EVENT_RECORD(event, stream) hipEventRecord(event, stream)
-    #define EVENT_SYNCHRONIZE(event) hipEventSynchronize(event)
-    #define EVENT_ELAPSED_TIME(ms, start, stop) hipEventElapsedTime(ms, start, stop)
-#else 
-    using event_t = char ;
-    #define EVENT_CREATE(event) 
-    #define EVENT_DESTROY(event) 
-    #define EVENT_RECORD(event, stream) 
-    #define EVENT_SYNCHRONIZE(event) 
-    #define EVENT_ELAPSED_TIME(ms, start, stop) 
-#endif 
+
 
 namespace grace {
 

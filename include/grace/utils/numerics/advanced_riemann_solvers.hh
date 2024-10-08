@@ -29,12 +29,12 @@
 
 #include <grace_config.h>
 
-#include <grace/utils/math.hh>
+#include <grace/utils/numerics/math.hh>
 #include <grace/utils/inline.h>
-#include <grace/utils/device.h> 
-#include <grace/utils/metric_utils.hh>
-#include <grace/data_structures/macros.hh>
-#include <grace/utils/riemann_solvers.hh>
+#include <grace/utils/device/device.h> 
+#include <grace/utils/numerics/matrix_helpers.tpp>
+#include <grace/utils/numerics/metric_utils.hh>
+#include <grace/utils/numerics/riemann_solvers.hh>
 #include <grace/physics/grmhd_helpers.hh>
 
 #include <Kokkos_Core.hpp> 

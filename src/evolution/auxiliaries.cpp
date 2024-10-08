@@ -47,9 +47,6 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
 #endif
-#include <grace/utils/reconstruction.hh>
-#include <grace/utils/weno_reconstruction.hh>
-#include <grace/utils/riemann_solvers.hh>
 #include <grace/physics/eos/eos_types.hh>
 
 #include <Kokkos_Core.hpp>  

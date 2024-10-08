@@ -40,12 +40,6 @@
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/profiling/profiling.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/reconstruction.hh>
-#include <grace/utils/weno_reconstruction.hh>
-#include <grace/utils/device_stream_pool.hh>
-#include <grace/utils/device_event.hh>
-#include <grace/utils/hip_kernel_launch.hh>
-#include <grace/utils/riemann_solvers.hh>
 #ifdef GRACE_ENABLE_BURGERS 
 #include <grace/physics/burgers.hh>
 #endif 
@@ -56,7 +50,6 @@
 #include <grace/physics/grmhd.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
-#include <grace/utils/advanced_riemann_solvers.hh>
 #endif
 #include <grace/physics/eos/eos_types.hh>
 
@@ -196,7 +189,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,old_state,aux) ; 
-    #define RECON slope_limited_reconstructor_t<minmod>
+    #define RECON weno_reconstructor_t<3>
     #define GET_X_FLUX \
     grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
     #define GET_Y_FLUX \
@@ -208,55 +201,58 @@ void advance_substep( double const t, double const dt, double const dtfact
     #endif 
     //**************************************************************************************************/
     device_event_t x_flux_finished{}, y_flux_finished{}, z_flux_finished{}, sources_finished{} ; 
-    int threadsPerBlock = 1024; 
-    int numBlocks      = ((nx+1)*ny*nz*nq + threadsPerBlock - 1)/threadsPerBlock ;
-    DEVICE_MARK_TRACING_POINT("x_flux") ; 
+
+    int threadsPerBlock = 256; 
+
+    DEVICE_MARK_TRACING_POINT("x_flux") ; // roctx tracing on HIP, nvtx on CUDA
+
+    /* Get stream */
     auto& pool = grace::device_stream_pool::get(); 
-    auto& x_stream = pool.next() ; 
+    auto& stream = pool.next() ; 
+
+    /* Create loop range and set number of blocks */
     auto flux_x_range  = MDRange<GRACE_NSPACEDIM+1, int> (
           {VEC(0,0,0),0}
         , {VEC(nx+1,ny,nz),nq}
     ) ; 
+    int numBlocks      = (flux_x_range.tot_iterations + threadsPerBlock - 1)/threadsPerBlock ;
     launch_grace_kernel(flux_x_range, KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {  GET_X_FLUX ; },
-                        (dim3) numBlocks, (dim3) threadsPerBlock, 0, x_stream ) ; 
-    x_flux_finished.record(x_stream) ; 
+                        (dim3) numBlocks, (dim3) threadsPerBlock, 0, stream ) ; 
 
+    x_flux_finished.record(stream) ; 
     //**************************************************************************************************/
     DEVICE_MARK_TRACING_POINT("y_flux") ; 
-    auto& y_stream = pool.next() ;
     auto flux_y_range  = MDRange<GRACE_NSPACEDIM+1, int> (
           {VEC(0,0,0),0}
         , {VEC(nx,ny+1,nz),nq}
     ) ;
+    numBlocks      = (flux_y_range.tot_iterations + threadsPerBlock - 1)/threadsPerBlock ;
     launch_grace_kernel(flux_y_range, KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {  GET_Y_FLUX ; },
-                        (dim3) numBlocks, (dim3) threadsPerBlock, 0, y_stream ) ;  
-    y_flux_finished.record(y_stream) ; 
+                        (dim3) numBlocks, (dim3) threadsPerBlock, 0, stream ) ;  
+    y_flux_finished.record(stream) ; 
     //**************************************************************************************************/
     DEVICE_MARK_TRACING_POINT("z_flux") ;
-    auto& z_stream = pool.next() ;
     auto flux_z_range  = MDRange<GRACE_NSPACEDIM+1, int> (
           {VEC(0,0,0),0}
         , {VEC(nx,ny,nz+1),nq}
     ) ;
+    numBlocks      = (flux_z_range.tot_iterations + threadsPerBlock - 1)/threadsPerBlock ;
     launch_grace_kernel(flux_z_range, KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {  GET_Z_FLUX ; },
-                        (dim3) numBlocks, (dim3) threadsPerBlock, 0, z_stream ) ; 
-    z_flux_finished.record(z_stream) ;  
+                        (dim3) numBlocks, (dim3) threadsPerBlock, 0, stream ) ; 
+    z_flux_finished.record(stream) ;  
     //**************************************************************************************************/
     DEVICE_MARK_TRACING_POINT("sources") ;
-    auto& src_stream = pool.next() ;
-    numBlocks      = (nx*ny*nz*nq + threadsPerBlock - 1)/threadsPerBlock ;
     auto sources_range  = MDRange<GRACE_NSPACEDIM+1, int> (
           {VEC(0,0,0),0}
         , {VEC(nx,ny,nz),nq}
     ) ;
+    numBlocks      = (sources_range.tot_iterations + threadsPerBlock - 1)/threadsPerBlock ;
     launch_grace_kernel(sources_range, KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {  GET_SOURCES ; },
-                        (dim3) numBlocks, (dim3) threadsPerBlock, 0, src_stream ) ;  
-    sources_finished.record(src_stream) ; 
+                        (dim3) numBlocks, (dim3) threadsPerBlock, 0, stream ) ;  
+    sources_finished.record(stream) ; 
     //**************************************************************************************************/
-    x_flux_finished.synchronize() ; 
-    y_flux_finished.synchronize() ; 
-    z_flux_finished.synchronize() ;
-    sources_finished.synchronize() ; 
+    /* Device sync */
+    Kokkos::fence() ; 
     //**************************************************************************************************/
     auto advance_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (

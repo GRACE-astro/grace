@@ -30,9 +30,7 @@
 
 #include <grace_config.h> 
 
-#include <grace/utils/device.h>
-#include <grace/utils/inline.h>
-#include <grace/utils/math.hh>
+#include <grace/utils/grace_utils.hh>
 
 #include <grace/data_structures/variable_properties.hh>
 

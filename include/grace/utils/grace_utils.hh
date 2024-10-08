@@ -30,11 +30,9 @@
 #include <grace_config.h>
 
 #include <grace/utils/inline.h>
-#include <grace/utils/device.h>
+#include <grace/utils/grace_device_utils.hh>
 #include <grace/utils/make_string.hh>
-#include <grace/utils/math.hh>
-#include <grace/utils/matrix_helpers.tpp>
-#include <grace/utils/integration.hh>
+#include <grace/utils/grace_numeric_utils.hh>
 #include <grace/utils/type_name.hh>
 #include <grace/utils/bits.hh>
 #include <grace/utils/sc_wrappers.hh>

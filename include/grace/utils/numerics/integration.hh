@@ -28,9 +28,9 @@
 #define GRACE_UTILS_INTEGRATION_HH
 
 #include <grace/utils/inline.h>
-#include <grace/utils/device.h> 
-#include <grace/utils/constexpr.hh> 
-#include <grace/utils/affine_transformation.hh>
+#include <grace/utils/device/device.h> 
+#include <grace/utils/numerics/constexpr.hh> 
+#include <grace/utils/numerics/affine_transformation.hh>
 
 #include <cmath> 
 #include <array> 

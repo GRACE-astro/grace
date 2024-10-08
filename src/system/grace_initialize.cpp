@@ -42,7 +42,7 @@
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/profiling/profiling_runtime.hh>
-#include <grace/utils/device_stream_pool.hh>
+#include <grace/utils/device/device_stream_pool.hh>
 #include <grace/errors/error.hh>
 
 #include <grace/parallel/mpi_wrappers.hh>

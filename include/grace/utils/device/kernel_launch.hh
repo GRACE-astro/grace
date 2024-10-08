@@ -30,9 +30,9 @@
 
 #include <grace_config.h>
 
-#include <grace/utils/device.h>
 #include <grace/utils/inline.h>
-#include <grace/utils/device_stream.hh>
+#include <grace/utils/device/device.h>
+#include <grace/utils/device/device_stream.hh>
 
 
 #include <tuple>
@@ -81,16 +81,14 @@ struct MDRange
     // Function to unpack global thread index into multi-dimensional indices as a tuple
     template <std::size_t... I>
     auto GRACE_HOST_DEVICE unpack_impl(index_t globidx, std::index_sequence<I...>) const {
-        // Unpack the global index into a tuple of multi-dimensional indices
-        //return std::make_tuple(((globidx % _ranges[I]) + _offsets[I], globidx /= _ranges[I])...);
         // Row-Major
         std::array<index_t, rank> __globIdx ;
         __globIdx[0] = globidx;
         #pragma unroll 
         for( int ii=1; ii<rank; ++ii) {
-            __globIdx[ii] = __globIdx[ii-1]/_ranges[rank-1-ii] ;
+            __globIdx[ii] = __globIdx[ii-1]/_ranges[ii-1] ;
         }
-        return  std::make_tuple(((__globIdx[I] % _ranges[rank - 1 - I]) + _offsets[rank - 1 - I])...);
+        return  std::make_tuple(((__globIdx[I] % _ranges[I]) + _offsets[I])...);
     }
 
     // Main unpack function that calls the implementation
@@ -119,8 +117,7 @@ void launch_grace_kernel(
     dim3 numBlocks, dim3 threadsPerBlock, 
     int sharedMem, grace::device_stream_t& stream) {
     // Alias the template specialization
-    
-    hipLaunchKernelGGL(detail::grace_kernel_impl,numBlocks,threadsPerBlock,sharedMem,stream._stream,_range,lambda) ; 
+    GRACE_KERNEL_LAUNCH(detail::grace_kernel_impl,numBlocks,threadsPerBlock,sharedMem,stream._stream,_range,lambda) ; 
 }
 
 }

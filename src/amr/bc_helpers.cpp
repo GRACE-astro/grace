@@ -28,16 +28,12 @@
 #include <grace/amr/bc_helpers.hh>
 #include <grace/amr/prolongation_kernels.tpp> 
 #include <grace/amr/restriction_kernels.tpp> 
-#include <grace/utils/prolongation.hh>
-#include <grace/utils/limiters.hh> 
-#include <grace/utils/restriction.hh>
 #include <grace/amr/boundary_conditions.hh>
 #include <grace/amr/p4est_headers.hh>
 #include <grace/amr/bc_helpers.tpp>
 #include <grace/amr/grace_amr.hh> 
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/interpolators.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 
 #include <Kokkos_Core.hpp>

@@ -32,7 +32,7 @@
 #include <grace_config.h>
 #include <code_modules.h> 
 
-#include <grace/utils/device.h>
+#include <grace/utils/device/device.h>
 
 #include <grace/data_structures/variable_properties.hh>
 

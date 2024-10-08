@@ -11,7 +11,6 @@
 #include <fstream>
 #include <grace/data_structures/variables.hh>
 #include <grace/data_structures/memory_defaults.hh>
-#include <grace/data_structures/macros.hh>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #define TEST_DBG_

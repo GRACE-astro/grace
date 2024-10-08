@@ -33,17 +33,12 @@
 #include <grace/system/grace_system.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/parallel/mpi_wrappers.hh>
-#include <grace/utils/metric_utils.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/grmhd_helpers.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
-#include <grace/utils/reconstruction.hh>
-#include <grace/utils/weno_reconstruction.hh>
-#include <grace/utils/riemann_solvers.hh>
-#include <grace/utils/advanced_riemann_solvers.hh>
 
 #include <Kokkos_Core.hpp>
 

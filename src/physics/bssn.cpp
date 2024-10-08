@@ -29,7 +29,7 @@
 
 #include <grace/physics/bssn.hh>
 
-#include <grace/utils/fd_utils.hh>
+#include <grace/utils/numerics/fd_utils.hh>
 
 namespace grace {
 

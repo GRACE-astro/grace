@@ -37,8 +37,8 @@
 #include <grace/coordinates/coordinates.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/config/config_parser.hh>
-#include <grace/utils/prolongation.hh>
-#include <grace/utils/limiters.hh>
+#include <grace/utils/numerics/prolongation.hh>
+#include <grace/utils/numerics/limiters.hh>
 
 namespace grace { namespace amr { 
 

@@ -26,14 +26,13 @@
 
 #include <code_modules.h>
 #include <grace_config.h>
-#include <grace/utils/device.h>
+#include <grace/utils/device/device.h>
 #include <grace/utils/execution_tag.hh>
 
 #include <grace/system/grace_system.hh>
 #include <grace/errors/assert.hh>
 #include <grace/data_structures/variable_indices.hh>
 #include <grace/data_structures/variable_registration_helpers.hh>
-#include <grace/data_structures/macros.hh>
 #include <grace/errors/error.hh>
 
 

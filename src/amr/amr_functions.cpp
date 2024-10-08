@@ -27,7 +27,6 @@
 
 #include <grace/amr/amr_functions.hh>
 
-#include <grace/data_structures/macros.hh>
 #include <grace/amr/tree.hh>
 #include <grace/amr/connectivity.hh>
 #include <grace/amr/forest.hh> 

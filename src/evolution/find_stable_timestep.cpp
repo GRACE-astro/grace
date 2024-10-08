@@ -33,8 +33,6 @@
 #include <grace/config/config_parser.hh>
 #include <grace/physics/grace_physical_systems.hh>
 #include <grace/evolution/evolution_kernel_tags.hh> 
-#include <grace/utils/reconstruction.hh>
-#include <grace/utils/riemann_solvers.hh>
 #include <grace/parallel/mpi_wrappers.hh>
 #ifdef GRACE_ENABLE_GRMHD
 #include <grace/physics/grmhd.hh>

@@ -35,7 +35,6 @@
 #include <grace/utils/grace_utils.hh>
 #include <grace/IO/scalar_output.hh>
 #include <grace/parallel/mpi_wrappers.hh>
-#include <grace/utils/metric_utils.hh>
 #include <grace/system/grace_system.hh>
 #include <iostream>
 #include <fstream>

@@ -29,7 +29,6 @@
 #include <grace/system/grace_system.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/parallel/mpi_wrappers.hh>
-#include <grace/utils/metric_utils.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/grmhd_helpers.hh>

@@ -30,7 +30,6 @@
 #include <grace_config.h>
 
 #include <grace/utils/grace_utils.hh>
-#include <grace/data_structures/macros.hh>
 
 namespace grace { namespace amr {
 /**

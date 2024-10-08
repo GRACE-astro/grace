@@ -32,10 +32,8 @@
 
 #include <grace/parallel/mpi_wrappers.hh>
 #include <grace/amr/p4est_headers.hh>
-#include <grace/utils/interpolators.hh>
+#include <grace/utils/grace_numeric_utils.hh>
 #include <grace/amr/boundary_conditions.hh>
-#include <grace/utils/prolongation.hh>
-#include <grace/utils/limiters.hh> 
 #include <grace/data_structures/variable_properties.hh>
 
 #include <Kokkos_Vector.hpp>
