@@ -52,8 +52,8 @@ namespace grace {
 class device_stream_pool_impl_t 
 {
     //**************************************************************************************************
-    using stream_t = grace::device_stream_t ; 
-    using pool_t = std::vector<grace::device_stream_t> ;
+    using stream_t = grace::default_execution_space ;//grace::device_stream_t ; 
+    using pool_t = std::vector<grace::default_execution_space> ; //std::vector<grace::device_stream_t> ;
     using size_type = pool_t::size_type ; 
     //**************************************************************************************************
  public:
@@ -85,7 +85,9 @@ class device_stream_pool_impl_t
     {
         auto const n_streams = grace::get_param<std::size_t>("system", "n_device_streams") ; 
         ASSERT( n_streams > 0, "Number of active streams must be positive." ) ;
-        _pool.resize(n_streams) ; 
+        //_pool.resize(n_streams) ; 
+        auto w = std::vector<double>(n_streams, 1) ;
+        _pool = Kokkos::Experimental::partition_space(grace::default_execution_space, )
     }
     //**************************************************************************************************
     ~device_stream_pool_impl_t() = default ;

@@ -205,6 +205,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 
     //**************************************************************************************************/
+    DEVICE_MARK_TRACING_POINT("x_flux") ; 
     auto& pool = grace::device_stream_pool::get(); 
     auto& x_stream = pool.next() ; 
     auto flux_x_policy = 
@@ -219,6 +220,7 @@ void advance_substep( double const t, double const dt, double const dtfact
         GET_X_FLUX ;
     }) ; 
     //**************************************************************************************************/
+    DEVICE_MARK_TRACING_POINT("y_flux") ; 
     auto& y_stream = pool.next() ;
     auto flux_y_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
@@ -232,6 +234,7 @@ void advance_substep( double const t, double const dt, double const dtfact
         GET_Y_FLUX ;
     }) ; 
     //**************************************************************************************************/
+    DEVICE_MARK_TRACING_POINT("z_flux") ;
     auto& z_stream = pool.next() ;
     auto flux_z_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
