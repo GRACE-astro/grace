@@ -59,6 +59,11 @@
 #endif
 #endif
 
+#ifdef GRACE_ENABLE_KADATH
+#include <grace/physics/id/import_kadath.hh> 
+#endif
+
+
 #include <grace/config/config_parser.hh>
 #include <Kokkos_Core.hpp>
 
@@ -226,6 +231,173 @@ static void set_grmhd_spherical_blastwave_initial_data() {
                     aux(VEC(i,j,k),YE_,q) = ye ; 
                 }) ;
 }
+
+
+
+#ifdef GRACE_ENABLE_KADATH
+template< typename eos_t >
+static void set_grmhd_kadath_initial_data() {
+    using namespace grace ;
+    using namespace Kokkos ; 
+    
+    GRACE_VERBOSE("Setting Kadath initial data.") ; 
+
+    std::string const kadath_id = get_param<std::string>("kadath","kadath_id_type");
+    std::string const kadath_id_file = get_param<std::string>("kadath","filename");
+    std::string const id_dir = get_param<std::string>("kadath","id_dir");
+
+    GRACE_VERBOSE("Initial data type is: {} .", kadath_id ) ;
+    GRACE_VERBOSE("Reading from the file: {} .",kadath_id_file) ;
+    
+    auto& aux   = variable_list::get().getaux() ; 
+    auto& state = variable_list::get().getstate() ;
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int ngz = amr::get_n_ghosts() ; 
+    
+    int64_t nq = amr::get_local_num_quadrants() ;
+
+    auto& coord_system = grace::coordinate_system::get() ; 
+    auto h_aux_mirror = Kokkos::create_mirror_view(aux) ; 
+    auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
+
+
+    int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
+    std::vector<std::array<double, GRACE_NSPACEDIM>> cells_pcoords;
+    const bool has_matter = (kadath_id=="NS" || kadath_id=="BNS" || kadath_id=="BHNS");
+
+    int64_t const nfields= has_matter? 4+6+6+6 : 4+6+6 ;
+
+
+    std::vector<std::reference_wrapper<double>> local_vars; // will hold holds references to (nfields x npoints) values
+    local_vars.reserve(nfields*ncells); //resize or reserve?
+
+    for( int64_t icell=0; icell<ncells; ++icell) {
+        size_t const i = icell%(nx+2*ngz); 
+        size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
+        #ifdef GRACE_3D 
+        size_t const k = 
+            (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
+        size_t const q = 
+            (icell/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ;
+        #else 
+        size_t const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
+        #endif 
+        /* Physical coordinates of cell center */
+        auto pcoords = coord_system.get_physical_coordinates(
+            {VEC(i,j,k)},
+            q,
+            true
+        ) ; 
+    
+        cells_pcoords.push_back(pcoords); 
+
+        // The ordering here has to follow Kadath enums convention
+        // ALP = 0 
+        // BETAX = 1
+        // note: we could wrap the following as a pragma perhaps?
+        //#define LOCAL_REF(QUANT) local_state[K_VAC::QUANT*ncells + icell] = std::cref(h_state_mirror(VEC(i,j,k), QUANT, q));
+        //#define LOCAL_REF_MATTER(QUANT) local_state[K_MATTER::QUANT*ncells+ icell] = std::cref(h_state_mirror(VEC(i,j,k), QUANT, q));
+
+        // access will be done through:
+        // local_state[icell*nfields+K_MAT::FIELD_NUM] 
+        #define LOCAL_REF_STATE(QUANT) local_vars.push_back(std::ref(h_state_mirror(VEC(i,j,k), QUANT, q)));
+        #define LOCAL_REF_AUX(QUANT) local_vars.push_back(std::ref(h_aux_mirror(VEC(i,j,k), QUANT, q)));
+        //VACUUM:
+        LOCAL_REF_STATE(ALP)
+        LOCAL_REF_STATE(BETAX)
+        LOCAL_REF_STATE(BETAY)
+        LOCAL_REF_STATE(BETAZ)
+
+        LOCAL_REF_STATE(GXX)
+        LOCAL_REF_STATE(GXY)
+        LOCAL_REF_STATE(GXZ)
+        LOCAL_REF_STATE(GYY)
+        LOCAL_REF_STATE(GYZ)
+        LOCAL_REF_STATE(GZZ)
+
+        LOCAL_REF_STATE(KXX)
+        LOCAL_REF_STATE(KXY)
+        LOCAL_REF_STATE(KXZ)
+        LOCAL_REF_STATE(KYY)
+        LOCAL_REF_STATE(KYZ)
+        LOCAL_REF_STATE(KZZ)
+
+        //MATTER:
+        if(has_matter){
+            LOCAL_REF_AUX(RHO) 
+            LOCAL_REF_AUX(EPS) 
+            LOCAL_REF_AUX(PRESS) 
+            LOCAL_REF_AUX(VELX) 
+            LOCAL_REF_AUX(VELY) 
+            LOCAL_REF_AUX(VELZ) 
+        }
+
+    }
+    // TODO:
+    // if(set_shift_to_zero){
+    // if(set_puncture_lapse){
+
+    KadathImporter(kadath_id, id_dir+"/"+kadath_id_file, local_vars, 
+                                cells_pcoords, nfields, ncells);
+
+
+    Kokkos::deep_copy(aux  , h_aux_mirror  );
+    Kokkos::deep_copy(state, h_state_mirror);
+    
+
+    auto const& _eos = eos::get().get_eos<eos_t>() ; 
+    parallel_for( GRACE_EXECUTION_TAG("ID","KadathID")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    // note: some problems here!!!
+
+                    auto const v2 = state(VEC(i,j,k),GXX_,q) * aux(VEC(i,j,k),VELX_,q) * aux(VEC(i,j,k),VELX_,q) +
+                                    state(VEC(i,j,k),GYY_,q) * aux(VEC(i,j,k),VELY_,q) * aux(VEC(i,j,k),VELY_,q) +
+                                    state(VEC(i,j,k),GZZ_,q) * aux(VEC(i,j,k),VELZ_,q) * aux(VEC(i,j,k),VELZ_,q) +
+                                    2. * ( 
+                                        state(VEC(i,j,k),GXY_,q) * aux(VEC(i,j,k),VELX_,q) * aux(VEC(i,j,k),VELY_,q) +
+                                        state(VEC(i,j,k),GXZ_,q) * aux(VEC(i,j,k),VELX_,q) * aux(VEC(i,j,k),VELZ_,q) +
+                                        state(VEC(i,j,k),GYZ_,q) * aux(VEC(i,j,k),VELY_,q) * aux(VEC(i,j,k),VELZ_,q) 
+                                    ) ; 
+                    auto const w = 1./Kokkos::sqrt( 1 - v2  ) ; 
+
+                    aux(VEC(i,j,k),ZVECX_,q)  = w * aux(VEC(i,j,k),VELX_,q) ; 
+                    aux(VEC(i,j,k),ZVECY_,q)  = w * aux(VEC(i,j,k),VELY_,q) ; 
+                    aux(VEC(i,j,k),ZVECZ_,q)  = w * aux(VEC(i,j,k),VELZ_,q) ; 
+
+                    // aux(VEC(i,j,k),VELX_,q)  = aux(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELX_,q) - aux(VEC(i,j,k),BETAX_,q) ; 
+                    // aux(VEC(i,j,k),VELY_,q)  = aux(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELY_,q) - aux(VEC(i,j,k),BETAY_,q) ; 
+                    // aux(VEC(i,j,k),VELZ_,q)  = aux(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELZ_,q) - aux(VEC(i,j,k),BETAZ_,q) ; 
+
+                    double h, csnd2; 
+                   
+                    double ye  = _eos.ye_atmosphere()  ; 
+                    double rho_atm = _eos.rho_atmosphere() ;
+                    unsigned int err ; 
+                    double press = aux(VEC(i,j,k),PRESS_,q);
+
+                    // density floor eq to atmosphere
+                    if(aux(VEC(i,j,k),RHO_,q)<rho_atm) aux(VEC(i,j,k),RHO_,q)=rho_atm;
+
+
+                    aux(VEC(i,j,k),EPS_,q) = 
+                        _eos.eps_h_csnd2_temp_entropy__press_rho_ye( h, csnd2, aux(VEC(i,j,k),TEMP_,q)
+                                                                   , aux(VEC(i,j,k),ENTROPY_,q)
+                                                                   , aux(VEC(i,j,k),PRESS_,q)
+                                                                   , aux(VEC(i,j,k),RHO_,q)
+                                                                   , ye,err);
+                    // /* Set ye */
+                    aux(VEC(i,j,k),YE_,q) = ye ; 
+                }) ;
+
+        // to do: incorporate a routine to add B field 
+    
+}
+
+#endif 
+
 
 template< typename eos_t
         , typename id_t 
@@ -570,6 +742,14 @@ void set_grmhd_initial_data() {
 
         GRACE_TRACE("Done with magnetized FMTorus ID.") ;  
     } else {
+        set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(rho_c) ;
+    }
+    #ifdef GRACE_ENABLE_KADATH
+    else if ( id_type == "kadath"){
+        set_grmhd_kadath_initial_data<eos_t>();
+    } 
+    #endif
+    else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }
     set_conservs_from_prims() ;

@@ -1,0 +1,10 @@
+kadath: {
+  kadath_id_type: "NS",
+  filename: "initial_NS.info",
+  id_dir: "../configs/KadathID/",
+  id_interpolation_offset: 0.,
+  junk_interp_order: 8,
+  delta_r_rel: 0.3,
+  set_shift_to_zero_on_import: true,
+  set_lapse_to_inverse_psi_square: true
+}
