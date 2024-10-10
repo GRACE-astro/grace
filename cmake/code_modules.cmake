@@ -1,6 +1,16 @@
 option(GRACE_ENABLE_BURGERS  "Enable Burgers equation module" OFF) 
 option(GRACE_ENABLE_SCALAR_ADV  "Enable scalar advection equation module" OFF) 
 option(GRACE_ENABLE_GRMHD   "Enable GRMHD equation module"  ON)
+option(GRACE_ENABLE_KADATH  "Enable Kadath import module"  ON)
+option(GRACE_USE_MKL       "MKL libraries will be used"  ON)
+
+if( GRACE_ENABLE_KADATH )
+    if(NOT GRACE_ENABLE_GRMHD)
+        message(FATAL_ERROR "GRMHD module must be enabled for Kadath initial data!")
+    endif()
+endif()
+
+
 if( GRACE_ENABLE_SCALAR_ADV )
     message(STATUS "Scalar advection module enabled.")
     set(GRACE_ENABLE_GRMHD OFF)
@@ -14,3 +24,10 @@ if( GRACE_ENABLE_GRMHD )
     set(GRACE_ENABLE_BURGERS OFF)
 endif()
 
+if( GRACE_ENABLE_KADATH )
+    message(STATUS "Kadath module enabled.")
+endif()
+
+if( GRACE_USE_MKL )
+    message(STATUS "Intel-MKL libraries in use.")
+endif()

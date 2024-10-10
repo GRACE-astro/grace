@@ -42,6 +42,8 @@ namespace grace {
 #cmakedefine GRACE_ENABLE_HIP
 #cmakedefine GRACE_ENABLE_OMP 
 #cmakedefine GRACE_ENABLE_SERIAL 
+#cmakedefine GRACE_USE_MKL
+
 
 #cmakedefine GRACE_CARTESIAN_COORDINATES
 #cmakedefine GRACE_SPHERICAL_COORDINATES
@@ -49,6 +51,7 @@ namespace grace {
 #cmakedefine GRACE_ENABLE_GRMHD
 #cmakedefine GRACE_ENABLE_BURGERS
 #cmakedefine GRACE_ENABLE_SCALAR_ADV
+#cmakedefine GRACE_ENABLE_KADATH
 
 #cmakedefine GRACE_ENABLE_PROFILING
 

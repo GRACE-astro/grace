@@ -65,6 +65,7 @@ target_sources( grace_objects INTERFACE
                 $<TARGET_OBJECTS:grace_eos>
                 $<TARGET_OBJECTS:grace_evolution> 
                 $<TARGET_OBJECTS:grace_initial_data> 
+                $<$<BOOL:${GRACE_ENABLE_KADATH}>:$<TARGET_OBJECTS:grace_kadath>>
                 $<TARGET_OBJECTS:grace_c2p>
                 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:$<TARGET_OBJECTS:grace_profiling>>)
 
