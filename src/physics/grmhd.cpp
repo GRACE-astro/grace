@@ -246,8 +246,8 @@ static void set_grmhd_kadath_initial_data() {
     std::string const kadath_id_file = get_param<std::string>("kadath","filename");
     std::string const id_dir = get_param<std::string>("kadath","id_dir");
 
-    GRACE_VERBOSE("Initial data type is: {} .", kadath_id ) ;
-    GRACE_VERBOSE("Reading from the file: {} .",kadath_id_file) ;
+    GRACE_VERBOSE("Initial data type is: {}.", kadath_id ) ;
+    GRACE_VERBOSE("Reading from the file: {}.",kadath_id_file) ;
     
     auto& aux   = variable_list::get().getaux() ; 
     auto& state = variable_list::get().getstate() ;
@@ -292,18 +292,17 @@ static void set_grmhd_kadath_initial_data() {
     
         cells_pcoords.push_back(pcoords); 
 
-        // The ordering here has to follow Kadath enums convention
+        // The ordering here has to follow Kadath enums convention, e.g.:
         // ALP = 0 
         // BETAX = 1
-        // note: we could wrap the following as a pragma perhaps?
-        //#define LOCAL_REF(QUANT) local_state[K_VAC::QUANT*ncells + icell] = std::cref(h_state_mirror(VEC(i,j,k), QUANT, q));
-        //#define LOCAL_REF_MATTER(QUANT) local_state[K_MATTER::QUANT*ncells+ icell] = std::cref(h_state_mirror(VEC(i,j,k), QUANT, q));
 
         // access will be done through:
-        // local_state[icell*nfields+K_MAT::FIELD_NUM] 
+        // local_vars[icell*nfields+K_MAT::FIELD_NUM] 
+
         #define LOCAL_REF_STATE(QUANT) local_vars.push_back(std::ref(h_state_mirror(VEC(i,j,k), QUANT, q)));
         #define LOCAL_REF_AUX(QUANT) local_vars.push_back(std::ref(h_aux_mirror(VEC(i,j,k), QUANT, q)));
-        //VACUUM:
+        
+        // VACUUM:
         LOCAL_REF_STATE(ALP)
         LOCAL_REF_STATE(BETAX)
         LOCAL_REF_STATE(BETAY)
@@ -323,7 +322,7 @@ static void set_grmhd_kadath_initial_data() {
         LOCAL_REF_STATE(KYZ)
         LOCAL_REF_STATE(KZZ)
 
-        //MATTER:
+        // MATTER:
         if(has_matter){
             LOCAL_REF_AUX(RHO) 
             LOCAL_REF_AUX(EPS) 
@@ -334,10 +333,7 @@ static void set_grmhd_kadath_initial_data() {
         }
 
     }
-    // TODO:
-    // if(set_shift_to_zero){
-    // if(set_puncture_lapse){
-
+   
     KadathImporter(kadath_id, id_dir+"/"+kadath_id_file, local_vars, 
                                 cells_pcoords, nfields, ncells);
 
@@ -367,6 +363,7 @@ static void set_grmhd_kadath_initial_data() {
                     aux(VEC(i,j,k),ZVECY_,q)  = w * aux(VEC(i,j,k),VELY_,q) ; 
                     aux(VEC(i,j,k),ZVECZ_,q)  = w * aux(VEC(i,j,k),VELZ_,q) ; 
 
+                    // What are the velocity conventions between Kadath and GRACE?
                     // aux(VEC(i,j,k),VELX_,q)  = aux(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELX_,q) - aux(VEC(i,j,k),BETAX_,q) ; 
                     // aux(VEC(i,j,k),VELY_,q)  = aux(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELY_,q) - aux(VEC(i,j,k),BETAY_,q) ; 
                     // aux(VEC(i,j,k),VELZ_,q)  = aux(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELZ_,q) - aux(VEC(i,j,k),BETAZ_,q) ; 
