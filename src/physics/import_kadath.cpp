@@ -30,6 +30,7 @@
 
 #include <cmath>
 #include <functional>
+#include <utility>
 #include <string>
 #include <chrono>
 #include <vector>
@@ -46,29 +47,14 @@
 #include <grace/errors/error.hh>
 #include <grace/system/print.hh>
 
-
-// #include <grace/physics/grace_physical_systems.hh>
-// #include <grace/amr/amr_functions.hh>
-// #include <grace/data_structures/variable_indices.hh>
-// #include <grace/data_structures/variables.hh>
-// #include <grace/system/grace_system.hh>
-// #include <grace/coordinates/coordinate_systems.hh>
-
 #include <grace/physics/id/kadath_helpers.hh>
 
 
 #include <Kokkos_Core.hpp>
 
-// TO DO: 
-// With the rewrite of import_data, it actually no longer matters 
-// whether we call import_data or import_data_wmatter.
-// It used to matter in ETK, where rho,press,... grid functions 
-// had to be explicitly invoked on the LHS of the assignment operator.
-
 //template function that handles moving the space-time values to GRACE state
 template<typename T, typename S>
 void import_data(std::vector<std::reference_wrapper<T>>& state_ref, S& exported_vals) {
-    //using namespace KadathImport;
 
     GRACE_INFO("Moving Vacuum Data to output vars");
     //const int nfields = state_ref.size();
@@ -82,11 +68,24 @@ void import_data(std::vector<std::reference_wrapper<T>>& state_ref, S& exported_
         state_ref[i*nfields+idx_field].get() = exported_vals[idx_field][i]; 
         }
       }
+
+    bool set_shift_to_zero_on_import = grace::get_param<bool>("kadath","set_shift_to_zero_on_import");
+    if(set_shift_to_zero_on_import){
+        for (int i = 0; i < npoints; ++i) {
+            state_ref[i*nfields+K_BETAX].get() = 0.0; 
+            state_ref[i*nfields+K_BETAX].get() = 0.0; 
+            state_ref[i*nfields+K_BETAX].get() = 0.0; 
+        }   
+      }
+    
 }
 
 //template function that handles moving the space-time and matter field values to their GRACE couterparts
+// note that the two are separate in case we ever need to add matter-pecific statements here:
+
 template<typename T, typename S>
 void import_data_wmatter(std::vector<std::reference_wrapper<T>>& state_ref, S& exported_vals) {
+
     GRACE_INFO("Moving Matter Data to output vars");
 
     const int nfields = NUM_OUT;
@@ -100,6 +99,15 @@ void import_data_wmatter(std::vector<std::reference_wrapper<T>>& state_ref, S& e
       }
     }
 
+    //const bool set_shift_to_zero_on_import = grace::get_param<const bool>("kadath","set_shift_to_zero_on_import");
+    bool set_shift_to_zero_on_import = grace::get_param<bool>("kadath","set_shift_to_zero_on_import");
+    if(set_shift_to_zero_on_import){
+        for (int i = 0; i < npoints; ++i) {
+            state_ref[i*nfields+K_BETAX].get() = 0.0; 
+            state_ref[i*nfields+K_BETAX].get() = 0.0; 
+            state_ref[i*nfields+K_BETAX].get() = 0.0; 
+        }   
+      }
 }
 
 
@@ -109,9 +117,7 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
                      const std::vector<std::array<double,GRACE_NSPACEDIM>>& pcoords,
                      const int nfields, const int npoints) {
  
-  GRACE_INFO("Setting up KADATH initial data");
   GRACE_INFO("Setting up coordinates");
-  //using namespace KadathImport;
 
   std::vector<double> xx(npoints), yy(npoints), zz(npoints);
 
@@ -121,9 +127,6 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
     yy[i] = pcoords[i][1];
     zz[i] = pcoords[i][2];
   }
-
-  GRACE_INFO("Starting the import of {} ID", kadath_id);
-  GRACE_INFO("Absolute path: {}", filename);
 
   const double interpolation_offset = grace::get_param<double>("kadath","id_interpolation_offset");
   const int interp_order = grace::get_param<int>("kadath","junk_interp_order");

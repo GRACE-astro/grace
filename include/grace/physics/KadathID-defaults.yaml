@@ -6,5 +6,5 @@ kadath: {
   junk_interp_order: 8,
   delta_r_rel: 0.3,
   set_shift_to_zero_on_import: true,
-  set_lapse_to_inverse_psi_square: true
+  set_lapse_to_inverse_psi_square: false
 }

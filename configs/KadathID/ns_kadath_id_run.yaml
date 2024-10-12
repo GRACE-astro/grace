@@ -1,44 +1,45 @@
 name: "grace"
 amr: {
-  npoints_block_x: 32, #32,
-  npoints_block_y: 32, #32,
-  npoints_block_z: 32, #32,
-  xmin: -32.0,
-  xmax: 32.0,
-  ymin: -32.0,
-  ymax: 32.0,
-  zmin: -32.0,
-  zmax: 32.0,
+  npoints_block_x: 64, #32,
+  npoints_block_y: 64, #32,
+  npoints_block_z: 64, #32,
+  xmin: -64.0,
+  xmax: 64.0,
+  ymin: -64.0,
+  ymax: 64.0,
+  zmin: -64.0,
+  zmax: 64.0,
   n_ghostzones: 2,
   initial_refinement_level: 2,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 4.,
   refinement_criterion_CTODE: 2,
   refinement_criterion_var: "dens",
-  max_refinement_level: 4,
+  max_refinement_level: 5,
   regrid_every: 20,
   regrid_at_postinitial: false
 }
 IO: {
-  volume_output_cell_variables: ["rho","press","eps","vel[0]", "vel[1]","vel[2]", "alp", "gamma[1,0]"],
-  volume_output_base_directory: "output_sim",
-  volume_output_every: 200,
-  plane_surface_output_cell_variables: ["rho","press","eps","vel[0]", "vel[1]","vel[2]", "alp", "gamma[0,0]", 
-                                        "gamma[0,1]", "gamma[0,2]",  "gamma[1,1]", "gamma[1,2]", "gamma[2,2]",
-                                        "beta[0]", "beta[1]", "beta[2]"],
-  plane_surface_output_every: 50,
-  sphere_surface_output_every: 1,
-  info_output_every: 10,
-  info_output_max_reductions: ["eps","rho","press","alp", "gamma[1,1]", "gamma[0,0]"],
-  info_output_min_reductions: ["eps","rho","press","alp", "gamma[1,1]", "gamma[0,0]"],
-  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"], 
-  scalar_output_every: 20,
-  scalar_output_minmax: ["rho","press","eps", "alp"],
-  scalar_output_norm2: ["rho", "press", "eps", "alp"],
-  scalar_output_integral: ["rho", "press", "eps", "dens","tau" ],
-  output_use_hdf5: false, 
+ volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]", "gamma[0,0]", "alp", "beta[0]", "gamma[0,0]"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: 1000,
+  plane_surface_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]", "gamma[0,0]", "alp", "beta[0]", "gamma[0,0]"],
+  plane_surface_output_every: 200,
+  sphere_surface_output_every: -1,
+  info_output_every: 20,
+  info_output_max_reductions: ["alp", "eps","rho","press"],
+  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
+  info_output_min_reductions: ["alp", "eps","rho","press"],
+  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
+  scalar_output_every: 2,
+  scalar_output_minmax: ["rho","press","eps"],
+  scalar_output_norm2: [],
+  scalar_output_integral: [],
+  output_use_hdf5: true,
+  #output_use_hdf5: false,
   hdf5_compression_level: 6,
-  hdf5_chunk_size: 8192
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true
 }
 system: {
   console_log_level: "verbose",
@@ -64,7 +65,9 @@ kadath: {
   id_dir: "/home/astro/topolski/grace/configs/KadathID",
   id_interpolation_offset: 0.,
   junk_interp_order: 8,
-  delta_r_rel: 0.3 # don't ask me why 
+  delta_r_rel: 0.3, # don't ask me why 
+  set_shift_to_zero_on_import: true,
+  set_lapse_to_inverse_psi_square: false
 }
 
 eos: {
@@ -73,7 +76,7 @@ eos: {
   ye_atmosphere: 0,
   temp_atmosphere: 0,
   #rho_atmosphere: 1.e-14,
-  rho_atmosphere: 1.e-9,
+  rho_atmosphere: 1.e-10,
   eps_maximum: 1.e+05,
   #gamma_th: 1.6666,
   gamma_th: 1.6666,
