@@ -29,7 +29,7 @@
 
 #include <grace_config.h>
 
-#include <grace/utils/device.h>
+#include <grace/utils/device/device.h>
 #include <grace/utils/inline.h>
 
 #ifndef ROCPROFILER_PLUGIN_SETUP
