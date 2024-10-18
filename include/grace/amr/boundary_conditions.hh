@@ -30,7 +30,7 @@
 
 #include <grace/data_structures/variable_properties.hh>
 #include <grace/amr/amr_functions.hh>
-#include <grace/utils/device_vector.hh>
+#include <grace/utils/device/device_vector.hh>
 #include <grace/parallel/mpi_wrappers.hh>
 
 #include <Kokkos_Vector.hpp>

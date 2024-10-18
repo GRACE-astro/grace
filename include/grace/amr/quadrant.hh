@@ -28,8 +28,8 @@
 #ifndef GRACE_AMR_QUADRANT_HH 
 #define GRACE_AMR_QUADRANT_HH 
 
-#include <grace/utils/grace_utils.hh>
-
+#include <grace/utils/inline.h>
+#include <grace/errors/assert.hh>
 #include <grace/amr/p4est_headers.hh> 
 
 #include <array>

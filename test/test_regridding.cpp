@@ -32,10 +32,11 @@
 #include <grace/utils/grace_utils.hh>
 #include <grace/IO/cell_output.hh>
 #include <grace/parallel/mpi_wrappers.hh>
-#include <grace/utils/gridloop.hh>
+#include <grace/utils/numerics/gridloop.hh>
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#define DBG_REGRID_TEST
 
 TEST_CASE("Simple regrid", "[regrid]")
 {

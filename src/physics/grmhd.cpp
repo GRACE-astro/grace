@@ -296,7 +296,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),YE_,q) = ye ; 
                 }) ; 
     #ifdef GRACE_ENABLE_BSSN_METRIC
-    grace::fill_physical_coordinates(pcoords, {VEC(0,0,0)}, {VEC(true,true,true)}) ;
+    grace::fill_physical_coordinates(pcoords, {VEC(true,true,true)}) ;
     parallel_for( GRACE_EXECUTION_TAG("ID","metric_ID")
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+1+2*ngz,ny+1+2*ngz,nz+1+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)

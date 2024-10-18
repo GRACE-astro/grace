@@ -80,6 +80,8 @@ add_grace_test(eos_test test_eos.cpp)
 add_grace_test(metric_test test_metric.cpp)
 add_grace_test(c2p_test test_c2p.cpp)
 add_grace_test(gridloop_test test_grid_loops.cpp)
+add_grace_test(cart_coords_test test_cartesian_coordinates.cpp)
+
 
 add_kokkos_test(interpolator_test test_interpolators.cpp)
 add_kokkos_test(device_vector_test test_device_vector.cc)

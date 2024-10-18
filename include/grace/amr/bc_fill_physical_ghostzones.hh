@@ -29,7 +29,7 @@
 
 #include <grace_config.h>
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/device_vector.hh> 
+#include <grace/utils/device/device_vector.hh> 
 
 #include <Kokkos_Core.hpp>
 

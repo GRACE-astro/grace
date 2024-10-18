@@ -31,11 +31,11 @@
 #include <grace_config.h> 
 #include <array>
 
-#include <grace/utils/metric_utils.hh>
+#include <grace/utils/numerics/metric_utils.hh>
 #include <grace/utils/inline.h>
-#include <grace/utils/device.h>
-#include <grace/utils/prolongation.hh>
-#include <grace/utils/lagrange_interpolators.hh>
+#include <grace/utils/device/device.h>
+#include <grace/utils/numerics/prolongation.hh>
+#include <grace/utils/numerics/lagrange_interpolators.hh>
 
 #define AM2 -0.0625
 #define AM1  0.5625

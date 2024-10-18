@@ -50,13 +50,27 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>&
  * @brief Fill a device view with physical coordinates on the grid. 
  * \ingroup coordinates
  * @param pcoords           The view to be filled with coordinates.
- * @param cell_coordinates  Coordinates within the cell where physical coordinates
- *                          should be computed (defaults to 0.5 in all directions, i.e. 
- *                          the center of the cell).
+ * @param staggering        Staggering of the coordinates to be filled, defaults to all false (i.e. cell center).
+ * 
+ * NB: The <code>pcoords</code> View is reallocated within this function.
  */
 void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
-                              , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates = {VEC(0.5,0.5,0.5)} 
                               , std::array<bool, GRACE_NSPACEDIM> const& staggering = {VEC(false,false,false)} ) ; 
+/*****************************************************************************************/
+/**
+ * @brief Fill a device view with physical coordinates on the grid at custom locations within the cell. 
+ * \ingroup coordinates
+ * @param pcoords           The view to be filled with coordinates.
+ * @param cell_coordinates  Coordinates within the cell where physical coordinates
+ *                          should be computed.
+ * @param include_ghosts    Set to true if pcoords array includes ghostzones, false otherwise.
+ * 
+ * NB: this function expexts the <code>pcoords</code> View to already have the correct size
+ * allocated.
+ */
+void fill_physical_coordinates_custom( coord_array_t<GRACE_NSPACEDIM>& pcoords 
+                                     , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates 
+                                     , bool include_ghosts ) ;                               
 /*****************************************************************************************/
 /**
  * @brief Fill a device view with jacobians of the logical-to-physical 

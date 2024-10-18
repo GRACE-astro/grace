@@ -34,7 +34,7 @@
 #include <grace/amr/grace_amr.hh> 
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/interpolators.hh>
+#include <grace/utils/numerics/interpolators.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/parallel/mpi_wrappers.hh>
 

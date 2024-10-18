@@ -33,7 +33,7 @@
 #include <grace/amr/bc_fill_physical_ghostzones.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/device_vector.hh> 
+#include <grace/utils/device/device_vector.hh> 
 
 #include <Kokkos_Core.hpp>
 

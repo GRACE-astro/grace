@@ -195,9 +195,10 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>& coords
     GRACE_VERBOSE("Coordinate view copy (h2d) took {:.3e} mus.",currentTime) ;
 }
 
-void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
-                              , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates
-                              , std::array<bool, GRACE_NSPACEDIM>  const& stagger ) 
+void fill_physical_coordinates(
+      coord_array_t<GRACE_NSPACEDIM>& pcoords 
+    , std::array<bool,GRACE_NSPACEDIM> const& stagger
+)
 {
     DECLARE_GRID_EXTENTS ;
     using namespace grace ; 
@@ -208,45 +209,65 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
     int ext_3 = nz + stagger[2] + 2*ngz ;
     )
 
-    Kokkos::realloc(pcoords,VEC(ext_1,ext_2,ext_3),GRACE_NSPACEDIM,nq) ; 
+    Kokkos::realloc(pcoords,VEC(ext_1,ext_2,ext_3),GRACE_NSPACEDIM,nq) ;
+
+    std::array<double, GRACE_NSPACEDIM> const ccoords{ 
+        VEC(
+        stagger[0] ? 0 : 0.5,
+        stagger[1] ? 0 : 0.5,
+        stagger[2] ? 0 : 0.5)
+    } ; 
+
+    fill_physical_coordinates_custom(pcoords,ccoords,true) ; 
+
+}
+
+void fill_physical_coordinates_custom( coord_array_t<GRACE_NSPACEDIM>& pcoords 
+                                     , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates 
+                                     , bool include_ghosts ) 
+{
+    DECLARE_GRID_EXTENTS ;
+    using namespace grace ; 
+
+    std::pair<std::size_t, std::size_t> range_x{ 
+          0 
+        , pcoords.extent(0)
+    } ;
+    std::pair<std::size_t, std::size_t> range_y{ 
+          0
+        , pcoords.extent(1)
+    } ;  
+    #ifdef GRACE_3D
+    std::pair<std::size_t, std::size_t> range_z{ 
+          0
+        , pcoords.extent(2) 
+    } ;
+    #endif
+    std::pair<std::size_t, std::size_t> range_q{
+        0, pcoords.extent(GRACE_NSPACEDIM+1) 
+    } ; 
 
     auto h_coords = Kokkos::create_mirror_view(pcoords) ; 
     auto& coord_system = grace::coordinate_system::get() ; 
-    # if 0 
-    grace::host_grid_loop<false>(
+    host_ndloop<true>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             auto pcoordsl = 
                 coord_system.get_physical_coordinates(
                           {VEC(i,j,k)}
                         , q
                         , cell_coordinates
-                        , true 
+                        , include_ghosts 
             ) ; 
             EXPR(
             h_coords(VEC(i,j,k),0,q) = pcoordsl[0] ;,
             h_coords(VEC(i,j,k),1,q) = pcoordsl[1] ;,
             h_coords(VEC(i,j,k),2,q) = pcoordsl[2] ; 
             )
-        }, true 
+        }, VEC( std::move(range_x) 
+              , std::move(range_y) 
+              , std::move(range_z) )
+        ,  std::move(range_q)
     ) ; 
-    #endif 
-
-    for( int q=0; q<nq; ++q ) {
-        EXPR( for(size_t i=0; i<ext_1; ++i), for(size_t j=0; j<ext_2; ++j), for(size_t k=0; k<ext_3; ++k) ) {
-            auto pcoordsl = 
-                coord_system.get_physical_coordinates(
-                          {VEC(i,j,k)}
-                        , q
-                        , cell_coordinates
-                        , true 
-            ) ;
-            EXPR(
-            h_coords(VEC(i,j,k),0,q) = pcoordsl[0] ;,
-            h_coords(VEC(i,j,k),1,q) = pcoordsl[1] ;,
-            h_coords(VEC(i,j,k),2,q) = pcoordsl[2] ; 
-            )
-        }
-    }
  
     Kokkos::deep_copy(pcoords,h_coords) ; 
 }

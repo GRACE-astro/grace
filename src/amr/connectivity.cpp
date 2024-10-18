@@ -40,6 +40,56 @@ namespace grace{ namespace amr {
 
 namespace detail{
 
+static inline void
+brick_linear_to_xyz (p4est_topidx_t ti, const int logx[P4EST_DIM],
+                     const int rankx[P4EST_DIM], p4est_topidx_t tx[P4EST_DIM])
+{
+  int                 i, j, k;
+  int                 lastlog = 0;
+
+  for (i = 0; i < P4EST_DIM; i++) {
+    tx[i] = 0;
+  }
+
+  for (i = 0; i < P4EST_DIM - 1; i++) {
+    p4est_topidx_t      tempx[3] = { 0, 0, 0 };
+    int                 logi = logx[rankx[i]] - lastlog;
+    int                 idx[3] = { -1, -1, -1 };
+    int                 c = 0;
+
+    for (k = 0; k < P4EST_DIM - i; k++) {
+      int                 d = rankx[i + k];
+
+      idx[d] = 0;
+    }
+    for (k = 0; k < P4EST_DIM; k++) {
+      if (idx[k] == 0) {
+        idx[k] = c++;
+      }
+    }
+
+    for (j = 0; j < logi; j++) {
+      int                 base = (P4EST_DIM - i) * j;
+      int                 shift = (P4EST_DIM - i - 1) * j;
+
+      for (k = 0; k < P4EST_DIM; k++) {
+        int                 id = idx[k];
+
+        if (id >= 0) {
+          tempx[k] |= (ti & (1 << (base + id))) >> (shift + id);
+        }
+      }
+    }
+    for (k = 0; k < P4EST_DIM; k++) {
+      tx[k] += (tempx[k] << lastlog);
+    }
+    lastlog += logi;
+    ti >>= (P4EST_DIM - i) * logi;
+  }
+  tx[rankx[P4EST_DIM - 1]] += (ti << lastlog);
+}
+
+
 #ifdef GRACE_3D 
 //**************************************************************************************************
 p4est_connectivity_t*
@@ -65,15 +115,54 @@ new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
     // We manually set the vertices' coordinates to their physical value  
     auto vertices = conn->vertices; 
     auto t2v      = conn->tree_to_vertex ; 
-    size_t nt = 0 ; 
-    for( uint32_t k=0; k<nz; ++k) for(uint32_t j=0; j<ny; ++j) for( uint32_t i=0; i<nx; ++i) { 
-        for( uint32_t v=0; v<8; ++v) {
-            size_t nv = t2v[ 8 * nt + v ] ; 
-            vertices[ 3*nv ]     = ( i + (uint32_t)(v%2U)          ) * x_tree + xmin; 
-            vertices[ 3*nv + 1 ] = ( j + (uint32_t)((v>>1U) & 1U)  ) * y_tree + ymin;
-            vertices[ 3*nv + 2 ] = ( k + (uint32_t)((v>>2U) & 1U)  ) * z_tree + zmin; 
-        }   
-        ++nt ; 
+
+    int                 logx[P4EST_DIM];
+    int                 rankx[P4EST_DIM];
+
+    const p4est_topidx_t m = nx ; 
+    const p4est_topidx_t n = ny ;
+    const p4est_topidx_t p = nz ; 
+    p4est_topidx_t n_iter ; 
+
+    logx[0] = SC_LOG2_32 (m - 1) + 1;
+    logx[1] = SC_LOG2_32 (n - 1) + 1;
+    n_iter = (1 << logx[0]) * (1 << logx[1]);
+    if (logx[0] <= logx[1]) {
+      rankx[0] = 0;
+      rankx[1] = 1;
+    }
+    else {
+      rankx[0] = 1;
+      rankx[1] = 0;
+    }
+    #ifdef P4_TO_P8
+    logx[2] = SC_LOG2_32 (p - 1) + 1;
+    n_iter *= (1 << logx[2]);
+    if (logx[2] < logx[rankx[0]]) {
+      rankx[2] = rankx[1];
+      rankx[1] = rankx[0];
+      rankx[0] = 2;
+    }
+    else if (logx[rankx[1]] <= logx[2]) {
+      rankx[2] = 2;
+    }
+    else {
+      rankx[2] = rankx[1];
+      rankx[1] = 2;
+    }
+    #endif
+
+    for(p4est_topidx_t nt=0; nt<nx*ny*nz; ++nt)  { 
+      p4est_topidx_t xyz[P4EST_DIM] ;
+      brick_linear_to_xyz(nt,logx,rankx,xyz) ; 
+      if( xyz[0] < nz && xyz[1] < ny && xyz[2] < nz ) {
+          for( uint32_t v=0; v<8; ++v) {
+              size_t nv = t2v[ 8 * nt + v ] ; 
+              vertices[ 3*nv     ] = ( xyz[0] + (uint32_t)((v>>0U) & 1U)  ) * x_tree + xmin; 
+              vertices[ 3*nv + 1 ] = ( xyz[1] + (uint32_t)((v>>1U) & 1U)  ) * y_tree + ymin;
+              vertices[ 3*nv + 2 ] = ( xyz[2] + (uint32_t)((v>>2U) & 1U)  ) * z_tree + zmin; 
+          }   
+      }
     }
   return conn ; 
 } ; 

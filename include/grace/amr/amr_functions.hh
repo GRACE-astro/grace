@@ -26,8 +26,8 @@
  * 
  */
 
- #ifndef AMR_FUNCTIONS_HH
- #define AMR_FUNCTIONS_HH 
+#ifndef AMR_FUNCTIONS_HH
+#define AMR_FUNCTIONS_HH 
 
 #include <grace_config.h>
 

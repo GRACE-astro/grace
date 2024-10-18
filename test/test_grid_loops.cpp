@@ -27,7 +27,7 @@
 
 #include <grace_config.h>
 
-#include <grace/utils/gridloop.hh>
+#include <grace/utils/numerics/gridloop.hh>
 
 #include <catch2/catch_test_macros.hpp>
 

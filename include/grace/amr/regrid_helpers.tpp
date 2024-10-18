@@ -36,7 +36,7 @@
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/amr/regridding_policy_kernels.tpp>
 
-#include <grace/utils/interpolators.hh>
+#include <grace/utils/numerics/interpolators.hh>
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Vector.hpp>

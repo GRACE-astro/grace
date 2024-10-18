@@ -32,10 +32,10 @@
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/config/config_parser.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/device_vector.hh>
-#include <grace/utils/limiters.hh>
-#include <grace/utils/prolongation.hh>
-#include <grace/utils/restriction.hh>
+#include <grace/utils/device/device_vector.hh>
+#include <grace/utils/numerics/limiters.hh>
+#include <grace/utils/numerics/prolongation.hh>
+#include <grace/utils/numerics/restriction.hh>
 #include <grace/parallel/mpi_wrappers.hh>
 #include <grace/amr/p4est_headers.hh>
 #include <grace/system/grace_system.hh>

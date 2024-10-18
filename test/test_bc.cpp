@@ -7,7 +7,7 @@
 #include <grace/config/config_parser.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/gridloop.hh>
+#include <grace/utils/numerics/gridloop.hh>
 
 #include <grace/IO/cell_output.hh>
 #include <iostream>

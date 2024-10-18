@@ -28,10 +28,10 @@
 #define GRACE_UTILS_LAGRANGE_INTERPOLATORS_HH
 
 #include <grace_config.h>
-#include <grace/utils/math.hh>
-#include <grace/utils/device.h>
+#include <grace/utils/numerics/math.hh>
+#include <grace/utils/device/device.h>
 #include <grace/utils/inline.h>
-#include <grace/utils/matrix_helpers.tpp>
+#include <grace/utils/numerics/matrix_helpers.tpp>
 
 #include <Kokkos_Core.hpp>
 
