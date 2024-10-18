@@ -75,10 +75,14 @@ TEST_CASE("bssn")
     // Get grid spacing 
     auto& idx = varlist.getinvspacings() ; 
 
-    auto metric_func = KOKKOS_LAMBDA ( double x, double y, double z)
+    // gaussian test function for state defintion
+    auto test_func = KOKKOS_LAMBDA ( double a, double b, double s, double x, double y, double z)
     {
-        return Kokkos::sin( M_PI * (x*x+y*y+z*z) ) ;
+        return Kokkos::a+b*exp(-(x*x+y*y+z*z)/(2*s));
     } ; 
+
+    grace::var_array_t<GRACE_NSPACEDIM> Tmunu("Tmunu", VEC(nx+1+2*ngz,ny+1+2*ngz,nz+1+2*ngz), 16, nq) ;
+    grace::var_array_t<GRACE_NSPACEDIM> rhs("RHS", VEC(nx+1+2*ngz,ny+1+2*ngz,nz+1+2*ngz), NUM_BSSN_VARS, nq) ;
 
     // Fill state array 
     // Parallel loop (GPU)
@@ -94,18 +98,87 @@ TEST_CASE("bssn")
         "fill_data", 
         policy, 
         KOKKOS_LAMBDA (VEC(int i, int j, int k), int q) {
-            double const x = pcoords(VEC(i,j,k),0,q) ; 
-            double const y = pcoords(VEC(i,j,k),1,q) ;
-            double const z = pcoords(VEC(i,j,k),2,q) ;
-            // Body of parallel GPU loop 
-            state(VEC(i,j,k), GTXX_, q) = metric_func(x,y,z) ; 
+            
+            // evaluating coordinate values at cell vertices
+            double const x = pcoords(VEC(i,j,k),0,q); 
+            double const y = pcoords(VEC(i,j,k),1,q);
+            double const z = pcoords(VEC(i,j,k),2,q); 
 
-            // ... 
+            // filling the conformal metric with the test function
+            state(VEC(i,j,k), GTXX_, q) = test_func(1,1,1,x,y,z);
+            state(VEC(i,j,k), GTXY_, q) = test_func(2,1,1,x,y,z);
+            state(VEC(i,j,k), GTYY_, q) = test_func(3,1,1,x,y,z);
+            state(VEC(i,j,k), GTXZ_, q) = test_func(4,1,1,x,y,z);
+            state(VEC(i,j,k), GTYZ_, q) = test_func(5,1,1,x,y,z);
+            state(VEC(i,j,k), GTZZ_, q) = test_func(6,1,1,x,y,z);
+
+            // lapse function
+            state(VEC(i,j,k), ALP_, q) = test_func(0,1,1,x,y,z);
+
+            // shift vector components
+            state(VEC(i,j,k), BETAX_, q) = test_func(0,1,1,x,y,z);
+            state(VEC(i,j,k), BETAY_, q) = test_func(0,1,1,x,y,z);
+            state(VEC(i,j,k), BETAZ_, q) = test_func(0,1,1,x,y,z);
+
+            // conformal factor
+            state(VEC(i,j,k), PHI_, q) = test_func(0,1,1,x,y,z);
+
+            // trace of the extrinsic curvature
+            state(VEC(i,j,k), K_, q) = test_func(0,1,1,x,y,z);
+
+            // conformal trace-free extrinsic curvature
+            state(VEC(i,j,k), ATXX_, q) = test_func(0,1,1,x,y,z);
+            state(VEC(i,j,k), ATXY_, q) = test_func(0,1,1,x,y,z);
+            state(VEC(i,j,k), ATYY_, q) = test_func(0,1,1,x,y,z);
+            state(VEC(i,j,k), ATXZ_, q) = test_func(0,1,1,x,y,z);
+            state(VEC(i,j,k), ATYZ_, q) = test_func(0,1,1,x,y,z);
+            state(VEC(i,j,k), ATZZ_, q) = test_func(0,1,1,x,y,z);
+
+            // energy-momentum tensor components 
+            for( int ww=0; ww<16; ++ww){
+               Tmunu(VEC(i,j,k),ww,q) = test_func(0,1,1,x,y,z);
+            }
         }
     ) ; 
 
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>>
+        policyEOM({VEC(ngz,ngz,ngz),0}, {nx+1+ngz,ny+1+ngz,nz+1+ngz,nq}) ; 
+    // Parallel for loop 
+    parallel_for(
+        "evaluate_EOM", 
+        policyEOM, 
+        KOKKOS_LAMBDA (VEC(int i, int j, int k), int q) {
+            std::array<std::array<double,4>,4> TmunuL ;
+            int idx4 = 0 ; 
+            for( int ii=0, ii<4; ii++) {
+                for( int jj=0; jj<4; ++jj){
+                    TmunuL[ii][jj] = Tmunu(VEC(i,j,k),idx4,q) ;
+                    ++idx4 ; 
+                }
+            }            
+            auto rhsL=compute_bssn_rhs(VEC(i,j,k),q,state,TmunuL,idx);
+            for( int ivar=0; ivar<NUM_BSSN_VARS; ++ivar) 
+                rhs(VEC(i,j,k),ivar,q) = rhsL[ivar] ;
+        }
+    ) ; 
     
+    // copying the rhs vector to CPU
+    auto h_rhs = Kokkos::create_mirror_view(rhs) ;
+    Kokkos::deep_copy(h_rhs,rhs) ; 
     
+    // fixing y and z coordinates to some values
+    int jNow=ngz+ny/2,kNow=ngz+nz/2;
+    auto& coordsys = grace::coordinate_system::get() ; 
 
+    // looping over x-cordinate values at cell vertices 
+    for(int i=ngz;i<nx+1+ngz;i++)
+    {
+        auto xyz = coordsys.get_physical_coordinates(VEC(i,jNow,kNow),q,{VEC(0,0,0)},false) ; 
+        std::cout<< xyz[0] << '\t' << xyz[1] << '\t' << xyz[2] << '\t' ; 
+        for( ivar =0 ; ivar< NUM_BSSN_VARS; ivar++){
+            std::cout << h_rhs(VEC(i,jNow,kNow),ivar,q)<<'\t'<<;
+        }
+    }
 
 }
+   

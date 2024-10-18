@@ -173,7 +173,7 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q,
     double const gtzzdydz=grace::fd_der<der_order,1,2>(state,GTZZ_,VEC(i,j,k),q);
 
     // conformal factor
-    double const phi=state(PHI_);
+    double const phi=state(VEC(i,j,k), PHI_,q);
 
     // first derivatives of the conformal factor
     double const phidx=grace::fd_der<der_order,0>(state,PHI_);
@@ -189,7 +189,7 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q,
     double const phidzdz=grace::fd_der<der_order,2,2>(state,PHI_);
 
     // lapse function
-    double const alp=state(ALP_);
+    double const alp=state(VEC(i,j,k), ALP_, q);
 
     // first derivatives of the lapse function 
     double const alpdx=grace::fd_der<der_order,0>(state,ALP_);
@@ -275,7 +275,7 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q,
     double const EE=(Ttt - 2*betaY*Tty - 2*betaZ*Ttz + betaX*betaX*Txx + 2*betaX*(-Ttx + betaY*Txy + betaZ*Txz) + betaY*betaY*Tyy + 2*betaY*betaZ*Tyz + betaZ*betaZ*Tzz)/(alp*alp);
 
     // trace of the extrinsic curvature
-    double const K=state(K_);
+    double const K=state(VEC(i,j,k), K_, q);
 
     // first derivatives of the extrinsic curvature trace 
     double const Kdx=grace::fd_der<der_order,0>(state,K_);
@@ -496,34 +496,12 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q,
     double const betaXdt=betaXdy*betaY + betaXdz*betaZ + betaX*(betaXdx - eta) + alp*alp*GammatX*muS;
     double const betaYdt=betaX*betaYdx + betaYdz*betaZ + betaY*(betaYdy - eta) + alp*alp*GammatY*muS;
     double const betaZdt=betaX*betaZdx + betaY*betaZdy + betaZ*betaZdz - betaZ*eta + alp*alp*GammatZ*muS;
+    
+    // returning the RHS of the EOM vector
+    return { phidt, gtxxdt, gtxydt, gtxzdt, gtyydt, gtyzdt, gtzzdt,
+             Atxxdt, Atxydt, Atxzdt, Atyydt, Atyzdt, Atzzdt,
+             Kdt, GammatXdt, GammatYdt, GammatZdt, NUM_BSSN_VARS };
 
-    /*
-     * state --> contains all evolved variables 
-     * e.g. if you need gtxx at i,j,k:
-     * 
-     *  gtxx := state(VEC(i,j,k), GTXX_, q) ; 
-     * 
-     * For computing derivatives:
-     * 
-     *  \partial_x gxx(i,j,k) := grace::fd_der<idir, der_order>(state, GTXX_, VEC(i,j,k), q) ; 
-     * Where idir is 0, 1, 2 for X, Y, Z. 
-     * 
-     * double const betaXdy = grace::fd_der<1, der_order>(state,BETAX_, VEC(i,j,k), q) ; 
-     * 
-     * The BSSN vars indices are as follows:
-     * 
-     * GTXX_, GTXY_, GTXZ_, GTYY_, GTYZ_, GTZZ_,
-     * PHI_, K_, BETAX_, BETAY_, BETAZ_, ALP_,
-     * GAMMAX_,GAMMAY_,GAMMAZ_,
-     * ATXX_, ATXY_, ATXZ_, ATYY_, ATYZ_, ATZZ_
-     * 
-     * Hydro quantities:
-     * 
-     * I will pass T_{\mu\nu} to this function:
-     * 
-     * Ttt = Tmunu[0][0]  ; // ALL INDICES LOW, INDICES 0,1,2,3
-     * 
-     */
 }
 
 
