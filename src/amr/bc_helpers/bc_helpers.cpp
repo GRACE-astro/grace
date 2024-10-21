@@ -533,7 +533,6 @@ void grace_init_halo_transfer_custom(
     /******************************************************/
     for(int ircv=0; ircv<rcv_procid.size(); ++ircv) 
     {
-        int tag = parallel::GRACE_HALO_EXCHANGE_TAG ;
         int ihalo = rcv_quadid[ircv] ; 
         int iproc = rcv_procid[ircv] ; 
         GRACE_VERBOSE("Receive iproc {} ihalo {}", iproc,ihalo) ; 

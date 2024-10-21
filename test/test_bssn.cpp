@@ -68,11 +68,17 @@ TEST_CASE("bssn")
     auto& varlist = variable_list::get() ; 
 
     // Get state array 
-    auto& state = varlist.getstate() ;
+    auto& sstate = varlist.getstaggeredstate() ;
+    auto& cstate = sstate.corner_staggered_fields ; 
 
     // Get coordinates of grid corners 
     coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+    GRACE_INFO("Filling coordinates.") ; 
     grace::fill_physical_coordinates(pcoords, {VEC(true,true,true)} ) ;
+    Kokkos::fence() ; 
+    GRACE_INFO("Done.") ;
+
+    GRACE_INFO("Extents {} {} {} {} {}", cstate.extent(0),cstate.extent(1),cstate.extent(2),cstate.extent(3),cstate.extent(4)) ; 
 
     // Get grid spacing 
     auto& idx = varlist.getinvspacings() ; 
@@ -102,47 +108,52 @@ TEST_CASE("bssn")
         KOKKOS_LAMBDA (VEC(int i, int j, int k), int q) {
             
             // evaluating coordinate values at cell vertices
+            #if 0
             double const x = pcoords(VEC(i,j,k),0,q); 
             double const y = pcoords(VEC(i,j,k),1,q);
             double const z = pcoords(VEC(i,j,k),2,q); 
+            #endif 
+            double x{0},y{0},z{0} ; 
 
             // filling the conformal metric with the test function
-            state(VEC(i,j,k), GTXX_, q) = test_func(1,1,1,x,y,z);
-            state(VEC(i,j,k), GTXY_, q) = test_func(2,1,1,x,y,z);
-            state(VEC(i,j,k), GTYY_, q) = test_func(3,1,1,x,y,z);
-            state(VEC(i,j,k), GTXZ_, q) = test_func(4,1,1,x,y,z);
-            state(VEC(i,j,k), GTYZ_, q) = test_func(5,1,1,x,y,z);
-            state(VEC(i,j,k), GTZZ_, q) = test_func(6,1,1,x,y,z);
+            cstate(VEC(i,j,k), GTXX_, q) = test_func(1,1,1,x,y,z);
+            cstate(VEC(i,j,k), GTXY_, q) = test_func(2,1,1,x,y,z);
+            cstate(VEC(i,j,k), GTYY_, q) = test_func(3,1,1,x,y,z);
+            cstate(VEC(i,j,k), GTXZ_, q) = test_func(4,1,1,x,y,z);
+            cstate(VEC(i,j,k), GTYZ_, q) = test_func(5,1,1,x,y,z);
+            cstate(VEC(i,j,k), GTZZ_, q) = test_func(6,1,1,x,y,z);
 
             // lapse function
-            state(VEC(i,j,k), ALP_, q) = test_func(0,1,1,x,y,z);
+            cstate(VEC(i,j,k), ALP_, q) = test_func(0,1,1,x,y,z);
 
             // shift vector components
-            state(VEC(i,j,k), BETAX_, q) = test_func(0,1,1,x,y,z);
-            state(VEC(i,j,k), BETAY_, q) = test_func(0,1,1,x,y,z);
-            state(VEC(i,j,k), BETAZ_, q) = test_func(0,1,1,x,y,z);
+            cstate(VEC(i,j,k), BETAX_, q) = test_func(0,1,1,x,y,z);
+            cstate(VEC(i,j,k), BETAY_, q) = test_func(0,1,1,x,y,z);
+            cstate(VEC(i,j,k), BETAZ_, q) = test_func(0,1,1,x,y,z);
 
             // conformal factor
-            state(VEC(i,j,k), PHI_, q) = test_func(0,1,1,x,y,z);
+            cstate(VEC(i,j,k), PHI_, q) = test_func(0,1,1,x,y,z);
 
             // trace of the extrinsic curvature
-            state(VEC(i,j,k), K_, q) = test_func(0,1,1,x,y,z);
+            cstate(VEC(i,j,k), K_, q) = test_func(0,1,1,x,y,z);
 
             // conformal trace-free extrinsic curvature
-            state(VEC(i,j,k), ATXX_, q) = test_func(0,1,1,x,y,z);
-            state(VEC(i,j,k), ATXY_, q) = test_func(0,1,1,x,y,z);
-            state(VEC(i,j,k), ATYY_, q) = test_func(0,1,1,x,y,z);
-            state(VEC(i,j,k), ATXZ_, q) = test_func(0,1,1,x,y,z);
-            state(VEC(i,j,k), ATYZ_, q) = test_func(0,1,1,x,y,z);
-            state(VEC(i,j,k), ATZZ_, q) = test_func(0,1,1,x,y,z);
-
+            cstate(VEC(i,j,k), ATXX_, q) = test_func(0,1,1,x,y,z);
+            cstate(VEC(i,j,k), ATXY_, q) = test_func(0,1,1,x,y,z);
+            cstate(VEC(i,j,k), ATYY_, q) = test_func(0,1,1,x,y,z);
+            cstate(VEC(i,j,k), ATXZ_, q) = test_func(0,1,1,x,y,z);
+            cstate(VEC(i,j,k), ATYZ_, q) = test_func(0,1,1,x,y,z);
+            cstate(VEC(i,j,k), ATZZ_, q) = test_func(0,1,1,x,y,z);
+            #if 1
             // energy-momentum tensor components 
             for( int ww=0; ww<16; ++ww){
                Tmunu(VEC(i,j,k),ww,q) = test_func(0,1,1,x,y,z);
             }
+            #endif 
         }
     ) ; 
-
+    Kokkos::fence() ; 
+    GRACE_INFO("Here.") ; 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>>
         policyEOM({VEC(ngz,ngz,ngz),0}, {nx+1+ngz,ny+1+ngz,nz+1+ngz,nq}) ; 
     // Parallel for loop 
@@ -159,12 +170,13 @@ TEST_CASE("bssn")
                 }
             }     
             std::array<double,GRACE_NSPACEDIM> idxL {idx(0,q),idx(1,q),idx(2,q )} ;        
-            auto rhsL=compute_bssn_rhs<DER_ORDER>(VEC(i,j,k),q,state,TmunuL,idxL);
+            auto rhsL=compute_bssn_rhs<DER_ORDER>(VEC(i,j,k),q,cstate,TmunuL,idxL);
             for( int ivar=0; ivar<NUM_BSSN_VARS; ++ivar) 
                 rhs(VEC(i,j,k),ivar,q) = rhsL[ivar] ;
         }
     ) ; 
-    
+    Kokkos::fence() ;
+    GRACE_INFO("Here") ; 
     // copying the rhs vector to CPU
     auto h_rhs = Kokkos::create_mirror_view(rhs) ;
     Kokkos::deep_copy(h_rhs,rhs) ; 

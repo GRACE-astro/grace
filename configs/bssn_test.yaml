@@ -1,0 +1,23 @@
+name: "grace"
+amr: {
+  npoints_block_x: 6,
+  npoints_block_y: 6,
+  npoints_block_z: 6,
+  n_ghostzones: 1,
+  initial_refinement_level: 0,
+  xmin: 0.,
+  xmax: 1.,
+  ymin: 0.,
+  ymax: 1.,
+  zmin: 0.,
+  zmax: 1.
+}
+IO: {
+  volume_output_cell_variables: ["dens", "beta[0]"]
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  flush_level: "trace"
+}

@@ -355,11 +355,11 @@ static int register_staggered_variable( std::string const& name
         if( is_evolved ) {
             _corner_staggered_varnames.push_back(name) ; 
             _corner_vars_bc_types.push_back(bc_type) ; 
-            return (num_corner_staggered_vars ++) - 1 ; 
+            return (++num_corner_staggered_vars) - 1 ; 
         } else {
             _corner_staggered_auxnames.push_back(name) ; 
             _corner_aux_bc_types.push_back(bc_type) ; 
-            return (num_corner_staggered_aux ++) - 1 ; 
+            return (++num_corner_staggered_aux) - 1 ; 
         }
     } else {
         ERROR("Something wrong!") ; 
