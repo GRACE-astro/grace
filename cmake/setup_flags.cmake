@@ -20,11 +20,16 @@ endif()
 
 if( NOT GRACE_NSPACEDIM )
     set(GRACE_NSPACEDIM 2)
-    message(STATUS "Space dimension (GRACE_NSPACEDIM) not set, default is 2.")
+    set(GRACE_3D OFF)
 endif() 
 
 if( GRACE_NSPACEDIM EQUAL 3 )
     set( GRACE_3D ON )
+    message(STATUS "Building GRACE in 3D")
+endif()
+
+if (GRACE_NSPACEDIM EQUAL 2)
+    message(STATUS "Building GRACE in 2D")
 endif()
 
 add_compile_options(

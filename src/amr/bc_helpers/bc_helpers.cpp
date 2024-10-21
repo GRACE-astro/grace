@@ -500,15 +500,17 @@ void grace_init_halo_transfer_custom(
     bool exchange_cell_volumes
 )
 {
-    size_t nx,ny,nz ; 
-    std::tie(nx,ny,nz) = get_quadrant_extents() ;
-    int64_t ngz = get_n_ghosts() ;
-    int64_t nq  = get_local_num_quadrants()  ;  
+    DECLARE_GRID_EXTENTS ; 
+    /******************************************************/
+    /*                  Fetch nvars                       */
+    /******************************************************/
     size_t nvars = variables::get_n_evolved() ;
     size_t nvars_face = variables::get_n_evolved_face_staggered() ; 
     size_t nvars_edge = variables::get_n_evolved_edge_staggered() ; 
-    size_t nvars_corner = variables::get_n_evolved_corner_staggered() ; 
-    size_t const send_size_coords = GRACE_NSPACEDIM ; 
+    size_t nvars_corner = variables::get_n_evolved_corner_staggered() ;  
+    /******************************************************/
+    /*          Compute send / receive buffer sizes       */
+    /******************************************************/
     size_t const send_size_vol = EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) ; 
     size_t const send_size = send_size_vol * nvars ; 
     size_t const send_size_face_staggered_x = 
@@ -529,8 +531,9 @@ void grace_init_halo_transfer_custom(
     /******************************************************/
     /*                Receive halo data                   */
     /******************************************************/
-    size_t rank = parallel::mpi_comm_rank() ; 
-    for(int ircv=0; ircv<rcv_quadid.size(); ++ircv){
+    for(int ircv=0; ircv<rcv_procid.size(); ++ircv) 
+    {
+        int tag = parallel::GRACE_HALO_EXCHANGE_TAG ;
         int ihalo = rcv_quadid[ircv] ; 
         int iproc = rcv_procid[ircv] ; 
         GRACE_VERBOSE("Receive iproc {} ihalo {}", iproc,ihalo) ; 
