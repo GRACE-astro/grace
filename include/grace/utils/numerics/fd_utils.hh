@@ -31,6 +31,8 @@
 
 #include <grace/data_structures/variable_properties.hh>
 
+#include <Kokkos_Core.hpp>
+
 namespace grace {
 
 namespace detail {
@@ -52,26 +54,35 @@ struct stencil<2> {
   }
 } ;
 
+template<>
+struct stencil<4> {
+  template< size_t idir, typename F >
+  static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+  apply(F && var, VEC(int i, int j, int k)) {
+    return 0.5 * ( var(VEC(i+utils::delta(idir,0), j+utils::delta(idir,1), k+utils::delta(idir,2)))
+                   - var(VEC(i-utils::delta(idir,0), j-utils::delta(idir,1), k-utils::delta(idir,2)))) ;
+  }
+} ; // FIXME 
+
 template< size_t ndirs ,  size_t idir, size_t ... idirs>
 struct fd_der_recursive {
 
-    template< size_t order >
+    template< size_t order, typename ViewT >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    doit (grace::var_array_t<GRACE_NSPACEDIM> const var, VEC(int i, int j, int k), int ivar, int q) {
-
+    doit (ViewT const var, VEC(int i, int j, int k)) {
         auto const f = [&] (VEC(int i, int j, int k)) {
-            return fd_der_recursive<ndirs-1,idirs...>::template doit<order>(var, VEC(i,j,k), ivar, q) ;
+            return fd_der_recursive<ndirs-1,idirs...>::template doit<order>(var, VEC(i,j,k)) ;
         } ;
-        return return stencil<order>::template apply<idir>(f, VEC(i,j,k)) ;
+        return stencil<order>::template apply<idir>(f, VEC(i,j,k)) ;
     }
 } ;
 
 template< size_t idir>
 struct fd_der_recursive<1,idir> {
-    template< size_t order >
+    template< size_t order, typename ViewT >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    doit(grace::var_array_t<GRACE_NSPACEDIM> const var, VEC(int i, int j, int k), int ivar, int q) {
-        return stencil<order>::template apply<idir>(var, VEC(i,j,k), ivar, q) ;
+    doit(ViewT const var, VEC(int i, int j, int k)) {
+        return stencil<order>::template apply<idir>(var, VEC(i,j,k)) ;
     }
 } ; 
 
@@ -98,11 +109,12 @@ template< size_t der_order
         , size_t ... dirs >
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 fd_der( grace::var_array_t<GRACE_NSPACEDIM> const u 
-      , VEC( int const i, int const j, int const k)
       , int const ivar 
+      , VEC( int const i, int const j, int const k)
       , int const q ) 
 {
-    return fd_der_recursive<sizeof...(dirs),dirs...>::template doit<der_order>(u,VEC(i,j,k),ivar,q) ; 
+    auto var = Kokkos::subview(u,VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), ivar, q) ; 
+    return detail::fd_der_recursive<sizeof...(dirs),dirs...>::template doit<der_order>(var,VEC(i,j,k)) ; 
 }
 
 }

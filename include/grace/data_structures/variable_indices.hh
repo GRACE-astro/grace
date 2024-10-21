@@ -246,7 +246,10 @@ DECLARE_VAR_INDEX_IMPL(ATXZ)                     \
 DECLARE_VAR_INDEX_IMPL(ATYY)                     \
 DECLARE_VAR_INDEX_IMPL(ATYZ)                     \
 DECLARE_VAR_INDEX_IMPL(ATZZ)                     \
-DECLARE_VAR_INDEX_IMPL(K)
+DECLARE_VAR_INDEX_IMPL(K)                        \
+DECLARE_VAR_INDEX_IMPL(GAMMAX)                   \
+DECLARE_VAR_INDEX_IMPL(GAMMAY)                   \
+DECLARE_VAR_INDEX_IMPL(GAMMAZ)                   
 #endif 
 
 #define DECLARE_VARIABLE_INDICES    \

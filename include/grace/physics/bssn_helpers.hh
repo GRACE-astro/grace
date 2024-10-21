@@ -33,7 +33,6 @@
 
 namespace grace {
 
-using bssn_state_t = std::array<double, NUM_BSSN_VARS> ;
 
 enum BSSN_VARENUM_t {
     PHIL=0,
@@ -55,6 +54,8 @@ enum BSSN_VARENUM_t {
     GAMMAZL,
     NUM_BSSN_VARS
 } ; 
+
+using bssn_state_t = std::array<double, NUM_BSSN_VARS> ;
 
 #define FILL_BSSN_STATE(sstate, vview, q, ...)\
 do{                                      \

@@ -54,13 +54,15 @@
 #include <iostream>
 #include <iomanip>
 
+#define DER_ORDER 2
+
 
 TEST_CASE("bssn")
 {
     using namespace Kokkos; 
     using namespace grace ; 
 
-    DECLARE_GRID_PROPERTIES ; // defines nx, ny, nz, ngz, nq 
+    DECLARE_GRID_EXTENTS ; // defines nx, ny, nz, ngz, nq 
 
     // Get variables 
     auto& varlist = variable_list::get() ; 
@@ -70,7 +72,7 @@ TEST_CASE("bssn")
 
     // Get coordinates of grid corners 
     coord_array_t<GRACE_NSPACEDIM> pcoords ; 
-    grace::fill_physical_coordinates(pcoords, /* staggering */ ) ;
+    grace::fill_physical_coordinates(pcoords, {VEC(true,true,true)} ) ;
 
     // Get grid spacing 
     auto& idx = varlist.getinvspacings() ; 
@@ -78,7 +80,7 @@ TEST_CASE("bssn")
     // gaussian test function for state defintion
     auto test_func = KOKKOS_LAMBDA ( double a, double b, double s, double x, double y, double z)
     {
-        return Kokkos::a+b*exp(-(x*x+y*y+z*z)/(2*s));
+        return a+b*Kokkos::exp(-(x*x+y*y+z*z)/(2*s));
     } ; 
 
     grace::var_array_t<GRACE_NSPACEDIM> Tmunu("Tmunu", VEC(nx+1+2*ngz,ny+1+2*ngz,nz+1+2*ngz), 16, nq) ;
@@ -150,13 +152,14 @@ TEST_CASE("bssn")
         KOKKOS_LAMBDA (VEC(int i, int j, int k), int q) {
             std::array<std::array<double,4>,4> TmunuL ;
             int idx4 = 0 ; 
-            for( int ii=0, ii<4; ii++) {
+            for( int ii=0; ii<4; ii++) {
                 for( int jj=0; jj<4; ++jj){
                     TmunuL[ii][jj] = Tmunu(VEC(i,j,k),idx4,q) ;
                     ++idx4 ; 
                 }
-            }            
-            auto rhsL=compute_bssn_rhs(VEC(i,j,k),q,state,TmunuL,idx);
+            }     
+            std::array<double,GRACE_NSPACEDIM> idxL {idx(0,q),idx(1,q),idx(2,q )} ;        
+            auto rhsL=compute_bssn_rhs<DER_ORDER>(VEC(i,j,k),q,state,TmunuL,idxL);
             for( int ivar=0; ivar<NUM_BSSN_VARS; ++ivar) 
                 rhs(VEC(i,j,k),ivar,q) = rhsL[ivar] ;
         }
@@ -167,16 +170,16 @@ TEST_CASE("bssn")
     Kokkos::deep_copy(h_rhs,rhs) ; 
     
     // fixing y and z coordinates to some values
-    int jNow=ngz+ny/2,kNow=ngz+nz/2;
+    size_t jNow=ngz+ny/2,kNow=ngz+nz/2;
     auto& coordsys = grace::coordinate_system::get() ; 
 
     // looping over x-cordinate values at cell vertices 
-    for(int i=ngz;i<nx+1+ngz;i++)
+    for(size_t i=ngz;i<nx+1+ngz;i++)
     {
-        auto xyz = coordsys.get_physical_coordinates(VEC(i,jNow,kNow),q,{VEC(0,0,0)},false) ; 
+        auto xyz = coordsys.get_physical_coordinates({VEC(i,jNow,kNow)},0,{VEC(0,0,0)},false) ; 
         std::cout<< xyz[0] << '\t' << xyz[1] << '\t' << xyz[2] << '\t' ; 
-        for( ivar =0 ; ivar< NUM_BSSN_VARS; ivar++){
-            std::cout << h_rhs(VEC(i,jNow,kNow),ivar,q)<<'\t'<<;
+        for( int ivar =0 ; ivar< NUM_BSSN_VARS; ivar++){
+            std::cout << h_rhs(VEC(i,jNow,kNow),ivar,0)<<'\t'<<std::endl;
         }
     }
 
