@@ -81,76 +81,76 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     double const gtZZ=(gtxy*gtxy - gtxx*gtyy)/(gtxz*gtxz*gtyy - 2*gtxy*gtxz*gtyz + gtxx*(gtyz*gtyz) + gtxy*gtxy*gtzz - gtxx*gtyy*gtzz);
 
 // first x-derivatives of the conformal (tilde) metric components
-    double const gtxxdx=grace::fd_der<der_order,0>(state,GTXX_,VEC(i,j,k),q);
-    double const gtxydx=grace::fd_der<der_order,0>(state,GTXY_,VEC(i,j,k),q);
-    double const gtyydx=grace::fd_der<der_order,0>(state,GTYY_,VEC(i,j,k),q);
-    double const gtxzdx=grace::fd_der<der_order,0>(state,GTXZ_,VEC(i,j,k),q);
-    double const gtyzdx=grace::fd_der<der_order,0>(state,GTYZ_,VEC(i,j,k),q);
-    double const gtzzdx=grace::fd_der<der_order,0>(state,GTZZ_,VEC(i,j,k),q);
+    double const gtxxdx=grace::fd_der<der_order,0>(state,GTXX_,VEC(i,j,k),q)* idx[0];
+    double const gtxydx=grace::fd_der<der_order,0>(state,GTXY_,VEC(i,j,k),q)* idx[0];
+    double const gtyydx=grace::fd_der<der_order,0>(state,GTYY_,VEC(i,j,k),q)* idx[0];
+    double const gtxzdx=grace::fd_der<der_order,0>(state,GTXZ_,VEC(i,j,k),q)* idx[0];
+    double const gtyzdx=grace::fd_der<der_order,0>(state,GTYZ_,VEC(i,j,k),q)* idx[0];
+    double const gtzzdx=grace::fd_der<der_order,0>(state,GTZZ_,VEC(i,j,k),q)* idx[0];
 
     // first y-derivatives of the conformal (tilde) metric components
-    double const gtxxdy=grace::fd_der<der_order,1>(state,GTXX_,VEC(i,j,k),q);
-    double const gtxydy=grace::fd_der<der_order,1>(state,GTXY_,VEC(i,j,k),q);
-    double const gtyydy=grace::fd_der<der_order,1>(state,GTYY_,VEC(i,j,k),q);
-    double const gtxzdy=grace::fd_der<der_order,1>(state,GTXZ_,VEC(i,j,k),q);
-    double const gtyzdy=grace::fd_der<der_order,1>(state,GTYZ_,VEC(i,j,k),q);
-    double const gtzzdy=grace::fd_der<der_order,1>(state,GTZZ_,VEC(i,j,k),q);
+    double const gtxxdy=grace::fd_der<der_order,1>(state,GTXX_,VEC(i,j,k),q)* idx[1];
+    double const gtxydy=grace::fd_der<der_order,1>(state,GTXY_,VEC(i,j,k),q)* idx[1];
+    double const gtyydy=grace::fd_der<der_order,1>(state,GTYY_,VEC(i,j,k),q)* idx[1];
+    double const gtxzdy=grace::fd_der<der_order,1>(state,GTXZ_,VEC(i,j,k),q)* idx[1];
+    double const gtyzdy=grace::fd_der<der_order,1>(state,GTYZ_,VEC(i,j,k),q)* idx[1];
+    double const gtzzdy=grace::fd_der<der_order,1>(state,GTZZ_,VEC(i,j,k),q)* idx[1];
 
     // first z-derivatives of the conformal (tilde) metric components
-    double const gtxxdz=grace::fd_der<der_order,2>(state,GTXX_,VEC(i,j,k),q);
-    double const gtxydz=grace::fd_der<der_order,2>(state,GTXY_,VEC(i,j,k),q);
-    double const gtyydz=grace::fd_der<der_order,2>(state,GTYY_,VEC(i,j,k),q);
-    double const gtxzdz=grace::fd_der<der_order,2>(state,GTXZ_,VEC(i,j,k),q);
-    double const gtyzdz=grace::fd_der<der_order,2>(state,GTYZ_,VEC(i,j,k),q);
-    double const gtzzdz=grace::fd_der<der_order,2>(state,GTZZ_,VEC(i,j,k),q);
+    double const gtxxdz=grace::fd_der<der_order,2>(state,GTXX_,VEC(i,j,k),q)* idx[2];
+    double const gtxydz=grace::fd_der<der_order,2>(state,GTXY_,VEC(i,j,k),q)* idx[2];
+    double const gtyydz=grace::fd_der<der_order,2>(state,GTYY_,VEC(i,j,k),q)* idx[2];
+    double const gtxzdz=grace::fd_der<der_order,2>(state,GTXZ_,VEC(i,j,k),q)* idx[2];
+    double const gtyzdz=grace::fd_der<der_order,2>(state,GTYZ_,VEC(i,j,k),q)* idx[2];
+    double const gtzzdz=grace::fd_der<der_order,2>(state,GTZZ_,VEC(i,j,k),q)* idx[2];
 
     // second x-derivatives of the conformal (tilde) metric components
-    double const gtxxdxdx=grace::fd_der<der_order,0,0>(state,GTXX_,VEC(i,j,k),q);
-    double const gtxydxdx=grace::fd_der<der_order,0,0>(state,GTXY_,VEC(i,j,k),q);
-    double const gtyydxdx=grace::fd_der<der_order,0,0>(state,GTYY_,VEC(i,j,k),q);
-    double const gtxzdxdx=grace::fd_der<der_order,0,0>(state,GTXZ_,VEC(i,j,k),q);
-    double const gtyzdxdx=grace::fd_der<der_order,0,0>(state,GTYZ_,VEC(i,j,k),q);
-    double const gtzzdxdx=grace::fd_der<der_order,0,0>(state,GTZZ_,VEC(i,j,k),q);
+    double const gtxxdxdx=grace::fd_der<der_order,0,0>(state,GTXX_,VEC(i,j,k),q)* idx[0]*idx[0];
+    double const gtxydxdx=grace::fd_der<der_order,0,0>(state,GTXY_,VEC(i,j,k),q)* idx[0]*idx[0];
+    double const gtyydxdx=grace::fd_der<der_order,0,0>(state,GTYY_,VEC(i,j,k),q)* idx[0]*idx[0];
+    double const gtxzdxdx=grace::fd_der<der_order,0,0>(state,GTXZ_,VEC(i,j,k),q)* idx[0]*idx[0];
+    double const gtyzdxdx=grace::fd_der<der_order,0,0>(state,GTYZ_,VEC(i,j,k),q)* idx[0]*idx[0];
+    double const gtzzdxdx=grace::fd_der<der_order,0,0>(state,GTZZ_,VEC(i,j,k),q)* idx[0]*idx[0];
 
     // second y-derivatives of the conformal (tilde) metric components
-    double const gtxxdydy=grace::fd_der<der_order,1,1>(state,GTXX_,VEC(i,j,k),q);
-    double const gtxydydy=grace::fd_der<der_order,1,1>(state,GTXY_,VEC(i,j,k),q);
-    double const gtyydydy=grace::fd_der<der_order,1,1>(state,GTYY_,VEC(i,j,k),q);
-    double const gtxzdydy=grace::fd_der<der_order,1,1>(state,GTXZ_,VEC(i,j,k),q);
-    double const gtyzdydy=grace::fd_der<der_order,1,1>(state,GTYZ_,VEC(i,j,k),q);
-    double const gtzzdydy=grace::fd_der<der_order,1,1>(state,GTZZ_,VEC(i,j,k),q);
+    double const gtxxdydy=grace::fd_der<der_order,1,1>(state,GTXX_,VEC(i,j,k),q)* idx[1]*idx[1];
+    double const gtxydydy=grace::fd_der<der_order,1,1>(state,GTXY_,VEC(i,j,k),q)* idx[1]*idx[1];
+    double const gtyydydy=grace::fd_der<der_order,1,1>(state,GTYY_,VEC(i,j,k),q)* idx[1]*idx[1];
+    double const gtxzdydy=grace::fd_der<der_order,1,1>(state,GTXZ_,VEC(i,j,k),q)* idx[1]*idx[1];
+    double const gtyzdydy=grace::fd_der<der_order,1,1>(state,GTYZ_,VEC(i,j,k),q)* idx[1]*idx[1];
+    double const gtzzdydy=grace::fd_der<der_order,1,1>(state,GTZZ_,VEC(i,j,k),q)* idx[1]*idx[1];
 
     // second z-derivatives of the conformal (tilde) metric components
-    double const gtxxdzdz=grace::fd_der<der_order,2,2>(state,GTXX_,VEC(i,j,k),q);
-    double const gtxydzdz=grace::fd_der<der_order,2,2>(state,GTXY_,VEC(i,j,k),q);
-    double const gtyydzdz=grace::fd_der<der_order,2,2>(state,GTYY_,VEC(i,j,k),q);
-    double const gtxzdzdz=grace::fd_der<der_order,2,2>(state,GTXZ_,VEC(i,j,k),q);
-    double const gtyzdzdz=grace::fd_der<der_order,2,2>(state,GTYZ_,VEC(i,j,k),q);
-    double const gtzzdzdz=grace::fd_der<der_order,2,2>(state,GTZZ_,VEC(i,j,k),q);
+    double const gtxxdzdz=grace::fd_der<der_order,2,2>(state,GTXX_,VEC(i,j,k),q)* idx[2]*idx[2];
+    double const gtxydzdz=grace::fd_der<der_order,2,2>(state,GTXY_,VEC(i,j,k),q)* idx[2]*idx[2];
+    double const gtyydzdz=grace::fd_der<der_order,2,2>(state,GTYY_,VEC(i,j,k),q)* idx[2]*idx[2];
+    double const gtxzdzdz=grace::fd_der<der_order,2,2>(state,GTXZ_,VEC(i,j,k),q)* idx[2]*idx[2];
+    double const gtyzdzdz=grace::fd_der<der_order,2,2>(state,GTYZ_,VEC(i,j,k),q)* idx[2]*idx[2];
+    double const gtzzdzdz=grace::fd_der<der_order,2,2>(state,GTZZ_,VEC(i,j,k),q)* idx[2]*idx[2];
 
     // x-y-derivatives of the conformal (tilde) metric components
-    double const gtxxdxdy=grace::fd_der<der_order,0,1>(state,GTXX_,VEC(i,j,k),q);
-    double const gtxydxdy=grace::fd_der<der_order,0,1>(state,GTXY_,VEC(i,j,k),q);
-    double const gtyydxdy=grace::fd_der<der_order,0,1>(state,GTYY_,VEC(i,j,k),q);
-    double const gtxzdxdy=grace::fd_der<der_order,0,1>(state,GTXZ_,VEC(i,j,k),q);
-    double const gtyzdxdy=grace::fd_der<der_order,0,1>(state,GTYZ_,VEC(i,j,k),q);
-    double const gtzzdxdy=grace::fd_der<der_order,0,1>(state,GTZZ_,VEC(i,j,k),q);
+    double const gtxxdxdy=grace::fd_der<der_order,0,1>(state,GTXX_,VEC(i,j,k),q)* idx[0]*idx[1];
+    double const gtxydxdy=grace::fd_der<der_order,0,1>(state,GTXY_,VEC(i,j,k),q)* idx[0]*idx[1];
+    double const gtyydxdy=grace::fd_der<der_order,0,1>(state,GTYY_,VEC(i,j,k),q)* idx[0]*idx[1];
+    double const gtxzdxdy=grace::fd_der<der_order,0,1>(state,GTXZ_,VEC(i,j,k),q)* idx[0]*idx[1];
+    double const gtyzdxdy=grace::fd_der<der_order,0,1>(state,GTYZ_,VEC(i,j,k),q)* idx[0]*idx[1];
+    double const gtzzdxdy=grace::fd_der<der_order,0,1>(state,GTZZ_,VEC(i,j,k),q)* idx[0]*idx[1];
 
     // x-z-derivatives of the conformal (tilde) metric components
-    double const gtxxdxdz=grace::fd_der<der_order,0,2>(state,GTXX_,VEC(i,j,k),q);
-    double const gtxydxdz=grace::fd_der<der_order,0,2>(state,GTXY_,VEC(i,j,k),q);
-    double const gtyydxdz=grace::fd_der<der_order,0,2>(state,GTYY_,VEC(i,j,k),q);
-    double const gtxzdxdz=grace::fd_der<der_order,0,2>(state,GTXZ_,VEC(i,j,k),q);
-    double const gtyzdxdz=grace::fd_der<der_order,0,2>(state,GTYZ_,VEC(i,j,k),q);
-    double const gtzzdxdz=grace::fd_der<der_order,0,2>(state,GTZZ_,VEC(i,j,k),q);
+    double const gtxxdxdz=grace::fd_der<der_order,0,2>(state,GTXX_,VEC(i,j,k),q)* idx[0]*idx[2];
+    double const gtxydxdz=grace::fd_der<der_order,0,2>(state,GTXY_,VEC(i,j,k),q)* idx[0]*idx[2];
+    double const gtyydxdz=grace::fd_der<der_order,0,2>(state,GTYY_,VEC(i,j,k),q)* idx[0]*idx[2];
+    double const gtxzdxdz=grace::fd_der<der_order,0,2>(state,GTXZ_,VEC(i,j,k),q)* idx[0]*idx[2];
+    double const gtyzdxdz=grace::fd_der<der_order,0,2>(state,GTYZ_,VEC(i,j,k),q)* idx[0]*idx[2];
+    double const gtzzdxdz=grace::fd_der<der_order,0,2>(state,GTZZ_,VEC(i,j,k),q)* idx[0]*idx[2];
 
     // y-z-derivatives of the conformal (tilde) metric components
-    double const gtxxdydz=grace::fd_der<der_order,1,2>(state,GTXX_,VEC(i,j,k),q);
-    double const gtxydydz=grace::fd_der<der_order,1,2>(state,GTXY_,VEC(i,j,k),q);
-    double const gtyydydz=grace::fd_der<der_order,1,2>(state,GTYY_,VEC(i,j,k),q);
-    double const gtxzdydz=grace::fd_der<der_order,1,2>(state,GTXZ_,VEC(i,j,k),q);
-    double const gtyzdydz=grace::fd_der<der_order,1,2>(state,GTYZ_,VEC(i,j,k),q);
-    double const gtzzdydz=grace::fd_der<der_order,1,2>(state,GTZZ_,VEC(i,j,k),q);
+    double const gtxxdydz=grace::fd_der<der_order,1,2>(state,GTXX_,VEC(i,j,k),q)* idx[1]*idx[2];
+    double const gtxydydz=grace::fd_der<der_order,1,2>(state,GTXY_,VEC(i,j,k),q)* idx[1]*idx[2];
+    double const gtyydydz=grace::fd_der<der_order,1,2>(state,GTYY_,VEC(i,j,k),q)* idx[1]*idx[2];
+    double const gtxzdydz=grace::fd_der<der_order,1,2>(state,GTXZ_,VEC(i,j,k),q)* idx[1]*idx[2];
+    double const gtyzdydz=grace::fd_der<der_order,1,2>(state,GTYZ_,VEC(i,j,k),q)* idx[1]*idx[2];
+    double const gtzzdydz=grace::fd_der<der_order,1,2>(state,GTZZ_,VEC(i,j,k),q)* idx[1]*idx[2];
 
     // x-derivatives of inverse conformal (tilde) metric components
     double const gtXXdx=-(((gtxz*gtxz*gtyy - 2*gtxy*gtxz*gtyz + gtxy*gtxy*gtzz + gtxx*(gtyz*gtyz - gtyy*gtzz))*(-2*gtyz*gtyzdx + gtyydx*gtzz + gtyy*gtzzdx) + (gtyz*gtyz - gtyy*gtzz)*(gtxz*gtxz*gtyydx + gtxxdx*(gtyz*gtyz) - 2*gtxy*gtxz*gtyzdx - 2*gtyz*(gtxydx*gtxz + gtxy*gtxzdx - gtxx*gtyzdx) + 2*gtxy*gtxydx*gtzz - gtxx*gtyydx*gtzz + gtxy*gtxy*gtzzdx - gtyy*(-2*gtxz*gtxzdx + gtxxdx*gtzz + gtxx*gtzzdx)))/((gtxz*gtxz*gtyy - 2*gtxy*gtxz*gtyz + gtxy*gtxy*gtzz + gtxx*(gtyz*gtyz - gtyy*gtzz))*(gtxz*gtxz*gtyy - 2*gtxy*gtxz*gtyz + gtxy*gtxy*gtzz + gtxx*(gtyz*gtyz - gtyy*gtzz))));
@@ -180,33 +180,33 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     double const phi=state(VEC(i,j,k), PHI_,q);
 
     // first derivatives of the conformal factor
-    double const phidx=grace::fd_der<der_order,0>(state,PHI_,VEC(i,j,k),q);
-    double const phidy=grace::fd_der<der_order,1>(state,PHI_,VEC(i,j,k),q);
-    double const phidz=grace::fd_der<der_order,2>(state,PHI_,VEC(i,j,k),q);
+    double const phidx=grace::fd_der<der_order,0>(state,PHI_,VEC(i,j,k),q)* idx[0];
+    double const phidy=grace::fd_der<der_order,1>(state,PHI_,VEC(i,j,k),q)* idx[1];
+    double const phidz=grace::fd_der<der_order,2>(state,PHI_,VEC(i,j,k),q)* idx[2];
 
     // second derivatives of the conformal factor 
-    double const phidxdx=grace::fd_der<der_order,0,0>(state,PHI_,VEC(i,j,k),q);
-    double const phidxdy=grace::fd_der<der_order,0,1>(state,PHI_,VEC(i,j,k),q);
-    double const phidydy=grace::fd_der<der_order,1,1>(state,PHI_,VEC(i,j,k),q);
-    double const phidxdz=grace::fd_der<der_order,0,2>(state,PHI_,VEC(i,j,k),q);
-    double const phidydz=grace::fd_der<der_order,1,2>(state,PHI_,VEC(i,j,k),q);
-    double const phidzdz=grace::fd_der<der_order,2,2>(state,PHI_,VEC(i,j,k),q);
+    double const phidxdx=grace::fd_der<der_order,0,0>(state,PHI_,VEC(i,j,k),q)* idx[0]*idx[0];
+    double const phidxdy=grace::fd_der<der_order,0,1>(state,PHI_,VEC(i,j,k),q)* idx[0]*idx[1];
+    double const phidydy=grace::fd_der<der_order,1,1>(state,PHI_,VEC(i,j,k),q)* idx[1]*idx[1];
+    double const phidxdz=grace::fd_der<der_order,0,2>(state,PHI_,VEC(i,j,k),q)* idx[0]*idx[2];
+    double const phidydz=grace::fd_der<der_order,1,2>(state,PHI_,VEC(i,j,k),q)* idx[1]*idx[2];
+    double const phidzdz=grace::fd_der<der_order,2,2>(state,PHI_,VEC(i,j,k),q)* idx[2]*idx[2];
 
     // lapse function
     double const alp=state(VEC(i,j,k), ALP_, q);
 
     // first derivatives of the lapse function 
-    double const alpdx=grace::fd_der<der_order,0>(state,ALP_,VEC(i,j,k),q);
-    double const alpdy=grace::fd_der<der_order,1>(state,ALP_,VEC(i,j,k),q);
-    double const alpdz=grace::fd_der<der_order,2>(state,ALP_,VEC(i,j,k),q);
+    double const alpdx=grace::fd_der<der_order,0>(state,ALP_,VEC(i,j,k),q)* idx[0];
+    double const alpdy=grace::fd_der<der_order,1>(state,ALP_,VEC(i,j,k),q)* idx[1];
+    double const alpdz=grace::fd_der<der_order,2>(state,ALP_,VEC(i,j,k),q)* idx[2];
 
     // second derivatives of the lapse function 
-    double const alpdxdx=grace::fd_der<der_order,0,0>(state,ALP_,VEC(i,j,k),q);
-    double const alpdxdy=grace::fd_der<der_order,0,1>(state,ALP_,VEC(i,j,k),q);
-    double const alpdydy=grace::fd_der<der_order,1,1>(state,ALP_,VEC(i,j,k),q);
-    double const alpdxdz=grace::fd_der<der_order,0,2>(state,ALP_,VEC(i,j,k),q);
-    double const alpdydz=grace::fd_der<der_order,1,2>(state,ALP_,VEC(i,j,k),q);
-    double const alpdzdz=grace::fd_der<der_order,2,2>(state,ALP_,VEC(i,j,k),q);
+    double const alpdxdx=grace::fd_der<der_order,0,0>(state,ALP_,VEC(i,j,k),q)* idx[0]*idx[0];
+    double const alpdxdy=grace::fd_der<der_order,0,1>(state,ALP_,VEC(i,j,k),q)* idx[0]*idx[1];
+    double const alpdydy=grace::fd_der<der_order,1,1>(state,ALP_,VEC(i,j,k),q)* idx[1]*idx[1];
+    double const alpdxdz=grace::fd_der<der_order,0,2>(state,ALP_,VEC(i,j,k),q)* idx[0]*idx[2];
+    double const alpdydz=grace::fd_der<der_order,1,2>(state,ALP_,VEC(i,j,k),q)* idx[1]*idx[2];
+    double const alpdzdz=grace::fd_der<der_order,2,2>(state,ALP_,VEC(i,j,k),q)* idx[2]*idx[2];
 
     // shift vector components (with upper indices)
     double const betaX=state(VEC(i,j,k),BETAX_,q);
@@ -214,38 +214,38 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     double const betaZ=state(VEC(i,j,k),BETAZ_,q);
 
     // first derivatives of the shift vector components (with upper indices)
-    double const betaXdx=grace::fd_der<der_order,0>(state,BETAX_,VEC(i,j,k),q);
-    double const betaXdy=grace::fd_der<der_order,1>(state,BETAX_,VEC(i,j,k),q);
-    double const betaXdz=grace::fd_der<der_order,2>(state,BETAX_,VEC(i,j,k),q);
-    double const betaYdx=grace::fd_der<der_order,0>(state,BETAY_,VEC(i,j,k),q);
-    double const betaYdy=grace::fd_der<der_order,1>(state,BETAY_,VEC(i,j,k),q);
-    double const betaYdz=grace::fd_der<der_order,2>(state,BETAY_,VEC(i,j,k),q);
-    double const betaZdx=grace::fd_der<der_order,0>(state,BETAZ_,VEC(i,j,k),q);
-    double const betaZdy=grace::fd_der<der_order,1>(state,BETAZ_,VEC(i,j,k),q);
-    double const betaZdz=grace::fd_der<der_order,2>(state,BETAZ_,VEC(i,j,k),q);
+    double const betaXdx=grace::fd_der<der_order,0>(state,BETAX_,VEC(i,j,k),q)* idx[0];
+    double const betaXdy=grace::fd_der<der_order,1>(state,BETAX_,VEC(i,j,k),q)* idx[1];
+    double const betaXdz=grace::fd_der<der_order,2>(state,BETAX_,VEC(i,j,k),q)* idx[2];
+    double const betaYdx=grace::fd_der<der_order,0>(state,BETAY_,VEC(i,j,k),q)* idx[0];
+    double const betaYdy=grace::fd_der<der_order,1>(state,BETAY_,VEC(i,j,k),q)* idx[1];
+    double const betaYdz=grace::fd_der<der_order,2>(state,BETAY_,VEC(i,j,k),q)* idx[2];
+    double const betaZdx=grace::fd_der<der_order,0>(state,BETAZ_,VEC(i,j,k),q)* idx[0];
+    double const betaZdy=grace::fd_der<der_order,1>(state,BETAZ_,VEC(i,j,k),q)* idx[1];
+    double const betaZdz=grace::fd_der<der_order,2>(state,BETAZ_,VEC(i,j,k),q)* idx[2];
 
     // second derivatives of the shift vector components (with upper indices)
     // x-components
-    double const betaXdxdx=grace::fd_der<der_order,0,0>(state,BETAX_,VEC(i,j,k),q);
-    double const betaXdxdy=grace::fd_der<der_order,0,1>(state,BETAX_,VEC(i,j,k),q);
-    double const betaXdxdz=grace::fd_der<der_order,0,2>(state,BETAX_,VEC(i,j,k),q);
-    double const betaXdydy=grace::fd_der<der_order,1,1>(state,BETAX_,VEC(i,j,k),q);
-    double const betaXdydz=grace::fd_der<der_order,1,2>(state,BETAX_,VEC(i,j,k),q);
-    double const betaXdzdz=grace::fd_der<der_order,2,2>(state,BETAX_,VEC(i,j,k),q);
+    double const betaXdxdx=grace::fd_der<der_order,0,0>(state,BETAX_,VEC(i,j,k),q)* idx[0]*idx[0];
+    double const betaXdxdy=grace::fd_der<der_order,0,1>(state,BETAX_,VEC(i,j,k),q)* idx[0]*idx[1];
+    double const betaXdxdz=grace::fd_der<der_order,0,2>(state,BETAX_,VEC(i,j,k),q)* idx[0]*idx[2];
+    double const betaXdydy=grace::fd_der<der_order,1,1>(state,BETAX_,VEC(i,j,k),q)* idx[1]*idx[1];
+    double const betaXdydz=grace::fd_der<der_order,1,2>(state,BETAX_,VEC(i,j,k),q)* idx[1]*idx[2];
+    double const betaXdzdz=grace::fd_der<der_order,2,2>(state,BETAX_,VEC(i,j,k),q)* idx[2]*idx[2];
     // y-components
-    double const betaYdxdx=grace::fd_der<der_order,0,0>(state,BETAY_,VEC(i,j,k),q);
-    double const betaYdxdy=grace::fd_der<der_order,0,1>(state,BETAY_,VEC(i,j,k),q);
-    double const betaYdxdz=grace::fd_der<der_order,0,2>(state,BETAY_,VEC(i,j,k),q);
-    double const betaYdydy=grace::fd_der<der_order,1,1>(state,BETAY_,VEC(i,j,k),q);
-    double const betaYdydz=grace::fd_der<der_order,1,2>(state,BETAY_,VEC(i,j,k),q);
-    double const betaYdzdz=grace::fd_der<der_order,2,2>(state,BETAY_,VEC(i,j,k),q);
+    double const betaYdxdx=grace::fd_der<der_order,0,0>(state,BETAY_,VEC(i,j,k),q)* idx[0]*idx[0];
+    double const betaYdxdy=grace::fd_der<der_order,0,1>(state,BETAY_,VEC(i,j,k),q)* idx[0]*idx[1];
+    double const betaYdxdz=grace::fd_der<der_order,0,2>(state,BETAY_,VEC(i,j,k),q)* idx[0]*idx[2];
+    double const betaYdydy=grace::fd_der<der_order,1,1>(state,BETAY_,VEC(i,j,k),q)* idx[1]*idx[1];
+    double const betaYdydz=grace::fd_der<der_order,1,2>(state,BETAY_,VEC(i,j,k),q)* idx[1]*idx[2];
+    double const betaYdzdz=grace::fd_der<der_order,2,2>(state,BETAY_,VEC(i,j,k),q)* idx[2]*idx[2];
     // z-components
-    double const betaZdxdx=grace::fd_der<der_order,0,0>(state,BETAZ_,VEC(i,j,k),q);
-    double const betaZdxdy=grace::fd_der<der_order,0,1>(state,BETAZ_,VEC(i,j,k),q);
-    double const betaZdxdz=grace::fd_der<der_order,0,2>(state,BETAZ_,VEC(i,j,k),q);
-    double const betaZdydy=grace::fd_der<der_order,1,1>(state,BETAZ_,VEC(i,j,k),q);
-    double const betaZdydz=grace::fd_der<der_order,1,2>(state,BETAZ_,VEC(i,j,k),q);
-    double const betaZdzdz=grace::fd_der<der_order,2,2>(state,BETAZ_,VEC(i,j,k),q);
+    double const betaZdxdx=grace::fd_der<der_order,0,0>(state,BETAZ_,VEC(i,j,k),q)* idx[0]*idx[0];
+    double const betaZdxdy=grace::fd_der<der_order,0,1>(state,BETAZ_,VEC(i,j,k),q)* idx[0]*idx[1];
+    double const betaZdxdz=grace::fd_der<der_order,0,2>(state,BETAZ_,VEC(i,j,k),q)* idx[0]*idx[2];
+    double const betaZdydy=grace::fd_der<der_order,1,1>(state,BETAZ_,VEC(i,j,k),q)* idx[1]*idx[1];
+    double const betaZdydz=grace::fd_der<der_order,1,2>(state,BETAZ_,VEC(i,j,k),q)* idx[1]*idx[2];
+    double const betaZdzdz=grace::fd_der<der_order,2,2>(state,BETAZ_,VEC(i,j,k),q)* idx[2]*idx[2];
 
     // components of the energy momentum tensor
     double const Ttt=Tmunu[0][0];
@@ -313,39 +313,39 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     double const AtZZ=(AtXz*gtXZ + AtYz*gtYZ + AtZz*gtZZ)*(phi*phi);
    
     // first x-derivatives of the conformal (tilde) trace-free extrinsic curvature
-    double const Atxxdx=grace::fd_der<der_order,0>(state,ATXX_,VEC(i,j,k),q);
-    double const Atxydx=grace::fd_der<der_order,0>(state,ATXY_,VEC(i,j,k),q);
-    double const Atyydx=grace::fd_der<der_order,0>(state,ATYY_,VEC(i,j,k),q);
-    double const Atxzdx=grace::fd_der<der_order,0>(state,ATXZ_,VEC(i,j,k),q);
-    double const Atyzdx=grace::fd_der<der_order,0>(state,ATYZ_,VEC(i,j,k),q);
-    double const Atzzdx=grace::fd_der<der_order,0>(state,ATZZ_,VEC(i,j,k),q);
+    double const Atxxdx=grace::fd_der<der_order,0>(state,ATXX_,VEC(i,j,k),q) * idx[0];
+    double const Atxydx=grace::fd_der<der_order,0>(state,ATXY_,VEC(i,j,k),q) * idx[0];
+    double const Atyydx=grace::fd_der<der_order,0>(state,ATYY_,VEC(i,j,k),q) * idx[0];
+    double const Atxzdx=grace::fd_der<der_order,0>(state,ATXZ_,VEC(i,j,k),q) * idx[0];
+    double const Atyzdx=grace::fd_der<der_order,0>(state,ATYZ_,VEC(i,j,k),q) * idx[0];
+    double const Atzzdx=grace::fd_der<der_order,0>(state,ATZZ_,VEC(i,j,k),q) * idx[0];
 
     // first y-derivatives of the conformal (tilde) trace-free extrinsic curvature
-    double const Atxxdy=grace::fd_der<der_order,1>(state,ATXX_,VEC(i,j,k),q);
-    double const Atxydy=grace::fd_der<der_order,1>(state,ATXY_,VEC(i,j,k),q);
-    double const Atyydy=grace::fd_der<der_order,1>(state,ATYY_,VEC(i,j,k),q);
-    double const Atxzdy=grace::fd_der<der_order,1>(state,ATXZ_,VEC(i,j,k),q);
-    double const Atyzdy=grace::fd_der<der_order,1>(state,ATYZ_,VEC(i,j,k),q);
-    double const Atzzdy=grace::fd_der<der_order,1>(state,ATZZ_,VEC(i,j,k),q);
+    double const Atxxdy=grace::fd_der<der_order,1>(state,ATXX_,VEC(i,j,k),q) * idx[1];
+    double const Atxydy=grace::fd_der<der_order,1>(state,ATXY_,VEC(i,j,k),q) * idx[1];
+    double const Atyydy=grace::fd_der<der_order,1>(state,ATYY_,VEC(i,j,k),q) * idx[1];
+    double const Atxzdy=grace::fd_der<der_order,1>(state,ATXZ_,VEC(i,j,k),q) * idx[1];
+    double const Atyzdy=grace::fd_der<der_order,1>(state,ATYZ_,VEC(i,j,k),q) * idx[1];
+    double const Atzzdy=grace::fd_der<der_order,1>(state,ATZZ_,VEC(i,j,k),q) * idx[1];
 
     // first z-derivatives of the conformal (tilde) trace-free extrinsic curvature
-    double const Atxxdz=grace::fd_der<der_order,2>(state,ATXX_,VEC(i,j,k),q);
-    double const Atxydz=grace::fd_der<der_order,2>(state,ATXY_,VEC(i,j,k),q);
-    double const Atyydz=grace::fd_der<der_order,2>(state,ATYY_,VEC(i,j,k),q);
-    double const Atxzdz=grace::fd_der<der_order,2>(state,ATXZ_,VEC(i,j,k),q);
-    double const Atyzdz=grace::fd_der<der_order,2>(state,ATYZ_,VEC(i,j,k),q);
-    double const Atzzdz=grace::fd_der<der_order,2>(state,ATZZ_,VEC(i,j,k),q);
+    double const Atxxdz=grace::fd_der<der_order,2>(state,ATXX_,VEC(i,j,k),q) * idx[2];
+    double const Atxydz=grace::fd_der<der_order,2>(state,ATXY_,VEC(i,j,k),q) * idx[2];
+    double const Atyydz=grace::fd_der<der_order,2>(state,ATYY_,VEC(i,j,k),q) * idx[2];
+    double const Atxzdz=grace::fd_der<der_order,2>(state,ATXZ_,VEC(i,j,k),q) * idx[2];
+    double const Atyzdz=grace::fd_der<der_order,2>(state,ATYZ_,VEC(i,j,k),q) * idx[2];
+    double const Atzzdz=grace::fd_der<der_order,2>(state,ATZZ_,VEC(i,j,k),q) * idx[2];
 
     // first derivatives of the contracted conformal Christoffel symbol (check if GAMMA is actually GAMMAT)
-    double const GammatXdx=grace::fd_der<der_order,0>(state,GAMMAX_,VEC(i,j,k),q);
-    double const GammatXdy=grace::fd_der<der_order,1>(state,GAMMAX_,VEC(i,j,k),q);
-    double const GammatXdz=grace::fd_der<der_order,2>(state,GAMMAX_,VEC(i,j,k),q);
-    double const GammatYdx=grace::fd_der<der_order,0>(state,GAMMAY_,VEC(i,j,k),q);
-    double const GammatYdy=grace::fd_der<der_order,1>(state,GAMMAY_,VEC(i,j,k),q);
-    double const GammatYdz=grace::fd_der<der_order,2>(state,GAMMAY_,VEC(i,j,k),q);
-    double const GammatZdx=grace::fd_der<der_order,0>(state,GAMMAZ_,VEC(i,j,k),q);
-    double const GammatZdy=grace::fd_der<der_order,1>(state,GAMMAZ_,VEC(i,j,k),q);
-    double const GammatZdz=grace::fd_der<der_order,2>(state,GAMMAZ_,VEC(i,j,k),q);
+    double const GammatXdx=grace::fd_der<der_order,0>(state,GAMMAX_,VEC(i,j,k),q) * idx[0];
+    double const GammatXdy=grace::fd_der<der_order,1>(state,GAMMAX_,VEC(i,j,k),q) * idx[1];
+    double const GammatXdz=grace::fd_der<der_order,2>(state,GAMMAX_,VEC(i,j,k),q) * idx[2];
+    double const GammatYdx=grace::fd_der<der_order,0>(state,GAMMAY_,VEC(i,j,k),q) * idx[0];
+    double const GammatYdy=grace::fd_der<der_order,1>(state,GAMMAY_,VEC(i,j,k),q) * idx[1];
+    double const GammatYdz=grace::fd_der<der_order,2>(state,GAMMAY_,VEC(i,j,k),q) * idx[2];
+    double const GammatZdx=grace::fd_der<der_order,0>(state,GAMMAZ_,VEC(i,j,k),q) * idx[0];
+    double const GammatZdy=grace::fd_der<der_order,1>(state,GAMMAZ_,VEC(i,j,k),q) * idx[1];
+    double const GammatZdz=grace::fd_der<der_order,2>(state,GAMMAZ_,VEC(i,j,k),q) * idx[2];
 
     // components of conformal Christoffel symbols (GammaTCode in Mathematica notebook BSSN.nb)
     double const Gammat111=(gtXX*gtxxdx - gtxxdy*gtXY + 2*gtXY*gtxydx - gtxxdz*gtXZ + 2*gtXZ*gtxzdx)/2.;
