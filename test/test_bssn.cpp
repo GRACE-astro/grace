@@ -108,12 +108,13 @@ TEST_CASE("bssn")
         KOKKOS_LAMBDA (VEC(int i, int j, int k), int q) {
             
             // evaluating coordinate values at cell vertices
-            #if 0
+            #if 1
             double const x = pcoords(VEC(i,j,k),0,q); 
             double const y = pcoords(VEC(i,j,k),1,q);
             double const z = pcoords(VEC(i,j,k),2,q); 
             #endif 
-            double x{0},y{0},z{0} ; 
+            
+            //double x{0},y{0},z{0} ; 
 
             // filling the conformal metric with the test function
             cstate(VEC(i,j,k), GTXX_, q) = test_func(1,1,1,x,y,z);
