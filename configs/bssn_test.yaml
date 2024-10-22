@@ -3,7 +3,7 @@ amr: {
   npoints_block_x: 6,
   npoints_block_y: 6,
   npoints_block_z: 6,
-  n_ghostzones: 1,
+  n_ghostzones: 4,
   initial_refinement_level: 0,
   xmin: 0.,
   xmax: 1.,

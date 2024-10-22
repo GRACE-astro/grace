@@ -43,7 +43,7 @@
 #include <grace/system/grace_system.hh>
 #include <grace/physics/grmhd_helpers.hh>
 #include <grace/physics/bssn.hh>
-
+#include <grace/physics/id/tov.hh>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <Kokkos_Core.hpp>
@@ -57,7 +57,7 @@
 #define DER_ORDER 2
 
 
-TEST_CASE("bssn")
+TEST_CASE("TOV")
 {
     using namespace Kokkos; 
     using namespace grace ; 
@@ -188,7 +188,7 @@ TEST_CASE("bssn")
     // looping over x-cordinate values at cell vertices 
     for(size_t i=ngz;i<nx+1+ngz;i++)
     {
-        auto xyz = coordsys.get_physical_coordinates({VEC(i,jNow,kNow)},0,{VEC(0,0,0)},true) ; 
+        auto xyz = coordsys.get_physical_coordinates({VEC(i,jNow,kNow)},0,{VEC(0,0,0)},false) ; 
         std::cout<< xyz[0] << '\t' << xyz[1] << '\t' << xyz[2] << '\t' ; 
         for( int ivar =0 ; ivar< NUM_BSSN_VARS; ivar++){
             std::cout << h_rhs(VEC(i,jNow,kNow),ivar,0)<<'\t';
