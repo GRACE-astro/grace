@@ -138,7 +138,6 @@ void restrict_hanging_ghostzones_cell_centers(
                 , policy 
                 , KOKKOS_LAMBDA(const size_t& ig, VECD(const size_t& j, const size_t& k), const size_t& ivar, const size_t& iface)
         {
-            int polarity     =  d_face_info(iface).has_polarity_flip         ; 
             int8_t is_ghost_coarse   =  d_face_info(iface).is_ghost_coarse   ; 
             int64_t qid_coarse       =  d_face_info(iface).qid_coarse        ;
             int8_t which_face_coarse =  d_face_info(iface).which_face_coarse    ; 
@@ -147,16 +146,24 @@ void restrict_hanging_ghostzones_cell_centers(
             int tid_fine   = d_face_info(iface).which_tree_fine   ;
             int8_t is_ghost_fine[P4EST_CHILDREN/2] ; 
             int64_t qid_fine[P4EST_CHILDREN/2] ;
+
             for( int ii=0; ii<P4EST_CHILDREN/2; ++ ii){
                 is_ghost_fine[ii] = d_face_info(iface).is_ghost_fine[ii] ;
                 qid_fine[ii]      = d_face_info(iface).qid_fine[ii]      ; 
             } 
-            int64_t const ng = (which_face_fine/2==0) * nx + ((which_face_fine/2==1) * ny) + ((which_face_fine/2==2) * nz) ;
-            int64_t const n1 = (which_face_fine/2==0) * ny + ((which_face_fine/2==1) * nx) + ((which_face_fine/2==2) * nx) ;
-            int64_t const n2 = (which_face_fine/2==0) * nz + ((which_face_fine/2==1) * nz) + ((which_face_fine/2==2) * ny) ;
-            #ifdef GRACE_SPHERICAL_COORDINATES
-            index_helper_t mapper{} ; 
-            #endif 
+
+            int64_t const ng = ((which_face_fine/2==0) * nx) 
+                             + ((which_face_fine/2==1) * ny) 
+                             + ((which_face_fine/2==2) * nz) ;
+
+            int64_t const n1 = ((which_face_fine/2==0) * ny)
+                             + ((which_face_fine/2==1) * nx) 
+                             + ((which_face_fine/2==2) * nx) ;
+
+            int64_t const n2 = ((which_face_fine/2==0) * nz) 
+                             + ((which_face_fine/2==1) * nz) 
+                             + ((which_face_fine/2==2) * ny) ;
+
             if( ! is_ghost_coarse )
             {
             
@@ -181,29 +188,6 @@ void restrict_hanging_ghostzones_cell_centers(
                                 + (which_face_coarse==5) * (nz+ngz+ig)  
                                 + (which_face_coarse/2!=2) * (k+ngz) ;
                 )  
-                #ifdef GRACE_SPHERICAL_COORDINATES
-                int64_t const VEC( Ig{ (2*ig)%ng }, I1{ (2*j)%n1 + ngz }, I2{ (2*k)%n2 + ngz } ) ; 
-                EXPR(
-                    int i_f = 
-                        (which_face_fine == 0) * ( ngz + Ig      )
-                    +   (which_face_fine == 1) * ( ng - ngz + Ig )
-                    +   (which_face_fine/2 == 1) * I1 
-                    +   (which_face_fine/2 == 2) * I1 ;, 
-                    int j_f = EXPR(
-                        (which_face_fine == 2) * ( ngz + Ig      )
-                    +   (which_face_fine == 3) * ( ng - ngz + Ig ),
-                    +   (which_face_fine/2 == 0) * I1, 
-                    +   (which_face_fine/2 == 2) * I2) ;, 
-                    int k_f = 
-                        (which_face_fine == 4) * ( ngz + Ig      )
-                    +   (which_face_fine == 5) * ( ng - ngz + Ig )
-                    +   (which_face_fine/2 == 0) * I2 
-                    +   (which_face_fine/2 == 1) * I2 ;
-                )
-                // HERE WE ASSUME N1==N2==N3
-                lmn = mapper({VEC(i_f,j_f,k_f)}, tid_coearse, tid_fine, {VEC(ng,n1,n2)}) ; 
-                i_f = lmn[0]; j_f = lmn[1]; k_f = lmn[2];
-                #else 
                 size_t const VEC( Ig{ (2*ig)%ng }, I1{ (2*j)%n1 + ngz }, I2{ (2*k)%n2 + ngz } ) ; 
                 EXPR(
                     const int i_f = 
@@ -222,7 +206,6 @@ void restrict_hanging_ghostzones_cell_centers(
                     +   (which_face_fine/2 == 0) * I2 
                     +   (which_face_fine/2 == 1) * I2 ;
                 )
-                #endif 
                 /* Call restriction operator on fine data */ 
                 #ifndef GRACE_CARTESIAN_COORDINATES
                 state(VEC(i_c,j_c,k_c),ivar,qid_coarse) = 

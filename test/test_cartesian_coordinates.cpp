@@ -82,8 +82,8 @@ TEST_CASE("cart_coords")
         auto v1 = grace::amr::get_tree_vertex(itree, 1) ; 
         auto d = grace::amr::get_tree_spacing(itree)   ; 
         auto tree = forest.tree(itree) ; 
-        GRACE_INFO("itree {} tree coordinates [ {}, {}, {} ]", itree, v[0],v[1],v[2]) ; 
-        GRACE_INFO("itree {} tree coordinates [ {}, {}, {} ]", itree, v1[0],v1[1],v1[2]) ; 
+        GRACE_INFO("itree {} vertex 0 [ {}, {}, {} ]", itree, v[0],v[1],v[2]) ; 
+        GRACE_INFO("itree {} vertex 1 [ {}, {}, {} ]", itree, v1[0],v1[1],v1[2]) ; 
         GRACE_INFO("        tree spacing     [ {}, {}, {} ]", d[0], d[1],d[2] ) ; 
         GRACE_INFO("        num quadrats      {}", tree.num_quadrants() ) ;
         GRACE_INFO("        tree offset       {}", tree.quadrants_offset() ) ;

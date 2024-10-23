@@ -112,6 +112,7 @@ new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
     z_ext = nz * min_ext;
     double x_tree { min_ext } , y_tree { min_ext }, z_tree { min_ext } ; 
     auto conn = p4est_connectivity_new_brick( nx,ny,nz, periodic_x,periodic_y,periodic_z ) ;
+    #if 0
     // We manually set the vertices' coordinates to their physical value  
     auto vertices = conn->vertices; 
     auto t2v      = conn->tree_to_vertex ; 
@@ -135,7 +136,6 @@ new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
       rankx[0] = 1;
       rankx[1] = 0;
     }
-    #ifdef P4_TO_P8
     logx[2] = SC_LOG2_32 (p - 1) + 1;
     n_iter *= (1 << logx[2]);
     if (logx[2] < logx[rankx[0]]) {
@@ -150,7 +150,6 @@ new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
       rankx[2] = rankx[1];
       rankx[1] = 2;
     }
-    #endif
 
     for(p4est_topidx_t nt=0; nt<nx*ny*nz; ++nt)  { 
       p4est_topidx_t xyz[P4EST_DIM] ;
@@ -164,6 +163,7 @@ new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
           }   
       }
     }
+  #endif 
   return conn ; 
 } ; 
 //**************************************************************************************************
