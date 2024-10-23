@@ -3,6 +3,8 @@
 set(CMAKE_C_COMPILER "hipcc" CACHE STRING "C compiler" FORCE)
 set(CMAKE_CXX_COMPILER "hipcc" CACHE STRING "C++ compiler" FORCE)
 
+set(GRACE_ENABLE_HIP ON)
+
 # Libs and dependencies
 set(P4EST_ROOT  "/home/astro/musolino/libs/p4est-install-system-mpi")
 set(CATCH2_ROOT "/home/astro/musolino/libs/catch2-install")
