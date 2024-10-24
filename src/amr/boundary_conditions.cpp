@@ -247,7 +247,7 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
                             ) ; 
 
     Kokkos::fence() ; 
-    #if 0
+    #if 1
     /******************************************************/
     /* Fourth step:                                       */
     /* Restrict data on internal hanging boundaries.      */

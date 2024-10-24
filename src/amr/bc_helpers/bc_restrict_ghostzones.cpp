@@ -171,6 +171,7 @@ void restrict_hanging_ghostzones_cell_centers(
                         math::floor_int((2*j)/n1)
                     , + math::floor_int((2*k)/n2) * 2
                     ) ; 
+                
                 int64_t qid_b   = qid_fine[ichild] ; 
                 auto& fine_view = is_ghost_fine[ichild] ? halo : state ; 
                 auto& fine_vol  = is_ghost_fine[ichild] ? halo_vols : vols ; 
@@ -230,11 +231,14 @@ void restrict_hanging_ghostzones_cell_centers(
         {
             /* Collect the necessary information                                */
             int8_t is_ghost_coarse   =  d_corner_info(icorner).is_ghost_coarse       ; 
+
             int64_t qid_coarse       =  d_corner_info(icorner).qid_coarse            ;
             int8_t which_corner_coarse =  d_corner_info(icorner).which_corner_coarse ; 
             int8_t which_corner_fine   =  d_corner_info(icorner).which_corner_fine   ; 
+
             int tid_coarse           =  d_corner_info(icorner).which_tree_coarse     ; 
             int tid_fine             =  d_corner_info(icorner).which_tree_fine       ;
+
             int8_t is_ghost_fine     =  d_corner_info(icorner).is_ghost_fine         ;  
             int64_t qid_fine         =  d_corner_info(icorner).qid_fine              ;
             
@@ -282,6 +286,7 @@ void restrict_hanging_ghostzones_cell_centers(
             
         } 
     ) ; 
+    #if 1
     GRACE_VERBOSE("Initiating restriction on {} hanging interior edges.", n_edges) ; 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
         policy_edge(
@@ -384,6 +389,7 @@ void restrict_hanging_ghostzones_cell_centers(
             }
         }
     ) ; 
+    #endif 
 
 }
 
@@ -428,13 +434,12 @@ void restrict_hanging_ghostzones_corners(
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
         policy(
             {0,VECD(0,0), 0,0},
-            {ngz+1, VECD(static_cast<long>(nx+1),static_cast<long>(ny+1)), static_cast<long>(nvars), static_cast<long>(n_faces)}
+            {ngz, VECD(static_cast<long>(nx),static_cast<long>(ny)), static_cast<long>(nvars), static_cast<long>(n_faces)}
         ) ;
     parallel_for(GRACE_EXECUTION_TAG("AMR", "restrict_hanging_faces_corner_staggered")
                 , policy 
                 , KOKKOS_LAMBDA(const size_t& ig, VECD(const size_t& j, const size_t& k), const size_t& ivar, const size_t& iface)
         {
-            int polarity     =  d_face_info(iface).has_polarity_flip         ; 
             int8_t is_ghost_coarse   =  d_face_info(iface).is_ghost_coarse   ; 
             int64_t qid_coarse       =  d_face_info(iface).qid_coarse        ;
             int8_t which_face_coarse =  d_face_info(iface).which_face_coarse    ; 
@@ -443,16 +448,24 @@ void restrict_hanging_ghostzones_corners(
             int tid_fine   = d_face_info(iface).which_tree_fine   ;
             int8_t is_ghost_fine[P4EST_CHILDREN/2] ; 
             int64_t qid_fine[P4EST_CHILDREN/2] ;
+
             for( int ii=0; ii<P4EST_CHILDREN/2; ++ ii){
                 is_ghost_fine[ii] = d_face_info(iface).is_ghost_fine[ii] ;
                 qid_fine[ii]      = d_face_info(iface).qid_fine[ii]      ; 
             } 
-            int64_t const ng = (which_face_fine/2==0) * nx + ((which_face_fine/2==1) * ny) + ((which_face_fine/2==2) * nz) ;
-            int64_t const n1 = (which_face_fine/2==0) * ny + ((which_face_fine/2==1) * nx) + ((which_face_fine/2==2) * nx) ;
-            int64_t const n2 = (which_face_fine/2==0) * nz + ((which_face_fine/2==1) * nz) + ((which_face_fine/2==2) * ny) ;
-            #ifdef GRACE_SPHERICAL_COORDINATES
-            index_helper_t mapper{} ; 
-            #endif 
+
+            int64_t const ng = ((which_face_fine/2==0) * nx) 
+                             + ((which_face_fine/2==1) * ny) 
+                             + ((which_face_fine/2==2) * nz) ;
+
+            int64_t const n1 = ((which_face_fine/2==0) * ny)
+                             + ((which_face_fine/2==1) * nx) 
+                             + ((which_face_fine/2==2) * nx) ;
+
+            int64_t const n2 = ((which_face_fine/2==0) * nz) 
+                             + ((which_face_fine/2==1) * nz) 
+                             + ((which_face_fine/2==2) * ny) ;
+
             if( ! is_ghost_coarse )
             {
             
@@ -460,17 +473,10 @@ void restrict_hanging_ghostzones_corners(
                         math::floor_int((2*j)/n1)
                     , + math::floor_int((2*k)/n2) * 2
                     ) ; 
+                
                 int64_t qid_b   = qid_fine[ichild] ; 
                 auto& fine_view = is_ghost_fine[ichild] ? halo : state ; 
                 /* Compute indices of cell to be filled */
-                /* NB: here we are restricting corner-staggered vars which */
-                /* means that the extent of the grid is nx+1, ny+1, nz+1.  */
-                /* However since the coarse and fine data coincides on the */
-                /* edges of the physical grid here we replace the coarse   */
-                /* entry with the corresponding fine one. This implies that*/
-                /* whenever we are dealing with the upper face nx/y/z won't*/
-                /* be replaced by nx/y/z+1 (this is also why the loop goes */
-                /* to ngz+1).                                              */
                 EXPR( 
                 int const i_c = EXPR((which_face_coarse==0) * ig 
                                 + (which_face_coarse==1) * (nx+ngz+ig),
@@ -484,12 +490,7 @@ void restrict_hanging_ghostzones_corners(
                                 + (which_face_coarse==5) * (nz+ngz+ig)  
                                 + (which_face_coarse/2!=2) * (k+ngz) ;
                 )  
-                /* For what concerns the directions within the face */
-                /* since the last point of a fine child and the     */
-                /* first point along the same axis of the neighbor  */
-                /* coincide, it does not matter which one we pick   */
                 size_t const VEC( Ig{ (2*ig)%ng }, I1{ (2*j)%n1 + ngz }, I2{ (2*k)%n2 + ngz } ) ; 
-                /* Same concept as above, nx/y/z does not need a +1 */
                 EXPR(
                     const int i_f = 
                         (which_face_fine == 0) * ( ngz + Ig      )
@@ -508,7 +509,15 @@ void restrict_hanging_ghostzones_corners(
                     +   (which_face_fine/2 == 1) * I2 ;
                 )
                 /* Call restriction operator on fine data */ 
-                state(VEC(i_c,j_c,k_c),ivar,qid_coarse) = fine_view(VEC(i_f,j_f,k_f), ivar, qid_b) ;  
+                #pragma unroll P4EST_CHILDREN
+                for( int ic=0; ic<P4EST_CHILDREN; ++ic){
+                    int8_t ix = (ic>>0) & 1U ; 
+                    int8_t iy = (ic>>1) & 1U ; 
+                    int8_t iz = (ic>>2) & 1U ; 
+                    state(VEC(i_c+ix,j_c+iy,k_c+iz),ivar,qid_coarse) = 
+                        fine_view(VEC(i_f+2*ix,j_f+2*iy,k_f+2*iz), ivar, qid_b) ; 
+                }
+                 
             }
         }
     )   ;
@@ -516,7 +525,7 @@ void restrict_hanging_ghostzones_corners(
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
         corner_policy(
             {0,VECD(0,0), 0,0},
-            {VEC(ngz+1,ngz+1,ngz+1), static_cast<long>(nvars), static_cast<long>(n_corners)}
+            {VEC(ngz,ngz,ngz), static_cast<long>(nvars), static_cast<long>(n_corners)}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("AMR", "restrict_hanging_corners")
                 , corner_policy 
@@ -524,11 +533,14 @@ void restrict_hanging_ghostzones_corners(
         {
             /* Collect the necessary information                                */
             int8_t is_ghost_coarse   =  d_corner_info(icorner).is_ghost_coarse       ; 
+
             int64_t qid_coarse       =  d_corner_info(icorner).qid_coarse            ;
             int8_t which_corner_coarse =  d_corner_info(icorner).which_corner_coarse ; 
             int8_t which_corner_fine   =  d_corner_info(icorner).which_corner_fine   ; 
+
             int tid_coarse           =  d_corner_info(icorner).which_tree_coarse     ; 
             int tid_fine             =  d_corner_info(icorner).which_tree_fine       ;
+
             int8_t is_ghost_fine     =  d_corner_info(icorner).is_ghost_fine         ;  
             int64_t qid_fine         =  d_corner_info(icorner).qid_fine              ;
             
@@ -561,8 +573,15 @@ void restrict_hanging_ghostzones_corners(
                 int ijk_f[GRACE_NSPACEDIM], ijk_c[GRACE_NSPACEDIM] ; 
                 index_mapping(VEC(ig,jg,kg), which_corner_coarse, which_corner_fine, ijk_c, ijk_f ) ; 
 
-                state(VEC(ijk_c[0],ijk_c[1],ijk_c[2]),ivar,qid_coarse) = 
-                    fine_view(VEC(ijk_f[0],ijk_f[1],ijk_f[2]), ivar, qid_fine) ; 
+                /* Call the resstriction operator on the correct indices */
+                #pragma unroll P4EST_CHILDREN
+                for( int ic=0; ic<P4EST_CHILDREN; ++ic){
+                    int8_t ix = (ic>>0) & 1U ; 
+                    int8_t iy = (ic>>1) & 1U ; 
+                    int8_t iz = (ic>>2) & 1U ; 
+                    state(VEC(ijk_c[0]+ix,ijk_c[1]+iy,ijk_c[2]+iz),ivar,qid_coarse) = 
+                        fine_view(VEC(ijk_f[0]+2*ix,ijk_f[1]+2*iy,ijk_f[2]+2*iz), ivar, qid_fine) ; 
+                }
             } 
             
         } 
@@ -571,7 +590,7 @@ void restrict_hanging_ghostzones_corners(
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
         policy_edge(
             {0,0,0, 0,0},
-            {ngz+1, ngz+1, static_cast<long>(nx+1), static_cast<long>(nvars), static_cast<long>(n_edges)}
+            {ngz, ngz, static_cast<long>(nx), static_cast<long>(nvars), static_cast<long>(n_edges)}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("AMR", "restrict_hanging_edges")
                 , policy_edge 
@@ -656,8 +675,14 @@ void restrict_hanging_ghostzones_corners(
                 index_mapping(ig,jg,k, which_edge_coarse, which_edge_fine, ijk_c, ijk_f) ; 
 
                 /* Call the resstriction operator on the correct indices */
-                state(VEC(ijk_c[0],ijk_c[1],ijk_c[2]),ivar,qid_coarse) = 
-                    fine_view(VEC(ijk_f[0],ijk_f[1],ijk_f[2]), ivar, qid_child) ; 
+                #pragma unroll P4EST_CHILDREN
+                for( int ic=0; ic<P4EST_CHILDREN; ++ic){
+                    int8_t ix = (ic>>0) & 1U ; 
+                    int8_t iy = (ic>>1) & 1U ; 
+                    int8_t iz = (ic>>2) & 1U ; 
+                    state(VEC(ijk_c[0]+ix,ijk_c[1]+iy,ijk_c[2]+iz),ivar,qid_coarse) = 
+                        fine_view(VEC(ijk_f[0]+2*ix,ijk_f[1]+2*iy,ijk_f[2]+2*iz), ivar, qid_child) ; 
+                }
             }
         }
     ) ; 
