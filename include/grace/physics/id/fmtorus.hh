@@ -159,7 +159,7 @@ namespace grace {
                 grmhd_id_t id ; 
 
                 /* Set the metric */
-                 id.alp = std::max(lapse_min,sol_metric[KS_ALPHA]) ; 
+                id.alp = std::max(lapse_min,sol_metric[KS_ALPHA]) ; 
                 //id.alp   = sol_metric[KS_ALPHA] ;
                 id.betax = sol_metric[KS_BETAX] ; 
                 id.betay = sol_metric[KS_BETAY] ; 
@@ -201,6 +201,12 @@ namespace grace {
                         id.vx=sol_vel[0];
                         id.vy=sol_vel[1];
                         id.vz=sol_vel[2];
+
+                        // convert Eulerian velocities to coordinate velocities:
+                        id.vx = id.alp * id.vx - id.betax;
+                        id.vy = id.alp * id.vy - id.betay;
+                        id.vz = id.alp * id.vz - id.betaz;
+                        // what about zvec? 
 
                     } else {
                         set_to_atmosphere=true;

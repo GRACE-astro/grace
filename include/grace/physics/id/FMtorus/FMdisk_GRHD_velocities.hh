@@ -5,8 +5,8 @@
 #include <array>
 
 /**
-* @brief Return the (Valencia) fluid velocities in Kerr-Schild cartesian coordinates at location x,y,z
-* 
+* @brief Return the (Valencia / Eulerian-frame) fluid velocities U^i in Kerr-Schild cartesian coordinates at location x,y,z
+*        4-velocity decomposed as u^i = W(n^i + U^i)
 * @param xcoord 1st coordinate 
 * @param ycoord 2nd coordinate 
 * @param zcoord 3rd coordinate 
