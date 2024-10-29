@@ -347,8 +347,6 @@ static void set_grmhd_kadath_initial_data() {
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
-                    // note: some problems here!!!
-
                     auto const v2 = state(VEC(i,j,k),GXX_,q) * aux(VEC(i,j,k),VELX_,q) * aux(VEC(i,j,k),VELX_,q) +
                                     state(VEC(i,j,k),GYY_,q) * aux(VEC(i,j,k),VELY_,q) * aux(VEC(i,j,k),VELY_,q) +
                                     state(VEC(i,j,k),GZZ_,q) * aux(VEC(i,j,k),VELZ_,q) * aux(VEC(i,j,k),VELZ_,q) +
@@ -358,6 +356,12 @@ static void set_grmhd_kadath_initial_data() {
                                         state(VEC(i,j,k),GYZ_,q) * aux(VEC(i,j,k),VELY_,q) * aux(VEC(i,j,k),VELZ_,q) 
                                     ) ; 
                     auto const w = 1./Kokkos::sqrt( 1 - v2  ) ; 
+
+                    // change Eulerian velocity U^i [u^i = W(n^i + U^i)] 
+                    // to coordinate velocity V^i = u^i / u^0 = alp * U^i - bet^i
+                    aux(VEC(i,j,k),VELX_,q) = state(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELX_,q) - state(VEC(i,j,k),BETAX_,q)
+                    aux(VEC(i,j,k),VELY_,q) = state(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELY_,q) - state(VEC(i,j,k),BETAY_,q)
+                    aux(VEC(i,j,k),VELZ_,q) = state(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELZ_,q) - state(VEC(i,j,k),BETAZ_,q)
 
                     aux(VEC(i,j,k),ZVECX_,q)  = w * aux(VEC(i,j,k),VELX_,q) ; 
                     aux(VEC(i,j,k),ZVECY_,q)  = w * aux(VEC(i,j,k),VELY_,q) ; 
@@ -375,7 +379,7 @@ static void set_grmhd_kadath_initial_data() {
                     unsigned int err ; 
                     double press = aux(VEC(i,j,k),PRESS_,q);
 
-                    // density floor eq to atmosphere
+                    // reset density values below density floor to atmosphere
                     if(aux(VEC(i,j,k),RHO_,q)<rho_atm) aux(VEC(i,j,k),RHO_,q)=rho_atm;
 
 
