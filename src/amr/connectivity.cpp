@@ -120,10 +120,6 @@ new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
 
 
     for( uint32_t nv=0; nv<n_vertices; ++nv) {
-        
-        std::cout << "In setup.\n"
-                  << "nv " << nv << '\n' 
-                  << "(x,y,z): (" << vertices[3*nv] << ", " << vertices[3*nv +1] << ", "<< vertices[3*nv+2] << ")\n";
         auto vertex_p4est = vertices[ 3*nv     ];
         vertices[ 3*nv     ] = utils::affine_transformation(vertex_p4est, 0.0, static_cast<double>(nx), xmin, xmax);
         vertices[ 3*nv + 1 ] = utils::affine_transformation(vertices[ 3*nv+1 ], 0.0, static_cast<double>(ny), ymin, ymax);
