@@ -28,6 +28,7 @@
 #include <grace_config.h>
 
 #include <grace/utils/inline.h>
+#include <grace/utils/numerics/affine_transformation.hh>
 
 #include <grace/amr/connectivities_impl.hh>
 #include <grace/amr/connectivity.hh>
@@ -35,6 +36,7 @@
 #include <grace/config/config_parser.hh>
 
 #include <cstdlib>
+#include <iostream>
 
 namespace grace{ namespace amr { 
 
@@ -114,56 +116,21 @@ new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
     auto conn = p4est_connectivity_new_brick( nx,ny,nz, periodic_x,periodic_y,periodic_z ) ;
     // We manually set the vertices' coordinates to their physical value  
     auto vertices = conn->vertices; 
-    auto t2v      = conn->tree_to_vertex ; 
+    auto n_vertices      = conn->num_vertices; 
 
-    int                 logx[P4EST_DIM];
-    int                 rankx[P4EST_DIM];
 
-    const p4est_topidx_t m = nx ; 
-    const p4est_topidx_t n = ny ;
-    const p4est_topidx_t p = nz ; 
-    p4est_topidx_t n_iter ; 
-
-    logx[0] = SC_LOG2_32 (m - 1) + 1;
-    logx[1] = SC_LOG2_32 (n - 1) + 1;
-    n_iter = (1 << logx[0]) * (1 << logx[1]);
-    if (logx[0] <= logx[1]) {
-      rankx[0] = 0;
-      rankx[1] = 1;
-    }
-    else {
-      rankx[0] = 1;
-      rankx[1] = 0;
-    }
-    #ifdef P4_TO_P8
-    logx[2] = SC_LOG2_32 (p - 1) + 1;
-    n_iter *= (1 << logx[2]);
-    if (logx[2] < logx[rankx[0]]) {
-      rankx[2] = rankx[1];
-      rankx[1] = rankx[0];
-      rankx[0] = 2;
-    }
-    else if (logx[rankx[1]] <= logx[2]) {
-      rankx[2] = 2;
-    }
-    else {
-      rankx[2] = rankx[1];
-      rankx[1] = 2;
-    }
-    #endif
-
-    for(p4est_topidx_t nt=0; nt<nx*ny*nz; ++nt)  { 
-      p4est_topidx_t xyz[P4EST_DIM] ;
-      brick_linear_to_xyz(nt,logx,rankx,xyz) ; 
-      if( xyz[0] < nz && xyz[1] < ny && xyz[2] < nz ) {
-          for( uint32_t v=0; v<8; ++v) {
-              size_t nv = t2v[ 8 * nt + v ] ; 
-              vertices[ 3*nv     ] = ( xyz[0] + (uint32_t)((v>>0U) & 1U)  ) * x_tree + xmin; 
-              vertices[ 3*nv + 1 ] = ( xyz[1] + (uint32_t)((v>>1U) & 1U)  ) * y_tree + ymin;
-              vertices[ 3*nv + 2 ] = ( xyz[2] + (uint32_t)((v>>2U) & 1U)  ) * z_tree + zmin; 
-          }   
-      }
-    }
+    for( uint32_t nv=0; nv<n_vertices; ++nv) {
+        
+        std::cout << "In setup.\n"
+                  << "nv " << nv << '\n' 
+                  << "(x,y,z): (" << vertices[3*nv] << ", " << vertices[3*nv +1] << ", "<< vertices[3*nv+2] << ")\n";
+        auto vertex_p4est = vertices[ 3*nv     ];
+        vertices[ 3*nv     ] = utils::affine_transformation(vertex_p4est, 0.0, static_cast<double>(nx), xmin, xmax);
+        vertices[ 3*nv + 1 ] = utils::affine_transformation(vertices[ 3*nv+1 ], 0.0, static_cast<double>(ny), ymin, ymax);
+        vertices[ 3*nv + 2 ] = utils::affine_transformation(vertices[ 3*nv+2 ], 0.0, static_cast<double>(nz), zmin, zmax);
+    }   
+      
+    
   return conn ; 
 } ; 
 //**************************************************************************************************
