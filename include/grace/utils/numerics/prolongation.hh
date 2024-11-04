@@ -303,6 +303,9 @@ struct linear_prolongator_t
     }
 } ; 
 
+// Note: this struct should probably be named with the "_corner_" subscript
+// to indicate what it does 
+
 template< size_t order >
 struct lagrange_prolongator_t
 {
@@ -377,5 +380,43 @@ struct lagrange_prolongator_t
         #endif 
     }
 } ;  
-}
+
+
+ // general declaration for arbitrary order and direction
+template<size_t order, size_t stagger_direction>
+struct lagrange_edge_prolongator_t
+{
+    template< typename CoarseViewT
+            , typename FineViewT >
+    static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    interpolate(  VEC(int i_f, int j_f, int k_f)
+                , VEC(int i_c, int j_c, int k_c)
+                , CoarseViewT& coarse_view 
+                , FineViewT& fine_view );  
+};
+
+// template specialization for order 2 (highest needed for vector-potential based MHD at the moment)
+
+template <size_t stagger_direction>
+struct lagrange_edge_prolongator_t<2,stagger_direction>
+{
+    using num_order = std::integral_constant<size_t, 2>;
+    template< typename CoarseViewT
+            , typename FineViewT >
+    static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    interpolate(  VEC(int i_f, int j_f, int k_f)
+                , VEC(int i_c, int j_c, int k_c)
+                , CoarseViewT& coarse_view 
+                , FineViewT& fine_view ){
+
+        using interp_t = edge_staggered_lagrange_interp_t<num_order::value,stagger_direction> ; 
+        /*  interpolate along edges for two fine children edges */
+       
+        /* Now do a 2D lagrange for edges within coarse face*/
+    
+        /* Finally the one requiring 8 different coarse edges */
+    }
+};
+
+
 #endif /* GRACE_UTILS_PROLONGATION_HH */

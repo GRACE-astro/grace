@@ -63,28 +63,56 @@ struct corner_staggered_lagrange_interp_t {
 
 } ; 
 
-template< size_t order >
+/**
+ * @brief Edge-centred variables prolongation operators 
+ *        
+ * \ingroup utils
+ * @tparam order Order of the interpolation (since our A-field evolution scheme is 2nd order,
+ *                   we only implement 2nd order interpolation now)
+ * @tparam edgedir Determines two things here:
+ *        1. Which direction is the non-staggered one (e.g. A^z (xc-dx/2,yc-dx/2,zc) with (xc,yc,zc) the
+ *           coordinates of the centre)
+ *        2. Along which edge or (partially determines the) face for 1d and 2d interplations
+ */
+template< size_t order, size_t edgedir>
 struct edge_staggered_lagrange_interp_t {
 
-    template< size_t idir
+    /**
+     * @brief 1d Lagrange interpolator for the edge-centred variable
+     * \ingroup utils
+     * @tparam ichild  Which child edge along the edge (negative direction: 0, positive:1)
+     */
+    template<size_t ichild
             , typename view_t >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     oned_interp(
-        view_t& view, VEC(int ic, int jc, int kc)
+        view_t& view, VEC(int ie, int je, int ke)
     ) ; 
 
-    template< size_t idir
-            , size_t jdir 
+    /**
+     * @brief 2d Lagrange interpolator for the edge-centred variable
+     * \ingroup utils
+     * @tparam ichild  Which child edge among the four across the face (--:0,-+:1,+-:2,++:3)
+     * @tparam facedir which face does the interpolation concern, i.e. 
+     *                 what is the complementary direction to the one dictated by the vector component (cannot be edgedir!)
+     */
+    template< size_t ichild
+            , size_t facedir 
             , typename view_t >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     twod_interp(
-        view_t& view, VEC(int ic, int jc, int kc)
+        view_t& view, VEC(int ie, int je, int ke)
     ) ;
 
-    template< typename view_t >
+    /**
+     * @brief 3d Lagrange interpolator for the edge-centred variable
+     * \ingroup utils
+     * @tparam ichild  Which child edge among the 2 within the volume (above and below the coarse edge position)
+     */
+    template<size_t ichild, typename view_t >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     threed_interp(
-        view_t& view, VEC(int ic, int jc, int kc)
+        view_t& view, VEC(int ie, int je, int ke)
     ) ;
 
 } ; 
@@ -548,6 +576,113 @@ struct cell_centered_lagrange_interp_t<4>
         return out * one_over_denom ;  
     }
 } ; 
+
+
+
+// Returns a tuple containing the two complementary directions (idir, jdir)
+constexpr std::tuple<int, int> get_complementary_dirs(int edgedir) {
+    constexpr std::array<std::tuple<int, int>, 3> complementary_dirs = {{
+        {1, 2}, // if edgedir == 0
+        {0, 2}, // if edgedir == 1
+        {0, 1}  // if edgedir == 2
+    }};
+    return complementary_dirs[edgedir];
+}
+
+// implementation:
+// template paramter size_t ichild 
+// inquires for the child 
+template <size_t edgedir>
+struct edge_staggered_lagrange_interp_t<2,edgedir>{
+    static constexpr int idir = std::get<0>(get_complementary_dirs(edgedir));
+    static constexpr int jdir = std::get<1>(get_complementary_dirs(edgedir));
+
+    // one coarse edge contributes to 2 fine edges along the edge 
+    // size_t ichild = 0 is below, 1 is the fine edge above the coarse edge 
+    template< size_t ichild, typename view_t >
+    static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    oned_interp(
+        view_t& view, VEC(int ie, int je, int ke)
+    ){
+        if constexpr(ichild==0){
+            return (3.0 * view(VEC(ie, 
+                            je,
+                            ke)) 
+                + view(VEC(ie-utils::delta(edgedir,0), 
+                            je-utils::delta(edgedir,1), 
+                            ke-utils::delta(edgedir,2))) ) ;
+        }
+        else if constexpr(ichild==1){
+            return (3.0 * view(VEC(ie, 
+                            je, 
+                            ke)) 
+                + view(VEC(ie+utils::delta(edgedir,0), 
+                            je+utils::delta(edgedir,1), 
+                            ke+utils::delta(edgedir,2))) ) ;
+        } 
+        else{
+            static_assert(false);
+            }
+    } 
+
+    // size_t ichild = 0 is below, 1 is the fine edge above the coarse edge 
+    // one coarse edge contributes to 4 fine edges across the face
+    template< size_t ichild,size_t facedir, typename view_t >
+    static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    twod_interp(
+        view_t& view, VEC(int ie, int je, int ke)
+    ){
+        static_assert( not (edgedir == facedir), "edgedir and facedir should never coincide in 2D lagrange.") ;  
+        using utils::delta;
+
+             if constexpr(ichild==0){
+               return (3*view(VEC(ie,je,ke)) +\
+                         view(VEC(ie - delta(0,edgedir),je - delta(1,edgedir),ke - delta(2,edgedir))) +\
+                       3*view(VEC(ie + delta(0,facedir),je + delta(1,facedir),ke + delta(2,facedir))) + \
+                         view(VEC(ie - delta(0,edgedir) + delta(0,facedir),je - delta(1,edgedir) + delta(1,facedir),ke - delta(2,edgedir) + delta(2,facedir))))/8.;
+        }
+        else if constexpr(ichild==1){
+               return (3*view(VEC(ie,je,ke)) +\
+                         view(VEC(ie + delta(0,edgedir),je + delta(1,edgedir),ke + delta(2,edgedir))) + \
+                       3*view(VEC(ie + delta(0,facedir),je + delta(1,facedir),ke + delta(2,facedir))) + \
+                         view(VEC(ie + delta(0,edgedir) + delta(0,facedir),je + delta(1,edgedir) + delta(1,facedir),ke + delta(2,edgedir) + delta(2,facedir))))/8.;
+        }
+        else static_assert(false);
+    }
+    // each edge in coarse view (ie,je,ke)
+    // contributes to 2 child edges (in fine view) that are located in the general volume (i.e. not along the edge or on a face)
+
+    template< size_t ichild, typename view_t >
+    static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    threed_interp(
+        view_t& view, VEC(int ie, int je, int ke)
+    ){
+               using utils::delta;
+
+              if constexpr(ichild==0){
+              return (3*view(VEC(ie,je,ke)) + view(VEC(1 + ie,1 + je,1 + ke)) + view(VEC(ie + delta(0,edgedir),je + delta(1,edgedir),ke + delta(2,edgedir))) + 
+                        3*view(VEC(ie + delta(0,idir),je + delta(1,idir),ke + delta(2,idir))) + 
+                        view(VEC(ie + delta(0,edgedir) + delta(0,idir),je + delta(1,edgedir) + delta(1,idir),ke + delta(2,edgedir) + delta(2,idir))) + 
+                        3*view(VEC(ie + delta(0,jdir),je + delta(1,jdir),ke + delta(2,jdir))) + 
+                        view(VEC(ie + delta(0,edgedir) + delta(0,jdir),je + delta(1,edgedir) + delta(1,jdir),ke + delta(2,edgedir) + delta(2,jdir))) + 
+                        3*view(VEC(ie + delta(0,idir) + delta(0,jdir),je + delta(1,idir) + delta(1,jdir),ke + delta(2,idir) + delta(2,jdir))))/16.;
+        }else if constexpr(ichild==1){
+              return (3*view(VEC(ie,je,ke)) + view(VEC(ie + delta(0,edgedir),je + delta(1,edgedir),ke + delta(2,edgedir))) + 
+                        3*view(VEC(ie + delta(0,idir),je + delta(1,idir),ke + delta(2,idir))) + 
+                        view(VEC(ie + delta(0,edgedir) + delta(0,idir),je + delta(1,edgedir) + delta(1,idir),ke + delta(2,edgedir) + delta(2,idir))) + 
+                        3*view(VEC(ie + delta(0,jdir),je + delta(1,jdir),ke + delta(2,jdir))) + 
+                        view(VEC(ie + delta(0,edgedir) + delta(0,jdir),je + delta(1,edgedir) + delta(1,jdir),ke + delta(2,edgedir) + delta(2,jdir))) + 
+                        3*view(VEC(ie + delta(0,idir) + delta(0,jdir),je + delta(1,idir) + delta(1,jdir),ke + delta(2,idir) + delta(2,jdir))) + 
+                        view(VEC(ie + delta(0,edgedir) + delta(0,idir) + delta(0,jdir),je + delta(1,edgedir) + delta(1,idir) + delta(1,jdir),
+                        ke + delta(2,edgedir) + delta(2,idir) + delta(2,jdir))))/16.;
+        }
+    
+    }
+
+} ; 
+
+
+
 
 }
 #endif /* GRACE_UTILS_LAGRANGE_INTERPOLATORS_HH */
