@@ -579,8 +579,8 @@ struct cell_centered_lagrange_interp_t<4>
 
 
 
-// Returns a tuple containing the two complementary directions (idir, jdir)
-constexpr std::tuple<int, int> get_complementary_dirs(int edgedir) {
+template <int edgedir>
+consteval std::tuple<int, int> get_complementary_dirs() {
     constexpr std::array<std::tuple<int, int>, 3> complementary_dirs = {{
         {1, 2}, // if edgedir == 0
         {0, 2}, // if edgedir == 1
@@ -594,8 +594,8 @@ constexpr std::tuple<int, int> get_complementary_dirs(int edgedir) {
 // inquires for the child 
 template <size_t edgedir>
 struct edge_staggered_lagrange_interp_t<2,edgedir>{
-    static constexpr int idir = std::get<0>(get_complementary_dirs(edgedir));
-    static constexpr int jdir = std::get<1>(get_complementary_dirs(edgedir));
+    static constexpr int idir = std::get<0>(get_complementary_dirs<edgedir>());
+    static constexpr int jdir = std::get<1>(get_complementary_dirs<edgedir>());
 
     // one coarse edge contributes to 2 fine edges along the edge 
     // size_t ichild = 0 is below, 1 is the fine edge above the coarse edge 
