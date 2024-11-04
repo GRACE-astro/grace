@@ -94,8 +94,13 @@ TEST_CASE("Apply BC", "[boundaries]")
     /*************************************************/
     auto const h_func = [&] (VEC(const double& x,const double& y,const double &z))
     {
+        #if 0
         return EXPR(8.5 * x, - 5.1 * y, + 2*z) - 3.14 ; 
-    } ; 
+        #else 
+        auto const r2 = x*x+y*y+z*z ; 
+        return r2 ; 
+        #endif 
+    } ;
     
     auto const h_corner_func = [&] (VEC(const double& x,const double& y,const double &z))
     {
@@ -230,7 +235,8 @@ TEST_CASE("Apply BC", "[boundaries]")
             if(
                 std::fabs(h_state_mirror_new(VEC(i,j,k),DENS,q) - h_func(VEC(pcoords[0],pcoords[1],pcoords[2])))>1e-10
             ) {
-                std::cout << pcoords[0] << ", " << pcoords[1] << ", " << pcoords[2] << std::endl ;
+                std::cout << "Wrong cell centered entry (i,j,k), q (" << i << ", " << j << ", " <<  k << "), " << q << std::endl ;  
+                std::cout << "x, y, z " << pcoords[0] << ", " << pcoords[1] << ", " << pcoords[2] << std::endl ;
             }
             REQUIRE_THAT( h_state_mirror_new(VEC(i,j,k),DENS,q)
                       , Catch::Matchers::WithinAbs(

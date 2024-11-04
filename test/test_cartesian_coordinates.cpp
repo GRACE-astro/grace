@@ -78,20 +78,40 @@ TEST_CASE("cart_coords")
 
     for( int itree = forest.first_local_tree(); itree <= forest.last_local_tree(); ++itree ) 
     {
-        auto v = grace::amr::get_tree_vertex(itree, 0) ; 
-        auto v1 = grace::amr::get_tree_vertex(itree, 1) ; 
         auto d = grace::amr::get_tree_spacing(itree)   ; 
         auto tree = forest.tree(itree) ; 
-        GRACE_INFO("itree {} vertex 0 [ {}, {}, {} ]", itree, v[0],v[1],v[2]) ; 
-        GRACE_INFO("itree {} vertex 1 [ {}, {}, {} ]", itree, v1[0],v1[1],v1[2]) ; 
+
+        for( int ivert = 0; ivert<=7; ++ivert){
+           auto v = grace::amr::get_tree_vertex(itree, ivert) ; 
+           //auto v1 = grace::amr::get_tree_vertex(itree, 1) ; 
+           //auto d = grace::amr::get_tree_spacing(itree)   ; 
+           //auto tree = forest.tree(itree) ; 
+           //GRACE_INFO("itree {} tree coordinates [ {}, {}, {} ]", itree, v[0],v[1],v[2]) ; 
+           //GRACE_INFO("itree {} tree coordinates [ {}, {}, {} ]", itree, v1[0],v1[1],v1[2]) ; 
+           GRACE_INFO("itree {} at ivert {} with tree coordinates [ {}, {}, {} ]", itree, ivert, v[0],v[1],v[2]) ; 
+        }
         GRACE_INFO("        tree spacing     [ {}, {}, {} ]", d[0], d[1],d[2] ) ; 
         GRACE_INFO("        num quadrats      {}", tree.num_quadrants() ) ;
         GRACE_INFO("        tree offset       {}", tree.quadrants_offset() ) ;
     }
 
+    auto h_coords = Kokkos::create_mirror_view(pcoords_cc) ;
+
+    auto& coordsys = grace::coordinate_system::get() ; 
+    
     for( int iq=0; iq<nq; ++iq) {
+        if(iq == 8 || iq==16){
+            GRACE_INFO("new tree-----") ;
+        }
         GRACE_INFO("iq {} owner {}", iq, amr::get_quadrant_owner(iq) ) ; 
+        for( int i=ngz; i<nx+ngz;i++){
+        //auto xyz = coordsys.get_physical_coordinates({VEC(i,0,0)},iq,{VEC(0.5,0.5,0.5)},true) ; 
+        //GRACE_INFO("i {}, pcoord 0: {} ",i, xx) ;
+        }
+
     }
+
+
 
     
 }
