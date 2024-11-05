@@ -47,6 +47,17 @@ namespace grace { namespace amr {
  * @tparam ViewT Type of variable view.
  * @param u View containing a single variable.
  * @param face_info Information on physical boundary faces (quadrant ids and face ids).
+ * @param corner_info Information on physical boundary corners.
+ * @param edge_info Information on physical boundary edges.
+ * NB: Here by physical boundary faces is meant the face of a quadrant that does not have 
+ * any neighbor in the grid. 
+ * In the context of this routine, physical boundary edges / corners refers to those grid 
+ * edges / corners which belong to only \b one quadrant. This means that the edges (resp. corners)
+ * of a physical boundary face are not always considered physical boundary edges (resp. corners) since they 
+ * may touch  2 (resp. 4) quadrants. The filling of these ghostzones is handled by the "face" loop.
+ * In other words, we label a ghostzone outside the grid as a "face" ghostzone when it is outside the 
+ * grid in w.r.t one coordinate direction, "edge" if it is outside the grid w.r.t two, and corner if it 
+ * is outside the grid w.r.t all directions.
  */
 template< typename BCT
         , typename ViewT >
