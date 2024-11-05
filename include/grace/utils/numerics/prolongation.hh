@@ -382,10 +382,32 @@ struct lagrange_prolongator_t
 } ;  
 
 
- // general declaration for arbitrary order and direction
+/**
+ * @brief Helper struct to perform 
+ *        prolongation of edge-staggered data from coarse to fine grid.
+ * \ingroup amr
+ * @tparam order Order of the interpolation
+ * @tparam stagger_direction Orthogonal direction to the ones in which the variable is staggered
+ */
 template<size_t order, size_t stagger_direction>
 struct lagrange_edge_prolongator_t
 {
+    /**
+     * @brief Return the interpolated value of coarse 
+     *        edge-centred variable state at a fine edge
+     *
+     * @tparam CoarseViewT Type of variable view
+     * @tparam FineViewT Type of variable view 
+     * @param i_f x-index of fine edge (ngz-offset)
+     * @param j_f y-index of fine edge (ngz-offset)
+     * @param k_f z-index of fine edge (ngz-offset)
+     * @param i_c x-index of coarse edge (ngz-offset)
+     * @param j_c y-index of coarse edge (ngz-offset)
+     * @param k_c z-index of coarse edge (ngz-offset)
+     * @param coarse_view Coarse state view
+     * @param fine_view Fine state view
+     */
+
     template< typename CoarseViewT
             , typename FineViewT >
     static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -399,8 +421,11 @@ struct lagrange_edge_prolongator_t
 
 template <size_t stagger_direction>
 struct lagrange_edge_prolongator_t<2,stagger_direction>
-{
+{   
+
     using num_order = std::integral_constant<size_t, 2>;
+    static constexpr size_t sD = stagger_direction;  // Define sD as a constant for easy reference
+    
     template< typename CoarseViewT
             , typename FineViewT >
     static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -409,14 +434,75 @@ struct lagrange_edge_prolongator_t<2,stagger_direction>
                 , CoarseViewT& coarse_view 
                 , FineViewT& fine_view ){
 
+        // (somewhat) helpful picture in 2D, for A^z (xc-dx/2,yc-dy/2,zc)
+        // here, edir is up (^), facedir is (>)
+        //       ____________________________
+        //      /                           /|
+        //     /                           / |
+        //    /                           /  |
+        //   *==========================*/   |
+        //   |             |            |    |          
+        //   |             |            |    |
+        //   +      c      x     c      |   /|
+        //   |             |            |  / |
+        //   |             |            | /  |
+        //   o=============|============o/   |
+        //   |             |            |    |
+        //   |             |            |    / 
+        //   +      c      x     c      |   / 
+        //   |             |            |  / 
+        //   |             |            | /
+        //   *===========================*
+        //
+        // the points to interpolate at in 1d are denoted with (+), in 2d with (x)
+        // the coarse edges with (o). (c) are fine cell-centres
+        // the leftmost (o) is the parent coarse edge
+        // if we assume that we fill out A^z components  from A^z_coarse(i,j,k),
+        // we will be filling out fine edges 
+        // in 1d : A^z(i,j,k),  A^z(i,j,k+1)
+        // in 2d:  A^z(i+1,j,k), A^z(i,j+1,k), A^z(i+1,j,k+1),A^z(i,j+1,k+1)
+        // in 3d:  A^z(i+1,j+1,k), A^z(i+1,j+1,k+1)
+
         using interp_t = edge_staggered_lagrange_interp_t<num_order::value,stagger_direction> ; 
         /*  interpolate along edges for two fine children edges */
-       
-        /* Now do a 2D lagrange for edges within coarse face*/
     
-        /* Finally the one requiring 8 different coarse edges */
+        // these are the (+) point above and below the marker denoted by (o)
+        constexpr size_t child_up = 0;
+        constexpr size_t child_down = 1;
+        using utils::delta;
+        constexpr size_t fdir1 = std::get<0>(get_complementary_dir<sD>());
+        constexpr size_t fdir2 = std::get<1>(get_complementary_dir<sD>());
+
+        fine_view(VEC(i_f,j_f,k_f)) 
+        = interp_t::template oned_interp<child_down,CoarseViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+        fine_view(VEC(i_f+delta(0,sD),j_f+delta(1,sD),k_f+delta(2,sD))) 
+        = interp_t::template oned_interp<child_up,CoarseViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+
+        /* Now do a 2D lagrange for fine edges within coarse face, these are denoted by (x)*/
+        // lower children
+        fine_view(VEC(i_f+delta(0,fdir1),j_f+delta(1,fdir1),k_f+delta(2,fdir1))) 
+        = interp_t::template twod_interp<child_down,fdir1,CoarseViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+        fine_view(VEC(i_f+delta(0,fdir2),j_f+delta(1,fdir2),k_f+delta(2,fdir2))) 
+        = interp_t::template twod_interp<child_down,fdir2,CoarseViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+        // upper children
+        fine_view(VEC(i_f+delta(0,fdir1)+delta(0,sD),j_f+delta(1,fdir1)+delta(1,sD),k_f+delta(2,fdir1)+delta(2,sD))) 
+        = interp_t::template twod_interp<child_up,fdir1,CoarseViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+        fine_view(VEC(i_f+delta(0,fdir2)+delta(0,sD),j_f+delta(1,fdir2)+delta(1,sD),k_f+delta(2,fdir2)+delta(2,sD))) 
+        = interp_t::template twod_interp<child_up,fdir2,CoarseViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+        
+        /* Finally the other two children, within the general volume of the coarse cell */
+        //lower child
+         fine_view(VEC(i_f+delta(0,fdir1)+delta(0,fdir2),j_f+delta(1,fdir1)+delta(1,fdir2),k_f+delta(2,fdir1)+delta(2,fdir2))) 
+        = interp_t::template threed_interp<child_down,CoarseViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+        //upper child
+        fine_view(VEC(i_f+1,j_f+1,k_f+1)) 
+        = interp_t::template threed_interp<child_up,CoarseViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+
+
+
     }
 };
 
+}
 
 #endif /* GRACE_UTILS_PROLONGATION_HH */
