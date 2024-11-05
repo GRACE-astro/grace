@@ -65,10 +65,10 @@ void copy_interior_ghostzones(
     , var_array_t<GRACE_NSPACEDIM>& halo
     , staggered_variable_arrays_t& staggered_state
     , staggered_variable_arrays_t& staggered_halo
-    , Kokkos::vector<simple_face_info_t>&  interior_faces 
-    , Kokkos::vector<simple_corner_info_t>&  interior_corners 
+    , grace::device_vector<simple_face_info_t>&  interior_faces 
+    , grace::device_vector<simple_corner_info_t>&  interior_corners 
     #ifdef GRACE_3D 
-    , Kokkos::vector<simple_edge_info_t>&  interior_edges 
+    , grace::device_vector<simple_edge_info_t>&  interior_edges 
     #endif 
     ) ;
 /**************************************************************************************************/
@@ -90,10 +90,10 @@ void copy_interior_ghostzones(
 void copy_interior_ghostzones_cell_centers(
       var_array_t<GRACE_NSPACEDIM>& vars
     , var_array_t<GRACE_NSPACEDIM>& halo
-    , Kokkos::vector<simple_face_info_t>&  interior_faces 
-    , Kokkos::vector<simple_corner_info_t>&  interior_corners 
+    , grace::device_vector<simple_face_info_t>&  interior_faces 
+    , grace::device_vector<simple_corner_info_t>&  interior_corners 
     #ifdef GRACE_3D 
-    , Kokkos::vector<simple_edge_info_t>&  interior_edges 
+    , grace::device_vector<simple_edge_info_t>&  interior_edges 
     #endif 
     ) ;
 /**************************************************************************************************/
@@ -115,10 +115,10 @@ void copy_interior_ghostzones_cell_centers(
 void copy_interior_ghostzones_corners(
       var_array_t<GRACE_NSPACEDIM>& vars
     , var_array_t<GRACE_NSPACEDIM>& halo 
-    , Kokkos::vector<simple_face_info_t>& interior_faces
-    , Kokkos::vector<simple_corner_info_t>& interior_corners
+    , grace::device_vector<simple_face_info_t>& interior_faces
+    , grace::device_vector<simple_corner_info_t>& interior_corners
     #ifdef GRACE_3D
-    , Kokkos::vector<simple_edge_info_t>& interior_edges
+    , grace::device_vector<simple_edge_info_t>& interior_edges
     #endif 
 ) ; 
 /**************************************************************************************************/

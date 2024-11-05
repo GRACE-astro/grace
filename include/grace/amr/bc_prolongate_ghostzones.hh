@@ -68,10 +68,10 @@ void prolongate_hanging_ghostzones(
     , grace::staggered_variable_arrays_t& staggered_halo
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols 
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols_halo
-    , Kokkos::vector<hanging_face_info_t>& hanging_faces
-    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    , grace::device_vector<hanging_face_info_t>& hanging_faces
+    , grace::device_vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    , grace::device_vector<hanging_edge_info_t>& hanging_edges
     #endif
 ) ;
 /**************************************************************************************************/
@@ -95,10 +95,10 @@ void prolongate_hanging_ghostzones_cell_centers(
     , grace::var_array_t<GRACE_NSPACEDIM>& halo 
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols 
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols_halo
-    , Kokkos::vector<hanging_face_info_t>& hanging_faces
-    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    , grace::device_vector<hanging_face_info_t>& hanging_faces
+    , grace::device_vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    , grace::device_vector<hanging_edge_info_t>& hanging_edges
     #endif
 ) ;
 /**************************************************************************************************/
@@ -120,10 +120,10 @@ template< typename InterpT >
 void prolongate_hanging_ghostzones_corners(
       grace::var_array_t<GRACE_NSPACEDIM>& state
     , grace::var_array_t<GRACE_NSPACEDIM>& halo 
-    , Kokkos::vector<hanging_face_info_t>& hanging_faces
-    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    , grace::device_vector<hanging_face_info_t>& hanging_faces
+    , grace::device_vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    , grace::device_vector<hanging_edge_info_t>& hanging_edges
     #endif
 ) ;  
 /**************************************************************************************************/
@@ -135,10 +135,10 @@ prolongate_hanging_ghostzones_cell_centers<utils::linear_prolongator_t<grace::mi
     , grace::var_array_t<GRACE_NSPACEDIM>&  
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
-    , Kokkos::vector<hanging_face_info_t>& 
-    , Kokkos::vector<hanging_corner_info_t>&
+    , grace::device_vector<hanging_face_info_t>& 
+    , grace::device_vector<hanging_corner_info_t>&
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>&
+    , grace::device_vector<hanging_edge_info_t>&
     #endif
 ) ; 
 /**************************************************************************************************/
@@ -148,10 +148,10 @@ prolongate_hanging_ghostzones_cell_centers<utils::linear_prolongator_t<grace::MC
     , grace::var_array_t<GRACE_NSPACEDIM>&   
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
-    , Kokkos::vector<hanging_face_info_t>& 
-    , Kokkos::vector<hanging_corner_info_t>&
+    , grace::device_vector<hanging_face_info_t>& 
+    , grace::device_vector<hanging_corner_info_t>&
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>&
+    , grace::device_vector<hanging_edge_info_t>&
     #endif
 ) ; 
 /**************************************************************************************************/
@@ -159,10 +159,10 @@ extern template void
 prolongate_hanging_ghostzones_corners<utils::lagrange_prolongator_t<2>>(
       grace::var_array_t<GRACE_NSPACEDIM>& 
     , grace::var_array_t<GRACE_NSPACEDIM>&   
-    , Kokkos::vector<hanging_face_info_t>& 
-    , Kokkos::vector<hanging_corner_info_t>&
+    , grace::device_vector<hanging_face_info_t>& 
+    , grace::device_vector<hanging_corner_info_t>&
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>&
+    , grace::device_vector<hanging_edge_info_t>&
     #endif
 ) ;
 /**************************************************************************************************/ 
@@ -170,10 +170,10 @@ extern template void
 prolongate_hanging_ghostzones_corners<utils::lagrange_prolongator_t<4>>(
       grace::var_array_t<GRACE_NSPACEDIM>& 
     , grace::var_array_t<GRACE_NSPACEDIM>&   
-    , Kokkos::vector<hanging_face_info_t>& 
-    , Kokkos::vector<hanging_corner_info_t>&
+    , grace::device_vector<hanging_face_info_t>& 
+    , grace::device_vector<hanging_corner_info_t>&
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>&
+    , grace::device_vector<hanging_edge_info_t>&
     #endif
 ) ; 
 /**************************************************************************************************/

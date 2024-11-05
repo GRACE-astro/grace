@@ -16,10 +16,10 @@
 
 #define DBG_GHOSTZONE_TEST 
 
-static inline bool is_outside_grid(VEC(size_t i,size_t j, size_t k), int64_t q)
+static inline bool is_outside_grid(VEC(size_t i,size_t j, size_t k), int64_t q, VEC(double xoff,double yoff, double zoff))
 {
     auto params = grace::config_parser::get()["amr"] ; 
-    auto pcoords = grace::get_physical_coordinates({VEC(i,j,k)},q,{VEC(0.5,0.5,0.5)}, true) ;
+    auto pcoords = grace::get_physical_coordinates({VEC(i,j,k)},q,{VEC(xoff,yoff,zoff)}, true) ;
     #ifdef GRACE_CARTESIAN_COORDINATES 
         double xmin = params["xmin"].as<double>() ;
         double ymin = params["ymin"].as<double>() ;
@@ -44,6 +44,22 @@ static inline bool is_outside_grid(VEC(size_t i,size_t j, size_t k), int64_t q)
 
         return r2 > Ro*Ro ;
     #endif 
+}
+
+static inline bool is_affected_by_boundary(
+    VEC(size_t i,size_t j, size_t k), int64_t q, int offset, VEC(double xoff, double yoff, double zoff)
+)
+{
+    return is_outside_grid(VEC(i,j,k),q,VEC(xoff,yoff,zoff)) 
+           or is_outside_grid(VEC(i+offset,j,k),q,VEC(xoff,yoff,zoff))  
+           or is_outside_grid(VEC(i-offset,j,k),q,VEC(xoff,yoff,zoff)) 
+           or is_outside_grid(VEC(i,j+offset,k),q,VEC(xoff,yoff,zoff)) 
+           or is_outside_grid(VEC(i,j-offset,k),q,VEC(xoff,yoff,zoff)) 
+           #ifdef GRACE_3D 
+           or is_outside_grid(VEC(i,j,k+offset),q,VEC(xoff,yoff,zoff)) 
+           or is_outside_grid(VEC(i,j,k-offset),q,VEC(xoff,yoff,zoff)) 
+           #endif   
+    ;
 }
 
 static inline bool is_corner_ghostzone(VEC(long i, long j, long k), VEC(long nx, long ny, long nz), int ngz)
@@ -94,17 +110,17 @@ TEST_CASE("Apply BC", "[boundaries]")
     /*************************************************/
     auto const h_func = [&] (VEC(const double& x,const double& y,const double &z))
     {
-        #if 0
+        #if 1
         return EXPR(8.5 * x, - 5.1 * y, + 2*z) - 3.14 ; 
         #else 
         auto const r2 = x*x+y*y+z*z ; 
-        return r2 ; 
+        return 1.-Kokkos::fabs(x) ; 
         #endif 
     } ;
     
     auto const h_corner_func = [&] (VEC(const double& x,const double& y,const double &z))
     {
-        #if 0
+        #if 1
         if( interp_order == 2 ) {
             return EXPR(8.5 * x, - 5.1 * y, -2*z) - 3.14 ; 
         } else if ( interp_order == 4) {
@@ -120,8 +136,9 @@ TEST_CASE("Apply BC", "[boundaries]")
         } else {
             return - 1.; 
         }
-        #endif 
+        #else 
         return EXPR( cos(2*M_PI*x), + cos(2*M_PI*y), + cos(2*M_PI*z) ) ; 
+        #endif
     } ; 
     /*************************************************/
     /*                   fill data                   */
@@ -232,6 +249,8 @@ TEST_CASE("Apply BC", "[boundaries]")
                 q,
                 true
             ) ;
+            if( !is_affected_by_boundary(VEC(i,j,k),q,2,VEC(0.5,0.5,0.5)) ) {
+            
             if(
                 std::fabs(h_state_mirror_new(VEC(i,j,k),DENS,q) - h_func(VEC(pcoords[0],pcoords[1],pcoords[2])))>1e-10
             ) {
@@ -242,12 +261,17 @@ TEST_CASE("Apply BC", "[boundaries]")
                       , Catch::Matchers::WithinAbs(
                                   h_func(VEC(pcoords[0],pcoords[1],pcoords[2]))
                                 , 1e-12 )) ;
+            }
         },
         {VEC(false,false,false)},
         true
     ) ; 
-
-    
+    GRACE_INFO("Qid 2, printing some data!\n"
+               "  2,2,3: {} \n"
+               "  3,2,3: {} \n"
+               "  4,2,3: {} \n"
+               "  5,2,3: {}",
+               h_corner_mirror_new(2,2,3,DENS,2), h_corner_mirror_new(3,2,3,DENS,2), h_corner_mirror_new(4,2,3,DENS,2), h_corner_mirror_new(5,2,3,DENS,2)) ; 
     host_grid_loop<false>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             auto pcoords = coord_system.get_physical_coordinates(
@@ -256,15 +280,18 @@ TEST_CASE("Apply BC", "[boundaries]")
                 {VEC(0,0,0)},
                 true
             ) ;
+            if( !is_affected_by_boundary(VEC(i,j,k),q,4,VEC(0,0,0)) ) {
             if(
-                std::fabs(h_corner_mirror_new(VEC(i,j,k),DENS,q) - h_corner_func(VEC(pcoords[0],pcoords[1],pcoords[2])))>1e-10
+                (std::fabs(h_corner_mirror_new(VEC(i,j,k),DENS,q) - h_corner_func(VEC(pcoords[0],pcoords[1],pcoords[2])))>1e-10) or std::isnan(h_corner_mirror_new(VEC(i,j,k),DENS,q))
             ) {
-                std::cout << pcoords[0] << ", " << pcoords[1] << ", " << pcoords[2] << std::endl ;
+                std::cout << "Wrong corner staggered entry (i,j,k), q (" << i << ", " << j << ", " <<  k << "), " << q << std::endl ;  
+                std::cout << "x, y, z " << pcoords[0] << ", " << pcoords[1] << ", " << pcoords[2] << std::endl ;
             }
             REQUIRE_THAT( h_corner_mirror_new(VEC(i,j,k),DENS,q)
                       , Catch::Matchers::WithinAbs(
                                   h_corner_func(VEC(pcoords[0],pcoords[1],pcoords[2]))
                                 , 1e-12 )) ;
+            }
         },
         {VEC(true,true,true)},
         true

@@ -52,10 +52,10 @@ void restrict_hanging_ghostzones(
     , grace::staggered_variable_arrays_t& staggered_halo 
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols 
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols 
-    , Kokkos::vector<hanging_face_info_t>& hanging_faces
-    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    , grace::device_vector<hanging_face_info_t>& hanging_faces
+    , grace::device_vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    , grace::device_vector<hanging_edge_info_t>& hanging_edges
     #endif 
 )
 {
@@ -92,10 +92,10 @@ void restrict_hanging_ghostzones_cell_centers(
     , grace::var_array_t<GRACE_NSPACEDIM>& halo 
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols 
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols 
-    , Kokkos::vector<hanging_face_info_t>& hanging_faces
-    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    , grace::device_vector<hanging_face_info_t>& hanging_faces
+    , grace::device_vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    , grace::device_vector<hanging_edge_info_t>& hanging_edges
     #endif 
 ) 
 {
@@ -396,10 +396,10 @@ void restrict_hanging_ghostzones_cell_centers(
 void restrict_hanging_ghostzones_corners(
       grace::var_array_t<GRACE_NSPACEDIM>& state
     , grace::var_array_t<GRACE_NSPACEDIM>& halo 
-    , Kokkos::vector<hanging_face_info_t>& hanging_faces
-    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    , grace::device_vector<hanging_face_info_t>& hanging_faces
+    , grace::device_vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    , grace::device_vector<hanging_edge_info_t>& hanging_edges
     #endif 
 ) 
 {

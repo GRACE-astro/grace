@@ -68,10 +68,10 @@ void restrict_hanging_ghostzones(
     , staggered_variable_arrays_t& staggered_halo 
     , cell_vol_array_t<GRACE_NSPACEDIM>& vols 
     , cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols 
-    , Kokkos::vector<hanging_face_info_t>& hanging_faces
-    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    , grace::device_vector<hanging_face_info_t>& hanging_faces
+    , grace::device_vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    , grace::device_vector<hanging_edge_info_t>& hanging_edges
     #endif 
 );
 /**************************************************************************************************/
@@ -95,10 +95,10 @@ void restrict_hanging_ghostzones_cell_centers(
     , var_array_t<GRACE_NSPACEDIM>& halo
     , cell_vol_array_t<GRACE_NSPACEDIM>& vols
     , cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols
-    , Kokkos::vector<hanging_face_info_t>& hanging_faces
-    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    , grace::device_vector<hanging_face_info_t>& hanging_faces
+    , grace::device_vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    , grace::device_vector<hanging_edge_info_t>& hanging_edges
     #endif 
 ) ;
 /**************************************************************************************************/
@@ -119,10 +119,10 @@ void restrict_hanging_ghostzones_cell_centers(
 void restrict_hanging_ghostzones_corners(
       var_array_t<GRACE_NSPACEDIM>& state
     , var_array_t<GRACE_NSPACEDIM>& halo 
-    , Kokkos::vector<hanging_face_info_t>& hanging_faces
-    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    , grace::device_vector<hanging_face_info_t>& hanging_faces
+    , grace::device_vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    , grace::device_vector<hanging_edge_info_t>& hanging_edges
     #endif 
 )  ;
 /**************************************************************************************************/

@@ -56,10 +56,10 @@ void prolongate_hanging_ghostzones(
     , grace::staggered_variable_arrays_t& staggered_halo
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols 
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols 
-    , Kokkos::vector<hanging_face_info_t>& hanging_faces
-    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    , grace::device_vector<hanging_face_info_t>& hanging_faces
+    , grace::device_vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    , grace::device_vector<hanging_edge_info_t>& hanging_edges
     #endif 
 )
 {
@@ -128,10 +128,10 @@ void prolongate_hanging_ghostzones_cell_centers(
     , grace::var_array_t<GRACE_NSPACEDIM>& halo 
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& vols 
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& halo_vols 
-    , Kokkos::vector<hanging_face_info_t>& hanging_faces
-    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    , grace::device_vector<hanging_face_info_t>& hanging_faces
+    , grace::device_vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    , grace::device_vector<hanging_edge_info_t>& hanging_edges
     #endif
 ) 
 {
@@ -335,10 +335,10 @@ template< typename InterpT >
 void prolongate_hanging_ghostzones_corners(
       grace::var_array_t<GRACE_NSPACEDIM>& state
     , grace::var_array_t<GRACE_NSPACEDIM>& halo 
-    , Kokkos::vector<hanging_face_info_t>& hanging_faces
-    , Kokkos::vector<hanging_corner_info_t>& hanging_corners
+    , grace::device_vector<hanging_face_info_t>& hanging_faces
+    , grace::device_vector<hanging_corner_info_t>& hanging_corners
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>& hanging_edges
+    , grace::device_vector<hanging_edge_info_t>& hanging_edges
     #endif
 ) 
 {
@@ -370,8 +370,8 @@ void prolongate_hanging_ghostzones_corners(
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>, IndexType<int>> 
     policy(
         {0,VECD(0,0), 0,0},
-        { math::floor_int(ngz/2)
-        , VECD(static_cast<int>(nx),static_cast<int>(ny))
+        { ngz/2
+        , VECD(static_cast<int>(nx/2+ngz),static_cast<int>(ny/2+ngz))
         , static_cast<int>(nvars)
         , static_cast<int>(n_faces) }
     ) ;
@@ -394,48 +394,60 @@ void prolongate_hanging_ghostzones_corners(
             int8_t which_face_fine   =  d_face_info(iface).which_face_fine      ; 
             int tid_coarse           =  d_face_info(iface).which_tree_coarse    ; 
             int tid_fine             =  d_face_info(iface).which_tree_fine      ; 
+            for ( int ichild =0 ; ichild < P4EST_HALF; ++ichild )
+            {
+                /***********************************************/
+                /* Decide loop offset in directions orthogonal */
+                /* to ghostzones being filled                  */
+                /***********************************************/
+                int8_t const cx = ((ichild >> 0U) & 1U);
+                int8_t const cy = ((ichild >> 1U) & 1U);
 
-            const int8_t ichild = EXPRD(
-                        math::floor_int((2*j)/nx)
-                    , + math::floor_int((2*k)/ny) * 2
-                    ) ; 
-            int64_t qid_b     = d_face_info(iface).qid_fine[ichild] ; 
-            bool is_ghost_fine = d_face_info(iface).is_ghost_fine[ichild] ; 
-            if ( !is_ghost_fine ) {
-                auto& cview = is_ghost_coarse ? halo : state ; 
-                /* First we compute the indices of the point */
-                /* we are calculating.                       */
-                EXPR( 
-                int const i_c = EXPR((which_face_coarse==0) * (ngz+ig) 
-                            + (which_face_coarse==1) * (nx+1+ig),
-                            + (which_face_coarse/2==1) * (j+ngz), 
-                            + (which_face_coarse/2==2) * (j+ngz)) ;,
-                int const j_c = EXPR((which_face_coarse==2) * (ngz+ig)
-                            + (which_face_coarse==3) * (ny+1+ig), 
-                            + (which_face_coarse/2==0) * (j+ngz), 
-                            + (which_face_coarse/2==2) * (k+ngz));  ,
-                int const k_c  = (which_face_coarse==4) * (ngz+ig) 
-                            + (which_face_coarse==5) * (nz+1+ig)  
-                            + (which_face_coarse/2!=2) * (k+ngz) ;
-                )
-                EXPR(
-                int const i_f =  EXPR((which_face_fine==0) * (2*ig) 
-                            + (which_face_fine==1) * (nx+ngz+2*ig),
-                            + (which_face_fine/2==1) * ((2*j)%nx + ngz), 
-                            + (which_face_fine/2==2) * ((2*j)%nx + ngz)) ;,
-                int const j_f =  EXPR((which_face_fine==2) * (2*ig) 
-                            + (which_face_fine==3) * (ny+ngz+2*ig),
-                            + (which_face_fine/2==0) * ((2*j)%ny + ngz), 
-                            + (which_face_fine/2==2) * ((2*j)%nz + ngz)) ;,
-                int const k_f =  (which_face_fine==4) * (2*ig) 
-                            + (which_face_fine==5) * (nx+ngz+2*ig)
-                            + (which_face_fine/2!=2) * ((2*j)%nz + ngz) ;
-                )
-                auto fine_view = subview(state, VEC(ALL(),ALL(),ALL()), ivar, qid_b) ; 
-                auto coarse_view = subview(cview, VEC(ALL(),ALL(),ALL()), ivar, iq_coarse) ;
-                /* Fill the fine state */
-                InterpT::interpolate(VEC(i_f,j_f,k_f), VEC(i_c,j_c,k_c), coarse_view, fine_view) ; 
-            } 
+                int const off_x = cx ? (nx/2+ngz/2) : ngz/2 ;
+                int const off_y = cy ? (ny/2+ngz/2) : ngz/2 ; 
+
+                int const foff_x = 0 ; 
+                int const foff_y = 0 ; 
+                 
+                int64_t qid_b     = d_face_info(iface).qid_fine[ichild] ; 
+                bool is_ghost_fine = d_face_info(iface).is_ghost_fine[ichild] ; 
+                if ( !is_ghost_fine ) {
+                    auto& cview = is_ghost_coarse ? halo : state ; 
+                    /* First we compute the indices of the point */
+                    /* we are calculating.                       */
+                    EXPR( 
+                    int const i_c = EXPR((which_face_coarse==0) * (ngz+ig) 
+                                + (which_face_coarse==1) * (nx+ig),
+                                + (which_face_coarse/2==1) * (off_x + j), 
+                                + (which_face_coarse/2==2) * (off_x + j)) ;,
+                    int const j_c = EXPR((which_face_coarse==2) * (ngz+ig)
+                                + (which_face_coarse==3) * (ny+ig), 
+                                + (which_face_coarse/2==0) * (off_x + j), 
+                                + (which_face_coarse/2==2) * (off_y + k));  ,
+                    int const k_c  = (which_face_coarse==4) * (ngz+ig) 
+                                + (which_face_coarse==5) * (nz+ig)  
+                                + (which_face_coarse/2!=2) * (off_y + k) ;
+                    )
+                    EXPR(
+                    int const i_f =  EXPR((which_face_fine==0) * (2*ig) 
+                                + (which_face_fine==1) * (nx+ngz+2*ig),
+                                + (which_face_fine/2==1) * ((2*j) + foff_x), 
+                                + (which_face_fine/2==2) * ((2*j) + foff_x)) ;,
+                    int const j_f =  EXPR((which_face_fine==2) * (2*ig) 
+                                + (which_face_fine==3) * (ny+ngz+2*ig),
+                                + (which_face_fine/2==0) * ((2*j) + foff_x), 
+                                + (which_face_fine/2==2) * ((2*k) + foff_y)) ;,
+                    int const k_f =  (which_face_fine==4) * (2*ig) 
+                                + (which_face_fine==5) * (nx+ngz+2*ig)
+                                + (which_face_fine/2!=2) * ((2*k) + foff_y) ;
+                    )
+                    auto fine_view = subview(state, VEC(ALL(),ALL(),ALL()), ivar, qid_b) ; 
+                    auto coarse_view = subview(cview, VEC(ALL(),ALL(),ALL()), ivar, iq_coarse) ;
+                    /* Fill the fine state */
+                    InterpT::interpolate(VEC(i_f,j_f,k_f), VEC(i_c,j_c,k_c), coarse_view, fine_view) ; 
+                }
+            }
+            
         }
     )   ; /* end of loop over faces */
     #if 1 
@@ -454,8 +466,6 @@ void prolongate_hanging_ghostzones_corners(
             int64_t iq_coarse        =  d_corner_info(icorner).qid_coarse            ;
             int8_t which_corner_coarse =  d_corner_info(icorner).which_corner_coarse ; 
             int8_t which_corner_fine   =  d_corner_info(icorner).which_corner_fine   ; 
-            int tid_coarse           =  d_corner_info(icorner).which_tree_coarse     ; 
-            int tid_fine             =  d_corner_info(icorner).which_tree_fine       ;
             int8_t is_ghost_fine     =  d_corner_info(icorner).is_ghost_fine         ;  
             int64_t iq_fine          =  d_corner_info(icorner).qid_fine              ;
             /* Get the correct view to index into for coarse data               */
@@ -464,26 +474,26 @@ void prolongate_hanging_ghostzones_corners(
                 /* Utility to map the coarse index into the fine quadrant */
                 auto const index_mapping = [=] (
                     VEC(int const ig, int const jg, int const kg),
-                    int const ca, int const cb, int IJK[GRACE_NSPACEDIM], int ijk[GRACE_NSPACEDIM]
+                    int const cf, int const cc, int ijk_f[GRACE_NSPACEDIM], int ijk_c[GRACE_NSPACEDIM]
                 )
                 {
-                    int x = (ca >> 0) & 1;  
-                    int y = (ca >> 1) & 1;  
-                    int z = (ca >> 2) & 1;
+                    int x = (cc >> 0) & 1;  
+                    int y = (cc >> 1) & 1;  
+                    int z = (cc >> 2) & 1;
                     EXPR(
-                    IJK[0] = (x==0) ? (ngz+ig) : (nx + 1 + ig) ;, 
-                    IJK[1] = (y==0) ? (ngz+jg) : (ny + 1 + jg) ;,
-                    IJK[2] = (z==0) ? (ngz+kg) : (nz + 1 + kg) ;
+                    ijk_c[0] = (x==0) ? (ngz+ig) : (nx + ig) ;, 
+                    ijk_c[1] = (y==0) ? (ngz+jg) : (ny + jg) ;,
+                    ijk_c[2] = (z==0) ? (ngz+kg) : (nz + kg) ;
                     )
-                    x = (cb >> 0) & 1;  
-                    y = (cb >> 1) & 1;  
-                    z = (cb >> 2) & 1;
+                    x = (cf >> 0) & 1;  
+                    y = (cf >> 1) & 1;  
+                    z = (cf >> 2) & 1;
                     EXPR(
-                    ijk[0] = (x==0) ? 2*ig
+                    ijk_f[0] = (x==0) ? 2*ig
                                     : (nx+ngz+2*ig) ;, 
-                    ijk[1] = (y==0) ? 2*jg 
+                    ijk_f[1] = (y==0) ? 2*jg 
                                     : (ny+ngz+2*jg) ;,
-                    ijk[2] = (z==0) ? 2*kg 
+                    ijk_f[2] = (z==0) ? 2*kg 
                                     : (nz+ngz+2*kg) ;
                     )
                 } ;
@@ -499,12 +509,12 @@ void prolongate_hanging_ghostzones_corners(
 
     /* Loop over edge neighbors             */
     MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
-        policy_edge(
+        edge_policy(
             {0,0,0, 0,0},
-            {ngz, ngz, static_cast<int>(nx), static_cast<long>(nvars), static_cast<long>(n_edges)}
+            {ngz/2, ngz/2, static_cast<int>(nx/2+ngz), static_cast<long>(nvars), static_cast<long>(n_edges)}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("AMR", "prolongate_hanging_edges")
-                , corner_policy 
+                , edge_policy 
                 , KOKKOS_LAMBDA(const size_t& ig, const size_t& jg, const size_t& k, const size_t& ivar, const size_t& iedge)
         {
             /* Collect the necessary information                                */
@@ -514,69 +524,86 @@ void prolongate_hanging_ghostzones_corners(
             int8_t which_edge_fine   =  d_edge_info(iedge).which_edge_fine       ; 
             int tid_coarse           =  d_edge_info(iedge).which_tree_coarse     ; 
             int tid_fine             =  d_edge_info(iedge).which_tree_fine       ;
-            const int8_t ichild      =  math::floor_int((2*k)/nx)                ; 
-            bool is_ghost_fine       =  d_edge_info(iedge).is_ghost_fine[ichild] ; 
-            int64_t qid_fine         =  d_edge_info(iedge).qid_fine[ichild]      ;
+             
+            for(int ichild=0; ichild<2; ++ichild){
 
-            auto& cview = is_ghost_coarse ? halo : state     ;
-            if( !is_ghost_fine ){
-                auto const fine_index_mapping = [=] ( int const ig, int const jg, int const k, 
-                                           int const ec, int IJK[GRACE_NSPACEDIM],
-                                           int const ef, int ijk[GRACE_NSPACEDIM]) 
-                {
-                    static constexpr const int ALONG_EDGE = -1 ;
-                    static constexpr const int NEGATIVE_EDGE = 0 ;
-                    static constexpr const int POSITIVE_EDGE = 1 ;
-                    static const int edge_directions[3][12] = {
-                        {ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, 
-                        NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE,
-                        NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE},  // x directions
-                        {NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, 
-                        ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE,
-                        NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE}, // y directions
-                        {NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
-                        NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
-                        ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE} // z directions
-                    }; 
-                    int x_ea = edge_directions[0][ec];
-                    int y_ea = edge_directions[1][ec];
-                    int z_ea = edge_directions[2][ec];
+                int const off  = ichild ? (nx/2+ngz/2) : ngz/2 ; 
+                int const foff = 0 ; 
 
-                    // Map indices for ijk based on edge ea
-                    IJK[0] = (x_ea == ALONG_EDGE) ? (k+ngz) : (x_ea == NEGATIVE_EDGE ? (ngz+ig) : (nx + 1 + ig));
-                    IJK[1] = (y_ea == ALONG_EDGE) 
-                                ? (k+ngz) 
-                                : (x_ea == ALONG_EDGE 
-                                    ? (y_ea == NEGATIVE_EDGE ? (ngz+ig) : (ny + 1 + ig)) 
-                                    : (y_ea == NEGATIVE_EDGE ? (ngz+jg) : (ny + 1 + jg)));
-                    IJK[2] = (z_ea == ALONG_EDGE) ? (k+ngz) : (z_ea == NEGATIVE_EDGE ? (ngz+jg) : (nz + 1 + jg));
+                int8_t is_ghost_fine     =  d_edge_info(iedge).is_ghost_fine[ichild] ;
+                int64_t qid_fine         =  d_edge_info(iedge).qid_fine[ichild]      ;
 
-                    int x_eb = edge_directions[0][ef];
-                    int y_eb = edge_directions[1][ef];
-                    int z_eb = edge_directions[2][ef];
+                auto& cview = is_ghost_coarse ? halo : state     ;
+                if( !is_ghost_fine ){
+                    auto const fine_index_mapping = [=] ( int const ig, int const jg, int const k, 
+                                            int const ec, int ijk_c[GRACE_NSPACEDIM],
+                                            int const ef, int ijk_f[GRACE_NSPACEDIM]) 
+                    {
+                        static constexpr const int ALONG_EDGE = -1 ;
+                        static constexpr const int NEGATIVE_EDGE = 0 ;
+                        static constexpr const int POSITIVE_EDGE = 1 ;
+                        static const int edge_directions[3][12] = {
+                            {ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, 
+                            NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE,
+                            NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE},  // x directions
 
-                    // Map indices for ijk based on edge ea
-                    ijk[0] = (x_eb == ALONG_EDGE) ? ((2*k)%nx+ngz) : (x_eb == NEGATIVE_EDGE ? (2*ig)  : (nx+ngz+2*ig));
-                    IJK[1] = (y_eb == ALONG_EDGE) 
-                                ? ((2*k)%ny+ngz) 
-                                : (x_eb == ALONG_EDGE 
-                                    ? (y_eb == NEGATIVE_EDGE ? (2*ig) : (ny+ngz+2*ig)) 
-                                    : (y_eb == NEGATIVE_EDGE ? (2*jg) : (ny+ngz+2*jg)));
-                    IJK[2] = (z_eb == ALONG_EDGE) ? ((2*k)%nz+ngz) : (z_eb == NEGATIVE_EDGE ? (2*jg) : (nz+ngz+2*jg));
-                } ; 
+                            {NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, 
+                            ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE,
+                            NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE}, // y directions
 
-                /* Find fine cell index                                               */
-                int ijk_f[GRACE_NSPACEDIM], ijk_c[GRACE_NSPACEDIM] ;
-                fine_index_mapping( ig,jg,k, which_edge_coarse, ijk_c, which_edge_fine, ijk_f ) ; 
-                auto fine_view = subview(state, VEC(ALL(),ALL(),ALL()), ivar, qid_fine) ; 
-                auto coarse_view = subview(cview, VEC(ALL(),ALL(),ALL()), ivar, iq_coarse) ;
-                /* Fill the fine state */
-                InterpT::interpolate(VEC(ijk_f[0],ijk_f[1],ijk_f[2]), VEC(ijk_c[0],ijk_c[1], ijk_c[2]), coarse_view, fine_view) ; 
+                            {NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
+                            NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
+                            ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE} // z directions
+                        };
+
+                        // Extract directional values for edges ea and eb
+                        int x_ea = edge_directions[0][ec];
+                        int y_ea = edge_directions[1][ec];
+                        int z_ea = edge_directions[2][ec];
+
+                        // Map indices for ijk based on edge ea
+                        ijk_c[0] = (x_ea == ALONG_EDGE) ? (k+off) : (x_ea == NEGATIVE_EDGE ? (ngz+ig) : (nx + ig));
+                        ijk_c[1] = (y_ea == ALONG_EDGE) 
+                                    ? (k+off) 
+                                    : (x_ea == ALONG_EDGE 
+                                        ? (y_ea == NEGATIVE_EDGE ? (ngz+ig) : (ny + ig)) 
+                                        : (y_ea == NEGATIVE_EDGE ? (ngz+jg) : (ny + jg)));
+                        ijk_c[2] = (z_ea == ALONG_EDGE) ? (k+off) : (z_ea == NEGATIVE_EDGE ? (ngz+jg) : (nz + jg));
+
+                        int x_eb = edge_directions[0][ef];
+                        int y_eb = edge_directions[1][ef];
+                        int z_eb = edge_directions[2][ef];
+
+                        // Map indices for ijk based on edge ea
+                        ijk_f[0] = (x_eb == ALONG_EDGE) ? ((2*k)+foff) : (x_eb == NEGATIVE_EDGE ? (2*ig)  : (nx+ngz+2*ig));
+                        ijk_f[1] = (y_eb == ALONG_EDGE) 
+                                    ? ((2*k)+foff) 
+                                    : (x_eb == ALONG_EDGE 
+                                        ? (y_eb == NEGATIVE_EDGE ? (2*ig) : (ny+ngz+2*ig)) 
+                                        : (y_eb == NEGATIVE_EDGE ? (2*jg) : (ny+ngz+2*jg)));
+                        ijk_f[2] = (z_eb == ALONG_EDGE) ? ((2*k)+foff) : (z_eb == NEGATIVE_EDGE ? (2*jg) : (nz+ngz+2*jg));
+                    } ; 
+
+                    /* Find fine cell index                                               */
+                    int ijk_f[GRACE_NSPACEDIM], ijk_c[GRACE_NSPACEDIM] ;
+                    fine_index_mapping( ig,jg,k, which_edge_coarse, ijk_c, which_edge_fine, ijk_f ) ; 
+                    auto fine_view = subview(state, VEC(ALL(),ALL(),ALL()), ivar, qid_fine) ; 
+                    auto coarse_view = subview(cview, VEC(ALL(),ALL(),ALL()), ivar, iq_coarse) ;
+                    /* Fill the fine state */
+                    InterpT::interpolate(VEC(ijk_f[0],ijk_f[1],ijk_f[2]), VEC(ijk_c[0],ijk_c[1], ijk_c[2]), coarse_view, fine_view) ; 
+                }
             }
         }
     ) ; /* End of loop over edge neighbors */
     #endif 
 
+    /******************************************************/
+    /* Now we need to take care of corners and edges that */
+    /* are not part of the "grid" according to p4est.     */
+    /* That is, corners/edges that are not shared by all  */
+    /* quadrants touching them.                           */
+    /******************************************************/
+    
 }
 /**************************************************************************************************/
 /*                                  Instantiate templates                                         */
@@ -587,10 +614,10 @@ prolongate_hanging_ghostzones_cell_centers<utils::linear_prolongator_t<grace::mi
     , grace::var_array_t<GRACE_NSPACEDIM>&  
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
-    , Kokkos::vector<hanging_face_info_t>& 
-    , Kokkos::vector<hanging_corner_info_t>&
+    , grace::device_vector<hanging_face_info_t>& 
+    , grace::device_vector<hanging_corner_info_t>&
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>&
+    , grace::device_vector<hanging_edge_info_t>&
     #endif
 ) ; 
 /**************************************************************************************************/
@@ -600,10 +627,10 @@ prolongate_hanging_ghostzones_cell_centers<utils::linear_prolongator_t<grace::MC
     , grace::var_array_t<GRACE_NSPACEDIM>&   
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
     , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  
-    , Kokkos::vector<hanging_face_info_t>& 
-    , Kokkos::vector<hanging_corner_info_t>&
+    , grace::device_vector<hanging_face_info_t>& 
+    , grace::device_vector<hanging_corner_info_t>&
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>&
+    , grace::device_vector<hanging_edge_info_t>&
     #endif
 ) ; 
 /**************************************************************************************************/
@@ -611,10 +638,10 @@ template void
 prolongate_hanging_ghostzones_corners<utils::lagrange_prolongator_t<2>>(
       grace::var_array_t<GRACE_NSPACEDIM>& 
     , grace::var_array_t<GRACE_NSPACEDIM>&   
-    , Kokkos::vector<hanging_face_info_t>& 
-    , Kokkos::vector<hanging_corner_info_t>&
+    , grace::device_vector<hanging_face_info_t>& 
+    , grace::device_vector<hanging_corner_info_t>&
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>&
+    , grace::device_vector<hanging_edge_info_t>&
     #endif
 ) ;
 /**************************************************************************************************/ 
@@ -622,10 +649,10 @@ template void
 prolongate_hanging_ghostzones_corners<utils::lagrange_prolongator_t<4>>(
       grace::var_array_t<GRACE_NSPACEDIM>& 
     , grace::var_array_t<GRACE_NSPACEDIM>&   
-    , Kokkos::vector<hanging_face_info_t>& 
-    , Kokkos::vector<hanging_corner_info_t>&
+    , grace::device_vector<hanging_face_info_t>& 
+    , grace::device_vector<hanging_corner_info_t>&
     #ifdef GRACE_3D 
-    , Kokkos::vector<hanging_edge_info_t>&
+    , grace::device_vector<hanging_edge_info_t>&
     #endif
 ) ; 
 /**************************************************************************************************/

@@ -223,8 +223,8 @@ struct grace_face_info_t
 {
     int n_hanging_ghost_faces{0}; 
     int n_simple_ghost_faces{0} ;
-    Kokkos::vector<simple_face_info_t>         simple_interior_info       ; 
-    Kokkos::vector<hanging_face_info_t>        hanging_interior_info      ;
+    grace::device_vector<simple_face_info_t>         simple_interior_info       ; 
+    grace::device_vector<hanging_face_info_t>        hanging_interior_info      ;
     grace::device_vector<grace_phys_bc_info_t> phys_boundary_info         ; 
 } ; 
 /**
@@ -237,8 +237,8 @@ struct grace_edge_info_t
     int n_simple_ghost_edges{0} ;
     int n_exterior_edges{0}     ; 
     int n_edges_total{0}     ; 
-    Kokkos::vector<simple_edge_info_t>   simple_interior_info       ; 
-    Kokkos::vector<hanging_edge_info_t>  hanging_interior_info      ;
+    grace::device_vector<simple_edge_info_t>   simple_interior_info       ; 
+    grace::device_vector<hanging_edge_info_t>  hanging_interior_info      ;
     grace::device_vector<grace_phys_bc_info_t> phys_boundary_info  ; 
 } ; 
 /**
@@ -249,8 +249,8 @@ struct grace_corner_info_t
 {
     int n_hanging_ghost_corners{0}; 
     int n_simple_ghost_corners{0} ;
-    Kokkos::vector<simple_corner_info_t>  simple_interior_info      ; 
-    Kokkos::vector<hanging_corner_info_t> hanging_interior_info     ;
+    grace::device_vector<simple_corner_info_t>  simple_interior_info      ; 
+    grace::device_vector<hanging_corner_info_t> hanging_interior_info     ;
     grace::device_vector<grace_phys_bc_info_t>  phys_boundary_info  ; 
 } ; 
 /**
