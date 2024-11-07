@@ -87,6 +87,7 @@ add_grace_test(TOV_test test_TOV.cpp)
 add_kokkos_test(interpolator_test test_interpolators.cpp)
 add_kokkos_test(device_vector_test test_device_vector.cc)
 add_kokkos_test(lagrange_prolongation_test test_lagrange_interpolators.cpp)
+add_kokkos_test(lagrange_edge_prolongation_test test_lagrange_edge_interpolators.cpp)
 
 add_standalone_test(integrator_test test_integration.cpp)
 
@@ -139,3 +140,5 @@ add_test(NAME gamma2_c2p_test COMMAND
 add_test(NAME sly4_pw_c2p_test COMMAND 
         mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_sly4_pw.yaml )
 add_test(NAME device_vector_test COMMAND ./device_vector_test )
+add_test(NAME lagrange_prolongation_test COMMAND ./lagrange_prolongation_test )
+add_test(NAME lagrange_edge_prolongation_test COMMAND ./lagrange_edge_prolongation_test )
