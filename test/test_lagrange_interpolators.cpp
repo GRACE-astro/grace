@@ -26,9 +26,9 @@
  */
 
 #include <catch2/catch_test_macros.hpp>
-#include <grace/utils/lagrange_interpolators.hh>
+#include <grace/utils/numerics/lagrange_interpolators.hh>
 #include <grace/data_structures/memory_defaults.hh>
-#include <grace/utils/prolongation.hh>
+#include <grace/utils/numerics/prolongation.hh>
 #include <Kokkos_Core.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
