@@ -33,7 +33,7 @@
 #    outside of system package manager; includes Homebrew
 # - /opt/local for MacPorts installation
 # - /sw/lib or /opt/sw/lib for Fink installation
-find_library(ScaLAPACK_LIBRARY
+find_library(SCALAPACK_LIBRARY
   NAMES scalapack scalapack-mpi scalapack-mpich scalapack-mpich2 scalapack-openmpi
   PATHS /usr/lib64 /usr/lib /usr/local/lib64 /usr/local/lib
   /opt/local/lib /opt/sw/lib /sw/lib
@@ -44,7 +44,7 @@ find_library(ScaLAPACK_LIBRARY
   ENV BLACSDIR)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(ScaLAPACK
-  REQUIRED_VARS ScaLAPACK_LIBRARY
+find_package_handle_standard_args(SCALAPACK
+  REQUIRED_VARS SCALAPACK_LIBRARY
   )
-set(ScaLAPACK_LIBRARIES ${ScaLAPACK_LIBRARY})
+set(SCALAPACK_LIBRARIES ${SCALAPACK_LIBRARY})

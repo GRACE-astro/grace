@@ -359,19 +359,14 @@ static void set_grmhd_kadath_initial_data() {
 
                     // change Eulerian velocity U^i [u^i = W(n^i + U^i)] 
                     // to coordinate velocity V^i = u^i / u^0 = alp * U^i - bet^i
-                    aux(VEC(i,j,k),VELX_,q) = state(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELX_,q) - state(VEC(i,j,k),BETAX_,q)
-                    aux(VEC(i,j,k),VELY_,q) = state(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELY_,q) - state(VEC(i,j,k),BETAY_,q)
-                    aux(VEC(i,j,k),VELZ_,q) = state(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELZ_,q) - state(VEC(i,j,k),BETAZ_,q)
+                    aux(VEC(i,j,k),VELX_,q) = state(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELX_,q) - state(VEC(i,j,k),BETAX_,q);
+                    aux(VEC(i,j,k),VELY_,q) = state(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELY_,q) - state(VEC(i,j,k),BETAY_,q);
+                    aux(VEC(i,j,k),VELZ_,q) = state(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELZ_,q) - state(VEC(i,j,k),BETAZ_,q);
 
                     aux(VEC(i,j,k),ZVECX_,q)  = w * aux(VEC(i,j,k),VELX_,q) ; 
                     aux(VEC(i,j,k),ZVECY_,q)  = w * aux(VEC(i,j,k),VELY_,q) ; 
                     aux(VEC(i,j,k),ZVECZ_,q)  = w * aux(VEC(i,j,k),VELZ_,q) ; 
-
-                    // What are the velocity conventions between Kadath and GRACE?
-                    // aux(VEC(i,j,k),VELX_,q)  = aux(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELX_,q) - aux(VEC(i,j,k),BETAX_,q) ; 
-                    // aux(VEC(i,j,k),VELY_,q)  = aux(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELY_,q) - aux(VEC(i,j,k),BETAY_,q) ; 
-                    // aux(VEC(i,j,k),VELZ_,q)  = aux(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELZ_,q) - aux(VEC(i,j,k),BETAZ_,q) ; 
-
+                    
                     double h, csnd2; 
                    
                     double ye  = _eos.ye_atmosphere()  ; 

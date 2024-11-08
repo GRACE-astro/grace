@@ -102,7 +102,7 @@ target_link_libraries(grace PRIVATE
         >
         # Libraries to link if GRACE_ENABLE_KADATH is true and GRACE_USE_MKL is false
         $<$<AND:$<BOOL:${GRACE_ENABLE_KADATH}>,$<NOT:$<BOOL:${GRACE_USE_MKL}>>>:
-        ${ScaLAPACK_LIBRARIES}        
+        ${SCALAPACK_LIBRARIES}        
         ${OpenBLAS_LIB}
         >
         # remaining conditional libraries
