@@ -99,6 +99,7 @@ struct edge_staggered_lagrange_interp_t {
     template< size_t ichild
             , size_t facedir 
             , typename view_t >
+    requires (edgedir!=facedir)
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     twod_interp(
         view_t& view, VEC(int ie, int je, int ke)

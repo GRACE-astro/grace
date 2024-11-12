@@ -462,6 +462,7 @@ struct lagrange_edge_prolongator_t<2,stagger_direction>
         // in 1d : A^z(i,j,k),  A^z(i,j,k+1)
         // in 2d:  A^z(i+1,j,k), A^z(i,j+1,k), A^z(i+1,j,k+1),A^z(i,j+1,k+1)
         // in 3d:  A^z(i+1,j+1,k), A^z(i+1,j+1,k+1)
+        // things should make sense once we substitute: fdir1=0, fdir2=1, sD=2
 
         using interp_t = edge_staggered_lagrange_interp_t<num_order::value,stagger_direction> ; 
         /*  interpolate along edges for two fine children edges */
@@ -470,9 +471,10 @@ struct lagrange_edge_prolongator_t<2,stagger_direction>
         constexpr size_t child_up = 0;
         constexpr size_t child_down = 1;
         using utils::delta;
-        constexpr size_t fdir1 = std::get<0>(get_complementary_dir<sD>());
-        constexpr size_t fdir2 = std::get<1>(get_complementary_dir<sD>());
+        constexpr size_t fdir1 = std::get<0>(get_complementary_dirs<sD>());
+        constexpr size_t fdir2 = std::get<1>(get_complementary_dirs<sD>());
 
+        // testing now:
         fine_view(VEC(i_f,j_f,k_f)) 
         = interp_t::template oned_interp<child_down,CoarseViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
         fine_view(VEC(i_f+delta(0,sD),j_f+delta(1,sD),k_f+delta(2,sD))) 
@@ -497,6 +499,51 @@ struct lagrange_edge_prolongator_t<2,stagger_direction>
         //upper child
         fine_view(VEC(i_f+1,j_f+1,k_f+1)) 
         = interp_t::template threed_interp<child_up,CoarseViewT>(coarse_view,VEC(i_c,j_c,k_c)) ; 
+
+
+        // remember: adding 2 * delta in the fine view is equivalent to adding +1 in the coarse view 
+        // because the grid is staggered, we need one more index in the directions orthogonal to the staggering:
+        fine_view(VEC(i_f+2*delta(0,fdir1),j_f+2*delta(1,fdir1),k_f+2*delta(2,fdir1))) 
+        = interp_t::template oned_interp<child_down,CoarseViewT>(coarse_view,VEC(i_c+delta(0,fdir1),j_c+delta(1,fdir1),k_c+delta(2,fdir1))) ; 
+        fine_view(VEC(i_f+2*delta(0,fdir2),j_f+2*delta(1,fdir2),k_f+2*delta(2,fdir2))) 
+        = interp_t::template oned_interp<child_down,CoarseViewT>(coarse_view,VEC(i_c+delta(0,fdir2),j_c+delta(1,fdir2),k_c+delta(2,fdir2))) ; 
+        
+        fine_view(VEC(i_f+2*delta(0,fdir1)+delta(0,sD),j_f+2*delta(1,fdir1)+delta(1,sD),k_f+2*delta(2,fdir1)+delta(2,sD))) 
+        = interp_t::template oned_interp<child_up,CoarseViewT>(coarse_view,VEC(i_c+delta(0,fdir1),j_c+delta(1,fdir1),k_c+delta(2,fdir1))) ; 
+        fine_view(VEC(i_f+2*delta(0,fdir2)+delta(0,sD),j_f+2*delta(1,fdir2)+delta(1,sD),k_f+2*delta(2,fdir2)+delta(2,sD))) 
+        = interp_t::template oned_interp<child_up,CoarseViewT>(coarse_view,VEC(i_c+delta(0,fdir2),j_c+delta(1,fdir2),k_c+delta(2,fdir2))) ; 
+        
+        // two d interpolation, in one direction the fine increment is x 2 
+        fine_view(VEC(i_f+2*delta(0,fdir1)+delta(0,fdir2),j_f+2*delta(1,fdir1)+delta(1,fdir2),k_f+2*delta(2,fdir1)+delta(2,fdir2))) 
+        = interp_t::template twod_interp<child_down,fdir2,CoarseViewT>(coarse_view,VEC(i_c+delta(0,fdir1),j_c+delta(1,fdir1),k_c+delta(2,fdir1))) ; 
+        // two d interpolation, in one direction the fine increment is x 2 
+        fine_view(VEC(i_f+2*delta(0,fdir1)+delta(0,fdir2)+delta(0,sD),j_f+2*delta(1,fdir1)+delta(1,fdir2)+delta(1,sD),k_f+2*delta(2,fdir1)+delta(2,fdir2)+delta(2,sD))) 
+        = interp_t::template twod_interp<child_up,fdir2,CoarseViewT>(coarse_view,VEC(i_c+delta(0,fdir1),j_c+delta(1,fdir1),k_c+delta(2,fdir1))) ; 
+
+        // exchange the role of fdir1 and f2
+        // two d interpolation, in one direction the fine increment is x 2 
+        fine_view(VEC(i_f+2*delta(0,fdir2)+delta(0,fdir1),j_f+2*delta(1,fdir2)+delta(1,fdir1),k_f+2*delta(2,fdir2)+delta(2,fdir1))) 
+        = interp_t::template twod_interp<child_down,fdir1,CoarseViewT>(coarse_view,VEC(i_c+delta(0,fdir2),j_c+delta(1,fdir2),k_c+delta(2,fdir2))) ; 
+        // two d interpolation, in one direction the fine increment is x 2 
+        fine_view(VEC(i_f+2*delta(0,fdir2)+delta(0,fdir1)+delta(0,sD),j_f+2*delta(1,fdir2)+delta(1,fdir1)+delta(1,sD),k_f+2*delta(2,fdir2)+delta(2,fdir1)+delta(2,sD))) 
+        = interp_t::template twod_interp<child_up,fdir1,CoarseViewT>(coarse_view,VEC(i_c+delta(0,fdir2),j_c+delta(1,fdir2),k_c+delta(2,fdir2))) ; 
+
+
+        // finally the two cells in the general volume:
+        // fine_view(VEC(i_f+2*delta(0,fdir1)+2*delta(0,fdir2),j_f+2*delta(1,fdir1)+2*delta(1,fdir2),k_f+2*delta(2,fdir1)+2*delta(2,fdir2))) 
+        // = interp_t::template threed_interp<child_down,CoarseViewT>(coarse_view,VEC(i_c+1,j_c+1,k_c)) ; 
+        // // finally the two cells in the general volume:
+        // fine_view(VEC(i_f+2*delta(0,fdir1)+2*delta(0,fdir2)+delta(0,sD),j_f+2*delta(1,fdir1)+2*delta(1,fdir2)+delta(1,sD),k_f+2*delta(2,fdir1)+2*delta(2,fdir2)+delta(2,sD))) 
+        // = interp_t::template threed_interp<child_up,CoarseViewT>(coarse_view,VEC(i_c+1,j_c+1,k_c)) ; 
+
+        //actually these cells are already aligned with the next coarse edge:
+        fine_view(VEC(i_f+2*delta(0,fdir1)+2*delta(0,fdir2),j_f+2*delta(1,fdir1)+2*delta(1,fdir2),k_f+2*delta(2,fdir1)+2*delta(2,fdir2))) 
+        = interp_t::template oned_interp<child_down,CoarseViewT>(coarse_view,VEC(i_c+1,j_c+1,k_c)) ; 
+        // finally the two cells in the general volume:
+        fine_view(VEC(i_f+2*delta(0,fdir1)+2*delta(0,fdir2)+delta(0,sD),j_f+2*delta(1,fdir1)+2*delta(1,fdir2)+delta(1,sD),k_f+2*delta(2,fdir1)+2*delta(2,fdir2)+delta(2,sD))) 
+        = interp_t::template oned_interp<child_up,CoarseViewT>(coarse_view,VEC(i_c+1,j_c+1,k_c)) ; 
+
+
 
 
 
