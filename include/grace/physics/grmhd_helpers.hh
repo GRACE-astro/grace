@@ -113,6 +113,50 @@ consarr[STZL] = vview(__VA_ARGS__,SZ_,q);          \
 consarr[YESL] = vview(__VA_ARGS__,YESTAR_,q);      \
 consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q) 
 
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+zvec_to_vel(
+  grace::metric_array_t const& metric,
+  double& zx, double& zy, double & zz
+)
+{
+  double const alp = metric.alp() ;
+  double const w   = Kokkos::sqrt(1. 
+      + metric.square_vec({zx, zy, zz}));
+  zx = alp * zx / w - metric.beta(0) ;
+  zy = alp * zy / w - metric.beta(1) ;
+  zz = alp * zz / w - metric.beta(2) ; 
+  return w;
+}
+
+
+grace::grmhd_prims_array_t GRACE_HOST_DEVICE 
+get_primitives_cell_corner(
+  grace::var_array_t<GRACE_NSPACEDIM> const& state,
+  grace::var_array_t<GRACE_NSPACEDIM> const& cstate,
+  grace::metric_array_t const& metric,
+  double& W
+  VEC(int i, int j, int k),
+  int64_t q
+)
+{
+  using namespace Kokkos ;
+  std::array<int, NUM_PRIMS_LOC> prim_idx {
+    RHO_,PRESS_,ZVECX_,ZVECY_,ZVECZ_,YE_,TEMP_,EPS_,ENTROPY_
+  } ; 
+
+  grace::grmhd_prims_array_t prims ; 
+  int _idx = 0 ;
+  for( auto const& ivar: prim_idx ) {
+    auto sview = subview(state,VEC(ALL(),ALL(),ALL()),ivar,q) ; 
+    // interpolate 
+    prims[_idx] = center_to_corner<2>::interpolate(sview,VEC(i,j,k)) ; 
+    ++_idx ; 
+  }
+  
+  // convert zvec to vel 
+  W = zvec_to_vel(metric,prims[VXL],prims[VYL],primz[VZL]) ; 
+  return prims ; 
+}
 
 
 struct grmhd_id_t {

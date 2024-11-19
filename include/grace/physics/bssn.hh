@@ -64,8 +64,9 @@ struct bssn_system_t
  public:
 
     bssn_system_t( grace::var_array_t<GRACE_NSPACEDIM> state_ 
-                 , grace::var_array_t<GRACE_NSPACEDIM> aux_ )
-        : base_t(state_,aux_) 
+                 , grace::var_array_t<GRACE_NSPACEDIM> aux_ 
+                 , grace::staggered_variable_arrays_t  sstate_ )
+        : base_t(state_,aux_,sstate_) 
     {} 
 
     template< size_t der_order >
@@ -76,17 +77,72 @@ struct bssn_system_t
                             , int const k)
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx 
                        , grace::var_array_t<GRACE_NSPACEDIM> const state_new 
+                       , grace::staggered_variable_arrays_t const sstate_new 
                        , double const dt 
                        , double const dtfact ) const
     {
+        auto& state  = this->_state                             ;
+        auto& cstate = this->_sstate.corner_staggered_fields    ;
+        auto& aux    = this->_aux                               ;
 
         std::array<double, GRACE_NSPACEDIM> idx{ VEC(_idx(0,q), _idx(1,q), _idx(2,q))} ;  
 
-        grmhd_prims_array_t hydro_state ;
-        FILL_PRIMS_ARRAY(hydro_state, this->_aux, q, VEC(i,j,k)); 
+        auto const metric = get_metric_array(
+            state,cstate,
+            VEC(i,j,k),
+            q,
+            {VEC(true,true,true)}
+        ) ; 
 
-        bssn_state_t update = compute_bssn_rhs<der_order>(this->_state, hydro_state, idx)  ; 
-        
+        double W;
+        grmhd_prims_array_t hydro_state = get_primitives_cell_corner(
+            aux,state,metric,W,VEC(i,j,k),q
+        );
+
+        // Fill Tmunu 
+        std::array<std::array<double,4>,4> Tmunu ;
+        double const u0 =  W/metric.alp() ; 
+        std::array<double,4> uU { u0, prims[VXL]/u0, prims[VYL]/u0, prims[VZL]/u0 } ; 
+        auto uD = metric.lower_4vec(uU)  ; 
+        auto gdd = metric.invgmunu()     ; 
+        int idx4[4][4] = {
+            {0,1,2,3},
+            {1,4,5,6},
+            {2,5,7,8},
+            {3,6,7,9}
+        } ; 
+        for( int mu=0; mu<4; ++mu ) {
+            for( int nu=0; nu<4; ++nu) {
+                Tmunu[mu][nu] = (prims[RHOL] + prims[PRESSL]) * uD[mu] * uD[nu] + P * gdd[idx4[mu][nu]] ;
+            }
+        }
+
+        bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx)  ;   
+
+        // Apply update
+        cstate_new = sstate_new.corner_staggered_fields; 
+
+        cstate_new(VEC(i,j,k),PHI_,q) += dt * dtfact * update[PHIL] ;
+        cstate_new(VEC(i,j,k),K_,q)   += dt * dtfact * update[KL]   ;
+        int ww = 0 ; 
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        ww = 0 ; 
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        ww = 0 ; 
+        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
+
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -95,7 +151,7 @@ struct bssn_system_t
                             , const int k)
                         , const int64_t q ) const 
     {
-
+        // here we'll need to calculate the constraints 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 

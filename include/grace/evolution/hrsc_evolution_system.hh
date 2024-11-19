@@ -105,10 +105,11 @@ struct hrsc_evolution_system_t {
                ,      const int k)
                , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
                , grace::var_array_t<GRACE_NSPACEDIM> const state_new 
+               , grace::staggered_variable_arrays_t const sstate_new 
                , double const dt 
                , double const dtfact ) const 
     {
-        return static_cast<EvolSystem_t const *>(this)->compute_source_terms(q,VEC(i,j,k),idx,state_new,dt,dtfact) ; 
+        return static_cast<EvolSystem_t const *>(this)->compute_source_terms(q,VEC(i,j,k),idx,state_new,sstate_new,dt,dtfact) ; 
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 

@@ -50,6 +50,35 @@
 namespace grace{
 
 grace::metric_array_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+get_metric_array_cell_corner(
+    grace::var_array_t<GRACE_NSPACEDIM> const& state,
+    VEC(int i, int j, int k),
+    int64_t q
+)
+{
+    #ifdef GRACE_ENABLE_COWLING_METRIC
+    // need to interpolate
+    #else
+    return grace::metric_array_t {
+        {
+            state(VEC(i,j,k),GTXX_,q),
+            state(VEC(i,j,k),GTXY_,q),
+            state(VEC(i,j,k),GTXZ_,q),
+            state(VEC(i,j,k),GTYY_,q),
+            state(VEC(i,j,k),GTYZ_,q),
+            state(VEC(i,j,k),GTZZ_,q)
+        }, 
+        state(VEC(i,j,k),PHI_,q), 
+        {
+            state(VEC(i,j,k),BETAX_,q),
+            state(VEC(i,j,k),BETAY_,q),
+            state(VEC(i,j,k),BETAZ_,q)  
+        }, 
+        state(VEC(i,j,k),ALP_,q)
+    } ; 
+    #endif 
+}
+grace::metric_array_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 get_metric_array_cell_center(
     grace::var_array_t<GRACE_NSPACEDIM> const& state,
     VEC(int i, int j, int k),
@@ -165,7 +194,7 @@ get_metric_array_cell_face(
 }
 
 std::array<double,6> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-get_extrinsic_curvature(
+get_extrinsic_curvature_cell_center(
     grace::var_array_t<GRACE_NSPACEDIM> const& state,
     VEC(int i,int j,int k),
     int64_t q,
@@ -199,6 +228,40 @@ get_extrinsic_curvature(
      
     return Kij ; 
     #endif
+}
+
+grace::metric_array_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+get_metric_array(
+    grace::var_array_t<GRACE_NSPACEDIM> const& state,
+    grace::var_array_t<GRACE_NSPACEDIM> const& cstate,
+    VEC(int i, int j, int k), int64_t q, 
+    std::array<bool,GRACE_NSPACEDIM> stagger 
+)
+{
+    #ifdef GRACE_ENABLE_COWLING_METRIC
+    auto& mview = state ; 
+    #else 
+    auto& mview = cstate ; 
+    #endif 
+
+    // Decide what to do based on staggering 
+    if ( EXPR((not stagger[0]), and (not stagger[1]), and (not stagger[2])) ) 
+    {
+        return get_metric_array_cell_center(mview,VEC(i,j,k),q) 
+    } else if ( stagger[0] ) {
+        return get_metric_array_cell_face<0>(mview,VEC(i,j,k),q) ;
+    } else if ( stagger[1] ) {
+        return get_metric_array_cell_face<1>(mview,VEC(i,j,k),q) ;
+    } 
+    #ifdef GRACE_3D 
+    else if ( stagger[2] ) {
+        return get_metric_array_cell_face<2>(mview,VEC(i,j,k),q) ;
+    } 
+    #endif 
+    else {
+        // assume corner 
+        return get_metric_array_cell_corner(mview,VEC(i,j,k),q) ;
+    }
 }
 
 } /* namespace grace */

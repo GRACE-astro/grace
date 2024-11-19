@@ -32,6 +32,9 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/grmhd_helpers.hh>
+#ifdef GRACE_ENABLE_BSSN_METRIC
+#include <grace/physics/bssn_helpers.hh>
+#endif 
 #include <grace/physics/id/shocktube.hh>
 //#include <grace/physics/id/blastwave.hh>
 #include <grace/physics/id/tov.hh>
@@ -294,19 +297,9 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                                                                    , ye,err);
                     /* Set ye */
                     aux(VEC(i,j,k),YE_,q) = ye ; 
-                }) ; 
+    }) ; 
     #ifdef GRACE_ENABLE_BSSN_METRIC
-    grace::fill_physical_coordinates(pcoords, {VEC(true,true,true)}) ;
-    parallel_for( GRACE_EXECUTION_TAG("ID","metric_ID")
-                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+1+2*ngz,ny+1+2*ngz,nz+1+2*ngz),nq})
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                {
-                    auto const id = id_kernel(VEC(i,j,k), q) ; 
-
-                    //amd_to_bssn(id, sstate.corner_staggered_fields, VEC(i,j,k), q) ; 
-                }
-    ) ; 
-
+    init_bssn_metric(id_kernel,state,sstate) ; 
     #endif 
 }
 

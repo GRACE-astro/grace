@@ -191,6 +191,7 @@ struct grmhd_equations_system_t
                          ,      const int k)
                          , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
                          , grace::var_array_t<GRACE_NSPACEDIM> const state_new
+                         , grace::staggered_variable_arrays_t const sstate_new 
                          , double const dt 
                          , double const dtfact ) const 
     {

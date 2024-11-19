@@ -39,21 +39,7 @@
 #include <Kokkos_Core.hpp>
 
 namespace grace {
-#if 0
-void adm_to_bssn(
-    grmhd_id_t const& id, 
-    grace::var_array_t<GRACE_NSPACEDIM>& state,
-    VEC(int i, int j, int k), int q
-)
-{
-    double const sqrtgamma = 
-        Kokkos::sqrt() ; 
 
-    state(VEC(i,j,k), PHI_, q) = 1./(sqrtgamma*sqrtgamma*sqrtgamma) ; 
-
-    state(VEC(i,j,k), GTXX_, q) =
-}
-#endif
 template< size_t der_order >
 bssn_state_t GRACE_HOST_DEVICE 
 compute_bssn_rhs( VEC(int i, int j, int k), int q

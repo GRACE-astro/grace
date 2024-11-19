@@ -217,6 +217,27 @@ raise(std::array<double,3> const& v ) const {
         , _ginv[XZ] * v[X] + _ginv[YZ] * v[Y] + _ginv[ZZ] * v[Z]
     } ; 
 }
+
+/**
+ * @brief Raise the index of a 4-covector.
+ * 
+ * @param v Components of the 4-covector.
+ * @return std::array<double,4> The 4-vector 
+ *         obtained as \f$g^{\mu \nu} v_\nu\f$.
+ */
+std::array<double,4> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+raise_4covec(std::array<double,4> const& v ) const {
+    // TT TX TY TZ TX XX XY XZ TY XY YY YZ TZ XZ YZ ZZ 
+    // 0  1  2  3  1  4  5  6  2  5  7  8  3  6  8  9
+    auto _guu = invgmunu()  ;
+    return std::array<double,4> {
+          _guu[0] * v[0] + _guu[1] * v[1] + _guu[2] * v[2] + _guu[3] * v[3]
+        , _guu[1] * v[0] + _guu[4] * v[1] + _guu[5] * v[2] + _guu[6] * v[3]
+        , _guu[2] * v[0] + _guu[5] * v[1] + _guu[7] * v[2] + _guu[8] * v[3]
+        , _guu[3] * v[0] + _guu[6] * v[1] + _guu[8] * v[2] + _guu[9] * v[3]
+    } ; 
+}
+
 /**
  * @brief Lower the index of a 3-vector.
  * 
@@ -232,6 +253,27 @@ lower(std::array<double,3> const& v ) const {
         , _g[XZ] * v[X] + _g[YZ] * v[Y] + _g[ZZ] * v[Z]
     } ; 
 }
+
+/**
+ * @brief Lower the index of a 4-vector.
+ * 
+ * @param v Components of the 4-vector.
+ * @return std::array<double,4> The 4-covector 
+ *         obtained as \f$g_{\mu \nu} v^\nu\f$.
+ */
+std::array<double,4> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+lower_4vec(std::array<double,4> const& v ) const {
+    // TT TX TY TZ TX XX XY XZ TY XY YY YZ TZ XZ YZ ZZ 
+    // 0  1  2  3  1  4  5  6  2  5  7  8  3  6  8  9
+    auto _guu = gmunu()  ;
+    return std::array<double,4> {
+          _guu[0] * v[0] + _guu[1] * v[1] + _guu[2] * v[2] + _guu[3] * v[3]
+        , _guu[1] * v[0] + _guu[4] * v[1] + _guu[5] * v[2] + _guu[6] * v[3]
+        , _guu[2] * v[0] + _guu[5] * v[1] + _guu[7] * v[2] + _guu[8] * v[3]
+        , _guu[3] * v[0] + _guu[6] * v[1] + _guu[8] * v[2] + _guu[9] * v[3]
+    } ; 
+}
+
 /**
  * @brief Compute the square norm of a 3-vector.
  * 
@@ -389,6 +431,18 @@ contract_4dsym2tens_4dsym2tens( std::array<double,10> const& A
          + 2*( A[1]*B[1]  + A[2]*B[2] 
              + A[3]*B[3]  + A[5]*B[5] 
              + A[6]*B[6]  + A[8]*B[8] ) ;
+}
+
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+trace_sym2tens_upper(std::array<double,6> const& A) const 
+{
+    return (*this).contract_sym2tens_sym2tens(_g,A) ; 
+}
+
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+trace_sym2tens_lower(std::array<double,6> const& A) const 
+{
+    return (*this).contract_sym2tens_sym2tens(_ginv,A) ; 
 }
 
 std::array<double,6> _g, _ginv ; //!< Spatial metric and inverse components.
