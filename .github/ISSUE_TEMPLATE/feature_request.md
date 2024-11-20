@@ -15,5 +15,8 @@ A clear and concise description of what you want to happen.
 **Describe alternatives you've considered**
 A clear and concise description of any alternatives you've considered.
 
+**Acceptance criteria**
+If you are a member of the GRACE org, clearly state what criteria will determine a succesful PR.
+
 **Additional context**
 Add any other context or screenshots about the feature request here.
