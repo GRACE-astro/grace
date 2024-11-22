@@ -87,7 +87,6 @@ get_metric_array_cell_center(
 {
     using namespace Kokkos ; 
     #ifdef GRACE_ENABLE_COWLING_METRIC
-    auto& state = grace::variable_list::get().getstate() ;
     return grace::metric_array_t {
         {state(VEC(i,j,k), GXX_, q), 
          state(VEC(i,j,k), GXY_, q),
@@ -215,7 +214,7 @@ get_extrinsic_curvature_cell_center(
     using interp_t = utils::corner_staggered_lagrange_interp_t<2> ; 
     auto sview = Kokkos::subview(state,VEC(ALL(),ALL(),ALL()), K_, q);
     double const K = interp_t::threed_interp(sview, VEC(i,j,k)) ; 
-    auto phi = 1./Kokkos::cbrt(gamma.sqrtg()) ;
+    auto phi = SQRTG_TO_CONFFACT(gamma.sqrtg()) ;
 
     std::array<int,6> A_indices {
         ATXX_,ATXY_,ATXZ_,ATYY_,ATYZ_,ATZZ_
@@ -223,7 +222,7 @@ get_extrinsic_curvature_cell_center(
     std::array<double,6> Kij ; 
     for( int i=0; i<6; ++i ) {
         auto sview = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), A_indices[i], q) ; 
-        Kij[i] = interp_t::threed_interp(sview, VEC(i,j,k))/(phi*phi) + 1./3. * gamma.gamma(i) * K ; 
+        Kij[i] = POW_CONFFACT(phi)*interp_t::threed_interp(sview, VEC(i,j,k)) + 1./3. * gamma.gamma(i) * K ; 
     }
      
     return Kij ; 
@@ -247,7 +246,9 @@ get_metric_array(
     // Decide what to do based on staggering 
     if ( EXPR((not stagger[0]), and (not stagger[1]), and (not stagger[2])) ) 
     {
-        return get_metric_array_cell_center(mview,VEC(i,j,k),q) 
+        return get_metric_array_cell_center(mview,VEC(i,j,k),q) ;
+    } else if (EXPR(( stagger[0]), and ( stagger[1]), and ( stagger[2])) ) {
+        return get_metric_array_cell_corner(mview,VEC(i,j,k),q) ;
     } else if ( stagger[0] ) {
         return get_metric_array_cell_face<0>(mview,VEC(i,j,k),q) ;
     } else if ( stagger[1] ) {
@@ -258,10 +259,9 @@ get_metric_array(
         return get_metric_array_cell_face<2>(mview,VEC(i,j,k),q) ;
     } 
     #endif 
-    else {
-        // assume corner 
-        return get_metric_array_cell_corner(mview,VEC(i,j,k),q) ;
-    }
+    return grace::metric_array_t{
+        {1,0,0,1,0,1}, {0,0,0}, 1
+    } ; 
 }
 
 } /* namespace grace */

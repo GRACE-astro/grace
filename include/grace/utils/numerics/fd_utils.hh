@@ -430,7 +430,7 @@ struct fd_der_bnd_check_recursive {
 } ; 
 
 template< size_t der_order, size_t idir >
-struct fd_der_recursive<1,der_order, idir> {
+struct fd_der_bnd_check_recursive<1,der_order, idir> {
     template< size_t order, typename ViewT >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     doit (ViewT const var, VEC(int i, int j, int k), VEC(int nx, int ny, int nz), int ngz) {
@@ -542,10 +542,11 @@ double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
 fd_der_bnd_check( grace::var_array_t<GRACE_NSPACEDIM> const u 
                 , int const ivar 
                 , VEC( int const i, int const j, int const k)
-                , int const q ) 
+                , int const q 
+                , VEC(int nx, int ny, int nz), int ngz) 
 {
     auto var = Kokkos::subview(u,VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), ivar, q) ; 
-    return detail::fd_der_recursive<sizeof...(dirs),1,dirs...>::template doit<der_order>(var,VEC(i,j,k)) ; 
+    return detail::fd_der_bnd_check_recursive<sizeof...(dirs),1,dirs...>::template doit<der_order>(var,VEC(i,j,k),VEC(nx,ny,nz),ngz) ; 
 }
 
 }

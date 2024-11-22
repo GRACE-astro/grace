@@ -30,6 +30,13 @@
 
 #include <grace_config.h> 
 #include <array>
+
+#include <grace/data_structures/variable_properties.hh>
+#include <grace/data_structures/variable_indices.hh>
+#include <grace/utils/numerics/metric_utils.hh>
+#include <grace/utils/numerics/grid_transfer.hh>
+#include <Kokkos_Core.hpp>
+
 //**************************************************************************************************/
 /* Auxiliaries */
 //**************************************************************************************************/
@@ -113,7 +120,16 @@ consarr[STZL] = vview(__VA_ARGS__,SZ_,q);          \
 consarr[YESL] = vview(__VA_ARGS__,YESTAR_,q);      \
 consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q) 
 
-double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+/**
+ * @brief Convert z^i to v^i
+ * 
+ * @param metric A `metric_array_t`
+ * @param [inout] zx The x component of zvec
+ * @param [inout] zy The y component of zvec 
+ * @param [inout] zz The z component of zvec 
+ * @return double The lorentz factor
+ */
+static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 zvec_to_vel(
   grace::metric_array_t const& metric,
   double& zx, double& zy, double & zz
@@ -128,18 +144,32 @@ zvec_to_vel(
   return w;
 }
 
-
-grace::grmhd_prims_array_t GRACE_HOST_DEVICE 
+/**
+ * @brief Get the primitive variables at a cell corner.
+ * 
+ * @param aux Auxiliary variable array
+ * @param cstate Corner staggered variable array
+ * @param metric Metric array
+ * @param [out] W Lorentz factor
+ * @param i x cell index 
+ * @param j y cell index 
+ * @param k z cell index
+ * @param q quadrant index
+ * @return grace::grmhd_prims_array_t primitive variables at the i-1/2,j-1/2,k-1/2 corner. 
+ */
+static grace::grmhd_prims_array_t GRACE_HOST_DEVICE 
 get_primitives_cell_corner(
-  grace::var_array_t<GRACE_NSPACEDIM> const& state,
+  grace::var_array_t<GRACE_NSPACEDIM> const& aux,
   grace::var_array_t<GRACE_NSPACEDIM> const& cstate,
   grace::metric_array_t const& metric,
-  double& W
+  double& W,
   VEC(int i, int j, int k),
   int64_t q
 )
 {
   using namespace Kokkos ;
+  using namespace grace  ; 
+
   std::array<int, NUM_PRIMS_LOC> prim_idx {
     RHO_,PRESS_,ZVECX_,ZVECY_,ZVECZ_,YE_,TEMP_,EPS_,ENTROPY_
   } ; 
@@ -147,14 +177,14 @@ get_primitives_cell_corner(
   grace::grmhd_prims_array_t prims ; 
   int _idx = 0 ;
   for( auto const& ivar: prim_idx ) {
-    auto sview = subview(state,VEC(ALL(),ALL(),ALL()),ivar,q) ; 
+    auto sview = subview(aux,VEC(ALL(),ALL(),ALL()),ivar,q) ; 
     // interpolate 
     prims[_idx] = center_to_corner<2>::interpolate(sview,VEC(i,j,k)) ; 
     ++_idx ; 
   }
   
   // convert zvec to vel 
-  W = zvec_to_vel(metric,prims[VXL],prims[VYL],primz[VZL]) ; 
+  W = zvec_to_vel(metric,prims[VXL],prims[VYL],prims[VZL]) ; 
   return prims ; 
 }
 

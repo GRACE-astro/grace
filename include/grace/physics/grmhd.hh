@@ -212,8 +212,14 @@ struct grmhd_equations_system_t
         /**************************************************************************************************/
 
         /* Read in the metric                                                                             */
+        #if 0
         metric_array_t metric = 
             get_metric_array_cell_center(this->_sstate.corner_staggered_fields,VEC(i,j,k),q);
+        #else 
+        metric_array_t metric {
+            {1,0,0,1,0,1},{0,0,0},1
+        };
+        #endif 
 
 
         /* Compute inverse (contravariant) four-metric                                                    */
@@ -256,8 +262,8 @@ struct grmhd_equations_system_t
             }
         }
         /* Read in the extrinsic curvature                                                                */
-        auto const Kij = get_extrinsic_curvature(this->_sstate.corner_staggered_fields, VEC(i,j,k), q, metric) ; 
-        //for( auto& x: Kij ) x = 0 ; 
+        auto /*const*/ Kij = get_extrinsic_curvature_cell_center(this->_sstate.corner_staggered_fields, VEC(i,j,k), q, metric) ; 
+        for( auto& x: Kij ) x = 0 ; 
         /* Source for the conserved energy (added piece by piece below)                                   */
         double tau_source{0.};
 
@@ -290,6 +296,7 @@ struct grmhd_equations_system_t
         for( int idir=0; idir<GRACE_NSPACEDIM; ++idir) {
 
             /* Read metric components at neighor cell centres for metric derivative                           */
+            #if 0
             metric_array_t metric_m = get_metric_array_cell_center(
                 this->_sstate.corner_staggered_fields,
                 VEC(  i-utils::delta(0,idir)
@@ -304,7 +311,15 @@ struct grmhd_equations_system_t
                     , k+utils::delta(2,idir)),
                 q
             ) ; 
-            
+            #else 
+            metric_array_t metric_m {
+                {1,0,0,1,0,1},{0,0,0},1
+            };
+            metric_array_t metric_p {
+                {1,0,0,1,0,1},{0,0,0},1
+            };
+            #endif 
+                
             /**************************************************************************************************/
             /* Compute metric derivatives                                                                     */
             /* We need \partial_i g_{\alpha\beta} for the momentum source term and \partial_i \alpha for the  */
@@ -392,8 +407,20 @@ struct grmhd_equations_system_t
         cons[TAUL]  = vars(TAU_)         ;
         cons[YESL]  = vars(YESTAR_)      ; 
         cons[ENTSL] = vars(ENTROPYSTAR_) ; 
+        #if 0 
         metric_array_t metric = 
-            get_metric_array_cell_center(this->_sstate.corner_staggered_fields,VEC(i,j,k),q);
+            get_metric_array_cell_center(
+                #ifdef GRACE_ENABLE_BSSN_METRIC
+                this->_sstate.corner_staggered_fields,
+                #else 
+                this->_state,
+                #endif
+                VEC(i,j,k),q);
+        #else 
+        metric_array_t metric {
+            {1,0,0,1,0,1},{0,0,0},1
+        };
+        #endif 
         grmhd_prims_array_t prims ;
         conservs_to_prims<eos_t>( cons, prims, metric
                                 , this->_eos, this->_lapse_excision ) ;
@@ -460,8 +487,14 @@ struct grmhd_equations_system_t
         grmhd_prims_array_t prims ;
         FILL_PRIMS_ARRAY(prims,this->_aux,q,VEC(i,j,k)) ;
         /* Get metric */
+        #if 0
         metric_array_t metric = 
             get_metric_array_cell_center(this->_sstate.corner_staggered_fields,VEC(i,j,k),q);
+        #else
+        metric_array_t metric {
+            {1,0,0,1,0,1},{0,0,0},1
+        } ; 
+        #endif 
         /* Get soundspeed, enthalpy */
         double csnd2, h ; 
         unsigned int err ; 
@@ -533,11 +566,12 @@ struct grmhd_equations_system_t
         /* Define and interpolate metric                                       */
         /***********************************************************************/
         metric_array_t metric_face =
-            get_metric_array_cell_face<idir>(
-                this->_sstate,
-                VEC(i,j,k),
-                q
-            ) ;
+            get_metric_array(
+                this->_state,
+                this->_sstate.corner_staggered_fields,
+                VEC(i,j,k),q,{VEC(idir==0,idir==1,idir==2)}
+            ) ; 
+
         
         /***********************************************************************/
         /* Initialize Riemann solver                                           */
@@ -790,6 +824,7 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* Define and interpolate metric                                       */
         /***********************************************************************/
+        #if 1 
         metric_array_t metric_face =
             get_metric_array_cell_face<idir>(
                 #ifdef GRACE_ENABLE_COWLING_METRIC
@@ -800,7 +835,11 @@ struct grmhd_equations_system_t
                 VEC(i,j,k),
                 q
             ) ;
-        
+        #else 
+        metric_array_t metric_face {
+            {1,0,0,1,0,1},{0,0,0},1
+        };
+        #endif
         /***********************************************************************/
         /*              Reconstruct primitive variables                        */
         /***********************************************************************/

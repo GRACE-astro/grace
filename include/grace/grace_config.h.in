@@ -133,6 +133,10 @@ using grace_loop_idx_t = int ;
 
 #ifdef GRACE_ENABLE_BSSN_METRIC
 #define GRACE_METRIC_IS_CONFORMAL
+#define POW_CONFFACT(phi) Kokkos::exp(4 * phi)
+#define INVPOW_CONFFACT(phi) Kokkos::exp(-4 * phi)
+#define CONFFACT_TO_SQRTG(phi) Kokkos::exp(6*phi)
+#define SQRTG_TO_CONFFACT(sqrtg) 1./6.*Kokkos::log(sqrtg)
 #endif
 
 }

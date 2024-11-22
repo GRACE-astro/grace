@@ -141,7 +141,7 @@ struct center_to_corner<4>
              - view(VEC(1 + ic,1 + jc,-2 + kc)) 
              + 9*view(VEC(1 + ic,1 + jc,-1 + kc)) 
              + 9*view(VEC(1 + ic,1 + jc,kc)) 
-             - view(VEC(1 + ic,1 + jc,1 + kc)))/4096.
+             - view(VEC(1 + ic,1 + jc,1 + kc)))/4096. ; 
     }
 } ; 
 

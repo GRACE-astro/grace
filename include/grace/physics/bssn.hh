@@ -37,6 +37,7 @@
 #include <grace/evolution/fd_evolution_system.hh>
 
 #include <grace/physics/grmhd_helpers.hh>
+#include <grace/physics/grmhd_metric_utils.hh>
 #include <grace/physics/bssn_helpers.hh>
 
 #include <Kokkos_Core.hpp>
@@ -83,6 +84,7 @@ struct bssn_system_t
     {
         auto& state  = this->_state                             ;
         auto& cstate = this->_sstate.corner_staggered_fields    ;
+        auto& cstate_new = sstate_new.corner_staggered_fields    ;
         auto& aux    = this->_aux                               ;
 
         std::array<double, GRACE_NSPACEDIM> idx{ VEC(_idx(0,q), _idx(1,q), _idx(2,q))} ;  
@@ -95,7 +97,7 @@ struct bssn_system_t
         ) ; 
 
         double W;
-        grmhd_prims_array_t hydro_state = get_primitives_cell_corner(
+        grmhd_prims_array_t prims = get_primitives_cell_corner(
             aux,state,metric,W,VEC(i,j,k),q
         );
 
@@ -113,15 +115,13 @@ struct bssn_system_t
         } ; 
         for( int mu=0; mu<4; ++mu ) {
             for( int nu=0; nu<4; ++nu) {
-                Tmunu[mu][nu] = (prims[RHOL] + prims[PRESSL]) * uD[mu] * uD[nu] + P * gdd[idx4[mu][nu]] ;
+                Tmunu[mu][nu] = (prims[RHOL] + prims[PRESSL]) * uD[mu] * uD[nu] + prims[PRESSL] * gdd[idx4[mu][nu]] ;
             }
         }
 
         bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx)  ;   
-
+        // Apply Berger-
         // Apply update
-        cstate_new = sstate_new.corner_staggered_fields; 
-
         cstate_new(VEC(i,j,k),PHI_,q) += dt * dtfact * update[PHIL] ;
         cstate_new(VEC(i,j,k),K_,q)   += dt * dtfact * update[KL]   ;
         int ww = 0 ; 

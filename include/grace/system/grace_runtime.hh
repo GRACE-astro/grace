@@ -457,7 +457,7 @@ class grace_runtime_impl_t
 
         /* Define helper lambda */
         auto const check_vars_exist_and_insert = 
-            [&] (std::vector<std::string> const& vlist, std::set<std::string>& olist, std::set<std::string> olist2 )
+            [&] (std::vector<std::string> const& vlist, std::set<std::string>& olist, std::set<std::string>& olist2 )
         {
             for( auto const& x: vlist ) {
                 if ( variables::var_exists(x) ) {

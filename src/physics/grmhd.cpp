@@ -228,8 +228,9 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
     grace::fill_physical_coordinates(pcoords) ; 
     GRACE_TRACE("Filled physical coordinates array.") ; 
     auto& state = grace::variable_list::get().getstate() ; 
-    auto& sstate = grace::variable_list::get().getstaggeredstate() ;
+    auto& cstate = grace::variable_list::get().getstaggeredstate().corner_staggered_fields ;
     auto& aux   = grace::variable_list::get().getaux()   ; 
+    auto& idx   = grace::variable_list::get().getinvspacings()   ; 
 
     auto const& _eos = eos::get().get_eos<eos_t>() ; 
 
@@ -245,8 +246,8 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),RHO_,q)   = id.rho; 
                     aux(VEC(i,j,k),PRESS_,q) = id.press ; 
 
-                    #ifdef GRACE_ENABLE_ADM_METRIC
-                    state(VEC(i,j,k),_ALP_,q) = id.alp ;
+                    #ifdef GRACE_ENABLE_COWLING_METRIC
+                    state(VEC(i,j,k),ALP_,q) = id.alp ;
 
                     state(VEC(i,j,k),BETAX_,q) = id.betax ;
                     state(VEC(i,j,k),BETAY_,q) = id.betay ;
@@ -299,7 +300,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),YE_,q) = ye ; 
     }) ; 
     #ifdef GRACE_ENABLE_BSSN_METRIC
-    init_bssn_metric(id_kernel,state,sstate) ; 
+    init_bssn_metric(id_kernel,state,cstate,idx) ; 
     #endif 
 }
 
@@ -347,11 +348,18 @@ void set_conservs_from_prims() {
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
+        #if 1
         metric_array_t metric = 
             get_metric_array_cell_center(
-                cstate, VEC(i,j,k), q
+                #ifdef GRACE_ENABLE_COWLING_METRIC
+                state,
+                #else
+                cstate,
+                #endif 
+                VEC(i,j,k), q
             ); 
-
+        #endif 
+        
         grmhd_prims_array_t prims ; 
         FILL_PRIMS_ARRAY(prims,aux,q,VEC(i,j,k)) ; 
         grmhd_cons_array_t cons ;

@@ -183,4 +183,49 @@ TEST_CASE("metric", "[metric-tests]") {
             Catch::Matchers::WithinAbs(vh[iv], 1e-12)
         ) ;
     }
+
+    /* Test metric with conformal inputs */
+    double const fact = 1./Kokkos::cbrt(37) ; 
+    double const phi  = Kokkos::log(37)/12;
+    std::array<double,6> _gexact {
+        5,2,3,6,5,6
+    } ; 
+     std::array<double,6> _invgexact {
+        0.297297,0.0810811,-0.216216,0.567568,-0.513514,0.702703
+    } ; 
+    std::array<double,6> _gtilde ; 
+    for( int i=0; i<6; ++i )
+        _gtilde[i] = _gexact[i] * fact ; 
+
+    grace::metric_array_t conf_metric {
+        _gtilde,phi,{0,0,0},1 
+    } ; 
+
+    grace::metric_array_t phys_metric {
+        _gexact, {0,0,0}, 1 
+    } ;
+
+    
+    for( int iv=0; iv<6; ++iv ) {
+        CHECK_THAT(
+            conf_metric.gamma(iv),
+            Catch::Matchers::WithinRel(_gexact[iv], 1e-12)
+        ) ; 
+
+        CHECK_THAT(
+            conf_metric.invgamma(iv),
+            Catch::Matchers::WithinRel(_invgexact[iv], 1e-3)
+        ) ; 
+        CHECK_THAT(
+            phys_metric.invgamma(iv),
+            Catch::Matchers::WithinRel(_invgexact[iv], 1e-3)
+        ) ; 
+        CHECK_THAT(
+            phys_metric.sqrtg(),
+            Catch::Matchers::WithinRel(sqrt(37), 1e-3)
+        ) ; 
+    }
+
+
+
 }

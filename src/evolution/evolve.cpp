@@ -135,6 +135,7 @@ void evolve_impl() {
         ERROR("Unrecognised time-stepper.") ; 
     }
     Kokkos::deep_copy(state_p,state) ; 
+    sstate_p.deep_copy(sstate)        ;
 }
 template< typename eos_t >
 void advance_substep( double const t, double const dt, double const dtfact 
@@ -199,7 +200,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     #define GET_Y_FLUX \
     burgers_eq_system.template compute_y_flux<hll_riemann_solver_t,weno_reconstructor_t<3>>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_Z_FLUX \
-    burgers_eq_system.template compute_z_flux<hll_riemann_solver_t,weno_reconstructor_t<3>>(eam, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
+    burgers_eq_system.template compute_z_flux<hll_riemann_solver_t,weno_reconstructor_t<3>>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_SOURCES \
     burgers_eq_system(sources_computation_kernel_t{}, team, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 
@@ -215,7 +216,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     #define GET_Z_FLUX \
     grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_SOURCES \
-    grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
+    grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, staggered_new_state, dt, dtfact )
     #endif 
     //**************************************************************************************************/
     device_event_t x_flux_finished{}, y_flux_finished{}, z_flux_finished{}, sources_finished{} ; 
