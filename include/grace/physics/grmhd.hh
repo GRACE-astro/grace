@@ -212,7 +212,7 @@ struct grmhd_equations_system_t
         /**************************************************************************************************/
 
         /* Read in the metric                                                                             */
-        #if 0
+        #if 1
         metric_array_t metric = 
             get_metric_array_cell_center(this->_sstate.corner_staggered_fields,VEC(i,j,k),q);
         #else 
@@ -262,8 +262,8 @@ struct grmhd_equations_system_t
             }
         }
         /* Read in the extrinsic curvature                                                                */
-        auto /*const*/ Kij = get_extrinsic_curvature_cell_center(this->_sstate.corner_staggered_fields, VEC(i,j,k), q, metric) ; 
-        for( auto& x: Kij ) x = 0 ; 
+        auto const Kij = get_extrinsic_curvature_cell_center(this->_sstate.corner_staggered_fields, VEC(i,j,k), q, metric) ; 
+        //for( auto& x: Kij ) x = 0 ; 
         /* Source for the conserved energy (added piece by piece below)                                   */
         double tau_source{0.};
 
@@ -296,7 +296,7 @@ struct grmhd_equations_system_t
         for( int idir=0; idir<GRACE_NSPACEDIM; ++idir) {
 
             /* Read metric components at neighor cell centres for metric derivative                           */
-            #if 0
+            #if 1
             metric_array_t metric_m = get_metric_array_cell_center(
                 this->_sstate.corner_staggered_fields,
                 VEC(  i-utils::delta(0,idir)
@@ -916,9 +916,9 @@ struct grmhd_equations_system_t
         double const a2CFL = 6. * (dt*dtfact/dx(idir,q)) ; 
         double theta = 1 ; 
         double rho_atm = _eos.rho_atmosphere() ; 
-        
-        double const dens_min_r = rho_atm * metric_r.sqrtg() ; 
-        double const dens_min_l = rho_atm * metric_l.sqrtg() ; 
+        // should use metric at two cell centers here! 
+        double const dens_min_r = rho_atm * metric_face.sqrtg() ; 
+        double const dens_min_l = rho_atm * metric_face.sqrtg() ; 
 
         double const dens_LLF_m = consR[DENSL] + a2CFL * f_LLF[DENSL] ; 
         double const dens_LLF_p = consL[DENSL] - a2CFL * f_LLF[DENSL] ;

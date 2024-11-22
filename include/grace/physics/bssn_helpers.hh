@@ -211,8 +211,7 @@ static void init_bssn_metric( id_kernel_t id_kernel
     coord_array_t<GRACE_NSPACEDIM> pcoords ; 
     grace::fill_physical_coordinates(pcoords, {VEC(true,true,true)}) ;
     id_kernel._pcoords = pcoords ; 
-    Kokkos::fence() ; 
-    GRACE_INFO("Here we are: {} {} {}", pcoords.extent(0), pcoords.extent(1), pcoords.extent(2)) ; 
+ 
     /**************************************/
     /* First loop fill everything execpt  */
     /* for the Gammas                     */
@@ -223,12 +222,10 @@ static void init_bssn_metric( id_kernel_t id_kernel
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
                     auto const id = id_kernel(VEC(i,j,k), q) ; 
-
                     adm_to_bssn(id, cstate,VEC(i,j,k),q) ; 
                 }
     );
-    Kokkos::fence() ; 
-    GRACE_INFO("Here we are") ; 
+
     /**************************************/
     /* Second loop fill the Gammas        */
     /**************************************/

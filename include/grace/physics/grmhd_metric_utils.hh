@@ -220,9 +220,9 @@ get_extrinsic_curvature_cell_center(
         ATXX_,ATXY_,ATXZ_,ATYY_,ATYZ_,ATZZ_
     } ; 
     std::array<double,6> Kij ; 
-    for( int i=0; i<6; ++i ) {
-        auto sview = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), A_indices[i], q) ; 
-        Kij[i] = POW_CONFFACT(phi)*interp_t::threed_interp(sview, VEC(i,j,k)) + 1./3. * gamma.gamma(i) * K ; 
+    for( int ic=0; ic<6; ++ic ) {
+        auto sview_A = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), A_indices[ic], q) ; 
+        Kij[ic] = POW_CONFFACT(phi)*interp_t::threed_interp(sview_A, VEC(i,j,k)) + 1./3. * gamma.gamma(ic) * K ; 
     }
      
     return Kij ; 
