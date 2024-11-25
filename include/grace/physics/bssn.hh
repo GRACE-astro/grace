@@ -33,6 +33,7 @@
 #include <grace/utils/grace_utils.hh>
 
 #include <grace/data_structures/variable_properties.hh>
+#include <grace/data_structures/variables.hh>
 
 #include <grace/evolution/fd_evolution_system.hh>
 
@@ -82,12 +83,104 @@ struct bssn_system_t
                        , double const dt 
                        , double const dtfact ) const
     {
-        auto& state  = this->_state                             ;
         auto& cstate = this->_sstate.corner_staggered_fields    ;
         auto& cstate_new = sstate_new.corner_staggered_fields    ;
-        auto& aux    = this->_aux                               ;
 
         std::array<double, GRACE_NSPACEDIM> idx{ VEC(_idx(0,q), _idx(1,q), _idx(2,q))} ;  
+
+        auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
+
+        bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx)  ;   
+        // Apply Berger-
+        // Apply update
+        cstate_new(VEC(i,j,k),PHI_,q) += dt * dtfact * update[PHIL] ;
+        cstate_new(VEC(i,j,k),K_,q)   += dt * dtfact * update[KL]   ;
+        int ww = 0 ; 
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        ww = 0 ; 
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        ww = 0 ; 
+        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
+
+    }
+
+    void   
+    compute_auxiliaries() const 
+    {
+        DECLARE_GRID_EXTENTS ; 
+
+        using namespace grace  ; 
+        using namespace Kokkos ;
+        // TODO define a enum for the constraints "local" indices 
+        var_array_t<GRACE_NSPACEDIM> bssn_constraints(
+            VEC(nx+1+2*ngz,ny+1+2*ngz,nz+1+2*ngz), 4, nq 
+        ) ; 
+        auto _idx = grace::variable_list::get().getinvspacings() ; 
+        /* Compute the constraint violations on cell corners */
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
+            policy{
+                {VEC(ngz,ngz,ngz),0},{VEC(nx+1+ngz,ny+1+ngz,nz+1+ngz),nq}
+            } ; 
+
+        parallel_for(
+            GRACE_EXECUTION_TAG("BSSN","compute_constraint_violations"),
+            policy,
+            KOKKOS_LAMBDA(VEC(int i, int j, int k), int q)
+            {   
+                std::array<double, GRACE_NSPACEDIM> idx{ VEC(_idx(0,q), _idx(1,q), _idx(2,q))} ; 
+                auto Tdd = get_Tmunu_lower(VEC(i,j,k),q) ; 
+                auto constr_loc = 
+                    compute_bssn_constraint_violations<2>(VEC(i,j,k),q,this->_sstate.corner_staggered_fields,Tdd,idx) ;
+                #pragma unroll
+                for( int ic=0; ic<4; ++ic) 
+                    bssn_constraints(VEC(i,j,k),ic,q) = constr_loc[ic]
+            }
+        ) ; 
+
+        /* Transfer to cell centers */
+        View<int*> out_idx{"out_interp_indices", 4} ; 
+        auto h_out_idx = create_mirror_view(out_idx) ; 
+        h_out_idx(0) = HAM  ;  
+        h_out_idx(1) = MOMX ;
+        h_out_idx(2) = MOMY ; 
+        h_out_idx(3) = MOMZ ; 
+        deep_copy(out_idx,h_out_idx) ; 
+        auto sview_aux = subview(this->_aux, VEC(ALL(),ALL(),ALL()), Kokkos::pair{HAM,MOMZ+1}, ALL()) ; 
+        interp_corner_to_center_scatter_out<2>(
+            bssn_constraints, sview_aux, out_idx
+        ) ; 
+
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    compute_max_eigenspeed( VEC( const int i
+                               , const int j
+                               , const int k)
+                          , const int64_t q ) const
+    {
+        return 1. ; 
+    } 
+
+ private:
+
+    std::array<std::array<double,4>,4> GRACE_HOST_DEVICE 
+    get_Tmunu_lower(VEC(int i, int j, int k), int q)
+    {
+        auto& state  = this->_state                             ;
+        auto& cstate = this->_sstate.corner_staggered_fields    ;
+        auto& aux    = this->_aux                               ;
 
         auto const metric = get_metric_array(
             state,cstate,
@@ -119,50 +212,8 @@ struct bssn_system_t
             }
         }
 
-        bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx)  ;   
-        // Apply Berger-
-        // Apply update
-        cstate_new(VEC(i,j,k),PHI_,q) += dt * dtfact * update[PHIL] ;
-        cstate_new(VEC(i,j,k),K_,q)   += dt * dtfact * update[KL]   ;
-        int ww = 0 ; 
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
-        ww = 0 ; 
-        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
-        ww = 0 ; 
-        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
-
+        return Tmunu ; 
     }
-
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_auxiliaries( VEC( const int i
-                            , const int j
-                            , const int k)
-                        , const int64_t q ) const 
-    {
-        // here we'll need to calculate the constraints 
-    }
-
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_max_eigenspeed( VEC( const int i
-                               , const int j
-                               , const int k)
-                          , const int64_t q ) const
-    {
-        return 1. ; 
-    } 
-
 } ; 
 
 } // namespace grace 
