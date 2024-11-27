@@ -142,7 +142,7 @@ struct scalar_array_impl_t { using view_t = Kokkos::View<double **, Kokkos::Layo
  * @tparam ndim Number of spatial dimension
  */
 template< size_t ndim = GRACE_NSPACEDIM > 
-using var_array_t = variable_properties_t<ndim>::view_t ; 
+using var_array_t = typename variable_properties_t<ndim>::view_t ; 
 //***************************************************************************************************** 
 /**
  * @brief Proxy for coordinate <code>View</code> type in GRACE
@@ -150,7 +150,7 @@ using var_array_t = variable_properties_t<ndim>::view_t ;
  * @tparam ndim Number of spatial dimension
  */
 template< size_t ndim = GRACE_NSPACEDIM > 
-using coord_array_t = coord_array_impl_t<ndim>::view_t ; 
+using coord_array_t = typename coord_array_impl_t<ndim>::view_t ; 
 //*****************************************************************************************************
 /**
  * @brief Proxy for scalar <code>View</code> type in GRACE
@@ -158,7 +158,7 @@ using coord_array_t = coord_array_impl_t<ndim>::view_t ;
  * @tparam ndim Number of spatial dimension
  */
 template< size_t ndim = GRACE_NSPACEDIM > 
-using scalar_array_t = scalar_array_impl_t<ndim>::view_t ; 
+using scalar_array_t = typename scalar_array_impl_t<ndim>::view_t ; 
 //*****************************************************************************************************
 /**
  * @brief Proxy for volume cell <code>View</code> type in GRACE
@@ -166,7 +166,7 @@ using scalar_array_t = scalar_array_impl_t<ndim>::view_t ;
  * @tparam ndim Number of spatial dimension
  */
 template< size_t ndim = GRACE_NSPACEDIM > 
-using cell_vol_array_t = cell_vol_array_impl_t<ndim>::view_t ; 
+using cell_vol_array_t = typename cell_vol_array_impl_t<ndim>::view_t ; 
 //*****************************************************************************************************
 /**
  * @brief Proxy for flux <code>View</code> type in GRACE
