@@ -63,6 +63,7 @@ get_local_num_quadrants()
 size_t 
 get_quadrant_owner(size_t iquad)
 {
+    static constexpr size_t INVALID_QUAD = 10000000 ; 
     auto& forest = grace::amr::forest::get() ;
     for(size_t itree=forest.first_local_tree();
         itree <= forest.last_local_tree(); 
@@ -77,7 +78,7 @@ get_quadrant_owner(size_t iquad)
     }
     ASSERT_DBG(0, 
     "In get_quadrant_owner: " << iquad << " is not owned by any local tree.") ;
-    return -1 ; 
+    return INVALID_QUAD ; 
 }
 
 size_t get_local_quadrants_offset(size_t itree)

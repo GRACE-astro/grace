@@ -50,17 +50,13 @@ namespace grace { namespace amr {
  * 
  * @tparam ViewT Type of variable view.
  * @tparam KerT  Type of the kernel.
- * @tparam KerArgT Type of extra arguments to the kernel.
  * @param flag_view View containing regrid flags. 
  * @param kernel    Cell-wise kernel to decide whether to regrid.
- * @param kernel_args Extra arguments to kernel.
  */
 template< typename ViewT 
-    , typename KerT 
-    , typename ... KerArgT> 
+    , typename KerT > 
 void evaluate_regrid_criterion( ViewT flag_view
-                              , KerT kernel  
-                              , KerArgT&& ... kernel_args) 
+                              , KerT kernel) 
 {
     using namespace grace  ;  
     auto& params = config_parser::get() ; 
@@ -95,14 +91,14 @@ void evaluate_regrid_criterion( ViewT flag_view
         int const q = team_member.league_rank() ; 
         Kokkos::parallel_reduce(  
                 reduce_range 
-            , KOKKOS_LAMBDA (int64_t& icell, double& leps )
+            , [=] (int64_t& icell, double& leps )
             {
                 int const i = icell%nx ;
                 int const j = icell/nx%ny; 
                 #ifdef GRACE_3D 
                 int const k = icell/nx/ny ; 
                 #endif  
-                auto eps_new = kernel(VEC(i+ngz,j+ngz,k+ngz), q, kernel_args...) ; 
+                auto eps_new = kernel(VEC(i+ngz,j+ngz,k+ngz), q) ; 
                 if( eps_new > leps ) {
                     leps = eps_new ;
                 }
@@ -251,7 +247,7 @@ void restrict_variables(      InViewT  in_state
             , VEC(nx,ny,nz),nvar ) ;
         
         parallel_for( team_range
-                    , KOKKOS_LAMBDA ( VEC(int& i, int& j, int& k), int& ivar)
+                    , [=] ( VEC(int& i, int& j, int& k), int& ivar)
                     {
                         int q_out[P4EST_CHILDREN]; 
                         for(int ichild=0;ichild<P4EST_CHILDREN;++ichild) {
