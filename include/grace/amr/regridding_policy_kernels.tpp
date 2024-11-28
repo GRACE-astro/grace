@@ -58,8 +58,7 @@ struct flash_second_deriv_criterion {
     operator()  ( VEC( int const & i 
                      , int const & j
                      , int const & k ) 
-                , int const& q
-                , double const& eps ) const 
+                , int const& q) const 
     {   
         using Kokkos::fabs ; 
         double const num = EXPR(
