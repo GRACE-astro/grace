@@ -512,7 +512,7 @@ struct grmhd_equations_system_t
     template< int idir 
             , typename riemann_t
             , typename recon_t   >
-    std::enable_if<std::is_same_v<riemann_t,grace::hllc_riemann_solver_t<idir>>,void>::type
+    typename std::enable_if<std::is_same_v<riemann_t,grace::hllc_riemann_solver_t<idir>>,void>::type
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     getflux(  VEC( const int i 
             ,      const int j 
@@ -789,7 +789,7 @@ struct grmhd_equations_system_t
     template< int idir 
             , typename riemann_t 
             , typename recon_t   >
-    std::enable_if<std::is_same_v<riemann_t,grace::hll_riemann_solver_t>,void>::type 
+    typename std::enable_if<std::is_same_v<riemann_t,grace::hll_riemann_solver_t>,void>::type 
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     getflux(  VEC( const int i 
             ,      const int j 

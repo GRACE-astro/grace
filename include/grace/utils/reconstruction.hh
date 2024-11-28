@@ -57,7 +57,7 @@ struct slope_limited_reconstructor_t
      * @param idir Direction of reconstruction.
      * The reconstruction is performed as 
      * \f{eqnarray*}{
-     *  u^L_i &:=& u_{i-1/2-\epsilon} = u_{i-1} + 0.5 \Delta u_{i-1}~, \\ 
+     *  u^L_i &:=& u_{i-1/2-\epsilon} = u_{i-1} + 0.5 \Delta u_{i-1}~, \\
      *  u^R_i &:=& u_{i-1/2+\epsilon} = u_{i} - 0.5 \Delta u_{i}~.     \\
      * \f}
      * Where \f$\Delta u_i\f$ is the limited slope computed as:

@@ -506,12 +506,10 @@ void restrict_hanging_ghostzones(
     }
     auto& d_face_info = hanging_faces.d_view    ; 
 
-    constexpr const int n_neighbors = PICK_D(2,4) ;  
 
     TeamPolicy<default_execution_space> 
         policy( n_faces, AUTO() ) ; 
     using member_t = decltype(policy)::member_type ;
-    utils::vol_average_restictor_t restriction_kernel ; 
     /*************************************************/
     /* Kernel:                                       */
     /* Restrict data onto coarse quadrants from fine */
@@ -646,7 +644,6 @@ void prolongate_hanging_ghostzones(
     if( n_faces == 0 ) {
         return ; 
     }
-    constexpr const int n_neighbors = PICK_D(2,4) ;  
 
     TeamPolicy<default_execution_space> 
         policy( n_faces, AUTO() ) ; 
