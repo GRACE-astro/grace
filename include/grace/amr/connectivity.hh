@@ -41,6 +41,7 @@
 #include <grace/amr/connectivities_impl.hh>
 
 #include <array>
+#include <vector> 
 
 namespace grace { namespace amr { 
 //**************************************************************************************************

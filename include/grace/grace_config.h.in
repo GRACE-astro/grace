@@ -99,15 +99,6 @@ namespace grace {
 #else 
 #define GRACE_BACKEND "HOST"
 #endif 
-
-#ifdef GRACE_ENABLE_CUDA
-#include <cuda/std/array>
-  template< typename T, size_t N >
-  using dev_array = cuda::std::array<T,N> ;
-#else
-  template< typename T, size_t N >
-  using dev_array = std::array<T,N> ;
-#endif 
   
 /**
  * @brief Macros designed to help with writing dimension independent code.
