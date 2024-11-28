@@ -44,7 +44,8 @@ namespace grace { namespace amr {
 template< typename ViewT > 
 struct flash_second_deriv_criterion {
 
-    ViewT u ; //!< Variable on which the criterion is evaluated.
+    ViewT u    ; //!< Variable on which the criterion is evaluated.
+    double eps ; //!< Epsilon controlling first order term on denom
     static constexpr double tiny = 1e-99; 
     /**
      * @brief Evaluates the regridding criterion at a cell.

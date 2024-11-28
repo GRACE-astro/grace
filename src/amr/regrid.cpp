@@ -73,11 +73,10 @@ void regrid() {
                                            , Kokkos::ALL() ) ; 
     if( ref_criterion == "FLASH_second_deriv") {
         double eps = params["amr"]["FLASH_criterion_eps"].as<double>() ; 
-        amr::flash_second_deriv_criterion<decltype(u)> kernel{ u } ; 
+        amr::flash_second_deriv_criterion<decltype(u)> kernel{ u, eps } ; 
         evaluate_regrid_criterion(
                   d_regrid_flags
-                , kernel 
-                , eps) ;
+                , kernel ) ;
     } else if ( ref_criterion == "simple_threshold" ) {
         amr::simple_threshold_criterion<decltype(u)> kernel{ u } ; 
         evaluate_regrid_criterion(

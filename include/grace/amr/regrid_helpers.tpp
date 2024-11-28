@@ -54,7 +54,7 @@ namespace grace { namespace amr {
  * @param kernel    Cell-wise kernel to decide whether to regrid.
  */
 template< typename ViewT 
-    , typename KerT > 
+        , typename KerT > 
 void evaluate_regrid_criterion( ViewT flag_view
                               , KerT kernel) 
 {
