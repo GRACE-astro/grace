@@ -28,7 +28,6 @@ target_link_libraries( grace_amr_functions PRIVATE
 
 add_library( grace_regrid OBJECT regrid.cpp )
 target_include_directories( grace_regrid PRIVATE "${HEADER_DIR}" )
-target_compile_options(grace_regrid PRIVATE -Wno-dangling-field)
 target_link_libraries( grace_regrid PRIVATE 
                         yaml_cpp::yaml
                         MPI::MPI_CXX
@@ -39,7 +38,6 @@ target_link_libraries( grace_regrid PRIVATE
 
 add_library( grace_BC_helpers OBJECT bc_helpers.cpp )
 target_include_directories( grace_BC_helpers PRIVATE "${HEADER_DIR}" )
-target_compile_options(grace_BC_helpers PRIVATE -Wno-dangling-field)
 target_link_libraries( grace_BC_helpers PRIVATE 
                         yaml_cpp::yaml
                         MPI::MPI_CXX
@@ -50,7 +48,6 @@ target_link_libraries( grace_BC_helpers PRIVATE
 
 add_library( grace_BC OBJECT boundary_conditions.cpp )
 target_include_directories( grace_BC PRIVATE "${HEADER_DIR}" )
-target_compile_options(grace_BC PRIVATE -Wno-dangling-field)
 target_link_libraries( grace_BC PRIVATE 
                         yaml_cpp::yaml
                         MPI::MPI_CXX
