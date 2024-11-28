@@ -85,7 +85,7 @@ void apply_phys_bc(
       auto team_range = TeamThreadRange(team,0,n1); 
       #endif 
       parallel_for( team_range 
-                  , KOKKOS_LAMBDA (VECD(int& j, int& k))
+                  , [=] (VECD(int& j, int& k))
                   {
                     BCT::apply(u,ngz,n0,VECD(j,k),which_face,iq) ; 
                   }) ; 

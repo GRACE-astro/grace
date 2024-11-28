@@ -546,7 +546,7 @@ void restrict_hanging_ghostzones(
             TeamThreadMDRange<Rank<GRACE_NSPACEDIM>,member_t>
                 team_range( team, VECD(n1,n2), nvars) ; 
             parallel_for( team_range
-                        , KOKKOS_LAMBDA(VECD(int& j, int& k), int& ivar)
+                        , [=](VECD(int& j, int& k), int& ivar)
                     { 
                         const int8_t ichild = EXPRD(
                                 math::floor_int((2*j)/n1)
@@ -688,7 +688,7 @@ void prolongate_hanging_ghostzones(
             TeamThreadMDRange<Rank<GRACE_NSPACEDIM+1>,member_t>
                 team_range( team, VEC(ngz, n1,n2), nvars) ; 
             parallel_for( team_range
-                        , KOKKOS_LAMBDA(VEC(int& ig, int& j, int& k), int& ivar)
+                        , [=] (VEC(int& ig, int& j, int& k), int& ivar)
                     { 
                         /* First we compute the indices of the point */
                         /* we are calculating.                       */
