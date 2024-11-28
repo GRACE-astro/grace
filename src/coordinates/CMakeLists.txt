@@ -1,6 +1,5 @@
 add_library( grace_cartesian_coordinates OBJECT cartesian_coordinate_system.cpp )
 target_include_directories( grace_cartesian_coordinates PRIVATE "${HEADER_DIR}" )
-target_compile_options(grace_cartesian_coordinates PRIVATE -Wno-dangling-field)
 target_link_libraries( grace_cartesian_coordinates PRIVATE 
                         yaml_cpp::yaml
                         MPI::MPI_CXX
@@ -38,7 +37,6 @@ target_include_directories( spherical_volume_element_3D_log_exact PRIVATE "${HEA
                                        
 add_library( grace_spherical_coordinates OBJECT spherical_coordinate_system.cpp )
 target_include_directories( grace_spherical_coordinates PRIVATE "${HEADER_DIR}" )
-target_compile_options(grace_spherical_coordinates PRIVATE -Wno-dangling-field)
 target_link_libraries( grace_spherical_coordinates PRIVATE 
                         yaml_cpp::yaml
                         MPI::MPI_CXX
