@@ -19,7 +19,7 @@ add_subdirectory(data_structures)
 add_subdirectory(IO)
 
 if( GRACE_ENABLE_PROFILING )
- add_subdirectory(profiling)
+add_subdirectory(profiling)
 endif()
 
 add_subdirectory(evolution)

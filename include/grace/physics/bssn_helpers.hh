@@ -58,6 +58,13 @@ enum BSSN_VARENUM_t {
     GAMMAXL,
     GAMMAYL,
     GAMMAZL,
+    ALPL,
+    BETAXL,
+    BETAYL,
+    BETAZL,
+    BXL,
+    BYL,
+    BZL,
     NUM_BSSN_VARS
 } ; 
 
@@ -82,6 +89,13 @@ sstate[KL]    = vview(__VA_ARGS__, K_      , q); \
 sstate[GAMMAXL] = vview(__VA_ARGS__,GAMMAX_, q); \
 sstate[GAMMAYL] = vview(__VA_ARGS__,GAMMAY_, q); \
 sstate[GAMMAZL] = vview(__VA_ARGS__,GAMMAZ_, q); \
+sstate[ALPL]    = vview(__VA_ARGS__,ALP_,q)    ; \
+sstate[BETAXL]  = vview(__VA_ARGS__,BETAX_,q)  ; \
+sstate[BETAYL]  = vview(__VA_ARGS__,BETAY_,q)  ; \
+sstate[BETAZL]  = vview(__VA_ARGS__,BETAZ_,q)  ; \
+sstate[BXL]     = vview(__VA_ARGS__,BX_,q)     ; \
+sstate[BYL]     = vview(__VA_ARGS__,BY_,q)     ; \
+sstate[BZL]     = vview(__VA_ARGS__,BZ_,q)     ; \
 } while(false)
 
 

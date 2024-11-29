@@ -31,23 +31,16 @@
 #include <grace/config/config_parser.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/coordinates/coordinates.hh>
+#include <grace/data_structures/variable_utils.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/IO/hdf5_output.hh>
+#include <grace/utils/numerics/global_interpolators.hh>
 
 #include <grace/parallel/mpi_wrappers.hh>
 
 #include <hdf5.h>
 #include <omp.h>
-/* cell types */
-#include <vtkCellData.h>
-#include <vtkHexahedron.h>
-#include <vtkBiQuadraticQuadraticHexahedron.h> 
-#include <vtkQuad.h>
-#include <vtkQuadraticLinearQuad.h> 
-/* memory */
-#include <vtkSmartPointer.h>
-#include <vtkNew.h>
-/* xdmf */
+/* xmf */
 #include <grace/IO/xmf_utilities.hh>
 /* stl */
 #include <string>
@@ -186,19 +179,15 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
 
     #ifdef GRACE_3D 
     #ifdef GRACE_CARTESIAN_COORDINATES
-    using cell_type = vtkHexahedron ; 
     size_t constexpr nvertex = 8 ;
     #elif defined(GRACE_SPHERICAL_COORDINATES)
-    using cell_type = vtkBiQuadraticQuadraticHexahedron ; 
     size_t constexpr nvertex = 24 ;
     #endif 
     #else 
     #ifdef GRACE_CARTESIAN_COORDINATES
     size_t nvertex = 4 ; 
-    using cell_type = vtkQuad ; 
     #elif defined(GRACE_SPHERICAL_COORDINATES)
     size_t nvertex = 6 ; 
-    using cell_type = vtkQuadraticLinearQuad ;
     #endif 
     #endif 
 
@@ -208,9 +197,6 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     /* Get global number of quadrants and quadrant offset for this rank */
     unsigned long const nq_glob = _p4est->global_num_quadrants ; 
     unsigned long const local_quad_offset = _p4est->global_first_quadrant[rank] ; 
-    /* Get parametric coordinates of cells vertices */
-    vtkNew<cell_type> _tmpcell ;
-    auto lcoords = _tmpcell->GetParametricCoords() ;
     /* Number of cells per quadrant */
     unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
     /* Local number of cells   */
@@ -250,7 +236,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
         VEC(int i, int j, int k), int64_t q, int iv
     ) 
     {
-        static constexpr std::array<std::array<int,3>,8> vertex_coords {
+        static constexpr std::array<std::array<int,3>,8> vertex_coords {{
             {0, 0, 0}, //
             {1, 0, 0}, //
             {1, 1, 0}, //
@@ -259,7 +245,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
             {1, 0, 1}, //
             {1, 1, 1}, //
             {0, 1, 1}  //
-        }
+        }} ; 
         return std::make_tuple(
             VEC(
                 i+vertex_coords[iv][0],
@@ -275,10 +261,10 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
         #endif  
             for( size_t j=0; j<ny; ++j) { 
                 for(size_t i=0; i<nx; ++i){
-                int64_t const icell = i + nx * ( j + ny * ( k  + nz * q )) ; 
+                int64_t const icell = i + nx * ( j + ny * ( k  + nz * iq )) ; 
                 for( int iv=0; iv<nvertex; ++iv ) {
                     int ip, jp, kp ; 
-                    std::tie(ip,jp,kp) = get_cell_vertex_indices(VEC(i,j,k),iv) ; 
+                    std::tie(ip,jp,kp) = get_cell_vertex_indices(VEC(i,j,k),iq,iv) ; 
                     cells[nvertex * icell + iv] = get_point_index(VEC(ip,jp,kp),iq); 
                 }
                 #ifdef GRACE_3D
@@ -586,47 +572,37 @@ void write_var_arrays_hdf5( std::set<std::string> const& varlist
         write_dataset_string_attribute_hdf5(dset_id, "VariableStaggering", "Cell");
 
         /* Shuffle data around to put it in the right form */
-        for( int iq=0; iq<nq; ++iq){
-            /* Copy data d2d */
-            #if 0
-            auto sview = Kokkos::subview( view
-                                        , Kokkos::pair<int,int>(ngz,nx+ngz)
-                                        , Kokkos::pair<int,int>(ngz,ny+ngz)
-                                        #ifdef GRACE_3D
-                                        , Kokkos::pair<int,int>(ngz,nz+ngz)
-                                        #endif 
-                                        , varidx 
-                                        , iq ) ; 
-            #endif 
-            auto props = get_variable_properties(vname) ;
-            ASSERT( props.staggering == var_staggering_t::CORNER 
-                 or props.staggering == var_staggering_t::CELL_CENTER,
-                "Output variables can either be cell centered or corner staggered." ) ;  
-            bool var_is_staggered = props.staggering == var_staggering_t::CORNER ; 
-            auto sview = get_variable_subview(
+        int err; 
+        auto props = variables::get_variable_properties(vname,err) ;
+        ASSERT( err == 0, "Error retrieving variable properties for variable" << vname) ; 
+        ASSERT( props.staggering == var_staggering_t::CORNER 
+                or props.staggering == var_staggering_t::CELL_CENTER,
+            "Output variables can either be cell centered or corner staggered." ) ;  
+        bool var_is_staggered = props.staggering == var_staggering_t::CORNER ; 
+        auto sview = get_variable_subview(
                       vname
                     , Kokkos::pair<int,int>(ngz,nx+var_is_staggered+ngz)
                     , Kokkos::pair<int,int>(ngz,ny+var_is_staggered+ngz)
                     #ifdef GRACE_3D
                     , Kokkos::pair<int,int>(ngz,nz+var_is_staggered+ngz)
                     #endif 
-                    , iq
+                    , Kokkos::ALL()
                 ) ;
-            auto mirror_sview = Kokkos::subview( d_mirror
-                                        , Kokkos::ALL()
-                                        , Kokkos::ALL()
-                                        #ifdef GRACE_3D
-                                        , Kokkos::ALL()
-                                        #endif 
-                                        , iq ) ; 
-            if ( var_is_staggered ) {
-                /* interpolate */
-                interp_corner_to_center<2>(sview, mirror_sview)
-            } else {
-                /* This deep copy operation is asynchronous */
-                Kokkos::deep_copy(mirror_sview, sview) ;
-            }     
+        auto mirror_sview = Kokkos::subview( d_mirror
+                                    , Kokkos::ALL()
+                                    , Kokkos::ALL()
+                                    #ifdef GRACE_3D
+                                    , Kokkos::ALL()
+                                    #endif 
+                                    , Kokkos::ALL() ) ;
+        if ( var_is_staggered ) {
+            /* interpolate */
+            interp_corner_to_center<2>(sview, mirror_sview) ; 
+        } else {
+            /* This deep copy operation is asynchronous */
+            Kokkos::deep_copy(mirror_sview, sview) ;
         }
+
         /* Copy data d2h */
         Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
 
@@ -704,48 +680,47 @@ void write_vector_var_arrays_hdf5( std::set<std::string> const& varlist
         /* Write dataset attributes */
         write_dataset_string_attribute_hdf5(dset_id, "VariableType", "Vector");
         write_dataset_string_attribute_hdf5(dset_id, "VariableStaggering", "Cell");
-
-        /* Shuffle data around to put it in the right form */
-        for( int iq=0; iq<nq; ++iq){
-            std::array<std::string, 3> const compnames 
+        
+        std::array<std::string, 3> const compnames 
                 = {
                     vname + "[0]",
                     vname + "[1]",
                     vname + "[2]"
                 } ; 
-            for( int icomp=0; icomp<3; ++icomp){
-                /* Copy data d2d */
-                #if 0 
-                auto sview = Kokkos::subview( view
-                                            , Kokkos::pair<int,int>(ngz,nx+ngz)
-                                            , Kokkos::pair<int,int>(ngz,ny+ngz)
-                                            #ifdef GRACE_3D
-                                            , Kokkos::pair<int,int>(ngz,nz+ngz)
-                                            #endif 
-                                            , varidx+icomp
-                                            , iq ) ; 
-                #endif 
-                auto sview = get_variable_subview(
+        int err ; 
+        auto props = variables::get_variable_properties(compnames[0], err) ;
+        ASSERT( err == 0, "Error retrieving variable properties for variable" << vname) ; 
+        ASSERT( props.staggering == var_staggering_t::CORNER 
+             or props.staggering == var_staggering_t::CELL_CENTER,
+                "Output variables can either be cell centered or corner staggered." ) ;  
+        bool var_is_staggered = props.staggering == var_staggering_t::CORNER ;
+        for( int icomp=0; icomp<3; ++icomp){
+            auto sview = get_variable_subview(
                       compnames[icomp]
-                    , Kokkos::pair<int,int>(ngz,nx+ngz)
-                    , Kokkos::pair<int,int>(ngz,ny+ngz)
+                    , Kokkos::pair<int,int>(ngz,nx+var_is_staggered+ngz)
+                    , Kokkos::pair<int,int>(ngz,ny+var_is_staggered+ngz)
                     #ifdef GRACE_3D
-                    , Kokkos::pair<int,int>(ngz,nz+ngz)
+                    , Kokkos::pair<int,int>(ngz,nz+var_is_staggered+ngz)
                     #endif 
-                    , iq
-                ) ; 
-                auto mirror_sview = Kokkos::subview( d_mirror
-                                            , icomp
-                                            , Kokkos::ALL()
-                                            , Kokkos::ALL()
-                                            #ifdef GRACE_3D
-                                            , Kokkos::ALL()
-                                            #endif 
-                                            , iq  ) ; 
-                /* This deep copy operation is synchronous */
-                Kokkos::deep_copy(mirror_sview, sview) ; 
+                    , Kokkos::ALL()
+                ) ;
+            auto mirror_sview = Kokkos::subview(  d_mirror
+                                                , icomp
+                                                , Kokkos::ALL()
+                                                , Kokkos::ALL()
+                                                #ifdef GRACE_3D
+                                                , Kokkos::ALL()
+                                                #endif 
+                                                , Kokkos::ALL()  ) ;
+            if ( var_is_staggered ) {
+                /* interpolate */
+                interp_corner_to_center<2>(sview, mirror_sview) ; 
+            } else {
+                /* This deep copy operation is asynchronous */
+                Kokkos::deep_copy(mirror_sview, sview) ;
             }
         }
+        
         /* Copy data d2h */
         Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
 

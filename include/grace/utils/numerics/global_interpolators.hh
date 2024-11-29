@@ -27,7 +27,7 @@
 #ifndef GRACE_UTILS_NUMERICS_GLOBAL_INTERPOLATORS_HH
 #define GRACE_UTILS_NUMERICS_GLOBAL_INTERPOLATORS_HH
 
-#include <grace_utils.hh>
+#include <grace_config.h>
 
 #include <grace/utils/inline.h>
 
@@ -48,17 +48,18 @@ namespace grace {
  * NB: For higher-than-second order accuracy, the in_view must be defined in the ghostzones.
  */
 template< size_t order 
-        , typename view_t >
+        , typename in_view_t 
+        , typename out_view_t >
 void interp_corner_to_center(
-    view_t in_view,
-    view_t out_view 
+    in_view_t in_view,
+    out_view_t out_view 
 ) 
 {
     DECLARE_GRID_EXTENTS ; 
 
     using namespace Kokkos ; 
     using namespace grace  ; 
-    static constexpr const size_t rank = view_t::Rank ; 
+    static constexpr const size_t rank = in_view_t::Rank ; 
 
     static_assert(rank==GRACE_NSPACEDIM+1, 
                  "In global interpolate in and out views must have the same rank as a "
@@ -93,10 +94,11 @@ void interp_corner_to_center(
  * NB: For higher-than-second order accuracy, the in_view must be defined in the ghostzones.
  */
 template< size_t order 
-        , typename view_t >
+        , typename in_view_t 
+        , typename out_view_t >
 void interp_corner_to_center(
-    view_t in_view,
-    view_t out_view,
+    in_view_t in_view,
+    out_view_t out_view,
     Kokkos::View<int*> var_in_idx 
 ) 
 {
@@ -104,7 +106,7 @@ void interp_corner_to_center(
 
     using namespace Kokkos ; 
     using namespace grace  ; 
-    static constexpr const size_t rank = view_t::Rank ; 
+    static constexpr const size_t rank = in_view_t::Rank ; 
 
     static_assert( rank==GRACE_NSPACEDIM+2, 
                  "In global interpolate in and out views must have the same rank as a "
@@ -120,7 +122,7 @@ void interp_corner_to_center(
         , policy 
         , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
     {
-        auto const sview_in  = subview(in_view , VEC(ALL(),ALL(),ALL()), var_idx_in(ivar), q) ; 
+        auto const sview_in  = subview(in_view , VEC(ALL(),ALL(),ALL()), var_in_idx(ivar), q) ; 
         out_view(VEC(i,j,k),ivar,q) = interp_t::interpolate(sview_in,VEC(i,j,k)) ; 
     }
     ) ;
@@ -141,10 +143,11 @@ void interp_corner_to_center(
  * NB: For higher-than-second order accuracy, the in_view must be defined in the ghostzones.
  */
 template< size_t order 
-        , typename view_t >
+        , typename in_view_t 
+        , typename out_view_t >
 void interp_corner_to_center_scatter_out(
-    view_t in_view,
-    view_t out_view,
+    in_view_t in_view,
+    out_view_t out_view,
     Kokkos::View<int*> var_out_idx 
 ) 
 {
@@ -152,7 +155,7 @@ void interp_corner_to_center_scatter_out(
 
     using namespace Kokkos ; 
     using namespace grace  ; 
-    static constexpr const size_t rank = view_t::Rank ; 
+    static constexpr const size_t rank = in_view_t::Rank ; 
 
     static_assert( rank==GRACE_NSPACEDIM+2, 
                  "In global interpolate in and out views must have the same rank as a "

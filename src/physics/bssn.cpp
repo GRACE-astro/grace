@@ -352,6 +352,7 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
 
 }
 
+template< size_t der_order >
 std::array<double,4> GRACE_HOST_DEVICE 
 compute_bssn_constraint_violations(
       VEC(int i, int j, int k), int q
@@ -372,24 +373,6 @@ compute_bssn_constraint_violations(
     double const gtYY=-(gtxz*gtxz) + gtxx*gtzz;
     double const gtYZ=gtxy*gtxz - gtxx*gtyz;
     double const gtZZ=-(gtxy*gtxy) + gtxx*gtyy;
-    double const GammatXxx=(gtXX*gtxxdx - gtxxdy*gtXY + 2*gtXY*gtxydx - gtxxdz*gtXZ + 2*gtXZ*gtxzdx)/2.;
-    double const GammatXxy=(gtXX*(gtxxdx + gtxxdy - gtxydx) + gtXY*gtxydx + gtXZ*(-gtxydz + gtxzdx + gtxzdy))/2.;
-    double const GammatXxz=(gtXX*(gtxxdx + gtxxdz - gtxzdx) + gtXZ*gtxzdx + gtXY*(gtxydx + gtxydz - gtxzdy))/2.;
-    double const GammatXyy=(2*gtXX*gtxydy - gtXX*gtyydx + gtXY*gtyydy - gtXZ*gtyydz + 2*gtXZ*gtyzdy)/2.;
-    double const GammatXyz=(gtXX*(gtxydy + gtxydz - gtyzdx) + gtXY*(gtyydy + gtyydz - gtyzdy) + gtXZ*gtyzdy)/2.;
-    double const GammatXzz=(2*gtXX*gtxzdz + 2*gtXY*gtyzdz - gtXX*gtzzdx - gtXY*gtzzdy + gtXZ*gtzzdz)/2.;
-    double const GammatYxx=(gtxxdx*gtXY - gtxxdy*gtYY + 2*gtxydx*gtYY - gtxxdz*gtYZ + 2*gtxzdx*gtYZ)/2.;
-    double const GammatYxy=((gtxxdx + gtxxdy)*gtXY + gtxydx*(-gtXY + gtYY) + (-gtxydz + gtxzdx + gtxzdy)*gtYZ)/2.;
-    double const GammatYxz=((gtxxdx + gtxxdz)*gtXY + (gtxydx + gtxydz - gtxzdy)*gtYY + gtxzdx*(-gtXY + gtYZ))/2.;
-    double const GammatYyy=(2*gtXY*gtxydy - gtXY*gtyydx + gtYY*gtyydy - gtyydz*gtYZ + 2*gtYZ*gtyzdy)/2.;
-    double const GammatYyz=(gtXY*(gtxydy + gtxydz - gtyzdx) + gtYY*(gtyydy + gtyydz - gtyzdy) + gtYZ*gtyzdy)/2.;
-    double const GammatYzz=(2*gtXY*gtxzdz + 2*gtYY*gtyzdz - gtXY*gtzzdx - gtYY*gtzzdy + gtYZ*gtzzdz)/2.;
-    double const GammatZxx=(gtxxdx*gtXZ - gtxxdy*gtYZ + 2*gtxydx*gtYZ - gtxxdz*gtZZ + 2*gtxzdx*gtZZ)/2.;
-    double const GammatZxy=((gtxxdx + gtxxdy)*gtXZ + gtxydx*(-gtXZ + gtYZ) + (-gtxydz + gtxzdx + gtxzdy)*gtZZ)/2.;
-    double const GammatZxz=((gtxxdx + gtxxdz)*gtXZ + (gtxydx + gtxydz - gtxzdy)*gtYZ + gtxzdx*(-gtXZ + gtZZ))/2.;
-    double const GammatZyy=(2*gtxydy*gtXZ - gtXZ*gtyydx + gtyydy*gtYZ - gtyydz*gtZZ + 2*gtyzdy*gtZZ)/2.;
-    double const GammatZyz=((gtyydy + gtyydz)*gtYZ + gtXZ*(gtxydy + gtxydz - gtyzdx) + gtyzdy*(-gtYZ + gtZZ))/2.;
-    double const GammatZzz=(2*gtXZ*gtxzdz + 2*gtYZ*gtyzdz - gtXZ*gtzzdx - gtYZ*gtzzdy + gtZZ*gtzzdz)/2.;
 
     double const alp = state(VEC(i,j,k),ALP_,q);
     double const betaX = state(VEC(i,j,k),BETAX_+0,q);
@@ -493,6 +476,25 @@ compute_bssn_constraint_violations(
     double const gtZZdy = -(gtxxdy*(gtXZ*gtXZ)) - 2*gtXZ*(gtxydy*gtYZ + gtxzdy*gtZZ) - gtYZ*(gtyydy*gtYZ + 2*gtyzdy*gtZZ) - gtZZ*gtZZ*gtzzdy;
     double const gtZZdz = -(gtxxdz*(gtXZ*gtXZ)) - 2*gtXZ*(gtxydz*gtYZ + gtxzdz*gtZZ) - gtYZ*(gtyydz*gtYZ + 2*gtyzdz*gtZZ) - gtZZ*gtZZ*gtzzdz;
 
+    double const GammatXxx=(gtXX*gtxxdx - gtxxdy*gtXY + 2*gtXY*gtxydx - gtxxdz*gtXZ + 2*gtXZ*gtxzdx)/2.;
+    double const GammatXxy=(gtXX*(gtxxdx + gtxxdy - gtxydx) + gtXY*gtxydx + gtXZ*(-gtxydz + gtxzdx + gtxzdy))/2.;
+    double const GammatXxz=(gtXX*(gtxxdx + gtxxdz - gtxzdx) + gtXZ*gtxzdx + gtXY*(gtxydx + gtxydz - gtxzdy))/2.;
+    double const GammatXyy=(2*gtXX*gtxydy - gtXX*gtyydx + gtXY*gtyydy - gtXZ*gtyydz + 2*gtXZ*gtyzdy)/2.;
+    double const GammatXyz=(gtXX*(gtxydy + gtxydz - gtyzdx) + gtXY*(gtyydy + gtyydz - gtyzdy) + gtXZ*gtyzdy)/2.;
+    double const GammatXzz=(2*gtXX*gtxzdz + 2*gtXY*gtyzdz - gtXX*gtzzdx - gtXY*gtzzdy + gtXZ*gtzzdz)/2.;
+    double const GammatYxx=(gtxxdx*gtXY - gtxxdy*gtYY + 2*gtxydx*gtYY - gtxxdz*gtYZ + 2*gtxzdx*gtYZ)/2.;
+    double const GammatYxy=((gtxxdx + gtxxdy)*gtXY + gtxydx*(-gtXY + gtYY) + (-gtxydz + gtxzdx + gtxzdy)*gtYZ)/2.;
+    double const GammatYxz=((gtxxdx + gtxxdz)*gtXY + (gtxydx + gtxydz - gtxzdy)*gtYY + gtxzdx*(-gtXY + gtYZ))/2.;
+    double const GammatYyy=(2*gtXY*gtxydy - gtXY*gtyydx + gtYY*gtyydy - gtyydz*gtYZ + 2*gtYZ*gtyzdy)/2.;
+    double const GammatYyz=(gtXY*(gtxydy + gtxydz - gtyzdx) + gtYY*(gtyydy + gtyydz - gtyzdy) + gtYZ*gtyzdy)/2.;
+    double const GammatYzz=(2*gtXY*gtxzdz + 2*gtYY*gtyzdz - gtXY*gtzzdx - gtYY*gtzzdy + gtYZ*gtzzdz)/2.;
+    double const GammatZxx=(gtxxdx*gtXZ - gtxxdy*gtYZ + 2*gtxydx*gtYZ - gtxxdz*gtZZ + 2*gtxzdx*gtZZ)/2.;
+    double const GammatZxy=((gtxxdx + gtxxdy)*gtXZ + gtxydx*(-gtXZ + gtYZ) + (-gtxydz + gtxzdx + gtxzdy)*gtZZ)/2.;
+    double const GammatZxz=((gtxxdx + gtxxdz)*gtXZ + (gtxydx + gtxydz - gtxzdy)*gtYZ + gtxzdx*(-gtXZ + gtZZ))/2.;
+    double const GammatZyy=(2*gtxydy*gtXZ - gtXZ*gtyydx + gtyydy*gtYZ - gtyydz*gtZZ + 2*gtyzdy*gtZZ)/2.;
+    double const GammatZyz=((gtyydy + gtyydz)*gtYZ + gtXZ*(gtxydy + gtxydz - gtyzdx) + gtyzdy*(-gtYZ + gtZZ))/2.;
+    double const GammatZzz=(2*gtXZ*gtxzdz + 2*gtYZ*gtyzdz - gtXZ*gtzzdx - gtYZ*gtzzdy + gtZZ*gtzzdz)/2.;
+
     double const Ttt= Tdd[0][0];
     double const Ttx= Tdd[0][1];
     double const Tty= Tdd[0][2];
@@ -504,14 +506,14 @@ compute_bssn_constraint_violations(
     double const Tyz= Tdd[2][3];
     double const Tzz= Tdd[3][3];
     double const Edens = (Ttt - 2*betaZ*Ttz + betaX*betaX*Txx + 2*betaX*(-Ttx + betaY*Txy + betaZ*Txz) + betaY*(-2*Tty + betaY*Tyy + 2*betaZ*Tyz) + betaZ*betaZ*Tzz)/(alp*alp);
-    Sx = Ttx/alp - (betaX*Txx)/alp - (betaY*Txy)/alp - (betaZ*Txz)/alp;
-    Sy = Tty/alp - (betaX*Txy)/alp - (betaY*Tyy)/alp - (betaZ*Tyz)/alp;
-    Sz = Ttz/alp - (betaX*Txz)/alp - (betaY*Tyz)/alp - (betaZ*Tzz)/alp;
+    double const Sx = Ttx/alp - (betaX*Txx)/alp - (betaY*Txy)/alp - (betaZ*Txz)/alp;
+    double const Sy = Tty/alp - (betaX*Txy)/alp - (betaY*Tyy)/alp - (betaZ*Tyz)/alp;
+    double const Sz = Ttz/alp - (betaX*Txz)/alp - (betaY*Tyz)/alp - (betaZ*Tzz)/alp;
 
 
     std::array<double,4> out ; 
     /* Hamiltonian constraint */
-    out[0] = -(Atxx*AtXX) - 2*Atxy*AtXY - 2*Atxz*AtXZ - Atyy*AtYY - 2*Atyz*AtYZ - Atzz*AtZZ + (2*(K*K))/3. - 2*Edens*pi + ((GammatXdx + GammatYdy + GammatZdz + (-2*(GammatXxx*GammatXxx)*gtXX - 2*(GammatYxy*GammatYxy)*gtXX - 4*GammatXxz*GammatZxx*gtXX - 4*GammatYxz*GammatZxy*gtXX - 2*(GammatZxz*GammatZxz)*gtXX - gtXX*gtxxdx*gtXXdx - 4*GammatXyy*GammatYxx*gtXY - 4*GammatYxy*GammatYyy*gtXY - 4*GammatXyz*GammatZxx*gtXY - 4*GammatXxz*GammatZxy*gtXY - 4*GammatYyz*GammatZxy*gtXY - 4*GammatYxz*GammatZyy*gtXY - 4*GammatZxz*GammatZyz*gtXY + gtXXdx*gtxxdy*gtXY - gtxxdx*gtXXdy*gtXY - 2*gtXXdx*gtXY*gtxydx - 2*gtXX*gtxxdy*gtXYdx - 2*gtxxdy*gtXY*gtXYdy - 4*GammatXyz*GammatYxx*gtXZ - 4*GammatYxy*GammatYyz*gtXZ - 4*GammatXzz*GammatZxx*gtXZ - 4*GammatYzz*GammatZxy*gtXZ - 4*GammatXxz*GammatZxz*gtXZ - 4*GammatYxz*GammatZyz*gtXZ - 4*GammatZxz*GammatZzz*gtXZ + gtXXdx*gtxxdz*gtXZ - gtxxdx*gtXXdz*gtXZ + 2*gtXYdx*gtxydz*gtXZ - 2*gtxxdy*gtXYdz*gtXZ - 4*GammatXxx*(GammatXxy*gtXY + GammatXxz*gtXZ) - 2*gtXXdx*gtXZ*gtxzdx - 2*gtXX*gtxxdz*gtXZdx - 2*gtXY*gtxydz*gtXZdx - 2*gtXYdx*gtXZ*gtxzdy + 2*gtXY*gtXZdx*gtxzdy - 2*gtxxdz*gtXY*gtXZdy - 2*gtxxdz*gtXZ*gtXZdz - 2*(GammatXxy*GammatXxy)*gtYY - 4*GammatXyy*GammatYxy*gtYY - 2*(GammatYyy*GammatYyy)*gtYY - 4*GammatXyz*GammatZxy*gtYY - 4*GammatYyz*GammatZyy*gtYY - 2*(GammatZyz*GammatZyz)*gtYY + gtxxdy*gtXXdy*gtYY - 2*gtXXdy*gtxydx*gtYY - 2*gtxydz*gtXZdy*gtYY + 2*gtxzdy*gtXZdy*gtYY - 2*gtXY*gtXYdx*gtyydx - 2*gtXYdy*gtYY*gtyydx - 2*gtXX*gtxydy*gtYYdx + gtXX*gtyydx*gtYYdx - gtXY*gtYYdx*gtyydy - 2*gtXY*gtxydy*gtYYdy + gtXY*gtyydx*gtYYdy - gtYY*gtyydy*gtYYdy + gtXZ*gtYYdx*gtyydz - 2*gtxydy*gtXZ*gtYYdz + gtXZ*gtyydx*gtYYdz - 4*GammatXyz*GammatYxy*gtYZ - 4*GammatXyy*GammatYxz*gtYZ - 4*GammatYyy*GammatYyz*gtYZ - 4*GammatXzz*GammatZxy*gtYZ - 4*GammatXyz*GammatZxz*gtYZ - 4*GammatYzz*GammatZyy*gtYZ - 4*GammatYyz*GammatZyz*gtYZ - 4*GammatZyz*GammatZzz*gtYZ + gtXXdy*gtxxdz*gtYZ + gtxxdy*gtXXdz*gtYZ - 2*gtXXdz*gtxydx*gtYZ + 2*gtXYdy*gtxydz*gtYZ - 2*gtXXdy*gtxzdx*gtYZ - 2*gtXYdy*gtxzdy*gtYZ - 2*gtxydz*gtXZdz*gtYZ + 2*gtxzdy*gtXZdz*gtYZ - 2*gtXYdz*gtyydx*gtYZ + gtYYdy*gtyydz*gtYZ - gtyydy*gtYYdz*gtYZ - 4*GammatXxy*(GammatYxx*gtXX + GammatYxy*gtXY + GammatYxz*gtXZ + GammatXxz*gtYZ) - 2*gtXYdx*gtXZ*gtyzdx - 2*gtXY*gtXZdx*gtyzdx - 2*gtXZdy*gtYY*gtyzdx - 2*gtXYdy*gtYZ*gtyzdx - 2*gtXZdz*gtYZ*gtyzdx - 2*gtXX*gtxydz*gtYZdx - 2*gtXX*gtxzdy*gtYZdx - 2*gtXY*gtyydz*gtYZdx + 2*gtXX*gtyzdx*gtYZdx - 2*gtXZ*gtYYdx*gtyzdy - 2*gtYYdy*gtYZ*gtyzdy - 2*gtXY*gtxydz*gtYZdy - 2*gtXY*gtxzdy*gtYZdy - 2*gtYY*gtyydz*gtYZdy + 2*gtXY*gtyzdx*gtYZdy - 2*gtxydz*gtXZ*gtYZdz - 2*gtXZ*gtxzdy*gtYZdz - 2*gtyydz*gtYZ*gtYZdz + 2*gtXZ*gtyzdx*gtYZdz - 2*(GammatXxz*GammatXxz)*gtZZ - 4*GammatXyz*GammatYxz*gtZZ - 2*(GammatYyz*GammatYyz)*gtZZ - 4*GammatXzz*GammatZxz*gtZZ - 4*GammatYzz*GammatZyz*gtZZ - 2*(GammatZzz*GammatZzz)*gtZZ + gtxxdz*gtXXdz*gtZZ + 2*gtxydz*gtXYdz*gtZZ - 2*gtXXdz*gtxzdx*gtZZ - 2*gtXYdz*gtxzdy*gtZZ + gtyydz*gtYYdz*gtZZ - 2*gtXYdz*gtyzdx*gtZZ - 2*gtYYdz*gtyzdy*gtZZ - 2*gtXZ*gtXZdx*gtzzdx - 2*gtXZdy*gtYZ*gtzzdx - 2*gtXZdz*gtZZ*gtzzdx - 2*gtXZ*gtYZdx*gtzzdy - 2*gtYZ*gtYZdy*gtzzdy - 2*gtYZdz*gtZZ*gtzzdy - 2*gtXY*gtxzdz*gtZZdy - 2*gtYY*gtyzdz*gtZZdy + gtXY*gtzzdx*gtZZdy + gtYY*gtzzdy*gtZZdy - gtYZ*gtZZdy*gtzzdz + gtZZdx*(gtXX*(-2*gtxzdz + gtzzdx) + gtXY*(-2*gtyzdz + gtzzdy) - gtXZ*gtzzdz) - 2*gtXZ*gtxzdz*gtZZdz - 2*gtYZ*gtyzdz*gtZZdz + gtXZ*gtzzdx*gtZZdz + gtYZ*gtzzdy*gtZZdz - gtZZ*gtzzdz*gtZZdz)/2.)/8. - 8*(gtXX*(phidx*phidx) + 2*gtXY*phidx*phidy + gtYY*(phidy*phidy) + 2*gtXZ*phidx*phidz + 2*gtYZ*phidy*phidz + gtZZ*(phidz*phidz)) + 8*(gtXX*(GammatXxx*phidx - 3*phidxdx + GammatYxx*phidy + GammatZxx*phidz) + 2*gtXY*(GammatXxy*phidx - 3*phidxdy + GammatYxy*phidy + GammatZxy*phidz) + 2*gtXZ*(GammatXxz*phidx - 3*phidxdz + GammatYxz*phidy + GammatZxz*phidz) + gtYY*(GammatXyy*phidx + GammatYyy*phidy - 3*phidydy + GammatZyy*phidz) + 2*gtYZ*(GammatXyz*phidx + GammatYyz*phidy - 3*phidydz + GammatZyz*phidz) + gtZZ*(GammatXzz*phidx + GammatYzz*phidy + GammatZzz*phidz - 3*phidzdz)))*exp(-4.*phi);
+    out[0] = -(Atxx*AtXX) - 2*Atxy*AtXY - 2*Atxz*AtXZ - Atyy*AtYY - 2*Atyz*AtYZ - Atzz*AtZZ + (2*(K*K))/3. - 2*Edens*M_PI + ((GammatXdx + GammatYdy + GammatZdz + (-2*(GammatXxx*GammatXxx)*gtXX - 2*(GammatYxy*GammatYxy)*gtXX - 4*GammatXxz*GammatZxx*gtXX - 4*GammatYxz*GammatZxy*gtXX - 2*(GammatZxz*GammatZxz)*gtXX - gtXX*gtxxdx*gtXXdx - 4*GammatXyy*GammatYxx*gtXY - 4*GammatYxy*GammatYyy*gtXY - 4*GammatXyz*GammatZxx*gtXY - 4*GammatXxz*GammatZxy*gtXY - 4*GammatYyz*GammatZxy*gtXY - 4*GammatYxz*GammatZyy*gtXY - 4*GammatZxz*GammatZyz*gtXY + gtXXdx*gtxxdy*gtXY - gtxxdx*gtXXdy*gtXY - 2*gtXXdx*gtXY*gtxydx - 2*gtXX*gtxxdy*gtXYdx - 2*gtxxdy*gtXY*gtXYdy - 4*GammatXyz*GammatYxx*gtXZ - 4*GammatYxy*GammatYyz*gtXZ - 4*GammatXzz*GammatZxx*gtXZ - 4*GammatYzz*GammatZxy*gtXZ - 4*GammatXxz*GammatZxz*gtXZ - 4*GammatYxz*GammatZyz*gtXZ - 4*GammatZxz*GammatZzz*gtXZ + gtXXdx*gtxxdz*gtXZ - gtxxdx*gtXXdz*gtXZ + 2*gtXYdx*gtxydz*gtXZ - 2*gtxxdy*gtXYdz*gtXZ - 4*GammatXxx*(GammatXxy*gtXY + GammatXxz*gtXZ) - 2*gtXXdx*gtXZ*gtxzdx - 2*gtXX*gtxxdz*gtXZdx - 2*gtXY*gtxydz*gtXZdx - 2*gtXYdx*gtXZ*gtxzdy + 2*gtXY*gtXZdx*gtxzdy - 2*gtxxdz*gtXY*gtXZdy - 2*gtxxdz*gtXZ*gtXZdz - 2*(GammatXxy*GammatXxy)*gtYY - 4*GammatXyy*GammatYxy*gtYY - 2*(GammatYyy*GammatYyy)*gtYY - 4*GammatXyz*GammatZxy*gtYY - 4*GammatYyz*GammatZyy*gtYY - 2*(GammatZyz*GammatZyz)*gtYY + gtxxdy*gtXXdy*gtYY - 2*gtXXdy*gtxydx*gtYY - 2*gtxydz*gtXZdy*gtYY + 2*gtxzdy*gtXZdy*gtYY - 2*gtXY*gtXYdx*gtyydx - 2*gtXYdy*gtYY*gtyydx - 2*gtXX*gtxydy*gtYYdx + gtXX*gtyydx*gtYYdx - gtXY*gtYYdx*gtyydy - 2*gtXY*gtxydy*gtYYdy + gtXY*gtyydx*gtYYdy - gtYY*gtyydy*gtYYdy + gtXZ*gtYYdx*gtyydz - 2*gtxydy*gtXZ*gtYYdz + gtXZ*gtyydx*gtYYdz - 4*GammatXyz*GammatYxy*gtYZ - 4*GammatXyy*GammatYxz*gtYZ - 4*GammatYyy*GammatYyz*gtYZ - 4*GammatXzz*GammatZxy*gtYZ - 4*GammatXyz*GammatZxz*gtYZ - 4*GammatYzz*GammatZyy*gtYZ - 4*GammatYyz*GammatZyz*gtYZ - 4*GammatZyz*GammatZzz*gtYZ + gtXXdy*gtxxdz*gtYZ + gtxxdy*gtXXdz*gtYZ - 2*gtXXdz*gtxydx*gtYZ + 2*gtXYdy*gtxydz*gtYZ - 2*gtXXdy*gtxzdx*gtYZ - 2*gtXYdy*gtxzdy*gtYZ - 2*gtxydz*gtXZdz*gtYZ + 2*gtxzdy*gtXZdz*gtYZ - 2*gtXYdz*gtyydx*gtYZ + gtYYdy*gtyydz*gtYZ - gtyydy*gtYYdz*gtYZ - 4*GammatXxy*(GammatYxx*gtXX + GammatYxy*gtXY + GammatYxz*gtXZ + GammatXxz*gtYZ) - 2*gtXYdx*gtXZ*gtyzdx - 2*gtXY*gtXZdx*gtyzdx - 2*gtXZdy*gtYY*gtyzdx - 2*gtXYdy*gtYZ*gtyzdx - 2*gtXZdz*gtYZ*gtyzdx - 2*gtXX*gtxydz*gtYZdx - 2*gtXX*gtxzdy*gtYZdx - 2*gtXY*gtyydz*gtYZdx + 2*gtXX*gtyzdx*gtYZdx - 2*gtXZ*gtYYdx*gtyzdy - 2*gtYYdy*gtYZ*gtyzdy - 2*gtXY*gtxydz*gtYZdy - 2*gtXY*gtxzdy*gtYZdy - 2*gtYY*gtyydz*gtYZdy + 2*gtXY*gtyzdx*gtYZdy - 2*gtxydz*gtXZ*gtYZdz - 2*gtXZ*gtxzdy*gtYZdz - 2*gtyydz*gtYZ*gtYZdz + 2*gtXZ*gtyzdx*gtYZdz - 2*(GammatXxz*GammatXxz)*gtZZ - 4*GammatXyz*GammatYxz*gtZZ - 2*(GammatYyz*GammatYyz)*gtZZ - 4*GammatXzz*GammatZxz*gtZZ - 4*GammatYzz*GammatZyz*gtZZ - 2*(GammatZzz*GammatZzz)*gtZZ + gtxxdz*gtXXdz*gtZZ + 2*gtxydz*gtXYdz*gtZZ - 2*gtXXdz*gtxzdx*gtZZ - 2*gtXYdz*gtxzdy*gtZZ + gtyydz*gtYYdz*gtZZ - 2*gtXYdz*gtyzdx*gtZZ - 2*gtYYdz*gtyzdy*gtZZ - 2*gtXZ*gtXZdx*gtzzdx - 2*gtXZdy*gtYZ*gtzzdx - 2*gtXZdz*gtZZ*gtzzdx - 2*gtXZ*gtYZdx*gtzzdy - 2*gtYZ*gtYZdy*gtzzdy - 2*gtYZdz*gtZZ*gtzzdy - 2*gtXY*gtxzdz*gtZZdy - 2*gtYY*gtyzdz*gtZZdy + gtXY*gtzzdx*gtZZdy + gtYY*gtzzdy*gtZZdy - gtYZ*gtZZdy*gtzzdz + gtZZdx*(gtXX*(-2*gtxzdz + gtzzdx) + gtXY*(-2*gtyzdz + gtzzdy) - gtXZ*gtzzdz) - 2*gtXZ*gtxzdz*gtZZdz - 2*gtYZ*gtyzdz*gtZZdz + gtXZ*gtzzdx*gtZZdz + gtYZ*gtzzdy*gtZZdz - gtZZ*gtzzdz*gtZZdz)/2.)/8. - 8*(gtXX*(phidx*phidx) + 2*gtXY*phidx*phidy + gtYY*(phidy*phidy) + 2*gtXZ*phidx*phidz + 2*gtYZ*phidy*phidz + gtZZ*(phidz*phidz)) + 8*(gtXX*(GammatXxx*phidx - 3*phidxdx + GammatYxx*phidy + GammatZxx*phidz) + 2*gtXY*(GammatXxy*phidx - 3*phidxdy + GammatYxy*phidy + GammatZxy*phidz) + 2*gtXZ*(GammatXxz*phidx - 3*phidxdz + GammatYxz*phidy + GammatZxz*phidz) + gtYY*(GammatXyy*phidx + GammatYyy*phidy - 3*phidydy + GammatZyy*phidz) + 2*gtYZ*(GammatXyz*phidx + GammatYyz*phidy - 3*phidydz + GammatZyz*phidz) + gtZZ*(GammatXzz*phidx + GammatYzz*phidy + GammatZzz*phidz - 3*phidzdz)))*exp(-4.*phi);
 
     /* Momentum constraints */
     out[1] = (Atxxdx - 2*(Atxx*GammatXxx + Atxy*GammatYxx + Atxz*GammatZxx))*gtXX - 2*(-Atxydx + Atxx*GammatXxy + Atyy*GammatYxx + Atxy*(GammatXxx + GammatYxy) + Atyz*GammatZxx + Atxz*GammatZxy)*gtXY - 2*(-Atxzdx + Atxx*GammatXxz + Atyz*GammatYxx + Atxy*GammatYxz + Atzz*GammatZxx + Atxz*(GammatXxx + GammatZxz))*gtXZ + (Atyydx - 2*(Atxy*GammatXxy + Atyy*GammatYxy + Atyz*GammatZxy))*gtYY - 2*(-Atyzdx + Atxz*GammatXxy + Atxy*GammatXxz + Atyy*GammatYxz + Atzz*GammatZxy + Atyz*(GammatYxy + GammatZxz))*gtYZ + (Atzzdx - 2*(Atxz*GammatXxz + Atyz*GammatYxz + Atzz*GammatZxz))*gtZZ - (2*Kdx)/3. + 6*(Atxx*(gtXX*phidx + gtXY*phidy + gtXZ*phidz) + Atxy*(gtXY*phidx + gtYY*phidy + gtYZ*phidz) + Atxz*(gtXZ*phidx + gtYZ*phidy + gtZZ*phidz));
@@ -519,23 +521,24 @@ compute_bssn_constraint_violations(
     out[3] = (Atxxdz - 2*(Atxx*GammatXxz + Atxy*GammatYxz + Atxz*GammatZxz))*gtXX - 2*(-Atxydz + Atxx*GammatXyz + Atyy*GammatYxz + Atxy*(GammatXxz + GammatYyz) + Atyz*GammatZxz + Atxz*GammatZyz)*gtXY - 2*(-Atxzdz + Atxx*GammatXzz + Atyz*GammatYxz + Atxy*GammatYzz + Atzz*GammatZxz + Atxz*(GammatXxz + GammatZzz))*gtXZ + (Atyydz - 2*(Atxy*GammatXyz + Atyy*GammatYyz + Atyz*GammatZyz))*gtYY - 2*(-Atyzdz + Atxz*GammatXyz + Atxy*GammatXzz + Atyy*GammatYzz + Atzz*GammatZyz + Atyz*(GammatYyz + GammatZzz))*gtYZ + (Atzzdz - 2*(Atxz*GammatXzz + Atyz*GammatYzz + Atzz*GammatZzz))*gtZZ - (2*Kdz)/3. + 6*(Atxz*(gtXX*phidx + gtXY*phidy + gtXZ*phidz) + Atyz*(gtXY*phidx + gtYY*phidy + gtYZ*phidz) + Atzz*(gtXZ*phidx + gtYZ*phidy + gtZZ*phidz));
 
     /* All done! */
+    return out ; 
 }
 
 
 #define INSTANTIATE_TEMPLATE(DER_ORD) \
-template                     \
+template                                                             \
 grace::bssn_state_t GRACE_HOST_DEVICE                                \
-compute_bssn_rhs<DER_ORD>( VEC(int i, int j, int k), int q           \
-                , grace::var_array_t<GRACE_NSPACEDIM> const state    \
-                , std::array<std::array<double,4>,4> const& Tmunu    \
-                , std::array<double,GRACE_NSPACEDIM> const& idx);    \
-template                     \
+compute_bssn_rhs<DER_ORD>( VEC(int , int , int ), int                \
+                , grace::var_array_t<GRACE_NSPACEDIM> const          \
+                , std::array<std::array<double,4>,4> const&          \
+                , std::array<double,GRACE_NSPACEDIM> const& );       \
+template                                                             \
 std::array<double,4> GRACE_HOST_DEVICE                               \
 compute_bssn_constraint_violations<DER_ORD>(                         \
-                  VEC(int i, int j, int k), int q                    \
-                , grace::var_array_t<GRACE_NSPACEDIM> const state    \
-                , std::array<std::array<double,4>,4> const& Tmunu    \
-                , std::array<double,GRACE_NSPACEDIM> const& idx)
+                  VEC(int , int , int ), int                         \
+                , grace::var_array_t<GRACE_NSPACEDIM> const          \
+                , std::array<std::array<double,4>,4> const&          \
+                , std::array<double,GRACE_NSPACEDIM> const& )
 
 INSTANTIATE_TEMPLATE(2) ; 
 INSTANTIATE_TEMPLATE(4) ; 

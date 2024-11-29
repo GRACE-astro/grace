@@ -31,6 +31,7 @@
 #include <grace_config.h> 
 
 #include <grace/utils/grace_utils.hh>
+#include <grace/utils/numerics/global_interpolators.hh>
 
 #include <grace/data_structures/variable_properties.hh>
 #include <grace/data_structures/variables.hh>
@@ -54,6 +55,15 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
                 , grace::var_array_t<GRACE_NSPACEDIM> const state
                 , std::array<std::array<double,4>,4> const& Tmunu
                 , std::array<double,GRACE_NSPACEDIM> const& idx);
+
+template< size_t der_order >
+std::array<double,4> GRACE_HOST_DEVICE 
+compute_bssn_constraint_violations(
+      VEC(int i, int j, int k), int q
+    , grace::var_array_t<GRACE_NSPACEDIM> const state
+    , std::array<std::array<double,4>,4> const& Tdd
+    , std::array<double,GRACE_NSPACEDIM> const& idx
+) ; 
 
 
 struct bssn_system_t 
@@ -115,9 +125,8 @@ struct bssn_system_t
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
 
     }
-
-    void   
-    compute_auxiliaries() const 
+    template< size_t der_order >
+    void compute_auxiliaries() const 
     {
         DECLARE_GRID_EXTENTS ; 
 
@@ -125,7 +134,7 @@ struct bssn_system_t
         using namespace Kokkos ;
         // TODO define a enum for the constraints "local" indices 
         var_array_t<GRACE_NSPACEDIM> bssn_constraints(
-            VEC(nx+1+2*ngz,ny+1+2*ngz,nz+1+2*ngz), 4, nq 
+            "bssn_constraints_tmp", VEC(nx+1+2*ngz,ny+1+2*ngz,nz+1+2*ngz), 4, nq 
         ) ; 
         auto _idx = grace::variable_list::get().getinvspacings() ; 
         /* Compute the constraint violations on cell corners */
@@ -133,19 +142,18 @@ struct bssn_system_t
             policy{
                 {VEC(ngz,ngz,ngz),0},{VEC(nx+1+ngz,ny+1+ngz,nz+1+ngz),nq}
             } ; 
-
         parallel_for(
             GRACE_EXECUTION_TAG("BSSN","compute_constraint_violations"),
             policy,
             KOKKOS_LAMBDA(VEC(int i, int j, int k), int q)
             {   
                 std::array<double, GRACE_NSPACEDIM> idx{ VEC(_idx(0,q), _idx(1,q), _idx(2,q))} ; 
-                auto Tdd = get_Tmunu_lower(VEC(i,j,k),q) ; 
+                auto Tdd = get_Tmunu_lower(VEC(i,j,k),q) ; // FIXME should not capture (*this)
                 auto constr_loc = 
-                    compute_bssn_constraint_violations<2>(VEC(i,j,k),q,this->_sstate.corner_staggered_fields,Tdd,idx) ;
+                    compute_bssn_constraint_violations<der_order>(VEC(i,j,k),q,this->_sstate.corner_staggered_fields,Tdd,idx) ;
                 #pragma unroll
                 for( int ic=0; ic<4; ++ic) 
-                    bssn_constraints(VEC(i,j,k),ic,q) = constr_loc[ic]
+                    bssn_constraints(VEC(i,j,k),ic,q) = constr_loc[ic] ; 
             }
         ) ; 
 
@@ -176,7 +184,7 @@ struct bssn_system_t
  private:
 
     std::array<std::array<double,4>,4> GRACE_HOST_DEVICE 
-    get_Tmunu_lower(VEC(int i, int j, int k), int q)
+    get_Tmunu_lower(VEC(int i, int j, int k), int q) const
     {
         auto& state  = this->_state                             ;
         auto& cstate = this->_sstate.corner_staggered_fields    ;

@@ -50,13 +50,6 @@ function(register_grace_object target_name)
         ZLIB::ZLIB
         $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-    # Init VTK modules if support is requested 
-    if ( GRACE_ENABLE_VTK )
-        vtk_module_autoinit(
-            TARGETS grace
-            MODULES ${VTK_LIBRARIES}
-        )
-    endif()
     # Register the object files of the target into the grace_objects interface library
     target_sources(grace_objects INTERFACE $<TARGET_OBJECTS:${target_name}>)
 endfunction()
