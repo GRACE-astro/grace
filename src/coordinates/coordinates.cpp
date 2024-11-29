@@ -278,7 +278,7 @@ void fill_jacobian_matrices( jacobian_array_t& jac
             ) ; 
 
             int idx = 0 ;
-            #pragma unroll GRACE_NSPACEDIM*GRACE_NSPACEDIM
+            #pragma unroll
             for( int im=0; im<GRACE_NSPACEDIM; ++im){
                 for( int jm=0; jm<GRACE_NSPACEDIM; ++jm){
                     hj(VEC(i,j,k),im,jm,q)  = J[idx]  ;
