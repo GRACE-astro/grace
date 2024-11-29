@@ -115,11 +115,12 @@ static size_t solve_tov_equations(
     double & transition_radius
 )
 {
+    Kokkos::View<double *, grace::default_space> tov_params("TOV_parameters", 7) ; 
     Kokkos::parallel_for("solve_tov", 1,  KOKKOS_LAMBDA (int dummy){
         unsigned int err ; 
         double ye, eps;     
         double temp = 0.0; 
-        double rho = rhoC ;
+        double rho = rho_c ;
         double rho_atm = eos.rho_atmosphere() ;
         double ye_atm  = eos.ye_atmosphere()   ; 
         double press_atm = eos.press_cold__rho_ye(rho_atm,ye_atm, err) ;
@@ -186,8 +187,6 @@ struct tov_id_t {
         , double rhoC )
         : _eos(eos), _pcoords(pcoords), _rhoC(rhoC)
     { 
-
-        Kokkos::View<double *, grace::default_space> tov_params("TOV_parameters", 7) ; 
 
         Kokkos::View<double *, grace::default_space> massl("TOV_mass", N_POINTS) ; 
         Kokkos::View<double *, grace::default_space> pressl ("TOV_press", N_POINTS) ; 
