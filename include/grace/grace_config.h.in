@@ -119,5 +119,7 @@ namespace grace {
 #define EXPRD(X,Y) X
 #endif 
 
+#cmakedefine GRACE_ENABLE_PROFILING
+
 }
 #endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

@@ -105,6 +105,8 @@ static inline std::string rocmprofiler_cxx_demangle(const std::string& symbol) {
 struct rocm_profiling_context_t {
     rocprofiler_session_id_t _sid ; 
     rocprofiler_buffer_id_t  _bid ; 
+    rocm_profiling_context_t( rocprofiler_session_id_t sid, rocprofiler_buffer_id_t bid )
+      : _sid(sid), _bid(bid) {} ; 
 } ; 
 /**
  * @brief Initialize rocm profiling session

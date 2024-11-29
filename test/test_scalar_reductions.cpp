@@ -86,10 +86,10 @@ TEST_CASE("Reductions", "[reductions]")
             true
         ) ; 
         double const sigma = 0.1 ;
-        double const r = sqrt( EXPR(
+        double const r = Kokkos::sqrt( EXPR(
             math::int_pow<2>(pcoords[0]), + math::int_pow<2>(pcoords[1]), + math::int_pow<2>(pcoords[2])
         )) ; 
-        h_state_mirror(VEC(i,j,k),DENS,q) = exp(- 0.5 * math::int_pow<2>(r)/math::int_pow<2>(sigma)) / sigma / sqrt(2*M_PI) ; 
+        h_state_mirror(VEC(i,j,k),DENS,q) = exp(- 0.5 * math::int_pow<2>(r)/math::int_pow<2>(sigma)) / sigma / Kokkos::sqrt(2*M_PI) ; 
     }
     /* copy data to device */
     Kokkos::deep_copy(state,h_state_mirror); 
