@@ -15,6 +15,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
 endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "NVHPC")
-    message("Using Nvidia C++ compiler.")
+    message("Using Nvidia HPC compiler.")
     add_compile_options(--expt-relaxed-constexpr)
+    add_compile_options(-lstdc++fs)
 endif()
