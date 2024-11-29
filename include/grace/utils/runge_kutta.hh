@@ -116,12 +116,12 @@ size_t _Nt, _it ;
 
 static constexpr const double c[4]    = { 0., 0.5, 0.5, 1. } ; 
 static constexpr const double b[4]    = {1./6., 1./3., 1./3., 1./6.} ; 
-static constexpr const double a[4][4] = {{
-    { 0., 0., 0., 0., },
+static constexpr const double a[4][4] = {
+    { 0., 0., 0., 0. },
     { 0.5, 0., 0., 0. },
     { 0., 0.5, 0., 0. },
     { 0., 0.,  0., 1. }
-}};
+};
 
 } ; 
 
@@ -255,14 +255,14 @@ std::array<double, N> state;
 static constexpr const double c[6]  = { 0., 0.25, 3./8., 12./13., 1., 0.5 } ; 
 static constexpr const double b5[6] = {16./135., 0., 6656./12825., 28561./56430, -9./50., 2./55.} ; 
 static constexpr const double b4[6] = {25./216., 0., 1408./2565., 2197./4104., -0.2, 0} ; 
-static constexpr const double a[6][6] = {{
+static constexpr const double a[6][6] = {
     { 0., 0., 0., 0., 0., 0. },
     { 0.25, 0., 0., 0., 0., 0. },
     { 3./32., 9./32., 0., 0., 0., 0. },
     { 1932./2197., -7200./2197., 7296./2197., 0., 0., 0. },
     { 439./216., -8., 3680./513., -845./4104., 0., 0. },
     { -8./27., 2., -3544./2565., 1859./4104., -11./40., 0. }
-}};
+};
 static constexpr const double dt_min = 1e-13 ; 
 
 } ; 
