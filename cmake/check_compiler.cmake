@@ -2,7 +2,6 @@ if("${CMAKE_CXX_COMPILER}" MATCHES "hipcc")
     message(STATUS "Compiling with hipcc")
     add_compile_options(-fgpu-rdc)
     add_link_options(-fgpu-rdc --hip-link)
-    string(REPLACE "-fno-gpu-rdc" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 endif()
 
 
@@ -16,6 +15,6 @@ endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "NVHPC")
     message("Using Nvidia HPC compiler.")
-    add_compile_options(--expt-relaxed-constexpr)
+    add_compile_options(--expt-relaxed-constexpr -diag-suppress=20091 -diag-suppress=20012)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lstdc++fs")
 endif()
