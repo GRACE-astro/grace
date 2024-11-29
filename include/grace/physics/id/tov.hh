@@ -258,8 +258,7 @@ struct tov_id_t {
         if ( sol[1] > 1.001 * _press_atm ) {
             id.press = sol[1] ; 
             id.ye    = _eos.ye_beta_eq__press_cold(sol[1],err) ;
-            // Get rho and eps from press 
-            double eps ; 
+            // Get rho from press 
             id.rho   = _eos.rho__press_cold_ye(sol[1], id.ye, err) ; 
         } else {
             id.rho   = rho_atm   ;

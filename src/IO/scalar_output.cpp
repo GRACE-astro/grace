@@ -231,8 +231,6 @@ void write_scalar_output() {
     size_t const iter = grace_runtime.iteration() ; 
     double const time = grace_runtime.time()      ; 
 
-    static constexpr size_t width = 20 ;
-
     auto const out_minmax_vars = grace_runtime.scalar_output_minmax_vars() ; 
     auto const out_minmax_aux  = grace_runtime.scalar_output_minmax_aux()  ; 
     for( auto const& vname: out_minmax_vars ) {

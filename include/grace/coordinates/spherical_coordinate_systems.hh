@@ -111,8 +111,7 @@ class spherical_coordinate_system_impl_t
         _L = config["inner_region_side"].as<double>() ; 
         _Ri = config["inner_region_radius"].as<double>() ; 
         _Ro = config["outer_region_radius"].as<double>() ;
-        _use_logr = config["use_logarithmic_radial_zone"].as<bool>() ; 
-        double s0_in{0.}, s0_out{1.}, s1_in{1.}, s1_out{1.} ; 
+        _use_logr = config["use_logarithmic_radial_zone"].as<bool>() ;  
 
         auto const get_F0
             = [&] (double const sin, double const sout,

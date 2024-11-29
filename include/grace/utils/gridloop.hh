@@ -155,7 +155,6 @@ struct host_loop_impl_t<true> {
                      , "Loop index ranges must be provided as "
                        "a parameter pack that can be interpreted "
                        "as a list of std::pair<std::size_t,std::size_t>.") ; 
-        static constexpr const std::size_t ndim = sizeof...(Idxt) ; 
         auto const ranges = std::make_tuple(args...) ; 
         const size_t ncumulative = get_cumulative_range(ranges,std::index_sequence_for<Idxt...>{}) ;
         #pragma omp parallel for 
