@@ -222,7 +222,6 @@ vtk_module_autoinit(
 
 add_executable( interpolator_test test_interpolators.cpp )
 target_include_directories( interpolator_test PRIVATE "${HEADER_LIST}")
-target_compile_options(interpolator_test PRIVATE -Wno-dangling-field)
 target_link_libraries( interpolator_test PRIVATE
         kokkos_tests_main
         Catch2::Catch2 

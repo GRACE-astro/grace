@@ -14,6 +14,6 @@ endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "NVHPC")
     message("Using Nvidia HPC compiler.")
-    add_compile_options(--expt-relaxed-constexpr -diag-suppress=20091 -diag-suppress=20012)
+    add_compile_options(--expt-relaxed-constexpr -Xcudafe "--diag_suppress=20091" -Xcudafe "--diag_suppress=20012")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lstdc++fs")
 endif()
