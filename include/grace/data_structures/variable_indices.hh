@@ -230,9 +230,9 @@ DECLARE_VAR_INDEX_IMPL(PRESS)                       \
 DECLARE_VAR_INDEX_IMPL(VELX)                        \
 DECLARE_VAR_INDEX_IMPL(VELY)                        \
 DECLARE_VAR_INDEX_IMPL(VELZ)                        \
-DECLARE_VAR_INDEX_IMPL(ZVECX)                        \
-DECLARE_VAR_INDEX_IMPL(ZVECY)                        \
-DECLARE_VAR_INDEX_IMPL(ZVECZ)                        \
+DECLARE_VAR_INDEX_IMPL(ZVECX)                       \
+DECLARE_VAR_INDEX_IMPL(ZVECY)                       \
+DECLARE_VAR_INDEX_IMPL(ZVECZ)                       \
 DECLARE_VAR_INDEX_IMPL(TEMP)                        \
 DECLARE_VAR_INDEX_IMPL(YE)                          \
 DECLARE_VAR_INDEX_IMPL(ENTROPY)                     \
