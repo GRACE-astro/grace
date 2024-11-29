@@ -114,9 +114,9 @@ std::array<double, N> state;
 
 size_t _Nt, _it ; 
 
-static constexpr const std::array<double,4> c  { 0., 0.5, 0.5, 1. } ; 
-static constexpr const std::array<double,4> b  {1./6., 1./3., 1./3., 1./6.} ; 
-static constexpr const std::array<std::array<double, 4>, 4> a {{
+static constexpr const double c[4]    = { 0., 0.5, 0.5, 1. } ; 
+static constexpr const double b[4]    = {1./6., 1./3., 1./3., 1./6.} ; 
+static constexpr const double a[4][4] = {{
     { 0., 0., 0., 0., },
     { 0.5, 0., 0., 0. },
     { 0., 0.5, 0., 0. },
@@ -252,10 +252,10 @@ double abs_tol, rel_tol ;
 double t, dt  ; 
 std::array<double, N> state;
 
-static constexpr const double c[6]  { 0., 0.25, 3./8., 12./13., 1., 0.5 } ; 
-static constexpr const double b5[6] {16./135., 0., 6656./12825., 28561./56430, -9./50., 2./55.} ; 
-static constexpr const double b4[6] {25./216., 0., 1408./2565., 2197./4104., -0.2, 0} ; 
-static constexpr const double a[6][6] {{
+static constexpr const double c[6]  = { 0., 0.25, 3./8., 12./13., 1., 0.5 } ; 
+static constexpr const double b5[6] = {16./135., 0., 6656./12825., 28561./56430, -9./50., 2./55.} ; 
+static constexpr const double b4[6] = {25./216., 0., 1408./2565., 2197./4104., -0.2, 0} ; 
+static constexpr const double a[6][6] = {{
     { 0., 0., 0., 0., 0., 0. },
     { 0.25, 0., 0., 0., 0., 0. },
     { 3./32., 9./32., 0., 0., 0., 0. },
