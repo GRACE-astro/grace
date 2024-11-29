@@ -54,6 +54,7 @@
 #include <filesystem>
 #include <sstream>
 #include <iomanip>
+#include <tuple>
 
 #define HDF5_CALL(result,cmd) \
     do {  \
@@ -216,56 +217,103 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     unsigned long const ncells = ncells_quad * nq ; 
     /* Global number of cells  */
     unsigned long const ncells_glob = ncells_quad * nq_glob ; 
+    /* Number of unique points per quadrant */
+    unsigned long const npoints_quad = (nx+1) * (ny+1) * (nz+1) ; 
     /* Local number of points  */
-    unsigned long const npoints = ncells * nvertex ; 
+    unsigned long const npoints = npoints_quad * nq ;  
     /* Global number of points */
-    unsigned long const npoints_glob = ncells_glob * nvertex ; 
+    unsigned long const npoints_glob = npoints_quad * nq_glob ;
 
     detail::_volume_output_ncells.push_back(ncells_glob) ; 
 
     double*  points = (double*)  malloc(sizeof(double)  * npoints * 3 ) ; 
     unsigned int* cells  = (unsigned int*) malloc(sizeof(unsigned int) * ncells * nvertex ) ; 
-    const size_t global_point_offset = local_quad_offset * ncells_quad * nvertex;  
+    const size_t global_point_offset = local_quad_offset * npoints_quad ;  
     unsigned int icell  = 0L ; 
     unsigned int ipoint = 0U ; 
-    //#pragma omp parallel for collapse(GRACE_NSPACEDIM+1) reduction(+:icell,ipoint)
+
+    auto const get_point_index = 
+    [&] 
+    (
+        VEC(int i, int j, int k), int64_t q
+    ) 
+    {
+        #ifdef GRACE_3D 
+        return i + (nx+1) * (j + (ny+1) * (k + (nz+1) * q)) ; 
+        #else 
+        return i + (nx+1) * (j + (ny+1) * q) ; 
+        #endif
+    } ; 
+
+    auto const get_cell_vertex_indices = [&]
+    (
+        VEC(int i, int j, int k), int64_t q, int iv
+    ) 
+    {
+        static constexpr std::array<std::array<int,3>,8> vertex_coords {
+            {0, 0, 0}, //
+            {1, 0, 0}, //
+            {1, 1, 0}, //
+            {0, 1, 0}, //
+            {0, 0, 1}, //
+            {1, 0, 1}, //
+            {1, 1, 1}, //
+            {0, 1, 1}  //
+        }
+        return std::make_tuple(
+            VEC(
+                i+vertex_coords[iv][0],
+                j+vertex_coords[iv][1],
+                k+vertex_coords[iv][2]
+            )
+        ) ; 
+    } ;
+    #pragma omp parallel for collapse(GRACE_NSPACEDIM+1) 
     for(int64_t iq=0; iq<nq; ++iq) {
         #ifdef GRACE_3D
         for(size_t k=0; k<nz; ++k  ) {
         #endif  
             for( size_t j=0; j<ny; ++j) { 
                 for(size_t i=0; i<nx; ++i){
+                int64_t const icell = i + nx * ( j + ny * ( k  + nz * q )) ; 
                 for( int iv=0; iv<nvertex; ++iv ) {
-                    auto const pcoords = 
-                        coord_system.get_physical_coordinates( {VEC(i,j,k)}
-                                                             , iq
-                                                             , {VEC( lcoords[3*iv+0]
-                                                                   , lcoords[3*iv+1]
-                                                                   , lcoords[3*iv+2])}
-                                                             , false) ; 
-                    points[GRACE_NSPACEDIM*(nvertex*icell + iv) + 0 ] = pcoords[0] ; 
-                    points[GRACE_NSPACEDIM*(nvertex*icell + iv) + 1 ] = pcoords[1] ;
-                    
-                    points[GRACE_NSPACEDIM*(nvertex*icell + iv) + 2 ] 
-                    #ifdef GRACE_3D 
-                        = pcoords[2] ;
-                    #else 
-                        = 0.0 ; 
-                    #endif  
-
-                    cells[nvertex * icell + iv] = ipoint + global_point_offset; 
-                    ipoint ++ ; 
+                    int ip, jp, kp ; 
+                    std::tie(ip,jp,kp) = get_cell_vertex_indices(VEC(i,j,k),iv) ; 
+                    cells[nvertex * icell + iv] = get_point_index(VEC(ip,jp,kp),iq); 
                 }
-
-                icell ++ ; 
                 #ifdef GRACE_3D
                 }
                 #endif 
             }
         }
     }
-    ASSERT(icell == ncells, "Something went really wrong") ; 
-    ASSERT(ipoint == npoints, "Something went really wrong") ; 
+    #pragma omp parallel for collapse(GRACE_NSPACEDIM+1) 
+    for(int64_t iq=0; iq<nq; ++iq) {
+        #ifdef GRACE_3D
+        for(size_t k=0; k<nz+1; ++k  ) {
+        #endif  
+            for( size_t j=0; j<ny+1; ++j) { 
+                for(size_t i=0; i<nx+1; ++i){
+                    auto const pcoords = 
+                        coord_system.get_physical_coordinates( {VEC(i,j,k)}
+                                                             , iq
+                                                             , {VEC( 0,0,0 )}
+                                                             , false) ; 
+                    auto const ipoint = get_point_index(VEC(i,j,k),iq) ; 
+                    points[GRACE_NSPACEDIM*ipoint + 0 ] = pcoords[0] ; 
+                    points[GRACE_NSPACEDIM*ipoint + 1 ] = pcoords[1] ;
+                    points[GRACE_NSPACEDIM*ipoint + 2 ] 
+                    #ifdef GRACE_3D 
+                        = pcoords[2] ;
+                    #else 
+                        = 0.0 ; 
+                    #endif  
+                }
+            }
+        #ifdef GRACE_3D
+        }
+        #endif 
+    }
     /* Create parallel dataset properties */
     hid_t dxpl ; 
     HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER)) ; 
@@ -550,12 +598,17 @@ void write_var_arrays_hdf5( std::set<std::string> const& varlist
                                         , varidx 
                                         , iq ) ; 
             #endif 
+            auto props = get_variable_properties(vname) ;
+            ASSERT( props.staggering == var_staggering_t::CORNER 
+                 or props.staggering == var_staggering_t::CELL_CENTER,
+                "Output variables can either be cell centered or corner staggered." ) ;  
+            bool var_is_staggered = props.staggering == var_staggering_t::CORNER ; 
             auto sview = get_variable_subview(
                       vname
-                    , Kokkos::pair<int,int>(ngz,nx+ngz)
-                    , Kokkos::pair<int,int>(ngz,ny+ngz)
+                    , Kokkos::pair<int,int>(ngz,nx+var_is_staggered+ngz)
+                    , Kokkos::pair<int,int>(ngz,ny+var_is_staggered+ngz)
                     #ifdef GRACE_3D
-                    , Kokkos::pair<int,int>(ngz,nz+ngz)
+                    , Kokkos::pair<int,int>(ngz,nz+var_is_staggered+ngz)
                     #endif 
                     , iq
                 ) ;
@@ -566,8 +619,13 @@ void write_var_arrays_hdf5( std::set<std::string> const& varlist
                                         , Kokkos::ALL()
                                         #endif 
                                         , iq ) ; 
-            /* This deep copy operation is asynchronous */
-            Kokkos::deep_copy(mirror_sview, sview) ; 
+            if ( var_is_staggered ) {
+                /* interpolate */
+                interp_corner_to_center<2>(sview, mirror_sview)
+            } else {
+                /* This deep copy operation is asynchronous */
+                Kokkos::deep_copy(mirror_sview, sview) ;
+            }     
         }
         /* Copy data d2h */
         Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
