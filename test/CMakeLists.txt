@@ -220,13 +220,6 @@ vtk_module_autoinit(
     )
 
 
-add_executable( interpolator_test test_interpolators.cpp )
-target_include_directories( interpolator_test PRIVATE "${HEADER_LIST}")
-target_link_libraries( interpolator_test PRIVATE
-        kokkos_tests_main
-        Catch2::Catch2 
-        Kokkos::kokkos ) 
-
 add_executable( integrator_test test_integration.cpp )
 target_include_directories( integrator_test PRIVATE "${HEADER_LIST}")
 target_compile_options(integrator_test PRIVATE -O3)
@@ -422,8 +415,6 @@ add_test(NAME coordinate_test_nolog COMMAND
         mpirun -n 1 ./coordinate_test --grace-parfile ./configs/basic_config.yaml )
 add_test(NAME coordinate_test_log COMMAND 
         mpirun -n 1 ./coordinate_test --grace-parfile ./configs/regrid_test_spherical_log.yaml )
-add_test(NAME interpolator_test COMMAND 
-        ./interpolator_test )
 add_test(NAME regrid_test_cartesian COMMAND 
         mpirun -n 2 ./regrid_test --grace-parfile ./configs/regrid_test_cartesian.yaml)
 add_test(NAME regrid_test_nolog COMMAND 

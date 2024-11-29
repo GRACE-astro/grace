@@ -220,7 +220,7 @@ void register_variables() {
     #ifdef GRACE_ENABLE_CUDA
     // Suppress warning #20092: __device__ variable cannot be written in a host function.
     // This is safe because the lambda in Kokkos::parallel_for executes only on the device.
-    #pragma diag_suppress 20092
+    #pragma diag_suppress 20090
     #endif 
     ASSERT_DBG( detail::_var_bc_types.size() == detail::num_evolved, 
                 detail::num_evolved << " evolved variables but "

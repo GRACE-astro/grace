@@ -93,7 +93,6 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     /******************************************************/
     GRACE_VERBOSE( "Shipping halo quadrants with {}" 
                      " total quadrants and {} halo quadrants.", nq, halo_quads.size()) ; 
-    size_t send_size_coords = GRACE_NSPACEDIM ; 
     size_t send_size_vol = EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) ; 
     size_t send_size = send_size_vol * nvars ; 
     parallel::grace_transfer_context_t context ;
