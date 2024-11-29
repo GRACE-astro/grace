@@ -46,6 +46,7 @@
 #define N_POINTS 100000
 
 namespace grace {
+namespace detail {
 /**
  * @brief Right hand side of TOV equations
  * 
@@ -73,6 +74,104 @@ tov_rhs(double const& r, std::array<double,3> const& state, eos_t const& _eos) {
     } ; 
 }
 /**
+ * @brief Solve the TOV equations.
+ * 
+ * \ingroup
+ * \cond grace_detail 
+ * @tparam eos_t Equation of state type
+ * @param eos Equation of state object
+ * @param rho_c Central density 
+ * @param pcoords Coordinates of gridpoints
+ * @param mass m(r) solution
+ * @param press P(r) solution
+ * @param nu nu(r) solution
+ * @param r Solution axis
+ * @param dr Solution axis resolution
+ * @param press_c Central pressure
+ * @param M Mass of the TOV star
+ * @param R Radius of the TOV star
+ * @param press_atm Atmosphere pressure
+ * @param nu_corr Correction on nu (to make it Schwarzschild outside the star)
+ * @param transition_radius Radius where we start transitioning to Schwarzschild solution
+ * @return size_t Number of points in solution arrays
+ * 
+ * This function calls a trivial kernel that solves the TOV equations using a Runge-Kutta 45 ODE solver,
+ * returning bulk properties of the solution and the solution on the grid.
+ */
+template< typename eos_t >
+static size_t solve_tov_equations(
+    eos_t eos, 
+    double const & rho_c,
+    Kokkos::View<double *, grace::default_space> mass,
+    Kokkos::View<double *, grace::default_space> press,
+    Kokkos::View<double *, grace::default_space> nu,
+    Kokkos::View<double *, grace::default_space> r,
+    Kokkos::View<double *, grace::default_space> dr,
+    double & press_c, 
+    double & M,
+    double & R,
+    double & press_atm,
+    double & nu_corr,
+    double & transition_radius
+)
+{
+    Kokkos::parallel_for("solve_tov", 1,  KOKKOS_LAMBDA (int dummy){
+        unsigned int err ; 
+        double ye, eps;     
+        double temp = 0.0; 
+        double rho = rhoC ;
+        double rho_atm = eos.rho_atmosphere() ;
+        double ye_atm  = eos.ye_atmosphere()   ; 
+        double press_atm = eos.press_cold__rho_ye(rho_atm,ye_atm, err) ;
+        /* Find central pressure, eps, ye */
+        double const _pressC_loc = eos.press_eps_ye__beta_eq__rho_temp(eps,ye,rho,temp,err) ; 
+        rk45_t<3> solver{{0.,R_MAX}, {0., _pressC_loc, 0.}, 1e-04, 1e-02 } ; 
+        auto cback = [&] (double const& r, std::array<double,3> const& state) -> std::array<double,3>
+        { 
+            return tov_rhs<eos_t>(r,state,eos) ; 
+        } ; 
+        bool stored = false ;
+        mass(0) = 0. ;
+        press(0) = _pressC_loc ; 
+        nu(0)  = 0. ; 
+        size_t ii = 0 ;
+        while(true) {
+            solver.advance_step( cback ) ; 
+            ii++ ; 
+            mass(ii) = solver.state[0]  ; 
+            press(ii) = solver.state[1] ;
+            nu(ii) = solver.state[2]    ;
+            r(ii) = solver.t ; 
+            dr(ii) = solver.dt ; 
+            if ( solver.state[1] < 1e-12 ) {
+                break ; 
+            } else if ( solver.state[1] < 1e-10  and not stored ) {
+                tov_params(5) = solver.t ; //!< Store the transition radius
+                stored = true ; 
+            }
+            
+        }
+
+        tov_params(0) = solver.t ; 
+        tov_params(1) = solver.state[0] ; 
+        tov_params(2) = _pressC_loc ; 
+        tov_params(3) = solver.state[2] ; 
+        tov_params(4) = press_atm ; 
+        tov_params(6) = ii+1  ; 
+    }) ; 
+    auto h_tov_params = Kokkos::create_mirror_view(tov_params) ; 
+    Kokkos::deep_copy(h_tov_params, tov_params) ;
+
+    M = h_tov_params(1) ; 
+    R = h_tov_params(0) ; 
+    pressC = h_tov_params(2) ;
+    nu_corr = 0.5 * log(1-2*_compactness) - h_tov_params(3) ;  
+    press_atm = h_tov_params(4) ; 
+    transition_radius = h_tov_params(5) ; 
+    return static_cast<size_t>(h_tov_params(6)) ; 
+}
+}
+/**
  * @brief TOV initial data kernel.
  * 
  * @tparam eos_t Eos type.
@@ -96,80 +195,29 @@ struct tov_id_t {
         Kokkos::View<double *, grace::default_space> rl ("TOV_nu", N_POINTS) ; 
         Kokkos::View<double *, grace::default_space> drl ("TOV_nu", N_POINTS) ; 
 
-        
+        /* Solve ODEs */
         GRACE_INFO("In TOV setup.") ; 
-        Kokkos::parallel_for("solve_tov", 1,  KOKKOS_LAMBDA (int dummy){
-            unsigned int err ; 
-            double ye, eps;     
-            double temp = 0.0; 
-            double rho = rhoC ;
-            double rho_atm = eos.rho_atmosphere() ;
-            double ye_atm  = eos.ye_atmosphere()   ; 
-            double press_atm = eos.press_cold__rho_ye(rho_atm,ye_atm, err) ;
-            /* Find central pressure, eps, ye */
-            double const _pressC_loc = eos.press_eps_ye__beta_eq__rho_temp(eps,ye,rho,temp,err) ; 
-            rk45_t<3> solver{{0.,R_MAX}, {0., _pressC_loc, 0.}, 1e-04, 1e-02 } ; 
-            auto cback = [&] (double const& r, std::array<double,3> const& state) -> std::array<double,3>
-            { 
-                return tov_rhs<eos_t>(r,state,eos) ; 
-            } ; 
-            bool stored = false ;
-            massl(0) = 0. ;
-            pressl(0) = _pressC_loc ; 
-            nul(0)  = 0. ; 
-            size_t ii = 0 ;
-            while(true) {
-                solver.advance_step( cback ) ; 
-                ii++ ; 
-                massl(ii) = solver.state[0]  ; 
-                pressl(ii) = solver.state[1] ;
-                nul(ii) = solver.state[2]    ;
-                rl(ii) = solver.t ; 
-                drl(ii) = solver.dt ; 
-                if ( solver.state[1] < 1e-12 ) {
-                    break ; 
-                } else if ( solver.state[1] < 1e-10  and not stored ) {
-                    tov_params(5) = solver.t ; //!< Store the transition radius
-                    stored = true ; 
-                }
-                
-            }
-
-            tov_params(0) = solver.t ; 
-            tov_params(1) = solver.state[0] ; 
-            tov_params(2) = _pressC_loc ; 
-            tov_params(3) = solver.state[2] ; 
-            tov_params(4) = press_atm ; 
-            tov_params(6) = ii+1  ; 
-        }) ; 
-        auto h_tov_params = Kokkos::create_mirror_view(tov_params) ; 
-        Kokkos::deep_copy(h_tov_params, tov_params) ; 
+        _npoints = detail::solve_tov_equations(
+              eos
+            , rhoC
+            , massl
+            , pressl
+            , nul
+            , rl
+            , drl 
+            , _pressC
+            , _M
+            , _R
+            , _press_atm
+            , _nu_corr
+            , _transition_radius
+        ) ; 
+        _compactness = _M/_R ; 
         GRACE_INFO("TOV solver (all in code units):\n"
                    "   Central density  : {}\n"
                    "   Central pressure : {}\n"
                    "   Mass             : {}\n"   
                    "   Radius           : {}", _rhoC, h_tov_params(2), h_tov_params(1), h_tov_params(0)) ; 
-        _M = h_tov_params(1) ; 
-        _R = h_tov_params(0) ; 
-        _pressC = h_tov_params(2) ;
-        _compactness = _M/_R ; 
-        _nu_corr = 0.5 * log(1-2*_compactness) - h_tov_params(3) ;  
-        _press_atm = h_tov_params(4) ; 
-        _transition_radius = h_tov_params(5) ; 
-        _npoints = static_cast<size_t>(h_tov_params(6)) ; 
-        #if 0
-        Kokkos::resize(massl, static_cast<size_t>(h_tov_params(6))) ; 
-        Kokkos::resize(pressl, static_cast<size_t>(h_tov_params(6))) ; 
-        Kokkos::resize(nul, static_cast<size_t>(h_tov_params(6))) ; 
-
-        Kokkos::realloc(mass, static_cast<size_t>(h_tov_params(6))) ; 
-        Kokkos::realloc(press, static_cast<size_t>(h_tov_params(6))) ; 
-        Kokkos::realloc(nu, static_cast<size_t>(h_tov_params(6))) ; 
-        
-        Kokkos::deep_copy(mass,massl) ; 
-        Kokkos::deep_copy(press,pressl) ; 
-        Kokkos::deep_copy(nu,nul) ; 
-        #endif 
         Kokkos::resize(massl, static_cast<size_t>(h_tov_params(6))) ; 
         Kokkos::resize(pressl, static_cast<size_t>(h_tov_params(6))) ; 
         Kokkos::resize(nul, static_cast<size_t>(h_tov_params(6))) ; 
@@ -178,7 +226,6 @@ struct tov_id_t {
         nu = nul ; 
         r = rl   ;
         dr = drl   ;
-
     } 
 
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
