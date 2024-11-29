@@ -165,7 +165,7 @@ static size_t solve_tov_equations(
 
     M = h_tov_params(1) ; 
     R = h_tov_params(0) ;
-    pressC = h_tov_params(2) ;
+    press_c = h_tov_params(2) ;
     nu_corr = 0.5 * log(1-2*M/R) - h_tov_params(3) ;  
     press_atm = h_tov_params(4) ; 
     transition_radius = h_tov_params(5) ; 
@@ -216,7 +216,7 @@ struct tov_id_t {
                    "   Central density  : {}\n"
                    "   Central pressure : {}\n"
                    "   Mass             : {}\n"   
-                   "   Radius           : {}", _rhoC, _pressC, _M, _Ri) ; 
+                   "   Radius           : {}", _rhoC, _pressC, _M, _R) ; 
         Kokkos::resize(massl, static_cast<size_t>(_npoints)) ; 
         Kokkos::resize(pressl, static_cast<size_t>(_npoints)) ; 
         Kokkos::resize(nul, static_cast<size_t>(_npoints)) ; 
