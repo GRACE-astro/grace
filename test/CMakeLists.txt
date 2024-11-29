@@ -86,8 +86,15 @@ OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est
 spdlog::spdlog 
+HDF5::HDF5 
+VTK::VTK
+ZLIB::ZLIB
+Kokkos::kokkos
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-
+vtk_module_autoinit(
+    TARGETS connectivity_test
+    MODULES ${VTK_LIBRARIES}
+)
 
 add_library(kokkos_tests_main mains/kokkos_tests_main.cc)
 target_include_directories(kokkos_tests_main PRIVATE "${HEADER_LIST}")
@@ -114,7 +121,15 @@ OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est
 spdlog::spdlog 
+HDF5::HDF5 
+VTK::VTK
+ZLIB::ZLIB
+Kokkos::kokkos
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
+vtk_module_autoinit(
+    TARGETS sc_wrappers_test
+    MODULES ${VTK_LIBRARIES}
+)
 
 add_executable( forest_test test_forest.cpp )
 target_include_directories(forest_test PRIVATE "${HEADER_LIST}")
@@ -128,7 +143,15 @@ OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est
 spdlog::spdlog 
+HDF5::HDF5 
+VTK::VTK
+ZLIB::ZLIB
+Kokkos::kokkos
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
+vtk_module_autoinit(
+    TARGETS forest_test
+    MODULES ${VTK_LIBRARIES}
+)
 
 add_executable( varlist_test test_variable_list.cpp )
 target_include_directories(varlist_test PRIVATE "${HEADER_LIST}")
@@ -140,10 +163,17 @@ yaml_cpp::yaml
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
-p4est::p4est 
-Kokkos::kokkos
+p4est::p4est
 spdlog::spdlog
+HDF5::HDF5 
+VTK::VTK
+ZLIB::ZLIB
+Kokkos::kokkos
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
+vtk_module_autoinit(
+    TARGETS varlist_test
+    MODULES ${VTK_LIBRARIES}
+)
 
 add_executable( coordinate_test test_coordinates.cpp )
 target_include_directories(coordinate_test PRIVATE "${HEADER_LIST}")
@@ -152,13 +182,14 @@ p4est_tests_main
 Catch2::Catch2
 grace_objects
 yaml_cpp::yaml
-Kokkos::kokkos
-$<TARGET_OBJECTS:grace_vtk_output>
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
-VTK::VTK 
+HDF5::HDF5 
+VTK::VTK
+ZLIB::ZLIB
+Kokkos::kokkos 
 spdlog::spdlog
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
@@ -172,14 +203,15 @@ target_link_libraries(  volume_output_test PRIVATE
 p4est_tests_main
 Catch2::Catch2
 grace_objects
-$<TARGET_OBJECTS:grace_vtk_output>
 yaml_cpp::yaml
-Kokkos::kokkos
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
-VTK::VTK 
+HDF5::HDF5 
+VTK::VTK
+ZLIB::ZLIB
+Kokkos::kokkos 
 spdlog::spdlog
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
@@ -209,14 +241,15 @@ target_link_libraries(  regrid_test PRIVATE
 p4est_tests_main
 Catch2::Catch2
 grace_objects
-$<TARGET_OBJECTS:grace_vtk_output>
 yaml_cpp::yaml
-Kokkos::kokkos
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
-VTK::VTK 
+HDF5::HDF5 
+VTK::VTK
+ZLIB::ZLIB
+Kokkos::kokkos 
 spdlog::spdlog
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
@@ -230,13 +263,14 @@ target_link_libraries(  bc_test PRIVATE
 p4est_tests_main
 Catch2::Catch2
 grace_objects
-$<TARGET_OBJECTS:grace_vtk_output>
 yaml_cpp::yaml
-Kokkos::kokkos
 MPI::MPI_CXX
 p4est::sc
 p4est::p4est 
-VTK::VTK 
+HDF5::HDF5 
+VTK::VTK
+ZLIB::ZLIB
+Kokkos::kokkos 
 spdlog::spdlog 
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
@@ -250,13 +284,14 @@ target_link_libraries(  bc_test_unigrid PRIVATE
 p4est_tests_main
 Catch2::Catch2
 grace_objects
-$<TARGET_OBJECTS:grace_vtk_output>
 yaml_cpp::yaml
-Kokkos::kokkos
 MPI::MPI_CXX
 p4est::sc
 p4est::p4est 
-VTK::VTK 
+HDF5::HDF5 
+VTK::VTK
+ZLIB::ZLIB
+Kokkos::kokkos
 spdlog::spdlog 
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
@@ -270,13 +305,14 @@ target_link_libraries(  scalar_reductions_test PRIVATE
 p4est_tests_main
 Catch2::Catch2
 grace_objects
-$<TARGET_OBJECTS:grace_vtk_output>
 yaml_cpp::yaml
-Kokkos::kokkos
 MPI::MPI_CXX
 p4est::sc
 p4est::p4est 
-VTK::VTK 
+HDF5::HDF5 
+VTK::VTK
+ZLIB::ZLIB
+Kokkos::kokkos
 spdlog::spdlog 
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
@@ -291,16 +327,15 @@ p4est_tests_main
 Catch2::Catch2
 grace_objects
 yaml_cpp::yaml
-Kokkos::kokkos
-$<TARGET_OBJECTS:grace_vtk_output>
-$<TARGET_OBJECTS:grace_hdf5_output>
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
 p4est::p4est 
-VTK::VTK 
-spdlog::spdlog
 HDF5::HDF5 
+VTK::VTK
+ZLIB::ZLIB
+Kokkos::kokkos
+spdlog::spdlog
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 vtk_module_autoinit(
     TARGETS hdf5_output_test
@@ -321,8 +356,16 @@ p4est_tests_main
     p4est::p4est 
     spdlog::spdlog
     HDF5::HDF5 
+    VTK::VTK
+    ZLIB::ZLIB
+    Kokkos::kokkos
     $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
+vtk_module_autoinit(
+        TARGETS eos_test
+        MODULES ${VTK_LIBRARIES}
+)
 
+        
 add_executable( metric_test test_metric.cpp )
 target_include_directories(metric_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  metric_test PRIVATE 
@@ -336,8 +379,15 @@ target_link_libraries(  metric_test PRIVATE
         p4est::sc
         p4est::p4est 
         spdlog::spdlog
+        HDF5::HDF5 
+        VTK::VTK
+        ZLIB::ZLIB
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-
+vtk_module_autoinit(
+        TARGETS metric_test
+        MODULES ${VTK_LIBRARIES}
+)
+        
 add_executable( c2p_test test_c2p.cpp )
 target_include_directories(c2p_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  c2p_test PRIVATE 
@@ -351,8 +401,14 @@ target_link_libraries(  c2p_test PRIVATE
                 p4est::sc
                 p4est::p4est 
                 spdlog::spdlog
+                HDF5::HDF5 
+                VTK::VTK
+                ZLIB::ZLIB
                 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-
+vtk_module_autoinit(
+        TARGETS c2p_test
+        MODULES ${VTK_LIBRARIES}
+)
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)
 add_test(NAME sc_wrappers_test COMMAND 

@@ -4,7 +4,6 @@ if("${CMAKE_CXX_COMPILER}" MATCHES "hipcc")
     add_link_options(-fgpu-rdc --hip-link)
 endif()
 
-
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     message("Using Intel compiler.")
     if( CMAKE_CXX_COMPILER_VERSION VERSION_LESS 2021.7.0)

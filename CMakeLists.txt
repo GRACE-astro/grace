@@ -57,9 +57,6 @@ add_executable(grace src/grace.cpp)
 target_include_directories(grace PRIVATE "${HEADER_DIR}")
 target_link_libraries(grace PRIVATE 
         grace_objects
-        $<TARGET_OBJECTS:grace_vtk_output>
-        $<TARGET_OBJECTS:grace_hdf5_output>
-        $<TARGET_OBJECTS:grace_cell_output>
         yaml_cpp::yaml
         MPI::MPI_CXX
         OpenMP::OpenMP_CXX
@@ -69,7 +66,7 @@ target_link_libraries(grace PRIVATE
         VTK::VTK
         spdlog::spdlog
         HDF5::HDF5
-	ZLIB::ZLIB
+	    ZLIB::ZLIB
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
         )
 vtk_module_autoinit(
