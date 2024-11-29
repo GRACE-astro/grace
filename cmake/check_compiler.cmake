@@ -13,3 +13,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     endif()
     add_compile_options(-diag-disable=10441)
 endif()
+
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "NVHPC")
+    message("Using Nvidia C++ compiler.")
+    add_compile_options(--expt-relaxed-constexpr)
+endif()
