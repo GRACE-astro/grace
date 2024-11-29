@@ -186,8 +186,8 @@ class profiling_runtime_impl_t
      * 
      */
     profiling_runtime_impl_t() {
+	    #ifdef GRACE_ENABLE_HIP
         auto hasher = std::hash<std::string>{} ;
-	#ifdef GRACE_ENABLE_HIP
         auto const counters 
             = grace::get_param<std::vector<std::string>>("profiling","enabled_hardware_counters") ;
         for( auto const& x: counters) 
@@ -196,7 +196,7 @@ class profiling_runtime_impl_t
             static_cast<std::filesystem::path>(
                 grace::get_param<std::string>("profiling","output_base_directory") 
             ) ;
-	#endif 
+	    #endif 
         _do_gpu_profiling = grace::get_param<bool>("profiling", "do_gpu_profiling") ;  
         if (!std::filesystem::exists(_base_outpath)) {
             // Create the directory if it doesn't exist
@@ -204,8 +204,8 @@ class profiling_runtime_impl_t
                 ERROR("Failed to create directory.") ;
             }
         }
-        if(_do_gpu_profiling){
         #ifdef GRACE_ENABLE_HIP
+        if(_do_gpu_profiling){
             std::stringstream os ; 
             os << "GPU profiling enabled on HIP gpu (rocprofiler)\n" ;
             os << "   requested counters: [ " ; 
@@ -214,8 +214,9 @@ class profiling_runtime_impl_t
             os << "]\n" ; 
             GRACE_INFO(os.str()) ; 
             rocprofiler_initialize();
-        #endif    
-        }      
+          
+        }  
+        #endif      
     }
     //*********************************************************************************************************************
     /**
