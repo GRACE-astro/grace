@@ -3,7 +3,16 @@ cmake_minimum_required(VERSION 3.14)
 
 project(GRACE VERSION 0.5 LANGUAGES CXX C)
 
-set(CMAKE_CXX_STANDARD 17)
+option(GRACE_CXX_STANDARD "C++ standard used in build" 17)
+
+# Check if the standard is at least 17
+if(GRACE_CXX_STANDARD LESS 17)
+    message(FATAL_ERROR "C++ standard must be at least 17. Provided: ${GRACE_CXX_STANDARD}")
+endif()
+
+set(CMAKE_CXX_STANDARD ${GRACE_CXX_STANDARD})
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -45,7 +54,7 @@ if( GRACE_ENABLE_PROFILING )
     if( GRACE_ENABLE_HIP )
         include(setup_rocmprofiler)
     elseif( GRACE_ENABLE_CUDA )
-        message(FATAL_ERROR "CUDA GPU profiling is not supported yet.")
+        message(WARN "CUDA GPU profiling is not supported yet.")
     endif()
 else()
     message(STATUS "Profiling disabled.")
