@@ -51,6 +51,10 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
 #endif
+#ifdef GRACE_ENABLE_BSSN_METRIC
+#include <grace/physics/bssn.hh>
+#include <grace/physics/bssn_helpers.hh>
+#endif
 #include <grace/physics/eos/eos_types.hh>
 
 #include <grace/amr/grace_amr.hh>
@@ -218,6 +222,10 @@ void advance_substep( double const t, double const dt, double const dtfact
     #define GET_SOURCES \
     grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, staggered_new_state, dt, dtfact )
     #endif 
+    #ifdef GRACE_ENABLE_BSSN_METRIC
+    bssn_system_t
+        bssn_eq_system(old_state,aux,staggered_old_state) ; 
+    #endif 
     //**************************************************************************************************/
     device_event_t x_flux_finished{}, y_flux_finished{}, z_flux_finished{}, sources_finished{} ; 
 
@@ -270,6 +278,19 @@ void advance_substep( double const t, double const dt, double const dtfact
                         (dim3) numBlocks, (dim3) threadsPerBlock, 0, stream ) ;  
     sources_finished.record(stream) ; 
     //**************************************************************************************************/
+    auto bssn_rhs_policy =
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
+               {VEC(0,0,0),0,0}
+            , {VEC(nx+1,ny+1,nz+1),nq}
+        ) ;
+    Kokkos::parallel_for(
+          GRACE_EXECUTION_TAG("EVOL","BSSN_RHS")
+        , bssn_rhs_policy
+        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q)
+        {
+            bssn_eq_system.compute_update(q,VEC(i,j,k),idx,new_state,staggered_new_state,dt,dtfact) ; 
+        }
+    ) ; 
     /* Device sync */
     Kokkos::fence() ; 
     //**************************************************************************************************/

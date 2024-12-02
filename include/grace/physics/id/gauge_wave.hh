@@ -36,13 +36,30 @@
 #include <grace/data_structures/variables.hh>
 #include <grace/data_structures/variable_properties.hh>
 #include <grace/physics/grmhd_helpers.hh>
-
+//**************************************************************************************************
 namespace grace {
+//**************************************************************************************************
 
+//**************************************************************************************************
+/**
+ * @brief Initial data for vacuum gauge wave test
+ * \ingroup initial_data
+ * @tparam eos_t Type of equation of state
+ */
+//**************************************************************************************************
 template < typename eos_t >
 struct gauge_wave_id_t {
-    using state_t = grace::var_array_t<GRACE_NSPACEDIM> ; 
-    
+    //**************************************************************************************************
+    using state_t = grace::var_array_t<GRACE_NSPACEDIM> ; //! Type of state array
+    //**************************************************************************************************
+    /**
+     * @brief Construct a new gauge_wave_id kernel
+     * 
+     * @param eos Equation of state
+     * @param pcoords physical coordinates
+     * @param A Amplitude of gauge wave
+     * @param d Wavelength of gauge wave
+     */
     gauge_wave_id_t(
           eos_t eos 
         , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
@@ -51,7 +68,18 @@ struct gauge_wave_id_t {
         , _pcoords(pcoords), _rhoL(rhoL)
         , _A(A), _d(d)
     {} 
-
+    //**************************************************************************************************
+    //**************************************************************************************************
+    /**
+     * @brief Return gauge wave initial data at a point
+     * 
+     * @param i x cell index
+     * @param j y cell index
+     * @param k z cell index
+     * @param q quadrant index
+     * 
+     * @return grmhd_id_t Initial data objects for gauge wave test
+     */
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     operator() (VEC(int const i, int const j, int const k), int const q) const 
     {
@@ -77,13 +105,16 @@ struct gauge_wave_id_t {
         id.kxx = - _A * M_PI * Kokkos::cos(2*M_PI*x/_d) / ( id.alp * _d );  
         return std::move(id) ; 
     }
+    //**************************************************************************************************
 
+    //**************************************************************************************************
     eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
-    double _A, _d ;                                   //!< Left and right states  
+    double _A, _d ;                                   //!< Left and right states
+    //**************************************************************************************************  
 } ; 
-
-
+//**************************************************************************************************
+//**************************************************************************************************
 }
-
+//**************************************************************************************************
 #endif 

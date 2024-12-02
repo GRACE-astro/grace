@@ -42,10 +42,12 @@
 
 #include <Kokkos_Core.hpp>
 
+//**************************************************************************************************
 #define R_MAX 30 
 #define N_POINTS 100000
-
+//**************************************************************************************************
 namespace grace {
+//**************************************************************************************************
 /**
  * @brief Right hand side of TOV equations
  * 
@@ -72,15 +74,24 @@ tov_rhs(double const& r, std::array<double,3> const& state, eos_t const& _eos) {
         , -dPdr/(e + press + 1e-50)  
     } ; 
 }
+//**************************************************************************************************
 /**
  * @brief TOV initial data kernel.
- * 
+ * \ingroup initial_data
  * @tparam eos_t Eos type.
  */
 template < typename eos_t >
 struct tov_id_t {
-    using state_t = grace::var_array_t<GRACE_NSPACEDIM> ;
-
+    //**************************************************************************************************
+    using state_t = grace::var_array_t<GRACE_NSPACEDIM> ; //!< State array type
+    //**************************************************************************************************
+    /**
+     * @brief Construct a new tov id kernel
+     * 
+     * @param eos Equation of state
+     * @param pcoords Physical coordinates array 
+     * @param rhoC Central density [code units]
+     */
     tov_id_t(
           eos_t eos
         , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
@@ -180,7 +191,17 @@ struct tov_id_t {
         dr = drl   ;
 
     } 
-
+    //**************************************************************************************************
+    //**************************************************************************************************
+    /**
+     * @brief Return initial data at a point
+     * 
+     * @param i x cell index
+     * @param j y cell index
+     * @param k z cell index
+     * @param q quadrant index
+     * @return grmhd_id_t Initial data at requested point
+     */
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     operator() (VEC(int i, int j, int k), int q) const 
     {
@@ -274,8 +295,9 @@ struct tov_id_t {
         id.kzz = 0. ;
         return std::move(id); 
     }
-    
+    //**************************************************************************************************
 
+    //**************************************************************************************************
     std::array<double,3> GRACE_HOST_DEVICE
     get_solution(double const R) const
     {
@@ -308,7 +330,8 @@ struct tov_id_t {
             nu(idx) * ( 1-lambda ) + nu(idx+1) *   (lambda) + _nu_corr 
         } ; 
     }
-
+    //**************************************************************************************************
+    //**************************************************************************************************
     size_t GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
     find_index(double const R) const { 
         int lower = 0;
@@ -323,18 +346,20 @@ struct tov_id_t {
         }
         return lower;
     }
-
+    //**************************************************************************************************
+    //**************************************************************************************************
     eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
     double _rhoC, _pressC;                            //!< Central density 
     double _M, _R;                                    //!< Mass and Radius
     double _compactness, _nu_corr ;                   //!< Compactness and matching of metric potential
-    double _transition_radius, _press_atm ; 
-    size_t _npoints ; 
-    static constexpr double _dr = R_MAX / N_POINTS ; 
-    Kokkos::View<double *, grace::default_space> mass, press, nu, r, dr ;  
+    double _transition_radius, _press_atm ;           //!< Atmosphere pressure and transition radius
+    size_t _npoints ;                                 //!< Number of points in solution
+    static constexpr double _dr = R_MAX / N_POINTS ;  //!< Spacing
+    Kokkos::View<double *, grace::default_space> mass, press, nu, r, dr ; //!< Arrays containing TOV solution 
+    //**************************************************************************************************
 } ;
-
+//**************************************************************************************************
 } /* namespace grace */
-
+//**************************************************************************************************
 #endif /* GRACE_PHYSICS_ID_TOV_HH */

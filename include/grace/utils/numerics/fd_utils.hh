@@ -370,7 +370,36 @@ struct stencil<4,2,LEFT_SIDED_STENCIL,3> {
   }
 } ;
 
+/**********************************************/
+/*    Kreiss-Olinger dissipation operators    */
+/**********************************************/
+template<>
+struct stencil<2,4,CENTRAL_STENCIL> {
+  template< size_t idir, typename F >
+  static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+  apply(F && var, VEC(int i, int j, int k)) {
+    return      VARM(2)
+         - 4. * VARM(1)
+         + 6. * VAR
+         - 4. * VARP(1)
+         +      VARP(2) ;
+  }
+} ;
 
+template<>
+struct stencil<2,6,CENTRAL_STENCIL> {
+  template< size_t idir, typename F >
+  static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+  apply(F && var, VEC(int i, int j, int k)) {
+    return           VARM(3)
+           - 6.    * VARM(2)
+           + 15.   * VARM(1)
+           - 20.   * VAR 
+           + 15.   * VARP(1)
+           - 6.    * VARP(2)
+           +         VARP(3) ;
+  }
+} ;
 
 template< size_t ndirs ,  size_t der_order, size_t idir, size_t ... idirs>
 struct fd_der_recursive {

@@ -39,13 +39,36 @@
 #include <grace/physics/grmhd_helpers.hh>
 #include <grace/amr/amr_functions.hh>
 
+//**************************************************************************************************
 namespace grace {
-
-
+//**************************************************************************************************
+/**
+ * \defgroup initial_data Initial Data
+ * 
+ */
+//**************************************************************************************************
+/**
+ * @brief Shocktube initial data kernel
+ * \ingroup initial_data
+ * @tparam eos_t type of equation of state
+ */
 template < typename eos_t >
 struct shocktube_id_t {
-    using state_t = grace::var_array_t<GRACE_NSPACEDIM> ; 
-    
+    //**************************************************************************************************
+    using state_t = grace::var_array_t<GRACE_NSPACEDIM> ; //!< Type of state vector
+    //**************************************************************************************************
+
+    //**************************************************************************************************
+    /**
+     * @brief Construct a new shocktube id kernel object
+     * 
+     * @param eos Equation of state
+     * @param pcoords Physical coordinate array
+     * @param rhoL Left density
+     * @param rhoR Right density
+     * @param pL Left pressure
+     * @param pR Right pressure
+     */
     shocktube_id_t(
           eos_t eos 
         , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
@@ -55,7 +78,18 @@ struct shocktube_id_t {
         , _pcoords(pcoords), _rhoL(rhoL)
         , _rhoR(rhoR), _pL(pL), _pR(pR)
     {} 
+    //**************************************************************************************************
 
+    //**************************************************************************************************
+    /**
+     * @brief Obtain initial data at a point
+     * 
+     * @param i x cell index 
+     * @param j y cell index 
+     * @param k z cell index
+     * @param q Quadrant index
+     * @return grmhd_id_t Initial data at this point
+     */
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     operator() (VEC(int const i, int const j, int const k), int const q) const 
     {
@@ -78,13 +112,16 @@ struct shocktube_id_t {
         id.ye  = _eos.ye_beta_eq__press_cold(id.press, err);
         return std::move(id) ; 
     }
+    //**************************************************************************************************
 
+    //**************************************************************************************************
     eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
     double _rhoL, _rhoR, _pL, _pR;                    //!< Left and right states  
+    //**************************************************************************************************
 } ; 
-
-
+//**************************************************************************************************
+//**************************************************************************************************
 }
-
+//**************************************************************************************************
 #endif 

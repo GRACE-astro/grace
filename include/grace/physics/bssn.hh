@@ -46,16 +46,44 @@
 
 #include <array>
 
-
+//**************************************************************************************************
 namespace grace {
-
+//**************************************************************************************************
+/**
+ * @brief BSSN right-hand side computation.
+ * 
+ * @tparam der_order Truncation order of the scheme
+ * @param i x cell index 
+ * @param j y cell index 
+ * @param k z cell index
+ * @param q quadrant index
+ * @param state Staggered state array
+ * @param Tmunu Energy momentum tensor (covariant indices)
+ * @param idx Inverse cell spacing 
+ * @return grace::bssn_state_t The right-hand side of the BSSN equations.
+ */
 template< size_t der_order >
 grace::bssn_state_t GRACE_HOST_DEVICE 
 compute_bssn_rhs( VEC(int i, int j, int k), int q
                 , grace::var_array_t<GRACE_NSPACEDIM> const state
                 , std::array<std::array<double,4>,4> const& Tmunu
                 , std::array<double,GRACE_NSPACEDIM> const& idx);
+//**************************************************************************************************
 
+//**************************************************************************************************
+/**
+ * @brief Compute constraints violations in the BSSN formulation.
+ * 
+ * @tparam der_order Truncation order used in the computation
+ * @param i x cell index
+ * @param j y cell index
+ * @param k z cell index
+ * @param q quadrant index
+ * @param state Staggered state array
+ * @param Tdd Energy momentum tensor (covariant indices)
+ * @param idx Inverse cell spacing
+ * @return std::array<double,4> The constraint violations at the requested point
+ */
 template< size_t der_order >
 std::array<double,4> GRACE_HOST_DEVICE 
 compute_bssn_constraint_violations(
@@ -64,23 +92,51 @@ compute_bssn_constraint_violations(
     , std::array<std::array<double,4>,4> const& Tdd
     , std::array<double,GRACE_NSPACEDIM> const& idx
 ) ; 
+//**************************************************************************************************
 
-
+//**************************************************************************************************
+/**
+ * @brief Baumgarte-Shapiro-Shibata-Nakamura equations
+ * \ingroup physics
+ */
+//**************************************************************************************************
 struct bssn_system_t 
     : public fd_evolution_system_t<bssn_system_t> 
 {
  private:
-    
+    //**************************************************************************************************   
     using base_t = fd_evolution_system_t<bssn_system_t>  ;
-
+    //**************************************************************************************************
  public:
-
+    //**************************************************************************************************
+    /**
+     * @brief Construct a new_bssn_system_t object
+     * 
+     * @param state_  State array
+     * @param aux_    Auxiliary array
+     * @param sstate_ Staggered state array
+     */
     bssn_system_t( grace::var_array_t<GRACE_NSPACEDIM> state_ 
                  , grace::var_array_t<GRACE_NSPACEDIM> aux_ 
                  , grace::staggered_variable_arrays_t  sstate_ )
         : base_t(state_,aux_,sstate_) 
     {} 
-
+    //**************************************************************************************************
+    //**************************************************************************************************
+    /**
+     * @brief Compute pointwise update for BSSN equations
+     * 
+     * @tparam der_order Truncation order of the scheme
+     * @param i x cell index 
+     * @param j y cell index 
+     * @param k z cell index
+     * @param q Quadrant index
+     * @param _idx Inverse cell spacing
+     * @param state_new New state array
+     * @param sstate_new New staggered state array
+     * @param dt Timestep
+     * @param dtfact Timestep factor
+     */
     template< size_t der_order >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_update_impl( int const q 
@@ -99,9 +155,10 @@ struct bssn_system_t
         std::array<double, GRACE_NSPACEDIM> idx{ VEC(_idx(0,q), _idx(1,q), _idx(2,q))} ;  
 
         auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
-
-        bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx)  ;   
-        // Apply Berger-
+        double const k1 = 0; double const eta = 0; // FIXME 
+        bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx,k1,eta)  ;   
+        // Apply Kreiss-Olinger dissipation
+        
         // Apply update
         cstate_new(VEC(i,j,k),PHI_,q) += dt * dtfact * update[PHIL] ;
         cstate_new(VEC(i,j,k),K_,q)   += dt * dtfact * update[KL]   ;
@@ -124,7 +181,17 @@ struct bssn_system_t
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
 
+        // Apply algebraic constraints 
+        impose_algebraic_constraints(VEC(i,j,k),q) ; 
+
     }
+    //**************************************************************************************************
+    //**************************************************************************************************
+    /**
+     * @brief Compute constraint violations on the whole grid.
+     * 
+     * @tparam der_order Truncation order of the scheme.
+     */
     template< size_t der_order >
     void compute_auxiliaries() const 
     {
@@ -171,7 +238,12 @@ struct bssn_system_t
         ) ; 
 
     }
-
+    //**************************************************************************************************
+    //**************************************************************************************************
+    /**
+     * @brief Return maximum eigenspeed of BSSN equations
+     * @return double 
+     */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_max_eigenspeed( VEC( const int i
                                , const int j
@@ -180,9 +252,18 @@ struct bssn_system_t
     {
         return 1. ; 
     } 
-
+    //**************************************************************************************************
  private:
-
+    //**************************************************************************************************
+    /**
+     * @brief Compute covariant energy momentum tensor
+     * 
+     * @param i x cell index
+     * @param j y cell index
+     * @param k z cell index
+     * @param q quadrant index
+     * @return std::array<std::array<double,4>,4> Covariant index energy momentum tensor
+     */
     std::array<std::array<double,4>,4> GRACE_HOST_DEVICE 
     get_Tmunu_lower(VEC(int i, int j, int k), int q) const
     {
@@ -222,8 +303,53 @@ struct bssn_system_t
 
         return Tmunu ; 
     }
+    //**************************************************************************************************
+    //**************************************************************************************************
+    void GRACE_HOST_DEVICE 
+    impose_algebraic_constraints(VEC(int i, int j, int k), int q) const 
+    {
+        auto state = this->_state ; 
+
+        /* First impose the det(gtilde) = 1 constraint */
+        double const gtxx = state(VEC(i,j,k),GTXX_+0,q);
+        double const gtxy = state(VEC(i,j,k),GTXX_+1,q);
+        double const gtxz = state(VEC(i,j,k),GTXX_+2,q);
+        double const gtyy = state(VEC(i,j,k),GTXX_+3,q);
+        double const gtyz = state(VEC(i,j,k),GTXX_+4,q);
+        double const gtzz = state(VEC(i,j,k),GTXX_+5,q);
+
+        double const detgt     = -(gtxz*gtxz*gtyy) + 2*gtxy*gtxz*gtyz - gtxx*(gtyz*gtyz) - gtxy*gtxy*gtzz + gtxx*gtyy*gtzz;
+        double const cbrtdetgt = Kokkos::cbrt(detgt);
+
+        state(VEC(i,j,k),GTXX_+0,q) /= cbrtdetgt ; 
+        state(VEC(i,j,k),GTXX_+1,q) /= cbrtdetgt ; 
+        state(VEC(i,j,k),GTXX_+2,q) /= cbrtdetgt ; 
+        state(VEC(i,j,k),GTXX_+3,q) /= cbrtdetgt ; 
+        state(VEC(i,j,k),GTXX_+4,q) /= cbrtdetgt ; 
+        state(VEC(i,j,k),GTXX_+5,q) /= cbrtdetgt ; 
+
+        /* And the trace-free Aij constraint next */
+
+        double const gtXX=(-(gtyz*gtyz) + gtyy*gtzz)/detgt ;
+        double const gtXY=(gtxz*gtyz - gtxy*gtzz)/detgt    ;
+        double const gtXZ=(-(gtxz*gtyy) + gtxy*gtyz)/detgt ;
+        double const gtYY=(-(gtxz*gtxz) + gtxx*gtzz)/detgt ;
+        double const gtYZ=(gtxy*gtxz - gtxx*gtyz)/detgt    ;
+        double const gtZZ=(-(gtxy*gtxy) + gtxx*gtyy)/detgt ; 
+
+        double const ATR = Atxx*gtXX + 2*Atxy*gtXY + 2*Atxz*gtXZ + Atyy*gtYY + 2*Atyz*gtYZ + Atzz*gtZZ ; 
+        
+        state(VEC(i,j,k),ATXX_+0,q) -= 1./3. * state(VEC(i,j,k),GTXX_+0,q) * ATR ; 
+        state(VEC(i,j,k),ATXX_+1,q) -= 1./3. * state(VEC(i,j,k),GTXX_+1,q) * ATR ; 
+        state(VEC(i,j,k),ATXX_+2,q) -= 1./3. * state(VEC(i,j,k),GTXX_+2,q) * ATR ; 
+        state(VEC(i,j,k),ATXX_+3,q) -= 1./3. * state(VEC(i,j,k),GTXX_+3,q) * ATR ; 
+        state(VEC(i,j,k),ATXX_+4,q) -= 1./3. * state(VEC(i,j,k),GTXX_+4,q) * ATR ; 
+        state(VEC(i,j,k),ATXX_+5,q) -= 1./3. * state(VEC(i,j,k),GTXX_+5,q) * ATR ; 
+
+    }
 } ; 
-
+//**************************************************************************************************
+//**************************************************************************************************
 } // namespace grace 
-
-#endif 
+//**************************************************************************************************
+#endif
