@@ -278,7 +278,7 @@ idx5 = register_variable( name "[2,2]"\
  * @param name  Variable name 
  * @param bc    Variable BC type
  */
-#define REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(idx0, idx1, idx2, idx3,name,bc,is_hrsc) \
+#define REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(idx0, idx1, idx2,name,bc,is_hrsc) \
 idx0 = register_variable( name "[0]"\
                         , {VEC(true,false,false)} \
                         , true \
@@ -314,7 +314,7 @@ idx2 = register_variable( name "[2]"\
  * @param name  Variable name 
  * @param bc    Variable BC type
  */
-#define REGISTER_EVOLVED_EDGE_STAGGERED_VECTOR(idx0, idx1, idx2, idx3,name,bc,is_hrsc) \
+#define REGISTER_EVOLVED_EDGE_STAGGERED_VECTOR(idx0, idx1, idx2,name,bc,is_hrsc) \
 idx0 = register_variable( name "[0]"\
                         , {VEC(false,true,true)} \
                         , true \
@@ -457,5 +457,42 @@ idx5 = register_variable( name "[2,2]"\
                         , true \
                         , 5 \
                         , name )  
+
+/**
+ * @brief Register auxiliary vector with face staggering 
+ * @param idx0  Variable index (X component)
+ * @param idx1  Variable index (Y component)
+ * @param idx2  Variable index (Z component)
+ * @param name  Variable name 
+ * @param bc    Variable BC type
+ */
+#define REGISTER_AUX_FACE_STAGGERED_VECTOR(idx0, idx1, idx2,name,bc) \
+idx0 = register_variable( name "[0]"\
+                        , {VEC(true,false,false)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , true \
+                        , false \
+                        , 0 \
+                        , name ) ; \
+idx1 = register_variable( name "[1]"\
+                        , {VEC(false,true,false)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , true \
+                        , false \
+                        , 1 \
+                        , name ) ; \
+idx2 = register_variable( name "[2]"\
+                        , {VEC(false,false,true)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , true \
+                        , false \
+                        , 2 \
+                        , name ) 
 
 #endif /* GRACE_DATA_STRUCTURES_VARIABLE_REGISTRATION_HELPERS_HH */

@@ -207,7 +207,22 @@ DECLARE_VAR_INDEX_IMPL(ZVECZ)                        \
 DECLARE_VAR_INDEX_IMPL(TEMP)                        \
 DECLARE_VAR_INDEX_IMPL(YE)                          \
 DECLARE_VAR_INDEX_IMPL(ENTROPY)                     \
-DECLARE_VAR_INDEX_IMPL(EPS)                         
+DECLARE_VAR_INDEX_IMPL(EPS)  
+
+/* Illinois-GRMHD style magnetic field variables*/
+#ifdef GRACE_ENABLE_GRMHD
+#define VARIABLE_LIST_MAGNETIC_FIELD    \
+DECLARE_VAR_INDEX_IMPL(AX)              \
+DECLARE_VAR_INDEX_IMPL(AY)              \
+DECLARE_VAR_INDEX_IMPL(AZ)              \
+DECLARE_VAR_INDEX_IMPL(PHIEM)           \
+DECLARE_VAR_INDEX_IMPL(BX)              \
+DECLARE_VAR_INDEX_IMPL(BY)              \
+DECLARE_VAR_INDEX_IMPL(BZ)     
+#else
+#define VARIABLE_LIST_MAGNETIC_FIELD 
+#endif 
+
 #ifdef GRACE_ENABLE_COWLING_METRIC
 /* ADM metric functions */
 #define VARIABLE_LIST_ADMBASE                     \
@@ -261,6 +276,7 @@ DECLARE_VAR_INDEX_IMPL(MOMZ)
 
 #define DECLARE_VARIABLE_INDICES    \
 VARIABLE_LIST_HYDROBASE             \
+VARIABLE_LIST_MAGNETIC_FIELD        \
 VARIABLE_LIST_ADMBASE               \
 VARIABLE_LIST_BURGERS               \
 VARIABLE_LIST_SCALAR_ADV

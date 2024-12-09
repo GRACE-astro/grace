@@ -191,6 +191,11 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(TAU,"tau","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing",true) ;
+    /* Magnetic-field related variables */
+    REGISTER_EVOLVED_EDGE_STAGGERED_VECTOR(AX,AY,AZ,"A_pot","third_order_lagrange",true) ;
+    REGISTER_CORNER_STAGGERED_EVOLVED_SCALAR(PHIEM,"phi_em","third_order_lagrange",true) ; 
+    REGISTER_AUX_FACE_STAGGERED_VECTOR(BX,BY,BZ,"B","none") ;
+
     /* GRMHD primitives */
     REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
     REGISTER_AUX_VECTOR(VELX,VELY,VELZ,"vel","none") ; 
