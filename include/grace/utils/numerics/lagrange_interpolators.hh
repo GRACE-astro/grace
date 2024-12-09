@@ -606,23 +606,25 @@ struct edge_staggered_lagrange_interp_t<2,edgedir>{
         view_t& view, VEC(int ie, int je, int ke)
     ){
         if constexpr(ichild==0){
+        //if (ichild==0){
             return (3.0 * view(VEC(ie, 
                             je,
                             ke)) 
                 + view(VEC(ie-utils::delta(edgedir,0), 
                             je-utils::delta(edgedir,1), 
-                            ke-utils::delta(edgedir,2))) ) ;
+                            ke-utils::delta(edgedir,2))) )/4.0;
         }
         else if constexpr(ichild==1){
+        //else if (ichild==1){
             return (3.0 * view(VEC(ie, 
                             je, 
                             ke)) 
                 + view(VEC(ie+utils::delta(edgedir,0), 
                             je+utils::delta(edgedir,1), 
-                            ke+utils::delta(edgedir,2))) ) ;
+                            ke+utils::delta(edgedir,2))) )/4.0 ;
         } 
         else{
-            static_assert(false);
+              static_assert(false);
             }
     } 
 
@@ -652,7 +654,7 @@ struct edge_staggered_lagrange_interp_t<2,edgedir>{
     }
     // each edge in coarse view (ie,je,ke)
     // contributes to 2 child edges (in fine view) that are located in the general volume (i.e. not along the edge or on a face)
-
+    // here is where we finally use the two complementary directions to edgeDir, namely idir and jdir
     template< size_t ichild, typename view_t >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     threed_interp(
@@ -661,12 +663,14 @@ struct edge_staggered_lagrange_interp_t<2,edgedir>{
                using utils::delta;
 
               if constexpr(ichild==0){
-              return (3*view(VEC(ie,je,ke)) + view(VEC(1 + ie,1 + je,1 + ke)) + view(VEC(ie + delta(0,edgedir),je + delta(1,edgedir),ke + delta(2,edgedir))) + 
+              return (3*view(VEC(ie,je,ke)) + view(VEC(ie - delta(0,edgedir),je - delta(1,edgedir),ke - delta(2,edgedir))) + 
                         3*view(VEC(ie + delta(0,idir),je + delta(1,idir),ke + delta(2,idir))) + 
-                        view(VEC(ie + delta(0,edgedir) + delta(0,idir),je + delta(1,edgedir) + delta(1,idir),ke + delta(2,edgedir) + delta(2,idir))) + 
+                        view(VEC(ie - delta(0,edgedir) + delta(0,idir),je - delta(1,edgedir) + delta(1,idir),ke - delta(2,edgedir) + delta(2,idir))) + 
                         3*view(VEC(ie + delta(0,jdir),je + delta(1,jdir),ke + delta(2,jdir))) + 
-                        view(VEC(ie + delta(0,edgedir) + delta(0,jdir),je + delta(1,edgedir) + delta(1,jdir),ke + delta(2,edgedir) + delta(2,jdir))) + 
-                        3*view(VEC(ie + delta(0,idir) + delta(0,jdir),je + delta(1,idir) + delta(1,jdir),ke + delta(2,idir) + delta(2,jdir))))/16.;
+                        view(VEC(ie - delta(0,edgedir) + delta(0,jdir),je - delta(1,edgedir) + delta(1,jdir),ke - delta(2,edgedir) + delta(2,jdir))) + 
+                        3*view(VEC(ie + delta(0,idir) + delta(0,jdir),je + delta(1,idir) + delta(1,jdir),ke + delta(2,idir) + delta(2,jdir))) + 
+                        view(VEC(ie - delta(0,edgedir) + delta(0,idir) + delta(0,jdir),je - delta(1,edgedir) + delta(1,idir) + delta(1,jdir),
+                        ke - delta(2,edgedir) + delta(2,idir) + delta(2,jdir))))/16.;
         }else if constexpr(ichild==1){
               return (3*view(VEC(ie,je,ke)) + view(VEC(ie + delta(0,edgedir),je + delta(1,edgedir),ke + delta(2,edgedir))) + 
                         3*view(VEC(ie + delta(0,idir),je + delta(1,idir),ke + delta(2,idir))) + 

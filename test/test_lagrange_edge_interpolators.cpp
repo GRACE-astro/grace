@@ -138,24 +138,13 @@ TEST_CASE("lagrange_interp_edge", "[lagrange_interp_edge]")
     // policy edges:
     MDRangePolicy<Rank<3>> policy_edges{
         {0,0,0},
-        {nx+2*ngz+1-delta(0,edgeDir), ny+2*ngz+1-delta(1,edgeDir), nz+2*ngz+1-delta(2,edgeDir)}
+        {nx+2*ngz +1-delta(0,edgeDir), ny+2*ngz +1-delta(1,edgeDir), nz+2*ngz +1-delta(2,edgeDir)}
     } ; 
     parallel_for("fill_data_edge",policy_edges,
     KOKKOS_LAMBDA( int i, int j, int k) {
         auto const& xyz_edge = coords_edge(i,j,k) ; 
         edge_staggered(i,j,k) = lin_func(xyz_edge)   ; 
     }) ; 
-
-
-    // auto h_coarse_edge_staggered = create_mirror_view(edge_staggered) ;
-    // deep_copy(h_coarse_edge_staggered,edge_staggered) ; 
-    // for( int i=ngz; i<nx+1-delta(edgeDir,0)+ngz; ++i) {
-    //     for( int j=ngz; j<ny+1-delta(edgeDir,1)+ngz; ++j) {
-    //         for( int k=ngz; k<nz+1-delta(edgeDir,2)+ngz; ++k){
-
-    //             if(std::abs(h_coarse_edge_staggered(i,j,k))<1.e-8) std::cout << "edge staggered so small why" << std::endl;
-    //         }}}
-    
 
     /* Now we call the interpolations and check the results */
     /* Corners */
@@ -174,26 +163,12 @@ TEST_CASE("lagrange_interp_edge", "[lagrange_interp_edge]")
         lagrange_prolongator_t<4>::interpolate(i_f,j_f,k_f,i+ngz,j+ngz,k+ngz,corner_staggered, fine_view) ; 
     }) ; 
 
+  
     /* Edges  */
-    // MDRangePolicy<Rank<3>, IndexType<int>> policy_interp_edges {
-    //     {0,0,0},
-    //     {nx+1+ngz, ny+1+ngz, nz+ngz}
-    // } ; 
-    // parallel_for("interpolate_data",policy_interp_edges,
-    // KOKKOS_LAMBDA( int i, int j, int k) {
-    //     int const ichild = math::floor_int((2*i)/nx) 
-    //         + 2 * ( math::floor_int((2*j)/ny) + 2 * math::floor_int((2*k)/nz) ) ;
-    //     int i_f = (2*i)%nx + ngz ; 
-    //     int j_f = (2*j)%ny + ngz ; 
-    //     int k_f = (2*k)%nz + ngz ; 
-    //     auto fine_view = subview(edge_staggered_fine,ALL(),ALL(),ALL(),ichild) ;
-    //     lagrange_edge_prolongator_t<2,edgeDir>::interpolate(i_f,j_f,k_f,i+ngz,j+ngz,k+ngz,edge_staggered, fine_view) ; 
-    // }) ; 
-
-    // DO A DIFFERENT POLICY, I DON'T UNDERSTAND THE ONE ABOVE
-        MDRangePolicy<Rank<3>, IndexType<int>> policy_interp_edges {
+    // same policy - we iterate over cell centers as it's most logical and easiest to follow
+    MDRangePolicy<Rank<3>, IndexType<int>> policy_interp_edges {
         {0,0,0},
-        {nx+1, ny+1, nz}
+        {nx, ny, nz}
     } ; 
     parallel_for("interpolate_data",policy_interp_edges,
     KOKKOS_LAMBDA( int i, int j, int k) {
@@ -215,7 +190,9 @@ TEST_CASE("lagrange_interp_edge", "[lagrange_interp_edge]")
     double const quad_side = (x1-x0)/2. ; 
 
     auto get_fine_coords_corner = [&] (int i, int j, int k, int q) {
-        // q here picks out the corner
+        // q here picks out the child 
+        // from one of the children quadrants 
+
         int xq = (q >> 0) & 1;  
         int yq = (q >> 1) & 1;  
         int zq = (q >> 2) & 1;
@@ -228,137 +205,67 @@ TEST_CASE("lagrange_interp_edge", "[lagrange_interp_edge]")
         return xyz ; 
     } ; 
 
-    // for i=j=k=0, q will pick out corners of a coarse cube [-1.0, 0.0]^3, centred at {-0.5,-0.5,-0.5}
-    // for i=j=k=8 (since for the corner staggering we have n+1 points in each direction),
-    // the corners of the coarse cube will become [0,1.0]^3 and the cube itself is centred at {0.5,0.5,0.5}
-
     for( int i=ngz; i<nx+1+ngz; ++i) {
         for( int j=ngz; j<ny+1+ngz; ++j) {
             for( int k=ngz; k<nz+1+ngz; ++k){
                 for( int q=0; q<8; ++q) {
                     auto xyz = get_fine_coords_corner(i,j,k,q) ; 
                     auto yval = lin_func(xyz) ; 
-                    // if(i==ngz && j==ngz && k==ngz){
-                    //     std::cout << i << j << k << std::endl;
-                    //     std::cout << xyz[0] << " " << xyz[1] << " " << xyz[2] << std::endl;
-                    // }
-                    // if(i==ngz+1 && j==ngz+1 && k==ngz+1){
-                    //     std::cout << i << j << k << std::endl;
-                    //     std::cout << xyz[0] << " " << xyz[1] << " " << xyz[2] << std::endl;
-                    // }
-                    CHECK_THAT(
-                        h_corner_staggered(i,j,k,q),
-                        Catch::Matchers::WithinAbs( yval, 1e-10)
-                    ) ; 
+   
+                    // CHECK_THAT(
+                    //     h_corner_staggered(i,j,k,q),
+                    //     Catch::Matchers::WithinAbs( yval, 1e-10)
+                    // ) ; 
                 }
             }
         }
     }
 
-
-    std::cout << 'now edges' << std::endl;
     /* Check for edges: */
     // create mirror view
     auto h_edge_staggered = create_mirror_view(edge_staggered_fine) ;
-
     deep_copy(h_edge_staggered,edge_staggered_fine) ; 
 
+    // create for checking 
+    auto h_coarse_edge_staggered = create_mirror_view(edge_staggered) ;
+    deep_copy(h_coarse_edge_staggered,edge_staggered) ; 
+
+
+    // q here picks out the child of the coarse quadrant 
     auto get_fine_coords_edge = [&] (int i, int j, int k, int q) {
-        //first, get coarse edge location:
-        std::array<double,3> xyz ; 
-        xyz[0]=   x0 + (i-ngz + delta(0,edgeDir)*0.5) * h ; 
-        xyz[1]=   x0 + (j-ngz + delta(1,edgeDir)*0.5) * h ;
-        xyz[2]=   x0 + (k-ngz + delta(2,edgeDir)*0.5) * h ;
-        // xyz is now identical to the coarse edge coordinates 
-        // we now have to offset wrt. to the coarse edge, marked by (o)
-        // convention is binary: 0  at the i-th location means minus 1/2 d, 1 means plus 1/2 in that direction
-        // e.g. lower (+) is q=0 (000)
-        //      upper (+) is q=4 (001)
-        //      lower (x) is q=1 (100)
-        //      upper (x) is q=5 (101)
-        //  z  y
-        //  | / 
-        //  |/___ x
-        //
-        //       ____________________________
-        //      /                           /|
-        //     /                           / |
-        //    /                           /  |
-        //   *==========================*/   |
-        //   |             |            |    |          
-        //   |             |            |    |
-        //   +      c      x     c      |   /|
-        //   |             |            |  / |
-        //   |             |            | /  |
-        //   o=============|============o/   |
-        //   |             |            |    |
-        //   |             |            |    / 
-        //   +      c      x     c      |   / 
-        //   |             |            |  / 
-        //   |             |            | /
-        //   *===========================*
-        //
-        // therefore (with the help of bit-shifting and ChatGPT...)
-        if constexpr(edgeDir==2){
-            int xq = (q >> 0) & 1;            // gives 0 and 1  
-            int yq = (q >> 1) & 1;            // gives 0 and 1 
-            int zq = ((q >> 2) & 1) * 2 - 1;  // gives -1 and +1
-            // note the different coefficient in the unstaggered direction!
-            xyz[0] += xq * h/2.; 
-            xyz[1] += yq * h/2.;
-            xyz[2] += zq * h/4.;
-        }
-        else assert(false); // disregard other staggerings 
-    
+
+        int xq = (q >> 0) & 1;  
+        int yq = (q >> 1) & 1;  
+        int zq = (q >> 2) & 1;
+
+        std::array<double,3> xyz ;  
+        xyz[0] = (i-ngz) * 0.5*h + delta(0,edgeDir)* 0.25 * h + x0 + xq * quad_side ; // this is the same as in the case of corner
+        xyz[1] = (j-ngz) * 0.5*h + delta(1,edgeDir)* 0.25 * h + x0 + yq * quad_side ; // same as corner 
+        xyz[2] = (k-ngz) * 0.5*h + delta(2,edgeDir)* 0.25 * h + x0 + zq * quad_side ; // has to match centre location; we therefore shift by 0.25 of the h (half of 0.5h)
+
+        // for i=j=k=ngz and q=0, we get: xyz[:] = {0,0, 0.25*h}
+        // for i=j=k=ngz and q=0, we get for corner: xyz[:] = {0,0,0}
+        // for i=j=ngz, k=ngz+1 and q=0, we get for corner: xyz[:] = {0,0,0.5h}
+        // therefore, the z-staggered fine edge variable fits inbetween the two fine corners
+        
+        
         return xyz ; 
     } ; 
 
-    for( int i=ngz; i<nx+1-delta(edgeDir,0)+ngz; ++i) {
-        for( int j=ngz; j<ny+1-delta(edgeDir,1)+ngz; ++j) {
-            for( int k=ngz; k<nz+1-delta(edgeDir,2)+ngz; ++k){
-                auto const& xyz_coarse_edge = coords_edge(i,j,k) ; 
-                if(i==ngz && j==ngz && k==ngz){
-                    std::cout << "coarse edge:" << std::endl;
-                    std::cout << xyz_coarse_edge[0] << " " << xyz_coarse_edge[1] << " " << xyz_coarse_edge[2] << std::endl;
-                }
-
+    
+    // this loop is over the fine indices + all the children quadrants of the coarse quandrant 
+    // inspecting different fine edges - to a given coarse edge - can be done by fixing q and changing ijk 
+    for( int i=ngz; i<nx+1+ngz-delta(0,edgeDir); ++i) {
+        for( int j=ngz; j<ny+1+ngz-delta(1,edgeDir); ++j) {
+            for( int k=ngz; k<nz+1+ngz-delta(2,edgeDir); ++k){
                 for( int q=0; q<8; ++q) {
                     auto xyz = get_fine_coords_edge(i,j,k,q) ; 
-
-                    if(i==ngz && j==ngz && k==ngz){
-                        //std::cout << i << j << k << std::endl;
-                            //     int const ichild = math::floor_int((2*i)/nx) 
-                            //     + 2 * ( math::floor_int((2*j)/ny) + 2 * math::floor_int((2*k)/nz) ) ;
-                            // int i_f = (2*i)%nx + ngz ; 
-                            // int j_f = (2*j)%ny + ngz ; 
-                            // int k_f = (2*k)%nz + ngz ; 
-                        // std::cout << "Child:" << ichild << "(if,jf,kf)=" << "(" << i_f << j_f << k_f << ")" <<std::endl;
-                        std::cout << q << std::endl;
-                        std::cout << xyz[0] << " " << xyz[1] << " " << xyz[2] << std::endl;
-                        std::cout << "fine_edge_val:" << h_edge_staggered(i,j,k,q) << std::endl;
-                    }
-                    // if(i==ngz+1 && j==ngz+1 && k==ngz+1){
-                    //     std::cout << i << j << k << std::endl;
-                    //     std::cout << xyz[0] << " " << xyz[1] << " " << xyz[2] << std::endl;
-                    // }
                     auto yval = lin_func(xyz) ; 
 
-                    // let's just check the interpolation along the stagger direction:
-                     if(q==0){
-                        // CHECK_THAT(
-                        //     h_edge_staggered(i,j,k,q),
-                        //     Catch::Matchers::WithinAbs( yval, 1e-10)
-                        // ) ; 
-                        if(std::abs(h_edge_staggered(i,j,k,q)-yval)>1e-8){
-                            std::cout << i << " " << j << " " << k << std::endl;
-                            std::cout << xyz_coarse_edge << std::endl;
-                            std::cout << xyz << std::endl;
-                            
-                        }
-                      }
-                    // many h_edge_staggered are 0, why?
-                    
-                   // std::cout << h_edge_staggered(i,j,k,q) << " " << yval << std::endl;
+                    CHECK_THAT(
+                        h_edge_staggered(i,j,k,q),
+                        Catch::Matchers::WithinAbs( yval, 1e-10)
+                    ) ; 
                 }
             }
         }
