@@ -60,7 +60,7 @@ struct fd_evolution_system_t {
                   , double const dt 
                   , double const dtfact ) const 
     {
-        return static_cast<EvolSystem_t const*>(this)->compute_update_impl(q,VEC(i,j,k),idx,state_new,sstate_new,dt,dtfact) ;
+        return static_cast<EvolSystem_t const*>(this)->template compute_update_impl<der_order>(q,VEC(i,j,k),idx,state_new,sstate_new,dt,dtfact) ;
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 

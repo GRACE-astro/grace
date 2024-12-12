@@ -67,7 +67,8 @@ grace::bssn_state_t GRACE_HOST_DEVICE
 compute_bssn_rhs( VEC(int i, int j, int k), int q
                 , grace::var_array_t<GRACE_NSPACEDIM> const state
                 , std::array<std::array<double,4>,4> const& Tmunu
-                , std::array<double,GRACE_NSPACEDIM> const& idx);
+                , std::array<double,GRACE_NSPACEDIM> const& idx
+                , double const k1, double const eta );
 //**************************************************************************************************
 
 //**************************************************************************************************
@@ -336,6 +337,13 @@ struct bssn_system_t
         double const gtYY=(-(gtxz*gtxz) + gtxx*gtzz)/detgt ;
         double const gtYZ=(gtxy*gtxz - gtxx*gtyz)/detgt    ;
         double const gtZZ=(-(gtxy*gtxy) + gtxx*gtyy)/detgt ; 
+
+        double const Atxx = state(VEC(i,j,k),ATXX_+0,q);
+        double const Atxy = state(VEC(i,j,k),ATXX_+1,q);
+        double const Atxz = state(VEC(i,j,k),ATXX_+2,q);
+        double const Atyy = state(VEC(i,j,k),ATXX_+3,q);
+        double const Atyz = state(VEC(i,j,k),ATXX_+4,q);
+        double const Atzz = state(VEC(i,j,k),ATXX_+5,q);
 
         double const ATR = Atxx*gtXX + 2*Atxy*gtXY + 2*Atxz*gtXZ + Atyy*gtYY + 2*Atyz*gtYZ + Atzz*gtZZ ; 
         

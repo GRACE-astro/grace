@@ -38,6 +38,7 @@
 #include <grace/physics/id/shocktube.hh>
 //#include <grace/physics/id/blastwave.hh>
 #include <grace/physics/id/tov.hh>
+#include <grace/physics/id/gauge_wave.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
@@ -322,6 +323,12 @@ void set_grmhd_initial_data() {
     } else if ( id_type == "TOV") { 
         auto const rho_c = get_param<double>("grmhd", "TOV_central_density") ; 
         set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(rho_c) ;
+    } else if ( id_type == "gauge_wave" ) {
+        auto const A = get_param<double>("grmhd", "gauge_wave_amplitude"  ) ; 
+        auto const d = get_param<double>("grmhd", "gauge_wave_wavelength" ) ; 
+        set_grmhd_initial_data_impl<eos_t, gauge_wave_id_t<eos_t>>(
+            A, d
+        ) ; 
     } else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }

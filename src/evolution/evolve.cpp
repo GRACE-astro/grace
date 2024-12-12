@@ -280,7 +280,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     auto bssn_rhs_policy =
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-               {VEC(0,0,0),0,0}
+               {VEC(0,0,0),0}
             , {VEC(nx+1,ny+1,nz+1),nq}
         ) ;
     Kokkos::parallel_for(
@@ -288,7 +288,7 @@ void advance_substep( double const t, double const dt, double const dtfact
         , bssn_rhs_policy
         , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q)
         {
-            bssn_eq_system.compute_update(q,VEC(i,j,k),idx,new_state,staggered_new_state,dt,dtfact) ; 
+            bssn_eq_system.template compute_update<2>(q,VEC(i+ngz,j+ngz,k+ngz),idx,new_state,staggered_new_state,dt,dtfact) ; 
         }
     ) ; 
     /* Device sync */

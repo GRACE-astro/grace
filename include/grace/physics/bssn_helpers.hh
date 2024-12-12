@@ -156,6 +156,9 @@ adm_to_bssn(
     state(VEC(i,j,k),GTXX_,q)  = 1 ;
     state(VEC(i,j,k),GTYY_,q)  = 1 ;
     state(VEC(i,j,k),GTZZ_,q)  = 1 ;
+
+    // d/dt beta = 0 at initial time 
+    state(VEC(i,j,k),BX_,q) = state(VEC(i,j,k),BY_,q) = state(VEC(i,j,k),BZ_,q) = 0 ; 
     #endif
 }
 

@@ -65,7 +65,7 @@ struct gauge_wave_id_t {
         , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
         , double A, double d)
         : _eos(eos)
-        , _pcoords(pcoords), _rhoL(rhoL)
+        , _pcoords(pcoords)
         , _A(A), _d(d)
     {} 
     //**************************************************************************************************
@@ -99,7 +99,7 @@ struct gauge_wave_id_t {
         id.gzz = 1. ; 
         id.gxy = id.gxz = id.gyz = 0 ; 
 
-        id.alp = Kokkos::sqrt(H0)
+        id.alp = Kokkos::sqrt(H0) ; 
 
         id.kxy = id.kxz = id.kyz = id.kyy = id.kzz = 0 ;
         id.kxx = - _A * M_PI * Kokkos::cos(2*M_PI*x/_d) / ( id.alp * _d );  
