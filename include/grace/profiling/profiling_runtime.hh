@@ -198,7 +198,7 @@ class profiling_runtime_impl_t
             ) ;
 	#endif 
         _do_gpu_profiling = grace::get_param<bool>("profiling", "do_gpu_profiling") ;  
-        if (!std::filesystem::exists(_base_outpath)) {
+        if (!std::filesystem::exists(_base_outpath) and (parallel::mpi_comm_rank() == 0)) {
             // Create the directory if it doesn't exist
             if (!std::filesystem::create_directory(_base_outpath)) {
                 ERROR("Failed to create directory.") ;
