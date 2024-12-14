@@ -97,6 +97,62 @@ apply(
 
 } ; 
 
+
+/**
+ * @brief Restriction operator for edge-staggered variables.
+ * \ingroup utils
+ * \tparam edgeDir - non-staggered direction 
+ */
+template <size_t edgeDir> 
+struct line_average_restrictor_t {
+
+
+template< typename StateViewT
+        , typename LineViewT >
+static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+apply(
+      VEC(int const& i, int const& j, int const& k)
+    , StateViewT& state 
+    , LineViewT& line 
+    , int64_t iq 
+    , int ivar  ) 
+{
+    return  (
+      state(VEC(i,j,k),ivar,iq) * line(VEC(i,j,k),iq)
+    + state(VEC(i+delta(0,edgeDir),j+delta(1,edgeDir),k+delta(2,edgeDir)),ivar,iq) * line(VEC(i+delta(0,edgeDir),j+delta(1,edgeDir),k+delta(2,edgeDir)),iq)
+    ) / (
+      line(VEC(i,j,k),iq) + line(VEC(i+delta(0,edgeDir),j+delta(1,edgeDir),k+delta(2,edgeDir)),iq)
+    ) ; 
+}
+#ifdef GRACE_CARTESIAN_COORDINATES
+/**
+ * @brief Overload of edge-staggered restriction operator for Cartesian coordinates.
+ *        Essentially just a trivial average of the fine edge values
+ * 
+ * @tparam StateViewT Type of state array.
+ * @param state state array.
+ * @param iq    quadrant index
+ * @param ivar  variable index
+ * @return double The restricted coarse value of var computed from the fine values.
+ */
+template< typename StateViewT >
+static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+apply(
+      VEC(int const& i, int const& j, int const& k)
+    , StateViewT& state 
+    , int64_t iq 
+    , int ivar  ) 
+{
+  return  (
+      state(VEC(i,j,k),ivar,iq)
+    + state(VEC(i+delta(0,edgeDir),j+delta(1,edgeDir),k+delta(2,edgeDir)),ivar,iq)
+    ) / 2.0 ; 
+}
+#endif 
+
+} ; 
+
+
 }
 
 #endif /* GRACE_UTILS_RESTRICTION_HH */

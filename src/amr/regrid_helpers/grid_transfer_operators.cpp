@@ -217,6 +217,85 @@ void prolongate_variables_corner_staggered(
 }
 
 
+template< int order, size_t edgeDir > 
+void prolongate_variables_edge_staggered(
+    grace::var_array_t<GRACE_NSPACEDIM>& in_state,
+    grace::var_array_t<GRACE_NSPACEDIM>& out_state,
+    grace::device_vector<int> & in_idx,
+    grace::device_vector<int> & out_idx
+)
+{
+
+
+    using namespace grace ; 
+    using namespace Kokkos  ;
+
+    using interp_t = utils::lagrange_edge_prolongator_t<order, edgeDir> ; 
+    int nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    auto ngz = amr::get_n_ghosts()                   ; 
+
+
+    in_idx.host_to_device()  ; 
+    out_idx.host_to_device() ; 
+    long in_n_quad  = in_idx.size()                  ; 
+    long out_n_quad = out_idx.size()                 ;
+
+    int nvar = in_state.extent(GRACE_NSPACEDIM)  ; 
+
+    auto p_in_idx  = in_idx.d_view  ; 
+    auto p_out_idx = out_idx.d_view ; 
+    /*******************************************/
+    /* The idea here is that we loop over the  */
+    /* coarse cells and let the Lagrange       */
+    /* interpolator fill all the corresponding */
+    /* fine quadrants.                         */
+    /*******************************************/
+    MDRangePolicy<IndexType<int>, Rank<GRACE_NSPACEDIM+2>,default_execution_space>
+        policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,out_n_quad}) ; 
+    parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_corner_staggered_variables")
+        , policy 
+        , KOKKOS_LAMBDA (
+            VEC(const unsigned int& i
+                ,const unsigned int& j
+                ,const unsigned int& k)
+            ,const unsigned int& ivar
+            ,const unsigned int& iq_parent)
+        {
+            // Fine quadrant child index 
+            int const ichild = 
+                EXPR( math::floor_int((2*i)/nx), 
+                    + math::floor_int((2*j)/ny) * 2, 
+                    + math::floor_int((2*k)/nz) * 2 * 2 ) ; 
+            // Fine quadrant index 
+            int const q_in = 
+                p_in_idx( P4EST_CHILDREN * iq_parent + ichild ) ; 
+            // Coarse quadrant index
+            int const q_out  = p_out_idx(iq_parent) ; 
+            // Fine cell indices 
+            EXPR(
+            const int i0 = (2*i) % nx + ngz;,
+            const int j0 = (2*j) % ny + ngz;,
+            const int k0 = (2*k) % nz + ngz;
+            )
+            // Fine subview (quad and var specialized)
+            auto in_view = subview(in_state, VEC(ALL(),ALL(),ALL()), ivar, q_in ) ; 
+            // Coarse subview (quad and var specialized)
+            auto out_view = subview(out_state, VEC(ALL(),ALL(),ALL()), ivar, q_out ) ; 
+            interp_t::interpolate(
+                VEC( i0,j0,k0 ),
+                VEC( i + ngz, j + ngz, k + ngz ),
+                out_view,
+                in_view
+            ) ;
+        }
+    ) ; 
+
+
+}
+
+
+
 void grace_prolongate_refined_quadrants(
     grace::var_array_t<GRACE_NSPACEDIM>& state,
     grace::var_array_t<GRACE_NSPACEDIM>& state_swap,
@@ -269,6 +348,30 @@ void grace_prolongate_refined_quadrants(
             refine_outgoing
         ) ;
     }
+
+    #ifdef GRACE_3D
+    // edge-staggered prolongation is only 2nd order now 
+    // if ( order == 2 ) {
+    prolongate_variables_edge_staggered<2,0>(
+            sstate_swap.edge_staggered_fields_yz, //A_x
+            sstate.edge_staggered_fields_yz,
+            refine_incoming,
+            refine_outgoing
+        ) ; 
+    prolongate_variables_edge_staggered<2,1>(
+            sstate_swap.edge_staggered_fields_xz, //A_y
+            sstate.edge_staggered_fields_xz,
+            refine_incoming,
+            refine_outgoing
+        ) ; 
+    prolongate_variables_edge_staggered<2,2>(
+            sstate_swap.edge_staggered_fields_xy, //A_z
+            sstate.edge_staggered_fields_xy,
+            refine_incoming,
+            refine_outgoing
+        ) ; 
+    //}
+    #endif
     
 
 }
@@ -373,7 +476,7 @@ void restrict_variables_corner_staggered(
     /***************************************************/
     MDRangePolicy<IndexType<int>, Rank<GRACE_NSPACEDIM+2>,default_execution_space>
         policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,in_n_quad}) ; 
-    parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_corner_staggered_variables")
+    parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_corner_staggered_variables") // TO DO: isn't this name wrong?
         , policy 
         , KOKKOS_LAMBDA (
             VEC(const unsigned int& i
@@ -421,6 +524,85 @@ void restrict_variables_corner_staggered(
     ); 
 }
 
+template <size_t edgeDir> 
+void restrict_variables_edge_staggered(
+    grace::var_array_t<GRACE_NSPACEDIM>& in_state,
+    grace::var_array_t<GRACE_NSPACEDIM>& out_state,
+   // grace::cell_length_array_t<GRACE_NSPACEDIM> out_line,
+    grace::device_vector<int> & in_idx,
+    grace::device_vector<int> & out_idx
+)
+{
+    using namespace grace ; 
+    using namespace Kokkos;
+
+    using namespace grace  ;
+    using namespace Kokkos ;
+    
+    int nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    auto ngz = amr::get_n_ghosts()                   ; 
+
+
+    in_idx.host_to_device()  ; 
+    out_idx.host_to_device() ; 
+    long in_n_quad  = in_idx.size()                  ; 
+    long out_n_quad = out_idx.size()                 ;
+
+
+    int nvar = in_state.extent(GRACE_NSPACEDIM)  ; 
+
+    auto p_in_idx  = in_idx.d_view  ; 
+    auto p_out_idx = out_idx.d_view ; 
+
+    /***************************************************/
+    /*  Here we:                                       */
+    /*  Loop over the incoming (coarse) quadrants      */
+    /*  and cells. Find which child we are in and fill */
+    /*  the 8 vertices of the coarse cell with the     */
+    /*  corresponding fine data.                       */
+    /***************************************************/
+    MDRangePolicy<IndexType<int>, Rank<GRACE_NSPACEDIM+2>,default_execution_space>
+        policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,in_n_quad}) ; 
+    parallel_for(GRACE_EXECUTION_TAG("AMR","restrict_edge_staggered_variables")
+        , policy 
+        , KOKKOS_LAMBDA (
+            VEC(const unsigned int& i
+                ,const unsigned int& j
+                ,const unsigned int& k)
+            ,const unsigned int& ivar
+            ,const unsigned int& iq_parent)
+        {
+            // Fine quadrant child index 
+            int const ichild = 
+                EXPR( math::floor_int((2*i)/nx), 
+                    + math::floor_int((2*j)/ny) * 2, 
+                    + math::floor_int((2*k)/nz) * 2 * 2 ) ; 
+            // Fine quadrant index 
+            int const q_out = 
+                p_out_idx( P4EST_CHILDREN * iq_parent + ichild ) ; 
+            // Coarse quadrant index
+            int const q_in  = p_in_idx(iq_parent) ; 
+            // Fine cell indices 
+            EXPR(
+            const int i0 = (2*i) % nx + ngz;,
+            const int j0 = (2*j) % ny + ngz;,
+            const int k0 = (2*k) % nz + ngz;
+            )
+            // Convert data fine to coarse 
+           #ifndef GRACE_CARTESIAN_COORDINATES
+            in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) 
+                = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0,j0,k0),out_state,out_line,q_out,ivar) ; 
+            #else
+            in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) 
+                = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0,j0,k0),out_state,q_out,ivar) ; 
+            #endif 
+        }
+    ); 
+}
+
+
+
 void grace_restrict_coarsened_quadrants(
     grace::var_array_t<GRACE_NSPACEDIM>& state,
     grace::var_array_t<GRACE_NSPACEDIM>& state_swap,
@@ -450,6 +632,27 @@ void grace_restrict_coarsened_quadrants(
         coarsen_outgoing
     ) ;
 
+    #ifdef GRACE_3D
+     restrict_variables_edge_staggered<0>(
+        sstate_swap.edge_staggered_fields_yz,
+        sstate.edge_staggered_fields_yz,
+        coarsen_incoming,
+        coarsen_outgoing
+    ) ;
+    restrict_variables_edge_staggered<1>(
+        sstate_swap.edge_staggered_fields_xz,
+        sstate.edge_staggered_fields_xz,
+        coarsen_incoming,
+        coarsen_outgoing
+    ) ;
+     restrict_variables_edge_staggered<2>(
+        sstate_swap.edge_staggered_fields_xy,
+        sstate.edge_staggered_fields_xy,
+        coarsen_incoming,
+        coarsen_outgoing
+    ) ;
+    #endif
+
 }
 
 /***********************************************************/
@@ -473,10 +676,34 @@ void prolongate_variables_corner_staggered<order>(  \
     grace::device_vector<int> &                     \
 ) 
 
+#ifdef GRACE_CARTESIAN_COORDINATES 
+#define INSTANTIATE_TEMPLATE3(order,edgeDir)                \
+template                                            \
+void prolongate_variables_edge_staggered<order,edgeDir>(  \
+    grace::var_array_t<GRACE_NSPACEDIM>& ,          \
+    grace::var_array_t<GRACE_NSPACEDIM>& ,          \
+    grace::device_vector<int> & ,                   \
+    grace::device_vector<int> &                     \
+) 
+#elif
+#define INSTANTIATE_TEMPLATE3(order,edgeDir)                \
+template                                            \
+void prolongate_variables_edge_staggered<order,edgeDir>(  \
+    grace::var_array_t<GRACE_NSPACEDIM>& ,          \
+    grace::var_array_t<GRACE_NSPACEDIM>& ,          \
+    grace::cell_length_array_t<GRACE_NSPACEDIM> ,   \
+    grace::device_vector<int> & ,                   \
+    grace::device_vector<int> &                     \
+)
+#endif
+
 INSTANTIATE_TEMPLATE1(grace::minmod) ; 
 INSTANTIATE_TEMPLATE2(2) ; 
 INSTANTIATE_TEMPLATE1(grace::MCbeta) ; 
 INSTANTIATE_TEMPLATE2(4) ; 
+INSTANTIATE_TEMPLATE3(2,0) ; // for now, edge-staggered variables will be evolved 2-nd order accurate only
+INSTANTIATE_TEMPLATE3(2,1) ; // for now, edge-staggered variables will be evolved 2-nd order accurate only
+INSTANTIATE_TEMPLATE3(2,2) ; // for now, edge-staggered variables will be evolved 2-nd order accurate only
 
 
 }} /* namespace grace::amr */
