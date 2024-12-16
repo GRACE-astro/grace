@@ -155,7 +155,8 @@ struct bssn_system_t
 
         std::array<double, GRACE_NSPACEDIM> idx{ VEC(_idx(0,q), _idx(1,q), _idx(2,q))} ;  
 
-        auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
+        //auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
+        std::array<std::array<double,4>,4> Tmunu {{{0},{0},{0},{0}}} ; 
         double const k1 = 0; double const eta = 0; // FIXME 
         bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx,k1,eta)  ;   
         // Apply Kreiss-Olinger dissipation
@@ -181,6 +182,16 @@ struct bssn_system_t
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
+
+        cstate_new(VEC(i,j,k),ALP_,q) += dt * dtfact * update[ALPL] ; 
+
+        cstate_new(VEC(i,j,k),BETAX_,q) += dt * dtfact * update[BETAXL] ;
+        cstate_new(VEC(i,j,k),BETAY_,q) += dt * dtfact * update[BETAYL] ;
+        cstate_new(VEC(i,j,k),BETAZ_,q) += dt * dtfact * update[BETAZL] ;
+
+        cstate_new(VEC(i,j,k),BX_,q) += dt * dtfact * update[BXL] ;
+        cstate_new(VEC(i,j,k),BY_,q) += dt * dtfact * update[BYL] ;
+        cstate_new(VEC(i,j,k),BZ_,q) += dt * dtfact * update[BZL] ;
 
         // Apply algebraic constraints 
         impose_algebraic_constraints(VEC(i,j,k),q) ; 
@@ -216,7 +227,8 @@ struct bssn_system_t
             KOKKOS_LAMBDA(VEC(int i, int j, int k), int q)
             {   
                 std::array<double, GRACE_NSPACEDIM> idx{ VEC(_idx(0,q), _idx(1,q), _idx(2,q))} ; 
-                auto Tdd = get_Tmunu_lower(VEC(i,j,k),q) ; // FIXME should not capture (*this)
+                //auto Tdd = get_Tmunu_lower(VEC(i,j,k),q) ; // FIXME should not capture (*this)
+                std::array<std::array<double,4>,4> Tdd {{{0},{0},{0},{0}}} ; 
                 auto constr_loc = 
                     compute_bssn_constraint_violations<der_order>(VEC(i,j,k),q,this->_sstate.corner_staggered_fields,Tdd,idx) ;
                 #pragma unroll

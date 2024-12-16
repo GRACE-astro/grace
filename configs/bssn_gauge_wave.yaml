@@ -21,16 +21,16 @@ amr: {
   regrid_at_postinitial: false
 }
 IO: {
-  volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]"],
+  volume_output_cell_variables: ["alp","gamma_tilde[0,0]","K"],
   volume_output_base_directory: "output_volume",
   volume_output_every: 100,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
   info_output_every: 1, #20,
-  info_output_max_reductions: ["alp", "vel[0]"],
+  info_output_max_reductions: ["alp", "K"],
   #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
-  info_output_min_reductions:  ["alp", "gamma[0,0]"], #["dens","gamma[0,2]","press"],
+  info_output_min_reductions:  ["alp", "K"], #["dens","gamma[0,2]","press"],
   #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"], 
   scalar_output_every: 50,
   scalar_output_minmax: ["rho","press","eps"],
@@ -50,8 +50,8 @@ evolution: {
   time_stepper: "rk2",
   cfl_factor: 0.4,
   final_time: 2.,
-  #timestep: 0.00025,
-  #timestep_selection_mode: "manual"
+  timestep: 0.000078125,
+  timestep_selection_mode: "manual"
 }
 grmhd: {
   id_type: "gauge_wave",

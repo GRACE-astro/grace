@@ -214,13 +214,13 @@ void advance_substep( double const t, double const dt, double const dtfact
         grmhd_eq_system(eos,old_state,aux,staggered_old_state) ; 
     #define RECON slope_limited_reconstructor_t<minmod>
     #define GET_X_FLUX \
-    grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
+    //grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
     #define GET_Y_FLUX \
-    grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
+    //grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_Z_FLUX \
-    grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
+    //grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_SOURCES \
-    grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, staggered_new_state, dt, dtfact )
+    //grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, staggered_new_state, dt, dtfact )
     #endif 
     #ifdef GRACE_ENABLE_BSSN_METRIC
     bssn_system_t
