@@ -180,7 +180,7 @@ get_primitives_cell_corner(
     auto sview = subview(aux,VEC(ALL(),ALL(),ALL()),ivar,q) ; 
     // interpolate 
     prims[_idx] = center_to_corner<2>::interpolate(sview,VEC(i,j,k)) ; 
-    ++_idx ; 
+    _idx++ ; 
   }
   
   // convert zvec to vel 

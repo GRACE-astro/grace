@@ -155,8 +155,8 @@ struct bssn_system_t
 
         std::array<double, GRACE_NSPACEDIM> idx{ VEC(_idx(0,q), _idx(1,q), _idx(2,q))} ;  
 
-        //auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
-        std::array<std::array<double,4>,4> Tmunu {{{0},{0},{0},{0}}} ; 
+        auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
+        //std::array<std::array<double,4>,4> Tmunu {{{0},{0},{0},{0}}} ; 
         double const k1 = 0; double const eta = 0; // FIXME 
         bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx,k1,eta)  ;   
         // Apply Kreiss-Olinger dissipation
@@ -194,7 +194,7 @@ struct bssn_system_t
         cstate_new(VEC(i,j,k),BZ_,q) += dt * dtfact * update[BZL] ;
 
         // Apply algebraic constraints 
-        impose_algebraic_constraints(VEC(i,j,k),q) ; 
+        impose_algebraic_constraints(cstate_new,VEC(i,j,k),q) ; 
 
     }
     //**************************************************************************************************
@@ -284,12 +284,24 @@ struct bssn_system_t
         auto& cstate = this->_sstate.corner_staggered_fields    ;
         auto& aux    = this->_aux                               ;
 
-        auto const metric = get_metric_array(
-            state,cstate,
-            VEC(i,j,k),
-            q,
-            {VEC(true,true,true)}
-        ) ; 
+
+        auto const metric = grace::metric_array_t {
+            {
+                cstate(VEC(i,j,k),GTXX_,q),
+                cstate(VEC(i,j,k),GTXY_,q),
+                cstate(VEC(i,j,k),GTXZ_,q),
+                cstate(VEC(i,j,k),GTYY_,q),
+                cstate(VEC(i,j,k),GTYZ_,q),
+                cstate(VEC(i,j,k),GTZZ_,q)
+            }, 
+            cstate(VEC(i,j,k),PHI_,q), 
+            {
+                cstate(VEC(i,j,k),BETAX_,q),
+                cstate(VEC(i,j,k),BETAY_,q),
+                cstate(VEC(i,j,k),BETAZ_,q)  
+            }, 
+            cstate(VEC(i,j,k),ALP_,q)
+        } ; 
 
         double W;
         grmhd_prims_array_t prims = get_primitives_cell_corner(
@@ -299,18 +311,18 @@ struct bssn_system_t
         // Fill Tmunu 
         std::array<std::array<double,4>,4> Tmunu ;
         double const u0 =  W/metric.alp() ; 
-        std::array<double,4> uU { u0, prims[VXL]/u0, prims[VYL]/u0, prims[VZL]/u0 } ; 
+        std::array<double,4> uU { u0, prims[VXL]*u0, prims[VYL]*u0, prims[VZL]*u0 } ; 
         auto uD = metric.lower_4vec(uU)  ; 
-        auto gdd = metric.invgmunu()     ; 
+        auto gdd = metric.gmunu()     ; 
         int idx4[4][4] = {
             {0,1,2,3},
             {1,4,5,6},
             {2,5,7,8},
-            {3,6,7,9}
+            {3,6,8,9}
         } ; 
         for( int mu=0; mu<4; ++mu ) {
             for( int nu=0; nu<4; ++nu) {
-                Tmunu[mu][nu] = (prims[RHOL] + prims[PRESSL]) * uD[mu] * uD[nu] + prims[PRESSL] * gdd[idx4[mu][nu]] ;
+                Tmunu[mu][nu] = (prims[RHOL]*(1+prims[EPSL]) + prims[PRESSL]) * uD[mu] * uD[nu] + prims[PRESSL] * gdd[idx4[mu][nu]] ;
             }
         }
 
@@ -319,10 +331,8 @@ struct bssn_system_t
     //**************************************************************************************************
     //**************************************************************************************************
     void GRACE_HOST_DEVICE 
-    impose_algebraic_constraints(VEC(int i, int j, int k), int q) const 
+    impose_algebraic_constraints(grace::var_array_t<GRACE_NSPACEDIM> state, VEC(int i, int j, int k), int q) const 
     {
-        auto state = this->_state ; 
-
         /* First impose the det(gtilde) = 1 constraint */
         double const gtxx = state(VEC(i,j,k),GTXX_+0,q);
         double const gtxy = state(VEC(i,j,k),GTXX_+1,q);

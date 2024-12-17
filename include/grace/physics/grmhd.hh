@@ -262,8 +262,13 @@ struct grmhd_equations_system_t
             }
         }
         /* Read in the extrinsic curvature                                                                */
-        auto const Kij = get_extrinsic_curvature_cell_center(this->_sstate.corner_staggered_fields, VEC(i,j,k), q, metric) ; 
-        //for( auto& x: Kij ) x = 0 ; 
+        auto Kij = get_extrinsic_curvature_cell_center(
+            this->_sstate.corner_staggered_fields, 
+            VEC(i,j,k), 
+            q, 
+            metric
+        ) ; 
+        //for( auto& x: Kij ) x = 0 ; // Kill the extrinsic curvature (debugging)
         /* Source for the conserved energy (added piece by piece below)                                   */
         double tau_source{0.};
 
@@ -306,12 +311,12 @@ struct grmhd_equations_system_t
             ) ; 
             metric_array_t metric_p = get_metric_array_cell_center(
                 this->_sstate.corner_staggered_fields,
-                VEC(  i+utils::delta(0,idir)
-                    , j+utils::delta(1,idir)
-                    , k+utils::delta(2,idir)),
+                VEC(  i
+                    , j
+                    , k),
                 q
             ) ; 
-            #else 
+            #else     
             metric_array_t metric_m {
                 {1,0,0,1,0,1},{0,0,0},1
             };
@@ -319,7 +324,7 @@ struct grmhd_equations_system_t
                 {1,0,0,1,0,1},{0,0,0},1
             };
             #endif 
-                
+
             /**************************************************************************************************/
             /* Compute metric derivatives                                                                     */
             /* We need \partial_i g_{\alpha\beta} for the momentum source term and \partial_i \alpha for the  */
@@ -334,10 +339,10 @@ struct grmhd_equations_system_t
             /* Compute 4 metric derivative (factor of 1./dx introduced after)                                 */
             #pragma unroll 10
             for( int ii=0; ii<10; ++ii) { 
-                dgab_dxi[ii] =  0.5*(gmunu_p[ii] - gmunu_m[ii]) ;
+                dgab_dxi[ii] =   (gmunu_p[ii] - gmunu_m[ii]) ;
             }
             /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
-            double const dalp_dxi =  0.5*(metric_p.alp() - metric_m.alp()) ;
+            double const dalp_dxi =   (metric_p.alp() - metric_m.alp()) ;
 
             /**************************************************************************************************/
             /* Momentum source term:                                                                          */
@@ -345,7 +350,7 @@ struct grmhd_equations_system_t
             /* NB: The overall factor of \alpha \sqrt{\gamma} is introduced at the end                        */
             /**************************************************************************************************/
             double const st_i_source = 
-                0.5 * metric.contract_4dsym2tens_4dsym2tens(dgab_dxi, Tupmunu) * idx(idir,q) ; 
+                0.5 * metric.contract_4dsym2tens_4dsym2tens(dgab_dxi, Tupmunu) * idx(idir,q) ;
 
             /**************************************************************************************************/
             /* Second part of conserved energy source term:                                                   */
@@ -353,12 +358,12 @@ struct grmhd_equations_system_t
             /* NB: The overall factor of \alpha \sqrt{\gamma} is introduced at the end                        */
             /**************************************************************************************************/
             tau_source  -= 
-                ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ; 
+                ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ;
 
             /**************************************************************************************************/
             /* Add momentum source terms                                                                      */
             /**************************************************************************************************/
-            state_new(VEC(i,j,k),SX_+idir,q) += alpha_sqrtgamma_dt*st_i_source ; 
+            state_new(VEC(i,j,k),SX_+idir,q) += alpha_sqrtgamma_dt*st_i_source ;
             /**************************************************************************************************/
         }
         /**************************************************************************************************/
@@ -407,7 +412,7 @@ struct grmhd_equations_system_t
         cons[TAUL]  = vars(TAU_)         ;
         cons[YESL]  = vars(YESTAR_)      ; 
         cons[ENTSL] = vars(ENTROPYSTAR_) ; 
-        #if 0 
+        #if 1 
         metric_array_t metric = 
             get_metric_array_cell_center(
                 #ifdef GRACE_ENABLE_BSSN_METRIC
@@ -487,7 +492,7 @@ struct grmhd_equations_system_t
         grmhd_prims_array_t prims ;
         FILL_PRIMS_ARRAY(prims,this->_aux,q,VEC(i,j,k)) ;
         /* Get metric */
-        #if 0
+        #if 1
         metric_array_t metric = 
             get_metric_array_cell_center(this->_sstate.corner_staggered_fields,VEC(i,j,k),q);
         #else

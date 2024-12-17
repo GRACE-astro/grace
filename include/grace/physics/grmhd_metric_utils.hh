@@ -100,6 +100,7 @@ get_metric_array_cell_center(
         state(VEC(i,j,k), ALP_, q)
     } ; 
     #elif defined(GRACE_ENABLE_BSSN_METRIC)
+    /***************************************************************************************/
     using interp_t = utils::corner_staggered_lagrange_interp_t<2> ; 
     std::array<int,6> gamma_indices {
         GTXX_,GTXY_,GTXZ_,GTYY_,GTYZ_,GTZZ_
@@ -107,23 +108,32 @@ get_metric_array_cell_center(
     std::array<double,6> gamma ; 
     std::array<double,3> beta  ; 
     double alpha, phi ; 
+    #pragma unroll 6 
     for( int i=0; i<6; ++i ) {
         auto sview = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), gamma_indices[i], q) ; 
+        // Get gamma_{ij} component at cell center 
         gamma[i] = interp_t::threed_interp(sview, VEC(i,j,k)) ; 
     }
+    /***************************************************************************************/
     std::array<int,3> beta_indices {
         BETAX_,BETAY_,BETAZ_
     } ;
+    #pragma unroll 3 
     for( int i=0; i<3; ++i ) {
         auto sview = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), beta_indices[i], q) ; 
+        // Get beta^i component at cell center 
         beta[i] = interp_t::threed_interp(sview, VEC(i,j,k)) ; 
     }
+    /***************************************************************************************/
     auto sview_alp = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), ALP_, q) ; 
+    // Get alp at cell center 
     alpha = interp_t::threed_interp(sview_alp, VEC(i,j,k)) ;
-
+    /***************************************************************************************/
     auto sview_phi = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), PHI_, q) ; 
+    // Get phi at cell center 
     phi = interp_t::threed_interp(sview_phi, VEC(i,j,k)) ;
-
+    /***************************************************************************************/
+    // Return the metric object 
     return grace::metric_array_t {
         gamma, phi, beta, alpha 
     } ; 
@@ -138,23 +148,23 @@ get_metric_array_cell_face(
     int64_t q
 ) 
 {
-    using namespace Kokkos ; 
+    using namespace Kokkos ;  
     #ifdef GRACE_ENABLE_COWLING_METRIC
     return grace::metric_array_t{                                    
       {                                                         
-          COMPUTE_FCVAL_HELPER(mview,i,j,k,GXX_,q,idir)         
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GXY_,q,idir)         
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GXZ_,q,idir)         
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYY_,q,idir)         
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYZ_,q,idir)         
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GZZ_,q,idir)         
+          COMPUTE_FCVAL_HELPER(state,i,j,k,GXX_,q,idir)         
+        , COMPUTE_FCVAL_HELPER(state,i,j,k,GXY_,q,idir)         
+        , COMPUTE_FCVAL_HELPER(state,i,j,k,GXZ_,q,idir)         
+        , COMPUTE_FCVAL_HELPER(state,i,j,k,GYY_,q,idir)         
+        , COMPUTE_FCVAL_HELPER(state,i,j,k,GYZ_,q,idir)         
+        , COMPUTE_FCVAL_HELPER(state,i,j,k,GZZ_,q,idir)         
       }                                                         
     , {                                                         
-          COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAX_,q,idir)       
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAY_,q,idir)       
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAZ_,q,idir)       
+          COMPUTE_FCVAL_HELPER(state,i,j,k,BETAX_,q,idir)       
+        , COMPUTE_FCVAL_HELPER(state,i,j,k,BETAY_,q,idir)       
+        , COMPUTE_FCVAL_HELPER(state,i,j,k,BETAZ_,q,idir)       
       }                                                         
-    , COMPUTE_FCVAL_HELPER(mview,i,j,k,ALP_,q,idir)             
+    , COMPUTE_FCVAL_HELPER(state,i,j,k,ALP_,q,idir)             
     };
     #elif defined(GRACE_ENABLE_BSSN_METRIC)
     static constexpr std::array<std::array<int,2>,3> dirs = {
@@ -203,25 +213,28 @@ get_extrinsic_curvature_cell_center(
     using namespace Kokkos ; 
     #ifdef GRACE_ENABLE_COWLING_METRIC
     return std::array<double,6>{ 
-              this->_state(VEC(i,j,k),KXX_,q)
-            , this->_state(VEC(i,j,k),KXY_,q)
-            , this->_state(VEC(i,j,k),KXZ_,q)
-            , this->_state(VEC(i,j,k),KYY_,q)
-            , this->_state(VEC(i,j,k),KYZ_,q)
-            , this->_state(VEC(i,j,k),KZZ_,q)
+              state(VEC(i,j,k),KXX_,q)
+            , state(VEC(i,j,k),KXY_,q)
+            , state(VEC(i,j,k),KXZ_,q)
+            , state(VEC(i,j,k),KYY_,q)
+            , state(VEC(i,j,k),KYZ_,q)
+            , state (VEC(i,j,k),KZZ_,q)
         } ; 
     #elif defined(GRACE_ENABLE_BSSN_METRIC)
     using interp_t = utils::corner_staggered_lagrange_interp_t<2> ; 
+    // Get the trace at the cell center 
     auto sview = Kokkos::subview(state,VEC(ALL(),ALL(),ALL()), K_, q);
     double const K = interp_t::threed_interp(sview, VEC(i,j,k)) ; 
+    // Compute conformal factor from sqrtg 
     auto phi = SQRTG_TO_CONFFACT(gamma.sqrtg()) ;
-
+    // Indices of conformal Aij
     std::array<int,6> A_indices {
         ATXX_,ATXY_,ATXZ_,ATYY_,ATYZ_,ATZZ_
     } ; 
     std::array<double,6> Kij ; 
     for( int ic=0; ic<6; ++ic ) {
         auto sview_A = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), A_indices[ic], q) ; 
+        // Compute Kij = exp( 4 phi ) Aij + 1/3 gammaij K 
         Kij[ic] = POW_CONFFACT(phi)*interp_t::threed_interp(sview_A, VEC(i,j,k)) + 1./3. * gamma.gamma(ic) * K ; 
     }
      
