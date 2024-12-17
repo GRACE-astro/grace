@@ -26,8 +26,8 @@
  * 
  */
 
-#ifndef GRACE_PHYSICS_EOS_C2P_GRHD_HH
-#define GRACE_PHYSICS_EOS_C2P_GRHD_HH
+#ifndef GRACE_PHYSICS_EOS_C2P_GRMHD_PURE_HYDRO_HH
+#define GRACE_PHYSICS_EOS_C2P_GRMHD_PURE_HYDRO_HH
 
 #include <grace_config.h>
 #include <grace/data_structures/grace_data_structures.hh>
@@ -50,7 +50,7 @@ namespace grace {
  * \ingroup eos
  */
 template< typename eos_t >
-struct grhd_c2p_t {
+struct grhd_c2p {
     /**
      * @brief Constructor.
      * 
@@ -61,7 +61,7 @@ struct grhd_c2p_t {
      *     undensitized when passed to the c2p.
      */
     GRACE_HOST_DEVICE
-    grhd_c2p_t( eos_t const& _eos
+    grhd_c2p( eos_t const& _eos
               , metric_array_t const& _metric 
               , grmhd_cons_array_t& conservs )
     : eos(_eos), metric(_metric)
@@ -186,4 +186,4 @@ struct grhd_c2p_t {
 
 }
 
-#endif /* GRACE_PHYSICS_EOS_C2P_GRHD_HH */
+#endif /* GRACE_PHYSICS_EOS_C2P_GRMHD_PURE_HYDRO_HH */

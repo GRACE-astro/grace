@@ -42,6 +42,7 @@ namespace grace {
  * @brief Convert conservative variables to primitive ones.
  * 
  * @tparam eos_t Type of EOS.
+ * @tparam c2p_impl_t Implementation of the variable inversion scheme (Newman, Palenzuela, Kastaun, etc)
  * @param cons Conservative variables (at one cell).
  * @param prims Primitive variables (at one cell).
  * @param metric Metric utilities.
@@ -51,23 +52,24 @@ namespace grace {
  * Conserved variables are recomputed to be consistent with inverted
  * primitives.
  */
-template< typename eos_t >
+template< typename eos_t, template <typename> typename c2p_impl_t >
 void GRACE_HOST_DEVICE
 conservs_to_prims(  grace::grmhd_cons_array_t& cons 
                   , grace::grmhd_prims_array_t& prims
                   , grace::metric_array_t const& metric 
                   , eos_t const& eos
                   , double const& lapse_excision) ; 
+                
 
 void GRACE_HOST_DEVICE
 prims_to_conservs( grace::grmhd_prims_array_t& prims
                  , grace::grmhd_cons_array_t& cons 
                  , grace::metric_array_t const& metric ) ; 
 // Explicit template instantiation
-#define INSTANTIATE_TEMPLATE(EOS) \
+#define INSTANTIATE_TEMPLATE(EOS, C2P_SCHEME) \
 extern template \
 void GRACE_HOST_DEVICE \
-conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
+conservs_to_prims<EOS,C2P_SCHEME>( grace::grmhd_cons_array_t&  \
                       , grace::grmhd_prims_array_t&  \
                       , grace::metric_array_t const&  \
                       , EOS const& eos \

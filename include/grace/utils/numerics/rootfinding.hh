@@ -230,6 +230,61 @@ brent(F& f, const double &a, const double &b, const double t)
 }
 //****************************************************************************80
 
+
+  /** @brief Newton-Raphson root finding algorithm. 
+   *  @tparam F : a callable object (struct with the suitable operator() defined, a lambda, an std::function object ...)
+   *  @param x0 : Initial guess
+   *  @param a  : Low end of the bracket, feel free to set to a very high negative value for unconstrained newton raphson
+   *  @param b  : High end of the bracket, feel free to set to a very high value for unconstrained newton raphson
+   *  @param f  : object of class F representing the function 
+   *  @param df  : object of class F representing the function's derivative 
+   *  @param tol : Tolerance
+   *  @param iter: initially set to the max iteration count, upon return contains the number of iterations the code went through 
+   *  @return : a double which results from a Newton Rapshon step s.t. xk-1, xk satisfy the stopif criterion or whatever the last computed value is if iter > maxiter 
+   *  Removed feature: noexcept (The function never throws. The user is responsible to check for failure by verifying that iter < maxiter.)
+   */ 
+  template <typename F>
+  double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+  rootfind_newton_raphson(double const& a, double const& b,
+                            F&& f, F&& df,
+                            double const& tol, unsigned long& iter)
+    {
+      unsigned long const maxiter = iter ;
+
+      constexpr const double macheps = std::numeric_limits<double>::epsilon() ;
+      
+      auto const fa=f(a);
+      auto const fb=f(b);
+      
+      auto x0 = ( fa * a - fb * b ) / ( fa - fb ) ;
+      auto f0 = f(x0) ; 
+    
+      iter = 0 ; 
+      auto x1 = x0 ;
+    
+      do {
+        x0  =    x1 ;
+        f0  =  f(x1);
+        auto df0 = df(x1);
+
+        x1  = x0 - f0 / df0 ;
+
+        if ( std::fabs(x0-x1) <= tol + 2. * macheps * std::fabs(x1) )
+        return x1 ;
+
+        if ( x1 < a || x1 > b ) { 
+          if ( f0 * fa < 0 )
+            x1 = ( fa * a - f0*x0 ) / ( fa - f0 ) ;
+          else
+            x1 = ( fb * b - f0*x0 ) / ( fb - f0 ) ;
+        }
+  
+        iter ++ ;
+        } while(  iter < maxiter  ) ;
+            
+        return x1 ; 
+    }
+
 }
 
 #endif /* GRACE_UTILS_ROOTFINDING_HH */

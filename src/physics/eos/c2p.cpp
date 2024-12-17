@@ -36,7 +36,7 @@
 
 namespace grace {
 
-template< typename eos_t >
+template< typename eos_t, template <typename> typename c2p_formulation_t >
 void GRACE_HOST_DEVICE
 conservs_to_prims( grmhd_cons_array_t& cons 
                  , grmhd_prims_array_t& prims
@@ -44,7 +44,7 @@ conservs_to_prims( grmhd_cons_array_t& cons
                  , eos_t const& eos
                  , double const& lapse_excision ) 
 {
-    using c2p_impl_t = grhd_c2p_t<eos_t> ;
+    using c2p_impl_t = grmhd_c2p_t<eos_t, c2p_formulation_t<eos_t>> ;
     bool c2p_failed{ false }             ;
     double W                             ;
     /* Undensitize conservs */
