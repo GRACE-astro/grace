@@ -73,9 +73,9 @@ enum GRMHD_CONS_LOC_INDICES {
     TAUL,
     YESL,
     ENTSL,
-    BXL,
-    BYL,
-    BZL,
+    BGXL,
+    BGYL,
+    BGZL,
     NUM_CONS_LOC
 } ; 
 namespace grace {
@@ -101,10 +101,10 @@ primsarr[VZL] = vview(__VA_ARGS__,VELZ_,q) ;     \
 primsarr[YEL] = vview(__VA_ARGS__,YE_,q) ;       \
 primsarr[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
 primsarr[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
-primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)
-primsarr[BXL] = vview(__VA_ARGS__,BX_,q)
-primsarr[BYL] = vview(__VA_ARGS__,BY_,q)
-primsarr[BZL] = vview(__VA_ARGS__,BZ_,q)
+primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q) ;  \
+primsarr[BXL] = vview(__VA_ARGS__,BX_,q);         \
+primsarr[BYL] = vview(__VA_ARGS__,BY_,q);         \
+primsarr[BZL] = vview(__VA_ARGS__,BZ_,q) ;
 
 #define FILL_PRIMS_ARRAY_ZVEC(primsarr,vview,q,...)        \
 primsarr[RHOL] = vview(__VA_ARGS__,RHO_,q);      \
@@ -115,7 +115,10 @@ primsarr[VZL] = vview(__VA_ARGS__,ZVECZ_,q) ;     \
 primsarr[YEL] = vview(__VA_ARGS__,YE_,q) ;       \
 primsarr[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
 primsarr[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
-primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)
+primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)   \
+primsarr[BXL] = vview(__VA_ARGS__,BX_,q) ;        \
+primsarr[BYL] = vview(__VA_ARGS__,BY_,q) ;        \
+primsarr[BZL] = vview(__VA_ARGS__,BZ_,q) ;
 
 #define FILL_CONS_ARRAY(consarr, vview,q,...)      \
 consarr[DENSL] = vview(__VA_ARGS__,DENS_,q);       \
@@ -124,10 +127,10 @@ consarr[STXL] = vview(__VA_ARGS__,SX_,q);          \
 consarr[STYL] = vview(__VA_ARGS__,SY_,q);          \
 consarr[STZL] = vview(__VA_ARGS__,SZ_,q);          \
 consarr[YESL] = vview(__VA_ARGS__,YESTAR_,q);      \
-consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q) 
-consarr[BXL] = vview(__VA_ARGS__,BX_,q) 
-consarr[BYL] = vview(__VA_ARGS__,BY_,q) 
-consarr[BZL] = vview(__VA_ARGS__,BZ_,q) 
+consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q); \
+consarr[BGXL] = vview(__VA_ARGS__,BGX_,q) ;         \
+consarr[BGYL] = vview(__VA_ARGS__,BGY_,q) ;         \
+consarr[BGZL] = vview(__VA_ARGS__,BGZ_,q) ;         
 
 /**
  * @brief Convert z^i to v^i
@@ -180,7 +183,8 @@ get_primitives_cell_corner(
   using namespace grace  ; 
 
   std::array<int, NUM_PRIMS_LOC> prim_idx {
-    RHO_,PRESS_,ZVECX_,ZVECY_,ZVECZ_,YE_,TEMP_,EPS_,ENTROPY_
+    RHO_,PRESS_,ZVECX_,ZVECY_,ZVECZ_,YE_,TEMP_,EPS_,ENTROPY_,
+    BX_,BY_,BZ_
   } ; 
 
   grace::grmhd_prims_array_t prims ; 

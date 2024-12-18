@@ -216,7 +216,7 @@ void register_variables() {
     /* Gauge */
     REGISTER_CORNER_STAGGERED_EVOLVED_SCALAR(ALP,"alp","third_order_lagrange",false) ; 
     REGISTER_CORNER_STAGGERED_EVOLVED_VECTOR(BETAX,BETAY,BETAZ,"beta","third_order_lagrange",false);
-    REGISTER_CORNER_STAGGERED_EVOLVED_VECTOR(BX,BY,BZ,"B","third_order_lagrange",false) ; 
+    REGISTER_CORNER_STAGGERED_EVOLVED_VECTOR(BDRX,BDRY,BDRZ,"BDR","third_order_lagrange",false) ; 
     /* Constraint violations */
     REGISTER_AUX_SCALAR(HAM,"H","none");
     REGISTER_AUX_VECTOR(MOMX,MOMY,MOMZ,"M","none");

@@ -62,9 +62,9 @@ enum BSSN_VARENUM_t {
     BETAXL,
     BETAYL,
     BETAZL,
-    BXL,
-    BYL,
-    BZL,
+    BDRXL,
+    BDRYL,
+    BDRZL,
     NUM_BSSN_VARS
 } ; 
 
@@ -93,9 +93,9 @@ sstate[ALPL]    = vview(__VA_ARGS__,ALP_,q)    ; \
 sstate[BETAXL]  = vview(__VA_ARGS__,BETAX_,q)  ; \
 sstate[BETAYL]  = vview(__VA_ARGS__,BETAY_,q)  ; \
 sstate[BETAZL]  = vview(__VA_ARGS__,BETAZ_,q)  ; \
-sstate[BXL]     = vview(__VA_ARGS__,BX_,q)     ; \
-sstate[BYL]     = vview(__VA_ARGS__,BY_,q)     ; \
-sstate[BZL]     = vview(__VA_ARGS__,BZ_,q)     ; \
+sstate[BDRXL]     = vview(__VA_ARGS__,BDRX_,q)     ; \
+sstate[BDRYL]     = vview(__VA_ARGS__,BDRY_,q)     ; \
+sstate[BDRZL]     = vview(__VA_ARGS__,BDRZ_,q)     ; \
 } while(false)
 
 

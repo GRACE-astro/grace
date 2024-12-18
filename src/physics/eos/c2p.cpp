@@ -28,6 +28,7 @@
 #include <grace_config.h>
 
 #include <grace/physics/eos/c2p.hh>
+#include <grace/physics/eos/grmhd_c2p_kastaun.hh>
 #include <grace/physics/eos/grhd_c2p.hh>
 
 #include <Kokkos_Core.hpp>
@@ -44,7 +45,7 @@ conservs_to_prims( grmhd_cons_array_t& cons
                  , eos_t const& eos
                  , double const& lapse_excision ) 
 {
-    using c2p_impl_t = grmhd_c2p_t<eos_t, c2p_formulation_t<eos_t>> ;
+    using c2p_impl_t = c2p_formulation_t<eos_t> ;
     bool c2p_failed{ false }             ;
     double W                             ;
     /* Undensitize conservs */
@@ -135,15 +136,21 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
     return ; 
 }
 
-#define INSTANTIATE_TEMPLATE(EOS) \
-template \
-void GRACE_HOST_DEVICE \
-conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
-                      , grace::grmhd_prims_array_t&  \
-                      , grace::metric_array_t const&  \
-                      , EOS const& eos \
-                      , double const& ) 
-INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+
+// Explicit template instantiation macro
+#define INSTANTIATE_TEMPLATE(EOS, C2P_SCHEME) \
+    template void GRACE_HOST_DEVICE conservs_to_prims<EOS, C2P_SCHEME>( \
+        grace::grmhd_cons_array_t&, \
+        grace::grmhd_prims_array_t&, \
+        grace::metric_array_t const&, \
+        EOS const&, \
+        double const&);
+
+// Use the macro to instantiate specific template combinations
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>,  grmhd_c2p_kastaun); 
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>,  grhd_c2p); 
+
+
 #undef INSTANTIATE_TEMPLATE
 
 }

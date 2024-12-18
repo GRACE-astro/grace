@@ -428,17 +428,17 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     res[ALPL] = alpdx*betaX + alpdy*betaY + alpdz*betaZ - 2*alp*K;
 
     /* Gamma driver */
-    double const BX = state(VEC(i,j,k),BX_+0,q);
-    double const BY = state(VEC(i,j,k),BX_+1,q);
-    double const BZ = state(VEC(i,j,k),BX_+2,q);
+    double const BDRX = state(VEC(i,j,k),BDRX_+0,q);
+    double const BDRY = state(VEC(i,j,k),BDRX_+1,q);
+    double const BDRZ = state(VEC(i,j,k),BDRX_+2,q);
 
-    res[BETAXL+0] = BX*k1;
-    res[BETAXL+1] = BY*k1;
-    res[BETAXL+2] = BZ*k1;
+    res[BETAXL+0] = BDRX*k1;
+    res[BETAXL+1] = BDRY*k1;
+    res[BETAXL+2] = BDRZ*k1;
 
-    res[BXL+0] = -(BX*eta) + GammatXdt;
-    res[BXL+1] = -(BY*eta) + GammatYdt;
-    res[BXL+2] = -(BZ*eta) + GammatZdt;
+    res[BDRXL+0] = -(BDRX*eta) + GammatXdt;
+    res[BDRXL+1] = -(BDRY*eta) + GammatYdt;
+    res[BDRXL+2] = -(BDRZ*eta) + GammatZdt;
 
     return std::move(res);
 

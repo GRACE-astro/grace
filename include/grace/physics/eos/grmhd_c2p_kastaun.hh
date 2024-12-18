@@ -1,6 +1,6 @@
 
 /**
- * @file grmhd_c2p.hh
+ * @file grmhd_c2p_kastaun.hh
  * @author Konrad Topolski (topolski@itp.uni-frankfurt.de)
  * @brief 
  * @date 2024-11-16
@@ -32,8 +32,10 @@
 #include <grace_config.h>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/metric_utils.hh>
-#include <grace/utils/rootfinding.hh>
+//#include <grace/utils/metric_utils.hh>
+#include <grace/utils/numerics/metric_utils.hh>
+
+#include <grace/utils/numerics/rootfinding.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
@@ -51,10 +53,11 @@ namespace grace {
  *        for General Relativistic Magnetohydrodynamics
  *        following the implementation and nomenclature of https://arxiv.org/pdf/2312.11358
  *        Kastaun C2P
- * \ingroup eos
+ * @tparam eos_t - the eos class
  */
 template< typename eos_t >
 struct grmhd_c2p_kastaun {
+
     /**
      * @brief Constructor.
      * 
@@ -63,8 +66,7 @@ struct grmhd_c2p_kastaun {
      * @param conservs Conservative variables.
      * NB: The conservatives are expected to be 
      *     undensitized when passed to the c2p.
-     * TODO: Improve this class routine so that 
-     *       tabulated EOS can also be used 
+     * TODO: Verify this class  design works when a tabulated EOS is used 
      * 
      */
     GRACE_HOST_DEVICE
@@ -81,9 +83,9 @@ struct grmhd_c2p_kastaun {
         conservs[TAUL] = math::max(0, conservs[TAUL]) ;
         D  = conservs[DENSL] ; 
 
-        BtildeU[0]=conservs[BXL]/ Kokkos::sqrt(D);
-        BtildeU[1]=conservs[BXL]/ Kokkos::sqrt(D);
-        BtildeU[2]=conservs[BXL]/ Kokkos::sqrt(D);
+        BtildeU[0]=conservs[BGXL]/ Kokkos::sqrt(D);
+        BtildeU[1]=conservs[BGXL]/ Kokkos::sqrt(D);
+        BtildeU[2]=conservs[BGXL]/ Kokkos::sqrt(D);
 
         BtildeD = metric.lower({BtildeU[0],BtildeU[1],BtildeU[2]});
         BtildeNorm = Kokkos::sqrt(BtildeU[0]*BtildeD[0] + BtildeU[1]*BtildeD[1] + BtildeU[2]*BtildeD[2]);
@@ -122,7 +124,7 @@ struct grmhd_c2p_kastaun {
         rtildeU_perp[1] = rtildeU[1] - rtildeU_par[1];
         rtildeU_perp[2] = rtildeU[2] - rtildeU_par[2];
 
-        v0 = math::int_pow<2>(rtildeNorm) / (math::int_pow<2>(rtildeNorm) +  c2p_h_min*c2p_h_min);
+        v0 = math::int_pow<2>(rtildeNorm) / (math::int_pow<2>(rtildeNorm) +  eos.enthalpy_minimum()*eos.enthalpy_minimum());
 
     }
 
@@ -144,29 +146,90 @@ struct grmhd_c2p_kastaun {
 
         grmhd_prims_array_t prims ; 
 
-        // trivially recoverable:
-        prims[BXL]=conservs[BXL];
-        prims[BYL]=conservs[BYL];
-        prims[BZL]=conservs[BZL];
-
+        // under the assumption that the conservative variables enter the c2p routine undensitized,
+        // magnetic field primitives are just simple copies: 
+        prims[BXL]=conservs[BGXL];
+        prims[BYL]=conservs[BGYL];
+        prims[BZL]=conservs[BGZL];
+    
         // prims[RHOL] = D/W ;
         // prims[YEL]  = ye ;
         unsigned long iter_max = 5000;  // change this to be determined elsewhere! 
         double const tolerance = 1e-12; // change this
-        
+
         // first, we constrain the area of search by finding mu_plus
-        auto const mu_plus = utils::rootfind_newton_raphson(
-                            0, 1.0/c2p_h_min,  // lower bound, upper bound
-                            fa_of_mu, dfa_dmu, // function, derivative
-                            tolerance, iter_max          // tolerance, iteration book-keeper
+        double const mu_plus = utils::rootfind_newton_raphson(
+                            0.0, 1.0/eos.enthalpy_minimum(),  // lower bound, upper bound
+                            [this](double mu){return this -> fa_of_mu(mu);}, // function
+                            [this](double mu){return this -> dfa_dmu(mu);}, //  derivative
+                            tolerance, iter_max           // tolerance, iteration book-keeper
                             ) + tiny_number;
-
+        
+        // f_mu must be an lvalue to comply with brent in rootfinding.hh
+        auto f_mu=[this](double lambda){return this->f_of_mu(lambda);};
         // now we look for the root of the master function in the (0, mu_plus] interval:
-        auto mu = utils::brent(f_of_mu, 0.0, mu_plus, tolerance);
+        auto mu = utils::brent(f_mu,
+                                 0.0, mu_plus, tolerance);
 
+        // once we have it, we start by recovering the velocity:
+        //  call raise3_ixD(ix^D,myM,r_i(1:ndir),ri(1:ndir))
+        //  do idir = 1, ndir
+        //     vi_hat(idir) = mu * chi * ( ri(idir) + mu * r_dot_b * bi(idir) )
+        //  end do
+        std::array<double, 3> vhatU;
+        auto chi =  1. / (1. + mu * math::int_pow<2>(BtildeNorm));
+        for(size_t i=0; i<3; i++){
+            vhatU[i]= mu * chi * (rtildeU[i] + mu * rD_BtildeU * BtildeU[i]);
+        }
 
-        // once we have the mu_plus, we can begin the search
-        //  we solve for the root of the one-dimensional master function f_of_nmu (eq. 26)
+        // atmosphere check:
+        double rho_atm = eos.rho_atmosphere();
+
+//   ! adjust the results if it is invalid
+//          if ( rho_hat <= small_rho_thr ) then
+//                if (old_bhac_safety) then
+//                   call usr_atmo_pt(ix^D,w(ix^D,1:nw),x(ix^D,1:ndim))
+//                   cycle
+//                endif
+//                ! reset the primitive variables
+//                W_hat          = 1.0d0
+//                vi_hat(1:ndir) = 0.0d0
+//                rho_hat        = small_rho
+//                eps_hat        = small_eps  
+//                ye_hat         = big_ye    
+//                adjustment     = .True. 
+//          else
+//             ! limit the velocities
+//             if ( W_hat > lfac_max ) then
+//                if (usr_W_limit_scheme) then
+//                else ! default one
+//                  ! rescale the velocity such that v = v_max and keeping D constant
+//                  rescale_factor = v_max / dsqrt( v_hat_sqr )
+//                  vi_hat(1:ndir) = vi_hat(1:ndir) * rescale_factor
+//                  !v_hat_sqr = v_max**2
+//                  W_hat = lfac_max
+//                  ! although D is kept constant, density is changed a bit
+//                  rho_hat = cons_tmp(ix^D, D_) / W_hat
+//                end if
+
+//                !! caseI: should I this?
+//                !! Since the rho_hat or sth else is changed
+//                !! check if eps fails into the validity range
+//                !call eos_get_eps_range(rho_hat, eps_min, eps_max, ye=ye_hat)
+   
+//                !if ( eps_hat < eps_min ) then
+//                !   eps_hat = eps_min
+//                !else if ( eps_hat > eps_max ) then
+//                !   eps_hat = eps_max
+//                !end if
+
+//                ! case II: maybe I can just bound with eos_epsmin/max?
+//                eps_hat = max( min( eos_epsmax, eps_hat), eos_epsmin)
+//             end if !endif of lfac_max
+
+//          end if !endif of small_rho_thr
+//       end if ! end of con2prim or small_D checker
+
 
 
         // auto const func = [&] (double const& zeta) {
@@ -210,13 +273,13 @@ struct grmhd_c2p_kastaun {
     //! Rescaled momentum (with upper indices)
     std::array<double,3> rtildeU ; 
      //! Rescaled momentum norm 
-    std::array<double,3> rtildeNorm ; 
+    double rtildeNorm ; 
     //! Rescaled magnetic field (with upper indices)
     std::array<double,3> BtildeU ; 
     //! Rescaled magnetic field (with lower indices)
     std::array<double,3> BtildeD ; 
     //! Rescaled magnetic field norm 
-    std::array<double,3> BtildeNorm ; 
+    double BtildeNorm ; 
     
     //! Rescaled momentum, parallel to Btilde field (with upper indices)
     std::array<double,3> rtildeU_par ; 
@@ -228,19 +291,26 @@ struct grmhd_c2p_kastaun {
     // constant from eq. (25) 
     double v0;
 
+    // will be conditionally returned from the f_of_mu call
+    struct intermediate_variables{
+        double What;
+        double rhohat;
+        double epsilonhat;
+    }
+
     // small number 
-    constexpr const double tiny_number = std::numeric_limits<double>::epsilon() ;
+    constexpr static const double tiny_number = std::numeric_limits<double>::epsilon() ;
 
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    rbar2_of_mu(double const& mu) const {   // eq 21
+    rbar2_of_mu(double const& mu) const  {   // eq 21
         auto chi =  1. / (1. + mu * math::int_pow<2>(BtildeNorm));
         return math::int_pow<2>(rtildeNorm*chi) + mu*chi*(1+chi)*rD_BtildeU;
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    fa_of_mu(double const& mu) const {   // eq 21
-        return mu*Kokkos::sqrt(c2p_h_min*c2p_h_min + math::int_pow<2>(rbar2_of_mu(mu))) - 1.; 
+    fa_of_mu(double const& mu) const  {   // eq 21
+        return mu*Kokkos::sqrt(eos.enthalpy_minimum()*eos.enthalpy_minimum() + math::int_pow<2>(rbar2_of_mu(mu))) - 1.; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -269,10 +339,10 @@ struct grmhd_c2p_kastaun {
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     dfa_dmu(double const& mu) const {
-        auto drbar2dmu=drhat2_dmu(mu);
-        auto rbar2=rhat2_of_mu(mu);
+        auto drbar2dmu=drbar2_dmu(mu);
+        auto rbar2=rbar2_of_mu(mu);
         
-        return Kokkos::sqrt(c2p_h_min*c2p_h_min + rbar2) + 0.5 * drbar2dmu / Kokkos::sqrt(c2p_h_min*c2p_h_min + rbar2);
+        return Kokkos::sqrt(eos.enthalpy_minimum()*eos.enthalpy_minimum() + rbar2) + 0.5 * drbar2dmu / Kokkos::sqrt(eos.enthalpy_minimum()*eos.enthalpy_minimum() + rbar2);
     }
 
     // the master function of the Kastaun C2P scheme
@@ -283,21 +353,22 @@ struct grmhd_c2p_kastaun {
         auto vhat2=math::min(mu*mu*rbar2 ,  v0*v0) ;
         auto What=1./Kokkos::sqrt(1- vhat2);
         auto rhohat0=D/What;
-        auto rhohat=math::max(eos_rhomin, math::min(eos_rhomax,rhohat0));
+        auto rhohat=math::max(eos.density_minimum(), math::min(eos.density_maximum(),rhohat0));
         auto epsilonhat0=What*(qbar - mu*rbar2) + vhat2*What*What/(1.+What);
         // finally, here a call is made to the EOS table 
         // note that this will have to change based on the 
         double yel{ye} ; 
         unsigned int err; 
         double epslow, epshigh; 
+       // double rho; 
         // call to the EOS
-        eos.eps_range__rho_ye(epslow,epshigh,rho,yel,err) ; 
+        eos.eps_range__rho_ye(epslow,epshigh,rhohat,yel,err) ; 
         auto epsilonhat = math::max(epslow,math::min(epshigh,epsilonhat0 )) ; 
 
-        double h_; csnd2_; temp_, entropy_; // will be discarded 
+        double h_, csnd2_, temp_, entropy_; // will be discarded 
         // call to the EOS
         auto phat =  eos.press_h_csnd2_temp_entropy__eps_rho_ye(h_,csnd2_,temp_,entropy_,
-                                                epsilonhat, rhohat, yel);
+                                                epsilonhat, rhohat, yel, err);
         
         auto ahat = phat / rhohat / (1 + epsilonhat);
         auto nu_A = (1 + ahat) * (1 + epsilonhat) / What; 
@@ -309,40 +380,40 @@ struct grmhd_c2p_kastaun {
 
 
 
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    Wtilde(double const& z) const {
-        return Kokkos::sqrt(1 + math::int_pow<2>(z)) ; 
-    }
+    // double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    // Wtilde(double const& z) const {
+    //     return Kokkos::sqrt(1 + math::int_pow<2>(z)) ; 
+    // }
 
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    rhotilde(double const& W) const {
-        return D/W ; 
-    }
+    // double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    // rhotilde(double const& W) const {
+    //     return D/W ; 
+    // }
 
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    epstilde(double const& W, double const& z) const {
-        return W*q - z*r + math::int_pow<2>(z)/(1+W) ; 
-    }
+    // double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    // epstilde(double const& W, double const& z) const {
+    //     return W*q - z*r + math::int_pow<2>(z)/(1+W) ; 
+    // }
 
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    atilde(double& rho, double& eps) const {
-        unsigned int err ;
-        double yel{ye} ; 
-        auto const press = eos.press__eps_rho_ye(eps,rho,yel,err) ; 
-        return press / (rho * ( 1 + eps )) ; 
-    }
+    // double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    // atilde(double& rho, double& eps) const {
+    //     unsigned int err ;
+    //     double yel{ye} ; 
+    //     auto const press = eos.press__eps_rho_ye(eps,rho,yel,err) ; 
+    //     return press / (rho * ( 1 + eps )) ; 
+    // }
 
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    htilde(double const& z) const {
-        auto const W   = Wtilde(z) ; 
-        auto rho = rhotilde(W) ; 
-        double epsmin, epsmax; 
-        double yel{ye} ; 
-        unsigned int err; 
-        eos.eps_range__rho_ye(epsmin,epsmax,rho,yel,err) ; 
-        auto eps = math::max(epsmin,math::min(epsmax,epstilde(W,z))) ; 
-        return (1+eps) * (1+atilde(rho,eps)) ; 
-    }
+    // double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    // htilde(double const& z) const {
+    //     auto const W   = Wtilde(z) ; 
+    //     auto rho = rhotilde(W) ; 
+    //     double epsmin, epsmax; 
+    //     double yel{ye} ; 
+    //     unsigned int err; 
+    //     eos.eps_range__rho_ye(epsmin,epsmax,rho,yel,err) ; 
+    //     auto eps = math::max(epsmin,math::min(epsmax,epstilde(W,z))) ; 
+    //     return (1+eps) * (1+atilde(rho,eps)) ; 
+    // }
 } ; 
 
 }

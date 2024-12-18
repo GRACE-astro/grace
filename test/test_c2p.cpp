@@ -42,7 +42,7 @@
 #include <grace/physics/eos/c2p.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/physics/grmhd_helpers.hh>
-#include <grace/physics/eos/grmhd_c2p.hh>
+#include <grace/physics/eos/grhd_c2p.hh>
 
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
@@ -177,8 +177,8 @@ static void check_c2p(eos_t eos){
         conservs_from_prims(cons,prims,minkowski_metric) ; 
         d_eps(i,j) = cons[STYL] ;
         grmhd_prims_array_t new_prims = prims ; 
-        using grmhd_c2p_f = grmhd_c2p_t<eos_t, grhd_c2p  >; 
-        conservs_to_prims<eos_t, grmhd_c2p_f>(cons,new_prims,minkowski_metric,eos,0.) ; 
+        using c2p_impl_t = grhd_c2p;
+        conservs_to_prims<eos_t, c2p_impl_t>(cons,new_prims,minkowski_metric,eos,0.) ; 
 
         d_res(i,j) = compute_residual(new_prims,prims) ;
          //d_press(i,j) = new_prims[PRESSL] ;  

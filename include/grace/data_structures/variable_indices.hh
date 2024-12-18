@@ -253,9 +253,9 @@ DECLARE_VAR_INDEX_IMPL(K)                        \
 DECLARE_VAR_INDEX_IMPL(GAMMAX)                   \
 DECLARE_VAR_INDEX_IMPL(GAMMAY)                   \
 DECLARE_VAR_INDEX_IMPL(GAMMAZ)                   \
-DECLARE_VAR_INDEX_IMPL(BX)                       \
-DECLARE_VAR_INDEX_IMPL(BY)                       \
-DECLARE_VAR_INDEX_IMPL(BZ)                       \
+DECLARE_VAR_INDEX_IMPL(BDRX)                       \
+DECLARE_VAR_INDEX_IMPL(BDRY)                       \
+DECLARE_VAR_INDEX_IMPL(BDRZ)                       \
 DECLARE_VAR_INDEX_IMPL(HAM)                      \
 DECLARE_VAR_INDEX_IMPL(MOMX)                     \
 DECLARE_VAR_INDEX_IMPL(MOMY)                     \

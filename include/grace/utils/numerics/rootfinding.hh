@@ -232,7 +232,8 @@ brent(F& f, const double &a, const double &b, const double t)
 
 
   /** @brief Newton-Raphson root finding algorithm. 
-   *  @tparam F : a callable object (struct with the suitable operator() defined, a lambda, an std::function object ...)
+   *  @tparam F  callable object (struct with the suitable operator() defined, a lambda, an std::function object ...)
+   *  @tparam DF : callable object (struct with the suitable operator() defined, a lambda, an std::function object ...)
    *  @param x0 : Initial guess
    *  @param a  : Low end of the bracket, feel free to set to a very high negative value for unconstrained newton raphson
    *  @param b  : High end of the bracket, feel free to set to a very high value for unconstrained newton raphson
@@ -242,11 +243,15 @@ brent(F& f, const double &a, const double &b, const double t)
    *  @param iter: initially set to the max iteration count, upon return contains the number of iterations the code went through 
    *  @return : a double which results from a Newton Rapshon step s.t. xk-1, xk satisfy the stopif criterion or whatever the last computed value is if iter > maxiter 
    *  Removed feature: noexcept (The function never throws. The user is responsible to check for failure by verifying that iter < maxiter.)
+   * @details: 
+   * Two template parameters are necessary in case when lambdas enter as f and df.
+   * In that case, each automatically deduced lambda type is different,
+   * and that necessitates F and DF.
    */ 
-  template <typename F>
-  double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+  template <typename F, typename DF>
+  double GRACE_HOST_DEVICE
   rootfind_newton_raphson(double const& a, double const& b,
-                            F&& f, F&& df,
+                            F const& f, DF const& df,
                             double const& tol, unsigned long& iter)
     {
       unsigned long const maxiter = iter ;
