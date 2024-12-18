@@ -157,7 +157,7 @@ struct bssn_system_t
 
         auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
         //std::array<std::array<double,4>,4> Tmunu {{{0},{0},{0},{0}}} ; 
-        double const k1 = 0; double const eta = 0; // FIXME 
+        double const k1 = 0.1; double const eta = 0.25; // FIXME 
         bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx,k1,eta)  ;   
         // Apply Kreiss-Olinger dissipation
         
@@ -165,23 +165,23 @@ struct bssn_system_t
         cstate_new(VEC(i,j,k),PHI_,q) += dt * dtfact * update[PHIL] ;
         cstate_new(VEC(i,j,k),K_,q)   += dt * dtfact * update[KL]   ;
         int ww = 0 ; 
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
         ww = 0 ; 
-        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
         ww = 0 ; 
-        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
-        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ++ww;
+        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ww++;
 
         cstate_new(VEC(i,j,k),ALP_,q) += dt * dtfact * update[ALPL] ; 
 
@@ -305,10 +305,10 @@ struct bssn_system_t
 
         double W;
         grmhd_prims_array_t prims = get_primitives_cell_corner(
-            aux,state,metric,W,VEC(i,j,k),q
+            aux,metric,W,VEC(i,j,k),q
         );
 
-        // Fill Tmunu 
+        // Fill T_{\mu\nu} = \rho h u_\mu u_\nu + P g_{\mu \nu} 
         std::array<std::array<double,4>,4> Tmunu ;
         double const u0 =  W/metric.alp() ; 
         std::array<double,4> uU { u0, prims[VXL]*u0, prims[VYL]*u0, prims[VZL]*u0 } ; 
@@ -322,7 +322,9 @@ struct bssn_system_t
         } ; 
         for( int mu=0; mu<4; ++mu ) {
             for( int nu=0; nu<4; ++nu) {
-                Tmunu[mu][nu] = (prims[RHOL]*(1+prims[EPSL]) + prims[PRESSL]) * uD[mu] * uD[nu] + prims[PRESSL] * gdd[idx4[mu][nu]] ;
+                // TODO missing b field contribution 
+                Tmunu[mu][nu] = (prims[RHOL]*(1+prims[EPSL]) + prims[PRESSL]) * uD[mu] * uD[nu] 
+                              + prims[PRESSL] * gdd[idx4[mu][nu]] ;
             }
         }
 

@@ -267,12 +267,12 @@ std::array<double,4> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
 lower_4vec(std::array<double,4> const& v ) const {
     // TT TX TY TZ TX XX XY XZ TY XY YY YZ TZ XZ YZ ZZ 
     // 0  1  2  3  1  4  5  6  2  5  7  8  3  6  8  9
-    auto _guu = gmunu()  ;
+    auto _gdd = gmunu()  ;
     return std::array<double,4> {
-          _guu[0] * v[0] + _guu[1] * v[1] + _guu[2] * v[2] + _guu[3] * v[3]
-        , _guu[1] * v[0] + _guu[4] * v[1] + _guu[5] * v[2] + _guu[6] * v[3]
-        , _guu[2] * v[0] + _guu[5] * v[1] + _guu[7] * v[2] + _guu[8] * v[3]
-        , _guu[3] * v[0] + _guu[6] * v[1] + _guu[8] * v[2] + _guu[9] * v[3]
+          _gdd[0] * v[0] + _gdd[1] * v[1] + _gdd[2] * v[2] + _gdd[3] * v[3]
+        , _gdd[1] * v[0] + _gdd[4] * v[1] + _gdd[5] * v[2] + _gdd[6] * v[3]
+        , _gdd[2] * v[0] + _gdd[5] * v[1] + _gdd[7] * v[2] + _gdd[8] * v[3]
+        , _gdd[3] * v[0] + _gdd[6] * v[1] + _gdd[8] * v[2] + _gdd[9] * v[3]
     } ; 
 }
 

@@ -64,7 +64,7 @@ static piecewise_polytropic_eos_t setup_cold_politrope()
     ASSERT( _pwpoly_rhos_vec.size() == _pwpoly_n_pieces - 1 
           , "The piecewise polytrope densities must be n_pieces-1.") ;
     /* Add 0 as first density */
-    _pwpoly_rhos_vec.insert(_pwpoly_rhos_vec.begin(), 0.);
+    _pwpoly_rhos_vec.insert(_pwpoly_rhos_vec.begin(), 0 );
     for( int i=0; i<_pwpoly_rhos_vec.size()-1; ++i)
         ASSERT( _pwpoly_rhos_vec[i+1] > _pwpoly_rhos_vec[i]
               , "Piecewise polytrope densities must be in ascending order.") ; 
@@ -147,7 +147,7 @@ static piecewise_polytropic_eos_t setup_cold_politrope()
         , _pwpoly_press
         , _pwpoly_n_pieces
         , 1e+10
-        , 1e-20
+        , 5e-16
     }) ; 
 
 }

@@ -257,7 +257,7 @@ class hybrid_eos_t
         double eps_cold ; 
         auto press_cold = cold_eos.press_cold_eps_cold__rho(eps_cold, rho, err);
         eps = math::max(eps,eps_cold) ; 
-        double eps_th = eps-eps_cold ;
+        double eps_th = math::max(0, eps-eps_cold) ;
         double const press  = press_cold + eps_th * rho * gamma_th_m1 ; 
         h = 1. + eps + press / rho ; 
         csnd2 = (cold_eos.dpress_cold_drho__rho(rho,err) + gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;

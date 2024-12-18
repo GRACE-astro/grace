@@ -148,7 +148,6 @@ zvec_to_vel(
  * @brief Get the primitive variables at a cell corner.
  * 
  * @param aux Auxiliary variable array
- * @param cstate Corner staggered variable array
  * @param metric Metric array
  * @param [out] W Lorentz factor
  * @param i x cell index 
@@ -160,7 +159,6 @@ zvec_to_vel(
 static grace::grmhd_prims_array_t GRACE_HOST_DEVICE 
 get_primitives_cell_corner(
   grace::var_array_t<GRACE_NSPACEDIM> const& aux,
-  grace::var_array_t<GRACE_NSPACEDIM> const& cstate,
   grace::metric_array_t const& metric,
   double& W,
   VEC(int i, int j, int k),
@@ -179,7 +177,8 @@ get_primitives_cell_corner(
   for( auto const& ivar: prim_idx ) {
     auto sview = subview(aux,VEC(ALL(),ALL(),ALL()),ivar,q) ; 
     // interpolate 
-    prims[_idx] = center_to_corner<2>::interpolate(sview,VEC(i,j,k)) ; 
+    //prims[_idx] = center_to_corner<2>::interpolate(sview,VEC(i,j,k)) ;
+    prims[_idx] = sview(VEC(i,j,k)) ; // debugging  
     _idx++ ; 
   }
   

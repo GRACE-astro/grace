@@ -285,8 +285,7 @@ struct grmhd_equations_system_t
             + metric.contract_sym2tens_sym2tens({Tupmunu[XX4],Tupmunu[XY4],Tupmunu[XZ4],Tupmunu[YY4],Tupmunu[YZ4],Tupmunu[ZZ4]}, Kij) ; 
 
 
-        /* Indices for contraction of T^{0i} onto \partial_i \alpha (see tau source below)                     */
-        int index_4d[GRACE_NSPACEDIM] = {VEC(TX4,TY4,TZ4)} ;
+        
 
         /* Overall factor of dt \alpha \sqrt{\gamma} to be multiplied to source terms                          */
         double const alpha_sqrtgamma_dt = dt*dtfact*metric.alp()*metric.sqrtg();
@@ -298,78 +297,21 @@ struct grmhd_equations_system_t
         /* anyway needed for the momentum source terms which are a vector and which also contain directional   */
         /* derivatives.                                                                                        */
         /*******************************************************************************************************/
-        for( int idir=0; idir<GRACE_NSPACEDIM; ++idir) {
-
-            /* Read metric components at neighor cell centres for metric derivative                           */
-            #if 1
-            metric_array_t metric_m = get_metric_array_cell_center(
-                this->_sstate.corner_staggered_fields,
-                VEC(  i-utils::delta(0,idir)
-                    , j-utils::delta(1,idir)
-                    , k-utils::delta(2,idir)),
-                q
-            ) ; 
-            metric_array_t metric_p = get_metric_array_cell_center(
-                this->_sstate.corner_staggered_fields,
-                VEC(  i
-                    , j
-                    , k),
-                q
-            ) ; 
-            #else     
-            metric_array_t metric_m {
-                {1,0,0,1,0,1},{0,0,0},1
-            };
-            metric_array_t metric_p {
-                {1,0,0,1,0,1},{0,0,0},1
-            };
-            #endif 
-
-            /**************************************************************************************************/
-            /* Compute metric derivatives                                                                     */
-            /* We need \partial_i g_{\alpha\beta} for the momentum source term and \partial_i \alpha for the  */
-            /* conserved energy source term.                                                                  */
-            /**************************************************************************************************/
-            std::array<double, 10> dgab_dxi  ;
-
-            /* Get 4 metric                                                                                   */
-            auto const gmunu_m = metric_m.gmunu() ;
-            auto const gmunu_p = metric_p.gmunu() ;
-
-            /* Compute 4 metric derivative (factor of 1./dx introduced after)                                 */
-            #pragma unroll 10
-            for( int ii=0; ii<10; ++ii) { 
-                dgab_dxi[ii] =   (gmunu_p[ii] - gmunu_m[ii]) ;
-            }
-            /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
-            double const dalp_dxi =   (metric_p.alp() - metric_m.alp()) ;
-
-            /**************************************************************************************************/
-            /* Momentum source term:                                                                          */
-            /* S_{\tilde{S}_i} = \frac{1}{2} T^{\alpha\beta} g_{\alpha\beta, i}                               */
-            /* NB: The overall factor of \alpha \sqrt{\gamma} is introduced at the end                        */
-            /**************************************************************************************************/
-            double const st_i_source = 
-                0.5 * metric.contract_4dsym2tens_4dsym2tens(dgab_dxi, Tupmunu) * idx(idir,q) ;
-
-            /**************************************************************************************************/
-            /* Second part of conserved energy source term:                                                   */
-            /* S_{\tau} +=  - (T^{0 i} +  T^{00} beta^i) \partial_i \alpha                                    */
-            /* NB: The overall factor of \alpha \sqrt{\gamma} is introduced at the end                        */
-            /**************************************************************************************************/
-            tau_source  -= 
-                ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ;
-
-            /**************************************************************************************************/
-            /* Add momentum source terms                                                                      */
-            /**************************************************************************************************/
-            state_new(VEC(i,j,k),SX_+idir,q) += alpha_sqrtgamma_dt*st_i_source ;
-            /**************************************************************************************************/
-        }
+        std::array<double,3> st_i_sources {0} ; 
+        compute_directional_sources<0>(VEC(i,j,k),q,metric,Tupmunu,idx,tau_source,st_i_sources[0]) ; 
+        compute_directional_sources<1>(VEC(i,j,k),q,metric,Tupmunu,idx,tau_source,st_i_sources[1]) ; 
+        compute_directional_sources<2>(VEC(i,j,k),q,metric,Tupmunu,idx,tau_source,st_i_sources[2]) ; 
+        /**************************************************************************************************/
+        /* Add momentum source terms                                                                      */
+        /**************************************************************************************************/
+        state_new(VEC(i,j,k),SX_,q) += alpha_sqrtgamma_dt*st_i_sources[0] ;
+        state_new(VEC(i,j,k),SY_,q) += alpha_sqrtgamma_dt*st_i_sources[1] ;
+        state_new(VEC(i,j,k),SZ_,q) += alpha_sqrtgamma_dt*st_i_sources[2] ;
+        /**************************************************************************************************/
         /**************************************************************************************************/
         /* Add energy source terms                                                                        */
         /**************************************************************************************************/
-        state_new(VEC(i,j,k),TAU_,q)     += alpha_sqrtgamma_dt*tau_source ;
+        state_new(VEC(i,j,k),TAU_,q) += alpha_sqrtgamma_dt*tau_source ;
         /**************************************************************************************************/
     } ;
     /**
@@ -1315,6 +1257,90 @@ struct grmhd_equations_system_t
         return one_over_alp * W ; 
     }
     /***********************************************************************/
+    template< int idir > 
+    void GRACE_HOST_DEVICE 
+    compute_directional_sources(
+        VEC( int i, int j, int k ), int q, 
+        metric_array_t const& metric, 
+        std::array<double,10> const& Tupmunu, 
+        grace::scalar_array_t<GRACE_NSPACEDIM> const idx,
+        double& tau_source, double& st_i_source 
+    ) const 
+    {
+        /**************************************************************************************************/
+        /* Convenience indices to make the code slightly less unreadable                                  */
+        static constexpr int TT4=0; 
+        static constexpr int TX4=1;
+        static constexpr int TY4=2;
+        static constexpr int TZ4=3;
+        static constexpr int XX4=4;
+        static constexpr int XY4=5;
+        static constexpr int XZ4=6;
+        static constexpr int YY4=7;
+        static constexpr int YZ4=8;
+        static constexpr int ZZ4=9;
+        /**************************************************************************************************/
+        #if 1
+        metric_array_t metric_m = get_metric_array_cell_face<idir>(
+            this->_sstate.corner_staggered_fields,
+            VEC(i,j,k),q 
+        ) ; 
+        metric_array_t metric_p = get_metric_array_cell_face<idir>(
+            this->_sstate.corner_staggered_fields,
+            VEC(  i+utils::delta(0,idir)
+                , j+utils::delta(1,idir)
+                , k+utils::delta(2,idir)),
+            q
+        ) ;    
+        #else 
+        metric_array_t metric_p {
+            {1,0,0,1,0,1},{0,0,0},1
+        };
+        metric_array_t metric_m {
+            {1,0,0,1,0,1},{0,0,0},1
+        };
+        #endif 
+        /* Indices for contraction of T^{0i} onto \partial_i \alpha (see tau source below)                     */
+        int index_4d[GRACE_NSPACEDIM] = {VEC(TX4,TY4,TZ4)} ;
+
+        /**************************************************************************************************/
+        /* Compute metric derivatives                                                                     */
+        /* We need \partial_i g_{\alpha\beta} for the momentum source term and \partial_i \alpha for the  */
+        /* conserved energy source term.                                                                  */
+        /**************************************************************************************************/
+        std::array<double, 10> dgab_dxi  ;
+
+        /* Get 4 metric                                                                                   */
+        auto const gmunu_m = metric_m.gmunu() ;
+        auto const gmunu_p = metric_p.gmunu() ;
+
+        /* Compute 4 metric derivative (factor of 1./dx introduced after)                                 */
+        #pragma unroll 10
+        for( int ii=0; ii<10; ++ii) { 
+            dgab_dxi[ii] =   (gmunu_p[ii] - gmunu_m[ii]) ;
+        }
+        /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
+        double const dalp_dxi =  (metric_p.alp() - metric_m.alp()) ;
+
+        /**************************************************************************************************/
+        /* Momentum source term:                                                                          */
+        /* S_{\tilde{S}_i} = \frac{1}{2} T^{\alpha\beta} g_{\alpha\beta, i}                               */
+        /* NB: The overall factor of \alpha \sqrt{\gamma} is introduced at the end                        */
+        /**************************************************************************************************/
+        st_i_source = 
+            0.5 * metric.contract_4dsym2tens_4dsym2tens(dgab_dxi, Tupmunu) * idx(idir,q) ;
+
+        /**************************************************************************************************/
+        /* Second part of conserved energy source term:                                                   */
+        /* S_{\tau} +=  - (T^{0 i} +  T^{00} beta^i) \partial_i \alpha                                    */
+        /* NB: The overall factor of \alpha \sqrt{\gamma} is introduced at the end                        */
+        /**************************************************************************************************/ 
+        tau_source  -= 
+            //( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ;
+            ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ; // Debugging! Try to set Ttt = 0 
+        
+
+    }
 } ; 
 /***********************************************************************/
 template< typename eos_t >
