@@ -17,7 +17,7 @@ amr: {
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 0.5,
   refinement_criterion_CTODE: 0.01,
-  prolongation_order: 4 
+  prolongation_order: 4
 }
 IO: {
   volume_output_cell_variables: ["dens"]
