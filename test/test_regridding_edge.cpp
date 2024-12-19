@@ -64,7 +64,16 @@ TEST_CASE("Simple edge regrid", "[edge regrid]")
     auto& coord_system = grace::coordinate_system::get() ;
     auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
     auto h_corner_mirror = Kokkos::create_mirror_view(sstate.corner_staggered_fields) ; 
-    auto h_edge_mirror = Kokkos::create_mirror_view(sstate.edge_staggered_fields_xy) ; 
+
+    // hard-coded for now 
+    constexpr const size_t edgeDir=2; 
+    static_assert(edgeDir==2); // do not change this until the example is adapted for other staggerings
+    
+    using MirrorViewType = decltype(Kokkos::create_mirror_view(sstate.edge_staggered_fields_xy));
+    MirrorViewType h_edge_mirror;  // Declare h_edge_mirror with the appropriate type.
+    h_edge_mirror = Kokkos::create_mirror_view(sstate.edge_staggered_fields_xy);  // change when other directions are added
+   
+
     /*************************************************/
     /*            Define filling func                */
     /*************************************************/
@@ -96,6 +105,7 @@ TEST_CASE("Simple edge regrid", "[edge regrid]")
         if( interp_order == 2 ) {
             return EXPR(8.5 * x, - 5.1 * y, -2*z) - 3.14 ; 
         } else {
+            GRACE_INFO("interp_order != 2 unavailable for edge stagerred variables");
             return - 1.; 
         }
     } ; 
@@ -130,20 +140,25 @@ TEST_CASE("Simple edge regrid", "[edge regrid]")
         {VEC(true,true,true)},
         true
     ) ; 
+    using utils::delta;
     host_grid_loop<true>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)},
                 q,
-                {VEC(0,0,0)}, 
+                {VEC(0.5*delta(0,edgeDir),0.5*delta(1,edgeDir),0.5*delta(2,edgeDir))}, 
                 true
             ) ;
             h_edge_mirror(VEC(i,j,k),DENS,q) = 
                 h_edge_func(VEC(pcoords[0],pcoords[1],pcoords[2])) ;
         },
-        {VEC(true,true,true)},
+        {VEC(edgeDir!=0, edgeDir!=1, edgeDir!=2)}, // for edgeDir=2, this gives staggering=(true,true,false)
         true
     ) ; 
+    // Since the get_physical_coordinates (the version with three arguments) used for cell-centred values
+    // employs the {VEC(0.5,0.5,0.5)} as the third argument of the 4-argument version of the same routine,
+    // it seems natural to assume that this routine here will have the 
+    // VEC(0,0,0.5) for the z-edge (staggered_xy) variables 
     /*************************************************/
     /*                 Copy H2D                      */
     /*************************************************/
@@ -212,7 +227,7 @@ TEST_CASE("Simple edge regrid", "[edge regrid]")
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)},
                 q,
-                {VEC(0,0,0)},
+                {VEC(0.5*delta(0,edgeDir),0.5*delta(1,edgeDir),0.5*delta(2,edgeDir))}, 
                 true
             ) ;
             CHECK_THAT( h_edge_mirror_new(VEC(i,j,k),DENS,q)
@@ -220,7 +235,7 @@ TEST_CASE("Simple edge regrid", "[edge regrid]")
                                   h_edge_func(VEC(pcoords[0],pcoords[1],pcoords[2]))
                                 , 1e-12 )) ;
         },
-        {VEC(true,true,true)},
+        {VEC(edgeDir!=0, edgeDir!=1, edgeDir!=2)},
         false
     ) ; 
 }
