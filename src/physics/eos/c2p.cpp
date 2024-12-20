@@ -115,7 +115,7 @@ get_comoving_magnetic_field_from_eulerian(grace::metric_array_t const& metric,
 
     double const v2 = metric.square_vec({eulVel[0],eulVel[1],eulVel[2]}) ; 
     double const W  = 1./Kokkos::sqrt(1-v2) ; 
-
+    // follow (6.108) from Gourgoulhon's book (Springer Verlag)
     for(int mu=0; mu<4; mu++){ 
         smallbU[mu] = VelTimesB * W * (normalvector[mu] + eulVel[mu]) + (1./W) * eulB[mu];
     }
@@ -141,7 +141,7 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
 
     //double const b2{0.}, smallbt{0.} ; 
     std::array<double,4> smallb;
-    comoving_magnetic_field_from_eulerian(metric, {0.0, prims[BXL],prims[BYL],prims[BZL]},
+    get_comoving_magnetic_field_from_eulerian(metric, {0.0, prims[BXL],prims[BYL],prims[BZL]},
                                                   {0.0, prims[VXL],prims[VYL],prims[VZL]},
                                                 smallb
                                         );
