@@ -62,7 +62,8 @@ comoving_magnetic_field_from_eulerian(grace::metric_array_t const& metric,
                                       const std::array<double,4>& eulB, 
                                       const std::array<double,4>& eulVel
                                       std::array<double, 4>& smallb){
-    std::array<double,4> normalvector{}
+    std::array<double,4> normalvector{};
+    
 
 }
 
