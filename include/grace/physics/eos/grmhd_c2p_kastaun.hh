@@ -72,8 +72,8 @@ struct grmhd_c2p_kastaun {
     GRACE_HOST_DEVICE
     grmhd_c2p_kastaun( eos_t const& _eos
               , metric_array_t const& _metric 
-              , grmhd_cons_array_t& conservs )
-    : eos(_eos), metric(_metric)
+              , grmhd_cons_array_t& _conservs )
+    : eos(_eos), metric(_metric), conservs(_conservs)
     {   
 
         // first we make sure that momentum is casual 
@@ -126,13 +126,21 @@ struct grmhd_c2p_kastaun {
 
         v0 = math::int_pow<2>(rtildeNorm) / (math::int_pow<2>(rtildeNorm) +  eos.enthalpy_minimum()*eos.enthalpy_minimum());
 
+        
+        inter_vars.What      =0.0;
+        inter_vars.vhat2     =0.0;
+        inter_vars.yehat     =0.0;
+        inter_vars.rhohat    =0.0;
+        inter_vars.epsilonhat=0.0;
+       
     }
 
     /**
      * @brief Invert the primitive to conservative transformation
      *        and return primitive variables.
      * @param error c2p inversion residual.
-     * @return grmhd_prims_array_t Primitives.
+     * @return grmhd_prims_array_t Primitives
+     * Note: ignore the below NB, it's no longer valid 
      * NB: When this function returns, the velocity portion 
      * of the prims array actually contains the z-vector, 
      * the pressure contains the lorentz factor and temperature
@@ -171,11 +179,8 @@ struct grmhd_c2p_kastaun {
         auto mu = utils::brent(f_mu,
                                  0.0, mu_plus, tolerance);
 
-        // once we have it, we start by recovering the velocity:
-        //  call raise3_ixD(ix^D,myM,r_i(1:ndir),ri(1:ndir))
-        //  do idir = 1, ndir
-        //     vi_hat(idir) = mu * chi * ( ri(idir) + mu * r_dot_b * bi(idir) )
-        //  end do
+
+
         std::array<double, 3> vhatU;
         auto chi =  1. / (1. + mu * math::int_pow<2>(BtildeNorm));
         for(size_t i=0; i<3; i++){
@@ -185,74 +190,43 @@ struct grmhd_c2p_kastaun {
         // atmosphere check:
         double rho_atm = eos.rho_atmosphere();
 
-//   ! adjust the results if it is invalid
-//          if ( rho_hat <= small_rho_thr ) then
-//                if (old_bhac_safety) then
-//                   call usr_atmo_pt(ix^D,w(ix^D,1:nw),x(ix^D,1:ndim))
-//                   cycle
-//                endif
-//                ! reset the primitive variables
-//                W_hat          = 1.0d0
-//                vi_hat(1:ndir) = 0.0d0
-//                rho_hat        = small_rho
-//                eps_hat        = small_eps  
-//                ye_hat         = big_ye    
-//                adjustment     = .True. 
-//          else
-//             ! limit the velocities
-//             if ( W_hat > lfac_max ) then
-//                if (usr_W_limit_scheme) then
-//                else ! default one
-//                  ! rescale the velocity such that v = v_max and keeping D constant
-//                  rescale_factor = v_max / dsqrt( v_hat_sqr )
-//                  vi_hat(1:ndir) = vi_hat(1:ndir) * rescale_factor
-//                  !v_hat_sqr = v_max**2
-//                  W_hat = lfac_max
-//                  ! although D is kept constant, density is changed a bit
-//                  rho_hat = cons_tmp(ix^D, D_) / W_hat
-//                end if
+        auto f_mu_final=[this](double lambda, intermediate_variables& iv){
+                            return this->f_of_mu(lambda,iv);};
 
-//                !! caseI: should I this?
-//                !! Since the rho_hat or sth else is changed
-//                !! check if eps fails into the validity range
-//                !call eos_get_eps_range(rho_hat, eps_min, eps_max, ye=ye_hat)
-   
-//                !if ( eps_hat < eps_min ) then
-//                !   eps_hat = eps_min
-//                !else if ( eps_hat > eps_max ) then
-//                !   eps_hat = eps_max
-//                !end if
+        // call the f_mu function for the last time to get the inter_vars with the last mu:
+        //f_mu_final(mu, inter_vars);
+        f_mu_final(mu,inter_vars);
 
-//                ! case II: maybe I can just bound with eos_epsmin/max?
-//                eps_hat = max( min( eos_epsmax, eps_hat), eos_epsmin)
-//             end if !endif of lfac_max
+        if(inter_vars.rhohat <= rho_atm){
+            inter_vars.What = 1.0;
+            vhatU[0]=0.0;
+            vhatU[1]=0.0;
+            vhatU[2]=0.0;
+            inter_vars.rhohat=rho_atm;
+            inter_vars.yehat=eos.ye_atmosphere();
+            inter_vars.epsilonhat=eos.eps_atmosphere();
+        }
 
-//          end if !endif of small_rho_thr
-//       end if ! end of con2prim or small_D checker
+        // velocity limiter should be here:
+        // 
+        // if(inter_vars.What > max_lorentz_factor)
+
+        // finally,  fill out the primitives:
+
+        prims[RHOL]=inter_vars.rhohat;
+        prims[YEL]=inter_vars.yehat;
+        prims[EPSL]=inter_vars.epsilonhat;
+        prims[VXL]=vhatU[0];
+        prims[VYL]=vhatU[1];
+        prims[VZL]=vhatU[2];
+        double cs2_,entropy_;
+        unsigned int err; 
+
+        prims[PRESSL] =  eos.press_h_csnd2_temp_entropy__eps_rho_ye(prims[ENTL],cs2_,prims[TEMPL],entropy_,
+                                                prims[EPSL], prims[RHOL], prims[YEL], err);
 
 
-
-        // auto const func = [&] (double const& zeta) {
-        //     return zeta - r / htilde(zeta) ; 
-        // } ; 
-        // double const zm{ 0.5*k/Kokkos::sqrt(1-math::int_pow<2>(0.5*k))} 
-        //            , zp{ 1e-06 + k/Kokkos::sqrt(1-math::int_pow<2>(k))} ; 
-        // double const zeta = utils::brent(func,zm,zp,1e-15) ; 
-        // double const W = Wtilde(zeta) ; 
-        // grmhd_prims_array_t prims ; 
-        // prims[RHOL] = D/W ;
-
-        // eos.eps_range__rho_ye(epsmin,epsmax,prims[RHOL],prims[YEL],err) ; 
-        // prims[EPSL]   = math::min( epsmax
-        //                          , math::max( epsmin
-        //                                     , epstilde(W,zeta) ) ) ; 
-        // prims[PRESSL] = W ; 
-        // double const h = htilde(zeta) ; 
-        // prims[VXL] = StildeU[0] / D / h / W; 
-        // prims[VYL] = StildeU[1] / D / h / W; 
-        // prims[VZL] = StildeU[2] / D / h / W; 
-        // error = func(zeta) ;
-        // return std::move(prims) ; 
+        return std::move(prims) ; 
     }
     
  private:
@@ -260,6 +234,9 @@ struct grmhd_c2p_kastaun {
     eos_t const& eos ; 
     //! Metric
     metric_array_t const& metric;
+    //! array of conservative variables 
+    grmhd_cons_array_t conservs;
+
     //! Conserved density
     double D  ;
     //! Electron fraction
@@ -292,12 +269,16 @@ struct grmhd_c2p_kastaun {
     double v0;
 
     // will be conditionally returned from the f_of_mu call
+    // when the required tolerance is reached 
     struct intermediate_variables{
         double What;
+        double vhat2;
         double rhohat;
+        double yehat;
         double epsilonhat;
-    }
+    };
 
+    intermediate_variables inter_vars;
     // small number 
     constexpr static const double tiny_number = std::numeric_limits<double>::epsilon() ;
 
@@ -347,7 +328,7 @@ struct grmhd_c2p_kastaun {
 
     // the master function of the Kastaun C2P scheme
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    f_of_mu(double const& mu) const {
+    f_of_mu(double const& mu, std::optional<std::reference_wrapper<intermediate_variables>> inter_results = std::nullopt) const {
         auto qbar = qbar_of_mu(mu);
         auto rbar2= rbar2_of_mu(mu);
         auto vhat2=math::min(mu*mu*rbar2 ,  v0*v0) ;
@@ -374,46 +355,18 @@ struct grmhd_c2p_kastaun {
         auto nu_A = (1 + ahat) * (1 + epsilonhat) / What; 
         auto nu_B = (1 + ahat) * (1 + qbar - mu* rbar2);
 
+        if (inter_results) {
+            inter_results->get().What = What;
+            inter_results->get().rhohat = rhohat;
+            inter_results->get().epsilonhat = epsilonhat;
+            inter_results->get().yehat = yel;
+            inter_results->get().vhat2 = vhat2;
+        }
+
         // finally, we return f(\mu)
         return mu - 1./(math::max(nu_A,nu_B) + mu * rbar2);
     }
 
-
-
-    // double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    // Wtilde(double const& z) const {
-    //     return Kokkos::sqrt(1 + math::int_pow<2>(z)) ; 
-    // }
-
-    // double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    // rhotilde(double const& W) const {
-    //     return D/W ; 
-    // }
-
-    // double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    // epstilde(double const& W, double const& z) const {
-    //     return W*q - z*r + math::int_pow<2>(z)/(1+W) ; 
-    // }
-
-    // double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    // atilde(double& rho, double& eps) const {
-    //     unsigned int err ;
-    //     double yel{ye} ; 
-    //     auto const press = eos.press__eps_rho_ye(eps,rho,yel,err) ; 
-    //     return press / (rho * ( 1 + eps )) ; 
-    // }
-
-    // double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    // htilde(double const& z) const {
-    //     auto const W   = Wtilde(z) ; 
-    //     auto rho = rhotilde(W) ; 
-    //     double epsmin, epsmax; 
-    //     double yel{ye} ; 
-    //     unsigned int err; 
-    //     eos.eps_range__rho_ye(epsmin,epsmax,rho,yel,err) ; 
-    //     auto eps = math::max(epsmin,math::min(epsmax,epstilde(W,z))) ; 
-    //     return (1+eps) * (1+atilde(rho,eps)) ; 
-    // }
 } ; 
 
 }
