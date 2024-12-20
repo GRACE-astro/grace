@@ -103,6 +103,7 @@ struct grmhd_c2p_kastaun {
 
         // set up rescaled conserved variables 
         ye = conservs[YESL] / D ;
+        // we use q (used to compute eq. 27)
         q  = conservs[TAUL] / D ; 
 
         rtildeU[0] = StildeU[0]/ D;
@@ -110,15 +111,16 @@ struct grmhd_c2p_kastaun {
         rtildeU[2] = StildeU[2]/ D;
 
         rtildeNorm = StildeNorm / D; // r = sqrt (r_i r^i) = sqrt(S_i S^i ) / D
-
+        
+        // c[STXL] = S_i 
         // finally, get parallel and perpendicular momentum:
         rD_BtildeU = (conservs[STXL] * BtildeU[0] + \
                            conservs[STYL] * BtildeU[1] + \
                            conservs[STZL] * BtildeU[2]      ) / D;
 
-        rtildeU_par[0]= rD_BtildeU * BtildeU[0] / BtildeNorm;
-        rtildeU_par[1]= rD_BtildeU * BtildeU[1] / BtildeNorm;
-        rtildeU_par[2]= rD_BtildeU * BtildeU[2] / BtildeNorm;
+        rtildeU_par[0]= rD_BtildeU * BtildeU[0] / math::int_pow<2>(BtildeNorm);
+        rtildeU_par[1]= rD_BtildeU * BtildeU[1] / math::int_pow<2>(BtildeNorm);
+        rtildeU_par[2]= rD_BtildeU * BtildeU[2] / math::int_pow<2>(BtildeNorm);
 
         rtildeU_perp[0] = rtildeU[0] - rtildeU_par[0];
         rtildeU_perp[1] = rtildeU[1] - rtildeU_par[1];
@@ -162,8 +164,8 @@ struct grmhd_c2p_kastaun {
     
         // prims[RHOL] = D/W ;
         // prims[YEL]  = ye ;
-        unsigned long iter_max = 5000;  // change this to be determined elsewhere! 
-        double const tolerance = 1e-12; // change this
+        unsigned long iter_max = 500;  // change this to be determined elsewhere! 
+        double const tolerance = 1e-15; // change this
 
         // first, we constrain the area of search by finding mu_plus
         double const mu_plus = utils::rootfind_newton_raphson(
@@ -291,7 +293,7 @@ struct grmhd_c2p_kastaun {
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     fa_of_mu(double const& mu) const  {   // eq 21
-        return mu*Kokkos::sqrt(eos.enthalpy_minimum()*eos.enthalpy_minimum() + math::int_pow<2>(rbar2_of_mu(mu))) - 1.; 
+        return mu*Kokkos::sqrt(eos.enthalpy_minimum()*eos.enthalpy_minimum() + rbar2_of_mu(mu)) - 1.; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -323,7 +325,7 @@ struct grmhd_c2p_kastaun {
         auto drbar2dmu=drbar2_dmu(mu);
         auto rbar2=rbar2_of_mu(mu);
         
-        return Kokkos::sqrt(eos.enthalpy_minimum()*eos.enthalpy_minimum() + rbar2) + 0.5 * drbar2dmu / Kokkos::sqrt(eos.enthalpy_minimum()*eos.enthalpy_minimum() + rbar2);
+        return Kokkos::sqrt(eos.enthalpy_minimum()*eos.enthalpy_minimum() + rbar2) + 0.5 * mu * drbar2dmu / Kokkos::sqrt(eos.enthalpy_minimum()*eos.enthalpy_minimum() + rbar2);
     }
 
     // the master function of the Kastaun C2P scheme

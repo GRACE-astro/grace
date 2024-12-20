@@ -95,6 +95,33 @@ conservs_to_prims( grmhd_cons_array_t& cons
     //for( auto& c: cons) c *= metric.sqrtg() ;
 }
 
+
+// return co-moving magnetic field b^\mu components 
+void GRACE_HOST_DEVICE
+get_comoving_magnetic_field_from_eulerian(grace::metric_array_t const& metric,
+                                      const std::array<double,4>& eulB, 
+                                      const std::array<double,4>& eulVel,
+                                      std::array<double, 4>& smallbU){
+    std::array<double,4> normalvector{1./metric.alp(),
+                                        -metric.beta(0)/metric.alp(),
+                                        -metric.beta(1)/metric.alp(),
+                                        -metric.beta(2)/metric.alp()
+                                        };
+    std::array<double,3> eulB3 {eulB[1],eulB[2],eulB[3]};
+    std::array<double,3> eulVel3 {eulVel[1],eulVel[2],eulVel[3]};
+
+    auto eulVel3D   = metric.lower(eulVel3);
+    auto VelTimesB  = metric.contract_vec_covec(eulVel3D,eulB3);
+
+    double const v2 = metric.square_vec({eulVel[0],eulVel[1],eulVel[2]}) ; 
+    double const W  = 1./Kokkos::sqrt(1-v2) ; 
+
+    for(int mu=0; mu<4; mu++){ 
+        smallbU[mu] = VelTimesB * W * (normalvector[mu] + eulVel[mu]) + (1./W) * eulB[mu];
+    }
+    
+}
+
 void GRACE_HOST_DEVICE
 prims_to_conservs( grace::grmhd_prims_array_t& prims
                  , grace::grmhd_cons_array_t& cons 
@@ -112,7 +139,16 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
 
     cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
 
-    double const b2{0.}, smallbt{0.} ; 
+    //double const b2{0.}, smallbt{0.} ; 
+    std::array<double,4> smallb;
+    comoving_magnetic_field_from_eulerian(metric, {0.0, prims[BXL],prims[BYL],prims[BZL]},
+                                                  {0.0, prims[VXL],prims[VYL],prims[VZL]},
+                                                smallb
+                                        );
+    std::array<double,4> smallbD = metric.lower_4vec(smallb); 
+    double const b2 = metric.contract_4dvec_4dcovec(smallb,smallbD);
+    double const smallbt= smallb[0];
+
     double const one_over_alp2 = 1./math::int_pow<2>(metric.alp());
     double const rho0_h_plus_b2 = (prims[RHOL]*(1+prims[EPSL])) + prims[PRESSL] + b2 ;
     double const alp2_sqrtgamma = math::int_pow<2>(metric.alp()) * metric.sqrtg() ;
@@ -122,7 +158,7 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
     double const Tuptt = rho0_h_plus_b2 * math::int_pow<2>(u0) + P_plus_half_b2 * g4uptt - math::int_pow<2>(smallbt) ; 
     cons[TAUL] = alp2_sqrtgamma * Tuptt - cons[DENSL] ;
 
-    std::array<double,4> smallb{0.,0.,0.,0.}, smallbD{0.,0.,0.,0.} ; 
+    //std::array<double,4> smallb{0.,0.,0.,0.}, smallbD{0.,0.,0.,0.} ; 
     auto uD = metric.lower({prims[VXL]+metric.beta(0),prims[VYL]+metric.beta(1),prims[VZL]+metric.beta(2)}) ; 
     for(auto & uu: uD) uu *= u0 ; 
 

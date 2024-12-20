@@ -79,6 +79,7 @@ add_grace_test(hdf5_output_test test_hdf5_IO.cpp)
 add_grace_test(eos_test test_eos.cpp)
 add_grace_test(metric_test test_metric.cpp)
 add_grace_test(c2p_test test_c2p.cpp)
+add_grace_test(c2p_mhd_test test_c2p_kastaun.cpp)
 add_grace_test(gridloop_test test_grid_loops.cpp)
 add_grace_test(cart_coords_test test_cartesian_coordinates.cpp)
 add_grace_test(bssn_test test_bssn.cpp)
@@ -138,4 +139,7 @@ add_test(NAME gamma2_c2p_test COMMAND
         mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_gamma2.yaml )
 add_test(NAME sly4_pw_c2p_test COMMAND 
         mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_sly4_pw.yaml )
+add_test(NAME gamma2_c2p_mhd_test COMMAND 
+        mpirun -n 1 ./c2p_mhd_test --grace-parfile ./configs/c2p_test_gamma2.yaml )
+
 add_test(NAME device_vector_test COMMAND ./device_vector_test )

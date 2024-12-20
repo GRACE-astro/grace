@@ -57,14 +57,30 @@
 #define N 100
 #define DUMP_RESIDUAL_TO_FILE
 
+// return co-moving magnetic field b^\mu components 
 static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
 comoving_magnetic_field_from_eulerian(grace::metric_array_t const& metric,
                                       const std::array<double,4>& eulB, 
-                                      const std::array<double,4>& eulVel
-                                      std::array<double, 4>& smallb){
-    std::array<double,4> normalvector{};
-    
+                                      const std::array<double,4>& eulVel,
+                                      std::array<double, 4>& smallbU){
+    std::array<double,4> normalvector{1./metric.alp(),
+                                        -metric.beta(0)/metric.alp(),
+                                        -metric.beta(1)/metric.alp(),
+                                        -metric.beta(2)/metric.alp()
+                                        };
+    std::array<double,3> eulB3 {eulB[1],eulB[2],eulB[3]};
+    std::array<double,3> eulVel3 {eulVel[1],eulVel[2],eulVel[3]};
 
+    auto eulVel3D   = metric.lower(eulVel3);
+    auto VelTimesB  = metric.contract_vec_covec(eulVel3D,eulB3);
+
+    double const v2 = metric.square_vec({eulVel[0],eulVel[1],eulVel[2]}) ; 
+    double const W  = 1./Kokkos::sqrt(1-v2) ; 
+
+    for(int mu=0; mu<4; mu++){ 
+        smallbU[mu] = VelTimesB * W * (normalvector[mu] + eulVel[mu]) + (1./W) * eulB[mu];
+    }
+    
 }
 
 static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -76,17 +92,18 @@ conservs_from_prims(grace::grmhd_cons_array_t& cons, grace::grmhd_prims_array_t&
     double const u0 = W / metric.alp();
     cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
         
-    // recover b^i from primitive B^i 
-    std::array<double,4> smallb;//{0.,0.,0.,0.};
+    //********* recover b^i from the primitive B^i  ******/ 
+    std::array<double,4> smallb;
+
+    // comoving_magnetic_field_from_eulerian(g_\mu\nu, B^i, U^i, b^\mu);
+
     comoving_magnetic_field_from_eulerian(metric, {0.0, prims[BXL],prims[BYL],prims[BZL]},
                                                   {0.0, prims[VXL],prims[VYL],prims[VZL]},
                                                 smallb
                                         );
-    std::array<double,4> smallbD = metric.lower_4vec(smallb); //smallbD{0.,0.,0.,0.} ;
-    //smallb2=
-
-    double const b2     =     //{0.}
-    double const smallbt=   // {0.} ; 
+    std::array<double,4> smallbD = metric.lower_4vec(smallb); 
+    double const b2 = metric.contract_4dvec_4dcovec(smallb,smallbD);
+    double const smallbt= smallb[0];
     double const one_over_alp2 = 1./math::int_pow<2>(metric.alp());
     double const rho0_h_plus_b2 = (prims[RHOL]*(1+prims[EPSL])) + prims[PRESSL] + b2 ;
     double const alp2_sqrtgamma = math::int_pow<2>(metric.alp()) * metric.sqrtg() ;
@@ -104,6 +121,10 @@ conservs_from_prims(grace::grmhd_cons_array_t& cons, grace::grmhd_prims_array_t&
     cons[STZL] = metric.sqrtg() * (rho0_h_plus_b2*math::int_pow<2>(W)*vD[2]-smallb[0]*smallbD[3]) ;
     cons[YESL] = prims[YEL] * cons[DENSL] ; 
     cons[ENTSL] = cons[DENSL] * prims[ENTL] ;
+    cons[BGXL] = metric.sqrtg() * prims[BXL];
+    cons[BGYL] = metric.sqrtg() * prims[BYL];
+    cons[BGZL] = metric.sqrtg() * prims[BZL];
+
     return ; 
 }
 
@@ -188,6 +209,9 @@ static void check_c2p(eos_t eos){
         prims[VXL] = d_vel(i,j,0) ; 
         prims[VYL] = d_vel(i,j,1) ; 
         prims[VZL] = d_vel(i,j,2) ; 
+        prims[BXL] =0.;
+        prims[BYL] =0.;
+        prims[BZL] =0.;
         
         double csnd2 ;
         unsigned int err ;  
@@ -197,14 +221,13 @@ static void check_c2p(eos_t eos){
         conservs_from_prims(cons,prims,minkowski_metric) ; 
         d_eps(i,j) = cons[STYL] ;
         grmhd_prims_array_t new_prims = prims ; 
-        //using c2p_impl_t = grhd_c2p;
-        conservs_to_prims<eos_t, grhd_c2p>(cons,new_prims,minkowski_metric,eos,0.) ; 
+        conservs_to_prims<eos_t, grmhd_c2p_kastaun>(cons,new_prims,minkowski_metric,eos,0.) ; 
 
         d_res(i,j) = compute_residual(new_prims,prims) ;
-         //d_press(i,j) = new_prims[PRESSL] ;  
-        d_press(i,j) = d_vel(i,j,0)*d_vel(i,j,0) 
-                     + d_vel(i,j,1)*d_vel(i,j,1)
-                     + d_vel(i,j,2)*d_vel(i,j,2) ; 
+        d_press(i,j) = new_prims[PRESSL] ;  
+        // d_press(i,j) = d_vel(i,j,0)*d_vel(i,j,0) 
+        //              + d_vel(i,j,1)*d_vel(i,j,1)
+        //              + d_vel(i,j,2)*d_vel(i,j,2) ; 
 
     }) ; 
     auto h_res = Kokkos::create_mirror_view(d_res) ;
