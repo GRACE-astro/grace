@@ -72,9 +72,10 @@ struct grmhd_c2p_kastaun {
     GRACE_HOST_DEVICE
     grmhd_c2p_kastaun( eos_t const& _eos
               , metric_array_t const& _metric 
-              , grmhd_cons_array_t& _conservs )
+              , grmhd_cons_array_t const& _conservs )
     : eos(_eos), metric(_metric), conservs(_conservs)
     {   
+
 
         // first we make sure that momentum is casual 
         StildeU = metric.raise({conservs[STXL],conservs[STYL],conservs[STZL]}) ; 
@@ -84,8 +85,8 @@ struct grmhd_c2p_kastaun {
         D  = conservs[DENSL] ; 
 
         BtildeU[0]=conservs[BGXL]/ Kokkos::sqrt(D);
-        BtildeU[1]=conservs[BGXL]/ Kokkos::sqrt(D);
-        BtildeU[2]=conservs[BGXL]/ Kokkos::sqrt(D);
+        BtildeU[1]=conservs[BGYL]/ Kokkos::sqrt(D);
+        BtildeU[2]=conservs[BGZL]/ Kokkos::sqrt(D);
 
         BtildeD = metric.lower({BtildeU[0],BtildeU[1],BtildeU[2]});
         BtildeNorm = Kokkos::sqrt(BtildeU[0]*BtildeD[0] + BtildeU[1]*BtildeD[1] + BtildeU[2]*BtildeD[2]);
@@ -118,23 +119,39 @@ struct grmhd_c2p_kastaun {
                            conservs[STYL] * BtildeU[1] + \
                            conservs[STZL] * BtildeU[2]      ) / D;
 
-        rtildeU_par[0]= rD_BtildeU * BtildeU[0] / math::int_pow<2>(BtildeNorm);
-        rtildeU_par[1]= rD_BtildeU * BtildeU[1] / math::int_pow<2>(BtildeNorm);
-        rtildeU_par[2]= rD_BtildeU * BtildeU[2] / math::int_pow<2>(BtildeNorm);
-
+        // if the magnetic field is too small, we wish to prevent division by 0 ...
+        // this if statement might be acceptable as it happens only once in the instance of calling c2p at any single grid point
+        if(BtildeNorm < 1e-15){
+            rtildeU_par[0]=0;
+            rtildeU_par[1]=0;
+            rtildeU_par[2]=0;
+        }
+        else{
+            rtildeU_par[0]= rD_BtildeU * BtildeU[0] / math::int_pow<2>(BtildeNorm);
+            rtildeU_par[1]= rD_BtildeU * BtildeU[1] / math::int_pow<2>(BtildeNorm);
+            rtildeU_par[2]= rD_BtildeU * BtildeU[2] / math::int_pow<2>(BtildeNorm);
+        }
         rtildeU_perp[0] = rtildeU[0] - rtildeU_par[0];
         rtildeU_perp[1] = rtildeU[1] - rtildeU_par[1];
         rtildeU_perp[2] = rtildeU[2] - rtildeU_par[2];
 
-        v0 = math::int_pow<2>(rtildeNorm) / (math::int_pow<2>(rtildeNorm) +  eos.enthalpy_minimum()*eos.enthalpy_minimum());
+        rtildeD_perp = metric.lower({rtildeU_perp[0],rtildeU_perp[1], rtildeU_perp[2]});
 
-        
+        rtildeNorm_perp = Kokkos::sqrt(rtildeD_perp[0]*rtildeU_perp[0]+
+                                            rtildeD_perp[1]*rtildeU_perp[1]+          
+                                            rtildeD_perp[2]*rtildeU_perp[2]);
+
+        v0sqrt = math::int_pow<2>(rtildeNorm) / (math::int_pow<2>(rtildeNorm) +  eos.enthalpy_minimum()*eos.enthalpy_minimum());
+
         inter_vars.What      =0.0;
         inter_vars.vhat2     =0.0;
         inter_vars.yehat     =0.0;
         inter_vars.rhohat    =0.0;
         inter_vars.epsilonhat=0.0;
        
+
+    //printf("Conservatives: D %.3g, tau %.3g, ye %.3g, Sx %.3g,Sy %.3g,Sz %.3g, BtildeNorm %.3g \n", conservs[DENSL], conservs[TAUL],conservs[YESL],conservs[STXL],conservs[STYL],conservs[STZL], BtildeNorm );
+
     }
 
     /**
@@ -154,6 +171,8 @@ struct grmhd_c2p_kastaun {
     grmhd_prims_array_t GRACE_HOST_DEVICE
     invert(double& error) {
 
+       // printf("Intermediate variables like: rtildeU0 %.3g, rtildeU1 %.3g, rtildeU2 %.3g, v0sqrt %.3g \n", rtildeU[0], rtildeU[1],rtildeU[2],v0sqrt );
+
         grmhd_prims_array_t prims ; 
 
         // under the assumption that the conservative variables enter the c2p routine undensitized,
@@ -164,8 +183,10 @@ struct grmhd_c2p_kastaun {
     
         // prims[RHOL] = D/W ;
         // prims[YEL]  = ye ;
-        unsigned long iter_max = 500;  // change this to be determined elsewhere! 
+        unsigned long iter_max = 2000;  // change this to be determined elsewhere! 
         double const tolerance = 1e-15; // change this
+
+        // assert(eos.enthalpy_minimum()>0.0);
 
         // first, we constrain the area of search by finding mu_plus
         double const mu_plus = utils::rootfind_newton_raphson(
@@ -174,30 +195,30 @@ struct grmhd_c2p_kastaun {
                             [this](double mu){return this -> dfa_dmu(mu);}, //  derivative
                             tolerance, iter_max           // tolerance, iteration book-keeper
                             ) + tiny_number;
+
+        //printf("Thread %d, Value: %f\n", i, some_array(i));
+        //printf("hmin %f, muplus: %f\n", eos.enthalpy_minimum(),mu_plus);
         
-        // f_mu must be an lvalue to comply with brent in rootfinding.hh
+        // f_of_mu is a non-static member function, so to pass it into brent, we need to wrap it in a named lambda
         auto f_mu=[this](double lambda){return this->f_of_mu(lambda);};
         // now we look for the root of the master function in the (0, mu_plus] interval:
         auto mu = utils::brent(f_mu,
-                                 0.0, mu_plus, tolerance);
-
-
-
+                                0.0, 
+                                //1./eos.enthalpy_minimum(),
+                                mu_plus, 
+                                 tolerance);
+        
         std::array<double, 3> vhatU;
         auto chi =  1. / (1. + mu * math::int_pow<2>(BtildeNorm));
         for(size_t i=0; i<3; i++){
             vhatU[i]= mu * chi * (rtildeU[i] + mu * rD_BtildeU * BtildeU[i]);
         }
 
+
+        error = this->f_of_mu(mu,inter_vars);
+
         // atmosphere check:
         double rho_atm = eos.rho_atmosphere();
-
-        auto f_mu_final=[this](double lambda, intermediate_variables& iv){
-                            return this->f_of_mu(lambda,iv);};
-
-        // call the f_mu function for the last time to get the inter_vars with the last mu:
-        //f_mu_final(mu, inter_vars);
-        f_mu_final(mu,inter_vars);
 
         if(inter_vars.rhohat <= rho_atm){
             inter_vars.What = 1.0;
@@ -224,9 +245,9 @@ struct grmhd_c2p_kastaun {
         double cs2_,entropy_;
         unsigned int err; 
 
-        prims[PRESSL] =  eos.press_h_csnd2_temp_entropy__eps_rho_ye(prims[ENTL],cs2_,prims[TEMPL],entropy_,
-                                                prims[EPSL], prims[RHOL], prims[YEL], err);
+        prims[PRESSL] =  eos.press__eps_rho_ye(prims[EPSL], prims[RHOL],prims[YEL],err);
 
+//        printf("rho %.3g, ye %.3g, eps %.3g, vx %.3g,vy %.3g,vz %.3g, press %.3g \n", prims[RHOL],prims[YEL], prims[EPSL], prims[VXL],prims[VYL],prims[VZL], prims[PRESSL] );
 
         return std::move(prims) ; 
     }
@@ -237,6 +258,7 @@ struct grmhd_c2p_kastaun {
     //! Metric
     metric_array_t const& metric;
     //! array of conservative variables 
+    // to do: maybe instead of keeping the whole conservs, we will just keep the magnetic field? 
     grmhd_cons_array_t conservs;
 
     //! Conserved density
@@ -266,9 +288,13 @@ struct grmhd_c2p_kastaun {
     std::array<double,3> rtildeU_perp ; 
     //! Rescaled momentum contracted with the Btilde field 
     double rD_BtildeU;
+    //! Rescaled momentum co-vector, perpendicular to Btilde field (lower indices)
+    std::array<double,3> rtildeD_perp;
+    // ! Magnitude of the rescaled momentum perpendicular to the Btilde 
+    double rtildeNorm_perp ;
 
-    // constant from eq. (25) 
-    double v0;
+    // constant from eq. (25)  (note that in the paper it should read v_{0}^{2} \coloneqq on the LHS!)
+    double v0sqrt;
 
     // will be conditionally returned from the f_of_mu call
     // when the required tolerance is reached 
@@ -288,7 +314,7 @@ struct grmhd_c2p_kastaun {
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     rbar2_of_mu(double const& mu) const  {   // eq 21
         auto chi =  1. / (1. + mu * math::int_pow<2>(BtildeNorm));
-        return math::int_pow<2>(rtildeNorm*chi) + mu*chi*(1+chi)*rD_BtildeU;
+        return math::int_pow<2>(rtildeNorm*chi) + mu*chi*(1+chi)*math::int_pow<2>(rD_BtildeU);
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -298,11 +324,6 @@ struct grmhd_c2p_kastaun {
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     qbar_of_mu(double const& mu) const {
-        auto rtildeD_perp = metric.lower({rtildeU_perp[0],rtildeU_perp[1], rtildeU_perp[2]});
-        // r_\{\perp} 
-        auto rtildeNorm_perp = Kokkos::sqrt(rtildeD_perp[0]*rtildeU_perp[0]+
-                                            rtildeD_perp[1]*rtildeU_perp[1]+          
-                                            rtildeD_perp[2]*rtildeU_perp[2]);
         auto chi =  1. / (1. + mu * math::int_pow<2>(BtildeNorm));
         return q - 0.5*math::int_pow<2>(BtildeNorm) - 0.5 * math::int_pow<2>(mu*chi*BtildeNorm*rtildeNorm_perp);
     }
@@ -333,8 +354,8 @@ struct grmhd_c2p_kastaun {
     f_of_mu(double const& mu, std::optional<std::reference_wrapper<intermediate_variables>> inter_results = std::nullopt) const {
         auto qbar = qbar_of_mu(mu);
         auto rbar2= rbar2_of_mu(mu);
-        auto vhat2=math::min(mu*mu*rbar2 ,  v0*v0) ;
-        auto What=1./Kokkos::sqrt(1- vhat2);
+        auto vhat2=math::min(mu*mu*rbar2 ,  v0sqrt) ;
+        auto What=1./Kokkos::sqrt(1.0 - vhat2);
         auto rhohat0=D/What;
         auto rhohat=math::max(eos.density_minimum(), math::min(eos.density_maximum(),rhohat0));
         auto epsilonhat0=What*(qbar - mu*rbar2) + vhat2*What*What/(1.+What);
@@ -343,17 +364,15 @@ struct grmhd_c2p_kastaun {
         double yel{ye} ; 
         unsigned int err; 
         double epslow, epshigh; 
-       // double rho; 
         // call to the EOS
         eos.eps_range__rho_ye(epslow,epshigh,rhohat,yel,err) ; 
         auto epsilonhat = math::max(epslow,math::min(epshigh,epsilonhat0 )) ; 
 
         double h_, csnd2_, temp_, entropy_; // will be discarded 
         // call to the EOS
-        auto phat =  eos.press_h_csnd2_temp_entropy__eps_rho_ye(h_,csnd2_,temp_,entropy_,
-                                                epsilonhat, rhohat, yel, err);
-        
-        auto ahat = phat / rhohat / (1 + epsilonhat);
+        auto phat =  eos.press__eps_rho_ye(epsilonhat, rhohat, yel, err);
+
+        auto ahat = phat / (rhohat * (1 + epsilonhat));
         auto nu_A = (1 + ahat) * (1 + epsilonhat) / What; 
         auto nu_B = (1 + ahat) * (1 + qbar - mu* rbar2);
 

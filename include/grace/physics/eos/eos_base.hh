@@ -531,7 +531,7 @@ class eos_base_t {
      * 
      */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    density_maximum() const { return eos_rhomin ; }
+    density_maximum() const { return eos_rhomax ; }
 
  protected:
     //! Does this EOS depend on ye?

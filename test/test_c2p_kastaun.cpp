@@ -47,7 +47,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <Kokkos_Core.hpp>
-
+#include <Kokkos_Random.hpp> 
 
 #include <fstream>
 #include <filesystem>
@@ -56,32 +56,6 @@
 
 #define N 100
 #define DUMP_RESIDUAL_TO_FILE
-
-// return co-moving magnetic field b^\mu components 
-static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-comoving_magnetic_field_from_eulerian(grace::metric_array_t const& metric,
-                                      const std::array<double,4>& eulB, 
-                                      const std::array<double,4>& eulVel,
-                                      std::array<double, 4>& smallbU){
-    std::array<double,4> normalvector{1./metric.alp(),
-                                        -metric.beta(0)/metric.alp(),
-                                        -metric.beta(1)/metric.alp(),
-                                        -metric.beta(2)/metric.alp()
-                                        };
-    std::array<double,3> eulB3 {eulB[1],eulB[2],eulB[3]};
-    std::array<double,3> eulVel3 {eulVel[1],eulVel[2],eulVel[3]};
-
-    auto eulVel3D   = metric.lower(eulVel3);
-    auto VelTimesB  = metric.contract_vec_covec(eulVel3D,eulB3);
-
-    double const v2 = metric.square_vec({eulVel[0],eulVel[1],eulVel[2]}) ; 
-    double const W  = 1./Kokkos::sqrt(1-v2) ; 
-
-    for(int mu=0; mu<4; mu++){ 
-        smallbU[mu] = VelTimesB * W * (normalvector[mu] + eulVel[mu]) + (1./W) * eulB[mu];
-    }
-    
-}
 
 static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
 conservs_from_prims(grace::grmhd_cons_array_t& cons, grace::grmhd_prims_array_t& prims, grace::metric_array_t const& metric)
@@ -92,18 +66,19 @@ conservs_from_prims(grace::grmhd_cons_array_t& cons, grace::grmhd_prims_array_t&
     double const u0 = W / metric.alp();
     cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
         
-    //********* recover b^i from the primitive B^i  ******/ 
+    // note: the velocities above are the ones 
+    //================ recover b^\mu from the primitive B^i  ================ / 
     std::array<double,4> smallb;
 
     // comoving_magnetic_field_from_eulerian(g_\mu\nu, B^i, U^i, b^\mu);
-
-    comoving_magnetic_field_from_eulerian(metric, {0.0, prims[BXL],prims[BYL],prims[BZL]},
-                                                  {0.0, prims[VXL],prims[VYL],prims[VZL]},
-                                                smallb
+    get_smallb_from_eulerianB(metric, {prims[BXL],prims[BYL],prims[BZL]},
+                                      {prims[VXL],prims[VYL],prims[VZL]},
+                                       smallb
                                         );
     std::array<double,4> smallbD = metric.lower_4vec(smallb); 
     double const b2 = metric.contract_4dvec_4dcovec(smallb,smallbD);
     double const smallbt= smallb[0];
+
     double const one_over_alp2 = 1./math::int_pow<2>(metric.alp());
     double const rho0_h_plus_b2 = (prims[RHOL]*(1+prims[EPSL])) + prims[PRESSL] + b2 ;
     double const alp2_sqrtgamma = math::int_pow<2>(metric.alp()) * metric.sqrtg() ;
@@ -183,6 +158,60 @@ static void get_velocity_from_W(double const& W, Kokkos::View<double ***> vel) {
     Kokkos::deep_copy(vel,h_vel) ; 
 }
 
+static void GRACE_HOST_DEVICE normalize_smallb_magnetization(grace::metric_array_t const& metric,
+                                        double const& b2,
+                                        double& bUt, double& bU1, double& bU2, double& bU3
+                                        ){
+    // now, we compute the norm of this vector in the true metric:
+    auto Cfactor = metric.contract_4dvec_4dcovec({bUt,bU1,bU2,bU3},
+                                            metric.lower_4vec({bUt,bU1,bU2,bU3}));
+    auto factor = Kokkos::sqrt(b2 / Cfactor);
+
+    bUt*=factor;
+    bU1*=factor;
+    bU2*=factor;
+    bU3*=factor;
+}
+
+
+static void GRACE_DEVICE find_smallb(grace::metric_array_t const& metric ,
+                            const std::array<double,3>& eulVel, const double& b2,
+                             Kokkos::View<double*> d_bvec) {
+    auto g4=metric.gmunu();  // g4[0]  = g_tt, g4[1,2,3] = g_ti, etc
+    double const v2_ = metric.square_vec({eulVel[0],eulVel[1],eulVel[2]}) ; 
+    double const W_  = 1./Kokkos::sqrt(1-v2_) ; 
+    const std::array<double, 4> u4 {W_*1/metric.alp(),
+                                    W_*(-metric.beta(0)/metric.alp() + eulVel[0]),
+                                    W_*(-metric.beta(1)/metric.alp() + eulVel[1]),
+                                    W_*(-metric.beta(2)/metric.alp() + eulVel[2])
+                                     };
+  
+    // NOTE: 
+    // It's a nightmare to set up random number generators on device 
+    // therefore, I'll just resort to a fixed orientation of the spatial
+    // part of the b^mu vector:
+    d_bvec(1)= 0.25;
+    d_bvec(2)= -0.565;
+    d_bvec(3)= 0.365;
+    
+    // g_munu u^mu b^nu = 0 , which uniquely determines the time-like component:
+    auto g_ti_bUi = g4[1]*d_bvec(1) + g4[2]*d_bvec(2) + g4[3]*d_bvec(3);
+
+    auto g_ti_u4Ui = g4[1]*u4[1] + g4[2]*u4[2] + g4[3]*u4[3];
+
+    auto g_ij_bUi_u4Uj = metric.contract_vec_covec({d_bvec(1), d_bvec(2), d_bvec(3)},
+                                    metric.lower({u4[1],u4[2],u4[3]}) 
+                                                            );
+
+    d_bvec(0) = (-g_ij_bUi_u4Uj -g_ti_bUi*u4[0]) / (g4[0]*u4[0] + g_ti_u4Ui ); 
+
+    normalize_smallb_magnetization(metric, b2, d_bvec(0),d_bvec(1),d_bvec(2),d_bvec(3));
+    
+    //return std::move(bvec);
+}
+
+
+
 template<typename eos_t>
 static void check_c2p(eos_t eos){
     using namespace grace ;
@@ -196,6 +225,7 @@ static void check_c2p(eos_t eos){
     Kokkos::View<double **> d_res("residual", N,N) ;
     Kokkos::View<double **> d_eps("eps", N,N) ;
     Kokkos::View<double **> d_press("press", N,N) ;
+
     fill_primitive_views(d_logrho,d_logT) ; 
     get_velocity_from_W(W, d_vel) ; 
     double const ye = 0.1 ; 
@@ -208,15 +238,17 @@ static void check_c2p(eos_t eos){
         prims[YEL] = ye; 
         prims[VXL] = d_vel(i,j,0) ; 
         prims[VYL] = d_vel(i,j,1) ; 
-        prims[VZL] = d_vel(i,j,2) ; 
+        prims[VZL] = d_vel(i,j,2) ;         
         prims[BXL] =0.;
         prims[BYL] =0.;
         prims[BZL] =0.;
         
         double csnd2 ;
         unsigned int err ;  
-        double temp{0} ; 
-        prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(prims[EPSL],csnd2,prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
+        //double temp{0} ; 
+        prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(prims[EPSL],csnd2,prims[TEMPL],prims[RHOL],prims[YEL],err) ;
+       // double henthalpy = (1 + + prims[EPSL]  + prims[PRESSL]/prims[RHOL] );
+
         grmhd_cons_array_t cons ; 
         conservs_from_prims(cons,prims,minkowski_metric) ; 
         d_eps(i,j) = cons[STYL] ;
@@ -224,7 +256,9 @@ static void check_c2p(eos_t eos){
         conservs_to_prims<eos_t, grmhd_c2p_kastaun>(cons,new_prims,minkowski_metric,eos,0.) ; 
 
         d_res(i,j) = compute_residual(new_prims,prims) ;
-        d_press(i,j) = new_prims[PRESSL] ;  
+        d_press(i,j) = new_prims[PRESSL] ; 
+        //printf("Very end: rho %.3g, ye %.3g, eps %.3g, vx %.3g,vy %.3g,vz %.3g, press %.3g \n", new_prims[RHOL],new_prims[YEL], new_prims[EPSL], new_prims[VXL],new_prims[VYL],new_prims[VZL], new_prims[PRESSL] );
+ 
         // d_press(i,j) = d_vel(i,j,0)*d_vel(i,j,0) 
         //              + d_vel(i,j,1)*d_vel(i,j,1)
         //              + d_vel(i,j,2)*d_vel(i,j,2) ; 
@@ -236,6 +270,9 @@ static void check_c2p(eos_t eos){
     Kokkos::deep_copy(h_res,d_res) ; 
     Kokkos::deep_copy(h_eps,d_eps) ; 
     Kokkos::deep_copy(h_press,d_press) ; 
+
+   // Kokkos::fence();  // give enough time to flush 
+
     #ifdef DUMP_RESIDUAL_TO_FILE
     std::ofstream outfile{"c2p_residual.txt"} ;
     outfile << std::setprecision(15) ; 
@@ -266,8 +303,128 @@ static void check_c2p(eos_t eos){
     }
 }
 
-TEST_CASE("c2p", "[c2p-hydro]") {
+
+template<typename eos_t>
+static void check_c2p_mhd(eos_t eos){
+    using namespace grace ;
+    metric_array_t minkowski_metric ({1.,0.,0.,1.,0.,1.},{0.,0.,0.},1.) ; 
+        
+
+    //double const W = 2. ; 
+    double const W = 50 ; 
+    double const b2_over_rho = 100000;  // works for this as well - very high magnetization change this  
+    printf("Testing Kastaun C2P in an MHD setting for an extremely high Lorentz factor (W=%.2f) and magnetization (sigma=%f) \n",W, b2_over_rho);
+
+    Kokkos::View<double *> d_logrho("logrho", N) ; 
+    Kokkos::View<double *> d_logT("logT", N) ;
+    Kokkos::View<double ***> d_vel("vel", N,N,3) ; 
+    Kokkos::View<double **> d_res("residual", N,N) ;
+    Kokkos::View<double **> d_eps("eps", N,N) ;
+    Kokkos::View<double **> d_press("press", N,N) ;
+    // Allocate d_bvec for find_smallb
+    Kokkos::View<double*> d_bvec("bvec", 4);
+
+    fill_primitive_views(d_logrho,d_logT) ; 
+    get_velocity_from_W(W, d_vel) ; 
+    double const ye = 0.1 ; 
+
+    Kokkos::parallel_for("check_c2p_residual", Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0,0},{N,N}),
+    KOKKOS_LAMBDA( int const& i, int const& j ) {
+        grmhd_prims_array_t prims ; 
+        prims[RHOL] = Kokkos::pow(10.,d_logrho(i)) ; 
+        prims[TEMPL] = Kokkos::pow(10.,d_logT(j))  ; 
+        prims[YEL] = ye; 
+        prims[VXL] = d_vel(i,j,0) ; 
+        prims[VYL] = d_vel(i,j,1) ; 
+        prims[VZL] = d_vel(i,j,2) ; 
+        // for the above Eulerian velocity, generate an adequate smallb (b^\mu vector)
+        //   i) orthogonal to u^\mu  : g_\mu\nu u^\mu b^\nu = 0
+        //   ii) its norm equal to:                     b^2 = sigma * rho
+
+        find_smallb(minkowski_metric, 
+                                 {prims[VXL],prims[VYL],prims[VZL]},
+                                 b2_over_rho* prims[RHOL],
+                                 d_bvec);
+
+        std::array<double,3> eulB;
+        // now obtain the magnetic field in the Eulerian frame 
+        get_eulerianB_from_smallb(minkowski_metric,   
+                                    {d_bvec(0),d_bvec(1),d_bvec(2),d_bvec(3)},
+                                     {prims[VXL],prims[VYL],prims[VZL]},
+                                    eulB);
+        prims[BXL] = eulB[0];
+        prims[BYL] = eulB[1];
+        prims[BZL] = eulB[2];
+
+        //if(i==0 && j==0) printf("Primitive B field before: %.3g , %.3g, %.3g ", prims[BXL], prims[BYL], prims[BZL]);
+        
+        double csnd2 ;
+        unsigned int err ;  
+        //double temp{0} ; 
+        prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(prims[EPSL],csnd2,prims[TEMPL],prims[RHOL],prims[YEL],err) ;
+       // double henthalpy = (1 + + prims[EPSL]  + prims[PRESSL]/prims[RHOL] );
+
+        grmhd_cons_array_t cons ; 
+        conservs_from_prims(cons,prims,minkowski_metric) ; 
+        d_eps(i,j) = cons[STYL] ;
+        grmhd_prims_array_t new_prims = prims ; 
+        conservs_to_prims<eos_t, grmhd_c2p_kastaun>(cons,new_prims,minkowski_metric,eos,0.) ; 
+
+        d_res(i,j) = compute_residual(new_prims,prims) ;
+        d_press(i,j) = new_prims[PRESSL] ; 
+        
+        //if(i==0 && j==0) printf("Primitive B field after: %.3g , %.3g, %.3g ", new_prims[BXL], new_prims[BYL], new_prims[BZL]);
+
+        //printf("Very end: rho %.3g, ye %.3g, eps %.3g, vx %.3g,vy %.3g,vz %.3g, press %.3g \n", new_prims[RHOL],new_prims[YEL], new_prims[EPSL], new_prims[VXL],new_prims[VYL],new_prims[VZL], new_prims[PRESSL] );
+ 
+        // d_press(i,j) = d_vel(i,j,0)*d_vel(i,j,0) 
+        //              + d_vel(i,j,1)*d_vel(i,j,1)
+        //              + d_vel(i,j,2)*d_vel(i,j,2) ; 
+
+    }) ; 
+    auto h_res = Kokkos::create_mirror_view(d_res) ;
+    auto h_eps = Kokkos::create_mirror_view(d_eps) ;
+    auto h_press = Kokkos::create_mirror_view(d_press) ; 
+    Kokkos::deep_copy(h_res,d_res) ; 
+    Kokkos::deep_copy(h_eps,d_eps) ; 
+    Kokkos::deep_copy(h_press,d_press) ; 
+
+   // Kokkos::fence();  // give enough time to flush 
+
+    #ifdef DUMP_RESIDUAL_TO_FILE
+    std::ofstream outfile{"c2p_residual.txt"} ;
+    outfile << std::setprecision(15) ; 
+    auto h_rho = Kokkos::create_mirror_view(d_logrho) ; 
+    Kokkos::deep_copy(h_rho,d_logrho) ;
+    auto h_temp = Kokkos::create_mirror_view(d_logT) ; 
+    Kokkos::deep_copy(h_temp,d_logT) ;
+    int const width=20;
+    #endif 
+    
+    for( int i=0; i<N; ++i){
+        for(int j=0; j<N; ++j){
+            #ifdef DUMP_RESIDUAL_TO_FILE
+            outfile << std::fixed << std::setprecision(15) ;
+            outfile << std::left << std::setw(width) << h_rho(i)
+                    << std::left << std::setw(width) << h_temp(j)
+                    << std::left << std::setw(width) << h_eps(i,j)
+                    << std::left << std::setw(width) << h_press(i,j)
+                    << std::left << std::setw(width) << h_res(i,j) << std::endl ; 
+            #endif 
+            #if 1
+            CHECK_THAT(
+                h_res(i,j),
+                Catch::Matchers::WithinAbs(0., 1e-6)
+            ) ; 
+            #endif
+        }
+    }
+}
+
+
+TEST_CASE("c2p_mhd", "[c2p-mhd]") {
     auto eos = grace::eos::get().get_hybrid_pwpoly() ; 
     check_c2p(eos) ; 
+    check_c2p_mhd(eos) ; 
 }    
 

@@ -72,6 +72,9 @@ conservs_to_prims( grmhd_cons_array_t& cons
         prims[VXL]   = 0. ;
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
+        prims[BXL]   = 0. ; // is this in any way reflected on the level of the A_i evolution?
+        prims[BYL]   = 0. ;
+        prims[BZL]   = 0. ; 
         W = 1. ;
     }
     /* Set pressure entropy and temperature */
@@ -96,32 +99,6 @@ conservs_to_prims( grmhd_cons_array_t& cons
 }
 
 
-// return co-moving magnetic field b^\mu components 
-void GRACE_HOST_DEVICE
-get_comoving_magnetic_field_from_eulerian(grace::metric_array_t const& metric,
-                                      const std::array<double,4>& eulB, 
-                                      const std::array<double,4>& eulVel,
-                                      std::array<double, 4>& smallbU){
-    std::array<double,4> normalvector{1./metric.alp(),
-                                        -metric.beta(0)/metric.alp(),
-                                        -metric.beta(1)/metric.alp(),
-                                        -metric.beta(2)/metric.alp()
-                                        };
-    std::array<double,3> eulB3 {eulB[1],eulB[2],eulB[3]};
-    std::array<double,3> eulVel3 {eulVel[1],eulVel[2],eulVel[3]};
-
-    auto eulVel3D   = metric.lower(eulVel3);
-    auto VelTimesB  = metric.contract_vec_covec(eulVel3D,eulB3);
-
-    double const v2 = metric.square_vec({eulVel[0],eulVel[1],eulVel[2]}) ; 
-    double const W  = 1./Kokkos::sqrt(1-v2) ; 
-    // follow (6.108) from Gourgoulhon's book (Springer Verlag)
-    for(int mu=0; mu<4; mu++){ 
-        smallbU[mu] = VelTimesB * W * (normalvector[mu] + eulVel[mu]) + (1./W) * eulB[mu];
-    }
-    
-}
-
 void GRACE_HOST_DEVICE
 prims_to_conservs( grace::grmhd_prims_array_t& prims
                  , grace::grmhd_cons_array_t& cons 
@@ -141,9 +118,9 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
 
     //double const b2{0.}, smallbt{0.} ; 
     std::array<double,4> smallb;
-    get_comoving_magnetic_field_from_eulerian(metric, {0.0, prims[BXL],prims[BYL],prims[BZL]},
-                                                  {0.0, prims[VXL],prims[VYL],prims[VZL]},
-                                                smallb
+    get_smallb_from_eulerianB(metric, { prims[BXL],prims[BYL],prims[BZL]},
+                                      { prims[VXL],prims[VYL],prims[VZL]},
+                                        smallb
                                         );
     std::array<double,4> smallbD = metric.lower_4vec(smallb); 
     double const b2 = metric.contract_4dvec_4dcovec(smallb,smallbD);

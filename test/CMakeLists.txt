@@ -84,6 +84,8 @@ add_grace_test(gridloop_test test_grid_loops.cpp)
 add_grace_test(cart_coords_test test_cartesian_coordinates.cpp)
 add_grace_test(bssn_test test_bssn.cpp)
 add_grace_test(TOV_test test_TOV.cpp)
+add_grace_test(magnetic_transformations_test test_magnetic_field_transformations.cpp)
+
 
 add_kokkos_test(interpolator_test test_interpolators.cpp)
 add_kokkos_test(device_vector_test test_device_vector.cc)
@@ -143,3 +145,5 @@ add_test(NAME gamma2_c2p_mhd_test COMMAND
         mpirun -n 1 ./c2p_mhd_test --grace-parfile ./configs/c2p_test_gamma2.yaml )
 
 add_test(NAME device_vector_test COMMAND ./device_vector_test )
+
+add_test(NAME magnetic_transformations_test COMMAND ./magnetic_transformations_test )

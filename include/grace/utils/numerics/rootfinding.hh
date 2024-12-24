@@ -71,7 +71,7 @@ bisection(F&& func, double const& a, double const& b, double const& tol)
 
 template <typename F>
 double GRACE_HOST_DEVICE
-brent(F& f, const double &a, const double &b, const double t)
+brent(F&& f, const double &a, const double &b, const double t)
 
 //****************************************************************************80
 //
@@ -146,8 +146,14 @@ brent(F& f, const double &a, const double &b, const double t)
   //
   sa = a;
   sb = b;
-  fa = f(sa);
-  fb = f(sb);
+
+  #define INVK(FUNC, ARG) std::invoke(std::forward<F>(FUNC), ARG);
+
+  fa = INVK(f,sa);
+  fb = INVK(f,sb);
+  
+  //fa = f(sa);
+  //fb = f(sb);
 
   c = sa;
   fc = fa;
@@ -217,7 +223,10 @@ brent(F& f, const double &a, const double &b, const double t)
       sb = sb - tol;
     }
 
-    fb = f(sb);
+    // fb = f(sb);
+    fb = INVK(f,sb);
+
+    #undef INVK
 
     if ((0.0 < fb && 0.0 < fc) || (fb <= 0.0 && fc <= 0.0)) {
       c = sa;
@@ -247,30 +256,40 @@ brent(F& f, const double &a, const double &b, const double t)
    * Two template parameters are necessary in case when lambdas enter as f and df.
    * In that case, each automatically deduced lambda type is different,
    * and that necessitates F and DF.
+   * The callable objects as passed by forward referencing to the std::invoke
+   * In this way, we are not restricting ourselves to lvalues and can invoke this function also 
+   * on lambdas 
    */ 
   template <typename F, typename DF>
   double GRACE_HOST_DEVICE
   rootfind_newton_raphson(double const& a, double const& b,
-                            F const& f, DF const& df,
+                            F&& f, DF&& df,
                             double const& tol, unsigned long& iter)
     {
       unsigned long const maxiter = iter ;
 
       constexpr const double macheps = std::numeric_limits<double>::epsilon() ;
       
-      auto const fa=f(a);
-      auto const fb=f(b);
+      #define INVK(TYPE, FUNC, ARG) std::invoke(std::forward<TYPE>(FUNC), ARG);
+
+      auto const fa = INVK(F, f, a); //f(a);
+      auto const fb = INVK(F, f, b); //f(b);
       
       auto x0 = ( fa * a - fb * b ) / ( fa - fb ) ;
-      auto f0 = f(x0) ; 
+      //auto f0 = f(x0) ; 
+      auto f0 = INVK(F, f,x0) ; 
     
       iter = 0 ; 
       auto x1 = x0 ;
     
       do {
         x0  =    x1 ;
-        f0  =  f(x1);
-        auto df0 = df(x1);
+        //f0  =  f(x1);
+        //auto df0 = df(x1);
+        f0 = INVK(F, f, x1);
+        auto df0 = INVK(DF, df, x1);
+
+        #undef INVK
 
         x1  = x0 - f0 / df0 ;
 
@@ -286,7 +305,7 @@ brent(F& f, const double &a, const double &b, const double t)
   
         iter ++ ;
         } while(  iter < maxiter  ) ;
-            
+
         return x1 ; 
     }
 

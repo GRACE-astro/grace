@@ -156,6 +156,91 @@ zvec_to_vel(
   return w;
 }
 
+
+// return co-moving magnetic field b^\mu components
+/**
+ * @brief return co-moving magnetic field b^\mu components from the Eulerian B^i field and Eulerian 3-velocity U^i
+ * 
+ * @param metric A `metric_array_t`
+ * @param [in] std::array<double,3> components of the Eulerian B^i field ([0,1,2]=[x,y,z])
+ * @param [in] std::array<double,3> components of the Eulerian U^i field ([0,1,2]=[x,y,z])
+ * @return [inout] std::array<double,4> components of the co-moving magnetic field
+ */ 
+static void GRACE_HOST_DEVICE
+get_smallb_from_eulerianB(grace::metric_array_t const& metric,
+                          const std::array<double,3>& eulB, 
+                          const std::array<double,3>& eulVel,
+                          std::array<double, 4>& smallbU){
+    std::array<double,4> normalvector{1./metric.alp(),
+                                        -metric.beta(0)/metric.alp(),
+                                        -metric.beta(1)/metric.alp(),
+                                        -metric.beta(2)/metric.alp()
+                                        };
+
+    auto eulVelD   = metric.lower(eulVel);
+    auto VelTimesB  = metric.contract_vec_covec(eulVelD,eulB);
+
+    double const v2 = metric.square_vec({eulVel[0],eulVel[1],eulVel[2]}) ; 
+    double const W  = 1./Kokkos::sqrt(1-v2) ; 
+    // follow (6.108) from Gourgoulhon's book (Springer Verlag)
+    // time-like component
+    smallbU[0] = VelTimesB * W * ( normalvector[0] );
+    // spatial components 
+    for(int i=1; i<4; i++){ 
+        smallbU[i] = VelTimesB * W * (normalvector[i] + eulVel[i-1]) + (1./W) * eulB[i-1];
+    }
+}
+
+
+/**
+ * @brief return Eulerian magnetic field B^\i components from the co-moving b^\mu field and Eulerian 3-velocity U^i
+ * 
+ * @param metric A `metric_array_t`
+ * @param [in] std::array<double,4> components of the co-movin b^\mu field ([0,1,2,3]=[t,x,y,z])
+ * @param [in] std::array<double,3> components of the Eulerian U^i field ([0,1,2]=[x,y,z])
+ * @return [inout] std::array<double,3> components of the Eulerian magnetic field
+ * @details IMPORTANT: the transformation between frames here (forward and back) only makes sense 
+ *                     if the smallb vector is 
+ */ 
+static void GRACE_HOST_DEVICE
+get_eulerianB_from_smallb(grace::metric_array_t const& metric,
+                          const std::array<double,4>& smallb, 
+                          const std::array<double,3>& eulVel,
+                          std::array<double, 3>& eulB){
+
+    std::array<double,4> normalvector{1./metric.alp(),
+                                        -metric.beta(0)/metric.alp(),
+                                        -metric.beta(1)/metric.alp(),
+                                        -metric.beta(2)/metric.alp()
+                                        };
+
+    auto eulVelD   = metric.lower(eulVel);
+    //auto VelTimesB  = metric.contract_vec_covec(eulVelD,eulB);
+    double const v2 = metric.square_vec({eulVel[0],eulVel[1],eulVel[2]}) ; 
+    double const W  = 1./Kokkos::sqrt(1-v2) ;
+
+    // g_munu b^mu u^mu = 0 !!!
+
+    assert(fabs(metric.contract_4dvec_4dcovec(smallb,
+                                   metric.lower({W*(normalvector[0]),
+                                                 W*(normalvector[1] + eulVel[0] ),
+                                                 W*(normalvector[2] + eulVel[1] ),
+                                                 W*(normalvector[3] + eulVel[2] )
+                                   }) )
+                                     ) < 1.e-10 );
+      
+    auto smallbD       = metric.lower_4vec(smallb);
+    auto n_dot_smallb  = metric.contract_4dvec_4dcovec(normalvector,smallbD);
+
+    // follow (6.107) from Gourgoulhon's book (Springer Verlag)
+    // only spatial components 
+    // B^i = W b^i + (n*b) * u^i   [ u^mu = W (n^mu + U^mu) ]
+    for(int i=0; i<3; i++){ 
+        eulB[i] = W*smallb[i+1] + n_dot_smallb * W * (normalvector[i+1] + eulVel[i]);
+    }
+}
+
+
 /**
  * @brief Get the primitive variables at a cell corner.
  * 
