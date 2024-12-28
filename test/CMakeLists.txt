@@ -73,7 +73,7 @@ add_grace_test(varlist_test test_variable_list.cpp)
 add_grace_test(coordinate_test test_coordinates.cpp)
 add_grace_test(volume_output_test test_output.cpp)
 add_grace_test(regrid_test test_regridding.cpp)
-add_grace_test(regrid_test_edge test_regridding_edge.cpp)
+add_grace_test(regrid_edge_test test_regridding_edge.cpp)
 add_grace_test(bc_test test_bc.cpp)
 add_grace_test(scalar_reductions_test test_scalar_reductions.cpp)
 add_grace_test(hdf5_output_test test_hdf5_IO.cpp)
@@ -127,7 +127,7 @@ add_test(NAME regrid_test_nolog COMMAND
 add_test(NAME regrid_test_log COMMAND 
         mpirun -n 2 ./regrid_test --grace-parfile ./configs/regrid_test_spherical_log.yaml )
 add_test(NAME regrid_test_edge_cartesian COMMAND 
-        mpirun -n 2 ./regrid_test_edge --grace-parfile ./configs/regrid_test_cartesian.yaml
+        mpirun -n 2 ./regrid_edge_test --grace-parfile ./configs/regrid_test_cartesian.yaml
         )
         
 add_test(NAME bc_test_unigrid COMMAND 
