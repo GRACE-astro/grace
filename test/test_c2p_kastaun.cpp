@@ -207,7 +207,6 @@ static void GRACE_DEVICE find_smallb(grace::metric_array_t const& metric ,
 
     normalize_smallb_magnetization(metric, b2, d_bvec(0),d_bvec(1),d_bvec(2),d_bvec(3));
     
-    //return std::move(bvec);
 }
 
 
@@ -247,17 +246,15 @@ static void check_c2p(eos_t eos){
         unsigned int err ;  
         //double temp{0} ; 
         prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(prims[EPSL],csnd2,prims[TEMPL],prims[RHOL],prims[YEL],err) ;
-       // double henthalpy = (1 + + prims[EPSL]  + prims[PRESSL]/prims[RHOL] );
 
         grmhd_cons_array_t cons ; 
         conservs_from_prims(cons,prims,minkowski_metric) ; 
         d_eps(i,j) = cons[STYL] ;
         grmhd_prims_array_t new_prims = prims ; 
-        conservs_to_prims<eos_t, grmhd_c2p_kastaun>(cons,new_prims,minkowski_metric,eos,0.) ; 
+        conservs_to_prims<eos_t, grmhd_c2p_kastaun_t>(cons,new_prims,minkowski_metric,eos,0.) ; 
 
         d_res(i,j) = compute_residual(new_prims,prims) ;
         d_press(i,j) = new_prims[PRESSL] ; 
-        //printf("Very end: rho %.3g, ye %.3g, eps %.3g, vx %.3g,vy %.3g,vz %.3g, press %.3g \n", new_prims[RHOL],new_prims[YEL], new_prims[EPSL], new_prims[VXL],new_prims[VYL],new_prims[VZL], new_prims[PRESSL] );
  
         // d_press(i,j) = d_vel(i,j,0)*d_vel(i,j,0) 
         //              + d_vel(i,j,1)*d_vel(i,j,1)
@@ -356,27 +353,21 @@ static void check_c2p_mhd(eos_t eos){
         prims[BYL] = eulB[1];
         prims[BZL] = eulB[2];
 
-        //if(i==0 && j==0) printf("Primitive B field before: %.3g , %.3g, %.3g ", prims[BXL], prims[BYL], prims[BZL]);
         
         double csnd2 ;
         unsigned int err ;  
         //double temp{0} ; 
         prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(prims[EPSL],csnd2,prims[TEMPL],prims[RHOL],prims[YEL],err) ;
-       // double henthalpy = (1 + + prims[EPSL]  + prims[PRESSL]/prims[RHOL] );
 
         grmhd_cons_array_t cons ; 
         conservs_from_prims(cons,prims,minkowski_metric) ; 
         d_eps(i,j) = cons[STYL] ;
         grmhd_prims_array_t new_prims = prims ; 
-        conservs_to_prims<eos_t, grmhd_c2p_kastaun>(cons,new_prims,minkowski_metric,eos,0.) ; 
+        conservs_to_prims<eos_t, grmhd_c2p_kastaun_t>(cons,new_prims,minkowski_metric,eos,0.) ; 
 
         d_res(i,j) = compute_residual(new_prims,prims) ;
         d_press(i,j) = new_prims[PRESSL] ; 
         
-        //if(i==0 && j==0) printf("Primitive B field after: %.3g , %.3g, %.3g ", new_prims[BXL], new_prims[BYL], new_prims[BZL]);
-
-        //printf("Very end: rho %.3g, ye %.3g, eps %.3g, vx %.3g,vy %.3g,vz %.3g, press %.3g \n", new_prims[RHOL],new_prims[YEL], new_prims[EPSL], new_prims[VXL],new_prims[VYL],new_prims[VZL], new_prims[PRESSL] );
- 
         // d_press(i,j) = d_vel(i,j,0)*d_vel(i,j,0) 
         //              + d_vel(i,j,1)*d_vel(i,j,1)
         //              + d_vel(i,j,2)*d_vel(i,j,2) ; 
@@ -388,8 +379,6 @@ static void check_c2p_mhd(eos_t eos){
     Kokkos::deep_copy(h_res,d_res) ; 
     Kokkos::deep_copy(h_eps,d_eps) ; 
     Kokkos::deep_copy(h_press,d_press) ; 
-
-   // Kokkos::fence();  // give enough time to flush 
 
     #ifdef DUMP_RESIDUAL_TO_FILE
     std::ofstream outfile{"c2p_residual.txt"} ;

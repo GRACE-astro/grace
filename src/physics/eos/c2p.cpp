@@ -160,8 +160,8 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
         double const&);
 
 // Use the macro to instantiate specific template combinations
-INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>,  grmhd_c2p_kastaun); 
-INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>,  grhd_c2p); 
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>,  grmhd_c2p_kastaun_t); 
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>,  grhd_c2p_t); 
 
 
 #undef INSTANTIATE_TEMPLATE

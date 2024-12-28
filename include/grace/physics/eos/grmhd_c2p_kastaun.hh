@@ -56,7 +56,7 @@ namespace grace {
  * @tparam eos_t - the eos class
  */
 template< typename eos_t >
-struct grmhd_c2p_kastaun {
+struct grmhd_c2p_kastaun_t {
 
     /**
      * @brief Constructor.
@@ -70,7 +70,7 @@ struct grmhd_c2p_kastaun {
      * 
      */
     GRACE_HOST_DEVICE
-    grmhd_c2p_kastaun( eos_t const& _eos
+    grmhd_c2p_kastaun_t( eos_t const& _eos
               , metric_array_t const& _metric 
               , grmhd_cons_array_t const& _conservs )
     : eos(_eos), metric(_metric), conservs(_conservs)
@@ -99,7 +99,6 @@ struct grmhd_c2p_kastaun {
             conservs[STZL] *= fact/StildeNorm  ;
             StildeU = metric.raise({conservs[STXL],conservs[STYL],conservs[STZL]}) ; 
             StildeNorm = fact ; 
-            //    Kokkos::sqrt(conservs[STXL]*StildeU[0] + conservs[STYL]*StildeU[1] + conservs[STZL]*StildeU[2] ) ; 
         } 
 
         // set up rescaled conserved variables 
@@ -150,8 +149,6 @@ struct grmhd_c2p_kastaun {
         inter_vars.epsilonhat=0.0;
        
 
-    //printf("Conservatives: D %.3g, tau %.3g, ye %.3g, Sx %.3g,Sy %.3g,Sz %.3g, BtildeNorm %.3g \n", conservs[DENSL], conservs[TAUL],conservs[YESL],conservs[STXL],conservs[STYL],conservs[STZL], BtildeNorm );
-
     }
 
     /**
@@ -159,19 +156,9 @@ struct grmhd_c2p_kastaun {
      *        and return primitive variables.
      * @param error c2p inversion residual.
      * @return grmhd_prims_array_t Primitives
-     * Note: ignore the below NB, it's no longer valid 
-     * NB: When this function returns, the velocity portion 
-     * of the prims array actually contains the z-vector, 
-     * the pressure contains the lorentz factor and temperature
-     * and entropy are left empty. This is later fixed by the 
-     * calling function which will compute \f$v^i\f$, pressure, 
-     * entropy and temperature by calling the EOS and adding 
-     * the relevant metric components to the velocity.
      */
     grmhd_prims_array_t GRACE_HOST_DEVICE
     invert(double& error) {
-
-       // printf("Intermediate variables like: rtildeU0 %.3g, rtildeU1 %.3g, rtildeU2 %.3g, v0sqrt %.3g \n", rtildeU[0], rtildeU[1],rtildeU[2],v0sqrt );
 
         grmhd_prims_array_t prims ; 
 
@@ -186,8 +173,6 @@ struct grmhd_c2p_kastaun {
         unsigned long iter_max = 2000;  // change this to be determined elsewhere! 
         double const tolerance = 1e-15; // change this
 
-        // assert(eos.enthalpy_minimum()>0.0);
-
         // first, we constrain the area of search by finding mu_plus
         double const mu_plus = utils::rootfind_newton_raphson(
                             0.0, 1.0/eos.enthalpy_minimum(),  // lower bound, upper bound
@@ -196,15 +181,11 @@ struct grmhd_c2p_kastaun {
                             tolerance, iter_max           // tolerance, iteration book-keeper
                             ) + tiny_number;
 
-        //printf("Thread %d, Value: %f\n", i, some_array(i));
-        //printf("hmin %f, muplus: %f\n", eos.enthalpy_minimum(),mu_plus);
-        
         // f_of_mu is a non-static member function, so to pass it into brent, we need to wrap it in a named lambda
         auto f_mu=[this](double lambda){return this->f_of_mu(lambda);};
         // now we look for the root of the master function in the (0, mu_plus] interval:
         auto mu = utils::brent(f_mu,
                                 0.0, 
-                                //1./eos.enthalpy_minimum(),
                                 mu_plus, 
                                  tolerance);
         
@@ -247,8 +228,6 @@ struct grmhd_c2p_kastaun {
 
         prims[PRESSL] =  eos.press__eps_rho_ye(prims[EPSL], prims[RHOL],prims[YEL],err);
 
-//        printf("rho %.3g, ye %.3g, eps %.3g, vx %.3g,vy %.3g,vz %.3g, press %.3g \n", prims[RHOL],prims[YEL], prims[EPSL], prims[VXL],prims[VYL],prims[VZL], prims[PRESSL] );
-
         return std::move(prims) ; 
     }
     
@@ -258,7 +237,6 @@ struct grmhd_c2p_kastaun {
     //! Metric
     metric_array_t const& metric;
     //! array of conservative variables 
-    // to do: maybe instead of keeping the whole conservs, we will just keep the magnetic field? 
     grmhd_cons_array_t conservs;
 
     //! Conserved density
@@ -281,7 +259,6 @@ struct grmhd_c2p_kastaun {
     std::array<double,3> BtildeD ; 
     //! Rescaled magnetic field norm 
     double BtildeNorm ; 
-    
     //! Rescaled momentum, parallel to Btilde field (with upper indices)
     std::array<double,3> rtildeU_par ; 
     //! Rescaled momentum, perpendicular to Btilde field (with upper indices)
@@ -292,7 +269,6 @@ struct grmhd_c2p_kastaun {
     std::array<double,3> rtildeD_perp;
     // ! Magnitude of the rescaled momentum perpendicular to the Btilde 
     double rtildeNorm_perp ;
-
     // constant from eq. (25)  (note that in the paper it should read v_{0}^{2} \coloneqq on the LHS!)
     double v0sqrt;
 

@@ -177,8 +177,7 @@ static void check_c2p(eos_t eos){
         conservs_from_prims(cons,prims,minkowski_metric) ; 
         d_eps(i,j) = cons[STYL] ;
         grmhd_prims_array_t new_prims = prims ; 
-        //using c2p_impl_t = grhd_c2p;
-        conservs_to_prims<eos_t, grhd_c2p>(cons,new_prims,minkowski_metric,eos,0.) ; 
+        conservs_to_prims<eos_t, grhd_c2p_t>(cons,new_prims,minkowski_metric,eos,0.) ; 
 
         d_res(i,j) = compute_residual(new_prims,prims) ;
          //d_press(i,j) = new_prims[PRESSL] ;  

@@ -52,7 +52,7 @@ namespace grace {
  * \ingroup eos
  */
 template< typename eos_t >
-struct grhd_c2p {
+struct grhd_c2p_t {
     /**
      * @brief Constructor.
      * 
@@ -63,7 +63,7 @@ struct grhd_c2p {
      *     undensitized when passed to the c2p.
      */
     GRACE_HOST_DEVICE
-    grhd_c2p( eos_t const& _eos
+    grhd_c2p_t( eos_t const& _eos
               , metric_array_t const& _metric 
               , grmhd_cons_array_t& conservs )
     : eos(_eos), metric(_metric)

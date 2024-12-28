@@ -35,14 +35,8 @@
 #include <grace/utils/grace_utils.hh>
 #include <grace/IO/scalar_output.hh>
 #include <grace/parallel/mpi_wrappers.hh>
-// #include <grace/physics/eos/eos_storage.hh>
-// #include <grace/physics/eos/eos_base.hh>
-// #include <grace/physics/eos/hybrid_eos.hh>
-// #include <grace/physics/eos/piecewise_polytropic_eos.hh>
-// #include <grace/physics/eos/c2p.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/physics/grmhd_helpers.hh>
-// #include <grace/physics/eos/grmhd_c2p_kastaun.hh>
 
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
@@ -187,39 +181,32 @@ static void check_magnetic_field_transformations(grace::metric_array_t const& me
     // otherwise, the frame transformations employed in grmhd_helpers.hh will not work,
     // as they are derived under the assumption of specific relations holding between frames (more concretely, g_munu b^mu u^mu = 0)
     Kokkos::View<double **> d_smallb("smallb", N,4) ;  // N vectors to randomize, each has 4 components, 
-    // this normal magnetic field has no such constraint because we recover the 4-d b^\mu from B^i and U^i,
-    // and there is no restriction regarding B^i
+    // the normal magnetic field has no such constraint because we recover the 4-d b^\mu from B^i and U^i,
+    // there is a-priori no restriction regarding B^i
     Kokkos::View<double **> d_eulB  ("eulB"  , N,3) ;  // N vectors to randomize, each has 3 components, 
 
     // fill them out:
     fill_out_eulB(d_eulB);
     // smallb cannot be arbitrary, like B^i, but instead has to be orthogonal to the chosen u^i!
     fill_out_smallb(metric, d_smallb, {h_vel(0),h_vel(1),h_vel(2)});
-//    return; 
 
     Kokkos::View<double *> d_res_tocomov("residual-comov", N) ;
     Kokkos::View<double *> d_res_toeuler("residual-euler", N) ;
 
     Kokkos::parallel_for("check_transformations",
-    // Kokkos::MDRangePolicy<Kokkos::Rank<1>>({0},{N}),
         Kokkos::RangePolicy<>(0, N),
     KOKKOS_LAMBDA( int const& i ) {
 
         // forward transformations 
         std::array<double, 4> smallb_from_eulB;
         std::array<double, 3> eulB_from_smallb;
-        //printf("eulB %f,%f,%f, velU, %f,%f,%f \n",d_eulB(i,0),d_eulB(i,1),d_eulB(i,2), d_vel(0),d_vel(1),d_vel(2));
-        printf("smallb %f,%f,%f,%f, velU, %f,%f,%f \n",d_smallb(i,0),d_smallb(i,1),d_smallb(i,2),d_smallb(i,3), d_vel(0),d_vel(1),d_vel(2));
 
         get_smallb_from_eulerianB(metric, 
                                 {d_eulB(i,0),d_eulB(i,1),d_eulB(i,2)},
                                 {d_vel(0),d_vel(1),d_vel(2)},
-                                    // std::array<double,3>{d_eulB(i,0),d_eulB(i,1),d_eulB(i,2)},
-                                    // std::array<double,3>{d_vel(0),d_vel(1),d_vel(2)},
                                     smallb_from_eulB);
-       // printf("smallb %f,%f,%f, %f \n",smallb_from_eulB[0],smallb_from_eulB[1],smallb_from_eulB[2],smallb_from_eulB[3]);
 
-        get_eulerianB_from_smallb(metric,    // here here 
+        get_eulerianB_from_smallb(metric,  
                                     std::array<double,4>{d_smallb(i,0),d_smallb(i,1),d_smallb(i,2),d_smallb(i,3)},
                                     std::array<double,3>{d_vel(0),d_vel(1),d_vel(2)},
                                     eulB_from_smallb);
@@ -228,9 +215,7 @@ static void check_magnetic_field_transformations(grace::metric_array_t const& me
         std::array<double, 3> eulB_recovered;
         std::array<double, 4> smallb_recovered;
 
-        printf("eulB_from_smallb %f,%f,%f,\n",eulB_from_smallb[0],eulB_from_smallb[1],eulB_from_smallb[2]);
-
-        get_smallb_from_eulerianB(metric,                         // here here 
+        get_smallb_from_eulerianB(metric,                        
                                     eulB_from_smallb,
                                     std::array<double,3>{d_vel(0),d_vel(1),d_vel(2)},
                                     smallb_recovered);
@@ -239,19 +224,13 @@ static void check_magnetic_field_transformations(grace::metric_array_t const& me
                                     smallb_from_eulB,
                                     std::array<double,3>{d_vel(0),d_vel(1),d_vel(2)},
                                     eulB_recovered);
-        //printf("eulB_recovered %f,%f,%f,\n",eulB_recovered[0],eulB_recovered[1],eulB_recovered[2]);
       
-        printf("smallb_recovered %f,%f,%f,%f, \n",smallb_recovered[0],smallb_recovered[1],smallb_recovered[2],smallb_recovered[3]);
-
         // compute differences between final and original fields
-
         d_res_tocomov(i) = compute_difference(std::array<double,4>{d_smallb(i,0),d_smallb(i,1),d_smallb(i,2),d_smallb(i,3)},
-                                              //std::array<double,4>{d_smallb_recovered(i,0),d_smallb_recovered(i,1),d_smallb_recovered(i,2),d_smallb_recovered(i,3)}
                                               smallb_recovered
                                             ) ;
 
         d_res_toeuler(i) = compute_difference(std::array<double,3>{d_eulB(i,0),d_eulB(i,1),d_eulB(i,2)},
-                                             // std::array<double,3>{d_eulB_recovered(i,0),d_eulB_recovered(i,1),d_eulB_recovered(i,2)}
                                             eulB_recovered
                                             ) ;
                         
@@ -289,25 +268,8 @@ TEST_CASE("magneticfield", "[magnetic-field-transformations]") {
     auto alp = [&](const double r){return (  ( 1. - M/(2*r)) / ( 1. + M/(2*r))   );};
     auto rad=M*8.0;
 
-
-    // TO DO: 
-    // EXTEND THIS TEST TO NON-TRIVIAL METRICS
     grace::metric_array_t isotropic_schwarzschild ({Psi(rad),0.,0.,Psi(rad),0.,Psi(rad)},{0.,0.,0.},alp(rad)) ; 
     printf("Psi %f, alp %f \n", Psi(rad), alp(rad));
-    
-    // note: In order for this to work, 
-    // we need to ensure that the h_vel in the routine is normalized by-hand
-    // i.e. the simple method of prescribing W and recovering h_vel is made more 
-    // difficult because the metric involved is no longer trivial
-    // in fact, one would need to exchange the routine 
-    // generateRandom3DUnitVector (operating under the assumption of delta_ij )
-    // with
-    // generateRandom3DUnitVector(metric),
-    // such that, for the generated vector, it holds:
-    // [given W = (1- g_ij vel^i vel^j)^{-1/2} ] 
-
-    //      g_ij vel^i vel^j = 1 - 1/W^2
-
     check_magnetic_field_transformations(isotropic_schwarzschild) ; 
 
 }    
