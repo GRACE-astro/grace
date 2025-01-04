@@ -229,6 +229,7 @@ void prolongate_variables_edge_staggered(
 
     using namespace grace ; 
     using namespace Kokkos  ;
+    using utils::delta ;  
 
     using interp_t = utils::lagrange_edge_prolongator_t<order, edgeDir> ; 
     int nx,ny,nz ; 
@@ -251,9 +252,10 @@ void prolongate_variables_edge_staggered(
     /* interpolator fill all the corresponding */
     /* fine quadrants.                         */
     /*******************************************/
+
     MDRangePolicy<IndexType<int>, Rank<GRACE_NSPACEDIM+2>,default_execution_space>
         policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,out_n_quad}) ; 
-    parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_corner_staggered_variables")
+    parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_variables_edge_staggered")
         , policy 
         , KOKKOS_LAMBDA (
             VEC(const unsigned int& i
@@ -405,7 +407,7 @@ void restrict_variables_cell_centered(
 
     MDRangePolicy<IndexType<int>, Rank<GRACE_NSPACEDIM+2>,default_execution_space>
         policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,in_n_quad}) ; 
-    parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_cell_centered_variables")
+    parallel_for(GRACE_EXECUTION_TAG("AMR","restrict_variables_cell_centered")
         , policy 
         , KOKKOS_LAMBDA (
             VEC(const unsigned int& i
@@ -476,7 +478,7 @@ void restrict_variables_corner_staggered(
     /***************************************************/
     MDRangePolicy<IndexType<int>, Rank<GRACE_NSPACEDIM+2>,default_execution_space>
         policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,in_n_quad}) ; 
-    parallel_for(GRACE_EXECUTION_TAG("AMR","prolongate_corner_staggered_variables") // TO DO: isn't this name wrong?
+    parallel_for(GRACE_EXECUTION_TAG("AMR","restrict_variables_corner_staggered") // TO DO: isn't this name wrong?
         , policy 
         , KOKKOS_LAMBDA (
             VEC(const unsigned int& i
@@ -533,9 +535,6 @@ void restrict_variables_edge_staggered(
     grace::device_vector<int> & out_idx
 )
 {
-    using namespace grace ; 
-    using namespace Kokkos;
-
     using namespace grace  ;
     using namespace Kokkos ;
     
@@ -559,9 +558,16 @@ void restrict_variables_edge_staggered(
     /*  Here we:                                       */
     /*  Loop over the incoming (coarse) quadrants      */
     /*  and cells. Find which child we are in and fill */
-    /*  the 8 vertices of the coarse cell with the     */
+    /*  the edges  of the coarse cell with the         */
     /*  corresponding fine data.                       */
     /***************************************************/
+    using utils::delta;
+    using utils::get_complementary_dirs;
+    static constexpr int idir = std::get<0>(get_complementary_dirs<edgeDir>());
+    static constexpr int jdir = std::get<1>(get_complementary_dirs<edgeDir>());
+    std::array<int, 3> nn{nx,ny,nz};
+
+
     MDRangePolicy<IndexType<int>, Rank<GRACE_NSPACEDIM+2>,default_execution_space>
         policy( {VEC(0,0,0),0,0}, {VEC(nx,ny,nz),nvar,in_n_quad}) ; 
     parallel_for(GRACE_EXECUTION_TAG("AMR","restrict_edge_staggered_variables")
@@ -591,14 +597,58 @@ void restrict_variables_edge_staggered(
             )
             // Convert data fine to coarse 
            #ifndef GRACE_CARTESIAN_COORDINATES
-            in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) 
-                = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0,j0,k0),out_state,out_line,q_out,ivar) ; 
+            ERROR("A general restrictor operator for edge-staggered variables in this capacity not yet implemented."); 
+            // not ready, but trivial to extend based on the other one (see the function overload returning double
+            // and the Cartesian-specific version that returns void )
+        
             #else
             in_state(VEC(i+ngz,j+ngz,k+ngz),ivar,q_in) 
-                = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0,j0,k0),out_state,q_out,ivar) ; 
+                 = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0,j0,k0),out_state,q_out,ivar) ; 
+
+            // TODO issue : there surely is a better way to include these in the loop without the if-branches
+            std::array<unsigned int, 3> idx{i,j,k};
+            if(idx[idir]==nn[idir]-1){
+            in_state(VEC(i+delta(0,idir)+ngz,j+delta(1,idir)+ngz,k+delta(2,idir)+ngz),ivar,q_in) 
+                = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0+2*delta(0,idir),j0+2*delta(1,idir),k0+2*delta(2,idir)),out_state,q_out,ivar) ; 
+                }
+            if(idx[jdir]==nn[jdir]-1){
+            in_state(VEC(i+delta(0,jdir)+ngz,j+delta(1,jdir)+ngz,k+delta(2,jdir)+ngz),ivar,q_in) 
+                = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0+2*delta(0,jdir),j0+2*delta(1,jdir),k0+2*delta(2,jdir)),out_state,q_out,ivar) ; 
+                }
+            if(idx[idir]==nn[idir]-1 && idx[jdir]==nn[jdir]-1){
+            in_state(VEC(i+delta(0,idir)+delta(0,jdir)+ngz,j+delta(1,idir)+delta(1,jdir)+ngz,k+delta(2,idir)+delta(2,jdir)+ngz),ivar,q_in) 
+                = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0+2*delta(0,idir)+2*delta(0,jdir),j0+2*delta(1,idir)+2*delta(1,jdir),k0+2*delta(2,idir)+2*delta(2,jdir)),out_state,q_out,ivar) ;
+                }
+        
+            // this works!
+            // if(edgeDir==2){
+            //     if(i==nx-1){
+            //     in_state(VEC(i+1+ngz,j+ngz,k+ngz),ivar,q_in) 
+            //      = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0+2,j0,k0),out_state,q_out,ivar) ; 
+            //      }
+            //     if(j==ny-1){
+            //     in_state(VEC(i+ngz,j+1+ngz,k+ngz),ivar,q_in) 
+            //      = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0,j0+2,k0),out_state,q_out,ivar) ; 
+            //      }
+            //     if(j==ny-1 && i==nx-1){
+            //     in_state(VEC(i+1+ngz,j+1+ngz,k+ngz),ivar,q_in) 
+            //      = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0+2,j0+2,k0),out_state,q_out,ivar) ; 
+            //      }
+            // }
+            // alternatively, think of a different operator to use to facilitate restriction:
+            // possible signature:
+            // utils::line_average_restrictor_t<edgeDir>::apply(VEC(i+ngz,j+ngz,k+ngz), // coarse indices
+            //                                                  VEC(i0,j0,k0), //fine indices
+            //                                                  in_state, // coarse_state
+            //                                                  out_state, // fine_state,
+            //                                                  q_in, // coarse quadrant
+            //                                                  q_out, //fine quadrant
+            //                                                  ivar) ;
+
             #endif 
         }
     ); 
+
 }
 
 

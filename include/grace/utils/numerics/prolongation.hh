@@ -530,10 +530,24 @@ struct lagrange_edge_prolongator_t<2,stagger_direction>
         // these fine edges are already aligned with the next coarse edge:
         fine_view(VEC(i_f+2*delta(0,fdir1)+2*delta(0,fdir2),j_f+2*delta(1,fdir1)+2*delta(1,fdir2),k_f+2*delta(2,fdir1)+2*delta(2,fdir2))) 
         = interp_t::template oned_interp<child_down,CoarseViewT>(coarse_view,VEC(i_c+1,j_c+1,k_c)) ; 
-        // this (child-up) edge is also aligned with the next coarse edge
+        // // this (child-up) edge is also aligned with the next coarse edge
         fine_view(VEC(i_f+2*delta(0,fdir1)+2*delta(0,fdir2)+delta(0,sD),j_f+2*delta(1,fdir1)+2*delta(1,fdir2)+delta(1,sD),k_f+2*delta(2,fdir1)+2*delta(2,fdir2)+delta(2,sD))) 
         = interp_t::template oned_interp<child_up,CoarseViewT>(coarse_view,VEC(i_c+1,j_c+1,k_c)) ; 
 
+        // these make no difference:
+        
+        // up up 
+        // fine_view(VEC(i_f+2*delta(0,sD),j_f+2*delta(1,sD),k_f+2*delta(2,sD))) 
+        // = interp_t::template oned_interp<child_down,CoarseViewT>(coarse_view,VEC(i_c+delta(0,sD),j_c+delta(1,sD),k_c+delta(2,sD))) ; 
+
+        // // down down
+        // fine_view(VEC(i_f-delta(0,sD),j_f-delta(1,sD),k_f-delta(2,sD))) 
+        // = interp_t::template oned_interp<child_up,CoarseViewT>(coarse_view,VEC(i_c-delta(0,sD),j_c-delta(1,sD),k_c-delta(2,sD))) ; 
+
+        // add also for the negative direction??
+        // no difference 
+        // fine_view(VEC(i_f-2*delta(0,fdir1)-2*delta(0,fdir2)+delta(0,sD),j_f-2*delta(1,fdir1)-2*delta(1,fdir2)+delta(1,sD),k_f-2*delta(2,fdir1)-2*delta(2,fdir2)+delta(2,sD))) 
+        // = interp_t::template oned_interp<child_up,CoarseViewT>(coarse_view,VEC(i_c-1,j_c-1,k_c)) ; 
 
     }
 };

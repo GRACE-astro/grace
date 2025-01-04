@@ -85,6 +85,15 @@ void prolongate_variables_corner_staggered(
     grace::device_vector<int> & out_idx
 ) ; 
 
+template< int order, size_t edgeDir > 
+void prolongate_variables_edge_staggered(
+    grace::var_array_t<GRACE_NSPACEDIM>& in_state,
+    grace::var_array_t<GRACE_NSPACEDIM>& out_state,
+    grace::device_vector<int> & in_idx,
+    grace::device_vector<int> & out_idx
+) ;
+
+
 void restrict_variables_cell_centered(
     grace::var_array_t<GRACE_NSPACEDIM>& in_state,
     grace::var_array_t<GRACE_NSPACEDIM>& out_state,
@@ -99,6 +108,16 @@ void restrict_variables_corner_staggered(
     grace::device_vector<int> & in_idx,
     grace::device_vector<int> & out_idx
 ) ; 
+
+template <size_t edgeDir> 
+void restrict_variables_edge_staggered(
+    grace::var_array_t<GRACE_NSPACEDIM>& in_state,
+    grace::var_array_t<GRACE_NSPACEDIM>& out_state,
+   // grace::cell_length_array_t<GRACE_NSPACEDIM> out_line,
+    grace::device_vector<int> & in_idx,
+    grace::device_vector<int> & out_idx
+) ;
+    
 
 /***********************************************************/
 /*                  Intantiate templates                   */

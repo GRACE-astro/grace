@@ -1,0 +1,30 @@
+name: "grace"
+amr: {
+  npoints_block_x: 8,
+  npoints_block_y: 8,
+  npoints_block_z: 8,
+  periodic_x: false,
+  periodic_y: false,
+  periodic_z: false,
+  xmin: -1.,
+  xmax: 1.,
+  ymin: -1.,
+  ymax: 1.,
+  zmin: 0.,
+  zmax: 1.,
+  n_ghostzones: 2,
+  initial_refinement_level: 2, #2,
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_CTORE: 0.5,
+  refinement_criterion_CTODE: 0.01,
+  prolongation_order: 2
+}
+IO: {
+  volume_output_cell_variables: ["dens"]
+}
+system: {
+  console_log_level: "verbose",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  flush_level: "trace"
+}

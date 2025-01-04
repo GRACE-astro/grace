@@ -155,10 +155,8 @@ TEST_CASE("Simple edge regrid", "[edge regrid]")
         {VEC(edgeDir!=0, edgeDir!=1, edgeDir!=2)}, // for edgeDir=2, this gives staggering=(true,true,false)
         true
     ) ; 
-    // Since the get_physical_coordinates (the version with three arguments) used for cell-centred values
-    // employs the {VEC(0.5,0.5,0.5)} as the third argument of the 4-argument version of the same routine,
-    // it seems natural to assume that this routine here will have the 
-    // VEC(0,0,0.5) for the z-edge (staggered_xy) variables 
+
+
     /*************************************************/
     /*                 Copy H2D                      */
     /*************************************************/
