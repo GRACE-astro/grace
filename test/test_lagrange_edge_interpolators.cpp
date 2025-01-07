@@ -1,8 +1,8 @@
 /**
- * @file test_lagrange_interpolators.cpp
- * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @file test_lagrange_edge_interpolators.cpp
+ * @author Konrad Topolski (topolski@itp.uni-frankfurt.de), Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-09-22
+ * @date 2024-12-26
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
  * Code for Exascale.
@@ -72,10 +72,10 @@ TEST_CASE("lagrange_interp_edge", "[lagrange_interp_edge]")
         "corner_staggered_data", nx+1+2*ngz,ny+1+2*ngz,nz+1+2*ngz, 8 
     ) ;
 
-    // hard-code the edge direction for now 
-    constexpr size_t edgeDir= 2; // assume edge-staggered variable is in z dir
+    // hard-code the direction for now 
+    constexpr size_t edgeDir= 2; // assume edge-staggered variable is in xy-dir (e.g. A_z)
 
-    // one index fewer for the staggered directions
+    // one index fewer for the non-staggered directions
     View<double***, default_space> edge_staggered(
         "edge_staggered_data", nx+1-delta(0,edgeDir)+2*ngz,ny+1-delta(1,edgeDir)+2*ngz,nz+1-delta(2,edgeDir)+2*ngz) ;
 

@@ -84,6 +84,7 @@ add_grace_test(gridloop_test test_grid_loops.cpp)
 add_grace_test(cart_coords_test test_cartesian_coordinates.cpp)
 add_grace_test(bssn_test test_bssn.cpp)
 add_grace_test(TOV_test test_TOV.cpp)
+add_grace_test(compute_B_from_Avec_test test_B_from_Avec.cpp)
 
 add_kokkos_test(interpolator_test test_interpolators.cpp)
 add_kokkos_test(device_vector_test test_device_vector.cc)
@@ -127,7 +128,7 @@ add_test(NAME regrid_test_nolog COMMAND
 add_test(NAME regrid_test_log COMMAND 
         mpirun -n 2 ./regrid_test --grace-parfile ./configs/regrid_test_spherical_log.yaml )
 add_test(NAME regrid_test_edge_cartesian COMMAND 
-        mpirun -n 2 ./regrid_edge_test --grace-parfile ./configs/regrid_test_cartesian.yaml
+        mpirun -n 2 ./regrid_edge_test --grace-parfile ./configs/regrid_test_cartesian_edge_2nd_order.yaml
         )
         
 add_test(NAME bc_test_unigrid COMMAND 
