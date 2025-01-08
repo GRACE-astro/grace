@@ -123,7 +123,6 @@ struct grhd_c2p_t {
         prims[EPSL]   = math::min( epsmax
                                  , math::max( epsmin
                                             , epstilde(W,zeta) ) ) ; 
-        prims[PRESSL] = W ; 
         double const h = htilde(zeta) ; 
         prims[VXL] = StildeU[0] / D / h / W; 
         prims[VYL] = StildeU[1] / D / h / W; 
