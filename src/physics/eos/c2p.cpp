@@ -47,7 +47,6 @@ conservs_to_prims( grmhd_cons_array_t& cons
 {
     using c2p_impl_t = c2p_formulation_t<eos_t> ;
     bool c2p_failed{ false }             ;
-    double W                             ;
     /* Undensitize conservs */
     for( auto& c: cons) c /= metric.sqrtg() ;
     /* First we check whether we are in the atmosphere */
@@ -57,7 +56,6 @@ conservs_to_prims( grmhd_cons_array_t& cons
         double residual ;
         prims =  c2p.invert(residual) ;
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
-        W = prims[PRESSL] ; // W was stored here for convenience
     } else {
         c2p_failed = true ;
     }
@@ -75,7 +73,6 @@ conservs_to_prims( grmhd_cons_array_t& cons
         prims[BXL]   = 0. ; // is this in any way reflected on the level of the A_i evolution?
         prims[BYL]   = 0. ;
         prims[BZL]   = 0. ; 
-        W = 1. ;
     }
     /* Set pressure entropy and temperature */
     double h, csnd2;
@@ -83,9 +80,6 @@ conservs_to_prims( grmhd_cons_array_t& cons
     prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
         h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
     ) ;
-    /* Go from z-vec to velocity and remove */
-    /* shift contribution.                  */
-    double const u0 = W / metric.alp() ;
     /* The 3-velocity in grace is not in the */
     /* ZAMO frame.                           */
     prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;

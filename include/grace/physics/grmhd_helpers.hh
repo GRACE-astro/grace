@@ -222,7 +222,7 @@ get_eulerianB_from_smallb(grace::metric_array_t const& metric,
     // g_munu b^mu u^mu = 0 !!!
 
     assert(fabs(metric.contract_4dvec_4dcovec(smallb,
-                                   metric.lower({W*(normalvector[0]),
+                                   metric.lower_4vec({W*(normalvector[0]),
                                                  W*(normalvector[1] + eulVel[0] ),
                                                  W*(normalvector[2] + eulVel[1] ),
                                                  W*(normalvector[3] + eulVel[2] )

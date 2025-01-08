@@ -174,7 +174,7 @@ static void check_magnetic_field_transformations(grace::metric_array_t const& me
     Kokkos::deep_copy(d_vel,h_vel) ; 
     double const v2 = metric.square_vec({h_vel(0),h_vel(1),h_vel(2)}) ; 
     double const W_check  = 1./Kokkos::sqrt(1-v2) ; 
-    printf("Test performed for W = %.3f, \n", W_check);
+    GRACE_INFO("Test performed for W = {}, \n", W_check);
 
     // now get the original magnetic fields - b^\mu, B^i
     // note: smallb must be orthogonal to u^i that we are using;
@@ -269,7 +269,7 @@ TEST_CASE("magneticfield", "[magnetic-field-transformations]") {
     auto rad=M*8.0;
 
     grace::metric_array_t isotropic_schwarzschild ({Psi(rad),0.,0.,Psi(rad),0.,Psi(rad)},{0.,0.,0.},alp(rad)) ; 
-    printf("Psi %f, alp %f \n", Psi(rad), alp(rad));
+    GRACE_INFO("Psi {}, alp {} \n", Psi(rad), alp(rad));
     check_magnetic_field_transformations(isotropic_schwarzschild) ; 
 
 }    

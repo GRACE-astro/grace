@@ -381,7 +381,7 @@ static void check_c2p_mhd(eos_t eos){
     Kokkos::deep_copy(h_press,d_press) ; 
 
     #ifdef DUMP_RESIDUAL_TO_FILE
-    std::ofstream outfile{"c2p_residual.txt"} ;
+    std::ofstream outfile{"c2p_mhd_residual.txt"} ;
     outfile << std::setprecision(15) ; 
     auto h_rho = Kokkos::create_mirror_view(d_logrho) ; 
     Kokkos::deep_copy(h_rho,d_logrho) ;
@@ -394,11 +394,11 @@ static void check_c2p_mhd(eos_t eos){
         for(int j=0; j<N; ++j){
             #ifdef DUMP_RESIDUAL_TO_FILE
             outfile << std::fixed << std::setprecision(15) ;
-            outfile << std::left << std::setw(width) << h_rho(i)
-                    << std::left << std::setw(width) << h_temp(j)
-                    << std::left << std::setw(width) << h_eps(i,j)
-                    << std::left << std::setw(width) << h_press(i,j)
-                    << std::left << std::setw(width) << h_res(i,j) << std::endl ; 
+            outfile << h_rho(i) << " " 
+                    << h_temp(j) << " "
+                    << h_eps(i,j) << " "
+                    << h_press(i,j) << " "
+                    << h_res(i,j) << std::endl ; 
             #endif 
             #if 1
             CHECK_THAT(

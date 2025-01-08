@@ -146,4 +146,4 @@ add_test(NAME gamma2_c2p_mhd_test COMMAND
 
 add_test(NAME device_vector_test COMMAND ./device_vector_test )
 
-add_test(NAME magnetic_transformations_test COMMAND ./magnetic_transformations_test )
+add_test(NAME magnetic_transformations_test COMMAND mpirun -n 1 ./magnetic_transformations_test --grace-parfile ./configs/basic_config.yaml )
