@@ -620,31 +620,7 @@ void restrict_variables_edge_staggered(
                 = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0+2*delta(0,idir)+2*delta(0,jdir),j0+2*delta(1,idir)+2*delta(1,jdir),k0+2*delta(2,idir)+2*delta(2,jdir)),out_state,q_out,ivar) ;
                 }
         
-            // this works!
-            // if(edgeDir==2){
-            //     if(i==nx-1){
-            //     in_state(VEC(i+1+ngz,j+ngz,k+ngz),ivar,q_in) 
-            //      = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0+2,j0,k0),out_state,q_out,ivar) ; 
-            //      }
-            //     if(j==ny-1){
-            //     in_state(VEC(i+ngz,j+1+ngz,k+ngz),ivar,q_in) 
-            //      = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0,j0+2,k0),out_state,q_out,ivar) ; 
-            //      }
-            //     if(j==ny-1 && i==nx-1){
-            //     in_state(VEC(i+1+ngz,j+1+ngz,k+ngz),ivar,q_in) 
-            //      = utils::line_average_restrictor_t<edgeDir>::apply(VEC(i0+2,j0+2,k0),out_state,q_out,ivar) ; 
-            //      }
-            // }
-            // alternatively, think of a different operator to use to facilitate restriction:
-            // possible signature:
-            // utils::line_average_restrictor_t<edgeDir>::apply(VEC(i+ngz,j+ngz,k+ngz), // coarse indices
-            //                                                  VEC(i0,j0,k0), //fine indices
-            //                                                  in_state, // coarse_state
-            //                                                  out_state, // fine_state,
-            //                                                  q_in, // coarse quadrant
-            //                                                  q_out, //fine quadrant
-            //                                                  ivar) ;
-
+        
             #endif 
         }
     ); 

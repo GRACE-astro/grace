@@ -191,22 +191,12 @@ apply(VEC(int const& i_c, int const& j_c, int const& k_c)
     static constexpr int idir = std::get<0>(get_complementary_dirs<edgeDir>());
     static constexpr int jdir = std::get<1>(get_complementary_dirs<edgeDir>());
 
-  // this take care of the additional staggered points in the directions orthogonal to edgeDir
+  // TODO: this take care of the additional staggered points in the directions orthogonal to edgeDir
+  // how to incorporate this here?
   coarse_state(VEC(i_c,j_c,k_c), ivar, iq_c)  = (fine_state(VEC(i_f,j_f,k_f),ivar, iq_f)
                                                  +fine_state(VEC(i_f+delta(0,edgeDir),j_f+delta(1,edgeDir),k_f+delta(2,edgeDir)),ivar,iq_f)
                                                   ) / 2.0 ; 
 
-  // coarse_state(VEC(i_c+delta(0,idir),j_c+delta(1,idir),k_c+delta(2,idir)), ivar, iq_c)  = (fine_state(VEC(i_f,j_f,k_f),ivar, iq_f)
-  //                                                +fine_state(VEC(i_f+2*delta(0,idir)+delta(0,edgeDir),j_f+2*delta(1,idir)+delta(1,edgeDir),k_f+2*delta(2,idir)+delta(2,edgeDir)),ivar,iq_f)
-  //                                                 ) / 2.0 ; 
-
-  // coarse_state(VEC(i_c+delta(0,jdir),j_c+delta(1,jdir),k_c+delta(2,jdir)), ivar, iq_c)  = (fine_state(VEC(i_f,j_f,k_f),ivar, iq_f)
-  //                                                +fine_state(VEC(i_f+2*delta(0,jdir)+delta(0,edgeDir),j_f+2*delta(1,jdir)+delta(1,edgeDir),k_f+2*delta(2,jdir)+delta(2,edgeDir)),ivar,iq_f)
-  //                                                 ) / 2.0 ; 
-
-  // coarse_state(VEC(i_c+delta(0,idir)+delta(0,jdir),j_c+delta(1,idir)+delta(1,jdir),k_c+delta(2,idir)+delta(2,jdir)), ivar, iq_c)  = (fine_state(VEC(i_f,j_f,k_f),ivar, iq_f)
-  //                                                +fine_state(VEC(i_f+2*delta(0,idir)+2*delta(0,jdir)+delta(0,edgeDir),j_f+2*delta(1,idir)+2*delta(1,jdir)+delta(1,edgeDir),k_f+2*delta(2,idir)+2*delta(2,jdir)+delta(2,edgeDir)),ivar,iq_f)
-  //                                                 ) / 2.0 ; 
 
 
 }

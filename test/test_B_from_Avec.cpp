@@ -60,7 +60,9 @@ TEST_CASE("lagrange_interp_edge", "[lagrange_interp_edge]")
 
     auto d_lin_func_comp = KOKKOS_LAMBDA (std::array<double,3> const& xyz, int const& comp, int const& der_dir)
     {
-        double x = (der_dir==0 ? 1. : xyz[0] ); double y = (der_dir==1 ? 1. :xyz[1]); double z = (der_dir==2 ? 1. : xyz[2]); 
+        double x = (der_dir!=0 ? 0. : 1.);
+        double y = (der_dir!=1 ? 0. : 1.);
+        double z = (der_dir!=2 ? 0. : 1.); 
         double A_i = comp+1.; // arbitrary vector potential
         return A_i*(2.5 * x - 7.1 * y + 8.9 * z); 
     } ; 
@@ -212,122 +214,6 @@ TEST_CASE("lagrange_interp_edge", "[lagrange_interp_edge]")
                                 );
     }) ; 
 
-    // // policy edges:
-    // MDRangePolicy<Rank<3>> policy_edges{
-    //     {0,0,0},
-    //     {nx+2*ngz +1-delta(0,edgeDir), ny+2*ngz +1-delta(1,edgeDir), nz+2*ngz +1-delta(2,edgeDir)}
-    // } ; 
-    // parallel_for("fill_data_edge",policy_edges,
-    // KOKKOS_LAMBDA( int i, int j, int k) {
-    //     auto const& xyz_edge = coords_edge(i,j,k) ; 
-    //     edge_staggered(i,j,k) = lin_func(xyz_edge)   ; 
-    // }) ; 
-
-    // /* Now we call the interpolations and check the results */
-    // /* Corners */
-    // MDRangePolicy<Rank<3>, IndexType<int>> policy_interp_corners {
-    //     {0,0,0},
-    //     {nx, ny, nz}
-    // } ; 
-    // parallel_for("interpolate_data",policy_interp_corners,
-    // KOKKOS_LAMBDA( int i, int j, int k) {
-    //     int const ichild = math::floor_int((2*i)/nx) 
-    //         + 2 * ( math::floor_int((2*j)/ny) + 2 * math::floor_int((2*k)/nz) ) ;
-    //     int i_f = (2*i)%nx + ngz ; 
-    //     int j_f = (2*j)%ny + ngz ; 
-    //     int k_f = (2*k)%nz + ngz ; 
-    //     auto fine_view = subview(corner_staggered_fine,ALL(),ALL(),ALL(),ichild) ;
-    //     lagrange_prolongator_t<4>::interpolate(i_f,j_f,k_f,i+ngz,j+ngz,k+ngz,corner_staggered, fine_view) ; 
-    // }) ; 
-
-  
-    // /* Edges  */
-    // // same policy - we iterate over cell centers as it's most logical and easiest to follow
-    // MDRangePolicy<Rank<3>, IndexType<int>> policy_interp_edges {
-    //     {0,0,0},
-    //     {nx, ny, nz}
-    // } ; 
-    // parallel_for("interpolate_data",policy_interp_edges,
-    // KOKKOS_LAMBDA( int i, int j, int k) {
-    //     int const ichild = math::floor_int((2*i)/nx) 
-    //         + 2 * ( math::floor_int((2*j)/ny) + 2 * math::floor_int((2*k)/nz) ) ;
-    //     int i_f = (2*i)%nx + ngz ; 
-    //     int j_f = (2*j)%ny + ngz ; 
-    //     int k_f = (2*k)%nz + ngz ; 
-    //     auto fine_view = subview(edge_staggered_fine,ALL(),ALL(),ALL(),ichild) ;
-    //     lagrange_edge_prolongator_t<2,edgeDir>::interpolate(i_f,j_f,k_f,i+ngz,j+ngz,k+ngz,edge_staggered, fine_view) ; 
-    // }) ; 
-
-
-    // /* Check */
-    // auto h_corner_staggered = create_mirror_view(corner_staggered_fine) ;
-
-    // deep_copy(h_corner_staggered,corner_staggered_fine) ; 
-
-    // double const quad_side = (x1-x0)/2. ; 
-
-    // auto get_fine_coords_corner = [&] (int i, int j, int k, int q) {
-    //     // q here picks out the child 
-    //     // from one of the children quadrants 
-
-    //     int xq = (q >> 0) & 1;  
-    //     int yq = (q >> 1) & 1;  
-    //     int zq = (q >> 2) & 1;
-
-    //     std::array<double,3> xyz ; 
-    //     xyz[0] = (i-ngz) * 0.5*h + x0 + xq * quad_side ;
-    //     xyz[1] = (j-ngz) * 0.5*h + x0 + yq * quad_side ;
-    //     xyz[2] = (k-ngz) * 0.5*h + x0 + zq * quad_side ;
-
-    //     return xyz ; 
-    // } ; 
-
-    // for( int i=ngz; i<nx+1+ngz; ++i) {
-    //     for( int j=ngz; j<ny+1+ngz; ++j) {
-    //         for( int k=ngz; k<nz+1+ngz; ++k){
-    //             for( int q=0; q<8; ++q) {
-    //                 auto xyz = get_fine_coords_corner(i,j,k,q) ; 
-    //                 auto yval = lin_func(xyz) ; 
-   
-    //                 // CHECK_THAT(
-    //                 //     h_corner_staggered(i,j,k,q),
-    //                 //     Catch::Matchers::WithinAbs( yval, 1e-10)
-    //                 // ) ; 
-    //             }
-    //         }
-    //     }
-    // }
-
-    // /* Check for edges: */
-    // // create mirror view
-    // auto h_edge_staggered = create_mirror_view(edge_staggered_fine) ;
-    // deep_copy(h_edge_staggered,edge_staggered_fine) ; 
-
-    // // create for checking 
-    // auto h_coarse_edge_staggered = create_mirror_view(edge_staggered) ;
-    // deep_copy(h_coarse_edge_staggered,edge_staggered) ; 
-
-
-    // // q here picks out the child of the coarse quadrant 
-    // auto get_fine_coords_edge = [&] (int i, int j, int k, int q) {
-
-    //     int xq = (q >> 0) & 1;  
-    //     int yq = (q >> 1) & 1;  
-    //     int zq = (q >> 2) & 1;
-
-    //     std::array<double,3> xyz ;  
-    //     xyz[0] = (i-ngz) * 0.5*h + delta(0,edgeDir)* 0.25 * h + x0 + xq * quad_side ; // this is the same as in the case of corner
-    //     xyz[1] = (j-ngz) * 0.5*h + delta(1,edgeDir)* 0.25 * h + x0 + yq * quad_side ; // same as corner 
-    //     xyz[2] = (k-ngz) * 0.5*h + delta(2,edgeDir)* 0.25 * h + x0 + zq * quad_side ; // has to match centre location; we therefore shift by 0.25 of the h (half of 0.5h)
-
-    //     // for i=j=k=ngz and q=0, we get: xyz[:] = {0,0, 0.25*h}
-    //     // for i=j=k=ngz and q=0, we get for corner: xyz[:] = {0,0,0}
-    //     // for i=j=ngz, k=ngz+1 and q=0, we get for corner: xyz[:] = {0,0,0.5h}
-    //     // therefore, the z-staggered fine edge variable fits inbetween the two fine corners
-        
-        
-    //     return xyz ; 
-    // } ; 
     auto h_face_staggered_x = create_mirror_view(face_staggered_x) ;
     deep_copy(h_face_staggered_x,face_staggered_x) ; 
     auto h_face_staggered_y = create_mirror_view(face_staggered_y) ;
