@@ -118,18 +118,12 @@ struct grmhd_c2p_kastaun_t {
                            conservs[STYL] * BtildeU[1] + \
                            conservs[STZL] * BtildeU[2]      ) / D;
 
-        // if the magnetic field is too small, we wish to prevent division by 0 ...
-        // this if statement might be acceptable as it happens only once in the instance of calling c2p at any single grid point
-        if(BtildeNorm < 1e-15){
-            rtildeU_par[0]=0;
-            rtildeU_par[1]=0;
-            rtildeU_par[2]=0;
-        }
-        else{
-            rtildeU_par[0]= rD_BtildeU * BtildeU[0] / math::int_pow<2>(BtildeNorm);
-            rtildeU_par[1]= rD_BtildeU * BtildeU[1] / math::int_pow<2>(BtildeNorm);
-            rtildeU_par[2]= rD_BtildeU * BtildeU[2] / math::int_pow<2>(BtildeNorm);
-        }
+        // if the magnetic field is too small, we wish to prevent division by 0.0
+   
+        rtildeU_par[0] = (BtildeNorm > 1e-15) ? rD_BtildeU * BtildeU[0] / math::int_pow<2>(BtildeNorm) : 0.0;
+        rtildeU_par[1] = (BtildeNorm > 1e-15) ? rD_BtildeU * BtildeU[1] / math::int_pow<2>(BtildeNorm) : 0.0;
+        rtildeU_par[2] = (BtildeNorm > 1e-15) ? rD_BtildeU * BtildeU[2] / math::int_pow<2>(BtildeNorm) : 0.0;
+
         rtildeU_perp[0] = rtildeU[0] - rtildeU_par[0];
         rtildeU_perp[1] = rtildeU[1] - rtildeU_par[1];
         rtildeU_perp[2] = rtildeU[2] - rtildeU_par[2];
@@ -167,9 +161,7 @@ struct grmhd_c2p_kastaun_t {
         prims[BXL]=conservs[BGXL];
         prims[BYL]=conservs[BGYL];
         prims[BZL]=conservs[BGZL];
-    
-        // prims[RHOL] = D/W ;
-        // prims[YEL]  = ye ;
+
         unsigned long iter_max = 2000;  // change this to be determined elsewhere! 
         double const tolerance = 1e-15; // change this
 
@@ -210,11 +202,6 @@ struct grmhd_c2p_kastaun_t {
             inter_vars.yehat=eos.ye_atmosphere();
             inter_vars.epsilonhat=eos.eps_atmosphere();
         }
-
-        // velocity limiter should be here:
-        // 
-        // if(inter_vars.What > max_lorentz_factor)
-
         // finally,  fill out the primitives:
 
         prims[RHOL]=inter_vars.rhohat;
@@ -223,10 +210,12 @@ struct grmhd_c2p_kastaun_t {
         prims[VXL]=vhatU[0];
         prims[VYL]=vhatU[1];
         prims[VZL]=vhatU[2];
-        double cs2_,entropy_;
-        unsigned int err; 
 
-        prims[PRESSL] =  eos.press__eps_rho_ye(prims[EPSL], prims[RHOL],prims[YEL],err);
+        // pressure is actually recovered outside of the c2p invert call, in the c2p.cpp; 
+        // comment left for clarity 
+        // double cs2_,entropy_;
+        // unsigned int err; 
+        // prims[PRESSL] =  eos.press__eps_rho_ye(prims[EPSL], prims[RHOL],prims[YEL],err);
 
         return std::move(prims) ; 
     }
@@ -336,7 +325,6 @@ struct grmhd_c2p_kastaun_t {
         auto rhohat=math::max(eos.density_minimum(), math::min(eos.density_maximum(),rhohat0));
         auto epsilonhat0=What*(qbar - mu*rbar2) + vhat2*What*What/(1.+What);
         // finally, here a call is made to the EOS table 
-        // note that this will have to change based on the 
         double yel{ye} ; 
         unsigned int err; 
         double epslow, epshigh; 

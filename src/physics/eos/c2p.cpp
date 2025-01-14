@@ -1,6 +1,6 @@
 /**
  * @file c2p.cpp
- * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @author Carlo Musolino (musolino@itp.uni-frankfurt.de), Konrad Topolski (topolski@itp.uni-frankfurt.de)
  * @brief 
  * @date 2024-06-10
  * 
@@ -70,7 +70,7 @@ conservs_to_prims( grmhd_cons_array_t& cons
         prims[VXL]   = 0. ;
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
-        prims[BXL]   = 0. ; // is this in any way reflected on the level of the A_i evolution?
+        prims[BXL]   = 0. ; // How should this be reflected in the evolution of A_i?
         prims[BYL]   = 0. ;
         prims[BZL]   = 0. ; 
     }

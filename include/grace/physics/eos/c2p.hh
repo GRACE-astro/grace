@@ -1,6 +1,6 @@
 /**
  * @file c2p.hh
- * @author Carlo Musolino(musolino@itp.uni-frankfurt.de)
+ * @author Carlo Musolino(musolino@itp.uni-frankfurt.de), Konrad Topolski (topolski@itp.uni-frankfurt.de)
  * @brief 
  * @date 2024-06-10
  * 

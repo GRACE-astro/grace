@@ -187,9 +187,12 @@ static void GRACE_DEVICE find_smallb(grace::metric_array_t const& metric ,
                                      };
   
     // NOTE: 
-    // It's a nightmare to set up random number generators on device 
-    // therefore, I'll just resort to a fixed orientation of the spatial
-    // part of the b^mu vector:
+    // Setting up a random number generator on device is problematic
+    // Therefore, we rresort to a fixed orientation of the spatial
+    // part of the b^mu vector;
+    // the relative angle between the b^i and U^i is anyway steered by 
+    // the randomness in U^i 
+
     d_bvec(1)= 0.25;
     d_bvec(2)= -0.565;
     d_bvec(3)= 0.365;
@@ -268,8 +271,6 @@ static void check_c2p(eos_t eos){
     Kokkos::deep_copy(h_eps,d_eps) ; 
     Kokkos::deep_copy(h_press,d_press) ; 
 
-   // Kokkos::fence();  // give enough time to flush 
-
     #ifdef DUMP_RESIDUAL_TO_FILE
     std::ofstream outfile{"c2p_residual.txt"} ;
     outfile << std::setprecision(15) ; 
@@ -306,11 +307,9 @@ static void check_c2p_mhd(eos_t eos){
     using namespace grace ;
     metric_array_t minkowski_metric ({1.,0.,0.,1.,0.,1.},{0.,0.,0.},1.) ; 
         
-
-    //double const W = 2. ; 
-    double const W = 50 ; 
-    double const b2_over_rho = 100000;  // works for this as well - very high magnetization change this  
-    printf("Testing Kastaun C2P in an MHD setting for an extremely high Lorentz factor (W=%.2f) and magnetization (sigma=%f) \n",W, b2_over_rho);
+    double const W = 50 ;  // challenging lorentz factor
+    double const b2_over_rho = 100000;  // and very high magnetization 
+    GRACE_INFO("Testing Kastaun C2P in an MHD setting for a high Lorentz factor (W={}) and magnetization (sigma={})", W, b2_over_rho) ;
 
     Kokkos::View<double *> d_logrho("logrho", N) ; 
     Kokkos::View<double *> d_logT("logT", N) ;

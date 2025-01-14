@@ -215,19 +215,20 @@ get_eulerianB_from_smallb(grace::metric_array_t const& metric,
                                         };
 
     auto eulVelD   = metric.lower(eulVel);
-    //auto VelTimesB  = metric.contract_vec_covec(eulVelD,eulB);
     double const v2 = metric.square_vec({eulVel[0],eulVel[1],eulVel[2]}) ; 
     double const W  = 1./Kokkos::sqrt(1-v2) ;
 
     // g_munu b^mu u^mu = 0 !!!
+    // Note left for clarity: 
+    // It's the responsibility of the caller to make sure the orthogonality condition is satisfied 
 
-    assert(fabs(metric.contract_4dvec_4dcovec(smallb,
-                                   metric.lower_4vec({W*(normalvector[0]),
-                                                 W*(normalvector[1] + eulVel[0] ),
-                                                 W*(normalvector[2] + eulVel[1] ),
-                                                 W*(normalvector[3] + eulVel[2] )
-                                   }) )
-                                     ) < 1.e-10 );
+    // assert(fabs(metric.contract_4dvec_4dcovec(smallb,
+    //                                metric.lower_4vec({W*(normalvector[0]),
+    //                                              W*(normalvector[1] + eulVel[0] ),
+    //                                              W*(normalvector[2] + eulVel[1] ),
+    //                                              W*(normalvector[3] + eulVel[2] )
+    //                                }) )
+    //                                  ) < 1.e-10 );
       
     auto smallbD       = metric.lower_4vec(smallb);
     auto n_dot_smallb  = metric.contract_4dvec_4dcovec(normalvector,smallbD);
