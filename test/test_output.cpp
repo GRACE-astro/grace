@@ -5,6 +5,7 @@
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/utils/grace_utils.hh>
 #include <grace/IO/vtk_output.hh>
+#include <grace/IO/hdf5_output.hh>
 #include <iostream>
 
 
@@ -32,7 +33,7 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
 
     std::cout << DENS << std::endl ; 
     std::cout << grace::get_variable_index("dens") << std::endl ;  
-    auto state  = grace::variable_list::get().getstate() ;
+    auto aux  = grace::variable_list::get().getaux() ;
     size_t nx,ny,nz; 
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
     size_t nq = grace::amr::get_local_num_quadrants() ; 
@@ -42,7 +43,7 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
         ny << ", " <<,
         nz << ", " <<
     ) nq << std::endl ;
-    auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
+    auto h_aux_mirror = Kokkos::create_mirror_view(aux) ; 
 
     auto const ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
 
@@ -62,17 +63,17 @@ TEST_CASE("Volume VTK output", "[vol_vtk_out]")
         double const r2 = EXPR( math::int_pow<2>(coords[0]),
                               + math::int_pow<2>(coords[1]),
                               + math::int_pow<2>(coords[2]) )  ; 
-        h_state_mirror(VEC(i,j,k),DENS,q) = exp( - r2 / 0.5 ) ; 
+        h_aux_mirror(VEC(i,j,k),RHO,q) = exp( - r2 / 0.5 ) ; 
     }
-    Kokkos::deep_copy(state, h_state_mirror) ; 
+    Kokkos::deep_copy(aux, h_aux_mirror) ; 
     Kokkos::parallel_for("Fill_beta_vector"
                         , Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>, grace::default_execution_space>
                           ({VEC(0,0,0),0}, {VEC(nx,ny,nz),nq})
                         , KOKKOS_LAMBDA (VEC(int i, int j, int k), int q)
                         {
-                            state(VEC(i,j,k),BETAX_,q) = 1.0 ; 
-                            state(VEC(i,j,k),BETAY_,q) = 0.0 ; 
-                            state(VEC(i,j,k),BETAZ_,q) = 0.0 ; 
+                            state(VEC(i,j,k),VELX_,q) = 1.0 ; 
+                            state(VEC(i,j,k),VELY_,q) = 0.0 ; 
+                            state(VEC(i,j,k),VELZ_,q) = 0.0 ; 
                         }) ; 
     std::cout << "Calling output routine..." << std::endl ;
     grace::IO::write_cell_data_vtk(true,true,true) ; 

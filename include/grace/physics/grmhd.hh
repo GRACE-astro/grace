@@ -1014,7 +1014,7 @@ struct grmhd_equations_system_t
         double const ye_star_r = dens_r * primR[YEL] ; 
         
         fl = ye_star_l * primL[VXL+idir] ; 
-        fr = ye_star_l * primR[VXL+idir] ; 
+        fr = ye_star_r * primR[VXL+idir] ; 
 
         f[YESL] = solver(fl,fr,ye_star_l,ye_star_r,cmin,cmax) ;
 
@@ -1337,7 +1337,7 @@ struct grmhd_equations_system_t
         /**************************************************************************************************/ 
         tau_source  -= 
             //( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ;
-            ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ; // Debugging! Try to set Ttt = 0 
+            ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ;  
         
 
     }

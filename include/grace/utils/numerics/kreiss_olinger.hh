@@ -30,7 +30,7 @@
 
 #include <grace_config.h>
 
-#include <grace/utils/numerics/mass.hh>
+#include <grace/utils/numerics/math.hh>
 #include <grace/utils/numerics/fd_utils.hh>
 
 #include <Kokkos_Core.hpp>
@@ -66,17 +66,17 @@ apply_kreiss_olinger_dissipation(
         Kokkos::subview(u,VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), ivar, q) ; 
 
     auto dvardx = 
-        detail::fd_der_recursive<1,deriv_order,0>::template doit<truncation_order>(var,VEC(i,j,k)) ; 
+        detail::fd_der_recursive<1,deriv_order+1,0>::template doit<truncation_order>(var,VEC(i,j,k)) ; 
     auto dvardy = 
-        detail::fd_der_recursive<1,deriv_order,1>::template doit<truncation_order>(var,VEC(i,j,k)) ; 
+        detail::fd_der_recursive<1,deriv_order+1,1>::template doit<truncation_order>(var,VEC(i,j,k)) ; 
     auto dvardz = 
-        detail::fd_der_recursive<1,deriv_order,2>::template doit<truncation_order>(var,VEC(i,j,k)) ; 
+        detail::fd_der_recursive<1,deriv_order+1,2>::template doit<truncation_order>(var,VEC(i,j,k)) ; 
 
     return epsdiss * ( math::int_pow<deriv_order>(dx[0]) * dvardx 
                      + math::int_pow<deriv_order>(dx[1]) * dvardy
-                     + math::int_pow<deriv_order>(dx[2]) * dvardz ) ; 
+                     + math::int_pow<deriv_order>(dx[2]) * dvardz ) / static_cast<double>(1 << (deriv_order + 1)) ; 
 }
-
+#if 0
 /**
  * @brief 
  * 
@@ -102,9 +102,10 @@ apply_kreiss_olinger_dissipation_block(
                               Kokkos::ALL() ), 
                          Kokkos::pair<int,int>{varidx.first,varidx.second},
                          Kokkos::ALL()) ; 
-
+    
 
 }
+#endif 
 }
 
 #endif /* GRACE_UTILS_KREISS_OLINGER_HH */

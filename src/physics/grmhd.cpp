@@ -39,6 +39,7 @@
 //#include <grace/physics/id/blastwave.hh>
 #include <grace/physics/id/tov.hh>
 #include <grace/physics/id/gauge_wave.hh>
+#include <grace/physics/id/linear_gw.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
@@ -327,6 +328,12 @@ void set_grmhd_initial_data() {
         auto const A = get_param<double>("grmhd", "gauge_wave_amplitude"  ) ; 
         auto const d = get_param<double>("grmhd", "gauge_wave_wavelength" ) ; 
         set_grmhd_initial_data_impl<eos_t, gauge_wave_id_t<eos_t>>(
+            A, d
+        ) ; 
+    } else if (id_type == "linear_gw" ) {
+        auto const A = get_param<double>("grmhd", "gauge_wave_amplitude"  ) ; 
+        auto const d = get_param<double>("grmhd", "gauge_wave_wavelength" ) ; 
+        set_grmhd_initial_data_impl<eos_t, linear_wave_id_t<eos_t>>(
             A, d
         ) ; 
     } else {

@@ -32,6 +32,7 @@
 
 #include <grace_config.h>
 
+#include<grace/amr/amr_functions.hh>
 #include<code_modules.h>
 #include<grace/data_structures/variable_properties.hh>
 #include<grace/data_structures/variable_indices.hh>
@@ -166,7 +167,25 @@ public:
     {
         Kokkos::realloc(_state, args...) ; 
     } 
-
+    //*****************************************************************************************************
+    var_array_t<GRACE_NSPACEDIM>
+    allocate_state(std::string const& name = "temp_storage") const 
+    {
+        DECLARE_GRID_EXTENTS ; 
+        return grace::var_array_t<GRACE_NSPACEDIM>(name, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz), _state.extent(GRACE_NSPACEDIM), nq) ;
+    }
+    //*****************************************************************************************************
+    staggered_variable_arrays_t
+    allocate_staggered_state(std::string const& name = "temp_storage") const 
+    {
+        DECLARE_GRID_EXTENTS ; 
+        auto tmp_storage = grace::staggered_variable_arrays_t() ; 
+        auto nvars_corner = _staggered_vars.corner_staggered_fields.extent(GRACE_NSPACEDIM) ;
+        auto nvars_face  = _staggered_vars.face_staggered_fields_x.extent(GRACE_NSPACEDIM) ;
+        auto nvars_edge  = _staggered_vars.edge_staggered_fields_xz.extent(GRACE_NSPACEDIM) ;
+        tmp_storage.realloc(VEC(nx,ny,nz), ngz, nq, nvars_face, nvars_edge, nvars_corner) ;
+        return tmp_storage ; 
+    }
 private: 
     //*****************************************************************************************************
     /**

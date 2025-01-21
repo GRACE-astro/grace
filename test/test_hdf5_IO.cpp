@@ -17,12 +17,12 @@ TEST_CASE("Volume hdf5 output", "[vol_hdf5_out]")
     int const BETAY_ = U ; 
     int const BETAZ_ = U ; 
     #endif
-    auto state  = grace::variable_list::get().getstate() ;
+    auto aux  = grace::variable_list::get().getaux() ;
     size_t nx,ny,nz; 
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
     size_t nq = grace::amr::get_local_num_quadrants() ; 
     int ngz = grace::amr::get_n_ghosts() ; 
-    auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
+    auto h_state_mirror = Kokkos::create_mirror_view(aux) ; 
 
     auto const ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
 
@@ -42,15 +42,15 @@ TEST_CASE("Volume hdf5 output", "[vol_hdf5_out]")
         double const r2 = EXPR( math::int_pow<2>(coords[0]),
                               + math::int_pow<2>(coords[1]),
                               + math::int_pow<2>(coords[2]) )  ; 
-        h_state_mirror(VEC(i,j,k),DENS,q) = exp( - r2 / 0.5 ) ; 
+        h_state_mirror(VEC(i,j,k),RHO,q) = exp( - r2 / 0.5 ) ; 
 
-        h_state_mirror(VEC(i,j,k),BETAX,q) = Kokkos::sqrt(r2) * sin(M_PI*coords[0]) ; 
-        h_state_mirror(VEC(i,j,k),BETAY,q) = Kokkos::sqrt(r2) * cos(M_PI*coords[1]) ; 
-        h_state_mirror(VEC(i,j,k),BETAZ,q) = coords[0] ; 
+        h_state_mirror(VEC(i,j,k),VELX,q) = Kokkos::sqrt(r2) * sin(M_PI*coords[0]) ; 
+        h_state_mirror(VEC(i,j,k),VELY,q) = Kokkos::sqrt(r2) * cos(M_PI*coords[1]) ; 
+        h_state_mirror(VEC(i,j,k),VELZ,q) = coords[0] ; 
 
     }
-    Kokkos::deep_copy(state, h_state_mirror) ;
+    Kokkos::deep_copy(aux, h_state_mirror) ;
 
     grace::IO::write_cell_data_hdf5(true,true,true) ; 
-    grace::IO::write_cell_data_vtk(true,false,false) ; 
+    //grace::IO::write_cell_data_vtk(true,false,false) ; 
 }

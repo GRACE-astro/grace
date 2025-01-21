@@ -41,13 +41,16 @@ namespace grace {
 
 
 enum BSSN_VARENUM_t {
-    PHIL=0,
-    GTXXL,
+    GTXXL=0,
     GTXYL,
     GTXZL, 
     GTYYL,
     GTYZL,
     GTZZL,
+    PHIL,
+    GAMMAXL,
+    GAMMAYL,
+    GAMMAZL,
     ATXXL,
     ATXYL,
     ATXZL,
@@ -55,9 +58,6 @@ enum BSSN_VARENUM_t {
     ATYZL,
     ATZZL,
     KL,
-    GAMMAXL,
-    GAMMAYL,
-    GAMMAZL,
     ALPL,
     BETAXL,
     BETAYL,

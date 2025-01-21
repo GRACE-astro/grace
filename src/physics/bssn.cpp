@@ -441,9 +441,6 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     res[BXL+2] = -(BZ*eta) + GammatZdt;
 
     return std::move(res);
-
-
-
 }
 
 template< size_t der_order >

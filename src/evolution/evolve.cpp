@@ -83,6 +83,8 @@ template< typename eos_t >
 void evolve_impl() {
     using namespace grace ; 
 
+    DECLARE_GRID_EXTENTS ; 
+
     auto& parser = grace::config_parser::get() ;
 
     std::string tstepper = 
@@ -104,6 +106,10 @@ void evolve_impl() {
     auto& fsurf   = grace::variable_list::get().getstaggeredcoords() ;
     auto& idx     = grace::variable_list::get().getinvspacings() ;  
     auto& dx     = grace::variable_list::get().getspacings() ;  
+
+    auto const nvars_corner = sstate.corner_staggered_fields.extent(GRACE_NSPACEDIM) ;
+    auto const nvars_cc     = state.extent(GRACE_NSPACEDIM) ;
+    
     /* Copy the current state to scratch memory */
     //amr::apply_boundary_conditions(state) ; 
     Kokkos::deep_copy(state_p, state) ; 
@@ -134,7 +140,83 @@ void evolve_impl() {
         amr::apply_boundary_conditions(state,sstate) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if (tstepper == "rk3" ) {
-        ERROR("Not implemented yet.") ; 
+        auto staggered_update_policy =
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
+               {VEC(0,0,0), 0, 0}
+            , {VEC(nx+1,ny+1,nz+1),nvars_corner, nq}
+        ) ;
+        auto update_policy =
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
+               {VEC(0,0,0), 0, 0}
+            , {VEC(nx,ny,nz),nvars_cc, nq}
+        ) ;
+        // step 1: state_p -> u^1 = u^n + dt L( u^n )
+        advance_substep<eos_t>(
+            t,dt,0.5,
+            state_p,state,aux,
+            sstate_p,sstate,saux,
+            idx,dx,cvol,fsurf) ; 
+        amr::apply_boundary_conditions(state_p,sstate_p) ; 
+        compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ;
+        // Allocate state_pp and sstate_pp 
+        auto state_pp  = grace::variable_list::get().allocate_state() ;
+        auto sstate_pp = grace::variable_list::get().allocate_staggered_state() ;
+        // step 2: state_pp = 3/4 u^n + 1/4 u^1
+        Kokkos::parallel_for(
+            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
+            , staggered_update_policy
+            , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
+            {
+                sstate_pp.corner_staggered_fields(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
+                    = 0.75 * sstate.corner_staggered_fields(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
+                    + 0.25 * sstate_p.corner_staggered_fields(VEC(i+ngz,j+ngz,k+ngz), ivar, q) ; 
+            }
+        ) ;
+        Kokkos::parallel_for(
+            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
+            , update_policy
+            , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
+            {
+                state_pp(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
+                    = 0.75 * state(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
+                    + 0.25 * state_p(VEC(i+ngz,j+ngz,k+ngz), ivar, q) ; 
+            }
+        ) ;
+        // step 3: state_pp -> u^2 = 3/4 u^n + 1/4 u^1 + 1/4 dt L( u^1 )
+        advance_substep<eos_t>(
+            t,dt,0.25,
+            state_pp,state_p,aux,
+            sstate_pp,sstate_p,saux,
+            idx,dx,cvol,fsurf) ;
+        amr::apply_boundary_conditions(state_pp,sstate_pp) ; 
+        compute_auxiliary_quantities<eos_t>(state_pp, sstate_pp, aux) ;
+        // step 4: state = 1/3 u^n + 2/3 u^2
+        Kokkos::parallel_for(
+            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
+            , staggered_update_policy
+            , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
+            {
+                sstate.corner_staggered_fields(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
+                    = 1./3. * sstate.corner_staggered_fields(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
+                    + 2./3. * sstate_pp.corner_staggered_fields(VEC(i+ngz,j+ngz,k+ngz), ivar, q) ; 
+            }
+        ) ;
+        Kokkos::parallel_for(
+            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
+            , update_policy
+            , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
+            {
+                state(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
+                    = 1./3. * state(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
+                    + 2./3. * state_pp(VEC(i+ngz,j+ngz,k+ngz), ivar, q) ; 
+            }
+        ) ;
+        // step 5: state -> u^n+1 = 1/3 u^n + 2/3 u^2 + 2/3 dt L( u^2 )
+        advance_substep<eos_t>(
+            t,dt,2./3.,
+            state,state_pp,aux,
+            sstate,sstate_pp,saux,
+            idx,dx,cvol,fsurf) ;
     } else {
         ERROR("Unrecognised time-stepper.") ; 
     }
@@ -296,7 +378,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     Kokkos::parallel_for(
           GRACE_EXECUTION_TAG("EVOL","BSSN_RHS")
         , bssn_rhs_policy
-        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q)
+        , KOKKOS_LAMBDA (VEC(int i, int j, int k), int q)
         {
             bssn_eq_system.template compute_update<2>(
                 q,
