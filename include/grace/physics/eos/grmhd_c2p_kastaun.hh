@@ -128,6 +128,11 @@ struct grmhd_c2p_kastaun_t {
         rtildeU_perp[1] = rtildeU[1] - rtildeU_par[1];
         rtildeU_perp[2] = rtildeU[2] - rtildeU_par[2];
 
+        // TODO:
+        // we only need rtileNorm_perp, which means we should instead do:
+        // b_sqr_r_norm_sqr = b2 * r2 - r_dot_b**2!
+        // this omits the whole issue with the magnitude of BtildeNorm
+
         rtildeD_perp = metric.lower({rtildeU_perp[0],rtildeU_perp[1], rtildeU_perp[2]});
 
         rtildeNorm_perp = Kokkos::sqrt(rtildeD_perp[0]*rtildeU_perp[0]+
