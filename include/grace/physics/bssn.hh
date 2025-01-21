@@ -162,7 +162,7 @@ struct bssn_system_t
         double const k1 = 0.1; double const eta = 0.25; // FIXME 
         bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx,k1,eta)  ;   
         #if 0
-        // Apply Kreiss-Olinger dissipation
+        // FIXME: Apply Kreiss-Olinger dissipation
         int ii = 0 ; 
         std::array<double, 3> dx { 1/idx[0], 1/idx[1], 1/idx[2] } ;  
         for( int ivar=PHI_; ivar<= BZ_; ++ivar ) {
@@ -174,7 +174,7 @@ struct bssn_system_t
         #endif
         // Apply update
         cstate_new(VEC(i,j,k),PHI_,q) += dt * dtfact * update[PHIL] ;
-        cstate_new(VEC(i,j,k),K_,q)   = dt * dtfact * update[KL]   ;
+        cstate_new(VEC(i,j,k),K_,q)   += dt * dtfact * update[KL]   ;
         int ww = 0 ; 
         cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
         cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
@@ -194,7 +194,7 @@ struct bssn_system_t
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ww++;
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ww++;
 
-        cstate_new(VEC(i,j,k),ALP_,q) = dt * dtfact * update[ALPL] ; 
+        cstate_new(VEC(i,j,k),ALP_,q) += dt * dtfact * update[ALPL] ; 
 
         cstate_new(VEC(i,j,k),BETAX_,q) += dt * dtfact * update[BETAXL] ;
         cstate_new(VEC(i,j,k),BETAY_,q) += dt * dtfact * update[BETAYL] ;

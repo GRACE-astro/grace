@@ -265,7 +265,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
                 for( int iv=0; iv<nvertex; ++iv ) {
                     int ip, jp, kp ; 
                     std::tie(ip,jp,kp) = get_cell_vertex_indices(VEC(i,j,k),iq,iv) ; 
-                    cells[nvertex * icell + iv] = get_point_index(VEC(ip,jp,kp),iq); 
+                    cells[nvertex * icell + iv] = get_point_index(VEC(ip,jp,kp),iq+local_quad_offset); 
                 }
                 #ifdef GRACE_3D
                 }

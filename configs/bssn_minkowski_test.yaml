@@ -1,0 +1,82 @@
+name: "grace"
+amr: {
+  npoints_block_x: 200,
+  npoints_block_y: 200,
+  npoints_block_z: 200,
+  xmin: 0.,
+  xmax: 1.,
+  ymin: 0.,
+  ymax: 1.,
+  zmin: 0.,
+  zmax: 1.,
+  periodic_x: true,
+  periodic_y: true,
+  periodic_z: true,
+  n_ghostzones: 4,
+  initial_refinement_level: 0,
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_CTORE: 2.,
+  refinement_criterion_CTODE: 1.,
+  refinement_criterion_var: "U",
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+IO: {
+  volume_output_cell_variables: ["gamma_tilde[2,2]","gamma_tilde[1,1]","GammaU[0]", "phi"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: 200,
+  plane_surface_output_cell_variables: [],
+  plane_surface_output_every: -1,
+  sphere_surface_output_every: -1,
+  info_output_every: 1, #20,
+  info_output_max_reductions: ["alp", "K"],
+  info_output_min_reductions:  ["alp", "K"], 
+  scalar_output_every: 50,
+  scalar_output_minmax: ["alp","K","gamma_tilde[2,2]"],
+  scalar_output_norm2: [],
+  scalar_output_integral: [],
+  output_use_hdf5: true, 
+  hdf5_compression_level: 6,
+  hdf5_chunk_size: 8192
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  flush_level: "trace"
+}
+evolution: {
+  time_stepper: "rk2",
+  cfl_factor: 0.4,
+  final_time: 2.,
+  timestep: 0.0005,
+  timestep_selection_mode: "manual"
+}
+grmhd: {
+  id_type: "minkowksi",
+  gauge_wave_amplitude: 1e-08,
+  gauge_wave_wavelength: 1
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+
+  ye_atmosphere: 0,
+  temp_atmosphere: 0,
+  rho_atmosphere: 1.e-14,
+  eps_maximum: 1.e+05,
+  gamma_th: 1.6666,
+
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [2.],
+    rhos:   [],
+    kappa_0: 0.
+  }
+}
+
+profiling: {
+  do_gpu_profiling: false
+}
