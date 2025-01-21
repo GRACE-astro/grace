@@ -111,34 +111,11 @@ struct grmhd_c2p_kastaun_t {
         rtildeU[2] = StildeU[2]/ D;
 
         rtildeNorm = StildeNorm / D; // r = sqrt (r_i r^i) = sqrt(S_i S^i ) / D
+           
+        B_dot_r =  metric.contract_vec_covec(StildeU,BtildeD) / D;
+
+        B2_rtildePerp2 = math::int_pow<2>(rtildeNorm*BtildeNorm) - math::int_pow<2>(B_dot_r);
         
-        // c[STXL] = S_i 
-        // finally, get parallel and perpendicular momentum:
-        rD_BtildeU = (conservs[STXL] * BtildeU[0] + \
-                           conservs[STYL] * BtildeU[1] + \
-                           conservs[STZL] * BtildeU[2]      ) / D;
-
-        // if the magnetic field is too small, we wish to prevent division by 0.0
-   
-        rtildeU_par[0] = (BtildeNorm > 1e-15) ? rD_BtildeU * BtildeU[0] / math::int_pow<2>(BtildeNorm) : 0.0;
-        rtildeU_par[1] = (BtildeNorm > 1e-15) ? rD_BtildeU * BtildeU[1] / math::int_pow<2>(BtildeNorm) : 0.0;
-        rtildeU_par[2] = (BtildeNorm > 1e-15) ? rD_BtildeU * BtildeU[2] / math::int_pow<2>(BtildeNorm) : 0.0;
-
-        rtildeU_perp[0] = rtildeU[0] - rtildeU_par[0];
-        rtildeU_perp[1] = rtildeU[1] - rtildeU_par[1];
-        rtildeU_perp[2] = rtildeU[2] - rtildeU_par[2];
-
-        // TODO:
-        // we only need rtileNorm_perp, which means we should instead do:
-        // b_sqr_r_norm_sqr = b2 * r2 - r_dot_b**2!
-        // this omits the whole issue with the magnitude of BtildeNorm
-
-        rtildeD_perp = metric.lower({rtildeU_perp[0],rtildeU_perp[1], rtildeU_perp[2]});
-
-        rtildeNorm_perp = Kokkos::sqrt(rtildeD_perp[0]*rtildeU_perp[0]+
-                                            rtildeD_perp[1]*rtildeU_perp[1]+          
-                                            rtildeD_perp[2]*rtildeU_perp[2]);
-
         v0sqrt = math::int_pow<2>(rtildeNorm) / (math::int_pow<2>(rtildeNorm) +  eos.enthalpy_minimum()*eos.enthalpy_minimum());
 
         inter_vars.What      =0.0;
@@ -189,7 +166,7 @@ struct grmhd_c2p_kastaun_t {
         std::array<double, 3> vhatU;
         auto chi =  1. / (1. + mu * math::int_pow<2>(BtildeNorm));
         for(size_t i=0; i<3; i++){
-            vhatU[i]= mu * chi * (rtildeU[i] + mu * rD_BtildeU * BtildeU[i]);
+            vhatU[i]= mu * chi * (rtildeU[i] + mu * B_dot_r * BtildeU[i]);
         }
 
 
@@ -253,16 +230,10 @@ struct grmhd_c2p_kastaun_t {
     std::array<double,3> BtildeD ; 
     //! Rescaled magnetic field norm 
     double BtildeNorm ; 
-    //! Rescaled momentum, parallel to Btilde field (with upper indices)
-    std::array<double,3> rtildeU_par ; 
-    //! Rescaled momentum, perpendicular to Btilde field (with upper indices)
-    std::array<double,3> rtildeU_perp ; 
-    //! Rescaled momentum contracted with the Btilde field 
-    double rD_BtildeU;
-    //! Rescaled momentum co-vector, perpendicular to Btilde field (lower indices)
-    std::array<double,3> rtildeD_perp;
-    // ! Magnitude of the rescaled momentum perpendicular to the Btilde 
-    double rtildeNorm_perp ;
+    //! Norm of rescaled momentum co-vector perpendicular to Btilde field, times B2
+    double B2_rtildePerp2;
+    //! Scalar product of the rescaled momentum vector and the Btilde field
+    double B_dot_r;
     // constant from eq. (25)  (note that in the paper it should read v_{0}^{2} \coloneqq on the LHS!)
     double v0sqrt;
 
@@ -284,7 +255,8 @@ struct grmhd_c2p_kastaun_t {
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     rbar2_of_mu(double const& mu) const  {   // eq 21
         auto chi =  1. / (1. + mu * math::int_pow<2>(BtildeNorm));
-        return math::int_pow<2>(rtildeNorm*chi) + mu*chi*(1+chi)*math::int_pow<2>(rD_BtildeU);
+        return math::int_pow<2>(rtildeNorm*chi) + mu*chi*(1+chi)*math::int_pow<2>(B_dot_r);
+
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -295,7 +267,7 @@ struct grmhd_c2p_kastaun_t {
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     qbar_of_mu(double const& mu) const {
         auto chi =  1. / (1. + mu * math::int_pow<2>(BtildeNorm));
-        return q - 0.5*math::int_pow<2>(BtildeNorm) - 0.5 * math::int_pow<2>(mu*chi*BtildeNorm*rtildeNorm_perp);
+        return q - 0.5*math::int_pow<2>(BtildeNorm) - 0.5 * math::int_pow<2>(mu*chi)*B2_rtildePerp2;
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -308,7 +280,7 @@ struct grmhd_c2p_kastaun_t {
         auto dchidmu=dchi_dmu(mu);
         auto chi =  1. / (1. + mu * math::int_pow<2>(BtildeNorm));
         return 2.0 * math::int_pow<2>(rtildeNorm) * chi * dchidmu + \
-               math::int_pow<2>(rD_BtildeU) * (chi*(1.0+chi) + mu*dchidmu*(1.0+chi) + mu*chi*dchidmu);
+               math::int_pow<2>(B_dot_r) * (chi*(1.0+chi) + mu*dchidmu*(1.0+chi) + mu*chi*dchidmu);
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
