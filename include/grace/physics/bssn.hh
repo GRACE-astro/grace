@@ -195,14 +195,24 @@ struct bssn_system_t
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ww++;
 
         cstate_new(VEC(i,j,k),ALP_,q) += dt * dtfact * update[ALPL] ; 
+        // cstate_new(VEC(i,j,k),ALP_,q) = 0.0 ; 
 
         cstate_new(VEC(i,j,k),BETAX_,q) += dt * dtfact * update[BETAXL] ;
         cstate_new(VEC(i,j,k),BETAY_,q) += dt * dtfact * update[BETAYL] ;
         cstate_new(VEC(i,j,k),BETAZ_,q) += dt * dtfact * update[BETAZL] ;
 
+        // cstate_new(VEC(i,j,k),BETAX_,q) = 0.0 ;
+        // cstate_new(VEC(i,j,k),BETAY_,q) = 0.0 ;
+        // cstate_new(VEC(i,j,k),BETAZ_,q) = 0.0 ;
+        // what should be here to freeze the evol? 
+
         cstate_new(VEC(i,j,k),BX_,q) += dt * dtfact * update[BXL] ;
         cstate_new(VEC(i,j,k),BY_,q) += dt * dtfact * update[BYL] ;
         cstate_new(VEC(i,j,k),BZ_,q) += dt * dtfact * update[BZL] ;
+
+        // cstate_new(VEC(i,j,k),BX_,q) = 0.0;
+        // cstate_new(VEC(i,j,k),BY_,q) = 0.0;
+        // cstate_new(VEC(i,j,k),BZ_,q) = 0.0;
 
         // Apply algebraic constraints 
         impose_algebraic_constraints(cstate_new,VEC(i,j,k),q) ; 

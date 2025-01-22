@@ -3,12 +3,12 @@ amr: {
   npoints_block_x: 200,
   npoints_block_y: 200,
   npoints_block_z: 200,
-  xmin: 0.,
-  xmax: 1.,
-  ymin: 0.,
-  ymax: 1.,
-  zmin: 0.,
-  zmax: 1.,
+  xmin: 100.,
+  xmax: 101.,
+  ymin: 100,
+  ymax: 101.,
+  zmin: 100.,
+  zmax: 101.,
   periodic_x: true,
   periodic_y: true,
   periodic_z: true,
@@ -59,20 +59,29 @@ evolution: {
   timestep_selection_mode: "manual"
 }
 grmhd: {
-  id_type: "minkowski",
+  id_type: "FMtorus",
   #gauge_wave_amplitude: 1e-08,
   #gauge_wave_wavelength: 1
+#    FMTorus_a_BH:  0.5,
+FMTorus_a_BH:  0.0,
+  FMTorus_M_BH: 1.0,
+  FMTorus_rho_min: 1.e-5 ,
+  FMTorus_press_min: 1.e-6,
+  FMTorus_lapse_min: -1.0 , # disable
+  FMTorus_r_rin: 5.0,
+  FMTorus_r_at_max_density: 20.0,
+  FMTorus_gamma: 2.0,
+  FMTorus_kappa: 0.0
 }
 
 eos: {
   eos_type: "hybrid",
   cold_eos_type: "piecewise_polytrope",
-
   ye_atmosphere: 0,
   temp_atmosphere: 0,
   rho_atmosphere: 1.e-14,
   eps_maximum: 1.e+05,
-  gamma_th: 1.6666,
+  gamma_th: 0.0,
 
   piecewise_polytrope: {
     n_pieces: 1,

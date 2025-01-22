@@ -3,15 +3,18 @@ amr: {
   npoints_block_x: 200,
   npoints_block_y: 200,
   npoints_block_z: 200,
-  xmin: 0.,
-  xmax: 1.,
-  ymin: 0.,
-  ymax: 1.,
-  zmin: 0.,
-  zmax: 1.,
-  periodic_x: true,
-  periodic_y: true,
-  periodic_z: true,
+  xmin: -50.,
+  xmax: 50,
+  ymin: -50.,
+  ymax: 50.,
+  zmin: -50.,
+  zmax: 50.,
+  # periodic_x: true,
+  # periodic_y: true,
+  # periodic_z: true,
+  periodic_x: false,
+  periodic_y: false,
+  periodic_z: false,
   n_ghostzones: 4,
   initial_refinement_level: 0,
   refinement_criterion: "simple_threshold",
@@ -59,7 +62,7 @@ evolution: {
   timestep_selection_mode: "manual"
 }
 grmhd: {
-  id_type: "minkowski",
+  id_type: "schwarzschild_ks",
   #gauge_wave_amplitude: 1e-08,
   #gauge_wave_wavelength: 1
 }
