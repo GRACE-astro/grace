@@ -287,24 +287,24 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     double const AtZZ=AtXz*gtXZ + AtYz*gtYZ + AtZz*gtZZ;
 
     // derivatives of the conformal (tilde) trace-free extrinsic curvature, can be replaced by momentum constraint
-    double const Atxxdx = grace::fd_der<der_order,0>(state,ATXX_+0, VEC(i,j,k),q);
-    double const Atxxdy = grace::fd_der<der_order,1>(state,ATXX_+0, VEC(i,j,k),q);
-    double const Atxxdz = grace::fd_der<der_order,2>(state,ATXX_+0, VEC(i,j,k),q);
-    double const Atxydx = grace::fd_der<der_order,0>(state,ATXX_+1, VEC(i,j,k),q);
-    double const Atxydy = grace::fd_der<der_order,1>(state,ATXX_+1, VEC(i,j,k),q);
-    double const Atxydz = grace::fd_der<der_order,2>(state,ATXX_+1, VEC(i,j,k),q);
-    double const Atxzdx = grace::fd_der<der_order,0>(state,ATXX_+2, VEC(i,j,k),q);
-    double const Atxzdy = grace::fd_der<der_order,1>(state,ATXX_+2, VEC(i,j,k),q);
-    double const Atxzdz = grace::fd_der<der_order,2>(state,ATXX_+2, VEC(i,j,k),q);
-    double const Atyydx = grace::fd_der<der_order,0>(state,ATXX_+3, VEC(i,j,k),q);
-    double const Atyydy = grace::fd_der<der_order,1>(state,ATXX_+3, VEC(i,j,k),q);
-    double const Atyydz = grace::fd_der<der_order,2>(state,ATXX_+3, VEC(i,j,k),q);
-    double const Atyzdx = grace::fd_der<der_order,0>(state,ATXX_+4, VEC(i,j,k),q);
-    double const Atyzdy = grace::fd_der<der_order,1>(state,ATXX_+4, VEC(i,j,k),q);
-    double const Atyzdz = grace::fd_der<der_order,2>(state,ATXX_+4, VEC(i,j,k),q);
-    double const Atzzdx = grace::fd_der<der_order,0>(state,ATXX_+5, VEC(i,j,k),q);
-    double const Atzzdy = grace::fd_der<der_order,1>(state,ATXX_+5, VEC(i,j,k),q);
-    double const Atzzdz = grace::fd_der<der_order,2>(state,ATXX_+5, VEC(i,j,k),q);
+    double const Atxxdx = grace::fd_der<der_order,0>(state,ATXX_+0, VEC(i,j,k),q) * idx[0];
+    double const Atxxdy = grace::fd_der<der_order,1>(state,ATXX_+0, VEC(i,j,k),q) * idx[1];
+    double const Atxxdz = grace::fd_der<der_order,2>(state,ATXX_+0, VEC(i,j,k),q) * idx[2];
+    double const Atxydx = grace::fd_der<der_order,0>(state,ATXX_+1, VEC(i,j,k),q) * idx[0];
+    double const Atxydy = grace::fd_der<der_order,1>(state,ATXX_+1, VEC(i,j,k),q) * idx[1];
+    double const Atxydz = grace::fd_der<der_order,2>(state,ATXX_+1, VEC(i,j,k),q) * idx[2];
+    double const Atxzdx = grace::fd_der<der_order,0>(state,ATXX_+2, VEC(i,j,k),q) * idx[0];
+    double const Atxzdy = grace::fd_der<der_order,1>(state,ATXX_+2, VEC(i,j,k),q) * idx[1]; 
+    double const Atxzdz = grace::fd_der<der_order,2>(state,ATXX_+2, VEC(i,j,k),q) * idx[2];
+    double const Atyydx = grace::fd_der<der_order,0>(state,ATXX_+3, VEC(i,j,k),q) * idx[0];
+    double const Atyydy = grace::fd_der<der_order,1>(state,ATXX_+3, VEC(i,j,k),q) * idx[1];
+    double const Atyydz = grace::fd_der<der_order,2>(state,ATXX_+3, VEC(i,j,k),q) * idx[2];
+    double const Atyzdx = grace::fd_der<der_order,0>(state,ATXX_+4, VEC(i,j,k),q) * idx[0];
+    double const Atyzdy = grace::fd_der<der_order,1>(state,ATXX_+4, VEC(i,j,k),q) * idx[1];
+    double const Atyzdz = grace::fd_der<der_order,2>(state,ATXX_+4, VEC(i,j,k),q) * idx[2];
+    double const Atzzdx = grace::fd_der<der_order,0>(state,ATXX_+5, VEC(i,j,k),q) * idx[0];
+    double const Atzzdy = grace::fd_der<der_order,1>(state,ATXX_+5, VEC(i,j,k),q) * idx[1];
+    double const Atzzdz = grace::fd_der<der_order,2>(state,ATXX_+5, VEC(i,j,k),q) * idx[2];
 
     // contracted conformal Christoffel symbols
     double const GammatX = state(VEC(i,j,k),GAMMAX_+0,q);
