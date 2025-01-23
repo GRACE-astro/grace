@@ -28,10 +28,12 @@
 
 #include <grace_config.h>
 
+
 #ifndef GRACE_UTILS_DEVICE_H
 #define GRACE_UTILS_DEVICE_H
 
-#if defined(GRACE_ENABLE_CUDA) or defined (GRACE_ENABLE_HIP)
+#if defined(GRACE_ENABLE_CUDA)
+// include CUDA runtime TOOD 
 #define GRACE_DEVICE __device__ 
 #define GRACE_HOST   __host__ 
 #define GRACE_HOST_DEVICE __host__ __device__
@@ -40,7 +42,13 @@
 #else 
 #define DEVICE_CONDITIONAL(cond,a,b) ((cond) ? a : b)
 #endif
-#else 
+#elif defined(GRACE_ENABLE_HIP)
+#include <hip/hip_runtime.h>
+#define GRACE_HOST __host__
+#define GRACE_DEVICE __device__
+#define GRACE_HOST_DEVICE __host__ __device__
+#define DEVICE_CONDITIONAL(cond,a,b) ((cond)?a:b)
+#else
 #define GRACE_DEVICE 
 #define GRACE_HOST 
 #define GRACE_HOST_DEVICE 

@@ -9,11 +9,6 @@ target_link_libraries(  grace_vtk_output PRIVATE
                         VTK::VTK  
                         spdlog::spdlog )
 
-vtk_module_autoinit(
-    TARGETS grace_vtk_output
-    MODULES ${VTK_LIBRARIES}
-    )
-
 add_library(grace_hdf5_output OBJECT hdf5_output.cpp xmf_utilities.cpp )
 target_include_directories( grace_hdf5_output PRIVATE "${HEADER_DIR}" )
 target_link_libraries(  grace_hdf5_output PRIVATE
@@ -25,10 +20,6 @@ target_link_libraries(  grace_hdf5_output PRIVATE
                         VTK::VTK  
                         HDF5::HDF5 
                         spdlog::spdlog )
-vtk_module_autoinit(
-    TARGETS grace_hdf5_output
-    MODULES ${VTK_LIBRARIES}
-    )
 
 add_library(grace_cell_output OBJECT cell_output.cpp)
 target_include_directories( grace_cell_output PRIVATE "${HEADER_DIR}" )
@@ -42,10 +33,6 @@ target_link_libraries(  grace_cell_output PRIVATE
                         HDF5::HDF5 
                         OpenMP::OpenMP_CXX
                         spdlog::spdlog )
-vtk_module_autoinit(
-    TARGETS grace_cell_output
-    MODULES ${VTK_LIBRARIES}
-    )
 
 
 add_library(grace_output_aux OBJECT vtk_output_auxiliaries.cpp )

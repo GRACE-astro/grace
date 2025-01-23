@@ -52,6 +52,9 @@ target_sources( grace_objects INTERFACE
                 $<TARGET_OBJECTS:grace_variable_list>
                 $<TARGET_OBJECTS:grace_variable_registration>
                 $<TARGET_OBJECTS:grace_variable_utils>
+		$<TARGET_OBJECTS:grace_vtk_output>
+		$<TARGET_OBJECTS:grace_hdf5_output>
+		$<TARGET_OBJECTS:grace_cell_output>
                 $<TARGET_OBJECTS:grace_output_aux>
                 $<TARGET_OBJECTS:grace_cartesian_coordinates>
                 $<TARGET_OBJECTS:grace_spherical_coordinates>

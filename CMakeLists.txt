@@ -57,9 +57,6 @@ add_executable(grace src/grace.cpp)
 target_include_directories(grace PRIVATE "${HEADER_DIR}")
 target_link_libraries(grace PRIVATE 
         grace_objects
-        $<TARGET_OBJECTS:grace_vtk_output>
-        $<TARGET_OBJECTS:grace_hdf5_output>
-        $<TARGET_OBJECTS:grace_cell_output>
         yaml_cpp::yaml
         MPI::MPI_CXX
         OpenMP::OpenMP_CXX
