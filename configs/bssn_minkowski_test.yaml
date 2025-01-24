@@ -32,7 +32,7 @@ IO: {
   info_output_every: 1, #20,
   info_output_max_reductions: ["alp", "K"],
   info_output_min_reductions:  ["alp", "K"], 
-  scalar_output_every: 50,
+  scalar_output_every: 1,
   scalar_output_minmax: ["alp","beta[0]","beta[1]", "beta[2]", "phi", "K", 
                         "GammaU[0]", "GammaU[1]", "GammaU[2]",
                         "B[0]", "B[1]", "B[2]",
