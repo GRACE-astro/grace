@@ -411,23 +411,9 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
 
     // BSSN equation for conformal factor d/dt phi
     res[PHIL] = (betaXdx + betaYdy + betaZdz - alp*K + 6*betaX*phidx + 6*betaY*phidy + 6*betaZ*phidz)/6.;
-    if(abs(res[PHIL])>1e-10) {
-        printf("res[PHIL] %1.5f \n", res[PHIL]);
-        // std::abort(); 
-    }
-    else{
-        printf("res[PHIL] is zero ");
-    }
+  
     // BSSN equation for conformal extrinsic curvature trace d/dt K
     res[KL] = betaX*Kdx + betaY*Kdy + betaZ*Kdz + (-(alpdxdx*gtXX) + alpdy*GammatYxx*gtXX + alpdz*GammatZxx*gtXX - 2*alpdxdy*gtXY + 2*alpdy*GammatYxy*gtXY + 2*alpdz*GammatZxy*gtXY - 2*alpdxdz*gtXZ + 2*alpdy*GammatYxz*gtXZ + 2*alpdz*GammatZxz*gtXZ - alpdydy*gtYY + alpdy*GammatYyy*gtYY + alpdz*GammatZyy*gtYY - 2*alpdydz*gtYZ + 2*alpdy*GammatYyz*gtYZ + 2*alpdz*GammatZyz*gtYZ - alpdzdz*gtZZ + alpdy*GammatYzz*gtZZ + alpdz*GammatZzz*gtZZ - 2*alpdy*gtXY*phidx - 2*alpdz*gtXZ*phidx - 2*alpdy*gtYY*phidy - 2*alpdz*gtYZ*phidy - 2*alpdy*gtYZ*phidz - 2*alpdz*gtZZ*phidz + alpdx*(GammatXxx*gtXX + 2*GammatXxy*gtXY + 2*GammatXxz*gtXZ + GammatXyy*gtYY + 2*GammatXyz*gtYZ + GammatXzz*gtZZ - 2*gtXX*phidx - 2*gtXY*phidy - 2*gtXZ*phidz))/Kokkos::exp(4*phi) + alp*(Atxx*AtXX + 2*Atxy*AtXY + 2*Atxz*AtXZ + Atyy*AtYY + 2*Atyz*AtYZ + Atzz*AtZZ + (K*K)/3. + 4*pi*(EE + S));
-
-    if(abs(res[KL])>1e-10) {
-        printf("res[KL] %1.5f \n", res[KL]);
-        // std::abort(); 
-    }
-    else{
-        printf("res[KL] is zero ");
-    }
 
     // BSSN equation for contracted conformal Christoffels d/dt Gammatu
     res[GAMMAXL+0] = (-6*alpdx*AtXX - 6*alpdy*AtXY - 6*alpdz*AtXZ - betaXdx*GammatX + 2*betaYdy*GammatX + 2*betaZdz*GammatX + 3*betaX*GammatXdx + 3*betaY*GammatXdy + 3*betaZ*GammatXdz - 3*betaXdy*GammatY - 3*betaXdz*GammatZ + 4*betaXdxdx*gtXX + betaYdxdy*gtXX + betaZdxdz*gtXX + 7*betaXdxdy*gtXY + betaYdydy*gtXY + betaZdydz*gtXY + 7*betaXdxdz*gtXZ + betaYdydz*gtXZ + betaZdzdz*gtXZ + 3*betaXdydy*gtYY + 6*betaXdydz*gtYZ + 3*betaXdzdz*gtZZ + 2*alp*(6*AtXZ*GammatXxz + 3*AtYY*GammatXyy + 6*AtYZ*GammatXyz + 3*AtZZ*GammatXzz - 2*gtXX*Kdx - 2*gtXY*Kdy - 2*gtXZ*Kdz + 3*AtXX*(GammatXxx + 6*phidx) + 6*AtXY*(GammatXxy + 3*phidy) + 18*AtXZ*phidz - 24*gtXX*pi*Sx - 24*gtXY*pi*Sy - 24*gtXZ*pi*Sz))/3.;
@@ -439,20 +425,16 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     double const GammatZdt = res[GAMMAXL+2] ;
 
     /* 1 + log slicing condition */
-    //res[ALPL] = alpdx*betaX + alpdy*betaY + alpdz*betaZ - 2*alp*K;
-    res[ALPL] = 0.0;
+    res[ALPL] = alpdx*betaX + alpdy*betaY + alpdz*betaZ - 2*alp*K;
 
     /* Gamma driver */
     double const BX = state(VEC(i,j,k),BX_+0,q);
     double const BY = state(VEC(i,j,k),BX_+1,q);
     double const BZ = state(VEC(i,j,k),BX_+2,q);
 
-    // res[BETAXL+0] = BX*k1;
-    // res[BETAXL+1] = BY*k1;
-    // res[BETAXL+2] = BZ*k1;
-    res[BETAXL+0] = 0.0;
-    res[BETAXL+1] = 0.0;
-    res[BETAXL+2] = 0.0;
+    res[BETAXL+0] = BX*k1;
+    res[BETAXL+1] = BY*k1;
+    res[BETAXL+2] = BZ*k1;
 
     res[BXL+0] = -(BX*eta) + GammatXdt;
     res[BXL+1] = -(BY*eta) + GammatYdt;
