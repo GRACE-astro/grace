@@ -141,7 +141,7 @@ struct bssn_system_t
      */
     template< size_t der_order >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_update_impl( int const q 
+    compute_update_custom( int const q 
                        , VEC( int const i 
                             , int const j 
                             , int const k)
@@ -149,7 +149,9 @@ struct bssn_system_t
                        , grace::var_array_t<GRACE_NSPACEDIM> const state_new 
                        , grace::staggered_variable_arrays_t const sstate_new 
                        , double const dt 
-                       , double const dtfact ) const
+                       , double const dtfact
+                       , double const t  
+                       , double const x ) const
     {
         auto& cstate = this->_sstate.corner_staggered_fields    ;
         auto& cstate_new = sstate_new.corner_staggered_fields    ;
@@ -172,6 +174,22 @@ struct bssn_system_t
             ii++ ; 
         }
         #endif
+        double const A  = 1e-08 ; 
+        double const A2 = 1e-16 ; 
+        double const d  = 1     ; 
+        double const sin2L = Kokkos::sin( 4 * M_PI * (x-t) / d ) ; 
+        double const sinL  = Kokkos::sin( 2 * M_PI * (x-t) / d ) ;
+        double const cosL  = Kokkos::cos( 2 * M_PI * (x-t) / d ) ;
+        double const cos2L = Kokkos::cos( 4 * M_PI * (x-t) / d ) ;
+        double const denom = 3 * d * Kokkos::pow( 2 - A2 + A2 * cos2L, 4./3. ) ;
+        double const cbrt2 = Kokkos::cbrt(2) ; 
+
+        double const Axx = 2 * A2 * M_PI * cbrt2 * sin2L / denom ;
+        double const Ayy = cbrt2 * A * M_PI * cosL * ( 6 - A2 + A2*cos2L + 4 * A * sinL ) / denom ; 
+        double const Azz = cbrt2 * A * M_PI * cosL * ( - 6 + A2 - A2*cos2L + 4 * A * sinL ) / denom ;
+
+        double const KTR = 2 * M_PI * A2 / d * sin2L / math::int_pow<2>( 1 - A2 * sinL ) ; 
+
         // Apply update
         cstate_new(VEC(i,j,k),PHI_,q) += dt * dtfact * update[PHIL] ;
         cstate_new(VEC(i,j,k),K_,q)   += dt * dtfact * update[KL]   ;
@@ -183,26 +201,32 @@ struct bssn_system_t
         cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
         cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
         ww = 0 ; 
+        // XX 
         cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
+        // XY 
         cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
+        // XZ  
         cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
+        // YY 
         cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
+        // YZ
         cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
+        // ZZ
         cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
         ww = 0 ; 
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ww++;
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ww++;
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ww++;
 
-        cstate_new(VEC(i,j,k),ALP_,q) += dt * dtfact * update[ALPL] ; 
+        cstate_new(VEC(i,j,k),ALP_,q) = 1. ; // += dt * dtfact * update[ALPL] ; 
 
-        cstate_new(VEC(i,j,k),BETAX_,q) += dt * dtfact * update[BETAXL] ;
-        cstate_new(VEC(i,j,k),BETAY_,q) += dt * dtfact * update[BETAYL] ;
-        cstate_new(VEC(i,j,k),BETAZ_,q) += dt * dtfact * update[BETAZL] ;
+        cstate_new(VEC(i,j,k),BETAX_,q) = 0 ; //+= dt * dtfact * update[BETAXL] ;
+        cstate_new(VEC(i,j,k),BETAY_,q) = 0 ; //+= dt * dtfact * update[BETAYL] ;
+        cstate_new(VEC(i,j,k),BETAZ_,q) = 0 ; //+= dt * dtfact * update[BETAZL] ;
 
-        cstate_new(VEC(i,j,k),BX_,q) += dt * dtfact * update[BXL] ;
-        cstate_new(VEC(i,j,k),BY_,q) += dt * dtfact * update[BYL] ;
-        cstate_new(VEC(i,j,k),BZ_,q) += dt * dtfact * update[BZL] ;
+        cstate_new(VEC(i,j,k),BX_,q) = 0 ; //+= dt * dtfact * update[BXL] ;
+        cstate_new(VEC(i,j,k),BY_,q) = 0 ; //+= dt * dtfact * update[BYL] ;
+        cstate_new(VEC(i,j,k),BZ_,q) = 0 ; //+= dt * dtfact * update[BZL] ;
 
         // Apply algebraic constraints 
         impose_algebraic_constraints(cstate_new,VEC(i,j,k),q) ; 
@@ -210,6 +234,26 @@ struct bssn_system_t
     }
     //**************************************************************************************************
     //**************************************************************************************************
+    template< size_t der_order >
+    void GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    compute_constraint_violations( 
+        grace::var_array_t<GRACE_NSPACEDIM> saux, std::array<double,3> const& idx, 
+        VEC(int i, int j, int k), int64_t q ) const 
+    {
+        using namespace grace  ; 
+        using namespace Kokkos ;
+
+        std::array<std::array<double,4>,4> Tdd {{{0},{0},{0},{0}}} ; 
+
+        auto constr_loc = 
+                    compute_bssn_constraint_violations<der_order>(VEC(i,j,k),q,this->_sstate.corner_staggered_fields,Tdd,idx) ;
+
+        saux(VEC(i,j,k),HAM_ ,q) = constr_loc[0] ;
+        saux(VEC(i,j,k),MOMX_,q) = constr_loc[1] ;
+        saux(VEC(i,j,k),MOMY_,q) = constr_loc[2] ;
+        saux(VEC(i,j,k),MOMZ_,q) = constr_loc[3] ;
+        
+    } ;
     /**
      * @brief Compute constraint violations on the whole grid.
      * 

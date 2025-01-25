@@ -32,6 +32,7 @@
 #include <grace/amr/forest.hh>
 
 #include <grace/errors/assert.hh>
+#include <grace/system/print.hh>
 
 #include <vector>
 #include <algorithm>
@@ -191,7 +192,40 @@ variable_list_impl_t::variable_list_impl_t()
     
     ASSERT(variables::detail::_varnames.size() == variables::detail::num_evolved, 
     "Num evolved is " << variables::detail::num_evolved << " but varnames.size() is " << variables::detail::_varnames.size() ) ; 
-
+    GRACE_INFO("Registration done. We have:\n"
+                "  {} cell centered evolved variables,\n"
+                "  {} face staggered evolved variables,\n"
+                "  {} edge staggered evolved variables,\n"
+                "  {} corner staggered evolved variables,\n"
+                "  {} cell centered auxiliary variables,\n"
+                "  {} face staggered auxiliary variables,\n"
+                "  {} edge staggered auxiliary variables,\n"
+                "  {} corner staggered auxiliary variables.\n", 
+                variables::detail::num_evolved, 
+                variables::detail::num_face_staggered_vars, 
+                variables::detail::num_edge_staggered_vars, 
+                variables::detail::num_corner_staggered_vars, 
+                variables::detail::num_auxiliary, 
+                variables::detail::num_face_staggered_aux, 
+                variables::detail::num_edge_staggered_aux, 
+                variables::detail::num_corner_staggered_aux) ;
+    /* Compute an approximate memory footprint of the simulation */
+    auto _p4est = grace::amr::forest::get().get() ; 
+    /* Get global number of quadrants and quadrant offset for this rank */
+    unsigned long const nq_glob = _p4est->global_num_quadrants ;
+    unsigned long const ncells_glob   = EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) * nq_glob ;
+    unsigned long const ncorners_glob = EXPR((nx+1+2*ngz), *(ny+1+2*ngz), *(nz+1+2*ngz)) * nq_glob ;
+    unsigned long const nfaces_glob   = ( EXPR((nx+1+2*ngz), *(ny+2*ngz), *(nz+2*ngz)) 
+                                        + EXPR((nx+2*ngz), *(ny+1+2*ngz), *(nz+2*ngz))
+                                        + EXPR((nx+2*ngz), *(ny+2*ngz), *(nz+1+2*ngz)) ) * nq_glob ;
+    unsigned long const nedges_glob   = ( EXPR((nx+1+2*ngz), *(ny+1+2*ngz), *(nz+2*ngz)) 
+                                        + EXPR((nx+2*ngz), *(ny+1+2*ngz), *(nz+1+2*ngz))
+                                        + EXPR((nx+1+2*ngz), *(ny+2*ngz), *(nz+1+2*ngz)) ) * nq_glob ;
+    GRACE_INFO("Approximate memory footprint: {} GB", 
+              ( ncells_glob   * ( variables::detail::num_evolved + variables::detail::num_auxiliary                          )  
+              + ncorners_glob * ( variables::detail::num_corner_staggered_vars + variables::detail::num_corner_staggered_aux ) 
+              + nedges_glob   * ( variables::detail::num_edge_staggered_vars + variables::detail::num_edge_staggered_aux     )
+              + nfaces_glob   * ( variables::detail::num_face_staggered_vars + variables::detail::num_face_staggered_aux     ) ) * sizeof(double) / 1e9) ;
     /* all done */
 }
 

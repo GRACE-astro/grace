@@ -173,14 +173,14 @@ void write_scalar_output() {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::fixed << std::setprecision(15) ; 
+        outfile << std::setprecision(15) << std::defaultfloat ; 
         outfile << std::left << iter << '\t'
                 << std::left << time << '\t' 
                 << std::left << detail::_minmax_reduction_vars_results[vname].min_val << '\n' ; 
         std::string const pfname_max = grace_runtime.scalar_io_basename() + vname + "_max.dat" ;
         std::filesystem::path fname_max = bdir /  pfname_max ; 
         std::ofstream outfile_max(fname_max.string(),std::ios::app) ; 
-        outfile_max << std::fixed << std::setprecision(15) ; 
+        outfile_max << std::setprecision(15) ; 
         outfile_max << std::left << iter << '\t'
                     << std::left << time << '\t' 
                     << std::left << detail::_minmax_reduction_vars_results[vname].max_val << '\n' ;
@@ -190,7 +190,7 @@ void write_scalar_output() {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::fixed << std::setprecision(15) ; 
+        outfile << std::setprecision(15) << std::defaultfloat ; 
         outfile << std::left << iter << '\t'
                 << std::left << time << '\t'
                 << std::left << detail::_norm2_reduction_vars_results[vname] << '\n' ; 
@@ -199,9 +199,9 @@ void write_scalar_output() {
     auto const out_integral_vars = grace_runtime.scalar_output_integral_vars() ; 
     for( auto const& vname: out_integral_vars ) {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_integral.dat" ;
-        std::filesystem::path fname = bdir /  pfname ; 
+        std::filesystem::path fname = bdir /  pfname  ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::fixed << std::setprecision(15) ; 
+        outfile << std::setprecision(15) << std::defaultfloat ; 
         outfile << std::left << iter << '\t'
                 << std::left << time << '\t' 
                 << std::left << detail::_integral_reduction_vars_results[vname] << '\n' ; 
@@ -268,7 +268,7 @@ void info_output() {
     auto const min_vars = grace_runtime.info_output_min_vars() ; 
     auto const norm_vars = grace_runtime.info_output_norm2_vars() ; 
 
-    static constexpr const size_t width = 15 ; 
+    static constexpr const size_t width = 25 ; 
 
     #define APPEND_OUTPUT(vvect,s)    \
     for(auto const& x: vvect) {       \
@@ -294,18 +294,18 @@ void info_output() {
     #undef APPEND_OUTPUT
     #define APPEND_OUTPUT(vvect,dvect)\
     for(auto const& x: vvect) {       \
-        os << std::left << std::setw(width) << dvect[x] ;      \
+        os << std::setprecision(8) << std::defaultfloat << std::left << std::setw(width) << dvect[x] ;      \
     }
     #define APPEND_MIN(vvect,dvect)      \
     for(auto const& x: vvect) {          \
-        os << std::left << std::setw(width) << dvect[x].min_val ; \
+        os << std::setprecision(8) << std::defaultfloat << std::left << std::setw(width) << dvect[x].min_val ; \
     }
     #define APPEND_MAX(vvect,dvect)      \
     for(auto const& x: vvect) {          \
-        os << std::left << std::setw(width) << dvect[x].max_val ; \
+        os << std::setprecision(8) << std::defaultfloat << std::left << std::setw(width) << dvect[x].max_val ; \
     }
 
-    os << std::left << std::setw(width) << iter << std::left << std::setw(width) << time << std::left << std::setw(width) << rate ; 
+    os << std::setprecision(8) << std::defaultfloat << std::left << std::setw(width) << iter << std::left << std::setw(width) << time << std::left << std::setw(width) << rate ; 
     APPEND_MAX(max_vars,detail::_minmax_reduction_vars_results) ; 
     APPEND_MIN(min_vars,detail::_minmax_reduction_vars_results) ; 
     APPEND_OUTPUT(norm_vars,detail::_norm2_reduction_vars_results) ; 

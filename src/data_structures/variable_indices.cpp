@@ -218,8 +218,8 @@ void register_variables() {
     REGISTER_CORNER_STAGGERED_EVOLVED_VECTOR(BETAX,BETAY,BETAZ,"beta","third_order_lagrange",false);
     REGISTER_CORNER_STAGGERED_EVOLVED_VECTOR(BX,BY,BZ,"B","third_order_lagrange",false) ; 
     /* Constraint violations */
-    REGISTER_AUX_SCALAR(HAM,"H","none");
-    REGISTER_AUX_VECTOR(MOMX,MOMY,MOMZ,"M","none");
+    REGISTER_CORNER_STAGGERED_AUX_SCALAR(HAM,"H","none");
+    REGISTER_CORNER_STAGGERED_AUX_VECTOR(MOMX,MOMY,MOMZ,"M","none");
     #endif
     /********************************************************************************/
     /********************************************************************************/
@@ -243,6 +243,7 @@ void register_variables() {
     #undef DECLARE_VAR_INDEX_IMPL
     /********************************************************************************/
     /********************************************************************************/
+    #if 0
     GRACE_INFO("{} total variables registered, of which {} evolved ( {} cell-center, {} face-staggered, {} edge-staggered, {} corner-staggered), {} auxiliary. {} variables require fluxes.", 
                 detail::num_vars, detail::num_evolved+detail::num_face_staggered_vars+detail::num_edge_staggered_vars+detail::num_corner_staggered_vars, 
                 detail::num_evolved, detail::num_face_staggered_vars, detail::num_edge_staggered_vars, detail::num_corner_staggered_vars, 
@@ -272,6 +273,7 @@ void register_variables() {
         }
     }
     GRACE_VERBOSE(ss.str()) ; 
+    #endif 
 }
 namespace detail {
 static int register_scalar( std::string const& name
@@ -351,7 +353,7 @@ static int register_staggered_variable( std::string const& name
             if( num_comp == 0) {
                 num_edge_staggered_aux ++ ; 
             }
-            _face_staggered_auxnames.push_back(name) ; 
+            _edge_staggered_auxnames.push_back(name) ; 
             _edge_aux_bc_types.push_back(bc_type) ; 
             return (num_edge_staggered_aux) - 1 ; 
         }

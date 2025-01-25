@@ -43,41 +43,172 @@ extern std::vector<int64_t> _volume_output_ncells ;
 extern std::vector<std::string> _volume_output_filenames ; 
 }
 
+/**
+ * @brief Writes cell data to an HDF5 file.
+ *
+ * This function outputs cell data in various formats based on the provided flags.
+ *
+ * @param out_vol If true, output volume data.
+ * @param out_plane If true, output plane data.
+ * @param out_sphere If true, output sphere data.
+ */
 void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere) ; 
 
+/**
+ * @brief Writes volume cell data to an HDF5 file.
+ *
+ * This function handles the output of volume cell data into an HDF5 format,
+ * which is a widely used data model, library, and file format for storing
+ * and managing data.
+ */
 void write_volume_cell_data_hdf5() ; 
 
+/**
+ * @brief Write the grid structure to hdf5 output.
+ * 
+ * @param file_id HDF5 identifier of the open file where data is written in parallel.
+ * @param compression_level Level of compression for hdf5 output.
+ * @param chunk_size Size of chunks for low-level HDF5 compression API.
+ */
 void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) ; 
 
+/**
+ * @brief Write arrays of volume data to HDF file.
+ * 
+ * @param file_id HDF5 identifier of the open file where data is written in parallel.
+ * @param compression_level Level of compression for hdf5 output.
+ * @param chunk_size Size of chunks for low-level HDF5 compression API. 
+ */
 void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) ; 
 
-void write_var_arrays_hdf5( std::set<std::string> const& varlist 
-                          , hid_t file_id 
-                          , hid_t dxpl
-                          , hid_t space_id_glob
-                          , hid_t space_id
-                          , hid_t prop_id
-                          , hsize_t ncells
-                          , hsize_t ncells_glob
-                          , hsize_t local_quad_offset) ; 
+/**
+ * @brief Writes variable arrays to an HDF5 file.
+ *
+ * This function writes the provided variable arrays to the specified HDF5 file
+ * using the given HDF5 identifiers and properties.
+ *
+ * @param varlist A set of strings representing the list of variable names.
+ * @param svarlist A set of strings representing the list of staggered variable names.
+ * @param file_id The HDF5 file identifier.
+ * @param dxpl The HDF5 data transfer property list identifier.
+ * @param space_id_glob The global dataspace identifier for the primary variables.
+ * @param space_id The dataspace identifier for the primary variables.
+ * @param prop_id The dataset creation property list identifier for the primary variables.
+ * @param sspace_id_glob The global dataspace identifier for the staggered variables.
+ * @param sspace_id The dataspace identifier for the staggered variables.
+ * @param sprop_id The dataset creation property list identifier for the staggered variables.
+ * @param ncells The number of cells to write.
+ * @param local_quad_offset The local quadrature offset.
+ */
+void write_var_arrays_hdf5(std::set<std::string> const& varlist, std::set<std::string> const& svarlist,
+                           hid_t file_id, hid_t dxpl, hid_t space_id_glob, hid_t space_id, hid_t prop_id,
+                           hid_t sspace_id_glob, hid_t sspace_id, hid_t sprop_id, hsize_t ncells, hsize_t local_quad_offset);
 
+/**
+ * @brief Writes vector variable arrays to an HDF5 file.
+ *
+ * This function writes the specified vector variable arrays to an HDF5 file using the provided HDF5 identifiers and properties.
+ *
+ * @param varlist A set of strings representing the list of variable names to be written.
+ * @param svarlist A set of strings representing the list of staggered variable names to be written.
+ * @param file_id The HDF5 file identifier.
+ * @param dxpl The HDF5 data transfer property list identifier.
+ * @param space_id_glob The HDF5 dataspace identifier for the global space.
+ * @param space_id The HDF5 dataspace identifier for the local space.
+ * @param prop_id The HDF5 dataset creation property list identifier.
+ * @param sspace_id_glob The HDF5 dataspace identifier for the staggered global space.
+ * @param sspace_id The HDF5 dataspace identifier for the staggered local space.
+ * @param sprop_id The HDF5 dataset creation property list identifier for the staggered variables.
+ * @param ncells The number of cells in the dataset.
+ * @param local_quad_offset The local quadrature offset.
+ */
 void write_vector_var_arrays_hdf5( std::set<std::string> const& varlist 
+                                 , std::set<std::string> const& svarlist
                                  , hid_t file_id 
                                  , hid_t dxpl
                                  , hid_t space_id_glob
                                  , hid_t space_id
                                  , hid_t prop_id
+                                 , hid_t sspace_id_glob
+                                 , hid_t sspace_id
+                                 , hid_t sprop_id
                                  , hsize_t ncells
-                                 , hsize_t ncells_glob
                                  , hsize_t local_quad_offset) ; 
 
+
+/**
+ * @brief Writes tensor variable arrays to an HDF5 file.
+ *
+ * This function writes the specified tensor variable arrays to an HDF5 file using the provided HDF5 identifiers and properties.
+ *
+ * @param varlist A set of strings representing the list of variable names to be written.
+ * @param svarlist A set of strings representing the list of staggered variable names to be written.
+ * @param file_id The HDF5 file identifier.
+ * @param dxpl The HDF5 data transfer property list identifier.
+ * @param space_id_glob The HDF5 dataspace identifier for the global space.
+ * @param space_id The HDF5 dataspace identifier for the local space.
+ * @param prop_id The HDF5 dataset creation property list identifier.
+ * @param sspace_id_glob The HDF5 dataspace identifier for the staggered global space.
+ * @param sspace_id The HDF5 dataspace identifier for the staggered local space.
+ * @param sprop_id The HDF5 dataset creation property list identifier for the staggered variables.
+ * @param ncells The number of cells in the dataset.
+ * @param local_quad_offset The local quadrature offset.
+ */
+void write_tensor_var_arrays_hdf5( std::set<std::string> const& varlist 
+                                 , std::set<std::string> const& svarlist 
+                                 , hid_t file_id 
+                                 , hid_t dxpl
+                                 , hid_t space_id_glob
+                                 , hid_t space_id
+                                 , hid_t prop_id
+                                 , hid_t sspace_id_glob
+                                 , hid_t sspace_id
+                                 , hid_t sprop_id
+                                 , hsize_t ncells
+                                 , hsize_t local_quad_offset ) ;
+
+
+
+/**
+ * @brief Writes extra arrays to an HDF5 file.
+ *
+ * This function writes additional arrays to an HDF5 file specified by the file identifier.
+ * The arrays are written with the specified compression level and chunk size.
+ *
+ * @param file_id The HDF5 file identifier.
+ * @param compression_level The level of compression to apply to the data.
+ * @param chunk_size The size of the chunks to use for the data.
+ */
 void write_extra_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) ; 
 
+/**
+ * @brief Writes a scalar dataset to an HDF5 file.
+ *
+ * @param data Pointer to the data to be written.
+ * @param mem_type_id HDF5 memory datatype identifier.
+ * @param file_id HDF5 file identifier.
+ * @param dxpl HDF5 data transfer property list identifier.
+ * @param dset_size Size of the dataset.
+ * @param dset_size_glob Global size of the dataset.
+ * @param offset Offset in the dataset.
+ * @param chunk_size Size of the chunks for chunked storage.
+ * @param compression_level Compression level for the dataset.
+ * @param dset_name Name of the dataset.
+ */
 void write_scalar_dataset( void* data, hid_t mem_type_id, hid_t file_id, hid_t dxpl
                          , hsize_t dset_size, hsize_t dset_size_glob, hsize_t offset
                          , size_t chunk_size, unsigned int compression_level
                          , std::string const& dset_name ) ; 
 
+/**
+ * @brief Writes a string attribute to an HDF5 dataset.
+ *
+ * This function writes a string attribute to the specified HDF5 dataset.
+ *
+ * @param dset_id The identifier of the HDF5 dataset to which the attribute will be written.
+ * @param attr_name The name of the attribute to be written.
+ * @param attr_data The string data of the attribute to be written.
+ */
 void write_dataset_string_attribute_hdf5(hid_t dset_id, std::string const& attr_name, std::string const& attr_data) ; 
 }} /* namespace grace::IO */
 

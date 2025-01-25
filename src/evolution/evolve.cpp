@@ -86,7 +86,7 @@ void evolve_impl() {
     DECLARE_GRID_EXTENTS ; 
 
     auto& parser = grace::config_parser::get() ;
-
+    
     std::string tstepper = 
         parser["evolution"]["time_stepper"].as<std::string>() ; 
 
@@ -121,7 +121,7 @@ void evolve_impl() {
             sstate,sstate_p,saux,
             idx,dx,cvol,fsurf) ; 
         amr::apply_boundary_conditions(state,sstate) ; 
-        compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
+        compute_auxiliary_quantities<eos_t>(state, sstate, aux, saux) ;
     } else if (tstepper == "rk2" ) {
         /* Compute auxiliaries at current timelevel */
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
@@ -131,14 +131,14 @@ void evolve_impl() {
             sstate_p,sstate,saux,
             idx,dx,cvol,fsurf) ; 
         amr::apply_boundary_conditions(state_p,sstate_p) ; 
-        compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ;
+        compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux, saux) ;
         advance_substep<eos_t>(
             t,dt,1.0,
             state,state_p,aux,
             sstate,sstate_p,saux,
             idx,dx,cvol,fsurf) ;
         amr::apply_boundary_conditions(state,sstate) ; 
-        compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
+        compute_auxiliary_quantities<eos_t>(state, sstate, aux, saux) ;
     } else if (tstepper == "rk3" ) {
         auto staggered_update_policy =
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
@@ -157,7 +157,7 @@ void evolve_impl() {
             sstate_p,sstate,saux,
             idx,dx,cvol,fsurf) ; 
         amr::apply_boundary_conditions(state_p,sstate_p) ; 
-        compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ;
+        compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux, saux) ;
         // Allocate state_pp and sstate_pp 
         auto state_pp  = grace::variable_list::get().allocate_state() ;
         auto sstate_pp = grace::variable_list::get().allocate_staggered_state() ;
@@ -189,7 +189,7 @@ void evolve_impl() {
             sstate_pp,sstate_p,saux,
             idx,dx,cvol,fsurf) ;
         amr::apply_boundary_conditions(state_pp,sstate_pp) ; 
-        compute_auxiliary_quantities<eos_t>(state_pp, sstate_pp, aux) ;
+        compute_auxiliary_quantities<eos_t>(state_pp, sstate_pp, aux, saux) ;
         // step 4: state = 1/3 u^n + 2/3 u^2
         Kokkos::parallel_for(
             GRACE_EXECUTION_TAG("EVOL","RK3_substep")
@@ -217,6 +217,8 @@ void evolve_impl() {
             state,state_pp,aux,
             sstate,sstate_pp,saux,
             idx,dx,cvol,fsurf) ;
+        amr::apply_boundary_conditions(state,sstate) ; 
+        compute_auxiliary_quantities<eos_t>(state, sstate, aux, saux) ;
     } else {
         ERROR("Unrecognised time-stepper.") ; 
     }
@@ -239,6 +241,9 @@ void advance_substep( double const t, double const dt, double const dtfact
     GRACE_PROFILING_PUSH_REGION("evol") ;
     using namespace grace ; 
     using namespace Kokkos  ; 
+
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+    grace::fill_physical_coordinates(pcoords) ; 
 
     int nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
@@ -380,14 +385,17 @@ void advance_substep( double const t, double const dt, double const dtfact
         , bssn_rhs_policy
         , KOKKOS_LAMBDA (VEC(int i, int j, int k), int q)
         {
-            bssn_eq_system.template compute_update<2>(
+
+            bssn_eq_system.template compute_update_custom<2>(
                 q,
                 VEC(i+ngz,j+ngz,k+ngz),
                 idx,
                 new_state,
                 staggered_new_state,
                 dt,
-                dtfact
+                dtfact, 
+                t,
+                pcoords(VEC(i+ngz,j+ngz,k+ngz),0,q)
             ) ; 
         }
     ) ; 

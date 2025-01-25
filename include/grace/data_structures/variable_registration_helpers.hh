@@ -355,6 +355,20 @@ idx = register_variable( name \
                         , false \
                         , bc \
                         , false ) 
+
+/**
+ * @brief Register corner staggered auxiliary scalar.
+ * @param idx  Variable index 
+ * @param name Variable name 
+ * @param bc   Variable BC type
+*/
+#define REGISTER_CORNER_STAGGERED_AUX_SCALAR(idx,name,bc) \
+idx = register_variable( name \
+                        , {VEC(true,true,true)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , false ) 
 /**
  * @brief Register auxiliary vector.
  * @param idx0  Variable index (X component)
@@ -384,6 +398,42 @@ idx1 = register_variable( name "[1]"\
                         , name ) ; \
 idx2 = register_variable( name "[2]"\
                         , {VEC(false,false,false)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , true \
+                        , false \
+                        , 2 \
+                        , name ) 
+/**
+ * @brief Register corner staggered auxiliary vector.
+ * @param idx0  Variable index (X component)
+ * @param idx1  Variable index (Y component)
+ * @param idx2  Variable index (Z component)
+ * @param name  Variable name 
+ * @param bc    Variable BC type
+ */
+#define REGISTER_CORNER_STAGGERED_AUX_VECTOR(idx0, idx1, idx2, name,bc) \
+idx0 = register_variable( name "[0]"\
+                        , {VEC(true,true,true)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , true \
+                        , false \
+                        , 0 \
+                        , name ) ; \
+idx1 = register_variable( name "[1]"\
+                        , {VEC(true,true,true)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , true \
+                        , false \
+                        , 1 \
+                        , name ) ; \
+idx2 = register_variable( name "[2]"\
+                        , {VEC(true,true,true)} \
                         , false \
                         , false \
                         , bc \
@@ -450,6 +500,73 @@ idx4 = register_variable( name "[1,2]"\
                         , name )  ; \
 idx5 = register_variable( name "[2,2]"\
                         , {VEC(false,false,false)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , false \
+                        , true \
+                        , 5 \
+                        , name )  
+
+/**
+ * @brief Register corner staggered auxiliary symmetric tensor.
+ * @param idx0  Variable index (XX component)
+ * @param idx1  Variable index (XY component)
+ * @param idx2  Variable index (XZ component)
+ * @param idx3  Variable index (YY component)
+ * @param idx4  Variable index (YZ component)
+ * @param idx5  Variable index (ZZ component)
+ * @param name  Variable name 
+ * @param bc    Variable BC type
+ */
+#define REGISTER_CORNER_STAGGERED_AUX_TENSOR(idx0, idx1, idx2, idx3, idx4, idx5, name,bc) \
+idx0 = register_variable( name "[0,0]"\
+                        , {VEC(true,true,true)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , false \
+                        , true \
+                        , 0  \
+                        , name ) ;\
+idx1 = register_variable( name "[0,1]"\
+                        , {VEC(true,true,true)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , false\
+                        , true\
+                        , 1 \
+                        , name ) ; \
+idx2 = register_variable( name "[0,2]"\
+                        , {VEC(true,true,true)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , false \
+                        , true \
+                        , 2  \
+                        , name )  ; \
+idx3 = register_variable( name "[1,1]"\
+                        , {VEC(true,true,true)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , false \
+                        , true \
+                        , 3  \
+                        , name )  ; \
+idx4 = register_variable( name "[1,2]"\
+                        , {VEC(true,true,true)} \
+                        , false \
+                        , false \
+                        , bc \
+                        , false \
+                        , true \
+                        , 4  \
+                        , name )  ; \
+idx5 = register_variable( name "[2,2]"\
+                        , {VEC(true,true,true)} \
                         , false \
                         , false \
                         , bc \

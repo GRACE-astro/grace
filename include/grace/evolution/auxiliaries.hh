@@ -44,13 +44,16 @@ void compute_auxiliary_quantities() ;
  * \ingroup evol
  * @tparam eos_t Type of active EOS.
  * @param state The state to be used to compute auxiliaries.
+ * @param sstate The staggered state to be used to compute auxiliaries.
  * @param aux   The array where to store computed aux variables.
+ * @param saux  The array where to store computed staggered aux variables.
  */
 template< typename eos_t >
 void compute_auxiliary_quantities(
       grace::var_array_t<GRACE_NSPACEDIM>& state
     , grace::staggered_variable_arrays_t& sstate
     , grace::var_array_t<GRACE_NSPACEDIM>& aux 
+    , grace::staggered_variable_arrays_t& saux
 ) ; 
 //*****************************************************************************************************
 // Explicit template instantiation
@@ -59,7 +62,8 @@ extern template                                                         \
 void compute_auxiliary_quantities<EOS>(                                 \
                            grace::var_array_t<GRACE_NSPACEDIM>&         \
                          , grace::staggered_variable_arrays_t&          \
-                         , grace::var_array_t<GRACE_NSPACEDIM>& aux )
+                         , grace::var_array_t<GRACE_NSPACEDIM>&         \
+                         , grace::staggered_variable_arrays_t& )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE

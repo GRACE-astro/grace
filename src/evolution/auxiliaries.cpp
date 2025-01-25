@@ -47,6 +47,9 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
 #endif
+#ifdef GRACE_ENABLE_BSSN_METRIC
+#include <grace/physics/bssn.hh>
+#endif 
 #include <grace/physics/eos/eos_types.hh>
 
 #include <Kokkos_Core.hpp>  
@@ -57,13 +60,14 @@ namespace grace {
 void compute_auxiliary_quantities() {
     auto& state = grace::variable_list::get().getstate() ; 
     auto& aux   = grace::variable_list::get().getaux()   ;
+    auto& saux   = grace::variable_list::get().getstaggeredaux()   ;
     auto& sstate = grace::variable_list::get().getstaggeredstate() ; 
     auto const eos_type = grace::get_param<std::string>("eos", "eos_type") ;
     if( eos_type == "hybrid" ) {
         auto const cold_eos_type = 
             grace::get_param<std::string>("eos", "cold_eos_type") ;
         if( cold_eos_type == "piecewise_polytrope" ) {
-            compute_auxiliary_quantities<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>(state,sstate,aux) ; 
+            compute_auxiliary_quantities<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>(state,sstate,aux,saux) ; 
         } else if ( cold_eos_type == "tabulated" ) {
             ERROR("Not implemented yet.") ;
         }
@@ -77,7 +81,8 @@ template< typename eos_t >
 void compute_auxiliary_quantities(
       grace::var_array_t<GRACE_NSPACEDIM>& state
     , grace::staggered_variable_arrays_t& sstate
-    , grace::var_array_t<GRACE_NSPACEDIM>& aux  ) 
+    , grace::var_array_t<GRACE_NSPACEDIM>& aux  
+    , grace::staggered_variable_arrays_t& saux) 
 {
     Kokkos::Profiling::pushRegion("Compute auxiliaries") ;
     GRACE_VERBOSE("Computing auxiliary quantities at iteration {}", grace::get_iteration()) ; 
@@ -91,6 +96,8 @@ void compute_auxiliary_quantities(
     
     int64_t nq = amr::get_local_num_quadrants() ;
 
+    auto& idx = grace::variable_list::get().getinvspacings() ;
+
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
@@ -101,6 +108,12 @@ void compute_auxiliary_quantities(
     #define GET_AUX
     #endif 
 
+    #ifdef GRACE_ENABLE_BSSN_METRIC
+    bssn_system_t
+        bssn_eq_system(state,aux,sstate) ; 
+    #endif 
+
+
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 
     parallel_for(GRACE_EXECUTION_TAG("EVOL","get_auxiliaries"), policy 
@@ -108,6 +121,21 @@ void compute_auxiliary_quantities(
     {
         GET_AUX ; 
     }) ; 
+    
+    #ifdef GRACE_ENABLE_BSSN_METRIC
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
+        corner_staggered_policy({VEC(ngz,ngz,ngz),0},{VEC(nx+1+ngz,ny+1+ngz,nz+1+ngz),nq}) ; 
+    parallel_for(GRACE_EXECUTION_TAG("EVOL","get_auxiliaries"), corner_staggered_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        bssn_eq_system.template compute_constraint_violations<2>(
+            saux.corner_staggered_fields, 
+            {idx(0,q),idx(1,q),idx(2,q)}, 
+            VEC(i,j,k), 
+            q) ; 
+ 
+    }) ; 
+    #endif 
 
     #undef GET_AUX
     #if 0
@@ -178,7 +206,8 @@ template                                                                \
 void compute_auxiliary_quantities<EOS>(                                 \
                            grace::var_array_t<GRACE_NSPACEDIM>&         \
                          , grace::staggered_variable_arrays_t&          \
-                         , grace::var_array_t<GRACE_NSPACEDIM>& aux )
+                         , grace::var_array_t<GRACE_NSPACEDIM>&         \
+                         , grace::staggered_variable_arrays_t& ) 
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE

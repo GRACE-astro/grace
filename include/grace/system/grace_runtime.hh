@@ -59,13 +59,31 @@ class grace_runtime_impl_t
  private:
     /* Volume output */
     std::set<std::string> _cell_volume_output_scalar_vars ;
+    std::set<std::string> _corner_volume_output_scalar_vars ;
     std::set<std::string> _cell_volume_output_vector_vars ;
+    std::set<std::string> _corner_volume_output_vector_vars ;
+    std::set<std::string> _cell_volume_output_tensor_vars ;
+    std::set<std::string> _corner_volume_output_tensor_vars ;
+    std::set<std::string> _cell_volume_output_symm_tensor_vars ;
+    std::set<std::string> _corner_volume_output_symm_tensor_vars ;
     /* Surface output */
     std::set<std::string> _cell_plane_surface_output_scalar_vars ;
+    std::set<std::string> _corner_plane_surface_output_scalar_vars ;
     std::set<std::string> _cell_plane_surface_output_vector_vars ;
+    std::set<std::string> _corner_plane_surface_output_vector_vars ;
+    std::set<std::string> _cell_plane_surface_output_tensor_vars ;
+    std::set<std::string> _corner_plane_surface_output_tensor_vars ;
+    std::set<std::string> _cell_plane_surface_output_symm_tensor_vars ;
+    std::set<std::string> _corner_plane_surface_output_symm_tensor_vars ;
     /* Sphere surface output */
     std::set<std::string> _cell_sphere_surface_output_scalar_vars ;
+    std::set<std::string> _corner_sphere_surface_output_scalar_vars ;
     std::set<std::string> _cell_sphere_surface_output_vector_vars ;
+    std::set<std::string> _corner_sphere_surface_output_vector_vars ;
+    std::set<std::string> _cell_sphere_surface_output_tensor_vars ;
+    std::set<std::string> _corner_sphere_surface_output_tensor_vars ;
+    std::set<std::string> _cell_sphere_surface_output_symm_tensor_vars ;
+    std::set<std::string> _corner_sphere_surface_output_symm_tensor_vars ;
     /* Scalar output         */
     std::set<std::string> _scalar_output_minmax_vars   ; 
     std::set<std::string> _scalar_output_norm2_vars    ; 
@@ -183,8 +201,38 @@ class grace_runtime_impl_t
     }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_volume_output_scalar_vars() const {
+        return _corner_volume_output_scalar_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
     cell_volume_output_vector_vars() const {
         return _cell_volume_output_vector_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_volume_output_vector_vars() const {
+        return _corner_volume_output_vector_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    cell_volume_output_tensor_vars() const {
+        return _cell_volume_output_tensor_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_volume_output_tensor_vars() const {
+        return _corner_volume_output_tensor_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    cell_volume_output_symm_tensor_vars() const {
+        return _cell_volume_output_symm_tensor_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_volume_output_symm_tensor_vars() const {
+        return _corner_volume_output_symm_tensor_vars; 
     }
 
 
@@ -427,8 +475,12 @@ class grace_runtime_impl_t
         auto out_cell_vars_sphere_surface = 
             params["IO"]["sphere_surface_output_cell_variables"].as<std::vector<std::string>>() ; 
 
-        auto const add_to_scalar_or_vector_list = 
-            [&] ( std::vector<std::string> const& in_vars, std::set<std::string>& svars, std::set<std::string>& vvars)
+        auto const add_to_scalar_vector_or_tensor_list = 
+            [&] ( 
+                std::vector<std::string> const& in_vars, 
+                std::set<std::string>& svars, std::set<std::string>& ssvars,
+                std::set<std::string>& vvars, std::set<std::string>& svvars,
+                std::set<std::string>& tvars, std::set<std::string>& stvars )
         {
             for( auto const& x: in_vars ) {
                 int err ; 
@@ -437,23 +489,47 @@ class grace_runtime_impl_t
                     GRACE_WARN("Variable {} requested for output is not registered.", x) ; 
                 } else {
                     if( props.is_vector ) {
-                        vvars.insert(props.name) ; 
+                        if ( props.staggering == var_staggering_t::CELL_CENTER ) {
+                            vvars.insert(props.name) ; 
+                        } else if ( props.staggering == var_staggering_t::CORNER ) {
+                            svvars.insert(props.name) ;
+                        } else {
+                            GRACE_WARN("Variable {}'s staggering is not supported for output.", x) ;
+                        }
+                        
+                    } else if ( props.is_tensor ) {
+                        if ( props.staggering == var_staggering_t::CELL_CENTER ) {
+                            tvars.insert(props.name) ; 
+                        } else if ( props.staggering == var_staggering_t::CORNER ) {
+                            stvars.insert(props.name) ;
+                        } else {
+                            GRACE_WARN("Variable {}'s staggering is not supported for output.", x) ;
+                        }
                     } else {
-                        svars.insert(x) ; 
+                        if ( props.staggering == var_staggering_t::CELL_CENTER ) {
+                            svars.insert(x) ; 
+                        } else if ( props.staggering == var_staggering_t::CORNER ) {
+                            ssvars.insert(x) ;
+                        } else {
+                            GRACE_WARN("Variable {}'s staggering is not supported for output.", x) ;
+                        }
                     }
                 }
             } 
         } ;
 
-        add_to_scalar_or_vector_list(out_cell_vars_volume,
-                                    _cell_volume_output_scalar_vars,
-                                    _cell_volume_output_vector_vars) ; 
-        add_to_scalar_or_vector_list(out_cell_vars_plane_surface,
-                                    _cell_plane_surface_output_scalar_vars,
-                                    _cell_plane_surface_output_vector_vars) ; 
-        add_to_scalar_or_vector_list(out_cell_vars_sphere_surface,
-                                    _cell_sphere_surface_output_scalar_vars,
-                                    _cell_sphere_surface_output_vector_vars) ; 
+        add_to_scalar_vector_or_tensor_list(out_cell_vars_volume,
+                                           _cell_volume_output_scalar_vars, _corner_volume_output_scalar_vars,
+                                           _cell_volume_output_vector_vars, _corner_volume_output_vector_vars,
+                                           _cell_volume_output_symm_tensor_vars, _corner_volume_output_symm_tensor_vars) ; 
+        add_to_scalar_vector_or_tensor_list(out_cell_vars_plane_surface,
+                                    _cell_plane_surface_output_scalar_vars, _cell_plane_surface_output_scalar_vars,
+                                    _cell_plane_surface_output_vector_vars, _corner_plane_surface_output_vector_vars,
+                                    _cell_plane_surface_output_symm_tensor_vars, _corner_plane_surface_output_symm_tensor_vars) ; 
+        add_to_scalar_vector_or_tensor_list(out_cell_vars_sphere_surface,
+                                    _cell_sphere_surface_output_scalar_vars, _cell_sphere_surface_output_scalar_vars,
+                                    _cell_sphere_surface_output_vector_vars, _corner_sphere_surface_output_vector_vars,
+                                    _cell_sphere_surface_output_symm_tensor_vars, _corner_sphere_surface_output_symm_tensor_vars) ; 
 
         /* Define helper lambda */
         auto const check_vars_exist_and_insert = 
