@@ -151,7 +151,8 @@ struct bssn_system_t
                        , double const dt 
                        , double const dtfact
                        , double const t  
-                       , double const x ) const
+                       , double const x 
+                       , double const epsdiss ) const
     {
         auto& cstate = this->_sstate.corner_staggered_fields    ;
         auto& cstate_new = sstate_new.corner_staggered_fields    ;
@@ -163,13 +164,12 @@ struct bssn_system_t
         std::array<std::array<double,4>,4> Tmunu {{{0},{0},{0},{0}}} ; 
         double const k1 = 0.1; double const eta = 0.25; // FIXME 
         bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx,k1,eta)  ;   
-        #if 0
+        #if 1
         // FIXME: Apply Kreiss-Olinger dissipation
         int ii = 0 ; 
-        std::array<double, 3> dx { 1/idx[0], 1/idx[1], 1/idx[2] } ;  
-        for( int ivar=PHI_; ivar<= BZ_; ++ivar ) {
+        for( int ivar=GTXX_; ivar<= ATZZ_; ++ivar ) {
             update[ii] += apply_kreiss_olinger_dissipation<der_order,5>(
-                VEC(i,j,k),ivar,q,cstate,dx,0.1
+                VEC(i,j,k),ivar,q,cstate,idx,epsdiss
             ) ; 
             ii++ ; 
         }
@@ -194,12 +194,12 @@ struct bssn_system_t
         cstate_new(VEC(i,j,k),PHI_,q) += dt * dtfact * update[PHIL] ;
         cstate_new(VEC(i,j,k),K_,q)   += dt * dtfact * update[KL]   ;
         int ww = 0 ; 
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
-        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++;
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++; // XX
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++; // XY 
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++; // XZ 
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++; // YY 
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++; // YZ 
+        cstate_new(VEC(i,j,k),GTXX_+ww,q) += dt * dtfact * update[GTXXL+ww] ; ww++; // ZZ 
         ww = 0 ; 
         // XX 
         cstate_new(VEC(i,j,k),ATXX_+ww,q) += dt * dtfact * update[ATXXL+ww] ; ww++;
@@ -218,15 +218,15 @@ struct bssn_system_t
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ww++;
         cstate_new(VEC(i,j,k),GAMMAX_+ww,q) += dt * dtfact * update[GAMMAXL+ww] ; ww++;
 
-        cstate_new(VEC(i,j,k),ALP_,q) = 1. ; // += dt * dtfact * update[ALPL] ; 
+        cstate_new(VEC(i,j,k),ALP_,q)  += dt * dtfact * update[ALPL] ; 
 
-        cstate_new(VEC(i,j,k),BETAX_,q) = 0 ; //+= dt * dtfact * update[BETAXL] ;
-        cstate_new(VEC(i,j,k),BETAY_,q) = 0 ; //+= dt * dtfact * update[BETAYL] ;
-        cstate_new(VEC(i,j,k),BETAZ_,q) = 0 ; //+= dt * dtfact * update[BETAZL] ;
+        cstate_new(VEC(i,j,k),BETAX_,q) += dt * dtfact * update[BETAXL] ;
+        cstate_new(VEC(i,j,k),BETAY_,q) += dt * dtfact * update[BETAYL] ;
+        cstate_new(VEC(i,j,k),BETAZ_,q) += dt * dtfact * update[BETAZL] ;
 
-        cstate_new(VEC(i,j,k),BX_,q) = 0 ; //+= dt * dtfact * update[BXL] ;
-        cstate_new(VEC(i,j,k),BY_,q) = 0 ; //+= dt * dtfact * update[BYL] ;
-        cstate_new(VEC(i,j,k),BZ_,q) = 0 ; //+= dt * dtfact * update[BZL] ;
+        cstate_new(VEC(i,j,k),BX_,q) += dt * dtfact * update[BXL] ;
+        cstate_new(VEC(i,j,k),BY_,q) += dt * dtfact * update[BYL] ;
+        cstate_new(VEC(i,j,k),BZ_,q) += dt * dtfact * update[BZL] ;
 
         // Apply algebraic constraints 
         impose_algebraic_constraints(cstate_new,VEC(i,j,k),q) ; 

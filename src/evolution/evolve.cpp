@@ -152,7 +152,7 @@ void evolve_impl() {
         ) ;
         // step 1: state_p -> u^1 = u^n + dt L( u^n )
         advance_substep<eos_t>(
-            t,dt,0.5,
+            t,dt,1.0,
             state_p,state,aux,
             sstate_p,sstate,saux,
             idx,dx,cvol,fsurf) ; 
@@ -312,6 +312,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     #ifdef GRACE_ENABLE_BSSN_METRIC
     bssn_system_t
         bssn_eq_system(old_state,aux,staggered_old_state) ; 
+    double const epsdiss = grace::get_param<double>("bssn","epsdiss") ;
     #endif 
     //**************************************************************************************************/
     device_event_t x_flux_finished{}, y_flux_finished{}, z_flux_finished{}, sources_finished{} ; 
@@ -395,7 +396,8 @@ void advance_substep( double const t, double const dt, double const dtfact
                 dt,
                 dtfact, 
                 t,
-                pcoords(VEC(i+ngz,j+ngz,k+ngz),0,q)
+                pcoords(VEC(i+ngz,j+ngz,k+ngz),0,q),
+                epsdiss
             ) ; 
         }
     ) ; 

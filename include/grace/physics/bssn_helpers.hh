@@ -133,7 +133,7 @@ adm_to_bssn(
     }
     
     // Compute trace of extrinsic curvature 
-    double const K = adm_metric.trace_sym2tens_lower(__Kij) ; 
+    double const K =  adm_metric.trace_sym2tens_lower(__Kij) ;  //FIXME LINEAR GW 
 
     #pragma unroll 6
     for( int icomp=0; icomp<6; ++icomp ) {

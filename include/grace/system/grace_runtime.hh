@@ -132,6 +132,16 @@ class grace_runtime_impl_t
     size_t GRACE_ALWAYS_INLINE 
     iteration() const { return _iter ; }
 
+    void GRACE_ALWAYS_INLINE
+    set_iteration(size_t const& _new_iter) {
+        _iter = _new_iter ; 
+    }
+
+    void GRACE_ALWAYS_INLINE 
+    set_time(double const& _new_time) {
+        _time = _new_time ; 
+    }
+
     void GRACE_ALWAYS_INLINE  
     increment_iteration() {
         _iter++ ; 

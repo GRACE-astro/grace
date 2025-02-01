@@ -193,6 +193,10 @@ void initialize(int& argc, char* argv[])
     #ifdef GRACE_SPHERICAL_COORDINATES
     GRACE_INFO("GRACE running with spherical coordinates.");
     #endif 
+    // Here we initialize the checkpoint handler and 
+    // have it autodetect existing checkpoints.
+    // If they are found the initialization of the grid 
+    // is taken over by the checkpoint handler.
     GRACE_INFO("Inititalizing connectivity object...") ; 
     grace::amr::connectivity::initialize() ; 
     grace::amr::forest::initialize()       ;

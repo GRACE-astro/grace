@@ -215,6 +215,13 @@ class connectivity_impl_t
     connectivity_impl_t() ; 
     //**************************************************************************************************
     /**
+     * @brief Construct the connectivity from an existing <code>p4est_connectivity_t</code>
+     * 
+     * @param conn The existing <code>p4est_connectivity_t</code>
+     */
+    connectivity_impl_t(p4est_connectivity_t* conn): pconn_(conn) {} ; 
+    //**************************************************************************************************
+    /**
      * @brief Destroy the connectivity object
      * 
      * Only used by \code ~singleton_holder \endcode.
