@@ -50,6 +50,78 @@ std::filesystem::path inline get_filename(
 
 }
 
+void read_data_hdf5(
+    hid_t file_d,
+    hid_t dxpl, 
+    std::string const& dset_name,
+    grace::var_array_t<GRACE_NSPACEDIM>& data
+)
+{
+    /* Get the p4est pointer */
+    auto _p4est = grace::amr::forest::get().get() ; 
+    /* Get global number of quadrants and quadrant offset for this rank */
+    unsigned long const nq_glob = _p4est->global_num_quadrants ; 
+    unsigned long const local_quad_offset = _p4est->global_first_quadrant[rank] ;
+    /* Number of datapoints/quadrant */ 
+    unsigned long const npts_quad = EXPR(data.extent(0),*data.extent(1),*data.extent(2)) ;
+    /* Global dataset dimension */
+    unsigned long const dim_loc  = npts_quad * data.extent(GRACE_NSPACEDIM) * nq ; 
+    unsigned long const dim_glob = npts_quad * data.extent(GRACE_NSPACEDIM) * nq_glob ;
+
+    // If there are no variables return 
+    // FIXME if the code was somehow compiled with different variables than the code that wrote the checkpoint this is a bug! 
+    if (dim_glob == 0) return ; 
+
+    // Open the dataset
+    hid_t dset_id, space_id; 
+    HDF5_CALL(
+        dset_id, H5DOpen(file_id, dset_name.c_str(), H5P_DEFAULT)
+    ) ; 
+    HDF5_CALL(
+        space_id, H5Dget_space(dset_id)
+    ) ; 
+
+    // Get dataset dimensions
+    hsize_t dim[1] ; 
+    HDF5_CALL(
+        err, H5Sget_simple_extent_dims(space_id, dim, NULL)
+    ) ;
+
+    // Check that they match
+    ASSERT(dim[0] == dim_glob, "Dataset " << dset_name << " dimensions do not match: " << dim[0] << " != " << dim_glob) ;
+
+    // Select hyperslab for this rank's output
+    hid_t memspace_id ; 
+    hsize_t count[1] = {dim_loc} ;
+    hsize_t offset[1] = {local_quad_offset * npts_quad * data.extent(GRACE_NSPACEDIM)} ;
+     HDF5_CALL(memspace_id, H5Screate_simple(1, &count, NULL)) ; 
+    HDF5_CALL(
+        err, H5Sselect_hyperslab(space_id, H5S_SELECT_SET, offset, NULL, count, NULL)
+    ) ;
+
+    // Create property list for collective reading
+    hid_t plist; 
+    HDF5_CALL( plist,  H5Pcreate(H5P_DATASET_XFER) );
+    H5Pset_dxpl_mpio(plist, H5FD_MPIO_COLLECTIVE);
+
+    // Read data 
+    std::vector<double> buffer( dim_loc ) ;
+    HDF5_CALL(
+        err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, memspace_id, space_id, dxpl, buffer.data())
+    ) ;
+
+    // Copy data into array 
+    auto h_mirror = Kokkos::create_mirror_view(data) ; 
+
+    // Close everything
+    H5Sclose(memspace_id);
+    H5Sclose(space_id);
+    H5Dclose(dset_id);
+
+
+
+}
+
 void write_data_hdf5(
     hid_t file_id, 
     hid_t dxpl,
@@ -63,7 +135,7 @@ void write_data_hdf5(
     static constexpr unsigned int chunk_size = 128 ; 
     static constexpr unsigned int compression_level = 6 ;
 
-     /* Get the p4est pointer */
+    /* Get the p4est pointer */
     auto _p4est = grace::amr::forest::get().get() ; 
     /* Get global number of quadrants and quadrant offset for this rank */
     unsigned long const nq_glob = _p4est->global_num_quadrants ; 
@@ -76,7 +148,6 @@ void write_data_hdf5(
 
     // If there are no variables return 
     if (dim_glob == 0) return ; 
-
 
     /* Global space for dataset */
     hid_t space_id_glob ; 
