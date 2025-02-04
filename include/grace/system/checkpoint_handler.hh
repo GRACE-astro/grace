@@ -46,22 +46,22 @@ namespace grace {
 //*****************************************************************************************************
 class checkpoint_handler_impl_t 
 {
-    
+ public:
     //*****************************************************************************************************
     /**
      * @brief Save the current state to a checkpoint file.
      * 
      */
-    void save_checkpoint() const ; 
+    void save_checkpoint()  ; 
     //*****************************************************************************************************
 
     //*****************************************************************************************************
     /**
      * @brief Load the checkpoint corresponding to the given iteration.
      * 
-     * @param iter Iteration corresponding to the checkpoint being loaded. 
+     * @param iter Iteration corresponding to the checkpoint being loaded (if left default latest available is loaded). 
      */
-    void load_checkpoint(int64_t iter) const ; 
+    void load_checkpoint(int64_t iter = -1)  ; 
     //*****************************************************************************************************
 
     //*****************************************************************************************************
@@ -71,7 +71,7 @@ class checkpoint_handler_impl_t
      * This function searches for checkpoints in the 
      * directory specified by the parameter <code>checkpoint_dir</code>.
      */
-    void detect_checkpoints() const ; 
+    void detect_checkpoints()  ; 
     //*****************************************************************************************************
 
     //*****************************************************************************************************
@@ -84,18 +84,26 @@ class checkpoint_handler_impl_t
      * @return true If a checkpoint is needed
      * @return false If a checkpoint is not needed
      */
-    bool need_checkpoint() const ; 
+    bool need_checkpoint()  ; 
     //*****************************************************************************************************
 
+    //*****************************************************************************************************
+    /**
+     * @brief Check if a checkpoint exists.
+     * 
+     * @return true If a checkpoint exists
+     * @return false If no checkpoint exists
+     */
+    bool have_checkpoint() const { return have_checkpoint_ ; }
+    //*****************************************************************************************************
  private:
 
     //*****************************************************************************************************
     /**
-     * @brief Delete a checkpoint.
+     * @brief Delete the oldest checkpoint.
      * 
-     * @param iter Iteration corresponding to the checkpoint being deleted. 
      */
-    void delete_checkpoint(int64_t iter) const ;
+    void delete_checkpoint()  ;
     //*****************************************************************************************************
 
     //*****************************************************************************************************
@@ -106,25 +114,42 @@ class checkpoint_handler_impl_t
     double checkpoint_wtime_interval     ; //!< Walltime interval between checkpoints
     int64_t checkpoint_iter_interval     ; //!< Iteration interval between checkpoints
     double checkpoint_time_interval      ; //!< Simulation time interval between checkpoints
+    double next_checkpoint_time          ; //!< Simulation time at which the next checkpoint should be saved
+    int64_t next_checkpoint_iter         ; //!< Iteration at which the next checkpoint should be saved
+    double next_checkpoint_wtime         ; //!< Walltime at which the next checkpoint should be saved
+    bool have_checkpoint_                ; //!< Whether we have a checkpoint to load at init() 
     //*****************************************************************************************************
 
     //*****************************************************************************************************
+    /**
+     * @brief Construct a new checkpoint_handler_impl_t object
+     * 
+     */
     checkpoint_handler_impl_t() ;
     //*****************************************************************************************************
 
     //*****************************************************************************************************
-    ~checkpoint_handler_impl_t() = default ;
+    /**
+     * @brief Destroy the checkpoint_handler_impl_t object
+     * NB: This saves a checkpoint! 
+     */
+    ~checkpoint_handler_impl_t() ;
     //*****************************************************************************************************
 
     //*****************************************************************************************************
     friend class utils::singleton_holder<checkpoint_handler_impl_t, memory::default_create> ;
     friend class memory::new_delete_creator<checkpoint_handler_impl_t, memory::new_delete_allocator> ;
     //*****************************************************************************************************
-    static constexpr size_t longevity = ; //!< Schedule destruction
+    static constexpr size_t longevity = GRACE_CHECKPOINT_HANDLER ; //!< Schedule destruction
     //*****************************************************************************************************
 }   ;
 //*****************************************************************************************************
 //*****************************************************************************************************
+/**
+ * @brief The checkpoint handler of GRACE.
+ * 
+ */
+using checkpoint_handler = utils::singleton_holder<checkpoint_handler_impl_t, memory::default_create> ;
 
 } // namespace grace 
 

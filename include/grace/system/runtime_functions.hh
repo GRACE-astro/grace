@@ -73,6 +73,20 @@ void set_timestep(double const& _new_dt ) ;
  * @return double The timestep size.
  */
 double get_timestep() ;
+
+/**
+ * @brief Set the iteration count
+ * 
+ * @param new_iter New iteration
+ */
+void set_iteration(size_t const new_iter) ;
+
+/**
+ * @brief Set the simulation time 
+ * 
+ * @param new_time New time
+ */
+void set_simulation_time(double const new_time) ;
 }
 
 #endif 

@@ -44,6 +44,7 @@
 #include <grace/profiling/profiling_runtime.hh>
 #include <grace/utils/device/device_stream_pool.hh>
 #include <grace/errors/error.hh>
+#include <grace/system/checkpoint_handler.hh>
 
 #include <grace/parallel/mpi_wrappers.hh>
 
@@ -53,6 +54,10 @@
 #include <grace/IO/vtk_output_auxiliaries.hh>
 
 #include <grace/physics/eos/eos_storage.hh>
+
+#include <grace/evolution/initial_data.hh>
+#include <grace/evolution/auxiliaries.hh>
+#include <grace/amr/grace_amr.hh>
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -197,17 +202,24 @@ void initialize(int& argc, char* argv[])
     // have it autodetect existing checkpoints.
     // If they are found the initialization of the grid 
     // is taken over by the checkpoint handler.
-    GRACE_INFO("Inititalizing connectivity object...") ; 
-    grace::amr::connectivity::initialize() ; 
-    grace::amr::forest::initialize()       ;
-    grace::amr::detail::_nx = grace::config_parser::get()["amr"]["npoints_block_x"].as<int64_t>() ;
-    grace::amr::detail::_ny = grace::config_parser::get()["amr"]["npoints_block_y"].as<int64_t>() ;
-    grace::amr::detail::_nz = grace::config_parser::get()["amr"]["npoints_block_z"].as<int64_t>() ;
-    grace::amr::detail::_ngz = grace::config_parser::get()["amr"]["n_ghostzones"].as<int>() ;
-    GRACE_INFO("Allocating memory...");
-    grace::variable_list::initialize() ;
-    grace::runtime::initialize() ; 
-    grace::coordinate_system::initialize() ;
+    bool started_from_checkpoint = false ; 
+    checkpoint_handler::initialize() ; 
+    if( checkpoint_handler::get().have_checkpoint() ) {
+        checkpoint_handler::get().load_checkpoint() ; 
+        started_from_checkpoint = true ; 
+    } else {
+        GRACE_INFO("Inititalizing connectivity object...") ; 
+        grace::amr::connectivity::initialize() ; 
+        grace::amr::forest::initialize()       ;
+        grace::amr::detail::_nx = grace::config_parser::get()["amr"]["npoints_block_x"].as<int64_t>() ;
+        grace::amr::detail::_ny = grace::config_parser::get()["amr"]["npoints_block_y"].as<int64_t>() ;
+        grace::amr::detail::_nz = grace::config_parser::get()["amr"]["npoints_block_z"].as<int64_t>() ;
+        grace::amr::detail::_ngz = grace::config_parser::get()["amr"]["n_ghostzones"].as<int>() ;
+        GRACE_INFO("Allocating memory...");
+        grace::variable_list::initialize() ;
+        grace::runtime::initialize() ; 
+        grace::coordinate_system::initialize() ;    
+    }
     GRACE_INFO("Filling coordinate arrays...") ;
     grace::fill_cell_coordinates(
             grace::variable_list::get().getcoords()
@@ -217,9 +229,34 @@ void initialize(int& argc, char* argv[])
         ,   grace::variable_list::get().getstaggeredcoords() ) ;
     grace::IO::detail::init_auxiliaries()  ;
     grace::eos::initialize() ;
-    GRACE_INFO("Initialization done.");
+    /**********************************************************************************/
+    /*                                 Initial data                                   */
+    /**********************************************************************************/
+    if ( ! started_from_checkpoint ) {
+        GRACE_INFO("Setting initial data.") ; 
+        grace::set_initial_data() ; 
+        bool regrid_at_postinitial = grace::get_param<bool>("amr","regrid_at_postinitial") ; 
+        int postinitial_regrid_depth = 
+            grace::get_param<int>("amr","postinitial_regrid_depth") ;
+        bool reset_id_after_regrid = 
+            grace::get_param<bool>("evolution","reset_id_after_regrid") ; 
+        /**********************************************************************************/
+        /*                                 Post-Initial data                              */
+        /**********************************************************************************/
+        if( regrid_at_postinitial ) {
+            GRACE_INFO("Performing initial regrid.") ;
+            for( int ilev=0; ilev<postinitial_regrid_depth; ++ilev){
+                GRACE_INFO("Regrid level {}.", ilev+1) ;
+                grace::amr::regrid() ;  
+                grace::amr::apply_boundary_conditions() ; 
+                if (reset_id_after_regrid) {
+                    grace::set_initial_data() ; 
+                }
+            }
+        }
+    }
+    GRACE_INFO("Initialization complete.");
     GRACE_INFO("GRACE running on {} backend", GRACE_BACKEND) ; 
-    //GRACE_INFO("GRACE running on {} total devices.", Kokkos::num_devices() ) ; 
     GRACE_INFO("Rank {} mapped to device_id {}", parallel::mpi_comm_rank(), Kokkos::device_id() ) ;
 }
 
