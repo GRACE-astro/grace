@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
         {
             grace::amr::regrid() ;  
             grace::amr::apply_boundary_conditions() ;
-	    grace::compute_auxiliary_quantities() ;
+	        grace::compute_auxiliary_quantities() ;
         }
         if(    (volume_output_every>0) 
            or  (plane_surface_output_every>0) 

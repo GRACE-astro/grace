@@ -43,6 +43,7 @@
 #include <grace/data_structures/variables.hh>
 #include <grace/system/grace_runtime.hh>
 #include <grace/system/runtime_functions.hh>
+#include <grace/evolution/auxiliaries.hh>
 
 #include <grace/amr/p4est_headers.hh>
 
@@ -618,6 +619,10 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     /* Cleanup                                                            */
     /**********************************************************************/
     HDF5_CALL(err,H5Pclose(dxpl)) ;
+    /**********************************************************************/
+    /* Compute auxiliary quantities                                       */
+    /**********************************************************************/
+    grace::compute_auxiliary_quantities() ;
     /**********************************************************************/
     next_checkpoint_time += grace::get_simulation_time() ; 
     next_checkpoint_iter += grace::get_iteration() ;

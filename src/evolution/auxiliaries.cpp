@@ -103,7 +103,7 @@ void compute_auxiliary_quantities(
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,state,aux,sstate) ; 
     #define GET_AUX \
-    //grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q)
+    grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q)
     #else 
     #define GET_AUX
     #endif 
@@ -128,11 +128,11 @@ void compute_auxiliary_quantities(
     parallel_for(GRACE_EXECUTION_TAG("EVOL","get_auxiliaries"), corner_staggered_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
-        bssn_eq_system.template compute_constraint_violations<2>(
-            saux.corner_staggered_fields, 
-            {idx(0,q),idx(1,q),idx(2,q)}, 
-            VEC(i,j,k), 
-            q) ; 
+        //bssn_eq_system.template compute_constraint_violations<2>(
+        //    saux.corner_staggered_fields, 
+        //    {idx(0,q),idx(1,q),idx(2,q)}, 
+        //    VEC(i,j,k), 
+        //    q) ; 
  
     }) ; 
     #endif 

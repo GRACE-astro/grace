@@ -40,6 +40,7 @@
 #include <grace/physics/id/tov.hh>
 #include <grace/physics/id/gauge_wave.hh>
 #include <grace/physics/id/linear_gw.hh>
+#include <grace/physics/id/robust_stability.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
@@ -52,6 +53,7 @@
 
 #include <grace/config/config_parser.hh>
 #include <Kokkos_Core.hpp>
+#include <Kokkos_Random.hpp> 
 
 #include <string>
 
@@ -336,8 +338,14 @@ void set_grmhd_initial_data() {
         set_grmhd_initial_data_impl<eos_t, linear_wave_id_t<eos_t>>(
             A, d
         ) ; 
-    } else {
-        ERROR("Unrecognized id_type " << id_type ) ; 
+    } else if ( id_type == "robust_stability_test" ) {
+        auto const rho = get_param<double>("grmhd", "robust_stability_rho") ; 
+        using gen_t = Kokkos::Random_XorShift64_Pool<grace::default_execution_space> ;
+        gen_t gen(12345) ;
+        set_grmhd_initial_data_impl<eos_t, robust_stability_test_id_t<eos_t,gen_t>>(
+            gen, rho
+        ) ;
+    } else {    ERROR("Unrecognized id_type " << id_type ) ; 
     }
     set_conservs_from_prims() ;
 }

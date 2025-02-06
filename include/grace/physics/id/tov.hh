@@ -104,8 +104,8 @@ struct tov_id_t {
         Kokkos::View<double *, grace::default_space> massl("TOV_mass", N_POINTS) ; 
         Kokkos::View<double *, grace::default_space> pressl ("TOV_press", N_POINTS) ; 
         Kokkos::View<double *, grace::default_space> nul ("TOV_nu", N_POINTS) ; 
-        Kokkos::View<double *, grace::default_space> rl ("TOV_nu", N_POINTS) ; 
-        Kokkos::View<double *, grace::default_space> drl ("TOV_nu", N_POINTS) ; 
+        Kokkos::View<double *, grace::default_space> rl ("TOV_radii", N_POINTS) ; 
+        Kokkos::View<double *, grace::default_space> drl ("TOV_radii_spacing", N_POINTS) ; 
 
         
         GRACE_INFO("In TOV setup.") ; 
@@ -128,15 +128,17 @@ struct tov_id_t {
             massl(0) = 0. ;
             pressl(0) = _pressC_loc ; 
             nul(0)  = 0. ; 
+        
             size_t ii = 0 ;
             while(true) {
                 solver.advance_step( cback ) ; 
-                ii++ ; 
+                drl(ii) = solver.dt          ; 
+                ii++                         ; 
                 massl(ii) = solver.state[0]  ; 
                 pressl(ii) = solver.state[1] ;
                 nul(ii) = solver.state[2]    ;
-                rl(ii) = solver.t ; 
-                drl(ii) = solver.dt ; 
+                rl(ii) = solver.t            ; 
+                
                 if ( solver.state[1] < 1e-12 ) {
                     break ; 
                 } else if ( solver.state[1] < 1e-10  and not stored ) {
@@ -189,7 +191,6 @@ struct tov_id_t {
         nu = nul ; 
         r = rl   ;
         dr = drl   ;
-
     } 
     //**************************************************************************************************
     //**************************************************************************************************
@@ -212,15 +213,15 @@ struct tov_id_t {
         #else 
         double const z = 0. ; 
         #endif 
-        double const r = Kokkos::sqrt(EXPR(
+        double const rL = Kokkos::max(Kokkos::sqrt(EXPR(
               math::int_pow<2>(x),
             + math::int_pow<2>(y),
             + math::int_pow<2>(z)
-        )) ; 
+        )),  1e-45) ; 
 
         // This returns: ADM mass, pressure and metric potential
         // at this radius.
-        auto sol = get_solution(r) ;
+        auto sol = get_solution(rL) ;
 
         grmhd_id_t id ; 
 
@@ -241,51 +242,25 @@ struct tov_id_t {
             id.ye    = ye_atm    ;
             id.press = _press_atm ; 
         }
+
+        double const mL = sol[0] ; 
+        double const nuL = sol[2] ; 
+        
         id.vx = 0 ; id.vy = 0; id.vz = 0;
+        
         /* Set the metric */
         id.alp   = 
-            Kokkos::exp(sol[2]) ; 
+            Kokkos::exp(nuL) ; 
         id.betax = 0. ; 
         id.betay = 0. ; 
         id.betaz = 0. ; 
 
-        double const f1 = Kokkos::sqrt(math::int_pow<2>(x) + math::int_pow<2>(y)) ;
-
-        std::array<std::array<double,3>,3> gij {
-            std::array<double,3>{1./(1. - 2*sol[0]/r), 0, 0},
-            std::array<double,3>{0,r*r,0},
-            std::array<double,3>{0,0,(f1*f1)}
-        } ; 
-
-        std::array<std::array<double,3>,3> gpij {
-            std::array<double,3>{0,0,0},
-            std::array<double,3>{0,0,0},
-            std::array<double,3>{0,0,0}
-        } ;
-         
-        std::array<std::array<double,3>,3> J { 
-            std::array<double,3>{x/r, y/r, z/r},
-            std::array<double,3>{x*z/(f1*r*r), y*z/(f1*r*r), -f1/(r*r)},
-            std::array<double,3>{-y/(f1*f1), x/(f1*f1), 0.}
-        } ; 
-
-        for( int ii=0; ii<3; ++ii){
-            for( int jj=0; jj<3; ++jj){
-                for( int ll=0; ll<3; ++ll ) {
-                    for( int kk=0; kk<3; ++kk) {
-                        gpij[ii][jj] += 
-                            J[ll][ii] * J[kk][jj] * gij[ll][kk] ; 
-                    }
-                }
-            }
-        }
-
-        id.gxx = gpij[0][0] ;
-        id.gxy = gpij[0][1] ;
-        id.gxz = gpij[0][2] ;
-        id.gyy = gpij[1][1] ;
-        id.gyz = gpij[1][2] ;
-        id.gzz = gpij[2][2] ;
+        id.gxx = (rL*rL*rL - 2*mL*(y*y + z*z))/(rL*rL*(-2*mL + rL));
+        id.gxy = (2*mL*x*y)/(rL*rL*(-2*mL + rL));
+        id.gxz = (2*mL*x*z)/(rL*rL*(-2*mL + rL));
+        id.gyy = (rL*rL*rL - 2*mL*(x*x + z*z))/(rL*rL*(-2*mL + rL));
+        id.gyz = (2*mL*y*z)/(rL*rL*(-2*mL + rL));
+        id.gzz = (rL*rL*rL - 2*mL*(x*x + y*y))/(rL*rL*(-2*mL + rL));
 
         id.kxx = 0. ;
         id.kxy = 0. ;
@@ -293,6 +268,7 @@ struct tov_id_t {
         id.kyy = 0. ;
         id.kyz = 0. ;
         id.kzz = 0. ;
+        
         return std::move(id); 
     }
     //**************************************************************************************************
@@ -305,7 +281,7 @@ struct tov_id_t {
             return std::array<double,3>{
                 _M, 
                 0,
-                Kokkos::log(Kokkos::sqrt(1.-2*_M/R)) 
+                0.5*Kokkos::log(1.-2*_M/R)
             } ; 
         } else { 
             auto out = interp_solution(R) ; 
@@ -314,7 +290,7 @@ struct tov_id_t {
                 auto const phi = 0.5 * ( 1 + Kokkos::tanh((R-_transition_radius)/(w))) ; 
                 out[0] = phi * out[0] + ( 1. - phi ) * _M ; 
                 out[1] = phi * out[1] ;
-                out[2] = phi * out[2] + ( 1. - phi ) * Kokkos::log(Kokkos::sqrt(1.-2*_M/R));
+                out[2] = phi * out[2] + ( 1. - phi ) * 0.5*Kokkos::log(1.-2*_M/R);
             } 
             return out ; 
         } 

@@ -159,9 +159,9 @@ struct bssn_system_t
 
         std::array<double, GRACE_NSPACEDIM> idx{ VEC(_idx(0,q), _idx(1,q), _idx(2,q))} ;  
 
-        //auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
+        auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
         // FIXME: Tmunu is set to zero because we are testing vacuum 
-        std::array<std::array<double,4>,4> Tmunu {{{0},{0},{0},{0}}} ; 
+        //std::array<std::array<double,4>,4> Tmunu {{{0},{0},{0},{0}}} ; 
         double const k1 = 0.1; double const eta = 0.25; // FIXME 
         bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx,k1,eta)  ;   
         #if 1
@@ -243,10 +243,10 @@ struct bssn_system_t
         using namespace grace  ; 
         using namespace Kokkos ;
 
-        std::array<std::array<double,4>,4> Tdd {{{0},{0},{0},{0}}} ; 
-
+        //std::array<std::array<double,4>,4> Tdd {{{0},{0},{0},{0}}} ; 
+        auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
         auto constr_loc = 
-                    compute_bssn_constraint_violations<der_order>(VEC(i,j,k),q,this->_sstate.corner_staggered_fields,Tdd,idx) ;
+                    compute_bssn_constraint_violations<der_order>(VEC(i,j,k),q,this->_sstate.corner_staggered_fields,Tmunu,idx) ;
 
         saux(VEC(i,j,k),HAM_ ,q) = constr_loc[0] ;
         saux(VEC(i,j,k),MOMX_,q) = constr_loc[1] ;

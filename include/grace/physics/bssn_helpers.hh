@@ -106,7 +106,6 @@ adm_to_bssn(
     VEC(int i, int j, int k), int q
 )
 {
-    #if 1
     std::array<double,6> const __g {
         id.gxx,id.gxy,id.gxz,id.gyy,id.gyz,id.gzz
     } ;
@@ -146,19 +145,6 @@ adm_to_bssn(
     state(VEC(i,j,k),BETAX_,q) = id.betax ; 
     state(VEC(i,j,k),BETAY_,q) = id.betay ; 
     state(VEC(i,j,k),BETAZ_,q) = id.betaz ; 
-    #else 
-    state(VEC(i,j,k),PHI_,q)  = 1 ;
-    state(VEC(i,j,k),K_  ,q) = 0 ;
-    for( int i=0; i<6; ++i){
-        state(VEC(i,j,k),GTXX_+i,q)  = 0 ;
-        state(VEC(i,j,k),ATXX_+i,q)  = 0 ;
-    } 
-    state(VEC(i,j,k),GTXX_,q)  = 1 ;
-    state(VEC(i,j,k),GTYY_,q)  = 1 ;
-    state(VEC(i,j,k),GTZZ_,q)  = 1 ;
-
-   
-    #endif
     // d/dt beta = 0 at initial time 
     state(VEC(i,j,k),BX_,q) = state(VEC(i,j,k),BY_,q) = state(VEC(i,j,k),BZ_,q) = 0 ; 
 }
@@ -229,7 +215,8 @@ static void init_bssn_metric( id_kernel_t id_kernel
     coord_array_t<GRACE_NSPACEDIM> pcoords ; 
     grace::fill_physical_coordinates(pcoords, {VEC(true,true,true)}) ;
     id_kernel._pcoords = pcoords ; 
- 
+    
+    Kokkos::View<double*> test("test",1) ; 
     /**************************************/
     /* First loop fill everything execpt  */
     /* for the Gammas                     */

@@ -107,7 +107,7 @@ void find_stable_timestep_impl() {
     #define GET_CMAX \
     grmhd_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
     #endif 
-
+    
     double dt_local ; 
 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
@@ -117,7 +117,7 @@ void find_stable_timestep_impl() {
                    , policy
                    , KOKKOS_LAMBDA(VEC(int const& i, int const& j, int const& k), int const& q, double& dtmax)
     {
-        double const cmax = GET_CMAX; 
+        double const cmax = 1; // FIXME 
         double L    ; 
         #ifndef GRACE_CARTESIAN_COORDINATES
         #ifdef GRACE_3D 

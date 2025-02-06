@@ -111,7 +111,7 @@ get_metric_array_cell_center(
     #pragma unroll 6 
     for( int i=0; i<6; ++i ) {
         auto sview = Kokkos::subview(state, VEC(ALL(),ALL(),ALL()), gamma_indices[i], q) ; 
-        // Get gamma_{ij} component at cell center 
+        // Get \tilde{\gamma}_{ij} component at cell center 
         gamma[i] = interp_t::threed_interp(sview, VEC(i,j,k)) ; 
     }
     /***************************************************************************************/
