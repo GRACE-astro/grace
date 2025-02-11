@@ -106,6 +106,7 @@ int my_points_function(p4est_t* p4est,
         lower[2] <= point_coord[2] && upper[2] > point_coord[2])
     {
         // All conditions are satisfied, so the quadrant intersects the plane.
+        quadrant->p.user_int += 1;
         printf("Quadrant %d in tree %d intersects the point\n",
                local_num, which_tree);
         return 1;
@@ -113,10 +114,8 @@ int my_points_function(p4est_t* p4est,
     else
     {
         // One or more conditions are not met.
-        //printf("Quadrant %d in tree %d does not intersect the plane\n", local_num, which_tree);
-        return 1;
+        return 0;
     }
-    
 }
 
 //*****************************************************************************************************
@@ -210,6 +209,35 @@ sc_array_t* generate_sphere_points(int num_points, double radius) {
     return sc_array;
 }
 
+//*****************************************************************************************************
+/**
+ * @brief Function to rewrite user data to one.
+ * 
+ * This functions takes in every quadrant and resets the user data to 0
+ *
+ * @param p4est Pointer to the forest structure.
+ * @param which_tree Index of the tree being processed.
+ * @param quadrant Pointer to the quadrant being checked.
+ * @param local_num Local index of the quadrant.
+ * @param point Pointer to the coordinates of the point being checked.
+ * 
+ * @return 1
+ */
+int reset_user_data(p4est_t* p4est,
+                       p4est_topidx_t which_tree,
+                       p4est_quadrant_t* quadrant,
+                       p4est_locidx_t local_num,
+                       void* point)
+{
+    if (local_num < 0)
+    {
+        return 1; // Skip trees that are not valid (e.g. ghost trees)
+    }
+
+    quadrant->p.user_int = 0; // Reset the user data to 0
+    return 1;
+}
+
 // Function evaluates if a point is inside a spherecell
 void punkt_in_kugelzelle(double x, double y, double z, double R, int Nr, int Ntheta, int Nphi) {
     // 1. Kugelkoordinaten berechnen
@@ -235,14 +263,71 @@ TEST_CASE("Volume hdf5 surface output", "[vol_hdf5_surf_out]")
     
     // Need a p4est
     auto& forest = grace::amr::forest::get() ; 
+
+    // Reset the user data to 0
+    p4est_search_local_t reset_func = reset_user_data;
+    p4est_search_local(forest.get(), false, reset_func, nullptr, nullptr);
+
+    // Test the quadrant slicing
     p4est_search_local_t search_func = my_search_function;
     p4est_search_local(forest.get(), false, search_func, nullptr, nullptr);
 
+    //Write a functions which now searches for userdata unequal to 0
+    //and then prints the local number of the quadrant and the which tree
+    //it is in
+
+    size_t first = forest.first_local_tree();
+    size_t last = forest.last_local_tree();
+    
+    for (size_t i = first; i <= last; ++i) // Loop from first to last local tree
+    {
+        auto tree = forest.tree(i);  // Assuming there is a function to access a tree by index
+
+        size_t quadrant_offset = tree.quadrants_offset();  // Number of quadrants in the tree
+
+        for (size_t j = 0; j < quadrant_offset; ++j)  // Loop through all quadrants in the tree
+        {
+            auto quadrant = tree.quadrant(j);  // Get the j-th quadrant in the tree (adjust if needed)
+
+            if (quadrant.get_user_data<int>() != 0)
+            {
+                printf("Quadrant %zu in tree %zu is sliced by the plane.\n", i*quadrant_offset + j, i);
+            }
+
+        }
+    }
+
+
+    //quadrants_offset
+
     printf("----------------------------------------\n");
 
-    sc_array_t* points = generate_sphere_points(15,0.5);
+    // Reset the user data to 0
+    p4est_search_local(forest.get(), false, reset_func, nullptr, nullptr);
+
+    sc_array_t* points = generate_sphere_points(1500,0.5);
     p4est_search_local_t point_search_func = my_points_function;
     p4est_search_local(forest.get(), true , nullptr, point_search_func, points);
+
+    size_t it = 0;
+    for (size_t i = first; i <= last; i++) // Loop from first to last local tree
+    {
+        auto tree = forest.tree(i);  // Assuming there is a function to access a tree by index
+
+        size_t quadrant_offset = tree.quadrants_offset();  // Number of quadrants in the tree
+
+        it=0;
+        for (auto tree_quadrant : tree.quadrants())
+        {
+            auto quadrant = tree_quadrant;  // Get the j-th quadrant in the tree (adjust if needed)
+
+            if (quadrant.p.user_int != 0)
+            {
+                printf("Quadrant %zu in tree %zu intersects the point %d times.\n", i*quadrant_offset + it, i, quadrant.p.user_int);
+            }
+            it++;
+        }
+    }
 
 
     printf("---- END OF KENS TERMINAL OUTPUT ----\n");
