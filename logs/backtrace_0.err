@@ -1,0 +1,877 @@
+[03-02-2025 10.27:55.796] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7e484bc45320] Address (to be read by addr2line): 0x45320
+/lib/x86_64-linux-gnu/libc.so.6(pwrite+0x55) [0x7e484bcfa555] Address (to be read by addr2line): 0xfa555
+/mnt/rafast/musolino/libs/ompi-rocm-install//lib/libmpi.so.0(mca_fbtl_posix_pwritev+0x46f) [0x7e484dcd6dbf] Address (to be read by addr2line): 0x18cdbf
+/mnt/rafast/musolino/libs/ompi-rocm-install//lib/libmpi.so.0(mca_common_ompio_file_write+0x25d) [0x7e484dc3eb8d] Address (to be read by addr2line): 0xf4b8d
+/mnt/rafast/musolino/libs/ompi-rocm-install//lib/libmpi.so.0(mca_common_ompio_file_write_at+0x5b) [0x7e484dc3ed1b] Address (to be read by addr2line): 0xf4d1b
+/mnt/rafast/musolino/libs/ompi-rocm-install//lib/libmpi.so.0(mca_io_ompio_file_write_at+0x2c) [0x7e484dd271dc] Address (to be read by addr2line): 0x1dd1dc
+/mnt/rafast/musolino/libs/ompi-rocm-install//lib/libmpi.so.0(MPI_File_write_at+0xf5) [0x7e484dc09625] Address (to be read by addr2line): 0xbf625
+/mnt/rafast/musolino/libs/hdf5-rocm-install/lib/libhdf5.so.1000(+0x2dc551) [0x7e484e1d4551] Address (to be read by addr2line): 0x2dc551
+/mnt/rafast/musolino/libs/hdf5-rocm-install/lib/libhdf5.so.1000(H5FD_write+0x2db) [0x7e484e1bca6a] Address (to be read by addr2line): 0x2c4a6a
+/mnt/rafast/musolino/libs/hdf5-rocm-install/lib/libhdf5.so.1000(H5F__accum_write+0x15f9) [0x7e484e15ea56] Address (to be read by addr2line): 0x266a56
+/mnt/rafast/musolino/libs/hdf5-rocm-install/lib/libhdf5.so.1000(H5PB_write+0x1b9) [0x7e484e4237c7] Address (to be read by addr2line): 0x52b7c7
+/mnt/rafast/musolino/libs/hdf5-rocm-install/lib/libhdf5.so.1000(H5F_block_write+0x2bd) [0x7e484e1770aa] Address (to be read by addr2line): 0x27f0aa
+/mnt/rafast/musolino/libs/hdf5-rocm-install/lib/libhdf5.so.1000(H5C__flush_single_entry+0xaa7) [0x7e484dff24b9] Address (to be read by addr2line): 0xfa4b9
+/mnt/rafast/musolino/libs/hdf5-rocm-install/lib/libhdf5.so.1000(+0x148443) [0x7e484e040443] Address (to be read by addr2line): 0x148443
+/mnt/rafast/musolino/libs/hdf5-rocm-install/lib/libhdf5.so.1000(+0x147ea6) [0x7e484e03fea6] Address (to be read by addr2line): 0x147ea6
+/mnt/rafast/musolino/libs/hdf5-rocm-install/lib/libhdf5.so.1000(H5C_apply_candidate_list+0x142d) [0x7e484e03cb23] Address (to be read by addr2line): 0x144b23
+/mnt/rafast/musolino/libs/hdf5-rocm-install/lib/libhdf5.so.1000(+0xb0297) [0x7e484dfa8297] Address (to be read by addr2line): 0xb0297
+
+[03-02-2025 11.51:52.105] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x70883be45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf78113] Address (to be read by addr2line): 0xf78113
+build-hdf5/test/test_p4est_search() [0xea455a] Address (to be read by addr2line): 0xea455a
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x70884ae7860b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x70884ae79c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4e9d] Address (to be read by addr2line): 0xea4e9d
+build-hdf5/test/test_p4est_search() [0x11191dc] Address (to be read by addr2line): 0x11191dc
+build-hdf5/test/test_p4est_search() [0x110c7ed] Address (to be read by addr2line): 0x110c7ed
+build-hdf5/test/test_p4est_search() [0x110bb33] Address (to be read by addr2line): 0x110bb33
+build-hdf5/test/test_p4est_search() [0x110b88f] Address (to be read by addr2line): 0x110b88f
+build-hdf5/test/test_p4est_search() [0x110a113] Address (to be read by addr2line): 0x110a113
+build-hdf5/test/test_p4est_search() [0x109580c] Address (to be read by addr2line): 0x109580c
+build-hdf5/test/test_p4est_search() [0x1096a85] Address (to be read by addr2line): 0x1096a85
+build-hdf5/test/test_p4est_search() [0x109663f] Address (to be read by addr2line): 0x109663f
+build-hdf5/test/test_p4est_search() [0x1094707] Address (to be read by addr2line): 0x1094707
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x70883be2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x70883be2a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 11.57:37.500] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7ad3f6c45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20e0a] Address (to be read by addr2line): 0xf20e0a
+build-hdf5/test/test_p4est_search() [0xf78041] Address (to be read by addr2line): 0xf78041
+build-hdf5/test/test_p4est_search() [0xea4547] Address (to be read by addr2line): 0xea4547
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7ad405c2160b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7ad405c22c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4e9d] Address (to be read by addr2line): 0xea4e9d
+build-hdf5/test/test_p4est_search() [0x11191dc] Address (to be read by addr2line): 0x11191dc
+build-hdf5/test/test_p4est_search() [0x110c7ed] Address (to be read by addr2line): 0x110c7ed
+build-hdf5/test/test_p4est_search() [0x110bb33] Address (to be read by addr2line): 0x110bb33
+build-hdf5/test/test_p4est_search() [0x110b88f] Address (to be read by addr2line): 0x110b88f
+build-hdf5/test/test_p4est_search() [0x110a113] Address (to be read by addr2line): 0x110a113
+build-hdf5/test/test_p4est_search() [0x109580c] Address (to be read by addr2line): 0x109580c
+build-hdf5/test/test_p4est_search() [0x1096a85] Address (to be read by addr2line): 0x1096a85
+build-hdf5/test/test_p4est_search() [0x109663f] Address (to be read by addr2line): 0x109663f
+build-hdf5/test/test_p4est_search() [0x1094707] Address (to be read by addr2line): 0x1094707
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7ad3f6c2a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[03-02-2025 13.23:10.404] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7a5b6e445320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20fac] Address (to be read by addr2line): 0xf20fac
+build-hdf5/test/test_p4est_search() [0xf7817c] Address (to be read by addr2line): 0xf7817c
+build-hdf5/test/test_p4est_search() [0xea46dd] Address (to be read by addr2line): 0xea46dd
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7a5b7d40360b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7a5b7d404c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4fcd] Address (to be read by addr2line): 0xea4fcd
+build-hdf5/test/test_p4est_search() [0x111930c] Address (to be read by addr2line): 0x111930c
+build-hdf5/test/test_p4est_search() [0x110c91d] Address (to be read by addr2line): 0x110c91d
+build-hdf5/test/test_p4est_search() [0x110bc63] Address (to be read by addr2line): 0x110bc63
+build-hdf5/test/test_p4est_search() [0x110b9bf] Address (to be read by addr2line): 0x110b9bf
+build-hdf5/test/test_p4est_search() [0x110a243] Address (to be read by addr2line): 0x110a243
+build-hdf5/test/test_p4est_search() [0x109593c] Address (to be read by addr2line): 0x109593c
+build-hdf5/test/test_p4est_search() [0x1096bb5] Address (to be read by addr2line): 0x1096bb5
+build-hdf5/test/test_p4est_search() [0x109676f] Address (to be read by addr2line): 0x109676f
+build-hdf5/test/test_p4est_search() [0x1094837] Address (to be read by addr2line): 0x1094837
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7a5b6e42a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[03-02-2025 13.23:16.106] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7d5be0e45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20f3a] Address (to be read by addr2line): 0xf20f3a
+build-hdf5/test/test_p4est_search() [0xf78171] Address (to be read by addr2line): 0xf78171
+build-hdf5/test/test_p4est_search() [0xea46dd] Address (to be read by addr2line): 0xea46dd
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7d5befe0d60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7d5befe0ec96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4fcd] Address (to be read by addr2line): 0xea4fcd
+build-hdf5/test/test_p4est_search() [0x111930c] Address (to be read by addr2line): 0x111930c
+build-hdf5/test/test_p4est_search() [0x110c91d] Address (to be read by addr2line): 0x110c91d
+build-hdf5/test/test_p4est_search() [0x110bc63] Address (to be read by addr2line): 0x110bc63
+build-hdf5/test/test_p4est_search() [0x110b9bf] Address (to be read by addr2line): 0x110b9bf
+build-hdf5/test/test_p4est_search() [0x110a243] Address (to be read by addr2line): 0x110a243
+build-hdf5/test/test_p4est_search() [0x109593c] Address (to be read by addr2line): 0x109593c
+build-hdf5/test/test_p4est_search() [0x1096bb5] Address (to be read by addr2line): 0x1096bb5
+build-hdf5/test/test_p4est_search() [0x109676f] Address (to be read by addr2line): 0x109676f
+build-hdf5/test/test_p4est_search() [0x1094837] Address (to be read by addr2line): 0x1094837
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7d5be0e2a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[03-02-2025 13.38:41.336] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7cba03645320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf2105c] Address (to be read by addr2line): 0xf2105c
+build-hdf5/test/test_p4est_search() [0xf7822c] Address (to be read by addr2line): 0xf7822c
+build-hdf5/test/test_p4est_search() [0xea472a] Address (to be read by addr2line): 0xea472a
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7cba125cb60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7cba125ccc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea507d] Address (to be read by addr2line): 0xea507d
+build-hdf5/test/test_p4est_search() [0x11193bc] Address (to be read by addr2line): 0x11193bc
+build-hdf5/test/test_p4est_search() [0x110c9cd] Address (to be read by addr2line): 0x110c9cd
+build-hdf5/test/test_p4est_search() [0x110bd13] Address (to be read by addr2line): 0x110bd13
+build-hdf5/test/test_p4est_search() [0x110ba6f] Address (to be read by addr2line): 0x110ba6f
+build-hdf5/test/test_p4est_search() [0x110a2f3] Address (to be read by addr2line): 0x110a2f3
+build-hdf5/test/test_p4est_search() [0x10959ec] Address (to be read by addr2line): 0x10959ec
+build-hdf5/test/test_p4est_search() [0x1096c65] Address (to be read by addr2line): 0x1096c65
+build-hdf5/test/test_p4est_search() [0x109681f] Address (to be read by addr2line): 0x109681f
+build-hdf5/test/test_p4est_search() [0x10948e7] Address (to be read by addr2line): 0x10948e7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7cba0362a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[03-02-2025 13.59:48.058] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7fc31ec45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20f57] Address (to be read by addr2line): 0xf20f57
+build-hdf5/test/test_p4est_search() [0xea44f8] Address (to be read by addr2line): 0xea44f8
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7fc32dd8960b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7fc32dd8ac96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4f7d] Address (to be read by addr2line): 0xea4f7d
+build-hdf5/test/test_p4est_search() [0x11192bc] Address (to be read by addr2line): 0x11192bc
+build-hdf5/test/test_p4est_search() [0x110c8cd] Address (to be read by addr2line): 0x110c8cd
+build-hdf5/test/test_p4est_search() [0x110bc13] Address (to be read by addr2line): 0x110bc13
+build-hdf5/test/test_p4est_search() [0x110b96f] Address (to be read by addr2line): 0x110b96f
+build-hdf5/test/test_p4est_search() [0x110a1f3] Address (to be read by addr2line): 0x110a1f3
+build-hdf5/test/test_p4est_search() [0x10958ec] Address (to be read by addr2line): 0x10958ec
+build-hdf5/test/test_p4est_search() [0x1096b65] Address (to be read by addr2line): 0x1096b65
+build-hdf5/test/test_p4est_search() [0x109671f] Address (to be read by addr2line): 0x109671f
+build-hdf5/test/test_p4est_search() [0x10947e7] Address (to be read by addr2line): 0x10947e7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7fc31ec2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7fc31ec2a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 13.59:50.445] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7dac6ac45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20f57] Address (to be read by addr2line): 0xf20f57
+build-hdf5/test/test_p4est_search() [0xea44f8] Address (to be read by addr2line): 0xea44f8
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7dac79cea60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7dac79cebc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4f7d] Address (to be read by addr2line): 0xea4f7d
+build-hdf5/test/test_p4est_search() [0x11192bc] Address (to be read by addr2line): 0x11192bc
+build-hdf5/test/test_p4est_search() [0x110c8cd] Address (to be read by addr2line): 0x110c8cd
+build-hdf5/test/test_p4est_search() [0x110bc13] Address (to be read by addr2line): 0x110bc13
+build-hdf5/test/test_p4est_search() [0x110b96f] Address (to be read by addr2line): 0x110b96f
+build-hdf5/test/test_p4est_search() [0x110a1f3] Address (to be read by addr2line): 0x110a1f3
+build-hdf5/test/test_p4est_search() [0x10958ec] Address (to be read by addr2line): 0x10958ec
+build-hdf5/test/test_p4est_search() [0x1096b65] Address (to be read by addr2line): 0x1096b65
+build-hdf5/test/test_p4est_search() [0x109671f] Address (to be read by addr2line): 0x109671f
+build-hdf5/test/test_p4est_search() [0x10947e7] Address (to be read by addr2line): 0x10947e7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7dac6ac2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7dac6ac2a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 14.00:11.181] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x72b548245320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20f57] Address (to be read by addr2line): 0xf20f57
+build-hdf5/test/test_p4est_search() [0xea44f8] Address (to be read by addr2line): 0xea44f8
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x72b5573a960b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x72b5573aac96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4f7d] Address (to be read by addr2line): 0xea4f7d
+build-hdf5/test/test_p4est_search() [0x11192bc] Address (to be read by addr2line): 0x11192bc
+build-hdf5/test/test_p4est_search() [0x110c8cd] Address (to be read by addr2line): 0x110c8cd
+build-hdf5/test/test_p4est_search() [0x110bc13] Address (to be read by addr2line): 0x110bc13
+build-hdf5/test/test_p4est_search() [0x110b96f] Address (to be read by addr2line): 0x110b96f
+build-hdf5/test/test_p4est_search() [0x110a1f3] Address (to be read by addr2line): 0x110a1f3
+build-hdf5/test/test_p4est_search() [0x10958ec] Address (to be read by addr2line): 0x10958ec
+build-hdf5/test/test_p4est_search() [0x1096b65] Address (to be read by addr2line): 0x1096b65
+build-hdf5/test/test_p4est_search() [0x109671f] Address (to be read by addr2line): 0x109671f
+build-hdf5/test/test_p4est_search() [0x10947e7] Address (to be read by addr2line): 0x10947e7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x72b54822a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x72b54822a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 15.03:46.306] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x738cbfa45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20f57] Address (to be read by addr2line): 0xf20f57
+build-hdf5/test/test_p4est_search() [0xea5238] Address (to be read by addr2line): 0xea5238
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x738cce9dd60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x738cce9dec96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4cad] Address (to be read by addr2line): 0xea4cad
+build-hdf5/test/test_p4est_search() [0x11192bc] Address (to be read by addr2line): 0x11192bc
+build-hdf5/test/test_p4est_search() [0x110c8cd] Address (to be read by addr2line): 0x110c8cd
+build-hdf5/test/test_p4est_search() [0x110bc13] Address (to be read by addr2line): 0x110bc13
+build-hdf5/test/test_p4est_search() [0x110b96f] Address (to be read by addr2line): 0x110b96f
+build-hdf5/test/test_p4est_search() [0x110a1f3] Address (to be read by addr2line): 0x110a1f3
+build-hdf5/test/test_p4est_search() [0x10958ec] Address (to be read by addr2line): 0x10958ec
+build-hdf5/test/test_p4est_search() [0x1096b65] Address (to be read by addr2line): 0x1096b65
+build-hdf5/test/test_p4est_search() [0x109671f] Address (to be read by addr2line): 0x109671f
+build-hdf5/test/test_p4est_search() [0x10947e7] Address (to be read by addr2line): 0x10947e7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x738cbfa2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x738cbfa2a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 15.03:49.209] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7ab909e45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20f57] Address (to be read by addr2line): 0xf20f57
+build-hdf5/test/test_p4est_search() [0xea5238] Address (to be read by addr2line): 0xea5238
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7ab918e7b60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7ab918e7cc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4cad] Address (to be read by addr2line): 0xea4cad
+build-hdf5/test/test_p4est_search() [0x11192bc] Address (to be read by addr2line): 0x11192bc
+build-hdf5/test/test_p4est_search() [0x110c8cd] Address (to be read by addr2line): 0x110c8cd
+build-hdf5/test/test_p4est_search() [0x110bc13] Address (to be read by addr2line): 0x110bc13
+build-hdf5/test/test_p4est_search() [0x110b96f] Address (to be read by addr2line): 0x110b96f
+build-hdf5/test/test_p4est_search() [0x110a1f3] Address (to be read by addr2line): 0x110a1f3
+build-hdf5/test/test_p4est_search() [0x10958ec] Address (to be read by addr2line): 0x10958ec
+build-hdf5/test/test_p4est_search() [0x1096b65] Address (to be read by addr2line): 0x1096b65
+build-hdf5/test/test_p4est_search() [0x109671f] Address (to be read by addr2line): 0x109671f
+build-hdf5/test/test_p4est_search() [0x10947e7] Address (to be read by addr2line): 0x10947e7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7ab909e2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7ab909e2a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 15.04:03.142] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x71bf36e45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20f57] Address (to be read by addr2line): 0xf20f57
+build-hdf5/test/test_p4est_search() [0xea5238] Address (to be read by addr2line): 0xea5238
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x71bf45e2c60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x71bf45e2dc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4cad] Address (to be read by addr2line): 0xea4cad
+build-hdf5/test/test_p4est_search() [0x11192bc] Address (to be read by addr2line): 0x11192bc
+build-hdf5/test/test_p4est_search() [0x110c8cd] Address (to be read by addr2line): 0x110c8cd
+build-hdf5/test/test_p4est_search() [0x110bc13] Address (to be read by addr2line): 0x110bc13
+build-hdf5/test/test_p4est_search() [0x110b96f] Address (to be read by addr2line): 0x110b96f
+build-hdf5/test/test_p4est_search() [0x110a1f3] Address (to be read by addr2line): 0x110a1f3
+build-hdf5/test/test_p4est_search() [0x10958ec] Address (to be read by addr2line): 0x10958ec
+build-hdf5/test/test_p4est_search() [0x1096b65] Address (to be read by addr2line): 0x1096b65
+build-hdf5/test/test_p4est_search() [0x109671f] Address (to be read by addr2line): 0x109671f
+build-hdf5/test/test_p4est_search() [0x10947e7] Address (to be read by addr2line): 0x10947e7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x71bf36e2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x71bf36e2a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 17.54:13.110] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7c527c245320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20fd7] Address (to be read by addr2line): 0xf20fd7
+build-hdf5/test/test_p4est_search() [0xea5233] Address (to be read by addr2line): 0xea5233
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7c528b29c60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7c528b29dc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4cad] Address (to be read by addr2line): 0xea4cad
+build-hdf5/test/test_p4est_search() [0x111933c] Address (to be read by addr2line): 0x111933c
+build-hdf5/test/test_p4est_search() [0x110c94d] Address (to be read by addr2line): 0x110c94d
+build-hdf5/test/test_p4est_search() [0x110bc93] Address (to be read by addr2line): 0x110bc93
+build-hdf5/test/test_p4est_search() [0x110b9ef] Address (to be read by addr2line): 0x110b9ef
+build-hdf5/test/test_p4est_search() [0x110a273] Address (to be read by addr2line): 0x110a273
+build-hdf5/test/test_p4est_search() [0x109596c] Address (to be read by addr2line): 0x109596c
+build-hdf5/test/test_p4est_search() [0x1096be5] Address (to be read by addr2line): 0x1096be5
+build-hdf5/test/test_p4est_search() [0x109679f] Address (to be read by addr2line): 0x109679f
+build-hdf5/test/test_p4est_search() [0x1094867] Address (to be read by addr2line): 0x1094867
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7c527c22a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7c527c22a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 17.57:29.869] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7e6d47445320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20fd7] Address (to be read by addr2line): 0xf20fd7
+build-hdf5/test/test_p4est_search() [0xea5233] Address (to be read by addr2line): 0xea5233
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7e6d5652160b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7e6d56522c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4cad] Address (to be read by addr2line): 0xea4cad
+build-hdf5/test/test_p4est_search() [0x111933c] Address (to be read by addr2line): 0x111933c
+build-hdf5/test/test_p4est_search() [0x110c94d] Address (to be read by addr2line): 0x110c94d
+build-hdf5/test/test_p4est_search() [0x110bc93] Address (to be read by addr2line): 0x110bc93
+build-hdf5/test/test_p4est_search() [0x110b9ef] Address (to be read by addr2line): 0x110b9ef
+build-hdf5/test/test_p4est_search() [0x110a273] Address (to be read by addr2line): 0x110a273
+build-hdf5/test/test_p4est_search() [0x109596c] Address (to be read by addr2line): 0x109596c
+build-hdf5/test/test_p4est_search() [0x1096be5] Address (to be read by addr2line): 0x1096be5
+build-hdf5/test/test_p4est_search() [0x109679f] Address (to be read by addr2line): 0x109679f
+build-hdf5/test/test_p4est_search() [0x1094867] Address (to be read by addr2line): 0x1094867
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7e6d4742a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7e6d4742a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 18.08:58.680] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7f18f7445320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf210c7] Address (to be read by addr2line): 0xf210c7
+build-hdf5/test/test_p4est_search() [0xea531b] Address (to be read by addr2line): 0xea531b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7f19065b360b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7f19065b4c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4d13] Address (to be read by addr2line): 0xea4d13
+build-hdf5/test/test_p4est_search() [0x111942c] Address (to be read by addr2line): 0x111942c
+build-hdf5/test/test_p4est_search() [0x110ca3d] Address (to be read by addr2line): 0x110ca3d
+build-hdf5/test/test_p4est_search() [0x110bd83] Address (to be read by addr2line): 0x110bd83
+build-hdf5/test/test_p4est_search() [0x110badf] Address (to be read by addr2line): 0x110badf
+build-hdf5/test/test_p4est_search() [0x110a363] Address (to be read by addr2line): 0x110a363
+build-hdf5/test/test_p4est_search() [0x1095a5c] Address (to be read by addr2line): 0x1095a5c
+build-hdf5/test/test_p4est_search() [0x1096cd5] Address (to be read by addr2line): 0x1096cd5
+build-hdf5/test/test_p4est_search() [0x109688f] Address (to be read by addr2line): 0x109688f
+build-hdf5/test/test_p4est_search() [0x1094957] Address (to be read by addr2line): 0x1094957
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7f18f742a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7f18f742a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 18.27:28.327] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7671ffe45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20517] Address (to be read by addr2line): 0xf20517
+build-hdf5/test/test_p4est_search() [0xea4993] Address (to be read by addr2line): 0xea4993
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x76720ee5560b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x76720ee56c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4588] Address (to be read by addr2line): 0xea4588
+build-hdf5/test/test_p4est_search() [0x111887c] Address (to be read by addr2line): 0x111887c
+build-hdf5/test/test_p4est_search() [0x110be8d] Address (to be read by addr2line): 0x110be8d
+build-hdf5/test/test_p4est_search() [0x110b1d3] Address (to be read by addr2line): 0x110b1d3
+build-hdf5/test/test_p4est_search() [0x110af2f] Address (to be read by addr2line): 0x110af2f
+build-hdf5/test/test_p4est_search() [0x11097b3] Address (to be read by addr2line): 0x11097b3
+build-hdf5/test/test_p4est_search() [0x1094eac] Address (to be read by addr2line): 0x1094eac
+build-hdf5/test/test_p4est_search() [0x1096125] Address (to be read by addr2line): 0x1096125
+build-hdf5/test/test_p4est_search() [0x1095cdf] Address (to be read by addr2line): 0x1095cdf
+build-hdf5/test/test_p4est_search() [0x1093da7] Address (to be read by addr2line): 0x1093da7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7671ffe2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7671ffe2a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 18.29:21.394] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7dd85bc45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20517] Address (to be read by addr2line): 0xf20517
+build-hdf5/test/test_p4est_search() [0xea4993] Address (to be read by addr2line): 0xea4993
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7dd86acec60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7dd86acedc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4588] Address (to be read by addr2line): 0xea4588
+build-hdf5/test/test_p4est_search() [0x111887c] Address (to be read by addr2line): 0x111887c
+build-hdf5/test/test_p4est_search() [0x110be8d] Address (to be read by addr2line): 0x110be8d
+build-hdf5/test/test_p4est_search() [0x110b1d3] Address (to be read by addr2line): 0x110b1d3
+build-hdf5/test/test_p4est_search() [0x110af2f] Address (to be read by addr2line): 0x110af2f
+build-hdf5/test/test_p4est_search() [0x11097b3] Address (to be read by addr2line): 0x11097b3
+build-hdf5/test/test_p4est_search() [0x1094eac] Address (to be read by addr2line): 0x1094eac
+build-hdf5/test/test_p4est_search() [0x1096125] Address (to be read by addr2line): 0x1096125
+build-hdf5/test/test_p4est_search() [0x1095cdf] Address (to be read by addr2line): 0x1095cdf
+build-hdf5/test/test_p4est_search() [0x1093da7] Address (to be read by addr2line): 0x1093da7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7dd85bc2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7dd85bc2a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 18.31:41.306] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7226a4845320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20517] Address (to be read by addr2line): 0xf20517
+build-hdf5/test/test_p4est_search() [0xea4993] Address (to be read by addr2line): 0xea4993
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7226b392f60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7226b3930c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4588] Address (to be read by addr2line): 0xea4588
+build-hdf5/test/test_p4est_search() [0x111887c] Address (to be read by addr2line): 0x111887c
+build-hdf5/test/test_p4est_search() [0x110be8d] Address (to be read by addr2line): 0x110be8d
+build-hdf5/test/test_p4est_search() [0x110b1d3] Address (to be read by addr2line): 0x110b1d3
+build-hdf5/test/test_p4est_search() [0x110af2f] Address (to be read by addr2line): 0x110af2f
+build-hdf5/test/test_p4est_search() [0x11097b3] Address (to be read by addr2line): 0x11097b3
+build-hdf5/test/test_p4est_search() [0x1094eac] Address (to be read by addr2line): 0x1094eac
+build-hdf5/test/test_p4est_search() [0x1096125] Address (to be read by addr2line): 0x1096125
+build-hdf5/test/test_p4est_search() [0x1095cdf] Address (to be read by addr2line): 0x1095cdf
+build-hdf5/test/test_p4est_search() [0x1093da7] Address (to be read by addr2line): 0x1093da7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7226a482a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7226a482a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 18.34:10.424] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x72a8ede45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20517] Address (to be read by addr2line): 0xf20517
+build-hdf5/test/test_p4est_search() [0xea4993] Address (to be read by addr2line): 0xea4993
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x72a8fceb160b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x72a8fceb2c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4588] Address (to be read by addr2line): 0xea4588
+build-hdf5/test/test_p4est_search() [0x111887c] Address (to be read by addr2line): 0x111887c
+build-hdf5/test/test_p4est_search() [0x110be8d] Address (to be read by addr2line): 0x110be8d
+build-hdf5/test/test_p4est_search() [0x110b1d3] Address (to be read by addr2line): 0x110b1d3
+build-hdf5/test/test_p4est_search() [0x110af2f] Address (to be read by addr2line): 0x110af2f
+build-hdf5/test/test_p4est_search() [0x11097b3] Address (to be read by addr2line): 0x11097b3
+build-hdf5/test/test_p4est_search() [0x1094eac] Address (to be read by addr2line): 0x1094eac
+build-hdf5/test/test_p4est_search() [0x1096125] Address (to be read by addr2line): 0x1096125
+build-hdf5/test/test_p4est_search() [0x1095cdf] Address (to be read by addr2line): 0x1095cdf
+build-hdf5/test/test_p4est_search() [0x1093da7] Address (to be read by addr2line): 0x1093da7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x72a8ede2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x72a8ede2a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 18.38:15.689] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x73b378445320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20527] Address (to be read by addr2line): 0xf20527
+build-hdf5/test/test_p4est_search() [0xea49a3] Address (to be read by addr2line): 0xea49a3
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x73b38750e60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x73b38750fc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4588] Address (to be read by addr2line): 0xea4588
+build-hdf5/test/test_p4est_search() [0x111888c] Address (to be read by addr2line): 0x111888c
+build-hdf5/test/test_p4est_search() [0x110be9d] Address (to be read by addr2line): 0x110be9d
+build-hdf5/test/test_p4est_search() [0x110b1e3] Address (to be read by addr2line): 0x110b1e3
+build-hdf5/test/test_p4est_search() [0x110af3f] Address (to be read by addr2line): 0x110af3f
+build-hdf5/test/test_p4est_search() [0x11097c3] Address (to be read by addr2line): 0x11097c3
+build-hdf5/test/test_p4est_search() [0x1094ebc] Address (to be read by addr2line): 0x1094ebc
+build-hdf5/test/test_p4est_search() [0x1096135] Address (to be read by addr2line): 0x1096135
+build-hdf5/test/test_p4est_search() [0x1095cef] Address (to be read by addr2line): 0x1095cef
+build-hdf5/test/test_p4est_search() [0x1093db7] Address (to be read by addr2line): 0x1093db7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x73b37842a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x73b37842a28b] Address (to be read by addr2line): 0x2a28b
+
+[03-02-2025 18.40:22.595] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x78792f245320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf20537] Address (to be read by addr2line): 0xf20537
+build-hdf5/test/test_p4est_search() [0xea49b3] Address (to be read by addr2line): 0xea49b3
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x78793e2b260b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x78793e2b3c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xea4592] Address (to be read by addr2line): 0xea4592
+build-hdf5/test/test_p4est_search() [0x111889c] Address (to be read by addr2line): 0x111889c
+build-hdf5/test/test_p4est_search() [0x110bead] Address (to be read by addr2line): 0x110bead
+build-hdf5/test/test_p4est_search() [0x110b1f3] Address (to be read by addr2line): 0x110b1f3
+build-hdf5/test/test_p4est_search() [0x110af4f] Address (to be read by addr2line): 0x110af4f
+build-hdf5/test/test_p4est_search() [0x11097d3] Address (to be read by addr2line): 0x11097d3
+build-hdf5/test/test_p4est_search() [0x1094ecc] Address (to be read by addr2line): 0x1094ecc
+build-hdf5/test/test_p4est_search() [0x1096145] Address (to be read by addr2line): 0x1096145
+build-hdf5/test/test_p4est_search() [0x1095cff] Address (to be read by addr2line): 0x1095cff
+build-hdf5/test/test_p4est_search() [0x1093dc7] Address (to be read by addr2line): 0x1093dc7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x78792f22a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x78792f22a28b] Address (to be read by addr2line): 0x2a28b
+
+[04-02-2025 11.30:59.881] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7e7e57a45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf048ca] Address (to be read by addr2line): 0xf048ca
+build-hdf5/test/test_p4est_search() [0xe8b2f9] Address (to be read by addr2line): 0xe8b2f9
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7e7e66b9e60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7e7e66b9fc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b212] Address (to be read by addr2line): 0xe8b212
+build-hdf5/test/test_p4est_search() [0x10f97fc] Address (to be read by addr2line): 0x10f97fc
+build-hdf5/test/test_p4est_search() [0x10ece0d] Address (to be read by addr2line): 0x10ece0d
+build-hdf5/test/test_p4est_search() [0x10ec153] Address (to be read by addr2line): 0x10ec153
+build-hdf5/test/test_p4est_search() [0x10ebeaf] Address (to be read by addr2line): 0x10ebeaf
+build-hdf5/test/test_p4est_search() [0x10ea733] Address (to be read by addr2line): 0x10ea733
+build-hdf5/test/test_p4est_search() [0x1075e2c] Address (to be read by addr2line): 0x1075e2c
+build-hdf5/test/test_p4est_search() [0x10770a5] Address (to be read by addr2line): 0x10770a5
+build-hdf5/test/test_p4est_search() [0x1076c5f] Address (to be read by addr2line): 0x1076c5f
+build-hdf5/test/test_p4est_search() [0x1074d27] Address (to be read by addr2line): 0x1074d27
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7e7e57a2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7e7e57a2a28b] Address (to be read by addr2line): 0x2a28b
+
+[04-02-2025 11.37:24.344] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x72d329845320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf0491a] Address (to be read by addr2line): 0xf0491a
+build-hdf5/test/test_p4est_search() [0xe8b347] Address (to be read by addr2line): 0xe8b347
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x72d33881b60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x72d33881cc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b212] Address (to be read by addr2line): 0xe8b212
+build-hdf5/test/test_p4est_search() [0x10f984c] Address (to be read by addr2line): 0x10f984c
+build-hdf5/test/test_p4est_search() [0x10ece5d] Address (to be read by addr2line): 0x10ece5d
+build-hdf5/test/test_p4est_search() [0x10ec1a3] Address (to be read by addr2line): 0x10ec1a3
+build-hdf5/test/test_p4est_search() [0x10ebeff] Address (to be read by addr2line): 0x10ebeff
+build-hdf5/test/test_p4est_search() [0x10ea783] Address (to be read by addr2line): 0x10ea783
+build-hdf5/test/test_p4est_search() [0x1075e7c] Address (to be read by addr2line): 0x1075e7c
+build-hdf5/test/test_p4est_search() [0x10770f5] Address (to be read by addr2line): 0x10770f5
+build-hdf5/test/test_p4est_search() [0x1076caf] Address (to be read by addr2line): 0x1076caf
+build-hdf5/test/test_p4est_search() [0x1074d77] Address (to be read by addr2line): 0x1074d77
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x72d32982a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x72d32982a28b] Address (to be read by addr2line): 0x2a28b
+
+[04-02-2025 11.39:41.010] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x78a919a45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf0495a] Address (to be read by addr2line): 0xf0495a
+build-hdf5/test/test_p4est_search() [0xe8b386] Address (to be read by addr2line): 0xe8b386
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x78a928b9a60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x78a928b9bc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b212] Address (to be read by addr2line): 0xe8b212
+build-hdf5/test/test_p4est_search() [0x10f988c] Address (to be read by addr2line): 0x10f988c
+build-hdf5/test/test_p4est_search() [0x10ece9d] Address (to be read by addr2line): 0x10ece9d
+build-hdf5/test/test_p4est_search() [0x10ec1e3] Address (to be read by addr2line): 0x10ec1e3
+build-hdf5/test/test_p4est_search() [0x10ebf3f] Address (to be read by addr2line): 0x10ebf3f
+build-hdf5/test/test_p4est_search() [0x10ea7c3] Address (to be read by addr2line): 0x10ea7c3
+build-hdf5/test/test_p4est_search() [0x1075ebc] Address (to be read by addr2line): 0x1075ebc
+build-hdf5/test/test_p4est_search() [0x1077135] Address (to be read by addr2line): 0x1077135
+build-hdf5/test/test_p4est_search() [0x1076cef] Address (to be read by addr2line): 0x1076cef
+build-hdf5/test/test_p4est_search() [0x1074db7] Address (to be read by addr2line): 0x1074db7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x78a919a2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x78a919a2a28b] Address (to be read by addr2line): 0x2a28b
+
+[04-02-2025 11.47:10.807] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7707e5e45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf0481a] Address (to be read by addr2line): 0xf0481a
+build-hdf5/test/test_p4est_search() [0xe8b247] Address (to be read by addr2line): 0xe8b247
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7707f4e6960b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7707f4e6ac96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b202] Address (to be read by addr2line): 0xe8b202
+build-hdf5/test/test_p4est_search() [0x10f974c] Address (to be read by addr2line): 0x10f974c
+build-hdf5/test/test_p4est_search() [0x10ecd5d] Address (to be read by addr2line): 0x10ecd5d
+build-hdf5/test/test_p4est_search() [0x10ec0a3] Address (to be read by addr2line): 0x10ec0a3
+build-hdf5/test/test_p4est_search() [0x10ebdff] Address (to be read by addr2line): 0x10ebdff
+build-hdf5/test/test_p4est_search() [0x10ea683] Address (to be read by addr2line): 0x10ea683
+build-hdf5/test/test_p4est_search() [0x1075d7c] Address (to be read by addr2line): 0x1075d7c
+build-hdf5/test/test_p4est_search() [0x1076ff5] Address (to be read by addr2line): 0x1076ff5
+build-hdf5/test/test_p4est_search() [0x1076baf] Address (to be read by addr2line): 0x1076baf
+build-hdf5/test/test_p4est_search() [0x1074c77] Address (to be read by addr2line): 0x1074c77
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7707e5e2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7707e5e2a28b] Address (to be read by addr2line): 0x2a28b
+
+[04-02-2025 11.47:56.197] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7adaeae45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf0481a] Address (to be read by addr2line): 0xf0481a
+build-hdf5/test/test_p4est_search() [0xe8b247] Address (to be read by addr2line): 0xe8b247
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7adaf9e1c60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7adaf9e1dc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b202] Address (to be read by addr2line): 0xe8b202
+build-hdf5/test/test_p4est_search() [0x10f974c] Address (to be read by addr2line): 0x10f974c
+build-hdf5/test/test_p4est_search() [0x10ecd5d] Address (to be read by addr2line): 0x10ecd5d
+build-hdf5/test/test_p4est_search() [0x10ec0a3] Address (to be read by addr2line): 0x10ec0a3
+build-hdf5/test/test_p4est_search() [0x10ebdff] Address (to be read by addr2line): 0x10ebdff
+build-hdf5/test/test_p4est_search() [0x10ea683] Address (to be read by addr2line): 0x10ea683
+build-hdf5/test/test_p4est_search() [0x1075d7c] Address (to be read by addr2line): 0x1075d7c
+build-hdf5/test/test_p4est_search() [0x1076ff5] Address (to be read by addr2line): 0x1076ff5
+build-hdf5/test/test_p4est_search() [0x1076baf] Address (to be read by addr2line): 0x1076baf
+build-hdf5/test/test_p4est_search() [0x1074c77] Address (to be read by addr2line): 0x1074c77
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7adaeae2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7adaeae2a28b] Address (to be read by addr2line): 0x2a28b
+
+[04-02-2025 11.47:58.509] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x786ce1045320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf0481a] Address (to be read by addr2line): 0xf0481a
+build-hdf5/test/test_p4est_search() [0xe8b247] Address (to be read by addr2line): 0xe8b247
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x786cf00b860b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x786cf00b9c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b202] Address (to be read by addr2line): 0xe8b202
+build-hdf5/test/test_p4est_search() [0x10f974c] Address (to be read by addr2line): 0x10f974c
+build-hdf5/test/test_p4est_search() [0x10ecd5d] Address (to be read by addr2line): 0x10ecd5d
+build-hdf5/test/test_p4est_search() [0x10ec0a3] Address (to be read by addr2line): 0x10ec0a3
+build-hdf5/test/test_p4est_search() [0x10ebdff] Address (to be read by addr2line): 0x10ebdff
+build-hdf5/test/test_p4est_search() [0x10ea683] Address (to be read by addr2line): 0x10ea683
+build-hdf5/test/test_p4est_search() [0x1075d7c] Address (to be read by addr2line): 0x1075d7c
+build-hdf5/test/test_p4est_search() [0x1076ff5] Address (to be read by addr2line): 0x1076ff5
+build-hdf5/test/test_p4est_search() [0x1076baf] Address (to be read by addr2line): 0x1076baf
+build-hdf5/test/test_p4est_search() [0x1074c77] Address (to be read by addr2line): 0x1074c77
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x786ce102a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x786ce102a28b] Address (to be read by addr2line): 0x2a28b
+
+[04-02-2025 13.40:42.292] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7520af645320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf047da] Address (to be read by addr2line): 0xf047da
+build-hdf5/test/test_p4est_search() [0xe8b247] Address (to be read by addr2line): 0xe8b247
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7520be69060b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7520be691c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b202] Address (to be read by addr2line): 0xe8b202
+build-hdf5/test/test_p4est_search() [0x10f970c] Address (to be read by addr2line): 0x10f970c
+build-hdf5/test/test_p4est_search() [0x10ecd1d] Address (to be read by addr2line): 0x10ecd1d
+build-hdf5/test/test_p4est_search() [0x10ec063] Address (to be read by addr2line): 0x10ec063
+build-hdf5/test/test_p4est_search() [0x10ebdbf] Address (to be read by addr2line): 0x10ebdbf
+build-hdf5/test/test_p4est_search() [0x10ea643] Address (to be read by addr2line): 0x10ea643
+build-hdf5/test/test_p4est_search() [0x1075d3c] Address (to be read by addr2line): 0x1075d3c
+build-hdf5/test/test_p4est_search() [0x1076fb5] Address (to be read by addr2line): 0x1076fb5
+build-hdf5/test/test_p4est_search() [0x1076b6f] Address (to be read by addr2line): 0x1076b6f
+build-hdf5/test/test_p4est_search() [0x1074c37] Address (to be read by addr2line): 0x1074c37
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7520af62a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7520af62a28b] Address (to be read by addr2line): 0x2a28b
+
+[04-02-2025 15.37:24.869] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7c64e1c45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf0487a] Address (to be read by addr2line): 0xf0487a
+build-hdf5/test/test_p4est_search() [0xe8b273] Address (to be read by addr2line): 0xe8b273
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7c64f0cf560b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7c64f0cf6c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b222] Address (to be read by addr2line): 0xe8b222
+build-hdf5/test/test_p4est_search() [0x10f97ac] Address (to be read by addr2line): 0x10f97ac
+build-hdf5/test/test_p4est_search() [0x10ecdbd] Address (to be read by addr2line): 0x10ecdbd
+build-hdf5/test/test_p4est_search() [0x10ec103] Address (to be read by addr2line): 0x10ec103
+build-hdf5/test/test_p4est_search() [0x10ebe5f] Address (to be read by addr2line): 0x10ebe5f
+build-hdf5/test/test_p4est_search() [0x10ea6e3] Address (to be read by addr2line): 0x10ea6e3
+build-hdf5/test/test_p4est_search() [0x1075ddc] Address (to be read by addr2line): 0x1075ddc
+build-hdf5/test/test_p4est_search() [0x1077055] Address (to be read by addr2line): 0x1077055
+build-hdf5/test/test_p4est_search() [0x1076c0f] Address (to be read by addr2line): 0x1076c0f
+build-hdf5/test/test_p4est_search() [0x1074cd7] Address (to be read by addr2line): 0x1074cd7
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7c64e1c2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7c64e1c2a28b] Address (to be read by addr2line): 0x2a28b
+
+[04-02-2025 16.57:27.636] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x78c3daa45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b274] Address (to be read by addr2line): 0xe8b274
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x78c3e9af160b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x78c3e9af17f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x78c3e9af17f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x78c3e9af2c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b217] Address (to be read by addr2line): 0xe8b217
+build-hdf5/test/test_p4est_search() [0x10f976c] Address (to be read by addr2line): 0x10f976c
+build-hdf5/test/test_p4est_search() [0x10ecd7d] Address (to be read by addr2line): 0x10ecd7d
+build-hdf5/test/test_p4est_search() [0x10ec0c3] Address (to be read by addr2line): 0x10ec0c3
+build-hdf5/test/test_p4est_search() [0x10ebe1f] Address (to be read by addr2line): 0x10ebe1f
+build-hdf5/test/test_p4est_search() [0x10ea6a3] Address (to be read by addr2line): 0x10ea6a3
+build-hdf5/test/test_p4est_search() [0x1075d9c] Address (to be read by addr2line): 0x1075d9c
+build-hdf5/test/test_p4est_search() [0x1077015] Address (to be read by addr2line): 0x1077015
+build-hdf5/test/test_p4est_search() [0x1076bcf] Address (to be read by addr2line): 0x1076bcf
+build-hdf5/test/test_p4est_search() [0x1074c97] Address (to be read by addr2line): 0x1074c97
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x78c3daa2a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[04-02-2025 16.57:31.630] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x747ce9045320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b274] Address (to be read by addr2line): 0xe8b274
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x747cf811160b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x747cf81117f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x747cf81117f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x747cf8112c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b217] Address (to be read by addr2line): 0xe8b217
+build-hdf5/test/test_p4est_search() [0x10f976c] Address (to be read by addr2line): 0x10f976c
+build-hdf5/test/test_p4est_search() [0x10ecd7d] Address (to be read by addr2line): 0x10ecd7d
+build-hdf5/test/test_p4est_search() [0x10ec0c3] Address (to be read by addr2line): 0x10ec0c3
+build-hdf5/test/test_p4est_search() [0x10ebe1f] Address (to be read by addr2line): 0x10ebe1f
+build-hdf5/test/test_p4est_search() [0x10ea6a3] Address (to be read by addr2line): 0x10ea6a3
+build-hdf5/test/test_p4est_search() [0x1075d9c] Address (to be read by addr2line): 0x1075d9c
+build-hdf5/test/test_p4est_search() [0x1077015] Address (to be read by addr2line): 0x1077015
+build-hdf5/test/test_p4est_search() [0x1076bcf] Address (to be read by addr2line): 0x1076bcf
+build-hdf5/test/test_p4est_search() [0x1074c97] Address (to be read by addr2line): 0x1074c97
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x747ce902a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[04-02-2025 16.57:34.982] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7c2f0ba45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b274] Address (to be read by addr2line): 0xe8b274
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7c2f1ab6e60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x7c2f1ab6e7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x7c2f1ab6e7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7c2f1ab6fc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b217] Address (to be read by addr2line): 0xe8b217
+build-hdf5/test/test_p4est_search() [0x10f976c] Address (to be read by addr2line): 0x10f976c
+build-hdf5/test/test_p4est_search() [0x10ecd7d] Address (to be read by addr2line): 0x10ecd7d
+build-hdf5/test/test_p4est_search() [0x10ec0c3] Address (to be read by addr2line): 0x10ec0c3
+build-hdf5/test/test_p4est_search() [0x10ebe1f] Address (to be read by addr2line): 0x10ebe1f
+build-hdf5/test/test_p4est_search() [0x10ea6a3] Address (to be read by addr2line): 0x10ea6a3
+build-hdf5/test/test_p4est_search() [0x1075d9c] Address (to be read by addr2line): 0x1075d9c
+build-hdf5/test/test_p4est_search() [0x1077015] Address (to be read by addr2line): 0x1077015
+build-hdf5/test/test_p4est_search() [0x1076bcf] Address (to be read by addr2line): 0x1076bcf
+build-hdf5/test/test_p4est_search() [0x1074c97] Address (to be read by addr2line): 0x1074c97
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7c2f0ba2a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[04-02-2025 16.57:41.002] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x77100ac45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b274] Address (to be read by addr2line): 0xe8b274
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x771019d4d60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x771019d4d7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x771019d4d7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x771019d4ec96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b217] Address (to be read by addr2line): 0xe8b217
+build-hdf5/test/test_p4est_search() [0x10f976c] Address (to be read by addr2line): 0x10f976c
+build-hdf5/test/test_p4est_search() [0x10ecd7d] Address (to be read by addr2line): 0x10ecd7d
+build-hdf5/test/test_p4est_search() [0x10ec0c3] Address (to be read by addr2line): 0x10ec0c3
+build-hdf5/test/test_p4est_search() [0x10ebe1f] Address (to be read by addr2line): 0x10ebe1f
+build-hdf5/test/test_p4est_search() [0x10ea6a3] Address (to be read by addr2line): 0x10ea6a3
+build-hdf5/test/test_p4est_search() [0x1075d9c] Address (to be read by addr2line): 0x1075d9c
+build-hdf5/test/test_p4est_search() [0x1077015] Address (to be read by addr2line): 0x1077015
+build-hdf5/test/test_p4est_search() [0x1076bcf] Address (to be read by addr2line): 0x1076bcf
+build-hdf5/test/test_p4est_search() [0x1074c97] Address (to be read by addr2line): 0x1074c97
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x77100ac2a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[04-02-2025 16.57:45.226] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x769983445320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b274] Address (to be read by addr2line): 0xe8b274
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x76999241e60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x76999241e7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x76999241e7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x76999241fc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b217] Address (to be read by addr2line): 0xe8b217
+build-hdf5/test/test_p4est_search() [0x10f976c] Address (to be read by addr2line): 0x10f976c
+build-hdf5/test/test_p4est_search() [0x10ecd7d] Address (to be read by addr2line): 0x10ecd7d
+build-hdf5/test/test_p4est_search() [0x10ec0c3] Address (to be read by addr2line): 0x10ec0c3
+build-hdf5/test/test_p4est_search() [0x10ebe1f] Address (to be read by addr2line): 0x10ebe1f
+build-hdf5/test/test_p4est_search() [0x10ea6a3] Address (to be read by addr2line): 0x10ea6a3
+build-hdf5/test/test_p4est_search() [0x1075d9c] Address (to be read by addr2line): 0x1075d9c
+build-hdf5/test/test_p4est_search() [0x1077015] Address (to be read by addr2line): 0x1077015
+build-hdf5/test/test_p4est_search() [0x1076bcf] Address (to be read by addr2line): 0x1076bcf
+build-hdf5/test/test_p4est_search() [0x1074c97] Address (to be read by addr2line): 0x1074c97
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x76998342a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[04-02-2025 17.01:59.675] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x79abcce45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b2b3] Address (to be read by addr2line): 0xe8b2b3
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x79abdbdfa60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x79abdbdfa7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x79abdbdfa7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x79abdbdfbc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b237] Address (to be read by addr2line): 0xe8b237
+build-hdf5/test/test_p4est_search() [0x10f97ec] Address (to be read by addr2line): 0x10f97ec
+build-hdf5/test/test_p4est_search() [0x10ecdfd] Address (to be read by addr2line): 0x10ecdfd
+build-hdf5/test/test_p4est_search() [0x10ec143] Address (to be read by addr2line): 0x10ec143
+build-hdf5/test/test_p4est_search() [0x10ebe9f] Address (to be read by addr2line): 0x10ebe9f
+build-hdf5/test/test_p4est_search() [0x10ea723] Address (to be read by addr2line): 0x10ea723
+build-hdf5/test/test_p4est_search() [0x1075e1c] Address (to be read by addr2line): 0x1075e1c
+build-hdf5/test/test_p4est_search() [0x1077095] Address (to be read by addr2line): 0x1077095
+build-hdf5/test/test_p4est_search() [0x1076c4f] Address (to be read by addr2line): 0x1076c4f
+build-hdf5/test/test_p4est_search() [0x1074d17] Address (to be read by addr2line): 0x1074d17
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x79abcce2a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[04-02-2025 17.02:04.134] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x79faad645320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b2b3] Address (to be read by addr2line): 0xe8b2b3
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x79fabc5fd60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x79fabc5fd7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x79fabc5fd7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x79fabc5fec96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b237] Address (to be read by addr2line): 0xe8b237
+build-hdf5/test/test_p4est_search() [0x10f97ec] Address (to be read by addr2line): 0x10f97ec
+build-hdf5/test/test_p4est_search() [0x10ecdfd] Address (to be read by addr2line): 0x10ecdfd
+build-hdf5/test/test_p4est_search() [0x10ec143] Address (to be read by addr2line): 0x10ec143
+build-hdf5/test/test_p4est_search() [0x10ebe9f] Address (to be read by addr2line): 0x10ebe9f
+build-hdf5/test/test_p4est_search() [0x10ea723] Address (to be read by addr2line): 0x10ea723
+build-hdf5/test/test_p4est_search() [0x1075e1c] Address (to be read by addr2line): 0x1075e1c
+build-hdf5/test/test_p4est_search() [0x1077095] Address (to be read by addr2line): 0x1077095
+build-hdf5/test/test_p4est_search() [0x1076c4f] Address (to be read by addr2line): 0x1076c4f
+build-hdf5/test/test_p4est_search() [0x1074d17] Address (to be read by addr2line): 0x1074d17
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x79faad62a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[04-02-2025 17.06:37.267] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x714939a45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b2c7] Address (to be read by addr2line): 0xe8b2c7
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x714948bbb60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x714948bbb7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x714948bbb7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x714948bbcc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b237] Address (to be read by addr2line): 0xe8b237
+build-hdf5/test/test_p4est_search() [0x10f97ec] Address (to be read by addr2line): 0x10f97ec
+build-hdf5/test/test_p4est_search() [0x10ecdfd] Address (to be read by addr2line): 0x10ecdfd
+build-hdf5/test/test_p4est_search() [0x10ec143] Address (to be read by addr2line): 0x10ec143
+build-hdf5/test/test_p4est_search() [0x10ebe9f] Address (to be read by addr2line): 0x10ebe9f
+build-hdf5/test/test_p4est_search() [0x10ea723] Address (to be read by addr2line): 0x10ea723
+build-hdf5/test/test_p4est_search() [0x1075e1c] Address (to be read by addr2line): 0x1075e1c
+build-hdf5/test/test_p4est_search() [0x1077095] Address (to be read by addr2line): 0x1077095
+build-hdf5/test/test_p4est_search() [0x1076c4f] Address (to be read by addr2line): 0x1076c4f
+build-hdf5/test/test_p4est_search() [0x1074d17] Address (to be read by addr2line): 0x1074d17
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x714939a2a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[05-02-2025 09.21:06.190] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x79160e645320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b2c7] Address (to be read by addr2line): 0xe8b2c7
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x79161d60460b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x79161d6047f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x79161d6047f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x79161d605c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b237] Address (to be read by addr2line): 0xe8b237
+build-hdf5/test/test_p4est_search() [0x10f97ec] Address (to be read by addr2line): 0x10f97ec
+build-hdf5/test/test_p4est_search() [0x10ecdfd] Address (to be read by addr2line): 0x10ecdfd
+build-hdf5/test/test_p4est_search() [0x10ec143] Address (to be read by addr2line): 0x10ec143
+build-hdf5/test/test_p4est_search() [0x10ebe9f] Address (to be read by addr2line): 0x10ebe9f
+build-hdf5/test/test_p4est_search() [0x10ea723] Address (to be read by addr2line): 0x10ea723
+build-hdf5/test/test_p4est_search() [0x1075e1c] Address (to be read by addr2line): 0x1075e1c
+build-hdf5/test/test_p4est_search() [0x1077095] Address (to be read by addr2line): 0x1077095
+build-hdf5/test/test_p4est_search() [0x1076c4f] Address (to be read by addr2line): 0x1076c4f
+build-hdf5/test/test_p4est_search() [0x1074d17] Address (to be read by addr2line): 0x1074d17
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x79160e62a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[05-02-2025 09.21:08.371] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7103bf645320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b2c7] Address (to be read by addr2line): 0xe8b2c7
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7103ce75a60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x7103ce75a7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x7103ce75a7f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7103ce75bc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b237] Address (to be read by addr2line): 0xe8b237
+build-hdf5/test/test_p4est_search() [0x10f97ec] Address (to be read by addr2line): 0x10f97ec
+build-hdf5/test/test_p4est_search() [0x10ecdfd] Address (to be read by addr2line): 0x10ecdfd
+build-hdf5/test/test_p4est_search() [0x10ec143] Address (to be read by addr2line): 0x10ec143
+build-hdf5/test/test_p4est_search() [0x10ebe9f] Address (to be read by addr2line): 0x10ebe9f
+build-hdf5/test/test_p4est_search() [0x10ea723] Address (to be read by addr2line): 0x10ea723
+build-hdf5/test/test_p4est_search() [0x1075e1c] Address (to be read by addr2line): 0x1075e1c
+build-hdf5/test/test_p4est_search() [0x1077095] Address (to be read by addr2line): 0x1077095
+build-hdf5/test/test_p4est_search() [0x1076c4f] Address (to be read by addr2line): 0x1076c4f
+build-hdf5/test/test_p4est_search() [0x1074d17] Address (to be read by addr2line): 0x1074d17
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7103bf62a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[05-02-2025 09.21:10.191] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x78e155a45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b2c7] Address (to be read by addr2line): 0xe8b2c7
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x78e164a5160b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x78e164a517f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x78e164a517f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x78e164a52c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b237] Address (to be read by addr2line): 0xe8b237
+build-hdf5/test/test_p4est_search() [0x10f97ec] Address (to be read by addr2line): 0x10f97ec
+build-hdf5/test/test_p4est_search() [0x10ecdfd] Address (to be read by addr2line): 0x10ecdfd
+build-hdf5/test/test_p4est_search() [0x10ec143] Address (to be read by addr2line): 0x10ec143
+build-hdf5/test/test_p4est_search() [0x10ebe9f] Address (to be read by addr2line): 0x10ebe9f
+build-hdf5/test/test_p4est_search() [0x10ea723] Address (to be read by addr2line): 0x10ea723
+build-hdf5/test/test_p4est_search() [0x1075e1c] Address (to be read by addr2line): 0x1075e1c
+build-hdf5/test/test_p4est_search() [0x1077095] Address (to be read by addr2line): 0x1077095
+build-hdf5/test/test_p4est_search() [0x1076c4f] Address (to be read by addr2line): 0x1076c4f
+build-hdf5/test/test_p4est_search() [0x1074d17] Address (to be read by addr2line): 0x1074d17
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x78e155a2a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[05-02-2025 09.21:11.831] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x73e68e645320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b2c7] Address (to be read by addr2line): 0xe8b2c7
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x73e69d75660b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x73e69d7567f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x73e69d7567f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x73e69d757c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b237] Address (to be read by addr2line): 0xe8b237
+build-hdf5/test/test_p4est_search() [0x10f97ec] Address (to be read by addr2line): 0x10f97ec
+build-hdf5/test/test_p4est_search() [0x10ecdfd] Address (to be read by addr2line): 0x10ecdfd
+build-hdf5/test/test_p4est_search() [0x10ec143] Address (to be read by addr2line): 0x10ec143
+build-hdf5/test/test_p4est_search() [0x10ebe9f] Address (to be read by addr2line): 0x10ebe9f
+build-hdf5/test/test_p4est_search() [0x10ea723] Address (to be read by addr2line): 0x10ea723
+build-hdf5/test/test_p4est_search() [0x1075e1c] Address (to be read by addr2line): 0x1075e1c
+build-hdf5/test/test_p4est_search() [0x1077095] Address (to be read by addr2line): 0x1077095
+build-hdf5/test/test_p4est_search() [0x1076c4f] Address (to be read by addr2line): 0x1076c4f
+build-hdf5/test/test_p4est_search() [0x1074d17] Address (to be read by addr2line): 0x1074d17
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x73e68e62a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[05-02-2025 10.06:14.079] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7384b3845320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xe8b1c7] Address (to be read by addr2line): 0xe8b1c7
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7384c296160b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x7384c29617f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f7f2) [0x7384c29617f2] Address (to be read by addr2line): 0x6f7f2
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7384c2962c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8b137] Address (to be read by addr2line): 0xe8b137
+build-hdf5/test/test_p4est_search() [0x10f96ec] Address (to be read by addr2line): 0x10f96ec
+build-hdf5/test/test_p4est_search() [0x10eccfd] Address (to be read by addr2line): 0x10eccfd
+build-hdf5/test/test_p4est_search() [0x10ec043] Address (to be read by addr2line): 0x10ec043
+build-hdf5/test/test_p4est_search() [0x10ebd9f] Address (to be read by addr2line): 0x10ebd9f
+build-hdf5/test/test_p4est_search() [0x10ea623] Address (to be read by addr2line): 0x10ea623
+build-hdf5/test/test_p4est_search() [0x1075d1c] Address (to be read by addr2line): 0x1075d1c
+build-hdf5/test/test_p4est_search() [0x1076f95] Address (to be read by addr2line): 0x1076f95
+build-hdf5/test/test_p4est_search() [0x1076b4f] Address (to be read by addr2line): 0x1076b4f
+build-hdf5/test/test_p4est_search() [0x1074c17] Address (to be read by addr2line): 0x1074c17
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7384b382a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[05-02-2025 15.33:50.312] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7077c9845320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf0605a] Address (to be read by addr2line): 0xf0605a
+build-hdf5/test/test_p4est_search() [0xf5d4d4] Address (to be read by addr2line): 0xf5d4d4
+build-hdf5/test/test_p4est_search() [0xe8cb3c] Address (to be read by addr2line): 0xe8cb3c
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7077d88d360b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7077d88d4c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8ca97] Address (to be read by addr2line): 0xe8ca97
+build-hdf5/test/test_p4est_search() [0x11009ec] Address (to be read by addr2line): 0x11009ec
+build-hdf5/test/test_p4est_search() [0x10f3ffd] Address (to be read by addr2line): 0x10f3ffd
+build-hdf5/test/test_p4est_search() [0x10f3343] Address (to be read by addr2line): 0x10f3343
+build-hdf5/test/test_p4est_search() [0x10f309f] Address (to be read by addr2line): 0x10f309f
+build-hdf5/test/test_p4est_search() [0x10f1923] Address (to be read by addr2line): 0x10f1923
+build-hdf5/test/test_p4est_search() [0x107d01c] Address (to be read by addr2line): 0x107d01c
+build-hdf5/test/test_p4est_search() [0x107e295] Address (to be read by addr2line): 0x107e295
+build-hdf5/test/test_p4est_search() [0x107de4f] Address (to be read by addr2line): 0x107de4f
+build-hdf5/test/test_p4est_search() [0x107bf17] Address (to be read by addr2line): 0x107bf17
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7077c982a1ca] Address (to be read by addr2line): 0x2a1ca
+
+[05-02-2025 15.35:00.369] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x71b6dda45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf5d3a3] Address (to be read by addr2line): 0xf5d3a3
+build-hdf5/test/test_p4est_search() [0xe8cb3c] Address (to be read by addr2line): 0xe8cb3c
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x71b6eca5960b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x71b6eca5ac96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8ca97] Address (to be read by addr2line): 0xe8ca97
+build-hdf5/test/test_p4est_search() [0x11009ec] Address (to be read by addr2line): 0x11009ec
+build-hdf5/test/test_p4est_search() [0x10f3ffd] Address (to be read by addr2line): 0x10f3ffd
+build-hdf5/test/test_p4est_search() [0x10f3343] Address (to be read by addr2line): 0x10f3343
+build-hdf5/test/test_p4est_search() [0x10f309f] Address (to be read by addr2line): 0x10f309f
+build-hdf5/test/test_p4est_search() [0x10f1923] Address (to be read by addr2line): 0x10f1923
+build-hdf5/test/test_p4est_search() [0x107d01c] Address (to be read by addr2line): 0x107d01c
+build-hdf5/test/test_p4est_search() [0x107e295] Address (to be read by addr2line): 0x107e295
+build-hdf5/test/test_p4est_search() [0x107de4f] Address (to be read by addr2line): 0x107de4f
+build-hdf5/test/test_p4est_search() [0x107bf17] Address (to be read by addr2line): 0x107bf17
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x71b6dda2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x71b6dda2a28b] Address (to be read by addr2line): 0x2a28b
+
+[05-02-2025 15.36:15.638] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x79dac2045320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf5e852] Address (to be read by addr2line): 0xf5e852
+build-hdf5/test/test_p4est_search() [0xf63bf1] Address (to be read by addr2line): 0xf63bf1
+/opt/rocm-6.2.1/lib/llvm/lib/libomp.so(__kmp_invoke_microtask+0x93) [0x79dad10ec943] Address (to be read by addr2line): 0xe5943
+/opt/rocm-6.2.1/lib/llvm/lib/libomp.so(__kmp_fork_call+0x220e) [0x79dad106852e] Address (to be read by addr2line): 0x6152e
+/opt/rocm-6.2.1/lib/llvm/lib/libomp.so(__kmpc_fork_call+0x11d) [0x79dad10586ad] Address (to be read by addr2line): 0x516ad
+build-hdf5/test/test_p4est_search() [0xf625a7] Address (to be read by addr2line): 0xf625a7
+build-hdf5/test/test_p4est_search() [0xf7af34] Address (to be read by addr2line): 0xf7af34
+build-hdf5/test/test_p4est_search() [0x107beb2] Address (to be read by addr2line): 0x107beb2
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x79dac202a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x79dac202a28b] Address (to be read by addr2line): 0x2a28b
+build-hdf5/test/test_p4est_search() [0xe8c995] Address (to be read by addr2line): 0xe8c995
+
+[05-02-2025 15.37:42.594] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7dd5cae45320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf5d3e3] Address (to be read by addr2line): 0xf5d3e3
+build-hdf5/test/test_p4est_search() [0xe8cb3f] Address (to be read by addr2line): 0xe8cb3f
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7dd5d9e4960b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7dd5d9e4ac96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8ca97] Address (to be read by addr2line): 0xe8ca97
+build-hdf5/test/test_p4est_search() [0x1100a2c] Address (to be read by addr2line): 0x1100a2c
+build-hdf5/test/test_p4est_search() [0x10f403d] Address (to be read by addr2line): 0x10f403d
+build-hdf5/test/test_p4est_search() [0x10f3383] Address (to be read by addr2line): 0x10f3383
+build-hdf5/test/test_p4est_search() [0x10f30df] Address (to be read by addr2line): 0x10f30df
+build-hdf5/test/test_p4est_search() [0x10f1963] Address (to be read by addr2line): 0x10f1963
+build-hdf5/test/test_p4est_search() [0x107d05c] Address (to be read by addr2line): 0x107d05c
+build-hdf5/test/test_p4est_search() [0x107e2d5] Address (to be read by addr2line): 0x107e2d5
+build-hdf5/test/test_p4est_search() [0x107de8f] Address (to be read by addr2line): 0x107de8f
+build-hdf5/test/test_p4est_search() [0x107bf57] Address (to be read by addr2line): 0x107bf57
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7dd5cae2a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7dd5cae2a28b] Address (to be read by addr2line): 0x2a28b
+
+[05-02-2025 15.37:45.392] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x7674b6245320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf5d3e3] Address (to be read by addr2line): 0xf5d3e3
+build-hdf5/test/test_p4est_search() [0xe8cb3f] Address (to be read by addr2line): 0xe8cb3f
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x7674c535b60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x7674c535cc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8ca97] Address (to be read by addr2line): 0xe8ca97
+build-hdf5/test/test_p4est_search() [0x1100a2c] Address (to be read by addr2line): 0x1100a2c
+build-hdf5/test/test_p4est_search() [0x10f403d] Address (to be read by addr2line): 0x10f403d
+build-hdf5/test/test_p4est_search() [0x10f3383] Address (to be read by addr2line): 0x10f3383
+build-hdf5/test/test_p4est_search() [0x10f30df] Address (to be read by addr2line): 0x10f30df
+build-hdf5/test/test_p4est_search() [0x10f1963] Address (to be read by addr2line): 0x10f1963
+build-hdf5/test/test_p4est_search() [0x107d05c] Address (to be read by addr2line): 0x107d05c
+build-hdf5/test/test_p4est_search() [0x107e2d5] Address (to be read by addr2line): 0x107e2d5
+build-hdf5/test/test_p4est_search() [0x107de8f] Address (to be read by addr2line): 0x107de8f
+build-hdf5/test/test_p4est_search() [0x107bf57] Address (to be read by addr2line): 0x107bf57
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x7674b622a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x7674b622a28b] Address (to be read by addr2line): 0x2a28b
+
+[05-02-2025 15.37:47.163] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x77b835645320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf5d3e3] Address (to be read by addr2line): 0xf5d3e3
+build-hdf5/test/test_p4est_search() [0xe8cb3f] Address (to be read by addr2line): 0xe8cb3f
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x77b8447a060b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x77b8447a1c96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8ca97] Address (to be read by addr2line): 0xe8ca97
+build-hdf5/test/test_p4est_search() [0x1100a2c] Address (to be read by addr2line): 0x1100a2c
+build-hdf5/test/test_p4est_search() [0x10f403d] Address (to be read by addr2line): 0x10f403d
+build-hdf5/test/test_p4est_search() [0x10f3383] Address (to be read by addr2line): 0x10f3383
+build-hdf5/test/test_p4est_search() [0x10f30df] Address (to be read by addr2line): 0x10f30df
+build-hdf5/test/test_p4est_search() [0x10f1963] Address (to be read by addr2line): 0x10f1963
+build-hdf5/test/test_p4est_search() [0x107d05c] Address (to be read by addr2line): 0x107d05c
+build-hdf5/test/test_p4est_search() [0x107e2d5] Address (to be read by addr2line): 0x107e2d5
+build-hdf5/test/test_p4est_search() [0x107de8f] Address (to be read by addr2line): 0x107de8f
+build-hdf5/test/test_p4est_search() [0x107bf57] Address (to be read by addr2line): 0x107bf57
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x77b83562a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x77b83562a28b] Address (to be read by addr2line): 0x2a28b
+
+[05-02-2025 15.37:48.931] [critical] /lib/x86_64-linux-gnu/libc.so.6(+0x45320) [0x75b75b845320] Address (to be read by addr2line): 0x45320
+build-hdf5/test/test_p4est_search() [0xf5d3e3] Address (to be read by addr2line): 0xf5d3e3
+build-hdf5/test/test_p4est_search() [0xe8cb3f] Address (to be read by addr2line): 0xe8cb3f
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(+0x6f60b) [0x75b76a88b60b] Address (to be read by addr2line): 0x6f60b
+/mnt/rafast/musolino/libs/p4est-install-release/lib/libp4est.so.3.0.0(p8est_search_local+0xc6) [0x75b76a88cc96] Address (to be read by addr2line): 0x70c96
+build-hdf5/test/test_p4est_search() [0xe8ca97] Address (to be read by addr2line): 0xe8ca97
+build-hdf5/test/test_p4est_search() [0x1100a2c] Address (to be read by addr2line): 0x1100a2c
+build-hdf5/test/test_p4est_search() [0x10f403d] Address (to be read by addr2line): 0x10f403d
+build-hdf5/test/test_p4est_search() [0x10f3383] Address (to be read by addr2line): 0x10f3383
+build-hdf5/test/test_p4est_search() [0x10f30df] Address (to be read by addr2line): 0x10f30df
+build-hdf5/test/test_p4est_search() [0x10f1963] Address (to be read by addr2line): 0x10f1963
+build-hdf5/test/test_p4est_search() [0x107d05c] Address (to be read by addr2line): 0x107d05c
+build-hdf5/test/test_p4est_search() [0x107e2d5] Address (to be read by addr2line): 0x107e2d5
+build-hdf5/test/test_p4est_search() [0x107de8f] Address (to be read by addr2line): 0x107de8f
+build-hdf5/test/test_p4est_search() [0x107bf57] Address (to be read by addr2line): 0x107bf57
+/lib/x86_64-linux-gnu/libc.so.6(+0x2a1ca) [0x75b75b82a1ca] Address (to be read by addr2line): 0x2a1ca
+/lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x8b) [0x75b75b82a28b] Address (to be read by addr2line): 0x2a28b
+
