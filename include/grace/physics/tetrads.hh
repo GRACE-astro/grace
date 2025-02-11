@@ -108,33 +108,33 @@ struct quasi_kinnersley_tetrad {
                                      w_polar[Z]/Kokkos::sqrt(omega33)};
 
         // finally, we have (e_r, e_th, e_phi) that are orthonormal in the g_ij metric
-        double const sqrt2 = Kokkos::sqrt(2.0);
+        double const invsqrt2 = 1.0/Kokkos::sqrt(2.0);
         complex_vector ltet{}, ntet{}, mtet{}, mbartet{};
         // ltet[X][IM]=0.0;
         // ltet[Y][IM]=0.0;
         // ltet[Z][IM]=0.0;
-        ltet[X][RE]=sqrt2 * e_radial[X];
-        ltet[Y][RE]=sqrt2 * e_radial[Y];
-        ltet[Z][RE]=sqrt2 * e_radial[Z];
+        ltet[X][RE]=invsqrt2 * e_radial[X];
+        ltet[Y][RE]=invsqrt2 * e_radial[Y];
+        ltet[Z][RE]=invsqrt2 * e_radial[Z];
         
-        ntet[X][RE]=-sqrt2 * e_radial[X];
-        ntet[Y][RE]=-sqrt2 * e_radial[Y];
-        ntet[Z][RE]=-sqrt2 * e_radial[Z];
+        ntet[X][RE]=-invsqrt2 * e_radial[X];
+        ntet[Y][RE]=-invsqrt2 * e_radial[Y];
+        ntet[Z][RE]=-invsqrt2 * e_radial[Z];
 
-        mtet[X][RE]=sqrt2 * e_polar[X];
-        mtet[Y][RE]=sqrt2 * e_polar[Y];
-        mtet[Z][RE]=sqrt2 * e_polar[Z];
-        mtet[X][IM]=sqrt2 * e_azimuthal[X];
-        mtet[Y][IM]=sqrt2 * e_azimuthal[Y];
-        mtet[Z][IM]=sqrt2 * e_azimuthal[Z];
+        mtet[X][RE]=invsqrt2 * e_polar[X];
+        mtet[Y][RE]=invsqrt2 * e_polar[Y];
+        mtet[Z][RE]=invsqrt2 * e_polar[Z];
+        mtet[X][IM]=invsqrt2 * e_azimuthal[X];
+        mtet[Y][IM]=invsqrt2 * e_azimuthal[Y];
+        mtet[Z][IM]=invsqrt2 * e_azimuthal[Z];
 
 
-        mbartet[X][RE]=sqrt2 * e_polar[X];
-        mbartet[Y][RE]=sqrt2 * e_polar[Y];
-        mbartet[Z][RE]=sqrt2 * e_polar[Z];
-        mbartet[X][IM]=-sqrt2 * e_azimuthal[X];
-        mbartet[Y][IM]=-sqrt2 * e_azimuthal[Y];
-        mbartet[Z][IM]=-sqrt2 * e_azimuthal[Z];
+        mbartet[X][RE]=invsqrt2 * e_polar[X];
+        mbartet[Y][RE]=invsqrt2 * e_polar[Y];
+        mbartet[Z][RE]=invsqrt2 * e_polar[Z];
+        mbartet[X][IM]=-invsqrt2 * e_azimuthal[X];
+        mbartet[Y][IM]=-invsqrt2 * e_azimuthal[Y];
+        mbartet[Z][IM]=-invsqrt2 * e_azimuthal[Z];
 
         return {ltet, ntet, mtet, mbartet};
 

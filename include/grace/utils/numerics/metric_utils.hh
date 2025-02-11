@@ -448,43 +448,43 @@ trace_sym2tens_lower(std::array<double,6> const& A) const
 }
 
 
-std::array<double, 3> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-compute_covariant_curl(std::array<double,3> const& v
-                     , std::array<double,3> const& u ) const 
-{   // we are implementing the expression:
-    // w^i = gamma^ij * \sqrt{\gamma} * eps_jkl * v^k * u^l
-    std::array<std::array<double,3>, 3> gINV;
-    std::array<std::array<std::array<double>,3>, 3> epsLC = {}; // levi civita symbol, zero-initialize
-    std::array<double,3> w{0.,0.,0.};
-    gINV[0][0]=_ginv[XX];
-    gINV[1][1]=_ginv[YY];
-    gINV[2][2]=_ginv[ZZ];
-    gINV[0][1]=gINV[1][0]=_ginv[XY];
-    gINV[0][2]=gINV[2][0]=_ginv[XZ];
-    gINV[1][2]=gINV[2][1]=_ginv[YZ];
+// std::array<double, 3> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+// compute_covariant_curl(std::array<double,3> const& v
+//                      , std::array<double,3> const& u ) const 
+// {   // we are implementing the expression:
+//     // w^i = gamma^ij * \sqrt{\gamma} * eps_jkl * v^k * u^l
+//     std::array<std::array<double,3>, 3> gINV;
+//     std::array<std::array<std::array<double>,3>, 3> epsLC = {}; // levi civita symbol, zero-initialize
+//     std::array<double,3> w{0.,0.,0.};
+//     gINV[0][0]=_ginv[XX];
+//     gINV[1][1]=_ginv[YY];
+//     gINV[2][2]=_ginv[ZZ];
+//     gINV[0][1]=gINV[1][0]=_ginv[XY];
+//     gINV[0][2]=gINV[2][0]=_ginv[XZ];
+//     gINV[1][2]=gINV[2][1]=_ginv[YZ];
 
-    epsLC[0][1][2]=1.0;
-    epsLC[0][2][1]=-1.0;
+//     epsLC[0][1][2]=1.0;
+//     epsLC[0][2][1]=-1.0;
 
-    epsLC[1][2][0]=1.0;
-    epsLC[1][0][2]=-1.0;
+//     epsLC[1][2][0]=1.0;
+//     epsLC[1][0][2]=-1.0;
 
-    epsLC[2][0][1]=1.0;
-    epsLC[2][1][0]=-1.0;
+//     epsLC[2][0][1]=1.0;
+//     epsLC[2][1][0]=-1.0;
 
 
-    for(size_t i = 0, i <3 ; i++){
-        for(size_t j = 0, j <3 ; j++){
-            for(size_t k = 0, k <3 ; k++){
-                for(size_t l = 0, l <3 ; l++){
-                     w[i] += gINV[i][j] * _sqrtg * epsLC[j][k][l] * v[k] * u[l];
-                }
-            }
-        }   
-    }
+//     for(size_t i = 0, i <3 ; i++){
+//         for(size_t j = 0, j <3 ; j++){
+//             for(size_t k = 0, k <3 ; k++){
+//                 for(size_t l = 0, l <3 ; l++){
+//                      w[i] += gINV[i][j] * _sqrtg * epsLC[j][k][l] * v[k] * u[l];
+//                 }
+//             }
+//         }   
+//     }
 
-    return w;
-}
+//     return w;
+// }
 
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 scalar_product(std::array<double,3> const& v
