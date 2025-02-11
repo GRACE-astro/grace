@@ -16,3 +16,12 @@ target_link_libraries( grace_c2p PRIVATE
                         p4est::p4est 
                         Kokkos::kokkos 
                         spdlog::spdlog )
+add_library(grace_tab OBJECT tabulated_reader_compose.cpp )
+target_include_directories(  grace_tab PRIVATE "${HEADER_DIR}")
+target_link_libraries( grace_tab PRIVATE
+                        yaml_cpp::yaml
+                        MPI::MPI_CXX 
+                        p4est::sc 
+                        p4est::p4est 
+                        Kokkos::kokkos 
+                        spdlog::spdlog )

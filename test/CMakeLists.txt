@@ -323,6 +323,23 @@ p4est_tests_main
     HDF5::HDF5 
     $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
+add_executable( tabulated_test test_tabulated_eos.cpp )
+target_include_directories(tabulated_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  tabulated_test PRIVATE 
+p4est_tests_main
+    Catch2::Catch2
+    grace_objects
+    yaml_cpp::yaml
+    Kokkos::kokkos
+    MPI::MPI_CXX
+    OpenMP::OpenMP_CXX
+    p4est::sc
+    p4est::p4est 
+    VTK::VTK
+    spdlog::spdlog
+    HDF5::HDF5 
+    $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
+
 add_executable( metric_test test_metric.cpp )
 target_include_directories(metric_test PRIVATE "${HEADER_LIST}")
 target_link_libraries(  metric_test PRIVATE 
