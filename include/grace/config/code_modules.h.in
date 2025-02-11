@@ -55,7 +55,7 @@ const std::vector< std::string > code_modules {
     #endif
     , "eos"
     , "profiling"
-    , "checkpointing"
+    , "checkpoints"
 } ;
 //*****************************************************************************************************
 const std::vector< std::string > code_modules_default_configs { 

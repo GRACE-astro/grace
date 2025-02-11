@@ -79,7 +79,7 @@ constexpr const std::array<double,10> wGauLeg10 = {0.0666713443086881, 0.1494513
  */
 template<  typename T
         ,  typename F>
-T GRACE_ALWAYS_INLINE  
+T GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 trapezoid_impl(T const& s, T const& a, T const& b, int n, F&& func)
 {
     if( n==1 ) {
@@ -148,7 +148,7 @@ void gauleg(std::array<T,N>& x, std::array<T,N>& w, T const& eps) {
  */
 template< typename T
         , typename F >
-T GRACE_ALWAYS_INLINE  
+T GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
 simpson(T const& a, T const& b, T const& eps, F&& func, size_t const imax=30) {
   T s,st,os{-1e30},ost{-1e30} ;
   for( int j=1; j<=imax; ++j) {
@@ -221,7 +221,7 @@ struct integrator_t {
   /**
    * @brief Perform the integral.
    */
-  static GRACE_ALWAYS_INLINE T 
+  static GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE T 
   integrate( std::array<T,Ndim> const& a
            , std::array<T,Ndim> const& b
            , T const& eps, F const& func
@@ -258,7 +258,7 @@ struct integrator_t<T,F,1> {
   /**
    * @brief Perform the integral.
    */
-  static GRACE_ALWAYS_INLINE T 
+  static GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE T 
   integrate( std::array<T,1> const& a
            , std::array<T,1> const& b
            , T const& eps, F const& func
@@ -316,7 +316,8 @@ template< typename T
 template< size_t Ndim
         , typename T
         , typename F >
-T nd_simpson_integrate(std::array<T,Ndim>const& a, std::array<T,Ndim> const& b, T const& eps, F const & func, size_t const imax=30) {
+T GRACE_HOST_DEVICE 
+nd_simpson_integrate(std::array<T,Ndim>const& a, std::array<T,Ndim> const& b, T const& eps, F const & func, size_t const imax=30) {
   return detail::integrator_t<T,F,Ndim>::integrate(a,b,eps,func,imax) ;
 }
 
@@ -346,6 +347,38 @@ eval_3d_primitive(double a1, double a2, double a3, double b1, double b2, double 
         return func(x,y,b3) ; 
     } ; 
     return eval_2d_primitive(a1,a2,b1,b2,f2d_b) - eval_2d_primitive(a1,a2,b1,b2,f2d_a); 
+}
+
+
+template< typename ViewT > 
+double trapz(const ViewT& x, const ViewT& y) {
+    const int n = x.extent(0);
+    double integral = 0.0;
+    // Loop over each interval [x(i), x(i+1)]
+    for (int i = 0; i < n - 1; ++i) {
+        double dx    = x(i + 1) - x(i);
+        double avg_y = (y(i) + y(i + 1)) / 2.0;
+        integral += avg_y * dx;
+    }
+    return integral;
+}
+
+// Cumulative trapezoidal integration.
+// The output 'cum' must be allocated to the same extent as x and y.
+// After execution, cum(i) holds the integral from x(0) to x(i).
+template< typename ViewT > 
+void cumtrapz(const ViewT& x,
+              const ViewT& y,
+              ViewT& cum) {
+    const int n = x.extent(0);
+    // Starting value: no area accumulated at the first point.
+    cum(0) = 0.0;
+    // Loop over intervals
+    for (int i = 0; i < n - 1; ++i) {
+        double dx    = x(i + 1) - x(i);
+        double avg_y = (y(i) + y(i + 1)) / 2.0;
+        cum(i + 1) = cum(i) + avg_y * dx;
+    }
 }
 
 } /* namespace utils */
