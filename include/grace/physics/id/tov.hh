@@ -289,7 +289,11 @@ struct tov_id_t {
     }
 
     double GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
-    interp_solution(double const R, Kokkos::View<double*, grace::default_space> x,  Kokkos::View<double*, grace::default_space> y) const {
+    interp_solution(
+        double const R, 
+        Kokkos::View<double*, grace::default_space> x,  
+        Kokkos::View<double*, grace::default_space> y
+    ) const {
         size_t idx = find_index(R ,x); 
         double lambda = (R - x(idx)) / ( x(idx+1) - x(idx) );
         return y(idx) * ( 1- lambda ) + y(idx+1) *  (lambda) ; 
@@ -323,30 +327,19 @@ struct tov_id_t {
         for( int i=0; i<npoints; ++i ) {
             auto fact = Kokkos::sqrt(1 - 2*h_m(i)/(h_r(i)+1e-20)) ; 
             integrand(i) = (1.-fact)/(1e-20+h_r(i)*fact) ; 
-            if ( !std::isfinite( integrand(i) ) ) {
-                #pragma omp critical
-                GRACE_WARN("NaN in integrand at {}, r = {}, m = {}", i, h_r(i), h_m(i) ) ; 
-            }
         }
         auto h_r_iso = Kokkos::create_mirror_view(r_iso) ; 
         auto h_expGamma = Kokkos::create_mirror_view(expGamma) ; 
-        GRACE_INFO("Sizes: {}", h_r.extent(0)) ; 
+
         // Compute the constant 
         _C = 1/(2*_R) *  ( Kokkos::sqrt(_R*_R - 2*_M*_R) + _R  - _M ) 
             * Kokkos::exp(-utils::trapz(h_r, integrand)) ; 
         utils::cumtrapz(h_r,integrand,h_r_iso ) ; 
-        GRACE_INFO("C: {}", _C) ; 
         // Compute isotropic radius and conformal factor 
         //#pragma omp parallel for 
         for( int i=0; i<npoints; ++i) {
-            if ( !std::isfinite( h_r_iso(i) ) ) {
-                GRACE_WARN("NaN in r_iso (before integral) at {}, r = {}, m = {}", i, h_r(i), h_m(i) ) ; 
-            }
             h_r_iso(i) = _C * h_r(i) * Kokkos::exp(h_r_iso(i)) ; 
             h_expGamma(i) = h_r(i) / ( 1e-20 + h_r_iso(i) ) ; 
-            if ( !std::isfinite( h_r_iso(i) ) ) {
-                GRACE_WARN("NaN in r_iso at {}, r = {}, m = {}", i, h_r(i), h_m(i) ) ; 
-            }
         }
         h_expGamma(0) = h_expGamma(1) ; 
 
@@ -356,12 +349,6 @@ struct tov_id_t {
         // Copy h2d isotropic radius and conformal factor 
         Kokkos::deep_copy(expGamma, h_expGamma) ; 
         Kokkos::deep_copy(r_iso, h_r_iso)       ; 
-
-        std::ofstream outfile("test.txt") ; 
-        for( int i=0; i<npoints; ++i) {
-            outfile << h_r(i) << ' ' << h_m(i) << ' ' << integrand(i) << ' ' << h_r_iso(i) << ' ' << h_expGamma(i) << '\n' ; 
-        }
-
         
     } 
     //**************************************************************************************************

@@ -79,8 +79,7 @@ struct grhd_c2p_t {
             conservs[STYL] *= fact/StildeNorm  ;
             conservs[STZL] *= fact/StildeNorm  ;
             StildeU = metric.raise({conservs[STXL],conservs[STYL],conservs[STZL]}) ; 
-            StildeNorm = fact ; 
-            //    Kokkos::sqrt(conservs[STXL]*StildeU[0] + conservs[STYL]*StildeU[1] + conservs[STZL]*StildeU[2] ) ; 
+            StildeNorm = Kokkos::sqrt(conservs[STXL]*StildeU[0] + conservs[STYL]*StildeU[1] + conservs[STZL]*StildeU[2] ) ; 
         } 
         ye = conservs[YESL] / D ;
         q  = conservs[TAUL] / D ; 
@@ -103,13 +102,16 @@ struct grhd_c2p_t {
      */
     grmhd_prims_array_t GRACE_HOST_DEVICE
     invert(double& error) {
-
+        
         auto const func = [&] (double const& zeta) {
             return zeta - r / htilde(zeta) ; 
         } ; 
-        double const zm{ 0.5*k/Kokkos::sqrt(1-math::int_pow<2>(0.5*k))} 
-                   , zp{ 1e-06 + k/Kokkos::sqrt(1-math::int_pow<2>(k))} ; 
+        double const  zm{ 0.5*k/Kokkos::sqrt(1-math::int_pow<2>(0.5*k))} 
+                    , zp{ k/Kokkos::sqrt(1-math::int_pow<2>(k))} ; 
+        
         double const zeta = utils::brent(func,zm,zp,1e-15) ; 
+        error = func(zeta) ; 
+        
         double const W = Wtilde(zeta) ; 
         grmhd_prims_array_t prims ; 
         prims[RHOL] = D/W ;
@@ -126,7 +128,7 @@ struct grhd_c2p_t {
         prims[VXL] = StildeU[0] / D / h / W; 
         prims[VYL] = StildeU[1] / D / h / W; 
         prims[VZL] = StildeU[2] / D / h / W; 
-        error = func(zeta) ;
+        
         return std::move(prims) ; 
     }
     
