@@ -45,6 +45,405 @@
 
 namespace grace { namespace amr { 
 
+
+namespace detail {
+
+template< bool stagger_x, bool stagger_y, bool stagger_z > 
+void copy_interior_ghostzones_impl(
+        grace::var_array_t<GRACE_NSPACEDIM>& vars
+    , grace::var_array_t<GRACE_NSPACEDIM>& halo 
+    , grace::device_vector<simple_face_info_t>& interior_faces
+    , grace::device_vector<simple_corner_info_t>& interior_corners
+    #ifdef GRACE_3D
+    , grace::device_vector<simple_edge_info_t>& interior_edges
+    #endif 
+)
+{
+    using namespace grace; 
+    using namespace Kokkos ; 
+
+    int nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int ngz = amr::get_n_ghosts() ;
+    int nq  = amr::get_local_num_quadrants() ;
+    int nvars  = variables::get_n_evolved()      ;
+    size_t const n_faces = interior_faces.size()   ;
+    size_t const n_corners = interior_corners.size()   ;
+    #ifdef GRACE_3D
+    size_t const n_edges = interior_edges.size()   ;
+    #endif 
+    if( EXPR( n_faces == 0, and n_corners == 0, and n_edges==0) ) {
+        return ; 
+    }
+    #define LOW_DST_GZS_X Kokkos::pair<int,int>{0,ngz+static_cast<int>(stagger_x)} 
+    #define LOW_DST_GZS_Y Kokkos::pair<int,int>{0,ngz+static_cast<int>(stagger_y)} 
+    #define LOW_DST_GZS_Z Kokkos::pair<int,int>{0,ngz+static_cast<int>(stagger_z)}
+
+    #define HIGH_DST_GZS_X Kokkos::pair<int,int>{nx+ngz,nx+2*ngz+static_cast<int>(stagger_x)}
+    #define HIGH_DST_GZS_Y Kokkos::pair<int,int>{ny+ngz,ny+2*ngz+static_cast<int>(stagger_y)}
+    #define HIGH_DST_GZS_Z Kokkos::pair<int,int>{nz+ngz,nz+2*ngz+static_cast<int>(stagger_z)}
+
+    #define LOW_SRC_GZS_X Kokkos::pair<int,int>{ngz,2*ngz+static_cast<int>(stagger_x)}
+    #define LOW_SRC_GZS_Y Kokkos::pair<int,int>{ngz,2*ngz+static_cast<int>(stagger_y)}
+    #define LOW_SRC_GZS_Z Kokkos::pair<int,int>{ngz,2*ngz+static_cast<int>(stagger_z)}
+
+    #define HIGH_SRC_GZS_X Kokkos::pair<int,int>{nx,nx+ngz+static_cast<int>(stagger_x)}
+    #define HIGH_SRC_GZS_Y Kokkos::pair<int,int>{ny,ny+ngz+static_cast<int>(stagger_y)}
+    #define HIGH_SRC_GZS_Z Kokkos::pair<int,int>{nz,nz+ngz+static_cast<int>(stagger_z)}
+
+    #define INNER_DOMAIN_X Kokkos::pair<int,int>{ngz,nx+ngz+static_cast<int>(stagger_x)}
+    #define INNER_DOMAIN_Y Kokkos::pair<int,int>{ngz,ny+ngz+static_cast<int>(stagger_y)}
+    #define INNER_DOMAIN_Z Kokkos::pair<int,int>{ngz,nz+ngz+static_cast<int>(stagger_z)}
+
+    using array_of_pairs_t = std::array<Kokkos::pair<int,int>,GRACE_NSPACEDIM> ;
+    const std::array<array_of_pairs_t,P4EST_FACES>
+        dst_face_mask {
+            // Face 0 --> LOW X 
+            array_of_pairs_t{
+                VEC(LOW_DST_GZS_X, INNER_DOMAIN_Y, INNER_DOMAIN_Z)
+            },
+            // Face 1 --> HIGH X 
+            array_of_pairs_t{
+                VEC(HIGH_DST_GZS_X, INNER_DOMAIN_Y, INNER_DOMAIN_Z)
+            },
+            // Face 2 --> LOW Y
+            array_of_pairs_t{
+                VEC(INNER_DOMAIN_X, LOW_DST_GZS_Y, INNER_DOMAIN_Z)
+            },
+            // Face 3 --> HIGH Y
+            array_of_pairs_t{
+                VEC(INNER_DOMAIN_X, HIGH_DST_GZS_Y, INNER_DOMAIN_Z)
+            },
+            // Face 4 --> LOW Z
+            array_of_pairs_t{
+                VEC(INNER_DOMAIN_X, INNER_DOMAIN_Y, LOW_DST_GZS_Z)
+            },
+            // Face 5 --> HIGH Z
+            array_of_pairs_t{
+                VEC(INNER_DOMAIN_X, INNER_DOMAIN_Y, HIGH_DST_GZS_Z)
+            }
+        } ; 
+    const std::array<array_of_pairs_t,P4EST_FACES>
+        src_face_mask {
+            // Face 0 --> LOW X 
+            array_of_pairs_t{
+                VEC(LOW_SRC_GZS_X, INNER_DOMAIN_Y, INNER_DOMAIN_Z)
+            },
+            // Face 1 --> HIGH X 
+            array_of_pairs_t{
+                VEC(HIGH_SRC_GZS_X, INNER_DOMAIN_Y, INNER_DOMAIN_Z)
+            },
+            // Face 2 --> LOW Y
+            array_of_pairs_t{
+                VEC(INNER_DOMAIN_X, LOW_SRC_GZS_Y, INNER_DOMAIN_Z)
+            },
+            // Face 3 --> HIGH Y
+            array_of_pairs_t{
+                VEC(INNER_DOMAIN_X, HIGH_SRC_GZS_Y, INNER_DOMAIN_Z)
+            },
+            // Face 4 --> LOW Z
+            array_of_pairs_t{
+                VEC(INNER_DOMAIN_X, INNER_DOMAIN_Y, LOW_SRC_GZS_Z)
+            },
+            // Face 5 --> HIGH Z
+            array_of_pairs_t{
+                VEC(INNER_DOMAIN_X, INNER_DOMAIN_Y, HIGH_SRC_GZS_Z)
+            }
+        } ;
+    const std::array<array_of_pairs_t, P4EST_CHILDREN> 
+        dst_corner_mask {
+            // CORNER 0 --> low xyz 
+            array_of_pairs_t{
+                VEC(LOW_DST_GZS_X, LOW_DST_GZS_Y, LOW_DST_GZS_Z)
+            },
+            // CORNER 1 --> high x low yz 
+            array_of_pairs_t{
+                VEC(HIGH_DST_GZS_X,  LOW_DST_GZS_Y, LOW_DST_GZS_Z)
+            },
+            // CORNER 2 --> high y low xz 
+            array_of_pairs_t{
+                VEC(LOW_DST_GZS_X,  HIGH_DST_GZS_Y, LOW_DST_GZS_Z)
+            },
+            // CORNER 3 --> high xy low z
+            array_of_pairs_t{
+                VEC(HIGH_DST_GZS_X,  HIGH_DST_GZS_Y, LOW_DST_GZS_X)
+            },
+            // CORNER 4 --> low xy high z 
+            array_of_pairs_t{
+                VEC(LOW_DST_GZS_X, LOW_DST_GZS_Y, HIGH_DST_GZS_Z)
+            },
+            // CORNER 5 --> high xz low y 
+            array_of_pairs_t{
+                VEC(HIGH_DST_GZS_X, LOW_DST_GZS_Y, HIGH_DST_GZS_Z)
+            },
+            // CORNER 6 --> high yz low x 
+            array_of_pairs_t{
+                VEC(LOW_DST_GZS_X, HIGH_DST_GZS_Y, HIGH_DST_GZS_Z)
+            },
+            // CORNER 7 --> high all 
+            array_of_pairs_t{
+                VEC(HIGH_DST_GZS_X, HIGH_DST_GZS_Y, HIGH_DST_GZS_Z)
+            }
+        } ;
+    const std::array<array_of_pairs_t, P4EST_CHILDREN> 
+        src_corner_mask {
+            // CORNER 0 --> low xyz 
+            array_of_pairs_t{
+                VEC(LOW_SRC_GZS_X, LOW_SRC_GZS_Y, LOW_SRC_GZS_Z)
+            },
+            // CORNER 1 --> high x low yz 
+            array_of_pairs_t{
+                VEC(HIGH_SRC_GZS_X,  LOW_SRC_GZS_Y, LOW_SRC_GZS_Z)
+            },
+            // CORNER 2 --> high y low xz 
+            array_of_pairs_t{
+                VEC(LOW_SRC_GZS_X,  HIGH_SRC_GZS_Y, LOW_SRC_GZS_Z)
+            },
+            // CORNER 3 --> high xy low z
+            array_of_pairs_t{
+                VEC(HIGH_SRC_GZS_X,  HIGH_SRC_GZS_Y, LOW_SRC_GZS_Z)
+            },
+            // CORNER 4 --> low xy high z 
+            array_of_pairs_t{
+                VEC(LOW_SRC_GZS_X, LOW_SRC_GZS_Y, HIGH_SRC_GZS_Z)
+            },
+            // CORNER 5 --> high xz low y 
+            array_of_pairs_t{
+                VEC(HIGH_SRC_GZS_X, LOW_SRC_GZS_Y, HIGH_SRC_GZS_Z)
+            },
+            // CORNER 6 --> high yz low x 
+            array_of_pairs_t{
+                VEC(LOW_SRC_GZS_X, HIGH_SRC_GZS_Y, HIGH_SRC_GZS_Z)
+            },
+            // CORNER 7 --> high all 
+            array_of_pairs_t{
+                VEC(HIGH_SRC_GZS_X, HIGH_SRC_GZS_Y, HIGH_SRC_GZS_Z)
+            }
+        } ; 
+    #ifdef GRACE_3D 
+    const std::array<array_of_pairs_t, 12> 
+        dst_edge_mask {
+            // EDGE 0 --> low yz, along x  
+            array_of_pairs_t {
+                INNER_DOMAIN_X, LOW_DST_GZS_Y, LOW_DST_GZS_Z
+            } , 
+            // EDGE 1 --> high y low z along x 
+            array_of_pairs_t {
+                INNER_DOMAIN_X, HIGH_DST_GZS_Y, LOW_DST_GZS_Z
+            } , 
+            // EDGE 2 --> high z low y along x 
+            array_of_pairs_t {
+                INNER_DOMAIN_X, LOW_DST_GZS_Y, HIGH_DST_GZS_Z
+            } , 
+            // EDGE 3 --> high yz along x
+            array_of_pairs_t {
+                INNER_DOMAIN_X, HIGH_DST_GZS_Y, HIGH_DST_GZS_Z
+            } ,
+            // EDGE 4 --> low xz along y 
+            array_of_pairs_t {
+                LOW_DST_GZS_X, INNER_DOMAIN_Y, LOW_DST_GZS_Z
+            } ,
+            // EDGE 5 --> high x low z along y 
+            array_of_pairs_t {
+                HIGH_DST_GZS_X, INNER_DOMAIN_Y, LOW_DST_GZS_Z
+            } ,
+            // EDGE 6 --> high z low x along y 
+            array_of_pairs_t {
+                LOW_DST_GZS_X, INNER_DOMAIN_Y, HIGH_DST_GZS_Z
+            } ,
+            // EDGE 7 --> high xz along y
+            array_of_pairs_t {
+                HIGH_DST_GZS_X, INNER_DOMAIN_Y, HIGH_DST_GZS_Z
+            } ,
+            // EDGE 8 --> low xy along z 
+            array_of_pairs_t {
+                LOW_DST_GZS_X, LOW_DST_GZS_Y, INNER_DOMAIN_Z
+            } ,
+            // EDGE 9 --> high x low y along z 
+            array_of_pairs_t {
+                HIGH_DST_GZS_X, LOW_DST_GZS_Y, INNER_DOMAIN_Z
+            } ,
+            // EDGE 10 --> low x high y along z 
+            array_of_pairs_t {
+                LOW_DST_GZS_X, HIGH_DST_GZS_Y, INNER_DOMAIN_Z
+            } ,
+            // EDGE 10 --> high xy along z 
+            array_of_pairs_t {
+                HIGH_DST_GZS_X, HIGH_DST_GZS_Y, INNER_DOMAIN_Z
+            } ,
+    }; 
+    const std::array<array_of_pairs_t, 12> 
+        src_edge_mask {
+            // EDGE 0 --> low yz, along x  
+            array_of_pairs_t {
+                INNER_DOMAIN_X, LOW_SRC_GZS_Y, LOW_SRC_GZS_Z
+            } , 
+            // EDGE 1 --> high y low z along x 
+            array_of_pairs_t {
+                INNER_DOMAIN_X, HIGH_SRC_GZS_Y, LOW_SRC_GZS_Z
+            } , 
+            // EDGE 2 --> high z low y along x 
+            array_of_pairs_t {
+                INNER_DOMAIN_X, LOW_SRC_GZS_Y, HIGH_SRC_GZS_Z
+            } , 
+            // EDGE 3 --> high yz along x
+            array_of_pairs_t {
+                INNER_DOMAIN_X, HIGH_SRC_GZS_Y, HIGH_SRC_GZS_Z
+            } ,
+            // EDGE 4 --> low xz along y 
+            array_of_pairs_t {
+                LOW_SRC_GZS_X, INNER_DOMAIN_Y, LOW_SRC_GZS_Z
+            } ,
+            // EDGE 5 --> high x low z along y 
+            array_of_pairs_t {
+                HIGH_SRC_GZS_X, INNER_DOMAIN_Y, LOW_SRC_GZS_Z
+            } ,
+            // EDGE 6 --> high z low x along y 
+            array_of_pairs_t {
+                LOW_SRC_GZS_X, INNER_DOMAIN_Y, HIGH_SRC_GZS_Z
+            } ,
+            // EDGE 7 --> high xz along y
+            array_of_pairs_t {
+                HIGH_SRC_GZS_X, INNER_DOMAIN_Y, HIGH_SRC_GZS_Z
+            } ,
+            // EDGE 8 --> low xy along z 
+            array_of_pairs_t {
+                LOW_SRC_GZS_X, LOW_SRC_GZS_Y, INNER_DOMAIN_Z
+            } ,
+            // EDGE 9 --> high x low y along z 
+            array_of_pairs_t {
+                HIGH_SRC_GZS_X, LOW_SRC_GZS_Y, INNER_DOMAIN_Z
+            } ,
+            // EDGE 10 --> low x high y along z 
+            array_of_pairs_t {
+                LOW_SRC_GZS_X, HIGH_SRC_GZS_Y, INNER_DOMAIN_Z
+            } ,
+            // EDGE 10 --> high xy along z 
+            array_of_pairs_t {
+                HIGH_SRC_GZS_X, HIGH_SRC_GZS_Y, INNER_DOMAIN_Z
+            } ,
+    };
+    #endif 
+
+    auto const perform_copy = [](
+        auto const& src, 
+        auto const& dest, 
+        auto const& src_mask_arr,
+        auto const& dst_mask_arr,
+        int64_t qid_src,
+        int64_t qid_dst,
+        int dir_src,
+        int dir_dst
+    ) {
+        auto dst_view =
+            Kokkos::subview(
+                dest,
+                VEC(
+                    dst_mask_arr[dir_dst][0],
+                    dst_mask_arr[dir_dst][1],
+                    dst_mask_arr[dir_dst][2]
+                ),
+                Kokkos::ALL(),
+                qid_dst
+            ) ; 
+        auto src_view = 
+            Kokkos::subview(
+                src, 
+                VEC(
+                    src_mask_arr[dir_src][0],
+                    src_mask_arr[dir_src][1],
+                    src_mask_arr[dir_src][2]
+                ),
+                Kokkos::ALL(),
+                qid_src
+            ) ; 
+        Kokkos::deep_copy(
+            grace::default_execution_space{}, dst_view, src_view 
+        ) ; 
+    } ; 
+
+    for( int iface = 0; iface < n_faces; ++iface) {
+        auto src_view = interior_faces[iface].is_ghost ? halo : vars ;
+        perform_copy(
+            src_view, 
+            vars,
+            src_face_mask,
+            dst_face_mask,
+            interior_faces[iface].qid_b,
+            interior_faces[iface].qid_a,
+            interior_faces[iface].which_face_b,
+            interior_faces[iface].which_face_a
+        ) ; 
+        if ( not interior_faces[iface].is_ghost ) {
+            perform_copy(
+                vars,
+                vars,
+                src_face_mask,
+                dst_face_mask,
+                interior_faces[iface].qid_a,
+                interior_faces[iface].qid_b,
+                interior_faces[iface].which_face_a,
+                interior_faces[iface].which_face_b
+            ) ; 
+        }
+    }
+
+    for( int icorner=0; icorner< n_corners; ++icorner ) {
+        auto src_view_proxy = interior_corners[icorner].is_ghost ? halo : vars ; 
+        perform_copy(
+            src_view_proxy,
+            vars,
+            src_corner_mask,
+            dst_corner_mask,
+            interior_corners[icorner].qid_b,
+            interior_corners[icorner].qid_a,
+            interior_corners[icorner].which_corner_b,
+            interior_corners[icorner].which_corner_a
+        ) ; 
+        if ( not interior_corners[icorner].is_ghost ) {
+            perform_copy(
+                vars,
+                vars,
+                src_corner_mask,
+                dst_corner_mask,
+                interior_corners[icorner].qid_a,
+                interior_corners[icorner].qid_b,
+                interior_corners[icorner].which_corner_a,
+                interior_corners[icorner].which_corner_b
+            ) ;
+        }
+    }
+    #ifdef GRACE_3D 
+    for( int iedge=0; iedge< n_edges; ++iedge ) {
+        auto src_view_proxy = interior_edges[iedge].is_ghost ? halo : vars ; 
+        perform_copy(
+            src_view_proxy,
+            vars,
+            src_edge_mask,
+            dst_edge_mask,
+            interior_edges[iedge].qid_b,
+            interior_edges[iedge].qid_a,
+            interior_edges[iedge].which_edge_b,
+            interior_edges[iedge].which_edge_a
+        ) ; 
+        if ( not interior_edges[iedge].is_ghost ) {
+            perform_copy(
+                vars,
+                vars,
+                src_edge_mask,
+                dst_edge_mask,
+                interior_edges[iedge].qid_a,
+                interior_edges[iedge].qid_b,
+                interior_edges[iedge].which_edge_a,
+                interior_edges[iedge].which_edge_b
+            ) ;
+        }
+    }
+    #endif 
+}
+
+}
+
 void copy_interior_ghostzones(
       grace::var_array_t<GRACE_NSPACEDIM>& vars
     , grace::var_array_t<GRACE_NSPACEDIM>& halo 
@@ -60,7 +459,8 @@ void copy_interior_ghostzones(
     /******************************************************/
     /*                CELL CENTERS                        */
     /******************************************************/
-    copy_interior_ghostzones_cell_centers(
+    detail::copy_interior_ghostzones_impl<false,false,false>
+    (
           vars
         , halo 
         , interior_faces 
@@ -75,7 +475,7 @@ void copy_interior_ghostzones(
     /*                CELL CORNERS                        */
     /******************************************************/
     #if 1
-    copy_interior_ghostzones_corners(
+    detail::copy_interior_ghostzones_impl<true,true,true>(
           staggered_state.corner_staggered_fields
         , staggered_halo.corner_staggered_fields
         , interior_faces 
@@ -88,567 +488,5 @@ void copy_interior_ghostzones(
     Kokkos::fence() ;
     GRACE_VERBOSE("All done in copy.") ; 
 }
-
-void copy_interior_ghostzones_cell_centers(
-      grace::var_array_t<GRACE_NSPACEDIM>& vars
-    , grace::var_array_t<GRACE_NSPACEDIM>& halo 
-    , grace::device_vector<simple_face_info_t>& interior_faces
-    , grace::device_vector<simple_corner_info_t>& interior_corners
-    #ifdef GRACE_3D
-    , grace::device_vector<simple_edge_info_t>& interior_edges
-    #endif 
-)
-{
-    using namespace grace; 
-    using namespace Kokkos ; 
-
-    size_t nx,ny,nz ; 
-    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    int64_t ngz = amr::get_n_ghosts() ;
-    int64_t nq  = amr::get_local_num_quadrants() ;
-    int nvars  = variables::get_n_evolved()      ;
-    size_t const n_faces = interior_faces.size()   ;
-    size_t const n_corners = interior_corners.size()   ;
-    #ifdef GRACE_3D
-    size_t const n_edges = interior_edges.size()   ;
-    #endif 
-    auto& d_face_info = interior_faces.d_view    ; 
-    auto& d_corner_info = interior_corners.d_view    ; 
-    #ifdef GRACE_3D
-    auto& d_edge_info = interior_edges.d_view    ; 
-    #endif
-    if( EXPR( n_faces == 0, and n_corners == 0, and n_edges==0) ) {
-        return ; 
-    }
-    MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
-        policy(
-            {0,VECD(0,0), 0,0},
-            {ngz, VECD(static_cast<long>(nx),static_cast<long>(ny)), static_cast<long>(nvars), static_cast<long>(n_faces)}
-        ) ;
-    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones_across_faces")
-                , policy 
-                , KOKKOS_LAMBDA(const size_t& ig, VECD(const size_t& j, const size_t& k), const size_t& ivar, const size_t& iface)
-        {
-            /* Get information about quadrants sharing the face */
-            int polarity     =  d_face_info(iface).has_polarity_flip ;
-            int is_ghost     =  d_face_info(iface).is_ghost          ; 
-            int which_face_a =  d_face_info(iface).which_face_a      ; 
-            int which_face_b =  d_face_info(iface).which_face_b      ; 
-            int tid_a        =  d_face_info(iface).which_tree_a      ;
-            int tid_b        =  d_face_info(iface).which_tree_b      ;
-            int64_t qid_a    =  d_face_info(iface).qid_a             ;
-            int64_t qid_b    =  d_face_info(iface).qid_b             ; 
-
-            /* Get correct array to read from / write to */
-            auto& view_a = vars ; 
-            auto& view_b = (is_ghost) ? halo : vars ; 
-            
-            auto const index_mapping = [&] (
-                VEC(size_t const ig, size_t const j, size_t const k),
-                int const fa, int const fb, size_t ijk[GRACE_NSPACEDIM], size_t lmn[GRACE_NSPACEDIM]) 
-            {
-                static constexpr int FIRST_ALONG_FACE = 0 ;
-                static constexpr int SECOND_ALONG_FACE = 1 ;
-                static constexpr int POSITIVE_FACE = 2 ;
-                static constexpr int NEGATIVE_FACE = 3 ;
-                static int face_direction[3][6] = {
-                    {NEGATIVE_FACE, POSITIVE_FACE, FIRST_ALONG_FACE, FIRST_ALONG_FACE, FIRST_ALONG_FACE, FIRST_ALONG_FACE},
-                    {FIRST_ALONG_FACE, FIRST_ALONG_FACE, NEGATIVE_FACE, POSITIVE_FACE, SECOND_ALONG_FACE, SECOND_ALONG_FACE},
-                    {SECOND_ALONG_FACE,SECOND_ALONG_FACE,SECOND_ALONG_FACE,SECOND_ALONG_FACE,NEGATIVE_FACE,POSITIVE_FACE}
-                }; 
-                int xa = face_direction[0][fa] ; 
-                int ya = face_direction[1][fa] ;
-                int za = face_direction[2][fa] ; 
-                EXPR(
-                ijk[0] = (xa==FIRST_ALONG_FACE) 
-                         ? (j+ngz) 
-                         : ( (xa==SECOND_ALONG_FACE) 
-                             ? (k+ngz) 
-                             : ((xa==NEGATIVE_FACE) ? ig : (nx+ngz+ig)) ) ;,
-                ijk[1] = (ya==FIRST_ALONG_FACE) 
-                         ? (j+ngz) 
-                         : ( (ya==SECOND_ALONG_FACE) 
-                             ? (k+ngz) 
-                             : ((ya==NEGATIVE_FACE) ? ig : (ny+ngz+ig)) ) ;,
-                ijk[2] = (za==FIRST_ALONG_FACE) 
-                         ? (j+ngz) 
-                         : ( (za==SECOND_ALONG_FACE) 
-                             ? (k+ngz) 
-                             : ((za==NEGATIVE_FACE) ? ig : (nz+ngz+ig)) ) ;
-                )
-                int xb = face_direction[0][fb] ; 
-                int yb = face_direction[1][fb] ;
-                int zb = face_direction[2][fb] ; 
-                EXPR(
-                lmn[0] = (xb==FIRST_ALONG_FACE) 
-                         ? (j+ngz) 
-                         : ( (xb==SECOND_ALONG_FACE) 
-                             ? (k+ngz) 
-                             : ((xb==NEGATIVE_FACE) ? (ngz+ig) : (nx+ig)) ) ;, 
-                lmn[1] = (yb==FIRST_ALONG_FACE) 
-                         ? (j+ngz) 
-                         : ( (yb==SECOND_ALONG_FACE) 
-                             ? (k+ngz) 
-                             : ((yb==NEGATIVE_FACE) ? (ngz+ig) : (ny+ig)) ) ;,
-                lmn[2] = (zb==FIRST_ALONG_FACE) 
-                         ? (j+ngz) 
-                         : ( (zb==SECOND_ALONG_FACE) 
-                             ? (k+ngz) 
-                             : ((zb==NEGATIVE_FACE) ? (ngz+ig) : (nz+ig)) ) ;
-                )
-            } ; 
-            size_t ijk_a[GRACE_NSPACEDIM], ijk_b[GRACE_NSPACEDIM] ; 
-            index_mapping(VEC(ig,j,k), which_face_a, which_face_b, ijk_a, ijk_b) ; 
-            view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) =  view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) ; 
-            if( ! is_ghost ) {
-                index_mapping(VEC(ig,j,k), which_face_b, which_face_a, ijk_b, ijk_a) ;
-                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) =  view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) ;
-            }
-        });
-    MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
-        policy_corner(
-            {0,VECD(0,0), 0,0},
-            {ngz, VECD(ngz, ngz), static_cast<long>(nvars), static_cast<long>(n_corners)}
-        ) ;
-    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones_across_corners")
-                , policy_corner 
-                , KOKKOS_LAMBDA(const size_t& ig, VECD(const size_t& jg, const size_t& kg), const size_t& ivar, const size_t& icorner)
-        {
-            /* Get information about quadrants sharing the corner */
-            int is_ghost     =  d_corner_info(icorner).is_ghost          ; 
-            int which_corner_a =  d_corner_info(icorner).which_corner_a      ; 
-            int which_corner_b =  d_corner_info(icorner).which_corner_b      ; 
-            int tid_a        =  d_corner_info(icorner).which_tree_a      ;
-            int tid_b        =  d_corner_info(icorner).which_tree_b      ;
-            int64_t qid_a    =  d_corner_info(icorner).qid_a             ;
-            int64_t qid_b    =  d_corner_info(icorner).qid_b             ; 
-            /* Helper lambda that maps corner indices in and out of ghostzones. */
-            auto const index_mapping = [&] ( int const ii, 
-                                             int const jj, 
-                                             int const kk, 
-                                             int const ca, 
-                                             int const cb, 
-                                             int ijk[GRACE_NSPACEDIM], 
-                                             int lmn[GRACE_NSPACEDIM] ) 
-            {
-                int x = (ca >> 0) & 1;
-                int y = (ca >> 1) & 1;
-                int z = (ca >> 2) & 1;
-                EXPR(
-                ijk[0] = (x == 0) ? ii : (nx + ngz + ii);,
-                ijk[1] = (y == 0) ? jj : (ny + ngz + jj);,
-                ijk[2] = (z == 0) ? kk : (nz + ngz + kk);)
-                x = (cb >> 0) & 1;
-                y = (cb >> 1) & 1;
-                z = (cb >> 2) & 1;
-                EXPR(
-                lmn[0] = (x == 0) ? (ngz + ii) : (nx + ii);,
-                lmn[1] = (y == 0) ? (ngz + jj) : (ny + jj);,
-                lmn[2] = (z == 0) ? (ngz + kk) : (nz + kk);)
-            } ; 
-            /* Get correct array to read from / write to */
-            auto& view_a = vars ;
-            auto& view_b = (is_ghost) ? halo : vars ;
-            int ijk_a [GRACE_NSPACEDIM], ijk_b [GRACE_NSPACEDIM] ;
-            index_mapping(ig,jg,kg, which_corner_a,which_corner_b, ijk_a,ijk_b) ; 
-            view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) =
-                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) ;
-            if( ! is_ghost ) {
-                index_mapping(ig,jg,kg,which_corner_b,which_corner_a, ijk_b,ijk_a) ;
-                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) =
-                    view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) ;
-            }
-        });
-    #ifdef GRACE_3D
-    MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
-        policy_edge(
-            {0,0,0, 0,0},
-            {ngz, ngz, static_cast<long>(nx), static_cast<long>(nvars), static_cast<long>(n_edges)}
-        ) ;
-    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones_across_edges")
-                , policy_edge 
-                , KOKKOS_LAMBDA(const size_t& ig, const size_t& jg, const size_t& k, const size_t& ivar, const size_t& iedge)
-        {
-            /* Get information about quadrants sharing the edge */
-            int is_ghost     =  d_edge_info(iedge).is_ghost          ; 
-            int which_edge_a =  d_edge_info(iedge).which_edge_a      ; 
-            int which_edge_b =  d_edge_info(iedge).which_edge_b      ; 
-            int tid_a        =  d_edge_info(iedge).which_tree_a      ;
-            int tid_b        =  d_edge_info(iedge).which_tree_b      ;
-            int64_t qid_a    =  d_edge_info(iedge).qid_a             ;
-            int64_t qid_b    =  d_edge_info(iedge).qid_b             ; 
-            /* Helper lambda that maps edge indices in and out of ghostzones. */
-            auto const index_mapping = [&] ( int const iig, 
-                                             int const jjg, 
-                                             int const kk, 
-                                             int const ea, 
-                                             int const eb, 
-                                             int ijk[GRACE_NSPACEDIM], 
-                                             int lmn[GRACE_NSPACEDIM] ) 
-            {
-                static constexpr const int ALONG_EDGE = -1 ;
-                static constexpr const int NEGATIVE_EDGE = 0 ;
-                static constexpr const int POSITIVE_EDGE = 1 ;
-                static const int edge_directions[3][12] = {
-                    {ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, 
-                    NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE,
-                     NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE},  // x directions
-                    {NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, 
-                    ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE,
-                    NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE}, // y directions
-                    {NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
-                    NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
-                    ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE} // z directions
-                };   
-                
-                // Extract directional values for edges ea and eb
-                int x_ea = edge_directions[0][ea];
-                int y_ea = edge_directions[1][ea];
-                int z_ea = edge_directions[2][ea];
-
-                // Map indices for ijk based on edge ea
-                ijk[0] = (x_ea == ALONG_EDGE) ? (kk+ngz) : (x_ea == NEGATIVE_EDGE ? iig : (nx + ngz + iig));
-                ijk[1] = (y_ea == ALONG_EDGE) 
-                            ? (kk+ngz) 
-                            : (x_ea == ALONG_EDGE 
-                                ? (y_ea == NEGATIVE_EDGE ? iig : (ny + ngz + iig)) 
-                                : (y_ea == NEGATIVE_EDGE ? jjg : (ny + ngz + jjg)));
-                ijk[2] = (z_ea == ALONG_EDGE) ? (kk+ngz) : (z_ea == NEGATIVE_EDGE ? jjg : (nz + ngz + jjg));
-
-                int x_eb = edge_directions[0][eb];
-                int y_eb = edge_directions[1][eb];
-                int z_eb = edge_directions[2][eb];
-
-                // Map indices for lmn based on edge eb
-                lmn[0] = (x_eb == ALONG_EDGE) ? (kk+ngz) : (x_eb == NEGATIVE_EDGE ? (ngz + iig) : (nx + iig));
-                lmn[1] = (y_eb == ALONG_EDGE) 
-                            ? (kk+ngz)
-                            : (x_eb == ALONG_EDGE 
-                                ? (y_eb == NEGATIVE_EDGE ? (ngz + iig) : (ny + iig)) 
-                                : (y_eb == NEGATIVE_EDGE ? (ngz + jjg) : (ny + jjg)));
-                lmn[2] = (z_eb == ALONG_EDGE) ? (kk+ngz) : (z_eb == NEGATIVE_EDGE ? (ngz + jjg) : (nz + jjg));
-            } ; 
-            /* Get correct array to read from / write to */
-            auto& view_a = vars ; 
-            auto& view_b = (is_ghost) ? halo : vars ; 
-            int ijk_a [GRACE_NSPACEDIM], ijk_b [GRACE_NSPACEDIM] ; 
-            index_mapping(ig,jg,k,which_edge_a,which_edge_b, ijk_a,ijk_b) ; 
-            view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) =
-                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) ; 
-            if( ! is_ghost ) {
-                index_mapping(ig,jg,k,which_edge_b,which_edge_a, ijk_b,ijk_a) ;
-                view_b(VEC(ijk_b[0],ijk_b[1],ijk_b[2]),ivar,qid_b) =
-                    view_a(VEC(ijk_a[0],ijk_a[1],ijk_a[2]),ivar,qid_a) ;
-            }
-        }) ;
-    #endif 
-}
-
-void copy_interior_ghostzones_corners(
-      grace::var_array_t<GRACE_NSPACEDIM>& vars
-    , grace::var_array_t<GRACE_NSPACEDIM>& halo 
-    , grace::device_vector<simple_face_info_t>& interior_faces
-    , grace::device_vector<simple_corner_info_t>& interior_corners
-    #ifdef GRACE_3D
-    , grace::device_vector<simple_edge_info_t>& interior_edges
-    #endif 
-)
-{
-    using namespace grace; 
-    using namespace Kokkos ; 
-
-    for( int idim=0; idim<GRACE_NSPACEDIM+2; ++idim ) {
-        if ( idim == GRACE_NSPACEDIM+1 ) 
-            continue ; // Number of quads should not match.
-        ASSERT( vars.extent(idim) == halo.extent(idim), 
-        "Mismatch view dimensions direction " << idim << " in copy (corner-staggered).\n" << 
-        " vars extent " << vars.extent(idim) << " halo extent " << halo.extent(idim) << ".") ; 
-    }
-
-    size_t nx,ny,nz ; 
-    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    int64_t ngz = amr::get_n_ghosts() ;
-    int64_t nq  = amr::get_local_num_quadrants() ;
-    int nvars  = variables::get_n_evolved_corner_staggered()      ; 
-    size_t const n_faces = interior_faces.size()   ;
-    size_t const n_corners = interior_corners.size()   ;
-    #ifdef GRACE_3D
-    size_t const n_edges = interior_edges.size()   ;
-    #endif 
-    auto& d_face_info = interior_faces.d_view    ; 
-    auto& d_corner_info = interior_corners.d_view    ; 
-    #ifdef GRACE_3D
-    auto& d_edge_info = interior_edges.d_view    ; 
-    #endif
-    if( (EXPR( n_faces == 0, and n_corners == 0, and n_edges==0)) or nvars==0 ) {
-        return ; 
-    }
-    GRACE_VERBOSE("Starting copy across face corner staggered.") ; 
-    MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
-        policy(
-            {0,VECD(0,0), 0,0},
-            {ngz, VECD(static_cast<long>(nx),static_cast<long>(ny)), static_cast<long>(nvars), static_cast<long>(n_faces)}
-        ) ;
-    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones_across_faces_corner_staggering")
-                , policy 
-                , KOKKOS_LAMBDA(const size_t& ig, VECD(const size_t& j, const size_t& k), const size_t& ivar, const size_t& iface)
-        {
-            /* Get information about quadrants sharing the face */
-            int polarity     =  d_face_info(iface).has_polarity_flip ;
-            int is_ghost     =  d_face_info(iface).is_ghost          ; 
-            int which_face_a =  d_face_info(iface).which_face_a      ; 
-            int which_face_b =  d_face_info(iface).which_face_b      ; 
-            int tid_a        =  d_face_info(iface).which_tree_a      ;
-            int tid_b        =  d_face_info(iface).which_tree_b      ;
-            int64_t qid_a    =  d_face_info(iface).qid_a             ;
-            int64_t qid_b    =  d_face_info(iface).qid_b             ; 
-
-            /* Get correct array to read from / write to */
-            auto& view_a = vars ; 
-            auto& view_b = (is_ghost) ? halo : vars ; 
-            
-            auto const index_mapping = [&] (
-                VEC(size_t const ig, size_t const j, size_t const k),
-                int const fa, int const fb, size_t ijk[GRACE_NSPACEDIM], size_t lmn[GRACE_NSPACEDIM]) 
-            {
-                static constexpr int FIRST_ALONG_FACE = 0 ;
-                static constexpr int SECOND_ALONG_FACE = 1 ;
-                static constexpr int POSITIVE_FACE = 2 ;
-                static constexpr int NEGATIVE_FACE = 3 ;
-                static int face_direction[3][6] = {
-                    {NEGATIVE_FACE, POSITIVE_FACE, FIRST_ALONG_FACE, FIRST_ALONG_FACE, FIRST_ALONG_FACE, FIRST_ALONG_FACE},
-                    {FIRST_ALONG_FACE, FIRST_ALONG_FACE, NEGATIVE_FACE, POSITIVE_FACE, SECOND_ALONG_FACE, SECOND_ALONG_FACE},
-                    {SECOND_ALONG_FACE,SECOND_ALONG_FACE,SECOND_ALONG_FACE,SECOND_ALONG_FACE,NEGATIVE_FACE,POSITIVE_FACE}
-                }; 
-                int xa = face_direction[0][fa] ; 
-                int ya = face_direction[1][fa] ;
-                int za = face_direction[2][fa] ; 
-                EXPR(
-                ijk[0] = (xa==FIRST_ALONG_FACE) 
-                         ? (j+ngz) 
-                         : ( (xa==SECOND_ALONG_FACE) 
-                             ? (k+ngz) 
-                             : ((xa==NEGATIVE_FACE) ? ig : (nx+ngz+ig)) ) ;,
-                ijk[1] = (ya==FIRST_ALONG_FACE) 
-                         ? (j+ngz) 
-                         : ( (ya==SECOND_ALONG_FACE) 
-                             ? (k+ngz) 
-                             : ((ya==NEGATIVE_FACE) ? ig : (ny+ngz+ig)) ) ;,
-                ijk[2] = (za==FIRST_ALONG_FACE) 
-                         ? (j+ngz) 
-                         : ( (za==SECOND_ALONG_FACE) 
-                             ? (k+ngz) 
-                             : ((za==NEGATIVE_FACE) ? ig : (nz+ngz+ig)) ) ;
-                )
-                int xb = face_direction[0][fb] ; 
-                int yb = face_direction[1][fb] ;
-                int zb = face_direction[2][fb] ; 
-                EXPR(
-                lmn[0] = (xb==FIRST_ALONG_FACE) 
-                         ? (j+ngz) 
-                         : ( (xb==SECOND_ALONG_FACE) 
-                             ? (k+ngz) 
-                             : ((xb==NEGATIVE_FACE) ? (ngz+ig) : (nx+ig)) ) ;, 
-                lmn[1] = (yb==FIRST_ALONG_FACE) 
-                         ? (j+ngz) 
-                         : ( (yb==SECOND_ALONG_FACE) 
-                             ? (k+ngz) 
-                             : ((yb==NEGATIVE_FACE) ? (ngz+ig) : (ny+ig)) ) ;,
-                lmn[2] = (zb==FIRST_ALONG_FACE) 
-                         ? (j+ngz) 
-                         : ( (zb==SECOND_ALONG_FACE) 
-                             ? (k+ngz) 
-                             : ((zb==NEGATIVE_FACE) ? (ngz+ig) : (nz+ig)) ) ;
-                )
-            } ; 
-            size_t ijk_a[GRACE_NSPACEDIM], ijk_b[GRACE_NSPACEDIM] ; 
-            index_mapping(VEC(ig,j,k), which_face_a, which_face_b, ijk_a, ijk_b) ; 
-            #pragma unroll P4EST_CHILDREN
-            for( int icc=0; icc<P4EST_CHILDREN; ++icc ) {
-                int ix = (icc >> 0) & 1;  
-                int iy = (icc >> 1) & 1;  
-                int iz = (icc >> 2) & 1;
-                view_a(VEC(ijk_a[0]+ix,ijk_a[1]+iy,ijk_a[2]+iz),ivar,qid_a) =
-                    view_b(VEC(ijk_b[0]+ix,ijk_b[1]+iy,ijk_b[2]+iz),ivar,qid_b) ;
-            }
-            if( ! is_ghost ) {
-                index_mapping(VEC(ig,j,k), which_face_b, which_face_a, ijk_b, ijk_a) ;
-                #pragma unroll P4EST_CHILDREN
-                for( int icc=0; icc<P4EST_CHILDREN; ++icc ) {
-                    int ix = (icc >> 0) & 1;  
-                    int iy = (icc >> 1) & 1;  
-                    int iz = (icc >> 2) & 1;
-                    view_b(VEC(ijk_b[0]+ix,ijk_b[1]+iy,ijk_b[2]+iz),ivar,qid_b) =
-                        view_a(VEC(ijk_a[0]+ix,ijk_a[1]+iy,ijk_a[2]+iz),ivar,qid_a) ;
-                }
-            }
-        });
-    Kokkos::fence() ; 
-    GRACE_VERBOSE("Starting copy across corners corner staggered.") ; 
-    MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
-        policy_corner(
-            {0,VECD(0,0), 0,0},
-            {ngz, VECD(ngz, ngz), static_cast<long>(nvars), static_cast<long>(n_corners)}
-        ) ;
-    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones_across_corners_corner_staggered")
-                , policy_corner 
-                , KOKKOS_LAMBDA(const size_t& ig, VECD(const size_t& jg, const size_t& kg), const size_t& ivar, const size_t& icorner)
-        {
-            /* Get information about quadrants sharing the corner */
-            int is_ghost     =  d_corner_info(icorner).is_ghost          ; 
-            int which_corner_a =  d_corner_info(icorner).which_corner_a      ; 
-            int which_corner_b =  d_corner_info(icorner).which_corner_b      ; 
-            int tid_a        =  d_corner_info(icorner).which_tree_a      ;
-            int tid_b        =  d_corner_info(icorner).which_tree_b      ;
-            int64_t qid_a    =  d_corner_info(icorner).qid_a             ;
-            int64_t qid_b    =  d_corner_info(icorner).qid_b             ; 
-            /* Helper lambda that maps corner indices in and out of ghostzones. */
-            auto const index_mapping = [&] ( int const ii, 
-                                             int const jj, 
-                                             int const kk, 
-                                             int const ca, 
-                                             int const cb, 
-                                             int ijk[GRACE_NSPACEDIM], 
-                                             int lmn[GRACE_NSPACEDIM] ) 
-            {
-                int x = (ca >> 0) & 1;  
-                int y = (ca >> 1) & 1;  
-                int z = (ca >> 2) & 1;  
-                EXPR(
-                ijk[0] = (x == 0) ? ii : (nx + ngz + ii);,
-                ijk[1] = (y == 0) ? jj : (ny + ngz + jj);,
-                ijk[2] = (z == 0) ? kk : (nz + ngz + kk);)
-                x = (cb >> 0) & 1;  
-                y = (cb >> 1) & 1;  
-                z = (cb >> 2) & 1;
-                EXPR(
-                lmn[0] = (x == 0) ? (ngz + ii) : (nx + ii);,
-                lmn[1] = (y == 0) ? (ngz + jj) : (ny + jj);,
-                lmn[2] = (z == 0) ? (ngz + kk) : (nz + kk);)
-            } ; 
-            /* Get correct array to read from / write to */
-            auto& view_a = vars ; 
-            auto& view_b = (is_ghost) ? halo : vars ; 
-            int ijk_a [GRACE_NSPACEDIM], ijk_b [GRACE_NSPACEDIM] ; 
-            index_mapping(ig,jg,kg, which_corner_a,which_corner_b, ijk_a,ijk_b) ; 
-            #pragma unroll P4EST_CHILDREN
-            for( int icc=0; icc<P4EST_CHILDREN; ++icc ) {
-                int ix = (icc >> 0) & 1;  
-                int iy = (icc >> 1) & 1;  
-                int iz = (icc >> 2) & 1;
-                view_a(VEC(ijk_a[0]+ix,ijk_a[1]+iy,ijk_a[2]+iz),ivar,qid_a) =
-                    view_b(VEC(ijk_b[0]+ix,ijk_b[1]+iy,ijk_b[2]+iz),ivar,qid_b) ;
-            }
-            if( ! is_ghost ) {
-                index_mapping(ig,jg,kg, which_corner_b,which_corner_a, ijk_b,ijk_a) ;
-                #pragma unroll P4EST_CHILDREN
-                for( int icc=0; icc<P4EST_CHILDREN; ++icc ) {
-                    int ix = (icc >> 0) & 1;  
-                    int iy = (icc >> 1) & 1;  
-                    int iz = (icc >> 2) & 1;
-                    view_b(VEC(ijk_b[0]+ix,ijk_b[1]+iy,ijk_b[2]+iz),ivar,qid_b) =
-                        view_a(VEC(ijk_a[0]+ix,ijk_a[1]+iy,ijk_a[2]+iz),ivar,qid_a) ;
-                }
-            }
-        });
-    Kokkos::fence(); 
-    GRACE_VERBOSE("Starting copy across edges corner staggered.") ; 
-    #ifdef GRACE_3D
-    MDRangePolicy<Rank<GRACE_NSPACEDIM+2>> 
-        policy_edge(
-            {0,0,0, 0,0},
-            {ngz, ngz, static_cast<long>(nx), static_cast<long>(nvars), static_cast<long>(n_edges)}
-        ) ;
-    parallel_for(GRACE_EXECUTION_TAG("AMR", "copy_interior_ghostzones_across_edges")
-                , policy_edge 
-                , KOKKOS_LAMBDA(const size_t& ig, const size_t& jg, const size_t& k, const size_t& ivar, const size_t& iedge)
-        {
-            /* Get information about quadrants sharing the edge */
-            int is_ghost     =  d_edge_info(iedge).is_ghost          ; 
-            int which_edge_a =  d_edge_info(iedge).which_edge_a      ; 
-            int which_edge_b =  d_edge_info(iedge).which_edge_b      ; 
-            int tid_a        =  d_edge_info(iedge).which_tree_a      ;
-            int tid_b        =  d_edge_info(iedge).which_tree_b      ;
-            int64_t qid_a    =  d_edge_info(iedge).qid_a             ;
-            int64_t qid_b    =  d_edge_info(iedge).qid_b             ; 
-            /* Helper lambda that maps edge indices in and out of ghostzones. */
-            auto const index_mapping = [&] ( int const iig, 
-                                             int const jjg, 
-                                             int const kk, 
-                                             int const ea, 
-                                             int const eb, 
-                                             int ijk[GRACE_NSPACEDIM], 
-                                             int lmn[GRACE_NSPACEDIM] ) 
-            {
-                static constexpr const int ALONG_EDGE = -1 ;
-                static constexpr const int NEGATIVE_EDGE = 0 ;
-                static constexpr const int POSITIVE_EDGE = 1 ;
-                static const int edge_directions[3][12] = {
-                    {ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, 
-                    NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE,
-                     NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE},  // x directions
-                    {NEGATIVE_EDGE, POSITIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, 
-                    ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE,
-                    NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE}, // y directions
-                    {NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
-                    NEGATIVE_EDGE, NEGATIVE_EDGE, POSITIVE_EDGE, POSITIVE_EDGE, 
-                    ALONG_EDGE, ALONG_EDGE, ALONG_EDGE, ALONG_EDGE} // z directions
-                };   
-                
-                // Extract directional values for edges ea and eb
-                int x_ea = edge_directions[0][ea];
-                int y_ea = edge_directions[1][ea];
-                int z_ea = edge_directions[2][ea];
-
-                // Map indices for ijk based on edge ea
-                ijk[0] = (x_ea == ALONG_EDGE) ? (kk+ngz) : (x_ea == NEGATIVE_EDGE ? iig : (nx + ngz + iig));
-                ijk[1] = (y_ea == ALONG_EDGE) 
-                            ? (kk+ngz) 
-                            : (x_ea == ALONG_EDGE 
-                                ? (y_ea == NEGATIVE_EDGE ? iig : (ny + ngz + iig)) 
-                                : (y_ea == NEGATIVE_EDGE ? jjg : (ny + ngz + jjg)));
-                ijk[2] = (z_ea == ALONG_EDGE) ? (kk+ngz) : (z_ea == NEGATIVE_EDGE ? jjg : (nz + ngz + jjg));
-
-                int x_eb = edge_directions[0][eb];
-                int y_eb = edge_directions[1][eb];
-                int z_eb = edge_directions[2][eb];
-
-                // Map indices for lmn based on edge eb
-                lmn[0] = (x_eb == ALONG_EDGE) ? (kk+ngz) : (x_eb == NEGATIVE_EDGE ? (ngz + iig) : (nx + iig));
-                lmn[1] = (y_eb == ALONG_EDGE) 
-                            ? (kk+ngz)
-                            : (x_eb == ALONG_EDGE 
-                                ? (y_eb == NEGATIVE_EDGE ? (ngz + iig) : (ny + iig)) 
-                                : (y_eb == NEGATIVE_EDGE ? (ngz + jjg) : (ny + jjg)));
-                lmn[2] = (z_eb == ALONG_EDGE) ? (kk+ngz) : (z_eb == NEGATIVE_EDGE ? (ngz + jjg) : (nz + jjg));
-            } ; 
-            /* Get correct array to read from / write to */
-            auto& view_a = vars ; 
-            auto& view_b = (is_ghost) ? halo : vars ; 
-            int ijk_a [GRACE_NSPACEDIM], ijk_b [GRACE_NSPACEDIM] ; 
-            index_mapping(ig,jg,k,which_edge_a,which_edge_b, ijk_a,ijk_b) ; 
-            #pragma unroll P4EST_CHILDREN
-            for( int icc=0; icc<P4EST_CHILDREN; ++icc ) {
-                int ix = (icc >> 0) & 1;  
-                int iy = (icc >> 1) & 1;  
-                int iz = (icc >> 2) & 1;
-                view_a(VEC(ijk_a[0]+ix,ijk_a[1]+iy,ijk_a[2]+iz),ivar,qid_a) =
-                    view_b(VEC(ijk_b[0]+ix,ijk_b[1]+iy,ijk_b[2]+iz),ivar,qid_b) ;
-            }
-            if( ! is_ghost ) {
-                index_mapping(ig,jg,k,which_edge_b,which_edge_a, ijk_b,ijk_a) ;
-                #pragma unroll P4EST_CHILDREN
-                for( int icc=0; icc<P4EST_CHILDREN; ++icc ) {
-                    int ix = (icc >> 0) & 1;  
-                    int iy = (icc >> 1) & 1;  
-                    int iz = (icc >> 2) & 1;
-                    view_b(VEC(ijk_b[0]+ix,ijk_b[1]+iy,ijk_b[2]+iz),ivar,qid_b) =
-                        view_a(VEC(ijk_a[0]+ix,ijk_a[1]+iy,ijk_a[2]+iz),ivar,qid_a) ;
-                }
-            }
-        }) ;
-    #endif 
-}
-
 
 }} /* namespace grace::amr */

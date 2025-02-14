@@ -106,8 +106,8 @@ struct grhd_c2p_t {
         auto const func = [&] (double const& zeta) {
             return zeta - r / htilde(zeta) ; 
         } ; 
-        double const  zm{ 0.5*k/Kokkos::sqrt(1-math::int_pow<2>(0.5*k))} 
-                    , zp{ k/Kokkos::sqrt(1-math::int_pow<2>(k))} ; 
+        double const  zm{ 0.5*k/Kokkos::sqrt(1-math::int_pow<2>(0.5*k)) } 
+                    , zp{ 1e-06 + k/Kokkos::sqrt(1-math::int_pow<2>(k)) } ; 
         
         double const zeta = utils::brent(func,zm,zp,1e-15) ; 
         error = func(zeta) ; 

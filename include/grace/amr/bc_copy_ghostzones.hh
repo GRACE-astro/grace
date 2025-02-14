@@ -72,56 +72,6 @@ void copy_interior_ghostzones(
     #endif 
     ) ;
 /**************************************************************************************************/
-/**
- * @brief Copy ghostzones of cell-centered variables across simple interior faces.
- * \ingroup amr
- * @param vars State array.
- * @param halo Halo quadrants. 
- * @param interior_faces Information about the faces where data
- *                       needs to be copied.
- * @param interior_corners Information about corners across which 
- *                         data needs to be copied 
- * @param interior_edges Information about edges across which 
- *                       data needs to be copied
- * Interior faces are the ones that do not face the grid boundary,
- * simple faces are those where quadrants on each side are at the 
- * same refinement level.
- */
-void copy_interior_ghostzones_cell_centers(
-      var_array_t<GRACE_NSPACEDIM>& vars
-    , var_array_t<GRACE_NSPACEDIM>& halo
-    , grace::device_vector<simple_face_info_t>&  interior_faces 
-    , grace::device_vector<simple_corner_info_t>&  interior_corners 
-    #ifdef GRACE_3D 
-    , grace::device_vector<simple_edge_info_t>&  interior_edges 
-    #endif 
-    ) ;
-/**************************************************************************************************/
-/**
- * @brief Copy ghostzones of corner-centered variables across simple interior faces.
- * \ingroup amr
- * @param vars Staggered state array.
- * @param halo Staggered halo quadrants. 
- * @param interior_faces Information about the faces where data
- *                       needs to be copied.
- * @param interior_corners Information about corners across which 
- *                         data needs to be copied 
- * @param interior_edges Information about edges across which 
- *                       data needs to be copied
- * Interior faces are the ones that do not face the grid boundary,
- * simple faces are those where quadrants on each side are at the 
- * same refinement level.
- */
-void copy_interior_ghostzones_corners(
-      var_array_t<GRACE_NSPACEDIM>& vars
-    , var_array_t<GRACE_NSPACEDIM>& halo 
-    , grace::device_vector<simple_face_info_t>& interior_faces
-    , grace::device_vector<simple_corner_info_t>& interior_corners
-    #ifdef GRACE_3D
-    , grace::device_vector<simple_edge_info_t>& interior_edges
-    #endif 
-) ; 
-/**************************************************************************************************/
 /**************************************************************************************************/
 }}
 

@@ -258,7 +258,7 @@ void write_data_hdf5(
 
 void checkpoint_handler_impl_t::save_checkpoint()  
 {
-
+    GRACE_PROFILING_PUSH_REGION("save_checkpoint") ; 
     DECLARE_GRID_EXTENTS ;
     unsigned int const iter = grace::get_iteration() ;
     double const time = grace::get_simulation_time() ; 
@@ -431,12 +431,16 @@ void checkpoint_handler_impl_t::save_checkpoint()
     next_checkpoint_wtime = grace::get_total_runtime() + checkpoint_wtime_interval * 3600 ; 
     next_checkpoint_iter  = grace::get_iteration() + checkpoint_iter_interval ;
     next_checkpoint_time  = grace::get_simulation_time() + checkpoint_time_interval ;
+
+    GRACE_INFO("Checkpoint saved successfully.") ; 
+    GRACE_PROFILING_POP_REGION ; 
 }
 
 
 
 void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )  
 {
+    GRACE_PROFILING_PUSH_REGION("load_checkpoint") ; 
     if ( iter < 0 ) {
         iter = checkpoint_list.back() ;
     }
@@ -627,6 +631,7 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     next_checkpoint_time += grace::get_simulation_time() ; 
     next_checkpoint_iter += grace::get_iteration() ;
     GRACE_INFO("Checkpoint loaded successfully.") ;
+    GRACE_PROFILING_POP_REGION ; 
 }
 
 void checkpoint_handler_impl_t::delete_checkpoint() 
@@ -735,6 +740,7 @@ checkpoint_handler_impl_t::checkpoint_handler_impl_t() {
         // This is in hours! 
         next_checkpoint_wtime = checkpoint_wtime_interval * 3600;
     }
+    _checkpoint_at_termination = grace::get_param<bool>("checkpoints", "checkpoint_at_termination") ; 
     // Detect checkpoints
     detect_checkpoints() ;
 
@@ -743,7 +749,7 @@ checkpoint_handler_impl_t::checkpoint_handler_impl_t() {
 
 
 checkpoint_handler_impl_t::~checkpoint_handler_impl_t() {
-    save_checkpoint(); 
+    if ( _checkpoint_at_termination ) { save_checkpoint(); }
 }
 
 } // namespace grace 

@@ -285,6 +285,10 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
             offset = get_local_quadrants_offset(sides[1].treeid);
             this_face_info.qid_b = sides[1].is.full.quadid
             + offset ;
+            GRACE_TRACE("Normal face qid_a {} qid_b {} face_a {} face_b {}",
+                this_face_info.qid_a, this_face_info.qid_b, 
+                static_cast<int>(this_face_info.which_face_a),
+                static_cast<int>(this_face_info.which_face_b)) ; 
         }
         simple_info.push_back(this_face_info) ; 
     }

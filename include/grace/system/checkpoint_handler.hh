@@ -118,6 +118,7 @@ class checkpoint_handler_impl_t
     int64_t next_checkpoint_iter         ; //!< Iteration at which the next checkpoint should be saved
     double next_checkpoint_wtime         ; //!< Walltime at which the next checkpoint should be saved
     bool have_checkpoint_                ; //!< Whether we have a checkpoint to load at init() 
+    bool _checkpoint_at_termination      ; //!< Save a checkpoint before exiting? 
     //*****************************************************************************************************
 
     //*****************************************************************************************************

@@ -237,8 +237,9 @@ TEST_CASE("Apply BC", "[boundaries]")
     Kokkos::deep_copy(h_state_mirror_new,state); 
     auto h_corner_mirror_new = Kokkos::create_mirror_view(sstate.corner_staggered_fields) ; 
     Kokkos::deep_copy(h_corner_mirror_new,sstate.corner_staggered_fields);  
-    std::cout << "Value: " << h_state_mirror_new(0,0,0,0,0) << std::endl ;
-    std::cout << "Other value: " << h_state_mirror_new(2,2,2,0,0) << std::endl ; 
+    //std::cout << "Value: " << h_state_mirror_new(0,0,0,0,0) << std::endl ;
+    //std::cout << "Other value: " << h_state_mirror_new(2,2,2,0,0) << std::endl ; 
+    std::cout << "Just testing! " << h_state_mirror_new(2,2,2,0,4) << std::endl ; 
     /*************************************************/
     /*                   Check                       */
     /*************************************************/
@@ -256,6 +257,7 @@ TEST_CASE("Apply BC", "[boundaries]")
             ) {
                 std::cout << "Wrong cell centered entry (i,j,k), q (" << i << ", " << j << ", " <<  k << "), " << q << std::endl ;  
                 std::cout << "x, y, z " << pcoords[0] << ", " << pcoords[1] << ", " << pcoords[2] << std::endl ;
+                std::cout << "Expected: " << h_func(VEC(pcoords[0],pcoords[1],pcoords[2])) << " got " << h_state_mirror_new(VEC(i,j,k),DENS,q) << std::endl ;
             }
             REQUIRE_THAT( h_state_mirror_new(VEC(i,j,k),DENS,q)
                       , Catch::Matchers::WithinAbs(
