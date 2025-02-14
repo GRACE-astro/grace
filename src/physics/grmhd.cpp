@@ -270,6 +270,26 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     state(VEC(i,j,k),KYY_,q) = id.kyy ; 
                     state(VEC(i,j,k),KYZ_,q) = id.kyz ;
                     state(VEC(i,j,k),KZZ_,q) = id.kzz ;
+                    #elif defined(GRACE_ENABLE_BSSN_METRIC)
+                    aux(VEC(i,j,k),ALPC_,q) = id.alp ;
+
+                    aux(VEC(i,j,k),BETAXC_,q) = id.betax ;
+                    aux(VEC(i,j,k),BETAYC_,q) = id.betay ;
+                    aux(VEC(i,j,k),BETAZC_,q) = id.betaz ;
+
+                    aux(VEC(i,j,k),GXX_,q) = id.gxx ; 
+                    aux(VEC(i,j,k),GXY_,q) = id.gxy ; 
+                    aux(VEC(i,j,k),GXZ_,q) = id.gxz ; 
+                    aux(VEC(i,j,k),GYY_,q) = id.gyy ; 
+                    aux(VEC(i,j,k),GYZ_,q) = id.gyz ;
+                    aux(VEC(i,j,k),GZZ_,q) = id.gzz ;
+
+                    aux(VEC(i,j,k),KXX_,q) = id.kxx ; 
+                    aux(VEC(i,j,k),KXY_,q) = id.kxy ; 
+                    aux(VEC(i,j,k),KXZ_,q) = id.kxz ; 
+                    aux(VEC(i,j,k),KYY_,q) = id.kyy ; 
+                    aux(VEC(i,j,k),KYZ_,q) = id.kyz ;
+                    aux(VEC(i,j,k),KZZ_,q) = id.kzz ;
                     #endif 
 
                     auto const v2 = id.gxx * id.vx * id.vx +
@@ -358,28 +378,28 @@ void set_conservs_from_prims() {
 
     auto& state = grace::variable_list::get().getstate() ; 
     auto& cstate = grace::variable_list::get().getstaggeredstate().corner_staggered_fields ;
+    auto& aux = grace::variable_list::get().getaux() ; 
 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ; 
     
     int64_t nq = amr::get_local_num_quadrants() ;
-    auto& aux = variable_list::get().getaux() ;
 
     parallel_for( GRACE_EXECUTION_TAG("ID","set_conservs_from_prims")
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
+        #ifdef GRACE_ENABLE_BSSN_METRIC
+        auto mview = aux ; 
+        #elif defined(GRACE_ENABLE_COWLING_METRIC)
+        auto mview = state ; 
+        #endif 
         #if 1
-        metric_array_t metric = 
-            get_metric_array_cell_center(
-                #ifdef GRACE_ENABLE_COWLING_METRIC
-                state,
-                #else
-                cstate,
-                #endif 
-                VEC(i,j,k), q
-            ); 
+        metric_array_t metric ; 
+        FILL_METRIC_ARRAY(
+            metric, mview, q, VEC(i,j,k)
+        ) ; 
         #endif 
         
         grmhd_prims_array_t prims ; 

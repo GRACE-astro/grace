@@ -197,6 +197,11 @@ struct grmhd_equations_system_t
     {
         using namespace grace  ;
         using namespace Kokkos ;
+        #ifdef GRACE_ENABLE_COWLING_METRIC 
+        auto mview = this->_state ; 
+        #elif defined(GRACE_ENABLE_BSSN_METRIC)
+        auto mview = this->_aux   ; 
+        #endif
         /**************************************************************************************************/
         /* Convenience indices to make the code slightly less unreadable                                  */
         static constexpr int TT4=0; 
@@ -213,8 +218,10 @@ struct grmhd_equations_system_t
 
         /* Read in the metric                                                                             */
         #if 1
-        metric_array_t metric = 
-            get_metric_array_cell_center(this->_sstate.corner_staggered_fields,VEC(i,j,k),q);
+        metric_array_t metric ;
+        FILL_METRIC_ARRAY(
+            metric, mview, q, VEC(i,j,k)
+        ) ; 
         #else 
         metric_array_t metric {
             {1,0,0,1,0,1},{0,0,0},1
@@ -262,12 +269,14 @@ struct grmhd_equations_system_t
             }
         }
         /* Read in the extrinsic curvature                                                                */
-        auto Kij = get_extrinsic_curvature_cell_center(
-            this->_sstate.corner_staggered_fields, 
-            VEC(i,j,k), 
-            q, 
-            metric
-        ) ; 
+        auto Kij = std::array<double, 6> {
+            mview(VEC(i,j,k),KXX_,q),
+            mview(VEC(i,j,k),KXY_,q),
+            mview(VEC(i,j,k),KXZ_,q),
+            mview(VEC(i,j,k),KYY_,q),
+            mview(VEC(i,j,k),KYZ_,q),
+            mview(VEC(i,j,k),KZZ_,q),
+        } ; 
         //for( auto& x: Kij ) x = 0 ; // Kill the extrinsic curvature (debugging)
         /* Source for the conserved energy (added piece by piece below)                                   */
         double tau_source{0.};
@@ -330,6 +339,11 @@ struct grmhd_equations_system_t
     {
         using namespace grace ;
         using namespace Kokkos ; 
+        #ifdef GRACE_ENABLE_COWLING_METRIC 
+        auto mview = this->_state ; 
+        #elif defined(GRACE_ENABLE_BSSN_METRIC)
+        auto mview = this->_aux   ; 
+        #endif
         auto vars = subview(
               this->_state
             , VEC( i
@@ -355,14 +369,10 @@ struct grmhd_equations_system_t
         cons[YESL]  = vars(YESTAR_)      ; 
         cons[ENTSL] = vars(ENTROPYSTAR_) ; 
         #if 1 
-        metric_array_t metric = 
-            get_metric_array_cell_center(
-                #ifdef GRACE_ENABLE_BSSN_METRIC
-                this->_sstate.corner_staggered_fields,
-                #else 
-                this->_state,
-                #endif
-                VEC(i,j,k),q);
+        metric_array_t metric ;
+        FILL_METRIC_ARRAY(
+            metric, mview, q, VEC(i,j,k)
+        ) ; 
         #else 
         metric_array_t metric {
             {1,0,0,1,0,1},{0,0,0},1
@@ -422,6 +432,11 @@ struct grmhd_equations_system_t
     {
         using namespace grace; 
         using namespace Kokkos ; 
+        #ifdef GRACE_ENABLE_COWLING_METRIC 
+        auto mview = this->_state ; 
+        #elif defined(GRACE_ENABLE_BSSN_METRIC)
+        auto mview = this->_aux   ; 
+        #endif
         auto const vars = subview(
               this->_state
             , VEC( i
@@ -435,8 +450,10 @@ struct grmhd_equations_system_t
         FILL_PRIMS_ARRAY(prims,this->_aux,q,VEC(i,j,k)) ;
         /* Get metric */
         #if 1
-        metric_array_t metric = 
-            get_metric_array_cell_center(this->_sstate.corner_staggered_fields,VEC(i,j,k),q);
+        metric_array_t metric;
+        FILL_METRIC_ARRAY(
+            metric, mview, q, VEC(i,j,k)
+        ) ; 
         #else
         metric_array_t metric {
             {1,0,0,1,0,1},{0,0,0},1
@@ -503,6 +520,11 @@ struct grmhd_equations_system_t
             , double const dt 
             , double const dtfact ) const 
     {
+        #ifdef GRACE_ENABLE_COWLING_METRIC 
+        auto mview = this->_state ; 
+        #elif defined(GRACE_ENABLE_BSSN_METRIC)
+        auto mview = this->_aux   ; 
+        #endif
         /***********************************************************************/
         /* Initialize reconstructor                                            */
         /***********************************************************************/
@@ -512,12 +534,30 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* Define and interpolate metric                                       */
         /***********************************************************************/
-        metric_array_t metric_face =
-            get_metric_array(
-                this->_state,
-                this->_sstate.corner_staggered_fields,
-                VEC(i,j,k),q,{VEC(idir==0,idir==1,idir==2)}
-            ) ; 
+        metric_array_t metric_l, metric_r;
+        FILL_METRIC_ARRAY( metric_l, mview, q
+                         , VEC( i+ngz-utils::delta(idir,0)
+                              , j+ngz-utils::delta(idir,1)
+                              , k+ngz-utils::delta(idir,2))) ; 
+        FILL_METRIC_ARRAY( metric_r, mview, q
+                         , VEC( i+ngz
+                              , j+ngz
+                              , k+ngz )) ;
+        /***********************************************************************/
+        /* 2nd order interpolation at cell interface                           */
+        /***********************************************************************/
+        metric_array_t const metric_face{
+            { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
+            , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
+            , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
+            , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
+            , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
+            , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
+        ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
+            + 0.5*(metric_l.beta(1) + metric_r.beta(1))
+            + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
+        ,   0.5 * (metric_l.alp() + metric_r.alp())
+        } ; 
 
         
         /***********************************************************************/
@@ -763,30 +803,45 @@ struct grmhd_equations_system_t
             , double const dt 
             , double const dtfact ) const 
     {
+        #ifdef GRACE_ENABLE_COWLING_METRIC 
+        auto mview = this->_state ; 
+        #elif defined(GRACE_ENABLE_BSSN_METRIC)
+        auto mview = this->_aux   ; 
+        #endif
         /***********************************************************************/
-        /* Initialize reconstructor and riemann solver                         */
+        /* Initialize reconstructor                                            */
         /***********************************************************************/
         recon_t reconstructor{} ; 
+        
 
         /***********************************************************************/
         /* Define and interpolate metric                                       */
         /***********************************************************************/
-        #if 1 
-        metric_array_t metric_face =
-            get_metric_array_cell_face<idir>(
-                #ifdef GRACE_ENABLE_COWLING_METRIC
-                this->_state,
-                #elif defined(GRACE_ENABLE_BSSN_METRIC)
-                this->_sstate.corner_staggered_fields,
-                #endif
-                VEC(i,j,k),
-                q
-            ) ;
-        #else 
-        metric_array_t metric_face {
-            {1,0,0,1,0,1},{0,0,0},1
-        };
-        #endif
+        metric_array_t metric_l, metric_r;
+        FILL_METRIC_ARRAY( metric_l, mview, q
+                         , VEC( i+ngz-utils::delta(idir,0)
+                              , j+ngz-utils::delta(idir,1)
+                              , k+ngz-utils::delta(idir,2))) ; 
+        FILL_METRIC_ARRAY( metric_r, mview, q
+                         , VEC( i+ngz
+                              , j+ngz
+                              , k+ngz )) ;
+        /***********************************************************************/
+        /* 2nd order interpolation at cell interface                           */
+        /***********************************************************************/
+        metric_array_t const metric_face{
+            { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
+            , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
+            , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
+            , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
+            , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
+            , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
+        ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
+            + 0.5*(metric_l.beta(1) + metric_r.beta(1))
+            + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
+        ,   0.5 * (metric_l.alp() + metric_r.alp())
+        } ; 
+
         /***********************************************************************/
         /*              Reconstruct primitive variables                        */
         /***********************************************************************/
@@ -1267,6 +1322,12 @@ struct grmhd_equations_system_t
         double& tau_source, double& st_i_source 
     ) const 
     {
+        #ifdef GRACE_ENABLE_COWLING_METRIC 
+        auto mview = this->_state ; 
+        #elif defined(GRACE_ENABLE_BSSN_METRIC)
+        auto mview = this->_aux   ; 
+        #endif
+        
         /**************************************************************************************************/
         /* Convenience indices to make the code slightly less unreadable                                  */
         static constexpr int TT4=0; 
@@ -1281,17 +1342,18 @@ struct grmhd_equations_system_t
         static constexpr int ZZ4=9;
         /**************************************************************************************************/
         #if 1
-        metric_array_t metric_m = get_metric_array_cell_face<idir>(
-            this->_sstate.corner_staggered_fields,
-            VEC(i,j,k),q 
-        ) ; 
-        metric_array_t metric_p = get_metric_array_cell_face<idir>(
-            this->_sstate.corner_staggered_fields,
-            VEC(  i+utils::delta(0,idir)
-                , j+utils::delta(1,idir)
-                , k+utils::delta(2,idir)),
-            q
-        ) ;    
+        /* Read metric components at neighor cell centres for metric derivative                           */
+        metric_array_t metric_m, metric_p ; 
+        FILL_METRIC_ARRAY( metric_m, mview
+                         , q
+                         , VEC( i-utils::delta(0,idir)
+                              , j-utils::delta(1,idir)
+                              , k-utils::delta(2,idir)) ) ; 
+        FILL_METRIC_ARRAY( metric_p, mview
+                         , q
+                         , VEC( i+utils::delta(0,idir)
+                              , j+utils::delta(1,idir)
+                              , k+utils::delta(2,idir) ) ) ;   
         #else 
         metric_array_t metric_p {
             {1,0,0,1,0,1},{0,0,0},1
@@ -1317,10 +1379,10 @@ struct grmhd_equations_system_t
         /* Compute 4 metric derivative (factor of 1./dx introduced after)                                 */
         #pragma unroll 10
         for( int ii=0; ii<10; ++ii) { 
-            dgab_dxi[ii] =   (gmunu_p[ii] - gmunu_m[ii]) ;
+            dgab_dxi[ii] =   0.5 * (gmunu_p[ii] - gmunu_m[ii]) ;
         }
         /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
-        double const dalp_dxi =  (metric_p.alp() - metric_m.alp()) ;
+        double const dalp_dxi =  0.5 * (metric_p.alp() - metric_m.alp()) ;
 
         /**************************************************************************************************/
         /* Momentum source term:                                                                          */

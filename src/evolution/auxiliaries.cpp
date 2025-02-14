@@ -77,6 +77,131 @@ void compute_auxiliary_quantities() {
     
 }
 
+
+static GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+void bssn_to_adm(
+    grace::var_array_t<GRACE_NSPACEDIM> aux, 
+    grace::var_array_t<GRACE_NSPACEDIM> state, 
+    VEC( int i, int j, int k ), int q 
+) 
+{
+
+    auto average_to_center = [=] (auto sview)
+    {
+        return 1./8. * (
+            sview(VEC(i,j,k)) + sview(VEC(i+1,j,k)) 
+         +  sview(VEC(i+1,j+1,k)) + sview(VEC(i,j+1,k))
+         #ifdef GRACE_3D
+         +  sview(VEC(i,j,k+1)) + sview(VEC(i+1,j,k+1)) + sview(VEC(i+1,j+1,k+1)) + sview(VEC(i,j+1,k+1))
+         #endif 
+     ) ; 
+    }  ; 
+    auto sview_phi = Kokkos::subview(
+        state, 
+        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+        PHI_,q 
+    ) ;
+
+    double const phi = 
+        average_to_center(sview_phi) ; 
+    
+    { // alpha 
+    auto sview = Kokkos::subview(
+        state,
+        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+        ALP_, q 
+    ) ;
+    aux(VEC(i,j,k), ALPC_, q) = average_to_center(sview) ; 
+    }
+    {// gamma 
+    auto sview_xx = Kokkos::subview(
+        state, 
+        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+        GTXX_,q 
+    ) ;
+    auto sview_xy = Kokkos::subview(
+        state, 
+        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+        GTXY_,q 
+    ) ;
+    auto sview_xz = Kokkos::subview(
+        state, 
+        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+        GTXZ_,q 
+    ) ;
+    auto sview_yy = Kokkos::subview(
+        state, 
+        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+        GTYY_,q 
+    ) ;
+    auto sview_yz = Kokkos::subview(
+        state, 
+        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+        GTYZ_,q 
+    ) ;
+    auto sview_zz = Kokkos::subview(
+        state, 
+        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+        GTZZ_,q 
+    ) ;
+
+    double const phim4 = INVPOW_CONFFACT(phi ) ; 
+
+    aux(VEC(i,j,k),GXX_, q) = phim4 * average_to_center(sview_xx) ; 
+    aux(VEC(i,j,k),GXY_, q) = phim4 * average_to_center(sview_xy) ; 
+    aux(VEC(i,j,k),GXZ_, q) = phim4 * average_to_center(sview_xz) ; 
+    aux(VEC(i,j,k),GYY_, q) = phim4 * average_to_center(sview_yy) ; 
+    aux(VEC(i,j,k),GYZ_, q) = phim4 * average_to_center(sview_yz) ; 
+    aux(VEC(i,j,k),GZZ_, q) = phim4 * average_to_center(sview_zz) ; 
+
+    }
+
+    { // beta 
+    auto sview_x = Kokkos::subview(
+        state, 
+        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+        BETAX_,q 
+    ) ;
+    aux(VEC(i,j,k),BETAXC_,q) = average_to_center(sview_x) ; 
+    auto sview_y = Kokkos::subview(
+        state, 
+        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+        BETAY_,q 
+    ) ;
+    aux(VEC(i,j,k),BETAYC_,q) = average_to_center(sview_y) ;
+    auto sview_z = Kokkos::subview(
+        state, 
+        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+        BETAZ_,q 
+    ) ;
+    aux(VEC(i,j,k),BETAZC_,q) = average_to_center(sview_z) ;
+    }
+
+    { // Kij 
+    auto sview_K = Kokkos::subview(
+        state, 
+        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+        K_,q 
+    ) ;
+    double const K = average_to_center(sview_K) ; 
+
+    #pragma unroll(6)
+    for( int icomp=0; icomp<6; ++icomp) {
+        auto sview_Aij = Kokkos::subview(
+            state, 
+            VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+            ATXX_+icomp,q 
+        ) ;
+            
+        aux(VEC(i,j,k), KXX_+icomp, q) = 
+            POW_CONFFACT(phi) * average_to_center(sview_Aij)
+            + 1./3. * K * aux(VEC(i,j,k),GXX_+icomp,q) ; 
+    }
+    }
+
+    // Finished 
+}
+
 template< typename eos_t >
 void compute_auxiliary_quantities(
       grace::var_array_t<GRACE_NSPACEDIM>& state
@@ -119,6 +244,11 @@ void compute_auxiliary_quantities(
     parallel_for(GRACE_EXECUTION_TAG("EVOL","get_auxiliaries"), policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
+        
+        #ifdef GRACE_ENABLE_BSSN_METRIC 
+        //bssn_to_adm(aux,sstate.corner_staggered_fields, VEC(i,j,k), q) ; 
+        #endif 
+
         GET_AUX ; 
     }) ; 
     

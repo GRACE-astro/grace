@@ -256,7 +256,23 @@ DECLARE_VAR_INDEX_IMPL(BZ)                       \
 DECLARE_VAR_INDEX_IMPL(HAM)                      \
 DECLARE_VAR_INDEX_IMPL(MOMX)                     \
 DECLARE_VAR_INDEX_IMPL(MOMY)                     \
-DECLARE_VAR_INDEX_IMPL(MOMZ)                       
+DECLARE_VAR_INDEX_IMPL(MOMZ)                     \
+DECLARE_VAR_INDEX_IMPL(GXX)                      \
+DECLARE_VAR_INDEX_IMPL(GXY)                      \
+DECLARE_VAR_INDEX_IMPL(GXZ)                      \
+DECLARE_VAR_INDEX_IMPL(GYY)                      \
+DECLARE_VAR_INDEX_IMPL(GYZ)                      \
+DECLARE_VAR_INDEX_IMPL(GZZ)                      \
+DECLARE_VAR_INDEX_IMPL(ALPC)                     \
+DECLARE_VAR_INDEX_IMPL(BETAXC)                   \
+DECLARE_VAR_INDEX_IMPL(BETAYC)                   \
+DECLARE_VAR_INDEX_IMPL(BETAZC)                   \
+DECLARE_VAR_INDEX_IMPL(KXX)                      \
+DECLARE_VAR_INDEX_IMPL(KXY)                      \
+DECLARE_VAR_INDEX_IMPL(KXZ)                      \
+DECLARE_VAR_INDEX_IMPL(KYY)                      \
+DECLARE_VAR_INDEX_IMPL(KYZ)                      \
+DECLARE_VAR_INDEX_IMPL(KZZ)                         
 #endif 
 
 #define DECLARE_VARIABLE_INDICES    \

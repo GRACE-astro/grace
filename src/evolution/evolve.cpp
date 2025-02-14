@@ -324,7 +324,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     /* Get stream */
     auto& pool = grace::device_stream_pool::get(); 
     auto& stream = pool.next() ; 
-
+    GRACE_VERBOSE("Computing fluxes in x-direction") ; 
     /* Create loop range and set number of blocks */
     auto flux_x_range  = MDRange<GRACE_NSPACEDIM+1, int> (
           {VEC(0,0,0),0}
@@ -335,7 +335,9 @@ void advance_substep( double const t, double const dt, double const dtfact
                         (dim3) numBlocks, (dim3) threadsPerBlock, 0, stream ) ; 
 
     x_flux_finished.record(stream) ; 
+    Kokkos::fence() ; 
     //**************************************************************************************************/
+    GRACE_VERBOSE("Computing fluxes in y-direction") ; 
     DEVICE_MARK_TRACING_POINT("y_flux") ; 
     auto flux_y_range  = MDRange<GRACE_NSPACEDIM+1, int> (
           {VEC(0,0,0),0}
@@ -345,7 +347,9 @@ void advance_substep( double const t, double const dt, double const dtfact
     launch_grace_kernel(flux_y_range, KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {  GET_Y_FLUX ; },
                         (dim3) numBlocks, (dim3) threadsPerBlock, 0, stream ) ;  
     y_flux_finished.record(stream) ; 
+    Kokkos::fence() ; 
     //**************************************************************************************************/
+    GRACE_VERBOSE("Computing fluxes in z-direction") ; 
     DEVICE_MARK_TRACING_POINT("z_flux") ;
     auto flux_z_range  = MDRange<GRACE_NSPACEDIM+1, int> (
           {VEC(0,0,0),0}
@@ -354,8 +358,10 @@ void advance_substep( double const t, double const dt, double const dtfact
     numBlocks      = (flux_z_range.tot_iterations + threadsPerBlock - 1)/threadsPerBlock ;
     launch_grace_kernel(flux_z_range, KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {  GET_Z_FLUX ; },
                         (dim3) numBlocks, (dim3) threadsPerBlock, 0, stream ) ; 
-    z_flux_finished.record(stream) ;  
+    z_flux_finished.record(stream) ; 
+    Kokkos::fence() ;  
     //**************************************************************************************************/
+    GRACE_VERBOSE("Computing geometric source terms") ; 
     DEVICE_MARK_TRACING_POINT("sources") ;
     auto sources_range  = MDRange<GRACE_NSPACEDIM+1, int> (
           {VEC(0,0,0),0}

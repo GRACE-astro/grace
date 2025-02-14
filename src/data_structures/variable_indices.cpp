@@ -199,7 +199,13 @@ void register_variables() {
     REGISTER_AUX_SCALAR(TEMP,"temperature", "none") ;
     REGISTER_AUX_SCALAR(ENTROPY,"entropy","none") ; 
     REGISTER_AUX_SCALAR(EPS,"eps","none") ; 
-    REGISTER_AUX_SCALAR(PRESS,"press","none") ; 
+    REGISTER_AUX_SCALAR(PRESS,"press","none") ;
+    #ifdef GRACE_ENABLE_BSSN_METRIC
+    REGISTER_AUX_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","none") ; 
+    REGISTER_AUX_SCALAR(ALPC,"alp","outgoing") ; 
+    REGISTER_AUX_VECTOR(BETAXC,BETAYC,BETAZC,"beta","none");
+    REGISTER_AUX_TENSOR(KXX,KXY,KXZ,KYY,KYZ,KZZ,"ext_curv","none") ; 
+    #endif 
     /* registration of metric variables */
     #ifdef GRACE_ENABLE_COWLING_METRIC
     REGISTER_EVOLVED_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","outgoing",false) ; 
@@ -214,8 +220,8 @@ void register_variables() {
     REGISTER_CORNER_STAGGERED_EVOLVED_TENSOR(ATXX,ATXY,ATXZ,ATYY,ATYZ,ATZZ,"A_tilde","third_order_lagrange",false) ;
     REGISTER_CORNER_STAGGERED_EVOLVED_SCALAR(K,"K","third_order_lagrange",false) ; 
     /* Gauge */
-    REGISTER_CORNER_STAGGERED_EVOLVED_SCALAR(ALP,"alp","third_order_lagrange",false) ; 
-    REGISTER_CORNER_STAGGERED_EVOLVED_VECTOR(BETAX,BETAY,BETAZ,"beta","third_order_lagrange",false);
+    REGISTER_CORNER_STAGGERED_EVOLVED_SCALAR(ALP,"alp_stag","third_order_lagrange",false) ; 
+    REGISTER_CORNER_STAGGERED_EVOLVED_VECTOR(BETAX,BETAY,BETAZ,"beta_stag","third_order_lagrange",false);
     REGISTER_CORNER_STAGGERED_EVOLVED_VECTOR(BX,BY,BZ,"B","third_order_lagrange",false) ; 
     /* Constraint violations */
     REGISTER_CORNER_STAGGERED_AUX_SCALAR(HAM,"H","none");
