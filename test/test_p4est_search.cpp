@@ -11,6 +11,153 @@
 #include <iostream>
 
 namespace {
+
+
+// 5 Functions which I tried to implement in the test but failed
+/* Comparator function for binary search */
+static int
+quadrant_compare(const void *v1, const void *v2)
+{
+    const p4est_quadrant_t *q1 = (const p4est_quadrant_t *) v1;
+    const p4est_quadrant_t *q2 = (const p4est_quadrant_t *) v2;
+    return p4est_quadrant_compare(q1, q2);
+}
+
+/* Find quadrant in the tree's quadrant array */
+static p4est_locidx_t
+find_quadrant_in_tree(p4est_tree_t *tree, p4est_quadrant_t *q)
+{
+    sc_array_t         *quadrants = &tree->quadrants;
+    p4est_quadrant_t   *found = (p4est_quadrant_t *) bsearch(q, quadrants->array, quadrants->elem_count,
+                                                             sizeof(p4est_quadrant_t), quadrant_compare);
+    return found != NULL ? (p4est_locidx_t)(found - (p4est_quadrant_t *) quadrants->array) : -1;
+}
+
+/* Traverse c0 path to deepest leaf */
+static void
+find_c0_line(p4est_t *p4est, p4est_tree_t *tree, p4est_quadrant_t *q, p4est_quadrant_t *c0_leaf)
+{
+    p4est_quadrant_t current = *q;
+    *c0_leaf = current;
+
+    while (current.level < P4EST_QMAXLEVEL) {
+        p4est_quadrant_t child;
+        p4est_quadrant_child(&current, &child, 0);
+        p4est_locidx_t index = find_quadrant_in_tree(tree, &child);
+
+        if (index != -1) {
+            current = child;
+            *c0_leaf = current;
+        } else {
+            break;
+        }
+    }
+}
+
+/* Traverse c7 path to deepest leaf */
+static void
+find_c7_line(p4est_t *p4est, p4est_tree_t *tree, p4est_quadrant_t *q, p4est_quadrant_t *c7_leaf)
+{
+    p4est_quadrant_t current = *q;
+    *c7_leaf = current;
+
+    while (current.level < P4EST_QMAXLEVEL) {
+        p4est_quadrant_t child;
+        p4est_quadrant_child(&current, &child, P4EST_CHILDREN - 1); // Last child (c7)
+        p4est_locidx_t index = find_quadrant_in_tree(tree, &child);
+
+        if (index != -1) {
+            current = child;
+            *c7_leaf = current;
+        } else {
+            break;
+        }
+    }
+}
+
+/* Main function to find lowest c0 and c7 leaves */
+void
+find_lowest_quadrants(p4est_t *p4est, p4est_tree_t *tree, p4est_quadrant_t *q,
+                      p4est_quadrant_t *lowest_c0, p4est_quadrant_t *lowest_c7)
+{
+    // Find deepest c0 leaf
+    find_c0_line(p4est, tree, q, lowest_c0);
+    
+    // Find deepest c7 leaf
+    find_c7_line(p4est, tree, q, lowest_c7);
+}
+
+// The real Test starts here
+std::pair<std::array<double, 3>, std::array<double, 3>>
+get_physical_coordinates_constraints(p4est_t *p4est, p4est_topidx_t which_tree, p4est_quadrant_t *quadrant, p4est_locidx_t local_num, void *point) {
+    grace::amr::quadrant_t quad(quadrant);
+    grace::amr::forest_impl_t& forest = grace::amr::forest::get();
+    auto tree = forest.tree(which_tree);
+
+    auto const dx_quad  = 1./(1<<quad.level()) ; 
+    auto const qcoords = quad.qcoords();
+    auto quad_coords = std::array<double, 3>{
+        qcoords[0] * dx_quad,
+        qcoords[1] * dx_quad,
+        qcoords[2] * dx_quad
+    };
+
+    // Das so zu machen wäre overkill
+    std::pair<double,double> xbnd { 
+        grace::get_param<double>("amr", "xmin"),
+        grace::get_param<double>("amr", "xmax")
+    } ;
+    std::pair<double,double> ybnd { 
+        grace::get_param<double>("amr", "ymin"),
+        grace::get_param<double>("amr", "ymax")
+    } ;
+    std::pair<double,double> zbnd { 
+        grace::get_param<double>("amr", "zmin"),
+        grace::get_param<double>("amr", "zmax")
+    } ;
+    
+    auto grid_bnd_ = std::array<std::pair<double,double>, GRACE_NSPACEDIM>{
+        VEC(
+        xbnd,ybnd,zbnd
+        )
+    } ;
+
+    auto is_periodic_ = std::array<bool, GRACE_NSPACEDIM> {
+        VEC(grace::get_param<bool>("amr","periodic_x"), 
+            grace::get_param<bool>("amr","periodic_y"), 
+            grace::get_param<bool>("amr","periodic_z"))
+    } ;
+
+    auto const tree_coords = grace::amr::get_tree_vertex(which_tree,0UL) ; 
+    auto const dx_tree     = grace::amr::get_tree_spacing(which_tree)    ;
+
+
+    auto qcoords_lower = std::array<double, 3>{
+        quad_coords[0] * dx_tree[0] + tree_coords[0],
+        quad_coords[1] * dx_tree[1] + tree_coords[1],
+        quad_coords[2] * dx_tree[2] + tree_coords[2]
+    };
+    
+    
+    for( int id=0; id<GRACE_NSPACEDIM; ++id){
+        if( is_periodic_[id] ) {
+            if ( qcoords_lower[id] < grid_bnd_[id].first ) {
+                qcoords_lower[id] = grid_bnd_[id].second - (grid_bnd_[id].first-qcoords_lower[id]) ;
+            } else if ( qcoords_lower[id] > grid_bnd_[id].second) {
+                qcoords_lower[id] = grid_bnd_[id].first + (qcoords_lower[id]-grid_bnd_[id].second) ; 
+            }
+        }
+    }
+
+    auto qcoords_upper = std::array<double, 3>{
+        qcoords_lower[0] + dx_tree[0]*dx_quad,
+        qcoords_lower[1] + dx_tree[1]*dx_quad,
+        qcoords_lower[2] + dx_tree[2]*dx_quad
+    };
+
+    return std::make_pair(qcoords_lower, qcoords_upper);
+}
+
 //*****************************************************************************************************
 /**
  * @brief Function to search for quadrants that intersect with a slicing plane.
@@ -33,8 +180,21 @@ int my_search_function(p4est_t * p4est,
                        void *point) {
 
         if (local_num < 0) {
-            return 1; // Skip trees that are not the first one
+            // Skip trees that are not valid (e.g. ghost trees)
+            std::array<double, 3> qcoords_upper = {0.0, 0.0, 0.0};
+            std::array<double, 3> qcoords_lower = {0.0, 0.0, 0.0};
+            
+            std::tie(qcoords_lower, qcoords_upper) = get_physical_coordinates_constraints(p4est, which_tree, quadrant, local_num, point);
+
+            auto xmin = qcoords_lower[0];
+            auto xmax = qcoords_upper[0];
+            
+            if (xmin <= 0.0 && xmax > 0.0) {
+                return 1; // Found a quadrant that is intersected
+            }
+            return 0; // Skip trees that are not the first one
         }
+        //printf("Entered the function\n");
 
         std::array<size_t, 3> ijk = {0, 0, 0};
 
@@ -86,10 +246,25 @@ int my_points_function(p4est_t* p4est,
     if (local_num < 0)
     {
         // Skip trees that are not valid (e.g. ghost trees)
-        return 1;
+        std::array<double, 3> qcoords_upper = {0.0, 0.0, 0.0};
+        std::array<double, 3> qcoords_lower = {0.0, 0.0, 0.0};
+        std::tie(qcoords_lower, qcoords_upper) = get_physical_coordinates_constraints(p4est, which_tree, quadrant, local_num, point);
+
+        auto& point_coord = *static_cast<std::array<double,3>*>(point);
+        
+        if (qcoords_lower[0] <= point_coord[0] && qcoords_upper[0] > point_coord[0] &&
+            qcoords_lower[1] <= point_coord[1] && qcoords_upper[1] > point_coord[1] &&
+            qcoords_lower[2] <= point_coord[2] && qcoords_upper[2] > point_coord[2])
+        {
+            // All conditions are satisfied, so the quadrant intersects the plane.
+            return 1;
+        }
+        else
+        {
+            // One or more conditions are not met.
+            return 0;
+        }
     }
-
-
     std::array<size_t, 3> ijk = {0, 0, 0};
 
     size_t nx,ny,nz; 
@@ -291,21 +466,17 @@ TEST_CASE("Volume hdf5 surface output", "[vol_hdf5_surf_out]")
 
             if (quadrant.get_user_data<int>() != 0)
             {
-                printf("Quadrant %zu in tree %zu is sliced by the plane.\n", i*quadrant_offset + j, i);
+                //printf("Quadrant %zu in tree %zu is sliced by the plane.\n", i*quadrant_offset + j, i);
             }
 
         }
     }
-
-
-    //quadrants_offset
-
     printf("----------------------------------------\n");
 
     // Reset the user data to 0
     p4est_search_local(forest.get(), false, reset_func, nullptr, nullptr);
 
-    sc_array_t* points = generate_sphere_points(1500,0.5);
+    sc_array_t* points = generate_sphere_points(500,0.5);
     p4est_search_local_t point_search_func = my_points_function;
     p4est_search_local(forest.get(), true , nullptr, point_search_func, points);
 
@@ -323,12 +494,10 @@ TEST_CASE("Volume hdf5 surface output", "[vol_hdf5_surf_out]")
 
             if (quadrant.p.user_int != 0)
             {
-                printf("Quadrant %zu in tree %zu intersects the point %d times.\n", i*quadrant_offset + it, i, quadrant.p.user_int);
+                //printf("Quadrant %zu in tree %zu intersects the point %d times.\n", i*quadrant_offset + it, i, quadrant.p.user_int);
             }
             it++;
         }
     }
-
-
     printf("---- END OF KENS TERMINAL OUTPUT ----\n");
 }
