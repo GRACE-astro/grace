@@ -23,5 +23,6 @@ target_link_libraries( grace_tab PRIVATE
                         MPI::MPI_CXX 
                         p4est::sc 
                         p4est::p4est 
-                        Kokkos::kokkos 
+                        Kokkos::kokkos
+                        HDF5::HDF5 
                         spdlog::spdlog )

@@ -39,16 +39,11 @@
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
 #include <grace/physics/eos/tabulated_eos.hh> //Addition to eos_storage inclusions
-#include <grace/physics/eos/physical_constants.hh> //! Todo 
 
 #include <grace/physics/eos/eos_storage.hh>
 
 #include <Kokkos_Core.hpp>
 
 namespace grace {
-
-
-
-
 
 }

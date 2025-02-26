@@ -53,7 +53,8 @@ int main() {
 
     std::string table_path = "/users/pierrekh/data/eos_tables/compose_tables/DD2+VQCD_soft_quark_fraction.h5";
 
-    auto _tabtable = grace::setup_tabulated_eos_compose(table_path.c_str());
+    auto _tabulated = grace::setup_tabulated_eos_compose(table_path.c_str());
+
     
-    
+    return 0;   
 }

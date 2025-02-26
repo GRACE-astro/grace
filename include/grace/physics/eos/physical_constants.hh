@@ -46,5 +46,6 @@ static constexpr const double avogadro  = 6.0221367e23;
 static constexpr const double m_neutron_MeV = 939.565379;
 
 static constexpr const double hbarc_MeV_fm = 197.326978812;
+static constexpr const double baryon_mass = m_neutron_MeV * MeV_to_erg / c2_CGS;
 
 } } /* namespace grace::physical_constants */
