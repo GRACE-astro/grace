@@ -381,7 +381,7 @@ void advance_substep( double const t, double const dt, double const dtfact
         staggered_old_state.corner_staggered_fields.extent(3), 
         staggered_old_state.corner_staggered_fields.extent(4)
     ) ; 
-    
+    #if 0 
     auto bssn_rhs_policy =
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
                {VEC(0,0,0),0}
@@ -406,7 +406,7 @@ void advance_substep( double const t, double const dt, double const dtfact
             ) ; 
         }
     ) ; 
-    
+    #endif 
     /* Device sync */
     Kokkos::fence() ;
     GRACE_TRACE("BSSN done.") ; 
