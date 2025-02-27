@@ -75,8 +75,8 @@ apply_kreiss_olinger_dissipation(
 
     return epsdiss / 64 * (
               ( var(VEC(i-3,j,k)) - 6*var(VEC(i-2,j,k)) + 15*var(VEC(i-1,j,k)) - 20*var(VEC(i,j,k)) + 15*var(VEC(i+1,j,k)) - 6*var(VEC(i+2,j,k)) + var(VEC(i+3,j,k)) ) * idx[0]
-            //+ ( var(VEC(i,j-3,k)) - 6*var(VEC(i,j-2,k)) + 15*var(VEC(i,j-1,k)) - 20*var(VEC(i,j,k)) + 15*var(VEC(i,j+1,k)) - 6*var(VEC(i,j+2,k)) + var(VEC(i,j+3,k)) ) * idx[1]
-            //+ ( var(VEC(i,j,k-3)) - 6*var(VEC(i,j,k-2)) + 15*var(VEC(i,j,k-1)) - 20*var(VEC(i,j,k)) + 15*var(VEC(i,j,k+1)) - 6*var(VEC(i,j,k+2)) + var(VEC(i,j,k+3)) ) * idx[2]
+            + ( var(VEC(i,j-3,k)) - 6*var(VEC(i,j-2,k)) + 15*var(VEC(i,j-1,k)) - 20*var(VEC(i,j,k)) + 15*var(VEC(i,j+1,k)) - 6*var(VEC(i,j+2,k)) + var(VEC(i,j+3,k)) ) * idx[1]
+            + ( var(VEC(i,j,k-3)) - 6*var(VEC(i,j,k-2)) + 15*var(VEC(i,j,k-1)) - 20*var(VEC(i,j,k)) + 15*var(VEC(i,j,k+1)) - 6*var(VEC(i,j,k+2)) + var(VEC(i,j,k+3)) ) * idx[2]
         ); 
 }
 #if 0

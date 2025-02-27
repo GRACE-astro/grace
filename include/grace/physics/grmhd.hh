@@ -217,17 +217,10 @@ struct grmhd_equations_system_t
         /**************************************************************************************************/
 
         /* Read in the metric                                                                             */
-        #if 1
         metric_array_t metric ;
         FILL_METRIC_ARRAY(
             metric, mview, q, VEC(i,j,k)
         ) ; 
-        #else 
-        metric_array_t metric {
-            {1,0,0,1,0,1},{0,0,0},1
-        };
-        #endif 
-
 
         /* Compute inverse (contravariant) four-metric                                                    */
         auto const gupmunu = metric.invgmunu() ;
@@ -293,9 +286,6 @@ struct grmhd_equations_system_t
             + 2. * metric.contract_vec_vec_sym2tens(shift,{Tupmunu[TX4],Tupmunu[TY4],Tupmunu[TZ4]}, Kij)
             + metric.contract_sym2tens_sym2tens({Tupmunu[XX4],Tupmunu[XY4],Tupmunu[XZ4],Tupmunu[YY4],Tupmunu[YZ4],Tupmunu[ZZ4]}, Kij) ; 
 
-
-        
-
         /* Overall factor of dt \alpha \sqrt{\gamma} to be multiplied to source terms                          */
         double const alpha_sqrtgamma_dt = dt*dtfact*metric.alp()*metric.sqrtg();
 
@@ -306,10 +296,20 @@ struct grmhd_equations_system_t
         /* anyway needed for the momentum source terms which are a vector and which also contain directional   */
         /* derivatives.                                                                                        */
         /*******************************************************************************************************/
+        std::array<double,3> dalp_dxi {0.} ;
+        std::array<double,10> dgab_dx  {0.} ; 
+        std::array<double,10> dgab_dy  {0.} ; 
+        std::array<double,10> dgab_dz  {0.} ; 
+        std::array<double,3> const _idx { idx(0,q), idx(1,q), idx(2,q) } ; 
+        fill_metric_derivatives(
+            this->_sstate.corner_staggered_fields,
+            VEC(i,j,k),q,dalp_dxi,dgab_dx,dgab_dy,dgab_dz,_idx
+        ) ; 
+        /**************************************************************************************************/
         std::array<double,3> st_i_sources {0} ; 
-        compute_directional_sources<0>(VEC(i,j,k),q,metric,Tupmunu,idx,tau_source,st_i_sources[0]) ; 
-        compute_directional_sources<1>(VEC(i,j,k),q,metric,Tupmunu,idx,tau_source,st_i_sources[1]) ; 
-        compute_directional_sources<2>(VEC(i,j,k),q,metric,Tupmunu,idx,tau_source,st_i_sources[2]) ; 
+        compute_directional_sources<0>(VEC(i,j,k),q,metric,Tupmunu,dalp_dxi,dgab_dx,tau_source,st_i_sources[0]) ; 
+        compute_directional_sources<1>(VEC(i,j,k),q,metric,Tupmunu,dalp_dxi,dgab_dy,tau_source,st_i_sources[1]) ; 
+        compute_directional_sources<2>(VEC(i,j,k),q,metric,Tupmunu,dalp_dxi,dgab_dz,tau_source,st_i_sources[2]) ; 
         /**************************************************************************************************/
         /* Add momentum source terms                                                                      */
         /**************************************************************************************************/
@@ -368,16 +368,12 @@ struct grmhd_equations_system_t
         cons[TAUL]  = vars(TAU_)         ;
         cons[YESL]  = vars(YESTAR_)      ; 
         cons[ENTSL] = vars(ENTROPYSTAR_) ; 
-        #if 1 
+
         metric_array_t metric ;
         FILL_METRIC_ARRAY(
             metric, mview, q, VEC(i,j,k)
-        ) ; 
-        #else 
-        metric_array_t metric {
-            {1,0,0,1,0,1},{0,0,0},1
-        };
-        #endif 
+        ) ;  
+
         grmhd_prims_array_t prims ;
         conservs_to_prims<eos_t>( cons, prims, metric
                                 , this->_eos, this->_lapse_excision ) ;
@@ -448,17 +444,13 @@ struct grmhd_equations_system_t
         /* Get prims */
         grmhd_prims_array_t prims ;
         FILL_PRIMS_ARRAY(prims,this->_aux,q,VEC(i,j,k)) ;
+        
         /* Get metric */
-        #if 1
         metric_array_t metric;
         FILL_METRIC_ARRAY(
             metric, mview, q, VEC(i,j,k)
         ) ; 
-        #else
-        metric_array_t metric {
-            {1,0,0,1,0,1},{0,0,0},1
-        } ; 
-        #endif 
+
         /* Get soundspeed, enthalpy */
         double csnd2, h ; 
         unsigned int err ; 
@@ -1318,7 +1310,8 @@ struct grmhd_equations_system_t
         VEC( int i, int j, int k ), int q, 
         metric_array_t const& metric, 
         std::array<double,10> const& Tupmunu, 
-        grace::scalar_array_t<GRACE_NSPACEDIM> const idx,
+        std::array<double,3>  const& dalp_dxi,
+        std::array<double,10> const& dgab_dxi,
         double& tau_source, double& st_i_source 
     ) const 
     {
@@ -1340,49 +1333,11 @@ struct grmhd_equations_system_t
         static constexpr int YY4=7;
         static constexpr int YZ4=8;
         static constexpr int ZZ4=9;
+        
         /**************************************************************************************************/
-        #if 1
-        /* Read metric components at neighor cell centres for metric derivative                           */
-        metric_array_t metric_m, metric_p ; 
-        FILL_METRIC_ARRAY( metric_m, mview
-                         , q
-                         , VEC( i-utils::delta(0,idir)
-                              , j-utils::delta(1,idir)
-                              , k-utils::delta(2,idir)) ) ; 
-        FILL_METRIC_ARRAY( metric_p, mview
-                         , q
-                         , VEC( i+utils::delta(0,idir)
-                              , j+utils::delta(1,idir)
-                              , k+utils::delta(2,idir) ) ) ;   
-        #else 
-        metric_array_t metric_p {
-            {1,0,0,1,0,1},{0,0,0},1
-        };
-        metric_array_t metric_m {
-            {1,0,0,1,0,1},{0,0,0},1
-        };
-        #endif 
-        /* Indices for contraction of T^{0i} onto \partial_i \alpha (see tau source below)                     */
+        /* Indices for contraction of T^{0i} onto \partial_i \alpha (see tau source below)                */
+        /**************************************************************************************************/
         int index_4d[GRACE_NSPACEDIM] = {VEC(TX4,TY4,TZ4)} ;
-
-        /**************************************************************************************************/
-        /* Compute metric derivatives                                                                     */
-        /* We need \partial_i g_{\alpha\beta} for the momentum source term and \partial_i \alpha for the  */
-        /* conserved energy source term.                                                                  */
-        /**************************************************************************************************/
-        std::array<double, 10> dgab_dxi  ;
-
-        /* Get 4 metric                                                                                   */
-        auto const gmunu_m = metric_m.gmunu() ;
-        auto const gmunu_p = metric_p.gmunu() ;
-
-        /* Compute 4 metric derivative (factor of 1./dx introduced after)                                 */
-        #pragma unroll 10
-        for( int ii=0; ii<10; ++ii) { 
-            dgab_dxi[ii] =   0.5 * (gmunu_p[ii] - gmunu_m[ii]) ;
-        }
-        /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
-        double const dalp_dxi =  0.5 * (metric_p.alp() - metric_m.alp()) ;
 
         /**************************************************************************************************/
         /* Momentum source term:                                                                          */
@@ -1390,7 +1345,7 @@ struct grmhd_equations_system_t
         /* NB: The overall factor of \alpha \sqrt{\gamma} is introduced at the end                        */
         /**************************************************************************************************/
         st_i_source = 
-            0.5 * metric.contract_4dsym2tens_4dsym2tens(dgab_dxi, Tupmunu) * idx(idir,q) ;
+            0.5 * metric.contract_4dsym2tens_4dsym2tens(dgab_dxi, Tupmunu) ;
 
         /**************************************************************************************************/
         /* Second part of conserved energy source term:                                                   */
@@ -1399,9 +1354,7 @@ struct grmhd_equations_system_t
         /**************************************************************************************************/ 
         tau_source  -= 
             //( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ;
-            ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ;  
-        
-
+            ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi[idir] ;  
     }
 } ; 
 /***********************************************************************/

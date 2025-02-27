@@ -167,14 +167,6 @@ compute_gamma_tilde(
     double const gtyz = state(VEC(i,j,k),GTXX_+4,q);
     double const gtzz = state(VEC(i,j,k),GTXX_+5,q);
 
-    // Determinant of gamma tilde is 1
-    double const gtXX=-(gtyz*gtyz) + gtyy*gtzz;
-    double const gtXY=gtxz*gtyz - gtxy*gtzz;
-    double const gtXZ=-(gtxz*gtyy) + gtxy*gtyz;
-    double const gtYY=-(gtxz*gtxz) + gtxx*gtzz;
-    double const gtYZ=gtxy*gtxz - gtxx*gtyz;
-    double const gtZZ=-(gtxy*gtxy) + gtxx*gtyy;
-
     double const gtxxdx = grace::fd_der_bnd_check<der_order,0>(state,GTXX_+0, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[0 ];
     double const gtxxdy = grace::fd_der_bnd_check<der_order,1>(state,GTXX_+0, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[1 ];
     double const gtxxdz = grace::fd_der_bnd_check<der_order,2>(state,GTXX_+0, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[2 ];
@@ -194,10 +186,10 @@ compute_gamma_tilde(
     double const gtzzdy = grace::fd_der_bnd_check<der_order,1>(state,GTXX_+5, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[1 ];
     double const gtzzdz = grace::fd_der_bnd_check<der_order,2>(state,GTXX_+5, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[2 ];
 
-    state(VEC(i,j,k),GAMMAX_+0,q) = (gtXX*gtXX*gtxxdx + gtXY*gtXY*(gtxydx - gtxydy + gtyydx + gtyydy) + gtXX*(gtXZ*(gtxxdx + gtxzdx + gtxzdz) + 2*gtxydy*gtYY - gtYY*gtyydx + gtYZ*(gtxydy + gtxydz + gtxzdy + gtxzdz - 2*gtyzdx) + 2*gtxzdz*gtZZ - gtZZ*gtzzdx) + gtXY*(gtXX*gtxxdx + gtXX*gtxydx + gtXX*gtxydy + gtYY*gtyydy + gtYZ*(gtyydy + gtyydz - gtyzdy + gtyzdz) + gtXZ*(gtxydx - gtxydz + gtxzdx - gtxzdy + 2*gtyzdx + gtyzdy + gtyzdz) + 2*gtyzdz*gtZZ - gtZZ*gtzzdy) + gtXZ*(-(gtYY*gtyydz) + 2*gtYY*gtyzdy + gtYZ*gtyzdy - gtYZ*gtyzdz + gtYZ*gtzzdy + gtYZ*gtzzdz + gtZZ*gtzzdz + gtXZ*(gtxzdx - gtxzdz + gtzzdx + gtzzdz)))/2.;
-    state(VEC(i,j,k),GAMMAX_+1,q) = (gtXY*gtXY*(gtxxdx + gtxxdy - gtxydx + gtxydy) + gtxydx*gtXZ*gtYY + gtxydz*gtXZ*gtYY - 2*gtXZ*gtxzdy*gtYY + gtYY*gtYY*gtyydy + gtXZ*gtxzdx*gtYZ - gtXZ*gtxzdz*gtYZ + gtYY*gtyydy*gtYZ - gtXX*(gtxxdy*gtYY - 2*gtxydx*gtYY + (gtxxdz - 2*gtxzdx)*gtYZ) + gtXZ*gtYY*gtyzdx + gtYY*gtYZ*gtyzdy + gtYZ*gtYZ*gtyzdy + gtXZ*gtYY*gtyzdz + gtYY*gtYZ*gtyzdz - gtYZ*gtYZ*gtyzdz + 2*gtYY*gtyzdz*gtZZ + gtXZ*gtYZ*gtzzdx + gtXY*(gtXX*gtxxdx + gtXZ*(gtxxdx + gtxxdz - gtxzdx + gtxzdz) + gtxydx*gtYY + gtxydy*gtYY + gtYY*gtyydy + gtYZ*(gtxydy - gtxydz + gtxzdx + 2*gtxzdy + gtxzdz - gtyzdx + gtyzdy) + 2*gtxzdz*gtZZ - gtZZ*gtzzdx) + gtYZ*gtYZ*gtzzdy - gtYY*gtZZ*gtzzdy + gtXZ*gtYZ*gtzzdz + gtYZ*gtYZ*gtzzdz + gtYZ*gtZZ*gtzzdz)/2.;
-    state(VEC(i,j,k),GAMMAX_+2,q) = (gtXZ*gtXZ*(gtxxdx + gtxxdz - gtxzdx + gtxzdz) + gtXY*gtxydx*gtYZ - gtXY*gtxydy*gtYZ + gtXY*gtyydx*gtYZ + gtXY*gtyydy*gtYZ + gtYY*gtyydy*gtYZ + gtyydy*(gtYZ*gtYZ) + gtyydz*(gtYZ*gtYZ) - gtYZ*gtYZ*gtyzdy + gtYZ*gtYZ*gtyzdz - 2*gtXY*gtxydz*gtZZ + gtXY*gtxzdx*gtZZ + gtXY*gtxzdy*gtZZ - gtYY*gtyydz*gtZZ + gtXY*gtyzdx*gtZZ + gtXY*gtyzdy*gtZZ + 2*gtYY*gtyzdy*gtZZ + gtYZ*gtyzdy*gtZZ + gtYZ*gtyzdz*gtZZ - gtXX*(gtxxdy*gtYZ - 2*gtxydx*gtYZ + (gtxxdz - 2*gtxzdx)*gtZZ) + gtYZ*gtZZ*gtzzdz + gtZZ*gtZZ*gtzzdz + gtXZ*(gtXX*gtxxdx + gtxxdx*gtXY + gtxxdy*gtXY - gtXY*gtxydx + gtXY*gtxydy + 2*gtxydy*gtYY - gtYY*gtyydx + gtYZ*(gtxydx + gtxydy + 2*gtxydz - gtxzdy + gtxzdz - gtyzdx + gtyzdz) + gtZZ*(gtxzdx + gtxzdz + gtzzdz)))/2.;
-
+    // \tilde{\Gamma}^i = - D_j \tilde{\gamma}^{ij}
+    state(VEC(i,j,k),GAMMAX_+0, q) = gtxz*gtyydz - gtyz*(gtxydz + gtxzdy - 2*gtyzdx) - gtxz*gtyzdy - gtxy*gtyzdz + gtxydy*gtzz - gtyydx*gtzz + gtyy*(gtxzdz - gtzzdx) + gtxy*gtzzdy;
+    state(VEC(i,j,k),GAMMAX_+1, q) = -(gtxy*gtxzdz) + (gtxxdz - gtxzdx)*gtyz - gtxz*(gtxydz - 2*gtxzdy + gtyzdx) + gtxx*gtyzdz - gtxxdy*gtzz + gtxydx*gtzz + gtxy*gtzzdx - gtxx*gtzzdy;
+    state(VEC(i,j,k),GAMMAX_+2, q) = -(gtxydy*gtxz) + (-gtxxdz + gtxzdx)*gtyy + gtxz*gtyydx - gtxx*gtyydz + gtxxdy*gtyz - gtxydx*gtyz + gtxy*(2*gtxydz - gtxzdy - gtyzdx) + gtxx*gtyzdy;
 
 }
 
@@ -239,7 +231,7 @@ static void init_bssn_metric( id_kernel_t id_kernel
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
                     std::array<double,GRACE_NSPACEDIM> _idx {VEC(idx(0,q),idx(1,q),idx(2,q))} ; 
-                    compute_gamma_tilde<4>(cstate,VEC(i,j,k),q,_idx,VEC(nx,ny,nz),ngz) ;  
+                    compute_gamma_tilde<2>(cstate,VEC(i,j,k),q,_idx,VEC(nx,ny,nz),ngz) ;  
                 }
     );
 

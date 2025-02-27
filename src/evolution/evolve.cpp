@@ -391,8 +391,7 @@ void advance_substep( double const t, double const dt, double const dtfact
           GRACE_EXECUTION_TAG("EVOL","BSSN_RHS")
         , bssn_rhs_policy
         , KOKKOS_LAMBDA (VEC(int i, int j, int k), int q)
-        {
-            /*
+        {   
             bssn_eq_system.template compute_update_custom<2>(
                 q,
                 VEC(i+ngz,j+ngz,k+ngz),
@@ -405,7 +404,6 @@ void advance_substep( double const t, double const dt, double const dtfact
                 pcoords(VEC(i+ngz,j+ngz,k+ngz),0,q),
                 epsdiss
             ) ; 
-            */
         }
     ) ; 
     

@@ -208,7 +208,7 @@ void register_variables() {
     #endif 
     /* registration of metric variables */
     #ifdef GRACE_ENABLE_COWLING_METRIC
-    REGISTER_EVOLVED_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","outgoing",false) ; 
+    REGISTER_EVOLVED_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","third_",false) ; 
     REGISTER_EVOLVED_SCALAR(ALP,"alp","outgoing",false) ; 
     REGISTER_EVOLVED_VECTOR(BETAX,BETAY,BETAZ,"beta","outgoing",false);
     REGISTER_EVOLVED_TENSOR(KXX,KXY,KXZ,KYY,KYZ,KZZ,"ext_curv","outgoing",false) ; 

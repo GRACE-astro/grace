@@ -162,12 +162,12 @@ struct bssn_system_t
         auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
         // FIXME: Tmunu is set to zero because we are testing vacuum 
         //std::array<std::array<double,4>,4> Tmunu {{{0},{0},{0},{0}}} ; 
-        double const k1 = 0.1; double const eta = 0.25; // FIXME 
-        bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,cstate,Tmunu,idx,k1,eta)  ;   
+        double const k1 = 0.04; double const eta = 0.05; // FIXME 
+        bssn_state_t update = compute_bssn_rhs<2>(VEC(i,j,k),q,cstate,Tmunu,idx,k1,eta)  ;   
         #if 1
         // FIXME: Apply Kreiss-Olinger dissipation
         int ii = 0 ; 
-        for( int ivar=GTXX_; ivar<= ATZZ_; ++ivar ) {
+        for( int ivar=GTXX_; ivar<= BZ_; ++ivar ) {
             update[ii] += apply_kreiss_olinger_dissipation<der_order,5>(
                 VEC(i,j,k),ivar,q,cstate,idx,epsdiss
             ) ; 

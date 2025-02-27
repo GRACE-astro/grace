@@ -83,6 +83,7 @@ add_grace_test(gridloop_test test_grid_loops.cpp)
 add_grace_test(cart_coords_test test_cartesian_coordinates.cpp)
 add_grace_test(bssn_test test_bssn.cpp)
 add_grace_test(TOV_test test_TOV.cpp)
+add_grace_test(external_BC_test test_external_boundaries.cpp)
 
 add_kokkos_test(interpolator_test test_interpolators.cpp)
 add_kokkos_test(device_vector_test test_device_vector.cc)

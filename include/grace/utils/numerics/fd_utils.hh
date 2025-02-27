@@ -86,9 +86,9 @@ struct stencil<2,1,RIGHT_SIDED_STENCIL,1> {
   template< size_t idir, typename F >
   static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
   apply(F && var, VEC(int i, int j, int k)) {
-    return  1.5 * VAR 
-          - 2.0 * VARP(1)
-          + 0.5 * VARP(2) ;
+    return - 1.5 * VAR 
+           + 2.0 * VARP(1)
+           - 0.5 * VARP(2) ;
   }
 } ;
 
