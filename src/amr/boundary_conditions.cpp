@@ -55,11 +55,14 @@ namespace grace { namespace amr {
 void apply_boundary_conditions() {
     auto& vars = variable_list::get().getstate() ;
     auto& staggered_vars = variable_list::get().getstaggeredstate() ; 
-    apply_boundary_conditions(vars, staggered_vars) ; 
+    apply_boundary_conditions(vars, vars, staggered_vars, staggered_vars, 0, 0) ;  
 }
 
 void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
-                              , grace::staggered_variable_arrays_t& staggered_vars) {
+                              , grace::var_array_t<GRACE_NSPACEDIM>& old_vars
+                              , grace::staggered_variable_arrays_t& staggered_vars
+                              , grace::staggered_variable_arrays_t& old_staggered_vars
+                              , double const dt, double const dtfact ) {
     Kokkos::Profiling::pushRegion("BC") ; 
     using namespace grace ;
     /******************************************************/
@@ -303,12 +306,15 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     GRACE_VERBOSE("Filling physical boundaries.") ; 
     fill_physical_boundaries(
           vars
+        , old_vars
         , staggered_vars 
+        , old_staggered_vars
         , face_phys_boundary_info 
         , corner_phys_boundary_info 
         #ifdef GRACE_3D
         , edge_phys_boundary_info 
         #endif 
+        , dt, dtfact 
     ); 
     /******************************************************/
     /* Sixth step:                                        */
@@ -366,12 +372,15 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
     GRACE_VERBOSE("Filling physical boundaries.") ;
     fill_physical_boundaries(
           vars
+        , old_vars
         , staggered_vars 
+        , old_staggered_vars
         , face_phys_boundary_info 
         , corner_phys_boundary_info 
         #ifdef GRACE_3D
         , edge_phys_boundary_info 
         #endif 
+        , dt, dtfact
     ); 
     /******************************************************/
     /* De-allocate halo quadrant data                     */

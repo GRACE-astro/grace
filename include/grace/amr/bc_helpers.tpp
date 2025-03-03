@@ -62,13 +62,15 @@ namespace grace { namespace amr {
 template< typename BCT
         , typename ViewT >
 void apply_phys_bc(
-    ViewT& u,
+    ViewT& dst,
+    ViewT& src,
     int nx, int ny, int nz, int ngz,
     grace::device_vector<grace::amr::grace_phys_bc_info_t>& face_info,
     grace::device_vector<grace::amr::grace_phys_bc_info_t>& corner_info,
     #ifdef GRACE_3D
-    grace::device_vector<grace::amr::grace_phys_bc_info_t>& edge_info
+    grace::device_vector<grace::amr::grace_phys_bc_info_t>& edge_info,
     #endif
+    BCT const bc_kernel
   )
 {     
   /******************************************************/
@@ -121,7 +123,7 @@ void apply_phys_bc(
           int const I = (faceb2==0) * ig + (faceb2!=0) * i ; 
           int const J = (faceb2==1) * ig + (faceb2==0) * i + (faceb2==2) * j ; 
           int const K = (faceb2==2) * ig + (faceb2!=2) * j ;  
-          BCT::apply(u,VEC(I,J,K), VEC(dx,dy,dz), iq) ;
+          bc_kernel.template<decltype(dst)> apply(dst, src, VEC(I,J,K), VEC(dx,dy,dz), iq) ;
         }
     }
   ); 
@@ -174,7 +176,7 @@ void apply_phys_bc(
         for( int jg=lmin[1]; jg!=lmax[1]; jg+=idir[1] ) 
         for( int kg=lmin[2]; kg!=lmax[2]; kg+=idir[2] )
         { 
-          BCT::apply(u,VEC(ig,jg,kg), VEC(dir[0],dir[1],dir[2]), iq) ;
+          bc_kernel.template<decltype(dst)> apply(dst, src, VEC(ig,jg,kg), VEC(dir[0],dir[1],dir[2]), iq) ;
         }
     }
   ) ; 
@@ -229,7 +231,7 @@ void apply_phys_bc(
             for( int jg=lmin[1]; jg!=lmax[1]; jg+=idir[1]), 
             for( int kg=lmin[2]; kg!=lmax[2]; kg+=idir[2])) 
       {
-        BCT::apply(u,VEC(ig,jg,kg), VEC(dir[0],dir[1],dir[2]), iq) ;
+        bc_kernel.template<decltype(dst)> apply(dst, src, VEC(ig,jg,kg), VEC(dir[0],dir[1],dir[2]), iq) ;
       }
     }
   ); 

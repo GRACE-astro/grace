@@ -120,7 +120,7 @@ void evolve_impl() {
             t,dt,1.0,state,state_p,aux,
             sstate,sstate_p,saux,
             idx,dx,cvol,fsurf) ; 
-        amr::apply_boundary_conditions(state,sstate) ; 
+        amr::apply_boundary_conditions(state,state_p, sstate, sstate_p, dt, 1.0 ) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux, saux) ;
     } else if (tstepper == "rk2" ) {
         /* Compute auxiliaries at current timelevel */
@@ -130,14 +130,14 @@ void evolve_impl() {
             state_p,state,aux,
             sstate_p,sstate,saux,
             idx,dx,cvol,fsurf) ; 
-        amr::apply_boundary_conditions(state_p,sstate_p) ; 
+        amr::apply_boundary_conditions(state_p,state,sstate_p,sstate,dt,0.5) ; 
         compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux, saux) ;
         advance_substep<eos_t>(
             t,dt,1.0,
             state,state_p,aux,
             sstate,sstate_p,saux,
             idx,dx,cvol,fsurf) ;
-        amr::apply_boundary_conditions(state,sstate) ; 
+        amr::apply_boundary_conditions(state,state_p,sstate,sstate_p,dt,1.0) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux, saux) ;
     } else if (tstepper == "rk3" ) {
         auto staggered_update_policy =

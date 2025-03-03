@@ -36,9 +36,9 @@ template< size_t order >
 struct extrap_bc_t 
 {
       template< typename ViewT >
-      static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
       apply(
-            ViewT& u,
+            ViewT& dst, ViewT& src,
             VEC( int i, int j, int k),
             VEC( int8_t dx, int8_t dy, int8_t dz), 
             int64_t q 
@@ -49,15 +49,15 @@ template<>
 struct extrap_bc_t<0>
 {
       template< typename ViewT >
-      static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
       apply(
-            ViewT& u,
+            ViewT& dst, ViewT& src,
             VEC( int i, int j, int k),
             VEC( int8_t dx, int8_t dy, int8_t dz), 
             int64_t q 
       ) 
       {
-            u(VEC(i,j,k), q) = u(VEC(i-dx,j-dy,k-dz),q) ; 
+            dst(VEC(i,j,k), q) = src(VEC(i-dx,j-dy,k-dz),q) ; 
       }; 
 } ; 
 
@@ -65,18 +65,18 @@ template<>
 struct extrap_bc_t<3>
 {
       template< typename ViewT >
-      static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
       apply(
-            ViewT& u,
+            ViewT& dst, ViewT& src,
             VEC( int i, int j, int k),
             VEC( int8_t dx, int8_t dy, int8_t dz), 
             int64_t q 
       ) 
       {
-            u(VEC(i,j,k), q) =( 4*u(VEC(i-dx,j-dy,k-dz),q) 
-                              - 6*u(VEC(i-2*dx,j-2*dy,k-2*dz),q) 
-                              + 4*u(VEC(i-3*dx,j-3*dy,k-3*dz),q) 
-                              -   u(VEC(i-4*dx,j-4*dy,k-4*dz),q) ); 
+            dst(VEC(i,j,k), q) =( 4*src(VEC(i-dx,j-dy,k-dz),q) 
+                              - 6*src(VEC(i-2*dx,j-2*dy,k-2*dz),q) 
+                              + 4*src(VEC(i-3*dx,j-3*dy,k-3*dz),q) 
+                              -   src(VEC(i-4*dx,j-4*dy,k-4*dz),q) ); 
       }; 
 } ;
 
@@ -86,6 +86,76 @@ struct extrap_bc_t<3>
  */
 using outgoing_bc_t = extrap_bc_t<0> ; 
 
+
+struct sommerfeld_bc_t {
+
+      grace::scalar_array_t<GRACE_NSPACEDIM> idx ; 
+      grace::coord_array_t<GRACE_NSPACEDIM>  pcoords ; 
+      double dt, dtfact, f0, v0
+
+      sommerfeld_bc_t(
+            grace::scalar_array_t<GRACE_NSPACEDIM>  _idx, 
+            grace::coord_array_t<GRACE_NSPACEDIM>  _pcoords,
+            double _dt,
+            double _dtfact,
+            double _f0,
+            double _v0
+      )
+       : idx(_idx), _pcoords(pcoords), dt(_dt), dtfact(_dtfact), f0(_f0), v0(_v0)
+      {}
+
+      template< typename ViewT >
+      void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      apply(
+            ViewT& dst, ViewT& src,
+            VEC( int i, int j, int k),
+            VEC( int8_t dx, int8_t dy, int8_t dz), 
+            int64_t q, 
+      )  
+      {
+            double derivx, derivy, derivz ; 
+            
+            double const xi = pcoords(VEC(i,j,k),0,q) ; 
+            double const yi = pcoords(VEC(i,j,k),1,q) ; 
+            double const zi = pcoords(VEC(i,j,k),2,q) ; 
+
+            double const ri = Kokkos::sqrt(xi*xi + yi*yi + zi*zi) ; 
+            double const rinv = 1./ri ; 
+
+            double const vx = v0 * xi * rinv ; 
+            double const vy = v0 * yi * rinv ; 
+            double const vz = v0 * zi * rinv ; 
+
+            if ( dx == 0 ) {
+                  derivx = (src(VEC(i+1,j,k),q) - src(VEC(i-1,j,k),q) ) * idx(0,q) * 0.5 ; 
+            } else {
+                  derivx = dx * 0.5 * (
+                        3 * src(VEC(i,j,k),q) - 4 * src(VEC(i-dx,j,k),q) + src(VEC(i-2*dx,j,k),q)  
+                  ) * idx(0,q)  ; 
+            }
+
+            if ( dy == 0 ) {
+                  derivy = (src(VEC(i,j+1,k),q) - src(VEC(i,j-1,k),q) ) * idx(1,q) * 0.5 ; 
+            } else {
+                  derivy = dy * 0.5 * (
+                        3 * src(VEC(i,j,k),q) - 4 * src(VEC(i,j-dy,k),q) + src(VEC(i,j-2*dy,k),q)  
+                  ) * idx(1,q)  ; 
+            }
+
+            if ( dz == 0 ) {
+                  derivz = (src(VEC(i,j,k+1),q) - src(VEC(i,j,k-1),q) ) * idx(2,q) * 0.5 ; 
+            } else {
+                  derivz = dz * 0.5 * (
+                        3 * src(VEC(i,j,k),q) - 4 * src(VEC(i,j,k-dz),q) + src(VEC(i,j,k-2*dz),q)  
+                  ) * idx(2,q)  ; 
+            }
+
+            dst(VEC(i,j,k),q) = src(VEC(i,j,k),q) + dt * dtfact * (
+                  - vx*derivx - vy*derivy - vz*derivz - v0 * (src(VEC(i,j,k),q)-f0)*rinv 
+            ) ; 
+
+      }
+} ; 
 
 }}
 

@@ -46,13 +46,16 @@ namespace grace { namespace amr {
  * @param edge_phys_bc   Information about edges of the grid.
  */
 void fill_physical_boundaries(
-      grace::var_array_t<GRACE_NSPACEDIM>& vars 
-    , grace::staggered_variable_arrays_t& staggered_vars 
-    , grace::device_vector<grace::amr::grace_phys_bc_info_t>& face_phys_bc 
-    , grace::device_vector<grace::amr::grace_phys_bc_info_t>& corner_phys_bc
-    #ifdef GRACE_3D 
-    , grace::device_vector<grace::amr::grace_phys_bc_info_t>& edge_phys_bc 
-    #endif
+  grace::var_array_t<GRACE_NSPACEDIM>& vars 
+  , grace::var_array_t<GRACE_NSPACEDIM>& old_vars 
+  , grace::staggered_variable_arrays_t& staggered_vars 
+  , grace::staggered_variable_arrays_t& old_staggered_vars 
+  , grace::device_vector<grace::amr::grace_phys_bc_info_t>& face_phys_bc 
+  , grace::device_vector<grace::amr::grace_phys_bc_info_t>& corner_phys_bc
+  #ifdef GRACE_3D 
+  , grace::device_vector<grace::amr::grace_phys_bc_info_t>& edge_phys_bc 
+  #endif
+  , double const dt, double const dtfact
 ) ; 
 
 }} /* namespace grace::amr */
