@@ -387,9 +387,11 @@ struct grmhd_equations_system_t
         aux(ENTROPY_) = prims[ENTL]  ; 
         aux(YE_)   = prims[YEL]     ;
         //MHD_TODO
+        #ifdef GRACE_ENABLE_MHD_Apot
         aux(BMAGX_)   = prims[BMAGX]     ;
         aux(BMAGY_)   = prims[BMAGY]     ;
         aux(BMAGZ_)   = prims[BMAGZ]     ;
+        #endif
         /* Compute ZVEC */
         double const one_over_alp = 1./metric.alp(); 
         std::array<double,3> const vN {
@@ -627,7 +629,7 @@ struct grmhd_equations_system_t
         double h_r = 1 + primR[EPSL] + primR[PRESSL]/primR[RHOL] ;
 
           /**
-        MHD_TODO:
+        //MHD_TODO:
         get smallb from vector potential A
         // MHD_TODO b-field factors for T^{\mu\nu}            
         double const b2{0.} ; // No B field yet
@@ -764,9 +766,11 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SY_,idir,q)          = alpha_sqrtgamma * fHLLC[STYL]  ;
         fluxes(VEC(i,j,k),SZ_,idir,q)          = alpha_sqrtgamma * fHLLC[STZL]  ;
         // if MHD_TODO:
-        fluxes(VEC(i,j,k),AX_,idir,q)          = alpha_sqrtgamma * fHLLC[ATXL]  ;
-        fluxes(VEC(i,j,k),AY_,idir,q)          = alpha_sqrtgamma * fHLLC[ATYL]  ;        
-        fluxes(VEC(i,j,k),AZ_,idir,q)          = alpha_sqrtgamma * fHLLC[ATZL]  ;
+        #ifdef GRACE_ENABLE_MHD_Apot
+        fluxes(VEC(i,j,k),APOTX_,idir,q)          = alpha_sqrtgamma * fHLLC[ATXL]  ;
+        fluxes(VEC(i,j,k),APOTY_,idir,q)          = alpha_sqrtgamma * fHLLC[ATYL]  ;        
+        fluxes(VEC(i,j,k),APOTZ_,idir,q)          = alpha_sqrtgamma * fHLLC[ATZL]  ;
+        #endif
         //
         /***********************************************************************/
     };
@@ -855,9 +859,9 @@ struct grmhd_equations_system_t
                 , TEMPL
                 , ENTL
                 //MHD_TODO
-                , BMAGX_
-                , BMAGY_
-                , BMAGZ_
+                , BMAGX
+                , BMAGY
+                , BMAGZ
             } ;
         /* Reconstruction                                  */
         grmhd_prims_array_t primL, primR ; 
@@ -964,11 +968,11 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL] ; 
         fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ; 
         //MHD_TODO actually could do whole Apot equations outside of getflux
-        /*
-        fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[APOTXL] ; 
-        fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[APOTYL] ; 
-        fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[APOTZL] ; 
-        */
+        #ifdef GRACE_ENABLE_MHD_Apot
+        fluxes(VEC(i,j,k),APOTX_,idir,q)          = f_HLL[APOTXL] ; 
+        fluxes(VEC(i,j,k),APOTY_,idir,q)          = f_HLL[APOTYL] ; 
+        fluxes(VEC(i,j,k),APOTZ_,idir,q)          = f_HLL[APOTZL] ; 
+        #endif
         /***********************************************************************/
         #endif 
     }
@@ -1246,24 +1250,66 @@ struct grmhd_equations_system_t
         f[STZL] = solver(fl,fr,s_z_l,s_z_r,cmin,cmax) ; 
         /***********************************************************************/
 
-        //MHD_TODO: computation of induction equation rhs
+        #ifdef GRACE_EANBLE_MHD_Apot
+                //MHD_TODO: computation of induction equation rhs
+                // should be done separately in evolve using reconstructed vels
         /***********************************************************************/ 
         /*                           Get A_x flux                              */
         /***********************************************************************/
         /* F^d_{A_x} = v^z * \tilde{B}^y - v^y * \tilde{B}^z                   */
         /***********************************************************************/
         /* prim[B] has to be \tilde{B} = \sqrtg * B at the cell center*/ 
-        /* prim[V] has to be the reconstructed velocity */
-        fl = primL[VZL] * primL[BMAGY] - primL[VYL] * primL[BMAGZ]; 
-        fr = primR[VZL] * primR[BMAGY] - primR[VYL] * primR[BMAGZ]; 
+        /* prim[V] has to be the reconstructed velocity !! */
+        fl = primL[VZL] * primL[BMAGY] - primL[VYL] * primL[BMAGZ]; //=epsBx_L
+        fr = primR[VZL] * primR[BMAGY] - primR[VYL] * primR[BMAGZ]; //epsBx_R
         // or
-        double const epsBx_L = primL[VZL] * primL[BMAGY] - primL[VYL] * primL[BMAGZ]; 
-        double const epsBx_R = primR[VZL] * primR[BMAGY] - primR[VYL] * primR[BMAGZ]; 
-    
+        //double const epsBx_L = primL[VZL] * primL[BMAGY] - primL[VYL] * primL[BMAGZ]; 
+        //double const epsBx_R = primR[VZL] * primR[BMAGY] - primR[VYL] * primR[BMAGZ]; 
+
+        //U_state(A_x), MHD_TODO: in this routine only prims exist, no cons!
+        // worng for now:
+        double const epsBx_L = primL[BMAGX]; //!! but it should be = Apotx !
+        double const epsBx_R = primR[BMAGX];
+      
         //MHD_TODO define APOTXL
         f[APOTXL] = solver(fl,fr,epsBx_L,epsBx_R,cmin,cmax) ; 
-        //...
-        // not here! need reconstructed vars form Loops
+
+        /***********************************************************************/ 
+        /*                           Get A_y flux                              */
+        /***********************************************************************/
+        /* F^d_{A_y} = v^x * \tilde{B}^z - v^z * \tilde{B}^x                   */
+        /***********************************************************************/
+        /* prim[B] has to be \tilde{B} = \sqrtg * B at the cell center*/ 
+        /* prim[V] has to be the reconstructed velocity !!! */
+        fl = primL[VXL] * primL[BMAGZ] - primL[VZL] * primL[BMAGX]; 
+        fr = primR[VXL] * primR[BMAGZ] - primR[VZL] * primR[BMAGX]; 
+        
+        //U_state(A_y), MHD_TODO: in this routine only prims exist, no cons!
+        // worng for now:
+        double const epsBy_L = primL[BMAGY]; 
+        double const epsBy_R = primR[BMAGY]; 
+    
+        //MHD_TODO define APOTXL
+        f[APOTYL] = solver(fl,fr,epsBx_L,epsBx_R,cmin,cmax) ; 
+        /***********************************************************************/ 
+        /*                           Get A_z flux                              */
+        /***********************************************************************/
+        /* F^d_{A_z} = v^y * \tilde{B}^x - v^x * \tilde{B}^y                   */
+        /***********************************************************************/
+        /* prim[B] has to be \tilde{B} = \sqrtg * B at the cell center*/ 
+        /* prim[V] has to be the reconstructed velocity !!! */
+        fl = primL[VYL] * primL[BMAGX] - primL[VXL] * primL[BMAGY]; 
+        fr = primR[VYL] * primR[BMAGX] - primR[VXL] * primR[BMAGY]; 
+        
+        //U_state(A_x), MHD_TODO: in this routine only prims exist, no cons!
+        // worng for now:
+        double const epsBy_L = primL[BMAGZ]; 
+        double const epsBy_R = primR[BMAGZ]; 
+    
+        //MHD_TODO define APOTXL
+        f[APOTZL] = solver(fl,fr,epsBx_L,epsBx_R,cmin,cmax) ; 
+        /***********************************************************************/
+        #endif
         /***********************************************************************/
     };
     /***********************************************************************/
