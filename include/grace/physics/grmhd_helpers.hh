@@ -55,12 +55,26 @@ enum GRMHD_PRIMS_LOC_INDICES {
     EPSL,
     ENTL,
     #ifdef GRACE_DO_MHD
-    BXL,
-    BYL,
-    BZL,
+    BMAGXL,
+    BMAGYL,
+    BMAGZL,
     #endif 
     NUM_PRIMS_LOC
 } ; 
+
+#ifdef GRACE_ENABLE_MHD_Apot
+/**
+ * @brief Helper indices for velocity prim arrays
+ * \ingroup physics
+ */
+enum GRMHD_VEL_PRIMS_LOC_INDICES {
+    VXrec = 0,
+    VYrec,
+    VZrec,
+    NUM_V_PRIMS_LOC
+} ; 
+#endif
+
 /**
  * @brief Helper indices for cons array.
  * \ingroup physics
@@ -81,6 +95,16 @@ namespace grace {
  * \ingroup physics
  */
 using grmhd_prims_array_t = std::array<double,NUM_PRIMS_LOC> ; 
+
+#ifdef GRACE_ENABLE_MHD_Apot
+/**
+ * @brief Array of GRMHD primitives for velocities.
+ * \ingroup physics
+ */
+using grmhd_prims_vel_array_t = std::array<double,3,3> ; 
+// idir, vi
+#endif
+
 /**
  * @brief Array of GRMHD conservatives.
  * \ingroup physics

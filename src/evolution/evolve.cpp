@@ -152,7 +152,7 @@ void evolve_impl() {
         ) ;
         // step 1: state_p -> u^1 = u^n + dt L( u^n )
         advance_substep<eos_t>(
-            t,dt,0.5,
+            t,dt,1.0,
             state_p,state,aux,
             sstate_p,sstate,saux,
             idx,dx,cvol,fsurf) ; 
@@ -312,12 +312,61 @@ void advance_substep( double const t, double const dt, double const dtfact
     #ifdef GRACE_ENABLE_BSSN_METRIC
     bssn_system_t
         bssn_eq_system(old_state,aux,staggered_old_state) ; 
+    double const epsdiss = grace::get_param<double>("bssn","epsdiss") ;
     #endif 
+    #ifdef GRACE_ENABLE_MHD_Apot
+    // MHD_TODO redo the type_t of this !!
+    advance_magnetic_potential<eos_t>(t, dt, dtfact, state, sstate);
+    #endif
+
     //**************************************************************************************************/
     device_event_t x_flux_finished{}, y_flux_finished{}, z_flux_finished{}, sources_finished{} ; 
 
     int threadsPerBlock = 256; 
 
+   //============================================================================//
+    //#ifdef GRACE_ENABLE_MHD_Apot
+   #ifdef GRACE_ENABLE_MHD_Apot_newKernel
+      // new structure of loops saving reconstructed vars
+      // ___________FLUXES _________________________________
+      //--------hydro part ----------------------
+      // -----dir 1
+      // (reconstruct prims): By__center, Bz_center, vx,vy,vz, By_staggered, Bz_staggered
+      // loop x-flux : launch kenerl 
+      //   --> need passing constructed prims out v_i,-> v^x_bar By,Bz 
+      //  treat ghost zones v_bar
+      // -----dir 2
+      // reconstruct prims: v^i_bar  , Bx_center, Bz_center, Bx_staggered, Bz_staggered
+      // loop y-flux : launch kernel
+      //   --> need passing constructed prims out v^y_bar, Bx,Bz 
+      //  treat ghost zones v_bar
+      // -----dir 3 
+      // reconstruct prims: v^i_bar  , Bx_center, By_center, Bx_staggered, By_staggered
+      // loop z-flux : launch kernel
+      //   --> need passing constructed prims out v^z_bar, Bx,By, 
+      //  treat ghost zones v_bar
+      //------------- Apot part ------------------
+      // -----dir 1
+      // reconstruct v^x_bar ?
+      // A_z rhs
+      // ghostzones vbar
+      // -----dir 2
+      // reconstruct v^y_bar ?
+      // A_x rhs
+      // ghostzones vbar
+      // -----dir 3
+      // reconstruct v^z_bar ?
+      // A_y rhs
+      // ghostzones vbar
+      // ___________SOURCES _________________________________
+      //--------hydro part ----------------------
+      // add hydro source: launch kernel
+      //------------- Apot part ------------------
+      // add Apot rhs gauge terms (Lorenz, phi)
+      //  ---> \partial_t Apot = rhs - \partial_i (\alpha \phi -\beta^j A_j)
+
+   #else
+   //============================================================================//
     DEVICE_MARK_TRACING_POINT("x_flux") ; // roctx tracing on HIP, nvtx on CUDA
 
     /* Get stream */
@@ -365,6 +414,10 @@ void advance_substep( double const t, double const dt, double const dtfact
                         (dim3) numBlocks, (dim3) threadsPerBlock, 0, stream ) ;  
     sources_finished.record(stream) ; 
     //**************************************************************************************************/
+    
+   //============================================================================//
+   #endif // end if not MHD
+   //============================================================================//
     Kokkos::fence() ;
     GRACE_TRACE(
         "Doing BSSN {} {} {} {} {}", 
@@ -395,7 +448,8 @@ void advance_substep( double const t, double const dt, double const dtfact
                 dt,
                 dtfact, 
                 t,
-                pcoords(VEC(i+ngz,j+ngz,k+ngz),0,q)
+                pcoords(VEC(i+ngz,j+ngz,k+ngz),0,q),
+                epsdiss
             ) ; 
         }
     ) ; 

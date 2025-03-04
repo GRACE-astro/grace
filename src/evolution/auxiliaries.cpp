@@ -113,6 +113,11 @@ void compute_auxiliary_quantities(
         bssn_eq_system(state,aux,sstate) ; 
     #endif 
 
+    // MHD_TODO
+    #ifdef GRACE_ENABLE_MHD_Apot
+    compute_magnetic_field<eos_t>(state,aux,sstate);
+    #endif
+
 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 
@@ -136,6 +141,63 @@ void compute_auxiliary_quantities(
  
     }) ; 
     #endif 
+
+    //MHD_TODO
+    #ifdef GRACE_ENABLE_MHD_Apot
+    //#--------------------------------------
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
+        //MHD_TODO : something like edge staggered policy?
+        //MHD_TODO : other zones than nx+1+ngz,ny+1+ngz,nz+1+ngz
+        edge_staggered_policy({VEC(ngz,ngz,ngz),0},{VEC(nx+1+ngz,ny+1+ngz,nz+1+ngz),nq}) ; 
+        parallel_for(GRACE_EXECUTION_TAG("EVOL","get_auxiliaries"), corner_staggered_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+           .....
+    }
+    //#-------------------------------------
+    //MHD_TODO: this is for now here: not complete & likely wrong: todo: check edge vs face
+    template <typename eos_t>
+    void compute_magnetic_field(
+    var_array_t<GRACE_NSPACEDIM>& state,
+    var_array_t<GRACE_NSPACEDIM>& aux,
+    staggered_variable_arrays_t& sstate) {
+
+    using namespace grace;
+    using namespace Kokkos;
+
+    int nx, ny, nz;
+    std::tie(nx, ny, nz) = amr::get_quadrant_extents();
+    int ngz = amr::get_n_ghosts();
+    int nq = amr::get_local_num_quadrants();
+
+    /* example:
+    staggered
+    dAz_dy(i+1/2,j,k) = (Az(i+1/2,j+1/2,k) - Az(i+1/2,j-1/2,k)/dy
+    dAy_dz(i+1/2,j,k) = (Ay(i+1/2,j,k+1/2) - Az(i+1/2,j,k-1/2)/dy
+    Bx(i+1/2,j,k) = sqrtg(i+1/2,j,k) *( dAz_dy(i+1/2,j,k) - dAy_dz(i+1/2,j,k)) 
+    */
+    parallel_for(
+        GRACE_EXECUTION_TAG("AUX", "compute_B"),
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>, default_execution_space>(
+            {VEC(0, 0, 0), 0}, {VEC(nx + 2 * ngz, ny + 2 * ngz, nz + 2 * ngz), nq}),
+        KOKKOS_LAMBDA(VEC(int i, int j, int k), int q) {
+
+            // here still wrong: check how to treat edge/ face
+            double dAx_dy = (sstate(VEC(i, j + 1, k), APOTX, q) - sstate(VEC(i, j - 1, k), APOTX, q)) / (2.0 * dx);
+            double dAx_dz = (sstate(VEC(i, j, k + 1), APOTX, q) - sstate(VEC(i, j, k - 1), APOTX, q)) / (2.0 * dx);
+
+            double dAy_dx = (sstate(VEC(i + 1, j, k), APOTY, q) - sstate(VEC(i - 1, j, k), APOTY, q)) / (2.0 * dx);
+            double dAy_dz = (sstate(VEC(i, j, k + 1), APOTY, q) - sstate(VEC(i, j, k - 1), APOTY, q)) / (2.0 * dx);
+
+            double dAz_dx = (sstate(VEC(i + 1, j, k), APOTZ, q) - sstate(VEC(i - 1, j, k), APOTZ, q)) / (2.0 * dx);
+            double dAz_dy = (sstate(VEC(i, j + 1, k), APOTZ, q) - sstate(VEC(i, j - 1, k), APOTZ, q)) / (2.0 * dx);
+
+            aux(VEC(i, j, k), BMAGX, q) = dAy_dz - dAz_dy;
+            aux(VEC(i, j, k), BMAGY, q) = dAz_dx - dAx_dz;
+            aux(VEC(i, j, k), BMAGZ, q) = dAx_dy - dAy_dx;
+        });
+    }
+    #endif
 
     #undef GET_AUX
     #if 0
