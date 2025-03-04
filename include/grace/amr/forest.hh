@@ -130,6 +130,13 @@ class forest_impl_t
      * @brief Never construct a new forest_impl_t object
      */
     forest_impl_t() ; 
+    //*****************************************************************************************************
+    /**
+     * @brief Construct a forest from a existing <code>p4est_t</code> object.
+     * 
+     * @param forest The existing <code>p4est</code>.
+     */
+    forest_impl_t(p4est_t* forest) : _p4est(forest) {} ; 
    //*****************************************************************************************************
     /**
      * @brief Never destroy the forest_impl_t object

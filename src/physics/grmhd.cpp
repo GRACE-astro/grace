@@ -218,6 +218,125 @@ static void set_grmhd_spherical_blastwave_initial_data() {
                 }) ;
 }
 
+//==============================================================
+#ifdef GRACE_ENABLE_MHD_Apot
+template <typename eos_t
+        , typename id_t 
+        , typename ... arg_t > 
+void set_initial_magnetic_potential(arg_t ... kernel_args) {
+    using namespace grace ;
+    using namespace Kokkos ; 
+    auto& estate = grace::variable_list::get().getstaggeredstate().edge_staggered_fields ;
+
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int ngz = amr::get_n_ghosts() ; 
+    
+    int64_t nq = amr::get_local_num_quadrants() ;
+
+    
+    auto const Id_from_params = get_param<double>("grmhd","Id_from_params") ; 
+
+    //-------------- option 1: id from parameters ----------------
+    // if: Bi,Apoti params:
+    if(Id_from_params){
+       auto const BX1_id = get_param<double>("grmhd","Bx1_initial") ; 
+       auto const BY1_id = get_param<double>("grmhd","By1_initial") ; 
+       auto const BZ1_id = get_param<double>("grmhd","Bz1_initial") ; 
+       
+       auto const BX2_id = get_param<double>("grmhd","Bx2_initial") ; 
+       auto const BY2_id = get_param<double>("grmhd","By2_initial") ; 
+       auto const BZ2_id = get_param<double>("grmhd","Bz2_initial") ; 
+       
+       auto const APOTX1_id = get_param<double>("grmhd","Ax1_initial") ; 
+       auto const APOTY1_id = get_param<double>("grmhd","Ay1_initial") ; 
+       auto const APOTZ1_id = get_param<double>("grmhd","Az1_initial") ; 
+    }
+    //-------------------------------------------------------------
+
+    //------ for aux: option 1: fill up h_mirrow and deepcopy --------
+    if(Id_from_params){
+       auto& coord_system = grace::coordinate_system::get() ; 
+       auto h_state_mirror = Kokkos::create_mirror_view(aux) ; 
+   
+       int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
+       #pragma omp parallel for 
+       for( int64_t icell=0; icell<ncells; ++icell) {
+           size_t const i = icell%(nx+2*ngz); 
+           size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
+           #ifdef GRACE_3D 
+           size_t const k = 
+               (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
+           size_t const q = 
+               (icell/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ;
+           #else 
+           size_t const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
+           #endif 
+           /* Physical coordinates of cell center */
+           auto pcoords = coord_system.get_physical_coordinates(
+               {VEC(i,j,k)},
+               q,
+               true
+           ) ; 
+           // for id after some radius
+           double const r = 
+	       Kokkos::sqrt( EXPR( pcoords[0]*pcoords[0], + pcoords[1]*pcoords[1], + pcoords[2] * pcoords[2])) ;
+   
+           h_state_mirror(VEC(i,j,k),BX,q) = 0. ;
+           h_state_mirror(VEC(i,j,k),BY,q) = 0. ;
+           h_state_mirror(VEC(i,j,k),BZ,q) = 0. ;
+           // distriubtion of B up to user
+           if ( pcoords[0] <= 0 ) {
+               h_state_mirror(VEC(i,j,k),BX,q) = BX1_id ;
+               h_state_mirror(VEC(i,j,k),BY,q) = BY1_id ;
+               h_state_mirror(VEC(i,j,k),BZ,q) = BZ1_id ; 
+           } else {
+               h_state_mirror(VEC(i,j,k),BX,q) = BX2_id ;
+               h_state_mirror(VEC(i,j,k),BY,q) = BY2_id ;
+               h_state_mirror(VEC(i,j,k),BZ,q) = BZ2_id ; 
+           }
+       }
+       Kokkos::deep_copy(aux,h_state_mirror) ;
+    }
+   // -----------------------------------------------------------
+
+    // ---- option 2: as id_t ----------------
+    if (!Id_from_params) {
+       auto const& _eos = eos::get().get_eos<eos_t>() ; 
+       id_t id_kernel{ _eos, pcoords, kernel_args... } ; 
+    }
+    parallel_for(
+        GRACE_EXECUTION_TAG("ID", "set_Ai")
+        , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
+        , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+        {
+            // option 2: id_t --------------
+            if (!Id_from_params) {
+               auto const id = id_kernel(VEC(i,j,k), q) ; 
+               
+               estate(VEC(i, j, k), APOTX_, q) = id.Apotx; /* Initial condition for Ax */
+               estate(VEC(i, j, k), APOTY_, q) = id.Apoty;/* Initial condition for Ay */
+               estate(VEC(i, j, k), APOTZ_, q) = id.Apotz;/* Initial condition for Az */
+  
+               aux(VEC(i, j, k), BX_, q) = id.Bx;             
+               aux(VEC(i, j, k), BY_, q) = id.By;            
+               aux(VEC(i, j, k), BZ_, q) = id.Bz; 
+            }//-------------------------
+            else{
+               estate(VEC(i, j, k), APOTX_, q) = APOTX1_id; /* Initial condition for Ax */
+               estate(VEC(i, j, k), APOTY_, q) = APOTY1_id;/* Initial condition for Ay */
+               estate(VEC(i, j, k), APOTZ_, q) = APOTY1_id;/* Initial condition for Az */
+   
+               // this aux fill up would overwrite the mirrored aux initialization
+               //aux(VEC(i, j, k), BX_, q) = BX1_id;             
+               //aux(VEC(i, j, k), BY_, q) = BY1_id;            
+               //aux(VEC(i, j, k), BZ_, q) = BZ1_id; 
+            }
+        });
+}
+#endif
+//===============================================
+
 template< typename eos_t
         , typename id_t 
         , typename ... arg_t > 
@@ -231,6 +350,10 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
     GRACE_TRACE("Filled physical coordinates array.") ; 
     auto& state = grace::variable_list::get().getstate() ; 
     auto& cstate = grace::variable_list::get().getstaggeredstate().corner_staggered_fields ;
+    //MHD_TODO
+    #ifdef GRACE_ENABLE_MHD_Apot
+    auto& estate = grace::variable_list::get().getstaggeredstate().edge_staggered_fields ;
+    #endif
     auto& aux   = grace::variable_list::get().getaux()   ; 
     auto& idx   = grace::variable_list::get().getinvspacings()   ; 
 
@@ -269,6 +392,12 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     state(VEC(i,j,k),KYZ_,q) = id.kyz ;
                     state(VEC(i,j,k),KZZ_,q) = id.kzz ;
                     #endif 
+                    //MHD_TODO:
+                    #ifdef GRACE_ENABLE_MHD_Apot
+                    estate(VEC(i,j,k),APOTX_,q) = id.Apotx ;
+                    estate(VEC(i,j,k),APOTY_,q) = id.Apoty ;
+                    estate(VEC(i,j,k),APOTZ_,q) = id.Apoty ;
+                    #endif
 
                     auto const v2 = id.gxx * id.vx * id.vx +
                                     id.gyy * id.vy * id.vy +
@@ -300,6 +429,14 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                                                                    , ye,err);
                     /* Set ye */
                     aux(VEC(i,j,k),YE_,q) = ye ; 
+
+                    //MHD_TODO:
+                    #ifdef GRACE_ENABLE_MHD_Apot
+                    aux(VEC(i,j,k),BX_,q)  = id.Bx ; 
+                    aux(VEC(i,j,k),BY_,q)  = id.By ; 
+                    aux(VEC(i,j,k),BZ_,q)  = id.Bz ; 
+                    #endif
+
     }) ; 
     #ifdef GRACE_ENABLE_BSSN_METRIC
     init_bssn_metric(id_kernel,state,cstate,idx) ; 

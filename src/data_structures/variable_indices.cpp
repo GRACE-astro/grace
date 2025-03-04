@@ -191,6 +191,11 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(TAU,"tau","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing",true) ;
+    
+    //MHD_TODO
+    #ifdef GRACE_ENABLE_MHD_Apot
+    REGISTER_EDGE_STAGGERED_EVOLVED_VECTOR(APOTX,APOTY,APOTZ,"Apot","outgoing",true) ;
+    #endif
     /* GRMHD primitives */
     REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
     REGISTER_AUX_VECTOR(VELX,VELY,VELZ,"vel","none") ; 
@@ -200,6 +205,10 @@ void register_variables() {
     REGISTER_AUX_SCALAR(ENTROPY,"entropy","none") ; 
     REGISTER_AUX_SCALAR(EPS,"eps","none") ; 
     REGISTER_AUX_SCALAR(PRESS,"press","none") ; 
+    //MHD_TODO: how to do face staggering in aux or do Bcenter?
+    #ifef GRACE_ENABLE_MHD_Apot
+    REGISTER_AUX_VECTOR(BMAGX,BMAGY,BMAGZ,"Bfield","none");
+    #endif
     /* registration of metric variables */
     #ifdef GRACE_ENABLE_COWLING_METRIC
     REGISTER_EVOLVED_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","outgoing",false) ; 

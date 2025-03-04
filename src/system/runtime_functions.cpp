@@ -70,4 +70,14 @@ double get_timestep() {
     return grace::runtime::get().timestep() ; 
 }
 
+void set_iteration(size_t const new_iter) {
+    grace::runtime::get().set_iteration(new_iter) ; 
+}
+
+void set_simulation_time(double const new_time) {
+    grace::runtime::get().set_time(new_time) ; 
+}
+
+
+
 } /* namespace */ 

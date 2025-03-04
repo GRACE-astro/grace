@@ -245,17 +245,12 @@ struct grmhd_equations_system_t
 
         /* Compute common factors for T^{\mu\nu}                                                          */
         double const b2{0.} ; // No B field yet
-        /* Compute comoving magnetic field (0 for now)                                                     */
-        std::array<double,4> smallb{0,0,0,0} ; 
-        //MHD_TODO
-        // metric_face todo
-        compute_smallb(smallb, b2, u0, prims, metric_face) ; 
-
         double const rho0_h_plus_b2 = 
             prims[RHOL] * ( 1 + prims[EPSL] ) + prims[PRESSL] + b2 ; 
         double const P_plus_half_b2 = 
             prims[PRESSL] + 0.5 * b2 ; 
-
+        /* Compute comoving magnetic field (0 for now)                                                     */
+        std::array<double,4> smallb{0,0,0,0} ; 
 
         int icomp{0} ; 
         for( int mu=0; mu<4; ++mu) {
@@ -387,9 +382,8 @@ struct grmhd_equations_system_t
         aux(ENTROPY_) = prims[ENTL]  ; 
         aux(YE_)   = prims[YEL]     ;
         //MHD_TODO
-        aux(BMAGX_)   = prims[BMAGX]     ;
-        aux(BMAGY_)   = prims[BMAGY]     ;
-        aux(BMAGZ_)   = prims[BMAGZ]     ;
+        //Bfield prims
+
         /* Compute ZVEC */
         double const one_over_alp = 1./metric.alp(); 
         std::array<double,3> const vN {
@@ -458,9 +452,7 @@ struct grmhd_equations_system_t
                                                       , prims[RHOL], prims[YEL], err ) ;
         /* Compute magnetosonic speed */
         double const b2{0.} ;
-        //MHD_TODO ALfven velocity
-        //double const v_A_sq = 0. ; 
-        double const v_A_sq = b2 / ( b2 + prims[RHOL]*h) ; 
+        double const v_A_sq = 0. ; // b2 / ( b2 + prims[RHOL]*h) ; 
         double const v02 = v_A_sq + csnd2 * ( 1. - v_A_sq ) ;
         /* Find maximum eigenvalue (amongst all directions) */
         double cmax {0}; 
@@ -480,8 +472,7 @@ struct grmhd_equations_system_t
  private:
     /***********************************************************************/
     //! Number of reconstructed variables.
-    //MHD_TODO: change number, add B?
-    static constexpr unsigned int GRMHD_NUM_RECON_VARS = 7 ; // 10; 
+    static constexpr unsigned int GRMHD_NUM_RECON_VARS = 7 ; 
     //! Equation of State object.
     eos_t _eos ;
     //! Excision lapse.
@@ -625,25 +616,7 @@ struct grmhd_equations_system_t
         /* Compute specific enthalpies */
         double h_l = 1 + primL[EPSL] + primL[PRESSL]/primL[RHOL] ;
         double h_r = 1 + primR[EPSL] + primR[PRESSL]/primR[RHOL] ;
-
-          /**
-        MHD_TODO:
-        get smallb from vector potential A
-        // MHD_TODO b-field factors for T^{\mu\nu}            
-        double const b2{0.} ; // No B field yet
-        double rho0_h_plus_b2_L; 
-        double rho0_h_plus_b2_R; 
-        double P_plus_half_b2_L; 
-        double P_plus_half_b2_R; 
-        // Compute comoving magnetic field (0 for now) 
-        std::array<double,4> smallb{0,0,0,0} ; 
-        //----MHD_TODO: Magnetohydro quantities:
-        rho0_h_plus_b2_L = primL[RHOL] * ( 1 + primL[EPSL] ) + primL[PRESSL] + b2 ; 
-        P_plus_half_b2_L = primL[PRESSL] + 0.5 * b2 ; 
-        rho0_h_plus_b2_R = primR[RHOL] * ( 1 + primR[EPSL] ) + primR[PRESSL] + b2 ; 
-        P_plus_half_b2_L = primR[PRESSL] + 0.5 * b2 ; 
-         */
-
+        
         grmhd_cons_array_t fL, fR, uL, uR; 
 
         /* Get wavespeeds      */ 
@@ -763,11 +736,6 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SX_,idir,q)          = alpha_sqrtgamma * fHLLC[STXL]  ;
         fluxes(VEC(i,j,k),SY_,idir,q)          = alpha_sqrtgamma * fHLLC[STYL]  ;
         fluxes(VEC(i,j,k),SZ_,idir,q)          = alpha_sqrtgamma * fHLLC[STZL]  ;
-        // if MHD_TODO:
-        fluxes(VEC(i,j,k),AX_,idir,q)          = alpha_sqrtgamma * fHLLC[ATXL]  ;
-        fluxes(VEC(i,j,k),AY_,idir,q)          = alpha_sqrtgamma * fHLLC[ATYL]  ;        
-        fluxes(VEC(i,j,k),AZ_,idir,q)          = alpha_sqrtgamma * fHLLC[ATZL]  ;
-        //
         /***********************************************************************/
     };
     /**
@@ -839,10 +807,6 @@ struct grmhd_equations_system_t
                 , YE_
                 , TEMP_
                 , ENTROPY_
-                //MHD_TODO
-                , BMAGX_
-                , BMAGY_
-                , BMAGZ_
             } ; 
         /* Local indices in prims array (note z^k -> v^k) */
         std::array<int, GRMHD_NUM_RECON_VARS>
@@ -854,10 +818,6 @@ struct grmhd_equations_system_t
                 , YEL
                 , TEMPL
                 , ENTL
-                //MHD_TODO
-                , BMAGX_
-                , BMAGY_
-                , BMAGZ_
             } ;
         /* Reconstruction                                  */
         grmhd_prims_array_t primL, primR ; 
@@ -943,16 +903,6 @@ struct grmhd_equations_system_t
                                                + (1. - theta) * f_LLF[STYL] ; 
         fluxes(VEC(i,j,k),SZ_,idir,q)          = theta * f_HLL[STZL]    
                                                + (1. - theta) * f_LLF[STZL] ; 
-        //MHD_TODO: actually could do whole Apot equations outside of getflux
-        //APOTXL not yet
-        /*
-        fluxes(VEC(i,j,k),APOTX_,idir,q)          = theta * f_HLL[APOTXL]    
-                                               + (1. - theta) * f_LLF[APOTXL] ; 
-        fluxes(VEC(i,j,k),APOTY_,idir,q)          = theta * f_HLL[APOTYL]    
-                                               + (1. - theta) * f_LLF[APOTYL] ; 
-        fluxes(VEC(i,j,k),APOTZ_,idir,q)          = theta * f_HLL[APOTZL]    
-                                               + (1. - theta) * f_LLF[APOTZL] ;         
-        */
         /***********************************************************************/
         #else 
         /***********************************************************************/
@@ -963,12 +913,6 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[STXL] ; 
         fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL] ; 
         fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ; 
-        //MHD_TODO actually could do whole Apot equations outside of getflux
-        /*
-        fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[APOTXL] ; 
-        fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[APOTYL] ; 
-        fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[APOTZL] ; 
-        */
         /***********************************************************************/
         #endif 
     }
@@ -1024,14 +968,11 @@ struct grmhd_equations_system_t
         primR[VYL] = alp * primR[VYL] / wr - metric_face.beta(1) ;
         primR[VZL] = alp * primR[VZL] / wr - metric_face.beta(2) ;
 
-        /* Compute prim[B-field] centered */
-        //MHD_TODO
         /* Compute small b */
         std::array<double,4> smallbL{0,0,0,0}, smallbR{0,0,0,0} ; 
         double b2l{0.}, b2r{0.}; 
-        //MHD_TODO:
-        compute_smallb(smallbL, b2l, u0_l, primL, metric_face) ; 
-        compute_smallb(smallbR, b2r, u0_r, primR, metric_face) ; 
+        //compute_smallb(smallbL, b2l, primL, metric_face) ; 
+        //compute_smallb(smallbR, b2r, primR, metric_face) ; 
 
         /* Compute Alfvén speeds */
         double v02r,v02l, h_r,h_l;
@@ -1192,12 +1133,6 @@ struct grmhd_equations_system_t
         /***********************************************************************/
 
         /***********************************************************************/
-        // MHD_TODO: lower smallbL, smallbR, note: b_t not included
-          std::array<double,3> smallbDL{0,0,0}, smallbDR{0,0,0};
-          smallbDL = metric.lower(smallbL);
-          smallbDR = metric.lower(smallbR);
-
-        /***********************************************************************/
         /* Get S_y flux                                                        */
         /***********************************************************************/
 
@@ -1246,24 +1181,67 @@ struct grmhd_equations_system_t
         f[STZL] = solver(fl,fr,s_z_l,s_z_r,cmin,cmax) ; 
         /***********************************************************************/
 
-        //MHD_TODO: computation of induction equation rhs
+        #ifdef GRACE_EANBLE_MHD_Apot
+                //MHD_TODO: computation of induction equation rhs
+                // should be done separately in evolve using reconstructed vels
         /***********************************************************************/ 
         /*                           Get A_x flux                              */
         /***********************************************************************/
         /* F^d_{A_x} = v^z * \tilde{B}^y - v^y * \tilde{B}^z                   */
         /***********************************************************************/
         /* prim[B] has to be \tilde{B} = \sqrtg * B at the cell center*/ 
-        /* prim[V] has to be the reconstructed velocity */
-        fl = primL[VZL] * primL[BMAGY] - primL[VYL] * primL[BMAGZ]; 
-        fr = primR[VZL] * primR[BMAGY] - primR[VYL] * primR[BMAGZ]; 
+        /* prim[V] has to be the reconstructed velocity !! */
+        fl = primL[VZL] * primL[BMAGY] - primL[VYL] * primL[BMAGZ]; //=epsBx_L
+        fr = primR[VZL] * primR[BMAGY] - primR[VYL] * primR[BMAGZ]; //epsBx_R
         // or
-        double const epsBx_L = primL[VZL] * primL[BMAGY] - primL[VYL] * primL[BMAGZ]; 
-        double const epsBx_R = primR[VZL] * primR[BMAGY] - primR[VYL] * primR[BMAGZ]; 
-    
+        //double const epsBx_L = primL[VZL] * primL[BMAGY] - primL[VYL] * primL[BMAGZ]; 
+        //double const epsBx_R = primR[VZL] * primR[BMAGY] - primR[VYL] * primR[BMAGZ]; 
+
+        //U_state(A_x), MHD_TODO: in this routine only prims exist, no cons!
+        // worng for now:
+        double const epsBx_L = primL[BMAGX]; //!! but it should be = Apotx !
+        double const epsBx_R = primR[BMAGX];
+      
         //MHD_TODO define APOTXL
         f[APOTXL] = solver(fl,fr,epsBx_L,epsBx_R,cmin,cmax) ; 
-        //...
-        // not here! need reconstructed vars form Loops
+
+        /***********************************************************************/ 
+        /*                           Get A_y flux                              */
+        /***********************************************************************/
+        /* F^d_{A_y} = v^x * \tilde{B}^z - v^z * \tilde{B}^x                   */
+        /***********************************************************************/
+        /* prim[B] has to be \tilde{B} = \sqrtg * B at the cell center*/ 
+        /* prim[V] has to be the reconstructed velocity !!! */
+        fl = primL[VXL] * primL[BMAGZ] - primL[VZL] * primL[BMAGX]; 
+        fr = primR[VXL] * primR[BMAGZ] - primR[VZL] * primR[BMAGX]; 
+        
+        //U_state(A_y), MHD_TODO: in this routine only prims exist, no cons!
+        // worng for now:
+        double const epsBy_L = primL[BMAGY]; 
+        double const epsBy_R = primR[BMAGY]; 
+    
+        //MHD_TODO define APOTXL
+        f[APOTYL] = solver(fl,fr,epsBx_L,epsBx_R,cmin,cmax) ; 
+        /***********************************************************************/ 
+        /*                           Get A_z flux                              */
+        /***********************************************************************/
+        /* F^d_{A_z} = v^y * \tilde{B}^x - v^x * \tilde{B}^y                   */
+        /***********************************************************************/
+        /* prim[B] has to be \tilde{B} = \sqrtg * B at the cell center*/ 
+        /* prim[V] has to be the reconstructed velocity !!! */
+        fl = primL[VYL] * primL[BMAGX] - primL[VXL] * primL[BMAGY]; 
+        fr = primR[VYL] * primR[BMAGX] - primR[VXL] * primR[BMAGY]; 
+        
+        //U_state(A_x), MHD_TODO: in this routine only prims exist, no cons!
+        // worng for now:
+        double const epsBy_L = primL[BMAGZ]; 
+        double const epsBy_R = primR[BMAGZ]; 
+    
+        //MHD_TODO define APOTXL
+        f[APOTZL] = solver(fl,fr,epsBx_L,epsBx_R,cmin,cmax) ; 
+        /***********************************************************************/
+        #endif
+
         /***********************************************************************/
     };
     /***********************************************************************/
@@ -1282,9 +1260,7 @@ struct grmhd_equations_system_t
                , grmhd_prims_array_t const& prims ) const
     {
         h = 1. + prims[EPSL] + prims[PRESSL] / prims[RHOL] ; 
-        //MHD_TODO: ALfven wavespeed
-        //double const v_A_sq = 0.; // 
-        double const v_A_sq = b2 / ( b2 + prims[RHOL]*h) ; 
+        double const v_A_sq = 0.; // b2 / ( b2 + prims[RHOL]*h) ; 
         v02 = v_A_sq + cs2 * ( 1. - v_A_sq ) ; 
     }
     /***********************************************************************/
@@ -1345,79 +1321,6 @@ struct grmhd_equations_system_t
         double const W = 1./Kokkos::sqrt(1-metric.square_vec(vN)) ; 
         return one_over_alp * W ; 
     }
-    
-    /***********************************************************************/
-    /**
-     * @brief Compute b2 and smallb
-     * 
-     * @param smallb Comoving magnetic field
-     * @param b2  Square of comoving magnetic field.
-     * @param u0  zeroth component of 4-velocity.
-     * @param prims Primitive variables.
-     * @param metric Metric tensor.
-        // need metric_face here 
-     */
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_smallb( double& smallb,  double const& b2, double const& u0
-               , grace::grmhd_prims_array_t const& prims 
-               , grace::metric_array_t const& metric) const
-    {
-        /* Get 4 metric   */
-        auto const gmunu = metric.gmunu() ;                                                                                */
-        //auto const gamma = metric.gamma() ;
-        // following gmunu of /utils/numerics/metric_utils.hh
-        auto gtt_ = 0;
-        auto gtx_ = 1;
-        auto gty_ = 2;
-        auto gtz_ = 3;
-        auto gxx_ = 4;
-        auto gxy_ = 5;
-        auto gxz_ = 6;
-        auto gyy_ = 7;
-        auto gyz_ = 8;
-        auto gzz_ = 9;
-
-        // Notes: here gmunu has to be conformally flat?
-
-        /* Calculate v^i + beta^i */
-        double const vx_plus_betax = prims[VXL] + metric.beta(0);
-        double const vy_plus_betay = prims[VYL] + metric.beta(1);
-        double const vz_plus_betaz = prims[VZL] + metric.beta(2);
-
-        /* Calculate u_i / (u_0 \psi^4)*/
-        double const u_x_over_u0_psi4r =  gmunu[gxx_]*vx_plus_betax 
-                       + gmunu[gxy_]*vy_plus_betay + gmunu[gxz_]*vz_plus_betaz;
-        double const u_y_over_u0_psi4r =  gmunu[gxy_]*vx_plus_betax 
-                       + gmunu[gyy_]*vy_plus_betay + gmunu[gyz_]*vz_plus_betaz;  
-        double const u_z_over_u0_psi4r =  gmunu[gxz_]*vx_plus_betax 
-                       + gmunu[gyz_]*vy_plus_betay + gmunu[gzz_]*vz_plus_betaz;
-
-        // MHD-TODO get B-field
-        double Bx_center = prims[BMAGX];
-        double By_center = prims[BMAGY];
-        double Bz_center = prims[BMAGZ];
-
-        /* Calculate \alpha*\sqrt{4\pi} = u_i B^i 
-                      = u_x/(u_0 \psi^4) B^x + u_y/(u_0 \psi^4) B^y + u_z/(u_0 \psi^4) B^z*/
-        double const ulow_i_Bup_i = u_x_over_u0_psi4r * Bx_center 
-                       + u_y_over_u0_psi4r * By_center + u_z_over_u0_psi4r * Bz_center;
-
-        /* Calculate smallb: the comoving magnetic field components b^{\mu}*/
-        //MHD_TODO: get pi?
-        smallb[1] = (Bx_center *1./u0 + prims[VXL] * ulow_i_Bup_i ) * 1./metric.alpha() /sqrt(4. * pi);
-        smallb[2] = (By_center *1./u0 + prims[VYL] * ulow_i_Bup_i ) * 1./metric.alpha() /sqrt(4. * pi);
-        smallb[3] = (Bz_center *1./u0 + prims[VZL] * ulow_i_Bup_i ) * 1./metric.alpha() /sqrt(4. * pi);
-        smallb[0] = ulow_i_Bup_i * 1./metric.alpha() /sqrt(4. * pi);
-
-        /* Calculate the square b2 of the comoving magnetic field */
-        b2 = gmunu[gtt_] * math::int_pow<2>(smallb[0]) + gmunu[gxx_] * math::int_pow<2>(smallb[1]) 
-           + gmunu[gyy_] * math::int_pow<2>(smallb[2]) + gmunu[gzz_] * math::int_pow<2>(smallb[3]) 
-           + 2. * ( gmunu[gtx_] * smallb[0] * smallb[1] + gmunu[gty_] * smallb[0] * smallb[2]
-                  + gmunu[gtz_] * smallb[0] * smallb[3] + gmunu[gxy_] * smallb[1] * smallb[2]
-                  + gmunu[gxz_] * smallb[1] * smallb[3] + gmunu[gyz_] * smallb[2] * smallb[3]);
-
-    }
-    /***********************************************************************/
     /***********************************************************************/
     template< int idir > 
     void GRACE_HOST_DEVICE 

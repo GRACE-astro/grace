@@ -208,6 +208,19 @@ DECLARE_VAR_INDEX_IMPL(TEMP)                        \
 DECLARE_VAR_INDEX_IMPL(YE)                          \
 DECLARE_VAR_INDEX_IMPL(ENTROPY)                     \
 DECLARE_VAR_INDEX_IMPL(EPS)                         
+//MHD_TODO
+// aux B-field
+#ifdef GRACE_ENABLE_MHD_Apot
+#define VARIABLES_LIST_MHD_BASE                     \
+DECLARE_VAR_INDEX_IMPL(BMAGX)                       \
+DECLARE_VAR_INDEX_IMPL(BMAGY)                       \
+DECLARE_VAR_INDEX_IMPL(BMAGZ)                       \
+DECLARE_VAR_INDEX_IMPL(APOTX)                       \
+DECLARE_VAR_INDEX_IMPL(APOTY)                       \
+DECLARE_VAR_INDEX_IMPL(APOTZ)     
+#else
+#define VARIABLE_LIST_MHD_BASE
+#endif             
 #ifdef GRACE_ENABLE_COWLING_METRIC
 /* ADM metric functions */
 #define VARIABLE_LIST_ADMBASE                     \
@@ -263,7 +276,8 @@ DECLARE_VAR_INDEX_IMPL(MOMZ)
 VARIABLE_LIST_HYDROBASE             \
 VARIABLE_LIST_ADMBASE               \
 VARIABLE_LIST_BURGERS               \
-VARIABLE_LIST_SCALAR_ADV
+VARIABLE_LIST_SCALAR_ADV            \
+VARIABLE_LIST_MHD_BASE
 
 #define DECLARE_VAR_INDEX_IMPL(var) extern int var;
 DECLARE_VARIABLE_INDICES

@@ -37,7 +37,7 @@
  * @brief Lifetimes of grace singleton objects
  * \ingroup system
  * 
- * Objects get deleted from top to bottom in this 
+ * Objects get deleted from bottom to top in this 
  * list at finalization.
  */
 //*****************************************************************************************************
@@ -54,6 +54,7 @@ enum unique_objects_lifetimes {
     GRACE_COORDINATE_SYSTEM,
     GRACE_VARIABLES,
     GRACE_EOS_STORAGE,
+    GRACE_CHECKPOINT_HANDLER,
     grace_NUM_GLOBAL_OBJECTS 
 } ;
 

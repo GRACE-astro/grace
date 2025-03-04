@@ -57,24 +57,27 @@ template< size_t truncation_order
 double GRACE_HOST_DEVICE
 apply_kreiss_olinger_dissipation(
     VEC(int i, int j, int k), int ivar, int64_t q,
-    view_t u, std::array<double,3> dx, double const epsdiss
+    view_t u, std::array<double,3> idx, double const epsdiss
 )
 {
     using namespace grace ; 
 
     auto var  = 
         Kokkos::subview(u,VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), ivar, q) ; 
-
+    /*
     auto dvardx = 
-        detail::fd_der_recursive<1,deriv_order+1,0>::template doit<truncation_order>(var,VEC(i,j,k)) ; 
+        detail::fd_der_recursive<1,deriv_order+1,0>::template doit<truncation_order>(var,VEC(i,j,k)) * idx[0]; 
     auto dvardy = 
-        detail::fd_der_recursive<1,deriv_order+1,1>::template doit<truncation_order>(var,VEC(i,j,k)) ; 
+        detail::fd_der_recursive<1,deriv_order+1,1>::template doit<truncation_order>(var,VEC(i,j,k)) * idx[1];  
     auto dvardz = 
-        detail::fd_der_recursive<1,deriv_order+1,2>::template doit<truncation_order>(var,VEC(i,j,k)) ; 
+        detail::fd_der_recursive<1,deriv_order+1,2>::template doit<truncation_order>(var,VEC(i,j,k)) * idx[2];  
+    */
 
-    return epsdiss * ( math::int_pow<deriv_order>(dx[0]) * dvardx 
-                     + math::int_pow<deriv_order>(dx[1]) * dvardy
-                     + math::int_pow<deriv_order>(dx[2]) * dvardz ) / static_cast<double>(1 << (deriv_order + 1)) ; 
+    return epsdiss / 64 * (
+              ( var(VEC(i-3,j,k)) - 6*var(VEC(i-2,j,k)) + 15*var(VEC(i-1,j,k)) - 20*var(VEC(i,j,k)) + 15*var(VEC(i+1,j,k)) - 6*var(VEC(i+2,j,k)) + var(VEC(i+3,j,k)) ) * idx[0]
+            //+ ( var(VEC(i,j-3,k)) - 6*var(VEC(i,j-2,k)) + 15*var(VEC(i,j-1,k)) - 20*var(VEC(i,j,k)) + 15*var(VEC(i,j+1,k)) - 6*var(VEC(i,j+2,k)) + var(VEC(i,j+3,k)) ) * idx[1]
+            //+ ( var(VEC(i,j,k-3)) - 6*var(VEC(i,j,k-2)) + 15*var(VEC(i,j,k-1)) - 20*var(VEC(i,j,k)) + 15*var(VEC(i,j,k+1)) - 6*var(VEC(i,j,k+2)) + var(VEC(i,j,k+3)) ) * idx[2]
+        ); 
 }
 #if 0
 /**

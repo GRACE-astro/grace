@@ -52,7 +52,6 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
 
     static constexpr const double pi = M_PI ; 
 
-
     // conformal (tilde) metric components
     double const gtxx = state(VEC(i,j,k),GTXX_+0,q);
     double const gtxy = state(VEC(i,j,k),GTXX_+1,q);
@@ -236,23 +235,23 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     double const Tzz = Tmunu[3][3];
 
     // spatial compoents of the energy momentum tensor
-    double const Sxx = 0;//Txx;
-    double const Sxy = 0;//Txy;
-    double const Sxz = 0;//Txz;
-    double const Syy = 0;//Tyy;
-    double const Syz = 0;//Tyz;
-    double const Szz = 0;//Tzz;
+    double const Sxx = Txx;
+    double const Sxy = Txy;
+    double const Sxz = Txz;
+    double const Syy = Tyy;
+    double const Syz = Tyz;
+    double const Szz = Tzz;
 
     // momentum density components
-    double const Sx = 0; //-((-Ttx + betaX*Txx + betaY*Txy + betaZ*Txz)/alp);
-    double const Sy = 0; //-((-Tty + betaX*Txy + betaY*Tyy + betaZ*Tyz)/alp);
-    double const Sz = 0; //-((-Ttz + betaX*Txz + betaY*Tyz + betaZ*Tzz)/alp);
+    double const Sx = -((-Ttx + betaX*Txx + betaY*Txy + betaZ*Txz)/alp);
+    double const Sy = -((-Tty + betaX*Txy + betaY*Tyy + betaZ*Tyz)/alp);
+    double const Sz = -((-Ttz + betaX*Txz + betaY*Tyz + betaZ*Tzz)/alp);
 
     // trace of the spatial energy momentum tensor
-    double const S = 0 ; // (gtXX*Sxx + 2*gtXY*Sxy + 2*gtXZ*Sxz + gtYY*Syy + 2*gtYZ*Syz + gtZZ*Szz)*exp(-4.*phi);
+    double const S = (gtXX*Sxx + 2*gtXY*Sxy + 2*gtXZ*Sxz + gtYY*Syy + 2*gtYZ*Syz + gtZZ*Szz)*exp(-4.*phi);
 
     // energy density
-    double const EE = 0 ; // (Ttt - 2*betaY*Tty - 2*betaZ*Ttz + betaX*betaX*Txx + 2*betaX*(-Ttx + betaY*Txy + betaZ*Txz) + betaY*betaY*Tyy + 2*betaY*betaZ*Tyz + betaZ*betaZ*Tzz)/(alp*alp);
+    double const EE = (Ttt - 2*betaY*Tty - 2*betaZ*Ttz + betaX*betaX*Txx + 2*betaX*(-Ttx + betaY*Txy + betaZ*Txz) + betaY*betaY*Tyy + 2*betaY*betaZ*Tyz + betaZ*betaZ*Tzz)/(alp*alp);
 
     // trace of the extrinsic curvature
     double const K = state(VEC(i,j,k),K_,q);
@@ -351,7 +350,7 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     double const DiDjalpzz=alpdzdz - alpdx*GammatXzz - alpdy*GammatYzz - alpdz*GammatZzz + 2*alpdy*gtXY*gtzz*phidx + 2*alpdz*gtXZ*gtzz*phidx + 2*alpdy*gtYY*gtzz*phidy + 2*alpdz*gtYZ*gtzz*phidy - 4*alpdz*phidz + 2*alpdy*gtYZ*gtzz*phidz + 2*alpdz*gtzz*gtZZ*phidz + 2*alpdx*gtzz*(gtXX*phidx + gtXY*phidy + gtXZ*phidz);
 
     // contracted second covariant derivative of lapse
-    double const DDalp=alpdxdx*gtXX - alpdy*GammatYxx*gtXX - alpdz*GammatZxx*gtXX + 2*alpdxdy*gtXY - 2*alpdy*GammatYxy*gtXY - 2*alpdz*GammatZxy*gtXY + 2*alpdxdz*gtXZ - 2*alpdy*GammatYxz*gtXZ - 2*alpdz*GammatZxz*gtXZ + alpdydy*gtYY - alpdy*GammatYyy*gtYY - alpdz*GammatZyy*gtYY + 2*alpdydz*gtYZ - 2*alpdy*GammatYyz*gtYZ - 2*alpdz*GammatZyz*gtYZ + alpdzdz*gtZZ - alpdy*GammatYzz*gtZZ - alpdz*GammatZzz*gtZZ + 4*alpdy*gtXY*phidx + 4*alpdz*gtXZ*phidx + 4*alpdy*gtYY*phidy + 4*alpdz*gtYZ*phidy + 4*alpdy*gtYZ*phidz + 4*alpdz*gtZZ*phidz - alpdx*(GammatXxx*gtXX + 2*GammatXxy*gtXY + 2*GammatXxz*gtXZ + GammatXyy*gtYY + 2*GammatXyz*gtYZ + GammatXzz*gtZZ - 4*gtXX*phidx - 4*gtXY*phidy - 4*gtXZ*phidz);
+    double const DDalp=alpdxdx*gtXX - alpdy*GammatYxx*gtXX - alpdz*GammatZxx*gtXX + 2*alpdxdy*gtXY - 2*alpdy*GammatYxy*gtXY - 2*alpdz*GammatZxy*gtXY + 2*alpdxdz*gtXZ - 2*alpdy*GammatYxz*gtXZ - 2*alpdz*GammatZxz*gtXZ + alpdydy*gtYY - alpdy*GammatYyy*gtYY - alpdz*GammatZyy*gtYY + 2*alpdydz*gtYZ - 2*alpdy*GammatYyz*gtYZ - 2*alpdz*GammatZyz*gtYZ + alpdzdz*gtZZ - alpdy*GammatYzz*gtZZ - alpdz*GammatZzz*gtZZ + 2*alpdy*gtXY*phidx + 2*alpdz*gtXZ*phidx + 2*alpdy*gtYY*phidy + 2*alpdz*gtYZ*phidy + 2*alpdy*gtYZ*phidz + 2*alpdz*gtZZ*phidz - alpdx*(GammatXxx*gtXX + 2*GammatXxy*gtXY + 2*GammatXxz*gtXZ + GammatXyy*gtYY + 2*GammatXyz*gtYZ + GammatXzz*gtZZ - 2*gtXX*phidx - 2*gtXY*phidy - 2*gtXZ*phidz);
 
     // components of conformal Ricci tensor
     double const Rt0xx=GammatXdx*gtxx - (gtXX*gtxxdxdx)/2. + GammatYdx*gtxy - gtxxdxdy*gtXY + GammatZdx*gtxz - gtxxdxdz*gtXZ - (gtxxdydy*gtYY)/2. - gtxxdydz*gtYZ - (gtxxdzdz*gtZZ)/2.;
@@ -413,7 +412,7 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     res[PHIL] = (betaXdx + betaYdy + betaZdz - alp*K + 6*betaX*phidx + 6*betaY*phidy + 6*betaZ*phidz)/6.;
 
     // BSSN equation for conformal extrinsic curvature trace d/dt K
-    res[KL] = betaX*Kdx + betaY*Kdy + betaZ*Kdz + alp*(Atxx*AtXX + 2*Atxy*AtXY + 2*Atxz*AtXZ + Atyy*AtYY + 2*Atyz*AtYZ + Atzz*AtZZ + (K*K)/3. + 4*pi*(EE + S)) + (-(alpdxdx*gtXX) + alpdy*GammatYxx*gtXX + alpdz*GammatZxx*gtXX - 2*alpdxdy*gtXY + 2*alpdy*GammatYxy*gtXY + 2*alpdz*GammatZxy*gtXY - 2*alpdxdz*gtXZ + 2*alpdy*GammatYxz*gtXZ + 2*alpdz*GammatZxz*gtXZ - alpdydy*gtYY + alpdy*GammatYyy*gtYY + alpdz*GammatZyy*gtYY - 2*alpdydz*gtYZ + 2*alpdy*GammatYyz*gtYZ + 2*alpdz*GammatZyz*gtYZ - alpdzdz*gtZZ + alpdy*GammatYzz*gtZZ + alpdz*GammatZzz*gtZZ - 4*alpdy*gtXY*phidx - 4*alpdz*gtXZ*phidx - 4*alpdy*gtYY*phidy - 4*alpdz*gtYZ*phidy - 4*alpdy*gtYZ*phidz - 4*alpdz*gtZZ*phidz + alpdx*(GammatXxx*gtXX + 2*GammatXxy*gtXY + 2*GammatXxz*gtXZ + GammatXyy*gtYY + 2*GammatXyz*gtYZ + GammatXzz*gtZZ - 4*gtXX*phidx - 4*gtXY*phidy - 4*gtXZ*phidz))*exp(-4.*phi);
+    res[KL] = betaX*Kdx + betaY*Kdy + betaZ*Kdz + alp*(Atxx*AtXX + 2*Atxy*AtXY + 2*Atxz*AtXZ + Atyy*AtYY + 2*Atyz*AtYZ + Atzz*AtZZ + (K*K)/3. + 4*pi*(EE + S)) + (-(alpdxdx*gtXX) + alpdy*GammatYxx*gtXX + alpdz*GammatZxx*gtXX - 2*alpdxdy*gtXY + 2*alpdy*GammatYxy*gtXY + 2*alpdz*GammatZxy*gtXY - 2*alpdxdz*gtXZ + 2*alpdy*GammatYxz*gtXZ + 2*alpdz*GammatZxz*gtXZ - alpdydy*gtYY + alpdy*GammatYyy*gtYY + alpdz*GammatZyy*gtYY - 2*alpdydz*gtYZ + 2*alpdy*GammatYyz*gtYZ + 2*alpdz*GammatZyz*gtYZ - alpdzdz*gtZZ + alpdy*GammatYzz*gtZZ + alpdz*GammatZzz*gtZZ - 2*alpdy*gtXY*phidx - 2*alpdz*gtXZ*phidx - 2*alpdy*gtYY*phidy - 2*alpdz*gtYZ*phidy - 2*alpdy*gtYZ*phidz - 2*alpdz*gtZZ*phidz + alpdx*(GammatXxx*gtXX + 2*GammatXxy*gtXY + 2*GammatXxz*gtXZ + GammatXyy*gtYY + 2*GammatXyz*gtYZ + GammatXzz*gtZZ - 2*gtXX*phidx - 2*gtXY*phidy - 2*gtXZ*phidz))*exp(-4.*phi);
 
     // BSSN equation for contracted conformal Christoffels d/dt Gammatu
     res[GAMMAXL+0] = (-6*alpdx*AtXX - 6*alpdy*AtXY - 6*alpdz*AtXZ - betaXdx*GammatX + 2*betaYdy*GammatX + 2*betaZdz*GammatX + 3*betaX*GammatXdx + 3*betaY*GammatXdy + 3*betaZ*GammatXdz - 3*betaXdy*GammatY - 3*betaXdz*GammatZ + 4*betaXdxdx*gtXX + betaYdxdy*gtXX + betaZdxdz*gtXX + 7*betaXdxdy*gtXY + betaYdydy*gtXY + betaZdydz*gtXY + 7*betaXdxdz*gtXZ + betaYdydz*gtXZ + betaZdzdz*gtXZ + 3*betaXdydy*gtYY + 6*betaXdydz*gtYZ + 3*betaXdzdz*gtZZ + 2*alp*(6*AtXZ*GammatXxz + 3*AtYY*GammatXyy + 6*AtYZ*GammatXyz + 3*AtZZ*GammatXzz - 2*gtXX*Kdx - 2*gtXY*Kdy - 2*gtXZ*Kdz + 3*AtXX*(GammatXxx + 6*phidx) + 6*AtXY*(GammatXxy + 3*phidy) + 18*AtXZ*phidz - 24*gtXX*pi*Sx - 24*gtXY*pi*Sy - 24*gtXZ*pi*Sz))/3.;

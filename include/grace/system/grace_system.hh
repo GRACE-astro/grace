@@ -33,6 +33,7 @@
 #include <grace/system/mpi_runtime.hh>
 #include <grace/system/kokkos_runtime.hh>
 #include <grace/system/p4est_runtime.hh>
+#include <grace/system/checkpoint_handler.hh>
 #include <grace/system/print.hh>
 #include <grace/errors/error.hh>
 #include <grace/errors/assert.hh>

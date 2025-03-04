@@ -58,35 +58,12 @@ int main(int argc, char* argv[])
     using namespace grace ; 
     /**********************************************************************************/
     /**********************************************************************************/
-
-    /**********************************************************************************/
-    /*                                 Initial data                                   */
-    /**********************************************************************************/
-    GRACE_INFO("Setting initial data.") ; 
-    grace::set_initial_data() ; 
-    bool regrid_at_postinitial = grace::get_param<bool>("amr","regrid_at_postinitial") ; 
-    int postinitial_regrid_depth = 
-        grace::get_param<int>("amr","postinitial_regrid_depth") ;
-    bool reset_id_after_regrid = 
-        grace::get_param<bool>("evolution","reset_id_after_regrid") ; 
-    /**********************************************************************************/
-    /*                                 Post-Initial data                              */
-    /**********************************************************************************/
-    if( regrid_at_postinitial ) {
-        GRACE_INFO("Performing initial regrid.") ;
-        for( int ilev=0; ilev<postinitial_regrid_depth; ++ilev){
-            GRACE_INFO("Regrid level {}.", ilev+1) ;
-            grace::amr::regrid() ;  
-            grace::amr::apply_boundary_conditions() ; 
-            if (reset_id_after_regrid) {
-                grace::set_initial_data() ; 
-            }
-        }
-    }
-    GRACE_INFO("Initialization complete.") ; 
     /**********************************************************************************/
     /**********************************************************************************/
     double final_time = grace::get_param<double>("evolution","final_time") ; 
+    int64_t final_iteration = grace::get_param<int64_t>("evolution","final_iteration") ;
+    double max_walltime = grace::get_param<double>("evolution","max_walltime") * 3600 ;
+    /**********************************************************************************/
     int64_t regrid_every = grace::get_param<int64_t>("amr","regrid_every") ;  
     int64_t volume_output_every = grace::get_param<int64_t>("IO","volume_output_every") ;
     int64_t plane_surface_output_every = 
@@ -112,7 +89,8 @@ int main(int argc, char* argv[])
     /**********************************************************************************/
     /*                           Evolution loop                                       */
     /**********************************************************************************/
-    while( grace::get_simulation_time() < final_time ) 
+    bool terminate = false ; 
+    while( ! terminate ) 
     {   
         /**********************************************************************************/
         if(tstep_mode == "automatic"){
@@ -157,6 +135,25 @@ int main(int argc, char* argv[])
           and (iter % info_output_every == 0))
         {
             grace::IO::info_output() ; 
+        }
+        /**********************************************************************************/
+        /* Save checkpoint if needed                                                      */
+        /**********************************************************************************/
+        if ( checkpoint_handler::get().need_checkpoint() ) {
+            checkpoint_handler::get().save_checkpoint() ; 
+        }
+        /**********************************************************************************/
+        /* Termination condition                                                          */
+        /**********************************************************************************/
+        if ( (grace::get_simulation_time() >= final_time) and (final_time > 0) ) {
+            GRACE_INFO("Initiating termination sequence due to simulation time limit.") ;
+            terminate = true ; 
+        } else if ( (grace::get_iteration() >= final_iteration) and (final_iteration > 0)  ) {
+            GRACE_INFO("Initiating termination sequence due to iteration limit.") ; 
+            terminate = true ; 
+        } else if ( (grace::get_total_runtime() >= max_walltime) and (max_walltime > 0) ) {
+            GRACE_INFO("Initiating termination sequence due to walltime limit.") ;
+            terminate = true ; 
         }
     }
     
