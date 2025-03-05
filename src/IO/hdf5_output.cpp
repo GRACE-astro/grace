@@ -28,6 +28,8 @@
 #include <grace_config.h>
 #include <grace/utils/grace_utils.hh>
 #include <grace/amr/grace_amr.hh>
+#include <grace/amr/octree_search.hh>
+#include <grace/amr/octree_search_class.hh>
 #include <grace/config/config_parser.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/coordinates/coordinates.hh>
@@ -698,6 +700,12 @@ void write_var_arrays_hdf5( std::set<std::string> const& varlist
     unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
     /* Number of corners per quadrant */
     unsigned long const ncorners_quad = EXPR((nx+1),*(ny+1),*(nz+1)) ;
+    
+    amr::OctreeSlicer octree_slicer;
+    octree_slicer.find_sliced_cells();
+    auto sliced_cells = octree_slicer.sliced_cells();
+    //octree_slicer.find_sliced_cells_for_sphere(20,0.05); Does not work. What bullshit
+
     /**********************************************/
     /* We need an extra device mirror because:    */
     /* 1) The view is not contiguous since we     */
@@ -780,6 +788,84 @@ void write_var_arrays_hdf5( std::set<std::string> const& varlist
 
         /* Close dataset */
         HDF5_CALL(err, H5Dclose(dset_id)) ; 
+
+        unsigned long const num_sliced_cells = octree_slicer.sliced_quadrants().size() * ny * nz;
+
+        // Select hyperslab
+        hsize_t sliced_slab_start[1] = {0};
+        hsize_t sliced_slab_count[1] = {num_sliced_cells};
+
+        // Define memory space for the sliced buffer
+        hid_t mem_space_id;
+        hid_t mem_space_id_glob;
+        HDF5_CALL(mem_space_id, H5Screate_simple(1, sliced_slab_count, NULL)) ;
+        HDF5_CALL(mem_space_id_glob, H5Screate_simple(1, sliced_slab_count, NULL)) ;
+
+        /* Create dataset properties and set chunking / compression mode */
+        hid_t mem_prop_id ;
+        HDF5_CALL(mem_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
+        
+                                                     
+
+        using SlicedCellInfo = grace::amr::OctreeSlicer::SlicedCellInfo;
+
+        // Host-side metadata from octree slicer
+        auto sliced_cells_host = octree_slicer.sliced_cells(); 
+        // Allocate device View for sliced cell metadata
+        Kokkos::View<SlicedCellInfo*> sliced_cells_device(
+            "sliced_cells_device", 
+            sliced_cells_host.size()
+        );
+        // Create host mirror and copy data
+        auto sliced_cells_host_mirror = Kokkos::create_mirror_view(sliced_cells_device);
+        for (size_t i = 0; i < sliced_cells_host.size(); ++i) {
+            sliced_cells_host_mirror(i) = sliced_cells_host[i];
+        }
+        Kokkos::deep_copy(sliced_cells_device, sliced_cells_host_mirror);
+
+        Kokkos::View<double*> d_sliced_buffer("Device Sliced Buffer", num_sliced_cells);
+        Kokkos::parallel_for("Copy sliced cells", 
+            Kokkos::RangePolicy<>(0, sliced_cells_device.size()), // Use actual metadata size
+            KOKKOS_LAMBDA(const int idx) {
+                const auto& cell = sliced_cells_device[idx];
+                const int x = cell.i;
+                const int y = cell.j;
+                const int z = cell.k;
+                const int q = cell.q.globalIndex; // Quadrant's global index
+                
+                d_sliced_buffer(idx) = sview(x, y, z, q); // Access simulation data
+            }
+        ); 
+
+        // ------------------------------------------------------------
+        // Write to HDF5 
+        // ------------------------------------------------------------
+
+        // Create HDF5 dataset for sliced data
+        std::string sliced_dset_name = "sliced_" + vname;
+        hid_t sliced_dset_id;
+        
+        HDF5_CALL(sliced_dset_id, H5Dcreate2(file_id,
+                                             sliced_dset_name.c_str(),
+                                             H5T_NATIVE_DOUBLE,
+                                             mem_space_id_glob,
+                                             H5P_DEFAULT,
+                                             mem_prop_id,
+                                             H5P_DEFAULT));
+
+        
+        HDF5_CALL(err, H5Sselect_hyperslab(mem_space_id_glob, H5S_SELECT_SET,
+                                           sliced_slab_start, NULL,
+                                           sliced_slab_count, NULL));
+
+
+        auto h_sliced_buffer = Kokkos::create_mirror_view_and_copy(grace::default_execution_space{}, d_sliced_buffer);
+        printf("Writing to dataset %s\n", sliced_dset_name.c_str());
+        HDF5_CALL(err, H5Dwrite(sliced_dset_id, H5T_NATIVE_DOUBLE, mem_space_id, mem_space_id_glob, dxpl, h_sliced_buffer.data()));
+        HDF5_CALL(err, H5Dclose(sliced_dset_id));
+        HDF5_CALL(err, H5Sclose(mem_space_id)) ; 
+        HDF5_CALL(err, H5Sclose(mem_space_id_glob)) ; 
+        //HDF5_CALL(err, H5Dwrite(sliced_dset_id, H5T_NATIVE_DOUBLE, space_id, space_id_glob, dxpl, h_sliced_buffer.data()));
     }
 
     /* Staggered variables */

@@ -28,6 +28,7 @@
 #include <grace/IO/hdf5_output.hh>
 #include <grace/IO/vtk_output.hh>
 #include <grace/config/config_parser.hh>
+#include <iostream>
 
 namespace grace { namespace IO {
 
