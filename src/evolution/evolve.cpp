@@ -156,7 +156,7 @@ void evolve_impl() {
             state_p,state,aux,
             sstate_p,sstate,saux,
             idx,dx,cvol,fsurf) ; 
-        amr::apply_boundary_conditions(state_p,sstate_p) ; 
+        amr::apply_boundary_conditions(state_p,state,sstate_p,sstate,dt,1.0) ; 
         compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux, saux) ;
         // Allocate state_pp and sstate_pp 
         auto state_pp  = grace::variable_list::get().allocate_state() ;
@@ -188,7 +188,7 @@ void evolve_impl() {
             state_pp,state_p,aux,
             sstate_pp,sstate_p,saux,
             idx,dx,cvol,fsurf) ;
-        amr::apply_boundary_conditions(state_pp,sstate_pp) ; 
+        amr::apply_boundary_conditions(state_pp,state_p,sstate_pp,sstate_p,dt,0.25) ; 
         compute_auxiliary_quantities<eos_t>(state_pp, sstate_pp, aux, saux) ;
         // step 4: state = 1/3 u^n + 2/3 u^2
         Kokkos::parallel_for(
@@ -217,7 +217,7 @@ void evolve_impl() {
             state,state_pp,aux,
             sstate,sstate_pp,saux,
             idx,dx,cvol,fsurf) ;
-        amr::apply_boundary_conditions(state,sstate) ; 
+        amr::apply_boundary_conditions(state,state_pp,sstate,sstate_pp,dt,2./3.) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux, saux) ;
     } else {
         ERROR("Unrecognised time-stepper.") ; 
@@ -301,13 +301,13 @@ void advance_substep( double const t, double const dt, double const dtfact
         grmhd_eq_system(eos,old_state,aux,staggered_old_state) ; 
     #define RECON slope_limited_reconstructor_t<MCbeta>
     #define GET_X_FLUX \
-    grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
+    //grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
     #define GET_Y_FLUX \
-    grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
+    //grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_Z_FLUX \
-    grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
+    //grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_SOURCES \
-    grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, staggered_new_state, dt, dtfact )
+    //grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, staggered_new_state, dt, dtfact )
     #endif 
     #ifdef GRACE_ENABLE_BSSN_METRIC
     bssn_system_t
@@ -381,7 +381,7 @@ void advance_substep( double const t, double const dt, double const dtfact
         staggered_old_state.corner_staggered_fields.extent(3), 
         staggered_old_state.corner_staggered_fields.extent(4)
     ) ; 
-    #if 0 
+    #if 1 
     auto bssn_rhs_policy =
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
                {VEC(0,0,0),0}

@@ -177,7 +177,13 @@ get_primitives_cell_corner(
   for( auto const& ivar: prim_idx ) {
     auto sview = subview(aux,VEC(ALL(),ALL(),ALL()),ivar,q) ; 
     // interpolate 
-    prims[_idx] = center_to_corner<2>::interpolate(sview,VEC(i,j,k)) ;
+    // prims[_idx] = center_to_corner<2>::interpolate(sview,VEC(i,j,k)) ;
+    prims[_idx] = 0 ; 
+    #pragma unroll
+    for(int ix=0; ix<=1; ++ix) for(int iy=0; iy<=1; ++iy) for(int iz=0; iz<=1; ++iz) {
+      prims[_idx] += sview(VEC(i-1+ix,j-1+iy,k-1+iz)) ; 
+    }
+    prims[_idx] /= 8.0 ; 
     //prims[_idx] = sview(VEC(i,j,k)) ; // debugging  
     _idx++ ; 
   }

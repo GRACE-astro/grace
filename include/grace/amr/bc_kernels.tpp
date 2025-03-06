@@ -30,19 +30,19 @@
 #include <grace_config.h>
 
 #include <grace/utils/grace_utils.hh>
-
+#include <grace/utils/numerics/fd_utils.hh>
 namespace grace { namespace amr {
 template< size_t order >
 struct extrap_bc_t 
 {
       template< typename ViewT >
       void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-      apply(
-            ViewT& dst, ViewT& src,
+      apply (
+            ViewT dst, ViewT src,
             VEC( int i, int j, int k),
             VEC( int8_t dx, int8_t dy, int8_t dz), 
             int64_t q 
-      ) ; 
+      ) const ; 
 } ; 
 
 template<>
@@ -50,12 +50,12 @@ struct extrap_bc_t<0>
 {
       template< typename ViewT >
       void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-      apply(
-            ViewT& dst, ViewT& src,
+      apply (
+            ViewT dst, ViewT src,
             VEC( int i, int j, int k),
             VEC( int8_t dx, int8_t dy, int8_t dz), 
             int64_t q 
-      ) 
+      ) const
       {
             dst(VEC(i,j,k), q) = src(VEC(i-dx,j-dy,k-dz),q) ; 
       }; 
@@ -66,12 +66,12 @@ struct extrap_bc_t<3>
 {
       template< typename ViewT >
       void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-      apply(
-            ViewT& dst, ViewT& src,
+      apply (
+            ViewT dst, ViewT src,
             VEC( int i, int j, int k),
             VEC( int8_t dx, int8_t dy, int8_t dz), 
             int64_t q 
-      ) 
+      ) const
       {
             dst(VEC(i,j,k), q) =( 4*src(VEC(i-dx,j-dy,k-dz),q) 
                               - 6*src(VEC(i-2*dx,j-2*dy,k-2*dz),q) 
@@ -91,7 +91,8 @@ struct sommerfeld_bc_t {
 
       grace::scalar_array_t<GRACE_NSPACEDIM> idx ; 
       grace::coord_array_t<GRACE_NSPACEDIM>  pcoords ; 
-      double dt, dtfact, f0, v0
+      double dt, dtfact, f0, v0 ; 
+      int VEC(nx,ny,nz),ngz ; 
 
       sommerfeld_bc_t(
             grace::scalar_array_t<GRACE_NSPACEDIM>  _idx, 
@@ -99,19 +100,26 @@ struct sommerfeld_bc_t {
             double _dt,
             double _dtfact,
             double _f0,
-            double _v0
+            double _v0,
+            VEC(int _nx, int _ny, int _nz), int _ngz
       )
-       : idx(_idx), _pcoords(pcoords), dt(_dt), dtfact(_dtfact), f0(_f0), v0(_v0)
+       : idx(_idx), 
+         pcoords(_pcoords), 
+         dt(_dt), 
+         dtfact(_dtfact), 
+         f0(_f0), v0(_v0),
+         VEC(nx(_nx), ny(_ny), nz(_nz)),
+         ngz(_ngz)
       {}
 
       template< typename ViewT >
       void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-      apply(
-            ViewT& dst, ViewT& src,
+      apply (
+            ViewT dst, ViewT src,
             VEC( int i, int j, int k),
             VEC( int8_t dx, int8_t dy, int8_t dz), 
-            int64_t q, 
-      )  
+            int64_t q
+      )  const 
       {
             double derivx, derivy, derivz ; 
             
@@ -125,9 +133,25 @@ struct sommerfeld_bc_t {
             double const vx = v0 * xi * rinv ; 
             double const vy = v0 * yi * rinv ; 
             double const vz = v0 * zi * rinv ; 
+            
+            auto var = Kokkos::subview(src, VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), q) ; 
+            auto const fd_der_x = [&] ()
+            {
+                  return grace::detail::fd_der_bnd_check_recursive<1,1,0>::template doit<2>(var, VEC(i,j,k),VEC(nx,ny,nz),ngz)* idx(0,q);
+            } ; 
+
+            auto const fd_der_y = [&] ()
+            {
+                  return grace::detail::fd_der_bnd_check_recursive<1,1,1>::template doit<2>(var, VEC(i,j,k),VEC(nx,ny,nz),ngz)* idx(1,q); 
+            } ; 
+
+            auto const fd_der_z = [&] ()
+            {
+                  return grace::detail::fd_der_bnd_check_recursive<1,1,2>::template doit<2>(var, VEC(i,j,k),VEC(nx,ny,nz),ngz)* idx(2,q);
+            } ; 
 
             if ( dx == 0 ) {
-                  derivx = (src(VEC(i+1,j,k),q) - src(VEC(i-1,j,k),q) ) * idx(0,q) * 0.5 ; 
+                  derivx = fd_der_x() ; 
             } else {
                   derivx = dx * 0.5 * (
                         3 * src(VEC(i,j,k),q) - 4 * src(VEC(i-dx,j,k),q) + src(VEC(i-2*dx,j,k),q)  
@@ -135,7 +159,7 @@ struct sommerfeld_bc_t {
             }
 
             if ( dy == 0 ) {
-                  derivy = (src(VEC(i,j+1,k),q) - src(VEC(i,j-1,k),q) ) * idx(1,q) * 0.5 ; 
+                  derivy = fd_der_y() ; 
             } else {
                   derivy = dy * 0.5 * (
                         3 * src(VEC(i,j,k),q) - 4 * src(VEC(i,j-dy,k),q) + src(VEC(i,j-2*dy,k),q)  
@@ -143,7 +167,7 @@ struct sommerfeld_bc_t {
             }
 
             if ( dz == 0 ) {
-                  derivz = (src(VEC(i,j,k+1),q) - src(VEC(i,j,k-1),q) ) * idx(2,q) * 0.5 ; 
+                  derivz = fd_der_z() ; 
             } else {
                   derivz = dz * 0.5 * (
                         3 * src(VEC(i,j,k),q) - 4 * src(VEC(i,j,k-dz),q) + src(VEC(i,j,k-2*dz),q)  

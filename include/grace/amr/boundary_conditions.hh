@@ -314,7 +314,10 @@ void apply_boundary_conditions() ;
  * the caller to specify which state array needs its ghostzones to be filled.
  */
 void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
-                              , grace::staggered_variable_arrays_t& staggered_vars) ;
+    , grace::var_array_t<GRACE_NSPACEDIM>& old_vars
+    , grace::staggered_variable_arrays_t& staggered_vars
+    , grace::staggered_variable_arrays_t& old_staggered_vars
+    , double const dt, double const dtfact) ;
 
 
 }} /* namespace grace::amr */

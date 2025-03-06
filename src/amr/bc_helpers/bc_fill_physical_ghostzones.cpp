@@ -62,7 +62,7 @@ void fill_physical_boundaries(
     int nvars_cell_center = variables::get_n_evolved() ; 
 
 
-    auto& idx = grace::variables_list::get().getinvspacings() ; 
+    auto& idx = grace::variable_list::get().getinvspacings() ; 
     coord_array_t<GRACE_NSPACEDIM> pcoords ; // NB these are corner coords! 
     grace::fill_physical_coordinates(pcoords, {VEC(true,true,true)}) ;
 
@@ -196,7 +196,7 @@ void fill_physical_boundaries(
             #ifdef GRACE_3D 
             , edge_phys_bc
             #endif 
-            , sommerfeld_bc_t{idx, pcoords, dt, dtfact, f0, v0}
+            , sommerfeld_bc_t{idx, pcoords, dt, dtfact, f0, v0, VEC(nx+1,ny+1,nz+1) ,ngz}
         ) ;
     } ;
     double const v0_h = sqrt(2.) ;  

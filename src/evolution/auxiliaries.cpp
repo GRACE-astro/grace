@@ -196,7 +196,7 @@ void compute_auxiliary_quantities(
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,state,aux,sstate) ; 
     #define GET_AUX \
-    grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q)
+    //grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q)
     #else 
     #define GET_AUX
     #endif 

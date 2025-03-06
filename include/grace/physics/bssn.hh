@@ -160,8 +160,7 @@ struct bssn_system_t
         std::array<double, GRACE_NSPACEDIM> idx{ VEC(_idx(0,q), _idx(1,q), _idx(2,q))} ;  
 
         auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
-        // FIXME: Tmunu is set to zero because we are testing vacuum 
-        //std::array<std::array<double,4>,4> Tmunu {{{0},{0},{0},{0}}} ; 
+
         double const k1 = 0.04; double const eta = 0.05; // FIXME 
         bssn_state_t update = compute_bssn_rhs<2>(VEC(i,j,k),q,cstate,Tmunu,idx,k1,eta)  ;   
         #if 1
@@ -174,21 +173,6 @@ struct bssn_system_t
             ii++ ; 
         }
         #endif
-        double const A  = 1e-08 ; 
-        double const A2 = 1e-16 ; 
-        double const d  = 1     ; 
-        double const sin2L = Kokkos::sin( 4 * M_PI * (x-t) / d ) ; 
-        double const sinL  = Kokkos::sin( 2 * M_PI * (x-t) / d ) ;
-        double const cosL  = Kokkos::cos( 2 * M_PI * (x-t) / d ) ;
-        double const cos2L = Kokkos::cos( 4 * M_PI * (x-t) / d ) ;
-        double const denom = 3 * d * Kokkos::pow( 2 - A2 + A2 * cos2L, 4./3. ) ;
-        double const cbrt2 = Kokkos::cbrt(2) ; 
-
-        double const Axx = 2 * A2 * M_PI * cbrt2 * sin2L / denom ;
-        double const Ayy = cbrt2 * A * M_PI * cosL * ( 6 - A2 + A2*cos2L + 4 * A * sinL ) / denom ; 
-        double const Azz = cbrt2 * A * M_PI * cosL * ( - 6 + A2 - A2*cos2L + 4 * A * sinL ) / denom ;
-
-        double const KTR = 2 * M_PI * A2 / d * sin2L / math::int_pow<2>( 1 - A2 * sinL ) ; 
 
         // Apply update
         cstate_new(VEC(i,j,k),PHI_,q) += dt * dtfact * update[PHIL] ;
@@ -230,7 +214,6 @@ struct bssn_system_t
 
         // Apply algebraic constraints 
         impose_algebraic_constraints(cstate_new,VEC(i,j,k),q) ; 
-
     }
     //**************************************************************************************************
     //**************************************************************************************************
@@ -366,8 +349,10 @@ struct bssn_system_t
         // Fill T_{\mu\nu} = \rho h u_\mu u_\nu + P g_{\mu \nu} 
         std::array<std::array<double,4>,4> Tmunu ;
         double const u0 =  W/metric.alp() ; 
-        std::array<double,4> uU { u0, prims[VXL]*u0, prims[VYL]*u0, prims[VZL]*u0 } ; 
-        auto uD = metric.lower_4vec(uU)  ; 
+        std::array<double,3> uD3 = metric.lower({prims[VXL] + metric.beta(0), prims[VYL] + metric.beta(1), prims[VZL] + metric.beta(2)}) ; 
+        // u_t = W ( beta^i v_i - alp ) with v == eulerian velocity! 
+        uD0 = u0 * metric.contract_vec_covec({metric.beta(0),metric.beta(1),metric.beta(2)}, uD3) - metric.alp() * W ; 
+        std::array<double,4> uD { uD0, uD3[0]*u0, uD3[1]*u0, uD3[2]*u0 } ; 
         auto gdd = metric.gmunu()     ; 
         int idx4[4][4] = {
             {0,1,2,3},
