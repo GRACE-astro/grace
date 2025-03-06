@@ -98,6 +98,28 @@ compute_bssn_constraint_violations(
 
 //**************************************************************************************************
 /**
+ * @brief Forward declaration of a routine for computing the Newman-Penrose scalar 
+ * 
+ * @tparam der_order Truncation order used in the computation
+ * @param i x cell index
+ * @param j y cell index
+ * @param k z cell index
+ * @param q quadrant index
+ * @param state Staggered state array
+ * @param idx Inverse cell spacing
+ * @return std::array<double,2> The real and imaginary parts of Psi_4
+ */
+template< size_t der_order >
+std::array<double,2> GRACE_HOST_DEVICE 
+compute_psi4(
+      VEC(int i, int j, int k), int q
+    , grace::coord_array_t<GRACE_NSPACEDIM> const pcoords
+    , grace::var_array_t<GRACE_NSPACEDIM> const state
+    , std::array<double,GRACE_NSPACEDIM> const& idx
+) ; 
+
+//**************************************************************************************************
+/**
  * @brief Baumgarte-Shapiro-Shibata-Nakamura equations
  * \ingroup physics
  */
@@ -252,6 +274,29 @@ struct bssn_system_t
         saux(VEC(i,j,k),MOMX_,q) = constr_loc[1] ;
         saux(VEC(i,j,k),MOMY_,q) = constr_loc[2] ;
         saux(VEC(i,j,k),MOMZ_,q) = constr_loc[3] ;
+        
+    } ;
+    // *********************************************************************************************
+    // compute psi4:
+    template< size_t der_order >
+    void GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    compute_newman_penrose( 
+        grace::var_array_t<GRACE_NSPACEDIM> saux,
+        coord_array_t<GRACE_NSPACEDIM> const pcoords,
+         std::array<double,3> const& idx, 
+        VEC(int i, int j, int k), int64_t q ) const 
+    {
+        using namespace grace  ; 
+        using namespace Kokkos ;
+
+        auto psi4Complex = compute_psi4<der_order>( VEC(i,j,k)
+                                            ,q
+                                            ,pcoords   //coordinates
+                                            ,this->_sstate.corner_staggered_fields
+                                            ,idx) ;
+
+        saux(VEC(i,j,k),PSI4RE_ ,q)  = psi4Complex[0] ;
+        saux(VEC(i,j,k),PSI4IM_ ,q)  = psi4Complex[1] ;
         
     } ;
     /**

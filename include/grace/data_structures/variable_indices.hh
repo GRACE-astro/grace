@@ -256,7 +256,9 @@ DECLARE_VAR_INDEX_IMPL(BZ)                       \
 DECLARE_VAR_INDEX_IMPL(HAM)                      \
 DECLARE_VAR_INDEX_IMPL(MOMX)                     \
 DECLARE_VAR_INDEX_IMPL(MOMY)                     \
-DECLARE_VAR_INDEX_IMPL(MOMZ)                       
+DECLARE_VAR_INDEX_IMPL(MOMZ)                     \  
+DECLARE_VAR_INDEX_IMPL(PSI4RE)                   \    
+DECLARE_VAR_INDEX_IMPL(PSI4IM)                       
 #endif 
 
 #define DECLARE_VARIABLE_INDICES    \

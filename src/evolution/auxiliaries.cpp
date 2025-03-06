@@ -123,6 +123,9 @@ void compute_auxiliary_quantities(
     }) ; 
     
     #ifdef GRACE_ENABLE_BSSN_METRIC
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+    grace::fill_physical_coordinates(pcoords, {VEC(true,true,true)} ) ;
+
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         corner_staggered_policy({VEC(ngz,ngz,ngz),0},{VEC(nx+1+ngz,ny+1+ngz,nz+1+ngz),nq}) ; 
     parallel_for(GRACE_EXECUTION_TAG("EVOL","get_auxiliaries"), corner_staggered_policy 
@@ -133,6 +136,13 @@ void compute_auxiliary_quantities(
             {idx(0,q),idx(1,q),idx(2,q)}, 
             VEC(i,j,k), 
             q) ; 
+
+        bssn_eq_system.template compute_newman_penrose<2>(
+            saux.corner_staggered_fields, 
+            pcoords,
+            {idx(0,q),idx(1,q),idx(2,q)}, 
+            VEC(i,j,k), 
+            q) ;
  
     }) ; 
     #endif 

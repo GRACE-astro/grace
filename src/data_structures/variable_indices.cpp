@@ -220,6 +220,9 @@ void register_variables() {
     /* Constraint violations */
     REGISTER_CORNER_STAGGERED_AUX_SCALAR(HAM,"H","none");
     REGISTER_CORNER_STAGGERED_AUX_VECTOR(MOMX,MOMY,MOMZ,"M","none");
+    /* Newman-Penrose Psi4 pseudoscalar */
+    REGISTER_CORNER_STAGGERED_AUX_SCALAR(PSI4RE,"Psi4Re","none");
+    REGISTER_CORNER_STAGGERED_AUX_SCALAR(PSI4IM,"Psi4Im","none");
     #endif
     /********************************************************************************/
     /********************************************************************************/
