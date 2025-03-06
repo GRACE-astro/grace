@@ -104,6 +104,8 @@ if(GRACE_ENABLE_TESTING)
                    "${CMAKE_BINARY_DIR}/test/configs/bc_test.yaml" COPYONLY)
     configure_file("${CMAKE_SOURCE_DIR}/configs/bc_test_unigrid.yaml" 
                    "${CMAKE_BINARY_DIR}/test/configs/bc_test_unigrid.yaml" COPYONLY)
+    configure_file("${CMAKE_SOURCE_DIR}/configs/h5_io_test.yaml" 
+                   "${CMAKE_BINARY_DIR}/test/configs/h5_io_test.yaml" COPYONLY)
     enable_testing()
     include(setup_catch2)
     add_subdirectory(test)

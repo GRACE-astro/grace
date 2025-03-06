@@ -158,6 +158,7 @@ GRACE_HOST cartesian_coordinate_system_impl_t::get_logical_coordinates(
     using namespace grace ; 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    //printf("nx = %ld, ny = %ld, nz = %ld\n", nx, ny, nz);
     int64_t nq = amr::get_local_num_quadrants()      ;
     int ngz = amr::get_n_ghosts()                    ; 
 
