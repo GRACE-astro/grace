@@ -54,6 +54,7 @@ enum unique_objects_lifetimes {
     GRACE_COORDINATE_SYSTEM,
     GRACE_VARIABLES,
     GRACE_EOS_STORAGE,
+    GRACE_HEALPIX,
     grace_NUM_GLOBAL_OBJECTS 
 } ;
 

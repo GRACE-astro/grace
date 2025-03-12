@@ -43,6 +43,8 @@
 #include <grace/evolution/find_stable_timestep.hh>
 #include <grace/IO/cell_output.hh>
 #include <grace/IO/scalar_output.hh>
+// #include <grace/healpix/healpix_state.hh>
+
 /**********************************************************************************/
 /**********************************************************************************/
 int main(int argc, char* argv[])
@@ -97,6 +99,14 @@ int main(int argc, char* argv[])
         grace::get_param<int64_t>("IO","scalar_output_every") ;
     int64_t info_output_every =
         grace::get_param<int64_t>("IO","info_output_every") ;
+    int64_t healpix_surf_output_every =
+        grace::get_param<int64_t>("healpix","healpix_surf_output_every") ;
+    int64_t healpix_integrals_every =
+        grace::get_param<int64_t>("healpix","healpix_integrals_every") ;
+
+    //if(healpix_integrals_every>0 or healpix_surf_output_every>0) grace::healpix::healpix_state::get().initialize_detectors(); 
+    //if(healpix_integrals_every>0 or healpix_surf_output_every>0) grace::healpix::healpix_state::initialize(); 
+
     std::string tstep_mode = grace::get_param<std::string>("evolution","timestep_selection_mode") ;
     if ( tstep_mode == "manual" ) {
         grace::set_timestep(grace::get_param<double>("evolution","timestep")) ; 
@@ -158,6 +168,20 @@ int main(int argc, char* argv[])
         {
             grace::IO::info_output() ; 
         }
+        if( (healpix_surf_output_every>0)
+            and (iter % healpix_surf_output_every ==0))
+            {
+              //  grace::healpix::compute_fluxes() ;
+                //grace::IO::save_healpix_data() ;
+                
+            }
+        if( (healpix_integrals_every>0)
+            and (iter % healpix_integrals_every ==0))
+            {
+                // grace::healpix::compute_integrals() ;
+                //grace::IO::save_healpix_integrals_data() ;
+                
+            }
     }
     
     grace::grace_finalize() ; 

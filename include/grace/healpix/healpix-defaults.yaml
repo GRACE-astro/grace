@@ -1,0 +1,9 @@
+healpix: {
+  healpix_radii : [ 10 , 20 , 30 ], 
+  healpix_nside : 32 ,
+  healpix_surf_output_every : 400,
+  healpix_integrals_every : 50,  
+  healpix_output_variables : ["Psi4Re", "Psi4Im"], 
+  # healpix_named_fluxes - specify more complicated named integrands e.g. rho_unbound, adm_mass, ang momentum, etc 
+  healpix_multipole_max_l : 4
+}
