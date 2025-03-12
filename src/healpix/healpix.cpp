@@ -39,26 +39,30 @@
 
 namespace grace {
 
-namespace healpix {
+        namespace healpix {
 
-// definition of the constructor 
-healpix_impl_t::healpix_impl_t(){
-        auto& params        = grace::config_parser::get() ;
-        detectors_radii     = params["healpix"]["healpix_radii"].as<std::vector<double>>() ;
-        num_of_detectors    = detectors_radii.size();
-        const size_t nside  = params["healpix"]["healpix_nside"].as<int>() ;
-        _healpix_detectors.reserve(num_of_detectors);
+                // definition of the constructor 
+                healpix_impl_t::healpix_impl_t(){
+                        auto& params        = grace::config_parser::get() ;
+                        detectors_radii     = params["healpix"]["healpix_radii"].as<std::vector<double>>() ;
+                        num_of_detectors    = detectors_radii.size();
+                        const size_t nside  = params["healpix"]["healpix_nside"].as<int>() ;
+                        _healpix_detectors.reserve(num_of_detectors);
 
-        for (size_t idx_det=0; idx_det < num_of_detectors ; idx_det++) {
-                _healpix_detectors.emplace_back(nside , detectors_radii[idx_det]);
+                        for (size_t idx_det=0; idx_det < num_of_detectors ; idx_det++) {
+                                _healpix_detectors.emplace_back(nside , detectors_radii[idx_det]);
+                        }
+                }
+
+                // definition of the destructor 
+                healpix_impl_t::~healpix_impl_t(){}
+
+                void GRACE_HOST
+                healpix_impl_t::update_detectors_info(){
+                        for(auto det: _healpix_detectors) det.update_detector_info();
+                }
+
+
+
         }
-}
-
-
-
-// definition of the destructor 
-healpix_impl_t::~healpix_impl_t(){}
-
-}
-
 }

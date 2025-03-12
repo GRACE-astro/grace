@@ -85,46 +85,7 @@ namespace grace{
 
             //
 
-        
-
-        /** @brief find_quadrants_from_coordinates 
-         *  @note for the passed array of coordinates and based on local forest information, 
-         *        find which detector indices (and hence, which coordinates on the sphere) 
-         *        belong to the given MPI rank 
-         *   credits to Kenneth Miller 
-        **/
-        // void GRACE_HOST
-        // find_quadrants_from_coordinates( ); 
-        // // Need a p4est
-        // auto& forest = grace::amr::forest::get() ; 
-        // // Reset the user data to 0
-        // p4est_search_local(forest.get(), false, reset_func, nullptr, nullptr);
-
-        // sc_array_t* points = generate_sphere_points(500,0.5);
-        // p4est_search_local_t point_search_func = my_points_function;
-        // p4est_search_local(forest.get(), true , nullptr, point_search_func, points);
-
-        // size_t it = 0;
-        // for (size_t i = first; i <= last; i++) // Loop from first to last local tree
-        // {
-        //     auto tree = forest.tree(i);  // Assuming there is a function to access a tree by index
-
-        //     size_t quadrant_offset = tree.quadrants_offset();  // Number of quadrants in the tree
-
-        //     it=0;
-        //     for (auto tree_quadrant : tree.quadrants())
-        //     {
-        //         auto quadrant = tree_quadrant;  // Get the j-th quadrant in the tree (adjust if needed)
-
-        //         if (quadrant.p.user_int != 0)
-        //         {
-        //             //printf("Quadrant %zu in tree %zu intersects the point %d times.\n", i*quadrant_offset + it, i, quadrant.p.user_int);
-        //         }
-        //         it++;
-        //         }
-        //     }
-        
-
+     
         // void GRACE_HOST
         // compute_integrals(){
             // MPI-calls fetch all the data to root 
@@ -177,6 +138,24 @@ namespace grace{
                 }
 
             }
+
+
+       
+        /** @brief update_detector_info 
+         *  @note for the detector's array of coordinates and based on local forest information, 
+         *        find which detector indices (and hence, which coordinates on the sphere) 
+         *        belong to the given MPI rank 
+         *  @credits to Kenneth Miller 
+        **/
+        void GRACE_HOST
+        update_detector_info();
+            
+        
+        void GRACE_HOST_DEVICE
+        update_detector_fluxes();
+
+
+
         };
 
 

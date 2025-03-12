@@ -75,16 +75,25 @@ namespace grace{
         public: 
          
             /**
-             * @brief Get pointer to underlying detectors object. 
+             * @brief Get reference to the underlying detectors vector. 
              */
             GRACE_ALWAYS_INLINE healpix_detectors_t&
             get_detectors() { return _healpix_detectors ; }
 
         //*****************************************************************************************************
         /**
-         * @brief functions governing the initialization, scheduling and computation of detectors 
-         * 
+         * @brief functions governing the tree search and computation for detectors 
          */
+        //*****************************************************************************************************
+            
+            /**
+             * @brief Fill out each detector struct with information 
+             *      about the quadrants that it crosses in this MPI rank, 
+             *      the healpix pixel indices that it covers and their coordinates        
+             */
+            void GRACE_HOST
+            update_detectors_info();
+
 
 
         //*****************************************************************************************************
