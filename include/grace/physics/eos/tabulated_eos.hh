@@ -68,7 +68,29 @@ class tabulated_eos_t
 
     tabulated_eos_t() = default;
 
-        
+    tabulated_eos_t(
+      Kokkos::View<double****, grace::default_space> alltables,
+      Kokkos::View<double*, grace::default_space> logrho,
+      Kokkos::View<double*, grace::default_space> logtemp,
+      Kokkos::View<double*, grace::default_space> yes,
+      Kokkos::View<double***, grace::default_space> epstable,
+      double c2p_eps_min,
+      double c2p_h_min,
+      double c2p_h_max,
+      double c2p_press_max,
+      double energy_shift)
+    : _alltables(alltables), _logrho(logrho), _logtemp(logtemp), _yes(yes)
+    , _epstable(epstable), _c2p_eps_min(c2p_eps_min), _c2p_h_min(c2p_h_min)
+    , _c2p_h_max(c2p_h_max), _c2p_press_max(c2p_press_max), _energy_shift(energy_shift)
+    {}
+
+  private:
+
+    Kokkos::View<double****, grace::default_space> _alltables ; 
+    Kokkos::View<double***, grace::default_space> _epstable;
+    Kokkos::View<double*, grace::default_space> _logrho, _logtemp, _yes ;
+    double _c2p_eps_min, _c2p_h_min, _c2p_h_max, _c2p_press_max, _energy_shift;
+
 } ;
 
 
@@ -113,24 +135,23 @@ static inline void READ_EOS_HDF5_COMPOSE(hid_t GROUP, const char *NAME, void * V
 }
 
 
-//!TODO replace int return with tabulated_eos_t when finished
-//static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name) {
-static int setup_tabulated_eos_compose(const char *nuceos_table_name) {
-    
+static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name) {
+//static int setup_tabulated_eos_compose(const char *nuceos_table_name) {
+  
+  using namespace physical_constants;
+
   constexpr size_t NTABLES = tabulated_eos_t::EV::NUM_VARS;
 
-  //!TODO ask Carlo how to get the info to work with the test case
-  // GRACE_INFO("*******************************");
-  // GRACE_INFO("Reading COMPOSE nuc_eos table file:");
-  // GRACE_INFO("{}", nuceos_table_name);
-  // GRACE_INFO("*******************************");
+  GRACE_INFO("*******************************");
+  GRACE_INFO("Reading COMPOSE nuc_eos table file:");
+  GRACE_INFO("{}", nuceos_table_name);
+  GRACE_INFO("*******************************");
 
   hid_t file;
 
-  //!TODO need to work out how to call ERROR calls
-  // if (!file_is_readable(nuceos_table_name)){
-  //     ERROR("Could not read nuceos_table_name " << nuceos_table_name);
-  // }
+  if (!file_is_readable(nuceos_table_name)){
+      ERROR("Could not read nuceos_table_name " << nuceos_table_name);
+  }
 
   //HDF5 file is opened
   HDF5_ERROR(file = H5Fopen(nuceos_table_name, H5F_ACC_RDONLY, H5P_DEFAULT));
@@ -157,19 +178,10 @@ static int setup_tabulated_eos_compose(const char *nuceos_table_name) {
   double *logtemp = new double[ntemp];
   double *yes = new double[nye];
 
-
   // Read values of denisty, tempreature and electron fraction respectivley
   READ_EOS_HDF5_COMPOSE(parameters,"nb", logrho, H5T_NATIVE_DOUBLE, H5S_ALL);
   READ_EOS_HDF5_COMPOSE(parameters,"t", logtemp, H5T_NATIVE_DOUBLE, H5S_ALL);
   READ_EOS_HDF5_COMPOSE(parameters,"yq", yes, H5T_NATIVE_DOUBLE, H5S_ALL);
-
-
-  //!TODO take this out when done
-  std::cout << "The dimensions of the table are (" << nrho << ", " << ntemp << ", " << nye << ")" << std::endl; 
-
-  std::cout << "The data range for the density is (" << logrho[0] << ", " << logrho[nrho - 1] << ")" << std::endl;
-  std::cout << "The data range for the tempreature is (" << logtemp[0] << ", " << logtemp[ntemp - 1] << ")" << std::endl;
-  std::cout << "The data range for the electron fraction is (" << yes[0] << ", " << yes[nye - 1] << ")" << std::endl;
 
   //Density, temperatur and electron fraction make up the basis of the grid
   //Now we load in the data that correspond to the values at each table point
@@ -181,8 +193,6 @@ static int setup_tabulated_eos_compose(const char *nuceos_table_name) {
   //We need to find the number of thermal tables in the HDF5 file
   int nthermo;
   READ_ATTR_HDF5_COMPOSE(thermo_id,"pointsqty", &nthermo, H5T_NATIVE_INT);
-
-  std::cout << "The number of thermal tables is " << nthermo << std::endl;
 
   // Read thermo index array
   int *thermo_index = new int[nthermo];
@@ -207,8 +217,6 @@ static int setup_tabulated_eos_compose(const char *nuceos_table_name) {
     HDF5_ERROR(comp_id = H5Gopen(file, "/Composition_pairs", H5P_DEFAULT));
     READ_ATTR_HDF5_COMPOSE(comp_id, "pointspairs", &ncomp, H5T_NATIVE_INT);
   }
-
-  std::cout << "The number of composite tables is " << nthermo << std::endl;
 
   int *index_yi = nullptr;
   double *yi_table = nullptr;
@@ -280,7 +288,7 @@ static int setup_tabulated_eos_compose(const char *nuceos_table_name) {
     return -1;
   };
 
-  // IMPORTANT: The order here needs to match EV in tabulated.hh !
+  // IMPORTANT: The order here needs to match EV from tabulated_eos_t object!
   //Array here contains location of variables in the thermo_index array
   int thermo_index_conv[7]{find_index(PRESS_C), find_index(EPS_C),
                            find_index(S_C),     find_index(CS2_C),
@@ -290,13 +298,27 @@ static int setup_tabulated_eos_compose(const char *nuceos_table_name) {
 
   //Want to copy table data to the all table array with correct ordering 
 
-  //!TODO Talk with Carlo to see if the flattened array is how data should be stroed in GRACE
+  //Allocate memory for the all table array, good point to introduce kokkos views
 
 
-  //Allocate memory for the flattened all table array, allocated using 
-  //smart pointer so that the array can be exported out of the scope of function 
-  auto alltables =
-      std::unique_ptr<double[]>(new double[nrho * ntemp * nye * NTABLES]);
+  //Create Kokkos views to pass data too
+  //TODO! What is the best odering for access patterns
+  Kokkos::View<double****, grace::default_space> alltables("AllTables", nrho, ntemp, nye, NTABLES); 
+  Kokkos::View<double *, grace::default_space> logrhoview("LogRhoView", nrho);
+  Kokkos::View<double *, grace::default_space> logtempview("LogTempView", ntemp);
+  Kokkos::View<double *, grace::default_space> yesview("yesView", nye);
+
+  
+  auto h_alltables = Kokkos::create_mirror_view(alltables); 
+  auto h_logrhoview = Kokkos::create_mirror_view(logrhoview); 
+  auto h_logtempview = Kokkos::create_mirror_view(logtempview); 
+  auto h_yesview = Kokkos::create_mirror_view(yesview);
+
+
+  //Allocate data to kokkos views and convert units/convert logs to natural log
+  for (int i = 0; i < nrho; i++) h_logrhoview(i) = log(logrho[i] * baryon_mass * cm3_to_fm3 * densCGS_to_CU);
+  for (int i = 0; i < ntemp; i++) h_logtempview(i) = log(logtemp[i]);
+  for (int i = 0; i < nye; i++) h_yesview(i) = yes[i];
 
   //Every element of the thermal table is itterated through. The old
   //index is saved and the index required for the GRACE odering is calculated
@@ -307,10 +329,8 @@ static int setup_tabulated_eos_compose(const char *nuceos_table_name) {
         for (int i = 0; i < nrho; i++) {
           auto const iv_thermo = thermo_index_conv[iv];
           int indold = i + nrho * (j + ntemp * (k + nye * iv_thermo));
-          int indnew = iv + NTABLES * (i + nrho * (j + ntemp * k));
-          alltables[indnew] = thermo_table[indold];
+          h_alltables(i, j, k, iv) = thermo_table[indold];
         }
-
 
   //Lambda function to work out index_yi location of table identifier ID
   auto const find_index_yi = [&](size_t const &index) {
@@ -332,31 +352,33 @@ static int setup_tabulated_eos_compose(const char *nuceos_table_name) {
 
 	      if(nav >0){
 	        // ABAR
-	        alltables[tabulated_eos_t::EV::ABAR + indnew] = aav_table[indold];
+          h_alltables(i, j, k, tabulated_eos_t::EV::ABAR) = aav_table[indold];
 	        // ZBAR
-	        alltables[tabulated_eos_t::EV::ZBAR + indnew] = zav_table[indold];
+          h_alltables(i, j, k, tabulated_eos_t::EV::ZBAR) = zav_table[indold];
 	        // Xh
-	        alltables[tabulated_eos_t::EV::XH + indnew] = aav_table[indold] * yav_table[indold];
+          h_alltables(i, j, k, tabulated_eos_t::EV::XH) = aav_table[indold] * yav_table[indold];
 	      }
 	
         //Here the identifier ID is hard coded 
         if(ncomp>0){
 	        // Xn
-	        alltables[tabulated_eos_t::EV::XN + indnew] =
-	          yi_table[indold + nrho * nye * ntemp * find_index_yi(10)];
+          h_alltables(i, j, k, tabulated_eos_t::EV::XN) =
+            yi_table[indold + nrho * nye * ntemp * find_index_yi(10)];
 	        // Xp
-	        alltables[tabulated_eos_t::EV::XP + indnew] =
-	        yi_table[indold + nrho * nye * ntemp * find_index_yi(11)];
+          h_alltables(i, j, k, tabulated_eos_t::EV::XP) =
+            yi_table[indold + nrho * nye * ntemp * find_index_yi(11)];
 	        // Xa
-	        alltables[tabulated_eos_t::EV::XA + indnew] =
-	        4. * yi_table[indold + nrho * nye * ntemp * find_index_yi(4002)];
+          h_alltables(i, j, k, tabulated_eos_t::EV::XA) = 
+            4. * yi_table[indold + nrho * nye * ntemp * find_index_yi(4002)];
 	      }
-      
   }
 
   //Free memory
   delete[] thermo_index;
   delete[] thermo_table;
+  delete[] logrho;
+  delete[] logtemp;
+  delete[] yes;
 
   if(index_yi != nullptr) delete[] index_yi;
   if(yi_table != nullptr) delete[] yi_table;
@@ -365,32 +387,13 @@ static int setup_tabulated_eos_compose(const char *nuceos_table_name) {
   if(yav_table != nullptr) delete[] yav_table;
   if(aav_table != nullptr) delete[] aav_table;
 
-  //Convert units and convert logs to natural log
-  // The latter is great, because exp() is way faster than pow()
-  // pressure
-  //TODO! Is there a nice way to write this
-  for (int i = 0; i < nrho; i++) {
-    logrho[i] = log(logrho[i] * physical_constants::baryon_mass * physical_constants::cm3_to_fm3 * physical_constants::densCGS_to_CU);
-  }
-
-  for (int i = 0; i < ntemp; i++) {
-    logtemp[i] = log(logtemp[i]);
-  }
-
   //Allocate memory for linear energy density table
   //linear scale is used to extrapolate negative energy densities
-  double *epstable;
-
-
-  //if statement is used to handel error
-  //TODO! Talk to Carlo about how to handel error within GRACE framework
-  //This is done on the CPU may be better to run this check on GPU
-  if (!(epstable = (double *)malloc(nrho * ntemp * nye * sizeof(double)))) {
-    std::cout << "Cannot allocate memory for EOS table" << std::endl;
-  }
-
+  //double *epstable;
+  Kokkos::View<double *** , grace::default_space> epstable("linear_energy_table", nrho, ntemp, nye);
+  auto h_epstable = Kokkos::create_mirror_view(epstable); 
   
-  //TODO! These variables are used elsewhere in GRACE what is the best way to utilise
+
   double c2p_eps_min = 1.e99;
   double c2p_h_min = 1.e99;
   double c2p_h_max = 0.;
@@ -398,106 +401,75 @@ static int setup_tabulated_eos_compose(const char *nuceos_table_name) {
 
   double energy_shift = 0;
 
-  //Get eps_min
-  for (int i = 0; i < nrho * ntemp * nye; i++) {
-    int idx = tabulated_eos_t::EV::EPS + NTABLES * i;
-    c2p_eps_min = math::min(c2p_eps_min, alltables[idx]);
-  };
+  //Get eps_min and convert units
+  for (int k = 0; k < nye; k++)
+    for (int j = 0; j < ntemp; j++)
+      for (int i = 0; i < nrho; i++) {
+        double pressL, epsL, rhoL;
 
-  //convert units
-  for (int i = 0; i < nrho * ntemp * nye; i++) {
-    double pressL, epsL, rhoL;
-    
-    { // pressure
-      int idx = tabulated_eos_t::EV::PRESS + NTABLES * i;
-      alltables[idx] = log(alltables[idx] * physical_constants::MeV_to_erg * physical_constants::cm3_to_fm3 * physical_constants::pressCGS_to_CU);
-      pressL = exp(alltables[idx]);
-      c2p_press_max = math::max(c2p_press_max, pressL);
-    }
+        c2p_eps_min = math::min(c2p_eps_min, h_alltables(i, j, k, tabulated_eos_t::EV::EPS));
 
-    { //eps
-      int idx = tabulated_eos_t::EV::EPS + NTABLES * i;
-      //shift eps to a postive range if necessary
-      if (c2p_eps_min < 0) {
-        energy_shift = -2.0 * c2p_eps_min;
-        alltables[idx] += energy_shift;
+        
+        { //pressure
+        h_alltables(i, j, k, tabulated_eos_t::EV::PRESS) = 
+          log(h_alltables(i, j, k, tabulated_eos_t::EV::PRESS) * MeV_to_erg * cm3_to_fm3 * pressCGS_to_CU);
+
+        pressL = exp(h_alltables(i, j, k, tabulated_eos_t::EV::PRESS));
+        c2p_press_max = math::max(c2p_press_max, pressL);
+        }
+
+        { //eps
+        if (c2p_eps_min < 0) {
+          energy_shift = -2.0 * c2p_eps_min;
+          h_alltables(i, j, k, tabulated_eos_t::EV::EPS) += energy_shift;
+        }
+        
+        h_epstable(i, j, k) = h_alltables(i, j, k, tabulated_eos_t::EV::EPS);
+        h_alltables(i, j, k, tabulated_eos_t::EV::EPS) = log(h_alltables(i, j, k, tabulated_eos_t::EV::EPS));
+        epsL = h_epstable(i, j, k) - energy_shift;
+        }
+
+        { //cs2
+        if (h_alltables(i, j, k, tabulated_eos_t::EV::CS2) < 0) h_alltables(i, j, k, tabulated_eos_t::EV::CS2) = 0;
+        h_alltables(i, j, k, tabulated_eos_t::EV::CS2) = 
+          math::min(0.9999999, h_alltables(i, j, k, tabulated_eos_t::EV::CS2));
+        }
+
+        { //chemical potential
+        auto const mu_q = h_alltables(i, j, k, tabulated_eos_t::EV::MUP);
+        auto const mu_b = h_alltables(i, j, k, tabulated_eos_t::EV::MUN);
+        
+        h_alltables(i, j, k, tabulated_eos_t::EV::MUP) += mu_b;
+        h_alltables(i, j, k, tabulated_eos_t::EV::MUE) -= mu_q;
+
+        }
+
+        rhoL = exp(h_logrhoview(i));
+        const double hL = 1. + epsL + pressL / rhoL;
+        c2p_h_min = math::min(c2p_h_min, hL);
+        c2p_h_max = math::max(c2p_h_max, hL);
+
       }
 
-      epstable[i] = alltables[idx];
-      alltables[idx] = log(alltables[idx]);
-      epsL = epstable[i] - energy_shift; 
-    }
-
-    { // cs2
-      int idx = tabulated_eos_t::EV::CS2 + NTABLES * i;
-      if (alltables[idx] < 0) alltables[idx] = 0;
-      alltables[idx] = math::min(0.9999999, alltables[idx]);
-    }
-
-    { // chemical potentials
-
-      int idx_p = tabulated_eos_t::EV::MUP + NTABLES * i;
-      int idx_n = tabulated_eos_t::EV::MUN + NTABLES * i;
-      int idx_e = tabulated_eos_t::EV::MUE + NTABLES * i;
-
-      auto const mu_q = alltables[idx_p];
-      
-      //Note that this does not include the rest mass contribution of the
-      // neutron!
-      auto const mu_b = alltables[idx_n];
-
-      //TODO! Ask Carlo about this and the following comment
-      // mu_p = mu_b + mu_q = mu_n + mu_q
-      // Important: To be consistent we should actually subtract the mass
-      // difference between proton and neutron here, but this makes beta eq.
-      // complicated. Hence we leave it this way, but fix it in the Leakage!
-
-      alltables[idx_p] += mu_b;
-      // mu_e = mu_le - mu_q
-      // CHECK: we have mu_l = effective lepton chemical potential (4.7) here
-      //        after (3.23) it says, mu_e = mu_le - mu_q
-      //        charge neutrality says n_l = n_q = n_le + n_lmu
-      //        but how do we get mu_e then?
-      //   ERM: We make the explicit assumption that we have no muons....
-      //        I know we have to fix this later, but for most EOS this is ok
-      //        And if we had muons, I'm pretty sure the Leakage would become
-      //        inconsistent...
-      // Page 8: Assumptions on the relation between
-      //         the electron and muon chemical potentials are discussed
-      //         in the description of each model separately.
-      // Page 10: In this case, the balance between the
-      //          electron and muon densities depends on the assumed relation of
-      //          the electron and muon chemical potentials.
-      alltables[idx_e] -= mu_q;
-    }
-
-    const int irhoL = i % nrho;
-    rhoL = exp(logrho[irhoL]);
-    const double hL = 1. + epsL + pressL / rhoL;
-    c2p_h_min = math::min(c2p_h_min, hL);
-    c2p_h_max = math::max(c2p_h_max, hL);
-  }
+  //Copy data from host to device
+  Kokkos::deep_copy(alltables, h_alltables);
+  Kokkos::deep_copy(logrhoview, h_logrhoview);
+  Kokkos::deep_copy(logtempview, h_logtempview); 
+  Kokkos::deep_copy(yesview, h_yesview);
+  Kokkos::deep_copy(epstable, h_epstable);
 
 
-  }
-
-
-
-
-
-
-  delete[] logrho;
-  delete[] logtemp;
-  delete[] yes;
-
-  
-
-  return 0;
-    
-
-
-    
-
+  return tabulated_eos_t{
+      alltables 
+    , logrhoview
+    , logtempview
+    , yesview
+    , epstable
+    , c2p_eps_min
+    , c2p_h_min
+    , c2p_h_max
+    , c2p_press_max
+    , energy_shift};
     
 
 } 
