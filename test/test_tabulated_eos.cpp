@@ -49,12 +49,11 @@
 #include <hdf5.h>
 
 
-int main() {
-
+TEST_CASE("Tabulated EOS", "[pwpolytrope]")
+{
     std::string table_path = "/users/pierrekh/data/eos_tables/compose_tables/DD2+VQCD_soft_quark_fraction.h5";
 
     auto _tabulated = grace::setup_tabulated_eos_compose(table_path.c_str());
 
     
-    return 0;   
 }
