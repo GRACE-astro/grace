@@ -36,6 +36,11 @@ IO: {
   scalar_output_norm2: [],
   scalar_output_integral: [],
 
+  sphere_surface_integrals_cell_variables: [],
+  sphere_surface_multipoles_cell_variables: [],
+  sphere_surface_multipoles_max_degree: 4, 
+  sphere_surface_scalar_output_every : 10,
+
   output_extra_quantities: false,
 
   n_output_planes: 3,
@@ -117,6 +122,8 @@ IO: {
   output_plane_name_7: "7",
   output_plane_name_8: "8",
   output_plane_name_9: "9",
+
+  sphere_surface_output_nside: 32, 
 
   n_output_spheres: 0,
   output_sphere_x_center_0: 0,

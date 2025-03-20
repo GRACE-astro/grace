@@ -55,18 +55,6 @@ namespace grace{
             double& x1, double& x2, double& x3);
 
 
-        // we need a wrapper around the healpix_detector class that will construct 
-        // a global reference to the healpix state... 
-        /** 
-         * @brief initialize_detectors 
-         * @note we make use of the GRACE singleton object to keep track of the created detectors
-         */
-        // void GRACE_HOST_DEVICE
-        // static initialize_detectors() {
-            
-        // }
-
-
         /** 
          * @brief compute_fluxes 
          * @note scheduling the interpolation on detector surfaces on the device 
@@ -76,14 +64,6 @@ namespace grace{
         compute_surface_fluxes(); 
 
         
-            // need to find and update the relevant quadrants in the forest anytime this routine is called
-            // - the data interpolation takes place there
-            // find_quadrants_from_coordinates()
-
-            // start a kernel here to interpolate the 
-            // interpolate_onto_detector_surfaces() 
-
-            //
 
      
         // void GRACE_HOST

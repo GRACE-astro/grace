@@ -154,11 +154,45 @@ healpix_detector::update_detector_info(){
         p4est_search_local_t point_search_func = my_points_function;
         p4est_search_local(forest.get(), true , nullptr, point_search_func, convert_std_vector_to_sc_array_t(all_coords_det_));
 
+        // all_coords_det contains coordinates of all pixels
+        // how do we mark the pixel --> quadrant mapping in what follows?
+        // how do we update the coords_det from it?
+        // I think information about which function 
+        // how about changing the my_points_function
+        // so that in the quadrant, we save the info about th.... 
+        //     quadrant->p.user_int += 1;
+        // 
+
+
+        // all_coords_det
+        // coords_det (local, on this mpi rank)
+        // 
+        // indices ? not needed if we just carry out the 
+        // at this point we at least know how many finest-level quadrants 
+        // correspond to our set of healpix pixels - i.e. we know the size 
+        // of indices, which_quadrants, outflows_ !!!
+        // now we want to obtain:
+            // indices_; 
+            // which_quadrants_;
+            // outflows_; 
+        // how about we just invoke the interpolation at the relevant quadrants?
+        // let's say:
+        // creatae MDPolicyRange for matching quadrants
+        // call the kernel to fill out outflows_
+        // if coords_det(i,j,k) is within the kernel (check via the quadrant.p.user_int)
+        // , fill out the indices location for bookkeeping (indices.push_back(index))
+        //
+        // , which_quadrants: (which_quadrants[counter]=quadrant_id and outflows 
+        // note: how to make sure the parallel work on which_quadrants will not be overwritten?
+        // what kind of counter to use? 
+        
+            
         size_t it = 0;
         for (size_t i = first; i <= last; i++) // Loop from first to last local tree
         {
             auto tree = forest.tree(i);  // Assuming there is a function to access a tree by index
 
+            // We end up not using this number:
             size_t quadrant_offset = tree.quadrants_offset();  // Number of quadrants in the tree
 
             it=0;
@@ -168,7 +202,10 @@ healpix_detector::update_detector_info(){
 
                 if (quadrant.p.user_int != 0)
                 {
+                    
                     //printf("Quadrant %zu in tree %zu intersects the point %d times.\n", i*quadrant_offset + it, i, quadrant.p.user_int);
+                    //printf("Quadrant %zu in tree %zu intersects the point %d times.\n", i*quadrant_offset + it, i, quadrant.p.user_int);
+
                 }
                 it++;
                 }

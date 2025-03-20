@@ -54,8 +54,6 @@
 
 #include <grace/physics/eos/eos_storage.hh>
 
-#include <grace/healpix/healpix_state.hh>
-
 
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -216,9 +214,6 @@ void initialize(int& argc, char* argv[])
         ,   grace::variable_list::get().getstaggeredcoords() ) ;
     grace::IO::detail::init_auxiliaries()  ;
     grace::eos::initialize() ;
-    grace::healpix::healpix_state::initialize(); 
-    GRACE_INFO("Healpix detectors initialized.");
-
     GRACE_INFO("Initialization done.");
     GRACE_INFO("GRACE running on {} backend", GRACE_BACKEND) ; 
     //GRACE_INFO("GRACE running on {} total devices.", Kokkos::num_devices() ) ; 

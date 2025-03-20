@@ -1,0 +1,99 @@
+name: "grace"
+amr: {
+  npoints_block_x: 100,
+  npoints_block_y: 100,
+  npoints_block_z: 100,
+  xmin: -0.5,
+  xmax: 0.5,
+  ymin: -0.1,
+  ymax: 0.1,
+  zmin: -0.1,
+  zmax: 0.1,
+  periodic_x: true,
+  n_ghostzones: 4,
+  initial_refinement_level: 0,
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_CTORE: 2.,
+  refinement_criterion_CTODE: 1.,
+  refinement_criterion_var: "U",
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+IO: {
+  volume_output_cell_variables: ["alp","gamma_tilde[2,2]","K", "Psi4Re","Psi4Im"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: 100,
+  plane_surface_output_cell_variables: [],
+  plane_surface_output_every: -1,
+  n_output_spheres : 1,
+  output_sphere_radius_0 : 10.0,
+  sphere_surface_output_cell_variables: ["Psi4Re","Psi4Im"],
+  sphere_surface_output_every : 10,
+
+  sphere_surface_integrals_cell_variables: ["Psi4Re","Psi4Im"],
+  sphere_surface_multipoles_cell_variables: ["Psi4Re","Psi4Im"],
+  sphere_surface_multipoles_max_degree: 4, 
+  sphere_surface_scalar_output_every : 10,
+  sphere_surface_output_nside : 32, 
+  
+  info_output_every: 1, #20,
+  info_output_max_reductions: ["alp", "K", "H", "M[0]","Psi4Re","Psi4Im"],
+  info_output_min_reductions:  ["alp", "K"], #["dens","gamma[0,2]","press"],
+  scalar_output_every: 50,
+  scalar_output_minmax: ["rho","press","eps"],
+  scalar_output_norm2: [],
+  scalar_output_integral: [],
+  output_use_hdf5: true, 
+  hdf5_compression_level: 6,
+  hdf5_chunk_size: 8192
+}
+# healpix: {
+#   healpix_radii : [10,20,30], # which radii
+#   healpix_nside : 32, # resolution parameter of the healpix RING grid 
+#   healpix_surf_output_every : 400, # 2d surface output
+#   healpix_integrals_every : 50,  # 0d output - e.g. dominant modes, integrals over a sphere
+#   healpix_output_variables : ["Psi4Re", "Psi4Im"], 
+#   healpix_multipole_max_l : 4  # multipole output - maximal ell in spin-weighted SH
+# }
+system: {
+  console_log_level: "info",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  flush_level: "trace"
+}
+evolution: {
+  time_stepper: "rk2",
+  cfl_factor: 0.4,
+  #final_time: 2.,
+  final_time: 0.1,
+  timestep: 0.0005,
+  timestep_selection_mode: "manual"
+}
+grmhd: {
+  id_type: "linear_gw",
+  gauge_wave_amplitude: 1e-08,
+  gauge_wave_wavelength: 1
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+
+  ye_atmosphere: 0,
+  temp_atmosphere: 0,
+  rho_atmosphere: 1.e-14,
+  eps_maximum: 1.e+05,
+  gamma_th: 1.6666,
+
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [2.],
+    rhos:   [],
+    kappa_0: 0.
+  }
+}
+
+profiling: {
+  do_gpu_profiling: false
+}

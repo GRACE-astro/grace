@@ -84,6 +84,15 @@ class grace_runtime_impl_t
     std::set<std::string> _corner_sphere_surface_output_tensor_vars ;
     std::set<std::string> _cell_sphere_surface_output_symm_tensor_vars ;
     std::set<std::string> _corner_sphere_surface_output_symm_tensor_vars ;
+    // /* Sphere surface reduction  */
+    // std::set<std::string> _cell_sphere_surface_scalar_output_scalar_vars ;
+    // std::set<std::string> _corner_sphere_surface_scalar_output_scalar_vars ;
+    // std::set<std::string> _cell_sphere_surface_scalar_output_vector_vars ;
+    // std::set<std::string> _corner_sphere_surface_scalar_output_vector_vars ;
+    // std::set<std::string> _cell_sphere_surface_scalar_output_tensor_vars ;
+    // std::set<std::string> _corner_sphere_surface_scalar_output_tensor_vars ;
+    // std::set<std::string> _cell_sphere_surfaces_scalar_output_symm_tensor_vars ;
+    // std::set<std::string> _corner_sphere_surface_scalar_output_symm_tensor_vars ;
     /* Scalar output         */
     std::set<std::string> _scalar_output_minmax_vars   ; 
     std::set<std::string> _scalar_output_norm2_vars    ; 
@@ -96,6 +105,11 @@ class grace_runtime_impl_t
     std::set<std::string> _minmax_reduction_vars   ;
     std::set<std::string> _norm2_reduction_vars    ;
     std::set<std::string> _integral_reduction_vars ;
+
+    /* Multipole computations and sum reduction on the sphere*/
+    std::set<std::string> _sphere_integral_reduction_vars ;
+    std::set<std::string> _sphere_multipole_reduction_vars ;
+
     /* Output planes */
     int _n_output_planes ; 
     std::vector<std::array<double,3>> _output_planes_origins ; 
@@ -107,12 +121,16 @@ class grace_runtime_impl_t
     std::vector<double>               _output_spheres_radii    ; 
     std::vector<std::string>          _output_spheres_names    ; 
     std::vector<std::string>          _output_spheres_tracking ;
+    /* Output spheres resolution and reduction options */
+    int _nside_output_spheres ;
+    int _multipole_max_degree;    
     /* Output parameters */ 
     bool   _volume_output        ;
     bool   _surface_output       ; 
     int _volume_output_every  ; 
     int _plane_surface_output_every ; 
     int _sphere_surface_output_every ; 
+    int _sphere_surface_scalar_output_every ; 
     int _scalar_output_every         ; 
     int _info_output_every           ;
     std::filesystem::path _volume_io_basepath ;
@@ -170,6 +188,9 @@ class grace_runtime_impl_t
 
     int GRACE_ALWAYS_INLINE 
     sphere_surface_output_every() const { return _sphere_surface_output_every ; }
+
+    int GRACE_ALWAYS_INLINE 
+    sphere_surface_scalar_output_every() const { return _sphere_surface_scalar_output_every ; }
 
     int GRACE_ALWAYS_INLINE 
     scalar_output_every() const { return _scalar_output_every ; }
@@ -306,6 +327,17 @@ class grace_runtime_impl_t
         return _integral_reduction_vars; 
     }
 
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    sphere_integral_reduction_vars() const {
+        return _sphere_integral_reduction_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    sphere_multipole_reduction_vars() const {
+        return _sphere_multipole_reduction_vars; 
+    }
+    
+
     int GRACE_ALWAYS_INLINE 
     n_surface_output_planes() const {
         return _n_output_planes ; 
@@ -329,6 +361,16 @@ class grace_runtime_impl_t
     int GRACE_ALWAYS_INLINE 
     n_surface_output_spheres() const {
         return _n_output_spheres ; 
+    }
+
+    int GRACE_ALWAYS_INLINE 
+    nside_surface_output_spheres() const {
+        return _nside_output_spheres ; 
+    }
+
+    int GRACE_ALWAYS_INLINE 
+    max_degree_multipoles_surface_output_spheres() const {
+        return _multipole_max_degree ; 
     }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
@@ -379,6 +421,9 @@ class grace_runtime_impl_t
         _volume_output_every = params["IO"]["volume_output_every"].as<int>() ; 
         _scalar_output_every = params["IO"]["scalar_output_every"].as<int>() ; 
         _info_output_every = params["IO"]["info_output_every"].as<int>() ; 
+        _sphere_surface_scalar_output_every = params["IO"]["sphere_surface_scalar_output_every"].as<int>() ; 
+
+
         /* Output filenames and directories */
         _volume_io_basename  = params["IO"]["volume_output_base_filename"].as<std::string>(); 
         _surface_io_basename  = params["IO"]["surface_output_base_filename"].as<std::string>();
@@ -403,6 +448,7 @@ class grace_runtime_impl_t
         }
         /* Set output planes and spheres properties      */
         _n_output_planes = params["IO"]["n_output_planes"].as<int>() ;
+        
         #define READ_IO_PARAM(s,t) params["IO"][s].as<t>()  
         #define AS_TYPE(t) t
         _output_planes_origins.resize(_n_output_planes) ;
@@ -439,6 +485,10 @@ class grace_runtime_impl_t
         }
 
         _n_output_spheres = params["IO"]["n_output_spheres"].as<int>() ;
+        _nside_output_spheres = params["IO"]["sphere_surface_output_nside"].as<int>() ;
+        _sphere_surface_scalar_output_every = params["IO"]["sphere_surface_scalar_output_every"].as<int>() ;
+        _multipole_max_degree = params["IO"]["sphere_surface_multipoles_max_degree"].as<int>() ;
+
         _output_spheres_centers.resize(_n_output_spheres)  ;
         _output_spheres_radii.resize(_n_output_spheres)    ;
         _output_spheres_names.resize(_n_output_spheres)    ;
@@ -474,6 +524,7 @@ class grace_runtime_impl_t
             params["IO"]["plane_surface_output_cell_variables"].as<std::vector<std::string>>() ; 
         auto out_cell_vars_sphere_surface = 
             params["IO"]["sphere_surface_output_cell_variables"].as<std::vector<std::string>>() ; 
+
 
         auto const add_to_scalar_vector_or_tensor_list = 
             [&] ( 
@@ -564,6 +615,18 @@ class grace_runtime_impl_t
         check_vars_exist_and_insert(out_info_max,_info_output_max_vars,_minmax_reduction_vars) ; 
         check_vars_exist_and_insert(out_info_min,_info_output_min_vars,_minmax_reduction_vars) ; 
         check_vars_exist_and_insert(out_info_norm2,_info_output_norm2_vars,_norm2_reduction_vars) ; 
+        /* Sphere reductions (sum and multipoles) */
+        auto out_integral_reduction_vars =  
+            params["IO"]["sphere_surface_integrals_cell_variables"].as<std::vector<std::string>>() ;
+        auto out_multipole_reduction_vars =
+            params["IO"]["sphere_surface_multipoles_cell_variables"].as<std::vector<std::string>>() ;
+        // we can reuse the lambda above thanks to the properties of std::set
+
+        // _sphere_multipole_reduction_vars=
+        //_sphere_integral_reduction_vars
+        check_vars_exist_and_insert(out_integral_reduction_vars, _sphere_integral_reduction_vars,   _sphere_integral_reduction_vars);
+        check_vars_exist_and_insert(out_multipole_reduction_vars, _sphere_multipole_reduction_vars, _sphere_multipole_reduction_vars );
+
         /****************************/
         /* Set iteration count to 0 */ 
         _iter = 0UL ; 
