@@ -4,6 +4,7 @@ register_grace_object_conditional(grace_output_aux GRACE_ENABLE_VTK vtk_output_a
 register_grace_object(grace_hdf5_output hdf5_output.cpp)
 register_grace_object(grace_cell_output cell_output.cpp)
 
+register_grace_object(grace_sphere_output sphere_output.cpp)
 
 register_grace_object(grace_scalar_output scalar_output.cpp)
 

@@ -36,6 +36,7 @@
 #include <grace/data_structures/variable_utils.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/IO/hdf5_output.hh>
+#include <grace/IO/sphere_output.hh>
 #include <grace/utils/numerics/global_interpolators.hh>
 
 #include <grace/parallel/mpi_wrappers.hh>
@@ -74,6 +75,10 @@ void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere) {
     if( out_vol ) {
         write_volume_cell_data_hdf5() ; 
     }
+    if( out_sphere ) {
+        write_sphere_cell_data_hdf5() ; 
+    };
+
     parallel::mpi_barrier() ; 
 }
 

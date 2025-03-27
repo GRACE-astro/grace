@@ -278,6 +278,25 @@ class grace_runtime_impl_t
         return _cell_sphere_surface_output_vector_vars; 
     }
 
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    cell_sphere_surface_output_tensor_vars() const {
+        return _cell_sphere_surface_output_tensor_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_sphere_surface_output_scalar_vars() const {
+        return _corner_sphere_surface_output_scalar_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_sphere_surface_output_vector_vars() const {
+        return _corner_sphere_surface_output_vector_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_sphere_surface_output_tensor_vars() const {
+        return _corner_sphere_surface_output_tensor_vars; 
+    }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
     scalar_output_minmax_vars() const {
@@ -574,11 +593,11 @@ class grace_runtime_impl_t
                                            _cell_volume_output_vector_vars, _corner_volume_output_vector_vars,
                                            _cell_volume_output_symm_tensor_vars, _corner_volume_output_symm_tensor_vars) ; 
         add_to_scalar_vector_or_tensor_list(out_cell_vars_plane_surface,
-                                    _cell_plane_surface_output_scalar_vars, _cell_plane_surface_output_scalar_vars,
+                                    _cell_plane_surface_output_scalar_vars, _corner_plane_surface_output_scalar_vars,
                                     _cell_plane_surface_output_vector_vars, _corner_plane_surface_output_vector_vars,
                                     _cell_plane_surface_output_symm_tensor_vars, _corner_plane_surface_output_symm_tensor_vars) ; 
         add_to_scalar_vector_or_tensor_list(out_cell_vars_sphere_surface,
-                                    _cell_sphere_surface_output_scalar_vars, _cell_sphere_surface_output_scalar_vars,
+                                    _cell_sphere_surface_output_scalar_vars, _corner_sphere_surface_output_scalar_vars,
                                     _cell_sphere_surface_output_vector_vars, _corner_sphere_surface_output_vector_vars,
                                     _cell_sphere_surface_output_symm_tensor_vars, _corner_sphere_surface_output_symm_tensor_vars) ; 
 
