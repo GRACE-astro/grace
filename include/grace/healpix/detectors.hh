@@ -59,9 +59,15 @@ namespace grace{
          * @note we use the RING convention of pixel book-keeping
          */
         void GRACE_HOST 
-        get_coord_from_healpix_index(
+        get_cartesian_coord_from_healpix_index(
             const size_t nside, const double radius, const int idx,
             double& x1, double& x2, double& x3);
+
+        void GRACE_HOST 
+        get_spherical_coord_from_healpix_index(
+            const size_t nside, const int idx,
+            double& th, double& ph);
+
 
         /** 
          * @brief healpix detector info 
@@ -91,7 +97,7 @@ namespace grace{
                     all_coords_det_.resize(pix_end_);
                     for(size_t idx=0; idx<pix_end_ ; idx++){
                         double x1,x2,x3; 
-                        get_coord_from_healpix_index(nside_, radius_det_, idx, x1,x2,x3);
+                        get_cartesian_coord_from_healpix_index(nside_, radius_det_, idx, x1,x2,x3);
                         all_coords_det_[idx]={x1,x2,x3};
                     }
             }
@@ -121,8 +127,10 @@ namespace grace{
             void GRACE_HOST
             update_detector_variable_data(const std::set<std::string> corner_scalar_var
                                         ,const std::set<std::string> corner_vector_var
+                                        ,const std::set<std::string> corner_tensor_var
                                         ,const std::set<std::string> cell_scalar_vars 
                                         ,const std::set<std::string> cell_vector_vars
+                                        ,const std::set<std::string> cell_tensor_vars
                                         ,const size_t interp_method);
 
                 /**  

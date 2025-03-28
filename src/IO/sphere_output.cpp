@@ -42,63 +42,21 @@
 #include <grace/IO/sphere_output.hh>
 #include <grace/healpix/detectors.hh>
 #include <numeric>  // For std::iota
+#include <grace/utils/numerics/spherical_harmonics.hh>
+
+
 
 namespace grace { namespace IO {
 
     using namespace healpix;
     std::map<std::string, healpix_detector> detectors;
 
-
-
-
- 
-    void initialize_spherical_detectors(const int n_detectors, 
-                                        const int nside,
-                                        const std::vector<std::array<double,3>> output_spheres_centres,
-                                        const std::vector<double> output_spheres_radii,
-                                        const std::vector<std::string> output_spheres_names
-                                        ){
-
-            // construct the string-detector map
-            for(size_t id_det=0; id_det<n_detectors; id_det++){
-                    detectors.emplace(output_spheres_names[id_det], 
-                                      healpix::healpix_detector(nside, output_spheres_radii[id_det], output_spheres_centres[id_det]));
-            }
-    }
-
-    void update_spherical_detectors(){
-        for (auto& [name, detector] : detectors) {
-            detector.update_detector_info();
-        }
-    }
-
-    void compute_multipoles( ){
-
-    }
-
-    void compute_spherical_surface_variable_data( ){
-        auto& runtime = grace::runtime::get( ) ;
-        const std::set<std::string> corner_scalar_vars = runtime.corner_sphere_surface_output_scalar_vars();
-        const std::set<std::string> corner_vector_vars = runtime.corner_sphere_surface_output_vector_vars();
-        const std::set<std::string> cell_scalar_vars = runtime.cell_sphere_surface_output_scalar_vars();
-        const std::set<std::string> cell_vector_vars = runtime.cell_sphere_surface_output_vector_vars();
+    // access pattern to a s_Y_lm (pixel_id) spherical harmonic reads:
+    // spherical_harmonics[ell][m][id_pixel]
+    std::vector<std::vector<std::vector<double>>> spherical_harmonics_re; 
+    std::vector<std::vector<std::vector<double>>> spherical_harmonics_im; 
         
-         for (auto& [name, detector] : detectors) {
-            detector.update_detector_variable_data(corner_scalar_vars,
-                                                   corner_vector_vars,
-                                                   cell_scalar_vars,
-                                                   cell_vector_vars,
-                                                   INTERPOLATION_METHODS::LINEAR // this should be steerable by the parfile
-                                                   //INTERPOLATION_METHODS::LAGRANGE3
-                                                    );
-        }
-        //
-
-
-    }
-
-        
-
+    // HDF5 helper routines 
     void InitFile(const std::string& filename, 
                   const double& det_radius) { 
         // char *fn = nullptr;
@@ -241,6 +199,57 @@ namespace grace { namespace IO {
         
     }
 
+    // spherical detectors specific code:
+
+    void initialize_spherical_detectors(const int n_detectors, 
+                                        const int nside,
+                                        const std::vector<std::array<double,3>> output_spheres_centres,
+                                        const std::vector<double> output_spheres_radii,
+                                        const std::vector<std::string> output_spheres_names
+                                        ){
+
+            // construct the string-detector map
+            for(size_t id_det=0; id_det<n_detectors; id_det++){
+                    detectors.emplace(output_spheres_names[id_det], 
+                                      healpix::healpix_detector(nside, output_spheres_radii[id_det], output_spheres_centres[id_det]));
+            }
+    }
+
+    void update_spherical_detectors(){
+        for (auto& [name, detector] : detectors) {
+            detector.update_detector_info();
+        }
+    }
+
+    void compute_spherical_surface_variable_data(std::set<std::string> corner_scalar_vars,
+                                                 std::set<std::string> corner_vector_vars, 
+                                                 std::set<std::string> corner_tensor_vars, 
+                                                 std::set<std::string> cell_scalar_vars, 
+                                                 std::set<std::string> cell_vector_vars,
+                                                 std::set<std::string> cell_tensor_vars){
+
+         for (auto& [name, detector] : detectors) {
+            detector.update_detector_variable_data(corner_scalar_vars,
+                                                   corner_vector_vars,
+                                                   corner_tensor_vars,
+                                                   cell_scalar_vars,
+                                                   cell_vector_vars,
+                                                   cell_tensor_vars,
+                                                   INTERPOLATION_METHODS::LINEAR // this should be steerable by the parfile
+                                                   //INTERPOLATION_METHODS::LAGRANGE3
+                                                    );
+        }
+        //
+
+
+    }
+
+    /**
+     * @brief 
+     * 
+     * @note the 0-th iteration will feature data of pure zeroes for those grid functions
+     *       which are only computed as auxiliary fields 
+     */
 
     void write_sphere_cell_data_hdf5( ){
 
@@ -296,10 +305,20 @@ namespace grace { namespace IO {
             }
         } 
 
+        const std::set<std::string> corner_scalar_vars = runtime.corner_sphere_surface_output_scalar_vars();
+        const std::set<std::string> corner_vector_vars = runtime.corner_sphere_surface_output_vector_vars();
+        const std::set<std::string> corner_tensor_vars = runtime.corner_sphere_surface_output_tensor_vars();
+        const std::set<std::string> cell_scalar_vars = runtime.cell_sphere_surface_output_scalar_vars();
+        const std::set<std::string> cell_vector_vars = runtime.cell_sphere_surface_output_vector_vars();
+        const std::set<std::string> cell_tensor_vars = runtime.cell_sphere_surface_output_tensor_vars();
+        
         update_spherical_detectors();
+
         GRACE_VERBOSE("Updated spherical surfaces info.") ; 
 
-        compute_spherical_surface_variable_data();
+        compute_spherical_surface_variable_data(corner_scalar_vars,corner_vector_vars,corner_tensor_vars,
+                                                cell_scalar_vars,  cell_vector_vars,  cell_tensor_vars );
+
         GRACE_VERBOSE("Interpolated variables on spherical surfaces.") ; 
 
         // IF MODE == SERIAL_WRITING 
@@ -365,13 +384,10 @@ namespace grace { namespace IO {
                     sorted_var_data.resize(12 * nside * nside);
                     for(size_t i_px = 0; i_px < 12*nside*nside; i_px++){
                         sorted_var_data[unsorted_healpix_indices[i_px]] = unsorted_var_data[i_px];
-                            // printf("i_px, unsortedhrealpixidx: %d,%d \n", i_px,unsorted_healpix_indices[i_px]);
                         }
 
                     // we are compliant with the original format https://arxiv.org/abs/2402.11009
                     // add the sorted_var_data to the HDF5 file:
-                    printf("Some psi4 values %f, %f, %f:", sorted_var_data[10], sorted_var_data[50], sorted_var_data[100]);
-                    // GRACE_VERBOSE("var_name, iter, abspath: {}, {}, {}",var_name, current_iteration,absolute_path.string());
                     WriteSingleField(sorted_var_data.data(), 
                                      sorted_var_data.size(), 
                                      var_name,
@@ -385,12 +401,200 @@ namespace grace { namespace IO {
         }  
         
         GRACE_VERBOSE("Saved spherical data.") ; 
-
     } 
 
-    void write_multipole_and_integral_timeseries( ){
 
-    } 
+
+
+    void initialize_spherical_harmonics(const int spin_weight, const int max_ell, const int nside){
+        // we will have #spin_weight many unused arrays (of interior sizes 0)
+        // e.g. spin_weight=2 means l=0 and l=1 are redundant, but
+        // it's more convenient to keep the indexing clean
+        spherical_harmonics_re.resize(max_ell);
+        spherical_harmonics_im.resize(max_ell);
+
+
+        for (int idx_l = spin_weight; idx_l <= max_ell; ++idx_l) {
+            int ell = idx_l; // these coincide
+            spherical_harmonics_re[idx_l].resize(2*ell + 1);  // m ranges from -ell to ell
+            spherical_harmonics_im[idx_l].resize(2*ell + 1);  // m ranges from -ell to ell
+            for (int idx_m = 0; idx_m <= 2*idx_l; ++idx_m) {
+                int m = -ell + idx_m ; // the true index is m = -ell + idx_m 
+
+                spherical_harmonics_re[idx_l][idx_m].resize(12*nside*nside);  // Each [ell][idx_m] has 12 * nside**2  entries
+                spherical_harmonics_im[idx_l][idx_m].resize(12*nside*nside);  // Each [ell][idx_m] has 12 * nside**2  entries
+
+                for (int id_pixel; id_pixel < 12*nside*nside; id_pixel++){
+                    double th, ph;
+                    get_spherical_coord_from_healpix_index(nside, id_pixel, th, ph);
+
+                    utils::multipole_spherical_harmonic(spin_weight, ell, m,
+                                                 th, ph,
+                                                spherical_harmonics_re[idx_l][idx_m][id_pixel],
+                                                spherical_harmonics_im[idx_l][idx_m][id_pixel]);
+                }
+
+            }
+        }
+
+
+    }
+
+
+    void save_multipole_timeseries_hdf5_init(const std::string& abs_path,
+                                             const double radius,
+                                             const int max_l_deg){
+
+
+    }
+
+    // structure of the hdf5 file:
+    // Groups: radius
+    //         data
+    //         ----> data: var1, var2, ..., varN
+    //                                      ----> varI: l
+    //                                                  ----> m
+    //                                                        ----> (time, reY, imY)                            
+    // i.e. data/varI/l/m/* is a timeseries (t,real,imag)
+
+    void save_multipole_timeseries_hdf5(const std::string& abs_path,
+                                        const double& current_time, 
+                                        const std::string& var_name,
+                                        const double& var_val ){
+
+    }
+
+        
+    void write_multipole_timeseries(){
+
+        auto& runtime = grace::runtime::get( ) ;
+        const auto comm = parallel::get_comm_world() ; 
+        const int rank = parallel::mpi_comm_rank()  ; 
+        const int world_size = parallel::mpi_comm_size()  ;
+        const double current_time =  grace::get_simulation_time() ;
+        const int current_iteration = grace::get_iteration() ;
+
+        const int n_detectors = runtime.n_surface_output_spheres();
+        const int nside = runtime.nside_surface_output_spheres();
+        const int max_ell = runtime.max_degree_multipoles_surface_output_spheres();
+
+        // note this is hard-coded because we are only interested in
+        // GW extraction at the moment
+        // in the future, generic variables (Poynting flux, ang. momentum fluxes, etc)
+        // will have to employ a similar philosophy with weight=0
+        constexpr const int spin_weight=2;
+
+        if(spherical_harmonics_re.size()==0 && spherical_harmonics_im.size()==0){
+            initialize_spherical_harmonics(spin_weight, max_ell, nside);
+        }
+
+        const std::set<std::string> corner_scalar_vars = runtime.corner_sphere_surface_multipole_output_scalar_vars();
+        const std::set<std::string> corner_vector_vars = runtime.corner_sphere_surface_multipole_output_vector_vars();
+        const std::set<std::string> corner_tensor_vars = runtime.corner_sphere_surface_multipole_output_tensor_vars();
+        const std::set<std::string> cell_scalar_vars = runtime.cell_sphere_surface_multipole_output_scalar_vars();
+        const std::set<std::string> cell_vector_vars = runtime.cell_sphere_surface_multipole_output_vector_vars();
+        const std::set<std::string> cell_tensor_vars = runtime.cell_sphere_surface_multipole_output_tensor_vars();
+        
+    
+        update_spherical_detectors();
+
+        GRACE_VERBOSE("Updated spherical surfaces info - multipole computation.") ; 
+
+        compute_spherical_surface_variable_data(corner_scalar_vars,corner_vector_vars,corner_tensor_vars,
+                                                cell_scalar_vars,  cell_vector_vars,  cell_tensor_vars );
+
+        GRACE_VERBOSE("Interpolated variables on spherical surfaces for multipole decomposition.") ; 
+
+        // IF MODE == SERIAL_WRITING 
+        int detector_counter = 0;  // Initialize counter
+        // this loop automatically omit ranks that do not have a detector assigned (e.g. no coordinate overlap)
+        // loop over detectors 
+        for (auto& [name, detector] : detectors) {
+            std::vector<int> det_healpix_indices = detector.get_local_rank_healpix_indices();
+            std::map<std::string,std::vector<double>> det_surface_data = detector.get_local_rank_detector_surface_data();
+
+            std::filesystem::path base_path (runtime.surface_io_basepath()) ;
+            const std::string filename =  "./healpix_det_" + name + "_surf.h5";
+            std::filesystem::path out_path = base_path / filename ;
+            // Resolve to absolute path
+            std::filesystem::path absolute_path = std::filesystem::absolute(out_path.lexically_normal());
+
+      
+            auto multipole_index = [=](const int idx_l, const int idx_m ){return idx_l * (2 * max_ell + 1) + idx_m;};
+
+
+            // loop over variables scheduled for multipole decomposition:
+            for ( auto& [var_name, var_data] : det_surface_data) {  
+                // local rank operations : 
+                // partial sum arrays for the scalar product with each spherical harmonic:
+                
+                std::vector<double> local_scalar_products_re(max_ell * (2 * max_ell + 1), 0.0);
+                std::vector<double> local_scalar_products_im(max_ell * (2 * max_ell + 1), 0.0);
+
+                std::vector<double> global_scalar_products_re(max_ell * (2 * max_ell + 1), 0.0);
+                std::vector<double> global_scalar_products_im(max_ell * (2 * max_ell + 1), 0.0);
+
+                // lower ell than spin weight make no sense, clearly
+                // TO DO: parallelize this loop 
+
+
+                for(int idx_l=spin_weight; idx_l<max_ell; idx_l++){
+                    for(int idx_m=0; idx_m <= 2*idx_l; idx_m++){
+
+                        int idx_multipole = multipole_index(idx_l, idx_m);
+
+                        local_scalar_products_re[idx_multipole] = 0.;
+                        local_scalar_products_im[idx_multipole] = 0.;
+                        for(int idx_pix=0; idx_pix < det_healpix_indices.size(); idx_pix++) {
+                            const int pixel_index = det_healpix_indices[idx_pix];
+                            local_scalar_products_re[idx_multipole] += var_data[pixel_index] * spherical_harmonics_re[idx_l][idx_m][pixel_index] ;
+                            local_scalar_products_im[idx_multipole] += var_data[pixel_index] * spherical_harmonics_im[idx_l][idx_m][pixel_index] ;
+                        }
+                    }
+                }
+
+                /*
+                * At this point, all ranks have their local partial sums for (l>=s,m) 
+                * We perform an MPI sum (harmonic-wise), and save on root 
+                */
+                
+                parallel::mpi_reduce(local_scalar_products_re.data(), 
+                                    global_scalar_products_re.data(),
+                                    local_scalar_products_re.size(),
+                                    mpi_sum,
+                                    grace::master_rank()
+                                    );
+                parallel::mpi_reduce(local_scalar_products_im.data(), 
+                                    global_scalar_products_im.data(),
+                                    local_scalar_products_im.size(),
+                                    mpi_sum,
+                                    grace::master_rank()
+                                    );
+                /*
+                *  Multiply by the healpix measure
+                *  dA = 4 * pi / (12 NSIDE^2) 
+                */
+
+                const double dA = 4. * M_PI / ( 12 * nside * nside );
+                
+                std::for_each(global_scalar_products_re.begin(), global_scalar_products_re.end(),
+                                [&](double& pt_val){ pt_val *= dA  ;});
+
+                std::for_each(global_scalar_products_im.begin(), global_scalar_products_im.end(),
+                                [&](double& pt_val){ pt_val *= dA ;});
+
+                // save all the multipoles of this variable to hdf5 file
+
+            }
+
+        }
+                detector_counter++;
+        
+        GRACE_VERBOSE("Saved multipole decomposition data.") ; 
+
+        }
+                                 
+
 
 
   }

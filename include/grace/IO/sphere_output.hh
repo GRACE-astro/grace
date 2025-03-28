@@ -43,11 +43,29 @@
 #include <grace/healpix/detectors.hh>
 
 
+/**
+ * @brief This file governs the scheduling and computation of spherical surface output
+ * 
+ *  TODO: There is a number of different kinds of output we want:
+ *        1. 2D healpix output of a registered variable (interpolation onto the sphere)
+ *        2. 2D healpix output of a named variable (e.g. integrand consisting of several fields)
+ *        3. 2D healpix output for vector-type variables in the form of a contraction with the normal to the surface
+ *        4. 0D multipole output for (1), (2), (3)
+ *        5. Surface integral of (1), (2) and (3) above
+ * 
+ *        For each of the above types, we may additionally be dealing with scalar, vector, tensor
+ *        or symmetric tensor variables.
+ *        The structure of this code should reflect the aforementioned variety of 
+ *        request and be designed flexible enough, without code duplication.
+ */
+
 namespace grace { namespace IO {
 
 
     using namespace healpix;
     extern std::map<std::string, healpix_detector> detectors;
+    extern std::vector<std::vector<std::vector<double>>> spherical_harmonics_re; 
+    extern std::vector<std::vector<std::vector<double>>> spherical_harmonics_im; 
 
 
 
@@ -59,15 +77,38 @@ namespace grace { namespace IO {
 
     void update_spherical_detectors();
 
-    void compute_multipoles();
-    
-    void compute_spherical_surface_variable_data();
+    void compute_spherical_surface_variable_data(std::set<std::string> corner_scalar_vars,
+                                                 std::set<std::string> corner_vector_vars, 
+                                                 std::set<std::string> corner_tensor_vars, 
+                                                 std::set<std::string> cell_scalar_vars, 
+                                                 std::set<std::string> cell_vector_vars,
+                                                 std::set<std::string> cell_tensor_vars );
 
     void write_sphere_cell_data_hdf5() ; 
 
-    void write_multipole_and_integral_timeseries() ; 
+    void initialize_spherical_harmonics(const int spin_weight, const int max_ell, const int nside);
+
+    // void compute_multipoles();
+
+    void save_multipole_timeseries_hdf5_init(const std::string& abs_path,
+                                             const double radius,
+                                             const int max_l_deg);
+
+    void save_multipole_timeseries_hdf5(const std::string& abs_path,
+                                        const double& current_time, 
+                                        const std::string& var_name,
+                                        const double& var_val );
+
+
+    void write_multipole_timeseries(std::set<std::string> corner_scalar_vars,
+                                                 std::set<std::string> corner_vector_vars,
+                                                 std::set<std::string> corner_tensor_vars,
+                                                 std::set<std::string> cell_scalar_vars, 
+                                                 std::set<std::string> cell_vector_vars,
+                                                 std::set<std::string> cell_tensor_vars ) ; 
 
     }
+
 
 }
 

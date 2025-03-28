@@ -84,6 +84,15 @@ class grace_runtime_impl_t
     std::set<std::string> _corner_sphere_surface_output_tensor_vars ;
     std::set<std::string> _cell_sphere_surface_output_symm_tensor_vars ;
     std::set<std::string> _corner_sphere_surface_output_symm_tensor_vars ;
+    // /* Sphere surface multipoles  */
+    std::set<std::string> _cell_sphere_surface_multipole_output_scalar_vars ;
+    std::set<std::string> _corner_sphere_surface_multipole_output_scalar_vars ;
+    std::set<std::string> _cell_sphere_surface_multipole_output_vector_vars ;
+    std::set<std::string> _corner_sphere_surface_multipole_output_vector_vars ;
+    std::set<std::string> _cell_sphere_surface_multipole_output_tensor_vars ;
+    std::set<std::string> _corner_sphere_surface_multipole_output_tensor_vars ;
+    std::set<std::string> _cell_sphere_surface_multipole_output_symm_tensor_vars ;
+    std::set<std::string> _corner_sphere_surface_multipole_output_symm_tensor_vars ;
     // /* Sphere surface reduction  */
     // std::set<std::string> _cell_sphere_surface_scalar_output_scalar_vars ;
     // std::set<std::string> _corner_sphere_surface_scalar_output_scalar_vars ;
@@ -267,6 +276,7 @@ class grace_runtime_impl_t
         return _cell_plane_surface_output_vector_vars; 
     }
 
+    /** 2D sphere surface vars  */
 
     decltype(auto) GRACE_ALWAYS_INLINE 
     cell_sphere_surface_output_scalar_vars() const {
@@ -297,6 +307,40 @@ class grace_runtime_impl_t
     corner_sphere_surface_output_tensor_vars() const {
         return _corner_sphere_surface_output_tensor_vars; 
     }
+
+    /** Multipole vars */
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    cell_sphere_surface_multipole_output_scalar_vars() const {
+        return _cell_sphere_surface_multipole_output_scalar_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    cell_sphere_surface_multipole_output_vector_vars() const {
+        return _cell_sphere_surface_multipole_output_vector_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    cell_sphere_surface_multipole_output_tensor_vars() const {
+        return _cell_sphere_surface_multipole_output_tensor_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_sphere_surface_multipole_output_scalar_vars() const {
+        return _corner_sphere_surface_multipole_output_scalar_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_sphere_surface_multipole_output_vector_vars() const {
+        return _corner_sphere_surface_multipole_output_vector_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_sphere_surface_multipole_output_tensor_vars() const {
+        return _corner_sphere_surface_multipole_output_tensor_vars; 
+    }
+
+    /** 3D reductions  */
 
     decltype(auto) GRACE_ALWAYS_INLINE 
     scalar_output_minmax_vars() const {
@@ -543,7 +587,11 @@ class grace_runtime_impl_t
             params["IO"]["plane_surface_output_cell_variables"].as<std::vector<std::string>>() ; 
         auto out_cell_vars_sphere_surface = 
             params["IO"]["sphere_surface_output_cell_variables"].as<std::vector<std::string>>() ; 
+        auto out_cell_vars_multipoles = 
+            params["IO"]["sphere_surface_multipoles_cell_variables"].as<std::vector<std::string>>() ; 
 
+        //auto out_cell_vars_sphere_surface_reductions_multipoles = 
+        //     params["IO"]["sphere_surface_multipoles_cell_variables"].as<std::vector<std::string>>() ; 
 
         auto const add_to_scalar_vector_or_tensor_list = 
             [&] ( 
@@ -600,6 +648,14 @@ class grace_runtime_impl_t
                                     _cell_sphere_surface_output_scalar_vars, _corner_sphere_surface_output_scalar_vars,
                                     _cell_sphere_surface_output_vector_vars, _corner_sphere_surface_output_vector_vars,
                                     _cell_sphere_surface_output_symm_tensor_vars, _corner_sphere_surface_output_symm_tensor_vars) ; 
+        add_to_scalar_vector_or_tensor_list(out_cell_vars_multipoles,
+                                    _cell_sphere_surface_multipole_output_scalar_vars, _corner_sphere_surface_multipole_output_scalar_vars,
+                                    _cell_sphere_surface_multipole_output_vector_vars, _corner_sphere_surface_multipole_output_vector_vars,
+                                    _cell_sphere_surface_multipole_output_symm_tensor_vars, _corner_sphere_surface_multipole_output_symm_tensor_vars) ; 
+        // add_to_scalar_vector_or_tensor_list(out_cell_vars_sphere_surface,
+        //                             _cell_sphere_surface_output_scalar_vars, _corner_sphere_surface_output_scalar_vars,
+        //                             _cell_sphere_surface_output_vector_vars, _corner_sphere_surface_output_vector_vars,
+        //                             _cell_sphere_surface_output_symm_tensor_vars, _corner_sphere_surface_output_symm_tensor_vars) ; 
 
         /* Define helper lambda */
         auto const check_vars_exist_and_insert = 
@@ -635,16 +691,16 @@ class grace_runtime_impl_t
         check_vars_exist_and_insert(out_info_min,_info_output_min_vars,_minmax_reduction_vars) ; 
         check_vars_exist_and_insert(out_info_norm2,_info_output_norm2_vars,_norm2_reduction_vars) ; 
         /* Sphere reductions (sum and multipoles) */
-        auto out_integral_reduction_vars =  
+        auto out_sphere_integral_reduction_vars =  
             params["IO"]["sphere_surface_integrals_cell_variables"].as<std::vector<std::string>>() ;
-        auto out_multipole_reduction_vars =
-            params["IO"]["sphere_surface_multipoles_cell_variables"].as<std::vector<std::string>>() ;
+        // auto out_multipole_reduction_vars =
+        //     params["IO"]["sphere_surface_multipoles_cell_variables"].as<std::vector<std::string>>() ;
+        
         // we can reuse the lambda above thanks to the properties of std::set
-
         // _sphere_multipole_reduction_vars=
         //_sphere_integral_reduction_vars
-        check_vars_exist_and_insert(out_integral_reduction_vars, _sphere_integral_reduction_vars,   _sphere_integral_reduction_vars);
-        check_vars_exist_and_insert(out_multipole_reduction_vars, _sphere_multipole_reduction_vars, _sphere_multipole_reduction_vars );
+        //check_vars_exist_and_insert(out_integral_reduction_vars, _sphere_integral_reduction_vars,   _sphere_integral_reduction_vars);
+        // check_vars_exist_and_insert(out_multipole_reduction_vars, _sphere_multipole_reduction_vars, _sphere_multipole_reduction_vars );
 
         /****************************/
         /* Set iteration count to 0 */ 

@@ -31,11 +31,12 @@ IO: {
   output_sphere_radius_0 : 0.3,
   
   output_sphere_x_center_0 : 0.0,
-  output_sphere_y_center_0 : 0.1,
-  output_sphere_z_center_0 : -0.2,
+  output_sphere_y_center_0 : 0.0,
+  output_sphere_z_center_0 : -0.0,
   
   surface_output_base_directory: "output_surface",
-  sphere_surface_output_cell_variables: ["Psi4Re","Psi4Im"],
+  #sphere_surface_output_cell_variables: ["Psi4Re","Psi4Im"],
+  sphere_surface_output_cell_variables: ["Psi4Re","Psi4Im", "alp"],
   sphere_surface_output_every : 10,
 
   sphere_surface_integrals_cell_variables: ["Psi4Re","Psi4Im"],

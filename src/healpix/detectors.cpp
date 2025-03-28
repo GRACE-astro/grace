@@ -73,13 +73,62 @@ namespace healpix {
     * 
     */
 
+    // void GRACE_HOST 
+    // get_coord_from_healpix_index(
+    //         const size_t nside, const double radius, const int idx,
+    //         double& x1, double& x2, double& x3){
+
+    //         size_t  i, j, ss;
+    //         double ph, z, phi, theta, aux, dummy;
+
+    //         // calculate the northern polar cap
+    //         if (idx<2*(nside-1)*nside){
+    //             ph = (idx+1.)/2;
+    //             aux = int(ph);
+    //             aux = sqrt(ph-sqrt(aux));
+    //             i = int(aux)+1;
+    //             j = idx+1-2*i*(i-1);
+    //             z = 1-i*i/(3.0*nside*nside);
+    //             ss = 1;
+    //             phi = M_PI*(j-ss/2.0)/(2*i);
+    //         } // calculate the northern and southern belt
+    //         else if (idx<10*nside*nside+2*nside){
+    //             ph = idx-2*nside*(nside-1);
+    //             i = int(ph/(4.*nside))+nside;
+    //             j =  std::fmod(ph, 4.*nside)+1;
+    //             z = 4.0/3.0-2*i/(3.0*nside);
+    //             ss = (i-nside+1) % 2;
+    //             phi = M_PI*(j+ss/2.0-1.0)/(2*nside);
+    //         } // calculate the southern polar cap
+    //         else if (idx<12*nside*nside){
+    //             ph = ((12*nside*nside-idx-1)+1.)/2;
+    //             aux = int(ph);
+    //             aux = sqrt(ph-sqrt(aux));
+    //             i = int(aux)+1;
+    //             j = idx+1-2*i*(i-1);
+    //             z = 1-i*i/(3.0*nside*nside);
+    //             ss = 1;
+    //             phi = 2*M_PI-M_PI*(j-ss/2.0)/(2*i);
+    //         }
+    //         else {
+    //             ERROR("An index larger than 12*nside**2 is not allowed in healpix outflow!");
+    //         }        
+    //         // output coordinate according to coordinate type
+            
+    //         theta = std::acos(z);
+    //         x1 = std::sin(theta) * std::cos(phi) * radius;
+    //         x2 = std::sin(theta) * std::sin(phi) * radius;
+    //         x3 = radius*z;
+    // }
+
+
     void GRACE_HOST 
-    get_coord_from_healpix_index(
-            const size_t nside, const double radius, const int idx,
-            double& x1, double& x2, double& x3){
+    get_spherical_coord_from_healpix_index(
+            const size_t nside, const int idx,
+            double& theta, double& phi){
 
             size_t  i, j, ss;
-            double ph, z, phi, theta, aux, dummy;
+            double ph, z, aux, dummy;
 
             // calculate the northern polar cap
             if (idx<2*(nside-1)*nside){
@@ -113,13 +162,27 @@ namespace healpix {
             else {
                 ERROR("An index larger than 12*nside**2 is not allowed in healpix outflow!");
             }        
-            // output coordinate according to coordinate type
-            
-            theta = std::acos(z);
+            theta = std::acos(z);      
+    }
+
+
+
+    void GRACE_HOST 
+    get_cartesian_coord_from_healpix_index(
+            const size_t nside, const double radius, const int idx,
+            double& x1, double& x2, double& x3){
+
+            size_t  i, j, ss;
+            double ph, z, phi, theta, aux, dummy;
+
+            get_spherical_coord_from_healpix_index(nside, idx,
+                                                   theta, phi);
+
             x1 = std::sin(theta) * std::cos(phi) * radius;
             x2 = std::sin(theta) * std::sin(phi) * radius;
-            x3 = radius*z;
+            x3 = std::cos(theta) * radius;
     }
+
 
 
     void GRACE_HOST
@@ -269,8 +332,10 @@ namespace healpix {
     void GRACE_HOST
     healpix_detector::update_detector_variable_data( const std::set<std::string> corner_scalar_vars
                                                     ,const std::set<std::string> corner_vector_vars
+                                                    ,const std::set<std::string> corner_tensor_vars
                                                     ,const std::set<std::string> cell_scalar_vars 
                                                     ,const std::set<std::string> cell_vector_vars
+                                                    ,const std::set<std::string> cell_tensor_vars
                                                     ,const size_t interp_method
                                                 ){
         
@@ -295,9 +360,33 @@ namespace healpix {
        
         std::set<std::string> corner_vars;
 
-        std::set_union(corner_scalar_vars.begin(), corner_scalar_vars.end(),
-                    corner_vector_vars.begin(), corner_vector_vars.end(), 
-                    std::inserter(corner_vars, corner_vars.begin()));
+        #define COMBINE_VARS(COMBINED_SET, MEMBER)\
+                COMBINED_SET.insert(MEMBER.begin(), MEMBER.end());
+
+
+        COMBINE_VARS(corner_vars,corner_scalar_vars );
+        COMBINE_VARS(corner_vars,corner_vector_vars );
+        COMBINE_VARS(corner_vars,corner_tensor_vars );
+
+
+        // corner_vars.insert(corner_scalar_vars.begin(), corner_scalar_vars.end());
+        // corner_vars.insert(corner_vector_vars.begin(), corner_vector_vars.end());
+        // corner_vars.insert(corner_tensor_vars.begin(), corner_tensor_vars.end());
+
+        // std::set_union(corner_scalar_vars.begin(), corner_scalar_vars.end(),
+        //             corner_vector_vars.begin(), corner_vector_vars.end(), 
+        //             std::inserter(corner_vars, corner_vars.begin()));
+
+        std::set<std::string> cell_vars;
+
+        COMBINE_VARS(cell_vars,cell_scalar_vars );
+        COMBINE_VARS(cell_vars,cell_vector_vars );
+        COMBINE_VARS(cell_vars,cell_tensor_vars );
+
+        // std::set_union(corner_scalar_vars.begin(), corner_scalar_vars.end(),
+        //             corner_vector_vars.begin(), corner_vector_vars.end(), 
+        //             std::inserter(cell_vars, cell_vars.begin()));
+
 
         // Step 1:
         // Copy data to Kokkos Views
