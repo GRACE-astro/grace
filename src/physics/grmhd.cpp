@@ -41,6 +41,7 @@
 #include <grace/physics/id/gauge_wave.hh>
 #include <grace/physics/id/linear_gw.hh>
 #include <grace/physics/id/robust_stability.hh>
+#include <grace/physics/id/gowdy_spacetime.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
@@ -364,6 +365,11 @@ void set_grmhd_initial_data() {
         gen_t gen(12345) ;
         set_grmhd_initial_data_impl<eos_t, robust_stability_test_id_t<eos_t,gen_t>>(
             gen, rho
+        ) ;
+    } else if ( id_type == "gowdy_spacetime" ) {
+        auto const rho = get_param<double>("grmhd", "gowdy_spacetime_amplitude" ) ;
+        set_grmhd_initial_data_impl<eos_t, gowdy_spacetime_id_t<eos_t>>(
+            rho
         ) ;
     } else {    ERROR("Unrecognized id_type " << id_type ) ; 
     }
