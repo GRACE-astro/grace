@@ -56,6 +56,11 @@ namespace grace { namespace IO {
     std::vector<std::vector<std::vector<double>>> spherical_harmonics_re; 
     std::vector<std::vector<std::vector<double>>> spherical_harmonics_im; 
         
+    //TODO:
+    // change these guys to a single
+    // Kokkos::View<Complex***> spherical_harmonics 
+
+
     // HDF5 helper routines 
     void InitFile(const std::string& filename, 
                   const double& det_radius) { 
@@ -404,6 +409,24 @@ namespace grace { namespace IO {
     } 
 
 
+    /*
+      
+        // flattened multipole index space can be created in the following way: 
+
+        // Sum_l=0^ell_max (2l+1) = (l+1)**2 
+        // The access pattern in this case is: 
+        auto multipole_index = [=](const int l, const int m) {
+            return l * l + l + m;  // 1D index
+        };
+
+        //auto multipole_index = [=](const int idx_l, const int idx_m ){return idx_l * (2 * max_ell + 1) + idx_m;};
+
+    
+    */
+
+    int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE multipole_index(const int l, const int m){
+        return l * l + l + m;
+    }
 
 
     void initialize_spherical_harmonics(const int spin_weight, const int max_ell, const int nside){
@@ -532,7 +555,7 @@ namespace grace { namespace IO {
             assert(time_space>=0);
             hid_t dset_time = H5Dcreate(group_id, "time", H5T_NATIVE_DOUBLE, time_space, H5P_DEFAULT, prop, H5P_DEFAULT);
             assert(dset_time>=0);
-            h5eff=H5Dclose(dset_time);
+            h5err=H5Dclose(dset_time);
             assert(h5err>=0);
 
             // create all /data/var/l/m groups
@@ -596,11 +619,10 @@ namespace grace { namespace IO {
                                         const double spin_weight,
                                         const double max_ell,
                                         const std::set<std::string>& vars_names,
-                                        const std::vector<double> &vars_vals_Re,
-                                        const std::vector<double> &vars_vals_Im,
+                                        const std::map<std::string, Kokkos::View<Kokkos::complex<double>*, Kokkos::HostSpace>> all_multipoles, 
                                         const double current_time ){
         hid_t file_id, dspace_id, dset_id, group_id ;
-        hid_t dgroup_id, dgroup_l_id, dgroup_m_id, dset_vars, dset_time;
+        hid_t dgroup_id, group_var_id, group_l_id, group_m_id, dset_var, dset_time;
 
         hsize_t size{1};
         herr_t h5err ;
@@ -622,8 +644,7 @@ namespace grace { namespace IO {
             file_id = H5Fopen(fn,H5F_ACC_RDWR, H5P_DEFAULT ) ; assert(file_id>=0);
 
             // open /data group
-            group_id = H5Gopen(file_id,"data",H5P_DEFAULT,H5P_DEFAULT,
-                                H5P_DEFAULT);
+            group_id = H5Gopen(file_id, "data" ,H5P_DEFAULT);
             assert(group_id>=0);
 
             // append current time to the  extensible /data/time dataset 
@@ -631,7 +652,7 @@ namespace grace { namespace IO {
             
             // restrict the scope for clarity 
             {
-                hid_t dset_var = H5Dopen(group_id, "time", H5P_DEFAULT);
+                dset_var = H5Dopen(group_id, "time", H5P_DEFAULT);
                 assert(dset_var >= 0);
 
                 // Get current dataset size
@@ -666,30 +687,27 @@ namespace grace { namespace IO {
             // now time for all the multipole values: 
             // open all /data/var/l/m groups and append the latest vales to respective datasets
             int counter=0;
-            for( const auto& var: vars_names){
-                        group_var_id = H5Gopen(group_id, var.c_str() ,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+            for( const auto& var_name: vars_names){
+                        group_var_id = H5Gopen(group_id, var_name.c_str() ,H5P_DEFAULT);
                         assert(group_var_id>=0);
                         for(int ell=spin_weight; ell<=max_ell; ell++){
-                            group_l_id = H5Gopen(group_var_id, std::to_string(ell).c_str(), H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+                            group_l_id = H5Gopen(group_var_id, std::to_string(ell).c_str(), H5P_DEFAULT);
                             assert(group_l_id>=0);
                             for(int m=-ell; m<=ell; m++){
-                                group_m_id = H5Gopen(group_l_id, std::to_string(m).c_str() ,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+                                int idx_multipole = multipole_index(ell, m+ell); // m+ell because we need to go from 0 to 2*ell+1 in the indices
+
+                                group_m_id = H5Gopen(group_l_id, std::to_string(m).c_str() ,H5P_DEFAULT);
                                 assert(group_m_id>=0);
                                 // create /data/var/l/m/var_values datasets at the innermost level
-                                // hid_t var_space = H5Screate_simple(1, &initial_size, &max_size);
-                                // assert(var_space>=0);
-                                // hid_t dset_var = H5Dcreate(group_m_id, "values", H5T_NATIVE_DOUBLE, time_space, H5P_DEFAULT, prop, H5P_DEFAULT);
-                                // assert(dset_var>=0);
-                                // append current time to the  extensible /data/time dataset 
-                                // Open dataset
-                                dset_var = H5Dopen(group_m_id, "values", H5P_DEFAULT);
+                                           
+                                // Open dataset for Real:
+                                dset_var = H5Dopen(group_m_id, "Re", H5P_DEFAULT);
                                 assert(dset_var >= 0);
-
                                 // Get current dataset size
-                                hsize_t dims[1]; 
+                                hsize_t dims_re[1]; 
                                 H5Dget_space(dset_var);
                                 H5Dget_storage_size(dset_var);
-                                hsize_t new_size = dims[0] + 1;  // Increase by 1 time step
+                                hsize_t new_size = dims_re[0] + 1;  // Increase by 1 time step
 
                                 // Extend dataset to new size
                                 H5Dset_extent(dset_var, &new_size);
@@ -700,29 +718,55 @@ namespace grace { namespace IO {
 
                                 // Select the new data location in dataset
                                 hid_t file_space = H5Dget_space(dset_var);
-                                hsize_t start[1] = {dims[0]};  // Append at the end
+                                hsize_t start[1] = {dims_re[0]};  // Append at the end
                                 hsize_t count[1] = {1};
                                 H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
-
-                                auto multipole_index = [=](const int idx_l, const int idx_m ){return idx_l * (2 * max_ell + 1) + idx_m;};
-
-                                // Write new data
-                                double new_value = vars_vals[counter];  // new_value to be written 
-                                H5Dwrite(dset_var, H5T_NATIVE_DOUBLE, mem_space, file_space, H5P_DEFAULT, &new_value);
+                                // write a new real value:
+                                // note the beautiful syntax :-) 
+                                H5Dwrite(dset_var, H5T_NATIVE_DOUBLE, mem_space, file_space, H5P_DEFAULT, &all_multipoles.at(var_name)(idx_multipole).real());
 
                                 // Cleanup
                                 h5err=H5Sclose(mem_space);assert(h5err>=0);
                                 h5err=H5Sclose(file_space);assert(h5err>=0);
                                 h5err=H5Dclose(dset_var);assert(h5err>=0);
+
+                                // open dataset for Imag
+                                dset_var = H5Dopen(group_m_id, "Im", H5P_DEFAULT);
+                                assert(dset_var >= 0);
+                                // Get current dataset size
+                                hsize_t dims_im[1]; 
+                                H5Dget_space(dset_var);
+                                H5Dget_storage_size(dset_var);
+                                new_size = dims_im[0] + 1;  // Increase by 1 time step
+
+                                // Extend dataset to new size
+                                H5Dset_extent(dset_var, &new_size);
+
+                                // Define memory space for new data
+                                mem_space = H5Screate_simple(1, &new_size, NULL);
+                                assert(mem_space >= 0);
+
+                                // Select the new data location in dataset
+                                file_space = H5Dget_space(dset_var);
+                                start[0] = {dims_im[0]};  // Append at the end
+                                count[0] = {1};
+                                H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
+                                // write a new imag value:
+                                H5Dwrite(dset_var, H5T_NATIVE_DOUBLE, mem_space, file_space, H5P_DEFAULT, &all_multipoles.at(var_name)(idx_multipole).imag());
+
+                                // Cleanup
+                                h5err=H5Sclose(mem_space);assert(h5err>=0);
+                                h5err=H5Sclose(file_space);assert(h5err>=0);
+                                h5err=H5Dclose(dset_var);assert(h5err>=0);
+
+                                // close m group
                                 h5err=H5Gclose(group_m_id);assert(h5err>=0);
 
                             }     
-                            h5err=H5Gclose(group_l_id);
-                            assert(h5err>=0);
+                            h5err=H5Gclose(group_l_id);assert(h5err>=0);
 
                         }
-                        h5err=H5Gclose(group_var_id);
-                        assert(h5err>=0);       
+                        h5err=H5Gclose(group_var_id);assert(h5err>=0);       
                 counter++;
             }
 
@@ -753,7 +797,8 @@ namespace grace { namespace IO {
         const int n_detectors = runtime.n_surface_output_spheres();
         const int nside = runtime.nside_surface_output_spheres();
         const int max_ell = runtime.max_degree_multipoles_surface_output_spheres();
-
+        
+      
         // note this is hard-coded because we are only interested in
         // GW extraction at the moment
         // in the future, generic variables (Poynting flux, ang. momentum fluxes, etc)
@@ -801,10 +846,10 @@ namespace grace { namespace IO {
             std::filesystem::path absolute_path = std::filesystem::absolute(out_path.lexically_normal());
 
       
-            auto multipole_index = [=](const int idx_l, const int idx_m ){return idx_l * (2 * max_ell + 1) + idx_m;};
-
-            std::set<std::string, std::vector<double>> det_all_multipoles_re; 
-            std::set<std::string, std::vector<double>> det_all_multipoles_im; 
+           
+            // access pattern: e.g. for real part: 
+            // det_all_multipoles.at(var_name)(cumulative_multipole_index).real()
+            std::map<std::string, Kokkos::View<Kokkos::complex<double>*,Kokkos::HostSpace> > det_all_multipoles; 
 
             // here we do a rather dirty(!) trick 
             // since Psi4 is a complex variable, and we currently do not natively support complex fields, 
@@ -812,26 +857,78 @@ namespace grace { namespace IO {
             // just by searching for a substring (yuck!) of a variable name in det_surface_data
             // i.e. we know Psi4Re has a counterpart Psi4Im
             // and we then combine the 
-            
+
             // the scalar product on S_2 reads: 
             // <f, s_Y_lm> = int_S2 conj(f) s_Y_lm * sinth * dth * dph
             // where conj(f) = Real(f) - i Imag(f)
+            
+            // access pattern:
+            // complex_det_surface_data[var_name](healpix_index).real()
+            std::map< std::string,
+                      Kokkos::View<Kokkos::complex<double>*, Kokkos::HostSpace> > complex_det_surface_data; 
+
+            std::set<std::string> all_var_names;    // has Psi4Re, Psi4Im
+            std::set<std::string> unique_var_names; // complex ---> has only Psi4 
+            std::map<std::string,bool> is_variable_complex; // keep track of whether the variable is complex... 
+            int common_var_size;  
+            for ( auto& [var_name, var_data] : det_surface_data) {
+                all_var_names.insert(var_name);
+                common_var_size=var_data.size(); // each one of the fields will have the same no. of entries
+            }
+
+            // fixed suffix size - if we e.g. decide to switch to Real and Imag in the future, we will need to change this:
+            constexpr int suffix_size = sizeof("Re") - 1; 
+
+            // we look if a variable has a name of the type XYZRe and if an equivalent XYZIm exists as well:
+            for ( auto const& var_name : all_var_names) {
+                // complicated syntax:
+                if(var_name.size() > 1 &&                // if the var name is longer than 1 (clearly...)
+                   all_var_names.count(var_name.substr(0, var_name.size() - suffix_size)+ "Re") && // if a key exists that has some root and Re at the end...
+                   all_var_names.count(var_name.substr(0, var_name.size() - suffix_size)+ "Im"))  // and a key exists that shares the root but with Im at the end...
+                    {   // then the variable is complex! 
+                        // we can append the common root of the name:
+                        std::string complex_name = var_name.substr(0, var_name.size() - suffix_size);
+                        unique_var_names.insert(complex_name);
+                        is_variable_complex[complex_name] = true; 
+                    }
+                    // note that since unique_var_names is a set, it will not insert Psi4 twice! great!
+                else{  
+                    unique_var_names.insert(var_name);
+                    is_variable_complex[var_name] = false; 
+                }
+            }
+
+            for ( auto const& var_name : unique_var_names) {
+                Kokkos::View<Kokkos::complex<double>*, Kokkos::HostSpace> complex_field("complex_var", common_var_size);
+                
+                for(int idx=0; idx<common_var_size;idx++){ 
+                    if(!is_variable_complex[var_name]) { // variable purely real
+                        complex_field(idx).real() =  det_surface_data[var_name][idx];
+                        complex_field(idx).imag() =  0.0;
+                    }
+                    else{ // complex variable 
+                        complex_field(idx).real() =  det_surface_data[var_name+"Re"][idx];
+                        complex_field(idx).imag() =  det_surface_data[var_name+"Im"][idx];
+                    }
+                }
+                    complex_det_surface_data[var_name] = complex_field;  // assign to std::map finally 
+            }  
 
 
             // loop over variables scheduled for multipole decomposition:
-            for ( auto& [var_name, var_data] : det_surface_data) {  
+            for ( auto& [var_name, var_data] : complex_det_surface_data) {  
                 // local rank operations : 
                 // partial sum arrays for the scalar product with each spherical harmonic:
-                
-                std::vector<double> local_scalar_products_re(max_ell * (2 * max_ell + 1), 0.0);
-                std::vector<double> local_scalar_products_im(max_ell * (2 * max_ell + 1), 0.0);
+                // we store them in this way and not as a complex Kokkos::View, 
+                // since we invoke mpi_reduce on MPI_DOUBLE type... 
+                std::vector<double> local_scalar_products_re((max_ell+1)*(max_ell+1), 0.0);
+                std::vector<double> local_scalar_products_im((max_ell+1)*(max_ell+1), 0.0);
 
-                std::vector<double> global_scalar_products_re(max_ell * (2 * max_ell + 1), 0.0);
-                std::vector<double> global_scalar_products_im(max_ell * (2 * max_ell + 1), 0.0);
+                std::vector<double> global_scalar_products_re((max_ell+1)*(max_ell+1), 0.0);
+                std::vector<double> global_scalar_products_im((max_ell+1)*(max_ell+1), 0.0);
 
                 // lower ell than spin weight make no sense, clearly
                 // TO DO: parallelize this loop 
-
 
                 for(int idx_l=spin_weight; idx_l<max_ell; idx_l++){
                     for(int idx_m=0; idx_m <= 2*idx_l; idx_m++){
@@ -842,8 +939,16 @@ namespace grace { namespace IO {
                         local_scalar_products_im[idx_multipole] = 0.;
                         for(int idx_pix=0; idx_pix < det_healpix_indices.size(); idx_pix++) {
                             const int pixel_index = det_healpix_indices[idx_pix];
-                            local_scalar_products_re[idx_multipole] += var_data[pixel_index] * spherical_harmonics_re[idx_l][idx_m][pixel_index] ;
-                            local_scalar_products_im[idx_multipole] += -var_data[pixel_index] * spherical_harmonics_im[idx_l][idx_m][pixel_index] ;
+
+                            // conj(F) * Y_lm = 
+                            //    Real(F)*Real(Y_lm) - Imag(F)*Imag(Y_lm)
+                            //+i*(Imag(F)*Real(Y_lm) + Real(F)*Imag(Y_lm))
+                            local_scalar_products_re[idx_multipole] 
+                                                += var_data(pixel_index).real() * spherical_harmonics_re[idx_l][idx_m][pixel_index]\
+                                                  -var_data(pixel_index).imag() * spherical_harmonics_im[idx_l][idx_m][pixel_index];
+                            local_scalar_products_im[idx_multipole] 
+                                                += var_data(pixel_index).imag() * spherical_harmonics_re[idx_l][idx_m][pixel_index]\ 
+                                                  +var_data(pixel_index).real() * spherical_harmonics_im[idx_l][idx_m][pixel_index] ;
                         }
                     }
                 }
@@ -878,12 +983,27 @@ namespace grace { namespace IO {
                 std::for_each(global_scalar_products_im.begin(), global_scalar_products_im.end(),
                                 [&](double& pt_val){ pt_val *= dA ;});
 
-                det_all_multipoles_re.insert({global_scalar_products_re});
-                det_all_multipoles_im.insert({global_scalar_products_im});
+                Kokkos::View<Kokkos::complex<double>*, Kokkos::HostSpace> single_var_multipoles("var_multipoles", (max_ell+1)*(max_ell+1) );
+                for(int idx_l=spin_weight; idx_l<max_ell; idx_l++){
+                    for(int idx_m=0; idx_m <= 2*idx_l; idx_m++){
+                        int idx_multipole = multipole_index(idx_l, idx_m);
+                        // finally, assign to the Kokkos::View...
+                        single_var_multipoles(idx_multipole) = Kokkos::complex<double>(global_scalar_products_re[idx_multipole],
+                                                                                      global_scalar_products_im[idx_multipole]);
+                    }
+                }
+                // operator[] for inserting a map pair:
+                det_all_multipoles[var_name] = single_var_multipoles;
+
+
             }
 
+            // here we have all the multipoles of all our variables for a single detector - great!
+            // time to write all multipoles for all desired variables to HDF5 file for that particular detector
+
+            // blabla
         }
-                detector_counter++;
+        detector_counter++;
         
         GRACE_VERBOSE("Saved multipole decomposition data.") ; 
 
