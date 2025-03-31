@@ -439,28 +439,304 @@ namespace grace { namespace IO {
 
 
     }
+/*================================================================================
+    The multipoles .h5 data has the following layout: 
+
+            Format: 
+            multipoles.h5
+            │-- /radius  (group)
+            │-- /data  (group)
+                │-- /data/time  (dataset, extensible, stores time entries)
+                │-- /data/variable1  (group)
+                │   │-- /data/variable1/0
+                │   │   │-- /data/variable1/0/0/var_values (dataset, extensible)
+                │   │   │-- /data/variable1/0/1/var_values (dataset, extensible)
+                │   │-- /data/variable1/1
+                │   │   │-- /data/variable1/1/-1/var_values (dataset, extensible)
+                │   │   │-- /data/variable1/1/0/var_values (dataset, extensible)
+                │   │   │-- /data/variable1/1/1/var_values (dataset, extensible)
+                │-- /data/variable2  (group)
+================================================================================*/
 
 
     void save_multipole_timeseries_hdf5_init(const std::string& abs_path,
                                              const double radius,
-                                             const int max_l_deg){
+                                             const int spin_weight, 
+                                             const int max_ell,
+                                             std::set<std::string> vars_names){
+        hid_t file_id, dspace_id, dset_id, group_id ;
+        hid_t group_var_id, group_time_id, group_l_id, group_m_id;
 
+        hsize_t size{1};
+        herr_t h5err ;
+
+        // the master rank takes care of HDF5 I/O
+        // Here notice that it may not hold any information regarding
+        // this particular surface. But it doesn't matter since we're
+        // only writing its radius now.
+        if ( parallel::mpi_comm_rank() == grace::master_rank() )
+        {
+            const char* fn = abs_path.c_str();
+            assert(fn) ; 
+
+            hid_t is_hdf5;
+            H5E_BEGIN_TRY { is_hdf5 = H5Fopen(fn,
+                                                H5F_ACC_RDWR,
+                                                H5P_DEFAULT ) ; }
+            H5E_END_TRY ;
+            // if the file exists we have nothing to initialize
+            if ( is_hdf5 >= 0)
+            return ;
+            
+            file_id = H5Fcreate(fn, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+            assert( file_id >= 0 );
+
+            dspace_id = H5Screate_simple( 1, &size, nullptr);
+            assert(dspace_id>=0);
+
+            dset_id = H5Dcreate2( file_id, "/radius", H5T_NATIVE_DOUBLE, dspace_id,
+                        H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT );
+            assert(dset_id>=0);
+
+            h5err = H5Dwrite( dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL,
+                    H5P_DEFAULT, &radius );
+            assert(h5err>=0);
+
+            h5err = H5Dclose(dset_id);
+             assert(h5err>=0);
+            
+            h5err = H5Sclose(dspace_id);
+            assert(h5err>=0);
+
+            // create /data group
+            group_id = H5Gcreate(file_id,"data",H5P_DEFAULT,H5P_DEFAULT,
+                                H5P_DEFAULT);
+            assert(group_id>=0);
+
+            // Enable chunking property for time and individual /data/var/l/m datasets
+            hid_t prop = H5Pcreate(H5P_DATASET_CREATE);
+            hsize_t chunk_size = 10;
+            H5Pset_chunk(prop, 1, &chunk_size);
+
+            // create extensible /data/time dataset 
+            // group_time_id = H5Gcreate(group_id,"time",H5P_DEFAULT,H5P_DEFAULT,
+            //                     H5P_DEFAULT);
+            // assert(group_time_id>=0);
+
+            // settings for extensible datasets:
+            hsize_t initial_size = 1, max_size = H5S_UNLIMITED;
+
+            // Create /data/time as an extensible dataset
+            //
+            hid_t time_space = H5Screate_simple(1, &initial_size, &max_size);
+            assert(time_space>=0);
+            hid_t dset_time = H5Dcreate(group_id, "time", H5T_NATIVE_DOUBLE, time_space, H5P_DEFAULT, prop, H5P_DEFAULT);
+            assert(dset_time>=0);
+            h5eff=H5Dclose(dset_time);
+            assert(h5err>=0);
+
+            // create all /data/var/l/m groups
+            for( const auto& var: vars_names ){
+                        group_var_id = H5Gcreate(group_id, var.c_str() ,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+                        assert(group_var_id>=0);
+                        for(int ell=spin_weight; ell<=max_ell; ell++){
+                            group_l_id = H5Gcreate(group_var_id, std::to_string(ell).c_str(), H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+                            assert(group_l_id>=0);
+                            for(int m=-ell; m<=ell; m++){
+                                group_m_id = H5Gcreate(group_l_id, std::to_string(m).c_str() ,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+                                assert(group_m_id>=0);
+                                // create /data/var/l/m/var_values datasets at the innermost level
+                                hid_t var_space = H5Screate_simple(1, &initial_size, &max_size);
+                                assert(var_space>=0);
+                                // hid_t dset_var = H5Dcreate(group_m_id, "var_values", H5T_NATIVE_DOUBLE, var_space, H5P_DEFAULT, prop, H5P_DEFAULT);
+                                // assert(dset_var>=0);
+                                // create separate datasets for Real and Imag parts:
+                                // real
+                                hid_t dset_var = H5Dcreate(group_m_id, "Re", H5T_NATIVE_DOUBLE, var_space, H5P_DEFAULT, prop, H5P_DEFAULT);
+                                assert(dset_var>=0);
+                                h5err=H5Dclose(dset_var);
+                                assert(h5err>=0);
+                                // imag 
+                                dset_var       = H5Dcreate(group_m_id, "Im", H5T_NATIVE_DOUBLE, var_space, H5P_DEFAULT, prop, H5P_DEFAULT);
+                                assert(dset_var>=0);
+                                h5err=H5Dclose(dset_var);
+                                assert(h5err>=0);
+                                // close m group
+                                h5err=H5Gclose(group_m_id);
+                                assert(h5err>=0);
+
+                            }     
+                            // close l group
+                            h5err=H5Gclose(group_l_id);
+                            assert(h5err>=0);
+
+                        }
+                        h5err=H5Gclose(group_var_id);
+                        assert(h5err>=0);
+  
+            }
+
+            // close properties
+            h5err = H5Pclose(prop);
+            assert(h5err>=0);
+            // close /data group
+            h5err = H5Gclose(group_id);
+            assert(h5err>=0);
+            // close file 
+            h5err = H5Fclose(file_id);
+            assert(h5err>=0);
+        
+        }
+
+        return ; 
 
     }
 
-    // structure of the hdf5 file:
-    // Groups: radius
-    //         data
-    //         ----> data: var1, var2, ..., varN
-    //                                      ----> varI: l
-    //                                                  ----> m
-    //                                                        ----> (time, reY, imY)                            
-    // i.e. data/varI/l/m/* is a timeseries (t,real,imag)
-
     void save_multipole_timeseries_hdf5(const std::string& abs_path,
-                                        const double& current_time, 
-                                        const std::string& var_name,
-                                        const double& var_val ){
+                                        const double spin_weight,
+                                        const double max_ell,
+                                        const std::set<std::string>& vars_names,
+                                        const std::vector<double> &vars_vals_Re,
+                                        const std::vector<double> &vars_vals_Im,
+                                        const double current_time ){
+        hid_t file_id, dspace_id, dset_id, group_id ;
+        hid_t dgroup_id, dgroup_l_id, dgroup_m_id, dset_vars, dset_time;
+
+        hsize_t size{1};
+        herr_t h5err ;
+
+    
+        if ( parallel::mpi_comm_rank() == grace::master_rank() )
+        {
+            const char* fn = abs_path.c_str();
+            assert(fn) ; 
+
+            hid_t is_hdf5;
+            H5E_BEGIN_TRY { is_hdf5 = H5Fopen(fn,
+                                                H5F_ACC_RDWR,
+                                                H5P_DEFAULT ) ; }
+            H5E_END_TRY ;
+            // file must already exist to write
+            assert(is_hdf5 >= 0);
+            // if successful, open:
+            file_id = H5Fopen(fn,H5F_ACC_RDWR, H5P_DEFAULT ) ; assert(file_id>=0);
+
+            // open /data group
+            group_id = H5Gopen(file_id,"data",H5P_DEFAULT,H5P_DEFAULT,
+                                H5P_DEFAULT);
+            assert(group_id>=0);
+
+            // append current time to the  extensible /data/time dataset 
+            // Open dataset
+            
+            // restrict the scope for clarity 
+            {
+                hid_t dset_var = H5Dopen(group_id, "time", H5P_DEFAULT);
+                assert(dset_var >= 0);
+
+                // Get current dataset size
+                hsize_t dims[1]; 
+                H5Dget_space(dset_var);
+                H5Dget_storage_size(dset_var);
+                hsize_t new_size = dims[0] + 1;  // Increase by 1 time step
+
+                // Extend dataset to new size
+                H5Dset_extent(dset_var, &new_size);
+
+                // Define memory space for new data
+                hid_t mem_space = H5Screate_simple(1, &new_size, NULL);
+                assert(mem_space >= 0);
+
+                // Select the new data location in dataset
+                hid_t file_space = H5Dget_space(dset_var);
+                hsize_t start[1] = {dims[0]};  // Append at the end
+                hsize_t count[1] = {1};
+                H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
+
+                // Write new data
+                double new_value = current_time;  // new_value to be written 
+                H5Dwrite(dset_var, H5T_NATIVE_DOUBLE, mem_space, file_space, H5P_DEFAULT, &new_value);
+
+                // Cleanup
+                h5err=H5Sclose(mem_space);assert(h5err>=0);
+                h5err=H5Sclose(file_space);assert(h5err>=0);
+                h5err=H5Dclose(dset_var);assert(h5err>=0);
+            }
+
+            // now time for all the multipole values: 
+            // open all /data/var/l/m groups and append the latest vales to respective datasets
+            int counter=0;
+            for( const auto& var: vars_names){
+                        group_var_id = H5Gopen(group_id, var.c_str() ,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+                        assert(group_var_id>=0);
+                        for(int ell=spin_weight; ell<=max_ell; ell++){
+                            group_l_id = H5Gopen(group_var_id, std::to_string(ell).c_str(), H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+                            assert(group_l_id>=0);
+                            for(int m=-ell; m<=ell; m++){
+                                group_m_id = H5Gopen(group_l_id, std::to_string(m).c_str() ,H5P_DEFAULT,H5P_DEFAULT,H5P_DEFAULT);
+                                assert(group_m_id>=0);
+                                // create /data/var/l/m/var_values datasets at the innermost level
+                                // hid_t var_space = H5Screate_simple(1, &initial_size, &max_size);
+                                // assert(var_space>=0);
+                                // hid_t dset_var = H5Dcreate(group_m_id, "values", H5T_NATIVE_DOUBLE, time_space, H5P_DEFAULT, prop, H5P_DEFAULT);
+                                // assert(dset_var>=0);
+                                // append current time to the  extensible /data/time dataset 
+                                // Open dataset
+                                dset_var = H5Dopen(group_m_id, "values", H5P_DEFAULT);
+                                assert(dset_var >= 0);
+
+                                // Get current dataset size
+                                hsize_t dims[1]; 
+                                H5Dget_space(dset_var);
+                                H5Dget_storage_size(dset_var);
+                                hsize_t new_size = dims[0] + 1;  // Increase by 1 time step
+
+                                // Extend dataset to new size
+                                H5Dset_extent(dset_var, &new_size);
+
+                                // Define memory space for new data
+                                hid_t mem_space = H5Screate_simple(1, &new_size, NULL);
+                                assert(mem_space >= 0);
+
+                                // Select the new data location in dataset
+                                hid_t file_space = H5Dget_space(dset_var);
+                                hsize_t start[1] = {dims[0]};  // Append at the end
+                                hsize_t count[1] = {1};
+                                H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
+
+                                auto multipole_index = [=](const int idx_l, const int idx_m ){return idx_l * (2 * max_ell + 1) + idx_m;};
+
+                                // Write new data
+                                double new_value = vars_vals[counter];  // new_value to be written 
+                                H5Dwrite(dset_var, H5T_NATIVE_DOUBLE, mem_space, file_space, H5P_DEFAULT, &new_value);
+
+                                // Cleanup
+                                h5err=H5Sclose(mem_space);assert(h5err>=0);
+                                h5err=H5Sclose(file_space);assert(h5err>=0);
+                                h5err=H5Dclose(dset_var);assert(h5err>=0);
+                                h5err=H5Gclose(group_m_id);assert(h5err>=0);
+
+                            }     
+                            h5err=H5Gclose(group_l_id);
+                            assert(h5err>=0);
+
+                        }
+                        h5err=H5Gclose(group_var_id);
+                        assert(h5err>=0);       
+                counter++;
+            }
+
+
+
+
+
+            h5err = H5Gclose(group_id) ;assert(h5err>=0);
+
+            h5err = H5Fclose(file_id) ;assert(h5err>=0);
+            
+        }
+
+        return ; 
 
     }
 
@@ -484,6 +760,9 @@ namespace grace { namespace IO {
         // will have to employ a similar philosophy with weight=0
         constexpr const int spin_weight=2;
 
+        // the spin weights in that case will be provided at runtime:
+        //const std::vector<int> spin_weights = runtime.multipole_spin_weights();
+
         if(spherical_harmonics_re.size()==0 && spherical_harmonics_im.size()==0){
             initialize_spherical_harmonics(spin_weight, max_ell, nside);
         }
@@ -496,6 +775,7 @@ namespace grace { namespace IO {
         const std::set<std::string> cell_tensor_vars = runtime.cell_sphere_surface_multipole_output_tensor_vars();
         
     
+
         update_spherical_detectors();
 
         GRACE_VERBOSE("Updated spherical surfaces info - multipole computation.") ; 
@@ -514,13 +794,28 @@ namespace grace { namespace IO {
             std::map<std::string,std::vector<double>> det_surface_data = detector.get_local_rank_detector_surface_data();
 
             std::filesystem::path base_path (runtime.surface_io_basepath()) ;
-            const std::string filename =  "./healpix_det_" + name + "_surf.h5";
+            const std::string filename =  "./multipoles_det" + name + "_surf.h5";
+            //const std::string filename =  "./multipoles_det" + name + "_spin_weight_" + str::to_string(spin_weight) + ".h5";
             std::filesystem::path out_path = base_path / filename ;
             // Resolve to absolute path
             std::filesystem::path absolute_path = std::filesystem::absolute(out_path.lexically_normal());
 
       
             auto multipole_index = [=](const int idx_l, const int idx_m ){return idx_l * (2 * max_ell + 1) + idx_m;};
+
+            std::set<std::string, std::vector<double>> det_all_multipoles_re; 
+            std::set<std::string, std::vector<double>> det_all_multipoles_im; 
+
+            // here we do a rather dirty(!) trick 
+            // since Psi4 is a complex variable, and we currently do not natively support complex fields, 
+            // we check if the field is complex/has a conjugate counterpart 
+            // just by searching for a substring (yuck!) of a variable name in det_surface_data
+            // i.e. we know Psi4Re has a counterpart Psi4Im
+            // and we then combine the 
+            
+            // the scalar product on S_2 reads: 
+            // <f, s_Y_lm> = int_S2 conj(f) s_Y_lm * sinth * dth * dph
+            // where conj(f) = Real(f) - i Imag(f)
 
 
             // loop over variables scheduled for multipole decomposition:
@@ -548,7 +843,7 @@ namespace grace { namespace IO {
                         for(int idx_pix=0; idx_pix < det_healpix_indices.size(); idx_pix++) {
                             const int pixel_index = det_healpix_indices[idx_pix];
                             local_scalar_products_re[idx_multipole] += var_data[pixel_index] * spherical_harmonics_re[idx_l][idx_m][pixel_index] ;
-                            local_scalar_products_im[idx_multipole] += var_data[pixel_index] * spherical_harmonics_im[idx_l][idx_m][pixel_index] ;
+                            local_scalar_products_im[idx_multipole] += -var_data[pixel_index] * spherical_harmonics_im[idx_l][idx_m][pixel_index] ;
                         }
                     }
                 }
@@ -583,8 +878,8 @@ namespace grace { namespace IO {
                 std::for_each(global_scalar_products_im.begin(), global_scalar_products_im.end(),
                                 [&](double& pt_val){ pt_val *= dA ;});
 
-                // save all the multipoles of this variable to hdf5 file
-
+                det_all_multipoles_re.insert({global_scalar_products_re});
+                det_all_multipoles_im.insert({global_scalar_products_im});
             }
 
         }
