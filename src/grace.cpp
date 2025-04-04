@@ -43,6 +43,7 @@
 #include <grace/evolution/find_stable_timestep.hh>
 #include <grace/IO/cell_output.hh>
 #include <grace/IO/scalar_output.hh>
+#include <grace/IO/sphere_output.hh>
 
 
 /**********************************************************************************/
@@ -99,6 +100,10 @@ int main(int argc, char* argv[])
         grace::get_param<int64_t>("IO","scalar_output_every") ;
     int64_t info_output_every =
         grace::get_param<int64_t>("IO","info_output_every") ;
+    int64_t multipoles_output_every =
+        grace::get_param<int64_t>("IO","sphere_surface_multipole_output_every") ;
+
+
 
     std::string tstep_mode = grace::get_param<std::string>("evolution","timestep_selection_mode") ;
     if ( tstep_mode == "manual" ) {
@@ -106,10 +111,14 @@ int main(int argc, char* argv[])
     }
     if ( volume_output_every > 0 )
         grace::IO::write_cell_output(true,true,true) ;
+
     grace::IO::compute_reductions() ; 
     grace::IO::initialize_output_files() ; 
     if ( scalar_output_every > 0 )
         grace::IO::write_scalar_output() ;
+    if ( multipoles_output_every > 0) 
+            grace::IO::write_multipole_timeseries();
+
     GRACE_INFO("Starting evolution.") ; 
     grace::IO::info_output() ;
     /**********************************************************************************/
@@ -161,6 +170,11 @@ int main(int argc, char* argv[])
         {
             grace::IO::info_output() ; 
         }
+        if ( (multipoles_output_every > 0) 
+          and (iter % multipoles_output_every == 0)){
+            grace::IO::write_multipole_timeseries();
+        }
+
        
     }
     

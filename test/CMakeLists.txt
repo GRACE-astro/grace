@@ -73,6 +73,7 @@ add_grace_test(varlist_test test_variable_list.cpp)
 add_grace_test(coordinate_test test_coordinates.cpp)
 add_grace_test(volume_output_test test_output.cpp)
 add_grace_test(regrid_test test_regridding.cpp)
+add_grace_test(multipole_decomposition_test test_multipole_decomposition.cpp)
 add_grace_test(bc_test test_bc.cpp)
 add_grace_test(scalar_reductions_test test_scalar_reductions.cpp)
 add_grace_test(hdf5_output_test test_hdf5_IO.cpp)
@@ -142,3 +143,5 @@ add_test(NAME sly4_pw_c2p_test COMMAND
 add_test(NAME device_vector_test COMMAND ./device_vector_test )
 add_test(NAME test_p4est_search COMMAND 
         mpirun -n 1 ./test_p4est_search --grace-parfile ./configs/h5_io_test.yaml )
+add_test(NAME multipole_decomposition_test COMMAND 
+        mpirun -n 2 ./multipole_decomposition_test --grace-parfile ./configs/multipole_decomposition_test.yaml)

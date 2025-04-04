@@ -63,10 +63,19 @@ namespace grace { namespace IO {
 
 
     using namespace healpix;
+    using namespace Kokkos;
     extern std::map<std::string, healpix_detector> detectors;
     extern std::vector<std::vector<std::vector<double>>> spherical_harmonics_re; 
     extern std::vector<std::vector<std::vector<double>>> spherical_harmonics_im; 
 
+    using Complex = Kokkos::complex<double>;
+    using HostM   = Kokkos::HostSpace;
+    // the size of all the used spin-weighted spherical harmonics (SWSH)
+    // is dictated by max_ell
+    // and nside 
+    // dim0 - (max_ell+1)*(max_ell+1)  // flattened indexing of SWSH space
+    // dim1 - 12 * nside * nside       // indexing of individual SWSH values at healpix points  
+    extern Kokkos::View<Complex**, HostM> sw_sph_harmonics;
 
 
     void initialize_spherical_detectors(const int n_detectors, 
@@ -88,24 +97,39 @@ namespace grace { namespace IO {
 
     void initialize_spherical_harmonics(const int spin_weight, const int max_ell, const int nside);
 
-    // void compute_multipoles();
+    void save_multipole_timeseries_ascii(const std::string& parent_path,
+                                        const double radius,
+                                        const int spin_weight,
+                                        const int max_ell,
+                                        const std::set<std::string>& vars_names,
+                                        const std::map<std::string, Kokkos::View<Kokkos::complex<double>*, Kokkos::HostSpace>> all_multipoles, 
+                                        const double iter,
+                                        const double current_time );
 
-    void save_multipole_timeseries_hdf5_init(const std::string& abs_path,
+   void save_multipole_timeseries_hdf5_init(const std::string& abs_path,
                                              const double radius,
-                                             const int max_l_deg);
-
+                                             const int spin_weight, 
+                                             const int max_ell,
+                                             std::set<std::string> vars_names);
+                                             
+  
     void save_multipole_timeseries_hdf5(const std::string& abs_path,
-                                        const double& current_time, 
-                                        const std::string& var_name,
-                                        const double& var_val );
+                                        const double spin_weight,
+                                        const double max_ell,
+                                        const std::set<std::string>& vars_names,
+                                        const std::map<std::string, View<Complex*, HostM>> all_multipoles, 
+                                        const double current_time );
 
+    std::map<std::string, View<Complex*,HostM>> get_all_multipoles(const int spin_weight, 
+                                                                   const int max_ell,
+                                                                   const int nside,
+                                                                   const std::vector<int>& det_healpix_indices,
+                                                                   const std::map< std::string,
+                                                                   View<Complex*, HostM>>& complex_det_surface_data);
 
-    void write_multipole_timeseries(std::set<std::string> corner_scalar_vars,
-                                                 std::set<std::string> corner_vector_vars,
-                                                 std::set<std::string> corner_tensor_vars,
-                                                 std::set<std::string> cell_scalar_vars, 
-                                                 std::set<std::string> cell_vector_vars,
-                                                 std::set<std::string> cell_tensor_vars ) ; 
+    void write_multipole_timeseries() ;
+     
+    void write_multipole_timeseries_2() ; 
 
     }
 

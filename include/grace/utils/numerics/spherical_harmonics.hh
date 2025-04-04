@@ -42,8 +42,24 @@ namespace grace {
 
     namespace utils{
 
- 
-        GRACE_HOST_DEVICE
+    
+        /*==================================================================================
+        /*                                                                                 */
+        /*     flattened multipole index space can be created in the following way:        */
+        /*                                                                                 */
+        /*     Sum_l=0^ell_max (2l+1) = (l+1)**2                                           */    
+        /*     The access pattern in this case is:                                         */
+        /*                                                                                 */
+        /*    auto multipole_index = [=](const int l, const int m) {                       */   
+        /*        return l * l + l + m;  // 1D index                                       */
+        /*    };                                                                           */
+        /*=================================================================================*/
+
+        int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE multipole_index(const int l, const int m){
+            return l * l + l + m;
+        }
+
+        GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
         static double factorial(int n)
         {
         double returnval = 1;
@@ -92,7 +108,7 @@ namespace grace {
          * @return void
          */
 
-        void GRACE_HOST_DEVICE
+        void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
         multipole_spherical_harmonic(int s, int l, int m,
                                         const double th, const double ph,
                                         double& reY, double& imY)

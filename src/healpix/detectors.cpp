@@ -368,35 +368,30 @@ namespace healpix {
         COMBINE_VARS(corner_vars,corner_vector_vars );
         COMBINE_VARS(corner_vars,corner_tensor_vars );
 
-
-        // corner_vars.insert(corner_scalar_vars.begin(), corner_scalar_vars.end());
-        // corner_vars.insert(corner_vector_vars.begin(), corner_vector_vars.end());
-        // corner_vars.insert(corner_tensor_vars.begin(), corner_tensor_vars.end());
-
-        // std::set_union(corner_scalar_vars.begin(), corner_scalar_vars.end(),
-        //             corner_vector_vars.begin(), corner_vector_vars.end(), 
-        //             std::inserter(corner_vars, corner_vars.begin()));
-
         std::set<std::string> cell_vars;
 
         COMBINE_VARS(cell_vars,cell_scalar_vars );
         COMBINE_VARS(cell_vars,cell_vector_vars );
         COMBINE_VARS(cell_vars,cell_tensor_vars );
 
-        // std::set_union(corner_scalar_vars.begin(), corner_scalar_vars.end(),
-        //             corner_vector_vars.begin(), corner_vector_vars.end(), 
-        //             std::inserter(cell_vars, cell_vars.begin()));
-
 
         // Step 1:
         // Copy data to Kokkos Views
         const size_t num_corner_variables = corner_vars.size(); 
-        const size_t num_cell_centred_variables = cell_scalar_vars.size() + cell_vector_vars.size(); 
+        const size_t num_cell_centred_variables = cell_vars.size(); 
+
+        std::set<std::string> all_vars = corner_vars;
+        all_vars.insert(cell_vars.begin(),cell_vars.end()) ;
+
+
+        // if(num_cell_centred_variables > 0) GRACE_ERROR("NOT YET IMPLEMENTED");
+
 
         Kokkos::View<double**, grace::default_space> d_rank_coords_det("rank_coords_det", indices_.size(), 3);                
         Kokkos::View<int*, grace::default_space>     d_indices("indices", indices_.size() );                
         Kokkos::View<int*, grace::default_space>             d_which_quadrants("quadrants", indices_.size() );                
-        Kokkos::View<double**, grace::default_space>         d_outflows("outflows", num_corner_variables+num_cell_centred_variables, indices_.size()); 
+        //Kokkos::View<double**, grace::default_space>         d_outflows("outflows", num_corner_variables+num_cell_centred_variables, indices_.size()); 
+        Kokkos::View<double**, grace::default_space>         d_outflows("outflows", all_vars.size(), indices_.size()); 
 
         // Step 2: Mirror views to copy data from host to device
         auto h_rank_coords_det = create_mirror_view(d_rank_coords_det);
@@ -426,19 +421,32 @@ namespace healpix {
 
        // Get coordinates of grid corners 
         auto& coord_system = coordinate_system::get() ; 
-        coord_array_t<GRACE_NSPACEDIM> pcoords ; 
-        grace::fill_physical_coordinates(pcoords, {VEC(true,true,true)} ) ;
+        coord_array_t<GRACE_NSPACEDIM> pcoords_corner ; 
+        grace::fill_physical_coordinates(pcoords_corner, {VEC(true,true,true)} ) ;
 
+        coord_array_t<GRACE_NSPACEDIM> pcoords_center ; 
+        grace::fill_physical_coordinates(pcoords_center, {VEC(false,false,false)} ) ;
 
         size_t counter=0;
 
         GRACE_VERBOSE("Interpolating {} corner variables on the sphere" , corner_vars.size()) ; 
 
-        for(auto const& vname: corner_vars) {
-             auto policy = Kokkos::RangePolicy<grace::default_execution_space>(0, indices_.size());
-             auto const u = get_variable_subview(vname) ; 
+        // for(auto const& vname: corner_vars) {
+        for(auto const& vname: all_vars) {
+            auto policy = Kokkos::RangePolicy<grace::default_execution_space>(0, indices_.size());
+            auto const u = get_variable_subview(vname) ; 
+            auto it = variables::detail::_varprops.find(vname);
+            if (it == variables::detail::_varprops.end()) {
+                ERROR("In get_variable_subview variable " << vname << " does not exist.") ;
+            }
 
-             parallel_for( GRACE_EXECUTION_TAG("IO","surface_interpolation") 
+            auto const& stagger_type = (it->second).staggering; 
+            if(not ((stagger_type == var_staggering_t::CELL_CENTER) ||
+                    (stagger_type == var_staggering_t::CORNER)        )){
+                    ERROR("Unrecognized staggering for this routine");
+            }
+
+            parallel_for( GRACE_EXECUTION_TAG("IO","surface_interpolation") 
                     , policy 
                     , KOKKOS_LAMBDA(int idx_loc_pix){
 
@@ -447,10 +455,21 @@ namespace healpix {
 
                             // if INTERPOLATION_METHOD::LINEAR
                             const size_t iq = d_which_quadrants(idx_loc_pix); 
+                       
+
+                            coord_array_t<GRACE_NSPACEDIM> pcoords;
+
+                            if ( stagger_type == var_staggering_t::CORNER ) {
+                                pcoords=pcoords_corner;
+                            } 
+                            else if( stagger_type == var_staggering_t::CELL_CENTER ){
+                                pcoords=pcoords_center;
+                            }
+                            
+                           
                             const std::array<double,3> pcoords_lower = { pcoords(VEC(ngz,ngz,ngz),0,iq),
                                                                          pcoords(VEC(ngz,ngz,ngz),1,iq),
                                                                          pcoords(VEC(ngz,ngz,ngz),2,iq) };
-
     
                             // between 0 and 1:                                
                             const double dst_x = std::fmod((d_rank_coords_det(idx_loc_pix,0) - pcoords_lower[0]) , dx(0,iq)) / dx(0,iq);
@@ -477,7 +496,8 @@ namespace healpix {
         Kokkos::deep_copy(h_outflows, d_outflows);
 
         counter=0;
-        for (auto const& vname : corner_vars) {
+        //for (auto const& vname : corner_vars) {
+        for (auto const& vname : all_vars) {
                 std::vector<double> outflow_;
                 outflow_.resize(indices_.size());
                 for(int i = 0 ; i < indices_.size() ; i++){
