@@ -64,7 +64,7 @@ namespace grace { namespace IO {
     // and nside 
     // dim0 - (max_ell+1)*(max_ell+1)  // flattened indexing of SWSH space
     // dim1 - 12 * nside * nside       // indexing of individual SWSH values at healpix points  
-    Kokkos::View<Complex**, HostM> sw_sph_harmonics; //("spin_weighted_spherical_harmonics",1,1);
+    // Kokkos::View<Complex**, HostM> sw_sph_harmonics; //("spin_weighted_spherical_harmonics",1,1);
 
 
     // HDF5 helper routines 
@@ -451,7 +451,7 @@ namespace grace { namespace IO {
     }
 
 
-    void update_spin_weighted_spherical_harmonics(const int spin_weight, const int max_ell, const int nside){
+    void update_spin_weighted_spherical_harmonics(Kokkos::View<Complex**, HostM>& sw_sph_harmonics, const int spin_weight, const int max_ell, const int nside){
         // we will have #spin_weight many unused arrays (of interior sizes 0)
         // e.g. spin_weight=2 means l=0 and l=1 are redundant, but
         // it's more convenient to keep the indexing clean
@@ -908,11 +908,11 @@ namespace grace { namespace IO {
 
         // if (sw_sph_harmonics.data()) {
          // If needed, explicitly deallocate or clear before reallocating
-        sw_sph_harmonics = Kokkos::View<Complex**, HostM>();
+        Kokkos::View<Complex**, HostM> sw_sph_harmonics = Kokkos::View<Complex**, HostM>();
         // }
 
         if(sw_sph_harmonics.extent(0)==0 and sw_sph_harmonics.extent(1)==0){  // if data=0
-                update_spin_weighted_spherical_harmonics(spin_weight, max_ell, nside);
+                update_spin_weighted_spherical_harmonics(sw_sph_harmonics, spin_weight, max_ell, nside);
                 GRACE_VERBOSE("SWSH updated. Current size: {} x {}.", sw_sph_harmonics.extent(0),sw_sph_harmonics.extent(1) ) ; 
         }
         
@@ -1165,8 +1165,8 @@ namespace grace { namespace IO {
                        const int max_ell,
                        const int nside,
                        const std::vector<int>& det_healpix_indices,
-                       const std::map< std::string,
-                       View<Complex*, HostM>>& complex_det_surface_data){
+                       const View<Complex**, HostM>& sw_sph_harmonics,
+                       const std::map< std::string, View<Complex*, HostM>>& complex_det_surface_data){
 
                             std::map<std::string, View<Complex*,HostM>> det_all_multipoles; 
 
@@ -1218,6 +1218,7 @@ namespace grace { namespace IO {
                                     /*
                                     * At this point, all ranks have their local partial sums for (l>=s,m) 
                                     * We perform an MPI sum (harmonic-wise), and save on root 
+                                    * Note : maybe use allreduce instead? 
                                     */
 
                                     parallel::mpi_reduce(local_scalar_products_re.data(), 
@@ -1246,7 +1247,7 @@ namespace grace { namespace IO {
                                                     [&](double& pt_val){ pt_val *= dA ;});
 
                                     Kokkos::View<Kokkos::complex<double>*, Kokkos::HostSpace> single_var_multipoles("var_multipoles", (max_ell+1)*(max_ell+1) );
-                                    for(int idx_l=math::abs(spin_weight); idx_l<max_ell; idx_l++){
+                                    for(int idx_l=math::abs(spin_weight); idx_l<=max_ell; idx_l++){
                                         for(int idx_m=0; idx_m <= 2*idx_l; idx_m++){
                                             const int ell = idx_l;
                                             const int m   = idx_m-ell; 
@@ -1266,6 +1267,59 @@ namespace grace { namespace IO {
             return det_all_multipoles;
         }
 
+
+    std::map<std::string, View<Complex*, HostM>> 
+    complexify_detector_data(std::map<std::string,std::vector<double>> const& det_surface_data){
+
+            std::map<std::string, View<Complex*, HostM>> complex_det_surface_data;
+            std::set<std::string> all_var_names;    // has Psi4Re, Psi4Im
+            std::set<std::string> unique_var_names; // complex ---> has only Psi4 
+            std::map<std::string,bool> is_variable_complex; // keep track of whether the variable is complex... 
+            int common_var_size;  
+            for ( auto& [var_name, var_data] : det_surface_data) {
+                all_var_names.insert(var_name);
+                common_var_size=var_data.size(); // each one of the fields will have the same no. of entries
+            }
+
+            // fixed suffix size - if we e.g. decide to switch to Real and Imag in the future, we will need to change this:
+            constexpr int suffix_size = sizeof("Re") - 1; 
+
+            // we look if a variable has a name of the type XYZRe and if an equivalent XYZIm exists as well:
+            for ( auto const& var_name : all_var_names) {
+                // complicated syntax:
+                if(var_name.size() > 1 &&                // if the var name is longer than 1 (clearly...)
+                   all_var_names.count(var_name.substr(0, var_name.size() - suffix_size)+ "Re") && // if a key exists that has some root and Re at the end...
+                   all_var_names.count(var_name.substr(0, var_name.size() - suffix_size)+ "Im"))  // and a key exists that shares the root but with Im at the end...
+                    {   // then the variable is complex! 
+                        // we can append the common root of the name:
+                        std::string complex_name = var_name.substr(0, var_name.size() - suffix_size);
+                        unique_var_names.insert(complex_name);
+                        is_variable_complex[complex_name] = true; 
+                    }
+                    // note that since unique_var_names is a set, it will not insert Psi4 twice! great!
+                else{  
+                    unique_var_names.insert(var_name);
+                    is_variable_complex[var_name] = false; 
+                }
+            }
+
+            for ( auto const& var_name : unique_var_names) {
+                Kokkos::View<Kokkos::complex<double>*, Kokkos::HostSpace> complex_field("complex_var", common_var_size);
+                
+                for(int idx=0; idx<common_var_size;idx++){ 
+                    if(!is_variable_complex[var_name]) { // variable purely real
+                        complex_field(idx).real() =  det_surface_data.at(var_name)[idx];
+                        complex_field(idx).imag() =  0.0;
+                    }
+                    else{ // complex variable 
+                        complex_field(idx).real() =  det_surface_data.at(var_name+"Re")[idx];
+                        complex_field(idx).imag() =  det_surface_data.at(var_name+"Im")[idx];
+                    }
+                }
+                    complex_det_surface_data[var_name] = complex_field;  // assign to std::map finally 
+            }  
+        return complex_det_surface_data;
+    }
 
     void write_multipole_timeseries(){
 
@@ -1294,11 +1348,13 @@ namespace grace { namespace IO {
 
         // if (sw_sph_harmonics.data()) {
          // If needed, explicitly deallocate or clear before reallocating
+        Kokkos::View<Complex**, HostM> sw_sph_harmonics; //("spin_weighted_spherical_harmonics",1,1);
+
         sw_sph_harmonics = Kokkos::View<Complex**, HostM>();
         // }
 
         if(sw_sph_harmonics.extent(0)==0 and sw_sph_harmonics.extent(1)==0){  // if data=0
-                update_spin_weighted_spherical_harmonics(spin_weight, max_ell, nside);
+                update_spin_weighted_spherical_harmonics(sw_sph_harmonics, spin_weight, max_ell, nside);
                 GRACE_VERBOSE("SWSH updated. Current size: {} x {}.", sw_sph_harmonics.extent(0),sw_sph_harmonics.extent(1) ) ; 
         }
         
@@ -1345,62 +1401,22 @@ namespace grace { namespace IO {
             std::map< std::string,
                       Kokkos::View<Kokkos::complex<double>*, Kokkos::HostSpace> > complex_det_surface_data; 
 
-            std::set<std::string> all_var_names;    // has Psi4Re, Psi4Im
-            std::set<std::string> unique_var_names; // complex ---> has only Psi4 
-            std::map<std::string,bool> is_variable_complex; // keep track of whether the variable is complex... 
-            int common_var_size;  
-            for ( auto& [var_name, var_data] : det_surface_data) {
-                all_var_names.insert(var_name);
-                common_var_size=var_data.size(); // each one of the fields will have the same no. of entries
-            }
-
-            // fixed suffix size - if we e.g. decide to switch to Real and Imag in the future, we will need to change this:
-            constexpr int suffix_size = sizeof("Re") - 1; 
-
-            // we look if a variable has a name of the type XYZRe and if an equivalent XYZIm exists as well:
-            for ( auto const& var_name : all_var_names) {
-                // complicated syntax:
-                if(var_name.size() > 1 &&                // if the var name is longer than 1 (clearly...)
-                   all_var_names.count(var_name.substr(0, var_name.size() - suffix_size)+ "Re") && // if a key exists that has some root and Re at the end...
-                   all_var_names.count(var_name.substr(0, var_name.size() - suffix_size)+ "Im"))  // and a key exists that shares the root but with Im at the end...
-                    {   // then the variable is complex! 
-                        // we can append the common root of the name:
-                        std::string complex_name = var_name.substr(0, var_name.size() - suffix_size);
-                        unique_var_names.insert(complex_name);
-                        is_variable_complex[complex_name] = true; 
-                    }
-                    // note that since unique_var_names is a set, it will not insert Psi4 twice! great!
-                else{  
-                    unique_var_names.insert(var_name);
-                    is_variable_complex[var_name] = false; 
-                }
-            }
-
-            for ( auto const& var_name : unique_var_names) {
-                Kokkos::View<Kokkos::complex<double>*, Kokkos::HostSpace> complex_field("complex_var", common_var_size);
-                
-                for(int idx=0; idx<common_var_size;idx++){ 
-                    if(!is_variable_complex[var_name]) { // variable purely real
-                        complex_field(idx).real() =  det_surface_data[var_name][idx];
-                        complex_field(idx).imag() =  0.0;
-                    }
-                    else{ // complex variable 
-                        complex_field(idx).real() =  det_surface_data[var_name+"Re"][idx];
-                        complex_field(idx).imag() =  det_surface_data[var_name+"Im"][idx];
-                    }
-                }
-                    complex_det_surface_data[var_name] = complex_field;  // assign to std::map finally 
-            }  
+            complex_det_surface_data = complexify_detector_data(det_surface_data)  ; 
 
             // access pattern: e.g. for real part: 
             // det_all_multipoles.at(var_name)(cumulative_utils::multipole_index).real()
             // std::map<std::string, Kokkos::View<Kokkos::complex<double>*,Kokkos::HostSpace> > det_all_multipoles; 
-            auto const det_all_multipoles  = get_all_multipoles(spin_weight, max_ell, nside, det_healpix_indices, complex_det_surface_data);
+            auto const det_all_multipoles  = get_all_multipoles(spin_weight, max_ell, nside, det_healpix_indices, sw_sph_harmonics, complex_det_surface_data);
             std::filesystem::path base_path (runtime.scalar_io_basepath()) ;
             const std::string ascii_filename =  "./multipoles_det" + name + "";
             std::filesystem::path ascii_out_path = base_path / ascii_filename ;
             // Resolve to absolute path
             std::filesystem::path ascii_absolute_path = std::filesystem::absolute(ascii_out_path.lexically_normal());
+
+            std::set<std::string> unique_var_names; 
+            for (const auto& [key, value] : det_all_multipoles) {
+                unique_var_names.insert(key);
+            }
 
             save_multipole_timeseries_ascii(ascii_absolute_path,
                                         detector.radius_det_,

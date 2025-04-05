@@ -75,7 +75,7 @@ namespace grace { namespace IO {
     // and nside 
     // dim0 - (max_ell+1)*(max_ell+1)  // flattened indexing of SWSH space
     // dim1 - 12 * nside * nside       // indexing of individual SWSH values at healpix points  
-    extern Kokkos::View<Complex**, HostM> sw_sph_harmonics;
+    // extern Kokkos::View<Complex**, HostM> sw_sph_harmonics;
 
 
     void initialize_spherical_detectors(const int n_detectors, 
@@ -120,12 +120,20 @@ namespace grace { namespace IO {
                                         const std::map<std::string, View<Complex*, HostM>> all_multipoles, 
                                         const double current_time );
 
+    void update_spin_weighted_spherical_harmonics(Kokkos::View<Complex**, HostM>& sph_harmonics, 
+                                                  const int spin_weight, 
+                                                  const int max_ell,
+                                                  const int nside);
+    
+
+    std::map<std::string, View<Complex*, HostM>> complexify_detector_data(std::map<std::string,std::vector<double>> const& det_surface_data);
+
     std::map<std::string, View<Complex*,HostM>> get_all_multipoles(const int spin_weight, 
                                                                    const int max_ell,
                                                                    const int nside,
                                                                    const std::vector<int>& det_healpix_indices,
-                                                                   const std::map< std::string,
-                                                                   View<Complex*, HostM>>& complex_det_surface_data);
+                                                                   const View<Complex**, HostM>& sw_sph_harmonics,
+                                                                   const std::map< std::string, View<Complex*, HostM>>& complex_det_surface_data);
 
     void write_multipole_timeseries() ;
      

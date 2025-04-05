@@ -350,11 +350,13 @@ namespace healpix {
         int64_t nq = amr::get_local_num_quadrants() ;
 
         auto& state = variable_list::get().getstate()   ; 
-        // auto& aux   = variable_list::get().getaux()     ; 
-        // auto& cvols = variable_list::get().getvolumes() ; 
+        auto& sstate = variable_list::get().getstaggeredstate() ; 
+        auto& aux = variable_list::get().getaux() ; 
+        auto& saux = variable_list::get().getstaggeredaux() ; 
+
         auto& dx    = variable_list::get().getspacings() ; 
         auto& grace_runtime = grace::runtime::get() ; 
-          
+
         // the MPI-rank specific coordinates of a detector (rank_coords_det_), pixel indices (indices_), and corresponding quadrants (which_quadrants_)
         // are all known - we will now fill out the outflow std::map for all variables
        
@@ -433,6 +435,8 @@ namespace healpix {
 
         // for(auto const& vname: corner_vars) {
         for(auto const& vname: all_vars) {
+            GRACE_VERBOSE("Interpolating for variable: {} on {} points" , vname, indices_.size()) ; 
+
             auto policy = Kokkos::RangePolicy<grace::default_execution_space>(0, indices_.size());
             auto const u = get_variable_subview(vname) ; 
             auto it = variables::detail::_varprops.find(vname);
@@ -487,7 +491,8 @@ namespace healpix {
                             d_outflows(counter, idx_loc_pix) = trilinearInterpolation( u(VEC(i,j,k),iq),    u(VEC(i+1,j,k),iq),    u(VEC(i,j+1,k),iq),    u(VEC(i+1,j+1,k),iq),
                                                                                        u(VEC(i,j,k+1),iq),  u(VEC(i+1,j,k+1),iq),  u(VEC(i,j+1,k+1),iq),  u(VEC(i+1,j+1,k+1),iq),
                                                                                        dst_x, dst_y, dst_z); 
-
+                                                                                       
+                            //printf("counter %d, idxloc %d, val %f",counter, idx_loc_pix, d_outflows(counter, idx_loc_pix));
 
                         }) ; 
             counter++;
