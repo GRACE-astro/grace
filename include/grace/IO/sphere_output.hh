@@ -36,6 +36,7 @@
 #include <array>
 #include <grace/utils/grace_utils.hh>
 #include <grace/system/grace_system.hh>
+#include <grace/utils/make_string.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/parallel/mpi_wrappers.hh>
 #include <cmath>
@@ -64,7 +65,7 @@ namespace grace { namespace IO {
 
     using namespace healpix;
     using namespace Kokkos;
-    extern std::map<std::string, healpix_detector> detectors;
+    extern std::map<std::string, spherical_detector> detectors;
     extern std::vector<std::vector<std::vector<double>>> spherical_harmonics_re; 
     extern std::vector<std::vector<std::vector<double>>> spherical_harmonics_im; 
 
@@ -80,9 +81,12 @@ namespace grace { namespace IO {
 
     void initialize_spherical_detectors(const int n_detectors, 
                                         const int nside,
+                                        const int ntheta,
+                                        const int nphi, 
                                         const std::vector<std::array<double,3>> output_spheres_centres,
                                         const std::vector<double> output_spheres_radii,
-                                        const std::vector<std::string> output_spheres_names);
+                                        const std::vector<std::string> output_spheres_names,
+                                        const std::vector<std::string> output_sphere_types);
 
     void update_spherical_detectors();
 
@@ -95,7 +99,6 @@ namespace grace { namespace IO {
 
     void write_sphere_cell_data_hdf5() ; 
 
-    void initialize_spherical_harmonics(const int spin_weight, const int max_ell, const int nside);
 
     void save_multipole_timeseries_ascii(const std::string& parent_path,
                                         const double radius,
@@ -123,20 +126,32 @@ namespace grace { namespace IO {
     void update_spin_weighted_spherical_harmonics(Kokkos::View<Complex**, HostM>& sph_harmonics, 
                                                   const int spin_weight, 
                                                   const int max_ell,
-                                                  const int nside);
+                                                  const int ntheta,
+                                                  const int nphi);
     
 
     std::map<std::string, View<Complex*, HostM>> complexify_detector_data(std::map<std::string,std::vector<double>> const& det_surface_data);
 
     std::map<std::string, View<Complex*,HostM>> get_all_multipoles(const int spin_weight, 
                                                                    const int max_ell,
-                                                                   const int nside,
+                                                                   const int ntheta,
+                                                                   const int nphi,
                                                                    const std::vector<int>& det_healpix_indices,
                                                                    const View<Complex**, HostM>& sw_sph_harmonics,
                                                                    const std::map< std::string, View<Complex*, HostM>>& complex_det_surface_data);
 
     void write_multipole_timeseries() ;
      
+
+    void save_surface_integral_timeseries_ascii(const std::string& abs_path,
+                                        const double radius,
+                                        const std::map<std::string, double>& surface_integrals, 
+                                        const int current_iteration,
+                                        const double current_time  );
+
+    void write_spherical_integrals_timeseries();
+
+
     void write_multipole_timeseries_2() ; 
 
     }

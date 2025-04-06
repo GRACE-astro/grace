@@ -129,10 +129,14 @@ class grace_runtime_impl_t
     std::vector<std::array<double,3>> _output_spheres_centers  ; 
     std::vector<double>               _output_spheres_radii    ; 
     std::vector<std::string>          _output_spheres_names    ; 
+    std::vector<std::string>          _output_spheres_types    ; 
     std::vector<std::string>          _output_spheres_tracking ;
     /* Output spheres resolution and reduction options */
-    int _nside_output_spheres ;
+    int _nside_output_spheres ; // for spheres in the HEALPIX grid setup
     int _multipole_max_degree;    
+    int _ntheta_output_spheres ; // for spheres in the UNIFORM-MIDPOINT grid setup 
+    int _nphi_output_spheres ; // for spheres in the UNIFORM-MIDPOINT grid setup
+
     /* Output parameters */ 
     bool   _volume_output        ;
     bool   _surface_output       ; 
@@ -432,6 +436,15 @@ class grace_runtime_impl_t
     }
 
     int GRACE_ALWAYS_INLINE 
+    ntheta_surface_output_spheres() const {
+        return _ntheta_output_spheres ; 
+    }
+    int GRACE_ALWAYS_INLINE 
+    nphi_surface_output_spheres() const {
+        return _nphi_output_spheres ; 
+    }
+
+    int GRACE_ALWAYS_INLINE 
     max_degree_multipoles_surface_output_spheres() const {
         return _multipole_max_degree ; 
     }
@@ -449,6 +462,11 @@ class grace_runtime_impl_t
     decltype(auto) GRACE_ALWAYS_INLINE 
     cell_sphere_surface_output_names() const {
         return _output_spheres_names ;
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    cell_sphere_surface_output_types() const {
+        return _output_spheres_types ;
     }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
@@ -549,12 +567,15 @@ class grace_runtime_impl_t
 
         _n_output_spheres = params["IO"]["n_output_spheres"].as<int>() ;
         _nside_output_spheres = params["IO"]["sphere_surface_output_nside"].as<int>() ;
+        _ntheta_output_spheres = params["IO"]["sphere_surface_output_ntheta"].as<int>() ;
+        _nphi_output_spheres = params["IO"]["sphere_surface_output_nphi"].as<int>() ;
         _sphere_surface_scalar_output_every = params["IO"]["sphere_surface_scalar_output_every"].as<int>() ;
         _multipole_max_degree = params["IO"]["sphere_surface_multipoles_max_degree"].as<int>() ;
 
         _output_spheres_centers.resize(_n_output_spheres)  ;
         _output_spheres_radii.resize(_n_output_spheres)    ;
         _output_spheres_names.resize(_n_output_spheres)    ;
+        _output_spheres_types.resize(_n_output_spheres)    ;
         _output_spheres_tracking.resize(_n_output_spheres) ;
         for (int isphere=0; isphere < _n_output_spheres; ++isphere) {
             std::ostringstream oss_x,oss_y,oss_z;
@@ -574,6 +595,10 @@ class grace_runtime_impl_t
             oss_x.clear();
             oss_x << "output_sphere_name_" << isphere;
             _output_spheres_names[isphere]    = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
+            oss_x.str("");  // Reset content to empty string
+            oss_x.clear();
+            oss_x << "output_sphere_type_" << isphere;
+            _output_spheres_types[isphere]    = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
             oss_x.str("");  // Reset content to empty string
             oss_x.clear();
             oss_x << "output_sphere_tracking_" << isphere;

@@ -1,8 +1,8 @@
 name: "grace"
 amr: {
-  npoints_block_x: 50,
-  npoints_block_y: 50,
-  npoints_block_z: 50,
+  npoints_block_x: 100,
+  npoints_block_y: 100,
+  npoints_block_z: 100,
   periodic_x: false,
   periodic_y: false,
   periodic_z: false,
@@ -13,18 +13,13 @@ amr: {
   zmin: -0.5,
   zmax:  0.5,
   n_ghostzones: 4,
-  initial_refinement_level: 2, #2,
+  initial_refinement_level: 1, #2,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 0.5,
   refinement_criterion_CTODE: 0.01,
   prolongation_order: 4 
 }
 IO: {
-  n_output_spheres : 1,
-  output_sphere_radius_0 : 0.25,
-  output_sphere_x_center_0 : 0.0,
-  output_sphere_y_center_0 : 0.0,
-  output_sphere_z_center_0 : 0.0,
   surface_output_base_directory: "output_surface",
   sphere_surface_output_cell_variables: ["Psi4Re","Psi4Im", "alp", "K"],
   sphere_surface_output_every : 10,
@@ -32,8 +27,6 @@ IO: {
   sphere_surface_multipoles_cell_variables: ["Psi4Re","Psi4Im", "rho"],
   sphere_surface_multipoles_max_degree: 4, 
   sphere_surface_scalar_output_every : 10,
-  sphere_surface_multipole_output_every : 10,
-  sphere_surface_output_nside : 32, 
 }
 system: {
   # console_log_level: "verbose",

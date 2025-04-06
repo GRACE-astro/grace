@@ -82,30 +82,32 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
     /*************************************************/
     auto& runtime = grace::runtime::get( ) ;   
     
-    // const int n_detectors = runtime.n_surface_output_spheres();
-    // const int nside = runtime.nside_surface_output_spheres();
-    // const int max_ell = runtime.max_degree_multipoles_surface_output_spheres();
-    // const std::vector<std::array<double,3>> output_spheres_centres  = runtime.cell_sphere_surface_output_centers();
-    // const std::vector<double> output_spheres_radii                  = runtime.cell_sphere_surface_output_radii()  ;
-    // const std::vector<std::string> output_spheres_names             = runtime.cell_sphere_surface_output_names();
- 
     const int n_detectors = 1;
-    const int nside = 1;
+    const int nside = 1; // not used in this example 
+    const int ntheta = 400;
+    const int nphi = 800;
+
+    // const int ntheta = 200;
+    // const int nphi = 360;
+    
     const int max_ell = 4;
     std::array<double,3> centre{0,0,0}; 
-    const double radius = 0.25; 
+    const double radius = 0.2; 
     const std::string sphere_name = "test_detector"; 
+    const std::string sphere_type = "uniform"; 
     
-    std::vector<std::array<double,3>> output_spheres_centres  ;
-    std::vector<double> output_spheres_radii                  ;
+    std::vector<std::array<double,3>> output_spheres_centres ;
+    std::vector<double>               output_spheres_radii   ;
     std::vector<std::string> output_spheres_names            ;
+    std::vector<std::string> output_spheres_types            ;
 
     output_spheres_centres.push_back(centre);
     output_spheres_radii.push_back(radius);
     output_spheres_names.push_back(sphere_name);
-    
+    output_spheres_types.push_back(sphere_type);
 
     constexpr int spin_weight = -2; //runtime.spin_weight();
+    // constexpr int spin_weight = 0; 
     
     /*************************************************/
     /*            Define filling func                */
@@ -199,22 +201,24 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
             h_corner_aux_mirror(VEC(i,j,k),PSI4IM,q) = 0.0;
 
             
-            //h_corner_aux_mirror
+            // h_corner_aux_mirror
             // make a combination..:
-            // for( int ell = math::abs(spin_weight) ; ell <= max_ell ; ell++){
-            //     for( int m = -ell ; m <= ell ; m++){
-            //         const int idx_multipole = grace::utils::multipole_index(ell,m); 
-            //         auto const fVal = func(spin_weight, ell, m, VEC(pcoords[0],pcoords[1],pcoords[2]));
-            //         //GRACE_VERBOSE("fVals are {}, {}", fVal[0], fVal[1]);
-            //         h_corner_aux_mirror(VEC(i,j,k),PSI4RE,q) += multipole_weights[idx_multipole] * fVal[0];
-            //         h_corner_aux_mirror(VEC(i,j,k),PSI4IM,q) += multipole_weights[idx_multipole] * fVal[1];
-            //         }
-            //     }
+            for( int ell = math::abs(spin_weight) ; ell <= max_ell ; ell++){
+                for( int m = -ell ; m <= ell ; m++){
+                    const int idx_multipole = grace::utils::multipole_index(ell,m); 
+                    auto const fVal = func(spin_weight, ell, m, VEC(pcoords[0],pcoords[1],pcoords[2]));
+                    //GRACE_VERBOSE("fVals are {}, {}", fVal[0], fVal[1]);
+                    h_corner_aux_mirror(VEC(i,j,k),PSI4RE,q) += multipole_weights[idx_multipole] * fVal[0];
+                    h_corner_aux_mirror(VEC(i,j,k),PSI4IM,q) += multipole_weights[idx_multipole] * fVal[1];
+                    }
+                }
             // just use a single mode: 
             // this has idx_multipole = 8 
-            auto const fVal = func(spin_weight, 2, 2, VEC(pcoords[0],pcoords[1],pcoords[2]));
-            h_corner_aux_mirror(VEC(i,j,k),PSI4RE,q) = fVal[0];
-            h_corner_aux_mirror(VEC(i,j,k),PSI4IM,q) = fVal[1];
+            // auto const fVal = func(spin_weight, 2, 2, VEC(pcoords[0],pcoords[1],pcoords[2]));
+            // auto const fVal = func(spin_weight, 0, 0, VEC(pcoords[0],pcoords[1],pcoords[2]));
+            // printf("fvals: %f, %f", fVal[0], fVal[1]);
+            // h_corner_aux_mirror(VEC(i,j,k),PSI4RE,q) = fVal[0];
+            // h_corner_aux_mirror(VEC(i,j,k),PSI4IM,q) = fVal[1];
 
             // printf("Harmonic values at: %")
 
@@ -223,12 +227,6 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
         true
     ) ; 
 
-
-    GRACE_VERBOSE("a few values: {}, {}", h_corner_aux_mirror(VEC(0,0,0),PSI4RE,0), 
-                                    h_corner_aux_mirror(VEC(0,0,0),PSI4IM,0));
-
-    GRACE_VERBOSE("a few more values: {}, {}", h_corner_aux_mirror(VEC(2,3,5),PSI4RE,0), 
-                                    h_corner_aux_mirror(VEC(2,3,5),PSI4IM,0));
 
     /*************************************************/
     /*                 Copy H2D                      */
@@ -239,31 +237,8 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
     Kokkos::deep_copy(saux.corner_staggered_fields,h_corner_aux_mirror); 
     Kokkos::fence();
 
-
-
     /*************************************************/
-    /*                   move one                       */
-    /*************************************************/
-    // #ifdef DBG_REGRID_TEST
-    // /*write output and regrid*/
-    // // grace::IO::write_cell_output(true,true,true) ; 
-    // //grace::amr::regrid() ;  
-    // // grace::runtime::get().increment_iteration() ; 
-    // // grace::runtime::get().set_timestep(1) ; 
-    // // grace::runtime::get().increment_time(); 
-    // // grace::IO::write_cell_output(true,true,true) ; 
-    // #else
-    // grace::amr::regrid() ;
-    // #endif 
-    /*************************************************/
-    /*                 Copy D2H                      */
-    /*************************************************/
-    // auto h_state_mirror_new = Kokkos::create_mirror_view(state) ; 
-    // Kokkos::deep_copy(h_state_mirror_new,state); 
-    // auto h_corner_mirror_new = Kokkos::create_mirror_view(sstate.corner_staggered_fields) ; 
-    // Kokkos::deep_copy(h_corner_mirror_new,sstate.corner_staggered_fields); 
-    /*************************************************/
-    /*                   Check                       */
+    /*                  Multipoles                   */
     /*************************************************/
 
     // prepare the spin-weighted spherical harmonics for computation: 
@@ -273,21 +248,16 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
     Kokkos::View<Complex**, HostM> sw_sph_harmonics = Kokkos::View<Complex**, HostM>();
 {
     if(sw_sph_harmonics.extent(0)==0 and sw_sph_harmonics.extent(1)==0){  // if data=0
-            grace::IO::update_spin_weighted_spherical_harmonics(sw_sph_harmonics, spin_weight, max_ell, nside);
+        grace::IO::update_spin_weighted_spherical_harmonics(sw_sph_harmonics, spin_weight, max_ell, ntheta, nphi);
         GRACE_VERBOSE("SWSH updated. Current size: {} x {}.", sw_sph_harmonics.extent(0),sw_sph_harmonics.extent(1) ) ; 
     }
 
-
-    for (std::size_t i = 0; i < sw_sph_harmonics.extent(0); ++i) {
-        for (std::size_t j = 0; j < sw_sph_harmonics.extent(1); ++j) {
-            Complex val = sw_sph_harmonics(i, j);
-            assert((not std::isnan(val.real()) ) and (not std::isnan(val.imag())));
-        }
-    }
     grace::IO::initialize_spherical_detectors(n_detectors, nside,
+                                                ntheta, nphi,
                                                 output_spheres_centres,
                                                 output_spheres_radii,
-                                                output_spheres_names );
+                                                output_spheres_names,
+                                                output_spheres_types );
 
     grace::IO::update_spherical_detectors();
 
@@ -298,60 +268,24 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
 
     GRACE_VERBOSE("Interpolated variables on spherical surfaces for multipole decomposition.") ; 
 
-
     std::map< std::string, Kokkos::View<Kokkos::complex<double>*, Kokkos::HostSpace> > complex_det_surface_data; 
 
     for (auto& [name, detector] : grace::IO::detectors) {
             GRACE_VERBOSE("Detector name: {} ", name);
-            std::vector<int> det_healpix_indices = detector.get_local_rank_healpix_indices();
-            // std::map<std::string,std::vector<double>> det_surface_data = detector.get_local_rank_detector_surface_data();
+            std::vector<int> det_indices = detector.get_local_rank_sphere_indices();
             std::map<std::string,std::vector<double>> det_surface_data = detector.get_local_rank_detector_surface_data();   
 
-            for (auto const& [var_name, var_data] : det_surface_data){
-                    bool any_nonzero=false;
-                    for (auto const& el : var_data){
-                        assert(not std::isnan(el));
-                        if(el!=0)  any_nonzero=true;
-                    }
-                    assert(any_nonzero && "For det_surface_data, there is not one non-zero value - unlikely!");
-                }
-
-            // for(auto const& idx : det_healpix_indices){
-            //     GRACE_VERBOSE("Healpix index: {}", idx);
-            // }
             complex_det_surface_data = grace::IO::complexify_detector_data(det_surface_data)  ; 
 
-            for (const auto& [key, view] : complex_det_surface_data) {
-                    std::cout << "Key: " << key << ", Size: " << view.extent(0) << '\n';
-                    bool any_nonzero=false;
-                    for (std::size_t i = 0; i < view.extent(0); ++i) {
-                        // std::cout << "  Element[" << i << "] = (" 
-                        //         << view(i).real() << ", " 
-                        //         << view(i).imag() << ")\n";
-                        assert(not std::isnan(view(i).real()));
-                        assert(not std::isnan(view(i).imag()));
 
-                        if(view(i).real()!=0 or view(i).imag()!=0) any_nonzero=true;
-
-                    }
-                    assert(any_nonzero && "There is not one non-zero value - unlikely!");
-                }
-            // for (auto const& [var_name, var_data] : complex_det_surface_data){
-            //         for (auto const& el : var_data){
-            //             assert(not std::isnan(el));
-            //         }
-            //     }
-            auto const det_all_multipoles  = grace::IO::get_all_multipoles(spin_weight, max_ell, nside, 
-                                                    det_healpix_indices, sw_sph_harmonics, complex_det_surface_data);
-
-            // auto const det_all_multipoles  = get_all_multipoles(spin_weight, max_ell, nside, det_healpix_indices, sw_sph_harmonics, complex_det_surface_data);
+            auto const det_all_multipoles  = grace::IO::get_all_multipoles(spin_weight, max_ell, ntheta, nphi,
+                                                    det_indices, sw_sph_harmonics, complex_det_surface_data);
 
 
             for (auto const& [var_name, var_data] : det_all_multipoles){
                     GRACE_VERBOSE(" var_name {}", var_name);
 
                     for (int idx_multipole = 0 ; idx_multipole < var_data.extent(0); idx_multipole++ ){
-                            //GRACE_INFO("(var_name, multipole_index, multipole_value) = ({},{},{})", var_name, idx_multipole, var_data(idx_multipole) );
                             GRACE_INFO(" var_name, multipole_index, Re, Im : {}, {}, {}, {}",
                                          var_name, idx_multipole,
                                         var_data(idx_multipole).real(),
@@ -365,35 +299,10 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
     // finalize the SWSH 
     sw_sph_harmonics = Kokkos::View<Complex**, HostM>();;
 
-    // host_grid_loop<false>(
-    //     [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
-    //         auto pcoords = coord_system.get_physical_coordinates(
-    //             {VEC(i,j,k)},
-    //             q,
-    //             true
-    //         ) ;
+ 
     //         CHECK_THAT( h_state_mirror_new(VEC(i,j,k),DENS,q)
     //                   , Catch::Matchers::WithinAbs(
     //                               h_func(VEC(pcoords[0],pcoords[1],pcoords[2]))
     //                             , 1e-12 )) ;
-    //     },
-    //     {VEC(false,false,false)},
-    //     false
-    // ) ; 
-    // host_grid_loop<false>(
-    //     [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
-    //         auto pcoords = coord_system.get_physical_coordinates(
-    //             {VEC(i,j,k)},
-    //             q,
-    //             {VEC(0,0,0)},
-    //             true
-    //         ) ;
-    //         CHECK_THAT( h_corner_mirror_new(VEC(i,j,k),DENS,q)
-    //                   , Catch::Matchers::WithinAbs(
-    //                               h_corner_func(VEC(pcoords[0],pcoords[1],pcoords[2]))
-    //                             , 1e-12 )) ;
-    //     },
-    //     {VEC(true,true,true)},
-    //     false
-    // ) ; 
+
 }

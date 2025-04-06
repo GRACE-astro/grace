@@ -184,9 +184,49 @@ namespace healpix {
     }
 
 
+  /**
+         * @brief get uniform-spherical-sampling detector coordinates for a given
+         *  ntheta, nphi, radius and i_theta, j_phi indices
+         * @note we use here uniform convention of pixel book-keeping
+         */
+        void GRACE_HOST_DEVICE 
+        get_cartesian_coord_from_ith_jph_index(const size_t ntheta, const size_t nphi, double radius, const size_t i_th,   const size_t j_phi, 
+                                                double& x1, double& x2, double& x3){
+                
+                double theta, phi;
+                get_spherical_coord_from_ith_jph_index(ntheta,nphi,i_th,j_phi,
+                                                      theta,phi);
+                x1 = std::sin(theta) * std::cos(phi) * radius;
+                x2 = std::sin(theta) * std::sin(phi) * radius;
+                x3 = std::cos(theta) * radius;
+            }
+
+        void GRACE_HOST_DEVICE 
+        get_spherical_coord_from_ith_jph_index(const size_t ntheta, const size_t nphi, const int i_th, const int j_phi,
+                                              double& th, double& ph){
+                // midpoint coordinates hard-coded
+                const double dth  =    M_PI/(ntheta+1);
+                const double dphi = 2.*M_PI/(nphi+1);
+                th = i_th*dth    + 0.5*dth;
+                ph = j_phi*dphi  + 0.5*dphi;
+            }
+
+        // same as above, just using the cumulative oned index 
+
+        void GRACE_HOST_DEVICE
+        get_spherical_coord_from_oned_index(const size_t ntheta, const size_t nphi,const int idx_oned,
+                                            double& th, double& ph){
+                int i_theta, j_phi;
+                get_i_th_j_ph_from_oned_index(ntheta, nphi, idx_oned,
+                                         i_theta, j_phi);
+                get_spherical_coord_from_ith_jph_index(ntheta,nphi, i_theta, j_phi, th, ph);
+            }
+
+
+
 
     void GRACE_HOST
-    healpix_detector::clean_detector_info(){
+    spherical_detector::clean_detector_info(){
             rank_coords_det_ = {};                
             indices_ = {};                        
             which_quadrants_ = {};               
@@ -194,7 +234,7 @@ namespace healpix {
     }
 
     void GRACE_HOST
-    healpix_detector::update_detector_info(){
+    spherical_detector::update_detector_info(){
         // Need a p4est
         auto& forest = grace::amr::forest::get() ; 
 
@@ -205,7 +245,7 @@ namespace healpix {
         this->clean_detector_info(); 
 
         // Step 1.:
-        // search for the quadrants that have a common intersection with detector's coordinates on this rank
+        // search for sthe quadrants that have a common intersection with detector's coordinates on this rank
 
         // Reset the user data to 0
         p4est_search_local_t reset_func = reset_user_data;
@@ -330,7 +370,7 @@ namespace healpix {
      *  or one global kernel for all detectors (in sphere_output)?
      */
     void GRACE_HOST
-    healpix_detector::update_detector_variable_data( const std::set<std::string> corner_scalar_vars
+    spherical_detector::update_detector_variable_data( const std::set<std::string> corner_scalar_vars
                                                     ,const std::set<std::string> corner_vector_vars
                                                     ,const std::set<std::string> corner_tensor_vars
                                                     ,const std::set<std::string> cell_scalar_vars 
@@ -450,6 +490,8 @@ namespace healpix {
                     ERROR("Unrecognized staggering for this routine");
             }
 
+            const char* vname_cstr = vname.c_str();  // Still host-side
+
             parallel_for( GRACE_EXECUTION_TAG("IO","surface_interpolation") 
                     , policy 
                     , KOKKOS_LAMBDA(int idx_loc_pix){
@@ -491,8 +533,13 @@ namespace healpix {
                             d_outflows(counter, idx_loc_pix) = trilinearInterpolation( u(VEC(i,j,k),iq),    u(VEC(i+1,j,k),iq),    u(VEC(i,j+1,k),iq),    u(VEC(i+1,j+1,k),iq),
                                                                                        u(VEC(i,j,k+1),iq),  u(VEC(i+1,j,k+1),iq),  u(VEC(i,j+1,k+1),iq),  u(VEC(i+1,j+1,k+1),iq),
                                                                                        dst_x, dst_y, dst_z); 
-                                                                                       
-                            //printf("counter %d, idxloc %d, val %f",counter, idx_loc_pix, d_outflows(counter, idx_loc_pix));
+
+                            // printf("(x, y, z, val) = (%f,%f,%f,%f) \n", d_rank_coords_det(idx_loc_pix,0),
+                            //                                           d_rank_coords_det(idx_loc_pix,1),
+                            //                                           d_rank_coords_det(idx_loc_pix,2),
+                            //                                           d_outflows(counter, idx_loc_pix)
+                            //                                            )    ;                                                 
+                            // printf("counter %d, idxloc %d, val %f",counter, idx_loc_pix, d_outflows(counter, idx_loc_pix));
 
                         }) ; 
             counter++;
@@ -520,7 +567,7 @@ namespace healpix {
      * 
      */
     void GRACE_HOST_DEVICE
-    healpix_detector::compute_surface_fluxes(){}
+    spherical_detector::compute_surface_fluxes(){}
          // need metric interface for sqrt(-g)
          
 

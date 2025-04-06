@@ -35,6 +35,8 @@
 #include <cmath> 
 #include <array> 
 #include <vector>
+#include <functional>
+#include <numeric>
 
 namespace utils {
 
@@ -347,6 +349,28 @@ eval_3d_primitive(double a1, double a2, double a3, double b1, double b2, double 
     } ; 
     return eval_2d_primitive(a1,a2,b1,b2,f2d_b) - eval_2d_primitive(a1,a2,b1,b2,f2d_a); 
 }
+
+
+
+
+/**
+ * @brief Perform a simple one-d (uniform-resolution) integral of an array using the midpoint's rule and knowledge of the function sampling
+ * \ingroup utils
+ * @tparam Ndim Number of dimensions.
+ * @tparam T Type of integrand argument(s).
+ * @param dx grid spacings in each dimension
+ * @param func flattened integrand function values 
+ * @return T The integral of the sampled values over the hyper-rectangular domain
+ */
+template< size_t Ndim, typename T>
+T oned_midpoint_integrator(std::array<T,Ndim> const& dx_i,
+                         std::vector<T> const& f_i) {
+        
+    return  std::accumulate(dx_i.begin(), dx_i.end(), 1.0, std::multiplies<T>()) *\
+             std::accumulate(f_i.begin(), f_i.end(), 0.0, std::plus<T>());
+}
+
+
 
 } /* namespace utils */
 

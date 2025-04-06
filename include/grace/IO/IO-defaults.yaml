@@ -14,7 +14,7 @@ IO: {
 
   log_output_base_filename: "grace_log",
   log_output_base_directory: "./logs", 
-  one_log_per_rank: false,
+  one_log_per_rank: true,
 
   volume_output_base_filename: "volume_out",
   volume_output_base_directory: "output_volume",
@@ -124,6 +124,8 @@ IO: {
   output_plane_name_9: "9",
 
   sphere_surface_output_nside: 32, 
+  sphere_surface_output_ntheta: 140, 
+  sphere_surface_output_nphi: 240, 
 
   n_output_spheres: 0,
   output_sphere_x_center_0: 0,
@@ -180,6 +182,18 @@ IO: {
   output_sphere_name_7: "7",
   output_sphere_name_8: "8",
   output_sphere_name_9: "9",
+
+
+  output_sphere_type_0: "healpix",
+  output_sphere_type_1: "healpix",
+  output_sphere_type_2: "healpix",
+  output_sphere_type_3: "healpix",
+  output_sphere_type_4: "healpix",
+  output_sphere_type_5: "healpix",
+  output_sphere_type_6: "healpix",
+  output_sphere_type_7: "healpix",
+  output_sphere_type_8: "healpix",
+  output_sphere_type_9: "healpix",
 
   output_sphere_tracking_0: "none",
   output_sphere_tracking_1: "none",
