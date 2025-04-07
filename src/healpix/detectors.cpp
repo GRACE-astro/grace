@@ -155,7 +155,9 @@ namespace healpix {
                 aux = sqrt(ph-sqrt(aux));
                 i = int(aux)+1;
                 j = idx+1-2*i*(i-1);
+                //z = 1-i*i/(3.0*nside*nside);
                 z = 1-i*i/(3.0*nside*nside);
+                z = -z; 
                 ss = 1;
                 phi = 2*M_PI-M_PI*(j-ss/2.0)/(2*i);
             }

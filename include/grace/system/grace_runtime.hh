@@ -94,14 +94,14 @@ class grace_runtime_impl_t
     std::set<std::string> _cell_sphere_surface_multipole_output_symm_tensor_vars ;
     std::set<std::string> _corner_sphere_surface_multipole_output_symm_tensor_vars ;
     // /* Sphere surface reduction  */
-    // std::set<std::string> _cell_sphere_surface_scalar_output_scalar_vars ;
-    // std::set<std::string> _corner_sphere_surface_scalar_output_scalar_vars ;
-    // std::set<std::string> _cell_sphere_surface_scalar_output_vector_vars ;
-    // std::set<std::string> _corner_sphere_surface_scalar_output_vector_vars ;
-    // std::set<std::string> _cell_sphere_surface_scalar_output_tensor_vars ;
-    // std::set<std::string> _corner_sphere_surface_scalar_output_tensor_vars ;
-    // std::set<std::string> _cell_sphere_surfaces_scalar_output_symm_tensor_vars ;
-    // std::set<std::string> _corner_sphere_surface_scalar_output_symm_tensor_vars ;
+    std::set<std::string> _cell_sphere_surface_integral_output_scalar_vars ;
+    std::set<std::string> _corner_sphere_surface_integral_output_scalar_vars ;
+    std::set<std::string> _cell_sphere_surface_integral_output_vector_vars ;
+    std::set<std::string> _corner_sphere_surface_integral_output_vector_vars ;
+    std::set<std::string> _cell_sphere_surface_integral_output_tensor_vars ;
+    std::set<std::string> _corner_sphere_surface_integral_output_tensor_vars ;
+    std::set<std::string> _cell_sphere_surface_integral_output_symm_tensor_vars ;
+    std::set<std::string> _corner_sphere_surface_integral_output_symm_tensor_vars ;
     /* Scalar output         */
     std::set<std::string> _scalar_output_minmax_vars   ; 
     std::set<std::string> _scalar_output_norm2_vars    ; 
@@ -143,7 +143,7 @@ class grace_runtime_impl_t
     int _volume_output_every  ; 
     int _plane_surface_output_every ; 
     int _sphere_surface_output_every ; 
-    int _sphere_surface_scalar_output_every ; 
+    int _sphere_surface_integral_output_every ; 
     int _scalar_output_every         ; 
     int _info_output_every           ;
     std::filesystem::path _volume_io_basepath ;
@@ -203,7 +203,7 @@ class grace_runtime_impl_t
     sphere_surface_output_every() const { return _sphere_surface_output_every ; }
 
     int GRACE_ALWAYS_INLINE 
-    sphere_surface_scalar_output_every() const { return _sphere_surface_scalar_output_every ; }
+    sphere_surface_integral_output_every() const { return _sphere_surface_integral_output_every ; }
 
     int GRACE_ALWAYS_INLINE 
     scalar_output_every() const { return _scalar_output_every ; }
@@ -343,6 +343,39 @@ class grace_runtime_impl_t
     corner_sphere_surface_multipole_output_tensor_vars() const {
         return _corner_sphere_surface_multipole_output_tensor_vars; 
     }
+
+    /** Spherical integrals */
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    cell_sphere_surface_integral_output_scalar_vars() const {
+        return _cell_sphere_surface_integral_output_scalar_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    cell_sphere_surface_integral_output_vector_vars() const {
+        return _cell_sphere_surface_integral_output_vector_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    cell_sphere_surface_integral_output_tensor_vars() const {
+        return _cell_sphere_surface_integral_output_tensor_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_sphere_surface_integral_output_scalar_vars() const {
+        return _corner_sphere_surface_integral_output_scalar_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_sphere_surface_integral_output_vector_vars() const {
+        return _corner_sphere_surface_integral_output_vector_vars; 
+    }
+
+    decltype(auto) GRACE_ALWAYS_INLINE 
+    corner_sphere_surface_integral_output_tensor_vars() const {
+        return _corner_sphere_surface_integral_output_tensor_vars; 
+    }
+
 
     /** 3D reductions  */
 
@@ -502,8 +535,7 @@ class grace_runtime_impl_t
         _volume_output_every = params["IO"]["volume_output_every"].as<int>() ; 
         _scalar_output_every = params["IO"]["scalar_output_every"].as<int>() ; 
         _info_output_every = params["IO"]["info_output_every"].as<int>() ; 
-        _sphere_surface_scalar_output_every = params["IO"]["sphere_surface_scalar_output_every"].as<int>() ; 
-
+        _sphere_surface_integral_output_every = params["IO"]["sphere_surface_integral_output_every"].as<int>() ; 
 
         /* Output filenames and directories */
         _volume_io_basename  = params["IO"]["volume_output_base_filename"].as<std::string>(); 
@@ -569,7 +601,6 @@ class grace_runtime_impl_t
         _nside_output_spheres = params["IO"]["sphere_surface_output_nside"].as<int>() ;
         _ntheta_output_spheres = params["IO"]["sphere_surface_output_ntheta"].as<int>() ;
         _nphi_output_spheres = params["IO"]["sphere_surface_output_nphi"].as<int>() ;
-        _sphere_surface_scalar_output_every = params["IO"]["sphere_surface_scalar_output_every"].as<int>() ;
         _multipole_max_degree = params["IO"]["sphere_surface_multipoles_max_degree"].as<int>() ;
 
         _output_spheres_centers.resize(_n_output_spheres)  ;
@@ -614,6 +645,8 @@ class grace_runtime_impl_t
             params["IO"]["sphere_surface_output_cell_variables"].as<std::vector<std::string>>() ; 
         auto out_cell_vars_multipoles = 
             params["IO"]["sphere_surface_multipoles_cell_variables"].as<std::vector<std::string>>() ; 
+        auto out_cell_vars_sphere_surface_integrals = 
+            params["IO"]["sphere_surface_integrals_cell_variables"].as<std::vector<std::string>>() ; 
 
         //auto out_cell_vars_sphere_surface_reductions_multipoles = 
         //     params["IO"]["sphere_surface_multipoles_cell_variables"].as<std::vector<std::string>>() ; 
@@ -677,11 +710,11 @@ class grace_runtime_impl_t
                                     _cell_sphere_surface_multipole_output_scalar_vars, _corner_sphere_surface_multipole_output_scalar_vars,
                                     _cell_sphere_surface_multipole_output_vector_vars, _corner_sphere_surface_multipole_output_vector_vars,
                                     _cell_sphere_surface_multipole_output_symm_tensor_vars, _corner_sphere_surface_multipole_output_symm_tensor_vars) ; 
-        // add_to_scalar_vector_or_tensor_list(out_cell_vars_sphere_surface,
-        //                             _cell_sphere_surface_output_scalar_vars, _corner_sphere_surface_output_scalar_vars,
-        //                             _cell_sphere_surface_output_vector_vars, _corner_sphere_surface_output_vector_vars,
-        //                             _cell_sphere_surface_output_symm_tensor_vars, _corner_sphere_surface_output_symm_tensor_vars) ; 
-
+        add_to_scalar_vector_or_tensor_list(out_cell_vars_sphere_surface_integrals,
+                                    _cell_sphere_surface_integral_output_scalar_vars, _corner_sphere_surface_integral_output_scalar_vars,
+                                    _cell_sphere_surface_integral_output_vector_vars, _corner_sphere_surface_integral_output_vector_vars,
+                                    _cell_sphere_surface_integral_output_symm_tensor_vars, _corner_sphere_surface_integral_output_symm_tensor_vars) ; 
+        
         /* Define helper lambda */
         auto const check_vars_exist_and_insert = 
             [&] (std::vector<std::string> const& vlist, std::set<std::string>& olist, std::set<std::string>& olist2 )
@@ -716,8 +749,8 @@ class grace_runtime_impl_t
         check_vars_exist_and_insert(out_info_min,_info_output_min_vars,_minmax_reduction_vars) ; 
         check_vars_exist_and_insert(out_info_norm2,_info_output_norm2_vars,_norm2_reduction_vars) ; 
         /* Sphere reductions (sum and multipoles) */
-        auto out_sphere_integral_reduction_vars =  
-            params["IO"]["sphere_surface_integrals_cell_variables"].as<std::vector<std::string>>() ;
+        // auto out_sphere_integral_reduction_vars =  
+        //     params["IO"]["sphere_surface_integrals_cell_variables"].as<std::vector<std::string>>() ;
         // auto out_multipole_reduction_vars =
         //     params["IO"]["sphere_surface_multipoles_cell_variables"].as<std::vector<std::string>>() ;
         

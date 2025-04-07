@@ -21,16 +21,16 @@ amr: {
 }
 IO: {
   surface_output_base_directory: "output_surface",
-  sphere_surface_output_cell_variables: ["Psi4Re","Psi4Im", "alp", "K"],
-  sphere_surface_output_every : 10,
-  sphere_surface_integrals_cell_variables: ["Psi4Re","Psi4Im"],
-  sphere_surface_multipoles_cell_variables: ["Psi4Re","Psi4Im", "rho"],
-  sphere_surface_multipoles_max_degree: 4, 
-  #sphere_surface__output_every : 10,
-  sphere_surface_integral_output_every : 10
+  sphere_surface_output_cell_variables: ["Psi4Re","Psi4Im"],
+  sphere_surface_integrals_cell_variables: [],
+  sphere_surface_multipoles_cell_variables: [],
+  sphere_surface_multipoles_max_degree: 4,
+  sphere_surface_output_nside : 32, 
+  n_output_spheres : 1,
+  output_sphere_radius_0 : 0.2,
+  output_sphere_type_0 : "healpix"
 }
 system: {
-  # console_log_level: "verbose",
   console_log_level: "verbose",
   file_log_level: "trace",
   flush_logs_based_on_severity: true,

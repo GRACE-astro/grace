@@ -126,22 +126,34 @@ namespace grace { namespace IO {
     void update_spin_weighted_spherical_harmonics(Kokkos::View<Complex**, HostM>& sph_harmonics, 
                                                   const int spin_weight, 
                                                   const int max_ell,
+                                                  const int nside,
                                                   const int ntheta,
-                                                  const int nphi);
+                                                  const int nphi,
+                                                  SPHERICAL_GRID_TYPE const& grid_type);
     
 
     std::map<std::string, View<Complex*, HostM>> complexify_detector_data(std::map<std::string,std::vector<double>> const& det_surface_data);
 
     std::map<std::string, View<Complex*,HostM>> get_all_multipoles(const int spin_weight, 
                                                                    const int max_ell,
+                                                                   const int nside,
                                                                    const int ntheta,
                                                                    const int nphi,
+                                                                   SPHERICAL_GRID_TYPE const& grid_type, 
                                                                    const std::vector<int>& det_healpix_indices,
                                                                    const View<Complex**, HostM>& sw_sph_harmonics,
                                                                    const std::map< std::string, View<Complex*, HostM>>& complex_det_surface_data);
 
     void write_multipole_timeseries() ;
      
+
+    std::map<std::string, double> 
+    get_all_surface_integrals(const int nside,
+                              const int ntheta,
+                              const int nphi, 
+                              SPHERICAL_GRID_TYPE const& grid_type, 
+                              const std::vector<int>& det_indices,
+                              std::map<std::string,std::vector<double>> det_surface_data);
 
     void save_surface_integral_timeseries_ascii(const std::string& abs_path,
                                         const double radius,
@@ -151,8 +163,6 @@ namespace grace { namespace IO {
 
     void write_spherical_integrals_timeseries();
 
-
-    void write_multipole_timeseries_2() ; 
 
     }
 

@@ -1,5 +1,5 @@
 /**
- * @file test_multipole_decomposition.cpp
+ * @file test_spherical_integrals.cpp
  * @author Konrad Topolski (topolski@itp.uni-frankfurt.de)
  * @brief 
  * @version 
@@ -83,7 +83,7 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
     auto& runtime = grace::runtime::get( ) ;   
     
     const int n_detectors = 1;
-    const int nside = 32; // not used in this example 
+    const int nside = 1; // not used in this example 
     const int ntheta = 400;
     const int nphi = 800;
 
@@ -92,10 +92,9 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
     
     const int max_ell = 4;
     std::array<double,3> centre{0,0,0}; 
-    const double radius = 0.2; 
+    const double radius = 0.25; 
     const std::string sphere_name = "test_detector"; 
-    //const std::string sphere_type = "uniform"; 
-    const std::string sphere_type = "healpix"; 
+    const std::string sphere_type = "uniform"; 
     
     std::vector<std::array<double,3>> output_spheres_centres ;
     std::vector<double>               output_spheres_radii   ;
@@ -107,8 +106,6 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
     output_spheres_names.push_back(sphere_name);
     output_spheres_types.push_back(sphere_type);
 
-    constexpr int spin_weight = -2; //runtime.spin_weight();
-    // constexpr int spin_weight = 0; 
     
     /*************************************************/
     /*            Define filling func                */
@@ -153,41 +150,6 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
     
 
 
-    std::vector<double> multipole_weights{};
-    multipole_weights.resize((max_ell+1)*(max_ell+1));
-    // constexpr std::array<double, (max_ell+1)*(max_ell+1)> multipole_weights{};
-
-    for( int ell = math::abs(spin_weight) ; ell <= max_ell ; ell++){
-        for( int m = -ell ; m <= ell ; m++){
-            const int idx_multipole = grace::utils::multipole_index(ell,m); 
-            multipole_weights[idx_multipole]=idx_multipole;
-        }
-    }
-
-    // host_grid_loop<true>(
-    //     [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
-    //         auto pcoords = coord_system.get_physical_coordinates(
-    //             {VEC(i,j,k)},
-    //             q,
-    //             true
-    //         ) ;
-    //         h_state_mirror(VEC(i,j,k),DENS,q) = 0.;
-    //         for( int ell = math::abs(spin_weight) ; ell <= max_ell ; ell++){
-    //             for( int m = -ell ; m <= ell ; m++){
-    //                 const int idx_multipole = grace::utils::multipole_index(ell,m); 
-    //                 auto const fVal = func(spin_weight, ell, m, VEC(pcoords[0],pcoords[1],pcoords[2]));
-    //                 // if F is real, then its coefficients in the multipole expansion must satisfy:
-    //                 // a_(l,-m) = (-1)^m a_(l,m)*
-    //                 // if()
-    //                 // we need to pick a very specific form of the coefficient 
-    //                 // to get an answer we can easily verify
-    //                 h_state_mirror(VEC(i,j,k),DENS,q) += multipole_weights[idx_multipole] * fVal[0];
-    //                 }
-    //             }
-    //     },
-    //     {VEC(false,false,false)},
-    //     true
-    // ) ; 
 
     host_grid_loop<true>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
@@ -199,20 +161,8 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
             ) ;
             
             h_corner_aux_mirror(VEC(i,j,k),PSI4RE,q) = 0.0;
-            h_corner_aux_mirror(VEC(i,j,k),PSI4IM,q) = 0.0;
+            // h_corner_aux_mirror(VEC(i,j,k),PSI4IM,q) = 0.0;
 
-            
-            // h_corner_aux_mirror
-            // make a combination..:
-            for( int ell = math::abs(spin_weight) ; ell <= max_ell ; ell++){
-                for( int m = -ell ; m <= ell ; m++){
-                    const int idx_multipole = grace::utils::multipole_index(ell,m); 
-                    auto const fVal = func(spin_weight, ell, m, VEC(pcoords[0],pcoords[1],pcoords[2]));
-                    //GRACE_VERBOSE("fVals are {}, {}", fVal[0], fVal[1]);
-                    h_corner_aux_mirror(VEC(i,j,k),PSI4RE,q) += multipole_weights[idx_multipole] * fVal[0];
-                    h_corner_aux_mirror(VEC(i,j,k),PSI4IM,q) += multipole_weights[idx_multipole] * fVal[1];
-                    }
-                }
             // just use a single mode: 
             // this has idx_multipole = 8 
             // auto const fVal = func(spin_weight, 2, 2, VEC(pcoords[0],pcoords[1],pcoords[2]));
@@ -239,19 +189,8 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
     Kokkos::fence();
 
     /*************************************************/
-    /*                  Multipoles                   */
+    /*                  Initialize integrals         */
     /*************************************************/
-
-    // prepare the spin-weighted spherical harmonics for computation: 
-    using Complex = Kokkos::complex<double>;
-    using HostM = Kokkos::HostSpace;
-
-    Kokkos::View<Complex**, HostM> sw_sph_harmonics = Kokkos::View<Complex**, HostM>();
-{
-    if(sw_sph_harmonics.extent(0)==0 and sw_sph_harmonics.extent(1)==0){  // if data=0
-        grace::IO::update_spin_weighted_spherical_harmonics(sw_sph_harmonics, spin_weight, max_ell, nside, ntheta, nphi, grace::IO::SPHERICAL_GRID_TYPE::HEALPIX);
-        GRACE_VERBOSE("SWSH updated. Current size: {} x {}.", sw_sph_harmonics.extent(0),sw_sph_harmonics.extent(1) ) ; 
-    }
 
     grace::IO::initialize_spherical_detectors(n_detectors, nside,
                                                 ntheta, nphi,
@@ -264,42 +203,29 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
 
     GRACE_VERBOSE("Updated spherical surfaces info - multipole computation.") ; 
 
-    grace::IO::compute_spherical_surface_variable_data({"Psi4Re", "Psi4Im"}, {},{},
+    grace::IO::compute_spherical_surface_variable_data({"Psi4Re"}, {},{},
                                              {},{},{});
 
     GRACE_VERBOSE("Interpolated variables on spherical surfaces for multipole decomposition.") ; 
 
-    std::map< std::string, Kokkos::View<Kokkos::complex<double>*, Kokkos::HostSpace> > complex_det_surface_data; 
 
     for (auto& [name, detector] : grace::IO::detectors) {
             GRACE_VERBOSE("Detector name: {} ", name);
             std::vector<int> det_indices = detector.get_local_rank_sphere_indices();
             std::map<std::string,std::vector<double>> det_surface_data = detector.get_local_rank_detector_surface_data();   
 
-            complex_det_surface_data = grace::IO::complexify_detector_data(det_surface_data)  ; 
+            auto const det_all_integrals  = grace::IO::get_all_surface_integrals( ntheta, nphi,
+                                                    det_indices, det_surface_data);
 
 
-            auto const det_all_multipoles  = grace::IO::get_all_multipoles(spin_weight, max_ell, nside, ntheta, nphi,
-                                                    detector.grid_type, det_indices, sw_sph_harmonics, complex_det_surface_data);
-
-
-            for (auto const& [var_name, var_data] : det_all_multipoles){
-                    GRACE_VERBOSE(" var_name {}", var_name);
-
-                    for (int idx_multipole = 0 ; idx_multipole < var_data.extent(0); idx_multipole++ ){
-                            GRACE_INFO(" var_name, multipole_index, Re, Im : {}, {}, {}, {}",
-                                         var_name, idx_multipole,
-                                        var_data(idx_multipole).real(),
-                                        var_data(idx_multipole).imag() );
-                    }
+            for (auto const& [var_name, var_data] : det_all_integrals){
+                    GRACE_VERBOSE(" var_name {}, var_data {}", var_name, var_data);
+                        
                 }
-    }}
+    }
 
 
     
-    // finalize the SWSH 
-    sw_sph_harmonics = Kokkos::View<Complex**, HostM>();;
-
  
     //         CHECK_THAT( h_state_mirror_new(VEC(i,j,k),DENS,q)
     //                   , Catch::Matchers::WithinAbs(

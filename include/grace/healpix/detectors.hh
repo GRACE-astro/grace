@@ -77,7 +77,8 @@ namespace grace{
 
         enum SPHERICAL_GRID_TYPE{
             HEALPIX, // convenient for visualization
-            UNIFORM  // convenient for integration - uniform midpoint convention
+            UNIFORM, // convenient for integration - uniform midpoint convention
+            UNKNOWN
         };
 
 

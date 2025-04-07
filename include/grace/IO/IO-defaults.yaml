@@ -36,10 +36,12 @@ IO: {
   scalar_output_norm2: [],
   scalar_output_integral: [],
 
-  sphere_surface_integrals_cell_variables: [],
   sphere_surface_multipoles_cell_variables: [],
+  sphere_surface_multipole_output_every : -1,
   sphere_surface_multipoles_max_degree: 4, 
-  sphere_surface_scalar_output_every : 10,
+
+  sphere_surface_integrals_cell_variables: [],
+  sphere_surface_integral_output_every : 10,
 
   output_extra_quantities: false,
 

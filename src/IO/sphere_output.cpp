@@ -441,13 +441,13 @@ namespace grace { namespace IO {
 
 
 
-    void update_spin_weighted_spherical_harmonics(Kokkos::View<Complex**, HostM>& sw_sph_harmonics, const int spin_weight, const int max_ell, const int ntheta, const int nphi){
+    void update_spin_weighted_spherical_harmonics(Kokkos::View<Complex**, HostM>& sw_sph_harmonics, const int spin_weight, const int max_ell, const int nside, const int ntheta, const int nphi, SPHERICAL_GRID_TYPE const& grid_type){
         // we will have #spin_weight many unused arrays (of interior sizes 0)
         // e.g. spin_weight=2 means l=0 and l=1 are redundant, but
         // it's more convenient to keep the indexing clean
         // also, it's more convenient for indexing to 
         const int size_harmonics_vecspace = (max_ell + 1) * (max_ell + 1);
-        const int size_det_indices        = (ntheta+1) * (nphi+1);
+        const int size_det_indices        = (grid_type==SPHERICAL_GRID_TYPE::UNIFORM) ? (ntheta+1) * (nphi+1) : 12 * nside * nside;
 
         Kokkos::View<Complex**, HostM> updated_spherical_harmonics("SPSH", size_harmonics_vecspace, size_det_indices);
 
@@ -461,7 +461,14 @@ namespace grace { namespace IO {
 
                 for (int idx_pixel = 0; idx_pixel < size_det_indices; idx_pixel++){
                     double th, ph;
-                    get_spherical_coord_from_oned_index(ntheta,nphi, idx_pixel, th, ph);
+
+                    if(grid_type==SPHERICAL_GRID_TYPE::UNIFORM){
+                        get_spherical_coord_from_oned_index(ntheta,nphi, idx_pixel, th, ph);
+                    }
+                    else if(grid_type==SPHERICAL_GRID_TYPE::HEALPIX){
+                        get_spherical_coord_from_healpix_index(nside, idx_pixel, th, ph);
+                    }
+                    
 
                     utils::multipole_spherical_harmonic(spin_weight, ell, m,
                                                  th, ph,
@@ -859,24 +866,13 @@ namespace grace { namespace IO {
 
 
 
-    /**
-     * @brief write_multipole_timeseries
-     * this function schedules the interpolation of variables registered for multipole computation,
-     * computes the multipole decomposition and saves to HDF5 files
-     * @warning the simulation must end GRACEfully [ ;-) ] for the HDF5 files to be readable; otherwise, the 
-     * data becomes corrupted
-     * @todo trivially extendible - loop over spin_weights (essentially just 2/3 interesting ones: s=-2,0,1) 
-     * with their respective separate output 
-     */
-
-    // note: we currently do not use the HDF5 output, which also has a memory leak somewhere inside...                    
-
     std::map<std::string, View<Complex*,HostM>> 
     get_all_multipoles(const int spin_weight, 
                        const int max_ell,
+                       const int nside, 
                        const int ntheta,
                        const int nphi, 
-                    //    const int nside,
+                       SPHERICAL_GRID_TYPE const& grid_type,
                        const std::vector<int>& det_indices,
                        const View<Complex**, HostM>& sw_sph_harmonics,
                        const std::map< std::string, View<Complex*, HostM>>& complex_det_surface_data)
@@ -911,9 +907,20 @@ namespace grace { namespace IO {
 
                                             double theta, phi; 
 
-                                            get_spherical_coord_from_oned_index(ntheta, nphi, pixel_index,
-                                                                                theta, phi);
-                                            double sinth = std::sin(theta);
+                                            double measure; // trivial for HEALPIX 
+
+                                            if(grid_type == SPHERICAL_GRID_TYPE::UNIFORM){
+                                                get_spherical_coord_from_oned_index(ntheta, nphi, pixel_index, theta, phi);
+                                                measure = std::sin(theta);
+                                                }
+                                            else if (grid_type == SPHERICAL_GRID_TYPE::HEALPIX){
+                                                get_spherical_coord_from_healpix_index(nside, pixel_index, theta, phi);
+                                                measure = 1.0;
+                                            }
+                                            else{
+                                                ERROR("Unrecognized detector type");
+                                            }
+    
 
                                             // notabene:
                                             // idx_pix indexes the extent of the var_data
@@ -930,25 +937,11 @@ namespace grace { namespace IO {
 
 
                                             local_scalar_products_re[idx_multipole] 
-                                                                //+=(var_data(pixel_index)*sw_sph_harmonics(idx_multipole,pixel_index)).real();
-                                                                //+=(var_data(idx_pix)*sw_sph_harmonics(idx_multipole,pixel_index)).real();
-                                                                += sinth * (conjugate_var_data*sw_sph_harmonics(idx_multipole,pixel_index)).real();
-                                                                // += var_data(pixel_index).real() * spherical_harmonics_re[idx_l][idx_m][pixel_index]\
-                                                                //   -var_data(pixel_index).imag() * spherical_harmonics_im[idx_l][idx_m][pixel_index];
+                                                                += measure * (conjugate_var_data*sw_sph_harmonics(idx_multipole,pixel_index)).real();
                                             local_scalar_products_im[idx_multipole] 
-                                                                //+=(var_data(pixel_index)*sw_sph_harmonics(idx_multipole,pixel_index)).imag();
-                                                                //+=(var_data(idx_pix)*sw_sph_harmonics(idx_multipole,pixel_index)).imag();
-                                                                += sinth * (conjugate_var_data*sw_sph_harmonics(idx_multipole,pixel_index)).imag();
-                                                                // += var_data(pixel_index).imag() * spherical_harmonics_re[idx_l][idx_m][pixel_index]\ 
-                                                                //   +var_data(pixel_index).real() * spherical_harmonics_im[idx_l][idx_m][pixel_index] ;
+                                                                += measure * (conjugate_var_data*sw_sph_harmonics(idx_multipole,pixel_index)).imag();
                                             
-                                            // if(idx_multipole==6){
-                                            //     printf("conjugate data on the %d th pixel: (%f,%f) \n ", conjugate_var_data.real(), conjugate_var_data.imag() );
-                                                
-                                            //     printf("6th harmonic: pixel idx, val: (%d, %f, %f) \n",pixel_index,
-                                            //         sw_sph_harmonics(idx_multipole,pixel_index).real(),
-                                            //         sw_sph_harmonics(idx_multipole,pixel_index).imag()  );
-                                            // }
+                                        
 
                                         }
                                     }
@@ -979,9 +972,18 @@ namespace grace { namespace IO {
                                 *  dA = 4 * pi / (12 NSIDE^2) 
                                 */
 
-                                // const double dA = 4. * M_PI / ( 12 * nside * nside );
-                                const double dA = (M_PI / (ntheta + 1)) * ((2.*M_PI / (nphi + 1))) ;
-                                
+                                double dA; 
+
+                                if(grid_type == SPHERICAL_GRID_TYPE::UNIFORM){
+                                    dA = (M_PI / (ntheta + 1)) * ((2.*M_PI / (nphi + 1)));
+                                }
+                                else if (grid_type == SPHERICAL_GRID_TYPE::HEALPIX){
+                                    dA = 4. * M_PI / ( 12 * nside * nside );
+                                }
+                                else{
+                                    ERROR("Unrecognized detector type");
+                                }
+
                                 std::for_each(global_scalar_products_re.begin(), global_scalar_products_re.end(),
                                                 [&](double& pt_val){ pt_val *= dA  ;});
 
@@ -1106,22 +1108,8 @@ namespace grace { namespace IO {
 
         // the spin weights in such a case will be provided at runtime:
         //const std::vector<int> spin_weights = runtime.multipole_spin_weights();
-
-        // if (sw_sph_harmonics.data()) {
          // If needed, explicitly deallocate or clear before reallocating
-        Kokkos::View<Complex**, HostM> sw_sph_harmonics; //("spin_weighted_spherical_harmonics",1,1);
-
-        sw_sph_harmonics = Kokkos::View<Complex**, HostM>();
-        // }
-
-        if(sw_sph_harmonics.extent(0)==0 and sw_sph_harmonics.extent(1)==0){  // if data=0
-                //update_spin_weighted_spherical_harmonics(sw_sph_harmonics, spin_weight, max_ell, nside); // multipole output not adapted for HEALPIX convention
-                update_spin_weighted_spherical_harmonics(sw_sph_harmonics, spin_weight, max_ell, ntheta, nphi);
-                GRACE_VERBOSE("SWSH updated. Current size: {} x {}.", sw_sph_harmonics.extent(0),sw_sph_harmonics.extent(1) ) ; 
-        }
-        
-        GRACE_VERBOSE("SWSH should be initialized. Current size: {} x {}.", sw_sph_harmonics.extent(0),sw_sph_harmonics.extent(1) ) ; 
-
+      
 
         const std::set<std::string> corner_scalar_vars = runtime.corner_sphere_surface_multipole_output_scalar_vars();
         const std::set<std::string> corner_vector_vars = runtime.corner_sphere_surface_multipole_output_vector_vars();
@@ -1143,10 +1131,20 @@ namespace grace { namespace IO {
         int detector_counter = 0;  // Initialize counter
         // this loop automatically omit ranks that do not have a detector assigned (e.g. no coordinate overlap)
         // loop over detectors 
+        SPHERICAL_GRID_TYPE det_grid_type=SPHERICAL_GRID_TYPE::UNKNOWN; 
+        
+        Kokkos::View<Complex**, HostM> sw_sph_harmonics; //("spin_weighted_spherical_harmonics",1,1);
+
+
         for (auto& [name, detector] : detectors) {
 
-            // skip detectors of HEALPIX type - we'd need proper integration weights 
-            if( detector.grid_type != SPHERICAL_GRID_TYPE::UNIFORM ) continue;
+            if( (sw_sph_harmonics.extent(0)==0 and sw_sph_harmonics.extent(1)==0) or detector.grid_type != det_grid_type ){  
+                    sw_sph_harmonics = Kokkos::View<Complex**, HostM>();
+                    update_spin_weighted_spherical_harmonics(sw_sph_harmonics, spin_weight, max_ell, nside, ntheta, nphi, detector.grid_type);
+                    // GRACE_VERBOSE("SWSH updated. Current size: {} x {}.", sw_sph_harmonics.extent(0),sw_sph_harmonics.extent(1) ) ; 
+            }
+             det_grid_type = detector.grid_type;     // latest detector type                
+            // if( detector.grid_type != SPHERICAL_GRID_TYPE::UNIFORM ) continue;
 
             std::vector<int> det_indices = detector.get_local_rank_sphere_indices();
             std::map<std::string,std::vector<double>> det_surface_data = detector.get_local_rank_detector_surface_data();
@@ -1172,7 +1170,7 @@ namespace grace { namespace IO {
             // access pattern: e.g. for real part: 
             // det_all_multipoles.at(var_name)(cumulative_utils::multipole_index).real()
             // std::map<std::string, Kokkos::View<Kokkos::complex<double>*,Kokkos::HostSpace> > det_all_multipoles; 
-            auto const det_all_multipoles  = get_all_multipoles(spin_weight, max_ell, ntheta, nphi, det_indices, sw_sph_harmonics, complex_det_surface_data);
+            auto const det_all_multipoles  = get_all_multipoles(spin_weight, max_ell, nside, ntheta, nphi, detector.grid_type, det_indices, sw_sph_harmonics, complex_det_surface_data);
             std::filesystem::path base_path (runtime.scalar_io_basepath()) ;
             const std::string ascii_filename =  "./multipoles_det" + name + "";
             std::filesystem::path ascii_out_path = base_path / ascii_filename ;
@@ -1244,6 +1242,50 @@ namespace grace { namespace IO {
     }
 
 
+    std::map<std::string, double> 
+    get_all_surface_integrals(const int ntheta,
+                              const int nphi, 
+                              const std::vector<int>& det_indices,
+                              std::map<std::string,std::vector<double>> det_surface_data)
+                    {
+                        std::map<std::string, double> det_all_integrals; 
+                        const double dA = (M_PI / (ntheta + 1)) * ((2.*M_PI / (nphi + 1))) ;
+
+                        for ( auto& [var_name, var_data] : det_surface_data) {  
+                            // local rank operations first: 
+                            double local_integral{0};
+                            double global_integral{0};
+
+                            for(int idx_pix=0; idx_pix < det_indices.size(); idx_pix++) {
+                                const int pixel_index = det_indices[idx_pix];
+                                double theta, phi; 
+                                get_spherical_coord_from_oned_index(ntheta, nphi, pixel_index,
+                                                                    theta, phi);
+                                double sinth = std::sin(theta);
+                                local_integral+=var_data[idx_pix] * sinth * dA ;
+                            }
+                            
+
+                            /*
+                            * At this point, all ranks have their local partial sums for (l>=s,m) 
+                            * We perform an MPI sum (harmonic-wise), and save on root 
+                            * Note : maybe use allreduce instead? 
+                            */
+
+                            parallel::mpi_reduce(&local_integral, 
+                                                &global_integral,
+                                                1,
+                                                mpi_sum,
+                                                grace::master_rank()
+                                                );
+                            det_all_integrals[var_name] = global_integral;
+                        }
+
+                    return det_all_integrals;
+                }
+
+
+
     void write_spherical_integrals_timeseries(){
 
         auto& runtime = grace::runtime::get( ) ;
@@ -1255,15 +1297,16 @@ namespace grace { namespace IO {
 
         const int n_detectors = runtime.n_surface_output_spheres();
         const int nside = runtime.nside_surface_output_spheres();
+        const int ntheta = runtime.ntheta_surface_output_spheres();
+        const int nphi = runtime.nphi_surface_output_spheres();
         
       
-
-        const std::set<std::string> corner_scalar_vars = runtime.corner_sphere_surface_multipole_output_scalar_vars();
-        const std::set<std::string> corner_vector_vars = runtime.corner_sphere_surface_multipole_output_vector_vars();
-        const std::set<std::string> corner_tensor_vars = runtime.corner_sphere_surface_multipole_output_tensor_vars();
-        const std::set<std::string> cell_scalar_vars = runtime.cell_sphere_surface_multipole_output_scalar_vars();
-        const std::set<std::string> cell_vector_vars = runtime.cell_sphere_surface_multipole_output_vector_vars();
-        const std::set<std::string> cell_tensor_vars = runtime.cell_sphere_surface_multipole_output_tensor_vars();
+        const std::set<std::string> corner_scalar_vars = runtime.corner_sphere_surface_integral_output_scalar_vars();
+        const std::set<std::string> corner_vector_vars = runtime.corner_sphere_surface_integral_output_vector_vars();
+        const std::set<std::string> corner_tensor_vars = runtime.corner_sphere_surface_integral_output_tensor_vars();
+        const std::set<std::string> cell_scalar_vars =     runtime.cell_sphere_surface_integral_output_scalar_vars();
+        const std::set<std::string> cell_vector_vars =     runtime.cell_sphere_surface_integral_output_vector_vars();
+        const std::set<std::string> cell_tensor_vars =     runtime.cell_sphere_surface_integral_output_tensor_vars();
         
         update_spherical_detectors();
 
@@ -1281,46 +1324,10 @@ namespace grace { namespace IO {
         std::map<std::string, double> surface_integrals;
 
         for (auto& [name, detector] : detectors) {
-            std::vector<int> det_healpix_indices = detector.get_local_rank_sphere_indices();
+            std::vector<int> det_indices = detector.get_local_rank_sphere_indices();
             std::map<std::string,std::vector<double>> det_surface_data = detector.get_local_rank_detector_surface_data();
 
-            /*
-            *  Multiply by the healpix measure
-            *  dA = 4 * pi / (12 NSIDE^2) 
-            */
-
-            const double dA = 4. * M_PI / ( 12 * nside * nside );
-
-            for ( auto& [var_name, var_data] : det_surface_data) {  
-                    // local rank operations : 
-                    // partial sum arrays for the scalar product with each spherical harmonic:
-                    // we store them in this way and not as a complex Kokkos::View, 
-                    // since we invoke mpi_reduce on MPI_DOUBLE type... 
-                    double local_integral{0};
-                    double global_integral{0};
-
-
-                    for(int idx_pix=0; idx_pix < det_healpix_indices.size(); idx_pix++) {
-                        // const int pixel_index = det_healpix_indices[idx_pix];
-                        local_integral+=var_data[idx_pix] * dA ;
-                    }
-                    
-
-                    /*
-                    * At this point, all ranks have their local partial sums for (l>=s,m) 
-                    * We perform an MPI sum (harmonic-wise), and save on root 
-                    * Note : maybe use allreduce instead? 
-                    */
-
-                    parallel::mpi_reduce(&local_integral, 
-                                        &global_integral,
-                                        1,
-                                        mpi_sum,
-                                        grace::master_rank()
-                                        );
-                    surface_integrals[var_name] = global_integral;
-                }
-
+            std::map<std::string, double> surface_integrals = get_all_surface_integrals(ntheta,nphi, det_indices, det_surface_data);
 
             std::filesystem::path base_path (runtime.scalar_io_basepath()) ;
             const std::string ascii_filename =  "./surface_integral_" + name + "";
