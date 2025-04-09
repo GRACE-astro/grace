@@ -83,7 +83,8 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
     auto& runtime = grace::runtime::get( ) ;   
 
     constexpr int spin_weight = 0; 
-    
+
+    const int max_ell = 4; 
     /*************************************************/
     /*            Define filling func                */
     /*************************************************/
@@ -119,13 +120,28 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
             
             h_corner_aux_mirror(VEC(i,j,k),PSI4RE,q) = 0.0;
             h_corner_aux_mirror(VEC(i,j,k),PSI4IM,q) = 0.0;
+            
+            
             // just use a single mode: 
             // this has idx_multipole = 8 
-            auto const fVal = func(spin_weight, 1, 0, VEC(pcoords[0],pcoords[1],pcoords[2]));
-            // auto const fVal = func(spin_weight, 0, 0, VEC(pcoords[0],pcoords[1],pcoords[2]));
-            // printf("fvals: %f, %f", fVal[0], fVal[1]);
-            h_corner_aux_mirror(VEC(i,j,k),PSI4RE,q) = fVal[0];
-            h_corner_aux_mirror(VEC(i,j,k),PSI4IM,q) = fVal[1];
+            // auto const fVal = func(spin_weight, 1, 0, VEC(pcoords[0],pcoords[1],pcoords[2]));
+            // h_corner_aux_mirror(VEC(i,j,k),PSI4RE,q) = fVal[0];
+            // h_corner_aux_mirror(VEC(i,j,k),PSI4IM,q) = fVal[1];
+
+            // use many modes:
+            for( int ell = math::abs(spin_weight) ; ell <= max_ell ; ell++){
+                for( int m = -ell ; m <= ell ; m++){
+                    const int idx_multipole = grace::utils::multipole_index(ell,m); 
+                    auto const fVal = func(spin_weight, ell, m, VEC(pcoords[0],pcoords[1],pcoords[2]));
+                    // if F is real, then its coefficients in the multipole expansion must satisfy:
+                    // a_(l,-m) = (-1)^m a_(l,m)*
+                    // if()
+                    // we need to pick a very specific form of the coefficient 
+                    // to get an answer we can easily verify
+                    h_corner_aux_mirror(VEC(i,j,k),PSI4RE,q) += idx_multipole * fVal[0];
+                    }
+                }
+
 
             // printf("Harmonic values at: %")
 

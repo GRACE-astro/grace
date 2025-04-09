@@ -129,6 +129,7 @@ namespace healpix {
 
             size_t  i, j, ss;
             double ph, z, aux, dummy;
+            size_t idx_south;
 
             // calculate the northern polar cap
             if (idx<2*(nside-1)*nside){
@@ -150,16 +151,14 @@ namespace healpix {
                 phi = M_PI*(j+ss/2.0-1.0)/(2*nside);
             } // calculate the southern polar cap
             else if (idx<12*nside*nside){
-                ph = ((12*nside*nside-idx-1)+1.)/2;
-                aux = int(ph);
-                aux = sqrt(ph-sqrt(aux));
-                i = int(aux)+1;
-                j = idx+1-2*i*(i-1);
-                //z = 1-i*i/(3.0*nside*nside);
-                z = 1-i*i/(3.0*nside*nside);
-                z = -z; 
-                ss = 1;
-                phi = 2*M_PI-M_PI*(j-ss/2.0)/(2*i);
+                ph = 12*nside*nside - idx; 
+                aux = int(2*ph - 1);
+                i = (1+sqrt(aux))/2;
+                j = 4*i + 1 - (ph - 2*i*(i-1));
+                dummy = i*i/(3.0*nside*nside);
+                z = dummy - 1.0;
+                ss = sqrt(dummy*(2.0 - dummy));
+                phi = (j-0.5) * 0.5 * M_PI / i;
             }
             else {
                 ERROR("An index larger than 12*nside**2 is not allowed in healpix outflow!");

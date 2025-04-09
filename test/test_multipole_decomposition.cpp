@@ -83,7 +83,8 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
     auto& runtime = grace::runtime::get( ) ;   
     
     const int n_detectors = 1;
-    const int nside = 32; // not used in this example 
+    //const int nside = 128; // not used in this example 
+    const int nside = 256; // not used in this example 
     const int ntheta = 400;
     const int nphi = 800;
 
