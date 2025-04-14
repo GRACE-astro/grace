@@ -279,7 +279,11 @@ TEST_CASE("Multipole decomposition", "[multipole-decomposition]")
 
             complex_det_surface_data = grace::IO::complexify_detector_data(det_surface_data)  ; 
 
-
+            // osc TOV (hydro w/o hydro) - strong field test 
+            // l=m=2 
+            // id_kernel ["quadrupole solution"]? 
+            // plane wave  - weak field test
+            // to do: port this routine from CPU to GPU 
             auto const det_all_multipoles  = grace::IO::get_all_multipoles(spin_weight, max_ell, nside, ntheta, nphi,
                                                     detector.grid_type, det_indices, sw_sph_harmonics, complex_det_surface_data);
 

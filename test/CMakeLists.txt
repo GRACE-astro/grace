@@ -74,6 +74,8 @@ add_grace_test(coordinate_test test_coordinates.cpp)
 add_grace_test(volume_output_test test_output.cpp)
 add_grace_test(regrid_test test_regridding.cpp)
 add_grace_test(multipole_decomposition_test test_multipole_decomposition.cpp)
+add_grace_test(spherical_integrals_test test_spherical_integrals.cpp)
+add_grace_test(healpix_output_test test_healpix_output.cpp)
 add_grace_test(bc_test test_bc.cpp)
 add_grace_test(scalar_reductions_test test_scalar_reductions.cpp)
 add_grace_test(hdf5_output_test test_hdf5_IO.cpp)
@@ -145,3 +147,5 @@ add_test(NAME test_p4est_search COMMAND
         mpirun -n 1 ./test_p4est_search --grace-parfile ./configs/h5_io_test.yaml )
 add_test(NAME multipole_decomposition_test COMMAND 
         mpirun -n 2 ./multipole_decomposition_test --grace-parfile ./configs/multipole_decomposition_test.yaml)
+add_test(NAME spherical_integrals_test COMMAND 
+        mpirun -n 2 ./spherical_integrals_test --grace-parfile ./configs/multipole_decomposition_test.yaml)
