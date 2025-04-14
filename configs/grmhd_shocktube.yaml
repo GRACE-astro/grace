@@ -23,8 +23,8 @@ IO: {
   volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]"],
   volume_output_base_directory: "output_volume",
   volume_output_every: 100,
-  plane_surface_output_cell_variables: [],
-  plane_surface_output_every: -1,
+  plane_surface_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]"],
+  plane_surface_output_every: 1,
   sphere_surface_output_every: -1,
   info_output_every: 1, #20,
   info_output_max_reductions: ["dens", "press", "eps"],
@@ -37,7 +37,8 @@ IO: {
   scalar_output_integral: [],
   output_use_hdf5: true, 
   hdf5_compression_level: 6,
-  hdf5_chunk_size: 8192
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true
 }
 system: {
   console_log_level: "info",

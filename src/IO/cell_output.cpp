@@ -44,8 +44,8 @@ void write_cell_output(bool volume_output, bool surface_output_plane, bool surfa
     auto& params = grace::config_parser::get() ; 
     bool output_hdf5 = params["IO"]["output_use_hdf5"].as<bool>() ; 
 
-    if( output_hdf5 ) {
-        write_cell_data_hdf5(volume_output,surface_output_plane,surface_output_sphere) ; 
+    if( output_hdf5 ) {                                                                // sliced
+        write_cell_data_hdf5(volume_output,surface_output_plane,surface_output_sphere, true) ; 
     } else {
         write_cell_data_vtk(volume_output,surface_output_plane,surface_output_sphere) ;
     }

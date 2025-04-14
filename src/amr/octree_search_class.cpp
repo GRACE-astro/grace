@@ -14,6 +14,19 @@ namespace grace { namespace amr {
 #ifdef GRACE_3D
 
 OctreeSlicer::OctreeSlicer() {}
+OctreeSlicer::OctreeSlicer(std::string plane) {
+    plane = "yz"; // Default to yz plane for now
+    if (plane=="yz") {
+        std::tie(nx_,ny_,nz_) = amr::get_quadrant_extents() ;
+        nx_=1;
+    } else if (plane=="xz") {
+        // Set up for xz plane slicing
+    } else if (plane=="xy") {
+        // Set up for xy plane slicing
+    } else {
+        throw std::invalid_argument("Invalid slicing plane specified.");
+    }
+}
 
 void OctreeSlicer::find_sliced_cells() {
     octree_search();
@@ -112,7 +125,6 @@ int OctreeSlicer::handle_search(p4est_t* p4est, p4est_topidx_t which_tree,
         }
         return 0; // Skip trees that are not the first one
     }
-
     std::array<size_t, 3> ijk = {0, 0, 0};
 
     size_t nx,ny,nz; 
@@ -128,12 +140,12 @@ int OctreeSlicer::handle_search(p4est_t* p4est, p4est_topidx_t which_tree,
     auto x_max = pcoords_max[0];
 
     if (x_min <= 0.0 && x_max > 0.0) {
-        if (local_num < 0) {
-            return 1; // Skip trees that are not valid (e.g. ghost trees)
-        }
-    
-        quadrant->p.user_int = 0; // Reset the user data to 0
+        quadrant->p.user_int = 1; 
         return 1; // Found a quadrant that is intersected
+    }
+    else {
+        quadrant->p.user_int = 0; 
+        return 0;
     }
     return 0;
 }
@@ -141,6 +153,9 @@ int OctreeSlicer::handle_search(p4est_t* p4est, p4est_topidx_t which_tree,
 int OctreeSlicer::handle_reset(p4est_t* p4est, p4est_topidx_t which_tree,
                               p4est_quadrant_t* quadrant, p4est_locidx_t local_num,
                               void* points) {
+    if (local_num < 0) {
+        return 1;
+    }
     quadrant->p.user_int = 0;
     return 0;
 }
@@ -154,14 +169,8 @@ void OctreeSlicer::octree_search() {
 }
 
 void OctreeSlicer::search_quadrants() {
-    int num_sliced_quadrants = slicedQuadrants_.size();
-    size_t nx,ny,nz; 
-    std::tie(nx,ny,nz) = get_quadrant_extents() ;
-    auto num_sliced_cells = ny*nz*num_sliced_quadrants;
-
     size_t first = forest_.first_local_tree();
     size_t last = forest_.last_local_tree();
-    
     for (size_t i = first; i <= last; ++i) // Loop from first to last local tree
     {
         auto tree = forest_.tree(i);  // Assuming there is a function to access a tree by index
@@ -171,7 +180,7 @@ void OctreeSlicer::search_quadrants() {
         {
             auto quadrant = tree.quadrant(j);  // Get the j-th quadrant in the tree (adjust if needed)
 
-            if (quadrant.get_user_data<int>() != 0)
+            if (quadrant.get()->p.user_int == 1)  // Check if the quadrant is intersected
             {
                 slicedQuadrants_.push_back({quadrant_offset+j, i, j});
             }
@@ -190,29 +199,29 @@ void OctreeSlicer::search_cells() {
         size_t num_quadrants = tree.num_quadrants();  // Number of quadrants in the tree
         std::array<size_t, 3> ijk = {0, 0, 0};
 
-        for (size_t i = 0; i < nx; ++i)
+        for (size_t k = 0; k < nz; ++k)
         {
             for (size_t j = 0; j < ny; ++j)
             {
-                for (size_t k = 0; k < nz; ++k)
+                for (size_t i = 0; i < nx; ++i)
                 {
                     double nx1, ny1, nz1;
                     nx1 = i;
                     ny1 = j;
                     nz1 = k;
                     double nx2, ny2, nz2;
-                    nx2 = i+1;
+                    nx2 = i+1; 
                     ny2 = j+1;
                     nz2 = k+1;
                     // Get physical coordinates of the cell corners
                     std::array<double, 3> pcoords = coord_system_.get_physical_coordinates(ijk, q.globalIndex  , {VEC(nx1, ny1, nz1)}, false);
                     std::array<double, 3> pcoords_max = coord_system_.get_physical_coordinates(ijk, q.globalIndex, {VEC(nx2, ny2, nz2)}, false);
-                    double x_min = pcoords[0];
+                    double x_min = pcoords[0];// This is now specific for the y-z plane
                     double x_max = pcoords_max[0];
-                    //printf("x_min: %f, x_max: %f\n", x_min, x_max);
 
                     if (x_min <= 0.0 && x_max > 0.0) {
                         slicedCells_.push_back({q, i, j, k});
+                        break;
                     }
                 }
             }
@@ -340,6 +349,36 @@ sc_array_t* OctreeSlicer::generate_sphere_points(int num_points, double radius) 
     return sc_array;
 }
 
+void OctreeSlicer::generate_continuous_indices() {
+    printf("Generating continuous indices for sliced cells...\n");
+    localToSlicedIdx_.clear();
+    const size_t num_cells = slicedCells_.size();
+    const size_t num_quadrants = slicedQuadrants_.size();
+    localToSlicedIdx_.rehash(num_quadrants); // Ensure sufficient capacity
+
+    auto& slicedCells = slicedCells_; // Assuming slicedCells_ is a device View
+    auto& slicedQuadrants = slicedQuadrants_; // Assuming slicedQuadrants_ is a device View
+    size_t continuousIndex = 0;
+
+    for (const auto& quadrant : slicedQuadrants_) {
+        size_t localIdx = quadrant.localQuadrantIdx;
+
+        // Try to insert a new index if it doesn't exist yet
+        auto [it, inserted] = localToSlicedIdx_.insert({localIdx, 0});
+        if (inserted) {
+            it->second = continuousIndex++;
+        }
+    }
+
+    // Retrieve the total number of unique indices
+    size_t total_unique = 0;
+    for (const auto& [key, value] : localToSlicedIdx_) {
+        printf("Key: %zu, Value: %zu\n", key, value);
+        ++total_unique;
+    }
+
+    printf("Total unique indices generated: %zu\n", total_unique);
+}
 
 
 #endif // GRACE_3D

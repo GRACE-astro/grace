@@ -95,12 +95,21 @@ struct shocktube_id_t {
     {
         grmhd_id_t id ; 
         if( _pcoords(VEC(i,j,k),0,q) <= 0 ) {
-            id.rho     = _rhoL ; 
-            id.press   = _pL   ; 
+            id.rho     =  1;//_rhoL ; 
+            id.press   =  1 ;//_pL   ; 
         } else {
-            id.rho     = _rhoR ; 
-            id.press   = _pR   ;
+            id.rho     = i*j*k ;//_rhoR ; 
+            id.press   = i*j*k ;//_pR   ;
+            //printf("i,j,k,q = %d %d %d %d\n",i,j,k,q) ;
         }
+        size_t nx,ny,nz,nq; 
+        if (i<2 || i>=18 || j<2 || j>=18 || k<2 || k>=18) {}
+        else if ( (_pcoords(VEC(i,j,k),0,q) <= 0) and (_pcoords(VEC(i+1,j+1,k+1),0,q) > 0) ) {
+            id.rho     = 1 ; 
+            id.press   = 1   ; 
+            //printf("special: i,j,k,q = %d %d %d %d\n",i,j,k,q) ;
+            //printf("x_min = %f, x_max = %f\n",_pcoords(VEC(i,j,k),0,q), _pcoords(VEC(i+1,j+1,k+1),0,q)) ;
+        } 
         id.vx = 0; id.vy = 0.; id.vz = 0.;
         id.betax = 0; id.betay=0; id.betaz = 0; 
         id.alp = 1 ; 

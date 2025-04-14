@@ -1,7 +1,9 @@
 // octree_search_class.hh
-#pragma once
+#ifndef GRACE_AMR_OCTREE_SEARCH_CLASS_HH
+#define GRACE_AMR_OCTREE_SEARCH_CLASS_HH
 
 #include <Kokkos_Core.hpp>
+#include <Kokkos_UnorderedMap.hpp>
 #include <grace_config.h>
 #include <grace/IO/hdf5_output.hh>
 #include <grace/amr/grace_amr.hh>
@@ -36,11 +38,21 @@ public:
     // Constructor
     OctreeSlicer();
 
+    OctreeSlicer(std::string plane);
+
     // Main interface
     void find_sliced_cells();
+    void set_localToSlicedIdx() {generate_continuous_indices();};
     size_t num_sliced_cells() const { return slicedCells_.size(); }
     const auto& sliced_quadrants() const { return slicedQuadrants_; }
     const auto& sliced_cells() const { return slicedCells_; }
+    const auto& get_localToSlicedIdx() const { return localToSlicedIdx_; }
+
+    std::tuple<size_t,size_t,size_t>
+    get_quadrant_extents()
+    {
+        return std::make_tuple(nx_,ny_,nz_) ;  
+    }
 
     // For Konrad maybe useful
     void find_sliced_cells_for_sphere(int num_points, double radius);
@@ -52,6 +64,9 @@ private:
     std::vector<SlicedQuadrantInfo> slicedQuadrants_;
     std::vector<SlicedCellInfo> slicedCells_;
 
+    size_t nx_,ny_,nz_;
+    std::unordered_map<size_t, size_t> localToSlicedIdx_;
+    
     // Private methods
     std::pair<std::array<double, 3>, std::array<double, 3>> 
     get_physical_coordinates_private(p4est_t* p4est, p4est_topidx_t which_tree,
@@ -75,8 +90,12 @@ private:
 
     // Helper to generate sphere points
     static sc_array_t* generate_sphere_points(int num_points, double radius);
+    
+    void generate_continuous_indices();
 };
+
 
 #endif // GRACE_3D
 } // namespace amr
 } // namespace grace
+#endif

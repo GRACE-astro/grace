@@ -397,6 +397,30 @@ void mpi_irecv(T* recv_buffer, int size,
             "mpi_irecv call failed.") ;
 }
 
+template<typename T>
+static inline 
+void mpi_exscan_sum( T* send_buffer, T* recv_buffer, int size,
+              sc_MPI_Comm comm) 
+{
+    #ifndef SC_ENABLE_MPI
+    ASSERT(0, 
+           "Please make sure that a real MPI implementation"
+           "is linked before attempting to call mpi_irecv"
+           "(build sc with --enable-mpi)") ;
+    #endif
+    ASSERT_DBG( (recv_buffer!=nullptr) or (size==0), 
+                "Attempting to send more than zero "
+                "elements into a dangling pointer." ) ;
+    int mpi_retval = sc_MPI_Exscan( static_cast<void*>(send_buffer),
+                                    static_cast<void*>(recv_buffer),
+                                  size,
+                                  detail::mpi_type_utils<T>::get_type(),
+                                  mpi_sum,
+                                  comm) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_irecv call failed.") ;
+}
+
 void mpi_waitall(std::vector<sc_MPI_Request>& requests);
 
 
