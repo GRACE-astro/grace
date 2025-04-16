@@ -51,9 +51,48 @@
 
 TEST_CASE("Tabulated EOS", "[pwpolytrope]")
 {
-    std::string table_path = "/users/pierrekh/data/eos_tables/compose_tables/DD2+VQCD_soft_quark_fraction.h5";
+    std::string table_path = "/users/pierrekh/data/eos_tables/compose_tables/DD2+VQCD_soft_quark_fraction.h5";  
 
-    auto _tabulated = grace::setup_tabulated_eos_compose(table_path.c_str());
+    grace::tabulated_eos_t _tabulated = grace::setup_tabulated_eos_compose(table_path.c_str());
+
+    int coordinate_size = 10;
+    double coordinate_spacing = 0.25;
+    double inverse_coordinate_spacing = 1. / coordinate_spacing;
+
+    Kokkos::View<double *, grace::default_space> x("CoordinateSystem", coordinate_size);
+    auto h_x = Kokkos::create_mirror_view(x);
+
+    std::cout << "(";
+    for (int i = 0; i < coordinate_size; ++i){
+        h_x[i] = i * coordinate_spacing;
+
+        if (i < 9){
+            std::cout << i * coordinate_spacing <<", ";
+        } else {
+            std::cout << i * coordinate_spacing <<")";
+
+        }
+        
+    }
+
+    Kokkos::deep_copy(x, h_x);
+
+    Kokkos::View<int[1], grace::default_space> result("result");
+    auto h_result = Kokkos::create_mirror_view(result);
+
+
+    GRACE_INFO("BREAKPOINT 1");
+
+    double xpos = 1.5;
+
+    Kokkos::parallel_for("Evol", 1, KOKKOS_LAMBDA (int i) {
+
+        result(0) = _tabulated._find_index_uniform(x, inverse_coordinate_spacing, xpos);
+    });
+
+    Kokkos::deep_copy(h_result, result);
+
+    GRACE_INFO("The result is {}", h_result(0));
 
     
 }

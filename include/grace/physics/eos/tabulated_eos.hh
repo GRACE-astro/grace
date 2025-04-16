@@ -29,13 +29,14 @@
 #include <grace_config.h>
 
 #include <grace/utils/grace_utils.hh>
+#include <grace/utils/interpolators.hh> //TODO! Should this be in the grace_utils header
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/physics/eos/physical_constants.hh>
 #include <hdf5.h>
 
 #include <Kokkos_Core.hpp>
-#include <iostream>
+#include <bitset>
 
 namespace grace { 
 /**
@@ -46,7 +47,9 @@ namespace grace {
  */
 class tabulated_eos_t
 {
-    using error_type = unsigned int ;
+  //TODO! This is different from how Carlo handels errors for the polytopic_eos
+  typedef std::bitset<EOS_ERROR_T::EOS_NUM_ERRORS> error_type_array;
+
  public:
     
     enum EV {
@@ -66,6 +69,14 @@ class tabulated_eos_t
     NUM_VARS
     };
 
+    //For a consistent dimension odering
+    enum dim {
+      rho = 0,
+      temp,
+      yes,
+      num_dim
+    };
+
     tabulated_eos_t() = default;
 
     tabulated_eos_t(
@@ -74,23 +85,181 @@ class tabulated_eos_t
       Kokkos::View<double*, grace::default_space> logtemp,
       Kokkos::View<double*, grace::default_space> yes,
       Kokkos::View<double***, grace::default_space> epstable,
+      Kokkos::View<double [dim::num_dim], grace::default_space> coord_spacing,
+      Kokkos::View<double [dim::num_dim], grace::default_space> inverse_coord_spacing,
       double c2p_eps_min,
       double c2p_h_min,
       double c2p_h_max,
       double c2p_press_max,
+      double eos_rhomax,
+      double eos_rhomin,
+      double eos_tempmax,
+      double eos_tempmin,
+      double eos_yemax,
+      double eos_yemin,
       double energy_shift)
     : _alltables(alltables), _logrho(logrho), _logtemp(logtemp), _yes(yes)
-    , _epstable(epstable), _c2p_eps_min(c2p_eps_min), _c2p_h_min(c2p_h_min)
-    , _c2p_h_max(c2p_h_max), _c2p_press_max(c2p_press_max), _energy_shift(energy_shift)
+    , _epstable(epstable), _coord_spacing(coord_spacing)
+    , _inverse_coord_spacing(inverse_coord_spacing), _c2p_eps_min(c2p_eps_min)
+    , _c2p_h_min(c2p_h_min), _c2p_h_max(c2p_h_max), _c2p_press_max(c2p_press_max)
+    , _eos_rhomax(eos_rhomax), _eos_rhomin(eos_rhomin), _eos_tempmax(eos_tempmax)
+    , _eos_tempmin(eos_tempmin), _eos_yemax(eos_yemax), _eos_yemin(eos_yemin)
+    , _energy_shift(energy_shift)
     {}
+
+    bool extend_table_high = false;
+
 
   private:
 
     Kokkos::View<double****, grace::default_space> _alltables ; 
     Kokkos::View<double***, grace::default_space> _epstable;
     Kokkos::View<double*, grace::default_space> _logrho, _logtemp, _yes ;
-    double _c2p_eps_min, _c2p_h_min, _c2p_h_max, _c2p_press_max, _energy_shift;
+    Kokkos::View<double [dim::num_dim], grace::default_space> _coord_spacing;
+    Kokkos::View<double [dim::num_dim], grace::default_space> _inverse_coord_spacing;
+    double _c2p_eps_min, _c2p_h_min, _c2p_h_max, _c2p_press_max, _eos_rhomax;
+    double _eos_rhomin, _eos_tempmax, _eos_tempmin, _eos_yemax, _eos_yemin;
+    double _energy_shift;
 
+
+    //Get nearest table index of input value xin
+    template <typename T>
+    int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    find_index_uniform(const Kokkos::View<double*>& x, const double& idx, T xin) const {
+      //As grid spacing is uniform, inverse grid spacing can be used to calulate index
+      
+      //Shift xin by lowest value
+      const double xL = xin - x(0);
+
+      //If xin is smaller then lowest value 0 index is returned
+      if (xL <= 0) return 0;
+
+      int index = static_cast<int>(xL * idx);
+
+      //Returns second to last index if calculated index is out of bounds
+      if (index > x.size() - 2) return x.size() - 2;
+
+      return index;
+    }
+
+    //Interpolates one of the 3D tables, the table integer specifices which table, and xrho/temp/ye the interpolation position
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    interpolate_table(const int& table, double &xrho, double &xtemp, double &xye) const {
+      int irho, itemp, iye;
+      
+      //Find 3D tables corresponding to int table
+      auto table_3D = Kokkos::subview(_alltables, Kokkos::ALL, Kokkos::ALL, Kokkos::ALL, table);
+
+      //Calculate index position of rho, temp, ye 
+      irho = find_index_uniform(_logrho, _inverse_coord_spacing(dim::rho), _coord_spacing(dim::rho));
+      itemp = find_index_uniform(_logtemp, _inverse_coord_spacing(dim::temp), _coord_spacing(dim::temp));
+      iye = find_index_uniform(_yes, _inverse_coord_spacing(dim::yes), _coord_spacing(dim::yes));
+
+      //Need to create stencil for interploation, these are the dimensions
+      size_t constexpr stencil = utils::linear_interp_t<3>::stencil_size; 
+      size_t constexpr npoints = stencil * stencil * stencil;
+
+      //Create arrays for stencil
+      double table_coordinates[3 * npoints];
+      double table_value[npoints];
+
+      //Parametric coordinates are used to calulate stencil indicies and values
+      int parametric_coordinates[3 * npoints];
+      utils::linear_interp_t<3>::get_parametric_coordinates(parametric_coordinates); 
+
+      //Flatened array is used to store all stencil indicies
+      for ( int is=0; is < npoints; ++is){
+        //calulates coordinates for stencil
+        table_coordinates[3*is + 0] = irho + parametric_coordinates[3*is + 0];
+        table_coordinates[3*is + 1] = itemp + parametric_coordinates[3*is + 1];
+        table_coordinates[3*is + 2] = iye + parametric_coordinates[3*is + 2];
+        
+        //calculate values for stencil
+        table_value[is] = table_3D(irho + parametric_coordinates[3*is + 0], 
+                                   itemp + parametric_coordinates[3*is + 1],
+                                   iye + parametric_coordinates[3*is + 2]);
+                                
+      }
+      
+      //TODO! Currently passing the stencil like this generates warnings
+      //sets up interploator object with stencil
+      auto interpolator = utils::linear_interp_t<3>(table_coordinates, table_value); 
+
+      //Interpolates using input values xrho/temp/ye
+      return interpolator.interpolate(xrho, xtemp, xye);
+    }
+
+
+
+    error_type_array GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    checkbounds(double &xrho, double &xtemp, double &xye, bool check_temp = true) {
+    
+    error_type_array error_codes;
+
+    if (xrho > _eos_rhomax && !extend_table_high) {
+      // This happens only inside the AH.
+      // (assuming that the table has a sane range)
+      error_codes[EOS_ERROR_T::EOS_RHO_TOO_HIGH] = true;
+      xrho = _eos_rhomax;
+
+    } else if  (xrho < _eos_rhomin) {
+      // Might happen in the atmosphere and will be caught later. This point is
+      // most likely also incorrect and should be reset.
+      xrho = _eos_rhomin;
+      error_codes[EOS_ERROR_T::EOS_RHO_TOO_LOW] = true;
+    }
+
+    if (xye > _eos_yemax) {
+      // This is a serious issue and should not happen.
+      // Maybe we should even abort the simulation here
+      //TODO! Talk to Carlo about if error message should be returned here
+      xye = _eos_yemax;
+      error_codes[EOS_ERROR_T::EOS_YE_TOO_HIGH] = true;
+    
+    } else if (xye < _eos_yemin) {
+      // Ok, this can be fixed
+      xye = _eos_yemin;
+      error_codes[EOS_ERROR_T::EOS_YE_TOO_LOW] = true;
+    }
+    
+    if (check_temp) {
+      if (xtemp > _eos_tempmax) {
+        // This should never happen...
+        // But removing energy should be fine, so what about
+        xtemp = _eos_tempmax;
+        error_codes[EOS_ERROR_T::TEMP_TOO_HIGH] = true;
+      
+      } else if (xtemp < _eos_tempmin) {
+        // Might happen in the atmosphere, let's reset
+        xtemp = _eos_tempmin;
+        error_codes[EOS_ERROR_T::TEMP_TOO_LOW] = true;
+      }
+    }
+    return error_codes;
+
+    }
+  
+  public:
+
+    //TODO! Delete after test
+    int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    _find_index_uniform(const Kokkos::View<double*>& _x, const double& _idx, double _xin) const {
+    
+      return find_index_uniform(_x, _idx, _xin);
+
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    _interpolate_table(const int& _table, double &_xrho, double &_xtemp, double &_xye) const {
+
+      return interpolate_table(_table, _xrho, _xtemp, _xye);
+    }
+
+   
+
+
+
+  
 } ;
 
 
@@ -300,7 +469,6 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
 
   //Allocate memory for the all table array, good point to introduce kokkos views
 
-
   //Create Kokkos views to pass data too
   //TODO! What is the best odering for access patterns
   Kokkos::View<double****, grace::default_space> alltables("AllTables", nrho, ntemp, nye, NTABLES); 
@@ -308,12 +476,11 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
   Kokkos::View<double *, grace::default_space> logtempview("LogTempView", ntemp);
   Kokkos::View<double *, grace::default_space> yesview("yesView", nye);
 
-  
+
   auto h_alltables = Kokkos::create_mirror_view(alltables); 
   auto h_logrhoview = Kokkos::create_mirror_view(logrhoview); 
   auto h_logtempview = Kokkos::create_mirror_view(logtempview); 
   auto h_yesview = Kokkos::create_mirror_view(yesview);
-
 
   //Allocate data to kokkos views and convert units/convert logs to natural log
   for (int i = 0; i < nrho; i++) h_logrhoview(i) = log(logrho[i] * baryon_mass * cm3_to_fm3 * densCGS_to_CU);
@@ -401,6 +568,7 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
 
   double energy_shift = 0;
 
+
   //Get eps_min and convert units
   for (int k = 0; k < nye; k++)
     for (int j = 0; j < ntemp; j++)
@@ -451,12 +619,47 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
 
       }
 
+
+  //Table bounds
+  //!TODO Talk to Carlo about GPU accessability of variables 
+  double eos_rhomax = exp(h_logrhoview(nrho - 1));
+  double eos_rhomin = exp(h_logrhoview(0));
+
+  double eos_tempmax = exp(h_logtempview[ntemp - 1]);
+  double eos_tempmin = exp(h_logtempview[0]);
+
+  double eos_yemax = h_yesview[nye - 1];
+  double eos_yemin = h_yesview[0];
+
+  //Calculate coordinate spacing
+
+  Kokkos::View<double [tabulated_eos_t::dim::num_dim], grace::default_space> coord_spacing;
+  Kokkos::View<double [tabulated_eos_t::dim::num_dim], grace::default_space> inverse_coord_spacing;
+
+  auto h_coord_spacing = Kokkos::create_mirror_view(coord_spacing); 
+  auto h_inverse_coord_spacing = Kokkos::create_mirror_view(inverse_coord_spacing);
+
+  h_coord_spacing(tabulated_eos_t::dim::rho) = h_logrhoview(0) - h_logrhoview(1);
+  h_coord_spacing(tabulated_eos_t::dim::temp) = h_logtempview(0) - h_logtempview(1);
+  h_coord_spacing(tabulated_eos_t::dim::yes) = h_yesview(0) - h_yesview(1);
+
+  h_inverse_coord_spacing(tabulated_eos_t::dim::rho) = 1. / h_coord_spacing(tabulated_eos_t::dim::rho);
+  h_inverse_coord_spacing(tabulated_eos_t::dim::temp) = 1. / h_coord_spacing(tabulated_eos_t::dim::temp);
+  h_inverse_coord_spacing(tabulated_eos_t::dim::yes) = 1. / h_coord_spacing(tabulated_eos_t::dim::yes);
+
+
+  GRACE_INFO("*******************************");
+  GRACE_INFO("Tabulated data read, transfering to GPU");
+  GRACE_INFO("*******************************");
+
   //Copy data from host to device
   Kokkos::deep_copy(alltables, h_alltables);
   Kokkos::deep_copy(logrhoview, h_logrhoview);
   Kokkos::deep_copy(logtempview, h_logtempview); 
   Kokkos::deep_copy(yesview, h_yesview);
   Kokkos::deep_copy(epstable, h_epstable);
+  Kokkos::deep_copy(coord_spacing, h_coord_spacing);
+  Kokkos::deep_copy(inverse_coord_spacing, h_inverse_coord_spacing);
 
 
   return tabulated_eos_t{
@@ -465,10 +668,18 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
     , logtempview
     , yesview
     , epstable
+    , coord_spacing
+    , inverse_coord_spacing
     , c2p_eps_min
     , c2p_h_min
     , c2p_h_max
     , c2p_press_max
+    , eos_rhomax
+    , eos_rhomin
+    , eos_tempmax
+    , eos_tempmin
+    , eos_yemax
+    , eos_yemin
     , energy_shift};
     
 
