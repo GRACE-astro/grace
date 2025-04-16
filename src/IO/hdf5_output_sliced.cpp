@@ -298,7 +298,6 @@ void write_grid_structure_sliced_hdf5(hid_t file_id, size_t compression_level, s
                                                                  , qglobal
                                                                  , {VEC( 0,0,0 )}
                                                                  , false) ; 
-            Kokkos::printf("pcoords rank %d %d %f %f %f\n", rank, qlocal, pcoords[0], pcoords[1], pcoords[2]) ;
             auto ipoint = get_point_index(VEC(0,j,k),qsliced) ;
             points[GRACE_NSPACEDIM*ipoint + 0 ] = pcoords[0] ; 
             points[GRACE_NSPACEDIM*ipoint + 1 ] = pcoords[1] ;
@@ -1686,8 +1685,6 @@ void write_extra_arrays_sliced_hdf5(hid_t file_id, size_t compression_level, siz
     unsigned long const ncells_quad = EXPR(nx_s,*ny_s,*nz_s) ; 
     /* Local number of cells   */
     unsigned long const ncells = ncells_quad * nq_s ; 
-    Kokkos::printf("Rank %d: Number of cells %lu, Number of quadrants %lu\n", rank_loc, ncells, nq_s) ;
-    Kokkos::printf("octree_slicer.sliced_cells().size() %lu\n", octree_slicer.sliced_cells().size()) ;
     /* Global number of cells  */
     unsigned long const ncells_glob = ncells_quad * nq_glob ; 
 
@@ -1722,7 +1719,6 @@ void write_extra_arrays_sliced_hdf5(hid_t file_id, size_t compression_level, siz
         qid[icell]     = qglobal ; 
         icell_max = max(icell,icell_max) ;    
     }
-    Kokkos::printf("icell_max %lu, ncells %lu\n", icell_max, ncells) ;
     ASSERT((icell_max+1) == ncells, "Something went really wrong") ; 
 
     /* Create parallel dataset properties */

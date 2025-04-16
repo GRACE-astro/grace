@@ -400,8 +400,5 @@ void search_cells_in_octrees()
             }
         }
     }
-    printf("num_sliced_cells: %zu\n", num_sliced_cells);
-    printf("slicedQuadrants: %zu\n", slicedQuadrants.size());
-    printf("Sliced cells: ahahahahhahah %zu\n", slicedCells.size());
 }
 }

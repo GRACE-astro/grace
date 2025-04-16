@@ -251,7 +251,6 @@ void OctreeSlicer::find_sliced_cells_for_sphere(int num_points, double radius) {
         PointSearchData* element = static_cast<PointSearchData*>(sc_array_push(sc_data));
         *element = data;
 
-        printf("We are now entering p4est_search_local\n");
         p4est_search_local(forest_.get(),true, nullptr, handle_point_search, sc_data);
         // Cleanup
         sc_array_destroy(sc_data);
@@ -268,7 +267,6 @@ void OctreeSlicer::find_sliced_cells_for_sphere(int num_points, double radius) {
 int OctreeSlicer::handle_point_search(p4est_t* p4est, p4est_topidx_t which_tree,
     p4est_quadrant_t* quadrant, p4est_locidx_t local_num,
     void* user_data) {
-    printf("So we are failing at the p4est level\n");
     sc_array_t* sc_data = reinterpret_cast<sc_array_t*>(user_data);
     if (sc_data->elem_count == 0) return 0;
     
@@ -276,16 +274,11 @@ int OctreeSlicer::handle_point_search(p4est_t* p4est, p4est_topidx_t which_tree,
     OctreeSlicer* slicer = data->slicer;
     const auto& point = data->point;
     const auto& iterator = data->iterator;
-    printf("poimt[0] %f\n", point[0]);
-    printf("poimt[1] %f\n", point[1]);
-    printf("poimt[2] %f\n", point[2]);
     
     std::array<double, 3> upper = {0.0, 0.0, 0.0};
     std::array<double, 3> lower = {0.0, 0.0, 0.0};
     std::tie(lower, upper) = slicer->get_physical_coordinates_private(p4est, which_tree, quadrant, local_num);
     
-    printf("Are we coming this this far\n");
-    printf("local_num %d\n", local_num);
     if (lower[0] <= point[0] && upper[0] > point[0] &&
         lower[1] <= point[1] && upper[1] > point[1] &&
         lower[2] <= point[2] && upper[2] > point[2]) {
@@ -314,11 +307,9 @@ int OctreeSlicer::handle_point_search(p4est_t* p4est, p4est_topidx_t which_tree,
         j = std::min(j, ny - 1);
         k = std::min(k, nz - 1);
         
-        printf("passiert hier der Fehler i,j,k = %zu %zu %zu\n", i, j, k);
         SlicedCellInfo cellInfo{qInfo, i, j, k};
         slicer->slicedCells_[iterator] = (cellInfo);
         slicer->slicedQuadrants_[iterator] = (qInfo);
-        printf("SlicedQuadrants_ size %zu\n", slicer->slicedQuadrants_.size());
             
         return 1;
     }
@@ -350,7 +341,6 @@ sc_array_t* OctreeSlicer::generate_sphere_points(int num_points, double radius) 
 }
 
 void OctreeSlicer::generate_continuous_indices() {
-    printf("Generating continuous indices for sliced cells...\n");
     localToSlicedIdx_.clear();
     const size_t num_cells = slicedCells_.size();
     const size_t num_quadrants = slicedQuadrants_.size();
@@ -373,11 +363,9 @@ void OctreeSlicer::generate_continuous_indices() {
     // Retrieve the total number of unique indices
     size_t total_unique = 0;
     for (const auto& [key, value] : localToSlicedIdx_) {
-        printf("Key: %zu, Value: %zu\n", key, value);
         ++total_unique;
     }
 
-    printf("Total unique indices generated: %zu\n", total_unique);
 }
 
 

@@ -70,12 +70,12 @@ std::vector<std::string> _volume_output_filenames ;
 
 }
 
-void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere, bool out_sliced) {
+void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere) {
 
     if( out_vol ) {
         write_volume_cell_data_hdf5() ; 
     }
-    if( out_sliced ) {
+    if( out_plane ) {
         write_volume_cell_data_sliced_hdf5() ; 
     }
     parallel::mpi_barrier() ; 
@@ -382,8 +382,6 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
                                   , cells_slab_count 
                                   , NULL )) ;
 
-    Kokkos::printf("Full cells_slab_start = %ld %ld\n", cells_slab_start[0], cells_slab_start[1]) ;
-    Kokkos::printf("Full cells_slab_count = %ld %ld\n", cells_slab_count[0], cells_slab_count[1]) ;
     HDF5_CALL( err
              , H5Dwrite( cells_dset_id
                        , H5T_NATIVE_UINT

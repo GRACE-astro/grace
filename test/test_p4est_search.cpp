@@ -213,7 +213,6 @@ int my_search_function(p4est_t * p4est,
 
         if (x_min <= 0.0 && x_max > 0.0) {
             quadrant->p.user_int += 1; // Mark the quadrant as not intersected
-            printf("Quadrant %d in tree %d is sliced by the plane.\n", local_num, which_tree);
             return 1; // Found a quadrant that is intersected
         }
         else {
@@ -282,7 +281,6 @@ int my_points_function(p4est_t* p4est,
     {
         // All conditions are satisfied, so the quadrant intersects the plane.
         quadrant->p.user_int += 1;
-        printf("Quadrant %d in tree %d intersects the point\n",
                local_num, which_tree);
         return 1;
     }

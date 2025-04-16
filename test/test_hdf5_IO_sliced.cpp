@@ -2,6 +2,7 @@
 #include <Kokkos_Core.hpp>
 #include <grace_config.h>
 #include <grace/IO/hdf5_output.hh>
+#include <grace/IO/hdf5_output_sliced.hh>
 #include <grace/amr/grace_amr.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/data_structures/grace_data_structures.hh>
@@ -51,6 +52,6 @@ TEST_CASE("Volume hdf5 output", "[vol_hdf5_out]")
     }
     Kokkos::deep_copy(aux, h_state_mirror) ;
 
-    grace::IO::write_cell_data_hdf5(true,true,true,false) ; 
+    grace::IO::write_volume_cell_data_sliced_hdf5() ; 
     //grace::IO::write_cell_data_vtk(true,false,false) ; 
 }

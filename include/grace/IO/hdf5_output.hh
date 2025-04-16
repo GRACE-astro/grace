@@ -52,7 +52,7 @@ extern std::vector<std::string> _volume_output_filenames ;
  * @param out_plane If true, output plane data.
  * @param out_sphere If true, output sphere data.
  */
-void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere, bool out_sliced) ; 
+void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere) ; 
 
 /**
  * @brief Writes volume cell data to an HDF5 file.

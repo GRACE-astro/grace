@@ -24,9 +24,9 @@ amr: {
 IO: {
   volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]", "gamma[0,0]", "alp", "beta[0]"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 1000,
-  plane_surface_output_cell_variables: [],
-  plane_surface_output_every: 1,
+  volume_output_every: 1,
+  plane_surface_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]", "gamma[0,0]", "alp", "beta[0]"],
+  plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
   info_output_every: 5,
   info_output_max_reductions: ["alp", "eps","rho","press"],
@@ -51,7 +51,7 @@ system: {
 evolution: {
   time_stepper: "rk2",
   cfl_factor: 0.25,
-  final_time: 2000,
+  final_time: 5, #2000,
   reset_id_after_regrid: true
   #timestep: 0.00025,
   #timestep_selection_mode: "manual"
