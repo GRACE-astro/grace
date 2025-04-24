@@ -30,6 +30,7 @@
 
 #include <grace/utils/grace_utils.hh>
 #include <grace/utils/interpolators.hh> //TODO! Should this be in the grace_utils header
+#include <grace/utils/rootfinding.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/physics/eos/physical_constants.hh>
@@ -144,7 +145,7 @@ class tabulated_eos_t
 
     //Interpolates one of the 3D tables, the table integer specifices which table, and xrho/temp/ye the interpolation position
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    interpolate_table(const int& table, double &xrho, double &xtemp, double &xye) const {
+    interpolate_table(const int& table, const double &xrho, const double &xtemp, const double &xye) const {
       int irho, itemp, iye;
       
       //Find 3D tables corresponding to int table
@@ -189,10 +190,8 @@ class tabulated_eos_t
       return interpolator.interpolate(xrho, xtemp, xye);
     }
 
-
-
     error_type_array GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    checkbounds(double &xrho, double &xtemp, double &xye, bool check_temp = true) {
+    checkbounds(double &xrho, double &xtemp, double &xye, bool check_temp = true) const {
     
     error_type_array error_codes;
 
@@ -238,10 +237,66 @@ class tabulated_eos_t
     return error_codes;
 
     }
-  
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    find_logtemp_from_eps(const double &xrho, double &eps, const double &xye) const {
+
+      auto const leps = log(eps + _energy_shift);
+
+      //Find eps range
+      auto const epsmin = interpolate_table(EV::EPS, xrho, _logtemp(0), xye);
+
+      auto const epsmax = interpolate_table(EV::EPS, xrho, _logtemp(_logtemp.size() - 1), xye);
+
+      if (leps <= epsmin) {
+        eps = exp(epsmin) - _energy_shift;
+        return _logtemp(0);
+      }
+      if (leps >= epsmax) {
+        eps = exp(epsmax) - _energy_shift;
+        return _logtemp(_logtemp.size() - 1);
+      }
+
+      
+      //TODO! Ask Carlo if a Kokkos Lambda would be more appropriate here
+      auto const func = [&] (double &lt) {
+        auto const vars = interpolate_table(EV::EPS, xrho, lt, xye);
+        return leps - vars;
+      } ;
+
+      //TODO! Look into notes to remind myself why this is done
+      return utils::brent(func, _logtemp(0), _logtemp(_logtemp.size() - 1), 1.e-14); 
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    find_logtemp_from_entropy(const double &xrho, double &entropy, const double &xye) const {
+      
+      const double min_entropy = interpolate_table(EV::S, xrho, _logtemp(0), xye);
+      const double max_entropy = interpolate_table(EV::S, xrho, _logtemp(_logtemp.size() - 1), xye);
+
+      if (entropy <= min_entropy){
+        entropy = min_entropy;
+        return _logtemp(0);
+      }
+      if (entropy >= max_entropy){
+        entropy = max_entropy;
+        return _logtemp(_logtemp.size() - 1);
+      }
+
+      auto const func = [&] (double &lt) {
+        auto const vars = interpolate_table(EV::S, xrho, lt, xye);
+        return entropy - vars;
+      };
+
+      return utils::brent(func, _logtemp(0), _logtemp(_logtemp.size() - 1), 1.e-14);
+
+    }
+
+    
   public:
 
-    //TODO! Delete after test
+    //---------------------------------------For testing---------------------------------------//
+    //-----------------------------------------------------------------------------------------//
     int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     _find_index_uniform(const Kokkos::View<double*>& _x, const double& _idx, double _xin) const {
     
@@ -255,11 +310,385 @@ class tabulated_eos_t
       return interpolate_table(_table, _xrho, _xtemp, _xye);
     }
 
-   
+    Kokkos::View<double*, grace::default_space> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    return_logrho() const {
+     
+      return _logrho;
+    } 
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    return_logrho(int x) const {
+      
+      return _logrho(x);
+    } 
+
+    Kokkos::View<double*, grace::default_space> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    return_logtemp() const {
+      
+      return _logtemp;
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    return_logtemp(int x) const {
+      
+      return _logtemp(x);
+    }
+
+    Kokkos::View<double*, grace::default_space> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    return_yes() const {
+      
+      return _yes;
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    return_yes(int x) const {
+      
+      return _yes(x);
+    }
+
+    //-----------------------------------------------------------------------------------------//
+    
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    press__eps_rho_ye(double &eps, double &rho, double &ye, error_type_array &error) const {
+
+      double temp_tmp = 0;
+      // Check if rho and Y_e lie inside the table, otherwise abort!
+      error = checkbounds(rho, temp_tmp, ye, false);
+
+      const double lrho = log(rho);
+      
+      const double ltemp = find_logtemp_from_eps(lrho, eps, ye);
+
+      const double vars = interpolate_table(EV::PRESS, lrho, ltemp, ye);
+
+      return exp(vars);
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    press_temp__eps_rho_ye(double &temp, double &eps, double &rho, double &ye, error_type_array &error) const {
+      // Check if rho and Y_e lie inside the table, otherwise abort!
+      error = checkbounds(rho, temp, ye);
+
+      const double lrho = log(rho);
+      const double ltemp = find_logtemp_from_eps(lrho, eps, ye);
+
+      temp = exp(ltemp);
+
+      const double vars = interpolate_table(EV::PRESS, lrho, ltemp, ye);
+
+      return exp(vars);
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    press__temp_rho_ye(double &temp, double &rho, double &ye, error_type_array &error) const {
+      error = checkbounds(rho, temp, ye);
+
+      const double lrho = log(rho);
+      const double ltemp = log(temp);
+
+      const double vars = interpolate_table(EV::PRESS, lrho, ltemp, ye);
+
+      return exp(vars);
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    eps__temp_rho_ye(double &temp, double &rho, double &ye, error_type_array &error) const {
+      error = checkbounds(rho, temp, ye);
+
+      const double lrho = log(rho);
+      const double ltemp = log(temp);
+
+      const double vars = interpolate_table(EV::EPS, lrho, ltemp, ye);
+
+      return exp(vars) - _energy_shift;
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    press_cold__rho_ye(double &rho, double &ye, error_type_array &error) const {
+      double temp_tmp = 0;
+      error = checkbounds(rho, temp_tmp, ye, false);
+      
+      const double lrho = log(rho);
+
+      //Note this is a little different then margherita implementation
+      double const vars = interpolate_table(EV::PRESS, lrho, _logtemp(0), ye);
+
+      return exp(vars);
+
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    eps_cold__rho_ye(double &rho, double &ye, error_type_array &error) const {
+      
+      double temp_tmp = 0;
+      error = checkbounds(rho, temp_tmp, ye, false);
+
+      const double lrho = log(rho);
+
+      const double vars = interpolate_table(EV::EPS, lrho, _logtemp(0), ye);
+
+      return exp(vars) - _energy_shift;
+    }
+
+    //TODO!! this function seems unnecessary see if it is needed
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    temp_cold__rho_ye(const double &rho, const double &ye, error_type_array &error) const {
+
+      return exp(_logtemp(0));
+    }
+
+    //TODO! Ask about this function
+    //This function can be called for a hybrid EOS but not tabulated 
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    eps__press_temp_rho_ye(const double &press, double &temp, double &rho, double &ye, error_type_array &error) const {
+
+      ERROR("This routine should not be used. There is no monotonicity condition "
+            "to enforce a succesfull inversion from eps(press). So you better "
+            "rewrite your code to not require this call...");
+
+      return 0;
+    }
+
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    eps_range__rho_ye(double& eps_min, double& eps_max, double &rho, double &ye, error_type_array &error) const {
+
+      double temp_tmp = 0;
+      error = checkbounds(rho, temp_tmp, ye, false);
+
+      const double lrho = log(rho);
+
+      eps_min = interpolate_table(EV::EPS, lrho, _logtemp(0), ye) - _energy_shift;
+      eps_max = interpolate_table(EV::EPS, lrho, _logtemp(_logtemp.size() - 1), ye) - _energy_shift;
+    
+    }
+
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    entropy_range__rho_ye(double& s_min, double& s_max, double &rho, double &ye, error_type_array &error) const {
+
+      double temp_tmp = 0;
+      error = checkbounds(rho, temp_tmp, ye, false);
+
+      const double lrho = log(rho);
+
+      s_min = interpolate_table(EV::S, lrho, _logtemp(0), ye);
+      s_max = interpolate_table(EV::S, lrho, _logtemp(_logtemp.size() - 1), ye);
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    press_h_csnd2__eps_rho_ye(double &h, double &csnd2, double &eps, double &rho, double &ye, error_type_array &error) const {
+
+      double temp_tmp = 0;
+      error = checkbounds(rho, temp_tmp, ye, false);
+
+      const double lrho = log(rho);
+      const double ltemp = find_logtemp_from_eps(lrho, eps, ye);
+
+      //Calculate and assign specific enthalpy
+      const double vars_press = interpolate_table(EV::PRESS, lrho, ltemp, ye);
+
+      const double press = exp(vars_press);
+
+      h = 1. + eps + press / rho;
+      
+      //Assign value for sound speed
+      csnd2 = interpolate_table(EV::CS2, lrho, ltemp, ye);
+
+      return press;
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    press_h_csnd2__temp_rho_ye(double &h, double &csnd2, double &temp, double &rho, double &ye, error_type_array &error) const {
+
+      error = checkbounds(rho, temp, ye);
+
+      const double ltemp = log(temp);
+      const double lrho = log(rho);
+
+      const double vars_press = interpolate_table(EV::PRESS, lrho, ltemp, ye);
+      const double vars_eps = interpolate_table(EV::EPS, lrho, ltemp, ye);
+
+      const double press = exp(vars_press);
+      const double eps = exp(vars_eps) - _energy_shift;
+
+      h = 1. + eps + press / rho;
+
+      csnd2 = interpolate_table(EV::CS2, lrho, ltemp, ye);
+
+      return press;
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    eps_h_csnd2__press_rho_ye(double &h, double &csnd2, double &press, double &rho, double &ye, error_type_array &error) const {
+      
+      ERROR("This routine should not be used. There is no monotonicity condition "
+            "to enforce a succesfull inversion from eps(press). So you better "
+            "rewrite your code to not require this call...");
+
+    return 0;
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    press_eps_csnd2__temp_rho_ye(double &eps, double &csnd2, double &temp, double &rho, double &ye , error_type_array &error) const {
+    
+      error = checkbounds(rho, temp, ye);
+
+      const double ltemp = log(temp);
+      const double lrho = log(rho);
+      
+      const double vars_press = interpolate_table(EV::PRESS, lrho, ltemp, ye);
+      const double vars_eps = interpolate_table(EV::EPS, lrho, ltemp, ye);
+
+      const double press = exp(vars_press);
+      
+      eps = exp(vars_eps) - _energy_shift;
+
+      csnd2 = interpolate_table(EV::CS2, lrho, ltemp, ye);
+
+      return press;
+
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    press_h_csnd2_temp_entropy__eps_rho_ye( double& h, double& csnd2, double& temp, double& entropy, double& eps , double& rho
+                                          , double& ye , error_type_array &error ) const {
+
+      error = checkbounds(rho, temp, ye);
+
+      const double lrho = log(rho);
+      const double ltemp = find_logtemp_from_eps(lrho, eps, ye);
+
+      const double vars_press = interpolate_table(EV::PRESS, lrho, ltemp, ye);
+
+      const double press = exp(vars_press);
+      
+      temp = exp(ltemp);
+
+      h = 1. + eps + press / rho;
+
+      entropy = interpolate_table(EV::S, lrho, ltemp, ye);
+      csnd2 = interpolate_table(EV::CS2, lrho, ltemp, ye);
+
+      return press;
+    
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    eps_csnd2_entropy__temp_rho_ye( double& csnd2, double& entropy, double& temp, double& rho, double& ye, error_type_array &error ) const {
+
+      error = checkbounds(rho, temp, ye);
+
+      const double lrho = log(rho);
+      const double ltemp = log(temp);
+
+      //TODO! This line and line bellow included in the margherita implementation but seems redundent
+      //const double vars_press = interpolate_table(EV::PRESS, lrho, ltemp, ye);
+      
+      const double vars_eps = interpolate_table(EV::EPS, lrho, ltemp, ye);
+
+      const double eps = exp(vars_eps) - _energy_shift;
+
+      //TODO! This is included in the margherita implementation but seems redundent
+      //const double h = 1. eps + exp(vars_press) / rho;
+
+      csnd2 = interpolate_table(EV::CS2, lrho, ltemp, ye);
+      entropy = interpolate_table(EV::S, lrho, ltemp, ye);
+
+      return eps;
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    press_h_csnd2_temp_eps__entropy_rho_ye  ( double& h, double& csnd2, double& temp, double& eps, double& entropy
+                                            , double& rho, double& ye, error_type_array &error) const {
+    
+      error = checkbounds(rho, temp, ye);
+
+      const double lrho = log(rho); 
+      const double ltemp = find_logtemp_from_entropy(lrho, entropy, ye);
+
+      const double vars_press = interpolate_table(EV::PRESS, lrho, ltemp, ye);
+      const double vars_eps = interpolate_table(EV::EPS, lrho, ltemp, ye);
+
+      const double press = exp(vars_press);
+      eps = exp(vars_eps) - _energy_shift;
+      temp = exp(ltemp);
+
+      h = 1. + eps + press / rho;
+
+      csnd2 = interpolate_table(EV::CS2, lrho, ltemp, ye);
+
+      return press;
+
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    eps_h_csnd2_temp_entropy__press_rho_ye( double& h, double& csnd2, double&temp, double& entropy, double& press, double& rho
+                                          , double& ye, error_type_array& err) const {
+      
+      ERROR("This routine should not be used. There is no monotonicity condition "
+              "to enforce a succesfull inversion from eps(press). So you better "
+              "rewrite your code to not require this call...");
+
+      return 0;
+                                    
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    press_eps_ye__beta_eq__rho_temp(double &eps, double &ye, double &rho, double &temp, error_type_array& error) const{
+      
+      error = checkbounds(rho, temp, ye);
+
+      const double lrho = log(rho);
+      const double ltemp = log(temp);
+
+      // Beta equilibrium requires that \mu_n =  \mu_p +\mu_e -\mu_nu
+      // Since we assume that \mu_nu should be negligible we demand
+      // \mu_n-\mu_p-\mu_e = \mu_hat =0
+
+      auto const func = [&](double &ye) {
+        const double vars_mue = interpolate_table(EV::MUE, lrho, ltemp, ye);
+        const double vars_mup = interpolate_table(EV::MUP, lrho, ltemp, ye);
+        const double vars_mun = interpolate_table(EV::MUN, lrho, ltemp, ye);
+
+        return vars_mue + vars_mup - vars_mun;
+      };
+
+      ye = utils::brent(func, _yes(0), _yes(_yes.size() - 1), 1.e-14);
+
+      const double vars_press = interpolate_table(EV::PRESS, lrho, ltemp, ye);
+      const double vars_eps = interpolate_table(EV::EPS, lrho, ltemp, ye);
+
+      eps = exp(vars_eps) - _energy_shift;
+
+      return exp(vars_press);
+
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    mue_mup_mun_Xa_Xh_Xn_Xp_Abar_Zbar__temp_rho_ye( 
+        double &mup, double &mun, double &Xa, double &Xh, double &Xn, double &Xp
+      , double &Abar, double &Zbar, double &temp, double &rho, double &ye
+      , error_type_array &error) const {
+
+      error = checkbounds(rho, temp, ye);
+
+      const double lrho = log(rho);
+      const double ltemp = log(temp);
+
+      const double MUE = interpolate_table(EV::MUE, lrho, ltemp, ye);
+      mup = interpolate_table(EV::MUP, lrho, ltemp, ye);
+      mun = interpolate_table(EV::MUN, lrho, ltemp, ye);
+      Xa = interpolate_table(EV::XA, lrho, ltemp, ye);
+      Xh = interpolate_table(EV::XH, lrho, ltemp, ye);
+      Xn = interpolate_table(EV::XN, lrho, ltemp, ye);
+      Xp = interpolate_table(EV::XP, lrho, ltemp, ye);
+      Abar = interpolate_table(EV::ABAR, lrho, ltemp, ye);
+      Zbar = interpolate_table(EV::ZBAR, lrho, ltemp, ye);
+
+      return MUE;
+
+      }
 
 
-
-  
 } ;
 
 
