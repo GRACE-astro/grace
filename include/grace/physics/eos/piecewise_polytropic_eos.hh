@@ -98,6 +98,11 @@ class piecewise_polytropic_eos_t
         return rho * ( 1 + eps ) ; 
     }
 
+    decltype(auto) GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    get_gammas() const {
+        return _gamma; 
+    }
+
  private:
     
 

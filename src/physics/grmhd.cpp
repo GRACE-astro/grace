@@ -48,6 +48,7 @@
 #ifdef GRACE_DO_MHD
 #ifdef GRACE_ENABLE_B_FIELD_GLM
 #include <grace/physics/id/shocktube_mhd.hh>
+#include <grace/physics/id/linear_mhd_waves.hh>
 #endif
 #endif
 
@@ -353,6 +354,17 @@ void set_grmhd_initial_data() {
                                                                       ) ;
         Kokkos::fence() ; 
         GRACE_TRACE("Done with shocktube MHD ID.") ;  
+    }
+    else if( id_type == "linear_mhd_wave" ) {
+        auto const wave_type     = get_param<std::string>("grmhd","linear_mhd_wave_type") ; 
+        auto const wave_movement = get_param<std::string>("grmhd","linear_mhd_wave_movement") ; 
+        auto const ampl          = get_param<double>("grmhd","linear_mhd_wave_ampl") ; 
+        auto const wavelength    = get_param<double>("grmhd","linear_mhd_wave_wavelength") ;
+
+        set_grmhd_initial_data_impl<eos_t,linear_mhd_wave_id_t<eos_t>>(wave_type,ampl,wavelength,wave_movement
+                                                                      ) ;
+        Kokkos::fence() ; 
+        GRACE_TRACE("Done with linear wave MHD ID.") ;  
     }
     #endif
     else if ( id_type == "blastwave" ) {
