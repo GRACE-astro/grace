@@ -27,8 +27,10 @@
 
 #include <grace_config.h>
 
+#include <grace/physics/grmhd_helpers.hh>
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/eos/grhd_c2p.hh>
+#include <grace/physics/eos/grmhd_c2p_kastaun.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -36,7 +38,7 @@
 
 namespace grace {
 
-template< typename eos_t >
+template< typename eos_t, template <typename> typename c2p_formulation_t >
 void GRACE_HOST_DEVICE
 conservs_to_prims( grmhd_cons_array_t& cons 
                  , grmhd_prims_array_t& prims
@@ -44,7 +46,8 @@ conservs_to_prims( grmhd_cons_array_t& cons
                  , eos_t const& eos
                  , double const& lapse_excision ) 
 {
-    using c2p_impl_t = grhd_c2p_t<eos_t> ;
+    using c2p_impl_t = c2p_formulation_t<eos_t> ;
+    //using c2p_impl_t = grhd_c2p_t<eos_t> ;
     bool c2p_failed{ false }             ;
     double W                             ;
     /* Undensitize conservs */
@@ -72,6 +75,11 @@ conservs_to_prims( grmhd_cons_array_t& cons
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
         W = 1. ;
+        #ifdef GRACE_DO_MHD
+        prims[BXL]   = 0. ; // How should this be reflected in the evolution of A_i?
+        prims[BYL]   = 0. ;
+        prims[BZL]   = 0. ; 
+        #endif 
     }
     /* Set pressure entropy and temperature */
     double h, csnd2;
@@ -111,7 +119,16 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
 
     cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
 
-    double const b2{0.}, smallbt{0.} ; 
+    //double const b2{0.}, smallbt{0.} ; 
+    std::array<double,4> smallb;
+    get_smallb_from_eulerianB(metric, { prims[BXL],prims[BYL],prims[BZL]},
+                                      { prims[VXL],prims[VYL],prims[VZL]},
+                                        smallb
+                                        );
+    std::array<double,4> smallbD = metric.lower_4vec(smallb); 
+    double const b2 = metric.contract_4dvec_4dcovec(smallb,smallbD);
+    double const smallbt = smallb[0];
+
     double const one_over_alp2 = 1./math::int_pow<2>(metric.alp());
     double const rho0_h_plus_b2 = (prims[RHOL]*(1+prims[EPSL])) + prims[PRESSL] + b2 ;
     double const alp2_sqrtgamma = math::int_pow<2>(metric.alp()) * metric.sqrtg() ;
@@ -121,7 +138,7 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
     double const Tuptt = rho0_h_plus_b2 * math::int_pow<2>(u0) + P_plus_half_b2 * g4uptt - math::int_pow<2>(smallbt) ; 
     cons[TAUL] = alp2_sqrtgamma * Tuptt - cons[DENSL] ;
 
-    std::array<double,4> smallb{0.,0.,0.,0.}, smallbD{0.,0.,0.,0.} ; 
+    // std::array<double,4> smallb{0.,0.,0.,0.}, smallbD{0.,0.,0.,0.} ; 
     auto uD = metric.lower({prims[VXL]+metric.beta(0),prims[VYL]+metric.beta(1),prims[VZL]+metric.beta(2)}) ; 
     for(auto & uu: uD) uu *= u0 ; 
 
@@ -131,19 +148,45 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
 
     cons[YESL] = cons[DENSL] * prims[YEL] ;
     cons[ENTSL] = cons[DENSL] * prims[ENTL] ;
+    
+    double const sqrtgamma = metric.sqrtg() ;
+	
+    #ifdef GRACE_DO_MHD
+    cons[BGXL] = sqrtgamma * prims[BXL] ;
+    cons[BGYL] = sqrtgamma * prims[BYL] ;
+    cons[BGZL] = sqrtgamma * prims[BZL] ;    
+    #ifdef GRACE_ENABLE_B_FIELD_GLM
+    cons[PHIG_GLML] = sqrtgamma * prims[PHI_GLML] ;
+    #endif
+    #endif 
 
     return ; 
 }
 
-#define INSTANTIATE_TEMPLATE(EOS) \
-template \
-void GRACE_HOST_DEVICE \
-conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
-                      , grace::grmhd_prims_array_t&  \
-                      , grace::metric_array_t const&  \
-                      , EOS const& eos \
-                      , double const& ) 
-INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+//   #define INSTANTIATE_TEMPLATE(EOS) \
+//   template \
+//   void GRACE_HOST_DEVICE \
+//   conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
+//                         , grace::grmhd_prims_array_t&  \
+//                         , grace::metric_array_t const&  \
+//                         , EOS const& eos \
+//                         , double const& ) 
+//   INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+//   
+
+// Explicit template instantiation macro
+#define INSTANTIATE_TEMPLATE(EOS, C2P_SCHEME) \
+    template void GRACE_HOST_DEVICE conservs_to_prims<EOS, C2P_SCHEME>( \
+        grace::grmhd_cons_array_t&, \
+        grace::grmhd_prims_array_t&, \
+        grace::metric_array_t const&, \
+        EOS const&, \
+        double const&);
+
+// Use the macro to instantiate specific template combinations
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>,  grmhd_c2p_kastaun_t); 
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>,  grhd_c2p_t); 
+
 #undef INSTANTIATE_TEMPLATE
 
 }

@@ -514,6 +514,25 @@ class eos_base_t {
      */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     eps_atmosphere() const { return c2p_eps_atm ; }
+      /**
+     * @brief Get the minimum of the enthalpy. Only needed for c2p
+     * 
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    enthalpy_minimum() const { return c2p_h_min ; }
+     /**
+     * @brief Get the EOS density minimum. Only needed for c2p
+     * 
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    density_minimum() const { return eos_rhomin ; }
+     /**
+     * @brief Get the EOS density maximum. Only needed for c2p
+     * 
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    density_maximum() const { return eos_rhomax ; }
+
  protected:
     //! Does this EOS depend on ye?
     static constexpr bool has_ye = eos_impl_t::has_ye ; 

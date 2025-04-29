@@ -50,6 +50,9 @@ namespace grace {
 #cmakedefine GRACE_ENABLE_BURGERS
 #cmakedefine GRACE_ENABLE_SCALAR_ADV
 
+#cmakedefine GRACE_DO_MHD
+#cmakedefine GRACE_ENABLE_B_FIELD_GLM
+
 #cmakedefine GRACE_ENABLE_PROFILING
 
 #define GRACE_BANNER                                                          \

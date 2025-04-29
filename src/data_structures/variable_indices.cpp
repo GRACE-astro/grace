@@ -195,6 +195,12 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(TAU,"tau","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing",true) ;
+    // #ifdef GRACE_DO_MHD
+    REGISTER_EVOLVED_VECTOR(BGX,BGY,BGZ,"B_star","outgoing",true) ;
+    // #ifdef GRACE_ENABLE_B_FIELD_GLM
+    REGISTER_EVOLVED_SCALAR(PHIG_GLM,"phi_glm_star","outgoing",true) ;
+    // #endif
+    // #endif
     /* GRMHD primitives */
     REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
     REGISTER_AUX_VECTOR(VELX,VELY,VELZ,"vel","none") ; 
@@ -203,7 +209,13 @@ void register_variables() {
     REGISTER_AUX_SCALAR(TEMP,"temperature", "none") ;
     REGISTER_AUX_SCALAR(ENTROPY,"entropy","none") ; 
     REGISTER_AUX_SCALAR(EPS,"eps","none") ; 
-    REGISTER_AUX_SCALAR(PRESS,"press","none") ; 
+    REGISTER_AUX_SCALAR(PRESS,"press","none") ;
+    // #ifdef GRACE_DO_MHD
+    REGISTER_AUX_VECTOR(BX,BY,BZ,"B","none") ;
+    // #ifdef GRACE_ENABLE_B_FIELD_GLM
+    REGISTER_AUX_SCALAR(PHI_GLM, "phi_glm","none") ;
+    // #endif 
+    // #endif
     /* registration of metric variables */
     REGISTER_EVOLVED_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","outgoing",false) ; 
     REGISTER_EVOLVED_SCALAR(ALP,"alp","outgoing",false) ; 

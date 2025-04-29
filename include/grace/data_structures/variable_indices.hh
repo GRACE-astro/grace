@@ -225,6 +225,10 @@ DECLARE_VAR_INDEX_IMPL(SZ)                          \
 DECLARE_VAR_INDEX_IMPL(TAU)                         \
 DECLARE_VAR_INDEX_IMPL(YESTAR)                      \
 DECLARE_VAR_INDEX_IMPL(ENTROPYSTAR)                 \
+DECLARE_VAR_INDEX_IMPL(BGX)                         \
+DECLARE_VAR_INDEX_IMPL(BGY)                         \
+DECLARE_VAR_INDEX_IMPL(BGZ)                         \
+DECLARE_VAR_INDEX_IMPL(PHIG_GLM)                    \
 DECLARE_VAR_INDEX_IMPL(RHO)                         \
 DECLARE_VAR_INDEX_IMPL(PRESS)                       \
 DECLARE_VAR_INDEX_IMPL(VELX)                        \
@@ -236,7 +240,12 @@ DECLARE_VAR_INDEX_IMPL(ZVECZ)                        \
 DECLARE_VAR_INDEX_IMPL(TEMP)                        \
 DECLARE_VAR_INDEX_IMPL(YE)                          \
 DECLARE_VAR_INDEX_IMPL(ENTROPY)                     \
-DECLARE_VAR_INDEX_IMPL(EPS)                         
+DECLARE_VAR_INDEX_IMPL(EPS)                         \
+DECLARE_VAR_INDEX_IMPL(BX)                          \
+DECLARE_VAR_INDEX_IMPL(BY)                          \
+DECLARE_VAR_INDEX_IMPL(BZ)                          \
+DECLARE_VAR_INDEX_IMPL(PHI_GLM)
+
 /* ADM metric functions */
 #define VARIABLE_LIST_ADMBASE                     \
 DECLARE_VAR_INDEX_IMPL(GXX)                       \

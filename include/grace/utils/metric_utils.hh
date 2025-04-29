@@ -200,6 +200,29 @@ lower(std::array<double,3> const& v ) const {
         , _g[XZ] * v[X] + _g[YZ] * v[Y] + _g[ZZ] * v[Z]
     } ; 
 }
+
+
+/**
+ * @brief Lower the index of a 4-vector.
+ * 
+ * @param v Components of the 4-vector.
+ * @return std::array<double,4> The 4-covector 
+ *         obtained as \f$g_{\mu \nu} v^\nu\f$.
+ */
+ std::array<double,4> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+ lower_4vec(std::array<double,4> const& v ) const {
+     // TT TX TY TZ TX XX XY XZ TY XY YY YZ TZ XZ YZ ZZ 
+     // 0  1  2  3  1  4  5  6  2  5  7  8  3  6  8  9
+     auto _guu = gmunu()  ;
+     return std::array<double,4> {
+           _guu[0] * v[0] + _guu[1] * v[1] + _guu[2] * v[2] + _guu[3] * v[3]
+         , _guu[1] * v[0] + _guu[4] * v[1] + _guu[5] * v[2] + _guu[6] * v[3]
+         , _guu[2] * v[0] + _guu[5] * v[1] + _guu[7] * v[2] + _guu[8] * v[3]
+         , _guu[3] * v[0] + _guu[6] * v[1] + _guu[8] * v[2] + _guu[9] * v[3]
+     } ; 
+ }
+
+
 /**
  * @brief Compute the square norm of a 3-vector.
  * 

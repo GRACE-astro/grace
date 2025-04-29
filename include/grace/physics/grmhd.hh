@@ -235,13 +235,28 @@ struct grmhd_equations_system_t
         }
 
         /* Compute common factors for T^{\mu\nu}                                                          */
-        double const b2{0.} ; // No B field yet
+        //double const b2{0.} ; // No B field yet
+        double const b2 = compute_b2(prims,metric) ;
         double const rho0_h_plus_b2 = 
             prims[RHOL] * ( 1 + prims[EPSL] ) + prims[PRESSL] + b2 ; 
         double const P_plus_half_b2 = 
             prims[PRESSL] + 0.5 * b2 ; 
         /* Compute comoving magnetic field (0 for now)                                                     */
-        std::array<double,4> smallb{0,0,0,0} ; 
+        //std::array<double,4> smallb{0,0,0,0} ; 
+        
+        /* Compute the Eulerian 3-velocity */
+        double const one_over_alp = 1./metric.alp() ;
+        std::array<double,3> const vN {
+              one_over_alp * ( prims[VXL] + metric.beta(0) )
+            , one_over_alp * ( prims[VYL] + metric.beta(1) )
+            , one_over_alp * ( prims[VZL] + metric.beta(2) )
+        } ; 
+        /* Compute comoving magnetic field                                                      */
+        std::array<double,4> smallb ;
+        get_smallb_from_eulerianB(metric, {prims[BXL],prims[BYL],prims[BZL]},
+                                          {vN[0], vN[1], vN[2]},
+                                          smallb
+                                        );
 
         int icomp{0} ; 
         for( int mu=0; mu<4; ++mu) {
@@ -284,6 +299,18 @@ struct grmhd_equations_system_t
         /* Overall factor of dt \alpha \sqrt{\gamma} to be multiplied to source terms                          */
         double const alpha_sqrtgamma_dt = dt*dtfact*metric.alp()*metric.sqrtg();
 
+        /* Overall factor of dt \alpha \sqrt{\gamma} to be multiplied to source terms of GLM B^i evol eqns     */
+        double const sqrtgamma_dt = dt*dtfact*metric.sqrtg();
+        /* Inverse gamma metric [XX,XY,XZ,YY,YZ,ZZ]                                                            */
+        const std::array<double, 6> invgij_6{metric.invgamma(0),metric.invgamma(1),metric.invgamma(2),
+                                             metric.invgamma(3),metric.invgamma(4),metric.invgamma(5)
+                                                };
+
+        const std::array<std::array<double,3>, 3> invgij{{{invgij_6[0],invgij_6[1],invgij_6[2]},
+                                                         {invgij_6[1],invgij_6[3],invgij_6[4]},
+                                                         {invgij_6[2],invgij_6[4],invgij_6[5]}}};
+
+
         /*******************************************************************************************************/
         /* Direction loop for source terms                                                                     */
         /* Although the source term of \tau is scalar (obviously) we add it piece by piece because it contains */
@@ -322,8 +349,35 @@ struct grmhd_equations_system_t
             for( int ii=0; ii<10; ++ii) { 
                 dgab_dxi[ii] =  0.5*(gmunu_p[ii] - gmunu_m[ii]) ;
             }
+
+
+            /*  3-metric derivatives for the GLM source terms                                                 */
+            std::array<double, 6> const dgammajk_dxi{{dgab_dxi[0],dgab_dxi[1],dgab_dxi[2],
+                                                      dgab_dxi[3],dgab_dxi[4],dgab_dxi[5]}} ;
+
+
             /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
             double const dalp_dxi =  0.5*(metric_p.alp() - metric_m.alp()) ;
+
+            /**************************************************************************************************/
+            /* Compute shift derivatives                                                                     */
+            /* We need \partial_i \beta^j for the   */
+            /*                                                                  */
+            /**************************************************************************************************/
+            std::array<double, 3> dbetaj_dxi  ;
+            /* Get the shift metric                                                                                   */
+            std::array<double,3> const shift_m{metric_m.beta(0),metric_m.beta(1),metric_m.beta(2) } ;
+            std::array<double,3> const shift_p{metric_p.beta(0),metric_p.beta(1),metric_p.beta(2) } ;
+            /* Compute shift derivatives (factor of 1./dx introduced after)                                 */
+            /* We compute, for a fixed derivative direction (idir), the components \partial_i \beta^j       */
+            /*        jj picks out the component                                                            */
+            #pragma unroll 3
+            for( int jj=0; jj<3; ++jj) {  // derivatives \partial_i \beta^j 
+                dbetaj_dxi[jj] =  0.5*(shift_p[jj] - shift_m[jj]) ;
+            }
+
+
+
 
             /**************************************************************************************************/
             /* Momentum source term:                                                                          */
@@ -346,12 +400,78 @@ struct grmhd_equations_system_t
             /**************************************************************************************************/
             state_new(VEC(i,j,k),SX_+idir,q) += alpha_sqrtgamma_dt*st_i_source ; 
             /**************************************************************************************************/
+            /**************************************************************************************************/
+            /* Start computing magnetic field source terms (in case of GLM implementation)                    */
+            /**************************************************************************************************/
+            #ifdef GRACE_DO_MHD
+            #ifdef GRACE_ENABLE_B_FIELD_GLM
+
+            /* First of all, we get the second-order accurate approximation to the first-order spatial Phi_GLM derivative  */
+            /* Only testing can show if this yields a stable, hyperbolic evolution (it might not under certain circumstances... )*/
+
+            auto const dphi_glm_di = 0.5 * ( this->_state(VEC(i+utils::delta(0,idir),j+utils::delta(1,idir),k+utils::delta(2,idir)),PHI_GLM_,q) \
+                                            -this->_state(VEC(i-utils::delta(0,idir),j-utils::delta(1,idir),k-utils::delta(2,idir)),PHI_GLM_,q)); 
+
+            // auto const dphi_glm_di = 0.; 
+   
+            /**************************************************************************************************/
+            /* Start computing magnetic field source terms (in case of GLM implementation)                    */
+            /**************************************************************************************************/
+            // Source[B^j] = -\sqrt{\gamma} B^i \partial_i \beta^j  - \sqrt{\gamma} \alpha \gamma^ij \partial_i \phi_glm
+
+            // dbetaj_dxi[j] = d_i (beta^j)
+            
+            // B^x source term
+            state_new(VEC(i,j,k),BGX_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[0] +\
+                                                           +metric.alp() * invgij[0][idir] * dphi_glm_di  
+                                                            ) * idx(idir,q);
+            // B^y source term
+            state_new(VEC(i,j,k),BGY_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[1] +\ 
+                                                            +metric.alp() * invgij[1][idir] * dphi_glm_di  
+                                                            ) * idx(idir,q);
+            // B^z source term
+            state_new(VEC(i,j,k),BGZ_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[2] +\ 
+                                                            +metric.alp() * invgij[2][idir] * dphi_glm_di  
+                                                            ) * idx(idir,q);
+
+            // Source[\Phi_{\rm GLM}] = -sqrtgamma * alp * K * phi                                       (1)
+            //                          -sqrtgamma * phi * \partial_i beta^i                             (2)
+            //                          -0.5 * sqrtgamma * phi * gamma^jk * beta^i \partial_i gamma_jk   (3)
+            //                          +sqrtgamma B^i \partial_i alp                                    (4)
+            // Phi_GLM source terms (2), (3), (4) first
+            // we add (1) outside of this idir loop
+            // terms (2) and (4):
+            state_new(VEC(i,j,k),PHIG_GLM_,q) += sqrtgamma_dt * (-prims[PHI_GLML] * dbetaj_dxi[idir]
+                                                                 +prims[BXL+idir]  * dalp_dxi
+                                                                ) * idx(idir,q);
+
+            // terms (3) involving a contraction:
+            state_new(VEC(i,j,k),PHIG_GLM_,q) += sqrtgamma_dt *\
+                        (-0.5 * prims[PHI_GLML] * shift[idir] * metric.contract_sym2tens_sym2tens(invgij_6,dgammajk_dxi)) * idx(idir,q);
+
+            #endif
+	    #endif 
+
+
+
+
         }
         /**************************************************************************************************/
         /* Add energy source terms                                                                        */
         /**************************************************************************************************/
         state_new(VEC(i,j,k),TAU_,q)     += alpha_sqrtgamma_dt*tau_source ;
         /**************************************************************************************************/
+
+	#ifdef GRACE_DO_MHD
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+        /**                                                     */
+        /* Add the final GLM Phi source term:  -sqrtgamma * alp * K * phi */
+        // we obtain K as the contraction of invgij and Kij
+        state_new(VEC(i,j,k),PHIG_GLM_,q) -= alpha_sqrtgamma_dt * prims[PHI_GLML] * metric.contract_sym2tens_sym2tens(invgij_6,Kij); 
+        #endif 
+	#endif
+
+
     } ;
     /**
      * @brief Compute GRMHD auxiliary quantities.
@@ -393,10 +513,20 @@ struct grmhd_equations_system_t
         cons[TAUL]  = vars(TAU_)         ;
         cons[YESL]  = vars(YESTAR_)      ; 
         cons[ENTSL] = vars(ENTROPYSTAR_) ; 
+	#ifdef GRACE_DO_MHD
+        cons[BGXL] = vars(BGX_) ; 
+        cons[BGYL] = vars(BGY_) ; 
+        cons[BGZL] = vars(BGZ_) ; 
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+        cons[PHIG_GLML] = vars(PHIG_GLM_) ; 
+        #endif
+	#endif
+
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
         grmhd_prims_array_t prims ;
-        conservs_to_prims<eos_t>( cons, prims, metric
+        //conservs_to_prims<eos_t>( cons, prims, metric
+        conservs_to_prims<eos_t, grhd_c2p_t>( cons, prims, metric
                                 , this->_eos, this->_lapse_excision ) ;
         /* Write new prims */
         aux(RHO_) = prims[RHOL]     ; 
@@ -408,6 +538,15 @@ struct grmhd_equations_system_t
         aux(TEMP_) = prims[TEMPL]   ; 
         aux(ENTROPY_) = prims[ENTL]  ; 
         aux(YE_)   = prims[YEL]     ;
+        #ifdef GRACE_DO_MHD
+        aux(BX_)   = prims[BXL];
+        aux(BY_)   = prims[BYL];
+        aux(BZ_)   = prims[BZL];
+	#ifdef GRACE_ENABLE_B_FIELD_GLM
+        aux(PHI_GLM_)   = prims[PHI_GLML];
+        #endif
+	#endif
+
         /* Compute ZVEC */
         double const one_over_alp = 1./metric.alp(); 
         std::array<double,3> const vN {
@@ -430,6 +569,15 @@ struct grmhd_equations_system_t
         vars(TAU_)   = cons[TAUL]        ;
         vars(YESTAR_) = cons[YESL]       ; 
         vars(ENTROPYSTAR_) = cons[ENTSL] ; 
+	#ifdef GRACE_DO_MHD
+        vars(BGX_)= cons[BGXL] ; 
+        vars(BGY_)= cons[BGYL] ; 
+        vars(BGZ_)= cons[BGZL] ; 
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+        vars(PHIG_GLM_)  = cons[PHIG_GLML] ;
+        #endif
+	#endif
+
         #endif
     };
     /**
@@ -469,8 +617,11 @@ struct grmhd_equations_system_t
         double dummy = _eos.press_h_csnd2__temp_rho_ye( h, csnd2, prims[TEMPL]
                                                       , prims[RHOL], prims[YEL], err ) ;
         /* Compute magnetosonic speed */
-        double const b2{0.} ;
-        double const v_A_sq = 0. ; // b2 / ( b2 + prims[RHOL]*h) ; 
+        //double const b2{0.} ;
+        double const b2 = compute_b2(prims,metric) ;
+        /* Compute Alfven speed            */
+        double const v_A_sq = b2 / ( b2 + prims[RHOL]*h) ; 
+        //double const v_A_sq = 0. ; // b2 / ( b2 + prims[RHOL]*h) ; 
         double const v02 = v_A_sq + csnd2 * ( 1. - v_A_sq ) ;
         /* Find maximum eigenvalue (amongst all directions) */
         double cmax {0}; 
@@ -490,7 +641,12 @@ struct grmhd_equations_system_t
  private:
     /***********************************************************************/
     //! Number of reconstructed variables.
-    static constexpr unsigned int GRMHD_NUM_RECON_VARS = 7 ; 
+    #ifndef GRACE_DO_MHD 
+    static constexpr unsigned int GRMHD_NUM_RECON_VARS = 7;
+    #else
+    static constexpr unsigned int GRMHD_NUM_RECON_VARS = 11;
+    #endif 
+
     //! Equation of State object.
     eos_t _eos ;
     //! Excision lapse.
@@ -580,6 +736,14 @@ struct grmhd_equations_system_t
                 , YE_
                 , TEMP_
                 , ENTROPY_
+		#ifdef GRACE_DO_MHD
+                , BX_
+                , BY_
+                , BZ_
+                #ifdef GRACE_ENABLE_B_FIELD_GLM
+                , PHI_GLM_
+                #endif
+		#endif
             } ; 
         /* Local indices in prims array (note z^k -> v^k) */
         std::array<int, GRMHD_NUM_RECON_VARS>
@@ -591,6 +755,14 @@ struct grmhd_equations_system_t
                 , YEL
                 , TEMPL
                 , ENTL
+		#ifdef GRACE_DO_MHD
+                , BXL
+                , BYL
+                , BZL
+                #ifdef GRACE_ENABLE_B_FIELD_GLM
+                , PHI_GLML
+                #endif
+		#endif
             } ;
         /* Reconstruction                                  */
         grmhd_prims_array_t primL, primR ; 
@@ -851,6 +1023,14 @@ struct grmhd_equations_system_t
                 , YE_
                 , TEMP_
                 , ENTROPY_
+        #ifdef GRACE_DO_MHD
+                , BX_
+                , BY_
+                , BZ_
+                #ifdef GRACE_ENABLE_B_FIELD_GLM
+                , PHI_GLM_
+                #endif
+		#endif 
             } ; 
         /* Local indices in prims array (note z^k -> v^k) */
         std::array<int, GRMHD_NUM_RECON_VARS>
@@ -862,6 +1042,14 @@ struct grmhd_equations_system_t
                 , YEL
                 , TEMPL
                 , ENTL
+		#ifdef GRACE_DO_MHD
+                , BXL
+                , BYL
+                , BZL
+                #ifdef GRACE_ENABLE_B_FIELD_GLM
+                , PHI_GLML
+                #endif
+		#endif
             } ;
         /* Reconstruction                                  */
         grmhd_prims_array_t primL, primR ; 
@@ -947,6 +1135,19 @@ struct grmhd_equations_system_t
                                                + (1. - theta) * f_LLF[STYL] ; 
         fluxes(VEC(i,j,k),SZ_,idir,q)          = theta * f_HLL[STZL]    
                                                + (1. - theta) * f_LLF[STZL] ; 
+	#ifdef GRACE_DO_MHD
+        fluxes(VEC(i,j,k),BGX_,idir,q)         = theta * f_HLL[BGXL]    
+                                               + (1. - theta) * f_LLF[BGXL] ; 
+        fluxes(VEC(i,j,k),BGY_,idir,q)         = theta * f_HLL[BGYL]    
+                                               + (1. - theta) * f_LLF[BGYL] ; 
+        fluxes(VEC(i,j,k),BGZ_,idir,q)         = theta * f_HLL[BGZL]    
+                                               + (1. - theta) * f_LLF[BGZL] ; 
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+
+        fluxes(VEC(i,j,k),PHIG_GLM_,idir,q)    = theta * f_HLL[PHIG_GLML]    
+                                               + (1. - theta) * f_LLF[PHIG_GLML] ; 
+        #endif
+	#endif
         /***********************************************************************/
         #else 
         /***********************************************************************/
@@ -957,6 +1158,14 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[STXL] ; 
         fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL] ; 
         fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ; 
+	#ifdef GRACE_DO_MHD
+        fluxes(VEC(i,j,k),BGX_,idir,q)         = f_HLL[BGXL] ;   
+        fluxes(VEC(i,j,k),BGY_,idir,q)         = f_HLL[BGYL] ;   
+        fluxes(VEC(i,j,k),BGZ_,idir,q)         = f_HLL[BGZL] ;   
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+        fluxes(VEC(i,j,k),PHIG_GLM_,idir,q)    = f_HLL[PHIG_GLML] ; 
+        #endif
+	#endif 
         /***********************************************************************/
         #endif 
     }
@@ -990,6 +1199,21 @@ struct grmhd_equations_system_t
         double const u0_r = wr / alp ; 
 
         /***********************************************************************/
+
+
+        /* Compute the Eulerian 3-velocities on both sides of the interface */
+        std::array<double,3> const vNL {
+              primL[VXL] / wl 
+            , primL[VYL] / wl 
+            , primL[VZL] / wl 
+        } ; 
+
+        std::array<double,3> const vNR {
+              primR[VXL] / wr
+            , primR[VYL] / wr 
+            , primR[VZL] / wr 
+        } ; 
+
         /* Fill up primitive array on both sides of the face.                  */
         /* Right now we have:                                                  */
         /* 1) The correct rho                                                  */
@@ -1013,10 +1237,26 @@ struct grmhd_equations_system_t
         primR[VZL] = alp * primR[VZL] / wr - metric_face.beta(2) ;
 
         /* Compute small b */
-        std::array<double,4> smallbL{0,0,0,0}, smallbR{0,0,0,0} ; 
-        double b2l{0.}, b2r{0.}; 
+        /* Compute smallb2 on the left and right interface */
+        const double b2l = compute_b2(primL,metric_face) ;
+        const double b2r = compute_b2(primR,metric_face) ;
+       // std::array<double,4> smallbL{0,0,0,0}, smallbR{0,0,0,0} ; 
+        //double b2l{0.}, b2r{0.}; 
         //compute_smallb(smallbL, b2l, primL, metric_face) ; 
         //compute_smallb(smallbR, b2r, primR, metric_face) ; 
+        /* Compute smallb on the left and right interface */
+        std::array<double,4> smallbL{0.,0.,0.,0.};
+        std::array<double,4> smallbR{0.,0.,0.,0.};
+
+        /* Compute comoving magnetic field  on both intefaces       */
+        get_smallb_from_eulerianB(metric_face, {primL[BXL],primL[BYL],primL[BZL]},
+                                               {vNL[0], vNL[1], vNL[2]},
+                                                smallbL
+                                        );
+        get_smallb_from_eulerianB(metric_face, {primR[BXL],primR[BYL],primR[BZL]},
+                                               {vNR[0], vNR[1], vNR[2]},
+                                                smallbR
+                                        );
 
         /* Compute Alfvén speeds */
         double v02r,v02l, h_r,h_l;
@@ -1061,7 +1301,7 @@ struct grmhd_equations_system_t
         double const ye_star_r = dens_r * primR[YEL] ; 
         
         fl = ye_star_l * primL[VXL+idir] ; 
-        fr = ye_star_l * primR[VXL+idir] ; 
+        fr = ye_star_r * primR[VXL+idir] ; 
 
         f[YESL] = solver(fl,fr,ye_star_l,ye_star_r,cmin,cmax) ;
 
@@ -1155,7 +1395,19 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* Get S_x flux                                                        */
         /***********************************************************************/
-        std::array<double,3> smallbDL{0,0,0}, smallbDR{0,0,0};
+        //std::array<double,3> smallbDL{0,0,0}, smallbDR{0,0,0};
+        //
+  /***********************************************************************/
+        /*               Compute the b_i components  first                     */
+        /***********************************************************************/
+
+        const std::array<double,4> smallb4DL       = metric_face.lower_4vec(smallbL);
+        const std::array<double,4> smallb4DR       = metric_face.lower_4vec(smallbR);
+
+        std::array<double,3> smallbDL{smallb4DL[1],smallb4DL[2],smallb4DL[3]};
+        std::array<double,3> smallbDR{smallb4DR[1],smallb4DR[2],smallb4DR[3]};
+
+
         /***********************************************************************/
         /* F^d_{S_x} = \alpha \sqrt{\gamma} T^d_x                              */
         /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_x                */
@@ -1224,6 +1476,116 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         f[STZL] = solver(fl,fr,s_z_l,s_z_r,cmin,cmax) ; 
         /***********************************************************************/
+
+
+  /***********************************************************************/
+        /*   Moving on the magnetic field and auxiliary variable fluxes        */
+        /* We follow https://arxiv.org/pdf/1611.09720 for the relevant eqns    */
+        /***********************************************************************/
+	#ifdef GRACE_DO_MHD
+ 
+       /***********************************************************************/
+        /* evolution equation for B^i in the GLM method reads:                 */
+        /* \partial_t (\sqrt{\gamma}B^j)  +                                    */
+        /* +\partial_i( \sqrt{\gamma}(v^i B^j - v^j B^i) )     (standard flux) */
+        /* -\partial_i( \sqrt{\gamma} B^i \beta^j)             (GLM flux)      */
+        /* =                                                                   */
+        /* -\sqrt{\gamma}(  B^i \partial_i \beta^j 
+                           + \alpha \gamma^ij \partial_i \Phi_GLM
+                            )                                  (GLM source )   */
+        /* in the above, v^i is the transport velocity                         */
+        /* it is the one contained in primL[VXL] at the moment                 */
+        /* in the below, idir dictates the flux direction                      */
+        /***********************************************************************/
+
+        const double sqrtgamma =  metric_face.sqrtg() ;
+
+        /***********************************************************************/
+        /* Get B^x flux                                                        */
+        /***********************************************************************/
+        
+        fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BXL] - primL[VXL] * primL[BXL+idir] ) \
+                            - primL[BXL+idir] * metric_face.beta(0) ) ;
+
+
+        fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BXL] - primR[VXL] * primR[BXL+idir] ) \
+                            - primR[BXL+idir] * metric_face.beta(0) ) ;
+
+
+        const double bhat_x_l = sqrtgamma * primL[BXL];
+
+        const double bhat_x_r = sqrtgamma * primR[BXL];
+
+        f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,cmin,cmax) ; 
+
+
+
+        /***********************************************************************/
+        /* Get B^y flux                                                        */
+        /***********************************************************************/
+        
+        fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BYL] - primL[VYL] * primL[BXL+idir] ) \
+                            - primL[BXL+idir] * metric_face.beta(1) ) ;
+
+
+        fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BYL] - primR[VYL] * primR[BXL+idir] ) \
+                            - primR[BXL+idir] * metric_face.beta(1) ) ;
+
+
+        const double bhat_y_l = sqrtgamma * primL[BYL];
+
+        const double bhat_y_r = sqrtgamma * primR[BYL];
+
+        f[BGYL] = solver(fl,fr,bhat_y_l,bhat_y_r,cmin,cmax) ; 
+
+
+        /***********************************************************************/
+        /* Get B^z flux                                                        */
+        /***********************************************************************/
+        
+        fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BZL] - primL[VZL] * primL[BXL+idir] ) \
+                            - primL[BXL+idir] * metric_face.beta(2) ) ;
+
+
+        fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BZL] - primR[VZL] * primR[BXL+idir] ) \
+                            - primR[BXL+idir] * metric_face.beta(2) ) ;
+
+
+        const double bhat_z_l = sqrtgamma * primL[BZL];
+
+        const double bhat_z_r = sqrtgamma * primR[BZL];
+
+        f[BGZL] = solver(fl,fr,bhat_z_l,bhat_z_r,cmin,cmax) ; 
+
+
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+        /***********************************************************************/
+        /* Get Phi_GLM flux                                                    */
+        /***********************************************************************/
+
+        /***********************************************************************/
+        /*  evolution equation is:                                             */ 
+        /* \partial_t (\sqrt{\gamma} \Phi )                                    */
+        /* + \partial_i [ \sqrt{\gamma }(\alpha B^i - \Phi \beta^i) ]          */
+        /* = ...Sources                                                        */
+        /*                                                                     */
+        /***********************************************************************/
+
+        fl = sqrtgamma * (metric_face.alp() * primL[BXL+idir] - primL[PHI_GLML]*metric_face.beta(idir)) ; 
+
+        fr = sqrtgamma * (metric_face.alp() * primR[BXL+idir] - primR[PHI_GLML]*metric_face.beta(idir)) ; 
+
+        const double phi_glm_l = sqrtgamma * primL[PHI_GLML];
+
+        const double phi_glm_r = sqrtgamma * primR[PHI_GLML];
+
+        f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,cmin,cmax) ; 
+
+
+        #endif 
+	#endif 
+
+
         /***********************************************************************/
     };
     /***********************************************************************/
@@ -1242,7 +1604,8 @@ struct grmhd_equations_system_t
                , grmhd_prims_array_t const& prims ) const
     {
         h = 1. + prims[EPSL] + prims[PRESSL] / prims[RHOL] ; 
-        double const v_A_sq = 0.; // b2 / ( b2 + prims[RHOL]*h) ; 
+	double const v_A_sq =  b2 / ( b2 + prims[RHOL]*h) ; 
+        // double const v_A_sq = 0.; // b2 / ( b2 + prims[RHOL]*h) ; 
         v02 = v_A_sq + cs2 * ( 1. - v_A_sq ) ; 
     }
     /***********************************************************************/
@@ -1302,6 +1665,35 @@ struct grmhd_equations_system_t
         } ; 
         double const W = 1./Kokkos::sqrt(1-metric.square_vec(vN)) ; 
         return one_over_alp * W ; 
+    }
+    /***********************************************************************/
+    /***********************************************************************/
+    /***********************************************************************/
+    /**
+     * @brief Utility to compute \f$ b^2\f$
+     * 
+     * @param prims Primitive variables.
+     * @param metric Metric tensor.
+     * @return double The square of comoving magnetic field.
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_b2( grace::grmhd_prims_array_t const& prims 
+              , grace::metric_array_t const& metric ) const 
+    {
+        double const one_over_alp = 1./metric.alp() ;
+        std::array<double,3> const vN {
+              one_over_alp * ( prims[VXL] + metric.beta(0) )
+            , one_over_alp * ( prims[VYL] + metric.beta(1) )
+            , one_over_alp * ( prims[VZL] + metric.beta(2) )
+        } ; 
+        std::array<double,4> smallb ;
+        get_smallb_from_eulerianB(metric, {prims[BXL],prims[BYL],prims[BZL]},
+                                          {vN[0], vN[1], vN[2]},
+                                          smallb
+                                        );
+        std::array<double,4> smallbD = metric.lower_4vec(smallb); 
+        double const b2 = metric.contract_4dvec_4dcovec(smallb,smallbD);
+        return b2;
     }
     /***********************************************************************/
 } ; 

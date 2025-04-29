@@ -1,6 +1,9 @@
 option(GRACE_ENABLE_BURGERS  "Enable Burgers equation module" OFF) 
 option(GRACE_ENABLE_SCALAR_ADV  "Enable scalar advection equation module" OFF) 
 option(GRACE_ENABLE_GRMHD   "Enable GRMHD equation module"  ON)
+option(GRACE_DO_MHD "Enable MHD evolution" ON)
+option(GRACE_ENABLE_B_FIELD_GLM "Enable GLM evolution of the magnetic field" ON)
+
 if( GRACE_ENABLE_SCALAR_ADV )
     message(STATUS "Scalar advection module enabled.")
     set(GRACE_ENABLE_GRMHD OFF)
@@ -13,4 +16,14 @@ if( GRACE_ENABLE_GRMHD )
     message(STATUS "GRMHD module enabled.")
     set(GRACE_ENABLE_BURGERS OFF)
 endif()
+
+if( GRACE_DO_MHD )
+    message(STATUS "MHD enabled")
+    set(GRACE_DO_MHD ON)
+endif() 
+
+if( GRACE_ENABLE_B_FIELD_GLM )
+    message(STATUS "Magnetic field evolution with the divergence cleaning method enabled")
+    set(GRACE_ENABLE_B_FIELD_GLM ON)
+endif() 
 

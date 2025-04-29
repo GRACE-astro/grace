@@ -74,6 +74,14 @@ struct shocktube_id_t {
         id.gxy = 0; id.gxz = 0; id.gyz = 0 ;
         id.kxx = 0; id.kyy = 0; id.kzz = 0 ;
         id.kxy = 0; id.kxz =0 ; id.kyz = 0 ; 
+
+        #ifdef GRACE_DO_MHD
+            id.bx =0 ; id.by =0 ; id.bz =0 ; 
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+            id.phi_glm = 0.;
+        #endif
+        #endif
+
         unsigned int err ; 
         id.ye  = _eos.ye_beta_eq__press_cold(id.press, err);
         return std::move(id) ; 

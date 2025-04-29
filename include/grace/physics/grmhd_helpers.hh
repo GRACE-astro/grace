@@ -30,6 +30,11 @@
 
 #include <grace_config.h> 
 #include <array>
+#include <grace/utils/metric_utils.hh>
+
+#include <Kokkos_Core.hpp>
+
+
 //**************************************************************************************************/
 /* Auxiliaries */
 //**************************************************************************************************/
@@ -51,6 +56,9 @@ enum GRMHD_PRIMS_LOC_INDICES {
     BXL,
     BYL,
     BZL,
+    #ifdef GRACE_ENABLE_B_FIELD_GLM
+    PHI_GLML,
+    #endif 
     #endif 
     NUM_PRIMS_LOC
 } ; 
@@ -66,6 +74,14 @@ enum GRMHD_CONS_LOC_INDICES {
     TAUL,
     YESL,
     ENTSL,
+    #ifdef GRACE_DO_MHD
+    BGXL,
+    BGYL,
+    BGZL,
+    #ifdef GRACE_ENABLE_B_FIELD_GLM
+    PHIG_GLML,
+    #endif 	
+    #endif
     NUM_CONS_LOC
 } ; 
 namespace grace {
@@ -102,7 +118,11 @@ primsarr[VZL] = vview(__VA_ARGS__,VELZ_,q) ;     \
 primsarr[YEL] = vview(__VA_ARGS__,YE_,q) ;       \
 primsarr[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
 primsarr[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
-primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)
+primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q) ;   \
+primsarr[BXL] = vview(__VA_ARGS__,BX_,q);         \
+primsarr[BYL] = vview(__VA_ARGS__,BY_,q);         \
+primsarr[BZL] = vview(__VA_ARGS__,BZ_,q) ;        \
+primsarr[PHI_GLML] = vview(__VA_ARGS__,PHI_GLM_,q) 
 
 #define FILL_PRIMS_ARRAY_ZVEC(primsarr,vview,q,...)        \
 primsarr[RHOL] = vview(__VA_ARGS__,RHO_,q);      \
@@ -113,7 +133,12 @@ primsarr[VZL] = vview(__VA_ARGS__,ZVECZ_,q) ;     \
 primsarr[YEL] = vview(__VA_ARGS__,YE_,q) ;       \
 primsarr[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
 primsarr[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
-primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)
+primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q) ; \
+primsarr[BXL] = vview(__VA_ARGS__,BX_,q) ;        \
+primsarr[BYL] = vview(__VA_ARGS__,BY_,q) ;        \
+primsarr[BZL] = vview(__VA_ARGS__,BZ_,q) ;       \
+primsarr[PHI_GLML] = vview(__VA_ARGS__,PHI_GLM_,q) 
+
 
 #define FILL_CONS_ARRAY(consarr, vview,q,...)      \
 consarr[DENSL] = vview(__VA_ARGS__,DENS_,q);       \
@@ -122,7 +147,11 @@ consarr[STXL] = vview(__VA_ARGS__,SX_,q);          \
 consarr[STYL] = vview(__VA_ARGS__,SY_,q);          \
 consarr[STZL] = vview(__VA_ARGS__,SZ_,q);          \
 consarr[YESL] = vview(__VA_ARGS__,YESTAR_,q);      \
-consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q) 
+consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q) ;\
+consarr[BGXL] = vview(__VA_ARGS__,BGX_,q) ;         \
+consarr[BGYL] = vview(__VA_ARGS__,BGY_,q) ;         \
+consarr[BGZL] = vview(__VA_ARGS__,BGZ_,q) ;         \
+consarr[PHIG_GLML] = vview(__VA_ARGS__,PHIG_GLM_,q)  
 
 #define AM2 -0.0625
 #define AM1  0.5625
@@ -176,6 +205,117 @@ g = grace::metric_array_t{                                    \
 }
 #endif 
 
+/**
+ * @brief Convert z^i to v^i
+ * 
+ * @param metric A `metric_array_t`
+ * @param [inout] zx The x component of zvec
+ * @param [inout] zy The y component of zvec 
+ * @param [inout] zz The z component of zvec 
+ * @return double The lorentz factor
+ */
+static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+zvec_to_vel(
+  grace::metric_array_t const& metric,
+  double& zx, double& zy, double & zz
+)
+{
+  double const alp = metric.alp() ;
+  double const w   = Kokkos::sqrt(1. 
+      + metric.square_vec({zx, zy, zz}));
+  zx = alp * zx / w - metric.beta(0) ;
+  zy = alp * zy / w - metric.beta(1) ;
+  zz = alp * zz / w - metric.beta(2) ; 
+  return w;
+}
+
+
+// return co-moving magnetic field b^\mu components
+/**
+ * @brief return co-moving magnetic field b^\mu components from the Eulerian B^i field and Eulerian 3-velocity U^i
+ * 
+ * @param metric A `metric_array_t`
+ * @param [in] std::array<double,3> components of the Eulerian B^i field ([0,1,2]=[x,y,z])
+ * @param [in] std::array<double,3> components of the Eulerian U^i field ([0,1,2]=[x,y,z])
+ * @return [inout] std::array<double,4> components of the co-moving magnetic field
+ */ 
+static void GRACE_HOST_DEVICE
+get_smallb_from_eulerianB(grace::metric_array_t const& metric,
+                          const std::array<double,3>& eulB, 
+                          const std::array<double,3>& eulVel,
+                          std::array<double, 4>& smallbU){
+    std::array<double,4> normalvector{1./metric.alp(),
+                                        -metric.beta(0)/metric.alp(),
+                                        -metric.beta(1)/metric.alp(),
+                                        -metric.beta(2)/metric.alp()
+                                        };
+
+    auto eulVelD   = metric.lower(eulVel);
+    auto VelTimesB  = metric.contract_vec_covec(eulVelD,eulB);
+
+    double const v2 = metric.square_vec({eulVel[0],eulVel[1],eulVel[2]}) ; 
+    double const W  = 1./Kokkos::sqrt(1-v2) ; 
+    // follow (6.108) from Gourgoulhon's book (Springer Verlag)
+    // time-like component
+    smallbU[0] = VelTimesB * W * ( normalvector[0] );
+    // spatial components 
+    for(int i=1; i<4; i++){ 
+        smallbU[i] = VelTimesB * W * (normalvector[i] + eulVel[i-1]) + (1./W) * eulB[i-1];
+    }
+}
+
+
+/**
+ * @brief return Eulerian magnetic field B^\i components from the co-moving b^\mu field and Eulerian 3-velocity U^i
+ * 
+ * @param metric A `metric_array_t`
+ * @param [in] std::array<double,4> components of the co-movin b^\mu field ([0,1,2,3]=[t,x,y,z])
+ * @param [in] std::array<double,3> components of the Eulerian U^i field ([0,1,2]=[x,y,z])
+ * @return [inout] std::array<double,3> components of the Eulerian magnetic field
+ * @details IMPORTANT: the transformation between frames here (forward and back) only makes sense 
+ *                     if the smallb vector is 
+ */ 
+static void GRACE_HOST_DEVICE
+get_eulerianB_from_smallb(grace::metric_array_t const& metric,
+                          const std::array<double,4>& smallb, 
+                          const std::array<double,3>& eulVel,
+                          std::array<double, 3>& eulB){
+
+    std::array<double,4> normalvector{1./metric.alp(),
+                                        -metric.beta(0)/metric.alp(),
+                                        -metric.beta(1)/metric.alp(),
+                                        -metric.beta(2)/metric.alp()
+                                        };
+
+    auto eulVelD   = metric.lower(eulVel);
+    double const v2 = metric.square_vec({eulVel[0],eulVel[1],eulVel[2]}) ; 
+    double const W  = 1./Kokkos::sqrt(1-v2) ;
+
+    // g_munu b^mu u^mu = 0 !!!
+    // Note left for clarity: 
+    // It's the responsibility of the caller to make sure the orthogonality condition is satisfied 
+
+    // assert(fabs(metric.contract_4dvec_4dcovec(smallb,
+    //                                metric.lower_4vec({W*(normalvector[0]),
+    //                                              W*(normalvector[1] + eulVel[0] ),
+    //                                              W*(normalvector[2] + eulVel[1] ),
+    //                                              W*(normalvector[3] + eulVel[2] )
+    //                                }) )
+    //                                  ) < 1.e-10 );
+      
+    auto smallbD       = metric.lower_4vec(smallb);
+    auto n_dot_smallb  = metric.contract_4dvec_4dcovec(normalvector,smallbD);
+
+    // follow (6.107) from Gourgoulhon's book (Springer Verlag)
+    // only spatial components 
+    // B^i = W b^i + (n*b) * u^i   [ u^mu = W (n^mu + U^mu) ]
+    for(int i=0; i<3; i++){ 
+        eulB[i] = W*smallb[i+1] + n_dot_smallb * W * (normalvector[i+1] + eulVel[i]);
+    }
+}
+
+
+
 struct grmhd_id_t {
   double rho;
   double press;
@@ -185,6 +325,12 @@ struct grmhd_id_t {
   double alp;  
   double betax, betay, betaz ; 
   double vx, vy, vz;
+  #ifdef GRACE_DO_MHD
+  double bx, by, bz;
+  #ifdef GRACE_ENABLE_B_FIELD_GLM
+  double phi_glm ;
+  #endif
+  #endif
 } ; 
 
 #endif /* GRACE_PHYSICS_GRMHD_HELPERS_HH */

@@ -71,7 +71,8 @@ bisection(F&& func, double const& a, double const& b, double const& tol)
 
 template <typename F>
 double GRACE_HOST_DEVICE
-brent(F& f, const double &a, const double &b, const double t)
+brent(F&& f, const double &a, const double &b, const double t)
+//brent(F& f, const double &a, const double &b, const double t)
 
 //****************************************************************************80
 //
@@ -146,8 +147,13 @@ brent(F& f, const double &a, const double &b, const double t)
   //
   sa = a;
   sb = b;
-  fa = f(sa);
-  fb = f(sb);
+  #define INVK(FUNC, ARG) std::invoke(std::forward<F>(FUNC), ARG);
+
+  fa = INVK(f,sa);
+  fb = INVK(f,sb);
+
+  //fa = f(sa);
+  //fb = f(sb);
 
   c = sa;
   fc = fa;
@@ -217,7 +223,10 @@ brent(F& f, const double &a, const double &b, const double t)
       sb = sb - tol;
     }
 
-    fb = f(sb);
+    //fb = f(sb);
+    fb = INVK(f,sb);
+
+    #undef INVK
 
     if ((0.0 < fb && 0.0 < fc) || (fb <= 0.0 && fc <= 0.0)) {
       c = sa;
@@ -229,6 +238,75 @@ brent(F& f, const double &a, const double &b, const double t)
   return sb;
 }
 //****************************************************************************80
+
+  /** @brief Newton-Raphson root finding algorithm. 
+   *  @tparam F  callable object (struct with the suitable operator() defined, a lambda, an std::function object ...)
+   *  @tparam DF : callable object (struct with the suitable operator() defined, a lambda, an std::function object ...)
+   *  @param x0 : Initial guess
+   *  @param a  : Low end of the bracket, feel free to set to a very high negative value for unconstrained newton raphson
+   *  @param b  : High end of the bracket, feel free to set to a very high value for unconstrained newton raphson
+   *  @param f  : object of class F representing the function 
+   *  @param df  : object of class F representing the function's derivative 
+   *  @param tol : Tolerance
+   *  @param iter: initially set to the max iteration count, upon return contains the number of iterations the code went through 
+   *  @return : a double which results from a Newton Rapshon step s.t. xk-1, xk satisfy the stopif criterion or whatever the last computed value is if iter > maxiter 
+   *  Removed feature: noexcept (The function never throws. The user is responsible to check for failure by verifying that iter < maxiter.)
+   * @details: 
+   * Two template parameters are necessary in case when lambdas enter as f and df.
+   * In that case, each automatically deduced lambda type is different,
+   * and that necessitates F and DF.
+   * The callable objects as passed by forward referencing to the std::invoke
+   * In this way, we are not restricting ourselves to lvalues and can invoke this function also 
+   * on lambdas 
+   */ 
+  template <typename F, typename DF>
+  double GRACE_HOST_DEVICE
+  rootfind_newton_raphson(double const& a, double const& b,
+                            F&& f, DF&& df,
+                            double const& tol, unsigned long& iter)
+    {
+      unsigned long const maxiter = iter ;
+
+      constexpr const double macheps = std::numeric_limits<double>::epsilon() ;
+      
+      #define INVK(TYPE, FUNC, ARG) std::invoke(std::forward<TYPE>(FUNC), ARG);
+
+      auto const fa = INVK(F, f, a); //f(a);
+      auto const fb = INVK(F, f, b); //f(b);
+      
+      auto x0 = ( fa * a - fb * b ) / ( fa - fb ) ;
+      //auto f0 = f(x0) ; 
+      auto f0 = INVK(F, f,x0) ; 
+    
+      iter = 0 ; 
+      auto x1 = x0 ;
+    
+      do {
+        x0  =    x1 ;
+        //f0  =  f(x1);
+        //auto df0 = df(x1);
+        f0 = INVK(F, f, x1);
+        auto df0 = INVK(DF, df, x1);
+
+        #undef INVK
+
+        x1  = x0 - f0 / df0 ;
+
+        if ( std::fabs(x0-x1) <= tol + 2. * macheps * std::fabs(x1) )
+        return x1 ;
+
+        if ( x1 < a || x1 > b ) { 
+          if ( f0 * fa < 0 )
+            x1 = ( fa * a - f0*x0 ) / ( fa - f0 ) ;
+          else
+            x1 = ( fb * b - f0*x0 ) / ( fb - f0 ) ;
+        }
+  
+        iter ++ ;
+        } while(  iter < maxiter  ) ;
+
+        return x1 ; 
+    }
 
 }
 

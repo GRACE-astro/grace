@@ -45,6 +45,12 @@
 #include <grace/physics/grmhd_helpers.hh>
 #include <grace/physics/grmhd.hh>
 
+#ifdef GRACE_DO_MHD
+#ifdef GRACE_ENABLE_B_FIELD_GLM
+#include <grace/physics/id/shocktube_mhd.hh>
+#endif
+#endif
+
 #include <grace/config/config_parser.hh>
 #include <Kokkos_Core.hpp>
 
@@ -241,6 +247,16 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),RHO_,q)   = id.rho; 
                     aux(VEC(i,j,k),PRESS_,q) = id.press ; 
 
+
+		    #ifdef GRACE_DO_MHD
+                    aux(VEC(i,j,k),BX_,q) = id.bx ; 
+                    aux(VEC(i,j,k),BY_,q) = id.by ; 
+                    aux(VEC(i,j,k),BZ_,q) = id.bz ; 
+                    #ifdef GRACE_ENABLE_B_FIELD_GLM
+                    aux(VEC(i,j,k),PHI_GLM_,q) = 0.0 ; 
+                    #endif
+		    #endif 
+
                     state(VEC(i,j,k),ALP_,q) = id.alp ;
 
                     state(VEC(i,j,k),BETAX_,q) = id.betax ;
@@ -307,7 +323,39 @@ void set_grmhd_initial_data() {
         set_grmhd_initial_data_impl<eos_t,shocktube_id_t<eos_t>>(rho_L, rho_R, press_L, press_R) ;
         Kokkos::fence() ; 
         GRACE_TRACE("Done with hydro ID.") ;  
-    } else if ( id_type == "blastwave" ) {
+    }	  
+    #ifdef GRACE_DO_MHD
+    else if( id_type == "shocktube_mhd" ) {
+        auto const rho_L = get_param<double>("grmhd","shocktube_mhd_rho_L") ; 
+        auto const rho_R = get_param<double>("grmhd","shocktube_mhd_rho_R") ; 
+        auto const press_L = get_param<double>("grmhd","shocktube_mhd_press_L") ; 
+        auto const press_R = get_param<double>("grmhd","shocktube_mhd_press_R") ;
+
+        auto const vel_x_L = get_param<double>("grmhd","shocktube_mhd_vel_x_L") ; 
+        auto const vel_y_L = get_param<double>("grmhd","shocktube_mhd_vel_y_L") ; 
+        auto const vel_z_L = get_param<double>("grmhd","shocktube_mhd_vel_z_L") ; 
+        
+        auto const vel_x_R = get_param<double>("grmhd","shocktube_mhd_vel_x_R") ; 
+        auto const vel_y_R = get_param<double>("grmhd","shocktube_mhd_vel_y_R") ; 
+        auto const vel_z_R = get_param<double>("grmhd","shocktube_mhd_vel_z_R") ;
+
+        auto const B_x_L = get_param<double>("grmhd","shocktube_mhd_B_x_L") ; 
+        auto const B_y_L = get_param<double>("grmhd","shocktube_mhd_B_y_L") ; 
+        auto const B_z_L = get_param<double>("grmhd","shocktube_mhd_B_z_L") ; 
+       
+        auto const B_x_R = get_param<double>("grmhd","shocktube_mhd_B_x_R") ; 
+        auto const B_y_R = get_param<double>("grmhd","shocktube_mhd_B_y_R") ; 
+        auto const B_z_R = get_param<double>("grmhd","shocktube_mhd_B_z_R") ; 
+        
+        set_grmhd_initial_data_impl<eos_t,shocktube_mhd_id_t<eos_t>>(rho_L, rho_R, press_L, press_R,
+                                                                     vel_x_L, vel_y_L, vel_z_L, vel_x_R, vel_y_R, vel_z_R,
+                                                                     B_x_L, B_y_L, B_z_L, B_x_R, B_y_R, B_z_R
+                                                                      ) ;
+        Kokkos::fence() ; 
+        GRACE_TRACE("Done with shocktube MHD ID.") ;  
+    }
+    #endif
+    else if ( id_type == "blastwave" ) {
         set_grmhd_spherical_blastwave_initial_data<eos_t>() ; 
     } else if ( id_type == "TOV") { 
         auto const rho_c = get_param<double>("grmhd", "TOV_central_density") ; 
@@ -350,6 +398,14 @@ void set_conservs_from_prims() {
         state(VEC(i,j,k),TAU_,q) = cons[TAUL] ;
         state(VEC(i,j,k),YESTAR_,q) = cons[YESL] ; 
         state(VEC(i,j,k),ENTROPYSTAR_,q) = cons[ENTSL] ; 
+        #ifdef GRACE_DO_MHD        
+        state(VEC(i,j,k),BGX_,q) = cons[BGXL] ; 
+        state(VEC(i,j,k),BGY_,q) = cons[BGYL] ; 
+        state(VEC(i,j,k),BGZ_,q) = cons[BGZL] ; 
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+        state(VEC(i,j,k),PHI_GLM_,q) = cons[PHIG_GLML] ; 
+        #endif
+        #endif
     }) ;
 }
 // Explicit template instantiation
