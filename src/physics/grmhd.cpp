@@ -363,11 +363,25 @@ void set_grmhd_initial_data() {
         
         using namespace linear_mhd_utils;
         WAVE_TYPE wave_type;
-        if(str_wave_type=="alfven"){wave_type = WAVE_TYPE::ALFVEN;}
-        else if(str_wave_type=="slow_magnetosonic"){wave_type = WAVE_TYPE::SLOW_MAGNETOSONIC;}
-        else if(str_wave_type=="fast_magnetosonic"){wave_type = WAVE_TYPE::FAST_MAGNETOSONIC;}
-        else if(str_wave_type=="contact"){wave_type = WAVE_TYPE::CONTACT;}
-        else {GRACE_INFO("Unknown wave type"); }
+        if(str_wave_type=="alfven"){
+            wave_type = WAVE_TYPE::ALFVEN;
+            GRACE_INFO("Wave type: Alfven wave");
+        }
+        else if(str_wave_type=="slow_magnetosonic"){
+            wave_type = WAVE_TYPE::SLOW_MAGNETOSONIC;
+            GRACE_INFO("Wave type: slow magnetosonic wave");
+        }
+        else if(str_wave_type=="fast_magnetosonic"){
+            wave_type = WAVE_TYPE::FAST_MAGNETOSONIC;
+            GRACE_INFO("Wave type: fast magnetosonic wave");
+        }
+        else if(str_wave_type=="contact"){
+            wave_type = WAVE_TYPE::CONTACT;
+            GRACE_INFO("Wave type: fast magnetosonic wave");
+        }
+        else {
+            GRACE_INFO("Unknown wave type");
+        }
 
         WAVE_DIRECTION wave_movement;
         if(str_wave_movement=="right"){wave_movement = WAVE_DIRECTION::RIGHT;}

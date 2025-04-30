@@ -151,6 +151,7 @@ struct linear_mhd_wave_id_t {
         #endif 
 
         auto gamma = _eos.get_gammas();
+        // printf("linear mhd wave: gamma: %f\n", gamma(0));
         // auto gamma = _eos.get_eos().get_gammas();
         // if(gamma.size()!=1)  GRACE_INFO("Linear MHD waves can only be run with a single-piece polytrope!");
 

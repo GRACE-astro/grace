@@ -102,6 +102,7 @@ void compute_auxiliary_quantities(
     #define GET_AUX
     #endif 
 
+
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 
     parallel_for(GRACE_EXECUTION_TAG("EVOL","get_auxiliaries"), policy 

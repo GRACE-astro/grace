@@ -1604,8 +1604,7 @@ struct grmhd_equations_system_t
                , grmhd_prims_array_t const& prims ) const
     {
         h = 1. + prims[EPSL] + prims[PRESSL] / prims[RHOL] ; 
-	double const v_A_sq =  b2 / ( b2 + prims[RHOL]*h) ; 
-        // double const v_A_sq = 0.; // b2 / ( b2 + prims[RHOL]*h) ; 
+        double const v_A_sq =  b2 / ( b2 + prims[RHOL]*h) ; 
         v02 = v_A_sq + cs2 * ( 1. - v_A_sq ) ; 
     }
     /***********************************************************************/
