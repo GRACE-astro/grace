@@ -356,10 +356,24 @@ void set_grmhd_initial_data() {
         GRACE_TRACE("Done with shocktube MHD ID.") ;  
     }
     else if( id_type == "linear_mhd_wave" ) {
-        auto const wave_type     = get_param<std::string>("grmhd","linear_mhd_wave_type") ; 
-        auto const wave_movement = get_param<std::string>("grmhd","linear_mhd_wave_movement") ; 
+        auto const str_wave_type     = get_param<std::string>("grmhd","linear_mhd_wave_type") ; 
+        auto const str_wave_movement = get_param<std::string>("grmhd","linear_mhd_wave_movement") ; 
         auto const ampl          = get_param<double>("grmhd","linear_mhd_wave_ampl") ; 
         auto const wavelength    = get_param<double>("grmhd","linear_mhd_wave_wavelength") ;
+        
+        using namespace linear_mhd_utils;
+        WAVE_TYPE wave_type;
+        if(str_wave_type=="alfven"){wave_type = WAVE_TYPE::ALFVEN;}
+        else if(str_wave_type=="slow_magnetosonic"){wave_type = WAVE_TYPE::SLOW_MAGNETOSONIC;}
+        else if(str_wave_type=="fast_magnetosonic"){wave_type = WAVE_TYPE::FAST_MAGNETOSONIC;}
+        else if(str_wave_type=="contact"){wave_type = WAVE_TYPE::CONTACT;}
+        else {GRACE_INFO("Unknown wave type"); }
+
+        WAVE_DIRECTION wave_movement;
+        if(str_wave_movement=="right"){wave_movement = WAVE_DIRECTION::RIGHT;}
+        else if(str_wave_movement=="left"){wave_movement = WAVE_DIRECTION::LEFT;}
+        else if(str_wave_movement=="standing"){wave_movement = WAVE_DIRECTION::STANDING;}
+        else {GRACE_INFO("Unknown wave direction"); }
 
         set_grmhd_initial_data_impl<eos_t,linear_mhd_wave_id_t<eos_t>>(wave_type,ampl,wavelength,wave_movement
                                                                       ) ;

@@ -41,6 +41,26 @@
 
 //**************************************************************************************************
 namespace grace {
+
+namespace linear_mhd_utils{
+
+    enum WAVE_TYPE{
+        CONTACT, 
+        SLOW_MAGNETOSONIC,
+        ALFVEN,
+        FAST_MAGNETOSONIC,
+        N_WAVE_TYPES
+    };
+
+    enum WAVE_DIRECTION{
+        RIGHT, 
+        LEFT,
+        STANDING
+    };
+}
+
+
+
 //**************************************************************************************************
 /**
  * \defgroup initial_data Initial Data
@@ -61,6 +81,9 @@ namespace grace {
  */
 template < typename eos_t >
 struct linear_mhd_wave_id_t {
+
+    using WAVE_TYPE = grace::linear_mhd_utils::WAVE_TYPE;
+    using WAVE_DIRECTION = grace::linear_mhd_utils::WAVE_DIRECTION;
     //**************************************************************************************************
     using state_t = grace::var_array_t<GRACE_NSPACEDIM> ; //!< Type of state vector
     //**************************************************************************************************
@@ -80,8 +103,10 @@ struct linear_mhd_wave_id_t {
      linear_mhd_wave_id_t(
           eos_t eos 
         , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
-        , double rhoL, double rhoR 
-   
+        , const WAVE_TYPE wave_type
+        , const double ampl
+        , const double wavelength
+        , const WAVE_DIRECTION wave_movement
         )
         : _eos(eos)
         , _pcoords(pcoords)
@@ -105,6 +130,7 @@ struct linear_mhd_wave_id_t {
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     operator() (VEC(int const i, int const j, int const k), int const q) const 
     {
+
         grmhd_id_t id ; 
 
         const double x = _pcoords(VEC(i,j,k),0,q);
@@ -125,7 +151,8 @@ struct linear_mhd_wave_id_t {
         #endif 
 
         auto gamma = _eos.get_gammas();
-        if(gamma.size()!=1) ERROR("Linear MHD waves can only be run with a single-piece polytrope!");
+        // auto gamma = _eos.get_eos().get_gammas();
+        // if(gamma.size()!=1)  GRACE_INFO("Linear MHD waves can only be run with a single-piece polytrope!");
 
 
         // initialize the constant state
@@ -142,55 +169,55 @@ struct linear_mhd_wave_id_t {
 
         
         double epsilon = 1.0 ;
-        if(_wave_movement == 'left') epsilon = -1.0;
+        if(_wave_movement == WAVE_DIRECTION::LEFT) epsilon = -1.0;
 
         // set the particular wave type
-        if(_wave_type == "fast_magnetosonic"){
+        if(_wave_type == WAVE_TYPE::FAST_MAGNETOSONIC){
             double const prefactor = 1.0 / 2.0 / Kokkos::sqrt(5.); 
             id.rho   += prefactor * 2.;
             id.press += prefactor * 4 * epsilon;
             id.vx    +=-prefactor * 2 * epsilon ;
-            iv.vy    += 0.0 ;
+            id.vy    += 0.0 ;
             id.vz    += 0.0;
             id.bx    += prefactor*4.0;
             id.by    += 0.0;
             id.bz    += prefactor*9.0;
         }
-        else if(_wave_type == "alfven"){
+        else if(_wave_type == WAVE_TYPE::ALFVEN){
             id.rho   += 0.;
             id.press += 0 ;
             id.vx    += 0 ;
-            iv.vy    +=-epsilon * 1.0 ;
+            id.vy    +=-epsilon * 1.0 ;
             id.vz    += 0.0;
             id.bx    += 0.0;
             id.by    += 1.0;
             id.bz    += 0.0;
         }
-        else if(_wave_type == "slow_magnetosonic"){
+        else if(_wave_type == WAVE_TYPE::SLOW_MAGNETOSONIC){
             double const prefactor = 1.0 / 2.0 / Kokkos::sqrt(5.); 
             id.rho   += prefactor * 4.;
             id.press += prefactor * 2 * epsilon;
             id.vx    += prefactor * 4 * epsilon ;
-            iv.vy    += 0.0 ;
+            id.vy    += 0.0 ;
             id.vz    += 0.0;
             id.bx    += prefactor*(-2.0);
             id.by    += 0.0;
             id.bz    += prefactor*3.0;
         }
-        else if(_wave_type == "contact"){
+        else if(_wave_type ==  WAVE_TYPE::CONTACT){
             id.vx = 1.0; // overwriting for the contact wave
             double const prefactor = 1.0 / 2.0 ; 
             id.rho   += prefactor * 2.;
             id.press += prefactor * 2;
             id.vx    += 0.0;
-            iv.vy    += 0.0;
+            id.vy    += 0.0;
             id.vz    += 0.0;
             id.bx    += 0.0;
             id.by    += 0.0;
             id.bz    += 1.0;
         }
         else {
-            ERROR("Unknown wave type")
+            // some communication?
         }
        
 
@@ -203,8 +230,8 @@ struct linear_mhd_wave_id_t {
     //**************************************************************************************************
     eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
-    std::string _wave_type ;                    
-    std::string _wave_movement ;                    
+    WAVE_TYPE _wave_type ;                    
+    WAVE_DIRECTION _wave_movement ;                    
     double _wavelength ;
     double _ampl ; 
 

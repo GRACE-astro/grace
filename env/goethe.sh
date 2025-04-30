@@ -10,15 +10,19 @@ alias mpirun='mpirun --mca pml ucx --mca osc ucx \
               --mca coll_ucc_priority 100'
 
 export LIBSROOT=/home/astro/musolino/libs/
-export P4EST_ROOT=${LIBSROOT}/p4est-install-system-mpi
-export CATCH2_ROOT=${LIBSROOT}/catch2-install
-export YAML_ROOT=${LIBSROOT}/yaml-cpp-install
-export KOKKOS_ROOT=${LIBSROOT}/kokkos-install-system-mpi
-export VTK_ROOT=${LIBSROOT}/VTK-install
-export SPDLOG_ROOT=${LIBSROOT}/spdlog-install
-export HDF5_ROOT=${LIBSROOT}/hdf5-install-system-mpi
 export KOKKOS_TOOLS_ROOT=${LIBSROOT}/kokkos-tools-install
 export KOKKOS_TOOLS_LIB=${KOKKOS_TOOLS_ROOT}/lib64
+
+
+export P4EST_ROOT=/home/astro/musolino/libs/p4est-install-system-mpi
+export CATCH2_ROOT=/home/astro/musolino/libs/catch2-install
+export YAML_ROOT=/home/astro/musolino/libs/yaml-cpp-install
+export KOKKOS_ROOT=/home/astro/musolino/libs/kokkos4-install
+export VTK_ROOT=/home/astro/musolino/libs/VTK-install
+export SPDLOG_ROOT=/home/astro/musolino/libs/spdlog-install
+export HDF5_ROOT=/home/astro/musolino/libs/hdf5-install-system-mpi
+export KOKKOS_TOOLS_ROOT=/home/astro/musolino/libs/kokkos-tools-install
+
 
 
 export LD_LIBRARY_PATH=${KOKKOS_TOOLS_LIB}:${LD_LIBRARY_PATH}

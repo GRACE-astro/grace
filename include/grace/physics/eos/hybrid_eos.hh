@@ -345,6 +345,11 @@ class hybrid_eos_t
         return 0. ; 
     }
 
+    decltype(auto) GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    get_gammas() const {
+       return cold_eos.get_gammas();
+    }
+
  private:
 
     double gamma_th_m1 ; 
