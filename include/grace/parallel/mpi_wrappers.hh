@@ -31,6 +31,7 @@
 #include <grace_config.h>
 
 #include <grace/errors/assert.hh>
+#include <grace/errors/warn.hh>
 #include <grace/utils/type_traits.hh>
 /// This header contains
 /// a `mock` MPI implementation

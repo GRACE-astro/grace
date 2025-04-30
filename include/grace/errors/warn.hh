@@ -62,7 +62,7 @@ void emit_warning_with_message(int warning_level,
 do {                                                                            \
     emit_warning_with_message(l,__FILE__,__LINE__,                              \
                               static_cast<const char*>(__PRETTY_FUNCTION__),    \
-                              m, __VA_ARGS__) ;         \
+                              m, ## __VA_ARGS__) ;                              \
 } while(false)
 //**************************************************************************************************
 
