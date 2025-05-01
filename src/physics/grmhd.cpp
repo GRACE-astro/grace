@@ -380,7 +380,7 @@ void set_grmhd_initial_data() {
             GRACE_INFO("Wave type: fast magnetosonic wave");
         }
         else {
-            GRACE_INFO("Unknown wave type");
+            GRACE_INFO("Setting constant MHD state");
         }
 
         WAVE_DIRECTION wave_movement;

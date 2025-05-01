@@ -160,68 +160,75 @@ struct linear_mhd_wave_id_t {
         // chosen in such a way that the individual waves can manifest clearly as perturbations of the background
         // and wave speeds (v_C, v_A, v_SM, v_FM) are well-separated 
         id.rho   = 1.0;
-        id.press = 1/gamma(0);
-        id.vx = 0.0 ;
-        id.vy = 0.0 ;
-        id.vz = 0.0 ;
-        id.bx = 1.0 ;  // as usual, the kernel needs to be adapted if vector potential is used instead 
-        id.by = 3./2. ; 
-        id.bz = 0.0 ; 
+        id.press = 1.0/gamma(0);
+        id.vx    = 0.0 ;
+        id.vy    = 0.0 ;
+        id.vz    = 0.0 ;
+        id.bx    = 1.0 ;  // as usual, the kernel needs to be adapted if vector potential is used instead 
+        id.by    = 3./2. ; 
+        id.bz    = 0.0 ; 
 
-        
+        const double phase_factor = Kokkos::cos(2.0 * M_PI * x / _wavelength); 
+
         double epsilon = 1.0 ;
         if(_wave_movement == WAVE_DIRECTION::LEFT) epsilon = -1.0;
+
+        // note!
+        // this one is for linear newtonian MHD waves...
+        // also, te U^pert should be (rho * v^i etc)
+        // which in this case is just v^i fortunately
 
         // set the particular wave type
         if(_wave_type == WAVE_TYPE::FAST_MAGNETOSONIC){
             double const prefactor = 1.0 / 2.0 / Kokkos::sqrt(5.); 
-            id.rho   += prefactor * 2.;
-            id.press += prefactor * 4 * epsilon;
-            id.vx    +=-prefactor * 2 * epsilon ;
-            id.vy    += 0.0 ;
-            id.vz    += 0.0;
-            id.bx    += prefactor*4.0;
-            id.by    += 0.0;
-            id.bz    += prefactor*9.0;
+            id.rho   += prefactor * 2.          * phase_factor ;
+            id.press += prefactor * 4 * epsilon * phase_factor ;
+            id.vx    +=-prefactor * 2 * epsilon * phase_factor ;
+            id.vy    += 0.0                     * phase_factor ;
+            id.vz    += 0.0                     * phase_factor ;
+            id.bx    += prefactor*4.0           * phase_factor ; 
+            id.by    += 0.0                     * phase_factor ;
+            id.bz    += prefactor*9.0           * phase_factor ;
         }
         else if(_wave_type == WAVE_TYPE::ALFVEN){
-            id.rho   += 0.;
-            id.press += 0 ;
-            id.vx    += 0 ;
-            id.vy    +=-epsilon * 1.0 ;
-            id.vz    += 0.0;
-            id.bx    += 0.0;
-            id.by    += 1.0;
-            id.bz    += 0.0;
+            id.rho   += 0.            * phase_factor;
+            id.press += 0             * phase_factor ;
+            id.vx    += 0             * phase_factor;
+            id.vy    +=-epsilon * 1.0 * phase_factor;
+            id.vz    += 0.0           * phase_factor;
+            id.bx    += 0.0           * phase_factor;
+            id.by    += 1.0           * phase_factor;
+            id.bz    += 0.0           * phase_factor;
         }
         else if(_wave_type == WAVE_TYPE::SLOW_MAGNETOSONIC){
             double const prefactor = 1.0 / 2.0 / Kokkos::sqrt(5.); 
-            id.rho   += prefactor * 4.;
-            id.press += prefactor * 2 * epsilon;
-            id.vx    += prefactor * 4 * epsilon ;
-            id.vy    += 0.0 ;
-            id.vz    += 0.0;
-            id.bx    += prefactor*(-2.0);
-            id.by    += 0.0;
-            id.bz    += prefactor*3.0;
+            id.rho   += prefactor * 4.          * phase_factor;
+            id.press += prefactor * 2 * epsilon * phase_factor;
+            id.vx    += prefactor * 4 * epsilon * phase_factor;
+            id.vy    += 0.0                     * phase_factor;
+            id.vz    += 0.0                     * phase_factor;
+            id.bx    += prefactor*(-2.0)        * phase_factor;
+            id.by    += 0.0                     * phase_factor;
+            id.bz    += prefactor*3.0           * phase_factor;
         }
         else if(_wave_type ==  WAVE_TYPE::CONTACT){
             id.vx = 1.0; // overwriting for the contact wave
             double const prefactor = 1.0 / 2.0 ; 
-            id.rho   += prefactor * 2.;
-            id.press += prefactor * 2;
-            id.vx    += 0.0;
-            id.vy    += 0.0;
-            id.vz    += 0.0;
-            id.bx    += 0.0;
-            id.by    += 0.0;
-            id.bz    += 1.0;
+            id.rho   += prefactor * 2. * phase_factor;
+            id.press += prefactor * 2. * phase_factor;
+            id.vx    += 0.0            * phase_factor;
+            id.vy    += 0.0            * phase_factor;
+            id.vz    += 0.0            * phase_factor;
+            id.bx    += 0.0            * phase_factor;
+            id.by    += 0.0            * phase_factor;
+            id.bz    += 1.0            * phase_factor;
         }
         else {
+            // just a constant state for sanity sake 
             // some communication?
         }
        
-
+        
         unsigned int err ; 
         id.ye  = _eos.ye_beta_eq__press_cold(id.press, err);
         return std::move(id) ; 
