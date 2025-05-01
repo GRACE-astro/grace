@@ -525,9 +525,21 @@ struct grmhd_equations_system_t
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
         grmhd_prims_array_t prims ;
-        //conservs_to_prims<eos_t>( cons, prims, metric
+        
+        // for MHD, we necessarily use Kastaun c2p
+        #ifdef GRACE_DO_MHD
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+        conservs_to_prims<eos_t, grmhd_c2p_kastaun_t>( cons, prims, metric
+                                , this->_eos, this->_lapse_excision ) ;          
+        #endif 
+        #endif 
+
+        #ifndef GRACE_DO_MHD
+        // either works, but let us opt for the original C2P for regression tests 
         conservs_to_prims<eos_t, grhd_c2p_t>( cons, prims, metric
                                 , this->_eos, this->_lapse_excision ) ;
+        #endif 
+
         /* Write new prims */
         aux(RHO_) = prims[RHOL]     ; 
         aux(EPS_) = prims[EPSL]     ; 
