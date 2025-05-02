@@ -1,0 +1,106 @@
+name: "grace"
+amr: {
+  # npoints_block_x: 16,
+  # npoints_block_y: 16,
+  # npoints_block_z: 16,
+  # xmin: -0.5,
+  # xmax: 0.5,
+  # ymin: -0.05,
+  # ymax: 0.05,
+  # zmin: -0.05,
+  # zmax: 0.05,
+  npoints_block_x: 16,
+  npoints_block_y: 16,
+  npoints_block_z: 16,
+  xmin: -10.0,
+  xmax: 10.0,
+  ymin: -1.0,
+  ymax: 1.0,
+  zmin: -1.0,
+  zmax: 1.0,
+  n_ghostzones: 2,
+  initial_refinement_level: 0,
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_CTORE: 2.,
+  refinement_criterion_CTODE: 1.,
+  refinement_criterion_var: "U",
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+IO: {
+  # Bug/Feature: 
+  # vel[1]/vel[2] to be specifiable in the future  
+  volume_output_cell_variables: ["eps","rho","press","alp", "vel[0]",
+                              "B[0]", "phi_glm"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: 10,
+  plane_surface_output_cell_variables: [],
+  plane_surface_output_every: -1,
+  sphere_surface_output_every: -1,
+  info_output_every: 10,
+  # info_output_max_reductions: ["eps","rho","press","alp", 
+  #                             "vel[0]", "vel[1]", "vel[2]", 
+  #                             "B[0]", "B[1]", "B[2]", "phi_glm"],
+  info_output_max_reductions: ["eps", "B[2]", "phi_glm"],
+  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
+  info_output_min_reductions: ["eps","rho","press","alp", 
+                              "vel[0]", "vel[1]", "vel[2]", 
+                              "B[0]", "B[1]", "B[2]", "phi_glm"],
+  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"], 
+  scalar_output_every: 10,
+  scalar_output_minmax: ["eps","rho","press","alp", 
+                              "vel[0]", "vel[1]", "vel[2]", 
+                              "B[0]", "B[1]", "B[2]", "phi_glm"],
+  scalar_output_norm2: ["eps","rho","press","alp", 
+                              "vel[0]", "vel[1]", "vel[2]", 
+                              "B[0]", "B[1]", "B[2]", "phi_glm"],
+  scalar_output_integral: ["eps","rho","press","alp", 
+                              "vel[0]", "vel[1]", "vel[2]", 
+                              "B[0]", "B[1]", "B[2]", "phi_glm"],
+  output_use_hdf5: true, 
+  hdf5_compression_level: 6,
+  hdf5_chunk_size: 8192
+}
+system: {
+  console_log_level: "verbose",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  flush_level: "trace"
+}
+evolution: {
+  time_stepper: "rk2",
+  cfl_factor: 0.4,
+  final_time: 20.0,
+  #imestep: 0.00025,
+  #timestep_selection_mode: "manual"
+}
+grmhd: {
+ id_type: "linear_mhd_wave",
+ linear_mhd_wave_type:  "slow_magnetosonic",
+#  linear_mhd_wave_type:  "none",
+ linear_mhd_wave_movement : "right",
+ linear_mhd_wave_ampl : 1e-6,
+ linear_mhd_wave_wavelength : 1.0
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+  ye_atmosphere: 0,
+  temp_atmosphere: 0,
+  rho_atmosphere: 1.e-14,
+  eps_maximum: 1.e+05,
+  gamma_th: 1.66666,
+
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [2.],
+    rhos:   [],
+    kappa_0: 0.
+  }
+}
+
+profiling: {
+  do_gpu_profiling: false
+}
