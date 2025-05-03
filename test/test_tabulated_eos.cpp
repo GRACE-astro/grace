@@ -37,6 +37,7 @@
 #include <grace/parallel/mpi_wrappers.hh>
 #include <grace/physics/eos/eos_storage.hh>
 #include <grace/physics/eos/eos_base.hh>
+#include <grace/physics/eos/eos_setup.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/tabulated_eos.hh>
 #include <iostream>
@@ -125,37 +126,37 @@ TEST_CASE("Tabulated EOS", "[pwpolytrope]")
     Kokkos::deep_copy(h_logtemp, _tabulated.return_logtemp());
     //Kokkos::deep_copy(h_logyes, _tabulated.return_yes());
     
-    // // const int N = _tabulated.return_logrho().size();
-    // const double dx_lrho = _tabulated.return_logrho(0) - _tabulated.return_logrho(1);
-    // const double dx_ltemp = _tabulated.return_logtemp(0) - _tabulated.return_logtemp(1);
-    // const double dx_yes = _tabulated.return_yes(0) - _tabulated.return_yes(1);
 
     const int N = h_logrho.size();
+
+    std::cout << "The size of h_logrho is: " << N << std::endl;
     
     const double dx_lrho = h_logrho(1) - h_logrho(0);
+    
     const double dx_ltemp = h_logtemp(1) - h_logtemp(0);
-    const double dx_yes = h_yes(1) - h_yes(0);
+    
+    //const double dx_yes = h_yes(1) - h_yes(0);
 
-    Kokkos::View<double *, grace::default_space> lrho_midpoints("lrhomidpoint", N - 1);
-    Kokkos::View<double *, grace::default_space> ltemp_midpoints("lrhomidpoint", N - 1);
-    Kokkos::View<double *, grace::default_space> yes_midpoints("lrhomidpoint", N - 1);
+    // Kokkos::View<double *, grace::default_space> lrho_midpoints("lrhomidpoint", N - 1);
+    // Kokkos::View<double *, grace::default_space> ltemp_midpoints("lrhomidpoint", N - 1);
+    // Kokkos::View<double *, grace::default_space> yes_midpoints("lrhomidpoint", N - 1);
 
-    auto h_lrho_midpoints = Kokkos::create_mirror_view(lrho_midpoints);
-    auto h_temp_midpoints = Kokkos::create_mirror_view(ltemp_midpoints);
-    auto h_yes_midpoints = Kokkos::create_mirror_view(yes_midpoints);
+    // auto h_lrho_midpoints = Kokkos::create_mirror_view(lrho_midpoints);
+    // auto h_temp_midpoints = Kokkos::create_mirror_view(ltemp_midpoints);
+    // auto h_yes_midpoints = Kokkos::create_mirror_view(yes_midpoints);
 
 
-    //TODO!! Is this the fastest way of working out midpoints would it be quicker
-    //todo x1/2(i) = x(i) + 0.5* (x(i+1) - x(i)). Data has to be transfered from 
-    //host to device namely dx_... .
-    Kokkos::parallel_for("Evol", N - 1, KOKKOS_LAMBDA (int i) {
-        lrho_midpoints(i) = 0.5 * dx_lrho + _tabulated.return_logrho(i);
-        ltemp_midpoints(i) = 0.5 * dx_ltemp + _tabulated.return_logtemp(i);
-        yes_midpoints(i) = 0.5 * dx_yes + _tabulated.return_yes(i);        
+    // //TODO!! Is this the fastest way of working out midpoints would it be quicker
+    // //todo x1/2(i) = x(i) + 0.5* (x(i+1) - x(i)). Data has to be transfered from 
+    // //host to device namely dx_... .
+    // Kokkos::parallel_for("Evol", N - 1, KOKKOS_LAMBDA (int i) {
+    //     lrho_midpoints(i) = 0.5 * dx_lrho + _tabulated.return_logrho(i);
+    //     ltemp_midpoints(i) = 0.5 * dx_ltemp + _tabulated.return_logtemp(i);
+    //     yes_midpoints(i) = 0.5 * dx_yes + _tabulated.return_yes(i);     
         
-    });
+    // });
 
-
+    
 
     
 }
