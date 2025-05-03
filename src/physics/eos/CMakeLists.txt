@@ -5,7 +5,8 @@ target_link_libraries( grace_eos PRIVATE
                        MPI::MPI_CXX 
                        p4est::sc 
                        p4est::p4est 
-                       Kokkos::kokkos 
+                       Kokkos::kokkos
+                       HDF5::HDF5  
                        spdlog::spdlog )
 add_library(grace_c2p OBJECT c2p.cpp )
 target_include_directories(  grace_c2p PRIVATE "${HEADER_DIR}")

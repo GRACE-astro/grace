@@ -366,8 +366,10 @@ target_link_libraries(  c2p_test PRIVATE
                 MPI::MPI_CXX
                 OpenMP::OpenMP_CXX
                 p4est::sc
-                p4est::p4est 
+                p4est::p4est
+                VTK::VTK 
                 spdlog::spdlog
+                HDF5::HDF5 
                 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
