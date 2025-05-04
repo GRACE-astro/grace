@@ -348,9 +348,12 @@ void set_grmhd_initial_data() {
         auto const B_y_R = get_param<double>("grmhd","shocktube_mhd_B_y_R") ; 
         auto const B_z_R = get_param<double>("grmhd","shocktube_mhd_B_z_R") ; 
         
-        set_grmhd_initial_data_impl<eos_t,shocktube_mhd_id_t<eos_t>>(rho_L, rho_R, press_L, press_R,
-                                                                     vel_x_L, vel_y_L, vel_z_L, vel_x_R, vel_y_R, vel_z_R,
-                                                                     B_x_L, B_y_L, B_z_L, B_x_R, B_y_R, B_z_R
+        set_grmhd_initial_data_impl<eos_t,shocktube_mhd_id_t<eos_t>>(rho_L, rho_R, 
+                                                                     press_L, press_R,
+                                                                     vel_x_L, vel_y_L, vel_z_L,
+                                                                     vel_x_R, vel_y_R, vel_z_R,
+                                                                     B_x_L, B_y_L, B_z_L,
+                                                                     B_x_R, B_y_R, B_z_R
                                                                       ) ;
         Kokkos::fence() ; 
         GRACE_TRACE("Done with shocktube MHD ID.") ;  

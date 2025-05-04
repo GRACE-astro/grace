@@ -411,8 +411,6 @@ struct grmhd_equations_system_t
 
             auto const dphi_glm_di = 0.5 * ( this->_state(VEC(i+utils::delta(0,idir),j+utils::delta(1,idir),k+utils::delta(2,idir)),PHI_GLM_,q) \
                                             -this->_state(VEC(i-utils::delta(0,idir),j-utils::delta(1,idir),k-utils::delta(2,idir)),PHI_GLM_,q)); 
-
-            // auto const dphi_glm_di = 0.; 
    
             /**************************************************************************************************/
             /* Start computing magnetic field source terms (in case of GLM implementation)                    */
@@ -434,7 +432,7 @@ struct grmhd_equations_system_t
                                                             +metric.alp() * invgij[2][idir] * dphi_glm_di  
                                                             ) * idx(idir,q);
 
-            // Source[\Phi_{\rm GLM}] = -sqrtgamma * alp * K * phi                                       (1)
+            // Source[\Phi_{\rm GLM}] = -sqrtgamma * alp * kappa * phi                                       (1)
             //                          -sqrtgamma * phi * \partial_i beta^i                             (2)
             //                          -0.5 * sqrtgamma * phi * gamma^jk * beta^i \partial_i gamma_jk   (3)
             //                          +sqrtgamma B^i \partial_i alp                                    (4)
@@ -464,10 +462,11 @@ struct grmhd_equations_system_t
 
 	#ifdef GRACE_DO_MHD
         #ifdef GRACE_ENABLE_B_FIELD_GLM
-        /**                                                     */
-        /* Add the final GLM Phi source term:  -sqrtgamma * alp * K * phi */
-        // we obtain K as the contraction of invgij and Kij
-        state_new(VEC(i,j,k),PHIG_GLM_,q) -= alpha_sqrtgamma_dt * prims[PHI_GLML] * metric.contract_sym2tens_sym2tens(invgij_6,Kij); 
+        /* Add the final GLM Phi source term:  -sqrtgamma * alp * kappa * phi */
+        // WRONG! it was Kappa, not K! so not the trace of extrinsic curvature but the 
+        const double kappa_glm = 1.0;
+        // state_new(VEC(i,j,k),PHIG_GLM_,q) -= alpha_sqrtgamma_dt * prims[PHI_GLML] * metric.contract_sym2tens_sym2tens(invgij_6,Kij); 
+        state_new(VEC(i,j,k),PHIG_GLM_,q) -= alpha_sqrtgamma_dt * kappa_glm * prims[PHI_GLML]; 
         #endif 
 	#endif
 
@@ -528,10 +527,10 @@ struct grmhd_equations_system_t
         
         // for MHD, we necessarily use Kastaun c2p
         #ifdef GRACE_DO_MHD
-        #ifdef GRACE_ENABLE_B_FIELD_GLM
+        // #ifdef GRACE_ENABLE_B_FIELD_GLM
         conservs_to_prims<eos_t, grmhd_c2p_kastaun_t>( cons, prims, metric
                                 , this->_eos, this->_lapse_excision ) ;          
-        #endif 
+        // #endif 
         #endif 
 
         #ifndef GRACE_DO_MHD
@@ -554,10 +553,10 @@ struct grmhd_equations_system_t
         aux(BX_)   = prims[BXL];
         aux(BY_)   = prims[BYL];
         aux(BZ_)   = prims[BZL];
-	#ifdef GRACE_ENABLE_B_FIELD_GLM
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
         aux(PHI_GLM_)   = prims[PHI_GLML];
         #endif
-	#endif
+        #endif
 
         /* Compute ZVEC */
         double const one_over_alp = 1./metric.alp(); 
@@ -1079,6 +1078,9 @@ struct grmhd_equations_system_t
         // Compute HLL fluxes
         grmhd_cons_array_t f_HLL ; 
         compute_mhd_fluxes<idir,riemann_t,true>( primL, primR, metric_face, f_HLL, 1, 1) ; 
+        
+        // #define GRMHD_USE_PPLIM
+
         #ifdef GRMHD_USE_PPLIM
         /***********************************************************************/
         // And LLF fluxes to mix in for positivity preserving limiter 
@@ -1528,7 +1530,10 @@ struct grmhd_equations_system_t
 
         const double bhat_x_r = sqrtgamma * primR[BXL];
 
-        f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,cmin,cmax) ; 
+        //f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,cmin,cmax) ;
+        // max wave speeds dictated by the phi evol eq 
+
+        f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,1.0,1.0) ; 
 
 
 
@@ -1548,7 +1553,8 @@ struct grmhd_equations_system_t
 
         const double bhat_y_r = sqrtgamma * primR[BYL];
 
-        f[BGYL] = solver(fl,fr,bhat_y_l,bhat_y_r,cmin,cmax) ; 
+        //f[BGYL] = solver(fl,fr,bhat_y_l,bhat_y_r,cmin,cmax) ; 
+        f[BGYL] = solver(fl,fr,bhat_y_l,bhat_y_r,1.0,1.0) ; 
 
 
         /***********************************************************************/
@@ -1567,7 +1573,8 @@ struct grmhd_equations_system_t
 
         const double bhat_z_r = sqrtgamma * primR[BZL];
 
-        f[BGZL] = solver(fl,fr,bhat_z_l,bhat_z_r,cmin,cmax) ; 
+        //f[BGZL] = solver(fl,fr,bhat_z_l,bhat_z_r,cmin,cmax) ; 
+        f[BGZL] = solver(fl,fr,bhat_z_l,bhat_z_r,1.0,1.0) ; 
 
 
         #ifdef GRACE_ENABLE_B_FIELD_GLM
@@ -1591,7 +1598,8 @@ struct grmhd_equations_system_t
 
         const double phi_glm_r = sqrtgamma * primR[PHI_GLML];
 
-        f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,cmin,cmax) ; 
+        //f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,cmin,cmax) ; 
+        f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,1.0,1.0) ; 
 
 
         #endif 

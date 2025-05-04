@@ -1,19 +1,20 @@
-# Parameter file for a fast magnetosonic shock
-# https://academic.oup.com/mnras/article/303/2/343/1067242
-# Table I: Fast shock 
+# Parameter file for a generic Alfven test
+# https://arxiv.org/pdf/gr-qc/0507102 (Giacomazzo & Rezzolla 2006)
+# Table 4: Generic Alfven Test
+
 name: "grace"
 amr: {
   npoints_block_x: 16,
   npoints_block_y: 16,
   npoints_block_z: 16,
-  xmin: -1.0,
-  xmax:  1.0,
-  ymin: -0.1,
-  ymax:  0.1,
-  zmin: -0.1,
-  zmax:  0.1,
+  xmin: -2.0,
+  xmax:  2.0,
+  ymin: -0.2,
+  ymax:  0.2,
+  zmin: -0.2,
+  zmax:  0.2,
   n_ghostzones: 2,
-  initial_refinement_level: 1,
+  initial_refinement_level: 2,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
   refinement_criterion_CTODE: 1.,
@@ -36,17 +37,19 @@ IO: {
   # info_output_max_reductions: ["eps","rho","press","alp", 
   #                             "vel[0]", "vel[1]", "vel[2]", 
   #                             "B[0]", "B[1]", "B[2]", "phi_glm"],
-  info_output_max_reductions: ["eps", "rho", "vel[0]", "B[0]", "phi_glm"],
+  info_output_max_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
+  info_output_min_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
   #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
   # info_output_min_reductions: ["eps","rho","press","alp", 
   #                             "vel[0]", "vel[1]", "vel[2]", 
   #                             "B[0]", "B[1]", "B[2]", "phi_glm"],
-  info_output_min_reductions: [],
+  #info_output_min_reductions: [],
   #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"], 
   scalar_output_every: 10,
-  scalar_output_minmax: ["eps","rho","press","alp", 
-                              "vel[0]", "vel[1]", "vel[2]", 
-                              "B[0]", "B[1]", "B[2]", "phi_glm"],
+  scalar_output_minmax: ["eps","rho","press",
+                         "vel[0]", "vel[1]", "vel[2]", 
+                         "B[0]", "B[1]", "B[2]",
+                         "phi_glm"],
   scalar_output_norm2: [],
   scalar_output_integral: [],
   output_use_hdf5: true, 
@@ -61,8 +64,8 @@ system: {
 }
 evolution: {
   time_stepper: "rk2",
-  cfl_factor: 0.2,
-  final_time: 2.55,
+  cfl_factor: 0.4,
+  final_time: 1.5,
   #imestep: 0.00025,
   #timestep_selection_mode: "manual"
 }
@@ -71,23 +74,22 @@ grmhd: {
   # below, the velocities are given in units of c
   # the magnetohydrodynamical pressures (P and B^2 /2) 
   # are in the same units (the Gamma-EOS determines P)
-  shocktube_mhd_press_L: 1.0,
-  shocktube_mhd_press_R: 367.5,
+  shocktube_mhd_press_L: 5.0,
+  shocktube_mhd_press_R: 5.3,
   shocktube_mhd_rho_L: 1.0,
-  shocktube_mhd_rho_R: 25.48,
-  #shocktube_mhd_vel_x_L: 1.0, # (u_L)^i = (W_L U_L)^i (25,0,0) with W=25
-  shocktube_mhd_vel_x_L: 0.999, # (u_L)^i = (W_L U_L)^i (25,0,0) with W=25
-  shocktube_mhd_vel_y_L: 0.,
-  shocktube_mhd_vel_z_L: 0.,
-  shocktube_mhd_vel_x_R: 0.826152145, # (u_R)^i = (W_R U_R)^i = (1.091,0.3923,0) with W=1.32058
-  shocktube_mhd_vel_y_R: 0.297066441,
-  shocktube_mhd_vel_z_R: 0.0,
-  shocktube_mhd_B_x_L: 20.0,  # due to the continuity of the normal component of B
-  shocktube_mhd_B_y_L: 25.02,
-  shocktube_mhd_B_z_L: 0.0,    
-  shocktube_mhd_B_x_R: 20.0,  # due to the continuity of the normal component of B
-  shocktube_mhd_B_y_R: 49.0,
-  shocktube_mhd_B_z_R: 0.0,
+  shocktube_mhd_rho_R: 0.9,
+  shocktube_mhd_vel_x_L: 0., 
+  shocktube_mhd_vel_y_L: 0.3,
+  shocktube_mhd_vel_z_L: 0.4,
+  shocktube_mhd_vel_x_R: 0.,
+  shocktube_mhd_vel_y_R: 0.,
+  shocktube_mhd_vel_z_R: 0.,
+  shocktube_mhd_B_x_L:   1.0,  
+  shocktube_mhd_B_y_L:   6.0,
+  shocktube_mhd_B_z_L:   2.0,    
+  shocktube_mhd_B_x_R:   1.0, 
+  shocktube_mhd_B_y_R:   5.0,
+  shocktube_mhd_B_z_R:   2.0,
 }
 
 eos: {
@@ -97,7 +99,7 @@ eos: {
   temp_atmosphere: 0,
   rho_atmosphere: 1.e-14,
   eps_maximum: 1.e+05,
-  gamma_th: 1.33333,
+  gamma_th: 1.66666,
 
   piecewise_polytrope: {
     n_pieces: 1,
