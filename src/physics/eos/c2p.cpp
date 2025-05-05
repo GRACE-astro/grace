@@ -79,6 +79,9 @@ conservs_to_prims( grmhd_cons_array_t& cons
         prims[BXL]   = 0. ; // How should this be reflected in the evolution of A_i?
         prims[BYL]   = 0. ;
         prims[BZL]   = 0. ; 
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+        prims[PHI_GLML]   = 0. ; 
+        #endif
         #endif 
     }
     /* Set pressure entropy and temperature */
@@ -121,8 +124,9 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
 
     //double const b2{0.}, smallbt{0.} ; 
     std::array<double,4> smallb;
+    // vZAMO is the eulerian (U^i) velocity necessary for this routine:
     get_smallb_from_eulerianB(metric, { prims[BXL],prims[BYL],prims[BZL]},
-                                      { prims[VXL],prims[VYL],prims[VZL]},
+                                      { vZAMO[0]  ,vZAMO[1]  ,vZAMO[2]},
                                         smallb
                                         );
     std::array<double,4> smallbD = metric.lower_4vec(smallb); 

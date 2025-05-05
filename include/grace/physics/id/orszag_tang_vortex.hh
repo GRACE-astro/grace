@@ -1,7 +1,8 @@
 /**
  * @file orszag_tang_vortex.hh
  * @author Konrad Topolski (topolski@itp.uni-frankfurt.de)
- * @brief 
+ * @brief The classical 2D SRMHD test, where the setup follows https://arxiv.org/pdf/1611.09720
+ * @warning in the paper, the velocities v^i are WU^i and hence we need to rescale by W when setting our velocities 
  * @date 2025-05-0-5
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
@@ -104,10 +105,19 @@ struct orszag_tang_vortex_mhd_id_t {
         const double z = _pcoords(VEC(i,j,k),2,q);
    
         
+
         id.rho = _rho;
         id.press = _press; 
-        id.vx = -0.99 * Kokkos::sin(y);
-        id.vy =  0.99 * Kokkos::sin(x);
+
+        const double zvecx = -0.99 * Kokkos::sin(y);
+        const double zvecy =  0.99 * Kokkos::sin(x);
+        const double A = zvecx*zvecx + zvecy*zvecy;
+        const double W2 = A + 1.0 ; 
+        const double W = Kokkos::sqrt(W2); 
+
+
+        id.vx = zvecx / W; 
+        id.vy = zvecy / W; 
         id.vz = 0.;
         id.bx = -Kokkos::sin(y);
         id.by =  Kokkos::sin(2.*x);

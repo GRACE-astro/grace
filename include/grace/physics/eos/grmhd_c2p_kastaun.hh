@@ -144,6 +144,10 @@ struct grmhd_c2p_kastaun_t {
         prims[BYL]=conservs[BGYL];
         prims[BZL]=conservs[BGZL];
 
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+        prims[PHI_GLML]=conservs[PHIG_GLML]; 
+        #endif 
+
         unsigned long iter_max = 2000;  // change this to be determined elsewhere! 
         double const tolerance = 1e-15; // change this
 
