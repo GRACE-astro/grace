@@ -1,8 +1,8 @@
 /**
- * @file shocktube_mhd.hh
+ * @file orszag_tang_vortex.hh
  * @author Konrad Topolski (topolski@itp.uni-frankfurt.de)
  * @brief 
- * @date 2025-04-17
+ * @date 2025-05-0-5
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
  * Code for Exascale.
@@ -25,13 +25,12 @@
  * 
  */
 
-#ifndef GRACE_PHYSICS_ID_SHOCKTUBE_MHD_HH
-#define GRACE_PHYSICS_ID_SHOCKTUBE_MHD_HH
+#ifndef GRACE_PHYSICS_ID_ORSZAG_TANG_VORTEX_MHD_HH
+#define GRACE_PHYSICS_ID_ORSZAG_TANG_VORTEX_MHD_HH
 
 #include <grace_config.h>
 
 #include <grace/utils/inline.h>
-// #include <grace/utils/device/device.h>
 
 #include <grace/data_structures/variable_indices.hh>
 #include <grace/data_structures/variables.hh>
@@ -48,60 +47,39 @@ namespace grace {
  */
 //**************************************************************************************************
 /**
- * @brief Shocktube MHD initial data kernel
+ * @brief Orszag-Tang Vortex MHD test - a classical 2D testbed for inspecting the divB violations - MHD initial data kernel
+*
  * \ingroup initial_data
  * @tparam eos_t type of equation of state
  * @note this kernel has to be checked for and adjusted if needed 
  * should the magnetic field initialization method/location changes in the future (e.g. vec pot)
- * 
+ * @note only in 2D/3D problems can divergence cleaning performance of the GLM method's be judged 
+ *       in 1D (and flat spacetime), the evolution of phi_glm is trivial
  */
 template < typename eos_t >
-struct shocktube_mhd_id_t {
+struct orszag_tang_vortex_mhd_id_t {
     //**************************************************************************************************
     using state_t = grace::var_array_t<GRACE_NSPACEDIM> ; //!< Type of state vector
     //**************************************************************************************************
 
     //**************************************************************************************************
     /**
-     * @brief Construct a new shocktube id kernel object
+     * @brief Construct a new orszag_tang_vortex_mhd id kernel object
      * 
      * @param eos Equation of state
      * @param pcoords Physical coordinate array
-     * @param rhoL Left density
-     * @param rhoR Right density
-     * @param pL Left pressure
-     * @param pR Right pressure
-     * @param vxL Left velocity in the x direction
-     * @param vyL Left velocity in the y direction
-     * @param vzL Left velocity in the z direction
-     * @param vxR Right velocity in the x direction
-     * @param vyR Right velocity in the y direction
-     * @param vzR Right velocity in the z direction
-     * @param bxL Left magnetic field in the x direction
-     * @param byL Left magnetic field in the y direction
-     * @param bzL Left magnetic field in the z direction
-     * @param bxR Right magnetic field in the x direction
-     * @param byR Right magnetic field in the y direction
-     * @param bzR Right magnetic field in the z direction
+     * @param rho density
+     * @param press pressure
      */
-    shocktube_mhd_id_t(
+     orszag_tang_vortex_mhd_id_t(
           eos_t eos 
         , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
-        , double rhoL, double rhoR 
-        , double pL  , double pR
-        , double vxL, double vyL, double vzL
-        , double vxR, double vyR, double vzR
-        , double bxL, double byL, double bzL
-        , double bxR, double byR, double bzR
+        , double rho
+        , double press
         )
         : _eos(eos)
         , _pcoords(pcoords)
-        , _rhoL(rhoL), _rhoR(rhoR)
-        , _pL(pL), _pR(pR)
-        , _vxL(vxL), _vyL(vyL), _vzL(vzL)
-        , _vxR(vxR), _vyR(vyR), _vzR(vzR)
-        , _bxL(bxL), _byL(byL), _bzL(bzL)
-        , _bxR(bxR), _byR(byR), _bzR(bzR)
+        , _rho(rho), _press(press)
     {} 
     //**************************************************************************************************
 
@@ -119,26 +97,23 @@ struct shocktube_mhd_id_t {
     operator() (VEC(int const i, int const j, int const k), int const q) const 
     {
         grmhd_id_t id ; 
-        if( _pcoords(VEC(i,j,k),0,q) <= 0 ) {
-            id.rho     = _rhoL ; 
-            id.press   = _pL   ; 
-            id.vx = _vxL ;
-            id.vy = _vyL ;
-            id.vz = _vzL ;
-            id.bx = _bxL ;
-            id.by = _byL ;
-            id.bz = _bzL ; 
-        } else {
-            id.rho     = _rhoR ; 
-            id.press   = _pR   ;
-            id.vx = _vxR ;
-            id.vy = _vyR ;
-            id.vz = _vzR ;
-            id.bx = _bxR ;
-            id.by = _byR ;
-            id.bz = _bzR ; 
-        }
 
+
+        const double x = _pcoords(VEC(i,j,k),0,q);
+        const double y = _pcoords(VEC(i,j,k),1,q);
+        const double z = _pcoords(VEC(i,j,k),2,q);
+   
+        
+        id.rho = _rho;
+        id.press = _press; 
+        id.vx = -0.99 * Kokkos::sin(y);
+        id.vy =  0.99 * Kokkos::sin(x);
+        id.vz = 0.;
+        id.bx = -Kokkos::sin(y);
+        id.by =  Kokkos::sin(2.*x);
+        id.bz = 0.; 
+        
+    
         // set the Minkowski metric 
         id.betax = 0; id.betay=0; id.betaz = 0; 
         id.alp = 1 ; 
@@ -161,9 +136,7 @@ struct shocktube_mhd_id_t {
     //**************************************************************************************************
     eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
-    double _rhoL, _rhoR, _pL, _pR;                    //!< Left and right states  
-    double _vxL, _vyL,_vzL, _vxR, _vyR,_vzR ;          //!< Left and right state velocities  
-    double _bxL, _byL,_bzL, _bxR, _byR,_bzR ;          //!< Left and right state magnetic field   
+    double _rho, _press;                    //!< Left and right states  
     
     //**************************************************************************************************
 } ; 
@@ -171,4 +144,4 @@ struct shocktube_mhd_id_t {
 //**************************************************************************************************
 }
 //**************************************************************************************************
-#endif /* GRACE_PHYSICS_ID_SHOCKTUBE_MHD_HH */
+#endif /* GRACE_PHYSICS_ID_ORSZAG_TANG_VORTEX_MHD_HH */

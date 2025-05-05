@@ -49,6 +49,7 @@
 #ifdef GRACE_ENABLE_B_FIELD_GLM
 #include <grace/physics/id/shocktube_mhd.hh>
 #include <grace/physics/id/linear_mhd_waves.hh>
+#include <grace/physics/id/orszag_tang_vortex.hh>
 #endif
 #endif
 
@@ -396,6 +397,13 @@ void set_grmhd_initial_data() {
                                                                       ) ;
         Kokkos::fence() ; 
         GRACE_TRACE("Done with linear wave MHD ID.") ;  
+    }
+    else if( id_type == "orszag_tang_vortex" ) {
+        auto const rho          = get_param<double>("grmhd","orszag_tang_vortex_rho") ; 
+        auto const press    = get_param<double>("grmhd","orszag_tang_vortex_press") ;
+        set_grmhd_initial_data_impl<eos_t,orszag_tang_vortex_mhd_id_t<eos_t>>(rho,press) ;
+        Kokkos::fence() ; 
+        GRACE_TRACE("Done with Orszag-Tang Vortex MHD ID.") ;  
     }
     #endif
     else if ( id_type == "blastwave" ) {
