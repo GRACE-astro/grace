@@ -50,6 +50,7 @@
 #include <grace/physics/id/shocktube_mhd.hh>
 #include <grace/physics/id/linear_mhd_waves.hh>
 #include <grace/physics/id/orszag_tang_vortex.hh>
+#include <grace/physics/id/boosted_loop_advection.hh>
 #endif
 #endif
 
@@ -404,6 +405,15 @@ void set_grmhd_initial_data() {
         set_grmhd_initial_data_impl<eos_t,orszag_tang_vortex_mhd_id_t<eos_t>>(rho,press) ;
         Kokkos::fence() ; 
         GRACE_TRACE("Done with Orszag-Tang Vortex MHD ID.") ;  
+    }
+    else if( id_type == "boosted_loop_advection" ) {
+        auto const rho          = get_param<double>("grmhd","boosted_loop_advection_rho") ; 
+        auto const press    = get_param<double>("grmhd","boosted_loop_advection_press") ;
+        auto const beta0    = get_param<double>("grmhd","boosted_loop_advection_beta0") ;
+        auto const vc    = get_param<double>("grmhd","boosted_loop_advection_vc") ;
+        set_grmhd_initial_data_impl<eos_t,boosted_loop_advection_mhd_id_t<eos_t>>(rho,press,beta0,vc) ;
+        Kokkos::fence() ; 
+        GRACE_TRACE("Done with Boosted Loop Advection MHD ID.") ;  
     }
     #endif
     else if ( id_type == "blastwave" ) {
