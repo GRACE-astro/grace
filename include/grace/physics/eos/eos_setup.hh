@@ -29,7 +29,6 @@
 
 #include <grace/config/config_parser.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/interpolators.hh> 
 #include <grace/utils/rootfinding.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/data_structures/memory_defaults.hh>
@@ -378,8 +377,9 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
   auto h_logtempview = Kokkos::create_mirror_view(logtempview); 
   auto h_yesview = Kokkos::create_mirror_view(yesview);
 
+
   //Allocate data to kokkos views and convert units/convert logs to natural log
-  for (int i = 0; i < nrho; i++) h_logrhoview(i) = log(logrho[i] * baryon_mass * cm3_to_fm3 * densCGS_to_CU);
+  for (int i = 0; i < nrho; i++) h_logrhoview(i) = log(logrho[i] * baryon_mass_tabulated * cm3_to_fm3 * densCGS_to_CU);
   for (int i = 0; i < ntemp; i++) h_logtempview(i) = log(logtemp[i]);
   for (int i = 0; i < nye; i++) h_yesview(i) = yes[i];
 
@@ -542,6 +542,20 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
   h_inverse_coord_spacing(tabulated_eos_t::dim::rho) = 1. / h_coord_spacing(tabulated_eos_t::dim::rho);
   h_inverse_coord_spacing(tabulated_eos_t::dim::temp) = 1. / h_coord_spacing(tabulated_eos_t::dim::temp);
   h_inverse_coord_spacing(tabulated_eos_t::dim::yes) = 1. / h_coord_spacing(tabulated_eos_t::dim::yes);
+  
+  //Need to read in some paramters from config file
+  auto& params = grace::config_parser::get() ;
+
+  double c2p_ye_atm   = params["eos"]["ye_atmosphere"].as<double>(); 
+  double c2p_rho_atm  = params["eos"]["rho_atmosphere"].as<double>(); 
+  double c2p_temp_atm = params["eos"]["temp_atmosphere"].as<double>(); 
+  double c2p_eps_max  = params["eos"]["eps_maximum"].as<double>();
+
+  bool atm_is_beta_eq = params["eos"]["atm_is_beta_eq"].as<bool>();
+
+  bool extend_table_high = params["eos"]["extend_table_high"].as<bool>(); ; 
+
+  //TODO! Should this be brought more inline with hybrid eos i.e a template for tables
 
 
   GRACE_INFO("*******************************");
@@ -566,7 +580,12 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
     , epstable
     , coord_spacing
     , inverse_coord_spacing
+    , c2p_ye_atm
+    , c2p_rho_atm
+    , c2p_temp_atm
+    , 0 //TODO! Need to work out how to implement c2p_eps_atm best
     , c2p_eps_min
+    , c2p_eps_max
     , c2p_h_min
     , c2p_h_max
     , c2p_press_max
@@ -576,7 +595,10 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
     , eos_tempmin
     , eos_yemax
     , eos_yemin
-    , energy_shift};
+    , baryon_mass_tabulated
+    , energy_shift
+    , atm_is_beta_eq
+    , extend_table_high};
     
 
 } 
