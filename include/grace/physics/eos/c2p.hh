@@ -35,6 +35,7 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
+#include <grace/physics/eos/tabulated_eos.hh>
 #include <grace/physics/grmhd_helpers.hh>
 
 
@@ -74,6 +75,7 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , EOS const& eos \
                       , double const& ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;  
 #undef INSTANTIATE_TEMPLATE
 }
 
