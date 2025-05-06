@@ -192,7 +192,7 @@ static void check_c2p(eos_t eos){
     Kokkos::deep_copy(h_eps,d_eps) ; 
     Kokkos::deep_copy(h_press,d_press) ; 
     #ifdef DUMP_RESIDUAL_TO_FILE
-    std::ofstream outfile{"c2p_residual.txt"} ;
+    std::ofstream outfile{"c2p_residual_new.txt"} ;
     outfile << std::setprecision(15) ; 
     auto h_rho = Kokkos::create_mirror_view(d_logrho) ; 
     Kokkos::deep_copy(h_rho,d_logrho) ;
@@ -219,10 +219,33 @@ static void check_c2p(eos_t eos){
             #endif
         }
     }
+
 }
 
 TEST_CASE("c2p", "[c2p-hydro]") {
-    auto eos = grace::eos::get().get_hybrid_pwpoly() ; 
-    check_c2p(eos) ; 
-}    
+    // auto eos = grace::eos::get().get_hybrid_pwpoly() ; 
+    // check_c2p(eos) ; 
+
+    GRACE_INFO("BreakPoint 1") ; 
+    auto eos = grace::eos::get().get_hybrid_pwpoly();
+    check_c2p(eos) ;
+
+    // Kokkos::View<double[1], grace::default_space> result("result");
+    // auto h_result = Kokkos::create_mirror_view(result);
+
+    // Kokkos::parallel_for("Evol", 1, KOKKOS_LAMBDA (int i) {
+
+    //     result(0) = eos.get_logrho(0);
+    // });
+
+    // Kokkos::deep_copy(h_result, result);
+
+    // GRACE_INFO("The result is {}", h_result(0));
+
+    // GRACE_INFO("BreakPoint 2") ; 
+    // check_c2p(eos) ;
+    // GRACE_INFO("BreakPoint 3") ; 
+    
+    
+}
 

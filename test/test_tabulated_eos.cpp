@@ -97,11 +97,11 @@ TEST_CASE("Tabulated EOS", "[pwpolytrope]")
     // Kokkos::View<double*, grace::default_space> ltemp("ltemp");
     // auto h_ltemp = Kokkos::create_mirror_view(ltemp);
 
-    // Kokkos::deep_copy(ltemp, _tabulated.return_logtemp()); 
+    // Kokkos::deep_copy(ltemp, _tabulated.get_logtemp()); 
 
 
-    auto h_yes = Kokkos::create_mirror_view(_tabulated.return_yes());
-    Kokkos::deep_copy(h_yes, _tabulated.return_yes());
+    auto h_yes = Kokkos::create_mirror_view(_tabulated.get_yes());
+    Kokkos::deep_copy(h_yes, _tabulated.get_yes());
 
     std::cout << "(";
     for (int i = 0; i < h_yes.size(); ++i){
@@ -118,13 +118,13 @@ TEST_CASE("Tabulated EOS", "[pwpolytrope]")
 
 
 
-    auto h_logrho = Kokkos::create_mirror_view(_tabulated.return_logrho());
-    auto h_logtemp = Kokkos::create_mirror_view(_tabulated.return_logtemp());
-    //auto h_yes = Kokkos::create_mirror_view(_tabulated.return_yes());
+    auto h_logrho = Kokkos::create_mirror_view(_tabulated.get_logrho());
+    auto h_logtemp = Kokkos::create_mirror_view(_tabulated.get_logtemp());
+    //auto h_yes = Kokkos::create_mirror_view(_tabulated.get_yes());
 
-    Kokkos::deep_copy(h_logrho, _tabulated.return_logrho());
-    Kokkos::deep_copy(h_logtemp, _tabulated.return_logtemp());
-    //Kokkos::deep_copy(h_logyes, _tabulated.return_yes());
+    Kokkos::deep_copy(h_logrho, _tabulated.get_logrho());
+    Kokkos::deep_copy(h_logtemp, _tabulated.get_logtemp());
+    //Kokkos::deep_copy(h_logyes, _tabulated.get_yes());
     
 
     const int N = h_logrho.size();
@@ -150,9 +150,9 @@ TEST_CASE("Tabulated EOS", "[pwpolytrope]")
     // //todo x1/2(i) = x(i) + 0.5* (x(i+1) - x(i)). Data has to be transfered from 
     // //host to device namely dx_... .
     // Kokkos::parallel_for("Evol", N - 1, KOKKOS_LAMBDA (int i) {
-    //     lrho_midpoints(i) = 0.5 * dx_lrho + _tabulated.return_logrho(i);
-    //     ltemp_midpoints(i) = 0.5 * dx_ltemp + _tabulated.return_logtemp(i);
-    //     yes_midpoints(i) = 0.5 * dx_yes + _tabulated.return_yes(i);     
+    //     lrho_midpoints(i) = 0.5 * dx_lrho + _tabulated.get_logrho(i);
+    //     ltemp_midpoints(i) = 0.5 * dx_ltemp + _tabulated.get_logtemp(i);
+    //     yes_midpoints(i) = 0.5 * dx_yes + _tabulated.get_yes(i);     
         
     // });
 
