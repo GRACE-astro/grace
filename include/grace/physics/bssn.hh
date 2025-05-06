@@ -160,9 +160,9 @@ struct bssn_system_t
         std::array<double, GRACE_NSPACEDIM> idx{ VEC(_idx(0,q), _idx(1,q), _idx(2,q))} ;  
 
         auto Tmunu = get_Tmunu_lower(VEC(i,j,k),q) ; 
-
-        double const k1 = 0.04; double const eta = 0.05; // FIXME 
-        bssn_state_t update = compute_bssn_rhs<2>(VEC(i,j,k),q,cstate,Tmunu,idx,k1,eta)  ;   
+        //std::array<std::array<double,4>,4> Tmunu = {0} ; 
+        double const k1 = 0.75; double const eta = 1.00; // FIXME 
+        bssn_state_t update = compute_bssn_rhs<4>(VEC(i,j,k),q,cstate,Tmunu,idx,k1,eta)  ;   
         #if 1
         // FIXME: Apply Kreiss-Olinger dissipation
         int ii = 0 ; 
@@ -351,7 +351,7 @@ struct bssn_system_t
         double const u0 =  W/metric.alp() ; 
         std::array<double,3> uD3 = metric.lower({prims[VXL] + metric.beta(0), prims[VYL] + metric.beta(1), prims[VZL] + metric.beta(2)}) ; 
         // u_t = W ( beta^i v_i - alp ) with v == eulerian velocity! 
-        uD0 = u0 * metric.contract_vec_covec({metric.beta(0),metric.beta(1),metric.beta(2)}, uD3) - metric.alp() * W ; 
+        auto uD0 = u0 * metric.contract_vec_covec({metric.beta(0),metric.beta(1),metric.beta(2)}, uD3) - metric.alp() * W ; 
         std::array<double,4> uD { uD0, uD3[0]*u0, uD3[1]*u0, uD3[2]*u0 } ; 
         auto gdd = metric.gmunu()     ; 
         int idx4[4][4] = {

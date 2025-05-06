@@ -38,6 +38,7 @@
 #include <grace/physics/id/shocktube.hh>
 //#include <grace/physics/id/blastwave.hh>
 #include <grace/physics/id/tov.hh>
+#include <grace/physics/id/puncture.hh>
 #include <grace/physics/id/gauge_wave.hh>
 #include <grace/physics/id/linear_gw.hh>
 #include <grace/physics/id/robust_stability.hh>
@@ -365,6 +366,11 @@ void set_grmhd_initial_data() {
         set_grmhd_initial_data_impl<eos_t, robust_stability_test_id_t<eos_t,gen_t>>(
             gen, rho
         ) ;
+    } else if ( id_type == "puncture" ) {
+      double const mass = 0 ; 
+      set_grmhd_initial_data_impl<eos_t,puncture_id_t<eos_t>>(
+          mass
+      ) ;
     } else {    ERROR("Unrecognized id_type " << id_type ) ; 
     }
     set_conservs_from_prims() ;

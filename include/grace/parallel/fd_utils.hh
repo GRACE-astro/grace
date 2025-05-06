@@ -423,7 +423,7 @@ struct fd_der_recursive<1,der_order, idir> {
 } ; 
 
 template< size_t der_order, size_t idir >
-struct fd_der_recursive_upwind {
+struct fd_der_recursive_upwind<der_order, idir> {
   template< size_t order, typename ViewT>
   static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
   doit( ViewT const var, VEC(int i, int j, int k), std::array<double,GRACE_NSPACEDIM> const& vec) {
@@ -431,7 +431,7 @@ struct fd_der_recursive_upwind {
          + ( vec[idir] < 0 ) * stencil<order,der_order,RIGHT_SIDED_STENCIL,1>::template apply<idir>(var,VEC(i,j,k))
          + ( vec[idir] == 0 ) * stencil<order,der_order,CENTRAL_STENCIL,0>::template apply<idir>(var, VEC(i,j,k))  ;
   }
-} ; 
+}
 
 template< size_t ndirs , size_t der_order, size_t idir, size_t ... idirs>
 struct fd_der_bnd_check_recursive {
