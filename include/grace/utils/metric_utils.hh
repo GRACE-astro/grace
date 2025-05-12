@@ -36,6 +36,7 @@
 #include <grace/utils/device.h>
 
 #include <array> 
+#include <Kokkos_Core.hpp>
 
 namespace grace {
 
@@ -76,6 +77,7 @@ metric_array_t( std::array<double,6>const& g_
     _ginv[3] = (_g[5]*_g[0] - math::int_pow<2>(_g[2]))/_sqrtg;
     _ginv[4] = (_g[1]*_g[2] - _g[0]*_g[4])/_sqrtg ; 
     _ginv[5] = (-math::int_pow<2>(_g[1]) + _g[0]*_g[3]) / _sqrtg;
+    _sqrtg   = Kokkos::sqrt(_sqrtg) ; 
 }
 /**
  * @brief Get a component of the covariant metric.

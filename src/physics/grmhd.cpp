@@ -51,6 +51,8 @@
 #include <grace/physics/id/linear_mhd_waves.hh>
 #include <grace/physics/id/orszag_tang_vortex.hh>
 #include <grace/physics/id/boosted_loop_advection.hh>
+#include <grace/physics/id/circularly_polarized_alfven_wave.hh>
+#include <grace/physics/id/magnetic_rotor.hh>
 #endif
 #endif
 
@@ -414,6 +416,26 @@ void set_grmhd_initial_data() {
         set_grmhd_initial_data_impl<eos_t,boosted_loop_advection_mhd_id_t<eos_t>>(rho,press,beta0,vc) ;
         Kokkos::fence() ; 
         GRACE_TRACE("Done with Boosted Loop Advection MHD ID.") ;  
+    }
+    else if( id_type == "cp_alfven_wave" ) {
+        auto const rho          = get_param<double>("grmhd","cp_alfven_wave_rho") ; 
+        auto const press    = get_param<double>("grmhd","cp_alfven_wave_press") ;
+        auto const B0    = get_param<double>("grmhd","cp_alfven_wave_B0") ;
+        auto const vel    = get_param<double>("grmhd","cp_alfven_wave_vel") ;
+        auto const kmag    = get_param<double>("grmhd","cp_alfven_wave_mag_k") ;
+        auto const ampl    = get_param<double>("grmhd","cp_alfven_wave_ampl") ;
+        set_grmhd_initial_data_impl<eos_t,cp_alfven_wave_id_t<eos_t>>(rho,press,B0,ampl, kmag, vel) ;
+        Kokkos::fence() ; 
+        GRACE_TRACE("Done with Large-Amplitude Circularly Polarized Alfven Wave MHD ID.") ;  
+    }
+    else if( id_type == "magnetic_rotor" ) {
+        auto const rho_in          = get_param<double>("grmhd","magnetized_rotor_rho_in") ; 
+        auto const rho_out    = get_param<double>("grmhd","magnetized_rotor_rho_out") ;
+        auto const press    = get_param<double>("grmhd","magnetized_rotor_press") ;
+        auto const B0    = get_param<double>("grmhd","magnetized_rotor_B0") ;
+        set_grmhd_initial_data_impl<eos_t,magnetic_rotor_id_t<eos_t>>(rho_in, rho_out, press, B0) ;
+        Kokkos::fence() ; 
+        GRACE_TRACE("Done with Magnetized Rotor MHD ID.") ;  
     }
     #endif
     else if ( id_type == "blastwave" ) {

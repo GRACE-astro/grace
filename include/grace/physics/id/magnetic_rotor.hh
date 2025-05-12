@@ -1,8 +1,8 @@
 /**
- * @file circularly_polarized_alfven_wave.hh
+ * @file magnetic_rotor.hh
  * @author Konrad Topolski (topolski@itp.uni-frankfurt.de)
  * @brief 
- * @date 2025-05-08
+ * @date 2025-05-12
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
  * Code for Exascale.
@@ -25,8 +25,8 @@
  * 
  */
 
-#ifndef GRACE_PHYSICS_ID_CP_LARGE_AMPL_ALFVEN_WAVE_HH
-#define GRACE_PHYSICS_ID_CP_LARGE_AMPL_ALFVEN_WAVE_HH
+#ifndef GRACE_PHYSICS_ID_MAGNETIC_ROTOR_HH
+#define GRACE_PHYSICS_ID_MAGNETIC_ROTOR_HH
 
 #include <grace_config.h>
 
@@ -51,20 +51,17 @@ namespace grace {
  */
 //**************************************************************************************************
 /**
- * @brief Large amplitude circularly polarized Alfven wave - initial data kernel
+ * @brief Magnetic rotor ID - initial data kernel
  * \ingroup initial_data
  * @tparam eos_t type of equation of state
  * @note this kernel has to be adjused if magnetic field initialization method and storage location changes in the future (e.g. vec pot);
- * We base the setup on: 
- * https://arxiv.org/pdf/0704.3206
- * and 
- * https://arxiv.org/pdf/0912.4692 
- * the latter just for the sanity-check computation of the Alfven speed
+ * We base the setup on the rather recent: 
+ * https://arxiv.org/pdf/2407.20946 
  * @warning This MHD ID kernel will have to be adapted in the future if vector potential is used instead 
  * 
  */
 template < typename eos_t >
-struct cp_alfven_wave_id_t {
+struct magnetic_rotor_id_t {
 
     //**************************************************************************************************
     using state_t = grace::var_array_t<GRACE_NSPACEDIM> ; //!< Type of state vector
@@ -76,34 +73,26 @@ struct cp_alfven_wave_id_t {
      * 
      * @param eos Equation of state
      * @param pcoords Physical coordinate array
-     * @param rho uniform density in the problem
+     * @param rho_in density of the rotor
+     * @param rho_out density of the outside medium
      * @param press uniform pressure in the problem
-     * @param ampl amplitude of the wave
-     * @param B0 B0 magnitude of the guiding magnetic field
-     * @param k wavevector magnitude
-     * @param v speed of the fluid (v)
-     // for v=0 we have a Standing CP large-amplitude Alfven wave
-     // note that v_A below will be the phase speed
-     
+     * @param B0 B0 magnitude of the initially uniform and isotropic magnetic field
+
      */
-     cp_alfven_wave_id_t(
+     magnetic_rotor_id_t(
           eos_t eos 
         , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
-        , const double rho
+        , const double rho_in
+        , const double rho_out
         , const double press
         , const double B0
-        , const double ampl
-        , const double k
-        , const double v
     )
         : _eos(eos)
         , _pcoords(pcoords)
-        , _rho(rho)
+        , _rho_in(rho_in)
+        , _rho_out(rho_out)
         , _press(press)
         , _B0(B0)
-        , _ampl(ampl)
-        , _k(k)
-        , _v(v)
     {} 
     //**************************************************************************************************
 
@@ -140,80 +129,40 @@ struct cp_alfven_wave_id_t {
         id.phi_glm = 0.;
         #endif 
  
-        // initialize the hydro state
-        id.rho   = _rho;
-        id.press = _press;
+        double const r = Kokkos::sqrt(EXPR(
+            math::int_pow<2>(x),
+          + math::int_pow<2>(y),
+          + math::int_pow<2>(z)
+        )) ; 
         
-        // guiding field:
+        double const phi = Kokkos::atan2(y, x);
+
+        const double Omega = 9.95;
+        const double vel_norm = r * Omega;
+        // initialize the hydro state
+        if(r < 0.1){
+            id.rho   = _rho_in;
+            id.vx = vel_norm * Kokkos::cos(phi);
+            id.vy = vel_norm * Kokkos::sin(phi);
+        }
+        else{
+            id.rho   = _rho_out;
+            id.vx = 0.0;
+            id.vy = 0.0;
+        }
+        // pressure
+        id.press = _press;
+    
+        // magnetic guiding field:
         id.bx = _B0;
+        id.by = 0.0;
+        id.bz = 0.0;
+    
+        id.vz    = 0.0 ;
 
         unsigned int err ; 
         id.ye  = _eos.ye_beta_eq__press_cold(id.press, err);
-
-        double h, cs2_loc; 
-        const double eps_tmp = _eos.eps_h_csnd2__press_rho_ye(
-            h,cs2_loc,id.press,id.rho,id.ye,err
-        ) ; 
-
-    
-        // for the subsequent part, we need to set the speed of the Aflven wave 
-        // eq (85) in https://arxiv.org/pdf/0704.3206
-        const double tmp = (_B0*_B0)/(_rho*h + _B0*_B0 * (1+_ampl*_ampl) );
-        const double v_A2 = tmp / (0.5 *( 1. + Kokkos::sqrt(1. - Kokkos::pow(2*_ampl*tmp, 2))     ));
-        const double v_A = Kokkos::sqrt(v_A2);
-
-        // https://arxiv.org/pdf/2404.15689
-        // const double xi2 = (_B0 * _B0)/(_rho * h + _B0*_B0);
-        // const double tmp1 = (1 + _ampl*_ampl * xi2)/2.0 ; 
-        // const double tmp2 = 2*xi2*_ampl / (1 + xi2 * _ampl*_ampl); 
-        // const double v_A2 = xi2 / ( tmp1 * (1 + Kokkos::sqrt(1 - tmp2*tmp2) )  );
-        // const double v_A = Kokkos::sqrt(v_A2);
-
-        // with this at hand, we proceed to compute the transverse magnetic field and velocity field components:
-        // eq (82) at t=0
-        id.by = _ampl * _B0 * Kokkos::cos(_k*x);
-        id.bz = _ampl * _B0 * Kokkos::sin(_k*x);
-    
-        id.vx    = _v ; //fluid bulk velocity 
-        id.vy    = -v_A*id.by/id.bx ; // transverse fluid velocity components associated with the propagation of the Alfven wave
-        id.vz    = -v_A*id.bz/id.bx ;
-
-        // Performing sanity check for the Alfven wave speed:
-        // eq. (38) in the generic expression of https://arxiv.org/pdf/0912.4692
-        // Step 1. Compute the lorentz factor
-        // (id.vi are the Eulerian velocities here)
-        const double W = 1.0/Kokkos::sqrt(1 - id.vx*id.vx - id.vy*id.vy - id.vz*id.vz);
-
-        metric_array_t minkowski_metric ({1.,0.,0.,1.,0.,1.},{0.,0.,0.},1.) ; 
-
-        // Step 2. Compute the comoving magnetic field and its square
-        std::array<double, 4> smallb ; 
-        get_smallb_from_eulerianB(minkowski_metric,
-            {id.bx, id.by, id.bz},            
-            {id.vx, id.vy, id.vz},            
-            smallb);
-
-        
-        std::array<double,4> smallbD = minkowski_metric.lower_4vec(smallb); 
-        double const b2 = minkowski_metric.contract_4dvec_4dcovec(smallb,smallbD);
-        // Step 3. Compute the total enthalpy:
-        const double varEps = _rho* h + b2; 
-
-        // Step 4. Compute the left- and right going Alfven velocities
-        // note that b^x and b^0 are the comoving magnetic field
-        // we also have: U^x = W v^x
-        double const v_A_plus  = (smallb[1] + Kokkos::sqrt(varEps)*W*id.vx ) / (smallb[0] + Kokkos::sqrt(varEps) * W) ;
-        double const v_A_minus = (smallb[1] - Kokkos::sqrt(varEps)*W*id.vx ) / (smallb[0] - Kokkos::sqrt(varEps) * W) ;
-
-        // if neither of these velocities (derived from a full-wave decomposition of the whole SRMHD system) 
-        // match the Alfven velocities obtained further above, we have a problem:
-        
-        if(math::abs(v_A - v_A_plus)>1e-4 && math::abs(v_A - v_A_minus)>1e-4){
-            Kokkos::abort("Error: Alfven velocity inconsistent!!");
-        }
-
-        // _v_Alfven = v_A ; // for external inspection
-        // printf("v_Alfven=%f\n", v_A);
+       
         return std::move(id) ; 
     }
 
@@ -223,12 +172,10 @@ struct cp_alfven_wave_id_t {
     //**************************************************************************************************
     eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
-    double _rho ;
+    double _rho_in ;
+    double _rho_out ;
     double _press ; 
-    double _ampl ; 
     double _B0 ; 
-    double _k ; 
-    double _v ; 
     //**************************************************************************************************
 } ; 
 
@@ -236,4 +183,4 @@ struct cp_alfven_wave_id_t {
 //**************************************************************************************************
 }
 //**************************************************************************************************
-#endif  /* GRACE_PHYSICS_ID_CP_LARGE_AMPL_ALFVEN_WAVE_HH */
+#endif  /* GRACE_PHYSICS_ID_MAGNETIC_ROTOR_HH */

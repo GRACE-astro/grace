@@ -1,7 +1,6 @@
 # Parameter file for a generic Alfven test
 # https://arxiv.org/pdf/gr-qc/0507102 (Giacomazzo & Rezzolla 2006)
 # Table 4: Generic Alfven Test
-
 name: "grace"
 amr: {
   npoints_block_x: 16,

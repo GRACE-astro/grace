@@ -1,23 +1,20 @@
-# Parameter file for a Orszag-Tang Vortex
-# https://arxiv.org/pdf/1611.09720 (Porth 2017)
+# Parameter file for a magnetic rotor
+# https://arxiv.org/pdf/2407.20946 (Neuweiler 2024)
+
 name: "grace"
 amr: {
-  # npoints_block_x: 16,
-  # npoints_block_y: 16,
-  # npoints_block_z: 16,
   npoints_block_x: 16,
   npoints_block_y: 16,
   npoints_block_z: 16,
-  xmin: -6.283185307,
-  xmax:  6.283185307,
-  ymin: -6.283185307,
-  ymax:  6.283185307,
-  #zmin: -6.283185307,
-  zmin: -3.141592653,
-  #zmax:  6.283185307,
-  zmax:  3.141592653,
+  xmin: -0.5,
+  xmax:  0.5,
+  ymin: -0.5,
+  ymax:  0.5,
+  zmin: -0.5,
+  zmax:  0.5,
   n_ghostzones: 2,
-  initial_refinement_level: 2,
+  #initial_refinement_level: 3,
+  initial_refinement_level: 3,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
   refinement_criterion_CTODE: 1.,
@@ -25,8 +22,6 @@ amr: {
   max_refinement_level: 7,
   regrid_every: -1,
   regrid_at_postinitial: false,
-  periodic_x: true,
-  periodic_y: true,
   periodic_z: true,
 }
 IO: {
@@ -35,7 +30,7 @@ IO: {
   volume_output_cell_variables: ["eps","rho","press","alp", "vel[0]",
                               "B[0]", "phi_glm"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 10,
+  volume_output_every: 5,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
@@ -62,18 +57,15 @@ system: {
 evolution: {
   time_stepper: "rk2",
   cfl_factor: 0.3,
-  final_time: 10.5,
-  #imestep: 0.00025,
-  # timestep_selection_mode: "manual",
-  # timestep: 0.00025
+  final_time: 2.1 # period = 2 in case of v_A=0.5 and k=2pi
 }
 grmhd: {
-  id_type: "orszag_tang_vortex",
-  # below, the velocities are given in units of c
-  # the magnetohydrodynamical pressures (P and B^2 /2) 
-  # are in the same units (the Gamma-EOS determines P)
-  orszag_tang_vortex_rho: 1.0,
-  orszag_tang_vortex_press: 10.0,
+  
+  id_type: "magnetic_rotor",
+  magnetized_rotor_rho_in : 0.1,
+  magnetized_rotor_rho_out : 10,
+  magnetized_rotor_press : 1.0,
+  magnetized_rotor_B0 : 1.0
 }
 
 eos: {
@@ -83,13 +75,13 @@ eos: {
   temp_atmosphere: 0,
   rho_atmosphere: 1.e-14,
   eps_maximum: 1.e+05,
-  gamma_th: 1.33333,
-
+  gamma_th: 1.66666,  
+ 
   piecewise_polytrope: {
     n_pieces: 1,
     gammas: [0.],
     rhos:   [],
-    kappa_0: 0.0
+    kappa_0: 0
   }
 }
 
