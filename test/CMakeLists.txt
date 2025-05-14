@@ -116,6 +116,7 @@ target_link_libraries(  sc_wrappers_test PRIVATE
 p4est_tests_main
 Catch2::Catch2
 grace_objects
+yaml_cpp::yaml
 MPI::MPI_CXX
 OpenMP::OpenMP_CXX
 p4est::sc
