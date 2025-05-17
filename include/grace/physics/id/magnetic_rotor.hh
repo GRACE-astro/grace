@@ -142,8 +142,8 @@ struct magnetic_rotor_id_t {
         // initialize the hydro state
         if(r < 0.1){
             id.rho   = _rho_in;
-            id.vx = vel_norm * Kokkos::cos(phi);
-            id.vy = vel_norm * Kokkos::sin(phi);
+            id.vx =  -vel_norm * Kokkos::sin(phi);
+            id.vy =   vel_norm * Kokkos::cos(phi);
         }
         else{
             id.rho   = _rho_out;

@@ -1497,7 +1497,30 @@ struct grmhd_equations_system_t
         /* We follow https://arxiv.org/pdf/1611.09720 for the relevant eqns    */
         /***********************************************************************/
 	#ifdef GRACE_DO_MHD
- 
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+
+        /* For GLM, two luminal wavespeeds arise - one for the divergence cleaning  
+            variable, the other for the longitudinal component of the magnetic field [flux of a magnetic field component in its longitudinal direction is identically 0 in a non-GLM system]
+            In flat spacetime, these are +/- 1; for GR we need to compute: +/- \sqrt{gamma^ii} - beta^i / alp
+            see https://arxiv.org/pdf/1304.5544    
+
+            Since the metric at the interface is unique and these two wavespeeds are purely metric-dependent,
+            we have no notion of "left" and "right" wavespeed
+        */
+
+    
+        int metric_comps[3] { 0, 3, 5} ; 
+        // cml_DC = c_minus_left_divergence_cleaning
+        double cml_DC = -Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) * Kokkos::sqrt(one_over_alp2);
+        double cmr_DC = cml_DC;
+
+        double cpl_DC = +Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) * Kokkos::sqrt(one_over_alp2);
+        double cpr_DC = cpl_DC;
+
+        double cmin_DC = -Kokkos::min(0., Kokkos::min(cml_DC,cmr_DC)) ; 
+        double cmax_DC =  Kokkos::max(0., Kokkos::max(cpl_DC,cpr_DC)) ; 
+        // note: is it possible for these to also become 0? 
+
        /***********************************************************************/
         /* evolution equation for B^i in the GLM method reads:                 */
         /* \partial_t (\sqrt{\gamma}B^j)  +                                    */
@@ -1530,11 +1553,27 @@ struct grmhd_equations_system_t
 
         const double bhat_x_r = sqrtgamma * primR[BXL];
 
-        //f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,cmin,cmax) ;
-        // max wave speeds dictated by the phi evol eq 
+        // yet another option is to set the wavespeeds to cmin, cmax for 
+        // flux directions orthogonal to the magnetic field component 
+        // and set it to the speed of light for the 
+        // propagation mode of the longitudinal component and the divergence cleaning mode
+        // (see: https://arxiv.org/pdf/1304.5544)
+        // i.e.: if idir=0
+        //   f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,1.0,1.0) ; 
+        // else: 
+        //   f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,cmin,cmax) ; 
+        // and: f[PHIG_GLM] : cmin=1,cmax=1
 
-        f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,1.0,1.0) ; 
+        // TO DO: change 1.0, 1.0 to 1 - sqrt(...) 
 
+
+
+        if(idir==0){ //longitudinal mode
+            f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,cmin_DC,cmax_DC) ;  // actually, instead of 1.0, this should be 1 - beta^x / alpha
+        }
+        else{  // transverse mode
+            f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,cmin,cmax) ; 
+        }
 
 
         /***********************************************************************/
@@ -1553,9 +1592,12 @@ struct grmhd_equations_system_t
 
         const double bhat_y_r = sqrtgamma * primR[BYL];
 
-        //f[BGYL] = solver(fl,fr,bhat_y_l,bhat_y_r,cmin,cmax) ; 
-        f[BGYL] = solver(fl,fr,bhat_y_l,bhat_y_r,1.0,1.0) ; 
-
+        if(idir==1){
+            f[BGYL] = solver(fl,fr,bhat_y_l,bhat_y_r,cmin_DC,cmax_DC) ;
+        }
+        else{
+            f[BGYL] = solver(fl,fr,bhat_y_l,bhat_y_r,cmin,cmax) ; 
+        }
 
         /***********************************************************************/
         /* Get B^z flux                                                        */
@@ -1573,11 +1615,13 @@ struct grmhd_equations_system_t
 
         const double bhat_z_r = sqrtgamma * primR[BZL];
 
-        //f[BGZL] = solver(fl,fr,bhat_z_l,bhat_z_r,cmin,cmax) ; 
-        f[BGZL] = solver(fl,fr,bhat_z_l,bhat_z_r,1.0,1.0) ; 
+        if(idir==2){
+            f[BGZL] = solver(fl,fr,bhat_z_l,bhat_z_r,cmin_DC,cmax_DC) ;
+        }
+        else{
+            f[BGZL] = solver(fl,fr,bhat_z_l,bhat_z_r,cmin,cmax) ;
+        }
 
-
-        #ifdef GRACE_ENABLE_B_FIELD_GLM
         /***********************************************************************/
         /* Get Phi_GLM flux                                                    */
         /***********************************************************************/
@@ -1598,8 +1642,9 @@ struct grmhd_equations_system_t
 
         const double phi_glm_r = sqrtgamma * primR[PHI_GLML];
 
-        //f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,cmin,cmax) ; 
-        f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,1.0,1.0) ; 
+        // f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,cmin,cmax) ; 
+        // always a maximal speed for the divergence cleaning mode  
+        f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,cmin_DC,cmax_DC) ; 
 
 
         #endif 

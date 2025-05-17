@@ -79,6 +79,8 @@ struct boosted_loop_advection_mhd_id_t {
         , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
         , double rho
         , double press
+        , double beta0
+        , double vc
         )
         : _eos(eos)
         , _pcoords(pcoords)
@@ -160,14 +162,15 @@ struct boosted_loop_advection_mhd_id_t {
 
         //BFF = c0 alpha(J1(alphaR)^phi_kill + J0(alphaR)^z_kill)
        //----- cylindrical coordinates
-       Br = 0;
+       double Br = 0;
+       double Bphi, Bz;
        if(r<1){
-        auto Bphi= bessel_J1(alphat*r);
-        auto Bz = Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*r)) + Cconst);
+        Bphi= bessel_J1(alphat*r);
+        Bz = Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*r)) + Cconst);
        }
        else{
-        auto Bphi = 0.0;
-        auto Bz = Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*r)) + Cconst);
+        Bphi = 0.0;
+        Bz = Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*r)) + Cconst);
        }
 
        // ------------------------------

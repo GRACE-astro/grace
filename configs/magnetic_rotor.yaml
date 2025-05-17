@@ -14,7 +14,7 @@ amr: {
   zmax:  0.5,
   n_ghostzones: 2,
   #initial_refinement_level: 3,
-  initial_refinement_level: 3,
+  initial_refinement_level: 4,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
   refinement_criterion_CTODE: 1.,
@@ -56,14 +56,14 @@ system: {
 }
 evolution: {
   time_stepper: "rk2",
-  cfl_factor: 0.3,
-  final_time: 2.1 # period = 2 in case of v_A=0.5 and k=2pi
+  cfl_factor: 0.2,
+  final_time: 0.425
 }
 grmhd: {
   
   id_type: "magnetic_rotor",
-  magnetized_rotor_rho_in : 0.1,
-  magnetized_rotor_rho_out : 10,
+  magnetized_rotor_rho_in : 10,
+  magnetized_rotor_rho_out : 1.0,
   magnetized_rotor_press : 1.0,
   magnetized_rotor_B0 : 1.0
 }
