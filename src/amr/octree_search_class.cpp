@@ -15,14 +15,18 @@ namespace grace { namespace amr {
 
 OctreeSlicer::OctreeSlicer() {}
 OctreeSlicer::OctreeSlicer(std::string plane) {
-    plane = "yz"; // Default to yz plane for now
     if (plane=="yz") {
         std::tie(nx_,ny_,nz_) = amr::get_quadrant_extents() ;
         nx_=1;
+        dir_ = 0;
     } else if (plane=="xz") {
-        // Set up for xz plane slicing
+        std::tie(nx_,ny_,nz_) = amr::get_quadrant_extents() ;
+        ny_=1;
+        dir_ = 1;
     } else if (plane=="xy") {
-        // Set up for xy plane slicing
+        std::tie(nx_,ny_,nz_) = amr::get_quadrant_extents() ;
+        nz_=1;
+        dir_ = 2;
     } else {
         throw std::invalid_argument("Invalid slicing plane specified.");
     }
@@ -31,7 +35,8 @@ OctreeSlicer::OctreeSlicer(std::string plane) {
 void OctreeSlicer::find_sliced_cells() {
     octree_search();
     search_quadrants();
-    search_cells();
+    //search_cells();
+    Reduced_search_cells();
 }
 
 std::pair<std::array<double, 3>, std::array<double, 3>> 
@@ -104,7 +109,7 @@ OctreeSlicer::get_physical_coordinates_private(p4est_t* p4est, p4est_topidx_t wh
     return std::make_pair(qcoords_lower, qcoords_upper);
 }
 
-int OctreeSlicer::handle_search(p4est_t* p4est, p4est_topidx_t which_tree,
+int OctreeSlicer::handle_search_x(p4est_t* p4est, p4est_topidx_t which_tree,
                                p4est_quadrant_t* quadrant, p4est_locidx_t local_num,
                                void* points) {
     
@@ -165,7 +170,19 @@ void OctreeSlicer::octree_search() {
     p4est_search_local(forest_.get(), false, &handle_reset, nullptr, nullptr);
     
     // Perform search operation
-    p4est_search_local(forest_.get(), false, &handle_search, nullptr, nullptr);
+    if (dir_== 0){
+        p4est_search_local(forest_.get(), false, &handle_search_x, nullptr, nullptr);
+    }
+    else if (dir_== 1){
+        p4est_search_local(forest_.get(), false, &handle_search_y, nullptr, nullptr);
+    }
+    else if (dir_== 2){
+        p4est_search_local(forest_.get(), false, &handle_search_z, nullptr, nullptr);
+    }
+    else {
+        GRACE_WARN("No plane direction was chosen picked xy plane");
+        p4est_search_local(forest_.get(), false, &handle_search_z, nullptr, nullptr);
+    }
 }
 
 void OctreeSlicer::search_quadrants() {
@@ -216,12 +233,84 @@ void OctreeSlicer::search_cells() {
                     // Get physical coordinates of the cell corners
                     std::array<double, 3> pcoords = coord_system_.get_physical_coordinates(ijk, q.globalIndex  , {VEC(nx1, ny1, nz1)}, false);
                     std::array<double, 3> pcoords_max = coord_system_.get_physical_coordinates(ijk, q.globalIndex, {VEC(nx2, ny2, nz2)}, false);
-                    double x_min = pcoords[0];// This is now specific for the y-z plane
-                    double x_max = pcoords_max[0];
-
+                    
+                    double x_min=-1;
+                    double x_max=-1;
+                    if(dir_==0) {
+                        x_min = pcoords[0];// This is now specific for the y-z plane
+                        x_max = pcoords_max[0];
+                    }
+                    else if(dir_==1) {
+                        x_min = pcoords[1];// This is now specific for the x_z plane
+                        x_max = pcoords_max[1];
+                    }
+                    else if(dir_==2) {
+                        x_min = pcoords[2];// This is now specific for the x-y plane
+                        x_max = pcoords_max[2];
+                    }
                     if (x_min <= 0.0 && x_max > 0.0) {
                         slicedCells_.push_back({q, i, j, k});
-                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void OctreeSlicer::Reduced_search_cells() {
+    size_t nx,ny,nz; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ;
+    for (auto& q : slicedQuadrants_)
+    {
+        bool found = false;
+        auto tree = forest_.tree(q.treeIndex);
+        size_t quadrant_offset = tree.quadrants_offset();  // Number of quadrants in the tree
+        size_t num_quadrants = tree.num_quadrants();  // Number of quadrants in the tree
+        std::array<size_t, 3> ijk = {0, 0, 0};
+
+        for (size_t k = 0; (k < nz) && !found; ++k)
+        {
+            for (size_t j = 0; (j < ny) && !found; ++j)
+            {
+                for (size_t i = 0; (i < nx) && !found; ++i)
+                {
+                    double nx1, ny1, nz1;
+                    nx1 = i;
+                    ny1 = j;
+                    nz1 = k;
+                    double nx2, ny2, nz2;
+                    nx2 = i+1; 
+                    ny2 = j+1;
+                    nz2 = k+1;
+                    // Get physical coordinates of the cell corners
+                    std::array<double, 3> pcoords = coord_system_.get_physical_coordinates(ijk, q.globalIndex  , {VEC(nx1, ny1, nz1)}, false);
+                    std::array<double, 3> pcoords_max = coord_system_.get_physical_coordinates(ijk, q.globalIndex, {VEC(nx2, ny2, nz2)}, false);
+                    
+                    double x_min=-1;
+                    double x_max=-1;
+                    if(dir_==0) {
+                        x_min = pcoords[0];// This is now specific for the y-z plane
+                        x_max = pcoords_max[0];
+                    }
+                    else if(dir_==1) {
+                        x_min = pcoords[1];// This is now specific for the x_z plane
+                        x_max = pcoords_max[1];
+                    }
+                    else if(dir_==2) {
+                        x_min = pcoords[2];// This is now specific for the x-y plane
+                        x_max = pcoords_max[2];
+                    }
+                    if (x_min <= 0.0 && x_max > 0.0) {
+                        if (dir_==0) {
+                            ReducedslicedCells_.push_back({q, i});
+                        }
+                        else if (dir_==1) {
+                            ReducedslicedCells_.push_back({q, j});
+                        }
+                        else if (dir_==2) {
+                            ReducedslicedCells_.push_back({q, k});
+                        }
+                        found = true;
                     }
                 }
             }
@@ -352,9 +441,10 @@ void OctreeSlicer::generate_continuous_indices() {
 
     for (const auto& quadrant : slicedQuadrants_) {
         size_t localIdx = quadrant.localQuadrantIdx;
+        size_t globalIdx = quadrant.globalIndex;
 
         // Try to insert a new index if it doesn't exist yet
-        auto [it, inserted] = localToSlicedIdx_.insert({localIdx, 0});
+        auto [it, inserted] = localToSlicedIdx_.insert({globalIdx, 0});
         if (inserted) {
             it->second = continuousIndex++;
         }
@@ -368,6 +458,97 @@ void OctreeSlicer::generate_continuous_indices() {
 
 }
 
+int OctreeSlicer::handle_search_y(p4est_t* p4est, p4est_topidx_t which_tree,
+                               p4est_quadrant_t* quadrant, p4est_locidx_t local_num,
+                               void* points) {
+    
+    OctreeSlicer slicer;
+    
+    if (local_num < 0) {
+        // Skip trees that are not valid (e.g. ghost trees)
+        std::array<double, 3> qcoords_upper = {0.0, 0.0, 0.0};
+        std::array<double, 3> qcoords_lower = {0.0, 0.0, 0.0};
+
+        std::tie(qcoords_lower, qcoords_upper) = slicer.get_physical_coordinates_private(p4est, which_tree, quadrant, local_num);
+
+        auto ymin = qcoords_lower[1];
+        auto ymax = qcoords_upper[1];
+
+        if (ymin <= 0.0 && ymax > 0.0) {
+            return 1; // Found a quadrant that is intersected
+        }
+        return 0; // Skip trees that are not the first one
+    }
+    std::array<size_t, 3> ijk = {0, 0, 0};
+
+    size_t nx,ny,nz; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+
+    std::array<double, 3> pcoords;
+    std::array<double, 3> pcoords_max;
+ 
+    pcoords = slicer.coord_system_.get_physical_coordinates(ijk, local_num, {VEC(0.0,0.0,0.0)}, false);
+    pcoords_max = slicer.coord_system_.get_physical_coordinates(ijk, local_num, {VEC(static_cast<double>(nx), static_cast<double>(ny), static_cast<double>(nz))}, false);
+
+    auto y_min = pcoords[1];
+    auto y_max = pcoords_max[1];
+
+    if (y_min <= 0.0 && y_max > 0.0) {
+        quadrant->p.user_int = 1; 
+        return 1; // Found a quadrant that is intersected
+    }
+    else {
+        quadrant->p.user_int = 0; 
+        return 0;
+    }
+    return 0;
+}
+
+int OctreeSlicer::handle_search_z(p4est_t* p4est, p4est_topidx_t which_tree,
+                               p4est_quadrant_t* quadrant, p4est_locidx_t local_num,
+                               void* points) {
+    
+    OctreeSlicer slicer;
+    
+    if (local_num < 0) {
+        // Skip trees that are not valid (e.g. ghost trees)
+        std::array<double, 3> qcoords_upper = {0.0, 0.0, 0.0};
+        std::array<double, 3> qcoords_lower = {0.0, 0.0, 0.0};
+
+        std::tie(qcoords_lower, qcoords_upper) = slicer.get_physical_coordinates_private(p4est, which_tree, quadrant, local_num);
+
+        auto zmin = qcoords_lower[2];
+        auto zmax = qcoords_upper[2];
+
+        if (zmin <= 0.0 && zmax > 0.0) {
+            return 1; // Found a quadrant that is intersected
+        }
+        return 0; // Skip trees that are not the first one
+    }
+    std::array<size_t, 3> ijk = {0, 0, 0};
+
+    size_t nx,ny,nz; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+
+    std::array<double, 3> pcoords;
+    std::array<double, 3> pcoords_max;
+ 
+    pcoords = slicer.coord_system_.get_physical_coordinates(ijk, local_num, {VEC(0.0,0.0,0.0)}, false);
+    pcoords_max = slicer.coord_system_.get_physical_coordinates(ijk, local_num, {VEC(static_cast<double>(nx), static_cast<double>(ny), static_cast<double>(nz))}, false);
+
+    auto z_min = pcoords[2];
+    auto z_max = pcoords_max[2];
+
+    if (z_min <= 0.0 && z_max > 0.0) {
+        quadrant->p.user_int = 1; 
+        return 1; // Found a quadrant that is intersected
+    }
+    else {
+        quadrant->p.user_int = 0; 
+        return 0;
+    }
+    return 0;
+}
 
 #endif // GRACE_3D
 } // namespace amr

@@ -63,7 +63,7 @@ void write_cell_data_sliced_hdf5(bool out_vol, bool out_plane, bool out_sphere) 
  * which is a widely used data model, library, and file format for storing
  * and managing data.
  */
-void write_volume_cell_data_sliced_hdf5() ; 
+void write_volume_cell_data_sliced_hdf5(std::string plane_dir) ; 
 
 /**
  * @brief Write the grid structure to hdf5 output.
