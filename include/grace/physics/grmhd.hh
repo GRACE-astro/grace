@@ -301,6 +301,10 @@ struct grmhd_equations_system_t
 
         /* Overall factor of dt \alpha \sqrt{\gamma} to be multiplied to source terms of GLM B^i evol eqns     */
         double const sqrtgamma_dt = dt*dtfact*metric.sqrtg();
+
+        double const dt_fac = dt*dtfact; // overall factor for integration 
+        double const alp = metric.alp();
+        double const sqrtgamma = metric.sqrtg();
         /* Inverse gamma metric [XX,XY,XZ,YY,YZ,ZZ]                                                            */
         const std::array<double, 6> invgij_6{metric.invgamma(0),metric.invgamma(1),metric.invgamma(2),
                                              metric.invgamma(3),metric.invgamma(4),metric.invgamma(5)
@@ -350,10 +354,19 @@ struct grmhd_equations_system_t
                 dgab_dxi[ii] =  0.5*(gmunu_p[ii] - gmunu_m[ii]) ;
             }
 
+            // 0 - TT
+            // 1,2,3 - it
+            // 4,5,6,7,8,9 - xx, xy, xz, yy, yz, zz
+            // idir will decide the direction of the derivative in this loop 
 
-            /*  3-metric derivatives for the GLM source terms                                                 */
-            std::array<double, 6> const dgammajk_dxi{{dgab_dxi[0],dgab_dxi[1],dgab_dxi[2],
-                                                      dgab_dxi[3],dgab_dxi[4],dgab_dxi[5]}} ;
+            /*  3-metric derivatives for the GLM source terms      
+                                                       */
+            std::array<double, 6> const dgammajk6_dxi{{dgab_dxi[XX4],dgab_dxi[XY4],dgab_dxi[XZ4],
+                                                      dgab_dxi[YY4],dgab_dxi[YZ4],dgab_dxi[ZZ4]}} ;
+
+            const std::array<std::array<double,3>, 3> dgammajk_dxi{{{dgammajk6_dxi[0],dgammajk6_dxi[1],dgammajk6_dxi[2]},
+                                                      {dgammajk6_dxi[1],dgammajk6_dxi[3],dgammajk6_dxi[4]},
+                                                      {dgammajk6_dxi[2],dgammajk6_dxi[4],dgammajk6_dxi[5]}}};
 
 
             /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
@@ -375,8 +388,6 @@ struct grmhd_equations_system_t
             for( int jj=0; jj<3; ++jj) {  // derivatives \partial_i \beta^j 
                 dbetaj_dxi[jj] =  0.5*(shift_p[jj] - shift_m[jj]) ;
             }
-
-
 
 
             /**************************************************************************************************/
@@ -420,17 +431,50 @@ struct grmhd_equations_system_t
             // dbetaj_dxi[j] = d_i (beta^j)
             
             // B^x source term
-            state_new(VEC(i,j,k),BGX_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[0] +\
-                                                           +metric.alp() * invgij[0][idir] * dphi_glm_di  
-                                                            ) * idx(idir,q);
+            // state_new(VEC(i,j,k),BGX_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[0] +\
+            //                                                +metric.alp() * invgij[0][idir] * dphi_glm_di  
+            //                                                 ) * idx(idir,q);
+            // // B^y source term
+            // state_new(VEC(i,j,k),BGY_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[1] +\ 
+            //                                                 +metric.alp() * invgij[1][idir] * dphi_glm_di  
+            //                                                 ) * idx(idir,q);
+            // // B^z source term
+            // state_new(VEC(i,j,k),BGZ_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[2] +\ 
+            //                                                 +metric.alp() * invgij[2][idir] * dphi_glm_di  
+            //                                                 ) * idx(idir,q);
+
+            // From e.g. Neuweiler2024: 
+            // S[B^j] = -\sqrt{\gamma} B^i \partial_i \beta^j  + phi * \partial_i (\sqrt{\gamma} \alpha \gamma^ij)
+            // the difference is due to the fact that in their form, the spatial derivative of phi_glm is in the fluxes, 
+            // not sources, and thus upwinding the gradient in the sources is not necessary (as in BHAC+)
+            // same strategy (i.e. \partial_i phi in the fluxes) is taken in GRHydro 
+
+            // Source[B^j] = -\sqrt{\gamma} B^i \partial_i \beta^j  - \sqrt{\gamma} \alpha \gamma^ij \partial_i \phi_glm
+
+            // d_i_sqrtgamma_gammaUU is \partial_i (\sqrt{\gamma} gamma^ij), were j is the free index
+            // contraction over i is performed in loop containing this snippet 
+            std::array<double, 3> d_i_sqrtgamma_gammaUU{0,0,0}; // free index corresponding to B^j
+            for (int jj = 0 ; jj < 3 ; jj++){
+                for (int kk = 0 ; kk < 3 ; kk++){
+                    for (int ll = 0 ; ll < 3 ; ll++){
+                        d_i_sqrtgamma_gammaUU[jj] += 0.5 * invgij[idir][jj] * invgij[kk][ll] * dgammajk_dxi[kk][ll];
+                        d_i_sqrtgamma_gammaUU[jj] += - invgij[jj][kk] * invgij[idir][ll] * dgammajk_dxi[kk][ll] ;
+                    }
+                }
+                d_i_sqrtgamma_gammaUU[jj] = sqrtgamma *  d_i_sqrtgamma_gammaUU[jj];
+            }
+            
+            // B^x source term
+            state_new(VEC(i,j,k),BGX_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[0]) * idx(idir,q) ;
+            state_new(VEC(i,j,k),BGX_,q) += dt_fac * alp * d_i_sqrtgamma_gammaUU[0] * prims[PHI_GLML] * idx(idir,q) ;
+
             // B^y source term
-            state_new(VEC(i,j,k),BGY_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[1] +\ 
-                                                            +metric.alp() * invgij[1][idir] * dphi_glm_di  
-                                                            ) * idx(idir,q);
+            state_new(VEC(i,j,k),BGY_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[1]) * idx(idir,q) ;
+            state_new(VEC(i,j,k),BGY_,q) += dt_fac * alp * d_i_sqrtgamma_gammaUU[1] * prims[PHI_GLML] *idx(idir,q) ;
+            
             // B^z source term
-            state_new(VEC(i,j,k),BGZ_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[2] +\ 
-                                                            +metric.alp() * invgij[2][idir] * dphi_glm_di  
-                                                            ) * idx(idir,q);
+            state_new(VEC(i,j,k),BGZ_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[2]) * idx(idir,q) ;
+            state_new(VEC(i,j,k),BGZ_,q) += dt_fac * alp * d_i_sqrtgamma_gammaUU[2] * prims[PHI_GLML] * idx(idir,q) ;
 
             // Source[\Phi_{\rm GLM}] = -sqrtgamma * alp * kappa * phi                                       (1)
             //                          -sqrtgamma * phi * \partial_i beta^i                             (2)
@@ -445,12 +489,10 @@ struct grmhd_equations_system_t
 
             // terms (3) involving a contraction:
             state_new(VEC(i,j,k),PHIG_GLM_,q) += sqrtgamma_dt *\
-                        (-0.5 * prims[PHI_GLML] * shift[idir] * metric.contract_sym2tens_sym2tens(invgij_6,dgammajk_dxi)) * idx(idir,q);
+                        (-0.5 * prims[PHI_GLML] * shift[idir] * metric.contract_sym2tens_sym2tens(invgij_6,dgammajk6_dxi)) * idx(idir,q);
 
             #endif
 	    #endif 
-
-
 
 
         }
@@ -463,9 +505,7 @@ struct grmhd_equations_system_t
 	#ifdef GRACE_DO_MHD
         #ifdef GRACE_ENABLE_B_FIELD_GLM
         /* Add the final GLM Phi source term:  -sqrtgamma * alp * kappa * phi */
-        // WRONG! it was Kappa, not K! so not the trace of extrinsic curvature but the 
         const double kappa_glm = 1.0;
-        // state_new(VEC(i,j,k),PHIG_GLM_,q) -= alpha_sqrtgamma_dt * prims[PHI_GLML] * metric.contract_sym2tens_sym2tens(invgij_6,Kij); 
         state_new(VEC(i,j,k),PHIG_GLM_,q) -= alpha_sqrtgamma_dt * kappa_glm * prims[PHI_GLML]; 
         #endif 
 	#endif
@@ -1511,10 +1551,10 @@ struct grmhd_equations_system_t
     
         int metric_comps[3] { 0, 3, 5} ; 
         // cml_DC = c_minus_left_divergence_cleaning
-        double cml_DC = -Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) * Kokkos::sqrt(one_over_alp2);
+        double cml_DC = -Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) / alp;
         double cmr_DC = cml_DC;
 
-        double cpl_DC = +Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) * Kokkos::sqrt(one_over_alp2);
+        double cpl_DC = +Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) / alp;
         double cpr_DC = cpl_DC;
 
         double cmin_DC = -Kokkos::min(0., Kokkos::min(cml_DC,cmr_DC)) ; 
@@ -1535,18 +1575,49 @@ struct grmhd_equations_system_t
         /* in the below, idir dictates the flux direction                      */
         /***********************************************************************/
 
+        /* Evolution equation for B^i in the GLM method reads:                 */
+        /* A different flux/source split, including upwinding of phi_glm:      */
+        /* phi is contained in the fluxes for codes like: MHDuet, GRHydro, BAM (Neuweiler2024)  */
+        /* Notably, not BHAC+ though, where the derivative of phi must be upwinded in the sources          */
+        /*
+            F^i [ B^j ] = sqrtgamma * (V^i B^j - alp * U^j B^i + alp * gamma^ij phi)
+            
+            Note that V^i is the transport velocity and U^j the Eulerian velocity
+
+            L/R states remain the same 
+        */
+
+        /* Inverse gamma metric [XX,XY,XZ,YY,YZ,ZZ]                                                            */
+        const std::array<double, 6> invgij_6{
+            metric_face.invgamma(0),metric_face.invgamma(1),metric_face.invgamma(2),
+            metric_face.invgamma(3),metric_face.invgamma(4),metric_face.invgamma(5)
+                       };
+
+        const std::array<std::array<double,3>, 3> invgij{{
+        {invgij_6[0],invgij_6[1],invgij_6[2]},
+        {invgij_6[1],invgij_6[3],invgij_6[4]},
+        {invgij_6[2],invgij_6[4],invgij_6[5]}}};
+
+        /* square root of the determinant of the spatial metric                */
         const double sqrtgamma =  metric_face.sqrtg() ;
 
         /***********************************************************************/
         /* Get B^x flux                                                        */
         /***********************************************************************/
         
-        fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BXL] - primL[VXL] * primL[BXL+idir] ) \
-                            - primL[BXL+idir] * metric_face.beta(0) ) ;
+        // fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BXL] - primL[VXL] * primL[BXL+idir] ) \
+        //                     - primL[BXL+idir] * metric_face.beta(0) ) ;
 
 
-        fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BXL] - primR[VXL] * primR[BXL+idir] ) \
-                            - primR[BXL+idir] * metric_face.beta(0) ) ;
+        // fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BXL] - primR[VXL] * primR[BXL+idir] ) \
+        //                     - primR[BXL+idir] * metric_face.beta(0) ) ;
+
+        fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BXL] - alp * vNL[0] * primL[BXL+idir] ) \
+                            + alp * invgij[idir][0] * primL[PHI_GLML]) ;
+
+
+        fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BXL] - alp * vNR[0] * primR[BXL+idir] ) \
+                            + alp * invgij[idir][0] * primR[PHI_GLML] ) ;
 
 
         const double bhat_x_l = sqrtgamma * primL[BXL];
@@ -1566,8 +1637,6 @@ struct grmhd_equations_system_t
 
         // TO DO: change 1.0, 1.0 to 1 - sqrt(...) 
 
-
-
         if(idir==0){ //longitudinal mode
             f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,cmin_DC,cmax_DC) ;  // actually, instead of 1.0, this should be 1 - beta^x / alpha
         }
@@ -1580,19 +1649,24 @@ struct grmhd_equations_system_t
         /* Get B^y flux                                                        */
         /***********************************************************************/
         
-        fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BYL] - primL[VYL] * primL[BXL+idir] ) \
-                            - primL[BXL+idir] * metric_face.beta(1) ) ;
+        // fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BYL] - primL[VYL] * primL[BXL+idir] ) \
+        //                     - primL[BXL+idir] * metric_face.beta(1) ) ;
 
 
-        fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BYL] - primR[VYL] * primR[BXL+idir] ) \
-                            - primR[BXL+idir] * metric_face.beta(1) ) ;
+        // fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BYL] - primR[VYL] * primR[BXL+idir] ) \
+        //                     - primR[BXL+idir] * metric_face.beta(1) ) ;
 
+        fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BYL] - alp * vNL[1] * primL[BXL+idir] ) \
+                            + alp * invgij[idir][1] * primL[PHI_GLML] ) ;
+
+        fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BYL] - alp * vNR[1] * primR[BXL+idir] ) \
+                            + alp * invgij[idir][1] * primR[PHI_GLML] ) ;
 
         const double bhat_y_l = sqrtgamma * primL[BYL];
 
         const double bhat_y_r = sqrtgamma * primR[BYL];
 
-        if(idir==1){
+        if(idir==1){ // flux_dir = B_dir --- longitudinal component 
             f[BGYL] = solver(fl,fr,bhat_y_l,bhat_y_r,cmin_DC,cmax_DC) ;
         }
         else{
@@ -1603,19 +1677,26 @@ struct grmhd_equations_system_t
         /* Get B^z flux                                                        */
         /***********************************************************************/
         
-        fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BZL] - primL[VZL] * primL[BXL+idir] ) \
-                            - primL[BXL+idir] * metric_face.beta(2) ) ;
+        // fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BZL] - primL[VZL] * primL[BXL+idir] ) \
+        //                     - primL[BXL+idir] * metric_face.beta(2) ) ;
 
 
-        fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BZL] - primR[VZL] * primR[BXL+idir] ) \
-                            - primR[BXL+idir] * metric_face.beta(2) ) ;
+        // fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BZL] - primR[VZL] * primR[BXL+idir] ) \
+        //                     - primR[BXL+idir] * metric_face.beta(2) ) ;
+       
+        fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BZL] - alp * vNL[2] * primL[BXL+idir] ) \
+                            + alp * invgij[idir][2] * primL[PHI_GLML] ) ;
+
+
+        fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BZL] - alp * vNR[2] * primR[BXL+idir] ) \
+                            + alp * invgij[idir][2] * primR[PHI_GLML] ) ;
 
 
         const double bhat_z_l = sqrtgamma * primL[BZL];
 
         const double bhat_z_r = sqrtgamma * primR[BZL];
 
-        if(idir==2){
+        if(idir==2){ // flux_dir = B_dir --- longitudinal component 
             f[BGZL] = solver(fl,fr,bhat_z_l,bhat_z_r,cmin_DC,cmax_DC) ;
         }
         else{
