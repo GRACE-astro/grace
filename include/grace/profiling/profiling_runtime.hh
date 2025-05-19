@@ -196,14 +196,14 @@ class profiling_runtime_impl_t
             static_cast<std::filesystem::path>(
                 grace::get_param<std::string>("profiling","output_base_directory") 
             ) ;
-	    #endif 
-        _do_gpu_profiling = grace::get_param<bool>("profiling", "do_gpu_profiling") ;  
         if (!std::filesystem::exists(_base_outpath)) {
             // Create the directory if it doesn't exist
             if (!std::filesystem::create_directory(_base_outpath)) {
                 ERROR("Failed to create directory.") ;
             }
         }
+	    #endif 
+        _do_gpu_profiling = grace::get_param<bool>("profiling", "do_gpu_profiling") ;  
         #ifdef GRACE_ENABLE_HIP
         if(_do_gpu_profiling){
             std::stringstream os ; 
