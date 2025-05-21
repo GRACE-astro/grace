@@ -129,11 +129,10 @@ struct magnetic_rotor_id_t {
         id.phi_glm = 0.;
         #endif 
  
-        double const r = Kokkos::sqrt(EXPR(
-            math::int_pow<2>(x),
-          + math::int_pow<2>(y),
-          + math::int_pow<2>(z)
-        )) ; 
+        double const r = Kokkos::sqrt(
+            math::int_pow<2>(x)
+          + math::int_pow<2>(y)
+        ) ; 
         
         double const phi = Kokkos::atan2(y, x);
 
