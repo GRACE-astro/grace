@@ -213,9 +213,9 @@ void register_variables() {
     REGISTER_EVOLVED_VECTOR(BETAX,BETAY,BETAZ,"beta","outgoing",false);
     REGISTER_EVOLVED_TENSOR(KXX,KXY,KXZ,KYY,KYZ,KZZ,"ext_curv","outgoing",false) ; 
     #elif defined(GRACE_ENABLE_BSSN_METRIC)
-    REGISTER_CORNER_STAGGERED_EVOLVED_TENSOR(GTXX,GTXY,GTXZ,GTYY,GTYZ,GTZZ,"gamma_tilde","third_order_lagrange",false) ; 
+    REGISTER_CORNER_STAGGERED_EVOLVED_TENSOR(GTXX,GTXY,GTXZ,GTYY,GTYZ,GTZZ,"gamma_tilde","none",false) ; 
     REGISTER_CORNER_STAGGERED_EVOLVED_SCALAR(PHI,"phi","none",false) ; 
-    REGISTER_CORNER_STAGGERED_EVOLVED_VECTOR(GAMMAX,GAMMAY,GAMMAZ,"GammaU","none",false);
+    REGISTER_CORNER_STAGGERED_EVOLVED_VECTOR(GAMMAX,GAMMAY,GAMMAZ,"GammaU","third_order_lagrange",false);
     /* Extrinsic curvature */
     REGISTER_CORNER_STAGGERED_EVOLVED_TENSOR(ATXX,ATXY,ATXZ,ATYY,ATYZ,ATZZ,"A_tilde","none",false) ;
     REGISTER_CORNER_STAGGERED_EVOLVED_SCALAR(K,"K","none",false) ; 

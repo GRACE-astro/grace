@@ -137,17 +137,21 @@ struct sommerfeld_bc_t {
             auto var = Kokkos::subview(src, VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), q) ; 
             auto const fd_der_x = [&] ()
             {
-                  return grace::detail::fd_der_bnd_check_recursive<1,1,0>::template doit<2>(var, VEC(i,j,k),VEC(nx,ny,nz),ngz)* idx(0,q);
+
+                  return 0.5 * (var(VEC(i+1,j,k)) - var(VEC(i-1,j,k))) * idx(0,q) ; 
+                  //return grace::detail::fd_der_bnd_check_recursive<1,1,0>::template doit<2>(var, VEC(i,j,k),VEC(nx,ny,nz),ngz)* idx(0,q);
             } ; 
 
             auto const fd_der_y = [&] ()
             {
-                  return grace::detail::fd_der_bnd_check_recursive<1,1,1>::template doit<2>(var, VEC(i,j,k),VEC(nx,ny,nz),ngz)* idx(1,q); 
+                  return 0.5 * (var(VEC(i,j+1,k)) - var(VEC(i,j-1,k))) * idx(1,q) ; 
+                  //return grace::detail::fd_der_bnd_check_recursive<1,1,1>::template doit<2>(var, VEC(i,j,k),VEC(nx,ny,nz),ngz)* idx(1,q); 
             } ; 
 
             auto const fd_der_z = [&] ()
             {
-                  return grace::detail::fd_der_bnd_check_recursive<1,1,2>::template doit<2>(var, VEC(i,j,k),VEC(nx,ny,nz),ngz)* idx(2,q);
+                  return 0.5 * (var(VEC(i,j,k+1)) - var(VEC(i,j,k-1))) * idx(1,q) ; 
+                  //return grace::detail::fd_der_bnd_check_recursive<1,1,2>::template doit<2>(var, VEC(i,j,k),VEC(nx,ny,nz),ngz)* idx(2,q);
             } ; 
 
             if ( dx == 0 ) {

@@ -227,17 +227,6 @@ void fill_physical_boundaries(
         PHI, 1., 1.
     ) ;
 
-    // Gamma 
-    apply_sommerfeld_bc(
-        GAMMAX, 0., 1.
-    ) ;
-    apply_sommerfeld_bc(
-        GAMMAY, 0., 1.
-    ) ;   
-    apply_sommerfeld_bc(
-        GAMMAZ, 0., 1.
-    ) ;  
-
     // Curvature trace 
     apply_sommerfeld_bc(
         K, 0., 1.
