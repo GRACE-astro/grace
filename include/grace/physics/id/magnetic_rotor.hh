@@ -129,18 +129,19 @@ struct magnetic_rotor_id_t {
         id.phi_glm = 0.;
         #endif 
  
-        double const r = Kokkos::sqrt(EXPR(
-            math::int_pow<2>(x),
-          + math::int_pow<2>(y),
-          + math::int_pow<2>(z)
-        )) ; 
-        
+        // double const r = Kokkos::sqrt(EXPR(
+        //     math::int_pow<2>(x),
+        //   + math::int_pow<2>(y),
+        // //   + math::int_pow<2>(z) what an idiotic error was here.. .
+        // )) ; 
+        double const r = Kokkos::sqrt(math::int_pow<2>(x) + math::int_pow<2>(y)); 
+
         double const phi = Kokkos::atan2(y, x);
 
         const double Omega = 9.95;
         const double vel_norm = r * Omega;
         // initialize the hydro state
-        if(r < 0.1){
+        if(r <= 0.1){
             id.rho   = _rho_in;
             id.vx =  -vel_norm * Kokkos::sin(phi);
             id.vy =   vel_norm * Kokkos::cos(phi);

@@ -241,8 +241,6 @@ struct grmhd_equations_system_t
             prims[RHOL] * ( 1 + prims[EPSL] ) + prims[PRESSL] + b2 ; 
         double const P_plus_half_b2 = 
             prims[PRESSL] + 0.5 * b2 ; 
-        /* Compute comoving magnetic field (0 for now)                                                     */
-        //std::array<double,4> smallb{0,0,0,0} ; 
         
         /* Compute the Eulerian 3-velocity */
         double const one_over_alp = 1./metric.alp() ;
@@ -504,6 +502,7 @@ struct grmhd_equations_system_t
 
 	#ifdef GRACE_DO_MHD
         #ifdef GRACE_ENABLE_B_FIELD_GLM
+        /* In flat spacetime, this term is the only source term in the WHOLE GLM subsystem that is non-zero */
         /* Add the final GLM Phi source term:  -sqrtgamma * alp * kappa * phi */
         const double kappa_glm = 1.0;
         state_new(VEC(i,j,k),PHIG_GLM_,q) -= alpha_sqrtgamma_dt * kappa_glm * prims[PHI_GLML]; 
@@ -668,11 +667,9 @@ struct grmhd_equations_system_t
         double dummy = _eos.press_h_csnd2__temp_rho_ye( h, csnd2, prims[TEMPL]
                                                       , prims[RHOL], prims[YEL], err ) ;
         /* Compute magnetosonic speed */
-        //double const b2{0.} ;
         double const b2 = compute_b2(prims,metric) ;
         /* Compute Alfven speed            */
         double const v_A_sq = b2 / ( b2 + prims[RHOL]*h) ; 
-        //double const v_A_sq = 0. ; // b2 / ( b2 + prims[RHOL]*h) ; 
         double const v02 = v_A_sq + csnd2 * ( 1. - v_A_sq ) ;
         /* Find maximum eigenvalue (amongst all directions) */
         double cmax {0}; 
@@ -1292,17 +1289,14 @@ struct grmhd_equations_system_t
 
         /* Compute small b */
         /* Compute smallb2 on the left and right interface */
+        /* primLR that enter this routine contain the coordinate (not Eulerian velocities, so we convert inside)*/
         const double b2l = compute_b2(primL,metric_face) ;
         const double b2r = compute_b2(primR,metric_face) ;
-       // std::array<double,4> smallbL{0,0,0,0}, smallbR{0,0,0,0} ; 
-        //double b2l{0.}, b2r{0.}; 
-        //compute_smallb(smallbL, b2l, primL, metric_face) ; 
-        //compute_smallb(smallbR, b2r, primR, metric_face) ; 
         /* Compute smallb on the left and right interface */
         std::array<double,4> smallbL{0.,0.,0.,0.};
         std::array<double,4> smallbR{0.,0.,0.,0.};
 
-        /* Compute comoving magnetic field  on both intefaces       */
+        /* Compute comoving magnetic field on both intefaces       */
         get_smallb_from_eulerianB(metric_face, {primL[BXL],primL[BYL],primL[BZL]},
                                                {vNL[0], vNL[1], vNL[2]},
                                                 smallbL
@@ -1639,6 +1633,7 @@ struct grmhd_equations_system_t
 
         if(idir==0){ //longitudinal mode
             f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,cmin_DC,cmax_DC) ;  // actually, instead of 1.0, this should be 1 - beta^x / alpha
+            // f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,1.0,1.0) ;  // actually, instead of 1.0, this should be 1 - beta^x / alpha
         }
         else{  // transverse mode
             f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,cmin,cmax) ; 
@@ -1668,6 +1663,7 @@ struct grmhd_equations_system_t
 
         if(idir==1){ // flux_dir = B_dir --- longitudinal component 
             f[BGYL] = solver(fl,fr,bhat_y_l,bhat_y_r,cmin_DC,cmax_DC) ;
+            // f[BGYL] = solver(fl,fr,bhat_y_l,bhat_y_r,1.0,1.0) ;
         }
         else{
             f[BGYL] = solver(fl,fr,bhat_y_l,bhat_y_r,cmin,cmax) ; 
@@ -1698,6 +1694,7 @@ struct grmhd_equations_system_t
 
         if(idir==2){ // flux_dir = B_dir --- longitudinal component 
             f[BGZL] = solver(fl,fr,bhat_z_l,bhat_z_r,cmin_DC,cmax_DC) ;
+            // f[BGZL] = solver(fl,fr,bhat_z_l,bhat_z_r,1.0,1.0) ;
         }
         else{
             f[BGZL] = solver(fl,fr,bhat_z_l,bhat_z_r,cmin,cmax) ;
@@ -1726,6 +1723,7 @@ struct grmhd_equations_system_t
         // f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,cmin,cmax) ; 
         // always a maximal speed for the divergence cleaning mode  
         f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,cmin_DC,cmax_DC) ; 
+        // f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,1.0,1.0) ; 
 
 
         #endif 
