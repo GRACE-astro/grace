@@ -74,7 +74,8 @@ grmhd: {
   boosted_loop_advection_rho: 1.0,
   boosted_loop_advection_press: 10.0,
   boosted_loop_advection_beta0 : 0.01,
-  boosted_loop_advection_vc : 0.5
+  boosted_loop_advection_vc : 0.5,
+  boosted_loop_advection_compensate_shift : false
 }
 
 eos: {

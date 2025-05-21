@@ -413,7 +413,8 @@ void set_grmhd_initial_data() {
         auto const press    = get_param<double>("grmhd","boosted_loop_advection_press") ;
         auto const beta0    = get_param<double>("grmhd","boosted_loop_advection_beta0") ;
         auto const vc    = get_param<double>("grmhd","boosted_loop_advection_vc") ;
-        set_grmhd_initial_data_impl<eos_t,boosted_loop_advection_mhd_id_t<eos_t>>(rho,press,beta0,vc) ;
+        bool compensate    = get_param<bool>("grmhd","boosted_loop_advection_compensate_shift") ;
+        set_grmhd_initial_data_impl<eos_t,boosted_loop_advection_mhd_id_t<eos_t>>(rho,press,beta0,vc,compensate) ;
         Kokkos::fence() ; 
         GRACE_TRACE("Done with Boosted Loop Advection MHD ID.") ;  
     }
