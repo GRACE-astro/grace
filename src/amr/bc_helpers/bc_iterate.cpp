@@ -93,7 +93,9 @@ void grace_iterate_faces( p4est_iter_face_info_t * info
             grace_phys_bc_info_t this_face_info{} ; 
             fill_bc_info(sides[0].is.full.quadid, sides[0].face, this_face_info) ;
             physical_boundary_info.push_back(this_face_info); 
+            GRACE_VERBOSE_FMT("Phys grid face {}.", this_face_info) ; 
         }
+        
         return ; 
     }
     /***************************************************/
@@ -350,6 +352,7 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
             info.dir_x = edges_directions[0][edge] ; 
             info.dir_y = edges_directions[1][edge] ;
             info.dir_z = edges_directions[2][edge] ; 
+            info.edge = edge ; 
         } ; 
         /* This means that we are on the grid edge */
         /* We store this information as simple     */
@@ -368,7 +371,9 @@ void grace_iterate_edges( p8est_iter_edge_info_t * info
                 grace_phys_bc_info_t this_edge_info {} ;
                 fill_bc_info_edge(sides[0].is.full.quadid, sides[0].edge, offset, this_edge_info) ; 
                 physical_boundary_info.push_back(this_edge_info) ;
+                GRACE_VERBOSE_FMT("Physiscal grid edge {}.", this_edge_info) ; 
             }
+            
         }
         edge_info.n_exterior_edges ++ ; 
         return ; 
@@ -612,6 +617,7 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
             info.dir_x = (((corner >> 0) & 1) == 0) ? -1 : +1 ; 
             info.dir_y = (((corner >> 1) & 1) == 0) ? -1 : +1 ; 
             info.dir_z = (((corner >> 2) & 1) == 0) ? -1 : +1 ;
+            info.corner = corner ; 
         } ; 
         /* This means that we are on the grid edge */
         if ( nsides == 1 ) {
@@ -623,6 +629,7 @@ void grace_iterate_corners( p4est_iter_corner_info_t * info
             physical_boundary_info.push_back(
                 info
             ) ; 
+            GRACE_VERBOSE_FMT("Physical grid corner {}.",info) ;
         }        
         // Since this was a physical boundary we return now.
         return ; 

@@ -22,7 +22,7 @@ amr: {
 IO: {
   volume_output_cell_variables: ["alp","gamma_tilde[2,2]","K", "phi", "beta[0]", "H", "GammaU[0]"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 100,
+  volume_output_every: 10,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
@@ -87,5 +87,5 @@ checkpoints: {
 }
 
 bssn: {
-  eps: 0.2
+  epsdiss: 0.2
 }

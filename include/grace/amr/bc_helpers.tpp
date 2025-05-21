@@ -96,145 +96,137 @@ void apply_phys_bc(
   /* below in the loop over edges everything is serial  */
   /* for convenience                                    */
   /******************************************************/
-  MDRangePolicy< IndexType<int>
-               , grace::default_execution_space 
-               , Rank<GRACE_NSPACEDIM> > 
-    policy( {VECD(0,0), 0}, {VECD(nx+2*ngz,ny+2*ngz), n_faces}) ;
   parallel_for(
-    GRACE_EXECUTION_TAG("AMR","impose_face_physical_BC"),
-    policy,
-    KOKKOS_LAMBDA( VECD(int const i, int const j), int const iface ) 
-    {
-        EXPR(
-        int8_t const dx = d_face_info(iface).dir_x ;, 
-        int8_t const dy = d_face_info(iface).dir_y ;, 
-        int8_t const dz = d_face_info(iface).dir_z ;
-        )
-        int64_t iq     = d_face_info(iface).qid    ;
-        int8_t face    = d_face_info(iface).face   ;
+  GRACE_EXECUTION_TAG("AMR", "impose_face_physical_BC"),
+  MDRangePolicy<IndexType<int>, grace::default_execution_space, Rank<GRACE_NSPACEDIM>>(
+      {VECD(0, 0), 0},
+      {VECD(nx + 2 * ngz, ny + 2 * ngz), n_faces}),
+    KOKKOS_LAMBDA(VECD(int const i, int const j), int const iface) {
 
-        int const lmin = (face%2==0) * (ngz-1) + (face%2==1) * (nx+ngz) ; 
-        int const lmax = (face%2==0) * (-1)    + (face%2==1) * (nx+2*ngz) ;
-        int const idir = (face%2==0) * (-1)    + (face%2==1) * (+1) ;  
+    // Load face info once
+    auto face_info = d_face_info(iface);
 
-        int const faceb2{ face / 2 } ; 
-        
-        for( int ig=lmin; ig!=lmax; ig+=idir ) {
-          int const I = (faceb2==0) * ig + (faceb2!=0) * i ; 
-          int const J = (faceb2==1) * ig + (faceb2==0) * i + (faceb2==2) * j ; 
-          int const K = (faceb2==2) * ig + (faceb2!=2) * j ;  
-          bc_kernel.template apply<decltype(dst)>(dst, src, VEC(I,J,K), VEC(dx,dy,dz), iq) ;
-        }
+    int8_t dir[3] = { face_info.dir_x, face_info.dir_y, face_info.dir_z };
+    int64_t iq = face_info.qid;
+    int8_t face = face_info.face;
+    int faceb2 = face / 2;  // face index divided by 2: 0 for x, 1 for y, 2 for z
+
+    // Compute sweep range in normal direction
+    int lmin, lmax, idir;
+    auto compute_bounds = [](int face, int ngz, int n, int& lmin, int& lmax, int& idir) {
+      if (face % 2 == 0) {  // negative side
+        lmin = ngz - 1;
+        lmax = -1;
+        idir = -1;
+      } else {              // positive side
+        lmin = n + ngz;
+        lmax = n + 2 * ngz;
+        idir = +1;
+      }
+    };
+
+    compute_bounds(face, ngz, (faceb2 == 0 ? nx : (faceb2 == 1 ? ny : nz)), lmin, lmax, idir);
+
+    for (int ig = lmin; ig != lmax; ig += idir) {
+      // Reconstruct full 3D index depending on face orientation
+      int I = (faceb2 == 0) ? ig : i;
+      int J = (faceb2 == 1) ? ig : (faceb2 == 0 ? i : j);
+      int K = (faceb2 == 2) ? ig : j;
+
+      bc_kernel.template apply<decltype(dst)>(
+        dst, src, VEC(I, J, K), VEC(dir[0], dir[1], dir[2]), iq);
     }
-  ); 
+  });
 
   /* Edges */
   int const n_edges = edge_info.size() ; 
   auto& d_edge_info = edge_info.d_view ;
   
   parallel_for(
-    GRACE_EXECUTION_TAG("AMR","impose_edge_physical_BC"),
-    n_edges,
-    KOKKOS_LAMBDA( int const iedge ) 
-    {
-        int const lbnd[3] = {
-          nx + ngz,
-          ny + ngz,
-          nz + ngz 
-        } ;
-        int const ubnd[3] = {
-          nx + 2*ngz,
-          ny + 2*ngz,
-          nz + 2*ngz 
-        } ; 
+  GRACE_EXECUTION_TAG("AMR", "impose_edge_physical_BC"),
+  n_edges,
+  KOKKOS_LAMBDA(int const iedge) {
 
-        int dir[3] = {
-          d_edge_info(iedge).dir_x,
-          d_edge_info(iedge).dir_y, 
-          d_edge_info(iedge).dir_z 
-        } ; 
-        
-        int lmin[3], lmax[3], idir[3] ;
-        for( int dd=0; dd<3; ++dd) {
-          if (dir[dd] < 0) {
-            lmin[dd] = ngz-1 ; 
-            lmax[dd] = -1    ; // the loop goes til ig != lmax 
-            idir[dd] = -1  ; 
-          } else if ( dir[dd] > 0 ) {
-            lmin[dd] = lbnd[dd]   ;
-            lmax[dd] = ubnd[dd]   ;
-            idir[dd] = +1 ;
-          } else {
-            lmin[dd] = 0          ;
-            lmax[dd] = ubnd[dd]   ;
-            idir[dd] = +1 ;
-          }
-        }     
-        int64_t iq     = d_edge_info(iedge).qid    ;
+    // Load edge metadata once
+    auto edge = d_edge_info(iedge);
 
-        for( int ig=lmin[0]; ig!=lmax[0]; ig+=idir[0] ) 
-        for( int jg=lmin[1]; jg!=lmax[1]; jg+=idir[1] ) 
-        for( int kg=lmin[2]; kg!=lmax[2]; kg+=idir[2] )
-        { 
-          bc_kernel.template apply<decltype(dst)>(dst, src, VEC(ig,jg,kg), VEC(dir[0],dir[1],dir[2]), iq) ;
-        }
+    // Outward normal direction
+    int8_t dir[3] = { edge.dir_x, edge.dir_y, edge.dir_z };
+    int64_t iq = edge.qid;
+
+    // Loop bounds
+    int lmin[3], lmax[3], idir[3];
+
+    // Compute loop bounds per direction
+    auto compute_bounds = [](int8_t dir, int ngz, int n, int& lmin, int& lmax, int& idir) {
+      if (dir < 0) {
+        lmin = ngz - 1;
+        lmax = -1;
+        idir = -1;
+      } else if (dir > 0) {
+        lmin = n + ngz;
+        lmax = n + 2 * ngz;
+        idir = +1;
+      } else {
+        lmin = 0;
+        lmax = n + 2 * ngz;
+        idir = +1;
+      }
+    };
+
+    compute_bounds(dir[0], ngz, nx, lmin[0], lmax[0], idir[0]);
+    compute_bounds(dir[1], ngz, ny, lmin[1], lmax[1], idir[1]);
+    compute_bounds(dir[2], ngz, nz, lmin[2], lmax[2], idir[2]);
+
+    // Apply BC across all ghost zones along the edge
+    for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0])
+    for (int jg = lmin[1]; jg != lmax[1]; jg += idir[1])
+    for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2]) {
+      bc_kernel.template apply<decltype(dst)>(
+        dst, src, VEC(ig, jg, kg), VEC(dir[0], dir[1], dir[2]), iq);
     }
-  ) ; 
+  });
   
   /* Corners */
   int const n_corner  = corner_info.size() ; 
   auto& d_corner_info = corner_info.d_view ;
-;
+
   parallel_for(
-    GRACE_EXECUTION_TAG("AMR","impose_corner_physical_BC"),
-    n_corner,
-    KOKKOS_LAMBDA( int const icorner ) 
-    {
+  GRACE_EXECUTION_TAG("AMR", "impose_corner_physical_BC"),
+  n_corner,
+  KOKKOS_LAMBDA(int const icorner) {
+    auto corner = d_corner_info(icorner);
 
-      int const lbnd[3] = {
-        nx + ngz,
-        ny + ngz,
-        nz + ngz 
-      } ;
-      int const ubnd[3] = {
-        nx + 2*ngz,
-        ny + 2*ngz,
-        nz + 2*ngz 
-      } ; 
+    int8_t dir[GRACE_NSPACEDIM] = { VEC(corner.dir_x, corner.dir_y, corner.dir_z) };
+    int64_t iq = corner.qid;
 
-      int dir[3] = {
-        d_corner_info(icorner).dir_x,
-        d_corner_info(icorner).dir_y, 
-        d_corner_info(icorner).dir_z 
-      } ; 
-      
-      int lmin[GRACE_NSPACEDIM], lmax[GRACE_NSPACEDIM], idir[GRACE_NSPACEDIM] ;
-      for( int dd=0; dd<GRACE_NSPACEDIM; ++dd) {
-        if (dir[dd] < 0) {
-          lmin[dd] = ngz-1 ; 
-          lmax[dd] = -1    ; // the loop goes til ig != lmax 
-          idir[dd] = -1  ; 
-        } else if ( dir[dd] > 0 ) {
-          lmin[dd] = lbnd[dd]   ;
-          lmax[dd] = ubnd[dd]   ;
-          idir[dd] = +1 ;
-        } else {
-          lmin[dd] = 0          ;
-          lmax[dd] = ubnd[dd]   ;
-          idir[dd] = +1 ;
-        }
-      } 
-        
-      int64_t iq     = d_corner_info(icorner).qid       ;
+    int lmin[GRACE_NSPACEDIM], lmax[GRACE_NSPACEDIM], idir[GRACE_NSPACEDIM];
 
-      EXPR( for( int ig=lmin[0]; ig!=lmax[0]; ig+=idir[0]), 
-            for( int jg=lmin[1]; jg!=lmax[1]; jg+=idir[1]), 
-            for( int kg=lmin[2]; kg!=lmax[2]; kg+=idir[2])) 
-      {
-        bc_kernel.template apply<decltype(dst)>(dst, src, VEC(ig,jg,kg), VEC(dir[0],dir[1],dir[2]), iq) ;
+    auto compute_bounds = [](int8_t dir, int ngz, int n, int& lmin, int& lmax, int& idir) {
+      if (dir < 0) {
+        lmin = ngz - 1; lmax = -1; idir = -1;
+      } else if (dir > 0) {
+        lmin = n + ngz; lmax = n + 2 * ngz; idir = +1;
+      } else {
+        // This should not happen!
+        printf("Problems!") ; 
       }
+    };
+
+    compute_bounds(dir[0], ngz, nx, lmin[0], lmax[0], idir[0]);
+    compute_bounds(dir[1], ngz, ny, lmin[1], lmax[1], idir[1]);
+    #ifdef GRACE_3D
+    compute_bounds(dir[2], ngz, nz, lmin[2], lmax[2], idir[2]);
+    #endif
+
+    EXPR(for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0]),
+    for (int jg = lmin[1]; jg != lmax[1]; jg += idir[1]),
+    for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2]))
+    {
+      bc_kernel.template apply<decltype(dst)>(
+        dst, src, VEC(ig, jg, kg), VEC(dir[0], dir[1], dir[2]), iq);
     }
-  ); 
+  });
 }
 
 }}

@@ -38,6 +38,9 @@
 #include <vector> 
 #include <set> 
 
+//#include <fmt/format.h>  // Included transitively by spdlog
+#include <spdlog/fmt/fmt.h>
+
 namespace grace { namespace amr {
 /**
  * @brief Struct containing information about
@@ -321,5 +324,27 @@ void apply_boundary_conditions( grace::var_array_t<GRACE_NSPACEDIM>& vars
 
 
 }} /* namespace grace::amr */
+
+
+template <>
+struct fmt::formatter<grace::amr::grace_phys_bc_info_t> {
+    constexpr auto parse(format_parse_context& ctx) {
+        return ctx.begin(); // no custom format parsing
+    }
+
+    template <typename FormatContext>
+    auto format(const grace::amr::grace_phys_bc_info_t& bc, FormatContext& ctx) {
+        return format_to(ctx.out(),
+            "grace_phys_bc_info_t(qid={}, dir=[{},{},{}], face={}, edge={}, corner={})",
+            bc.qid, 
+            static_cast<int>(bc.dir_x), 
+            static_cast<int>(bc.dir_y), 
+            static_cast<int>(bc.dir_z), 
+            static_cast<int>(bc.face), 
+            static_cast<int>(bc.edge), 
+            static_cast<int>(bc.corner) );
+    }
+};
+
 
 #endif /* GRACE_AMR_BC_HH */

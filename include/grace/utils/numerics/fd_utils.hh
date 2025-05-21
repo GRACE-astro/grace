@@ -462,6 +462,7 @@ struct fd_der_bnd_check_recursive {
       } else if ( ((imax[idir]-ijk[idir]) >= order / 2 - 3) and ((order / 2 - 3) >= 0) ) { 
         return stencil<order,der_order,LEFT_SIDED_STENCIL,3>::template apply<idir>(f, VEC(i,j,k)) ;
       } else {
+        printf("fd_der_bnd_check_recursive: no valid stencil at (%d,%d,%d) in dir %zu\n", i, j, k, idir);
         return std::numeric_limits<double>::quiet_NaN() ; 
       }
       

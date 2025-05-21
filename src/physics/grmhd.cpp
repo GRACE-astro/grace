@@ -367,7 +367,7 @@ void set_grmhd_initial_data() {
             gen, rho
         ) ;
     } else if ( id_type == "puncture" ) {
-      double const mass = 0 ; 
+      double const mass = 1.0 ; 
       set_grmhd_initial_data_impl<eos_t,puncture_id_t<eos_t>>(
           mass
       ) ;

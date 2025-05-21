@@ -24,7 +24,7 @@ amr: {
 IO: {
   volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]", "alp", "H", "gamma_tilde[0,0]"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 1000,
+  volume_output_every: 10,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
@@ -61,7 +61,9 @@ grmhd: {
   id_type: "TOV",
   TOV_central_density: 1.28e-03
 }
-
+bssn: {
+  epsdiss: 0.
+}
 eos: {
   eos_type: "hybrid",
   cold_eos_type: "piecewise_polytrope",

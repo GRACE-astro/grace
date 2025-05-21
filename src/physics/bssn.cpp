@@ -394,12 +394,12 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
 
     // BSSN equation for conformal metric d/dt gtij
     std::array<double,6> const betakgammatddk {
-        betaX * fd_der_upwind<der_order,0>(state,GTXX_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaY * fd_der_upwind<der_order,1>(state,GTXX_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,GTXX_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ,
-        betaX * fd_der_upwind<der_order,0>(state,GTXX_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaY * fd_der_upwind<der_order,1>(state,GTXY_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,GTXY_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ,
-        betaX * fd_der_upwind<der_order,0>(state,GTXX_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaY * fd_der_upwind<der_order,1>(state,GTXZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,GTXZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ,
-        betaX * fd_der_upwind<der_order,0>(state,GTXX_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaY * fd_der_upwind<der_order,1>(state,GTYY_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,GTYY_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ,
-        betaX * fd_der_upwind<der_order,0>(state,GTXX_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaY * fd_der_upwind<der_order,1>(state,GTYZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,GTYZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ,
-        betaX * fd_der_upwind<der_order,0>(state,GTXX_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaY * fd_der_upwind<der_order,1>(state,GTZZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,GTZZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) 
+        betaX * fd_der_upwind<der_order,0>(state,GTXX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaY * fd_der_upwind<der_order,1>(state,GTXX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,GTXX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ,
+        betaX * fd_der_upwind<der_order,0>(state,GTXX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaY * fd_der_upwind<der_order,1>(state,GTXY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,GTXY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ,
+        betaX * fd_der_upwind<der_order,0>(state,GTXX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaY * fd_der_upwind<der_order,1>(state,GTXZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,GTXZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ,
+        betaX * fd_der_upwind<der_order,0>(state,GTXX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaY * fd_der_upwind<der_order,1>(state,GTYY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,GTYY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ,
+        betaX * fd_der_upwind<der_order,0>(state,GTXX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaY * fd_der_upwind<der_order,1>(state,GTYZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,GTYZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ,
+        betaX * fd_der_upwind<der_order,0>(state,GTXX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaY * fd_der_upwind<der_order,1>(state,GTZZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,GTZZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) 
     } ; 
     res[GTXXL+0] = -2*alp*Atxx - (2*(-2*betaXdx + betaYdy + betaZdz)*gtxx)/3. + betakgammatddk[0] + 2*betaYdx*gtxy + 2*betaZdx*gtxz;
     res[GTXXL+1] = -2*alp*Atxy + betaXdy*gtxx + ((betaXdx + betaYdy - 2*betaZdz)*gtxy)/3. + betakgammatddk[1] + betaZdy*gtxz + betaYdx*gtyy + betaZdx*gtyz;
@@ -410,12 +410,12 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
 
     // BSSN equation for conformal traceless extrinsic curvature d/dt Atij, note that Dti beta^j =d/dxi beta^j because of unit determinant of conformal metric 
     std::array<double,6> const betakAtddk {
-        betaX * fd_der_upwind<der_order,0>(state,ATXX_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaY * fd_der_upwind<der_order,1>(state,ATXX_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,ATXX_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ,
-        betaX * fd_der_upwind<der_order,0>(state,ATXY_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaY * fd_der_upwind<der_order,1>(state,ATXY_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,ATXY_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ,
-        betaX * fd_der_upwind<der_order,0>(state,ATXZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaY * fd_der_upwind<der_order,1>(state,ATXZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,ATXZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ,
-        betaX * fd_der_upwind<der_order,0>(state,ATYY_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaY * fd_der_upwind<der_order,1>(state,ATYY_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,ATYY_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ,
-        betaX * fd_der_upwind<der_order,0>(state,ATYZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaY * fd_der_upwind<der_order,1>(state,ATYZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,ATYZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ,
-        betaX * fd_der_upwind<der_order,0>(state,ATZZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaY * fd_der_upwind<der_order,1>(state,ATZZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,ATZZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) 
+        betaX * fd_der_upwind<der_order,0>(state,ATXX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaY * fd_der_upwind<der_order,1>(state,ATXX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,ATXX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ,
+        betaX * fd_der_upwind<der_order,0>(state,ATXY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaY * fd_der_upwind<der_order,1>(state,ATXY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,ATXY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ,
+        betaX * fd_der_upwind<der_order,0>(state,ATXZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaY * fd_der_upwind<der_order,1>(state,ATXZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,ATXZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ,
+        betaX * fd_der_upwind<der_order,0>(state,ATYY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaY * fd_der_upwind<der_order,1>(state,ATYY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,ATYY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ,
+        betaX * fd_der_upwind<der_order,0>(state,ATYZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaY * fd_der_upwind<der_order,1>(state,ATYZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,ATYZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ,
+        betaX * fd_der_upwind<der_order,0>(state,ATZZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaY * fd_der_upwind<der_order,1>(state,ATZZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) + betaZ * fd_der_upwind<der_order,2>(state,ATZZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) 
     } ; 
     res[ATXXL+0] = betakAtddk[0] + 2*Atxx*betaXdx + 2*Atxy*betaYdx + 2*Atxz*betaZdx - (2*Atxx*(betaXdx + betaYdy + betaZdz))/3. - alp*(2*(Atxx*Atxx)*gtXX + 4*Atxx*Atxy*gtXY + 4*Atxx*Atxz*gtXZ + 2*(Atxy*Atxy)*gtYY + 4*Atxy*Atxz*gtYZ + 2*(Atxz*Atxz)*gtZZ - Atxx*K) + (exp(-4.*phi)*(-3*DiDjalpxx + DDalp*gtxx + alp*(3*RTFxx - 24*pi*Sxx + 8*gtxx*pi*S*exp(4.*phi))))/3.;
     res[ATXXL+1] = betakAtddk[1] + Atxy*betaXdx + Atxx*betaXdy + Atyy*betaYdx + Atxy*betaYdy  + Atyz*betaZdx + Atxz*betaZdy - (2*Atxy*(betaXdx + betaYdy + betaZdz))/3. + alp*(-2*(Atxy*Atxy*gtXY + Atxy*Atxz*gtXZ + Atxx*(Atxy*gtXX + Atyy*gtXY + Atyz*gtXZ) + Atxy*Atyy*gtYY + Atxz*Atyy*gtYZ + Atxy*Atyz*gtYZ + Atxz*Atyz*gtZZ) + Atxy*K) + (exp(-4.*phi)*(-3*DiDjalpxy + DDalp*gtxy + alp*(3*RTFxy - 24*pi*Sxy + 8*gtxy*pi*S*exp(4.*phi))))/3.;
@@ -425,27 +425,27 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     res[ATXXL+5] = betakAtddk[5] + 2*Atxz*betaXdz + 2*Atyz*betaYdz + 2*Atzz*betaZdz - (2*Atzz*(betaXdx + betaYdy + betaZdz))/3. + alp*(-2*(Atxz*Atxz*gtXX + 2*Atxz*(Atyz*gtXY + Atzz*gtXZ) + Atyz*Atyz*gtYY + 2*Atyz*Atzz*gtYZ + Atzz*Atzz*gtZZ) + Atzz*K) + (exp(-4.*phi)*(-3*DiDjalpzz + DDalp*gtzz + alp*(3*RTFzz - 24*pi*Szz + 8*gtzz*pi*S*exp(4.*phi))))/3.;
 
     // BSSN equation for conformal factor d/dt phi
-    double const betakdphidk = betaX * fd_der_upwind<der_order,0>(state,PHI_,VEC(i,j,k),q,{betaX,betaY,betaZ})
-                             + betaY * fd_der_upwind<der_order,1>(state,PHI_,VEC(i,j,k),q,{betaX,betaY,betaZ})
-                             + betaZ * fd_der_upwind<der_order,2>(state,PHI_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ; 
+    double const betakdphidk = betaX * fd_der_upwind<der_order,0>(state,PHI_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ})
+                             + betaY * fd_der_upwind<der_order,1>(state,PHI_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ})
+                             + betaZ * fd_der_upwind<der_order,2>(state,PHI_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ; 
     res[PHIL] = (betaXdx + betaYdy + betaZdz - alp*K)/6. + betakdphidk;
 
     // BSSN equation for conformal extrinsic curvature trace d/dt K
-    double const betakdKdk   = betaX * fd_der_upwind<der_order,0>(state,K_,VEC(i,j,k),q,{betaX,betaY,betaZ})
-                             + betaY * fd_der_upwind<der_order,1>(state,K_,VEC(i,j,k),q,{betaX,betaY,betaZ})
-                             + betaZ * fd_der_upwind<der_order,2>(state,K_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ; 
+    double const betakdKdk   = betaX * fd_der_upwind<der_order,0>(state,K_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ})
+                             + betaY * fd_der_upwind<der_order,1>(state,K_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ})
+                             + betaZ * fd_der_upwind<der_order,2>(state,K_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ; 
     res[KL] = betakdKdk + alp*(Atxx*AtXX + 2*Atxy*AtXY + 2*Atxz*AtXZ + Atyy*AtYY + 2*Atyz*AtYZ + Atzz*AtZZ + (K*K)/3. + 4*pi*(EE + S)) + (-(alpdxdx*gtXX) + alpdy*GammatYxx*gtXX + alpdz*GammatZxx*gtXX - 2*alpdxdy*gtXY + 2*alpdy*GammatYxy*gtXY + 2*alpdz*GammatZxy*gtXY - 2*alpdxdz*gtXZ + 2*alpdy*GammatYxz*gtXZ + 2*alpdz*GammatZxz*gtXZ - alpdydy*gtYY + alpdy*GammatYyy*gtYY + alpdz*GammatZyy*gtYY - 2*alpdydz*gtYZ + 2*alpdy*GammatYyz*gtYZ + 2*alpdz*GammatZyz*gtYZ - alpdzdz*gtZZ + alpdy*GammatYzz*gtZZ + alpdz*GammatZzz*gtZZ - 2*alpdy*gtXY*phidx - 2*alpdz*gtXZ*phidx - 2*alpdy*gtYY*phidy - 2*alpdz*gtYZ*phidy - 2*alpdy*gtYZ*phidz - 2*alpdz*gtZZ*phidz + alpdx*(GammatXxx*gtXX + 2*GammatXxy*gtXY + 2*GammatXxz*gtXZ + GammatXyy*gtYY + 2*GammatXyz*gtYZ + GammatXzz*gtZZ - 2*gtXX*phidx - 2*gtXY*phidy - 2*gtXZ*phidz))*exp(-4.*phi);
 
     // BSSN equation for contracted conformal Christoffels d/dt Gammatu
-    double const betakdGammaXdk = betaX * fd_der_upwind<der_order,0>(state,GAMMAX_,VEC(i,j,k),q,{betaX,betaY,betaZ})
-                                + betaY * fd_der_upwind<der_order,1>(state,GAMMAX_,VEC(i,j,k),q,{betaX,betaY,betaZ})
-                                + betaZ * fd_der_upwind<der_order,2>(state,GAMMAX_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ; 
-    double const betakdGammaYdk = betaX * fd_der_upwind<der_order,0>(state,GAMMAY_,VEC(i,j,k),q,{betaX,betaY,betaZ})
-                                + betaY * fd_der_upwind<der_order,1>(state,GAMMAY_,VEC(i,j,k),q,{betaX,betaY,betaZ})
-                                + betaZ * fd_der_upwind<der_order,2>(state,GAMMAY_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ; 
-    double const betakdGammaZdk = betaX * fd_der_upwind<der_order,0>(state,GAMMAZ_,VEC(i,j,k),q,{betaX,betaY,betaZ})
-                                + betaY * fd_der_upwind<der_order,1>(state,GAMMAZ_,VEC(i,j,k),q,{betaX,betaY,betaZ})
-                                + betaZ * fd_der_upwind<der_order,2>(state,GAMMAZ_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ; 
+    double const betakdGammaXdk = betaX * fd_der_upwind<der_order,0>(state,GAMMAX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ})
+                                + betaY * fd_der_upwind<der_order,1>(state,GAMMAX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ})
+                                + betaZ * fd_der_upwind<der_order,2>(state,GAMMAX_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ; 
+    double const betakdGammaYdk = betaX * fd_der_upwind<der_order,0>(state,GAMMAY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ})
+                                + betaY * fd_der_upwind<der_order,1>(state,GAMMAY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ})
+                                + betaZ * fd_der_upwind<der_order,2>(state,GAMMAY_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ; 
+    double const betakdGammaZdk = betaX * fd_der_upwind<der_order,0>(state,GAMMAZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ})
+                                + betaY * fd_der_upwind<der_order,1>(state,GAMMAZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ})
+                                + betaZ * fd_der_upwind<der_order,2>(state,GAMMAZ_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ; 
     res[GAMMAXL+0] = (-6*alpdx*AtXX - 6*alpdy*AtXY - 6*alpdz*AtXZ - betaXdx*GammatX + 2*betaYdy*GammatX + 2*betaZdz*GammatX + 3*betakdGammaXdk - 3*betaXdy*GammatY - 3*betaXdz*GammatZ + 4*betaXdxdx*gtXX + betaYdxdy*gtXX + betaZdxdz*gtXX + 7*betaXdxdy*gtXY + betaYdydy*gtXY + betaZdydz*gtXY + 7*betaXdxdz*gtXZ + betaYdydz*gtXZ + betaZdzdz*gtXZ + 3*betaXdydy*gtYY + 6*betaXdydz*gtYZ + 3*betaXdzdz*gtZZ + 2*alp*(6*AtXZ*GammatXxz + 3*AtYY*GammatXyy + 6*AtYZ*GammatXyz + 3*AtZZ*GammatXzz - 2*gtXX*Kdx - 2*gtXY*Kdy - 2*gtXZ*Kdz + 3*AtXX*(GammatXxx + 6*phidx) + 6*AtXY*(GammatXxy + 3*phidy) + 18*AtXZ*phidz - 24*gtXX*pi*Sx - 24*gtXY*pi*Sy - 24*gtXZ*pi*Sz))/3.;
     res[GAMMAXL+1] = (-6*alpdx*AtXY - 6*alpdy*AtYY - 6*alpdz*AtYZ - 3*betaYdx*GammatX + 2*betaXdx*GammatY - betaYdy*GammatY + 2*betaZdz*GammatY + 3*betakdGammaYdk - 3*betaYdz*GammatZ + 3*betaYdxdx*gtXX + betaXdxdx*gtXY + 7*betaYdxdy*gtXY + betaZdxdz*gtXY + 6*betaYdxdz*gtXZ + betaXdxdy*gtYY + 4*betaYdydy*gtYY + betaZdydz*gtYY + betaXdxdz*gtYZ + 7*betaYdydz*gtYZ + betaZdzdz*gtYZ + 3*betaYdzdz*gtZZ + 2*alp*(3*AtXX*GammatYxx + 6*AtXZ*GammatYxz + 3*AtYY*GammatYyy + 6*AtYZ*GammatYyz + 3*AtZZ*GammatYzz - 2*gtXY*Kdx - 2*gtYY*Kdy - 2*gtYZ*Kdz + 6*AtXY*(GammatYxy + 3*phidx) + 18*AtYY*phidy + 18*AtYZ*phidz - 24*gtXY*pi*Sx - 24*gtYY*pi*Sy - 24*gtYZ*pi*Sz))/3.;
     res[GAMMAXL+2] = (-6*alpdx*AtXZ - 6*alpdy*AtYZ - 6*alpdz*AtZZ - 3*betaZdx*GammatX - 3*betaZdy*GammatY + 2*betaXdx*GammatZ + 2*betaYdy*GammatZ - betaZdz*GammatZ + 3*betakdGammaZdk+ 3*betaZdxdx*gtXX + 6*betaZdxdy*gtXY + betaXdxdx*gtXZ + betaYdxdy*gtXZ + 7*betaZdxdz*gtXZ + 3*betaZdydy*gtYY + betaXdxdy*gtYZ + betaYdydy*gtYZ + 7*betaZdydz*gtYZ + betaXdxdz*gtZZ + betaYdydz*gtZZ + 4*betaZdzdz*gtZZ + 2*alp*(3*AtXX*GammatZxx + 6*AtXY*GammatZxy + 6*AtXZ*GammatZxz + 3*AtYY*GammatZyy + 6*AtYZ*GammatZyz + 3*AtZZ*GammatZzz - 2*gtXZ*Kdx - 2*gtYZ*Kdy - 2*gtZZ*Kdz + 18*AtXZ*phidx + 18*AtYZ*phidy + 18*AtZZ*phidz - 24*gtXZ*pi*Sx - 24*gtYZ*pi*Sy - 24*gtZZ*pi*Sz))/3.;
@@ -455,9 +455,9 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     double const GammatZdt = res[GAMMAXL+2] ;
 
     /* 1 + log slicing condition */
-    double const betakdalpdk = betaX * fd_der_upwind<der_order,0>(state,ALP_,VEC(i,j,k),q,{betaX,betaY,betaZ})
-                             + betaY * fd_der_upwind<der_order,1>(state,ALP_,VEC(i,j,k),q,{betaX,betaY,betaZ})
-                             + betaZ * fd_der_upwind<der_order,2>(state,ALP_,VEC(i,j,k),q,{betaX,betaY,betaZ}) ;
+    double const betakdalpdk = betaX * fd_der_upwind<der_order,0>(state,ALP_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ})
+                             + betaY * fd_der_upwind<der_order,1>(state,ALP_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ})
+                             + betaZ * fd_der_upwind<der_order,2>(state,ALP_,VEC(i,j,k),q,{-betaX,-betaY,-betaZ}) ;
     res[ALPL] = betakdalpdk - 2*alp*K;
 
     /* Gamma driver */

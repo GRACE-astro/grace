@@ -177,7 +177,7 @@ void fill_physical_boundaries(
                 , ivar 
                 , Kokkos::ALL() ) ; 
         apply_phys_bc<extrap_bc_t<3>>(
-                dst_var 
+                src_var 
                 , src_var
                 , nx+1,ny+1,nz+1,ngz 
                 , face_phys_bc
@@ -187,7 +187,8 @@ void fill_physical_boundaries(
                 #endif
                 , extrap_bc_t<3>{}
             ) ; 
-            apply_phys_bc<sommerfeld_bc_t>(
+            
+        apply_phys_bc<sommerfeld_bc_t>(
                 dst_var 
             , src_var
             , nx+1,ny+1,nz+1,ngz 
@@ -198,6 +199,7 @@ void fill_physical_boundaries(
             #endif 
             , sommerfeld_bc_t{idx, pcoords, dt, dtfact, f0, v0, VEC(nx+1,ny+1,nz+1) ,ngz}
         ) ;
+         
     } ;
     double const v0_h = sqrt(2.) ;  
     // Metric 
@@ -222,7 +224,7 @@ void fill_physical_boundaries(
 
     // Conffact 
     apply_sommerfeld_bc(
-        PHI, 1., v0_h
+        PHI, 1., 1.
     ) ;
 
     // Gamma 

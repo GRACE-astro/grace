@@ -13,6 +13,7 @@
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <numeric>
+#include <fstream>
 
 #define DBG_GHOSTZONE_TEST 
 
@@ -218,6 +219,19 @@ TEST_CASE("Apply BC", "[boundaries]")
         {VEC(true,true,true)},
         true
     ) ;
+    std::ofstream outfile("test_pre_bc.out") ; 
+
+    host_grid_loop<true>(
+        [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
+            auto pcoords = coord_system.get_physical_coordinates(
+                {VEC(i,j,k)},q,
+                {VEC(0,0,0)},
+                true
+            ) ;
+        outfile << i << ", " << j << ", " << k << ", " << q << ", " << pcoords[0] << ", " << pcoords[1] << ", " << pcoords[2] << ", " << h_corner_mirror(i,j,k,DENS,q) << '\n' ;
+        },
+        {VEC(true,true,true)}, true 
+    ) ; 
     /*************************************************/
     /*                 Copy H2D                      */
     /*************************************************/
@@ -239,7 +253,20 @@ TEST_CASE("Apply BC", "[boundaries]")
     Kokkos::deep_copy(h_corner_mirror_new,sstate.corner_staggered_fields);  
     //std::cout << "Value: " << h_state_mirror_new(0,0,0,0,0) << std::endl ;
     //std::cout << "Other value: " << h_state_mirror_new(2,2,2,0,0) << std::endl ; 
-    std::cout << "Just testing! " << h_state_mirror_new(2,2,2,0,4) << std::endl ; 
+    std::ofstream outfile("test.out") ; 
+
+    host_grid_loop<true>(
+        [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
+            auto pcoords = coord_system.get_physical_coordinates(
+                {VEC(i,j,k)},q,
+                {VEC(0,0,0)},
+                true
+            ) ;
+        outfile << i << ", " << j << ", " << k << ", " << q << ", " << pcoords[0] << ", " << pcoords[1] << ", " << pcoords[2] << ", " << h_corner_mirror_new(i,j,k,DENS,q) << '\n' ;
+        },
+        {VEC(true,true,true)}, true 
+    ) ; 
+
     /*************************************************/
     /*                   Check                       */
     /*************************************************/
