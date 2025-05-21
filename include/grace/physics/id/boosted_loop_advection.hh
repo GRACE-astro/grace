@@ -81,12 +81,14 @@ struct boosted_loop_advection_mhd_id_t {
         , double press
         , double beta0
         , double vc
+        , bool compensate
         )
         : _eos(eos)
         , _pcoords(pcoords)
         , _rho(rho), _press(press)
         , _beta0(beta0)
         , _vc(vc)
+        , _compensate(compensate)
     {} 
     //**************************************************************************************************
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -159,18 +161,21 @@ struct boosted_loop_advection_mhd_id_t {
         const double alphat = 3.8317;
         const double Cconst = 0.01;
 
+        double Bphi = 0.0;
+        double Bz = 0.0;
+        double Br = 0.0;
+
 
         //BFF = c0 alpha(J1(alphaR)^phi_kill + J0(alphaR)^z_kill)
        //----- cylindrical coordinates
-       double Br = 0;
-       double Bphi, Bz;
+       Br = 0;
        if(r<1){
-        Bphi= bessel_J1(alphat*r);
-        Bz = Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*r)) + Cconst);
+         Bphi= bessel_J1(alphat*r);
+         Bz = Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*r)) + Cconst);
        }
        else{
-        Bphi = 0.0;
-        Bz = Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*r)) + Cconst);
+         Bphi = 0.0;
+         Bz = Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*r)) + Cconst);
        }
 
        // ------------------------------
@@ -235,9 +240,13 @@ struct boosted_loop_advection_mhd_id_t {
         id.bz = Bcart[2]; 
         
     
-         // beta=-v ? 
+        // beta=-v ? 
         // set the Minkowski metric 
+        if(_compensate == true){
+        id.betax = - id.vx; id.betay=-id.vy; id.betaz = -id.vz; 
+        }else{
         id.betax = 0; id.betay=0; id.betaz = 0; 
+        }
         //id.betax = sqrt(0.5); id.betay=0; id.betaz = 0; // convergence test
         id.alp = 1 ; 
         id.gxx = 1; id.gyy = 1; id.gzz = 1;
@@ -260,6 +269,7 @@ struct boosted_loop_advection_mhd_id_t {
     eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
     double _rho, _press, _beta0, _vc;                    //!< Left and right states  
+    bool _compensate;
     
     //**************************************************************************************************
 } ; 

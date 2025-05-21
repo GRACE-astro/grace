@@ -429,15 +429,15 @@ struct grmhd_equations_system_t
             // dbetaj_dxi[j] = d_i (beta^j)
             
             // B^x source term
-            // state_new(VEC(i,j,k),BGX_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[0] +\
+            // state_new(VEC(i,j,k),BGX_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[0] +
             //                                                +metric.alp() * invgij[0][idir] * dphi_glm_di  
             //                                                 ) * idx(idir,q);
             // // B^y source term
-            // state_new(VEC(i,j,k),BGY_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[1] +\ 
+            // state_new(VEC(i,j,k),BGY_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[1] +
             //                                                 +metric.alp() * invgij[1][idir] * dphi_glm_di  
             //                                                 ) * idx(idir,q);
             // // B^z source term
-            // state_new(VEC(i,j,k),BGZ_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[2] +\ 
+            // state_new(VEC(i,j,k),BGZ_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[2] + 
             //                                                 +metric.alp() * invgij[2][idir] * dphi_glm_di  
             //                                                 ) * idx(idir,q);
 
