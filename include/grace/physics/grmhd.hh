@@ -235,7 +235,6 @@ struct grmhd_equations_system_t
         }
 
         /* Compute common factors for T^{\mu\nu}                                                          */
-        //double const b2{0.} ; // No B field yet
         double const b2 = compute_b2(prims,metric) ;
         double const rho0_h_plus_b2 = 
             prims[RHOL] * ( 1 + prims[EPSL] ) + prims[PRESSL] + b2 ; 
@@ -670,11 +669,9 @@ struct grmhd_equations_system_t
         double dummy = _eos.press_h_csnd2__temp_rho_ye( h, csnd2, prims[TEMPL]
                                                       , prims[RHOL], prims[YEL], err ) ;
         /* Compute magnetosonic speed */
-        //double const b2{0.} ;
         double const b2 = compute_b2(prims,metric) ;
         /* Compute Alfven speed            */
         double const v_A_sq = b2 / ( b2 + prims[RHOL]*h) ; 
-        //double const v_A_sq = 0. ; // b2 / ( b2 + prims[RHOL]*h) ; 
         double const v02 = v_A_sq + csnd2 * ( 1. - v_A_sq ) ;
         /* Find maximum eigenvalue (amongst all directions) */
         double cmax {0}; 
