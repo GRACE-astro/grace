@@ -175,6 +175,30 @@ struct simple_threshold_criterion {
     }
 } ; 
 
+/**
+* @brief Regrid criterion based on simple (absolute) threshold on grid variable - e.g. BSSN/GLM constraints .
+* \ingroup amr 
+* @tparam ViewT The view type for the grid variable.
+*/
+template< typename ViewT > 
+struct simple_absolute_threshold_criterion {
+
+    ViewT u ; //!< Variable where the criterion is evaluated
+
+    /**
+    * @brief Evaluate regrid criterion.
+    * This function returns the variable at the chosen point.
+    */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    operator()  ( VEC( int const & i 
+                     , int const & j
+                     , int const & k ) 
+                , int const& q ) const 
+    {
+        return std::abs(u(VEC(i,j,k),q)) ; 
+    }
+} ; 
+
 
 }} /* namespace grace::amr */
 

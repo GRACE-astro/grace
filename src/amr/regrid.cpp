@@ -83,6 +83,11 @@ void regrid() {
         evaluate_regrid_criterion(
                   d_regrid_flags
                 , kernel) ;
+    } else if ( ref_criterion == "simple_absolute_threshold" ) {
+        amr::simple_absolute_threshold_criterion<decltype(u)> kernel{ u } ; 
+        evaluate_regrid_criterion(
+                  d_regrid_flags
+                , kernel) ;
     } else if ( ref_criterion == "gradient" ) {
         amr::gradient_criterion<decltype(u)> kernel{ u } ; 
         evaluate_regrid_criterion(

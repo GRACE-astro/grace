@@ -5,12 +5,12 @@ amr: {
   npoints_block_z: 16,
   xmin: -0.5,
   xmax: 0.5,
-  ymin: -0.1,
-  ymax: 0.1,
-  zmin: -0.1,
-  zmax: 0.1,
+  ymin: -0.05,
+  ymax: 0.05,
+  zmin: -0.05,
+  zmax: 0.05,
   n_ghostzones: 2,
-  initial_refinement_level: 0,
+  initial_refinement_level: 1,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
   refinement_criterion_CTODE: 1.,
@@ -43,7 +43,7 @@ IO: {
   hdf5_chunk_size: 8192
 }
 system: {
-  console_log_level: "verbose",
+  console_log_level: "info",
   file_log_level: "trace",
   flush_logs_based_on_severity: true,
   flush_level: "trace"

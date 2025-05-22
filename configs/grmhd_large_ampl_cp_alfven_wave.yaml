@@ -1,0 +1,111 @@
+# Parameter file for a large amplitude circularly polarized Alfven wave
+# https://arxiv.org/pdf/0704.3206 (del Zanna 2007)
+
+# If MHD state set with B0 = 1.0, it produces a large-amplitude circularly polarized Alfven wave of speed v_A = 0.381965
+# setting k=1 sets the wavelength to lambda=2 pi / k = 2 pi, so 1 wavelength fits in the domain
+# frequency of the wave is: f = v_A / lambda 
+# with this, the period is: T = 1/f = lambda / v_A = 2 pi / 0.381965 = 16.449636242 units 
+
+# Alternative setup actually used here
+# for B0 = 1.1547, k=2 pi, leads to v_A = 0.5 
+# (setup in https://arxiv.org/abs/1208.3487 by Dionysopoulou 2013)
+# then, the wave will return to its initial position  at a time: t = l / v_A = 2
+# (assuming that k=2 pi and hence lambda = 1 = L_box)
+
+name: "grace"
+amr: {
+  npoints_block_x: 16,
+  npoints_block_y: 16,
+  npoints_block_z: 16,
+  xmin: -0.5,
+  xmax:  0.5,
+  ymin: -0.5,
+  ymax:  0.5,
+  zmin: -0.5,
+  zmax:  0.5,
+  n_ghostzones: 2,
+  #initial_refinement_level: 3,
+  initial_refinement_level: 4,
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_CTORE: 2.,
+  refinement_criterion_CTODE: 1.,
+  refinement_criterion_var: "U",
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+  periodic_x: true,
+  periodic_y: true,
+  periodic_z: true,
+}
+IO: {
+  # Bug/Feature: 
+  # vel[1]/vel[2] to be specifiable in the future  
+  volume_output_cell_variables: ["eps","rho","press","alp", "vel[0]",
+                              "B[0]", "phi_glm"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: 5,
+  plane_surface_output_cell_variables: [],
+  plane_surface_output_every: -1,
+  sphere_surface_output_every: -1,
+  info_output_every: 10,
+  info_output_max_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
+  info_output_min_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
+  scalar_output_every: 10,
+  scalar_output_minmax: ["eps","rho","press",
+                         "vel[0]", "vel[1]", "vel[2]", 
+                         "B[0]", "B[1]", "B[2]",
+                         "phi_glm"],
+  scalar_output_norm2: [],
+  scalar_output_integral: [],
+  output_use_hdf5: true, 
+  hdf5_compression_level: 6,
+  hdf5_chunk_size: 8192
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  flush_level: "trace"
+}
+evolution: {
+  time_stepper: "rk2",
+  cfl_factor: 0.3,
+  final_time: 2.1 # period = 2 in case of v_A=0.5 and k=2pi
+}
+grmhd: {
+  
+  id_type: "cp_alfven_wave",
+  cp_alfven_wave_rho: 1.0,
+  cp_alfven_wave_press: 1.0,
+  cp_alfven_wave_ampl: 1.0,
+  cp_alfven_wave_vel: 0.0, # standing wave 
+  # these settings, along with the setup for the EOS,
+  # give Alfven speed of about ~0.38 : 
+  #                             cp_alfven_wave_B0: 1.0,
+  #                             cp_alfven_wave_mag_k: 1.0,
+  # this B0=1.1547 and k=2pi (lambda = 1) gives v_A = 0.5
+  cp_alfven_wave_B0: 1.1547,
+  cp_alfven_wave_mag_k: 6.283185307,
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+  ye_atmosphere: 0,
+  temp_atmosphere: 0,
+  rho_atmosphere: 1.e-14,
+  eps_maximum: 1.e+05,
+#  gamma_th: 1.33333, # for the original test # https://arxiv.org/pdf/1611.09720 (Porth 2017) / https://arxiv.org/pdf/0704.3206 (del Zanna 2007)
+  gamma_th: 2,  # for the parameters in https://arxiv.org/pdf/1208.3487 (Dionysopoulou 2013)
+ 
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [0.],
+    rhos:   [],
+    kappa_0: 0
+  }
+}
+
+profiling: {
+  do_gpu_profiling: false
+}

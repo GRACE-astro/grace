@@ -1,6 +1,7 @@
-# Parameter file for a generic Alfven test
+# Parameter file for a generic shock tube with B^n = B^x = 0 (zero normal component)
 # https://arxiv.org/pdf/gr-qc/0507102 (Giacomazzo & Rezzolla 2006)
-# Table 4: Generic Alfven Test
+# Table 1: Generic Shock Tube
+
 name: "grace"
 amr: {
   npoints_block_x: 16,
@@ -12,6 +13,12 @@ amr: {
   ymax:  0.2,
   zmin: -0.2,
   zmax:  0.2,
+  # xmin: -2.0,
+  # xmax:  2.0,
+  # ymin: -2.0,
+  # ymax:  2.0,
+  # zmin: -2.0,
+  # zmax:  2.0,
   n_ghostzones: 2,
   initial_refinement_level: 2,
   refinement_criterion: "simple_threshold",
@@ -20,7 +27,9 @@ amr: {
   refinement_criterion_var: "U",
   max_refinement_level: 7,
   regrid_every: -1,
-  regrid_at_postinitial: false
+  regrid_at_postinitial: false,
+  periodic_y: true,
+  periodic_z: true,
 }
 IO: {
   # Bug/Feature: 
@@ -64,7 +73,7 @@ system: {
 evolution: {
   time_stepper: "rk2",
   cfl_factor: 0.2,
-  final_time: 1.5,
+  final_time: 1.2,
   #imestep: 0.00025,
   #timestep_selection_mode: "manual"
 }
@@ -73,22 +82,23 @@ grmhd: {
   # below, the velocities are given in units of c
   # the magnetohydrodynamical pressures (P and B^2 /2) 
   # are in the same units (the Gamma-EOS determines P)
-  shocktube_mhd_press_L: 5.0,
-  shocktube_mhd_press_R: 5.3,
+  shocktube_mhd_press_L: 0.01,
+  shocktube_mhd_press_R: 1000,
+  #shocktube_mhd_press_R: 5000,
   shocktube_mhd_rho_L: 1.0,
-  shocktube_mhd_rho_R: 0.9,
-  shocktube_mhd_vel_x_L: 0., 
+  shocktube_mhd_rho_R: 0.01,
+  shocktube_mhd_vel_x_L: 0.1, 
   shocktube_mhd_vel_y_L: 0.3,
   shocktube_mhd_vel_z_L: 0.4,
-  shocktube_mhd_vel_x_R: 0.,
-  shocktube_mhd_vel_y_R: 0.,
-  shocktube_mhd_vel_z_R: 0.,
-  shocktube_mhd_B_x_L:   1.0,  
+  shocktube_mhd_vel_x_R: 0.5,
+  shocktube_mhd_vel_y_R: 0.4,
+  shocktube_mhd_vel_z_R: 0.3,
+  shocktube_mhd_B_x_L:   0.0,  
   shocktube_mhd_B_y_L:   6.0,
   shocktube_mhd_B_z_L:   2.0,    
-  shocktube_mhd_B_x_R:   1.0, 
+  shocktube_mhd_B_x_R:   0.0, 
   shocktube_mhd_B_y_R:   5.0,
-  shocktube_mhd_B_z_R:   2.0,
+  shocktube_mhd_B_z_R:   20.0,
 }
 
 eos: {
