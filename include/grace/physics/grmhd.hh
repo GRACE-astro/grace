@@ -443,9 +443,11 @@ struct grmhd_equations_system_t
 
             // From e.g. Neuweiler2024: 
             // S[B^j] = -\sqrt{\gamma} B^i \partial_i \beta^j  + phi * \partial_i (\sqrt{\gamma} \alpha \gamma^ij)
-            // the difference is due to the fact that in their form, the spatial derivative of phi_glm is in the fluxes, 
+            // the spatial derivative of phi_glm is in the fluxes, 
             // not sources, and thus upwinding the gradient in the sources is not necessary (as in BHAC+)
-            // same strategy (i.e. \partial_i phi in the fluxes) is taken in GRHydro 
+            // Same strategy (i.e. \partial_i phi term treated in the fluxes) is taken in GRHydro.
+            // We also find it beneficial to have (B^i, Phi) flux upwinding done in the fluxes 
+            // The two approaches would be equivalent if flat reconstruction and LLF fluxes were chosen. 
 
             // Source[B^j] = -\sqrt{\gamma} B^i \partial_i \beta^j  - \sqrt{\gamma} \alpha \gamma^ij \partial_i \phi_glm
 
