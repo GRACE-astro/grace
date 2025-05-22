@@ -99,8 +99,8 @@ void apply_phys_bc(
   parallel_for(
   GRACE_EXECUTION_TAG("AMR", "impose_face_physical_BC"),
   MDRangePolicy<IndexType<int>, grace::default_execution_space, Rank<GRACE_NSPACEDIM>>(
-      {VECD(0, 0), 0},
-      {VECD(nx + 2 * ngz, ny + 2 * ngz), n_faces}),
+      {VECD(ngz, ngz), 0},
+      {VECD(nx + ngz, ny + ngz), n_faces}),
     KOKKOS_LAMBDA(VECD(int const i, int const j), int const iface) {
 
     // Load face info once
@@ -168,8 +168,8 @@ void apply_phys_bc(
         lmax = n + 2 * ngz;
         idir = +1;
       } else {
-        lmin = 0;
-        lmax = n + 2 * ngz;
+        lmin = ngz;
+        lmax = n + ngz;
         idir = +1;
       }
     };
@@ -218,7 +218,10 @@ void apply_phys_bc(
     #ifdef GRACE_3D
     compute_bounds(dir[2], ngz, nz, lmin[2], lmax[2], idir[2]);
     #endif
-
+    
+    //printf("[CORNER DEBUG] icorner=%d, dir=(%d,%d,%d), iq=%ld\n               x=[%d→%d:%d], y=[%d→%d:%d], z=[%d→%d:%d]\n",
+    //        icorner, dir[0], dir[1], dir[2], iq, lmin[0], lmax[0], idir[0], lmin[1], lmax[1], idir[1], lmin[2], lmax[2], idir[2]);
+    
     EXPR(for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0]),
     for (int jg = lmin[1]; jg != lmax[1]; jg += idir[1]),
     for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2]))

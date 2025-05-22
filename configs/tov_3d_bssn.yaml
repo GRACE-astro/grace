@@ -22,7 +22,7 @@ amr: {
   postinitial_regrid_depth: 3
 }
 IO: {
-  volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]", "alp", "H", "gamma_tilde[0,0]"],
+  volume_output_cell_variables: ["phi", "alp", "H", "gamma_tilde[0,0]", "GammaU[0]"],
   volume_output_base_directory: "output_volume",
   volume_output_every: 10,
   plane_surface_output_cell_variables: [],
@@ -30,10 +30,10 @@ IO: {
   sphere_surface_output_every: -1,
   info_output_every: 1,
   info_output_max_reductions: ["eps","rho","press"],
-  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
+
   info_output_min_reductions: ["alp"],
   info_output_norm2_reductions: ["H"],
-  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
+
   scalar_output_every: 2,
   scalar_output_minmax: ["rho","press","eps", "alp"],
   scalar_output_norm2: ["H"],
@@ -54,8 +54,7 @@ evolution: {
   cfl_factor: 0.25,
   final_time: 2000,
   reset_id_after_regrid: true,
-  #timestep: 0.0025,
-  #timestep_selection_mode: "manual"
+
 }
 grmhd: {
   id_type: "TOV",

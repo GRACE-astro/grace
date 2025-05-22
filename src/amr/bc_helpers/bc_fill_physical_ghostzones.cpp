@@ -187,6 +187,18 @@ void fill_physical_boundaries(
                 #endif
                 , extrap_bc_t<3>{}
             ) ; 
+
+        apply_phys_bc<extrap_bc_t<3>>(
+                dst_var 
+                , dst_var
+                , nx+1,ny+1,nz+1,ngz 
+                , face_phys_bc
+                , corner_phys_bc
+                #ifdef GRACE_3D 
+                , edge_phys_bc
+                #endif
+                , extrap_bc_t<3>{}
+            ) ; 
             
         apply_phys_bc<sommerfeld_bc_t>(
                 dst_var 
@@ -224,7 +236,7 @@ void fill_physical_boundaries(
 
     // Conffact 
     apply_sommerfeld_bc(
-        PHI, 1., 1.
+        PHI, 0., 1.
     ) ;
 
     // Curvature trace 

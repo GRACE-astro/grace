@@ -134,6 +134,8 @@ struct sommerfeld_bc_t {
             double const vy = v0 * yi * rinv ; 
             double const vz = v0 * zi * rinv ; 
             
+            
+
             auto var = Kokkos::subview(src, VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), q) ; 
             auto const fd_der_x = [&] ()
             {
@@ -150,7 +152,7 @@ struct sommerfeld_bc_t {
 
             auto const fd_der_z = [&] ()
             {
-                  return 0.5 * (var(VEC(i,j,k+1)) - var(VEC(i,j,k-1))) * idx(1,q) ; 
+                  return 0.5 * (var(VEC(i,j,k+1)) - var(VEC(i,j,k-1))) * idx(2,q) ; 
                   //return grace::detail::fd_der_bnd_check_recursive<1,1,2>::template doit<2>(var, VEC(i,j,k),VEC(nx,ny,nz),ngz)* idx(2,q);
             } ; 
 
@@ -177,8 +179,23 @@ struct sommerfeld_bc_t {
                         3 * src(VEC(i,j,k),q) - 4 * src(VEC(i,j,k-dz),q) + src(VEC(i,j,k-2*dz),q)  
                   ) * idx(2,q)  ; 
             }
+            /*
+            if (i == 0 && j == 0 && k == 0) {
+                  printf("[SOMMERFELD DEBUG] q=%ld (i,j,k)=(%d,%d,%d) x=(%.3e,%.3e,%.3e) |r|=%.3e "
+                        "v=(%.3e,%.3e,%.3e) deriv=(%.3e,%.3e,%.3e) phi=%.3e res=%.3e update=%.3e\n",
+                        q, i, j, k,
+                        xi, yi, zi, ri,
+                        vx, vy, vz,
+                        derivx, derivy, derivz,
+                        src(VEC(i,j,k),q),
+                        (src(VEC(i,j,k),q) - f0) * rinv,
+                        dt * dtfact * (
+                        - vx * derivx - vy * derivy - vz * derivz
+                        - v0 * (src(VEC(i,j,k),q) - f0) * rinv));
+            }
+            */
 
-            dst(VEC(i,j,k),q) = src(VEC(i,j,k),q) + dt * dtfact * (
+            dst(VEC(i,j,k),q) += dt * dtfact * (
                   - vx*derivx - vy*derivy - vz*derivz - v0 * (src(VEC(i,j,k),q)-f0)*rinv 
             ) ; 
 
