@@ -14,14 +14,17 @@ amr: {
   zmax:  0.05,
   n_ghostzones: 2,
   #initial_refinement_level: 3,
-  initial_refinement_level: 0,
-  refinement_criterion: "gradient",
-  refinement_criterion_CTORE: 0.1,
-  refinement_criterion_CTODE: 0.075,
-  refinement_criterion_var: "press",
+ # initial_refinement_level: 0,
+  initial_refinement_level: 1,
+  #refinement_criterion: "gradient",
+  refinement_criterion: "simple_absolute_threshold",
+  refinement_criterion_CTORE: 0.035,
+  refinement_criterion_CTODE: 0.015,
+  #refinement_criterion_var: "press",
+  refinement_criterion_var: "phi_glm",
   refinement_criterion_var_is_aux: true,
-  max_refinement_level: 2,
-  regrid_every: 100,
+  max_refinement_level: 1,
+  regrid_every: -1,
   regrid_at_postinitial: false,
   periodic_z: true,
 }
@@ -30,7 +33,7 @@ IO: {
   # vel[1]/vel[2] to be specifiable in the future  
   volume_output_cell_variables: ["eps","rho","press","vel[0]", "B[0]", "phi_glm"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 200,
+  volume_output_every: 40,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
@@ -50,7 +53,8 @@ IO: {
   output_extra_quantities: true
 }
 system: {
-  console_log_level: "verbose",
+  #console_log_level: "verbose",
+  console_log_level: "info",
   file_log_level: "trace",
   flush_logs_based_on_severity: true,
   flush_level: "trace"

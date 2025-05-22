@@ -12,12 +12,14 @@ amr: {
   xmax:  6.283185307,
   ymin: -6.283185307,
   ymax:  6.283185307,
-  #zmin: -6.283185307,
-  zmin: -3.141592653,
+  zmin: -6.283185307,
+  #zmin: -3.141592653,
   #zmax:  6.283185307,
-  zmax:  3.141592653,
+  zmin: -0.6283185307,
+  zmax:  0.6283185307,
+  #zmax:  3.141592653,
   n_ghostzones: 2,
-  initial_refinement_level: 2,
+  initial_refinement_level: 3,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
   refinement_criterion_CTODE: 1.,
@@ -55,13 +57,14 @@ IO: {
 }
 system: {
   console_log_level: "info",
-  file_log_level: "trace",
+ # file_log_level: "trace",
+  # flush_logs_based_on_severity: false,
   flush_logs_based_on_severity: true,
   flush_level: "trace"
 }
 evolution: {
   time_stepper: "rk2",
-  cfl_factor: 0.3,
+  cfl_factor: 0.2,
   final_time: 10.5,
   #imestep: 0.00025,
   # timestep_selection_mode: "manual",
