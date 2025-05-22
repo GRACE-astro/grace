@@ -1293,10 +1293,6 @@ struct grmhd_equations_system_t
         /* Compute smallb2 on the left and right interface */
         const double b2l = compute_b2(primL,metric_face) ;
         const double b2r = compute_b2(primR,metric_face) ;
-       // std::array<double,4> smallbL{0,0,0,0}, smallbR{0,0,0,0} ; 
-        //double b2l{0.}, b2r{0.}; 
-        //compute_smallb(smallbL, b2l, primL, metric_face) ; 
-        //compute_smallb(smallbR, b2r, primR, metric_face) ; 
         /* Compute smallb on the left and right interface */
         std::array<double,4> smallbL{0.,0.,0.,0.};
         std::array<double,4> smallbR{0.,0.,0.,0.};
