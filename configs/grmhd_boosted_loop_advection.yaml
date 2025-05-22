@@ -7,26 +7,27 @@ amr: {
   # npoints_block_x: 16,
   # npoints_block_y: 16,
   # npoints_block_z: 16,
-  npoints_block_x: 16,
-  npoints_block_y: 16,
-  npoints_block_z: 16,
+  npoints_block_x: 20,
+  npoints_block_y: 20,
+  npoints_block_z: 20,
   xmin: -1.0,
   xmax:  1.0,
   ymin: -1.0,
   ymax:  1.0,
-  zmin: -1.0,
-  zmax:  1.0,
+  zmin: -0.1,
+  zmax:  0.1,
   n_ghostzones: 2,
-  initial_refinement_level: 3,
-  refinement_criterion: "simple_threshold",
-  refinement_criterion_CTORE: 2.,
-  refinement_criterion_CTODE: 1.,
-  refinement_criterion_var: "U",
-  max_refinement_level: 7,
-  regrid_every: -1,
+  initial_refinement_level: 0, #3,
+  refinement_criterion: "gradient", #"simple_threshold",
+  refinement_criterion_CTORE: 0.1, #2.,
+  refinement_criterion_CTODE: 0.075, #1.,
+  refinement_criterion_var: "press", #"U",
+  refinement_criterion_var_is_aux: true,
+  max_refinement_level: 2, #7,
+  regrid_every: 100, #-1,
   regrid_at_postinitial: false,
-  periodic_x: true,
-  periodic_y: true,
+  #periodic_x: true,
+  #periodic_y: true,
   periodic_z: true,
 }
 IO: {
@@ -35,7 +36,7 @@ IO: {
   volume_output_cell_variables: ["eps","rho","press","alp", "vel[0]",
                               "B[0]", "phi_glm"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 10,
+  volume_output_every: 200, #10,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
@@ -51,20 +52,22 @@ IO: {
   scalar_output_integral: [],
   output_use_hdf5: true, 
   hdf5_compression_level: 6,
-  hdf5_chunk_size: 8192
+  hdf5_chunk_size: 8192,  
+  output_extra_quantities: true
+
 }
 system: {
-  console_log_level: "info",
+  console_log_level: "info", #"verbose"
   file_log_level: "trace",
   flush_logs_based_on_severity: true,
   flush_level: "trace"
 }
 evolution: {
   time_stepper: "rk2",
-  cfl_factor: 0.4,
+  cfl_factor: 0.2, #0.4,
   final_time: 10.0,
-  #imestep: 0.00025,
-  #timestep_selection_mode: "manual"
+  timestep: 0.01, #0.0025,
+  timestep_selection_mode: "manual"
 }
 grmhd: {
   id_type: "boosted_loop_advection",
@@ -75,7 +78,8 @@ grmhd: {
   boosted_loop_advection_press: 10.0,
   boosted_loop_advection_beta0 : 0.01,
   boosted_loop_advection_vc : 0.5,
-  boosted_loop_advection_compensate_shift : false
+  boosted_loop_advection_B0 : 1.0,
+  boosted_loop_advection_compensate_shift : true
 }
 
 eos: {
