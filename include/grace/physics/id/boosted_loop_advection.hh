@@ -81,6 +81,7 @@ struct boosted_loop_advection_mhd_id_t {
         , double press
         , double beta0
         , double vc
+        , double B0
         , bool compensate
         )
         : _eos(eos)
@@ -88,6 +89,7 @@ struct boosted_loop_advection_mhd_id_t {
         , _rho(rho), _press(press)
         , _beta0(beta0)
         , _vc(vc)
+        , _B0(B0)
         , _compensate(compensate)
     {} 
     //**************************************************************************************************
@@ -133,16 +135,18 @@ struct boosted_loop_advection_mhd_id_t {
     {
         grmhd_id_t id ; 
 
-
         const double x = _pcoords(VEC(i,j,k),0,q);
         const double y = _pcoords(VEC(i,j,k),1,q);
         const double z = _pcoords(VEC(i,j,k),2,q);
 
+        /*** 
         double const r = Kokkos::sqrt(EXPR(
               math::int_pow<2>(x),
             + math::int_pow<2>(y),
             + math::int_pow<2>(z)
         )) ; 
+        */
+        double const r = Kokkos::sqrt(math::int_pow<2>(x)+ math::int_pow<2>(y)) ; 
         double const phi = Kokkos::atan2(y, x);
 
 
@@ -152,15 +156,10 @@ struct boosted_loop_advection_mhd_id_t {
         //id.rho = _press/2.0; 
         // beta0 = B^2(0)/2p
 
-        const double zvecx = -0.99 * Kokkos::sin(y);
-        const double zvecy =  0.99 * Kokkos::sin(x);
-        const double A = zvecx*zvecx + zvecy*zvecy;
-        const double W2 = A + 1.0 ; 
-        const double W = Kokkos::sqrt(W2); 
-
         const double alphat = 3.8317;
         const double Cconst = 0.01;
 
+        // cylindrical coordinates
         double Bphi = 0.0;
         double Bz = 0.0;
         double Br = 0.0;
@@ -178,15 +177,8 @@ struct boosted_loop_advection_mhd_id_t {
          Bz = Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*r)) + Cconst);
        }
 
-       // ------------------------------
-       //transform Bphi and Bz to Bx,y,z
- 
+       /*
        // cylinder to cartesian
-       // silly way:
-        //id.bx = Br * Kokkos::cos(phi) - Bphi * Kokkos::sin(phi);
-        //id.by = Br * Kokkos::sin(phi) - Bphi * Kokkos::sin(phi);
-        //id.bz = Bz; 
-        // correct way:
 
         std::array<std::array<double,3>,3> gij {
             std::array<double,3>{1., 0, 0},
@@ -218,37 +210,80 @@ struct boosted_loop_advection_mhd_id_t {
             }
         }
 
-        std::array<double, 3> Bcyl { Br, Bphi, Bz };
-        std::array<double, 3> Bcart {0.0, 0.0, 0.0};
-        
-        for (int i = 0; i < 3; ++i) {
-            for (int j = 0; j < 3; ++j) {
-                Bcart[i] += J[i][j] * Bcyl[j];
-            }
-        }
+       */
+
+       // ------------------------------
+       //transform Bphi and Bz to Bx,y,z
+       // cylinder to cartesian
+ 
+       double Bx_cart = 0.0;
+       double By_cart = 0.0;
+       double Bz_cart = 0.0;
+
+       Bx_cart = Br * Kokkos::cos(phi) - Bphi * Kokkos::sin(phi);
+       By_cart = Br * Kokkos::sin(phi) - Bphi * Kokkos::sin(phi);
+       Bz_cart = Bz; 
+       
+        const double zvecx = -0.99 * Kokkos::sin(y);
+        const double zvecy =  0.99 * Kokkos::sin(x);
+        const double A = zvecx*zvecx + zvecy*zvecy;
+        const double W2 = A + 1.0 ; 
+        const double W = Kokkos::sqrt(W2); 
+
+
         // convergence tests
         //id.vx = 0.5*Kokkos::sqrt(0.5)*1.0; // / W; 
         //id.vy = 0.5*Kokkos::sqrt(0.5)*1.0;  // / W;
         //id.vz = 0.;
                
         // need to rescale by W?
-        id.vx = Kokkos::sqrt(2.0)*(-1.0)*_vc; // / W; 
-        id.vy = Kokkos::sqrt(2.0)*(-1.0)*_vc;  // / W;
-        id.vz = 0.;
-        id.bx = Bcart[0];
-        id.by = Bcart[1];
-        id.bz = Bcart[2]; 
-        
+        id.vx = 1.0/Kokkos::sqrt(2.0)*(-1.0)*_vc; // / W; 
+        id.vy = 1.0/Kokkos::sqrt(2.0)*(-1.0)*_vc;  // / W;
+        id.vz = 0.;        
     
         // beta=-v ? 
         // set the Minkowski metric 
-        if(_compensate == true){
-        id.betax = - id.vx; id.betay=-id.vy; id.betaz = -id.vz; 
-        }else{
-        id.betax = 0; id.betay=0; id.betaz = 0; 
-        }
         //id.betax = sqrt(0.5); id.betay=0; id.betaz = 0; // convergence test
+
+        // Lorentz boost of B field
+        double shift_x;
+        double shift_y;
+        double shift_z;
+ 
+         if(_compensate == true){
+        shift_x = - id.vx; shift_y=-id.vy; shift_z = -id.vz; 
+        }else{
+        shift_x = 0; shift_y = 0; shift_z = 0; 
+        }
+
+        const double vx = id.vx;
+        const double vy = id.vy;
+        const double vz = id.vz;
+        
+        const double v2 = vx*vx + vy*vy + vz*vz;
+        const double gamma = 1.0 / Kokkos::sqrt(1.0 - v2);
+
+        const double betaDotB = shift_x*Bx_cart + shift_y*By_cart + shift_z*Bz_cart;
+
+        /*
+        printf("debug id \n");
+        printf("vx %g vy %g vz %g \n",vx,vy,vz);
+        printf("v2 %g \n",v2);
+        printf("gamma %g \n",gamma);
+        printf("gamma-term %g \n",(gamma / (gamma + 1.0)));
+        printf("betaDotB %g \n",betaDotB);
+        printf("betaDotB*shiftx %g \n",betaDotB*shift_x);
+        printf("betaDotB*shiftx*gammaterm %g \n",(gamma / (gamma + 1.0)) * betaDotB * shift_x);
+        printf("Bx_cart %g \n",Bx_cart);
+        printf("Bx_trans %g \n",gamma * (Bx_cart - (gamma / (gamma + 1.0)) * betaDotB * shift_x));
+        */
+
+        id.bx = gamma * (Bx_cart - (gamma / (gamma + 1.0)) * betaDotB * shift_x);
+        id.by = gamma * (By_cart - (gamma / (gamma + 1.0)) * betaDotB * shift_y);
+        id.bz = gamma * (Bz_cart - (gamma / (gamma + 1.0)) * betaDotB * shift_z);
+
         id.alp = 1 ; 
+        id.betax = 0; id.betay=0; id.betaz = 0; 
         id.gxx = 1; id.gyy = 1; id.gzz = 1;
         id.gxy = 0; id.gxz = 0; id.gyz = 0 ;
         id.kxx = 0; id.kyy = 0; id.kzz = 0 ;
@@ -268,7 +303,7 @@ struct boosted_loop_advection_mhd_id_t {
     //**************************************************************************************************
     eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
-    double _rho, _press, _beta0, _vc;                    //!< Left and right states  
+    double _rho, _press, _beta0, _vc, _B0;                    //!< Left and right states  
     bool _compensate;
     
     //**************************************************************************************************
