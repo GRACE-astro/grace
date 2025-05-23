@@ -53,6 +53,7 @@
 #include <grace/physics/id/boosted_loop_advection.hh>
 #include <grace/physics/id/circularly_polarized_alfven_wave.hh>
 #include <grace/physics/id/magnetic_rotor.hh>
+#include <grace/physics/id/bondi_accretion.hh>
 #endif
 #endif
 
