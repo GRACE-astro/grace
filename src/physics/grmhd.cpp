@@ -37,7 +37,6 @@
 //#include <grace/physics/id/blastwave.hh>
 #include <grace/physics/id/tov.hh>
 #include <grace/physics/id/fmtorus.hh>
-
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
@@ -55,6 +54,7 @@
 #include <grace/physics/id/boosted_loop_advection.hh>
 #include <grace/physics/id/circularly_polarized_alfven_wave.hh>
 #include <grace/physics/id/magnetic_rotor.hh>
+// #include <grace/physics/id/bondi_accretion.hh>
 #endif
 #endif
 
@@ -471,6 +471,19 @@ void set_grmhd_initial_data() {
         Kokkos::fence() ; 
         GRACE_TRACE("Done with Magnetized Rotor MHD ID.") ;  
     }
+    else if( id_type == "bondi_accretion" ) {
+        auto const M          = get_param<double>("grmhd","Bondi_accretion_M") ; 
+        auto const mdot       = get_param<double>("grmhd","Bondi_accretion_M_dot") ;
+        auto const r_sonic    = get_param<double>("grmhd","Bondi_accretion_r_sonic") ;
+        auto const gamma      = get_param<double>("grmhd","Bondi_accretion_gamma") ;
+        auto const rmin       = get_param<double>("grmhd","Bondi_accretion_rmin") ;
+        auto const rmax       = get_param<double>("grmhd","Bondi_accretion_rmax") ;
+        auto const bmag       = get_param<double>("grmhd","Bondi_accretion_bmag") ;
+        auto const beta_sonic = get_param<double>("grmhd","Bondi_accretion_beta_sonic") ;
+        // set_grmhd_initial_data_impl<eos_t,bondi_accretion_id_t<eos_t>>(M,mdot,r_sonic,gamma,rmin,rmax,bmag,beta_sonic) ;
+        Kokkos::fence() ; 
+        GRACE_TRACE("Done with Bondi accretion MHD ID.") ;  
+    }
     #endif
     else if ( id_type == "blastwave" ) {
         set_grmhd_spherical_blastwave_initial_data<eos_t>() ; 
@@ -509,9 +522,7 @@ void set_grmhd_initial_data() {
                         set_Bfield_from_Avec, int_Avec_type, int_Avec_prescription,
                         Avec_Pcut, Avec_n, Avec_Ab) ;
         GRACE_TRACE("Done with magnetized FMTorus ID.") ;  
-
-    }
-     else {
+    } else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }
     set_conservs_from_prims() ;

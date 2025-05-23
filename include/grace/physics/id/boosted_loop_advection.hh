@@ -139,15 +139,8 @@ struct boosted_loop_advection_mhd_id_t {
         const double y = _pcoords(VEC(i,j,k),1,q);
         const double z = _pcoords(VEC(i,j,k),2,q);
 
-        /*** 
-        double const r = Kokkos::sqrt(EXPR(
-              math::int_pow<2>(x),
-            + math::int_pow<2>(y),
-            + math::int_pow<2>(z)
-        )) ; 
-        */
-        double const r = Kokkos::sqrt(math::int_pow<2>(x)+ math::int_pow<2>(y)) ; 
-        double const phi = Kokkos::atan2(y, x);
+        //double const r = Kokkos::sqrt(math::int_pow<2>(x)+ math::int_pow<2>(y)) ; 
+        //double const phi = Kokkos::atan2(y, x);
 
 
         id.rho = _rho;
@@ -155,6 +148,73 @@ struct boosted_loop_advection_mhd_id_t {
         // in paper it is p/2
         //id.rho = _press/2.0; 
         // beta0 = B^2(0)/2p
+
+       // --------- set the velocity ------------------------
+
+        const double zvecx = 1.0/Kokkos::sqrt(2.0)*(-1.0)*_vc;
+        const double zvecy = 1.0/Kokkos::sqrt(2.0)*(-1.0)*_vc;
+        const double A = zvecx*zvecx + zvecy*zvecy;
+        const double W2 = A + 1.0 ; 
+        const double W = Kokkos::sqrt(W2); 
+
+               
+        // need to rescale by W?
+        id.vx = 1.0/Kokkos::sqrt(2.0)*(-1.0)*_vc; // / W; 
+        id.vy = 1.0/Kokkos::sqrt(2.0)*(-1.0)*_vc;  // / W;
+        id.vz = 0.;        
+        
+        //id.vx = zvecx / W; 
+        //id.vy = zvecy / W;
+        //id.vz = 0.;  
+
+        
+       // ------- Lorentz boost and Gamma ------------------------
+
+        double shift_x;
+        double shift_y;
+        double shift_z;
+ 
+        if(_compensate == true){
+        shift_x = - id.vx; shift_y=-id.vy; shift_z = -id.vz;         
+        //shift_x =  id.vx; shift_y = id.vy; shift_z = id.vz;        
+        //id.betax = - id.vx; id.betay=-id.vy; id.betaz = -id.vz; 
+        }else{
+        shift_x = 0; shift_y = 0; shift_z = 0;        
+        //id.betax = 0; id.betay=0; id.betaz = 0; 
+        }
+
+        const double vx = id.vx;
+        const double vy = id.vy;
+        const double vz = id.vz;
+        
+        const double v2 = vx*vx + vy*vy + vz*vz;
+        const double gamma = 1.0 / Kokkos::sqrt(1.0 - v2);
+        const double g_minus1 = gamma - 1.0;
+
+
+       // --------- frame and coordinates ------------------------
+       // r':  rest frame
+       // r :  lab frame
+
+        // boost direction
+        const double nx = 1.0 / Kokkos::sqrt(2.0);
+        const double ny = 1.0 / Kokkos::sqrt(2.0);
+        const double nz = 0.0;
+        
+        const double dot_r_n = x * nx + y * ny + z * nz;
+        
+        // inverse boost: get r' from r
+        const double xprime = x - g_minus1 * dot_r_n * nx;
+        const double yprime = y - g_minus1 * dot_r_n * ny;
+        const double zprime = z - g_minus1 * dot_r_n * nz;
+        
+        // rest-frame loop radius
+        const double rprime = Kokkos::sqrt(xprime*xprime + yprime*yprime);
+        const double phiprime = Kokkos::atan2(yprime, xprime);
+
+
+
+       // --------- Magnetic field in rest frame r' ------------------------
 
         const double alphat = 3.8317;
         const double Cconst = 0.01;
@@ -164,124 +224,39 @@ struct boosted_loop_advection_mhd_id_t {
         double Bz = 0.0;
         double Br = 0.0;
 
-
-        //BFF = c0 alpha(J1(alphaR)^phi_kill + J0(alphaR)^z_kill)
-       //----- cylindrical coordinates
-       Br = 0;
-       if(r<1){
-         Bphi= bessel_J1(alphat*r);
-         Bz = Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*r)) + Cconst);
-       }
-       else{
-         Bphi = 0.0;
-         Bz = Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*r)) + Cconst);
-       }
-
-       /*
-       // cylinder to cartesian
-
-        std::array<std::array<double,3>,3> gij {
-            std::array<double,3>{1., 0, 0},
-            std::array<double,3>{0,r*r,0},
-            std::array<double,3>{0,0,0}
-        } ; 
-
-        std::array<std::array<double,3>,3> gpij {
-            std::array<double,3>{0,0,0},
-            std::array<double,3>{0,0,0},
-            std::array<double,3>{0,0,0}
-        } ;
-         
-        std::array<std::array<double,3>,3> J {
-            std::array<double,3>{Kokkos::cos(phi), -r * Kokkos::sin(phi), 0.},
-            std::array<double,3>{Kokkos::sin(phi),  r * Kokkos::cos(phi), 0.},
-            std::array<double,3>{0., 0., 1.}
-        };
-
-        // ok actually dont need this:
-        for( int ii=0; ii<3; ++ii){
-            for( int jj=0; jj<3; ++jj){
-                for( int ll=0; ll<3; ++ll ) {
-                    for( int kk=0; kk<3; ++kk) {
-                        gpij[ii][jj] += 
-                            J[ll][ii] * J[kk][jj] * gij[ll][kk] ; 
-                    }
-                }
-            }
+        Br = 0;
+        if(rprime<1){
+          Bphi= _B0 *bessel_J1(alphat*rprime);
+          Bz = _B0 *Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*rprime)) + Cconst);
         }
-
-       */
-
-       // ------------------------------
-       //transform Bphi and Bz to Bx,y,z
-       // cylinder to cartesian
- 
-       double Bx_cart = 0.0;
-       double By_cart = 0.0;
-       double Bz_cart = 0.0;
-
-       Bx_cart = Br * Kokkos::cos(phi) - Bphi * Kokkos::sin(phi);
-       By_cart = Br * Kokkos::sin(phi) - Bphi * Kokkos::sin(phi);
-       Bz_cart = Bz; 
-       
-        const double zvecx = -0.99 * Kokkos::sin(y);
-        const double zvecy =  0.99 * Kokkos::sin(x);
-        const double A = zvecx*zvecx + zvecy*zvecy;
-        const double W2 = A + 1.0 ; 
-        const double W = Kokkos::sqrt(W2); 
-
-
-        // convergence tests
-        //id.vx = 0.5*Kokkos::sqrt(0.5)*1.0; // / W; 
-        //id.vy = 0.5*Kokkos::sqrt(0.5)*1.0;  // / W;
-        //id.vz = 0.;
-               
-        // need to rescale by W?
-        id.vx = 1.0/Kokkos::sqrt(2.0)*(-1.0)*_vc; // / W; 
-        id.vy = 1.0/Kokkos::sqrt(2.0)*(-1.0)*_vc;  // / W;
-        id.vz = 0.;        
-    
-        // beta=-v ? 
-        // set the Minkowski metric 
-        //id.betax = sqrt(0.5); id.betay=0; id.betaz = 0; // convergence test
-
-        // Lorentz boost of B field
-        double shift_x;
-        double shift_y;
-        double shift_z;
- 
-         if(_compensate == true){
-        shift_x = - id.vx; shift_y=-id.vy; shift_z = -id.vz; 
-        }else{
-        shift_x = 0; shift_y = 0; shift_z = 0; 
+        else{
+          Bphi = 0.0;
+          Bz = _B0 *Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*rprime)) + Cconst);
         }
+ 
+        // ------------------------------
+        //transform Bphi and Bz to Bx,y,z
+        // cylinder to cartesian
+  
+        double Bx_cart = 0.0;
+        double By_cart = 0.0;
+        double Bz_cart = 0.0;
+ 
+        Bx_cart = Br * Kokkos::cos(phiprime) - Bphi * Kokkos::sin(phiprime);
+        By_cart = Br * Kokkos::sin(phiprime) - Bphi * Kokkos::cos(phiprime);
+        Bz_cart = Bz; 
 
-        const double vx = id.vx;
-        const double vy = id.vy;
-        const double vz = id.vz;
-        
-        const double v2 = vx*vx + vy*vy + vz*vz;
-        const double gamma = 1.0 / Kokkos::sqrt(1.0 - v2);
+
+       // --------- Boosted Magnetic field in lab frame r ------------------------
 
         const double betaDotB = shift_x*Bx_cart + shift_y*By_cart + shift_z*Bz_cart;
-
-        /*
-        printf("debug id \n");
-        printf("vx %g vy %g vz %g \n",vx,vy,vz);
-        printf("v2 %g \n",v2);
-        printf("gamma %g \n",gamma);
-        printf("gamma-term %g \n",(gamma / (gamma + 1.0)));
-        printf("betaDotB %g \n",betaDotB);
-        printf("betaDotB*shiftx %g \n",betaDotB*shift_x);
-        printf("betaDotB*shiftx*gammaterm %g \n",(gamma / (gamma + 1.0)) * betaDotB * shift_x);
-        printf("Bx_cart %g \n",Bx_cart);
-        printf("Bx_trans %g \n",gamma * (Bx_cart - (gamma / (gamma + 1.0)) * betaDotB * shift_x));
-        */
 
         id.bx = gamma * (Bx_cart - (gamma / (gamma + 1.0)) * betaDotB * shift_x);
         id.by = gamma * (By_cart - (gamma / (gamma + 1.0)) * betaDotB * shift_y);
         id.bz = gamma * (Bz_cart - (gamma / (gamma + 1.0)) * betaDotB * shift_z);
 
+
+       // --------- Minkowski metric  ------------------------
         id.alp = 1 ; 
         id.betax = 0; id.betay=0; id.betaz = 0; 
         id.gxx = 1; id.gyy = 1; id.gzz = 1;

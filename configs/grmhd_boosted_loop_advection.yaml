@@ -26,8 +26,8 @@ amr: {
   max_refinement_level: 2, #7,
   regrid_every: 100, #-1,
   regrid_at_postinitial: false,
-  #periodic_x: true,
-  #periodic_y: true,
+  periodic_x: true,
+  periodic_y: true,
   periodic_z: true,
 }
 IO: {
@@ -36,7 +36,7 @@ IO: {
   volume_output_cell_variables: ["eps","rho","press","alp", "vel[0]",
                               "B[0]", "phi_glm"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 200, #10,
+  volume_output_every: 565, #1130, #200, #10,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
@@ -65,8 +65,8 @@ system: {
 evolution: {
   time_stepper: "rk2",
   cfl_factor: 0.2, #0.4,
-  final_time: 10.0,
-  timestep: 0.01, #0.0025,
+  final_time: 5.65, #10.0,
+  timestep: 0.005, #0.0025,
   timestep_selection_mode: "manual"
 }
 grmhd: {
