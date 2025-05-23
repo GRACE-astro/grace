@@ -69,6 +69,14 @@ int main(int argc, char* argv[])
         grace::get_param<int>("amr","postinitial_regrid_depth") ;
     bool reset_id_after_regrid = 
         grace::get_param<bool>("evolution","reset_id_after_regrid") ; 
+
+
+    #ifdef GRACE_DO_MHD
+    #ifdef GRACE_ENABLE_B_FIELD_GLM
+    /* If B was obtained from the derivatives of the vector potential */
+            grace::amr::apply_boundary_conditions() ;  
+    #endif 
+    #endif 
     /**********************************************************************************/
     /*                                 Post-Initial data                              */
     /**********************************************************************************/

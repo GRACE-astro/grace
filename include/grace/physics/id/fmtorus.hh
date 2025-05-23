@@ -41,6 +41,7 @@
 #include <grace/utils/inline.h>
 #include <grace/utils/device.h>
 
+#include <grace/utils/grace_utils.hh>
 #include <grace/utils/runge_kutta.hh>
 #include <grace/data_structures/variable_indices.hh>
 #include <grace/data_structures/variables.hh>
@@ -56,6 +57,7 @@
 #include <grace/physics/id/FMtorus/FMdisk_GRHD_hm1.hh>
 
 #include <Kokkos_Core.hpp>
+
 
 
 namespace grace {
@@ -83,12 +85,25 @@ namespace grace {
                 double a_, double M_, 
                 double rho_min_, double press_min_, 
                 double lapse_min_, double r_in_, double r_at_max_density_,
-                double kappa_, double gamma_ )
+                double kappa_, double gamma_,
+                bool set_Bfield_from_Avec,
+                int Avec_type,
+                int Avec_prescription,
+                double Avec_Pcut,
+                int Avec_n,
+                double Avec_Ab
+            )
                 : \
                 eos(eos_), pcoords(pcoords_), 
                 rho_min(rho_min_), press_min(press_min_),
                 lapse_min(lapse_min_), r_in(r_in_), r_at_max_density(r_at_max_density_),
-                kappa(kappa_),gamma(gamma_)
+                kappa(kappa_),gamma(gamma_),
+                _set_Bfield_from_Avec(set_Bfield_from_Avec),
+                _Avec_type(Avec_type),
+                _Avec_prescription(Avec_prescription),
+                _Avec_Pcut(Avec_Pcut),
+                _Avec_n(Avec_n),
+                _Avec_Ab(Avec_Ab)
             { 
                 GRACE_INFO("In FMTorus setup.") ; 
                 // consistency checks:
@@ -112,12 +127,16 @@ namespace grace {
                     double xcoord = r_at_max_density;
                     double ycoord = 0.0;
                     double zcoord = 0.0;
-                        {
-                    #include <grace/physics/id/FMtorus/FMdisk_GRHD_hm1.hh>
-                        }
+                    //     {
+                    // #include <grace/physics/id/FMtorus/FMdisk_GRHD_hm1.hh>
+                    //     }
+                    hm1=get_hm1(xcoord,ycoord,zcoord,M,a,r_at_max_density,r_in,gamma,kappa);
+
                     rho_max = pow( hm1 * (gamma-1.0) / (kappa*gamma), 1.0/(gamma-1.0) );
                     P_max   = kappa * pow(rho_max, gamma);
                 }
+                
+                GRACE_INFO("Pmax:{}, rhomax:{}",P_max, rho_max);
 
                 // We enforce units such that rho_max = 1.0; if these units are not obeyed, then
                 //    we error out. If we did not error out, then the value of kappa used in all
@@ -202,10 +221,11 @@ namespace grace {
                         id.vy=sol_vel[1];
                         id.vz=sol_vel[2];
 
+                        // conversion to coordinate velocities is done outside of the kernel
                         // convert Eulerian velocities to coordinate velocities:
-                        id.vx = id.alp * id.vx - id.betax;
-                        id.vy = id.alp * id.vy - id.betay;
-                        id.vz = id.alp * id.vz - id.betaz;
+                        // id.vx = id.alp * id.vx - id.betax;
+                        // id.vy = id.alp * id.vy - id.betay;
+                        // id.vz = id.alp * id.vz - id.betaz;
                         // what about zvec? 
 
                     } else {
@@ -246,13 +266,64 @@ namespace grace {
                     // }
                     // id.vx = 0 ; id.vy = 0; id.vz = 0;
 
+                // finally, set the vector potential (for now at cell centres)
+                // the conversion to the B field cell-centred values happens outside of the loop
+                if(_set_Bfield_from_Avec){
+                    double AvecX{0.}, AvecY{0.}, AvecZ{0.};
+                    /*============================================================*/
+                    // The following sets up a vector potential of the form
+                    // A_\phi = Rcyl^2 A_b max[(EE-EE_cut),0],
+                    // where Rcyl is the cylindrical radius: sqrt(x^2+y^2),
+                    // and EE \in {\rho, P} is the variable P or rho, specifying
+                    //   whether the vector potential is proportional to P or rho
+                    //   in the region greater than the cutoff.
+                    // (see e.g https://arxiv.org/pdf/astro-ph/0510653.pdf)
+                    /*============================================================*/
+                    // This formulation assumes that A_r and A_\theta = 0;
+                    // only A_\phi can be nonzero. The coordinate
+                    // transformations are given by:
+                    /*============================================================*/
+                    // A_x = dphi/dx A_phi
+                    //     = d[atan(y/x)]/dx A_phi
+                    //     = -y/(x^2+y^2) A_phi
+                    //     = -y/Rcyl^2 A_phi
+                    // A_y = dphi/dy A_phi
+                    //     = d[atan(y/x)]/dy A_phi
+                    //     =  x/(x^2+y^2) A_phi
+                    //     =  x/Rcyl^2 A_phi
+                    /*============================================================*/
+
+                    if(_Avec_type==0){ // 
+                        // create an azimuthal vector potential A_phi (encoded via Ax, Ay); toroidal symmetry around the object
+                        // magnetic field lines generated from a poloidal vector potential using B = ∇ × A will lie in meridional planes (r–theta planes in spherical coordinates), 
+                        // forming closed loops around the axis of symmetry
+                        if(_Avec_prescription==0){
+                            const double press = id.press ;
+                            // Avec_Ab needs to be picked so that the plasma beta is satisfatory
+                            // for the user 
+                            AvecX = -y * _Avec_Ab * pow(std::max(press - _Avec_Pcut, 0.0),  _Avec_n); 
+                            AvecY =  x * _Avec_Ab * pow(std::max(press - _Avec_Pcut, 0.0),  _Avec_n); 
+                            const double Rcyl2 = x*x + y*y;
+                            // add radial fall-off for the vector potential or is pressure decrease enough to model the fall of?
+                            // AvecX /= Rcyl2;
+                            // AvecY /= Rcyl2;
+                        }
+                    }
+
+                    id.ax = AvecX;
+                    id.ay = AvecY;
+                    id.az = AvecZ;
+                    id.phi_em = 0.0;
+                }
+
                 return std::move(id) ; 
             }
 
         // arguments to the constructor: 
         eos_t   eos         ;                            //!< Equation of state object 
         grace::coord_array_t<GRACE_NSPACEDIM> pcoords ;  //!< Physical coordinates of cell centers
-        double a, M;                            //!< BH spin and mass
+        /*============================================================*/
+        double a, M;             //!< BH spin and mass
         double rho_min, press_min ;   //! < floor!
         double lapse_min ;      //!< floor on the lapse value - should also work without it!
         double r_in;            //!< Fixes the inner edge of the disk
@@ -260,6 +331,15 @@ namespace grace {
         double kappa, gamma;   //!< EOS parameters 
         // will be filled out in the initialization but before fillin the state arrays: 
         double P_max, rho_max;   //! < these will be filled in the constructor 
+        /*============================================================*/
+        bool _set_Bfield_from_Avec ;
+        int _Avec_type ; // 0 - poloidal, 1 - dipole, monopole, linear (e.g. for shocktubes)
+        int _Avec_prescription ;  // 0-pressure, 1 - density based
+        double _Avec_Pcut ;
+        int _Avec_n ;
+        double _Avec_Ab ;
+        /*============================================================*/
+
         };
 
 }

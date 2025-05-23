@@ -244,7 +244,16 @@ DECLARE_VAR_INDEX_IMPL(EPS)                         \
 DECLARE_VAR_INDEX_IMPL(BX)                          \
 DECLARE_VAR_INDEX_IMPL(BY)                          \
 DECLARE_VAR_INDEX_IMPL(BZ)                          \
-DECLARE_VAR_INDEX_IMPL(PHI_GLM)
+DECLARE_VAR_INDEX_IMPL(PHI_GLM)                     \
+DECLARE_VAR_INDEX_IMPL(AVECX)                       \
+DECLARE_VAR_INDEX_IMPL(AVECY)                       \
+DECLARE_VAR_INDEX_IMPL(AVECZ)                       \
+DECLARE_VAR_INDEX_IMPL(PHI_EM)                      \ 
+DECLARE_VAR_INDEX_IMPL(PHIG_EM)                     \
+DECLARE_VAR_INDEX_IMPL(DIVB)   
+
+// note: when vector potential constraint transport is implemented, 
+// the BX field will probably best exist as BCENTRE, BFACE at the same time?
 
 /* ADM metric functions */
 #define VARIABLE_LIST_ADMBASE                     \

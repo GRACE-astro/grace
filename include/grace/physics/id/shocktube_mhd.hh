@@ -119,6 +119,11 @@ struct shocktube_mhd_id_t {
     operator() (VEC(int const i, int const j, int const k), int const q) const 
     {
         grmhd_id_t id ; 
+
+        const double x = _pcoords(VEC(i,j,k),0,q);
+        const double y = _pcoords(VEC(i,j,k),1,q);
+        const double z = _pcoords(VEC(i,j,k),2,q);
+
         if( _pcoords(VEC(i,j,k),0,q) <= 0 ) {
             id.rho     = _rhoL ; 
             id.press   = _pL   ; 
@@ -138,6 +143,14 @@ struct shocktube_mhd_id_t {
             id.by = _byR ;
             id.bz = _bzR ; 
         }
+
+        // if vector potential is used, we set its values in the so-called symmetric gauge:
+        // A_i = 0.5 * (B^j x^k - B^k x^j) where (i,j,k) are (0,1,2) and even permutations 
+        id.ax = 0.5 * (id.by * z - id.bz * y); 
+        id.ay = 0.5 * (id.bz * x - id.bx * z); 
+        id.az = 0.5 * (id.bx * y - id.by * x); 
+        // note that this^ is only possible for piece-wise constant magnetic field 
+        id.phi_em = 0.0;
 
         // set the Minkowski metric 
         id.betax = 0; id.betay=0; id.betaz = 0; 

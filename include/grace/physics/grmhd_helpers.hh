@@ -31,6 +31,9 @@
 #include <grace_config.h> 
 #include <array>
 #include <grace/utils/metric_utils.hh>
+#include <grace/utils/grace_utils.hh>
+#include <grace/data_structures/variable_properties.hh>
+#include <grace/amr/grace_amr.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -314,7 +317,91 @@ get_eulerianB_from_smallb(grace::metric_array_t const& metric,
     }
 }
 
+// helper: 
 
+template<int fd_order, int dir>
+static double GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
+get_derivative(const grace::scalar_array_t<GRACE_NSPACEDIM>& idx,
+                      const grace::var_array_t<GRACE_NSPACEDIM>& aux,
+                       int in_var,
+                       VEC(int i, int j, int k), int q){
+    using namespace utils; 
+
+    double derivative{0.}; 
+    const double inv_dx = idx(dir,q);
+  
+    if constexpr(fd_order==2){
+      derivative = ( aux(VEC(i+utils::delta(0,dir),j+utils::delta(1,dir),k+utils::delta(2,dir)), in_var,q) 
+                  - aux(VEC(i-utils::delta(0,dir),j-utils::delta(1,dir),k-utils::delta(2,dir)), in_var,q)
+                    ) * (1.0/2.0)  * inv_dx;
+    }
+    else if constexpr(fd_order==4){
+      derivative = (aux(VEC(i-2*utils::delta(0,dir),j-2*utils::delta(1,dir),k-2*utils::delta(2,dir)), in_var,q) 
+                  - 8.0 * aux(VEC(i-utils::delta(0,dir),j-utils::delta(1,dir),k-utils::delta(2,dir)), in_var,q)
+                  + 8.0 * aux(VEC(i+utils::delta(0,dir),j+utils::delta(1,dir),k+utils::delta(2,dir)), in_var,q)
+                  -aux(VEC(i+2*utils::delta(0,dir),j+2*utils::delta(1,dir),k+2*utils::delta(2,dir)), in_var,q) 
+                    ) * (1.0/12.0)  * inv_dx;
+    }
+    else{
+      static_assert(fd_order == 2 || fd_order == 4, "Unsupported finite difference order");
+    }
+    return derivative;
+}
+
+/* This function modifies the aux array */
+static void GRACE_HOST_DEVICE
+compute_B_field_from_Avec(
+    const grace::var_array_t<GRACE_NSPACEDIM>& state,
+    grace::var_array_t<GRACE_NSPACEDIM>& aux, 
+    const grace::scalar_array_t<GRACE_NSPACEDIM>& idx)
+  {
+    DECLARE_GRID_EXTENTS;
+    using namespace grace  ;
+    using namespace Kokkos ;
+
+    constexpr int X=0;
+    constexpr int Y=1;
+    constexpr int Z=2;
+    constexpr int FD_ORDER = 2 ; // set it to the number of ghostzones just for safety 
+    // we initialize sqrtgamma * B^i = eps^ijk d_j A_k 
+    // state contains the required metric components passed on from the id kernel already 
+    // aux contains the AVEC components and the B-field components (to be filled)
+
+
+    #ifdef GRACE_ENABLE_B_FIELD_GLM
+    /*************************************************************************/
+    /* loop fill everything in the interior points   */
+    /*************************************************************************/
+    auto policy = MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+1+ngz,ny+1+ngz,nz+1+ngz),nq}) ; 
+    parallel_for( GRACE_EXECUTION_TAG("ID","magnetic_field_from_vector_potential_ID")
+                , policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                  const double Bx_densitized =
+                    get_derivative<FD_ORDER, Y>(idx, aux, AVECZ_, VEC(i,j,k), q) -
+                    get_derivative<FD_ORDER, Z>(idx, aux, AVECY_, VEC(i,j,k), q);
+
+                  const double By_densitized =
+                    get_derivative<FD_ORDER, Z>(idx, aux, AVECX_, VEC(i,j,k), q) -
+                    get_derivative<FD_ORDER, X>(idx, aux, AVECZ_, VEC(i,j,k), q);
+
+                  const double Bz_densitized =
+                    get_derivative<FD_ORDER, X>(idx, aux, AVECY_, VEC(i,j,k), q) -
+                    get_derivative<FD_ORDER, Y>(idx, aux, AVECX_, VEC(i,j,k), q);
+
+                  // Un-densitize
+                  metric_array_t metric;
+                  FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k));
+                  const double SQRTG = metric.sqrtg();
+
+                  aux(VEC(i,j,k), BX_, q) = Bx_densitized / SQRTG;
+                  aux(VEC(i,j,k), BY_, q) = By_densitized / SQRTG;
+                  aux(VEC(i,j,k), BZ_, q) = Bz_densitized / SQRTG;
+
+                }
+    );
+    #endif
+}
 
 struct grmhd_id_t {
   double rho;
@@ -326,6 +413,7 @@ struct grmhd_id_t {
   double betax, betay, betaz ; 
   double vx, vy, vz;
   #ifdef GRACE_DO_MHD
+  double ax, ay, az, phi_em;
   double bx, by, bz;
   #ifdef GRACE_ENABLE_B_FIELD_GLM
   double phi_glm ;

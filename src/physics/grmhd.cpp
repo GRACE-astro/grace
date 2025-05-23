@@ -239,8 +239,21 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
     GRACE_TRACE("Filled physical coordinates array.") ; 
     auto& state = grace::variable_list::get().getstate() ; 
     auto& aux   = grace::variable_list::get().getaux()   ; 
+    auto& idx   = grace::variable_list::get().getinvspacings()   ; 
 
     auto const& _eos = eos::get().get_eos<eos_t>() ; 
+
+    // Avec |---> B field queries in case the magnetic field is set from vector potential
+    // 1. Note that for now, the id_kernel call sets:
+    //      -   the vector potential ALSO at cell centres
+    //      -   then the densitized B vector field at cell centres from 2nd order derivatives of Avec
+    // 2. When extension to Avec-constrained-transport is made, we could instead
+    //      -   evaluate the id_kernel at all cell edges
+    //      -   (inefficient if just to get 1 (ONE!) Avec component, but makes density,
+    //          metric etc consistent at that point where Avec^i is evaluated)
+    //      -  in a subsequent call after the grmhd_ID parallel_for, call an appropriate version of Avec--->Bfield transform [same as it happens for 1 now]
+    
+    const bool set_Bfield_from_Avec = get_param<bool>("grmhd","set_B_from_Avec") ;
 
     id_t id_kernel{ _eos, pcoords, kernel_args... } ; 
     Kokkos::fence() ; 
@@ -254,9 +267,12 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),RHO_,q)   = id.rho; 
                     aux(VEC(i,j,k),PRESS_,q) = id.press ; 
 
-
 		    #ifdef GRACE_DO_MHD
-                    aux(VEC(i,j,k),BX_,q) = id.bx ; 
+                    aux(VEC(i,j,k),AVECX_,q) = id.ax ; 
+                    aux(VEC(i,j,k),AVECY_,q) = id.ay ; 
+                    aux(VEC(i,j,k),AVECZ_,q) = id.az ; 
+                    aux(VEC(i,j,k),PHI_EM_,q) = id.phi_em ; 
+                    aux(VEC(i,j,k),BX_,q) = id.bx ;  // this is redundant if set_B_from_Avec, but we leave it for compatibility with other examples
                     aux(VEC(i,j,k),BY_,q) = id.by ; 
                     aux(VEC(i,j,k),BZ_,q) = id.bz ; 
                     #ifdef GRACE_ENABLE_B_FIELD_GLM
@@ -315,6 +331,18 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     /* Set ye */
                     aux(VEC(i,j,k),YE_,q) = ye ; 
                 }) ; 
+
+    // at this point, the vector potential (or magnetic field in some cases) is already set up at cell-centres (if applicable)
+    // in the future, potentially we want to schedule an edge-centred initialization for Avec here:
+
+    // set_edge_staggered_Avec(id_kernel, state, cstate, idx); 
+
+    // we launch a separate loop to set the magnetic field from vector potential
+    // in GLM, for subsequent evolution; vector potential is then never touched again
+    if(set_Bfield_from_Avec){
+        compute_B_field_from_Avec(state, aux, idx);
+    }
+
 }
 
 template< typename eos_t >
@@ -354,6 +382,8 @@ void set_grmhd_initial_data() {
         auto const B_y_R = get_param<double>("grmhd","shocktube_mhd_B_y_R") ; 
         auto const B_z_R = get_param<double>("grmhd","shocktube_mhd_B_z_R") ; 
         
+        ASSERT(std::abs(B_x_L-B_x_R)<1e-10, "What are you doing?");
+
         set_grmhd_initial_data_impl<eos_t,shocktube_mhd_id_t<eos_t>>(rho_L, rho_R, 
                                                                      press_L, press_R,
                                                                      vel_x_L, vel_y_L, vel_z_L,
@@ -460,8 +490,26 @@ void set_grmhd_initial_data() {
         auto const r_at_max_density = get_param<double>("grmhd", "FMTorus_r_at_max_density") ; 
         auto const gamma = get_param<double>("grmhd", "FMTorus_gamma") ; 
         auto const kappa = get_param<double>("grmhd", "FMTorus_kappa") ; 
+
+        // note: setting things like this leads to a lot of code-repetition and very verbose id_kernel constructors
+        // [every id kernel needs to have these in the constructor
+        // if it wants to initialize B field from Avec...]
+        const bool set_Bfield_from_Avec = get_param<bool>("grmhd","set_B_from_Avec") ;
+        const std::string Avec_type = get_param<std::string>("grmhd","Avec_type") ; // poloidal, dipole, monopole, linear (e.g. for shocktubes)
+        const std::string Avec_prescription = get_param<std::string>("grmhd","Avec_prescription") ; // density/pressure based
+        const double Avec_Pcut = get_param<double>("grmhd","Avec_Pcut") ;
+        const int Avec_n = get_param<int>("grmhd","Avec_n") ;
+        const double Avec_Ab = get_param<double>("grmhd","Avec_Ab") ;
+
+        const int int_Avec_prescription = (Avec_prescription=="pressure_prescription" ? 1 : 0 );
+        const int int_Avec_type = (Avec_type=="poloidal" ? 0 : 1 ); // add more...
+        
         set_grmhd_initial_data_impl<eos_t,fmtorus_id_t<eos_t>>(a_BH,M_BH,rho_min, 
-                        press_min,lapse_min,r_in,r_at_max_density,kappa,gamma) ;
+                        press_min,lapse_min,r_in,r_at_max_density,kappa,gamma,
+                        set_Bfield_from_Avec, int_Avec_type, int_Avec_prescription,
+                        Avec_Pcut, Avec_n, Avec_Ab) ;
+        GRACE_TRACE("Done with magnetized FMTorus ID.") ;  
+
     }
      else {
         ERROR("Unrecognized id_type " << id_type ) ; 

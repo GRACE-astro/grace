@@ -201,6 +201,8 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(PHIG_GLM,"phi_glm_star","outgoing",true) ;
     // #endif
     // #endif
+    /* AVEC in the future */
+
     /* GRMHD primitives */
     REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
     REGISTER_AUX_VECTOR(VELX,VELY,VELZ,"vel","none") ; 
@@ -215,7 +217,11 @@ void register_variables() {
     // #ifdef GRACE_ENABLE_B_FIELD_GLM
     REGISTER_AUX_SCALAR(PHI_GLM, "phi_glm","none") ;
     // #endif 
+    /* For now (in the GLM branch), the vector potential serves purely an ID-related role */
+    REGISTER_AUX_VECTOR(AVECX,AVECY,AVECZ,"A","none") ;
+    REGISTER_AUX_SCALAR(PHI_EM, "phi_em","none") ;
     // #endif
+
     /* registration of metric variables */
     REGISTER_EVOLVED_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","outgoing",false) ; 
     REGISTER_EVOLVED_SCALAR(ALP,"alp","outgoing",false) ; 
