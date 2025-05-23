@@ -36,8 +36,6 @@
 #include <grace/physics/id/shocktube.hh>
 //#include <grace/physics/id/blastwave.hh>
 #include <grace/physics/id/tov.hh>
-#include <grace/physics/id/fmtorus.hh>
-
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
@@ -441,29 +439,26 @@ void set_grmhd_initial_data() {
         Kokkos::fence() ; 
         GRACE_TRACE("Done with Magnetized Rotor MHD ID.") ;  
     }
+    else if( id_type == "bondi_accretion" ) {
+        auto const M          = get_param<double>("grmhd","Bondi_accretion_M") ; 
+        auto const mdot       = get_param<double>("grmhd","Bondi_accretion_M_dot") ;
+        auto const r_sonic    = get_param<double>("grmhd","Bondi_accretion_r_sonic") ;
+        auto const gamma      = get_param<double>("grmhd","Bondi_accretion_gamma") ;
+        auto const rmin       = get_param<double>("grmhd","Bondi_accretion_rmin") ;
+        auto const rmax       = get_param<double>("grmhd","Bondi_accretion_rmax") ;
+        auto const bmag       = get_param<double>("grmhd","Bondi_accretion_bmag") ;
+        auto const beta_sonic = get_param<double>("grmhd","Bondi_accretion_beta_sonic") ;
+        set_grmhd_initial_data_impl<eos_t,bondi_accretion_id_t<eos_t>>(M,mdot,r_sonic,gamma,rmin,rmax,bmag,beta_sonic) ;
+        Kokkos::fence() ; 
+        GRACE_TRACE("Done with Bondi accretion MHD ID.") ;  
+    }
     #endif
     else if ( id_type == "blastwave" ) {
         set_grmhd_spherical_blastwave_initial_data<eos_t>() ; 
     } else if ( id_type == "TOV") { 
         auto const rho_c = get_param<double>("grmhd", "TOV_central_density") ; 
         set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(rho_c) ;
-    }else if ( id_type == "FMtorus") { 
-        bool is_eos_thermal=(get_param<double>("eos","gamma_th") > 0.0 ?  true : false) ;
-        if(is_eos_thermal) ERROR("Thermal component not available for FMtorus currently");
-
-        auto const a_BH = get_param<double>("grmhd", "FMTorus_a_BH") ; 
-        auto const M_BH = get_param<double>("grmhd", "FMTorus_M_BH") ; 
-        auto const rho_min = get_param<double>("grmhd", "FMTorus_rho_min") ; 
-        auto const press_min = get_param<double>("grmhd", "FMTorus_press_min") ; 
-        auto const lapse_min = get_param<double>("grmhd", "FMTorus_lapse_min") ; 
-        auto const r_in = get_param<double>("grmhd", "FMTorus_r_rin") ; 
-        auto const r_at_max_density = get_param<double>("grmhd", "FMTorus_r_at_max_density") ; 
-        auto const gamma = get_param<double>("grmhd", "FMTorus_gamma") ; 
-        auto const kappa = get_param<double>("grmhd", "FMTorus_kappa") ; 
-        set_grmhd_initial_data_impl<eos_t,fmtorus_id_t<eos_t>>(a_BH,M_BH,rho_min, 
-                        press_min,lapse_min,r_in,r_at_max_density,kappa,gamma) ;
-    }
-     else {
+    } else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }
     set_conservs_from_prims() ;
