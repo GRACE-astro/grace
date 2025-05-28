@@ -34,7 +34,11 @@
 
 #include <Kokkos_Core.hpp>
 
+
+// that's a high tolerance, I think...
+
 #define C2P_TOLERANCE 10
+
 
 namespace grace {
 
@@ -59,7 +63,8 @@ conservs_to_prims( grmhd_cons_array_t& cons
         double residual ;
         prims =  c2p.invert(residual) ;
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
-        W = prims[PRESSL] ; // W was stored here for convenience
+        // W = prims[PRESSL] ; // W was stored here for convenience
+        // in fact, W is not needed here 
     } else {
         c2p_failed = true ;
     }
@@ -84,17 +89,18 @@ conservs_to_prims( grmhd_cons_array_t& cons
         #endif
         #endif 
     }
+
     /* Set pressure entropy and temperature */
     double h, csnd2;
     unsigned int err ;
     prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
         h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
     ) ;
-    /* Go from z-vec to velocity and remove */
-    /* shift contribution.                  */
-    double const u0 = W / metric.alp() ;
-    /* The 3-velocity in grace is not in the */
-    /* ZAMO frame.                           */
+
+    /* Note that C2P returns Eulerian velocities */
+    /* The 3-velocity in grace is not in the     */
+    /* ZAMO frame.                               */
+    /* We now convert to coordinate velocities:  */
     prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;
     prims[VYL] = metric.alp()*prims[VYL] - metric.beta(1) ;
     prims[VZL] = metric.alp()*prims[VZL] - metric.beta(2) ;
@@ -122,7 +128,6 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
 
     cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
 
-    //double const b2{0.}, smallbt{0.} ; 
     std::array<double,4> smallb;
     // vZAMO is the eulerian (U^i) velocity necessary for this routine:
     get_smallb_from_eulerianB(metric, { prims[BXL],prims[BYL],prims[BZL]},

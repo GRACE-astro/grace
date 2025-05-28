@@ -465,17 +465,21 @@ struct grmhd_equations_system_t
                 d_i_sqrtgamma_gammaUU[jj] = sqrtgamma *  d_i_sqrtgamma_gammaUU[jj];
             }
             
-            // B^x source term
+            // see Eq.(89), Eq.(90) in https://arxiv.org/pdf/1304.5544 : 
+            // B^x source terms
             state_new(VEC(i,j,k),BGX_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[0]) * idx(idir,q) ;
             state_new(VEC(i,j,k),BGX_,q) += dt_fac * alp * d_i_sqrtgamma_gammaUU[0] * prims[PHI_GLML] * idx(idir,q) ;
+            state_new(VEC(i,j,k),BGX_,q) += sqrtgamma_dt * prims[PHI_GLML] * invgij[0][idir] * dalp_dxi * idx(idir,q) ;     // the term with the derivative of alpha 
 
-            // B^y source term
+            // B^y source terms
             state_new(VEC(i,j,k),BGY_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[1]) * idx(idir,q) ;
             state_new(VEC(i,j,k),BGY_,q) += dt_fac * alp * d_i_sqrtgamma_gammaUU[1] * prims[PHI_GLML] *idx(idir,q) ;
-            
-            // B^z source term
+            state_new(VEC(i,j,k),BGY_,q) += sqrtgamma_dt * prims[PHI_GLML] * invgij[1][idir] * dalp_dxi * idx(idir,q) ;
+
+            // B^z source terms
             state_new(VEC(i,j,k),BGZ_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[2]) * idx(idir,q) ;
             state_new(VEC(i,j,k),BGZ_,q) += dt_fac * alp * d_i_sqrtgamma_gammaUU[2] * prims[PHI_GLML] * idx(idir,q) ;
+            state_new(VEC(i,j,k),BGZ_,q) += sqrtgamma_dt * prims[PHI_GLML] * invgij[2][idir] * dalp_dxi * idx(idir,q) ;
 
             // Source[\Phi_{\rm GLM}] = -sqrtgamma * alp * kappa * phi                                       (1)
             //                          -sqrtgamma * phi * \partial_i beta^i                             (2)
@@ -1545,11 +1549,13 @@ struct grmhd_equations_system_t
 
     
         int metric_comps[3] { 0, 3, 5} ; 
-        // cml_DC = c_minus_left_divergence_cleaning
-        double cml_DC = -Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) / alp;
+	// the characteristic wavespeeds in GRMHD in coordinate frame are bound by
+	// Eq.(60) in Anton 2006: https://arxiv.org/pdf/astro-ph/0506063
+        // cml_DC is a short name for "c_minus_left_divergence_cleaning"
+        double cml_DC = -alp * Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) ;
         double cmr_DC = cml_DC;
 
-        double cpl_DC = +Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) / alp;
+        double cpl_DC =  alp * Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) ;
         double cpr_DC = cpl_DC;
 
         double cmin_DC = -Kokkos::min(0., Kokkos::min(cml_DC,cmr_DC)) ; 

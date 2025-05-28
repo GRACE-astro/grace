@@ -111,6 +111,20 @@ void compute_auxiliary_quantities(
         GET_AUX ; 
     }) ; 
 
+    #ifdef GRACE_DO_MHD
+        auto& idx   = grace::variable_list::get().getinvspacings()   ; 
+
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
+        policy_interior({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz+1,ny+ngz+1,nz+ngz+1),nq}) ; 
+        parallel_for(GRACE_EXECUTION_TAG("EVOL","compute_divB"), policy_interior 
+                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+        {
+            constexpr int DIVB_FD_ORDER = 2 ; 
+            auto const divB = compute_divB<DIVB_FD_ORDER>(state, aux, idx, VEC(i,j,k), q);
+            aux(VEC(i,j,k), DIVB_, q) = divB;
+        }) ; 
+    #endif
+
     #undef GET_AUX
     #if 0
     #ifdef GRACE_ENABLE_SCALAR_ADV

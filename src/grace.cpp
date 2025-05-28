@@ -74,7 +74,10 @@ int main(int argc, char* argv[])
     #ifdef GRACE_DO_MHD
     #ifdef GRACE_ENABLE_B_FIELD_GLM
     /* If B was obtained from the derivatives of the vector potential */
-            grace::amr::apply_boundary_conditions() ;  
+            const bool set_Bfield_from_Avec = get_param<bool>("grmhd","set_B_from_Avec") ;
+            if(set_Bfield_from_Avec){ // we need it since we cannot set B at a desired order in all the ghost-zones otherwise 
+                grace::amr::apply_boundary_conditions() ;  
+            }
     #endif 
     #endif 
     /**********************************************************************************/

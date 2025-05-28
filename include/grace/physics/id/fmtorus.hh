@@ -95,6 +95,7 @@ namespace grace {
             )
                 : \
                 eos(eos_), pcoords(pcoords_), 
+                M(M_), a(a_),
                 rho_min(rho_min_), press_min(press_min_),
                 lapse_min(lapse_min_), r_in(r_in_), r_at_max_density(r_at_max_density_),
                 kappa(kappa_),gamma(gamma_),
@@ -105,7 +106,7 @@ namespace grace {
                 _Avec_n(Avec_n),
                 _Avec_Ab(Avec_Ab)
             { 
-                GRACE_INFO("In FMTorus setup.") ; 
+                GRACE_INFO("In FMTorus setup. Make sure kappa of the ID-FMtorus matches the EOS kappa!") ; 
                 // consistency checks:
                 if(r_in >= r_at_max_density) ERROR("r_in needs to be smaller than r_at_max_density!");
                 if(a < 0.0) ERROR("Negative spins not supported! The setup of fluid profiles assumes the positive sign.");
@@ -120,8 +121,7 @@ namespace grace {
                         gamma = {}", \
                         a,M,r_in,r_at_max_density,kappa,gamma);
    
-                // First compute maximum pressure and density
-                double P_max, rho_max;
+                // First compute maximum pressure and density (rho_max and P_max will be filled as members)
                 {
                     double hm1;
                     double xcoord = r_at_max_density;
@@ -142,13 +142,14 @@ namespace grace {
                 //    we error out. If we did not error out, then the value of kappa used in all
                 //    EOS routines would need to be changed, and generally these appear as
                 //    read-only parameters.
+                
                 if(fabs(P_max/rho_max - kappa) > 1e-8) {
                     GRACE_INFO("Error: To ensure that P = kappa*rho^Gamma, where rho_max = 1.0,\n, \
-                        you must set (in your parfile) the polytropic constant kappa = P_max/rho_max = {} \n\n, \
-                        Needed values for kappa, for common values of Gamma:\n \
+                        you must set your kappa correctly to ensure that for rho_max=1.0, P_max = kappa; right now, Pmax, rhomax, ratio: {}, {}, {} \n\n, \
+                        Needed values for kappa, for common values of Gamma (setup as in Etienne's FishboneMoncrief_IllinoisGRMHD-production_run-HIGHRES.par):\n \
                         For Gamma=4/3, use kappa=K_initial=K_poly = 4.249572342020724e-03 to ensure rho_max = 1.0,\n \
                         For Gamma=5/3, use kappa=K_initial=K_poly = 6.799315747233158e-03 to ensure rho_max = 1.0,\n \
-                        For Gamma=2, use kappa=K_initial=K_poly = 8.499144684041449e-03 to ensure rho_max = 1.0\n", (P_max/rho_max) );
+                        For Gamma=2, use kappa=K_initial=K_poly = 8.499144684041449e-03 to ensure rho_max = 1.0\n", P_max, rho_max, P_max/rho_max);
                     ERROR("Aborting the run");
                 }
 
@@ -205,33 +206,37 @@ namespace grace {
                 unsigned int err ; 
 
                 if(r > r_in) {
-                    {// compute hm1
+                        // compute hm1
                         hm1=get_hm1(x,y,z,M,a,r_at_max_density,r_in,gamma,kappa);
-                        //#include <grace/physics/id/FMtorus/FMdisk_GRHD_hm1.hh>
-                    }
-                    if(hm1 > 0) {
-                        id.rho = pow( hm1 * (gamma-1.0) / (kappa*gamma), 1.0/(gamma-1.0) ) / rho_max;
-                        id.press = kappa*pow(id.rho, gamma);
-                        // P = (\Gamma - 1) rho epsilon
-                        double eps = id.press / (id.rho * (gamma - 1.0));
-                        id.ye    = eos.ye_beta_eq__press_cold(id.press,err) ;
-                        // Get rho and eps from press 
-                        id.rho   = eos.rho__press_cold_ye(id.press, id.ye, err) ; 
-                        id.vx=sol_vel[0];
-                        id.vy=sol_vel[1];
-                        id.vz=sol_vel[2];
 
-                        // conversion to coordinate velocities is done outside of the kernel
-                        // convert Eulerian velocities to coordinate velocities:
-                        // id.vx = id.alp * id.vx - id.betax;
-                        // id.vy = id.alp * id.vy - id.betay;
-                        // id.vz = id.alp * id.vz - id.betaz;
-                        // what about zvec? 
+                        if(hm1 > 0) {
+                            id.rho = pow( hm1 * (gamma-1.0) / (kappa*gamma), 1.0/(gamma-1.0) ) / rho_max;
+                            id.press = kappa*pow(id.rho, gamma);
+                            // P = (\Gamma - 1) rho epsilon
+                            double eps = id.press / (id.rho * (gamma - 1.0));
+                            // id.ye    = eos.ye_beta_eq__press_cold(id.press,err) ;
+                            // Get rho and eps from press  ? is this needed?
+                            // id.rho   = eos.rho__press_cold_ye(id.press, id.ye, err) ; 
+                            id.vx=sol_vel[0];
+                            id.vy=sol_vel[1];
+                            id.vz=sol_vel[2];
 
-                    } else {
-                        set_to_atmosphere=true;
-                    }
-                    } else {
+                            // conversion to coordinate velocities is done outside of the kernel
+                            // convert Eulerian velocities to coordinate velocities:
+                            // id.vx = id.alp * id.vx - id.betax;
+                            // id.vy = id.alp * id.vy - id.betay;
+                            // id.vz = id.alp * id.vz - id.betaz;
+                            // what about zvec? 
+                            
+
+
+
+                            
+                            }
+                        else{
+                            set_to_atmosphere=true;
+                        }
+                } else {
                     set_to_atmosphere=true;
                 }
                 // Outside the disk? Set to atmosphere all hydrodynamic variables!
@@ -316,6 +321,8 @@ namespace grace {
                     id.phi_em = 0.0;
                 }
 
+                //GRACE_INFO("will return id.rho: ", id.rho);
+                // printf("id.rho %f \n", id.rho);
                 return std::move(id) ; 
             }
 

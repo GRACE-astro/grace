@@ -26,7 +26,7 @@ IO: {
   # Bug/Feature: 
   # vel[1]/vel[2] to be specifiable in the future  
   volume_output_cell_variables: ["eps","rho","press","alp", "vel[0]",
-                              "B[0]", "phi_glm"],
+                              "B[0]", "phi_glm","divB"],
   volume_output_base_directory: "output_volume",
   volume_output_every: 10,
   plane_surface_output_cell_variables: [],
@@ -36,8 +36,8 @@ IO: {
   # info_output_max_reductions: ["eps","rho","press","alp", 
   #                             "vel[0]", "vel[1]", "vel[2]", 
   #                             "B[0]", "B[1]", "B[2]", "phi_glm"],
-  info_output_max_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
-  info_output_min_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
+  info_output_max_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm","divB"],
+  info_output_min_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm", "divB"],
   #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
   # info_output_min_reductions: ["eps","rho","press","alp", 
   #                             "vel[0]", "vel[1]", "vel[2]", 
@@ -48,7 +48,7 @@ IO: {
   scalar_output_minmax: ["eps","rho","press",
                          "vel[0]", "vel[1]", "vel[2]", 
                          "B[0]", "B[1]", "B[2]",
-                         "phi_glm"],
+                         "phi_glm", "divB"],
   scalar_output_norm2: [],
   scalar_output_integral: [],
   output_use_hdf5: true, 

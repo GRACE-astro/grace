@@ -268,10 +268,19 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),PRESS_,q) = id.press ; 
 
 		    #ifdef GRACE_DO_MHD
-                    aux(VEC(i,j,k),AVECX_,q) = id.ax ; 
-                    aux(VEC(i,j,k),AVECY_,q) = id.ay ; 
-                    aux(VEC(i,j,k),AVECZ_,q) = id.az ; 
-                    aux(VEC(i,j,k),PHI_EM_,q) = id.phi_em ; 
+                    if(set_Bfield_from_Avec){
+                        aux(VEC(i,j,k),AVECX_,q) = id.ax ; 
+                        aux(VEC(i,j,k),AVECY_,q) = id.ay ; 
+                        aux(VEC(i,j,k),AVECZ_,q) = id.az ; 
+                        aux(VEC(i,j,k),PHI_EM_,q) = id.phi_em ; 
+                    }
+                    else{
+                        // is this really necessary? 
+                        aux(VEC(i,j,k),AVECX_,q) = 0.0 ; 
+                        aux(VEC(i,j,k),AVECY_,q) = 0.0 ; 
+                        aux(VEC(i,j,k),AVECZ_,q) = 0.0 ; 
+                        aux(VEC(i,j,k),PHI_EM_,q) = 0.0 ; 
+                    }
                     aux(VEC(i,j,k),BX_,q) = id.bx ;  // this is redundant if set_B_from_Avec, but we leave it for compatibility with other examples
                     aux(VEC(i,j,k),BY_,q) = id.by ; 
                     aux(VEC(i,j,k),BZ_,q) = id.bz ; 
@@ -340,6 +349,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
     // we launch a separate loop to set the magnetic field from vector potential
     // in GLM, for subsequent evolution; vector potential is then never touched again
     if(set_Bfield_from_Avec){
+        GRACE_INFO("Computing magnetic field from vector potential"); 
         compute_B_field_from_Avec(state, aux, idx);
     }
 
@@ -489,7 +499,24 @@ void set_grmhd_initial_data() {
         set_grmhd_spherical_blastwave_initial_data<eos_t>() ; 
     } else if ( id_type == "TOV") { 
         auto const rho_c = get_param<double>("grmhd", "TOV_central_density") ; 
-        set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(rho_c) ;
+
+        const bool set_Bfield_from_Avec = get_param<bool>("grmhd","set_B_from_Avec") ;
+        if(not set_Bfield_from_Avec){
+            set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(rho_c) ;
+        }
+        else{
+            const std::string Avec_type = get_param<std::string>("grmhd","Avec_type") ; // poloidal, dipole, monopole, linear (e.g. for shocktubes)
+            const std::string Avec_prescription = get_param<std::string>("grmhd","Avec_prescription") ; // density/pressure based
+            const double Avec_Pcut = get_param<double>("grmhd","Avec_Pcut") ;
+            const int Avec_n = get_param<int>("grmhd","Avec_n") ;
+            const double Avec_Ab = get_param<double>("grmhd","Avec_Ab") ;
+
+            const int int_Avec_prescription = (Avec_prescription=="pressure_prescription" ? 0 : 1 );
+            const int int_Avec_type = (Avec_type=="poloidal" ? 0 : 1 ); // add more...
+            set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(rho_c,
+                                                               set_Bfield_from_Avec, int_Avec_type, int_Avec_prescription,
+                                                               Avec_Pcut, Avec_n, Avec_Ab ) ;
+        }
     }else if ( id_type == "FMtorus") { 
         bool is_eos_thermal=(get_param<double>("eos","gamma_th") > 0.0 ?  true : false) ;
         if(is_eos_thermal) ERROR("Thermal component not available for FMtorus currently");
@@ -514,7 +541,7 @@ void set_grmhd_initial_data() {
         const int Avec_n = get_param<int>("grmhd","Avec_n") ;
         const double Avec_Ab = get_param<double>("grmhd","Avec_Ab") ;
 
-        const int int_Avec_prescription = (Avec_prescription=="pressure_prescription" ? 1 : 0 );
+        const int int_Avec_prescription = (Avec_prescription=="pressure_prescription" ? 0 : 1 );
         const int int_Avec_type = (Avec_type=="poloidal" ? 0 : 1 ); // add more...
         
         set_grmhd_initial_data_impl<eos_t,fmtorus_id_t<eos_t>>(a_BH,M_BH,rho_min, 

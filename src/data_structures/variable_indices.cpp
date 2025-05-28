@@ -221,6 +221,7 @@ void register_variables() {
     REGISTER_AUX_VECTOR(AVECX,AVECY,AVECZ,"A","none") ;
     REGISTER_AUX_SCALAR(PHI_EM, "phi_em","none") ;
     // #endif
+    REGISTER_AUX_SCALAR(DIVB, "divB","none") ;
 
     /* registration of metric variables */
     REGISTER_EVOLVED_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","outgoing",false) ; 

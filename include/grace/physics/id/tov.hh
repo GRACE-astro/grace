@@ -181,6 +181,40 @@ struct tov_id_t {
 
     } 
 
+
+    /**
+     * @brief Construct a new tov id t object where magnetic field is explictly taken into account 
+     * @note this is just an alternative constructor where the rather verbose magnetic field parameters are also included  
+     * @param eos 
+     * @param pcoords 
+     * @param rhoC 
+     * @param set_Bfield_from_Avec 
+     * @param Avec_type 
+     * @param Avec_prescription 
+     * @param Avec_Pcut 
+     * @param Avec_n 
+     * @param Avec_Ab 
+     */
+    tov_id_t(
+          eos_t eos
+        , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
+        , double rhoC 
+        , bool set_Bfield_from_Avec
+        , int Avec_type
+        , int Avec_prescription
+        , double Avec_Pcut
+        , int Avec_n
+        , double Avec_Ab)
+        : tov_id_t(eos, pcoords, rhoC) // delegated constructor
+    { 
+          _set_Bfield_from_Avec=set_Bfield_from_Avec;
+          _Avec_type=Avec_type;
+          _Avec_prescription=Avec_prescription;
+          _Avec_Pcut=Avec_Pcut;
+          _Avec_n=Avec_n;
+          _Avec_Ab=Avec_Ab;
+    }
+
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     operator() (VEC(int i, int j, int k), int q) const 
     {
@@ -273,6 +307,24 @@ struct tov_id_t {
         id.kyy = 0. ;
         id.kyz = 0. ;
         id.kzz = 0. ;
+
+
+        if(_set_Bfield_from_Avec){
+                double AvecX{0.}, AvecY{0.}, AvecZ{0.};
+                if(_Avec_type==0){ 
+                    if(_Avec_prescription==0){
+                        const double press = id.press ;
+                        AvecX = -y * _Avec_Ab * pow(std::max(press - _Avec_Pcut, 0.0),  _Avec_n); 
+                        AvecY =  x * _Avec_Ab * pow(std::max(press - _Avec_Pcut, 0.0),  _Avec_n); 
+                        const double Rcyl2 = x*x + y*y;
+                    }
+                }
+            id.ax = AvecX;
+            id.ay = AvecY;
+            id.az = AvecZ;
+            id.phi_em = 0.0;
+        }
+
         return std::move(id) ; 
     }
     
@@ -334,6 +386,14 @@ struct tov_id_t {
     size_t _npoints ; 
     static constexpr double _dr = R_MAX / N_POINTS ; 
     Kokkos::View<double *, grace::default_space> mass, press, nu, r, dr ;  
+     /*============================================================*/
+    bool _set_Bfield_from_Avec ;
+    int _Avec_type ; // 0 - poloidal, 1 - dipole, monopole, linear (e.g. for shocktubes)
+    int _Avec_prescription ;  // 0-pressure, 1 - density based
+    double _Avec_Pcut ;
+    int _Avec_n ;
+    double _Avec_Ab ;
+    /*============================================================*/
 } ;
 
 } /* namespace grace */

@@ -317,12 +317,26 @@ get_eulerianB_from_smallb(grace::metric_array_t const& metric,
     }
 }
 
-// helper: 
 
-template<int fd_order, int dir>
+#ifdef GRACE_DO_MHD
+#ifdef GRACE_ENABLE_B_FIELD_GLM
+
+/**
+ * @brief get_derivative
+ * @tparam size_t fd_order finite differencing order
+ * @tparam size_t dir direction of the derivative
+ * @param idx array of inverse grid spacings
+ * @param vars array of variables (could be state/aux)
+ * @param in_var which variable is being differentiated
+ * @param VEC(i,j,k) position
+ * @param q quadrant number 
+ * @note  helper function for computing finite-difference expressions in the routines below 
+ * @returns fd-order derivative value at a point (double)
+ */
+template<size_t fd_order, size_t dir>
 static double GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
 get_derivative(const grace::scalar_array_t<GRACE_NSPACEDIM>& idx,
-                      const grace::var_array_t<GRACE_NSPACEDIM>& aux,
+                      const grace::var_array_t<GRACE_NSPACEDIM>& vars,
                        int in_var,
                        VEC(int i, int j, int k), int q){
     using namespace utils; 
@@ -331,15 +345,15 @@ get_derivative(const grace::scalar_array_t<GRACE_NSPACEDIM>& idx,
     const double inv_dx = idx(dir,q);
   
     if constexpr(fd_order==2){
-      derivative = ( aux(VEC(i+utils::delta(0,dir),j+utils::delta(1,dir),k+utils::delta(2,dir)), in_var,q) 
-                  - aux(VEC(i-utils::delta(0,dir),j-utils::delta(1,dir),k-utils::delta(2,dir)), in_var,q)
+      derivative = ( vars(VEC(i+utils::delta(0,dir),j+utils::delta(1,dir),k+utils::delta(2,dir)), in_var,q) 
+                  - vars(VEC(i-utils::delta(0,dir),j-utils::delta(1,dir),k-utils::delta(2,dir)), in_var,q)
                     ) * (1.0/2.0)  * inv_dx;
     }
     else if constexpr(fd_order==4){
-      derivative = (aux(VEC(i-2*utils::delta(0,dir),j-2*utils::delta(1,dir),k-2*utils::delta(2,dir)), in_var,q) 
-                  - 8.0 * aux(VEC(i-utils::delta(0,dir),j-utils::delta(1,dir),k-utils::delta(2,dir)), in_var,q)
-                  + 8.0 * aux(VEC(i+utils::delta(0,dir),j+utils::delta(1,dir),k+utils::delta(2,dir)), in_var,q)
-                  -aux(VEC(i+2*utils::delta(0,dir),j+2*utils::delta(1,dir),k+2*utils::delta(2,dir)), in_var,q) 
+      derivative = (vars(VEC(i-2*utils::delta(0,dir),j-2*utils::delta(1,dir),k-2*utils::delta(2,dir)), in_var,q) 
+                  - 8.0 * vars(VEC(i-utils::delta(0,dir),j-utils::delta(1,dir),k-utils::delta(2,dir)), in_var,q)
+                  + 8.0 * vars(VEC(i+utils::delta(0,dir),j+utils::delta(1,dir),k+utils::delta(2,dir)), in_var,q)
+                  -vars(VEC(i+2*utils::delta(0,dir),j+2*utils::delta(1,dir),k+2*utils::delta(2,dir)), in_var,q) 
                     ) * (1.0/12.0)  * inv_dx;
     }
     else{
@@ -348,7 +362,20 @@ get_derivative(const grace::scalar_array_t<GRACE_NSPACEDIM>& idx,
     return derivative;
 }
 
-/* This function modifies the aux array */
+
+
+/**
+ * @brief compute_B_field_from_Avec
+ * @param state array of state variables 
+ * @param aux array of auxiliary variables
+ * @param in_var which variable is being differentiated
+ * @note  computes the B as the curl of A in finite-order differencing
+ * @warning for now, we make a working assumption that both the vector potential 
+ *          and the magnetic field are defined at cell-centes;
+ *          we opt for 2nd-order expressions
+ * @warning this routine will have to change when a proper constraint-transport algorithm is implemented
+ * @returns fd-order derivative value at a point (double)
+ */
 static void GRACE_HOST_DEVICE
 compute_B_field_from_Avec(
     const grace::var_array_t<GRACE_NSPACEDIM>& state,
@@ -367,8 +394,6 @@ compute_B_field_from_Avec(
     // state contains the required metric components passed on from the id kernel already 
     // aux contains the AVEC components and the B-field components (to be filled)
 
-
-    #ifdef GRACE_ENABLE_B_FIELD_GLM
     /*************************************************************************/
     /* loop fill everything in the interior points   */
     /*************************************************************************/
@@ -400,8 +425,67 @@ compute_B_field_from_Avec(
 
                 }
     );
-    #endif
 }
+
+/**
+ * @brief compute_divB
+ * @tparam fd_order order of finite differencing
+ * @param state array of state variables 
+ * @param aux array of auxiliary variables
+ * @param VEC(i,j,k) position
+ * @param q quadrant number 
+ * @note  computes the divergence of B from the expression  
+ *       \f$~\bigotimes_{i=1}^{N_d}~[a_i,b_i]\f$
+ *       \ \div B = \frac{1}{\sqrt{\gamma}} \partial_i (\sqrt{\gamma}B^i)
+ * @warning for now, an assumption is made that both the vector potential 
+ *          and the magnetic field are defined at cell-centes;
+ *          we opt for 2nd-order expressions also here 
+ * @warning this routine will have to change when a proper constraint-transport algorithm is implemented;
+ *          in particular, the expressions in divB and curlA have to be carefully crafted and match each other 
+ *          to represent faithfully the notion of 'zero divergence' on a numerical level
+ * @todo will this routine, combined with the one in compute_B_field_from_Avec, 
+ *       yield divB = 0 for constraint-satisfying initial data? 
+ * @returns divB value
+ */
+template <size_t fd_order> 
+static decltype(auto) GRACE_HOST_DEVICE
+compute_divB(
+    const grace::var_array_t<GRACE_NSPACEDIM>& state,
+    const grace::var_array_t<GRACE_NSPACEDIM>& aux,
+    const grace::scalar_array_t<GRACE_NSPACEDIM>& idx,
+    VEC(int i, int j, int k), int q)
+    {
+
+      using namespace grace  ;
+      using namespace Kokkos ;
+      // auto& idx   = grace::variable_list::get().getinvspacings()   ; 
+      constexpr int X=0;
+      constexpr int Y=1;
+      constexpr int Z=2;
+      // set it to the number of ghostzones just for safety 
+      // we initialize sqrtgamma * B^i = eps^ijk d_j A_k 
+      // state contains the required metric components passed on from the id kernel already 
+      // state contains also the densitized B components 
+      // aux contains the AVEC components and the B-field components (to be filled)
+
+      //  divB = 1/sqrtgamma * \partial_i ( sqrtgamma B^i )
+    
+      const double dGBxdx = get_derivative<fd_order, X>(idx, state, BGX_, VEC(i,j,k), q);
+
+      const double dGBydy = get_derivative<fd_order, Y>(idx, state, BGY_, VEC(i,j,k), q);
+
+      const double dGBzdz = get_derivative<fd_order, Z>(idx, state, BGZ_, VEC(i,j,k), q);
+
+      // Un-densitize
+      metric_array_t metric;
+      FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k));
+      const double sqrtg = metric.sqrtg();
+
+      const double divB  = (dGBxdx + dGBydy + dGBzdz) / sqrtg ;
+      return divB ; 
+}
+#endif  // GRACE_ENABLE_B_FIELD_GLM
+#endif  // GRACE_DO_MHD
 
 struct grmhd_id_t {
   double rho;
