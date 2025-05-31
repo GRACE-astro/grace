@@ -1549,8 +1549,8 @@ struct grmhd_equations_system_t
 
     
         int metric_comps[3] { 0, 3, 5} ; 
-	// the characteristic wavespeeds in GRMHD in coordinate frame are bound by
-	// Eq.(60) in Anton 2006: https://arxiv.org/pdf/astro-ph/0506063
+	    // the characteristic wavespeeds in GRMHD in coordinate frame are bound by
+	    // Eq.(60) in Anton 2006: https://arxiv.org/pdf/astro-ph/0506063
         // cml_DC is a short name for "c_minus_left_divergence_cleaning"
         double cml_DC = -alp * Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) ;
         double cmr_DC = cml_DC;
