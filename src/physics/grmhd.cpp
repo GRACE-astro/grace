@@ -243,15 +243,15 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
 
     auto const& _eos = eos::get().get_eos<eos_t>() ; 
 
-    // Avec |---> B field queries in case the magnetic field is set from vector potential
-    // 1. Note that for now, the id_kernel call sets:
+    // Avec |---> B field in case magnetic field is set from the vector potential
+    // 1. Note that for now calling the id_kernel sets:
     //      -   the vector potential ALSO at cell centres
-    //      -   then the densitized B vector field at cell centres from 2nd order derivatives of Avec
-    // 2. When extension to Avec-constrained-transport is made, we could instead
+    //      -   followed by computing the densitized B vector field at cell centres from 2nd order derivatives of Avec
+    // 2. When and if we implement Avec-constrained-transport, we would instead
     //      -   evaluate the id_kernel at all cell edges
-    //      -   (inefficient if just to get 1 (ONE!) Avec component, but makes density,
-    //          metric etc consistent at that point where Avec^i is evaluated)
-    //      -  in a subsequent call after the grmhd_ID parallel_for, call an appropriate version of Avec--->Bfield transform [same as it happens for 1 now]
+    //      (notabene inefficient if all the metric & hydro fields are traversed just to get 1 (ONE!) Avec component at the end, but at least it makes density,
+    //         metric etc consistent at that point where Avec^i is evaluated)
+    //      -  in a subsequent call, after the grmhd_ID parallel_for, we would call an appropriate version of Avec--->Bfield transform [same as it happens for 1 now]
     
     const bool set_Bfield_from_Avec = get_param<bool>("grmhd","set_B_from_Avec") ;
 
@@ -342,12 +342,13 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                 }) ; 
 
     // at this point, the vector potential (or magnetic field in some cases) is already set up at cell-centres (if applicable)
-    // in the future, potentially we want to schedule an edge-centred initialization for Avec here:
+    // in the future, we might want to schedule an edge-centred initialization for Avec components here:
+        
+    // for (size_t idir = 0 ; idir < 3 ; idir++)
+    //  set_edge_staggered_Avec<idir>(id_kernel, state, cstate, idx); 
 
-    // set_edge_staggered_Avec(id_kernel, state, cstate, idx); 
-
-    // we launch a separate loop to set the magnetic field from vector potential
-    // in GLM, for subsequent evolution; vector potential is then never touched again
+    // finally, we launch a separate loop to set the magnetic field from vector potential
+    // in GLM, A is only needed in the ID; vector potential is then never touched
     if(set_Bfield_from_Avec){
         GRACE_INFO("Computing magnetic field from vector potential"); 
         compute_B_field_from_Avec(state, aux, idx);

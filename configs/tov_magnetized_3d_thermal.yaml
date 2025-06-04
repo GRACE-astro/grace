@@ -1,0 +1,90 @@
+name: "grace"
+amr: {
+  npoints_block_x: 16,
+  npoints_block_y: 16,
+  npoints_block_z: 16,
+  xmin: -32,
+  xmax: 32,
+  ymin: -32,
+  ymax: 32,
+  zmin: -32,
+  zmax: 32,
+  n_ghostzones: 2,
+  initial_refinement_level: 2,
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_CTORE: 1e-05,
+  refinement_criterion_CTODE: 1e-13,
+  refinement_criterion_var  : "rho",
+  refinement_criterion_var_is_aux: true,
+  max_refinement_level: 10,
+  regrid_every: -1,
+  regrid_at_postinitial: true,
+  postinitial_regrid_depth: 3
+  #postinitial_regrid_depth: 3
+}
+IO: {
+  volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]", "gamma[0,0]", "alp", "beta[0]", "divB", "B[0]","phi_glm"],
+  volume_output_base_directory: "output_volume",
+  #volume_output_every: 256, # at the moment it is every approx. 15Msun
+  volume_output_every: 512, # at the moment it is every approx. 30Msun
+  plane_surface_output_cell_variables: [],
+  plane_surface_output_every: -1,
+  sphere_surface_output_every: -1,
+  info_output_every: 64,
+  info_output_max_reductions: ["alp", "eps","rho","press", "vel[0]", "vel[1]", "vel[2]", "divB", "B[0]", "B[1]", "B[2]", "phi_glm"],
+  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
+  info_output_min_reductions: ["alp", "eps","rho","press", "vel[0]", "vel[1]", "vel[2]", "divB", "B[0]", "B[1]", "B[2]", "phi_glm"],
+  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
+  scalar_output_every: 64,
+  scalar_output_minmax: ["rho","press","eps","divB", "B[0]", "B[1]", "B[2]", "phi_glm", "vel[0]", "vel[1]", "vel[2]"],
+  scalar_output_norm2: [],
+  scalar_output_integral: [],
+  output_use_hdf5: true,
+  hdf5_compression_level: 6,
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true
+}
+system: {
+  console_log_level: "info",
+  #console_log_level: "debug",
+  #console_log_level: "verbose",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  flush_level: "trace"
+}
+evolution: {
+  time_stepper: "rk2",
+  cfl_factor: 0.2,
+  final_time: 2000,
+  reset_id_after_regrid: true
+  #timestep: 0.00025,
+  #timestep_selection_mode: "manual"
+}
+grmhd: {
+  id_type: "TOV",
+  TOV_central_density: 1.28e-03,
+  #set_B_from_Avec : false,
+  set_B_from_Avec : true,
+  Avec_type : "poloidal",
+  Avec_prescription : "pressure_prescription",
+  Avec_Pcut : 1.6e-6, # central pressure is 1.6e-4 = 0.00016384 # 0.00016384000000000003
+  Avec_Ab : 1e2,
+  Avec_n : 2,
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+  ye_atmosphere: 0,
+  temp_atmosphere: 0,
+  rho_atmosphere: 1.e-14,
+  eps_maximum: 1.e+05,
+  gamma_th: 1.8, # gamma_th = 1.0 disables the thermal part - make sure to put 1.0+tiny_number to circumvent division by 0 in some places 
+
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [2.],
+    rhos:   [],
+    kappa_0: 100.0
+  }
+}

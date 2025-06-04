@@ -425,32 +425,16 @@ struct grmhd_equations_system_t
             /**************************************************************************************************/
             /* Start computing magnetic field source terms (in case of GLM implementation)                    */
             /**************************************************************************************************/
-            // Source[B^j] = -\sqrt{\gamma} B^i \partial_i \beta^j  - \sqrt{\gamma} \alpha \gamma^ij \partial_i \phi_glm
 
             // dbetaj_dxi[j] = d_i (beta^j)
-            
-            // B^x source term
-            // state_new(VEC(i,j,k),BGX_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[0] +\
-            //                                                +metric.alp() * invgij[0][idir] * dphi_glm_di  
-            //                                                 ) * idx(idir,q);
-            // // B^y source term
-            // state_new(VEC(i,j,k),BGY_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[1] +\ 
-            //                                                 +metric.alp() * invgij[1][idir] * dphi_glm_di  
-            //                                                 ) * idx(idir,q);
-            // // B^z source term
-            // state_new(VEC(i,j,k),BGZ_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[2] +\ 
-            //                                                 +metric.alp() * invgij[2][idir] * dphi_glm_di  
-            //                                                 ) * idx(idir,q);
 
-            // From e.g. Neuweiler2024: 
+            // From Neuweiler2024: 
             // S[B^j] = -\sqrt{\gamma} B^i \partial_i \beta^j  + phi * \partial_i (\sqrt{\gamma} \alpha \gamma^ij)
             // the spatial derivative of phi_glm is in the fluxes, 
             // not sources, and thus upwinding the gradient in the sources is not necessary (as in BHAC+)
             // Same strategy (i.e. \partial_i phi term treated in the fluxes) is taken in GRHydro.
-            // We also find it beneficial to have (B^i, Phi) flux upwinding done in the fluxes 
+            // We find it beneficial to have (B^i, Phi) flux upwinding done in the fluxes 
             // The two approaches would be equivalent if flat reconstruction and LLF fluxes were chosen. 
-
-            // Source[B^j] = -\sqrt{\gamma} B^i \partial_i \beta^j  - \sqrt{\gamma} \alpha \gamma^ij \partial_i \phi_glm
 
             // d_i_sqrtgamma_gammaUU is \partial_i (\sqrt{\gamma} gamma^ij), were j is the free index
             // contraction over i is performed in loop containing this snippet 
@@ -1448,9 +1432,8 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* Get S_x flux                                                        */
         /***********************************************************************/
-        //std::array<double,3> smallbDL{0,0,0}, smallbDR{0,0,0};
-        //
-  /***********************************************************************/
+
+        /***********************************************************************/
         /*               Compute the b_i components  first                     */
         /***********************************************************************/
 
@@ -1540,7 +1523,7 @@ struct grmhd_equations_system_t
 
         /* For GLM, two luminal wavespeeds arise - one for the divergence cleaning  
             variable, the other for the longitudinal component of the magnetic field [flux of a magnetic field component in its longitudinal direction is identically 0 in a non-GLM system]
-            In flat spacetime, these are +/- 1; for GR we need to compute: +/- \sqrt{gamma^ii} - beta^i / alp
+            In flat spacetime, these are +/- 1; for GR we need to compute: +/- alp \sqrt{gamma^ii} - beta^i 
             see https://arxiv.org/pdf/1304.5544    
 
             Since the metric at the interface is unique and these two wavespeeds are purely metric-dependent,
@@ -1558,8 +1541,8 @@ struct grmhd_equations_system_t
         double cpl_DC =  alp * Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) ;
         double cpr_DC = cpl_DC;
 
-        double cmin_DC = -Kokkos::min(0., Kokkos::min(cml_DC,cmr_DC)) ; 
-        double cmax_DC =  Kokkos::max(0., Kokkos::max(cpl_DC,cpr_DC)) ; 
+        double cmin_DC = -Kokkos::min(0., Kokkos::min(cml_DC,cmr_DC)) * 0.99 ; 
+        double cmax_DC =  Kokkos::max(0., Kokkos::max(cpl_DC,cpr_DC)) * 0.99 ; 
         // note: is it possible for these to also become 0? 
 
        /***********************************************************************/
@@ -1606,13 +1589,6 @@ struct grmhd_equations_system_t
         /* Get B^x flux                                                        */
         /***********************************************************************/
         
-        // fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BXL] - primL[VXL] * primL[BXL+idir] ) \
-        //                     - primL[BXL+idir] * metric_face.beta(0) ) ;
-
-
-        // fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BXL] - primR[VXL] * primR[BXL+idir] ) \
-        //                     - primR[BXL+idir] * metric_face.beta(0) ) ;
-
         fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BXL] - alp * vNL[0] * primL[BXL+idir] ) \
                             + alp * invgij[idir][0] * primL[PHI_GLML]) ;
 
@@ -1625,18 +1601,6 @@ struct grmhd_equations_system_t
 
         const double bhat_x_r = sqrtgamma * primR[BXL];
 
-        // yet another option is to set the wavespeeds to cmin, cmax for 
-        // flux directions orthogonal to the magnetic field component 
-        // and set it to the speed of light for the 
-        // propagation mode of the longitudinal component and the divergence cleaning mode
-        // (see: https://arxiv.org/pdf/1304.5544)
-        // i.e.: if idir=0
-        //   f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,1.0,1.0) ; 
-        // else: 
-        //   f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,cmin,cmax) ; 
-        // and: f[PHIG_GLM] : cmin=1,cmax=1
-
-        // TO DO: change 1.0, 1.0 to 1 - sqrt(...) 
 
         if(idir==0){ //longitudinal mode
             f[BGXL] = solver(fl,fr,bhat_x_l,bhat_x_r,cmin_DC,cmax_DC) ;  // actually, instead of 1.0, this should be 1 - beta^x / alpha
@@ -1649,13 +1613,6 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* Get B^y flux                                                        */
         /***********************************************************************/
-        
-        // fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BYL] - primL[VYL] * primL[BXL+idir] ) \
-        //                     - primL[BXL+idir] * metric_face.beta(1) ) ;
-
-
-        // fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BYL] - primR[VYL] * primR[BXL+idir] ) \
-        //                     - primR[BXL+idir] * metric_face.beta(1) ) ;
 
         fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BYL] - alp * vNL[1] * primL[BXL+idir] ) \
                             + alp * invgij[idir][1] * primL[PHI_GLML] ) ;
@@ -1678,13 +1635,6 @@ struct grmhd_equations_system_t
         /* Get B^z flux                                                        */
         /***********************************************************************/
         
-        // fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BZL] - primL[VZL] * primL[BXL+idir] ) \
-        //                     - primL[BXL+idir] * metric_face.beta(2) ) ;
-
-
-        // fr  = sqrtgamma * ( ( primR[VXL+idir] * primR[BZL] - primR[VZL] * primR[BXL+idir] ) \
-        //                     - primR[BXL+idir] * metric_face.beta(2) ) ;
-       
         fl  = sqrtgamma * ( ( primL[VXL+idir] * primL[BZL] - alp * vNL[2] * primL[BXL+idir] ) \
                             + alp * invgij[idir][2] * primL[PHI_GLML] ) ;
 
@@ -1724,10 +1674,13 @@ struct grmhd_equations_system_t
 
         const double phi_glm_r = sqrtgamma * primR[PHI_GLML];
 
-        // f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,cmin,cmax) ; 
         // always a maximal speed for the divergence cleaning mode  
         f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,cmin_DC,cmax_DC) ; 
 
+        // overwrite the cmin/cmax characteristic speeds with the DC ones (for timestep stability)
+        // Should we do this? @Carlo? 
+        cmin = cmin_DC;
+        cmax = cmax_DC;  
 
         #endif 
 	#endif 
