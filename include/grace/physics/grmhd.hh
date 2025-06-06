@@ -849,6 +849,28 @@ struct grmhd_equations_system_t
         solver.transform_velocities_to_tetrad_frame(u0_l, primL, uD_l) ; 
         solver.transform_velocities_to_tetrad_frame(u0_r, primR, uD_r) ; 
 
+        #ifdef GRACE_DO_MHD
+            /***********************************************************************/
+            /* Transform magnetic fields to tetrad frame                           */
+            /***********************************************************************/
+            std::array<double,3> bD_l, bD_r;
+            solver.transform_magnetic_fields_to_tetrad_frame(primL);
+            solver.transform_magnetic_fields_to_tetrad_frame(primR);
+                
+            /* Compute magnetic pressure and b^2 */
+            double const b2_l = bD_l[0]*bD_l[0] + bD_l[1]*bD_l[1] + bD_l[2]*bD_l[2];
+            double const b2_r = bD_r[0]*bD_r[0] + bD_r[1]*bD_r[1] + bD_r[2]*bD_r[2];
+            double const bmag_press_l = 0.5 * b2_l;
+            double const bmag_press_r = 0.5 * b2_r;
+        #else
+            double const b2_l = 0.0;
+            double const b2_r = 0.0;
+            double const bmag_press_l = 0.0;
+            double const bmag_press_r = 0.0;
+            std::array<double,3> bD_l{0.0, 0.0, 0.0};
+            std::array<double,3> bD_r{0.0, 0.0, 0.0};
+        #endif
+
         /* Compute specific enthalpies */
         double h_l = 1 + primL[EPSL] + primL[PRESSL]/primL[RHOL] ;
         double h_r = 1 + primR[EPSL] + primR[PRESSL]/primR[RHOL] ;
@@ -865,102 +887,11 @@ struct grmhd_equations_system_t
         double cmax =  math::max(0., math::max(cpl,cpr)) ; 
         /* Add some diffusion in weakly hyperbolic limit */
         if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
-        /***********************************************************************/
-        /*                          Get dens flux                              */
-        /***********************************************************************/
+
         double const alpha_sqrtgamma = alp * metric_face.sqrtg() ;
-        uL[DENSL] = alp * primL[RHOL] * u0_l ;
-        uR[DENSL] = alp * primR[RHOL] * u0_r ;
-
-        fL[DENSL] = uL[DENSL] * primL[VXL+idir] ; 
-        fR[DENSL] = uR[DENSL] * primR[VXL+idir] ; 
-
-        /***********************************************************************/
-        /*                          Get ye_star flux                           */
-        /***********************************************************************/
-        uL[YESL] = uL[DENSL] * primL[YEL] ; 
-        uR[YESL] = uR[DENSL] * primR[YEL] ; 
         
-        fL[YESL] = uL[YESL] * primL[VXL+idir] ; 
-        fR[YESL] = uR[YESL] * primR[VXL+idir] ; 
+        compute_srmhd_fluxes<idir,true>(fL,fR,uL,uR,primL,primR,cmin,cmax);
 
-        /***********************************************************************/
-        /*                          Get s_star flux                            */
-        /***********************************************************************/
-        uL[ENTSL] = uL[DENSL] * primL[ENTL] ; 
-        uR[ENTSL] = uR[DENSL] * primR[ENTL] ; 
-
-        fL[ENTSL] = uL[ENTSL] * primL[VXL+idir] ; 
-        fR[ENTSL] = uR[ENTSL] * primR[VXL+idir] ; 
-
-        /***********************************************************************/ 
-        /*                           Get tau flux                              */
-        /***********************************************************************/
-        double const tau_plus_P_l = uL[DENSL] * ( alp * h_l * u0_l - 1. ) ; 
-        double const tau_plus_P_r = uR[DENSL] * ( alp * h_r * u0_r - 1. ) ;
-        /***************************************************************************/
-        /* \tau = \sqrt{\gamma} D (Wh-P/D-1)                                       */
-        /***************************************************************************/
-        uL[TAUL] = tau_plus_P_l - primL[PRESSL] ; 
-        uR[TAUL] = tau_plus_P_r - primR[PRESSL] ;
-        /***************************************************************************/
-        /* F^{d}_{\rm tau} = \sqrt{\gamma} (\tau + P) v^d                          */
-        /***************************************************************************/
-        fL[TAUL] = tau_plus_P_l * primL[VXL+idir] ;
-        fR[TAUL] = tau_plus_P_r * primR[VXL+idir] ;
-        /***********************************************************************/
-        /* Momentum flux in direction d for S_j : \alpha \sqrt{\gamma} T^d_j   */
-        /***********************************************************************/
-
-        /***********************************************************************/
-        /* Get S_x flux                                                        */
-        /***********************************************************************/
-        
-        /***********************************************************************/
-        /* F^d_{S_x} = \alpha \sqrt{\gamma} T^d_x                              */
-        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_x                */
-        /*                         + p \delta^d_x - b^d b_x )                  */  
-        /***********************************************************************/
-        double const D_h_l = uL[DENSL] * h_l ; 
-        double const D_h_r = uR[DENSL] * h_r ; 
-
-        uL[STXL] = D_h_l * uD_l[0] ;
-        uR[STXL] = D_h_r * uD_r[0] ;
-
-        fL[STXL] = uL[STXL] * primL[VXL+idir] + primL[PRESSL] * utils::delta(idir,0) ;
-        fR[STXL] = uR[STXL] * primR[VXL+idir] + primR[PRESSL] * utils::delta(idir,0) ;
-
-        /***********************************************************************/
-        /* Get S_y flux                                                        */
-        /***********************************************************************/
-
-        /***********************************************************************/
-        /* F^d_{S_y} = \alpha \sqrt{\gamma} T^d_y                              */
-        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_y                */
-        /*                         + p \delta^d_y - b^d b_y )                  */  
-        /***********************************************************************/
-        uL[STYL] = D_h_l * uD_l[1] ;
-        uR[STYL] = D_h_r * uD_r[1] ;
-
-        fL[STYL] = uL[STYL] * primL[VXL+idir] + primL[PRESSL] * utils::delta(idir,1) ;
-        fR[STYL] = uR[STYL] * primR[VXL+idir] + primR[PRESSL] * utils::delta(idir,1) ; 
-
-        /***********************************************************************/
-        /* Get S_z flux                                                        */
-        /***********************************************************************/
-
-        /***********************************************************************/
-        /* F^d_{S_z} = \alpha \sqrt{\gamma} T^d_z                              */
-        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_z                */
-        /*                         + p \delta^d_z - b^d b_z )                  */  
-        /***********************************************************************/
-        uL[STZL] = D_h_l * uD_l[2] ;
-        uR[STZL] = D_h_r * uD_r[2] ;
-
-        fL[STZL] = uL[STZL] * primL[VXL+idir] 
-            + primL[PRESSL] * utils::delta(idir,2) ;
-        fR[STZL] = uR[STZL] * primR[VXL+idir] 
-            + primR[PRESSL] * utils::delta(idir,2) ; 
         /***********************************************************************/
         grmhd_cons_array_t fHLLC = 
             solver(fL,fR,uL,uR,primL,primR,cmin,cmax) ; 
@@ -972,6 +903,14 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SX_,idir,q)          = alpha_sqrtgamma * fHLLC[STXL]  ;
         fluxes(VEC(i,j,k),SY_,idir,q)          = alpha_sqrtgamma * fHLLC[STYL]  ;
         fluxes(VEC(i,j,k),SZ_,idir,q)          = alpha_sqrtgamma * fHLLC[STZL]  ;
+        #ifdef GRACE_DO_MHD
+                fluxes(VEC(i,j,k),BGX_,idir,q)          = alpha_sqrtgamma * fHLLC[BGXL]  ;
+                fluxes(VEC(i,j,k),BGY_,idir,q)          = alpha_sqrtgamma * fHLLC[BGYL]  ;
+                fluxes(VEC(i,j,k),BGZ_,idir,q)          = alpha_sqrtgamma * fHLLC[BGZL]  ;
+                #ifdef GRACE_ENABLE_B_FIELD_GLM
+                fluxes(VEC(i,j,k),PHIG_GLM_,idir,q)          = alpha_sqrtgamma * fHLLC[PHIG_GLM_]  ;
+                #endif
+		#endif 
         /***********************************************************************/
     };
     /**
@@ -1673,6 +1612,417 @@ struct grmhd_equations_system_t
         cmin = cmin_DC;
         cmax = cmax_DC;  
 
+        #endif 
+	#endif 
+
+
+        /***********************************************************************/
+    };
+    template< size_t idir
+            , bool recompute_cp_cm >
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
+    void compute_srmhd_fluxes( grmhd_cons_array_t& fL
+                           , grmhd_cons_array_t& fR 
+                           , grmhd_cons_array_t& uL
+                           , grmhd_cons_array_t& uR 
+                           , grmhd_prims_array_t& primL
+                           , grmhd_prims_array_t& primR 
+                           , double const cmin_loc = 1
+                           , double const cmax_loc = 1 ) const 
+    {
+        metric_array_t minkowski_metric ({1.,0.,0.,1.,0.,1.},{0.,0.,0.},1.) ; 
+        /***********************************************************************/
+        /* Compute u0 on both sides                                            */
+        /***********************************************************************/
+        /* Lorentz factors  */
+        /* W = sqrt(1+z^2)  */
+        double const alp = 1 ;
+        double const wl   = Kokkos::sqrt(1. 
+            + minkowski_metric.square_vec({primL[VXL], primL[VYL], primL[VZL]}));
+        double const wr   = Kokkos::sqrt(1. 
+            + minkowski_metric.square_vec({primR[VXL], primR[VYL], primR[VZL]}));
+        
+        /* u^0             */
+        double const u0_l = wl / alp ; 
+        double const u0_r = wr / alp ; 
+
+        /***********************************************************************/
+
+
+        /* Compute the Eulerian 3-velocities on both sides of the interface */
+        std::array<double,3> const vNL {
+              primL[VXL] / wl 
+            , primL[VYL] / wl 
+            , primL[VZL] / wl 
+        } ; 
+
+        std::array<double,3> const vNR {
+              primR[VXL] / wr
+            , primR[VYL] / wr 
+            , primR[VZL] / wr 
+        } ; 
+
+        /* Fill up primitive array on both sides of the face.                  */
+        /* Right now we have:                                                  */
+        /* 1) The correct rho                                                  */
+        /* 2) No pressure (computed below)                                     */
+        /* 3) The temperature but no eps                                       */
+        /* 4) The z vector (W v_{n}^i) as opposed to v^i (swapped below)       */
+        /***********************************************************************/
+        
+        /* Left */
+        double cs2l, cs2r ; 
+        unsigned int eos_err; 
+        primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primL[EPSL], cs2l, primL[TEMPL], primL[RHOL], primL[YEL], eos_err) ; 
+        primL[VXL] = primL[VXL] / wl ;
+        primL[VYL] = primL[VYL] / wl ;
+        primL[VZL] = primL[VZL] / wl ;
+
+        /* Right */
+        primR[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primR[EPSL], cs2r, primR[TEMPL], primR[RHOL], primR[YEL], eos_err) ; 
+        primR[VXL] = primR[VXL] / wr ;
+        primR[VYL] = primR[VYL] / wr ;
+        primR[VZL] = primR[VZL] / wr ;
+
+        /* Compute small b */
+        /* Compute smallb2 on the left and right interface */
+        const double b2l = compute_b2(primL,minkowski_metric) ;
+        const double b2r = compute_b2(primR,minkowski_metric) ;
+        /* Compute smallb on the left and right interface */
+        std::array<double,4> smallbL{0.,0.,0.,0.};
+        std::array<double,4> smallbR{0.,0.,0.,0.};
+
+        /* Compute comoving magnetic field  on both intefaces       */
+        get_smallb_from_eulerianB(minkowski_metric, {primL[BXL],primL[BYL],primL[BZL]},
+                                               {vNL[0], vNL[1], vNL[2]},
+                                                smallbL
+                                        );
+        get_smallb_from_eulerianB(minkowski_metric, {primR[BXL],primR[BYL],primR[BZL]},
+                                               {vNR[0], vNR[1], vNR[2]},
+                                                smallbR
+                                        );
+
+        /* Compute Alfvén speeds */
+        double v02r,v02l, h_r,h_l;
+        compute_v02(h_l, v02l, cs2l, b2l, primL) ; 
+        compute_v02(h_r, v02r, cs2r, b2r, primR) ;
+
+        /* Get wavespeeds      */
+        double const one_over_alp2 = 1./math::int_pow<2>(alp); 
+
+        double cmin, cmax ;
+        if constexpr ( recompute_cp_cm ) {
+            double cpr, cmr, cpl, cml;
+            int metric_comps[3] { 0, 3, 5} ; 
+            compute_cp_cm( cpl, cml, v02l, u0_l, primL[VXL+idir], one_over_alp2
+                        , minkowski_metric.beta(idir), minkowski_metric.invgamma(metric_comps[idir])) ;
+            compute_cp_cm( cpr, cmr, v02r, u0_r, primR[VXL+idir], one_over_alp2
+                        , minkowski_metric.beta(idir), minkowski_metric.invgamma(metric_comps[idir])) ;
+            cmin = -Kokkos::min(0., Kokkos::min(cml,cmr)) ; 
+            cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ; 
+            /* Add some diffusion in weakly hyperbolic limit */
+            if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
+        } else {
+            cmin = cmin_loc ; 
+            cmax = cmax_loc ; 
+        }
+        /***********************************************************************/
+        /*                          Get dens flux                              */
+        /***********************************************************************/
+        double const dens_l = primL[RHOL] * u0_l ;
+        double const dens_r = primR[RHOL] * u0_r ;
+
+        uL[DENSL] = dens_l ; 
+        uR[DENSL] = dens_r ; 
+
+        fL[DENSL] = dens_l * primL[VXL+idir] ; 
+        fR[DENSL] = dens_r * primR[VXL+idir] ; 
+
+        /***********************************************************************/
+        /*                          Get ye_star flux                           */
+        /***********************************************************************/
+        double const ye_star_l = dens_l * primL[YEL] ; 
+        double const ye_star_r = dens_r * primR[YEL] ; 
+        
+        uL[YESL] = ye_star_l ;
+        uR[YESL] = ye_star_r ;
+        
+        fL[YESL] = ye_star_l * primL[VXL+idir] ; 
+        fR[YESL] = ye_star_r * primR[VXL+idir] ; 
+
+        /***********************************************************************/
+        /*                          Get s_star flux                            */
+        /***********************************************************************/
+        double const s_star_l = dens_l * primL[ENTL] ; 
+        double const s_star_r = dens_r * primR[ENTL] ; 
+
+        fL[ENTSL] = s_star_l * primL[VXL+idir] ; 
+        fR[ENTSL] = s_star_r * primR[VXL+idir] ; 
+
+        /***********************************************************************/ 
+        /*                           Get tau flux                              */
+        /***********************************************************************/
+        /* Auxiliary metric quantitites */
+        double const alp2_sqrtgamma = math::int_pow<2>(alp) * minkowski_metric.sqrtg() ; 
+        double const g4uptd = one_over_alp2 * minkowski_metric.beta(idir) ; 
+        double const g4uptt = -one_over_alp2 ; 
+
+        /***************************************************************************/
+        /***************************************************************************/
+        /* Left flux */
+        double const rho0_h_plus_b2_l = primL[RHOL]*(1+primL[EPSL]) + primL[PRESSL] 
+                                      + b2l ;
+        
+        double const P_plus_half_b2_l = primL[PRESSL] + 0.5*b2l;
+        /***************************************************************************/
+        /* T^{td} = (rho h + b^2) u^0 (u^0 v^d) + (P + b^2/2) g^{td} - b^t b^d     */
+        /***************************************************************************/
+        double const TUPtd_l = rho0_h_plus_b2_l * math::int_pow<2>(u0_l) * primL[VXL+idir] 
+            + P_plus_half_b2_l*g4uptd - smallbL[0]*smallbL[1+idir] ;
+        /***************************************************************************/
+        /* F^{d}_{\rm tau} = \alpha^2 \sqrt{\gamma} T^{td} - D v^d                 */
+        /***************************************************************************/
+        fL[TAUL] = alp2_sqrtgamma * TUPtd_l - dens_l * primL[VXL+idir] ;
+        /***************************************************************************/
+        /* T^{tt} = (rho h + b^2) u^0 u^0 + (P + b^2/2 ) g^{tt} - b^t b^t          */
+        /***************************************************************************/
+        double const Tuptt_l = rho0_h_plus_b2_l*math::int_pow<2>(u0_l) 
+            + P_plus_half_b2_l*g4uptt - math::int_pow<2>(smallbL[0]) ;
+        /***************************************************************************/
+        /* \tau = \alpha^2 \sqrt{\gamma} T^{tt} - D                                */
+        /***************************************************************************/
+        double const tau_l = alp2_sqrtgamma * Tuptt_l - dens_l ;
+
+        /***************************************************************************/
+        /***************************************************************************/
+        /* Right flux */
+        double const rho0_h_plus_b2_r = primR[RHOL]*(1+primR[EPSL]) + primR[PRESSL] 
+                                      + b2r ;
+
+        double const P_plus_half_b2_r = primR[PRESSL] + 0.5*b2r;
+        /***************************************************************************/
+        /* T^{td} = (rho h + b^2) u^0 (u^0 v^d) + (P + b^2/2) g^{td} - b^t b^d     */
+        /***************************************************************************/
+        double const TUPtd_r = rho0_h_plus_b2_r * math::int_pow<2>(u0_r) * primR[VXL+idir] 
+            + P_plus_half_b2_r*g4uptd - smallbR[0]*smallbR[1+idir] ; 
+        /**************************************************************************/
+        /* F^{d}_{\rm tau} = \alpha^2 \sqrt{\gamma} T^{td} - D v^d                */
+        /**************************************************************************/
+        fR[TAUL] = alp2_sqrtgamma * TUPtd_r - dens_r * primR[VXL+idir] ;
+        /**************************************************************************/
+        /* T^{tt} = (rho h + b^2) u^0 u^0 + (P + b^2/2 ) g^{tt} - b^t b^t         */
+        /**************************************************************************/
+        double const Tuptt_r = rho0_h_plus_b2_r*math::int_pow<2>(u0_r) 
+            + P_plus_half_b2_r*g4uptt - math::int_pow<2>(smallbR[0]) ; 
+        /***********************************************************************/
+        /* \tau = \alpha^2 \sqrt{\gamma} T^{tt} - D                            */
+        /***********************************************************************/
+        double const tau_r = alp2_sqrtgamma * Tuptt_r - dens_r ; 
+
+        /***********************************************************************/
+        /* Momentum flux in direction d for S_j : \alpha \sqrt{\gamma} T^d_j   */
+        /***********************************************************************/
+        /* Compute u_i */
+        auto uD_l = minkowski_metric.lower({ primL[VXL]
+                                           , primL[VYL]
+                                           , primL[VZL] }) ; 
+        for(auto& uu: uD_l) uu *= u0_l ; 
+        auto uD_r = minkowski_metric.lower({ primR[VXL]
+                                           , primR[VYL]
+                                           , primR[VZL] }) ; 
+        for(auto& uu: uD_r) uu *= u0_r ; 
+        /***********************************************************************/
+        /* Get S_x flux                                                        */
+        /***********************************************************************/
+        //std::array<double,3> smallbDL{0,0,0}, smallbDR{0,0,0};
+        //
+  /***********************************************************************/
+        /*               Compute the b_i components  first                     */
+        /***********************************************************************/
+
+        const std::array<double,4> smallb4DL       = minkowski_metric.lower_4vec(smallbL);
+        const std::array<double,4> smallb4DR       = minkowski_metric.lower_4vec(smallbR);
+
+        std::array<double,3> smallbDL{smallb4DL[1],smallb4DL[2],smallb4DL[3]};
+        std::array<double,3> smallbDR{smallb4DR[1],smallb4DR[2],smallb4DR[3]};
+
+
+        /***********************************************************************/
+        /* F^d_{S_x} = \alpha \sqrt{\gamma} T^d_x                              */
+        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_x                */
+        /*                         + p \delta^d_x - b^d b_x )                  */  
+        /***********************************************************************/
+        fL[STXL] = rho0_h_plus_b2_l * (u0_l*primL[VXL+idir])*uD_l[0]
+           + P_plus_half_b2_l*utils::delta(0,idir) - smallbL[idir+1]*smallbDL[0]  ; 
+        fR[STXL] = rho0_h_plus_b2_r * (u0_r*primR[VXL+idir])*uD_r[0]
+           + P_plus_half_b2_r*utils::delta(0,idir) - smallbR[idir+1]*smallbDR[0]  ;  
+
+        double const s_x_l = rho0_h_plus_b2_l*u0_l*uD_l[0]
+                                                - smallbL[0]*smallbDL[0] ; 
+
+        double const s_x_r = rho0_h_plus_b2_r*u0_r*uD_r[0]
+                                                - smallbR[0]*smallbDR[0] ; 
+
+
+        /***********************************************************************/
+        /* Get S_y flux                                                        */
+        /***********************************************************************/
+
+        /***********************************************************************/
+        /* F^d_{S_y} = \alpha \sqrt{\gamma} T^d_y                              */
+        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_y                */
+        /*                         + p \delta^d_y - b^d b_y )                  */  
+        /***********************************************************************/
+        fL[STYL] = rho0_h_plus_b2_l * (u0_l*primL[VXL+idir])*uD_l[1]
+           + P_plus_half_b2_l*utils::delta(1,idir) - smallbL[idir+1]*smallbDL[1] ; 
+        fR[STYL] = rho0_h_plus_b2_r * (u0_r*primR[VXL+idir])*uD_r[1]
+           + P_plus_half_b2_r*utils::delta(1,idir) - smallbR[idir+1]*smallbDR[1] ;
+         
+        
+        double const s_y_l = rho0_h_plus_b2_l*u0_l*uD_l[1]
+                                               - smallbL[0]*smallbDL[1] ; 
+
+        double const s_y_r = rho0_h_plus_b2_r*u0_r*uD_r[1]
+                                               - smallbR[0]*smallbDR[1] ; 
+
+        /***********************************************************************/
+        /* Get S_z flux                                                        */
+        /***********************************************************************/
+
+        /***********************************************************************/
+        /* F^d_{S_z} = \alpha \sqrt{\gamma} T^d_z                              */
+        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_z                */
+        /*                         + p \delta^d_z - b^d b_z )                  */  
+        /***********************************************************************/
+        fL[STZL] = rho0_h_plus_b2_l * u0_l*primL[VXL+idir]*uD_l[2]
+           + P_plus_half_b2_l*utils::delta(2,idir) - smallbL[idir+1]*smallbDL[2] ; 
+        fR[STZL] = rho0_h_plus_b2_r * u0_r*primR[VXL+idir]*uD_r[2]
+           + P_plus_half_b2_r*utils::delta(2,idir) - smallbR[idir+1]*smallbDR[2] ;  
+
+        double const s_z_l = rho0_h_plus_b2_l*u0_l*uD_l[2]
+                                               - smallbL[0]*smallbDL[2] ; 
+
+        double const s_z_r = rho0_h_plus_b2_r*u0_r*uD_r[2]
+                                               - smallbR[0]*smallbDR[2]  ; 
+
+
+  /***********************************************************************/
+        /*   Moving on the magnetic field and auxiliary variable fluxes        */
+        /* We follow https://arxiv.org/pdf/1611.09720 for the relevant eqns    */
+        /***********************************************************************/
+	#ifdef GRACE_DO_MHD
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+
+        /* For GLM, two luminal wavespeeds arise - one for the divergence cleaning  
+            variable, the other for the longitudinal component of the magnetic field [flux of a magnetic field component in its longitudinal direction is identically 0 in a non-GLM system]
+            In flat spacetime, these are +/- 1; for GR we need to compute: +/- \sqrt{gamma^ii} - beta^i / alp
+            see https://arxiv.org/pdf/1304.5544    
+
+            Since the metric at the interface is unique and these two wavespeeds are purely metric-dependent,
+            we have no notion of "left" and "right" wavespeed
+        */
+
+    
+        int metric_comps[3] { 0, 3, 5} ; 
+	    // the characteristic wavespeeds in GRMHD in coordinate frame are bound by
+	    // Eq.(60) in Anton 2006: https://arxiv.org/pdf/astro-ph/0506063
+        // cml_DC is a short name for "c_minus_left_divergence_cleaning"
+        double cml_DC = -1 ;
+        double cmr_DC = cml_DC;
+
+        double cpl_DC =  1 ;
+        double cpr_DC = cpl_DC;
+
+        double cmin_DC = -Kokkos::min(0., Kokkos::min(cml_DC,cmr_DC)) ; 
+        double cmax_DC =  Kokkos::max(0., Kokkos::max(cpl_DC,cpr_DC)) ; 
+        // note: is it possible for these to also become 0? 
+
+       /***********************************************************************/
+        /* evolution equation for B^i in the GLM method reads:                 */
+        /* \partial_t (\sqrt{\gamma}B^j)  +                                    */
+        /* +\partial_i( \sqrt{\gamma}(v^i B^j - v^j B^i) )     (standard flux) */
+        /* -\partial_i( \sqrt{\gamma} B^i \beta^j)             (GLM flux)      */
+        /* =                                                                   */
+        /* -\sqrt{\gamma}(  B^i \partial_i \beta^j 
+                           + \alpha \gamma^ij \partial_i \Phi_GLM
+                            )                                  (GLM source )   */
+        /* in the above, v^i is the transport velocity                         */
+        /* it is the one contained in primL[VXL] at the moment                 */
+        /* in the below, idir dictates the flux direction                      */
+        /***********************************************************************/
+
+        /* Evolution equation for B^i in the GLM method reads:                 */
+        /* A different flux/source split, including upwinding of phi_glm:      */
+        /* phi is contained in the fluxes for codes like: MHDuet, GRHydro, BAM (Neuweiler2024)  */
+        /* Notably, not BHAC+ though, where the derivative of phi must be upwinded in the sources          */
+        /*
+            F^i [ B^j ] = sqrtgamma * (V^i B^j - alp * U^j B^i + alp * gamma^ij phi)
+            
+            Note that V^i is the transport velocity and U^j the Eulerian velocity
+
+            L/R states remain the same 
+        */
+
+        /* Inverse gamma metric [XX,XY,XZ,YY,YZ,ZZ]                                                            */
+        const std::array<double, 6> invgij_6{
+                                        1,0,0,
+                                        1,0,1
+                                        };
+
+        const std::array<std::array<double,3>, 3> invgij{{
+        {invgij_6[0],invgij_6[1],invgij_6[2]},
+        {invgij_6[1],invgij_6[3],invgij_6[4]},
+        {invgij_6[2],invgij_6[4],invgij_6[5]}}};
+
+
+        /***********************************************************************/
+        /* Get B^x flux                                                        */
+        /***********************************************************************/
+
+        fL[BGXL]  = primL[VXL+idir] * primL[BXL] - vNL[0] * primL[BXL+idir] \
+                            + invgij[idir][0] * primL[PHI_GLML] ;
+
+
+        fR[BGXL]  = primR[VXL+idir] * primR[BXL] - vNR[0] * primR[BXL+idir] \
+                            + invgij[idir][0] * primR[PHI_GLML]  ;
+
+
+        /***********************************************************************/
+        /* Get B^y flux                                                        */
+        /***********************************************************************/
+        
+        fL[BGYL]  = primL[VXL+idir] * primL[BYL] - vNL[1] * primL[BXL+idir] \
+                            + invgij[idir][1] * primL[PHI_GLML] ;
+
+        fR[BGYL]  = primR[VXL+idir] * primR[BYL] - vNR[1] * primR[BXL+idir] \
+                            + invgij[idir][1] * primR[PHI_GLML] ;
+
+        /***********************************************************************/
+        /* Get B^z flux                                                        */
+        /***********************************************************************/
+       
+        fL[BGZL]  = primL[VXL+idir] * primL[BZL] - vNL[2] * primL[BXL+idir] \
+                            + invgij[idir][2] * primL[PHI_GLML] ;
+
+
+        fR[BGZL]  = primR[VXL+idir] * primR[BZL] - vNR[2] * primR[BXL+idir] \
+                            + invgij[idir][2] * primR[PHI_GLML] ;
+
+        /***********************************************************************/
+        /* Get Phi_GLM flux                                                    */
+        /***********************************************************************/
+
+        /***********************************************************************/
+        /*  evolution equation is:                                             */ 
+        /* \partial_t (\sqrt{\gamma} \Phi )                                    */
+        /* + \partial_i [ \sqrt{\gamma }(\alpha B^i - \Phi \beta^i) ]          */
+        /* = ...Sources                                                        */
+        /*                                                                     */
+        /***********************************************************************/
+
+        fL[PHIG_GLML] = primL[BXL+idir] ; 
+
+        fR[PHIG_GLML] = primR[BXL+idir] ; 
         #endif 
 	#endif 
 

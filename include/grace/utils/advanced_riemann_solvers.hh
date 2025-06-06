@@ -80,6 +80,24 @@ struct hllc_riemann_solver_t {
             prims[VXL+ii]  = uD[ii] / u0 ; 
         }
     }
+    #ifdef GRACE_DO_MHD
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    transform_magnetic_fields_to_tetrad_frame(grace::grmhd_prims_array_t& prims) const 
+    {
+        std::array<double,3> B { 
+              prims[BXL] 
+            , prims[BYL]
+            , prims[BZL]
+        } ; 
+
+        //u0 = metric.contract_4dvec_4dcovec(inertial_cotetrad[0],umu) ; !TODO
+        for(int ii=0; ii<3;++ii) {
+            for (int jj=0; jj<3; ++jj) {
+                prims[BXL+ii]  =  inertial_cotetrad[ii][jj]*B[jj]; 
+            }
+        }
+    }
+    #endif // GRACE_DO_MHD
     /**
      * @brief Compute HLLC fluxes for relativistic Hydro.
      * 
@@ -114,8 +132,8 @@ struct hllc_riemann_solver_t {
     {
         grace::grmhd_cons_array_t uHLLE, fHLLE, uHLLC, fHLLC; 
         hll_riemann_solver_t hlle_solver ; 
-        int var_indices[] = {DENSL, TAUL, STXL, STYL, STZL} ; 
-        for( int ii=0; ii<5; ++ii) {
+        int var_indices[] = {DENSL, TAUL, STXL, STYL, STZL, BXL, BYL, BZL} ; 
+        for( int ii=0; ii<8; ++ii) {
             int const ivar = var_indices[ii] ; 
             fHLLE[ivar] = 
                 hlle_solver(fL[ivar],fR[ivar],uL[ivar],uR[ivar],cmin,cmax) ; 
@@ -123,22 +141,101 @@ struct hllc_riemann_solver_t {
                 hlle_solver.get_state(fL[ivar],fR[ivar],uL[ivar],uR[ivar],cmin,cmax) ;
         }
 
-        double const vi = 0. ; // get_interface_velocity() ; !TODO
+        // Magnetic Field is constant on the face, so we have to copy it.
+        fHLLE[BGXL+idir] = fL[BGXL+idir] ;
+
+        double const vi = get_interface_velocity() ; // Carlo wrote TODO but seems to be fine.
         double const lambdaC = get_contact_wave_speed(uHLLE,fHLLE) ; 
-        double const pressC  = -lambdaC * (fHLLE[TAUL]+fHLLE[DENSL]) + fHLLE[STXL+idir] ;
 
         grace::grmhd_cons_array_t ucL, ucR ; 
 
-        ucL[DENSL] = uL[DENSL] * ( -cmin - pL[VXL+idir] ) / ( -cmin - lambdaC ) ; 
-        ucR[DENSL] = uR[DENSL] * (  cmax - pR[VXL+idir] ) / (  cmax - lambdaC ) ; 
-        for( int iv=0; iv<3; ++iv) {
-            ucL[STXL+iv] = 1./(-cmin-lambdaC)*( uL[STXL+iv] * (-cmin-pL[VXL+idir])
-                                              + (pressC-pL[PRESSL]) * utils::delta(idir,iv)) ;
-            ucR[STXL+iv] = 1./( cmax-lambdaC)*( uR[STXL+iv] * ( cmax-pR[VXL+idir])
-                                              + (pressC-pR[PRESSL]) * utils::delta(idir,iv)) ;
+        // Check for magnetic field strength
+        bool const has_magnetic_field = (fHLLE[BGXL+idir] > 1e-15);
+
+        // Common calculations for both cases
+        constexpr int t1 = (idir + 1) % 3;
+        constexpr int t2 = (idir + 2) % 3;
+
+        // Set magnetic field components (same for both cases)
+        ucL[BGXL+idir] = uHLLE[BGXL+idir];
+        ucR[BGXL+idir] = uHLLE[BGXL+idir];
+        ucL[BGXL + t1] = uHLLE[BGXL + t1];
+        ucR[BGXL + t1] = uHLLE[BGXL + t1];
+        ucL[BGXL + t2] = uHLLE[BGXL + t2];
+        ucR[BGXL + t2] = uHLLE[BGXL + t2];
+
+        // Density (same formula for both cases)
+        ucL[DENSL] = uL[DENSL] * (-cmin - pL[VXL+idir]) / (-cmin - lambdaC);
+        ucR[DENSL] = uR[DENSL] * ( cmax - pR[VXL+idir]) / ( cmax - lambdaC);
+
+        // Calculate p_star and other variables based on magnetic field presence
+        double p_star, v_star_B_star = 0.0;
+        double vt1 = 0.0, vt2 = 0.0, gamma_star = 1.0;
+
+        if (has_magnetic_field) {
+            vt1 = (uHLLE[BGXL + t1]*lambdaC - fHLLE[BGXL + t1]) / uHLLE[BGXL+idir];
+            vt2 = (uHLLE[BGXL + t2]*lambdaC - fHLLE[BGXL + t2]) / uHLLE[BGXL+idir];
+
+            double const v2 = lambdaC*lambdaC + vt1*vt1 + vt2*vt2;
+            gamma_star = 1.0 / Kokkos::sqrt(1 - v2);
+            v_star_B_star = lambdaC * uHLLE[BGXL+idir] + vt1 * uHLLE[BGXL + t1] + vt2 * uHLLE[BGXL + t2];
+
+            p_star = fHLLE[BGXL + idir] + Kokkos::pow(uHLLE[BGXL+idir]/gamma_star, 2)
+                   - (fHLLE[TAUL]+fHLLE[DENSL] - uHLLE[BGXL+idir]*v_star_B_star)*lambdaC;
+        } else {
+            p_star = -lambdaC * (fHLLE[TAUL]+fHLLE[DENSL]) + fHLLE[STXL+idir];
         }
-        ucL[TAUL] = (uL[TAUL] * ( -cmin - pL[VXL+idir] ) + pressC * lambdaC - pL[PRESSL] * pL[VXL+idir]) / ( -cmin - lambdaC ) ; 
-        ucR[TAUL] = (uR[TAUL] * (  cmax - pR[VXL+idir] ) + pressC * lambdaC - pR[PRESSL] * pR[VXL+idir]) / (  cmax - lambdaC ) ;
+
+        // Energy components
+        ucL[TAUL] = (-cmin * uL[TAUL] - fL[TAUL] + p_star * lambdaC - v_star_B_star*uHLLE[BGXL+idir]) / (-cmin - lambdaC);
+        ucR[TAUL] = ( cmax * uR[TAUL] + fR[TAUL] + p_star * lambdaC - v_star_B_star*uHLLE[BGXL+idir]) / ( cmax - lambdaC);
+
+        // Momentum in normal direction
+        ucL[STXL+idir] = (ucL[TAUL] + ucL[DENSL] + p_star) * lambdaC - v_star_B_star*uHLLE[BGXL+idir];
+        ucR[STXL+idir] = (ucR[TAUL] + ucR[DENSL] + p_star) * lambdaC - v_star_B_star*uHLLE[BGXL+idir];
+
+        // Transverse momentum components
+        if (has_magnetic_field) {
+            ucL[STXL+t1] = (-uHLLE[BGXL + idir] * (uHLLE[BGXL + t1]/Kokkos::pow(gamma_star, 2) + v_star_B_star * vt1)
+                           - fL[STXL + t1] + (-cmin) * uL[STXL+t1]) / (-cmin - lambdaC);
+            ucR[STXL+t1] = (-uHLLE[BGXL + idir] * (uHLLE[BGXL + t1]/Kokkos::pow(gamma_star, 2) + v_star_B_star * vt1)
+                           - fR[STXL + t1] + ( cmax) * uR[STXL+t1]) / ( cmax - lambdaC);
+
+            ucL[STXL+t2] = (-uHLLE[BGXL + idir] * (uHLLE[BGXL + t2]/Kokkos::pow(gamma_star, 2) + v_star_B_star * vt2)
+                           - fL[STXL + t2] + (-cmin) * uL[STXL+t2]) / (-cmin - lambdaC);
+            ucR[STXL+t2] = (-uHLLE[BGXL + idir] * (uHLLE[BGXL + t2]/Kokkos::pow(gamma_star, 2) + v_star_B_star * vt2)
+                           - fR[STXL + t2] + ( cmax) * uR[STXL+t2]) / ( cmax - lambdaC);
+        } else {
+            ucL[STXL+t1] = uL[STXL+t1]*(-cmin - pL[VXL+idir])/(-cmin - lambdaC);
+            ucR[STXL+t1] = uR[STXL+t1]*( cmax - pR[VXL+idir])/( cmax - lambdaC);
+
+            ucL[STXL+t2] = uL[STXL+t2]*(-cmin - pL[VXL+idir])/(-cmin - lambdaC);
+            ucR[STXL+t2] = uR[STXL+t2]*( cmax - pR[VXL+idir])/( cmax - lambdaC);
+        }
+
+        // Handle supersonic case
+        if (lambdaC > 1.0) {
+            ucL = uHLLE;
+            ucR = uHLLE;
+        }
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+            int metric_comps[3] { 0, 3, 5} ; 
+	        // the characteristic wavespeeds in GRMHD in coordinate frame are bound by
+	        // Eq.(60) in Anton 2006: https://arxiv.org/pdf/astro-ph/0506063
+            // cml_DC is a short name for "c_minus_left_divergence_cleaning"
+
+            double cmin_DC = -1 ; 
+            double cmax_DC =  1 ; 
+
+            const double fl = pL[BXL+idir] ; 
+            const double fr = pR[BXL+idir] ; 
+
+            const double phi_glm_l = pL[PHI_GLML];
+            const double phi_glm_r = pR[PHI_GLML];
+
+            fHLLC[PHIG_GLML] = hlle_solver(fl,fr,phi_glm_l,phi_glm_r,cmin_DC,cmax_DC) ; 
+        #endif // GRACE_ENABLE_B_FIELD_GLM
+        /***********************************************************************/
 
         if ( -cmin >= vi ) {
             fHLLC = fL ;
@@ -161,6 +258,116 @@ struct hllc_riemann_solver_t {
         return fHLLC ; 
     }
 
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    hllc_cons_with_magnetic_field( 
+          grace::grmhd_cons_array_t const& fHLLE
+        , grace::grmhd_cons_array_t const& uHLLE
+        , grace::grmhd_cons_array_t const& fL 
+        , grace::grmhd_cons_array_t const& fR 
+        , grace::grmhd_cons_array_t const& uL
+        , grace::grmhd_cons_array_t const& uR
+        , grace::grmhd_cons_array_t& ucL
+        , grace::grmhd_cons_array_t& ucR
+        , grace::grmhd_prims_array_t const& pL 
+        , grace::grmhd_prims_array_t const& pR
+        , double const cmin
+        , double const cmax
+        , double const lambdaC ) 
+    {
+        using Kokkos::sqrt ; 
+        int const bg_normal_idx = BGXL + idir;
+        constexpr int t1 = (idir + 1) % 3;
+        constexpr int t2 = (idir + 2) % 3;
+
+        double const vt1 = (uHLLE[BGXL + t1]*lambdaC - fHLLE[BGXL + t1]) / uHLLE[BGXL+idir] ;
+        double const vt2 = (uHLLE[BGXL + t2]*lambdaC - fHLLE[BGXL + t2]) / uHLLE[BGXL+idir] ;
+
+        double const v2 = lambdaC*lambdaC + vt1*vt1 + vt2*vt2 ; 
+        double const gamma_star = 1.0 / Kokkos::sqrt(1 - v2) ;
+        double const v_star_B_star = lambdaC * uHLLE[BGXL+idir] + vt1 * uHLLE[BGXL + t1] + vt2 * uHLLE[BGXL + t2] ;
+
+        double const p_star = fHLLE[BGXL + idir] + Kokkos::pow(uHLLE[BGXL+idir]/gamma_star, 2) \
+                           - (fHLLE[TAUL]+fHLLE[DENSL] - uHLLE[BGXL+idir]*(v_star_B_star))*lambdaC;
+                    
+        ucL[BGXL+idir] = uHLLE[BGXL+idir] ;
+        ucR[BGXL+idir] = uHLLE[BGXL+idir] ;
+
+        ucL[BGXL + t1] = uHLLE[BGXL + t1] ;
+        ucR[BGXL + t1] = uHLLE[BGXL + t1] ;
+
+        ucL[BGXL + t2] = uHLLE[BGXL + t2] ;
+        ucR[BGXL + t2] = uHLLE[BGXL + t2] ;
+
+        ucL[DENSL] = uL[DENSL] * ( -cmin - pL[VXL+idir]) / ( -cmin - lambdaC ) ;
+        ucR[DENSL] = uR[DENSL] * (  cmax - pR[VXL+idir]) / (  cmax - lambdaC ) ;
+
+        ucL[TAUL] = (-cmin * uL[TAUL] - fL[TAUL] + p_star * lambdaC - v_star_B_star*uHLLE[BGXL+idir]) / ( -cmin - lambdaC ) ;
+        ucR[TAUL] = ( cmax * uR[TAUL] + fR[TAUL] + p_star * lambdaC - v_star_B_star*uHLLE[BGXL+idir]) / (  cmax - lambdaC ) ;
+
+        ucL[STXL+idir] = (ucL[TAUL] + ucL[DENSL] + p_star) * lambdaC - v_star_B_star*uHLLE[BGXL+idir] ;
+        ucR[STXL+idir] = (ucR[TAUL] + ucR[DENSL] + p_star) * lambdaC - v_star_B_star*uHLLE[BGXL+idir] ;
+        
+        ucL[STXL+t1] = (-uHLLE[BGXL + idir] * (uHLLE[BGXL + t1]/Kokkos::pow(gamma_star, 2) + v_star_B_star * vt1) \
+                      - fL[STXL + t1] + (-cmin) * uL[STXL+t1]) / ( -cmin - lambdaC ) ;
+        ucR[STXL+t1] = (-uHLLE[BGXL + idir] * (uHLLE[BGXL + t1]/Kokkos::pow(gamma_star, 2) + v_star_B_star * vt1) \
+                      - fR[STXL + t1] + ( cmax) * uR[STXL+t1]) / (  cmax - lambdaC ) ;
+
+        ucL[STXL+t2] = (-uHLLE[BGXL + idir] * (uHLLE[BGXL + t2]/Kokkos::pow(gamma_star, 2) + v_star_B_star * vt2) \
+                      - fL[STXL + t2] + (-cmin) * uL[STXL+t2]) / ( -cmin - lambdaC ) ;
+        ucR[STXL+t2] = (-uHLLE[BGXL + idir] * (uHLLE[BGXL + t2]/Kokkos::pow(gamma_star, 2) + v_star_B_star * vt2) \
+                      - fR[STXL + t2] + ( cmax) * uR[STXL+t2]) / (  cmax - lambdaC ) ;
+        
+    }
+
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    hllc_cons_without_magnetic_field( 
+          grace::grmhd_cons_array_t const& fHLLE
+        , grace::grmhd_cons_array_t const& uHLLE
+        , grace::grmhd_cons_array_t const& fL 
+        , grace::grmhd_cons_array_t const& fR 
+        , grace::grmhd_cons_array_t const& uL
+        , grace::grmhd_cons_array_t const& uR
+        , grace::grmhd_cons_array_t& ucL
+        , grace::grmhd_cons_array_t& ucR
+        , grace::grmhd_prims_array_t const& pL 
+        , grace::grmhd_prims_array_t const& pR
+        , double const cmin
+        , double const cmax
+        , double const lambdaC ) 
+    {
+        using Kokkos::sqrt ; 
+        int const bg_normal_idx = BGXL + idir;
+        constexpr int t1 = (idir + 1) % 3;
+        constexpr int t2 = (idir + 2) % 3;
+        
+        double const p_star  = -lambdaC * (fHLLE[TAUL]+fHLLE[DENSL]) + fHLLE[STXL+idir] ;
+
+        ucL[BGXL+idir] = uHLLE[BGXL+idir] ;
+        ucR[BGXL+idir] = uHLLE[BGXL+idir] ;
+
+        ucL[BGXL + t1] = uHLLE[BGXL + t1] ;
+        ucR[BGXL + t1] = uHLLE[BGXL + t1] ;
+
+        ucL[BGXL + t2] = uHLLE[BGXL + t2] ;
+        ucR[BGXL + t2] = uHLLE[BGXL + t2] ;
+
+        ucL[DENSL] = uL[DENSL] * ( -cmin - pL[VXL+idir] ) / ( -cmin - lambdaC ) ; 
+        ucR[DENSL] = uR[DENSL] * (  cmax - pR[VXL+idir] ) / (  cmax - lambdaC ) ; 
+
+        ucL[TAUL] = (-cmin * uL[TAUL] - fL[TAUL] + p_star * lambdaC) / ( -cmin - lambdaC ) ;
+        ucR[TAUL] = ( cmax * uR[TAUL] + fR[TAUL] + p_star * lambdaC) / (  cmax - lambdaC ) ;
+
+        ucL[STXL+idir] = (ucL[TAUL] + ucL[DENSL] + p_star) * lambdaC ;
+        ucR[STXL+idir] = (ucR[TAUL] + ucR[DENSL] + p_star) * lambdaC ;
+        
+        ucL[STXL+t1] = uL[STXL+t1]*(-cmin - pL[VXL+idir])/(-cmin - lambdaC) ;
+        ucR[STXL+t1] = uR[STXL+t1]*( cmax - pR[VXL+idir])/( cmax - lambdaC) ;
+
+        ucL[STXL+t2] = uL[STXL+t2]*(-cmin - pL[VXL+idir])/(-cmin - lambdaC) ;
+        ucR[STXL+t2] = uR[STXL+t2]*( cmax - pR[VXL+idir])/( cmax - lambdaC) ;
+
+    }
+
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     get_interface_velocity() {
         int midx [] = { 0,3,5 } ; 
@@ -179,19 +386,46 @@ struct hllc_riemann_solver_t {
      * Mignone+ for a proof).
      */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    get_contact_wave_speed( grace::grmhd_cons_array_t const& cons
-                          , grace::grmhd_cons_array_t const& f ) const 
+    get_contact_wave_speed(grace::grmhd_cons_array_t const& cons,
+                          grace::grmhd_cons_array_t const& f) const
     {
-        using Kokkos::sqrt ; 
-        double const a = f[TAUL] + f[DENSL]; 
-        double const b = - ( cons[TAUL] + cons[DENSL] + f[STXL+idir] ) ; 
-        double const c = cons[STXL+idir] ; 
+        using Kokkos::sqrt;
+        constexpr int t1 = (idir + 1) % 3;
+        constexpr int t2 = (idir + 2) % 3;
 
-        double const detm = Kokkos::sqrt( 
-            Kokkos::max(0., b*b - 4.*a*c)
-        ) ; 
+        // Common calculations
+        double const cons_bg_t1 = cons[BGXL + t1];
+        double const cons_bg_t2 = cons[BGXL + t2];
+        double const f_bg_t1 = f[BGXL + t1];
+        double const f_bg_t2 = f[BGXL + t2];
 
-        return -0.5 * ( b + detm ) / a ;  
+        double const taul_densl_sum = cons[TAUL] + cons[DENSL];
+        double const f_taul_densl_sum = f[TAUL] + f[DENSL];
+        double const cross_term = cons_bg_t1 * f_bg_t1 + cons_bg_t2 * f_bg_t2;
+
+        // Check magnetic field strength
+        bool const has_magnetic_field = (cons[BGXL + idir] >= 1e-15);
+
+        // Calculate coefficients based on magnetic field presence
+        double const a = has_magnetic_field ? 
+            f_taul_densl_sum - cross_term : 
+            f_taul_densl_sum;
+
+        double const b = has_magnetic_field ?
+            -(taul_densl_sum + f[STXL + idir]) + 
+             Kokkos::abs(cons_bg_t1*cons_bg_t1 + cons_bg_t2*cons_bg_t2) +
+             Kokkos::abs(f_bg_t1*f_bg_t1 + f_bg_t2*f_bg_t2) :
+            -(taul_densl_sum + f[STXL + idir]);
+
+        double const c = has_magnetic_field ?
+            cons[STXL + idir] - cross_term :
+            cons[STXL + idir];
+
+        // Solve quadratic equation
+        double const discriminant = Kokkos::max(0.0, b*b - 4.0*a*c);
+        double const detm = Kokkos::sqrt(discriminant);
+
+        return -0.5 * (b + detm) / a;
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
