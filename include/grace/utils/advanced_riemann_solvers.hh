@@ -632,43 +632,7 @@ struct hlld_riemann_solver_t {
 
     }
 
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    transform_fluxes_to_eulerian_frame( grace::grmhd_cons_array_t const& cons 
-                                      , grace::grmhd_cons_array_t& f) 
-    {
-        int scalar_vars_indices[] = {DENSL,TAUL,YESL,ENTSL} ; 
-        for (int ivar=0; ivar<4; ++ivar) {
-            f[ivar] = (
-                  inertial_tetrad[0][idir] * cons[ivar]
-                + inertial_tetrad[idir][idir] * f[ivar] 
-            ) ; 
-        }
-        // TODO ceck missing Minkowski metric.
-        std::array<double,3> stilde = {cons[STXL], cons[STYL], cons[STZL]} ; 
-        std::array<double,3> fstilde = {f[STXL], f[STYL], f[STZL]} ; 
-        for( int ivdir=0; ivdir<3; ++ivdir) { 
-            double const eS = metric.contract_vec_covec(
-                  stilde
-                , { inertial_cotetrad[1][ivdir]
-                  , inertial_cotetrad[2][ivdir]
-                  , inertial_cotetrad[3][ivdir] }
-            ) ; 
-            /* Contracting two lower indices, does not matter   */
-            /* since it's only the spatial part of the locally  */
-            /* flat tetrad.                                     */
-            double const eF = metric.contract_vec_covec(
-                  fstilde
-                , { inertial_cotetrad[1][ivdir]
-                  , inertial_cotetrad[2][ivdir]
-                  , inertial_cotetrad[3][ivdir] }
-            ) ;
-            f[STXL+ivdir] = (
-                  inertial_tetrad[0][idir] * eS 
-                + inertial_tetrad[idir][idir] * eF 
-            ) ; 
-        }
-    }
-
+    
 
 
  private:
