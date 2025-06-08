@@ -132,8 +132,27 @@ struct hllc_riemann_solver_t {
     {
         grace::grmhd_cons_array_t uHLLE, fHLLE, uHLLC, fHLLC; 
         hll_riemann_solver_t hlle_solver ; 
-        int var_indices[] = {DENSL, TAUL, STXL, STYL, STZL, BXL, BYL, BZL, YESL, ENTSL} ; 
-        for( int ii=0; ii<10; ++ii) {
+        int var_indices[] = {DENSL, TAUL, STXL, STYL, STZL, YESL, ENTSL
+            #ifdef GRACE_DO_MHD 
+            ,BGXL, BGYL, BGZL 
+            #ifdef GRACE_ENABLE_B_FIELD_GLM
+            ,PHIG_GLML
+            #endif // GRACE_ENABLE_B_FIELD_GLM
+            #endif // GRACE_DO_MHD
+            } ; 
+        grace::grmhd_cons_array_t ucL, ucR ; 
+
+        constexpr int num_vars = 7
+        #ifdef GRACE_DO_MHD
+            + 3
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+            + 1
+        #endif
+        #endif
+        ;
+
+        
+        for( int ii=0; ii<num_vars; ++ii) {
             int const ivar = var_indices[ii] ; 
             fHLLE[ivar] = 
                 hlle_solver(fL[ivar],fR[ivar],uL[ivar],uR[ivar],cmin,cmax) ; 
@@ -141,28 +160,34 @@ struct hllc_riemann_solver_t {
                 hlle_solver.get_state(fL[ivar],fR[ivar],uL[ivar],uR[ivar],cmin,cmax) ;
         }
 
-        // Magnetic Field is constant on the face, so we have to copy it.
-        fHLLE[BGXL+idir] = fL[BGXL+idir] ;
-
-        double const vi = get_interface_velocity() ; // Carlo wrote TODO but seems to be fine.
-        double const lambdaC = get_contact_wave_speed(uHLLE,fHLLE) ; 
-
-        grace::grmhd_cons_array_t ucL, ucR ; 
-
-        // Check for magnetic field strength
-        bool const has_magnetic_field = (fHLLE[BGXL+idir] > 1e-15);
+        // Default to false, will be set later
+        bool has_magnetic_field = false;
+        double BG_idir = 0.0;
 
         // Common calculations for both cases
         constexpr int t1 = (idir + 1) % 3;
         constexpr int t2 = (idir + 2) % 3;
+        #ifdef GRACE_DO_MHD
+            BG_idir = uL[BGXL+idir] ; // This is the magnetic field component in the direction idir.
+            
+            // Magnetic Field is constant on the face, so we have to copy it.
+            fHLLE[BGXL+idir] = 0.0; // Magnetic field is not used in HLLC, but we need to set it.;
+            uHLLE[BGXL+idir] = BG_idir ;
 
-        // Set magnetic field components (same for both cases)
-        ucL[BGXL+idir] = uHLLE[BGXL+idir];
-        ucR[BGXL+idir] = uHLLE[BGXL+idir];
-        ucL[BGXL + t1] = uHLLE[BGXL + t1];
-        ucR[BGXL + t1] = uHLLE[BGXL + t1];
-        ucL[BGXL + t2] = uHLLE[BGXL + t2];
-        ucR[BGXL + t2] = uHLLE[BGXL + t2];
+            // Check for magnetic field strength
+            has_magnetic_field = (Kokkos::abs(BG_idir) > 1e-15);
+
+            // Set magnetic field components (same for both cases)
+            ucL[BGXL+idir] = BG_idir;
+            ucR[BGXL+idir] = BG_idir;
+            ucL[BGXL + t1] = uHLLE[BGXL + t1];
+            ucR[BGXL + t1] = uHLLE[BGXL + t1];
+            ucL[BGXL + t2] = uHLLE[BGXL + t2];
+            ucR[BGXL + t2] = uHLLE[BGXL + t2];
+        #endif // GRACE_DO_MHD
+
+        double const vi = get_interface_velocity() ; // Carlo wrote TODO but seems to be fine.
+        double const lambdaC = get_contact_wave_speed(uHLLE,fHLLE) ; 
 
         ucL[YESL] = uHLLE[YESL];
         ucR[YESL] = uHLLE[YESL];
@@ -176,12 +201,13 @@ struct hllc_riemann_solver_t {
         // Calculate p_star and other variables based on magnetic field presence
         double p_star, v_star_B_star = 0.0;
         double vt1 = 0.0, vt2 = 0.0, gamma_star = 1.0;
+        double v2 = lambdaC*lambdaC;
 
         if (has_magnetic_field) {
-            vt1 = (uHLLE[BGXL + t1]*lambdaC - fHLLE[BGXL + t1]) / uHLLE[BGXL+idir];
-            vt2 = (uHLLE[BGXL + t2]*lambdaC - fHLLE[BGXL + t2]) / uHLLE[BGXL+idir];
+            vt1 = (uHLLE[BGXL + t1]*lambdaC - fHLLE[BGXL + t1]) / BG_idir;
+            vt2 = (uHLLE[BGXL + t2]*lambdaC - fHLLE[BGXL + t2]) / BG_idir;
 
-            double const v2 = lambdaC*lambdaC + vt1*vt1 + vt2*vt2;
+            v2 = lambdaC*lambdaC + vt1*vt1 + vt2*vt2;
             gamma_star = 1.0 / Kokkos::sqrt(1 - v2);
             v_star_B_star = lambdaC * uHLLE[BGXL+idir] + vt1 * uHLLE[BGXL + t1] + vt2 * uHLLE[BGXL + t2];
 
@@ -192,12 +218,12 @@ struct hllc_riemann_solver_t {
         }
 
         // Energy components
-        ucL[TAUL] = (-cmin * uL[TAUL] - fL[TAUL] + p_star * lambdaC - v_star_B_star*uHLLE[BGXL+idir]) / (-cmin - lambdaC);
-        ucR[TAUL] = ( cmax * uR[TAUL] + fR[TAUL] + p_star * lambdaC - v_star_B_star*uHLLE[BGXL+idir]) / ( cmax - lambdaC);
+        ucL[TAUL] = (-cmin * uL[TAUL] - fL[TAUL] + p_star * lambdaC - v_star_B_star*BG_idir) / (-cmin - lambdaC);
+        ucR[TAUL] = ( cmax * uR[TAUL] + fR[TAUL] + p_star * lambdaC - v_star_B_star*BG_idir) / ( cmax - lambdaC);
 
         // Momentum in normal direction
-        ucL[STXL+idir] = (ucL[TAUL] + ucL[DENSL] + p_star) * lambdaC - v_star_B_star*uHLLE[BGXL+idir];
-        ucR[STXL+idir] = (ucR[TAUL] + ucR[DENSL] + p_star) * lambdaC - v_star_B_star*uHLLE[BGXL+idir];
+        ucL[STXL+idir] = (ucL[TAUL] + ucL[DENSL] + p_star) * lambdaC - v_star_B_star*BG_idir;
+        ucR[STXL+idir] = (ucR[TAUL] + ucR[DENSL] + p_star) * lambdaC - v_star_B_star*BG_idir;
 
         // Transverse momentum components
         if (has_magnetic_field) {
@@ -219,7 +245,7 @@ struct hllc_riemann_solver_t {
         }
 
         // Handle supersonic case
-        if (lambdaC > 1.0) {
+        if (lambdaC <= -cmin || lambdaC >= cmax || v2 >= 1.0) {
             ucL = uHLLE;
             ucR = uHLLE;
         }
@@ -242,25 +268,6 @@ struct hllc_riemann_solver_t {
             fHLLC = fR ; 
             uHLLC = uR ;  
         }
-        #ifdef GRACE_ENABLE_B_FIELD_GLM
-            int metric_comps[3] { 0, 3, 5} ; 
-	        // the characteristic wavespeeds in GRMHD in coordinate frame are bound by
-	        // Eq.(60) in Anton 2006: https://arxiv.org/pdf/astro-ph/0506063
-            // cml_DC is a short name for "c_minus_left_divergence_cleaning"
-
-            double cmin_DC = -1 ; 
-            double cmax_DC =  1 ; 
-
-            const double fl = pL[BXL+idir] ; 
-            const double fr = pR[BXL+idir] ; 
-
-            const double phi_glm_l = pL[PHI_GLML];
-            const double phi_glm_r = pR[PHI_GLML];
-
-            fHLLC[PHIG_GLML] = hlle_solver(fl,fr,phi_glm_l,phi_glm_r,cmin_DC,cmax_DC) ; 
-        #endif // GRACE_ENABLE_B_FIELD_GLM
-
-        //transform_fluxes_to_eulerian_frame(uHLLC,fHLLC) ; !TODO
         return fHLLC ; 
     }
     
@@ -284,45 +291,56 @@ struct hllc_riemann_solver_t {
      */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     get_contact_wave_speed(grace::grmhd_cons_array_t const& cons,
-                      grace::grmhd_cons_array_t const& f) const
+                          grace::grmhd_cons_array_t const& f) const
     {
         using Kokkos::sqrt;
         constexpr int t1 = (idir + 1) % 3;
         constexpr int t2 = (idir + 2) % 3;
 
         // Common calculations
-        double const cons_bg_t1 = cons[BGXL + t1];
-        double const cons_bg_t2 = cons[BGXL + t2];
-        double const f_bg_t1 = f[BGXL + t1];
-        double const f_bg_t2 = f[BGXL + t2];
+        double cons_bg_t1 = 0;
+        double cons_bg_t2 = 0;
+        double f_bg_t1 = 0;
+        double f_bg_t2 = 0;
+
+        // Default to false
+        bool has_magnetic_field = false;
+
+    #ifdef GRACE_DO_MHD
+        cons_bg_t1 = cons[BGXL + t1];
+        cons_bg_t2 = cons[BGXL + t2];
+        f_bg_t1 = f[BGXL + t1];
+        f_bg_t2 = f[BGXL + t2];
+        //Kokkos::printf("idir %d, BGXL + idir %d, BGXL + t1 %d, BGXL + t2 %d\n", idir,BGXL +idir, BGXL + t1, BGXL + t2) ;
+        //Kokkos::printf("idir %d, cons_bg_t1 %e, BGXL + t1 %d\n", idir, cons_bg_t1, BGXL + t1) ;   
+
+        // Check magnetic field strength
+        has_magnetic_field = (Kokkos::abs(cons[BGXL + idir]) > 1e-15);
+    #endif // GRACE_DO_MHD
+        
 
         double const taul_densl_sum = cons[TAUL] + cons[DENSL];
         double const f_taul_densl_sum = f[TAUL] + f[DENSL];
         double const cross_term = cons_bg_t1 * f_bg_t1 + cons_bg_t2 * f_bg_t2;
 
-        // Check magnetic field strength
-        bool const has_magnetic_field = (cons[BGXL + idir] >= 1e-15);
+        // For HLLC, the contact wave speed is simpler
+        // λ* = (F_momentum - F_energy - F_density) / (U_energy + U_density - U_momentum)
 
-        // Calculate coefficients based on magnetic field presence
-        double const a = has_magnetic_field ? 
-            f_taul_densl_sum - cross_term : 
-            f_taul_densl_sum;
+        double numerator, denominator;
 
-        double const b = has_magnetic_field ?
-            -(taul_densl_sum + f[STXL + idir]) + 
-             Kokkos::abs(cons_bg_t1*cons_bg_t1 + cons_bg_t2*cons_bg_t2) +
-             Kokkos::abs(f_bg_t1*f_bg_t1 + f_bg_t2*f_bg_t2) :
-            -(taul_densl_sum + f[STXL + idir]);
+        if (has_magnetic_field) {
+            numerator = f[STXL + idir] - f_taul_densl_sum + cross_term;
+            denominator = taul_densl_sum - cons[STXL + idir] + cross_term;
+        } else {
+            numerator = f[STXL + idir] - f_taul_densl_sum;
+            denominator = taul_densl_sum - cons[STXL + idir];
+        }
 
-        double const c = has_magnetic_field ?
-            cons[STXL + idir] - cross_term :
-            cons[STXL + idir];
-
-        // Solve quadratic equation
-        double const discriminant = Kokkos::max(0.0, b*b - 4.0*a*c);
-        double const detm = Kokkos::sqrt(discriminant);
-
-        return -0.5 * (b + detm) / a;
+        // Safety check for denominator
+        if (Kokkos::abs(denominator) < 1e-15) {
+            return 0.0;  // or some other fallback
+        }
+        return numerator / denominator;
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE

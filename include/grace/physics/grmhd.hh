@@ -1991,6 +1991,9 @@ struct grmhd_equations_system_t
         double const s_star_l = dens_l * primL[ENTL] ; 
         double const s_star_r = dens_r * primR[ENTL] ; 
 
+        uL[ENTSL] = s_star_l ;
+        uR[ENTSL] = s_star_r ;
+
         fL[ENTSL] = s_star_l * primL[VXL+idir] ; 
         fR[ENTSL] = s_star_r * primR[VXL+idir] ; 
 
@@ -2028,6 +2031,8 @@ struct grmhd_equations_system_t
         /***************************************************************************/
         double const tau_l = alp2_sqrtgamma * Tuptt_l - dens_l ;
 
+        uL[TAUL] = tau_l ;
+
         /***************************************************************************/
         /***************************************************************************/
         /* Right flux */
@@ -2053,6 +2058,8 @@ struct grmhd_equations_system_t
         /* \tau = \alpha^2 \sqrt{\gamma} T^{tt} - D                            */
         /***********************************************************************/
         double const tau_r = alp2_sqrtgamma * Tuptt_r - dens_r ; 
+
+        uR[TAUL] = tau_r ;
 
         /***********************************************************************/
         /* Momentum flux in direction d for S_j : \alpha \sqrt{\gamma} T^d_j   */
@@ -2098,6 +2105,9 @@ struct grmhd_equations_system_t
         double const s_x_r = rho0_h_plus_b2_r*u0_r*uD_r[0]
                                                 - smallbR[0]*smallbDR[0] ; 
 
+        uL[STXL] = s_x_l ;
+        uR[STXL] = s_x_r ;
+
 
         /***********************************************************************/
         /* Get S_y flux                                                        */
@@ -2120,6 +2130,9 @@ struct grmhd_equations_system_t
         double const s_y_r = rho0_h_plus_b2_r*u0_r*uD_r[1]
                                                - smallbR[0]*smallbDR[1] ; 
 
+        uL[STYL] = s_y_l ;
+        uR[STYL] = s_y_r ;
+
         /***********************************************************************/
         /* Get S_z flux                                                        */
         /***********************************************************************/
@@ -2140,6 +2153,8 @@ struct grmhd_equations_system_t
         double const s_z_r = rho0_h_plus_b2_r*u0_r*uD_r[2]
                                                - smallbR[0]*smallbDR[2]  ; 
 
+        uL[STZL] = s_z_l ;
+        uR[STZL] = s_z_r ;
 
   /***********************************************************************/
         /*   Moving on the magnetic field and auxiliary variable fluxes        */
@@ -2147,101 +2162,45 @@ struct grmhd_equations_system_t
         /***********************************************************************/
 	#ifdef GRACE_DO_MHD
         #ifdef GRACE_ENABLE_B_FIELD_GLM
-
-        /* For GLM, two luminal wavespeeds arise - one for the divergence cleaning  
-            variable, the other for the longitudinal component of the magnetic field [flux of a magnetic field component in its longitudinal direction is identically 0 in a non-GLM system]
-            In flat spacetime, these are +/- 1; for GR we need to compute: +/- \sqrt{gamma^ii} - beta^i / alp
-            see https://arxiv.org/pdf/1304.5544    
-
-            Since the metric at the interface is unique and these two wavespeeds are purely metric-dependent,
-            we have no notion of "left" and "right" wavespeed
-        */
-
-    
-        int metric_comps[3] { 0, 3, 5} ; 
-	    // the characteristic wavespeeds in GRMHD in coordinate frame are bound by
-	    // Eq.(60) in Anton 2006: https://arxiv.org/pdf/astro-ph/0506063
-        // cml_DC is a short name for "c_minus_left_divergence_cleaning"
-        double cml_DC = -1 ;
-        double cmr_DC = cml_DC;
-
-        double cpl_DC =  1 ;
-        double cpr_DC = cpl_DC;
-
-        double cmin_DC = -Kokkos::min(0., Kokkos::min(cml_DC,cmr_DC)) ; 
-        double cmax_DC =  Kokkos::max(0., Kokkos::max(cpl_DC,cpr_DC)) ; 
-        // note: is it possible for these to also become 0? 
-
-       /***********************************************************************/
-        /* evolution equation for B^i in the GLM method reads:                 */
-        /* \partial_t (\sqrt{\gamma}B^j)  +                                    */
-        /* +\partial_i( \sqrt{\gamma}(v^i B^j - v^j B^i) )     (standard flux) */
-        /* -\partial_i( \sqrt{\gamma} B^i \beta^j)             (GLM flux)      */
-        /* =                                                                   */
-        /* -\sqrt{\gamma}(  B^i \partial_i \beta^j 
-                           + \alpha \gamma^ij \partial_i \Phi_GLM
-                            )                                  (GLM source )   */
-        /* in the above, v^i is the transport velocity                         */
-        /* it is the one contained in primL[VXL] at the moment                 */
-        /* in the below, idir dictates the flux direction                      */
-        /***********************************************************************/
-
-        /* Evolution equation for B^i in the GLM method reads:                 */
-        /* A different flux/source split, including upwinding of phi_glm:      */
-        /* phi is contained in the fluxes for codes like: MHDuet, GRHydro, BAM (Neuweiler2024)  */
-        /* Notably, not BHAC+ though, where the derivative of phi must be upwinded in the sources          */
-        /*
-            F^i [ B^j ] = sqrtgamma * (V^i B^j - alp * U^j B^i + alp * gamma^ij phi)
-            
-            Note that V^i is the transport velocity and U^j the Eulerian velocity
-
-            L/R states remain the same 
-        */
-
-        /* Inverse gamma metric [XX,XY,XZ,YY,YZ,ZZ]                                                            */
-        const std::array<double, 6> invgij_6{
-                                        1,0,0,
-                                        1,0,1
-                                        };
-
-        const std::array<std::array<double,3>, 3> invgij{{
-        {invgij_6[0],invgij_6[1],invgij_6[2]},
-        {invgij_6[1],invgij_6[3],invgij_6[4]},
-        {invgij_6[2],invgij_6[4],invgij_6[5]}}};
-
-
         /***********************************************************************/
         /* Get B^x flux                                                        */
         /***********************************************************************/
 
         fL[BGXL]  = primL[VXL+idir] * primL[BXL] - vNL[0] * primL[BXL+idir] \
-                            + invgij[idir][0] * primL[PHI_GLML] ;
+                            + primL[PHI_GLML] ;
 
 
         fR[BGXL]  = primR[VXL+idir] * primR[BXL] - vNR[0] * primR[BXL+idir] \
-                            + invgij[idir][0] * primR[PHI_GLML]  ;
+                            + primR[PHI_GLML]  ;
 
-
+        uL[BGXL] = primL[BXL] ;
+        uR[BGXL] = primR[BXL] ;
         /***********************************************************************/
         /* Get B^y flux                                                        */
         /***********************************************************************/
         
         fL[BGYL]  = primL[VXL+idir] * primL[BYL] - vNL[1] * primL[BXL+idir] \
-                            + invgij[idir][1] * primL[PHI_GLML] ;
+                            + primL[PHI_GLML] ;
 
         fR[BGYL]  = primR[VXL+idir] * primR[BYL] - vNR[1] * primR[BXL+idir] \
-                            + invgij[idir][1] * primR[PHI_GLML] ;
+                            + primR[PHI_GLML] ;
+
+        uL[BGYL] = primL[BYL] ;
+        uR[BGYL] = primR[BYL] ;
 
         /***********************************************************************/
         /* Get B^z flux                                                        */
         /***********************************************************************/
        
         fL[BGZL]  = primL[VXL+idir] * primL[BZL] - vNL[2] * primL[BXL+idir] \
-                            + invgij[idir][2] * primL[PHI_GLML] ;
+                            + primL[PHI_GLML] ;
 
 
         fR[BGZL]  = primR[VXL+idir] * primR[BZL] - vNR[2] * primR[BXL+idir] \
-                            + invgij[idir][2] * primR[PHI_GLML] ;
+                            + primR[PHI_GLML] ;
+
+        uL[BGZL] = primL[BZL] ;
+        uR[BGZL] = primR[BZL] ;
 
         /***********************************************************************/
         /* Get Phi_GLM flux                                                    */
@@ -2258,6 +2217,9 @@ struct grmhd_equations_system_t
         fL[PHIG_GLML] = primL[BXL+idir] ; 
 
         fR[PHIG_GLML] = primR[BXL+idir] ; 
+
+        uL[PHIG_GLML] = primL[PHI_GLML] ;
+        uR[PHIG_GLML] = primR[PHI_GLML] ;
         #endif 
 	#endif 
 
