@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.14)
 
 project(GRACE VERSION 0.5 LANGUAGES CXX C)
 
-option(GRACE_CXX_STANDARD "C++ standard used in build" 17)
+set(GRACE_CXX_STANDARD 17 CACHE STRING "C++ standard used in build")
 
 # Check if the standard is at least 17
 if(GRACE_CXX_STANDARD LESS 17)
@@ -54,7 +54,8 @@ if( GRACE_ENABLE_PROFILING )
     if( GRACE_ENABLE_HIP )
         include(setup_rocmprofiler)
     elseif( GRACE_ENABLE_CUDA )
-        message(WARN "CUDA GPU profiling is not supported yet.")
+        message(WARNING "CUDA GPU profiling is not supported yet.")
+        set(GRACE_ENABLE_PROFILING OFF)
     endif()
 else()
     message(STATUS "Profiling disabled.")

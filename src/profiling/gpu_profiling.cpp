@@ -39,7 +39,6 @@
 #include <filesystem>
 #include <iostream>
 #include <iomanip>
-#define GRACE_ENABLE_HIP
 
 #ifdef GRACE_ENABLE_HIP
 #ifndef CHECK_ROCPROFILER
