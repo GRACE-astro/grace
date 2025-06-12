@@ -742,7 +742,7 @@ struct grmhd_equations_system_t
             + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
         ,   0.5 * (metric_l.alp() + metric_r.alp())
         } ; 
-        
+
         /***********************************************************************/
         /* Initialize Riemann solver                                           */
         /***********************************************************************/
@@ -844,37 +844,27 @@ struct grmhd_equations_system_t
         primR[VXL] = alp * primR[VXL] / wr - metric_face.beta(0) ;
         primR[VYL] = alp * primR[VYL] / wr - metric_face.beta(1) ;
         primR[VZL] = alp * primR[VZL] / wr - metric_face.beta(2) ;
-
         std::array<double,3> uD_l, uD_r ; 
         solver.transform_velocities_to_tetrad_frame(u0_l, primL, uD_l) ; 
         solver.transform_velocities_to_tetrad_frame(u0_r, primR, uD_r) ; 
+
+        if(Kokkos::abs(primL[VXL])>1e-5) {
+            // Kokkos::printf("velocity before transformation: %e %e %e\n velocity after transformation: %e %e %e\n", primL[VXL], primL[VYL], primL[VZL], uD_l[0], uD_l[1], uD_l[2]);
+            // Kokkos::printf("velocity after transformation: %e %e %e\n", uD_l[0], uD_l[1], uD_l[2]);
+            //// now I print out the metric components
+            //Kokkos::printf("metric components: %e %e %e %e %e %e\n", metric_face.gamma(0), metric_face.gamma(1), metric_face.gamma(2), 
+            //               metric_face.gamma(3), metric_face.gamma(4), metric_face.gamma(5));
+            //Kokkos::printf("u0_l: %e, alp: %e, wl: %e\n", u0_l, alp, wl);
+        }
 
         #ifdef GRACE_DO_MHD
             /***********************************************************************/
             /* Transform magnetic fields to tetrad frame                           */
             /***********************************************************************/
-            std::array<double,3> bD_l, bD_r;
             solver.transform_magnetic_fields_to_tetrad_frame(primL);
             solver.transform_magnetic_fields_to_tetrad_frame(primR);
-                
-            /* Compute magnetic pressure and b^2 */
-            double const b2_l = bD_l[0]*bD_l[0] + bD_l[1]*bD_l[1] + bD_l[2]*bD_l[2];
-            double const b2_r = bD_r[0]*bD_r[0] + bD_r[1]*bD_r[1] + bD_r[2]*bD_r[2];
-            double const bmag_press_l = 0.5 * b2_l;
-            double const bmag_press_r = 0.5 * b2_r;
-        #else
-            double const b2_l = 0.0;
-            double const b2_r = 0.0;
-            double const bmag_press_l = 0.0;
-            double const bmag_press_r = 0.0;
-            std::array<double,3> bD_l{0.0, 0.0, 0.0};
-            std::array<double,3> bD_r{0.0, 0.0, 0.0};
         #endif
 
-        /* Compute specific enthalpies */
-        double h_l = 1 + primL[EPSL] + primL[PRESSL]/primL[RHOL] ;
-        double h_r = 1 + primR[EPSL] + primR[PRESSL]/primR[RHOL] ;
-        
         grmhd_cons_array_t fL, fR, uL, uR; 
 
         /* Get wavespeeds      */ 
@@ -890,8 +880,8 @@ struct grmhd_equations_system_t
 
         double const alpha_sqrtgamma = alp * metric_face.sqrtg() ;
         
-        compute_srmhd_fluxes<idir,true>(fL,fR,uL,uR,primL,primR,cmin,cmax);
-
+        compute_srmhd_fluxes<idir,false>(fL,fR,uL,uR,primL,primR,cmin,cmax);
+   
         /***********************************************************************/
         grmhd_cons_array_t fHLLC = 
             solver(fL,fR,uL,uR,primL,primR,cmin,cmax) ; 
@@ -1871,30 +1861,30 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* Lorentz factors  */
         /* W = sqrt(1+z^2)  */
-        double const alp = 1 ;
-        double const wl   = Kokkos::sqrt(1. 
-            + minkowski_metric.square_vec({primL[VXL], primL[VYL], primL[VZL]}));
-        double const wr   = Kokkos::sqrt(1. 
-            + minkowski_metric.square_vec({primR[VXL], primR[VYL], primR[VZL]}));
+        double const alp = 1 ; // We are in minkowski
+        double const wl   = 1.0 / Kokkos::sqrt(1. 
+            - minkowski_metric.square_vec({primL[VXL], primL[VYL], primL[VZL]}));
+        double const wr   = 1.0 / Kokkos::sqrt(1. 
+            - minkowski_metric.square_vec({primR[VXL], primR[VYL], primR[VZL]}));
         
         /* u^0             */
-        double const u0_l = wl / alp ; 
-        double const u0_r = wr / alp ; 
+        double const u0_l = wl ; 
+        double const u0_r = wr ; 
 
         /***********************************************************************/
 
 
         /* Compute the Eulerian 3-velocities on both sides of the interface */
         std::array<double,3> const vNL {
-              primL[VXL] / wl 
-            , primL[VYL] / wl 
-            , primL[VZL] / wl 
+              primL[VXL] // / wl 
+            , primL[VYL] // / wl 
+            , primL[VZL] // / wl 
         } ; 
 
         std::array<double,3> const vNR {
-              primR[VXL] / wr
-            , primR[VYL] / wr 
-            , primR[VZL] / wr 
+              primR[VXL] // / wr
+            , primR[VYL] // / wr 
+            , primR[VZL] // / wr 
         } ; 
 
         /* Fill up primitive array on both sides of the face.                  */
@@ -1909,15 +1899,15 @@ struct grmhd_equations_system_t
         double cs2l, cs2r ; 
         unsigned int eos_err; 
         primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primL[EPSL], cs2l, primL[TEMPL], primL[RHOL], primL[YEL], eos_err) ; 
-        primL[VXL] = primL[VXL] / wl ;
-        primL[VYL] = primL[VYL] / wl ;
-        primL[VZL] = primL[VZL] / wl ;
+        // primL[VXL] = primL[VXL] / wl ;
+        // primL[VYL] = primL[VYL] / wl ;
+        // primL[VZL] = primL[VZL] / wl ;
 
         /* Right */
         primR[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primR[EPSL], cs2r, primR[TEMPL], primR[RHOL], primR[YEL], eos_err) ; 
-        primR[VXL] = primR[VXL] / wr ;
-        primR[VYL] = primR[VYL] / wr ;
-        primR[VZL] = primR[VZL] / wr ;
+        // primR[VXL] = primR[VXL] / wr ;
+        // primR[VYL] = primR[VYL] / wr ;
+        // primR[VZL] = primR[VZL] / wr ;
 
         /* Compute small b */
         /* Compute smallb2 on the left and right interface */
@@ -2001,8 +1991,8 @@ struct grmhd_equations_system_t
         /*                           Get tau flux                              */
         /***********************************************************************/
         /* Auxiliary metric quantitites */
-        double const alp2_sqrtgamma = math::int_pow<2>(alp) * minkowski_metric.sqrtg() ; 
-        double const g4uptd = one_over_alp2 * minkowski_metric.beta(idir) ; 
+        double const alp2_sqrtgamma = math::int_pow<2>(alp) * minkowski_metric.sqrtg() ; // Just 1 for Minkowski
+        double const g4uptd = one_over_alp2 * minkowski_metric.beta(idir) ; //should be 0 for Minkowski
         double const g4uptt = -one_over_alp2 ; 
 
         /***************************************************************************/
@@ -2100,14 +2090,13 @@ struct grmhd_equations_system_t
            + P_plus_half_b2_r*utils::delta(0,idir) - smallbR[idir+1]*smallbDR[0]  ;  
 
         double const s_x_l = rho0_h_plus_b2_l*u0_l*uD_l[0]
-                                                - smallbL[0]*smallbDL[0] ; 
+                                - smallbL[0]*smallbDL[0] ; 
 
         double const s_x_r = rho0_h_plus_b2_r*u0_r*uD_r[0]
-                                                - smallbR[0]*smallbDR[0] ; 
+                                - smallbR[0]*smallbDR[0] ; 
 
         uL[STXL] = s_x_l ;
         uR[STXL] = s_x_r ;
-
 
         /***********************************************************************/
         /* Get S_y flux                                                        */
@@ -2125,10 +2114,10 @@ struct grmhd_equations_system_t
          
         
         double const s_y_l = rho0_h_plus_b2_l*u0_l*uD_l[1]
-                                               - smallbL[0]*smallbDL[1] ; 
+                                - smallbL[0]*smallbDL[1] ; 
 
         double const s_y_r = rho0_h_plus_b2_r*u0_r*uD_r[1]
-                                               - smallbR[0]*smallbDR[1] ; 
+                                - smallbR[0]*smallbDR[1] ; 
 
         uL[STYL] = s_y_l ;
         uR[STYL] = s_y_r ;
@@ -2143,15 +2132,15 @@ struct grmhd_equations_system_t
         /*                         + p \delta^d_z - b^d b_z )                  */  
         /***********************************************************************/
         fL[STZL] = rho0_h_plus_b2_l * u0_l*primL[VXL+idir]*uD_l[2]
-           + P_plus_half_b2_l*utils::delta(2,idir) - smallbL[idir+1]*smallbDL[2] ; 
+                    + P_plus_half_b2_l*utils::delta(2,idir) - smallbL[idir+1]*smallbDL[2] ; 
         fR[STZL] = rho0_h_plus_b2_r * u0_r*primR[VXL+idir]*uD_r[2]
-           + P_plus_half_b2_r*utils::delta(2,idir) - smallbR[idir+1]*smallbDR[2] ;  
+                    + P_plus_half_b2_r*utils::delta(2,idir) - smallbR[idir+1]*smallbDR[2] ;  
 
         double const s_z_l = rho0_h_plus_b2_l*u0_l*uD_l[2]
-                                               - smallbL[0]*smallbDL[2] ; 
+                                - smallbL[0]*smallbDL[2] ; 
 
         double const s_z_r = rho0_h_plus_b2_r*u0_r*uD_r[2]
-                                               - smallbR[0]*smallbDR[2]  ; 
+                                - smallbR[0]*smallbDR[2]  ; 
 
         uL[STZL] = s_z_l ;
         uR[STZL] = s_z_r ;
@@ -2167,11 +2156,11 @@ struct grmhd_equations_system_t
         /***********************************************************************/
 
         fL[BGXL]  = primL[VXL+idir] * primL[BXL] - vNL[0] * primL[BXL+idir] \
-                            + primL[PHI_GLML] ;
+                            + primL[PHI_GLML] * utils::delta(0,idir) ;
 
 
         fR[BGXL]  = primR[VXL+idir] * primR[BXL] - vNR[0] * primR[BXL+idir] \
-                            + primR[PHI_GLML]  ;
+                            + primR[PHI_GLML] * utils::delta(0,idir)  ;
 
         uL[BGXL] = primL[BXL] ;
         uR[BGXL] = primR[BXL] ;
@@ -2180,10 +2169,10 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         
         fL[BGYL]  = primL[VXL+idir] * primL[BYL] - vNL[1] * primL[BXL+idir] \
-                            + primL[PHI_GLML] ;
+                            + primL[PHI_GLML] * utils::delta(1,idir) ;
 
         fR[BGYL]  = primR[VXL+idir] * primR[BYL] - vNR[1] * primR[BXL+idir] \
-                            + primR[PHI_GLML] ;
+                            + primR[PHI_GLML] * utils::delta(1,idir) ;
 
         uL[BGYL] = primL[BYL] ;
         uR[BGYL] = primR[BYL] ;
@@ -2193,11 +2182,11 @@ struct grmhd_equations_system_t
         /***********************************************************************/
        
         fL[BGZL]  = primL[VXL+idir] * primL[BZL] - vNL[2] * primL[BXL+idir] \
-                            + primL[PHI_GLML] ;
+                            + primL[PHI_GLML] * utils::delta(2,idir) ;
 
 
         fR[BGZL]  = primR[VXL+idir] * primR[BZL] - vNR[2] * primR[BXL+idir] \
-                            + primR[PHI_GLML] ;
+                            + primR[PHI_GLML] * utils::delta(2,idir) ; // TODO add kronecker delta
 
         uL[BGZL] = primL[BZL] ;
         uR[BGZL] = primR[BZL] ;
@@ -2215,7 +2204,6 @@ struct grmhd_equations_system_t
         /***********************************************************************/
 
         fL[PHIG_GLML] = primL[BXL+idir] ; 
-
         fR[PHIG_GLML] = primR[BXL+idir] ; 
 
         uL[PHIG_GLML] = primL[PHI_GLML] ;
@@ -2281,6 +2269,22 @@ struct grmhd_equations_system_t
 
         cp = Kokkos::max(c1,c2) ; 
         cm = Kokkos::min(c1,c2) ; 
+
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+            int metric_comps[3] { 0, 3, 5} ; 
+	        // the characteristic wavespeeds in GRMHD in coordinate frame are bound by
+	        // Eq.(60) in Anton 2006: https://arxiv.org/pdf/astro-ph/0506063
+            // cml_DC is a short name for "c_minus_left_divergence_cleaning"
+            double cm_DC = - Kokkos::sqrt(gupdd/one_over_alp2) - betad ;
+
+            double cp_DC =   Kokkos::sqrt(gupdd/one_over_alp2) - betad ;
+
+            double cmin_DC = cm_DC * 0.99 ; 
+            double cmax_DC = cp_DC * 0.99 ; 
+            cp = Kokkos::max(cmax_DC, cp) ;
+            cm = Kokkos::min(cmin_DC, cm) ;
+        #endif
+        
     }
     /***********************************************************************/
     /**

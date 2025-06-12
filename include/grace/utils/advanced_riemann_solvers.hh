@@ -73,11 +73,11 @@ struct hllc_riemann_solver_t {
             , prims[VZL]*u0
         } ; 
 
-        //u0 = metric.contract_4dvec_4dcovec(inertial_cotetrad[0],umu) ; !TODO
+        // u0 = metric.contract_4dvec_4dcovec(inertial_cotetrad[0],umu) ; //!TODO
         for(int ii=0; ii<3;++ii) {
-            uD[ii] = umu[ii+1] ; // metric.contract_4dvec_4dcovec(inertial_cotetrad[1+ii],umu) ; !TODO
+            uD[ii] = umu [ii+1] ; //metric.contract_4dvec_4dcovec(inertial_cotetrad[1+ii],umu) ; //!TODO
             // In the tetrad frame lower and upper spatial indices are the same
-            prims[VXL+ii]  = uD[ii] / u0 ; 
+            //prims[VXL+ii]  = uD[ii]; // / u0 ; 
         }
     }
     #ifdef GRACE_DO_MHD
@@ -92,9 +92,9 @@ struct hllc_riemann_solver_t {
 
         //u0 = metric.contract_4dvec_4dcovec(inertial_cotetrad[0],umu) ; !TODO
         for(int ii=0; ii<3;++ii) {
-            for (int jj=0; jj<3; ++jj) {
-                prims[BXL+ii]  =  inertial_cotetrad[ii][jj]*B[jj]; 
-            }
+           // for (int jj=0; jj<3; ++jj) {
+           //     prims[BXL+ii]  =  inertial_cotetrad[ii][jj]*B[jj]; 
+           // }
         }
     }
     #endif // GRACE_DO_MHD
@@ -151,7 +151,6 @@ struct hllc_riemann_solver_t {
         #endif
         ;
 
-        
         for( int ii=0; ii<num_vars; ++ii) {
             int const ivar = var_indices[ii] ; 
             fHLLE[ivar] = 
@@ -171,7 +170,6 @@ struct hllc_riemann_solver_t {
             BG_idir = uL[BGXL+idir] ; // This is the magnetic field component in the direction idir.
             
             // Magnetic Field is constant on the face, so we have to copy it.
-            fHLLE[BGXL+idir] = 0.0; // Magnetic field is not used in HLLC, but we need to set it.;
             uHLLE[BGXL+idir] = BG_idir ;
 
             // Check for magnetic field strength
@@ -188,6 +186,9 @@ struct hllc_riemann_solver_t {
 
         double const vi = get_interface_velocity() ; // Carlo wrote TODO but seems to be fine.
         double const lambdaC = get_contact_wave_speed(uHLLE,fHLLE) ; 
+        //if (Kokkos::abs(lambdaC) > 1e-1) {
+        //    Kokkos::printf("HLLC contact wave speed: %e\n", lambdaC);
+        //}
 
         ucL[YESL] = uHLLE[YESL];
         ucR[YESL] = uHLLE[YESL];
@@ -219,10 +220,10 @@ struct hllc_riemann_solver_t {
 
         // Energy components
         ucL[TAUL] = (-cmin * uL[TAUL] - fL[TAUL] + p_star * lambdaC - v_star_B_star*BG_idir) / (-cmin - lambdaC);
-        ucR[TAUL] = ( cmax * uR[TAUL] + fR[TAUL] + p_star * lambdaC - v_star_B_star*BG_idir) / ( cmax - lambdaC);
+        ucR[TAUL] = ( cmax * uR[TAUL] - fR[TAUL] + p_star * lambdaC - v_star_B_star*BG_idir) / ( cmax - lambdaC);
 
         // Momentum in normal direction
-        ucL[STXL+idir] = (ucL[TAUL] + ucL[DENSL] + p_star) * lambdaC - v_star_B_star*BG_idir;
+        ucL[STXL+idir] = (ucL[TAUL] + ucL[DENSL] + p_star) * lambdaC - v_star_B_star*BG_idir; // TODO vstar_B_star is not used in the paper but v_star_B probably a typo
         ucR[STXL+idir] = (ucR[TAUL] + ucR[DENSL] + p_star) * lambdaC - v_star_B_star*BG_idir;
 
         // Transverse momentum components
@@ -242,6 +243,12 @@ struct hllc_riemann_solver_t {
 
             ucL[STXL+t2] = uL[STXL+t2]*(-cmin - pL[VXL+idir])/(-cmin - lambdaC);
             ucR[STXL+t2] = uR[STXL+t2]*( cmax - pR[VXL+idir])/( cmax - lambdaC);
+
+            ucL[BGXL+t1] = uL[BGXL+t1]*(-cmin - pL[VXL+idir])/(-cmin - lambdaC);
+            ucR[BGXL+t1] = uR[BGXL+t1]*( cmax - pR[VXL+idir])/( cmax - lambdaC);
+
+            ucL[BGXL+t2] = uL[BGXL+t2]*(-cmin - pL[VXL+idir])/(-cmin - lambdaC);
+            ucR[BGXL+t2] = uR[BGXL+t2]*( cmax - pR[VXL+idir])/( cmax - lambdaC);
         }
 
         // Handle supersonic case
@@ -303,44 +310,62 @@ struct hllc_riemann_solver_t {
         double f_bg_t1 = 0;
         double f_bg_t2 = 0;
 
-        // Default to false
         bool has_magnetic_field = false;
 
-    #ifdef GRACE_DO_MHD
-        cons_bg_t1 = cons[BGXL + t1];
-        cons_bg_t2 = cons[BGXL + t2];
-        f_bg_t1 = f[BGXL + t1];
-        f_bg_t2 = f[BGXL + t2];
-        //Kokkos::printf("idir %d, BGXL + idir %d, BGXL + t1 %d, BGXL + t2 %d\n", idir,BGXL +idir, BGXL + t1, BGXL + t2) ;
-        //Kokkos::printf("idir %d, cons_bg_t1 %e, BGXL + t1 %d\n", idir, cons_bg_t1, BGXL + t1) ;   
+        #ifdef GRACE_DO_MHD
+            cons_bg_t1 = cons[BGXL + t1];
+            cons_bg_t2 = cons[BGXL + t2];
+            f_bg_t1 = f[BGXL + t1];
+            f_bg_t2 = f[BGXL + t2];
 
-        // Check magnetic field strength
-        has_magnetic_field = (Kokkos::abs(cons[BGXL + idir]) > 1e-15);
-    #endif // GRACE_DO_MHD
-        
+            has_magnetic_field = (cons[BGXL + idir] > 1e-15);
+        #endif // GRACE_DO_MHD
 
+        double cross_term = 0;
+        double bg_tan_2 = 0;
+        double f_bg_tan_2 = 0;
+        if (has_magnetic_field) {
+            // Magnetic field is present, use the full formula
+            cross_term = cons_bg_t1 * f_bg_t1 + cons_bg_t2 * f_bg_t2;
+            bg_tan_2 = cons_bg_t1*cons_bg_t1 + cons_bg_t2*cons_bg_t2;
+            f_bg_tan_2 = f_bg_t1*f_bg_t1 + f_bg_t2*f_bg_t2;
+        } 
         double const taul_densl_sum = cons[TAUL] + cons[DENSL];
         double const f_taul_densl_sum = f[TAUL] + f[DENSL];
-        double const cross_term = cons_bg_t1 * f_bg_t1 + cons_bg_t2 * f_bg_t2;
+        
 
         // For HLLC, the contact wave speed is simpler
         // λ* = (F_momentum - F_energy - F_density) / (U_energy + U_density - U_momentum)
 
-        double numerator, denominator;
+        double a, b, c;
 
-        if (has_magnetic_field) {
-            numerator = f[STXL + idir] - f_taul_densl_sum + cross_term;
-            denominator = taul_densl_sum - cons[STXL + idir] + cross_term;
-        } else {
-            numerator = f[STXL + idir] - f_taul_densl_sum;
-            denominator = taul_densl_sum - cons[STXL + idir];
-        }
-
+        a = f_taul_densl_sum - cross_term;
+        b = -f[STXL + idir] - taul_densl_sum + bg_tan_2 + f_bg_tan_2;
+        c = cons[STXL + idir] - cross_term;
+        //if (cons[STXL + idir] > 1e-10) {
+        //    Kokkos::printf("a %e, b %e, c %e\n", a, b, c);
+        //    Kokkos::printf("cons[STXL + idir] %e, f[STXL + idir] %e\n", 
+        //                   cons[STXL + idir], f[STXL + idir]);
+        //    Kokkos::printf("cons[TAUL] %e, cons[DENSL] %e\n",
+        //                   cons[TAUL], cons[DENSL]);
+        //    Kokkos::printf("f[TAUL] %e, f[DENSL] %e\n",
+        //                   f[TAUL], f[DENSL]);
+        //    Kokkos::printf("cons_bg_t1 %e, cons_bg_t2 %e\n", cons_bg_t1, cons_bg_t2);
+        //    Kokkos::printf("f_bg_t1 %e, f_bg_t2 %e\n", f_bg_t1, f_bg_t2);
+        //}
+        
         // Safety check for denominator
-        if (Kokkos::abs(denominator) < 1e-15) {
-            return 0.0;  // or some other fallback
+        if (Kokkos::abs(a) < 1e-15) {
+            if (Kokkos::abs(b) < 1e-15) {
+                return 0.0; // No contact wave speed
+            }
+            // If a is too small, we can use b as the denominator
+            return -c / b;
         }
-        return numerator / denominator;
+        double const detm = Kokkos::sqrt( 
+            Kokkos::max(0., b*b - 4.*a*c)
+        ) ; 
+        return -0.5 * ( b + detm ) / a ;  
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
