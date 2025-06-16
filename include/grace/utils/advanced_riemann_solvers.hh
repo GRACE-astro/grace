@@ -68,33 +68,31 @@ struct hllc_riemann_solver_t {
     {
         std::array<double,4> umu { 
               u0
-            , prims[VXL]*u0 
-            , prims[VYL]*u0
-            , prims[VZL]*u0
+            , prims[VXL]//*u0 
+            , prims[VYL]//*u0
+            , prims[VZL]//*u0
         } ; 
 
-        // u0 = metric.contract_4dvec_4dcovec(inertial_cotetrad[0],umu) ; //!TODO
+        u0 = metric.contract_4dvec_4dcovec(inertial_cotetrad[0],umu) ; //!TODO
         for(int ii=0; ii<3;++ii) {
-            uD[ii] = umu [ii+1] ; //metric.contract_4dvec_4dcovec(inertial_cotetrad[1+ii],umu) ; //!TODO
+            uD[ii] = metric.contract_4dvec_4dcovec(inertial_cotetrad[1+ii],umu) ; //!TODO
             // In the tetrad frame lower and upper spatial indices are the same
-            //prims[VXL+ii]  = uD[ii]; // / u0 ; 
+            prims[VXL+ii]  = uD[ii] / u0 ; 
         }
     }
     #ifdef GRACE_DO_MHD
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     transform_magnetic_fields_to_tetrad_frame(grace::grmhd_prims_array_t& prims) const 
     {
-        std::array<double,3> B { 
-              prims[BXL] 
+        std::array<double,4> B {
+              0 
+            , prims[BXL] 
             , prims[BYL]
             , prims[BZL]
         } ; 
 
-        //u0 = metric.contract_4dvec_4dcovec(inertial_cotetrad[0],umu) ; !TODO
         for(int ii=0; ii<3;++ii) {
-           // for (int jj=0; jj<3; ++jj) {
-           //     prims[BXL+ii]  =  inertial_cotetrad[ii][jj]*B[jj]; 
-           // }
+            prims[BXL+ii] = metric.contract_4dvec_4dcovec(inertial_cotetrad[1+ii],B);
         }
     }
     #endif // GRACE_DO_MHD
@@ -118,7 +116,7 @@ struct hllc_riemann_solver_t {
      * https://arxiv.org/abs/2205.04487 which is the main source followed in this 
      * implementation.
      */
-    grace::grmhd_cons_array_t 
+    std::pair<grace::grmhd_cons_array_t, grace::grmhd_cons_array_t> 
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() ( 
           grace::grmhd_cons_array_t const& fL 
@@ -168,6 +166,9 @@ struct hllc_riemann_solver_t {
         constexpr int t2 = (idir + 2) % 3;
         #ifdef GRACE_DO_MHD
             BG_idir = uL[BGXL+idir] ; // This is the magnetic field component in the direction idir.
+            #ifdef GRACE_ENABLE_B_FIELD_GLM
+                BG_idir = uHLLE[BGXL+idir] ;
+            #endif // GRACE_ENABLE_B_FIELD_GLM
             
             // Magnetic Field is constant on the face, so we have to copy it.
             uHLLE[BGXL+idir] = BG_idir ;
@@ -178,10 +179,14 @@ struct hllc_riemann_solver_t {
             // Set magnetic field components (same for both cases)
             ucL[BGXL+idir] = BG_idir;
             ucR[BGXL+idir] = BG_idir;
-            ucL[BGXL + t1] = uHLLE[BGXL + t1];
-            ucR[BGXL + t1] = uHLLE[BGXL + t1];
-            ucL[BGXL + t2] = uHLLE[BGXL + t2];
-            ucR[BGXL + t2] = uHLLE[BGXL + t2];
+            ucL[BGXL+t1] = uHLLE[BGXL+t1];
+            ucR[BGXL+t1] = uHLLE[BGXL+t1];
+            ucL[BGXL+t2] = uHLLE[BGXL+t2];
+            ucR[BGXL+t2] = uHLLE[BGXL+t2];
+            #ifdef GRACE_ENABLE_B_FIELD_GLM
+                ucL[PHIG_GLML] = uHLLE[PHIG_GLML];
+                ucR[PHIG_GLML] = uHLLE[PHIG_GLML];
+            #endif // GRACE_ENABLE_B_FIELD_GLM
         #endif // GRACE_DO_MHD
 
         double const vi = get_interface_velocity() ; // Carlo wrote TODO but seems to be fine.
@@ -205,12 +210,12 @@ struct hllc_riemann_solver_t {
         double v2 = lambdaC*lambdaC;
 
         if (has_magnetic_field) {
-            vt1 = (uHLLE[BGXL + t1]*lambdaC - fHLLE[BGXL + t1]) / BG_idir;
-            vt2 = (uHLLE[BGXL + t2]*lambdaC - fHLLE[BGXL + t2]) / BG_idir;
+            vt1 = (uHLLE[BGXL + t1]*lambdaC - fHLLE[BGXL+t1]) / BG_idir;
+            vt2 = (uHLLE[BGXL + t2]*lambdaC - fHLLE[BGXL+t2]) / BG_idir;
 
             v2 = lambdaC*lambdaC + vt1*vt1 + vt2*vt2;
             gamma_star = 1.0 / Kokkos::sqrt(1 - v2);
-            v_star_B_star = lambdaC * uHLLE[BGXL+idir] + vt1 * uHLLE[BGXL + t1] + vt2 * uHLLE[BGXL + t2];
+            v_star_B_star = lambdaC * uHLLE[BGXL+idir] + vt1 * uHLLE[BGXL+t1] + vt2 * uHLLE[BGXL+t2];
 
             p_star = fHLLE[STXL + idir] + (uHLLE[BGXL+idir]/gamma_star)*(uHLLE[BGXL+idir]/gamma_star)
                      -lambdaC * (fHLLE[TAUL]+fHLLE[DENSL] - uHLLE[BGXL+idir]*v_star_B_star);
@@ -228,15 +233,15 @@ struct hllc_riemann_solver_t {
 
         // Transverse momentum components
         if (has_magnetic_field) {
-            ucL[STXL+t1] = (-uHLLE[BGXL + idir] * (uHLLE[BGXL + t1]/gamma_star/gamma_star + v_star_B_star * vt1)
-                           - fL[STXL + t1] + (-cmin) * uL[STXL+t1]) / (-cmin - lambdaC);
-            ucR[STXL+t1] = (-uHLLE[BGXL + idir] * (uHLLE[BGXL + t1]/gamma_star/gamma_star + v_star_B_star * vt1)
-                           - fR[STXL + t1] + ( cmax) * uR[STXL+t1]) / ( cmax - lambdaC);
+            ucL[STXL+t1] = (-uHLLE[BGXL+idir] * (uHLLE[BGXL+t1]/gamma_star/gamma_star + v_star_B_star * vt1)
+                           - fL[STXL+t1] + (-cmin) * uL[STXL+t1]) / (-cmin - lambdaC);
+            ucR[STXL+t1] = (-uHLLE[BGXL+idir] * (uHLLE[BGXL+t1]/gamma_star/gamma_star + v_star_B_star * vt1)
+                           - fR[STXL+t1] + ( cmax) * uR[STXL+t1]) / ( cmax - lambdaC);
 
-            ucL[STXL+t2] = (-uHLLE[BGXL + idir] * (uHLLE[BGXL + t2]/gamma_star/gamma_star + v_star_B_star * vt2)
-                           - fL[STXL + t2] + (-cmin) * uL[STXL+t2]) / (-cmin - lambdaC);
-            ucR[STXL+t2] = (-uHLLE[BGXL + idir] * (uHLLE[BGXL + t2]/gamma_star/gamma_star + v_star_B_star * vt2)
-                           - fR[STXL + t2] + ( cmax) * uR[STXL+t2]) / ( cmax - lambdaC);
+            ucL[STXL+t2] = (-uHLLE[BGXL+idir] * (uHLLE[BGXL+t2]/gamma_star/gamma_star + v_star_B_star * vt2)
+                           - fL[STXL+t2] + (-cmin) * uL[STXL+t2]) / (-cmin - lambdaC);
+            ucR[STXL+t2] = (-uHLLE[BGXL+idir] * (uHLLE[BGXL+t2]/gamma_star/gamma_star + v_star_B_star * vt2)
+                           - fR[STXL+t2] + ( cmax) * uR[STXL+t2]) / ( cmax - lambdaC);
         } else {
             ucL[STXL+t1] = uL[STXL+t1]*(-cmin - pL[VXL+idir])/(-cmin - lambdaC);
             ucR[STXL+t1] = uR[STXL+t1]*( cmax - pR[VXL+idir])/( cmax - lambdaC);
@@ -249,12 +254,6 @@ struct hllc_riemann_solver_t {
 
             ucL[BGXL+t2] = uL[BGXL+t2]*(-cmin - pL[VXL+idir])/(-cmin - lambdaC);
             ucR[BGXL+t2] = uR[BGXL+t2]*( cmax - pR[VXL+idir])/( cmax - lambdaC);
-        }
-
-        // Handle supersonic case
-        if (lambdaC <= -cmin || lambdaC >= cmax || v2 >= 1.0) {
-            ucL = uHLLE;
-            ucR = uHLLE;
         }
         /***********************************************************************/
 
@@ -275,7 +274,16 @@ struct hllc_riemann_solver_t {
             fHLLC = fR ; 
             uHLLC = uR ;  
         }
-        return fHLLC ; 
+
+        // Handle supersonic case
+        if (lambdaC <= -cmin || lambdaC >= cmax || v2 >= 1.0) {
+            fHLLC = fHLLE;
+            uHLLC = uHLLE;
+        }
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+            fHLLC[BGXL+idir] = fHLLE[BGXL+idir] ; // Keep the magnetic field component in the direction idir.
+        #endif // GRACE_ENABLE_B_FIELD_GLM
+        return {fHLLC, uHLLC} ; 
     }
     
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -318,7 +326,7 @@ struct hllc_riemann_solver_t {
             f_bg_t1 = f[BGXL + t1];
             f_bg_t2 = f[BGXL + t2];
 
-            has_magnetic_field = (cons[BGXL + idir] > 1e-15);
+            has_magnetic_field = (Kokkos::abs(cons[BGXL + idir]) > 1e-15);
         #endif // GRACE_DO_MHD
 
         double cross_term = 0;
@@ -372,14 +380,25 @@ struct hllc_riemann_solver_t {
     transform_fluxes_to_eulerian_frame( grace::grmhd_cons_array_t const& cons 
                                       , grace::grmhd_cons_array_t& f) 
     {
-        int scalar_vars_indices[] = {DENSL,TAUL,YESL,ENTSL} ; 
-        for (int ivar=0; ivar<4; ++ivar) {
+        constexpr int num_scalar_vars = 4
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+            + 1
+        #endif
+        ;
+        int scalar_vars_indices[] = {DENSL,TAUL,YESL,ENTSL
+                                #ifdef GRACE_ENABLE_B_FIELD_GLM
+                                    ,PHIG_GLML
+                                #endif // GRACE_ENABLE_B_FIELD_GLM
+                                    } ; 
+        for (int ii=0; ii<num_scalar_vars; ++ii) {
+            int const ivar = scalar_vars_indices[ii] ; 
             f[ivar] = (
                   inertial_tetrad[0][idir] * cons[ivar]
                 + inertial_tetrad[idir][idir] * f[ivar] 
             ) ; 
         }
         // TODO ceck missing Minkowski metric.
+        // TODO: check if first has to be done the tetrad transformation and then the cotetrad one, or if it does not matter.
         std::array<double,3> stilde = {cons[STXL], cons[STYL], cons[STZL]} ; 
         std::array<double,3> fstilde = {f[STXL], f[STYL], f[STZL]} ; 
         for( int ivdir=0; ivdir<3; ++ivdir) { 
@@ -403,6 +422,32 @@ struct hllc_riemann_solver_t {
                 + inertial_tetrad[idir][idir] * eF 
             ) ; 
         }
+
+        #ifdef GRACE_DO_MHD
+        std::array<double,3> Btilde = {cons[BGXL], cons[BGYL], cons[BGZL]} ; 
+        std::array<double,3> fBtilde = {f[BGXL], f[BGYL], f[BGZL]} ; 
+        for( int ivdir=0; ivdir<3; ++ivdir) { 
+            double const eS = metric.contract_vec_covec(
+                  Btilde
+                , { inertial_cotetrad[1][ivdir]
+                  , inertial_cotetrad[2][ivdir]
+                  , inertial_cotetrad[3][ivdir] }
+            ) ; 
+            /* Contracting two lower indices, does not matter   */
+            /* since it's only the spatial part of the locally  */
+            /* flat tetrad.                                     */
+            double const eF = metric.contract_vec_covec(
+                  fBtilde
+                , { inertial_cotetrad[1][ivdir]
+                  , inertial_cotetrad[2][ivdir]
+                  , inertial_cotetrad[3][ivdir] }
+            ) ;
+            f[BGXL+ivdir] = (
+                  inertial_tetrad[0][idir] * eS 
+                + inertial_tetrad[idir][idir] * eF 
+            ) ; 
+        }
+        #endif // GRACE_DO_MHD
     }
 
 
@@ -430,9 +475,16 @@ struct hllc_riemann_solver_t {
                     , metric.gamma(3),metric.gamma(4),metric.gamma(5)} ;
         double gD[] = { metric.invgamma(0),metric.invgamma(1),metric.invgamma(2)
                     , metric.invgamma(3),metric.invgamma(4),metric.invgamma(5)} ;
+        //get_tetrad_basis_impl(
+        //    metric.alp(),
+        //    beta,g,gD,tetrad,cotetrad,idir
+        //) ;
+
+        // This is a test to see if we can only use the 
+        // tetrad in one direction.
         get_tetrad_basis_impl(
             metric.alp(),
-            beta,g,gD,tetrad,cotetrad,idir
+            beta,g,gD,tetrad,cotetrad,0
         ) ;
     };
 

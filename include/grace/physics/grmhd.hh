@@ -835,15 +835,15 @@ struct grmhd_equations_system_t
         double cs2l, cs2r ; 
         unsigned int eos_err; 
         primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primL[EPSL], cs2l, primL[TEMPL], primL[RHOL], primL[YEL], eos_err) ; 
-        primL[VXL] = alp * primL[VXL] / wl - metric_face.beta(0) ;
-        primL[VYL] = alp * primL[VYL] / wl - metric_face.beta(1) ;
-        primL[VZL] = alp * primL[VZL] / wl - metric_face.beta(2) ; 
+        //primL[VXL] = alp * primL[VXL] / wl - metric_face.beta(0) ;
+        //primL[VYL] = alp * primL[VYL] / wl - metric_face.beta(1) ;
+        //primL[VZL] = alp * primL[VZL] / wl - metric_face.beta(2) ; 
 
         /* Right */
         primR[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primR[EPSL], cs2r, primR[TEMPL], primR[RHOL], primR[YEL], eos_err) ; 
-        primR[VXL] = alp * primR[VXL] / wr - metric_face.beta(0) ;
-        primR[VYL] = alp * primR[VYL] / wr - metric_face.beta(1) ;
-        primR[VZL] = alp * primR[VZL] / wr - metric_face.beta(2) ;
+        //primR[VXL] = alp * primR[VXL] / wr - metric_face.beta(0) ;
+        //primR[VYL] = alp * primR[VYL] / wr - metric_face.beta(1) ;
+        //primR[VZL] = alp * primR[VZL] / wr - metric_face.beta(2) ;
         std::array<double,3> uD_l, uD_r ; 
         solver.transform_velocities_to_tetrad_frame(u0_l, primL, uD_l) ; 
         solver.transform_velocities_to_tetrad_frame(u0_r, primR, uD_r) ; 
@@ -883,8 +883,10 @@ struct grmhd_equations_system_t
         compute_srmhd_fluxes<idir,false>(fL,fR,uL,uR,primL,primR,cmin,cmax);
    
         /***********************************************************************/
-        grmhd_cons_array_t fHLLC = 
+        auto [fHLLC,uHLLC] = 
             solver(fL,fR,uL,uR,primL,primR,cmin,cmax) ; 
+
+        solver.transform_fluxes_to_eulerian_frame(fHLLC, uHLLC) ;
         /***********************************************************************/
         fluxes(VEC(i,j,k),DENS_,idir,q)        = alpha_sqrtgamma * fHLLC[DENSL] ; 
         fluxes(VEC(i,j,k),YESTAR_,idir,q)      = alpha_sqrtgamma * fHLLC[YESL]  ; 
@@ -2186,7 +2188,7 @@ struct grmhd_equations_system_t
 
 
         fR[BGZL]  = primR[VXL+idir] * primR[BZL] - vNR[2] * primR[BXL+idir] \
-                            + primR[PHI_GLML] * utils::delta(2,idir) ; // TODO add kronecker delta
+                            + primR[PHI_GLML] * utils::delta(2,idir) ; 
 
         uL[BGZL] = primL[BZL] ;
         uR[BGZL] = primR[BZL] ;
