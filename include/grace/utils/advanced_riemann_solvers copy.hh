@@ -46,7 +46,7 @@ namespace grace {
  * 
  * @tparam idir The direction of the riemann problem being solved. 
  */
-template< int idir> 
+template< int idir > 
 struct hllc_riemann_solver_t {
 
     using tetrad_t = std::array<std::array<double,4>,4> ;
@@ -578,7 +578,7 @@ struct hllc_riemann_solver_t {
  * 
  * @tparam idir The direction of the riemann problem being solved. 
  */
-template< int idir> 
+template< int idir > 
 struct hlld_riemann_solver_t {
 
     using tetrad_t = std::array<std::array<double,4>,4> ;
@@ -658,8 +658,7 @@ struct hlld_riemann_solver_t {
         , grace::grmhd_prims_array_t const& pL 
         , grace::grmhd_prims_array_t const& pR
         , double const cmin 
-        , double const cmax 
-        , double const total_press)
+        , double const cmax )
     {
         int var_indices[] = {DENSL, TAUL, STXL, STYL, STZL, YESL, ENTSL
             #ifdef GRACE_DO_MHD 
@@ -678,156 +677,161 @@ struct hlld_riemann_solver_t {
         #endif
         #endif
         ;
-        grace::grmhd_cons_array_t uHLLE, fHLLE; 
-        hll_riemann_solver_t hlle_solver ; 
-        for( int ii=0; ii<num_vars; ++ii) {
-            int const ivar = var_indices[ii] ; 
-            fHLLE[ivar] = 
-                hlle_solver(fL[ivar],fR[ivar],uL[ivar],uR[ivar],cmin,cmax) ; 
-            uHLLE[ivar] = 
-                hlle_solver.get_state(fL[ivar],fR[ivar],uL[ivar],uR[ivar],cmin,cmax) ;
-        }
 
         grace::grmhd_cons_array_t uHLLD, fHLLD; 
         grace::grmhd_cons_array_t ucL, ucR, uaL, uaR; 
         grace::grmhd_cons_array_t faL, faR;
-        constexpr int max_iter=100;
-        int err=15;
 
+        // define reduced primitive variables
+        // PRESSL, VXL, VYL, VZL, ENTHALPIE
+        constexpr int PRESSD = 0;
+        constexpr int VIDIR = 1;
+        constexpr int VT1 = 2;
+        constexpr int VT2 = 3;
+        constexpr int ENTHALPIE = 4;
+        std::array<double, 5> pAL;
+        std::array<double, 5> pCL;
+        std::array<double, 5> pAR;
+        std::array<double, 5> pCR;
+
+        // compute transversal components
         constexpr int t1 = (idir + 1) % 3;
         constexpr int t2 = (idir + 2) % 3;
 
-        // Create HLLD computation object
-        HLLDComputation hlld_calc(fL, fR, uL, uR, pL, pR, cmin, cmax);
-        double const p_star = utils::safe_secant_bisection(hlld_calc, total_press*0.1, total_press*10, 1e-12, err, max_iter) ; 
-        
-        //if(err==1) {
-        //    Kokkos::printf("Huh\n");
-        //}
-        //else if(err==2) {
-        //    Kokkos::printf("max_iterations\n");
-        //}
-        //else if(err==0) {
-        //    Kokkos::printf("it worked\n");
-        //}
-        //else Kokkos::printf("got inf\n");
-        //  Set the conserved states in the Alfven waves
-        uaL[DENSL] = hlld_calc.Dens_aL ;
-        uaR[DENSL] = hlld_calc.Dens_aR ;
-        uaL[TAUL] = hlld_calc.Tau_aL ;
-        uaR[TAUL] = hlld_calc.Tau_aR ;
-        uaL[STXL+idir] = hlld_calc.S_aL ;
-        uaR[STXL+idir] = hlld_calc.S_aR ;
-        uaL[STXL+t1] = hlld_calc.St1_aL ;
-        uaR[STXL+t1] = hlld_calc.St1_aR ;
-        uaL[STXL+t2] = hlld_calc.St2_aL ;
-        uaR[STXL+t2] = hlld_calc.St2_aR ;
-        uaL[BGXL+idir] = uL[BGXL+idir] ; // Keep the magnetic field component in the direction idir.
-        uaR[BGXL+idir] = uR[BGXL+idir] ; // Keep the magnetic field component in the direction idir.
-        uaL[BGXL+t1] = hlld_calc.Bt1_aL ;
-        uaR[BGXL+t1] = hlld_calc.Bt1_aR ;
-        uaL[BGXL+t2] = hlld_calc.Bt2_aL ;
-        uaR[BGXL+t2] = hlld_calc.Bt2_aR ;
-
-        // Can also copy the magneticc field
-        ucL[BGXL+idir] = hlld_calc.B_idir_c;
-        ucR[BGXL+idir] = hlld_calc.B_idir_c;
-        ucL[BGXL+t1] = hlld_calc.B_t1_c;
-        ucR[BGXL+t1] = hlld_calc.B_t1_c;
-        ucL[BGXL+t2] = hlld_calc.B_t2_c;
-        ucR[BGXL+t2] = hlld_calc.B_t2_c;
-
-
-        faL[DENSL] = fL[DENSL] + (-cmin)*(uaL[DENSL]-uL[DENSL]) ;
-        faR[DENSL] = fR[DENSL] + ( cmax)*(uaR[DENSL]-uR[DENSL]) ;
-        faL[TAUL] = fL[TAUL] + (-cmin)*(uaL[TAUL]-uL[TAUL]) ;
-        faR[TAUL] = fR[TAUL] + ( cmax)*(uaR[TAUL]-uR[TAUL]) ;
-        faL[STXL+idir] = fL[STXL+idir] + (-cmin)*(uaL[STXL+idir]-uL[STXL+idir]) ;
-        faR[STXL+idir] = fR[STXL+idir] + ( cmax)*(uaR[STXL+idir]-uR[STXL+idir]) ;
-        faL[STYL+t1] = fL[STYL+t1] + (-cmin)*(uaL[STYL+t1]-uL[STYL+t1]) ;
-        faR[STYL+t1] = fR[STYL+t1] + ( cmax)*(uaR[STYL+t1]-uR[STYL+t1]) ;
-        faL[STZL+t2] = fL[STZL+t2] + (-cmin)*(uaL[STZL+t2]-uL[STZL+t2]) ;
-        faR[STZL+t2] = fR[STZL+t2] + ( cmax)*(uaR[STZL+t2]-uR[STZL+t2]) ;
-        faL[BGXL+idir] = fL[BGXL+idir] + (-cmin)*(uaL[BGXL+idir]-uL[BGXL+idir]) ; // Keep the magnetic field component in the direction idir.
-        faR[BGXL+idir] = fR[BGXL+idir] + ( cmax)*(uaR[BGXL+idir]-uR[BGXL+idir]) ; // Keep the magnetic field component in the direction idir.
-        faL[BGXL+t1] = fL[BGXL+t1] + (-cmin)*(uaL[BGXL+t1]-uL[BGXL+t1]) ;
-        faR[BGXL+t1] = fR[BGXL+t1] + ( cmax)*(uaR[BGXL+t1]-uR[BGXL+t1]) ;
-        faL[BGXL+t2] = fL[BGXL+t2] + (-cmin)*(uaL[BGXL+t2]-uL[BGXL+t2]) ;
-        faR[BGXL+t2] = fR[BGXL+t2] + ( cmax)*(uaR[BGXL+t2]-uR[BGXL+t2]) ;
-
         // define the wave speeds
-        
-        double const lambda_aL = hlld_calc.lambda_aL;
-        double const lambda_aR = hlld_calc.lambda_aR;
         double const vi = get_interface_velocity() ; // Carlo wrote TODO but seems to be fine.
-        
+        double const lambdaC = 0.0;
 
-        double const v_idir_c = hlld_calc.K_aL - (uaL[BGXL+idir] * (1 - hlld_calc.KaL2)) / (hlld_calc.S_L*hlld_calc.w_aL - hlld_calc.KaL_Bc) ; 
-        double const v_t1_c = hlld_calc.Kt1_aL * (uaL[BGXL+t1] * (1 - hlld_calc.KaL2)    / (hlld_calc.S_L*hlld_calc.w_aL - hlld_calc.KaL_Bc)) ;
-        double const v_t2_c = hlld_calc.Kt2_aL * (uaL[BGXL+t2] * (1 - hlld_calc.KaL2)    / (hlld_calc.S_L*hlld_calc.w_aL - hlld_calc.KaL_Bc)) ;
+        //define calculations variables
+        // 1. compute the R array for the momenta
+        double const RS_idir_L = - cmin * uL[STXL+idir] - fL[STXL+idir] ; 
+        double const RS_idir_R =   cmax * uR[STXL+idir] - fR[STXL+idir] ;
+        double const RS_t1_L = - cmin * uL[STXL+t1] - fL[STXL+t1] ;
+        double const RS_t1_R =   cmax * uR[STXL+t1] - fR[STXL+t1] ;
+        double const RS_t2_L = - cmin * uL[STXL+t2] - fL[STXL+t2] ;
+        double const RS_t2_R =   cmax * uR[STXL+t2] - fR[STXL+t2] ;
 
-        double const v_B = v_idir_c * uaL[BGXL+idir] + v_t1_c * uaL[BGXL+t1] + v_t2_c * uaL[BGXL+t2];
+        // 2. compute the R array for the magnetic fields
+        double const RB_idir_L = - cmin * uL[BGXL+idir] - fL[BGXL+idir] ;
+        double const RB_idir_R =   cmax * uR[BGXL+idir] - fR[BGXL+idir] ;
+        double const RB_t1_L = - cmin * uL[BGXL+t1] - fL[BGXL+t1] ;
+        double const RB_t1_R =   cmax * uR[BGXL+t1] - fR[BGXL+t1] ;
+        double const RB_t2_L = - cmin * uL[BGXL+t2] - fL[BGXL+t2] ;   
+        double const RB_t2_R =   cmax * uR[BGXL+t2] - fR[BGXL+t2] ;
 
-        double const lambdaC = v_idir_c;
-
-        // Compute Right hand sides
-        double const RDens_L = lambda_aL * uaL[DENSL] - faL[DENSL];
-        double const RDens_R = lambda_aR * uaR[DENSL] - faR[DENSL]; 
-
-        double const RTau_L = lambda_aL * uaL[TAUL] - faL[TAUL];
-        double const RTau_R = lambda_aR * uaR[TAUL] - faR[TAUL];
-
-        // Compute the left and right constact wave states
-        ucL[DENSL] = RDens_L / ( lambda_aL - v_idir_c);
-        ucR[DENSL] = RDens_R / ( lambda_aR - v_idir_c);
-
-        ucL[TAUL] = (RTau_L + p_star * v_idir_c - v_B * ucL[BGXL+idir]) / ( lambda_aL - v_idir_c);
-        ucR[TAUL] = (RTau_R + p_star * v_idir_c - v_B * ucR[BGXL+idir]) / ( lambda_aR - v_idir_c);
-
-        ucL[STXL+idir] = (ucL[TAUL] + p_star)*v_idir_c - v_B * ucL[BGXL+idir];
-        ucR[STXL+idir] = (ucR[TAUL] + p_star)*v_idir_c - v_B * ucR[BGXL+idir];
-        ucL[STXL+t1] = (ucL[TAUL] + p_star)*v_t1_c - v_B * ucL[BGXL+t1];
-        ucR[STXL+t1] = (ucR[TAUL] + p_star)*v_t1_c - v_B * ucR[BGXL+t1];
-        ucL[STXL+t2] = (ucL[TAUL] + p_star)*v_t2_c - v_B * ucL[BGXL+t2];
-        ucR[STXL+t2] = (ucR[TAUL] + p_star)*v_t2_c - v_B * ucR[BGXL+t2];
+        // 3. compute the R array for tau and D
+        double const RTau_L = - cmin * uL[TAUL] - fL[TAUL] ;
+        double const RTau_R =   cmax * uR[TAUL] - fR[TAUL] ;
+        double const RDens_L = - cmin * uL[DENSL] - fL[DENSL] ;
+        double const RDens_R =   cmax * uR[DENSL] - fR[DENSL] ;
 
 
-        // Now we compute the states for the entropy and ye
-        double const RYe_aL = -cmin * uL[YESL] - fL[YESL];
-        double const RYe_aR =  cmax * uR[YESL] - fR[YESL];
-        uaL[YESL] = RYe_aL/((-cmin) - lambda_aL);
-        uaR[YESL] = RYe_aR/(( cmax) - lambda_aR);
-        faL[YESL] = fL[YESL] + (-cmin) * (uaL[YESL]-uL[YESL]);
-        faR[YESL] = fR[YESL] + (-cmin) * (uaR[YESL]-uR[YESL]);
-        double const RYe_cL = lambda_aL * uaL[YESL] - faL[YESL];
-        double const RYe_cR = lambda_aR * uaR[YESL] - faR[YESL];
-        ucL[YESL] = RYe_cL/(lambda_aL - lambdaC);
-        ucR[YESL] = RYe_cR/(lambda_aR - lambdaC); 
+        // 4. compute various constants
+        double const AL = RS_idir_L - (-cmin)*RTau_L + pL[PRESSL]*(1-cmin*cmin) ;
+        double const AR = RS_idir_R + ( cmax)*RTau_R + pR[PRESSL]*(1-cmax*cmax) ;
 
-        double const REnt_aL = -cmin * uL[ENTSL] - fL[ENTSL];
-        double const REnt_aR =  cmax * uR[ENTSL] - fR[ENTSL];
-        uaL[ENTSL] = REnt_aL/((-cmin) - lambda_aL);
-        uaR[ENTSL] = REnt_aR/(( cmax) - lambda_aR);
-        faL[ENTSL] = fL[ENTSL] + (-cmin) * (uaL[ENTSL]-uL[ENTSL]);
-        faR[ENTSL] = fR[ENTSL] + (-cmin) * (uaR[ENTSL]-uR[ENTSL]);
-        double const REnt_cL = lambda_aL * uaL[ENTSL] - faL[ENTSL];
-        double const REnt_cR = lambda_aR * uaR[ENTSL] - faR[ENTSL];
-        ucL[ENTSL] = REnt_cL/(lambda_aL - lambdaC);
-        ucR[ENTSL] = REnt_cR/(lambda_aR - lambdaC); 
+        double const GL = RB_t1_L*RB_t1_L + RB_t2_L*RB_t2_L ;
+        double const GR = RB_t1_R*RB_t1_R + RB_t2_R*RB_t2_R ;
 
-        #ifdef GRACE_ENABLE_B_FIELD_GLM
-            // Now we calculate the states for phi
-            double const RPhi_aL = -cmin * uL[PHIG_GLML] - fL[PHIG_GLML];
-            double const RPhi_aR =  cmax * uR[PHIG_GLML] - fR[PHIG_GLML];
-            uaL[PHIG_GLML] = RPhi_aL/((-cmin) - lambda_aL);
-            uaR[PHIG_GLML] = RPhi_aR/(( cmax) - lambda_aR);
-            faL[PHIG_GLML] = fL[PHIG_GLML] + (-cmin) * (uaL[PHIG_GLML]-uL[PHIG_GLML]);
-            faR[PHIG_GLML] = fR[PHIG_GLML] + (-cmin) * (uaR[PHIG_GLML]-uR[PHIG_GLML]);
-            double const RPhi_cL = lambda_aL * uaL[PHIG_GLML] - faL[PHIG_GLML];
-            double const RPhi_cR = lambda_aR * uaR[PHIG_GLML] - faR[PHIG_GLML];
-            ucL[PHIG_GLML] = RPhi_cL/(lambda_aL - lambdaC);
-            ucR[PHIG_GLML] = RPhi_cR/(lambda_aR - lambdaC); 
-        #endif //GRACE_ENABLE_B_FIELD_GLM
+        double const CL = RS_t1_L*RB_t1_L + RS_t2_L*RB_t2_L ;
+        double const CR = RS_t1_R*RB_t1_R + RS_t2_R*RB_t2_R ;
+
+        double const QL = - AL - GL + uL[BGXL+idir]*uL[BGXL+idir]*(1-cmin*cmin);
+        double const QR = - AR - GR + uR[BGXL+idir]*uR[BGXL+idir]*(1-cmax*cmax);
+
+        double const XL = uL[BGXL+idir]*(AL * (-cmin) * uL[BGXL+idir] + CL) - (AL + GL) * ((-cmin) * pL[PRESSL] + RTau_L) ;
+        double const XR = uR[BGXL+idir]*(AR * ( cmax) * uR[BGXL+idir] + CR) - (AR + GR) * (( cmax) * pR[PRESSL] + RTau_R) ;
+
+        // 5. compute the velocities in the fast wave
+        double const v_aL = (uL[BGXL+idir] * (AL * uL[BGXL+idir] + (-cmin) * CL) - (AL + GL) * (pL[PRESSL] + RS_idir_L)) / XL ;
+        double const v_aR = (uR[BGXL+idir] * (AR * uR[BGXL+idir] + ( cmax) * CR) - (AR + GR) * (pR[PRESSL] + RS_idir_R)) / XR ;
+
+        double const vt1_aL = (QL * RS_t1_L + RB_t1_L * (CL + uL[BGXL+idir]*((-cmin)*RS_idir_L - RTau_L))) / XL ;
+        double const vt1_aR = (QR * RS_t1_R + RB_t1_R * (CR + uR[BGXL+idir]*(( cmax)*RS_idir_R - RTau_R))) / XR ;
+        double const vt2_aL = (QL * RS_t2_L + RB_t2_L * (CL + uL[BGXL+idir]*((-cmin)*RS_idir_L - RTau_L))) / XL ;
+        double const vt2_aR = (QR * RS_t2_R + RB_t2_R * (CR + uR[BGXL+idir]*(( cmax)*RS_idir_R - RTau_R))) / XR ;
+
+        double const Bt1_aL = (RB_t1_L - uL[BGXL+idir]*vt1_aL) / (-cmin - v_aL) ;
+        double const Bt1_aR = (RB_t1_R - uR[BGXL+idir]*vt1_aR) / ( cmax - v_aR) ;
+        double const Bt2_aL = (RB_t2_L - uL[BGXL+idir]*vt2_aL) / (-cmin - v_aL) ;
+        double const Bt2_aR = (RB_t2_R - uR[BGXL+idir]*vt2_aR) / ( cmax - v_aR) ;
+
+        double const v_RS_AL = v_aL*RS_idir_L + vt1_aL*RS_t1_L + vt2_aL*RS_t2_L ;
+        double const v_RS_AR = v_aR*RS_idir_R + vt1_aR*RS_t1_R + vt2_aR*RS_t2_R ;
+
+        double const w_aL = pL[PRESSL] + (RTau_L - pL[VXL]*v_RS_AL) / (-cmin - v_aL) ;
+        double const w_aR = pR[PRESSL] + (RTau_R - pR[VXL]*v_RS_AR) / ( cmax - v_aR) ;
+
+        double const Dens_aL = RDens_L / (-cmin - v_aL) ;
+        double const Dens_aR = RDens_R / ( cmax - v_aR) ;
+
+        double const v_B_aL = v_aL * uL[BGXL+idir] + vt1_aL * uL[BGXL+t1] + vt2_aL * uL[BGXL+t2] ;
+        double const v_B_aR = v_aR * uR[BGXL+idir] + vt1_aR * uR[BGXL+t1] + vt2_aR * uR[BGXL+t2] ;
+
+        double const Tau_aL = (RTau_L + pL[PRESSL] * v_aL - v_B_aL * uL[BGXL+idir]) / (-cmin - v_aL) ;
+        double const Tau_aR = (RTau_R + pR[PRESSL] * v_aR - v_B_aR * uR[BGXL+idir]) / ( cmax - v_aR) ;
+
+        double const S_aL = (Tau_aL + pL[PRESSL])*v_aL - v_B_aL * uL[BGXL+idir];
+        double const S_aR = (Tau_aR + pR[PRESSL])*v_aR - v_B_aR * uR[BGXL+idir];
+        double const St1_aL = (Tau_aL + pL[PRESSL])*vt1_aL - v_B_aL * uL[BGXL+t1];
+        double const St1_aR = (Tau_aR + pR[PRESSL])*vt1_aR - v_B_aR * uR[BGXL+t1];
+        double const St2_aL = (Tau_aL + pL[PRESSL])*vt2_aL - v_B_aL * uL[BGXL+t2];  
+        double const St2_aR = (Tau_aR + pR[PRESSL])*vt2_aR - v_B_aR * uR[BGXL+t2];
+
+        double S_L, S_R;
+        if (uL[BGXL+idir] > 1e-15) {
+            S_L = +1 ;
+        } else if (uL[BGXL+idir] < -1e-15) {
+            S_L = -1;
+        } else {
+            S_L = 0.0;
+        }
+        if (uR[BGXL+idir] > 1e-15) {
+            S_R = +1 ;
+        } else if (uR[BGXL+idir] < -1e-15) {
+            S_R = -1;
+        } else {
+            S_R = 0.0;
+        }
+        // 6. compute the alfven wave speeds
+                                          // Potentially wrong pressure TODO
+        double const K_aL = ((RS_idir_L + pL[PRESSL] - RB_idir_L * S_L * Kokkos::sqrt(w_aL))) / ((-cmin) * pL[PRESSL] + RTau_L - uL[BGXL+idir] * S_L * Kokkos::sqrt(w_aL)) ; // TODO S is something else
+        double const K_aR = ((RS_idir_R + pR[PRESSL] + RB_idir_R * S_R * Kokkos::sqrt(w_aR))) / (( cmax) * pR[PRESSL] + RTau_R + uR[BGXL+idir] * S_R * Kokkos::sqrt(w_aR)) ;
+
+        double const Kt1_aL = ((RS_t1_L  - RB_t1_L * S_L * Kokkos::sqrt(w_aL))) / ((-cmin) * pL[PRESSL] + RTau_L - uL[BGXL+idir] * S_L * Kokkos::sqrt(w_aL)) ;
+        double const Kt1_aR = ((RS_t1_R  + RB_t1_R * S_R * Kokkos::sqrt(w_aR))) / (( cmax) * pR[PRESSL] + RTau_R + uR[BGXL+idir] * S_R * Kokkos::sqrt(w_aR)) ;
+        double const Kt2_aL = ((RS_t2_L  - RB_t2_L * S_L * Kokkos::sqrt(w_aL))) / ((-cmin) * pL[PRESSL] + RTau_L - uL[BGXL+idir] * S_L * Kokkos::sqrt(w_aL)) ;
+        double const Kt2_aR = ((RS_t2_R  + RB_t2_R * S_R * Kokkos::sqrt(w_aR))) / (( cmax) * pR[PRESSL] + RTau_R + uR[BGXL+idir] * S_R * Kokkos::sqrt(w_aR)) ;
+
+        double const lambda_aL = K_aL ; 
+        double const lambda_aR = K_aR ;
+
+        double const B_idir_c = (uR[BGXL+idir] * (lambda_aR - v_aR) + uR[BGXL+idir]*v_aR) / (lambda_aR - lambda_aL) 
+                               -(uL[BGXL+idir] * (lambda_aL - v_aL) + uL[BGXL+idir]*v_aL) / (lambda_aR - lambda_aL) ;
+        double const B_t1_c = (uR[BGXL+t1] * (lambda_aR - v_aR) + uR[BGXL+idir]*vt1_aR) / (lambda_aR - lambda_aL)
+                             -(uL[BGXL+t1] * (lambda_aL - v_aL) + uL[BGXL+idir]*vt1_aL) / (lambda_aR - lambda_aL) ;
+        double const B_t2_c = (uR[BGXL+t2] * (lambda_aR - v_aR) + uR[BGXL+idir]*vt2_aR) / (lambda_aR - lambda_aL)
+                             -(uL[BGXL+t2] * (lambda_aL - v_aL) + uL[BGXL+idir]*vt2_aL) / (lambda_aR - lambda_aL) ;
+
+        // Implement equation to solve for pressure
+        GRACE_HOST_DEVICE
+        double operator()(double p_star) const {
+            
+            double const KaL2 = K_aL * K_aL + Kt1_aL * Kt1_aL + Kt2_aL * Kt2_aL ;
+            double const KaR2 = K_aR * K_aR + Kt1_aR * Kt1_aR + Kt2_aR * Kt2_aR ;
+            double const KaL_Bc = K_aL * B_idir_c + Kt1_aL * B_t1_c + Kt2_aL * B_t2_c ;
+            double const KaR_Bc = K_aR * B_idir_c + Kt1_aR * B_t1_c + Kt2_aR * B_t2_c ;
+
+            double const rho_star_L eos::rho__press_cold_ye(p_star, pL[YEL]) ;
+            double const eps_star_L = eps::eps_cold__rho_ye(rho_star_L, pL[YEL]) ;
+            double const w_star_R = 1. + pR[EPSL] + p_star / pR[RHOL]
+            double const w_star_L = 1. + pL[EPSL] + p_star / pL[RHOL];
+
+            double const func = (1 - KaR2)/(S_R * Kokkos::sqrt(w_star_R) - KaR_Bc)
+                               +(1 - KaL2)/(S_L * Kokkos::sqrt(w_star_L) + KaL_Bc)
+            return func
+        }
+
 
         if ( -cmin >= vi ) {
             fHLLD = fL ;
@@ -837,12 +841,12 @@ struct hlld_riemann_solver_t {
             uHLLD = uaL ;
         }else if ( lambda_aL < vi and vi < lambdaC ) {
             for( int iv=0; iv<uL.size(); ++iv) {
-                fHLLD[iv] = faL[iv] + lambda_aL * ( ucL[iv] - uL[iv] ) ; 
+                fHLLD[iv] = fL[iv] - cmin * ( ucL[iv] - uL[iv] ) ; 
             }
             uHLLD = ucL ;
         } else if ( lambdaC <= vi and vi < lambda_aR  ) { 
             for( int iv=0; iv<uL.size(); ++iv) {
-                fHLLD[iv] = faR[iv] + lambda_aR * ( ucR[iv] - uR[iv] ) ; 
+                fHLLD[iv] = fR[iv] + cmax * ( ucR[iv] - uR[iv] ) ; 
             }
             uHLLD = ucR ;  
         } else if ( lambda_aR <= vi and vi < cmax  ) { 
@@ -851,11 +855,6 @@ struct hlld_riemann_solver_t {
         else {
             fHLLD = fR ; 
             uHLLD = uR ;  
-        }
-
-        if (err>0) {
-            fHLLD = fHLLE;
-            uHLLD = uHLLE;
         }
         return {fHLLD, uHLLD} ; 
     }
@@ -866,27 +865,89 @@ struct hlld_riemann_solver_t {
         const double sqrt_gamma = Kokkos::sqrt(metric.gamma(midx[idir]));
         return metric.beta(idir) / sqrt_gamma / metric.alp();
     }
-
+    /**
+     * @brief Get the contact wave speed in the local frame.
+     * 
+     * @param cons Conserved variables in HLLE state. 
+     * @param f    Fluxes in HLLE state.
+     * @return double The contact wave speed.
+     * 
+     * This function solves the second order equation (3.70)
+     * in Kiuchi+. Note that we always keep the solution with 
+     * the minus sign as that's the one that is causal (see 
+     * Mignone+ for a proof).
+     */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    compute_b2( grace::grmhd_prims_array_t const& prims 
-              , grace::metric_array_t const& metric ) const 
+    get_contact_wave_speed(grace::grmhd_cons_array_t const& cons,
+                          grace::grmhd_cons_array_t const& f) const
     {
-        double const one_over_alp = 1./metric.alp() ;
-        std::array<double,3> const vN {
-              one_over_alp * ( prims[VXL] + metric.beta(0) )
-            , one_over_alp * ( prims[VYL] + metric.beta(1) )
-            , one_over_alp * ( prims[VZL] + metric.beta(2) )
-        } ; 
-        std::array<double,4> smallb ;
-        get_smallb_from_eulerianB(metric, {prims[BXL],prims[BYL],prims[BZL]},
-                                          {vN[0], vN[1], vN[2]},
-                                          smallb
-                                        );
-        std::array<double,4> smallbD = metric.lower_4vec(smallb); 
-        double const b2 = metric.contract_4dvec_4dcovec(smallb,smallbD);
-        return b2;
+        using Kokkos::sqrt;
+        constexpr int t1 = (idir + 1) % 3;
+        constexpr int t2 = (idir + 2) % 3;
+
+        // Common calculations
+        double cons_bg_t1 = 0;
+        double cons_bg_t2 = 0;
+        double f_bg_t1 = 0;
+        double f_bg_t2 = 0;
+
+        bool has_magnetic_field = false;
+
+        #ifdef GRACE_DO_MHD
+            cons_bg_t1 = cons[BGXL + t1];
+            cons_bg_t2 = cons[BGXL + t2];
+            f_bg_t1 = f[BGXL + t1];
+            f_bg_t2 = f[BGXL + t2];
+
+            has_magnetic_field = (Kokkos::abs(cons[BGXL + idir]) > 1e-15);
+        #endif // GRACE_DO_MHD
+
+        double cross_term = 0;
+        double bg_tan_2 = 0;
+        double f_bg_tan_2 = 0;
+        if (has_magnetic_field) {
+            // Magnetic field is present, use the full formula
+            cross_term = cons_bg_t1 * f_bg_t1 + cons_bg_t2 * f_bg_t2;
+            bg_tan_2 = cons_bg_t1*cons_bg_t1 + cons_bg_t2*cons_bg_t2;
+            f_bg_tan_2 = f_bg_t1*f_bg_t1 + f_bg_t2*f_bg_t2;
+        } 
+        double const taul_densl_sum = cons[TAUL] + cons[DENSL];
+        double const f_taul_densl_sum = f[TAUL] + f[DENSL];
+        
+
+        // For HLLC, the contact wave speed is simpler
+        // λ* = (F_momentum - F_energy - F_density) / (U_energy + U_density - U_momentum)
+
+        double a, b, c;
+
+        a = f_taul_densl_sum - cross_term;
+        b = -f[STXL + idir] - taul_densl_sum + bg_tan_2 + f_bg_tan_2;
+        c = cons[STXL + idir] - cross_term;
+        //if (cons[STXL + idir] > 1e-10) {
+        //    Kokkos::printf("a %e, b %e, c %e\n", a, b, c);
+        //    Kokkos::printf("cons[STXL + idir] %e, f[STXL + idir] %e\n", 
+        //                   cons[STXL + idir], f[STXL + idir]);
+        //    Kokkos::printf("cons[TAUL] %e, cons[DENSL] %e\n",
+        //                   cons[TAUL], cons[DENSL]);
+        //    Kokkos::printf("f[TAUL] %e, f[DENSL] %e\n",
+        //                   f[TAUL], f[DENSL]);
+        //    Kokkos::printf("cons_bg_t1 %e, cons_bg_t2 %e\n", cons_bg_t1, cons_bg_t2);
+        //    Kokkos::printf("f_bg_t1 %e, f_bg_t2 %e\n", f_bg_t1, f_bg_t2);
+        //}
+        
+        // Safety check for denominator
+        if (Kokkos::abs(a) < 1e-15) {
+            if (Kokkos::abs(b) < 1e-15) {
+                return 0.0; // No contact wave speed
+            }
+            // If a is too small, we can use b as the denominator
+            return -c / b;
+        }
+        double const detm = Kokkos::sqrt( 
+            Kokkos::max(0., b*b - 4.*a*c)
+        ) ; 
+        return -0.5 * ( b + detm ) / a ;  
     }
-    
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     transform_fluxes_to_eulerian_frame( grace::grmhd_cons_array_t const& cons 
@@ -1082,200 +1143,6 @@ struct hlld_riemann_solver_t {
         cotetrad[3][tidx[shift][3]] = 1./Chat                                                                                     ; 
 
     }
-    // HLLD computation struct with all intermediate variables
-    struct HLLDComputation {
-        // Input parameters (set once in constructor)
-        grace::grmhd_cons_array_t const& fL;
-        grace::grmhd_cons_array_t const& fR;
-        grace::grmhd_cons_array_t const& uL;
-        grace::grmhd_cons_array_t const& uR;
-        grace::grmhd_prims_array_t const& pL;
-        grace::grmhd_prims_array_t const& pR;
-        double const cmin;
-        double const cmax;
-        int const t1;
-        int const t2;
-
-        // All intermediate variables (accessible from outside)
-        double RS_idir_L, RS_idir_R, RS_t1_L, RS_t1_R, RS_t2_L, RS_t2_R;
-        double RB_idir_L, RB_idir_R, RB_t1_L, RB_t1_R, RB_t2_L, RB_t2_R;
-        double RTau_L, RTau_R, RDens_L, RDens_R;
-        double AL, AR, GL, GR, CL, CR, QL, QR, XL, XR;
-        double v_aL, v_aR, vt1_aL, vt1_aR, vt2_aL, vt2_aR;
-        double Bt1_aL, Bt1_aR, Bt2_aL, Bt2_aR;
-        double v_RS_AL, v_RS_AR, w_aL, w_aR;
-        double Dens_aL, Dens_aR, v_B_aL, v_B_aR;
-        double Tau_aL, Tau_aR;
-        double S_aL, S_aR, St1_aL, St1_aR, St2_aL, St2_aR;
-        double S_L, S_R;
-        double K_aL, K_aR, Kt1_aL, Kt1_aR, Kt2_aL, Kt2_aR;
-        double lambda_aL, lambda_aR;
-        double B_idir_c, B_t1_c, B_t2_c;
-        double KaL2, KaR2, KaL_Bc, KaR_Bc;
-
-        // Constructor
-        GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-        HLLDComputation(
-            grace::grmhd_cons_array_t const& fL_,
-            grace::grmhd_cons_array_t const& fR_,
-            grace::grmhd_cons_array_t const& uL_,
-            grace::grmhd_cons_array_t const& uR_,
-            grace::grmhd_prims_array_t const& pL_,
-            grace::grmhd_prims_array_t const& pR_,
-            double const cmin_,
-            double const cmax_)
-            : fL(fL_), fR(fR_), uL(uL_), uR(uR_), pL(pL_), pR(pR_)
-            , cmin(cmin_), cmax(cmax_)
-            , t1((idir + 1) % 3), t2((idir + 2) % 3)
-        {
-            // Compute the constant R arrays (independent of p_star)
-            compute_r_arrays();
-        }
-
-        // Compute R arrays (called once in constructor)
-        GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-        void compute_r_arrays() {
-            // 1. compute the R array for the momenta
-            RS_idir_L = -cmin * uL[STXL+idir] - fL[STXL+idir];
-            RS_idir_R =  cmax * uR[STXL+idir] - fR[STXL+idir];
-            RS_t1_L = -cmin * uL[STXL+t1] - fL[STXL+t1];
-            RS_t1_R =  cmax * uR[STXL+t1] - fR[STXL+t1];
-            RS_t2_L = -cmin * uL[STXL+t2] - fL[STXL+t2];
-            RS_t2_R =  cmax * uR[STXL+t2] - fR[STXL+t2];
-
-            // 2. compute the R array for the magnetic fields
-            RB_idir_L = -cmin * uL[BGXL+idir] - fL[BGXL+idir];
-            RB_idir_R =  cmax * uR[BGXL+idir] - fR[BGXL+idir];
-            RB_t1_L = -cmin * uL[BGXL+t1] - fL[BGXL+t1];
-            RB_t1_R =  cmax * uR[BGXL+t1] - fR[BGXL+t1];
-            RB_t2_L = -cmin * uL[BGXL+t2] - fL[BGXL+t2];
-            RB_t2_R =  cmax * uR[BGXL+t2] - fR[BGXL+t2];
-
-            // 3. compute the R array for tau and D
-            RTau_L = -cmin * uL[TAUL] - fL[TAUL];
-            RTau_R =  cmax * uR[TAUL] - fR[TAUL];
-            RDens_L = -cmin * uL[DENSL] - fL[DENSL];
-            RDens_R =  cmax * uR[DENSL] - fR[DENSL];
-
-            // Compute S_L and S_R (independent of p_star)
-            if (uL[BGXL+idir] > 1e-15) {
-                S_L = +1.0;
-            } else if (uL[BGXL+idir] < -1e-15) {
-                S_L = -1.0;
-            } else {
-                S_L = 0.0;
-            }
-
-            if (uR[BGXL+idir] > 1e-15) {
-                S_R = +1.0;
-            } else if (uR[BGXL+idir] < -1e-15) {
-                S_R = -1.0;
-            } else {
-                S_R = 0.0;
-            }
-        }
-
-        // Compute all variables for given p_star
-        GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-        void compute_all_variables(double const p_star) {
-            // 4. compute various constants
-            AL = RS_idir_L - (-cmin)*RTau_L + p_star*(1-cmin*cmin);
-            AR = RS_idir_R + ( cmax)*RTau_R + p_star*(1-cmax*cmax);
-
-            GL = RB_t1_L*RB_t1_L + RB_t2_L*RB_t2_L;
-            GR = RB_t1_R*RB_t1_R + RB_t2_R*RB_t2_R;
-
-            CL = RS_t1_L*RB_t1_L + RS_t2_L*RB_t2_L;
-            CR = RS_t1_R*RB_t1_R + RS_t2_R*RB_t2_R;
-
-            QL = -AL - GL + uL[BGXL+idir]*uL[BGXL+idir]*(1-cmin*cmin);
-            QR = -AR - GR + uR[BGXL+idir]*uR[BGXL+idir]*(1-cmax*cmax);
-
-            XL = uL[BGXL+idir]*(AL * (-cmin) * uL[BGXL+idir] + CL) - (AL + GL) * ((-cmin) * p_star + RTau_L);
-            XR = uR[BGXL+idir]*(AR * ( cmax) * uR[BGXL+idir] + CR) - (AR + GR) * (( cmax) * p_star + RTau_R);
-
-            // 5. compute the velocities in the fast wave
-            v_aL = (uL[BGXL+idir] * (AL * uL[BGXL+idir] + (-cmin) * CL) - (AL + GL) * (p_star + RS_idir_L)) / XL;
-            v_aR = (uR[BGXL+idir] * (AR * uR[BGXL+idir] + ( cmax) * CR) - (AR + GR) * (p_star + RS_idir_R)) / XR;
-
-            vt1_aL = (QL * RS_t1_L + RB_t1_L * (CL + uL[BGXL+idir]*((-cmin)*RS_idir_L - RTau_L))) / XL;
-            vt1_aR = (QR * RS_t1_R + RB_t1_R * (CR + uR[BGXL+idir]*(( cmax)*RS_idir_R - RTau_R))) / XR;
-            vt2_aL = (QL * RS_t2_L + RB_t2_L * (CL + uL[BGXL+idir]*((-cmin)*RS_idir_L - RTau_L))) / XL;
-            vt2_aR = (QR * RS_t2_R + RB_t2_R * (CR + uR[BGXL+idir]*(( cmax)*RS_idir_R - RTau_R))) / XR;
-
-            Bt1_aL = (RB_t1_L - uL[BGXL+idir]*vt1_aL) / (-cmin - v_aL);
-            Bt1_aR = (RB_t1_R - uR[BGXL+idir]*vt1_aR) / ( cmax - v_aR);
-            Bt2_aL = (RB_t2_L - uL[BGXL+idir]*vt2_aL) / (-cmin - v_aL);
-            Bt2_aR = (RB_t2_R - uR[BGXL+idir]*vt2_aR) / ( cmax - v_aR);
-
-            v_RS_AL = v_aL*RS_idir_L + vt1_aL*RS_t1_L + vt2_aL*RS_t2_L;
-            v_RS_AR = v_aR*RS_idir_R + vt1_aR*RS_t1_R + vt2_aR*RS_t2_R;
-
-            w_aL = p_star + (RTau_L - pL[VXL]*v_RS_AL) / (-cmin - v_aL);
-            w_aR = p_star + (RTau_R - pR[VXL]*v_RS_AR) / ( cmax - v_aR);
-
-            Dens_aL = RDens_L / (-cmin - v_aL);
-            Dens_aR = RDens_R / ( cmax - v_aR);
-
-            v_B_aL = v_aL * uL[BGXL+idir] + vt1_aL * uL[BGXL+t1] + vt2_aL * uL[BGXL+t2];
-            v_B_aR = v_aR * uR[BGXL+idir] + vt1_aR * uR[BGXL+t1] + vt2_aR * uR[BGXL+t2];
-
-            Tau_aL = (RTau_L + p_star * v_aL - v_B_aL * uL[BGXL+idir]) / (-cmin - v_aL);
-            Tau_aR = (RTau_R + p_star * v_aR - v_B_aR * uR[BGXL+idir]) / ( cmax - v_aR);
-
-            S_aL = (Tau_aL + p_star)*v_aL - v_B_aL * uL[BGXL+idir];
-            S_aR = (Tau_aR + p_star)*v_aR - v_B_aR * uR[BGXL+idir];
-            St1_aL = (Tau_aL + p_star)*vt1_aL - v_B_aL * uL[BGXL+t1];
-            St1_aR = (Tau_aR + p_star)*vt1_aR - v_B_aR * uR[BGXL+t1];
-            St2_aL = (Tau_aL + p_star)*vt2_aL - v_B_aL * uL[BGXL+t2];
-            St2_aR = (Tau_aR + p_star)*vt2_aR - v_B_aR * uR[BGXL+t2];
-
-            // 6. compute the alfven wave speeds
-            K_aL = (RS_idir_L + p_star - RB_idir_L * S_L * Kokkos::sqrt(w_aL)) / 
-                   ((-cmin) * p_star + RTau_L - uL[BGXL+idir] * S_L * Kokkos::sqrt(w_aL));
-            K_aR = (RS_idir_R + p_star + RB_idir_R * S_R * Kokkos::sqrt(w_aR)) / 
-                   (( cmax) * p_star + RTau_R + uR[BGXL+idir] * S_R * Kokkos::sqrt(w_aR));
-
-            Kt1_aL = (RS_t1_L - RB_t1_L * S_L * Kokkos::sqrt(w_aL)) / 
-                     ((-cmin) * p_star + RTau_L - uL[BGXL+idir] * S_L * Kokkos::sqrt(w_aL));
-            Kt1_aR = (RS_t1_R + RB_t1_R * S_R * Kokkos::sqrt(w_aR)) / 
-                     (( cmax) * p_star + RTau_R + uR[BGXL+idir] * S_R * Kokkos::sqrt(w_aR));
-            Kt2_aL = (RS_t2_L - RB_t2_L * S_L * Kokkos::sqrt(w_aL)) / 
-                     ((-cmin) * p_star + RTau_L - uL[BGXL+idir] * S_L * Kokkos::sqrt(w_aL));
-            Kt2_aR = (RS_t2_R + RB_t2_R * S_R * Kokkos::sqrt(w_aR)) / 
-                     (( cmax) * p_star + RTau_R + uR[BGXL+idir] * S_R * Kokkos::sqrt(w_aR));
-
-            lambda_aL = K_aL;
-            lambda_aR = K_aR;
-
-            // Compute contact magnetic fields
-            B_idir_c = (uR[BGXL+idir] * (lambda_aR - v_aR) + uR[BGXL+idir]*v_aR) / (lambda_aR - lambda_aL) 
-                      -(uL[BGXL+idir] * (lambda_aL - v_aL) + uL[BGXL+idir]*v_aL) / (lambda_aR - lambda_aL);
-            B_t1_c = (uR[BGXL+t1] * (lambda_aR - v_aR) + uR[BGXL+idir]*vt1_aR) / (lambda_aR - lambda_aL)
-                    -(uL[BGXL+t1] * (lambda_aL - v_aL) + uL[BGXL+idir]*vt1_aL) / (lambda_aR - lambda_aL);
-            B_t2_c = (uR[BGXL+t2] * (lambda_aR - v_aR) + uR[BGXL+idir]*vt2_aR) / (lambda_aR - lambda_aL)
-                    -(uL[BGXL+t2] * (lambda_aL - v_aL) + uL[BGXL+idir]*vt2_aL) / (lambda_aR - lambda_aL);
-
-            // Final pressure equation variables
-            KaL2 = K_aL * K_aL + Kt1_aL * Kt1_aL + Kt2_aL * Kt2_aL;
-            KaR2 = K_aR * K_aR + Kt1_aR * Kt1_aR + Kt2_aR * Kt2_aR;
-            KaL_Bc = K_aL * B_idir_c + Kt1_aL * B_t1_c + Kt2_aL * B_t2_c;
-            KaR_Bc = K_aR * B_idir_c + Kt1_aR * B_t1_c + Kt2_aR * B_t2_c;
-        }
-
-        // Operator for Brent solver
-        GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-        double operator()(double const p_star) {
-            // Compute all variables for this pressure
-            compute_all_variables(p_star);
-
-            // Return the pressure residual function
-            // Fixed the typo: w_aL instead of w_aR in second term
-            double const function = (1.0 - KaR2)/(S_R * Kokkos::sqrt(w_aR) - KaR_Bc)
-                                  + (1.0 - KaL2)/(S_L * Kokkos::sqrt(w_aL) + KaL_Bc);
-            return function;
-        }
-    };
 } ; 
 
 

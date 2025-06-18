@@ -308,6 +308,257 @@ brent(F&& f, const double &a, const double &b, const double t)
         return x1 ; 
     }
 
+template <typename F>
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+safe_brent(F&& f, const double &a, const double &b, const double t, int& err, int max_iter = 100) {
+    // err = 0 Good run
+    // err = 1 fa and fb have same sign (no root bracketed)
+    // err = 2 exceeded max iteration
+    
+    err = 0; // Initialize error code
+    
+    double fa = f(a);
+    double fb = f(b);
+    double tol = t;
+    
+    // Check for same signs
+    if (fa * fb > 0) {
+        err = 1;
+        return (a + b) * 0.5; // Return midpoint as fallback
+    }
+    
+    // Check if we already have the root
+    if (std::abs(fa) < tol) return a;
+    if (std::abs(fb) < tol) return b;
+    
+    // Initialize variables for Brent's method
+    double c;
+    double d;
+    double e;
+    double fc;
+    double m;
+    double p;
+    double q;
+    double r;
+    double s;
+    double sa;
+    double sb;
+    
+    // Make local copies of A and B
+    sa = a;
+    sb = b;
+    
+#define INVK(FUNC, ARG) std::invoke(std::forward<F>(FUNC), ARG)
+    
+    fa = INVK(f, sa);
+    fb = INVK(f, sb);
+    c = sa;
+    fc = fa;
+    e = sb - sa;
+    d = e;
+    
+    constexpr double macheps = std::numeric_limits<double>::epsilon();
+    
+    int iter = 0; // Iteration counter
+    
+    for (;;) {
+        // Check iteration limit
+        if (iter >= max_iter) {
+            err = 2;
+            break;
+        }
+        
+        if (std::fabs(fc) < std::fabs(fb)) {
+            sa = sb;
+            sb = c;
+            c = sa;
+            fa = fb;
+            fb = fc;
+            fc = fa;
+        }
+        
+        tol = 2.0 * macheps * std::fabs(sb) + t;
+        m = 0.5 * (c - sb);
+        
+        if (std::fabs(m) <= tol || fb == 0.0) {
+            break;
+        }
+        
+        if (std::fabs(e) < tol || std::fabs(fa) <= std::fabs(fb)) {
+            e = m;
+            d = e;
+        } else {
+            s = fb / fa;
+            if (sa == c) {
+                p = 2.0 * m * s;
+                q = 1.0 - s;
+            } else {
+                q = fa / fc;
+                r = fb / fc;
+                p = s * (2.0 * m * q * (q - r) - (sb - sa) * (r - 1.0));
+                q = (q - 1.0) * (r - 1.0) * (s - 1.0);
+            }
+            
+            if (0.0 < p) {
+                q = -q;
+            } else {
+                p = -p;
+            }
+            
+            s = e;
+            e = d;
+            
+            if (2.0 * p < 3.0 * m * q - std::fabs(tol * q) &&
+                p < std::fabs(0.5 * s * q)) {
+                d = p / q;
+            } else {
+                e = m;
+                d = e;
+            }
+        }
+        
+        sa = sb;
+        fa = fb;
+        
+        if (tol < std::fabs(d)) {
+            sb = sb + d;
+        } else if (0.0 < m) {
+            sb = sb + tol;
+        } else {
+            sb = sb - tol;
+        }
+        
+        fb = INVK(f, sb);
+        
+        if ((0.0 < fb && 0.0 < fc) || (fb <= 0.0 && fc <= 0.0)) {
+            c = sa;
+            fc = fa;
+            e = sb - sa;
+            d = e;
+        }
+        
+        iter++; // Increment iteration counter
+    }
+    
+#undef INVK
+  return sb;
+}
+template <typename F>
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE safe_secant(F&& f, double x0, double x1, double tol, int& err, int max_iter = 20) {
+    err = 0;
+    
+    double f0 = f(x0);
+    double f1 = f(x1);
+    
+    // Check if we already have a root
+    if (fabs(f0) < tol) {
+        return x0;
+    }
+    if (fabs(f1) < tol) {
+        return x1;
+    }
+    
+    // Main secant iteration
+    for (int iter = 0; iter < max_iter; ++iter) {
+        // Check for divide by zero
+        double df = f1 - f0;
+        if (fabs(df) < 1e-15) {
+            err = 3; // Derivative too small
+            return x1;
+        }
+        
+        // Secant step
+        double x2 = x1 - f1 * (x1 - x0) / df;
+        
+        // Check convergence
+        if (fabs(x2 - x1) < tol) {
+            return x2;
+        }
+        
+        // Update for next iteration
+        x0 = x1;
+        f0 = f1;
+        x1 = x2;
+        f1 = f(x2);
+        
+        // Check if function value is small enough
+        if (fabs(f1) < tol) {
+            return x1;
+        }
+        
+        // Safety check for non-finite values
+        if (!isfinite(x2) || !isfinite(f1)) {
+            err = 4; // Non-finite values
+            return x1;
+        }
+    }
+    
+    err = 2; // Max iterations exceeded
+    return x1;
+}
+
+// Alternative: Hybrid secant-bisection for better robustness
+template <typename F>
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE safe_secant_bisection(F&& f, double a, double b, double tol, int& err, int max_iter = 25) {
+    err = 0;
+    
+    double fa = f(a);
+    double fb = f(b);
+    
+    // Ensure root is bracketed
+  if (fa * fb > 0) {
+    err = 1;
+    return (a + b) * (double)0.5;
+  }
+  // Early exit if endpoints are roots
+  if (fabs(fa) <= tol) return a;
+  if (fabs(fb) <= tol) return b;
+
+  // Initialize secant points
+  double x0 = a, x1 = b;
+  double f0 = fa, f1 = fb;
+
+  // Main iteration
+  for (int i = 0; i < max_iter; ++i) {
+    // Secant candidate (safe division)
+    double df = f1 - f0;
+    double x_sec = x1 - f1 * (x1 - x0) /
+                   ((fabs(df) > std::numeric_limits<double>::epsilon()) ? df : std::numeric_limits<double>::epsilon());
+
+    // Choose secant or midpoint
+    // Avoid divergence: few branches, rely on GPU predication
+    bool in_bounds = (x_sec > a) & (x_sec < b);
+    double x2      = in_bounds ? x_sec : (double)0.5 * (a + b);
+    double f2      = f(x2);
+
+    // Convergence: either function value small or interval small
+    if (fabs(f2) <= tol || fabs(b - a) <= tol) {
+      return x2;
+    }
+
+    // Update bracket
+    bool left = (f2 * fa < 0);
+    b  = left ? x2 : b;
+    fb = left ? f2 : fb;
+    a  = left ? a  : x2;
+    fa = left ? fa : f2;
+
+    // Shift secant points
+    x0 = x1; f0 = f1;
+    x1 = x2; f1 = f2;
+
+    // Safety: check nonfinite
+    if (!isfinite(x2) || !isfinite(f2)) {
+      err = 4;
+      return x2;
+    }
+  }
+
+  // Max iterations reached
+  err = 2;
+  return x1;
+}
+
 }
 
 #endif /* GRACE_UTILS_ROOTFINDING_HH */

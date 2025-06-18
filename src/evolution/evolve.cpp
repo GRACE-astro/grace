@@ -197,11 +197,11 @@ void advance_substep( double const t, double const dt, double const dtfact
     // #define RECON slope_limited_reconstructor_t<MCbeta> // try with this one 
     #define RECON weno_reconstructor_t<3>
     #define GET_X_FLUX \
-    grmhd_eq_system.template compute_x_flux<hllc_riemann_solver_t<0>,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
+    grmhd_eq_system.template compute_x_flux<hlld_riemann_solver_t<0>,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
     #define GET_Y_FLUX \
-    grmhd_eq_system.template compute_y_flux<hllc_riemann_solver_t<1>,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
+    grmhd_eq_system.template compute_y_flux<hlld_riemann_solver_t<1>,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_Z_FLUX \
-    grmhd_eq_system.template compute_z_flux<hllc_riemann_solver_t<2>,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
+    grmhd_eq_system.template compute_z_flux<hlld_riemann_solver_t<2>,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
     #define GET_SOURCES \
     grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 

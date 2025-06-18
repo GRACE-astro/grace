@@ -36,7 +36,7 @@ IO: {
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
-  info_output_every: 20,
+  info_output_every: 1,
   info_output_max_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
   info_output_min_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
   scalar_output_every: 10,

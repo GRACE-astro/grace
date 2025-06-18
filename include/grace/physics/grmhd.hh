@@ -697,7 +697,7 @@ struct grmhd_equations_system_t
     template< int idir 
             , typename riemann_t
             , typename recon_t   >
-    std::enable_if<std::is_same_v<riemann_t,grace::hllc_riemann_solver_t<idir>>,void>::type
+    std::enable_if_t<std::is_same_v<riemann_t, grace::hllc_riemann_solver_t<idir>>, void>::type
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     getflux(  VEC( const int i 
             ,      const int j 
@@ -906,24 +906,10 @@ struct grmhd_equations_system_t
         /***********************************************************************/
     };
 
-    /***********************************************************************/
-    /**
-     * @brief Compute fluxes for gmrmhd equations.
-     * 
-     * @tparam idir Direction the fluxes are computed in.
-     * @tparam recon_t Type of reconstruction.
-     * @tparam riemann_t Type of Riemann solver.
-     * @param i zero-offset x cell index.
-     * @param j zero-offset y cell index.
-     * @param k zero-offset z cell index.
-     * @param q quadrant index.
-     * @param ngz Number of ghost-zones.
-     * @param fluxes Flux array.
-     */
     template< int idir 
             , typename riemann_t
             , typename recon_t   >
-    std::enable_if<std::is_same_v<riemann_t,grace::hlld_riemann_solver_t<idir>>,void>::type
+    std::enable_if_t<std::is_same_v<riemann_t, grace::hlld_riemann_solver_t<idir>>, void>
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     getflux(  VEC( const int i 
             ,      const int j 
@@ -968,7 +954,7 @@ struct grmhd_equations_system_t
             + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
         ,   0.5 * (metric_l.alp() + metric_r.alp())
         } ; 
-        
+
         /***********************************************************************/
         /* Initialize Riemann solver                                           */
         /***********************************************************************/
@@ -1061,46 +1047,36 @@ struct grmhd_equations_system_t
         double cs2l, cs2r ; 
         unsigned int eos_err; 
         primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primL[EPSL], cs2l, primL[TEMPL], primL[RHOL], primL[YEL], eos_err) ; 
-        primL[VXL] = alp * primL[VXL] / wl - metric_face.beta(0) ;
-        primL[VYL] = alp * primL[VYL] / wl - metric_face.beta(1) ;
-        primL[VZL] = alp * primL[VZL] / wl - metric_face.beta(2) ; 
+        //primL[VXL] = alp * primL[VXL] / wl - metric_face.beta(0) ;
+        //primL[VYL] = alp * primL[VYL] / wl - metric_face.beta(1) ;
+        //primL[VZL] = alp * primL[VZL] / wl - metric_face.beta(2) ; 
 
         /* Right */
         primR[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primR[EPSL], cs2r, primR[TEMPL], primR[RHOL], primR[YEL], eos_err) ; 
-        primR[VXL] = alp * primR[VXL] / wr - metric_face.beta(0) ;
-        primR[VYL] = alp * primR[VYL] / wr - metric_face.beta(1) ;
-        primR[VZL] = alp * primR[VZL] / wr - metric_face.beta(2) ;
-
+        //primR[VXL] = alp * primR[VXL] / wr - metric_face.beta(0) ;
+        //primR[VYL] = alp * primR[VYL] / wr - metric_face.beta(1) ;
+        //primR[VZL] = alp * primR[VZL] / wr - metric_face.beta(2) ;
         std::array<double,3> uD_l, uD_r ; 
         solver.transform_velocities_to_tetrad_frame(u0_l, primL, uD_l) ; 
         solver.transform_velocities_to_tetrad_frame(u0_r, primR, uD_r) ; 
+
+        if(Kokkos::abs(primL[VXL])>1e-5) {
+            // Kokkos::printf("velocity before transformation: %e %e %e\n velocity after transformation: %e %e %e\n", primL[VXL], primL[VYL], primL[VZL], uD_l[0], uD_l[1], uD_l[2]);
+            // Kokkos::printf("velocity after transformation: %e %e %e\n", uD_l[0], uD_l[1], uD_l[2]);
+            //// now I print out the metric components
+            //Kokkos::printf("metric components: %e %e %e %e %e %e\n", metric_face.gamma(0), metric_face.gamma(1), metric_face.gamma(2), 
+            //               metric_face.gamma(3), metric_face.gamma(4), metric_face.gamma(5));
+            //Kokkos::printf("u0_l: %e, alp: %e, wl: %e\n", u0_l, alp, wl);
+        }
 
         #ifdef GRACE_DO_MHD
             /***********************************************************************/
             /* Transform magnetic fields to tetrad frame                           */
             /***********************************************************************/
-            std::array<double,3> bD_l, bD_r;
             solver.transform_magnetic_fields_to_tetrad_frame(primL);
             solver.transform_magnetic_fields_to_tetrad_frame(primR);
-                
-            /* Compute magnetic pressure and b^2 */
-            double const b2_l = bD_l[0]*bD_l[0] + bD_l[1]*bD_l[1] + bD_l[2]*bD_l[2];
-            double const b2_r = bD_r[0]*bD_r[0] + bD_r[1]*bD_r[1] + bD_r[2]*bD_r[2];
-            double const bmag_press_l = 0.5 * b2_l;
-            double const bmag_press_r = 0.5 * b2_r;
-        #else
-            double const b2_l = 0.0;
-            double const b2_r = 0.0;
-            double const bmag_press_l = 0.0;
-            double const bmag_press_r = 0.0;
-            std::array<double,3> bD_l{0.0, 0.0, 0.0};
-            std::array<double,3> bD_r{0.0, 0.0, 0.0};
         #endif
 
-        /* Compute specific enthalpies */
-        double h_l = 1 + primL[EPSL] + primL[PRESSL]/primL[RHOL] ;
-        double h_r = 1 + primR[EPSL] + primR[PRESSL]/primR[RHOL] ;
-        
         grmhd_cons_array_t fL, fR, uL, uR; 
 
         /* Get wavespeeds      */ 
@@ -1116,25 +1092,75 @@ struct grmhd_equations_system_t
 
         double const alpha_sqrtgamma = alp * metric_face.sqrtg() ;
         
-        compute_srmhd_fluxes<idir,true>(fL,fR,uL,uR,primL,primR,cmin,cmax);
+        compute_srmhd_fluxes<idir,false>(fL,fR,uL,uR,primL,primR,cmin,cmax);
+        /******************************************/
+        
 
-        /***********************************************************************/
-        grmhd_cons_array_t fHLLC = 
-            solver(fL,fR,uL,uR,primL,primR,cmin,cmax) ; 
-        /***********************************************************************/
-        fluxes(VEC(i,j,k),DENS_,idir,q)        = alpha_sqrtgamma * fHLLC[DENSL] ; 
-        fluxes(VEC(i,j,k),YESTAR_,idir,q)      = alpha_sqrtgamma * fHLLC[YESL]  ; 
-        fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = alpha_sqrtgamma * fHLLC[ENTSL] ;
-        fluxes(VEC(i,j,k),TAU_,idir,q)         = alpha_sqrtgamma * fHLLC[TAUL]  ;
-        fluxes(VEC(i,j,k),SX_,idir,q)          = alpha_sqrtgamma * fHLLC[STXL]  ;
-        fluxes(VEC(i,j,k),SY_,idir,q)          = alpha_sqrtgamma * fHLLC[STYL]  ;
-        fluxes(VEC(i,j,k),SZ_,idir,q)          = alpha_sqrtgamma * fHLLC[STZL]  ;
+        /******************************************/
+        // HLLD needs an initial guess.
+        int var_indices[] = {DENSL, TAUL, STXL, STYL, STZL, YESL, ENTSL
+            #ifdef GRACE_DO_MHD 
+            ,BGXL, BGYL, BGZL 
+            #ifdef GRACE_ENABLE_B_FIELD_GLM
+            ,PHIG_GLML
+            #endif // GRACE_ENABLE_B_FIELD_GLM
+            #endif // GRACE_DO_MHD
+            } ; 
+        hll_riemann_solver_t hlle_solver ; 
+        grmhd_cons_array_t uHLLE, fHLLE;
+        grmhd_prims_array_t pHLLE;
+        constexpr int num_vars = 7
         #ifdef GRACE_DO_MHD
-                fluxes(VEC(i,j,k),BGX_,idir,q)          = alpha_sqrtgamma * fHLLC[BGXL]  ;
-                fluxes(VEC(i,j,k),BGY_,idir,q)          = alpha_sqrtgamma * fHLLC[BGYL]  ;
-                fluxes(VEC(i,j,k),BGZ_,idir,q)          = alpha_sqrtgamma * fHLLC[BGZL]  ;
+            + 3
+        #ifdef GRACE_ENABLE_B_FIELD_GLM
+            + 1
+        #endif
+        #endif
+        ;
+        for( int ii=0; ii<num_vars; ++ii) {
+            int const ivar = var_indices[ii] ; 
+            fHLLE[ivar] = 
+                hlle_solver(fL[ivar],fR[ivar],uL[ivar],uR[ivar],cmin,cmax) ; 
+            uHLLE[ivar] = 
+                hlle_solver.get_state(fL[ivar],fR[ivar],uL[ivar],uR[ivar],cmin,cmax) ;
+        }
+        metric_array_t minkowski_metric ({1.,0.,0.,1.,0.,1.},{0.,0.,0.},1.) ; 
+        conservs_to_prims<eos_t, grmhd_c2p_kastaun_t>( uHLLE, pHLLE, minkowski_metric
+                                , this->_eos, this->_lapse_excision ) ; 
+        
+        double const u0HLLE = 1.0/Kokkos::sqrt(1-pHLLE[VXL]*pHLLE[VXL]-pHLLE[VYL]*pHLLE[VYL]-pHLLE[VZL]*pHLLE[VZL]) ;
+        double cpHLLE, cmHLLE, cs2HLLE;
+        compute_cp_cm( cpHLLE, cmHLLE, cs2HLLE, u0HLLE, pHLLE[VXL+idir], 1, 0, 1) ;
+        pHLLE[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(pHLLE[EPSL], cs2HLLE, pHLLE[TEMPL], pHLLE[RHOL], pHLLE[YEL], eos_err) ; 
+        double b2_hlle = compute_b2(pHLLE,minkowski_metric) ;
+        double total_press = pHLLE[PRESSL] + b2_hlle/2 ;
+
+        //if ((uHLLE[BGXL+idir]*uHLLE[BGXL+idir]/total_press)<0.1) {
+        //    hllc_riemann_solver_t<idir> hllc_solver(metric_face) ; 
+        //    auto [fHLLC,uHLLC] = hllc_solver(fL,fR,uL,uR,primL,primR,cmin,cmax) ; 
+        //    pHLLE[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(pHLLE[EPSL], cs2HLLE, pHLLE[TEMPL], pHLLE[RHOL], pHLLE[YEL], eos_err) ; 
+        //    b2_hlle = compute_b2(pHLLE,minkowski_metric) ;
+        //    total_press = pHLLE[PRESSL] + b2_hlle/2 ;
+        //}
+        /***********************************************************************/
+        auto [fHLLD,uHLLD] = 
+            solver(fL,fR,uL,uR,primL,primR,cmin,cmax, total_press) ; 
+
+        solver.transform_fluxes_to_eulerian_frame(fHLLD, uHLLD) ;
+        /***********************************************************************/
+        fluxes(VEC(i,j,k),DENS_,idir,q)        = alpha_sqrtgamma * fHLLD[DENSL] ; 
+        fluxes(VEC(i,j,k),YESTAR_,idir,q)      = alpha_sqrtgamma * fHLLD[YESL]  ; 
+        fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = alpha_sqrtgamma * fHLLD[ENTSL] ;
+        fluxes(VEC(i,j,k),TAU_,idir,q)         = alpha_sqrtgamma * fHLLD[TAUL]  ;
+        fluxes(VEC(i,j,k),SX_,idir,q)          = alpha_sqrtgamma * fHLLD[STXL]  ;
+        fluxes(VEC(i,j,k),SY_,idir,q)          = alpha_sqrtgamma * fHLLD[STYL]  ;
+        fluxes(VEC(i,j,k),SZ_,idir,q)          = alpha_sqrtgamma * fHLLD[STZL]  ;
+        #ifdef GRACE_DO_MHD
+                fluxes(VEC(i,j,k),BGX_,idir,q)          = alpha_sqrtgamma * fHLLD[BGXL]  ;
+                fluxes(VEC(i,j,k),BGY_,idir,q)          = alpha_sqrtgamma * fHLLD[BGYL]  ;
+                fluxes(VEC(i,j,k),BGZ_,idir,q)          = alpha_sqrtgamma * fHLLD[BGZL]  ;
                 #ifdef GRACE_ENABLE_B_FIELD_GLM
-                fluxes(VEC(i,j,k),PHIG_GLM_,idir,q)          = alpha_sqrtgamma * fHLLC[PHIG_GLM_]  ;
+                fluxes(VEC(i,j,k),PHIG_GLM_,idir,q)          = alpha_sqrtgamma * fHLLD[PHIG_GLM_]  ;
                 #endif
 		#endif 
         /***********************************************************************/
