@@ -78,6 +78,22 @@ struct MCbeta {
     }
 } ; 
 
+struct flat_recon {
+    /**
+     * @brief Apply minmod limiter.
+     * 
+     * @param slopeL Left slope.
+     * @param slopeR Right slope.
+     * @return double Limited slope.
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    operator() (double const& slopeL, double const& slopeR){
+        auto const signL = math::sgn(slopeL) ;
+        auto const signR = math::sgn(slopeR) ; 
+        return 0.5 * ( signL + signR ) * math::min(Kokkos::fabs(slopeL),Kokkos::fabs(slopeR)) ; 
+    }
+} ; 
+
 } /* namespace grace */
 
 #endif /* GRACE_UTILS_LIMITERS_HH */

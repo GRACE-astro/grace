@@ -148,7 +148,7 @@ struct hllc_riemann_solver_t {
         #endif
         #endif
         ;
-
+        
         for( int ii=0; ii<num_vars; ++ii) {
             int const ivar = var_indices[ii] ; 
             fHLLE[ivar] = 
@@ -277,6 +277,7 @@ struct hllc_riemann_solver_t {
 
         // Handle supersonic case
         if (lambdaC <= -cmin || lambdaC >= cmax || v2 >= 1.0) {
+            Kokkos::printf("HLLC solver: contact wave speed %e is outside the range [-cmin, cmax] or v^2 >= 1.0\n", lambdaC);
             fHLLC = fHLLE;
             uHLLC = uHLLE;
         }

@@ -1,0 +1,122 @@
+# Parameter file for a generic shock tube with B^n = B^x = 0 (zero normal component)
+# https://arxiv.org/pdf/gr-qc/0507102 (Giacomazzo & Rezzolla 2006)
+# Table 1: Generic Shock Tube
+
+name: "grace"
+amr: {
+  npoints_block_x: 4,
+  npoints_block_y: 1,
+  npoints_block_z: 1,
+  xmin: -0.5,
+  xmax:  0.5,
+  ymin: -0.005,
+  ymax:  0.005,
+  zmin: -0.005,
+  zmax:  0.005,
+  # xmin: -2.0,
+  # xmax:  2.0,
+  # ymin: -2.0,
+  # ymax:  2.0,
+  # zmin: -2.0,
+  # zmax:  2.0,
+  n_ghostzones: 2,
+  initial_refinement_level: 0,
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_CTORE: 2.,
+  refinement_criterion_CTODE: 1.,
+  refinement_criterion_var: "U",
+  max_refinement_level: 0,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+  periodic_y: true,
+  periodic_z: true,
+}
+IO: {
+  # Bug/Feature: 
+  # vel[1]/vel[2] to be specifiable in the future  
+  volume_output_cell_variables: ["eps","rho","press","alp", "vel[0]",
+                              "B[0]", "phi_glm"],
+  volume_output_base_directory: "output_volume_rmhd3",
+  volume_output_every: 318,
+  plane_surface_output_cell_variables: [],
+  plane_surface_output_every: -1,
+  sphere_surface_output_every: -1,
+  info_output_every: 1,
+  # info_output_max_reductions: ["eps","rho","press","alp", 
+  #                             "vel[0]", "vel[1]", "vel[2]", 
+  #                             "B[0]", "B[1]", "B[2]", "phi_glm"],
+  info_output_max_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
+  info_output_min_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
+  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
+  # info_output_min_reductions: ["eps","rho","press","alp", 
+  #                             "vel[0]", "vel[1]", "vel[2]", 
+  #                             "B[0]", "B[1]", "B[2]", "phi_glm"],
+  #info_output_min_reductions: [],
+  #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"], 
+  scalar_output_every: 10,
+  scalar_output_minmax: ["eps","rho","press",
+                         "vel[0]", "vel[1]", "vel[2]", 
+                         "B[0]", "B[1]", "B[2]",
+                         "phi_glm"],
+  scalar_output_norm2: [],
+  scalar_output_integral: [],
+  output_use_hdf5: true, 
+  hdf5_compression_level: 6,
+  hdf5_chunk_size: 8192
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  flush_level: "trace"
+}
+evolution: {
+  time_stepper: "rk2",
+  cfl_factor: 0.2,
+  final_time: 0.41,
+  #imestep: 0.00025,
+  #timestep_selection_mode: "manual"
+}
+grmhd: {
+  id_type: "shocktube_mhd",
+  # below, the velocities are given in units of c
+  # the magnetohydrodynamical pressures (P and B^2 /2) 
+  # are in the same units (the Gamma-EOS determines P)
+  shocktube_mhd_press_L: 0.1,
+  shocktube_mhd_press_R: 0.1,
+  shocktube_mhd_rho_L: 1.0,
+  shocktube_mhd_rho_R: 1.0,
+  shocktube_mhd_vel_x_L: 0.999,
+  shocktube_mhd_vel_y_L: 0.0,
+  shocktube_mhd_vel_z_L: 0.0,
+  shocktube_mhd_vel_x_R: -0.999,
+  shocktube_mhd_vel_y_R: 0.0,
+  shocktube_mhd_vel_z_R: 0.0,
+  shocktube_mhd_B_x_L: 10.0,
+  shocktube_mhd_B_y_L: 7.0,
+  shocktube_mhd_B_z_L: 7.0,
+  shocktube_mhd_B_x_R: 10.0,
+  shocktube_mhd_B_y_R: -7.0,
+  shocktube_mhd_B_z_R: 7.0,
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+  ye_atmosphere: 0,
+  temp_atmosphere: 0,
+  rho_atmosphere: 1.e-14,
+  eps_maximum: 1.e+05,
+  gamma_th: 1.66666,
+
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [0.],
+    rhos:   [],
+    kappa_0: 0.0
+  }
+}
+
+profiling: {
+  do_gpu_profiling: false
+}
