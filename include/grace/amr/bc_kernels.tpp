@@ -133,8 +133,6 @@ struct sommerfeld_bc_t {
             double const vx = v0 * xi * rinv ; 
             double const vy = v0 * yi * rinv ; 
             double const vz = v0 * zi * rinv ; 
-            
-            
 
             auto var = Kokkos::subview(src, VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), q) ; 
             auto const fd_der_x = [&] ()

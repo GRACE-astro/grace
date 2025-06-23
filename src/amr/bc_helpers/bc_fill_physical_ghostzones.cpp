@@ -236,7 +236,7 @@ void fill_physical_boundaries(
 
     // Conffact 
     apply_sommerfeld_bc(
-        PHI, 0., 1.
+        PHI, 0., v0_h
     ) ;
 
     // Curvature trace 

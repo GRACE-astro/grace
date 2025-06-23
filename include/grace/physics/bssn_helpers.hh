@@ -1,6 +1,6 @@
 /**
  * @file bssn_helpers.hh
- * @author  ()
+ * @author Carlo Musolino
  * @brief 
  * @date 2024-09-03
  * 
