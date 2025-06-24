@@ -425,13 +425,6 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
 
     /* 1 + log slicing condition */
     res[ALPL] = alpdx*betaX + alpdy*betaY + alpdz*betaZ - 2*alp*K;
-    
-    /* harmonic slicing condition, for Gowdy backward */
-    //res[ALPL] = alpdx*betaX + alpdy*betaY + alpdz*betaZ - alp*alp*K;
-    
-    /* slicing condition for Gowdy forward */
-    //res[ALPL] = alpdx*betaX + alpdy*betaY + alpdz*betaZ + std::pow( res[GTXXL+5]/res[PHIL], 1.0/2.0 ) ;
-    //res[ALPL] = std::pow( gtZZ/exp(4.*phi), 1.0/2.0 ) ;
 
     /* Gamma driver */
     double const BX = state(VEC(i,j,k),BX_+0,q);

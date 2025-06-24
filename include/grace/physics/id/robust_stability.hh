@@ -93,6 +93,7 @@ struct robust_stability_test_id_t {
         id.betay = eps() ; 
         id.betaz = eps() ; 
         
+
         id.gxx = 1. + eps() ;
         id.gyy = 1. + eps() ;
         id.gzz = 1. + eps() ; 
@@ -106,6 +107,7 @@ struct robust_stability_test_id_t {
         id.kxy = eps() ; 
         id.kxz = eps() ; 
         id.kyz = eps() ;
+
         id.kyy = eps() ;  
         id.kzz = eps() ;
 

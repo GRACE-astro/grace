@@ -351,7 +351,7 @@ struct bssn_system_t
         double const u0 =  W/metric.alp() ; 
         std::array<double,3> uD3 = metric.lower({prims[VXL] + metric.beta(0), prims[VYL] + metric.beta(1), prims[VZL] + metric.beta(2)}) ; 
         // u_t = W ( beta^i v_i - alp ) with v == eulerian velocity! 
-        double uD0 = u0 * metric.contract_vec_covec({metric.beta(0),metric.beta(1),metric.beta(2)}, uD3) - metric.alp() * W ; //#@#@ 
+        uD0 = u0 * metric.contract_vec_covec({metric.beta(0),metric.beta(1),metric.beta(2)}, uD3) - metric.alp() * W ; 
         std::array<double,4> uD { uD0, uD3[0]*u0, uD3[1]*u0, uD3[2]*u0 } ; 
         auto gdd = metric.gmunu()     ; 
         int idx4[4][4] = {
