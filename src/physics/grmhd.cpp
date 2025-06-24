@@ -54,7 +54,7 @@
 #include <grace/physics/id/boosted_loop_advection.hh>
 #include <grace/physics/id/circularly_polarized_alfven_wave.hh>
 #include <grace/physics/id/magnetic_rotor.hh>
-// #include <grace/physics/id/bondi_accretion.hh>
+#include <grace/physics/id/bondi_accretion.hh>
 #endif
 #endif
 
@@ -491,7 +491,7 @@ void set_grmhd_initial_data() {
         auto const rmax       = get_param<double>("grmhd","Bondi_accretion_rmax") ;
         auto const bmag       = get_param<double>("grmhd","Bondi_accretion_bmag") ;
         auto const beta_sonic = get_param<double>("grmhd","Bondi_accretion_beta_sonic") ;
-        // set_grmhd_initial_data_impl<eos_t,bondi_accretion_id_t<eos_t>>(M,mdot,r_sonic,gamma,rmin,rmax,bmag,beta_sonic) ;
+         set_grmhd_initial_data_impl<eos_t,bondi_accretion_id_t<eos_t>>(M,mdot,r_sonic,gamma,rmin,rmax,bmag,beta_sonic) ;
         Kokkos::fence() ; 
         GRACE_TRACE("Done with Bondi accretion MHD ID.") ;  
     }
