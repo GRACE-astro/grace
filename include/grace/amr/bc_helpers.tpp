@@ -123,6 +123,25 @@ void apply_phys_bc(
         lmax = n + 2 * ngz;
         idir = +1;
       }
+     //test:
+    //  if (face % 2 == 0) {  // negative side
+    //      lmin = ngz - 1;
+    //      lmax = 0;    
+    //      idir = -1;
+    //  } else {  // positive side
+    //      lmin = n + ngz;
+    //      lmax = n + ngz + (ngz - 1);
+    //      idir = +1;
+    //  }
+    //  if (face % 2 == 0) {
+    //    lmin = ngz - 1;
+    //    lmax = ngz - stencil;
+    //    idir = -1;
+    //  } else {
+    //    lmin = n + ngz;
+    //    lmax = n + ngz + stencil -1;
+    //    idir = +1;
+    //  }
     };
 
     compute_bounds(face, ngz, (faceb2 == 0 ? nx : (faceb2 == 1 ? ny : nz)), lmin, lmax, idir);
@@ -132,6 +151,13 @@ void apply_phys_bc(
       int I = (faceb2 == 0) ? ig : i;
       int J = (faceb2 == 1) ? ig : (faceb2 == 0 ? i : j);
       int K = (faceb2 == 2) ? ig : j;
+
+      bool is_edge = false;
+      if (faceb2 != 0 && (I < ngz || I >= nx + ngz)) is_edge = true;
+      if (faceb2 != 1 && (J < ngz || J >= ny + ngz)) is_edge = true;
+      if (faceb2 != 2 && (K < ngz || K >= nz + ngz)) is_edge = true;
+   
+      if (is_edge) continue;
 
       bc_kernel.template apply<decltype(dst)>(
         dst, src, VEC(I, J, K), VEC(dir[0], dir[1], dir[2]), iq);
@@ -154,6 +180,9 @@ void apply_phys_bc(
     int8_t dir[3] = { edge.dir_x, edge.dir_y, edge.dir_z };
     int64_t iq = edge.qid;
 
+   // int dir_sum = abs(dir[0]) + abs(dir[1]) + abs(dir[2]);
+   // if (dir_sum != 2) return; // skip if not exactly edge
+
     // Loop bounds
     int lmin[3], lmax[3], idir[3];
 
@@ -172,6 +201,34 @@ void apply_phys_bc(
         lmax = n + ngz;
         idir = +1;
       }
+    // test:
+      //  if (dir < 0) {
+      //    lmin = ngz - 1;
+      //    lmax = ngz - ngz;  // = 0
+      //    idir = -1;
+      //  } else if (dir > 0) {
+      //    lmin = n + ngz;
+      //    lmax = n + ngz + (ngz - 1);
+      //    idir = +1;
+      //  } else {
+      //    lmin = ngz;
+      //    lmax = n + ngz;
+      //    idir = +1;
+      //  }
+        // test:
+    //  if (dir < 0) {
+    //    lmin = ngz - 1;
+    //    lmax = ngz - 2;
+    //    idir = -1;
+    //  } else if (d > 0) {
+    //    lmin = n + ngz;
+    //    lmax = n + ngz + 1;
+    //    idir = +1;
+    //  } else {
+    //    lmin = ngz;
+    //    lmax = n + ngz - 1;
+    //    idir = +1;
+    //  }
     };
 
     compute_bounds(dir[0], ngz, nx, lmin[0], lmax[0], idir[0]);
@@ -182,6 +239,15 @@ void apply_phys_bc(
     for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0])
     for (int jg = lmin[1]; jg != lmax[1]; jg += idir[1])
     for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2]) {
+
+      //   // Exclude corners (i.e., all directions outside grid)
+      bool i_at_edge = (dir[0] != 0) && (ig < ngz || ig >= nx + ngz);
+      bool j_at_edge = (dir[1] != 0) && (jg < ngz || jg >= ny + ngz);
+      bool k_at_edge = (dir[2] != 0) && (kg < ngz || kg >= nz + ngz);
+           // Count how many directions lie on ghost boundaries
+      bool is_corner = i_at_edge && j_at_edge && k_at_edge;
+      if (is_corner) continue;
+    
       bc_kernel.template apply<decltype(dst)>(
         dst, src, VEC(ig, jg, kg), VEC(dir[0], dir[1], dir[2]), iq);
     }
@@ -197,8 +263,16 @@ void apply_phys_bc(
   KOKKOS_LAMBDA(int const icorner) {
     auto corner = d_corner_info(icorner);
 
-    int8_t dir[GRACE_NSPACEDIM] = { VEC(corner.dir_x, corner.dir_y, corner.dir_z) };
+   // int8_t dir[GRACE_NSPACEDIM] = { VEC(corner.dir_x, corner.dir_y, corner.dir_z) };
+    int8_t dir[GRACE_NSPACEDIM] = { corner.dir_x, corner.dir_y, corner.dir_z };
     int64_t iq = corner.qid;
+
+    //int dir_sum = abs(dir[0]) + abs(dir[1]) + abs(dir[2]);
+    ////if (dir_sum == 3) {
+    ////  GRACE_ASSERT(dir[0] != 0 && dir[1] != 0 && dir[2] != 0, "Invalid corner direction");
+    //// }
+    //if (dir_sum != 3) return; // skip if not full 3D corner
+
 
     int lmin[GRACE_NSPACEDIM], lmax[GRACE_NSPACEDIM], idir[GRACE_NSPACEDIM];
 
@@ -209,8 +283,46 @@ void apply_phys_bc(
         lmin = n + ngz; lmax = n + 2 * ngz; idir = +1;
       } else {
         // This should not happen!
-        printf("Problems!") ; 
+        //GRACE_ASSERT(dir != 0, "Invalid zero direction in corner ghostzone BC");
+        printf("Problems! \n") ; 
       }
+     // test
+    //  if (dir < 0) {
+    //     lmin = ngz - 1;
+    //     lmax = ngz - ngz;  // = 0
+    //     idir = -1;
+    //   } else if (dir > 0) {
+    //     lmin = n + ngz;
+    //     lmax = n + ngz + (ngz - 1);
+    //     idir = +1;
+    //   } else {
+    //     printf("Problems! \n") ; 
+    //   }
+       // test
+   //   if (dir < 0) {
+   //     lmin = ngz - 1;
+   //     lmax = ngz - 1;
+   //     idir = -1;
+   //   } else if (d > 0) {
+   //     lmin = n + ngz;
+   //     lmax = n + ngz;
+   //     idir = +1;
+   //   } else {
+  //          printf("Problems! \n") ; 
+   //     lmin = -1; lmax = -1; idir = 0;
+   //   }
+   //test
+     //  for(int d =0; d<3; d++){
+     //      if (dir[d] == -1) {
+     //          lmin[d] = ngz - stencil;
+     //          lmax[d] = ngz;
+     //      } else if (dir[d] == +1) {
+     //          lmin[d] = n + ngz;
+     //          lmax[d] = n + ngz + stencil;
+     //      } else {
+     //          printf("Problems! \n") ; 
+     //      }
+     //  }
     };
 
     compute_bounds(dir[0], ngz, nx, lmin[0], lmax[0], idir[0]);

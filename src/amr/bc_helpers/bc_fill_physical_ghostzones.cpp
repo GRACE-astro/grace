@@ -68,14 +68,14 @@ void fill_physical_boundaries(
 
     for(int ivar=0; ivar<nvars_cell_center; ++ivar){
         auto bc_type = variables::get_bc_type(ivar, grace::var_staggering_t::CELL_CENTER) ; 
+        auto var = Kokkos::subview( vars
+                          , VEC( Kokkos::ALL() 
+                               , Kokkos::ALL() 
+                               , Kokkos::ALL() )
+                          , ivar 
+                          , Kokkos::ALL() ) ; 
         if( bc_type == "outgoing" )
         {
-            auto var = Kokkos::subview( vars
-                                      , VEC( Kokkos::ALL() 
-                                           , Kokkos::ALL() 
-                                           , Kokkos::ALL() )
-                                      , ivar 
-                                      , Kokkos::ALL() ) ; 
             apply_phys_bc<outgoing_bc_t>(
                   var
                 , var
@@ -88,12 +88,6 @@ void fill_physical_boundaries(
                 , outgoing_bc_t{}
             ) ; 
         } else if ( bc_type == "third_order_lagrange" ) { 
-            auto var = Kokkos::subview( vars
-                                      , VEC( Kokkos::ALL() 
-                                           , Kokkos::ALL() 
-                                           , Kokkos::ALL() )
-                                      , ivar 
-                                      , Kokkos::ALL() ) ; 
             apply_phys_bc<extrap_bc_t<3>>(
                   var
                 , var
@@ -116,14 +110,14 @@ void fill_physical_boundaries(
     int nvars_cell_corner = variables::get_n_evolved_corner_staggered() ; 
     for(int ivar=0; ivar<nvars_cell_corner; ++ivar){
         auto bc_type = variables::get_bc_type(ivar, grace::var_staggering_t::CORNER) ; 
-        if ( bc_type == "outgoing" ) { 
-            auto var = Kokkos::subview( staggered_vars.corner_staggered_fields
-                                      , VEC( Kokkos::ALL() 
-                                           , Kokkos::ALL() 
-                                           , Kokkos::ALL() )
-                                      , ivar 
-                                      , Kokkos::ALL() ) ; 
-            
+        
+        auto var = Kokkos::subview( staggered_vars.corner_staggered_fields
+                                  , VEC( Kokkos::ALL() 
+                                       , Kokkos::ALL() 
+                                       , Kokkos::ALL() )
+                                  , ivar 
+                                  , Kokkos::ALL() ) ; 
+        if ( bc_type == "outgoing" ) {             
             apply_phys_bc<outgoing_bc_t>(
                   var
                 , var
@@ -136,14 +130,13 @@ void fill_physical_boundaries(
                 , outgoing_bc_t{}
             ) ;
         } else if( bc_type == "third_order_lagrange" ) {
-            auto var = Kokkos::subview( staggered_vars.corner_staggered_fields
-                                      , VEC( Kokkos::ALL() 
-                                           , Kokkos::ALL() 
-                                           , Kokkos::ALL() )
-                                      , ivar 
-                                      , Kokkos::ALL() ) ; 
-            apply_phys_bc<extrap_bc_t<3>>(
-                  var
+            //apply_phys_bc<extrap_bc_t<3>>(
+            //apply_phys_bc<extrap_bc_t_fallback<3>>(
+            //apply_phys_bc<avg_bc_t<3>>(
+            //apply_phys_bc<extrap_bc_diagonal_t<3>>(
+            //apply_phys_bc<extrap_bc_hybrid_t<3>>(
+            apply_phys_bc<extrap_bc_Chosen_t>(
+                var
                 , var
                 , nx+1,ny+1,nz+1,ngz 
                 , face_phys_bc
@@ -151,7 +144,12 @@ void fill_physical_boundaries(
                 #ifdef GRACE_3D 
                 , edge_phys_bc
                 #endif 
-                , extrap_bc_t<3>{}
+            //    , extrap_bc_t<3>{}
+            //    , extrap_bc_t_fallback<3>{}
+             //   , avg_bc_t<3>{}
+             //   , extrap_bc_diagonal_t<3>{}
+             //   , extrap_bc_hybrid_t<3>{}
+                , extrap_bc_Chosen_t{}
             ) ; 
         } else if (bc_type == "none" ) {
             /* Nothing to do here */
@@ -159,6 +157,40 @@ void fill_physical_boundaries(
             ERROR("Unrecognized bc type for variable " << ivar << ".\n") ;
         }
     }
+
+
+    // --- test: Edge and corner fixup ---
+    /*
+    #ifdef GRACE_3D
+    for(int ivar=0; ivar<nvars_cell_center; ++ivar){
+        auto bc_type = variables::get_bc_type(ivar, grace::var_staggering_t::CELL_CENTER) ; 
+        if (bc_type == "outgoing" || bc_type == "third_order_lagrange") {
+            auto var = Kokkos::subview(vars, VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()), ivar, Kokkos::ALL());
+          //  apply_phys_bc<edge_fixup_bc_t>(var, var, nx, ny, nz, ngz, face_phys_bc, corner_phys_bc, edge_phys_bc, edge_fixup_bc_t{}) ;
+          //  apply_phys_bc<corner_fixup_bc_t>(var, var, nx, ny, nz, ngz, face_phys_bc, corner_phys_bc, edge_phys_bc, corner_fixup_bc_t{}) ;
+        apply_phys_bc<extrap_bc_t<3>>(var, var, nx, ny, nz, ngz, face_phys_bc, corner_phys_bc, edge_phys_bc, extrap_bc_t<3>{}); //edge_fixup_bc_t{}) ;
+        apply_phys_bc<extrap_bc_t<3>>(var, var, nx, ny, nz, ngz, face_phys_bc, corner_phys_bc, edge_phys_bc, extrap_bc_t<3>{}); //corner_fixup_bc_t{}) ;
+        }
+    }
+    #endif
+
+    #ifdef GRACE_3D
+    for(int ivar=0; ivar < nvars_cell_corner; ++ivar){
+        auto bc_type = variables::get_bc_type(ivar, grace::var_staggering_t::CORNER) ; 
+        if (bc_type == "outgoing" || bc_type == "third_order_lagrange") {
+            auto var = Kokkos::subview(staggered_vars.corner_staggered_fields,
+                                       VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+                                       ivar, Kokkos::ALL());
+    
+            // Second pass specifically to fill edge and corner zones
+            apply_phys_bc<extrap_bc_t<3>>(var, var, nx+1, ny+1, nz+1, ngz,
+                                          face_phys_bc, corner_phys_bc,
+                                          edge_phys_bc, extrap_bc_t<3>{});
+        }
+    }
+    #endif
+    */
+
 
     auto const apply_sommerfeld_bc = [&] (
         int ivar, 
@@ -176,7 +208,12 @@ void fill_physical_boundaries(
                      , Kokkos::ALL() )
                 , ivar 
                 , Kokkos::ALL() ) ; 
-        apply_phys_bc<extrap_bc_t<3>>(
+        //apply_phys_bc<extrap_bc_t<3>>(
+        //apply_phys_bc<extrap_bc_t_fallback<3>>(
+        //apply_phys_bc<avg_bc_t<3>>(
+        //apply_phys_bc<extrap_bc_diagonal_t<3>>(
+        // apply_phys_bc<extrap_bc_hybrid_t<3>>(
+            apply_phys_bc<extrap_bc_Chosen_t>(
                 src_var 
                 , src_var
                 , nx+1,ny+1,nz+1,ngz 
@@ -185,10 +222,20 @@ void fill_physical_boundaries(
                 #ifdef GRACE_3D 
                 , edge_phys_bc
                 #endif
-                , extrap_bc_t<3>{}
+               // , extrap_bc_t<3>{}
+               // , extrap_bc_t_fallback<3>{}
+              //  , avg_bc_t<3>{}
+               // , extrap_bc_diagonal_t<3>{}
+               // , extrap_bc_hybrid_t<3>{}
+                , extrap_bc_Chosen_t{}
             ) ; 
 
-        apply_phys_bc<extrap_bc_t<3>>(
+        //apply_phys_bc<extrap_bc_t<3>>(
+        //apply_phys_bc<extrap_bc_t_fallback<3>>(
+        //apply_phys_bc<avg_bc_t<3>>(
+        //apply_phys_bc<extrap_bc_diagonal_t<3>>(
+         // apply_phys_bc<extrap_bc_hybrid_t<3>>(
+            apply_phys_bc<extrap_bc_Chosen_t>(
                 dst_var 
                 , dst_var
                 , nx+1,ny+1,nz+1,ngz 
@@ -197,7 +244,12 @@ void fill_physical_boundaries(
                 #ifdef GRACE_3D 
                 , edge_phys_bc
                 #endif
-                , extrap_bc_t<3>{}
+             //   , extrap_bc_t<3>{}
+              //  , extrap_bc_t_fallback<3>{}
+              //  , avg_bc_t<3>{}
+              //  , extrap_bc_diagonal_t<3>{}
+               // , extrap_bc_hybrid_t<3>{}
+                , extrap_bc_Chosen_t{}
             ) ; 
             
         apply_phys_bc<sommerfeld_bc_t>(

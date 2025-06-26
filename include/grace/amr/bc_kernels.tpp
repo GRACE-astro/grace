@@ -45,6 +45,58 @@ struct extrap_bc_t
       ) const ; 
 } ; 
 
+template< size_t order >
+struct extrap_bc_t_fallback 
+{
+      template< typename ViewT >
+      void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      apply (
+            ViewT dst, ViewT src,
+            VEC( int i, int j, int k),
+            VEC( int8_t dx, int8_t dy, int8_t dz), 
+            int64_t q 
+      ) const ; 
+} ; 
+
+template< size_t order >
+struct extrap_bc_diagonal_t
+{
+      template< typename ViewT >
+      void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      apply (
+            ViewT dst, ViewT src,
+            VEC( int i, int j, int k),
+            VEC( int8_t dx, int8_t dy, int8_t dz), 
+            int64_t q 
+      ) const ; 
+} ; 
+
+template< size_t order >
+struct avg_bc_t 
+{
+      template< typename ViewT >
+      void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      apply (
+            ViewT dst, ViewT src,
+            VEC( int i, int j, int k),
+            VEC( int8_t dx, int8_t dy, int8_t dz), 
+            int64_t q 
+      ) const ; 
+} ;
+
+template< size_t order >
+struct extrap_bc_hybrid_t
+{
+      template< typename ViewT >
+      void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      apply (
+            ViewT dst, ViewT src,
+            VEC( int i, int j, int k),
+            VEC( int8_t dx, int8_t dy, int8_t dz), 
+            int64_t q 
+      ) const ; 
+} ; 
+// --------------------------
 template<>
 struct extrap_bc_t<0>
 {
@@ -73,18 +125,168 @@ struct extrap_bc_t<3>
             int64_t q 
       ) const
       {
-            dst(VEC(i,j,k), q) =( 4*src(VEC(i-dx,j-dy,k-dz),q) 
-                              - 6*src(VEC(i-2*dx,j-2*dy,k-2*dz),q) 
-                              + 4*src(VEC(i-3*dx,j-3*dy,k-3*dz),q) 
-                              -   src(VEC(i-4*dx,j-4*dy,k-4*dz),q) ); 
-      }; 
+            dst(VEC(i,j,k), q) = (
+                4 * src(VEC(i-dx,j-dy,k-dz),q) 
+              - 6 * src(VEC(i-2*dx,j-2*dy,k-2*dz),q) 
+              + 4 * src(VEC(i-3*dx,j-3*dy,k-3*dz),q) 
+              -     src(VEC(i-4*dx,j-4*dy,k-4*dz),q)
+            );
+      }
 } ;
+
+template<>
+struct extrap_bc_t_fallback<3>
+{
+      template< typename ViewT >
+      void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      apply (
+            ViewT dst, ViewT src,
+            VEC( int i, int j, int k),
+            VEC( int8_t dx, int8_t dy, int8_t dz), 
+            int64_t q 
+      ) const
+      {
+        int const dir_sum = abs(dx) + abs(dy) + abs(dz);
+
+        if (dir_sum == 1) {
+            // Pure face direction: safe to use full 3rd order stencil
+            dst(VEC(i,j,k), q) = (
+                4 * src(VEC(i-dx,j-dy,k-dz),q) 
+              - 6 * src(VEC(i-2*dx,j-2*dy,k-2*dz),q) 
+              + 4 * src(VEC(i-3*dx,j-3*dy,k-3*dz),q) 
+              -     src(VEC(i-4*dx,j-4*dy,k-4*dz),q)
+            );
+        } else if (dir_sum == 2) {
+            // Edge: use 1st order extrapolation to avoid diagonally invalid paths
+            dst(VEC(i,j,k), q) = src(VEC(i-dx,j-dy,k-dz), q);
+        } else if (dir_sum == 3) {
+            // Corner: fallback to simple copy
+            dst(VEC(i,j,k), q) = src(VEC(i-dx,j-dy,k-dz), q);
+        } else {
+            // Should not happen, but fallback safely
+            dst(VEC(i,j,k), q) = src(VEC(i,j,k), q);
+        }
+    }
+} ;
+
+
+template<>
+struct extrap_bc_diagonal_t<3>{
+
+    template< typename ViewT >
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    apply (
+        ViewT dst,
+        ViewT src,
+        VEC( int i, int j, int k),
+        VEC( int8_t dx, int8_t dy, int8_t dz), 
+        int64_t q
+    ) const {
+
+        // Compute shifted stencil positions
+        int i1 = i - dx,     j1 = j - dy,     k1 = k - dz;
+        int i2 = i - 2*dx,   j2 = j - 2*dy,   k2 = k - 2*dz;
+        int i3 = i - 3*dx,   j3 = j - 3*dy,   k3 = k - 3*dz;
+        int i4 = i - 4*dx,   j4 = j - 4*dy,   k4 = k - 4*dz;
+
+        // Perform 3rd order extrapolation along the multi-axis direction vector (dx, dy, dz)
+        dst(VEC(i,j,k), q) = (
+              4.0 * src(VEC(i1,j1,k1), q)
+            - 6.0 * src(VEC(i2,j2,k2), q)
+            + 4.0 * src(VEC(i3,j3,k3), q)
+            -       src(VEC(i4,j4,k4), q));
+    }
+};
+
+template<>
+struct avg_bc_t<3>{
+
+    template< typename ViewT >
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    apply (
+        ViewT dst,
+        ViewT src,
+        VEC( int i, int j, int k),
+        VEC( int8_t dx, int8_t dy, int8_t dz), 
+        int64_t q
+    ) const {
+        int count = 0;
+        double value = 0.0;
+
+        // Accumulate neighboring directions
+        if (dx != 0) {
+            value += src(VEC(i - dx, j, k), q);
+            count++;
+        }
+        if (dy != 0) {
+            value += src(VEC(i, j - dy, k), q);
+            count++;
+        }
+        if (dz != 0) {
+            value += src(VEC(i, j, k - dz), q);
+            count++;
+        }
+
+        // Average
+        if (count > 0) {
+            dst(VEC(i,j,k), q) = value / count;
+        } else {
+            // Pure face: fallback to copy
+            dst(VEC(i,j,k), q) = src(VEC(i - dx, j - dy, k - dz), q);
+        }
+    }
+} ;
+
+template<>
+struct extrap_bc_hybrid_t<3>
+{
+    template< typename ViewT >
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    apply (
+        ViewT dst,
+        ViewT src,
+        VEC( int i, int j, int k),
+        VEC( int8_t dx, int8_t dy, int8_t dz),
+        int64_t q
+    ) const
+    {
+        int dir_sum = abs(dx) + abs(dy) + abs(dz);
+
+        if (dir_sum == 1) {
+            // Face: full 3rd-order diagonal extrapolation is fine
+            dst(VEC(i,j,k), q) = (
+                4.0 * src(VEC(i - dx, j - dy, k - dz), q)
+              - 6.0 * src(VEC(i - 2*dx, j - 2*dy, k - 2*dz), q)
+              + 4.0 * src(VEC(i - 3*dx, j - 3*dy, k - 3*dz), q)
+              -       src(VEC(i - 4*dx, j - 4*dy, k - 4*dz), q)
+            );
+        } else if (dir_sum == 2) {
+            // Edge: fallback to 1st-order diagonal
+            dst(VEC(i,j,k), q) = src(VEC(i - dx, j - dy, k - dz), q);
+        } else if (dir_sum == 3) {
+            // Corner: average face neighbors
+            int count = 0;
+            double val = 0.0;
+
+            if (dx != 0) { val += src(VEC(i - dx, j, k), q); count++; }
+            if (dy != 0) { val += src(VEC(i, j - dy, k), q); count++; }
+            if (dz != 0) { val += src(VEC(i, j, k - dz), q); count++; }
+
+            dst(VEC(i,j,k), q) = (count > 0) ? val / count : src(VEC(i,j,k), q);
+        } else {
+            // Safety net
+            dst(VEC(i,j,k), q) = src(VEC(i,j,k), q);
+        }
+    }
+};
 
 /**
  * @brief Apply outgoing boundary conditions.
  * \ingroup amr
  */
 using outgoing_bc_t = extrap_bc_t<0> ; 
+
+using extrap_bc_Chosen_t = avg_bc_t<3>; //extrap_bc_t<3> ; 
 
 
 struct sommerfeld_bc_t {
@@ -112,6 +314,7 @@ struct sommerfeld_bc_t {
          ngz(_ngz)
       {}
 
+ 
       template< typename ViewT >
       void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
       apply (
@@ -129,6 +332,7 @@ struct sommerfeld_bc_t {
 
             double const ri = Kokkos::sqrt(xi*xi + yi*yi + zi*zi) ; 
             double const rinv = 1./ri ; 
+            //double rinv = (ri > 1e-12) ? 1. / ri : 0.0;
 
             double const vx = v0 * xi * rinv ; 
             double const vy = v0 * yi * rinv ; 
@@ -198,7 +402,7 @@ struct sommerfeld_bc_t {
             ) ; 
 
       }
-} ; 
+};
 
 }}
 
