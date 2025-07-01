@@ -193,8 +193,6 @@ void advance_substep( double const t, double const dt, double const dtfact
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,old_state,aux) ; 
-    // #define RECON slope_limited_reconstructor_t<minmod>
-    // #define RECON slope_limited_reconstructor_t<MCbeta> // try with this one 
     #define RECON weno_reconstructor_t<3>
     #define GET_X_FLUX \
     grmhd_eq_system.template compute_x_flux<hllc_riemann_solver_t<0>,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 

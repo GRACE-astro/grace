@@ -115,6 +115,9 @@ struct hllc_riemann_solver_t {
      * reason some of the terms in this function are different from what appears in 
      * https://arxiv.org/abs/2205.04487 which is the main source followed in this 
      * implementation.
+     * 
+     * For the HLLC Implementation with magnetic fields, I (Keneth Miler) followed the
+     * Paper of Mignone https://arxiv.org/pdf/2111.09369. 
      */
     std::pair<grace::grmhd_cons_array_t, grace::grmhd_cons_array_t> 
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -277,7 +280,7 @@ struct hllc_riemann_solver_t {
 
         // Handle supersonic case
         if (lambdaC <= -cmin || lambdaC >= cmax || v2 >= 1.0) {
-            Kokkos::printf("HLLC solver: contact wave speed %e is outside the range [-cmin, cmax] or v^2 >= 1.0\n", lambdaC);
+            //Kokkos::printf("HLLC solver: contact wave speed %e is outside the range [-cmin, cmax] or v^2 >= 1.0\n", lambdaC); TODO write a useful logging message
             fHLLC = fHLLE;
             uHLLC = uHLLE;
         }
