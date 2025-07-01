@@ -1,7 +1,3 @@
-# Parameter file for a generic shock tube with B^n = B^x = 0 (zero normal component)
-# https://arxiv.org/pdf/gr-qc/0507102 (Giacomazzo & Rezzolla 2006)
-# Table 1: Generic Shock Tube
-
 name: "grace"
 amr: {
   npoints_block_x: 8,
