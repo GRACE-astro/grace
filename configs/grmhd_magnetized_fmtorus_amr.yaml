@@ -4,27 +4,33 @@ amr: {
   npoints_block_x: 16,
   npoints_block_y: 16,
   npoints_block_z: 16,
-  xmin: -50.0,
-  xmax:  50.0,
-  ymin: -50.0,
-  ymax:  50.0,
-  zmin: -50.0,
-  zmax:  50.0,
+  xmin: -128.0,
+  xmax:  128.0,
+  ymin: -128.0,
+  ymax:  128.0,
+  zmin: -128.0,
+  zmax:  128.0,
   n_ghostzones: 2,
-  initial_refinement_level: 3,
-  refinement_criterion_CTORE: 1e-2,
-  refinement_criterion_CTODE: 1e-4,
+  initial_refinement_level: 0,
+  refinement_criterion_CTORE: 1e-1,
+  refinement_criterion_CTODE: 1e-5,
   refinement_criterion_var  : "rho",
   refinement_criterion_var_is_aux: true,
   refinement_criterion: "simple_threshold",
+  # refinement_criterion_CTORE: 0.5,
+  # refinement_criterion_CTODE: 0.75,
+  # refinement_criterion_var  : "alp",
+  # refinement_criterion_var_is_aux: false,
+  # refinement_criterion: "simple_threshold",
   max_refinement_level: 5,
-  postinitial_regrid_depth: 2,
+  postinitial_regrid_depth: 3,
   regrid_every: -1,
   #regrid_at_postinitial: true # FIX ME: regrid at postinitial does not work 
                                # manifests either at the control-flow points:
                                # C2P problems: 0-setting of conservs at some points in the grid?
                                # timestep 
-  regrid_at_postinitial: false
+  regrid_at_postinitial: true,
+  reset_id_after_regrid : true # should we do it?
 }
 IO: {
   # Bug/Feature: 
@@ -32,7 +38,7 @@ IO: {
   volume_output_cell_variables: ["eps","rho","press","alp", "vel[0]",
                               "B[0]", "phi_glm", "divB", "g[0][0]"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 10,
+  volume_output_every: 1,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
@@ -77,7 +83,9 @@ grmhd: {
   FMTorus_press_min: 1.e-10,
   FMTorus_lapse_min: 0.1 , # disable
   FMTorus_r_rin: 6.0, # inner radius of the disc
+  # FMTorus_r_rin: 6.0, # inner radius of the disc
   FMTorus_r_at_max_density: 12.0, # Radius at which disk reaches max density in equatorial plane
+  # FMTorus_r_at_max_density: 6.0, # Radius at which disk reaches max density in equatorial plane
   FMTorus_gamma: 1.33333333,
   FMTorus_kappa: 4.249572342033184e-03, #0.017976716690519586, # has to match the one in the EOS setup
   set_B_from_Avec : true,

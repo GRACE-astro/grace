@@ -42,6 +42,7 @@
 #include <grace/utils/device.h>
 
 #include <grace/utils/grace_utils.hh>
+#include <grace/utils/metric_utils.hh>
 #include <grace/utils/runge_kutta.hh>
 #include <grace/data_structures/variable_indices.hh>
 #include <grace/data_structures/variables.hh>
@@ -115,11 +116,12 @@ namespace grace {
                 GRACE_INFO("Using input parameters of\n  \
                         a = {}\n,  \
                         M = {},\n \
+                        lapse_min = {},\n \
                         r_in = {},\n \
                         r_at_max_density ={},\n \
                         kappa = {}\n \
                         gamma = {}", \
-                        a,M,r_in,r_at_max_density,kappa,gamma);
+                        a,M,lapse_min,r_in,r_at_max_density,kappa,gamma);
    
                 // First compute maximum pressure and density (rho_max and P_max will be filled as members)
                 {
@@ -170,7 +172,8 @@ namespace grace {
                     math::int_pow<2>(x),
                     + math::int_pow<2>(y),
                     + math::int_pow<2>(z)
-                )) ; 
+                ) +1.0e-10) ; 
+
 
                 // at this radius.
                 auto sol_metric = get_KS_metric(x,y,z,M,a) ;
@@ -199,6 +202,12 @@ namespace grace {
                 id.kyz = sol_metric[KS_KYZ];
                 id.kzz = sol_metric[KS_KZZ];
 
+                // grace::metric_array_t metric{{id.gxx,id.gxy,id.gxz,id.gyy,id.gyz,id.gzz},
+                //                              {id.betax,id.betay,id.betaz},
+                //                               id.alp };
+                // const double sqrtdetgamma = metric.sqrtg();
+                // if(sqrtdetgamma <=0 ) printf("Metric not positive-definite at (x,y,z)=(%1.8f,%1.8f,%1.8f) \n", x,y,z);
+                // if(id.alp <=0 ) printf("Alpha non-positive at (x,y,z)=(%1.8f,%1.8f,%1.8f) \n", x,y,z);
                 //double const hm1 = get_hm1(x,y,z,M,a,r_at_max_density,r_in,gamma,kappa);
 
                 double hm1;
@@ -214,9 +223,12 @@ namespace grace {
                             id.press = kappa*pow(id.rho, gamma);
                             // P = (\Gamma - 1) rho epsilon
                             double eps = id.press / (id.rho * (gamma - 1.0));
+                            double ye_atm  = eos.ye_atmosphere()  ; 
+                            id.ye = ye_atm;
                             // id.ye    = eos.ye_beta_eq__press_cold(id.press,err) ;
                             // Get rho and eps from press  ? is this needed?
-                            // id.rho   = eos.rho__press_cold_ye(id.press, id.ye, err) ; 
+                            // id.rho   = eos.rho__press_cold_ye(id.press, id.ye, err) 
+                            id.rho   = eos.rho__press_cold_ye(id.press, id.ye, err) ; 
                             id.vx=sol_vel[0];
                             id.vy=sol_vel[1];
                             id.vz=sol_vel[2];
@@ -248,28 +260,28 @@ namespace grace {
                     id.rho   = 1e-5 * pow(r + 1e-100,-3.0/2.0);
                     id.press = kappa*pow(id.rho, gamma);
                     double eps = id.press / ((id.rho + 1e-300) * (gamma - 1.0));
-                    //w_lorentz[idx] = 1.0;
                     id.vx = 0.0;
                     id.vy = 0.0;
                     id.vz = 0.0;
+                    double ye_atm  = eos.ye_atmosphere()  ; 
+                    id.ye = ye_atm;
+                   // double rho_atm = _eos.rho_atmosphere() ;
                 }
-                    // extra checks?
-                    // /* Check if we are inside the star */
-                    // double ye_atm  = _eos.ye_atmosphere()  ; 
-                    // double rho_atm = _eos.rho_atmosphere() ;
-                    
-                    // if ( sol[1] > 1.001 * _press_atm ) {
-                    //     id.press = sol[1] ; 
-                    //     id.ye    = _eos.ye_beta_eq__press_cold(sol[1],err) ;
-                    //     // Get rho and eps from press 
-                    //     double eps ; 
-                    //     id.rho   = _eos.rho__press_cold_ye(sol[1], id.ye, err) ; 
-                    // } else {
-                    //     id.rho   = rho_atm   ;
-                    //     id.ye    = ye_atm    ;
-                    //     id.press = _press_atm ; 
-                    // }
-                    // id.vx = 0 ; id.vy = 0; id.vz = 0;
+                
+                
+                // extra checks - if the atmosphere anywhere is below what the EOS / our limits support
+                double rho_atm = eos.rho_atmosphere() ;
+
+                if(id.rho < rho_atm){
+                    id.rho = rho_atm;
+                    id.press = kappa*pow(id.rho, gamma);
+                    double ye_atm  = eos.ye_atmosphere()  ; 
+                    id.ye = ye_atm;
+                    id.vx=0;
+                    id.vy=0;
+                    id.vz=0;
+                }
+
 
                 // finally, set the vector potential (for now at cell centres)
                 // the conversion to the B field cell-centred values happens outside of the loop
@@ -321,8 +333,6 @@ namespace grace {
                     id.phi_em = 0.0;
                 }
 
-                //GRACE_INFO("will return id.rho: ", id.rho);
-                // printf("id.rho %f \n", id.rho);
                 return std::move(id) ; 
             }
 
