@@ -143,8 +143,8 @@ struct boosted_loop_advection_mhd_id_t {
         //double const phi = Kokkos::atan2(y, x);
 
 
-        id.rho = _rho;
-        id.press = _press;
+        //id.rho = _rho;
+        //id.press = _press;
         // in paper it is p/2
         //id.rho = _press/2.0; 
         // beta0 = B^2(0)/2p
@@ -233,7 +233,12 @@ struct boosted_loop_advection_mhd_id_t {
           Bphi = 0.0;
           Bz = _B0 *Kokkos::sqrt(math::int_pow<2>(bessel_J0(alphat*rprime)) + Cconst);
         }
- 
+
+        double Bphi0 = bessel_J1(0);
+        double Bz0 = Kokkos::sqrt(math::int_pow<2>(bessel_J0(0)) + Cconst);
+        double B0 = Kokkos::sqrt(Bphi0*Bphi0+Bz0*Bz0);
+        id.press = B0*B0/2.0/_beta0;
+        id.rho = id.press/2.0;
         // ------------------------------
         //transform Bphi and Bz to Bx,y,z
         // cylinder to cartesian

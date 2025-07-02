@@ -1,0 +1,91 @@
+# magnetized FM torus 
+name: "grace"
+amr: {
+  npoints_block_x: 100,
+  npoints_block_y: 50,
+  npoints_block_z: 50,
+  xmin:  0.0,
+  xmax:  61.4,
+  ymin:  0.0,
+  ymax:  61.4,
+  zmin:  0.0,
+  zmax:  61.4,
+  n_ghostzones: 2,
+  initial_refinement_level: 2,
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_CTORE: 2.,
+  refinement_criterion_CTODE: 1.,
+  refinement_criterion_var: "U",
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+IO: {
+  # Bug/Feature: 
+  # vel[1]/vel[2] to be specifiable in the future  
+  volume_output_cell_variables: ["eps","rho","press","alp", "vel[0]",
+                              "B[0]", "phi_glm"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: 10,
+  plane_surface_output_cell_variables: [],
+  plane_surface_output_every: -1,
+  sphere_surface_output_every: -1,
+  info_output_every: 10,
+
+  info_output_max_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
+  info_output_min_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
+  scalar_output_every: 10,
+  scalar_output_minmax: ["eps","rho","press",
+                         "vel[0]", "vel[1]", "vel[2]", 
+                         "B[0]", "B[1]", "B[2]",
+                         "phi_glm"],
+  scalar_output_norm2: [],
+  scalar_output_integral: [],
+  output_use_hdf5: true, 
+  hdf5_compression_level: 6,
+  hdf5_chunk_size: 8192
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  flush_level: "trace"
+}
+evolution: {
+  time_stepper: "rk2",
+  cfl_factor: 0.2,
+  final_time: 10.0,
+  timestep: 0.002, #0.00025,
+  timestep_selection_mode: "manual"
+}
+grmhd: {
+  id_type: "bondi_accretion",
+  Bondi_accretion_M: 1.0,               # Black hole mass (ETK uses M=1 by default)
+  Bondi_accretion_M_dot: 3.e-3, #1.0e-4,         # Mass accretion rate (can be chosen based on resolution & stability)
+  Bondi_accretion_r_sonic: 8.1, #8.0,         # Sonic radius (default ETK value if cs^2 = 1/3 and gamma = 4/3)
+  Bondi_accretion_gamma: 1.666666666666667, #1.3333333,           # Adiabatic index (choose 4/3 or 5/3; ETK often uses 4/3 for relativistic gas)
+  Bondi_accretion_rmin: 0.1, #2.2,            # Inner bound (needs to be > 2M to avoid horizon; ETK uses ~2–3)
+  Bondi_accretion_rmax: 100, #40.0,           # Outer bound (domain boundary, where Bondi inflow is applied)
+  Bondi_accretion_bmag: 0.01, #0.0,            # magnetic fields
+  Bondi_accretion_beta_sonic: 0.0       # Plasma beta at sonic point  ## not needed
+}
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+  ye_atmosphere: 0,
+  temp_atmosphere: 0,
+  rho_atmosphere: 1.e-14,
+  eps_maximum: 1.e+05,
+  gamma_th: 0.0,
+
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [1.666666666666667],
+    rhos:   [],
+    kappa_0: 85.6
+  }
+}
+
+profiling: {
+  do_gpu_profiling: false
+}
