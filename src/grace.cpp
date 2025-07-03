@@ -77,6 +77,7 @@ int main(int argc, char* argv[])
             const bool set_Bfield_from_Avec = get_param<bool>("grmhd","set_B_from_Avec") ;
             if(set_Bfield_from_Avec){ // we need it since we cannot set B at a desired order in all the ghost-zones otherwise 
                 grace::amr::apply_boundary_conditions() ;  
+                grace::compute_auxiliary_quantities() ;
             }
     #endif 
     #endif 
@@ -89,6 +90,7 @@ int main(int argc, char* argv[])
             GRACE_INFO("Regrid level {}.", ilev+1) ;
             grace::amr::regrid() ;  
             grace::amr::apply_boundary_conditions() ; 
+            grace::compute_auxiliary_quantities() ;
             if (reset_id_after_regrid) {
                 grace::set_initial_data() ; 
             }
