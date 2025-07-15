@@ -39,6 +39,10 @@
 #include <cuda_runtime.h>
 #elif defined(__HIPCC__)
 #include <hip/hip_runtime.h>
+#elif defined(__SYCL_RT__)
+#include <sycl/sycl.hpp>
+#elif defined(GRACE_ENABLE_SYCL)
+#include <sycl/sycl.hpp>
 #endif
 
 
@@ -228,6 +232,8 @@ floor_int(T const& val)
     return static_cast<int>(floor(val));
   #elif defined(__HIP_DEVICE_COMPILE__)
     return static_cast<int>(floor(val));
+  #elif defined(__SYCL_DEVICE_ONLY__ )
+    return static_cast<int>(sycl::floor(val));
   #else
     return static_cast<int>(std::floor(val));
   #endif

@@ -5,6 +5,13 @@ if("${CMAKE_CXX_COMPILER}" MATCHES "hipcc")
     string(REPLACE "-fno-gpu-rdc" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 endif()
 
+if ("${CMAKE_CXX_COMPILER}" MATCHES "(mpiicpx|dpcpp)")
+  message(STATUS "Compiling with ${CMAKE_CXX_COMPILER} (SYCL backend)")
+  # should we add -fsycl-targets=spir64_gen ? it's the default I think
+  add_compile_options(-fsycl -fsycl-rdc -fsycl-unnamed-lambda) # should we do the unnamed lambdas?
+  add_link_options(-fsycl -fsycl-link) 
+  string(REPLACE "-fno-sycl-rdc" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     message("Using Intel compiler.")

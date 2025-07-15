@@ -31,14 +31,22 @@
 #ifndef GRACE_UTILS_DEVICE_H
 #define GRACE_UTILS_DEVICE_H
 
-#if defined(GRACE_ENABLE_CUDA) or defined (GRACE_ENABLE_HIP)
+#if defined(GRACE_ENABLE_CUDA) or defined (GRACE_ENABLE_HIP) //or defined(GRACE_ENABLE_SYCL)
 #define GRACE_DEVICE __device__ 
 #define GRACE_HOST   __host__ 
 #define GRACE_HOST_DEVICE __host__ __device__
 #ifndef GRACE_ALLOW_DEVICE_CONDITIONALS
 #define DEVICE_CONDITIONAL(cond,a,b) ((static_cast<bool>(cond)) * a + (1-static_cast<bool>(cond)) * b) 
-#else 
-#define DEVICE_CONDITIONAL(cond,a,b) ((cond) ? a : b)
+#elif defined(GRACE_ENABLE_SYCL)
+  // SYCL does NOT support __host__ or __device__, so define empty
+  #define GRACE_DEVICE
+  #define GRACE_HOST
+  #define GRACE_HOST_DEVICE
+  #ifndef GRACE_ALLOW_DEVICE_CONDITIONALS
+  #define DEVICE_CONDITIONAL(cond,a,b) ((static_cast<bool>(cond)) * a + (1-static_cast<bool>(cond)) * b) 
+  #endif 
+#else
+  #define DEVICE_CONDITIONAL(cond,a,b) ((cond) ? a : b)
 #endif
 #else 
 #define GRACE_DEVICE 
