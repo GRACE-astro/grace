@@ -40,6 +40,12 @@
 #include <array>
 #include <unordered_map> 
 
+// #if defined(GRACE_ENABLE_SYCL)
+// #include <sycl/sycl.hpp>
+// #include <grace/data_structures/device_globals.hh>
+// using namespace sycl::ext::oneapi::experimental;
+// #endif 
+
 namespace grace { namespace variables { 
 //*****************************************************************************************************
 /**
@@ -65,15 +71,16 @@ enum grace_variable_types {
 /**
 * @brief Register a variable within GRACE.
 * \ingroup variables
+* @param idx             Global index of the variable. 
 * @param name            Name of the variable.
 * @param staggered       Staggering of variable in each direction.
 * @param need_ghostzones Whether the variable needs extra ghostzone storage.
 * @param is_evolved      Whether the variable is evolved.
 * @param need_fluxes     Whether the variables needs fluxes. 
 * @param is_vector       True if the variable is a component of a vector.
-* @return int            Index of the variable in respective state array.
 */
-static int register_variable( std::string const& name
+static void register_variable(const int& idx
+                            , std::string const& name
                             , std::array<bool,GRACE_NSPACEDIM> staggered  
                             , bool need_ghostzones 
                             , bool is_evolved 
@@ -87,24 +94,28 @@ static int register_variable( std::string const& name
 //*****************************************************************************************************
 namespace detail {
 
-static int register_scalar( std::string const& name
+static void register_scalar(const int& idx
+                          , std::string const& name
                           , bool is_evolved 
                           , bool need_fluxes 
                           , std::string const& bc_type ) ;
  
-static int register_staggered_variable( std::string const& name
+static void register_staggered_variable(const int& idx
+                                      , std::string const& name
                                       , bool is_evolved 
                                       , bool need_fluxes 
                                       , std::string const& bc_type 
                                       , std::array<bool,GRACE_NSPACEDIM> const& staggering ) ;
 
-static int register_vector( std::string const& name
+static void register_vector(const int& idx
+                          , std::string const& name
                           , bool is_evolved 
                           , bool need_fluxes
                           , int num_comp
                           , std::string const & bc_type ) ; 
 
-static int register_tensor( std::string const& name
+static void register_tensor(const int& idx
+                          , std::string const& name
                           , bool is_evolved 
                           , bool need_fluxes
                           , int num_comp
@@ -288,9 +299,20 @@ VARIABLE_LIST_SCALAR_ADV
 DECLARE_VARIABLE_INDICES
 #undef DECLARE_VAR_INDEX_IMPL
 
+
+
+#if defined(GRACE_ENABLE_SYCL)
+// #define DECLARE_VAR_INDEX_IMPL(var) extern device_global<int> var##_ ;
+#define DECLARE_VAR_INDEX_IMPL(var) extern custom_device_global<int> var##_ ;
+#else
 #define  DECLARE_VAR_INDEX_IMPL(var) extern GRACE_DEVICE int var##_;
+#endif 
 DECLARE_VARIABLE_INDICES
 #undef DECLARE_VAR_INDEX_IMPL
+
+// #define  DECLARE_VAR_INDEX_IMPL(var) extern GRACE_DEVICE int var##_;
+// DECLARE_VARIABLE_INDICES
+// #undef DECLARE_VAR_INDEX_IMPL
 
 #define DECLARE_VAR_INDEX_IMPL(name) 
 

@@ -41,7 +41,8 @@
  * @param is_hrsc Is it evolved with FV scheme?
 */
 #define REGISTER_EVOLVED_SCALAR(idx,name,bc, is_hrsc) \
-idx = register_variable( name \
+register_variable(idx   \
+                        , name \
                         , {VEC(false,false,false)} \
                         , true \
                         , true \
@@ -57,7 +58,8 @@ idx = register_variable( name \
  * @param is_hrsc Is it evolved with FV scheme?
 */
 #define REGISTER_EVOLVED_CORNER_SCALAR(idx,name,bc, is_hrsc) \
-idx = register_variable( name \
+register_variable(idx \
+                        , name \
                         , {VEC(true,true,true)} \
                         , true \
                         , true \
@@ -74,7 +76,8 @@ idx = register_variable( name \
  * @param is_hrsc Is it evolved with FV scheme?
  */
 #define REGISTER_EVOLVED_VECTOR(idx0, idx1, idx2, name,bc, is_hrsc) \
-idx0 = register_variable( name "[0]"\
+register_variable( idx0 \
+                        ,name "[0]" \
                         , {VEC(false,false,false)} \
                         , true \
                         , true \
@@ -84,7 +87,8 @@ idx0 = register_variable( name "[0]"\
                         , false \
                         , 0 \
                         , name ) ; \
-idx1 = register_variable( name "[1]"\
+register_variable(idx1 \
+                        , name "[1]" \
                         , {VEC(false,false,false)} \
                         , true \
                         , true \
@@ -94,7 +98,8 @@ idx1 = register_variable( name "[1]"\
                         , false \
                         , 1 \
                         , name ) ; \
-idx2 = register_variable( name "[2]"\
+register_variable(idx2 \
+                        , name "[2]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , true \
@@ -117,7 +122,8 @@ idx2 = register_variable( name "[2]"\
  * @param is_hrsc Is it evolved with FV scheme?
  */
 #define REGISTER_EVOLVED_TENSOR(idx0, idx1, idx2, idx3, idx4, idx5, name,bc, is_hrsc) \
-idx0 = register_variable( name "[0,0]"\
+register_variable(idx0 \
+                        , name "[0,0]" \
                         , {VEC(false,false,false)} \
                         , true \
                         , true \
@@ -127,7 +133,8 @@ idx0 = register_variable( name "[0,0]"\
                         , true \
                         , 0  \
                         , name ) ;\
-idx1 = register_variable( name "[0,1]"\
+register_variable(idx1 \
+                        , name "[0,1]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , true \
@@ -137,7 +144,8 @@ idx1 = register_variable( name "[0,1]"\
                         , true\
                         , 1 \
                         , name ) ; \
-idx2 = register_variable( name "[0,2]"\
+register_variable(idx2 \
+                        , name "[0,2]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , true \
@@ -147,7 +155,8 @@ idx2 = register_variable( name "[0,2]"\
                         , true \
                         , 2  \
                         , name )  ; \
-idx3 = register_variable( name "[1,1]"\
+register_variable(idx3 \
+                        , name "[1,1]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , true \
@@ -157,7 +166,8 @@ idx3 = register_variable( name "[1,1]"\
                         , true \
                         , 3  \
                         , name )  ; \
-idx4 = register_variable( name "[1,2]"\
+register_variable(idx4 \
+                        , name "[1,2]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , true \
@@ -167,7 +177,8 @@ idx4 = register_variable( name "[1,2]"\
                         , true \
                         , 4  \
                         , name )  ; \
-idx5 = register_variable( name "[2,2]"\
+register_variable(idx5 \
+                        , name "[2,2]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , true \
@@ -186,7 +197,8 @@ idx5 = register_variable( name "[2,2]"\
  * @param bc    Variable BC type
  */
 #define REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(idx0, idx1, idx2, idx3,name,bc,is_hrsc) \
-idx0 = register_variable( name "[0]"\
+register_variable(idx0  \
+                        , name "[0]"\
                         , {VEC(true,false,false)} \
                         , true \
                         , true \
@@ -196,7 +208,8 @@ idx0 = register_variable( name "[0]"\
                         , false \
                         , 0 \
                         , name ) ; \
-idx1 = register_variable( name "[1]"\
+register_variable(idx1 \
+                        , name "[1]"\
                         , {VEC(false,true,false)} \
                         , true \
                         , true \
@@ -206,7 +219,8 @@ idx1 = register_variable( name "[1]"\
                         , false \
                         , 1 \
                         , name ) ; \
-idx2 = register_variable( name "[2]"\
+register_variable(idx2 \
+                        , name "[2]"\
                         , {VEC(false,false,true)} \
                         , true \
                         , true \
@@ -225,7 +239,8 @@ idx2 = register_variable( name "[2]"\
  * @param bc    Variable BC type
  */
 #define REGISTER_EVOLVED_EDGE_STAGGERED_VECTOR(idx0, idx1, idx2, idx3,name,bc,is_hrsc) \
-idx0 = register_variable( name "[0]"\
+register_variable(idx0 \
+                        , name "[0]"\
                         , {VEC(false,true,true)} \
                         , true \
                         , true \
@@ -235,7 +250,8 @@ idx0 = register_variable( name "[0]"\
                         , false \
                         , 0 \
                         , name ) ; \
-idx1 = register_variable( name "[1]"\
+register_variable(idx1 \
+                        , name "[1]"\
                         , {VEC(true,false,true)} \
                         , true \
                         , true \
@@ -245,7 +261,8 @@ idx1 = register_variable( name "[1]"\
                         , false \
                         , 1 \
                         , name ) ; \
-idx2 = register_variable( name "[2]"\
+register_variable(idx2 \ 
+                        , name "[2]"\
                         , {VEC(true,true,false)} \
                         , true \
                         , true \
@@ -262,7 +279,8 @@ idx2 = register_variable( name "[2]"\
  * @param bc   Variable BC type
 */
 #define REGISTER_AUX_SCALAR(idx,name,bc) \
-idx = register_variable( name \
+register_variable(idx \
+                        , name \
                         , {VEC(false,false,false)} \
                         , true \
                         , false \
@@ -278,7 +296,8 @@ idx = register_variable( name \
  * @param bc    Variable BC type
  */
 #define REGISTER_AUX_VECTOR(idx0, idx1, idx2, name,bc) \
-idx0 = register_variable( name "[0]"\
+register_variable(idx0 \
+                        , name "[0]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , false \
@@ -288,7 +307,8 @@ idx0 = register_variable( name "[0]"\
                         , false \
                         , 0 \
                         , name ) ; \
-idx1 = register_variable( name "[1]"\
+register_variable(idx1 \
+                        , name "[1]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , false \
@@ -298,7 +318,8 @@ idx1 = register_variable( name "[1]"\
                         , false \
                         , 1 \
                         , name ) ; \
-idx2 = register_variable( name "[2]"\
+register_variable(idx2 \
+                        , name "[2]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , false \
@@ -320,7 +341,8 @@ idx2 = register_variable( name "[2]"\
  * @param bc    Variable BC type
  */
 #define REGISTER_AUX_TENSOR(idx0, idx1, idx2, idx3, idx4, idx5, name,bc) \
-idx0 = register_variable( name "[0,0]"\
+register_variable(idx0 \
+                        , name "[0,0]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , false \
@@ -330,7 +352,8 @@ idx0 = register_variable( name "[0,0]"\
                         , true \
                         , 0  \
                         , name ) ;\
-idx1 = register_variable( name "[0,1]"\
+register_variable(idx1 \
+                        , name "[0,1]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , false \
@@ -340,7 +363,8 @@ idx1 = register_variable( name "[0,1]"\
                         , true\
                         , 1 \
                         , name ) ; \
-idx2 = register_variable( name "[0,2]"\
+register_variable(idx2 \
+                        , name "[0,2]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , false \
@@ -350,7 +374,8 @@ idx2 = register_variable( name "[0,2]"\
                         , true \
                         , 2  \
                         , name )  ; \
-idx3 = register_variable( name "[1,1]"\
+register_variable(idx3 \
+                        , name "[1,1]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , false \
@@ -360,7 +385,8 @@ idx3 = register_variable( name "[1,1]"\
                         , true \
                         , 3  \
                         , name )  ; \
-idx4 = register_variable( name "[1,2]"\
+register_variable(idx4 \
+                        , name "[1,2]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , false \
@@ -370,7 +396,8 @@ idx4 = register_variable( name "[1,2]"\
                         , true \
                         , 4  \
                         , name )  ; \
-idx5 = register_variable( name "[2,2]"\
+register_variable(idx5 \   
+                        , name "[2,2]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , false \

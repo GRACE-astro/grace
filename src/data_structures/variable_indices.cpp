@@ -36,6 +36,12 @@
 #include <grace/data_structures/macros.hh>
 #include <grace/errors/error.hh>
 
+// #if defined(GRACE_ENABLE_SYCL)
+// #include <sycl/sycl.hpp>
+// #include <grace/data_structures/device_globals.hh>
+
+// using namespace sycl::ext::oneapi::experimental;
+// #endif 
 
 #include <Kokkos_Core.hpp>
 
@@ -48,10 +54,21 @@
 DECLARE_VARIABLE_INDICES;
 #undef DECLARE_VAR_INDEX_IMPL
 
+#if defined(GRACE_ENABLE_SYCL)
+// #define DECLARE_VAR_INDEX_IMPL(var) device_global<int> var##_ ;
+#define DECLARE_VAR_INDEX_IMPL(var) custom_device_global<int> var##_ ;
+#else
 #define DECLARE_VAR_INDEX_IMPL(var) GRACE_DEVICE int var##_ ;
+#endif
 DECLARE_VARIABLE_INDICES;
 #undef DECLARE_VAR_INDEX_IMPL
- 
+
+
+
+// #define DECLARE_VAR_INDEX_IMPL(var) GRACE_DEVICE int var##_ ;
+// DECLARE_VARIABLE_INDICES;
+// #undef DECLARE_VAR_INDEX_IMPL
+
 
 
 namespace grace { namespace variables { 

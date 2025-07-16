@@ -35,6 +35,8 @@
 #include <hip/hip_runtime.h>
 #elif defined(GRACE_ENABLE_CUDA)
 #include <cuda.h>
+#elif defined(GRACE_ENABLE_SYCL)
+#include <sycl/sycl.hpp>        
 #endif 
 #include <cstring>
 
@@ -52,6 +54,11 @@ void device_malloc(void** ptr, size_t nbytes)
     #elif defined(GRACE_ENABLE_CUDA)
     auto ret = cudaMalloc(ptr,nbytes) ; 
     ASSERT(ret == cudaSuccess, "Call to malloc failed");
+    #elif defined(GRACE_ENABLE_SYCL)
+    sycl::queue q(sycl::gpu_selector{}); // not sure if we can generalize this meaningfully
+    void* tmp = sycl::malloc_device(nbytes, q);
+    ASSERT(tmp != nullptr, "Call to malloc_device failed");
+    *ptr = tmp;
     #else 
     GRACE_ERROR("Malloc device does not work with no device.") ; 
     #endif 
@@ -67,6 +74,14 @@ void memcpy_host_to_device(void* dest, void* src, size_t nbytes)
     #elif defined(GRACE_ENABLE_CUDA)
     auto ret = cudaMemcpy(dest,src,nbytes,cudaMemcpyHostToDevice);
     ASSERT(ret == cudaSuccess, "Call to memcpy failed (host to device)");
+    #elif defined(GRACE_ENABLE_SYCL)
+    sycl::queue q(sycl::gpu_selector{});
+    try { // not sure if this is a good idea - handling exceptions incurs cost... 
+        auto event = q.memcpy(dest, src, nbytes);
+        event.wait();  
+    } catch (const sycl::exception& e) {
+        ASSERT(false, std::string("Call to memcpy failed (host to device): ") + e.what());
+    }
     #else 
     memcpy(dest,src,nbytes);
     #endif 
@@ -80,6 +95,14 @@ void memcpy_device_to_host(void* dest, void* src, size_t nbytes)
     #elif defined(GRACE_ENABLE_CUDA)
     auto ret = cudaMemcpy(dest,src,nbytes,cudaMemcpyDeviceToHost);
     ASSERT(ret == cudaSuccess, "Call to memcpy failed (host to device)");
+    #elif defined(GRACE_ENABLE_SYCL)
+    sycl::queue q(sycl::gpu_selector{});
+    try { // not sure if this is a good idea - handling exceptions incurs cost... 
+        auto event = q.memcpy(dest, src, nbytes); // same syntax (dest first, src second)
+        event.wait();  
+    } catch (const sycl::exception& e) {
+        ASSERT(false, std::string("Call to memcpy failed (device to device): ") + e.what());
+    }
     #else 
     memcpy(dest,src,nbytes);
     #endif 
@@ -93,6 +116,13 @@ void device_free(void* ptr) noexcept
     #elif defined(GRACE_ENABLE_CUDA)
     auto ret = cudaFree(ptr);
     ASSERT(ret == cudaSuccess, "Call to free failed");
+    #elif defined(GRACE_ENABLE_SYCL)
+    sycl::queue q(sycl::gpu_selector{});
+    try {
+    sycl::free(ptr, q);
+    } catch (const sycl::exception& e) {
+        ASSERT(false, std::string("Call to free failed: ") + e.what());
+    }
     #else 
     free(ptr);
     #endif 
