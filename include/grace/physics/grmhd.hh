@@ -869,9 +869,9 @@ struct grmhd_equations_system_t
 
         /* Get wavespeeds      */ 
         double cpr, cmr, cpl, cml;
-        compute_cp_cm( cpl, cml, cs2l, u0_l, primL[VXL+idir], 1
+        compute_cp_cm<true>( cpl, cml, cs2l, u0_l, primL[VXL+idir], 1
                      , 0, 1) ;
-        compute_cp_cm( cpr, cmr, cs2r, u0_r, primR[VXL+idir], 1
+        compute_cp_cm<true>( cpr, cmr, cs2r, u0_r, primR[VXL+idir], 1
                      , 0, 1) ;
         double cmin = -math::min(0., math::min(cml,cmr)) ; 
         double cmax =  math::max(0., math::max(cpl,cpr)) ; 
@@ -1081,9 +1081,9 @@ struct grmhd_equations_system_t
 
         /* Get wavespeeds      */ 
         double cpr, cmr, cpl, cml;
-        compute_cp_cm( cpl, cml, cs2l, u0_l, primL[VXL+idir], 1
+        compute_cp_cm<true>( cpl, cml, cs2l, u0_l, primL[VXL+idir], 1
                      , 0, 1) ;
-        compute_cp_cm( cpr, cmr, cs2r, u0_r, primR[VXL+idir], 1
+        compute_cp_cm<true>( cpr, cmr, cs2r, u0_r, primR[VXL+idir], 1
                      , 0, 1) ;
         double cmin = -math::min(0., math::min(cml,cmr)) ; 
         double cmax =  math::max(0., math::max(cpl,cpr)) ; 
@@ -1130,7 +1130,7 @@ struct grmhd_equations_system_t
         
         double const u0HLLE = 1.0/Kokkos::sqrt(1-pHLLE[VXL]*pHLLE[VXL]-pHLLE[VYL]*pHLLE[VYL]-pHLLE[VZL]*pHLLE[VZL]) ;
         double cpHLLE, cmHLLE, cs2HLLE;
-        compute_cp_cm( cpHLLE, cmHLLE, cs2HLLE, u0HLLE, pHLLE[VXL+idir], 1, 0, 1) ;
+        compute_cp_cm<true>( cpHLLE, cmHLLE, cs2HLLE, u0HLLE, pHLLE[VXL+idir], 1, 0, 1) ;
         pHLLE[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(pHLLE[EPSL], cs2HLLE, pHLLE[TEMPL], pHLLE[RHOL], pHLLE[YEL], eos_err) ; 
         double b2_hlle = compute_b2(pHLLE,minkowski_metric) ;
         double total_press = pHLLE[PRESSL] + b2_hlle/2 ;
@@ -2274,6 +2274,7 @@ struct grmhd_equations_system_t
      * @param betad Shift in direction d.
      * @param gupdd (d,d) component of contravariant metric.
      */
+    template<bool fastest_wave = false>
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     compute_cp_cm( double& cp, double& cm
                  , double const& v02, double const& u0
@@ -2298,20 +2299,23 @@ struct grmhd_equations_system_t
         cp = Kokkos::max(c1,c2) ; 
         cm = Kokkos::min(c1,c2) ; 
 
-        #ifdef GRACE_ENABLE_B_FIELD_GLM
-            int metric_comps[3] { 0, 3, 5} ; 
-	        // the characteristic wavespeeds in GRMHD in coordinate frame are bound by
-	        // Eq.(60) in Anton 2006: https://arxiv.org/pdf/astro-ph/0506063
-            // cml_DC is a short name for "c_minus_left_divergence_cleaning"
-            double cm_DC = - Kokkos::sqrt(gupdd/one_over_alp2) - betad ;
+        // Apply divergence cleaning bounds only if fastest_wave is true
+        if constexpr (fastest_wave) {
+            #ifdef GRACE_ENABLE_B_FIELD_GLM
+                int metric_comps[3] { 0, 3, 5} ; 
+	            // the characteristic wavespeeds in GRMHD in coordinate frame are bound by
+	            // Eq.(60) in Anton 2006: https://arxiv.org/pdf/astro-ph/0506063
+                // cml_DC is a short name for "c_minus_left_divergence_cleaning"
+                double cm_DC = - Kokkos::sqrt(gupdd/one_over_alp2) - betad ;
 
-            double cp_DC =   Kokkos::sqrt(gupdd/one_over_alp2) - betad ;
+                double cp_DC =   Kokkos::sqrt(gupdd/one_over_alp2) - betad ;
 
-            double cmin_DC = cm_DC * 0.99 ; 
-            double cmax_DC = cp_DC * 0.99 ; 
-            cp = Kokkos::max(cmax_DC, cp) ;
-            cm = Kokkos::min(cmin_DC, cm) ;
-        #endif
+                double cmin_DC = cm_DC * 0.99 ; 
+                double cmax_DC = cp_DC * 0.99 ; 
+                cp = Kokkos::max(cmax_DC, cp) ;
+                cm = Kokkos::min(cmin_DC, cm) ;
+            #endif
+        }
         
     }
     /***********************************************************************/
