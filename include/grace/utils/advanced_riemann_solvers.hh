@@ -97,7 +97,7 @@ struct hllc_riemann_solver_t {
     }
     #endif // GRACE_DO_MHD
     /**
-     * @brief Compute HLLC fluxes for relativistic Hydro.
+     * @brief Compute HLLC fluxes for relativistic Magneto-Hydro-Dynamics.
      * 
      * @param fL Left fluxes.
      * @param fR Right fluxes.
@@ -194,9 +194,6 @@ struct hllc_riemann_solver_t {
 
         double const vi = get_interface_velocity() ; // Carlo wrote TODO but seems to be fine.
         double const lambdaC = get_contact_wave_speed(uHLLE,fHLLE) ; 
-        //if (Kokkos::abs(lambdaC) > 1e-1) {
-        //    Kokkos::printf("HLLC contact wave speed: %e\n", lambdaC);
-        //}
 
         ucL[YESL] = uHLLE[YESL];
         ucR[YESL] = uHLLE[YESL];
@@ -280,7 +277,6 @@ struct hllc_riemann_solver_t {
 
         // Handle supersonic case
         if (lambdaC <= -cmin || lambdaC >= cmax || v2 >= 1.0) {
-            //Kokkos::printf("HLLC solver: contact wave speed %e is outside the range [-cmin, cmax] or v^2 >= 1.0\n", lambdaC); TODO write a useful logging message
             fHLLC = fHLLE;
             uHLLC = uHLLE;
         }
@@ -354,17 +350,6 @@ struct hllc_riemann_solver_t {
         a = f_taul_densl_sum - cross_term;
         b = -f[STXL + idir] - taul_densl_sum + bg_tan_2 + f_bg_tan_2;
         c = cons[STXL + idir] - cross_term;
-        //if (cons[STXL + idir] > 1e-10) {
-        //    Kokkos::printf("a %e, b %e, c %e\n", a, b, c);
-        //    Kokkos::printf("cons[STXL + idir] %e, f[STXL + idir] %e\n", 
-        //                   cons[STXL + idir], f[STXL + idir]);
-        //    Kokkos::printf("cons[TAUL] %e, cons[DENSL] %e\n",
-        //                   cons[TAUL], cons[DENSL]);
-        //    Kokkos::printf("f[TAUL] %e, f[DENSL] %e\n",
-        //                   f[TAUL], f[DENSL]);
-        //    Kokkos::printf("cons_bg_t1 %e, cons_bg_t2 %e\n", cons_bg_t1, cons_bg_t2);
-        //    Kokkos::printf("f_bg_t1 %e, f_bg_t2 %e\n", f_bg_t1, f_bg_t2);
-        //}
         
         // Safety check for denominator
         if (Kokkos::abs(a) < 1e-15) {
@@ -401,7 +386,7 @@ struct hllc_riemann_solver_t {
                 + inertial_tetrad[idir][idir] * f[ivar] 
             ) ; 
         }
-        // TODO ceck missing Minkowski metric.
+        // TODO check missing Minkowski metric.
         // TODO: check if first has to be done the tetrad transformation and then the cotetrad one, or if it does not matter.
         std::array<double,3> stilde = {cons[STXL], cons[STYL], cons[STZL]} ; 
         std::array<double,3> fstilde = {f[STXL], f[STYL], f[STZL]} ; 
@@ -633,7 +618,7 @@ struct hlld_riemann_solver_t {
     }
     #endif // GRACE_DO_MHD
     /**
-     * @brief Compute HLLC fluxes for relativistic Hydro.
+     * @brief Compute HLLD fluxes for relativistic Magneto-Hydro-Dynamics.
      * 
      * @param fL Left fluxes.
      * @param fR Right fluxes.
@@ -651,6 +636,9 @@ struct hlld_riemann_solver_t {
      * reason some of the terms in this function are different from what appears in 
      * https://arxiv.org/abs/2205.04487 which is the main source followed in this 
      * implementation.
+     * 
+     * For the HLLD Implementation with magnetic fields, I (Keneth Miler) followed the
+     * Paper of Mignone https://arxiv.org/pdf/2111.09369. 
      */
     std::pair<grace::grmhd_cons_array_t, grace::grmhd_cons_array_t> 
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -705,16 +693,6 @@ struct hlld_riemann_solver_t {
         HLLDComputation hlld_calc(fL, fR, uL, uR, pL, pR, cmin, cmax);
         double const p_star = utils::safe_secant_bisection(hlld_calc, total_press*0.1, total_press*10, 1e-12, err, max_iter) ; 
         
-        //if(err==1) {
-        //    Kokkos::printf("Huh\n");
-        //}
-        //else if(err==2) {
-        //    Kokkos::printf("max_iterations\n");
-        //}
-        //else if(err==0) {
-        //    Kokkos::printf("it worked\n");
-        //}
-        //else Kokkos::printf("got inf\n");
         //  Set the conserved states in the Alfven waves
         uaL[DENSL] = hlld_calc.Dens_aL ;
         uaR[DENSL] = hlld_calc.Dens_aR ;

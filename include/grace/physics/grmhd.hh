@@ -682,7 +682,8 @@ struct grmhd_equations_system_t
     double _lapse_excision ; 
     /***********************************************************************/
     /**
-     * @brief Compute fluxes for gmrmhd equations.
+     * @brief Compute fluxes for gmrmhd equations using the HLLC riemann solver as 
+     * seen in Mignone (https://arxiv.org/pdf/2111.09369) and Shibata (https://arxiv.org/pdf/2205.04487).
      * 
      * @tparam idir Direction the fluxes are computed in.
      * @tparam recon_t Type of reconstruction.
@@ -906,6 +907,20 @@ struct grmhd_equations_system_t
         /***********************************************************************/
     };
 
+    /**
+     * @brief Compute fluxes for gmrmhd equations using the HLLD riemann solver as 
+     * seen in Mignone (https://arxiv.org/pdf/2111.09369) and Shibata (https://arxiv.org/pdf/2205.04487).
+     * 
+     * @tparam idir Direction the fluxes are computed in.
+     * @tparam recon_t Type of reconstruction.
+     * @tparam riemann_t Type of Riemann solver.
+     * @param i zero-offset x cell index.
+     * @param j zero-offset y cell index.
+     * @param k zero-offset z cell index.
+     * @param q quadrant index.
+     * @param ngz Number of ghost-zones.
+     * @param fluxes Flux array.
+     */
     template< int idir 
             , typename riemann_t
             , typename recon_t   >
@@ -1059,15 +1074,6 @@ struct grmhd_equations_system_t
         std::array<double,3> uD_l, uD_r ; 
         solver.transform_velocities_to_tetrad_frame(u0_l, primL, uD_l) ; 
         solver.transform_velocities_to_tetrad_frame(u0_r, primR, uD_r) ; 
-
-        if(Kokkos::abs(primL[VXL])>1e-5) {
-            // Kokkos::printf("velocity before transformation: %e %e %e\n velocity after transformation: %e %e %e\n", primL[VXL], primL[VYL], primL[VZL], uD_l[0], uD_l[1], uD_l[2]);
-            // Kokkos::printf("velocity after transformation: %e %e %e\n", uD_l[0], uD_l[1], uD_l[2]);
-            //// now I print out the metric components
-            //Kokkos::printf("metric components: %e %e %e %e %e %e\n", metric_face.gamma(0), metric_face.gamma(1), metric_face.gamma(2), 
-            //               metric_face.gamma(3), metric_face.gamma(4), metric_face.gamma(5));
-            //Kokkos::printf("u0_l: %e, alp: %e, wl: %e\n", u0_l, alp, wl);
-        }
 
         #ifdef GRACE_DO_MHD
             /***********************************************************************/
@@ -1963,25 +1969,6 @@ struct grmhd_equations_system_t
         /* Get wavespeeds      */
         double const one_over_alp2 = 1./math::int_pow<2>(alp); 
 
-        // I think we can delete this wavespeed recomputation
-        // as it is not used in the SRMHD case
-        //double cmin, cmax ;
-        //if constexpr ( recompute_cp_cm ) {
-        //    double cpr, cmr, cpl, cml;
-        //    int metric_comps[3] { 0, 3, 5} ; 
-        //    compute_cp_cm( cpl, cml, v02l, u0_l, primL[VXL+idir], one_over_alp2
-        //                , minkowski_metric.beta(idir), minkowski_metric.invgamma(metric_comps[idir])) ;
-        //    compute_cp_cm( cpr, cmr, v02r, u0_r, primR[VXL+idir], one_over_alp2
-        //                , minkowski_metric.beta(idir), minkowski_metric.invgamma(metric_comps[idir])) ;
-        //    cmin = -Kokkos::min(0., Kokkos::min(cml,cmr)) ; 
-        //    cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ; 
-        //    /* Add some diffusion in weakly hyperbolic limit */
-        //    if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
-        //} else {
-        //    cmin = cmin_loc ; 
-        //    cmax = cmax_loc ; 
-        //}
-        
         /***********************************************************************/
         /*                          Get dens flux                              */
         /***********************************************************************/
@@ -2268,6 +2255,8 @@ struct grmhd_equations_system_t
     /**
      * @brief Compute approximate GRMHD wave-speeds according to 
      *        eq. (28) in https://iopscience.iop.org/article/10.1086/374594/pdf.
+     *        Template parameter fastest_wave is used to switch between
+     *        hlle and more advanced riemann solvers
      * 
      * @param cp Maximum wavespeed
      * @param cm Minimum wavespeed
