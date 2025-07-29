@@ -30,7 +30,7 @@ amr: {
                                # C2P problems: 0-setting of conservs at some points in the grid?
                                # timestep 
   regrid_at_postinitial: true,
-  reset_id_after_regrid : true # should we do it?
+  #reset_id_after_regrid : true # should we do it?
 }
 IO: {
   # Bug/Feature: 
@@ -66,15 +66,12 @@ system: {
 }
 evolution: {
   time_stepper: "rk2",
-  # cfl_factor: 0.2,
   cfl_factor: 0.2,
-  final_time: 100.0,
-  # timestep: 0.0000, # just out of curiosity 
-  # timestep_selection_mode: "manual"
+  final_time: 1000.0,
+  reset_id_after_regrid: "true"
 }
 grmhd: {
   id_type: "FMtorus",
-  #lapse_excision : 0.3, # already deep in the horizon btw!
   lapse_excision : 0.3, # already deep in the horizon btw!
   #FMTorus_a_BH:  0.5,
   FMTorus_a_BH:  0.9375,

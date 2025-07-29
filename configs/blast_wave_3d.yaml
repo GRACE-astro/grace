@@ -1,0 +1,96 @@
+# Parameter file for a magnetic rotor
+# https://arxiv.org/pdf/2407.20946 (Neuweiler 2024)
+
+name: "grace"
+amr: {
+  npoints_block_x: 196,
+  npoints_block_y: 196,
+  npoints_block_z: 196,
+  xmin: -6,
+  xmax:  6,
+  ymin: -6,
+  ymax:  6,
+  zmin: -6,
+  zmax:  6,
+  n_ghostzones: 2,
+  initial_refinement_level: 0,
+  #initial_refinement_level: 0,
+  #refinement_criterion: "gradient",
+  refinement_criterion: "simple_absolute_threshold",
+  refinement_criterion_CTORE: 0.035,
+  refinement_criterion_CTODE: 0.015,
+  #refinement_criterion_var: "press",
+  refinement_criterion_var: "phi_glm",
+  #refinement_criterion_var_is_aux: true,
+  max_refinement_level: 0,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+}
+IO: {
+  # Bug/Feature: 
+  # vel[1]/vel[2] to be specifiable in the future  
+  volume_output_cell_variables: ["eps","rho","press","vel[0]", "B[0]", "phi_glm"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: 327,
+  plane_surface_output_cell_variables: [],
+  plane_surface_output_every: -1,
+  sphere_surface_output_every: -1,
+  info_output_every: 1,
+  info_output_max_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
+  info_output_min_reductions: ["rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm"],
+  scalar_output_every: 10,
+  scalar_output_minmax: ["eps","rho","press",
+                         "vel[0]", "vel[1]", "vel[2]", 
+                         "B[0]", "B[1]", "B[2]",
+                         "phi_glm"],
+  scalar_output_norm2: [],
+  scalar_output_integral: [],
+  output_use_hdf5: true, 
+  hdf5_compression_level: 6,
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true
+}
+system: {
+  #console_log_level: "verbose",
+  console_log_level: "info",
+  file_log_level: "trace",
+  flush_logs_based_on_severity: true,
+  flush_level: "trace"
+}
+evolution: {
+  time_stepper: "rk2",
+  cfl_factor: 0.2,
+  final_time: 4.25,
+}
+grmhd: {
+  
+  id_type: "blast_wave",
+  blast_wave_rho_in : 0.01,
+  blast_wave_rho_out : 0.0001,
+  blast_wave_press_in : 1.0,
+  blast_wave_press_out: 0.005,
+  blast_wave_B0 : 1.0,
+  blast_wave_B_phi: 0.0,
+  blast_wave_B_theta: 1.57079632679
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+  ye_atmosphere: 0,
+  temp_atmosphere: 0,
+  rho_atmosphere: 1.e-14,
+  eps_maximum: 1.e+05,
+  gamma_th: 1.333333,  
+ 
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [0.],
+    rhos:   [],
+    kappa_0: 0
+  }
+}
+
+profiling: {
+  do_gpu_profiling: false
+}

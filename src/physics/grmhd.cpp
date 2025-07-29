@@ -54,6 +54,7 @@
 #include <grace/physics/id/boosted_loop_advection.hh>
 #include <grace/physics/id/circularly_polarized_alfven_wave.hh>
 #include <grace/physics/id/magnetic_rotor.hh>
+#include <grace/physics/id/blast_wave.hh>
 #include <grace/physics/id/bondi_accretion.hh>
 #endif
 #endif
@@ -494,6 +495,18 @@ void set_grmhd_initial_data() {
          set_grmhd_initial_data_impl<eos_t,bondi_accretion_id_t<eos_t>>(M,mdot,r_sonic,gamma,rmin,rmax,bmag,beta_sonic) ;
         Kokkos::fence() ; 
         GRACE_TRACE("Done with Bondi accretion MHD ID.") ;  
+    }
+    else if( id_type == "blast_wave" ) {
+        auto const rho_in     = get_param<double>("grmhd","blast_wave_rho_in") ; 
+        auto const rho_out    = get_param<double>("grmhd","blast_wave_rho_out") ;
+        auto const press_in   = get_param<double>("grmhd","blast_wave_press_in") ;
+        auto const press_out  = get_param<double>("grmhd","blast_wave_press_out") ;
+        auto const B0         = get_param<double>("grmhd","blast_wave_B0") ;
+        auto const phi        = get_param<double>("grmhd","blast_wave_B_phi") ;
+        auto const theta      = get_param<double>("grmhd","blast_wave_B_theta") ;
+        set_grmhd_initial_data_impl<eos_t,blast_wave_id_t<eos_t>>(rho_in, rho_out, press_in, press_out, B0, phi, theta) ;
+        Kokkos::fence() ; 
+        GRACE_TRACE("Done with Blast Wave ID.") ;  
     }
     #endif
     else if ( id_type == "blastwave" ) {

@@ -450,20 +450,11 @@ struct grmhd_equations_system_t
             }
             
             // see Eq.(89), Eq.(90) in https://arxiv.org/pdf/1304.5544 : 
-            // B^x source terms
-            state_new(VEC(i,j,k),BGX_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[0]) * idx(idir,q) ;
-            state_new(VEC(i,j,k),BGX_,q) += dt_fac * alp * d_i_sqrtgamma_gammaUU[0] * prims[PHI_GLML] * idx(idir,q) ;
-            state_new(VEC(i,j,k),BGX_,q) += sqrtgamma_dt * prims[PHI_GLML] * invgij[0][idir] * dalp_dxi * idx(idir,q) ;     // the term with the derivative of alpha 
-
-            // B^y source terms
-            state_new(VEC(i,j,k),BGY_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[1]) * idx(idir,q) ;
-            state_new(VEC(i,j,k),BGY_,q) += dt_fac * alp * d_i_sqrtgamma_gammaUU[1] * prims[PHI_GLML] *idx(idir,q) ;
-            state_new(VEC(i,j,k),BGY_,q) += sqrtgamma_dt * prims[PHI_GLML] * invgij[1][idir] * dalp_dxi * idx(idir,q) ;
-
-            // B^z source terms
-            state_new(VEC(i,j,k),BGZ_,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[2]) * idx(idir,q) ;
-            state_new(VEC(i,j,k),BGZ_,q) += dt_fac * alp * d_i_sqrtgamma_gammaUU[2] * prims[PHI_GLML] * idx(idir,q) ;
-            state_new(VEC(i,j,k),BGZ_,q) += sqrtgamma_dt * prims[PHI_GLML] * invgij[2][idir] * dalp_dxi * idx(idir,q) ;
+            for(icomp=0; icomp<GRACE_NSPACEDIM; ++icomp) {
+                state_new(VEC(i,j,k),BGX_+icomp,q) -= sqrtgamma_dt * (prims[BXL+idir] * dbetaj_dxi[icomp]) * idx(idir,q) ;
+                state_new(VEC(i,j,k),BGX_+icomp,q) += dt_fac * alp * d_i_sqrtgamma_gammaUU[icomp] * prims[PHI_GLML] * idx(idir,q) ;
+                state_new(VEC(i,j,k),BGX_+icomp,q) += sqrtgamma_dt * prims[PHI_GLML] * invgij[icomp][idir] * dalp_dxi * idx(idir,q) ;     // the term with the derivative of alpha 
+            }
 
             // Source[\Phi_{\rm GLM}] = -sqrtgamma * alp * kappa * phi                                       (1)
             //                          -sqrtgamma * phi * \partial_i beta^i                             (2)

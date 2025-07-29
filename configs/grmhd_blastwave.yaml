@@ -1,26 +1,26 @@
 name: "grace"
 amr: {
-  npoints_block_x: 16,
-  npoints_block_y: 16,
-  npoints_block_z: 16,
-  xmin: -3.0,
-  xmax: 3.0,
+  npoints_block_x: 12,
+  npoints_block_y: 12,
+  npoints_block_z: 12,
+  xmin: -6.0,
+  xmax: 6.0,
   ymin: -6.0,
   ymax: 6.0,
-  zmin: -3.0,
-  zmax: 3.0,
-  periodic_x: true,
-  periodic_y: true,
-  periodic_z: true,
+  zmin: -6.0,
+  zmax: 6.0,
+  # periodic_x: true,
+  # periodic_y: true,
+  # periodic_z: true,
   n_ghostzones: 2,
-  initial_refinement_level: 3,
+  initial_refinement_level: 4,
   refinement_criterion: "gradient",
   refinement_criterion_CTORE: 0.1,
   refinement_criterion_CTODE: 0.025,
   refinement_criterion_var: "press",
   refinement_criterion_var_is_aux: true,
   max_refinement_level: 7,
-  regrid_every: 50,
+  regrid_every: -1,
   regrid_at_postinitial: false
 }
 IO: {
@@ -51,7 +51,7 @@ system: {
 }
 evolution: {
   time_stepper: "rk2",
-  cfl_factor: 0.4,
+  cfl_factor: 0.2,
   final_time: 25,
   #timestep: 0.00025,
   #timestep_selection_mode: "manual"
