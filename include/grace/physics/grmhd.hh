@@ -1963,22 +1963,25 @@ struct grmhd_equations_system_t
         /* Get wavespeeds      */
         double const one_over_alp2 = 1./math::int_pow<2>(alp); 
 
-        double cmin, cmax ;
-        if constexpr ( recompute_cp_cm ) {
-            double cpr, cmr, cpl, cml;
-            int metric_comps[3] { 0, 3, 5} ; 
-            compute_cp_cm( cpl, cml, v02l, u0_l, primL[VXL+idir], one_over_alp2
-                        , minkowski_metric.beta(idir), minkowski_metric.invgamma(metric_comps[idir])) ;
-            compute_cp_cm( cpr, cmr, v02r, u0_r, primR[VXL+idir], one_over_alp2
-                        , minkowski_metric.beta(idir), minkowski_metric.invgamma(metric_comps[idir])) ;
-            cmin = -Kokkos::min(0., Kokkos::min(cml,cmr)) ; 
-            cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ; 
-            /* Add some diffusion in weakly hyperbolic limit */
-            if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
-        } else {
-            cmin = cmin_loc ; 
-            cmax = cmax_loc ; 
-        }
+        // I think we can delete this wavespeed recomputation
+        // as it is not used in the SRMHD case
+        //double cmin, cmax ;
+        //if constexpr ( recompute_cp_cm ) {
+        //    double cpr, cmr, cpl, cml;
+        //    int metric_comps[3] { 0, 3, 5} ; 
+        //    compute_cp_cm( cpl, cml, v02l, u0_l, primL[VXL+idir], one_over_alp2
+        //                , minkowski_metric.beta(idir), minkowski_metric.invgamma(metric_comps[idir])) ;
+        //    compute_cp_cm( cpr, cmr, v02r, u0_r, primR[VXL+idir], one_over_alp2
+        //                , minkowski_metric.beta(idir), minkowski_metric.invgamma(metric_comps[idir])) ;
+        //    cmin = -Kokkos::min(0., Kokkos::min(cml,cmr)) ; 
+        //    cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ; 
+        //    /* Add some diffusion in weakly hyperbolic limit */
+        //    if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
+        //} else {
+        //    cmin = cmin_loc ; 
+        //    cmax = cmax_loc ; 
+        //}
+        
         /***********************************************************************/
         /*                          Get dens flux                              */
         /***********************************************************************/

@@ -682,6 +682,9 @@ spherical_coordinate_system_impl_t::get_cell_edge_length(
             return get_line_element_eta_int<5UL>(_L,_Ri,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[1]);
             case 2:
             return get_line_element_xi_int<5UL>(_L,_Ri,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[2]);
+            default:
+            ERROR("Invalid edge code " << edge ) ; 
+            return 0 ; // Compiler is throwing a warning without this.
         } 
     } else if ( (itree-1)/P4EST_FACES==1 ) {
         if( _use_logr ) {
@@ -692,6 +695,9 @@ spherical_coordinate_system_impl_t::get_cell_edge_length(
             return get_line_element_eta_log(_Ri,_Ro,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[1]);
             case 2:
             return get_line_element_xi_log(_Ri,_Ro,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[2]);
+            default:
+            ERROR("Invalid edge code " << edge ) ; 
+            return 0 ; // Compiler is throwing a warning without this.
             } 
         } else {
             switch (edge) {
@@ -701,6 +707,9 @@ spherical_coordinate_system_impl_t::get_cell_edge_length(
             return get_line_element_eta_ext(_Ri,_Ro,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[1]);
             case 2:
             return get_line_element_xi_ext(_Ri,_Ro,VEC(lcoords[0],lcoords[1],lcoords[2]),dxl[2]);
+            default:
+            ERROR("Invalid edge code " << edge ) ; 
+            return 0 ; // Compiler is throwing a warning without this.
             } 
         }
     } else {
