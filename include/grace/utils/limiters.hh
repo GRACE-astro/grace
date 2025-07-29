@@ -88,7 +88,7 @@ struct flat_recon {
      */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() (double const& slopeL, double const& slopeR){
-        return 0.0
+        return 0.0;
     }
 } ; 
 
