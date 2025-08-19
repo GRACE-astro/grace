@@ -1,7 +1,3 @@
-# Parameter file for a generic shock tube with B^n = B^x = 0 (zero normal component)
-# https://arxiv.org/pdf/gr-qc/0507102 (Giacomazzo & Rezzolla 2006)
-# Table 1: Generic Shock Tube
-
 name: "grace"
 amr: {
   npoints_block_x: 8,
@@ -36,12 +32,12 @@ IO: {
   # vel[1]/vel[2] to be specifiable in the future  
   volume_output_cell_variables: ["eps","rho","press","alp", "vel[0]",
                               "B[0]", "phi_glm"],
-  volume_output_base_directory: "output_volume",
-  volume_output_every: 10,
+  volume_output_base_directory: "output_volume_rmhd-cw",
+  volume_output_every: 125,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
-  info_output_every: 10,
+  info_output_every: 1,
   # info_output_max_reductions: ["eps","rho","press","alp", 
   #                             "vel[0]", "vel[1]", "vel[2]", 
   #                             "B[0]", "B[1]", "B[2]", "phi_glm"],
@@ -73,7 +69,7 @@ system: {
 evolution: {
   time_stepper: "rk2",
   cfl_factor: 0.2,
-  final_time: 1.2,
+  final_time: 1.02,
   #imestep: 0.00025,
   #timestep_selection_mode: "manual"
 }

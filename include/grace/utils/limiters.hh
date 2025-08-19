@@ -78,6 +78,20 @@ struct MCbeta {
     }
 } ; 
 
+struct flat_recon {
+    /**
+     * @brief Apply minmod limiter.
+     * 
+     * @param slopeL Left slope.
+     * @param slopeR Right slope.
+     * @return double double no reconstruction.
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    operator() (double const& slopeL, double const& slopeR){
+        return 0.0;
+    }
+} ; 
+
 } /* namespace grace */
 
 #endif /* GRACE_UTILS_LIMITERS_HH */

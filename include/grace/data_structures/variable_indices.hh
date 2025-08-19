@@ -248,7 +248,7 @@ DECLARE_VAR_INDEX_IMPL(PHI_GLM)                     \
 DECLARE_VAR_INDEX_IMPL(AVECX)                       \
 DECLARE_VAR_INDEX_IMPL(AVECY)                       \
 DECLARE_VAR_INDEX_IMPL(AVECZ)                       \
-DECLARE_VAR_INDEX_IMPL(PHI_EM)                      \ 
+DECLARE_VAR_INDEX_IMPL(PHI_EM)                      \
 DECLARE_VAR_INDEX_IMPL(PHIG_EM)                     \
 DECLARE_VAR_INDEX_IMPL(DIVB)   
 

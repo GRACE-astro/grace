@@ -3,17 +3,17 @@
 
 name: "grace"
 amr: {
-  npoints_block_x: 20,
-  npoints_block_y: 20,
-  npoints_block_z: 20,
-  xmin: -0.5,
-  xmax:  0.5,
-  ymin: -0.5,
-  ymax:  0.5,
-  zmin: -0.05,
-  zmax:  0.05,
+  npoints_block_x: 10,
+  npoints_block_y: 10,
+  npoints_block_z: 2,
+  xmin: -6,
+  xmax:  6,
+  ymin: -6,
+  ymax:  6,
+  zmin: -0.3,
+  zmax:  0.3,
   n_ghostzones: 2,
-  initial_refinement_level: 1,
+  initial_refinement_level: 0,
   #initial_refinement_level: 0,
   #refinement_criterion: "gradient",
   refinement_criterion: "simple_absolute_threshold",
@@ -22,7 +22,7 @@ amr: {
   #refinement_criterion_var: "press",
   refinement_criterion_var: "phi_glm",
   #refinement_criterion_var_is_aux: true,
-  max_refinement_level: 1,
+  max_refinement_level: 0,
   regrid_every: -1,
   regrid_at_postinitial: false,
   periodic_z: true,
@@ -32,7 +32,7 @@ IO: {
   # vel[1]/vel[2] to be specifiable in the future  
   volume_output_cell_variables: ["eps","rho","press","vel[0]", "B[0]", "phi_glm"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 100,
+  volume_output_every: 10,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
@@ -61,15 +61,18 @@ system: {
 evolution: {
   time_stepper: "rk2",
   cfl_factor: 0.2,
-  final_time: 0.425,
+  final_time: 4.25,
 }
 grmhd: {
   
-  id_type: "magnetic_rotor",
-  magnetized_rotor_rho_in : 10,
-  magnetized_rotor_rho_out : 1.0,
-  magnetized_rotor_press : 1.0,
-  magnetized_rotor_B0 : 1.0
+  id_type: "blast_wave",
+  blast_wave_rho_in : 0.01,
+  blast_wave_rho_out : 0.0001,
+  blast_wave_press_in : 1.0,
+  blast_wave_press_out: 0.005,
+  blast_wave_B0 : 0.5,
+  blast_wave_B_phi: 0.0,
+  blast_wave_B_theta: 1.57079632679
 }
 
 eos: {
@@ -79,7 +82,7 @@ eos: {
   temp_atmosphere: 0,
   rho_atmosphere: 1.e-14,
   eps_maximum: 1.e+05,
-  gamma_th: 1.66666,  
+  gamma_th: 1.333333,  
  
   piecewise_polytrope: {
     n_pieces: 1,

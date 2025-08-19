@@ -1,18 +1,14 @@
-# Parameter file for a generic shock tube with B^n = B^x = 0 (zero normal component)
-# https://arxiv.org/pdf/gr-qc/0507102 (Giacomazzo & Rezzolla 2006)
-# Table 1: Generic Shock Tube
-
 name: "grace"
 amr: {
   npoints_block_x: 8,
-  npoints_block_y: 4,
-  npoints_block_z: 4,
+  npoints_block_y: 1,
+  npoints_block_z: 1,
   xmin: -0.5,
   xmax:  0.5,
-  ymin: -0.1,
-  ymax:  0.1,
-  zmin: -0.1,
-  zmax:  0.1,
+  ymin: -0.005,
+  ymax:  0.005,
+  zmin: -0.005,
+  zmax:  0.005,
   # xmin: -2.0,
   # xmax:  2.0,
   # ymin: -2.0,
@@ -36,12 +32,12 @@ IO: {
   # vel[1]/vel[2] to be specifiable in the future  
   volume_output_cell_variables: ["eps","rho","press","alp", "vel[0]",
                               "B[0]", "phi_glm"],
-  volume_output_base_directory: "output_volume",
-  volume_output_every: 10,
+  volume_output_base_directory: "output_volume_balsara-3",
+  volume_output_every: 400,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
-  info_output_every: 10,
+  info_output_every: 1,
   # info_output_max_reductions: ["eps","rho","press","alp", 
   #                             "vel[0]", "vel[1]", "vel[2]", 
   #                             "B[0]", "B[1]", "B[2]", "phi_glm"],
@@ -73,7 +69,7 @@ system: {
 evolution: {
   time_stepper: "rk2",
   cfl_factor: 0.2,
-  final_time: 1.2,
+  final_time: 0.41,
   #imestep: 0.00025,
   #timestep_selection_mode: "manual"
 }
@@ -82,22 +78,23 @@ grmhd: {
   # below, the velocities are given in units of c
   # the magnetohydrodynamical pressures (P and B^2 /2) 
   # are in the same units (the Gamma-EOS determines P)
-  shocktube_mhd_press_L: 1.0,
-  shocktube_mhd_press_R: 1.0,
-  shocktube_mhd_rho_L: 10.0,
+  shocktube_mhd_press_L: 1000.0,
+  shocktube_mhd_press_R: 0.1,
+  shocktube_mhd_rho_L: 1.0,
   shocktube_mhd_rho_R: 1.0,
-  shocktube_mhd_vel_x_L: 0.0, 
-  shocktube_mhd_vel_y_L: 0.7,
-  shocktube_mhd_vel_z_L: 0.2,
+  shocktube_mhd_vel_x_L: 0.0,
+  shocktube_mhd_vel_y_L: 0.0,
+  shocktube_mhd_vel_z_L: 0.0,
   shocktube_mhd_vel_x_R: 0.0,
-  shocktube_mhd_vel_y_R: 0.7,
-  shocktube_mhd_vel_z_R: 0.2,
-  shocktube_mhd_B_x_L:   5.0,  
-  shocktube_mhd_B_y_L:   1.0,
-  shocktube_mhd_B_z_L:   0.5,    
-  shocktube_mhd_B_x_R:   5.0, 
-  shocktube_mhd_B_y_R:   1.0,
-  shocktube_mhd_B_z_R:   0.5,
+  shocktube_mhd_vel_y_R: 0.0,
+  shocktube_mhd_vel_z_R: 0.0,
+  shocktube_mhd_B_x_L: 10.0,
+  shocktube_mhd_B_y_L: 7.0,
+  shocktube_mhd_B_z_L: 7.0,
+  shocktube_mhd_B_x_R: 10.0,
+  shocktube_mhd_B_y_R: 0.7,
+  shocktube_mhd_B_z_R: 0.7,
+
 }
 
 eos: {
