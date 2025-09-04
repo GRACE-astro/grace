@@ -103,7 +103,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
         size_t last_halo   = halos->proc_offsets[iproc+1] ;
         for( int ihalo=first_halo; ihalo<last_halo; ++ihalo ) {
             /* Receive variables */
-            context._requests.push_back(sc_MPI_Request{}) ; 
+            context._recv_requests.push_back(sc_MPI_Request{}) ; 
             auto hsview = Kokkos::subview(
                   halo
                 , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
@@ -115,10 +115,10 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
                 , iproc
                 , parallel::GRACE_HALO_EXCHANGE_TAG
                 , parallel::get_comm_world()
-                , &(context._requests.back())
+                , &(context._recv_requests.back())
             ) ; 
             /* Receive cell volumes */
-            context._requests.push_back(sc_MPI_Request{}) ; 
+            context._recv_requests.push_back(sc_MPI_Request{}) ; 
             auto hvsview = Kokkos::subview(
                   halo_vols
                 , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
@@ -130,11 +130,11 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
                 , iproc
                 , parallel::GRACE_HALO_EXCHANGE_TAG+1
                 , parallel::get_comm_world()
-                , &(context._requests.back())
+                , &(context._recv_requests.back())
             ) ; 
             #if 0 
             /* Receive quadrant coordinates */
-            context._requests.push_back(sc_MPI_Request{}) ; 
+            context._recv_requests.push_back(sc_MPI_Request{}) ; 
             auto hcsview = Kokkos::subview(
                   halo_coords
                 , Kokkos::ALL()
@@ -146,7 +146,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
                 , iproc
                 , parallel::GRACE_HALO_EXCHANGE_TAG+2
                 , parallel::get_comm_world()
-                , &(context._requests.back())
+                , &(context._recv_requests.back())
             ) ; 
             #endif 
         }
@@ -161,7 +161,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
             size_t iq_loc = 
                 (mirror_quads[halos->mirror_proc_mirrors[imirror]]).p.piggy3.local_num ;
             /* Send variables */
-            context._requests.push_back(sc_MPI_Request{}) ; 
+            context._send_requests.push_back(sc_MPI_Request{}) ; 
             auto sview = Kokkos::subview(
                   vars
                 , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
@@ -173,10 +173,10 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
                 , iproc
                 , parallel::GRACE_HALO_EXCHANGE_TAG
                 , parallel::get_comm_world()
-                , &(context._requests.back())
+                , &(context._send_requests.back())
             ) ; 
             /* Send cell volumes */
-            context._requests.push_back(sc_MPI_Request{}) ; 
+            context._send_requests.push_back(sc_MPI_Request{}) ; 
             auto svview = Kokkos::subview(
                   vols
                 , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
@@ -187,11 +187,11 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
                 , iproc
                 , parallel::GRACE_HALO_EXCHANGE_TAG+1
                 , parallel::get_comm_world()
-                , &(context._requests.back())
+                , &(context._send_requests.back())
             ) ; 
             /* Send quadrant coordinates */
             #if 0
-            context._requests.push_back(sc_MPI_Request{}) ; 
+            context._send_requests.push_back(sc_MPI_Request{}) ; 
             auto scview = Kokkos::subview(
                   qcoords
                 , Kokkos::ALL()
@@ -202,7 +202,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
                 , iproc
                 , parallel::GRACE_HALO_EXCHANGE_TAG+2
                 , parallel::get_comm_world()
-                , &(context._requests.back())
+                , &(context._send_requests.back())
             ) ; 
             #endif 
         }
@@ -337,7 +337,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
         int ihalo = coarse_hanging_info.rcv_quadid[ircv] ; 
         int iproc = coarse_hanging_info.rcv_procid[ircv] ; 
         GRACE_VERBOSE("Receive iproc {}", iproc);
-        context._requests.push_back(sc_MPI_Request{}) ; 
+        context._recv_requests.push_back(sc_MPI_Request{}) ; 
         auto hsview = Kokkos::subview(
               halo
             , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL())
@@ -349,7 +349,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
             , iproc
             , parallel::GRACE_HALO_EXCHANGE_TAG
             , parallel::get_comm_world()
-            , &(context._requests.back())
+            , &(context._recv_requests.back())
         ) ; 
     }
     for( int isend=0; isend<coarse_hanging_info.snd_quadid.size(); ++isend){
@@ -362,14 +362,14 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
                         , iq_loc ) ; 
         for( auto const& iproc: coarse_hanging_info.snd_procid[isend] ) {
             GRACE_VERBOSE("Send iproc {}", iproc);
-            context._requests.push_back(sc_MPI_Request{}) ; 
+            context._send_requests.push_back(sc_MPI_Request{}) ; 
             parallel::mpi_isend(
                   sview.data()
                 , send_size
                 , iproc
                 , parallel::GRACE_HALO_EXCHANGE_TAG
                 , parallel::get_comm_world()
-                , &(context._requests.back())
+                , &(context._send_requests.back())
             ) ;
         }         
     }

@@ -33,6 +33,7 @@
 #include <grace/amr/prolongation_kernels.tpp> 
 #include <grace/amr/restriction_kernels.tpp> 
 #include <grace/amr/regrid_helpers.tpp>
+#include <grace/amr/regrid_helpers.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/data_structures/grace_data_structures.hh>
@@ -331,7 +332,7 @@ void regrid() {
     auto const new_glob_qoffsets = amr::get_global_quadrant_offsets() ; 
     size_t const quadrant_data_size = EXPR(   (nx+2*ngz)
                                           , * (ny+2*ngz)
-                                          , * (nz+2*ngz)  ) * nvars * sizeof(double); 
+                                          , * (nz+2*ngz)  ) * nvars ; 
     size_t const nq_local = amr::get_local_num_quadrants() ; 
     /******************************************************************************************/
     /*                              Realloc data and partition forest                         */
@@ -346,13 +347,13 @@ void regrid() {
     /*                                Transfer data                                           */
     /******************************************************************************************/
     auto context = 
-        p4est_transfer_fixed_begin (
-                new_glob_qoffsets.data() 
+        grace_transfer_fixed_begin<decltype(state)> (
+                  new_glob_qoffsets.data() 
                 , glob_qoffsets.data()
                 , parallel::get_comm_world() 
                 , parallel::GRACE_PARTITION_TAG 
-                , reinterpret_cast<void*>(state.data())
-                , reinterpret_cast<void*>(state_swap.data())
+                , state
+                , state_swap
                 , quadrant_data_size 
         ) ; 
 
@@ -389,7 +390,7 @@ void regrid() {
     /******************************************************************************************/
     /*                                Synchronize everything                                  */
     /******************************************************************************************/
-    p4est_transfer_fixed_end(context) ;  
+    grace_transfer_fixed_end(context) ;  
     /******************************************************************************************/
     /*                                Copy state to scratch                                   */
     /******************************************************************************************/

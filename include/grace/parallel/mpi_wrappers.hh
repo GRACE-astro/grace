@@ -108,9 +108,13 @@ namespace detail {
 
 struct grace_transfer_context_t 
 { 
-    std::vector<sc_MPI_Request> _requests ; 
+    
+    std::vector<sc_MPI_Request> _recv_requests ; 
+    std::vector<sc_MPI_Request> _send_requests ; 
+
     void reset() { 
-        _requests.clear() ; 
+        _send_requests.clear() ;  
+        _recv_requests.clear() ;  
     } ; 
 } ; 
 
