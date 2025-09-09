@@ -38,15 +38,6 @@
 
 #include <hdf5.h>
 #include <omp.h>
-/* cell types */
-#include <vtkCellData.h>
-#include <vtkHexahedron.h>
-#include <vtkBiQuadraticQuadraticHexahedron.h> 
-#include <vtkQuad.h>
-#include <vtkQuadraticLinearQuad.h> 
-/* memory */
-#include <vtkSmartPointer.h>
-#include <vtkNew.h>
 /* xdmf */
 #include <grace/IO/xmf_utilities.hh>
 /* stl */
@@ -185,19 +176,15 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
 
     #ifdef GRACE_3D 
     #ifdef GRACE_CARTESIAN_COORDINATES
-    using cell_type = vtkHexahedron ; 
     size_t constexpr nvertex = 8 ;
     #elif defined(GRACE_SPHERICAL_COORDINATES)
-    using cell_type = vtkBiQuadraticQuadraticHexahedron ; 
     size_t constexpr nvertex = 24 ;
     #endif 
     #else 
     #ifdef GRACE_CARTESIAN_COORDINATES
     size_t nvertex = 4 ; 
-    using cell_type = vtkQuad ; 
     #elif defined(GRACE_SPHERICAL_COORDINATES)
     size_t nvertex = 6 ; 
-    using cell_type = vtkQuadraticLinearQuad ;
     #endif 
     #endif 
 
@@ -207,65 +194,109 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     /* Get global number of quadrants and quadrant offset for this rank */
     unsigned long const nq_glob = _p4est->global_num_quadrants ; 
     unsigned long const local_quad_offset = _p4est->global_first_quadrant[rank] ; 
-    /* Get parametric coordinates of cells vertices */
-    vtkNew<cell_type> _tmpcell ;
-    auto lcoords = _tmpcell->GetParametricCoords() ;
     /* Number of cells per quadrant */
     unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
     /* Local number of cells   */
     unsigned long const ncells = ncells_quad * nq ; 
     /* Global number of cells  */
     unsigned long const ncells_glob = ncells_quad * nq_glob ; 
+    /* Number of unique points per quadrant */
+    unsigned long const npoints_quad = (nx+1) * (ny+1) * (nz+1) ; 
     /* Local number of points  */
-    unsigned long const npoints = ncells * nvertex ; 
+    unsigned long const npoints = npoints_quad * nq ;  
     /* Global number of points */
-    unsigned long const npoints_glob = ncells_glob * nvertex ; 
+    unsigned long const npoints_glob = npoints_quad * nq_glob ;
 
     detail::_volume_output_ncells.push_back(ncells_glob) ; 
 
     double*  points = (double*)  malloc(sizeof(double)  * npoints * 3 ) ; 
     unsigned int* cells  = (unsigned int*) malloc(sizeof(unsigned int) * ncells * nvertex ) ; 
-    const size_t global_point_offset = local_quad_offset * ncells_quad * nvertex;  
+    const size_t global_point_offset = local_quad_offset * npoints_quad ;  
     unsigned int icell  = 0L ; 
     unsigned int ipoint = 0U ; 
-    //#pragma omp parallel for collapse(GRACE_NSPACEDIM+1) reduction(+:icell,ipoint)
+
+    auto const get_point_index = 
+    [&] 
+    (
+        VEC(int i, int j, int k), int64_t q
+    ) 
+    {
+        #ifdef GRACE_3D 
+        return i + (nx+1) * (j + (ny+1) * (k + (nz+1) * q)) ; 
+        #else 
+        return i + (nx+1) * (j + (ny+1) * q) ; 
+        #endif
+    } ; 
+
+    auto const get_cell_vertex_indices = [&]
+    (
+        VEC(int i, int j, int k), int64_t q, int iv
+    ) 
+    {
+        static constexpr std::array<std::array<int,3>,8> vertex_coords {{
+            {0, 0, 0}, //
+            {1, 0, 0}, //
+            {1, 1, 0}, //
+            {0, 1, 0}, //
+            {0, 0, 1}, //
+            {1, 0, 1}, //
+            {1, 1, 1}, //
+            {0, 1, 1}  //
+        }} ; 
+        return std::make_tuple(
+            VEC(
+                i+vertex_coords[iv][0],
+                j+vertex_coords[iv][1],
+                k+vertex_coords[iv][2]
+            )
+        ) ; 
+    } ;
+    #pragma omp parallel for collapse(GRACE_NSPACEDIM+1) 
     for(int64_t iq=0; iq<nq; ++iq) {
         #ifdef GRACE_3D
         for(size_t k=0; k<nz; ++k  ) {
         #endif  
             for( size_t j=0; j<ny; ++j) { 
                 for(size_t i=0; i<nx; ++i){
+                int64_t const icell = i + nx * ( j + ny * ( k  + nz * iq )) ; 
                 for( int iv=0; iv<nvertex; ++iv ) {
-                    auto const pcoords = 
-                        coord_system.get_physical_coordinates( {VEC(i,j,k)}
-                                                             , iq
-                                                             , {VEC( lcoords[3*iv+0]
-                                                                   , lcoords[3*iv+1]
-                                                                   , lcoords[3*iv+2])}
-                                                             , false) ; 
-                    points[GRACE_NSPACEDIM*(nvertex*icell + iv) + 0 ] = pcoords[0] ; 
-                    points[GRACE_NSPACEDIM*(nvertex*icell + iv) + 1 ] = pcoords[1] ;
-                    
-                    points[GRACE_NSPACEDIM*(nvertex*icell + iv) + 2 ] 
-                    #ifdef GRACE_3D 
-                        = pcoords[2] ;
-                    #else 
-                        = 0.0 ; 
-                    #endif  
-
-                    cells[nvertex * icell + iv] = ipoint + global_point_offset; 
-                    ipoint ++ ; 
+                    int ip, jp, kp ; 
+                    std::tie(ip,jp,kp) = get_cell_vertex_indices(VEC(i,j,k),iq,iv) ; 
+                    cells[nvertex * icell + iv] = get_point_index(VEC(ip,jp,kp),iq+local_quad_offset); 
                 }
-
-                icell ++ ; 
                 #ifdef GRACE_3D
                 }
                 #endif 
             }
         }
     }
-    ASSERT(icell == ncells, "Something went really wrong") ; 
-    ASSERT(ipoint == npoints, "Something went really wrong") ; 
+    #pragma omp parallel for collapse(GRACE_NSPACEDIM+1) 
+    for(int64_t iq=0; iq<nq; ++iq) {
+        #ifdef GRACE_3D
+        for(size_t k=0; k<nz+1; ++k  ) {
+        #endif  
+            for( size_t j=0; j<ny+1; ++j) { 
+                for(size_t i=0; i<nx+1; ++i){
+                    auto const pcoords = 
+                        coord_system.get_physical_coordinates( {VEC(i,j,k)}
+                                                             , iq
+                                                             , {VEC( 0,0,0 )}
+                                                             , false) ; 
+                    auto const ipoint = get_point_index(VEC(i,j,k),iq) ; 
+                    points[GRACE_NSPACEDIM*ipoint + 0 ] = pcoords[0] ; 
+                    points[GRACE_NSPACEDIM*ipoint + 1 ] = pcoords[1] ;
+                    points[GRACE_NSPACEDIM*ipoint + 2 ] 
+                    #ifdef GRACE_3D 
+                        = pcoords[2] ;
+                    #else 
+                        = 0.0 ; 
+                    #endif  
+                }
+            }
+        #ifdef GRACE_3D
+        }
+        #endif 
+    }
     /* Create parallel dataset properties */
     hid_t dxpl ; 
     HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER)) ; 
@@ -553,26 +584,17 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
         write_dataset_string_attribute_hdf5(dset_id, "VariableStaggering", "Cell");
 
         /* Shuffle data around to put it in the right form */
-        for( int iq=0; iq<nq; ++iq){
-            /* Copy data d2d */
-            auto sview = Kokkos::subview( view
-                                        , Kokkos::pair<int,int>(ngz,nx+ngz)
-                                        , Kokkos::pair<int,int>(ngz,ny+ngz)
-                                        #ifdef GRACE_3D
-                                        , Kokkos::pair<int,int>(ngz,nz+ngz)
-                                        #endif 
-                                        , varidx 
-                                        , iq ) ; 
-            auto mirror_sview = Kokkos::subview( d_mirror
-                                        , Kokkos::ALL()
-                                        , Kokkos::ALL()
-                                        #ifdef GRACE_3D
-                                        , Kokkos::ALL()
-                                        #endif 
-                                        , iq ) ; 
-            /* This deep copy operation is asynchronous */
-            Kokkos::deep_copy(mirror_sview, sview) ; 
-        }
+        auto sview = Kokkos::subview( view
+                                    , Kokkos::pair<int,int>(ngz,nx+ngz)
+                                    , Kokkos::pair<int,int>(ngz,ny+ngz)
+                                    #ifdef GRACE_3D
+                                    , Kokkos::pair<int,int>(ngz,nz+ngz)
+                                    #endif 
+                                    , varidx
+                                    , Kokkos::ALL() ) ; 
+ 
+        /* This deep copy operation is asynchronous */
+        Kokkos::deep_copy(d_mirror, sview) ;
         /* Copy data d2h */
         Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
 
@@ -639,13 +661,19 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
     Kokkos::View<double *EXPR(*,*,*)*, Kokkos::LayoutLeft> 
         d_mirror("Device output mirror", 3, VEC(nx,ny,nz), nq) ; 
     auto h_mirror = Kokkos::create_mirror_view(d_mirror) ; 
-    for( int ivar=0; ivar<varlist.size(); ++ivar)
+    for( auto const& vname: varlist )
     {
-        size_t varidx = grace::get_variable_index(varlist[ivar]+"[0]",isaux) ; 
+        std::array<std::string, 3> const compnames 
+                = {
+                    vname + "[0]",
+                    vname + "[1]",
+                    vname + "[2]"
+                } ;
+        size_t varidx = grace::get_variable_index(compnames[0],isaux) ; 
         GRACE_TRACE("Writing vector var {} to output. Variable index {} from auxiliaries? {}"
-                   , varlist[ivar], varidx, isaux) ; 
+                   , vname, varidx, isaux) ; 
         /* create HDF5 dataset */
-        std::string dset_name = "/" + varlist[ivar] ; 
+        std::string dset_name = "/" + vname ; 
         hid_t dset_id ; 
         HDF5_CALL( dset_id
                 , H5Dcreate2( file_id
@@ -660,29 +688,20 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
         write_dataset_string_attribute_hdf5(dset_id, "VariableStaggering", "Cell");
 
         /* Shuffle data around to put it in the right form */
-        for( int iq=0; iq<nq; ++iq){
-            for( int icomp=0; icomp<3; ++icomp){
-                /* Copy data d2d */
-                auto sview = Kokkos::subview( view
-                                            , Kokkos::pair<int,int>(ngz,nx+ngz)
-                                            , Kokkos::pair<int,int>(ngz,ny+ngz)
-                                            #ifdef GRACE_3D
-                                            , Kokkos::pair<int,int>(ngz,nz+ngz)
-                                            #endif 
-                                            , varidx+icomp
-                                            , iq ) ; 
-                auto mirror_sview = Kokkos::subview( d_mirror
-                                            , icomp
-                                            , Kokkos::ALL()
-                                            , Kokkos::ALL()
-                                            #ifdef GRACE_3D
-                                            , Kokkos::ALL()
-                                            #endif 
-                                            , iq  ) ; 
-                /* This deep copy operation is synchronous */
-                Kokkos::deep_copy(mirror_sview, sview) ; 
-            }
-        }
+        
+        /* Copy data d2d */
+        auto sview = Kokkos::subview( view
+                                    , Kokkos::pair<int,int>(ngz,nx+ngz)
+                                    , Kokkos::pair<int,int>(ngz,ny+ngz)
+                                    #ifdef GRACE_3D
+                                    , Kokkos::pair<int,int>(ngz,nz+ngz)
+                                    #endif 
+                                    , Kokkos::pair<int,int>(varidx, varidx+3)
+                                    , Kokkos::ALL() ) ; 
+        
+        /* This deep copy operation is synchronous */
+        Kokkos::deep_copy(d_mirror, sview) ; 
+            
         /************************************************/
         /* Transform variable to physical frame         */
         /************************************************/

@@ -133,7 +133,7 @@ class sc_array_view_t
          * @brief Return const iterator pointing at the beginning of the array.
          */
         const_iterator_type cbegin() 
-        { 
+        const { 
             return const_iterator_type(
                 reinterpret_cast<pointer>(array_->array)
             ) ; 
@@ -142,7 +142,7 @@ class sc_array_view_t
          * @brief Return const iterator pointing at the end of the array.
          */
         const_iterator_type cend() 
-        { 
+        const { 
             return const_iterator_type(
                 reinterpret_cast<pointer>(array_->array) + array_->elem_count 
             ) ; 

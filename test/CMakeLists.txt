@@ -1,42 +1,26 @@
-set(HEADER_LIST "${PROJECT_SOURCE_DIR}/include/")
+# Utility functions to register tests 
+# in GRACE's unit-test framework
+include(register_test)
 
-add_executable( errors_test test_errors.cc ) 
 
-target_include_directories(errors_test PRIVATE "${HEADER_LIST}")
-target_compile_options(errors_test PRIVATE -g)
-target_link_libraries( errors_test PRIVATE 
-                        $<TARGET_OBJECTS:grace_error_handlers>
-                        $<TARGET_OBJECTS:grace_parallel>
-                        MPI::MPI_CXX 
-                        p4est::sc 
-                        spdlog::spdlog )
+# Here we define some object files that act as 
+# mains for the Catch2 tests in different setups
 
+# Tests involving MPI
 add_library(mpi_tests_main mains/mpi_tests_main.cc)
-target_include_directories(mpi_tests_main PRIVATE "${HEADER_LIST}")
+target_include_directories(mpi_tests_main PRIVATE "${HEADER_DIR}")
 target_link_libraries(  mpi_tests_main PRIVATE 
 Catch2::Catch2
 $<TARGET_OBJECTS:grace_parallel>
 $<TARGET_OBJECTS:grace_error_handlers>
 MPI::MPI_CXX
 p4est::sc 
-spdlog::spdlog )
+spdlog::spdlog 
+ZLIB::ZLIB)
 
-add_executable( parallel_test test_parallel.cc )
-target_include_directories(parallel_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  parallel_test PRIVATE 
-mpi_tests_main
-Catch2::Catch2
-$<TARGET_OBJECTS:grace_parallel>
-$<TARGET_OBJECTS:grace_error_handlers>
-MPI::MPI_CXX
-p4est::sc 
-spdlog::spdlog )
-
-
-
-
+# Tests involving the yaml parser
 add_library(parser_tests_main mains/parser_tests_main.cc)
-target_include_directories(parser_tests_main PRIVATE "${HEADER_LIST}")
+target_include_directories(parser_tests_main PRIVATE "${HEADER_DIR}")
 target_link_libraries(  parser_tests_main PRIVATE 
 Catch2::Catch2
 yaml_cpp::yaml
@@ -45,24 +29,12 @@ $<TARGET_OBJECTS:grace_parallel>
 $<TARGET_OBJECTS:grace_singleton> 
 MPI::MPI_CXX
 p4est::sc 
-spdlog::spdlog  )
+spdlog::spdlog  
+ZLIB::ZLIB)
 
-add_executable( parser_test test_parser.cc )
-target_include_directories(parser_test PRIVATE "${HEADER_LIST}")
-
-target_link_libraries(  parser_test PRIVATE 
-parser_tests_main
-yaml_cpp::yaml
-Catch2::Catch2
-$<TARGET_OBJECTS:grace_parallel>
-$<TARGET_OBJECTS:grace_error_handlers>
-$<TARGET_OBJECTS:grace_singleton> 
-MPI::MPI_CXX
-p4est::sc 
-spdlog::spdlog )
-
+# Tests involving the whole grace infrastructure
 add_library(p4est_tests_main mains/p4est_tests_main.cc)
-target_include_directories(p4est_tests_main PRIVATE "${HEADER_LIST}")
+target_include_directories(p4est_tests_main PRIVATE "${HEADER_DIR}")
 target_link_libraries(  p4est_tests_main PRIVATE 
 Catch2::Catch2
 yaml_cpp::yaml
@@ -72,25 +44,12 @@ p4est::sc
 p4est::p4est 
 Kokkos::kokkos
 spdlog::spdlog 
+ZLIB::ZLIB
 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling> )
 
-add_executable( connectivity_test test_connectivities.cc )
-target_include_directories(connectivity_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  connectivity_test PRIVATE 
-p4est_tests_main
-Catch2::Catch2
-grace_objects
-yaml_cpp::yaml
-MPI::MPI_CXX
-OpenMP::OpenMP_CXX
-p4est::sc
-p4est::p4est
-spdlog::spdlog 
-$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-
-
+# Tests involving Kokkos
 add_library(kokkos_tests_main mains/kokkos_tests_main.cc)
-target_include_directories(kokkos_tests_main PRIVATE "${HEADER_LIST}")
+target_include_directories(kokkos_tests_main PRIVATE "${HEADER_DIR}")
 target_link_libraries(  kokkos_tests_main PRIVATE 
 Catch2::Catch2
 $<TARGET_OBJECTS:grace_error_handlers>
@@ -102,279 +61,41 @@ MPI::MPI_CXX
 p4est::sc 
 spdlog::spdlog )
 
+# Now add all the executables for the tests
+# the functions ensure that the correct libraries
+# are linked and keep this file relatively tidy 
+add_mpi_test(parallel_test test_parallel.cc )
+add_parser_test(parser_test test_parser.cc )
+add_grace_test(connectivity_test test_connectivities.cc)
+add_grace_test(sc_wrappers_test test_sc_wrappers.cpp)
+add_grace_test(forest_test test_forest.cpp)
+add_grace_test(varlist_test test_variable_list.cpp)
+add_grace_test(coordinate_test test_coordinates.cpp)
+add_grace_test(volume_output_test test_output.cpp)
+add_grace_test(regrid_test test_regridding.cpp)
+add_grace_test(bc_test test_bc.cpp)
+add_grace_test(bc_test_unigrid test_bc_unigrid.cpp)
+add_grace_test(scalar_reductions_test test_scalar_reductions.cpp)
+add_grace_test(hdf5_output_test test_hdf5_IO.cpp)
+add_grace_test(eos_test test_eos.cpp)
+add_grace_test(metric_test test_metric.cpp)
+add_grace_test(c2p_test test_c2p.cpp)
+add_grace_test(exchange_test test_new_exchange.cpp)
 
-add_executable( sc_wrappers_test test_sc_wrappers.cpp )
-target_include_directories(sc_wrappers_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  sc_wrappers_test PRIVATE 
-p4est_tests_main
-Catch2::Catch2
-grace_objects
-MPI::MPI_CXX
-OpenMP::OpenMP_CXX
-p4est::sc
-p4est::p4est
-spdlog::spdlog 
-$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
+add_kokkos_test(interpolator_test test_interpolators.cpp)
 
-add_executable( forest_test test_forest.cpp )
-target_include_directories(forest_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  forest_test PRIVATE 
-p4est_tests_main
-Catch2::Catch2
-grace_objects
-yaml_cpp::yaml
-MPI::MPI_CXX
-OpenMP::OpenMP_CXX
-p4est::sc
-p4est::p4est
-spdlog::spdlog 
-$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
+add_standalone_test(integrator_test test_integration.cpp)
 
-add_executable( varlist_test test_variable_list.cpp )
-target_include_directories(varlist_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  varlist_test PRIVATE 
-p4est_tests_main
-Catch2::Catch2
-grace_objects
-yaml_cpp::yaml
-MPI::MPI_CXX
-OpenMP::OpenMP_CXX
-p4est::sc
-p4est::p4est 
-Kokkos::kokkos
-spdlog::spdlog
-$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-
-add_executable( coordinate_test test_coordinates.cpp )
-target_include_directories(coordinate_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  coordinate_test PRIVATE 
-p4est_tests_main
-Catch2::Catch2
-grace_objects
-yaml_cpp::yaml
-Kokkos::kokkos
-$<TARGET_OBJECTS:grace_vtk_output>
-MPI::MPI_CXX
-OpenMP::OpenMP_CXX
-p4est::sc
-p4est::p4est 
-VTK::VTK 
-spdlog::spdlog
-$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-vtk_module_autoinit(
-    TARGETS coordinate_test
-    MODULES ${VTK_LIBRARIES}
-    )
-
-add_executable( volume_output_test test_output.cpp )
-target_include_directories(volume_output_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  volume_output_test PRIVATE 
-p4est_tests_main
-Catch2::Catch2
-grace_objects
-$<TARGET_OBJECTS:grace_vtk_output>
-yaml_cpp::yaml
-Kokkos::kokkos
-MPI::MPI_CXX
-OpenMP::OpenMP_CXX
-p4est::sc
-p4est::p4est 
-VTK::VTK 
-spdlog::spdlog
-$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-vtk_module_autoinit(
-    TARGETS volume_output_test
-    MODULES ${VTK_LIBRARIES}
-    )
-
-
-add_executable( interpolator_test test_interpolators.cpp )
-target_include_directories( interpolator_test PRIVATE "${HEADER_LIST}")
-target_compile_options(interpolator_test PRIVATE -Wno-dangling-field)
-target_link_libraries( interpolator_test PRIVATE
-        kokkos_tests_main
-        Catch2::Catch2 
-        Kokkos::kokkos ) 
-
-add_executable( integrator_test test_integration.cpp )
-target_include_directories( integrator_test PRIVATE "${HEADER_LIST}")
-target_compile_options(integrator_test PRIVATE -O3)
-target_link_libraries( integrator_test PRIVATE
-        Catch2::Catch2WithMain ) 
-
-
-add_executable( regrid_test test_regridding.cpp )
-target_include_directories(regrid_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  regrid_test PRIVATE 
-p4est_tests_main
-Catch2::Catch2
-grace_objects
-$<TARGET_OBJECTS:grace_vtk_output>
-yaml_cpp::yaml
-Kokkos::kokkos
-MPI::MPI_CXX
-OpenMP::OpenMP_CXX
-p4est::sc
-p4est::p4est 
-VTK::VTK 
-spdlog::spdlog
-$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-vtk_module_autoinit(
-    TARGETS regrid_test
-    MODULES ${VTK_LIBRARIES}
-    )
-
-add_executable( bc_test test_bc.cpp )
-target_include_directories(bc_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  bc_test PRIVATE 
-p4est_tests_main
-Catch2::Catch2
-grace_objects
-$<TARGET_OBJECTS:grace_vtk_output>
-yaml_cpp::yaml
-Kokkos::kokkos
-MPI::MPI_CXX
-p4est::sc
-p4est::p4est 
-VTK::VTK 
-spdlog::spdlog 
-$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-vtk_module_autoinit(
-TARGETS bc_test
-MODULES ${VTK_LIBRARIES}
-)
-
-add_executable( bc_test_unigrid test_bc_unigrid.cpp )
-target_include_directories(bc_test_unigrid PRIVATE "${HEADER_LIST}")
-target_link_libraries(  bc_test_unigrid PRIVATE 
-p4est_tests_main
-Catch2::Catch2
-grace_objects
-$<TARGET_OBJECTS:grace_vtk_output>
-yaml_cpp::yaml
-Kokkos::kokkos
-MPI::MPI_CXX
-p4est::sc
-p4est::p4est 
-VTK::VTK 
-spdlog::spdlog 
-$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-vtk_module_autoinit(
-TARGETS bc_test
-MODULES ${VTK_LIBRARIES}
-)
-
-add_executable( scalar_reductions_test test_scalar_reductions.cpp )
-target_include_directories(scalar_reductions_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  scalar_reductions_test PRIVATE 
-p4est_tests_main
-Catch2::Catch2
-grace_objects
-$<TARGET_OBJECTS:grace_vtk_output>
-yaml_cpp::yaml
-Kokkos::kokkos
-MPI::MPI_CXX
-p4est::sc
-p4est::p4est 
-VTK::VTK 
-spdlog::spdlog 
-$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-vtk_module_autoinit(
-TARGETS bc_test
-MODULES ${VTK_LIBRARIES}
-)
-
-add_executable( hdf5_output_test test_hdf5_IO.cpp )
-target_include_directories(hdf5_output_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  hdf5_output_test PRIVATE 
-p4est_tests_main
-Catch2::Catch2
-grace_objects
-yaml_cpp::yaml
-Kokkos::kokkos
-$<TARGET_OBJECTS:grace_vtk_output>
-$<TARGET_OBJECTS:grace_hdf5_output>
-MPI::MPI_CXX
-OpenMP::OpenMP_CXX
-p4est::sc
-p4est::p4est 
-VTK::VTK 
-spdlog::spdlog
-HDF5::HDF5 
-$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-vtk_module_autoinit(
-    TARGETS hdf5_output_test
-    MODULES ${VTK_LIBRARIES}
-    )
-
-add_executable( eos_test test_eos.cpp )
-target_include_directories(eos_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  eos_test PRIVATE 
-p4est_tests_main
-    Catch2::Catch2
-    grace_objects
-    yaml_cpp::yaml
-    Kokkos::kokkos
-    MPI::MPI_CXX
-    OpenMP::OpenMP_CXX
-    p4est::sc
-    p4est::p4est 
-    spdlog::spdlog
-    HDF5::HDF5 
-    $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-
-add_executable( metric_test test_metric.cpp )
-target_include_directories(metric_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  metric_test PRIVATE 
-        p4est_tests_main
-        Catch2::Catch2
-        grace_objects
-        yaml_cpp::yaml
-        Kokkos::kokkos
-        MPI::MPI_CXX
-        OpenMP::OpenMP_CXX
-        p4est::sc
-        p4est::p4est 
-        spdlog::spdlog
-        $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-
-add_executable( c2p_test test_c2p.cpp )
-target_include_directories(c2p_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  c2p_test PRIVATE 
-                p4est_tests_main
-                Catch2::Catch2
-                grace_objects
-                yaml_cpp::yaml
-                Kokkos::kokkos
-                MPI::MPI_CXX
-                OpenMP::OpenMP_CXX
-                p4est::sc
-                p4est::p4est 
-                spdlog::spdlog
-                $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-
-
-add_executable( exchange_test test_new_exchange.cpp )
-target_include_directories(exchange_test PRIVATE "${HEADER_LIST}")
-target_link_libraries(  exchange_test PRIVATE 
-p4est_tests_main
-Catch2::Catch2
-grace_objects
-$<TARGET_OBJECTS:grace_vtk_output>
-yaml_cpp::yaml
-Kokkos::kokkos
-MPI::MPI_CXX
-OpenMP::OpenMP_CXX
-p4est::sc
-p4est::p4est 
-VTK::VTK 
-spdlog::spdlog
-ZLIB::ZLIB
-$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
-vtk_module_autoinit(
-    TARGETS regrid_test
-    MODULES ${VTK_LIBRARIES}
-    )
+add_executable( errors_test test_errors.cc ) 
+target_include_directories(errors_test PRIVATE "${HEADER_DIR}")
+target_compile_options(errors_test PRIVATE -g)
+target_link_libraries( errors_test PRIVATE 
+                        $<TARGET_OBJECTS:grace_error_handlers>
+                        $<TARGET_OBJECTS:grace_parallel>
+                        MPI::MPI_CXX 
+                        p4est::sc 
+                        spdlog::spdlog 
+                        ZLIB::ZLIB)
 
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)

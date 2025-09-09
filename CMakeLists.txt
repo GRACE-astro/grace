@@ -39,6 +39,13 @@ include(setup_vtk)
 include(setup_spdlog)
 include(setup_HDF5)
 
+option( GRACE_ENABLE_VTK "Enable VTK support" ON)
+if ( GRACE_ENABLE_VTK )
+    message(STATUS "VTK support enabled")
+    include(setup_vtk)
+endif() 
+
+
 option(GRACE_ENABLE_PROFILING "Build profiling hooks" ON)
 if( GRACE_ENABLE_PROFILING )
     message(STATUS "Profiling enabled.")
@@ -53,29 +60,29 @@ endif()
 
 add_subdirectory(src)
 
+
 add_executable(grace src/grace.cpp)
 target_include_directories(grace PRIVATE "${HEADER_DIR}")
 target_link_libraries(grace PRIVATE 
         grace_objects
-        $<TARGET_OBJECTS:grace_vtk_output>
-        $<TARGET_OBJECTS:grace_hdf5_output>
-        $<TARGET_OBJECTS:grace_cell_output>
         yaml_cpp::yaml
         MPI::MPI_CXX
         OpenMP::OpenMP_CXX
         Kokkos::kokkos 
         p4est::p4est 
         p4est::sc
-        VTK::VTK
         spdlog::spdlog
         HDF5::HDF5
-	ZLIB::ZLIB
+	    ZLIB::ZLIB
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
+        $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
         )
-vtk_module_autoinit(
-    TARGETS grace
-    MODULES ${VTK_LIBRARIES}
-)
+if ( GRACE_ENABLE_VTK )
+    vtk_module_autoinit(
+        TARGETS grace
+        MODULES ${VTK_LIBRARIES}
+    )
+endif() 
 
 option(GRACE_ENABLE_TESTING "Build the tests" ON)
 if(GRACE_ENABLE_TESTING)
