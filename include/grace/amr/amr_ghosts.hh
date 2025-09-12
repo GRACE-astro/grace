@@ -48,6 +48,7 @@
 
 #include <vector>
 #include <array> 
+#include <memory> 
 
 namespace grace {
 /**************************************************************************************************/
@@ -145,6 +146,7 @@ class amr_ghosts_impl_t {
     std::vector<gpu_task_t> gpu_task_list ; 
     std::vector<mpi_task_t> mpi_task_list ; 
     std::vector<cpu_task_t> cpu_task_list ; 
+    std::vector<std::unique_ptr<task_t>> all_tasks ;
     executor task_queue ; 
     std::vector<std::size_t> send_rank_offsets, recv_rank_offsets ; //!< In # of elements
     std::vector<std::size_t> send_rank_sizes, recv_rank_sizes ; //!< In # of elements

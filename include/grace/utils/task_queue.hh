@@ -178,7 +178,6 @@ struct cpu_task_t : public task_t {
 struct runtime_task_view {
   task_t* t;              // pointer to the actual task definition
   std::atomic<int> pending;  // number of unsatisfied dependencies
-  uint16_t stream_id;     // preassigned stream (optional)
 };
 
 

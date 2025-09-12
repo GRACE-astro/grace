@@ -353,6 +353,8 @@ void generate_pup_tasks(
     , Kokkos::View<double*> recv_buf 
     , std::vector<std::size_t> const& send_rank_offsets
     , std::vector<std::size_t> const& recv_rank_offsets
+    , std::unordered_map< std::size_t, task_id_t > const& send_task_id
+    , std::unordered_map< std::size_t, task_id_t > const& recv_task_id
     , device_stream_t& pup_stream
     , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv
     , task_id_t& task_counter 
@@ -403,6 +405,9 @@ void generate_pup_tasks(
             } ; 
             pack_task.stream = &pup_stream ; 
             pack_task.task_id = task_counter ++ ; 
+        
+            pack.task.dependents.push_back(send_task_id[r]) ; 
+
             gpu_tasks.push_back(std::move(pack_task)) ;
         } 
         if (rb.size() > 0 ) {
@@ -442,6 +447,7 @@ void generate_pup_tasks(
             } ; 
             unpack_task.stream = &pup_stream ; 
             unpack_task.task_id = task_counter ++ ; 
+            unpack_task.dependencies.push_back(recv_task_id[r]) ; 
             gpu_tasks.push_back(std::move(unpack_task)) ; 
         }
     }
@@ -623,7 +629,12 @@ void amr_ghosts_impl_t::build_task_list() {
         _send_buffer, _recv_buffer, send_rank_offsets, 
         recv_rank_offsets, pup_stream, VEC(nx,ny,nz), ngz, nvars, 
         task_counter, gpu_task_list 
-    ) ; /* TODO */
+    ) ; 
+
+    // go back to mpi task and set dependencies 
+    for( auto & t: mpi_task_list ) {
+        
+    }
 
     // flush any remaining kernels 
     // that did not make the cut 
