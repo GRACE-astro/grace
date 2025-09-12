@@ -1,0 +1,184 @@
+/**
+ * @file pack_unpack_kernels.hh
+ * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @brief 
+ * @date 2025-09-05
+ * 
+ * @copyright This file is part of of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
+ * methods to simulate relativistic spacetimes and plasmas
+ * Copyright (C) 2023 Carlo Musolino
+ *                                    
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *   
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *   
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ */
+#ifndef GRACE_AMR_PACK_UNPACK_KERNELS_HH
+#define GRACE_AMR_PACK_UNPACK_KERNELS_HH 
+
+#include <grace_config.h>
+
+#include <grace/utils/device.hh>
+#include <grace/utils/inline.hh>
+
+#include <type_helpers.hh>
+#include <index_helpers.hh>
+
+#include <Kokkos_Core.hpp>
+
+namespace grace { namespace amr {
+
+template< 
+    typename ViewA_t,
+    typename ViewB_t 
+>
+struct face_pack_k {
+    ViewA_t src_view ; 
+    ViewB_t dest_view; 
+
+    readonly_view_t<std::size_t> src_qid, dest_qid ; 
+    readonly_view_t<uint8_t> src_face_view ;
+    
+    std::size_t VEC(nx, ny, nz), ngz, nvars, offset ; 
+
+    std::size_t s1, s2, s3, s4, s5 ;
+
+    face_index_transformer_t transf ; 
+
+    face_pack_k(
+        ViewB_t _src_view,
+        ViewA_t _dest_view,
+        quad_view_t _src_qid, 
+        quad_view_t _dest_qid,
+        face_view_t _src_face,  
+        VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
+        std::size_t _ngz, std::size_t _nvars, std::size_t _offset 
+    ) : src_view(_src_view)
+      , dest_view(_dest_view)
+      , src_qid(_src_qid)
+      , dest_qid(_dest_qid)
+      , src_face_view(_src_face)
+      , dest_face(_dest_face)
+      , VEC(nx(_nx), ny(_ny), nz(_nz))
+      , ngz(_ngz), nvars(_nvars), offset(_offset)
+      , transf(VEC(nx,ny,nz),ngz)
+    {
+
+        s1 = 1 ; s2 = ngz ; s3 = s2 * nx ; s4 = s3 * nx ; s5 = s4 * nvars ; 
+
+    } 
+
+
+    KOKKOS_INLINE_FUNCTION 
+    void operator() (
+        std::size_t ig, VECD(std::size_t j, std::size_t k), size_t ivar, size_t iq
+    ) {
+        auto const src_face  = src_face_view(iq) ; 
+
+        auto const src_q  = src_qid(iq)  ; 
+        auto const dest_q = dest_qid(iq) ;
+
+
+        std::size_t VEC(i_a,j_a,k_a), VEC(i_b,j_b,k_b) ; 
+        transf.compute_phys_indices<true>(
+            ig, VECD(j, k), i_a, j_a, k_a, src_face
+        ) ; 
+        transf.compute_phys_indices<false>(
+            ig, VECD(j, k), i_b, j_b, k_b, 0 
+        ) ; 
+        // TODO this is 3D only 
+        std::size_t compressed_index = offset + i_b * s1 + j_b * s2 + k_b * s3 + ivar * s4 + dest_q * s5;
+
+        dest_view(
+            compressed_index
+        ) = src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
+        
+    }
+
+} ; 
+
+template< 
+    typename ViewA_t,
+    typename ViewB_t 
+>
+struct face_unpack_k {
+    
+    ViewA_t src_view ; 
+    ViewB_t dest_view; 
+
+    readonly_view_t<std::size_t> src_qid, dest_qid ; 
+    readonly_view_t<uint8_t> dest_face_view ;
+    
+    std::size_t VEC(nx, ny, nz), ngz, nvars, offset ; 
+
+    std::size_t s1, s2, s3, s4, s5 ;
+
+    face_index_transformer_t transf ; 
+
+    face_unpack_k(
+        ViewB_t _src_view,
+        ViewA_t _dest_view,
+        quad_view_t _src_qid, 
+        quad_view_t _dest_qid,
+        face_view_t _dest_face,  
+        VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
+        std::size_t _ngz, std::size_t _nvars, std::size_t _offset 
+    ) : src_view(_src_view)
+      , dest_view(_dest_view)
+      , src_qid(_src_qid)
+      , dest_qid(_dest_qid)
+      , dest_face_view(_dest_face)
+      , dest_face(_dest_face)
+      , VEC(nx(_nx), ny(_ny), nz(_nz))
+      , ngz(_ngz), nvars(_nvars), offset(_offset)
+      , transf(VEC(nx,ny,nz),ngz)
+    {
+
+        s1 = 1 ; s2 = ngz ; s3 = s2 * nx ; s4 = s3 * nx ; s5 = s4 * nvars ; 
+
+    } 
+
+
+    KOKKOS_INLINE_FUNCTION 
+    void operator() (
+        std::size_t ig, VECD(std::size_t j, std::size_t k), size_t ivar, size_t iq
+    ) {
+        auto const dest_face  = dest_face_view(iq) ; 
+
+        auto const src_q  = src_qid(iq)  ; 
+        auto const dest_q = dest_qid(iq) ;
+
+
+        std::size_t VEC(i_a,j_a,k_a), VEC(i_b,j_b,k_b) ; 
+        transf.compute_phys_indices<false>(
+            ig, VECD(j, k), i_b, j_b, k_b, 0
+        ) ; 
+        transf.compute_phys_indices<true>(
+            ig, VECD(j, k), i_a, j_a, k_a, dest_face 
+        ) ; 
+        // TODO this is 3D only 
+        std::size_t compressed_index = offset + i_b * s1 + j_b * s2 + k_b * s3 + ivar * s4 + src_q * s5;
+
+
+        dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) = 
+            src_view(compressed_index) ; 
+        
+    }
+
+} ; 
+
+    
+}} /* namespace grace::amr */
+
+#endif /* GRACE_AMR_PACK_UNPACK_KERNELS_HH */

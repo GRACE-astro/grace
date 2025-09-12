@@ -38,6 +38,7 @@
 
 #include <grace/utils/singleton_holder.hh>
 #include <grace/utils/lifetime_tracker.hh>
+#include <grace/utils/task_queue.hh>
 
 #include <grace/data_structures/memory_defaults.hh>
 
@@ -72,6 +73,7 @@ union face_data_t {
  */
 struct face_descriptor_t { 
     interface_kind_t kind ; 
+    std::size_t send_buffer_id ; //!< Index in send buffer if applicable 
     int8_t level_diff   ; //!< Ref level difference (+-1 or 0)
     face_data_t data    ; //!< Quadrant ids 
 } ; 
@@ -112,11 +114,24 @@ void grace_iterate_faces( p4est_iter_face_info_t* info
 /**************************************************************************************************/
 /**************************************************************************************************/
 class amr_ghosts_impl_t {
-
+    /**************************************************************************************************/
+    static constexpr unsigned int BATCH_N_KERNELS = 64U ; 
     /**************************************************************************************************/
     public: 
     /**************************************************************************************************/
     std::vector<quad_neighbors_descriptor_t> const& get_ghost_layer() { return ghost_layer ; }
+    /**************************************************************************************************/
+    p4est_ghost_t* get_p4est_ghosts() { return p4est_ghost_layer ; }
+    /**************************************************************************************************/
+    void get_rank_offsets( std::vector<std::size_t>& send, std::vector<std::size_t>& receive ) {
+        send = send_rank_offsets ; receive = recv_rank_offsets ; 
+    }
+    void get_rank_sizes(  std::vector<std::size_t>& send, std::vector<std::size_t>& receive ) {
+        send = send_rank_sizes ; receive = recv_rank_sizes ; 
+    }
+    std::vector<mpi_task_t> const& get_mpi_tasks () {return mpi_task_list;}
+    std::vector<gpu_task_t> const& get_gpu_tasks () {return gpu_task_list;}
+    std::vector<cpu_task_t> const& get_cpu_tasks () {return cpu_task_list;}
     /**************************************************************************************************/
     void update() ; 
     /**************************************************************************************************/
@@ -124,6 +139,18 @@ class amr_ghosts_impl_t {
     /**************************************************************************************************/
     std::vector<quad_neighbors_descriptor_t> ghost_layer ; //!< Ghost layer used by GRACE
     p4est_ghost_t* p4est_ghost_layer                     ; //!< p4est data struct 
+    std::vector<gpu_task_t> gpu_task_list ; 
+    std::vector<mpi_task_t> mpi_task_list ; 
+    std::vector<cpu_task_t> cpu_task_list ; 
+    executor task_queue ; 
+    std::vector<std::size_t> send_rank_offsets, recv_rank_offsets ; //!< In # of elements
+    std::vector<std::size_t> send_rank_sizes, recv_rank_sizes ; //!< In # of elements
+    Kokkos::View<double*> _send_buffer, _recv_buffer ;
+    //**************************************************************************************************
+    void build_task_list() ; 
+    //**************************************************************************************************
+    void build_remote_buffers() ; 
+    void generate_mpi_transfer_tasks(std::size_t rank, mpi_task_t& send, mpi_task_t& recv, task_id_t& task_counter) ; 
     //**************************************************************************************************
     static constexpr unsigned long longevity = unique_objects_lifetimes::AMR_GHOSTS ; 
     //**************************************************************************************************

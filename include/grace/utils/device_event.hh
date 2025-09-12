@@ -57,14 +57,26 @@ struct device_event_t {
      * @brief Destructor. Destroys the device event.
      */
     ~device_event_t() {
-        EVENT_DESTROY(_event);
+        if( _event ) EVENT_DESTROY(_event);
     }
 
     //! Move-only class
     device_event_t(const device_event_t&) = delete;
-    device_event_t(device_event_t&&) = default;
+    device_event_t(device_event_t&& other) noexcept : _event(other._event) {
+        other._event = nullptr;
+    }
+
     device_event_t& operator=(const device_event_t&) = delete;
-    device_event_t& operator=(device_event_t&&) = default;
+    device_event_t& operator=(device_event_t&& other) noexcept {
+        if (this != &other) {
+            if (_event) {
+                EVENT_DESTROY(_event);
+            }
+            _event = other._event;
+            other._event = nullptr;
+        }
+        return *this;
+    }
 
     /**
      * @brief Records the event on a given stream.
@@ -106,7 +118,7 @@ struct device_event_t {
     }
 
     void reset() {
-        EVENT_DESTROY(_event);
+        if (_event) EVENT_DESTROY(_event);
         EVENT_CREATE(_event);
     }
 

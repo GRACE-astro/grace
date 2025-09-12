@@ -39,6 +39,7 @@
 #include <grace/amr/connectivity.hh>
 #include <grace/amr/forest.hh>
 #include <grace/amr/amr_functions.hh>
+#include <grace/amr/amr_ghosts.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/profiling/profiling_runtime.hh>
@@ -212,6 +213,7 @@ void initialize(int& argc, char* argv[])
         ,   grace::variable_list::get().getstaggeredcoords() ) ;
     grace::IO::detail::init_auxiliaries()  ;
     grace::eos::initialize() ;
+    grace::amr_ghosts::initialize() ; 
     GRACE_INFO("Initialization done.");
     GRACE_INFO("GRACE running on {} backend", GRACE_BACKEND) ; 
     //GRACE_INFO("GRACE running on {} total devices.", Kokkos::num_devices() ) ; 

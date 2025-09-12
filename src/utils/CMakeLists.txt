@@ -1,1 +1,3 @@
 register_grace_object(grace_singleton lifetime_tracker.cpp)
+register_grace_object(task_queue task_queue.cpp)
+
