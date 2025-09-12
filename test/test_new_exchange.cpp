@@ -95,26 +95,10 @@ TEST_CASE("Unigrid exchange", "[unigrid]")
                 << ", offset = " << recv_rank_offsets[r] << "\n";
     }
 
-    auto& mpi_tasks = ghost.get_mpi_tasks() ; 
-    std::unordered_map<status_id_t, std::string> statuses ; 
-    statuses[status_id_t::WAITING] = "waiting" ; 
-    statuses[status_id_t::READY] = "ready" ; 
-    statuses[status_id_t::RUNNING] = "running" ; 
-    statuses[status_id_t::COMPLETE] = "complete" ; 
-    statuses[status_id_t::FAILED] = "failed" ; 
-    for( int i=0; i<mpi_tasks.size(); ++i ) {
-        std::cout << "Task[" << mpi_tasks[i].task_id << "] status " << statuses[mpi_tasks[i].status] << std::endl ;  
-    }
+    auto& task_list = ghost.get_task_list() ; 
+    std::cout << "We have " << task_list.size() << " tasks." << std::endl ;
 
-
-    auto& gpu_tasks = ghost.get_gpu_tasks() ;  
-    std::cout << "We have " <<  gpu_tasks.size() << " tasks scheduled on GPU.\n" ; 
-    
-    std::cout << "Prepare for liftoff! " << std::endl ; 
-    gpu_tasks[0].status = status_id_t::READY ; 
-    gpu_tasks[0].run() ; 
-
-    gpu_tasks[1].status = status_id_t::READY ; 
-    gpu_tasks[1].run() ; 
+    auto& runtime = ghost.get_task_executor() ; 
+    runtime.run() ; 
 }   
 }

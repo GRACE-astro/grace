@@ -133,9 +133,9 @@ class amr_ghosts_impl_t {
     void get_rank_sizes(  std::vector<std::size_t>& send, std::vector<std::size_t>& receive ) {
         send = send_rank_sizes ; receive = recv_rank_sizes ; 
     }
-    std::vector<mpi_task_t> const& get_mpi_tasks () {return mpi_task_list;}
-    std::vector<gpu_task_t>& get_gpu_tasks () {return gpu_task_list;}
-    std::vector<cpu_task_t> const& get_cpu_tasks () {return cpu_task_list;}
+    auto& get_task_list () {return task_list;}
+    auto& get_task_executor () {return task_queue;}
+
     /**************************************************************************************************/
     void update() ; 
     /**************************************************************************************************/
@@ -143,10 +143,8 @@ class amr_ghosts_impl_t {
     /**************************************************************************************************/
     std::vector<quad_neighbors_descriptor_t> ghost_layer ; //!< Ghost layer used by GRACE
     p4est_ghost_t* p4est_ghost_layer                     ; //!< p4est data struct 
-    std::vector<gpu_task_t> gpu_task_list ; 
-    std::vector<mpi_task_t> mpi_task_list ; 
-    std::vector<cpu_task_t> cpu_task_list ; 
-    std::vector<std::unique_ptr<task_t>> all_tasks ;
+
+    std::vector<std::unique_ptr<task_t>> task_list ;
     executor task_queue ; 
     std::vector<std::size_t> send_rank_offsets, recv_rank_offsets ; //!< In # of elements
     std::vector<std::size_t> send_rank_sizes, recv_rank_sizes ; //!< In # of elements
@@ -156,7 +154,8 @@ class amr_ghosts_impl_t {
     void build_task_list() ; 
     //**************************************************************************************************
     void build_remote_buffers() ; 
-    void generate_mpi_transfer_tasks(std::size_t rank, mpi_task_t& send, mpi_task_t& recv, task_id_t& task_counter) ; 
+    //**************************************************************************************************
+    void build_executor_runtime() ; 
     //**************************************************************************************************
     static constexpr unsigned long longevity = unique_objects_lifetimes::AMR_GHOSTS ; 
     //**************************************************************************************************

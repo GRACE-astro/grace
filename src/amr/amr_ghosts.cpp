@@ -167,6 +167,27 @@ void amr_ghosts_impl_t::update() {
     build_remote_buffers() ; 
 
     build_task_list() ; 
+
+    build_executor_runtime() ; 
+}
+
+void amr_ghosts_impl_t::build_executor_runtime() {
+    task_queue.clear() ; 
+    task_queue.reserve(task_list.size()) ; 
+
+    for( auto& t: task_list) {
+        
+        runtime_task_view rtv ; 
+        rtv.t = t.get() ; 
+        rtv.pending = t->_dependencies.size() ; 
+        if ( rtv.pending == 0 ) {
+            t -> status = status_id_t::READY ;
+            task_queue.ready.push_back(t -> task_id) ;  
+        }
+
+        task_queue.rt.push_back(std::move(rtv)) ; 
+    }
+
 }
 
 void amr_ghosts_impl_t::build_remote_buffers() {
@@ -237,7 +258,7 @@ using task_bucket_t = std::vector<
 > ; 
 
 template< typename view_t >
-gpu_task_t generate_gpu_copy_task(
+gpu_task_t make_gpu_copy_task(
       task_bucket_t const& bucket
     , view_t data 
     , device_stream_t& stream
@@ -296,7 +317,7 @@ gpu_task_t generate_gpu_copy_task(
 
 
 template< typename view_t >
-gpu_task_t generate_gpu_phys_bc_task(
+gpu_task_t make_gpu_phys_bc_task(
       task_bucket_t const& bucket
     , view_t data 
     , Kokkos::View<bc_t*> var_bc_kind 
@@ -343,9 +364,122 @@ gpu_task_t generate_gpu_phys_bc_task(
     return std::move(task) ; 
 }
 
+template< typename view_t >
+gpu_task_t make_pack_task(
+      task_bucket_t const& sb
+    , size_t rank 
+    , view_t data 
+    , Kokkos::View<double*> send_buf 
+    , std::vector<std::size_t> const& send_rank_offsets
+    , std::vector<task_id_t> const& send_task_id
+    , device_stream_t& pup_stream
+    , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv
+    , task_id_t& task_counter 
+    , std::vector<std::unique_ptr<task_t>>& task_list 
+)
+{
+    // construct pack task
+    auto const send_offset = send_rank_offsets[rank] ;
+    Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
+    Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
+                        , pack_dest_qid{"pack_dst_qid", sb.size()} ; 
+    Kokkos::View<uint8_t*> pack_src_face{"pack_src_fid", sb.size()}  ;
+    auto pack_src_qid_h = Kokkos::create_mirror_view(pack_src_qid) ; 
+    auto pack_dst_qid_h = Kokkos::create_mirror_view(pack_dest_qid) ; 
+    auto pack_src_face_h =  Kokkos::create_mirror_view(pack_src_face) ; 
+    size_t i{0UL} ; 
+    for( auto const& d: sb ) {
+        pack_src_qid_h(i) = d.qid_src ; 
+        pack_dst_qid_h(i) = d.qid_dst ; 
+        pack_src_face_h(i) = d.face_src ; 
+        i += 1UL ; 
+    }
+    Kokkos::deep_copy(pack_src_qid,pack_src_qid_h)   ; 
+    Kokkos::deep_copy(pack_dest_qid,pack_dst_qid_h)  ;  
+    Kokkos::deep_copy(pack_src_face,pack_src_face_h) ;
+
+    gpu_task_t pack_task{} ;
+
+    amr::face_pack_k pack_functor {
+        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_face, VEC(nx,ny,nz), ngz, nv, send_offset
+    } ; 
+
+    Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+    pack_policy{
+        exec_space, {0,0,0,0,0}, {ngz, nx,nx, nv, sb.size()}
+    } ; 
+    
+    pack_task._run = [pack_functor, pack_policy] () {
+        Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
+    } ; 
+    pack_task.stream = &pup_stream ; 
+    pack_task.task_id = task_counter ++ ; 
+    // send depends on this 
+    pack_task._dependents.push_back(send_task_id[rank]) ; 
+    task_list[send_task_id[rank]] -> _dependencies.push_back(pack_task.task_id); 
+    return pack_task ; 
+}
 
 template< typename view_t >
-void generate_pup_tasks(
+gpu_task_t make_unpack_task(
+      task_bucket_t const& rb
+    , size_t rank
+    , view_t data 
+    , Kokkos::View<double*> recv_buf 
+    , std::vector<std::size_t> const& recv_rank_offsets
+    , std::vector<task_id_t> const& recv_task_id
+    , device_stream_t& pup_stream
+    , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv
+    , task_id_t& task_counter 
+    , std::vector<std::unique_ptr<task_t>>& task_list 
+)
+{
+    // construct unpack task 
+    auto const recv_offset = recv_rank_offsets[rank] ;
+    Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
+    Kokkos::View<size_t*> unpack_src_qid{"unpack_src_qid", rb.size()}
+                            , unpack_dest_qid{"unpack_dst_qid", rb.size()} ; 
+    Kokkos::View<uint8_t*> unpack_dest_face{"unpack_src_fid", rb.size()}  ;
+    auto unpack_src_qid_h = Kokkos::create_mirror_view(unpack_src_qid) ; 
+    auto unpack_dst_qid_h = Kokkos::create_mirror_view(unpack_dest_qid) ; 
+    auto unpack_dest_face_h =  Kokkos::create_mirror_view(unpack_dest_face) ; 
+    size_t i = 0UL; 
+    for( auto const& d: rb ) {
+        unpack_src_qid_h(i) = d.qid_src ; 
+        unpack_dst_qid_h(i) = d.qid_dst ; 
+        unpack_dest_face_h(i) = d.face_dst ; 
+        i += 1UL ; 
+    }
+    Kokkos::deep_copy(unpack_src_qid,unpack_src_qid_h)   ; 
+    Kokkos::deep_copy(unpack_dest_qid,unpack_dst_qid_h)  ;  
+    Kokkos::deep_copy(unpack_dest_face,unpack_dest_face_h) ;
+
+    
+    gpu_task_t unpack_task{} ;
+
+    amr::face_unpack_k unpack_functor {
+        recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_face, VEC(nx,ny,nz), ngz, nv, recv_offset
+    } ; 
+
+    Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+    unpack_policy{
+        exec_space, {0,0,0,0,0}, {ngz, nx,nx,nv, rb.size()}
+    } ; 
+    
+    unpack_task._run = [unpack_functor, unpack_policy] () {
+        Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
+    } ; 
+    unpack_task.stream = &pup_stream ; 
+    unpack_task.task_id = task_counter ++ ; 
+
+    // this depends on receive 
+    unpack_task._dependencies.push_back(recv_task_id[rank]) ; 
+    task_list[recv_task_id[rank]] -> _dependents.push_back(unpack_task.task_id) ; 
+    return unpack_task ; 
+}
+
+template< typename view_t >
+void populate_pup_tasks(
       std::vector<task_bucket_t> const& send_bucket
     , std::vector<task_bucket_t> const& recv_bucket
     , view_t data
@@ -353,141 +487,91 @@ void generate_pup_tasks(
     , Kokkos::View<double*> recv_buf 
     , std::vector<std::size_t> const& send_rank_offsets
     , std::vector<std::size_t> const& recv_rank_offsets
-    , std::unordered_map< std::size_t, task_id_t > const& send_task_id
-    , std::unordered_map< std::size_t, task_id_t > const& recv_task_id
+    , std::vector<task_id_t> const& send_task_id
+    , std::vector<task_id_t> const& recv_task_id
     , device_stream_t& pup_stream
     , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv
     , task_id_t& task_counter 
-    , std::vector<gpu_task_t>& gpu_tasks 
+    , std::vector<std::unique_ptr<task_t>>& task_list 
 ) 
 {
     using namespace grace::amr ; 
-    Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
 
     for( int r=0; r<parallel::mpi_comm_size(); ++r) {
         auto& sb = send_bucket[r] ; auto& rb = recv_bucket[r] ;
         
-        auto const send_offset = send_rank_offsets[r] ;
-        auto const recv_offset = recv_rank_offsets[r] ;
+        
         if( sb.size() > 0 ) {
             GRACE_TRACE("Recording GPU-pack task (tid {}). Number of faces processed {}.", task_counter, sb.size()) ; 
-            // construct pack task
-            Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
-                                , pack_dest_qid{"pack_dst_qid", sb.size()} ; 
-            Kokkos::View<uint8_t*> pack_src_face{"pack_src_fid", sb.size()}  ;
-            auto pack_src_qid_h = Kokkos::create_mirror_view(pack_src_qid) ; 
-            auto pack_dst_qid_h = Kokkos::create_mirror_view(pack_dest_qid) ; 
-            auto pack_src_face_h =  Kokkos::create_mirror_view(pack_src_face) ; 
-            size_t i{0UL} ; 
-            for( auto const& d: sb ) {
-                pack_src_qid_h(i) = d.qid_src ; 
-                pack_dst_qid_h(i) = d.qid_dst ; 
-                pack_src_face_h(i) = d.face_src ; 
-                i += 1UL ; 
-            }
-            Kokkos::deep_copy(pack_src_qid,pack_src_qid_h)   ; 
-            Kokkos::deep_copy(pack_dest_qid,pack_dst_qid_h)  ;  
-            Kokkos::deep_copy(pack_src_face,pack_src_face_h) ;
-
-            gpu_task_t pack_task{} ;
-
-            face_pack_k pack_functor {
-                data, send_buf, pack_src_qid, pack_dest_qid, pack_src_face, VEC(nx,ny,nz), ngz, nv, send_offset
-            } ; 
-
-            Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
-            pack_policy{
-                exec_space, {0,0,0,0,0}, {ngz, nx,nx, nv, sb.size()}
-            } ; 
-            
-            pack_task._run = [pack_functor, pack_policy] () {
-                Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
-            } ; 
-            pack_task.stream = &pup_stream ; 
-            pack_task.task_id = task_counter ++ ; 
-        
-            pack.task.dependents.push_back(send_task_id[r]) ; 
-
-            gpu_tasks.push_back(std::move(pack_task)) ;
+            task_list.push_back(
+                std::make_unique<gpu_task_t>(
+                    make_pack_task(
+                        sb, r, data, send_buf, send_rank_offsets, send_task_id, pup_stream, 
+                        VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
+                    )
+                )
+            ) ;
         } 
         if (rb.size() > 0 ) {
             GRACE_TRACE("Recording GPU-unpack task (tid {}). Number of faces processed {}.", task_counter+1, rb.size()) ; 
-            // construct unpack task 
-            Kokkos::View<size_t*> unpack_src_qid{"unpack_src_qid", rb.size()}
-                                    , unpack_dest_qid{"unpack_dst_qid", rb.size()} ; 
-            Kokkos::View<uint8_t*> unpack_dest_face{"unpack_src_fid", rb.size()}  ;
-            auto unpack_src_qid_h = Kokkos::create_mirror_view(unpack_src_qid) ; 
-            auto unpack_dst_qid_h = Kokkos::create_mirror_view(unpack_dest_qid) ; 
-            auto unpack_dest_face_h =  Kokkos::create_mirror_view(unpack_dest_face) ; 
-            size_t i = 0UL; 
-            for( auto const& d: rb ) {
-                unpack_src_qid_h(i) = d.qid_src ; 
-                unpack_dst_qid_h(i) = d.qid_dst ; 
-                unpack_dest_face_h(i) = d.face_dst ; 
-                i += 1UL ; 
-            }
-            Kokkos::deep_copy(unpack_src_qid,unpack_src_qid_h)   ; 
-            Kokkos::deep_copy(unpack_dest_qid,unpack_dst_qid_h)  ;  
-            Kokkos::deep_copy(unpack_dest_face,unpack_dest_face_h) ;
-
-            
-            gpu_task_t unpack_task{} ;
-
-            face_unpack_k unpack_functor {
-                recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_face, VEC(nx,ny,nz), ngz, nv, recv_offset
-            } ; 
-
-            Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
-            unpack_policy{
-                exec_space, {0,0,0,0,0}, {ngz, nx,nx,nv, sb.size()}
-            } ; 
-            
-            unpack_task._run = [unpack_functor, unpack_policy] () {
-                Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
-            } ; 
-            unpack_task.stream = &pup_stream ; 
-            unpack_task.task_id = task_counter ++ ; 
-            unpack_task.dependencies.push_back(recv_task_id[r]) ; 
-            gpu_tasks.push_back(std::move(unpack_task)) ; 
+            task_list.push_back(
+                std::make_unique<gpu_task_t>(
+                    make_unpack_task(
+                        rb, r, data, recv_buf, recv_rank_offsets, recv_task_id, pup_stream, 
+                        VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
+                    )
+                )
+            ) ;
         }
     }
 }; 
 
-void amr_ghosts_impl_t::generate_mpi_transfer_tasks(
+mpi_task_t make_mpi_send_task(
       std::size_t rank 
-    , mpi_task_t& send 
-    , mpi_task_t& recv
+    , Kokkos::View<double*> send_buf 
+    , std::vector<std::size_t> const& send_rank_offsets 
+    , std::vector<std::size_t> const& send_rank_sizes
     , task_id_t& task_counter 
-) 
+)
 {
-
-    send.mpi_req = MPI_Request{} ; 
-    recv.mpi_req = MPI_Request{} ; 
-
-    send._run = [this, rank] (MPI_Request * req) {
+    mpi_task_t task ; 
+    task.mpi_req = MPI_Request{} ; 
+    task._run = [&, send_buf, rank] (MPI_Request* req) {
         parallel::mpi_isend(
-              _send_buffer.data() + send_rank_offsets[rank]
+              send_buf.data() + send_rank_offsets[rank]
             , send_rank_sizes[rank]
             , rank 
             , 0
             , MPI_COMM_WORLD
             , req
-        ) ; 
+        ) ;
     } ; 
-    send.task_id = task_counter ++ ; 
+    task.task_id = task_counter++; 
+    return task ; 
+}
 
-    recv._run =  [this, rank] (MPI_Request * req) {
+mpi_task_t make_mpi_recv_task(
+      std::size_t rank 
+    , Kokkos::View<double*> recv_buf 
+    , std::vector<std::size_t> const& recv_rank_offsets 
+    , std::vector<std::size_t> const& recv_rank_sizes
+    , task_id_t& task_counter 
+)
+{
+    mpi_task_t task ; 
+    task.mpi_req = MPI_Request{} ; 
+    task._run = [&, recv_buf, rank] (MPI_Request* req) {
         parallel::mpi_irecv(
-              _recv_buffer.data() + recv_rank_offsets[rank]
+              recv_buf.data() + recv_rank_offsets[rank]
             , recv_rank_sizes[rank]
             , rank 
             , 0
             , MPI_COMM_WORLD
             , req
-        ) ; 
+        ) ;
     } ; 
-    recv.task_id = task_counter ++ ; 
-
+    task.task_id = task_counter++; 
+    return task ; 
 }
 
 
@@ -511,13 +595,25 @@ void amr_ghosts_impl_t::build_task_list() {
     std::size_t nvars = variables::get_n_evolved() ;
     /***********************************************************************/
     // First we construct the mpi tasks 
-    std::unordered_map< std::size_t, task_id_t > send_task_id, recv_task_id ; 
+    std::vector<task_id_t> send_task_id{static_cast<size_t>(nproc)}
+                         , recv_task_id{static_cast<size_t>(nproc)} ; 
     for( size_t r=0UL; r<nproc; r+=1UL) {
-        mpi_task_t send{}, recv{} ; 
-        generate_mpi_transfer_tasks(r, send, recv, task_counter) ; 
-        send_task_id[r] = send.task_id ; 
-        recv_task_id[r] = recv.task_id ; 
-        mpi_task_list.push_back(send); mpi_task_list.push_back(recv) ; 
+        if( send_rank_sizes[r] > 0 ){
+            std::unique_ptr<task_t> send = std::make_unique<mpi_task_t>(
+                make_mpi_send_task(r, _send_buffer, send_rank_offsets, send_rank_sizes, task_counter)
+            ) ; 
+            send_task_id[r] = send->task_id ; 
+            task_list.push_back(std::move(send)) ; 
+        }
+        if (recv_rank_sizes[r] > 0 ){
+            std::unique_ptr<task_t> recv = std::make_unique<mpi_task_t>(
+                make_mpi_recv_task(r, _recv_buffer, recv_rank_offsets, recv_rank_sizes, task_counter)
+            ) ; 
+            
+            recv_task_id[r] = recv->task_id ; 
+            
+            task_list.push_back(std::move(recv)) ;
+        }   
     }
     /***********************************************************************/
     // now we set up the kernels 
@@ -549,15 +645,17 @@ void amr_ghosts_impl_t::build_task_list() {
                 desc.qid_dst = 0 ;
                 phys_bc_kernels.push_back(desc) ;
                 if (phys_bc_kernels.size() >= BATCH_N_KERNELS) {
-                    gpu_task_list.push_back(
-                            generate_gpu_phys_bc_task(
+                    task_list.push_back(
+                        std::make_unique<gpu_task_t>(
+                                make_gpu_phys_bc_task(
                                   phys_bc_kernels
                                 , state 
                                 , var_bc_kind
                                 , phys_bc_stream 
                                 , VEC(nx,ny,nz), (size_t) ngz, (size_t) nvars 
                                 , task_counter
-                            ) 
+                            )
+                        ) 
                     ) ; 
                     phys_bc_kernels.clear(); 
                 }
@@ -608,14 +706,16 @@ void amr_ghosts_impl_t::build_task_list() {
                     copy_kernels.push_back(desc) ; 
                     
                     if (copy_kernels.size() >= BATCH_N_KERNELS) {
-                        gpu_task_list.push_back(
-                            generate_gpu_copy_task(
-                                  copy_kernels
-                                , state 
-                                , copy_stream 
-                                , VEC(nx,ny,nz), (size_t) ngz, (size_t) nvars
-                                , task_counter
-                            ) 
+                        task_list.push_back(
+                            std::make_unique<gpu_task_t>(
+                                make_gpu_copy_task(
+                                    copy_kernels
+                                    , state 
+                                    , copy_stream 
+                                    , VEC(nx,ny,nz), (size_t) ngz, (size_t) nvars
+                                    , task_counter
+                                )
+                            )
                         ) ; 
                         copy_kernels.clear(); 
                     }
@@ -624,51 +724,54 @@ void amr_ghosts_impl_t::build_task_list() {
         }
     }
 
-    generate_pup_tasks(
-        pack_kernels, unpack_kernels, state, 
-        _send_buffer, _recv_buffer, send_rank_offsets, 
-        recv_rank_offsets, pup_stream, VEC(nx,ny,nz), ngz, nvars, 
-        task_counter, gpu_task_list 
+    populate_pup_tasks(
+        pack_kernels, 
+        unpack_kernels, 
+        state, 
+        _send_buffer, 
+        _recv_buffer, 
+        send_rank_offsets, 
+        recv_rank_offsets, 
+        send_task_id,
+        recv_task_id,
+        pup_stream, 
+        VEC(nx,ny,nz), ngz, nvars, 
+        task_counter, task_list 
     ) ; 
 
-    // go back to mpi task and set dependencies 
-    for( auto & t: mpi_task_list ) {
-        
-    }
 
     // flush any remaining kernels 
     // that did not make the cut 
     if (!copy_kernels.empty()) {
-        gpu_task_list.push_back(
-            generate_gpu_copy_task(
-                copy_kernels,
-                state,
-                copy_stream,
-                VEC(nx, ny, nz),
-                (size_t) ngz, (size_t) nvars,
-                task_counter
+        task_list.push_back(
+            std::make_unique<gpu_task_t>(
+                make_gpu_copy_task(
+                    copy_kernels
+                    , state 
+                    , copy_stream 
+                    , VEC(nx,ny,nz), (size_t) ngz, (size_t) nvars
+                    , task_counter
+                )
             )
-        );
+        ) ; 
         copy_kernels.clear();
     }
 
     if (!phys_bc_kernels.empty()) {
-        gpu_task_list.push_back(
-            generate_gpu_phys_bc_task(
-                phys_bc_kernels,
-                state,
-                var_bc_kind,
-                phys_bc_stream,
-                VEC(nx, ny, nz),
-                (size_t) ngz, (size_t) nvars,
-                task_counter
-            )
-        );
+        task_list.push_back(
+            std::make_unique<gpu_task_t>(
+                    make_gpu_phys_bc_task(
+                        phys_bc_kernels
+                    , state 
+                    , var_bc_kind
+                    , phys_bc_stream 
+                    , VEC(nx,ny,nz), (size_t) ngz, (size_t) nvars 
+                    , task_counter
+                )
+            ) 
+        ) ;
         phys_bc_kernels.clear();
     }
-
-    // set remaining dependencies 
-
 
 }
 

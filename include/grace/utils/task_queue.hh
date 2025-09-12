@@ -176,8 +176,31 @@ struct cpu_task_t : public task_t {
 
 
 struct runtime_task_view {
-  task_t* t;              // pointer to the actual task definition
-  std::atomic<int> pending;  // number of unsatisfied dependencies
+  task_t* t;
+  std::atomic<int> pending;
+
+  runtime_task_view(task_t* t_in, int pending_init)
+      : t(t_in), pending(pending_init) {}
+
+  runtime_task_view(const runtime_task_view& other)
+      : t(other.t), pending(other.pending.load()) {}
+
+  runtime_task_view(runtime_task_view&& other) noexcept
+      : t(other.t), pending(other.pending.load()) {}
+
+  runtime_task_view& operator=(const runtime_task_view& other) {
+    t = other.t;
+    pending.store(other.pending.load());
+    return *this;
+  }
+
+  runtime_task_view& operator=(runtime_task_view&& other) noexcept {
+    t = other.t;
+    pending.store(other.pending.load());
+    return *this;
+  }
+
+  runtime_task_view() : t(nullptr), pending(0) {}
 };
 
 
@@ -198,6 +221,19 @@ struct executor {
    * @brief Reset the task queue to its state prior to execution
    */
   void reset() ; 
+  /**
+   * @brief Clear all containers
+   */
+  void clear() {
+    ready.clear(); gpu_pending.clear(); mpi_pending.clear() ; rt.clear(); 
+  }
+  /**
+   * @brief Reserve capacity in all containers 
+   * @param c Capacity
+   */
+  void reserve(std::size_t const c) {
+    gpu_pending.reserve(c); mpi_pending.reserve(c) ; rt.reserve(c) ; 
+  }
 
   std::deque<task_id_t> ready ;  //!< FIFO queue of tasks ready for execution 
   std::vector<task_id_t> gpu_pending, mpi_pending ; //!< List of pending tasks 
