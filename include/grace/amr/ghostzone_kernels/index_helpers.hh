@@ -35,18 +35,19 @@ struct face_index_transformer_t
     std::size_t VEC(nx,ny,nz), _ngz ; 
 
     face_index_transformer_t(
-        VEC(size_t _nx,size_t _ny, size_t _nz), ngz
+        VEC(size_t _nx,size_t _ny, size_t _nz), size_t ngz
     )
     : VEC(nx(_nx),ny(_ny),nz(_nz)), _ngz(ngz)
     {}
 
     template< bool offset_by_ngz >
     KOKKOS_INLINE_FUNCTION
-    compute_phys_indices(
-        std::size_t ig, std::size_t j, std::size_t k,
+    void compute_phys_indices(
+        VEC(std::size_t ig, std::size_t j, std::size_t k),
         std::size_t& i_out, std::size_t& j_out, std::size_t& k_out, int face ) const 
     {
-        std::size_t ngz = offset_by_ngz ? ngz : 0 ; 
+        std::size_t ngz = offset_by_ngz ? _ngz : 0 ; 
+
         switch (face) {
             case 0:
             i_out = ngz + ig ; 
@@ -83,13 +84,13 @@ struct face_index_transformer_t
         }
     }
 
+    template< bool offset_by_ngz >
     KOKKOS_INLINE_FUNCTION
     void compute_ghost_indices(
-        std::size_t ig, std::size_t j, std::size_t k,
+        VEC(std::size_t ig, std::size_t j, std::size_t k),
         std::size_t& i_out, std::size_t& j_out, std::size_t& k_out, int face) const 
     {
-        // _g stands for ghost, this returns the points on the outside of the domain
-        std::size_t ngz = offset_by_ngz ? ngz : 0 ; 
+        std::size_t ngz = offset_by_ngz ? _ngz : 0 ; 
         switch (face) {
             case 0:
             i_out = ig ; 
@@ -118,7 +119,7 @@ struct face_index_transformer_t
             break ; 
             case 5:
             i_out = j + ngz ; 
-            j_a   = k + ngz ; 
+            j_out   = k + ngz ; 
             k_out = nz + ngz + ig ;
             break ; 
             default:

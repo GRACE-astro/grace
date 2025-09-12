@@ -106,5 +106,15 @@ TEST_CASE("Unigrid exchange", "[unigrid]")
         std::cout << "Task[" << mpi_tasks[i].task_id << "] status " << statuses[mpi_tasks[i].status] << std::endl ;  
     }
 
-}
+
+    auto& gpu_tasks = ghost.get_gpu_tasks() ;  
+    std::cout << "We have " <<  gpu_tasks.size() << " tasks scheduled on GPU.\n" ; 
+    
+    std::cout << "Prepare for liftoff! " << std::endl ; 
+    gpu_tasks[0].status = status_id_t::READY ; 
+    gpu_tasks[0].run() ; 
+
+    gpu_tasks[1].status = status_id_t::READY ; 
+    gpu_tasks[1].run() ; 
+}   
 }

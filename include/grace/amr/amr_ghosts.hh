@@ -51,6 +51,8 @@
 
 namespace grace {
 /**************************************************************************************************/
+enum bc_t: uint8_t {BC_OUTFLOW=0, BC_LAGRANGE_EXTRAP, BC_NONE} ; 
+/**************************************************************************************************/
 enum interface_kind_t : uint8_t { PHYS, INTERNAL }  ;
 /**************************************************************************************************/
 struct full_face_t {
@@ -76,6 +78,7 @@ struct face_descriptor_t {
     std::size_t send_buffer_id ; //!< Index in send buffer if applicable 
     int8_t level_diff   ; //!< Ref level difference (+-1 or 0)
     face_data_t data    ; //!< Quadrant ids 
+    int8_t face ; //!< Face code as seen from other side 
 } ; 
 /**************************************************************************************************/
 struct edge_descriptor_t {}; 
@@ -130,7 +133,7 @@ class amr_ghosts_impl_t {
         send = send_rank_sizes ; receive = recv_rank_sizes ; 
     }
     std::vector<mpi_task_t> const& get_mpi_tasks () {return mpi_task_list;}
-    std::vector<gpu_task_t> const& get_gpu_tasks () {return gpu_task_list;}
+    std::vector<gpu_task_t>& get_gpu_tasks () {return gpu_task_list;}
     std::vector<cpu_task_t> const& get_cpu_tasks () {return cpu_task_list;}
     /**************************************************************************************************/
     void update() ; 
@@ -146,6 +149,7 @@ class amr_ghosts_impl_t {
     std::vector<std::size_t> send_rank_offsets, recv_rank_offsets ; //!< In # of elements
     std::vector<std::size_t> send_rank_sizes, recv_rank_sizes ; //!< In # of elements
     Kokkos::View<double*> _send_buffer, _recv_buffer ;
+    Kokkos::View<bc_t*> var_bc_kind ; //!< Boundary condition per-variable
     //**************************************************************************************************
     void build_task_list() ; 
     //**************************************************************************************************

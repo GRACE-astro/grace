@@ -47,6 +47,8 @@
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/data_structures/variables.hh>
 
+#include <grace/system/print.hh>
+
 #include <Kokkos_Core.hpp>
 
 #include <vector>
@@ -67,7 +69,8 @@ void register_simple_face(
     
     desc.level_diff = 0 ; 
     desc.kind = interface_kind_t::INTERNAL ; 
-    
+    desc.face = neighbor.face ; 
+
     desc.data.full.is_remote = neighbor.is.full.is_ghost ; 
     auto offset = neighbor.is.full.is_ghost  ? 0 : amr::get_local_quadrants_offset(neighbor.treeid) ;
     desc.data.full.quad_id = neighbor.is.full.quadid + offset ;
@@ -120,6 +123,24 @@ void grace_iterate_faces(
 }
 
 void amr_ghosts_impl_t::update() {
+    auto nvar = variables::get_n_evolved() ; 
+    var_bc_kind = Kokkos::View<bc_t*>{
+        "BC_types", static_cast<size_t>(nvar) 
+    } ;
+    auto var_bc_kind_h = Kokkos::create_mirror_view(var_bc_kind) ; 
+    for(int ivar=0; ivar<nvar; ++ivar){
+        auto bc_type = variables::get_bc_type(ivar) ; 
+        bc_t kind ; 
+        if (bc_type=="outgoing") {
+            kind = bc_t::BC_OUTFLOW ; 
+        } else if ( bc_type == "lagrange_extrap") {
+            kind = bc_t::BC_LAGRANGE_EXTRAP ; 
+        } else if ( bc_type == "none") {
+            kind = bc_t::BC_NONE ; 
+        }
+        var_bc_kind_h(ivar) = kind ;
+    }
+    Kokkos::deep_copy(var_bc_kind,var_bc_kind_h) ; 
 
     // Destroy old ghost layer if present
     if (p4est_ghost_layer) {
@@ -226,7 +247,7 @@ gpu_task_t generate_gpu_copy_task(
 ) 
 {
     using namespace grace::amr ; 
-
+    GRACE_TRACE("Recording GPU-copy task (tid {}). Number of faces processed {}.", task_counter, bucket.size()) ; 
     Kokkos::View<size_t*> src_qid{"src_qid", bucket.size()}
                         , dst_qid{"dst_qid", bucket.size()} ; 
     Kokkos::View<uint8_t*> src_face{"src_face", bucket.size()}
@@ -237,6 +258,7 @@ gpu_task_t generate_gpu_copy_task(
     auto dst_face_h = Kokkos::create_mirror_view(dst_face) ; 
     int i{0} ; 
     for( auto const& d: bucket ) {
+        GRACE_TRACE("i {} qid_src {} qid_dst {} face_src {} face_dst {}", i, d.qid_src,d.qid_dst,d.face_src, d.face_dst  );
         src_qid_h(i) = d.qid_src; dst_qid_h(i) = d.qid_dst ; 
         src_face_h(i) = d.face_src; dst_face_h(i) = d.face_dst ; 
         i++ ; 
@@ -248,8 +270,8 @@ gpu_task_t generate_gpu_copy_task(
 
     gpu_task_t task{} ;
 
-    face_copy_k<true> functor{
-        data, data, src_qid, dest_qid, src_face, dest_face, VEC(nx,ny,nz), ngz
+    face_copy_k<true,decltype(data),decltype(data)> functor{
+        data, data, src_qid, dst_qid, src_face, dst_face, VEC(nx,ny,nz), ngz
     } ; 
     
     Kokkos::DefaultExecutionSpace exec_space{stream} ; 
@@ -262,12 +284,10 @@ gpu_task_t generate_gpu_copy_task(
     // TODO more informative name for the kernel launch 
     // will help in debug
 
-    task._run = [functor, policy, &stream, &task] () {
-        task.dev_event.reset() ; 
+    task._run = [functor, policy] () {
         Kokkos::parallel_for("fill_ghostzones", policy, functor) ; 
-        task.dev_event.record(stream) ; 
     };
-
+    task.stream = &stream; 
     task.task_id = task_counter++ ; 
 
     return std::move(task) ; 
@@ -279,12 +299,14 @@ template< typename view_t >
 gpu_task_t generate_gpu_phys_bc_task(
       task_bucket_t const& bucket
     , view_t data 
+    , Kokkos::View<bc_t*> var_bc_kind 
     , device_stream_t& stream
-    , VEC(size_t nx, size_t ny, size_t nz), size_t ngz 
+    , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv
     , task_id_t& task_counter 
 
 ) 
 {
+    GRACE_TRACE("Recording phys_BC task (tid {}). Number of faces processed {}.", task_counter, bucket.size()) ; 
     using namespace grace::amr ; 
     Kokkos::DefaultExecutionSpace exec_space{stream} ; 
 
@@ -303,18 +325,22 @@ gpu_task_t generate_gpu_phys_bc_task(
 
     gpu_task_t task{} ;
 
-    
     face_phys_bc_k functor{
-        data, data, qid, face, VEC(nx,ny,nz), ngz
+        data, data, qid, var_bc_kind, face, VEC(nx,ny,nz), ngz
     } ; 
-    // TODO:
-    // Add var loops to all kernels 
-    // Figure out how to cleanly split vars 
-    // between different kinds of Phys BC here. 
-    // Possibly we could have the functor hold various 
-    // phys_bc structs and use the appropriate one for each
-    // var. 
     
+    Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+        policy{
+            exec_space, {0,0,0,0,0}, {ngz, nx,nx,nv, bucket.size()}
+        } ;
+    
+    task._run = [functor, policy] () {
+        Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
+    };
+    task.stream = &stream ; 
+    task.task_id = task_counter++ ; 
+
+    return std::move(task) ; 
 }
 
 
@@ -338,82 +364,86 @@ void generate_pup_tasks(
 
     for( int r=0; r<parallel::mpi_comm_size(); ++r) {
         auto& sb = send_bucket[r] ; auto& rb = recv_bucket[r] ;
+        
         auto const send_offset = send_rank_offsets[r] ;
-        auto const recv_offset = recv_rank_offsets[r] ;  
-        // construct pack task
-        Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
-                               , pack_dest_qid{"pack_dst_qid", sb.size()} ; 
-        Kokkos::View<uint8_t*> pack_src_face{"pack_src_fid", sb.size()}  ;
-        auto pack_src_qid_h = Kokkos::create_mirror_view(pack_src_qid) ; 
-        auto pack_dst_qid_h = Kokkos::create_mirror_view(pack_dest_qid) ; 
-        auto pack_src_face_h =  Kokkos::create_mirror_view(pack_src_face) ; 
-        size_t i{0UL} ; 
-        for( auto const& d: sb ) {
-            pack_src_qid_h(i) = d.qid_src ; 
-            pack_dst_qid_h(i) = d.qid_dst ; 
-            pack_src_face_h(i) = d.face_src ; 
-            i += 1UL ; 
+        auto const recv_offset = recv_rank_offsets[r] ;
+        if( sb.size() > 0 ) {
+            GRACE_TRACE("Recording GPU-pack task (tid {}). Number of faces processed {}.", task_counter, sb.size()) ; 
+            // construct pack task
+            Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
+                                , pack_dest_qid{"pack_dst_qid", sb.size()} ; 
+            Kokkos::View<uint8_t*> pack_src_face{"pack_src_fid", sb.size()}  ;
+            auto pack_src_qid_h = Kokkos::create_mirror_view(pack_src_qid) ; 
+            auto pack_dst_qid_h = Kokkos::create_mirror_view(pack_dest_qid) ; 
+            auto pack_src_face_h =  Kokkos::create_mirror_view(pack_src_face) ; 
+            size_t i{0UL} ; 
+            for( auto const& d: sb ) {
+                pack_src_qid_h(i) = d.qid_src ; 
+                pack_dst_qid_h(i) = d.qid_dst ; 
+                pack_src_face_h(i) = d.face_src ; 
+                i += 1UL ; 
+            }
+            Kokkos::deep_copy(pack_src_qid,pack_src_qid_h)   ; 
+            Kokkos::deep_copy(pack_dest_qid,pack_dst_qid_h)  ;  
+            Kokkos::deep_copy(pack_src_face,pack_src_face_h) ;
+
+            gpu_task_t pack_task{} ;
+
+            face_pack_k pack_functor {
+                data, send_buf, pack_src_qid, pack_dest_qid, pack_src_face, VEC(nx,ny,nz), ngz, nv, send_offset
+            } ; 
+
+            Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+            pack_policy{
+                exec_space, {0,0,0,0,0}, {ngz, nx,nx, nv, sb.size()}
+            } ; 
+            
+            pack_task._run = [pack_functor, pack_policy] () {
+                Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
+            } ; 
+            pack_task.stream = &pup_stream ; 
+            pack_task.task_id = task_counter ++ ; 
+            gpu_tasks.push_back(std::move(pack_task)) ;
+        } 
+        if (rb.size() > 0 ) {
+            GRACE_TRACE("Recording GPU-unpack task (tid {}). Number of faces processed {}.", task_counter+1, rb.size()) ; 
+            // construct unpack task 
+            Kokkos::View<size_t*> unpack_src_qid{"unpack_src_qid", rb.size()}
+                                    , unpack_dest_qid{"unpack_dst_qid", rb.size()} ; 
+            Kokkos::View<uint8_t*> unpack_dest_face{"unpack_src_fid", rb.size()}  ;
+            auto unpack_src_qid_h = Kokkos::create_mirror_view(unpack_src_qid) ; 
+            auto unpack_dst_qid_h = Kokkos::create_mirror_view(unpack_dest_qid) ; 
+            auto unpack_dest_face_h =  Kokkos::create_mirror_view(unpack_dest_face) ; 
+            size_t i = 0UL; 
+            for( auto const& d: rb ) {
+                unpack_src_qid_h(i) = d.qid_src ; 
+                unpack_dst_qid_h(i) = d.qid_dst ; 
+                unpack_dest_face_h(i) = d.face_dst ; 
+                i += 1UL ; 
+            }
+            Kokkos::deep_copy(unpack_src_qid,unpack_src_qid_h)   ; 
+            Kokkos::deep_copy(unpack_dest_qid,unpack_dst_qid_h)  ;  
+            Kokkos::deep_copy(unpack_dest_face,unpack_dest_face_h) ;
+
+            
+            gpu_task_t unpack_task{} ;
+
+            face_unpack_k unpack_functor {
+                recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_face, VEC(nx,ny,nz), ngz, nv, recv_offset
+            } ; 
+
+            Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+            unpack_policy{
+                exec_space, {0,0,0,0,0}, {ngz, nx,nx,nv, sb.size()}
+            } ; 
+            
+            unpack_task._run = [unpack_functor, unpack_policy] () {
+                Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
+            } ; 
+            unpack_task.stream = &pup_stream ; 
+            unpack_task.task_id = task_counter ++ ; 
+            gpu_tasks.push_back(std::move(unpack_task)) ; 
         }
-        Kokkos::deep_copy(pack_src_qid,pack_src_qid_h)   ; 
-        Kokkos::deep_copy(pack_dest_qid,pack_dst_qid_h)  ;  
-        Kokkos::deep_copy(pack_src_face,pack_src_face_h) ;
-
-        gpu_task_t pack_task{} ;
-
-        face_pack_k pack_functor {
-            data, send_buf, pack_src_qid, pack_dest_qid, pack_src_face, VEC(nx,ny,nz), ngz, nv, send_offset
-        } ; 
-
-        Kokkos::MDRangePolicy<Kokkos::Rank<4, Kokkos::Iterate::Left>>   
-        pack_policy{
-            exec_space, {0,0,0,0}, {ngz, nx,nx, sb.size()}
-        } ; 
-        
-        pack_task._run = [pack_functor, pack_policy, &pup_stream, &pack_task] () {
-            pack_task.dev_event.reset() ;
-            Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
-            pack_task.dev_event.record(pup_stream) ; 
-        } ; 
-        pack_task.task_id = task_counter ++ ; 
-        gpu_tasks.push_back(std::move(pack_task)) ; 
-
-        // construct unpack task
-        Kokkos::View<size_t*> unpack_src_qid{"unpack_src_qid", rb.size()}
-                                 , unpack_dest_qid{"unpack_dst_qid", rb.size()} ; 
-        Kokkos::View<uint8_t*> unpack_dest_face{"unpack_src_fid", rb.size()}  ;
-        auto unpack_src_qid_h = Kokkos::create_mirror_view(unpack_src_qid) ; 
-        auto unpack_dst_qid_h = Kokkos::create_mirror_view(unpack_dest_qid) ; 
-        auto unpack_dest_face_h =  Kokkos::create_mirror_view(unpack_dest_face) ; 
-        i = 0UL; 
-        for( auto const& d: rb ) {
-            unpack_src_qid_h(i) = d.qid_src ; 
-            unpack_dst_qid_h(i) = d.qid_dst ; 
-            unpack_dest_face_h(i) = d.face_dest ; 
-            i += 1UL ; 
-        }
-        Kokkos::deep_copy(unpack_src_qid,unpack_src_qid_h)   ; 
-        Kokkos::deep_copy(unpack_dest_qid,unpack_dst_qid_h)  ;  
-        Kokkos::deep_copy(unpack_dest_face,unpack_dest_face_h) ;
-
-        
-        gpu_task_t unpack_task{} ;
-
-        face_unpack_k unpack_functor {
-            recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_face, VEC(nx,ny,nz), ngz, nv, recv_offset
-        } ; 
-
-        Kokkos::MDRangePolicy<Kokkos::Rank<4, Kokkos::Iterate::Left>>   
-        unpack_policy{
-            exec_space, {0,0,0,0}, {ngz, nx,nx, sb.size()}
-        } ; 
-        
-        unpack_task._run = [unpack_functor, unpack_policy, &pup_stream, &unpack_task] () {
-            unpack_task.dev_event.reset() ;
-            Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
-            unpack_task.dev_event.record(pup_stream) ; 
-        } ; 
-        unpack_task.task_id = task_counter ++ ; 
-        gpu_tasks.push_back(std::move(unpack_task)) ; 
     }
 }; 
 
@@ -428,30 +458,28 @@ void amr_ghosts_impl_t::generate_mpi_transfer_tasks(
     send.mpi_req = MPI_Request{} ; 
     recv.mpi_req = MPI_Request{} ; 
 
-    auto const _send_impl = [this, rank, &send] () {
+    send._run = [this, rank] (MPI_Request * req) {
         parallel::mpi_isend(
               _send_buffer.data() + send_rank_offsets[rank]
             , send_rank_sizes[rank]
             , rank 
             , 0
             , MPI_COMM_WORLD
-            , &send.mpi_req
+            , req
         ) ; 
     } ; 
-    send._run = std::move(std::function<void()>(_send_impl)) ;
     send.task_id = task_counter ++ ; 
 
-    auto const _recv_impl = [this, rank, &recv] () {
+    recv._run =  [this, rank] (MPI_Request * req) {
         parallel::mpi_irecv(
               _recv_buffer.data() + recv_rank_offsets[rank]
             , recv_rank_sizes[rank]
             , rank 
             , 0
             , MPI_COMM_WORLD
-            , &recv.mpi_req
+            , req
         ) ; 
     } ; 
-    recv._run = std::move(std::function<void()>(_recv_impl)) ; 
     recv.task_id = task_counter ++ ; 
 
 }
@@ -491,12 +519,12 @@ void amr_ghosts_impl_t::build_task_list() {
     // First decide on streams 
     auto& stream_pool = device_stream_pool::get();
     auto& copy_stream = stream_pool.next() ; 
-    auto& pack_unpack_stream = stream_pool.next() ; 
+    auto& pup_stream = stream_pool.next() ; 
     auto& phys_bc_stream = stream_pool.next() ; 
 
     /***********************************************************************/
     task_bucket_t copy_kernels, phys_bc_kernels ; 
-    std::vector<task_bucket_t> pack_kernels{nproc}, unpack_kernels{nproc} ; 
+    std::vector<task_bucket_t> pack_kernels{static_cast<size_t>(nproc)}, unpack_kernels{static_cast<size_t>(nproc)} ; 
 
     for( size_t iq=0UL; iq<nq; iq+=1UL) {
         for (uint8_t f = 0; f < P4EST_FACES; ++f) {
@@ -513,12 +541,13 @@ void amr_ghosts_impl_t::build_task_list() {
                 desc.face_dst = 0 ; 
                 desc.dst_is_remote = false ;
                 desc.qid_dst = 0 ;
-                phys_bc_kernels.push_back(desc)
+                phys_bc_kernels.push_back(desc) ;
                 if (phys_bc_kernels.size() >= BATCH_N_KERNELS) {
                     gpu_task_list.push_back(
                             generate_gpu_phys_bc_task(
                                   phys_bc_kernels
                                 , state 
+                                , var_bc_kind
                                 , phys_bc_stream 
                                 , VEC(nx,ny,nz), (size_t) ngz, (size_t) nvars 
                                 , task_counter
@@ -555,7 +584,7 @@ void amr_ghosts_impl_t::build_task_list() {
                     desc_rcv.src_offset = recv_rank_offsets[face.data.full.owner_rank] ;
                     desc_rcv.dst_is_remote = false ;
                     desc_rcv.src_is_remote = true ;
-                    desc_rcv.qid_src = face.data.full.qid ;
+                    desc_rcv.qid_src = face.data.full.quad_id ;
                     desc_rcv.qid_dst = iq ;
                     unpack_kernels[face.data.full.owner_rank].push_back(desc_rcv) ; 
 
@@ -563,7 +592,7 @@ void amr_ghosts_impl_t::build_task_list() {
                     /* local */
                     gpu_task_descriptor_t desc{ } ; 
                     desc.face_src = f ;
-                    desc.face_dst = face.data.full.face ; 
+                    desc.face_dst = face.face ; 
                     desc.dst_offset = 0 ;
                     desc.src_offset = 0 ;
                     desc.dst_is_remote = false ;
@@ -589,7 +618,12 @@ void amr_ghosts_impl_t::build_task_list() {
         }
     }
 
-    generate_pup_tasks() ; /* TODO */
+    generate_pup_tasks(
+        pack_kernels, unpack_kernels, state, 
+        _send_buffer, _recv_buffer, send_rank_offsets, 
+        recv_rank_offsets, pup_stream, VEC(nx,ny,nz), ngz, nvars, 
+        task_counter, gpu_task_list 
+    ) ; /* TODO */
 
     // flush any remaining kernels 
     // that did not make the cut 
@@ -612,6 +646,7 @@ void amr_ghosts_impl_t::build_task_list() {
             generate_gpu_phys_bc_task(
                 phys_bc_kernels,
                 state,
+                var_bc_kind,
                 phys_bc_stream,
                 VEC(nx, ny, nz),
                 (size_t) ngz, (size_t) nvars,

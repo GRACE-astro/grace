@@ -81,14 +81,18 @@ struct gpu_task_t : public task_t {
     {
       kind = task_kind_t::GPU_KERNEL ; 
       status = status_id_t::WAITING ; 
+      stream = nullptr ; 
     }
 
     void run() override {
         // note need to remember to reset event and attach it to stream where kernel is running 
         // INSIDE _run 
         ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
+        ASSERT( stream != nullptr, "Attempting to run on a null stream") ; 
         status = status_id_t::RUNNING ; 
+        dev_event.reset() ; 
         _run() ; 
+        dev_event.record(*stream) ; 
     }
 
     /**
@@ -103,6 +107,9 @@ struct gpu_task_t : public task_t {
 
     //! Device event 
     grace::device_event_t dev_event ; 
+
+    //! Device stream
+    grace::device_stream_t* stream ; 
 
     //! The task itself 
     std::function<void()> _run ; 
@@ -119,7 +126,7 @@ struct mpi_task_t : public task_t {
     void run() override {
         ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
         status = status_id_t::RUNNING ; 
-        _run() ; 
+        _run(&mpi_req) ; 
     }
 
     /**
@@ -136,7 +143,7 @@ struct mpi_task_t : public task_t {
     MPI_Request mpi_req ;
 
     //! The task itself 
-    std::function<void()> _run ; 
+    std::function<void(MPI_Request*)> _run ; 
 
 } ; 
 

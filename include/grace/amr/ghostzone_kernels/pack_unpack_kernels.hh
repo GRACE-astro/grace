@@ -29,11 +29,11 @@
 
 #include <grace_config.h>
 
-#include <grace/utils/device.hh>
-#include <grace/utils/inline.hh>
+#include <grace/utils/device.h>
+#include <grace/utils/inline.h>
 
-#include <type_helpers.hh>
-#include <index_helpers.hh>
+#include <grace/amr/ghostzone_kernels/type_helpers.hh>
+#include <grace/amr/ghostzone_kernels/index_helpers.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -57,11 +57,11 @@ struct face_pack_k {
     face_index_transformer_t transf ; 
 
     face_pack_k(
-        ViewB_t _src_view,
-        ViewA_t _dest_view,
-        quad_view_t _src_qid, 
-        quad_view_t _dest_qid,
-        face_view_t _src_face,  
+        ViewA_t _src_view,
+        ViewB_t _dest_view,
+        Kokkos::View<size_t*> _src_qid, 
+        Kokkos::View<size_t*> _dest_qid,
+        Kokkos::View<uint8_t*> _src_face,  
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
         std::size_t _ngz, std::size_t _nvars, std::size_t _offset 
     ) : src_view(_src_view)
@@ -69,7 +69,6 @@ struct face_pack_k {
       , src_qid(_src_qid)
       , dest_qid(_dest_qid)
       , src_face_view(_src_face)
-      , dest_face(_dest_face)
       , VEC(nx(_nx), ny(_ny), nz(_nz))
       , ngz(_ngz), nvars(_nvars), offset(_offset)
       , transf(VEC(nx,ny,nz),ngz)
@@ -83,7 +82,8 @@ struct face_pack_k {
     KOKKOS_INLINE_FUNCTION 
     void operator() (
         std::size_t ig, VECD(std::size_t j, std::size_t k), size_t ivar, size_t iq
-    ) {
+    ) const 
+    {
         auto const src_face  = src_face_view(iq) ; 
 
         auto const src_q  = src_qid(iq)  ; 
@@ -127,11 +127,11 @@ struct face_unpack_k {
     face_index_transformer_t transf ; 
 
     face_unpack_k(
-        ViewB_t _src_view,
-        ViewA_t _dest_view,
-        quad_view_t _src_qid, 
-        quad_view_t _dest_qid,
-        face_view_t _dest_face,  
+        ViewA_t _src_view,
+        ViewB_t _dest_view,
+        Kokkos::View<size_t*> _src_qid, 
+        Kokkos::View<size_t*> _dest_qid,
+        Kokkos::View<uint8_t*> _dest_face,  
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
         std::size_t _ngz, std::size_t _nvars, std::size_t _offset 
     ) : src_view(_src_view)
@@ -139,7 +139,6 @@ struct face_unpack_k {
       , src_qid(_src_qid)
       , dest_qid(_dest_qid)
       , dest_face_view(_dest_face)
-      , dest_face(_dest_face)
       , VEC(nx(_nx), ny(_ny), nz(_nz))
       , ngz(_ngz), nvars(_nvars), offset(_offset)
       , transf(VEC(nx,ny,nz),ngz)
@@ -153,7 +152,8 @@ struct face_unpack_k {
     KOKKOS_INLINE_FUNCTION 
     void operator() (
         std::size_t ig, VECD(std::size_t j, std::size_t k), size_t ivar, size_t iq
-    ) {
+    ) const 
+    {
         auto const dest_face  = dest_face_view(iq) ; 
 
         auto const src_q  = src_qid(iq)  ; 

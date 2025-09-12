@@ -43,6 +43,7 @@
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/profiling/profiling_runtime.hh>
+#include <grace/utils/device_stream_pool.hh>
 
 #include <grace/errors/error.hh>
 
@@ -181,6 +182,7 @@ void initialize(int& argc, char* argv[])
     grace::mpi_runtime::initialize(argc, argv)  ;
     grace::kokkos_runtime::initialize(&argc, argv) ; 
     grace::initialize_loggers() ; 
+    grace::device_stream_pool::initialize() ;
     GRACE_INFO(GRACE_BANNER) ; 
     #ifdef GRACE_ENABLE_PROFILING
     grace::profiling_runtime::initialize() ; 
