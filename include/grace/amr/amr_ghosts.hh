@@ -104,7 +104,7 @@ struct hanging_edge_t {
 union edge_data_t {
     full_edge_t full ; 
     hanging_edge_t hanging ; 
-}
+} ; 
 struct edge_descriptor_t {
     interface_kind_t kind ; 
     std::size_t send_buffer_id ; 
@@ -119,7 +119,7 @@ struct corner_data_t {
     std::size_t recv_buffer_id ; //!< Indices in receive array, if relevant
     bool is_remote             ; //!< Are the quads remote 
     std::size_t owner_rank     ; //!< owner ranks if remote 
-}
+} ; 
 struct corner_descriptor_t {
     interface_kind_t kind ; 
     std::size_t send_buffer_id ; 
@@ -164,6 +164,7 @@ struct quad_neighbors_descriptor_t {
 void grace_iterate_faces( p4est_iter_face_info_t* info 
                           , void* user_data ) ;
 /**************************************************************************************************/
+#ifdef GRACE_3D
 /**
  * @brief Iterate through all the edges of grid quadrants to
  *        store boundary information.
@@ -179,8 +180,9 @@ void grace_iterate_faces( p4est_iter_face_info_t* info
  * its face orientation code, the tree(s) containing the quadrants on each side, and whether
  * any of the quadrants on this face are in the halo.
  */
-void grace_iterate_edges( p4est_iter_edge_info_t* info 
+void grace_iterate_edges( p8est_iter_edge_info_t* info 
                           , void* user_data ) ;
+#endif
 /**************************************************************************************************/
 /**
  * @brief Iterate through all the corners of grid quadrants to

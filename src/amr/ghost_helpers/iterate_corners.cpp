@@ -28,11 +28,14 @@
 
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
+#include <grace/utils/sc_wrappers.hh>
 
 #include <grace/errors/assert.hh>
 #include <grace/system/print.hh>
 
 #include <grace/amr/p4est_headers.hh>
+#include <grace/amr/amr_functions.hh>
+#include <grace/amr/forest.hh>
 
 #include <grace/data_structures/memory_defaults.hh>
 
@@ -43,63 +46,31 @@
 
 namespace grace {
 
-void register_physical_boundary_edge(
-    p4est_iter_edge_side_t const& side, 
+static void register_physical_boundary_corner(
+    p4est_iter_corner_side_t const& side, 
     std::vector<quad_neighbors_descriptor_t>& neighbors
 )
 {
-    auto const offset = amr::get_local_quadrants_offset(side.treeid); 
+    auto const offset = grace::amr::get_local_quadrants_offset(side.treeid); 
     
     if (side.is_ghost) return ; 
     // not hanging not ghost 
-    auto qid = side.is.full.quadid +  offset ; 
+    auto qid = side.quadid +  offset ; 
     neighbors[qid].corners[side.corner].kind = interface_kind_t::PHYS ;
     neighbors[qid].n_registered_corners ++ ; 
     
 }
 
-void register_corner(
-    p4est_iter_corner_side_t const& s0,
-    p4est_iter_corner_side_t const& s1,
-    std::vector<quad_neighbors_descriptor_t>& neighbors)
-{
-    if ( s0.is_ghost ) return ; // we don't register 
 
-    auto const offset = amr::get_local_quadrants_offset(s0.treeid) ; 
-    auto const qid = s0.quadid + offset ;
-    auto const c = s0.corner ;  
-    auto& desc = neighbors[qid].corners[c] ; 
-    neighbors[qid].n_registered_corners++ ; 
-
-    int l0 = static_cast<int>(s0.quad->level) ; 
-    int l1 = static_cast<int>(s1.quad->level) ; 
-
-    auto const offset_other = s1.is_ghost ? 0 : amr::get_local_quadrants_offset(s1.treeid) ; 
-    desc.kind = interface_kind_t::INTERNAL ; 
-    desc.data.quad_id = s1.quadid + offset_other ; 
-    desc.data.is_remote = s1.is_ghost ;
-    if (s1.is_ghost) {
-        desc.data.owner_rank = 
-            p4est_comm_find_owner(amr::forest::get().get(), s1.treeid, s1.quad, 0);
-    }
-    if ( l0 > l1 ) {
-        desc.level_diff = level_diff_t::COARSER ; 
-    } else if (l1 > l0) {
-        desc.level_diff = level_diff_t::FINER ; 
-    } else {
-        desc.level_diff = level_diff_t::SAME ; 
-    }
-}
-
-void register_corner(
+static void register_corner(
     p4est_iter_corner_side_t const& s0,
     p4est_iter_corner_side_t const& s1,
     std::vector<quad_neighbors_descriptor_t>& neighbors)
 {
     if (s0.is_ghost) return; // we only register if local
 
-    auto const offset = amr::get_local_quadrants_offset(s0.treeid);
-    auto const qid = s0.quad_id + offset;
+    auto const offset = grace::amr::get_local_quadrants_offset(s0.treeid);
+    auto const qid = s0.quadid + offset;
     auto const c   = s0.corner;
     auto& desc     = neighbors[qid].corners[c];
 
@@ -108,15 +79,15 @@ void register_corner(
     auto const l0 = static_cast<int>(s0.quad->level);
     auto const l1 = static_cast<int>(s1.quad->level);
 
-    auto const other_offset = s1.is_ghost ? 0 : amr::get_local_quadrants_offset(s1.treeid);
+    auto const other_offset = s1.is_ghost ? 0 : grace::amr::get_local_quadrants_offset(s1.treeid);
 
     desc.kind = interface_kind_t::INTERNAL;
-    desc.data.quad_id = s1.quad_id + other_offset;
+    desc.data.quad_id = s1.quadid + other_offset;
     desc.data.is_remote = s1.is_ghost;
 
     if (s1.is_ghost) {
         desc.data.owner_rank =
-            p4est_comm_find_owner(amr::forest::get().get(), s1.treeid, s1.quad, 0);
+            p4est_comm_find_owner(grace::amr::forest::get().get(), s1.treeid, s1.quad, 0);
     }
 
     if (l0 > l1) {

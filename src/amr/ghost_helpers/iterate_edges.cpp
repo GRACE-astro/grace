@@ -28,11 +28,14 @@
 
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
+#include <grace/utils/sc_wrappers.hh>
 
 #include <grace/errors/assert.hh>
 #include <grace/system/print.hh>
 
 #include <grace/amr/p4est_headers.hh>
+#include <grace/amr/amr_functions.hh>
+#include <grace/amr/forest.hh>
 
 #include <grace/data_structures/memory_defaults.hh>
 
@@ -43,12 +46,12 @@
 
 namespace grace {
 
-void register_physical_boundary_edge(
-    p4est_iter_edge_side_t const& side, 
+static void register_physical_boundary_edge(
+    p8est_iter_edge_side_t const& side, 
     std::vector<quad_neighbors_descriptor_t>& neighbors
 )
 {
-    auto const offset = amr::get_local_quadrants_offset(side.treeid); 
+    auto const offset = grace::amr::get_local_quadrants_offset(side.treeid); 
     if ( side.is_hanging ) {
         for( int is=0; is<2; ++is) {
             if ( side.is.hanging.is_ghost[is]) continue ; 
@@ -59,7 +62,7 @@ void register_physical_boundary_edge(
         }
 
     } else {
-        if (side.is_ghost) return ; 
+        if (side.is.full.is_ghost) return ; 
         // not hanging not ghost 
         auto qid = side.is.full.quadid +  offset ; 
         neighbors[qid].edges[side.edge].kind = interface_kind_t::PHYS ;
@@ -80,7 +83,7 @@ inline void fill_full_edge_desc(edge_descriptor_t& desc,
     desc.data.full.is_remote = is_remote;
     if (is_remote) {
         desc.data.full.owner_rank =
-            p4est_comm_find_owner(amr::forest::get().get(), treeid, quad, 0);
+            p4est_comm_find_owner(grace::amr::forest::get().get(), treeid, quad, 0);
     }
 };
 
@@ -98,16 +101,16 @@ inline void fill_hanging_edge_desc(edge_descriptor_t& desc,
     desc.data.hanging.is_remote[islot] = is_remote;
     if (is_remote) {
         desc.data.hanging.owner_rank[islot] =
-            p4est_comm_find_owner(amr::forest::get().get(), treeid, quad, 0);
+            p4est_comm_find_owner(grace::amr::forest::get().get(), treeid, quad, 0);
     }
 };
 
 
-void register_edge(p4est_iter_edge_side_t const& s0,
-                   p4est_iter_edge_side_t const& s1,
+static void register_edge(p8est_iter_edge_side_t const& s0,
+                   p8est_iter_edge_side_t const& s1,
                    std::vector<quad_neighbors_descriptor_t>& neighbors)
 {
-    auto offset = amr::get_local_quadrants_offset(s0.treeid);
+    auto offset = grace::amr::get_local_quadrants_offset(s0.treeid);
     int8_t e = s0.edge;
 
     if (s0.is_hanging) {
@@ -120,7 +123,7 @@ void register_edge(p4est_iter_edge_side_t const& s0,
 
             if (s1.is_hanging) {
                 // both hanging → SAME level
-                auto other_offset = s1.is.hanging.is_ghost[is] ? 0 : amr::get_local_quadrants_offset(s1.treeid);
+                auto other_offset = s1.is.hanging.is_ghost[is] ? 0 : grace::amr::get_local_quadrants_offset(s1.treeid);
                 desc.level_diff = level_diff_t::SAME ; 
                 fill_full_edge_desc(desc, e, s1.edge,
                                s1.is.hanging.quadid[is] + other_offset,
@@ -129,7 +132,7 @@ void register_edge(p4est_iter_edge_side_t const& s0,
                                s1.is.hanging.quad[is]);
             } else {
                 // s0 hanging, s1 full → s1 is COARSER
-                auto other_offset = s1.is.full.is_ghost ? 0 : amr::get_local_quadrants_offset(s1.treeid);
+                auto other_offset = s1.is.full.is_ghost ? 0 : grace::amr::get_local_quadrants_offset(s1.treeid);
                 desc.level_diff = level_diff_t::COARSER;
                 desc.child_id = is ; 
                 fill_full_edge_desc(desc, e, s1.edge,
@@ -150,7 +153,7 @@ void register_edge(p4est_iter_edge_side_t const& s0,
             // neighbor is finer
             desc.level_diff = level_diff_t::FINER;
             for (int is = 0; is < 2; ++is) {
-                auto other_offset = s1.is.hanging.is_ghost[is] ? 0 : amr::get_local_quadrants_offset(s1.treeid);
+                auto other_offset = s1.is.hanging.is_ghost[is] ? 0 : grace::amr::get_local_quadrants_offset(s1.treeid);
                 fill_hanging_edge_desc(desc, e, s1.edge,
                                   is,
                                   s1.is.hanging.quadid[is] + other_offset,
@@ -160,7 +163,7 @@ void register_edge(p4est_iter_edge_side_t const& s0,
             }
         } else {
             // both full → SAME level
-            auto other_offset = s1.is.full.is_ghost ? 0 : amr::get_local_quadrants_offset(s1.treeid);
+            auto other_offset = s1.is.full.is_ghost ? 0 : grace::amr::get_local_quadrants_offset(s1.treeid);
             desc.level_diff = level_diff_t::SAME ; 
             fill_full_edge_desc(desc, e, s1.edge,
                            s1.is.full.quadid + other_offset,
@@ -172,10 +175,10 @@ void register_edge(p4est_iter_edge_side_t const& s0,
 }
 
 
-void grace_iterate_edges(p4est_iter_edge_info_t* info, void* user_data) 
+void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data) 
 {
     auto ghosts = reinterpret_cast<std::vector<quad_neighbors_descriptor_t>*>(user_data);
-    sc_array_view_t<p4est_iter_edge_side_t> sides{&(info->sides)};
+    sc_array_view_t<p8est_iter_edge_side_t> sides{&(info->sides)};
 
     if (sides.size() < 4) {
         // Boundary edge(s)
@@ -189,11 +192,11 @@ void grace_iterate_edges(p4est_iter_edge_info_t* info, void* user_data)
 
     static constexpr int opposite_edge[12] = {
         3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8
-    };
+    } ;
 
     auto is_edge_neighbor = [&](int i, int j) {
         return opposite_edge[sides[i].edge] == sides[j].edge;
-    };
+    } ;
 
     std::vector<std::array<int,2>> pairs;
     std::vector<bool> found(sides.size(), false);

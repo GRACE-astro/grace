@@ -85,7 +85,7 @@ void amr_ghosts_impl_t::update() {
     }
 
     // Rebuild ghost layer from scratch
-    p4est_ghost_layer = p4est_ghost_new(grace::amr::forest::get().get(), P4EST_CONNECT_FACE);
+    p4est_ghost_layer = p4est_ghost_new(grace::amr::forest::get().get(), P4EST_CONNECT_FULL);
 
     // Clear and re-alloc the ghost_layer to the correct size
     auto nq = amr::get_local_num_quadrants() ; 
@@ -98,8 +98,19 @@ void amr_ghosts_impl_t::update() {
                   static_cast<void*>(&ghost_layer),     /*user data*/
                   nullptr,                              /*volume*/
                   &grace_iterate_faces,                 /*face*/
-                  nullptr,                              /*edge*/
-                  nullptr );                            /*corner*/
+                  #ifdef GRACE_3D 
+                  &grace_iterate_edges,                 /*edge*/
+                  #endif 
+                  &grace_iterate_corners );             /*corner*/
+    
+    // let's do some debugging 
+    for ( int iq=0; iq<nq; ++iq ) {
+        ASSERT(ghost_layer[iq].n_registered_faces == P4EST_FACES, "Some faces not registered at iq " << iq ) ;
+        #ifdef GRACE_3D 
+        ASSERT(ghost_layer[iq].n_registered_edges == 12, "Some edges not registered at iq " << iq ) ;
+        #endif 
+        ASSERT(ghost_layer[iq].n_registered_corners == P4EST_CHILDREN, "Some corners not registered at iq " << iq ) ;
+    }
     
     build_remote_buffers() ; 
     build_task_list() ; 

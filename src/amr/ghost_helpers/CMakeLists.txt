@@ -1,3 +1,3 @@
 register_grace_object(amr_iterate_faces iterate_faces.cpp)
-register_grace_object_conditional(amr_iterate_edges GRACE_3D iterate_faces.cpp)
+register_grace_object_conditional(amr_iterate_edges GRACE_3D iterate_edges.cpp)
 register_grace_object(amr_iterate_corners iterate_corners.cpp)
