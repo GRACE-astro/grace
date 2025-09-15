@@ -27,6 +27,7 @@
 
 #ifndef GRACE_UTILS_TASK_QUEUE_HH 
 #define GRACE_UTILS_TASK_QUEUE_HH
+ 
 
 #include <grace_config.h>
 #include <grace/utils/device.h>
@@ -97,7 +98,6 @@ struct dummy_gpu_task_t : public task_t {
       // note need to remember to reset event and attach it to stream where kernel is running 
       // INSIDE _run 
       ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
-      ASSERT( stream != nullptr, "Attempting to run on a null stream") ; 
       status = status_id_t::RUNNING ; 
       _run() ; 
       status = status_id_t::COMPLETE ; 
@@ -109,7 +109,7 @@ struct dummy_gpu_task_t : public task_t {
 
 struct dummy_mpi_task_t : public task_t {
   dummy_mpi_task_t() {
-      kind = task_kind_t::GPU_KERNEL ; 
+      kind = task_kind_t::MPI_TRANSFER ; 
       status = status_id_t::WAITING ; 
   }
 
@@ -127,7 +127,6 @@ struct dummy_mpi_task_t : public task_t {
       // note need to remember to reset event and attach it to stream where kernel is running 
       // INSIDE _run 
       ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
-      ASSERT( stream != nullptr, "Attempting to run on a null stream") ; 
       status = status_id_t::RUNNING ; 
       _run() ; 
       status = status_id_t::COMPLETE ; 
@@ -137,7 +136,9 @@ struct dummy_mpi_task_t : public task_t {
   std::function<void()> _run ;
 } ; 
 
-#if 0
+#ifdef USE_DUMMY_GPU_TASK
+using gpu_task_t = dummy_gpu_task_t ; 
+#else
 struct gpu_task_t : public task_t {
 
     gpu_task_t()
@@ -181,6 +182,10 @@ struct gpu_task_t : public task_t {
     std::function<void()> _run ; 
 } ; 
 
+#endif 
+#ifdef USE_DUMMY_MPI_TASK
+using mpi_task_t = dummy_mpi_task_t ; 
+#else 
 struct mpi_task_t : public task_t {
 
     mpi_task_t()
@@ -220,9 +225,6 @@ struct mpi_task_t : public task_t {
 
 } ; 
 #endif 
-
-using gpu_task_t = dummy_gpu_task_t ; 
-using mpi_task_t = dummy_mpi_task_t ; 
 
 struct cpu_task_t : public task_t {
 

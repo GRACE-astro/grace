@@ -164,7 +164,7 @@ TEST_CASE("Unigrid exchange", "[unigrid]")
     using namespace grace ; 
     auto& ghost = grace::amr_ghosts::get() ; 
     ghost.update() ; 
-    #if 1
+    #if 0
 
     auto const & layer = ghost.get_ghost_layer() ; 
     auto rank = parallel::mpi_comm_rank() ; 
@@ -219,25 +219,16 @@ TEST_CASE("Unigrid exchange", "[unigrid]")
     }
 
     GRACE_TRACE("Rank {} send buffer {} recv buffer {}", rank, ghost.get_send_buf_size(), ghost.get_recv_buf_size()) ; 
-
+    #endif 
     auto& runtime = ghost.get_task_executor() ; 
-    // runtime.run() ; 
-
-
     // now the real test 
     auto& state = grace::variable_list::get().getstate() ; 
     auto state_mirror = Kokkos::create_mirror_view(state) ; 
-
     setup_initial_data(state_mirror) ; 
-
     Kokkos::deep_copy(state, state_mirror) ; 
-
     invalidate_ghostzones(state) ; 
     runtime.run() ; 
     auto state_mirror_2 = Kokkos::create_mirror_view(state) ; 
     Kokkos::deep_copy(state_mirror_2, state) ; 
-    check_ghostzones(state_mirror_2, state_mirror) ; 
-    
-    //parallel::mpi_barrier() ; 
-    #endif 
+    check_ghostzones(state_mirror_2, state_mirror) ;     
 }

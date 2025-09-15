@@ -28,6 +28,7 @@
 #ifndef GRACE_AMR_AMR_GHOSTS_HH
 #define GRACE_AMR_AMR_GHOSTS_HH
 
+
 #include <grace_config.h>
 
 #include <grace/utils/device.h>
@@ -85,8 +86,53 @@ struct face_descriptor_t {
     int8_t face ; //!< Face code as seen from other side 
 } ; 
 /**************************************************************************************************/
-struct edge_descriptor_t {}; 
-struct corner_descriptor_t {}; 
+struct full_edge_t {
+    std::size_t quad_id       ; //!< Index of quadrant on the other side 
+    std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
+    bool is_remote            ; //!< Whether the quadrant is local or remote 
+    std::size_t owner_rank    ; //!< Owner rank if remote
+} ; 
+struct hanging_edge_t {
+        std::size_t quad_id[2]    ; //!< Indices of hanging quads (in coarse bufs)
+        std::size_t recv_buffer_id[2] ; //!< Indices in receive array, if relevant
+        bool is_remote[2]         ; //!< Are the quads remote 
+        std::size_t owner_rank[2] ; //!< owner ranks if remote 
+} ;
+union edge_data_t {
+    full_edge_t full ; 
+    hanging_edge_t hanging ; 
+}
+struct edge_descriptor_t {
+    interface_kind_t kind ; 
+    std::size_t send_buffer_id ; 
+    int8_t level_diff ; 
+    edge_data_t data ;
+    int8_t edge ; 
+}; 
+/**************************************************************************************************/
+struct full_corner_t {
+    std::size_t quad_id       ; //!< Index of quadrant on the other side 
+    std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
+    bool is_remote            ; //!< Whether the quadrant is local or remote 
+    std::size_t owner_rank    ; //!< Owner rank if remote
+} ; 
+struct hanging_corner_t {
+        std::size_t quad_id        ; //!< Indices of hanging quads (in coarse bufs)
+        std::size_t recv_buffer_id ; //!< Indices in receive array, if relevant
+        bool is_remote             ; //!< Are the quads remote 
+        std::size_t owner_rank     ; //!< owner ranks if remote 
+} ;
+union corner_data_t {
+    full_corner_t full ; 
+    hanging_corner_t hanging ; 
+}
+struct corner_descriptor_t {
+    interface_kind_t kind ; 
+    std::size_t send_buffer_id ; 
+    int8_t level_diff ; 
+    corner_data_t data ;
+    int8_t corner ; 
+}; 
 /**************************************************************************************************/
 struct quad_neighbors_descriptor_t {
     std::array< face_descriptor_t, P4EST_FACES > faces ; //!< Faces 
@@ -166,11 +212,10 @@ class amr_ghosts_impl_t {
     //**************************************************************************************************
     amr_ghosts_impl_t()
     : _send_buffer("ghost_send_buf", 0),
-        _recv_buffer("ghost_recv_buf", 0)
+      _recv_buffer("ghost_recv_buf", 0)
     {}
     //**************************************************************************************************
     ~amr_ghosts_impl_t() { 
-        GRACE_TRACE("Hello world!!") ; 
         if (p4est_ghost_layer) p4est_ghost_destroy(p4est_ghost_layer) ; 
     } ; 
     //**************************************************************************************************
