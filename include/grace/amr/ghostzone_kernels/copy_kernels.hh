@@ -39,35 +39,37 @@
 
 namespace grace { namespace amr {
 
+
 template< 
     bool do_reciprocal_copy,
+    typename index_transformer_t,
     typename ViewA_t,
     typename ViewB_t 
 >
-struct face_copy_k {
+struct copy_k {
 
     ViewA_t src_view ; 
     ViewB_t dest_view; 
     readonly_view_t<std::size_t> src_qid, dest_qid ; 
-    readonly_view_t<uint8_t> src_face_view, dest_face_view; 
+    readonly_view_t<uint8_t> src_element_view, dest_element_view; 
 
     std::size_t VEC(nx, ny, nz), ngz; 
 
-    face_index_transformer_t transf ; 
+    index_transformer_t transf ; 
 
-    face_copy_k(
+    edge_copy_k(
         ViewB_t _src_view,
         ViewA_t _dest_view,
         Kokkos::View<size_t*> _src_qid, Kokkos::View<size_t*> _dest_qid,
-        Kokkos::View<uint8_t*> _src_face, Kokkos::View<uint8_t*> _dest_face, 
+        Kokkos::View<uint8_t*> _src_elem, Kokkos::View<uint8_t*> _dest_elem, 
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
         std::size_t _ngz
     ) : src_view(_src_view)
       , dest_view(_dest_view)
       , src_qid(_src_qid)
       , dest_qid(_dest_qid)
-      , src_face_view(_src_face)
-      , dest_face_view(_dest_face)
+      , src_element_view(_src_elem)
+      , dest_element_view(_dest_elem)
       , VEC(nx(_nx), ny(_ny), nz(_nz))
       , ngz(_ngz)
       , transf(VEC(nx,ny,nz),ngz)
@@ -79,8 +81,8 @@ struct face_copy_k {
         std::size_t ig, VECD(std::size_t j, std::size_t k), size_t ivar, size_t iq
     ) const 
     {
-        auto const src_face  = src_face_view(iq) ; 
-        auto const dest_face = dest_face_view(iq) ; 
+        auto const src_edge  = src_element_view(iq) ; 
+        auto const dest_edge = dest_element_view(iq) ; 
 
         auto const src_q  = src_qid(iq)  ; 
         auto const dest_q = dest_qid(iq) ;

@@ -40,35 +40,36 @@
 namespace grace { namespace amr {
 
 template< 
+    typename index_transformer_t,
     typename ViewA_t,
     typename ViewB_t 
 >
-struct face_pack_k {
+struct pack_k {
     ViewA_t src_view ; 
     ViewB_t dest_view; 
 
     readonly_view_t<std::size_t> src_qid, dest_qid ; 
-    readonly_view_t<uint8_t> src_face_view ;
+    readonly_view_t<uint8_t> src_elem_view ;
     
     std::size_t VEC(nx, ny, nz), ngz, nvars, offset ; 
 
     std::size_t s1, s2, s3, s4, s5 ;
 
-    face_index_transformer_t transf ; 
+    index_transformer_t transf ; 
 
     face_pack_k(
         ViewA_t _src_view,
         ViewB_t _dest_view,
         Kokkos::View<size_t*> _src_qid, 
         Kokkos::View<size_t*> _dest_qid,
-        Kokkos::View<uint8_t*> _src_face,  
+        Kokkos::View<uint8_t*> _src_elem,  
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
         std::size_t _ngz, std::size_t _nvars, std::size_t _offset 
     ) : src_view(_src_view)
       , dest_view(_dest_view)
       , src_qid(_src_qid)
       , dest_qid(_dest_qid)
-      , src_face_view(_src_face)
+      , src_elem_view(_src_elem)
       , VEC(nx(_nx), ny(_ny), nz(_nz))
       , ngz(_ngz), nvars(_nvars), offset(_offset)
       , transf(VEC(nx,ny,nz),ngz)
