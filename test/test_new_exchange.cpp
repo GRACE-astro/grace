@@ -164,7 +164,8 @@ TEST_CASE("Unigrid exchange", "[unigrid]")
     using namespace grace ; 
     auto& ghost = grace::amr_ghosts::get() ; 
     ghost.update() ; 
-    
+    #if 1
+
     auto const & layer = ghost.get_ghost_layer() ; 
     auto rank = parallel::mpi_comm_rank() ; 
     auto nproc = parallel::mpi_comm_size() ;
@@ -236,5 +237,7 @@ TEST_CASE("Unigrid exchange", "[unigrid]")
     auto state_mirror_2 = Kokkos::create_mirror_view(state) ; 
     Kokkos::deep_copy(state_mirror_2, state) ; 
     check_ghostzones(state_mirror_2, state_mirror) ; 
-
+    
+    //parallel::mpi_barrier() ; 
+    #endif 
 }

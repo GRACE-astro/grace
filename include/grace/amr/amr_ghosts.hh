@@ -147,13 +147,13 @@ class amr_ghosts_impl_t {
     protected:
     /**************************************************************************************************/
     std::vector<quad_neighbors_descriptor_t> ghost_layer ; //!< Ghost layer used by GRACE
-    p4est_ghost_t* p4est_ghost_layer                     ; //!< p4est data struct 
+    p4est_ghost_t* p4est_ghost_layer = nullptr           ; //!< p4est data struct 
 
     std::vector<std::unique_ptr<task_t>> task_list ;
     executor task_queue ; 
     std::vector<std::size_t> send_rank_offsets, recv_rank_offsets ; //!< In # of elements
     std::vector<std::size_t> send_rank_sizes, recv_rank_sizes ; //!< In # of elements
-    Kokkos::View<double*> _send_buffer, _recv_buffer ;
+    Kokkos::View<double*, grace::default_space> _send_buffer, _recv_buffer ;
     Kokkos::View<bc_t*> var_bc_kind ; //!< Boundary condition per-variable
     //**************************************************************************************************
     void build_task_list() ; 
@@ -164,9 +164,15 @@ class amr_ghosts_impl_t {
     //**************************************************************************************************
     static constexpr unsigned long longevity = unique_objects_lifetimes::AMR_GHOSTS ; 
     //**************************************************************************************************
-    amr_ghosts_impl_t() = default ; 
+    amr_ghosts_impl_t()
+    : _send_buffer("ghost_send_buf", 0),
+        _recv_buffer("ghost_recv_buf", 0)
+    {}
     //**************************************************************************************************
-    ~amr_ghosts_impl_t() { if (p4est_ghost_layer) p4est_ghost_destroy(p4est_ghost_layer) ; } ; 
+    ~amr_ghosts_impl_t() { 
+        GRACE_TRACE("Hello world!!") ; 
+        if (p4est_ghost_layer) p4est_ghost_destroy(p4est_ghost_layer) ; 
+    } ; 
     //**************************************************************************************************
     
     //**************************************************************************************************

@@ -54,6 +54,8 @@
 #include <vector>
 #include <numeric>
 
+#define INSERT_FENCE_DEBUG_TASKS_ 
+
 namespace grace {
 
 void register_simple_face(
@@ -179,6 +181,7 @@ void amr_ghosts_impl_t::build_executor_runtime() {
         
         runtime_task_view rtv ; 
         rtv.t = t.get() ; 
+        ASSERT( rtv.t != nullptr, "Dangling pointer! ") ; 
         rtv.pending = t->_dependencies.size() ; 
         if ( rtv.pending == 0 ) {
             t -> status = status_id_t::READY ;
@@ -290,16 +293,25 @@ void amr_ghosts_impl_t::build_remote_buffers() {
 
     GRACE_TRACE("Total send size {}, total receive size {}", total_send_size, total_recv_size) ;
     // exclusive scan for rank offsets 
-    send_rank_offsets.resize(nproc+1) ; 
+    send_rank_offsets.resize(nproc) ; 
     std::exclusive_scan( send_rank_sizes.begin(), send_rank_sizes.end()
                        , send_rank_offsets.begin(), 0) ; 
-    recv_rank_offsets.resize(nproc+1) ; 
+    recv_rank_offsets.resize(nproc) ; 
     std::exclusive_scan( recv_rank_sizes.begin(), recv_rank_sizes.end()
                        , recv_rank_offsets.begin(), 0) ;
+    GRACE_TRACE("Was it really here??");
+    Kokkos::fence() ; 
     // Allocate memory for MPI buffers
     Kokkos::realloc(_send_buffer, total_send_size) ; 
-    Kokkos::realloc(_recv_buffer, total_recv_size) ; 
+    Kokkos::realloc(_recv_buffer, total_recv_size) ;
+    Kokkos::fence()  ;
+    GRACE_TRACE("Checking send size {}, total receive size {}", _send_buffer.extent(0), _recv_buffer.extent(0)) ;
+    for( int r=0; r<nproc; ++r) {
+        GRACE_TRACE("Send rank {}, offset {} size {}", r, send_rank_offsets[r], send_rank_sizes[r]) ; 
+        GRACE_TRACE("Recv rank {}, offset {} size {}", r, recv_rank_offsets[r], recv_rank_sizes[r]) ; 
+    }
 }
+
 
 struct gpu_task_descriptor_t {
     int8_t face_src, face_dst ; 
@@ -360,11 +372,14 @@ gpu_task_t make_gpu_copy_task(
     // will help in debug
 
     task._run = [functor, policy] () {
-        //GRACE_TRACE("Copy start.") ; 
+        
+        GRACE_TRACE("Copy start.") ; 
         Kokkos::parallel_for("fill_ghostzones", policy, functor) ; 
         // TODO remove
-        //Kokkos::fence() ;
-        //GRACE_TRACE("Copy done.") ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        Kokkos::fence() ;
+        #endif 
+        GRACE_TRACE("Copy done.") ; 
     };
     task.stream = &stream; 
     task.task_id = task_counter++ ; 
@@ -414,11 +429,13 @@ gpu_task_t make_gpu_phys_bc_task(
         } ;
     
     task._run = [functor, policy] () {
-        //GRACE_TRACE("Fill phys start") ; 
+        GRACE_TRACE("Fill phys start") ; 
         Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
         // TODO remove 
-        //Kokkos::fence() ; 
-        //GRACE_TRACE("Fill phys done") ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        Kokkos::fence() ; 
+        #endif 
+        GRACE_TRACE("Fill phys done") ; 
     };
     task.stream = &stream ; 
     task.task_id = task_counter++ ; 
@@ -451,7 +468,6 @@ gpu_task_t make_pack_task(
     auto pack_src_face_h =  Kokkos::create_mirror_view(pack_src_face) ; 
     size_t i{0UL} ; 
     for( auto const& d: sb ) {
-        GRACE_TRACE("{}", d.qid_dst);
         pack_src_qid_h(i) = d.qid_src ; 
         pack_dst_qid_h(i) = d.qid_dst ; 
         pack_src_face_h(i) = d.face_src ; 
@@ -473,11 +489,13 @@ gpu_task_t make_pack_task(
     } ; 
     
     pack_task._run = [pack_functor, pack_policy] () {
-        //GRACE_TRACE("Pack start.") ; 
+        GRACE_TRACE("Pack start.") ; 
         Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
         // TODO remove 
-        //Kokkos::fence() ; 
-        //GRACE_TRACE("Pack done.") ;
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        Kokkos::fence() ; 
+        #endif 
+        GRACE_TRACE("Pack done.") ;
     } ; 
     pack_task.stream = &pup_stream ; 
     pack_task.task_id = task_counter ++ ; 
@@ -535,10 +553,12 @@ gpu_task_t make_unpack_task(
     } ; 
     
     unpack_task._run = [unpack_functor, unpack_policy] () {
-        //GRACE_TRACE("Unpack start.") ; 
+        GRACE_TRACE("Unpack start.") ; 
         Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
-        //Kokkos::fence() ; 
-        //GRACE_TRACE("Unpack done.") ;
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        Kokkos::fence() ; 
+        GRACE_TRACE("Unpack done.") ;
+        #endif 
     } ; 
     unpack_task.stream = &pup_stream ; 
     unpack_task.task_id = task_counter ++ ; 
@@ -612,7 +632,6 @@ mpi_task_t make_mpi_send_task(
     ASSERT(send_rank_offsets[rr] + send_rank_sizes[rr] <= send_buf.extent(0), "Send out-of-bounds" ) ; 
 
     mpi_task_t task ; 
-    task.mpi_req = std::make_unique<MPI_Request>(MPI_REQUEST_NULL) ; 
     task._run = [&, send_buf, rr] (MPI_Request* req) {
         parallel::mpi_isend(
               send_buf.data() + send_rank_offsets[rr]
@@ -640,7 +659,6 @@ mpi_task_t make_mpi_recv_task(
     ASSERT(recv_rank_offsets[rr] + recv_rank_sizes[rr] <= recv_buf.extent(0), "Receive out-of-bounds" ) ; 
 
     mpi_task_t task ; 
-    task.mpi_req = std::make_unique<MPI_Request>(MPI_REQUEST_NULL) ; 
     task._run = [&, recv_buf, rr] (MPI_Request* req) {
         parallel::mpi_irecv(
               recv_buf.data() + recv_rank_offsets[rr]
@@ -691,7 +709,7 @@ void amr_ghosts_impl_t::build_task_list() {
                 make_mpi_recv_task(r, _recv_buffer, recv_rank_offsets, recv_rank_sizes, task_counter)
             ) ; 
             recv_task_id[r] = recv->task_id ; 
-            task_list.push_back(std::move(recv)) ;
+            task_list.push_back(std::move(recv)) ;            
         }   
     }
     /***********************************************************************/

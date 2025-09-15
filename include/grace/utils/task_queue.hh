@@ -77,6 +77,67 @@ struct task_t {
     task_id_t task_id ; 
 } ; 
 
+struct dummy_gpu_task_t : public task_t {
+  dummy_gpu_task_t() {
+      kind = task_kind_t::GPU_KERNEL ; 
+      status = status_id_t::WAITING ; 
+  }
+
+  dummy_gpu_task_t( dummy_gpu_task_t const& other) = delete ; 
+  dummy_gpu_task_t( dummy_gpu_task_t && other ) = default ; 
+
+  /**
+    * @brief query the task for its status 
+    */
+  status_id_t query() override {
+      return status ; 
+  }
+
+  void run() override {
+      // note need to remember to reset event and attach it to stream where kernel is running 
+      // INSIDE _run 
+      ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
+      ASSERT( stream != nullptr, "Attempting to run on a null stream") ; 
+      status = status_id_t::RUNNING ; 
+      _run() ; 
+      status = status_id_t::COMPLETE ; 
+  }
+
+  //! The task itself 
+  std::function<void()> _run ;
+} ; 
+
+struct dummy_mpi_task_t : public task_t {
+  dummy_mpi_task_t() {
+      kind = task_kind_t::GPU_KERNEL ; 
+      status = status_id_t::WAITING ; 
+  }
+
+  dummy_mpi_task_t( dummy_mpi_task_t const& other) = delete ; 
+  dummy_mpi_task_t( dummy_mpi_task_t && other ) = default ; 
+
+  /**
+    * @brief query the task for its status 
+    */
+  status_id_t query() override {
+      return status ; 
+  }
+
+  void run() override {
+      // note need to remember to reset event and attach it to stream where kernel is running 
+      // INSIDE _run 
+      ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
+      ASSERT( stream != nullptr, "Attempting to run on a null stream") ; 
+      status = status_id_t::RUNNING ; 
+      _run() ; 
+      status = status_id_t::COMPLETE ; 
+  }
+
+  //! The task itself 
+  std::function<void()> _run ;
+} ; 
+
+#if 0
 struct gpu_task_t : public task_t {
 
     gpu_task_t()
@@ -85,6 +146,9 @@ struct gpu_task_t : public task_t {
       status = status_id_t::WAITING ; 
       stream = nullptr ; 
     }
+
+    gpu_task_t( gpu_task_t const& other) = delete ; 
+    gpu_task_t( gpu_task_t && other ) = default ; 
 
     void run() override {
         // note need to remember to reset event and attach it to stream where kernel is running 
@@ -125,33 +189,40 @@ struct mpi_task_t : public task_t {
       status = status_id_t::WAITING ; 
     }
 
+    mpi_task_t( mpi_task_t const& other) = delete ; 
+    mpi_task_t( mpi_task_t && other ) = default ; 
+
     void run() override {
         ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
         status = status_id_t::RUNNING ; 
-        _run(mpi_req.get()) ; 
+        _run(&mpi_req) ; 
     }
 
     /**
      * @brief query the task for its status 
      */
     status_id_t query() override {
-        if (*mpi_req == MPI_REQUEST_NULL) {
-            GRACE_WARN("Query called on task {} but request is null", task_id) ; 
+        if (mpi_req == MPI_REQUEST_NULL) {
+            GRACE_TRACE("Query called on task {} but request is null", task_id) ; 
             return status; // or some "not yet posted" state
         }
         int flag = 0 ; 
-        auto err = MPI_Test(mpi_req.get(), &flag, MPI_STATUS_IGNORE) ;
+        auto err = MPI_Test(&mpi_req, &flag, MPI_STATUS_IGNORE) ;
         ASSERT( err==MPI_SUCCESS, "Error in MPI_Test, possibly null request passed.") ; 
         return flag ? status_id_t::COMPLETE : status_id_t::RUNNING ;
     }
 
     //! MPI request
-    std::unique_ptr<MPI_Request> mpi_req ;
+    MPI_Request mpi_req = MPI_REQUEST_NULL ;
 
     //! The task itself 
     std::function<void(MPI_Request*)> _run ; 
 
 } ; 
+#endif 
+
+using gpu_task_t = dummy_gpu_task_t ; 
+using mpi_task_t = dummy_mpi_task_t ; 
 
 struct cpu_task_t : public task_t {
 

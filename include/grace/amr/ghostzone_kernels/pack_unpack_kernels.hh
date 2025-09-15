@@ -171,7 +171,7 @@ struct face_unpack_k {
         std::size_t compressed_index = offset + i_b * s1 + j_b * s2 + k_b * s3 + ivar * s4 + src_q * s5;
 
         dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) = 
-            src_view(compressed_index) ; 
+               src_view(compressed_index) ; 
     }
 
 } ; 

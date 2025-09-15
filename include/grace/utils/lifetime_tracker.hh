@@ -51,9 +51,9 @@ enum unique_objects_lifetimes {
     GRACE_RUNTIME, 
     AMR_CONNECTIVITY,
     AMR_FOREST,
-    AMR_GHOSTS,
     GRACE_COORDINATE_SYSTEM,
     GRACE_VARIABLES,
+    AMR_GHOSTS,
     GRACE_EOS_STORAGE,
     grace_NUM_GLOBAL_OBJECTS 
 } ;
