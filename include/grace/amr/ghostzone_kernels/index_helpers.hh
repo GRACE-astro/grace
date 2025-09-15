@@ -27,40 +27,19 @@
 #ifndef GRACE_AMR_INDEX_HELPERS_HH
 #define GRACE_AMR_INDEX_HELPERS_HH
 
+#include <grace_config.h>
+
+#include <Kokkos_Core.hpp>
 
 namespace grace { namespace amr {
 
-enum element_kind_t : uint8_t {
-    FACE, EDGE, CORNER 
-} ; 
-
-template< element_kind_t elem_kind >
-struct index_transformer_t {
-    std::size_t nx, ny, nz, ngz;
-    index_transformer_t(std::size_t _nx, std::size_t _ny,
-                             std::size_t _nz, std::size_t _ngz)
-        : nx(_nx), ny(_ny), nz(_nz), ngz(_ngz) 
-    {}
-    
-    template<bool offset_by_ngz>
-    KOKKOS_INLINE_FUNCTION
-    void compute_phys_indices(std::size_t ig, std::size_t j, std::size_t k,
-                              std::size_t& i_out, std::size_t& j_out,
-                              std::size_t& k_out, int face) const ; 
-    template<bool offset_by_ngz>
-    KOKKOS_INLINE_FUNCTION
-    void compute_ghost_indices(std::size_t ig, std::size_t j, std::size_t k,
-                              std::size_t& i_out, std::size_t& j_out,
-                              std::size_t& k_out, int face) const ; 
-}
-
-template <>
-template<bool offset_by_ngz>
-KOKKOS_INLINE_FUNCTION
-void index_transformer_t<element_kind_t::FACE>::compute_phys_indices(
+KOKKOS_INLINE_FUNCTION 
+void compute_phys_indices_face(
+    std::size_t nx, std::size_t ny, std::size_t nz, std::size_t ngz, 
     std::size_t ig, std::size_t j, std::size_t k,
     std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int face) const
+    std::size_t& k_out, int face, bool offset_by_ngz
+)
 {
     const std::size_t g = offset_by_ngz ? ngz : 0;
     const int axis = face / 2;   // 0 = x, 1 = y, 2 = z
@@ -81,13 +60,13 @@ void index_transformer_t<element_kind_t::FACE>::compute_phys_indices(
     }
 }
 
-template <>
-template<bool offset_by_ngz>
-KOKKOS_INLINE_FUNCTION
-void index_transformer_t<element_kind_t::FACE>::compute_ghost_indices(
+KOKKOS_INLINE_FUNCTION 
+void compute_ghost_indices_face(
+    std::size_t nx, std::size_t ny, std::size_t nz, std::size_t ngz, 
     std::size_t ig, std::size_t j, std::size_t k,
     std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int face) const
+    std::size_t& k_out, int face, bool offset_by_ngz
+)
 {
     const std::size_t g = offset_by_ngz ? ngz : 0;
     const int axis = face / 2;
@@ -108,14 +87,13 @@ void index_transformer_t<element_kind_t::FACE>::compute_ghost_indices(
     }
 }
 
-
-template <>
-template<bool offset_by_ngz>
-KOKKOS_INLINE_FUNCTION
-void index_transformer_t<element_kind_t::EDGE>::compute_phys_indices(
+KOKKOS_INLINE_FUNCTION 
+void compute_phys_indices_edge(
+    std::size_t nx, std::size_t ny, std::size_t nz, std::size_t ngz, 
     std::size_t ig, std::size_t j, std::size_t k,
     std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int face) const
+    std::size_t& k_out, int edge, bool offset_by_ngz
+)
 {
     const std::size_t g = offset_by_ngz ? ngz : 0;
 
@@ -144,14 +122,13 @@ void index_transformer_t<element_kind_t::EDGE>::compute_phys_indices(
         k_out = g + k;                          // varies
     }
 }
-
-template <>
-template<bool offset_by_ngz>
-KOKKOS_INLINE_FUNCTION
-void index_transformer_t<element_kind_t::EDGE>::compute_ghost_indices(
+KOKKOS_INLINE_FUNCTION 
+void compute_ghost_indices_edge(
+    std::size_t nx, std::size_t ny, std::size_t nz, std::size_t ngz, 
     std::size_t ig, std::size_t j, std::size_t k,
     std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int face) const
+    std::size_t& k_out, int edge, bool offset_by_ngz
+)
 {
     const std::size_t g = offset_by_ngz ? ngz : 0;
 
@@ -181,13 +158,13 @@ void index_transformer_t<element_kind_t::EDGE>::compute_ghost_indices(
     }
 }
 
-template <>
-template<bool offset_by_ngz>
-KOKKOS_INLINE_FUNCTION
-void index_transformer_t<element_kind_t::CORNER>::compute_phys_indices(
+KOKKOS_INLINE_FUNCTION 
+void compute_phys_indices_corner(
+    std::size_t nx, std::size_t ny, std::size_t nz, std::size_t ngz, 
     std::size_t ig, std::size_t j, std::size_t k,
     std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int face) const
+    std::size_t& k_out, int corner, bool offset_by_ngz
+)
 {
     std::size_t g = offset_by_ngz ? ngz : 0 ;
     int x_off = (corner) & 1 ; 
@@ -197,15 +174,15 @@ void index_transformer_t<element_kind_t::CORNER>::compute_phys_indices(
     i_out = x_off ? nx + i - 1 : g + i ; 
     j_out = y_off ? ny + j - 1 : g + j ; 
     k_out = z_off ? nz + k - 1 : g + k ; 
-
 }
-template <>
-template<bool offset_by_ngz>
-KOKKOS_INLINE_FUNCTION
-void index_transformer_t<element_kind_t::CORNER>::compute_ghost_indices(
+
+KOKKOS_INLINE_FUNCTION 
+void compute_ghost_indices_corner(
+    std::size_t nx, std::size_t ny, std::size_t nz, std::size_t ngz, 
     std::size_t ig, std::size_t j, std::size_t k,
     std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int face) const
+    std::size_t& k_out, int corner, bool offset_by_ngz
+)
 {
     std::size_t g = offset_by_ngz ? ngz : 0 ;
     int x_off = (corner) & 1 ; 
@@ -217,185 +194,62 @@ void index_transformer_t<element_kind_t::CORNER>::compute_ghost_indices(
     k_out = z_off ? nz + g + k :  k ; 
 }
 
-
-
-struct face_index_transformer_t {
-    std::size_t nx, ny, nz, ngz;
-
-    face_index_transformer_t(std::size_t _nx, std::size_t _ny,
-                             std::size_t _nz, std::size_t _ngz)
-        : nx(_nx), ny(_ny), nz(_nz), ngz(_ngz) {}
-
-    template<bool offset_by_ngz>
-    KOKKOS_INLINE_FUNCTION
-    void compute_phys_indices(std::size_t ig, std::size_t j, std::size_t k,
-                              std::size_t& i_out, std::size_t& j_out,
-                              std::size_t& k_out, int face) const {
-        const std::size_t g = offset_by_ngz ? ngz : 0;
-        const int axis = face / 2;   // 0 = x, 1 = y, 2 = z
-        const int side = face % 2;   // 0 = low, 1 = high
-
-        if (axis == 0) { // X-faces
-            i_out = side ? nx + ig : g + ig;
-            j_out = g + j;
-            k_out = g + k;
-        } else if (axis == 1) { // Y-faces
-            i_out = g + j;
-            j_out = side ? ny + ig : g + ig;
-            k_out = g + k;
-        } else { // Z-faces
-            i_out = g + j;
-            j_out = g + k;
-            k_out = side ? nz + ig : g + ig;
-        }
-    }
-
-    template<bool offset_by_ngz>
-    KOKKOS_INLINE_FUNCTION
-    void compute_ghost_indices(std::size_t ig, std::size_t j, std::size_t k,
-                               std::size_t& i_out, std::size_t& j_out,
-                               std::size_t& k_out, int face) const {
-        const std::size_t g = offset_by_ngz ? ngz : 0;
-        const int axis = face / 2;
-        const int side = face % 2;
-
-        if (axis == 0) { // X-faces
-            i_out = side ? nx + g + ig : ig;
-            j_out = g + j;
-            k_out = g + k;
-        } else if (axis == 1) { // Y-faces
-            i_out = g + j;
-            j_out = side ? ny + g + ig : ig;
-            k_out = g + k;
-        } else { // Z-faces
-            i_out = g + j;
-            j_out = g + k;
-            k_out = side ? nz + g + ig : ig;
-        }
-    }
-};
-
-
-
-struct corner_index_transformer_t 
-{
-    std::size_t VEC(nx,ny,nz), _ngz ; 
-
-    corner_index_transformer_t(
-        VEC(size_t _nx,size_t _ny, size_t _nz), size_t ngz
-    )
-    : VEC(nx(_nx),ny(_ny),nz(_nz)), _ngz(ngz)
-    {}
-
-    template< bool offset_by_ngz >
-    KOKKOS_INLINE_FUNCTION
-    void compute_phys_indices(
-        VEC(std::size_t i, std::size_t j, std::size_t k),
-        std::size_t& i_out, std::size_t& j_out, std::size_t& k_out, int corner ) const 
-    {
-        std::size_t ngz = offset_by_ngz ? _ngz : 0 ;
-        int x_off = (corner) & 1 ; 
-        int y_off = (corner >> 1) & 1 ; 
-        int z_off = (corner >> 2) & 1 ; 
-
-        i_out = x_off ? nx + i - 1 : ngz + i ; 
-        j_out = y_off ? ny + j - 1 : ngz + j ; 
-        k_out = z_off ? nz + k - 1 : ngz + k ; 
-
-    }
-
-    template< bool offset_by_ngz >
-    KOKKOS_INLINE_FUNCTION
-    void compute_ghost_indices(
-        VEC(std::size_t i, std::size_t j, std::size_t k),
-        std::size_t& i_out, std::size_t& j_out, std::size_t& k_out, int corner ) const 
-    {
-        std::size_t ngz = offset_by_ngz ? _ngz : 0 ;
-        int x_off = (corner) & 1 ; 
-        int y_off = (corner >> 1) & 1 ; 
-        int z_off = (corner >> 2) & 1 ; 
-
-        i_out = x_off ? nx + ngz + i :  i ; 
-        j_out = y_off ? ny + ngz + j :  j ; 
-        k_out = z_off ? nz + ngz + k :  k ; 
-
-    }
+enum element_kind_t : uint8_t {
+    FACE, EDGE, CORNER 
 } ; 
 
-struct edge_index_transformer_t {
+struct index_transformer_t {
+    std::size_t nx, ny, nz, ngz;
+    index_transformer_t(std::size_t _nx, std::size_t _ny,
+                             std::size_t _nz, std::size_t _ngz)
+        : nx(_nx), ny(_ny), nz(_nz), ngz(_ngz) 
+    {}
+    
+    struct index_transformer_t {
     std::size_t nx, ny, nz, ngz;
 
-    edge_index_transformer_t(std::size_t _nx, std::size_t _ny, std::size_t _nz, std::size_t _ngz)
-      : nx(_nx), ny(_ny), nz(_nz), ngz(_ngz) {}
+    index_transformer_t(std::size_t _nx, std::size_t _ny,
+                        std::size_t _nz, std::size_t _ngz)
+        : nx(_nx), ny(_ny), nz(_nz), ngz(_ngz) {}
+    
 
-    template<bool offset_by_ngz>
+    // Unified entry point
+    template< element_kind_t elem_kind 
+            , bool is_phys >
     KOKKOS_INLINE_FUNCTION
-    void compute_phys_indices(std::size_t ig, std::size_t jg, std::size_t k,
-                              std::size_t& i_out, std::size_t& j_out, std::size_t& k_out,
-                              int edge) const {
-        const std::size_t g = offset_by_ngz ? ngz : 0;
+    void compute_indices(std::size_t ig, std::size_t j, std::size_t k,
+                         std::size_t& i_out, std::size_t& j_out,
+                         std::size_t& k_out, int ielem,
+                         bool offset_by_ngz = true,
+                         bool ncells_halved = false) const
+    {
+        std::size_t _nx = ncells_halved ? nx/2 : nx;
+        std::size_t _ny = ncells_halved ? ny/2 : ny;
+        std::size_t _nz = ncells_halved ? nz/2 : nz;
 
-        if (edge < 4) {
-            // X-axis edges
-            int y_off = (edge >> 0) & 1;
-            int z_off = (edge >> 1) & 1;
-            i_out = g + k;                          // varies
-            j_out = y_off ? ny + ig - 1 : g + ig;   // fixed
-            k_out = z_off ? nz + jg - 1 : g + jg;   // fixed
-        }
-        else if (edge < 8) {
-            // Y-axis edges
-            int x_off = (edge >> 0) & 1;
-            int z_off = (edge >> 1) & 1;
-            i_out = x_off ? nx + ig - 1 : g + ig;   // fixed
-            j_out = g + k;                          // varies
-            k_out = z_off ? nz + jg - 1 : g + jg;   // fixed
-        }
-        else {
-            // Z-axis edges
-            int x_off = (edge >> 0) & 1;
-            int y_off = (edge >> 1) & 1;
-            i_out = x_off ? nx + ig - 1 : g + ig;   // fixed
-            j_out = y_off ? ny + jg - 1 : g + jg;   // fixed
-            k_out = g + k;                          // varies
-        }
-    }
-
-    template<bool offset_by_ngz>
-    KOKKOS_INLINE_FUNCTION
-    void compute_ghost_indices(std::size_t ig, std::size_t jg, std::size_t k,
-                              std::size_t& i_out, std::size_t& j_out, std::size_t& k_out,
-                              int edge) const {
-        const std::size_t g = offset_by_ngz ? ngz : 0;
-
-        if (edge < 4) {
-            // X-axis edges
-            int y_off = (edge >> 0) & 1;
-            int z_off = (edge >> 1) & 1;
-            i_out = g + k;                      // varies
-            j_out = y_off ? ny + g + ig : ig;   // fixed
-            k_out = z_off ? nz + g + jg : jg;   // fixed
-        }
-        else if (edge < 8) {
-            // Y-axis edges
-            int x_off = (edge >> 0) & 1;
-            int z_off = (edge >> 1) & 1;
-            i_out = x_off ? nx + g + ig : ig;   // fixed
-            j_out = g + k;                      // varies
-            k_out = z_off ? nz + g + jg : jg;   // fixed
-        }
-        else {
-            // Z-axis edges
-            int x_off = (edge >> 0) & 1;
-            int y_off = (edge >> 1) & 1;
-            i_out = x_off ? nx + g + ig : ig;   // fixed
-            j_out = y_off ? ny + g + jg : jg;   // fixed
-            k_out = g + k;                      // varies
+        if constexpr ( elem_kind == element_kind_t::FACE ) {
+            if constexpr ( is_phys ) {
+                compute_phys_indices_face(_nx,_ny,_nz,ngz,ig,j,k,i_out,j_out,k_out,ielem,offset_by_ngz);
+            } else {
+                compute_ghost_indices_face(_nx,_ny,_nz,ngz,ig,j,k,i_out,j_out,k_out,ielem,offset_by_ngz);
+            }
+        } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
+            if constexpr ( is_phys ) {
+                compute_phys_indices_edge(_nx,_ny,_nz,ngz,ig,j,k,i_out,j_out,k_out,ielem,offset_by_ngz);
+            } else {
+                compute_ghost_indices_edge(_nx,_ny,_nz,ngz,ig,j,k,i_out,j_out,k_out,ielem,offset_by_ngz);
+            }
+        } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
+            if constexpr ( is_phys ) {
+                compute_phys_indices_corner(_nx,_ny,_nz,ngz,ig,j,k,i_out,j_out,k_out,ielem,offset_by_ngz);
+            } else {
+                compute_ghost_indices_corner(_nx,_ny,_nz,ngz,ig,j,k,i_out,j_out,k_out,ielem,offset_by_ngz);
+            }
         }
     }
 };
 
-
+} ; 
 
 }} /* namespace grace::amr */
 #endif /* GRACE_AMR_INDEX_HELPERS_HH */

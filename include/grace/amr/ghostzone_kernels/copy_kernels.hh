@@ -41,8 +41,8 @@ namespace grace { namespace amr {
 
 
 template< 
+    element_kind_t elem_kind,
     bool do_reciprocal_copy,
-    typename index_transformer_t,
     typename ViewA_t,
     typename ViewB_t 
 >
@@ -81,29 +81,29 @@ struct copy_k {
         std::size_t ig, VECD(std::size_t j, std::size_t k), size_t ivar, size_t iq
     ) const 
     {
-        auto const src_edge  = src_element_view(iq) ; 
-        auto const dest_edge = dest_element_view(iq) ; 
+        auto const ie_src  = src_element_view(iq) ; 
+        auto const ie_dest = dest_element_view(iq) ; 
 
         auto const src_q  = src_qid(iq)  ; 
         auto const dest_q = dest_qid(iq) ;
 
         std::size_t VEC(i_a,j_a,k_a), VEC(i_b,j_b,k_b) ; 
-        transf.compute_phys_indices<true>(
-            ig, VECD(j, k), i_a, j_a, k_a, (int) src_face
+        transf.compute_indices<elem_kind,true>(
+            ig, VECD(j, k), i_a, j_a, k_a, (int) ie_src
         ) ; 
-        transf.compute_ghost_indices<true>(
-            ig, VECD(j, k), i_b, j_b, k_b, dest_face
+        transf.compute_indices<elem_kind,false>(
+            ig, VECD(j, k), i_b, j_b, k_b, ie_dest
         ) ; 
         dest_view(
             VEC(i_b,j_b,k_b), ivar, dest_q 
         ) = src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
         if constexpr( do_reciprocal_copy ){
             
-            transf.compute_phys_indices<true>(
-            ig, VECD(j, k), i_a, j_a, k_a, dest_face 
+            transf.compute_indices<elem_kind,true>(
+            ig, VECD(j, k), i_a, j_a, k_a, ie_dest 
             ) ; 
-            transf.compute_ghost_indices<true>(
-                ig, VECD(j, k), i_b, j_b, k_b, src_face
+            transf.compute_indices<elem_kind,false>(
+                ig, VECD(j, k), i_b, j_b, k_b, ie_src
             ) ;
             src_view(
                 VEC(i_b,j_b,k_b), ivar, src_q 

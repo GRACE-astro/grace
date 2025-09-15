@@ -110,22 +110,20 @@ struct pack_k {
 } ; 
 
 template< 
-    typename ViewA_t,
-    typename ViewB_t 
+    element_kind_t elem_kind,
+    typename view_t
 >
 struct face_unpack_k {
     
-    ViewA_t src_view ; 
-    ViewB_t dest_view; 
+    ghost_array_t src_view ; 
+    view_t dest_view; 
 
     readonly_view_t<std::size_t> src_qid, dest_qid ; 
     readonly_view_t<uint8_t> dest_face_view ;
     
-    std::size_t VEC(nx, ny, nz), ngz, nvars, offset ; 
+    std::size_t VEC(nx, ny, nz), ngz, nvars, rank ; 
 
-    std::size_t s1, s2, s3, s4, s5 ;
-
-    face_index_transformer_t transf ; 
+    index_transformer transf ; 
 
     face_unpack_k(
         ViewA_t _src_view,
