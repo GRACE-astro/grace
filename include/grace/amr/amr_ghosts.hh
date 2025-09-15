@@ -58,6 +58,8 @@ enum bc_t: uint8_t {BC_OUTFLOW=0, BC_LAGRANGE_EXTRAP, BC_NONE} ;
 /**************************************************************************************************/
 enum interface_kind_t : uint8_t { PHYS, INTERNAL }  ;
 /**************************************************************************************************/
+enum level_diff_t : int8_t {FINER=-1, SAME=0, COARSER=+1} ; // The other one is ? 
+/**************************************************************************************************/
 struct full_face_t {
         std::size_t quad_id       ; //!< Index of quadrant on the other side 
         std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
@@ -84,6 +86,7 @@ struct face_descriptor_t {
     int8_t level_diff   ; //!< Ref level difference (+-1 or 0)
     face_data_t data    ; //!< Quadrant ids 
     int8_t face ; //!< Face code as seen from other side 
+    int8_t child_id ; //!< If level diff = + 1, which child is this? \in [0,...,4[
 } ; 
 /**************************************************************************************************/
 struct full_edge_t {
@@ -108,23 +111,14 @@ struct edge_descriptor_t {
     int8_t level_diff ; 
     edge_data_t data ;
     int8_t edge ; 
+    int8_t child_id ;
 }; 
 /**************************************************************************************************/
-struct full_corner_t {
-    std::size_t quad_id       ; //!< Index of quadrant on the other side 
-    std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
-    bool is_remote            ; //!< Whether the quadrant is local or remote 
-    std::size_t owner_rank    ; //!< Owner rank if remote
-} ; 
-struct hanging_corner_t {
-        std::size_t quad_id        ; //!< Indices of hanging quads (in coarse bufs)
-        std::size_t recv_buffer_id ; //!< Indices in receive array, if relevant
-        bool is_remote             ; //!< Are the quads remote 
-        std::size_t owner_rank     ; //!< owner ranks if remote 
-} ;
-union corner_data_t {
-    full_corner_t full ; 
-    hanging_corner_t hanging ; 
+struct corner_data_t {
+    std::size_t quad_id        ; //!< Indices of hanging quads (in coarse bufs)
+    std::size_t recv_buffer_id ; //!< Indices in receive array, if relevant
+    bool is_remote             ; //!< Are the quads remote 
+    std::size_t owner_rank     ; //!< owner ranks if remote 
 }
 struct corner_descriptor_t {
     interface_kind_t kind ; 
@@ -142,6 +136,11 @@ struct quad_neighbors_descriptor_t {
     std::array< corner_descriptor_t, P4EST_CHILDREN> corners; //!< Corners
     std::size_t quad_id ; //!< Quadrant id 
     std::size_t cbuf_id ; //!< For fine quads only: index into coarse buffer array 
+
+    //! Debug information
+    int8_t n_registered_faces {0} ; 
+    int8_t n_registered_edges {0} ; 
+    int8_t n_registered_corners {0} ; 
 }  ;  
 /**************************************************************************************************/
 /**************************************************************************************************/
@@ -163,6 +162,42 @@ struct quad_neighbors_descriptor_t {
  * any of the quadrants on this face are in the halo.
  */
 void grace_iterate_faces( p4est_iter_face_info_t* info 
+                          , void* user_data ) ;
+/**************************************************************************************************/
+/**
+ * @brief Iterate through all the edges of grid quadrants to
+ *        store boundary information.
+ * \ingroup amr
+ * @param info <code>p4est</code>'s struct containing information   
+ *             regarding the quadrant edge.
+ * @param user_data Type erased <code>grace_face_info_t</code> 
+ *                  where information is stored.
+ * This function is used as callback in <code>p4est_iterate</code> to store 
+ * all the necessary information to apply interior and exterior boundary conditions.
+ * In particular, this function stores, for all edges, the quadrant id's which share 
+ * this face, whether this face is hanging or simple, whether it's internal or external,
+ * its face orientation code, the tree(s) containing the quadrants on each side, and whether
+ * any of the quadrants on this face are in the halo.
+ */
+void grace_iterate_edges( p4est_iter_edge_info_t* info 
+                          , void* user_data ) ;
+/**************************************************************************************************/
+/**
+ * @brief Iterate through all the corners of grid quadrants to
+ *        store boundary information.
+ * \ingroup amr
+ * @param info <code>p4est</code>'s struct containing information   
+ *             regarding the quadrant corner.
+ * @param user_data Type erased <code>grace_face_info_t</code> 
+ *                  where information is stored.
+ * This function is used as callback in <code>p4est_iterate</code> to store 
+ * all the necessary information to apply interior and exterior boundary conditions.
+ * In particular, this function stores, for all corners, the quadrant id's which share 
+ * this face, whether this face is hanging or simple, whether it's internal or external,
+ * its face orientation code, the tree(s) containing the quadrants on each side, and whether
+ * any of the quadrants on this face are in the halo.
+ */
+void grace_iterate_corners( p4est_iter_corner_info_t* info 
                           , void* user_data ) ;
 /**************************************************************************************************/
 /**************************************************************************************************/
