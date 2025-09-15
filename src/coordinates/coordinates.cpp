@@ -245,7 +245,7 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
  
     Kokkos::deep_copy(pcoords,h_coords) ; 
 }
-
+#if 0 
 void fill_jacobian_matrices( jacobian_array_t& jac 
                            , jacobian_array_t& inv_jac 
                            , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates ) 
@@ -293,5 +293,6 @@ void fill_jacobian_matrices( jacobian_array_t& jac
     Kokkos::deep_copy(jac    , hj ) ;
     Kokkos::deep_copy(inv_jac, hij) ;  
 }
+#endif 
 
 } /* namespace grace */ 

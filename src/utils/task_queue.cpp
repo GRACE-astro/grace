@@ -36,6 +36,8 @@
 
 #include <grace/utils/task_queue.hh>
 
+#include <grace/system/print.hh>
+
 #include <functional> 
 #include <vector>
 #include <deque>
@@ -50,21 +52,25 @@ void executor::run() {
     // 1) Dispatch ready tasks
     while (!ready.empty()) {
       auto id = ready.front();
-      ready.pop_front() ; 
+      ready.pop_front();
       auto& R = rt[id];
       auto& T = *R.t;
+
       switch (T.kind) {
         case task_kind_t::GPU_KERNEL: {
+          GRACE_TRACE("Launching GPU task {}", id);
           static_cast<gpu_task_t&>(T).run();
           gpu_pending.push_back(id);
           break;
         }
         case task_kind_t::MPI_TRANSFER: {
+          GRACE_TRACE("Launching MPI task {}", id);
           static_cast<mpi_task_t&>(T).run();
           mpi_pending.push_back(id);
           break;
         }
         case task_kind_t::CPU_EXEC: {
+          GRACE_TRACE("Running CPU task {}", id);
           static_cast<cpu_task_t&>(T).run();
           complete_and_release(id);
           break;
@@ -76,6 +82,7 @@ void executor::run() {
     for (auto it = gpu_pending.begin(); it != gpu_pending.end(); ) {
       auto id = *it; auto& R = rt[id]; auto& T = *R.t;
       if (T.query() == status_id_t::COMPLETE) {
+        GRACE_TRACE("GPU task {} complete", id);
         complete_and_release(id);
         it = gpu_pending.erase(it);
       } else {
@@ -87,6 +94,7 @@ void executor::run() {
     for (auto it = mpi_pending.begin(); it != mpi_pending.end(); ) {
       auto id = *it; auto& R = rt[id]; auto& T = *R.t;
       if (T.query() == status_id_t::COMPLETE) {
+        GRACE_TRACE("MPI task {} complete", id);
         complete_and_release(id);
         it = mpi_pending.erase(it);
       } else {
@@ -95,6 +103,7 @@ void executor::run() {
     }
   }
 }
+
 
 void executor::reset() {
   ready.clear();

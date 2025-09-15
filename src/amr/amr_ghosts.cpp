@@ -187,7 +187,7 @@ void amr_ghosts_impl_t::build_executor_runtime() {
 
         task_queue.rt.push_back(std::move(rtv)) ; 
     }
-
+    GRACE_TRACE("Task queue constructed. {} tasks are ready to run.", task_queue.ready.size()) ; 
 }
 
 void amr_ghosts_impl_t::build_remote_buffers() {
@@ -204,13 +204,20 @@ void amr_ghosts_impl_t::build_remote_buffers() {
 
     std::size_t nvars = variables::get_n_evolved() ; 
 
-    std::vector<int> rank_send_count_faces{nproc,0}
-                   , rank_recv_count_faces{nproc,0} ; 
+    std::vector<int> rank_send_count_faces(nproc,0)
+                   , rank_recv_count_faces(nproc,0) ; 
     send_rank_sizes.resize(nproc); 
     recv_rank_sizes.resize(nproc); 
 
     std::size_t face_size = nx*nx * ngz * nvars ; 
 
+    struct face_key_t {
+        face_descriptor_t * desc; 
+        size_t rank;
+        size_t key ;
+    } ;    
+    std::vector<face_key_t> halo_face_keys ; 
+    std::vector<face_key_t> mirror_face_keys ; 
     std::size_t total_send_size{0UL}, total_recv_size{0UL} ; 
     for( size_t iq=0UL; iq<nq; iq+=1UL) {
         for (uint8_t f = 0; f < P4EST_FACES; ++f) {
@@ -220,20 +227,68 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                 // not supported yet 
             } else {
                 if ( !face.data.full.is_remote) continue ; 
+                
                 auto r = face.data.full.owner_rank ; 
+                // face-id in "canonical order"
+                auto f_c =  r < rank ? face.face : f ; 
+
                 // replace index on the other side to buffer index 
                 // send_buffer_id: where to pack the local face data (to send to rank r)
-                face.send_buffer_id = rank_send_count_faces[r]++ ;
-                send_rank_sizes[r] += face_size ;
-                total_send_size += face_size ; 
+                // here we just use our local quad_id ordering which should be consistent 
+                // with the **mirror** index ordering (ENSURE THIS IS TRUE!)
+                {
+                    face_key_t key ;
+                    key.desc = &face ; 
+                    key.rank = r ;
+                    key.key = iq * P4EST_FACES + f_c ; 
+                    mirror_face_keys.push_back(key) ; 
+                } 
 
-                // quad_id (used when receiving): where in your buffer to *unpack* the ghost data for this face
-                face.data.full.quad_id = rank_recv_count_faces[r]++ ;
-                recv_rank_sizes[r] += face_size ;
-                total_recv_size += face_size ;
+                // for receives we need to be careful and ensure that 
+                // the ordering is consistent. Therefore we store here 
+                // a key == P4EST_FACES * halo_id + face_id 
+                // and later compute receive buffer indices by sorting those keys 
+                {
+                    face_key_t key ;
+                    key.desc = &face ; 
+                    key.rank = r ;
+                    key.key = face.data.full.quad_id * P4EST_FACES + f_c ; 
+                    halo_face_keys.push_back(key) ; 
+                }
+
             } /* face not hanging */
         } /* for f .. nfaces */
     } /* for iq .. nquads */
+    struct compare_keys {
+        bool inline operator() (face_key_t const& a, face_key_t const& b) const {
+            return a.key < b.key ;
+        }
+    } ; 
+
+    std::sort(halo_face_keys.begin(), halo_face_keys.end(), compare_keys{});
+    std::sort(mirror_face_keys.begin(), mirror_face_keys.end(), compare_keys{});
+
+    // assign recv buffer indices
+    for (auto const& hkey : halo_face_keys) {
+        GRACE_TRACE("Register halo q {} f {} from rank {} recv_id {}",
+                     hkey.key / P4EST_FACES, hkey.key % P4EST_FACES, hkey.rank, rank_recv_count_faces[hkey.rank]) ;
+        auto r = hkey.rank;
+        hkey.desc->data.full.recv_buffer_id = rank_recv_count_faces[r]++;
+        recv_rank_sizes[r] += face_size;
+        total_recv_size += face_size;
+    }
+
+    // assign send buffer indices
+    for (auto const& mkey : mirror_face_keys) {
+        GRACE_TRACE("Register mirror q {} f {} to rank {} send_id {}",
+            mkey.key/P4EST_FACES, mkey.key%P4EST_FACES, mkey.rank, rank_send_count_faces[mkey.rank]) ; 
+        auto r = mkey.rank;
+        mkey.desc->send_buffer_id = rank_send_count_faces[r]++;
+        send_rank_sizes[r] += face_size;
+        total_send_size += face_size;
+    }
+
+    GRACE_TRACE("Total send size {}, total receive size {}", total_send_size, total_recv_size) ;
     // exclusive scan for rank offsets 
     send_rank_offsets.resize(nproc+1) ; 
     std::exclusive_scan( send_rank_sizes.begin(), send_rank_sizes.end()
@@ -279,7 +334,6 @@ gpu_task_t make_gpu_copy_task(
     auto dst_face_h = Kokkos::create_mirror_view(dst_face) ; 
     int i{0} ; 
     for( auto const& d: bucket ) {
-        GRACE_TRACE("i {} qid_src {} qid_dst {} face_src {} face_dst {}", i, d.qid_src,d.qid_dst,d.face_src, d.face_dst  );
         src_qid_h(i) = d.qid_src; dst_qid_h(i) = d.qid_dst ; 
         src_face_h(i) = d.face_src; dst_face_h(i) = d.face_dst ; 
         i++ ; 
@@ -306,7 +360,11 @@ gpu_task_t make_gpu_copy_task(
     // will help in debug
 
     task._run = [functor, policy] () {
+        //GRACE_TRACE("Copy start.") ; 
         Kokkos::parallel_for("fill_ghostzones", policy, functor) ; 
+        // TODO remove
+        //Kokkos::fence() ;
+        //GRACE_TRACE("Copy done.") ; 
     };
     task.stream = &stream; 
     task.task_id = task_counter++ ; 
@@ -356,7 +414,11 @@ gpu_task_t make_gpu_phys_bc_task(
         } ;
     
     task._run = [functor, policy] () {
+        //GRACE_TRACE("Fill phys start") ; 
         Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
+        // TODO remove 
+        //Kokkos::fence() ; 
+        //GRACE_TRACE("Fill phys done") ; 
     };
     task.stream = &stream ; 
     task.task_id = task_counter++ ; 
@@ -389,6 +451,7 @@ gpu_task_t make_pack_task(
     auto pack_src_face_h =  Kokkos::create_mirror_view(pack_src_face) ; 
     size_t i{0UL} ; 
     for( auto const& d: sb ) {
+        GRACE_TRACE("{}", d.qid_dst);
         pack_src_qid_h(i) = d.qid_src ; 
         pack_dst_qid_h(i) = d.qid_dst ; 
         pack_src_face_h(i) = d.face_src ; 
@@ -410,7 +473,11 @@ gpu_task_t make_pack_task(
     } ; 
     
     pack_task._run = [pack_functor, pack_policy] () {
+        //GRACE_TRACE("Pack start.") ; 
         Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
+        // TODO remove 
+        //Kokkos::fence() ; 
+        //GRACE_TRACE("Pack done.") ;
     } ; 
     pack_task.stream = &pup_stream ; 
     pack_task.task_id = task_counter ++ ; 
@@ -445,6 +512,7 @@ gpu_task_t make_unpack_task(
     auto unpack_dest_face_h =  Kokkos::create_mirror_view(unpack_dest_face) ; 
     size_t i = 0UL; 
     for( auto const& d: rb ) {
+        GRACE_TRACE("{}", d.qid_src);
         unpack_src_qid_h(i) = d.qid_src ; 
         unpack_dst_qid_h(i) = d.qid_dst ; 
         unpack_dest_face_h(i) = d.face_dst ; 
@@ -467,7 +535,10 @@ gpu_task_t make_unpack_task(
     } ; 
     
     unpack_task._run = [unpack_functor, unpack_policy] () {
+        //GRACE_TRACE("Unpack start.") ; 
         Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
+        //Kokkos::fence() ; 
+        //GRACE_TRACE("Unpack done.") ;
     } ; 
     unpack_task.stream = &pup_stream ; 
     unpack_task.task_id = task_counter ++ ; 
@@ -526,21 +597,27 @@ void populate_pup_tasks(
     }
 }; 
 
+
+
 mpi_task_t make_mpi_send_task(
-      std::size_t rank 
+      std::size_t rr 
     , Kokkos::View<double*> send_buf 
     , std::vector<std::size_t> const& send_rank_offsets 
     , std::vector<std::size_t> const& send_rank_sizes
     , task_id_t& task_counter 
 )
 {
+    GRACE_TRACE("Registering MPI Send task (tid {}).\n    Send to Rank {} {} elements, offset {}", task_counter, rr, send_rank_sizes[rr], send_rank_offsets[rr]) ; 
+
+    ASSERT(send_rank_offsets[rr] + send_rank_sizes[rr] <= send_buf.extent(0), "Send out-of-bounds" ) ; 
+
     mpi_task_t task ; 
-    task.mpi_req = MPI_Request{} ; 
-    task._run = [&, send_buf, rank] (MPI_Request* req) {
+    task.mpi_req = std::make_unique<MPI_Request>(MPI_REQUEST_NULL) ; 
+    task._run = [&, send_buf, rr] (MPI_Request* req) {
         parallel::mpi_isend(
-              send_buf.data() + send_rank_offsets[rank]
-            , send_rank_sizes[rank]
-            , rank 
+              send_buf.data() + send_rank_offsets[rr]
+            , send_rank_sizes[rr]
+            , rr 
             , 0
             , MPI_COMM_WORLD
             , req
@@ -551,20 +628,24 @@ mpi_task_t make_mpi_send_task(
 }
 
 mpi_task_t make_mpi_recv_task(
-      std::size_t rank 
+      std::size_t rr 
     , Kokkos::View<double*> recv_buf 
     , std::vector<std::size_t> const& recv_rank_offsets 
     , std::vector<std::size_t> const& recv_rank_sizes
     , task_id_t& task_counter 
 )
 {
+    GRACE_TRACE("Registering MPI Receive task (tid {}).\n    Receive from Rank {} {} elements, offset {}", task_counter, rr, recv_rank_sizes[rr], recv_rank_offsets[rr]) ; 
+
+    ASSERT(recv_rank_offsets[rr] + recv_rank_sizes[rr] <= recv_buf.extent(0), "Receive out-of-bounds" ) ; 
+
     mpi_task_t task ; 
-    task.mpi_req = MPI_Request{} ; 
-    task._run = [&, recv_buf, rank] (MPI_Request* req) {
+    task.mpi_req = std::make_unique<MPI_Request>(MPI_REQUEST_NULL) ; 
+    task._run = [&, recv_buf, rr] (MPI_Request* req) {
         parallel::mpi_irecv(
-              recv_buf.data() + recv_rank_offsets[rank]
-            , recv_rank_sizes[rank]
-            , rank 
+              recv_buf.data() + recv_rank_offsets[rr]
+            , recv_rank_sizes[rr]
+            , rr 
             , 0
             , MPI_COMM_WORLD
             , req
@@ -609,9 +690,7 @@ void amr_ghosts_impl_t::build_task_list() {
             std::unique_ptr<task_t> recv = std::make_unique<mpi_task_t>(
                 make_mpi_recv_task(r, _recv_buffer, recv_rank_offsets, recv_rank_sizes, task_counter)
             ) ; 
-            
             recv_task_id[r] = recv->task_id ; 
-            
             task_list.push_back(std::move(recv)) ;
         }   
     }
@@ -688,7 +767,7 @@ void amr_ghosts_impl_t::build_task_list() {
                     desc_rcv.src_offset = recv_rank_offsets[face.data.full.owner_rank] ;
                     desc_rcv.dst_is_remote = false ;
                     desc_rcv.src_is_remote = true ;
-                    desc_rcv.qid_src = face.data.full.quad_id ;
+                    desc_rcv.qid_src = face.data.full.recv_buffer_id ;
                     desc_rcv.qid_dst = iq ;
                     unpack_kernels[face.data.full.owner_rank].push_back(desc_rcv) ; 
 

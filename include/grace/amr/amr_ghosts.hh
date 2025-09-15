@@ -51,6 +51,7 @@
 #include <memory> 
 
 namespace grace {
+
 /**************************************************************************************************/
 enum bc_t: uint8_t {BC_OUTFLOW=0, BC_LAGRANGE_EXTRAP, BC_NONE} ; 
 /**************************************************************************************************/
@@ -58,11 +59,13 @@ enum interface_kind_t : uint8_t { PHYS, INTERNAL }  ;
 /**************************************************************************************************/
 struct full_face_t {
         std::size_t quad_id       ; //!< Index of quadrant on the other side 
+        std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
         bool is_remote            ; //!< Whether the quadrant is local or remote 
         std::size_t owner_rank    ; //!< Owner rank if remote
 } ; 
 struct hanging_face_t {
         std::size_t quad_id[P4EST_CHILDREN/2]    ; //!< Indices of hanging quads (in coarse bufs)
+        std::size_t recv_buffer_id[P4EST_CHILDREN/2] ; //!< Indices in receive array, if relevant
         bool is_remote[P4EST_CHILDREN/2]         ; //!< Are the quads remote 
         std::size_t owner_rank[P4EST_CHILDREN/2] ; //!< owner ranks if remote 
 } ; 
@@ -133,6 +136,8 @@ class amr_ghosts_impl_t {
     void get_rank_sizes(  std::vector<std::size_t>& send, std::vector<std::size_t>& receive ) {
         send = send_rank_sizes ; receive = recv_rank_sizes ; 
     }
+    size_t get_send_buf_size() const { return _send_buffer.extent(0) ; }
+    size_t get_recv_buf_size() const { return _recv_buffer.extent(0) ; }
     auto& get_task_list () {return task_list;}
     auto& get_task_executor () {return task_queue;}
 

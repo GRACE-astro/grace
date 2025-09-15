@@ -37,6 +37,8 @@
 
 #include <grace/parallel/mpi_wrappers.hh>
 
+#include <grace/system/print.hh>
+
 #include <functional> 
 #include <vector>
 #include <deque>
@@ -64,7 +66,7 @@ struct task_t {
     /**
      * @brief query the task for its status 
      */
-    virtual status_id_t query() const =0;
+    virtual status_id_t query() =0;
 
 
     //! Dependencies 
@@ -98,7 +100,7 @@ struct gpu_task_t : public task_t {
     /**
      * @brief query the task for its status 
      */
-    status_id_t query() const override {
+    status_id_t query() override {
         auto s = dev_event.query() ;
         if (s == DEVICE_SUCCESS) return status_id_t::COMPLETE;
         if (s == DEVICE_NOT_READY) return status_id_t::RUNNING;
@@ -126,21 +128,25 @@ struct mpi_task_t : public task_t {
     void run() override {
         ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
         status = status_id_t::RUNNING ; 
-        _run(&mpi_req) ; 
+        _run(mpi_req.get()) ; 
     }
 
     /**
      * @brief query the task for its status 
      */
-    status_id_t query() const override {
+    status_id_t query() override {
+        if (*mpi_req == MPI_REQUEST_NULL) {
+            GRACE_WARN("Query called on task {} but request is null", task_id) ; 
+            return status; // or some "not yet posted" state
+        }
         int flag = 0 ; 
-        auto err = MPI_Test(const_cast<MPI_Request*>(&mpi_req), &flag, MPI_STATUS_IGNORE) ;
+        auto err = MPI_Test(mpi_req.get(), &flag, MPI_STATUS_IGNORE) ;
         ASSERT( err==MPI_SUCCESS, "Error in MPI_Test, possibly null request passed.") ; 
         return flag ? status_id_t::COMPLETE : status_id_t::RUNNING ;
     }
 
     //! MPI request
-    MPI_Request mpi_req ;
+    std::unique_ptr<MPI_Request> mpi_req ;
 
     //! The task itself 
     std::function<void(MPI_Request*)> _run ; 
@@ -165,7 +171,7 @@ struct cpu_task_t : public task_t {
     /**
      * @brief query the task for its status 
      */
-    status_id_t query() const override {
+    status_id_t query() override {
         return status ;
     }
 

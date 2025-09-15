@@ -164,16 +164,14 @@ struct face_unpack_k {
         transf.compute_phys_indices<false>(
             ig, VECD(j, k), i_b, j_b, k_b, 0
         ) ; 
-        transf.compute_phys_indices<true>(
+        transf.compute_ghost_indices<true>(
             ig, VECD(j, k), i_a, j_a, k_a, dest_face 
         ) ; 
         // TODO this is 3D only 
         std::size_t compressed_index = offset + i_b * s1 + j_b * s2 + k_b * s3 + ivar * s4 + src_q * s5;
 
-
         dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) = 
             src_view(compressed_index) ; 
-        
     }
 
 } ; 
