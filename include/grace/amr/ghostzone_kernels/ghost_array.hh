@@ -43,7 +43,7 @@ struct ghost_array_t
     @brief 
      */
     ghost_array_t(
-        std::string name, 
+        std::string const& name, 
         size_t size,
         Kokkos::View<size_t*> _roffsets, 
         Kokkos::View<size_t*> _eoffsets, 
@@ -64,6 +64,34 @@ struct ghost_array_t
       , _size(size)
     { }
 
+    ghost_array_t(std::string const& name)
+        :  _data(name,0), _size(0)
+    {}
+
+    void set_strides(size_t nx, size_t ny, size_t nz, size_t nv, size_t ngz)
+    {
+        fstrides = std::array<size_t,4> {ngz,ngz*nx,ngz*nx*nx,ngz*nx*nx*nv};
+        estrides = std::array<size_t,4> {ngz,ngz*ngz,ngz*ngz*nx,ngz*ngz*nx*nv};
+        cstrides = std::array<size_t,4> {ngz,ngz*ngz,ngz*ngz*ngz,ngz*ngz*ngz*nv};
+    }
+
+    void set_offsets(
+        Kokkos::View<size_t*> _roffsets, 
+        Kokkos::View<size_t*> _eoffsets, 
+        Kokkos::View<size_t*> _coffsets,
+        Kokkos::View<size_t*> _cbfoffsets,
+        Kokkos::View<size_t*> _cbeoffsets,
+        Kokkos::View<size_t*> _cbcoffsets
+    ) 
+    {
+        rank_offsets = _roffsets ;
+        edge_offsets = _eoffsets ; 
+        corner_offsets = _coffsets; 
+        cbuf_face_offsets = _cbfoffsets ; 
+        cbuf_edge_offsets = _cbeoffsets ; 
+        cbuf_corner_offsets = _cbcoffsets ; 
+    }
+
     GRACE_HOST GRACE_ALWAYS_INLINE 
     size_t size() const { return _size ; }
 
@@ -83,67 +111,60 @@ struct ghost_array_t
         }
     }
 
-    template< element_kind_t elem_kind, bool is_phys > 
+    template< element_kind_t elem_kind > 
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    double& at_cbuf(size_t i, size_t j, size_t k, size_t iv, size_t iq, int ie, size_t rank)
+    double& at_cbuf(size_t i, size_t j, size_t k, size_t iv, size_t ie, size_t rank)
     {
-        auto offset = rank_offsets(rank) + cbuf_offsets(rank) ; 
-        size_t ii, jj, kk ; 
-        transf.compute_indices<elem_kind, is_phys>(
-            i,j,k, ii,jj,kk, ie, true /*ngz-offset*/, true /*half nx*/
-        ) ;
-        return get(ii,jj,kk,iv,iq,cbuf_strides,offset) ; 
+        auto offset = rank_offsets(rank) ; 
+        if constexpr ( elem_kind == element_kind_t::FACE ) {
+            offset += cbuf_face_offsets(rank) ; 
+            return get(i,j,k,iv,ie,fstrides[0],fstrides[1]/2,fstrides[2]/4,fstrides[3]/4,offset) ; 
+        } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
+            offset += cbuf_edge_offsets(rank) ; 
+            return get(i,j,k,iv,ie,estrides[0],estrides[1],estrides[2]/2,estrides[3]/2,offset) ;
+        } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
+            offset += cbuf_corner_offsets(rank) ; 
+            return get(i,j,k,iv,ie,cstrides[0],cstrides[1],cstrides[2],offset) ;
+        }
     }
 
 
 private: 
     double& get(
         size_t i, size_t j, size_t k, size_t iv, size_t ie, 
-        std::array<size_t,5> const& strides, 
+        size_t const& s0, size_t const& s1, size_t const& s2, size_t const& s3, 
         size_t offset) 
     {
         auto c_index = i 
-                     + strides[0] * j 
-                     + strides[1] * k 
-                     + strides[2] * ivar 
-                     + strides[3] * ie ;
+                     + s0 * j 
+                     + s1 * k 
+                     + s2 * ivar 
+                     + s3 * ie ;
         return _data(offset+c_index); 
     }
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    double& at_faces(size_t i, size_t j, size_t k, size_t iv, size_t ie, size_t rank)
+    double& at_faces(size_t ii, size_t jj, size_t kk, size_t iv, size_t ie, size_t rank)
     {
         auto offset = rank_offsets(rank) ; 
-        size_t ii, jj, kk ; 
-        transf.compute_indices<elem_kind_t::FACE, true>(
-            i,j,k, ii,jj,kk, 0, false /* no ngz-offset */
-        ) ; 
-        return get(ii,jj,kk,iv,ie,fstrides,offset) ; 
+        return get(ii,jj,kk,iv,ie,fstrides[0],fstrides[1],fstrides[2],fstrides[3],offset) ; 
     }
 
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    double& at_edges(size_t i, size_t j, size_t k, size_t iv, size_t ie, size_t rank)
+    double& at_edges(size_t ii, size_t jj, size_t kk, size_t iv, size_t ie, size_t rank)
     {
         auto offset = rank_offsets(rank) + edge_offsets(rank); 
-        size_t ii, jj, kk ; 
-        transf.compute_indices<elem_kind_t::EDGE, true>(
-            i,j,k, ii,jj,kk, 0, false /* no ngz-offset */
-        ) ; 
-        return get(ii,jj,kk,iv,ie,estrides,offset) ; 
+        return get(ii,jj,kk,iv,ie,estrides[0],estrides[1],estrides[2],estrides[3],offset) ; 
     }
 
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    double& at_corners(size_t i, size_t j, size_t k, size_t iv, size_t ie, size_t rank)
+    double& at_corners(size_t ii, size_t jj, size_t kk, size_t iv, size_t ie, size_t rank)
     {
         auto offset = rank_offsets(rank) + corner_offsets(rank) ; 
-        size_t ii, jj, kk ; 
-        transf.compute_indices<elem_kind_t::CORNER, true>(
-            i,j,k, ii,jj,kk, 0, false /* no ngz-offset */
-        ) ; 
-        return get(ii,jj,kk,iv,ie,cstrides,offset) ; 
+        return get(ii,jj,kk,iv,ie,cstrides[0],cstrides[1],cstrides[2],cstrides[3],offset) ; 
     }
-    readonly_view_t<std::size_t> rank_offsets, edge_offsets, corner_offsets, cbuf_offsets ; 
+    readonly_view_t<std::size_t> rank_offsets, edge_offsets, corner_offsets, cbuf_face_offsets, cbuf_edge_offsets, cbuf_corner_offsets ; 
     index_transformer_t transf ; 
-    std::array<size_t, 4> fstrides, estrides, cstrides, cbuf_strides ;
+    std::array<size_t, 4> fstrides, estrides, cstrides ;
     Kokkos::View<double *, grace::default_space> _data ; 
     std::size_t _size ; 
 } ; 

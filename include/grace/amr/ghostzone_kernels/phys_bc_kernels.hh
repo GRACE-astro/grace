@@ -128,7 +128,7 @@ struct face_phys_bc_k {
         auto bc_kind = var_bcs(iv) ; 
         auto faceb2 = face_id / 2 ; 
 
-        int8_t const dir[] = {
+        static int8_t const dir[] = {
             static_cast<int8_t>((face_id == 0) ? -1 : (face_id == 1 ? +1 : 0)),
             static_cast<int8_t>((face_id == 2) ? -1 : (face_id == 3 ? +1 : 0)),
             static_cast<int8_t>((face_id == 4) ? -1 : (face_id == 5 ? +1 : 0))

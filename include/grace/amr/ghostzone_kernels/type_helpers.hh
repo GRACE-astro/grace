@@ -37,6 +37,9 @@ namespace grace {
 template< typename T >
 using readonly_view_t = Kokkos::View<const T*, grace::default_space, Kokkos::MemoryTraits<Kokkos::RandomAccess>> ;
 
+template< typename T, size_t N >
+using static_readonly_view_t = Kokkos::View<const T[N], grace::default_space, Kokkos::MemoryTraits<Kokkos::RandomAccess>> ;
+
 }
 
 

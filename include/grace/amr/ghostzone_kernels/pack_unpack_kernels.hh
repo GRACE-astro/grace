@@ -34,26 +34,24 @@
 
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
 #include <grace/amr/ghostzone_kernels/index_helpers.hh>
+#include <grace/amr/ghostzone_kernels/ghost_array.hh>
 
 #include <Kokkos_Core.hpp>
 
 namespace grace { namespace amr {
 
 template< 
-    typename index_transformer_t,
-    typename ViewA_t,
-    typename ViewB_t 
+    element_kind_t elem_kind,
+    typename view_t
 >
 struct pack_k {
-    ViewA_t src_view ; 
-    ViewB_t dest_view; 
+    ghost_array_t src_view ; 
+    view_t dest_view; 
 
     readonly_view_t<std::size_t> src_qid, dest_qid ; 
     readonly_view_t<uint8_t> src_elem_view ;
     
-    std::size_t VEC(nx, ny, nz), ngz, nvars, offset ; 
-
-    std::size_t s1, s2, s3, s4, s5 ;
+    std::size_t rank ; 
 
     index_transformer_t transf ; 
 
@@ -64,20 +62,15 @@ struct pack_k {
         Kokkos::View<size_t*> _dest_qid,
         Kokkos::View<uint8_t*> _src_elem,  
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
-        std::size_t _ngz, std::size_t _nvars, std::size_t _offset 
+        std::size_t _ngz, std::size_t _nvars, std::size_t _rank 
     ) : src_view(_src_view)
       , dest_view(_dest_view)
       , src_qid(_src_qid)
       , dest_qid(_dest_qid)
       , src_elem_view(_src_elem)
-      , VEC(nx(_nx), ny(_ny), nz(_nz))
-      , ngz(_ngz), nvars(_nvars), offset(_offset)
+      , rank(_rank)
       , transf(VEC(nx,ny,nz),ngz)
-    {
-
-        s1 = 1 ; s2 = ngz ; s3 = s2 * nx ; s4 = s3 * nx ; s5 = s4 * nvars ; 
-
-    } 
+    { } 
 
 
     KOKKOS_INLINE_FUNCTION 
@@ -95,15 +88,10 @@ struct pack_k {
         transf.compute_phys_indices<true>(
             ig, VECD(j, k), i_a, j_a, k_a, src_face
         ) ; 
-        transf.compute_phys_indices<false>(
-            ig, VECD(j, k), i_b, j_b, k_b, 0 
-        ) ; 
-        // TODO this is 3D only 
-        std::size_t compressed_index = offset + i_b * s1 + j_b * s2 + k_b * s3 + ivar * s4 + dest_q * s5;
+        
 
-        dest_view(
-            compressed_index
-        ) = src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
+        dest_view.at_interface<elem_kind>(ig,j,k,ivar,dest_q,rank) = 
+            src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
         
     }
 
@@ -121,7 +109,7 @@ struct face_unpack_k {
     readonly_view_t<std::size_t> src_qid, dest_qid ; 
     readonly_view_t<uint8_t> dest_face_view ;
     
-    std::size_t VEC(nx, ny, nz), ngz, nvars, rank ; 
+    std::size_t rank ; 
 
     index_transformer transf ; 
 
@@ -132,20 +120,15 @@ struct face_unpack_k {
         Kokkos::View<size_t*> _dest_qid,
         Kokkos::View<uint8_t*> _dest_face,  
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
-        std::size_t _ngz, std::size_t _nvars, std::size_t _offset 
+        std::size_t _ngz, std::size_t _nvars, std::size_t _rank 
     ) : src_view(_src_view)
       , dest_view(_dest_view)
       , src_qid(_src_qid)
       , dest_qid(_dest_qid)
       , dest_face_view(_dest_face)
-      , VEC(nx(_nx), ny(_ny), nz(_nz))
-      , ngz(_ngz), nvars(_nvars), offset(_offset)
+      , rank(_rank)
       , transf(VEC(nx,ny,nz),ngz)
-    {
-
-        s1 = 1 ; s2 = ngz ; s3 = s2 * nx ; s4 = s3 * nx ; s5 = s4 * nvars ; 
-
-    } 
+    { } 
 
 
     KOKKOS_INLINE_FUNCTION 
@@ -159,18 +142,13 @@ struct face_unpack_k {
         auto const dest_q = dest_qid(iq) ;
 
 
-        std::size_t VEC(i_a,j_a,k_a), VEC(i_b,j_b,k_b) ; 
-        transf.compute_phys_indices<false>(
-            ig, VECD(j, k), i_b, j_b, k_b, 0
-        ) ; 
+        std::size_t VEC(i_a,j_a,k_a) ; 
         transf.compute_ghost_indices<true>(
             ig, VECD(j, k), i_a, j_a, k_a, dest_face 
         ) ; 
-        // TODO this is 3D only 
-        std::size_t compressed_index = offset + i_b * s1 + j_b * s2 + k_b * s3 + ivar * s4 + src_q * s5;
 
         dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) = 
-               src_view(compressed_index) ; 
+               src_view.at_interface<elem_kind>(ig,j,k,ivar,src_q,rank) ; 
     }
 
 } ; 

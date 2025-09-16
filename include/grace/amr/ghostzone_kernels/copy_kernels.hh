@@ -53,8 +53,6 @@ struct copy_k {
     readonly_view_t<std::size_t> src_qid, dest_qid ; 
     readonly_view_t<uint8_t> src_element_view, dest_element_view; 
 
-    std::size_t VEC(nx, ny, nz), ngz; 
-
     index_transformer_t transf ; 
 
     edge_copy_k(
@@ -70,8 +68,6 @@ struct copy_k {
       , dest_qid(_dest_qid)
       , src_element_view(_src_elem)
       , dest_element_view(_dest_elem)
-      , VEC(nx(_nx), ny(_ny), nz(_nz))
-      , ngz(_ngz)
       , transf(VEC(nx,ny,nz),ngz)
     {}
 

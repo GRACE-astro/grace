@@ -44,6 +44,26 @@
 
 namespace grace { namespace amr {
 
+struct grid_properties_view_t {
+    grid_properties_view_t() 
+     : _gp(forest::get().get_grid_properties())
+    {}  
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    size_t nx() const { return _gp(0) ; }
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    size_t ny() const { return _gp(1) ; }
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    size_t nz() const { return _gp(2) ; }
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    size_t ngz() const { return _gp(3) ; }
+
+    static_readonly_view_t<size_t,4> _gp ; 
+} ; 
+
 /**
  * @brief Get the number of grid cells per quadrant 
  *        in each direction. 
@@ -179,13 +199,15 @@ extern int64_t _nx;
 extern int64_t _ny;
 extern int64_t _nz;
 extern int _ngz;
+
 }
 
 #define DECLARE_GRID_EXTENTS                              \
 size_t nx, ny, nz;                                        \
 std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; \
 auto const ngz = grace::amr::get_n_ghosts()             ; \
-auto const nq  = grace::amr::get_local_num_quadrants()    
+auto const nq  = grace::amr::get_local_num_quadrants()   
+
 
 } } /* grace::amr */ 
 

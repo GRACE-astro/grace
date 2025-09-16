@@ -44,6 +44,7 @@
 #include <grace/data_structures/memory_defaults.hh>
 
 #include <grace/amr/p4est_headers.hh>
+#include <grace/amr/ghostzone_kernels/ghost_array.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -236,7 +237,7 @@ class amr_ghosts_impl_t {
     executor task_queue ; 
     std::vector<std::size_t> send_rank_offsets, recv_rank_offsets ; //!< In # of elements
     std::vector<std::size_t> send_rank_sizes, recv_rank_sizes ; //!< In # of elements
-    Kokkos::View<double*, grace::default_space> _send_buffer, _recv_buffer ;
+    ghost_array_t _send_buffer, _recv_buffer ;
     Kokkos::View<bc_t*> var_bc_kind ; //!< Boundary condition per-variable
     //**************************************************************************************************
     void build_task_list() ; 
@@ -248,9 +249,9 @@ class amr_ghosts_impl_t {
     static constexpr unsigned long longevity = unique_objects_lifetimes::AMR_GHOSTS ; 
     //**************************************************************************************************
     amr_ghosts_impl_t()
-    : _send_buffer("ghost_send_buf", 0),
-      _recv_buffer("ghost_recv_buf", 0)
-    {}
+    : _send_buffer("MPI_send_buffer")
+    , _recv_buffer("MPI_recv_buffer") 
+    {} ; 
     //**************************************************************************************************
     ~amr_ghosts_impl_t() { 
         if (p4est_ghost_layer) p4est_ghost_destroy(p4est_ghost_layer) ; 

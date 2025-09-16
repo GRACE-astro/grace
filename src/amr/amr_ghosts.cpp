@@ -312,19 +312,9 @@ gpu_task_t make_gpu_copy_task(
         policy{
             exec_space, {0,0,0,0,0}, {ngz, nx,nx,nv, bucket.size()}
         } ; 
-    
-    // TODO more informative name for the kernel launch 
-    // will help in debug
 
     task._run = [functor, policy] () {
-        
-        GRACE_TRACE("Copy start.") ; 
         Kokkos::parallel_for("fill_ghostzones", policy, functor) ; 
-        // TODO remove
-        #ifdef INSERT_FENCE_DEBUG_TASKS_
-        Kokkos::fence() ;
-        #endif 
-        GRACE_TRACE("Copy done.") ; 
     };
     task.stream = &stream; 
     task.task_id = task_counter++ ; 
