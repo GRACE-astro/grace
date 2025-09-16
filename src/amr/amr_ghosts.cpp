@@ -54,7 +54,7 @@
 #include <vector>
 #include <numeric>
 
-//#define INSERT_FENCE_DEBUG_TASKS_ 
+#define INSERT_FENCE_DEBUG_TASKS_ 
 
 namespace grace {
 
@@ -151,6 +151,17 @@ void amr_ghosts_impl_t::build_remote_buffers() {
 
     std::size_t nvars = variables::get_n_evolved() ; 
 
+    std::vector<size_t> send_edge_offsets(nproc,0)
+                      , recv_edge_offsets(nproc,0) ; 
+    std::vector<size_t> send_corner_offsets(nproc,0)
+                      , recv_corner_offsets(nproc,0) ; 
+    std::vector<size_t> send_cb_face_offsets(nproc,0)
+                      , recv_cb_face_offsets(nproc,0) ; 
+    std::vector<size_t> send_cb_edge_offsets(nproc,0)
+                      , recv_cb_edge_offsets(nproc,0) ; 
+    std::vector<size_t> send_cb_corner_offsets(nproc,0)
+                      , recv_cb_corner_offsets(nproc,0) ; 
+
     std::vector<int> rank_send_count_faces(nproc,0)
                    , rank_recv_count_faces(nproc,0) ; 
     send_rank_sizes.resize(nproc); 
@@ -159,6 +170,13 @@ void amr_ghosts_impl_t::build_remote_buffers() {
     std::size_t face_size = nx*nx * ngz * nvars ; 
 
     struct face_key_t {
+        #if 0
+        union {
+            face_descriptor_t * face ;
+            edge_descriptor_t * edge ; 
+            corner_descriptor_t * corner ; 
+        } desc ; 
+        #endif
         face_descriptor_t * desc; 
         size_t rank;
         size_t key ;
@@ -243,19 +261,33 @@ void amr_ghosts_impl_t::build_remote_buffers() {
     recv_rank_offsets.resize(nproc) ; 
     std::exclusive_scan( recv_rank_sizes.begin(), recv_rank_sizes.end()
                        , recv_rank_offsets.begin(), 0) ;
+    /**************************/
+    _send_buffer.set_offsets(
+        send_rank_offsets, send_edge_offsets, send_corner_offsets,
+        send_cb_face_offsets, send_cb_edge_offsets, send_cb_corner_offsets
+    ) ; 
+    _send_buffer.set_strides(
+        nx,ny,nz,nvars,ngz
+    ) ; 
+    _send_buffer.realloc(total_send_size) ; 
+    /**************************/
+    _recv_buffer.set_offsets(
+        recv_rank_offsets, recv_edge_offsets, recv_corner_offsets,
+        recv_cb_face_offsets, recv_cb_edge_offsets, recv_cb_corner_offsets
+    ) ;
+    _recv_buffer.set_strides(
+        nx,ny,nz,nvars,ngz
+    ) ; 
+    _recv_buffer.realloc(total_recv_size) ;
+    /**************************/
     GRACE_TRACE("Was it really here??");
     Kokkos::fence() ; 
-    // Allocate memory for MPI buffers
-    Kokkos::realloc(_send_buffer, total_send_size) ; 
-    Kokkos::realloc(_recv_buffer, total_recv_size) ;
-    Kokkos::fence()  ;
-    GRACE_TRACE("Checking send size {}, total receive size {}", _send_buffer.extent(0), _recv_buffer.extent(0)) ;
+    GRACE_TRACE("Checking send size {}, total receive size {}", _send_buffer.size(), _recv_buffer.size()) ;
     for( int r=0; r<nproc; ++r) {
         GRACE_TRACE("Send rank {}, offset {} size {}", r, send_rank_offsets[r], send_rank_sizes[r]) ; 
         GRACE_TRACE("Recv rank {}, offset {} size {}", r, recv_rank_offsets[r], recv_rank_sizes[r]) ; 
     }
 }
-
 
 struct gpu_task_descriptor_t {
     int8_t face_src, face_dst ; 
@@ -268,7 +300,6 @@ using task_bucket_t = std::vector<
     gpu_task_descriptor_t 
 > ; 
 
-#ifndef USE_DUMMY_GPU_TASK
 template< typename view_t >
 gpu_task_t make_gpu_copy_task(
       task_bucket_t const& bucket
@@ -302,7 +333,7 @@ gpu_task_t make_gpu_copy_task(
 
     gpu_task_t task{} ;
 
-    face_copy_k<true,decltype(data),decltype(data)> functor{
+    copy_k<amr::element_kind_t::FACE,true,decltype(data),decltype(data)> functor{
         data, data, src_qid, dst_qid, src_face, dst_face, VEC(nx,ny,nz), ngz
     } ; 
     
@@ -314,7 +345,14 @@ gpu_task_t make_gpu_copy_task(
         } ; 
 
     task._run = [functor, policy] () {
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        GRACE_TRACE("Copy start.") ; 
+        #endif 
         Kokkos::parallel_for("fill_ghostzones", policy, functor) ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        Kokkos::fence() ; 
+        GRACE_TRACE("Copy end") ; 
+        #endif 
     };
     task.stream = &stream; 
     task.task_id = task_counter++ ; 
@@ -366,7 +404,6 @@ gpu_task_t make_gpu_phys_bc_task(
     task._run = [functor, policy] () {
         GRACE_TRACE("Fill phys start") ; 
         Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
-        // TODO remove 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
         #endif 
@@ -383,7 +420,7 @@ gpu_task_t make_pack_task(
       task_bucket_t const& sb
     , size_t rank 
     , view_t data 
-    , Kokkos::View<double*> send_buf 
+    , amr::ghost_array_t send_buf 
     , std::vector<std::size_t> const& send_rank_offsets
     , std::vector<task_id_t> const& send_task_id
     , device_stream_t& pup_stream
@@ -414,8 +451,8 @@ gpu_task_t make_pack_task(
 
     gpu_task_t pack_task{} ;
 
-    amr::face_pack_k pack_functor {
-        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_face, VEC(nx,ny,nz), ngz, nv, send_offset
+    amr::pack_k<amr::element_kind_t::FACE,decltype(data)> pack_functor {
+        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_face, VEC(nx,ny,nz), ngz, nv, rank
     } ; 
 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
@@ -445,7 +482,7 @@ gpu_task_t make_unpack_task(
       task_bucket_t const& rb
     , size_t rank
     , view_t data 
-    , Kokkos::View<double*> recv_buf 
+    , amr::ghost_array_t recv_buf 
     , std::vector<std::size_t> const& recv_rank_offsets
     , std::vector<task_id_t> const& recv_task_id
     , device_stream_t& pup_stream
@@ -478,8 +515,8 @@ gpu_task_t make_unpack_task(
     
     gpu_task_t unpack_task{} ;
 
-    amr::face_unpack_k unpack_functor {
-        recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_face, VEC(nx,ny,nz), ngz, nv, recv_offset
+    amr::unpack_k<amr::element_kind_t::FACE,decltype(data)> unpack_functor {
+        recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_face, VEC(nx,ny,nz), ngz, nv, rank
     } ; 
 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
@@ -503,89 +540,14 @@ gpu_task_t make_unpack_task(
     task_list[recv_task_id[rank]] -> _dependents.push_back(unpack_task.task_id) ; 
     return unpack_task ; 
 }
-#else
-// START 
-template< typename view_t >
-gpu_task_t make_gpu_copy_task(
-      task_bucket_t const& bucket
-    , view_t data 
-    , device_stream_t& stream
-    , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv 
-    , task_id_t& task_counter 
-
-) 
-{
-    gpu_task_t task{} ;
-    task.task_id = task_counter ++ ; 
-    task._run = [] () {} ; 
-    return task ;
-}
-
-template< typename view_t >
-gpu_task_t make_gpu_phys_bc_task(
-      task_bucket_t const& bucket
-    , view_t data 
-    , Kokkos::View<bc_t*> var_bc_kind 
-    , device_stream_t& stream
-    , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv
-    , task_id_t& task_counter 
-
-) 
-{
-    gpu_task_t task{} ;
-    task.task_id = task_counter ++ ; 
-    task._run = [] () {} ; 
-    return task ;
-}
-
-template< typename view_t >
-gpu_task_t make_pack_task(
-      task_bucket_t const& sb
-    , size_t rank 
-    , view_t data 
-    , Kokkos::View<double*> send_buf 
-    , std::vector<std::size_t> const& send_rank_offsets
-    , std::vector<task_id_t> const& send_task_id
-    , device_stream_t& pup_stream
-    , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv
-    , task_id_t& task_counter 
-    , std::vector<std::unique_ptr<task_t>>& task_list 
-)
-{
-    gpu_task_t task{} ;
-    task.task_id = task_counter ++ ; 
-    task._run = [] () {} ; 
-    return task ;
-}
-
-template< typename view_t >
-gpu_task_t make_unpack_task(
-      task_bucket_t const& rb
-    , size_t rank
-    , view_t data 
-    , Kokkos::View<double*> recv_buf 
-    , std::vector<std::size_t> const& recv_rank_offsets
-    , std::vector<task_id_t> const& recv_task_id
-    , device_stream_t& pup_stream
-    , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv
-    , task_id_t& task_counter 
-    , std::vector<std::unique_ptr<task_t>>& task_list 
-)
-{
-    gpu_task_t task{} ;
-    task.task_id = task_counter ++ ; 
-    task._run = [] () {} ; 
-    return task ;
-}
-#endif 
 
 template< typename view_t >
 void populate_pup_tasks(
       std::vector<task_bucket_t> const& send_bucket
     , std::vector<task_bucket_t> const& recv_bucket
     , view_t data
-    , Kokkos::View<double*> send_buf 
-    , Kokkos::View<double*> recv_buf 
+    , amr::ghost_array_t send_buf 
+    , amr::ghost_array_t recv_buf 
     , std::vector<std::size_t> const& send_rank_offsets
     , std::vector<std::size_t> const& recv_rank_offsets
     , std::vector<task_id_t> const& send_task_id
@@ -627,11 +589,9 @@ void populate_pup_tasks(
     }
 }; 
 
-
-#ifndef USE_DUMMY_MPI_TASK
 mpi_task_t make_mpi_send_task(
       std::size_t rr 
-    , Kokkos::View<double*> send_buf 
+    , amr::ghost_array_t send_buf 
     , std::vector<std::size_t> const& send_rank_offsets 
     , std::vector<std::size_t> const& send_rank_sizes
     , task_id_t& task_counter 
@@ -639,7 +599,7 @@ mpi_task_t make_mpi_send_task(
 {
     GRACE_TRACE("Registering MPI Send task (tid {}).\n    Send to Rank {} {} elements, offset {}", task_counter, rr, send_rank_sizes[rr], send_rank_offsets[rr]) ; 
 
-    ASSERT(send_rank_offsets[rr] + send_rank_sizes[rr] <= send_buf.extent(0), "Send out-of-bounds" ) ; 
+    ASSERT(send_rank_offsets[rr] + send_rank_sizes[rr] <= send_buf.size(), "Send out-of-bounds" ) ; 
 
     mpi_task_t task ; 
     task._run = [&, send_buf, rr] (MPI_Request* req) {
@@ -658,7 +618,7 @@ mpi_task_t make_mpi_send_task(
 
 mpi_task_t make_mpi_recv_task(
       std::size_t rr 
-    , Kokkos::View<double*> recv_buf 
+    , amr::ghost_array_t recv_buf 
     , std::vector<std::size_t> const& recv_rank_offsets 
     , std::vector<std::size_t> const& recv_rank_sizes
     , task_id_t& task_counter 
@@ -666,7 +626,7 @@ mpi_task_t make_mpi_recv_task(
 {
     GRACE_TRACE("Registering MPI Receive task (tid {}).\n    Receive from Rank {} {} elements, offset {}", task_counter, rr, recv_rank_sizes[rr], recv_rank_offsets[rr]) ; 
 
-    ASSERT(recv_rank_offsets[rr] + recv_rank_sizes[rr] <= recv_buf.extent(0), "Receive out-of-bounds" ) ; 
+    ASSERT(recv_rank_offsets[rr] + recv_rank_sizes[rr] <= recv_buf.size(), "Receive out-of-bounds" ) ; 
 
     mpi_task_t task ; 
     task._run = [&, recv_buf, rr] (MPI_Request* req) {
@@ -682,34 +642,6 @@ mpi_task_t make_mpi_recv_task(
     task.task_id = task_counter++; 
     return task ; 
 }
-#else 
-mpi_task_t make_mpi_send_task(
-      std::size_t rr 
-    , Kokkos::View<double*> send_buf 
-    , std::vector<std::size_t> const& send_rank_offsets 
-    , std::vector<std::size_t> const& send_rank_sizes
-    , task_id_t& task_counter 
-)
-{
-    mpi_task_t task {} ;
-    task.task_id = task_counter ++ ; 
-    task._run = [] () {} ; 
-    return task ; 
-}
-mpi_task_t make_mpi_recv_task(
-      std::size_t rr 
-    , Kokkos::View<double*> recv_buf 
-    , std::vector<std::size_t> const& recv_rank_offsets 
-    , std::vector<std::size_t> const& recv_rank_sizes
-    , task_id_t& task_counter 
-)
-{
-    mpi_task_t task {} ;
-    task.task_id = task_counter ++ ; 
-    task._run = [] () {} ; 
-    return task ; 
-}
-#endif 
 
 void amr_ghosts_impl_t::build_task_list() {
     /***********************************************************************/
@@ -735,13 +667,6 @@ void amr_ghosts_impl_t::build_task_list() {
     send_task_id.resize(nproc) ; recv_task_id.resize(nproc) ; 
     for( size_t r=0UL; r<nproc; r+=1UL) {
         if( send_rank_sizes[r] > 0 ){
-            #if 0
-            std::unique_ptr<task_t> send = std::make_unique<mpi_task_t>(
-                make_mpi_send_task(r, _send_buffer, send_rank_offsets, send_rank_sizes, task_counter)
-            ) ; 
-            send_task_id[r] = send->task_id ; 
-            task_list.push_back(std::move(send)) ; 
-            #endif 
             task_list.push_back(
                 std::make_unique<mpi_task_t>(
                     make_mpi_send_task(r, _send_buffer, send_rank_offsets, send_rank_sizes, task_counter)
@@ -750,13 +675,6 @@ void amr_ghosts_impl_t::build_task_list() {
             send_task_id[r] = task_list.back()->task_id ; 
         }
         if (recv_rank_sizes[r] > 0 ){
-            #if 0
-            std::unique_ptr<task_t> recv = std::make_unique<mpi_task_t>(
-                make_mpi_recv_task(r, _recv_buffer, recv_rank_offsets, recv_rank_sizes, task_counter)
-            ) ; 
-            recv_task_id[r] = recv->task_id ; 
-            task_list.push_back(std::move(recv)) ;
-            #endif 
             task_list.push_back(
                 std::make_unique<mpi_task_t>(
                     make_mpi_recv_task(r, _recv_buffer, recv_rank_offsets, recv_rank_sizes, task_counter)

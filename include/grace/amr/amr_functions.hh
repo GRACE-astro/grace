@@ -43,7 +43,7 @@
 #include <cstdlib>
 
 namespace grace { namespace amr {
-
+#if 0
 struct grid_properties_view_t {
     grid_properties_view_t() 
      : _gp(forest::get().get_grid_properties())
@@ -63,7 +63,7 @@ struct grid_properties_view_t {
 
     static_readonly_view_t<size_t,4> _gp ; 
 } ; 
-
+#endif 
 /**
  * @brief Get the number of grid cells per quadrant 
  *        in each direction. 

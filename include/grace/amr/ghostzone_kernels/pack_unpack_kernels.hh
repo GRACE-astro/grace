@@ -45,8 +45,8 @@ template<
     typename view_t
 >
 struct pack_k {
-    ghost_array_t src_view ; 
-    view_t dest_view; 
+    view_t src_view ; 
+    ghost_array_t dest_view; 
 
     readonly_view_t<std::size_t> src_qid, dest_qid ; 
     readonly_view_t<uint8_t> src_elem_view ;
@@ -55,9 +55,9 @@ struct pack_k {
 
     index_transformer_t transf ; 
 
-    face_pack_k(
-        ViewA_t _src_view,
-        ViewB_t _dest_view,
+    pack_k(
+        view_t _src_view,
+        ghost_array_t _dest_view,
         Kokkos::View<size_t*> _src_qid, 
         Kokkos::View<size_t*> _dest_qid,
         Kokkos::View<uint8_t*> _src_elem,  
@@ -69,7 +69,7 @@ struct pack_k {
       , dest_qid(_dest_qid)
       , src_elem_view(_src_elem)
       , rank(_rank)
-      , transf(VEC(nx,ny,nz),ngz)
+      , transf(VEC(_nx,_ny,_nz),_ngz)
     { } 
 
 
@@ -78,18 +78,18 @@ struct pack_k {
         std::size_t ig, VECD(std::size_t j, std::size_t k), size_t ivar, size_t iq
     ) const 
     {
-        auto const src_face  = src_face_view(iq) ; 
+        auto const ie  = src_elem_view(iq) ; 
 
         auto const src_q  = src_qid(iq)  ; 
         auto const dest_q = dest_qid(iq) ;
 
 
-        std::size_t VEC(i_a,j_a,k_a), VEC(i_b,j_b,k_b) ; 
-        transf.compute_phys_indices<true>(
-            ig, VECD(j, k), i_a, j_a, k_a, src_face
+        std::size_t VEC(i_a,j_a,k_a) ; 
+        // phys indices 
+        transf.compute_indices<elem_kind,true>(
+            ig, VECD(j, k), i_a, j_a, k_a, ie
         ) ; 
         
-
         dest_view.at_interface<elem_kind>(ig,j,k,ivar,dest_q,rank) = 
             src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
         
@@ -101,7 +101,7 @@ template<
     element_kind_t elem_kind,
     typename view_t
 >
-struct face_unpack_k {
+struct unpack_k {
     
     ghost_array_t src_view ; 
     view_t dest_view; 
@@ -111,11 +111,11 @@ struct face_unpack_k {
     
     std::size_t rank ; 
 
-    index_transformer transf ; 
+    index_transformer_t transf ; 
 
-    face_unpack_k(
-        ViewA_t _src_view,
-        ViewB_t _dest_view,
+    unpack_k(
+        ghost_array_t _src_view,
+        view_t _dest_view,
         Kokkos::View<size_t*> _src_qid, 
         Kokkos::View<size_t*> _dest_qid,
         Kokkos::View<uint8_t*> _dest_face,  
@@ -127,7 +127,7 @@ struct face_unpack_k {
       , dest_qid(_dest_qid)
       , dest_face_view(_dest_face)
       , rank(_rank)
-      , transf(VEC(nx,ny,nz),ngz)
+      , transf(VEC(_nx,_ny,_nz),_ngz)
     { } 
 
 
@@ -143,12 +143,11 @@ struct face_unpack_k {
 
 
         std::size_t VEC(i_a,j_a,k_a) ; 
-        transf.compute_ghost_indices<true>(
+        transf.compute_indices<elem_kind,false>(
             ig, VECD(j, k), i_a, j_a, k_a, dest_face 
         ) ; 
 
-        dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) = 
-               src_view.at_interface<elem_kind>(ig,j,k,ivar,src_q,rank) ; 
+        dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) = src_view.at_interface<elem_kind>(ig,j,k,ivar,src_q,rank) ; 
     }
 
 } ; 

@@ -78,67 +78,6 @@ struct task_t {
     task_id_t task_id ; 
 } ; 
 
-struct dummy_gpu_task_t : public task_t {
-  dummy_gpu_task_t() {
-      kind = task_kind_t::GPU_KERNEL ; 
-      status = status_id_t::WAITING ; 
-  }
-
-  dummy_gpu_task_t( dummy_gpu_task_t const& other) = delete ; 
-  dummy_gpu_task_t( dummy_gpu_task_t && other ) = default ; 
-
-  /**
-    * @brief query the task for its status 
-    */
-  status_id_t query() override {
-      return status ; 
-  }
-
-  void run() override {
-      // note need to remember to reset event and attach it to stream where kernel is running 
-      // INSIDE _run 
-      ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
-      status = status_id_t::RUNNING ; 
-      _run() ; 
-      status = status_id_t::COMPLETE ; 
-  }
-
-  //! The task itself 
-  std::function<void()> _run ;
-} ; 
-
-struct dummy_mpi_task_t : public task_t {
-  dummy_mpi_task_t() {
-      kind = task_kind_t::MPI_TRANSFER ; 
-      status = status_id_t::WAITING ; 
-  }
-
-  dummy_mpi_task_t( dummy_mpi_task_t const& other) = delete ; 
-  dummy_mpi_task_t( dummy_mpi_task_t && other ) = default ; 
-
-  /**
-    * @brief query the task for its status 
-    */
-  status_id_t query() override {
-      return status ; 
-  }
-
-  void run() override {
-      // note need to remember to reset event and attach it to stream where kernel is running 
-      // INSIDE _run 
-      ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
-      status = status_id_t::RUNNING ; 
-      _run() ; 
-      status = status_id_t::COMPLETE ; 
-  }
-
-  //! The task itself 
-  std::function<void()> _run ;
-} ; 
-
-#ifdef USE_DUMMY_GPU_TASK
-using gpu_task_t = dummy_gpu_task_t ; 
-#else
 struct gpu_task_t : public task_t {
 
     gpu_task_t()
@@ -182,10 +121,6 @@ struct gpu_task_t : public task_t {
     std::function<void()> _run ; 
 } ; 
 
-#endif 
-#ifdef USE_DUMMY_MPI_TASK
-using mpi_task_t = dummy_mpi_task_t ; 
-#else 
 struct mpi_task_t : public task_t {
 
     mpi_task_t()
@@ -224,7 +159,6 @@ struct mpi_task_t : public task_t {
     std::function<void(MPI_Request*)> _run ; 
 
 } ; 
-#endif 
 
 struct cpu_task_t : public task_t {
 

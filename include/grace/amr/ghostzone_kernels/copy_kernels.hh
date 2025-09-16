@@ -55,7 +55,7 @@ struct copy_k {
 
     index_transformer_t transf ; 
 
-    edge_copy_k(
+    copy_k(
         ViewB_t _src_view,
         ViewA_t _dest_view,
         Kokkos::View<size_t*> _src_qid, Kokkos::View<size_t*> _dest_qid,
@@ -68,7 +68,7 @@ struct copy_k {
       , dest_qid(_dest_qid)
       , src_element_view(_src_elem)
       , dest_element_view(_dest_elem)
-      , transf(VEC(nx,ny,nz),ngz)
+      , transf(VEC(_nx,_ny,_nz),_ngz)
     {}
 
 

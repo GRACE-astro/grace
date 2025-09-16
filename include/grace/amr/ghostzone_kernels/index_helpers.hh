@@ -159,7 +159,7 @@ void compute_ghost_indices_edge(
 KOKKOS_INLINE_FUNCTION 
 void compute_phys_indices_corner(
     std::size_t const& nx, std::size_t const& ny, std::size_t const& nz, std::size_t const& g, 
-    std::size_t const& ig, std::size_t const& j, std::size_t const& k,
+    std::size_t const& i, std::size_t const& j, std::size_t const& k,
     std::size_t& i_out, std::size_t& j_out,
     std::size_t& k_out, int corner
 )
@@ -176,7 +176,7 @@ void compute_phys_indices_corner(
 KOKKOS_INLINE_FUNCTION 
 void compute_ghost_indices_corner(
     std::size_t const& nx, std::size_t const& ny, std::size_t const& nz, std::size_t const& g, 
-    std::size_t const& ig, std::size_t const& j, std::size_t const& k,
+    std::size_t const& i, std::size_t const& j, std::size_t const& k,
     std::size_t& i_out, std::size_t& j_out,
     std::size_t& k_out, int corner
 )
@@ -195,11 +195,6 @@ enum element_kind_t : uint8_t {
 } ; 
 
 struct index_transformer_t {
-    
-    index_transformer_t(std::size_t _nx, std::size_t _ny,
-                             std::size_t _nz, std::size_t _ngz)
-        : nx(_nx), ny(_ny), nz(_nz), ngz(_ngz) 
-    {}
     
 
     std::size_t nx, ny, nz, ngz;

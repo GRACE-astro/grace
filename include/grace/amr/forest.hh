@@ -35,6 +35,7 @@
 #include <grace/utils/creation_policies.hh>
 #include <grace/utils/sc_wrappers.hh>
 
+#include <grace/amr/ghostzone_kernels/type_helpers.hh>
 #include <grace/amr/p4est_headers.hh>
 
 #include <grace/amr/tree.hh>

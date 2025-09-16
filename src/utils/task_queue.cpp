@@ -115,8 +115,15 @@ void executor::reset() {
     auto& T = *R.t;
 
     R.pending = static_cast<int>(T._dependencies.size());
+
     T.status = (R.pending == 0 ? status_id_t::READY : status_id_t::WAITING);
 
+    if ( T.kind == task_kind_t::MPI_TRANSFER) {
+      reinterpret_cast<mpi_task_t*>(R.t)->mpi_req = MPI_REQUEST_NULL ; 
+    } else if ( T.kind == task_kind_t::GPU_KERNEL ) {
+      reinterpret_cast<gpu_task_t*>(R.t)->dev_event.reset() ; 
+    }
+    
     if (R.pending == 0)
       ready.push_back(id);
   }

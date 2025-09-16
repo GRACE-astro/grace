@@ -220,8 +220,8 @@ class amr_ghosts_impl_t {
     void get_rank_sizes(  std::vector<std::size_t>& send, std::vector<std::size_t>& receive ) {
         send = send_rank_sizes ; receive = recv_rank_sizes ; 
     }
-    size_t get_send_buf_size() const { return _send_buffer.extent(0) ; }
-    size_t get_recv_buf_size() const { return _recv_buffer.extent(0) ; }
+    size_t get_send_buf_size() const { return _send_buffer.size() ; }
+    size_t get_recv_buf_size() const { return _recv_buffer.size() ; }
     auto& get_task_list () {return task_list;}
     auto& get_task_executor () {return task_queue;}
 
@@ -237,7 +237,7 @@ class amr_ghosts_impl_t {
     executor task_queue ; 
     std::vector<std::size_t> send_rank_offsets, recv_rank_offsets ; //!< In # of elements
     std::vector<std::size_t> send_rank_sizes, recv_rank_sizes ; //!< In # of elements
-    ghost_array_t _send_buffer, _recv_buffer ;
+    amr::ghost_array_t _send_buffer, _recv_buffer ;
     Kokkos::View<bc_t*> var_bc_kind ; //!< Boundary condition per-variable
     //**************************************************************************************************
     void build_task_list() ; 
