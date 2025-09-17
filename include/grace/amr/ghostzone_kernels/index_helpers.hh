@@ -35,6 +35,10 @@
 
 namespace grace { namespace amr {
 
+enum element_kind_t : uint8_t {
+    FACE=0, EDGE=1, CORNER=2
+} ; 
+
 KOKKOS_INLINE_FUNCTION 
 void compute_phys_indices_face(
     std::size_t const& nx, std::size_t const& ny, std::size_t const& nz, std::size_t const& g, 
@@ -189,10 +193,6 @@ void compute_ghost_indices_corner(
     j_out = y_off ? ny + g + j :  j ; 
     k_out = z_off ? nz + g + k :  k ; 
 }
-
-enum element_kind_t : uint8_t {
-    FACE, EDGE, CORNER 
-} ; 
 
 struct index_transformer_t {
     

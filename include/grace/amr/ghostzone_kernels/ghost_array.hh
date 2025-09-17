@@ -34,6 +34,9 @@
 
 #include <Kokkos_Core.hpp>
 
+#include <array>
+#include <vector>
+
 namespace grace { namespace amr {
 
 
@@ -54,19 +57,15 @@ struct ghost_array_t
 
     void set_offsets(
         std::vector<size_t> const& _roffsets, 
-        std::vector<size_t> const& _eoffsets, 
-        std::vector<size_t> const& _coffsets,
-        std::vector<size_t> const& _cbfoffsets,
-        std::vector<size_t> const& _cbeoffsets,
-        std::vector<size_t> const& _cbcoffsets
+        std::array<std::vector<size_t>,6> const & _offsets 
     ) 
     {
         grace::deep_copy_vec_to_const_view(rank_offsets, _roffsets) ; 
-        grace::deep_copy_vec_to_const_view(edge_offsets, _eoffsets) ; 
-        grace::deep_copy_vec_to_const_view(corner_offsets, _coffsets) ; 
-        grace::deep_copy_vec_to_const_view(cbuf_face_offsets, _cbfoffsets) ; 
-        grace::deep_copy_vec_to_const_view(cbuf_edge_offsets, _cbeoffsets) ; 
-        grace::deep_copy_vec_to_const_view(cbuf_corner_offsets, _cbcoffsets) ; 
+        grace::deep_copy_vec_to_const_view(edge_offsets, _offsets[1]) ; 
+        grace::deep_copy_vec_to_const_view(corner_offsets, _offsets[2]) ; 
+        grace::deep_copy_vec_to_const_view(cbuf_face_offsets, _offsets[3]) ; 
+        grace::deep_copy_vec_to_const_view(cbuf_edge_offsets, _offsets[4]) ; 
+        grace::deep_copy_vec_to_const_view(cbuf_corner_offsets, _offsets[5]) ; 
         #if 0
         // TODO remove 
         auto h_ro = Kokkos::create_mirror_view(rank_offsets) ; 

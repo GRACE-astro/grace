@@ -42,6 +42,7 @@
 #include <grace/utils/task_queue.hh>
 
 #include <grace/data_structures/memory_defaults.hh>
+#include <grace/data_structures/variable_properties.hh>
 
 #include <grace/amr/p4est_headers.hh>
 #include <grace/amr/ghostzone_kernels/ghost_array.hh>
@@ -64,12 +65,14 @@ enum level_diff_t : int8_t {FINER=-1, SAME=0, COARSER=+1} ; // The other one is 
 struct full_face_t {
         std::size_t quad_id       ; //!< Index of quadrant on the other side 
         std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
+        std::size_t send_buffer_id ; //!< Index in send array 
         bool is_remote            ; //!< Whether the quadrant is local or remote 
         std::size_t owner_rank    ; //!< Owner rank if remote
 } ; 
 struct hanging_face_t {
         std::size_t quad_id[P4EST_CHILDREN/2]    ; //!< Indices of hanging quads (in coarse bufs)
         std::size_t recv_buffer_id[P4EST_CHILDREN/2] ; //!< Indices in receive array, if relevant
+        std::size_t send_buffer_id[P4EST_CHILDREN/2] ; //!< Indices in send array
         bool is_remote[P4EST_CHILDREN/2]         ; //!< Are the quads remote 
         std::size_t owner_rank[P4EST_CHILDREN/2] ; //!< owner ranks if remote 
 } ; 
@@ -83,7 +86,6 @@ union face_data_t {
  */
 struct face_descriptor_t { 
     interface_kind_t kind ; 
-    std::size_t send_buffer_id ; //!< Index in send buffer if applicable 
     int8_t level_diff   ; //!< Ref level difference (+-1 or 0)
     face_data_t data    ; //!< Quadrant ids 
     int8_t face ; //!< Face code as seen from other side 
@@ -93,12 +95,14 @@ struct face_descriptor_t {
 struct full_edge_t {
     std::size_t quad_id       ; //!< Index of quadrant on the other side 
     std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
+    std::size_t send_buffer_id ; //!< Index in send array, if relevant
     bool is_remote            ; //!< Whether the quadrant is local or remote 
-    std::size_t owner_rank    ; //!< Owner rank if remote
+    std::size_t owner_rank    ; //!< Owner rank if remot
 } ; 
 struct hanging_edge_t {
         std::size_t quad_id[2]    ; //!< Indices of hanging quads (in coarse bufs)
         std::size_t recv_buffer_id[2] ; //!< Indices in receive array, if relevant
+        std::size_t send_buffer_id[2] ; //!< Indices in send array, if relevant
         bool is_remote[2]         ; //!< Are the quads remote 
         std::size_t owner_rank[2] ; //!< owner ranks if remote 
 } ;
@@ -108,7 +112,6 @@ union edge_data_t {
 } ; 
 struct edge_descriptor_t {
     interface_kind_t kind ; 
-    std::size_t send_buffer_id ; 
     int8_t level_diff ; 
     edge_data_t data ;
     int8_t edge ; 
@@ -116,14 +119,14 @@ struct edge_descriptor_t {
 }; 
 /**************************************************************************************************/
 struct corner_data_t {
-    std::size_t quad_id        ; //!< Indices of hanging quads (in coarse bufs)
-    std::size_t recv_buffer_id ; //!< Indices in receive array, if relevant
+    std::size_t quad_id        ; //!< Index of hanging quads (in coarse bufs)
+    std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
+    std::size_t send_buffer_id ; //!< Index in send array, if relevant 
     bool is_remote             ; //!< Are the quads remote 
     std::size_t owner_rank     ; //!< owner ranks if remote 
 } ; 
 struct corner_descriptor_t {
     interface_kind_t kind ; 
-    std::size_t send_buffer_id ; 
     int8_t level_diff ; 
     corner_data_t data ;
     int8_t corner ; 
@@ -235,14 +238,20 @@ class amr_ghosts_impl_t {
 
     std::vector<std::unique_ptr<task_t>> task_list ;
     executor task_queue ; 
+
     std::vector<std::size_t> send_rank_offsets, recv_rank_offsets ; //!< In # of elements
     std::vector<std::size_t> send_rank_sizes, recv_rank_sizes ; //!< In # of elements
+
     amr::ghost_array_t _send_buffer, _recv_buffer ;
+
+    grace::var_array_t<GRACE_NSPACEDIM> _coarse_buffers ; 
     Kokkos::View<bc_t*> var_bc_kind ; //!< Boundary condition per-variable
     //**************************************************************************************************
     void build_task_list() ; 
     //**************************************************************************************************
     void build_remote_buffers() ; 
+    //**************************************************************************************************
+    void build_coarse_buffers() ; 
     //**************************************************************************************************
     void build_executor_runtime() ; 
     //**************************************************************************************************

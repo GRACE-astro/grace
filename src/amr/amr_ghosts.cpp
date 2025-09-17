@@ -112,9 +112,50 @@ void amr_ghosts_impl_t::update() {
         ASSERT(ghost_layer[iq].n_registered_corners == P4EST_CHILDREN, "Some corners not registered at iq " << iq ) ;
     }
     
-    build_remote_buffers() ; 
-    build_task_list() ; 
+    build_coarse_buffers()   ; 
+    build_remote_buffers()   ; 
+    build_task_list()        ; 
     build_executor_runtime() ; 
+}
+
+void amr_ghosts_impl_t::build_coarse_buffers() {
+    /****************************************************/
+    auto nq = amr::get_local_num_quadrants() ; 
+    std::size_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    auto ngz = amr::get_n_ghosts() ; 
+    // get n vars 
+    std::size_t nvars = variables::get_n_evolved() ; 
+    /****************************************************/
+
+    auto needs_cbuf = [&] (quad_neighbors_descriptor_t const& desc) {
+        for( int f=0; f<P4EST_FACES; ++f) {
+            if (desc.faces[f].level_diff == level_diff_t::COARSER ) 
+                return true ;
+        } 
+        for( int e=0; e<12; ++e) {
+            if (desc.edges[e].level_diff == level_diff_t::COARSER ) 
+                return true ;
+        } 
+        for( int c=0; c<P4EST_CHILDREN; ++c) {
+            if (desc.corners[c].level_diff == level_diff_t::COARSER ) 
+                return true ;
+        } 
+        return false ; 
+    } ; 
+
+    /****************************************************/
+    size_t cur_idx{0UL} ; 
+    for( size_t iq=0UL; iq<nq; iq+=1UL ) {
+        if ( needs_cbuf(ghost_layer[iq]) ) {
+            ghost_layer[iq].cbuf_id = cur_idx ++ ; 
+        } 
+    }   
+    /****************************************************/
+    _coarse_buffers = var_array_t<GRACE_NSPACEDIM>(
+        "coarse_buffers", VEC(nx/2+2*ngz, ny/2+2*ngz, nz/2+2*ngz), nvars, cur_idx 
+    ) ; 
+    /****************************************************/
 }
 
 void amr_ghosts_impl_t::build_executor_runtime() {
@@ -137,157 +178,6 @@ void amr_ghosts_impl_t::build_executor_runtime() {
     GRACE_TRACE("Task queue constructed. {} tasks are ready to run.", task_queue.ready.size()) ; 
 }
 
-void amr_ghosts_impl_t::build_remote_buffers() {
-    /**************************/
-    /*  These are per-rank    */
-    /**************************/
-    auto rank = parallel::mpi_comm_rank() ; 
-    auto nproc= parallel::mpi_comm_size() ;
-
-    auto nq = amr::get_local_num_quadrants() ; 
-    std::size_t nx,ny,nz ; 
-    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    auto ngz = amr::get_n_ghosts() ; 
-
-    std::size_t nvars = variables::get_n_evolved() ; 
-
-    std::vector<size_t> send_edge_offsets(nproc,0)
-                      , recv_edge_offsets(nproc,0) ; 
-    std::vector<size_t> send_corner_offsets(nproc,0)
-                      , recv_corner_offsets(nproc,0) ; 
-    std::vector<size_t> send_cb_face_offsets(nproc,0)
-                      , recv_cb_face_offsets(nproc,0) ; 
-    std::vector<size_t> send_cb_edge_offsets(nproc,0)
-                      , recv_cb_edge_offsets(nproc,0) ; 
-    std::vector<size_t> send_cb_corner_offsets(nproc,0)
-                      , recv_cb_corner_offsets(nproc,0) ; 
-
-    std::vector<int> rank_send_count_faces(nproc,0)
-                   , rank_recv_count_faces(nproc,0) ; 
-    send_rank_sizes.resize(nproc); 
-    recv_rank_sizes.resize(nproc); 
-
-    std::size_t face_size = nx*nx * ngz * nvars ; 
-
-    struct face_key_t {
-        #if 0
-        union {
-            face_descriptor_t * face ;
-            edge_descriptor_t * edge ; 
-            corner_descriptor_t * corner ; 
-        } desc ; 
-        #endif
-        face_descriptor_t * desc; 
-        size_t rank;
-        size_t key ;
-    } ;    
-    std::vector<face_key_t> halo_face_keys ; 
-    std::vector<face_key_t> mirror_face_keys ; 
-    std::size_t total_send_size{0UL}, total_recv_size{0UL} ; 
-    for( size_t iq=0UL; iq<nq; iq+=1UL) {
-        for (uint8_t f = 0; f < P4EST_FACES; ++f) {
-            auto& face = ghost_layer[iq].faces[f] ; 
-            if ( face.kind ==  interface_kind_t::PHYS ) continue ; 
-            if ( face.level_diff != 0 ) {
-                // not supported yet 
-            } else {
-                if ( !face.data.full.is_remote) continue ; 
-                
-                auto r = face.data.full.owner_rank ; 
-                // face-id in "canonical order"
-                auto f_c =  r < rank ? face.face : f ; 
-
-                // replace index on the other side to buffer index 
-                // send_buffer_id: where to pack the local face data (to send to rank r)
-                // here we just use our local quad_id ordering which should be consistent 
-                // with the **mirror** index ordering (ENSURE THIS IS TRUE!)
-                {
-                    face_key_t key ;
-                    key.desc = &face ; 
-                    key.rank = r ;
-                    key.key = iq * P4EST_FACES + f_c ; 
-                    mirror_face_keys.push_back(key) ; 
-                } 
-
-                // for receives we need to be careful and ensure that 
-                // the ordering is consistent. Therefore we store here 
-                // a key == P4EST_FACES * halo_id + face_id 
-                // and later compute receive buffer indices by sorting those keys 
-                {
-                    face_key_t key ;
-                    key.desc = &face ; 
-                    key.rank = r ;
-                    key.key = face.data.full.quad_id * P4EST_FACES + f_c ; 
-                    halo_face_keys.push_back(key) ; 
-                }
-
-            } /* face not hanging */
-        } /* for f .. nfaces */
-    } /* for iq .. nquads */
-    struct compare_keys {
-        bool inline operator() (face_key_t const& a, face_key_t const& b) const {
-            return a.key < b.key ;
-        }
-    } ; 
-
-    std::sort(halo_face_keys.begin(), halo_face_keys.end(), compare_keys{});
-    std::sort(mirror_face_keys.begin(), mirror_face_keys.end(), compare_keys{});
-
-    // assign recv buffer indices
-    for (auto const& hkey : halo_face_keys) {
-        GRACE_TRACE("Register halo q {} f {} from rank {} recv_id {}",
-                     hkey.key / P4EST_FACES, hkey.key % P4EST_FACES, hkey.rank, rank_recv_count_faces[hkey.rank]) ;
-        auto r = hkey.rank;
-        hkey.desc->data.full.recv_buffer_id = rank_recv_count_faces[r]++;
-        recv_rank_sizes[r] += face_size;
-        total_recv_size += face_size;
-    }
-
-    // assign send buffer indices
-    for (auto const& mkey : mirror_face_keys) {
-        GRACE_TRACE("Register mirror q {} f {} to rank {} send_id {}",
-            mkey.key/P4EST_FACES, mkey.key%P4EST_FACES, mkey.rank, rank_send_count_faces[mkey.rank]) ; 
-        auto r = mkey.rank;
-        mkey.desc->send_buffer_id = rank_send_count_faces[r]++;
-        send_rank_sizes[r] += face_size;
-        total_send_size += face_size;
-    }
-
-    GRACE_TRACE("Total send size {}, total receive size {}", total_send_size, total_recv_size) ;
-    // exclusive scan for rank offsets 
-    send_rank_offsets.resize(nproc) ; 
-    std::exclusive_scan( send_rank_sizes.begin(), send_rank_sizes.end()
-                       , send_rank_offsets.begin(), 0) ; 
-    recv_rank_offsets.resize(nproc) ; 
-    std::exclusive_scan( recv_rank_sizes.begin(), recv_rank_sizes.end()
-                       , recv_rank_offsets.begin(), 0) ;
-    /**************************/
-    _send_buffer.set_offsets(
-        send_rank_offsets, send_edge_offsets, send_corner_offsets,
-        send_cb_face_offsets, send_cb_edge_offsets, send_cb_corner_offsets
-    ) ; 
-    _send_buffer.set_strides(
-        nx,ny,nz,nvars,ngz
-    ) ; 
-    _send_buffer.realloc(total_send_size) ; 
-    /**************************/
-    _recv_buffer.set_offsets(
-        recv_rank_offsets, recv_edge_offsets, recv_corner_offsets,
-        recv_cb_face_offsets, recv_cb_edge_offsets, recv_cb_corner_offsets
-    ) ;
-    _recv_buffer.set_strides(
-        nx,ny,nz,nvars,ngz
-    ) ; 
-    _recv_buffer.realloc(total_recv_size) ;
-    /**************************/
-    GRACE_TRACE("Was it really here??");
-    Kokkos::fence() ; 
-    GRACE_TRACE("Checking send size {}, total receive size {}", _send_buffer.size(), _recv_buffer.size()) ;
-    for( int r=0; r<nproc; ++r) {
-        GRACE_TRACE("Send rank {}, offset {} size {}", r, send_rank_offsets[r], send_rank_sizes[r]) ; 
-        GRACE_TRACE("Recv rank {}, offset {} size {}", r, recv_rank_offsets[r], recv_rank_sizes[r]) ; 
-    }
-}
 
 struct gpu_task_descriptor_t {
     int8_t face_src, face_dst ; 
@@ -746,7 +636,7 @@ void amr_ghosts_impl_t::build_task_list() {
                     desc_snd.dst_is_remote = true ;
                     desc_snd.src_is_remote = false ;
                     desc_snd.qid_src = iq ;
-                    desc_snd.qid_dst = face.send_buffer_id ;
+                    desc_snd.qid_dst = face.data.full.send_buffer_id ;
                     pack_kernels[face.data.full.owner_rank].push_back(desc_snd) ; 
                     
                     // unpack from receive 

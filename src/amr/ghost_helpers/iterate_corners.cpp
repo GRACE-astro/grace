@@ -97,6 +97,8 @@ static void register_corner(
     } else {
         desc.level_diff = level_diff_t::SAME;
     }
+
+    desc.corner = s1.corner ; 
 }
 
 void grace_iterate_corners(p4est_iter_corner_info_t* info, void* user_data)
