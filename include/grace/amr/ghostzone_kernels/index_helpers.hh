@@ -239,5 +239,145 @@ struct index_transformer_t {
 
 } ; 
 
+
+KOKKOS_INLINE_FUNCTION
+int edge_to_face_dir(int face, int edge) {
+    int edge_axis = edge / 4;    // 0=x,1=y,2=z
+    int normal    = face / 2;    // 0=x,1=y,2=z
+
+    // Collect the two tangential axes
+    int t0 = (normal + 1) % 3;
+    int t1 = (normal + 2) % 3;
+
+    // Sort so j = min, k = max
+    int j_axis = t0 < t1 ? t0 : t1;
+    int k_axis = t0 < t1 ? t1 : t0;
+
+    // Now map edge axis to j/k
+    return (edge_axis == j_axis) ? 0 : 1;
+}
+
+
+template<
+     element_kind_t view_elem_kind,
+    element_kind_t cbuf_elem_kind,
+>
+struct cbuf_to_view_offsets {
+    KOKKOS_INLINE_FUNCTION
+    static void get(
+        size_t& j, size_t& k, 
+        size_t nx, size_t ngz, 
+        uint8_t ichild, 
+        uint8_t ie_v=0, uint8_t ie_c=0) const ; 
+} ; 
+
+// FACE -> FACE  
+
+template<>
+struct cbuf_to_view_offsets<element_kind_t::FACE,element_kind_t::FACE>
+{
+    KOKKOS_INLINE_FUNCTION
+    static void get(
+        size_t& j, size_t& k, 
+        size_t nx, size_t ngz, 
+        uint8_t ichild, 
+        uint8_t ie_v=0, uint8_t ie_c=0) const {
+        j = nx / 2 * ( (ichild<<0) & 1 ) ; 
+        k = nx / 2 * ( (ichild<<1) & 1 ) ; 
+    }; 
+} ; 
+
+// EDGE -> EDGE  
+
+template<>
+struct cbuf_to_view_offsets<element_kind_t::EDGE,element_kind_t::EDGE>
+{
+    KOKKOS_INLINE_FUNCTION
+    static void get(
+        size_t& j, size_t& k, 
+        size_t nx, size_t ngz, 
+        uint8_t ichild, 
+        uint8_t ie_v=0, uint8_t ie_c=0) const {
+        j = 0 ; 
+        k = nx / 2 * ( (ichild<<0) & 1 ) ; 
+    }; 
+} ; 
+
+// CORNER -> CORNER 
+
+template<>
+struct cbuf_to_view_offsets<element_kind_t::CORNER,element_kind_t::CORNER>
+{
+    KOKKOS_INLINE_FUNCTION
+    static void get(
+        size_t& j, size_t& k, 
+        size_t nx, size_t ngz, 
+        uint8_t ichild, 
+        uint8_t ie_v=0, uint8_t ie_c=0) const {
+        j = 0 ; 
+        k = 0 ; 
+    }; 
+} ;
+
+// EDGE -> FACE 
+
+template<>
+struct cbuf_to_view_offsets<element_kind_t::FACE, element_kind_t::EDGE>
+{
+    KOKKOS_INLINE_FUNCTION
+    static void get(
+        size_t& j, size_t& k, 
+        size_t nx, size_t ngz, 
+        uint8_t ichild, 
+        uint8_t ie_v=0, uint8_t ie_c=0) const 
+    {
+        // Here: iedge=0 -> edge along j-direction
+        //       iedge=1 -> edge along k-direction
+        auto const iedge = edge_to_face_dir(ie_v,ie_c) ; 
+        
+        if ( iedge == 0 ) {
+            j = ( ((ichild>>0) & 1) ? nx/2 : 0 )  ; 
+            k = nx / 2 -  ngz * ((ichild>>1) & 1) ; 
+        } else {
+            k = ( ((ichild>>0) & 1) ? nx/2 : 0 )  ; 
+            j = nx / 2 -  ngz * ((ichild>>1) & 1) ; 
+        }
+    }
+};
+
+// CORNER -> FACE 
+
+template<>
+struct cbuf_to_view_offsets<element_kind_t::FACE,element_kind_t::CORNER>
+{
+    KOKKOS_INLINE_FUNCTION
+    static void get(
+        size_t& j, size_t& k, 
+        size_t nx, size_t ngz, 
+        uint8_t ichild, 
+        uint8_t ie_v=0, uint8_t ie_c=0) const {
+        j = nx / 2 - ( (ichild<<0) & 1 ) * ngz ; 
+        k = nx / 2 - ( (ichild<<1) & 1 ) * ngz ; 
+    }; 
+} ; 
+
+// CORNER -> EDGE 
+
+template<>
+struct cbuf_to_view_offsets<element_kind_t::EDGE, element_kind_t::CORNER>
+{
+    KOKKOS_INLINE_FUNCTION
+    static void get(
+        size_t& j, size_t& k, 
+        size_t nx, size_t ngz, 
+        uint8_t ichild, 
+        uint8_t ie_v=0, uint8_t ie_c=0) const 
+    {
+        j = 0 ; 
+        k = nx / 2 -  ngz * ichild ; 
+    }
+};
+
+
 }} /* namespace grace::amr */
 #endif /* GRACE_AMR_INDEX_HELPERS_HH */

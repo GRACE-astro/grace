@@ -44,7 +44,7 @@ template<
     element_kind_t elem_kind,
     typename view_t
 >
-struct pack_k {
+struct pack_op {
     view_t src_view ; 
     ghost_array_t dest_view; 
 
@@ -55,7 +55,7 @@ struct pack_k {
 
     index_transformer_t transf ; 
 
-    pack_k(
+    pack_op(
         view_t _src_view,
         ghost_array_t _dest_view,
         Kokkos::View<size_t*> _src_qid, 
@@ -83,7 +83,6 @@ struct pack_k {
         auto const src_q  = src_qid(iq)  ; 
         auto const dest_q = dest_qid(iq) ;
 
-
         std::size_t VEC(i_a,j_a,k_a) ; 
         // phys indices 
         transf.compute_indices<elem_kind,true>(
@@ -94,14 +93,14 @@ struct pack_k {
             src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
         
     }
-
+ 
 } ; 
 
 template< 
     element_kind_t elem_kind,
     typename view_t
 >
-struct unpack_k {
+struct unpack_op {
     
     ghost_array_t src_view ; 
     view_t dest_view; 
@@ -113,7 +112,7 @@ struct unpack_k {
 
     index_transformer_t transf ; 
 
-    unpack_k(
+    unpack_op(
         ghost_array_t _src_view,
         view_t _dest_view,
         Kokkos::View<size_t*> _src_qid, 
@@ -152,6 +151,139 @@ struct unpack_k {
 
 } ; 
 
+// into / from cbufs 
+
+template< 
+    element_kind_t cbuf_elem_kind,
+    element_kind_t view_elem_kind,
+    typename view_t
+>
+struct cbuf_pack_op {
+    view_t view ; 
+    ghost_array_t ghost_view; 
+
+    readonly_view_t<std::size_t> cbu_qid, ghost_qid ; 
+    readonly_view_t<uint8_t> src_elem_view, dst_elem_view, child_id_view, view_is_cbuf;
+    
+    std::size_t rank ; 
+
+    index_transformer_t transf ; 
+
+    cbuf_pack_op(
+        cbuf_t _cbuf,
+        ghost_array_t _ghost_view,
+        Kokkos::View<size_t*> _cbu_qid, 
+        Kokkos::View<size_t*> _ghost_qid,
+        Kokkos::View<uint8_t*> _src_elem,  
+        Kokkos::View<uint8_t*> _dst_elem,  
+        Kokkos::View<uint8_t*> _child_id,
+        Kokkos::View<uint8_t*> _view_is_cbuf,    
+        VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
+        std::size_t _ngz, std::size_t _nvars, std::size_t _rank 
+    ) : view(_view)
+      , ghost_view(_ghost_view)
+      , cbu_qid(_cbu_qid)
+      , ghost_qid(_ghost_qid)
+      , src_elem_view(_src_elem)
+      , dst_elem_view(_dst_elem)
+      , child_id_view(_child_id)
+      , view_is_cbuf(_view_is_cbuf)
+      , rank(_rank)
+      , transf(VEC(_nx,_ny,_nz),_ngz)
+    { } 
+
+
+    KOKKOS_INLINE_FUNCTION 
+    void operator() (
+        std::size_t ig, VECD(std::size_t j, std::size_t k), size_t ivar, size_t iq
+    ) const 
+    {
+        auto const ie  = src_elem_view(iq) ; 
+        auto const ie_dst = dest_element_view(iq) ; 
+
+
+        auto const cbuf_q  = cbuf_qid(iq)  ; 
+        auto const ghost_q = ghost_qid(iq) ;
+
+        // we may need to offset into the source quad 
+        auto const ichild = child_id_view(iq) ; 
+        size_t j_off{0}, k_off{0} ; 
+        cbuf_to_view_offsets<view_elem_kind,cbuf_elem_kind>::get(
+            j_off, k_off, transf.nx, transf.ngz, ichild, ie_view, ie_cbuf 
+        ) ;
+        // figure out if other view is cbuf too 
+        auto const other_is_cbuf = view_is_cbuf(iq) ; 
+
+        std::size_t VEC(i_a,j_a,k_a) ; 
+        // phys indices 
+        transf.compute_indices<view_elem_kind,true>(
+            ig, VECD(j+j_off, k+k_off), i_a, j_a, k_a, ie, /*half ncells*/ other_is_cbuf 
+        ) ; 
+        
+        ghost_view.at_cbuf<cbuf_elem_kind>(ig,j,k,ivar,ghost_q,rank) = 
+            cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) ;
+        
+    }
+
+} ;
+
+template< 
+    element_kind_t elem_kind,
+    typename cbuf_t
+>
+struct cbuf_unpack_op {
+    cbuf_t cbuf ; 
+    ghost_array_t ghost_view; 
+
+    readonly_view_t<std::size_t> cbu_qid, ghost_qid ; 
+    readonly_view_t<uint8_t> dst_elem_view ;
+    
+    std::size_t rank ; 
+
+    index_transformer_t transf ; 
+
+    cbuf_unpack_op(
+        ghost_array_t _ghost_view,
+        cbuf_t _cbuf,
+        Kokkos::View<size_t*> _ghost_qid,
+        Kokkos::View<size_t*> _cbuf_qid, 
+        Kokkos::View<uint8_t*> _dst_elem,  
+        VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
+        std::size_t _ngz, std::size_t _nvars, std::size_t _rank 
+    ) : cbuf(_cbuf)
+      , ghost_view(_ghost_view)
+      , cbu_qid(_cbuf_qid)
+      , ghost_qid(_ghost_qid)
+      , dst_elem_view(_dst_elem)
+      , rank(_rank)
+      , transf(VEC(_nx,_ny,_nz),_ngz)
+    { } 
+
+
+    KOKKOS_INLINE_FUNCTION 
+    void operator() (
+        std::size_t ig, VECD(std::size_t j, std::size_t k), size_t ivar, size_t iq
+    ) const 
+    {
+        auto const ie  = dst_elem_view(iq) ; 
+
+        auto const cbuf_q  = cbuf_qid(iq)  ; 
+        auto const ghost_q = ghost_qid(iq) ;
+
+
+        std::size_t VEC(i_a,j_a,k_a) ;
+
+        // ghost indices 
+        transf.compute_indices<elem_kind,false>(
+            ig, VECD(j, k), i_a, j_a, k_a, ie, /*half ncells*/ true 
+        ) ; 
+        
+        cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) = 
+            ghost_view.at_cbuf<elem_kind>(ig,j,k,ivar,ghost_q,rank) ;
+        
+    }
+
+} ;
     
 }} /* namespace grace::amr */
 

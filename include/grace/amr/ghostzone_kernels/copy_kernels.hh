@@ -22,7 +22,7 @@
  *   
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- * 
+ *
  */
 #ifndef GRACE_AMR_BC_COPY_GHOSTZONES_HH
 #define GRACE_AMR_BC_COPY_GHOSTZONES_HH 
@@ -46,7 +46,7 @@ template<
     typename ViewA_t,
     typename ViewB_t 
 >
-struct copy_k {
+struct copy_op {
 
     ViewA_t src_view ; 
     ViewB_t dest_view; 
@@ -55,7 +55,7 @@ struct copy_k {
 
     index_transformer_t transf ; 
 
-    copy_k(
+    copy_op(
         ViewB_t _src_view,
         ViewA_t _dest_view,
         Kokkos::View<size_t*> _src_qid, Kokkos::View<size_t*> _dest_qid,
@@ -108,131 +108,6 @@ struct copy_k {
     }
 } ; 
 
-KOKKOS_INLINE_FUNCTION
-int edge_to_face_dir(int face, int edge) {
-    int edge_axis = edge / 4;    // 0=x,1=y,2=z
-    int normal    = face / 2;    // 0=x,1=y,2=z
-
-    // Collect the two tangential axes
-    int t0 = (normal + 1) % 3;
-    int t1 = (normal + 2) % 3;
-
-    // Sort so j = min, k = max
-    int j_axis = t0 < t1 ? t0 : t1;
-    int k_axis = t0 < t1 ? t1 : t0;
-
-    // Now map edge axis to j/k
-    return (edge_axis == j_axis) ? 0 : 1;
-}
-
-
-template<
-     element_kind_t view_elem_kind,
-    element_kind_t cbuf_elem_kind,
->
-struct cbuf_to_view_offsets {
-    KOKKOS_INLINE_FUNCTION
-    static void get(
-        size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const ; 
-} ; 
-
-template<>
-struct cbuf_to_view_offsets<element_kind_t::FACE,element_kind_t::FACE>
-{
-    KOKKOS_INLINE_FUNCTION
-    static void get(
-        size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const {
-        j = nx / 2 * ( (ichild<<0) & 1 ) ; 
-        k = nx / 2 * ( (ichild<<1) & 1 ) ; 
-    }; 
-} ; 
-
-template<>
-struct cbuf_to_view_offsets<element_kind_t::EDGE,element_kind_t::EDGE>
-{
-    KOKKOS_INLINE_FUNCTION
-    static void get(
-        size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const {
-        j = 0 ; 
-        k = nx / 2 * ( (ichild<<0) & 1 ) ; 
-    }; 
-} ; 
-
-template<>
-struct cbuf_to_view_offsets<element_kind_t::CORNER,element_kind_t::CORNER>
-{
-    KOKKOS_INLINE_FUNCTION
-    static void get(
-        size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const {
-        j = 0 ; 
-        k = 0 ; 
-    }; 
-} ;
-
-template<>
-struct cbuf_to_view_offsets<element_kind_t::FACE,element_kind_t::CORNER>
-{
-    KOKKOS_INLINE_FUNCTION
-    static void get(
-        size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const {
-        j = nx / 2 - ( (ichild<<0) & 1 ) * ngz ; 
-        k = nx / 2 - ( (ichild<<1) & 1 ) * ngz ; 
-    }; 
-} ; 
-
-template<>
-struct cbuf_to_view_offsets<element_kind_t::FACE, element_kind_t::EDGE>
-{
-    KOKKOS_INLINE_FUNCTION
-    static void get(
-        size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const 
-    {
-        // Here: iedge=0 -> edge along j-direction
-        //       iedge=1 -> edge along k-direction
-        auto const iedge = edge_to_face_dir(ie_v,ie_c) ; 
-        
-        if ( iedge == 0 ) {
-            j = ( ((ichild>>0) & 1) ? nx/2 : 0 )  ; 
-            k = nx / 2 -  ngz * ((ichild>>1) & 1) ; 
-        } else {
-            k = ( ((ichild>>0) & 1) ? nx/2 : 0 )  ; 
-            j = nx / 2 -  ngz * ((ichild>>1) & 1) ; 
-        }
-    }
-};
-
-template<>
-struct cbuf_to_view_offsets<element_kind_t::EDGE, element_kind_t::CORNER>
-{
-    KOKKOS_INLINE_FUNCTION
-    static void get(
-        size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const 
-    {
-        j = 0 ; 
-        k = nx / 2 -  ngz * ichild ; 
-    }
-};
 
 template< 
     element_kind_t view_elem_kind,
@@ -240,7 +115,7 @@ template<
     typename view_t,
     typename cbuf_t 
 >
-struct cbuf_copy_k {
+struct cbuf_copy_op {
 
     view_t view ; 
     cbuf_t cbuf ; 
@@ -249,7 +124,7 @@ struct cbuf_copy_k {
 
     index_transformer_t transf ; 
 
-    copy_k(
+    copy_op(
         view_t _view,
         cbuf_t _cbuf,
         Kokkos::View<size_t*> _view_qid, 
@@ -282,16 +157,19 @@ struct cbuf_copy_k {
         auto const cbuf_q = cbuf_qid(iq) ;
 
         // we need to offset into the coarse quad 
-        ichild = view_ic(iq) ; 
+        auto const ichild = view_ic(iq) ; 
         size_t j_off{0}, k_off{0} ; 
         cbuf_to_view_offsets<view_elem_kind,cbuf_elem_kind>::get(
             j_off, k_off, transf.nx, transf.ngz, ichild, ie_view, ie_cbuf 
         ) ; 
 
+        // figure out if other view is cbuf too 
+        auto const other_is_cbuf = view_is_cbuf(iq) ; 
+
         std::size_t VEC(i_a,j_a,k_a), VEC(i_b,j_b,k_b) ; 
         // copy into cbuf's gzs
         transf.compute_indices<view_elem_kind,true>(
-        ig, VECD(j + j_off, k + k_off), i_a, j_a, k_a, ie_view 
+        ig, VECD(j + j_off, k + k_off), i_a, j_a, k_a, ie_view, other_is_cbuf
         ) ; 
         transf.compute_indices<cbuf_elem_kind,false>(
             ig, VECD(j, k), 
@@ -309,7 +187,7 @@ struct cbuf_copy_k {
                 i_a, j_a, k_a, ie_cbuf, /* halved ncells */ true 
             ) ; 
             transf.compute_indices<view_elem_kind,false>(
-                ig, VECD(j + j_off, k + k_off), i_b, j_b, k_b, ie_view
+                ig, VECD(j + j_off, k + k_off), i_b, j_b, k_b, ie_view, other_is_cbuf
             ) ; 
             view(
                 VEC(i_b,j_b,k_b), ivar, view_q 
