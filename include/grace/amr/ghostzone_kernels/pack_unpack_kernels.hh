@@ -55,6 +55,10 @@ struct pack_k {
 
     index_transformer_t transf ; 
 
+    void set_data_ptr(view_alias_t alias) {
+        src_view = alias.get() ; 
+    }
+
     pack_k(
         view_t _src_view,
         ghost_array_t _dest_view,
@@ -112,6 +116,10 @@ struct unpack_k {
     std::size_t rank ; 
 
     index_transformer_t transf ; 
+
+    void set_data_ptr(view_alias_t alias) {
+        dest_view = alias.get() ; 
+    }
 
     unpack_k(
         ghost_array_t _src_view,

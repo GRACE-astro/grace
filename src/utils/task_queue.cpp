@@ -46,7 +46,7 @@ namespace grace {
 
 task_t::~task_t() = default ; 
 
-void executor::run() {
+void executor::run(view_alias_t alias) {
   while (!ready.empty() || !gpu_pending.empty() || !mpi_pending.empty()) {
 
     // 1) Dispatch ready tasks
@@ -59,19 +59,19 @@ void executor::run() {
       switch (T.kind) {
         case task_kind_t::GPU_KERNEL: {
           GRACE_TRACE("Launching GPU task {}", id);
-          static_cast<gpu_task_t&>(T).run();
+          static_cast<gpu_task_t&>(T).run(alias);
           gpu_pending.push_back(id);
           break;
         }
         case task_kind_t::MPI_TRANSFER: {
           GRACE_TRACE("Launching MPI task {}", id);
-          static_cast<mpi_task_t&>(T).run();
+          static_cast<mpi_task_t&>(T).run(alias);
           mpi_pending.push_back(id);
           break;
         }
         case task_kind_t::CPU_EXEC: {
           GRACE_TRACE("Running CPU task {}", id);
-          static_cast<cpu_task_t&>(T).run();
+          static_cast<cpu_task_t&>(T).run(alias);
           complete_and_release(id);
           break;
         }

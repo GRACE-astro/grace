@@ -55,6 +55,12 @@ struct copy_k {
 
     index_transformer_t transf ; 
 
+    void set_data_ptr(view_alias_t alias) 
+    {
+        src_view = alias.get() ; 
+        dest_view = alias.get() ; 
+    }
+
     copy_k(
         ViewB_t _src_view,
         ViewA_t _dest_view,

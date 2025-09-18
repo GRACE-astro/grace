@@ -107,6 +107,11 @@ struct face_phys_bc_k {
 
     std::size_t VEC(nx,ny,nz), ngz ; 
 
+    void set_data_ptr(view_alias_t alias) {
+        src_data = alias.get() ; 
+        dst_data = alias.get() ;
+    }
+
 
     face_phys_bc_k(
         dst_view_t _dst, src_view_t _src, 

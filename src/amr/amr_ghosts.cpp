@@ -233,7 +233,8 @@ gpu_task_t make_gpu_copy_task(
             exec_space, {0,0,0,0,0}, {ngz, nx,nx,nv, bucket.size()}
         } ; 
 
-    task._run = [functor, policy] () {
+    task._run = [functor, policy] (view_alias_t alias) mutable {
+        functor.set_data_ptr(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Copy start.") ; 
         #endif 
@@ -290,7 +291,8 @@ gpu_task_t make_gpu_phys_bc_task(
             exec_space, {0,0,0,0,0}, {ngz, nx,nx,nv, bucket.size()}
         } ;
     
-    task._run = [functor, policy] () {
+    task._run = [functor, policy] (view_alias_t alias) mutable {
+        functor.set_data_ptr(alias) ; 
         GRACE_TRACE("Fill phys start") ; 
         Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
@@ -349,7 +351,8 @@ gpu_task_t make_pack_task(
         exec_space, {0,0,0,0,0}, {ngz, nx,nx, nv, sb.size()}
     } ; 
     
-    pack_task._run = [pack_functor, pack_policy] () {
+    pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
+        pack_functor.set_data_ptr(alias) ; 
         GRACE_TRACE("Pack start.") ; 
         Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
         // TODO remove 
@@ -413,7 +416,8 @@ gpu_task_t make_unpack_task(
         exec_space, {0,0,0,0,0}, {ngz, nx,nx,nv, rb.size()}
     } ; 
     
-    unpack_task._run = [unpack_functor, unpack_policy] () {
+    unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {
+        unpack_functor.set_data_ptr(alias) ; 
         GRACE_TRACE("Unpack start.") ; 
         Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_

@@ -35,6 +35,7 @@
 #include <grace/utils/device_event.hh>
 #include <grace/utils/device_stream.hh>
 #include <grace/utils/device_stream_pool.hh>
+#include <grace/amr/ghostzone_kernels/type_helpers.hh>
 
 #include <grace/parallel/mpi_wrappers.hh>
 
@@ -45,6 +46,8 @@
 #include <deque>
 
 namespace grace {
+
+
 
 using task_id_t = std::size_t ; 
 
@@ -62,7 +65,7 @@ struct task_t {
 
     /** @brief Launch execution of the task 
      */
-    virtual void run()=0; 
+    virtual void run(view_alias_t alias)=0; 
 
     /**
      * @brief query the task for its status 
@@ -90,14 +93,14 @@ struct gpu_task_t : public task_t {
     gpu_task_t( gpu_task_t const& other) = delete ; 
     gpu_task_t( gpu_task_t && other ) = default ; 
 
-    void run() override {
+    void run(view_alias_t alias) override {
         // note need to remember to reset event and attach it to stream where kernel is running 
         // INSIDE _run 
         ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
         ASSERT( stream != nullptr, "Attempting to run on a null stream") ; 
         status = status_id_t::RUNNING ; 
         dev_event.reset() ; 
-        _run() ; 
+        _run(alias) ; 
         dev_event.record(*stream) ; 
     }
 
@@ -118,7 +121,7 @@ struct gpu_task_t : public task_t {
     grace::device_stream_t* stream ; 
 
     //! The task itself 
-    std::function<void()> _run ; 
+    std::function<void(view_alias_t)> _run ; 
 } ; 
 
 struct mpi_task_t : public task_t {
@@ -132,7 +135,7 @@ struct mpi_task_t : public task_t {
     mpi_task_t( mpi_task_t const& other) = delete ; 
     mpi_task_t( mpi_task_t && other ) = default ; 
 
-    void run() override {
+    void run(view_alias_t alias) override {
         ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
         status = status_id_t::RUNNING ; 
         _run(&mpi_req) ; 
@@ -168,7 +171,7 @@ struct cpu_task_t : public task_t {
       status = status_id_t::WAITING ; 
     }
 
-    void run() override {
+    void run(view_alias_t alias) override {
         ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
         status = status_id_t::RUNNING ; 
         _run() ; 
@@ -222,7 +225,7 @@ struct executor {
   /** 
   * @brief Run task queue represented in runtime_task_view 
   */
-  void run() ; 
+  void run(view_alias_t alias) ; 
 
   /** 
   * @brief Complete a task and notify dependents 

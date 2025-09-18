@@ -65,7 +65,7 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
 
     auto& ghost = grace::amr_ghosts::get() ; 
     auto& halo_executor = ghost.get_task_executor() ; 
-    halo_executor.run() ; 
+    halo_executor.run(view_alias_t{&vars}) ; 
     halo_executor.reset();
 
     parallel::mpi_barrier() ; 
