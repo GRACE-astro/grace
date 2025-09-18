@@ -38,7 +38,6 @@
 #include <grace/utils/lifetime_tracker.hh>
 
 #include <grace/amr/amr_ghosts.hh>
-#include <grace/amr/bc_helpers.tpp>
 #include <grace/amr/amr_functions.hh>
 #include <grace/amr/p4est_headers.hh>
 #include <grace/amr/ghostzone_kernels/copy_kernels.hh>

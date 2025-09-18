@@ -35,7 +35,6 @@ find_package(ZLIB REQUIRED)
 include(setup_kokkos)
 #include(setup_gsl)
 include(setup_yaml)
-include(setup_vtk)
 include(setup_spdlog)
 include(setup_HDF5)
 

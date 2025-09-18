@@ -25,8 +25,12 @@
  * 
  */
 
+#include <grace_config.h>
+
 #include <grace/IO/hdf5_output.hh>
+#ifdef GRACE_ENABLE_VTK
 #include <grace/IO/vtk_output.hh>
+#endif 
 #include <grace/config/config_parser.hh>
 
 namespace grace { namespace IO {
@@ -46,7 +50,11 @@ void write_cell_output(bool volume_output, bool surface_output_plane, bool surfa
     if( output_hdf5 ) {
         write_cell_data_hdf5(volume_output,surface_output_plane,surface_output_sphere) ; 
     } else {
+        #ifdef GRACE_ENABLE_VTK
         write_cell_data_vtk(volume_output,surface_output_plane,surface_output_sphere) ;
+        #else 
+        ERROR("VTK output requested but GRACE was not compiled with VTK support, please enable via GRACE_ENABLE_VTK.") ; 
+        #endif 
     }
 }
 

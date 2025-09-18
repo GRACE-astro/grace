@@ -36,69 +36,7 @@
 #include <set> 
 
 namespace grace { namespace amr {
-/**
- * @brief Struct containing information about
- *        a simple interior face.
- * \ingroup amr
- */
-struct simple_face_info_t 
-{
-    int has_polarity_flip;
-    int is_ghost     ; 
-    int which_face_a ; 
-    int which_face_b ; 
-    int64_t qid_a    ;
-    int64_t qid_b    ; 
-    int which_tree_a ; 
-    int which_tree_b ; 
 
-} ; 
-/**
- * @brief Struct containing information about a 
- *        hanging interior face.
- * \ingroup amr
- */
-struct hanging_face_info_t 
-{
-    int has_polarity_flip;
-    int level_coarse       ;
-    int level_fine         ; 
-    int8_t which_face_coarse ; 
-    int8_t which_face_fine   ; 
-    int which_tree_coarse ; 
-    int which_tree_fine   ;
-    int8_t is_ghost_coarse ;
-    int8_t is_ghost_fine[P4EST_CHILDREN/2] ; 
-    int64_t qid_coarse ; 
-    int64_t qid_fine[P4EST_CHILDREN/2] ; 
-} ; 
-/**
- * @brief Struct containing the information about 
- *        the coarse quadrants touching hanging faces.
- * \ingroup amr
- */
-struct hanging_coarse_quadrant_info_t 
-{
-    std::vector<int64_t> snd_quadid ; 
-    std::vector<std::set<int>>     snd_procid ; 
-    std::vector<int64_t> rcv_quadid ; 
-    std::vector<int>     rcv_procid ; 
-} ; 
-/**
- * @brief The user data passed to <code>p4est_iterate</code>
- * \ingroup amr
- * This struct holds all the necessary information to apply 
- * boundary conditions and fill ghostzones.
- */
-struct grace_face_info_t 
-{
-    int n_hanging_ghost_faces{0}; 
-    int n_simple_ghost_faces{0} ;
-    Kokkos::vector<int64_t>             phys_boundary_info        ;
-    Kokkos::vector<simple_face_info_t>  simple_interior_info      ; 
-    Kokkos::vector<hanging_face_info_t> hanging_interior_info     ; 
-    hanging_coarse_quadrant_info_t      coarse_hanging_quads_info ;  
-} ; 
 /**
  * @brief Apply all boundary conditions and fill ghostzones on state array.
  * \ingroup amr

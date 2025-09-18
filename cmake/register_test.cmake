@@ -85,7 +85,6 @@ function(add_grace_test target_name source_file)
     OpenMP::OpenMP_CXX
     p4est::sc
     p4est::p4est 
-    VTK::VTK 
     spdlog::spdlog
     ZLIB::ZLIB
     HDF5::HDF5

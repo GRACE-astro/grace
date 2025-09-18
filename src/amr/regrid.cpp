@@ -26,7 +26,6 @@
  */
 
 #include <Kokkos_Core.hpp>
-#include <Kokkos_Vector.hpp>
 
 #include <grace/amr/regrid.hh>
 #include <grace/amr/regridding_policy_kernels.tpp> 
@@ -41,6 +40,7 @@
 #include <grace/utils/prolongation.hh>
 #include <grace/utils/limiters.hh>
 #include <grace/amr/amr_ghosts.hh>
+#include <grace/utils/device_vector.hh>
 
 
 namespace grace { namespace amr { 
@@ -184,8 +184,8 @@ void regrid() {
     /*                      Collect indices of outgoing and incoming                          */
     /*                      quadrants in their respective z-ordering.                         */
     /******************************************************************************************/
-    Kokkos::vector<int,default_space> refine_incoming, coarsen_incoming ;
-    Kokkos::vector<int,default_space> refine_outgoing, coarsen_outgoing ; 
+    grace::device_vector<int> refine_incoming, coarsen_incoming ;
+    grace::device_vector<int> refine_outgoing, coarsen_outgoing ; 
     unsigned long iq_new{0UL}, iq_old{0UL} ;  
     while(iq_new < nq_new)
     {       

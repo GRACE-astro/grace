@@ -52,6 +52,8 @@ namespace grace {
 
 #cmakedefine GRACE_ENABLE_PROFILING
 
+#cmakedefine GRACE_ENABLE_VTK
+
 #define GRACE_BANNER                                                          \
 "                                                                           \n" \
 "                                                                           \n" \
