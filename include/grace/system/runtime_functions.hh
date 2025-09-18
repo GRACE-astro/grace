@@ -73,6 +73,8 @@ void set_timestep(double const& _new_dt ) ;
  * @return double The timestep size.
  */
 double get_timestep() ;
+
+bool check_termination_condition() ; 
 }
 
 #endif 

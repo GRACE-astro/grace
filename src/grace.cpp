@@ -92,7 +92,6 @@ int main(int argc, char* argv[])
     grace::IO::info_output() ;
     /**********************************************************************************/
     /**********************************************************************************/
-    double final_time = grace::get_param<double>("evolution","final_time") ; 
     int64_t regrid_every = grace::get_param<int64_t>("amr","regrid_every") ;  
     int64_t volume_output_every = grace::get_param<int64_t>("IO","volume_output_every") ;
     int64_t plane_surface_output_every = 
@@ -110,7 +109,7 @@ int main(int argc, char* argv[])
     /**********************************************************************************/
     /*                           Evolution loop                                       */
     /**********************************************************************************/
-    while( grace::get_simulation_time() < final_time ) 
+    while( ! grace::check_termination_condition() ) 
     {   
         /**********************************************************************************/
         if(tstep_mode == "automatic"){
