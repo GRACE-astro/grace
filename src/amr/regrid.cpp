@@ -40,6 +40,8 @@
 #include <grace/config/config_parser.hh>
 #include <grace/utils/prolongation.hh>
 #include <grace/utils/limiters.hh>
+#include <grace/amr/amr_ghosts.hh>
+
 
 namespace grace { namespace amr { 
 
@@ -405,6 +407,12 @@ void regrid() {
     /*                         Reset quadrants to default state                               */
     /******************************************************************************************/
     set_quadrants_to_default(); 
+
+    /******************************************************************************************/
+    /*                         Reset Ghostzones to default state                               */
+    /******************************************************************************************/
+    auto& ghost = grace::amr_ghosts::get() ; 
+    ghost.update() ;
     /******************************************************************************************/
     /*                                      All done                                          */
     /******************************************************************************************/
