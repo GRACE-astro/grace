@@ -1,8 +1,11 @@
 evolution: {
   time_stepper: "euler",
   cfl_factor: 1.,
-  final_time: 2.,
   reset_id_after_regrid: false,
   timestep_selection_mode: "automatic",
-  timestep: 0.1
+  timestep: 0.1,
+  termination_condition: "time",
+  final_time: 2.,
+  final_iteration: 100,
+  final_walltime: 24
 }

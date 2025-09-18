@@ -70,4 +70,19 @@ double get_timestep() {
     return grace::runtime::get().timestep() ; 
 }
 
+bool check_termination_condition()
+{
+    auto& runtime = grace::runtime::get() ; 
+    auto term_cnd = runtime.termination_condition() ; 
+    switch (term_cnd) {
+        case terminate::ITERATION: 
+        return runtime.iteration() >= runtime.max_iteration() ; 
+        case terminate::TIME:
+        return runtime.time() > runtime.max_time() ; 
+        case terminate::WALLTIME:
+        return runtime.elapsed()/3600 > runtime.max_walltime() ; 
+        default:
+        ERROR("Unrecognized termination condition.") ; 
+    }
+}
 } /* namespace */ 

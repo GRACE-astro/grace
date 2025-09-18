@@ -52,6 +52,8 @@
 
 namespace grace {
 
+enum terminate : uint8_t {ITERATION, TIME, WALLTIME} ; 
+
 class grace_runtime_impl_t 
 {
  private:
@@ -122,8 +124,28 @@ class grace_runtime_impl_t
     double _time, _dt ; 
     /* total walltime clock */
     spdlog::stopwatch _walltime ; 
+    /* termination condition */
+    terminate _term_cnd ; 
+    /* max iter */
+    size_t _max_iter ; 
+    /* max time */
+    double _max_time ; 
+    /* max walltime */
+    double _max_walltime ; 
  public: 
     
+    terminate GRACE_ALWAYS_INLINE
+    termination_condition() const {return _term_cnd; }
+
+    size_t GRACE_ALWAYS_INLINE
+    max_iteration() const {return _max_iter; }
+
+    double GRACE_ALWAYS_INLINE
+    max_walltime() const {return _max_walltime;} 
+
+    double GRACE_ALWAYS_INLINE
+    max_time() const {return _max_time;} 
+
     size_t GRACE_ALWAYS_INLINE 
     iteration() const { return _iter ; }
 
@@ -791,6 +813,22 @@ class grace_runtime_impl_t
                 }    
             }
         }
+
+        auto const term_cnd = params["evolution"]["termination_condition"].as<std::string>() ; 
+        if ( term_cnd == "time" ) {
+            _term_cnd = terminate::TIME ; 
+        } else if ( term_cnd == "iteration" ) {
+            _term_cnd = terminate::ITERATION ; 
+        } else if ( term_cnd == "walltime" ) {
+            _term_cnd = terminate::WALLTIME ; 
+        } else {
+            ERROR("Unrecognized termination condition, please choose one of 'time', 'iteration' and 'walltime'."); 
+        }
+
+        _max_time = grace::get_param<double>("evolution","final_time") ; 
+        _max_walltime = grace::get_param<double>("evolution","final_walltime") ; 
+        _max_iter = grace::get_param<size_t>("evolution","final_iteration") ; 
+
     }
     ~grace_runtime_impl_t() {} 
 
