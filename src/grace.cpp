@@ -83,8 +83,8 @@ int main(int argc, char* argv[])
             }
         }
     }
-    
-    grace::IO::write_cell_output(true,true,true) ;
+    if ( grace::get_param<bool>("IO","do_initial_output") )
+        grace::IO::write_cell_output(true,true,true) ;
     grace::IO::compute_reductions() ; 
     grace::IO::initialize_output_files() ; 
     grace::IO::write_scalar_output() ;
