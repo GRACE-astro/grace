@@ -131,7 +131,7 @@ struct face_phys_bc_k {
         auto face_id = face(iq) ; 
         auto quad_id = qid(iq)  ; 
         auto bc_kind = var_bcs(iv) ; 
-        auto faceb2 = face_id / 2 ; 
+        uint8_t faceb2 = face_id / 2 ; 
 
         int8_t const dir[] = {
             static_cast<int8_t>((face_id == 0) ? -1 : (face_id == 1 ? +1 : 0)),
@@ -169,9 +169,9 @@ struct face_phys_bc_k {
  
         for (size_t ig = lmin; ig != lmax; ig += idir) {
             // Reconstruct full 3D index depending on face orientation
-            auto const I = (faceb2 == 0) ? ig : j;
-            auto const J = (faceb2 == 1) ? ig : (faceb2 == 0 ? j : k);
-            auto const K = (faceb2 == 2) ? ig : k;
+            auto const I = (faceb2 == 0) ? ig : j + ngz ;
+            auto const J = (faceb2 == 1) ? ig : (faceb2 == 0 ? j + ngz : k + ngz) ;
+            auto const K = (faceb2 == 2) ? ig : k + ngz ;
 
             switch (bc_kind) {
                 case BC_OUTFLOW:
