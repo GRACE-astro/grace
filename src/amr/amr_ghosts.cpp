@@ -53,7 +53,7 @@
 #include <vector>
 #include <numeric>
 
-#define INSERT_FENCE_DEBUG_TASKS_ 
+//#define INSERT_FENCE_DEBUG_TASKS_ 
 
 namespace grace {
 
