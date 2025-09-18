@@ -52,8 +52,9 @@
 #include <grace/data_structures/variables.hh>
 
 #include <grace/system/print.hh>
+#ifdef GRACE_ENABLE_VTK
 #include <grace/IO/vtk_output_auxiliaries.hh>
-
+#endif 
 #include <grace/physics/eos/eos_storage.hh>
 
 #include <spdlog/spdlog.h>
@@ -213,7 +214,9 @@ void initialize(int& argc, char* argv[])
         ,   grace::variable_list::get().getspacings()
         ,   grace::variable_list::get().getvolumes()
         ,   grace::variable_list::get().getstaggeredcoords() ) ;
+    #ifdef GRACE_ENABLE_VTK
     grace::IO::detail::init_auxiliaries()  ;
+    #endif 
     grace::eos::initialize() ;
     grace::amr_ghosts::initialize() ; 
     auto& ghost = grace::amr_ghosts::get() ; 

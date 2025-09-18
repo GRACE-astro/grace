@@ -45,6 +45,7 @@
 #include <grace/data_structures/variable_properties.hh>
 
 #include <grace/amr/p4est_headers.hh>
+#include <grace/amr/forest.hh>
 #include <grace/amr/ghostzone_kernels/ghost_array.hh>
 
 #include <Kokkos_Core.hpp>
