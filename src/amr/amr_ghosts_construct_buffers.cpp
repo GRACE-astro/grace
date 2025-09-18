@@ -54,7 +54,7 @@
 #include <vector>
 #include <numeric>
 #include <variant> 
-
+#include <set> 
 namespace grace {
 
 enum sec_t : uint8_t {FACE=0, EDGE=1, CORNER=2, CBFACE=3, CBEDGE=4, CBCORNER=5} ; 
@@ -166,10 +166,6 @@ void process_key_arrays(
             ) ; 
 
             if (inserted) ++count; 
-
-            if (key.kind == CORNER) {
-                GRACE_TRACE("Send corner rank {}, inserted {} qid {}, eid", key.rank, inserted, key.quad_id, key.elem_id) ; 
-            }
 
             register_index(
                 key.desc, key.elem_slot, it->second, true /*send*/
@@ -392,13 +388,19 @@ void amr_ghosts_impl_t::build_remote_buffers() {
     arr_svec_t send_sizes, recv_sizes ; 
     init_arr(send_sizes);
     init_arr(recv_sizes) ; 
-
+    std::set<size_t> active_send, active_recv ; ; 
     for( int r=0; r<nproc; ++r) {
         for( int ik=0; ik<6; ++ik) {
             send_sizes[ik][r] = elem_sizes[ik] * rank_send_counts[ik][r] ; 
             send_rank_sizes[r] += send_sizes[ik][r] ; 
             recv_sizes[ik][r] = elem_sizes[ik] * rank_recv_counts[ik][r] ; 
-            recv_rank_sizes[r] += recv_sizes[ik][r] ; 
+            recv_rank_sizes[r] += recv_sizes[ik][r] ;
+	    if ( send_sizes[ik][r] > 0 ) {
+	      active_send.insert(r) ; 
+	    }
+	    if ( recv_sizes[ik][r] > 0 ) {
+	      active_recv.insert(r) ; 
+	    }
         }
     }
 
@@ -458,7 +460,14 @@ void amr_ghosts_impl_t::build_remote_buffers() {
         recv_rank_offsets, recv_offsets
     ) ; 
     _recv_buffer.set_strides(nx,ny,nz,nvars,ngz);
-    _recv_buffer.realloc(total_recv_size) ; 
+    _recv_buffer.realloc(total_recv_size) ;
+
+    GRACE_INFO("Setup of remote buffers complete, total send/recv size [MB] {}/{}, avg message size per rank [MB] {}/{}",
+           sizeof(double)*total_send_size/1e06,
+           sizeof(double)*total_recv_size/1e06,
+           sizeof(double)*total_send_size/1e06/active_send.size(),
+           sizeof(double)*total_recv_size/1e06/active_recv.size() );
+
 }
 
 } /* namespace grace */
