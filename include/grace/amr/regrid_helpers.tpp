@@ -37,9 +37,9 @@
 #include <grace/amr/regridding_policy_kernels.tpp>
 
 #include <grace/utils/interpolators.hh>
+#include <grace/utils/device_vector.hh>
 
 #include <Kokkos_Core.hpp>
-#include <Kokkos_Vector.hpp>
 
 namespace grace { namespace amr {
 
@@ -150,8 +150,8 @@ void prolongate_variables(    InViewT  in_state
                             , CoordViewT in_coords  
                             , VolViewT   out_vol 
                             , VolViewT   in_vol  
-                            , Kokkos::vector<int,grace::default_space>& in_idx 
-                            , Kokkos::vector<int,grace::default_space>& out_idx ) 
+                            , grace::device_vector<int>& in_idx 
+                            , grace::device_vector<int>& out_idx ) 
 {  
     using namespace grace ; 
     using namespace Kokkos  ; 
@@ -219,8 +219,8 @@ void restrict_variables(      InViewT  in_state
                             , OutViewT out_state
                             , VolViewT out_vol 
                             , VolViewT in_vol   
-                            , Kokkos::vector<int, grace::default_space>& in_idx 
-                            , Kokkos::vector<int, grace::default_space>& out_idx )  
+                            , grace::device_vector<int>& in_idx 
+                            , grace::device_vector<int>& out_idx )  
 {
     using namespace grace ; 
     size_t nx,ny,nz ; 
