@@ -28,8 +28,8 @@
 #ifndef GRACE_UTILS_DEVICE_VECTOR_HH
 #define GRACE_UTILS_DEVICE_VECTOR_HH
 
-#include <grace/utils/device.hh>
-#include <grace/utils/inline.hh>
+#include <grace/utils/device.h>
+#include <grace/utils/inline.h>
 #include <grace/utils/iterator.hh>
 #include <grace/utils/type_name.hh> 
 #include <grace/data_structures/memory_defaults.hh>

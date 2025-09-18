@@ -30,8 +30,6 @@
 
 #include <grace/data_structures/variable_properties.hh>
 
-#include <Kokkos_Vector.hpp>
-
 #include <vector> 
 #include <set> 
 

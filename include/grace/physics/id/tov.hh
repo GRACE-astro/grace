@@ -318,7 +318,8 @@
          int npoints 
      ) 
      {
-         typename decltype(r)::HostMirror integrand("r_iso_integrand", npoints) ; 
+       auto r_h = Kokkos::create_mirror_view(r) ; 
+         decltype(r_h) integrand("r_iso_integrand", npoints) ; 
          auto h_r        = Kokkos::create_mirror_view(r) ; 
          auto h_m        = Kokkos::create_mirror_view(mass) ; 
          Kokkos::deep_copy(h_r,r) ; Kokkos::deep_copy(h_m, mass) ;

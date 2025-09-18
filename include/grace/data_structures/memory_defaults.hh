@@ -107,6 +107,28 @@ deep_copy_vec_to_const_view(ViewT& view, std::vector<T> const& vec)
     view = ViewT(d_view) ;
 }
 //*****************************************************************************************************
+  /**
+ * @brief Deep copy a <code>std::vector<T></code> to a <code>Kokkos::View<T*></code> on device
+ * \ingroup utils
+ * @tparam ViewT Type of the View
+ * @tparam T     Data type
+ * @param vec   Vector where the data will be copied
+ * @param view  View from which the data will be copied 
+ */
+template< typename ViewT
+        , typename T >
+static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+deep_copy_view_to_vec(std::vector<T> const& vec, ViewT view)
+{
+    static_assert(std::is_same_v<T,typename ViewT::value_type>
+                 , "In deep_copy_vec_to_view: data types mismatch.") ;
+    static_assert( ViewT::rank() == 1
+                 , "In deep_copy_vec_to_view: view must have rank 1.") ;
+    vec.resize(view.extent(0)) ; 
+    auto h_view = Kokkos::create_mirror_view(view) ; 
+    Kokkos::deep_copy(h_view,view) ; 
+    for(int i=0; i<vec.size(); ++i) vec[i] = h_view(i) ; 
+}
 } /* namespace grace */
 
 #endif /* B8F66784_D4E4_4051_84B1_B8AFB588A053 */
