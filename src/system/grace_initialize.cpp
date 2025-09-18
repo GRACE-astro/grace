@@ -216,6 +216,8 @@ void initialize(int& argc, char* argv[])
     grace::IO::detail::init_auxiliaries()  ;
     grace::eos::initialize() ;
     grace::amr_ghosts::initialize() ; 
+    auto& ghost = grace::amr_ghosts::get() ; 
+    ghost.update() ; 
     GRACE_INFO("Initialization done.");
     GRACE_INFO("GRACE running on {} backend", GRACE_BACKEND) ; 
     //GRACE_INFO("GRACE running on {} total devices.", Kokkos::num_devices() ) ; 

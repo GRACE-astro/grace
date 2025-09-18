@@ -35,6 +35,7 @@
 #include <grace/amr/regrid_helpers.tpp>
 #include <grace/amr/regrid_helpers.hh>
 #include <grace/amr/amr_functions.hh>
+#include <grace/amr/amr_ghosts.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/config/config_parser.hh>
@@ -405,6 +406,11 @@ void regrid() {
     /*                         Reset quadrants to default state                               */
     /******************************************************************************************/
     set_quadrants_to_default(); 
+    /******************************************************************************************/
+    /*                         Reset Ghostzones to default state                               */
+    /******************************************************************************************/
+    auto& ghost = grace::amr_ghosts::get() ; 
+    ghost.update() ;
     /******************************************************************************************/
     /*                                      All done                                          */
     /******************************************************************************************/
