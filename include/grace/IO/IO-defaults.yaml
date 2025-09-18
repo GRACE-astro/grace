@@ -8,6 +8,8 @@ IO: {
   scalar_output_every: 10,
   info_output_every: 10,
 
+  do_initial_output: true,
+
   info_output_max_reductions: [],
   info_output_min_reductions: [],
   info_output_norm2_reductions: [],
