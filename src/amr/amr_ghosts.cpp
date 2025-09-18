@@ -590,7 +590,9 @@ void amr_ghosts_impl_t::build_task_list() {
     std::vector<task_bucket_t> pack_kernels, unpack_kernels ; 
     pack_kernels.resize(nproc);
     unpack_kernels.resize(nproc) ;  
-
+    /***********************************************************************/
+    size_t num_local_faces {0UL} ; 
+    size_t num_local_kernels {0UL} ; 
     for( size_t iq=0UL; iq<nq; iq+=1UL) {
         for (uint8_t f = 0; f < P4EST_FACES; ++f) {
             auto& face = ghost_layer[iq].faces[f] ; 
@@ -667,6 +669,8 @@ void amr_ghosts_impl_t::build_task_list() {
                     desc.qid_src = iq ;
                     desc.qid_dst = face.data.full.quad_id ;
                     copy_kernels.push_back(desc) ; 
+
+                    num_local_faces++ ; 
                     
                     if (copy_kernels.size() >= BATCH_N_KERNELS) {
                         task_list.push_back(
@@ -681,6 +685,7 @@ void amr_ghosts_impl_t::build_task_list() {
                             )
                         ) ; 
                         copy_kernels.clear(); 
+                        num_local_kernels++ ; 
                     }
                 }
             }
@@ -701,7 +706,6 @@ void amr_ghosts_impl_t::build_task_list() {
         VEC(nx,ny,nz), ngz, nvars, 
         task_counter, task_list 
     ) ; 
-
 
     // flush any remaining kernels 
     // that did not make the cut 
@@ -735,7 +739,7 @@ void amr_ghosts_impl_t::build_task_list() {
         ) ;
         phys_bc_kernels.clear();
     }
-
+    GRACE_INFO("Registered {} kernels to copy {} internal faces.", num_local_faces, num_local_kernels) ; 
 }
 
 } /* namespace grace */
