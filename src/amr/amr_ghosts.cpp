@@ -180,7 +180,7 @@ void amr_ghosts_impl_t::build_executor_runtime() {
 
 
 struct gpu_task_descriptor_t {
-    int8_t face_src, face_dst ; 
+    int8_t elem_src, elem_dst ; 
     std::size_t dst_offset, src_offset; 
     std::size_t qid_src, qid_dst ; 
     bool dst_is_remote, src_is_remote ;  
@@ -190,7 +190,7 @@ using task_bucket_t = std::vector<
     gpu_task_descriptor_t 
 > ; 
 
-template< typename view_t >
+template< amr::element_kind_t elem_kind, typename view_t >
 gpu_task_t make_gpu_copy_task(
       task_bucket_t const& bucket
     , view_t data 
@@ -204,27 +204,27 @@ gpu_task_t make_gpu_copy_task(
     GRACE_TRACE("Recording GPU-copy task (tid {}). Number of faces processed {}.", task_counter, bucket.size()) ; 
     Kokkos::View<size_t*> src_qid{"src_qid", bucket.size()}
                         , dst_qid{"dst_qid", bucket.size()} ; 
-    Kokkos::View<uint8_t*> src_face{"src_face", bucket.size()}
-                     , dst_face{"dst_face", bucket.size()}  ;
+    Kokkos::View<uint8_t*> src_elem{"src_elem_id", bucket.size()}
+                         , dst_elem{"dst_elem_id", bucket.size()}  ;
     auto src_qid_h = Kokkos::create_mirror_view(src_qid) ; 
     auto dst_qid_h = Kokkos::create_mirror_view(dst_qid) ; 
-    auto src_face_h = Kokkos::create_mirror_view(src_face) ; 
-    auto dst_face_h = Kokkos::create_mirror_view(dst_face) ; 
+    auto src_face_h = Kokkos::create_mirror_view(src_elem) ; 
+    auto dst_face_h = Kokkos::create_mirror_view(dst_elem) ; 
     int i{0} ; 
     for( auto const& d: bucket ) {
         src_qid_h(i) = d.qid_src; dst_qid_h(i) = d.qid_dst ; 
-        src_face_h(i) = d.face_src; dst_face_h(i) = d.face_dst ; 
+        src_elem_h(i) = d.elem_src; dst_elem_h(i) = d.elem_dst ; 
         i++ ; 
     }
     Kokkos::deep_copy(src_qid,src_qid_h) ; 
     Kokkos::deep_copy(dst_qid,dst_qid_h) ; 
-    Kokkos::deep_copy(src_face,src_face_h) ; 
-    Kokkos::deep_copy(dst_face,dst_face_h) ; 
+    Kokkos::deep_copy(src_elem,src_elem_h) ; 
+    Kokkos::deep_copy(dst_elem,dst_elem_h) ; 
 
     gpu_task_t task{} ;
 
-    copy_k<amr::element_kind_t::FACE,true,decltype(data),decltype(data)> functor{
-        data, data, src_qid, dst_qid, src_face, dst_face, VEC(nx,ny,nz), ngz
+    copy_k<elem_kind,true,decltype(data),decltype(data)> functor{
+        data, data, src_qid, dst_qid, src_elem, dst_elem, VEC(nx,ny,nz), ngz
     } ; 
     
     Kokkos::DefaultExecutionSpace exec_space{stream} ; 
@@ -305,7 +305,7 @@ gpu_task_t make_gpu_phys_bc_task(
     return std::move(task) ; 
 }
 
-template< typename view_t >
+template< amr::element_kind_t elem_kind, typename view_t >
 gpu_task_t make_pack_task(
       task_bucket_t const& sb
     , size_t rank 
@@ -324,25 +324,25 @@ gpu_task_t make_pack_task(
     Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
     Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
                         , pack_dest_qid{"pack_dst_qid", sb.size()} ; 
-    Kokkos::View<uint8_t*> pack_src_face{"pack_src_fid", sb.size()}  ;
+    Kokkos::View<uint8_t*> pack_src_elem{"unpack_dst_eid", sb.size()}  ;
     auto pack_src_qid_h = Kokkos::create_mirror_view(pack_src_qid) ; 
     auto pack_dst_qid_h = Kokkos::create_mirror_view(pack_dest_qid) ; 
-    auto pack_src_face_h =  Kokkos::create_mirror_view(pack_src_face) ; 
+    auto pack_src_elem_h =  Kokkos::create_mirror_view(pack_src_elem) ; 
     size_t i{0UL} ; 
     for( auto const& d: sb ) {
         pack_src_qid_h(i) = d.qid_src ; 
         pack_dst_qid_h(i) = d.qid_dst ; 
-        pack_src_face_h(i) = d.face_src ; 
+        pack_src_elem_h(i) = d.elem_src ; 
         i += 1UL ; 
     }
     Kokkos::deep_copy(pack_src_qid,pack_src_qid_h)   ; 
     Kokkos::deep_copy(pack_dest_qid,pack_dst_qid_h)  ;  
-    Kokkos::deep_copy(pack_src_face,pack_src_face_h) ;
+    Kokkos::deep_copy(pack_src_elem,pack_src_elem_h) ;
 
     gpu_task_t pack_task{} ;
 
-    amr::pack_k<amr::element_kind_t::FACE,decltype(data)> pack_functor {
-        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_face, VEC(nx,ny,nz), ngz, nv, rank
+    amr::pack_k<elem_kind,decltype(data)> pack_functor {
+        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank
     } ; 
 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
@@ -367,7 +367,7 @@ gpu_task_t make_pack_task(
     return pack_task ; 
 }
 
-template< typename view_t >
+template< amr::element_kind_t elem_kind, typename view_t >
 gpu_task_t make_unpack_task(
       task_bucket_t const& rb
     , size_t rank
@@ -386,27 +386,27 @@ gpu_task_t make_unpack_task(
     Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
     Kokkos::View<size_t*> unpack_src_qid{"unpack_src_qid", rb.size()}
                             , unpack_dest_qid{"unpack_dst_qid", rb.size()} ; 
-    Kokkos::View<uint8_t*> unpack_dest_face{"unpack_src_fid", rb.size()}  ;
+    Kokkos::View<uint8_t*> unpack_dest_elem{"unpack_src_eid", rb.size()}  ;
     auto unpack_src_qid_h = Kokkos::create_mirror_view(unpack_src_qid) ; 
     auto unpack_dst_qid_h = Kokkos::create_mirror_view(unpack_dest_qid) ; 
-    auto unpack_dest_face_h =  Kokkos::create_mirror_view(unpack_dest_face) ; 
+    auto unpack_dest_elem_h =  Kokkos::create_mirror_view(unpack_dest_elem) ; 
     size_t i = 0UL; 
     for( auto const& d: rb ) {
         GRACE_TRACE("{}", d.qid_src);
         unpack_src_qid_h(i) = d.qid_src ; 
         unpack_dst_qid_h(i) = d.qid_dst ; 
-        unpack_dest_face_h(i) = d.face_dst ; 
+        unpack_dest_elem_h(i) = d.elem_dst ; 
         i += 1UL ; 
     }
     Kokkos::deep_copy(unpack_src_qid,unpack_src_qid_h)   ; 
     Kokkos::deep_copy(unpack_dest_qid,unpack_dst_qid_h)  ;  
-    Kokkos::deep_copy(unpack_dest_face,unpack_dest_face_h) ;
+    Kokkos::deep_copy(unpack_dest_elem,unpack_dest_elem_h) ;
 
     
     gpu_task_t unpack_task{} ;
 
-    amr::unpack_k<amr::element_kind_t::FACE,decltype(data)> unpack_functor {
-        recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_face, VEC(nx,ny,nz), ngz, nv, rank
+    amr::unpack_k<elem_kind,decltype(data)> unpack_functor {
+        recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_elem, VEC(nx,ny,nz), ngz, nv, rank
     } ; 
 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   

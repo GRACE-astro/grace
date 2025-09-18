@@ -210,26 +210,28 @@ struct index_transformer_t {
     KOKKOS_INLINE_FUNCTION
     void compute_indices(std::size_t ig, std::size_t j, std::size_t k,
                          std::size_t& i_out, std::size_t& j_out,
-                         std::size_t& k_out, int ielem) const
+                         std::size_t& k_out, int ielem, bool half_ncells=false) const
     {
-
+        size_t _nx = half_ncells ? nx / 2 : nx ; 
+        size_t _ny = half_ncells ? ny / 2 : ny ; 
+        size_t _nz = half_ncells ? nz / 2 : nz ; 
         if constexpr ( elem_kind == element_kind_t::FACE ) {
             if constexpr ( is_phys ) {
-                compute_phys_indices_face(nx,ny,nz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
+                compute_phys_indices_face(_nx,_ny,_nz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
             } else {
-                compute_ghost_indices_face(nx,ny,nz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
+                compute_ghost_indices_face(_nx,_ny,_nz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
             }
         } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
             if constexpr ( is_phys ) {
-                compute_phys_indices_edge(nx,ny,nz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
+                compute_phys_indices_edge(_nx,_ny,_nz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
             } else {
-                compute_ghost_indices_edge(nx,ny,nz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
+                compute_ghost_indices_edge(_nx,_ny,_nz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
             }
         } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
             if constexpr ( is_phys ) {
-                compute_phys_indices_corner(nx,ny,nz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
+                compute_phys_indices_corner(_nx,_ny,_nz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
             } else {
-                compute_ghost_indices_corner(nx,ny,nz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
+                compute_ghost_indices_corner(_nx,_ny,_nz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
             }
         }
     }
