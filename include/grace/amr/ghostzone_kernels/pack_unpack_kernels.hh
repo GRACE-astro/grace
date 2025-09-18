@@ -55,7 +55,11 @@ struct pack_op {
 
     index_transformer_t transf ; 
 
-    pack_op(
+    void set_data_ptr(view_alias_t alias) {
+        src_view = alias.get() ; 
+    }
+
+    pack_k(
         view_t _src_view,
         ghost_array_t _dest_view,
         Kokkos::View<size_t*> _src_qid, 
@@ -112,7 +116,11 @@ struct unpack_op {
 
     index_transformer_t transf ; 
 
-    unpack_op(
+    void set_data_ptr(view_alias_t alias) {
+        dest_view = alias.get() ; 
+    }
+
+    unpack_k(
         ghost_array_t _src_view,
         view_t _dest_view,
         Kokkos::View<size_t*> _src_qid, 

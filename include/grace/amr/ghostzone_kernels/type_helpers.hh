@@ -29,10 +29,16 @@
 
 #include <grace_config.h>
 #include <grace/data_structures/memory_defaults.hh>
+#include <grace/data_structures/variable_properties.hh>
 
 #include <Kokkos_Core.hpp>
 
 namespace grace {
+
+struct view_alias_t {
+    grace::var_array_t<GRACE_NSPACEDIM>* _view_ptr ; 
+    grace::var_array_t<GRACE_NSPACEDIM> get() {return *_view_ptr; }
+} ; 
 
 template< typename T >
 using readonly_view_t = Kokkos::View<const T*, grace::default_space, Kokkos::MemoryTraits<Kokkos::RandomAccess>> ;

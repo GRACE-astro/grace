@@ -55,7 +55,13 @@ struct copy_op {
 
     index_transformer_t transf ; 
 
-    copy_op(
+    void set_data_ptr(view_alias_t alias) 
+    {
+        src_view = alias.get() ; 
+        dest_view = alias.get() ; 
+    }
+
+    copy_k(
         ViewB_t _src_view,
         ViewA_t _dest_view,
         Kokkos::View<size_t*> _src_qid, Kokkos::View<size_t*> _dest_qid,
