@@ -67,7 +67,6 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     spdlog::stopwatch sw ; 
 
     auto& ghost = grace::amr_ghosts::get() ; 
-    ghost.update() ;
     auto& halo_executor = ghost.get_task_executor() ; 
     halo_executor.run() ; 
     halo_executor.reset();

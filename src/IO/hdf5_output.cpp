@@ -699,7 +699,7 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
                                     , Kokkos::pair<int,int>(varidx, varidx+3)
                                     , Kokkos::ALL() ) ; 
         auto policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>{
-            {0,0,0,0,0}, {nx,ny,nz,3,nq}
+            {0,0,0,0,0}, {static_cast<long>(nx),static_cast<long>(ny),static_cast<long>(nz),3,static_cast<long>(nq)}
         } ; 
         Kokkos::parallel_for("copy_to_mirror", policy, 
             KOKKOS_LAMBDA (int i, int j, int k, int iv, int q) {
