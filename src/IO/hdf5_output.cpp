@@ -698,9 +698,14 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
                                     #endif 
                                     , Kokkos::pair<int,int>(varidx, varidx+3)
                                     , Kokkos::ALL() ) ; 
-        
-        /* This deep copy operation is synchronous */
-        Kokkos::deep_copy(d_mirror, sview) ; 
+        auto policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>{
+            {0,0,0,0,0}, {nx,ny,nz,3,nq}
+        } ; 
+        Kokkos::parallel_for("copy_to_mirror", policy, 
+            KOKKOS_LAMBDA (int i, int j, int k, int iv, int q) {
+                d_mirror(iv, i,j,k,q) = sview(i,j,k,iv,q) ; 
+            }
+        ) ; 
             
         /************************************************/
         /* Transform variable to physical frame         */
