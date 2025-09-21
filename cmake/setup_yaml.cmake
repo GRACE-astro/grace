@@ -1,21 +1,31 @@
-
 if(NOT YAML_ROOT )
-set(YAML_ROOT "")
-set(YAML_ROOT "$ENV{YAML_ROOT}")
+    set(YAML_ROOT "")
+    set(YAML_ROOT "$ENV{YAML_ROOT}")
+endif()
+# Set the path to the cmake config file
+if(YAML_ROOT)
+    set(yaml-cpp_DIR "${YAML_ROOT}/lib64/cmake/yaml-cpp")
+else()
+    set(yaml-cpp_DIR "$ENV{HOME}/libs/yaml-cpp-install/lib64/cmake/yaml-cpp")
+endif()
+message(STATUS "Looking for yaml-cpp config at: ${yaml-cpp_DIR}")
+find_package( yaml-cpp REQUIRED )
+message(STATUS "yaml-cpp found: ${yaml-cpp_FOUND}")
+message(STATUS "yaml-cpp version: ${yaml-cpp_VERSION}")
+# Modern yaml-cpp provides yaml-cpp::yaml-cpp target
+if(TARGET yaml-cpp::yaml-cpp)
+    message(STATUS "Using modern yaml-cpp::yaml-cpp target")
+    add_library( yaml_cpp::yaml ALIAS yaml-cpp::yaml-cpp )
+else()
+    message(STATUS "Using legacy variables")
+    message(STATUS "yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
+    message(STATUS "yaml-cpp includes: ${YAML_CPP_INCLUDE_DIR}")
+    if( NOT TARGET yaml_cpp::yaml )
+        add_library( yaml_cpp::yaml IMPORTED INTERFACE )
+        set_property(TARGET yaml_cpp::yaml APPEND PROPERTY
+                     INTERFACE_INCLUDE_DIRECTORIES  "${YAML_CPP_INCLUDE_DIRS}")
+        set_property(TARGET yaml_cpp::yaml APPEND PROPERTY
+                     INTERFACE_LINK_LIBRARIES  "${YAML_CPP_LIBRARIES}")
+    endif()
 endif()
 
-message(STATUS "Searching path ${YAML_ROOT}")
-
-find_package( yaml-cpp REQUIRED PATHS "${YAML_ROOT}" ) 
-
-message(STATUS "yaml-cpp libraries: ${YAML_CPP_LIBRARIES}")
-message(STATUS "yaml-cpp includes: ${YAML_CPP_INCLUDE_DIR}")
-
-if( NOT TARGET yaml_cpp::yaml )
-    add_library( yaml_cpp::yaml IMPORTED INTERFACE )
-
-    set_property(TARGET yaml_cpp::yaml APPEND PROPERTY 
-                 INTERFACE_INCLUDE_DIRECTORIES  "${YAML_CPP_INCLUDE_DIRS}")
-    set_property(TARGET yaml_cpp::yaml APPEND PROPERTY 
-                 INTERFACE_LINK_LIBRARIES  "${YAML_CPP_LIBRARIES}")
-endif()

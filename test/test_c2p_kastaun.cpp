@@ -44,9 +44,11 @@
 #include <grace/physics/grmhd_helpers.hh>
 #include <grace/physics/eos/grmhd_c2p_kastaun.hh>
 
+// for the Cartesian Kerr-Schild metric
+#include <grace/physics/id/FMtorus/KerrSchild.hh>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-#include <Kokkos_Core.hpp>
+
 #include <Kokkos_Random.hpp> 
 
 #include <fstream>
@@ -56,52 +58,6 @@
 
 #define N 100
 #define DUMP_RESIDUAL_TO_FILE
-
-static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-conservs_from_prims(grace::grmhd_cons_array_t& cons, grace::grmhd_prims_array_t& prims, grace::metric_array_t const& metric)
-{
-    double const v2 = metric.square_vec({prims[VXL],prims[VYL],prims[VZL]}) ; 
-    double const alp_sqrtgamma = metric.alp() * metric.sqrtg() ;
-    double const W  = 1./Kokkos::sqrt(1-v2) ; 
-    double const u0 = W / metric.alp();
-    cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
-        
-    // note: the velocities above are the ones 
-    //================ recover b^\mu from the primitive B^i  ================ / 
-    std::array<double,4> smallb;
-
-    // comoving_magnetic_field_from_eulerian(g_\mu\nu, B^i, U^i, b^\mu);
-    get_smallb_from_eulerianB(metric, {prims[BXL],prims[BYL],prims[BZL]},
-                                      {prims[VXL],prims[VYL],prims[VZL]},
-                                       smallb
-                                        );
-    std::array<double,4> smallbD = metric.lower_4vec(smallb); 
-    double const b2 = metric.contract_4dvec_4dcovec(smallb,smallbD);
-    double const smallbt= smallb[0];
-
-    double const one_over_alp2 = 1./math::int_pow<2>(metric.alp());
-    double const rho0_h_plus_b2 = (prims[RHOL]*(1+prims[EPSL])) + prims[PRESSL] + b2 ;
-    double const alp2_sqrtgamma = math::int_pow<2>(metric.alp()) * metric.sqrtg() ;
-    double const g4uptt = -one_over_alp2 ; 
-    
-    double const P_plus_half_b2 = (prims[PRESSL] + 0.5*b2);
-    double const Tuptt = rho0_h_plus_b2 * math::int_pow<2>(u0) + P_plus_half_b2 * g4uptt - math::int_pow<2>(smallbt) ; 
-    cons[TAUL] = alp2_sqrtgamma * Tuptt - cons[DENSL] ;
-
-    /* After initialization this is the Eulerian 3-vel (not that it matters in Minkowski)*/ 
-    auto vD = metric.lower({prims[VXL],prims[VYL],prims[VZL]}) ; 
-
-    cons[STXL] = metric.sqrtg() * (rho0_h_plus_b2*math::int_pow<2>(W)*vD[0]-smallb[0]*smallbD[1]) ; 
-    cons[STYL] = metric.sqrtg() * (rho0_h_plus_b2*math::int_pow<2>(W)*vD[1]-smallb[0]*smallbD[2]) ; 
-    cons[STZL] = metric.sqrtg() * (rho0_h_plus_b2*math::int_pow<2>(W)*vD[2]-smallb[0]*smallbD[3]) ;
-    cons[YESL] = prims[YEL] * cons[DENSL] ; 
-    cons[ENTSL] = cons[DENSL] * prims[ENTL] ;
-    cons[BGXL] = metric.sqrtg() * prims[BXL];
-    cons[BGYL] = metric.sqrtg() * prims[BYL];
-    cons[BGZL] = metric.sqrtg() * prims[BZL];
-
-    return ; 
-}
 
 
 static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -144,6 +100,37 @@ static void generateRandomUnitVector(double &x, double &y, double &z) {
     z = std::cos(phi);
 }
 
+// Function to generate a random unit vector of 3 components
+static void generateRandom3DUnitVector(double &x, double &y, double &z) {
+
+    // Generate random angles for spherical coordinates
+    double theta = ((double) std::rand() / RAND_MAX) * 2.0 * M_PI; // Random angle theta in [0, 2*pi)
+    double phi = ((double) std::rand() / RAND_MAX) * M_PI;         // Random angle phi in [0, pi)
+
+    // Convert spherical coordinates to Cartesian coordinates
+    x = std::sin(phi) * std::cos(theta);
+    y = std::sin(phi) * std::sin(theta);
+    z = std::cos(phi);
+}
+
+
+
+static void findEulerian3Velocity(grace::metric_array_t const& metric,
+                                        double const& W,
+                                        double& v1, double& v2, double& v3
+                                        ){
+    generateRandom3DUnitVector(v1,v2,v3);
+    // now, we compute the norm of this vector in the true metric:
+    auto Cfactor = metric.contract_vec_covec({v1,v2,v3},
+                                            metric.lower({v1,v2,v3}));
+    auto factor = Kokkos::sqrt( (1. - 1./(W*W)) / Cfactor);
+
+    v1*=factor;
+    v2*=factor;
+    v3*=factor;
+}
+
+// note: only valid for Minkowski
 static void get_velocity_from_W(double const& W, Kokkos::View<double ***> vel) {
     double const v = Kokkos::sqrt( math::int_pow<2>(W) -  1) / W; 
     auto h_vel = Kokkos::create_mirror_view(vel) ; 
@@ -215,9 +202,8 @@ static void GRACE_DEVICE find_smallb(grace::metric_array_t const& metric ,
 
 
 template<typename eos_t>
-static void check_c2p(eos_t eos){
+static void check_c2p(eos_t eos, const grace::metric_array_t metric ){
     using namespace grace ;
-    metric_array_t minkowski_metric ({1.,0.,0.,1.,0.,1.},{0.,0.,0.},1.) ; 
         
     double const W = 2. ; 
 
@@ -229,7 +215,18 @@ static void check_c2p(eos_t eos){
     Kokkos::View<double **> d_press("press", N,N) ;
 
     fill_primitive_views(d_logrho,d_logT) ; 
-    get_velocity_from_W(W, d_vel) ; 
+    
+    // only valid for minkowski
+    // get_velocity_from_W(W, d_vel) ; 
+    auto h_vel = Kokkos::create_mirror_view(d_vel) ; 
+    // this is valid for general metrics:
+     for( int i=0; i<N;++i) { 
+        for( int j=0; j<N; ++j){
+            findEulerian3Velocity(metric, W, h_vel(i,j,0), h_vel(i,j,1), h_vel(i,j,2));
+        }
+    }
+    Kokkos::deep_copy(d_vel,h_vel) ; 
+
     double const ye = 0.1 ; 
 
     Kokkos::parallel_for("check_c2p_residual", Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0,0},{N,N}),
@@ -245,16 +242,21 @@ static void check_c2p(eos_t eos){
         prims[BYL] =0.;
         prims[BZL] =0.;
         
+        // primitive view holds coordinate 3-velocities
+        prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;
+        prims[VYL] = metric.alp()*prims[VYL] - metric.beta(1) ;
+        prims[VZL] = metric.alp()*prims[VZL] - metric.beta(2) ;
         double csnd2 ;
         unsigned int err ;  
         //double temp{0} ; 
         prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(prims[EPSL],csnd2,prims[TEMPL],prims[RHOL],prims[YEL],err) ;
 
         grmhd_cons_array_t cons ; 
-        conservs_from_prims(cons,prims,minkowski_metric) ; 
+        // conservs_from_prims(cons,prims,metric) ; 
+        prims_to_conservs(prims,cons,metric) ;
         d_eps(i,j) = cons[STYL] ;
         grmhd_prims_array_t new_prims = prims ; 
-        conservs_to_prims<eos_t, grmhd_c2p_kastaun_t>(cons,new_prims,minkowski_metric,eos,0.) ; 
+        conservs_to_prims<eos_t, grmhd_c2p_kastaun_t>(cons,new_prims,metric,eos,0.) ; 
 
         d_res(i,j) = compute_residual(new_prims,prims) ;
         d_press(i,j) = new_prims[PRESSL] ; 
@@ -303,9 +305,8 @@ static void check_c2p(eos_t eos){
 
 
 template<typename eos_t>
-static void check_c2p_mhd(eos_t eos){
+static void check_c2p_mhd(eos_t eos, const grace::metric_array_t metric){
     using namespace grace ;
-    metric_array_t minkowski_metric ({1.,0.,0.,1.,0.,1.},{0.,0.,0.},1.) ; 
         
     double const W = 50 ;  // challenging lorentz factor
     double const b2_over_rho = 100000;  // and very high magnetization 
@@ -321,7 +322,18 @@ static void check_c2p_mhd(eos_t eos){
     Kokkos::View<double*> d_bvec("bvec", 4);
 
     fill_primitive_views(d_logrho,d_logT) ; 
-    get_velocity_from_W(W, d_vel) ; 
+    // only valid for minkowski
+    // get_velocity_from_W(W, d_vel) ; 
+    auto h_vel = Kokkos::create_mirror_view(d_vel) ; 
+
+    // this is valid for general metrics:
+     for( int i=0; i<N;++i) { 
+        for( int j=0; j<N; ++j){
+            findEulerian3Velocity(metric, W, h_vel(i,j,0), h_vel(i,j,1), h_vel(i,j,2));
+        }
+    }
+    Kokkos::deep_copy(d_vel,h_vel) ; 
+
     double const ye = 0.1 ; 
 
     Kokkos::parallel_for("check_c2p_residual", Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0,0},{N,N}),
@@ -337,14 +349,14 @@ static void check_c2p_mhd(eos_t eos){
         //   i) orthogonal to u^\mu  : g_\mu\nu u^\mu b^\nu = 0
         //   ii) its norm equal to:                     b^2 = sigma * rho
 
-        find_smallb(minkowski_metric, 
+        find_smallb(metric, 
                                  {prims[VXL],prims[VYL],prims[VZL]},
                                  b2_over_rho* prims[RHOL],
                                  d_bvec);
 
         std::array<double,3> eulB;
         // now obtain the magnetic field in the Eulerian frame 
-        get_eulerianB_from_smallb(minkowski_metric,   
+        get_eulerianB_from_smallb(metric,   
                                     {d_bvec(0),d_bvec(1),d_bvec(2),d_bvec(3)},
                                      {prims[VXL],prims[VYL],prims[VZL]},
                                     eulB);
@@ -352,6 +364,10 @@ static void check_c2p_mhd(eos_t eos){
         prims[BYL] = eulB[1];
         prims[BZL] = eulB[2];
 
+        // primitive view holds coordinate 3-velocities, so we convert from Eulerian 
+        prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;
+        prims[VYL] = metric.alp()*prims[VYL] - metric.beta(1) ;
+        prims[VZL] = metric.alp()*prims[VZL] - metric.beta(2) ;
         
         double csnd2 ;
         unsigned int err ;  
@@ -359,10 +375,11 @@ static void check_c2p_mhd(eos_t eos){
         prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(prims[EPSL],csnd2,prims[TEMPL],prims[RHOL],prims[YEL],err) ;
 
         grmhd_cons_array_t cons ; 
-        conservs_from_prims(cons,prims,minkowski_metric) ; 
+        // conservs_from_prims(cons,prims,metric) ; 
+        prims_to_conservs(prims,cons,metric) ;
         d_eps(i,j) = cons[STYL] ;
         grmhd_prims_array_t new_prims = prims ; 
-        conservs_to_prims<eos_t, grmhd_c2p_kastaun_t>(cons,new_prims,minkowski_metric,eos,0.) ; 
+        conservs_to_prims<eos_t, grmhd_c2p_kastaun_t>(cons,new_prims,metric,eos,0.) ; 
 
         d_res(i,j) = compute_residual(new_prims,prims) ;
         d_press(i,j) = new_prims[PRESSL] ; 
@@ -412,7 +429,39 @@ static void check_c2p_mhd(eos_t eos){
 
 TEST_CASE("c2p_mhd", "[c2p-mhd]") {
     auto eos = grace::eos::get().get_hybrid_pwpoly() ; 
-    check_c2p(eos) ; 
-    check_c2p_mhd(eos) ; 
+
+    grace::metric_array_t minkowski_metric ({1.,0.,0.,1.,0.,1.},{0.,0.,0.},1.) ; 
+
+    double x=12.0;
+    double y=0;
+    double z=6.0;
+    double M=1.0;
+    double a=0.9375;
+    auto gKS = get_KS_metric(x,y,z, M,a);
+    grace::metric_array_t kerr_schild_metric ({gKS[KS_GXX],gKS[KS_GXY],gKS[KS_GXZ],gKS[KS_GYY],gKS[KS_GYZ],gKS[KS_GZZ]},
+                                       {gKS[KS_BETAX],gKS[KS_BETAY],gKS[KS_BETAZ]},
+                                        gKS[KS_ALPHA]) ; 
+
+    check_c2p(eos, minkowski_metric) ; 
+    check_c2p_mhd(eos,minkowski_metric) ; 
+
+    check_c2p(eos, kerr_schild_metric) ; 
+    check_c2p_mhd(eos,kerr_schild_metric) ; 
+
+    // for (int i=0; i<6; i++){
+    //     for(int j=0; j<6; j++){
+    //                 for(int k=0; k<6; k++){
+    //                     x=-12.0+i*4.0;
+    //                     y=-12.0+j*4.0;
+    //                     z=-12.0+k*4.0;
+    //                     grace::metric_array_t KSm ({gKS[KS_GXX],gKS[KS_GXY],gKS[KS_GXZ],gKS[KS_GYY],gKS[KS_GYZ],gKS[KS_GZZ]},
+    //                                    {gKS[KS_BETAX],gKS[KS_BETAY],gKS[KS_BETAZ]},
+    //                                     gKS[KS_ALPHA]);
+    //                     check_c2p_mhd(eos,KSm) ; 
+    //                     check_c2p(eos,KSm) ; 
+    //                 }
+    //     }
+    // }
+
 }    
 

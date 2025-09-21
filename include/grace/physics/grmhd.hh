@@ -549,7 +549,9 @@ struct grmhd_equations_system_t
         #ifdef GRACE_DO_MHD
         // #ifdef GRACE_ENABLE_B_FIELD_GLM
         conservs_to_prims<eos_t, grmhd_c2p_kastaun_t>( cons, prims, metric
-                                , this->_eos, this->_lapse_excision ) ;          
+                                , this->_eos, this->_lapse_excision ) ;  
+        // conservs_to_prims<eos_t, grhd_c2p_t>( cons, prims, metric
+        //                         , this->_eos, this->_lapse_excision ) ;
         // #endif 
         #endif 
 
@@ -739,8 +741,8 @@ struct grmhd_equations_system_t
             , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
             , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
         ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            + 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
+            , 0.5*(metric_l.beta(1) + metric_r.beta(1))
+            , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
         ,   0.5 * (metric_l.alp() + metric_r.alp())
         } ; 
 
@@ -965,8 +967,8 @@ struct grmhd_equations_system_t
             , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
             , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
         ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            + 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
+            , 0.5*(metric_l.beta(1) + metric_r.beta(1))
+            , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
         ,   0.5 * (metric_l.alp() + metric_r.alp())
         } ; 
 
@@ -1228,8 +1230,8 @@ struct grmhd_equations_system_t
             , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
             , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
         ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            + 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
+            , 0.5*(metric_l.beta(1) + metric_r.beta(1))
+            , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
         ,   0.5 * (metric_l.alp() + metric_r.alp())
         } ; 
         
@@ -1295,7 +1297,7 @@ struct grmhd_equations_system_t
         grmhd_cons_array_t f_HLL ; 
         compute_mhd_fluxes<idir,riemann_t,true>( primL, primR, metric_face, f_HLL, 1, 1) ; 
         
-        // #define GRMHD_USE_PPLIM
+        #define GRMHD_USE_PPLIM
 
         #ifdef GRMHD_USE_PPLIM
         /***********************************************************************/
@@ -1349,6 +1351,7 @@ struct grmhd_equations_system_t
         }
 
         theta = math::min(theta_m, theta_p) ;
+        // theta = 0.0; // override to use the LLF flux only
         /***********************************************************************/
         /***********************************************************************/
         fluxes(VEC(i,j,k),DENS_,idir,q)        = theta * f_HLL[DENSL]    

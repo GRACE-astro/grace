@@ -532,9 +532,7 @@ void set_grmhd_initial_data() {
                                                                Avec_Pcut, Avec_n, Avec_Ab ) ;
         }
     }else if ( id_type == "FMtorus") { 
-        bool is_eos_thermal=(get_param<double>("eos","gamma_th") > 0.0 ?  true : false) ;
-        if(is_eos_thermal) ERROR("Thermal component not available for FMtorus currently");
-
+      
         auto const a_BH = get_param<double>("grmhd", "FMTorus_a_BH") ; 
         auto const M_BH = get_param<double>("grmhd", "FMTorus_M_BH") ; 
         auto const rho_min = get_param<double>("grmhd", "FMTorus_rho_min") ; 
@@ -555,13 +553,21 @@ void set_grmhd_initial_data() {
         const int Avec_n = get_param<int>("grmhd","Avec_n") ;
         const double Avec_Ab = get_param<double>("grmhd","Avec_Ab") ;
 
+        const double random_min = get_param<double>("grmhd","FMTorus_random_min") ;
+        const double random_max = get_param<double>("grmhd","FMTorus_random_max") ;
+
         const int int_Avec_prescription = (Avec_prescription=="pressure_prescription" ? 0 : 1 );
         const int int_Avec_type = (Avec_type=="poloidal" ? 0 : 1 ); // add more...
         
+        // note: this breaks reproducibility under different MPI decompositions
+        // but is otherwise physically stochastic
+        Kokkos::Random_XorShift64_Pool<> rand_pool(12345 + parallel::mpi_comm_rank());
+
         set_grmhd_initial_data_impl<eos_t,fmtorus_id_t<eos_t>>(a_BH,M_BH,rho_min, 
-                        press_min,lapse_min,r_in,r_at_max_density,kappa,gamma,
+                        press_min,lapse_min,r_in,r_at_max_density, rand_pool,random_min, random_max, kappa,gamma,
                         set_Bfield_from_Avec, int_Avec_type, int_Avec_prescription,
                         Avec_Pcut, Avec_n, Avec_Ab) ;
+
         GRACE_TRACE("Done with magnetized FMTorus ID.") ;  
     } else {
         ERROR("Unrecognized id_type " << id_type ) ; 

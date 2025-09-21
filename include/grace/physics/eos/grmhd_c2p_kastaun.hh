@@ -92,7 +92,7 @@ struct grmhd_c2p_kastaun_t {
         BtildeNorm = Kokkos::sqrt(BtildeU[0]*BtildeD[0] + BtildeU[1]*BtildeD[1] + BtildeU[2]*BtildeD[2]);
 
         /* Acausal momentum */
-        if ( StildeNorm > D+conservs[TAUL] ) {
+        if ( StildeNorm > D+conservs[TAUL] ) { // check if B field should be added here
             double const fact = 0.9999*(D+conservs[TAUL]) ; 
             conservs[STXL] *= fact/StildeNorm ; 
             conservs[STYL] *= fact/StildeNorm  ;
@@ -148,8 +148,10 @@ struct grmhd_c2p_kastaun_t {
         prims[PHI_GLML]=conservs[PHIG_GLML]; 
         #endif 
 
+        //unsigned long iter_max = 2000;  // change this to be determined elsewhere! 
         unsigned long iter_max = 2000;  // change this to be determined elsewhere! 
-        double const tolerance = 1e-15; // change this
+        //double const tolerance = 1e-15; // change this
+        double const tolerance = 1e-10; // usual FIL setup 
 
         // first, we constrain the area of search by finding mu_plus
         double const mu_plus = utils::rootfind_newton_raphson(

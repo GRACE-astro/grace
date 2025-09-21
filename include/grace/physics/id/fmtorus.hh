@@ -56,9 +56,9 @@
 #include <grace/physics/id/FMtorus/FMdisk_GRHD_velocities.hh>
 #include <grace/physics/id/FMtorus/FMdisk_GRHD_rho_initial.hh>
 #include <grace/physics/id/FMtorus/FMdisk_GRHD_hm1.hh>
-
+// Kokkos utils and random
 #include <Kokkos_Core.hpp>
-
+#include <Kokkos_Random.hpp>
 
 
 namespace grace {
@@ -74,10 +74,13 @@ namespace grace {
          *         specializes exclusively for hybrid eos and a specific setup 
          *         of the polytropic eos 
          */
-        template < typename eos_t >
+        template < typename eos_t> //, typename B_field_config_t >
         //requires PiecewisePolytropicEOS<eos_t>
         struct fmtorus_id_t {
             using state_t = grace::var_array_t<GRACE_NSPACEDIM> ;
+
+            // store B-field config
+            // B_field_config_t Bfield_config;
 
             // constructor: initializing the parameters, performing consistency checks on the ID
             fmtorus_id_t(
@@ -86,6 +89,8 @@ namespace grace {
                 double a_, double M_, 
                 double rho_min_, double press_min_, 
                 double lapse_min_, double r_in_, double r_at_max_density_,
+                const Kokkos::Random_XorShift64_Pool<>& rand_pool_,
+                double random_min_, double random_max_,
                 double kappa_, double gamma_,
                 bool set_Bfield_from_Avec,
                 int Avec_type,
@@ -100,6 +105,8 @@ namespace grace {
                 rho_min(rho_min_), press_min(press_min_),
                 lapse_min(lapse_min_), r_in(r_in_), r_at_max_density(r_at_max_density_),
                 kappa(kappa_),gamma(gamma_),
+                rand_pool(rand_pool_),
+                random_min(random_min_), random_max(random_max_),
                 _set_Bfield_from_Avec(set_Bfield_from_Avec),
                 _Avec_type(Avec_type),
                 _Avec_prescription(Avec_prescription),
@@ -168,17 +175,19 @@ namespace grace {
                 #else 
                 double const z = 0. ; 
                 #endif 
-                double const r = Kokkos::sqrt(EXPR(
-                    math::int_pow<2>(x),
-                    + math::int_pow<2>(y),
-                    + math::int_pow<2>(z)
-                ) +1.0e-10) ; 
+                double const r = Kokkos::sqrt(EXPR(math::int_pow<2>(x), + math::int_pow<2>(y), + math::int_pow<2>(z) )) ; 
 
+                const double r_eps = 1e-6;
+                // AthenaK trick
+                const double bigR = Kokkos::sqrt((math::int_pow<2>(r)-math::int_pow<2>(a)+Kokkos::sqrt(math::int_pow<2>(math::int_pow<2>(r)-math::int_pow<2>(a))+4.0*math::int_pow<2>(a)*math::int_pow<2>(z)))/2.0);
+
+                // if (r < eps) {
+                //     r = 0.5*(eps + r*r/eps);
+                // }
 
                 // at this radius.
                 auto sol_metric = get_KS_metric(x,y,z,M,a) ;
-                auto sol_vel = get_fluid_velocities(x,y,z,M,a,r_at_max_density) ;
-                double rho_init = get_rho_initial(x,y,z,M,a,r_at_max_density,r_in,gamma,kappa);
+                // double rho_init = get_rho_initial(x,y,z,M,a,r_at_max_density,r_in,gamma,kappa);
                 grmhd_id_t id ; 
 
                 /* Set the metric */
@@ -222,28 +231,19 @@ namespace grace {
                             id.rho = pow( hm1 * (gamma-1.0) / (kappa*gamma), 1.0/(gamma-1.0) ) / rho_max;
                             id.press = kappa*pow(id.rho, gamma);
                             // P = (\Gamma - 1) rho epsilon
-                            double eps = id.press / (id.rho * (gamma - 1.0));
-                            double ye_atm  = eos.ye_atmosphere()  ; 
-                            id.ye = ye_atm;
+                            // double eps = id.press / (id.rho * (gamma - 1.0));
+                            // double ye_atm  = eos.ye_atmosphere()  ; 
+                            // id.ye = ye_atm;
                             // id.ye    = eos.ye_beta_eq__press_cold(id.press,err) ;
                             // Get rho and eps from press  ? is this needed?
-                            // id.rho   = eos.rho__press_cold_ye(id.press, id.ye, err) 
-                            id.rho   = eos.rho__press_cold_ye(id.press, id.ye, err) ; 
+                            // id.rho   = eos.rho__press_cold_ye(id.press, id.ye, err) ; 
+                            auto sol_vel = get_fluid_velocities(x,y,z,M,a,r_at_max_density) ;
+
                             id.vx=sol_vel[0];
                             id.vy=sol_vel[1];
                             id.vz=sol_vel[2];
-
                             // conversion to coordinate velocities is done outside of the kernel
-                            // convert Eulerian velocities to coordinate velocities:
-                            // id.vx = id.alp * id.vx - id.betax;
-                            // id.vy = id.alp * id.vy - id.betay;
-                            // id.vz = id.alp * id.vz - id.betaz;
-                            // what about zvec? 
-                            
-
-
-
-                            
+                            // the above are Valencia velocities 
                             }
                         else{
                             set_to_atmosphere=true;
@@ -251,6 +251,7 @@ namespace grace {
                 } else {
                     set_to_atmosphere=true;
                 }
+
                 // Outside the disk? Set to atmosphere all hydrodynamic variables!
                 if(set_to_atmosphere) {
                     // Choose an atmosphere such that
@@ -272,7 +273,8 @@ namespace grace {
                 // extra checks - if the atmosphere anywhere is below what the EOS / our limits support
                 double rho_atm = eos.rho_atmosphere() ;
 
-                if(id.rho < rho_atm){
+                // if(id.rho < rho_atm || r < r_in){ // if lower than atmosphere for some reason - or inside the inner disc radius
+                if(id.rho < rho_atm){ // if lower than atmosphere for some reason - or inside the inner disc radius
                     id.rho = rho_atm;
                     id.press = kappa*pow(id.rho, gamma);
                     double ye_atm  = eos.ye_atmosphere()  ; 
@@ -333,6 +335,26 @@ namespace grace {
                     id.phi_em = 0.0;
                 }
 
+                // Add white noise  
+                // note that this version, similar to ETK-Fishbone-MoncriefID, sets up the magnetic field
+                // based on the unperturbed pressure values
+
+                if(abs(random_min)>1e-6 || abs(random_max)>1e-6){
+                    // Seed the random number generator
+                    // random number 
+                    auto generator = rand_pool.get_state();
+                    const double random_number_between_0_and_1 = generator.drand();; 
+                    const double random_number_between_min_and_max = random_min + (random_max - random_min)*random_number_between_0_and_1;
+                    id.press = id.press*(1.0 + random_number_between_min_and_max);
+                    // Add 1e-300 to rho to avoid division by zero when density is zero.
+                    // eps[idx] = press[idx] /     ((rho[idx] + 1e-300) * (gamma - 1.0));
+                    //recover modified density to be consistent
+                    double ye_atm  = eos.ye_atmosphere()  ; 
+                    id.ye = ye_atm;
+                    id.rho   = eos.rho__press_cold_ye(id.press, id.ye, err) ; 
+                    rand_pool.free_state(generator);
+                }
+                    
                 return std::move(id) ; 
             }
 
@@ -345,6 +367,9 @@ namespace grace {
         double lapse_min ;      //!< floor on the lapse value - should also work without it!
         double r_in;            //!< Fixes the inner edge of the disk
         double r_at_max_density; //!<Radius at maximum disk density. Needs to be > r_in
+        Kokkos::Random_XorShift64_Pool<> rand_pool;
+        double random_min;
+        double random_max;
         double kappa, gamma;   //!< EOS parameters 
         // will be filled out in the initialization but before fillin the state arrays: 
         double P_max, rho_max;   //! < these will be filled in the constructor 
