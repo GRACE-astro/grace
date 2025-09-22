@@ -388,7 +388,17 @@ void regrid() {
                                         , nz + 2*ngz )
                                 ,   nvars_aux
                                 ,   nq_local 
-                                ) ;    
+                                ) ;  
+
+    auto& fluxes  = grace::variable_list::get().getfluxesarray() ; 
+    int nvars_hrsc = grace::variables::get_n_hrsc() ; 
+    GRACE_TRACE("Resizing flux array {} flux vars registered", nvars_hrsc) ; 
+    Kokkos::realloc( fluxes
+                   , VEC( nx + 1,ny + 1,nz + 1)
+                   , nvars_hrsc 
+                   , GRACE_NSPACEDIM
+                   , nq 
+                   ) ;   
     /******************************************************************************************/
     /*                                Synchronize everything                                  */
     /******************************************************************************************/
