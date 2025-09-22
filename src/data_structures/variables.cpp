@@ -27,6 +27,7 @@
 
 #include <grace/data_structures/variables.hh>
 #include <grace/data_structures/variable_indices.hh>
+#include <grace/data_structures/variable_utils.hh>
 
 #include <grace/config/config_parser.hh>
 #include <grace/amr/forest.hh>
@@ -76,6 +77,7 @@ variable_list_impl_t::variable_list_impl_t()
     , _staggered_vars() 
     , _staggered_vars_p() 
     , _staggered_aux() 
+    , _fluxes()
 {
     using namespace grace; 
     /* Get param parser and forest object */
@@ -92,6 +94,7 @@ variable_list_impl_t::variable_list_impl_t()
     variables::register_variables() ;
     /* allocate memory for states */ 
     size_t nq          = forest.local_num_quadrants() ;
+    int nvars_hrsc = variables::get_n_hrsc() ;
     Kokkos::realloc( _coords
                    , GRACE_NSPACEDIM
                    , nq 
@@ -122,8 +125,13 @@ variable_list_impl_t::variable_list_impl_t()
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
                    , variables::detail::num_auxiliary
                    , nq 
-                   ) ;
-    
+                   ) ;  
+    Kokkos::realloc( _fluxes
+                   , VEC( nx + 1,ny + 1,nz + 1)
+                   , nvars_hrsc 
+                   , GRACE_NSPACEDIM
+                   , nq 
+                   ) ; 
     _staggered_coords.realloc(VEC(nx,ny,nz),ngz,nq) ; 
     _staggered_vars.realloc( VEC(nx,ny,nz),ngz,nq
                            , variables::detail::num_face_staggered_vars

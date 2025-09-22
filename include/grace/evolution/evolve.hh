@@ -78,6 +78,7 @@ void evolve_impl() ;
  * @param idx Inverse of cell coordinate spacings.
  * @param cvol Cell volumes.
  * @param surfs_and_edges Cell face surfaces and edge lengths.
+ * @param fluxes Fluxes array for evolution.
  * 
  * This routine advances all variables by a substep. It is agnostic to the time-stepper used 
  * and assumes that all input variable arrays are in a valid state at all gridcells. The output 
@@ -91,7 +92,8 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , grace::var_array_t<GRACE_NSPACEDIM>& aux 
                     , grace::scalar_array_t<GRACE_NSPACEDIM>&  idx
                     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& cvol
-                    , grace::staggered_coordinate_arrays_t& surfs_and_edges ) ; 
+                    , grace::staggered_coordinate_arrays_t& surfs_and_edges
+                    , grace::flux_array_t& fluxes ) ; 
 //*****************************************************************************************************
 //*****************************************************************************************************
 // Explicit template instantiation
@@ -103,7 +105,8 @@ void advance_substep<EOS>( double const , double const , double const \
                          , grace::var_array_t<GRACE_NSPACEDIM>&       \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \
-                         , grace::staggered_coordinate_arrays_t&  ) ; \
+                         , grace::staggered_coordinate_arrays_t&      \
+                         , grace::flux_array_t& ) ; \
 extern template                                                       \
 void evolve_impl<EOS>()
 
