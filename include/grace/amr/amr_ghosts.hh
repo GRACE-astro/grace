@@ -69,6 +69,7 @@ struct full_face_t {
         std::size_t send_buffer_id ; //!< Index in send array 
         bool is_remote            ; //!< Whether the quadrant is local or remote 
         std::size_t owner_rank    ; //!< Owner rank if remote
+        task_id_t task_id         ;
 } ; 
 struct hanging_face_t {
         std::size_t quad_id[P4EST_CHILDREN/2]    ; //!< Indices of hanging quads (in coarse bufs)
@@ -76,6 +77,7 @@ struct hanging_face_t {
         std::size_t send_buffer_id[P4EST_CHILDREN/2] ; //!< Indices in send array
         bool is_remote[P4EST_CHILDREN/2]         ; //!< Are the quads remote 
         std::size_t owner_rank[P4EST_CHILDREN/2] ; //!< owner ranks if remote 
+        task_id_t task_id[P4EST_CHILDREN/2]      ; 
 } ; 
 union face_data_t {
     full_face_t full ; 
@@ -98,7 +100,8 @@ struct full_edge_t {
     std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
     std::size_t send_buffer_id ; //!< Index in send array, if relevant
     bool is_remote            ; //!< Whether the quadrant is local or remote 
-    std::size_t owner_rank    ; //!< Owner rank if remot
+    std::size_t owner_rank    ; //!< Owner rank if remote
+    task_id_t task_id ; 
 } ; 
 struct hanging_edge_t {
         std::size_t quad_id[2]    ; //!< Indices of hanging quads (in coarse bufs)
@@ -106,6 +109,7 @@ struct hanging_edge_t {
         std::size_t send_buffer_id[2] ; //!< Indices in send array, if relevant
         bool is_remote[2]         ; //!< Are the quads remote 
         std::size_t owner_rank[2] ; //!< owner ranks if remote 
+        task_id_t task_id[2] ; 
 } ;
 union edge_data_t {
     full_edge_t full ; 
@@ -117,6 +121,7 @@ struct edge_descriptor_t {
     edge_data_t data ;
     int8_t edge ; 
     int8_t child_id ;
+    bool filled{false} ; 
 }; 
 /**************************************************************************************************/
 struct corner_data_t {
@@ -125,12 +130,14 @@ struct corner_data_t {
     std::size_t send_buffer_id ; //!< Index in send array, if relevant 
     bool is_remote             ; //!< Are the quads remote 
     std::size_t owner_rank     ; //!< owner ranks if remote 
+    task_id_t task_id          ; 
 } ; 
 struct corner_descriptor_t {
     interface_kind_t kind ; 
     int8_t level_diff ; 
     corner_data_t data ;
     int8_t corner ; 
+    bool filled{false} ; 
 }; 
 /**************************************************************************************************/
 struct quad_neighbors_descriptor_t {
@@ -247,6 +254,8 @@ class amr_ghosts_impl_t {
 
     grace::var_array_t<GRACE_NSPACEDIM> _coarse_buffers ; 
     Kokkos::View<bc_t*> var_bc_kind ; //!< Boundary condition per-variable
+    //**************************************************************************************************
+    void build_flux_buffers() ; /* TODO ! */
     //**************************************************************************************************
     void build_task_list() ; 
     //**************************************************************************************************

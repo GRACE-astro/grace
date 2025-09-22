@@ -58,6 +58,7 @@ static void register_physical_boundary_edge(
             // hanging local 
             auto qid = side.is.hanging.quadid[is] +  offset ; 
             neighbors[qid].edges[side.edge].kind = interface_kind_t::PHYS ;
+            neighbors[qid].edges[side.edge].filled = true ; 
             neighbors[qid].n_registered_edges++ ; 
         }
 
@@ -66,6 +67,7 @@ static void register_physical_boundary_edge(
         // not hanging not ghost 
         auto qid = side.is.full.quadid +  offset ; 
         neighbors[qid].edges[side.edge].kind = interface_kind_t::PHYS ;
+        neighbors[qid].edges[side.edge].filled = true ; 
         neighbors[qid].n_registered_edges++ ; 
     }
 }
@@ -77,6 +79,7 @@ inline void fill_full_edge_desc(edge_descriptor_t& desc,
                           bool is_remote,
                           p4est_topidx_t treeid,
                           p4est_quadrant_t const* quad) {
+    desc.filled = true; 
     desc.edge = other_edge;
     desc.kind = interface_kind_t::INTERNAL;
     desc.data.full.quad_id = qid;
@@ -95,6 +98,7 @@ inline void fill_hanging_edge_desc(edge_descriptor_t& desc,
                              bool is_remote,
                              p4est_topidx_t treeid,
                              p4est_quadrant_t const* quad) {
+    desc.filled = true; 
     desc.edge = other_edge;
     desc.kind = interface_kind_t::INTERNAL;
     desc.data.hanging.quad_id[islot] = qid;

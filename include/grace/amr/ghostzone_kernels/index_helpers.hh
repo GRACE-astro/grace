@@ -259,66 +259,111 @@ int edge_to_face_dir(int face, int edge) {
 
 
 template<
-     element_kind_t view_elem_kind,
-    element_kind_t cbuf_elem_kind,
+     element_kind_t elem_kind
 >
 struct cbuf_to_view_offsets {
     KOKKOS_INLINE_FUNCTION
     static void get(
         size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const ; 
+        size_t nx, uint8_t ichild ) const ; 
 } ; 
 
 // FACE -> FACE  
 
 template<>
-struct cbuf_to_view_offsets<element_kind_t::FACE,element_kind_t::FACE>
+struct cbuf_to_view_offsets<element_kind_t::FACE>
 {
     KOKKOS_INLINE_FUNCTION
     static void get(
         size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const {
-        j = nx / 2 * ( (ichild<<0) & 1 ) ; 
-        k = nx / 2 * ( (ichild<<1) & 1 ) ; 
+        size_t nx, uint8_t ichild) const {
+        j = nx / 2 * ( (ichild>>0) & 1 ) ; 
+        k = nx / 2 * ( (ichild>>1) & 1 ) ; 
     }; 
 } ; 
 
 // EDGE -> EDGE  
 
 template<>
-struct cbuf_to_view_offsets<element_kind_t::EDGE,element_kind_t::EDGE>
+struct cbuf_to_view_offsets<element_kind_t::EDGE>
 {
     KOKKOS_INLINE_FUNCTION
     static void get(
         size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const {
+        size_t nx, uint8_t ichild) const {
         j = 0 ; 
-        k = nx / 2 * ( (ichild<<0) & 1 ) ; 
+        k = nx / 2 * ( (ichild>>0) & 1 ) ; 
     }; 
 } ; 
 
 // CORNER -> CORNER 
 
 template<>
-struct cbuf_to_view_offsets<element_kind_t::CORNER,element_kind_t::CORNER>
+struct cbuf_to_view_offsets<element_kind_t::CORNER>
 {
     KOKKOS_INLINE_FUNCTION
     static void get(
         size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const {
+        size_t nx, uint8_t ichild) const {
         j = 0 ; 
         k = 0 ; 
     }; 
 } ;
 
+
+
+
+template<
+     element_kind_t elem_kind
+>
+struct view_to_cbuf_offsets {
+    KOKKOS_INLINE_FUNCTION
+    static void get(
+        size_t& j, size_t& k, 
+        size_t nx, uint8_t ichild ) const ; 
+} ; 
+
+template<> 
+struct view_to_cbuf_offsets<element_kind_t::FACE> {
+    KOKKOS_INLINE_FUNCTION 
+    static void get(
+        size_t& j, size_t& k,
+        size_t nx, size_t ngz, uint8_t ichild ) const 
+    {
+        j = (nx / 2 - ngz)* ( (ichild>>0) & 1 ) ; 
+        k = (nx / 2 - ngz)* ( (ichild>>1) & 1 ) ; 
+    }
+
+} ;
+
+template<> 
+struct view_to_cbuf_offsets<element_kind_t::EDGE> {
+    KOKKOS_INLINE_FUNCTION 
+    static void get(
+        size_t& j, size_t& k,
+        size_t nx, size_t ngz, uint8_t ichild ) const 
+    {
+        j = 0 ; 
+        k = (nx / 2-ngz) * ( (ichild>>0) & 1 ) ; 
+    }
+
+} ;
+
+template<> 
+struct view_to_cbuf_offsets<element_kind_t::CORNER> {
+    KOKKOS_INLINE_FUNCTION 
+    static void get(
+        size_t& j, size_t& k,
+        size_t nx, size_t ngz, uint8_t ichild ) const 
+    {
+        j = 0 ; 
+        k = 0 ; 
+    }
+
+} ;
+
+
+#if 0
 // EDGE -> FACE 
 
 template<>
@@ -378,6 +423,6 @@ struct cbuf_to_view_offsets<element_kind_t::EDGE, element_kind_t::CORNER>
     }
 };
 
-
+#endif 
 }} /* namespace grace::amr */
 #endif /* GRACE_AMR_INDEX_HELPERS_HH */

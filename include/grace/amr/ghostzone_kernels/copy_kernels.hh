@@ -42,14 +42,11 @@ namespace grace { namespace amr {
 
 template< 
     element_kind_t elem_kind,
-    bool do_reciprocal_copy,
-    typename ViewA_t,
-    typename ViewB_t 
+    typename view_t
 >
 struct copy_op {
 
-    ViewA_t src_view ; 
-    ViewB_t dest_view; 
+    view_t view ; 
     readonly_view_t<std::size_t> src_qid, dest_qid ; 
     readonly_view_t<uint8_t> src_element_view, dest_element_view; 
 
@@ -57,19 +54,16 @@ struct copy_op {
 
     void set_data_ptr(view_alias_t alias) 
     {
-        src_view = alias.get() ; 
-        dest_view = alias.get() ; 
+        view = alias.get() ; 
     }
 
-    copy_k(
-        ViewB_t _src_view,
-        ViewA_t _dest_view,
+    copy_op(
+        view_t _view,
         Kokkos::View<size_t*> _src_qid, Kokkos::View<size_t*> _dest_qid,
         Kokkos::View<uint8_t*> _src_elem, Kokkos::View<uint8_t*> _dest_elem, 
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
         std::size_t _ngz
-    ) : src_view(_src_view)
-      , dest_view(_dest_view)
+    ) : view(_view)
       , src_qid(_src_qid)
       , dest_qid(_dest_qid)
       , src_element_view(_src_elem)
@@ -96,41 +90,34 @@ struct copy_op {
         transf.compute_indices<elem_kind,false>(
             ig, VECD(j, k), i_b, j_b, k_b, ie_dest
         ) ; 
-        dest_view(
+        view(
             VEC(i_b,j_b,k_b), ivar, dest_q 
-        ) = src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
-        if constexpr( do_reciprocal_copy ){
-            
-            transf.compute_indices<elem_kind,true>(
-            ig, VECD(j, k), i_a, j_a, k_a, ie_dest 
-            ) ; 
-            transf.compute_indices<elem_kind,false>(
-                ig, VECD(j, k), i_b, j_b, k_b, ie_src
-            ) ;
-            src_view(
-                VEC(i_b,j_b,k_b), ivar, src_q 
-            ) = dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) ;
-        }
+        ) = view(VEC(i_a,j_a,k_a), ivar, src_q) ;
+
     }
 } ; 
 
-
+// this is a copy operation normal view -> cbuf 
 template< 
-    element_kind_t view_elem_kind,
-    element_kind_t cbuf_elem_kind,
+    element_kind_t elem_kind,
     typename view_t,
     typename cbuf_t 
 >
-struct cbuf_copy_op {
+struct copy_to_cbuf_op {
 
     view_t view ; 
     cbuf_t cbuf ; 
-    readonly_view_t<std::size_t> view_qid, cbuf_qid ; 
-    readonly_view_t<uint8_t> elem_view, cbuf_elem_view, view_ic; 
+    
+    readonly_view_t<std::size_t> view_qid
+                               , cbuf_qid ; 
+    
+    readonly_view_t<uint8_t> elem_view
+                           , cbuf_elem_view
+                           , view_ic; 
 
     index_transformer_t transf ; 
 
-    copy_op(
+    copy_to_cbuf_op(
         view_t _view,
         cbuf_t _cbuf,
         Kokkos::View<size_t*> _view_qid, 
@@ -150,7 +137,7 @@ struct cbuf_copy_op {
       , transf(VEC(_nx,_ny,_nz),_ngz)
     {}
 
-
+    // the loop(s) in non-gz directions are extended by ngz
     KOKKOS_INLINE_FUNCTION 
     void operator() (
         std::size_t ig, VECD(std::size_t j, std::size_t k), size_t ivar, size_t iq
@@ -162,22 +149,24 @@ struct cbuf_copy_op {
         auto const view_q  = view_qid(iq)  ; 
         auto const cbuf_q = cbuf_qid(iq) ;
 
-        // we need to offset into the coarse quad 
+        // we need to offset into the coarse quad, 
+        // accounting for the extra ngz in the loop
         auto const ichild = view_ic(iq) ; 
-        size_t j_off{0}, k_off{0} ; 
-        cbuf_to_view_offsets<view_elem_kind,cbuf_elem_kind>::get(
-            j_off, k_off, transf.nx, transf.ngz, ichild, ie_view, ie_cbuf 
-        ) ; 
+        size_t joff{0UL}, koff{0UL} ; 
+        view_to_cbuf_offsets<elem_kind>::get(
+            j_off,k_off, transf.nx, transf.ngz, ichild 
+        ) ;
 
-        // figure out if other view is cbuf too 
-        auto const other_is_cbuf = view_is_cbuf(iq) ; 
 
         std::size_t VEC(i_a,j_a,k_a), VEC(i_b,j_b,k_b) ; 
         // copy into cbuf's gzs
-        transf.compute_indices<view_elem_kind,true>(
-        ig, VECD(j + j_off, k + k_off), i_a, j_a, k_a, ie_view, other_is_cbuf
+
+        // physical indices, offset 
+        transf.compute_indices<elem_kind,true>(
+        ig, VECD(j + j_off, k + k_off), i_a, j_a, k_a, ie_view, false
         ) ; 
-        transf.compute_indices<cbuf_elem_kind,false>(
+        // gz indices, no offset 
+        transf.compute_indices<elem_kind,false>(
             ig, VECD(j, k), 
             i_b, j_b, k_b, ie_cbuf, /* halved ncells */ true 
         ) ;
@@ -185,20 +174,83 @@ struct cbuf_copy_op {
             VEC(i_b,j_b,k_b), ivar, cbuf_q 
         ) = view(VEC(i_a,j_a,k_a), ivar, view_q) ;
         
-        if constexpr ( view_elem_kind == cbuf_elem_kind ) {
-            // copy into normal view's gzs
-            // only if same elem kind (face into face etc.)
-            transf.compute_indices<cbuf_elem_kind,true>(
-                ig, VECD(j, k), 
-                i_a, j_a, k_a, ie_cbuf, /* halved ncells */ true 
-            ) ; 
-            transf.compute_indices<view_elem_kind,false>(
-                ig, VECD(j + j_off, k + k_off), i_b, j_b, k_b, ie_view, other_is_cbuf
-            ) ; 
-            view(
-                VEC(i_b,j_b,k_b), ivar, view_q 
-            ) = cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) ;
-        }
+    }
+} ; 
+
+// this is a copy operation cbuf -> normal view
+template< 
+    element_kind_t elem_kind,
+    typename view_t,
+    typename cbuf_t 
+>
+struct copy_from_cbuf_op {
+
+    view_t view ; 
+    cbuf_t cbuf ; 
+    
+    readonly_view_t<std::size_t> view_qid
+                               , cbuf_qid ; 
+    
+    readonly_view_t<uint8_t> elem_view
+                           , cbuf_elem_view
+                           , view_ic; 
+
+    index_transformer_t transf ; 
+
+    copy_from_cbuf_op(
+        cbuf_t _cbuf,
+        view_t _view,        
+        Kokkos::View<size_t*> _view_qid, 
+        Kokkos::View<size_t*> _cbuf_qid,
+        Kokkos::View<uint8_t*> _elem_view, 
+        Kokkos::View<uint8_t*> _cbuf_elem_view,
+        Kokkos::View<uint8_t*> _ic_view, 
+        VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
+        std::size_t _ngz
+    ) : view(_view)
+      , cbuf(_cbuf)
+      , elem_view(_view_qid)
+      , cbuf_elem_view(_cbuf_qid)
+      , view_ic(_ic_view)
+      , elem_view(_elem_view)
+      , cbuf_elem_view(_cbuf_elem_view)
+      , transf(VEC(_nx,_ny,_nz),_ngz)
+    {}
+
+    
+    KOKKOS_INLINE_FUNCTION 
+    void operator() (
+        std::size_t ig, VECD(std::size_t j, std::size_t k), size_t ivar, size_t iq
+    ) const 
+    {
+        auto const ie_view  = elem_view(iq) ; 
+        auto const ie_cbuf = cbuf_elem_view(iq) ; 
+
+        auto const view_q  = view_qid(iq)  ; 
+        auto const cbuf_q = cbuf_qid(iq) ;
+
+        // we need to offset into the coarse quad, 
+        // accounting for the extra ngz in the loop
+        auto const ichild = view_ic(iq) ; 
+        size_t joff{0UL}, koff{0UL} ; 
+        cbuf_to_view_offsets<elem_kind>::get(
+            j_off,k_off, transf.nx, transf.ngz, ichild 
+        ) ;
+
+
+        std::size_t VEC(i_a,j_a,k_a), VEC(i_b,j_b,k_b) ; 
+        // copy into view's gzs 
+        transf.compute_indices<elem_kind,true>(
+            ig, VECD(j, k), 
+            i_a, j_a, k_a, ie_cbuf, /* halved ncells */ true 
+        ) ; 
+        transf.compute_indices<elem_kind,false>(
+            ig, VECD(j + j_off, k + k_off), i_b, j_b, k_b, ie_view,  /* halved ncells */ false
+        ) ; 
+        view(
+            VEC(i_b,j_b,k_b), ivar, view_q 
+        ) = cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) ;
+        
     }
 } ; 
     

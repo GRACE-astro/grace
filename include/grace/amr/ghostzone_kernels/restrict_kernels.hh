@@ -40,12 +40,28 @@
 
 namespace grace { namespace amr {
 
-template< element_kind_t elem_kind, typename view_t > 
-struct restrict_k {
+template< typename view_t > 
+struct restrict_op {
 
     view_t src_view, dest_view ; 
     readonly_view_t<size_t> src_q, dest_q ; 
     size_t ngz ;
+
+    restrict_op(
+        view_t _src_view, view_t _dest_view,
+        Kokkos::View<size_t*> _src_q, 
+        Kokkos::View<size_t*> _dest_q, 
+        size_t _ngz
+    ) : src_view(_src_view)
+      , dest_view(_dest_view)
+      , src_q(_src_q)
+      , dest_q(_dest_q)
+      , ngz(_ngz)
+    {}
+
+    void set_data_ptr(view_alias_t alias) {
+        src_view = alias.get() ; 
+    }
 
     KOKKOS_INLINE_FUNCTION
     void operator() (size_t i, size_t j, size_t k, size_t iv, size_t iq)

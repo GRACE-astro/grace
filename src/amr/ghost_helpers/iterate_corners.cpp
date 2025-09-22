@@ -57,6 +57,7 @@ static void register_physical_boundary_corner(
     // not hanging not ghost 
     auto qid = side.quadid +  offset ; 
     neighbors[qid].corners[side.corner].kind = interface_kind_t::PHYS ;
+    neighbors[qid].corners[side.corner].filled = true ; 
     neighbors[qid].n_registered_corners ++ ; 
     
 }
@@ -80,7 +81,7 @@ static void register_corner(
     auto const l1 = static_cast<int>(s1.quad->level);
 
     auto const other_offset = s1.is_ghost ? 0 : grace::amr::get_local_quadrants_offset(s1.treeid);
-
+    desc.filled = true ; 
     desc.kind = interface_kind_t::INTERNAL;
     desc.data.quad_id = s1.quadid + other_offset;
     desc.data.is_remote = s1.is_ghost;
