@@ -46,6 +46,14 @@
 
 namespace grace {
 
+std::tuple<int8_t,int8_t,int8_t> get_dirs(
+    sc_array_view_t<p8est_iter_edge_side_t> const& sides
+)
+{
+    
+}
+
+
 static void register_physical_boundary_edge(
     p8est_iter_edge_side_t const& side, 
     std::vector<quad_neighbors_descriptor_t>& neighbors

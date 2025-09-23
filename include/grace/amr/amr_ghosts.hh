@@ -79,9 +79,14 @@ struct hanging_face_t {
         std::size_t owner_rank[P4EST_CHILDREN/2] ; //!< owner ranks if remote 
         task_id_t task_id[P4EST_CHILDREN/2]      ; 
 } ; 
+struct physical_face_t {
+    int8_t dir[3] ; //!< Normal to the grid 
+    bool in_cbuf  ; //!< Do we need to fill inside cbufs ? 
+} ; 
 union face_data_t {
     full_face_t full ; 
     hanging_face_t hanging ; 
+    physical_face_t phys ; 
     face_data_t() = default ;
 } ; 
 /**
@@ -111,9 +116,14 @@ struct hanging_edge_t {
         std::size_t owner_rank[2] ; //!< owner ranks if remote 
         task_id_t task_id[2] ; 
 } ;
+struct physical_edge_t {
+    int8_t dir[3] ; //!< Normal to the grid 
+    bool in_cbuf  ; //!< Do we need to fill inside cbufs ? 
+} ; 
 union edge_data_t {
     full_edge_t full ; 
     hanging_edge_t hanging ; 
+    physical_edge_t phys ; 
 } ; 
 struct edge_descriptor_t {
     interface_kind_t kind ; 
@@ -132,10 +142,15 @@ struct corner_data_t {
     std::size_t owner_rank     ; //!< owner ranks if remote 
     task_id_t task_id          ; 
 } ; 
+struct physical_corner_t {
+    int8_t dir[3] ; //!< Normal to the grid 
+    bool in_cbuf  ; //!< Do we need to fill inside cbufs ? 
+} ;
 struct corner_descriptor_t {
     interface_kind_t kind ; 
     int8_t level_diff ; 
     corner_data_t data ;
+    physical_corner_t phys ; 
     int8_t corner ; 
     bool filled{false} ; 
 }; 

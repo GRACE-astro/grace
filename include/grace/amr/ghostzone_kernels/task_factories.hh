@@ -77,6 +77,60 @@ Kokkos::Array<int64_t, 5> get_iter_range(size_t ngz,size_t _nx, size_t nv, size_
     }
 }
 
+mpi_task_t make_mpi_send_task(
+      std::size_t rr 
+    , amr::ghost_array_t send_buf 
+    , std::vector<std::size_t> const& send_rank_offsets 
+    , std::vector<std::size_t> const& send_rank_sizes
+    , task_id_t& task_counter 
+)
+{
+    GRACE_TRACE("Registering MPI Send task (tid {}).\n    Send to Rank {} {} elements, offset {}", task_counter, rr, send_rank_sizes[rr], send_rank_offsets[rr]) ; 
+
+    ASSERT(send_rank_offsets[rr] + send_rank_sizes[rr] <= send_buf.size(), "Send out-of-bounds" ) ; 
+
+    mpi_task_t task ; 
+    task._run = [&, send_buf, rr] (MPI_Request* req) {
+        parallel::mpi_isend(
+              send_buf.data() + send_rank_offsets[rr]
+            , send_rank_sizes[rr]
+            , rr 
+            , 0
+            , MPI_COMM_WORLD
+            , req
+        ) ;
+    } ; 
+    task.task_id = task_counter++; 
+    return task ; 
+}
+
+mpi_task_t make_mpi_recv_task(
+      std::size_t rr 
+    , amr::ghost_array_t recv_buf 
+    , std::vector<std::size_t> const& recv_rank_offsets 
+    , std::vector<std::size_t> const& recv_rank_sizes
+    , task_id_t& task_counter 
+)
+{
+    GRACE_TRACE("Registering MPI Receive task (tid {}).\n    Receive from Rank {} {} elements, offset {}", task_counter, rr, recv_rank_sizes[rr], recv_rank_offsets[rr]) ; 
+
+    ASSERT(recv_rank_offsets[rr] + recv_rank_sizes[rr] <= recv_buf.size(), "Receive out-of-bounds" ) ; 
+
+    mpi_task_t task ; 
+    task._run = [&, recv_buf, rr] (MPI_Request* req) {
+        parallel::mpi_irecv(
+              recv_buf.data() + recv_rank_offsets[rr]
+            , recv_rank_sizes[rr]
+            , rr 
+            , 0
+            , MPI_COMM_WORLD
+            , req
+        ) ;
+    } ; 
+    task.task_id = task_counter++; 
+    return task ; 
+}
+
 template< amr::element_kind_t elem_kind >
 gpu_task_t make_gpu_copy_task(
       std::vector<gpu_task_desc_t> const& bucket
@@ -948,248 +1002,43 @@ void insert_pup_tasks(
                                                       task_list);
                 }, task_list), ...);
         }, elem_kinds);
-        { 
-            auto& b = pack_kernels[r] ; 
-        
-            // simple pack 
-            if( b[element_kind_t::FACE].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-pack task (tid {}). Number of faces processed {}.", task_counter, b[element_kind_t::FACE].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_pack_task<element_kind_t::FACE>(
-                            b[element_kind_t::FACE], ghost_array, r, data, send_buf, send_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-                        )
-                    )
-                ) ;
-            } 
-            if( b[element_kind_t::EDGE].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-pack task (tid {}). Number of edges processed {}.", task_counter, b[element_kind_t::EDGE].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_pack_task<element_kind_t::EDGE>(
-                            b[element_kind_t::EDGE], ghost_array, r, data, send_buf, send_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-                        )
-                    )
-                ) ;
-            }
-            if( b[element_kind_t::CORNER].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-pack task (tid {}). Number of corners processed {}.", task_counter, b[element_kind_t::CORNER].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_pack_task<element_kind_t::CORNER>(
-                            b[element_kind_t::CORNER], ghost_array, r, data, send_buf, send_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-                        )
-                    )
-                ) ;
-            }
-        }
-        { // pack_to_cbuf 
-            auto& b = pack_to_cbuf_kernels[r] ; 
-        
-            
-            if( b[element_kind_t::FACE].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-pack task (tid {}). Number of faces processed {}.", task_counter, b[element_kind_t::FACE].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_pack_to_cbuf_task<element_kind_t::FACE>(
-                            b[element_kind_t::FACE], ghost_array, r, coarse_buffers, send_buf, send_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, restrict_task_id, task_list 
-                        )
-                    )
-                ) ;
-            } 
-            if( b[element_kind_t::EDGE].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-pack task (tid {}). Number of edges processed {}.", task_counter, b[element_kind_t::EDGE].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_pack_to_cbuf_task<element_kind_t::EDGE>(
-                            b[element_kind_t::EDGE], ghost_array, r, coarse_buffers, send_buf, send_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, restrict_task_id, task_list 
-                        )
-                    )
-                ) ;
-            }
-            if( b[element_kind_t::CORNER].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-pack task (tid {}). Number of corners processed {}.", task_counter, b[element_kind_t::CORNER].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_pack_to_cbuf_task<element_kind_t::CORNER>(
-                            b[element_kind_t::CORNER], ghost_array, r, coarse_buffers, send_buf, send_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, restrict_task_id, task_list 
-                        )
-                    )
-                ) ;
-            }
-        }
-        { // simple unpack 
-            auto& b = unpack_kernels[r] ;  
-            if ( b[element_kind_t::FACE].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-unpack task (tid {}). Number of faces processed {}.", task_counter, b[element_kind_t::FACE].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_unpack_task<element_kind_t::FACE>(
-                            b[element_kind_t::FACE], ghost_array, r, data, recv_buf, recv_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-                        )
-                    )
-                ) ;
-            }
-            if ( b[element_kind_t::EDGE].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-unpack task (tid {}). Number of edges processed {}.", task_counter, b[element_kind_t::EDGE].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_unpack_to_cbuf_task<element_kind_t::EDGE>(
-                            b[element_kind_t::EDGE], ghost_array, r, data, recv_buf, recv_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-                        )
-                    )
-                ) ;
-            }
-            if ( b[element_kind_t::CORNER].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-unpack task (tid {}). Number of corners processed {}.", task_counter, b[element_kind_t::CORNER].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_unpack_to_cbuf_task<element_kind_t::CORNER>(
-                            b[element_kind_t::CORNER], ghost_array, r, data, recv_buf, recv_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-                        )
-                    )
-                ) ;
-            }
-        }
-        { // unpack to cbuf 
-            auto& b = unpack_to_cbuf_kernels[r] ;  
-            if ( b[element_kind_t::FACE].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-unpack task (tid {}). Number of faces processed {}.", task_counter, b[element_kind_t::FACE].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_unpack_to_cbuf_task<element_kind_t::FACE>(
-                            b[element_kind_t::FACE], ghost_array, r, coarse_buffers, recv_buf, recv_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-                        )
-                    )
-                ) ;
-            }
-            if ( b[element_kind_t::EDGE].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-unpack task (tid {}). Number of edges processed {}.", task_counter, b[element_kind_t::EDGE].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_unpack_to_cbuf_task<element_kind_t::EDGE>(
-                            b[element_kind_t::EDGE], ghost_array, r, coarse_buffers, recv_buf, recv_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-                        )
-                    )
-                ) ;
-            }
-            if ( b[element_kind_t::CORNER].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-unpack task (tid {}). Number of corners processed {}.", task_counter, b[element_kind_t::CORNER].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_unpack_to_cbuf_task<element_kind_t::CORNER>(
-                            b[element_kind_t::CORNER], ghost_array, r, coarse_buffers, recv_buf, recv_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-                        )
-                    )
-                ) ;
-            }
-        }
-        { // unpack from cbuf 
-            auto& b = unpack_from_cbuf_kernels[r] ;  
-            if ( b[element_kind_t::FACE].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-unpack task (tid {}). Number of faces processed {}.", task_counter, b[element_kind_t::FACE].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_unpack_from_cbuf_task<element_kind_t::FACE>(
-                            b[element_kind_t::FACE], ghost_array, r, coarse_buffers, recv_buf, recv_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-                        )
-                    )
-                ) ;
-            }
-            if ( b[element_kind_t::EDGE].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-unpack task (tid {}). Number of edges processed {}.", task_counter, b[element_kind_t::EDGE].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_unpack_from_cbuf_task<element_kind_t::EDGE>(
-                            b[element_kind_t::EDGE], ghost_array, r, coarse_buffers, recv_buf, recv_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-                        )
-                    )
-                ) ;
-            }
-            if ( b[element_kind_t::CORNER].size() > 0 ) {
-                GRACE_TRACE("Recording GPU-unpack task (tid {}). Number of corners processed {}.", task_counter, b[element_kind_t::CORNER].size()) ; 
-                task_list.push_back(
-                    std::make_unique<gpu_task_t>(
-                        make_unpack_from_cbuf_task<element_kind_t::CORNER>(
-                            b[element_kind_t::CORNER], ghost_array, r, coarse_buffers, recv_buf, recv_task_id, pup_stream, 
-                            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-                        )
-                    )
-                ) ;
-            }
-        }
+        // Unpack 
+        std::apply([&](auto... EK){
+            (insert_task_for_kind<EK>(unpack_to_cbuf_kernels[r],
+                [&](auto const& bucket){
+                    return make_unpack_task<EK>(bucket, ghost_array, r,
+                                                data, recv_buf,
+                                                recv_task_id, pup_stream,
+                                                VEC(nx,ny,nz), ngz, nv,
+                                                task_counter, task_list);
+                }, task_list), ...);
+        }, elem_kinds);
+        // Unpack to coarse buffer
+        std::apply([&](auto... EK){
+            (insert_task_for_kind<EK>(unpack_to_cbuf_kernels[r],
+                [&](auto const& bucket){
+                    return make_unpack_to_cbuf_task<EK>(bucket, ghost_array, r,
+                                                        coarse_buffers, recv_buf,
+                                                        recv_task_id, pup_stream,
+                                                        VEC(nx,ny,nz), ngz, nv,
+                                                        task_counter, task_list);
+                }, task_list), ...);
+        }, elem_kinds);
+
+        // Unpack from coarse buffer (hanging tasks)
+        std::apply([&](auto... EK){
+            (insert_task_for_kind<EK>(unpack_from_cbuf_kernels[r],
+                [&](auto const& bucket){
+                    return make_unpack_from_cbuf_task<EK>(bucket, ghost_array, r,
+                                                          coarse_buffers, recv_buf,
+                                                          recv_task_id, pup_stream,
+                                                          VEC(nx,ny,nz), ngz, nv,
+                                                          task_counter, task_list);
+                }, task_list), ...);
+        }, elem_kinds);
         
     } // for r in ranks 
 }; 
-
-mpi_task_t make_mpi_send_task(
-      std::size_t rr 
-    , amr::ghost_array_t send_buf 
-    , std::vector<std::size_t> const& send_rank_offsets 
-    , std::vector<std::size_t> const& send_rank_sizes
-    , task_id_t& task_counter 
-)
-{
-    GRACE_TRACE("Registering MPI Send task (tid {}).\n    Send to Rank {} {} elements, offset {}", task_counter, rr, send_rank_sizes[rr], send_rank_offsets[rr]) ; 
-
-    ASSERT(send_rank_offsets[rr] + send_rank_sizes[rr] <= send_buf.size(), "Send out-of-bounds" ) ; 
-
-    mpi_task_t task ; 
-    task._run = [&, send_buf, rr] (MPI_Request* req) {
-        parallel::mpi_isend(
-              send_buf.data() + send_rank_offsets[rr]
-            , send_rank_sizes[rr]
-            , rr 
-            , 0
-            , MPI_COMM_WORLD
-            , req
-        ) ;
-    } ; 
-    task.task_id = task_counter++; 
-    return task ; 
-}
-
-mpi_task_t make_mpi_recv_task(
-      std::size_t rr 
-    , amr::ghost_array_t recv_buf 
-    , std::vector<std::size_t> const& recv_rank_offsets 
-    , std::vector<std::size_t> const& recv_rank_sizes
-    , task_id_t& task_counter 
-)
-{
-    GRACE_TRACE("Registering MPI Receive task (tid {}).\n    Receive from Rank {} {} elements, offset {}", task_counter, rr, recv_rank_sizes[rr], recv_rank_offsets[rr]) ; 
-
-    ASSERT(recv_rank_offsets[rr] + recv_rank_sizes[rr] <= recv_buf.size(), "Receive out-of-bounds" ) ; 
-
-    mpi_task_t task ; 
-    task._run = [&, recv_buf, rr] (MPI_Request* req) {
-        parallel::mpi_irecv(
-              recv_buf.data() + recv_rank_offsets[rr]
-            , recv_rank_sizes[rr]
-            , rr 
-            , 0
-            , MPI_COMM_WORLD
-            , req
-        ) ;
-    } ; 
-    task.task_id = task_counter++; 
-    return task ; 
-}
-
 
 // FIXME (?) right now this creates a single task 
 task_id_t insert_restriction_tasks(
@@ -1255,7 +1104,7 @@ void insert_copy_tasks(
     std::vector<quad_neighbors_descriptor_t>& ghost_layer,
     bucket_t& copy_kernels,
     hang_bucket_t& copy_from_cbuf_kernels,
-    hang_bucket_t& copy_to_cbuf_kernels,
+    bucket_t& copy_to_cbuf_kernels,
     grace::var_array_t<GRACE_NSPACEDIM> state, 
     grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers, 
     device_stream_t& stream,
@@ -1303,7 +1152,149 @@ void insert_copy_tasks(
     }, kinds);
 }
 
+void insert_ghost_restriction_tasks(
+    std::unordered_set<size_t> const& cbuf_qid,
+    std::vector<quad_neighbors_descriptor_t>& ghost_layer,
+    grace::var_array_t<GRACE_NSPACEDIM> state, 
+    grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
+    device_stream_t& stream, 
+    VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv,
+    task_id_t& task_counter,
+    std::vector<std::unique_ptr<task_t>>& task_list 
+) {
+    std::vector<std::tuple<size_t,uint8_t,uint8_t>> restrict_faces, restrict_edges, restrict_corners ;
+    
+    const uint8_t f2e[P4EST_FACES][4] = {
+        {4,6,8,10}  , // face 0 
+        {5,7,9,11}  , // face 1
+        {0,2,8,9}   , // face 2
+        {1,3,10,11} , // face 3 
+        {0,1,4,5}   , // face 4
+        {2,3,6,7}     // face 5 
+    } ; 
 
+    const uint8_t f2c[P4EST_FACES][4] = {
+        {0,2,4,6},
+        {1,3,5,7},
+        {0,1,4,5},
+        {2,3,6,7},
+        {0,1,2,3},
+        {4,5,6,7}
+    } ; 
+
+    const uint8_t e2f[12][2] = {
+        {2,4},//0
+        {3,4},//1
+        {2,5},//2
+        {3,5},//3
+        {0,4},//4
+        {1,4},//5
+        {0,5},//6
+        {1,5},//7
+        {0,2},//8
+        {1,2},//9
+        {0,3},//10
+        {1,3}//11
+    } ; 
+
+    const uint8_t e2c[12][2] = {
+        {0,1},//0
+        {2,3},//1
+        {4,5},//2
+        {6,7},//3
+        {0,2},//4
+        {1,3},//5
+        {4,6},//6
+        {5,7},//7
+        {0,4},//8
+        {1,5},//9
+        {2,6},//10
+        {3,7}//11
+    }
+
+    const uint8_t c2f[P4EST_CHILDREN][3] = {
+        {0,2,4},//0
+        {1,2,4},//1
+        {0,3,4},//2
+        {1,3,4},//3
+        {0,2,5},//4
+        {1,2,5},//5
+        {0,3,5},//6
+        {1,3,5} //7
+    } ; 
+
+    const uint8_t c2e[P4EST_CHILDREN][3] = {
+        {0,4,8},//0
+        {0,5,9},//1
+        {1,4,10},//2
+        {1,5,11},//3
+        {2,6,8},//4
+        {2,7,9},//5
+        {3,6,10},//6
+        {3,7,11} //7
+    } ; 
+
+    for (auto const& qid : cbuf_qid) {
+        for(int8_t f=0; f<P4EST_FACES; ++f) {
+            auto& face = ghost_layer[qid].faces[f] ; 
+            if ((face.kind == interface_kind_t::PHYS)) continue ;  
+            if (!(face.level_diff == level_diff_t::COARSER)) continue ;  
+            for( int ie=0; ie<4; ++ie) {
+                auto e = f2e[f][ie] ; 
+                auto& edge = ghost_layer[qid].edges[e] ; 
+                if ( ! edge.filled ) continue; 
+                if ( edge.kind == interface_kind_t::PHYS) continue ;  
+                if (!(edge.level_diff == level_diff_t::COARSER)) restrict_edges.emplace_back({qid,f,e}) ; 
+            }
+            for( int ic=0; ic<4; ++ic) {
+                auto c = f2c[f][ic] ; 
+                auto& corner = ghost_layer[qid].corners[c] ; 
+                if ( ! corner.filled ) continue; 
+                if ( corner.kind == interface_kind_t::PHYS) continue ;  
+                if (!(corner.level_diff == level_diff_t::COARSER)) restrict_corners.emplace_back({qid,f,c}) ; 
+            }
+        }
+        for( int8_t e=0; e<12; ++e){
+            auto& edge = ghost_layer[qid].edges[e] ; 
+            if (!(edge.filled)) continue ; 
+            if ((edge.kind == interface_kind_t::PHYS)) continue ;  
+            if (!(edge.level_diff == level_diff_t::COARSER)) continue ;  
+            for( int iface=0; iface<2; ++iface) {
+                auto f = e2f[e][iface] ; 
+                auto& face = ghost_layer[qid].faces[f] ; 
+                if ( face.kind == interface_kind_t::PHYS) continue ;  
+                if (!(face.level_diff == level_diff_t::COARSER)) restrict_faces.emplace_back({qid,e,f}) ;
+            }
+            for( int ic=0; ic<2; ++ic) {
+                auto f = e2c[f][ic] ; 
+                auto& corner = ghost_layer[qid].corners[c] ; 
+                if ( ! corner.filled ) continue; 
+                if ( corner.kind == interface_kind_t::PHYS) continue ;  
+                if (!(corner.level_diff == level_diff_t::COARSER)) restrict_corners.emplace_back({qid,e,c}) ; 
+            }
+        }
+        for( int8_t c=0; c<P4EST_CHILDREN; ++c){
+            auto& corner = ghost_layer[qid].corners[c] ; 
+            if (!(corner.filled)) continue ; 
+            if ((corner.kind == interface_kind_t::PHYS)) continue ;  
+            if (!(corner.level_diff == level_diff_t::COARSER)) continue ;  
+            for( int iface=0; iface<3; ++iface) {
+                auto f = c2f[c][iface] ; 
+                auto& face = ghost_layer[qid].faces[f] ; 
+                if ( face.kind == interface_kind_t::PHYS) continue ;  
+                if (!(face.level_diff == level_diff_t::COARSER)) restrict_faces.emplace_back({qid,c,f}) ;
+            }
+            for( int ie=0; ie<3; ++ie) {
+                auto e = c2e[c][ie] ; 
+                auto& edge = ghost_layer[qid].edges[e] ; 
+                if ( ! edge.filled ) continue; 
+                if ( edge.kind == interface_kind_t::PHYS) continue ;  
+                if (!(edge.level_diff == level_diff_t::COARSER)) restrict_edges.emplace_back({qid,c,e}) ; 
+            }
+        }
+    }
+
+}
 } /* namespace grace */
 
 #endif /*GRACE_AMR_GHOSTZONE_KERNELS_TASK_FACTORY_HH*/ 
