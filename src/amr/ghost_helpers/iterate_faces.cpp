@@ -156,7 +156,12 @@ void grace_iterate_faces(
         auto offset = amr::get_local_quadrants_offset(s0.treeid) ; 
         auto& desc = ghosts->at(s0.is.full.quadid + offset); 
         uint8_t f = s0.face ;
-        desc.faces[f].kind = interface_kind_t::PHYS ; 
+        auto& face = desc.faces[f];
+        face.kind = interface_kind_t::PHYS ;
+        face.data.phys.dir[0] = face.data.phys.dir[1] = face.data.phys.dir[2] = 0;
+        face.data.phys.dir[static_cast<size_t>(f/2)] = f%2 ? : +1 : -1 ;
+        face.data.phys.type = amr::element_kind_t::FACE ; 
+        face.data.phys.in_cbuf = false ;
         desc.n_registered_faces ++ ; 
         return ; 
     }

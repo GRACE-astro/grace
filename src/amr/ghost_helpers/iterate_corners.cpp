@@ -73,7 +73,9 @@ static void register_physical_boundary_corner(
         corner.phys.dir[0] = get_dir((side.corner>>0)&1)  ; 
         corner.phys.dir[1] = get_dir((side.corner>>1)&1) ; 
         corner.phys.dir[2] = get_dir((side.corner>>2)&1) ; 
+        corner.phys.in_cbuf = false ;
         corner.filled = true ; 
+        corner.phys.type = amr::element_kind_t::CORNER ; 
     } else if (nsides==2) {
         // we are on a grid edge 
         // we need to identify the edge direction 
@@ -102,7 +104,9 @@ static void register_physical_boundary_corner(
         c1.phys.dir[0] = c2.phys.dir[0] = (off[0][0] == off[0][1]) ? get_dir(off[0][0]) : 0 ; 
         c1.phys.dir[1] = c2.phys.dir[1] = (off[1][0] == off[1][1]) ? get_dir(off[1][0]) : 0 ; 
         c1.phys.dir[2] = c2.phys.dir[2] = (off[2][0] == off[2][1]) ? get_dir(off[2][0]) : 0 ; 
+        c1.phys.in_cbuf = c2.phys.in_cbuf = false ;
         // we can check here that one and only one is 0 
+        corner.phys.type = amr::element_kind_t::EDGE ; 
     } else {
         int8_t off[3][4] = {
             {(sides[0].corner >> 0)&1, (sides[1].corner >> 0)&1,
@@ -130,6 +134,8 @@ static void register_physical_boundary_corner(
                                     ? get_dir(off[d][0])
                                     : 0; 
             }
+            corner.phys.type = amr::element_kind_t::FACE ; 
+            corner.phys.in_cbuf = false ;
         }
     }
 

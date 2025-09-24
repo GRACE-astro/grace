@@ -57,7 +57,7 @@
 #include <set> 
 namespace grace {
 
-enum sec_t : uint8_t {FACE=0, EDGE=1, CORNER=2, CBFACE=3, CBEDGE=4, CBCORNER=5} ; 
+enum class sec_t : uint8_t {FACE=0, EDGE=1, CORNER=2, CBFACE=3, CBEDGE=4, CBCORNER=5} ; 
 
 
 using desc_ptr_t = std::variant<

@@ -82,6 +82,7 @@ struct hanging_face_t {
 struct physical_face_t {
     int8_t dir[3] ; //!< Normal to the grid 
     bool in_cbuf  ; //!< Do we need to fill inside cbufs ? 
+    amr::element_kind_t type ;
 } ; 
 union face_data_t {
     full_face_t full ; 
@@ -119,6 +120,7 @@ struct hanging_edge_t {
 struct physical_edge_t {
     int8_t dir[3] ; //!< Normal to the grid 
     bool in_cbuf  ; //!< Do we need to fill inside cbufs ? 
+    amr::element_kind_t type ;
 } ; 
 union edge_data_t {
     full_edge_t full ; 
@@ -144,7 +146,8 @@ struct corner_data_t {
 } ; 
 struct physical_corner_t {
     int8_t dir[3] ; //!< Normal to the grid 
-    bool in_cbuf  ; //!< Do we need to fill inside cbufs ? 
+    bool in_cbuf{false}  ; //!< Do we need to fill inside cbufs ? 
+    amr::element_kind_t type ;
 } ;
 struct corner_descriptor_t {
     interface_kind_t kind ; 
@@ -170,6 +173,13 @@ struct quad_neighbors_descriptor_t {
     int8_t n_registered_corners {0} ; 
 }  ;  
 /**************************************************************************************************/
+template < element_kind_t elem_kind > 
+inline uint8_t 
+get_adjacent(uint8_t eid, uint8_t dir, int8_t sign) ; 
+/**************************************************************************************************/
+template < element_kind_t elem_kind > 
+inline std::variant< face_descriptor_t, edge_descriptor_t, corner_descriptor_t > 
+get_adjacent(std::vector<quad_neighbors_descriptor_t>const& desc, uint8_t eid, const int8_t dir[3]);
 /**************************************************************************************************/
 /**************************************************************************************************/
 /**************************************************************************************************/
@@ -299,7 +309,175 @@ class amr_ghosts_impl_t {
 } ; 
 //**************************************************************************************************
 using amr_ghosts = utils::singleton_holder<amr_ghosts_impl_t> ; 
+//**************************************************************************************************
+//**************************************************************************************************
+template <> 
+inline uint8_t 
+get_adjacent<FACE>(uint8_t eid, uint8_t dir, int8_t sign) {
+    constexpr std::array<std::array<int8_t,4>,P4EST_FACES> f2e = 
+    {
+        {8,10,4,6}, //0
+        {9,11,5,7}, //1
+        {8,9,0,2}, //2
+        {10,11,1,3}, //3
+        {4,5,0,1}, //4
+        {6,7,2,3} //5 
+    }; 
+    constexpr std::array<std::array<int8_t,2>,P4EST_FACES/2> face_axes = 
+    {
+        {1,2}, {0,2}, {0,1}
+    } ;
 
+    return f2e[eid][2*(face_axes[eid/2][0] != dir)+sign] ; 
+}; 
+
+template <> 
+inline std::variant< face_descriptor_t, edge_descriptor_t, corner_descriptor_t > 
+get_adjacent<FACE>(std::vector<quad_neighbors_descriptor_t>const& desc, size_t qid, uint8_t eid, const int8_t dir[3])
+{
+
+    int nz0=-1, nz1=-1;
+    int sgn0=0, sgn1=0;
+    int cnt=0;
+    for(int i=0;i<3;++i){
+        if(dir[i]!=0){
+            if(cnt==0){ nz0=i; sgn0=dir[i]>0; }
+            else { nz1=i; sgn1=dir[i]>0; }
+            ++cnt;
+        }
+    }
+
+    ASSERT(cnt == 1, "Only along axes directions supported for now.") ; 
+    ASSERT(nz0 != eid/2, "Requested direction is orthogonal to the face") ; 
+    auto const edge_idx = get_adjacent<FACE>(eid,nz0,sgn0) ; 
+    return desc[qid].edges[edge_idx] ; 
+
+    #if 0 
+    std::array<std::array<int8_t,4>,P4EST_FACES> f2c = 
+    {
+        {0,2,4,6},
+        {1,3,5,7},
+        {0,1,4,5},
+        {2,3,6,7},
+        {0,1,2,3},
+        {4,5,6,7}
+    } ; 
+    auto corner_idx_from_signs = [&](bool swap){
+        return swap ? sgn1 + 2*sgn0 : sgn0 + 2*sgn1;
+    };
+
+    if ( cnt == 1 ) {
+        uint8_t const edge_idx = f2e[eid][2*(face_axes[eid/2][0] != nz0)+sgn0] ; 
+        return desc[qid].edges[edge_idx] ; 
+    } else {
+        auto swap = (face_axes[eid/2][0] != nonzero_axis[0]) ; 
+        uint8_t const corner_idx = corner_idx_from_signs(swap) ; 
+        return desc[qid].corners[corner_idx] ; 
+    }
+    #endif 
+};
+
+template <> 
+inline uint8_t 
+get_adjacent<EDGE>(uint8_t eid, uint8_t dir, int8_t sign) {
+    constexpr std::array<std::array<uint8_t,2>,12> e2f = 
+    {
+        {4,2}, {4,3}, {5,2}, {5,3}, {4,0}, {4,1}, {5,0}, {5,1}, {2,0}, {2,1}, {3,0}, {3,1}
+    }  ;
+    constexpr std::array<std::array<uint8_t,2>,12> e2c = 
+    {
+        {0,1}, {2,3}, {4,5}, {6,7}, {0,2}, {1,3}, {4,6}, {5,7}, {0,4}, {1,5}, {2,6}, {3,7}
+    }  ;
+
+    int8_t edge_dir = eid/4 ; 
+
+    if ( dir == edge_dir ) {
+        // corner 
+        return (dir[edge_dir]>0) ? e2c[eid][1] : e2c[eid][0] ; 
+    }  else {
+        // face 
+        if ( edge_dir == 0 ) { 
+            // fixme here we're not checking the sign 
+            // won't change the result but technically only one 
+            // sign makes sense 
+            
+            return (dir==1) ? e2f[eid][0] : e2f[eid][1] ; 
+        } else {
+            return (dir==0) ? e2f[eid][0] : e2f[eid][1] ; 
+        } 
+    }
+}; 
+
+
+template <> 
+inline std::variant< face_descriptor_t, edge_descriptor_t, corner_descriptor_t > 
+get_adjacent<EDGE>(std::vector<quad_neighbors_descriptor_t>const& desc, size_t qid, uint8_t eid, const int8_t dir[3])
+{
+    
+    int nz0=-1, nz1=-1;
+    int sgn0=0, sgn1=0;
+    int cnt=0;
+    for(int i=0;i<3;++i){
+        if(dir[i]!=0){
+            if(cnt==0){ nz0=i; sgn0=dir[i]>0; }
+            else { nz1=i; sgn1=dir[i]>0; }
+            ++cnt;
+        }
+    }
+
+    ASSERT(cnt == 1, "Only along axes directions supported for now.") ; 
+    auto id = get_adjacent<EDGE>(eid, nz0, sgn0) ; 
+
+    int8_t edge_dir = eid/4 ; 
+
+    if ( nz == edge_dir ) {
+        return desc[qid].corners[id] ; 
+    } else {
+        return desc[qid].faces[id] ; 
+    }
+
+}
+
+template <> 
+inline uint8_t 
+get_adjacent<CORNER>(uint8_t eid, uint8_t dir, int8_t sign) {
+    constexpr std::array<std::array<uint8_t,3>,P4EST_CHILDREN> c2e = 
+    {
+        {0,4,8},
+        {1,5,9},
+        {1,4,10},
+        {5,1,11},
+        {2,6,8},
+        {2,7,9},
+        {3,6,10},
+        {3,7,11}
+    }  ;
+
+    return c2e[eid][dir] ; 
+}; 
+
+template <> 
+inline std::variant< face_descriptor_t, edge_descriptor_t, corner_descriptor_t > 
+get_adjacent<CORNER>(std::vector<quad_neighbors_descriptor_t>const& desc, size_t qid, uint8_t eid, const int8_t dir[3])
+{
+
+
+    int nz0=-1, nz1=-1;
+    int sgn0=0, sgn1=0;
+    int cnt=0;
+    for(int i=0;i<3;++i){
+        if(dir[i]!=0){
+            if(cnt==0){ nz0=i; sgn0=dir[i]>0; }
+            else { nz1=i; sgn1=dir[i]>0; }
+            ++cnt;
+        }
+    }
+    ASSERT(cnt == 1, "Only along axes directions supported for now.") ; 
+
+    auto eid = get_adjacent<CORNER>(eid,nz,dir[nz]) ; 
+    return desc[qid].edges[eid] ; 
+}
+//**************************************************************************************************
 }
 
 #endif /* GRACE_AMR_AMR_GHOSTS_HH */

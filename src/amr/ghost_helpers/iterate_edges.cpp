@@ -50,34 +50,88 @@ std::tuple<int8_t,int8_t,int8_t> get_dirs(
     sc_array_view_t<p8est_iter_edge_side_t> const& sides
 )
 {
-    
+    // depending on the number of sides, this
+    // is either a grid edge or a face 
+
+    auto const get_edge_dir(int8_t edge) -> std::tuple<int8_t,int8_t,int8_t> {
+        int8_t off[] = {(edge>>0)& 1, (edge>>1)& 1} ;
+        if ( edge < 4 ) {
+            // along x 
+            return {
+                0, off[0] ? 1 : -1, off[1] ? 1 : -1 
+            } ; 
+        } else if (edge < 8) {
+            return {
+                off[0] ? 1 : -1, 0, off[1] ? 1 : -1 
+            } ;
+        } else {
+            return {
+                off[0] ? 1 : -1, off[1] ? 1 : -1, 0
+            } ;
+        }
+    }
+
+    if ( sides.size() == 1 ) {
+        // grid edge 
+        return get_edge_dir(sides[0].edge) ; 
+    } else {
+        // grid face 
+        auto const [d11,d12,d13] = get_edge_dir(sides[0].edge) ; 
+        auto const [d21,d22,d23] = get_edge_dir(sides[1].edge) ; 
+        // these two edges should agree in all directions except one,
+        // where one will say -1 and the other +1. This direction 
+        // lies in the face. 
+        return {
+            d11==d21 ? d11 : 0,
+            d12==d22 ? d12 : 0,
+            d13==d23 ? d13 : 0
+        } ; 
+    }
 }
 
 
 static void register_physical_boundary_edge(
-    p8est_iter_edge_side_t const& side, 
+    sc_array_view_t<p8est_iter_edge_side_t> const& sides, 
     std::vector<quad_neighbors_descriptor_t>& neighbors
 )
 {
-    auto const offset = grace::amr::get_local_quadrants_offset(side.treeid); 
-    if ( side.is_hanging ) {
-        for( int is=0; is<2; ++is) {
-            if ( side.is.hanging.is_ghost[is]) continue ; 
-            // hanging local 
-            auto qid = side.is.hanging.quadid[is] +  offset ; 
-            neighbors[qid].edges[side.edge].kind = interface_kind_t::PHYS ;
-            neighbors[qid].edges[side.edge].filled = true ; 
+    auto [dx,dy,dz] =  get_dirs(sides) ; 
+    for( auto const& side: sides) {
+        auto const offset = grace::amr::get_local_quadrants_offset(side.treeid); 
+        if ( side.is_hanging ) {
+            for( int is=0; is<2; ++is) {
+                if ( side.is.hanging.is_ghost[is]) continue ; 
+                // hanging local 
+                auto qid = side.is.hanging.quadid[is] +  offset ; 
+                auto& edge = neighbors[qid].edges[side.edge];
+                edge.kind = interface_kind_t::PHYS ;
+                edge.filled = true ;
+                // grid normal 
+                edge.data.phys.dir[0] = dx ;
+                edge.data.phys.dir[1] = dy ;
+                edge.data.phys.dir[2] = dz ;
+                edge.data.phys.in_cbuf = false ;
+                edge.data.phys.type = sides.size() == 1 ? amr::element_kind_t::EDGE : amr::element_kind_t::FACE ;
+                neighbors[qid].n_registered_edges++ ; 
+            }
+
+        } else {
+            if (side.is.full.is_ghost) return ; 
+            // not hanging not ghost 
+            auto qid = side.is.full.quadid +  offset ; 
+            auto & edge = neighbors[qid].edges[side.edge] ; 
+            edge.kind = interface_kind_t::PHYS ;
+            edge.filled = true ; 
+            // grid normal 
+            edge.data.phys.dir[0] = dx ;
+            edge.data.phys.dir[1] = dy ;
+            edge.data.phys.dir[2] = dz ;
+            edge.data.phys.in_cbuf = false ;
+            edge.data.phys.type = sides.size() == 1 ? amr::element_kind_t::EDGE : amr::element_kind_t::FACE ; 
             neighbors[qid].n_registered_edges++ ; 
         }
-
-    } else {
-        if (side.is.full.is_ghost) return ; 
-        // not hanging not ghost 
-        auto qid = side.is.full.quadid +  offset ; 
-        neighbors[qid].edges[side.edge].kind = interface_kind_t::PHYS ;
-        neighbors[qid].edges[side.edge].filled = true ; 
-        neighbors[qid].n_registered_edges++ ; 
     }
+    
 }
 
 inline void fill_full_edge_desc(edge_descriptor_t& desc,
@@ -194,9 +248,9 @@ void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data)
 
     if (sides.size() < 4) {
         // Boundary edge(s)
-        for (auto const& side : sides) {
-            register_physical_boundary_edge(side, *ghosts);
-        }
+        
+        register_physical_boundary_edge(sides, *ghosts);
+        
         return;
     }
 

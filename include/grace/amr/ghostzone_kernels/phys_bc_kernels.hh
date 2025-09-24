@@ -43,10 +43,10 @@ namespace grace { namespace amr {
 template< size_t order >
 struct extrap_bc_t 
 {
-      template< typename src_view_t, typename dst_view_t >
+      template< typename view_t >
       void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
       apply (
-            dst_view_t dst, src_view_t src,
+            view_t view,
             VEC( size_t i, size_t j, size_t k),
             VEC( int8_t dx, int8_t dy, int8_t dz)
       ) const ; 
@@ -55,15 +55,15 @@ struct extrap_bc_t
 template<>
 struct extrap_bc_t<0>
 {
-      template< typename src_view_t, typename dst_view_t >
+      template< typename view_t >
       void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
       apply (
-            dst_view_t dst, src_view_t src,
+            view_t view,
             VEC( size_t i, size_t j, size_t k),
             VEC( int8_t dx, int8_t dy, int8_t dz)
       ) const
       {
-            dst(VEC(i,j,k)) = src(VEC(i-dx,j-dy,k-dz)) ; 
+            view(VEC(i,j,k)) = view(VEC(i-dx,j-dy,k-dz)) ; 
       }; 
 } ; 
 
@@ -71,18 +71,18 @@ struct extrap_bc_t<0>
 template<>
 struct extrap_bc_t<3>
 {
-      template< typename src_view_t, typename dst_view_t >
+      template< typename view_t >
       void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
       apply (
-            dst_view_t dst, src_view_t src,
+            view_t view,
             VEC( size_t i, size_t j, size_t k),
             VEC( int8_t dx, int8_t dy, int8_t dz)
         ) const
       {
-            dst(VEC(i,j,k)) =( 4*src(VEC(i-dx,j-dy,k-dz)) 
-                              - 6*src(VEC(i-2*dx,j-2*dy,k-2*dz)) 
-                              + 4*src(VEC(i-3*dx,j-3*dy,k-3*dz)) 
-                              -   src(VEC(i-4*dx,j-4*dy,k-4*dz)) ); 
+            view(VEC(i,j,k)) =( 4*view(VEC(i-dx,j-dy,k-dz)) 
+                              - 6*view(VEC(i-2*dx,j-2*dy,k-2*dz)) 
+                              + 4*view(VEC(i-3*dx,j-3*dy,k-3*dz)) 
+                              -   view(VEC(i-4*dx,j-4*dy,k-4*dz)) ); 
       }; 
 } ;
 
@@ -92,96 +92,125 @@ struct extrap_bc_t<3>
  */
 using outflow_bc_t = extrap_bc_t<0> ;
 
-template< typename src_view_t, typename dst_view_t >
-struct face_phys_bc_k {
 
-    readonly_view_t<std::size_t> qid ;
-    readonly_view_t<bc_t> var_bcs ; 
-    readonly_view_t<uint8_t> face    ;
+template< element_kind_t elem_kind, element_kind_t bc_kind, typename view_t >
+struct phys_bc_op {
 
-    src_view_t src_data ; 
-    dst_view_t dst_data ; 
+    readonly_view_t<std::size_t> qid   ;
+    readonly_view_t<uint8_t> eid       ;
+    readonly_twod_view_t<int8_t,3> dir ;
+    readonly_view_t<bc_t> var_bcs      ; 
+    
+    view_t data ; 
 
     outflow_bc_t outflow_kernel ;
     extrap_bc_t<3> extrap_kernel ; 
 
-    std::size_t VEC(nx,ny,nz), ngz ; 
+    // only one view involved, if nx needs to be 
+    // halved, just do it here 
+    size_t n, ngz ; 
 
     void set_data_ptr(view_alias_t alias) {
-        src_data = alias.get() ; 
-        dst_data = alias.get() ;
+        data = alias.get() ; 
     }
 
 
-    face_phys_bc_k(
-        dst_view_t _dst, src_view_t _src, 
-        Kokkos::View<size_t*> _qid, Kokkos::View<bc_t*> _var_bcs, 
-        Kokkos::View<uint8_t*> _face, VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz 
-    ) : qid(_qid), var_bcs(_var_bcs), face(_face), src_data(_src), dst_data(_dst), 
-        VEC(nx(_nx), ny(_ny), nz(_nz)), ngz(_ngz)
+    phys_bc_op(
+        view_t _data ,
+        Kokkos::View<size_t*> _qid, Kokkos::View<uint8_t*> _eid, 
+        Kokkos::View<int8_t*[3]> _dir, Kokkos::View<bc_t*> _var_bcs, 
+         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, bool _is_cbuf
+    ) : qid(_qid),  eid(_eid), dir(_dir), var_bcs(_var_bcs), data(_data), 
+        n(_nx), ngz(_ngz)
     {
         outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ;
     }
+    
+    KOKKOS_INLINE_FUNCTION 
+    void compute_zero_dir(size_t& lmin, size_t& lmax, size_t& idir, uint8_t dir_idx, uint8_t eid) const {
+        idir = +1;
+        if constexpr (elem_kind == element_kind_t::CORNER) 
+        {
+            lmin = ((eid>>dir_idx) & 1) ? n + ngz : 0 ; 
+
+            lmax = lmin + ngz;
+        } else if constexpr ((elem_kind == element_kind_t::EDGE) && (bc_kind == element_kind_t::FACE)) { 
+            // supercalifragilistichespiralidoso 
+            
+            if(eid/4 == dir_idx) { 
+                // along-edge → full sweep
+                lmin = ngz; lmax = n + ngz; idir = +1;
+            } else {
+                // perpendicular → ghost only
+                if(eid < 4) {          // X-axis edges
+                    lmin = ((eid>>((dir_idx+1)%2))&1) ? n + ngz : 0;
+                } else if(eid < 8) {   // Y-axis edges
+                    lmin = ((eid>>(dir_idx/2))&1) ? n + ngz : 0;
+                } else {               // Z-axis edges
+                    lmin = ((eid>>dir_idx)&1) ? n + ngz : 0;
+                }
+                lmax = lmin + ngz;
+            }       
+
+        } else {
+            lmin = ngz; lmax = n + ngz ;
+        }
+    }
+    
+    KOKKOS_INLINE_FUNCTION 
+    void compute_bounds_impl(int8_t dir, size_t& lmin, size_t& lmax, size_t& idir, uint8_t idx, uint8_t eid) const
+    {
+      if (dir < 0) {
+        lmin = ngz - 1; lmax = -1; idir = -1;
+      } else if (dir > 0) {
+        lmin = n + ngz; lmax = n + 2 * ngz; idir = +1;
+      } else {
+        // anche se ti sembra che abbia un suono spaventoso 
+        compute_zero_dir(lmin,lmax,idir,idx,eid) ;  
+      }
+    };
+
+    KOKKOS_INLINE_FUNCTION 
+    void compute_bounds(const int8_t dir[3], size_t lmin[3], size_t lmax[3], size_t idir[3], uint8_t eid) const
+    {
+        #pragma unroll 
+        for( int ii=0; ii<3; ++ii) compute_bounds_impl(dir[ii],lmin[ii],lmax[ii],idir[ii],ii,eid) ; 
+    };
 
     KOKKOS_INLINE_FUNCTION
     void operator() (
-        std::size_t ig, std::size_t j, std::size_t k, std::size_t iv, std::size_t iq 
+        std::size_t k, std::size_t iv, std::size_t iq 
     ) const 
     {
-        auto face_id = face(iq) ; 
-        auto quad_id = qid(iq)  ; 
-        auto bc_kind = var_bcs(iv) ; 
-        uint8_t faceb2 = face_id / 2 ; 
-
-        int8_t const dir[] = {
-            static_cast<int8_t>((face_id == 0) ? -1 : (face_id == 1 ? +1 : 0)),
-            static_cast<int8_t>((face_id == 2) ? -1 : (face_id == 3 ? +1 : 0)),
-            static_cast<int8_t>((face_id == 4) ? -1 : (face_id == 5 ? +1 : 0))
-        };
+        auto _eid = eid(iq) ; 
+        auto _qid = qid(iq)  ; 
+        auto bc_kind = var_bcs(iv) ;         
         
-        // Compute sweep range in normal direction
-        size_t lmin, lmax, idir;
-        auto compute_bounds = [](int8_t face, size_t ngz, size_t n, size_t& lmin, size_t& lmax, size_t& idir) {
-            if (face % 2 == 0) {  // negative side
-                lmin = ngz - 1;
-                lmax = -1;
-                idir = -1;
-            } else {              // positive side
-                lmin = n + ngz;
-                lmax = n + 2 * ngz;
-                idir = +1;
-            }
-        };
+        int8_t _dir[] = {dir(iq,0), dir(iq,1), dir(iq,2)} ; 
+        // se lo dici forte avrà un successo strepitoso 
+        size_t lmin[3], lmax[3], idir[3];
+        compute_bounds(_dir, lmin, lmax, idir, _eid);
 
-        compute_bounds(face_id, ngz, (faceb2 == 0 ? nx : (faceb2 == 1 ? ny : nz)), lmin, lmax, idir);
-
-        auto src_sv = Kokkos::subview(
-            src_data, 
+        auto sv = Kokkos::subview(
+            data, 
             VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
-            iv, quad_id 
+            iv, _qid 
         ) ; 
 
-        auto dst_sv = Kokkos::subview(
-            dst_data, 
-            VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
-            iv, quad_id 
-        ) ;
- 
-        for (size_t ig = lmin; ig != lmax; ig += idir) {
-            // Reconstruct full 3D index depending on face orientation
-            auto const I = (faceb2 == 0) ? ig : j + ngz ;
-            auto const J = (faceb2 == 1) ? ig : (faceb2 == 0 ? j + ngz : k + ngz) ;
-            auto const K = (faceb2 == 2) ? ig : k + ngz ;
-
+        
+        // loop not unrollable 
+        for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0])
+        for (int jg = lmin[1]; jg != lmax[1]; jg += idir[1])
+        for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2]) {
             switch (bc_kind) {
                 case BC_OUTFLOW:
-                    outflow_kernel.template apply<decltype(dst_sv), decltype(src_sv)>(
-                        dst_sv, src_sv, VEC(I, J, K), VEC(dir[0], dir[1], dir[2]));
+                    outflow_kernel.template apply<decltype(sv)>(
+                        sv, VEC(ig,jg,kg), VEC(_dir[0], _dir[1], _dir[2]));
                     break;
 
                 case BC_LAGRANGE_EXTRAP:
-                    extrap_kernel.template apply<decltype(dst_sv), decltype(src_sv)>(
-                        dst_sv, src_sv, VEC(I, J, K), VEC(dir[0], dir[1], dir[2]));
+                    extrap_kernel.template apply<decltype(sv)>(
+                        sv, VEC(ig,jg,kg), VEC(_dir[0], _dir[1], _dir[2]));
                     break;
                 case BC_NONE:
                     break;
@@ -192,11 +221,10 @@ struct face_phys_bc_k {
         }
     }
 
-
-
+    
 
 } ; 
 
 }} /* namespace grace::amr */
-
+// supercalifragilistichespiralidoso! 
 #endif /* GRACE_AMR_PHYS_BC_KERNELS_HH */

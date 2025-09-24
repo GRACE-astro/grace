@@ -1162,7 +1162,7 @@ void insert_ghost_restriction_tasks(
     task_id_t& task_counter,
     std::vector<std::unique_ptr<task_t>>& task_list 
 ) {
-    std::vector<std::tuple<size_t,uint8_t,uint8_t>> restrict_faces, restrict_edges, restrict_corners ;
+    std::vector<std::tuple<size_t,uint8_t>> restrict_faces, restrict_edges, restrict_corners ;
     
     const uint8_t f2e[P4EST_FACES][4] = {
         {4,6,8,10}  , // face 0 
@@ -1243,15 +1243,9 @@ void insert_ghost_restriction_tasks(
                 auto e = f2e[f][ie] ; 
                 auto& edge = ghost_layer[qid].edges[e] ; 
                 if ( ! edge.filled ) continue; 
-                if ( edge.kind == interface_kind_t::PHYS) continue ;  
-                if (!(edge.level_diff == level_diff_t::COARSER)) restrict_edges.emplace_back({qid,f,e}) ; 
-            }
-            for( int ic=0; ic<4; ++ic) {
-                auto c = f2c[f][ic] ; 
-                auto& corner = ghost_layer[qid].corners[c] ; 
-                if ( ! corner.filled ) continue; 
-                if ( corner.kind == interface_kind_t::PHYS) continue ;  
-                if (!(corner.level_diff == level_diff_t::COARSER)) restrict_corners.emplace_back({qid,f,c}) ; 
+                if ( edge.kind == interface_kind_t::PHYS) edge.data.phys.in_cbuf = true ;  
+                if (!(edge.level_diff == level_diff_t::COARSER)) restrict_edges.emplace_back({qid,e}) ; 
+            } 
             }
         }
         for( int8_t e=0; e<12; ++e){
@@ -1262,15 +1256,15 @@ void insert_ghost_restriction_tasks(
             for( int iface=0; iface<2; ++iface) {
                 auto f = e2f[e][iface] ; 
                 auto& face = ghost_layer[qid].faces[f] ; 
-                if ( face.kind == interface_kind_t::PHYS) continue ;  
-                if (!(face.level_diff == level_diff_t::COARSER)) restrict_faces.emplace_back({qid,e,f}) ;
+                if ( face.kind == interface_kind_t::PHYS) face.data.phys.in_cbuf=true ;  
+                if (!(face.level_diff == level_diff_t::COARSER)) restrict_faces.emplace_back({qid,f}) ;
             }
             for( int ic=0; ic<2; ++ic) {
                 auto f = e2c[f][ic] ; 
                 auto& corner = ghost_layer[qid].corners[c] ; 
                 if ( ! corner.filled ) continue; 
-                if ( corner.kind == interface_kind_t::PHYS) continue ;  
-                if (!(corner.level_diff == level_diff_t::COARSER)) restrict_corners.emplace_back({qid,e,c}) ; 
+                if ( corner.kind == interface_kind_t::PHYS) corner.phys.in_cbuf=true ;  
+                if (!(corner.level_diff == level_diff_t::COARSER)) restrict_corners.emplace_back({qid,c}) ; 
             }
         }
         for( int8_t c=0; c<P4EST_CHILDREN; ++c){
@@ -1278,22 +1272,176 @@ void insert_ghost_restriction_tasks(
             if (!(corner.filled)) continue ; 
             if ((corner.kind == interface_kind_t::PHYS)) continue ;  
             if (!(corner.level_diff == level_diff_t::COARSER)) continue ;  
-            for( int iface=0; iface<3; ++iface) {
-                auto f = c2f[c][iface] ; 
-                auto& face = ghost_layer[qid].faces[f] ; 
-                if ( face.kind == interface_kind_t::PHYS) continue ;  
-                if (!(face.level_diff == level_diff_t::COARSER)) restrict_faces.emplace_back({qid,c,f}) ;
-            }
             for( int ie=0; ie<3; ++ie) {
                 auto e = c2e[c][ie] ; 
                 auto& edge = ghost_layer[qid].edges[e] ; 
                 if ( ! edge.filled ) continue; 
-                if ( edge.kind == interface_kind_t::PHYS) continue ;  
-                if (!(edge.level_diff == level_diff_t::COARSER)) restrict_edges.emplace_back({qid,c,e}) ; 
+                if ( edge.kind == interface_kind_t::PHYS) edge.data.phys.in_cbuf = true ;  
+                if (!(edge.level_diff == level_diff_t::COARSER)) restrict_edges.emplace_back({qid,e}) ; 
             }
         }
     }
 
+    // make and append tasks 
+
+}
+
+template< amr::element_kind_t elem_kind 
+        , amr::element_kind_t bc_kind >
+gpu_task_t make_gpu_phys_bc_task(
+    std::vector<size_t> const& qid_h,
+    std::vector<uint8_t> const& eid_h,
+    std::vector<std::array<int8_t,3>> const& dir_h, 
+    Kokkos::View<bc_t*> var_bc,
+    device_stream_t& stream, 
+    task_id_t& task_counter,
+    grace::var_array_t<GRACE_NSPACEDIM> data_array,
+    size_t n, size_t nv, size_t ngz
+)
+{
+    Kokkos::View<size_t*> qid_d{"qid", qid_h.size()}; 
+    Kokkos::View<uint8_t*> eid_d{"eid", qid_h.size()} ; 
+    Kokkos::View<int8_t*[3]> dir_d{"dir", qid_h.size()} ; 
+
+    grace::deep_copy_vec_to_view(qid_d,qid_h) ; 
+    grace::deep_copy_vec_to_view(eid_d,eid_h) ; 
+    grace::deep_copy_vec_to_2D_view(dir_d,dir_h) ;
+
+    gpu_task_t task{} ;
+
+    phys_bc_op<elem_kind,bc_kind,decltype(data_array)> functor{
+       data_array, qid_d, eid_d, dir_d, var_bc, VEC(nx,ny,nz),ngz  
+    } ; 
+    
+    Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>   
+        policy{
+            exec_space, {0,0}, {nv, qid_h.size()}
+        } ;
+
+    task._run = [functor, policy] (view_alias_t alias) mutable {
+        functor.set_data_ptr(alias) ; 
+        GRACE_TRACE("Fill phys start") ; 
+        Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        Kokkos::fence() ; 
+        #endif 
+        GRACE_TRACE("Fill phys done") ; 
+    };
+
+    task.stream = &stream ; 
+    task.task_id = task_counter++ ; 
+}
+
+void insert_phys_bc_tasks(
+    bucket_t phys_bc_tasks,
+    std::vector<quad_neighbors_descriptor_t>& ghost_layer,
+    grace::var_array_t<GRACE_NSPACEDIM> state, 
+    grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
+    Kokkos::View<bc_t*> var_bc, 
+    device_stream_t& stream, 
+    VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv,
+    task_id_t& task_counter,
+    std::vector<std::unique_ptr<task_t>>& task_list 
+) 
+{
+    using namespace amr ;
+
+    // we have faces (ff) edges in faces (ef)
+    // corners in faces (cf), edges in edges (ee)
+    // corners in edges (ce), corners in corners (cc)
+    // quad_id 
+    std::array<std::array<std::vector<size_t>,3>,3> qid, qid_cbuf  ;
+    std::array<std::array<std::vector<uint8_t>,3>,3> eid, eid_cbuf ;
+    std::array<std::array<std::vector<std::array<int8_t,3>>,3>,3> dir, dir_cbuf ; 
+    
+    // input here is element kind, descriptor 
+    // output here is quad_id, e_id, grid normal, BC type  
+    auto const get_info = [&] (amr::element_kind_t kind, gpu_task_desc_t const& d) -> std::tuple<bool, size_t, uint8_t, int8_t, int8_t, int8_t, amr::element_kind_t> {
+        if ( kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
+            bool is_cbuf = face.data.phys.in_cbuf ; 
+            return {  is_cbuf, is_cbuf ? ghost_array[std::get<0>(d)].cbuf_id : std::get<0>(d)
+                    , std::get<1>(d)
+                    , face.data.phys.dir[0]
+                    , face.data.phys.dir[1]
+                    , face.data.phys.dir[2] 
+                    , face.data.phys.type } ; 
+        } else if (kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
+            bool is_cbuf = edge.data.phys.in_cbuf ; 
+            return {  is_cbuf, is_cbuf ? ghost_array[std::get<0>(d)].cbuf_id : std::get<0>(d)
+                    , std::get<1>(d)
+                    , edge.data.phys.dir[0]
+                    , edge.data.phys.dir[1]
+                    , edge.data.phys.dir[2] 
+                    , edge.data.phys.type } ; 
+        } else {
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            bool is_cbuf = corner.phys.in_cbuf ; 
+            return {  is_cbuf, is_cbuf ? ghost_array[std::get<0>(d)].cbuf_id : std::get<0>(d)
+                    , std::get<1>(d)
+                    , corner.ghost.dir[0]
+                    , corner.ghost.dir[1]
+                    , corner.ghost.dir[2] 
+                    , corner.data.phys.type } ;
+        }
+    } ; 
+
+    // loop through bucket, fill
+    for( int kind=0; kind<3 ; ++kind) {
+        for( auto const& d: phys_bc_tasks[kind]) {
+            auto [is_cbuf,_qid,_eid,dx,dy,dz,type] = get_info(kind,d) ; 
+            if ( is_cbuf ) {
+                qid_cbuf[kind][type].push_back(_qid) ; 
+                eid_cbuf[kind][type].push_back(_eid) ; 
+                dir_cbuf[kind][type].emplace_back({dx,dy,dz}) ; 
+            } else {
+                qid[kind][type].push_back(_qid) ; 
+                eid[kind][type].push_back(_eid) ; 
+                dir[kind][type].emplace_back({dx,dy,dz}) ; 
+            }
+        }
+    }
+
+    constexpr auto elem_bc_list = std::make_tuple(
+        std::pair{FACE, FACE},
+        std::pair{EDGE, FACE},
+        std::pair{CORNER, FACE},
+        std::pair{EDGE, EDGE},
+        std::pair{CORNER, EDGE},
+        std::pair{CORNER, CORNER}
+    );
+
+    auto push_tasks = [&](auto&&... combos){
+        (task_list.push_back(
+            std::make_unique<gpu_task_t>(
+                make_gpu_phys_bc_task<typename decltype(combos)::first, typename decltype(combos)::second>(
+                    qid[decltype(combos)::first][decltype(combos)::second],
+                    eid[decltype(combos)::first][decltype(combos)::second],
+                    dir[decltype(combos)::first][decltype(combos)::second],
+                    var_bc, stream, task_counter, data, nx, nv, ngz
+                )
+            )
+        ), ...);
+    };
+    
+    // write separate function for this? we need 
+    // to store task idx for deps 
+    auto push_tasks_cbuf = [&](auto&&... combos){
+        (task_list.push_back(
+            std::make_unique<gpu_task_t>(
+                make_gpu_phys_bc_task<typename decltype(combos)::first, typename decltype(combos)::second>(
+                    qid_cbuf[decltype(combos)::first][decltype(combos)::second],
+                    eid_cbuf[decltype(combos)::first][decltype(combos)::second],
+                    dir_cbuf[decltype(combos)::first][decltype(combos)::second],
+                    var_bc, stream, task_counter, coarse_buffers, nx/2, nv, ngz
+                )
+            )
+        ), ...);
+    };
+
+    std::apply(push_tasks, elem_bc_list);
+    std::apply(push_tasks_cbuf, elem_bc_list);
 }
 } /* namespace grace */
 
