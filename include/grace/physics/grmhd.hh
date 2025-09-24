@@ -44,6 +44,7 @@
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
 #include <grace/utils/advanced_riemann_solvers.hh>
+#include <grace/physics/grmhd_metric_utils.hh> 
 
 #include <Kokkos_Core.hpp>
 
@@ -323,8 +324,14 @@ struct grmhd_equations_system_t
         /*******************************************************************************************************/
         for( int idir=0; idir<GRACE_NSPACEDIM; ++idir) {
 
-            /* Read metric components at neighor cell centres for metric derivative                           */
-            metric_array_t metric_m, metric_p ; 
+            /* Read metric components at neighouring cell centres for metric derivative                           */
+            /* (note that we have extended it to fourth order - reduces oscillations and dissipation of hydro )   */
+            metric_array_t metric_m2, metric_m, metric_p, metric_p2 ; 
+            FILL_METRIC_ARRAY( metric_m2, this->_state
+                             , q
+                             , VEC( i-2*utils::delta(0,idir)
+                                  , j-2*utils::delta(1,idir)
+                                  , k-2*utils::delta(2,idir)) ) ;
             FILL_METRIC_ARRAY( metric_m, this->_state
                              , q
                              , VEC( i-utils::delta(0,idir)
@@ -335,7 +342,11 @@ struct grmhd_equations_system_t
                              , VEC( i+utils::delta(0,idir)
                                   , j+utils::delta(1,idir)
                                   , k+utils::delta(2,idir) ) ) ; 
-            
+            FILL_METRIC_ARRAY( metric_p2, this->_state
+                             , q
+                             , VEC( i+2*utils::delta(0,idir)
+                                  , j+2*utils::delta(1,idir)
+                                  , k+2*utils::delta(2,idir) ) ) ; 
             /**************************************************************************************************/
             /* Compute metric derivatives                                                                     */
             /* We need \partial_i g_{\alpha\beta} for the momentum source term and \partial_i \alpha for the  */
@@ -344,13 +355,16 @@ struct grmhd_equations_system_t
             std::array<double, 10> dgab_dxi  ;
 
             /* Get 4 metric                                                                                   */
+            auto const gmunu_m2 = metric_m2.gmunu() ;
             auto const gmunu_m = metric_m.gmunu() ;
             auto const gmunu_p = metric_p.gmunu() ;
+            auto const gmunu_p2 = metric_p2.gmunu() ;
 
             /* Compute 4 metric derivative (factor of 1./dx introduced after)                                 */
             #pragma unroll 10
             for( int ii=0; ii<10; ++ii) { 
-                dgab_dxi[ii] =  0.5*(gmunu_p[ii] - gmunu_m[ii]) ;
+                // dgab_dxi[ii] =  0.5*(gmunu_p[ii] - gmunu_m[ii]) ;
+                dgab_dxi[ii] =  COMPUTE_DERIV_4TH_ORDER_HELPER_SIMPLE(gmunu_m2[ii],gmunu_m[ii],gmunu_p[ii],gmunu_p2[ii]) ;
             }
 
             // 0 - TT
@@ -358,8 +372,7 @@ struct grmhd_equations_system_t
             // 4,5,6,7,8,9 - xx, xy, xz, yy, yz, zz
             // idir will decide the direction of the derivative in this loop 
 
-            /*  3-metric derivatives for the GLM source terms      
-                                                       */
+            /*  3-metric derivatives for the GLM source terms - using the fact that spatial components of \partial_idir g_munu are already computed  */
             std::array<double, 6> const dgammajk6_dxi{{dgab_dxi[XX4],dgab_dxi[XY4],dgab_dxi[XZ4],
                                                       dgab_dxi[YY4],dgab_dxi[YZ4],dgab_dxi[ZZ4]}} ;
 
@@ -369,7 +382,8 @@ struct grmhd_equations_system_t
 
 
             /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
-            double const dalp_dxi =  0.5*(metric_p.alp() - metric_m.alp()) ;
+            // double const dalp_dxi =  0.5*(metric_p.alp() - metric_m.alp()) ; // 2nd order
+            double const dalp_dxi =  COMPUTE_DERIV_4TH_ORDER_HELPER(this->_state,i,j,k,ALP_,q,idir) ; // 4th order
 
             /**************************************************************************************************/
             /* Compute shift derivatives                                                                     */
@@ -385,7 +399,8 @@ struct grmhd_equations_system_t
             /*        jj picks out the component                                                            */
             #pragma unroll 3
             for( int jj=0; jj<3; ++jj) {  // derivatives \partial_i \beta^j 
-                dbetaj_dxi[jj] =  0.5*(shift_p[jj] - shift_m[jj]) ;
+                // dbetaj_dxi[jj] =  0.5*(shift_p[jj] - shift_m[jj]) ; // 2nd order
+                  dbetaj_dxi[jj] =  COMPUTE_DERIV_4TH_ORDER_HELPER(this->_state,i,j,k,BETAX_+jj,q,idir) ; // 4th order
             }
 
 
@@ -1211,30 +1226,38 @@ struct grmhd_equations_system_t
         /* Define and interpolate metric                                       */
         /***********************************************************************/
         metric_array_t metric_l, metric_r;
-        FILL_METRIC_ARRAY( metric_l, this->_state, q
-                         , VEC( i+ngz-utils::delta(idir,0)
-                              , j+ngz-utils::delta(idir,1)
-                              , k+ngz-utils::delta(idir,2))) ; 
-        FILL_METRIC_ARRAY( metric_r, this->_state, q
-                         , VEC( i+ngz
-                              , j+ngz
-                              , k+ngz )) ;
-        /***********************************************************************/
-        /* 2nd order interpolation at cell interface                           */
-        /***********************************************************************/
-        metric_array_t const metric_face{
-            { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
-            , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
-            , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
-            , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
-            , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
-            , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
-        ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            , 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
-        ,   0.5 * (metric_l.alp() + metric_r.alp())
-        } ; 
-        
+        #define METRIC_FACE_2ND_ORDER
+        #ifdef METRIC_FACE_2ND_ORDER
+            FILL_METRIC_ARRAY( metric_l, this->_state, q
+                            , VEC( i+ngz-utils::delta(idir,0)
+                                , j+ngz-utils::delta(idir,1)
+                                , k+ngz-utils::delta(idir,2))) ; 
+            FILL_METRIC_ARRAY( metric_r, this->_state, q
+                            , VEC( i+ngz
+                                , j+ngz
+                                , k+ngz )) ;
+            /***********************************************************************/
+            /* 2nd order interpolation at cell interface                           */
+            /***********************************************************************/
+            metric_array_t const metric_face{
+                { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
+                , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
+                , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
+                , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
+                , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
+                , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
+            ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
+                , 0.5*(metric_l.beta(1) + metric_r.beta(1))
+                , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
+            ,   0.5 * (metric_l.alp() + metric_r.alp())
+            } ; 
+        #else  // 4th order lop-sided stencil 
+            std::array<bool> stag_dir{idir==0, idir==1, idir==2};
+            metric_l = get_metric_array(this->_state, this->_state,VEC(i+ngz-utils::delta(idir,0), j+ngz-utils::delta(idir,1), k+ngz-utils::delta(idir,2)),
+                                        q, stag_dir) ;   // TODO: replace with cstate later! 
+            metric_r = get_metric_array(this->_state, this->_state,VEC(i, j, k),
+                                        q, stag_dir) ;   // TODO: replace with cstate later! 
+        #endif
         /***********************************************************************/
         /*              Reconstruct primitive variables                        */
         /***********************************************************************/

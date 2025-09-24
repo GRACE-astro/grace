@@ -70,6 +70,7 @@ variable_list_impl_t::variable_list_impl_t()
     , _cell_volumes("cell_volumes",VEC(0,0,0),0)
     , _state("state", VEC(0,0,0),0,0)
     , _state_p("scratch_state", VEC(0,0,0),0,0)
+    , _state_tmp("temporary_state", VEC(0,0,0),0,0)
     , _halo("halo", VEC(0,0,0),0,0)
     , _aux("auxiliaries", VEC(0,0,0),0,0)
     , _staggered_coords()
@@ -114,6 +115,11 @@ variable_list_impl_t::variable_list_impl_t()
                    , nq 
                    ) ;
     Kokkos::realloc( _state_p
+                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , variables::detail::num_evolved
+                   , nq 
+                   ) ;
+    Kokkos::realloc( _state_tmp
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
                    , variables::detail::num_evolved
                    , nq 

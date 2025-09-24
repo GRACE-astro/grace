@@ -65,9 +65,9 @@ class hybrid_eos_t
                                            , baryon_mass
                                            , 0
                                            , c2p_rho_atm 
-                                           , 0
-                                           , 0
-                                           , 0
+                                           , 0  
+                                           , 0 
+                                           , 0 
                                            , c2p_eps_max
                                            , 1.
                                            , 1.e99
@@ -184,7 +184,7 @@ class hybrid_eos_t
         double eps_cold ; 
         auto press_cold = cold_eos.press_cold_eps_cold__rho(eps_cold, rho, err);
         auto const eps_th_max = this->c2p_eps_max - eps_cold ; 
-        s_min = entropy__eps_th_rho(1e-05,rho) ; 
+        s_min = entropy__eps_th_rho(1e-09,rho) ;  // or maybe even 1e-10?
         s_max = entropy__eps_th_rho(eps_th_max, rho) ; 
     }
 
@@ -374,7 +374,7 @@ class hybrid_eos_t
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     entropy__eps_th_rho( double& eps_th, double& rho) const 
     {
-        const double eps_th_l = math::max(eps_th, 1e-05) ; 
+        const double eps_th_l = math::max(eps_th, 1e-09) ;  // try a lower bound 
         return Kokkos::log(eps_th_l * Kokkos::pow(rho,-gamma_th_m1)) / gamma_th_m1 ; 
     }
 

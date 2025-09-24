@@ -3,6 +3,8 @@ option(GRACE_ENABLE_SCALAR_ADV  "Enable scalar advection equation module" OFF)
 option(GRACE_ENABLE_GRMHD   "Enable GRMHD equation module"  ON)
 option(GRACE_DO_MHD "Enable MHD evolution" ON)
 option(GRACE_ENABLE_B_FIELD_GLM "Enable GLM evolution of the magnetic field" ON)
+option(GRACE_ENABLE_COWLING_METRIC "Enable Cowling metric" ON)
+
 
 if( GRACE_ENABLE_SCALAR_ADV )
     message(STATUS "Scalar advection module enabled.")
@@ -20,6 +22,11 @@ endif()
 if( GRACE_DO_MHD )
     message(STATUS "MHD enabled")
     set(GRACE_DO_MHD ON)
+endif() 
+
+if( GRACE_ENABLE_COWLING_METRIC )
+    message(STATUS "Cowling enabled")
+    set(GRACE_ENABLE_COWLING_METRIC ON)
 endif() 
 
 if( GRACE_ENABLE_B_FIELD_GLM )

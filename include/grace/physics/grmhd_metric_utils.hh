@@ -31,11 +31,14 @@
 #include <grace_config.h> 
 #include <array>
 
-#include <grace/utils/numerics/metric_utils.hh>
+#include <grace/utils/metric_utils.hh>
 #include <grace/utils/inline.h>
-#include <grace/utils/device/device.h>
-#include <grace/utils/numerics/prolongation.hh>
-#include <grace/utils/numerics/lagrange_interpolators.hh>
+// #include <grace/utils/device/device.h>
+#include <grace/utils/prolongation.hh>
+#include <grace/utils/lagrange_interpolators.hh>
+
+
+// note that this macro is also defined in grmhd_helpers.hh and it repeats!!!
 
 #define AM2 -0.0625
 #define AM1  0.5625
@@ -46,6 +49,20 @@
 + AM1*mview(VEC(i-utils::delta(0,idir),j-utils::delta(1,idir),k-utils::delta(2,idir)),ivar,q)       \
 + A0*mview(VEC(i,j,k),ivar,q)                                                                       \
 + A1*mview(VEC(i+utils::delta(0,idir),j+utils::delta(1,idir),k+utils::delta(2,idir)),ivar,q)             
+
+// to be used in sources computation
+#define BM2 (1./12.)
+#define BM1 (-8./12.)
+#define BP1 (8./12.)
+#define BP2 (-1./12.)
+#define COMPUTE_DERIV_4TH_ORDER_HELPER(mview,i,j,k,ivar,q,idir) \
+  (BM2*(mview(VEC(i-2*utils::delta(0,idir),j-2*utils::delta(1,idir),k-2*utils::delta(2,idir)),ivar,q)) \
++  BM1*(mview(VEC(i-1*utils::delta(0,idir),j-1*utils::delta(1,idir),k-1*utils::delta(2,idir)),ivar,q)) \
++  BP1*(mview(VEC(i+1*utils::delta(0,idir),j+1*utils::delta(1,idir),k+1*utils::delta(2,idir)),ivar,q)) \ 
++  BP2*(mview(VEC(i+2*utils::delta(0,idir),j+2*utils::delta(1,idir),k+2*utils::delta(2,idir)),ivar,q)))
+
+#define COMPUTE_DERIV_4TH_ORDER_HELPER_SIMPLE(XM2,XM1,XP1,XP2) \
+  (BM2*XM2 + BM1*XM1 + BP1*XP1 + BP2*XP2)
 
 namespace grace{
 

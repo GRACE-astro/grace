@@ -78,13 +78,56 @@ struct MCbeta {
     }
 } ; 
 
-struct flat_recon {
+/**
+ * @brief third-order asymmetric Koren limiter 
+ * \ingroup numerics
+ */
+struct Koren {
+
     /**
-     * @brief Apply minmod limiter.
+     * @brief Apply Koren limiter to get left slope
      * 
      * @param slopeL Left slope.
      * @param slopeR Right slope.
-     * @return double double no reconstruction.
+     * @return double Limited slope.
+     */
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    double get_left_slope(double slopeL, double slopeR) const {
+        auto const signR = math::sgn(slopeR);
+        auto const tmp2  = Kokkos::min(2.0 * Kokkos::fabs(slopeR),
+                                    2.0 * signR * slopeL);
+        return signR * Kokkos::max(0.0,
+                Kokkos::min(tmp2,
+                (signR * slopeL + 2.0 * Kokkos::fabs(slopeR)) / 3.0));
+    }
+
+
+    /**
+     * @brief Apply Koren limiter to get right slope
+     * 
+     * @param slopeL Left slope.
+     * @param slopeR Right slope.
+     * @return double Limited slope.
+     */
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    double get_right_slope(double slopeL, double slopeR) const {
+        auto const signR = math::sgn(slopeR);
+        auto const tmp2  = Kokkos::min(2.0 * Kokkos::fabs(slopeR),
+                                    2.0 * signR * slopeL);
+        return signR * Kokkos::max(0.0,
+                Kokkos::min(tmp2,
+                (2.0 * signR * slopeL + Kokkos::fabs(slopeR)) / 3.0));
+    }
+    
+} ; 
+
+struct flat_recon {
+    /**
+     * @brief Apply flat reconstruction.
+     * 
+     * @param slopeL Left slope.
+     * @param slopeR Right slope.
+     * @return always zero - trivial reconstruction.
      */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() (double const& slopeL, double const& slopeR){

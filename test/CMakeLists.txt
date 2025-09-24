@@ -353,6 +353,23 @@ target_link_libraries(  c2p_test PRIVATE
                 spdlog::spdlog
                 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
+add_executable( c2p_mhd_test test_c2p_kastaun.cpp )
+target_include_directories(c2p_mhd_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  c2p_mhd_test PRIVATE 
+                p4est_tests_main
+                Catch2::Catch2
+                grace_objects
+                yaml_cpp::yaml
+                Kokkos::kokkos
+                MPI::MPI_CXX
+                OpenMP::OpenMP_CXX
+                spdlog::spdlog
+                HDF5::HDF5 
+                p4est::sc
+                p4est::p4est 
+                ZLIB::ZLIB
+              )
+
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)
 add_test(NAME sc_wrappers_test COMMAND 
@@ -391,6 +408,8 @@ add_test(NAME metric_test COMMAND
         mpirun -n 1 ./metric_test --grace-parfile ./configs/basic_config.yaml )
 add_test(NAME gamma2_c2p_test COMMAND 
         mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_gamma2.yaml )
+add_test(NAME gamma2_c2p_mhd_test COMMAND 
+        mpirun -n 1 ./c2p_mhd_test --grace-parfile ./configs/c2p_test_gamma2.yaml )
 add_test(NAME sly4_pw_c2p_test COMMAND 
         mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_sly4_pw.yaml )
 ##add_custom_command(

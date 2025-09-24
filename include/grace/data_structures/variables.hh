@@ -125,6 +125,15 @@ public:
      */
     GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>& 
     getscratch() { return _state_p ; }
+     //*****************************************************************************************************
+    /**
+     * @brief Get the temporary state vector 
+     * 
+     * @return The temporary state vector, used during time 
+     *         evolution in case convex combinations are involved
+     */
+    GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>& 
+    gettmp() { return _state_tmp ; }
     //*****************************************************************************************************
     /**
      * @brief Get the halo state vector 
@@ -160,6 +169,7 @@ private:
     cell_vol_array_t<GRACE_NSPACEDIM> _cell_volumes ; //!< Volume of cells 
     var_array_t<GRACE_NSPACEDIM> _state   ;     //!< State variables 
     var_array_t<GRACE_NSPACEDIM> _state_p ;     //!< Second timelevel, allocated at all times 
+    var_array_t<GRACE_NSPACEDIM> _state_tmp ;   //!< A temporary state at time-integration, allocated and used whenever convex combinations are involved
     var_array_t<GRACE_NSPACEDIM> _halo    ;     //!< Halo exchange buffer, allocated when necessary
     var_array_t<GRACE_NSPACEDIM> _aux     ;     //!< Auxiliary variables  
     staggered_coordinate_arrays_t _staggered_coords ; //!< Staggered coordinate utilities (surfaces, lengths) 
