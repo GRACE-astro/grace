@@ -184,7 +184,7 @@ struct phys_bc_op {
     {
         auto _eid = eid(iq) ; 
         auto _qid = qid(iq)  ; 
-        auto bc_kind = var_bcs(iv) ;         
+        auto _bc_kind = var_bcs(iv) ;         
         
         int8_t _dir[] = {dir(iq,0), dir(iq,1), dir(iq,2)} ; 
         // se lo dici forte avrà un successo strepitoso 
@@ -202,7 +202,7 @@ struct phys_bc_op {
         for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0])
         for (int jg = lmin[1]; jg != lmax[1]; jg += idir[1])
         for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2]) {
-            switch (bc_kind) {
+            switch (_bc_kind) {
                 case BC_OUTFLOW:
                     outflow_kernel.template apply<decltype(sv)>(
                         sv, VEC(ig,jg,kg), VEC(_dir[0], _dir[1], _dir[2]));

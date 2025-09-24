@@ -53,8 +53,11 @@ std::tuple<int8_t,int8_t,int8_t> get_dirs(
     // depending on the number of sides, this
     // is either a grid edge or a face 
 
-    auto const get_edge_dir(int8_t edge) -> std::tuple<int8_t,int8_t,int8_t> {
-        int8_t off[] = {(edge>>0)& 1, (edge>>1)& 1} ;
+    auto const get_edge_dir = [&](int8_t edge) -> std::tuple<int8_t,int8_t,int8_t> {
+        int8_t off[] = { 
+            static_cast<int8_t>((edge>>0)&1),
+            static_cast<int8_t>((edge>>1)&1) 
+        };
         if ( edge < 4 ) {
             // along x 
             return {
@@ -69,7 +72,7 @@ std::tuple<int8_t,int8_t,int8_t> get_dirs(
                 off[0] ? 1 : -1, off[1] ? 1 : -1, 0
             } ;
         }
-    }
+    } ; 
 
     if ( sides.size() == 1 ) {
         // grid edge 

@@ -265,7 +265,7 @@ struct cbuf_to_view_offsets {
     KOKKOS_INLINE_FUNCTION
     static void get(
         size_t& j, size_t& k, 
-        size_t nx, uint8_t ichild ) const ; 
+        size_t nx, uint8_t ichild )  ; 
 } ; 
 
 // FACE -> FACE  
@@ -276,7 +276,7 @@ struct cbuf_to_view_offsets<element_kind_t::FACE>
     KOKKOS_INLINE_FUNCTION
     static void get(
         size_t& j, size_t& k, 
-        size_t nx, uint8_t ichild) const {
+        size_t nx, uint8_t ichild)  {
         j = nx / 2 * ( (ichild>>0) & 1 ) ; 
         k = nx / 2 * ( (ichild>>1) & 1 ) ; 
     }; 
@@ -290,7 +290,7 @@ struct cbuf_to_view_offsets<element_kind_t::EDGE>
     KOKKOS_INLINE_FUNCTION
     static void get(
         size_t& j, size_t& k, 
-        size_t nx, uint8_t ichild) const {
+        size_t nx, uint8_t ichild)  {
         j = 0 ; 
         k = nx / 2 * ( (ichild>>0) & 1 ) ; 
     }; 
@@ -304,7 +304,7 @@ struct cbuf_to_view_offsets<element_kind_t::CORNER>
     KOKKOS_INLINE_FUNCTION
     static void get(
         size_t& j, size_t& k, 
-        size_t nx, uint8_t ichild) const {
+        size_t nx, uint8_t ichild)  {
         j = 0 ; 
         k = 0 ; 
     }; 
@@ -320,7 +320,7 @@ struct view_to_cbuf_offsets {
     KOKKOS_INLINE_FUNCTION
     static void get(
         size_t& j, size_t& k, 
-        size_t nx, uint8_t ichild ) const ; 
+        size_t nx, uint8_t ichild )  ; 
 } ; 
 
 template<> 
@@ -328,7 +328,7 @@ struct view_to_cbuf_offsets<element_kind_t::FACE> {
     KOKKOS_INLINE_FUNCTION 
     static void get(
         size_t& j, size_t& k,
-        size_t nx, size_t ngz, uint8_t ichild ) const 
+        size_t nx, size_t ngz, uint8_t ichild )  
     {
         j = (nx / 2 - ngz)* ( (ichild>>0) & 1 ) ; 
         k = (nx / 2 - ngz)* ( (ichild>>1) & 1 ) ; 
@@ -341,7 +341,7 @@ struct view_to_cbuf_offsets<element_kind_t::EDGE> {
     KOKKOS_INLINE_FUNCTION 
     static void get(
         size_t& j, size_t& k,
-        size_t nx, size_t ngz, uint8_t ichild ) const 
+        size_t nx, size_t ngz, uint8_t ichild )  
     {
         j = 0 ; 
         k = (nx / 2-ngz) * ( (ichild>>0) & 1 ) ; 
@@ -354,7 +354,7 @@ struct view_to_cbuf_offsets<element_kind_t::CORNER> {
     KOKKOS_INLINE_FUNCTION 
     static void get(
         size_t& j, size_t& k,
-        size_t nx, size_t ngz, uint8_t ichild ) const 
+        size_t nx, size_t ngz, uint8_t ichild )  
     {
         j = 0 ; 
         k = 0 ; 

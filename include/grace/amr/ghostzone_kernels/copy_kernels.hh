@@ -129,8 +129,8 @@ struct copy_to_cbuf_op {
         std::size_t _ngz
     ) : view(_view)
       , cbuf(_cbuf)
-      , elem_view(_view_qid)
-      , cbuf_elem_view(_cbuf_qid)
+      , view_qid(_view_qid)
+      , cbuf_qid(_cbuf_qid)
       , view_ic(_ic_view)
       , elem_view(_elem_view)
       , cbuf_elem_view(_cbuf_elem_view)
@@ -152,7 +152,7 @@ struct copy_to_cbuf_op {
         // we need to offset into the coarse quad, 
         // accounting for the extra ngz in the loop
         auto const ichild = view_ic(iq) ; 
-        size_t joff{0UL}, koff{0UL} ; 
+        size_t j_off{0UL}, k_off{0UL} ; 
         view_to_cbuf_offsets<elem_kind>::get(
             j_off,k_off, transf.nx, transf.ngz, ichild 
         ) ;
@@ -209,8 +209,8 @@ struct copy_from_cbuf_op {
         std::size_t _ngz
     ) : view(_view)
       , cbuf(_cbuf)
-      , elem_view(_view_qid)
-      , cbuf_elem_view(_cbuf_qid)
+      , view_qid(_view_qid)
+      , cbuf_qid(_cbuf_qid)
       , view_ic(_ic_view)
       , elem_view(_elem_view)
       , cbuf_elem_view(_cbuf_elem_view)
@@ -232,7 +232,7 @@ struct copy_from_cbuf_op {
         // we need to offset into the coarse quad, 
         // accounting for the extra ngz in the loop
         auto const ichild = view_ic(iq) ; 
-        size_t joff{0UL}, koff{0UL} ; 
+        size_t j_off{0UL}, k_off{0UL} ; 
         cbuf_to_view_offsets<elem_kind>::get(
             j_off,k_off, transf.nx, transf.ngz, ichild 
         ) ;

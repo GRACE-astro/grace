@@ -25,8 +25,8 @@
  * 
  */
 
-#ifndef GRACE_AMR_BC_COPY_GHOSTZONES_HH
-#define GRACE_AMR_BC_COPY_GHOSTZONES_HH 
+#ifndef GRACE_AMR_BC_RESTRICT_HH
+#define GRACE_AMR_BC_RESTRICT_HH 
 
 #include <grace_config.h>
 
@@ -67,7 +67,7 @@ struct restrict_op {
     void operator() (size_t i, size_t j, size_t k, size_t iv, size_t iq)
     {
         auto src_qid = src_q(iq) ; 
-        auto dst_qid = dst_q(iq) ; 
+        auto dst_qid = dest_q(iq) ; 
 
         dest_view(i+ngz,j+ngz,k+ngz,iv,dst_qid) = (
             src_view(2*i+ngz,2*j+ngz,2*k+ngz) + 
@@ -85,4 +85,4 @@ struct restrict_op {
 
 }} /* namespace grace::amr */
 
-#endif /* GRACE_AMR_BC_COPY_GHOSTZONES_HH */
+#endif /* GRACE_AMR_BC_RESTRICT_HH */

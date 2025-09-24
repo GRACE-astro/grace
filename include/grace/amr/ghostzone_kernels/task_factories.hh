@@ -42,7 +42,9 @@
 #include <grace/amr/p4est_headers.hh>
 #include <grace/amr/ghostzone_kernels/copy_kernels.hh>
 #include <grace/amr/ghostzone_kernels/phys_bc_kernels.hh>
+#include <grace/amr/ghostzone_kernels/restrict_kernels.hh>
 #include <grace/amr/ghostzone_kernels/pack_unpack_kernels.hh>
+#include <grace/amr/ghostzone_kernels/type_helpers.hh>
 
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/data_structures/variables.hh>
@@ -51,6 +53,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include <unordered_set>
 #include <vector>
 #include <numeric>
 
@@ -58,12 +61,6 @@
 #define GRACE_AMR_GHOSTZONE_KERNELS_TASK_FACTORY_HH
 
 namespace grace {
-
-using gpu_task_desc_t = std::pair<size_t, uint8_t> ; 
-using gpu_hanging_task_desc_t = std::tuple<size_t,uint8_t,uint8_t> ; 
-
-using bucket_t = std::array<std::vector<gpu_task_desc_t>,3> ; 
-using hang_bucket_t = std::array<std::vector<gpu_hanging_task_desc_t>,3> ; 
 
 template< amr::element_kind_t elem_kind >
 Kokkos::Array<int64_t, 5> get_iter_range(size_t ngz,size_t _nx, size_t nv, size_t nq,  bool offset=false) {
@@ -134,7 +131,7 @@ mpi_task_t make_mpi_recv_task(
 template< amr::element_kind_t elem_kind >
 gpu_task_t make_gpu_copy_task(
       std::vector<gpu_task_desc_t> const& bucket
-    , std::vector<quad_neighbors_descriptor_t>& ghost_layer
+    , std::vector<quad_neighbors_descriptor_t>& ghost_array
     , grace::var_array_t<GRACE_NSPACEDIM> data 
     , device_stream_t& stream
     , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv 
@@ -151,40 +148,38 @@ gpu_task_t make_gpu_copy_task(
                          , dst_elem{"copy_dst_elem_id", bucket.size()}  ;
     auto src_qid_h = Kokkos::create_mirror_view(src_qid) ; 
     auto dst_qid_h = Kokkos::create_mirror_view(dst_qid) ; 
-    auto src_face_h = Kokkos::create_mirror_view(src_elem) ; 
-    auto dst_face_h = Kokkos::create_mirror_view(dst_elem) ; 
+    auto src_elem_h = Kokkos::create_mirror_view(src_elem) ; 
+    auto dst_elem_h = Kokkos::create_mirror_view(dst_elem) ; 
 
     auto const get_interface_info = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t,size_t,uint8_t,uint8_t> {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[std::get<0>(d)].faces[std::get<1>(d)] ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             return {face.data.full.quad_id, std::get<0>(d), face.face, std::get<1>(d)} ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[std::get<0>(d)].edges[std::get<1>(d)] ; 
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             return {edge.data.full.quad_id, std::get<0>(d), edge.edge, std::get<1>(d)} ;
         } else {
-            auto& corner = ghost_layer[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             return {corner.data.quad_id, std::get<0>(d), corner.corner, std::get<1>(d)} ;
         }
     } ; 
 
     auto const set_task_id = [&] (gpu_task_desc_t const& d)
     {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[std::get<0>(d)].faces[std::get<1>(d)] ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             face.data.full.task_id = task_counter ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[std::get<0>(d)].edges[std::get<1>(d)] ; 
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             edge.data.full.task_id = task_counter ;
         } else {
-            auto& corner = ghost_layer[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             corner.data.task_id = task_counter ;
         }
     } ; 
 
     int i{0} ; 
-    for( auto const& d: bucket ) {
-        auto const qid = d.first() ; 
-        auto const eid = d.second() ; 
+    for( auto const& d: bucket ) { 
         auto [src_qid,dst_qid,src_eid,dst_eid] = get_interface_info(d) ; 
         src_qid_h(i) = src_qid; dst_qid_h(i) = dst_qid ; 
         src_elem_h(i) = src_eid; dst_elem_h(i) = dst_eid ; 
@@ -199,7 +194,7 @@ gpu_task_t make_gpu_copy_task(
 
     gpu_task_t task{} ;
 
-    copy_op<elem_kind,decltype(data),decltype(data)> functor{
+    amr::copy_op<elem_kind,decltype(data)> functor{
         data, src_qid, dst_qid, src_elem, dst_elem, VEC(nx,ny,nz), ngz
     } ; 
     
@@ -231,7 +226,7 @@ gpu_task_t make_gpu_copy_task(
 template< amr::element_kind_t elem_kind >
 gpu_task_t make_gpu_copy_to_cbuf_task(
       std::vector<gpu_task_desc_t> const& bucket
-    , std::vector<quad_neighbors_descriptor_t>& ghost_layer
+    , std::vector<quad_neighbors_descriptor_t>& ghost_array
     , grace::var_array_t<GRACE_NSPACEDIM> data 
     , grace::var_array_t<GRACE_NSPACEDIM> cbuf 
     , device_stream_t& stream
@@ -250,42 +245,40 @@ gpu_task_t make_gpu_copy_to_cbuf_task(
                          , ic{"copy_v2c_child_id", bucket.size()};
     auto src_qid_h = Kokkos::create_mirror_view(src_qid) ; 
     auto dst_qid_h = Kokkos::create_mirror_view(dst_qid) ; 
-    auto src_face_h = Kokkos::create_mirror_view(src_elem) ; 
-    auto dst_face_h = Kokkos::create_mirror_view(dst_elem) ; 
+    auto src_elem_h = Kokkos::create_mirror_view(src_elem) ; 
+    auto dst_elem_h = Kokkos::create_mirror_view(dst_elem) ; 
     auto ic_h = Kokkos::create_mirror_view(ic) ; 
 
     auto const get_interface_info = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t, size_t,uint8_t,uint8_t, uint8_t> {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[std::get<0>(d)].faces[std::get<1>(d)] ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             //return src qid dst qid src face dst face child id
-            return {face.data.full.quad_id, ghost_layer[std::get<0>(d)].cbuf_id,  face.face, std::get<1>(d), face.child_id} ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[std::get<0>(d)].edges[std::get<1>(d)] ; 
-            return {edge.data.full.quad_id, ghost_layer[std::get<0>(d)].cbuf_id,  edge.edge, std::get<1>(d), edge.child_id} ;
+            return {face.data.full.quad_id, ghost_array[std::get<0>(d)].cbuf_id,  face.face, std::get<1>(d), face.child_id} ;
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
+            return {edge.data.full.quad_id, ghost_array[std::get<0>(d)].cbuf_id,  edge.edge, std::get<1>(d), edge.child_id} ;
         } else {
-            auto& corner = ghost_layer[std::get<0>(d)].corners[std::get<1>(d)] ; 
-            return {edge.data.quad_id, ghost_layer[std::get<0>(d)].cbuf_id,  corner.corner, std::get<1>(d), corner.child_id} ;
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            return {corner.data.quad_id, ghost_array[std::get<0>(d)].cbuf_id,  corner.corner, std::get<1>(d), 0} ;
         }
     } ; 
 
     auto const set_task_id = [&] (gpu_task_desc_t const& d)
     {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[std::get<0>(d)].faces[std::get<1>(d)] ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             face.data.full.task_id = task_counter ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[std::get<0>(d)].edges[std::get<1>(d)] ; 
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             edge.data.full.task_id = task_counter ;
         } else {
-            auto& corner = ghost_layer[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             corner.data.task_id = task_counter ;
         }
     } ; 
 
     int i{0} ; 
     for( auto const& d: bucket ) {
-        auto const qid = d.first() ; 
-        auto const eid = d.second() ; 
         auto [src_qid, dst_qid, src_eid, dst_eid, child_id] = get_interface_info(d) ; 
         src_qid_h(i) = src_qid; dst_qid_h(i) = dst_qid ; 
         src_elem_h(i) = src_eid ; dst_elem_h(i) = dst_eid ;
@@ -302,7 +295,7 @@ gpu_task_t make_gpu_copy_to_cbuf_task(
 
     gpu_task_t task{} ;
 
-    copy_to_cbuf_op<elem_kind,decltype(data),decltype(cbuf)> functor{
+    amr::copy_to_cbuf_op<elem_kind,decltype(data),decltype(cbuf)> functor{
         data, cbuf, src_qid, dst_qid, src_elem, dst_elem, ic, VEC(nx,ny,nz), ngz
     } ; 
     
@@ -334,7 +327,7 @@ gpu_task_t make_gpu_copy_to_cbuf_task(
 template< amr::element_kind_t elem_kind >
 gpu_task_t make_gpu_copy_from_cbuf_task(
       std::vector<gpu_hanging_task_desc_t> const& bucket
-    , std::vector<quad_neighbors_descriptor_t>& ghost_layer
+    , std::vector<quad_neighbors_descriptor_t>& ghost_array
     , grace::var_array_t<GRACE_NSPACEDIM> data 
     , grace::var_array_t<GRACE_NSPACEDIM> cbuf 
     , device_stream_t& stream
@@ -355,37 +348,37 @@ gpu_task_t make_gpu_copy_from_cbuf_task(
                          , ic{"copy_c2v_child_id", bucket.size()};
     auto src_qid_h = Kokkos::create_mirror_view(src_qid) ; 
     auto dst_qid_h = Kokkos::create_mirror_view(dst_qid) ; 
-    auto src_face_h = Kokkos::create_mirror_view(src_elem) ; 
-    auto dst_face_h = Kokkos::create_mirror_view(dst_elem) ; 
+    auto src_elem_h = Kokkos::create_mirror_view(src_elem) ; 
+    auto dst_elem_h = Kokkos::create_mirror_view(dst_elem) ; 
     auto ic_h = Kokkos::create_mirror_view(ic) ; 
 
     auto const get_interface_info = [&] (gpu_hanging_task_desc_t const& d) -> std::tuple<size_t, size_t,uint8_t,uint8_t, uint8_t> {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[std::get<0>(d)].faces[std::get<1>(d)] ;
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ;
             auto qid =  face.data.hanging.quad_id[std::get<2>(d)] ; 
             // return src_id, dst_id, src_e, dst_e, child_id 
-            return {ghost_layer[qid].cbuf_id,std::get<0>(d), face.face, std::get<1>(d), std::get<2>(d)} ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[std::get<0>(d)].edges[std::get<1>(d)] ; 
+            return {ghost_array[qid].cbuf_id,std::get<0>(d), face.face, std::get<1>(d), std::get<2>(d)} ;
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             auto qid =  edge.data.hanging.quad_id[std::get<2>(d)] ; 
-            return {ghost_layer[qid].cbuf_id,std::get<0>(d), edge.edge, std::get<1>(d), std::get<2>(d)} ;
+            return {ghost_array[qid].cbuf_id,std::get<0>(d), edge.edge, std::get<1>(d), std::get<2>(d)} ;
         } else {
-            auto& corner = ghost_layer[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             auto qid = corner.data.quad_id ; 
-            return {ghost_layer[qid].cbuf_id, std::get<0>(d), edge.edge, std::get<1>(d), 0} ;
+            return {ghost_array[qid].cbuf_id, std::get<0>(d), corner.corner, std::get<1>(d), 0} ;
         }
     } ; 
 
     auto const set_task_id = [&] (gpu_hanging_task_desc_t const& d)
     {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[std::get<0>(d)].faces[std::get<1>(d)] ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             face.data.hanging.task_id[std::get<2>(d)] = task_counter ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[std::get<0>(d)].edges[std::get<1>(d)] ; 
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             edge.data.hanging.task_id[std::get<2>(d)] = task_counter ;
         } else {
-            auto& corner = ghost_layer[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             corner.data.task_id = task_counter ;
         }
     } ; 
@@ -408,7 +401,7 @@ gpu_task_t make_gpu_copy_from_cbuf_task(
 
     gpu_task_t task{} ;
 
-    copy_from_cbuf_op<elem_kind,decltype(data),decltype(cbuf)> functor{
+    amr::copy_from_cbuf_op<elem_kind,decltype(data),decltype(cbuf)> functor{
         cbuf, data, 
         /*view qid*/dst_qid, /*cbuf qid*/src_qid, 
         /*view elem*/ dst_elem, /*cbuf elem*/ src_elem,  
@@ -443,61 +436,6 @@ gpu_task_t make_gpu_copy_from_cbuf_task(
 
 }
 
-
-template< typename view_t >
-gpu_task_t make_gpu_phys_bc_task(
-      task_bucket_t const& bucket
-    , view_t data 
-    , Kokkos::View<bc_t*> var_bc_kind 
-    , device_stream_t& stream
-    , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv
-    , task_id_t& task_counter 
-
-) 
-{
-    GRACE_TRACE("Recording phys_BC task (tid {}). Number of faces processed {}.", task_counter, bucket.size()) ; 
-    using namespace grace::amr ; 
-    Kokkos::DefaultExecutionSpace exec_space{stream} ; 
-
-    Kokkos::View<size_t*> qid{"qid", bucket.size()}; 
-    Kokkos::View<uint8_t*> face{"face", bucket.size()} ; 
-    auto qid_h = Kokkos::create_mirror_view(qid) ; 
-    auto face_h = Kokkos::create_mirror_view(face) ; 
-    int i{0} ; 
-    for( auto const& d: bucket ) {
-        qid_h(i) = d.qid_src; 
-        face_h(i) = d.face_src; 
-        i++ ; 
-    }
-    Kokkos::deep_copy(qid,qid_h) ;
-    Kokkos::deep_copy(face,face_h) ; 
-
-    gpu_task_t task{} ;
-
-    face_phys_bc_k functor{
-        data, data, qid, var_bc_kind, face, VEC(nx,ny,nz), ngz
-    } ; 
-    
-    Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
-        policy{
-            exec_space, {0,0,0,0,0}, {ngz, nx,nx,nv, bucket.size()}
-        } ;
-    
-    task._run = [functor, policy] (view_alias_t alias) mutable {
-        functor.set_data_ptr(alias) ; 
-        GRACE_TRACE("Fill phys start") ; 
-        Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
-        #ifdef INSERT_FENCE_DEBUG_TASKS_
-        Kokkos::fence() ; 
-        #endif 
-        GRACE_TRACE("Fill phys done") ; 
-    };
-    task.stream = &stream ; 
-    task.task_id = task_counter++ ; 
-
-    return std::move(task) ; 
-}
-
 template< amr::element_kind_t elem_kind >
 gpu_task_t make_pack_task(
       bucket_t const& sb
@@ -522,14 +460,14 @@ gpu_task_t make_pack_task(
     auto pack_src_elem_h =  Kokkos::create_mirror_view(pack_src_elem) ; 
 
     auto const get_interface_info = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t, size_t, uint8_t>  {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[std::get<0>(d)].faces[std::get<1>(d)] ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             return {std::get<0>(d),face.data.full.send_buffer_id, std::get<1>(d)} ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[std::get<0>(d)].edges[std::get<1>(d)] ; 
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             return {std::get<0>(d), edge.data.full.send_buffer_id, std::get<1>(d)} ;
         } else {
-            auto& corner = ghost_layer[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             return {std::get<0>(d), corner.data.send_buffer_id, std::get<1>(d)} ;
         }
     } ; 
@@ -600,16 +538,16 @@ gpu_task_t make_pack_to_cbuf_task(
     auto pack_dst_qid_h = Kokkos::create_mirror_view(pack_dest_qid) ; 
     auto pack_src_elem_h =  Kokkos::create_mirror_view(pack_src_elem) ; 
 
-    auto const get_interface_info = [&] (gpu_task_desc_t const& d) -> -> std::tuple<size_t, size_t, uint8_t>  {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[std::get<0>(d)].faces[std::get<1>(d)] ; 
-            return {ghost_layer[std::get<0>(d)].cbuf_id,face.data.full.send_buffer_id, std::get<1>(d)} ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[std::get<0>(d)].edges[std::get<1>(d)] ; 
-            return {ghost_layer[std::get<0>(d)].cbuf_id, edge.data.full.send_buffer_id, std::get<1>(d)} ;
+    auto const get_interface_info = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t, size_t, uint8_t>  {
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
+            return {ghost_array[std::get<0>(d)].cbuf_id,face.data.full.send_buffer_id, std::get<1>(d)} ;
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
+            return {ghost_array[std::get<0>(d)].cbuf_id, edge.data.full.send_buffer_id, std::get<1>(d)} ;
         } else {
-            auto& corner = ghost_layer[std::get<0>(d)].corners[std::get<1>(d)] ; 
-            return {ghost_layer[std::get<0>(d)].cbuf_id, corner.data.send_buffer_id, std::get<1>(d)} ;
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            return {ghost_array[std::get<0>(d)].cbuf_id, corner.data.send_buffer_id, std::get<1>(d)} ;
         }
     } ;  
 
@@ -682,27 +620,27 @@ gpu_task_t make_unpack_task(
     auto unpack_dest_elem_h =  Kokkos::create_mirror_view(unpack_dest_elem) ; 
 
     auto const get_interface_info = [&] (gpu_task_desc_t const& d)-> std::tuple<size_t, size_t, uint8_t>  {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[std::get<0>(d)].faces[std::get<1>(d)] ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             return {face.data.full.recv_buffer_id,std::get<0>(d), std::get<1>(d)} ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[std::get<0>(d)].edges[std::get<1>(d)] ; 
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             return {edge.data.full.recv_buffer_id, std::get<0>(d) , std::get<1>(d)} ;
         } else {
-            auto& corner = ghost_layer[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             return { corner.data.recv_buffer_id, std::get<0>(d), std::get<1>(d)} ;
         }
     } ; 
     auto const set_task_id = [&] (gpu_task_desc_t const& d)
     {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[d.first()].faces[d.second()] ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             face.data.full.task_id = task_counter ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[d.first()].edges[d.second()] ; 
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             edge.data.full.task_id = task_counter ;
         } else {
-            auto& corner = ghost_layer[d.first()].corners[d.second()] ; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             corner.data.task_id = task_counter ;
         }
     } ; 
@@ -777,28 +715,28 @@ gpu_task_t make_unpack_to_cbuf_task(
     auto child_id_h =  Kokkos::create_mirror_view(child_id_d) ; 
 
     auto const get_interface_info = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t, size_t, uint8_t, uint8_t>  {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[std::get<0>(d)].faces[std::get<1>(d)] ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             // return cbuf_id, ghost_qid, face_id, child_id 
-            return {ghost_layer[std::get<0>(d)].cbuf_id, face.data.full.recv_buffer_id, std::get<1>(d), face.child_id } ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[std::get<0>(d)].edges[std::get<1>(d)] ; 
-            return {ghost_layer[std::get<0>(d)].cbuf_id, edge.data.full.recv_buffer_id, std::get<1>(d), edge.child_id } ;
+            return {ghost_array[std::get<0>(d)].cbuf_id, face.data.full.recv_buffer_id, std::get<1>(d), face.child_id } ;
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
+            return {ghost_array[std::get<0>(d)].cbuf_id, edge.data.full.recv_buffer_id, std::get<1>(d), edge.child_id } ;
         } else {
-            auto& corner = ghost_layer[std::get<0>(d)].corners[std::get<1>(d)] ; 
-            return {ghost_layer[std::get<0>(d)].cbuf_id, corner.data.recv_buffer_id, std::get<1>(d), 0 } ;
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            return {ghost_array[std::get<0>(d)].cbuf_id, corner.data.recv_buffer_id, std::get<1>(d), 0 } ;
         }
     } ; 
     auto const set_task_id = [&] (gpu_task_desc_t const& d)
     {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[d.first()].faces[d.second()] ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             face.data.full.task_id = task_counter ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[d.first()].edges[d.second()] ; 
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             edge.data.full.task_id = task_counter ;
         } else {
-            auto& corner = ghost_layer[d.first()].corners[d.second()] ; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             corner.data.task_id = task_counter ;
         }
     } ; 
@@ -874,28 +812,28 @@ gpu_task_t make_unpack_from_cbuf_task(
     auto child_id_h =  Kokkos::create_mirror_view(child_id_d) ; 
 
     auto const get_interface_info = [&] (gpu_hanging_task_desc_t const& d) -> std::tuple<size_t, size_t, uint8_t, uint8_t> {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[std::get<0>(d)].faces[std::get<1>(d)] ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             // return cbuf_id, ghost_qid, face_id, child_id 
             return {std::get<0>(d), face.data.hanging.recv_buffer_id[std::get<2>(d)], std::get<1>(d), std::get<2>(d) } ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[std::get<0>(d)].edges[std::get<1>(d)] ; 
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             return {std::get<0>(d), edge.data.hanging.recv_buffer_id[std::get<2>(d)], std::get<1>(d), std::get<2>(d) } ;
         } else {
-            auto& corner = ghost_layer[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             return {std::get<0>(d), corner.data.recv_buffer_id, std::get<1>(d), 0 } ;
         }
     } ; 
     auto const set_task_id = [&] (gpu_hanging_task_desc_t const& d)
     {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            auto& face = ghost_layer[std::get<0>(d)].faces[std::get<1>(d)] ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             face.data.hanging.task_id[std::get<2>(d)] = task_counter ;
-        } else if constexpr (elem_kind == element_kind_t::EDGE) {
-            auto& edge = ghost_layer[std::get<0>(d)].edges[std::get<1>(d)] ; 
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             edge.data.hanging.task_id[std::get<2>(d)] = task_counter ;
         } else {
-            auto& corner = ghost_layer[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             corner.data.task_id = task_counter ;
         }
     } ; 
@@ -979,6 +917,12 @@ void insert_pup_tasks(
 {
     using namespace grace::amr ; 
 
+    constexpr amr::element_kind_t elem_kinds[] = {
+        amr::element_kind_t::FACE,
+        amr::element_kind_t::EDGE,
+        amr::element_kind_t::CORNER
+    };
+
     for( int r=0; r<parallel::mpi_comm_size(); ++r) {
         // Pack tasks
         std::apply([&](auto... EK){
@@ -1043,7 +987,7 @@ void insert_pup_tasks(
 // FIXME (?) right now this creates a single task 
 task_id_t insert_restriction_tasks(
     std::unordered_set<size_t> const& cbuf_qid,
-    std::vector<quad_neighbors_descriptor_t>& ghost_layer,
+    std::vector<quad_neighbors_descriptor_t>& ghost_array,
     grace::var_array_t<GRACE_NSPACEDIM> state, 
     grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
     device_stream_t& stream, 
@@ -1060,7 +1004,7 @@ task_id_t insert_restriction_tasks(
     size_t i{0UL} ; 
     for( auto const& qid: cbuf_qid) {
         quad_id_h(i) = qid ; 
-        cbuf_id_h(i) = ghost_layer[qid].cbuf_id ; 
+        cbuf_id_h(i) = ghost_array[qid].cbuf_id ; 
         i+=1UL ; 
     }
     Kokkos::deep_copy(quad_id_d,quad_id_h) ;
@@ -1068,7 +1012,7 @@ task_id_t insert_restriction_tasks(
 
     gpu_task_t task{} ;
 
-    restrict_op functor(
+    amr::restrict_op<decltype(state)> functor(
         state, coarse_buffers, quad_id_d, cbuf_id_d, ngz
     ) ; 
 
@@ -1093,7 +1037,7 @@ task_id_t insert_restriction_tasks(
     task.stream = &stream; 
     task.task_id = task_counter++ ; 
 
-    taks_list.push_back(
+    task_list.push_back(
         std::make_unique<gpu_task_t>(std::move(task))
     ) ; 
     return task.task_id ; 
@@ -1101,7 +1045,7 @@ task_id_t insert_restriction_tasks(
 
 
 void insert_copy_tasks(
-    std::vector<quad_neighbors_descriptor_t>& ghost_layer,
+    std::vector<quad_neighbors_descriptor_t>& ghost_array,
     bucket_t& copy_kernels,
     hang_bucket_t& copy_from_cbuf_kernels,
     bucket_t& copy_to_cbuf_kernels,
@@ -1115,9 +1059,9 @@ void insert_copy_tasks(
 )
 {
     constexpr amr::element_kind_t kinds[] = {
-        element_kind_t::FACE,
-        element_kind_t::EDGE,
-        element_kind_t::CORNER
+        amr::element_kind_t::FACE,
+        amr::element_kind_t::EDGE,
+        amr::element_kind_t::CORNER
     };
 
     std::apply([&](auto... EK){
@@ -1125,7 +1069,7 @@ void insert_copy_tasks(
         ((insert_task_for_kind<EK>(
             copy_kernels,
             [&](auto const& bucket){
-                return make_gpu_copy_task<EK>(bucket, ghost_layer, state, stream, VEC(nx,ny,nz), ngz, nv, task_counter);
+                return make_gpu_copy_task<EK>(bucket, ghost_array, state, stream, VEC(nx,ny,nz), ngz, nv, task_counter);
             },
             task_list
         )), ...);
@@ -1135,7 +1079,7 @@ void insert_copy_tasks(
         ((insert_task_for_kind<EK>(
             copy_to_cbuf_kernels,
             [&](auto const& bucket){
-                return make_gpu_copy_to_cbuf_task<EK>(bucket, ghost_layer, state, coarse_buffers, stream, VEC(nx,ny,nz), ngz, nv, task_counter);
+                return make_gpu_copy_to_cbuf_task<EK>(bucket, ghost_array, state, coarse_buffers, stream, VEC(nx,ny,nz), ngz, nv, task_counter);
             },
             task_list
         )), ...);
@@ -1145,7 +1089,7 @@ void insert_copy_tasks(
         ((insert_task_for_kind<EK>(
             copy_from_cbuf_kernels,
             [&](auto const& bucket){
-                return make_gpu_copy_from_cbuf_task<EK>(bucket, ghost_layer, state, coarse_buffers,stream, VEC(nx,ny,nz), ngz, nv, task_counter, restrict_task_id, task_list);
+                return make_gpu_copy_from_cbuf_task<EK>(bucket, ghost_array, state, coarse_buffers,stream, VEC(nx,ny,nz), ngz, nv, task_counter, restrict_task_id, task_list);
             },
             task_list
         )), ...);
@@ -1154,7 +1098,7 @@ void insert_copy_tasks(
 
 void insert_ghost_restriction_tasks(
     std::unordered_set<size_t> const& cbuf_qid,
-    std::vector<quad_neighbors_descriptor_t>& ghost_layer,
+    std::vector<quad_neighbors_descriptor_t>& ghost_array,
     grace::var_array_t<GRACE_NSPACEDIM> state, 
     grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
     device_stream_t& stream, 
@@ -1210,7 +1154,7 @@ void insert_ghost_restriction_tasks(
         {1,5},//9
         {2,6},//10
         {3,7}//11
-    }
+    } ; 
 
     const uint8_t c2f[P4EST_CHILDREN][3] = {
         {0,2,4},//0
@@ -1236,48 +1180,48 @@ void insert_ghost_restriction_tasks(
 
     for (auto const& qid : cbuf_qid) {
         for(int8_t f=0; f<P4EST_FACES; ++f) {
-            auto& face = ghost_layer[qid].faces[f] ; 
-            if ((face.kind == interface_kind_t::PHYS)) continue ;  
+            auto& face = ghost_array[qid].faces[f] ; 
+            if (face.kind == interface_kind_t::PHYS) continue ;  
             if (!(face.level_diff == level_diff_t::COARSER)) continue ;  
             for( int ie=0; ie<4; ++ie) {
                 auto e = f2e[f][ie] ; 
-                auto& edge = ghost_layer[qid].edges[e] ; 
+                auto& edge = ghost_array[qid].edges[e] ; 
                 if ( ! edge.filled ) continue; 
                 if ( edge.kind == interface_kind_t::PHYS) edge.data.phys.in_cbuf = true ;  
-                if (!(edge.level_diff == level_diff_t::COARSER)) restrict_edges.emplace_back({qid,e}) ; 
+                if (!(edge.level_diff == level_diff_t::COARSER)) restrict_edges.emplace_back(qid,e) ; 
             } 
-            }
         }
+        
         for( int8_t e=0; e<12; ++e){
-            auto& edge = ghost_layer[qid].edges[e] ; 
+            auto& edge = ghost_array[qid].edges[e] ; 
             if (!(edge.filled)) continue ; 
-            if ((edge.kind == interface_kind_t::PHYS)) continue ;  
+            if (edge.kind == interface_kind_t::PHYS) continue ;  
             if (!(edge.level_diff == level_diff_t::COARSER)) continue ;  
             for( int iface=0; iface<2; ++iface) {
                 auto f = e2f[e][iface] ; 
-                auto& face = ghost_layer[qid].faces[f] ; 
+                auto& face = ghost_array[qid].faces[f] ; 
                 if ( face.kind == interface_kind_t::PHYS) face.data.phys.in_cbuf=true ;  
-                if (!(face.level_diff == level_diff_t::COARSER)) restrict_faces.emplace_back({qid,f}) ;
+                if (!(face.level_diff == level_diff_t::COARSER)) restrict_faces.emplace_back(qid,f) ;
             }
             for( int ic=0; ic<2; ++ic) {
-                auto f = e2c[f][ic] ; 
-                auto& corner = ghost_layer[qid].corners[c] ; 
+                auto c = e2c[e][ic] ; 
+                auto& corner = ghost_array[qid].corners[c] ; 
                 if ( ! corner.filled ) continue; 
                 if ( corner.kind == interface_kind_t::PHYS) corner.phys.in_cbuf=true ;  
-                if (!(corner.level_diff == level_diff_t::COARSER)) restrict_corners.emplace_back({qid,c}) ; 
+                if (!(corner.level_diff == level_diff_t::COARSER)) restrict_corners.emplace_back(qid,c) ; 
             }
         }
         for( int8_t c=0; c<P4EST_CHILDREN; ++c){
-            auto& corner = ghost_layer[qid].corners[c] ; 
+            auto& corner = ghost_array[qid].corners[c] ; 
             if (!(corner.filled)) continue ; 
-            if ((corner.kind == interface_kind_t::PHYS)) continue ;  
+            if (corner.kind == interface_kind_t::PHYS) continue ;  
             if (!(corner.level_diff == level_diff_t::COARSER)) continue ;  
             for( int ie=0; ie<3; ++ie) {
                 auto e = c2e[c][ie] ; 
-                auto& edge = ghost_layer[qid].edges[e] ; 
+                auto& edge = ghost_array[qid].edges[e] ; 
                 if ( ! edge.filled ) continue; 
                 if ( edge.kind == interface_kind_t::PHYS) edge.data.phys.in_cbuf = true ;  
-                if (!(edge.level_diff == level_diff_t::COARSER)) restrict_edges.emplace_back({qid,e}) ; 
+                if (!(edge.level_diff == level_diff_t::COARSER)) restrict_edges.emplace_back(qid,e) ; 
             }
         }
     }
@@ -1307,10 +1251,12 @@ gpu_task_t make_gpu_phys_bc_task(
     grace::deep_copy_vec_to_view(eid_d,eid_h) ; 
     grace::deep_copy_vec_to_2D_view(dir_d,dir_h) ;
 
+    auto exec_space = Kokkos::DefaultExecutionSpace{stream} ; 
+
     gpu_task_t task{} ;
 
-    phys_bc_op<elem_kind,bc_kind,decltype(data_array)> functor{
-       data_array, qid_d, eid_d, dir_d, var_bc, VEC(nx,ny,nz),ngz  
+    amr::phys_bc_op<elem_kind,bc_kind,decltype(data_array)> functor{
+       data_array, qid_d, eid_d, dir_d, var_bc, VEC(n,n,n),ngz  
     } ; 
     
     Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>   
@@ -1334,7 +1280,7 @@ gpu_task_t make_gpu_phys_bc_task(
 
 void insert_phys_bc_tasks(
     bucket_t phys_bc_tasks,
-    std::vector<quad_neighbors_descriptor_t>& ghost_layer,
+    std::vector<quad_neighbors_descriptor_t>& ghost_array,
     grace::var_array_t<GRACE_NSPACEDIM> state, 
     grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
     Kokkos::View<bc_t*> var_bc, 
@@ -1356,7 +1302,9 @@ void insert_phys_bc_tasks(
     
     // input here is element kind, descriptor 
     // output here is quad_id, e_id, grid normal, BC type  
-    auto const get_info = [&] (amr::element_kind_t kind, gpu_task_desc_t const& d) -> std::tuple<bool, size_t, uint8_t, int8_t, int8_t, int8_t, amr::element_kind_t> {
+    auto const get_info = [&] (int _kind, gpu_task_desc_t const& d) -> std::tuple<bool, size_t, uint8_t, int8_t, int8_t, int8_t, amr::element_kind_t> {
+        amr::element_kind_t kind = static_cast<amr::element_kind_t>(_kind) ; 
+
         if ( kind == amr::element_kind_t::FACE ) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             bool is_cbuf = face.data.phys.in_cbuf ; 
@@ -1380,10 +1328,10 @@ void insert_phys_bc_tasks(
             bool is_cbuf = corner.phys.in_cbuf ; 
             return {  is_cbuf, is_cbuf ? ghost_array[std::get<0>(d)].cbuf_id : std::get<0>(d)
                     , std::get<1>(d)
-                    , corner.ghost.dir[0]
-                    , corner.ghost.dir[1]
-                    , corner.ghost.dir[2] 
-                    , corner.data.phys.type } ;
+                    , corner.phys.dir[0]
+                    , corner.phys.dir[1]
+                    , corner.phys.dir[2] 
+                    , corner.phys.type } ;
         }
     } ; 
 
@@ -1394,11 +1342,11 @@ void insert_phys_bc_tasks(
             if ( is_cbuf ) {
                 qid_cbuf[kind][type].push_back(_qid) ; 
                 eid_cbuf[kind][type].push_back(_eid) ; 
-                dir_cbuf[kind][type].emplace_back({dx,dy,dz}) ; 
+                dir_cbuf[kind][type].emplace_back(dx,dy,dz) ; 
             } else {
                 qid[kind][type].push_back(_qid) ; 
                 eid[kind][type].push_back(_eid) ; 
-                dir[kind][type].emplace_back({dx,dy,dz}) ; 
+                dir[kind][type].emplace_back(dx,dy,dz) ; 
             }
         }
     }
@@ -1419,7 +1367,7 @@ void insert_phys_bc_tasks(
                     qid[decltype(combos)::first][decltype(combos)::second],
                     eid[decltype(combos)::first][decltype(combos)::second],
                     dir[decltype(combos)::first][decltype(combos)::second],
-                    var_bc, stream, task_counter, data, nx, nv, ngz
+                    var_bc, stream, task_counter, state, nx, nv, ngz
                 )
             )
         ), ...);

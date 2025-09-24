@@ -33,6 +33,8 @@
 
 #include <Kokkos_Core.hpp>
 
+#include <tuple>
+
 namespace grace {
 
 struct view_alias_t {
@@ -48,6 +50,14 @@ using static_readonly_view_t = Kokkos::View<const T[N], grace::default_space, Ko
 
 template< typename T, size_t N >
 using readonly_twod_view_t = Kokkos::View<const T*[N], grace::default_space, Kokkos::MemoryTraits<Kokkos::RandomAccess>> ;
+
+
+using gpu_task_desc_t = std::pair<size_t, uint8_t> ; 
+using gpu_hanging_task_desc_t = std::tuple<size_t,uint8_t,uint8_t> ; 
+
+using bucket_t = std::array<std::vector<gpu_task_desc_t>,3> ; 
+using hang_bucket_t = std::array<std::vector<gpu_hanging_task_desc_t>,3> ; 
+
 
 }
 

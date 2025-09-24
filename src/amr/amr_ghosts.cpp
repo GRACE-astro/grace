@@ -56,6 +56,7 @@
 
 #include <vector>
 #include <numeric>
+#include <unordered_set>
 
 //#define INSERT_FENCE_DEBUG_TASKS_ 
 
@@ -126,27 +127,29 @@ void amr_ghosts_impl_t::update() {
         #endif 
         ASSERT(ghost_layer[iq].n_registered_corners == P4EST_CHILDREN, "Some corners not registered at iq " << iq ) ;
     }
+    std::unordered_set<size_t> cbuf_qid ; 
     //build_flux_buffers()     ;
-    build_coarse_buffers()   ; 
+    build_coarse_buffers(cbuf_qid)   ; 
 
     bucket_t phys_bc_kernels, copy_kernels, copy_to_cbuf_kernels; 
     hang_bucket_t copy_from_cbuf_kernels ;
-    std::vector<bucket_t> pack_kernels, unpack_kernels, 
+    std::vector<bucket_t> pack_kernels, unpack_kernels
                         , pack_to_cbuf_kernels  
                         , unpack_to_cbuf_kernels ;
     std::vector<hang_bucket_t>  unpack_from_cbuf_kernels ; 
 
     build_remote_buffers(
         phys_bc_kernels, copy_kernels,
-        copy_from_cbuf_kernels, copy_to_cbuf_kernels 
+        copy_from_cbuf_kernels, copy_to_cbuf_kernels, 
         pack_kernels, unpack_kernels, pack_to_cbuf_kernels,
         unpack_to_cbuf_kernels, unpack_from_cbuf_kernels
     )   ; 
     build_task_list(
         phys_bc_kernels, copy_kernels,
-        copy_from_cbuf_kernels, copy_to_cbuf_kernels 
+        copy_from_cbuf_kernels, copy_to_cbuf_kernels, 
         pack_kernels, unpack_kernels, pack_to_cbuf_kernels,
-        unpack_to_cbuf_kernels, unpack_from_cbuf_kernels
+        unpack_to_cbuf_kernels, unpack_from_cbuf_kernels,
+        cbuf_qid
     )        ; 
     build_executor_runtime() ;
      
@@ -225,7 +228,8 @@ void amr_ghosts_impl_t::build_task_list(
     std::vector<bucket_t>& unpack_kernels, 
     std::vector<bucket_t>& pack_to_cbuf_kernels,
     std::vector<bucket_t>& unpack_to_cbuf_kernels,
-    std::vector<hang_bucket_t>& unpack_from_cbuf_kernels
+    std::vector<hang_bucket_t>& unpack_from_cbuf_kernels,
+    std::unordered_set<size_t> const& cbuf_qid
 ) {
     /***********************************************************************/
     task_id_t task_counter{0UL} ; 
@@ -277,7 +281,7 @@ void amr_ghosts_impl_t::build_task_list(
 
     /***********************************************************************/
     /***********************************************************************/
-    insert_restriction_tasks(
+    task_id_t restrict_tid = insert_restriction_tasks(
         cbuf_qid,
         ghost_layer,
         state, 
@@ -297,7 +301,7 @@ void amr_ghosts_impl_t::build_task_list(
         _coarse_buffers,
         copy_stream,
         VEC(nx,ny,nz), ngz, nvars, 
-        task_counter, task_list 
+        task_counter,restrict_tid, task_list 
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
@@ -349,7 +353,6 @@ void amr_ghosts_impl_t::build_task_list(
         ) ;
         phys_bc_kernels.clear();
     }
-    GRACE_INFO("Registered {} kernels to copy {} internal faces.", num_local_faces, num_local_kernels) ; 
 }
 
 } /* namespace grace */

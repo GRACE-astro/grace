@@ -57,7 +57,7 @@
 #include <set> 
 namespace grace {
 
-enum class sec_t : uint8_t {FACE=0, EDGE=1, CORNER=2, CBFACE=3, CBEDGE=4, CBCORNER=5} ; 
+enum sec_t : uint8_t {FACE=0, EDGE=1, CORNER=2, CBFACE=3, CBEDGE=4, CBCORNER=5} ; 
 
 
 using desc_ptr_t = std::variant<
@@ -213,12 +213,6 @@ void amr_ghosts_impl_t::build_remote_buffers(
     std::vector<bucket_t>& unpack_to_cbuf_kernels,
     std::vector<hang_bucket_t>& unpack_from_cbuf_kernels
 ) {
-
-    pack_kernels.resize(nproc) ; unpack_kernels.resize(nproc) ; 
-    pack_to_cbuf_kernels.resize(nproc) ;
-    unpack_to_cbuf_kernels.resize(nproc) ;
-    unpack_from_cbuf_kernels.resize(nproc) ;
-
     // goals of this function: 
     // 1. come up with a unique ordering of mirror and 
     // ghost datasets (faces / edges / corners ) that 
@@ -239,7 +233,11 @@ void amr_ghosts_impl_t::build_remote_buffers(
     // get n vars 
     std::size_t nvars = variables::get_n_evolved() ; 
     /****************************************************/
-
+    pack_kernels.resize(nproc) ; unpack_kernels.resize(nproc) ; 
+    pack_to_cbuf_kernels.resize(nproc) ;
+    unpack_to_cbuf_kernels.resize(nproc) ;
+    unpack_from_cbuf_kernels.resize(nproc) ;
+    /****************************************************/
     // start: allocate a bunch of temp helpers 
     using svec_t = std::vector<size_t> ; 
     using arr_svec_t = std::array<svec_t,6> ; // one per face / edge /corner 
@@ -290,12 +288,12 @@ void amr_ghosts_impl_t::build_remote_buffers(
         for (uint8_t f = 0; f < P4EST_FACES; ++f) {
             auto& face = ghost_layer[iq].faces[f] ; 
             if ( face.kind ==  interface_kind_t::PHYS ) {
-                phys_bc_kernels[element_kind_t::FACE].emplace_back({iq,f}) ; 
+                phys_bc_kernels[amr::element_kind_t::FACE].emplace_back(iq,f) ; 
                 continue ; 
             } 
             if ( face.level_diff == level_diff_t::COARSER ) {
                 if ( !face.data.full.is_remote) {
-                    copy_to_cbuf_kernels[element_kind_t::FACE].emplace_back({iq,f}) ; 
+                    copy_to_cbuf_kernels[amr::element_kind_t::FACE].emplace_back(iq,f) ; 
                 } else {
                     append_keys(sec_t::CBFACE, sec_t::FACE, 
                             rank, face.data.full.owner_rank, 
@@ -304,15 +302,15 @@ void amr_ghosts_impl_t::build_remote_buffers(
                             &face, 0 /*not needed*/) ; 
                     // other side is coarser, this means we need to 
                     // pack - unpack a coarse buf 
-                    pack_to_cbuf_kernels[face.data.full.owner_rank][element_kind_t::FACE].emplace_back({iq, f}) ;
-                    unpack_to_cbuf_kernels[face.data.full.owner_rank][element_kind_t::FACE].emplace_back({iq, f}) ;
+                    pack_to_cbuf_kernels[face.data.full.owner_rank][amr::element_kind_t::FACE].emplace_back(iq, f) ;
+                    unpack_to_cbuf_kernels[face.data.full.owner_rank][amr::element_kind_t::FACE].emplace_back(iq, f) ;
                 }
                 
             } else if (face.level_diff == level_diff_t::FINER) {
                 for( int ic=0; ic<P4EST_CHILDREN/2; ++ic) {
                     if ( !face.data.hanging.is_remote[ic]) {
                         // copy 
-                        copy_from_cbuf_kernels[element_kind_t::FACE].emplace_back({iq,f,ic}) ; 
+                        copy_from_cbuf_kernels[amr::element_kind_t::FACE].emplace_back(iq,f,ic) ; 
                     } else {
                         append_keys(sec_t::FACE, sec_t::CBFACE, 
                             rank, face.data.hanging.owner_rank[ic], 
@@ -320,16 +318,15 @@ void amr_ghosts_impl_t::build_remote_buffers(
                             f, face.face,
                             &face, ic) ; 
                         // pack into normal buf, unpack from cbuf
-                        pack_kernels[face.data.hanging.owner_rank[ic]][element_kind_t::FACE].emplace_back({iq,f}) ; 
-                        unpack_from_cbuf_kernels[face.data.hanging.owner_rank[ic]][element_kind_t::FACE].emplace_back({iq,f,ic}) ; 
+                        pack_kernels[face.data.hanging.owner_rank[ic]][amr::element_kind_t::FACE].emplace_back(iq,f) ; 
+                        unpack_from_cbuf_kernels[face.data.hanging.owner_rank[ic]][amr::element_kind_t::FACE].emplace_back(iq,f,ic) ; 
                     }
                     
                 }   
             } else {
                 if ( !face.data.full.is_remote) {
                     /* local */
-                    copy_kernels[element_kind_t::FACE].emplace_back({iq,f}) ; 
-                    num_local_faces++ ; 
+                    copy_kernels[amr::element_kind_t::FACE].emplace_back(iq,f) ; 
                 } else {
                     append_keys(sec_t::FACE, sec_t::FACE, 
                             rank, face.data.full.owner_rank, 
@@ -337,8 +334,8 @@ void amr_ghosts_impl_t::build_remote_buffers(
                             f, face.face,
                             &face, 0 /*not needed*/) ; 
                     /* remote */
-                    pack_kernels[face.data.full.owner_rank][element_kind_t::FACE].emplace_back({iq,f}) ; 
-                    unpack_kernels[face.data.full.owner_rank][element_kind_t::FACE].emplace_back({iq,f}) ; 
+                    pack_kernels[face.data.full.owner_rank][amr::element_kind_t::FACE].emplace_back(iq,f) ; 
+                    unpack_kernels[face.data.full.owner_rank][amr::element_kind_t::FACE].emplace_back(iq,f) ; 
                 }
                 
             } /* face not hanging */
@@ -353,48 +350,48 @@ void amr_ghosts_impl_t::build_remote_buffers(
             // taken care of already 
             if( !edge.filled) continue ; 
             if (edge.kind == interface_kind_t::PHYS) {
-                phys_bc_kernels[element_kind_t::EDGE].emplace_back({iq,e}) ; 
+                phys_bc_kernels[amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
                 continue ; 
             } 
             if ( edge.level_diff == level_diff_t::COARSER ) {
                 if ( !edge.data.full.is_remote)  {
-                    copy_to_cbuf_kernels[element_kind_t::EDGE].emplace_back({iq,e,edge.child_id}) ; 
+                    copy_to_cbuf_kernels[amr::element_kind_t::EDGE].emplace_back(iq,e,edge.child_id) ; 
                 }  else {
                     append_keys(sec_t::CBEDGE, sec_t::EDGE, 
                             rank, edge.data.full.owner_rank, 
                             iq /*should it be cbuf*/,edge.data.full.quad_id, 
                             e, edge.edge,
                             &edge, 0 /*not needed*/) ;
-                    pack_to_cbuf_kernels[edge.data.full.owner_rank][element_kind_t::EDGE].emplace_back({iq, e}) ;
-                    unpack_to_cbuf_kernels[edge.data.full.owner_rank][element_kind_t::EDGE].emplace_back({iq, e}) ;
+                    pack_to_cbuf_kernels[edge.data.full.owner_rank][amr::element_kind_t::EDGE].emplace_back(iq, e) ;
+                    unpack_to_cbuf_kernels[edge.data.full.owner_rank][amr::element_kind_t::EDGE].emplace_back(iq, e) ;
                 }
                 
             } else if ( edge.level_diff == level_diff_t::FINER ) {
                 for ( int ic=0; ic<2; ++ic){
                     if( ! edge.data.hanging.is_remote[ic]) {
-                        copy_from_cbuf_kernels[element_kind_t::EDGE].emplace_back({iq,e,edge.child_id}) ;
+                        copy_from_cbuf_kernels[amr::element_kind_t::EDGE].emplace_back(iq,e,edge.child_id) ;
                     } else {
                         append_keys(sec_t::EDGE, sec_t::CBEDGE, 
                             rank, edge.data.hanging.owner_rank[ic], 
                             iq /*should it be cbuf*/,edge.data.hanging.quad_id[ic], 
                             e, edge.edge,
                             &edge, ic) ;
-                        pack_kernels[edge.data.hanging.owner_rank[ic]][element_kind_t::EDGE].emplace_back({iq,e}) ; 
-                        unpack_from_cbuf[edge.data.hanging.owner_rank[ic]][element_kind_t::EDGE].emplace_back({iq,e}) ; 
+                        pack_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
+                        unpack_from_cbuf_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
                     }
                     
                 }
             } else {
                 if ( !edge.data.full.is_remote ) {
-                    copy_kernels[element_kind_t::EDGE].emplace_back({iq,e}) ; 
+                    copy_kernels[amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
                 } else {
                     append_keys(sec_t::EDGE, sec_t::EDGE, 
                             rank, edge.data.full.owner_rank, 
                             iq,edge.data.full.quad_id, 
                             e, edge.edge,
                             &edge, 0/*not used*/) ;
-                    pack_kernels[edge.data.full.owner_rank][element_kind_t::EDGE].emplace_back({iq,e}) ; 
-                    unpack_kernels[edge.data.full.owner_rank][element_kind_t::EDGE].emplace_back({iq,e}) ; 
+                    pack_kernels[edge.data.full.owner_rank][amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
+                    unpack_kernels[edge.data.full.owner_rank][amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
                 }
                  
             }
@@ -404,46 +401,46 @@ void amr_ghosts_impl_t::build_remote_buffers(
             auto& corner = ghost_layer[iq].corners[c] ;
             if( !corner.filled) continue ;  
             if (corner.kind == interface_kind_t::PHYS) {
-                phys_bc_kernels[element_kind_t::CORNER].emplace_back({iq,c}) ; 
+                phys_bc_kernels[amr::element_kind_t::CORNER].emplace_back(iq,c) ; 
                 continue ;
             } 
             if ( corner.level_diff == level_diff_t::COARSER ) {
                 if ( !corner.data.is_remote ) {
-                    copy_to_cbuf_kernels[element_kind_t::CORNER].emplace_back(iq,c,0) ; 
+                    copy_to_cbuf_kernels[amr::element_kind_t::CORNER].emplace_back(iq,c,0) ; 
                 } else {
                     append_keys(sec_t::CBCORNER, sec_t::CORNER, 
                             rank, corner.data.owner_rank, 
                             iq,corner.data.quad_id, 
                             c, corner.corner,
                             &corner, 0 /*not used*/) ;
-                    pack_to_cbuf_kernels[corner.data.owner_rank][element_kind_t::CORNER].emplace_back({iq,c}) ; 
-                    unpack_to_cbuf_kernels[corner.data.owner_rank][element_kind_t::CORNER].emplace_back({iq,c}) ; 
+                    pack_to_cbuf_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c) ; 
+                    unpack_to_cbuf_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c) ; 
                 }
                  
             } else if (corner.level_diff == level_diff_t::FINER) {
                 if ( !corner.data.is_remote ) {
-                    copy_from_cbuf_kernels[element_kind_t::CORNER].emplace_back({iq,c,0}) ; 
+                    copy_from_cbuf_kernels[amr::element_kind_t::CORNER].emplace_back(iq,c,0) ; 
                 } else {
                     append_keys(sec_t::CORNER, sec_t::CBCORNER, 
                             rank, corner.data.owner_rank, 
                             iq,corner.data.quad_id, 
                             c, corner.corner,
                             &corner, 0 /*not used*/) ; 
-                    pack_kernels[corner.data.owner_rank][element_kind_t::CORNER].emplace_back({iq,c} ) ; 
-                    unpack_from_cbuf[corner.data.owner_rank][element_kind_t::CORNER].emplace_back({iq,c,0}) ; 
+                    pack_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c ) ; 
+                    unpack_from_cbuf_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c,0) ; 
                 }
                 
             } else { 
                 if ( !corner.data.is_remote ) {
-                    copy_kernels[element_kind_t::CORNER].emplace_back({iq,c}) ; 
+                    copy_kernels[amr::element_kind_t::CORNER].emplace_back(iq,c) ; 
                 } else {
                     append_keys(sec_t::CORNER, sec_t::CORNER, 
                             rank, corner.data.owner_rank, 
                             iq,corner.data.quad_id, 
                             c, corner.corner,
                             &corner, 0 /*not used*/) ;
-                    pack_kernels[corner.data.owner_rank][element_kind_t::CORNER].emplace_back({iq,c});
-                    unpack_kernels[corner.data.owner_rank][element_kind_t::CORNER].emplace_back({iq,c});
+                    pack_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c);
+                    unpack_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c);
                 }
                 
             }

@@ -159,7 +159,7 @@ void grace_iterate_faces(
         auto& face = desc.faces[f];
         face.kind = interface_kind_t::PHYS ;
         face.data.phys.dir[0] = face.data.phys.dir[1] = face.data.phys.dir[2] = 0;
-        face.data.phys.dir[static_cast<size_t>(f/2)] = f%2 ? : +1 : -1 ;
+        face.data.phys.dir[static_cast<size_t>(f/2)] = f%2 ? +1 : -1 ;
         face.data.phys.type = amr::element_kind_t::FACE ; 
         face.data.phys.in_cbuf = false ;
         desc.n_registered_faces ++ ; 

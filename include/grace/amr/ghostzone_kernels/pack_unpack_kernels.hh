@@ -59,7 +59,7 @@ struct pack_op {
         src_view = alias.get() ; 
     }
 
-    pack_k(
+    pack_op(
         view_t _src_view,
         ghost_array_t _dest_view,
         Kokkos::View<size_t*> _src_qid, 
@@ -184,7 +184,7 @@ struct pack_to_cbuf_op {
         Kokkos::View<uint8_t*> _src_elem,  
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
         std::size_t _ngz, std::size_t _nvars, std::size_t _rank 
-    ) : view(_view)
+    ) : cbuf(_view)
       , ghost_view(_ghost_view)
       , cbuf_qid(_cbuf_qid)
       , ghost_qid(_ghost_qid)
@@ -269,7 +269,7 @@ struct unpack_from_cbuf_op {
         std::size_t VEC(i_a,j_a,k_a) ;
 
         auto ichild = ichild_view(iq) ; 
-        size_t joff{0UL}, koff{0UL} ; 
+        size_t j_off{0UL}, k_off{0UL} ; 
         cbuf_to_view_offsets<elem_kind>::get(
             j_off,k_off, transf.nx, ichild 
         ) ; 
@@ -340,7 +340,7 @@ struct unpack_to_cbuf_op {
         auto const ghost_q = ghost_qid(iq) ;
 
         auto ichild = ichild_view(iq) ;
-        size_t joff{0UL}, koff{0UL} ; 
+        size_t j_off{0UL}, k_off{0UL} ; 
         view_to_cbuf_offsets<elem_kind>::get(
             j_off,k_off, transf.nx, transf.ngz, ichild 
         ) ;
@@ -351,7 +351,7 @@ struct unpack_to_cbuf_op {
             ig, VECD(j, k), i_a, j_a, k_a, ie, /*half ncells*/ true 
         ) ; 
 
-        view(VEC(i_a,j_a,k_a), ivar, cbuf_q) = 
+        cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) = 
             ghost_view.at_interface<elem_kind>(ig,j+j_off,k+k_off,ivar,ghost_q,rank) ;
 
     }
