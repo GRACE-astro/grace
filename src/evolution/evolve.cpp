@@ -60,6 +60,7 @@
 #include <grace/amr/grace_amr.hh>
 
 #include <string> 
+#include <utility>
 
 namespace grace {
 
@@ -78,6 +79,86 @@ void evolve() {
         ERROR("Not implemented yet.") ; 
     }
 }
+
+template <typename... States>
+void GRACE_HOST_DEVICE convex_combination(var_array_t<GRACE_NSPACEDIM>& result,
+                        std::array<double, sizeof...(States)> const& weights,
+                        States&... args
+                    )
+{
+    static_assert(sizeof...(States) >= 2, "Need at least 2 args for a convex combination");
+
+
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int ngz = amr::get_n_ghosts() ; 
+    int64_t nq = amr::get_local_num_quadrants() ;
+    int nvars_hrsc = variables::get_n_hrsc() ;
+
+    auto add_policy = 
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
+              {VEC(0,0,0),0,0}
+            , {VEC(nx,ny,nz),nvars_hrsc,nq}
+        ) ; 
+
+    // is this necessary?
+    auto weights_device = Kokkos::View<double[2], grace::default_space>("weights_device");
+    auto weights_host = Kokkos::create_mirror_view(weights_device);
+    for (size_t i=0; i<2; ++i) weights_host(i) = weights[i];
+
+    Kokkos::deep_copy(weights_device, weights_host);
+
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "construct_convex_combination")
+                , add_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& ivar, int const& q)
+    {
+        int const VEC(I{i+ngz},J{j+ngz},K{k+ngz}) ; 
+        double sum = 0.0;
+
+        // GPU-safe fold over args and weights
+        size_t idx = 0;
+        ((sum += weights_device(idx++) * args(VEC(I,J,K), ivar, q)), ...);
+
+        result(VEC(I,J,K), ivar, q) = sum;
+    });
+
+}
+
+
+void convex_combination_simple(
+                            var_array_t<GRACE_NSPACEDIM>& arr1,
+                            var_array_t<GRACE_NSPACEDIM>& arr2,
+                            double w1,
+                            double w2
+                            )
+{
+    using namespace grace ; 
+    using namespace Kokkos  ; 
+
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int ngz = amr::get_n_ghosts() ; 
+    int64_t nq = amr::get_local_num_quadrants() ;
+    int nvars_hrsc = variables::get_n_hrsc() ;
+
+    auto add_policy = 
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
+              {VEC(0,0,0),0,0}
+            , {VEC(nx,ny,nz),nvars_hrsc,nq}
+        ) ; 
+
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "construct_convex_combination")
+                , add_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& ivar, int const& q)
+    {
+        int const VEC(I{i+ngz},J{j+ngz},K{k+ngz}) ; 
+
+        arr1(VEC(I,J,K), ivar, q) = w1 * arr1(VEC(I,J,K), ivar, q) + w2 * arr2(VEC(I,J,K), ivar, q) ;
+    });
+
+}
+
+
 
 template< typename eos_t >
 void evolve_impl() {
@@ -118,7 +199,53 @@ void evolve_impl() {
         advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,dx,cvol,fsurf) ;
         amr::apply_boundary_conditions(state) ; 
         compute_auxiliary_quantities<eos_t>(state, aux) ;
-    } else if (tstepper == "rk3" ) {
+    } else if (tstepper == "shu_osher_rk3" ) { // TVD variant 
+        // Stage 1: Euler step: u^(1) = u^n + dt L(u^n) 
+        // u^n is state
+        // u^(1) is state_p
+        int64_t nx,ny,nz ; 
+        std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+        int ngz = amr::get_n_ghosts() ; 
+        size_t nq = amr::get_local_num_quadrants() ; 
+        int nvars_hrsc = variables::get_n_hrsc() ;
+        int nvars_evol = variables::get_n_evolved() ; 
+        auto& state_tmp = grace::variable_list::get().gettmp() ;
+        // need to realloc the temporary array 
+        Kokkos::realloc(state_tmp   , VEC( nx + 2*ngz 
+                                 ,      ny + 2*ngz 
+                                 ,      nz + 2*ngz )
+                                 , nvars_evol
+                                 , nq                          
+        ) ; 
+        advance_substep<eos_t>(t, dt, 1.0, state_p, state, aux, idx, dx, cvol, fsurf);
+        amr::apply_boundary_conditions(state_p);
+        compute_auxiliary_quantities<eos_t>(state_p, aux);
+        // Stage 2: u^(2) = 3/4 u^n + 1/4 (u^(1) + dt L(u^(1)))
+        // u^(2) is state_tmp 
+        // u^(1) is state_p
+        // compute the Euler update from state_p into state_tmp (i.e. get u^(1) + dt L(u^(1)) first)
+        Kokkos::deep_copy(state_tmp, state_p) ; 
+        advance_substep<eos_t>(t, dt, 1.0, state_tmp, state_p, aux, idx, dx, cvol, fsurf);
+        // now a convex combination: state_tmp = 3/4 * state + 1/4 * state_tmp
+        convex_combination(state_tmp, std::array<double,2>{0.75, 0.25}, state, state_tmp);
+        // convex_combination_simple(state_tmp, state, 1./4., 3./4.);
+        amr::apply_boundary_conditions(state_tmp);
+        compute_auxiliary_quantities<eos_t>(state_tmp, aux);
+        // Stage 3: 1/3 u^n + 2/3 (u^(2) + dt L(u^(2)))
+        // u^(2) is state_tmp
+        // u^n is state
+        // u^(1) is state_p, will serve as u^(2) + dt L(u^(2))
+        // again, first Euler update, reuse state_p
+        Kokkos::deep_copy(state_p, state_tmp);               // seed with u^(2)
+        //
+        advance_substep<eos_t>(t, dt, 1.0, state_p, state_tmp, aux, idx, dx, cvol, fsurf);
+        // then convex comb, reuse state now, state is u^n (original last state), state_p is u^(2) + dt L(u^(2))
+        convex_combination(state, std::array<double,2>{1./3., 2./3.}, state, state_p);
+        // convex_combination_simple(state, state_p, 1./3., 2./3.);
+        amr::apply_boundary_conditions(state);
+        compute_auxiliary_quantities<eos_t>(state, aux);
+    }
+      else if (tstepper == "rk3" ) { // i.e. classical RK3 
         ERROR("Not implemented yet.") ; 
     } else {
         ERROR("Unrecognised time-stepper.") ; 
@@ -193,7 +320,14 @@ void advance_substep( double const t, double const dt, double const dtfact
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,old_state,aux) ; 
-    #define RECON weno_reconstructor_t<3>
+    // #define RECON weno_reconstructor_t<5>
+    // #define RECON slope_limited_reconstructor_t<MCbeta>
+    // #define RECON weno_reconstructor_t<3>
+    #define RECON weno_reconstructor_t<5>
+    // #define RECON slope_limited_reconstructor_t<Koren>
+    // #define RECON polynomial_reconstruction<MP5>
+
+
     #define GET_X_FLUX \
     grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
     #define GET_Y_FLUX \
