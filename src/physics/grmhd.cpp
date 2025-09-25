@@ -738,8 +738,6 @@ void set_grmhd_initial_data() {
                         Avec_Pcut, Avec_n, Avec_Ab) ;
 
         GRACE_TRACE("Done with magnetized FMTorus ID.") ;  
-    } else {
-        set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(rho_c) ;
     }
     #ifdef GRACE_ENABLE_KADATH
     else if ( id_type == "kadath"){
