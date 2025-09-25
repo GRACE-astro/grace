@@ -25,7 +25,7 @@
  * 
  */
 
- #include <grace_config.h>
+#include <grace_config.h>
 
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>

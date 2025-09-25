@@ -35,6 +35,44 @@
 
 namespace grace { namespace amr {
 
+namespace detail {
+constexpr std::array<std::array<int8_t,4>,P4EST_FACES> f2e = 
+{{
+    {{8,10,4,6}}, //0
+    {{9,11,5,7}}, //1
+    {{8,9,0,2}}, //2
+    {{10,11,1,3}}, //3
+    {{4,5,0,1}}, //4
+    {{6,7,2,3}} //5 
+}}; 
+constexpr std::array<std::array<int8_t,2>,P4EST_FACES/2> face_axes = 
+{{
+    {{1,2}}, {{0,2}}, {{0,1}}
+}} ;
+
+inline constexpr std::array<std::array<uint8_t,2>,12> e2f = 
+{{
+    {{4,2}}, {{4,3}}, {{5,2}}, {{5,3}}, {{4,0}}, {{4,1}}, {{5,0}}, {{5,1}}, {{2,0}}, {{2,1}}, {{3,0}}, {{3,1}}
+}}  ;
+inline constexpr std::array<std::array<uint8_t,2>,12> e2c = 
+{{
+    {{0,1}}, {{2,3}}, {{4,5}}, {{6,7}}, {{0,2}}, {{1,3}}, {{4,6}}, {{5,7}}, {{0,4}}, {{1,5}}, {{2,6}}, {{3,7}}
+}}  ;
+
+inline constexpr std::array<std::array<uint8_t,3>,P4EST_CHILDREN> c2e = 
+{{
+    {{0,4,8}},
+    {{1,5,9}},
+    {{1,4,10}},
+    {{5,1,11}},
+    {{2,6,8}},
+    {{2,7,9}},
+    {{3,6,10}},
+    {{3,7,11}}
+} } ;
+
+}
+
 enum element_kind_t : uint8_t {
     FACE=0, EDGE=1, CORNER=2
 } ; 

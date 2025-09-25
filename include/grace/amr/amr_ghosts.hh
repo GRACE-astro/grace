@@ -336,6 +336,8 @@ using amr_ghosts = utils::singleton_holder<amr_ghosts_impl_t> ;
 template <> 
 inline uint8_t
 get_adjacent_idx<amr::FACE>(uint8_t eid, const uint8_t dir[3]) {
+    using namespace amr::detail ; 
+    
     int nz0=-1, nz1=-1;
     int sgn0=0, sgn1=0;
     int cnt=0;
@@ -346,19 +348,7 @@ get_adjacent_idx<amr::FACE>(uint8_t eid, const uint8_t dir[3]) {
             ++cnt;
         }
     }
-    constexpr std::array<std::array<int8_t,4>,P4EST_FACES> f2e = 
-    {{
-        {{8,10,4,6}}, //0
-        {{9,11,5,7}}, //1
-        {{8,9,0,2}}, //2
-        {{10,11,1,3}}, //3
-        {{4,5,0,1}}, //4
-        {{6,7,2,3}} //5 
-    }}; 
-    constexpr std::array<std::array<int8_t,2>,P4EST_FACES/2> face_axes = 
-    {{
-        {{1,2}}, {{0,2}}, {{0,1}}
-    }} ;
+    
 
     return f2e[eid][2*(face_axes[eid/2][0] != nz0)+sgn0]
 }; 
@@ -367,6 +357,8 @@ get_adjacent_idx<amr::FACE>(uint8_t eid, const uint8_t dir[3]) {
 template <> 
 inline uint8_t
 get_adjacent_idx<amr::EDGE>(uint8_t eid, const uint8_t dir[3]) {
+    using namespace amr::detail ; 
+
     int nz0=-1, nz1=-1;
     int sgn0=0, sgn1=0;
     int cnt=0;
@@ -377,15 +369,6 @@ get_adjacent_idx<amr::EDGE>(uint8_t eid, const uint8_t dir[3]) {
             ++cnt;
         }
     }
-
-    constexpr std::array<std::array<uint8_t,2>,12> e2f = 
-    {{
-        {{4,2}}, {{4,3}}, {{5,2}}, {{5,3}}, {{4,0}}, {{4,1}}, {{5,0}}, {{5,1}}, {{2,0}}, {{2,1}}, {{3,0}}, {{3,1}}
-    }}  ;
-    constexpr std::array<std::array<uint8_t,2>,12> e2c = 
-    {{
-        {{0,1}}, {{2,3}}, {{4,5}}, {{6,7}}, {{0,2}}, {{1,3}}, {{4,6}}, {{5,7}}, {{0,4}}, {{1,5}}, {{2,6}}, {{3,7}}
-    }}  ;
 
     int8_t edge_dir = eid/4 ; 
 
@@ -410,6 +393,8 @@ get_adjacent_idx<amr::EDGE>(uint8_t eid, const uint8_t dir[3]) {
 template <> 
 inline uint8_t 
 get_adjacent_idx<amr::CORNER>(uint8_t eid, const uint8_t dir[3]) {
+    using namespace amr::detail ; 
+
     int nz0=-1, nz1=-1;
     int sgn0=0, sgn1=0;
     int cnt=0;
@@ -422,17 +407,7 @@ get_adjacent_idx<amr::CORNER>(uint8_t eid, const uint8_t dir[3]) {
     }
     ASSERT(cnt == 1, "Only along axes directions supported for now.") ; 
 
-    constexpr std::array<std::array<uint8_t,3>,P4EST_CHILDREN> c2e = 
-    {{
-        {{0,4,8}},
-        {{1,5,9}},
-        {{1,4,10}},
-        {{5,1,11}},
-        {{2,6,8}},
-        {{2,7,9}},
-        {{3,6,10}},
-        {{3,7,11}}
-    } } ;
+    
 
     return c2e[eid][nz0] ; 
 }; 
