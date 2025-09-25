@@ -104,7 +104,7 @@ void GRACE_HOST_DEVICE convex_combination(var_array_t<GRACE_NSPACEDIM>& result,
     // is this necessary?
     auto weights_device = Kokkos::View<double[2], grace::default_space>("weights_device");
     auto weights_host = Kokkos::create_mirror_view(weights_device);
-    for (size_t i=0; i<2; ++i) weights_host(i) = weights[i];
+    for (size_t i=0; i<sizeof...(States); ++i) weights_host(i) = weights[i];
 
     Kokkos::deep_copy(weights_device, weights_host);
 
