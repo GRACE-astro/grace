@@ -334,10 +334,11 @@ static void set_grmhd_kadath_initial_data() {
 
     }
    
+    // the import happens on host, so we send off the packed references to the kadath exporters
     KadathImporter(kadath_id, id_dir+"/"+kadath_id_file, local_vars, 
                                 cells_pcoords, nfields, ncells);
 
-
+    // and we copy them back... 
     Kokkos::deep_copy(aux  , h_aux_mirror  );
     Kokkos::deep_copy(state, h_state_mirror);
     

@@ -2394,6 +2394,18 @@ void set_grmhd_initial_data() ;
 /***********************************************************************/
 void set_conservs_from_prims() ;
 /***********************************************************************/
+#ifdef GRACE_ENABLE_KADATH
+/**
+ * @brief Set the grmhd kadath initial data object
+ *        Note that it exists separately from the GPU-accelerated ID kernels and
+ *        as of 25.09.2025 is a purely host-only function due to the structure of Kadath Exporters
+ *        A long-term goal should be to accelerate the import using multiple threads per MPI rank
+ * @tparam eos_t 
+ */
+template< typename eos_t >
+static void set_grmhd_kadath_initial_data();
+#endif
+/***********************************************************************/
 // Explicit template instantiation
 #define INSTANTIATE_TEMPLATE(EOS)        \
 extern template                          \
