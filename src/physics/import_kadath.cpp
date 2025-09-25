@@ -158,6 +158,6 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
   GRACE_INFO("Finished Kadath import") ;
   auto clock_end = std::chrono::high_resolution_clock::now() ; 
   auto currentTime = double(std::chrono::duration_cast <std::chrono::seconds> (clock_end - clock_start).count());
-  GRACE_VERBOSE("Filling Kadath ID took {:.3e} s.",currentTime) ;
+  GRACE_VERBOSE("Filling FUKA ID took {:.3e} s.",currentTime) ;
 
 }

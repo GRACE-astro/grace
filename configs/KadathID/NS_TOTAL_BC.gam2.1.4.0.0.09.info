@@ -15,7 +15,7 @@ ns
     rin 4.0570444365402079
     rmid 8.1140888730804157
     rout 16.228177746160831
-    eosfile gam2.polytrope
+    eosfile /zhome/academic/HLRS/xfp/xfpolski/fuka/eos/gam2.polytrope
     eostype Cold_PWPoly
     h_cut 0
     interpolation_pts 2000

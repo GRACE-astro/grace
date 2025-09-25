@@ -740,7 +740,7 @@ void set_grmhd_initial_data() {
         GRACE_TRACE("Done with magnetized FMTorus ID.") ;  
     }
     #ifdef GRACE_ENABLE_KADATH
-    else if ( id_type == "kadath"){
+    else if ( id_type == "fuka"){
         set_grmhd_kadath_initial_data<eos_t>();
     } 
     #endif
