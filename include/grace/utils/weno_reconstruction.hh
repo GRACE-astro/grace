@@ -144,7 +144,6 @@ struct weno_reconstructor_t<5>
     static constexpr double d1 = 0.6; 
     static constexpr double d2 = 0.3; 
     
-    // static constexpr double WENO5_12_BY_13 = 12.0/13.0 ;  // fix me ? 13/12!
     static constexpr double WENO5_13_BY_12 = 13.0/12.0 ;  // fix me ? 13/12!
     static constexpr double WENO5_1_BY_6   = 1.0/6.0   ; 
     
@@ -170,124 +169,6 @@ struct weno_reconstructor_t<5>
      * For this reason some of the coefficients are in a different order from
      * what appears in the tables.
      */
-//     template< typename ViewT >
-//     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-//     operator() (
-//           ViewT& u 
-//         , VEC( int const i
-//              , int const j 
-//              , int const k)
-//         , double& uL
-//         , double& uR 
-//         , int8_t idir )
-//     {
-//         std::array<double,4> const gamma {
-//              WENO5_13_BY_12 * math::int_pow<2>(U0-2.*UP(1)+UP(2)),
-//              WENO5_13_BY_12 * math::int_pow<2>(UM(1)-2.*U0+UP(1)),
-//              WENO5_13_BY_12 * math::int_pow<2>(UM(2)-2.*UM(1)+U0),
-//              WENO5_13_BY_12 * math::int_pow<2>(UM(3)-2.*UM(2)+UM(1))
-//         } ; 
-
-//         std::array<double,3> const betaL {
-//             gamma[0] + 0.25 * math::int_pow<2>(3.*U0-4.*UP(1)+UP(2)) ,
-//             gamma[1] + 0.25 * math::int_pow<2>(UM(1)-UP(1)) ,
-//             gamma[2] + 0.25 * math::int_pow<2>(UM(2)-4.*UM(1)+3.*U0) 
-//         } ;
-
-//         std::array<double,3> const betaR {
-//             gamma[1] + 0.25 * math::int_pow<2>(3.*UM(1)-4.*U0+UP(1)) ,
-//             gamma[2] + 0.25 * math::int_pow<2>(UM(2)-U0) ,
-//             gamma[3] + 0.25 * math::int_pow<2>(UM(3)-4.*UM(2)+3.*UM(1)) 
-//         } ;
-
-//         std::array<double,3> const alphaL { 
-//             d2 / math::int_pow<2>( WENO_EPS + betaL[0] ),
-//             d1 / math::int_pow<2>( WENO_EPS + betaL[1] ),
-//             d0 / math::int_pow<2>( WENO_EPS + betaL[2] )
-//         } ; 
-//         std::array<double,3> const alphaR { 
-//             d0 / math::int_pow<2>( WENO_EPS + betaR[0] ),
-//             d1 / math::int_pow<2>( WENO_EPS + betaR[1] ),
-//             d2 / math::int_pow<2>( WENO_EPS + betaR[2] )
-//         } ; 
-//         double const wL = 1./(alphaL[0] + alphaL[1] + alphaL[2]) ; 
-//         double const wR = 1./(alphaR[0] + alphaR[1] + alphaR[2]) ; 
-        
-//         uR = WENO5_1_BY_6 * wR * ( alphaR[0] * ( -UP(2) + 5.*UP(1) + 2*U0) 
-//                                  + alphaR[1] * ( -UM(1) + 5.*U0 + 2*UP(1)) 
-//                                  + alphaR[2] * ( 2.*UM(2) - 7.*UM(1) + 11*U0) ) ;
-//         uL = WENO5_1_BY_6 * wL * ( alphaL[0] * ( 2.*UP(1) - 7.*U0 + 11*UM(1)) 
-//                                  + alphaL[1] * ( -U0 + 5.*UM(1) + 2*UM(2)) 
-//                                  + alphaL[2] * ( -UM(3) + 5.*UM(2) + 2.*UM(1)) ) ;
-//     }
-
-
-                    
-        //----------------------------------------------------------------------------------------
-        //! \fn WENOZ()
-        //! \brief Reconstructs 5th-order polynomial in cell i to compute ql(i+1) and qr(i).
-        //! Works for any dimension by passing in the appropriate q_im2,...,q _ip2.
-        //----------------------------------------------------------------------------------------
-
-        GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-        void low_level_WENOZ(const double &q_im2, const double &q_im1, const double &q_i, const double &q_ip1,
-                const double &q_ip2, double &ql_ip1, double &qr_i) noexcept  {
-        // Smooth WENO weights: See Jiang & Shu 1996
-        const double beta_coeff[2]{13. / 12., 0.25};
-
-        double beta[3];
-        beta[0] = beta_coeff[0] * math::int_pow<2>(q_im2 +     q_i - 2.0*q_im1) +
-                    beta_coeff[1] * math::int_pow<2>(q_im2 + 3.0*q_i - 4.0*q_im1);
-
-        beta[1] = beta_coeff[0] * math::int_pow<2>(q_im1 + q_ip1 - 2.0*q_i) +
-                    beta_coeff[1] * math::int_pow<2>(q_im1 - q_ip1);
-
-        beta[2] = beta_coeff[0] * math::int_pow<2>(q_ip2 +      q_i - 2.0*q_ip1) +
-                    beta_coeff[1] * math::int_pow<2>(q_ip2 + 3.0* q_i - 4.0*q_ip1);
-
-        // Rescale epsilon
-        const double epsL = 1.0e-42;
-
-        // WENO-Z: Borges et al. 2008, Castro et al. 2011
-        const double tau_5 = fabs(beta[0] - beta[2]);
-
-        double indicator[3];
-        indicator[0] = math::int_pow<2>(tau_5 / (beta[0] + epsL));
-        indicator[1] = math::int_pow<2>(tau_5 / (beta[1] + epsL));
-        indicator[2] = math::int_pow<2>(tau_5 / (beta[2] + epsL));
-
-        // compute qL_ip1
-        // Factor of 1/6 in coefficients of f[] array applied to alpha_sum to reduce divisions
-        double f[3];
-        f[0] = ( 2.0*q_im2 - 7.0*q_im1 + 11.0*q_i  );
-        f[1] = (-1.0*q_im1 + 5.0*q_i   + 2.0 *q_ip1);
-        f[2] = ( 2.0*q_i   + 5.0*q_ip1 -      q_ip2);
-
-        double alpha[3];
-        alpha[0] = 0.1*(1.0 + indicator[0]);
-        alpha[1] = 0.6*(1.0 + indicator[1]);
-        alpha[2] = 0.3*(1.0 + indicator[2]);
-        double alpha_sum = 6.0*(alpha[0] + alpha[1] + alpha[2]);
-
-        ql_ip1 = (f[0]*alpha[0] + f[1]*alpha[1] + f[2]*alpha[2])/alpha_sum;
-
-        // compute qR_i
-        // Factor of 1/6 in coefficients of f[] array applied to alpha_sum to reduce divisions
-        f[0] = ( 2.0*q_ip2 - 7.0*q_ip1 + 11.0*q_i  );
-        f[1] = (-1.0*q_ip1 + 5.0*q_i   + 2.0 *q_im1);
-        f[2] = ( 2.0*q_i   + 5.0*q_im1 -      q_im2);
-
-        alpha[0] = 0.1*(1.0 + indicator[2]);
-        alpha[2] = 0.3*(1.0 + indicator[0]);
-        alpha_sum = 6.0*(alpha[0] + alpha[1] + alpha[2]);
-
-        qr_i = (f[0]*alpha[0] + f[1]*alpha[1] + f[2]*alpha[2])/alpha_sum;
-
-        return;
-        }
-
-
-
     template< typename ViewT >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() (
@@ -323,48 +204,81 @@ struct weno_reconstructor_t<5>
     double up1 = U(ip1,jp1,kp1);
     double up2 = U(ip2,jp2,kp2);
 
-    double dummy; // to ignore the unnecessary output; this is wasteful and should be changed...
+    // Shared constants
+    // Smooth WENO weights: (Jiang & Shu 1996)
 
+    const double beta_coeff[2]{13.0/12.0, 0.25};
+    const double eps = 1.0e-42;
 
-    // this would give us u^R_{i+1/2+eps} <---> ql_ip1 
-    //                and u^L_{i+1/2-eps} <---> qr_i
-    // low_level_WENOZ(const double &q_im2, const double &q_im1, const double &q_i, const double &q_ip1,
-    //             const double &q_ip2, double &ql_ip1, double &qr_i);
+    //========================
+    // Compute uR at i-1/2
+    //========================
+    {
+        double beta[3];
+        beta[0] = beta_coeff[0]*math::int_pow<2>(um2+u0-2.0*um1)
+                + beta_coeff[1]*math::int_pow<2>(um2+3.0*u0-4.0*um1);
+        beta[1] = beta_coeff[0]*math::int_pow<2>(um1+up1-2.0*u0)
+                + beta_coeff[1]*math::int_pow<2>(um1-up1);
+        beta[2] = beta_coeff[0]*math::int_pow<2>(up2+u0-2.0*up1)
+                + beta_coeff[1]*math::int_pow<2>(up2+3.0*u0-4.0*up1);
 
-    // we move index one to the left and change the role of "R/L" to match GRACE conventions
-    // and hope for the best 
+        // WENO-Z: Borges et al. 2008, Castro et al. 2011
+        double tau5 = fabs(beta[0]-beta[2]);
 
-    // low_level_WENOZ(um3,um2,um1, u0, up1, 
-    //                 uR, // double &ql_ip1,
-    //                 uL // double &qr_i
-    //                  ); // wrong interpretation 
+        double ind[3];
+        ind[0] = math::int_pow<2>(tau5/(beta[0]+eps));
+        ind[1] = math::int_pow<2>(tau5/(beta[1]+eps));
+        ind[2] = math::int_pow<2>(tau5/(beta[2]+eps));
 
-    // in fact, ql(i+1) in Athena's jargon means uL at i+1/2 for us, i.e. u_{i+1/2+epsilon}
+        double f[3];
+        f[0] = ( 2.0*up2 - 7.0*up1 + 11.0*u0 );
+        f[1] = (-1.0*up1 + 5.0*u0 + 2.0*um1);
+        f[2] = ( 2.0*u0   + 5.0*um1 - um2 );
 
-    // then,  qr(i) in Athena's jargon means uR at i-1/2 for us, i.e. u_{i-1/2+epsilon}
+        double alpha[3];
+        alpha[0] = 0.1*(1.0+ind[2]);
+        alpha[1] = 0.6*(1.0+ind[1]);
+        alpha[2] = 0.3*(1.0+ind[0]);
+        double asum = 6.0*(alpha[0]+alpha[1]+alpha[2]);
 
-    // first get uR at i-1/2
-    low_level_WENOZ(um2,um1,u0, up1, up2, 
-                    dummy, // double &ql_ip1,
-                    uR // double &qr_i
-                     );
+        uR = (f[0]*alpha[0]+f[1]*alpha[1]+f[2]*alpha[2])/asum;
+    }
 
-    // now get uL at i-1/2  
-    // with respect to Athena's convention (-2, 2)  for i+1/2
-    // we need to shift                    (-3, 1)  for i-1/2
-    low_level_WENOZ(um3,um2,um1, u0, up1, 
-                    uL, // double &ql_ip1,
-                    dummy // double &qr_i
-                     );
+    //========================
+    // Compute uL at i-1/2
+    //========================
+    {
+        double beta[3];
+        beta[0] = beta_coeff[0]*math::int_pow<2>(um3+um1-2.0*um2)
+                + beta_coeff[1]*math::int_pow<2>(um3+3.0*um1-4.0*um2);
+        beta[1] = beta_coeff[0]*math::int_pow<2>(um2+u0-2.0*um1)
+                + beta_coeff[1]*math::int_pow<2>(um2-u0);
+        beta[2] = beta_coeff[0]*math::int_pow<2>(up1+um1-2.0*u0)
+                + beta_coeff[1]*math::int_pow<2>(up1+3.0*um1-4.0*u0);
+
+        double tau5 = fabs(beta[0]-beta[2]);
+
+        double ind[3];
+        ind[0] = math::int_pow<2>(tau5/(beta[0]+eps));
+        ind[1] = math::int_pow<2>(tau5/(beta[1]+eps));
+        ind[2] = math::int_pow<2>(tau5/(beta[2]+eps));
+
+        double f[3];
+        f[0] = ( 2.0*um3 - 7.0*um2 + 11.0*um1 );
+        f[1] = (-1.0*um2 + 5.0*um1 + 2.0*u0 );
+        f[2] = ( 2.0*um1 + 5.0*u0   - up1   );
+
+        double alpha[3];
+        alpha[0] = 0.1*(1.0+ind[0]);
+        alpha[1] = 0.6*(1.0+ind[1]);
+        alpha[2] = 0.3*(1.0+ind[2]);
+        double asum = 6.0*(alpha[0]+alpha[1]+alpha[2]);
+
+        uL = (f[0]*alpha[0]+f[1]*alpha[1]+f[2]*alpha[2])/asum;
+    }
+
 
     return ; 
-
-
-
-    // ignore info below
-
-    // AthenaK does: (qr_i,  ql_ip1){q_im2, q_im1, q_i, q_ip1, q_ip2} for recon at i+1/2
-    // GRACE does:   (qr_im1,ql_i)  {q_im3, q_im2, q_im1, q_i, q_ip1} for recon at i-1/2
 
 
     }
