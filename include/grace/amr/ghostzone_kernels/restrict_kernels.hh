@@ -64,21 +64,167 @@ struct restrict_op {
     }
 
     KOKKOS_INLINE_FUNCTION
-    void operator() (size_t i, size_t j, size_t k, size_t iv, size_t iq)
+    void operator() (size_t i, size_t j, size_t k, size_t iv, size_t iq) const 
     {
         auto src_qid = src_q(iq) ; 
         auto dst_qid = dest_q(iq) ; 
 
-        dest_view(i+ngz,j+ngz,k+ngz,iv,dst_qid) = (
-            src_view(2*i+ngz,2*j+ngz,2*k+ngz) + 
-            src_view(2*i+ngz+1,2*j+ngz,2*k+ngz) + 
-            src_view(2*i+ngz,2*j+ngz+1,2*k+ngz) + 
-            src_view(2*i+ngz,2*j+ngz,2*k+ngz+1) + 
-            src_view(2*i+ngz+1,2*j+ngz+1,2*k+ngz) +
-            src_view(2*i+ngz+1,2*j+ngz,2*k+ngz+1) +  
-            src_view(2*i+ngz,2*j+ngz+1,2*k+ngz+1) +
-            src_view(2*i+ngz+1,2*j+ngz+1,2*k+ngz+1)  
-        ) / 8 ; 
+        dest_view(i+ngz,j+ngz,k+ngz,iv,dst_qid) = 0.125 * (
+            src_view(2*i+ngz,2*j+ngz,2*k+ngz,iv,src_qid) + 
+            src_view(2*i+ngz+1,2*j+ngz,2*k+ngz,iv,src_qid) + 
+            src_view(2*i+ngz,2*j+ngz+1,2*k+ngz,iv,src_qid) + 
+            src_view(2*i+ngz,2*j+ngz,2*k+ngz+1,iv,src_qid) + 
+            src_view(2*i+ngz+1,2*j+ngz+1,2*k+ngz,iv,src_qid) +
+            src_view(2*i+ngz+1,2*j+ngz,2*k+ngz+1,iv,src_qid) +  
+            src_view(2*i+ngz,2*j+ngz+1,2*k+ngz+1,iv,src_qid) +
+            src_view(2*i+ngz+1,2*j+ngz+1,2*k+ngz+1,iv,src_qid)  
+        ) ; 
+    }
+
+
+} ; 
+
+template<element_kind_t elem_kind>
+ghost_restrict_tag_t {} ; 
+using ghost_restrict_face_tag =ghost_restrict_tag_t<FACE> ; 
+using ghost_restrict_edge_tag =ghost_restrict_tag_t<EDGE> ; 
+using ghost_restrict_corner_tag =ghost_restrict_tag_t<CORNER> ; 
+
+
+template<  typename view_t > 
+struct ghost_restrict_op {
+
+    view_t data, cbuf ; 
+    readonly_view_t<size_t> qid, cbuf_id ; 
+    readonly_view_t<uint8_t> elem_id_cbuf, elem_id_view ; 
+
+    index_transformer_t trasnf 
+
+    restrict_op(
+        view_t _data, view_t _cbuf,
+        Kokkos::View<size_t*> _qid, 
+        Kokkos::View<size_t*> _cbuf_id,
+        Kokkos::View<uint8_t*> _eid_view,  
+        Kokkos::View<uint8_t*> _eid_cbuf,  
+        VEC(size_t nx, size_t ny, size_t nz), size_t _ngz
+    ) : data(_data)
+      , cbuf(_cbuf)
+      , qid(_qid)
+      , cbuf_id(_cbuf_id)
+      , elem_id_cbuf(_eid_cbuf)
+      , elem_id_view(_eid_view)
+      , transf(VEC(nx,ny,nz),ngz)
+    {}
+
+    void set_data_ptr(view_alias_t alias) {
+        src_view = alias.get() ; 
+    }
+    // runs to ng/2 n/2 
+    KOKKOS_INLINE_FUNCTION
+    void operator() (ghost_restrict_face_tag,  size_t j, size_t k, size_t iv, size_t iq) const 
+    {
+        auto q_id = qid(iq) ; 
+        auto c_id = cbuf_id(iq) ; 
+
+        auto e_id_c = elem_id_cbuf(iq) ;
+        auto e_id_f = elem_id_view(iq) ; 
+        // only ngz/2
+        #pragma unroll
+        for( int i=0; i<transf.ngz/2; ++i) {
+            size_t i_c, j_c, k_c ; 
+            transf.compute_indices<FACE,false>(
+                i,j,k, i_c,j_c,k_c, e_id_c, true  
+            ) ; 
+            size_t i_f, j_f, k_f ; 
+            transf.compute_indices<FACE,false>(
+                2*i,2*j,2*k, i_f,j_f,k_f, e_id_f, false  
+            ) ; 
+
+            cbuf(i_c,j_c,k_c,iv,c_id) = 0.125 * (
+                view(i_f,j_f,k_f,iv,q_id) +
+                view(i_f+1,j_f,k_f,iv,q_id) +
+                view(i_f,j_f+1,k_f,iv,q_id) +
+                view(i_f,j_f,k_f+1,iv,q_id) +
+                view(i_f+1,j_f+1,k_f,iv,q_id) +
+                view(i_f+1,j_f,k_f+1,iv,q_id) +
+                view(i_f,j_f+1,k_f+1,iv,q_id) +
+                view(i_f+1,j_f+1,k_f+1,iv,q_id) +
+            ) ; 
+        }
+         
+    }
+
+    // runs to ng/2 n/2 
+    KOKKOS_INLINE_FUNCTION
+    void operator() (ghost_restrict_edge_tag, size_t k, size_t iv, size_t iq) const 
+    {
+        auto q_id = qid(iq) ; 
+        auto c_id = cbuf_id(iq) ; 
+
+        auto e_id_c = elem_id_cbuf(iq) ;
+        auto e_id_f = elem_id_view(iq) ; 
+        // only ngz/2
+        #pragma unroll
+        for( int j=0; j<transf.ngz/2; ++j) 
+        for( int i=0; i<transf.ngz/2; ++i) {
+            size_t i_c, j_c, k_c ; 
+            transf.compute_indices<EDGE,false>(
+                i,j,k, i_c,j_c,k_c, e_id_c, true  
+            ) ; 
+            size_t i_f, j_f, k_f ; 
+            transf.compute_indices<EDGE,false>(
+                2*i,2*j,2*k, i_f,j_f,k_f, e_id_f, false  
+            ) ; 
+
+            cbuf(i_c,j_c,k_c,iv,c_id) = 0.125 * (
+                view(i_f,j_f,k_f,iv,q_id) +
+                view(i_f+1,j_f,k_f,iv,q_id) +
+                view(i_f,j_f+1,k_f,iv,q_id) +
+                view(i_f,j_f,k_f+1,iv,q_id) +
+                view(i_f+1,j_f+1,k_f,iv,q_id) +
+                view(i_f+1,j_f,k_f+1,iv,q_id) +
+                view(i_f,j_f+1,k_f+1,iv,q_id) +
+                view(i_f+1,j_f+1,k_f+1,iv,q_id) +
+            ) ; 
+        }
+         
+    }
+
+    // runs to ng/2 n/2 
+    KOKKOS_INLINE_FUNCTION
+    void operator() (ghost_restrict_corner_tag, size_t iv, size_t iq) const 
+    {
+        auto q_id = qid(iq) ; 
+        auto c_id = cbuf_id(iq) ; 
+
+        auto e_id_c = elem_id_cbuf(iq) ;
+        auto e_id_f = elem_id_view(iq) ; 
+        // only ngz/2
+        #pragma unroll
+        for( int k=0; k<transf.ngz/2; ++k) 
+        for( int j=0; j<transf.ngz/2; ++j) 
+        for( int i=0; i<transf.ngz/2; ++i)  {
+            size_t i_c, j_c, k_c ; 
+            transf.compute_indices<CORNER,false>(
+                i,j,k, i_c,j_c,k_c, e_id_c, true  
+            ) ; 
+            size_t i_f, j_f, k_f ; 
+            transf.compute_indices<CORNER,false>(
+                2*i,2*j,2*k, i_f,j_f,k_f, e_id_f, false  
+            ) ; 
+
+            cbuf(i_c,j_c,k_c,iv,c_id) = 0.125 * (
+                view(i_f,j_f,k_f,iv,q_id) +
+                view(i_f+1,j_f,k_f,iv,q_id) +
+                view(i_f,j_f+1,k_f,iv,q_id) +
+                view(i_f,j_f,k_f+1,iv,q_id) +
+                view(i_f+1,j_f+1,k_f,iv,q_id) +
+                view(i_f+1,j_f,k_f+1,iv,q_id) +
+                view(i_f,j_f+1,k_f+1,iv,q_id) +
+                view(i_f+1,j_f+1,k_f+1,iv,q_id) +
+            ) ; 
+        }
+         
     }
 
 } ; 
