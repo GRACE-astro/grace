@@ -160,13 +160,11 @@ void make_gpu_restrict_gz_task(
     using namespace amr ;
     Kokkos::View<size_t*> qid("qid_restrict", bucket.size())
                         , cbuf_qid("cbuf_qid_restrict", bucket.size()) ; 
-    Kokkos::View<uint8_t*> eid("eid_restrict", bucket.size())
-                         , cbuf_eid("cbuf_eid_restrict", bucket.size()) ; 
+    Kokkos::View<uint8_t*> eid("eid_restrict", bucket.size()) ; 
 
     auto qid_h = Kokkos::create_mirror_view(qid) ; 
     auto cbuf_qid_h = Kokkos::create_mirror_view(cbuf_qid) ; 
     auto eid_h = Kokkos::create_mirror_view(eid) ; 
-    auto cbuf_eid_h = Kokkos::create_mirror_view(cbuf_eid) ; 
     
     std::unordered_set<task_id_t> dependencies ; 
     auto insert_dependency = [&] (task_id_t tid) {
@@ -186,7 +184,7 @@ void make_gpu_restrict_gz_task(
                 face.data.full.task_id = task_counter; 
             }
         } else if constexpr (elem_kind == EDGE) {
-            auto& edge = ghost_array[std::get<0>(d)].edge[std::get<1>(d)] ; 
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             if ( edge.level_diff == level_diff_t::FINER ) {
                 for(int ic=0; ic<2; ++ic) edge.data.hanging.task_id[ic] = task_counter; 
             } else {
@@ -196,9 +194,9 @@ void make_gpu_restrict_gz_task(
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ;
             corner.data.task_id = task_counter;  
         }
-    }
+    } ; 
 
-    auto get_info = [&] (gpu_task_desc_t const& d) -> std::tuple<> {
+    auto get_info = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t, size_t, uint8_t > {
         if constexpr (elem_kind == FACE) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             if ( face.level_diff == level_diff_t::FINER ) {
@@ -208,45 +206,50 @@ void make_gpu_restrict_gz_task(
                 insert_dependency(face.data.full.task_id) ; 
             }
              
-            return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d), face.face } ; 
+            return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d) } ; 
         } else if constexpr (elem_kind == EDGE) {
             auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             ASSERT(edge.filled, "Edge passed to restrict_gz is virtual.") ; 
-            if ( edge.level_diff = FINER) {
+            if ( edge.level_diff == FINER) {
                 for( int ic=0; ic<2; ++ic)
                     insert_dependency(edge.data.hanging.task_id[ic]) ; 
             } else {
                 insert_dependency(edge.data.full.task_id) ;
             } 
             
-            return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d), edge.edge } ;
+            return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d) } ;
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             ASSERT(corner.filled, "Corner passed to restrict_gz is virtual.") ; 
             insert_dependency(corner.data.task_id) ; 
             
-            return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d), corner.corner } ;
+            return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d) } ;
         }
     } ; 
 
     size_t i{0UL} ; 
     for( auto const& d: bucket ) {
-        auto [_qid,_cid,_eid,_ceid] = get_info(d) ; 
+        auto [_qid,_cid,_eid] = get_info(d) ;
+        
         qid_h(i) = _qid ; 
-        cbuf_id_h(i) = _cid ; 
+        cbuf_qid_h(i) = _cid ; 
         eid_h(i) = _eid ; 
-        cbuf_eid_h(i) = _ceid ; 
+ 
         write_back_tid(d) ; 
         i+= 1UL ;
     }
 
-    // here we could try to split deps, might be agood 
+    Kokkos::deep_copy(qid, qid_h) ; 
+    Kokkos::deep_copy(cbuf_qid, cbuf_qid_h) ; 
+    Kokkos::deep_copy(eid,eid_h ) ; 
+  
+    // here we could try to split deps, might be a good 
     // optimization knob. For now simplest thing is to 
-    // create a single task 
+    // create a single task (FIXME?)
     gpu_task_t task {} ; 
 
     ghost_restrict_op functor{
-        state, coarse_buffers, qid, cbuf_id, eid, cbuf_eid, VEC(nx,ny,nz), ngz
+        state, coarse_buffers, qid, cbuf_qid, eid, VEC(nx,ny,nz), ngz
     } ; 
 
     // the rank of iterations depends on the element kind 
@@ -259,7 +262,7 @@ void make_gpu_restrict_gz_task(
         Kokkos::fence() ; 
         GRACE_TRACE("GZ restrict done") ; 
         #endif 
-    }
+    } ; 
 
     task.stream = &stream ; 
     task.task_id = task_counter++ ; 
@@ -268,6 +271,12 @@ void make_gpu_restrict_gz_task(
         task._dependencies.push_back(tid) ; 
         task_list[tid]->_dependents.push_back(task.task_id) ; 
     }
+
+    task_list.push_back(
+        std::make_unique<gpu_task_t>(
+            std::move(task)
+        )
+    ) ; 
 }
 
 void insert_ghost_restriction_tasks(
@@ -280,77 +289,8 @@ void insert_ghost_restriction_tasks(
     task_id_t& task_counter,
     std::vector<std::unique_ptr<task_t>>& task_list 
 ) {
-    std::vector<std::tuple<size_t,uint8_t>> restrict_faces, restrict_edges, restrict_corners ;
+    std::vector<gpu_task_desc_t> restrict_faces, restrict_edges, restrict_corners ;
     
-    const uint8_t f2e[P4EST_FACES][4] = {
-        {4,6,8,10}  , // face 0 
-        {5,7,9,11}  , // face 1
-        {0,2,8,9}   , // face 2
-        {1,3,10,11} , // face 3 
-        {0,1,4,5}   , // face 4
-        {2,3,6,7}     // face 5 
-    } ; 
-
-    const uint8_t f2c[P4EST_FACES][4] = {
-        {0,2,4,6},
-        {1,3,5,7},
-        {0,1,4,5},
-        {2,3,6,7},
-        {0,1,2,3},
-        {4,5,6,7}
-    } ; 
-
-    const uint8_t e2f[12][2] = {
-        {2,4},//0
-        {3,4},//1
-        {2,5},//2
-        {3,5},//3
-        {0,4},//4
-        {1,4},//5
-        {0,5},//6
-        {1,5},//7
-        {0,2},//8
-        {1,2},//9
-        {0,3},//10
-        {1,3}//11
-    } ; 
-
-    const uint8_t e2c[12][2] = {
-        {0,1},//0
-        {2,3},//1
-        {4,5},//2
-        {6,7},//3
-        {0,2},//4
-        {1,3},//5
-        {4,6},//6
-        {5,7},//7
-        {0,4},//8
-        {1,5},//9
-        {2,6},//10
-        {3,7}//11
-    } ; 
-
-    const uint8_t c2f[P4EST_CHILDREN][3] = {
-        {0,2,4},//0
-        {1,2,4},//1
-        {0,3,4},//2
-        {1,3,4},//3
-        {0,2,5},//4
-        {1,2,5},//5
-        {0,3,5},//6
-        {1,3,5} //7
-    } ; 
-
-    const uint8_t c2e[P4EST_CHILDREN][3] = {
-        {0,4,8},//0
-        {0,5,9},//1
-        {1,4,10},//2
-        {1,5,11},//3
-        {2,6,8},//4
-        {2,7,9},//5
-        {3,6,10},//6
-        {3,7,11} //7
-    } ; 
 
     // this loop collects all the interfaces 
     // where restriction in the ghostzones needs
@@ -363,7 +303,7 @@ void insert_ghost_restriction_tasks(
             if (face.kind == interface_kind_t::PHYS) continue ;  
             if (!(face.level_diff == level_diff_t::COARSER)) continue ;  
             for( int ie=0; ie<4; ++ie) {
-                auto e = f2e[f][ie] ; 
+                auto e = amr::detail::f2e[f][ie] ; 
                 auto& edge = ghost_array[qid].edges[e] ; 
                 if ( ! edge.filled ) continue; 
                 if ( edge.kind == interface_kind_t::PHYS) edge.data.phys.in_cbuf = true ;  
@@ -377,13 +317,13 @@ void insert_ghost_restriction_tasks(
             if (edge.kind == interface_kind_t::PHYS) continue ;  
             if (!(edge.level_diff == level_diff_t::COARSER)) continue ;  
             for( int iface=0; iface<2; ++iface) {
-                auto f = e2f[e][iface] ; 
+                auto f = amr::detail::e2f[e][iface] ; 
                 auto& face = ghost_array[qid].faces[f] ; 
                 if ( face.kind == interface_kind_t::PHYS) face.data.phys.in_cbuf=true ;  
                 if (!(face.level_diff == level_diff_t::COARSER)) restrict_faces.emplace_back(qid,f) ;
             }
             for( int ic=0; ic<2; ++ic) {
-                auto c = e2c[e][ic] ; 
+                auto c = amr::detail::e2c[e][ic] ; 
                 auto& corner = ghost_array[qid].corners[c] ; 
                 if ( ! corner.filled ) continue; 
                 if ( corner.kind == interface_kind_t::PHYS) corner.phys.in_cbuf=true ;  
@@ -396,7 +336,7 @@ void insert_ghost_restriction_tasks(
             if (corner.kind == interface_kind_t::PHYS) continue ;  
             if (!(corner.level_diff == level_diff_t::COARSER)) continue ;  
             for( int ie=0; ie<3; ++ie) {
-                auto e = c2e[c][ie] ; 
+                auto e = amr::detail::c2e[c][ie] ; 
                 auto& edge = ghost_array[qid].edges[e] ; 
                 if ( ! edge.filled ) continue; 
                 if ( edge.kind == interface_kind_t::PHYS) edge.data.phys.in_cbuf = true ;  
@@ -406,7 +346,7 @@ void insert_ghost_restriction_tasks(
     }
 
     // make and append tasks 
-    make_gpu_restrict_gz_task<FACE>(
+    make_gpu_restrict_gz_task<amr::FACE>(
         restrict_faces,
         ghost_array,
         state,
@@ -417,7 +357,7 @@ void insert_ghost_restriction_tasks(
         task_list
     ) ; 
 
-    make_gpu_restrict_gz_task<EDGE>(
+    make_gpu_restrict_gz_task<amr::EDGE>(
         restrict_edges,
         ghost_array,
         state,
@@ -428,7 +368,7 @@ void insert_ghost_restriction_tasks(
         task_list
     ) ; 
 
-    make_gpu_restrict_gz_task<CORNER>(
+    make_gpu_restrict_gz_task<amr::CORNER>(
         restrict_corners,
         ghost_array,
         state,

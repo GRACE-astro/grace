@@ -35,47 +35,23 @@
 
 namespace grace { namespace amr {
 
-namespace detail {
-constexpr std::array<std::array<int8_t,4>,P4EST_FACES> f2e = 
-{{
-    {{8,10,4,6}}, //0
-    {{9,11,5,7}}, //1
-    {{8,9,0,2}}, //2
-    {{10,11,1,3}}, //3
-    {{4,5,0,1}}, //4
-    {{6,7,2,3}} //5 
-}}; 
-constexpr std::array<std::array<int8_t,2>,P4EST_FACES/2> face_axes = 
-{{
-    {{1,2}}, {{0,2}}, {{0,1}}
-}} ;
-
-inline constexpr std::array<std::array<uint8_t,2>,12> e2f = 
-{{
-    {{4,2}}, {{4,3}}, {{5,2}}, {{5,3}}, {{4,0}}, {{4,1}}, {{5,0}}, {{5,1}}, {{2,0}}, {{2,1}}, {{3,0}}, {{3,1}}
-}}  ;
-inline constexpr std::array<std::array<uint8_t,2>,12> e2c = 
-{{
-    {{0,1}}, {{2,3}}, {{4,5}}, {{6,7}}, {{0,2}}, {{1,3}}, {{4,6}}, {{5,7}}, {{0,4}}, {{1,5}}, {{2,6}}, {{3,7}}
-}}  ;
-
-inline constexpr std::array<std::array<uint8_t,3>,P4EST_CHILDREN> c2e = 
-{{
-    {{0,4,8}},
-    {{1,5,9}},
-    {{1,4,10}},
-    {{5,1,11}},
-    {{2,6,8}},
-    {{2,7,9}},
-    {{3,6,10}},
-    {{3,7,11}}
-} } ;
-
-}
-
 enum element_kind_t : uint8_t {
     FACE=0, EDGE=1, CORNER=2
 } ; 
+
+template< amr::element_kind_t elem_kind >
+Kokkos::Array<int64_t, 5> get_iter_range(size_t ngz,size_t _nx, size_t nv, size_t nq,  bool offset=false) {
+    int64_t const nx = offset ? static_cast<int64_t>(_nx + ngz) : static_cast<int64_t>( _nx) ; 
+    if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+        return Kokkos::Array<int64_t, 5>{static_cast<int64_t>(ngz),nx,nx,static_cast<int64_t>(nv),static_cast<int64_t>(nq)} ; 
+    } else if constexpr  ( elem_kind == amr::element_kind_t::EDGE ) {
+        return Kokkos::Array<int64_t, 5>{static_cast<int64_t>(ngz),static_cast<int64_t>(ngz),nx,static_cast<int64_t>(nv),static_cast<int64_t>(nq)} ; 
+    } else {
+        return Kokkos::Array<int64_t, 5>{static_cast<int64_t>(ngz),static_cast<int64_t>(ngz),static_cast<int64_t>(ngz),static_cast<int64_t>(nv),static_cast<int64_t>(nq)} ; 
+    }
+}
+
+
 
 KOKKOS_INLINE_FUNCTION 
 void compute_phys_indices_face(
@@ -400,67 +376,43 @@ struct view_to_cbuf_offsets<element_kind_t::CORNER> {
 
 } ;
 
+namespace detail {
+constexpr std::array<std::array<int8_t,4>,P4EST_FACES> f2e = 
+{{
+    {{8,10,4,6}}, //0
+    {{9,11,5,7}}, //1
+    {{8,9,0,2}}, //2
+    {{10,11,1,3}}, //3
+    {{4,5,0,1}}, //4
+    {{6,7,2,3}} //5 
+}}; 
+constexpr std::array<std::array<int8_t,2>,P4EST_FACES/2> face_axes = 
+{{
+    {{1,2}}, {{0,2}}, {{0,1}}
+}} ;
 
-#if 0
-// EDGE -> FACE 
+inline constexpr std::array<std::array<uint8_t,2>,12> e2f = 
+{{
+    {{4,2}}, {{4,3}}, {{5,2}}, {{5,3}}, {{4,0}}, {{4,1}}, {{5,0}}, {{5,1}}, {{2,0}}, {{2,1}}, {{3,0}}, {{3,1}}
+}}  ;
+inline constexpr std::array<std::array<uint8_t,2>,12> e2c = 
+{{
+    {{0,1}}, {{2,3}}, {{4,5}}, {{6,7}}, {{0,2}}, {{1,3}}, {{4,6}}, {{5,7}}, {{0,4}}, {{1,5}}, {{2,6}}, {{3,7}}
+}}  ;
 
-template<>
-struct cbuf_to_view_offsets<element_kind_t::FACE, element_kind_t::EDGE>
-{
-    KOKKOS_INLINE_FUNCTION
-    static void get(
-        size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const 
-    {
-        // Here: iedge=0 -> edge along j-direction
-        //       iedge=1 -> edge along k-direction
-        auto const iedge = edge_to_face_dir(ie_v,ie_c) ; 
-        
-        if ( iedge == 0 ) {
-            j = ( ((ichild>>0) & 1) ? nx/2 : 0 )  ; 
-            k = nx / 2 -  ngz * ((ichild>>1) & 1) ; 
-        } else {
-            k = ( ((ichild>>0) & 1) ? nx/2 : 0 )  ; 
-            j = nx / 2 -  ngz * ((ichild>>1) & 1) ; 
-        }
-    }
-};
+inline constexpr std::array<std::array<uint8_t,3>,P4EST_CHILDREN> c2e = 
+{{
+    {{0,4,8}},
+    {{1,5,9}},
+    {{1,4,10}},
+    {{5,1,11}},
+    {{2,6,8}},
+    {{2,7,9}},
+    {{3,6,10}},
+    {{3,7,11}}
+} } ;
 
-// CORNER -> FACE 
+} /*namespace detail*/
 
-template<>
-struct cbuf_to_view_offsets<element_kind_t::FACE,element_kind_t::CORNER>
-{
-    KOKKOS_INLINE_FUNCTION
-    static void get(
-        size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const {
-        j = nx / 2 - ( (ichild<<0) & 1 ) * ngz ; 
-        k = nx / 2 - ( (ichild<<1) & 1 ) * ngz ; 
-    }; 
-} ; 
-
-// CORNER -> EDGE 
-
-template<>
-struct cbuf_to_view_offsets<element_kind_t::EDGE, element_kind_t::CORNER>
-{
-    KOKKOS_INLINE_FUNCTION
-    static void get(
-        size_t& j, size_t& k, 
-        size_t nx, size_t ngz, 
-        uint8_t ichild, 
-        uint8_t ie_v=0, uint8_t ie_c=0) const 
-    {
-        j = 0 ; 
-        k = nx / 2 -  ngz * ichild ; 
-    }
-};
-
-#endif 
 }} /* namespace grace::amr */
 #endif /* GRACE_AMR_INDEX_HELPERS_HH */

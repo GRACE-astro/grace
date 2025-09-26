@@ -53,6 +53,7 @@
 #include <unordered_set>
 #include <vector>
 #include <numeric>
+#include <unordered_map>
 
 #ifndef GRACE_AMR_GHOSTZONE_KERNELS_PHYS_BC_TASK_FACTORY_HH
 #define GRACE_AMR_GHOSTZONE_KERNELS_PHYS_BC_TASK_FACTORY_HH
@@ -75,7 +76,12 @@ make_gpu_phys_bc_task(
     std::vector<std::unique_ptr<task_t>>& task_list 
 )
 {
-    if ( qid_h.size() == 0 ) return ; 
+
+    std::unordered_map<amr::element_kind_t,std::string> const name = {
+        {amr::FACE,"face"}, {amr::EDGE,"edge"}, {amr::CORNER,"corner"}
+    } ; 
+
+    GRACE_TRACE("Registering phys-bc task ({}-{}) # of elements {}", name.at(elem_kind), name.at(bc_kind), qid_h.size()) ; 
     Kokkos::View<size_t*> qid_d{"qid", qid_h.size()}; 
     Kokkos::View<uint8_t*> eid_d{"eid", qid_h.size()} ; 
     Kokkos::View<int8_t*[3]> dir_d{"dir", qid_h.size()} ; 
@@ -113,12 +119,14 @@ make_gpu_phys_bc_task(
 
     // set deps 
     for( auto const dep_id : deps ) {
+        GRACE_TRACE("Dep-id {}", dep_id) ; 
+        ASSERT(dep_id < task_list.size(), "Dep-id out-of-range") ; 
         task._dependencies.push_back(dep_id) ; 
         task_list[dep_id]->_dependents.push_back(tid) ; 
     }
 
     task_list.push_back(
-        std::make_unique<gpu_task_t>(task)
+        std::make_unique<gpu_task_t>(std::move(task))
     ) ; 
     return tid; 
 }
@@ -168,7 +176,7 @@ get_phys_bc_info(
 } ;
 
 std::tuple<uint8_t, uint8_t> inline 
-get_cids_edge_face(uint8_t iface, const int dir[3])
+get_cids_edge_face(uint8_t iface, const int8_t dir[3])
 {
     uint8_t idir ; 
     uint8_t isign ; 
@@ -193,7 +201,7 @@ get_cids_edge_face(uint8_t iface, const int dir[3])
 };
 
 inline uint8_t 
-get_cid_corner_face(const int dir[3])
+get_cid_corner_face(const int8_t dir[3])
 {
     uint8_t idir ; 
     uint8_t isign ; 
@@ -219,6 +227,7 @@ inline bool unpack_dependencies(
     F&& insert_dependencies 
 ) 
 {
+    using namespace amr ;
     if (kind == FACE) {
         // nothing to do here 
         return false ; 
@@ -232,7 +241,7 @@ inline bool unpack_dependencies(
             auto const& face = ghost_array[std::get<0>(d)].faces[face_idx] ;
             if ( face.level_diff == FINER ) {
                 // fixme check this 
-                auto [c0,c1] = get_cids_edge_face(face_idx, )
+                auto [c0,c1] = get_cids_edge_face(face_idx, edge.data.phys.dir) ; 
                 insert_dependencies(EDGE,FACE,face.data.hanging.task_id[c0], is_cbuf) ; 
                 insert_dependencies(EDGE,FACE,face.data.hanging.task_id[c1], is_cbuf) ; 
             } else {
@@ -247,10 +256,10 @@ inline bool unpack_dependencies(
             auto const& edge = ghost_array[std::get<0>(d)].edges[edge_idx] ;
             if ( edge.level_diff == FINER ) {
                 // fixme check this 
-                auto c0 = get_cid_corner_face(edge_idx) ; 
+                auto c0 = get_cid_corner_face(corner.phys.dir) ; 
                 insert_dependencies(CORNER,FACE,edge.data.hanging.task_id[c0], is_cbuf) ;
             } else {
-                insert_dependencies(CORNER,FACE,edge.full.hanging.task_id[0], is_cbuf) ;
+                insert_dependencies(CORNER,FACE,edge.data.full.task_id, is_cbuf) ;
             }
         } else if ( type == EDGE ) {
             // we want to check if nearby edges are in cbufs, if so, this needs
@@ -270,7 +279,7 @@ inline bool unpack_dependencies(
 
 
 
-void insert_phys_bc_tasks(
+bucket_t insert_phys_bc_tasks(
     bucket_t phys_bc_tasks,
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
     grace::var_array_t<GRACE_NSPACEDIM> state, 
@@ -283,17 +292,6 @@ void insert_phys_bc_tasks(
 ) 
 {
     using namespace amr ;
-
-    const uint8_t c2e[P4EST_CHILDREN][3] = {
-        {0,4,8},//0
-        {0,5,9},//1
-        {1,4,10},//2
-        {1,5,11},//3
-        {2,6,8},//4
-        {2,7,9},//5
-        {3,6,10},//6
-        {3,7,11} //7
-    } ; 
 
     bucket_t deferred_phys_bcs ; 
 
@@ -318,18 +316,28 @@ void insert_phys_bc_tasks(
         }
     };
 
-    auto const set_task_id = [&] (element_kind_t elem_kind, gpu_hanging_task_desc_t const& d)
+    auto const set_task_id = [&] (
+        element_kind_t elem_kind, 
+        std::vector<size_t> const& qid, 
+        std::vector<uint8_t> const& eid,
+        task_id_t tid )
     {
-        if ( elem_kind == amr::element_kind_t::FACE ) {
-            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
-            face.data.phys.task_id = task_counter ;
-        } else if (elem_kind == amr::element_kind_t::EDGE) {
-            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
-            edge.data.phys.task_id = task_counter ;
-        } else {
-            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
-            corner.phys.task_id = task_counter ;
+        ASSERT_DBG(qid.size() == eid.size(), "Mismatched array sizes in tid writeback.") ;
+        for( int i=0; i<qid.size(); ++i) {
+            auto _qid = qid[i] ; 
+            auto _eid = eid[i] ; 
+            if ( elem_kind == amr::element_kind_t::FACE ) {
+                auto& face = ghost_array[_qid].faces[_eid] ; 
+                face.data.phys.task_id = tid ;
+            } else if (elem_kind == amr::element_kind_t::EDGE) {
+                auto& edge = ghost_array[_qid].edges[_eid] ; 
+                edge.data.phys.task_id = tid ;
+            } else {
+                auto& corner = ghost_array[_qid].corners[_eid] ; 
+                corner.phys.task_id = tid ;
+            }
         }
+        
     } ;  
 
     // loop through bucket, fill
@@ -341,110 +349,150 @@ void insert_phys_bc_tasks(
             // for EDGE EDGE we depend on face BCs
             // for CORNER, EDGE we depend on EDGE FACE BCs 
             // for CORNER CORNER we depend on EDGE BCs 
-            auto [is_cbuf,_qid,_eid,dx,dy,dz,type] = detail::get_phys_bc_info(kind, ghost_array, d) ; 
-            auto is_deferred = detail::unpack_dependencies(kind, d, ghost_array, is_cbuf, insert_dependencies);
+            auto [is_cbuf,_qid,_eid,dx,dy,dz,type] = grace::detail::get_phys_bc_info(kind, ghost_array, d) ; 
+            auto is_deferred = grace::detail::unpack_dependencies(kind, d, ghost_array, is_cbuf, insert_dependencies);
             if ( is_cbuf ) {
                 qid_cbuf[kind][type].push_back(_qid) ; 
                 eid_cbuf[kind][type].push_back(_eid) ; 
-                dir_cbuf[kind][type].emplace_back(dx,dy,dz) ; 
+                dir_cbuf[kind][type].emplace_back(std::array{dx,dy,dz}) ; 
             } else if (! is_deferred ) {
                 qid[kind][type].push_back(_qid) ; 
                 eid[kind][type].push_back(_eid) ; 
-                dir[kind][type].emplace_back(dx,dy,dz) ; 
+                dir[kind][type].emplace_back(std::array{dx,dy,dz}) ; 
             }
             if (is_cbuf or is_deferred) {
                 // will be processed later 
                 deferred_phys_bcs[kind].push_back(d) ;  
             }
-            set_task_id(static_cast<element_kind_t>(kind),d) ; 
+            
         }
     }
     // face face is safe to schedule
+    GRACE_TRACE("counter {}, size {}", task_counter, task_list.size() ) ; 
     task_id_t tid ; 
-    tid =make_gpu_phys_bc_task<FACE,FACE>(
-        qid[FACE][FACE],
-        eid[FACE][FACE],
-        dir[FACE][FACE],
-        dependencies[FACE][FACE],
-        var_bc, stream, task_counter,
-        state,nx,nv,ngz
-    ) ; 
-    // BC edges depend on BC faces 
-    dependencies[EDGE][EDGE].insert(tid) ; 
-    // edges in faces are also fine 
-    tid = make_gpu_phys_bc_task<EDGE,FACE>(
-        qid[EDGE][FACE],
-        eid[EDGE][FACE],
-        dir[EDGE][FACE],
-        dependencies[EDGE][FACE],
-        var_bc, stream, task_counter,
-        state,nx,nv,ngz
-    ) ; 
-    dependencies[CORNER][EDGE].insert(tid) ; 
-    // and corners in faces 
-    tid =make_gpu_phys_bc_task<CORNER,FACE>(
-        qid[CORNER][FACE],
-        eid[CORNER][FACE],
-        dir[CORNER][FACE],
-        dependencies[CORNER][FACE],
-        var_bc, stream, task_counter,
-        state,nx,nv,ngz
-    ) ; 
-    // nothing depends on this 
-    // edges in edges are fine 
-    tid = make_gpu_phys_bc_task<EDGE,EDGE>(
-        qid[EDGE][EDGE],
-        eid[EDGE][EDGE],
-        dir[EDGE][EDGE],
-        dependencies[EDGE][EDGE],
-        var_bc, stream, task_counter,
-        state,nx,nv,ngz
-    ) ;
-    dependencies[CORNER][CORNER].insert(tid) ; 
-    // and corners in corners 
-    tid = make_gpu_phys_bc_task<CORNER,CORNER>(
-        qid[CORNER][CORNER],
-        eid[CORNER][CORNER],
-        dir[CORNER][CORNER],
-        dependencies[CORNER][CORNER],
-        var_bc, stream, task_counter,
-        state,nx,nv,ngz
-    ) ;
-    // some corners in edges depend on 
-    // edges in faces, some of which 
-    // might now only be filled in 
-    // cbufs, so we need to wait
-    tid = make_gpu_phys_bc_task<CORNER,EDGE>(
-        qid[CORNER][EDGE],
-        eid[CORNER][EDGE],
-        dir[CORNER][EDGE],
-        dependencies[CORNER][EDGE],
-        var_bc, stream, task_counter,
-        state,nx,nv,ngz
-    ) ; 
-
+    if ( qid[FACE][FACE].size() >0 ) {
+        tid =make_gpu_phys_bc_task<FACE,FACE>(
+            qid[FACE][FACE],
+            eid[FACE][FACE],
+            dir[FACE][FACE],
+            dependencies[FACE][FACE],
+            var_bc, stream, task_counter,
+            state,nx,nv,ngz,task_list
+        ) ; 
+        // write back tid 
+        set_task_id(FACE,qid[FACE][FACE],eid[FACE][FACE],tid) ;
+        GRACE_TRACE("Tid {}", tid) ; 
+        // BC edges depend on BC faces 
+        dependencies[EDGE][EDGE].insert(tid) ; 
+    }
+    if( qid[EDGE][FACE].size() > 0 ) {
+        // edges in faces are also fine 
+        tid = make_gpu_phys_bc_task<EDGE,FACE>(
+            qid[EDGE][FACE],
+            eid[EDGE][FACE],
+            dir[EDGE][FACE],
+            dependencies[EDGE][FACE],
+            var_bc, stream, task_counter,
+            state,nx,nv,ngz,task_list
+        ) ; 
+        // write back tid 
+        set_task_id(EDGE,qid[EDGE][FACE],eid[EDGE][FACE],tid) ;
+        dependencies[CORNER][EDGE].insert(tid) ; 
+    }
+    if (qid[CORNER][FACE].size() > 0) {
+        // and corners in faces 
+        tid =make_gpu_phys_bc_task<CORNER,FACE>(
+            qid[CORNER][FACE],
+            eid[CORNER][FACE],
+            dir[CORNER][FACE],
+            dependencies[CORNER][FACE],
+            var_bc, stream, task_counter,
+            state,nx,nv,ngz,task_list
+        ) ; 
+        // write back tid 
+        set_task_id(CORNER,qid[CORNER][FACE],eid[CORNER][FACE],tid) ;
+        // nothing depends on this 
+    }
+    if (qid[EDGE][EDGE].size() > 0 ) {
+        // edges in edges are fine 
+        tid = make_gpu_phys_bc_task<EDGE,EDGE>(
+            qid[EDGE][EDGE],
+            eid[EDGE][EDGE],
+            dir[EDGE][EDGE],
+            dependencies[EDGE][EDGE],
+            var_bc, stream, task_counter,
+            state,nx,nv,ngz,task_list
+        ) ;
+        GRACE_TRACE("Here") ; 
+        // write back tid 
+        set_task_id(EDGE,qid[EDGE][EDGE],eid[EDGE][EDGE],tid) ;
+        dependencies[CORNER][CORNER].insert(tid) ; 
+    }
+    if ( qid[CORNER][CORNER].size() > 0 ) { 
+        // and corners in corners 
+        tid = make_gpu_phys_bc_task<CORNER,CORNER>(
+            qid[CORNER][CORNER],
+            eid[CORNER][CORNER],
+            dir[CORNER][CORNER],
+            dependencies[CORNER][CORNER],
+            var_bc, stream, task_counter,
+            state,nx,nv,ngz,task_list
+        ) ;
+        // write back tid 
+        set_task_id(CORNER,qid[CORNER][CORNER],eid[CORNER][CORNER],tid) ;
+    }
+    if (qid[CORNER][EDGE].size() > 0) {
+        // some corners in edges depend on 
+        // edges in faces, some of which 
+        // might now only be filled in 
+        // cbufs, so we need to wait
+        tid = make_gpu_phys_bc_task<CORNER,EDGE>(
+            qid[CORNER][EDGE],
+            eid[CORNER][EDGE],
+            dir[CORNER][EDGE],
+            dependencies[CORNER][EDGE],
+            var_bc, stream, task_counter,
+            state,nx,nv,ngz,task_list
+        ) ; 
+        // write back tid 
+        set_task_id(CORNER,qid[CORNER][EDGE],eid[CORNER][EDGE],tid) ;
+    }
+    
     // now for cbufs 
     ASSERT(qid_cbuf[FACE][FACE].size() == 0, "No faces can be in cbufs") ; 
     ASSERT(qid_cbuf[EDGE][EDGE].size() == 0, "No edges can be in cbufs") ; 
     ASSERT(qid_cbuf[CORNER][EDGE].size() == 0, "No corners can be in cbufs") ; 
     ASSERT(qid_cbuf[CORNER][CORNER].size() == 0, "No corners can be in cbufs") ; 
+    if (qid_cbuf[EDGE][FACE].size() > 0 ) {
+        // == 
+        tid = make_gpu_phys_bc_task<EDGE,FACE>(
+            qid_cbuf[EDGE][FACE],
+            eid_cbuf[EDGE][FACE],
+            dir_cbuf[EDGE][FACE],
+            dependencies_cbuf[EDGE][FACE],
+            var_bc, stream, task_counter,
+            coarse_buffers,nx/2,nv,ngz,task_list
+        ) ; 
+        // write back tid 
+        set_task_id(EDGE,qid[EDGE][FACE],eid[EDGE][FACE],tid) ;
+    }
+    if (qid_cbuf[CORNER][FACE].size() > 0) {
+        // == 
+        tid = make_gpu_phys_bc_task<CORNER,FACE>(
+            qid_cbuf[CORNER][FACE],
+            eid_cbuf[CORNER][FACE],
+            dir_cbuf[CORNER][FACE],
+            dependencies_cbuf[CORNER][FACE],
+            var_bc, stream, task_counter,
+            coarse_buffers,nx/2,nv,ngz,task_list
+        ) ; 
+        // write back tid 
+        set_task_id(CORNER,qid[CORNER][FACE],eid[CORNER][FACE],tid) ;
+    }   
+    
 
-    tid = make_gpu_phys_bc_task<EDGE,FACE>(
-        qid_cbuf[EDGE][FACE],
-        eid_cbuf[EDGE][FACE],
-        dir_cbuf[EDGE][FACE],
-        dependencies_cbuf[EDGE][FACE],
-        var_bc, stream, task_counter,
-        coarse_buffers,nx/2,nv,ngz
-    ) ; 
-    tid = make_gpu_phys_bc_task<CORNER,FACE>(
-        qid_cbuf[CORNER][FACE],
-        eid_cbuf[CORNER][FACE],
-        dir_cbuf[CORNER][FACE],
-        dependencies_cbuf[CORNER][FACE],
-        var_bc, stream, task_counter,
-        coarse_buffers,nx/2,nv,ngz
-    ) ; 
+
+    return deferred_phys_bcs ;
 }
 
 void insert_deferred_phys_bc_tasks(
@@ -461,17 +509,6 @@ void insert_deferred_phys_bc_tasks(
 {
     using namespace amr ;
 
-    const uint8_t c2e[P4EST_CHILDREN][3] = {
-        {0,4,8},//0
-        {0,5,9},//1
-        {1,4,10},//2
-        {1,5,11},//3
-        {2,6,8},//4
-        {2,7,9},//5
-        {3,6,10},//6
-        {3,7,11} //7
-    } ; 
-
     std::array<std::array<std::vector<size_t>,3>,3> qid  ;
     std::array<std::array<std::vector<uint8_t>,3>,3> eid ;
     std::array<std::array<std::vector<std::array<int8_t,3>>,3>,3> dir ; 
@@ -485,19 +522,29 @@ void insert_deferred_phys_bc_tasks(
         }
     };
 
-    auto const set_task_id = [&] (element_kind_t elem_kind, gpu_hanging_task_desc_t const& d)
+    auto const set_task_id = [&] (
+        element_kind_t elem_kind, 
+        std::vector<size_t> const& qid, 
+        std::vector<uint8_t> const& eid,
+        task_id_t tid )
     {
-        if ( elem_kind == amr::element_kind_t::FACE ) {
-            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
-            face.data.phys.task_id = task_counter ;
-        } else if (elem_kind == amr::element_kind_t::EDGE) {
-            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
-            edge.data.phys.task_id = task_counter ;
-        } else {
-            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
-            corner.phys.task_id = task_counter ;
+        ASSERT_DBG(qid.size() == eid.size(), "Mismatched array sizes in tid writeback.") ;
+        for( int i=0; i<qid.size(); ++i) {
+            auto _qid = qid[i] ; 
+            auto _eid = eid[i] ; 
+            if ( elem_kind == amr::element_kind_t::FACE ) {
+                auto& face = ghost_array[_qid].faces[_eid] ; 
+                face.data.phys.task_id = tid ;
+            } else if (elem_kind == amr::element_kind_t::EDGE) {
+                auto& edge = ghost_array[_qid].edges[_eid] ; 
+                edge.data.phys.task_id = tid ;
+            } else {
+                auto& corner = ghost_array[_qid].corners[_eid] ; 
+                corner.phys.task_id = tid ;
+            }
         }
-    } ;
+        
+    } ; 
 
     // loop through bucket, fill
     for( int kind=0; kind<3 ; ++kind) { // element kind 
@@ -508,45 +555,55 @@ void insert_deferred_phys_bc_tasks(
             // for EDGE EDGE we depend on face BCs
             // for CORNER, EDGE we depend on EDGE FACE BCs 
             // for CORNER CORNER we depend on EDGE BCs 
-            auto [dummy,_qid,_eid,dx,dy,dz,type] = detail::get_phys_bc_info(kind, ghost_array, d) ; 
-            auto dummy2 = detail::unpack_dependencies(kind, d, ghost_array, false, insert_dependencies);
+            auto [dummy,_qid,_eid,dx,dy,dz,type] = grace::detail::get_phys_bc_info(kind, ghost_array, d) ; 
+            auto dummy2 = grace::detail::unpack_dependencies(kind, d, ghost_array, false, insert_dependencies);
 
             qid[kind][type].push_back(_qid) ; 
             eid[kind][type].push_back(_eid) ; 
-            dir[kind][type].emplace_back(dx,dy,dz) ; 
-            
-            set_task_id(static_cast<element_kind_t>(kind),d) ; 
+            dir[kind][type].emplace_back(std::array{dx,dy,dz}) ; 
         }
     }
 
     task_id_t tid ; 
-    tid = make_gpu_phys_bc_task<EDGE,FACE>(
-        qid[EDGE][FACE],
-        eid[EDGE][FACE],
-        dir[EDGE][FACE],
-        dependencies[EDGE][FACE],
-        var_bc, stream, task_counter,
-        state,nx,nv,ngz
-    ) ; 
-    dependencies[CORNER][EDGE].push_back(tid) ;
-
-    tid = make_gpu_phys_bc_task<CORNER,FACE>(
-        qid[CORNER][FACE],
-        eid[CORNER][FACE],
-        dir[CORNER][FACE],
-        dependencies[CORNER][FACE],
-        var_bc, stream, task_counter,
-        state,nx,nv,ngz
-    ) ; 
-
-    tid = make_gpu_phys_bc_task<CORNER,EDGE>(
-        qid[CORNER][EDGE],
-        eid[CORNER][EDGE],
-        dir[CORNER][EDGE],
-        dependencies[CORNER][EDGE],
-        var_bc, stream, task_counter,
-        state,nx,nv,ngz
-    ) ; 
+    if (qid[EDGE][FACE].size() > 0) {
+        tid = make_gpu_phys_bc_task<EDGE,FACE>(
+            qid[EDGE][FACE],
+            eid[EDGE][FACE],
+            dir[EDGE][FACE],
+            dependencies[EDGE][FACE],
+            var_bc, stream, task_counter,
+            state,nx,nv,ngz,task_list
+        ) ; 
+        dependencies[CORNER][EDGE].insert(tid) ;
+        // write back tid 
+        set_task_id(EDGE,qid[EDGE][FACE],eid[EDGE][FACE],tid) ;
+    }
+    
+    
+    if( qid[CORNER][FACE].size() > 0 ) {
+        tid = make_gpu_phys_bc_task<CORNER,FACE>(
+            qid[CORNER][FACE],
+            eid[CORNER][FACE],
+            dir[CORNER][FACE],
+            dependencies[CORNER][FACE],
+            var_bc, stream, task_counter,
+            state,nx,nv,ngz,task_list
+        ) ; 
+        // write back tid 
+        set_task_id(CORNER,qid[CORNER][FACE],eid[CORNER][FACE],tid) ;
+    }
+    if (qid[CORNER][EDGE].size()>0){
+        tid = make_gpu_phys_bc_task<CORNER,EDGE>(
+            qid[CORNER][EDGE],
+            eid[CORNER][EDGE],
+            dir[CORNER][EDGE],
+            dependencies[CORNER][EDGE],
+            var_bc, stream, task_counter,
+            state,nx,nv,ngz,task_list
+        ) ; 
+        // write back tid 
+        set_task_id(CORNER,qid[CORNER][EDGE],eid[CORNER][EDGE],tid) ;
+    }
 
     ASSERT(qid[FACE][FACE].size() == 0, "No faces can be deferred") ; 
     ASSERT(qid[EDGE][EDGE].size() == 0, "No edges can be deferred") ; 

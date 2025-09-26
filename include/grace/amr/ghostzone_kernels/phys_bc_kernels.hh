@@ -119,7 +119,7 @@ struct phys_bc_op {
         view_t _data ,
         Kokkos::View<size_t*> _qid, Kokkos::View<uint8_t*> _eid, 
         Kokkos::View<int8_t*[3]> _dir, Kokkos::View<bc_t*> _var_bcs, 
-         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, bool _is_cbuf
+         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz
     ) : qid(_qid),  eid(_eid), dir(_dir), var_bcs(_var_bcs), data(_data), 
         n(_nx), ngz(_ngz)
     {
@@ -179,7 +179,7 @@ struct phys_bc_op {
 
     KOKKOS_INLINE_FUNCTION
     void operator() (
-        std::size_t k, std::size_t iv, std::size_t iq 
+        std::size_t iv, std::size_t iq 
     ) const 
     {
         auto _eid = eid(iq) ; 

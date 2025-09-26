@@ -211,7 +211,8 @@ void amr_ghosts_impl_t::build_remote_buffers(
     std::vector<bucket_t>& unpack_kernels, 
     std::vector<bucket_t>& pack_to_cbuf_kernels,
     std::vector<bucket_t>& unpack_to_cbuf_kernels,
-    std::vector<hang_bucket_t>& unpack_from_cbuf_kernels
+    std::vector<hang_bucket_t>& unpack_from_cbuf_kernels,
+    bucket_t& prolong_kernels
 ) {
     // goals of this function: 
     // 1. come up with a unique ordering of mirror and 
@@ -292,6 +293,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
                 continue ; 
             } 
             if ( face.level_diff == level_diff_t::COARSER ) {
+                prolong_kernels[amr::element_kind_t::FACE].emplace_back(iq,f) ; 
                 if ( !face.data.full.is_remote) {
                     copy_to_cbuf_kernels[amr::element_kind_t::FACE].emplace_back(iq,f) ; 
                 } else {
@@ -354,8 +356,9 @@ void amr_ghosts_impl_t::build_remote_buffers(
                 continue ; 
             } 
             if ( edge.level_diff == level_diff_t::COARSER ) {
+                prolong_kernels[amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
                 if ( !edge.data.full.is_remote)  {
-                    copy_to_cbuf_kernels[amr::element_kind_t::EDGE].emplace_back(iq,e,edge.child_id) ; 
+                    copy_to_cbuf_kernels[amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
                 }  else {
                     append_keys(sec_t::CBEDGE, sec_t::EDGE, 
                             rank, edge.data.full.owner_rank, 
@@ -377,7 +380,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
                             e, edge.edge,
                             &edge, ic) ;
                         pack_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
-                        unpack_from_cbuf_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
+                        unpack_from_cbuf_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e, edge.child_id) ; 
                     }
                     
                 }
@@ -405,8 +408,9 @@ void amr_ghosts_impl_t::build_remote_buffers(
                 continue ;
             } 
             if ( corner.level_diff == level_diff_t::COARSER ) {
+                prolong_kernels[amr::element_kind_t::CORNER].emplace_back(iq,c) ; 
                 if ( !corner.data.is_remote ) {
-                    copy_to_cbuf_kernels[amr::element_kind_t::CORNER].emplace_back(iq,c,0) ; 
+                    copy_to_cbuf_kernels[amr::element_kind_t::CORNER].emplace_back(iq,c) ; 
                 } else {
                     append_keys(sec_t::CBCORNER, sec_t::CORNER, 
                             rank, corner.data.owner_rank, 
@@ -446,6 +450,17 @@ void amr_ghosts_impl_t::build_remote_buffers(
             }
         }
     } /* for iq .. nquads */
+
+    auto const dedup = [&] (std::vector<gpu_task_desc_t>& v) {
+        std::sort(v.begin(),v.end()) ; 
+        auto last = std::unique(v.begin(),v.end()) ; 
+        v.erase(last,v.end()) ; 
+    } ; 
+    for( int ip=0; ip<nproc; ++ip ) {
+        dedup(pack_kernels[ip][FACE]) ; 
+        dedup(pack_kernels[ip][EDGE]) ; 
+        dedup(pack_kernels[ip][CORNER]) ; 
+    }
 
     // counts of faces / edges / corners per rank (send & recv)
     arr_svec_t rank_send_counts, rank_recv_counts;

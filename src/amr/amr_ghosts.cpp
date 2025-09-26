@@ -119,19 +119,12 @@ void amr_ghosts_impl_t::update() {
                   #endif 
                   &grace_iterate_corners );             /*corner*/
     
-    // let's do some debugging 
-    for ( int iq=0; iq<nq; ++iq ) {
-        ASSERT(ghost_layer[iq].n_registered_faces == P4EST_FACES, "Some faces not registered at iq " << iq ) ;
-        #ifdef GRACE_3D 
-        ASSERT(ghost_layer[iq].n_registered_edges == 12, "Some edges not registered at iq " << iq ) ;
-        #endif 
-        ASSERT(ghost_layer[iq].n_registered_corners == P4EST_CHILDREN, "Some corners not registered at iq " << iq ) ;
-    }
+    
     std::unordered_set<size_t> cbuf_qid ; 
     //build_flux_buffers()     ;
     build_coarse_buffers(cbuf_qid)   ; 
 
-    bucket_t phys_bc_kernels, copy_kernels, copy_to_cbuf_kernels; 
+    bucket_t phys_bc_kernels, copy_kernels, copy_to_cbuf_kernels, prolong_kernels; 
     hang_bucket_t copy_from_cbuf_kernels ;
     std::vector<bucket_t> pack_kernels, unpack_kernels
                         , pack_to_cbuf_kernels  
@@ -142,14 +135,14 @@ void amr_ghosts_impl_t::update() {
         phys_bc_kernels, copy_kernels,
         copy_from_cbuf_kernels, copy_to_cbuf_kernels, 
         pack_kernels, unpack_kernels, pack_to_cbuf_kernels,
-        unpack_to_cbuf_kernels, unpack_from_cbuf_kernels
+        unpack_to_cbuf_kernels, unpack_from_cbuf_kernels, prolong_kernels
     )   ; 
     build_task_list(
         phys_bc_kernels, copy_kernels,
         copy_from_cbuf_kernels, copy_to_cbuf_kernels, 
         pack_kernels, unpack_kernels, pack_to_cbuf_kernels,
         unpack_to_cbuf_kernels, unpack_from_cbuf_kernels,
-        cbuf_qid
+        prolong_kernels, cbuf_qid
     )        ; 
     build_executor_runtime() ;
      
@@ -229,6 +222,7 @@ void amr_ghosts_impl_t::build_task_list(
     std::vector<bucket_t>& pack_to_cbuf_kernels,
     std::vector<bucket_t>& unpack_to_cbuf_kernels,
     std::vector<hang_bucket_t>& unpack_from_cbuf_kernels,
+    bucket_t& prolong_kernels,
     std::unordered_set<size_t> const& cbuf_qid
 ) {
     /***********************************************************************/
@@ -278,7 +272,7 @@ void amr_ghosts_impl_t::build_task_list(
     auto& copy_stream = stream_pool.next() ; 
     auto& pup_stream = stream_pool.next() ; 
     auto& phys_bc_stream = stream_pool.next() ; 
-
+    auto& interp_stream = stream_pool.next() ; 
     /***********************************************************************/
     /***********************************************************************/
     task_id_t restrict_tid = insert_restriction_tasks(
@@ -286,12 +280,13 @@ void amr_ghosts_impl_t::build_task_list(
         ghost_layer,
         state, 
         _coarse_buffers, 
-        copy_stream,
+        interp_stream,
         VEC(nx,ny,nz), ngz, nvars, 
         task_counter, task_list 
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
+    GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 
     insert_copy_tasks(
         ghost_layer,
         copy_kernels,
@@ -305,54 +300,65 @@ void amr_ghosts_impl_t::build_task_list(
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
-    populate_pup_tasks(
-        pack_kernels, 
-        unpack_kernels, 
-        state, 
-        _send_buffer, 
-        _recv_buffer, 
-        send_rank_offsets, 
-        recv_rank_offsets, 
+    GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 
+    insert_pup_tasks(
+        ghost_layer,
+        pack_kernels,
+        unpack_kernels,
+        pack_to_cbuf_kernels,
+        unpack_to_cbuf_kernels,
+        unpack_from_cbuf_kernels,
+        state, _coarse_buffers,
+        _send_buffer,
+        _recv_buffer,
         send_task_id,
         recv_task_id,
-        pup_stream, 
-        VEC(nx,ny,nz), ngz, nvars, 
-        task_counter, task_list 
+        restrict_tid,
+        pup_stream,
+        VEC(nx,ny,nz), ngz, nvars,
+        task_counter, task_list
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
-    // flush any remaining kernels 
-    // that did not make the cut 
-    if (!copy_kernels.empty()) {
-        task_list.push_back(
-            std::make_unique<gpu_task_t>(
-                make_gpu_copy_task(
-                    copy_kernels
-                    , state 
-                    , copy_stream 
-                    , VEC(nx,ny,nz), (size_t) ngz, (size_t) nvars
-                    , task_counter
-                )
-            )
-        ) ; 
-        copy_kernels.clear();
-    }
-
-    if (!phys_bc_kernels.empty()) {
-        task_list.push_back(
-            std::make_unique<gpu_task_t>(
-                    make_gpu_phys_bc_task(
-                        phys_bc_kernels
-                    , state 
-                    , var_bc_kind
-                    , phys_bc_stream 
-                    , VEC(nx,ny,nz), (size_t) ngz, (size_t) nvars 
-                    , task_counter
-                )
-            ) 
+    GRACE_TRACE("Inserting gz-restriction tasks.") ; 
+    GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 
+    insert_ghost_restriction_tasks(
+        cbuf_qid, ghost_layer,
+        state, _coarse_buffers,
+        interp_stream,
+        VEC(nx,ny,nz),ngz,nvars,
+        task_counter, task_list
+    ) ; 
+    /***********************************************************************/
+    /***********************************************************************/
+    GRACE_TRACE("Inserting phys-bc tasks.") ; 
+    GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 
+    auto const deferred_phys_bc_kernels = 
+        insert_phys_bc_tasks(
+                phys_bc_kernels, ghost_layer,
+                state, _coarse_buffers, var_bc_kind,
+                phys_bc_stream, VEC(nx,ny,nz),ngz,nvars,
+                task_counter,task_list
         ) ;
-        phys_bc_kernels.clear();
-    }
+    /***********************************************************************/
+    /***********************************************************************/
+    GRACE_TRACE("Inserting prolongation tasks.") ; 
+    GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 
+    insert_prolongation_tasks(
+        prolong_kernels, ghost_layer,
+        state, _coarse_buffers, interp_stream,
+        VEC(nx,ny,nz), ngz, nvars, task_counter, task_list 
+    ) ; 
+    /***********************************************************************/
+    /***********************************************************************/
+    GRACE_TRACE("Inserting deferred phys-bc tasks.") ; 
+    insert_deferred_phys_bc_tasks(
+        deferred_phys_bc_kernels, ghost_layer,
+        state, _coarse_buffers, var_bc_kind, phys_bc_stream,
+        VEC(nx,ny,nz),ngz,nvars, task_counter, task_list
+    ); 
+    /***********************************************************************/
+    /***********************************************************************/
 }
 
 } /* namespace grace */

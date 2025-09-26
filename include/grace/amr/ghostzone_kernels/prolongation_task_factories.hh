@@ -1,5 +1,5 @@
 /**
- * @file restrict_kernels.hh
+ * @file prolongation_task_factories.hh
  * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
  * @brief 
  * @date 2025-09-05
@@ -46,6 +46,9 @@
 #include <grace/amr/ghostzone_kernels/prolongation_kernels.hh>
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
 
+#include <grace/utils/prolongation.hh>
+#include <grace/utils/limiters.hh>
+
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/data_structures/variables.hh>
 
@@ -64,6 +67,71 @@
 namespace grace {
 
 
+template< amr::element_kind_t elem_kind > 
+task_id_t 
+make_prolongation_task(
+    std::vector<size_t> const& qid, 
+    std::vector<size_t> const& cid, 
+    std::vector<uint8_t> const& eid,
+    std::unordered_set<task_id_t> const& deps,
+    device_stream_t& stream,
+    task_id_t& task_counter,
+    grace::var_array_t<GRACE_NSPACEDIM> data,
+    grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
+    size_t n, size_t nv, size_t ngz,
+    std::vector<std::unique_ptr<task_t>>& task_list 
+)
+{
+    Kokkos::View<size_t*> qid_d{"qid", qid.size()}; 
+    Kokkos::View<size_t*> cid_d{"qid", cid.size()}; 
+    Kokkos::View<uint8_t*> eid_d{"eid", eid.size()} ; 
+
+    grace::deep_copy_vec_to_view(qid_d,qid) ;
+    grace::deep_copy_vec_to_view(cid_d,cid) ;
+    grace::deep_copy_vec_to_view(eid_d,eid) ;
+
+    auto exec_space = Kokkos::DefaultExecutionSpace{stream} ; 
+
+    gpu_task_t task{} ;
+
+    amr::prolong_op<utils::linear_prolongator_t<grace::minmod>,elem_kind,decltype(coarse_buffers)> 
+    functor{
+       data,
+       coarse_buffers,
+       qid_d, cid_d, eid_d, 
+       n, ngz
+    } ; 
+    
+    Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+        policy{
+            exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,n,nv,qid.size())
+        } ;
+
+    task._run = [functor,policy] (view_alias_t alias) mutable {
+        functor.set_data_ptr(alias) ; 
+        GRACE_TRACE("Prolong start.") ; 
+        Kokkos::parallel_for("prolong_ghostzones", policy, functor) ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        Kokkos::fence(); 
+        GRACE_TRACE("Prolong end.");
+        #endif 
+    } ; 
+
+    auto tid = task_counter ++ ;
+    task.task_id = tid ; 
+    task.stream = &stream ; 
+    
+    for( auto const& t : deps){
+        task._dependencies.push_back(t) ; 
+        task_list[t]->_dependents.push_back(tid) ;
+    }
+
+    task_list.push_back(std::make_unique<gpu_task_t>(std::move(task))) ; 
+
+    return tid ;
+
+}
+
 void insert_prolongation_tasks(
     bucket_t const & prolong_tasks,
     std::vector<quad_neighbors_descriptor_t> & ghost_array, 
@@ -75,9 +143,9 @@ void insert_prolongation_tasks(
     std::vector<std::unique_ptr<task_t>>& task_list 
 )
 {
-
+    using namespace amr ; 
     std::array<std::vector<size_t>,3> qid, cid ; 
-    std::array<std::vector<uint8_t>,3> qid, cid ; 
+    std::array<std::vector<uint8_t>,3> eid ; 
     std::array<std::unordered_set<task_id_t>,3> deps ;
 
     auto insert_dep = [&] (int elem, task_id_t const& tid) {
@@ -88,7 +156,7 @@ void insert_prolongation_tasks(
         }
     };
 
-    auto const get_info = [&] (int _kind, gpu_task_desc_t& d) {
+    auto const get_info = [&] (int _kind, gpu_task_desc_t const& d) -> std::tuple<size_t,size_t,uint8_t> {
         using namespace amr ; 
         amr::element_kind_t kind = static_cast<amr::element_kind_t>(_kind) ; 
 
@@ -98,7 +166,7 @@ void insert_prolongation_tasks(
     // we depend on all nearby elements 
     // nothing across here can be FINER 
     // due to 2:1 balance 
-    auto const unpack_dependencies = [&] (int _kind, gpu_task_desc_t& d) {
+    auto const unpack_dependencies = [&] (int _kind, gpu_task_desc_t const& d) {
         using namespace amr ; 
         amr::element_kind_t kind = static_cast<amr::element_kind_t>(_kind) ; 
 
@@ -108,7 +176,7 @@ void insert_prolongation_tasks(
             }
         } else if (kind == EDGE) {
             for( auto fid: amr::detail::e2f[std::get<1>(d)] ) {
-                insert_dep(EDGE,ghost_array[std::get<0>(d)].faces[fid].data.full.task_id)
+                insert_dep(EDGE,ghost_array[std::get<0>(d)].faces[fid].data.full.task_id) ; 
             }
             for( auto cid: amr::detail::e2c[std::get<1>(d)] ) {
                 insert_dep(EDGE,ghost_array[std::get<0>(d)].corners[cid].data.task_id) ; 
@@ -120,18 +188,29 @@ void insert_prolongation_tasks(
         }
     } ; 
 
-    auto const set_task_id = [&] (element_kind_t elem_kind, gpu_task_desc_t& d) {
-        if ( elem_kind == amr::element_kind_t::FACE ) {
-            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
-            face.data.full.task_id = task_counter ;
-        } else if (elem_kind == amr::element_kind_t::EDGE) {
-            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
-            edge.data.full.task_id = task_counter ;
-        } else {
-            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
-            corner.data.task_id = task_counter ;
+    auto const set_task_id = [&] (
+        amr::element_kind_t elem_kind, 
+        std::vector<size_t> const& qid, 
+        std::vector<uint8_t> const& eid,
+        task_id_t tid )
+    {
+        ASSERT_DBG(qid.size() == eid.size(), "Mismatched array sizes in tid writeback.") ;
+        for( int i=0; i<qid.size(); ++i) {
+            auto _qid = qid[i] ; 
+            auto _eid = eid[i] ; 
+            if ( elem_kind == amr::element_kind_t::FACE ) {
+                auto& face = ghost_array[_qid].faces[_eid] ; 
+                face.data.full.task_id = tid ;
+            } else if (elem_kind == amr::element_kind_t::EDGE) {
+                auto& edge = ghost_array[_qid].edges[_eid] ; 
+                edge.data.full.task_id = tid ;
+            } else {
+                auto& corner = ghost_array[_qid].corners[_eid] ; 
+                corner.data.task_id = tid ;
+            }
         }
-    }
+        
+    } ; 
 
     // loop through bucket, fill
     for( int kind=0; kind<3 ; ++kind) { // element kind 
@@ -142,9 +221,35 @@ void insert_prolongation_tasks(
             qid[kind].push_back(_qid) ; 
             cid[kind].push_back(_cid) ; 
             eid[kind].push_back(_eid) ; 
-            // write back tid 
-            set_task_id(static_cast<element_kind_t>(kind),d) ; 
         }
+    }
+
+    task_id_t tid ; 
+    if ( qid[FACE].size() > 0 ) 
+    {
+        tid = make_prolongation_task<FACE>(
+            qid[FACE], cid[FACE], eid[FACE], deps[FACE], 
+            stream, task_counter, state, coarse_buffers,
+            nx, nv, ngz, task_list 
+        ) ; 
+        set_task_id(FACE,qid[FACE],eid[FACE],tid) ; 
+    }
+    if ( qid[EDGE].size() > 0 ){
+        tid = make_prolongation_task<EDGE>(
+            qid[EDGE], cid[EDGE], eid[EDGE], deps[EDGE], 
+            stream, task_counter, state, coarse_buffers,
+            nx, nv, ngz, task_list 
+        ) ; 
+        set_task_id(EDGE,qid[EDGE],eid[EDGE],tid) ; 
+    }
+    if ( qid[CORNER].size() > 0 ) 
+    {
+        tid = make_prolongation_task<CORNER>(
+            qid[CORNER], cid[CORNER], eid[CORNER], deps[CORNER], 
+            stream, task_counter, state, coarse_buffers,
+            nx, nv, ngz, task_list 
+        ) ; 
+        set_task_id(CORNER,qid[CORNER],eid[CORNER],tid) ;
     }
 }
 

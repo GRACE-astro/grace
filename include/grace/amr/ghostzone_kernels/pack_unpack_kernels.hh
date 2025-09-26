@@ -176,6 +176,8 @@ struct pack_to_cbuf_op {
 
     index_transformer_t transf ; 
 
+    void set_data_ptr(view_alias_t alias) const { }
+
     pack_to_cbuf_op(
         view_t _view,
         ghost_array_t _ghost_view,
@@ -234,6 +236,10 @@ struct unpack_from_cbuf_op {
     std::size_t rank ; 
 
     index_transformer_t transf ; 
+
+    void set_data_ptr(view_alias_t alias) {
+        view = alias.get() ; 
+    }
 
     unpack_from_cbuf_op(
         ghost_array_t _ghost_view,
@@ -307,6 +313,8 @@ struct unpack_to_cbuf_op {
     std::size_t rank ; 
 
     index_transformer_t transf ; 
+
+    void set_data_ptr(view_alias_t alias) const {}
 
     unpack_to_cbuf_op(
         ghost_array_t _ghost_view,

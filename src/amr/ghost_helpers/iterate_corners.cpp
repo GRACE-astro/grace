@@ -76,6 +76,7 @@ static void register_physical_boundary_corner(
         corner.phys.in_cbuf = false ;
         corner.filled = true ; 
         corner.phys.type = amr::element_kind_t::CORNER ; 
+        corner.phys.task_id = UNSET_TASK_ID; 
     } else if (nsides==2) {
         // we are on a grid edge 
         // we need to identify the edge direction 
@@ -107,6 +108,8 @@ static void register_physical_boundary_corner(
         c1.phys.in_cbuf = c2.phys.in_cbuf = false ;
         // we can check here that one and only one is 0 
         c1.phys.type = c2.phys.type = amr::element_kind_t::EDGE ; 
+        c1.phys.task_id = UNSET_TASK_ID;
+        c2.phys.task_id = UNSET_TASK_ID;
     } else {
         int off[3][4] = {
             {(sides[0].corner >> 0)&1, (sides[1].corner >> 0)&1,
@@ -136,6 +139,7 @@ static void register_physical_boundary_corner(
             }
             c.phys.type = amr::element_kind_t::FACE ; 
             c.phys.in_cbuf = false ;
+            c.phys.task_id = UNSET_TASK_ID;
         }
     }
 
@@ -166,7 +170,7 @@ static void register_corner(
     desc.kind = interface_kind_t::INTERNAL;
     desc.data.quad_id = s1.quadid + other_offset;
     desc.data.is_remote = s1.is_ghost;
-
+    desc.data.task_id = UNSET_TASK_ID ;
     if (s1.is_ghost) {
         desc.data.owner_rank =
             p4est_comm_find_owner(grace::amr::forest::get().get(), s1.treeid, s1.quad, 0);

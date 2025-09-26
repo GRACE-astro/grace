@@ -89,6 +89,7 @@ struct physical_face_t {
     int8_t dir[3] ; //!< Normal to the grid 
     bool in_cbuf  ; //!< Do we need to fill inside cbufs ? 
     amr::element_kind_t type ;
+    task_id_t task_id          ; 
 } ; 
 union face_data_t {
     full_face_t full ; 
@@ -127,6 +128,7 @@ struct physical_edge_t {
     int8_t dir[3] ; //!< Normal to the grid 
     bool in_cbuf  ; //!< Do we need to fill inside cbufs ? 
     amr::element_kind_t type ;
+    task_id_t task_id          ; 
 } ; 
 union edge_data_t {
     full_edge_t full ; 
@@ -154,6 +156,7 @@ struct physical_corner_t {
     int8_t dir[3] ; //!< Normal to the grid 
     bool in_cbuf{false}  ; //!< Do we need to fill inside cbufs ? 
     amr::element_kind_t type ;
+    task_id_t task_id          ; 
 } ;
 struct corner_descriptor_t {
     interface_kind_t kind ; 
@@ -295,6 +298,7 @@ class amr_ghosts_impl_t {
         std::vector<bucket_t>& ,
         std::vector<bucket_t>& ,
         std::vector<hang_bucket_t>&,
+        bucket_t&,
         std::unordered_set<size_t> const& 
     ) ; 
     //**************************************************************************************************
@@ -303,7 +307,7 @@ class amr_ghosts_impl_t {
         hang_bucket_t&, bucket_t&,
         std::vector<bucket_t>& , std::vector<bucket_t>& , 
         std::vector<bucket_t>& , std::vector<bucket_t>& ,
-        std::vector<hang_bucket_t>& 
+        std::vector<hang_bucket_t>&, bucket_t&
     ) ; 
     //**************************************************************************************************
     void build_coarse_buffers(
@@ -335,7 +339,7 @@ using amr_ghosts = utils::singleton_holder<amr_ghosts_impl_t> ;
 //**************************************************************************************************
 template <> 
 inline uint8_t
-get_adjacent_idx<amr::FACE>(uint8_t eid, const uint8_t dir[3]) {
+get_adjacent_idx<amr::FACE>(uint8_t eid, const int8_t dir[3]) {
     using namespace amr::detail ; 
     
     int nz0=-1, nz1=-1;
@@ -350,13 +354,13 @@ get_adjacent_idx<amr::FACE>(uint8_t eid, const uint8_t dir[3]) {
     }
     
 
-    return f2e[eid][2*(face_axes[eid/2][0] != nz0)+sgn0]
+    return f2e[eid][2*(face_axes[eid/2][0] != nz0)+sgn0] ; 
 }; 
 
 
 template <> 
 inline uint8_t
-get_adjacent_idx<amr::EDGE>(uint8_t eid, const uint8_t dir[3]) {
+get_adjacent_idx<amr::EDGE>(uint8_t eid, const int8_t dir[3]) {
     using namespace amr::detail ; 
 
     int nz0=-1, nz1=-1;
@@ -392,7 +396,7 @@ get_adjacent_idx<amr::EDGE>(uint8_t eid, const uint8_t dir[3]) {
 
 template <> 
 inline uint8_t 
-get_adjacent_idx<amr::CORNER>(uint8_t eid, const uint8_t dir[3]) {
+get_adjacent_idx<amr::CORNER>(uint8_t eid, const int8_t dir[3]) {
     using namespace amr::detail ; 
 
     int nz0=-1, nz1=-1;

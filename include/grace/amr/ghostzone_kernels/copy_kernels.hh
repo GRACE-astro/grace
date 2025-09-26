@@ -117,6 +117,11 @@ struct copy_to_cbuf_op {
 
     index_transformer_t transf ; 
 
+
+    void set_data_ptr (view_alias_t alias ) {
+        view = alias.get() ; 
+    }
+
     copy_to_cbuf_op(
         view_t _view,
         cbuf_t _cbuf,
@@ -197,6 +202,10 @@ struct copy_from_cbuf_op {
 
     index_transformer_t transf ; 
 
+    void set_data_ptr (view_alias_t alias ) {
+        view = alias.get() ; 
+    }
+
     copy_from_cbuf_op(
         cbuf_t _cbuf,
         view_t _view,        
@@ -234,7 +243,7 @@ struct copy_from_cbuf_op {
         auto const ichild = view_ic(iq) ; 
         size_t j_off{0UL}, k_off{0UL} ; 
         cbuf_to_view_offsets<elem_kind>::get(
-            j_off,k_off, transf.nx, transf.ngz, ichild 
+            j_off,k_off, transf.nx, ichild 
         ) ;
 
 

@@ -227,7 +227,8 @@ TEST_CASE("Unigrid exchange", "[unigrid]")
     setup_initial_data(state_mirror) ; 
     Kokkos::deep_copy(state, state_mirror) ; 
     invalidate_ghostzones(state) ; 
-    runtime.run() ; 
+    view_alias_t alias{&state} ;
+    runtime.run(alias) ; 
     auto state_mirror_2 = Kokkos::create_mirror_view(state) ; 
     Kokkos::deep_copy(state_mirror_2, state) ; 
     check_ghostzones(state_mirror_2, state_mirror) ;     

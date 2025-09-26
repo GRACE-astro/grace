@@ -47,7 +47,11 @@ struct prolong_op {
     readonly_view_t<size_t> view_qid, cbuf_qid ; 
     readonly_view_t<uint8_t> eid ; 
 
-    index_transformer_t trasnf; 
+    index_transformer_t transf; 
+
+    void set_data_ptr( view_alias_t alias ) {
+        view = alias.get() ;
+    }
 
     prolong_op(
         view_t _view, view_t _cbuf, 
@@ -68,17 +72,17 @@ struct prolong_op {
     {
         auto qid = view_qid(iq) ; 
         auto cid = cbuf_qid(iq) ; 
-        auto eid = eid(iq) ; 
+        auto e_id = eid(iq) ; 
  
         // transform
         size_t i_c,j_c,k_c ; 
         transf.compute_indices<elem_kind,false>(
-            i/2,j/2,k/2, i_c,j_c,k_c, eid, true /* half nx */
+            i/2,j/2,k/2, i_c,j_c,k_c, e_id, true /* half nx */
         ) ; 
         
         size_t i_f,j_f,k_f ; 
         transf.compute_indices<elem_kind,false>(
-            i,j,k, i_f,j_f,k_f, eid, false 
+            i,j,k, i_f,j_f,k_f, e_id, false 
         ) ;
 
         EXPR(
