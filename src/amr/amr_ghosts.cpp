@@ -275,15 +275,18 @@ void amr_ghosts_impl_t::build_task_list(
     auto& interp_stream = stream_pool.next() ; 
     /***********************************************************************/
     /***********************************************************************/
-    task_id_t restrict_tid = insert_restriction_tasks(
-        cbuf_qid,
-        ghost_layer,
-        state, 
-        _coarse_buffers, 
-        interp_stream,
-        VEC(nx,ny,nz), ngz, nvars, 
-        task_counter, task_list 
-    ) ; 
+    task_id_t restrict_tid{UNSET_TASK_ID}; 
+    if(cbuf_qid.size()>0) {
+        restrict_tid = insert_restriction_tasks(
+            cbuf_qid,
+            ghost_layer,
+            state, 
+            _coarse_buffers, 
+            interp_stream,
+            VEC(nx,ny,nz), ngz, nvars, 
+            task_counter, task_list 
+        ) ; 
+    }
     /***********************************************************************/
     /***********************************************************************/
     GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 

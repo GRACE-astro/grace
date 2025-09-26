@@ -157,6 +157,7 @@ void make_gpu_restrict_gz_task(
     task_id_t& task_counter,
     std::vector<std::unique_ptr<task_t>>& task_list 
 ) {
+    if (bucket.size()==0) return ; 
     using namespace amr ;
     Kokkos::View<size_t*> qid("qid_restrict", bucket.size())
                         , cbuf_qid("cbuf_qid_restrict", bucket.size()) ; 

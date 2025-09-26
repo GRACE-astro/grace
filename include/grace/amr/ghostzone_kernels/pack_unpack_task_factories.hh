@@ -91,7 +91,7 @@ gpu_task_t make_pack_task(
     , std::vector<std::unique_ptr<task_t>>& task_list 
 )
 {
-    GRACE_TRACE("Recoring pack task, # of elements {}", sb.size()) ; 
+    GRACE_TRACE("Recoring pack task, # of elements {}, send_task_id {}", sb.size(), send_task_id[rank]) ; 
     // construct pack task
     Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
     Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
@@ -584,6 +584,7 @@ void insert_pup_tasks(
     using namespace grace::amr ; 
 
     #define MAKE_PACK(r, kind) \
+    if(pack_kernels[r][static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
             make_pack_task<kind>( \
@@ -596,6 +597,7 @@ void insert_pup_tasks(
         ) \
     )
     #define MAKE_PACK_TO_CBUF(r, kind) \
+    if(pack_to_cbuf_kernels[r][static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
             make_pack_to_cbuf_task<kind>( \
@@ -609,6 +611,7 @@ void insert_pup_tasks(
     )
 
     #define MAKE_UNPACK(r, kind) \
+    if (unpack_kernels[r][static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
             make_unpack_task<kind>( \
@@ -622,6 +625,7 @@ void insert_pup_tasks(
     )
 
     #define MAKE_UNPACK_TO_CBUF(r, kind) \
+    if (unpack_to_cbuf_kernels[r][static_cast<size_t>(kind)].size()>0) \
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
             make_unpack_to_cbuf_task<kind>( \
@@ -635,6 +639,7 @@ void insert_pup_tasks(
     )
 
     #define MAKE_UNPACK_FROM_CBUF(r, kind) \
+    if(unpack_from_cbuf_kernels[r][static_cast<size_t>(kind)].size()>0) \
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
             make_unpack_from_cbuf_task<kind>( \

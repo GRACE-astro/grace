@@ -443,12 +443,14 @@ void insert_copy_tasks(
 {
 
     #define MAKE_COPY(kind)\
+    if(copy_kernels[static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
             make_gpu_copy_task<kind>(copy_kernels[static_cast<size_t>(kind)], ghost_array, state, stream, VEC(nx,ny,nz), ngz, nv, task_counter) \
         ) \
     ) 
     #define MAKE_COPY_TO_CBUF(kind)\
+    if(copy_to_cbuf_kernels[static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
             make_gpu_copy_to_cbuf_task<kind>(copy_to_cbuf_kernels[static_cast<size_t>(kind)], ghost_array, state, coarse_buffers, stream, VEC(nx,ny,nz), ngz, nv, task_counter) \
@@ -456,6 +458,7 @@ void insert_copy_tasks(
     ) 
 
     #define MAKE_COPY_FROM_CBUF(kind)\
+    if(copy_from_cbuf_kernels[static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
             make_gpu_copy_from_cbuf_task<kind>(copy_from_cbuf_kernels[static_cast<size_t>(kind)], ghost_array, state, coarse_buffers,stream, VEC(nx,ny,nz), ngz, nv, task_counter, restrict_task_id, task_list) \
