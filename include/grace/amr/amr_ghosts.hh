@@ -288,6 +288,16 @@ class amr_ghosts_impl_t {
     //**************************************************************************************************
     //void build_flux_buffers() ; /* TODO ! */
     //**************************************************************************************************
+    void reset() {
+        ghost_layer.clear() ; 
+        task_list.clear()  ; 
+        send_rank_offsets.clear() ; 
+        recv_rank_offsets.clear() ; 
+        send_rank_sizes.clear() ;
+        recv_rank_sizes.clear() ; 
+        task_queue.clear() ; 
+    }
+    //**************************************************************************************************
     void build_task_list(
         bucket_t& ,
         bucket_t& ,

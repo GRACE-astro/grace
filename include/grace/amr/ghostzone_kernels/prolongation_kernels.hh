@@ -40,6 +40,13 @@
 
 namespace grace { namespace amr {
 
+// here we need a special index transf 
+namespace detail {
+
+
+}
+
+
 template< typename interpolator, element_kind_t elem_kind, typename view_t > 
 struct prolong_op {
 
@@ -47,7 +54,7 @@ struct prolong_op {
     readonly_view_t<size_t> view_qid, cbuf_qid ; 
     readonly_view_t<uint8_t> eid ; 
 
-    index_transformer_t transf; 
+    prolong_index_transformer_t transf; 
 
     void set_data_ptr( view_alias_t alias ) {
         view = alias.get() ;
@@ -63,7 +70,7 @@ struct prolong_op {
       , view_qid(_view_qid)
       , cbuf_qid(_cbuf_qid)
       , eid(_eid)
-      , transf(VEC(n,n,n),ngz)
+      , transf(n,ngz)
     {} 
 
     // this loop goes full nx 
@@ -76,25 +83,25 @@ struct prolong_op {
  
         // transform
         size_t i_c,j_c,k_c ; 
-        transf.compute_indices<elem_kind,false>(
+        transf.compute_indices<elem_kind>(
             i/2,j/2,k/2, i_c,j_c,k_c, e_id, true /* half nx */
         ) ; 
-        
+
         size_t i_f,j_f,k_f ; 
-        transf.compute_indices<elem_kind,false>(
+        transf.compute_indices<elem_kind>(
             i,j,k, i_f,j_f,k_f, e_id, false 
         ) ;
 
-        EXPR(
-        int8_t const sign_x = (i%2==1) - (i%2==0) ;, 
-        int8_t const sign_y = (j%2==1) - (j%2==0) ;, 
-        int8_t const sign_z = (k%2==1) - (k%2==0) ; 
-        )
+        int signs[3] ;
+        transf.get_signs<elem_kind>(
+            i,j,k, signs, e_id 
+        ) ; 
+
 
         view(VEC(i_f,j_f,k_f),iv,qid) = interpolator::interpolate(
                                             VEC(i_c,j_c,k_c),
-                                            qid,cid,iv, 
-                                            VEC(sign_x,sign_y,sign_z),
+                                            cid,iv, 
+                                            VEC(signs[0],signs[1],signs[2]),
                                             cbuf
                                         ) ; 
         

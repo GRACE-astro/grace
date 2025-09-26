@@ -69,7 +69,6 @@ static void register_physical_boundary_corner(
         auto qid = side.quadid +  offset ; 
         auto& corner = neighbors[qid].corners[side.corner] ; 
         corner.kind = interface_kind_t::PHYS ;
-        if( qid==0 and side.corner == 5 ) GRACE_TRACE("Opsie") ; 
         corner.phys.dir[0] = get_dir((side.corner>>0)&1)  ; 
         corner.phys.dir[1] = get_dir((side.corner>>1)&1) ; 
         corner.phys.dir[2] = get_dir((side.corner>>2)&1) ; 
@@ -92,7 +91,6 @@ static void register_physical_boundary_corner(
         // quad_ids 
         auto qid1 = sides[0].quadid +  o1 ; 
         auto qid2 = sides[1].quadid +  o2 ; 
-        if( (qid1==0 and sides[0].corner == 5) or (qid2==0 and sides[1].corner == 5)) GRACE_TRACE("Opsie, 2") ;
         // not hanging not ghost 
         if ( !sides[0].is_ghost ) {
             auto& c1 = neighbors[qid1].corners[sides[0].corner] ; 
@@ -137,7 +135,6 @@ static void register_physical_boundary_corner(
             auto qid = sides[iside].quadid +  o ;
             // not hanging not ghost 
             auto& c = neighbors[qid].corners[sides[iside].corner] ; 
-            if( qid==0 and sides[iside].corner == 5 ) GRACE_TRACE("Opsie 3 {}", iside) ; 
             // set kind 
             c.kind = interface_kind_t::PHYS ;
             // set filled 
@@ -199,8 +196,6 @@ static void register_corner(
     }
 
     desc.corner = s1.corner ; 
-    GRACE_TRACE("Corner registered, is_Phys {}, qid {} cid {}", desc.kind == interface_kind_t::PHYS,
-    qid, c) ; 
 }
 
 void grace_iterate_corners(p4est_iter_corner_info_t* info, void* user_data)
@@ -212,7 +207,7 @@ void grace_iterate_corners(p4est_iter_corner_info_t* info, void* user_data)
         register_physical_boundary_corner(sides, *ghosts);
         return; 
     }
-    GRACE_TRACE("In iter-corners nsides {}", sides.size()) ; 
+
     // Build opposite pairs
     static constexpr int opposite_corner[8] = {7,6,5,4,3,2,1,0};
     auto is_corner_neighbor = [&](int i, int j) {

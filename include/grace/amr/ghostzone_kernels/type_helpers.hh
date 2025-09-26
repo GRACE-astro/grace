@@ -58,6 +58,13 @@ using gpu_hanging_task_desc_t = std::tuple<size_t,uint8_t,uint8_t> ;
 using bucket_t = std::array<std::vector<gpu_task_desc_t>,3> ; 
 using hang_bucket_t = std::array<std::vector<gpu_hanging_task_desc_t>,3> ; 
 
+namespace detail {
+
+inline constexpr std::array<const char*,3> elem_kind_names = {
+    "face", "edge", "corner"
+} ; 
+
+}
 
 }
 

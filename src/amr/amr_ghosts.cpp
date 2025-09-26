@@ -76,6 +76,9 @@ namespace grace {
 
 void amr_ghosts_impl_t::update() {
     GRACE_PROFILING_PUSH_REGION("GHOST_UPDATE") ; 
+    // empty everything first 
+    reset() ; 
+
     auto nvar = variables::get_n_evolved() ; 
     var_bc_kind = Kokkos::View<bc_t*>{
         "BC_types", static_cast<size_t>(nvar) 
@@ -118,12 +121,13 @@ void amr_ghosts_impl_t::update() {
                   &grace_iterate_edges,                 /*edge*/
                   #endif 
                   &grace_iterate_corners );             /*corner*/
-    parallel::mpi_barrier() ;
-    
+    parallel::mpi_barrier() ; // FIXME 
+    auto& edge = ghost_layer[18].edges[2] ; 
+    GRACE_TRACE("Edge, is_phys {} level_diff {}", edge.kind==interface_kind_t::PHYS, static_cast<int>(edge.level_diff));
     std::unordered_set<size_t> cbuf_qid ; 
     //build_flux_buffers()     ;
     build_coarse_buffers(cbuf_qid)   ; 
-    GRACE_TRACE("Going into remote-buffers") ; 
+     
     bucket_t phys_bc_kernels, copy_kernels, copy_to_cbuf_kernels, prolong_kernels; 
     hang_bucket_t copy_from_cbuf_kernels ;
     std::vector<bucket_t> pack_kernels, unpack_kernels
@@ -137,8 +141,8 @@ void amr_ghosts_impl_t::update() {
         pack_kernels, unpack_kernels, pack_to_cbuf_kernels,
         unpack_to_cbuf_kernels, unpack_from_cbuf_kernels, prolong_kernels
     )   ; 
-    parallel::mpi_barrier() ; 
-    GRACE_TRACE("Out") ; 
+    parallel::mpi_barrier() ; // FIXME 
+     
     build_task_list(
         phys_bc_kernels, copy_kernels,
         copy_from_cbuf_kernels, copy_to_cbuf_kernels, 
@@ -345,6 +349,8 @@ void amr_ghosts_impl_t::build_task_list(
                 phys_bc_stream, VEC(nx,ny,nz),ngz,nvars,
                 task_counter,task_list
         ) ;
+    auto & edge = ghost_layer[2].edges[1] ; 
+    GRACE_TRACE("Here we are, {} in_cbuf? {}", static_cast<int>(edge.kind), edge.data.phys.in_cbuf ) ; 
     /***********************************************************************/
     /***********************************************************************/
     GRACE_TRACE("Inserting prolongation tasks.") ; 

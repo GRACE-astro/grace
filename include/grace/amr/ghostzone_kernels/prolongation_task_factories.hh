@@ -82,6 +82,7 @@ make_prolongation_task(
     std::vector<std::unique_ptr<task_t>>& task_list 
 )
 {
+    GRACE_TRACE("Recording GPU-prolong task (tid {}), number of elements {}", task_counter, qid.size()) ; 
     Kokkos::View<size_t*> qid_d{"qid", qid.size()}; 
     Kokkos::View<size_t*> cid_d{"qid", cid.size()}; 
     Kokkos::View<uint8_t*> eid_d{"eid", eid.size()} ; 
@@ -122,6 +123,7 @@ make_prolongation_task(
     task.stream = &stream ; 
     
     for( auto const& t : deps){
+        GRACE_TRACE("Prolong dep {}", t ) ; 
         task._dependencies.push_back(t) ; 
         task_list[t]->_dependents.push_back(tid) ;
     }
@@ -172,18 +174,42 @@ void insert_prolongation_tasks(
 
         if (kind == FACE) {
             for( auto eid: amr::detail::f2e[std::get<1>(d)] ) {
-                insert_dep(FACE, ghost_array[std::get<0>(d)].edges[eid].data.full.task_id) ; 
+                auto& edge = ghost_array[std::get<0>(d)].edges[eid] ;
+                if ( !edge.filled ) continue ; 
+                if ( edge.kind == interface_kind_t::PHYS ) {
+                    insert_dep(FACE, edge.data.phys.task_id) ;
+                } else {
+                    insert_dep(FACE, edge.data.full.task_id) ;
+                }   
             }
         } else if (kind == EDGE) {
             for( auto fid: amr::detail::e2f[std::get<1>(d)] ) {
-                insert_dep(EDGE,ghost_array[std::get<0>(d)].faces[fid].data.full.task_id) ; 
+                auto& face = ghost_array[std::get<0>(d)].faces[fid] ;
+                if ( face.kind == interface_kind_t::PHYS ) {
+                    insert_dep(EDGE,face.data.phys.task_id) ; 
+                } else {
+                    insert_dep(EDGE,face.data.full.task_id) ; 
+                }
             }
             for( auto cid: amr::detail::e2c[std::get<1>(d)] ) {
-                insert_dep(EDGE,ghost_array[std::get<0>(d)].corners[cid].data.task_id) ; 
+                auto& corner = ghost_array[std::get<0>(d)].corners[cid] ; 
+                if ( !corner.filled ) continue ; 
+                if ( corner.kind == interface_kind_t::PHYS ) {
+                    insert_dep(EDGE,corner.phys.task_id) ; 
+                } else {
+                    insert_dep(EDGE,corner.data.task_id) ; 
+                }
+                
             }
         } else {
             for( auto eid: amr::detail::c2e[std::get<1>(d)] ) {
-                insert_dep(CORNER,ghost_array[std::get<0>(d)].edges[eid].data.full.task_id) ; 
+                auto& edge = ghost_array[std::get<0>(d)].edges[eid] ;
+                if ( !edge.filled ) continue ; 
+                if ( edge.kind == interface_kind_t::PHYS ) {
+                    insert_dep(FACE, edge.data.phys.task_id) ;
+                } else {
+                    insert_dep(FACE, edge.data.full.task_id) ;
+                } 
             }
         }
     } ; 

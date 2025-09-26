@@ -98,20 +98,20 @@ struct ghost_restrict_op {
     readonly_view_t<size_t> qid, cbuf_id ; 
     readonly_view_t<uint8_t> elem_id ; 
 
-    index_transformer_t transf ;  
+    prolong_index_transformer_t transf ;  
 
     ghost_restrict_op(
         view_t _data, view_t _cbuf,
         Kokkos::View<size_t*> _qid, 
         Kokkos::View<size_t*> _cbuf_id,
         Kokkos::View<uint8_t*> _eid,  
-        VEC(size_t nx, size_t ny, size_t nz), size_t _ngz
+        size_t n, size_t _ngz
     ) : data(_data)
       , cbuf(_cbuf)
       , qid(_qid)
       , cbuf_id(_cbuf_id)
       , elem_id(_eid)
-      , transf(VEC(nx,ny,nz),_ngz)
+      , transf(n,_ngz)
     {}
 
     void set_data_ptr(view_alias_t alias) {
@@ -126,13 +126,13 @@ struct ghost_restrict_op {
 
         auto e_id = elem_id(iq) ;
         // only ngz/2
-        for( int i=0; i<transf.ngz/2; ++i) {
+        for( int i=0; i<transf.g/2; ++i) {
             size_t i_c, j_c, k_c ; 
-            transf.compute_indices<FACE,false>(
+            transf.compute_indices<FACE>(
                 i,j,k, i_c,j_c,k_c, e_id, true  
             ) ; 
             size_t i_f, j_f, k_f ; 
-            transf.compute_indices<FACE,false>(
+            transf.compute_indices<FACE>(
                 2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
             ) ; 
 
@@ -160,14 +160,14 @@ struct ghost_restrict_op {
         auto e_id = elem_id(iq) ;
         
         // only ngz/2
-        for( int j=0; j<transf.ngz/2; ++j) 
-        for( int i=0; i<transf.ngz/2; ++i) {
+        for( int j=0; j<transf.g/2; ++j) 
+        for( int i=0; i<transf.g/2; ++i) {
             size_t i_c, j_c, k_c ; 
-            transf.compute_indices<EDGE,false>(
+            transf.compute_indices<EDGE>(
                 i,j,k, i_c,j_c,k_c, e_id, true  
             ) ; 
             size_t i_f, j_f, k_f ; 
-            transf.compute_indices<EDGE,false>(
+            transf.compute_indices<EDGE>(
                 2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
             ) ; 
 
@@ -195,15 +195,15 @@ struct ghost_restrict_op {
         auto e_id = elem_id(iq) ;
 
         // only ngz/2
-        for( int k=0; k<transf.ngz/2; ++k) 
-        for( int j=0; j<transf.ngz/2; ++j) 
-        for( int i=0; i<transf.ngz/2; ++i)  {
+        for( int k=0; k<transf.g/2; ++k) 
+        for( int j=0; j<transf.g/2; ++j) 
+        for( int i=0; i<transf.g/2; ++i)  {
             size_t i_c, j_c, k_c ; 
-            transf.compute_indices<CORNER,false>(
+            transf.compute_indices<CORNER>(
                 i,j,k, i_c,j_c,k_c, e_id, true  
             ) ; 
             size_t i_f, j_f, k_f ; 
-            transf.compute_indices<CORNER,false>(
+            transf.compute_indices<CORNER>(
                 2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
             ) ; 
 

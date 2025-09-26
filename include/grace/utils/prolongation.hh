@@ -189,7 +189,7 @@ struct linear_prolongator_t
     template< typename VarViewT >
     static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     interpolate(  VEC(int i_c, int j_c, int k_c)
-                , int64_t q_f, int64_t q_c, int ivar
+                , int64_t q_c, int ivar
                 , VEC(int8_t const sign_x, int8_t const sign_y, int8_t const sign_z)
                 , VarViewT& coarse_view )
     {

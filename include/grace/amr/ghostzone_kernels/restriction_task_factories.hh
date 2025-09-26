@@ -74,6 +74,7 @@ task_id_t insert_restriction_tasks(
     std::vector<std::unique_ptr<task_t>>& task_list 
 )
 {
+    GRACE_TRACE("Recording GPU-restrict task (tid {}) number of quadrants {}", task_counter, cbuf_qid.size()) ;
     Kokkos::View<size_t*> quad_id_d("restrict_qid", cbuf_qid.size())
                         , cbuf_id_d("restrict_cbufid", cbuf_qid.size()) ; 
     auto quad_id_h = Kokkos::create_mirror_view(quad_id_d) ; 
@@ -98,7 +99,7 @@ task_id_t insert_restriction_tasks(
 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
         policy{
-            exec_space, {0,0,0,0,0}, {nx,nx,nx, nv, cbuf_qid.size()}
+            exec_space, {0,0,0,0,0}, {nx/2,nx/2,nx/2, nv, cbuf_qid.size()}
         } ;
 
     task._run = [functor, policy] (view_alias_t alias) mutable {
@@ -109,7 +110,7 @@ task_id_t insert_restriction_tasks(
         Kokkos::parallel_for("restrict_to_cbufs", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE("Copy end") ; 
+        GRACE_TRACE("Restrict end") ; 
         #endif 
     };
     task.stream = &stream; 
@@ -121,21 +122,31 @@ task_id_t insert_restriction_tasks(
     return task.task_id ; 
 }
 
+/**
+ * @brief Get iter policy for gz-restrict
+ * \cond grace_detail
+ * @tparam elem_kind Kind of element being filled
+ * @param stream Device stream
+ * @param n Number of cells
+ * @param nv Number of variables
+ * @param nq Number of quadrants
+ * @return auto 
+ */
 template< amr::element_kind_t elem_kind >
 auto get_iter_policy(
-    device_stream_t& stream, size_t n, size_t ngz, size_t nv, size_t nq 
+    device_stream_t& stream, size_t n, size_t nv, size_t nq 
 ) {
     using namespace amr ; 
     using namespace Kokkos ; 
     if constexpr ( elem_kind == FACE ) {
         return MDRangePolicy<Rank<4>, ghost_restrict_face_tag>(
             DefaultExecutionSpace{stream},
-            {0,0,0,0}, {n/2,ngz/2,nv,nq}
+            {0,0,0,0}, {n/2,n/2,nv,nq}
         ) ; 
     } else if constexpr (elem_kind == EDGE) {
         return MDRangePolicy<Rank<3>, ghost_restrict_edge_tag>(
             DefaultExecutionSpace{stream},
-            {0,0,0}, {ngz/2,nv,nq}
+            {0,0,0}, {n/2,nv,nq}
         ) ; 
     } else {
         return MDRangePolicy<Rank<2>, ghost_restrict_corner_tag>(
@@ -157,7 +168,8 @@ void make_gpu_restrict_gz_task(
     task_id_t& task_counter,
     std::vector<std::unique_ptr<task_t>>& task_list 
 ) {
-    if (bucket.size()==0) return ; 
+    if (bucket.size()==0) return ;  
+    GRACE_TRACE("Recording GPU-ghostzone-restrict task (tid {}), number of elements {}", task_counter, bucket.size()) ; 
     using namespace amr ;
     Kokkos::View<size_t*> qid("qid_restrict", bucket.size())
                         , cbuf_qid("cbuf_qid_restrict", bucket.size()) ; 
@@ -169,12 +181,10 @@ void make_gpu_restrict_gz_task(
     
     std::unordered_set<task_id_t> dependencies ; 
     auto insert_dependency = [&] (task_id_t tid) {
-        if ( tid != UNSET_TASK_ID ) {
+        if ( tid == UNSET_TASK_ID ) ERROR("Unset task_id") ; 
+        if ( tid != task_counter ) {
             dependencies.insert(tid) ; 
-        } else {
-            // this should not happen here 
-            ERROR("Unset task_id") ; 
-        }
+        } 
     } ; 
     auto write_back_tid = [&](gpu_task_desc_t const& d) {
         if constexpr (elem_kind == FACE) {
@@ -250,11 +260,11 @@ void make_gpu_restrict_gz_task(
     gpu_task_t task {} ; 
 
     ghost_restrict_op functor{
-        state, coarse_buffers, qid, cbuf_qid, eid, VEC(nx,ny,nz), ngz
+        state, coarse_buffers, qid, cbuf_qid, eid, nx, ngz
     } ; 
 
     // the rank of iterations depends on the element kind 
-    auto policy = get_iter_policy<elem_kind>(stream,nx,ngz,nv,bucket.size()) ; 
+    auto policy = get_iter_policy<elem_kind>(stream,nx,nv,bucket.size()) ; 
 
     task._run = [functor,policy] (view_alias_t alias) mutable {
         functor.set_data_ptr(alias) ; 
@@ -345,7 +355,13 @@ void insert_ghost_restriction_tasks(
             }
         }
     }
-
+    // dedup buckets 
+    auto const dedup = [&] (std::vector<gpu_task_desc_t>& vec) {
+        if (vec.empty()) return ; 
+        std::set<gpu_task_desc_t> s( vec.begin(), vec.end() );
+        vec.assign( s.begin(), s.end() );
+    } ; 
+    dedup(restrict_faces) ; dedup(restrict_edges) ; dedup(restrict_corners) ;
     // make and append tasks 
     make_gpu_restrict_gz_task<amr::FACE>(
         restrict_faces,

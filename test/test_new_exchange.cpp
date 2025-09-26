@@ -146,9 +146,13 @@ static void check_ghostzones(
 
     grace::host_grid_loop<false>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
-            if ( ! is_corner_ghostzone(
+            if (
+            #if 0 
+                ! is_corner_ghostzone(
                 VEC(i,j,k), VEC(nx,ny,nz), ngz
-            ) and ! is_outside_grid(VEC(i,j,k),q)){
+            ) and
+            #endif  
+            ! is_outside_grid(VEC(i,j,k),q)){
                 CHECK_THAT(
                 host_data(VEC(i,j,k),0,q),
                 Catch::Matchers::WithinAbs(ground_truth(VEC(i,j,k),0,q),

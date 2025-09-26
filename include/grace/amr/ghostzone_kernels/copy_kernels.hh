@@ -157,9 +157,9 @@ struct copy_to_cbuf_op {
         // we need to offset into the coarse quad, 
         // accounting for the extra ngz in the loop
         auto const ichild = view_ic(iq) ; 
-        size_t j_off{0UL}, k_off{0UL} ; 
+        size_t j_off{0UL}, k_off{0UL}, j_off_c{0UL}, k_off_c{0UL} ; 
         view_to_cbuf_offsets<elem_kind>::get(
-            j_off,k_off, transf.nx, transf.ngz, ichild 
+            j_off,k_off,j_off_c,k_off_c, transf.nx, transf.ngz, ichild 
         ) ;
 
 
@@ -172,7 +172,7 @@ struct copy_to_cbuf_op {
         ) ; 
         // gz indices, no offset 
         transf.compute_indices<elem_kind,false>(
-            ig, VECD(j, k), 
+            ig, VECD(j + j_off_c, k + k_off_c), 
             i_b, j_b, k_b, ie_cbuf, /* halved ncells */ true 
         ) ;
         cbuf(

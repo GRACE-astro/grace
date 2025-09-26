@@ -170,7 +170,6 @@ void process_key_arrays(
             ) ; 
             
             if (inserted) ++count; 
-            GRACE_TRACE("Send rank {} elem_kind {} inserted {} count {}", key.rank, static_cast<int>(key.kind), inserted, count) ; 
             register_index(
                 key.desc, key.elem_slot, it->second, true /*send*/
             ) ; 
@@ -194,7 +193,6 @@ void process_key_arrays(
             ) ; 
 
             if (inserted) ++count ; 
-            GRACE_TRACE("Recv rank {} elem_kind {} inserted {} count {}", key.rank, static_cast<int>(key.kind), inserted, count) ; 
             register_index(
                 key.desc, key.elem_slot, it->second, false /*recv*/
             ) ; 
@@ -376,7 +374,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
             } else if ( edge.level_diff == level_diff_t::FINER ) {
                 for ( int ic=0; ic<2; ++ic){
                     if( ! edge.data.hanging.is_remote[ic]) {
-                        copy_from_cbuf_kernels[amr::element_kind_t::EDGE].emplace_back(iq,e,edge.child_id) ;
+                        copy_from_cbuf_kernels[amr::element_kind_t::EDGE].emplace_back(iq,e,ic) ;
                     } else {
                         append_keys(sec_t::EDGE, sec_t::CBEDGE, 
                             rank, edge.data.hanging.owner_rank[ic], 
@@ -406,9 +404,6 @@ void amr_ghosts_impl_t::build_remote_buffers(
         // corner loop 
         for( uint8_t c=0; c<P4EST_CHILDREN; ++c) {
             auto& corner = ghost_layer[iq].corners[c] ;
-            GRACE_TRACE("Hello from a corner qid {} cid {} is_remote? {} level_diff {} filled {} is_Phys? {}", 
-                iq, c, ghost_layer[iq].corners[c].data.is_remote, static_cast<int>(ghost_layer[iq].corners[c].level_diff), corner.filled, 
-                corner.kind==PHYS);
             
             if( !corner.filled) continue ;  
             if (corner.kind == interface_kind_t::PHYS) {

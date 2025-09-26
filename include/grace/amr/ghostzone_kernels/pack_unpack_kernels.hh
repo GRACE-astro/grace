@@ -348,15 +348,15 @@ struct unpack_to_cbuf_op {
         auto const ghost_q = ghost_qid(iq) ;
 
         auto ichild = ichild_view(iq) ;
-        size_t j_off{0UL}, k_off{0UL} ; 
+        size_t j_off{0UL}, k_off{0UL}, j_off_c{0UL}, k_off_c{0UL} ; 
         view_to_cbuf_offsets<elem_kind>::get(
-            j_off,k_off, transf.nx, transf.ngz, ichild 
+            j_off,k_off,j_off_c,k_off_c, transf.nx, transf.ngz, ichild 
         ) ;
 
         std::size_t VEC(i_a,j_a,k_a) ;
         // ghost indices (in cbuf)
         transf.compute_indices<elem_kind,false>(
-            ig, VECD(j, k), i_a, j_a, k_a, ie, /*half ncells*/ true 
+            ig, VECD(j + j_off_c, k + k_off_c), i_a, j_a, k_a, ie, /*half ncells*/ true 
         ) ; 
 
         cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) = 
