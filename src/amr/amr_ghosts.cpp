@@ -118,12 +118,12 @@ void amr_ghosts_impl_t::update() {
                   &grace_iterate_edges,                 /*edge*/
                   #endif 
                   &grace_iterate_corners );             /*corner*/
-    
+    parallel::mpi_barrier() ;
     
     std::unordered_set<size_t> cbuf_qid ; 
     //build_flux_buffers()     ;
     build_coarse_buffers(cbuf_qid)   ; 
-
+    GRACE_TRACE("Going into remote-buffers") ; 
     bucket_t phys_bc_kernels, copy_kernels, copy_to_cbuf_kernels, prolong_kernels; 
     hang_bucket_t copy_from_cbuf_kernels ;
     std::vector<bucket_t> pack_kernels, unpack_kernels
@@ -137,6 +137,8 @@ void amr_ghosts_impl_t::update() {
         pack_kernels, unpack_kernels, pack_to_cbuf_kernels,
         unpack_to_cbuf_kernels, unpack_from_cbuf_kernels, prolong_kernels
     )   ; 
+    parallel::mpi_barrier() ; 
+    GRACE_TRACE("Out") ; 
     build_task_list(
         phys_bc_kernels, copy_kernels,
         copy_from_cbuf_kernels, copy_to_cbuf_kernels, 

@@ -99,13 +99,16 @@ struct key_cmp {
     }
 };
 
-using idx_key_t = std::tuple<size_t /*rank*/, size_t /*qid*/, int8_t /*element_id*/> ; 
+using idx_key_t = std::tuple<size_t /*rank*/, size_t /*qid*/, int8_t /*element_id*/, int /*elem kind*/> ; 
 struct idx_key_hash_t {
     std::size_t operator()(const idx_key_t &k) const noexcept {
-        auto [rank, quad, face] = k;
+        auto [rank, qid, element_id, elem_kind] = k;
+
         std::size_t h = std::hash<size_t>{}(rank);
-        h ^= std::hash<size_t>{}(quad) + 0x9e3779b9 + (h<<6) + (h>>2);
-        h ^= std::hash<int8_t>{}(face) + 0x9e3779b9 + (h<<6) + (h>>2);
+        h ^= std::hash<size_t>{}(qid) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        h ^= std::hash<int8_t>{}(element_id) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        h ^= std::hash<int>{}(elem_kind) + 0x9e3779b9 + (h << 6) + (h >> 2);
+
         return h;
     }
 };
@@ -147,6 +150,7 @@ void process_key_arrays(
     std::array<std::vector<size_t>,6> & recv_counts
 )
 {
+    ASSERT(send_comm_keys.size() == recv_comm_keys.size(), "mismatched sizes on send/recv" ) ; 
     using idx_map_t = std::unordered_map<idx_key_t, size_t, idx_key_hash_t> ; 
     {
         // sort by rank, quadid, elem id 
@@ -162,11 +166,11 @@ void process_key_arrays(
             auto& count = send_counts[kind][rank] ; 
 
             auto [it, inserted] = coarse_to_id.try_emplace(
-                std::make_tuple(key.rank,key.quad_id,key.elem_id), count
+                std::make_tuple(key.rank,key.quad_id,key.elem_id,static_cast<int>(key.kind)), count
             ) ; 
-
+            
             if (inserted) ++count; 
-
+            GRACE_TRACE("Send rank {} elem_kind {} inserted {} count {}", key.rank, static_cast<int>(key.kind), inserted, count) ; 
             register_index(
                 key.desc, key.elem_slot, it->second, true /*send*/
             ) ; 
@@ -186,11 +190,11 @@ void process_key_arrays(
             auto& count = recv_counts[kind][rank] ;
 
             auto [it, inserted] = coarse_to_id.try_emplace(
-                std::make_tuple(key.rank,key.quad_id,key.elem_id), count 
+                std::make_tuple(key.rank,key.quad_id,key.elem_id,static_cast<int>(key.kind)), count 
             ) ; 
 
             if (inserted) ++count ; 
-
+            GRACE_TRACE("Recv rank {} elem_kind {} inserted {} count {}", key.rank, static_cast<int>(key.kind), inserted, count) ; 
             register_index(
                 key.desc, key.elem_slot, it->second, false /*recv*/
             ) ; 
@@ -402,6 +406,10 @@ void amr_ghosts_impl_t::build_remote_buffers(
         // corner loop 
         for( uint8_t c=0; c<P4EST_CHILDREN; ++c) {
             auto& corner = ghost_layer[iq].corners[c] ;
+            GRACE_TRACE("Hello from a corner qid {} cid {} is_remote? {} level_diff {} filled {} is_Phys? {}", 
+                iq, c, ghost_layer[iq].corners[c].data.is_remote, static_cast<int>(ghost_layer[iq].corners[c].level_diff), corner.filled, 
+                corner.kind==PHYS);
+            
             if( !corner.filled) continue ;  
             if (corner.kind == interface_kind_t::PHYS) {
                 phys_bc_kernels[amr::element_kind_t::CORNER].emplace_back(iq,c) ; 
@@ -438,6 +446,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
                 if ( !corner.data.is_remote ) {
                     copy_kernels[amr::element_kind_t::CORNER].emplace_back(iq,c) ; 
                 } else {
+                    GRACE_TRACE("Corner for rank {}", corner.data.owner_rank) ; 
                     append_keys(sec_t::CORNER, sec_t::CORNER, 
                             rank, corner.data.owner_rank, 
                             iq,corner.data.quad_id, 
@@ -451,10 +460,10 @@ void amr_ghosts_impl_t::build_remote_buffers(
         }
     } /* for iq .. nquads */
 
-    auto const dedup = [&] (std::vector<gpu_task_desc_t>& v) {
-        std::sort(v.begin(),v.end()) ; 
-        auto last = std::unique(v.begin(),v.end()) ; 
-        v.erase(last,v.end()) ; 
+    auto const dedup = [&] (std::vector<gpu_task_desc_t>& vec) {
+        if (vec.empty()) return ; 
+        std::set<gpu_task_desc_t> s( vec.begin(), vec.end() );
+        vec.assign( s.begin(), s.end() );
     } ; 
     for( int ip=0; ip<nproc; ++ip ) {
         dedup(pack_kernels[ip][FACE]) ; 
@@ -523,7 +532,8 @@ void amr_ghosts_impl_t::build_remote_buffers(
             cur_recv += recv_sizes[ik][r];
         }
     }
-
+    ASSERT(send_rank_sizes.size() == nproc, "Mismatched size." ) ;
+    ASSERT(recv_rank_sizes.size() == nproc, "Mismatched size." ) ;
     std::array<std::string,6> labels {
         "faces", "edges", "corners",
         "cbuf_faces", "cbuf_edges", "cbuf_corners"
