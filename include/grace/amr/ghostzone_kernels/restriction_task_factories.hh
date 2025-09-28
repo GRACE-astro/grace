@@ -210,30 +210,20 @@ void make_gpu_restrict_gz_task(
     auto get_info = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t, size_t, uint8_t > {
         if constexpr (elem_kind == FACE) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
-            if ( face.level_diff == level_diff_t::FINER ) {
-                for( int ic=0; ic<P4EST_CHILDREN/2; ++ic) 
-                    insert_dependency(face.data.hanging.task_id[ic]) ; 
-            } else {
-                insert_dependency(face.data.full.task_id) ; 
-            }
-             
+            ASSERT(face.level_diff != FINER, "In gz-restrict, FINER interfaces are forbidden by 2:1 balance.") ; 
+            insert_dependency(face.data.full.task_id) ; 
             return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d) } ; 
         } else if constexpr (elem_kind == EDGE) {
             auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             ASSERT(edge.filled, "Edge passed to restrict_gz is virtual.") ; 
-            if ( edge.level_diff == FINER) {
-                for( int ic=0; ic<2; ++ic)
-                    insert_dependency(edge.data.hanging.task_id[ic]) ; 
-            } else {
-                insert_dependency(edge.data.full.task_id) ;
-            } 
-            
+            ASSERT(edge.level_diff != FINER, "In gz-restrict, FINER interfaces are forbidden by 2:1 balance.") ; 
+            insert_dependency(edge.data.full.task_id) ;
             return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d) } ;
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             ASSERT(corner.filled, "Corner passed to restrict_gz is virtual.") ; 
+            ASSERT(corner.level_diff != FINER, "In gz-restrict, FINER interfaces are forbidden by 2:1 balance.") ; 
             insert_dependency(corner.data.task_id) ; 
-            
             return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d) } ;
         }
     } ; 
@@ -289,7 +279,20 @@ void make_gpu_restrict_gz_task(
         )
     ) ; 
 }
-
+/**
+ * @brief Insert ghostzone restriction tasks in the task list.
+ * 
+ * @param cbuf_qid Quad-id to cbuf-id lookup table.
+ * @param ghost_array Array of neighbor descriptors.
+ * @param state State view.
+ * @param coarse_buffers Coarse buffer view.
+ * @param stream Device stream.
+ * @param nx Number of cells per block.
+ * @param ngz Number of ghost-zones.
+ * @param nv Number of variables.
+ * @param task_counter Current task counter.
+ * @param task_list Task list.
+ */
 void insert_ghost_restriction_tasks(
     std::unordered_set<size_t> const& cbuf_qid,
     std::vector<quad_neighbors_descriptor_t>& ghost_array,

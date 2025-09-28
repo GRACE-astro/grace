@@ -86,20 +86,24 @@ struct restrict_op {
 
 template<element_kind_t elem_kind>
 struct ghost_restrict_tag_t {} ; 
-using ghost_restrict_face_tag = ghost_restrict_tag_t<FACE> ; 
-using ghost_restrict_edge_tag = ghost_restrict_tag_t<EDGE> ; 
+using ghost_restrict_face_tag   = ghost_restrict_tag_t<FACE>   ; 
+using ghost_restrict_edge_tag   = ghost_restrict_tag_t<EDGE>   ; 
 using ghost_restrict_corner_tag = ghost_restrict_tag_t<CORNER> ; 
 
-
+/**
+ * @brief Restrict inside ghostzones.
+ * 
+ * @tparam view_t Type of data array.
+ */
 template<  typename view_t > 
 struct ghost_restrict_op {
 
-    view_t data, cbuf ; 
-    readonly_view_t<size_t> qid, cbuf_id ; 
-    readonly_view_t<uint8_t> elem_id ; 
+    view_t data, cbuf ; //!< Data and coarse buffer arrays.
+    readonly_view_t<size_t> qid, cbuf_id ; //!< Data and coarse buffer quad-ids 
+    readonly_view_t<uint8_t> elem_id ; //!< Element ids
 
-    prolong_index_transformer_t transf ;  
-
+    prolong_index_transformer_t transf ;  //!< Index transformations
+    
     ghost_restrict_op(
         view_t _data, view_t _cbuf,
         Kokkos::View<size_t*> _qid, 
@@ -117,7 +121,7 @@ struct ghost_restrict_op {
     void set_data_ptr(view_alias_t alias) {
         data = alias.get() ; 
     }
-    // runs to ng/2 n/2 
+    // runs to n/2 n/2 
     KOKKOS_INLINE_FUNCTION
     void operator() (ghost_restrict_face_tag,  size_t j, size_t k, size_t iv, size_t iq) const 
     {
@@ -125,7 +129,7 @@ struct ghost_restrict_op {
         auto c_id = cbuf_id(iq) ; 
 
         auto e_id = elem_id(iq) ;
-        // only ngz/2
+        // loop in the ghostzones, only ngz/2
         for( int i=0; i<transf.g/2; ++i) {
             size_t i_c, j_c, k_c ; 
             transf.compute_indices<FACE>(

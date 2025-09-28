@@ -183,6 +183,13 @@ struct copy_to_cbuf_op {
 } ; 
 
 // this is a copy operation cbuf -> normal view
+/**
+ * @brief Copy data from a coarse buffer into the ghostzones of a coarse quadrant.
+ * @ingroup amr 
+ * @tparam elem_kind Element kind.
+ * @tparam view_t Type of normal view.
+ * @tparam cbuf_t Type of coarse buffer.
+ */
 template< 
     element_kind_t elem_kind,
     typename view_t,
@@ -190,18 +197,23 @@ template<
 >
 struct copy_from_cbuf_op {
 
-    view_t view ; 
-    cbuf_t cbuf ; 
+    view_t view ; //!< Data view.
+    cbuf_t cbuf ; //!< Coarse buffers view.
     
+    //! View and coarse buffers quad-id.
     readonly_view_t<std::size_t> view_qid
                                , cbuf_qid ; 
-    
+    //! Element-id in view and coarse buffers, child index in the view.
     readonly_view_t<uint8_t> elem_view
                            , cbuf_elem_view
                            , view_ic; 
-
+    //! Index transformer.
     index_transformer_t transf ; 
-
+    /**
+     * @brief Set the data ptr 
+     * 
+     * @param alias The alias that needs to be swapped to.
+     */
     void set_data_ptr (view_alias_t alias ) {
         view = alias.get() ; 
     }

@@ -15,7 +15,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include <numeric>
 #include <fstream>
-
+#include <string>
 #define DBG_GHOSTZONE_TEST 
 
 inline double fill_func(std::array<double,GRACE_NSPACEDIM> const& c)
@@ -91,6 +91,24 @@ static inline bool is_ghostzone(VEC(int i, int j, int k), VEC(int nx, int ny, in
     return (EXPR((i<ngz) + (i>nx+ngz-1), + (j<ngz) + (j>ny+ngz-1), + (k<ngz) + (k>nz+ngz-1))) > 0 ; 
 }
 
+static inline std::string 
+elem_kind(size_t i, size_t j, size_t k, size_t n, size_t g)
+{
+    if ( ! is_ghostzone(i,j,k,n,n,n,g) ) {
+        return "interior" ; 
+    }
+
+    int nn = (EXPR((i<g) + (i>n+g-1), + (j<g) + (j>n+g-1), + (k<g) + (k>n+g-1))) ; 
+    if ( nn == 3 ) {
+        return "corner" ;
+    } else if ( nn == 2 ) {
+        return "edge" ; 
+    } else {
+        return "face" ;
+    }
+    
+}
+
 template< typename view_t >
 static void setup_initial_data(
     view_t host_data 
@@ -152,6 +170,10 @@ static void check_ghostzones(
             ) and
             #endif  
             ! is_affected_by_boundary(VEC(i,j,k),q,2,VEC(0.5,0.5,0.5))){
+                if ( std::isnan(host_data(VEC(i,j,k),0,q)) ) {
+                    auto quad = grace::amr::get_quadrant(0, q).get() ; 
+                    GRACE_TRACE("NaN at {}, level {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level)) ;                     
+                }
                 CHECK_THAT(
                 host_data(VEC(i,j,k),0,q),
                 Catch::Matchers::WithinAbs(ground_truth(VEC(i,j,k),0,q),

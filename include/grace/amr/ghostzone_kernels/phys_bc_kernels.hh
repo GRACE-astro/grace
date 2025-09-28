@@ -136,12 +136,11 @@ struct phys_bc_op {
             lmax = lmin + ngz;
         } else if constexpr ((elem_kind == element_kind_t::EDGE) && (bc_kind == element_kind_t::FACE)) { 
             // supercalifragilistichespiralidoso 
-            
             if(eid/4 == dir_idx) { 
-                // along-edge → full sweep
+                // along-edge -> full sweep
                 lmin = ngz; lmax = n + ngz; idir = +1;
             } else {
-                // perpendicular → ghost only
+                // perpendicular -> ghost only
                 if(eid < 4) {          // X-axis edges
                     lmin = ((eid>>((dir_idx+1)%2))&1) ? n + ngz : 0;
                 } else if(eid < 8) {   // Y-axis edges
@@ -150,7 +149,7 @@ struct phys_bc_op {
                     lmin = ((eid>>dir_idx)&1) ? n + ngz : 0;
                 }
                 lmax = lmin + ngz;
-            }       
+            }
 
         } else {
             lmin = ngz; lmax = n + ngz ;
@@ -199,9 +198,9 @@ struct phys_bc_op {
 
         
         // loop not unrollable 
-        for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0])
+        for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2])
         for (int jg = lmin[1]; jg != lmax[1]; jg += idir[1])
-        for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2]) {
+        for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0]) {
             switch (_bc_kind) {
                 case BC_OUTFLOW:
                     outflow_kernel.template apply<decltype(sv)>(
