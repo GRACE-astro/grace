@@ -108,7 +108,7 @@ make_gpu_phys_bc_task(
     task._run = [functor, policy] (view_alias_t alias) mutable {
         functor.set_data_ptr(alias) ; 
         GRACE_TRACE("Fill phys start") ; 
-        //Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
+        Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
         #endif 
