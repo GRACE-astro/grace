@@ -404,7 +404,6 @@ void amr_ghosts_impl_t::build_remote_buffers(
         // corner loop 
         for( uint8_t c=0; c<P4EST_CHILDREN; ++c) {
             auto& corner = ghost_layer[iq].corners[c] ;
-            
             if( !corner.filled) continue ;  
             if (corner.kind == interface_kind_t::PHYS) {
                 phys_bc_kernels[amr::element_kind_t::CORNER].emplace_back(iq,c) ; 

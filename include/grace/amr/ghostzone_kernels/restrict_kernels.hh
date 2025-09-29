@@ -157,7 +157,7 @@ struct ghost_restrict_op {
         }
          
     }
-
+    #if 1
     // runs to ng/2 n/2 
     KOKKOS_INLINE_FUNCTION
     void operator() (ghost_restrict_edge_tag, size_t k, size_t iv, size_t iq) const 
@@ -169,7 +169,6 @@ struct ghost_restrict_op {
 
         int s[3] ; 
         transf.get_stencil<EDGE>(s, e_id) ; 
-        
         // only ngz/2
         for( int j=0; j<transf.g/2; ++j) 
         for( int i=0; i<transf.g/2; ++i) {
@@ -195,7 +194,7 @@ struct ghost_restrict_op {
         }
          
     }
-
+    #endif 
     // runs to ng/2 n/2 
     KOKKOS_INLINE_FUNCTION
     void operator() (ghost_restrict_corner_tag, size_t iv, size_t iq) const 
@@ -207,7 +206,7 @@ struct ghost_restrict_op {
 
         int s[3] ; 
         transf.get_stencil<CORNER>(s, e_id) ; 
-
+        
         // only ngz/2
         for( int k=0; k<transf.g/2; ++k) 
         for( int j=0; j<transf.g/2; ++j) 

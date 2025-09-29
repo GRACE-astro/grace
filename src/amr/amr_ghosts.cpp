@@ -122,8 +122,7 @@ void amr_ghosts_impl_t::update() {
                   #endif 
                   &grace_iterate_corners );             /*corner*/
     parallel::mpi_barrier() ; // FIXME 
-    auto& edge = ghost_layer[18].edges[2] ; 
-    GRACE_TRACE("Edge, is_phys {} level_diff {}", edge.kind==interface_kind_t::PHYS, static_cast<int>(edge.level_diff));
+
     std::unordered_set<size_t> cbuf_qid ; 
     //build_flux_buffers()     ;
     build_coarse_buffers(cbuf_qid)   ; 
@@ -340,6 +339,7 @@ void amr_ghosts_impl_t::build_task_list(
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
+    #if 1
     GRACE_TRACE("Inserting phys-bc tasks.") ; 
     GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 
     auto const deferred_phys_bc_kernels = 
@@ -349,8 +349,6 @@ void amr_ghosts_impl_t::build_task_list(
                 phys_bc_stream, VEC(nx,ny,nz),ngz,nvars,
                 task_counter,task_list
         ) ;
-    auto & edge = ghost_layer[2].edges[1] ; 
-    GRACE_TRACE("Here we are, {} in_cbuf? {}", static_cast<int>(edge.kind), edge.data.phys.in_cbuf ) ; 
     /***********************************************************************/
     /***********************************************************************/
     GRACE_TRACE("Inserting prolongation tasks.") ; 
@@ -362,12 +360,14 @@ void amr_ghosts_impl_t::build_task_list(
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
+    #if 1
     GRACE_TRACE("Inserting deferred phys-bc tasks.") ; 
     insert_deferred_phys_bc_tasks(
         deferred_phys_bc_kernels, ghost_layer,
         state, _coarse_buffers, var_bc_kind, phys_bc_stream,
         VEC(nx,ny,nz),ngz,nvars, task_counter, task_list
     ); 
+    #endif 
     /***********************************************************************/
     /***********************************************************************/
 }

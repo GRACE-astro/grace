@@ -16,6 +16,10 @@
 #include <numeric>
 #include <fstream>
 #include <string>
+#include <string>
+#include <utility>
+#include <stdexcept>
+
 #define DBG_GHOSTZONE_TEST 
 
 inline double fill_func(std::array<double,GRACE_NSPACEDIM> const& c)
@@ -103,8 +107,10 @@ elem_kind(size_t i, size_t j, size_t k, size_t n, size_t g)
         return "corner" ;
     } else if ( nn == 2 ) {
         return "edge" ; 
-    } else {
+    } else if (nn==1) {
         return "face" ;
+    } else {
+        return "interior" ; 
     }
     
 }
@@ -150,9 +156,37 @@ static void invalidate_ghostzones(
     Kokkos::deep_copy(device_data, host_data) ; 
 }
 
+
+
+
+static void collect_info(
+    std::vector<grace::quad_neighbors_descriptor_t> const& ghost_array
+)
+{
+    size_t nx,ny,nz; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    size_t nq = grace::amr::get_local_num_quadrants() ; 
+    size_t ngz = static_cast<size_t>(grace::amr::get_n_ghosts()) ; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ;
+    // collect some info 
+    for( int q=0; q<nq; ++q){
+        for( int e=0; e<12; ++e) {
+            auto& edge = ghost_array[q].edges[e];
+            if (!edge.filled) GRACE_TRACE("Virtual edge {} {}", q, e) ; 
+            if (edge.level_diff == grace::FINER) GRACE_TRACE("Coarse edge {} {}", q, e) ; 
+        }
+        for( int c=0; c<P4EST_CHILDREN; ++c) {
+            auto& corner = ghost_array[q].corners[c];
+            if (!corner.filled) GRACE_TRACE("Virtual corner {} {}", q, c) ; 
+            if (corner.level_diff == grace::FINER) GRACE_TRACE("Coarse corner {} {}", q, c) ;
+        }     
+    }
+
+}
+
 template< typename view_t > 
 static void check_ghostzones(
-    view_t host_data, view_t ground_truth 
+    view_t host_data, view_t ground_truth
 ) 
 {
     size_t nx,ny,nz; 
@@ -167,17 +201,23 @@ static void check_ghostzones(
             #if 1
                 ! is_corner_ghostzone(
                 VEC(i,j,k), VEC(nx,ny,nz), ngz
-            ) and
+            ) 
+            and 
+            ! is_edge_ghostzone(
+                VEC(i,j,k), VEC(nx,ny,nz), ngz
+            ) 
+            and
             #endif  
             ! is_affected_by_boundary(VEC(i,j,k),q,2,VEC(0.5,0.5,0.5))){
-                if ( std::isnan(host_data(VEC(i,j,k),0,q)) ) {
+                if ( std::isnan(host_data(VEC(i,j,k),0,q)) or (fabs(host_data(VEC(i,j,k),0,q)-ground_truth(VEC(i,j,k),0,q))>1e-14)) {
                     auto quad = grace::amr::get_quadrant(0, q).get() ; 
-                    GRACE_TRACE("NaN at {}, level {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level)) ;                     
+                    GRACE_TRACE("NaN at {}, level {} ijk {},{},{}, q {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level),i,j,k,q) ;
                 }
+                
                 CHECK_THAT(
                 host_data(VEC(i,j,k),0,q),
                 Catch::Matchers::WithinAbs(ground_truth(VEC(i,j,k),0,q),
-                    1e-12 ) ) ; 
+                    1e-14 ) ) ; 
             }
             
         }, {VEC(false,false,false)}, true 
@@ -213,13 +253,11 @@ TEST_CASE("Apply BC", "[boundaries]")
         setup_initial_data(state_mirror) ; 
         Kokkos::deep_copy(state, state_mirror) ; 
     }
-    
+    collect_info(ghost.get_ghost_layer()) ; 
     invalidate_ghostzones(state) ; 
     view_alias_t alias{&state} ;
     runtime.run(alias) ; 
     auto state_mirror_2 = Kokkos::create_mirror_view(state) ; 
     Kokkos::deep_copy(state_mirror_2, state) ; 
     check_ghostzones(state_mirror_2, state_mirror) ; 
-    
-
 }

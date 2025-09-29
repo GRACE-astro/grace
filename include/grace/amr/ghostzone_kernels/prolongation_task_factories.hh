@@ -206,9 +206,9 @@ void insert_prolongation_tasks(
                 auto& edge = ghost_array[std::get<0>(d)].edges[eid] ;
                 if ( !edge.filled ) continue ; 
                 if ( edge.kind == interface_kind_t::PHYS ) {
-                    insert_dep(FACE, edge.data.phys.task_id) ;
+                    insert_dep(CORNER, edge.data.phys.task_id) ;
                 } else {
-                    insert_dep(FACE, edge.data.full.task_id) ;
+                    insert_dep(CORNER, edge.data.full.task_id) ;
                 } 
             }
         }

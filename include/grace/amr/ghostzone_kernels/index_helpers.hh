@@ -406,25 +406,23 @@ void _compute_ghost_indices_edge_invert(
         // X-axis edges
         int y_off = (edge >> 0) & 1;
         int z_off = (edge >> 1) & 1;
-        i_out = g + k;                      // varies
+        i_out = g + k;                              // varies
         j_out = y_off ? n + g + ig : g - ig - 1 ;   // fixed
         k_out = z_off ? n + g + jg : g - jg - 1 ;   // fixed
-    }
-    else if (edge < 8) {
+    } else if (edge < 8) {
         // Y-axis edges
         int x_off = (edge >> 0) & 1;
         int z_off = (edge >> 1) & 1;
         i_out = x_off ? n + g + ig : g - ig - 1 ;   // fixed
-        j_out = g + k;                      // varies
+        j_out = g + k;                              // varies
         k_out = z_off ? n + g + jg : g - jg - 1 ;   // fixed
-    }
-    else {
+    } else {
         // Z-axis edges
         int x_off = (edge >> 0) & 1;
         int y_off = (edge >> 1) & 1;
         i_out = x_off ? n + g + ig : g - ig - 1 ;   // fixed
         j_out = y_off ? n + g + jg : g - jg - 1 ;   // fixed
-        k_out = g + k;                      // varies
+        k_out = g + k;                              // varies
     }
 }
 
@@ -680,14 +678,14 @@ inline constexpr std::array<std::array<uint8_t,2>,12> e2c =
 
 inline constexpr std::array<std::array<uint8_t,3>,P4EST_CHILDREN> c2e = 
 {{
-    {{0,4,8}},
-    {{1,5,9}},
-    {{1,4,10}},
-    {{5,1,11}},
-    {{2,6,8}},
-    {{2,7,9}},
-    {{3,6,10}},
-    {{3,7,11}}
+    {{0,4,8}},  //0
+    {{1,5,9}},  //1
+    {{1,4,10}}, //2
+    {{5,1,11}}, //3
+    {{2,6,8}},  //4 
+    {{2,7,9}},  //5
+    {{3,6,10}}, //6
+    {{3,7,11}}  //7
 } } ;
 
 } /*namespace detail*/

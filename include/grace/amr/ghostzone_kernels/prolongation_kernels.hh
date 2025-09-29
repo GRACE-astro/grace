@@ -74,7 +74,9 @@ struct prolong_op {
         auto qid = view_qid(iq) ; 
         auto cid = cbuf_qid(iq) ; 
         auto e_id = eid(iq) ; 
- 
+        
+        
+
         // transform
         size_t i_c,j_c,k_c ; 
         transf.compute_indices<elem_kind>(
@@ -90,7 +92,6 @@ struct prolong_op {
         transf.get_signs<elem_kind>(
             i,j,k, signs, e_id 
         ) ; 
-
 
         view(VEC(i_f,j_f,k_f),iv,qid) = interpolator::interpolate(
                                             VEC(i_c,j_c,k_c),
