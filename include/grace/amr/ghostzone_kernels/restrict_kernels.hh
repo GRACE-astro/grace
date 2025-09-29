@@ -70,13 +70,13 @@ struct restrict_op {
         auto dst_qid = dest_q(iq) ; 
 
         dest_view(i+ngz,j+ngz,k+ngz,iv,dst_qid) = 0.125 * (
-            src_view(2*i+ngz,2*j+ngz,2*k+ngz,iv,src_qid) + 
-            src_view(2*i+ngz+1,2*j+ngz,2*k+ngz,iv,src_qid) + 
-            src_view(2*i+ngz,2*j+ngz+1,2*k+ngz,iv,src_qid) + 
-            src_view(2*i+ngz,2*j+ngz,2*k+ngz+1,iv,src_qid) + 
-            src_view(2*i+ngz+1,2*j+ngz+1,2*k+ngz,iv,src_qid) +
-            src_view(2*i+ngz+1,2*j+ngz,2*k+ngz+1,iv,src_qid) +  
-            src_view(2*i+ngz,2*j+ngz+1,2*k+ngz+1,iv,src_qid) +
+            src_view(2*i+ngz  ,2*j+ngz  ,2*k+ngz  ,iv,src_qid) + 
+            src_view(2*i+ngz+1,2*j+ngz  ,2*k+ngz  ,iv,src_qid) + 
+            src_view(2*i+ngz  ,2*j+ngz+1,2*k+ngz  ,iv,src_qid) + 
+            src_view(2*i+ngz  ,2*j+ngz  ,2*k+ngz+1,iv,src_qid) + 
+            src_view(2*i+ngz+1,2*j+ngz+1,2*k+ngz  ,iv,src_qid) +
+            src_view(2*i+ngz+1,2*j+ngz  ,2*k+ngz+1,iv,src_qid) +  
+            src_view(2*i+ngz  ,2*j+ngz+1,2*k+ngz+1,iv,src_qid) +
             src_view(2*i+ngz+1,2*j+ngz+1,2*k+ngz+1,iv,src_qid)  
         ) ; 
     }
