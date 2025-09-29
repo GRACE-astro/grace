@@ -129,6 +129,10 @@ struct ghost_restrict_op {
         auto c_id = cbuf_id(iq) ; 
 
         auto e_id = elem_id(iq) ;
+
+        int s[3] ; 
+        transf.get_stencil<FACE>(s, e_id) ; 
+
         // loop in the ghostzones, only ngz/2
         for( int i=0; i<transf.g/2; ++i) {
             size_t i_c, j_c, k_c ; 
@@ -141,15 +145,15 @@ struct ghost_restrict_op {
             ) ; 
 
             cbuf(i_c,j_c,k_c,iv,c_id) = 0.125 * (
-                data(i_f,j_f,k_f,iv,q_id) +
-                data(i_f+1,j_f,k_f,iv,q_id) +
-                data(i_f,j_f+1,k_f,iv,q_id) +
-                data(i_f,j_f,k_f+1,iv,q_id) +
-                data(i_f+1,j_f+1,k_f,iv,q_id) +
-                data(i_f+1,j_f,k_f+1,iv,q_id) +
-                data(i_f,j_f+1,k_f+1,iv,q_id) +
-                data(i_f+1,j_f+1,k_f+1,iv,q_id) 
-            ) ; 
+                data(i_f     ,j_f     ,k_f     ,iv,q_id) +
+                data(i_f+s[0],j_f     ,k_f     ,iv,q_id) +
+                data(i_f     ,j_f+s[1],k_f     ,iv,q_id) +
+                data(i_f     ,j_f     ,k_f+s[2],iv,q_id) +
+                data(i_f+s[0],j_f+s[1],k_f     ,iv,q_id) +
+                data(i_f+s[0],j_f     ,k_f+s[2],iv,q_id) +
+                data(i_f     ,j_f+s[1],k_f+s[2],iv,q_id) +
+                data(i_f+s[0],j_f+s[1],k_f+s[2],iv,q_id) 
+            ) ;  
         }
          
     }
@@ -162,6 +166,9 @@ struct ghost_restrict_op {
         auto c_id = cbuf_id(iq) ; 
 
         auto e_id = elem_id(iq) ;
+
+        int s[3] ; 
+        transf.get_stencil<EDGE>(s, e_id) ; 
         
         // only ngz/2
         for( int j=0; j<transf.g/2; ++j) 
@@ -176,15 +183,15 @@ struct ghost_restrict_op {
             ) ; 
 
             cbuf(i_c,j_c,k_c,iv,c_id) = 0.125 * (
-                data(i_f,j_f,k_f,iv,q_id) +
-                data(i_f+1,j_f,k_f,iv,q_id) +
-                data(i_f,j_f+1,k_f,iv,q_id) +
-                data(i_f,j_f,k_f+1,iv,q_id) +
-                data(i_f+1,j_f+1,k_f,iv,q_id) +
-                data(i_f+1,j_f,k_f+1,iv,q_id) +
-                data(i_f,j_f+1,k_f+1,iv,q_id) +
-                data(i_f+1,j_f+1,k_f+1,iv,q_id) 
-            ) ; 
+                data(i_f     ,j_f     ,k_f     ,iv,q_id) +
+                data(i_f+s[0],j_f     ,k_f     ,iv,q_id) +
+                data(i_f     ,j_f+s[1],k_f     ,iv,q_id) +
+                data(i_f     ,j_f     ,k_f+s[2],iv,q_id) +
+                data(i_f+s[0],j_f+s[1],k_f     ,iv,q_id) +
+                data(i_f+s[0],j_f     ,k_f+s[2],iv,q_id) +
+                data(i_f     ,j_f+s[1],k_f+s[2],iv,q_id) +
+                data(i_f+s[0],j_f+s[1],k_f+s[2],iv,q_id) 
+            ) ;  
         }
          
     }
@@ -197,6 +204,9 @@ struct ghost_restrict_op {
         auto c_id = cbuf_id(iq) ; 
 
         auto e_id = elem_id(iq) ;
+
+        int s[3] ; 
+        transf.get_stencil<CORNER>(s, e_id) ; 
 
         // only ngz/2
         for( int k=0; k<transf.g/2; ++k) 
@@ -212,14 +222,14 @@ struct ghost_restrict_op {
             ) ; 
 
             cbuf(i_c,j_c,k_c,iv,c_id) = 0.125 * (
-                data(i_f,j_f,k_f,iv,q_id) +
-                data(i_f+1,j_f,k_f,iv,q_id) +
-                data(i_f,j_f+1,k_f,iv,q_id) +
-                data(i_f,j_f,k_f+1,iv,q_id) +
-                data(i_f+1,j_f+1,k_f,iv,q_id) +
-                data(i_f+1,j_f,k_f+1,iv,q_id) +
-                data(i_f,j_f+1,k_f+1,iv,q_id) +
-                data(i_f+1,j_f+1,k_f+1,iv,q_id) 
+                data(i_f     ,j_f     ,k_f     ,iv,q_id) +
+                data(i_f+s[0],j_f     ,k_f     ,iv,q_id) +
+                data(i_f     ,j_f+s[1],k_f     ,iv,q_id) +
+                data(i_f     ,j_f     ,k_f+s[2],iv,q_id) +
+                data(i_f+s[0],j_f+s[1],k_f     ,iv,q_id) +
+                data(i_f+s[0],j_f     ,k_f+s[2],iv,q_id) +
+                data(i_f     ,j_f+s[1],k_f+s[2],iv,q_id) +
+                data(i_f+s[0],j_f+s[1],k_f+s[2],iv,q_id) 
             ) ; 
         }
          

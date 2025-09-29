@@ -281,6 +281,26 @@ void _get_signs_face(
         signs[2] *= side ? +1 : -1 ; 
     }
 }
+KOKKOS_INLINE_FUNCTION
+void _get_stencil_face(int stencil[3], int8_t face) {
+    const int axis = face / 2;
+    const int side = face % 2;
+
+    if (axis == 0) { 
+        // X-faces
+        stencil[0] = side ? +1 : -1 ; 
+        stencil[1] = stencil[2] = + 1; 
+    } else if (axis==1) {
+        // Y-faces
+        stencil[1] = side ? +1 : -1 ; 
+        stencil[0] = stencil[2] = + 1; 
+    } else {
+        // Z-faces
+        stencil[2] = side ? +1 : -1 ; 
+        stencil[0] = stencil[1] = + 1; 
+    }
+}
+
 
 KOKKOS_INLINE_FUNCTION 
 void _compute_ghost_indices_face_invert(
@@ -346,6 +366,32 @@ void _get_signs_edge(
         signs[1] *= y_off ? +1 : -1 ; 
     }
 }
+KOKKOS_INLINE_FUNCTION
+void _get_stencil_edge(int stencil[3], int8_t edge) {
+
+    if (edge < 4) {
+        // X-axis edges
+        int y_off = (edge >> 0) & 1;
+        int z_off = (edge >> 1) & 1;
+        stencil[0] = +1 ; 
+        stencil[1] = y_off ? +1 : -1 ; 
+        stencil[2] = z_off ? +1 : -1 ;
+    } else if (edge < 8) {
+        // Y-axis edges
+        int x_off = (edge >> 0) & 1;
+        int z_off = (edge >> 1) & 1;
+        stencil[0] = x_off ? +1 : -1 ; 
+        stencil[1] = +1 ; 
+        stencil[2] = z_off ? +1 : -1 ;
+    } else {
+        // Z-axis edges
+        int x_off = (edge >> 0) & 1;
+        int y_off = (edge >> 1) & 1;
+        stencil[0] = x_off ? +1 : -1 ; 
+        stencil[1] = y_off ? +1 : -1 ; 
+        stencil[2] = +1 ; 
+    }
+}
 
 KOKKOS_INLINE_FUNCTION 
 void _compute_ghost_indices_edge_invert(
@@ -399,6 +445,17 @@ void _get_signs_corner(
     signs[1] *= y_off ? +1 : -1 ; 
     signs[2] *= z_off ? +1 : -1 ; 
 }
+KOKKOS_INLINE_FUNCTION
+void _get_stencil_corner(int stencil[3], int8_t corner) {
+
+    int x_off = (corner) & 1 ; 
+    int y_off = (corner >> 1) & 1 ; 
+    int z_off = (corner >> 2) & 1 ; 
+
+    stencil[0] = x_off ? +1 : -1 ; 
+    stencil[1] = y_off ? +1 : -1 ; 
+    stencil[2] = z_off ? +1 : -1 ; 
+}
 
 KOKKOS_INLINE_FUNCTION 
 void _compute_ghost_indices_corner_invert(
@@ -451,6 +508,19 @@ struct prolong_index_transformer_t {
             _get_signs_edge(ig,j,k,ielem,signs) ; 
         } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
             _get_signs_corner(ig,j,k,ielem,signs) ; 
+        }
+    }
+
+    template< element_kind_t elem_kind >
+    KOKKOS_INLINE_FUNCTION
+    void get_stencil( int stencil[3], int8_t ielem ) const 
+    {   
+        if constexpr ( elem_kind == element_kind_t::FACE ) {
+            _get_stencil_face(stencil,ielem) ; 
+        } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
+            _get_stencil_edge(stencil,ielem) ; 
+        } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
+            _get_stencil_corner(stencil,ielem) ; 
         }
     }
 } ; 
@@ -563,7 +633,7 @@ struct view_to_cbuf_offsets<element_kind_t::EDGE> {
         size_t nx, size_t ngz, uint8_t ichild )  
     {
         j = 0 ; 
-        k = (nx / 2-ngz) * ( (ichild>>0) & 1 ) ;
+        k = (nx / 2 - ngz) * ( (ichild>>0) & 1 ) ;
         j_c = 0 ; 
         k_c = (- ngz)* ( (ichild>>0) & 1 ) ;  
     }

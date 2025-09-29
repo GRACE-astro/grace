@@ -40,12 +40,6 @@
 
 namespace grace { namespace amr {
 
-// here we need a special index transf 
-namespace detail {
-
-
-}
-
 
 template< typename interpolator, element_kind_t elem_kind, typename view_t > 
 struct prolong_op {
