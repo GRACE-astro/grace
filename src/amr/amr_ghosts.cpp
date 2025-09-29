@@ -339,7 +339,6 @@ void amr_ghosts_impl_t::build_task_list(
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
-    #if 1
     GRACE_TRACE("Inserting phys-bc tasks.") ; 
     GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 
     auto const deferred_phys_bc_kernels = 

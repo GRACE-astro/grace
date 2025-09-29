@@ -106,12 +106,15 @@ struct phys_bc_op {
     outflow_bc_t outflow_kernel ;
     extrap_bc_t<3> extrap_kernel ; 
 
+    bool is_cbuf ; //!< If the data is cbuf set_data_ptr **must** be no-op
+
     // only one view involved, if nx needs to be 
     // halved, just do it here 
     size_t n, ngz ; 
 
     void set_data_ptr(view_alias_t alias) {
-        data = alias.get() ; 
+        if ( ! is_cbuf )
+            data = alias.get() ; 
     }
 
 
@@ -119,9 +122,9 @@ struct phys_bc_op {
         view_t _data ,
         Kokkos::View<size_t*> _qid, Kokkos::View<uint8_t*> _eid, 
         Kokkos::View<int8_t*[3]> _dir, Kokkos::View<bc_t*> _var_bcs, 
-         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz
+         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, bool _is_cbuf
     ) : qid(_qid),  eid(_eid), dir(_dir), var_bcs(_var_bcs), data(_data), 
-        n(_nx), ngz(_ngz)
+        n(_nx), ngz(_ngz), is_cbuf(_is_cbuf)
     {
         outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ;
     }

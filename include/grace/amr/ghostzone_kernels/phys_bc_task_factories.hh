@@ -73,7 +73,7 @@ make_gpu_phys_bc_task(
     task_id_t& task_counter,
     grace::var_array_t<GRACE_NSPACEDIM> data_array,
     size_t n, size_t nv, size_t ngz,
-    std::vector<std::unique_ptr<task_t>>& task_list 
+    std::vector<std::unique_ptr<task_t>>& task_list, bool is_cbuf=false
 )
 {
 
@@ -97,14 +97,14 @@ make_gpu_phys_bc_task(
     gpu_task_t task{} ;
 
     amr::phys_bc_op<elem_kind,bc_kind,decltype(data_array)> functor{
-       data_array, qid_d, eid_d, dir_d, var_bc, VEC(n,n,n),ngz  
+       data_array, qid_d, eid_d, dir_d, var_bc, VEC(n,n,n),ngz, is_cbuf
     } ; 
     
     Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>   
         policy{
             exec_space, {0,0}, {nv, qid_h.size()}
         } ;
-
+    
     task._run = [functor, policy] (view_alias_t alias) mutable {
         functor.set_data_ptr(alias) ; 
         GRACE_TRACE("Fill phys start") ; 
@@ -473,7 +473,7 @@ bucket_t insert_phys_bc_tasks(
             dir_cbuf[EDGE][FACE],
             dependencies_cbuf[EDGE][FACE],
             var_bc, stream, task_counter,
-            coarse_buffers,nx/2,nv,ngz,task_list
+            coarse_buffers,nx/2,nv,ngz,task_list,true
         ) ; 
         // write back tid 
         set_task_id(EDGE,qid_cbuf[EDGE][FACE],eid_cbuf[EDGE][FACE],tid) ;
@@ -486,7 +486,7 @@ bucket_t insert_phys_bc_tasks(
             dir_cbuf[CORNER][FACE],
             dependencies_cbuf[CORNER][FACE],
             var_bc, stream, task_counter,
-            coarse_buffers,nx/2,nv,ngz,task_list
+            coarse_buffers,nx/2,nv,ngz,task_list,true
         ) ; 
         // write back tid 
         set_task_id(CORNER,qid_cbuf[CORNER][FACE],eid_cbuf[CORNER][FACE],tid) ;
