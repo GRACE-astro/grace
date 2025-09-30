@@ -173,6 +173,7 @@ void insert_prolongation_tasks(
         amr::element_kind_t kind = static_cast<amr::element_kind_t>(_kind) ; 
 
         if (kind == FACE) {
+            insert_dep(FACE, ghost_array[std::get<0>(d)].faces[std::get<1>(d)].data.full.task_id) ; 
             for( auto eid: amr::detail::f2e[std::get<1>(d)] ) {
                 auto& edge = ghost_array[std::get<0>(d)].edges[eid] ;
                 if ( !edge.filled ) continue ; 
@@ -183,6 +184,7 @@ void insert_prolongation_tasks(
                 }   
             }
         } else if (kind == EDGE) {
+            insert_dep(EDGE, ghost_array[std::get<0>(d)].edges[std::get<1>(d)].data.full.task_id) ; 
             for( auto fid: amr::detail::e2f[std::get<1>(d)] ) {
                 auto& face = ghost_array[std::get<0>(d)].faces[fid] ;
                 if ( face.kind == interface_kind_t::PHYS ) {
@@ -202,6 +204,7 @@ void insert_prolongation_tasks(
                 
             }
         } else {
+            insert_dep(CORNER, ghost_array[std::get<0>(d)].corners[std::get<1>(d)].data.task_id) ; 
             for( auto eid: amr::detail::c2e[std::get<1>(d)] ) {
                 auto& edge = ghost_array[std::get<0>(d)].edges[eid] ;
                 if ( !edge.filled ) continue ; 

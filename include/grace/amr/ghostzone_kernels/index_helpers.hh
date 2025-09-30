@@ -611,7 +611,7 @@ struct view_to_cbuf_offsets<element_kind_t::FACE> {
     KOKKOS_INLINE_FUNCTION 
     static void get(
         size_t& j, size_t& k,
-        size_t& j_c, size_t& k_c,
+        int& j_c, int& k_c,
         size_t nx, size_t ngz, uint8_t ichild )  
     {
         j = (nx / 2 - ngz)* ( (ichild>>0) & 1 ) ; 
@@ -627,7 +627,7 @@ struct view_to_cbuf_offsets<element_kind_t::EDGE> {
     KOKKOS_INLINE_FUNCTION 
     static void get(
         size_t& j, size_t& k,
-        size_t& j_c, size_t& k_c,
+        int& j_c, int& k_c,
         size_t nx, size_t ngz, uint8_t ichild )  
     {
         j = 0 ; 
@@ -643,7 +643,7 @@ struct view_to_cbuf_offsets<element_kind_t::CORNER> {
     KOKKOS_INLINE_FUNCTION 
     static void get(
         size_t& j, size_t& k,
-        size_t& j_c, size_t& k_c,
+        int& j_c, int& k_c,
         size_t nx, size_t ngz, uint8_t ichild )  
     {
         j = 0 ; j_c = 0 ; 

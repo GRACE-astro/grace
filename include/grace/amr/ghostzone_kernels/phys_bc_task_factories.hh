@@ -244,7 +244,7 @@ inline bool unpack_dependencies(
             
             if ( face.level_diff == FINER ) {
                 // fixme check this 
-                auto [c0,c1] = get_cids_edge_face(face_idx, edge.data.phys.dir) ; 
+                auto [c0,c1] = get_cids_edge_face(face_idx, edge.data.phys.dir) ;                 
                 insert_dependencies(EDGE,FACE,face.data.hanging.task_id[c0], is_cbuf) ; 
                 insert_dependencies(EDGE,FACE,face.data.hanging.task_id[c1], is_cbuf) ; 
             } else { 

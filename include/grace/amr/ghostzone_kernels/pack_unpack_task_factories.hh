@@ -59,6 +59,8 @@
 #ifndef GRACE_AMR_GHOSTZONE_PUP_KERNELS_TASK_FACTORY_HH
 #define GRACE_AMR_GHOSTZONE_PUP_KERNELS_TASK_FACTORY_HH
 
+
+
 namespace grace {
 /**
  * @brief Create a task that packs data into send buffers.
@@ -91,7 +93,7 @@ gpu_task_t make_pack_task(
     , std::vector<std::unique_ptr<task_t>>& task_list 
 )
 {
-    GRACE_TRACE("Recoring pack task, # of elements {}, send_task_id {}", sb.size(), send_task_id[rank]) ; 
+    GRACE_TRACE("Recording pack task (tid {}), # of elements {}, send_task_id {}", task_counter, sb.size(), send_task_id[rank]) ; 
     // construct pack task
     Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
     Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
@@ -187,7 +189,7 @@ gpu_task_t make_pack_to_cbuf_task(
     , std::vector<std::unique_ptr<task_t>>& task_list 
 )
 {
-    GRACE_TRACE("Recoring pack-to-cbuf task, # of elements {}", sb.size()) ; 
+    GRACE_TRACE("Recording pack-to-cbuf task (tid {}), # of elements {}", task_counter, sb.size()) ; 
     // construct pack task
     Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
     Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
@@ -235,7 +237,7 @@ gpu_task_t make_pack_to_cbuf_task(
     } ; 
     
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
-        pack_functor.set_data_ptr(alias) ; 
+        // don't change data ptr here!! 
         GRACE_TRACE("Pack start.") ; 
         Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
         // TODO remove 
@@ -285,7 +287,7 @@ gpu_task_t make_unpack_task(
     , std::vector<std::unique_ptr<task_t>>& task_list 
 )
 {
-    GRACE_TRACE("Recoring unpack task, # of elements {}", rb.size()) ; 
+    GRACE_TRACE("Recording unpack task (tid {}), # of elements {}", task_counter, rb.size()) ; 
     // construct unpack task 
     Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
     Kokkos::View<size_t*> unpack_src_qid{"unpack_src_qid", rb.size()}
@@ -378,7 +380,7 @@ gpu_task_t make_unpack_to_cbuf_task(
     , std::vector<std::unique_ptr<task_t>>& task_list 
 )
 {
-    GRACE_TRACE("Recoring unpack-to-cbuf task, # of elements {}", rb.size()) ; 
+    GRACE_TRACE("Recording unpack-to-cbuf task (tid {}), # of elements {}", task_counter, rb.size()) ; 
     // construct unpack task 
     Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
     Kokkos::View<size_t*> cbuf_qid_d{"unpack_to_cbuf_cbuf_qid", rb.size()}
@@ -445,7 +447,7 @@ gpu_task_t make_unpack_to_cbuf_task(
     } ; 
     
     unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {
-        unpack_functor.set_data_ptr(alias) ; 
+        //don't change data ptr here! 
         GRACE_TRACE("Unpack start.") ; 
         Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
@@ -476,7 +478,7 @@ gpu_task_t make_unpack_from_cbuf_task(
     , std::vector<std::unique_ptr<task_t>>& task_list 
 )
 {
-    GRACE_TRACE("Recoring unpack-from-cbuf task, # of elements {}", rb.size()) ; 
+    GRACE_TRACE("Recording unpack-from-cbuf task (tid {}), # of elements {}", task_counter, rb.size()) ; 
     // construct unpack task 
     Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
     Kokkos::View<size_t*> view_qid_d{"unpack_from_cbuf_view_qid", rb.size()}
@@ -644,7 +646,7 @@ void insert_pup_tasks(
         std::make_unique<gpu_task_t>( \
             make_unpack_from_cbuf_task<kind>( \
                 unpack_from_cbuf_kernels[r][static_cast<size_t>(kind)], \
-                ghost_array, r, coarse_buffers, \
+                ghost_array, r, data, \
                 recv_buf, recv_task_id, pup_stream, \
                 VEC(nx,ny,nz), ngz, nv, \
                 task_counter, task_list \
@@ -659,9 +661,10 @@ void insert_pup_tasks(
     MAKE_UNPACK_TO_CBUF(r,kind);\
     MAKE_UNPACK_FROM_CBUF(r,kind)
 
-    GRACE_TRACE("Inserting pup tasks") ; 
+     
 
     for( int r=0; r<parallel::mpi_comm_size(); ++r) {
+        GRACE_TRACE("Inserting pup tasks, rank {}", r) ;
         MAKE_TASKS(r,amr::FACE);
         MAKE_TASKS(r,amr::EDGE);
         MAKE_TASKS(r,amr::CORNER);

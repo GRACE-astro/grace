@@ -170,15 +170,28 @@ static void collect_info(
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ;
     // collect some info 
     for( int q=0; q<nq; ++q){
+        for( int f=0; f<P4EST_FACES; ++f) {
+            auto& face = ghost_array[q].faces[f] ; 
+            if (face.level_diff == grace::FINER) GRACE_TRACE("Coarse face {} {}", q, f) ; 
+            if (face.level_diff == grace::COARSER ) {
+                if (face.data.full.is_remote ) GRACE_TRACE("Remote fine face {} {}", q, f) ; 
+            } 
+        }
         for( int e=0; e<12; ++e) {
             auto& edge = ghost_array[q].edges[e];
             if (!edge.filled) GRACE_TRACE("Virtual edge {} {}", q, e) ; 
             if (edge.level_diff == grace::FINER) GRACE_TRACE("Coarse edge {} {}", q, e) ; 
+            if (edge.level_diff == grace::COARSER ) {
+                if (edge.data.full.is_remote ) GRACE_TRACE("Remote fine edge {} {}", q, e) ; 
+            } 
         }
         for( int c=0; c<P4EST_CHILDREN; ++c) {
             auto& corner = ghost_array[q].corners[c];
             if (!corner.filled) GRACE_TRACE("Virtual corner {} {}", q, c) ; 
             if (corner.level_diff == grace::FINER) GRACE_TRACE("Coarse corner {} {}", q, c) ;
+            if (corner.level_diff == grace::COARSER ) {
+                if (corner.data.is_remote ) GRACE_TRACE("Remote fine corner {} {}", q, c) ; 
+            }
         }     
     }
 

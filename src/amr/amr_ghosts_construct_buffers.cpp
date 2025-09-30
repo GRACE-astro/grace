@@ -246,7 +246,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
     using arr_svec_t = std::array<svec_t,6> ; // one per face / edge /corner 
     auto make_vec = [nproc]() { return std::vector<size_t>(nproc, 0); };
     auto init_arr = [nproc, make_vec](arr_svec_t& arr) { std::generate(arr.begin(),arr.end(),make_vec); };
-
+    // NB using a std::set here saves lots of hassle 
     std::vector<comm_key_t> mirror_keys, halo_keys; 
 
     // Step 1. we need a unique ordering of elements in the buffers 
@@ -382,7 +382,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
                             e, edge.edge,
                             &edge, ic) ;
                         pack_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
-                        unpack_from_cbuf_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e, edge.child_id) ; 
+                        unpack_from_cbuf_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e, ic) ; 
                     }
                     
                 }

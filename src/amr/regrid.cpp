@@ -355,8 +355,8 @@ void regrid() {
                 , glob_qoffsets.data()
                 , parallel::get_comm_world() 
                 , parallel::GRACE_PARTITION_TAG 
-                , state
                 , state_swap
+                , state
                 , quadrant_data_size 
         ) ; 
 

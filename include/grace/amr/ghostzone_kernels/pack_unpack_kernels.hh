@@ -290,10 +290,6 @@ struct unpack_from_cbuf_op {
         
     }
 
-// TODO figure out if we want to schedule different pack / unpack kernels
-// depending if the source / destination is a cbuffer. We could also store 
-// two pointers inside this function and switch iteration to iteration.. 
-
 } ;
     
 // unpack to cbuf from a regular 
@@ -348,7 +344,8 @@ struct unpack_to_cbuf_op {
         auto const ghost_q = ghost_qid(iq) ;
 
         auto ichild = ichild_view(iq) ;
-        size_t j_off{0UL}, k_off{0UL}, j_off_c{0UL}, k_off_c{0UL} ; 
+        size_t j_off{0UL}, k_off{0UL} ; 
+        int  j_off_c{0}, k_off_c{0} ; 
         view_to_cbuf_offsets<elem_kind>::get(
             j_off,k_off,j_off_c,k_off_c, transf.nx, transf.ngz, ichild 
         ) ;
@@ -358,6 +355,15 @@ struct unpack_to_cbuf_op {
         transf.compute_indices<elem_kind,false>(
             ig, VECD(j + j_off_c, k + k_off_c), i_a, j_a, k_a, ie, /*half ncells*/ true 
         ) ; 
+        
+        if ( ivar == 0 ) {
+            printf(
+                "ig=%zu, j=%zu, k=%zu, j_off=%zu, k_off=%zu, j_off_c=%d, k_off_c=%d, "
+                "i_a=%zu, j_a=%zu, k_a=%zu, ie=%hhu, iq=%zu, cbuf_idx=%zu, ghost_idx=%zu, val=%f\n",
+                ig, j, k, j_off, k_off, j_off_c, k_off_c,
+                i_a, j_a, k_a, ie, iq, cbuf_q, ghost_q, ghost_view.at_interface<elem_kind>(ig,j+j_off,k+k_off,ivar,ghost_q,rank)
+            );
+        }
 
         cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) = 
             ghost_view.at_interface<elem_kind>(ig,j+j_off,k+k_off,ivar,ghost_q,rank) ;

@@ -129,9 +129,6 @@ grace_transfer_fixed_begin(
 
         /* Quadrant offset */
         size_t rb = 0UL ; 
-        
-        /* Index into vector of requests    */
-        int iq = 0 ; 
 
         /****************************************************/
         /* Loop over all senders and post receive requests  */
@@ -185,8 +182,6 @@ grace_transfer_fixed_begin(
                 /* New quad offset       */
                 rb += (size_t) (gend-gbegin) ;  
             }
-            /* Increase vector index */
-            iq ++ ;
         }
     } /* if ( dest_begin < dest_end ) */
 
@@ -206,7 +201,7 @@ grace_transfer_fixed_begin(
         
         /****************************************************/
         /* Find process containing the first old local      */
-        /* quadrant in the old partition (ditto the remark  */
+        /* quadrant in the new partition (ditto the remark  */
         /* above).                                          */
         /****************************************************/
         first_receiver = p4est_bsearch_partition (src_begin, dest_gfq, nproc);
@@ -239,8 +234,6 @@ grace_transfer_fixed_begin(
         /* Quadrant offset */
         size_t rb = 0UL ; 
         
-        /* Index into vector of requests    */
-        int iq = 0 ; 
 
         /****************************************************/
         /* Loop over all senders and post send requests     */
@@ -304,14 +297,11 @@ grace_transfer_fixed_begin(
                 /* New quad offset       */
                 rb += (size_t) (gend-gbegin) ; 
             }
-            /* Increase vector index */
-            iq ++ ; 
+
         }
     }   /* if ( src_begin < src_end ) */
 
-    std::cout << "Requests posted: "
-              << context._recv_requests.size() << " senders and "
-              << context._send_requests.size() << " receivers." << std::endl ;
+    GRACE_TRACE("Posted {} send and {} receive requests.", context._send_requests.size(), context._recv_requests.size());
     /****************************************/
     if ( cp_len > 0 ) {
         auto src_view = Kokkos::subview(
@@ -331,13 +321,8 @@ void grace_transfer_fixed_end(
     parallel::grace_transfer_context_t& context
 )
 {
-    std::cout << "Waiting for " << context._recv_requests.size()
-              << " senders and " << context._send_requests.size()
-              << " receivers to complete." << std::endl ;    
-    
+    GRACE_TRACE("Waiting for {} senders and {} receivers to complete.", context._recv_requests.size(), context._send_requests.size());
     parallel::mpi_waitall(context) ;
-
-
 } // grace_transfer_fixed_end
 
 }} /* namespace grace::amr */
