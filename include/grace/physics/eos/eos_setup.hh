@@ -199,7 +199,7 @@ static inline void READ_EOS_HDF5_COMPOSE(hid_t GROUP, const char *NAME, void * V
 }
 
 
-static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name) {
+static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name, bool test = false) {
 //static int setup_tabulated_eos_compose(const char *nuceos_table_name) {
   
   using namespace physical_constants;
@@ -529,15 +529,15 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
 
   //Calculate coordinate spacing
 
-  Kokkos::View<double [tabulated_eos_t::dim::num_dim], grace::default_space> coord_spacing;
-  Kokkos::View<double [tabulated_eos_t::dim::num_dim], grace::default_space> inverse_coord_spacing;
+  Kokkos::View<double [tabulated_eos_t::dim::num_dim], grace::default_space> coord_spacing("CoordSpacing");
+  Kokkos::View<double [tabulated_eos_t::dim::num_dim], grace::default_space> inverse_coord_spacing("InverseCoordSpacing");
 
   auto h_coord_spacing = Kokkos::create_mirror_view(coord_spacing); 
   auto h_inverse_coord_spacing = Kokkos::create_mirror_view(inverse_coord_spacing);
 
-  h_coord_spacing(tabulated_eos_t::dim::rho) = h_logrhoview(0) - h_logrhoview(1);
-  h_coord_spacing(tabulated_eos_t::dim::temp) = h_logtempview(0) - h_logtempview(1);
-  h_coord_spacing(tabulated_eos_t::dim::yes) = h_yesview(0) - h_yesview(1);
+  h_coord_spacing(tabulated_eos_t::dim::rho) = h_logrhoview(1) - h_logrhoview(0);
+  h_coord_spacing(tabulated_eos_t::dim::temp) = h_logtempview(1) - h_logtempview(0);
+  h_coord_spacing(tabulated_eos_t::dim::yes) = h_yesview(1) - h_yesview(0);
 
   h_inverse_coord_spacing(tabulated_eos_t::dim::rho) = 1. / h_coord_spacing(tabulated_eos_t::dim::rho);
   h_inverse_coord_spacing(tabulated_eos_t::dim::temp) = 1. / h_coord_spacing(tabulated_eos_t::dim::temp);
@@ -553,7 +553,36 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
 
   bool atm_is_beta_eq = params["eos"]["atm_is_beta_eq"].as<bool>();
 
-  bool extend_table_high = params["eos"]["extend_table_high"].as<bool>(); ; 
+  bool extend_table_high = params["eos"]["extend_table_high"].as<bool>(); 
+
+  //---------------------------------------For testing---------------------------------------//
+
+  //For unit testing I want to overwrite the pressure table with a linear function
+  
+  if (test == true) {
+
+    const double x0 = h_logrhoview(0);
+    const double y0 = h_logtempview(0);
+    const double z0 = h_yesview(0);
+
+    auto const z = [&] ( double x, double y, double z ) {
+      return 2.5*x + 4.2*y - 5.1*z + 3.7 ;
+    };
+
+    for (int k = 0; k < nye; k++)
+      for (int j = 0; j < ntemp; j++)
+        for (int i = 0; i < nrho; i++) {
+    
+          h_alltables(i, j, k, tabulated_eos_t::EV::PRESS) = z( x0 + i * h_coord_spacing(tabulated_eos_t::dim::rho)
+                                                              , y0 + j * h_coord_spacing(tabulated_eos_t::dim::temp)
+                                                              , z0 + k * h_coord_spacing(tabulated_eos_t::dim::yes)) ;
+      
+        }
+
+
+  }
+
+  //-----------------------------------------------------------------------------------------//
 
   //TODO! Should this be brought more inline with hybrid eos i.e a template for tables
 
@@ -570,6 +599,21 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
   Kokkos::deep_copy(epstable, h_epstable);
   Kokkos::deep_copy(coord_spacing, h_coord_spacing);
   Kokkos::deep_copy(inverse_coord_spacing, h_inverse_coord_spacing);
+
+  GRACE_INFO("Spacing of logrho {}", h_coord_spacing(0)) ;
+  GRACE_INFO("Spacing of logtemp {}", h_coord_spacing(1)) ;
+  GRACE_INFO("Spacing of yes {}", h_coord_spacing(2)) ;
+
+
+  GRACE_INFO("Inverse spacing of logrho {}", h_inverse_coord_spacing(0)) ;
+  GRACE_INFO("Inverse spacing of logtemp {}", h_inverse_coord_spacing(1)) ;
+  GRACE_INFO("Inverse spacing of yes {}", h_inverse_coord_spacing(2)) ;
+
+  GRACE_INFO("logrho range {} to {}", h_logrhoview(0), h_logrhoview(h_logrhoview.extent(0) - 1)) ;
+  GRACE_INFO("logtemp range {} to {}", h_logtempview(0), h_logtempview(h_logtempview.extent(0) - 1)) ;
+  GRACE_INFO("yes range {} to {}", h_yesview(0), h_yesview(h_yesview.extent(0) - 1)) ;
+
+
 
 
   return tabulated_eos_t{
@@ -599,7 +643,7 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
     , energy_shift
     , atm_is_beta_eq
     , extend_table_high};
-    
+
 
 } 
 

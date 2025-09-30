@@ -35,6 +35,7 @@
 #include <grace/utils/rootfinding.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/data_structures/memory_defaults.hh>
+#include <grace/system/print.hh>
 
 #include <Kokkos_Core.hpp>
 #include <bitset>
@@ -48,8 +49,6 @@ namespace grace {
  */
 class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
 {
-  //TODO! This is different from how Carlo handels errors for the polytopic_eos
-  //typedef std::bitset<EOS_ERROR_T::EOS_NUM_ERRORS> error_type_array;
 
   using error_type = unsigned int; 
 
@@ -122,7 +121,7 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
     , _inverse_coord_spacing(inverse_coord_spacing), _eos_rhomax(eos_rhomax)
     , _eos_rhomin(eos_rhomin), _eos_tempmax(eos_tempmax), _eos_tempmin(eos_tempmin)
     , _eos_yemax(eos_yemax), _eos_yemin(eos_yemin), _energy_shift(energy_shift)
-    {}
+    {GRACE_INFO( "Table extents {}, {}, {}, {}", alltables.extent(0) , alltables.extent(1) , alltables.extent(2) , alltables.extent(3) ) ;}
 
 
   private:
@@ -130,31 +129,52 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
     Kokkos::View<double****, grace::default_space> _alltables ; 
     Kokkos::View<double***, grace::default_space> _epstable;
     Kokkos::View<double*, grace::default_space> _logrho, _logtemp, _yes ;
-    Kokkos::View<double [dim::num_dim], grace::default_space> _coord_spacing;
-    Kokkos::View<double [dim::num_dim], grace::default_space> _inverse_coord_spacing;
-    double _eos_rhomax, _eos_rhomin, _eos_tempmax, _eos_tempmin;
-    double _eos_yemax, _eos_yemin, _energy_shift;
+
 
 
     //Get nearest table index of input value xin
-    template <typename T>
+    // int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    // find_index_uniform(const Kokkos::View<double*>& x, const double& idx, const double& xin) const {
+    //   //Shift xin by lowest value
+    //   const double xL = xin - x(0) ;
+
+    //   //Kokkos::printf("xL = %f \n", xL) ;
+
+    //   //If xin is smaller then lowest value 0 index is returned
+    //   if (xL <= 0) return 0 ;
+
+    //   int index = static_cast<int>(xL * idx) ;
+
+    //   //Kokkos::printf("index = %d \n", index) ;
+
+    //   //Returns second to last index if calculated index is out of bounds
+    //   if (index > x.extent(0) - 2) return x.extent(0) - 2 ;
+
+    //   //Kokkos::printf("Index %d \n", index) ;
+
+    //   return index ;
+    // }
+
+    //GPU friendly implementation of find_index_uniform
     int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    find_index_uniform(const Kokkos::View<double*>& x, const double& idx, T xin) const {
-      //As grid spacing is uniform, inverse grid spacing can be used to calulate index
-      
-      //Shift xin by lowest value
-      const double xL = xin - x(0);
-
-      //If xin is smaller then lowest value 0 index is returned
-      if (xL <= 0) return 0;
-
-      int index = static_cast<int>(xL * idx);
-
-      //Returns second to last index if calculated index is out of bounds
-      if (index > x.size() - 2) return x.size() - 2;
-
-      return index;
+    find_index_uniform(const Kokkos::View<double*>& x, const double& idx, const double& xin) const {
+        // Get table boundaries
+        const double x_min = x(0);
+        const double x_max = x(x.extent(0) - 1);
+        const double max_index = static_cast<double>(x.extent(0) - 2);
+        
+        // FIRST: Clamp input to table bounds to prevent extreme values
+        const double clamped_xin = min(max(xin, x_min), x_max);
+        
+        // SECOND: Calculate safe fractional index
+        const double fractional_index = (clamped_xin - x_min) * idx;
+        
+        // THIRD: Clamp to valid index range
+        const double clamped_index = min(max(fractional_index, 0.0), max_index);
+        
+        return static_cast<int>(clamped_index);
     }
+    
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     interpolate(const double* x, const double* y, const double &xrho, const double &xtemp, const double &xye) const {
@@ -177,12 +197,18 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
       int irho, itemp, iye;
       
       //Find 3D tables corresponding to int table
-      auto table_3D = Kokkos::subview(_alltables, Kokkos::ALL, Kokkos::ALL, Kokkos::ALL, table);
+      auto table_3D = Kokkos::subview(_alltables, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), table);
+
+      // Kokkos::printf("logrho = %d, logtemp = %d, ye = %d \n", _logrho.extent(0), _logtemp.extent(0), _yes.extent(0)) ;
+      // Kokkos::printf("lrho0 = %f, ltemp0 = %f, ye0 = %f \n", _logrho(0), _logtemp(0), _yes(0)) ;
+
 
       //Calculate index position of rho, temp, ye 
-      irho = find_index_uniform(_logrho, _inverse_coord_spacing(dim::rho), _coord_spacing(dim::rho));
-      itemp = find_index_uniform(_logtemp, _inverse_coord_spacing(dim::temp), _coord_spacing(dim::temp));
-      iye = find_index_uniform(_yes, _inverse_coord_spacing(dim::yes), _coord_spacing(dim::yes));
+      irho = find_index_uniform(_logrho, _inverse_coord_spacing(dim::rho), xrho);
+      itemp = find_index_uniform(_logtemp, _inverse_coord_spacing(dim::temp), xtemp);
+      iye = find_index_uniform(_yes, _inverse_coord_spacing(dim::yes), xye);
+
+      //Kokkos::printf("irho = %d, itemp = %d, iye = %d \n", irho, itemp, iye) ;
 
       //Need to create stencil for interploation, these are the dimensions
       size_t constexpr stencil_size = 2UL; 
@@ -206,15 +232,17 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
 
       //Flatened array is used to store all stencil indicies
       for ( int is=0; is < npoints; ++is){
+        //Convert indices to physical coordinates
+        int i_idx = irho + parametric_coordinates[3*is + 0];
+        int j_idx = itemp + parametric_coordinates[3*is + 1];
+        int k_idx = iye + parametric_coordinates[3*is + 2];
+
         //calulates coordinates for stencil
-        table_coordinates[3*is + 0] = irho + parametric_coordinates[3*is + 0];
-        table_coordinates[3*is + 1] = itemp + parametric_coordinates[3*is + 1];
-        table_coordinates[3*is + 2] = iye + parametric_coordinates[3*is + 2];
-        
-        //calculate values for stencil
-        table_values[is] = table_3D(irho + parametric_coordinates[3*is + 0], 
-                                   itemp + parametric_coordinates[3*is + 1],
-                                   iye + parametric_coordinates[3*is + 2]);
+        table_coordinates[3*is + 0] = _logrho(i_idx);
+        table_coordinates[3*is + 1] = _logtemp(j_idx);
+        table_coordinates[3*is + 2] = _yes(k_idx);
+
+        table_values[is] = table_3D(i_idx, j_idx, k_idx);
                                 
       }
     
@@ -327,6 +355,11 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
     
   public:
 
+    Kokkos::View<double [dim::num_dim], grace::default_space> _coord_spacing;
+    Kokkos::View<double [dim::num_dim], grace::default_space> _inverse_coord_spacing;
+    double _eos_rhomax, _eos_rhomin, _eos_tempmax, _eos_tempmin;
+    double _eos_yemax, _eos_yemin, _energy_shift;
+
     //---------------------------------------For testing---------------------------------------//
     //-----------------------------------------------------------------------------------------//
     int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -376,6 +409,13 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
     get_yes(int x) const {
       
       return _yes(x);
+    }
+
+    auto GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    get_table(int table_id) const {
+
+      return Kokkos::subview(_alltables, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), table_id);
+
     }
 
     //-----------------------------------------------------------------------------------------//
@@ -474,9 +514,9 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     eps__press_temp_rho_ye_impl(const double &press, double &temp, double &rho, double &ye, error_type &err) const {
 
-      ERROR("This routine should not be used. There is no monotonicity condition "
-            "to enforce a succesfull inversion from eps(press). So you better "
-            "rewrite your code to not require this call...");
+      // ERROR("This routine should not be used. There is no monotonicity condition "
+      //       "to enforce a succesfull inversion from eps(press). So you better "
+      //       "rewrite your code to not require this call...");
 
       return 0;
     }
@@ -552,9 +592,9 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     eps_h_csnd2__press_rho_ye_impl(double &h, double &csnd2, double &press, double &rho, double &ye, error_type &err) const {
       
-      ERROR("This routine should not be used. There is no monotonicity condition "
-            "to enforce a succesfull inversion from eps(press). So you better "
-            "rewrite your code to not require this call...");
+      // ERROR("This routine should not be used. There is no monotonicity condition "
+      //       "to enforce a succesfull inversion from eps(press). So you better "
+      //       "rewrite your code to not require this call...");
 
     return 0;
     }
@@ -564,8 +604,8 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
     
       err = checkbounds(rho, temp, ye);
 
-      const double ltemp = log(temp);
-      const double lrho = log(rho);
+      const double ltemp = Kokkos::log(temp);
+      const double lrho = Kokkos::log(rho);
 
       const double vars_press = interpolate_table(EV::PRESS, lrho, ltemp, ye);
       const double vars_eps = interpolate_table(EV::EPS, lrho, ltemp, ye);
@@ -656,9 +696,9 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
     eps_h_csnd2_temp_entropy__press_rho_ye_impl( double& h, double& csnd2, double&temp, double& entropy, double& press, double& rho
                                           , double& ye, error_type& err) const {
       
-      ERROR("This routine should not be used. There is no monotonicity condition "
-              "to enforce a succesfull inversion from eps(press). So you better "
-              "rewrite your code to not require this call...");
+      // ERROR("This routine should not be used. There is no monotonicity condition "
+      //         "to enforce a succesfull inversion from eps(press). So you better "
+      //         "rewrite your code to not require this call...");
 
       return 0;
                                     
