@@ -73,8 +73,8 @@ void import_data(std::vector<std::reference_wrapper<T>>& state_ref, S& exported_
     if(set_shift_to_zero_on_import){
         for (int i = 0; i < npoints; ++i) {
             state_ref[i*nfields+K_BETAX].get() = 0.0; 
-            state_ref[i*nfields+K_BETAX].get() = 0.0; 
-            state_ref[i*nfields+K_BETAX].get() = 0.0; 
+            state_ref[i*nfields+K_BETAY].get() = 0.0; 
+            state_ref[i*nfields+K_BETAZ].get() = 0.0; 
         }   
       }
     
@@ -103,9 +103,10 @@ void import_data_wmatter(std::vector<std::reference_wrapper<T>>& state_ref, S& e
     bool set_shift_to_zero_on_import = grace::get_param<bool>("kadath","set_shift_to_zero_on_import");
     if(set_shift_to_zero_on_import){
         for (int i = 0; i < npoints; ++i) {
+          // + 1, then +2 ? 
             state_ref[i*nfields+K_BETAX].get() = 0.0; 
-            state_ref[i*nfields+K_BETAX].get() = 0.0; 
-            state_ref[i*nfields+K_BETAX].get() = 0.0; 
+            state_ref[i*nfields+K_BETAY].get() = 0.0; 
+            state_ref[i*nfields+K_BETAZ].get() = 0.0; 
         }   
       }
 }
