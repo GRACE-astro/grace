@@ -100,22 +100,24 @@ void evolve_impl() {
     auto& fsurf   = grace::variable_list::get().getstaggeredcoords() ;
     auto& idx     = grace::variable_list::get().getinvspacings() ;  
     auto& dx     = grace::variable_list::get().getspacings() ;  
+    auto& fluxes  = grace::variable_list::get().getfluxesarray() ;  
+
     /* Copy the current state to scratch memory */
     //amr::apply_boundary_conditions(state) ; 
     Kokkos::deep_copy(state_p, state) ; 
 
     if ( tstepper == "euler" ) {
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
-        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,dx,cvol,fsurf) ; 
+        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,dx,cvol,fsurf,fluxes) ; 
         amr::apply_boundary_conditions(state) ; 
         compute_auxiliary_quantities<eos_t>(state, aux) ;
     } else if (tstepper == "rk2" ) {
         /* Compute auxiliaries at current timelevel */
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
-        advance_substep<eos_t>(t,dt,0.5,state_p,state,aux,idx,dx,cvol,fsurf) ; 
+        advance_substep<eos_t>(t,dt,0.5,state_p,state,aux,idx,dx,cvol,fsurf,fluxes) ; 
         amr::apply_boundary_conditions(state_p) ; 
         compute_auxiliary_quantities<eos_t>(state_p, aux) ;
-        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,dx,cvol,fsurf) ;
+        advance_substep<eos_t>(t,dt,1.0,state,state_p,aux,idx,dx,cvol,fsurf,fluxes) ;
         amr::apply_boundary_conditions(state) ; 
         compute_auxiliary_quantities<eos_t>(state, aux) ;
     } else if (tstepper == "rk3" ) {
@@ -133,7 +135,8 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , scalar_array_t<GRACE_NSPACEDIM>& idx
                     , scalar_array_t<GRACE_NSPACEDIM>& dx
                     , cell_vol_array_t<GRACE_NSPACEDIM>& cvol
-                    , staggered_coordinate_arrays_t& surfs_and_edges )
+                    , staggered_coordinate_arrays_t& surfs_and_edges
+                    , flux_array_t& fluxes  )
 {
     GRACE_PROFILING_PUSH_REGION("evol") ;
     using namespace grace ; 
@@ -150,6 +153,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     /* Define the flux array and allocate memory */
     /* NB this array has NO ghostzones!          */
     /*********************************************/ 
+    /* 
     flux_array_t fluxes(
           "Fluxes"
         , VEC( nx + 1 
@@ -159,6 +163,7 @@ void advance_substep( double const t, double const dt, double const dtfact
         , GRACE_NSPACEDIM
         , nq 
     ) ; 
+    */
     /* Define the equation system (a couple ugly ifdef's!)*/
     #ifdef GRACE_ENABLE_SCALAR_ADV
     double VEC(ax,ay,az) ; 
@@ -302,7 +307,8 @@ void advance_substep<EOS>( double const , double const , double const \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \
-                         , grace::staggered_coordinate_arrays_t&  ) ; \
+                         , grace::staggered_coordinate_arrays_t&      \
+                         , grace::flux_array_t&                   ) ; \
 template                                                              \
 void evolve_impl<EOS>()
 

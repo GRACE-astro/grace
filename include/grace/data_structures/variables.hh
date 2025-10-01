@@ -127,6 +127,15 @@ public:
     getscratch() { return _state_p ; }
     //*****************************************************************************************************
     /**
+     * @brief Get the fluxes vector 
+     * 
+     * @return The fluxes vector, used during time 
+     *         evolution to hold the fluxes. 
+     */
+    GRACE_ALWAYS_INLINE flux_array_t& 
+    getfluxesarray() { return _fluxes ; }
+    //*****************************************************************************************************
+    /**
      * @brief Get the halo state vector 
      */
     GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>& 
@@ -166,6 +175,7 @@ private:
     staggered_variable_arrays_t   _staggered_vars   ; //!< Staggered variable arrays 
     staggered_variable_arrays_t   _staggered_vars_p ; //!< Staggered scratch state
     staggered_variable_arrays_t   _staggered_aux    ; //!< Auxiliary variables on staggered grids.
+    flux_array_t   _fluxes              ; //!< Fluxes for time evolution.
     //*****************************************************************************************************
     friend class utils::singleton_holder<variable_list_impl_t, memory::default_create> ; //!< Give access 
     friend class memory::new_delete_creator<variable_list_impl_t, memory::new_delete_allocator> ; //!< Give access 
