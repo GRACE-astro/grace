@@ -132,12 +132,12 @@ void amr_ghosts_impl_t::update() {
     std::vector<bucket_t> pack_kernels, unpack_kernels
                         , pack_to_cbuf_kernels  
                         , unpack_to_cbuf_kernels ;
-    std::vector<hang_bucket_t>  unpack_from_cbuf_kernels ; 
+    std::vector<hang_bucket_t>  pack_finer_kernels, unpack_from_cbuf_kernels ; 
 
     build_remote_buffers(
         phys_bc_kernels, copy_kernels,
         copy_from_cbuf_kernels, copy_to_cbuf_kernels, 
-        pack_kernels, unpack_kernels, pack_to_cbuf_kernels,
+        pack_kernels, unpack_kernels, pack_finer_kernels, pack_to_cbuf_kernels,
         unpack_to_cbuf_kernels, unpack_from_cbuf_kernels, prolong_kernels
     )   ; 
     parallel::mpi_barrier() ; // FIXME 
@@ -145,7 +145,7 @@ void amr_ghosts_impl_t::update() {
     build_task_list(
         phys_bc_kernels, copy_kernels,
         copy_from_cbuf_kernels, copy_to_cbuf_kernels, 
-        pack_kernels, unpack_kernels, pack_to_cbuf_kernels,
+        pack_kernels, unpack_kernels, pack_finer_kernels, pack_to_cbuf_kernels,
         unpack_to_cbuf_kernels, unpack_from_cbuf_kernels,
         prolong_kernels, cbuf_qid
     )        ; 
@@ -224,6 +224,7 @@ void amr_ghosts_impl_t::build_task_list(
     bucket_t& copy_to_cbuf_kernels,
     std::vector<bucket_t>& pack_kernels, 
     std::vector<bucket_t>& unpack_kernels, 
+    std::vector<hang_bucket_t>& pack_finer_kernels,
     std::vector<bucket_t>& pack_to_cbuf_kernels,
     std::vector<bucket_t>& unpack_to_cbuf_kernels,
     std::vector<hang_bucket_t>& unpack_from_cbuf_kernels,
@@ -294,7 +295,6 @@ void amr_ghosts_impl_t::build_task_list(
     }
     /***********************************************************************/
     /***********************************************************************/
-    GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 
     insert_copy_tasks(
         ghost_layer,
         copy_kernels,
@@ -308,11 +308,11 @@ void amr_ghosts_impl_t::build_task_list(
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
-    GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 
     insert_pup_tasks(
         ghost_layer,
         pack_kernels,
         unpack_kernels,
+        pack_finer_kernels,
         pack_to_cbuf_kernels,
         unpack_to_cbuf_kernels,
         unpack_from_cbuf_kernels,
@@ -329,7 +329,6 @@ void amr_ghosts_impl_t::build_task_list(
     /***********************************************************************/
     /***********************************************************************/
     GRACE_TRACE("Inserting gz-restriction tasks.") ; 
-    GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 
     insert_ghost_restriction_tasks(
         cbuf_qid, ghost_layer,
         state, _coarse_buffers,
@@ -340,7 +339,6 @@ void amr_ghosts_impl_t::build_task_list(
     /***********************************************************************/
     /***********************************************************************/
     GRACE_TRACE("Inserting phys-bc tasks.") ; 
-    GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 
     auto const deferred_phys_bc_kernels = 
         insert_phys_bc_tasks(
                 phys_bc_kernels, ghost_layer,
@@ -351,7 +349,6 @@ void amr_ghosts_impl_t::build_task_list(
     /***********************************************************************/
     /***********************************************************************/
     GRACE_TRACE("Inserting prolongation tasks.") ; 
-    GRACE_TRACE("Counter {} Size {}", task_counter, task_list.size()) ; 
     insert_prolongation_tasks(
         prolong_kernels, ghost_layer,
         state, _coarse_buffers, interp_stream,
@@ -359,14 +356,12 @@ void amr_ghosts_impl_t::build_task_list(
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
-    #if 1
     GRACE_TRACE("Inserting deferred phys-bc tasks.") ; 
     insert_deferred_phys_bc_tasks(
         deferred_phys_bc_kernels, ghost_layer,
         state, _coarse_buffers, var_bc_kind, phys_bc_stream,
         VEC(nx,ny,nz),ngz,nvars, task_counter, task_list
     ); 
-    #endif 
     /***********************************************************************/
     /***********************************************************************/
 }

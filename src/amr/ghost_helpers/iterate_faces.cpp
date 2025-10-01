@@ -101,6 +101,7 @@ static void register_face(
     if ( s0.is_hanging ) {
         for( int iq=0; iq<P4EST_CHILDREN/2; ++iq){
             if (s0.is.hanging.is_ghost[iq]) continue ; 
+            
             auto const qid = s0.is.hanging.quadid[iq] + offset ;
             auto& desc = neighbors[qid].faces[f] ; 
             neighbors[qid].n_registered_faces ++ ; 

@@ -355,15 +355,6 @@ struct unpack_to_cbuf_op {
         transf.compute_indices<elem_kind,false>(
             ig, VECD(j + j_off_c, k + k_off_c), i_a, j_a, k_a, ie, /*half ncells*/ true 
         ) ; 
-        
-        if ( ivar == 0 ) {
-            printf(
-                "ig=%zu, j=%zu, k=%zu, j_off=%zu, k_off=%zu, j_off_c=%d, k_off_c=%d, "
-                "i_a=%zu, j_a=%zu, k_a=%zu, ie=%hhu, iq=%zu, cbuf_idx=%zu, ghost_idx=%zu, val=%f\n",
-                ig, j, k, j_off, k_off, j_off_c, k_off_c,
-                i_a, j_a, k_a, ie, iq, cbuf_q, ghost_q, ghost_view.at_interface<elem_kind>(ig,j+j_off,k+k_off,ivar,ghost_q,rank)
-            );
-        }
 
         cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) = 
             ghost_view.at_interface<elem_kind>(ig,j+j_off,k+k_off,ivar,ghost_q,rank) ;

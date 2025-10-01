@@ -174,7 +174,7 @@ static void collect_info(
             auto& face = ghost_array[q].faces[f] ; 
             if (face.level_diff == grace::FINER) GRACE_TRACE("Coarse face {} {}", q, f) ; 
             if (face.level_diff == grace::COARSER ) {
-                if (face.data.full.is_remote ) GRACE_TRACE("Remote fine face {} {}", q, f) ; 
+                if (face.data.full.is_remote ) GRACE_TRACE("Remote fine face {} {} {}", q, f, ghost_array[q].cbuf_id) ; 
             } 
         }
         for( int e=0; e<12; ++e) {
@@ -182,13 +182,13 @@ static void collect_info(
             if (!edge.filled) GRACE_TRACE("Virtual edge {} {}", q, e) ; 
             if (edge.level_diff == grace::FINER) GRACE_TRACE("Coarse edge {} {}", q, e) ; 
             if (edge.level_diff == grace::COARSER ) {
-                if (edge.data.full.is_remote ) GRACE_TRACE("Remote fine edge {} {}", q, e) ; 
+                if (edge.data.full.is_remote ) GRACE_TRACE("Remote fine edge {} {} {}", q, e, ghost_array[q].cbuf_id) ; 
             } 
         }
         for( int c=0; c<P4EST_CHILDREN; ++c) {
             auto& corner = ghost_array[q].corners[c];
             if (!corner.filled) GRACE_TRACE("Virtual corner {} {}", q, c) ; 
-            if (corner.level_diff == grace::FINER) GRACE_TRACE("Coarse corner {} {}", q, c) ;
+            if (corner.level_diff == grace::FINER) GRACE_TRACE("Coarse corner {} {} {}", q, c, ghost_array[q].cbuf_id) ;
             if (corner.level_diff == grace::COARSER ) {
                 if (corner.data.is_remote ) GRACE_TRACE("Remote fine corner {} {}", q, c) ; 
             }

@@ -157,6 +157,85 @@ gpu_task_t make_pack_task(
     task_list[send_task_id[rank]] -> _dependencies.push_back(pack_task.task_id); 
     return pack_task ; 
 }
+
+template< amr::element_kind_t elem_kind >
+gpu_task_t make_pack_fine_task(
+      std::vector<gpu_hanging_task_desc_t> const& sb
+    , std::vector<quad_neighbors_descriptor_t>& ghost_array 
+    , size_t rank 
+    , grace::var_array_t<GRACE_NSPACEDIM> data 
+    , amr::ghost_array_t send_buf 
+    , std::vector<task_id_t> const& send_task_id
+    , device_stream_t& pup_stream
+    , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv
+    , task_id_t& task_counter 
+    , std::vector<std::unique_ptr<task_t>>& task_list 
+)
+{
+    GRACE_TRACE("Recording pack-fine task (tid {}), # of elements {}, send_task_id {}", task_counter, sb.size(), send_task_id[rank]) ; 
+    // construct pack task
+    Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
+    Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
+                        , pack_dest_qid{"pack_dst_qid", sb.size()} ; 
+    Kokkos::View<uint8_t*> pack_src_elem{"unpack_dst_eid", sb.size()}  ;
+    auto pack_src_qid_h = Kokkos::create_mirror_view(pack_src_qid) ; 
+    auto pack_dst_qid_h = Kokkos::create_mirror_view(pack_dest_qid) ; 
+    auto pack_src_elem_h =  Kokkos::create_mirror_view(pack_src_elem) ; 
+
+    auto const get_interface_info = [&] (gpu_hanging_task_desc_t const& d) -> std::tuple<size_t, size_t, uint8_t>  {
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
+            return {std::get<0>(d),face.data.hanging.send_buffer_id[std::get<2>(d)], std::get<1>(d)} ;
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
+            return {std::get<0>(d), edge.data.hanging.send_buffer_id[std::get<2>(d)], std::get<1>(d)} ;
+        } else {
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            return {std::get<0>(d), corner.data.send_buffer_id, std::get<1>(d)} ;
+        }
+    } ; 
+
+
+    size_t i{0UL} ; 
+    for( auto const& d: sb ) {
+        auto [qid_src, qid_dst, elem_src] = get_interface_info(d) ; 
+        pack_src_qid_h(i) = qid_src ; 
+        pack_dst_qid_h(i) = qid_dst ; 
+        pack_src_elem_h(i) = elem_src ; 
+        i += 1UL ; 
+    }
+    Kokkos::deep_copy(pack_src_qid,pack_src_qid_h)   ; 
+    Kokkos::deep_copy(pack_dest_qid,pack_dst_qid_h)  ;  
+    Kokkos::deep_copy(pack_src_elem,pack_src_elem_h) ;
+
+    gpu_task_t pack_task{} ;
+
+    amr::pack_op<elem_kind,decltype(data)> pack_functor {
+        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank
+    } ; 
+
+    Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+    pack_policy{
+        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx,nv,sb.size())
+    } ; 
+    
+    pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
+        pack_functor.set_data_ptr(alias) ; 
+        GRACE_TRACE("Pack start.") ; 
+        Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
+        // TODO remove 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        Kokkos::fence() ; 
+        #endif 
+        GRACE_TRACE("Pack done.") ;
+    } ; 
+    pack_task.stream = &pup_stream ; 
+    pack_task.task_id = task_counter ++ ; 
+    // send depends on this 
+    pack_task._dependents.push_back(send_task_id[rank]) ; 
+    task_list[send_task_id[rank]] -> _dependencies.push_back(pack_task.task_id); 
+    return pack_task ; 
+}
 /**
  * @brief Create a task that packs data into send buffers from coarse buffers.
  * @ingroup amr
@@ -567,6 +646,7 @@ void insert_pup_tasks(
       std::vector<quad_neighbors_descriptor_t> & ghost_array
     , std::vector<bucket_t> const& pack_kernels
     , std::vector<bucket_t> const& unpack_kernels
+    , std::vector<hang_bucket_t> const& pack_finer_kernels
     , std::vector<bucket_t> const& pack_to_cbuf_kernels
     , std::vector<bucket_t> const& unpack_to_cbuf_kernels
     , std::vector<hang_bucket_t> const&  unpack_from_cbuf_kernels
@@ -591,6 +671,19 @@ void insert_pup_tasks(
         std::make_unique<gpu_task_t>( \
             make_pack_task<kind>( \
                 pack_kernels[r][static_cast<size_t>(kind)], \
+                ghost_array, r, data, \
+                send_buf, send_task_id, pup_stream, \
+                VEC(nx,ny,nz), ngz, nv, \
+                task_counter, task_list \
+            ) \
+        ) \
+    )
+    #define MAKE_PACK_FINE(r, kind) \
+    if(pack_finer_kernels[r][static_cast<size_t>(kind)].size()>0)\
+    task_list.push_back( \
+        std::make_unique<gpu_task_t>( \
+            make_pack_fine_task<kind>( \
+                pack_finer_kernels[r][static_cast<size_t>(kind)], \
                 ghost_array, r, data, \
                 send_buf, send_task_id, pup_stream, \
                 VEC(nx,ny,nz), ngz, nv, \
@@ -656,6 +749,7 @@ void insert_pup_tasks(
 
     #define MAKE_TASKS(r, kind)\
     MAKE_PACK(r,kind);\
+    MAKE_PACK_FINE(r,kind);\
     MAKE_PACK_TO_CBUF(r,kind);\
     MAKE_UNPACK(r,kind);\
     MAKE_UNPACK_TO_CBUF(r,kind);\

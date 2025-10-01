@@ -55,6 +55,8 @@
 #include <numeric>
 #include <variant> 
 #include <set> 
+#include <unordered_map>
+
 namespace grace {
 
 enum sec_t : uint8_t {FACE=0, EDGE=1, CORNER=2, CBFACE=3, CBEDGE=4, CBCORNER=5} ; 
@@ -67,9 +69,8 @@ using desc_ptr_t = std::variant<
 >;
 
 
+
 struct comm_key_t {
-    //! Type-erased pointer to descriptor in neigbor array
-    desc_ptr_t desc      ; 
 
     sec_t kind ; //!< Kind of interface
     size_t rank     ; //!< Other rank
@@ -85,6 +86,24 @@ struct comm_key_t {
     }
 } ;
 
+struct comm_key_hash {
+    std::size_t operator()(comm_key_t const& k) const noexcept {
+        std::size_t h1 = std::hash<size_t>{}(k.rank);
+        std::size_t h2 = std::hash<size_t>{}(k.quad_id);
+        std::size_t h3 = std::hash<int8_t>{}(k.elem_id);
+        std::size_t h4 = std::hash<sec_t>{}(k.kind); // assuming sec_t is enum or integral
+
+        // Combine hashes (boost-like method)
+        std::size_t seed = h1;
+        seed ^= h2 + 0x9e3779b97f4a7c15ULL + (seed<<6) + (seed>>2);
+        seed ^= h3 + 0x9e3779b97f4a7c15ULL + (seed<<6) + (seed>>2);
+        seed ^= h4 + 0x9e3779b97f4a7c15ULL + (seed<<6) + (seed>>2);
+
+        return seed;
+    }
+};
+
+using desc_map_t = std::unordered_map<comm_key_t,  std::vector<desc_ptr_t>, comm_key_hash> ; 
 
 // comparison functor for sort
 struct key_cmp {
@@ -144,63 +163,46 @@ void register_index(
 
 
 void process_key_arrays(
-    std::vector<comm_key_t> & send_comm_keys,
-    std::vector<comm_key_t> & recv_comm_keys,
+    std::set<comm_key_t, key_cmp> & send_comm_keys,
+    std::set<comm_key_t, key_cmp> & recv_comm_keys,
     std::array<std::vector<size_t>,6> & send_counts,
-    std::array<std::vector<size_t>,6> & recv_counts
+    std::array<std::vector<size_t>,6> & recv_counts,
+    desc_map_t & send_map,
+    desc_map_t & recv_map
 )
 {
-    ASSERT(send_comm_keys.size() == recv_comm_keys.size(), "mismatched sizes on send/recv" ) ; 
-    using idx_map_t = std::unordered_map<idx_key_t, size_t, idx_key_hash_t> ; 
-    {
-        // sort by rank, quadid, elem id 
-        // note there might be duplicates here, we sort it out later
-        std::sort(send_comm_keys.begin(), send_comm_keys.end(), key_cmp{}) ; 
+    std::unordered_map<sec_t, std::string> names{
+        {sec_t::FACE,"face"}, {sec_t::CBFACE, "cbface"}
+    } ; 
 
-        idx_map_t coarse_to_id; 
-        for( auto& key: send_comm_keys ) {
-            
-            auto const rank = key.rank ; 
-            auto const kind = key.kind ; 
+    //ASSERT(send_comm_keys.size() == recv_comm_keys.size(), "mismatched sizes on send/recv" ) ;     
+    for( auto& key: send_comm_keys ) {
+        
+        auto const rank = key.rank ; 
+        auto const kind = key.kind ; 
 
-            auto& count = send_counts[kind][rank] ; 
-
-            auto [it, inserted] = coarse_to_id.try_emplace(
-                std::make_tuple(key.rank,key.quad_id,key.elem_id,static_cast<int>(key.kind)), count
-            ) ; 
-            
-            if (inserted) ++count; 
+        auto& count = send_counts[kind][rank] ; 
+        for( auto const& desc: send_map[key] ) {
             register_index(
-                key.desc, key.elem_slot, it->second, true /*send*/
+                desc, key.elem_slot, count, true /*send*/
             ) ; 
         }
+        count++ ; 
     }
 
-    {
-        // sort by rank, quadid, elem id 
-        // note there might be duplicates here, we sort it out later
-        std::sort(recv_comm_keys.begin(), recv_comm_keys.end(), key_cmp{}) ; 
+    for( auto& key: recv_comm_keys ) {
+        auto const rank = key.rank ; 
+        auto const kind = key.kind ; 
 
-        idx_map_t coarse_to_id; 
-        for( auto& key: recv_comm_keys ) {
-            auto const rank = key.rank ; 
-            auto const kind = key.kind ; 
+        auto& count = recv_counts[kind][rank] ;
 
-            auto& count = recv_counts[kind][rank] ;
-
-            auto [it, inserted] = coarse_to_id.try_emplace(
-                std::make_tuple(key.rank,key.quad_id,key.elem_id,static_cast<int>(key.kind)), count 
-            ) ; 
-
-            if (inserted) ++count ; 
+        for( auto const& desc: recv_map[key] ) {
             register_index(
-                key.desc, key.elem_slot, it->second, false /*recv*/
+                desc, key.elem_slot, count, false /*recv*/
             ) ; 
         }
-
+        count++;
     }
-
-
 }
 
 
@@ -210,7 +212,8 @@ void amr_ghosts_impl_t::build_remote_buffers(
     hang_bucket_t& copy_from_cbuf_kernels,
     bucket_t& copy_to_cbuf_kernels,
     std::vector<bucket_t>& pack_kernels, 
-    std::vector<bucket_t>& unpack_kernels, 
+    std::vector<bucket_t>& unpack_kernels,
+    std::vector<hang_bucket_t>& pack_finer_kernels,  
     std::vector<bucket_t>& pack_to_cbuf_kernels,
     std::vector<bucket_t>& unpack_to_cbuf_kernels,
     std::vector<hang_bucket_t>& unpack_from_cbuf_kernels,
@@ -237,6 +240,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
     std::size_t nvars = variables::get_n_evolved() ; 
     /****************************************************/
     pack_kernels.resize(nproc) ; unpack_kernels.resize(nproc) ; 
+    pack_finer_kernels.resize(nproc) ; 
     pack_to_cbuf_kernels.resize(nproc) ;
     unpack_to_cbuf_kernels.resize(nproc) ;
     unpack_from_cbuf_kernels.resize(nproc) ;
@@ -247,8 +251,8 @@ void amr_ghosts_impl_t::build_remote_buffers(
     auto make_vec = [nproc]() { return std::vector<size_t>(nproc, 0); };
     auto init_arr = [nproc, make_vec](arr_svec_t& arr) { std::generate(arr.begin(),arr.end(),make_vec); };
     // NB using a std::set here saves lots of hassle 
-    std::vector<comm_key_t> mirror_keys, halo_keys; 
-
+    std::set<comm_key_t,key_cmp> mirror_keys, halo_keys; 
+    desc_map_t mirror_descs, halo_descs ; 
     // Step 1. we need a unique ordering of elements in the buffers 
     auto append_keys = [&] ( sec_t m_kind, /* mirror, send  */
                              sec_t h_kind, /* halo, receive */
@@ -262,8 +266,6 @@ void amr_ghosts_impl_t::build_remote_buffers(
                              int8_t ic)
     {
         comm_key_t mkey, hkey ; 
-        mkey.desc = elem ;
-        hkey.desc = elem ; 
 
         mkey.elem_slot = ic ; 
         hkey.elem_slot = ic ; 
@@ -283,8 +285,21 @@ void amr_ghosts_impl_t::build_remote_buffers(
         hkey.quad_id = hiq ;
         hkey.elem_id = e_c ; 
 
-        mirror_keys.push_back(mkey) ; 
-        halo_keys.push_back(hkey)   ;
+        auto [itm, inserted_m] = mirror_keys.insert(mkey);
+        auto [ith, inserted_h] = halo_keys.insert(hkey);
+
+        if (inserted_h) {
+            halo_descs[*ith] = { elem };
+        } else {
+            halo_descs[*ith].push_back(elem);
+        }
+
+        if (inserted_m) {
+            mirror_descs[*itm] = { elem };
+        } else {
+            mirror_descs[*itm].push_back(elem);
+        }
+
     } ; 
 
     for( size_t iq=0UL; iq<nq; iq+=1UL) {
@@ -322,7 +337,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
                             f, face.face,
                             &face, ic) ; 
                         // pack into normal buf, unpack from cbuf
-                        pack_kernels[face.data.hanging.owner_rank[ic]][amr::element_kind_t::FACE].emplace_back(iq,f) ; 
+                        pack_finer_kernels[face.data.hanging.owner_rank[ic]][amr::element_kind_t::FACE].emplace_back(iq,f,ic) ; 
                         unpack_from_cbuf_kernels[face.data.hanging.owner_rank[ic]][amr::element_kind_t::FACE].emplace_back(iq,f,ic) ; 
                     }
                     
@@ -381,7 +396,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
                             iq /*should it be cbuf*/,edge.data.hanging.quad_id[ic], 
                             e, edge.edge,
                             &edge, ic) ;
-                        pack_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
+                        pack_finer_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e,ic) ; 
                         unpack_from_cbuf_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e, ic) ; 
                     }
                     
@@ -432,7 +447,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
                             iq,corner.data.quad_id, 
                             c, corner.corner,
                             &corner, 0 /*not used*/) ; 
-                    pack_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c ) ; 
+                    pack_finer_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c,0 ) ; 
                     unpack_from_cbuf_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c,0) ; 
                 }
                 
@@ -440,7 +455,6 @@ void amr_ghosts_impl_t::build_remote_buffers(
                 if ( !corner.data.is_remote ) {
                     copy_kernels[amr::element_kind_t::CORNER].emplace_back(iq,c) ; 
                 } else {
-                    GRACE_TRACE("Corner for rank {}", corner.data.owner_rank) ; 
                     append_keys(sec_t::CORNER, sec_t::CORNER, 
                             rank, corner.data.owner_rank, 
                             iq,corner.data.quad_id, 
@@ -454,15 +468,30 @@ void amr_ghosts_impl_t::build_remote_buffers(
         }
     } /* for iq .. nquads */
 
-    auto const dedup = [&] (std::vector<gpu_task_desc_t>& vec) {
+    // here we dedup pack_finer_kernels. 
+    // In doing so we ignore the child index 
+    // since we are packing the same coarse face 
+    // the only scenario where i_child is relevant 
+    // is if the different fine faces reside on 
+    // different ranks, but this is taken care of by 
+    // the fact that the bucket is separated by rank.
+    auto const dedup = [&] (std::vector<gpu_hanging_task_desc_t>& vec) {
+        struct comp_desc {
+            bool operator() (gpu_hanging_task_desc_t const& a, gpu_hanging_task_desc_t const& b) 
+            const {
+                if ( std::get<0>(a) < std::get<0>(b)) return true ; 
+                if ( std::get<0>(a) > std::get<0>(b)) return false ; 
+                return std::get<1>(a) < std::get<1>(b) ; 
+            }
+        } ; 
         if (vec.empty()) return ; 
-        std::set<gpu_task_desc_t> s( vec.begin(), vec.end() );
+        std::set<gpu_hanging_task_desc_t, comp_desc> s( vec.begin(), vec.end() );
         vec.assign( s.begin(), s.end() );
     } ; 
     for( int ip=0; ip<nproc; ++ip ) {
-        dedup(pack_kernels[ip][FACE]) ; 
-        dedup(pack_kernels[ip][EDGE]) ; 
-        dedup(pack_kernels[ip][CORNER]) ; 
+        dedup(pack_finer_kernels[ip][FACE]) ; 
+        dedup(pack_finer_kernels[ip][EDGE]) ; 
+        dedup(pack_finer_kernels[ip][CORNER]) ; 
     }
 
     // counts of faces / edges / corners per rank (send & recv)
@@ -475,7 +504,9 @@ void amr_ghosts_impl_t::build_remote_buffers(
     process_key_arrays(
         mirror_keys, halo_keys,
         rank_send_counts,
-        rank_recv_counts
+        rank_recv_counts,
+        mirror_descs,
+        halo_descs
     ) ; 
 
     // Finally now we compute offsets and total sizes,

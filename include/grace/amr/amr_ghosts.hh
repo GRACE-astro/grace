@@ -305,6 +305,7 @@ class amr_ghosts_impl_t {
         bucket_t& ,
         std::vector<bucket_t>& , 
         std::vector<bucket_t>& , 
+        std::vector<hang_bucket_t>& , 
         std::vector<bucket_t>& ,
         std::vector<bucket_t>& ,
         std::vector<hang_bucket_t>&,
@@ -315,7 +316,7 @@ class amr_ghosts_impl_t {
     void build_remote_buffers(
         bucket_t&, bucket_t&,
         hang_bucket_t&, bucket_t&,
-        std::vector<bucket_t>& , std::vector<bucket_t>& , 
+        std::vector<bucket_t>& , std::vector<bucket_t>& , std::vector<hang_bucket_t>& ,
         std::vector<bucket_t>& , std::vector<bucket_t>& ,
         std::vector<hang_bucket_t>&, bucket_t&
     ) ; 
