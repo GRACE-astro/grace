@@ -321,7 +321,10 @@ void insert_ghost_restriction_tasks(
                 auto& edge = ghost_array[qid].edges[e] ; 
                 if ( ! edge.filled ) continue; 
                 if ( edge.kind == interface_kind_t::PHYS) edge.data.phys.in_cbuf = true ;  
-                if (!(edge.level_diff == level_diff_t::COARSER)) restrict_edges.emplace_back(qid,e) ; 
+                if (!(edge.level_diff == level_diff_t::COARSER)) {
+                    GRACE_TRACE("Face (qid {} fid {}), registering edge {} level_diff {}", qid, f, e, edge.level_diff) ; 
+                    restrict_edges.emplace_back(qid,e) ; 
+                }
             } 
         }
         
@@ -335,6 +338,7 @@ void insert_ghost_restriction_tasks(
                 auto& face = ghost_array[qid].faces[f] ; 
                 if ( face.kind == interface_kind_t::PHYS) face.data.phys.in_cbuf=true ;  
                 if (!(face.level_diff == level_diff_t::COARSER)) restrict_faces.emplace_back(qid,f) ;
+                
             }
             for( int ic=0; ic<2; ++ic) {
                 auto c = amr::detail::e2c[e][ic] ; 

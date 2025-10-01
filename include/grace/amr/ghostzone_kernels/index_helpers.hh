@@ -679,7 +679,7 @@ inline constexpr std::array<std::array<uint8_t,2>,12> e2c =
 inline constexpr std::array<std::array<uint8_t,3>,P4EST_CHILDREN> c2e = 
 {{
     {{0,4,8}},  //0
-    {{1,5,9}},  //1
+    {{0,5,9}},  //1
     {{1,4,10}}, //2
     {{5,1,11}}, //3
     {{2,6,8}},  //4 

@@ -121,7 +121,7 @@ void amr_ghosts_impl_t::update() {
                   &grace_iterate_edges,                 /*edge*/
                   #endif 
                   &grace_iterate_corners );             /*corner*/
-    parallel::mpi_barrier() ; // FIXME 
+    //parallel::mpi_barrier() ; // FIXME 
 
     std::unordered_set<size_t> cbuf_qid ; 
     //build_flux_buffers()     ;
@@ -140,7 +140,7 @@ void amr_ghosts_impl_t::update() {
         pack_kernels, unpack_kernels, pack_finer_kernels, pack_to_cbuf_kernels,
         unpack_to_cbuf_kernels, unpack_from_cbuf_kernels, prolong_kernels
     )   ; 
-    parallel::mpi_barrier() ; // FIXME 
+    //parallel::mpi_barrier() ; // FIXME 
      
     build_task_list(
         phys_bc_kernels, copy_kernels,
