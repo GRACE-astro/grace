@@ -59,6 +59,7 @@
 #include <unordered_set>
 
 //#define INSERT_FENCE_DEBUG_TASKS_ 
+//#define INSERT_FENCE_DEBUG_TASKS_ 
 
 namespace grace {
 
@@ -367,3 +368,4 @@ void amr_ghosts_impl_t::build_task_list(
 }
 
 } /* namespace grace */
+

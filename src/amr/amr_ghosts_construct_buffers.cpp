@@ -528,11 +528,19 @@ void amr_ghosts_impl_t::build_remote_buffers(
     init_arr(send_sizes);
     init_arr(recv_sizes) ; 
     std::set<size_t> active_send, active_recv ; ; 
+    std::set<size_t> active_send, active_recv ; ; 
     for( int r=0; r<nproc; ++r) {
         for( int ik=0; ik<6; ++ik) {
             send_sizes[ik][r] = elem_sizes[ik] * rank_send_counts[ik][r] ; 
             send_rank_sizes[r] += send_sizes[ik][r] ; 
             recv_sizes[ik][r] = elem_sizes[ik] * rank_recv_counts[ik][r] ; 
+            recv_rank_sizes[r] += recv_sizes[ik][r] ;
+	    if ( send_sizes[ik][r] > 0 ) {
+	      active_send.insert(r) ; 
+	    }
+	    if ( recv_sizes[ik][r] > 0 ) {
+	      active_recv.insert(r) ; 
+	    }
             recv_rank_sizes[r] += recv_sizes[ik][r] ;
 	    if ( send_sizes[ik][r] > 0 ) {
 	      active_send.insert(r) ; 
@@ -608,6 +616,15 @@ void amr_ghosts_impl_t::build_remote_buffers(
            sizeof(double)*total_send_size/1e06/active_send.size(),
            sizeof(double)*total_recv_size/1e06/active_recv.size() );
 
+    _recv_buffer.realloc(total_recv_size) ;
+
+    GRACE_INFO("Setup of remote buffers complete, total send/recv size [MB] {}/{}, avg message size per rank [MB] {}/{}",
+           sizeof(double)*total_send_size/1e06,
+           sizeof(double)*total_recv_size/1e06,
+           sizeof(double)*total_send_size/1e06/active_send.size(),
+           sizeof(double)*total_recv_size/1e06/active_recv.size() );
+
 }
 
 } /* namespace grace */
+
