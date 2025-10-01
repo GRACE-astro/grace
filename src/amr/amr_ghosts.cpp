@@ -150,7 +150,7 @@ void amr_ghosts_impl_t::update() {
         prolong_kernels, cbuf_qid
     )        ; 
     build_executor_runtime() ;
-     
+    parallel::mpi_barrier() ;
     GRACE_PROFILING_POP_REGION ; 
 }
 
