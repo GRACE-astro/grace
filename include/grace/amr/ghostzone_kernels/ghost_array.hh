@@ -66,14 +66,6 @@ struct ghost_array_t
         grace::deep_copy_vec_to_const_view(cbuf_face_offsets, _offsets[3]) ; 
         grace::deep_copy_vec_to_const_view(cbuf_edge_offsets, _offsets[4]) ; 
         grace::deep_copy_vec_to_const_view(cbuf_corner_offsets, _offsets[5]) ; 
-        #if 0
-        // TODO remove 
-        auto h_ro = Kokkos::create_mirror_view(rank_offsets) ; 
-        Kokkos::deep_copy(h_ro,rank_offsets) ; 
-        for( int i=0; i<_roffsets.size(); ++i) {
-            GRACE_TRACE("Offset {}", h_ro(i)) ; 
-        }
-        #endif 
     }
 
     void realloc(size_t const& _new_size) {

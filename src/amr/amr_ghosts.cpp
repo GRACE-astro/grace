@@ -77,6 +77,7 @@ namespace grace {
 
 void amr_ghosts_impl_t::update() {
     GRACE_PROFILING_PUSH_REGION("GHOST_UPDATE") ; 
+    GRACE_VERBOSE("Building task list for ghostzone exchange.") ; 
     // empty everything first 
     reset() ; 
 
@@ -127,6 +128,7 @@ void amr_ghosts_impl_t::update() {
     std::unordered_set<size_t> cbuf_qid ; 
     //build_flux_buffers()     ;
     build_coarse_buffers(cbuf_qid)   ; 
+    GRACE_TRACE("Constructed coarse buffers, we have {} quadrants", cbuf_qid.size()) ; 
      
     bucket_t phys_bc_kernels, copy_kernels, copy_to_cbuf_kernels, prolong_kernels; 
     hang_bucket_t copy_from_cbuf_kernels ;
@@ -215,7 +217,7 @@ void amr_ghosts_impl_t::build_executor_runtime() {
 
         task_queue.rt.push_back(std::move(rtv)) ; 
     }
-    GRACE_TRACE("Task queue constructed. {} tasks are ready to run.", task_queue.ready.size()) ; 
+    GRACE_VERBOSE("Task queue constructed. {} tasks are ready to run.", task_queue.ready.size()) ; 
 }
 
 void amr_ghosts_impl_t::build_task_list(
@@ -329,7 +331,6 @@ void amr_ghosts_impl_t::build_task_list(
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
-    GRACE_TRACE("Inserting gz-restriction tasks.") ; 
     insert_ghost_restriction_tasks(
         cbuf_qid, ghost_layer,
         state, _coarse_buffers,
@@ -339,7 +340,6 @@ void amr_ghosts_impl_t::build_task_list(
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
-    GRACE_TRACE("Inserting phys-bc tasks.") ; 
     auto const deferred_phys_bc_kernels = 
         insert_phys_bc_tasks(
                 phys_bc_kernels, ghost_layer,
@@ -349,7 +349,6 @@ void amr_ghosts_impl_t::build_task_list(
         ) ;
     /***********************************************************************/
     /***********************************************************************/
-    GRACE_TRACE("Inserting prolongation tasks.") ; 
     insert_prolongation_tasks(
         prolong_kernels, ghost_layer,
         state, _coarse_buffers, interp_stream,
@@ -357,7 +356,6 @@ void amr_ghosts_impl_t::build_task_list(
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
-    GRACE_TRACE("Inserting deferred phys-bc tasks.") ; 
     insert_deferred_phys_bc_tasks(
         deferred_phys_bc_kernels, ghost_layer,
         state, _coarse_buffers, var_bc_kind, phys_bc_stream,

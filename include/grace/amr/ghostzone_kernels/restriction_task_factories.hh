@@ -322,7 +322,6 @@ void insert_ghost_restriction_tasks(
                 if ( ! edge.filled ) continue; 
                 if ( edge.kind == interface_kind_t::PHYS) edge.data.phys.in_cbuf = true ;  
                 if (!(edge.level_diff == level_diff_t::COARSER)) {
-                    GRACE_TRACE("Face (qid {} fid {}), registering edge {} level_diff {}", qid, f, e, edge.level_diff) ; 
                     restrict_edges.emplace_back(qid,e) ; 
                 }
             } 

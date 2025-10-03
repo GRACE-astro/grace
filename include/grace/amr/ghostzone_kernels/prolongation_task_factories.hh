@@ -110,7 +110,9 @@ make_prolongation_task(
 
     task._run = [functor,policy] (view_alias_t alias) mutable {
         functor.set_data_ptr(alias) ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Prolong start.") ; 
+        #endif 
         Kokkos::parallel_for("prolong_ghostzones", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence(); 
@@ -123,7 +125,6 @@ make_prolongation_task(
     task.stream = &stream ; 
     
     for( auto const& t : deps){
-        GRACE_TRACE("Prolong dep {}", t ) ; 
         task._dependencies.push_back(t) ; 
         task_list[t]->_dependents.push_back(tid) ;
     }

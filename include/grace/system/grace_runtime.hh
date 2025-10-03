@@ -457,7 +457,6 @@ class grace_runtime_impl_t
         if( not std::filesystem::exists( _scalar_io_basepath ) ){
             std::filesystem::create_directory(_scalar_io_basepath) ; 
         }
-        GRACE_TRACE("Here1") ;
         /* Set output planes and spheres properties      */
         _n_output_planes = grace::get_param<int>("IO", "n_output_planes") ;
         #define READ_IO_PARAM(s,t) grace::get_param<t>("IO",s) 
@@ -485,7 +484,6 @@ class grace_runtime_impl_t
             oss_x << "output_plane_name_" << iplane;
             _output_planes_names[iplane] = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
         }
-        GRACE_TRACE("Here2") ;
         _n_output_spheres = grace::get_param<int>("IO", "n_output_spheres") ;
         _output_spheres_centers.resize(_n_output_spheres)  ;
         _output_spheres_radii.resize(_n_output_spheres)    ;

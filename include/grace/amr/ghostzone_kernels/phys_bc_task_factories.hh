@@ -107,12 +107,14 @@ make_gpu_phys_bc_task(
     
     task._run = [functor, policy] (view_alias_t alias) mutable {
         functor.set_data_ptr(alias) ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Fill phys start") ; 
+        #endif 
         Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        #endif 
         GRACE_TRACE("Fill phys done") ; 
+        #endif 
     };
 
     task.stream = &stream ; 
@@ -121,7 +123,6 @@ make_gpu_phys_bc_task(
 
     // set deps 
     for( auto const dep_id : deps ) {
-        //GRACE_TRACE("Dep-id {}", dep_id) ; 
         ASSERT(dep_id < task_list.size(), "Dep-id out-of-range") ; 
         task._dependencies.push_back(dep_id) ; 
         task_list[dep_id]->_dependents.push_back(tid) ; 

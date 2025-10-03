@@ -142,13 +142,15 @@ gpu_task_t make_pack_task(
     
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
         pack_functor.set_data_ptr(alias) ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Pack start.") ; 
+        #endif
         Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
         // TODO remove 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        #endif 
         GRACE_TRACE("Pack done.") ;
+        #endif 
     } ; 
     pack_task.stream = &pup_stream ; 
     pack_task.task_id = task_counter ++ ; 
@@ -221,13 +223,15 @@ gpu_task_t make_pack_fine_task(
     
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
         pack_functor.set_data_ptr(alias) ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Pack start.") ; 
+        #endif 
         Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
         // TODO remove 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        #endif 
         GRACE_TRACE("Pack done.") ;
+        #endif 
     } ; 
     pack_task.stream = &pup_stream ; 
     pack_task.task_id = task_counter ++ ; 
@@ -316,14 +320,16 @@ gpu_task_t make_pack_to_cbuf_task(
     } ; 
     
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
         // don't change data ptr here!! 
         GRACE_TRACE("Pack start.") ; 
+        #endif 
         Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
         // TODO remove 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        #endif 
         GRACE_TRACE("Pack done.") ;
+        #endif 
     } ; 
     pack_task.stream = &pup_stream ; 
     pack_task.task_id = task_counter ++ ; 
@@ -429,7 +435,9 @@ gpu_task_t make_unpack_task(
     
     unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {
         unpack_functor.set_data_ptr(alias) ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Unpack start.") ; 
+        #endif 
         Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
@@ -526,8 +534,10 @@ gpu_task_t make_unpack_to_cbuf_task(
     } ; 
     
     unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
         //don't change data ptr here! 
         GRACE_TRACE("Unpack start.") ; 
+        #endif 
         Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
@@ -625,7 +635,9 @@ gpu_task_t make_unpack_from_cbuf_task(
     
     unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {
         unpack_functor.set_data_ptr(alias) ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Unpack start.") ; 
+        #endif 
         Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
@@ -758,7 +770,6 @@ void insert_pup_tasks(
      
 
     for( int r=0; r<parallel::mpi_comm_size(); ++r) {
-        GRACE_TRACE("Inserting pup tasks, rank {}", r) ;
         MAKE_TASKS(r,amr::FACE);
         MAKE_TASKS(r,amr::EDGE);
         MAKE_TASKS(r,amr::CORNER);

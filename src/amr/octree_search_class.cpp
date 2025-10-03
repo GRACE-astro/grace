@@ -27,12 +27,10 @@ int grace_search_plane(
     ASSERT(point, "Nullptr") ; 
     // get the plane we are checking 
     auto plane = static_cast<plane_desc_t*>(point) ; 
-    GRACE_TRACE("Plane, are we here?? dir {}", plane->dir) ; 
     // now construct a cube from the quadrant 
     auto cube  = make_cube(quadrant_t{quadrant}, which_tree) ; 
     // finally check for intersection 
     bool intersect = intersects(*plane,cube) ; 
-    GRACE_TRACE("Search local num {} intersect? {}", local_num, intersect) ; 
     // if the quadrant is a leaf we write back 
     // to its user_int to flag it 
     if ( local_num >= 0 and intersect ) {
@@ -61,31 +59,25 @@ void oct_tree_plane_slicer_t::search() {
         auto quad = amr::get_quadrant(iq) ; 
         if (quad.get_user_int()) sliced_quads.push_back(iq) ; 
     }
-    GRACE_TRACE("Search done. Found nquads {}", sliced_quads.size()) ; 
 }
 
 void oct_tree_plane_slicer_t::find_cells() {
     sliced_cell_offsets.clear() ; 
     sliced_cell_offsets.reserve(sliced_quads.size()) ; 
     for ( auto const& iq: sliced_quads ) {
-        GRACE_TRACE("Iq {}", iq) ; 
         auto const idx = detail::get_inv_cell_spacing(iq, _plane.dir);
         auto const qc = detail::get_quad_coord_lbounds(iq) ; 
         size_t const offset = math::floor_int(
             Kokkos::fabs(qc[_plane.dir] - _plane.d[_plane.dir]) * idx 
         ) ; 
-        GRACE_TRACE("quad {} offset {}, idx {}", iq, offset, idx) ; 
         sliced_cell_offsets.push_back(offset) ; 
         
     }
 }
 
 void oct_tree_plane_slicer_t::slice() {
-    GRACE_TRACE("Resetting quads") ; 
     reset_quads() ; 
-    GRACE_TRACE("Entering search") ; 
     search() ; 
-    GRACE_TRACE("Done search.") ; 
     find_cells() ;
 }
 

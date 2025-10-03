@@ -48,7 +48,7 @@ namespace grace { namespace amr {
 
 void regrid() {
     Kokkos::Profiling::pushRegion("regrid") ;
-    GRACE_INFO("Initiating regrid.") ;  
+    GRACE_VERBOSE("Initiating regrid.") ;  
     using namespace grace ; 
     auto& params = config_parser::get()             ; 
     auto& state  = variable_list::get().getstate()  ; 
@@ -119,7 +119,6 @@ void regrid() {
     }
     /* copy flags from device to host */ 
     Kokkos::deep_copy(h_regrid_flags, d_regrid_flags) ; 
-    GRACE_TRACE("Here") ; 
     for( size_t iq=0UL; iq<amr::get_local_num_quadrants(); ++iq)
     {
         auto quad = amr::get_quadrant(iq) ;
@@ -131,7 +130,6 @@ void regrid() {
             
         ) ; 
     }  
-    GRACE_TRACE("Here") ; 
     /******************************************************************************************/
     /* Call to p4est_refine                                                                   */  
     /* The arguments are:                                                                     */
@@ -352,7 +350,6 @@ void regrid() {
     /******************************************************************************************/
     /*                                Transfer data                                           */
     /******************************************************************************************/
-    GRACE_TRACE("Into transfer fixed.") ; 
     auto context = 
         grace_transfer_fixed_begin<decltype(state)> (
                   new_glob_qoffsets.data() 

@@ -79,7 +79,7 @@ void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere) {
 
 void write_volume_cell_data_hdf5() {
     Kokkos::Profiling::pushRegion("HDF5 volume output") ;
-
+    GRACE_VERBOSE("Performing HDF5 output of volume data.") ; 
     detail::_volume_output_iterations.push_back(grace::get_iteration())  ; 
     detail::_volume_output_times.push_back(grace::get_simulation_time()) ;
 

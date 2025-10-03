@@ -55,6 +55,7 @@ void apply_boundary_conditions() {
 
 void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     Kokkos::Profiling::pushRegion("BC") ; 
+    GRACE_VERBOSE("Initiating ghost-zone filling.") ; 
     using namespace grace ;
     /******************************************************/
     /* First step:                                        */
