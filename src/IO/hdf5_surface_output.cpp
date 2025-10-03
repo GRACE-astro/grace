@@ -1,6 +1,6 @@
 /**
- * @file hdf5_output.cpp
- * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @file hdf5_surface_output.cpp
+ * @author Keneth Miler (miler@itp.uni-frankfurt.de)
  * @brief 
  * @version 0.1
  * @date 2024-05-23
@@ -28,24 +28,29 @@
 #include <grace_config.h>
 #include <grace/utils/grace_utils.hh>
 #include <grace/amr/grace_amr.hh>
+#include <grace/amr/octree_search_class.hh>
 #include <grace/config/config_parser.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/coordinates/coordinates.hh>
+#include <grace/data_structures/variable_utils.hh>
+#include <grace/data_structures/memory_defaults.hh>
+
 #include <grace/system/grace_system.hh>
 #include <grace/IO/hdf5_output.hh>
 #include <grace/IO/hdf5_surface_output.hh>
-
 #include <grace/parallel/mpi_wrappers.hh>
 
 #include <hdf5.h>
 #include <omp.h>
-/* xdmf */
+/* xmf */
 #include <grace/IO/xmf_utilities.hh>
 /* stl */
 #include <string>
 #include <filesystem>
 #include <sstream>
 #include <iomanip>
+#include <tuple>
+#include <Kokkos_UnorderedMap.hpp>
 
 #define HDF5_CALL(result,cmd) \
     do {  \
@@ -54,59 +59,82 @@
         } \
     } while(false)
 
+
 namespace grace { namespace IO {
 
 namespace detail {
-
-std::vector<int64_t> _volume_output_iterations ;
-std::vector<double>  _volume_output_times ;
-std::vector<int64_t> _volume_output_ncells ; 
-std::vector<std::string> _volume_output_filenames ; 
-
+std::vector<int64_t> _volume_output_sliced_iterations ;
+std::vector<double>  _volume_output_sliced_times ;
+std::vector<int64_t> _volume_output_sliced_ncells ; 
+std::vector<std::string> _volume_output_sliced_filenames ; 
 }
 
-void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere) {
 
-    if( out_vol ) {
-        write_volume_cell_data_hdf5() ; 
+void write_plane_cell_data() {
+    Kokkos::Profiling::pushRegion("HDF5 plane output") ;
+    GRACE_VERBOSE("Performing HDF5 output of surface data.") ; 
+    auto& rt = grace::runtime::get() ; 
+
+    auto n_planes = rt.n_surface_output_planes() ; 
+    auto plane_names = rt.cell_plane_surface_output_names() ; 
+    auto plane_offsets = rt.cell_plane_surface_output_origins() ; 
+    auto plane_dirs = rt.cell_plane_surface_output_dirs() ; 
+
+    for( int i=0 ; i<n_planes; ++i) {
+        amr::plane_desc_t plane ; 
+        plane.name = plane_names[i] ; 
+        plane.d = plane_offsets[i] ;
+        plane.dir = plane_dirs[i] ;  
+        write_plane_cell_data_impl(plane) ; 
     }
-    if( out_plane ) {
-        write_plane_cell_data() ; 
-    } 
-    parallel::mpi_barrier() ; 
+
+    Kokkos::Profiling::popRegion() ; 
 }
 
+void write_plane_cell_data_impl(amr::plane_desc_t const& plane) {
+    
 
-void write_volume_cell_data_hdf5() {
-    Kokkos::Profiling::pushRegion("HDF5 volume output") ;
+    detail::_volume_output_sliced_iterations.push_back(grace::get_iteration())  ; 
+    detail::_volume_output_sliced_times.push_back(grace::get_simulation_time()) ;
 
-    detail::_volume_output_iterations.push_back(grace::get_iteration())  ; 
-    detail::_volume_output_times.push_back(grace::get_simulation_time()) ;
-
+    /* figure out where to output */
     auto& runtime = grace::runtime::get() ; 
-    std::filesystem::path base_path (runtime.volume_io_basepath()) ;
+    std::filesystem::path base_path (runtime.surface_io_basepath()) ;
     std::ostringstream oss;
-    oss << runtime.volume_io_basename() << "_" 
+    oss << runtime.surface_io_basename() << "_plane" << "_" << plane.name << "_"
         << std::setw(6) << std::setfill('0') << grace::get_iteration() << ".h5";
     std::string pfname = oss.str();
     std::filesystem::path out_path = base_path / pfname ;
-    detail::_volume_output_filenames.push_back(pfname) ;
+    detail::_volume_output_sliced_filenames.push_back(pfname) ;
 
+    /* fetch some params */
     auto& params = grace::config_parser::get() ;
     size_t compression_level = params["IO"]["hdf5_compression_level"].as<size_t>() ;
     size_t chunk_size = params["IO"]["hdf5_chunk_size"].as<size_t>() ;
 
-    auto _p4est = grace::amr::forest::get().get() ; 
-    /* Get global number of quadrants and quadrant offset for this rank */
-    unsigned long const nq_glob = _p4est->global_num_quadrants ;
-    size_t nx,ny,nz; 
-    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
-    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
-    /* Global number of cells  */
-    unsigned long const ncells_glob = ncells_quad * nq_glob ; 
-    if( chunk_size > ncells_glob ) {
-        GRACE_WARN("Chunk size {} < number of cells {} will be overridden." , chunk_size, ncells_glob) ; 
-        chunk_size = ncells_glob; 
+
+    /* number of cells per quad */
+    size_t nx,ny,nz ;
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    size_t nq = amr::get_local_num_quadrants() ; 
+
+    /* Get the sliced octants*/
+    amr::oct_tree_plane_slicer_t octree_slicer(plane, nq);
+    octree_slicer.slice() ; 
+    auto sliced_nq = octree_slicer.n_sliced_quads() ; 
+    auto sliced_cells = sliced_nq * nx * nx ;
+    // find out how many cells in total 
+    size_t glob_sliced_nq ;
+    parallel::mpi_allreduce(
+        &sliced_nq, &glob_sliced_nq, 1, mpi_sum 
+    ) ; 
+    // write back some info for later use 
+    octree_slicer.ncells = sliced_cells ; 
+    octree_slicer.glob_ncells = glob_sliced_nq * nx * nx ; 
+    octree_slicer.glob_nq = glob_sliced_nq ;  
+    if( chunk_size > octree_slicer.glob_ncells ) {
+        GRACE_WARN("Chunk size {} < number of cells {} will be overridden." , chunk_size, octree_slicer.glob_ncells) ; 
+        chunk_size = max(1,octree_slicer.glob_ncells); 
     }
 
     auto comm = parallel::get_comm_world() ; 
@@ -144,163 +172,130 @@ void write_volume_cell_data_hdf5() {
     HDF5_CALL(err,H5Aclose(attr_id));
     HDF5_CALL(err,H5Sclose(attr_dataspace_id));
     /* Write grid structure to hdf5 file      */
-    write_grid_structure_hdf5(file_id, compression_level,chunk_size) ; 
+    write_grid_structure_sliced_hdf5(file_id, compression_level,chunk_size, octree_slicer) ;
     /* Write requested variables to hdf5 file */
-    write_volume_data_arrays_hdf5(file_id, compression_level,chunk_size) ;
+    write_volume_data_arrays_sliced_hdf5(file_id, compression_level,chunk_size, octree_slicer) ;
     /* Write extra quantities if requested */
     bool output_extra = grace::get_param<bool>("IO","output_extra_quantities") ; 
     if( output_extra ) {
-        write_extra_arrays_hdf5(file_id, compression_level, chunk_size) ; 
+        write_extra_arrays_sliced_hdf5(file_id, compression_level, chunk_size, octree_slicer) ; 
     }
     parallel::mpi_barrier() ; 
     /* Close the file */
     HDF5_CALL(err,H5Fclose(file_id)) ; 
     HDF5_CALL(err,H5Pclose(plist_id)) ; 
-    /* Write xmf file */
-    std::string pfname_xdmf = runtime.volume_io_basename() + ".xmf" ;
-    std::filesystem::path out_path_xdmf = base_path / pfname_xdmf ;
-    if( parallel::mpi_comm_rank() == 0)
-        write_xmf_file( out_path_xdmf.string()
-                      , detail::_volume_output_iterations
-                      , detail::_volume_output_ncells 
-                      , detail::_volume_output_times 
-                      , detail::_volume_output_filenames ) ; 
-    
-    Kokkos::Profiling::popRegion() ; 
 }
 
-void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) {
+void write_grid_structure_sliced_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size, amr::oct_tree_plane_slicer_t& octree_slicer) {
     herr_t err ; 
 
     auto& coord_system = grace::coordinate_system::get() ; 
-    size_t nx,ny,nz; 
-    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    size_t nx,ny,nz;
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = grace::amr::get_n_ghosts() ;
     size_t nq = grace::amr::get_local_num_quadrants() ; 
 
-    #ifdef GRACE_3D 
+    size_t nq_s = octree_slicer.sliced_quads.size();
+
     #ifdef GRACE_CARTESIAN_COORDINATES
-    size_t constexpr nvertex = 8 ;
+    size_t constexpr nvertex = 4 ;
     #elif defined(GRACE_SPHERICAL_COORDINATES)
-    size_t constexpr nvertex = 24 ;
-    #endif 
-    #else 
-    #ifdef GRACE_CARTESIAN_COORDINATES
-    size_t nvertex = 4 ; 
-    #elif defined(GRACE_SPHERICAL_COORDINATES)
-    size_t nvertex = 6 ; 
-    #endif 
+    ASSERT(0, "This does not work unless cartesian.") ; 
     #endif 
 
     auto const rank = parallel::mpi_comm_rank() ; 
     /* Get the p4est pointer */
     auto _p4est = grace::amr::forest::get().get() ; 
-    /* Get global number of quadrants and quadrant offset for this rank */
-    unsigned long const nq_glob = _p4est->global_num_quadrants ; 
-    unsigned long const local_quad_offset = _p4est->global_first_quadrant[rank] ; 
-    /* Number of cells per quadrant */
-    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
-    /* Local number of cells   */
-    unsigned long const ncells = ncells_quad * nq ; 
-    /* Global number of cells  */
-    unsigned long const ncells_glob = ncells_quad * nq_glob ; 
+    /* Get local offset */
+    size_t local_quad_offset; // has to be the same type as nq
+    parallel::mpi_exscan_sum( &nq_s, &local_quad_offset, 1, parallel::get_comm_world() ) ;
+    if (rank == 0) local_quad_offset = 0 ;
+
+    octree_slicer.local_quad_offset = local_quad_offset ; 
+
     /* Number of unique points per quadrant */
-    unsigned long const npoints_quad = (nx+1) * (ny+1) * (nz+1) ; 
+    unsigned long npoints_quad_sliced = (nx+1) * (nx+1); 
+    auto const dir = octree_slicer._plane.dir ;
+
     /* Local number of points  */
-    unsigned long const npoints = npoints_quad * nq ;  
+    unsigned long const npoints_sliced = npoints_quad_sliced * nq_s ;  
     /* Global number of points */
-    unsigned long const npoints_glob = npoints_quad * nq_glob ;
+    unsigned long const npoints_glob_sliced = npoints_quad_sliced * octree_slicer.glob_nq ;
 
-    detail::_volume_output_ncells.push_back(ncells_glob) ; 
+    /* Local number of cells */
+    unsigned long const ncells_sliced = octree_slicer.ncells ;
+    unsigned long const ncells_quad_sliced = nx*nx ; 
+    unsigned long const ncells_glob = ncells_quad_sliced * octree_slicer.glob_nq ; 
+ 
+    detail::_volume_output_sliced_ncells.push_back(octree_slicer.glob_nq) ; 
 
-    double*  points = (double*)  malloc(sizeof(double)  * npoints * 3 ) ; 
-    unsigned long int* cells  = (unsigned long int*) malloc(sizeof(unsigned long int) * ncells * nvertex ) ; 
-    const size_t global_point_offset = local_quad_offset * npoints_quad ;  
-    unsigned long int icell  = 0L ; 
-    unsigned long int ipoint = 0U ; 
-
-    auto const get_point_index = 
-    [&] 
-    (
-        VEC(int i, int j, int k), int64_t q
-    ) 
+    double*  points      = (double      *) malloc(sizeof(double)  * npoints_sliced * 3 )                ; 
+    unsigned long int* cells  = (unsigned long int*) malloc(sizeof(unsigned long int) * ncells_sliced * nvertex ) ; 
+    const size_t global_point_offset_sliced = local_quad_offset * npoints_quad_sliced ;  
+    unsigned long int icell  = 0UL ; 
+    unsigned long int ipoint = 0UL ; 
+    auto const get_point_index = [&] ( int i, int j, int64_t q ) 
     {
-        #ifdef GRACE_3D 
-        return i + (nx+1) * (j + (ny+1) * (k + (nz+1) * q)) ; 
-        #else 
-        return i + (nx+1) * (j + (ny+1) * q) ; 
-        #endif
+        return i + (nx+1) * (j + (nx+1) * q) ; 
     } ; 
-
-    auto const get_cell_vertex_indices = [&]
-    (
-        VEC(int i, int j, int k), int64_t q, int iv
-    ) 
+    auto const get_cell_vertex_indices = [&] ( int i, int j, int iv) 
     {
-        static constexpr std::array<std::array<int,3>,8> vertex_coords {{
-            {0, 0, 0}, //
-            {1, 0, 0}, //
-            {1, 1, 0}, //
-            {0, 1, 0}, //
-            {0, 0, 1}, //
-            {1, 0, 1}, //
-            {1, 1, 1}, //
-            {0, 1, 1}  //
-        }} ; 
-        return std::make_tuple(
-            VEC(
+            static constexpr std::array<std::array<int,3>,4> vertex_coords {{
+                {0, 0, 0}, //
+                {1, 0, 0}, //
+                {1, 1, 0}, //
+                {0, 1, 0}  //
+            }} ; 
+
+            return std::make_tuple(
                 i+vertex_coords[iv][0],
-                j+vertex_coords[iv][1],
-                k+vertex_coords[iv][2]
-            )
-        ) ; 
+                j+vertex_coords[iv][1]
+            ) ; 
     } ;
-    #pragma omp parallel for collapse(GRACE_NSPACEDIM+1) 
-    for(int64_t iq=0; iq<nq; ++iq) {
-        #ifdef GRACE_3D
-        for(size_t k=0; k<nz; ++k  ) {
-        #endif  
-            for( size_t j=0; j<ny; ++j) { 
-                for(size_t i=0; i<nx; ++i){
-                int64_t const icell = i + nx * ( j + ny * ( k  + nz * iq )) ; 
-                for( int iv=0; iv<nvertex; ++iv ) {
-                    int ip, jp, kp ; 
-                    std::tie(ip,jp,kp) = get_cell_vertex_indices(VEC(i,j,k),iq,iv) ; 
-                    cells[nvertex * icell + iv] = get_point_index(VEC(ip,jp,kp),iq+local_quad_offset); 
+
+    size_t ip, jp ; 
+    #pragma omp parallel for collapse(3) private(ip,jp)
+    for( int iq = 0; iq<octree_slicer.sliced_quads.size(); ++iq) {
+        for( int i=0; i<nx; ++i) {
+            for( int j=0; j<nx; ++j){
+                size_t const icell = (i + nx * ( j + nx * iq )) ; 
+                for( int iv=0; iv<nvertex; ++iv) {
+                    std::tie(ip,jp) = get_cell_vertex_indices(i,j,iv) ; 
+                    // this indexes into the global buffer 
+                    cells[nvertex*icell + iv] = get_point_index(ip,jp,iq+local_quad_offset) ; 
                 }
-                #ifdef GRACE_3D
-                }
-                #endif 
             }
         }
     }
-    #pragma omp parallel for collapse(GRACE_NSPACEDIM+1) 
-    for(int64_t iq=0; iq<nq; ++iq) {
-        #ifdef GRACE_3D
-        for(size_t k=0; k<nz+1; ++k  ) {
-        #endif  
-            for( size_t j=0; j<ny+1; ++j) { 
-                for(size_t i=0; i<nx+1; ++i){
-                    auto const pcoords = 
-                        coord_system.get_physical_coordinates( {VEC(i,j,k)}
-                                                             , iq
+
+    // coordinates 
+    #pragma omp parallel for 
+    for( int iq = 0; iq<octree_slicer.sliced_quads.size(); ++iq) {
+        for( int i=0; i<nx+1; ++i) for( int j=0; j<nx+1; ++j) {
+            auto const q = octree_slicer.sliced_quads[iq] ; 
+            auto const ipoint = get_point_index(i,j,iq) ; 
+            std::array<size_t,3> ijk ; 
+            if ( octree_slicer._plane.dir == 0 ) {
+                ijk[0] = octree_slicer.sliced_cell_offsets[iq] ; 
+                ijk[1] = i ; ijk[2] = j ;
+            } else if ( octree_slicer._plane.dir == 1 ) {
+                ijk[1] = octree_slicer.sliced_cell_offsets[iq] ; 
+                ijk[0] = i ; ijk[2] = j ;
+            } else {
+                ijk[2] = octree_slicer.sliced_cell_offsets[iq] ; 
+                ijk[0] = i ; ijk[1] = j ;
+            }
+            auto const pcoords = 
+                        coord_system.get_physical_coordinates( ijk
+                                                             , q /* note! */
                                                              , {VEC( 0,0,0 )}
-                                                             , false) ; 
-                    auto const ipoint = get_point_index(VEC(i,j,k),iq) ; 
-                    points[GRACE_NSPACEDIM*ipoint + 0 ] = pcoords[0] ; 
-                    points[GRACE_NSPACEDIM*ipoint + 1 ] = pcoords[1] ;
-                    points[GRACE_NSPACEDIM*ipoint + 2 ] 
-                    #ifdef GRACE_3D 
-                        = pcoords[2] ;
-                    #else 
-                        = 0.0 ; 
-                    #endif  
-                }
-            }
-        #ifdef GRACE_3D
+                                                             , false) ;
+            points[GRACE_NSPACEDIM*ipoint + 0 ] = pcoords[0] ; 
+            points[GRACE_NSPACEDIM*ipoint + 1 ] = pcoords[1] ;
+            points[GRACE_NSPACEDIM*ipoint + 2 ] = pcoords[2] ; 
         }
-        #endif 
     }
+
     /* Create parallel dataset properties */
     hid_t dxpl ; 
     HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER)) ; 
@@ -308,7 +303,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
 
     /* Create/open datasets */
     hid_t points_space_id_glob ;
-    hsize_t points_dset_dims_glob[2] = {npoints_glob, 3} ;   
+    hsize_t points_dset_dims_glob[2] = {npoints_glob_sliced, 3} ;   
     /* Create global space for points dataset */
     HDF5_CALL(points_space_id_glob, H5Screate_simple(2, points_dset_dims_glob, NULL)) ; 
     hid_t cells_space_id_glob ;
@@ -345,12 +340,7 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
                             , H5P_DEFAULT) ) ;
     hid_t attr_id, attr_dataspace_id; 
     const std::string dataset_attr_name = "CellTopology";
-    const char * dataset_attr_data = 
-    #ifdef GRACE_3D
-        "Hexahedron";
-    #else 
-        "Quadrilateral";
-    #endif 
+    const char * dataset_attr_data = "Quadrilateral";
     hid_t str_type ; 
     HDF5_CALL(str_type,H5Tcopy(H5T_C_S1));
     HDF5_CALL(err,H5Tset_size(str_type, H5T_VARIABLE));
@@ -363,12 +353,12 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     /* Write cells dataset */
     /* Create local space for this rank */
     hid_t cells_space_id ; 
-    hsize_t cells_dset_dims[2] = {ncells, nvertex} ;
+    hsize_t cells_dset_dims[2] = {ncells_sliced, nvertex} ;
     HDF5_CALL(cells_space_id, H5Screate_simple(2, cells_dset_dims, NULL)) ; 
     /* Select hyperslab for this rank's output */
-    hsize_t cells_slab_start[2]  = {local_quad_offset * ncells_quad,0} ; 
-    hsize_t cells_slab_count[2]  = {ncells,nvertex} ;
-    GRACE_VERBOSE("Slab offset {}, size {}, total {}", cells_slab_start[0], ncells, ncells_glob) ;  
+    hsize_t cells_slab_start[2]  = {local_quad_offset * ncells_quad_sliced,0} ; 
+    hsize_t cells_slab_count[2]  = {ncells_sliced,nvertex} ;
+    GRACE_VERBOSE("Slab offset {}, size {}, total {}", cells_slab_start[0], ncells_sliced, octree_slicer.glob_nq) ;  
     HDF5_CALL( err
              , H5Sselect_hyperslab( cells_space_id_glob
                                   , H5S_SELECT_SET
@@ -376,7 +366,6 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
                                   , NULL
                                   , cells_slab_count 
                                   , NULL )) ;
-
 
     HDF5_CALL( err
              , H5Dwrite( cells_dset_id
@@ -396,12 +385,12 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     /* Write points dataset */
     /* Create local space for this rank */
     hid_t points_space_id ; 
-    hsize_t points_dset_dims[2] = {npoints, GRACE_NSPACEDIM} ;
+    hsize_t points_dset_dims[2] = {npoints_sliced, GRACE_NSPACEDIM} ;
     HDF5_CALL(points_space_id, H5Screate_simple(2, points_dset_dims, NULL)) ; 
     /* Select hyperslab for this rank's output */
-    hsize_t points_slab_start[2]  = {global_point_offset,0} ;
-    GRACE_VERBOSE("Slab offset {}, size {}, total {}", points_slab_start[0], npoints, npoints_glob) ;  
-    hsize_t points_slab_count[2]  = {npoints,GRACE_NSPACEDIM} ;
+    hsize_t points_slab_start[2]  = {global_point_offset_sliced,0} ;
+    GRACE_VERBOSE("Slab offset {}, size {}, total {}", points_slab_start[0], npoints_sliced, npoints_glob_sliced) ;  
+    hsize_t points_slab_count[2]  = {npoints_sliced,GRACE_NSPACEDIM} ;
     HDF5_CALL( err
              , H5Sselect_hyperslab( points_space_id_glob
                                   , H5S_SELECT_SET
@@ -425,48 +414,58 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     HDF5_CALL(err, H5Pclose(dxpl)) ;
     /* Release resources*/
     free(points);
-    
 }
 
-void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) {
+void write_volume_data_arrays_sliced_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size, amr::oct_tree_plane_slicer_t& octree_slicer) {
 
     herr_t err ;
 
     auto& runtime = grace::runtime::get() ;
 
-    auto const scalars     = runtime.cell_volume_output_scalar_vars() ; 
-    auto const aux_scalars = runtime.cell_volume_output_scalar_aux()  ;
-    auto const vectors     = runtime.cell_volume_output_vector_vars() ; 
-    auto const aux_vectors = runtime.cell_volume_output_vector_aux()  ;
+    auto const scalars     = runtime.cell_plane_surface_output_scalar_vars() ; 
+    auto const aux_scalars = runtime.cell_plane_surface_output_scalar_aux()  ;
+    auto const vectors     = runtime.cell_plane_surface_output_vector_vars() ; 
+    auto const aux_vectors = runtime.cell_plane_surface_output_vector_aux()  ;
 
-    size_t nx,ny,nz,nq; 
-    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
-    nq = grace::amr::get_local_num_quadrants() ; 
+    size_t nx,ny,nz ;
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    size_t nq_s = octree_slicer.sliced_quads.size();
     size_t ngz = grace::amr::get_n_ghosts() ; 
-
 
     auto const rank = parallel::mpi_comm_rank() ; 
     /* Get the p4est pointer */
     auto _p4est = grace::amr::forest::get().get() ; 
     /* Get global number of quadrants and quadrant offset for this rank */
-    unsigned long const nq_glob = _p4est->global_num_quadrants ; 
-    unsigned long const local_quad_offset = _p4est->global_first_quadrant[rank] ; 
+    unsigned long const nq_glob_sliced = octree_slicer.glob_nq ;
+    auto local_quad_offset_sliced = octree_slicer.local_quad_offset ; 
+
     /* Number of cells per quadrant */
-    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+    unsigned long const ncells_quad_sliced = nx*nx ; 
     /* Local number of cells   */
-    unsigned long const ncells = ncells_quad * nq ; 
+    unsigned long const ncells_sliced = ncells_quad_sliced * nq_s; //octree_slicer.num_sliced_cells() ; 
     /* Global number of cells  */
-    unsigned long const ncells_glob = ncells_quad * nq_glob ; 
+    unsigned long const ncells_glob_sliced = ncells_quad_sliced * nq_glob_sliced ; 
+    /* Number of unique points per quadrant */
+    unsigned long ncorners_quad_sliced = (nx+1) * (nx+1); 
+    auto const dir = octree_slicer._plane.dir;
+
 
     /* Create parallel dataset properties */
     hid_t dxpl ; 
     HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER)) ; 
     HDF5_CALL(err, H5Pset_dxpl_mpio(dxpl,H5FD_MPIO_COLLECTIVE)) ;
 
-    /* Scalars */
-    /* Create/open datasets */
+    /*****************************************************************************************/
+    /*                                     Scalars                                           */
+    /*****************************************************************************************/
+
+    /*****************************************************************************************/
+    /*                               Create/open datasets                                    */
+    /*****************************************************************************************/
+
+    /* 1) Cell centered variables */
     hid_t scalars_space_id_glob ;
-    hsize_t scalars_dset_dims_glob[1] = {ncells_glob} ;
+    hsize_t scalars_dset_dims_glob[1] = {ncells_glob_sliced} ;
 
     /* Create global space for points dataset */
     HDF5_CALL(scalars_space_id_glob, H5Screate_simple(1, scalars_dset_dims_glob, NULL)) ;
@@ -480,24 +479,48 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
 
     /* Create local space for this rank */
     hid_t scalars_space_id ; 
-    hsize_t scalars_dset_dims[1] = {ncells} ;
+    hsize_t scalars_dset_dims[1] = {ncells_sliced} ;
     HDF5_CALL(scalars_space_id, H5Screate_simple(1, scalars_dset_dims, NULL)) ; 
 
-    /* Write data to file */
-    write_var_arrays_hdf5( scalars,file_id,dxpl,scalars_space_id_glob
-                         , scalars_space_id,scalars_prop_id,ncells,ncells_glob,local_quad_offset,false) ; 
-    write_var_arrays_hdf5( aux_scalars,file_id,dxpl,scalars_space_id_glob
-                         , scalars_space_id,scalars_prop_id,ncells,ncells_glob,local_quad_offset,true) ; 
-
-    /* Close data spaces */
+    /*****************************************************************************************/
+    // Create host mirrors for keys and values.
+    // Allocate the views in the default execution space (likely device memory)
+    Kokkos::View<size_t*> d_quad_ids("plane_quad_ids", nq_s);
+    Kokkos::View<size_t*> d_cell_offsets("plane_cell_offsets", nq_s);
+    grace::deep_copy_vec_to_view(d_quad_ids, octree_slicer.sliced_quads) ; 
+    grace::deep_copy_vec_to_view(d_cell_offsets, octree_slicer.sliced_cell_offsets) ; 
+    /*****************************************************************************************/
+    /*                                  Write to file                                        */
+    /*****************************************************************************************/
+    write_var_arrays_sliced_hdf5( 
+        scalars, 
+        file_id, dxpl,
+        scalars_space_id_glob, scalars_space_id, scalars_prop_id,
+        ncells_sliced, local_quad_offset_sliced, octree_slicer, d_quad_ids, d_cell_offsets) ; 
+    write_var_arrays_sliced_hdf5( 
+        aux_scalars, 
+        file_id, dxpl,
+        scalars_space_id_glob, scalars_space_id, scalars_prop_id,
+        ncells_sliced, local_quad_offset_sliced, octree_slicer, d_quad_ids, d_cell_offsets, true ) ;
+    /*****************************************************************************************/
+    /*                                  Close data spaces                                    */
+    /*****************************************************************************************/
     HDF5_CALL(err, H5Sclose(scalars_space_id)) ; 
     HDF5_CALL(err, H5Sclose(scalars_space_id_glob)) ;
     HDF5_CALL(err, H5Pclose(scalars_prop_id)) ;
+    /*****************************************************************************************/
 
-    /* Vectors */
-    /* Create/open datasets */
+    /*****************************************************************************************/
+    /*                                     Vectors                                           */
+    /*****************************************************************************************/
+
+    /*****************************************************************************************/
+    /*                               Create/open datasets                                    */
+    /*****************************************************************************************/
+
+    /* 1) Cell centered variables */
     hid_t vectors_space_id_glob ;
-    hsize_t vectors_dset_dims_glob[2] = {ncells_glob, 3} ;
+    hsize_t vectors_dset_dims_glob[2] = {ncells_glob_sliced, 3} ;
 
     /* Create global space for points dataset */
     HDF5_CALL(vectors_space_id_glob, H5Screate_simple(2, vectors_dset_dims_glob, NULL)) ;
@@ -511,50 +534,68 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
 
     /* Create local space for this rank */
     hid_t vectors_space_id ; 
-    hsize_t vectors_dset_dims[2] = {ncells, 3} ;
+    hsize_t vectors_dset_dims[2] = {ncells_sliced, 3} ;
     HDF5_CALL(vectors_space_id, H5Screate_simple(2, vectors_dset_dims, NULL)) ; 
+    /*****************************************************************************************/
 
-    /* Write to file */
-    write_vector_var_arrays_hdf5( vectors,file_id,dxpl,vectors_space_id_glob
-                                , vectors_space_id,vectors_prop_id,ncells,ncells_glob,local_quad_offset,false) ; 
-    write_vector_var_arrays_hdf5( aux_vectors,file_id,dxpl,vectors_space_id_glob
-                                 , vectors_space_id,vectors_prop_id,ncells,ncells_glob,local_quad_offset,true) ; 
-    
-    /* Close data spaces */
+    /*****************************************************************************************/
+    /*                                  Write to file                                        */
+    /*****************************************************************************************/
+    write_vector_var_arrays_sliced_hdf5( 
+        vectors,
+        file_id,dxpl,
+        vectors_space_id_glob,vectors_space_id,vectors_prop_id,
+        ncells_sliced,local_quad_offset_sliced, octree_slicer, d_quad_ids, d_cell_offsets) ; 
+    write_vector_var_arrays_sliced_hdf5( 
+        aux_vectors,
+        file_id,dxpl,
+        vectors_space_id_glob,vectors_space_id,vectors_prop_id,
+        ncells_sliced,local_quad_offset_sliced, octree_slicer, d_quad_ids, d_cell_offsets, true) ;
+    /*****************************************************************************************/
+    /*                                  Close data spaces                                    */
+    /*****************************************************************************************/
     HDF5_CALL(err, H5Sclose(vectors_space_id)) ; 
     HDF5_CALL(err, H5Sclose(vectors_space_id_glob)) ;
     HDF5_CALL(err, H5Pclose(vectors_prop_id)) ;
-
-    /* Cleanup and exit */
+    /*****************************************************************************************/
+    /*****************************************************************************************/
+    /*                                 Cleanup and exit                                      */
+    /*****************************************************************************************/
     HDF5_CALL(err, H5Pclose(dxpl)) ;
-     
+    /*****************************************************************************************/
 }
 
-void write_var_arrays_hdf5( std::vector<std::string> const& varlist 
+void write_var_arrays_sliced_hdf5( std::vector<std::string> const& varlist 
                           , hid_t file_id 
                           , hid_t dxpl
                           , hid_t space_id_glob
                           , hid_t space_id
                           , hid_t prop_id
                           , hsize_t ncells
-                          , hsize_t ncells_glob
                           , hsize_t local_quad_offset
-                          , bool isaux  ) 
+                          , amr::oct_tree_plane_slicer_t& octree_slicer
+                          , Kokkos::View<size_t*> d_quad_ids
+                          , Kokkos::View<size_t*> d_cell_offsets
+                          , bool isaux ) // had isaux 
 {
     herr_t err ; 
     /* Get cell and quadrant counts */
-    size_t nx,ny,nz,nq; 
-    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
-    nq = grace::amr::get_local_num_quadrants() ; 
+    size_t nx,ny,nz,nq;
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ;
+    auto nq_s = octree_slicer.sliced_quads.size() ; 
+    nq = grace::amr::get_local_num_quadrants() ;
     size_t ngz = grace::amr::get_n_ghosts() ;
     /* Number of cells per quadrant */
-    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+    unsigned long const ncells_quad_sliced = nx*nx ; 
+    /* Number of corners per quadrant */
+    unsigned long ncorners_quad_sliced = (nx+1)*(nx+1) ;
+    auto dir = octree_slicer._plane.dir;
 
-    /* Fetch variable arrays */
+    //-----------
     auto vars = grace::variable_list::get().getstate() ; 
     auto aux  = grace::variable_list::get().getaux()   ;
     auto& view = isaux ? aux : vars ;
-
+    //-----------
     /**********************************************/
     /* We need an extra device mirror because:    */
     /* 1) The view is not contiguous since we     */
@@ -563,16 +604,17 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
     /*    memory layout on device which           */
     /*    usually follows the FORTRAN convention. */
     /**********************************************/
-    Kokkos::View<double EXPR(*,*,*)*, Kokkos::LayoutLeft> 
-        d_mirror("Device output mirror", VEC(nx,ny,nz), nq) ; 
-    auto h_mirror = Kokkos::create_mirror_view(d_mirror) ; 
-    for( int ivar=0; ivar<varlist.size(); ++ivar)
+    Kokkos::View<double ***, Kokkos::LayoutLeft>
+        d_mirror("Device output mirror",nx,nx, nq_s) ;
+    auto h_mirror = Kokkos::create_mirror_view(d_mirror) ;
+
+    for( auto const& vname: varlist )
     {
-        size_t varidx = grace::get_variable_index(varlist[ivar],isaux) ; 
-        GRACE_TRACE("Writing var {} to output. Variable index {} from auxiliaries? {}"
-                   , varlist[ivar], varidx, isaux) ; 
+        size_t varidx = grace::get_variable_index(vname,isaux) ; 
+        GRACE_TRACE("Writing var {} to output.", vname) ;
+
         /* create HDF5 dataset */
-        std::string dset_name = "/" + varlist[ivar] ; 
+        std::string dset_name = "/" + vname ; 
         hid_t dset_id ; 
         HDF5_CALL( dset_id
                 , H5Dcreate2( file_id
@@ -595,15 +637,32 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
                                     , Kokkos::pair<int,int>(ngz,nz+ngz)
                                     #endif 
                                     , varidx
-                                    , Kokkos::ALL() ) ; 
- 
-        /* This deep copy operation is asynchronous */
-        Kokkos::deep_copy(d_mirror, sview) ;
-        /* Copy data d2h */
-        Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
+                                    , Kokkos::ALL() ) ;
+        Kokkos::parallel_for(
+            "copy_plane_data", 
+            Kokkos::MDRangePolicy<Kokkos::Rank<3>>({0,0,0}, {nx,nx,nq_s}),
+            KOKKOS_LAMBDA( int i, int j, int iq) {
+                int ijk[3] ; 
+                if ( dir == 0 ) {
+                    ijk[0] = d_cell_offsets(iq) ; 
+                    ijk[1] = i ; ijk[2] = j ; 
+                } else if (dir==1) {
+                    ijk[1] = d_cell_offsets(iq) ; 
+                    ijk[0] = i ; ijk[2] = j ; 
+                } else {
+                    ijk[2] = d_cell_offsets(iq) ; 
+                    ijk[0] = i ; ijk[1] = j ; 
+                }
+                d_mirror(i,j,iq) = sview(
+                    ijk[0],ijk[1],ijk[2],d_quad_ids(iq)
+                ) ; 
+            }) ; 
+
+        Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ;
+        Kokkos::fence();
 
         /* Select hyperslab for this rank's output */
-        hsize_t slab_start[1]  = {local_quad_offset * ncells_quad} ; 
+        hsize_t slab_start[1]  = {local_quad_offset * ncells_quad_sliced} ; 
         hsize_t slab_count[1]  = {ncells} ;
         HDF5_CALL( err
                 , H5Sselect_hyperslab( space_id_glob
@@ -627,33 +686,38 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
     }
 }
 
-void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist 
+void write_vector_var_arrays_sliced_hdf5( std::vector<std::string> const& varlist 
                                  , hid_t file_id 
                                  , hid_t dxpl
                                  , hid_t space_id_glob
                                  , hid_t space_id
                                  , hid_t prop_id
                                  , hsize_t ncells
-                                 , hsize_t ncells_glob
-                                 , hsize_t local_quad_offset
-                                 , bool isaux  ) 
+                                 , hsize_t local_quad_offset 
+                                 , amr::oct_tree_plane_slicer_t& octree_slicer
+                                 , Kokkos::View<size_t*> d_quad_ids
+                                 , Kokkos::View<size_t*> d_cell_offsets
+                                 , bool isaux ) // had isaux   
 {
     using namespace grace; 
     using namespace Kokkos; 
     herr_t err ;
     /* Get cell and quadrant counts */
-    size_t nx,ny,nz,nq; 
-    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
-    nq = grace::amr::get_local_num_quadrants() ; 
+    size_t nx,ny,nz,nq;
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ;
+    auto nq_s = octree_slicer.sliced_quads.size() ; 
+    nq = grace::amr::get_local_num_quadrants() ;
     size_t ngz = grace::amr::get_n_ghosts() ;
     /* Number of cells per quadrant */
-    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+    unsigned long const ncells_quad_sliced = nx*nx ; 
+    /* Number of corners per quadrant */
+    unsigned long ncorners_quad_sliced = (nx+1)*(nx+1) ;
+    auto dir = octree_slicer._plane.dir;
 
     /* Fetch variable arrays */
     auto vars = grace::variable_list::get().getstate() ; 
     auto aux  = grace::variable_list::get().getaux()   ;
     auto& view = isaux ? aux : vars ;
-
     /**********************************************/
     /* We need an extra device mirror because:    */
     /* 1) The view is not contiguous since we     */
@@ -662,20 +726,12 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
     /*    memory layout on device which           */
     /*    usually follows the FORTRAN convention. */
     /**********************************************/
-    Kokkos::View<double *EXPR(*,*,*)*, Kokkos::LayoutLeft> 
-        d_mirror("Device output mirror", 3, VEC(nx,ny,nz), nq) ; 
-    auto h_mirror = Kokkos::create_mirror_view(d_mirror) ; 
+    Kokkos::View<double ****, Kokkos::LayoutLeft> 
+        d_mirror("Device output mirror", 3, nx, nx, nq) ; 
+    auto h_mirror = Kokkos::create_mirror_view(d_mirror) ;
     for( auto const& vname: varlist )
     {
-        std::array<std::string, 3> const compnames 
-                = {
-                    vname + "[0]",
-                    vname + "[1]",
-                    vname + "[2]"
-                } ;
-        size_t varidx = grace::get_variable_index(compnames[0],isaux) ; 
-        GRACE_TRACE("Writing vector var {} to output. Variable index {} from auxiliaries? {}"
-                   , vname, varidx, isaux) ; 
+        GRACE_TRACE("Writing vector var {} to output.") ; 
         /* create HDF5 dataset */
         std::string dset_name = "/" + vname ; 
         hid_t dset_id ; 
@@ -690,62 +746,41 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
         /* Write dataset attributes */
         write_dataset_string_attribute_hdf5(dset_id, "VariableType", "Vector");
         write_dataset_string_attribute_hdf5(dset_id, "VariableStaggering", "Cell");
-
-        /* Shuffle data around to put it in the right form */
         
-        /* Copy data d2d */
-        auto sview = Kokkos::subview( view
-                                    , Kokkos::pair<int,int>(ngz,nx+ngz)
-                                    , Kokkos::pair<int,int>(ngz,ny+ngz)
-                                    #ifdef GRACE_3D
-                                    , Kokkos::pair<int,int>(ngz,nz+ngz)
-                                    #endif 
-                                    , Kokkos::pair<int,int>(varidx, varidx+3)
-                                    , Kokkos::ALL() ) ; 
-        auto policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>{
-            {static_cast<long>(ngz),static_cast<long>(ngz),static_cast<long>(ngz),0,0}, {static_cast<long>(ngz+nx),static_cast<long>(ngz+ny),static_cast<long>(ngz+nz),3,static_cast<long>(nq)}
-        } ; 
-        Kokkos::parallel_for("copy_to_mirror", policy, 
-            KOKKOS_LAMBDA (int i, int j, int k, int iv, int q) {
-                d_mirror(iv, i,j,k,q) = sview(i,j,k,iv,q) ; 
-            }
-        ) ; 
-            
-        /************************************************/
-        /* Transform variable to physical frame         */
-        /************************************************/
-        /* Fill coordinate jacobian matrices on device  */
-        /* at cell centers                              */
-        /************************************************/
-        #if 0
-        jacobian_array_t jac, invjac ; 
-        fill_jacobian_matrices(jac,invjac) ;  
-        parallel_for(GRACE_EXECUTION_TAG("IO","convert_to_physical")
-                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
-                {
-                    std::array<double,3> const vin
-                    {
-                          d_mirror(0, VEC(i,j,k), q)
-                        , d_mirror(1, VEC(i,j,k), q)
-                        , d_mirror(2, VEC(i,j,k), q)
-                    } ; 
-                    auto J = Kokkos::subview(jac, VEC(i,j,k), ALL(), ALL(),  q) ; 
-                    auto const vout = ::grace::detail::apply_jacobian_vec(vin, J) ;
-                    d_mirror(0, VEC(i,j,k), q) = vout[0] ; 
-                    d_mirror(1, VEC(i,j,k), q) = vout[1] ; 
-                    d_mirror(2, VEC(i,j,k), q) = vout[2] ;
-                    }
-        ) ;
-        /* just to be sure add a fence */
-        Kokkos::fence() ;
-        #endif
-        
+        std::array<std::string, 3> const compnames 
+                = {
+                    vname + "[0]",
+                    vname + "[1]",
+                    vname + "[2]"
+                } ; 
+        size_t varidx = grace::get_variable_index(compnames[0],isaux) ; 
+        Kokkos::parallel_for(
+            "copy_plane_data", 
+            Kokkos::MDRangePolicy<Kokkos::Rank<3>>({0,0,0}, {nx,nx,nq_s}),
+            KOKKOS_LAMBDA( int i, int j, int iq) {
+                int ijk[3] ; 
+                if ( dir == 0 ) {
+                    ijk[0] = d_cell_offsets(iq) ; 
+                    ijk[1] = i ; ijk[2] = j ; 
+                } else if (dir==1) {
+                    ijk[1] = d_cell_offsets(iq) ; 
+                    ijk[0] = i ; ijk[2] = j ; 
+                } else {
+                    ijk[2] = d_cell_offsets(iq) ; 
+                    ijk[0] = i ; ijk[1] = j ; 
+                }
+                for( int icomp=0; icomp<3; ++icomp)
+                    d_mirror(icomp,i,j,iq) = view(
+                        ijk[0],ijk[1],ijk[2],varidx+icomp, d_quad_ids(iq)
+                    ) ; 
+        }) ;
+    
         /* Copy data d2h */
         Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
+        Kokkos::fence() ;
 
         /* Select hyperslab for this rank's output */
-        hsize_t slab_start[2]  = {local_quad_offset * ncells_quad, 0} ; 
+        hsize_t slab_start[2]  = {local_quad_offset * ncells_quad_sliced, 0} ; 
         hsize_t slab_count[2]  = {ncells, 3} ;
         HDF5_CALL( err
                 , H5Sselect_hyperslab( space_id_glob
@@ -771,25 +806,37 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
     }
 }
 
-void write_extra_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size) {
+void write_extra_arrays_sliced_hdf5(
+    hid_t file_id, 
+    size_t compression_level, 
+    size_t chunk_size, 
+    amr::oct_tree_plane_slicer_t& octree_slicer
+) {
     herr_t err ;
     /* Get cell and quadrant counts */
-    size_t nx,ny,nz,nq; 
-    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
-    nq = grace::amr::get_local_num_quadrants() ; 
+    size_t nx,ny,nz,nq;
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ;
+    auto nq_s = octree_slicer.sliced_quads.size() ; 
+    nq = grace::amr::get_local_num_quadrants() ;
     size_t ngz = grace::amr::get_n_ghosts() ;
+
+    /* Number of corners per quadrant */
+    unsigned long ncorners_quad_sliced = (nx+1)*(nx+1) ;
+    auto dir = octree_slicer._plane.dir;
 
     auto const rank_loc = parallel::mpi_comm_rank() ; 
     /* Get the p4est pointer */
     auto _p4est = grace::amr::forest::get().get() ; 
     /* Get global number of quadrants and quadrant offset for this rank */
-    unsigned long const nq_glob = _p4est->global_num_quadrants ; 
-    unsigned long const local_quad_offset = _p4est->global_first_quadrant[rank_loc] ; 
+
+    unsigned long const nq_glob = octree_slicer.glob_nq ;
+    auto local_quad_offset = octree_slicer.local_quad_offset ; 
+
 
     /* Number of cells per quadrant */
-    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+    unsigned long const ncells_quad = nx*nx ; 
     /* Local number of cells   */
-    unsigned long const ncells = ncells_quad * nq ; 
+    unsigned long const ncells = ncells_quad * nq_s ; 
     /* Global number of cells  */
     unsigned long const ncells_glob = ncells_quad * nq_glob ; 
 
@@ -798,45 +845,36 @@ void write_extra_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chu
     unsigned int* tree_id    = (unsigned int*) malloc(sizeof(unsigned int) * ncells ) ;
     unsigned long long* qid  = (unsigned long long*) malloc(sizeof(unsigned long long) * ncells ) ;  
 
-    unsigned int icell  = 0L ; 
-    //#pragma omp parallel for collapse(GRACE_NSPACEDIM+1) reduction(+:icell)
-    for(int64_t iq=0; iq<nq; ++iq) {
-        #ifdef GRACE_3D
-        for(size_t k=0; k<nz; ++k  ) {
-        #endif  
-            for( size_t j=0; j<ny; ++j) { 
-                for(size_t i=0; i<nx; ++i){
-                unsigned int itree = amr::get_quadrant_owner(iq) ; 
-                auto quad  = amr::get_quadrant(itree,iq) ; 
+    #pragma omp parallel for
+    for(size_t idx = 0; idx < octree_slicer.sliced_quads.size(); ++idx) {
+        for (size_t ii=0; ii<nx; ii++) {
+            for (size_t jj=0; jj<nx; jj++) {
+                unsigned long icell = ii + nx * ( jj + nx * idx ) ; 
+                unsigned int itree = amr::get_quadrant_owner(octree_slicer.sliced_quads[idx]) ; 
+                auto quad  = amr::get_quadrant(octree_slicer.sliced_quads[idx]) ; 
                 unsigned int level = quad.level() ;
-                size_t iquad_glob = iq + amr::forest::get().global_quadrant_offset(rank_loc) ;
+                size_t iquad_glob = octree_slicer.sliced_quads[idx] + amr::forest::get().global_quadrant_offset(rank_loc) ;
 
                 rank[icell]    = rank_loc   ;
                 lev[icell]     = level      ;
                 tree_id[icell] = itree      ;
                 qid[icell]     = iquad_glob ; 
-                icell ++ ; 
-                #ifdef GRACE_3D
-                }
-                #endif 
             }
         }
     }
-
-    ASSERT(icell == ncells, "Something went really wrong") ; 
 
     /* Create parallel dataset properties */
     hid_t dxpl ; 
     HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER)) ; 
     HDF5_CALL(err, H5Pset_dxpl_mpio(dxpl,H5FD_MPIO_COLLECTIVE)) ; 
     auto const offset = local_quad_offset * ncells_quad ; 
-    write_scalar_dataset( static_cast<void*>(rank),H5T_NATIVE_UINT,file_id,dxpl
+    write_scalar_dataset_sliced( static_cast<void*>(rank),H5T_NATIVE_UINT,file_id,dxpl
                         , ncells,ncells_glob,offset,chunk_size,compression_level,"/Rank") ; 
-    write_scalar_dataset( static_cast<void*>(lev),H5T_NATIVE_UINT,file_id,dxpl
+    write_scalar_dataset_sliced( static_cast<void*>(lev),H5T_NATIVE_UINT,file_id,dxpl
                         , ncells,ncells_glob,offset,chunk_size,compression_level,"/Level") ; 
-    write_scalar_dataset( static_cast<void*>(tree_id),H5T_NATIVE_UINT,file_id,dxpl
+    write_scalar_dataset_sliced( static_cast<void*>(tree_id),H5T_NATIVE_UINT,file_id,dxpl
                         , ncells,ncells_glob,offset,chunk_size,compression_level,"/Tree_ID") ; 
-    write_scalar_dataset( static_cast<void*>(qid),H5T_NATIVE_ULLONG,file_id,dxpl
+    write_scalar_dataset_sliced( static_cast<void*>(qid),H5T_NATIVE_ULLONG,file_id,dxpl
                         , ncells,ncells_glob,offset,chunk_size,compression_level,"/Quad_ID") ;
     
     /* Release resources */
@@ -851,7 +889,7 @@ void write_extra_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chu
     
 }
 
-void write_scalar_dataset( void* data, hid_t mem_type_id, hid_t file_id, hid_t dxpl
+void write_scalar_dataset_sliced( void* data, hid_t mem_type_id, hid_t file_id, hid_t dxpl
                          , hsize_t dset_size, hsize_t dset_size_glob, hsize_t offset
                          , size_t chunk_size, unsigned int compression_level
                          , std::string const& dset_name ) 
@@ -911,27 +949,4 @@ void write_scalar_dataset( void* data, hid_t mem_type_id, hid_t file_id, hid_t d
 
 }
 
-void write_dataset_string_attribute_hdf5(hid_t dset_id, std::string const& attr_name, std::string const& attr_data)
-{
-    hid_t attr_id, attr_dataspace_id, str_type;
-    herr_t err;
-
-    // Create a scalar dataspace for the attribute
-    HDF5_CALL(attr_dataspace_id, H5Screate(H5S_SCALAR));
-    
-    // Create a variable-length string datatype
-    HDF5_CALL(str_type, H5Tcopy(H5T_C_S1));
-    HDF5_CALL(err, H5Tset_size(str_type, H5T_VARIABLE));
-
-    // Create the attribute
-    HDF5_CALL(attr_id, H5Acreate2(dset_id, attr_name.c_str(), str_type, attr_dataspace_id, H5P_DEFAULT, H5P_DEFAULT));
-
-    // Write the attribute data
-    const char* attr_data_cstr = attr_data.c_str();
-    HDF5_CALL(err, H5Awrite(attr_id, str_type, &attr_data_cstr));
-
-    // Close the attribute and dataspace
-    HDF5_CALL(err, H5Aclose(attr_id));
-    HDF5_CALL(err, H5Sclose(attr_dataspace_id));
-}
 }} /* namespace grace::IO */

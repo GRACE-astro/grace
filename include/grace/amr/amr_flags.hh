@@ -38,7 +38,7 @@ namespace grace { namespace amr {
  * @brief Possible quadrant states.
  * \cond grace_detail
  */
-enum quadrant_flags_t 
+enum quadrant_flags_t : int8_t 
 {
     DEFAULT_STATE=0,
     REFINE,
@@ -72,7 +72,7 @@ struct amr_flags_t {
 static void initialize_quadrant(p4est_t* p4est, p4est_topidx_t which_tree, p4est_quadrant_t* quad)
 {
     quadrant_t quadrant(quad) ; 
-    quadrant.set_user_data( amr_flags_t{DEFAULT_STATE} ) ; 
+    quadrant.set_user_int( DEFAULT_STATE ) ; 
 }
 
 /**
@@ -99,13 +99,13 @@ static void set_quadrant_flag( p4est_t* p4est
     {
         quadrant_t quadrant( outgoing[0] ) ;
         auto prev_state = 
-            quadrant.get_user_data<amr_flags_t>()->quadrant_status ; 
-        quadrant.set_user_data( amr_flags_t{INVALID_STATE} ) ;
+            quadrant.get_user_int() ; 
+        quadrant.set_user_int( INVALID_STATE ) ;
         for(int iquad=0; iquad<P4EST_CHILDREN; ++iquad) {
             quadrant = quadrant_t(incoming[iquad] ) ; 
-            quadrant.set_user_data( amr_flags_t{
-                prev_state == NEED_RESTRICTION ? DEFAULT_STATE : NEED_PROLONGATION
-                } ) ;
+            quadrant.set_user_int( 
+                (prev_state == NEED_RESTRICTION ? DEFAULT_STATE : NEED_PROLONGATION)
+                ) ;
         } 
     } else if ( num_outgoing == P4EST_CHILDREN and num_incoming == 1 ) // coarsening 
     {
@@ -115,14 +115,14 @@ static void set_quadrant_flag( p4est_t* p4est
             {
                 quadrant_t quadrant = quadrant_t(outgoing[iquad] ) ;
                 prev_state = 
-                    quadrant.get_user_data<amr_flags_t>()->quadrant_status ; 
-                quadrant.set_user_data( amr_flags_t{INVALID_STATE} ) ;
+                    quadrant.get_user_int() ; 
+                quadrant.set_user_int( INVALID_STATE ) ;
             }
         }
         quadrant_t quadrant( incoming[0] ) ; 
-        quadrant.set_user_data( amr_flags_t{
+        quadrant.set_user_int( 
             prev_state==NEED_PROLONGATION ? DEFAULT_STATE : NEED_RESTRICTION
-            } ) ;
+             ) ;
     } else {
         ERROR( "In call to initialize_quadrant, num_incoming"
                "and num_outgoing incompatible with both refinement and coarsening. ") ; 
@@ -143,7 +143,7 @@ static int refine_cback( p4est_t* p4est
                        , p4est_quadrant_t * quadrant )
 {
     quadrant_t quad{quadrant} ; 
-    return  quad.get_user_data<amr_flags_t>()->quadrant_status == REFINE ; 
+    return  quad.get_user_int() == REFINE ; 
 }
 
 /**
@@ -167,7 +167,7 @@ static int coarsen_cback( p4est_t* p4est
         } else {
         quadrant_t quad(quadrants[ichild]) ; 
         ncoarsen += 
-            (quad.get_user_data<amr_flags_t>()->quadrant_status == COARSEN);
+            (quad.get_user_int() == COARSEN);
         }
     }
      

@@ -607,15 +607,6 @@ void amr_ghosts_impl_t::build_remote_buffers(
            sizeof(double)*total_recv_size/1e06,
            sizeof(double)*total_send_size/1e06/active_send.size(),
            sizeof(double)*total_recv_size/1e06/active_recv.size() );
-
-    _recv_buffer.realloc(total_recv_size) ;
-
-    GRACE_INFO("Setup of remote buffers complete, total send/recv size [MB] {}/{}, avg message size per rank [MB] {}/{}",
-           sizeof(double)*total_send_size/1e06,
-           sizeof(double)*total_recv_size/1e06,
-           sizeof(double)*total_send_size/1e06/active_send.size(),
-           sizeof(double)*total_recv_size/1e06/active_recv.size() );
-
 }
 
 } /* namespace grace */

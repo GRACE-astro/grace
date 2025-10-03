@@ -90,8 +90,19 @@ void write_plane_surface_vtk_cell_data( vtkSmartPointer<vtkUnstructuredGrid> gri
     int n_planes = runtime.n_surface_output_planes() ; 
 
     auto plane_origins = runtime.cell_plane_surface_output_origins() ; 
-    auto plane_normals = runtime.cell_plane_surface_output_normals() ; 
+    auto plane_dirs = runtime.cell_plane_surface_output_dirs() ; 
     auto plane_names   = runtime.cell_plane_surface_output_names()   ; 
+    
+    std::vector<std::array<double,3>> plane_normals(n_planes) ; 
+    for ( int ip=0; ip<n_planes; ++ip) {
+        for ( int id=0; id<3; ++id) {
+            if ( plane_dirs[ip] == id ) {
+                plane_normals[ip][id] = 1 ; 
+            } else {
+                plane_normals[ip][id] = 0 ;
+            }
+        }
+    }
 
     std::filesystem::path base_path (runtime.surface_io_basepath()) ;
 

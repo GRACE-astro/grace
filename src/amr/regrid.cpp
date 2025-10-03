@@ -47,7 +47,8 @@
 namespace grace { namespace amr { 
 
 void regrid() {
-    Kokkos::Profiling::pushRegion("regrid") ; 
+    Kokkos::Profiling::pushRegion("regrid") ;
+    GRACE_INFO("Initiating regrid.") ;  
     using namespace grace ; 
     auto& params = config_parser::get()             ; 
     auto& state  = variable_list::get().getstate()  ; 
@@ -118,17 +119,19 @@ void regrid() {
     }
     /* copy flags from device to host */ 
     Kokkos::deep_copy(h_regrid_flags, d_regrid_flags) ; 
+    GRACE_TRACE("Here") ; 
     for( size_t iq=0UL; iq<amr::get_local_num_quadrants(); ++iq)
     {
         auto quad = amr::get_quadrant(iq) ;
-        quad.set_user_data(
-            amr::amr_flags_t{ static_cast<quadrant_flags_t>(
+        quad.set_user_int(
+            static_cast<int>(
                 (h_regrid_flags(iq) == REFINE)  * REFINE 
             +   (h_regrid_flags(iq) == COARSEN) * COARSEN 
             +   ((h_regrid_flags(iq) != REFINE) and (h_regrid_flags(iq) != COARSEN)) * DEFAULT_STATE )
-            }
+            
         ) ; 
     }  
+    GRACE_TRACE("Here") ; 
     /******************************************************************************************/
     /* Call to p4est_refine                                                                   */  
     /* The arguments are:                                                                     */
@@ -192,7 +195,7 @@ void regrid() {
     {       
         quadrant_t quadrant = amr::get_quadrant(iq_new) ; 
         int flag = 
-            static_cast<int>(quadrant.get_user_data<amr_flags_t>()->quadrant_status); 
+            quadrant.get_user_int() ; 
         if ( (flag == DEFAULT_STATE) or (flag==REFINE) or (flag==COARSEN) )
         {
             /* Copy over data that does not need anything done */
@@ -349,6 +352,7 @@ void regrid() {
     /******************************************************************************************/
     /*                                Transfer data                                           */
     /******************************************************************************************/
+    GRACE_TRACE("Into transfer fixed.") ; 
     auto context = 
         grace_transfer_fixed_begin<decltype(state)> (
                   new_glob_qoffsets.data() 
@@ -442,7 +446,7 @@ void set_quadrants_to_default()
         auto quadrants = forest::get().tree(itree).quadrants() ; 
         for( int iquad=0; iquad<quadrants.size(); ++iquad) {
             quadrant_t quad{ &(quadrants[iquad]) } ;
-            quad.set_user_data( amr_flags_t{DEFAULT_STATE} ) ; 
+            quad.set_user_int( static_cast<int>(DEFAULT_STATE) ) ; 
         }
     }
 }

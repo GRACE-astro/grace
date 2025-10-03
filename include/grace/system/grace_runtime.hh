@@ -96,7 +96,7 @@ class grace_runtime_impl_t
     /* Output planes */
     int _n_output_planes ; 
     std::vector<std::array<double,3>> _output_planes_origins ; 
-    std::vector<std::array<double,3>> _output_planes_normals ; 
+    std::vector<int>                  _output_planes_dirs    ; 
     std::vector<std::string>          _output_planes_names   ; 
     /* Output spheres */
     int _n_output_spheres ; 
@@ -373,8 +373,8 @@ class grace_runtime_impl_t
     }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_plane_surface_output_normals() const {
-        return _output_planes_normals ; 
+    cell_plane_surface_output_dirs() const {
+        return _output_planes_dirs ; 
     }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
@@ -462,7 +462,7 @@ class grace_runtime_impl_t
         #define READ_IO_PARAM(s,t) params["IO"][s].as<t>()  
         #define AS_TYPE(t) t
         _output_planes_origins.resize(_n_output_planes) ;
-        _output_planes_normals.resize(_n_output_planes) ;
+        _output_planes_dirs.resize(_n_output_planes) ;
         _output_planes_names.resize(_n_output_planes)   ; 
         for (int iplane=0; iplane < _n_output_planes; ++iplane) {
             std::ostringstream oss_x,oss_y,oss_z;
@@ -476,18 +476,9 @@ class grace_runtime_impl_t
             } ; 
             oss_x.str("");  // Reset content to empty string
             oss_x.clear();
-            oss_y.str("");  // Reset content to empty string
-            oss_y.clear();
-            oss_z.str("");  // Reset content to empty string
-            oss_z.clear();
-            oss_x << "output_plane_x_normal_" << iplane;
-            oss_y << "output_plane_y_normal_" << iplane;
-            oss_z << "output_plane_z_normal_" << iplane;
-            _output_planes_normals[iplane] = {
-                READ_IO_PARAM(oss_x.str(), AS_TYPE(double)),
-                READ_IO_PARAM(oss_y.str(), AS_TYPE(double)),
-                READ_IO_PARAM(oss_z.str(), AS_TYPE(double))
-            } ; 
+            oss_x << "output_plane_dir_" << iplane;
+            _output_planes_dirs[iplane] = READ_IO_PARAM(oss_x.str(), AS_TYPE(int)) ; 
+
             oss_x.str("");  // Reset content to empty string
             oss_x.clear();
             oss_x << "output_plane_name_" << iplane;

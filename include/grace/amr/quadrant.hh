@@ -124,6 +124,8 @@ class quadrant_t
     void GRACE_ALWAYS_INLINE 
     set_user_data(T const & data) 
     {
+        ASSERT(_pquad, "Quadrant pointer is null.") ; 
+        ASSERT(_pquad->p.user_data, "User data is null.") ; 
         memcpy(_pquad->p.user_data, (void*) &data, sizeof(T)) ; 
     }
     //*****************************************************************************************************
@@ -140,6 +142,30 @@ class quadrant_t
     get_user_data() 
     {
         return reinterpret_cast<T*>(_pquad->p.user_data); 
+    }
+    //*****************************************************************************************************
+    //*****************************************************************************************************
+    /**
+     * @brief Set the user int of this quadrant
+     * 
+     * @param data What to set the data to.
+     */
+    void GRACE_ALWAYS_INLINE 
+    set_user_int(int const & data) 
+    {
+        ASSERT(_pquad, "Quadrant pointer is null.") ; 
+        _pquad->p.user_int = data ; 
+    }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the user int of this quadrant.
+     * 
+     * @return int quadrant->p.user_int
+     */
+    int GRACE_ALWAYS_INLINE
+    get_user_int() const 
+    {
+        return _pquad->p.user_int ; 
     }
     //*****************************************************************************************************
     /**
