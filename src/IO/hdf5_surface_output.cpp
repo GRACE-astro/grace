@@ -760,14 +760,14 @@ void write_vector_var_arrays_sliced_hdf5( std::vector<std::string> const& varlis
             KOKKOS_LAMBDA( int i, int j, int iq) {
                 int ijk[3] ; 
                 if ( dir == 0 ) {
-                    ijk[0] = d_cell_offsets(iq) ; 
-                    ijk[1] = i ; ijk[2] = j ; 
+                    ijk[0] = d_cell_offsets(iq) + ngz ; 
+                    ijk[1] = i + ngz; ijk[2] = j + ngz; 
                 } else if (dir==1) {
-                    ijk[1] = d_cell_offsets(iq) ; 
-                    ijk[0] = i ; ijk[2] = j ; 
+                    ijk[1] = d_cell_offsets(iq) + ngz; 
+                    ijk[0] = i + ngz; ijk[2] = j + ngz; 
                 } else {
-                    ijk[2] = d_cell_offsets(iq) ; 
-                    ijk[0] = i ; ijk[1] = j ; 
+                    ijk[2] = d_cell_offsets(iq) + ngz; 
+                    ijk[0] = i + ngz; ijk[1] = j + ngz; 
                 }
                 for( int icomp=0; icomp<3; ++icomp)
                     d_mirror(icomp,i,j,iq) = view(

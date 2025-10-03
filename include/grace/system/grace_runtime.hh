@@ -427,24 +427,24 @@ class grace_runtime_impl_t
          * parse IO section of parfile and sort variables into aux and state 
          * and into scalars and vectors.
         */
-        _surface_output = params["IO"]["surface_output"].as<bool>() ; 
-        _volume_output = params["IO"]["volume_output"].as<bool>() ; 
+        _surface_output = grace::get_param<bool>("IO", "surface_output") ; 
+        _volume_output = grace::get_param<bool>("IO", "volume_output") ; 
         /* Output frequencies              */
-        _sphere_surface_output_every = params["IO"]["sphere_surface_output_every"].as<int>() ; 
-        _plane_surface_output_every = params["IO"]["plane_surface_output_every"].as<int>() ; 
-        _volume_output_every = params["IO"]["volume_output_every"].as<int>() ; 
-        _scalar_output_every = params["IO"]["scalar_output_every"].as<int>() ; 
-        _info_output_every = params["IO"]["info_output_every"].as<int>() ; 
+        _sphere_surface_output_every = grace::get_param<int>("IO", "sphere_surface_output_every") ; 
+        _plane_surface_output_every = grace::get_param<int>("IO", "plane_surface_output_every") ; 
+        _volume_output_every = grace::get_param<int>("IO", "volume_output_every") ; 
+        _scalar_output_every = grace::get_param<int>("IO", "scalar_output_every") ; 
+        _info_output_every = grace::get_param<int>("IO", "info_output_every") ; 
         /* Output filenames and directories */
-        _volume_io_basename  = params["IO"]["volume_output_base_filename"].as<std::string>(); 
-        _surface_io_basename  = params["IO"]["surface_output_base_filename"].as<std::string>();
-        _scalar_io_basename  = params["IO"]["scalar_output_base_filename"].as<std::string>();
+        _volume_io_basename  = grace::get_param<std::string>("IO", "volume_output_base_filename"); 
+        _surface_io_basename  = grace::get_param<std::string>("IO", "surface_output_base_filename");
+        _scalar_io_basename  = grace::get_param<std::string>("IO", "scalar_output_base_filename");
         _volume_io_basepath  = 
-            std::filesystem::path(params["IO"]["volume_output_base_directory"].as<std::string>()); 
+            std::filesystem::path(grace::get_param<std::string>("IO", "volume_output_base_directory")); 
         _surface_io_basepath  = 
-            std::filesystem::path(params["IO"]["surface_output_base_directory"].as<std::string>()); 
+            std::filesystem::path(grace::get_param<std::string>("IO", "surface_output_base_directory")); 
         _scalar_io_basepath  = 
-            std::filesystem::path(params["IO"]["scalar_output_base_directory"].as<std::string>()); 
+            std::filesystem::path(grace::get_param<std::string>("IO", "scalar_output_base_directory")); 
         /* Create output directories if they don't exist */
         if( not std::filesystem::exists( _volume_io_basepath ) ){
             std::filesystem::create_directory(_volume_io_basepath) ; 
@@ -457,9 +457,10 @@ class grace_runtime_impl_t
         if( not std::filesystem::exists( _scalar_io_basepath ) ){
             std::filesystem::create_directory(_scalar_io_basepath) ; 
         }
+        GRACE_TRACE("Here1") ;
         /* Set output planes and spheres properties      */
-        _n_output_planes = params["IO"]["n_output_planes"].as<int>() ;
-        #define READ_IO_PARAM(s,t) params["IO"][s].as<t>()  
+        _n_output_planes = grace::get_param<int>("IO", "n_output_planes") ;
+        #define READ_IO_PARAM(s,t) grace::get_param<t>("IO",s) 
         #define AS_TYPE(t) t
         _output_planes_origins.resize(_n_output_planes) ;
         _output_planes_dirs.resize(_n_output_planes) ;
@@ -484,8 +485,8 @@ class grace_runtime_impl_t
             oss_x << "output_plane_name_" << iplane;
             _output_planes_names[iplane] = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
         }
-
-        _n_output_spheres = params["IO"]["n_output_spheres"].as<int>() ;
+        GRACE_TRACE("Here2") ;
+        _n_output_spheres = grace::get_param<int>("IO", "n_output_spheres") ;
         _output_spheres_centers.resize(_n_output_spheres)  ;
         _output_spheres_radii.resize(_n_output_spheres)    ;
         _output_spheres_names.resize(_n_output_spheres)    ;
@@ -805,7 +806,7 @@ class grace_runtime_impl_t
             }
         }
 
-        auto const term_cnd = params["evolution"]["termination_condition"].as<std::string>() ; 
+        auto const term_cnd = grace::get_param<std::string>("evolution", "termination_condition") ; 
         if ( term_cnd == "time" ) {
             _term_cnd = terminate::TIME ; 
         } else if ( term_cnd == "iteration" ) {

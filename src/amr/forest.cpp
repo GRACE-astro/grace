@@ -46,8 +46,8 @@ forest_impl_t::forest_impl_t()
                             , 0 
                             , min_level
                             , 1 
-                            , sizeof(amr_flags_t)
-                            , initialize_quadrant
+                            , 0
+                            , nullptr
                             , nullptr ) ; 
     GRACE_INFO("Forest initialized with {} ({}) total (local) quadrants."
                  , _p4est->global_num_quadrants, _p4est->local_num_quadrants ) ; 

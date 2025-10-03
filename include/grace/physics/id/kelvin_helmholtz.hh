@@ -66,11 +66,11 @@ struct kelvin_helmholtz_id_t {
         double const dvx0{0.01}, dvy0{0.01}, dvz0{0.01} ; 
 
         auto _tanh = Kokkos::tanh(
-            (Kokkos::fabs(y - yl) ) / al 
+            (Kokkos::fabs(y) - yl) / al 
         ) ; 
         auto _exp = [&] () {
             return Kokkos::exp(
-                -math::int_pow<2>(y - yl)/sigma/sigma
+                -math::int_pow<2>(Kokkos::fabs(y) - yl)/sigma/sigma
             ) ;
         } ;  
 
