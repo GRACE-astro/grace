@@ -51,19 +51,16 @@ if( GRACE_ENABLE_KADATH )
         set(MKL_INTERFACE_LAYER LP64)  
     else()
         # Platform-dependent BLAS/ScaLAPACK handling
-        if(CMAKE_SYSTEM_NAME STREQUAL "CrayLinuxEnvironment" OR DEFINED ENV{CRAY_LIBSCI_PREFIX_DIR})
+        if(CMAKE_SYSTEM_NAME STREQUAL "CrayLinuxEnvironment" OR DEFINED ENV{CRAY_LIBSCI_PREFIX_DIR} OR DEFINED ENV{CRAY_LIBSCI_BASE_DIR})
+            find_package(SCICRAY REQUIRED)
             # Cray system: use LibSci
-            if(DEFINED ENV{CRAY_LIBSCI_PREFIX_DIR})
-            link_directories($ENV{CRAY_LIBSCI_PREFIX_DIR}/lib)
-            endif()
-            set(SCALAPACK_LIBRARIES sci_cray_mpi)
-            
-            set(BLAS_LIBRARIES "${SCALAPACK_LIBRARIES}")
-            set(OPENBLAS_FOUND OFF)
+            set(BLAS_LIBRARIES ${SCICRAY_LIBRARIES})
+            set(SCALAPACK_LIBRARIES ${SCICRAY_LIBRARIES})
+            set(OPENBLAS_FOUND OFF) 
             set(OpenBLAS_LIB "") # silently turn off - Cray's SciLib already has BLAS routines
             set(SCALAPACK_FOUND ON)
         else() 
-            # non-cray system
+            # non-Cray system
             # find openblas and netlib-scalapack independently
             find_package(OPENBLAS REQUIRED)
             find_package(SCALAPACK REQUIRED)

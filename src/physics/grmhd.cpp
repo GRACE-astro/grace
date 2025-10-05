@@ -424,7 +424,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
     //      -  in a subsequent call, after the grmhd_ID parallel_for, we would call an appropriate version of Avec--->Bfield transform [same as it happens for 1 now]
     
     const bool set_Bfield_from_Avec = get_param<bool>("grmhd","set_B_from_Avec") ;
-
+    const bool set_Avec             = get_param<bool>("grmhd", "set_Avec") ;
     id_t id_kernel{ _eos, pcoords, kernel_args... } ; 
     Kokkos::fence() ; 
     parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID")
@@ -516,6 +516,18 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
         
     // for (size_t idir = 0 ; idir < 3 ; idir++)
     //  set_edge_staggered_Avec<idir>(id_kernel, state, cstate, idx); 
+
+    // for generic ID kernel, here's a trigger to add any vector potential on top of the hydro+metric ID 
+    if(set_Avec){
+        const std::string Avec_type = get_param<std::string>("grmhd","Avec_type") ; // poloidal, dipole, monopole, linear (e.g. for shocktubes)
+        const std::string Avec_prescription = get_param<std::string>("grmhd","Avec_prescription") ; // density/pressure based
+        if(Avec_type=="poloidal" && Avec_prescription=="pressure_prescription"){
+            set_vector_potential<B_field_pol_pres_t>(state,aux,idx,pcoords);
+        }
+        else if(Avec_type=="none"){
+            set_vector_potential<B_field_zero_t>(state,aux,idx,pcoords);
+        }
+    }
 
     // finally, we launch a separate loop to set the magnetic field from vector potential
     // in GLM, A is only needed in the ID; vector potential is then never touched
