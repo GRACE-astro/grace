@@ -1,0 +1,6 @@
+integral_diagnostics: {
+  mass_outflows: {
+    n_detectors: 0,
+    detector_names: []
+  }
+}

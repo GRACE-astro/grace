@@ -384,5 +384,11 @@ connectivity_impl_t::connectivity_impl_t() {
   }
 }
 //**************************************************************************************************
+connectivity_impl_t::connectivity_impl_t(p4est_connectivity_t * _pconn) : pconn_(_pconn)
+{
+  // FIXME currently unused
+  t2t_polarity_.resize(pconn_->num_trees * P4EST_FACES) ; 
+  for( auto& x: t2t_polarity_ ) x = 0 ;
+}
 
 }} /* namespace grace::amr */

@@ -50,6 +50,10 @@ double get_simulation_time() {
     return grace::runtime::get().time() ; 
 }
 
+void set_simulation_time(double const& _new_t) { 
+    return grace::runtime::get().set_simulation_time(_new_t) ; 
+}
+
 size_t get_iteration() {
     return grace::runtime::get().iteration() ; 
 }
@@ -60,6 +64,10 @@ void increment_simulation_time() {
 
 void increment_iteration() {
     grace::runtime::get().increment_iteration() ; 
+}
+
+void set_iteration(size_t const& _new_it) {
+    grace::runtime::get().set_iteration(_new_it) ; 
 }
 
 void set_timestep(double const& _new_dt ) {

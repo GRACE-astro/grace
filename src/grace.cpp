@@ -58,31 +58,6 @@ int main(int argc, char* argv[])
     using namespace grace ; 
     /**********************************************************************************/
     /**********************************************************************************/
-
-    /**********************************************************************************/
-    /*                                 Initial data                                   */
-    /**********************************************************************************/
-    GRACE_INFO("Setting initial data.") ; 
-    grace::set_initial_data() ; 
-    bool regrid_at_postinitial = grace::get_param<bool>("amr","regrid_at_postinitial") ; 
-    int postinitial_regrid_depth = 
-        grace::get_param<int>("amr","postinitial_regrid_depth") ;
-    bool reset_id_after_regrid = 
-        grace::get_param<bool>("evolution","reset_id_after_regrid") ; 
-    /**********************************************************************************/
-    /*                                 Post-Initial data                              */
-    /**********************************************************************************/
-    if( regrid_at_postinitial ) {
-        GRACE_INFO("Performing initial regrid.") ;
-        for( int ilev=0; ilev<postinitial_regrid_depth; ++ilev){
-            GRACE_INFO("Regrid level {}.", ilev+1) ;
-            grace::amr::regrid() ;  
-            grace::amr::apply_boundary_conditions() ; 
-            if (reset_id_after_regrid) {
-                grace::set_initial_data() ; 
-            }
-        }
-    }
     if ( grace::get_param<bool>("IO","do_initial_output") )
         grace::IO::write_cell_output(true,true,true) ;
     grace::IO::compute_reductions() ; 
@@ -154,6 +129,12 @@ int main(int argc, char* argv[])
           and (iter % info_output_every == 0))
         {
             grace::IO::info_output() ; 
+        }
+        /**********************************************************************************/
+        /* Save checkpoint if needed                                                      */
+        /**********************************************************************************/
+        if ( checkpoint_handler::get().need_checkpoint() ) {
+            checkpoint_handler::get().save_checkpoint() ; 
         }
     }
     

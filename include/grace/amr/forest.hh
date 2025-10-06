@@ -134,6 +134,11 @@ class forest_impl_t
      * @brief Never construct a new forest_impl_t object
      */
     forest_impl_t() ; 
+    //*****************************************************************************************************
+    /**
+     * @brief Never construct a new forest_impl_t object
+     */
+    forest_impl_t(p4est_t * _forest_ptr) ; 
    //*****************************************************************************************************
     /**
      * @brief Never destroy the forest_impl_t object

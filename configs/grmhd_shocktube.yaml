@@ -10,7 +10,7 @@ amr: {
   zmin: -0.1,
   zmax: 0.1,
   n_ghostzones: 2,
-  initial_refinement_level: 2,
+  initial_refinement_level: 1,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
   refinement_criterion_CTODE: 1.,
@@ -26,6 +26,7 @@ IO: {
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
+  do_initial_output: false,
   info_output_every: 20,
   info_output_max_reductions: ["rho", "press", "eps"],
   #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
@@ -43,12 +44,13 @@ system: {
   console_log_level: "info",
   file_log_level: "trace",
   flush_logs_based_on_severity: true,
-  flush_level: "trace"
+  flush_level: "trace",
+  n_device_streams: 4
 }
 evolution: {
   time_stepper: "rk2",
   cfl_factor: 0.4,
-  final_time: 2.,
+  final_time: 0.8,
   #timestep: 0.00025,
   #timestep_selection_mode: "manual"
 }

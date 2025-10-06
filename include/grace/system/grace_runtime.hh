@@ -179,6 +179,16 @@ class grace_runtime_impl_t
         _dt = _new_dt ; 
     }
 
+    void GRACE_ALWAYS_INLINE 
+    set_simulation_time(double const& _new_t ) {
+        _time = _new_t ; 
+    }
+
+    void GRACE_ALWAYS_INLINE 
+    set_iteration(size_t const& _new_it ) {
+        _iter = _new_it ; 
+    }
+
     int GRACE_ALWAYS_INLINE 
     volume_output_every()  const { return _volume_output_every ; }
 

@@ -35,6 +35,23 @@
 
 namespace grace { namespace amr {
 
+forest_impl_t::forest_impl_t(
+    p4est_t* _forest_ptr
+) : _p4est(_forest_ptr)
+{
+    GRACE_INFO("Forest initialized from file with {} ({}) total (local) quadrants."
+                 , _p4est->global_num_quadrants, _p4est->local_num_quadrants ) ;
+    auto & params       = grace::config_parser::get()   ; 
+    Kokkos::View<size_t[4]> _gp_d("grid_params") ; 
+    auto _gp_h = Kokkos::create_mirror_view(_gp_d) ; 
+    _gp_h(0) = params["amr"]["npoints_block_x"].as<size_t>() ; 
+    _gp_h(1) = params["amr"]["npoints_block_y"].as<size_t>() ; 
+    _gp_h(2) = params["amr"]["npoints_block_z"].as<size_t>() ; 
+    _gp_h(3) = params["amr"]["n_ghostzones"].as<size_t>() ; 
+    Kokkos::deep_copy(_gp_d, _gp_h) ;
+    _grid_properties = _gp_d ; 
+}
+
 forest_impl_t::forest_impl_t() 
 { 
     GRACE_INFO("Initializing forest of oct-trees...")  ;

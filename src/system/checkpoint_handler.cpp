@@ -44,6 +44,7 @@
 #include <grace/system/grace_runtime.hh>
 #include <grace/system/runtime_functions.hh>
 #include <grace/evolution/auxiliaries.hh>
+#include <grace/physics/eos/eos_storage.hh>
 
 #include <grace/amr/p4est_headers.hh>
 
@@ -142,29 +143,22 @@ void read_data_hdf5(
 
 
     // Read data 
-    double* buffer = (double*) Kokkos::kokkos_malloc<Kokkos::HostSpace>("staging_buffer", sizeof(double) * dim_loc) ; 
+    auto h_mirror = Kokkos::create_mirror_view(data)  ;
     HDF5_CALL(
-        err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, memspace_id, space_id, dxpl, buffer)
+        err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, memspace_id, space_id, dxpl, h_mirror.data())
     ) ;
 
     // We need to shuffle the data a bit since in general the 
     // target View will have a different layout than the 
     // HDF5 buffer due to padding 
 
-    // Create unmanaged host view 
-    Kokkos::View<double EXPR(*,*,*)**, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-     buffer_view( buffer, VEC(data.extent(0), data.extent(1), data.extent(2)), data.extent(GRACE_NSPACEDIM), data.extent(GRACE_NSPACEDIM+1) ) ;
-    auto h_mirror = Kokkos::create_mirror_view(data)  ;
-    // Copy h2h 
-    Kokkos::deep_copy(h_mirror, buffer_view) ;
     // Copy h2d 
     Kokkos::deep_copy(data, h_mirror) ;
 
     // Close everything
-    H5Sclose(memspace_id);
-    H5Sclose(space_id);
-    H5Dclose(dset_id);
-
+    HDF5_CALL(err, H5Sclose(memspace_id)) ;
+    HDF5_CALL(err, H5Dclose(dset_id)) ;
+    HDF5_CALL(err, H5Sclose(space_id)) ;
 }
 
 void write_data_hdf5(
@@ -275,9 +269,8 @@ void checkpoint_handler_impl_t::save_checkpoint()
 
     // Now we write the state data to an hdf5 file 
     auto state_file = detail::get_filename(checkpoint_dir, "checkpoint_data", iter, ".h5") ;
-    herr_t err ; 
-    
     // Create property list for parallel file access
+    herr_t err ; 
     hid_t plist_id ; 
     HDF5_CALL(plist_id,H5Pcreate(H5P_FILE_ACCESS)) ; 
     HDF5_CALL(err,H5Pset_fapl_mpio(plist_id, mpi_comm_world, MPI_INFO_NULL)) ; 
@@ -403,9 +396,11 @@ void checkpoint_handler_impl_t::save_checkpoint()
     HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER)) ; 
     HDF5_CALL(err, H5Pset_dxpl_mpio(dxpl,H5FD_MPIO_COLLECTIVE)) ;
     // write state data 
+    GRACE_TRACE("Writing state.") ; 
     auto state = grace::variable_list::get().getstate() ; 
     detail::write_data_hdf5(file_id, dxpl, "CellCenteredData", state) ; 
     // write staggered state data
+    #if 0
     auto sstate = grace::variable_list::get().getstaggeredstate() ; 
     detail::write_data_hdf5(file_id, dxpl, "CornerCenteredData", sstate.corner_staggered_fields) ;
     detail::write_data_hdf5(file_id, dxpl, "EdgeCenteredDataXY", sstate.edge_staggered_fields_xy) ;
@@ -414,6 +409,7 @@ void checkpoint_handler_impl_t::save_checkpoint()
     detail::write_data_hdf5(file_id, dxpl, "FaceCenteredDataX", sstate.face_staggered_fields_x) ;
     detail::write_data_hdf5(file_id, dxpl, "FaceCenteredDataY", sstate.face_staggered_fields_y) ;
     detail::write_data_hdf5(file_id, dxpl, "FaceCenteredDataZ", sstate.face_staggered_fields_z) ;
+    #endif 
     // Block all processes until all data is written
     parallel::mpi_barrier() ;
     // Cleanup 
@@ -457,8 +453,8 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     p4est_t* p4est  = p4est_load( 
         grid_fname.string().c_str(), 
         sc_MPI_COMM_WORLD, 
-        sizeof(amr::amr_flags_t), 
-        1, 
+        0, 
+        0, 
         nullptr, 
         &conn
     ) ; 
@@ -486,6 +482,7 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     grace::variable_list::initialize() ;
     grace::runtime::initialize() ; 
     grace::coordinate_system::initialize() ;
+    grace::eos::initialize() ;
     /**********************************************************************/
     auto data_fname = detail::get_filename(checkpoint_dir, "checkpoint_data", iter, ".h5") ;
     /**********************************************************************/
@@ -546,6 +543,8 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
                 x_extent_read[0] == x_extent_param[0] && x_extent_read[1] == x_extent_param[1],
                 "x extents do not match in checkpoint: " << x_extent_read[0] << " != " << x_extent_param[0] << " or " << x_extent_read[1] << " != " << x_extent_param[1]
             ) ; 
+            HDF5_CALL(err, H5Dclose(dset_id)) ;
+            HDF5_CALL(err, H5Sclose(space_id)) ;
         }
         // y extent 
         {
@@ -570,6 +569,8 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
                 y_extent_read[0] == y_extent_param[0] && y_extent_read[1] == y_extent_param[1],
                 "y extents do not match in checkpoint: " << y_extent_read[0] << " != " << y_extent_param[0] << " or " << y_extent_read[1] << " != " << y_extent_param[1]
             ) ; 
+            HDF5_CALL(err, H5Dclose(dset_id)) ;
+            HDF5_CALL(err, H5Sclose(space_id)) ;
         }
         // z extent 
         {
@@ -594,6 +595,8 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
                 z_extent_read[0] == z_extent_param[0] && z_extent_read[1] == z_extent_param[1],
                 "z extents do not match in checkpoint: " << z_extent_read[0] << " != " << z_extent_param[0] << " or " << z_extent_read[1] << " != " << z_extent_param[1]
             ) ; 
+            HDF5_CALL(err, H5Dclose(dset_id)) ;
+            HDF5_CALL(err, H5Sclose(space_id)) ;
         }
     }
     /**********************************************************************/
@@ -606,8 +609,11 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     /* Read the state data                                                */
     /**********************************************************************/
     auto state = grace::variable_list::get().getstate() ; 
+    #if 0
     auto sstate = grace::variable_list::get().getstaggeredstate() ; 
+    #endif 
     detail::read_data_hdf5(file_id, dxpl, "CellCenteredData", state) ; 
+    #if 0 
     detail::read_data_hdf5(file_id, dxpl, "CornerCenteredData", sstate.corner_staggered_fields) ;
     detail::read_data_hdf5(file_id, dxpl, "EdgeCenteredDataXY", sstate.edge_staggered_fields_xy) ;
     detail::read_data_hdf5(file_id, dxpl, "EdgeCenteredDataXZ", sstate.edge_staggered_fields_xz) ;
@@ -615,6 +621,7 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     detail::read_data_hdf5(file_id, dxpl, "FaceCenteredDataX", sstate.face_staggered_fields_x) ;
     detail::read_data_hdf5(file_id, dxpl, "FaceCenteredDataY", sstate.face_staggered_fields_y) ;
     detail::read_data_hdf5(file_id, dxpl, "FaceCenteredDataZ", sstate.face_staggered_fields_z) ;
+    #endif 
     /**********************************************************************/
     /* Close the file                                                     */
     /**********************************************************************/

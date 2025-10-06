@@ -1,5 +1,5 @@
 // octree_search_class.cc
-#include <grace/amr/octree_search_class.hh>
+#include <grace/IO/octree_search_class.hh>
 #include <Kokkos_Core.hpp>
 #include <grace_config.h>
 #include <grace/IO/hdf5_output.hh>
@@ -14,8 +14,6 @@ namespace grace { namespace amr {
 #ifdef GRACE_3D
 
 
-namespace detail {
-
 int grace_search_plane(
     p4est_t* forest,
     p4est_topidx_t which_tree,
@@ -28,7 +26,7 @@ int grace_search_plane(
     // get the plane we are checking 
     auto plane = static_cast<plane_desc_t*>(point) ; 
     // now construct a cube from the quadrant 
-    auto cube  = make_cube(quadrant_t{quadrant}, which_tree) ; 
+    auto cube  = detail::make_cube(quadrant_t{quadrant}, which_tree) ; 
     // finally check for intersection 
     bool intersect = intersects(*plane,cube) ; 
     // if the quadrant is a leaf we write back 
@@ -39,7 +37,6 @@ int grace_search_plane(
     return intersect ; 
 }
 
-}
 
 void oct_tree_plane_slicer_t::search() {
     std::vector<plane_desc_t> _buf{_plane} ; 
@@ -51,7 +48,7 @@ void oct_tree_plane_slicer_t::search() {
         grace::amr::forest::get().get(), 
         false, 
         nullptr, 
-        &detail::grace_search_plane,
+        &grace_search_plane,
         plane_arr
     ) ; 
     // collect quadrants that returned 1 

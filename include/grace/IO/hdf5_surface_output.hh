@@ -33,7 +33,7 @@
 #include <string>
 #include <vector>
 #include <set>
-#include <grace/amr/octree_search_class.hh>
+#include <grace/IO/octree_search_class.hh>
 
 
 namespace grace { namespace IO {

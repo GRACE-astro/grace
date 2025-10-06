@@ -52,6 +52,11 @@ double get_simulation_time() ;
  */
 void increment_simulation_time() ; 
 /**
+ * @brief Set the simulation time 
+ *        by the current timestep.
+ */
+void set_simulation_time(double const& _new_t) ; 
+/**
  * @brief Get the iteration count.
  * 
  * @return size_t Current iteration count.
@@ -61,6 +66,10 @@ size_t get_iteration() ;
  * @brief Increment iteration count.
  */
 void increment_iteration() ; 
+/**
+ * @brief Set iteration count.
+ */
+void set_iteration(size_t const& _new_it) ; 
 /**
  * @brief Set the timestep size.
  * 

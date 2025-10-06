@@ -28,7 +28,6 @@
 #include <grace_config.h>
 #include <grace/utils/grace_utils.hh>
 #include <grace/amr/grace_amr.hh>
-#include <grace/amr/octree_search_class.hh>
 #include <grace/config/config_parser.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/coordinates/coordinates.hh>
@@ -38,6 +37,8 @@
 #include <grace/system/grace_system.hh>
 #include <grace/IO/hdf5_output.hh>
 #include <grace/IO/hdf5_surface_output.hh>
+#include <grace/IO/octree_search_class.hh>
+
 #include <grace/parallel/mpi_wrappers.hh>
 
 #include <hdf5.h>

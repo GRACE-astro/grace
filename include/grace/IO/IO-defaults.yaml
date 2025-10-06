@@ -40,6 +40,14 @@ IO: {
 
   output_extra_quantities: false,
 
+  spherical_detectors: [
+    {name: "R100", radius: 100, center: [0,0,0], tracking: "none", sampling: "healpix", res: 12},
+    {name: "R200", radius: 200, center: [0,0,0], tracking: "none", sampling: "healpix", res: 12}
+  ],
+
+  n_output_spheres: 0,
+  output_sphere_names: [],
+
   n_output_planes: 3,
   output_plane_x_origin_0: 0,
   output_plane_x_origin_1: 0,
