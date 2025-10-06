@@ -398,7 +398,7 @@ compute_B_field_from_Avec(
     /*************************************************************************/
     /* loop fill everything in the interior points   */
     /*************************************************************************/
-    auto policy = MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+1+ngz,ny+1+ngz,nz+1+ngz),nq}) ; 
+    auto policy = MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
     parallel_for( GRACE_EXECUTION_TAG("ID","magnetic_field_from_vector_potential_ID")
                 , policy
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
@@ -472,18 +472,20 @@ set_vector_potential(const grace::var_array_t<GRACE_NSPACEDIM>& state,
     /*************************************************************************/
     /* loop fill everything in the interior points   */
     /*************************************************************************/
-    auto policy = MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+1+ngz,ny+1+ngz,nz+1+ngz),nq}) ; 
+    auto policy = MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 
     parallel_for( GRACE_EXECUTION_TAG("ID","setting_vector_potential_ID")
                 , policy
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
                   avec_t vec_pot(avec_params, pcoords);
 
-                  vec_pot(aux(VEC(i,j,k), AVECX_, q),
-                          aux(VEC(i,j,k), AVECY_, q), 
-                          aux(VEC(i,j,k), AVECZ_, q),
+                  double AUx, AUy, AUz;
+                  vec_pot(AUx,AUy,AUz,
                           state, aux, idx,
                           VEC(i,j,k), q);
+                  aux(VEC(i,j,k), AVECX_, q) = AUx;
+                  aux(VEC(i,j,k), AVECY_, q) = AUy;
+                  aux(VEC(i,j,k), AVECZ_, q) = AUz;
 
                 }
     );

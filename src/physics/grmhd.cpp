@@ -251,6 +251,11 @@ static void set_grmhd_kadath_initial_data() {
     
     auto& aux   = variable_list::get().getaux() ; 
     auto& state = variable_list::get().getstate() ;
+    auto& idx   = grace::variable_list::get().getinvspacings()   ; 
+
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+    grace::fill_physical_coordinates(pcoords) ; 
+    
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     int ngz = amr::get_n_ghosts() ; 
@@ -389,8 +394,26 @@ static void set_grmhd_kadath_initial_data() {
                     aux(VEC(i,j,k),YE_,q) = ye ; 
                 }) ;
 
-        // to do: incorporate a routine to add B field 
-    
+    const bool set_Bfield_from_Avec = get_param<bool>("grmhd","set_B_from_Avec") ;
+    const bool set_Avec             = get_param<bool>("grmhd", "set_Avec") ;
+
+    if(set_Avec){
+        const std::string Avec_type = get_param<std::string>("grmhd","Avec_type") ; // poloidal, dipole, monopole, linear (e.g. for shocktubes)
+        const std::string Avec_prescription = get_param<std::string>("grmhd","Avec_prescription") ; // density/pressure based
+        if(Avec_type=="poloidal" && Avec_prescription=="pressure_prescription"){
+            set_vector_potential<B_field_pol_pres_t>(state,aux,idx,pcoords);
+        }
+        else if(Avec_type=="none"){
+            set_vector_potential<B_field_zero_t>(state,aux,idx,pcoords);
+        }
+    }
+
+    // finally, we launch a separate loop to set the magnetic field from vector potential
+    // in GLM, A is only needed in the ID; vector potential is then never touched
+    if(set_Bfield_from_Avec){
+        GRACE_INFO("Computing magnetic field from vector potential"); 
+        compute_B_field_from_Avec(state, aux, idx);
+    }    
 }
 
 #endif 

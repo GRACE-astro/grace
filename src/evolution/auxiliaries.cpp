@@ -115,7 +115,7 @@ void compute_auxiliary_quantities(
         auto& idx   = grace::variable_list::get().getinvspacings()   ; 
 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
-        policy_interior({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz+1,ny+ngz+1,nz+ngz+1),nq}) ; 
+        policy_interior({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
         parallel_for(GRACE_EXECUTION_TAG("EVOL","compute_divB"), policy_interior 
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
         {
