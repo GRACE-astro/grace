@@ -1251,7 +1251,7 @@ struct grmhd_equations_system_t
                 , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
             ,   0.5 * (metric_l.alp() + metric_r.alp())
             } ; 
-        #else  // 4th order lop-sided stencil 
+        #else  // 3th order lop-sided stencil 
             std::array<bool> stag_dir{idir==0, idir==1, idir==2};
             metric_l = get_metric_array(this->_state, this->_state,VEC(i+ngz-utils::delta(idir,0), j+ngz-utils::delta(idir,1), k+ngz-utils::delta(idir,2)),
                                         q, stag_dir) ;   // TODO: replace with cstate later! 
