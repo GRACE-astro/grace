@@ -87,6 +87,9 @@ int num_tensor_vars = 0 ;
 /****************************************************/
 /*                Variable name arrays              */
 /****************************************************/
+/****************************************************/
+/* These mappings go idx -> name                    */
+/****************************************************/
 std::vector<std::string> _varnames ; 
 std::vector<std::string> _auxnames ; 
 
@@ -104,17 +107,17 @@ std::vector<std::string> _corner_staggered_auxnames ;
 /****************************************************/
 /*             Boundary condition arrays            */
 /****************************************************/
-std::vector<std::string> _var_bc_types ;
-std::vector<std::string> _aux_bc_types ;
+std::vector<bc_t> _var_bc_types ;
+std::vector<bc_t> _aux_bc_types ;
 
-std::vector<std::string> _face_vars_bc_types ;
-std::vector<std::string> _face_aux_bc_types ;
+std::vector<bc_t> _face_vars_bc_types ;
+std::vector<bc_t> _face_aux_bc_types ;
 
-std::vector<std::string> _edge_vars_bc_types ;
-std::vector<std::string> _edge_aux_bc_types ;
+std::vector<bc_t> _edge_vars_bc_types ;
+std::vector<bc_t> _edge_aux_bc_types ;
 
-std::vector<std::string> _corner_vars_bc_types ;
-std::vector<std::string> _corner_aux_bc_types ;
+std::vector<bc_t> _corner_vars_bc_types ;
+std::vector<bc_t> _corner_aux_bc_types ;
 /****************************************************/
 /****************************************************/
 
@@ -130,36 +133,11 @@ std::vector<int> _tensor_var_indices ;
 /****************************************************/
 
 /****************************************************/
-/*              Reconstructed variables             */
-/*                    indices                       */
-/****************************************************/
-std::vector<int> _recon_var_indices ; 
-std::vector<int> _recon_aux_indices ; 
-
-std::vector<int> _face_staggered_recon_var_indices ; 
-std::vector<int> _face_staggered_recon_aux_indices ; 
-
-std::vector<int> _edge_staggered_recon_var_indices ; 
-std::vector<int> _edge_staggered_recon_aux_indices ; 
-
-std::vector<int> _corner_staggered_recon_var_indices ;
-std::vector<int> _corner_staggered_recon_aux_indices ;
-/****************************************************/
 /****************************************************/
 std::unordered_map<std::string, variable_properties_t<GRACE_NSPACEDIM>> 
     _varprops; 
 std::unordered_map<std::string, variable_properties_t<GRACE_NSPACEDIM>> 
     _auxprops; 
-
-
-std::vector<int> flux_var_indices         ; 
-std::vector<int> prolongation_var_indices ;
-
-std::vector<int> face_staggered_flux_var_indices         ;
-std::vector<int> face_staggered_prolongation_var_indices ;
-
-std::vector<int> edge_staggered_flux_var_indices         ;
-std::vector<int> edge_staggered_prolongation_var_indices ;
 
 } /* namespace grace::variables::detail */
 
@@ -195,10 +173,12 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(TAU,"tau","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing",true) ;
+    REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(BSX,BSY,BSZ,"B_face", "outgoing"/*FIXME?*/, false/*FIXME?*/);
     /* GRMHD primitives */
     REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
     REGISTER_AUX_VECTOR(VELX,VELY,VELZ,"vel","none") ; 
-    REGISTER_AUX_VECTOR(ZVECX,ZVECY,ZVECZ,"zvec","none") ; 
+    REGISTER_AUX_VECTOR(ZVECX,ZVECY,ZVECZ,"zvec","none") ;
+    REGISTER_AUX_VECTOR(BX,BY,BZ,"Bvec","none") ; 
     REGISTER_AUX_SCALAR(YE,"ye","none") ; 
     REGISTER_AUX_SCALAR(TEMP,"temperature", "none") ;
     REGISTER_AUX_SCALAR(ENTROPY,"entropy","none") ; 
@@ -299,41 +279,57 @@ static int register_staggered_variable( std::string const& name
                                       , bool is_evolved 
                                       , bool need_fluxes
                                       , std::string const & bc_type 
-                                      , std::array<bool,GRACE_NSPACEDIM> const& staggering )
+                                      , grace::var_staggering_t const& staggering 
+                                      , bool is_vector 
+                                      , bool is_tensor
+                                      , int num_comp )
 {
     using namespace detail ; 
     num_vars++;
-    int nstagger = 0 ; 
-    for( int idim=0; idim<GRACE_NSPACEDIM; ++idim) nstagger += int(staggering[idim]) ;
-    if( nstagger == 1 ) {
+
+    if( staggering == var_staggering_t::FACE ) {
+        ASSERT(is_vector, "Face staggered variables must be vectors.") ; 
         if( is_evolved ) {
+            if( num_comp == 0) {
+                num_face_staggered_vars ++ ; 
+            }
             _face_staggered_varnames.push_back(name) ; 
             _face_vars_bc_types.push_back(bc_type) ;
-            return (num_face_staggered_vars ++) - 1 ; 
+            return num_face_staggered_vars - 1 ; 
         } else {
+            if( num_comp == 0) {
+                num_face_staggered_aux ++ ; 
+            }
             _face_staggered_auxnames.push_back(name) ; 
             _face_aux_bc_types.push_back(bc_type) ; 
-            return (num_face_staggered_aux ++) - 1 ; 
+            return (num_face_staggered_aux ) - 1 ; 
         }
-    } else if (nstagger == 2) {
+    } else if (staggering == var_staggering_t::EDGE) {
+        ASSERT(is_vector, "Edge staggered variables must be vectors.") ; 
         if( is_evolved ) {
+            if( num_comp == 0) {
+                num_edge_staggered_vars ++ ; 
+            }
             _edge_staggered_varnames.push_back(name) ; 
             _edge_vars_bc_types.push_back(bc_type) ; 
-            return (num_edge_staggered_vars ++) - 1 ; 
+            return (num_edge_staggered_vars) - 1 ; 
         } else {
-            _face_staggered_auxnames.push_back(name) ; 
+            if( num_comp == 0) {
+                num_edge_staggered_aux ++ ; 
+            }
+            _edge_staggered_auxnames.push_back(name) ; 
             _edge_aux_bc_types.push_back(bc_type) ; 
-            return (num_edge_staggered_aux ++) - 1 ; 
+            return (num_edge_staggered_aux) - 1 ; 
         }
-    } else if (nstagger == 3) {
+    } else if (staggering == var_staggering_t::CORNER) {
         if( is_evolved ) {
             _corner_staggered_varnames.push_back(name) ; 
             _corner_vars_bc_types.push_back(bc_type) ; 
-            return (num_corner_staggered_vars ++) - 1 ; 
+            return (++num_corner_staggered_vars) - 1 ; 
         } else {
             _corner_staggered_auxnames.push_back(name) ; 
             _corner_aux_bc_types.push_back(bc_type) ; 
-            return (num_corner_staggered_aux ++) - 1 ; 
+            return (++num_corner_staggered_aux) - 1 ; 
         }
     } else {
         ERROR("Something wrong!") ; 
@@ -371,11 +367,11 @@ static int register_vector( std::string const& name
         }
         last_evolved = num_vars; 
         num_evolved ++ ; 
-        _var_bc_types.push_back(bc_type) ; 
+        _var_bc_types.push_back(get_bc_type(bc_type)) ; 
     } else {
         _auxnames.push_back(name) ; 
         num_auxiliary ++ ; 
-        _aux_bc_types.push_back(bc_type) ;
+        _aux_bc_types.push_back(get_bc_type(bc_type)) ;
     }
 
     return  is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
@@ -413,11 +409,11 @@ static int register_tensor( std::string const& name
         }
         last_evolved = num_vars; 
         num_evolved ++ ; 
-        _var_bc_types.push_back(bc_type) ; 
+        _var_bc_types.push_back(get_bc_type(bc_type)) ; 
     } else {
         _auxnames.push_back(name) ; 
         num_auxiliary ++ ; 
-        _aux_bc_types.push_back(bc_type) ;
+        _aux_bc_types.push_back(get_bc_type(bc_type)) ;
     }
 
     return  is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
@@ -437,7 +433,6 @@ static int register_tensor( std::string const& name
  */
 static int register_variable(     std::string const& name
                                 , std::array<bool, GRACE_NSPACEDIM> staggering  
-                                , bool need_prolongation
                                 , bool is_evolved 
                                 , bool need_fluxes
                                 , std::string const & bc_type 
@@ -452,31 +447,34 @@ static int register_variable(     std::string const& name
         ASSERT(is_evolved, "Not evolved variable can't need fluxes.") ; 
     }
 
+    int var_staggering = 0 ; 
+    for( auto const & s: staggering ) var_staggering += static_cast<int>(s) ; 
+
     variable_properties_t<GRACE_NSPACEDIM> props ;
-    props.staggering = staggering ; 
-    props.has_gz     = is_evolved ; 
+    props.staggering = get_staggering(staggering) ; 
+    props.is_evolved = is_evolved ; 
     props.is_vector  = is_vector  ; 
     props.is_tensor  = is_tensor  ; 
-    props.name   = (is_tensor || is_vector) ?  vec_name : name  ;
-    if ( is_evolved ) {
-        detail::_varprops[name] = props ; 
-    } else {
-        detail::_auxprops[name] = props ; 
-    }
+    props.name       = (is_tensor || is_vector) ?  vec_name : name  ;
+    props.comp_num   = (is_tensor || is_vector) ?  comp_num : -1    ;
+    props.bc_type    = get_bc_type(bc_type); 
+
     num_vector_vars += static_cast<int>(is_vector) ; 
-    num_tensor_vars += static_cast<int>(is_tensor) ; 
-    bool is_staggered = false ; 
-    for( auto const & s: staggering ) is_staggered |= s ; 
-    if( is_staggered ) {
-        return register_staggered_variable(name,is_evolved,need_fluxes,bc_type,staggering) ; 
+    num_tensor_vars += static_cast<int>(is_tensor) ;
+    size_t varidx ; 
+    if( ( var_staggering != 0 ) ) {
+        varidx = register_staggered_variable(name,is_evolved,need_fluxes,bc_type,var_staggering, is_vector, is_tensor, comp_num) ; 
     } else {
         if ( is_vector ) {
-            return register_vector(name,is_evolved,need_fluxes,comp_num,bc_type) ; 
+            varidx = register_vector(name,is_evolved,need_fluxes,comp_num,bc_type) ; 
         } else if ( is_tensor ) {
-            return register_tensor(name,is_evolved,need_fluxes,comp_num,bc_type) ; 
+            varidx = register_tensor(name,is_evolved,need_fluxes,comp_num,bc_type) ; 
         } else {
-            return register_scalar(name,is_evolved,need_fluxes,bc_type) ; 
+            varidx = register_scalar(name,is_evolved,need_fluxes,bc_type) ; 
         }   
     }
+    props.index = varidx ;
+    detail::_varprops[name] = props ; 
+    return varidx ;
 }
 } } /* namespace grace::variables */

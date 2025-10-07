@@ -34,6 +34,15 @@
 #include <grace/data_structures/macros.hh>
 
 namespace grace {
+
+enum bc_t: uint8_t {BC_OUTFLOW=0, BC_LAGRANGE_EXTRAP, BC_NONE} ; 
+
+enum var_staggering_t : uint8_t {
+    CENTER=0, FACEX, FACEY, EDGEXY, FACEZ, EDGEXZ, EDGEYZ, CORNER
+} ; 
+var_staggering_t get_staggering(std::array<uint8_t,3> s) {
+    return static_cast<var_staggering_t>(s[0] + (s[1]<<1) + (s[2]<<2)) ; 
+}
 //*****************************************************************************************************
 //*****************************************************************************************************
 /**
@@ -54,11 +63,13 @@ struct variable_properties_t
 template<> 
 struct variable_properties_t<2>
 {
-    using view_t = Kokkos::View<double ****, Kokkos::LayoutLeft, default_space> ; 
-    std::array<bool, 2> staggering; 
-    bool has_gz ; 
+    var_staggering_t staggering; 
+    bool is_evolved ; 
     bool is_vector ;  
     bool is_tensor ; 
+    int8_t comp_num ; 
+    bc_t bc_type ; 
+    size_t index ;
 
     std::string name ; 
 } ; 
@@ -71,13 +82,15 @@ struct variable_properties_t<2>
 template<> 
 struct variable_properties_t<3>
 {
-    using view_t = Kokkos::View<double *****, Kokkos::LayoutLeft, default_space> ; 
-    std::array<bool, 3> staggering; 
-    bool has_gz ; 
-    bool is_vector;
-    bool is_tensor; 
-    
-    std::string name ;
+    var_staggering_t staggering; 
+    bool is_evolved ; 
+    bool is_vector ;  
+    bool is_tensor ; 
+    int8_t comp_num ; 
+    bc_t bc_type ; 
+    size_t index ;
+
+    std::string name ; 
 } ; 
 //*****************************************************************************************************
 /**
@@ -141,8 +154,7 @@ struct scalar_array_impl_t { using view_t = Kokkos::View<double **, Kokkos::Layo
  * \ingroup variables
  * @tparam ndim Number of spatial dimension
  */
-template< size_t ndim = GRACE_NSPACEDIM > 
-using var_array_t = variable_properties_t<ndim>::view_t ; 
+using var_array_t = Kokkos::View<double EXPR(*,*,*)**, Kokkos::LayoutLeft, default_space> ;  ; 
 //***************************************************************************************************** 
 /**
  * @brief Proxy for coordinate <code>View</code> type in GRACE
