@@ -68,7 +68,7 @@ void apply_boundary_conditions(grace::var_array_t& vars) {
     auto& halo_executor = ghost.get_task_executor() ; 
     halo_executor.run(view_alias_t{&vars}) ; 
     halo_executor.reset();
-
+    Kokkos::fence() ; 
     parallel::mpi_barrier() ; 
 
     size_t nx,ny,nz ; 

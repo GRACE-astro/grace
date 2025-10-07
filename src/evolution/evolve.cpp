@@ -291,6 +291,7 @@ void advance_substep( double const t, double const dt, double const dtfact
             ) ; 
         #endif 
     }) ; 
+    Kokkos::fence() ; 
     #undef GET_X_FLUX
     #undef GET_Y_FLUX
     #undef GET_Z_FLUX
