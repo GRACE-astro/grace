@@ -680,7 +680,14 @@ struct grmhd_equations_system_t
                          , metric.beta(idir)
                          , metric.invgamma(metric_comp[idir]) );
             cmax = math::max(cmax,math::abs(cp),math::abs(cm)) ; 
+            // eigenspeeds of the divergence cleaning subsystem are always the largest
+            #ifdef GRACE_ENABLE_B_FIELD_GLM
+                double cm_DC = -metric.alp() * Kokkos::sqrt(metric.invgamma(metric_comp[idir])) - metric.beta(idir) ;
+                double cp_DC =  metric.alp() * Kokkos::sqrt(metric.invgamma(metric_comp[idir])) - metric.beta(idir) ;
+                cmax = math::max(cmax,math::abs(cp_DC),math::abs(cm_DC)) ;
+            #endif 
         }
+
         return cmax ; 
     };
 
@@ -1226,7 +1233,7 @@ struct grmhd_equations_system_t
         /* Define and interpolate metric                                       */
         /***********************************************************************/
         metric_array_t metric_l, metric_r;
-        #define METRIC_FACE_2ND_ORDER
+        // #define METRIC_FACE_2ND_ORDER
         #ifdef METRIC_FACE_2ND_ORDER
             FILL_METRIC_ARRAY( metric_l, this->_state, q
                             , VEC( i+ngz-utils::delta(idir,0)
@@ -1750,16 +1757,26 @@ struct grmhd_equations_system_t
 	    // the characteristic wavespeeds in GRMHD in coordinate frame are bound by
 	    // Eq.(60) in Anton 2006: https://arxiv.org/pdf/astro-ph/0506063
         // cml_DC is a short name for "c_minus_left_divergence_cleaning"
-        double cml_DC = -alp * Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) ;
-        double cmr_DC = cml_DC;
 
-        double cpl_DC =  alp * Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) ;
-        double cpr_DC = cpl_DC;
+        double cml_DC, cmr_DC, cpl_DC, cpr_DC, cmin_DC, cmax_DC;
+        if constexpr ( recompute_cp_cm ) {
+            cml_DC = -alp * Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) ;
+            cmr_DC = cml_DC;
 
-        double cmin_DC = -Kokkos::min(0., Kokkos::min(cml_DC,cmr_DC)) * 0.99 ; 
-        double cmax_DC =  Kokkos::max(0., Kokkos::max(cpl_DC,cpr_DC)) * 0.99 ; 
-        // note: is it possible for these to also become 0? 
+            cpl_DC =  alp * Kokkos::sqrt(metric_face.invgamma(metric_comps[idir])) - metric_face.beta(idir) ;
+            cpr_DC = cpl_DC;
 
+            cmin_DC = -Kokkos::min(0., Kokkos::min(cml_DC,cmr_DC)) * 0.99 ; 
+            cmax_DC =  Kokkos::max(0., Kokkos::max(cpl_DC,cpr_DC)) * 0.99 ; 
+            /* Add some diffusion in weakly hyperbolic limit */
+            if( cmin < 1e-12 and cmax < 1e-12 ) { cmin_DC=1; cmax_DC=1; }
+        } 
+        else {
+            cmin_DC = cmin_loc ; 
+            cmax_DC = cmax_loc ; 
+        }
+
+        
        /***********************************************************************/
         /* evolution equation for B^i in the GLM method reads:                 */
         /* \partial_t (\sqrt{\gamma}B^j)  +                                    */
@@ -1893,9 +1910,9 @@ struct grmhd_equations_system_t
         f[PHIG_GLML] = solver(fl,fr,phi_glm_l,phi_glm_r,cmin_DC,cmax_DC) ; 
 
         // overwrite the cmin/cmax characteristic speeds with the DC ones (for timestep stability)
-        // Should we do this? @Carlo? 
-        cmin = cmin_DC;
-        cmax = cmax_DC;  
+        // cmin = cmin_DC;
+        // cmax = cmax_DC;  
+        // actually, the timestep is determined through the call to compute_max_eigenspeed!
 
         #endif 
 	#endif 
