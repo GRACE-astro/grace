@@ -80,8 +80,8 @@ struct grmhd_equations_system_t
      * @param aux_ Auxiliary array.
      */
     grmhd_equations_system_t( eos_t eos_ 
-                            , grace::var_array_t<GRACE_NSPACEDIM> state_
-                            , grace::var_array_t<GRACE_NSPACEDIM> aux_ ) 
+                            , grace::var_array_t state_
+                            , grace::var_array_t aux_ ) 
      : base_t(state_,aux_), _eos(eos_)
     { 
         _lapse_excision = grace::get_param<double>("grmhd","lapse_excision") ; 
@@ -189,7 +189,7 @@ struct grmhd_equations_system_t
                          ,      const int j 
                          ,      const int k)
                          , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
-                         , grace::var_array_t<GRACE_NSPACEDIM> const state_new
+                         , grace::var_array_t const state_new
                          , double const dt 
                          , double const dtfact ) const 
     {

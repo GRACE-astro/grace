@@ -65,7 +65,7 @@ class metric_evolution_system_t
      * @param state State array
      * @param aux   Aux array
      */
-    metric_evolution_system_t(grace::var_array_t<GRACE_NSPACEDIM> const state, grace::var_array_t<GRACE_NSPACEDIM> const aux)
+    metric_evolution_system_t(grace::var_array_t const state, grace::var_array_t const aux)
         : base_t(state,aux)
     { } ; 
     /**
@@ -89,7 +89,7 @@ class metric_evolution_system_t
                     ,      const int j 
                     ,      const int k)
                     , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
-                    , grace::var_array_t<GRACE_NSPACEDIM> const state_new
+                    , grace::var_array_t const state_new
                     , double const dt 
                     , double const dtfact ) const 
     {
@@ -109,7 +109,7 @@ class metric_evolution_system_t
     
 
  private:
-    grace::var_array_t<GRACE_NSPACEDIM> _state, _aux ; 
+    grace::var_array_t _state, _aux ; 
 
 } ; 
 

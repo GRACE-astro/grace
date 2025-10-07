@@ -58,41 +58,41 @@ get_n_auxiliary()
 } 
 
 
-std::string 
-get_bc_type(int64_t varidx, size_t const& var_type)
+bc_t 
+get_bc_type(int64_t varidx, var_staggering_t const& var_staggering)
 {
-    if ( var_type == EVOLVED ) {
-        ASSERT_DBG( varidx < detail::_var_bc_types.size(), 
-                "Requested variable " << varidx << " does not have registered BCs."); 
-        return detail::_var_bc_types[varidx]  ;
-    } else if ( var_type == AUXILIARY ) {
+    if ( var_staggering == STAG_CENTER ) {
         ASSERT_DBG( varidx < detail::_aux_bc_types.size(), 
                 "Requested auxiliary variable " << varidx << " does not have registered BCs."); 
-        return detail::_aux_bc_types[varidx]  ;
-    } else if ( var_type == FACE_STAGGERED ) {
-        ASSERT_DBG( varidx < detail::_face_vars_bc_types.size(), 
+        return detail::_var_bc_types[varidx]  ;
+    } else if ( var_staggering == STAG_FACEX ) {
+        ASSERT_DBG( varidx < detail::_facex_vars_bc_types.size(), 
                 "Requested face-staggered variable " << varidx << " does not have registered BCs."); 
-        return detail::_face_vars_bc_types[varidx]  ;
-    } else if ( var_type == FACE_STAGGERED_AUXILIARY) {
-        ASSERT_DBG( varidx < detail::_face_aux_bc_types.size(), 
-                "Requested face-staggered auxiliary variable " << varidx << " does not have registered BCs."); 
-        return detail::_face_aux_bc_types[varidx]  ;
-    } else if ( var_type == EDGE_STAGGERED) {
-        ASSERT_DBG( varidx < detail::_edge_vars_bc_types.size(), 
+        return detail::_facex_vars_bc_types[varidx]  ;
+    } else if ( var_staggering == STAG_FACEY ) {
+        ASSERT_DBG( varidx < detail::_facey_vars_bc_types.size(), 
+                "Requested face-staggered variable " << varidx << " does not have registered BCs."); 
+        return detail::_facey_vars_bc_types[varidx]  ;
+    } else if ( var_staggering == STAG_FACEZ ) {
+        ASSERT_DBG( varidx < detail::_facez_vars_bc_types.size(), 
+                "Requested face-staggered variable " << varidx << " does not have registered BCs."); 
+        return detail::_facez_vars_bc_types[varidx]  ;
+    } else if ( var_staggering == STAG_EDGEXY ) {
+        ASSERT_DBG( varidx < detail::_edgexy_vars_bc_types.size(), 
                 "Requested edge-staggered variable " << varidx << " does not have registered BCs."); 
-        return detail::_edge_vars_bc_types[varidx]  ;
-    } else if ( var_type == EDGE_STAGGERED_AUXILIARY) {
-        ASSERT_DBG( varidx < detail::_edge_aux_bc_types.size(), 
-                "Requested edge-staggered auxiliary variable " << varidx << " does not have registered BCs."); 
-        return detail::_edge_aux_bc_types[varidx]  ;
-    } else if ( var_type == CORNER_STAGGERED) {
+        return detail::_edgexy_vars_bc_types[varidx]  ;
+    } else if ( var_staggering == STAG_EDGEXZ ) {
+        ASSERT_DBG( varidx < detail::_edgexz_vars_bc_types.size(), 
+                "Requested edge-staggered variable " << varidx << " does not have registered BCs."); 
+        return detail::_edgexz_vars_bc_types[varidx]  ;
+    } else if ( var_staggering == STAG_EDGEYZ ) {
+        ASSERT_DBG( varidx < detail::_edgeyz_vars_bc_types.size(), 
+                "Requested edge-staggered variable " << varidx << " does not have registered BCs."); 
+        return detail::_edgeyz_vars_bc_types[varidx]  ;
+    } else if ( var_staggering == STAG_CORNER ) {
         ASSERT_DBG( varidx < detail::_corner_vars_bc_types.size(), 
-                "Requested corner-staggered variable " << varidx << " does not have registered BCs."); 
+                "Requested edge-staggered variable " << varidx << " does not have registered BCs."); 
         return detail::_corner_vars_bc_types[varidx]  ;
-    } else if ( var_type == CORNER_STAGGERED_AUXILIARY) {
-        ASSERT_DBG( varidx < detail::_corner_aux_bc_types.size(), 
-                "Requested corner-staggered auxiliary variable " << varidx << " does not have registered BCs."); 
-        return detail::_corner_aux_bc_types[varidx]  ;
     } else {
         ERROR("Unrecognized variable type in get_bc_type.") ; 
     }

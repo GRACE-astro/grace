@@ -73,42 +73,43 @@ enum grace_variable_types {
 * @param is_vector       True if the variable is a component of a vector.
 * @return int            Index of the variable in respective state array.
 */
-static int register_variable( std::string const& name
-                            , std::array<bool,GRACE_NSPACEDIM> staggered  
-                            , bool need_ghostzones 
-                            , bool is_evolved 
-                            , bool need_fluxes
-                            , std::string const& bc_type=""
-                            , bool is_vector=false
-                            , bool is_tensor=false 
-                            , int  comp_num=0
-                            , std::string const& vecname=""
-                             ) ;
+static int register_variable(     std::string const& name
+                                , std::array<bool, GRACE_NSPACEDIM> staggering  
+                                , bool is_evolved 
+                                , bool need_fluxes
+                                , std::string const & bc_type = "none"
+                                , bool is_vector = false
+                                , bool is_tensor = false 
+                                , int comp_num = 0 
+                                , std::string const& vec_name = "" ) ;
 //*****************************************************************************************************
 namespace detail {
 
 static int register_scalar( std::string const& name
                           , bool is_evolved 
                           , bool need_fluxes 
-                          , std::string const& bc_type ) ;
+                          , bc_t const& bc_type ) ;
  
 static int register_staggered_variable( std::string const& name
                                       , bool is_evolved 
-                                      , bool need_fluxes 
-                                      , std::string const& bc_type 
-                                      , std::array<bool,GRACE_NSPACEDIM> const& staggering ) ;
+                                      , bool need_fluxes
+                                      , bc_t const & bc_type 
+                                      , grace::var_staggering_t const& staggering 
+                                      , bool is_vector = false 
+                                      , bool is_tensor = false 
+                                      , int num_comp  = 0) ;
 
 static int register_vector( std::string const& name
                           , bool is_evolved 
                           , bool need_fluxes
                           , int num_comp
-                          , std::string const & bc_type ) ; 
+                          , bc_t const & bc_type ) ; 
 
 static int register_tensor( std::string const& name
                           , bool is_evolved 
                           , bool need_fluxes
                           , int num_comp
-                          , std::string const & bc_type ) ; 
+                          , bc_t const & bc_type ) ; 
 
 }
 
@@ -158,11 +159,23 @@ extern int num_tensor_vars ;
 extern std::vector<std::string> _varnames ; 
 extern std::vector<std::string> _auxnames ; 
 
-extern std::vector<std::string> _face_staggered_varnames ;
-extern std::vector<std::string> _face_staggered_auxnames ;
+extern std::vector<std::string> _facex_staggered_varnames ;
+extern std::vector<std::string> _facex_staggered_auxnames ;
 
-extern std::vector<std::string> _edge_staggered_varnames ; 
-extern std::vector<std::string> _edge_staggered_auxnames ; 
+extern std::vector<std::string> _facey_staggered_varnames ;
+extern std::vector<std::string> _facey_staggered_auxnames ;
+
+extern std::vector<std::string> _facez_staggered_varnames ;
+extern std::vector<std::string> _facez_staggered_auxnames ;
+
+extern std::vector<std::string> _edgexy_staggered_varnames ; 
+extern std::vector<std::string> _edgexy_staggered_auxnames ;
+
+extern std::vector<std::string> _edgexz_staggered_varnames ; 
+extern std::vector<std::string> _edgexz_staggered_auxnames ;
+
+extern std::vector<std::string> _edgeyz_staggered_varnames ; 
+extern std::vector<std::string> _edgeyz_staggered_auxnames ;
 
 extern std::vector<std::string> _corner_staggered_varnames ; 
 extern std::vector<std::string> _corner_staggered_auxnames ;
@@ -172,17 +185,21 @@ extern std::vector<std::string> _corner_staggered_auxnames ;
 /****************************************************/
 /*             Boundary condition arrays            */
 /****************************************************/
-extern std::vector<std::string> _var_bc_types ;
-extern std::vector<std::string> _aux_bc_types ;
+extern std::vector<grace::bc_t> _var_bc_types ;
 
-extern std::vector<std::string> _face_vars_bc_types ;
-extern std::vector<std::string> _face_aux_bc_types ;
+extern std::vector<grace::bc_t> _facex_vars_bc_types ;
 
-extern std::vector<std::string> _edge_vars_bc_types ;
-extern std::vector<std::string> _edge_aux_bc_types ;
+extern std::vector<grace::bc_t> _facey_vars_bc_types ;
 
-extern std::vector<std::string> _corner_vars_bc_types ;
-extern std::vector<std::string> _corner_aux_bc_types ;
+extern std::vector<grace::bc_t> _facez_vars_bc_types ;
+
+extern std::vector<grace::bc_t> _edgexy_vars_bc_types ;
+
+extern std::vector<grace::bc_t> _edgexz_vars_bc_types ;
+
+extern std::vector<grace::bc_t> _edgeyz_vars_bc_types ;
+
+extern std::vector<grace::bc_t> _corner_vars_bc_types ;
 /****************************************************/
 /****************************************************/
  
@@ -225,9 +242,6 @@ DECLARE_VAR_INDEX_IMPL(SZ)                          \
 DECLARE_VAR_INDEX_IMPL(TAU)                         \
 DECLARE_VAR_INDEX_IMPL(YESTAR)                      \
 DECLARE_VAR_INDEX_IMPL(ENTROPYSTAR)                 \
-DECLARE_VAR_INDEX_IMPL(BSX)                         \
-DECLARE_VAR_INDEX_IMPL(BSY)                         \
-DECLARE_VAR_INDEX_IMPL(BSZ)                         \
 DECLARE_VAR_INDEX_IMPL(RHO)                         \
 DECLARE_VAR_INDEX_IMPL(PRESS)                       \
 DECLARE_VAR_INDEX_IMPL(VELX)                        \
@@ -236,9 +250,6 @@ DECLARE_VAR_INDEX_IMPL(VELZ)                        \
 DECLARE_VAR_INDEX_IMPL(ZVECX)                        \
 DECLARE_VAR_INDEX_IMPL(ZVECY)                        \
 DECLARE_VAR_INDEX_IMPL(ZVECZ)                        \
-DECLARE_VAR_INDEX_IMPL(BX)                        \
-DECLARE_VAR_INDEX_IMPL(BY)                        \
-DECLARE_VAR_INDEX_IMPL(BZ)                        \
 DECLARE_VAR_INDEX_IMPL(TEMP)                        \
 DECLARE_VAR_INDEX_IMPL(YE)                          \
 DECLARE_VAR_INDEX_IMPL(ENTROPY)                     \

@@ -91,7 +91,7 @@ void read_data_hdf5(
     hid_t file_id,
     hid_t dxpl, 
     std::string const& dset_name,
-    grace::var_array_t<GRACE_NSPACEDIM>& data
+    grace::var_array_t& data
 )
 {
     DECLARE_GRID_EXTENTS ; 
@@ -165,7 +165,7 @@ void write_data_hdf5(
     hid_t file_id, 
     hid_t dxpl,
     std::string const& dset_name,
-    grace::var_array_t<GRACE_NSPACEDIM> data 
+    grace::var_array_t data 
 )
 {
     DECLARE_GRID_EXTENTS ; 

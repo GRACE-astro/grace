@@ -63,7 +63,6 @@
 namespace grace {
 
 /**************************************************************************************************/
-enum bc_t: uint8_t {BC_OUTFLOW=0, BC_LAGRANGE_EXTRAP, BC_NONE} ; 
 /**************************************************************************************************/
 enum interface_kind_t : uint8_t { PHYS, INTERNAL }  ;
 /**************************************************************************************************/
@@ -283,7 +282,7 @@ class amr_ghosts_impl_t {
 
     amr::ghost_array_t _send_buffer, _recv_buffer ;
 
-    grace::var_array_t<GRACE_NSPACEDIM> _coarse_buffers ; 
+    grace::var_array_t _coarse_buffers ; 
     Kokkos::View<bc_t*> var_bc_kind ; //!< Boundary condition per-variable
     //**************************************************************************************************
     //void build_flux_buffers() ; /* TODO ! */

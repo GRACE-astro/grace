@@ -78,7 +78,7 @@ template< amr::element_kind_t elem_kind >
 gpu_task_t make_gpu_copy_task(
       std::vector<gpu_task_desc_t> const& bucket
     , std::vector<quad_neighbors_descriptor_t>& ghost_array
-    , grace::var_array_t<GRACE_NSPACEDIM> data 
+    , grace::var_array_t data 
     , device_stream_t& stream
     , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv 
     , task_id_t& task_counter 
@@ -186,8 +186,8 @@ template< amr::element_kind_t elem_kind >
 gpu_task_t make_gpu_copy_to_cbuf_task(
       std::vector<gpu_task_desc_t> const& bucket
     , std::vector<quad_neighbors_descriptor_t>& ghost_array
-    , grace::var_array_t<GRACE_NSPACEDIM> data 
-    , grace::var_array_t<GRACE_NSPACEDIM> cbuf 
+    , grace::var_array_t data 
+    , grace::var_array_t cbuf 
     , device_stream_t& stream
     , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv 
     , task_id_t& task_counter 
@@ -303,8 +303,8 @@ template< amr::element_kind_t elem_kind >
 gpu_task_t make_gpu_copy_from_cbuf_task(
       std::vector<gpu_hanging_task_desc_t> const& bucket
     , std::vector<quad_neighbors_descriptor_t>& ghost_array
-    , grace::var_array_t<GRACE_NSPACEDIM> data 
-    , grace::var_array_t<GRACE_NSPACEDIM> cbuf 
+    , grace::var_array_t data 
+    , grace::var_array_t cbuf 
     , device_stream_t& stream
     , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv 
     , task_id_t& task_counter 
@@ -432,8 +432,8 @@ void insert_copy_tasks(
     bucket_t& copy_kernels,
     hang_bucket_t& copy_from_cbuf_kernels,
     bucket_t& copy_to_cbuf_kernels,
-    grace::var_array_t<GRACE_NSPACEDIM> state, 
-    grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers, 
+    grace::var_array_t state, 
+    grace::var_array_t coarse_buffers, 
     device_stream_t& stream,
     VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv,
     task_id_t& task_counter,

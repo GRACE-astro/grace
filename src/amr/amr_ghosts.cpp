@@ -87,16 +87,7 @@ void amr_ghosts_impl_t::update() {
     } ;
     auto var_bc_kind_h = Kokkos::create_mirror_view(var_bc_kind) ; 
     for(int ivar=0; ivar<nvar; ++ivar){
-        auto bc_type = variables::get_bc_type(ivar) ; 
-        bc_t kind ; 
-        if (bc_type=="outgoing") {
-            kind = bc_t::BC_OUTFLOW ; 
-        } else if ( bc_type == "lagrange_extrap") {
-            kind = bc_t::BC_LAGRANGE_EXTRAP ; 
-        } else if ( bc_type == "none") {
-            kind = bc_t::BC_NONE ; 
-        }
-        var_bc_kind_h(ivar) = kind ;
+        var_bc_kind_h(ivar) = variables::get_bc_type(ivar) ; 
     }
     Kokkos::deep_copy(var_bc_kind,var_bc_kind_h) ; 
 
@@ -194,7 +185,7 @@ void amr_ghosts_impl_t::build_coarse_buffers(
         } 
     }   
     /****************************************************/
-    _coarse_buffers = var_array_t<GRACE_NSPACEDIM>(
+    _coarse_buffers = var_array_t(
         "coarse_buffers", VEC(nx/2+2*ngz, ny/2+2*ngz, nz/2+2*ngz), nvars, cur_idx 
     ) ; 
     /****************************************************/

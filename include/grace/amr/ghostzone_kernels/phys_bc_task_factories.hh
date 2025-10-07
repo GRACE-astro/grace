@@ -71,7 +71,7 @@ make_gpu_phys_bc_task(
     Kokkos::View<bc_t*> var_bc,
     device_stream_t& stream, 
     task_id_t& task_counter,
-    grace::var_array_t<GRACE_NSPACEDIM> data_array,
+    grace::var_array_t data_array,
     size_t n, size_t nv, size_t ngz,
     std::vector<std::unique_ptr<task_t>>& task_list, bool is_cbuf=false
 )
@@ -286,8 +286,8 @@ inline bool unpack_dependencies(
 bucket_t insert_phys_bc_tasks(
     bucket_t phys_bc_tasks,
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
-    grace::var_array_t<GRACE_NSPACEDIM> state, 
-    grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
+    grace::var_array_t state, 
+    grace::var_array_t coarse_buffers,
     Kokkos::View<bc_t*> var_bc, 
     device_stream_t& stream, 
     VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv,
@@ -501,8 +501,8 @@ bucket_t insert_phys_bc_tasks(
 void insert_deferred_phys_bc_tasks(
     bucket_t phys_bc_tasks,
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
-    grace::var_array_t<GRACE_NSPACEDIM> state, 
-    grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
+    grace::var_array_t state, 
+    grace::var_array_t coarse_buffers,
     Kokkos::View<bc_t*> var_bc, 
     device_stream_t& stream, 
     VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv,

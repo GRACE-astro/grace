@@ -76,8 +76,8 @@ make_prolongation_task(
     std::unordered_set<task_id_t> const& deps,
     device_stream_t& stream,
     task_id_t& task_counter,
-    grace::var_array_t<GRACE_NSPACEDIM> data,
-    grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
+    grace::var_array_t data,
+    grace::var_array_t coarse_buffers,
     size_t n, size_t nv, size_t ngz,
     std::vector<std::unique_ptr<task_t>>& task_list 
 )
@@ -138,8 +138,8 @@ make_prolongation_task(
 void insert_prolongation_tasks(
     bucket_t const & prolong_tasks,
     std::vector<quad_neighbors_descriptor_t> & ghost_array, 
-    grace::var_array_t<GRACE_NSPACEDIM> state, 
-    grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
+    grace::var_array_t state, 
+    grace::var_array_t coarse_buffers,
     device_stream_t& stream, 
     VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv,
     task_id_t& task_counter,

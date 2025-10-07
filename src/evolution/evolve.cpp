@@ -129,9 +129,9 @@ void evolve_impl() {
 }
 template< typename eos_t >
 void advance_substep( double const t, double const dt, double const dtfact 
-                    , var_array_t<GRACE_NSPACEDIM>& new_state 
-                    , var_array_t<GRACE_NSPACEDIM>& old_state 
-                    , var_array_t<GRACE_NSPACEDIM>& aux 
+                    , var_array_t& new_state 
+                    , var_array_t& old_state 
+                    , var_array_t& aux 
                     , scalar_array_t<GRACE_NSPACEDIM>& idx
                     , scalar_array_t<GRACE_NSPACEDIM>& dx
                     , cell_vol_array_t<GRACE_NSPACEDIM>& cvol
@@ -301,9 +301,9 @@ void advance_substep( double const t, double const dt, double const dtfact
 #define INSTANTIATE_TEMPLATE(EOS)                                     \
 template                                                              \
 void advance_substep<EOS>( double const , double const , double const \
-                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
-                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
-                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::var_array_t&       \
+                         , grace::var_array_t&       \
+                         , grace::var_array_t&       \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \

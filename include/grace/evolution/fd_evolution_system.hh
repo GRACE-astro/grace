@@ -41,8 +41,8 @@ namespace grace {
 template < typename EvolSystem_t > 
 struct fd_evolution_system_t {
 
-    fd_evolution_system_t( grace::var_array_t<GRACE_NSPACEDIM> state_ 
-                         , grace::var_array_t<GRACE_NSPACEDIM> aux_ )
+    fd_evolution_system_t( grace::var_array_t state_ 
+                         , grace::var_array_t aux_ )
         : _state(state_), _aux(aux_)
     {} 
 
@@ -54,7 +54,7 @@ struct fd_evolution_system_t {
                        , int const j 
                        , int const k)
                   , grace::scalar_array_t<GRACE_NSPACEDIM> const idx 
-                  , grace::var_array_t<GRACE_NSPACEDIM> const state_new 
+                  , grace::var_array_t const state_new 
                   , double const dt 
                   , double const dtfact ) const 
     {
@@ -82,7 +82,7 @@ struct fd_evolution_system_t {
     } ; 
 
  protected:
-    grace::var_array_t<GRACE_NSPACEDIM> _state, _aux ; 
+    grace::var_array_t _state, _aux ; 
 
 } ; 
 } // namespace grace 

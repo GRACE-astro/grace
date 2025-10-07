@@ -87,9 +87,9 @@ void evolve_impl() ;
  */
 template< typename eos_t >
 void advance_substep( double const t, double const dt, double const dtfact 
-                    , grace::var_array_t<GRACE_NSPACEDIM>& state 
-                    , grace::var_array_t<GRACE_NSPACEDIM>& state_p 
-                    , grace::var_array_t<GRACE_NSPACEDIM>& aux 
+                    , grace::var_array_t& state 
+                    , grace::var_array_t& state_p 
+                    , grace::var_array_t& aux 
                     , grace::scalar_array_t<GRACE_NSPACEDIM>&  idx
                     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& cvol
                     , grace::staggered_coordinate_arrays_t& surfs_and_edges
@@ -100,9 +100,9 @@ void advance_substep( double const t, double const dt, double const dtfact
 #define INSTANTIATE_TEMPLATE(EOS)                                     \
 extern template                                                       \
 void advance_substep<EOS>( double const , double const , double const \
-                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
-                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
-                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::var_array_t&       \
+                         , grace::var_array_t&       \
+                         , grace::var_array_t&       \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \
                          , grace::staggered_coordinate_arrays_t&      \

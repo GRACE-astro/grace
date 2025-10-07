@@ -71,8 +71,8 @@ struct burgers_equation_system_t
      * @param state_ Current state array.
      * @param aux_   Current auxiliary array.
      */
-    burgers_equation_system_t( grace::var_array_t<GRACE_NSPACEDIM> state_
-                             , grace::var_array_t<GRACE_NSPACEDIM> aux_   ) 
+    burgers_equation_system_t( grace::var_array_t state_
+                             , grace::var_array_t aux_   ) 
      : hrsc_evolution_system_t<burgers_equation_system_t>(state_,aux_)
     { } ;
     /**
@@ -181,7 +181,7 @@ struct burgers_equation_system_t
                          ,      const int j 
                          ,      const int k)
                          , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
-                         , grace::var_array_t<GRACE_NSPACEDIM> const state_new
+                         , grace::var_array_t const state_new
                          , double const dt 
                          , double const dtfact ) const 
     { }

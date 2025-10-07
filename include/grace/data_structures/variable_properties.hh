@@ -38,11 +38,8 @@ namespace grace {
 enum bc_t: uint8_t {BC_OUTFLOW=0, BC_LAGRANGE_EXTRAP, BC_NONE} ; 
 
 enum var_staggering_t : uint8_t {
-    CENTER=0, FACEX, FACEY, EDGEXY, FACEZ, EDGEXZ, EDGEYZ, CORNER
+    STAG_CENTER=0, STAG_FACEX, STAG_FACEY, STAG_EDGEXY, STAG_FACEZ, STAG_EDGEXZ, STAG_EDGEYZ, STAG_CORNER
 } ; 
-var_staggering_t get_staggering(std::array<uint8_t,3> s) {
-    return static_cast<var_staggering_t>(s[0] + (s[1]<<1) + (s[2]<<2)) ; 
-}
 //*****************************************************************************************************
 //*****************************************************************************************************
 /**
@@ -236,11 +233,11 @@ struct staggered_coordinate_arrays_t {
     }
 } ;   
 struct staggered_variable_arrays_t {
-    var_array_t<GRACE_NSPACEDIM> face_staggered_fields_x, face_staggered_fields_y, face_staggered_fields_z ; 
+    var_array_t face_staggered_fields_x, face_staggered_fields_y, face_staggered_fields_z ; 
     #ifdef GRACE_3D 
-    var_array_t<GRACE_NSPACEDIM> edge_staggered_fields_xy, edge_staggered_fields_xz, edge_staggered_fields_yz ; 
+    var_array_t edge_staggered_fields_xy, edge_staggered_fields_xz, edge_staggered_fields_yz ; 
     #endif 
-    var_array_t<GRACE_NSPACEDIM> corner_staggered_fields ;
+    var_array_t corner_staggered_fields ;
 
     staggered_variable_arrays_t() 
       : VEC( face_staggered_fields_x("x-face staggered variables", VEC(0,0,0),0,0)

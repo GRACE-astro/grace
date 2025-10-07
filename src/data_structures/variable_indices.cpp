@@ -93,11 +93,23 @@ int num_tensor_vars = 0 ;
 std::vector<std::string> _varnames ; 
 std::vector<std::string> _auxnames ; 
 
-std::vector<std::string> _face_staggered_varnames ;
-std::vector<std::string> _face_staggered_auxnames ;
+std::vector<std::string> _facex_staggered_varnames ;
+std::vector<std::string> _facex_staggered_auxnames ;
 
-std::vector<std::string> _edge_staggered_varnames ; 
-std::vector<std::string> _edge_staggered_auxnames ; 
+std::vector<std::string> _facey_staggered_varnames ;
+std::vector<std::string> _facey_staggered_auxnames ;
+
+std::vector<std::string> _facez_staggered_varnames ;
+std::vector<std::string> _facez_staggered_auxnames ;
+
+std::vector<std::string> _edgexy_staggered_varnames ; 
+std::vector<std::string> _edgexy_staggered_auxnames ;
+
+std::vector<std::string> _edgexz_staggered_varnames ; 
+std::vector<std::string> _edgexz_staggered_auxnames ;
+
+std::vector<std::string> _edgeyz_staggered_varnames ; 
+std::vector<std::string> _edgeyz_staggered_auxnames ;
 
 std::vector<std::string> _corner_staggered_varnames ; 
 std::vector<std::string> _corner_staggered_auxnames ;
@@ -108,16 +120,20 @@ std::vector<std::string> _corner_staggered_auxnames ;
 /*             Boundary condition arrays            */
 /****************************************************/
 std::vector<bc_t> _var_bc_types ;
-std::vector<bc_t> _aux_bc_types ;
 
-std::vector<bc_t> _face_vars_bc_types ;
-std::vector<bc_t> _face_aux_bc_types ;
+std::vector<bc_t> _facex_vars_bc_types ;
 
-std::vector<bc_t> _edge_vars_bc_types ;
-std::vector<bc_t> _edge_aux_bc_types ;
+std::vector<bc_t> _facey_vars_bc_types ;
+
+std::vector<bc_t> _facez_vars_bc_types ;
+
+std::vector<bc_t> _edgexy_vars_bc_types ;
+
+std::vector<bc_t> _edgexz_vars_bc_types ;
+
+std::vector<bc_t> _edgeyz_vars_bc_types ;
 
 std::vector<bc_t> _corner_vars_bc_types ;
-std::vector<bc_t> _corner_aux_bc_types ;
 /****************************************************/
 /****************************************************/
 
@@ -173,12 +189,12 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(TAU,"tau","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing",true) ;
-    REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(BSX,BSY,BSZ,"B_face", "outgoing"/*FIXME?*/, false/*FIXME?*/);
+    //REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(BSX,BSY,BSZ,"B_face", "outgoing"/*FIXME?*/, true/*FIXME?*/);
     /* GRMHD primitives */
     REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
     REGISTER_AUX_VECTOR(VELX,VELY,VELZ,"vel","none") ; 
     REGISTER_AUX_VECTOR(ZVECX,ZVECY,ZVECZ,"zvec","none") ;
-    REGISTER_AUX_VECTOR(BX,BY,BZ,"Bvec","none") ; 
+    //REGISTER_AUX_VECTOR(BX,BY,BZ,"Bvec","none") ; 
     REGISTER_AUX_SCALAR(YE,"ye","none") ; 
     REGISTER_AUX_SCALAR(TEMP,"temperature", "none") ;
     REGISTER_AUX_SCALAR(ENTROPY,"entropy","none") ; 
@@ -240,10 +256,28 @@ void register_variables() {
     GRACE_VERBOSE(ss.str()) ; 
 }
 namespace detail {
+
+static bc_t get_bc_type(std::string const& bc_string)
+{
+    if ( bc_string == "outgoing" ) {
+        return bc_t::BC_OUTFLOW ;
+    } else if ( bc_string == "lagrange_extrap") {
+        return bc_t::BC_LAGRANGE_EXTRAP ; 
+    } else if ( bc_string == "none" ) {
+        return bc_t::BC_NONE ; 
+    } else{
+        ERROR("Invalid bc_type string " << bc_string) ; 
+    }
+}
+
+static var_staggering_t get_staggering(std::array<bool,3> s) {
+    return static_cast<var_staggering_t>(static_cast<uint8_t>(s[0]) + (static_cast<uint8_t>(s[1])<<1) + (static_cast<uint8_t>(s[2])<<2)) ; 
+}
+
 static int register_scalar( std::string const& name
                           , bool is_evolved 
                           , bool need_fluxes
-                          , std::string const & bc_type )
+                          , bc_t const & bc_type )
 {
     using namespace detail ; 
     if( need_fluxes ) {
@@ -269,7 +303,6 @@ static int register_scalar( std::string const& name
     } else {
         num_auxiliary ++ ; 
         _auxnames.push_back(name) ; 
-        _aux_bc_types.push_back(bc_type) ;
     }
 
     return  is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
@@ -278,61 +311,108 @@ static int register_scalar( std::string const& name
 static int register_staggered_variable( std::string const& name
                                       , bool is_evolved 
                                       , bool need_fluxes
-                                      , std::string const & bc_type 
+                                      , bc_t const & bc_type 
                                       , grace::var_staggering_t const& staggering 
                                       , bool is_vector 
                                       , bool is_tensor
                                       , int num_comp )
 {
-    using namespace detail ; 
+    using namespace detail ;
+    if( need_fluxes ) {
+        if( first_flux == -1 ){
+            ASSERT(num_vars == 0,
+                   "The first registered evolved variable"
+                   " must be a flux variable." ) ; 
+            first_flux = num_vars ;
+        } else {
+            ASSERT( last_flux == num_vars - 1,
+                    "Flux variables need to be a contiguous"
+                    " block at the start of the evolved array" ) ; 
+        } 
+        last_flux = num_vars ; 
+        num_fluxes ++ ; 
+    }
     num_vars++;
-
-    if( staggering == var_staggering_t::FACE ) {
-        ASSERT(is_vector, "Face staggered variables must be vectors.") ; 
-        if( is_evolved ) {
-            if( num_comp == 0) {
-                num_face_staggered_vars ++ ; 
-            }
-            _face_staggered_varnames.push_back(name) ; 
-            _face_vars_bc_types.push_back(bc_type) ;
+    if( staggering == var_staggering_t::STAG_FACEX ) {
+        ASSERT(is_vector, "Face staggered variables must be vectors.") ;
+        ASSERT(num_comp == 0, "Staggering and vector indices don't match") ; 
+        if ( is_evolved ) {
+            num_face_staggered_vars ++ ; 
+            _facex_staggered_varnames.push_back(name) ; 
+            _facex_vars_bc_types.push_back(bc_type)  ;
             return num_face_staggered_vars - 1 ; 
         } else {
-            if( num_comp == 0) {
-                num_face_staggered_aux ++ ; 
-            }
-            _face_staggered_auxnames.push_back(name) ; 
-            _face_aux_bc_types.push_back(bc_type) ; 
-            return (num_face_staggered_aux ) - 1 ; 
+            num_face_staggered_aux ++ ;
+            _facex_staggered_auxnames.push_back(name) ; 
+            return num_face_staggered_aux - 1 ;
         }
-    } else if (staggering == var_staggering_t::EDGE) {
-        ASSERT(is_vector, "Edge staggered variables must be vectors.") ; 
+        
+    } else if (staggering == var_staggering_t::STAG_FACEY) {
+        ASSERT(is_vector, "Face staggered variables must be vectors.") ;
+        ASSERT(num_comp == 1, "Staggering and vector indices don't match") ;
+        if ( is_evolved ) {
+            _facey_staggered_varnames.push_back(name) ; 
+            _facey_vars_bc_types.push_back(bc_type)  ;
+            return num_face_staggered_vars - 1 ; 
+        } else {
+            _facey_staggered_auxnames.push_back(name) ; 
+            return num_face_staggered_aux - 1 ;
+        }
+    } else if  (staggering == var_staggering_t::STAG_FACEZ) {
+        ASSERT(is_vector, "Face staggered variables must be vectors.") ;
+        ASSERT(num_comp == 2, "Staggering and vector indices don't match") ;
+        if ( is_evolved ) {
+            _facez_staggered_varnames.push_back(name) ; 
+            _facez_vars_bc_types.push_back(bc_type)  ;
+            return num_face_staggered_vars - 1 ; 
+        } else {
+            _facez_staggered_auxnames.push_back(name) ; 
+            return num_face_staggered_aux - 1 ;
+        }
+    } else if (staggering == var_staggering_t::STAG_EDGEYZ) {
+        ASSERT(is_vector, "Edge staggered variables must be vectors.") ;
+        ASSERT(num_comp == 0, "Staggering and vector indices don't match") ; 
         if( is_evolved ) {
-            if( num_comp == 0) {
-                num_edge_staggered_vars ++ ; 
-            }
-            _edge_staggered_varnames.push_back(name) ; 
-            _edge_vars_bc_types.push_back(bc_type) ; 
+            num_edge_staggered_vars ++ ; 
+            _edgeyz_staggered_varnames.push_back(name) ; 
+            _edgeyz_vars_bc_types.push_back(bc_type) ; 
             return (num_edge_staggered_vars) - 1 ; 
         } else {
-            if( num_comp == 0) {
-                num_edge_staggered_aux ++ ; 
-            }
-            _edge_staggered_auxnames.push_back(name) ; 
-            _edge_aux_bc_types.push_back(bc_type) ; 
+            num_edge_staggered_aux ++ ; 
+            _edgeyz_staggered_auxnames.push_back(name) ; 
             return (num_edge_staggered_aux) - 1 ; 
         }
-    } else if (staggering == var_staggering_t::CORNER) {
+    } else if (staggering == var_staggering_t::STAG_EDGEXZ) {
+        ASSERT(is_vector, "Edge staggered variables must be vectors.") ;
+        ASSERT(num_comp == 1, "Staggering and vector indices don't match") ; 
+        if( is_evolved ) {
+            _edgexz_staggered_varnames.push_back(name) ; 
+            _edgexz_vars_bc_types.push_back(bc_type) ; 
+            return (num_edge_staggered_vars) - 1 ; 
+        } else {
+            _edgexz_staggered_auxnames.push_back(name) ; 
+            return (num_edge_staggered_aux) - 1 ; 
+        }
+    } else if (staggering == var_staggering_t::STAG_EDGEXY) {
+        ASSERT(is_vector, "Edge staggered variables must be vectors.") ;
+        ASSERT(num_comp == 2, "Staggering and vector indices don't match") ; 
+        if( is_evolved ) {
+            _edgexy_staggered_varnames.push_back(name) ; 
+            _edgexy_vars_bc_types.push_back(bc_type) ; 
+            return (num_edge_staggered_vars) - 1 ; 
+        } else {
+            _edgexy_staggered_auxnames.push_back(name) ; 
+            return (num_edge_staggered_aux) - 1 ; 
+        }
+    } else {
         if( is_evolved ) {
             _corner_staggered_varnames.push_back(name) ; 
             _corner_vars_bc_types.push_back(bc_type) ; 
             return (++num_corner_staggered_vars) - 1 ; 
         } else {
             _corner_staggered_auxnames.push_back(name) ; 
-            _corner_aux_bc_types.push_back(bc_type) ; 
             return (++num_corner_staggered_aux) - 1 ; 
         }
-    } else {
-        ERROR("Something wrong!") ; 
     }
 }
 
@@ -340,7 +420,7 @@ static int register_vector( std::string const& name
                           , bool is_evolved 
                           , bool need_fluxes
                           , int num_comp
-                          , std::string const & bc_type )
+                          , bc_t const & bc_type )
 {
     using namespace detail ; 
 
@@ -367,11 +447,10 @@ static int register_vector( std::string const& name
         }
         last_evolved = num_vars; 
         num_evolved ++ ; 
-        _var_bc_types.push_back(get_bc_type(bc_type)) ; 
+        _var_bc_types.push_back(bc_type) ; 
     } else {
         _auxnames.push_back(name) ; 
         num_auxiliary ++ ; 
-        _aux_bc_types.push_back(get_bc_type(bc_type)) ;
     }
 
     return  is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
@@ -381,7 +460,7 @@ static int register_tensor( std::string const& name
                           , bool is_evolved 
                           , bool need_fluxes
                           , int num_comp
-                          , std::string const & bc_type )
+                          , bc_t const & bc_type )
 {
     using namespace detail ; 
 
@@ -409,11 +488,10 @@ static int register_tensor( std::string const& name
         }
         last_evolved = num_vars; 
         num_evolved ++ ; 
-        _var_bc_types.push_back(get_bc_type(bc_type)) ; 
+        _var_bc_types.push_back(bc_type) ; 
     } else {
         _auxnames.push_back(name) ; 
         num_auxiliary ++ ; 
-        _aux_bc_types.push_back(get_bc_type(bc_type)) ;
     }
 
     return  is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
@@ -450,6 +528,8 @@ static int register_variable(     std::string const& name
     int var_staggering = 0 ; 
     for( auto const & s: staggering ) var_staggering += static_cast<int>(s) ; 
 
+    auto bc = get_bc_type(bc_type) ; 
+
     variable_properties_t<GRACE_NSPACEDIM> props ;
     props.staggering = get_staggering(staggering) ; 
     props.is_evolved = is_evolved ; 
@@ -457,20 +537,20 @@ static int register_variable(     std::string const& name
     props.is_tensor  = is_tensor  ; 
     props.name       = (is_tensor || is_vector) ?  vec_name : name  ;
     props.comp_num   = (is_tensor || is_vector) ?  comp_num : -1    ;
-    props.bc_type    = get_bc_type(bc_type); 
+    props.bc_type    = bc; 
 
     num_vector_vars += static_cast<int>(is_vector) ; 
     num_tensor_vars += static_cast<int>(is_tensor) ;
     size_t varidx ; 
     if( ( var_staggering != 0 ) ) {
-        varidx = register_staggered_variable(name,is_evolved,need_fluxes,bc_type,var_staggering, is_vector, is_tensor, comp_num) ; 
+        varidx = register_staggered_variable(name,is_evolved,need_fluxes,bc,get_staggering(staggering), is_vector, is_tensor, comp_num) ; 
     } else {
         if ( is_vector ) {
-            varidx = register_vector(name,is_evolved,need_fluxes,comp_num,bc_type) ; 
+            varidx = register_vector(name,is_evolved,need_fluxes,comp_num,bc) ; 
         } else if ( is_tensor ) {
-            varidx = register_tensor(name,is_evolved,need_fluxes,comp_num,bc_type) ; 
+            varidx = register_tensor(name,is_evolved,need_fluxes,comp_num,bc) ; 
         } else {
-            varidx = register_scalar(name,is_evolved,need_fluxes,bc_type) ; 
+            varidx = register_scalar(name,is_evolved,need_fluxes,bc) ; 
         }   
     }
     props.index = varidx ;

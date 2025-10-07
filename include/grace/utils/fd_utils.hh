@@ -521,7 +521,7 @@ struct fd_der_bnd_check_recursive<1,der_order, idir> {
 template< size_t der_order
         , size_t ... dirs >
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-fd_der( grace::var_array_t<GRACE_NSPACEDIM> const u 
+fd_der( grace::var_array_t const u 
       , int const ivar 
       , VEC( int const i, int const j, int const k)
       , int const q ) 
@@ -550,7 +550,7 @@ fd_der( grace::var_array_t<GRACE_NSPACEDIM> const u
 template< size_t der_order
         , size_t ... dirs >
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-fd_second_der( grace::var_array_t<GRACE_NSPACEDIM> const u 
+fd_second_der( grace::var_array_t const u 
       , int const ivar 
       , VEC( int const i, int const j, int const k)
       , int const q ) 
@@ -581,7 +581,7 @@ fd_second_der( grace::var_array_t<GRACE_NSPACEDIM> const u
 template< size_t der_order
         , size_t ... dirs >
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-fd_der_bnd_check( grace::var_array_t<GRACE_NSPACEDIM> const u 
+fd_der_bnd_check( grace::var_array_t const u 
                 , int const ivar 
                 , VEC( int const i, int const j, int const k)
                 , int const q 
@@ -611,7 +611,7 @@ fd_der_bnd_check( grace::var_array_t<GRACE_NSPACEDIM> const u
  template< size_t der_order
  , size_t idir >
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-fd_der_upwind( grace::var_array_t<GRACE_NSPACEDIM> const u 
+fd_der_upwind( grace::var_array_t const u 
 , int const ivar 
 , VEC( int const i, int const j, int const k)
 , int const q 

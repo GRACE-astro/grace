@@ -143,7 +143,7 @@ TEST_CASE("Apply BC", "[boundaries]")
     auto h_idx = Kokkos::create_mirror_view(idx) ; 
     Kokkos::deep_copy(h_idx,idx)  ; 
     Kokkos::deep_copy(h_state, state) ; 
-    grace::var_array_t<GRACE_NSPACEDIM> dxdens(
+    grace::var_array_t dxdens(
         "Density derivatives", VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz), GRACE_NSPACEDIM, nq  
     ) ; 
     auto h_dxdens = Kokkos::create_mirror_view(dxdens) ; 
