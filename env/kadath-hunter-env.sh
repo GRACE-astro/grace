@@ -3,7 +3,7 @@
 export HOME_KADATH=~/codes/fuka
 export KAD_CC=hipcc
 export KAD_CXX=hipcc
-export KAD_NUMC=20
+export KAD_NUMC=
 
 export CC=hipcc
 export CXX=hipcc
