@@ -47,11 +47,9 @@ enum GRMHD_PRIMS_LOC_INDICES {
     TEMPL,
     EPSL,
     ENTL,
-    #ifdef GRACE_DO_MHD
     BXL,
     BYL,
     BZL,
-    #endif 
     NUM_PRIMS_LOC
 } ; 
 /**
@@ -66,6 +64,9 @@ enum GRMHD_CONS_LOC_INDICES {
     TAUL,
     YESL,
     ENTSL,
+    BSXL,
+    BSYL,
+    BSZL,
     NUM_CONS_LOC
 } ; 
 namespace grace {

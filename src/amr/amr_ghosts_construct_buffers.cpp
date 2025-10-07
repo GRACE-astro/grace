@@ -238,6 +238,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
     auto ngz = amr::get_n_ghosts() ; 
     // get n vars 
     std::size_t nvars = variables::get_n_evolved() ; 
+    std::size_t nvars_f = variables::get_n_evolved() ; 
     /****************************************************/
     pack_kernels.resize(nproc) ; unpack_kernels.resize(nproc) ; 
     pack_finer_kernels.resize(nproc) ; 
@@ -520,20 +521,44 @@ void amr_ghosts_impl_t::build_remote_buffers(
         ngz * ngz * ngz * nvars
     } ; 
 
+    std::array<size_t,6> const elem_sizes_f {
+        (nx+1) * (nx+1) * ngz * nvars_f,
+        (nx+1) * ngz * ngz * nvars_f,
+        ngz * ngz * ngz * nvars_f,
+        (nx/2+1) * (nx/2+1) * ngz * nvars_f ,
+        (nx/2+1) * ngz * ngz * nvars_f ,
+        ngz * ngz * ngz * nvars_f
+    } ; 
+
     // compute message sizes 
     send_rank_sizes = svec_t(nproc,0); 
     recv_rank_sizes = svec_t(nproc,0);
+
+    send_rank_sizes_f = svec_t(nproc,0); 
+    recv_rank_sizes_f = svec_t(nproc,0);
     
     arr_svec_t send_sizes, recv_sizes ; 
     init_arr(send_sizes);
     init_arr(recv_sizes) ; 
+    arr_svec_t send_sizes_f, recv_sizes_f ; 
+    init_arr(send_sizes_f);
+    init_arr(recv_sizes_f) ;
     std::set<size_t> active_send, active_recv ; ; 
     for( int r=0; r<nproc; ++r) {
         for( int ik=0; ik<6; ++ik) {
+            // cell center 
             send_sizes[ik][r] = elem_sizes[ik] * rank_send_counts[ik][r] ; 
             send_rank_sizes[r] += send_sizes[ik][r] ; 
+            // face stag 
+            send_sizes_f[ik][r] = elem_sizes_f[ik] * rank_send_counts[ik][r] ; 
+            send_rank_sizes_f[r] += send_sizes_f[ik][r] ; 
+            // cell center 
             recv_sizes[ik][r] = elem_sizes[ik] * rank_recv_counts[ik][r] ; 
             recv_rank_sizes[r] += recv_sizes[ik][r] ;
+            // face stag 
+            recv_sizes_f[ik][r] = elem_sizes_f[ik] * rank_recv_counts[ik][r] ; 
+            recv_rank_sizes_f[r] += recv_sizes_f[ik][r]  ;
+            // just need to count once 
             if ( send_sizes[ik][r] > 0 ) {
             active_send.insert(r) ; 
             }
@@ -547,14 +572,22 @@ void amr_ghosts_impl_t::build_remote_buffers(
     arr_svec_t send_offsets, recv_offsets;
     init_arr(send_offsets);
     init_arr(recv_offsets) ;
+    arr_svec_t send_offsets_f, recv_offsets_f;
+    init_arr(send_offsets_f);
+    init_arr(recv_offsets_f) ;
 
     for (int r = 0; r < nproc; ++r) {
         size_t cur_send = 0, cur_recv = 0;
+        size_t curs_send_f = 0, cur_recv_f = 0 ; 
         for (int ik = 0; ik < 6; ++ik) {
             send_offsets[ik][r] = cur_send;
             recv_offsets[ik][r] = cur_recv;
+            send_offsets_f[ik][r] = cur_send_f;
+            recv_offsets_f[ik][r] = cur_recv_f;
             cur_send += send_sizes[ik][r];
             cur_recv += recv_sizes[ik][r];
+            cur_send_f += send_sizes_f[ik][r] ; 
+            cur_recv_f += recv_sizes_f[ik][r] ; 
         }
     }
     ASSERT(send_rank_sizes.size() == nproc, "Mismatched size." ) ;
@@ -581,6 +614,13 @@ void amr_ghosts_impl_t::build_remote_buffers(
     std::exclusive_scan( recv_rank_sizes.begin(), recv_rank_sizes.end()
                        , recv_rank_offsets.begin(), 0) ;
 
+    send_rank_offsets_f.resize(nproc) ; 
+    std::exclusive_scan( send_rank_sizes_f.begin(), send_rank_sizes_f.end()
+                       , send_rank_offsets_f.begin(), 0) ; 
+    recv_rank_offsets_f.resize(nproc) ; 
+    std::exclusive_scan( recv_rank_sizes_f.begin(), recv_rank_sizes_f.end()
+                       , recv_rank_offsets_f.begin(), 0) ;
+
     // reduce for total sizes
     size_t total_send_size = std::reduce(
         send_rank_sizes.begin(), send_rank_sizes.end()
@@ -589,24 +629,69 @@ void amr_ghosts_impl_t::build_remote_buffers(
         recv_rank_sizes.begin(), recv_rank_sizes.end()
     ); 
 
+    size_t total_send_size_f = std::reduce(
+        send_rank_sizes_f.begin(), send_rank_sizes_f.end()
+    ); 
+    size_t total_recv_size_f = std::reduce(
+        recv_rank_sizes_f.begin(), recv_rank_sizes_f.end()
+    ); 
+
     // allocate buffers
     _send_buffer.set_offsets(
         send_rank_offsets, send_offsets
     ) ; 
-    _send_buffer.set_strides(nx,ny,nz,nvars,ngz);
+    _send_buffer.set_strides(nx,nvars,ngz,nx/2);
     _send_buffer.realloc(total_send_size) ; 
 
     _recv_buffer.set_offsets(
         recv_rank_offsets, recv_offsets
     ) ; 
-    _recv_buffer.set_strides(nx,ny,nz,nvars,ngz);
+    _recv_buffer.set_strides(nx,nvars,ngz,nx/2);
     _recv_buffer.realloc(total_recv_size) ;
+    // face staggered -- x 
+    _send_buffer_fx.set_offsets(
+        send_rank_offsets_f, send_offsets_f
+    ) ; 
+    _send_buffer_fx.set_strides(nx+1,nvars,ngz,nx/2+1);
+    _send_buffer_fx.realloc(total_send_size_f) ; 
+
+    _recv_buffer_fx.set_offsets(
+        recv_rank_offsets_f, recv_offsets_f
+    ) ; 
+    _recv_buffer_fx.set_strides(nx+1,nvars,ngz,nx/2+1);
+    _recv_buffer_fx.realloc(total_recv_size_f) ;
+
+    // face staggered -- y 
+    _send_buffer_fy.set_offsets(
+        send_rank_offsets_f, send_offsets_f
+    ) ; 
+    _send_buffer_fy.set_strides(nx+1,nvars,ngz,nx/2+1);
+    _send_buffer_fy.realloc(total_send_size_f) ; 
+
+    _recv_buffer_fy.set_offsets(
+        recv_rank_offsets_f, recv_offsets_f
+    ) ; 
+    _recv_buffer_fy.set_strides(nx+1,nvars,ngz,nx/2+1);
+    _recv_buffer_fy.realloc(total_recv_size_f) ;
+
+    // face staggered -- z
+    _send_buffer_fz.set_offsets(
+        send_rank_offsets_f, send_offsets_f
+    ) ; 
+    _send_buffer_fz.set_strides(nx+1,nvars,ngz,nx/2+1);
+    _send_buffer_fz.realloc(total_send_size_f) ; 
+
+    _recv_buffer_fz.set_offsets(
+        recv_rank_offsets_f, recv_offsets_f
+    ) ; 
+    _recv_buffer_fz.set_strides(nx+1,nvars,ngz,nx/2+1);
+    _recv_buffer_fz.realloc(total_recv_size_f) ;
 
     GRACE_INFO("Setup of remote buffers complete, total send/recv size [MB] {}/{}, avg message size per rank [MB] {}/{}",
-           sizeof(double)*total_send_size/1e06,
-           sizeof(double)*total_recv_size/1e06,
-           sizeof(double)*total_send_size/1e06/active_send.size(),
-           sizeof(double)*total_recv_size/1e06/active_recv.size() );
+           sizeof(double)*(total_send_size+total_send_size_f)/1e06,
+           sizeof(double)*(total_recv_size+total_recv_size_f)/1e06,
+           sizeof(double)*(total_send_size+total_send_size_f)/1e06/active_send.size(),
+           sizeof(double)*(total_recv_size+total_recv_size_f)/1e06/active_recv.size() );
 }
 
 } /* namespace grace */

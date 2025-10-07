@@ -235,13 +235,18 @@ struct grmhd_equations_system_t
         }
 
         /* Compute common factors for T^{\mu\nu}                                                          */
-        double const b2{0.} ; // No B field yet
+        double const b2{0.} ;
+        std::array<double,4> smallb{0,0,0,0} ;
+        // get comoving b-field 
+        compute_smallb(
+            smallb, b2, u0 * metric.alp(), prims, metric 
+        ) ; 
+
         double const rho0_h_plus_b2 = 
             prims[RHOL] * ( 1 + prims[EPSL] ) + prims[PRESSL] + b2 ; 
         double const P_plus_half_b2 = 
             prims[PRESSL] + 0.5 * b2 ; 
-        /* Compute comoving magnetic field (0 for now)                                                     */
-        std::array<double,4> smallb{0,0,0,0} ; 
+        
 
         int icomp{0} ; 
         for( int mu=0; mu<4; ++mu) {
@@ -393,9 +398,17 @@ struct grmhd_equations_system_t
         cons[TAUL]  = vars(TAU_)         ;
         cons[YESL]  = vars(YESTAR_)      ; 
         cons[ENTSL] = vars(ENTROPYSTAR_) ; 
+        cons[BSXL]  = vars(BSX_) ; 
+        cons[BSYL]  = vars(BSY_) ; 
+        cons[BSZL]  = vars(BSZ_) ; 
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
         grmhd_prims_array_t prims ;
+        // fill cell-centered B-field 
+        prims[BXL] = 0.5*(this->_state(VEC(i,j,k),BSX_,q) + this->_state(VEC(i+1,j,k),BSX_,q));
+        prims[BYL] = 0.5*(this->_state(VEC(i,j,k),BSY_,q) + this->_state(VEC(i,j+1,k),BSY_,q));
+        prims[BZL] = 0.5*(this->_state(VEC(i,j,k),BSZ_,q) + this->_state(VEC(i,j,k+1),BSZ_,q));
+
         conservs_to_prims<eos_t>( cons, prims, metric
                                 , this->_eos, this->_lapse_excision ) ;
         /* Write new prims */
@@ -408,6 +421,9 @@ struct grmhd_equations_system_t
         aux(TEMP_) = prims[TEMPL]   ; 
         aux(ENTROPY_) = prims[ENTL]  ; 
         aux(YE_)   = prims[YEL]     ;
+        aux(BX_) = prims[BXL] ; 
+        aux(BY_) = prims[BYL] ; 
+        aux(BZ_) = prims[BZL] ; 
         /* Compute ZVEC */
         double const one_over_alp = 1./metric.alp(); 
         std::array<double,3> const vN {
@@ -553,8 +569,8 @@ struct grmhd_equations_system_t
             , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
             , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
         ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            + 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
+            , 0.5*(metric_l.beta(1) + metric_r.beta(1))
+            , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
         ,   0.5 * (metric_l.alp() + metric_r.alp())
         } ; 
         
@@ -580,6 +596,9 @@ struct grmhd_equations_system_t
                 , YE_
                 , TEMP_
                 , ENTROPY_
+                , BX_
+                , BY_
+                , BZ_
             } ; 
         /* Local indices in prims array (note z^k -> v^k) */
         std::array<int, GRMHD_NUM_RECON_VARS>
@@ -591,6 +610,9 @@ struct grmhd_equations_system_t
                 , YEL
                 , TEMPL
                 , ENTL
+                , BXL 
+                , BYL 
+                , BZL 
             } ;
         /* Reconstruction                                  */
         grmhd_prims_array_t primL, primR ; 
@@ -829,8 +851,8 @@ struct grmhd_equations_system_t
             , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
             , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
         ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            + 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
+            , 0.5*(metric_l.beta(1) + metric_r.beta(1))
+            , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
         ,   0.5 * (metric_l.alp() + metric_r.alp())
         } ; 
         
@@ -851,6 +873,9 @@ struct grmhd_equations_system_t
                 , YE_
                 , TEMP_
                 , ENTROPY_
+                , BX_ 
+                , BY_
+                , BZ_
             } ; 
         /* Local indices in prims array (note z^k -> v^k) */
         std::array<int, GRMHD_NUM_RECON_VARS>
@@ -862,6 +887,9 @@ struct grmhd_equations_system_t
                 , YEL
                 , TEMPL
                 , ENTL
+                , BXL 
+                , BYL 
+                , BZL
             } ;
         /* Reconstruction                                  */
         grmhd_prims_array_t primL, primR ; 
@@ -947,6 +975,12 @@ struct grmhd_equations_system_t
                                                + (1. - theta) * f_LLF[STYL] ; 
         fluxes(VEC(i,j,k),SZ_,idir,q)          = theta * f_HLL[STZL]    
                                                + (1. - theta) * f_LLF[STZL] ; 
+        fluxes(VEC(i,j,k),BSX_,idir,q)          = theta * f_HLL[BSXL]    
+                                               + (1. - theta) * f_LLF[BSXL] ; 
+        fluxes(VEC(i,j,k),BSY_,idir,q)          = theta * f_HLL[BSYL]    
+                                               + (1. - theta) * f_LLF[BSYL] ; 
+        fluxes(VEC(i,j,k),BSZ_,idir,q)          = theta * f_HLL[BSZL]    
+                                               + (1. - theta) * f_LLF[BSZL] ; 
         /***********************************************************************/
         #else 
         /***********************************************************************/
@@ -956,7 +990,10 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),TAU_,idir,q)         = f_HLL[TAUL] ; 
         fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[STXL] ; 
         fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL] ; 
-        fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ; 
+        fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ;
+        fluxes(VEC(i,j,k),BSX_,idir,q)          = f_HLL[BSXL] ; 
+        fluxes(VEC(i,j,k),BSY_,idir,q)          = f_HLL[BSYL] ; 
+        fluxes(VEC(i,j,k),BSZ_,idir,q)          = f_HLL[BSZL] ; 
         /***********************************************************************/
         #endif 
     }
@@ -1015,8 +1052,8 @@ struct grmhd_equations_system_t
         /* Compute small b */
         std::array<double,4> smallbL{0,0,0,0}, smallbR{0,0,0,0} ; 
         double b2l{0.}, b2r{0.}; 
-        //compute_smallb(smallbL, b2l, primL, metric_face) ; 
-        //compute_smallb(smallbR, b2r, primR, metric_face) ; 
+        compute_smallb(smallbL, b2l, wl, primL, metric_face) ; 
+        compute_smallb(smallbR, b2r, wr, primR, metric_face) ; 
 
         /* Compute Alfvén speeds */
         double v02r,v02l, h_r,h_l;
@@ -1225,6 +1262,44 @@ struct grmhd_equations_system_t
         f[STZL] = solver(fl,fr,s_z_l,s_z_r,cmin,cmax) ; 
         /***********************************************************************/
         /***********************************************************************/
+        /* Get B^x flux                                                        */
+        /***********************************************************************/
+        /***********************************************************************/
+        /* F^d_{B^x} = v^d B^x - v^x B^d                                       */  
+        /***********************************************************************/
+        fl = primL[VXL+idir] * primL[BXL] 
+           - primL[VXL] * primL[BXL+idir]  ; 
+        fr = primR[VXL+idir] * primR[BXL] 
+           - primR[VXL] * primR[BXL+idir] ; 
+        /***********************************************************************/
+        f[BSXL] = solver(fl,fr,primL[BXL],primR[BXL],cmin,cmax) ; /* fixme p2c */
+        /***********************************************************************/
+        /***********************************************************************/
+        /* Get B^y flux                                                        */
+        /***********************************************************************/
+        /***********************************************************************/
+        /* F^d_{B^y} = v^d B^y - v^y B^d                                       */  
+        /***********************************************************************/
+        fl = primL[VXL+idir] * primL[BYL] 
+           - primL[VYL] * primL[BXL+idir]  ; 
+        fr = primR[VXL+idir] * primR[BYL] 
+           - primR[VYL] * primR[BXL+idir] ; 
+        /***********************************************************************/
+        f[BSYL] = solver(fl,fr,primL[BYL],primR[BYL],cmin,cmax) ; /* fixme p2c */
+        /***********************************************************************/
+        /***********************************************************************/
+        /* Get B^z flux                                                        */
+        /***********************************************************************/
+        /***********************************************************************/
+        /* F^d_{B^z} = v^d B^z - v^z B^d                                       */  
+        /***********************************************************************/
+        fl = primL[VXL+idir] * primL[BZL] 
+           - primL[VZL] * primL[BXL+idir]  ; 
+        fr = primR[VXL+idir] * primR[BZL] 
+           - primR[VZL] * primR[BXL+idir] ; 
+        /***********************************************************************/
+        f[BSZL] = solver(fl,fr,primL[BZL],primR[BZL],cmin,cmax) ; /* fixme p2c */
+        /***********************************************************************/
     };
     /***********************************************************************/
     /**
@@ -1242,8 +1317,30 @@ struct grmhd_equations_system_t
                , grmhd_prims_array_t const& prims ) const
     {
         h = 1. + prims[EPSL] + prims[PRESSL] / prims[RHOL] ; 
-        double const v_A_sq = 0.; // b2 / ( b2 + prims[RHOL]*h) ; 
+        double const v_A_sq =  b2 / ( b2 + prims[RHOL]*h) ; 
         v02 = v_A_sq + cs2 * ( 1. - v_A_sq ) ; 
+    }
+    void compute_smallb(  std::array<double,4>& smallb, double& b2, double const& W
+                        , grmhd_prims_array_t& prims, metric_array_t const& metric ) const
+    {
+        // simple minded, can be optimized later
+        double const u0 = W / metric.alp() ; 
+        std::array<double,3> const vi = { 
+            prims[VXL] / metric.alp() + metric.beta(0),
+            prims[VYL] / metric.alp() + metric.beta(1),
+            prims[VZL] / metric.alp() + metric.beta(2),
+        } ; 
+        std::array<double,3> const ui = { 
+            prims[VXL] * u0,
+            prims[VYL] * u0,
+            prims[VZL] * u0,
+        } ;  
+        smallb[0] = metric.contract_vec_vec(vi,{prims[BXL],prims[BYL],prims[BZL]}) / u0 ; 
+        for( int i=0; i<3; ++i) {
+            smallb[i+1] = (prims[BXL+i] + metric.alp() * smallb[0] * ui[i])/W ; 
+        }
+        b2 = ( metric.square_vec({prims[BXL],prims[BYL],prims[BZL]}) + metric.alp()*metric.alp() * smallb[0] * smallb[0] ) / W / W ; 
+        return ;
     }
     /***********************************************************************/
     /**

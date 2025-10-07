@@ -47,12 +47,14 @@ struct ghost_array_t
         :  _data(name,0), _size(0)
     {}
 
-    void set_strides(size_t const& nx, size_t const& ny, size_t const& nz, 
-                     size_t const& nv, size_t const& ngz)
+    void set_strides(size_t const& n, size_t const& nv, size_t const& ngz, size_t n2 )
     {
-        fstrides = std::array<size_t,4> {ngz,ngz*nx,ngz*nx*nx,ngz*nx*nx*nv};
-        estrides = std::array<size_t,4> {ngz,ngz*ngz,ngz*ngz*nx,ngz*ngz*nx*nv};
+        fstrides = std::array<size_t,4> {ngz,ngz*n,ngz*n*n,ngz*n*n*nv};
+        estrides = std::array<size_t,4> {ngz,ngz*ngz,ngz*ngz*n,ngz*ngz*n*nv};
         cstrides = std::array<size_t,4> {ngz,ngz*ngz,ngz*ngz*ngz,ngz*ngz*ngz*nv};
+        // cbufs 
+        cfstrides = std::array<size_t,4> {ngz,ngz*n2,ngz*n2*n2,ngz*n2*n2*nv};
+        cestrides = std::array<size_t,4> {ngz,ngz*ngz,ngz*ngz*n2,ngz*ngz*n2*nv};
     }
 
     void set_offsets(
@@ -101,10 +103,10 @@ struct ghost_array_t
         auto offset = rank_offsets(rank) ; 
         if constexpr ( elem_kind == element_kind_t::FACE ) {
             offset += cbuf_face_offsets(rank) ; 
-            return get(i,j,k,iv,ie,fstrides[0],fstrides[1]/2,fstrides[2]/4,fstrides[3]/4,offset) ; 
+            return get(i,j,k,iv,ie,cfstrides[0],cfstrides[1],cfstrides[2],cfstrides[3],offset) ; 
         } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
             offset += cbuf_edge_offsets(rank) ; 
-            return get(i,j,k,iv,ie,estrides[0],estrides[1],estrides[2]/2,estrides[3]/2,offset) ;
+            return get(i,j,k,iv,ie,cestrides[0],cestrides[1],cestrides[2],cestrides[3],offset) ;
         } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
             offset += cbuf_corner_offsets(rank) ; 
             return get(i,j,k,iv,ie,cstrides[0],cstrides[1],cstrides[2],cstrides[3],offset) ;
