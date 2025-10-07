@@ -66,8 +66,8 @@ namespace grace {
 task_id_t insert_restriction_tasks(
     std::unordered_set<size_t> const& cbuf_qid,
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
-    grace::var_array_t<GRACE_NSPACEDIM> state, 
-    grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
+    grace::var_array_t state, 
+    grace::var_array_t coarse_buffers,
     device_stream_t& stream, 
     VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv,
     task_id_t& task_counter,
@@ -161,8 +161,8 @@ template< amr::element_kind_t elem_kind >
 void make_gpu_restrict_gz_task(
     std::vector<gpu_task_desc_t> const& bucket,
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
-    grace::var_array_t<GRACE_NSPACEDIM> state, 
-    grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
+    grace::var_array_t state, 
+    grace::var_array_t coarse_buffers,
     device_stream_t& stream, 
     VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv,
     task_id_t& task_counter,
@@ -296,8 +296,8 @@ void make_gpu_restrict_gz_task(
 void insert_ghost_restriction_tasks(
     std::unordered_set<size_t> const& cbuf_qid,
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
-    grace::var_array_t<GRACE_NSPACEDIM> state, 
-    grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers,
+    grace::var_array_t state, 
+    grace::var_array_t coarse_buffers,
     device_stream_t& stream, 
     VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv,
     task_id_t& task_counter,

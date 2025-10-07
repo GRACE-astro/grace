@@ -77,8 +77,8 @@ void compute_auxiliary_quantities() {
 
 template< typename eos_t >
 void compute_auxiliary_quantities(
-      grace::var_array_t<GRACE_NSPACEDIM>& state
-    , grace::var_array_t<GRACE_NSPACEDIM>& aux  ) 
+      grace::var_array_t& state
+    , grace::var_array_t& aux  ) 
 {
     Kokkos::Profiling::pushRegion("Compute auxiliaries") ;
     GRACE_VERBOSE("Computing auxiliary quantities at iteration {}", grace::get_iteration()) ; 
@@ -177,8 +177,8 @@ void compute_auxiliary_quantities(
 #define INSTANTIATE_TEMPLATE(EOS)                                       \
 template                                                                \
 void compute_auxiliary_quantities<EOS>(                                 \
-                           grace::var_array_t<GRACE_NSPACEDIM>&         \
-                         , grace::var_array_t<GRACE_NSPACEDIM>& aux )
+                           grace::var_array_t&         \
+                         , grace::var_array_t& aux )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE

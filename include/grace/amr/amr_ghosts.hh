@@ -63,7 +63,6 @@
 namespace grace {
 
 /**************************************************************************************************/
-enum bc_t: uint8_t {BC_OUTFLOW=0, BC_LAGRANGE_EXTRAP, BC_NONE} ; 
 /**************************************************************************************************/
 enum interface_kind_t : uint8_t { PHYS, INTERNAL }  ;
 /**************************************************************************************************/
@@ -279,12 +278,19 @@ class amr_ghosts_impl_t {
     executor task_queue ; 
 
     std::vector<std::size_t> send_rank_offsets, recv_rank_offsets ; //!< In # of elements
+    std::vector<std::size_t> send_rank_offsets_f, recv_rank_offsets_f ; //!< In # of elements
     std::vector<std::size_t> send_rank_sizes, recv_rank_sizes ; //!< In # of elements
+    std::vector<std::size_t> send_rank_sizes_f, recv_rank_sizes_f ; //!< In # of elements
 
     amr::ghost_array_t _send_buffer, _recv_buffer ;
+    // Can these be joined? 
+    amr::ghost_array_t _send_buffer_fx, _recv_buffer_fx ;
+    amr::ghost_array_t _send_buffer_fy, _recv_buffer_fy ;
+    amr::ghost_array_t _send_buffer_fz, _recv_buffer_fz ;
 
-    grace::var_array_t<GRACE_NSPACEDIM> _coarse_buffers ; 
-    Kokkos::View<bc_t*> var_bc_kind ; //!< Boundary condition per-variable
+    grace::var_array_t _coarse_buffers; 
+    grace::staggered_variable_arrays_t _stag_coarse_buffers ; 
+    Kokkos::View<bc_t*> var_bc_kind, var_bc_kind_f ; //!< Boundary condition per-variable
     //**************************************************************************************************
     //void build_flux_buffers() ; /* TODO ! */
     //**************************************************************************************************
@@ -293,8 +299,12 @@ class amr_ghosts_impl_t {
         task_list.clear()  ; 
         send_rank_offsets.clear() ; 
         recv_rank_offsets.clear() ; 
+        send_rank_offsets_f.clear() ; 
+        recv_rank_offsets_f.clear() ; 
         send_rank_sizes.clear() ;
         recv_rank_sizes.clear() ; 
+        send_rank_sizes_f.clear() ; 
+        recv_rank_sizes_f.clear() ; 
         task_queue.clear() ; 
     }
     //**************************************************************************************************

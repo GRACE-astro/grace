@@ -43,7 +43,7 @@ namespace grace {
 
 template < typename eos_t >
 struct kelvin_helmholtz_id_t {
-    using state_t = grace::var_array_t<GRACE_NSPACEDIM> ; 
+    using state_t = grace::var_array_t ; 
     
     kelvin_helmholtz_id_t(
           eos_t eos 

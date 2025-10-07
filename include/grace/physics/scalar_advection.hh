@@ -45,8 +45,8 @@ namespace grace {
 struct scalar_advection_system_t 
     : public hrsc_evolution_system_t<scalar_advection_system_t>
 {
-    scalar_advection_system_t( grace::var_array_t<GRACE_NSPACEDIM> state_
-                             , grace::var_array_t<GRACE_NSPACEDIM> aux_ 
+    scalar_advection_system_t( grace::var_array_t state_
+                             , grace::var_array_t aux_ 
                              , VEC( double ax_ 
                                   , double ay_ 
                                   , double az_))
@@ -143,7 +143,7 @@ struct scalar_advection_system_t
                          ,      const int j 
                          ,      const int k)
                          , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
-                         , grace::var_array_t<GRACE_NSPACEDIM> const state_new 
+                         , grace::var_array_t const state_new 
                          , double const dt 
                          , double const dtfact ) const 
     { }

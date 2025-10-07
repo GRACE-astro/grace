@@ -129,9 +129,9 @@ void evolve_impl() {
 }
 template< typename eos_t >
 void advance_substep( double const t, double const dt, double const dtfact 
-                    , var_array_t<GRACE_NSPACEDIM>& new_state 
-                    , var_array_t<GRACE_NSPACEDIM>& old_state 
-                    , var_array_t<GRACE_NSPACEDIM>& aux 
+                    , var_array_t& new_state 
+                    , var_array_t& old_state 
+                    , var_array_t& aux 
                     , scalar_array_t<GRACE_NSPACEDIM>& idx
                     , scalar_array_t<GRACE_NSPACEDIM>& dx
                     , cell_vol_array_t<GRACE_NSPACEDIM>& cvol
@@ -212,7 +212,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     auto flux_x_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,0,0),0}
-            , {VEC(nx+1,ny,nz),nq}
+            , {VEC(nx+1,ny+1,nz+1),nq}
         ) ; 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux")
                 , flux_x_policy 
@@ -223,7 +223,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     auto flux_y_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,0,0),0}
-            , {VEC(nx,ny+1,nz),nq}
+            , {VEC(nx+1,ny+1,nz+1),nq}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
                 , flux_y_policy 
@@ -234,7 +234,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     auto flux_z_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,0,0),0}
-            , {VEC(nx,ny,nz+1),nq}
+            , {VEC(nx+1,ny+1,nz+1),nq}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
                 , flux_z_policy 
@@ -291,6 +291,131 @@ void advance_substep( double const t, double const dt, double const dtfact
             ) ; 
         #endif 
     }) ; 
+    auto advance_stag_policy_x = 
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz+1,ny+ngz,nz+ngz),nq}
+        ) ;
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "add_fluxes")
+                , advance_stag_policy_x 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& ivar, int const& q)
+    {
+        // E^y_{i+1/2,j,k+1/2} = 1/4 ( F^x_{i+1/2,j,k} + F^x_{i+1/2,j,k+1} - F^z_{i+1,j,k+1/2} - F^z_{i,j,k+1/2} )
+        auto const Eyp = 0.25 * ( fluxes(VEC(i,j,k), BSZ_, 0, q) + fluxes(VEC(i,j,k+1), BSZ_, 0, q)
+                                - fluxes(VEC(i+1,j,k), BSX_, 2, q) - fluxes(VEC(i,j,k), BSX_, 2, q) ) ;
+        // E^y_{i+1/2,j,k-1/2} = 1/4 ( F^x_{i+1/2,j,k} + F^x_{i+1/2,j,k-1} - F^z_{i+1,j,k-1/2} - F^z_{i,j,k-1/2} )
+        auto const Ey  = 0.25 * ( fluxes(VEC(i,j,k), BSZ_, 0, q) + fluxes(VEC(i,j,k-1), BSZ_, 0, q)
+                                - fluxes(VEC(i+1,j,k-1), BSX_, 2, q) - fluxes(VEC(i,j,k-1), BSX_, 2, q) ) ;
+        // E^z_{i+1/2,j+1/2,k} = 1/4 ( F^y_{i+1,j+1/2,k} + F^y_{i,j+1/2,k} - F^x_{i+1/2,j,k} - F^x{i+1/2,j+1,k} )
+        auto const Ezp = 0.25 * ( fluxes(VEC(i,j,k),BSX_,1,q) + fluxes(VEC(i+1,j,k),BSX_,1,q) 
+                                - fluxes(VEC(i,j,k),BSY_,0,q) - fluxes(VEC(i,j+1,k),BSY_,0,q) ) ;
+        // E^z_{i+1/2,j-1/2,k} = 1/4 ( F^y_{i+1,j-1/2,k} + F^y_{i,j-1/2,k} - F^x_{i+1/2,j,k} - F^x{i+1/2,j-1,k} )
+        auto const Ez =0.25 * ( fluxes(VEC(i,j-1,k),BSX_,1,q) + fluxes(VEC(i+1,j-1,k),BSX_,1,q) 
+                                - fluxes(VEC(i,j,k),BSY_,0,q) - fluxes(VEC(i,j-1,k),BSY_,0,q) ) ;
+
+        new_state(VEC(i,j,k),BSX_,q) += dt * dtfact * (
+            (Eyp-Ey) * idx(1,q)
+          + (Ez-Ezp) * idx(2,q)
+        )  ; /* yuck! */
+    } ) ; 
+
+    auto advance_stag_policy_y = 
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz+1,nz+ngz),nq}
+        ) ;
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "add_fluxes")
+                , advance_stag_policy_y 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& ivar, int const& q)
+    {
+        // Corner E-fields needed for B_y update
+        // E^z_{i+1/2,j+1/2,k}
+        auto const Ezp_y = 0.25 * (
+              fluxes(VEC(i,j  ,k), BSY_, 0, q)    // F_x(i+1/2,j,k)
+            + fluxes(VEC(i,j+1,k), BSY_, 0, q)    // F_x(i+1/2,j+1,k)
+            - fluxes(VEC(i  ,j,k), BSX_, 1, q)    // F_y(i,j+1/2,k)
+            - fluxes(VEC(i+1,j,k), BSX_, 1, q)    // F_y(i+1,j+1/2,k)
+        );
+        // E^z (i-1/2,j+1/2,k)
+        auto const Ez_y  = 0.25 * (
+              fluxes(VEC(i-1,j  ,k), BSY_, 0, q)    // F_x(i-1/2,j,k)
+            + fluxes(VEC(i-1,j+1,k), BSY_, 0, q)    // F_x(i-1/2,j+1,k)
+            - fluxes(VEC(i  ,j,k), BSX_, 1, q)    // F_y(i,j+1/2,k)
+            - fluxes(VEC(i-1,j,k), BSX_, 1, q)    // F_y(i-1,j+1/2,k)
+        );
+
+        // E^x (i,j+1/2,k+1/2)
+        auto const Exp_y = 0.25 * (
+                fluxes(VEC(i,j,k  ), BSZ_, 1, q) // F_y(i,j+1/2,k)
+              + fluxes(VEC(i,j,k+1), BSZ_, 1, q) // F_y(i,j+1/2,k+1)
+              - fluxes(VEC(i,j  ,k), BSY_, 2, q) // F_z(i,j,k+1/2)
+              - fluxes(VEC(i,j+1,k), BSY_, 2, q) // F_z(i,j,k+1/2)
+
+        );
+        // E^x (i,j+1/2,k-1/2)
+        auto const Ex_y = 0.25 * (
+                fluxes(VEC(i,j,k  ), BSZ_, 1, q) // F_y(i,j+1/2,k)
+              + fluxes(VEC(i,j,k-1), BSZ_, 1, q) // F_y(i,j+1/2,k-1)
+              - fluxes(VEC(i,j  ,k-1), BSY_, 2, q) // F_z(i,j,k-1/2)
+              - fluxes(VEC(i,j+1,k-1), BSY_, 2, q) // F_z(i,j,k-1/2)
+        );
+
+        // Update B_y
+        new_state(VEC(i,j,k), BSY_, q) += dt * dtfact * (
+            (Ezp_y - Ez_y) * idx(0,q)  // z derivative
+            + (Ex_y - Exp_y) * idx(2,q)  // x derivative
+        );
+
+    } ) ; 
+
+    auto advance_stag_policy_z = 
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz+1),nq}
+        ) ;
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "add_fluxes")
+                , advance_stag_policy_z 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& ivar, int const& q)
+    {
+        // Corner E-fields needed for B_z update
+        // E^x (i,j+1/2,k+1/2)
+        auto const Exp_z = 0.25 * (
+               fluxes(VEC(i,j,k  ),BSZ_,1)
+             + fluxes(VEC(i,j,k+1),BSZ_,1)
+             - fluxes(VEC(i,j  ,k),BSY_,2)
+             - fluxes(VEC(i,j+1,k),BSY_,2)
+        );
+        // E^x (i,j-1/2,k+1/2)
+        auto const Ex_z = 0.25 * (
+               fluxes(VEC(i,j-1,k  ),BSZ_,1)
+             + fluxes(VEC(i,j-1,k+1),BSZ_,1)
+             - fluxes(VEC(i,j  ,k),BSY_,2)
+             - fluxes(VEC(i,j-1,k),BSY_,2)
+        );
+
+        // E^y at front and back corners in x
+        auto const Eyp_z = 0.25 * (
+               fluxes(VEC(i,j,k),BSX_,2)
+             + fluxes(VEC(i+1,j,k),BSX_,2)
+             - fluxes(VEC(i,j,k),BSZ_,0)
+             - fluxes(VEC(i,j,k+1),BSZ_,0)
+        );
+        // E^y (i-1/2,j,k+1/2)
+        auto const Ey_z = 0.25 * (
+               fluxes(VEC(i,j,k),BSX_,2)
+             + fluxes(VEC(i-1,j,k),BSX_,2)
+             - fluxes(VEC(i-1,j,k),BSZ_,0)
+             - fluxes(VEC(i-1,j,k+1),BSZ_,0)
+        );
+
+        // Update B_z
+        new_state(VEC(I,J,K), BSZ_, q) += dt * dtfact * (
+            (Ey_z - Eyp_z) * idx(1,q)  // y derivative
+            + (Exp_z - Ex_z) * idx(0,q)  // x derivative
+        );
+
+
+    } ) ; 
     #undef GET_X_FLUX
     #undef GET_Y_FLUX
     #undef GET_Z_FLUX
@@ -301,9 +426,9 @@ void advance_substep( double const t, double const dt, double const dtfact
 #define INSTANTIATE_TEMPLATE(EOS)                                     \
 template                                                              \
 void advance_substep<EOS>( double const , double const , double const \
-                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
-                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
-                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
+                         , grace::var_array_t&       \
+                         , grace::var_array_t&       \
+                         , grace::var_array_t&       \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \

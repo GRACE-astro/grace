@@ -35,7 +35,7 @@ namespace grace {
 
 template< size_t der_order >
 bssn_state_t GRACE_HOST_DEVICE 
-compute_bssn_rhs( grace::var_array_t<GRACE_NSPACEDIM> const state
+compute_bssn_rhs( grace::var_array_t const state
                 , std::array<std::array<double,4>,4> const& Tmunu
                 , std::array<double,GRACE_NSPACEDIM> const& idx)
 {

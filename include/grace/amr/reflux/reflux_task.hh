@@ -68,8 +68,8 @@ namespace grace {
 inline gpu_task_t make_gpu_sum_flux_faces_task(
       std::vector<gpu_task_desc_t> const& bucket,
       std::vector<quad_neighbors_descriptor_t>& ghost_array,
-      grace::var_array_t<GRACE_NSPACEDIM> data_fine,   // fine face flux registers (3D view)
-      grace::var_array_t<GRACE_NSPACEDIM> data_coarse, // coarse face flux registers (3D view)
+      grace::var_array_t data_fine,   // fine face flux registers (3D view)
+      grace::var_array_t data_coarse, // coarse face flux registers (3D view)
       device_stream_t& stream,
       VEC(std::size_t nx, std::size_t ny, std::size_t nz), std::size_t ngz, std::size_t nv,
       task_id_t& task_counter,

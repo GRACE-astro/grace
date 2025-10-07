@@ -105,8 +105,16 @@ public:
      * 
      * @return The auxiliary variables. 
      */
-    GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>&  
+    GRACE_ALWAYS_INLINE var_array_t&  
     getaux() { return _aux ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the staggered auxiliary variables.
+     * 
+     * @return The staggered auxiliary variables. 
+     */
+    GRACE_ALWAYS_INLINE staggered_variable_arrays_t&  
+    getstaggeredaux() { return _staggered_aux  ; }
     //*****************************************************************************************************
     /**
      * @brief Get state vector
@@ -114,8 +122,17 @@ public:
      * @return The state vector, containing all evolved variables
      *         on all local cells.  
      */
-    GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>&  
+    GRACE_ALWAYS_INLINE var_array_t&  
     getstate() { return _state ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get staggered state vector
+     * 
+     * @return The staggered state vector, containing all evolved staggered variables
+     *         on all local cells.  
+     */
+    GRACE_ALWAYS_INLINE staggered_variable_arrays_t&  
+    getstaggeredstate() { return _staggered_vars ; }
     //*****************************************************************************************************
     /**
      * @brief Get the scratch state vector 
@@ -123,7 +140,7 @@ public:
      * @return The scratch state vector, used during time 
      *         evolution to hold the previous state. 
      */
-    GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>& 
+    GRACE_ALWAYS_INLINE var_array_t& 
     getscratch() { return _state_p ; }
     //*****************************************************************************************************
     /**
@@ -138,7 +155,7 @@ public:
     /**
      * @brief Get the halo state vector 
      */
-    GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>& 
+    GRACE_ALWAYS_INLINE var_array_t& 
     gethalo() { return _halo ; }
     //*****************************************************************************************************
     template< typename ... ArgT >
@@ -167,10 +184,10 @@ private:
     scalar_array_t<GRACE_NSPACEDIM>  _coords_ispacing  ;  //!< Inverse spacing of coordinate system
     scalar_array_t<GRACE_NSPACEDIM>  _coords_spacing  ;  //!< Spacing of coordinate system
     cell_vol_array_t<GRACE_NSPACEDIM> _cell_volumes ; //!< Volume of cells 
-    var_array_t<GRACE_NSPACEDIM> _state   ;     //!< State variables 
-    var_array_t<GRACE_NSPACEDIM> _state_p ;     //!< Second timelevel, allocated at all times 
-    var_array_t<GRACE_NSPACEDIM> _halo    ;     //!< Halo exchange buffer, allocated when necessary
-    var_array_t<GRACE_NSPACEDIM> _aux     ;     //!< Auxiliary variables  
+    var_array_t _state   ;     //!< State variables 
+    var_array_t _state_p ;     //!< Second timelevel, allocated at all times 
+    var_array_t _halo    ;     //!< Halo exchange buffer, allocated when necessary
+    var_array_t _aux     ;     //!< Auxiliary variables  
     staggered_coordinate_arrays_t _staggered_coords ; //!< Staggered coordinate utilities (surfaces, lengths) 
     staggered_variable_arrays_t   _staggered_vars   ; //!< Staggered variable arrays 
     staggered_variable_arrays_t   _staggered_vars_p ; //!< Staggered scratch state

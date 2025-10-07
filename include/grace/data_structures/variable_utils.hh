@@ -38,6 +38,9 @@ int
 get_n_evolved() ; 
 
 int 
+get_n_evolved_face_staggered() ; 
+
+int 
 get_n_hrsc() ; 
 
 int 

@@ -84,7 +84,7 @@ gpu_task_t make_pack_task(
       std::vector<gpu_task_desc_t> const& sb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
     , size_t rank 
-    , grace::var_array_t<GRACE_NSPACEDIM> data 
+    , grace::var_array_t data 
     , amr::ghost_array_t send_buf 
     , std::vector<task_id_t> const& send_task_id
     , device_stream_t& pup_stream
@@ -165,7 +165,7 @@ gpu_task_t make_pack_fine_task(
       std::vector<gpu_hanging_task_desc_t> const& sb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
     , size_t rank 
-    , grace::var_array_t<GRACE_NSPACEDIM> data 
+    , grace::var_array_t data 
     , amr::ghost_array_t send_buf 
     , std::vector<task_id_t> const& send_task_id
     , device_stream_t& pup_stream
@@ -262,7 +262,7 @@ gpu_task_t make_pack_to_cbuf_task(
       std::vector<gpu_task_desc_t> const& sb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
     , size_t rank 
-    , grace::var_array_t<GRACE_NSPACEDIM> cbuf
+    , grace::var_array_t cbuf
     , amr::ghost_array_t send_buf 
     , std::vector<task_id_t> const& send_task_id
     , device_stream_t& pup_stream
@@ -363,7 +363,7 @@ gpu_task_t make_unpack_task(
       std::vector<gpu_task_desc_t> const& rb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
     , size_t rank
-    , grace::var_array_t<GRACE_NSPACEDIM> data 
+    , grace::var_array_t data 
     , amr::ghost_array_t recv_buf 
     , std::vector<task_id_t> const& recv_task_id
     , device_stream_t& pup_stream
@@ -458,7 +458,7 @@ gpu_task_t make_unpack_to_cbuf_task(
       std::vector<gpu_task_desc_t> const& rb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
     , size_t rank
-    , grace::var_array_t<GRACE_NSPACEDIM> cbuf 
+    , grace::var_array_t cbuf 
     , amr::ghost_array_t recv_buf 
     , std::vector<task_id_t> const& recv_task_id
     , device_stream_t& pup_stream
@@ -558,7 +558,7 @@ gpu_task_t make_unpack_from_cbuf_task(
       std::vector<gpu_hanging_task_desc_t> const& rb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
     , size_t rank
-    , grace::var_array_t<GRACE_NSPACEDIM> data 
+    , grace::var_array_t data 
     , amr::ghost_array_t recv_buf 
     , std::vector<task_id_t> const& recv_task_id
     , device_stream_t& pup_stream
@@ -662,8 +662,8 @@ void insert_pup_tasks(
     , std::vector<bucket_t> const& pack_to_cbuf_kernels
     , std::vector<bucket_t> const& unpack_to_cbuf_kernels
     , std::vector<hang_bucket_t> const&  unpack_from_cbuf_kernels
-    , grace::var_array_t<GRACE_NSPACEDIM> data
-    , grace::var_array_t<GRACE_NSPACEDIM> coarse_buffers 
+    , grace::var_array_t data
+    , grace::var_array_t coarse_buffers 
     , amr::ghost_array_t send_buf 
     , amr::ghost_array_t recv_buf 
     , std::vector<task_id_t> const& send_task_id

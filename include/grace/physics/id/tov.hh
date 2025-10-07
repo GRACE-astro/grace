@@ -86,7 +86,7 @@
  template < typename eos_t >
  struct tov_id_t {
      //**************************************************************************************************
-     using state_t = grace::var_array_t<GRACE_NSPACEDIM> ; //!< State array type
+     using state_t = grace::var_array_t ; //!< State array type
      //**************************************************************************************************
      /**
       * @brief Construct a new tov id kernel

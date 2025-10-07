@@ -38,8 +38,8 @@
 namespace grace {
 
 struct view_alias_t {
-    grace::var_array_t<GRACE_NSPACEDIM>* _view_ptr ; 
-    grace::var_array_t<GRACE_NSPACEDIM> get() {return *_view_ptr; }
+    grace::var_array_t* _view_ptr ; 
+    grace::var_array_t get() {return *_view_ptr; }
 } ; 
 
 template< typename T >

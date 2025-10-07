@@ -40,6 +40,12 @@ get_n_evolved()
 } 
 
 int 
+get_n_evolved_face_staggered()
+{
+    return detail::num_face_staggered_vars ;
+} 
+
+int 
 get_n_hrsc()
 {
     return detail::num_fluxes ;

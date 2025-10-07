@@ -50,7 +50,7 @@ namespace grace {
 
 template< size_t der_order >
 bssn_state_t GRACE_HOST_DEVICE 
-compute_bssn_rhs( grace::var_array_t<GRACE_NSPACEDIM> const state
+compute_bssn_rhs( grace::var_array_t const state
                 , grmhd_prims_array_t const& hydro_state
                 , std::array<double,GRACE_NSPACEDIM> const& idx);
 
@@ -64,8 +64,8 @@ struct bssn_system_t
 
  public:
 
-    bssn_system_t( grace::var_array_t<GRACE_NSPACEDIM> state_ 
-                 , grace::var_array_t<GRACE_NSPACEDIM> aux_ )
+    bssn_system_t( grace::var_array_t state_ 
+                 , grace::var_array_t aux_ )
         : base_t(state_,aux_) 
     {} 
 
@@ -76,7 +76,7 @@ struct bssn_system_t
                             , int const j 
                             , int const k)
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx 
-                       , grace::var_array_t<GRACE_NSPACEDIM> const state_new 
+                       , grace::var_array_t const state_new 
                        , double const dt 
                        , double const dtfact ) const
     {
