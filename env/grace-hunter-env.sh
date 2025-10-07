@@ -30,18 +30,3 @@ export PATH=${PATH}:${KOKKOS_TOOLS_LIB}/../bin
 export MPICH_GPU_SUPPORT_ENABLED=1
 
 export PATH="${LIBSROOT}/hdf5-hunter-install/bin:$PATH"
-
-
-
-# Kadath support: 
-module load cray-fftw/3.3.10.10
-module load gsl 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${FFTW_ROOT}lib 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${GSL_ROOT_LIB}lib
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${CRAY_LIBSCI_PREFIX_DIR}/lib
-
-# Add Cray LibSci include and lib paths
-#export CRAY_LIBSCI_PREFIX_DIR=/opt/cray/pe/libsci/24.07.0/CRAYCLANG/18.0/x86_64
-export CBLAS_INCLUDE_DIR=${CRAY_LIBSCI_PREFIX_DIR}/include
-export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${CRAY_LIBSCI_PREFIX_DIR}/lib
-
