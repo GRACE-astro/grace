@@ -76,7 +76,8 @@ void find_stable_timestep_impl() {
     int ngz = amr::get_n_ghosts() ;    
     int64_t nq = amr::get_local_num_quadrants() ; 
 
-    auto& state = variable_list::get().getstate()   ; 
+    auto& state = variable_list::get().getstate()   ;
+    auto& sstate = variable_list::get().getstaggeredstate()   ; 
     auto& aux   = variable_list::get().getaux()     ; 
     auto& cvol  = variable_list::get().getvolumes() ; 
 
@@ -103,7 +104,7 @@ void find_stable_timestep_impl() {
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,state,aux) ; 
+        grmhd_eq_system(eos,state,sstate,aux) ; 
     #define GET_CMAX \
     grmhd_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
     #endif 

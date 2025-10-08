@@ -59,8 +59,10 @@ struct restrict_op {
       , ngz(_ngz)
     {}
 
-    void set_data_ptr(view_alias_t alias) {
-        src_view = alias.get() ; 
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {
+        src_view = alias.get<stag>() ; 
     }
 
     KOKKOS_INLINE_FUNCTION
@@ -118,8 +120,10 @@ struct ghost_restrict_op {
       , transf(n,_ngz)
     {}
 
-    void set_data_ptr(view_alias_t alias) {
-        data = alias.get() ; 
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {
+        data = alias.get<stag>() ; 
     }
     // runs to n/2 n/2 
     KOKKOS_INLINE_FUNCTION

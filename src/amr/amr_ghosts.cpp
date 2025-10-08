@@ -97,16 +97,7 @@ void amr_ghosts_impl_t::update() {
     } ;
     auto var_bc_kind_f_h = Kokkos::create_mirror_view(var_bc_kind_f) ; 
     for(int ivar=0; ivar<nvar_f; ++ivar){
-        auto bc_type = variables::get_bc_type<stagger_t::FACE>(ivar) ; /* TODO */
-        bc_t kind ; 
-        if (bc_type=="outgoing") {
-            kind = bc_t::BC_OUTFLOW ; 
-        } else if ( bc_type == "lagrange_extrap") {
-            kind = bc_t::BC_LAGRANGE_EXTRAP ; 
-        } else if ( bc_type == "none") {
-            kind = bc_t::BC_NONE ; 
-        }
-        var_bc_kind_f_h(ivar) = kind ;
+        var_bc_kind_f_h(ivar) = variables::get_bc_type(ivar,STAG_FACEX) ;
     }
     Kokkos::deep_copy(var_bc_kind_f,var_bc_kind_f_h) ;
 
@@ -345,10 +336,11 @@ void amr_ghosts_impl_t::build_task_list(
     /***********************************************************************/
     task_id_t restrict_tid{UNSET_TASK_ID}
             , restrict_tid_fx{UNSET_TASK_ID}
+            , restrict_tid_fy{UNSET_TASK_ID}
             , restrict_tid_fz{UNSET_TASK_ID}; 
 
     if(cbuf_qid.size()>0) {
-        restrict_tid = insert_restriction_tasks(
+        restrict_tid = insert_restriction_tasks<STAG_CENTER>(
             cbuf_qid,
             ghost_layer,
             state, 
@@ -358,7 +350,7 @@ void amr_ghosts_impl_t::build_task_list(
             task_counter, task_list 
         ) ; 
 
-        restrict_tid_fx = insert_restriction_tasks(
+        restrict_tid_fx = insert_restriction_tasks<STAG_FACEX>(
             cbuf_qid,
             ghost_layer,
             stag_state.face_staggered_fields_x, 
@@ -368,7 +360,7 @@ void amr_ghosts_impl_t::build_task_list(
             task_counter, task_list 
         ) ; 
 
-        restrict_tid_fy = insert_restriction_tasks(
+        restrict_tid_fy = insert_restriction_tasks<STAG_FACEY>(
             cbuf_qid,
             ghost_layer,
             stag_state.face_staggered_fields_y, 
@@ -378,7 +370,7 @@ void amr_ghosts_impl_t::build_task_list(
             task_counter, task_list 
         ) ; 
 
-        restrict_tid_fz = insert_restriction_tasks(
+        restrict_tid_fz = insert_restriction_tasks<STAG_FACEZ>(
             cbuf_qid,
             ghost_layer,
             stag_state.face_staggered_fields_z, 
@@ -390,7 +382,7 @@ void amr_ghosts_impl_t::build_task_list(
     }
     /***********************************************************************/
     /***********************************************************************/
-    insert_copy_tasks(
+    insert_copy_tasks<STAG_CENTER>(
         ghost_layer,
         copy_kernels,
         copy_from_cbuf_kernels,
@@ -401,7 +393,7 @@ void amr_ghosts_impl_t::build_task_list(
         VEC(nx,ny,nz), ngz, nvars, 
         task_counter,restrict_tid, task_list 
     ) ; 
-    insert_copy_tasks(
+    insert_copy_tasks<STAG_FACEX>(
         ghost_layer,
         copy_kernels,
         copy_from_cbuf_kernels,
@@ -412,7 +404,7 @@ void amr_ghosts_impl_t::build_task_list(
         VEC(nx+1,ny,nz), ngz, nvars_f, 
         task_counter,restrict_tid, task_list 
     ) ; 
-    insert_copy_tasks(
+    insert_copy_tasks<STAG_FACEY>(
         ghost_layer,
         copy_kernels,
         copy_from_cbuf_kernels,
@@ -423,7 +415,7 @@ void amr_ghosts_impl_t::build_task_list(
         VEC(nx,ny+1,nz), ngz, nvars_f, 
         task_counter,restrict_tid, task_list 
     ) ; 
-    insert_copy_tasks(
+    insert_copy_tasks<STAG_FACEZ>(
         ghost_layer,
         copy_kernels,
         copy_from_cbuf_kernels,
@@ -436,7 +428,7 @@ void amr_ghosts_impl_t::build_task_list(
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
-    insert_pup_tasks(
+    insert_pup_tasks<STAG_CENTER>(
         ghost_layer,
         pack_kernels,
         unpack_kernels,
@@ -455,7 +447,7 @@ void amr_ghosts_impl_t::build_task_list(
         task_counter, task_list
     ) ; 
 
-    insert_pup_tasks(
+    insert_pup_tasks<STAG_FACEX>(
         ghost_layer,
         pack_kernels,
         unpack_kernels,
@@ -474,7 +466,7 @@ void amr_ghosts_impl_t::build_task_list(
         task_counter, task_list
     ) ;
 
-    insert_pup_tasks(
+    insert_pup_tasks<STAG_FACEY>(
         ghost_layer,
         pack_kernels,
         unpack_kernels,
@@ -493,7 +485,7 @@ void amr_ghosts_impl_t::build_task_list(
         task_counter, task_list
     ) ;
 
-    insert_pup_tasks(
+    insert_pup_tasks<STAG_FACEZ>(
         ghost_layer,
         pack_kernels,
         unpack_kernels,
@@ -513,7 +505,7 @@ void amr_ghosts_impl_t::build_task_list(
     ) ;
     /***********************************************************************/
     /***********************************************************************/
-    insert_ghost_restriction_tasks(
+    insert_ghost_restriction_tasks<STAG_CENTER>(
         cbuf_qid, ghost_layer,
         state, _coarse_buffers,
         interp_stream,
@@ -521,7 +513,7 @@ void amr_ghosts_impl_t::build_task_list(
         task_counter, task_list
     ) ; 
 
-    insert_ghost_restriction_tasks(
+    insert_ghost_restriction_tasks<STAG_FACEX>(
         cbuf_qid, ghost_layer,
         stag_state.face_staggered_fields_x, 
         _stag_coarse_buffers.face_staggered_fields_x,
@@ -530,7 +522,7 @@ void amr_ghosts_impl_t::build_task_list(
         task_counter, task_list
     ) ; 
 
-    insert_ghost_restriction_tasks(
+    insert_ghost_restriction_tasks<STAG_FACEY>(
         cbuf_qid, ghost_layer,
         stag_state.face_staggered_fields_y, 
         _stag_coarse_buffers.face_staggered_fields_y,
@@ -539,7 +531,7 @@ void amr_ghosts_impl_t::build_task_list(
         task_counter, task_list
     ) ;
 
-    insert_ghost_restriction_tasks(
+    insert_ghost_restriction_tasks<STAG_FACEZ>(
         cbuf_qid, ghost_layer,
         stag_state.face_staggered_fields_z, 
         _stag_coarse_buffers.face_staggered_fields_z,
@@ -550,22 +542,22 @@ void amr_ghosts_impl_t::build_task_list(
     /***********************************************************************/
     /***********************************************************************/
     auto const deferred_phys_bc_kernels = 
-        insert_phys_bc_tasks(
+        insert_phys_bc_tasks<STAG_CENTER>(
                 phys_bc_kernels, ghost_layer,
                 state, _coarse_buffers, var_bc_kind,
                 phys_bc_stream, VEC(nx,ny,nz),ngz,nvars,
                 task_counter,task_list
         ) ;
     auto const deferred_phys_bc_kernels_fx = 
-        insert_phys_bc_tasks(
+        insert_phys_bc_tasks<STAG_FACEX>(
                 phys_bc_kernels, ghost_layer,
                 stag_state.face_staggered_fields_x, 
                 _stag_coarse_buffers.face_staggered_fields_x, var_bc_kind_f,
                 phys_bc_stream, VEC(nx+1,ny,nz),ngz,nvars_f,
                 task_counter,task_list
         ) ;
-    auto const deferred_phys_bc_kernels_fx = 
-        insert_phys_bc_tasks(
+    auto const deferred_phys_bc_kernels_fy = 
+        insert_phys_bc_tasks<STAG_FACEY>(
                 phys_bc_kernels, ghost_layer,
                 stag_state.face_staggered_fields_y, 
                 _stag_coarse_buffers.face_staggered_fields_y, var_bc_kind_f,
@@ -573,7 +565,7 @@ void amr_ghosts_impl_t::build_task_list(
                 task_counter,task_list
         ) ;
     auto const deferred_phys_bc_kernels_fz = 
-        insert_phys_bc_tasks(
+        insert_phys_bc_tasks<STAG_FACEZ>(
                 phys_bc_kernels, ghost_layer,
                 stag_state.face_staggered_fields_z, 
                 _stag_coarse_buffers.face_staggered_fields_z, var_bc_kind_f,
@@ -582,7 +574,7 @@ void amr_ghosts_impl_t::build_task_list(
         ) ;
     /***********************************************************************/
     /***********************************************************************/
-    insert_prolongation_tasks(
+    insert_prolongation_tasks<STAG_CENTER>(
         prolong_kernels, ghost_layer,
         state, _coarse_buffers, interp_stream,
         VEC(nx,ny,nz), ngz, nvars, task_counter, task_list 
@@ -597,24 +589,24 @@ void amr_ghosts_impl_t::build_task_list(
     #endif  
     /***********************************************************************/
     /***********************************************************************/
-    insert_deferred_phys_bc_tasks(
+    insert_deferred_phys_bc_tasks<STAG_CENTER>(
         deferred_phys_bc_kernels, ghost_layer,
         state, _coarse_buffers, var_bc_kind, phys_bc_stream,
         VEC(nx,ny,nz),ngz,nvars, task_counter, task_list
     ); 
-    insert_deferred_phys_bc_tasks(
+    insert_deferred_phys_bc_tasks<STAG_FACEX>(
         deferred_phys_bc_kernels_fx, ghost_layer,
         stag_state.face_staggered_fields_x, 
         _stag_coarse_buffers.face_staggered_fields_x, var_bc_kind_f, phys_bc_stream,
         VEC(nx+1,ny,nz),ngz,nvars_f, task_counter, task_list
     ); 
-    insert_deferred_phys_bc_tasks(
+    insert_deferred_phys_bc_tasks<STAG_FACEY>(
         deferred_phys_bc_kernels_fy, ghost_layer,
         stag_state.face_staggered_fields_y, 
         _stag_coarse_buffers.face_staggered_fields_y, var_bc_kind_f, phys_bc_stream,
         VEC(nx,ny+1,nz),ngz,nvars_f, task_counter, task_list
     ); 
-    insert_deferred_phys_bc_tasks(
+    insert_deferred_phys_bc_tasks<STAG_FACEZ>(
         deferred_phys_bc_kernels_fz, ghost_layer,
         stag_state.face_staggered_fields_z, 
         _stag_coarse_buffers.face_staggered_fields_z, var_bc_kind_f, phys_bc_stream,

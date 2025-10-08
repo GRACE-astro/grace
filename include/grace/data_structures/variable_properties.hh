@@ -38,7 +38,7 @@ namespace grace {
 enum bc_t: uint8_t {BC_OUTFLOW=0, BC_LAGRANGE_EXTRAP, BC_NONE} ; 
 
 enum var_staggering_t : uint8_t {
-    STAG_CENTER=0, STAG_FACEX, STAG_FACEY, STAG_EDGEXY, STAG_FACEZ, STAG_EDGEXZ, STAG_EDGEYZ, STAG_CORNER
+    STAG_CENTER=0, STAG_FACEX, STAG_FACEY, STAG_EDGEXY, STAG_FACEZ, STAG_EDGEXZ, STAG_EDGEYZ, STAG_CORNER, N_VAR_STAGGERINGS
 } ; 
 //*****************************************************************************************************
 //*****************************************************************************************************
@@ -268,6 +268,21 @@ struct staggered_variable_arrays_t {
         Kokkos::realloc(corner_staggered_fields, VEC(nx + 2*ngz+1, ny + 2*ngz+1, nz+2*ngz+1), nvars_corner, nq) ;
     }
 } ; 
+
+static inline void deep_copy(
+    staggered_variable_arrays_t& dest, 
+    staggered_variable_arrays_t& src 
+) {
+    Kokkos::deep_copy(dest.face_staggered_fields_x, src.face_staggered_fields_x) ; 
+    Kokkos::deep_copy(dest.face_staggered_fields_y, src.face_staggered_fields_y) ; 
+    Kokkos::deep_copy(dest.face_staggered_fields_z, src.face_staggered_fields_z) ;
+
+    Kokkos::deep_copy(dest.edge_staggered_fields_xy, src.edge_staggered_fields_xy) ; 
+    Kokkos::deep_copy(dest.edge_staggered_fields_xz, src.edge_staggered_fields_xz) ; 
+    Kokkos::deep_copy(dest.edge_staggered_fields_yz, src.edge_staggered_fields_yz) ;
+
+    Kokkos::deep_copy(dest.corner_staggered_fields, src.corner_staggered_fields) ;
+}
 /*****************************************************************************************************/
 /*****************************************************************************************************/
 } /* namespace grace */

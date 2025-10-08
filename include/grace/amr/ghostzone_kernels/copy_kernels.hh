@@ -52,9 +52,10 @@ struct copy_op {
 
     index_transformer_t transf ; 
 
+    template< var_staggering_t stag >
     void set_data_ptr(view_alias_t alias) 
     {
-        view = alias.get() ; 
+        view = alias.get<stag>() ; 
     }
 
     copy_op(
@@ -118,8 +119,10 @@ struct copy_to_cbuf_op {
     index_transformer_t transf ; 
 
 
-    void set_data_ptr (view_alias_t alias ) {
-        view = alias.get() ; 
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {
+        view = alias.get<stag>() ; 
     }
 
     copy_to_cbuf_op(
@@ -215,8 +218,10 @@ struct copy_from_cbuf_op {
      * 
      * @param alias The alias that needs to be swapped to.
      */
-    void set_data_ptr (view_alias_t alias ) {
-        view = alias.get() ; 
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {
+        view = alias.get<stag>() ; 
     }
 
     copy_from_cbuf_op(

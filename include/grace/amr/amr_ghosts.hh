@@ -74,7 +74,7 @@ struct full_face_t {
         std::size_t send_buffer_id ; //!< Index in send array 
         bool is_remote            ; //!< Whether the quadrant is local or remote 
         std::size_t owner_rank    ; //!< Owner rank if remote
-        task_id_t task_id         ;
+        std::array<task_id_t,N_VAR_STAGGERINGS>  task_id   ;
 } ; 
 struct hanging_face_t {
         std::size_t quad_id[P4EST_CHILDREN/2]    ; //!< Indices of hanging quads (in coarse bufs)
@@ -82,13 +82,13 @@ struct hanging_face_t {
         std::size_t send_buffer_id[P4EST_CHILDREN/2] ; //!< Indices in send array
         bool is_remote[P4EST_CHILDREN/2]         ; //!< Are the quads remote 
         std::size_t owner_rank[P4EST_CHILDREN/2] ; //!< owner ranks if remote 
-        task_id_t task_id[P4EST_CHILDREN/2]      ; 
+        std::array<std::array<task_id_t,N_VAR_STAGGERINGS>,P4EST_CHILDREN/2> task_id; 
 } ; 
 struct physical_face_t {
     int8_t dir[3] ; //!< Normal to the grid 
     bool in_cbuf  ; //!< Do we need to fill inside cbufs ? 
     amr::element_kind_t type ;
-    task_id_t task_id          ; 
+    std::array<task_id_t,N_VAR_STAGGERINGS> task_id  ; 
 } ; 
 union face_data_t {
     full_face_t full ; 
@@ -113,7 +113,7 @@ struct full_edge_t {
     std::size_t send_buffer_id ; //!< Index in send array, if relevant
     bool is_remote            ; //!< Whether the quadrant is local or remote 
     std::size_t owner_rank    ; //!< Owner rank if remote
-    task_id_t task_id ; 
+    std::array<task_id_t,N_VAR_STAGGERINGS> task_id; 
 } ; 
 struct hanging_edge_t {
         std::size_t quad_id[2]    ; //!< Indices of hanging quads (in coarse bufs)
@@ -121,13 +121,13 @@ struct hanging_edge_t {
         std::size_t send_buffer_id[2] ; //!< Indices in send array, if relevant
         bool is_remote[2]         ; //!< Are the quads remote 
         std::size_t owner_rank[2] ; //!< owner ranks if remote 
-        task_id_t task_id[2] ; 
+        std::array<std::array<task_id_t,N_VAR_STAGGERINGS>,2> task_id; 
 } ;
 struct physical_edge_t {
     int8_t dir[3] ; //!< Normal to the grid 
     bool in_cbuf  ; //!< Do we need to fill inside cbufs ? 
     amr::element_kind_t type ;
-    task_id_t task_id          ; 
+    std::array<task_id_t,N_VAR_STAGGERINGS> task_id; 
 } ; 
 union edge_data_t {
     full_edge_t full ; 
@@ -149,13 +149,13 @@ struct corner_data_t {
     std::size_t send_buffer_id ; //!< Index in send array, if relevant 
     bool is_remote             ; //!< Are the quads remote 
     std::size_t owner_rank     ; //!< owner ranks if remote 
-    task_id_t task_id          ; 
+    std::array<task_id_t,N_VAR_STAGGERINGS>    task_id ; 
 } ; 
 struct physical_corner_t {
     int8_t dir[3] ; //!< Normal to the grid 
     bool in_cbuf{false}  ; //!< Do we need to fill inside cbufs ? 
     amr::element_kind_t type ;
-    task_id_t task_id          ; 
+    std::array<task_id_t,N_VAR_STAGGERINGS>  task_id   ; 
 } ;
 struct corner_descriptor_t {
     interface_kind_t kind ; 
@@ -342,6 +342,12 @@ class amr_ghosts_impl_t {
     amr_ghosts_impl_t()
     : _send_buffer("MPI_send_buffer")
     , _recv_buffer("MPI_recv_buffer") 
+    , _send_buffer_fx("MPI_send_buffer_fx")
+    , _recv_buffer_fx("MPI_recv_buffer_fx") 
+    , _send_buffer_fy("MPI_send_buffer_fy")
+    , _recv_buffer_fy("MPI_recv_buffer_fy") 
+    , _send_buffer_fz("MPI_send_buffer_fz")
+    , _recv_buffer_fz("MPI_recv_buffer_fz") 
     {} ; 
     //**************************************************************************************************
     ~amr_ghosts_impl_t() { 

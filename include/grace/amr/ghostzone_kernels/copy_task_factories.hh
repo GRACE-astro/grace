@@ -74,7 +74,7 @@ namespace grace {
  * @param task_counter Current task counter.
  * @return gpu_task_t encapsulating a kernel that copies data across interfaces at the same ref-level.
  */
-template< amr::element_kind_t elem_kind >
+template< amr::element_kind_t elem_kind, var_staggering_t stag >
 gpu_task_t make_gpu_copy_task(
       std::vector<gpu_task_desc_t> const& bucket
     , std::vector<quad_neighbors_descriptor_t>& ghost_array
@@ -114,18 +114,21 @@ gpu_task_t make_gpu_copy_task(
     {
         if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
-            face.data.full.task_id = task_counter ;
+            face.data.full.task_id[stag] = task_counter ;
         } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
             auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
-            edge.data.full.task_id = task_counter ;
+            edge.data.full.task_id[stag] = task_counter ;
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
-            corner.data.task_id = task_counter ;
+            corner.data.task_id[stag] = task_counter ;
         }
     } ; 
-
+    
     int i{0} ; 
     for( auto const& d: bucket ) { 
+        if (elem_kind == amr::EDGE and std::get<0>(d) == 5 and std::get<1>(d) == 5) {
+            GRACE_TRACE("Here! Tid {}", task_counter ) ; 
+        }
         auto [src_qid,dst_qid,src_eid,dst_eid] = get_interface_info(d) ; 
         src_qid_h(i) = src_qid; dst_qid_h(i) = dst_qid ; 
         src_elem_h(i) = src_eid; dst_elem_h(i) = dst_eid ; 
@@ -152,7 +155,7 @@ gpu_task_t make_gpu_copy_task(
         } ; 
  
     task._run = [functor, policy] (view_alias_t alias) mutable {
-        functor.set_data_ptr(alias) ; 
+        functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Copy start.") ; 
         #endif 
@@ -182,7 +185,7 @@ gpu_task_t make_gpu_copy_task(
  * @param task_counter Current task count.
  * @return gpu_task_t Encapsulating a kernel that copies data to coarse buffers.
  */
-template< amr::element_kind_t elem_kind >
+template< amr::element_kind_t elem_kind, var_staggering_t stag >
 gpu_task_t make_gpu_copy_to_cbuf_task(
       std::vector<gpu_task_desc_t> const& bucket
     , std::vector<quad_neighbors_descriptor_t>& ghost_array
@@ -226,13 +229,13 @@ gpu_task_t make_gpu_copy_to_cbuf_task(
     {
         if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
-            face.data.full.task_id = task_counter ;
+            face.data.full.task_id[stag] = task_counter ;
         } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
             auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
-            edge.data.full.task_id = task_counter ;
+            edge.data.full.task_id[stag] = task_counter ;
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
-            corner.data.task_id = task_counter ;
+            corner.data.task_id[stag] = task_counter ;
         }
     } ; 
 
@@ -266,7 +269,7 @@ gpu_task_t make_gpu_copy_to_cbuf_task(
         } ; 
  
     task._run = [functor, policy] (view_alias_t alias) mutable {
-        functor.set_data_ptr(alias) ; 
+        functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Copy start.") ; 
         #endif 
@@ -299,7 +302,7 @@ gpu_task_t make_gpu_copy_to_cbuf_task(
  * @return gpu_task_t A task encapsulating a kernel that copies data from coarse buffers.
  * NB: this task depends on the restriction of data in coarse buffers.
  */
-template< amr::element_kind_t elem_kind >
+template< amr::element_kind_t elem_kind, var_staggering_t stag >
 gpu_task_t make_gpu_copy_from_cbuf_task(
       std::vector<gpu_hanging_task_desc_t> const& bucket
     , std::vector<quad_neighbors_descriptor_t>& ghost_array
@@ -348,13 +351,13 @@ gpu_task_t make_gpu_copy_from_cbuf_task(
     {
         if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
-            face.data.hanging.task_id[std::get<2>(d)] = task_counter ;
+            face.data.hanging.task_id[std::get<2>(d)][stag] = task_counter ;
         } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
             auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
-            edge.data.hanging.task_id[std::get<2>(d)] = task_counter ;
+            edge.data.hanging.task_id[std::get<2>(d)][stag] = task_counter ;
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
-            corner.data.task_id = task_counter ;
+            corner.data.task_id[stag] = task_counter ;
         }
     } ; 
 
@@ -391,7 +394,7 @@ gpu_task_t make_gpu_copy_from_cbuf_task(
         } ; 
  
     task._run = [functor, policy] (view_alias_t alias) mutable {
-        functor.set_data_ptr(alias) ; 
+        functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Copy start.") ; 
         #endif 
@@ -427,6 +430,7 @@ gpu_task_t make_gpu_copy_from_cbuf_task(
  * @param restrict_task_id Identifier of restriction task.
  * @param task_list List of tasks.
  */
+template< var_staggering_t stag >
 void insert_copy_tasks(
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
     bucket_t& copy_kernels,
@@ -446,14 +450,14 @@ void insert_copy_tasks(
     if(copy_kernels[static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
-            make_gpu_copy_task<kind>(copy_kernels[static_cast<size_t>(kind)], ghost_array, state, stream, VEC(nx,ny,nz), ngz, nv, task_counter) \
+            make_gpu_copy_task<kind,stag>(copy_kernels[static_cast<size_t>(kind)], ghost_array, state, stream, VEC(nx,ny,nz), ngz, nv, task_counter) \
         ) \
     ) 
     #define MAKE_COPY_TO_CBUF(kind)\
     if(copy_to_cbuf_kernels[static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
-            make_gpu_copy_to_cbuf_task<kind>(copy_to_cbuf_kernels[static_cast<size_t>(kind)], ghost_array, state, coarse_buffers, stream, VEC(nx,ny,nz), ngz, nv, task_counter) \
+            make_gpu_copy_to_cbuf_task<kind,stag>(copy_to_cbuf_kernels[static_cast<size_t>(kind)], ghost_array, state, coarse_buffers, stream, VEC(nx,ny,nz), ngz, nv, task_counter) \
         ) \
     ) 
 
@@ -461,7 +465,7 @@ void insert_copy_tasks(
     if(copy_from_cbuf_kernels[static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
-            make_gpu_copy_from_cbuf_task<kind>(copy_from_cbuf_kernels[static_cast<size_t>(kind)], ghost_array, state, coarse_buffers,stream, VEC(nx,ny,nz), ngz, nv, task_counter, restrict_task_id, task_list) \
+            make_gpu_copy_from_cbuf_task<kind,stag>(copy_from_cbuf_kernels[static_cast<size_t>(kind)], ghost_array, state, coarse_buffers,stream, VEC(nx,ny,nz), ngz, nv, task_counter, restrict_task_id, task_list) \
         ) \
     ) 
 

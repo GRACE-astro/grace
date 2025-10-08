@@ -127,7 +127,7 @@ variable_list_impl_t::variable_list_impl_t()
                    , nq 
                    ) ;  
     Kokkos::realloc( _fluxes
-                   , VEC( nx + 1,ny + 1,nz + 1)
+                   , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
                    , nvars_hrsc 
                    , GRACE_NSPACEDIM
                    , nq 
@@ -151,5 +151,6 @@ variable_list_impl_t::variable_list_impl_t()
 
     /* all done */
 }
+
 
 } /* namespace grace */

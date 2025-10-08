@@ -67,7 +67,7 @@
 namespace grace {
 
 
-template< amr::element_kind_t elem_kind > 
+template< amr::element_kind_t elem_kind, var_staggering_t stag > 
 task_id_t 
 make_prolongation_task(
     std::vector<size_t> const& qid, 
@@ -109,7 +109,7 @@ make_prolongation_task(
         } ;
 
     task._run = [functor,policy] (view_alias_t alias) mutable {
-        functor.set_data_ptr(alias) ; 
+        functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Prolong start.") ; 
         #endif 
@@ -135,6 +135,7 @@ make_prolongation_task(
 
 }
 
+template < var_staggering_t stag >
 void insert_prolongation_tasks(
     bucket_t const & prolong_tasks,
     std::vector<quad_neighbors_descriptor_t> & ghost_array, 
@@ -174,45 +175,45 @@ void insert_prolongation_tasks(
         amr::element_kind_t kind = static_cast<amr::element_kind_t>(_kind) ; 
 
         if (kind == FACE) {
-            insert_dep(FACE, ghost_array[std::get<0>(d)].faces[std::get<1>(d)].data.full.task_id) ; 
+            insert_dep(FACE, ghost_array[std::get<0>(d)].faces[std::get<1>(d)].data.full.task_id[stag]) ; 
             for( auto eid: amr::detail::f2e[std::get<1>(d)] ) {
                 auto& edge = ghost_array[std::get<0>(d)].edges[eid] ;
                 if ( !edge.filled ) continue ; 
                 if ( edge.kind == interface_kind_t::PHYS ) {
-                    insert_dep(FACE, edge.data.phys.task_id) ;
+                    insert_dep(FACE, edge.data.phys.task_id[stag]) ;
                 } else {
-                    insert_dep(FACE, edge.data.full.task_id) ;
+                    insert_dep(FACE, edge.data.full.task_id[stag]) ;
                 }   
             }
         } else if (kind == EDGE) {
-            insert_dep(EDGE, ghost_array[std::get<0>(d)].edges[std::get<1>(d)].data.full.task_id) ; 
+            insert_dep(EDGE, ghost_array[std::get<0>(d)].edges[std::get<1>(d)].data.full.task_id[stag]) ; 
             for( auto fid: amr::detail::e2f[std::get<1>(d)] ) {
                 auto& face = ghost_array[std::get<0>(d)].faces[fid] ;
                 if ( face.kind == interface_kind_t::PHYS ) {
-                    insert_dep(EDGE,face.data.phys.task_id) ; 
+                    insert_dep(EDGE,face.data.phys.task_id[stag]) ; 
                 } else {
-                    insert_dep(EDGE,face.data.full.task_id) ; 
+                    insert_dep(EDGE,face.data.full.task_id[stag]) ; 
                 }
             }
             for( auto cid: amr::detail::e2c[std::get<1>(d)] ) {
                 auto& corner = ghost_array[std::get<0>(d)].corners[cid] ; 
                 if ( !corner.filled ) continue ; 
                 if ( corner.kind == interface_kind_t::PHYS ) {
-                    insert_dep(EDGE,corner.phys.task_id) ; 
+                    insert_dep(EDGE,corner.phys.task_id[stag]) ; 
                 } else {
-                    insert_dep(EDGE,corner.data.task_id) ; 
+                    insert_dep(EDGE,corner.data.task_id[stag]) ; 
                 }
                 
             }
         } else {
-            insert_dep(CORNER, ghost_array[std::get<0>(d)].corners[std::get<1>(d)].data.task_id) ; 
+            insert_dep(CORNER, ghost_array[std::get<0>(d)].corners[std::get<1>(d)].data.task_id[stag]) ; 
             for( auto eid: amr::detail::c2e[std::get<1>(d)] ) {
                 auto& edge = ghost_array[std::get<0>(d)].edges[eid] ;
                 if ( !edge.filled ) continue ; 
                 if ( edge.kind == interface_kind_t::PHYS ) {
-                    insert_dep(CORNER, edge.data.phys.task_id) ;
+                    insert_dep(CORNER, edge.data.phys.task_id[stag]) ;
                 } else {
-                    insert_dep(CORNER, edge.data.full.task_id) ;
+                    insert_dep(CORNER, edge.data.full.task_id[stag]) ;
                 } 
             }
         }
@@ -230,13 +231,13 @@ void insert_prolongation_tasks(
             auto _eid = eid[i] ; 
             if ( elem_kind == amr::element_kind_t::FACE ) {
                 auto& face = ghost_array[_qid].faces[_eid] ; 
-                face.data.full.task_id = tid ;
+                face.data.full.task_id[stag] = tid ;
             } else if (elem_kind == amr::element_kind_t::EDGE) {
                 auto& edge = ghost_array[_qid].edges[_eid] ; 
-                edge.data.full.task_id = tid ;
+                edge.data.full.task_id[stag] = tid ;
             } else {
                 auto& corner = ghost_array[_qid].corners[_eid] ; 
-                corner.data.task_id = tid ;
+                corner.data.task_id[stag] = tid ;
             }
         }
         
@@ -257,7 +258,7 @@ void insert_prolongation_tasks(
     task_id_t tid ; 
     if ( qid[FACE].size() > 0 ) 
     {
-        tid = make_prolongation_task<FACE>(
+        tid = make_prolongation_task<FACE, stag>(
             qid[FACE], cid[FACE], eid[FACE], deps[FACE], 
             stream, task_counter, state, coarse_buffers,
             nx, nv, ngz, task_list 
@@ -265,7 +266,7 @@ void insert_prolongation_tasks(
         set_task_id(FACE,qid[FACE],eid[FACE],tid) ; 
     }
     if ( qid[EDGE].size() > 0 ){
-        tid = make_prolongation_task<EDGE>(
+        tid = make_prolongation_task<EDGE, stag>(
             qid[EDGE], cid[EDGE], eid[EDGE], deps[EDGE], 
             stream, task_counter, state, coarse_buffers,
             nx, nv, ngz, task_list 
@@ -274,7 +275,7 @@ void insert_prolongation_tasks(
     }
     if ( qid[CORNER].size() > 0 ) 
     {
-        tid = make_prolongation_task<CORNER>(
+        tid = make_prolongation_task<CORNER, stag>(
             qid[CORNER], cid[CORNER], eid[CORNER], deps[CORNER], 
             stream, task_counter, state, coarse_buffers,
             nx, nv, ngz, task_list 

@@ -25,7 +25,7 @@
  * 
  */
 
-//#define INSERT_FENCE_DEBUG_TASKS_
+#define INSERT_FENCE_DEBUG_TASKS_
 
 #include "mpi_task_factories.hh"
 #include "copy_task_factories.hh"

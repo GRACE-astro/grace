@@ -58,7 +58,7 @@ void apply_boundary_conditions() ;
  * Specialized version of \ref apply_boundary_conditions which allows 
  * the caller to specify which state array needs its ghostzones to be filled.
  */
-void apply_boundary_conditions(grace::var_array_t& vars) ;
+void apply_boundary_conditions(grace::var_array_t& vars, grace::staggered_variable_arrays_t& stag_vars) ;
 
 
 }} /* namespace grace::amr */

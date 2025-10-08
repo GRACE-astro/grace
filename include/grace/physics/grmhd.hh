@@ -81,8 +81,9 @@ struct grmhd_equations_system_t
      */
     grmhd_equations_system_t( eos_t eos_ 
                             , grace::var_array_t state_
+                            , grace::staggered_variable_arrays_t stag_state_
                             , grace::var_array_t aux_ ) 
-     : base_t(state_,aux_), _eos(eos_)
+     : base_t(state_,stag_state_,aux_), _eos(eos_)
     { 
         _lapse_excision = grace::get_param<double>("grmhd","lapse_excision") ; 
     } ;
@@ -106,13 +107,12 @@ struct grmhd_equations_system_t
                        , VEC( const int i 
                        ,      const int j 
                        ,      const int k)
-                       , int ngz
                        , grace::flux_array_t const  fluxes
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                        , double const dt 
                        , double const dtfact ) const 
     {
-        getflux<0,riemann_t,recon_t>(VEC(i,j,k),q,ngz,fluxes,dx,dt,dtfact);
+        getflux<0,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^2\f$
@@ -134,13 +134,12 @@ struct grmhd_equations_system_t
                        , VEC( const int i 
                        ,      const int j 
                        ,      const int k)
-                       , int ngz
                        , grace::flux_array_t const  fluxes
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<1,riemann_t,recon_t>(VEC(i,j,k),q,ngz,fluxes,dx,dt,dtfact);
+        getflux<1,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^3\f$
@@ -162,13 +161,12 @@ struct grmhd_equations_system_t
                        , VEC( const int i 
                        ,      const int j 
                        ,      const int k)
-                       , int ngz
                        , grace::flux_array_t const  fluxes
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<2,riemann_t,recon_t>(VEC(i,j,k),q,ngz,fluxes,dx,dt,dtfact);
+        getflux<2,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute geometric source terms for GRMHD equations.
@@ -235,7 +233,7 @@ struct grmhd_equations_system_t
         }
 
         /* Compute common factors for T^{\mu\nu}                                                          */
-        double const b2{0.} ;
+        double b2{0.} ;
         std::array<double,4> smallb{0,0,0,0} ;
         // get comoving b-field 
         compute_smallb(
@@ -390,6 +388,30 @@ struct grmhd_equations_system_t
             , ALL()
             , q
         ) ; 
+        auto Bx = subview(
+              this->_stag_state.face_staggered_fields_x
+            , VEC( ALL()
+                 , ALL()
+                 , ALL() )
+            , BSX_
+            , q
+        ) ; 
+        auto By = subview(
+              this->_stag_state.face_staggered_fields_y
+            , VEC( ALL()
+                 , ALL()
+                 , ALL() )
+            , BSY_
+            , q
+        ) ;
+        auto Bz = subview(
+              this->_stag_state.face_staggered_fields_z
+            , VEC( ALL()
+                 , ALL()
+                 , ALL() )
+            , BSZ_
+            , q
+        ) ;
         grmhd_cons_array_t cons ;
         cons[DENSL] = vars(DENS_)        ; 
         cons[STXL]  = vars(SX_)          ;
@@ -398,16 +420,16 @@ struct grmhd_equations_system_t
         cons[TAUL]  = vars(TAU_)         ;
         cons[YESL]  = vars(YESTAR_)      ; 
         cons[ENTSL] = vars(ENTROPYSTAR_) ; 
-        cons[BSXL]  = vars(BSX_) ; 
-        cons[BSYL]  = vars(BSY_) ; 
-        cons[BSZL]  = vars(BSZ_) ; 
+        cons[BSXL]  = Bx(VEC(i,j,k)) ; 
+        cons[BSYL]  = By(VEC(i,j,k)) ; 
+        cons[BSZL]  = Bz(VEC(i,j,k)) ; 
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
         grmhd_prims_array_t prims ;
         // fill cell-centered B-field 
-        prims[BXL] = 0.5*(this->_state(VEC(i,j,k),BSX_,q) + this->_state(VEC(i+1,j,k),BSX_,q));
-        prims[BYL] = 0.5*(this->_state(VEC(i,j,k),BSY_,q) + this->_state(VEC(i,j+1,k),BSY_,q));
-        prims[BZL] = 0.5*(this->_state(VEC(i,j,k),BSZ_,q) + this->_state(VEC(i,j,k+1),BSZ_,q));
+        prims[BXL] = 0.5*(Bx(VEC(i,j,k)) + Bx(VEC(i+1,j,k)));
+        prims[BYL] = 0.5*(By(VEC(i,j,k)) + By(VEC(i,j+1,k)));
+        prims[BZL] = 0.5*(Bz(VEC(i,j,k)) + Bz(VEC(i,j,k+1)));;
 
         conservs_to_prims<eos_t>( cons, prims, metric
                                 , this->_eos, this->_lapse_excision ) ;
@@ -506,7 +528,7 @@ struct grmhd_equations_system_t
  private:
     /***********************************************************************/
     //! Number of reconstructed variables.
-    static constexpr unsigned int GRMHD_NUM_RECON_VARS = 7 ; 
+    static constexpr unsigned int GRMHD_NUM_RECON_VARS = 10 ; 
     //! Equation of State object.
     eos_t _eos ;
     //! Excision lapse.
@@ -534,7 +556,6 @@ struct grmhd_equations_system_t
             ,      const int j 
             ,      const int k)
             , const int64_t q 
-            , int ngz
             , grace::flux_array_t const fluxes
             , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
             , double const dt 
@@ -551,13 +572,13 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         metric_array_t metric_l, metric_r;
         FILL_METRIC_ARRAY( metric_l, this->_state, q
-                         , VEC( i+ngz-utils::delta(idir,0)
-                              , j+ngz-utils::delta(idir,1)
-                              , k+ngz-utils::delta(idir,2))) ; 
+                         , VEC( i-utils::delta(idir,0)
+                              , j-utils::delta(idir,1)
+                              , k-utils::delta(idir,2))) ; 
         FILL_METRIC_ARRAY( metric_r, this->_state, q
-                         , VEC( i+ngz
-                              , j+ngz
-                              , k+ngz )) ;
+                         , VEC( i
+                              , j
+                              , k )) ;
         /***********************************************************************/
         /* 2nd order interpolation at cell interface                           */
         /***********************************************************************/
@@ -622,7 +643,7 @@ struct grmhd_equations_system_t
                                     , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()) 
                                     , recon_indices[ivar] 
                                     , q ) ;
-            reconstructor( u, VEC(i+ngz,j+ngz,k+ngz)
+            reconstructor( u, VEC(i,j,k)
                          , primL[recon_indices_loc[ivar]]
                          , primR[recon_indices_loc[ivar]]
                          , idir) ;
@@ -817,7 +838,6 @@ struct grmhd_equations_system_t
             ,      const int j 
             ,      const int k)
             , const int64_t q 
-            , int ngz
             , grace::flux_array_t const fluxes
             , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
             , double const dt 
@@ -833,13 +853,13 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         metric_array_t metric_l, metric_r;
         FILL_METRIC_ARRAY( metric_l, this->_state, q
-                         , VEC( i+ngz-utils::delta(idir,0)
-                              , j+ngz-utils::delta(idir,1)
-                              , k+ngz-utils::delta(idir,2))) ; 
+                         , VEC( i-utils::delta(idir,0)
+                              , j-utils::delta(idir,1)
+                              , k-utils::delta(idir,2))) ; 
         FILL_METRIC_ARRAY( metric_r, this->_state, q
-                         , VEC( i+ngz
-                              , j+ngz
-                              , k+ngz )) ;
+                         , VEC( i
+                              , j
+                              , k )) ;
         /***********************************************************************/
         /* 2nd order interpolation at cell interface                           */
         /***********************************************************************/
@@ -899,7 +919,7 @@ struct grmhd_equations_system_t
                                     , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()) 
                                     , recon_indices[ivar] 
                                     , q ) ;
-            reconstructor( u, VEC(i+ngz,j+ngz,k+ngz)
+            reconstructor( u, VEC(i,j,k)
                          , primL[recon_indices_loc[ivar]]
                          , primR[recon_indices_loc[ivar]]
                          , idir) ;
@@ -912,13 +932,13 @@ struct grmhd_equations_system_t
         // And LLF fluxes to mix in for positivity preserving limiter 
         /***********************************************************************/
         FILL_PRIMS_ARRAY_ZVEC( primL, this->_aux, q 
-                        , VEC( i+ngz-utils::delta(idir,0)
-                             , j+ngz-utils::delta(idir,1)
-                             , k+ngz-utils::delta(idir,2) )) ;
+                        , VEC( i-utils::delta(idir,0)
+                             , j-utils::delta(idir,1)
+                             , k-utils::delta(idir,2) )) ;
         FILL_PRIMS_ARRAY_ZVEC( primR, this->_aux, q 
-                        , VEC( i+ngz
-                             , j+ngz
-                             , k+ngz )) ; 
+                        , VEC( i
+                             , j
+                             , k )) ; 
         /***********************************************************************/ 
         /*                      Compute LLF flux                               */
         /***********************************************************************/
@@ -928,11 +948,11 @@ struct grmhd_equations_system_t
         // Get conserves 
         grmhd_cons_array_t consL, consR ;
         FILL_CONS_ARRAY(consL, this->_state, q 
-                     , VEC(   i+ngz-utils::delta(idir,0)
-                            , j+ngz-utils::delta(idir,1)
-                            , k+ngz-utils::delta(idir,2) ) ) ; 
+                     , VEC(   i-utils::delta(idir,0)
+                            , j-utils::delta(idir,1)
+                            , k-utils::delta(idir,2) ) ) ; 
         FILL_CONS_ARRAY(consR, this->_state, q
-                       , VEC(i+ngz,j+ngz,k+ngz)) ; 
+                       , VEC(i,j,k)) ; 
         /***********************************************************************/
         // Mix fluxes 
         double const a2CFL = 6. * (dt*dtfact/dx(idir,q)) ; 
@@ -1320,7 +1340,7 @@ struct grmhd_equations_system_t
         double const v_A_sq =  b2 / ( b2 + prims[RHOL]*h) ; 
         v02 = v_A_sq + cs2 * ( 1. - v_A_sq ) ; 
     }
-    void compute_smallb(  std::array<double,4>& smallb, double& b2, double const& W
+    void GRACE_HOST_DEVICE compute_smallb(  std::array<double,4>& smallb, double& b2, double const& W
                         , grmhd_prims_array_t& prims, metric_array_t const& metric ) const
     {
         // simple minded, can be optimized later

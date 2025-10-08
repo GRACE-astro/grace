@@ -578,7 +578,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
 
     for (int r = 0; r < nproc; ++r) {
         size_t cur_send = 0, cur_recv = 0;
-        size_t curs_send_f = 0, cur_recv_f = 0 ; 
+        size_t cur_send_f = 0, cur_recv_f = 0 ; 
         for (int ik = 0; ik < 6; ++ik) {
             send_offsets[ik][r] = cur_send;
             recv_offsets[ik][r] = cur_recv;

@@ -39,7 +39,28 @@ namespace grace {
 
 struct view_alias_t {
     grace::var_array_t* _view_ptr ; 
-    grace::var_array_t get() {return *_view_ptr; }
+    grace::staggered_variable_arrays_t* _stag_view_ptr ;
+    template< var_staggering_t staggering >
+    grace::var_array_t get() {
+        if constexpr ( staggering == STAG_CENTER ) {
+            return *_view_ptr; 
+        } else if constexpr ( staggering == STAG_FACEX ) {
+            return (*_stag_view_ptr).face_staggered_fields_x ; 
+        } else if constexpr ( staggering == STAG_FACEY ) {
+            return (*_stag_view_ptr).face_staggered_fields_y ; 
+        } else if constexpr ( staggering == STAG_FACEZ ) {
+            return (*_stag_view_ptr).face_staggered_fields_z ; 
+        } else if constexpr ( staggering == STAG_EDGEXY ) {
+            return (*_stag_view_ptr).edge_staggered_fields_xy ; 
+        } else if constexpr ( staggering == STAG_EDGEXZ ) {
+            return (*_stag_view_ptr).edge_staggered_fields_xz ; 
+        } else if constexpr ( staggering == STAG_EDGEYZ ) {
+            return (*_stag_view_ptr).edge_staggered_fields_yz ; 
+        } else {
+            return (*_stag_view_ptr).corner_staggered_fields ; 
+        }
+        
+    }
 } ; 
 
 template< typename T >

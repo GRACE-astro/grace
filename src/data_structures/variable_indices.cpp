@@ -189,20 +189,12 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(TAU,"tau","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing",true) ;
-<<<<<<< HEAD
-    //REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(BSX,BSY,BSZ,"B_face", "outgoing"/*FIXME?*/, true/*FIXME?*/);
-=======
     REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(BSX,BSY,BSZ,"B_face", "outgoing"/*FIXME?*/, false/*FIXME?*/);
->>>>>>> staggering-face
     /* GRMHD primitives */
     REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
     REGISTER_AUX_VECTOR(VELX,VELY,VELZ,"vel","none") ; 
     REGISTER_AUX_VECTOR(ZVECX,ZVECY,ZVECZ,"zvec","none") ;
-<<<<<<< HEAD
-    //REGISTER_AUX_VECTOR(BX,BY,BZ,"Bvec","none") ; 
-=======
     REGISTER_AUX_VECTOR(BX,BY,BZ,"Bvec","none") ; 
->>>>>>> staggering-face
     REGISTER_AUX_SCALAR(YE,"ye","none") ; 
     REGISTER_AUX_SCALAR(TEMP,"temperature", "none") ;
     REGISTER_AUX_SCALAR(ENTROPY,"entropy","none") ; 
@@ -319,11 +311,7 @@ static int register_scalar( std::string const& name
 static int register_staggered_variable( std::string const& name
                                       , bool is_evolved 
                                       , bool need_fluxes
-<<<<<<< HEAD
                                       , bc_t const & bc_type 
-=======
-                                      , std::string const & bc_type 
->>>>>>> staggering-face
                                       , grace::var_staggering_t const& staggering 
                                       , bool is_vector 
                                       , bool is_tensor
@@ -345,7 +333,6 @@ static int register_staggered_variable( std::string const& name
         num_fluxes ++ ; 
     }
     num_vars++;
-<<<<<<< HEAD
     if( staggering == var_staggering_t::STAG_FACEX ) {
         ASSERT(is_vector, "Face staggered variables must be vectors.") ;
         ASSERT(num_comp == 0, "Staggering and vector indices don't match") ; 
@@ -418,54 +405,12 @@ static int register_staggered_variable( std::string const& name
             return (num_edge_staggered_aux) - 1 ; 
         }
     } else {
-=======
-
-    if( staggering == var_staggering_t::FACE ) {
-        ASSERT(is_vector, "Face staggered variables must be vectors.") ; 
-        if( is_evolved ) {
-            if( num_comp == 0) {
-                num_face_staggered_vars ++ ; 
-            }
-            _face_staggered_varnames.push_back(name) ; 
-            _face_vars_bc_types.push_back(bc_type) ;
-            return num_face_staggered_vars - 1 ; 
-        } else {
-            if( num_comp == 0) {
-                num_face_staggered_aux ++ ; 
-            }
-            _face_staggered_auxnames.push_back(name) ; 
-            _face_aux_bc_types.push_back(bc_type) ; 
-            return (num_face_staggered_aux ) - 1 ; 
-        }
-    } else if (staggering == var_staggering_t::EDGE) {
-        ASSERT(is_vector, "Edge staggered variables must be vectors.") ; 
-        if( is_evolved ) {
-            if( num_comp == 0) {
-                num_edge_staggered_vars ++ ; 
-            }
-            _edge_staggered_varnames.push_back(name) ; 
-            _edge_vars_bc_types.push_back(bc_type) ; 
-            return (num_edge_staggered_vars) - 1 ; 
-        } else {
-            if( num_comp == 0) {
-                num_edge_staggered_aux ++ ; 
-            }
-            _edge_staggered_auxnames.push_back(name) ; 
-            _edge_aux_bc_types.push_back(bc_type) ; 
-            return (num_edge_staggered_aux) - 1 ; 
-        }
-    } else if (staggering == var_staggering_t::CORNER) {
->>>>>>> staggering-face
         if( is_evolved ) {
             _corner_staggered_varnames.push_back(name) ; 
             _corner_vars_bc_types.push_back(bc_type) ; 
             return (++num_corner_staggered_vars) - 1 ; 
         } else {
             _corner_staggered_auxnames.push_back(name) ; 
-<<<<<<< HEAD
-=======
-            _corner_aux_bc_types.push_back(bc_type) ; 
->>>>>>> staggering-face
             return (++num_corner_staggered_aux) - 1 ; 
         }
     }
@@ -502,14 +447,10 @@ static int register_vector( std::string const& name
         }
         last_evolved = num_vars; 
         num_evolved ++ ; 
-        _var_bc_types.push_back(get_bc_type(bc_type)) ; 
+        _var_bc_types.push_back(bc_type) ; 
     } else {
         _auxnames.push_back(name) ; 
         num_auxiliary ++ ; 
-<<<<<<< HEAD
-=======
-        _aux_bc_types.push_back(get_bc_type(bc_type)) ;
->>>>>>> staggering-face
     }
 
     return  is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
@@ -547,14 +488,10 @@ static int register_tensor( std::string const& name
         }
         last_evolved = num_vars; 
         num_evolved ++ ; 
-        _var_bc_types.push_back(get_bc_type(bc_type)) ; 
+        _var_bc_types.push_back(bc_type) ; 
     } else {
         _auxnames.push_back(name) ; 
         num_auxiliary ++ ; 
-<<<<<<< HEAD
-=======
-        _aux_bc_types.push_back(get_bc_type(bc_type)) ;
->>>>>>> staggering-face
     }
 
     return  is_evolved ? num_evolved-1 : num_auxiliary-1 ; 
@@ -591,11 +528,8 @@ static int register_variable(     std::string const& name
     int var_staggering = 0 ; 
     for( auto const & s: staggering ) var_staggering += static_cast<int>(s) ; 
 
-<<<<<<< HEAD
     auto bc = get_bc_type(bc_type) ; 
 
-=======
->>>>>>> staggering-face
     variable_properties_t<GRACE_NSPACEDIM> props ;
     props.staggering = get_staggering(staggering) ; 
     props.is_evolved = is_evolved ; 
@@ -603,17 +537,12 @@ static int register_variable(     std::string const& name
     props.is_tensor  = is_tensor  ; 
     props.name       = (is_tensor || is_vector) ?  vec_name : name  ;
     props.comp_num   = (is_tensor || is_vector) ?  comp_num : -1    ;
-<<<<<<< HEAD
     props.bc_type    = bc; 
-=======
-    props.bc_type    = get_bc_type(bc_type); 
->>>>>>> staggering-face
 
     num_vector_vars += static_cast<int>(is_vector) ; 
     num_tensor_vars += static_cast<int>(is_tensor) ;
     size_t varidx ; 
     if( ( var_staggering != 0 ) ) {
-<<<<<<< HEAD
         varidx = register_staggered_variable(name,is_evolved,need_fluxes,bc,get_staggering(staggering), is_vector, is_tensor, comp_num) ; 
     } else {
         if ( is_vector ) {
@@ -622,16 +551,6 @@ static int register_variable(     std::string const& name
             varidx = register_tensor(name,is_evolved,need_fluxes,comp_num,bc) ; 
         } else {
             varidx = register_scalar(name,is_evolved,need_fluxes,bc) ; 
-=======
-        varidx = register_staggered_variable(name,is_evolved,need_fluxes,bc_type,var_staggering, is_vector, is_tensor, comp_num) ; 
-    } else {
-        if ( is_vector ) {
-            varidx = register_vector(name,is_evolved,need_fluxes,comp_num,bc_type) ; 
-        } else if ( is_tensor ) {
-            varidx = register_tensor(name,is_evolved,need_fluxes,comp_num,bc_type) ; 
-        } else {
-            varidx = register_scalar(name,is_evolved,need_fluxes,bc_type) ; 
->>>>>>> staggering-face
         }   
     }
     props.index = varidx ;

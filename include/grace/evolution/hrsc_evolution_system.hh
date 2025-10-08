@@ -41,8 +41,9 @@ template< typename EvolSystem_t >
 struct hrsc_evolution_system_t {
 
     hrsc_evolution_system_t( grace::var_array_t state_
+                           , grace::staggered_variable_arrays_t stag_state_
                            , grace::var_array_t aux_  )
-     : _state(state_), _aux(aux_)
+     : _state(state_), _stag_state(stag_state_), _aux(aux_)
     {} 
 
     template< typename riemann_t 
@@ -52,14 +53,13 @@ struct hrsc_evolution_system_t {
                   , VEC( const int i 
                   ,      const int j 
                   ,      const int k)
-                  , int ngz
                   , grace::flux_array_t const fluxes
                   , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                   , double const dt 
                   , double const dtfact ) const 
     {
         static_cast<EvolSystem_t const *>(this)->template 
-            compute_x_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),ngz,fluxes,dx,dt,dtfact) ;
+            compute_x_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),fluxes,dx,dt,dtfact) ;
     }
 
     template< typename riemann_t 
@@ -69,14 +69,13 @@ struct hrsc_evolution_system_t {
                   , VEC( const int i 
                   ,      const int j 
                   ,      const int k)
-                  , int ngz
                   , grace::flux_array_t const fluxes
                   , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                   , double const dt 
                   , double const dtfact ) const 
     {
         static_cast<EvolSystem_t const *>(this)->template 
-            compute_y_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),ngz,fluxes,dx,dt,dtfact) ; 
+            compute_y_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),fluxes,dx,dt,dtfact) ; 
     }
 
     template< typename riemann_t 
@@ -86,14 +85,13 @@ struct hrsc_evolution_system_t {
                   , VEC( const int i 
                   ,      const int j 
                   ,      const int k)
-                  , int ngz
                   , grace::flux_array_t const fluxes
                   , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                   , double const dt 
                   , double const dtfact ) const  
     {
         static_cast<EvolSystem_t const *>(this)->template 
-            compute_z_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),ngz,fluxes,dx,dt,dtfact) ; 
+            compute_z_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),fluxes,dx,dt,dtfact) ; 
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -132,6 +130,7 @@ struct hrsc_evolution_system_t {
     
  protected: 
     grace::var_array_t _state, _aux ; 
+    grace::staggered_variable_arrays_t _stag_state;
 } ; 
 
 }

@@ -63,6 +63,7 @@
 namespace grace {
 
 // FIXME (?) right now this creates a single task 
+template< var_staggering_t stag >
 task_id_t insert_restriction_tasks(
     std::unordered_set<size_t> const& cbuf_qid,
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
@@ -103,7 +104,7 @@ task_id_t insert_restriction_tasks(
         } ;
 
     task._run = [functor, policy] (view_alias_t alias) mutable {
-        functor.set_data_ptr(alias) ; 
+        functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Restrict start.") ; 
         #endif 
@@ -157,7 +158,7 @@ auto get_iter_policy(
 } 
 
 
-template< amr::element_kind_t elem_kind >
+template< amr::element_kind_t elem_kind, var_staggering_t stag >
 void make_gpu_restrict_gz_task(
     std::vector<gpu_task_desc_t> const& bucket,
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
@@ -190,20 +191,20 @@ void make_gpu_restrict_gz_task(
         if constexpr (elem_kind == FACE) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             if ( face.level_diff == level_diff_t::FINER ) {
-                for(int ic=0; ic<P4EST_CHILDREN/2; ++ic) face.data.hanging.task_id[ic] = task_counter; 
+                for(int ic=0; ic<P4EST_CHILDREN/2; ++ic) face.data.hanging.task_id[ic][stag] = task_counter; 
             } else {
-                face.data.full.task_id = task_counter; 
+                face.data.full.task_id[stag] = task_counter; 
             }
         } else if constexpr (elem_kind == EDGE) {
             auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             if ( edge.level_diff == level_diff_t::FINER ) {
-                for(int ic=0; ic<2; ++ic) edge.data.hanging.task_id[ic] = task_counter; 
+                for(int ic=0; ic<2; ++ic) edge.data.hanging.task_id[ic][stag] = task_counter; 
             } else {
-                edge.data.full.task_id = task_counter; 
+                edge.data.full.task_id[stag] = task_counter; 
             }
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ;
-            corner.data.task_id = task_counter;  
+            corner.data.task_id[stag] = task_counter;  
         }
     } ; 
 
@@ -211,19 +212,19 @@ void make_gpu_restrict_gz_task(
         if constexpr (elem_kind == FACE) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             ASSERT(face.level_diff != FINER, "In gz-restrict, FINER interfaces are forbidden by 2:1 balance.") ; 
-            insert_dependency(face.data.full.task_id) ; 
+            insert_dependency(face.data.full.task_id[stag]) ; 
             return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d) } ; 
         } else if constexpr (elem_kind == EDGE) {
             auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             ASSERT(edge.filled, "Edge passed to restrict_gz is virtual.") ; 
             ASSERT(edge.level_diff != FINER, "In gz-restrict, FINER interfaces are forbidden by 2:1 balance.") ; 
-            insert_dependency(edge.data.full.task_id) ;
+            insert_dependency(edge.data.full.task_id[stag]) ;
             return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d) } ;
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             ASSERT(corner.filled, "Corner passed to restrict_gz is virtual.") ; 
             ASSERT(corner.level_diff != FINER, "In gz-restrict, FINER interfaces are forbidden by 2:1 balance.") ; 
-            insert_dependency(corner.data.task_id) ; 
+            insert_dependency(corner.data.task_id[stag]) ; 
             return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d) } ;
         }
     } ; 
@@ -257,7 +258,7 @@ void make_gpu_restrict_gz_task(
     auto policy = get_iter_policy<elem_kind>(stream,nx,nv,bucket.size()) ; 
 
     task._run = [functor,policy] (view_alias_t alias) mutable {
-        functor.set_data_ptr(alias) ; 
+        functor.template set_data_ptr<stag>(alias) ; 
         Kokkos::parallel_for("ghostzone_restrict", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
@@ -293,6 +294,7 @@ void make_gpu_restrict_gz_task(
  * @param task_counter Current task counter.
  * @param task_list Task list.
  */
+template< var_staggering_t stag >
 void insert_ghost_restriction_tasks(
     std::unordered_set<size_t> const& cbuf_qid,
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
@@ -369,7 +371,7 @@ void insert_ghost_restriction_tasks(
     } ; 
     dedup(restrict_faces) ; dedup(restrict_edges) ; dedup(restrict_corners) ;
     // make and append tasks 
-    make_gpu_restrict_gz_task<amr::FACE>(
+    make_gpu_restrict_gz_task<amr::FACE, stag>(
         restrict_faces,
         ghost_array,
         state,
@@ -380,7 +382,7 @@ void insert_ghost_restriction_tasks(
         task_list
     ) ; 
 
-    make_gpu_restrict_gz_task<amr::EDGE>(
+    make_gpu_restrict_gz_task<amr::EDGE, stag>(
         restrict_edges,
         ghost_array,
         state,
@@ -391,7 +393,7 @@ void insert_ghost_restriction_tasks(
         task_list
     ) ; 
 
-    make_gpu_restrict_gz_task<amr::CORNER>(
+    make_gpu_restrict_gz_task<amr::CORNER, stag>(
         restrict_corners,
         ghost_array,
         state,

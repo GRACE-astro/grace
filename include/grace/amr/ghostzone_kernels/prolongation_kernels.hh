@@ -50,8 +50,10 @@ struct prolong_op {
 
     prolong_index_transformer_t transf; 
 
-    void set_data_ptr( view_alias_t alias ) {
-        view = alias.get() ;
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {
+        view = alias.get<stag>() ; 
     }
 
     prolong_op(

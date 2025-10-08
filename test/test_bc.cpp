@@ -115,34 +115,65 @@ elem_kind(size_t i, size_t j, size_t k, size_t n, size_t g)
     
 }
 
-template< typename view_t >
+template< grace::var_staggering_t stag, typename view_t>
 static void setup_initial_data(
     view_t host_data 
 ) 
 {
+    using namespace grace ; 
     auto& coord_system = grace::coordinate_system::get() ; 
+
+    std::array<bool,3> stagger {false,false,false}; 
+    std::array<double,3> lcoord {0.5,0.5,0.5} ; 
+    if ( stag == STAG_FACEX ) { 
+        stagger[0] = true ; 
+        lcoord[0] = 0 ; 
+    }
+    if ( stag == STAG_FACEY ) {
+        stagger[1] = true ; 
+        lcoord[1] = 0 ; 
+    }
+    if ( stag == STAG_FACEZ ) {
+        stagger[2] = true ;
+        lcoord[2] = 0 ; 
+    }; 
 
     grace::host_grid_loop<true>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             auto const itree = grace::amr::get_quadrant_owner(q) ; 
             auto pcoords = coord_system.get_physical_coordinates(
-                {VEC(i,j,k)}, q, {VEC(0.5,0.5,0.5)}, true 
+                {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
             host_data(VEC(i,j,k), 0, q) = fill_func(pcoords) ; 
-        }, {VEC(false,false,false)}, true 
+        }, stagger, true 
     ) ; 
 }
 
-template< typename view_t >
+template< grace::var_staggering_t stag, typename view_t >
 static void invalidate_ghostzones(
     view_t device_data
 )
 {
+    using namespace grace ; 
     size_t nx,ny,nz; 
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
     size_t nq = grace::amr::get_local_num_quadrants() ; 
     size_t ngz = static_cast<size_t>(grace::amr::get_n_ghosts()) ; 
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+
+    std::array<bool,3> stagger {false,false,false}; 
+    if ( stag == STAG_FACEX ) { 
+        stagger[0] = true ; 
+        nx ++;  
+    }
+    if ( stag == STAG_FACEY ) {
+        stagger[1] = true ; 
+        ny ++ ; 
+    }
+    if ( stag == STAG_FACEZ ) {
+        stagger[2] = true ;
+        nz ++ ; 
+    }; 
 
     auto host_data = Kokkos::create_mirror_view(device_data) ; 
     Kokkos::deep_copy(host_data, device_data) ; 
@@ -151,7 +182,7 @@ static void invalidate_ghostzones(
             if (is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz )) {
                 host_data(VEC(i,j,k), 0, q) = std::numeric_limits<double>::quiet_NaN() ; 
             }
-        }, {VEC(false,false,false)}, true 
+        }, stagger, true 
     ) ; 
     Kokkos::deep_copy(device_data, host_data) ; 
 }
@@ -197,21 +228,36 @@ static void collect_info(
 
 }
 
-template< typename view_t > 
+template< grace::var_staggering_t stag, typename view_t > 
 static void check_ghostzones(
     view_t host_data, view_t ground_truth
 ) 
 {
+    using namespace grace ; 
     size_t nx,ny,nz; 
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
     size_t nq = grace::amr::get_local_num_quadrants() ; 
     size_t ngz = static_cast<size_t>(grace::amr::get_n_ghosts()) ; 
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
 
+    std::array<bool,3> stagger {false,false,false}; 
+    if ( stag == STAG_FACEX ) { 
+        stagger[0] = true ; 
+        nx ++;  
+    }
+    if ( stag == STAG_FACEY ) {
+        stagger[1] = true ; 
+        ny ++ ; 
+    }
+    if ( stag == STAG_FACEZ ) {
+        stagger[2] = true ;
+        nz ++ ; 
+    }; 
+
     grace::host_grid_loop<false>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             if (
-            #if 1
+            #if 0
                 ! is_corner_ghostzone(
                 VEC(i,j,k), VEC(nx,ny,nz), ngz
             ) 
@@ -233,7 +279,7 @@ static void check_ghostzones(
                     1e-14 ) ) ; 
             }
             
-        }, {VEC(false,false,false)}, true 
+        }, stagger, true 
     ) ; 
 }
 
@@ -246,14 +292,28 @@ TEST_CASE("Apply BC", "[boundaries]")
     auto& runtime = ghost.get_task_executor() ; 
     // now the real test 
     auto& state = grace::variable_list::get().getstate() ; 
+    auto& stag_state = grace::variable_list::get().getstaggeredstate() ; 
     auto state_mirror = Kokkos::create_mirror_view(state) ; 
+    auto fx_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_x) ; 
+    auto fy_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_y) ; 
+    auto fz_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_z) ; 
+
+    GRACE_TRACE("In BC: size of fx {} {} {} {} {}, fy {} {} {} {} {}, fz {} {} {} {} {}"
+                , stag_state.face_staggered_fields_x.extent(0), stag_state.face_staggered_fields_x.extent(1), stag_state.face_staggered_fields_x.extent(2), stag_state.face_staggered_fields_x.extent(3), stag_state.face_staggered_fields_x.extent(4),
+                stag_state.face_staggered_fields_y.extent(0), stag_state.face_staggered_fields_y.extent(1), stag_state.face_staggered_fields_y.extent(2), stag_state.face_staggered_fields_y.extent(3), stag_state.face_staggered_fields_y.extent(4),
+                stag_state.face_staggered_fields_z.extent(0), stag_state.face_staggered_fields_z.extent(1), stag_state.face_staggered_fields_z.extent(2), stag_state.face_staggered_fields_z.extent(3), stag_state.face_staggered_fields_z.extent(4)) ;  
 
     /*************************************************/
     /*                     ID                        */
     /*************************************************/
-    setup_initial_data(state_mirror) ; 
+    setup_initial_data<STAG_CENTER>(state_mirror) ; 
     Kokkos::deep_copy(state, state_mirror) ; 
-
+    setup_initial_data<STAG_FACEX>(fx_mirror) ;
+    Kokkos::deep_copy(stag_state.face_staggered_fields_x, fx_mirror) ;  
+    setup_initial_data<STAG_FACEY>(fy_mirror) ; 
+    Kokkos::deep_copy(stag_state.face_staggered_fields_y, fy_mirror) ;  
+    setup_initial_data<STAG_FACEZ>(fz_mirror) ; 
+    Kokkos::deep_copy(stag_state.face_staggered_fields_z, fz_mirror) ;  
     /*************************************************/
     /*                   Regrid                      */
     /*************************************************/
@@ -263,14 +323,32 @@ TEST_CASE("Apply BC", "[boundaries]")
         // size has changed
         state_mirror = Kokkos::create_mirror_view(state) ; 
         // reset ground truth 
-        setup_initial_data(state_mirror) ; 
-        Kokkos::deep_copy(state, state_mirror) ; 
+        setup_initial_data<STAG_CENTER>(state_mirror) ; 
+        Kokkos::deep_copy(state, state_mirror) ;
+        setup_initial_data<STAG_FACEX>(fx_mirror) ;
+        Kokkos::deep_copy(stag_state.face_staggered_fields_x, fx_mirror) ;  
+        setup_initial_data<STAG_FACEY>(fy_mirror) ; 
+        Kokkos::deep_copy(stag_state.face_staggered_fields_y, fy_mirror) ;  
+        setup_initial_data<STAG_FACEZ>(fz_mirror) ; 
+        Kokkos::deep_copy(stag_state.face_staggered_fields_z, fz_mirror) ;  
     }
     collect_info(ghost.get_ghost_layer()) ; 
-    invalidate_ghostzones(state) ; 
-    view_alias_t alias{&state} ;
+    invalidate_ghostzones<STAG_CENTER>(state) ; 
+    invalidate_ghostzones<STAG_FACEX>(stag_state.face_staggered_fields_x) ; 
+    invalidate_ghostzones<STAG_FACEY>(stag_state.face_staggered_fields_y) ; 
+    invalidate_ghostzones<STAG_FACEZ>(stag_state.face_staggered_fields_z) ; 
+    view_alias_t alias{&state,&stag_state} ;
     runtime.run(alias) ; 
     auto state_mirror_2 = Kokkos::create_mirror_view(state) ; 
     Kokkos::deep_copy(state_mirror_2, state) ; 
-    check_ghostzones(state_mirror_2, state_mirror) ; 
+    check_ghostzones<STAG_CENTER>(state_mirror_2, state_mirror) ;
+    auto fx_mirror_2 = Kokkos::create_mirror_view(stag_state.face_staggered_fields_x) ; 
+    Kokkos::deep_copy(fx_mirror_2, stag_state.face_staggered_fields_x) ; 
+    check_ghostzones<STAG_FACEX>(fx_mirror_2, fx_mirror) ;
+    auto fy_mirror_2 = Kokkos::create_mirror_view(stag_state.face_staggered_fields_y) ; 
+    Kokkos::deep_copy(fy_mirror_2, stag_state.face_staggered_fields_y) ; 
+    check_ghostzones<STAG_FACEY>(fy_mirror_2, fy_mirror) ;
+    auto fz_mirror_2 = Kokkos::create_mirror_view(stag_state.face_staggered_fields_z) ; 
+    Kokkos::deep_copy(fz_mirror_2, stag_state.face_staggered_fields_z) ; 
+    check_ghostzones<STAG_FACEZ>(fz_mirror_2, fz_mirror) ;
 }

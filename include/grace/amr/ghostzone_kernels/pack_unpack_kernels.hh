@@ -55,8 +55,10 @@ struct pack_op {
 
     index_transformer_t transf ; 
 
-    void set_data_ptr(view_alias_t alias) {
-        src_view = alias.get() ; 
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {
+        src_view = alias.get<stag>() ; 
     }
 
     pack_op(
@@ -116,8 +118,10 @@ struct unpack_op {
 
     index_transformer_t transf ; 
 
-    void set_data_ptr(view_alias_t alias) {
-        dest_view = alias.get() ; 
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {
+        dest_view = alias.get<stag>() ; 
     }
 
     unpack_op(
@@ -176,7 +180,9 @@ struct pack_to_cbuf_op {
 
     index_transformer_t transf ; 
 
-    void set_data_ptr(view_alias_t alias) const { }
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {}
 
     pack_to_cbuf_op(
         view_t _view,
@@ -237,8 +243,10 @@ struct unpack_from_cbuf_op {
 
     index_transformer_t transf ; 
 
-    void set_data_ptr(view_alias_t alias) {
-        view = alias.get() ; 
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {
+        view = alias.get<stag>() ; 
     }
 
     unpack_from_cbuf_op(
@@ -310,7 +318,9 @@ struct unpack_to_cbuf_op {
 
     index_transformer_t transf ; 
 
-    void set_data_ptr(view_alias_t alias) const {}
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {}
 
     unpack_to_cbuf_op(
         ghost_array_t _ghost_view,

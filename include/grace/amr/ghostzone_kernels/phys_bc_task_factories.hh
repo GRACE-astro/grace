@@ -61,7 +61,8 @@
 namespace grace {
 
 template< amr::element_kind_t elem_kind 
-        , amr::element_kind_t bc_kind >
+        , amr::element_kind_t bc_kind 
+        , var_staggering_t stag >
 task_id_t 
 make_gpu_phys_bc_task(
     std::vector<size_t> const& qid_h,
@@ -106,7 +107,7 @@ make_gpu_phys_bc_task(
         } ;
     
     task._run = [functor, policy] (view_alias_t alias) mutable {
-        functor.set_data_ptr(alias) ; 
+        functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Fill phys start") ; 
         #endif 
@@ -221,7 +222,7 @@ get_cid_corner_face(const int8_t dir[3])
 // this returns a boolean indicating whether 
 // this task needs to be deferred due to unresolved 
 // dependencies 
-template< typename F >
+template< var_staggering_t stag, typename F >
 inline bool unpack_dependencies(
     int const& kind, 
     gpu_task_desc_t const& d, 
@@ -246,10 +247,11 @@ inline bool unpack_dependencies(
             if ( face.level_diff == FINER ) {
                 // fixme check this 
                 auto [c0,c1] = get_cids_edge_face(face_idx, edge.data.phys.dir) ;                 
-                insert_dependencies(EDGE,FACE,face.data.hanging.task_id[c0], is_cbuf) ; 
-                insert_dependencies(EDGE,FACE,face.data.hanging.task_id[c1], is_cbuf) ; 
+                insert_dependencies(EDGE,FACE,face.data.hanging.task_id[c0][stag], is_cbuf) ; 
+                insert_dependencies(EDGE,FACE,face.data.hanging.task_id[c1][stag], is_cbuf) ; 
             } else { 
-                insert_dependencies(EDGE,FACE,face.data.full.task_id, is_cbuf) ; 
+
+                insert_dependencies(EDGE,FACE,face.data.full.task_id[stag], is_cbuf) ; 
             }
         }
     } else {
@@ -261,9 +263,9 @@ inline bool unpack_dependencies(
             if ( edge.level_diff == FINER ) {
                 // fixme check this 
                 auto c0 = get_cid_corner_face(corner.phys.dir) ; 
-                insert_dependencies(CORNER,FACE,edge.data.hanging.task_id[c0], is_cbuf) ;
+                insert_dependencies(CORNER,FACE,edge.data.hanging.task_id[c0][stag], is_cbuf) ;
             } else {
-                insert_dependencies(CORNER,FACE,edge.data.full.task_id, is_cbuf) ;
+                insert_dependencies(CORNER,FACE,edge.data.full.task_id[stag], is_cbuf) ;
             }
         } else if ( type == EDGE ) {
             // we want to check if nearby edges are in cbufs, if so, this needs
@@ -282,7 +284,7 @@ inline bool unpack_dependencies(
 } /* namespace detail */
 
 
-
+template< var_staggering_t stag> 
 bucket_t insert_phys_bc_tasks(
     bucket_t phys_bc_tasks,
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
@@ -332,13 +334,13 @@ bucket_t insert_phys_bc_tasks(
             auto _eid = eid[i] ; 
             if ( elem_kind == amr::element_kind_t::FACE ) {
                 auto& face = ghost_array[_qid].faces[_eid] ; 
-                face.data.phys.task_id = tid ;
+                face.data.phys.task_id[stag] = tid ;
             } else if (elem_kind == amr::element_kind_t::EDGE) {
                 auto& edge = ghost_array[_qid].edges[_eid] ; 
-                edge.data.phys.task_id = tid ;
+                edge.data.phys.task_id[stag] = tid ;
             } else {
                 auto& corner = ghost_array[_qid].corners[_eid] ; 
-                corner.phys.task_id = tid ;
+                corner.phys.task_id[stag] = tid ;
             }
         }
         
@@ -354,7 +356,7 @@ bucket_t insert_phys_bc_tasks(
             // for CORNER, EDGE we depend on EDGE FACE BCs 
             // for CORNER CORNER we depend on EDGE BCs 
             auto [is_cbuf,_cid,_qid,_eid,dx,dy,dz,type] = grace::detail::get_phys_bc_info(kind, ghost_array, d) ; 
-            auto is_deferred = grace::detail::unpack_dependencies(kind, d, ghost_array, is_cbuf, insert_dependencies);
+            auto is_deferred = grace::detail::unpack_dependencies<stag>(kind, d, ghost_array, is_cbuf, insert_dependencies);
 
             if ( is_cbuf ) {
                 cid_cbuf[kind][type].push_back(_cid) ; 
@@ -376,7 +378,7 @@ bucket_t insert_phys_bc_tasks(
     // face face is safe to schedule
     task_id_t tid ; 
     if ( qid[FACE][FACE].size() >0 ) {
-        tid =make_gpu_phys_bc_task<FACE,FACE>(
+        tid =make_gpu_phys_bc_task<FACE,FACE,stag>(
             qid[FACE][FACE],
             eid[FACE][FACE],
             dir[FACE][FACE],
@@ -391,7 +393,7 @@ bucket_t insert_phys_bc_tasks(
     }
     if( qid[EDGE][FACE].size() > 0 ) {
         // edges in faces are also fine 
-        tid = make_gpu_phys_bc_task<EDGE,FACE>(
+        tid = make_gpu_phys_bc_task<EDGE,FACE,stag>(
             qid[EDGE][FACE],
             eid[EDGE][FACE],
             dir[EDGE][FACE],
@@ -405,7 +407,7 @@ bucket_t insert_phys_bc_tasks(
     }
     if (qid[CORNER][FACE].size() > 0) {
         // and corners in faces 
-        tid =make_gpu_phys_bc_task<CORNER,FACE>(
+        tid =make_gpu_phys_bc_task<CORNER,FACE,stag>(
             qid[CORNER][FACE],
             eid[CORNER][FACE],
             dir[CORNER][FACE],
@@ -419,7 +421,7 @@ bucket_t insert_phys_bc_tasks(
     }
     if (qid[EDGE][EDGE].size() > 0 ) {
         // edges in edges are fine 
-        tid = make_gpu_phys_bc_task<EDGE,EDGE>(
+        tid = make_gpu_phys_bc_task<EDGE,EDGE,stag>(
             qid[EDGE][EDGE],
             eid[EDGE][EDGE],
             dir[EDGE][EDGE],
@@ -433,7 +435,7 @@ bucket_t insert_phys_bc_tasks(
     }
     if ( qid[CORNER][CORNER].size() > 0 ) { 
         // and corners in corners 
-        tid = make_gpu_phys_bc_task<CORNER,CORNER>(
+        tid = make_gpu_phys_bc_task<CORNER,CORNER,stag>(
             qid[CORNER][CORNER],
             eid[CORNER][CORNER],
             dir[CORNER][CORNER],
@@ -449,7 +451,7 @@ bucket_t insert_phys_bc_tasks(
         // edges in faces, some of which 
         // might now only be filled in 
         // cbufs, so we need to wait
-        tid = make_gpu_phys_bc_task<CORNER,EDGE>(
+        tid = make_gpu_phys_bc_task<CORNER,EDGE,stag>(
             qid[CORNER][EDGE],
             eid[CORNER][EDGE],
             dir[CORNER][EDGE],
@@ -468,7 +470,7 @@ bucket_t insert_phys_bc_tasks(
     ASSERT(qid_cbuf[CORNER][CORNER].size() == 0, "No corners can be in cbufs") ; 
     if (qid_cbuf[EDGE][FACE].size() > 0 ) {
         // == 
-        tid = make_gpu_phys_bc_task<EDGE,FACE>(
+        tid = make_gpu_phys_bc_task<EDGE,FACE,stag>(
             cid_cbuf[EDGE][FACE],
             eid_cbuf[EDGE][FACE],
             dir_cbuf[EDGE][FACE],
@@ -481,7 +483,7 @@ bucket_t insert_phys_bc_tasks(
     }
     if (qid_cbuf[CORNER][FACE].size() > 0) {
         // == 
-        tid = make_gpu_phys_bc_task<CORNER,FACE>(
+        tid = make_gpu_phys_bc_task<CORNER,FACE,stag>(
             cid_cbuf[CORNER][FACE],
             eid_cbuf[CORNER][FACE],
             dir_cbuf[CORNER][FACE],
@@ -498,6 +500,7 @@ bucket_t insert_phys_bc_tasks(
     return deferred_phys_bcs ;
 }
 
+template< var_staggering_t stag >
 void insert_deferred_phys_bc_tasks(
     bucket_t phys_bc_tasks,
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
@@ -537,13 +540,13 @@ void insert_deferred_phys_bc_tasks(
             auto _eid = eid[i] ; 
             if ( elem_kind == amr::element_kind_t::FACE ) {
                 auto& face = ghost_array[_qid].faces[_eid] ; 
-                face.data.phys.task_id = tid ;
+                face.data.phys.task_id[stag] = tid ;
             } else if (elem_kind == amr::element_kind_t::EDGE) {
                 auto& edge = ghost_array[_qid].edges[_eid] ; 
-                edge.data.phys.task_id = tid ;
+                edge.data.phys.task_id[stag] = tid ;
             } else {
                 auto& corner = ghost_array[_qid].corners[_eid] ; 
-                corner.phys.task_id = tid ;
+                corner.phys.task_id[stag] = tid ;
             }
         }
         
@@ -559,7 +562,7 @@ void insert_deferred_phys_bc_tasks(
             // for CORNER, EDGE we depend on EDGE FACE BCs 
             // for CORNER CORNER we depend on EDGE BCs 
             auto [dummy,dummy3,_qid,_eid,dx,dy,dz,type] = grace::detail::get_phys_bc_info(kind, ghost_array, d) ; 
-            auto dummy2 = grace::detail::unpack_dependencies(kind, d, ghost_array, false, insert_dependencies);
+            auto dummy2 = grace::detail::unpack_dependencies<stag>(kind, d, ghost_array, false, insert_dependencies);
 
             qid[kind][type].push_back(_qid) ; 
             eid[kind][type].push_back(_eid) ; 
@@ -569,7 +572,7 @@ void insert_deferred_phys_bc_tasks(
 
     task_id_t tid ; 
     if (qid[EDGE][FACE].size() > 0) {
-        tid = make_gpu_phys_bc_task<EDGE,FACE>(
+        tid = make_gpu_phys_bc_task<EDGE,FACE,stag>(
             qid[EDGE][FACE],
             eid[EDGE][FACE],
             dir[EDGE][FACE],
@@ -584,7 +587,7 @@ void insert_deferred_phys_bc_tasks(
     
     
     if( qid[CORNER][FACE].size() > 0 ) {
-        tid = make_gpu_phys_bc_task<CORNER,FACE>(
+        tid = make_gpu_phys_bc_task<CORNER,FACE,stag>(
             qid[CORNER][FACE],
             eid[CORNER][FACE],
             dir[CORNER][FACE],
@@ -596,7 +599,7 @@ void insert_deferred_phys_bc_tasks(
         set_task_id(CORNER,qid[CORNER][FACE],eid[CORNER][FACE],tid) ;
     }
     if (qid[CORNER][EDGE].size()>0){
-        tid = make_gpu_phys_bc_task<CORNER,EDGE>(
+        tid = make_gpu_phys_bc_task<CORNER,EDGE,stag>(
             qid[CORNER][EDGE],
             eid[CORNER][EDGE],
             dir[CORNER][EDGE],

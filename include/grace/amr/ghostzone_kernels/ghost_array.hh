@@ -152,7 +152,7 @@ private:
         return get(ii,jj,kk,iv,ie,cstrides[0],cstrides[1],cstrides[2],cstrides[3],offset) ; 
     }
     readonly_view_t<std::size_t> rank_offsets, edge_offsets, corner_offsets, cbuf_face_offsets, cbuf_edge_offsets, cbuf_corner_offsets ; 
-    std::array<size_t, 4> fstrides, estrides, cstrides ;
+    std::array<size_t, 4> fstrides, estrides, cstrides, cfstrides, cestrides ;
     Kokkos::View<double *, grace::default_space> _data ; 
     std::size_t _size ; 
 } ; 

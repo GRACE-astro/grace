@@ -248,7 +248,7 @@ contract_4dvec_4dcovec( std::array<double,4> const& v
  * @brief Contract a spatial vector and covector
  * 
  * @param v Contravariant components of the vector.
- * @param w Contravariant components of the covector.
+ * @param w Covariant components of the covector.
  * @return double \f$v^{i} w_{i}\f$.
  */
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -256,6 +256,19 @@ contract_vec_covec( std::array<double,3> const& v
                   , std::array<double,3> const& w ) const
 {
     return v[0]*w[0] + v[1] * w[1] + v[2] * w[2] ; 
+}
+/**
+ * @brief Contract two spatial vectors
+ * 
+ * @param v Contravariant components of the vector.
+ * @param w Contravariant components of the second vector.
+ * @return double \f$\gamma_{ij} v^{i} w^{j}\f$.
+ */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_vec_vec( std::array<double,3> const& v
+                , std::array<double,3> const& w ) const
+{
+    return contract_vec_covec(v,lower(w)); 
 }
 /**
  * @brief Compute the full contraction of two

@@ -396,7 +396,7 @@ void regrid() {
     int nvars_hrsc = grace::variables::get_n_hrsc() ; 
     GRACE_TRACE("Resizing flux array {} flux vars registered", nvars_hrsc) ; 
     Kokkos::realloc( fluxes
-                   , VEC( nx + 1,ny + 1,nz + 1)
+                   , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
                    , nvars_hrsc 
                    , GRACE_NSPACEDIM
                    , nq_local 

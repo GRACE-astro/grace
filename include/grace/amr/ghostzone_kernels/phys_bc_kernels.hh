@@ -112,9 +112,10 @@ struct phys_bc_op {
     // halved, just do it here 
     size_t n, ngz ; 
 
-    void set_data_ptr(view_alias_t alias) {
-        if ( ! is_cbuf )
-            data = alias.get() ; 
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {
+        if (!is_cbuf) data = alias.get<stag>() ; 
     }
 
 

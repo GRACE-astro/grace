@@ -135,6 +135,15 @@ public:
     getstaggeredstate() { return _staggered_vars ; }
     //*****************************************************************************************************
     /**
+     * @brief Get staggered state scratch vector
+     * 
+     * @return The staggered state scratch vector, containing all evolved staggered variables
+     *         on all local cells.  
+     */
+    GRACE_ALWAYS_INLINE staggered_variable_arrays_t&  
+    getstaggeredscratch() { return _staggered_vars_p ; }
+    //*****************************************************************************************************
+    /**
      * @brief Get the scratch state vector 
      * 
      * @return The scratch state vector, used during time 

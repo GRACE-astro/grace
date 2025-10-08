@@ -116,7 +116,7 @@ static void register_physical_boundary_edge(
                 edge.data.phys.in_cbuf = false ;
                 edge.data.phys.type = sides.size() == 1 ? amr::element_kind_t::EDGE : amr::element_kind_t::FACE ;
                 neighbors[qid].n_registered_edges++ ; 
-                edge.data.phys.task_id = UNSET_TASK_ID;
+                edge.data.phys.task_id.fill(UNSET_TASK_ID);
             }
 
         } else {
@@ -133,7 +133,7 @@ static void register_physical_boundary_edge(
             edge.data.phys.in_cbuf = false ;
             edge.data.phys.type = sides.size() == 1 ? amr::element_kind_t::EDGE : amr::element_kind_t::FACE ; 
             neighbors[qid].n_registered_edges++ ; 
-            edge.data.phys.task_id = UNSET_TASK_ID;
+            edge.data.phys.task_id.fill(UNSET_TASK_ID);
         }
     }
     
@@ -151,7 +151,7 @@ inline void fill_full_edge_desc(edge_descriptor_t& desc,
     desc.kind = interface_kind_t::INTERNAL;
     desc.data.full.quad_id = qid;
     desc.data.full.is_remote = is_remote;
-    desc.data.full.task_id = UNSET_TASK_ID;
+    desc.data.full.task_id.fill(UNSET_TASK_ID);
     if (is_remote) {
         desc.data.full.owner_rank =
             p4est_comm_find_owner(grace::amr::forest::get().get(), treeid, quad, 0);
@@ -171,7 +171,7 @@ inline void fill_hanging_edge_desc(edge_descriptor_t& desc,
     desc.kind = interface_kind_t::INTERNAL;
     desc.data.hanging.quad_id[islot] = qid;
     desc.data.hanging.is_remote[islot] = is_remote;
-    desc.data.hanging.task_id[islot] = UNSET_TASK_ID;
+    desc.data.hanging.task_id[islot].fill(UNSET_TASK_ID);
     if (is_remote) {
         desc.data.hanging.owner_rank[islot] =
             p4est_comm_find_owner(grace::amr::forest::get().get(), treeid, quad, 0);

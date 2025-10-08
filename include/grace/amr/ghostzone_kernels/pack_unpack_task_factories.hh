@@ -79,7 +79,7 @@ namespace grace {
  * @param task_list List of tasks.
  * @return gpu_task_t Task encapsulating the copy of data to send buffers.
  */
-template< amr::element_kind_t elem_kind >
+template< amr::element_kind_t elem_kind, var_staggering_t stag >
 gpu_task_t make_pack_task(
       std::vector<gpu_task_desc_t> const& sb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
@@ -141,7 +141,7 @@ gpu_task_t make_pack_task(
     } ; 
     
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
-        pack_functor.set_data_ptr(alias) ; 
+        pack_functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Pack start.") ; 
         #endif
@@ -160,7 +160,7 @@ gpu_task_t make_pack_task(
     return pack_task ; 
 }
 
-template< amr::element_kind_t elem_kind >
+template< amr::element_kind_t elem_kind, var_staggering_t stag >
 gpu_task_t make_pack_fine_task(
       std::vector<gpu_hanging_task_desc_t> const& sb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
@@ -222,7 +222,7 @@ gpu_task_t make_pack_fine_task(
     } ; 
     
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
-        pack_functor.set_data_ptr(alias) ; 
+        pack_functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Pack start.") ; 
         #endif 
@@ -257,7 +257,7 @@ gpu_task_t make_pack_fine_task(
  * @param task_list List of tasks.
  * @return gpu_task_t Task encapsulating the copy of data to send buffers.
  */
-template< amr::element_kind_t elem_kind >
+template< amr::element_kind_t elem_kind, var_staggering_t stag >
 gpu_task_t make_pack_to_cbuf_task(
       std::vector<gpu_task_desc_t> const& sb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
@@ -358,7 +358,7 @@ gpu_task_t make_pack_to_cbuf_task(
  * @param task_list 
  * @return gpu_task_t 
  */
-template< amr::element_kind_t elem_kind >
+template< amr::element_kind_t elem_kind, var_staggering_t stag >
 gpu_task_t make_unpack_task(
       std::vector<gpu_task_desc_t> const& rb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
@@ -398,13 +398,13 @@ gpu_task_t make_unpack_task(
     {
         if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
-            face.data.full.task_id = task_counter ;
+            face.data.full.task_id[stag] = task_counter ;
         } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
             auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
-            edge.data.full.task_id = task_counter ;
+            edge.data.full.task_id[stag] = task_counter ;
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
-            corner.data.task_id = task_counter ;
+            corner.data.task_id[stag] = task_counter ;
         }
     } ; 
 
@@ -434,7 +434,7 @@ gpu_task_t make_unpack_task(
     } ; 
     
     unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {
-        unpack_functor.set_data_ptr(alias) ; 
+        unpack_functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Unpack start.") ; 
         #endif 
@@ -453,7 +453,7 @@ gpu_task_t make_unpack_task(
     return unpack_task ; 
 }
 
-template< amr::element_kind_t elem_kind >
+template< amr::element_kind_t elem_kind, var_staggering_t stag>
 gpu_task_t make_unpack_to_cbuf_task(
       std::vector<gpu_task_desc_t> const& rb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
@@ -497,13 +497,13 @@ gpu_task_t make_unpack_to_cbuf_task(
     {
         if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
-            face.data.full.task_id = task_counter ;
+            face.data.full.task_id[stag] = task_counter ;
         } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
             auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
-            edge.data.full.task_id = task_counter ;
+            edge.data.full.task_id[stag] = task_counter ;
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
-            corner.data.task_id = task_counter ;
+            corner.data.task_id[stag] = task_counter ;
         }
     } ; 
     size_t i = 0UL; 
@@ -553,7 +553,7 @@ gpu_task_t make_unpack_to_cbuf_task(
     return unpack_task ; 
 }
 
-template< amr::element_kind_t elem_kind >
+template< amr::element_kind_t elem_kind, var_staggering_t stag >
 gpu_task_t make_unpack_from_cbuf_task(
       std::vector<gpu_hanging_task_desc_t> const& rb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
@@ -597,13 +597,13 @@ gpu_task_t make_unpack_from_cbuf_task(
     {
         if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
-            face.data.hanging.task_id[std::get<2>(d)] = task_counter ;
+            face.data.hanging.task_id[std::get<2>(d)][stag] = task_counter ;
         } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
             auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
-            edge.data.hanging.task_id[std::get<2>(d)] = task_counter ;
+            edge.data.hanging.task_id[std::get<2>(d)][stag] = task_counter ;
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
-            corner.data.task_id = task_counter ;
+            corner.data.task_id[stag] = task_counter ;
         }
     } ; 
     size_t i = 0UL; 
@@ -634,7 +634,7 @@ gpu_task_t make_unpack_from_cbuf_task(
     } ; 
     
     unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {
-        unpack_functor.set_data_ptr(alias) ; 
+        unpack_functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE("Unpack start.") ; 
         #endif 
@@ -654,6 +654,7 @@ gpu_task_t make_unpack_from_cbuf_task(
     return unpack_task ; 
 }
 
+template< var_staggering_t stag >
 void insert_pup_tasks(
       std::vector<quad_neighbors_descriptor_t> & ghost_array
     , std::vector<bucket_t> const& pack_kernels
@@ -681,7 +682,7 @@ void insert_pup_tasks(
     if(pack_kernels[r][static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
-            make_pack_task<kind>( \
+            make_pack_task<kind,stag>( \
                 pack_kernels[r][static_cast<size_t>(kind)], \
                 ghost_array, r, data, \
                 send_buf, send_task_id, pup_stream, \
@@ -694,7 +695,7 @@ void insert_pup_tasks(
     if(pack_finer_kernels[r][static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
-            make_pack_fine_task<kind>( \
+            make_pack_fine_task<kind,stag>( \
                 pack_finer_kernels[r][static_cast<size_t>(kind)], \
                 ghost_array, r, data, \
                 send_buf, send_task_id, pup_stream, \
@@ -707,7 +708,7 @@ void insert_pup_tasks(
     if(pack_to_cbuf_kernels[r][static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
-            make_pack_to_cbuf_task<kind>( \
+            make_pack_to_cbuf_task<kind,stag>( \
                 pack_to_cbuf_kernels[r][static_cast<size_t>(kind)], \
                 ghost_array, r, coarse_buffers, \
                 send_buf, send_task_id, pup_stream, \
@@ -721,7 +722,7 @@ void insert_pup_tasks(
     if (unpack_kernels[r][static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
-            make_unpack_task<kind>( \
+            make_unpack_task<kind,stag>( \
                 unpack_kernels[r][static_cast<size_t>(kind)], \
                 ghost_array, r, data, \
                 recv_buf, recv_task_id, pup_stream, \
@@ -735,7 +736,7 @@ void insert_pup_tasks(
     if (unpack_to_cbuf_kernels[r][static_cast<size_t>(kind)].size()>0) \
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
-            make_unpack_to_cbuf_task<kind>( \
+            make_unpack_to_cbuf_task<kind,stag>( \
                 unpack_to_cbuf_kernels[r][static_cast<size_t>(kind)], \
                 ghost_array, r, coarse_buffers, \
                 recv_buf, recv_task_id, pup_stream, \
@@ -749,7 +750,7 @@ void insert_pup_tasks(
     if(unpack_from_cbuf_kernels[r][static_cast<size_t>(kind)].size()>0) \
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
-            make_unpack_from_cbuf_task<kind>( \
+            make_unpack_from_cbuf_task<kind,stag>( \
                 unpack_from_cbuf_kernels[r][static_cast<size_t>(kind)], \
                 ghost_array, r, data, \
                 recv_buf, recv_task_id, pup_stream, \
