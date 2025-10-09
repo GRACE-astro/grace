@@ -420,17 +420,12 @@ struct grmhd_equations_system_t
         cons[TAUL]  = vars(TAU_)         ;
         cons[YESL]  = vars(YESTAR_)      ; 
         cons[ENTSL] = vars(ENTROPYSTAR_) ; 
-        cons[BSXL]  = Bx(VEC(i,j,k)) ; 
-        cons[BSYL]  = By(VEC(i,j,k)) ; 
-        cons[BSZL]  = Bz(VEC(i,j,k)) ; 
+        cons[BSXL]  = 0.5*(Bx(VEC(i,j,k)) + Bx(VEC(i+1,j,k))) ; 
+        cons[BSYL]  = 0.5*(By(VEC(i,j,k)) + By(VEC(i,j+1,k))) ; 
+        cons[BSZL]  = 0.5*(Bz(VEC(i,j,k)) + Bz(VEC(i,j,k+1))) ; 
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
-        grmhd_prims_array_t prims ;
-        // fill cell-centered B-field 
-        prims[BXL] = 0.5*(Bx(VEC(i,j,k)) + Bx(VEC(i+1,j,k)));
-        prims[BYL] = 0.5*(By(VEC(i,j,k)) + By(VEC(i,j+1,k)));
-        prims[BZL] = 0.5*(Bz(VEC(i,j,k)) + Bz(VEC(i,j,k+1)));;
-
+        grmhd_prims_array_t prims ;        
         conservs_to_prims<eos_t>( cons, prims, metric
                                 , this->_eos, this->_lapse_excision ) ;
         /* Write new prims */
@@ -445,7 +440,7 @@ struct grmhd_equations_system_t
         aux(YE_)   = prims[YEL]     ;
         aux(BX_) = prims[BXL] ; 
         aux(BY_) = prims[BYL] ; 
-        aux(BZ_) = prims[BZL] ; 
+        aux(BZ_) = prims[BZL] ;
         /* Compute ZVEC */
         double const one_over_alp = 1./metric.alp(); 
         std::array<double,3> const vN {
@@ -507,8 +502,13 @@ struct grmhd_equations_system_t
         double dummy = _eos.press_h_csnd2__temp_rho_ye( h, csnd2, prims[TEMPL]
                                                       , prims[RHOL], prims[YEL], err ) ;
         /* Compute magnetosonic speed */
-        double const b2{0.} ;
-        double const v_A_sq = 0. ; // b2 / ( b2 + prims[RHOL]*h) ; 
+        double b2{0.} ;
+        std::array<double,4> dummy2 ; 
+        auto v2 = metric.square_vec({prims[VXL],prims[VYL],prims[VZL]}) ; 
+        auto W = 1 / Kokkos::sqrt(1-v2) ; 
+        compute_smallb(dummy2,b2,W,prims,metric) ; 
+        
+        double const v_A_sq =  b2 / ( b2 + prims[RHOL]*h) ; 
         double const v02 = v_A_sq + csnd2 * ( 1. - v_A_sq ) ;
         /* Find maximum eigenvalue (amongst all directions) */
         double cmax {0}; 
@@ -648,7 +648,20 @@ struct grmhd_equations_system_t
                          , primR[recon_indices_loc[ivar]]
                          , idir) ;
         }
-
+        /***********************************************************************/
+        /* Replace B^d_L/R with face staggered                                 */
+        /***********************************************************************/
+        if constexpr ( idir == 0 ) {
+            primL[BXL] = this->stag_state_.face_staggered_fields_x(VEC(i,j,k),BSX_,q) ; 
+            primR[BXL] = this->stag_state_.face_staggered_fields_x(VEC(i,j,k),BSX_,q) ; 
+        } else if constexpr ( idir == 1 ) {
+            primL[BYL] = this->stag_state_.face_staggered_fields_y(VEC(i,j,k),BSY_,q) ; 
+            primR[BYL] = this->stag_state_.face_staggered_fields_y(VEC(i,j,k),BSY_,q) ; 
+        } else {
+            primL[BZL] = this->stag_state_.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) ; 
+            primR[BZL] = this->stag_state_.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) ; 
+        }
+        
         /***********************************************************************/
         /* Compute u0 on both sides                                            */
         /***********************************************************************/
@@ -995,11 +1008,11 @@ struct grmhd_equations_system_t
                                                + (1. - theta) * f_LLF[STYL] ; 
         fluxes(VEC(i,j,k),SZ_,idir,q)          = theta * f_HLL[STZL]    
                                                + (1. - theta) * f_LLF[STZL] ; 
-        fluxes(VEC(i,j,k),BSX_,idir,q)          = theta * f_HLL[BSXL]    
+        fluxes(VEC(i,j,k),ENTROPYSTAR_+1,idir,q)          = theta * f_HLL[BSXL]    
                                                + (1. - theta) * f_LLF[BSXL] ; 
-        fluxes(VEC(i,j,k),BSY_,idir,q)          = theta * f_HLL[BSYL]    
+        fluxes(VEC(i,j,k),ENTROPYSTAR_+2,idir,q)          = theta * f_HLL[BSYL]    
                                                + (1. - theta) * f_LLF[BSYL] ; 
-        fluxes(VEC(i,j,k),BSZ_,idir,q)          = theta * f_HLL[BSZL]    
+        fluxes(VEC(i,j,k),ENTROPYSTAR_+3,idir,q)          = theta * f_HLL[BSZL]    
                                                + (1. - theta) * f_LLF[BSZL] ; 
         /***********************************************************************/
         #else 
@@ -1011,11 +1024,12 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[STXL] ; 
         fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL] ; 
         fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ;
-        fluxes(VEC(i,j,k),BSX_,idir,q)          = f_HLL[BSXL] ; 
-        fluxes(VEC(i,j,k),BSY_,idir,q)          = f_HLL[BSYL] ; 
-        fluxes(VEC(i,j,k),BSZ_,idir,q)          = f_HLL[BSZL] ; 
+        fluxes(VEC(i,j,k),ENTROPYSTAR_+1,idir,q)          = f_HLL[BSXL] ; 
+        fluxes(VEC(i,j,k),ENTROPYSTAR_+2,idir,q)          = f_HLL[BSYL] ; 
+        fluxes(VEC(i,j,k),ENTROPYSTAR_+3,idir,q)          = f_HLL[BSZL] ; 
         /***********************************************************************/
         #endif 
+        // 
     }
 
     template< size_t idir
@@ -1212,22 +1226,23 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* Get S_x flux                                                        */
         /***********************************************************************/
-        std::array<double,3> smallbDL{0,0,0}, smallbDR{0,0,0};
+        auto smallbDL = metric_face.lower_4vec(smallbL) ; 
+        auto smallbDR = metric_face.lower_4vec(smallbR) ; 
         /***********************************************************************/
         /* F^d_{S_x} = \alpha \sqrt{\gamma} T^d_x                              */
         /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_x                */
         /*                         + p \delta^d_x - b^d b_x )                  */  
         /***********************************************************************/
         fl = alpha_sqrtgamma * ( rho0_h_plus_b2_l * (u0_l*primL[VXL+idir])*uD_l[0]
-           + P_plus_half_b2_l*utils::delta(0,idir) - smallbL[idir+1]*smallbDL[0] ) ; 
+           + P_plus_half_b2_l*utils::delta(0,idir) - smallbL[idir+1]*smallbDL[1] ) ; 
         fr = alpha_sqrtgamma * ( rho0_h_plus_b2_r * (u0_r*primR[VXL+idir])*uD_r[0]
-           + P_plus_half_b2_r*utils::delta(0,idir) - smallbR[idir+1]*smallbDR[0] ) ;  
+           + P_plus_half_b2_r*utils::delta(0,idir) - smallbR[idir+1]*smallbDR[1] ) ;  
 
         double const s_x_l = alpha_sqrtgamma * (  rho0_h_plus_b2_l*u0_l*uD_l[0]
-                                                - smallbL[0]*smallbDL[0] ) ; 
+                                                - smallbL[0]*smallbDL[1] ) ; 
 
         double const s_x_r = alpha_sqrtgamma * (  rho0_h_plus_b2_r*u0_r*uD_r[0]
-                                                - smallbR[0]*smallbDR[0] ) ; 
+                                                - smallbR[0]*smallbDR[1] ) ; 
 
         /***********************************************************************/
         f[STXL] = solver(fl,fr,s_x_l,s_x_r,cmin,cmax) ; 
@@ -1243,16 +1258,16 @@ struct grmhd_equations_system_t
         /*                         + p \delta^d_y - b^d b_y )                  */  
         /***********************************************************************/
         fl = alpha_sqrtgamma * ( rho0_h_plus_b2_l * (u0_l*primL[VXL+idir])*uD_l[1]
-           + P_plus_half_b2_l*utils::delta(1,idir) - smallbL[idir+1]*smallbDL[1] ) ; 
+           + P_plus_half_b2_l*utils::delta(1,idir) - smallbL[idir+1]*smallbDL[2] ) ; 
         fr = alpha_sqrtgamma * ( rho0_h_plus_b2_r * (u0_r*primR[VXL+idir])*uD_r[1]
-           + P_plus_half_b2_r*utils::delta(1,idir) - smallbR[idir+1]*smallbDR[1] ) ;
+           + P_plus_half_b2_r*utils::delta(1,idir) - smallbR[idir+1]*smallbDR[2] ) ;
          
         
         double const s_y_l = alpha_sqrtgamma * ( rho0_h_plus_b2_l*u0_l*uD_l[1]
-                                               - smallbL[0]*smallbDL[1] ) ; 
+                                               - smallbL[0]*smallbDL[2] ) ; 
 
         double const s_y_r = alpha_sqrtgamma * ( rho0_h_plus_b2_r*u0_r*uD_r[1]
-                                               - smallbR[0]*smallbDR[1] ) ; 
+                                               - smallbR[0]*smallbDR[2] ) ; 
         
         /***********************************************************************/
         f[STYL] = solver(fl,fr,s_y_l,s_y_r,cmin,cmax) ;
@@ -1268,15 +1283,15 @@ struct grmhd_equations_system_t
         /*                         + p \delta^d_z - b^d b_z )                  */  
         /***********************************************************************/
         fl = alpha_sqrtgamma * ( rho0_h_plus_b2_l * u0_l*primL[VXL+idir]*uD_l[2]
-           + P_plus_half_b2_l*utils::delta(2,idir) - smallbL[idir+1]*smallbDL[2] ) ; 
+           + P_plus_half_b2_l*utils::delta(2,idir) - smallbL[idir+1]*smallbDL[3] ) ; 
         fr = alpha_sqrtgamma * ( rho0_h_plus_b2_r * u0_r*primR[VXL+idir]*uD_r[2]
-           + P_plus_half_b2_r*utils::delta(2,idir) - smallbR[idir+1]*smallbDR[2] ) ;  
+           + P_plus_half_b2_r*utils::delta(2,idir) - smallbR[idir+1]*smallbDR[3] ) ;  
 
         double const s_z_l = alpha_sqrtgamma * ( rho0_h_plus_b2_l*u0_l*uD_l[2]
-                                               - smallbL[0]*smallbDL[2] ) ; 
+                                               - smallbL[0]*smallbDL[3] ) ; 
 
         double const s_z_r = alpha_sqrtgamma * ( rho0_h_plus_b2_r*u0_r*uD_r[2]
-                                               - smallbR[0]*smallbDR[2] ) ; 
+                                               - smallbR[0]*smallbDR[3] ) ; 
 
         /***********************************************************************/
         f[STZL] = solver(fl,fr,s_z_l,s_z_r,cmin,cmax) ; 
@@ -1346,16 +1361,16 @@ struct grmhd_equations_system_t
         // simple minded, can be optimized later
         double const u0 = W / metric.alp() ; 
         std::array<double,3> const vi = { 
-            prims[VXL] / metric.alp() + metric.beta(0),
-            prims[VYL] / metric.alp() + metric.beta(1),
-            prims[VZL] / metric.alp() + metric.beta(2),
+            (prims[VXL]  + metric.beta(0))/metric.alp(),
+            (prims[VYL]  + metric.beta(1))/metric.alp(),
+            (prims[VZL]  + metric.beta(2))/metric.alp(),
         } ; 
         std::array<double,3> const ui = { 
             prims[VXL] * u0,
             prims[VYL] * u0,
             prims[VZL] * u0,
         } ;  
-        smallb[0] = metric.contract_vec_vec(vi,{prims[BXL],prims[BYL],prims[BZL]}) / u0 ; 
+        smallb[0] = metric.contract_vec_vec(vi,{prims[BXL],prims[BYL],prims[BZL]}) * u0 ; 
         for( int i=0; i<3; ++i) {
             smallb[i+1] = (prims[BXL+i] + metric.alp() * smallb[0] * ui[i])/W ; 
         }

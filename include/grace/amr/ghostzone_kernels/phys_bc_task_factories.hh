@@ -73,7 +73,7 @@ make_gpu_phys_bc_task(
     device_stream_t& stream, 
     task_id_t& task_counter,
     grace::var_array_t data_array,
-    size_t n, size_t nv, size_t ngz,
+    size_t nx, size_t ny, size_t nz, size_t nv, size_t ngz,
     std::vector<std::unique_ptr<task_t>>& task_list, bool is_cbuf=false
 )
 {
@@ -97,8 +97,9 @@ make_gpu_phys_bc_task(
 
     gpu_task_t task{} ;
 
+    auto const off = get_index_staggerings(stag) ; 
     amr::phys_bc_op<elem_kind,bc_kind,decltype(data_array)> functor{
-       data_array, qid_d, eid_d, dir_d, var_bc, VEC(n,n,n),ngz, is_cbuf
+       data_array, qid_d, eid_d, dir_d, var_bc, VEC(nx+off[0],ny+off[1],nz+off[2]),ngz, is_cbuf
     } ; 
     
     Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>   
@@ -384,7 +385,7 @@ bucket_t insert_phys_bc_tasks(
             dir[FACE][FACE],
             dependencies[FACE][FACE],
             var_bc, stream, task_counter,
-            state,nx,nv,ngz,task_list
+            state,nx,ny,nz,nv,ngz,task_list
         ) ; 
         // write back tid 
         set_task_id(FACE,qid[FACE][FACE],eid[FACE][FACE],tid) ; 
@@ -399,7 +400,7 @@ bucket_t insert_phys_bc_tasks(
             dir[EDGE][FACE],
             dependencies[EDGE][FACE],
             var_bc, stream, task_counter,
-            state,nx,nv,ngz,task_list
+            state,nx,ny,nz,nv,ngz,task_list
         ) ; 
         // write back tid 
         set_task_id(EDGE,qid[EDGE][FACE],eid[EDGE][FACE],tid) ;
@@ -413,7 +414,7 @@ bucket_t insert_phys_bc_tasks(
             dir[CORNER][FACE],
             dependencies[CORNER][FACE],
             var_bc, stream, task_counter,
-            state,nx,nv,ngz,task_list
+            state,nx,ny,nz,nv,ngz,task_list
         ) ; 
         // write back tid 
         set_task_id(CORNER,qid[CORNER][FACE],eid[CORNER][FACE],tid) ;
@@ -427,7 +428,7 @@ bucket_t insert_phys_bc_tasks(
             dir[EDGE][EDGE],
             dependencies[EDGE][EDGE],
             var_bc, stream, task_counter,
-            state,nx,nv,ngz,task_list
+            state,nx,ny,nz,nv,ngz,task_list
         ) ;
         // write back tid 
         set_task_id(EDGE,qid[EDGE][EDGE],eid[EDGE][EDGE],tid) ;
@@ -441,7 +442,7 @@ bucket_t insert_phys_bc_tasks(
             dir[CORNER][CORNER],
             dependencies[CORNER][CORNER],
             var_bc, stream, task_counter,
-            state,nx,nv,ngz,task_list
+            state,nx,ny,nz,nv,ngz,task_list
         ) ;
         // write back tid 
         set_task_id(CORNER,qid[CORNER][CORNER],eid[CORNER][CORNER],tid) ;
@@ -457,7 +458,7 @@ bucket_t insert_phys_bc_tasks(
             dir[CORNER][EDGE],
             dependencies[CORNER][EDGE],
             var_bc, stream, task_counter,
-            state,nx,nv,ngz,task_list
+            state,nx,ny,nz,nv,ngz,task_list
         ) ; 
         // write back tid 
         set_task_id(CORNER,qid[CORNER][EDGE],eid[CORNER][EDGE],tid) ;
@@ -476,7 +477,7 @@ bucket_t insert_phys_bc_tasks(
             dir_cbuf[EDGE][FACE],
             dependencies_cbuf[EDGE][FACE],
             var_bc, stream, task_counter,
-            coarse_buffers,nx/2,nv,ngz,task_list,true
+            coarse_buffers,nx/2,ny/2,nz/2,nv,ngz,task_list,true
         ) ; 
         // write back tid 
         set_task_id(EDGE,qid_cbuf[EDGE][FACE],eid_cbuf[EDGE][FACE],tid) ;
@@ -489,7 +490,7 @@ bucket_t insert_phys_bc_tasks(
             dir_cbuf[CORNER][FACE],
             dependencies_cbuf[CORNER][FACE],
             var_bc, stream, task_counter,
-            coarse_buffers,nx/2,nv,ngz,task_list,true
+            coarse_buffers,nx/2,ny/2,nz/2,nv,ngz,task_list,true
         ) ; 
         // write back tid 
         set_task_id(CORNER,qid_cbuf[CORNER][FACE],eid_cbuf[CORNER][FACE],tid) ;
@@ -578,7 +579,7 @@ void insert_deferred_phys_bc_tasks(
             dir[EDGE][FACE],
             dependencies[EDGE][FACE],
             var_bc, stream, task_counter,
-            state,nx,nv,ngz,task_list
+            state,nx,ny,nz,nv,ngz,task_list
         ) ; 
         dependencies[CORNER][EDGE].insert(tid) ;
         // write back tid 
@@ -593,7 +594,7 @@ void insert_deferred_phys_bc_tasks(
             dir[CORNER][FACE],
             dependencies[CORNER][FACE],
             var_bc, stream, task_counter,
-            state,nx,nv,ngz,task_list
+            state,nx,ny,nz,nv,ngz,task_list
         ) ; 
         // write back tid 
         set_task_id(CORNER,qid[CORNER][FACE],eid[CORNER][FACE],tid) ;
@@ -605,7 +606,7 @@ void insert_deferred_phys_bc_tasks(
             dir[CORNER][EDGE],
             dependencies[CORNER][EDGE],
             var_bc, stream, task_counter,
-            state,nx,nv,ngz,task_list
+            state,nx,ny,nz,nv,ngz,task_list
         ) ; 
         // write back tid 
         set_task_id(CORNER,qid[CORNER][EDGE],eid[CORNER][EDGE],tid) ;

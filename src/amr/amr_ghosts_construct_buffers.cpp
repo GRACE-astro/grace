@@ -206,19 +206,7 @@ void process_key_arrays(
 }
 
 
-void amr_ghosts_impl_t::build_remote_buffers(
-    bucket_t& phys_bc_kernels,
-    bucket_t& copy_kernels,
-    hang_bucket_t& copy_from_cbuf_kernels,
-    bucket_t& copy_to_cbuf_kernels,
-    std::vector<bucket_t>& pack_kernels, 
-    std::vector<bucket_t>& unpack_kernels,
-    std::vector<hang_bucket_t>& pack_finer_kernels,  
-    std::vector<bucket_t>& pack_to_cbuf_kernels,
-    std::vector<bucket_t>& unpack_to_cbuf_kernels,
-    std::vector<hang_bucket_t>& unpack_from_cbuf_kernels,
-    bucket_t& prolong_kernels
-) {
+void amr_ghosts_impl_t::build_remote_buffers() {
     // goals of this function: 
     // 1. come up with a unique ordering of mirror and 
     // ghost datasets (faces / edges / corners ) that 
@@ -235,7 +223,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
     auto nq = amr::get_local_num_quadrants() ; 
     std::size_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    auto ngz = amr::get_n_ghosts() ; 
+    size_t ngz = amr::get_n_ghosts() ; 
     // get n vars 
     std::size_t nvars = variables::get_n_evolved() ; 
     std::size_t nvars_f = variables::get_n_evolved() ; 
@@ -247,10 +235,11 @@ void amr_ghosts_impl_t::build_remote_buffers(
     unpack_from_cbuf_kernels.resize(nproc) ;
     /****************************************************/
     // start: allocate a bunch of temp helpers 
-    using svec_t = std::vector<size_t> ; 
-    using arr_svec_t = std::array<svec_t,6> ; // one per face / edge /corner 
+    using svec_t = std::array<std::vector<size_t>,N_VAR_STAGGERINGS> ; 
+    using arr_svec_t = std::array<std::array<std::vector<size_t>,6>,N_VAR_STAGGERINGS> ; // one per face / edge /corner 
     auto make_vec = [nproc]() { return std::vector<size_t>(nproc, 0); };
-    auto init_arr = [nproc, make_vec](arr_svec_t& arr) { std::generate(arr.begin(),arr.end(),make_vec); };
+    auto init_svec = [nproc, make_vec](auto& arr) { std::generate(arr.begin(),arr.end(),make_vec);};
+    auto init_arr = [nproc, make_vec, init_svec](arr_svec_t& arr) { for(int is=0; is<N_VAR_STAGGERINGS; ++is) init_svec(arr[is]) ; };
     // NB using a std::set here saves lots of hassle 
     std::set<comm_key_t,key_cmp> mirror_keys, halo_keys; 
     desc_map_t mirror_descs, halo_descs ; 
@@ -496,9 +485,9 @@ void amr_ghosts_impl_t::build_remote_buffers(
     }
 
     // counts of faces / edges / corners per rank (send & recv)
-    arr_svec_t rank_send_counts, rank_recv_counts;
-    init_arr(rank_send_counts);
-    init_arr(rank_recv_counts) ; 
+    std::array<std::vector<size_t>,6> rank_send_counts, rank_recv_counts;
+    init_svec(rank_send_counts);
+    init_svec(rank_recv_counts) ; 
     // This function fills the recv / send_id's of all the 
     // descriptors in the neighbor struct. It also fills the 
     // count vectors 
@@ -512,7 +501,7 @@ void amr_ghosts_impl_t::build_remote_buffers(
 
     // Finally now we compute offsets and total sizes,
     // the hard part is over! 
-    std::array<size_t,6> const elem_sizes {
+    std::array<size_t,6> const elem_sizes_c {
         nx * nx * ngz * nvars,
         nx * ngz * ngz * nvars,
         ngz * ngz * ngz * nvars,
@@ -530,168 +519,140 @@ void amr_ghosts_impl_t::build_remote_buffers(
         ngz * ngz * ngz * nvars_f
     } ; 
 
-    // compute message sizes 
-    send_rank_sizes = svec_t(nproc,0); 
-    recv_rank_sizes = svec_t(nproc,0);
+    std::array<std::array<size_t,6>,N_VAR_STAGGERINGS> elem_sizes ;
+    elem_sizes[0] = elem_sizes_c ; 
+    for( int is=1; is<N_VAR_STAGGERINGS; ++is) elem_sizes[is] = elem_sizes_f ; 
 
-    send_rank_sizes_f = svec_t(nproc,0); 
-    recv_rank_sizes_f = svec_t(nproc,0);
+     
     
+    // compute message sizes 
     arr_svec_t send_sizes, recv_sizes ; 
     init_arr(send_sizes);
     init_arr(recv_sizes) ; 
-    arr_svec_t send_sizes_f, recv_sizes_f ; 
-    init_arr(send_sizes_f);
-    init_arr(recv_sizes_f) ;
-    std::set<size_t> active_send, active_recv ; ; 
+    
+    init_svec(send_rank_sizes) ; 
+    init_svec(recv_rank_sizes) ;
+    
+    std::set<size_t> active_send, active_recv ; 
     for( int r=0; r<nproc; ++r) {
         for( int ik=0; ik<6; ++ik) {
-            // cell center 
-            send_sizes[ik][r] = elem_sizes[ik] * rank_send_counts[ik][r] ; 
-            send_rank_sizes[r] += send_sizes[ik][r] ; 
-            // face stag 
-            send_sizes_f[ik][r] = elem_sizes_f[ik] * rank_send_counts[ik][r] ; 
-            send_rank_sizes_f[r] += send_sizes_f[ik][r] ; 
-            // cell center 
-            recv_sizes[ik][r] = elem_sizes[ik] * rank_recv_counts[ik][r] ; 
-            recv_rank_sizes[r] += recv_sizes[ik][r] ;
-            // face stag 
-            recv_sizes_f[ik][r] = elem_sizes_f[ik] * rank_recv_counts[ik][r] ; 
-            recv_rank_sizes_f[r] += recv_sizes_f[ik][r]  ;
-            // just need to count once 
-            if ( send_sizes[ik][r] > 0 ) {
-            active_send.insert(r) ; 
+            // stagger loop 
+            for( int is=0; is<N_VAR_STAGGERINGS; ++is){
+                send_sizes[is][ik][r] = elem_sizes[is][ik] * rank_send_counts[ik][r] ; 
+                send_rank_sizes[is][r] += send_sizes[is][ik][r] ;
+                recv_sizes[is][ik][r] = elem_sizes[is][ik] * rank_recv_counts[ik][r] ; 
+                recv_rank_sizes[is][r] += recv_sizes[is][ik][r] ;
             }
-            if ( recv_sizes[ik][r] > 0 ) {
-            active_recv.insert(r) ; 
+            // just need to count once 
+            if ( rank_send_counts[ik][r] > 0 ) {
+                active_send.insert(r) ; 
+            }
+            if ( rank_recv_counts[ik][r] > 0 ) {
+                active_recv.insert(r) ; 
             }
         }
     }
+    for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag) {
+        ASSERT(send_rank_sizes[istag].size() == nproc, "Mismatch size in send") ; 
+        ASSERT(recv_rank_sizes[istag].size() == nproc, "Mismatch size in send") ; 
+    }
+    
 
     // Compute message offsets 
     arr_svec_t send_offsets, recv_offsets;
     init_arr(send_offsets);
     init_arr(recv_offsets) ;
-    arr_svec_t send_offsets_f, recv_offsets_f;
-    init_arr(send_offsets_f);
-    init_arr(recv_offsets_f) ;
 
-    for (int r = 0; r < nproc; ++r) {
-        size_t cur_send = 0, cur_recv = 0;
-        size_t cur_send_f = 0, cur_recv_f = 0 ; 
-        for (int ik = 0; ik < 6; ++ik) {
-            send_offsets[ik][r] = cur_send;
-            recv_offsets[ik][r] = cur_recv;
-            send_offsets_f[ik][r] = cur_send_f;
-            recv_offsets_f[ik][r] = cur_recv_f;
-            cur_send += send_sizes[ik][r];
-            cur_recv += recv_sizes[ik][r];
-            cur_send_f += send_sizes_f[ik][r] ; 
-            cur_recv_f += recv_sizes_f[ik][r] ; 
+    for ( int istag=0; istag<N_VAR_STAGGERINGS; ++istag) {
+        for (int r = 0; r < nproc; ++r) {
+            size_t cur_send = 0, cur_recv = 0;
+            for (int ik = 0; ik < 6; ++ik) {
+                send_offsets[istag][ik][r] = cur_send;
+                recv_offsets[istag][ik][r] = cur_recv;
+                cur_send += send_sizes[istag][ik][r];
+                cur_recv += recv_sizes[istag][ik][r]; 
+            }
         }
     }
-    ASSERT(send_rank_sizes.size() == nproc, "Mismatched size." ) ;
-    ASSERT(recv_rank_sizes.size() == nproc, "Mismatched size." ) ;
+
     std::array<std::string,6> labels {
         "faces", "edges", "corners",
         "cbuf_faces", "cbuf_edges", "cbuf_corners"
     } ; 
+    std::array<std::string,N_VAR_STAGGERINGS> stag_labels {
+        "cell center", "x face", "y face", "xy edge", "z face", "xz edge", "yz edge", "corner"
+    } ; 
     for( int r=0; r<nproc; ++r) {
         for( int ik=0; ik<6; ++ik){
-            GRACE_TRACE(
-                "Rank {} section {} send count {}, offset {}", r, labels[ik], rank_send_counts[ik][r], send_offsets[ik][r]
-            ) ; 
-            GRACE_TRACE(
-                "Rank {} section {} receive count {}, offset {}", r, labels[ik], rank_recv_counts[ik][r], recv_offsets[ik][r]
-            ) ; 
+            for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag ) {
+                GRACE_TRACE(
+                "Rank {} stag {} section {} send count {}, offset {}", r, stag_labels[istag], labels[ik], rank_send_counts[ik][r], send_offsets[istag][ik][r]
+                ) ; 
+                GRACE_TRACE(
+                    "Rank {} stag {} section {} receive count {}, offset {}", r, stag_labels[istag], labels[ik], rank_recv_counts[ik][r], recv_offsets[istag][ik][r]
+                ) ;
+            }
         }
     }
     // exclusive scan for rank offsets 
-    send_rank_offsets.resize(nproc) ; 
-    std::exclusive_scan( send_rank_sizes.begin(), send_rank_sizes.end()
-                       , send_rank_offsets.begin(), 0) ; 
-    recv_rank_offsets.resize(nproc) ; 
-    std::exclusive_scan( recv_rank_sizes.begin(), recv_rank_sizes.end()
-                       , recv_rank_offsets.begin(), 0) ;
+    for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag) {
+        send_rank_offsets[istag].resize(nproc) ; 
+        std::exclusive_scan( send_rank_sizes[istag].begin(), send_rank_sizes[istag].end()
+                           , send_rank_offsets[istag].begin(), 0) ; 
+        recv_rank_offsets[istag].resize(nproc) ; 
+        std::exclusive_scan( recv_rank_sizes[istag].begin(), recv_rank_sizes[istag].end()
+                            , recv_rank_offsets[istag].begin(), 0) ;
+    }
 
-    send_rank_offsets_f.resize(nproc) ; 
-    std::exclusive_scan( send_rank_sizes_f.begin(), send_rank_sizes_f.end()
-                       , send_rank_offsets_f.begin(), 0) ; 
-    recv_rank_offsets_f.resize(nproc) ; 
-    std::exclusive_scan( recv_rank_sizes_f.begin(), recv_rank_sizes_f.end()
-                       , recv_rank_offsets_f.begin(), 0) ;
 
+    std::array<size_t,N_VAR_STAGGERINGS> total_send_size, total_recv_size ; 
     // reduce for total sizes
-    size_t total_send_size = std::reduce(
-        send_rank_sizes.begin(), send_rank_sizes.end()
-    ); 
-    size_t total_recv_size = std::reduce(
-        recv_rank_sizes.begin(), recv_rank_sizes.end()
-    ); 
+    for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag) {
+        total_send_size[istag] = std::reduce(
+            send_rank_sizes[istag].begin(), send_rank_sizes[istag].end()
+        ); 
+        total_recv_size[istag] = std::reduce(
+            recv_rank_sizes[istag].begin(), recv_rank_sizes[istag].end()
+        ); 
+    }
 
-    size_t total_send_size_f = std::reduce(
-        send_rank_sizes_f.begin(), send_rank_sizes_f.end()
-    ); 
-    size_t total_recv_size_f = std::reduce(
-        recv_rank_sizes_f.begin(), recv_rank_sizes_f.end()
-    ); 
 
-    // allocate buffers
-    _send_buffer.set_offsets(
-        send_rank_offsets, send_offsets
-    ) ; 
-    _send_buffer.set_strides(nx,nvars,ngz,nx/2);
-    _send_buffer.realloc(total_send_size) ; 
+    std::array<std::array<size_t,4>, N_VAR_STAGGERINGS> strides {{
+        {{nx,nvars,ngz,nx/2}},
+        {{nx+1,nvars_f,ngz,nx/2+1}},
+        {{nx+1,nvars_f,ngz,nx/2+1}},
+        {{nx+1,nvars_f,ngz,nx/2+1}},
+        {{nx+1,nvars_f,ngz,nx/2+1}},
+        {{nx+1,nvars_f,ngz,nx/2+1}},
+        {{nx+1,nvars_f,ngz,nx/2+1}},
+        {{nx+1,nvars_f,ngz,nx/2+1}}
+    }} ; 
 
-    _recv_buffer.set_offsets(
-        recv_rank_offsets, recv_offsets
-    ) ; 
-    _recv_buffer.set_strides(nx,nvars,ngz,nx/2);
-    _recv_buffer.realloc(total_recv_size) ;
-    // face staggered -- x 
-    _send_buffer_fx.set_offsets(
-        send_rank_offsets_f, send_offsets_f
-    ) ; 
-    _send_buffer_fx.set_strides(nx+1,nvars,ngz,nx/2+1);
-    _send_buffer_fx.realloc(total_send_size_f) ; 
+    for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag) {
+        // allocate buffers
+        _send_buffer[istag].set_offsets(
+            send_rank_offsets[istag], send_offsets[istag]
+        ) ; 
+        _send_buffer[istag].set_strides(strides[istag]);
+        _send_buffer[istag].realloc(total_send_size[istag]) ; 
 
-    _recv_buffer_fx.set_offsets(
-        recv_rank_offsets_f, recv_offsets_f
-    ) ; 
-    _recv_buffer_fx.set_strides(nx+1,nvars,ngz,nx/2+1);
-    _recv_buffer_fx.realloc(total_recv_size_f) ;
-
-    // face staggered -- y 
-    _send_buffer_fy.set_offsets(
-        send_rank_offsets_f, send_offsets_f
-    ) ; 
-    _send_buffer_fy.set_strides(nx+1,nvars,ngz,nx/2+1);
-    _send_buffer_fy.realloc(total_send_size_f) ; 
-
-    _recv_buffer_fy.set_offsets(
-        recv_rank_offsets_f, recv_offsets_f
-    ) ; 
-    _recv_buffer_fy.set_strides(nx+1,nvars,ngz,nx/2+1);
-    _recv_buffer_fy.realloc(total_recv_size_f) ;
-
-    // face staggered -- z
-    _send_buffer_fz.set_offsets(
-        send_rank_offsets_f, send_offsets_f
-    ) ; 
-    _send_buffer_fz.set_strides(nx+1,nvars,ngz,nx/2+1);
-    _send_buffer_fz.realloc(total_send_size_f) ; 
-
-    _recv_buffer_fz.set_offsets(
-        recv_rank_offsets_f, recv_offsets_f
-    ) ; 
-    _recv_buffer_fz.set_strides(nx+1,nvars,ngz,nx/2+1);
-    _recv_buffer_fz.realloc(total_recv_size_f) ;
-
+        _recv_buffer[istag].set_offsets(
+            recv_rank_offsets[istag], recv_offsets[istag]
+        ) ; 
+        _recv_buffer[istag].set_strides(strides[istag]);
+        _recv_buffer[istag].realloc(total_recv_size[istag]) ;
+    }
+    size_t total_send{0}, total_recv{0} ; 
+    for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag) {
+        total_send += total_send_size[istag] ; 
+        total_recv += total_recv_size[istag] ; 
+    }
     GRACE_INFO("Setup of remote buffers complete, total send/recv size [MB] {}/{}, avg message size per rank [MB] {}/{}",
-           sizeof(double)*(total_send_size+total_send_size_f)/1e06,
-           sizeof(double)*(total_recv_size+total_recv_size_f)/1e06,
-           sizeof(double)*(total_send_size+total_send_size_f)/1e06/active_send.size(),
-           sizeof(double)*(total_recv_size+total_recv_size_f)/1e06/active_recv.size() );
+           sizeof(double)*(total_send)/1e06,
+           sizeof(double)*(total_recv)/1e06,
+           sizeof(double)*(total_send)/1e06/active_send.size(),
+           sizeof(double)*(total_recv)/1e06/active_recv.size() );
+
 }
 
 } /* namespace grace */

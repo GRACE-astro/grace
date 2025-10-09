@@ -22,9 +22,9 @@ amr: {
 IO: {
   volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 1100,
-  plane_surface_output_cell_variables: [],
-  plane_surface_output_every: -1,
+  volume_output_every: -1,
+  plane_surface_output_cell_variables: ["rho","vel[0]","Bvec[0]"],
+  plane_surface_output_every: 1000,
   sphere_surface_output_every: -1,
   info_output_every: 10,
   info_output_max_reductions: ["eps","rho","vel[0]"],

@@ -142,16 +142,17 @@ gpu_task_t make_gpu_copy_task(
     Kokkos::deep_copy(dst_elem,dst_elem_h) ; 
 
     gpu_task_t task{} ;
-
+    
     amr::copy_op<elem_kind,decltype(data)> functor{
-        data, src_qid, dst_qid, src_elem, dst_elem, VEC(nx,ny,nz), ngz
+        data, src_qid, dst_qid, src_elem, dst_elem, VEC(nx,ny,nz), stag, ngz
     } ; 
     
     Kokkos::DefaultExecutionSpace exec_space{stream} ; 
     
+    size_t loop_off = (stag == STAG_CENTER ? 0 : 1 ) ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
         policy{
-            exec_space, {0,0,0,0,0}, get_iter_range<elem_kind>(ngz,nx,nv,bucket.size())
+            exec_space, {0,0,0,0,0}, get_iter_range<elem_kind>(ngz,nx+loop_off,nv,bucket.size())
         } ; 
  
     task._run = [functor, policy] (view_alias_t alias) mutable {

@@ -43,6 +43,7 @@
 
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/data_structures/variable_properties.hh>
+#include <grace/data_structures/variable_utils.hh>
 
 #include <grace/amr/p4est_headers.hh>
 #include <grace/amr/forest.hh>
@@ -255,14 +256,7 @@ class amr_ghosts_impl_t {
     /**************************************************************************************************/
     p4est_ghost_t* get_p4est_ghosts() { return p4est_ghost_layer ; }
     /**************************************************************************************************/
-    void get_rank_offsets( std::vector<std::size_t>& send, std::vector<std::size_t>& receive ) {
-        send = send_rank_offsets ; receive = recv_rank_offsets ; 
-    }
-    void get_rank_sizes(  std::vector<std::size_t>& send, std::vector<std::size_t>& receive ) {
-        send = send_rank_sizes ; receive = recv_rank_sizes ; 
-    }
-    size_t get_send_buf_size() const { return _send_buffer.size() ; }
-    size_t get_recv_buf_size() const { return _recv_buffer.size() ; }
+
     auto& get_task_list () {return task_list;}
     auto& get_task_executor () {return task_queue;}
 
@@ -277,16 +271,18 @@ class amr_ghosts_impl_t {
     std::vector<std::unique_ptr<task_t>> task_list ;
     executor task_queue ; 
 
-    std::vector<std::size_t> send_rank_offsets, recv_rank_offsets ; //!< In # of elements
-    std::vector<std::size_t> send_rank_offsets_f, recv_rank_offsets_f ; //!< In # of elements
-    std::vector<std::size_t> send_rank_sizes, recv_rank_sizes ; //!< In # of elements
-    std::vector<std::size_t> send_rank_sizes_f, recv_rank_sizes_f ; //!< In # of elements
+    std::array<std::vector<std::size_t>,N_VAR_STAGGERINGS> send_rank_offsets, recv_rank_offsets ; //!< In # of elements
+    std::array<std::vector<std::size_t>,N_VAR_STAGGERINGS> send_rank_sizes, recv_rank_sizes ; //!< In # of elements
 
-    amr::ghost_array_t _send_buffer, _recv_buffer ;
-    // Can these be joined? 
-    amr::ghost_array_t _send_buffer_fx, _recv_buffer_fx ;
-    amr::ghost_array_t _send_buffer_fy, _recv_buffer_fy ;
-    amr::ghost_array_t _send_buffer_fz, _recv_buffer_fz ;
+    std::array<amr::ghost_array_t, N_VAR_STAGGERINGS> _send_buffer, _recv_buffer ;
+
+    //**************************************************************************************************
+    bucket_t phys_bc_kernels, copy_kernels, copy_to_cbuf_kernels, prolong_kernels;
+    hang_bucket_t copy_from_cbuf_kernels ;
+    std::vector<bucket_t> pack_kernels, unpack_kernels
+                        , pack_to_cbuf_kernels  
+                        , unpack_to_cbuf_kernels ;
+    std::vector<hang_bucket_t>  pack_finer_kernels, unpack_from_cbuf_kernels ; 
 
     grace::var_array_t _coarse_buffers; 
     grace::staggered_variable_arrays_t _stag_coarse_buffers ; 
@@ -297,39 +293,78 @@ class amr_ghosts_impl_t {
     void reset() {
         ghost_layer.clear() ; 
         task_list.clear()  ; 
-        send_rank_offsets.clear() ; 
-        recv_rank_offsets.clear() ; 
-        send_rank_offsets_f.clear() ; 
-        recv_rank_offsets_f.clear() ; 
-        send_rank_sizes.clear() ;
-        recv_rank_sizes.clear() ; 
-        send_rank_sizes_f.clear() ; 
-        recv_rank_sizes_f.clear() ; 
-        task_queue.clear() ; 
+        task_queue.clear() ;
+
+        for( int i=0; i<N_VAR_STAGGERINGS; ++i) {
+            send_rank_offsets[i].clear() ; 
+            recv_rank_offsets[i].clear() ; 
+            send_rank_sizes[i].clear() ;
+            recv_rank_sizes[i].clear() ; 
+        }
+
+        pack_kernels.clear() ; 
+        unpack_kernels.clear() ; 
+        pack_to_cbuf_kernels.clear() ; 
+        unpack_to_cbuf_kernels.clear() ; 
+        pack_finer_kernels.clear() ; 
+        unpack_from_cbuf_kernels.clear() ; 
+
+        for( int i=0; i<3; ++i) {
+            phys_bc_kernels[i].clear() ; 
+            copy_kernels[i].clear() ; 
+            copy_to_cbuf_kernels[i].clear() ; 
+            prolong_kernels[i].clear() ; 
+            copy_from_cbuf_kernels[i].clear() ; 
+        }
     }
     //**************************************************************************************************
+    template< grace::var_staggering_t stag >
     void build_task_list(
-        bucket_t& ,
-        bucket_t& ,
-        hang_bucket_t& ,
-        bucket_t& ,
-        std::vector<bucket_t>& , 
-        std::vector<bucket_t>& , 
-        std::vector<hang_bucket_t>& , 
-        std::vector<bucket_t>& ,
-        std::vector<bucket_t>& ,
-        std::vector<hang_bucket_t>&,
-        bucket_t&,
-        std::unordered_set<size_t> const& 
+        Kokkos::View<bc_t*>&,
+        std::unordered_set<size_t> const&,
+        task_id_t& 
     ) ; 
     //**************************************************************************************************
-    void build_remote_buffers(
-        bucket_t&, bucket_t&,
-        hang_bucket_t&, bucket_t&,
-        std::vector<bucket_t>& , std::vector<bucket_t>& , std::vector<hang_bucket_t>& ,
-        std::vector<bucket_t>& , std::vector<bucket_t>& ,
-        std::vector<hang_bucket_t>&, bucket_t&
-    ) ; 
+    template< grace::var_staggering_t stag >
+    std::tuple<size_t,size_t,size_t,size_t,size_t> 
+    get_extents() {
+        auto nq = amr::get_local_num_quadrants() ; 
+        std::size_t nx,ny,nz ; 
+        std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+        std::size_t nvars = variables::get_n_evolved() ;
+        std::size_t nvars_f = variables::get_n_evolved_face_staggered() ; // todo 
+        if constexpr ( stag == STAG_CENTER) {
+            return std::make_tuple(
+                nx,ny,nz,nvars,nq
+            ) ; 
+        } else if constexpr ( stag == STAG_FACEX) {
+            return std::make_tuple(
+                nx+1,ny,nz,nvars_f,nq
+            ) ;
+        } else if constexpr ( stag == STAG_FACEY) {
+            return std::make_tuple(
+                nx,ny+1,nz,nvars_f,nq
+            ) ;
+        } else if constexpr ( stag == STAG_FACEZ) {
+            return std::make_tuple(
+                nx,ny,nz+1,nvars_f,nq
+            ) ;
+        }
+    }
+    template <grace::var_staggering_t stag >
+    grace::var_array_t& get_coarse_buffers() {
+        if constexpr ( stag == STAG_CENTER) {
+            return _coarse_buffers;
+        } else if constexpr ( stag == STAG_FACEX) {
+            return _stag_coarse_buffers.face_staggered_fields_x;
+        } else if constexpr ( stag == STAG_FACEY) {
+            return _stag_coarse_buffers.face_staggered_fields_y;
+        } else if constexpr ( stag == STAG_FACEZ) {
+            return _stag_coarse_buffers.face_staggered_fields_z;
+        } 
+    }
+    //**************************************************************************************************
+    void build_remote_buffers() ; 
     //**************************************************************************************************
     void build_coarse_buffers(
         std::unordered_set<size_t> & 
@@ -339,16 +374,12 @@ class amr_ghosts_impl_t {
     //**************************************************************************************************
     static constexpr unsigned long longevity = unique_objects_lifetimes::AMR_GHOSTS ; 
     //**************************************************************************************************
-    amr_ghosts_impl_t()
-    : _send_buffer("MPI_send_buffer")
-    , _recv_buffer("MPI_recv_buffer") 
-    , _send_buffer_fx("MPI_send_buffer_fx")
-    , _recv_buffer_fx("MPI_recv_buffer_fx") 
-    , _send_buffer_fy("MPI_send_buffer_fy")
-    , _recv_buffer_fy("MPI_recv_buffer_fy") 
-    , _send_buffer_fz("MPI_send_buffer_fz")
-    , _recv_buffer_fz("MPI_recv_buffer_fz") 
-    {} ; 
+    amr_ghosts_impl_t() {
+        for( int i=0; i<N_VAR_STAGGERINGS; ++i) {
+            _send_buffer[i] = amr::ghost_array_t("MPI_Send_buffer") ; 
+            _recv_buffer[i] = amr::ghost_array_t("MPI_Send_buffer") ; 
+        }
+    } ; 
     //**************************************************************************************************
     ~amr_ghosts_impl_t() { 
         if (p4est_ghost_layer) p4est_ghost_destroy(p4est_ghost_layer) ; 

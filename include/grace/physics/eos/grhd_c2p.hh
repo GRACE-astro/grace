@@ -103,8 +103,8 @@ struct grhd_c2p_t {
      * entropy and temperature by calling the EOS and adding 
      * the relevant metric components to the velocity.
      */
-    grmhd_prims_array_t GRACE_HOST_DEVICE
-    invert(double& error) {
+    double  GRACE_HOST_DEVICE
+    invert(grmhd_prims_array_t& prims) {
 
         auto const func = [&] (double const& zeta) {
             return zeta - r / htilde(zeta) ; 
@@ -113,7 +113,7 @@ struct grhd_c2p_t {
                    , zp{ 1e-06 + k/Kokkos::sqrt(1-math::int_pow<2>(k))} ; 
         double const zeta = utils::brent(func,zm,zp,1e-15) ; 
         double const W = Wtilde(zeta) ; 
-        grmhd_prims_array_t prims ; 
+        
         prims[RHOL] = D/W ;
         prims[YEL]  = ye ;
         /* Enforce range on eps tilde */
@@ -128,8 +128,8 @@ struct grhd_c2p_t {
         prims[VXL] = StildeU[0] / D / h / W; 
         prims[VYL] = StildeU[1] / D / h / W; 
         prims[VZL] = StildeU[2] / D / h / W; 
-        error = func(zeta) ;
-        return std::move(prims) ; 
+
+        return func(zeta) ; 
     }
     
  private:

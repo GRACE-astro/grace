@@ -20,17 +20,17 @@ amr: {
   regrid_at_postinitial: false
 }
 IO: {
-  volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]"],
+  volume_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 300,
-  plane_surface_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]"],
+  volume_output_every: 50,
+  plane_surface_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]"],
   plane_surface_output_every: 20,
   sphere_surface_output_every: -1,
   do_initial_output: false,
-  info_output_every: 20,
-  info_output_max_reductions: ["rho", "press", "Bvec[0]"],
+  info_output_every: 2,
+  info_output_max_reductions: ["rho", "press", "Bvec[1]"],
   #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
-  info_output_min_reductions: ["rho", "press", "Bvec[0]"], #["dens","gamma[0,2]","press"],
+  info_output_min_reductions: ["rho", "press", "Bvec[1]"], #["dens","gamma[0,2]","press"],
   #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"], 
   scalar_output_every: 50,
   scalar_output_minmax: ["rho","press","eps"],
@@ -38,7 +38,7 @@ IO: {
   scalar_output_integral: [],
   output_use_hdf5: true, 
   hdf5_compression_level: 6,
-  hdf5_chunk_size: 8192
+  hdf5_chunk_size: 128
 }
 system: {
   console_log_level: "info",
@@ -55,7 +55,19 @@ evolution: {
   #timestep_selection_mode: "manual"
 }
 grmhd: {
-  id_type: "shocktube"
+  id_type: "shocktube",
+  shocktube: {
+    rho_L: 1.,
+    rho_R: 1.,
+    press_L: 30.,
+    press_R: 1.,
+    Bx_L: 5.,
+    Bx_R: 5.,
+    By_L: 6.,
+    By_R: 0.7,
+    Bz_L: 6.,
+    Bz_R: 0.7
+  }
 }
 
 eos: {

@@ -43,12 +43,15 @@ namespace grace { namespace amr {
 struct ghost_array_t 
 {
 
+    ghost_array_t() = default ; 
+
     ghost_array_t(std::string const& name)
         :  _data(name,0), _size(0)
     {}
 
-    void set_strides(size_t const& n, size_t const& nv, size_t const& ngz, size_t n2 )
+    void set_strides(std::array<size_t,4> const& strides )
     {
+        auto n = strides[0] ; auto nv = strides[1]; auto ngz = strides[2]; auto n2 = strides[3] ;
         fstrides = std::array<size_t,4> {ngz,ngz*n,ngz*n*n,ngz*n*n*nv};
         estrides = std::array<size_t,4> {ngz,ngz*ngz,ngz*ngz*n,ngz*ngz*n*nv};
         cstrides = std::array<size_t,4> {ngz,ngz*ngz,ngz*ngz*ngz,ngz*ngz*ngz*nv};

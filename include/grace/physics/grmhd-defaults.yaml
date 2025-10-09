@@ -1,10 +1,19 @@
 grmhd: {
   lapse_excision: 0.05,
   id_type: "shocktube",
-  shocktube_press_L: 13.3,
-  shocktube_press_R: 0.66e-06,
-  shocktube_rho_L: 10.,
-  shocktube_rho_R: 1.,
+  shocktube: {
+    press_L: 13.3,
+    press_R: 0.66e-6,
+    rho_L: 10.,
+    rho_R: 1.,
+    Bx_L: 0.,
+    Bx_R: 0.,
+    By_L: 0.,
+    By_R: 0.,
+    Bz_L: 0.,
+    Bz_R: 0.
+  },
+
   blastwave_over_pressure_factor: 2.5,
   blastwave_initial_radius: 0.5,
   TOV_central_density: 1.28e-03

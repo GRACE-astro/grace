@@ -241,17 +241,21 @@ static void check_ghostzones(
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
 
     std::array<bool,3> stagger {false,false,false}; 
+    std::array<double,3> lcoord {0.5,0.5,0.5} ; 
     if ( stag == STAG_FACEX ) { 
         stagger[0] = true ; 
         nx ++;  
+        lcoord[0] = 0 ;
     }
     if ( stag == STAG_FACEY ) {
         stagger[1] = true ; 
         ny ++ ; 
+        lcoord[1] = 0 ;
     }
     if ( stag == STAG_FACEZ ) {
         stagger[2] = true ;
         nz ++ ; 
+        lcoord[2] = 0 ;
     }; 
 
     grace::host_grid_loop<false>(
@@ -267,10 +271,10 @@ static void check_ghostzones(
             ) 
             and
             #endif  
-            ! is_affected_by_boundary(VEC(i,j,k),q,2,VEC(0.5,0.5,0.5))){
+            ! is_affected_by_boundary(VEC(i,j,k),q,2,lcoord[0],lcoord[1],lcoord[2])){
                 if ( std::isnan(host_data(VEC(i,j,k),0,q)) or (fabs(host_data(VEC(i,j,k),0,q)-ground_truth(VEC(i,j,k),0,q))>1e-14)) {
                     auto quad = grace::amr::get_quadrant(0, q).get() ; 
-                    GRACE_TRACE("NaN at {}, level {} ijk {},{},{}, q {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level),i,j,k,q) ;
+                    GRACE_TRACE("NaN at {}, stag {} level {} ijk {},{},{}, q {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(stag), static_cast<int>(quad->level),i,j,k,q) ;
                 }
                 
                 CHECK_THAT(

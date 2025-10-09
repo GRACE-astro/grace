@@ -146,6 +146,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
     grace::fill_physical_coordinates(pcoords) ; 
     GRACE_TRACE("Filled physical coordinates array.") ; 
     auto& state = grace::variable_list::get().getstate() ; 
+    auto& stag_state = grace::variable_list::get().getstaggeredstate() ; 
     auto& aux   = grace::variable_list::get().getaux()   ; 
 
     auto const& _eos = eos::get().get_eos<eos_t>() ; 
@@ -212,7 +213,48 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                                                                    , ye,err);
                     /* Set ye */
                     aux(VEC(i,j,k),YE_,q) = ye ; 
+                    /* Set B field */
+                    aux(VEC(i,j,k),BX_,q) = id.bx ;
+                    aux(VEC(i,j,k),BY_,q) = id.by ;
+                    aux(VEC(i,j,k),BZ_,q) = id.bz ; 
                 }) ; 
+    // now we set the staggered fields 
+    parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BX")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    if (i < nx+2*ngz and i > 0) {
+                        stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) = (aux(VEC(i,j,k),BX_,q) + aux(VEC(i-1,j,k),BX_,q))/2; 
+                    } else if ( i == 0 ) {
+                        stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) = aux(VEC(i,j,k),BX_,q) ; 
+                    } else if ( i == nx+2*ngz ) {
+                        stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) = aux(VEC(i-1,j,k),BX_,q) ; 
+                    }
+                });
+    parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BY")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    if (j < ny+2*ngz and j > 0) {
+                        stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) = (aux(VEC(i,j,k),BY_,q) + aux(VEC(i,j-1,k),BY_,q))/2; 
+                    } else if ( j == 0 ) {
+                        stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) = aux(VEC(i,j,k),BY_,q) ; 
+                    } else if ( j == nz+2*ngz ) {
+                        stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) = aux(VEC(i,j-1,k),BY_,q) ; 
+                    }
+                });
+    parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BZ")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz+1),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    if (k < nz+2*ngz and k > 0) {
+                        stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = (aux(VEC(i,j,k),BZ_,q) + aux(VEC(i,j,k-1),BZ_,q))/2; 
+                    } else if ( k == 0 ) {
+                        stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = aux(VEC(i,j,k),BZ_,q) ; 
+                    } else if ( k == nz+2*ngz ) {
+                        stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = aux(VEC(i,j,k-1),BZ_,q) ; 
+                    }
+                });
 }
 
 template< typename eos_t >
@@ -221,11 +263,24 @@ void set_grmhd_initial_data() {
     GRACE_VERBOSE("Setting grmhd initial data of type {}.", id_type) ;  
     /* Set requested initial data */
     if( id_type == "shocktube" ) {
-        auto const rho_L = get_param<double>("grmhd","shocktube_rho_L") ; 
-        auto const rho_R = get_param<double>("grmhd","shocktube_rho_R") ; 
-        auto const press_L = get_param<double>("grmhd","shocktube_press_L") ; 
-        auto const press_R = get_param<double>("grmhd","shocktube_press_R") ;
-        set_grmhd_initial_data_impl<eos_t,shocktube_id_t<eos_t>>(rho_L, rho_R, press_L, press_R) ;
+        auto pars = get_param<YAML::Node>("grmhd","shocktube") ; 
+        auto const rho_L = pars["rho_L"].as<double>() ; 
+        auto const rho_R = pars["rho_R"].as<double>() ; 
+        auto const press_L = pars["press_L"].as<double>() ; 
+        auto const press_R = pars["press_R"].as<double>()  ;
+        auto const Bx_L = pars["Bx_L"].as<double>() ; 
+        auto const Bx_R = pars["Bx_R"].as<double>()  ;
+        auto const By_L = pars["By_L"].as<double>() ; 
+        auto const By_R = pars["By_R"].as<double>()  ;
+        auto const Bz_L = pars["Bz_L"].as<double>() ; 
+        auto const Bz_R = pars["Bz_R"].as<double>()  ;
+        set_grmhd_initial_data_impl<eos_t,shocktube_id_t<eos_t>>(
+            rho_L, rho_R, 
+            press_L, press_R, 
+            Bx_L, Bx_R,
+            By_L, By_R,
+            Bz_L, Bz_R
+        ) ;
         Kokkos::fence() ; 
         GRACE_TRACE("Done with hydro ID.") ;  
     } else if ( id_type == "blastwave" ) {

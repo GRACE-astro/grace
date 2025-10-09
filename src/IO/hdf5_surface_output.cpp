@@ -732,7 +732,7 @@ void write_vector_var_arrays_sliced_hdf5( std::vector<std::string> const& varlis
     auto h_mirror = Kokkos::create_mirror_view(d_mirror) ;
     for( auto const& vname: varlist )
     {
-        GRACE_TRACE("Writing vector var {} to output.") ; 
+        GRACE_TRACE("Writing vector var {} to output.", vname) ; 
         /* create HDF5 dataset */
         std::string dset_name = "/" + vname ; 
         hid_t dset_id ; 

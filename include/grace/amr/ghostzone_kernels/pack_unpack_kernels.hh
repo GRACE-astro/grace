@@ -68,16 +68,45 @@ struct pack_op {
         Kokkos::View<size_t*> _dest_qid,
         Kokkos::View<uint8_t*> _src_elem,  
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
-        std::size_t _ngz, std::size_t _nvars, std::size_t _rank 
+        std::size_t _ngz, std::size_t _nvars, std::size_t _rank,
+        grace::var_staggering_t stag
     ) : src_view(_src_view)
       , dest_view(_dest_view)
       , src_qid(_src_qid)
       , dest_qid(_dest_qid)
       , src_elem_view(_src_elem)
       , rank(_rank)
-      , transf(VEC(_nx,_ny,_nz),_ngz)
+      , transf(VEC(_nx,_ny,_nz),_ngz, stag)
     { } 
 
+    KOKKOS_INLINE_FUNCTION
+    bool in_range(size_t i, size_t j, size_t k, int8_t ie) const {
+        
+        size_t nx  = transf.nx + transf.sx ; 
+        size_t ny  = transf.ny + transf.sy ; 
+        size_t nz  = transf.nz + transf.sz ;
+        size_t ngz = transf.ngz ;
+        if constexpr ( elem_kind == FACE ) {
+            const int axis = ie / 2;
+            if ( axis == 0 ) { // across X - face
+                return (j >= ngz and j<ny+ngz) and ( k>=ngz and k<nz+ngz) ; 
+            } else if ( axis == 1 ) {
+                return (i>=ngz and i<nx+ngz) and (k>=ngz and k<nz+ngz) ;
+            } else {
+                return (i>=ngz and i<nx+ngz) and (j>=ngz and j<ny+ngz) ; 
+            }
+        } else if constexpr ( elem_kind == EDGE ) {
+            if ( ie < 4 ) {
+                return (i>=ngz and i<nx+ngz) ; 
+            } else if ( ie < 8 ) {
+                return (j>=ngz and j<ny+ngz) ;
+            } else {
+                return (k>=ngz and k<nz+ngz) ;
+            }
+        } 
+        return true ; 
+        
+    }
 
     KOKKOS_INLINE_FUNCTION 
     void operator() (
@@ -94,9 +123,9 @@ struct pack_op {
         transf.compute_indices<elem_kind,true>(
             ig, VECD(j, k), i_a, j_a, k_a, ie
         ) ; 
-        
-        dest_view.at_interface<elem_kind>(ig,j,k,ivar,dest_q,rank) = 
-            src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
+        if ( in_range(i_a,j_a,k_a,ie) )
+            dest_view.at_interface<elem_kind>(ig,j,k,ivar,dest_q,rank) = 
+                src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
         
     }
  
@@ -112,7 +141,7 @@ struct unpack_op {
     view_t dest_view; 
 
     readonly_view_t<std::size_t> src_qid, dest_qid ; 
-    readonly_view_t<uint8_t> dest_face_view ;
+    readonly_view_t<uint8_t> dest_element_view ;
     
     std::size_t rank ; 
 
@@ -124,21 +153,51 @@ struct unpack_op {
         dest_view = alias.get<stag>() ; 
     }
 
+    KOKKOS_INLINE_FUNCTION
+    bool in_range(size_t i, size_t j, size_t k, int8_t ie) const {
+        
+        size_t nx  = transf.nx + transf.sx ; 
+        size_t ny  = transf.ny + transf.sy ; 
+        size_t nz  = transf.nz + transf.sz ;
+        size_t ngz = transf.ngz ;
+        if constexpr ( elem_kind == FACE ) {
+            const int axis = ie / 2;
+            if ( axis == 0 ) { // across X - face
+                return (j >= ngz and j<ny+ngz) and ( k>=ngz and k<nz+ngz) ; 
+            } else if ( axis == 1 ) {
+                return (i>=ngz and i<nx+ngz) and (k>=ngz and k<nz+ngz) ;
+            } else {
+                return (i>=ngz and i<nx+ngz) and (j>=ngz and j<ny+ngz) ; 
+            }
+        } else if constexpr ( elem_kind == EDGE ) {
+            if ( ie < 4 ) {
+                return (i>=ngz and i<nx+ngz) ; 
+            } else if ( ie < 8 ) {
+                return (j>=ngz and j<ny+ngz) ;
+            } else {
+                return (k>=ngz and k<nz+ngz) ;
+            }
+        } 
+        return true ; 
+        
+    }
+
     unpack_op(
         ghost_array_t _src_view,
         view_t _dest_view,
         Kokkos::View<size_t*> _src_qid, 
         Kokkos::View<size_t*> _dest_qid,
-        Kokkos::View<uint8_t*> _dest_face,  
+        Kokkos::View<uint8_t*> _dest_ie,  
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
-        std::size_t _ngz, std::size_t _nvars, std::size_t _rank 
+        std::size_t _ngz, std::size_t _nvars, std::size_t _rank,
+        grace::var_staggering_t stag
     ) : src_view(_src_view)
       , dest_view(_dest_view)
       , src_qid(_src_qid)
       , dest_qid(_dest_qid)
-      , dest_face_view(_dest_face)
+      , dest_element_view(_dest_ie)
       , rank(_rank)
-      , transf(VEC(_nx,_ny,_nz),_ngz)
+      , transf(VEC(_nx,_ny,_nz),_ngz, stag)
     { } 
 
 
@@ -147,7 +206,7 @@ struct unpack_op {
         std::size_t ig, VECD(std::size_t j, std::size_t k), size_t ivar, size_t iq
     ) const 
     {
-        auto const dest_face  = dest_face_view(iq) ; 
+        auto const ie  = dest_element_view(iq) ; 
 
         auto const src_q  = src_qid(iq)  ; 
         auto const dest_q = dest_qid(iq) ;
@@ -155,10 +214,12 @@ struct unpack_op {
 
         std::size_t VEC(i_a,j_a,k_a) ; 
         transf.compute_indices<elem_kind,false>(
-            ig, VECD(j, k), i_a, j_a, k_a, dest_face 
+            ig, VECD(j, k), i_a, j_a, k_a, ie 
         ) ; 
-
-        dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) = src_view.at_interface<elem_kind>(ig,j,k,ivar,src_q,rank) ; 
+        if ( in_range(i_a,j_a,k_a,ie) ) {    
+            dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) = src_view.at_interface<elem_kind>(ig,j,k,ivar,src_q,rank) ; 
+        }
+        
     }
 
 } ; 

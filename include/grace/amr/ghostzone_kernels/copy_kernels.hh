@@ -62,16 +62,44 @@ struct copy_op {
         view_t _view,
         Kokkos::View<size_t*> _src_qid, Kokkos::View<size_t*> _dest_qid,
         Kokkos::View<uint8_t*> _src_elem, Kokkos::View<uint8_t*> _dest_elem, 
-        VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
+        VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz), grace::var_staggering_t stag,
         std::size_t _ngz
     ) : view(_view)
       , src_qid(_src_qid)
       , dest_qid(_dest_qid)
       , src_element_view(_src_elem)
       , dest_element_view(_dest_elem)
-      , transf(VEC(_nx,_ny,_nz),_ngz)
+      , transf(VEC(_nx,_ny,_nz),_ngz,stag)
     {}
 
+    KOKKOS_INLINE_FUNCTION
+    bool in_range(size_t i, size_t j, size_t k, int8_t ie) const {
+        
+        size_t nx  = transf.nx + transf.sx ; 
+        size_t ny  = transf.ny + transf.sy ; 
+        size_t nz  = transf.nz + transf.sz ;
+        size_t ngz = transf.ngz ;
+        if constexpr ( elem_kind == FACE ) {
+            const int axis = ie / 2;
+            if ( axis == 0 ) { // across X - face
+                return (j >= ngz and j<ny+ngz) and ( k>=ngz and k<nz+ngz) ; 
+            } else if ( axis == 1 ) {
+                return (i>=ngz and i<nx+ngz) and (k>=ngz and k<nz+ngz) ;
+            } else {
+                return (i>=ngz and i<nx+ngz) and (j>=ngz and j<ny+ngz) ; 
+            }
+        } else if constexpr ( elem_kind == EDGE ) {
+            if ( ie < 4 ) {
+                return (i>=ngz and i<nx+ngz) ; 
+            } else if ( ie < 8 ) {
+                return (j>=ngz and j<ny+ngz) ;
+            } else {
+                return (k>=ngz and k<nz+ngz) ;
+            }
+        } 
+        return true ; 
+        
+    }
 
     KOKKOS_INLINE_FUNCTION 
     void operator() (
@@ -91,9 +119,12 @@ struct copy_op {
         transf.compute_indices<elem_kind,false>(
             ig, VECD(j, k), i_b, j_b, k_b, ie_dest
         ) ; 
-        view(
-            VEC(i_b,j_b,k_b), ivar, dest_q 
-        ) = view(VEC(i_a,j_a,k_a), ivar, src_q) ;
+        if ( in_range(i_a,j_a,k_a, ie_src) ) {
+            view(
+                VEC(i_b,j_b,k_b), ivar, dest_q 
+            ) = view(VEC(i_a,j_a,k_a), ivar, src_q) ;
+        }
+        
 
     }
 } ; 

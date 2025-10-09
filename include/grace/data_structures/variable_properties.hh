@@ -40,6 +40,12 @@ enum bc_t: uint8_t {BC_OUTFLOW=0, BC_LAGRANGE_EXTRAP, BC_NONE} ;
 enum var_staggering_t : uint8_t {
     STAG_CENTER=0, STAG_FACEX, STAG_FACEY, STAG_EDGEXY, STAG_FACEZ, STAG_EDGEXZ, STAG_EDGEYZ, STAG_CORNER, N_VAR_STAGGERINGS
 } ; 
+
+
+static inline 
+std::array<int,3> get_index_staggerings(grace::var_staggering_t stag) {
+    return std::array<int,3>({stag&1, (stag>>1)&1,(stag>>2)&1});
+}
 //*****************************************************************************************************
 //*****************************************************************************************************
 /**

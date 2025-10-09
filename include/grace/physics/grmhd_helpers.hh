@@ -52,6 +52,18 @@ enum GRMHD_PRIMS_LOC_INDICES {
     BZL,
     NUM_PRIMS_LOC
 } ; 
+enum GRMHD_FLUX_LOC_INDICES : int {
+  DENSF=0,
+  STXF,
+  STYF,
+  STZF,
+  TAUF,
+  YESTARF,
+  ENTROPYSTARF,
+  BXF,
+  BYF,
+  BZF
+} ; 
 /**
  * @brief Helper indices for cons array.
  * \ingroup physics
@@ -103,7 +115,10 @@ primsarr[VZL] = vview(__VA_ARGS__,VELZ_,q) ;     \
 primsarr[YEL] = vview(__VA_ARGS__,YE_,q) ;       \
 primsarr[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
 primsarr[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
-primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)
+primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q);  \
+primsarr[BXL] = vview(__VA_ARGS__,BX_,q);        \
+primsarr[BYL] = vview(__VA_ARGS__,BY_,q);        \
+primsarr[BZL] = vview(__VA_ARGS__,BZ_,q)         
 
 #define FILL_PRIMS_ARRAY_ZVEC(primsarr,vview,q,...)        \
 primsarr[RHOL] = vview(__VA_ARGS__,RHO_,q);      \
@@ -114,7 +129,10 @@ primsarr[VZL] = vview(__VA_ARGS__,ZVECZ_,q) ;     \
 primsarr[YEL] = vview(__VA_ARGS__,YE_,q) ;       \
 primsarr[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
 primsarr[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
-primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q)
+primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q);  \
+primsarr[BXL] = vview(__VA_ARGS__,BX_,q);        \
+primsarr[BYL] = vview(__VA_ARGS__,BY_,q);        \
+primsarr[BZL] = vview(__VA_ARGS__,BZ_,q)       
 
 #define FILL_CONS_ARRAY(consarr, vview,q,...)      \
 consarr[DENSL] = vview(__VA_ARGS__,DENS_,q);       \
@@ -186,6 +204,7 @@ struct grmhd_id_t {
   double alp;  
   double betax, betay, betaz ; 
   double vx, vy, vz;
+  double bx, by, bz;
 } ; 
 
 #endif /* GRACE_PHYSICS_GRMHD_HELPERS_HH */

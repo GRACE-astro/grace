@@ -264,7 +264,7 @@ void checkpoint_handler_impl_t::save_checkpoint()
     p4est_save(
         forest_file.string().c_str(),
         amr::forest::get().get(),
-        1
+        false
     ) ; 
 
     // Now we write the state data to an hdf5 file 
@@ -298,109 +298,57 @@ void checkpoint_handler_impl_t::save_checkpoint()
     // Close the attribute and dataspace
     HDF5_CALL(err,H5Aclose(attr_id));
     HDF5_CALL(err,H5Sclose(attr_dataspace_id));
-    // Write coordinates 
-    if ( parallel::mpi_comm_rank() == 0 ) {
-        // x extent 
-        {
-            hid_t space_id; 
-            hsize_t dset_dims[1] = {2} ;
-            HDF5_CALL(space_id, H5Screate_simple(1, dset_dims, NULL)) ;
-            /* Create dataset */
-            hid_t dset_id ; 
-            HDF5_CALL( dset_id
-                    , H5Dcreate2( file_id
-                                , "grid_extent_x"
-                                , H5T_NATIVE_DOUBLE
-                                , space_id
-                                , H5P_DEFAULT
-                                , H5P_DEFAULT
-                                , H5P_DEFAULT) ) ;
-            double x_extent[2] = {
-                grace::get_param<double>("amr", "xmin"),
-                grace::get_param<double>("amr", "xmax")
-            } ;
-            /* write to dataset */
-            HDF5_CALL( err
-                        , H5Dwrite( dset_id
-                                , H5T_NATIVE_DOUBLE
-                                , H5S_ALL
-                                , H5S_ALL 
-                                , H5P_DEFAULT 
-                                , reinterpret_cast<void*>(x_extent) )) ;
-            HDF5_CALL(err, H5Dclose(dset_id)) ;
-            HDF5_CALL(err, H5Sclose(space_id)) ;
-        }
-        // y extent 
-        {
-            hid_t space_id; 
-            hsize_t dset_dims[1] = {2} ;
-            HDF5_CALL(space_id, H5Screate_simple(1, dset_dims, NULL)) ;
-            /* Create dataset */
-            hid_t dset_id ; 
-            HDF5_CALL( dset_id
-                    , H5Dcreate2( file_id
-                                , "grid_extent_y"
-                                , H5T_NATIVE_DOUBLE
-                                , space_id
-                                , H5P_DEFAULT
-                                , H5P_DEFAULT
-                                , H5P_DEFAULT) ) ;
-            double y_extent[2] = {
-                grace::get_param<double>("amr", "ymin"),
-                grace::get_param<double>("amr", "ymax")
-            } ;
-            /* write to dataset */
-            HDF5_CALL( err
-                        , H5Dwrite( dset_id
-                                , H5T_NATIVE_DOUBLE
-                                , H5S_ALL
-                                , H5S_ALL 
-                                , H5P_DEFAULT 
-                                , reinterpret_cast<void*>(y_extent) )) ;
-            HDF5_CALL(err, H5Dclose(dset_id)) ;
-            HDF5_CALL(err, H5Sclose(space_id)) ;
-        }
-        // z extent 
-        {
-            hid_t space_id; 
-            hsize_t dset_dims[1] = {2} ;
-            HDF5_CALL(space_id, H5Screate_simple(1, dset_dims, NULL)) ;
-            /* Create dataset */
-            hid_t dset_id ; 
-            HDF5_CALL( dset_id
-                    , H5Dcreate2( file_id
-                                , "grid_extent_z"
-                                , H5T_NATIVE_DOUBLE
-                                , space_id
-                                , H5P_DEFAULT
-                                , H5P_DEFAULT
-                                , H5P_DEFAULT) ) ;
-            double z_extent[2] = {
-                grace::get_param<double>("amr", "zmin"),
-                grace::get_param<double>("amr", "zmax")
-            } ;
-            /* write to dataset */
-            HDF5_CALL( err
-                        , H5Dwrite( dset_id
-                                , H5T_NATIVE_DOUBLE
-                                , H5S_ALL
-                                , H5S_ALL 
-                                , H5P_DEFAULT 
-                                , reinterpret_cast<void*>(z_extent) )) ;
-            HDF5_CALL(err, H5Dclose(dset_id)) ;
-            HDF5_CALL(err, H5Sclose(space_id)) ;
-        } 
-    } /* if rank == 0 */
-    /* Create parallel dataset properties */
-    hid_t dxpl ; 
-    HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER)) ; 
-    HDF5_CALL(err, H5Pset_dxpl_mpio(dxpl,H5FD_MPIO_COLLECTIVE)) ;
+
+    // Write scalar attributes (Time, Iteration) here as before...
+
+    /* ----------------------------------------------------------------------
+    Collective write of grid extents (X, Y, Z) on all ranks
+    ------------------------------------------------------------------------*/
+    hid_t dxpl;
+    HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER));
+    HDF5_CALL(err, H5Pset_dxpl_mpio(dxpl, H5FD_MPIO_COLLECTIVE));
+
+    auto write_extent_dataset = [&](std::string const& name, double const val_min, double const val_max){
+        hsize_t dset_dims[1] = {2};
+        hid_t space_id;
+        HDF5_CALL(space_id, H5Screate_simple(1, dset_dims, NULL));
+
+        hid_t dset_id;
+        HDF5_CALL(dset_id, H5Dcreate2(file_id,
+                                    name.c_str(),
+                                    H5T_NATIVE_DOUBLE,
+                                    space_id,
+                                    H5P_DEFAULT,
+                                    H5P_DEFAULT,
+                                    H5P_DEFAULT));
+
+        double data[2] = {val_min, val_max};
+        HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, data));
+
+        HDF5_CALL(err, H5Dclose(dset_id));
+        HDF5_CALL(err, H5Sclose(space_id));
+    };
+
+    // All ranks participate in the write
+    write_extent_dataset("grid_extent_x",
+                        grace::get_param<double>("amr", "xmin"),
+                        grace::get_param<double>("amr", "xmax"));
+
+    write_extent_dataset("grid_extent_y",
+                        grace::get_param<double>("amr", "ymin"),
+                        grace::get_param<double>("amr", "ymax"));
+
+    write_extent_dataset("grid_extent_z",
+                        grace::get_param<double>("amr", "zmin"),
+                        grace::get_param<double>("amr", "zmax"));
+
+
+
     // write state data 
     GRACE_TRACE("Writing state.") ; 
     auto state = grace::variable_list::get().getstate() ; 
     detail::write_data_hdf5(file_id, dxpl, "CellCenteredData", state) ; 
     // write staggered state data
-    #if 0
     auto sstate = grace::variable_list::get().getstaggeredstate() ; 
     detail::write_data_hdf5(file_id, dxpl, "CornerCenteredData", sstate.corner_staggered_fields) ;
     detail::write_data_hdf5(file_id, dxpl, "EdgeCenteredDataXY", sstate.edge_staggered_fields_xy) ;
@@ -409,21 +357,22 @@ void checkpoint_handler_impl_t::save_checkpoint()
     detail::write_data_hdf5(file_id, dxpl, "FaceCenteredDataX", sstate.face_staggered_fields_x) ;
     detail::write_data_hdf5(file_id, dxpl, "FaceCenteredDataY", sstate.face_staggered_fields_y) ;
     detail::write_data_hdf5(file_id, dxpl, "FaceCenteredDataZ", sstate.face_staggered_fields_z) ;
-    #endif 
     // Block all processes until all data is written
     parallel::mpi_barrier() ;
+    GRACE_TRACE("Done with write.") ; 
     // Cleanup 
     HDF5_CALL(err, H5Pclose(dxpl)) ;
+    GRACE_TRACE("Done with write.") ; 
     /* Close the file */
     HDF5_CALL(err,H5Fclose(file_id)) ; 
     HDF5_CALL(err,H5Pclose(plist_id)) ; 
-
+    GRACE_TRACE("Done with write.") ; 
     // Append the checkpoint to the list 
     checkpoint_list.push_back(iter) ;
     if ( checkpoint_list.size() > max_n_checkpoints ) {
         delete_checkpoint() ;
     }
-
+    GRACE_TRACE("Done with write.") ; 
     next_checkpoint_wtime = grace::get_total_runtime() + checkpoint_wtime_interval * 3600 ; 
     next_checkpoint_iter  = grace::get_iteration() + checkpoint_iter_interval ;
     next_checkpoint_time  = grace::get_simulation_time() + checkpoint_time_interval ;
@@ -517,103 +466,61 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     grace::set_iteration(iter) ;
     grace::set_simulation_time(time_read) ;
     /**********************************************************************/
-    /* Read the grid extents and check they match the parfile             */
-    /**********************************************************************/
-    if( parallel::mpi_comm_rank() == 0 ) {
-        // x extent 
-        {
-            hid_t dset_id, space_id;
-            HDF5_CALL(dset_id,H5Dopen(file_id, "grid_extent_x", H5P_DEFAULT)) ;
-            HDF5_CALL(space_id,H5Dget_space(dset_id)) ;
-
-            hsize_t dim[1] ; 
-            HDF5_CALL(err, H5Sget_simple_extent_dims(space_id, dim, NULL)) ;
-
-            ASSERT(dim[0] == 2, "Dimension of grid_extent_x is not 2") ;
-
-            double x_extent_read[2] ; 
-            HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE,H5S_ALL,H5S_ALL,H5P_DEFAULT,x_extent_read)) ;
-
-            double x_extent_param[2] = {
-                grace::get_param<double>("amr", "xmin"),
-                grace::get_param<double>("amr", "xmax")
-            } ; 
-
-            ASSERT(
-                x_extent_read[0] == x_extent_param[0] && x_extent_read[1] == x_extent_param[1],
-                "x extents do not match in checkpoint: " << x_extent_read[0] << " != " << x_extent_param[0] << " or " << x_extent_read[1] << " != " << x_extent_param[1]
-            ) ; 
-            HDF5_CALL(err, H5Dclose(dset_id)) ;
-            HDF5_CALL(err, H5Sclose(space_id)) ;
-        }
-        // y extent 
-        {
-            hid_t dset_id, space_id;
-            HDF5_CALL(dset_id,H5Dopen(file_id, "grid_extent_y", H5P_DEFAULT)) ;
-            HDF5_CALL(space_id,H5Dget_space(dset_id)) ;
-
-            hsize_t dim[1] ; 
-            HDF5_CALL(err, H5Sget_simple_extent_dims(space_id, dim, NULL)) ;
-
-            ASSERT(dim[0] == 2, "Dimension of grid_extent_y is not 2") ;
-
-            double y_extent_read[2] ; 
-            HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE,H5S_ALL,H5S_ALL,H5P_DEFAULT,y_extent_read)) ;
-
-            double y_extent_param[2] = {
-                grace::get_param<double>("amr", "ymin"),
-                grace::get_param<double>("amr", "ymax")
-            } ; 
-
-            ASSERT(
-                y_extent_read[0] == y_extent_param[0] && y_extent_read[1] == y_extent_param[1],
-                "y extents do not match in checkpoint: " << y_extent_read[0] << " != " << y_extent_param[0] << " or " << y_extent_read[1] << " != " << y_extent_param[1]
-            ) ; 
-            HDF5_CALL(err, H5Dclose(dset_id)) ;
-            HDF5_CALL(err, H5Sclose(space_id)) ;
-        }
-        // z extent 
-        {
-            hid_t dset_id, space_id;
-            HDF5_CALL(dset_id,H5Dopen(file_id, "grid_extent_z", H5P_DEFAULT)) ;
-            HDF5_CALL(space_id,H5Dget_space(dset_id)) ;
-
-            hsize_t dim[1] ; 
-            HDF5_CALL(err, H5Sget_simple_extent_dims(space_id, dim, NULL)) ;
-
-            ASSERT(dim[0] == 2, "Dimension of grid_extent_z is not 2") ;
-
-            double z_extent_read[2] ; 
-            HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE,H5S_ALL,H5S_ALL,H5P_DEFAULT,z_extent_read)) ;
-
-            double z_extent_param[2] = {
-                grace::get_param<double>("amr", "zmin"),
-                grace::get_param<double>("amr", "zmax")
-            } ; 
-
-            ASSERT(
-                z_extent_read[0] == z_extent_param[0] && z_extent_read[1] == z_extent_param[1],
-                "z extents do not match in checkpoint: " << z_extent_read[0] << " != " << z_extent_param[0] << " or " << z_extent_read[1] << " != " << z_extent_param[1]
-            ) ; 
-            HDF5_CALL(err, H5Dclose(dset_id)) ;
-            HDF5_CALL(err, H5Sclose(space_id)) ;
-        }
-    }
-    /**********************************************************************/
     /* Read the data from the hdf5 file                                   */
     /**********************************************************************/
     hid_t dxpl ;
     HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER)) ;
     HDF5_CALL(err, H5Pset_dxpl_mpio(dxpl,H5FD_MPIO_COLLECTIVE)) ;
     /**********************************************************************/
+    // read coordinate extents 
+    auto read_extent_dataset = [&](std::string const& name, double &val_min, double &val_max, std::string const& dim_label){
+        hsize_t dset_dims[1];
+        hid_t dset_id = H5Dopen(file_id, name.c_str(), H5P_DEFAULT);
+        ASSERT(dset_id >= 0, "Failed to open dataset " << name);
+
+        hid_t space_id = H5Dget_space(dset_id);
+        ASSERT(space_id >= 0, "Failed to get dataspace for " << name);
+
+        HDF5_CALL(err, H5Sget_simple_extent_dims(space_id, dset_dims, nullptr));
+        ASSERT(dset_dims[0] == 2, "Dimension of " << name << " is not 2");
+
+        // Collective read
+        HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, &val_min));
+
+        // Since the dataset is 2 elements, copy properly
+        double tmp[2];
+        HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, tmp));
+        val_min = tmp[0];
+        val_max = tmp[1];
+
+        // Compare with expected parameters
+        double param[2] = {
+            grace::get_param<double>("amr", dim_label + "min"),
+            grace::get_param<double>("amr", dim_label + "max")
+        };
+        ASSERT(val_min == param[0] && val_max == param[1],
+            name << " extents do not match checkpoint: "
+            << val_min << " != " << param[0] << " or "
+            << val_max << " != " << param[1]);
+
+        HDF5_CALL(err, H5Dclose(dset_id));
+        HDF5_CALL(err, H5Sclose(space_id));
+    };
+
+    // All ranks participate collectively
+    double xmin, xmax, ymin, ymax, zmin, zmax;
+    read_extent_dataset("grid_extent_x", xmin, xmax, "x");
+    read_extent_dataset("grid_extent_y", ymin, ymax, "y");
+    read_extent_dataset("grid_extent_z", zmin, zmax, "z");
+
+    
+    /**********************************************************************/
     /* Read the state data                                                */
     /**********************************************************************/
     auto state = grace::variable_list::get().getstate() ; 
-    #if 0
     auto sstate = grace::variable_list::get().getstaggeredstate() ; 
-    #endif 
+
     detail::read_data_hdf5(file_id, dxpl, "CellCenteredData", state) ; 
-    #if 0 
     detail::read_data_hdf5(file_id, dxpl, "CornerCenteredData", sstate.corner_staggered_fields) ;
     detail::read_data_hdf5(file_id, dxpl, "EdgeCenteredDataXY", sstate.edge_staggered_fields_xy) ;
     detail::read_data_hdf5(file_id, dxpl, "EdgeCenteredDataXZ", sstate.edge_staggered_fields_xz) ;
@@ -621,7 +528,6 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     detail::read_data_hdf5(file_id, dxpl, "FaceCenteredDataX", sstate.face_staggered_fields_x) ;
     detail::read_data_hdf5(file_id, dxpl, "FaceCenteredDataY", sstate.face_staggered_fields_y) ;
     detail::read_data_hdf5(file_id, dxpl, "FaceCenteredDataZ", sstate.face_staggered_fields_z) ;
-    #endif 
     /**********************************************************************/
     /* Close the file                                                     */
     /**********************************************************************/

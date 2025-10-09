@@ -132,12 +132,13 @@ gpu_task_t make_pack_task(
     gpu_task_t pack_task{} ;
 
     amr::pack_op<elem_kind,decltype(data)> pack_functor {
-        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank
+        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank, stag
     } ; 
 
+    int off = (stag == STAG_CENTER ? 0 : 1) ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
     pack_policy{
-        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx,nv,sb.size())
+        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx+off,nv,sb.size())
     } ; 
     
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
@@ -213,12 +214,13 @@ gpu_task_t make_pack_fine_task(
     gpu_task_t pack_task{} ;
 
     amr::pack_op<elem_kind,decltype(data)> pack_functor {
-        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank
+        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank, stag
     } ; 
 
+    int off = (stag == STAG_CENTER ? 0 : 1) ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
     pack_policy{
-        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx,nv,sb.size())
+        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx+off,nv,sb.size())
     } ; 
     
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
@@ -425,12 +427,12 @@ gpu_task_t make_unpack_task(
     gpu_task_t unpack_task{} ;
 
     amr::unpack_op<elem_kind,decltype(data)> unpack_functor {
-        recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_elem, VEC(nx,ny,nz), ngz, nv, rank
+        recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_elem, VEC(nx,ny,nz), ngz, nv, rank, stag
     } ; 
-
+    int off = (stag == STAG_CENTER ? 0 : 1) ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
     unpack_policy{
-        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx,nv,rb.size())
+        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx+off,nv,rb.size())
     } ; 
     
     unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {

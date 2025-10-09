@@ -110,7 +110,7 @@ struct phys_bc_op {
 
     // only one view involved, if nx needs to be 
     // halved, just do it here 
-    size_t n, ngz ; 
+    size_t nx, ny, nz, ngz ; 
 
     template< var_staggering_t stag >
     void set_data_ptr(view_alias_t alias) 
@@ -118,21 +118,22 @@ struct phys_bc_op {
         if (!is_cbuf) data = alias.get<stag>() ; 
     }
 
-
     phys_bc_op(
         view_t _data ,
         Kokkos::View<size_t*> _qid, Kokkos::View<uint8_t*> _eid, 
         Kokkos::View<int8_t*[3]> _dir, Kokkos::View<bc_t*> _var_bcs, 
          VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, bool _is_cbuf
     ) : qid(_qid),  eid(_eid), dir(_dir), var_bcs(_var_bcs), data(_data), 
-        n(_nx), ngz(_ngz), is_cbuf(_is_cbuf)
+        nx(_nx), ny(_ny), nz(_nz), ngz(_ngz), is_cbuf(_is_cbuf)
     {
         outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ;
     }
-    
+
     KOKKOS_INLINE_FUNCTION 
     void compute_zero_dir(size_t& lmin, size_t& lmax, size_t& idir, uint8_t dir_idx, uint8_t eid) const {
         idir = +1;
+        size_t _ncells[3] = {nx,ny,nz} ; 
+        size_t const n = _ncells[dir_idx] ; 
         if constexpr (elem_kind == element_kind_t::CORNER) 
         {
             lmin = ((eid>>dir_idx) & 1) ? n + ngz : 0 ; 
@@ -163,14 +164,15 @@ struct phys_bc_op {
     KOKKOS_INLINE_FUNCTION 
     void compute_bounds_impl(int8_t dir, size_t& lmin, size_t& lmax, size_t& idir, uint8_t idx, uint8_t eid) const
     {
-      if (dir < 0) {
-        lmin = ngz - 1; lmax = -1; idir = -1;
-      } else if (dir > 0) {
-        lmin = n + ngz; lmax = n + 2 * ngz; idir = +1;
-      } else {
-        // anche se ti sembra che abbia un suono spaventoso 
-        compute_zero_dir(lmin,lmax,idir,idx,eid) ;  
-      }
+        size_t _ncells[3] = {nx,ny,nz} ; 
+        if (dir < 0) {
+            lmin = ngz - 1; lmax = -1; idir = -1;
+        } else if (dir > 0) {
+            lmin = _ncells[idx] + ngz; lmax = _ncells[idx] + 2 * ngz; idir = +1;
+        } else {
+            // anche se ti sembra che abbia un suono spaventoso 
+            compute_zero_dir(lmin,lmax,idir,idx,eid) ;  
+        }
     };
 
     KOKKOS_INLINE_FUNCTION 

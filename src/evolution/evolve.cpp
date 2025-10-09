@@ -82,7 +82,7 @@ void evolve() {
 template< typename eos_t >
 void evolve_impl() {
     using namespace grace ; 
-
+    DECLARE_GRID_EXTENTS ; 
     auto& parser = grace::config_parser::get() ;
 
     std::string tstepper = 
@@ -103,7 +103,10 @@ void evolve_impl() {
     auto& fsurf   = grace::variable_list::get().getstaggeredcoords() ;
     auto& idx     = grace::variable_list::get().getinvspacings() ;  
     auto& dx     = grace::variable_list::get().getspacings() ;  
-    auto& fluxes  = grace::variable_list::get().getfluxesarray() ;  
+    auto& fluxes  = grace::variable_list::get().getfluxesarray() ; 
+
+    auto nvars_face  = sstate.face_staggered_fields_x.extent(GRACE_NSPACEDIM) ;
+    auto nvars_cc  = state.extent(GRACE_NSPACEDIM) ;
 
     /* Copy the current state to scratch memory */
     //amr::apply_boundary_conditions(state) ; 
@@ -124,7 +127,114 @@ void evolve_impl() {
         amr::apply_boundary_conditions(state,sstate) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if (tstepper == "rk3" ) {
-        ERROR("Not implemented yet.") ; 
+        
+        auto update_policy =
+        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
+               {VEC(0,0,0), 0, 0}
+            , {VEC(nx,ny,nz),nvars_cc, nq}
+        ) ;
+        auto const stag_update = [&] (
+            grace::staggered_variable_arrays_t& A,
+            grace::staggered_variable_arrays_t& B,
+            grace::staggered_variable_arrays_t& C, double b, double c
+        ) {
+            auto staggered_update_policy_x =
+            Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
+                {VEC(ngz,ngz,ngz), 0, 0}
+                , {VEC(nx+ngz+1,ny+ngz,nz+ngz),nvars_face, nq}
+            ) ;
+            Kokkos::parallel_for(
+            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
+                , staggered_update_policy_x
+                , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
+                {
+                    A.face_staggered_fields_x(VEC(i,j,k), ivar, q)
+                        = b * B.face_staggered_fields_x(VEC(i,j,k), ivar, q)
+                        + c * C.face_staggered_fields_x(VEC(i,j,k), ivar, q) ; 
+                }
+            ) ;
+            auto staggered_update_policy_y =
+            Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
+                {VEC(ngz,ngz,ngz), 0, 0}
+                , {VEC(nx+ngz,ny+ngz+1,nz+ngz),nvars_face, nq}
+            ) ;
+            Kokkos::parallel_for(
+            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
+                , staggered_update_policy_y
+                , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
+                {
+                    A.face_staggered_fields_y(VEC(i,j,k), ivar, q)
+                        = b * B.face_staggered_fields_y(VEC(i,j,k), ivar, q)
+                        + c * C.face_staggered_fields_y(VEC(i,j,k), ivar, q) ; 
+                }
+            ) ;
+            auto staggered_update_policy_z =
+            Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
+                {VEC(ngz,ngz,ngz), 0, 0}
+                , {VEC(nx+ngz,ny+ngz,nz+ngz+1),nvars_face, nq}
+            ) ;
+            Kokkos::parallel_for(
+            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
+                , staggered_update_policy_z
+                , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
+                {
+                    A.face_staggered_fields_z(VEC(i,j,k), ivar, q)
+                        = b * B.face_staggered_fields_z(VEC(i,j,k), ivar, q)
+                        + c * C.face_staggered_fields_z(VEC(i,j,k), ivar, q) ; 
+                }
+            ) ;
+        } ; 
+        // step 1: state_p -> u^1 = u^n + dt L( u^n )
+        advance_substep<eos_t>(
+            t,dt,1.0,
+            state_p,state,
+            sstate_p,sstate,aux,
+            idx,dx,cvol,fsurf, fluxes) ; 
+        amr::apply_boundary_conditions(state_p,sstate_p) ; 
+        compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ;
+        // Allocate state_pp and sstate_pp 
+        auto state_pp  = grace::variable_list::get().allocate_state() ;
+        auto sstate_pp = grace::variable_list::get().allocate_staggered_state() ;
+        // step 2: state_pp = 3/4 u^n + 1/4 u^1
+        stag_update(sstate_pp, sstate, sstate_p, 0.75, 0.25) ; 
+        Kokkos::parallel_for(
+            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
+            , update_policy
+            , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
+            {
+                state_pp(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
+                    = 0.75 * state(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
+                    + 0.25 * state_p(VEC(i+ngz,j+ngz,k+ngz), ivar, q) ; 
+            }
+        ) ;
+        // step 3: state_pp -> u^2 = 3/4 u^n + 1/4 u^1 + 1/4 dt L( u^1 )
+        advance_substep<eos_t>(
+            t,dt,0.25,
+            state_pp,state_p,
+            sstate_pp,sstate_p,aux,
+            idx,dx,cvol,fsurf, fluxes) ;
+        amr::apply_boundary_conditions(state_pp,sstate_pp) ; 
+        compute_auxiliary_quantities<eos_t>(state_pp, sstate_pp, aux) ;
+        // step 4: state = 1/3 u^n + 2/3 u^2
+        stag_update(sstate, sstate, sstate_pp, 1./3, 2./3.) ; 
+        Kokkos::parallel_for(
+            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
+            , update_policy
+            , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
+            {
+                state(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
+                    = 1./3. * state(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
+                    + 2./3. * state_pp(VEC(i+ngz,j+ngz,k+ngz), ivar, q) ; 
+            }
+        ) ;
+        // step 5: state -> u^n+1 = 1/3 u^n + 2/3 u^2 + 2/3 dt L( u^2 )
+        advance_substep<eos_t>(
+            t,dt,2./3.,
+            state,state_pp,
+            sstate,sstate_pp,aux,
+            idx,dx,cvol,fsurf, fluxes) ;
+        amr::apply_boundary_conditions(state,sstate) ; 
+        compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else {
         ERROR("Unrecognised time-stepper.") ; 
     }
@@ -217,7 +327,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     auto flux_x_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz,ngz-1,ngz-1),0}
+              {VEC(ngz-1,ngz-1,ngz-1),0}
             , {VEC(nx+ngz+1,ny+ngz+1,nz+ngz+1),nq}
         ) ; 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux")
@@ -228,7 +338,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     auto flux_y_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz-1,ngz,ngz-1),0}
+              {VEC(ngz-1,ngz-1,ngz-1),0}
             , {VEC(nx+ngz+1,ny+ngz+1,nz+ngz+1),nq}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
@@ -239,7 +349,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     auto flux_z_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz-1,ngz-1,ngz),0}
+              {VEC(ngz-1,ngz-1,ngz-1),0}
             , {VEC(nx+ngz+1,ny+ngz+1,nz+ngz+1),nq}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
@@ -264,7 +374,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     auto advance_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
               {VEC(ngz,ngz,ngz),0,0}
-            , {VEC(nx+ngz,ny+ngz,nz+ngz),nvars_hrsc,nq}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz),nvars_hrsc-3,nq}
         ) ; 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "add_fluxes")
                 , advance_policy 
@@ -305,22 +415,38 @@ void advance_substep( double const t, double const dt, double const dtfact
                 , advance_stag_policy_x 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
-        // E^y_{i+1/2,j,k+1/2} = 1/4 ( F^x_{i+1/2,j,k} + F^x_{i+1/2,j,k+1} - F^z_{i+1,j,k+1/2} - F^z_{i,j,k+1/2} )
-        auto const Eyp = 0.25 * ( fluxes(VEC(i,j,k), BSZ_, 0, q) + fluxes(VEC(i,j,k+1), BSZ_, 0, q)
-                                - fluxes(VEC(i+1,j,k), BSX_, 2, q) - fluxes(VEC(i,j,k), BSX_, 2, q) ) ;
-        // E^y_{i+1/2,j,k-1/2} = 1/4 ( F^x_{i+1/2,j,k} + F^x_{i+1/2,j,k-1} - F^z_{i+1,j,k-1/2} - F^z_{i,j,k-1/2} )
-        auto const Ey  = 0.25 * ( fluxes(VEC(i,j,k), BSZ_, 0, q) + fluxes(VEC(i,j,k-1), BSZ_, 0, q)
-                                - fluxes(VEC(i+1,j,k-1), BSX_, 2, q) - fluxes(VEC(i,j,k-1), BSX_, 2, q) ) ;
-        // E^z_{i+1/2,j+1/2,k} = 1/4 ( F^y_{i+1,j+1/2,k} + F^y_{i,j+1/2,k} - F^x_{i+1/2,j,k} - F^x{i+1/2,j+1,k} )
-        auto const Ezp = 0.25 * ( fluxes(VEC(i,j,k),BSX_,1,q) + fluxes(VEC(i+1,j,k),BSX_,1,q) 
-                                - fluxes(VEC(i,j,k),BSY_,0,q) - fluxes(VEC(i,j+1,k),BSY_,0,q) ) ;
-        // E^z_{i+1/2,j-1/2,k} = 1/4 ( F^y_{i+1,j-1/2,k} + F^y_{i,j-1/2,k} - F^x_{i+1/2,j,k} - F^x{i+1/2,j-1,k} )
-        auto const Ez =0.25 * ( fluxes(VEC(i,j-1,k),BSX_,1,q) + fluxes(VEC(i+1,j-1,k),BSX_,1,q) 
-                                - fluxes(VEC(i,j,k),BSY_,0,q) - fluxes(VEC(i,j-1,k),BSY_,0,q) ) ;
+        // E^y_{i-1/2,j,k+1/2} = 1/4 ( F^x_{i-1/2,j,k} + F^x_{i-1/2,j,k+1} - F^z_{i-1,j,k+1/2} - F^z_{i,j,k+1/2} )
+        auto const Eyp = 0.25 * ( 
+              fluxes(VEC(i,j,k), BZF, 0, q) 
+            + fluxes(VEC(i,j,k+1), BZF, 0, q)
+            - fluxes(VEC(i-1,j,k+1), BXF, 2, q) 
+            - fluxes(VEC(i,j,k+1), BXF, 2, q)   
+        ) ;
+        // E^y_{i-1/2,j,k-1/2} = 1/4 ( F^x_{i-1/2,j,k} + F^x_{i-1/2,j,k-1} - F^z_{i-1,j,k-1/2} - F^z_{i,j,k-1/2} )
+        auto const Ey  = 0.25 * ( 
+              fluxes(VEC(i,j,k), BZF, 0, q) 
+            + fluxes(VEC(i,j,k-1), BZF, 0, q)
+            - fluxes(VEC(i-1,j,k), BXF, 2, q) 
+            - fluxes(VEC(i,j,k), BXF, 2, q)  
+        ) ;
+        // E^z_{i-1/2,j+1/2,k} = 1/4 ( F^y_{i-1,j+1/2,k} + F^y_{i,j+1/2,k} - F^x_{i-1/2,j,k} - F^x{i-1/2,j+1,k} )
+        auto const Ezp = 0.25 * ( 
+              fluxes(VEC(i,j+1,k),BXF,1,q) 
+            + fluxes(VEC(i-1,j+1,k),BXF,1,q) 
+            - fluxes(VEC(i,j,k),BYF,0,q) 
+            - fluxes(VEC(i,j+1,k),BYF,0,q) 
+        ) ;
+        // E^z_{i-1/2,j-1/2,k} = 1/4 ( - F^y_{i-1,j-1/2,k} - F^y_{i,j-1/2,k} + F^x_{i-1/2,j,k} + F^x{i-1/2,j-1,k} )
+        auto const Ez =0.25 * ( 
+              fluxes(VEC(i,j,k),BXF,1,q) 
+            + fluxes(VEC(i-1,j,k),BXF,1,q)
+            - fluxes(VEC(i,j,k),BYF,0,q) 
+            - fluxes(VEC(i,j-1,k),BYF,0,q) 
+        ) ;
 
         new_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) += dt * dtfact * (
-            (Eyp-Ey) * idx(1,q)
-          + (Ez-Ezp) * idx(2,q)
+            (Eyp-Ey) * idx(2,q)
+          + (Ez-Ezp) * idx(1,q)
         )  ; /* yuck! */
     } ) ; 
 
@@ -334,35 +460,34 @@ void advance_substep( double const t, double const dt, double const dtfact
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
         // Corner E-fields needed for B_y update
-        // E^z_{i+1/2,j+1/2,k}
+        // E^z_{i+1/2,j-1/2,k}
         auto const Ezp_y = 0.25 * (
-              fluxes(VEC(i,j  ,k), BSY_, 0, q)    // F_x(i+1/2,j,k)
-            + fluxes(VEC(i,j+1,k), BSY_, 0, q)    // F_x(i+1/2,j+1,k)
-            - fluxes(VEC(i  ,j,k), BSX_, 1, q)    // F_y(i,j+1/2,k)
-            - fluxes(VEC(i+1,j,k), BSX_, 1, q)    // F_y(i+1,j+1/2,k)
+              fluxes(VEC(i  ,j,k), BXF, 1, q)    // F_y(i,j-1/2,k)
+            + fluxes(VEC(i+1,j,k), BXF, 1, q)    // F_y(i+1,j-1/2,k)
+            - fluxes(VEC(i+1,j  ,k), BYF, 0, q)    // F_x(i+1/2,j,k)
+            - fluxes(VEC(i+1,j-1,k), BYF, 0, q)    // F_x(i+1/2,j-1,k) 
         );
         // E^z (i-1/2,j+1/2,k)
         auto const Ez_y  = 0.25 * (
-              fluxes(VEC(i-1,j  ,k), BSY_, 0, q)    // F_x(i-1/2,j,k)
-            + fluxes(VEC(i-1,j+1,k), BSY_, 0, q)    // F_x(i-1/2,j+1,k)
-            - fluxes(VEC(i  ,j,k), BSX_, 1, q)    // F_y(i,j+1/2,k)
-            - fluxes(VEC(i-1,j,k), BSX_, 1, q)    // F_y(i-1,j+1/2,k)
+              fluxes(VEC(i  ,j,k), BXF, 1, q)    // F_y(i,j-1/2,k)
+            + fluxes(VEC(i-1,j,k), BXF, 1, q)    // F_y(i-1,j-1/2,k)
+            - fluxes(VEC(i,j  ,k), BYF, 0, q)    // F_x(i-1/2,j,k)
+            - fluxes(VEC(i,j-1,k), BYF, 0, q)    // F_x(i-1/2,j-1,k) 
         );
 
-        // E^x (i,j+1/2,k+1/2)
+        // E^x (i,j-1/2,k+1/2)
         auto const Exp_y = 0.25 * (
-                fluxes(VEC(i,j,k  ), BSZ_, 1, q) // F_y(i,j+1/2,k)
-              + fluxes(VEC(i,j,k+1), BSZ_, 1, q) // F_y(i,j+1/2,k+1)
-              - fluxes(VEC(i,j  ,k), BSY_, 2, q) // F_z(i,j,k+1/2)
-              - fluxes(VEC(i,j+1,k), BSY_, 2, q) // F_z(i,j,k+1/2)
-
+                fluxes(VEC(i,j  ,k+1), BYF, 2, q) // F_z(i,j,k+1/2)
+              + fluxes(VEC(i,j-1,k+1), BYF, 2, q) // F_z(i,j-1,k+1/2)
+              - fluxes(VEC(i,j,k  ), BZF, 1, q) // F_y(i,j+1/2,k)
+              - fluxes(VEC(i,j,k+1), BZF, 1, q) // F_y(i,j+1/2,k+1) 
         );
-        // E^x (i,j+1/2,k-1/2)
+        // E^x (i,j-1/2,k-1/2)
         auto const Ex_y = 0.25 * (
-                fluxes(VEC(i,j,k  ), BSZ_, 1, q) // F_y(i,j+1/2,k)
-              + fluxes(VEC(i,j,k-1), BSZ_, 1, q) // F_y(i,j+1/2,k-1)
-              - fluxes(VEC(i,j  ,k-1), BSY_, 2, q) // F_z(i,j,k-1/2)
-              - fluxes(VEC(i,j+1,k-1), BSY_, 2, q) // F_z(i,j,k-1/2)
+                fluxes(VEC(i,j  ,k), BYF, 2, q) // F_z(i,j,k-1/2)
+              + fluxes(VEC(i,j-1,k), BYF, 2, q) // F_z(i,j-1,k-1/2)
+              - fluxes(VEC(i,j,k  ), BZF, 1, q) // F_y(i,j-1/2,k)
+              - fluxes(VEC(i,j,k-1), BZF, 1, q) // F_y(i,j-1/2,k-1) 
         );
 
         // Update B_y
@@ -383,40 +508,40 @@ void advance_substep( double const t, double const dt, double const dtfact
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
         // Corner E-fields needed for B_z update
-        // E^x (i,j+1/2,k+1/2)
+        // E^x (i,j+1/2,k-1/2)
         auto const Exp_z = 0.25 * (
-               fluxes(VEC(i,j,k  ),BSZ_,1,q)
-             + fluxes(VEC(i,j,k+1),BSZ_,1,q)
-             - fluxes(VEC(i,j  ,k),BSY_,2,q)
-             - fluxes(VEC(i,j+1,k),BSY_,2,q)
+               fluxes(VEC(i,j  ,k),BYF,2,q)
+             + fluxes(VEC(i,j+1,k),BYF,2,q)
+             - fluxes(VEC(i,j+1,k  ),BZF,1,q)
+             - fluxes(VEC(i,j+1,k-1),BZF,1,q)
         );
-        // E^x (i,j-1/2,k+1/2)
+        // E^x (i,j-1/2,k-1/2)
         auto const Ex_z = 0.25 * (
-               fluxes(VEC(i,j-1,k  ),BSZ_,1,q)
-             + fluxes(VEC(i,j-1,k+1),BSZ_,1,q)
-             - fluxes(VEC(i,j  ,k),BSY_,2,q)
-             - fluxes(VEC(i,j-1,k),BSY_,2,q)
+               fluxes(VEC(i,j  ,k),BYF,2,q)
+             + fluxes(VEC(i,j-1,k),BYF,2,q)
+             - fluxes(VEC(i,j,k  ),BZF,1,q)
+             - fluxes(VEC(i,j,k-1),BZF,1,q)
         );
 
-        // E^y at front and back corners in x
+        // E^y (i+1/2,j,k-1/2)
         auto const Eyp_z = 0.25 * (
-               fluxes(VEC(i,j,k),BSX_,2,q)
-             + fluxes(VEC(i+1,j,k),BSX_,2,q)
-             - fluxes(VEC(i,j,k),BSZ_,0,q)
-             - fluxes(VEC(i,j,k+1),BSZ_,0,q)
+               fluxes(VEC(i+1,j,k),BZF,0,q)
+             + fluxes(VEC(i+1,j,k-1),BZF,0,q)
+             - fluxes(VEC(i,j,k),BXF,2,q)
+             - fluxes(VEC(i+1,j,k),BXF,2,q)
         );
-        // E^y (i-1/2,j,k+1/2)
+        // E^y (i-1/2,j,k-1/2)
         auto const Ey_z = 0.25 * (
-               fluxes(VEC(i,j,k),BSX_,2,q)
-             + fluxes(VEC(i-1,j,k),BSX_,2,q)
-             - fluxes(VEC(i-1,j,k),BSZ_,0,q)
-             - fluxes(VEC(i-1,j,k+1),BSZ_,0,q)
+               fluxes(VEC(i,j,k),BZF,0,q)
+             + fluxes(VEC(i,j,k-1),BZF,0,q)
+             - fluxes(VEC(i,j,k),BXF,2,q)
+             - fluxes(VEC(i-1,j,k),BXF,2,q) 
         );
 
         // Update B_z
         new_stag_state.face_staggered_fields_z(VEC(i,j,k), BSZ_, q) += dt * dtfact * (
-            (Ey_z - Eyp_z) * idx(1,q)  // y derivative
-            + (Exp_z - Ex_z) * idx(0,q)  // x derivative
+            (Ey_z - Eyp_z) * idx(0,q)  // y derivative
+           + (Exp_z - Ex_z) * idx(1,q)  // x derivative
         );
 
 

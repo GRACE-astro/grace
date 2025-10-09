@@ -29,6 +29,7 @@
 
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/eos/grhd_c2p.hh>
+#include <grace/physics/eos/grmhd_c2p.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -44,17 +45,16 @@ conservs_to_prims( grmhd_cons_array_t& cons
                  , eos_t const& eos
                  , double const& lapse_excision ) 
 {
-    using c2p_impl_t = grhd_c2p_t<eos_t> ;
+    using c2p_impl_t = grmhd_c2p_kastaun_t<eos_t> ;
     bool c2p_failed{ false }             ;
     double W                             ;
     /* Undensitize conservs */
-    for( auto& c: cons) c /= metric.sqrtg() ;
+    for( int ic = DENSL; ic<=ENTSL; ++ic) cons[ic] /= metric.sqrtg() ;
     /* First we check whether we are in the atmosphere */
     auto const dens_atmo = eos.rho_atmosphere() ;
     if( cons[DENSL] > dens_atmo ) {
         c2p_impl_t c2p(eos,metric,cons) ;
-        double residual ;
-        prims =  c2p.invert(residual) ;
+        double residual = c2p.invert(prims) ;
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
         W = prims[PRESSL] ; // W was stored here for convenience
     } else {
@@ -71,6 +71,9 @@ conservs_to_prims( grmhd_cons_array_t& cons
         prims[VXL]   = 0. ;
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
+        prims[BXL]   = 0. ;
+        prims[BYL]   = 0. ;
+        prims[BZL]   = 0. ;
         W = 1. ;
     }
     /* Set pressure entropy and temperature */
@@ -111,17 +114,30 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
 
     cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
 
-    double const b2{0.}, smallbt{0.} ; 
+    double b2{0.} ;
+    std::array<double,4> smallb{0.,0.,0.,0.} ;
+    std::array<double,3> const ui = { 
+        prims[VXL] * u0,
+        prims[VYL] * u0,
+        prims[VZL] * u0,
+    } ; 
+    smallb[0] = metric.contract_vec_vec(vZAMO,{prims[BXL],prims[BYL],prims[BZL]}) * u0 ; 
+    for( int i=0; i<3; ++i) {
+        smallb[i+1] = (prims[BXL+i] + metric.alp() * smallb[0] * ui[i])/W ; 
+    }
+    b2 = ( metric.square_vec({prims[BXL],prims[BYL],prims[BZL]}) + metric.alp()*metric.alp()* smallb[0] * smallb[0] ) / W / W ; 
+    auto smallbD = metric.lower_4vec(smallb) ; 
+
     double const one_over_alp2 = 1./math::int_pow<2>(metric.alp());
     double const rho0_h_plus_b2 = (prims[RHOL]*(1+prims[EPSL])) + prims[PRESSL] + b2 ;
     double const alp2_sqrtgamma = math::int_pow<2>(metric.alp()) * metric.sqrtg() ;
     double const g4uptt = -one_over_alp2 ; 
     
     double const P_plus_half_b2 = (prims[PRESSL] + 0.5*b2);
-    double const Tuptt = rho0_h_plus_b2 * math::int_pow<2>(u0) + P_plus_half_b2 * g4uptt - math::int_pow<2>(smallbt) ; 
+    double const Tuptt = rho0_h_plus_b2 * math::int_pow<2>(u0) + P_plus_half_b2 * g4uptt - math::int_pow<2>(smallb[0]) ; 
     cons[TAUL] = alp2_sqrtgamma * Tuptt - cons[DENSL] ;
 
-    std::array<double,4> smallb{0.,0.,0.,0.}, smallbD{0.,0.,0.,0.} ; 
+     
     auto uD = metric.lower({prims[VXL]+metric.beta(0),prims[VYL]+metric.beta(1),prims[VZL]+metric.beta(2)}) ; 
     for(auto & uu: uD) uu *= u0 ; 
 
@@ -131,7 +147,7 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
 
     cons[YESL] = cons[DENSL] * prims[YEL] ;
     cons[ENTSL] = cons[DENSL] * prims[ENTL] ;
-
+    ////
     return ; 
 }
 

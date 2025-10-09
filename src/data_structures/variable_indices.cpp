@@ -189,7 +189,7 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(TAU,"tau","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing",true) ;
-    REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(BSX,BSY,BSZ,"B_face", "outgoing"/*FIXME?*/, false/*FIXME?*/);
+    REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(BSX,BSY,BSZ,"B_face", "outgoing"/*FIXME?*/, true/*FIXME?*/);
     /* GRMHD primitives */
     REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
     REGISTER_AUX_VECTOR(VELX,VELY,VELZ,"vel","none") ; 
@@ -554,7 +554,11 @@ static int register_variable(     std::string const& name
         }   
     }
     props.index = varidx ;
-    detail::_varprops[name] = props ; 
+    if ( is_evolved ) {
+        detail::_varprops[name] = props ;
+    } else {
+        detail::_auxprops[name] = props ;
+    } 
     return varidx ;
 }
 } } /* namespace grace::variables */
