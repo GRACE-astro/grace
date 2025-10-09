@@ -52,17 +52,18 @@ evolution: {
 }
 grmhd: {
   id_type: "shocktube",
+  
   shocktube: {
     rho_L: 1.,
-    rho_R: 1.,
-    press_L: 30.,
-    press_R: 1.,
-    Bx_L: 5.,
-    Bx_R: 5.,
-    By_L: 6.,
-    By_R: 0.7,
-    Bz_L: 6.,
-    Bz_R: 0.7
+    rho_R: 0.125,
+    press_L: 1.,
+    press_R: 0.1,
+    Bx_L: 0.5,
+    Bx_R: 0.5,
+    By_L: 1.,
+    By_R: -1.,
+    Bz_L: 0.,
+    Bz_R: 0.
   }
 }
 
@@ -74,7 +75,7 @@ eos: {
   temp_atmosphere: 0,
   rho_atmosphere: 1.e-14,
   eps_maximum: 1.e+05,
-  gamma_th: 1.66666,
+  gamma_th: 2,
 
   piecewise_polytrope: {
     n_pieces: 1,

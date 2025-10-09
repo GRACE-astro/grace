@@ -293,7 +293,6 @@ void amr_ghosts_impl_t::build_task_list(
     }
     /***********************************************************************/
     /***********************************************************************/
-    GRACE_TRACE("Inserting copy tasks") ; 
     insert_copy_tasks<stag>(
         ghost_layer,
         copy_kernels,
@@ -337,7 +336,6 @@ void amr_ghosts_impl_t::build_task_list(
     ) ; 
     /***********************************************************************/
     /***********************************************************************/
-    #if 1
     auto const deferred_phys_bc_kernels = 
         insert_phys_bc_tasks<stag>(
                 phys_bc_kernels, ghost_layer,
@@ -345,7 +343,6 @@ void amr_ghosts_impl_t::build_task_list(
                 phys_bc_stream, VEC(nx,ny,nz),ngz,nv,
                 task_counter,task_list
         ) ;
-    #endif 
     /***********************************************************************/
     /***********************************************************************/
     insert_prolongation_tasks<stag>(
@@ -363,13 +360,11 @@ void amr_ghosts_impl_t::build_task_list(
     #endif  
     /***********************************************************************/
     /***********************************************************************/
-    #if 1
     insert_deferred_phys_bc_tasks<stag>(
         deferred_phys_bc_kernels, ghost_layer,
         dummy, cbuf_view, vbc, phys_bc_stream,
         VEC(nx,ny,nz),ngz,nv, task_counter, task_list
     ); 
-    #endif 
     /***********************************************************************/
     /***********************************************************************/
 }

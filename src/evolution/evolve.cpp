@@ -265,56 +265,15 @@ void advance_substep( double const t, double const dt, double const dtfact
     int64_t nq = amr::get_local_num_quadrants() ;
     
     int nvars_hrsc = variables::get_n_hrsc() ;
-    /*********************************************/ 
-    /* Define the flux array and allocate memory */
-    /* NB this array has NO ghostzones!          */
-    /*********************************************/ 
-    /* 
-    flux_array_t fluxes(
-          "Fluxes"
-        , VEC( nx + 1 
-             , ny + 1 
-             , nz + 1)
-        , nvars_hrsc 
-        , GRACE_NSPACEDIM
-        , nq 
-    ) ; 
-    */
-    /* Define the equation system (a couple ugly ifdef's!)*/
-    #ifdef GRACE_ENABLE_SCALAR_ADV
-    double VEC(ax,ay,az) ; 
-    EXPR(
-    ax = grace::get_param<double>("scalar_advection","ax");,
-    ay = grace::get_param<double>("scalar_advection","ay");,
-    az = grace::get_param<double>("scalar_advection","az"); )
-    scalar_advection_system_t 
-        scalar_adv_system{ old_state, aux, VEC(ax,ay,az) } ; 
-    #define GET_X_FLUX \
-    scalar_adv_system.template compute_x_flux<slope_limited_reconstructor_t<minmod>>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
-    #define GET_Y_FLUX \
-    scalar_adv_system.template compute_y_flux<slope_limited_reconstructor_t<minmod>>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
-    #define GET_Z_FLUX \
-    scalar_adv_system.template compute_z_flux<slope_limited_reconstructor_t<minmod>>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
-    #define GET_SOURCES \
-    scalar_adv_system(sources_computation_kernel_t{}, team, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
-    #endif 
-    #ifdef GRACE_ENABLE_BURGERS 
-    burgers_equation_system_t
-        burgers_eq_system{ old_state, aux } ; 
-    #define GET_X_FLUX \
-    burgers_eq_system.template compute_x_flux<hll_riemann_solver_t,weno_reconstructor_t<3>>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact) 
-    #define GET_Y_FLUX \
-    burgers_eq_system.template compute_y_flux<hll_riemann_solver_t,weno_reconstructor_t<3>>(team, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
-    #define GET_Z_FLUX \
-    burgers_eq_system.template compute_z_flux<hll_riemann_solver_t,weno_reconstructor_t<3>>(eam, VEC(i,j,k), ngz, fluxes, dx, dt, dtfact)
-    #define GET_SOURCES \
-    burgers_eq_system(sources_computation_kernel_t{}, team, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
-    #endif 
+    
+    /* Define the equation system (a couple ugly ifdef's!)*/ 
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,old_state,old_stag_state,aux) ; 
     #define RECON slope_limited_reconstructor_t<MCbeta>
+    //slope_limited_reconstructor_t<MCbeta>
+    //weno_reconstructor_t<5>
     #define GET_X_FLUX \
     grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), fluxes, dx, dt, dtfact) 
     #define GET_Y_FLUX \
@@ -327,7 +286,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     auto flux_x_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz-1,ngz-1,ngz-1),0}
+              {VEC(ngz,ngz-1,ngz-1),0}
             , {VEC(nx+ngz+1,ny+ngz+1,nz+ngz+1),nq}
         ) ; 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux")
@@ -338,7 +297,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     auto flux_y_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz-1,ngz-1,ngz-1),0}
+              {VEC(ngz-1,ngz,ngz-1),0}
             , {VEC(nx+ngz+1,ny+ngz+1,nz+ngz+1),nq}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
@@ -349,7 +308,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     auto flux_z_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz-1,ngz-1,ngz-1),0}
+              {VEC(ngz-1,ngz-1,ngz),0}
             , {VEC(nx+ngz+1,ny+ngz+1,nz+ngz+1),nq}
         ) ;
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")

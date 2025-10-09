@@ -9,7 +9,7 @@ amr: {
   ymax: 0.1,
   zmin: -0.1,
   zmax: 0.1,
-  n_ghostzones: 4,
+  n_ghostzones: 2,
   initial_refinement_level: 2,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
@@ -22,9 +22,9 @@ amr: {
 IO: {
   volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 300,
+  volume_output_every: -1,
   plane_surface_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]"],
-  plane_surface_output_every: 20,
+  plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
   do_initial_output: false,
   info_output_every: 20,
@@ -38,7 +38,8 @@ IO: {
   scalar_output_integral: [],
   output_use_hdf5: true, 
   hdf5_compression_level: 6,
-  hdf5_chunk_size: 8192
+  hdf5_chunk_size: 8192,
+  do_initial_output: false
 }
 system: {
   console_log_level: "info",

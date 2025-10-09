@@ -482,14 +482,7 @@ struct grmhd_equations_system_t
     {
         using namespace grace; 
         using namespace Kokkos ; 
-        auto const vars = subview(
-              this->_state
-            , VEC( i
-                 , j
-                 , k )
-            , ALL()
-            , q
-        ) ; 
+
         /* Get prims */
         grmhd_prims_array_t prims ;
         FILL_PRIMS_ARRAY(prims,this->_aux,q,VEC(i,j,k)) ;
@@ -937,6 +930,19 @@ struct grmhd_equations_system_t
                          , primR[recon_indices_loc[ivar]]
                          , idir) ;
         }
+        /***********************************************************************/
+        /* Replace B^d_L/R with face staggered                                 */
+        /***********************************************************************/
+        if constexpr ( idir == 0 ) {
+            primL[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) ; 
+            primR[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) ; 
+        } else if constexpr ( idir == 1 ) {
+            primL[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) ; 
+            primR[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) ; 
+        } else {
+            primL[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) ; 
+            primR[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) ; 
+        }
         // Compute HLL fluxes
         grmhd_cons_array_t f_HLL ; 
         compute_mhd_fluxes<idir,riemann_t,true>( primL, primR, metric_face, f_HLL, 1, 1) ; 
@@ -1029,7 +1035,6 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),ENTROPYSTAR_+3,idir,q)          = f_HLL[BSZL] ; 
         /***********************************************************************/
         #endif 
-        // 
     }
 
     template< size_t idir

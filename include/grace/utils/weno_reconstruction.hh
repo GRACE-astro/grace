@@ -43,7 +43,7 @@
 
 #define U0 u(VEC(i,j,k))
 #define UM(d) u(VEC(i-d*utils::delta(0,idir),j-d*utils::delta(1,idir),k-d*utils::delta(2,idir)))
-#define UP(d) u(VEC(i+d*utils::delta(0,idir),j+d*utils::delta(1,idir),k+d*utils::delta(2,idir)))
+#define UP(d) u(VEC(i+(d)*utils::delta(0,idir),j+(d)*utils::delta(1,idir),k+(d)*utils::delta(2,idir)))
 
 namespace grace {
 /**
@@ -140,11 +140,11 @@ template<>
 struct weno_reconstructor_t<5> 
 {
  private:
-    static constexpr double d0 = 0.3; 
+    static constexpr double d0 = 0.1; 
     static constexpr double d1 = 0.6; 
-    static constexpr double d2 = 0.1; 
+    static constexpr double d2 = 0.3; 
     
-    static constexpr double WENO5_12_BY_13 = 12.0/13.0 ; 
+    static constexpr double WENO5_13_BY_12 = 13.0/12.0 ; 
     static constexpr double WENO5_1_BY_6   = 1.0/6.0   ; 
     
  public: 
@@ -180,11 +180,13 @@ struct weno_reconstructor_t<5>
         , double& uR 
         , int8_t idir )
     {
+        using math::int_pow ; 
+
         std::array<double,4> const gamma {
-             WENO5_12_BY_13 * math::int_pow<2>(U0-2.*UP(1)+UP(2)),
-             WENO5_12_BY_13 * math::int_pow<2>(UM(1)-2.*U0+UP(1)),
-             WENO5_12_BY_13 * math::int_pow<2>(UM(2)-2.*UM(1)+U0),
-             WENO5_12_BY_13 * math::int_pow<2>(UM(3)-2.*UM(2)+UM(1))
+             WENO5_13_BY_12 * math::int_pow<2>(U0-2.*UP(1)+UP(2)),
+             WENO5_13_BY_12 * math::int_pow<2>(UM(1)-2.*U0+UP(1)),
+             WENO5_13_BY_12 * math::int_pow<2>(UM(2)-2.*UM(1)+U0),
+             WENO5_13_BY_12 * math::int_pow<2>(UM(3)-2.*UM(2)+UM(1))
         } ; 
 
         std::array<double,3> const betaL {
@@ -199,16 +201,19 @@ struct weno_reconstructor_t<5>
             gamma[3] + 0.25 * math::int_pow<2>(UM(3)-4.*UM(2)+3.*UM(1)) 
         } ;
 
+        double const tauL = Kokkos::fabs(betaL[0]-betaL[2]) ; 
         std::array<double,3> const alphaL { 
-            d2 / math::int_pow<2>( WENO_EPS + betaL[0] ),
-            d1 / math::int_pow<2>( WENO_EPS + betaL[1] ),
-            d0 / math::int_pow<2>( WENO_EPS + betaL[2] )
+            d0 * ( 1 + tauL / math::int_pow<2>( WENO_EPS + betaL[0] ) ),
+            d1 * ( 1 + tauL / math::int_pow<2>( WENO_EPS + betaL[1] ) ),
+            d2 * ( 1 + tauL / math::int_pow<2>( WENO_EPS + betaL[2] ) )
         } ; 
+
+        double const tauR = Kokkos::fabs(betaR[0]-betaR[2]) ; 
         std::array<double,3> const alphaR { 
-            d0 / math::int_pow<2>( WENO_EPS + betaR[0] ),
-            d1 / math::int_pow<2>( WENO_EPS + betaR[1] ),
-            d2 / math::int_pow<2>( WENO_EPS + betaR[2] )
-        } ; 
+            d2 * ( 1 + tauR / math::int_pow<2>( WENO_EPS + betaR[0] ) ),
+            d1 * ( 1 + tauR / math::int_pow<2>( WENO_EPS + betaR[1] ) ),
+            d0 * ( 1 + tauR / math::int_pow<2>( WENO_EPS + betaR[2] ) )
+        } ;
         double const wL = 1./(alphaL[0] + alphaL[1] + alphaL[2]) ; 
         double const wR = 1./(alphaR[0] + alphaR[1] + alphaR[2]) ; 
         

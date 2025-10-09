@@ -144,17 +144,22 @@ struct grmhd_c2p_kastaun_t {
         prims[BZL] = conservs[BSZL] ; 
         //unsigned long iter_max = 2000;  // change this to be determined elsewhere! 
         unsigned long iter_max = 2000;  // change this to be determined elsewhere! 
-        //double const tolerance = 1e-15; // change this
-        double const tolerance = 1e-10; // usual FIL setup 
-
+        double const tolerance = 1e-15; // change this
+        unsigned long iter = iter_max ; 
+        auto f_a = [this](double mu){return this -> fa_of_mu(mu);} ; 
+        auto df_a = [this](double mu){return this -> dfa_dmu(mu);} ; 
         // first, we constrain the area of search by finding mu_plus
         double const mu_plus = utils::rootfind_newton_raphson(
                             0.0, 1.0/eos.enthalpy_minimum(),  // lower bound, upper bound
-                            [this](double mu){return this -> fa_of_mu(mu);}, // function
-                            [this](double mu){return this -> dfa_dmu(mu);}, //  derivative
-                            tolerance, iter_max           // tolerance, iteration book-keeper
+                            f_a, // function
+                            df_a, //  derivative
+                            tolerance, iter           // tolerance, iteration book-keeper
                             ) + tiny_number;
-
+        if ( iter >= iter_max ) {
+            double const mu_plus = utils::brent(
+                                    f_a, 
+                                    0, 1./eos.enthalpy_minimum(),tolerance);
+        }
         // f_of_mu is a non-static member function, so to pass it into brent, we need to wrap it in a named lambda
         auto f_mu=[this](double lambda){return this->f_of_mu(lambda);};
         // now we look for the root of the master function in the (0, mu_plus] interval:

@@ -226,7 +226,7 @@ void amr_ghosts_impl_t::build_remote_buffers() {
     size_t ngz = amr::get_n_ghosts() ; 
     // get n vars 
     std::size_t nvars = variables::get_n_evolved() ; 
-    std::size_t nvars_f = variables::get_n_evolved() ; 
+    std::size_t nvars_f = variables::get_n_evolved_face_staggered() ; 
     /****************************************************/
     pack_kernels.resize(nproc) ; unpack_kernels.resize(nproc) ; 
     pack_finer_kernels.resize(nproc) ; 
@@ -520,10 +520,11 @@ void amr_ghosts_impl_t::build_remote_buffers() {
     } ; 
 
     std::array<std::array<size_t,6>,N_VAR_STAGGERINGS> elem_sizes ;
-    elem_sizes[0] = elem_sizes_c ; 
-    for( int is=1; is<N_VAR_STAGGERINGS; ++is) elem_sizes[is] = elem_sizes_f ; 
-
-     
+    for( int is=0; is<N_VAR_STAGGERINGS; ++is) elem_sizes[is] = std::array<size_t,6>({0,0,0,0,0,0}) ; 
+    elem_sizes[STAG_CENTER] = elem_sizes_c ; 
+    elem_sizes[STAG_FACEX] = elem_sizes_f ; 
+    elem_sizes[STAG_FACEY] = elem_sizes_f ; 
+    elem_sizes[STAG_FACEZ] = elem_sizes_f ; 
     
     // compute message sizes 
     arr_svec_t send_sizes, recv_sizes ; 
@@ -582,9 +583,9 @@ void amr_ghosts_impl_t::build_remote_buffers() {
     std::array<std::string,N_VAR_STAGGERINGS> stag_labels {
         "cell center", "x face", "y face", "xy edge", "z face", "xz edge", "yz edge", "corner"
     } ; 
-    for( int r=0; r<nproc; ++r) {
-        for( int ik=0; ik<6; ++ik){
-            for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag ) {
+    for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag ) {
+        for( int r=0; r<nproc; ++r) {
+            for( int ik=0; ik<6; ++ik){
                 GRACE_TRACE(
                 "Rank {} stag {} section {} send count {}, offset {}", r, stag_labels[istag], labels[ik], rank_send_counts[ik][r], send_offsets[istag][ik][r]
                 ) ; 
