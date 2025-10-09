@@ -125,7 +125,10 @@ void amr_ghosts_impl_t::update() {
     //parallel::mpi_barrier() ; // FIXME 
 
     std::unordered_set<size_t> cbuf_qid ; 
-    //build_flux_buffers()     ;
+    
+    std::unordered_set<size_t> cflux_qid ; //TODO_FLUX
+
+    //build_flux_buffers()     ;  //TODO_FLUX
     build_coarse_buffers(cbuf_qid)   ; 
      
     bucket_t phys_bc_kernels, copy_kernels, copy_to_cbuf_kernels, prolong_kernels; 
@@ -148,7 +151,7 @@ void amr_ghosts_impl_t::update() {
         copy_from_cbuf_kernels, copy_to_cbuf_kernels, 
         pack_kernels, unpack_kernels, pack_finer_kernels, pack_to_cbuf_kernels,
         unpack_to_cbuf_kernels, unpack_from_cbuf_kernels,
-        prolong_kernels, cbuf_qid
+        prolong_kernels, cbuf_qid, cflux_qid
     )        ; 
     build_executor_runtime() ;
     parallel::mpi_barrier() ;
@@ -198,6 +201,64 @@ void amr_ghosts_impl_t::build_coarse_buffers(
     /****************************************************/
 }
 
+void amr_ghosts_impl_t::build_flux_buffers( //TODO_FLUX
+    std::unordered_set<size_t> & cflux_qid 
+) {
+    /****************************************************/
+    auto nq = amr::get_local_num_quadrants() ; 
+    std::size_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    auto ngz = amr::get_n_ghosts() ; 
+    // get n vars 
+    //std::size_t nvars = variables::get_n_evolved() ; 
+    int const nvars_hrsc = variables::get_n_hrsc() ;
+    /****************************************************/
+
+    // A quadrant needs a flux-register only if it has a COARSER neighbor across at least one *face*.
+    auto needs_cflux = [&] (quad_neighbors_descriptor_t const& desc) {
+        for (int f = 0; f < P4EST_FACES; ++f) {
+            if (desc.faces[f].level_diff == level_diff_t::COARSER) return true;
+        }
+        return false;
+    };
+
+    // which faces actually need it, useful for later for kernels?
+    auto face_mask = [] (quad_neighbors_descriptor_t const& desc) -> unsigned {
+        unsigned m = 0u;
+        for (int f = 0; f < P4EST_FACES; ++f) {
+            //if (desc.faces[f].level_diff == level_diff_t::COARSER) m |= (1u << f);
+            if (desc.faces[f].level_diff == level_diff_t::COARSER) m |= face_bit_from_index(f);
+        }
+        return m;
+    };
+
+    /****************************************************/
+    size_t cur_idx{0UL};
+    for (size_t iq = 0UL; iq < nq; ++iq) {
+        if (needs_cflux(ghost_layer[iq])) {
+            ghost_layer[iq].cflux_id   = cur_idx++;      
+            ghost_layer[iq].cflux_mask = face_mask(ghost_layer[iq]); // optional bitmask field
+            cflux_qid.insert(iq);
+        } else {
+            //ghost_layer[iq].cflux_id = size_t(-1);            
+            ghost_layer[iq].cflux_id = SIZE_MAX;
+            ghost_layer[iq].cflux_mask = 0;
+        }
+    }
+    /****************************************************/
+
+    // Allocate at *coarse* resolution and *face counts* convention (nx/2 + 1, ...), no ghosts.
+    // Layout mirrors the per-step flux array: [i,j,k][ivar][dir][buf_id].
+    _coarse_flux_buffers = flux_array_t(
+          "coarse_flux_buffers"
+        , VEC(nx/2 + 1, ny/2 + 1, nz/2 + 1)
+        , nvars_hrsc //nvars
+        , GRACE_NSPACEDIM
+        , cur_idx
+    );
+    /****************************************************/
+}
+
 void amr_ghosts_impl_t::build_executor_runtime() {
     task_queue.clear() ; 
     task_queue.reserve(task_list.size()) ; 
@@ -230,7 +291,8 @@ void amr_ghosts_impl_t::build_task_list(
     std::vector<bucket_t>& unpack_to_cbuf_kernels,
     std::vector<hang_bucket_t>& unpack_from_cbuf_kernels,
     bucket_t& prolong_kernels,
-    std::unordered_set<size_t> const& cbuf_qid
+    std::unordered_set<size_t> const& cbuf_qid,
+    std::unordered_set<size_t> const& cflux_qid
 ) {
     /***********************************************************************/
     task_id_t task_counter{0UL} ; 
@@ -249,6 +311,7 @@ void amr_ghosts_impl_t::build_task_list(
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     auto ngz = amr::get_n_ghosts() ; 
     std::size_t nvars = variables::get_n_evolved() ;
+    std::size_t nvars_hrsc = variables::get_n_hrsc() ;
     /***********************************************************************/
     // First we construct the mpi tasks 
     std::vector<task_id_t> send_task_id, recv_task_id ; 
@@ -294,6 +357,20 @@ void amr_ghosts_impl_t::build_task_list(
             task_counter, task_list 
         ) ; 
     }
+    /***********************************************************************/
+    /***********************************************************************/
+    task_id_t reflux_tid{UNSET_TASK_ID}; 
+     if(cflux_qid.size()>0) {
+        reflux_tid = make_gpu_sum_flux_faces_task(
+            cflux_qid,
+            ghost_layer,
+            state, 
+            _coarse_flux_buffers, 
+            interp_stream,
+            VEC(nx,ny,nz), ngz, nvars, 
+            task_counter, task_list 
+        ) ; 
+    }   
     /***********************************************************************/
     /***********************************************************************/
     insert_copy_tasks(

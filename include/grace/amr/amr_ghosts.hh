@@ -69,6 +69,28 @@ enum interface_kind_t : uint8_t { PHYS, INTERNAL }  ;
 /**************************************************************************************************/
 enum level_diff_t : int8_t {FINER=-1, SAME=0, COARSER=+1} ; // The other one is ? 
 /**************************************************************************************************/
+// TODO_FLUX
+// Face bitmask used by refluxing to mark which faces of a quadrant are next to coarser one
+// 0:x-, 1:x+, 2:y-, 3:y+, (4:z-, 5:z+ in 3D).
+enum face_mask_bits : uint8_t {
+    FACE_XMIN = 1u << 0, FACE_XMAX = 1u << 1,
+    FACE_YMIN = 1u << 2, FACE_YMAX = 1u << 3,
+#ifdef GRACE_3D
+    FACE_ZMIN = 1u << 4, FACE_ZMAX = 1u << 5,
+#endif
+};
+/**************************************************************************************************/
+// map a P4EST-style face index [0..2*dim-1] to its bit.
+GRACE_INLINE inline uint8_t face_bit_from_index(int f) {
+#ifdef GRACE_3D
+    ASSERT(0 <= f && f < 6, "face index out of range");
+#else
+    ASSERT(0 <= f && f < 4, "face index out of range");
+#endif
+    return static_cast<uint8_t>(1u << f);
+}
+
+/**************************************************************************************************/
 struct full_face_t {
         std::size_t quad_id       ; //!< Index of quadrant on the other side 
         std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
@@ -175,6 +197,9 @@ struct quad_neighbors_descriptor_t {
     std::array< corner_descriptor_t, P4EST_CHILDREN> corners; //!< Corners
     std::size_t quad_id ; //!< Quadrant id 
     std::size_t cbuf_id ; //!< For fine quads only: index into coarse buffer array 
+    //TODO_FLUX:
+    std::size_t cflux_id { SIZE_MAX};
+    uint8_t cflux_mask {0};
 
     //! Debug information
     int8_t n_registered_faces {0} ; 
@@ -284,9 +309,14 @@ class amr_ghosts_impl_t {
     amr::ghost_array_t _send_buffer, _recv_buffer ;
 
     grace::var_array_t<GRACE_NSPACEDIM> _coarse_buffers ; 
+    grace::flux_array_t _coarse_flux_buffers ; //TODO
     Kokkos::View<bc_t*> var_bc_kind ; //!< Boundary condition per-variable
     //**************************************************************************************************
-    //void build_flux_buffers() ; /* TODO ! */
+
+    /* TODO_FLUX ! */
+    void build_flux_buffers(
+        std::unordered_set<size_t> & ) ; 
+
     //**************************************************************************************************
     void reset() {
         ghost_layer.clear() ; 
@@ -310,6 +340,7 @@ class amr_ghosts_impl_t {
         std::vector<bucket_t>& ,
         std::vector<hang_bucket_t>&,
         bucket_t&,
+        std::unordered_set<size_t> const&, 
         std::unordered_set<size_t> const& 
     ) ; 
     //**************************************************************************************************
