@@ -131,7 +131,7 @@ void evolve_impl() {
         auto update_policy =
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
                {VEC(0,0,0), 0, 0}
-            , {VEC(nx,ny,nz),nvars_cc, nq}
+            , {VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars_cc, nq}
         ) ;
         auto const stag_update = [&] (
             grace::staggered_variable_arrays_t& A,
@@ -202,9 +202,9 @@ void evolve_impl() {
             , update_policy
             , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
             {
-                state_pp(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
-                    = 0.75 * state(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
-                    + 0.25 * state_p(VEC(i+ngz,j+ngz,k+ngz), ivar, q) ; 
+                state_pp(VEC(i,j,k), ivar, q)
+                    = 0.75 * state(VEC(i,j,k), ivar, q)
+                    + 0.25 * state_p(VEC(i,j,k), ivar, q) ; 
             }
         ) ;
         // step 3: state_pp -> u^2 = 3/4 u^n + 1/4 u^1 + 1/4 dt L( u^1 )
@@ -222,9 +222,9 @@ void evolve_impl() {
             , update_policy
             , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
             {
-                state(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
-                    = 1./3. * state(VEC(i+ngz,j+ngz,k+ngz), ivar, q)
-                    + 2./3. * state_pp(VEC(i+ngz,j+ngz,k+ngz), ivar, q) ; 
+                state(VEC(i,j,k), ivar, q)
+                    = 1./3. * state(VEC(i,j,k), ivar, q)
+                    + 2./3. * state_pp(VEC(i,j,k), ivar, q) ; 
             }
         ) ;
         // step 5: state -> u^n+1 = 1/3 u^n + 2/3 u^2 + 2/3 dt L( u^2 )

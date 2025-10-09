@@ -53,7 +53,6 @@ conservs_to_prims( grmhd_cons_array_t& cons
     /* First we check whether we are in the atmosphere */
     auto const dens_atmo = eos.rho_atmosphere() ;
     if( cons[DENSL] > dens_atmo ) {
-        cons[BSXL] = cons[BSYL] = cons[BSZL] = 0 ; 
         c2p_impl_t c2p(eos,metric,cons) ;
         double residual = c2p.invert(prims) ;
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
