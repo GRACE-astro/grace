@@ -140,8 +140,8 @@ void evolve_impl() {
         ) {
             auto staggered_update_policy_x =
             Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
-                {VEC(ngz,ngz,ngz), 0, 0}
-                , {VEC(nx+ngz+1,ny+ngz,nz+ngz),nvars_face, nq}
+                {VEC(0,0,0), 0, 0}
+                , {VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nvars_face, nq}
             ) ;
             Kokkos::parallel_for(
             GRACE_EXECUTION_TAG("EVOL","RK3_substep")
@@ -155,8 +155,8 @@ void evolve_impl() {
             ) ;
             auto staggered_update_policy_y =
             Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
-                {VEC(ngz,ngz,ngz), 0, 0}
-                , {VEC(nx+ngz,ny+ngz+1,nz+ngz),nvars_face, nq}
+                {VEC(0,0,0), 0, 0}
+                , {VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz),nvars_face, nq}
             ) ;
             Kokkos::parallel_for(
             GRACE_EXECUTION_TAG("EVOL","RK3_substep")
@@ -170,8 +170,8 @@ void evolve_impl() {
             ) ;
             auto staggered_update_policy_z =
             Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
-                {VEC(ngz,ngz,ngz), 0, 0}
-                , {VEC(nx+ngz,ny+ngz,nz+ngz+1),nvars_face, nq}
+                {VEC(0,0,0), 0, 0}
+                , {VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz+1),nvars_face, nq}
             ) ;
             Kokkos::parallel_for(
             GRACE_EXECUTION_TAG("EVOL","RK3_substep")
@@ -271,7 +271,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,old_state,old_stag_state,aux) ; 
-    #define RECON slope_limited_reconstructor_t<MCbeta>
+    #define RECON weno_reconstructor_t<5>
     //slope_limited_reconstructor_t<MCbeta>
     //weno_reconstructor_t<5>
     #define GET_X_FLUX \

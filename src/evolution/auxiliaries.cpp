@@ -93,6 +93,7 @@ void compute_auxiliary_quantities(
     int ngz = amr::get_n_ghosts() ; 
     
     int64_t nq = amr::get_local_num_quadrants() ;
+    auto& idx     = grace::variable_list::get().getinvspacings() ;  
 
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
@@ -110,6 +111,15 @@ void compute_auxiliary_quantities(
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
         GET_AUX ; 
+        auto Bx = Kokkos::subview(sstate.face_staggered_fields_x,
+                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), BSX_, q) ; 
+        auto By = Kokkos::subview(sstate.face_staggered_fields_y,
+                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), BSY_, q) ; 
+        auto Bz = Kokkos::subview(sstate.face_staggered_fields_z,
+                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), BSZ_, q) ;   
+        aux(VEC(i,j,k),BDIV_,q) = (Bx(VEC(i+1,j,k)) - Bx(VEC(i,j,k))) * idx(0,q) 
+                                + (By(VEC(i,j+1,k)) - By(VEC(i,j,k))) * idx(1,q)
+                                + (Bz(VEC(i,j,k+1)) - Bz(VEC(i,j,k))) * idx(2,q) ; 
     }) ; 
 
     #undef GET_AUX

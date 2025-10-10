@@ -259,7 +259,8 @@ DECLARE_VAR_INDEX_IMPL(BZ)                        \
 DECLARE_VAR_INDEX_IMPL(TEMP)                        \
 DECLARE_VAR_INDEX_IMPL(YE)                          \
 DECLARE_VAR_INDEX_IMPL(ENTROPY)                     \
-DECLARE_VAR_INDEX_IMPL(EPS)                         
+DECLARE_VAR_INDEX_IMPL(EPS)                         \
+DECLARE_VAR_INDEX_IMPL(BDIV)
 /* ADM metric functions */
 #define VARIABLE_LIST_ADMBASE                     \
 DECLARE_VAR_INDEX_IMPL(GXX)                       \

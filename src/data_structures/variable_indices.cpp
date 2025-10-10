@@ -199,7 +199,8 @@ void register_variables() {
     REGISTER_AUX_SCALAR(TEMP,"temperature", "none") ;
     REGISTER_AUX_SCALAR(ENTROPY,"entropy","none") ; 
     REGISTER_AUX_SCALAR(EPS,"eps","none") ; 
-    REGISTER_AUX_SCALAR(PRESS,"press","none") ; 
+    REGISTER_AUX_SCALAR(PRESS,"press","none") ;
+    REGISTER_AUX_SCALAR(BDIV, "Bdiv","none") ; 
     /* registration of metric variables */
     REGISTER_EVOLVED_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","outgoing",false) ; 
     REGISTER_EVOLVED_SCALAR(ALP,"alp","outgoing",false) ; 
