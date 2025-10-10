@@ -31,9 +31,9 @@
 
 #include <grace_config.h>
 
-#include <grace/utils/device.h>
+#include <grace/utils/device/device.h>
 #include <grace/utils/inline.h>
-
+#include <grace/evolution/evolution_kernel_tags.hh>
 #include <grace/data_structures/variable_properties.hh>
 
 namespace grace {
@@ -42,8 +42,9 @@ template < typename EvolSystem_t >
 struct fd_evolution_system_t {
 
     fd_evolution_system_t( grace::var_array_t state_ 
-                         , grace::var_array_t aux_ )
-        : _state(state_), _aux(aux_)
+                         , grace::var_array_t aux_
+                         , grace::staggered_variable_arrays_t sstate_ )
+        : _state(state_), _aux(aux_), _sstate(sstate_)
     {} 
 
 
@@ -55,10 +56,11 @@ struct fd_evolution_system_t {
                        , int const k)
                   , grace::scalar_array_t<GRACE_NSPACEDIM> const idx 
                   , grace::var_array_t const state_new 
+                  , grace::staggered_variable_arrays_t const sstate_new 
                   , double const dt 
                   , double const dtfact ) const 
     {
-        return static_cast<EvolSystem_t const*>(this)->compute_update_impl(q,VEC(i,j,k),idx,state_new,dt,dtfact) ;
+        return static_cast<EvolSystem_t const*>(this)->template compute_update_impl<der_order>(q,VEC(i,j,k),idx,state_new,sstate_new,dt,dtfact) ;
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -82,7 +84,8 @@ struct fd_evolution_system_t {
     } ; 
 
  protected:
-    grace::var_array_t _state, _aux ; 
+    grace::var_array_t<GRACE_NSPACEDIM> _state, _aux ; 
+    grace::staggered_variable_arrays_t _sstate       ; 
 
 } ; 
 } // namespace grace 

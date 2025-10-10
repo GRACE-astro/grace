@@ -50,9 +50,11 @@ namespace grace {
 
 template< size_t der_order >
 bssn_state_t GRACE_HOST_DEVICE 
-compute_bssn_rhs( grace::var_array_t const state
-                , grmhd_prims_array_t const& hydro_state
-                , std::array<double,GRACE_NSPACEDIM> const& idx);
+compute_bssn_rhs( VEC(int i, int j, int k), int q
+                , grace::var_array_t<GRACE_NSPACEDIM> const state
+                , std::array<std::array<double,4>,4> const& Tmunu
+                , std::array<double,GRACE_NSPACEDIM> const& idx
+                , double const k1, double const eta );
 
 
 struct bssn_system_t 
@@ -65,8 +67,10 @@ struct bssn_system_t
  public:
 
     bssn_system_t( grace::var_array_t state_ 
-                 , grace::var_array_t aux_ )
-        : base_t(state_,aux_) 
+                 , grace::var_array_t aux_
+                 , grace::staggered_variable_arrays_t sstate_
+                 , double _k1, double _eta, double _epsdiss )
+        : base_t(state_,aux_,sstate_), _k1(_k1), _eta(_eta), _epsdiss(_epsdiss)
     {} 
 
     template< size_t der_order >
@@ -77,6 +81,7 @@ struct bssn_system_t
                             , int const k)
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx 
                        , grace::var_array_t const state_new 
+                       , grace::staggered_variable_arrays_t sstate_
                        , double const dt 
                        , double const dtfact ) const
     {
@@ -85,9 +90,45 @@ struct bssn_system_t
 
         grmhd_prims_array_t hydro_state ;
         FILL_PRIMS_ARRAY(hydro_state, this->_aux, q, VEC(i,j,k)); 
+        metric_array_t metric ;
+        FILL_METRIC_ARRAY(metric, this->_state, q, VEC(i,j,k)) ; 
 
-        bssn_state_t update = compute_bssn_rhs<der_order>(this->_state, hydro_state, idx)  ; 
+        auto const Tdd = get_Tmunu(hydro_state, metric); 
+
+        bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,this->_state, Tdd, idx, _k1, _eta)  ; 
+        for( int ivar=PHIL; ivar<N_VARS_BSSN; ++ivar) {
+            state_new(VEC(i,j,k),PHI_+ivar,q) += dt * dtfact * update[ivar] ;
+        }
         
+    }
+
+    KOKKOS_FUNCTION
+    std::array<std::array<double,4>,4> get_Tmunu(
+        grmhd_prims_array_t const& prims,
+        metric_array_t const& metric
+    ) const {
+        std::array<std::array<double,4>,4> Tmunu ;
+        double const u0 =  W/metric.alp() ; 
+        std::array<double,3> uD3 = metric.lower({prims[VXL] + metric.beta(0), prims[VYL] + metric.beta(1), prims[VZL] + metric.beta(2)}) ; 
+        // u_t = W ( beta^i v_i - alp ) with v == eulerian velocity! 
+        auto uD0 = u0 * metric.contract_vec_covec({metric.beta(0),metric.beta(1),metric.beta(2)}, uD3) - metric.alp() * W ; 
+        std::array<double,4> uD { uD0, uD3[0]*u0, uD3[1]*u0, uD3[2]*u0 } ; 
+        auto gdd = metric.gmunu()     ; 
+        int idx4[4][4] = {
+            {0,1,2,3},
+            {1,4,5,6},
+            {2,5,7,8},
+            {3,6,8,9}
+        } ; 
+        for( int mu=0; mu<4; ++mu ) {
+            for( int nu=0; nu<4; ++nu) {
+                // TODO missing b field contribution 
+                Tmunu[mu][nu] = (prims[RHOL]*(1+prims[EPSL]) + prims[PRESSL]) * uD[mu] * uD[nu] 
+                              + prims[PRESSL] * gdd[idx4[mu][nu]] ;
+            }
+        }
+
+        return Tmunu ;
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 

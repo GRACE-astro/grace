@@ -93,7 +93,7 @@ using grmhd_prims_array_t = std::array<double,NUM_PRIMS_LOC> ;
  */
 using grmhd_cons_array_t  = std::array<double,NUM_CONS_LOC>  ;
 } /* namespace grace */
-
+#ifndef GRACE_ENABLE_BSSN_METRIC
 #define FILL_METRIC_ARRAY(g, view, q, ...)                    \
 g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \
                           , view(__VA_ARGS__,GXY_,q)     \
@@ -105,7 +105,20 @@ g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \
                           , view(__VA_ARGS__,BETAY_,q)   \
                           , view(__VA_ARGS__,BETAZ_,q) } \
                           , view(__VA_ARGS__,ALP_,q) } 
-                          
+#else 
+g = grace::metric_array_t{  { view(__VA_ARGS__,GTXX_,q)   \
+                          , view(__VA_ARGS__,GTXY_,q)     \
+                          , view(__VA_ARGS__,GTXZ_,q)     \
+                          , view(__VA_ARGS__,GTYY_,q)     \
+                          , view(__VA_ARGS__,GTYZ_,q)     \
+                          , view(__VA_ARGS__,GTZZ_,q) }   \
+                          , view(__VA_ARGS__,PHI_,q)     \
+                          , { view(__VA_ARGS__,BETAX_,q) \
+                          , view(__VA_ARGS__,BETAY_,q)   \
+                          , view(__VA_ARGS__,BETAZ_,q) } \
+                          , view(__VA_ARGS__,ALP_,q) } 
+#endif 
+                  
 #define FILL_PRIMS_ARRAY(primsarr,vview,q,...)        \
 primsarr[RHOL] = vview(__VA_ARGS__,RHO_,q);      \
 primsarr[PRESSL] = vview(__VA_ARGS__,PRESS_,q) ; \
