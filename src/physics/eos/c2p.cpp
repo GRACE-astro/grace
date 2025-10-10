@@ -57,6 +57,7 @@ conservs_to_prims( grmhd_cons_array_t& cons
         double residual = c2p.invert(prims) ;
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
         W = prims[PRESSL] ; // W was stored here for convenience
+        
     } else {
         c2p_failed = true ;
     }
