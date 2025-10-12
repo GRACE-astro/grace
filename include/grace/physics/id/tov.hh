@@ -246,7 +246,7 @@
          double const nuL = sol[2] ; 
          
          id.vx = 0 ; id.vy = 0; id.vz = 0;
-         
+         id.bx = id.by = id.bz = 0;
          /* Set the metric */
          id.alp   = 
              Kokkos::exp(nuL) ; 

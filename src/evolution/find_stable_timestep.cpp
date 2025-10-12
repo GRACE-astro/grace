@@ -118,7 +118,11 @@ void find_stable_timestep_impl() {
                    , policy
                    , KOKKOS_LAMBDA(VEC(int const& i, int const& j, int const& k), int const& q, double& dtmax)
     {
+        #ifndef GRACE_ENABLE_BSSN_METRIC
         double const cmax = GET_CMAX; 
+        #else 
+        double const cmax = 1 ; 
+        #endif 
         double L    ; 
         #ifdef GRACE_3D 
         L = Kokkos::cbrt(cvol(VEC(i,j,k),q)) ; 

@@ -33,6 +33,9 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/grmhd_helpers.hh>
+#ifdef GRACE_ENABLE_BSSN_METRIC
+#include <grace/physics/bssn_helpers.hh>
+#endif
 #include <grace/physics/id/shocktube.hh>
 //#include <grace/physics/id/blastwave.hh>
 #include <grace/physics/id/kelvin_helmholtz.hh>
@@ -43,7 +46,6 @@
 #include <grace/evolution/evolution_kernel_tags.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/physics/eos/eos_storage.hh>
-#include <grace/physics/grmhd_helpers.hh>
 #include <grace/physics/grmhd.hh>
 
 #include <grace/config/config_parser.hh>
@@ -162,7 +164,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     
                     aux(VEC(i,j,k),RHO_,q)   = id.rho; 
                     aux(VEC(i,j,k),PRESS_,q) = id.press ; 
-
+                    #ifdef GRACE_ENABLE_COWLING_METRIC
                     state(VEC(i,j,k),ALP_,q) = id.alp ;
 
                     state(VEC(i,j,k),BETAX_,q) = id.betax ;
@@ -182,6 +184,9 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     state(VEC(i,j,k),KYY_,q) = id.kyy ; 
                     state(VEC(i,j,k),KYZ_,q) = id.kyz ;
                     state(VEC(i,j,k),KZZ_,q) = id.kzz ;
+                    #elif defined(GRACE_ENABLE_BSSN_METRIC)
+                    adm_to_bssn(id,state,VEC(i,j,k),q);
+                    #endif
 
                     auto const v2 = id.gxx * id.vx * id.vx +
                                     id.gyy * id.vy * id.vy +
@@ -218,6 +223,17 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),BY_,q) = id.by ;
                     aux(VEC(i,j,k),BZ_,q) = id.bz ; 
                 }) ; 
+    #ifdef GRACE_ENABLE_BSSN_METRIC 
+    Kokkos::fence(); 
+    auto& idx = variable_list::get().getinvspacings() ; 
+    parallel_for( GRACE_EXECUTION_TAG("ID","BSSN_Gamma")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    std::array<double,3> _idx{idx(0,q),idx(1,q),idx(2,q)} ; 
+                    compute_gamma_tilde<BSSN_DER_ORDER>(state,VEC(i,j,k),q,_idx,VEC(nx,ny,nz),ngz) ; 
+                });
+    #endif 
     // now we set the staggered fields 
     parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BX")
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nq})

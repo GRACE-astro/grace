@@ -1,15 +1,15 @@
 name: "grace"
 amr: {
-  npoints_block_x: 16,
-  npoints_block_y: 16,
-  npoints_block_z: 16,
+  npoints_block_x: 32,
+  npoints_block_y: 32,
+  npoints_block_z: 32,
   xmin: -32,
   xmax: 32,
   ymin: -32,
   ymax: 32,
   zmin: -32,
   zmax: 32,
-  n_ghostzones: 2,
+  n_ghostzones: 4,
   initial_refinement_level: 3,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 1e-05,
@@ -22,16 +22,16 @@ amr: {
   postinitial_regrid_depth: 3
 }
 IO: {
-  volume_output_cell_variables: ["rho","press","eps","vel[0]", "zvec[0]", "alp"],
+  volume_output_cell_variables: ["rho","press","eps","vel[0]", "alp", "beta[0]"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 1000,
+  volume_output_every: 150,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
   info_output_every: 20,
   info_output_max_reductions: ["alp", "eps","rho","press"],
   #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
-  info_output_min_reductions: ["alp", "eps","rho","press"],
+  info_output_min_reductions: ["alp"],
   #["eps","rho","stilde[0]", "stilde[1]","stilde[2]","dens","press"],
   scalar_output_every: 2,
   scalar_output_minmax: ["rho","press","eps"],
@@ -50,7 +50,7 @@ system: {
   n_device_streams: 3
 }
 evolution: {
-  time_stepper: "rk2",
+  time_stepper: "rk3",
   cfl_factor: 0.2,
   final_time: 2000,
   reset_id_after_regrid: true

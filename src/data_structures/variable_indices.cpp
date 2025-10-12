@@ -216,8 +216,8 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(ALP,"alp","third_order_lagrange",false);
     REGISTER_EVOLVED_VECTOR(BETAX,BETAY,BETAZ,"beta","third_order_lagrange",false);
     REGISTER_EVOLVED_VECTOR(BBX,BBY,BBZ,"bssn_B","third_order_lagrange",false);
-    REGISTER_AUX_SCALAR(HAM,"bssn_H","none",false);
-    REGISTER_AUX_VECTOR(MOMX,MOMY,MOMZ,"bssn_M","none",false);
+    REGISTER_AUX_SCALAR(HAM,"bssn_H","none");
+    REGISTER_AUX_VECTOR(MOMX,MOMY,MOMZ,"bssn_M","none");
     #endif
     /********************************************************************************/
     /********************************************************************************/
@@ -275,7 +275,7 @@ static bc_t get_bc_type(std::string const& bc_string)
 {
     if ( bc_string == "outgoing" ) {
         return bc_t::BC_OUTFLOW ;
-    } else if ( bc_string == "lagrange_extrap") {
+    } else if ( bc_string == "third_order_lagrange") {
         return bc_t::BC_LAGRANGE_EXTRAP ; 
     } else if ( bc_string == "none" ) {
         return bc_t::BC_NONE ; 

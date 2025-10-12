@@ -43,7 +43,7 @@ namespace grace {
 template< size_t der_order >
 bssn_state_t GRACE_HOST_DEVICE 
 compute_bssn_rhs( VEC(int i, int j, int k), int q
-                , grace::var_array_t<GRACE_NSPACEDIM> const state
+                , grace::var_array_t const state
                 , std::array<std::array<double,4>,4> const& Tmunu
                 , std::array<double,GRACE_NSPACEDIM> const& idx
                 , double const k1, double const eta )
@@ -461,17 +461,17 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
     res[ALPL] = betakdalpdk - 2*alp*K;
 
     /* Gamma driver */
-    double const BX = state(VEC(i,j,k),BX_+0,q);
-    double const BY = state(VEC(i,j,k),BX_+1,q);
-    double const BZ = state(VEC(i,j,k),BX_+2,q);
+    double const BX = state(VEC(i,j,k),BBX_+0,q);
+    double const BY = state(VEC(i,j,k),BBX_+1,q);
+    double const BZ = state(VEC(i,j,k),BBX_+2,q);
 
     res[BETAXL+0] = BX*k1;
     res[BETAXL+1] = BY*k1;
     res[BETAXL+2] = BZ*k1;
 
-    res[BXL+0] = -(BX*eta) + GammatXdt;
-    res[BXL+1] = -(BY*eta) + GammatYdt;
-    res[BXL+2] = -(BZ*eta) + GammatZdt;
+    res[BBXL+0] = -(BX*eta) + GammatXdt;
+    res[BBXL+1] = -(BY*eta) + GammatYdt;
+    res[BBXL+2] = -(BZ*eta) + GammatZdt;
 
     return std::move(res);
 
@@ -482,7 +482,7 @@ template< size_t der_order >
 std::array<double,4> GRACE_HOST_DEVICE 
 compute_bssn_constraint_violations(
       VEC(int i, int j, int k), int q
-    , grace::var_array_t<GRACE_NSPACEDIM> const state
+    , grace::var_array_t const state
     , std::array<std::array<double,4>,4> const& Tdd
     , std::array<double,GRACE_NSPACEDIM> const& idx
 )
@@ -661,7 +661,7 @@ compute_bssn_constraint_violations(
 template                                                             \
 grace::bssn_state_t GRACE_HOST_DEVICE                                \
 compute_bssn_rhs<DER_ORD>( VEC(int , int , int ), int                \
-                , grace::var_array_t<GRACE_NSPACEDIM> const          \
+                , grace::var_array_t const          \
                 , std::array<std::array<double,4>,4> const&          \
                 , std::array<double,GRACE_NSPACEDIM> const&          \
                 , double const k1, double const eta );               \
@@ -669,7 +669,7 @@ template                                                             \
 std::array<double,4> GRACE_HOST_DEVICE                               \
 compute_bssn_constraint_violations<DER_ORD>(                         \
                   VEC(int , int , int ), int                         \
-                , grace::var_array_t<GRACE_NSPACEDIM> const          \
+                , grace::var_array_t  const          \
                 , std::array<std::array<double,4>,4> const&          \
                 , std::array<double,GRACE_NSPACEDIM> const& )
 

@@ -29,6 +29,7 @@
 #define GRACE_PHYSICS_GRMHD_HELPERS_HH
 
 #include <grace_config.h> 
+#include <grace/utils/metric_utils.hh>
 #include <array>
 //**************************************************************************************************/
 /* Auxiliaries */
@@ -93,6 +94,80 @@ using grmhd_prims_array_t = std::array<double,NUM_PRIMS_LOC> ;
  */
 using grmhd_cons_array_t  = std::array<double,NUM_CONS_LOC>  ;
 } /* namespace grace */
+
+/**
+  * @brief Utility to compute \f$u^t\f$
+  * 
+  * @param prims Primitive variables.
+  * @param metric Metric tensor.
+  * @return double The 0th component of contravariant 4-velocity.
+  */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+compute_u0( grace::grmhd_prims_array_t const& prims 
+          , grace::metric_array_t const& metric ) 
+{
+    double const one_over_alp = 1./metric.alp() ;
+    std::array<double,3> const vN {
+          one_over_alp * ( prims[VXL] + metric.beta(0) )
+        , one_over_alp * ( prims[VYL] + metric.beta(1) )
+        , one_over_alp * ( prims[VZL] + metric.beta(2) )
+    } ; 
+    double const W = 1./Kokkos::sqrt(1-metric.square_vec(vN)) ; 
+    return one_over_alp * W ; 
+}
+
+/**
+  * @brief Utility to compute \f$u^t\f$
+  * 
+  * @param prims Primitive variables.
+  * @param metric Metric tensor.
+  * @return double The 0th component of contravariant 4-velocity.
+  */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+compute_W( grace::grmhd_prims_array_t const& prims 
+          , grace::metric_array_t const& metric ) 
+{
+    double const one_over_alp = 1./metric.alp() ;
+    std::array<double,3> const vN {
+          one_over_alp * ( prims[VXL] + metric.beta(0) )
+        , one_over_alp * ( prims[VYL] + metric.beta(1) )
+        , one_over_alp * ( prims[VZL] + metric.beta(2) )
+    } ; 
+    double const W = 1./Kokkos::sqrt(1-metric.square_vec(vN)) ; 
+    return W ; 
+}
+
+KOKKOS_INLINE_FUNCTION
+void get_extrinsic_curvature( std::array<double,6>& Kij, grace::var_array_t state
+                            , VEC(int i, int j, int k), std::size_t q) 
+{
+
+  #ifdef GRACE_ENABLE_COWLING_METRIC
+  #pragma unroll 
+  for( int i=0; i<6; ++i) Kij[i] = state(VEC(i,j,k),KXX_+i,q);
+  #elif defined(GRACE_ENABLE_BSSN_METRIC)
+  std::array<double,6> Atij{ 
+              state(VEC(i,j,k),ATXX_,q)
+            , state(VEC(i,j,k),ATXY_,q)
+            , state(VEC(i,j,k),ATXZ_,q)
+            , state(VEC(i,j,k),ATYY_,q)
+            , state(VEC(i,j,k),ATYZ_,q)
+            , state(VEC(i,j,k),ATZZ_,q)
+        } ;
+  std::array<double,6> gtij{ 
+              state(VEC(i,j,k),GTXX_,q)
+            , state(VEC(i,j,k),GTXY_,q)
+            , state(VEC(i,j,k),GTXZ_,q)
+            , state(VEC(i,j,k),GTYY_,q)
+            , state(VEC(i,j,k),GTYZ_,q)
+            , state(VEC(i,j,k),GTZZ_,q)
+        } ;
+  double const K = state(VEC(i,j,k),K_,q);
+  double const phi = state(VEC(i,j,k),PHI_,q);
+  for( int i=0; i<6; ++i)
+        Kij[i] = POW_CONFFACT(phi) * ( Atij[i] + 1/3 * gtij[i] * K ) ;
+  #endif 
+}
 #ifndef GRACE_ENABLE_BSSN_METRIC
 #define FILL_METRIC_ARRAY(g, view, q, ...)                    \
 g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \
@@ -106,6 +181,7 @@ g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \
                           , view(__VA_ARGS__,BETAZ_,q) } \
                           , view(__VA_ARGS__,ALP_,q) } 
 #else 
+#define FILL_METRIC_ARRAY(g, view, q, ...)                    \
 g = grace::metric_array_t{  { view(__VA_ARGS__,GTXX_,q)   \
                           , view(__VA_ARGS__,GTXY_,q)     \
                           , view(__VA_ARGS__,GTXZ_,q)     \

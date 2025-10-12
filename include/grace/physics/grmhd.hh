@@ -256,14 +256,8 @@ struct grmhd_equations_system_t
             }
         }
         /* Read in the extrinsic curvature                                                                */
-        std::array<double,6> Kij{ 
-              this->_state(VEC(i,j,k),KXX_,q)
-            , this->_state(VEC(i,j,k),KXY_,q)
-            , this->_state(VEC(i,j,k),KXZ_,q)
-            , this->_state(VEC(i,j,k),KYY_,q)
-            , this->_state(VEC(i,j,k),KYZ_,q)
-            , this->_state(VEC(i,j,k),KZZ_,q)
-        } ; 
+        std::array<double,6> Kij ;
+        get_extrinsic_curvature(Kij,this->_state,VEC(i,j,k),q) ; 
         //for( auto& x: Kij ) x = 0 ; 
         /* Source for the conserved energy (added piece by piece below)                                   */
         double tau_source{0.};
@@ -1420,26 +1414,6 @@ struct grmhd_equations_system_t
         cm = Kokkos::min(c1,c2) ; 
     }
     /***********************************************************************/
-    /**
-     * @brief Utility to compute \f$u^t\f$
-     * 
-     * @param prims Primitive variables.
-     * @param metric Metric tensor.
-     * @return double The 0th component of contravariant 4-velocity.
-     */
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    compute_u0( grace::grmhd_prims_array_t const& prims 
-              , grace::metric_array_t const& metric ) const 
-    {
-        double const one_over_alp = 1./metric.alp() ;
-        std::array<double,3> const vN {
-              one_over_alp * ( prims[VXL] + metric.beta(0) )
-            , one_over_alp * ( prims[VYL] + metric.beta(1) )
-            , one_over_alp * ( prims[VZL] + metric.beta(2) )
-        } ; 
-        double const W = 1./Kokkos::sqrt(1-metric.square_vec(vN)) ; 
-        return one_over_alp * W ; 
-    }
     /***********************************************************************/
 } ; 
 /***********************************************************************/

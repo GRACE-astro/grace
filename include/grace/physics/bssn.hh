@@ -33,6 +33,7 @@
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
 #include <grace/utils/math.hh>
+#include <grace/utils/metric_utils.hh>
 
 #include <grace/data_structures/variable_properties.hh>
 
@@ -51,7 +52,7 @@ namespace grace {
 template< size_t der_order >
 bssn_state_t GRACE_HOST_DEVICE 
 compute_bssn_rhs( VEC(int i, int j, int k), int q
-                , grace::var_array_t<GRACE_NSPACEDIM> const state
+                , grace::var_array_t const state
                 , std::array<std::array<double,4>,4> const& Tmunu
                 , std::array<double,GRACE_NSPACEDIM> const& idx
                 , double const k1, double const eta );
@@ -73,7 +74,6 @@ struct bssn_system_t
         : base_t(state_,aux_,sstate_), _k1(_k1), _eta(_eta), _epsdiss(_epsdiss)
     {} 
 
-    template< size_t der_order >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_update_impl( int const q 
                        , VEC( int const i 
@@ -81,7 +81,7 @@ struct bssn_system_t
                             , int const k)
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx 
                        , grace::var_array_t const state_new 
-                       , grace::staggered_variable_arrays_t sstate_
+                       , grace::staggered_variable_arrays_t sstate_new
                        , double const dt 
                        , double const dtfact ) const
     {
@@ -95,10 +95,12 @@ struct bssn_system_t
 
         auto const Tdd = get_Tmunu(hydro_state, metric); 
 
-        bssn_state_t update = compute_bssn_rhs<der_order>(VEC(i,j,k),q,this->_state, Tdd, idx, _k1, _eta)  ; 
-        for( int ivar=PHIL; ivar<N_VARS_BSSN; ++ivar) {
-            state_new(VEC(i,j,k),PHI_+ivar,q) += dt * dtfact * update[ivar] ;
+        bssn_state_t update = compute_bssn_rhs<BSSN_DER_ORDER>(VEC(i,j,k),q,this->_state, Tdd, idx, _k1, _eta)  ; 
+        for( int ivar=GTXXL; ivar<NUM_BSSN_VARS; ++ivar) {
+            state_new(VEC(i,j,k),GTXX_+ivar,q) += dt * dtfact * update[ivar] ;
         }
+
+        impose_algebraic_constraints(state_new,VEC(i,j,k),q) ; 
         
     }
 
@@ -108,7 +110,9 @@ struct bssn_system_t
         metric_array_t const& metric
     ) const {
         std::array<std::array<double,4>,4> Tmunu ;
-        double const u0 =  W/metric.alp() ; 
+
+        double const W =  compute_W(prims,metric) ; 
+        double const u0 = W / metric.alp() ; 
         std::array<double,3> uD3 = metric.lower({prims[VXL] + metric.beta(0), prims[VYL] + metric.beta(1), prims[VZL] + metric.beta(2)}) ; 
         // u_t = W ( beta^i v_i - alp ) with v == eulerian velocity! 
         auto uD0 = u0 * metric.contract_vec_covec({metric.beta(0),metric.beta(1),metric.beta(2)}, uD3) - metric.alp() * W ; 
@@ -148,6 +152,56 @@ struct bssn_system_t
     {
         return 1. ; 
     } 
+
+    void GRACE_HOST_DEVICE 
+    impose_algebraic_constraints(grace::var_array_t state, VEC(int i, int j, int k), int q) const 
+    {
+        /* First impose the det(gtilde) = 1 constraint */
+        double const gtxx = state(VEC(i,j,k),GTXX_+0,q);
+        double const gtxy = state(VEC(i,j,k),GTXX_+1,q);
+        double const gtxz = state(VEC(i,j,k),GTXX_+2,q);
+        double const gtyy = state(VEC(i,j,k),GTXX_+3,q);
+        double const gtyz = state(VEC(i,j,k),GTXX_+4,q);
+        double const gtzz = state(VEC(i,j,k),GTXX_+5,q);
+
+        double const detgt     = -(gtxz*gtxz*gtyy) + 2*gtxy*gtxz*gtyz - gtxx*(gtyz*gtyz) - gtxy*gtxy*gtzz + gtxx*gtyy*gtzz;
+        double const cbrtdetgt = Kokkos::cbrt(detgt);
+
+        state(VEC(i,j,k),GTXX_+0,q) /= cbrtdetgt ; 
+        state(VEC(i,j,k),GTXX_+1,q) /= cbrtdetgt ; 
+        state(VEC(i,j,k),GTXX_+2,q) /= cbrtdetgt ; 
+        state(VEC(i,j,k),GTXX_+3,q) /= cbrtdetgt ; 
+        state(VEC(i,j,k),GTXX_+4,q) /= cbrtdetgt ; 
+        state(VEC(i,j,k),GTXX_+5,q) /= cbrtdetgt ; 
+
+        /* And the trace-free Aij constraint next */
+
+        double const gtXX=(-(gtyz*gtyz) + gtyy*gtzz)/detgt ;
+        double const gtXY=(gtxz*gtyz - gtxy*gtzz)/detgt    ;
+        double const gtXZ=(-(gtxz*gtyy) + gtxy*gtyz)/detgt ;
+        double const gtYY=(-(gtxz*gtxz) + gtxx*gtzz)/detgt ;
+        double const gtYZ=(gtxy*gtxz - gtxx*gtyz)/detgt    ;
+        double const gtZZ=(-(gtxy*gtxy) + gtxx*gtyy)/detgt ; 
+
+        double const Atxx = state(VEC(i,j,k),ATXX_+0,q);
+        double const Atxy = state(VEC(i,j,k),ATXX_+1,q);
+        double const Atxz = state(VEC(i,j,k),ATXX_+2,q);
+        double const Atyy = state(VEC(i,j,k),ATXX_+3,q);
+        double const Atyz = state(VEC(i,j,k),ATXX_+4,q);
+        double const Atzz = state(VEC(i,j,k),ATXX_+5,q);
+
+        double const ATR = Atxx*gtXX + 2*Atxy*gtXY + 2*Atxz*gtXZ + Atyy*gtYY + 2*Atyz*gtYZ + Atzz*gtZZ ; 
+        
+        state(VEC(i,j,k),ATXX_+0,q) -= 1./3. * state(VEC(i,j,k),GTXX_+0,q) * ATR ; 
+        state(VEC(i,j,k),ATXX_+1,q) -= 1./3. * state(VEC(i,j,k),GTXX_+1,q) * ATR ; 
+        state(VEC(i,j,k),ATXX_+2,q) -= 1./3. * state(VEC(i,j,k),GTXX_+2,q) * ATR ; 
+        state(VEC(i,j,k),ATXX_+3,q) -= 1./3. * state(VEC(i,j,k),GTXX_+3,q) * ATR ; 
+        state(VEC(i,j,k),ATXX_+4,q) -= 1./3. * state(VEC(i,j,k),GTXX_+4,q) * ATR ; 
+        state(VEC(i,j,k),ATXX_+5,q) -= 1./3. * state(VEC(i,j,k),GTXX_+5,q) * ATR ; 
+
+    }
+
+    double _k1, _eta, _epsdiss;
 
 } ; 
 

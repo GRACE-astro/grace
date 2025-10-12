@@ -91,6 +91,7 @@ metric_array_t( std::array<double,6>const& g_
  * @param alp_ Lapse function.
  * NB: The order of metric components should be: (XX,XY,XZ,YY,YZ,ZZ).
  */
+ #ifdef GRACE_ENABLE_BSSN_METRIC
 GRACE_HOST_DEVICE
 metric_array_t( std::array<double,6>const& gt_
               , double const& phi_
@@ -110,6 +111,7 @@ metric_array_t( std::array<double,6>const& gt_
     _ginv[4] = (_g[1]*_g[2] - _g[0]*_g[4])/math::int_pow<2>(_sqrtg) ; 
     _ginv[5] = (-math::int_pow<2>(_g[1]) + _g[0]*_g[3]) /math::int_pow<2>(_sqrtg);
 }
+#endif
 /**
  * @brief Get a component of the covariant metric.
  * 
@@ -422,6 +424,18 @@ contract_4dsym2tens_4dsym2tens( std::array<double,10> const& A
          + 2*( A[1]*B[1]  + A[2]*B[2] 
              + A[3]*B[3]  + A[5]*B[5] 
              + A[6]*B[6]  + A[8]*B[8] ) ;
+}
+
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+trace_sym2tens_upper(std::array<double,6> const& A) const 
+{
+    return (*this).contract_sym2tens_sym2tens(_g,A) ; 
+}
+
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+trace_sym2tens_lower(std::array<double,6> const& A) const 
+{
+    return (*this).contract_sym2tens_sym2tens(_ginv,A) ; 
 }
 
 std::array<double,6> _g, _ginv ; //!< Spatial metric and inverse components.

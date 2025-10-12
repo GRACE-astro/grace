@@ -193,51 +193,6 @@ compute_gamma_tilde(
 
 }
 
-template< typename id_kernel_t >
-static void init_bssn_metric( id_kernel_t id_kernel
-                     , grace::var_array_t<GRACE_NSPACEDIM>& state
-                     , grace::var_array_t<GRACE_NSPACEDIM>& cstate
-                     , grace::scalar_array_t<GRACE_NSPACEDIM>& idx)
-{
-    DECLARE_GRID_EXTENTS;
-
-    using namespace grace  ;
-    using namespace Kokkos ;
-
-    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
-    grace::fill_physical_coordinates(pcoords, {VEC(true,true,true)}) ;
-    id_kernel._pcoords = pcoords ; 
-    
-    Kokkos::View<double*> test("test",1) ; 
-    /**************************************/
-    /* First loop fill everything execpt  */
-    /* for the Gammas                     */
-    /**************************************/
-    auto policy = MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+1+2*ngz,ny+1+2*ngz,nz+1+2*ngz),nq}) ; 
-    parallel_for( GRACE_EXECUTION_TAG("ID","metric_ID")
-                , policy
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                {
-                    auto const id = id_kernel(VEC(i,j,k), q) ; 
-                    adm_to_bssn(id, cstate,VEC(i,j,k),q) ; 
-                }
-    );
-
-    /**************************************/
-    /* Second loop fill the Gammas        */
-    /**************************************/
-    parallel_for( GRACE_EXECUTION_TAG("ID","Gamma_ID")
-                , policy
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                {
-                    std::array<double,GRACE_NSPACEDIM> _idx {VEC(idx(0,q),idx(1,q),idx(2,q))} ; 
-                    compute_gamma_tilde<2>(cstate,VEC(i,j,k),q,_idx,VEC(nx,ny,nz),ngz) ;  
-                }
-    );
-
-    
-}
-
 }
 
 #endif /* GRACE_PHYSICS_BSSN_HELPERS_HH */

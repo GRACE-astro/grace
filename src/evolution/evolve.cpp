@@ -55,6 +55,10 @@
 #include <grace/physics/eos/eos_storage.hh>
 #include <grace/utils/advanced_riemann_solvers.hh>
 #endif
+#ifdef GRACE_ENABLE_BSSN_METRIC
+#include <grace/physics/bssn.hh>
+#include <grace/physics/bssn_helpers.hh>
+#endif 
 #include <grace/physics/eos/eos_types.hh>
 
 #include <grace/amr/grace_amr.hh>
@@ -283,6 +287,13 @@ void advance_substep( double const t, double const dt, double const dtfact
     #define GET_SOURCES \
     grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
     #endif 
+    #ifdef GRACE_ENABLE_BSSN_METRIC
+    auto k1 = grace::get_param<double>("bssn","k1") ;
+    auto eta = grace::get_param<double>("bssn","eta") ;
+    auto epsdiss = grace::get_param<double>("bssn","epsdiss") ; 
+    bssn_system_t bssn_eq_system(old_state,aux,old_stag_state,k1,eta,epsdiss) ; 
+
+    #endif
     //**************************************************************************************************/
     auto flux_x_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
@@ -365,6 +376,20 @@ void advance_substep( double const t, double const dt, double const dtfact
             ) ; 
         #endif 
     }) ; 
+    #ifdef GRACE_ENABLE_BSSN_METRIC
+    auto advance_bssn_policy = 
+    Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
+        ) ;
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","BSSN_update")
+                , advance_bssn_policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
+                {
+                    bssn_eq_system.compute_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact);
+                }) ; 
+    #endif 
+    #if 1
     auto advance_stag_policy_x = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
               {VEC(ngz,ngz,ngz),0}
@@ -505,6 +530,7 @@ void advance_substep( double const t, double const dt, double const dtfact
 
 
     } ) ; 
+    #endif 
     Kokkos::fence() ; 
     #undef GET_X_FLUX
     #undef GET_Y_FLUX
