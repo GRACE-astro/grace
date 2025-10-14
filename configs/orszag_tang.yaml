@@ -1,18 +1,19 @@
 name: "grace"
 amr: {
-  npoints_block_x: 32,
-  npoints_block_y: 32,
-  npoints_block_z: 32,
-  xmin: -0.5,
-  xmax: 0.5,
-  ymin: -0.1,
-  ymax: 0.1,
-  zmin: -0.1,
-  zmax: 0.1,
-  #periodic_y: true,
-  #periodic_z: true,
+  npoints_block_x: 16,
+  npoints_block_y: 16,
+  npoints_block_z: 16,
+  xmin: -3.1415,
+  xmax: 3.1415,
+  ymin: -3.1415,
+  ymax: 3.1415,
+  zmin: -0.31415,
+  zmax: 0.31415,
+  periodic_x: true,
+  periodic_y: true,
+  periodic_z: true,
   n_ghostzones: 4,
-  initial_refinement_level: 1,
+  initial_refinement_level: 0,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
   refinement_criterion_CTODE: 1.,
@@ -24,11 +25,10 @@ amr: {
 IO: {
   volume_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]","Bdiv"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 100,
+  volume_output_every: 930,
   plane_surface_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]"],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
-  do_initial_output: false,
   info_output_every: 2,
   info_output_max_reductions: ["rho", "press", "Bvec[1]", "Bdiv"],
   info_output_min_reductions: ["rho", "press", "Bvec[1]"], 
@@ -51,24 +51,12 @@ system: {
 evolution: {
   time_stepper: "rk3",
   cfl_factor: 0.25,
-  final_time: 0.45,
+  final_time: 10.5,
   #termination_condition: "iteration",
   #final_iteration: 15
 }
 grmhd: {
-  id_type: "shocktube",
-  shocktube: {
-    rho_L: 1.,
-    rho_R: 1.,
-    press_L: 30.,
-    press_R: 1.,
-    Bx_L: 5.,
-    Bx_R: 5.,
-    By_L: 6.,
-    By_R: 0.7,
-    Bz_L: 6.,
-    Bz_R: 0.7
-  }
+  id_type: "orszag_tang_vortex"
 }
 
 eos: {
@@ -79,7 +67,7 @@ eos: {
   temp_atmosphere: 0,
   rho_atmosphere: 1.e-14,
   eps_maximum: 1.e+05,
-  gamma_th: 1.66666,
+  gamma_th: 1.333333,
 
   piecewise_polytrope: {
     n_pieces: 1,

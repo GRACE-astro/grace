@@ -98,6 +98,7 @@ make_gpu_phys_bc_task(
     gpu_task_t task{} ;
 
     auto const off = get_index_staggerings(stag) ; 
+    GRACE_TRACE("Stag {} {} {}", off[0], off[1], off[2]) ; 
     amr::phys_bc_op<elem_kind,bc_kind,decltype(data_array)> functor{
        data_array, qid_d, eid_d, dir_d, var_bc, VEC(nx+off[0],ny+off[1],nz+off[2]),ngz, is_cbuf
     } ; 
@@ -125,7 +126,8 @@ make_gpu_phys_bc_task(
 
     // set deps 
     for( auto const dep_id : deps ) {
-        ASSERT(dep_id < task_list.size(), "Dep-id out-of-range") ; 
+        ASSERT(dep_id < task_list.size(), "Dep-id out-of-range") ;
+        GRACE_TRACE("Dep {}", dep_id) ;  
         task._dependencies.push_back(dep_id) ; 
         task_list[dep_id]->_dependents.push_back(tid) ; 
     }
@@ -233,7 +235,7 @@ inline bool unpack_dependencies(
 ) 
 {
     using namespace amr ;
-    if (kind == FACE) {
+    if (kind == FACE) { // kind here is the kind of element, type is the type of BC 
         // nothing to do here 
         return false ; 
     } else if (kind == EDGE) {
@@ -251,7 +253,7 @@ inline bool unpack_dependencies(
                 insert_dependencies(EDGE,FACE,face.data.hanging.task_id[c0][stag], is_cbuf) ; 
                 insert_dependencies(EDGE,FACE,face.data.hanging.task_id[c1][stag], is_cbuf) ; 
             } else { 
-
+                GRACE_TRACE("Stag {} inserting edge-face eid {} fid {} qid {} dep {}", static_cast<int>(stag), std::get<1>(d), face_idx, std::get<0>(d), face.data.full.task_id[stag]) ; 
                 insert_dependencies(EDGE,FACE,face.data.full.task_id[stag], is_cbuf) ; 
             }
         }
@@ -275,7 +277,7 @@ inline bool unpack_dependencies(
                 auto const& edge = ghost_array[std::get<0>(d)].edges[amr::detail::c2e[std::get<1>(d)][i]] ; 
                 if ( edge.data.phys.in_cbuf ) {
                     return true ;
-                } 
+                }
             }
         }
     }

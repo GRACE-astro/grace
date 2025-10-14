@@ -98,7 +98,7 @@ static void register_physical_boundary_edge(
     std::vector<quad_neighbors_descriptor_t>& neighbors
 )
 {
-    auto [dx,dy,dz] =  get_dirs(sides) ; 
+    auto [dx,dy,dz] =  get_dirs(sides) ;  
     for( auto const& side: sides) {
         auto const offset = grace::amr::get_local_quadrants_offset(side.treeid); 
         if ( side.is_hanging ) {
@@ -120,7 +120,8 @@ static void register_physical_boundary_edge(
             }
 
         } else {
-            if (side.is.full.is_ghost) return ; 
+            
+            if (side.is.full.is_ghost) continue ; 
             // not hanging not ghost 
             auto qid = side.is.full.quadid +  offset ; 
             auto & edge = neighbors[qid].edges[side.edge] ; 
@@ -252,12 +253,9 @@ void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data)
 {
     auto ghosts = reinterpret_cast<std::vector<quad_neighbors_descriptor_t>*>(user_data);
     sc_array_view_t<p8est_iter_edge_side_t> sides{&(info->sides)};
-
     if (sides.size() < 4) {
         // Boundary edge(s)
-        
         register_physical_boundary_edge(sides, *ghosts);
-        
         return;
     }
 

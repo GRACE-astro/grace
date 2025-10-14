@@ -13,8 +13,48 @@ grmhd: {
     Bz_L: 0.,
     Bz_R: 0.
   },
+  magnetic_rotor: {
+    rho_in: 10.0,
+    rho_out: 1,
+    press: 1,
+    B0: 1
+  },
+  bondi_accretion: {
+    M: 1.0,
+    Mdot: 0.1,
+    r_sonic: 10,
+    gamma: 2,
+    rmin: 0.01,
+    rmax: 100,
+    bmag: 0.1,
+    beta_sonic: 1.0
+  },
 
+  orszag_tang_vortex: {
+    rho: 1,
+    press: 10 
+  },
+  # nonsense
+  fmtorus: {
+    a_BH: 0.9375,
+    M_BH: 1,
+    rho_min: 1e-10,
+    lapse_min: 0.2,
+    press_min: 1e-11,
+    r_in: 6,
+    r_at_max_density: 12,
+    gamma: 1.33333333333333333,
+    max_inverse_beta: 100
+  }, 
   blastwave_over_pressure_factor: 2.5,
   blastwave_initial_radius: 0.5,
-  TOV_central_density: 1.28e-03
+  TOV_central_density: 1.28e-03,
+  B_field_from_Avec: false,
+  Avec_ID: {
+    kind: "current_loop",
+    cutoff_var: "press",
+    cutoff_fact: 0.02,
+    A_phi: 0.0,
+    A_n: 1.0
+  }
 }

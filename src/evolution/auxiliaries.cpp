@@ -120,6 +120,18 @@ void compute_auxiliary_quantities(
         aux(VEC(i,j,k),BDIV_,q) = (Bx(VEC(i+1,j,k)) - Bx(VEC(i,j,k))) * idx(0,q) 
                                 + (By(VEC(i,j+1,k)) - By(VEC(i,j,k))) * idx(1,q)
                                 + (Bz(VEC(i,j,k+1)) - Bz(VEC(i,j,k))) * idx(2,q) ; 
+        #if 0
+        if ( Kokkos::fabs(aux(VEC(i,j,k),BDIV_,q)) > 1e-15) {
+            printf("DIVB! i %d j %d k %d q %d DBX (%.10f-%.10f) DBY (%.10f-%.10f) DBZ (%.10f-%.10f) DIVB %.3g\n",
+            i,j,k,q,
+            Bx(VEC(i+1,j,k)), Bx(VEC(i,j,k)),
+            By(VEC(i,j+1,k)),By(VEC(i,j,k)),
+            Bz(VEC(i,j,k+1)),Bz(VEC(i,j,k)),
+            aux(VEC(i,j,k),BDIV_,q)
+        ) ; 
+        
+        }
+        #endif
     }) ; 
 
     #undef GET_AUX

@@ -139,9 +139,7 @@ struct grmhd_c2p_kastaun_t {
         #ifdef GRACE_ENABLE_B_FIELD_GLM
         prims[PHI_GLML]=conservs[PHIG_GLML]; 
         #endif 
-        prims[BXL] = conservs[BSXL] ; 
-        prims[BYL] = conservs[BSYL] ; 
-        prims[BZL] = conservs[BSZL] ; 
+        
         //unsigned long iter_max = 2000;  // change this to be determined elsewhere! 
         unsigned long iter_max = 2000;  // change this to be determined elsewhere! 
         double const tolerance = 1e-15; // change this
@@ -197,13 +195,10 @@ struct grmhd_c2p_kastaun_t {
         prims[VXL]=vhatU[0];
         prims[VYL]=vhatU[1];
         prims[VZL]=vhatU[2];
-
-        // pressure is actually recovered outside of the c2p invert call, in the c2p.cpp; 
-        // comment left for clarity 
-        // double cs2_,entropy_;
-        // unsigned int err; 
-        // prims[PRESSL] =  eos.press__eps_rho_ye(prims[EPSL], prims[RHOL],prims[YEL],err);
-
+        prims[BXL] = conservs[BSXL] ; 
+        prims[BYL] = conservs[BSYL] ; 
+        prims[BZL] = conservs[BSZL] ; 
+        
         return error ; 
     }
     

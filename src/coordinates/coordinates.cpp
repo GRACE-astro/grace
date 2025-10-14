@@ -11,7 +11,7 @@
 * Copyright (C) 2023 Carlo Musolino
 * 
 * This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
+* it under the  terms of the GNU General Public License as published by
 * the Free Software Foundation, either version 3 of the License, or
 * any later version.
 * 
@@ -198,17 +198,31 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>& coords
 }
 
 void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
-                              , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates) 
+                              , grace::var_staggering_t stag ) 
+{
+    auto off = get_index_staggerings(stag) ; 
+    std::array<double,GRACE_NSPACEDIM> cell_coordinates = {
+        VEC( off[0] ? 0 : 0.5,
+             off[1] ? 0 : 0.5,
+             off[2] ? 0 : 0.5 )
+    } ; 
+    fill_physical_coordinates(pcoords,cell_coordinates,stag) ; 
+}
+
+void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
+                              , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates
+                              , grace::var_staggering_t stag ) 
 {
     DECLARE_GRID_EXTENTS ;
     using namespace grace ; 
-
-    Kokkos::realloc(pcoords,VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),GRACE_NSPACEDIM,nq) ; 
+    auto off = get_index_staggerings(stag) ; 
+    Kokkos::realloc(pcoords,VEC(nx+2*ngz+off[0],ny+2*ngz+off[1],nz+2*ngz+off[2]),GRACE_NSPACEDIM,nq) ; 
 
     auto h_coords = Kokkos::create_mirror_view(pcoords) ; 
     auto& coord_system = grace::coordinate_system::get() ; 
-    # if 0 
-    grace::host_grid_loop<false>(
+    # if 1
+    std::array<bool,GRACE_NSPACEDIM> stagger = {VEC(static_cast<bool>(off[0]), static_cast<bool>(off[1]), static_cast<bool>(off[2]))} ; 
+    grace::host_grid_loop<true>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             auto pcoordsl = 
                 coord_system.get_physical_coordinates(
@@ -222,12 +236,12 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
             h_coords(VEC(i,j,k),1,q) = pcoordsl[1] ;,
             h_coords(VEC(i,j,k),2,q) = pcoordsl[2] ; 
             )
-        }, true 
+        }, stagger, true 
     ) ; 
     #endif 
-
+    #if 0
     for( int q=0; q<nq; ++q ) {
-        EXPR( for(size_t i=0; i<nx+2*ngz; ++i), for(size_t j=0; j<ny+2*ngz; ++j), for(size_t k=0; k<nz+2*ngz; ++k) ) {
+        EXPR( for(size_t i=0; i<nx+2*ngz+off[0]; ++i), for(size_t j=0; j<ny+2*ngz+off[1]; ++j), for(size_t k=0; k<nz+2*ngz+off[2]; ++k) ) {
             auto pcoordsl = 
                 coord_system.get_physical_coordinates(
                           {VEC(i,j,k)}
@@ -242,7 +256,7 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
             )
         }
     }
- 
+    #endif 
     Kokkos::deep_copy(pcoords,h_coords) ; 
 }
 #if 0 

@@ -53,10 +53,20 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>&
  * @param cell_coordinates  Coordinates within the cell where physical coordinates
  *                          should be computed (defaults to 0.5 in all directions, i.e. 
  *                          the center of the cell).
+ * @param stag              Staggering (increases pcoords array dimension by 1 in each staggered direction).
  */
 void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
                               , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates = {VEC(0.5,0.5,0.5)} 
-                              ) ; 
+                              , grace::var_staggering_t stag = grace::STAG_CENTER) ;
+/*****************************************************************************************/
+/**
+ * @brief Fill a device view with physical coordinates on the grid. 
+ * \ingroup coordinates
+ * @param pcoords           The view to be filled with coordinates.
+ * @param stag              Staggering (increases pcoords array dimension by 1 in each staggered direction).
+ */
+void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
+                              , grace::var_staggering_t stag) ;
 /*****************************************************************************************/
 /**
  * @brief Fill a device view with jacobians of the logical-to-physical 

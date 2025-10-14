@@ -130,6 +130,8 @@ void amr_ghosts_impl_t::update() {
     std::unordered_set<size_t> cbuf_qid ; 
     build_coarse_buffers(cbuf_qid)   ; 
     GRACE_TRACE("Constructed coarse buffers, we have {} quadrants", cbuf_qid.size()) ; 
+    auto& edge = ghost_layer[0].edges[4] ; 
+    GRACE_TRACE("Here, edge kind {}, filled ? {}", static_cast<int>(edge.kind), edge.filled ) ; 
     //**************************************************************************************************
     build_remote_buffers()   ; 
     //**************************************************************************************************

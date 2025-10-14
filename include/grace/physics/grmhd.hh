@@ -419,9 +419,16 @@ struct grmhd_equations_system_t
         cons[BSZL]  = 0.5*(Bz(VEC(i,j,k)) + Bz(VEC(i,j,k+1))) ; 
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
+        // Set cell-centered **primitive** B^i
+        aux(BX_) = cons[BSXL] / metric.sqrtg() ;
+        aux(BY_) = cons[BSYL] / metric.sqrtg() ;
+        aux(BZ_) = cons[BSZL] / metric.sqrtg() ;
+        
         grmhd_prims_array_t prims ;        
         conservs_to_prims<eos_t>( cons, prims, metric
                                 , this->_eos, this->_lapse_excision ) ;
+        
+        
         /* Write new prims */
         aux(RHO_) = prims[RHOL]     ; 
         aux(EPS_) = prims[EPSL]     ; 
@@ -432,9 +439,7 @@ struct grmhd_equations_system_t
         aux(TEMP_) = prims[TEMPL]   ; 
         aux(ENTROPY_) = prims[ENTL]  ; 
         aux(YE_)   = prims[YEL]     ;
-        aux(BX_) = prims[BXL] ; 
-        aux(BY_) = prims[BYL] ; 
-        aux(BZ_) = prims[BZL] ;
+        
         /* Compute ZVEC */
         double const one_over_alp = 1./metric.alp(); 
         std::array<double,3> const vN {
@@ -491,8 +496,8 @@ struct grmhd_equations_system_t
         /* Compute magnetosonic speed */
         double b2{0.} ;
         std::array<double,4> dummy2 ; 
-        auto v2 = metric.square_vec({prims[VXL],prims[VYL],prims[VZL]}) ; 
-        auto W = 1 / Kokkos::sqrt(1-v2) ; 
+        double const u0 = compute_u0(prims,metric) ;  
+        auto W = u0 * metric.alp() ; 
         compute_smallb(dummy2,b2,W,prims,metric) ; 
         
         double const v_A_sq =  b2 / ( b2 + prims[RHOL]*h) ; 
@@ -500,7 +505,7 @@ struct grmhd_equations_system_t
         /* Find maximum eigenvalue (amongst all directions) */
         double cmax {0}; 
         std::array<unsigned int, 3> const metric_comp{ 0, 3, 5 } ; 
-        double const u0 = compute_u0(prims,metric) ;  
+        
         for( int idir=0; idir<3; ++idir){ 
             double cp, cm ; 
             compute_cp_cm( cp, cm, v02, u0, prims[VXL+idir]
@@ -863,6 +868,7 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* 2nd order interpolation at cell interface                           */
         /***********************************************************************/
+        #if 0
         metric_array_t const metric_face{
             { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
             , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
@@ -875,7 +881,10 @@ struct grmhd_equations_system_t
             , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
         ,   0.5 * (metric_l.alp() + metric_r.alp())
         } ; 
-        
+        #else 
+        metric_array_t metric_face ; 
+        COMPUTE_FCVAL(metric_face,this->_state,i,j,k,q,idir) ; 
+        #endif
         /***********************************************************************/
         /*              Reconstruct primitive variables                        */
         /***********************************************************************/
@@ -928,14 +937,14 @@ struct grmhd_equations_system_t
         /* Replace B^d_L/R with face staggered                                 */
         /***********************************************************************/
         if constexpr ( idir == 0 ) {
-            primL[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) ; 
-            primR[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) ; 
+            primL[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) / metric_face.sqrtg() ; 
+            primR[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) / metric_face.sqrtg(); 
         } else if constexpr ( idir == 1 ) {
-            primL[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) ; 
-            primR[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) ; 
+            primL[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) / metric_face.sqrtg(); 
+            primR[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) / metric_face.sqrtg(); 
         } else {
-            primL[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) ; 
-            primR[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) ; 
+            primL[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) / metric_face.sqrtg(); 
+            primR[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) / metric_face.sqrtg(); 
         }
         // Compute HLL fluxes
         grmhd_cons_array_t f_HLL ; 
@@ -1295,18 +1304,19 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         f[STZL] = solver(fl,fr,s_z_l,s_z_r,cmin,cmax) ; 
         /***********************************************************************/
+        auto const sqrtg = metric_face.sqrtg() ; 
         /***********************************************************************/
         /* Get B^x flux                                                        */
         /***********************************************************************/
         /***********************************************************************/
         /* F^d_{B^x} = v^d B^x - v^x B^d                                       */  
         /***********************************************************************/
-        fl = primL[VXL+idir] * primL[BXL] 
-           - primL[VXL] * primL[BXL+idir]  ; 
-        fr = primR[VXL+idir] * primR[BXL] 
-           - primR[VXL] * primR[BXL+idir] ; 
+        fl = sqrtg * ( primL[VXL+idir] * primL[BXL] 
+                     - primL[VXL] * primL[BXL+idir] ) ; 
+        fr = sqrtg * ( primR[VXL+idir] * primR[BXL] 
+                     - primR[VXL] * primR[BXL+idir] ) ; 
         /***********************************************************************/
-        f[BSXL] = solver(fl,fr,primL[BXL],primR[BXL],cmin,cmax) ; /* fixme p2c */
+        f[BSXL] = solver(fl,fr,sqrtg*primL[BXL],sqrtg*primR[BXL],cmin,cmax) ; /* fixme p2c */
         /***********************************************************************/
         /***********************************************************************/
         /* Get B^y flux                                                        */
@@ -1314,12 +1324,12 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* F^d_{B^y} = v^d B^y - v^y B^d                                       */  
         /***********************************************************************/
-        fl = primL[VXL+idir] * primL[BYL] 
-           - primL[VYL] * primL[BXL+idir]  ; 
-        fr = primR[VXL+idir] * primR[BYL] 
-           - primR[VYL] * primR[BXL+idir] ; 
+        fl = sqrtg * ( primL[VXL+idir] * primL[BYL] 
+                     - primL[VYL] * primL[BXL+idir] ) ; 
+        fr = sqrtg * ( primR[VXL+idir] * primR[BYL] 
+                     - primR[VYL] * primR[BXL+idir] ) ; 
         /***********************************************************************/
-        f[BSYL] = solver(fl,fr,primL[BYL],primR[BYL],cmin,cmax) ; /* fixme p2c */
+        f[BSYL] = solver(fl,fr,sqrtg*primL[BYL],sqrtg*primR[BYL],cmin,cmax) ; /* fixme p2c */
         /***********************************************************************/
         /***********************************************************************/
         /* Get B^z flux                                                        */
@@ -1327,12 +1337,12 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* F^d_{B^z} = v^d B^z - v^z B^d                                       */  
         /***********************************************************************/
-        fl = primL[VXL+idir] * primL[BZL] 
-           - primL[VZL] * primL[BXL+idir]  ; 
-        fr = primR[VXL+idir] * primR[BZL] 
-           - primR[VZL] * primR[BXL+idir] ; 
+        fl = sqrtg * ( primL[VXL+idir] * primL[BZL] 
+                     - primL[VZL] * primL[BXL+idir] ) ; 
+        fr = sqrtg * ( primR[VXL+idir] * primR[BZL] 
+                     - primR[VZL] * primR[BXL+idir] ) ; 
         /***********************************************************************/
-        f[BSZL] = solver(fl,fr,primL[BZL],primR[BZL],cmin,cmax) ; /* fixme p2c */
+        f[BSZL] = solver(fl,fr,sqrtg*primL[BZL],sqrtg*primR[BZL],cmin,cmax) ; /* fixme p2c */
         /***********************************************************************/
     };
     /***********************************************************************/

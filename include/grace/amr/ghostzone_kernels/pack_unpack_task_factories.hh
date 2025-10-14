@@ -418,6 +418,7 @@ gpu_task_t make_unpack_task(
         unpack_dest_elem_h(i) = elem_dst ;
         set_task_id(d) ;  
         i += 1UL ; 
+        GRACE_TRACE("Unpack qid {} eid {}", std::get<0>(d), std::get<1>(d)) ; 
     }
     Kokkos::deep_copy(unpack_src_qid,unpack_src_qid_h)   ; 
     Kokkos::deep_copy(unpack_dest_qid,unpack_dst_qid_h)  ;  

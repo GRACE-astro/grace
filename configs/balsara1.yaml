@@ -1,16 +1,16 @@
 name: "grace"
 amr: {
-  npoints_block_x: 16,
-  npoints_block_y: 16,
-  npoints_block_z: 16,
+  npoints_block_x: 32,
+  npoints_block_y: 32,
+  npoints_block_z: 32,
   xmin: -0.5,
   xmax: 0.5,
   ymin: -0.1,
   ymax: 0.1,
   zmin: -0.1,
   zmax: 0.1,
-  n_ghostzones: 2,
-  initial_refinement_level: 2,
+  n_ghostzones: 4,
+  initial_refinement_level: 1,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
   refinement_criterion_CTODE: 1.,
@@ -20,18 +20,18 @@ amr: {
   regrid_at_postinitial: false
 }
 IO: {
-  volume_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]"],
+  volume_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]", "Bdiv"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 200,
+  volume_output_every: 100,
   plane_surface_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]"],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
   do_initial_output: false,
   info_output_every: 2,
-  info_output_max_reductions: ["rho", "press", "Bvec[1]"],
+  info_output_max_reductions: ["rho", "press", "Bvec[1]", "Bdiv"],
   info_output_min_reductions: ["rho", "press", "Bvec[1]"], 
   scalar_output_every: 50,
-  scalar_output_minmax: ["rho","press","eps"],
+  scalar_output_minmax: ["rho","press","eps", "Bdiv"],
   scalar_output_norm2: [],
   scalar_output_integral: [],
   output_use_hdf5: true, 
@@ -48,7 +48,7 @@ system: {
 evolution: {
   time_stepper: "rk3",
   cfl_factor: 0.25,
-  final_time: 0.8
+  final_time: 0.45
 }
 grmhd: {
   id_type: "shocktube",

@@ -57,16 +57,6 @@ int main(int argc, char* argv[])
     using namespace Kokkos ;
     using namespace grace ; 
     /**********************************************************************************/
-    /**********************************************************************************/
-    if ( grace::get_param<bool>("IO","do_initial_output") )
-        grace::IO::write_cell_output(true,true,true) ;
-    grace::IO::compute_reductions() ; 
-    grace::IO::initialize_output_files() ; 
-    grace::IO::write_scalar_output() ;
-    GRACE_INFO("Starting evolution.") ; 
-    grace::IO::info_output() ;
-    /**********************************************************************************/
-    /**********************************************************************************/
     int64_t regrid_every = grace::get_param<int64_t>("amr","regrid_every") ;  
     int64_t volume_output_every = grace::get_param<int64_t>("IO","volume_output_every") ;
     int64_t plane_surface_output_every = 
@@ -77,6 +67,20 @@ int main(int argc, char* argv[])
         grace::get_param<int64_t>("IO","scalar_output_every") ;
     int64_t info_output_every =
         grace::get_param<int64_t>("IO","info_output_every") ;
+    /**********************************************************************************/
+    if ( grace::get_param<bool>("IO","do_initial_output") ) {
+        GRACE_INFO("Performing initial output") ; 
+        grace::IO::write_cell_output(volume_output_every>0,plane_surface_output_every>0,sphere_surface_output_every>0) ;
+    }
+        
+    grace::IO::compute_reductions() ; 
+    grace::IO::initialize_output_files() ; 
+    grace::IO::write_scalar_output() ;
+    GRACE_INFO("Starting evolution.") ; 
+    grace::IO::info_output() ;
+    /**********************************************************************************/
+    /**********************************************************************************/
+    
     std::string tstep_mode = grace::get_param<std::string>("evolution","timestep_selection_mode") ;
     if ( tstep_mode == "manual" ) {
         grace::set_timestep(grace::get_param<double>("evolution","timestep")) ; 

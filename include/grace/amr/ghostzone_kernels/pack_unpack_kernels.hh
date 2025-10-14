@@ -123,10 +123,12 @@ struct pack_op {
         transf.compute_indices<elem_kind,true>(
             ig, VECD(j, k), i_a, j_a, k_a, ie
         ) ; 
-        if ( in_range(i_a,j_a,k_a,ie) )
+        if ( in_range(i_a,j_a,k_a,ie) ) {
+            //if ( transf.sx or transf.sy or transf.sz )
+            //    printf("Pack: stag (%zu,%zu,%zu) i %zu j %zu k %zu q %zu ie %d value %f\n", transf.sx,transf.sy,transf.sz,i_a,j_a,k_a,src_q,ie, src_view(VEC(i_a,j_a,k_a), ivar, src_q)) ;
             dest_view.at_interface<elem_kind>(ig,j,k,ivar,dest_q,rank) = 
                 src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
-        
+        }
     }
  
 } ; 
@@ -216,7 +218,9 @@ struct unpack_op {
         transf.compute_indices<elem_kind,false>(
             ig, VECD(j, k), i_a, j_a, k_a, ie 
         ) ; 
-        if ( in_range(i_a,j_a,k_a,ie) ) {    
+        if ( in_range(i_a,j_a,k_a,ie) ) {   
+            //if ( transf.sx or transf.sy or transf.sz )
+            //    printf("Unpack: stag (%zu,%zu,%zu) i %zu j %zu k %zu q %zu ie %d value %f\n", transf.sx,transf.sy,transf.sz,i_a,j_a,k_a,dest_q,ie, src_view.at_interface<elem_kind>(ig,j,k,ivar,src_q,rank)) ;  
             dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) = src_view.at_interface<elem_kind>(ig,j,k,ivar,src_q,rank) ; 
         }
         

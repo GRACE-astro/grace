@@ -49,7 +49,7 @@ conservs_to_prims( grmhd_cons_array_t& cons
     bool c2p_failed{ false }             ;
     double W                             ;
     /* Undensitize conservs */
-    for( int ic = DENSL; ic<=ENTSL; ++ic) cons[ic] /= metric.sqrtg() ;
+    for( auto& c: cons) c /= metric.sqrtg() ;
     /* First we check whether we are in the atmosphere */
     auto const dens_atmo = eos.rho_atmosphere() ;
     if( cons[DENSL] > dens_atmo ) {
@@ -72,11 +72,10 @@ conservs_to_prims( grmhd_cons_array_t& cons
         prims[VXL]   = 0. ;
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
-        prims[BXL]   = 0. ;
-        prims[BYL]   = 0. ;
-        prims[BZL]   = 0. ;
+        
         W = 1. ;
     }
+    /* set B field */
     /* Set pressure entropy and temperature */
     double h, csnd2;
     unsigned int err ;
