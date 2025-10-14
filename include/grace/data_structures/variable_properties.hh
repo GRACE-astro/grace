@@ -189,6 +189,11 @@ using cell_vol_array_t = cell_vol_array_impl_t<ndim>::view_t ;
  */
 using flux_array_t = Kokkos::View<double EXPR(*,*,*) ***, Kokkos::LayoutLeft, default_space> ; 
 /**
+ * @brief Proxy for EMF <code>View</code> type in GRACE
+ * \ingroup variables
+ */
+using emf_array_t = Kokkos::View<double EXPR(*,*,*) **, Kokkos::LayoutLeft, default_space> ; 
+/**
  * @brief Proxy for jacobian matrix <code>View</code> type in GRACE
  * \ingroup variables
  */

@@ -78,6 +78,7 @@ variable_list_impl_t::variable_list_impl_t()
     , _staggered_vars_p() 
     , _staggered_aux() 
     , _fluxes()
+    , _emf()
 {
     using namespace grace; 
     /* Get param parser and forest object */
@@ -131,7 +132,17 @@ variable_list_impl_t::variable_list_impl_t()
                    , nvars_hrsc 
                    , GRACE_NSPACEDIM
                    , nq 
+                   ) ;
+    Kokkos::realloc( _vbar
+                   , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
+                   , 4 // v^i v^j c_p c_m
+                   , GRACE_NSPACEDIM
+                   , nq 
                    ) ; 
+    Kokkos::realloc( _emf
+                   , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
+                   , GRACE_NSPACEDIM 
+                   , nq ) ; 
     _staggered_coords.realloc(VEC(nx,ny,nz),ngz,nq) ; 
     _staggered_vars.realloc( VEC(nx,ny,nz),ngz,nq
                            , variables::detail::num_face_staggered_vars

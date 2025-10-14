@@ -95,7 +95,9 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , grace::scalar_array_t<GRACE_NSPACEDIM>&  idx
                     , grace::cell_vol_array_t<GRACE_NSPACEDIM>& cvol
                     , grace::staggered_coordinate_arrays_t& surfs_and_edges
-                    , grace::flux_array_t& fluxes ) ; 
+                    , grace::flux_array_t& fluxes 
+                    , grace::flux_array_t& vbar
+                    , grace::emf_array_t& emf) ; 
 //*****************************************************************************************************
 //*****************************************************************************************************
 // Explicit template instantiation
@@ -110,7 +112,9 @@ void advance_substep<EOS>( double const , double const , double const \
                          , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
                          , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \
                          , grace::staggered_coordinate_arrays_t&      \
-                         , grace::flux_array_t& ) ; \
+                         , grace::flux_array_t& \
+                         , grace::flux_array_t& \
+                         , grace::emf_array_t& ) ; \
 extern template                                                       \
 void evolve_impl<EOS>()
 

@@ -108,11 +108,12 @@ struct grmhd_equations_system_t
                        ,      const int j 
                        ,      const int k)
                        , grace::flux_array_t const  fluxes
+                       , grace::flux_array_t const  vbar
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                        , double const dt 
                        , double const dtfact ) const 
     {
-        getflux<0,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
+        getflux<0,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^2\f$
@@ -135,11 +136,12 @@ struct grmhd_equations_system_t
                        ,      const int j 
                        ,      const int k)
                        , grace::flux_array_t const  fluxes
+                       , grace::flux_array_t const  vbar
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<1,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
+        getflux<1,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^3\f$
@@ -162,11 +164,12 @@ struct grmhd_equations_system_t
                        ,      const int j 
                        ,      const int k)
                        , grace::flux_array_t const  fluxes
+                       , grace::flux_array_t const  vbar
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<2,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
+        getflux<2,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
     }
     /**
      * @brief Compute geometric source terms for GRMHD equations.
@@ -844,6 +847,7 @@ struct grmhd_equations_system_t
             ,      const int k)
             , const int64_t q 
             , grace::flux_array_t const fluxes
+            , grace::flux_array_t const vbar
             , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
             , double const dt 
             , double const dtfact ) const 
@@ -948,7 +952,8 @@ struct grmhd_equations_system_t
         }
         // Compute HLL fluxes
         grmhd_cons_array_t f_HLL ; 
-        compute_mhd_fluxes<idir,riemann_t,true>( primL, primR, metric_face, f_HLL, 1, 1) ; 
+        std::array<double,4> vb_HLL ; 
+        compute_mhd_fluxes<idir,riemann_t,true>( primL, primR, metric_face, f_HLL, vb_HLL, 1, 1) ; 
         #ifdef GRMHD_USE_PPLIM
         /***********************************************************************/
         // And LLF fluxes to mix in for positivity preserving limiter 
@@ -1033,9 +1038,11 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[STXL] ; 
         fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL] ; 
         fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ;
-        fluxes(VEC(i,j,k),ENTROPYSTAR_+1,idir,q)          = f_HLL[BSXL] ; 
-        fluxes(VEC(i,j,k),ENTROPYSTAR_+2,idir,q)          = f_HLL[BSYL] ; 
-        fluxes(VEC(i,j,k),ENTROPYSTAR_+3,idir,q)          = f_HLL[BSZL] ; 
+        // fill vbar and cmin/max for later
+        vbar(VEC(i,j,k),0,idir,q) = vb_HLL[0] ; 
+        vbar(VEC(i,j,k),1,idir,q) = vb_HLL[1] ; 
+        vbar(VEC(i,j,k),2,idir,q) = vb_HLL[2] ; 
+        vbar(VEC(i,j,k),3,idir,q) = vb_HLL[3] ; 
         /***********************************************************************/
         #endif 
     }
@@ -1048,6 +1055,7 @@ struct grmhd_equations_system_t
                            , grmhd_prims_array_t& primR 
                            , metric_array_t const& metric_face 
                            , grmhd_cons_array_t& f
+                           , std::array<double,4>& vbar
                            , double const cmin_loc = 1
                            , double const cmax_loc = 1 ) const 
     {
@@ -1304,46 +1312,19 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         f[STZL] = solver(fl,fr,s_z_l,s_z_r,cmin,cmax) ; 
         /***********************************************************************/
-        auto const sqrtg = metric_face.sqrtg() ; 
-        /***********************************************************************/
-        /* Get B^x flux                                                        */
-        /***********************************************************************/
-        /***********************************************************************/
-        /* F^d_{B^x} = v^d B^x - v^x B^d                                       */  
-        /***********************************************************************/
-        fl = sqrtg * ( primL[VXL+idir] * primL[BXL] 
-                     - primL[VXL] * primL[BXL+idir] ) ; 
-        fr = sqrtg * ( primR[VXL+idir] * primR[BXL] 
-                     - primR[VXL] * primR[BXL+idir] ) ; 
-        /***********************************************************************/
-        f[BSXL] = solver(fl,fr,sqrtg*primL[BXL],sqrtg*primR[BXL],cmin,cmax) ; /* fixme p2c */
-        /***********************************************************************/
-        /***********************************************************************/
-        /* Get B^y flux                                                        */
-        /***********************************************************************/
-        /***********************************************************************/
-        /* F^d_{B^y} = v^d B^y - v^y B^d                                       */  
-        /***********************************************************************/
-        fl = sqrtg * ( primL[VXL+idir] * primL[BYL] 
-                     - primL[VYL] * primL[BXL+idir] ) ; 
-        fr = sqrtg * ( primR[VXL+idir] * primR[BYL] 
-                     - primR[VYL] * primR[BXL+idir] ) ; 
-        /***********************************************************************/
-        f[BSYL] = solver(fl,fr,sqrtg*primL[BYL],sqrtg*primR[BYL],cmin,cmax) ; /* fixme p2c */
-        /***********************************************************************/
-        /***********************************************************************/
-        /* Get B^z flux                                                        */
-        /***********************************************************************/
-        /***********************************************************************/
-        /* F^d_{B^z} = v^d B^z - v^z B^d                                       */  
-        /***********************************************************************/
-        fl = sqrtg * ( primL[VXL+idir] * primL[BZL] 
-                     - primL[VZL] * primL[BXL+idir] ) ; 
-        fr = sqrtg * ( primR[VXL+idir] * primR[BZL] 
-                     - primR[VZL] * primR[BXL+idir] ) ; 
-        /***********************************************************************/
-        f[BSZL] = solver(fl,fr,sqrtg*primL[BZL],sqrtg*primR[BZL],cmin,cmax) ; /* fixme p2c */
-        /***********************************************************************/
+        auto const sqrtg = metric_face.sqrtg() ;
+        std::array<int, 2> jk ;  
+        if constexpr ( idir == 0 ) {
+            jk[0] = 1 ; jk[1] = 2; 
+        } else if constexpr ( idir == 1 ) {
+            jk[0] = 0 ; jk[1] = 2; 
+        } else {
+            jk[0] = 0 ; jk[1] = 1; 
+        }
+        vbar[0] = solver(primL[VXL+jk[0]],primR[VXL+jk[0]],0,0,cmin,cmax) ; 
+        vbar[1] = solver(primL[VXL+jk[1]],primR[VXL+jk[1]],0,0,cmin,cmax) ; 
+        vbar[2] = cmin ; vbar[3] = cmax ; 
+        
     };
     /***********************************************************************/
     /**

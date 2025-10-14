@@ -162,6 +162,24 @@ public:
     getfluxesarray() { return _fluxes ; }
     //*****************************************************************************************************
     /**
+     * @brief Get the fluxes vector 
+     * 
+     * @return The fluxes vector, used during time 
+     *         evolution to hold the fluxes. 
+     */
+    GRACE_ALWAYS_INLINE flux_array_t& 
+    getvbararray() { return _vbar ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the EMF vector 
+     * 
+     * @return The EMF vector, used during time 
+     *         evolution to hold the electromotive force at cell edges. 
+     */
+    GRACE_ALWAYS_INLINE emf_array_t& 
+    getemfarray() { return _emf ; }
+    //*****************************************************************************************************
+    /**
      * @brief Get the halo state vector 
      */
     GRACE_ALWAYS_INLINE var_array_t& 
@@ -221,6 +239,8 @@ private:
     staggered_variable_arrays_t   _staggered_vars_p ; //!< Staggered scratch state
     staggered_variable_arrays_t   _staggered_aux    ; //!< Auxiliary variables on staggered grids.
     flux_array_t   _fluxes              ; //!< Fluxes for time evolution.
+    flux_array_t   _vbar              ; //!< Fluxes for time evolution.
+    emf_array_t   _emf                  ; //!< EMF for time evolution of ideal MHD.
     //*****************************************************************************************************
     friend class utils::singleton_holder<variable_list_impl_t, memory::default_create> ; //!< Give access 
     friend class memory::new_delete_creator<variable_list_impl_t, memory::new_delete_allocator> ; //!< Give access 

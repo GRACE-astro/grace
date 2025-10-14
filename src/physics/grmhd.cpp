@@ -423,7 +423,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                         stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) = (
                             (Az(VEC(i  ,j+1,k  ),0,q) - Az(VEC(i  ,j  ,k  ),0,q)) * idx(1,q)
                           + (Ay(VEC(i  ,j  ,k  ),0,q) - Ay(VEC(i  ,j  ,k+1),0,q)) * idx(2,q)
-                        ) ; // * metric_face.sqrtg() ; 
+                        ) ; 
                     });
         // By
         fill_physical_coordinates(pcoords,STAG_FACEY) ; 
@@ -438,7 +438,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                         stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) = (
                             (Ax(VEC(i  ,j  ,k+1),0,q) - Ax(VEC(i  ,j  ,k  ),0,q)) * idx(2,q)
                           + (Az(VEC(i  ,j  ,k  ),0,q) - Az(VEC(i+1,j  ,k  ),0,q)) * idx(0,q)
-                        ) ; // * metric_face.sqrtg() ; 
+                        ) ; 
                     });
         // Bz
         fill_physical_coordinates(pcoords,STAG_FACEZ) ; 
@@ -453,7 +453,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                         stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = (
                             (Ay(VEC(i+1,j  ,k  ),0,q) - Ay(VEC(i  ,j  ,k  ),0,q)) * idx(0,q)
                           + (Ax(VEC(i  ,j  ,k  ),0,q) - Ax(VEC(i  ,j+1,k  ),0,q)) * idx(1,q)
-                        ) ; // * metric_face.sqrtg() ; 
+                        ) ; 
                     });
     }
     

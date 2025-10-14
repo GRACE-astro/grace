@@ -54,12 +54,13 @@ struct hrsc_evolution_system_t {
                   ,      const int j 
                   ,      const int k)
                   , grace::flux_array_t const fluxes
+                  , grace::flux_array_t const vbar
                   , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                   , double const dt 
                   , double const dtfact ) const 
     {
         static_cast<EvolSystem_t const *>(this)->template 
-            compute_x_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),fluxes,dx,dt,dtfact) ;
+            compute_x_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),fluxes,vbar,dx,dt,dtfact) ;
     }
 
     template< typename riemann_t 
@@ -70,12 +71,13 @@ struct hrsc_evolution_system_t {
                   ,      const int j 
                   ,      const int k)
                   , grace::flux_array_t const fluxes
+                  , grace::flux_array_t const vbar
                   , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                   , double const dt 
                   , double const dtfact ) const 
     {
         static_cast<EvolSystem_t const *>(this)->template 
-            compute_y_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),fluxes,dx,dt,dtfact) ; 
+            compute_y_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),fluxes,vbar,dx,dt,dtfact) ; 
     }
 
     template< typename riemann_t 
@@ -86,12 +88,13 @@ struct hrsc_evolution_system_t {
                   ,      const int j 
                   ,      const int k)
                   , grace::flux_array_t const fluxes
+                  , grace::flux_array_t const vbar
                   , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                   , double const dt 
                   , double const dtfact ) const  
     {
         static_cast<EvolSystem_t const *>(this)->template 
-            compute_z_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),fluxes,dx,dt,dtfact) ; 
+            compute_z_flux_impl<riemann_t,recon_t>(q,VEC(i,j,k),fluxes,vbar,dx,dt,dtfact) ; 
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
