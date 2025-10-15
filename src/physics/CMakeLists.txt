@@ -18,10 +18,7 @@ target_link_libraries( grace_burgers_eq PRIVATE
                         spdlog::spdlog ) 
 
 if( GRACE_ENABLE_KADATH )
-    set_source_files_properties(import_kadath.cpp PROPERTIES HIP_SOURCE_PROPERTY OFF)
     add_library( grace_kadath OBJECT import_kadath.cpp)
-    # add_library(grace_kadath STATIC import_kadath.cpp)
-    target_compile_options(grace_kadath PRIVATE -fopenmp -std=gnu++20)
     target_include_directories( grace_kadath PRIVATE "${HEADER_DIR}")
     # Add Kadath include directories
     target_include_directories(grace_kadath PRIVATE ${Kadath_INCLUDE_DIRS})
@@ -35,25 +32,7 @@ if( GRACE_ENABLE_KADATH )
                         Kadath::kadath
                         OpenMP::OpenMP_CXX
                         )
-    # set_target_properties(grace_kadath PROPERTIES
-    #     HIP_SOURCE_PROPERTY OFF
-    #     POSITION_INDEPENDENT_CODE ON
-    # )
-    set_source_files_properties(import_kadath.cpp PROPERTIES LANGUAGE CXX)
-    set_target_properties(grace_kadath PROPERTIES
-        POSITION_INDEPENDENT_CODE ON
-    )
-    # target_link_libraries(grace PRIVATE -fopenmp)
-    # target_compile_options(grace_kadath PRIVATE -fopenmp)
-    # target_compile_definitions(grace_kadath PRIVATE _OPENMP)
-    # if(GRACE_ENABLE_OMP)
-    #     if(CMAKE_CXX_COMPILER_ID STREQUAL "Cray")
-    #         target_compile_options(grace_kadath PRIVATE -h omp)
-    #     else()
-    #         target_compile_options(grace_kadath PRIVATE -fopenmp)
-    #     endif()
-    # endif()
-    
+
 endif()
 
 add_library(grace_grmhd OBJECT grmhd.cpp admbase.cpp )
