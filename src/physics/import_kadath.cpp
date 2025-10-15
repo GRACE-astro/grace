@@ -38,19 +38,28 @@
 #include <type_traits>
 
 
+#include <iostream>
+
+
 #include <grace_config.h>
 #include <grace/utils/grace_utils.hh>
-#include <grace/profiling/profiling.hh>
 #include <grace/parallel/mpi_wrappers.hh>
-#include <grace/system/runtime_functions.hh>
+// #include <grace/system/runtime_functions.hh>
 #include <grace/config/config_parser.hh>
 #include <grace/errors/error.hh>
 #include <grace/system/print.hh>
-
-#include <grace/physics/id/kadath_helpers.hh>
-
-
 #include <Kokkos_Core.hpp>
+
+#include <grace/physics/id/import_kadath.hh>
+
+#ifdef KADATH_EXPORTERS_PARALLEL
+#include <omp.h>
+#include "Solvers/bh_3d_xcts/bh_exporter.hpp"
+#include "Solvers/ns_3d_xcts/ns_exporter.hpp"
+#include "Solvers/bbh_xcts/bbh_exporter.hpp"
+#include "Solvers/bns_xcts/bns_exporter.hpp"
+#include "Solvers/bhns_xcts/bhns_exporter.hpp"
+#endif 
 
 //template function that handles moving the space-time values to GRACE state
 template<typename T, typename S>
@@ -65,7 +74,8 @@ void import_data(std::vector<std::reference_wrapper<T>>& state_ref, S& exported_
     #pragma omp parallel for collapse(2) // is this optimal? which is faster?
     for (int i = 0; i < npoints; ++i) {
       for (int idx_field=0; idx_field<nfields; idx_field++){
-        state_ref[i*nfields+idx_field].get() = exported_vals[idx_field][i]; 
+        // state_ref[i*nfields+idx_field].get() = exported_vals[idx_field][i]; 
+        state_ref[i*nfields+idx_field].get() = exported_vals[i][idx_field]; 
         }
       }
 
@@ -91,11 +101,12 @@ void import_data_wmatter(std::vector<std::reference_wrapper<T>>& state_ref, S& e
     const int nfields = NUM_OUT;
     const int npoints = int(state_ref.size()/nfields);
     
-    //#pragma omp parallel for collapse 2 // is this optimal? 
+    #pragma omp parallel for collapse(2) // is this optimal? 
     for (int i = 0; i < npoints; ++i) {
       for (int idx_field=0; idx_field<nfields; idx_field++){
 
-        state_ref[i*nfields+idx_field].get() = exported_vals[idx_field][i]; 
+        // state_ref[i*nfields+idx_field].get() = exported_vals[idx_field][i]; 
+        state_ref[i*nfields+idx_field].get() = exported_vals[i][idx_field];  /// correct, new access pattern
       }
     }
 
@@ -113,29 +124,55 @@ void import_data_wmatter(std::vector<std::reference_wrapper<T>>& state_ref, S& e
 
 
 
+  // template<typename reader_t, bool has_matter = false>  
+  //   auto interp_data_helper (reader_t& input_reader,
+  //                                   std::vector<double>& xgrid,
+  //                                   std::vector<double>& ygrid,
+  //                                   std::vector<double>& zgrid)
+  //     {
+  //       constexpr const int NUM_MATTER=6; 
+
+  //       using kadath_output_t =
+  //         std::vector<std::array<double, NUM_VOUT + NUM_MATTER * static_cast<int>(has_matter)>>;
+
+  //       kadath_output_t all_data(xgrid.size());
+  //       // #pragma omp parallel for firstprivate(input_reader)
+        
+  //       #pragma omp parallel for
+  //       for (size_t idx = 0; idx < xgrid.size(); ++idx) {
+  //         all_data[idx] = input_reader.export_pointwise(xgrid[idx], ygrid[idx], zgrid[idx]);
+  //          GRACE_INFO("OpenMP active with {} threads", omp_get_num_threads());
+  //         int tid = omp_get_thread_num();
+  //          GRACE_INFO("OpenMP thread no. {}", tid);
+  //       }
+  //       return std::move(all_data);
+  //     };
+
 void KadathImporter(const std::string kadath_id, const std::string  filename,
                     std::vector<std::reference_wrapper<double>>& state_ref,
                      const std::vector<std::array<double,GRACE_NSPACEDIM>>& pcoords,
                      const int nfields, const int npoints) {
  
   GRACE_INFO("Setting up coordinates");
-
+  std::string id_type{kadath_id};
   std::vector<double> xx(npoints), yy(npoints), zz(npoints);
-
-  //#pragma omp parallel for
+                
+  // #pragma omp parallel for
   for (int i = 0; i < npoints; ++i) {
     xx[i] = pcoords[i][0];
     yy[i] = pcoords[i][1];
     zz[i] = pcoords[i][2];
   }
 
-  const double interpolation_offset = grace::get_param<double>("kadath","id_interpolation_offset");
-  const int interp_order = grace::get_param<int>("kadath","junk_interp_order");
-  const double delta_r_rel = grace::get_param<double>("kadath","delta_r_rel");
 
-  std::string id_type{kadath_id};
+
   auto clock_start = std::chrono::high_resolution_clock::now() ; 
 
+  // legacy serial version 
+  #ifdef KADATH_EXPORTERS_SERIAL
+    const double interpolation_offset = grace::get_param<double>("kadath","id_interpolation_offset");
+    const int interp_order = grace::get_param<int>("kadath","junk_interp_order");
+    const double delta_r_rel = grace::get_param<double>("kadath","delta_r_rel");
     if(id_type == "BH") {
     auto exported_vals = std::move(KadathExportBH(npoints, xx.data(), yy.data(), zz.data(),
                          filename.c_str(), interpolation_offset, interp_order, delta_r_rel));
@@ -155,6 +192,108 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
                          filename.c_str(), interpolation_offset, interp_order, delta_r_rel));
     import_data_wmatter(state_ref,exported_vals);
   } 
+  #endif
+
+  // new exporters with OpenMP support
+  #ifdef KADATH_EXPORTERS_PARALLEL
+
+  constexpr const int NUM_MATTER=6; 
+
+  std::ostringstream oss;
+  Kokkos::print_configuration(std::cout, true); // lazy check
+
+  // trivial check first:
+  // putting it here results in a deadlock?! 
+  // #pragma omp parallel for
+  // for(int i=0; i<24; ++i){
+  //     printf("Thread %d working on iteration %d\n", omp_get_thread_num(), i);
+  // }
+
+    // templated lambdas feature template parameters right after the closure bracket
+    auto interp_data_helper = []<typename reader_t, bool has_matter = false>(reader_t& input_reader,
+                                    std::vector<double>& xgrid,
+                                    std::vector<double>& ygrid,
+                                    std::vector<double>& zgrid)
+      {
+        using kadath_output_t =
+          std::vector<std::array<double, NUM_VOUT + NUM_MATTER * static_cast<int>(has_matter)>>;
+
+        kadath_output_t all_data(xgrid.size());
+      
+
+        // VERSION 1: PRAGMA OMP
+              #pragma omp parallel for firstprivate(input_reader), schedule(static)
+              for (size_t idx = 0; idx < xgrid.size(); ++idx) {
+                // GRACE_INFO("OpenMP active with {} threads", omp_get_num_threads());
+                all_data[idx] = input_reader.export_pointwise(xgrid[idx], ygrid[idx], zgrid[idx]);
+              }
+
+        // VERSION 2: KOKKOS::PARALLEL_FOR 
+
+            // using output_view_t = Kokkos::View<double**, Kokkos::HostSpace>;
+            // output_view_t view_all_data("all_data", xgrid.size(), NUM_VOUT + NUM_MATTER*static_cast<int>(has_matter));
+
+            // Kokkos::parallel_for(
+            //     "kadath_export_data",
+            //     Kokkos::RangePolicy<Kokkos::OpenMP>(0, xgrid.size()),
+            //     KOKKOS_LAMBDA(const int idx) {
+            //           reader_t local_reader = input_reader;  // copy per thread
+            //           auto tmp = local_reader.export_pointwise(xgrid[idx], ygrid[idx], zgrid[idx]);
+            //         //  auto tmp = reader_ptr->export_pointwise(xgrid[idx], ygrid[idx], zgrid[idx]);
+              
+            //           for(int i = 0; i < tmp.size(); ++i) {
+            //               view_all_data(idx,i) = tmp[i];  // safe write
+            //           }
+            //       }
+            //   );
+
+      
+            // for(size_t idx=0; idx<xgrid.size(); ++idx) {
+            //     for(size_t i=0; i<NUM_VOUT + NUM_MATTER*static_cast<int>(has_matter); ++i) {
+            //         all_data[idx][i] = view_all_data(idx,i);
+            //     }
+            // }
+
+        return std::move(all_data);
+      };
+                                
+  if(id_type == "BH") {
+    using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BCO_BH_INFO>;
+    using reader_t = Kadath::FUKA_Solvers::CFMS_BH_Exporter;
+    reader_t input_reader(filename.c_str()); 
+    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, false>(input_reader, xx,yy,zz));
+    // auto exported_vals = std::move(interp_data_helper<reader_t, false>(input_reader, xx,yy,zz)); 
+    import_data(state_ref,exported_vals);
+  } else if(id_type == "BBH") {
+    using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BIN_INFO>;
+    using reader_t = Kadath::FUKA_Solvers::CFMS_BBH_Exporter;
+    reader_t input_reader(filename.c_str()); 
+    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, false>(input_reader, xx,yy,zz));
+      // auto exported_vals = std::move(interp_data_helper<reader_t, false>(input_reader, xx,yy,zz)); 
+    import_data(state_ref,exported_vals);
+  } else if(id_type == "NS") {
+    using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BCO_NS_INFO>;
+    using reader_t = Kadath::FUKA_Solvers::CFMS_NS_Exporter;
+    reader_t input_reader(filename.c_str()); 
+    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz)); 
+    // auto exported_vals = std::move(interp_data_helper<reader_t, true>(input_reader, xx,yy,zz)); 
+    import_data_wmatter(state_ref,exported_vals);
+  } else if(id_type == "BNS") {
+    using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BIN_INFO>;
+    using reader_t = Kadath::FUKA_Solvers::CFMS_BNS_Exporter;
+    reader_t input_reader(filename.c_str()); 
+    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz));
+    // auto exported_vals = std::move(interp_data_helper<reader_t, true>(input_reader, xx,yy,zz)); 
+    import_data_wmatter(state_ref,exported_vals);
+  } else if(id_type == "BHNS") {
+    using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BIN_INFO>;
+    using reader_t = Kadath::FUKA_Solvers::CFMS_BHNS_Exporter;
+    reader_t input_reader(filename.c_str()); 
+    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz));
+    // auto exported_vals = std::move(interp_data_helper<reader_t, true>(input_reader, xx,yy,zz)); 
+    import_data_wmatter(state_ref,exported_vals);
+  } 
+  #endif
   
   GRACE_INFO("Finished Kadath import") ;
   auto clock_end = std::chrono::high_resolution_clock::now() ; 
@@ -162,3 +301,5 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
   GRACE_VERBOSE("Filling FUKA ID took {:.3e} s.",currentTime) ;
 
 }
+
+ 

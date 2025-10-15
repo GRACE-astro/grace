@@ -4,7 +4,7 @@ option(GRACE_ENABLE_GRMHD   "Enable GRMHD equation module"  ON)
 option(GRACE_DO_MHD "Enable MHD evolution" ON)
 option(GRACE_ENABLE_B_FIELD_GLM "Enable GLM evolution of the magnetic field" ON)
 option(GRACE_ENABLE_COWLING_METRIC "Enable Cowling metric" ON)
-option(GRACE_ENABLE_KADATH  "Enable Kadath import module"  ON)
+option(GRACE_ENABLE_KADATH  "Enable Kadath import module"  OFF)
 option(GRACE_USE_MKL       "MKL libraries will be used"  OFF)
 
 if( GRACE_ENABLE_KADATH )

@@ -42,6 +42,11 @@
 #include <vector>
 #include <functional>
 
+// choose the serial or OpenMP parallelized mode - depends crucially on the setup of the underlying kadath library
+// #define KADATH_EXPORTERS_SERIAL 
+#define KADATH_EXPORTERS_PARALLEL 
+
+
 // we enclose just the grace-relevant functions and objects in a namespace
 //namespace KadathImport {
 
@@ -98,6 +103,8 @@ void KadathImporter(const std::string kadath_id, const std::string  kadath_id_fi
 
 //}
 
+#ifdef KADATH_EXPORTERS_SERIAL
+
 // these have to be in the global namespace to enable linking to libkadath.a:
 
 //*****************************************************************************************************
@@ -138,5 +145,9 @@ std::array<std::vector<double>,NUM_OUT> KadathExportBHNS(int const npoints,
                                                         char const * fn,
                                                         double const interpolation_offset, int const interp_order,
                                                         double const delta_r_rel);
+
+
+#endif
+
 
 #endif /* GRACE_IMPORT_KADATH_HH */
