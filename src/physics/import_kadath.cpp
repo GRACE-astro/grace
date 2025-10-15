@@ -66,15 +66,13 @@ template<typename T, typename S>
 void import_data(std::vector<std::reference_wrapper<T>>& state_ref, S& exported_vals) {
 
     GRACE_INFO("Moving Vacuum Data to output vars");
-    //const int nfields = state_ref.size();
     const int nfields = NUM_VOUT;
     const int npoints = int(state_ref.size()/nfields);
     GRACE_INFO("Initializing {} fields on {} points", nfields, npoints) ;
 
-    #pragma omp parallel for collapse(2) // is this optimal? which is faster?
+    #pragma omp parallel for collapse(2) 
     for (int i = 0; i < npoints; ++i) {
       for (int idx_field=0; idx_field<nfields; idx_field++){
-        // state_ref[i*nfields+idx_field].get() = exported_vals[idx_field][i]; 
         state_ref[i*nfields+idx_field].get() = exported_vals[i][idx_field]; 
         }
       }
@@ -101,12 +99,10 @@ void import_data_wmatter(std::vector<std::reference_wrapper<T>>& state_ref, S& e
     const int nfields = NUM_OUT;
     const int npoints = int(state_ref.size()/nfields);
     
-    #pragma omp parallel for collapse(2) // is this optimal? 
+    #pragma omp parallel for collapse(2) 
     for (int i = 0; i < npoints; ++i) {
       for (int idx_field=0; idx_field<nfields; idx_field++){
-
-        // state_ref[i*nfields+idx_field].get() = exported_vals[idx_field][i]; 
-        state_ref[i*nfields+idx_field].get() = exported_vals[i][idx_field];  /// correct, new access pattern
+        state_ref[i*nfields+idx_field].get() = exported_vals[i][idx_field]; 
       }
     }
 
