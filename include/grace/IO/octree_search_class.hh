@@ -60,6 +60,7 @@ struct plane_desc_t {
 
 static inline bool intersects(plane_desc_t const& plane, cube_desc_t const& cube) {
     bool pos = false, neg = false;
+    double const dx = cube.v[1][0] - cube.v[0][0] ; 
     #pragma unroll
     for( int i=0; i<8; ++i) {
         double f = (cube.v[i][plane.dir] - plane.d[plane.dir]) ; 
