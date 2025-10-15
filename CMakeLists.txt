@@ -39,6 +39,36 @@ include(setup_vtk)
 include(setup_spdlog)
 include(setup_HDF5)
 
+if( GRACE_ENABLE_KADATH )
+    # note that order of linking will be important for the final executable!
+    find_package(Kadath REQUIRED)
+    find_package(GSL REQUIRED)
+    find_package(FFTW REQUIRED COMPONENTS DOUBLE)
+    if(GRACE_USE_MKL) 
+        find_package(MKL REQUIRED)
+        # make sure we link the MKL's Kadath executables do;
+        # (probably redundant; also, it doesn't pick out LP64 over ILP64 reliably)
+        set(MKL_INTERFACE_LAYER LP64)  
+    else()
+        # Platform-dependent BLAS/ScaLAPACK handling
+        if(CMAKE_SYSTEM_NAME STREQUAL "CrayLinuxEnvironment" OR DEFINED ENV{CRAY_LIBSCI_PREFIX_DIR} OR DEFINED ENV{CRAY_LIBSCI_BASE_DIR})
+            find_package(SCICRAY REQUIRED)
+            # Cray system: use LibSci
+            set(BLAS_LIBRARIES ${SCICRAY_LIBRARIES})
+            set(SCALAPACK_LIBRARIES ${SCICRAY_LIBRARIES})
+            set(OPENBLAS_FOUND OFF) 
+            set(OpenBLAS_LIB "") # silently turn off - Cray's SciLib already has BLAS routines
+            set(SCALAPACK_FOUND ON)
+        else() 
+            # non-Cray system
+            # find openblas and netlib-scalapack independently
+            find_package(OPENBLAS REQUIRED)
+            find_package(SCALAPACK REQUIRED)
+        endif()
+    endif()
+endif()
+
+
 option(GRACE_ENABLE_PROFILING "Build profiling hooks" ON)
 if( GRACE_ENABLE_PROFILING )
     message(STATUS "Profiling enabled.")
@@ -70,6 +100,24 @@ target_link_libraries(grace PRIVATE
         spdlog::spdlog
         HDF5::HDF5
 	ZLIB::ZLIB
+        # Kadath handling:
+        $<$<BOOL:${GRACE_ENABLE_KADATH}>:Kadath::kadath>
+        $<$<BOOL:${GRACE_ENABLE_KADATH}>:${GSL_LIBRARY}>
+        $<$<BOOL:${GRACE_ENABLE_KADATH}>:${FFTW_LIB}>
+        # Libraries to link if GRACE_ENABLE_KADATH and GRACE_USE_MKL are both true
+        $<$<AND:$<BOOL:${GRACE_ENABLE_KADATH}>,$<BOOL:${GRACE_USE_MKL}>>:
+        ${MKL_SCALAPACK_LIBRARY}
+        ${MKL_INTERFACE_LIBRARY}
+        ${MKL_SEQUENTIAL_LAYER_LIBRARY}
+        ${MKL_CORE_LIBRARY}
+        ${MKL_BLACS_LIBRARY}
+        >
+        # Libraries to link if GRACE_ENABLE_KADATH is true and GRACE_USE_MKL is false
+        $<$<AND:$<BOOL:${GRACE_ENABLE_KADATH}>,$<NOT:$<BOOL:${GRACE_USE_MKL}>>>:
+        ${SCALAPACK_LIBRARIES}        
+        ${OpenBLAS_LIB}
+        >
+        # remaining conditional libraries
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
         )
 vtk_module_autoinit(

@@ -34,6 +34,7 @@
 #include <grace/utils/grace_utils.hh>
 #include <grace/data_structures/variable_properties.hh>
 #include <grace/amr/grace_amr.hh>
+#include <grace/physics/id/set_id_vector_potential.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -397,7 +398,7 @@ compute_B_field_from_Avec(
     /*************************************************************************/
     /* loop fill everything in the interior points   */
     /*************************************************************************/
-    auto policy = MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+1+ngz,ny+1+ngz,nz+1+ngz),nq}) ; 
+    auto policy = MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
     parallel_for( GRACE_EXECUTION_TAG("ID","magnetic_field_from_vector_potential_ID")
                 , policy
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
@@ -422,6 +423,69 @@ compute_B_field_from_Avec(
                   aux(VEC(i,j,k), BX_, q) = Bx_densitized / SQRTG;
                   aux(VEC(i,j,k), BY_, q) = By_densitized / SQRTG;
                   aux(VEC(i,j,k), BZ_, q) = Bz_densitized / SQRTG;
+
+                }
+    );
+}
+
+
+/**
+ * @brief set_Avec
+ * @param state array of state variables 
+ * @param aux array of auxiliary variables
+ * @param in_var which variable is being differentiated
+ * @note  computes the vector potential according to the chosen prescription
+ * @warning for now, we make a working assumption that both the vector potential 
+ *          and the magnetic field are defined at cell-centes;
+ * @warning this routine will have to change when a proper constraint-transport algorithm is implemented
+ * @returns void
+ */
+template <typename avec_t> 
+static void 
+set_vector_potential(const grace::var_array_t<GRACE_NSPACEDIM>& state,
+                     grace::var_array_t<GRACE_NSPACEDIM>& aux,  // changes aux( AVECX_ ...)
+                     const grace::scalar_array_t<GRACE_NSPACEDIM>& idx,
+                     const grace::coord_array_t<GRACE_NSPACEDIM>& pcoords)
+  {
+    DECLARE_GRID_EXTENTS;
+    using namespace grace  ;
+    using namespace Kokkos ;
+
+    constexpr int X=0;
+    constexpr int Y=1;
+    constexpr int Z=2;
+
+    std::array<double, AVEC_NUMPARAMS> avec_params;
+    // const std::string Avec_type = get_param<std::string>("grmhd","Avec_type") ; // poloidal, dipole, monopole, linear (e.g. for shocktubes)
+    // const std::string Avec_prescription = get_param<std::string>("grmhd","Avec_prescription") ; // density/pressure based
+    const double Avec_Pcut = get_param<double>("grmhd","Avec_Pcut") ;
+    const int Avec_n = get_param<int>("grmhd","Avec_n") ;
+    const double Avec_Ab = get_param<double>("grmhd","Avec_Ab") ;
+
+    // GET ALL THE OTHER ONES 
+
+    avec_params[AVEC_PARAMS::AVEC_AB] = Avec_Ab;
+    avec_params[AVEC_PARAMS::AVEC_N] = Avec_n;
+    avec_params[AVEC_PARAMS::AVEC_PCUT] = Avec_Pcut;
+
+
+    /*************************************************************************/
+    /* loop fill everything in the interior points   */
+    /*************************************************************************/
+    auto policy = MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 
+    parallel_for( GRACE_EXECUTION_TAG("ID","setting_vector_potential_ID")
+                , policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                  avec_t vec_pot(avec_params, pcoords);
+
+                  double AUx, AUy, AUz;
+                  vec_pot(AUx,AUy,AUz,
+                          state, aux, idx,
+                          VEC(i,j,k), q);
+                  aux(VEC(i,j,k), AVECX_, q) = AUx;
+                  aux(VEC(i,j,k), AVECY_, q) = AUy;
+                  aux(VEC(i,j,k), AVECZ_, q) = AUz;
 
                 }
     );

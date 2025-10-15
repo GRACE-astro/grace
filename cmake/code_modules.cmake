@@ -4,6 +4,14 @@ option(GRACE_ENABLE_GRMHD   "Enable GRMHD equation module"  ON)
 option(GRACE_DO_MHD "Enable MHD evolution" ON)
 option(GRACE_ENABLE_B_FIELD_GLM "Enable GLM evolution of the magnetic field" ON)
 option(GRACE_ENABLE_COWLING_METRIC "Enable Cowling metric" ON)
+option(GRACE_ENABLE_KADATH  "Enable Kadath import module"  OFF)
+option(GRACE_USE_MKL       "MKL libraries will be used"  OFF)
+
+if( GRACE_ENABLE_KADATH )
+    if(NOT GRACE_ENABLE_GRMHD)
+        message(FATAL_ERROR "GRMHD module must be enabled for Kadath initial data!")
+    endif()
+endif()
 
 
 if( GRACE_ENABLE_SCALAR_ADV )
@@ -34,3 +42,10 @@ if( GRACE_ENABLE_B_FIELD_GLM )
     set(GRACE_ENABLE_B_FIELD_GLM ON)
 endif() 
 
+if( GRACE_ENABLE_KADATH )
+    message(STATUS "Kadath module enabled.")
+endif()
+
+if( GRACE_USE_MKL )
+    message(STATUS "Intel-MKL libraries in use.")
+endif()

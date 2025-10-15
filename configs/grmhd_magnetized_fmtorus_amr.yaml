@@ -1,34 +1,51 @@
 # magnetized FM torus 
 name: "grace"
 amr: {
-  npoints_block_x: 16,
-  npoints_block_y: 16,
-  npoints_block_z: 16,
-  xmin: -64.0,
-  xmax:  64.0,
-  ymin: -64.0,
-  ymax:  64.0,
-  zmin: -64.0,
-  zmax:  64.0,
-  n_ghostzones: 2,
-  initial_refinement_level: 2,
-  refinement_criterion_CTORE: 1e-4,
+  npoints_block_x: 40,
+  npoints_block_y: 40,
+  npoints_block_z: 40,
+  # npoints_block_x: 48,
+  # npoints_block_y: 48,
+  # npoints_block_z: 48,
+  # npoints_block_x: 64,
+  # npoints_block_y: 64,
+  # npoints_block_z: 64,
+  # xmin: -110.28645833333333333333,
+  # xmax:  108.46354166666666666666,
+  # ymin: -110.28645833333333333333,
+  # ymax:  108.46354166666666666666,
+  # zmin: -110.28645833333333333333,
+  # zmax:  108.46354166666666666666,
+  xmin: -128,
+  xmax:  128,
+  ymin: -128,
+  ymax:  128,
+  zmin: -128,
+  zmax:  128,
+  # xmin: -256,
+  # xmax:  256,
+  # ymin: -256,
+  # ymax:  256,
+  # zmin: -256,
+  # zmax:  256,
+  # xmin: -144,
+  # xmax:  144,
+  # ymin: -144,
+  # ymax:  144,
+  # zmin: -144,
+  # zmax:  144,
+  n_ghostzones: 4,
+  initial_refinement_level: 2,  # 2 works 
+  refinement_criterion_CTORE: 9.e-5,
   refinement_criterion_CTODE: 1e-6,
   refinement_criterion_var  : "rho",
   refinement_criterion_var_is_aux: true,
+  # 0.9885
+  # 0.9975 
   refinement_criterion: "simple_threshold",
-  # refinement_criterion_CTORE: 0.6,
-  # refinement_criterion_CTODE: 0.8,
-  # refinement_criterion_var  : "alp",
-  # refinement_criterion_var_is_aux: false,
-  # refinement_criterion: "simple_threshold",
-  max_refinement_level: 5,
-  postinitial_regrid_depth: 2,
+  max_refinement_level: 7,
+  postinitial_regrid_depth: 2, # 2 works 
   regrid_every: -1,
-  #regrid_at_postinitial: true # FIX ME: regrid at postinitial does not work 
-                               # manifests either at the control-flow points:
-                               # C2P problems: 0-setting of conservs at some points in the grid?
-                               # timestep 
   regrid_at_postinitial: true,
   #reset_id_after_regrid : true # should we do it?
 }
@@ -36,62 +53,72 @@ IO: {
   # Bug/Feature: 
   # vel[1]/vel[2] to be specifiable in the future  
   volume_output_cell_variables: ["eps","rho","press","alp", "vel[0]",
-                              "B[0]", "phi_glm", "divB", "g[0][0]"],
+                              "B[0]", "phi_glm", "divB", 
+                              "gamma[0,0]","gamma[0,1]","gamma[0,2]","gamma[1,1]","gamma[1,2]","gamma[2,2]", 
+                              "ext_curv[0,0]","ext_curv[0,1]","ext_curv[0,2]","ext_curv[1,1]","ext_curv[1,2]","ext_curv[2,2]",
+                              "beta[0]"],
   volume_output_base_directory: "output_volume",
-  volume_output_every: 1,
+  volume_output_every: 256,
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
-  info_output_every: 10,
+  info_output_every: 16,
 
-  info_output_max_reductions: ["press", "rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm","divB"],
-  info_output_min_reductions: ["press", "rho", "vel[0]", "B[0]", "B[1]", "B[2]", "phi_glm","divB"],
-  scalar_output_every: 10,
+  info_output_max_reductions: ["press", "rho", "vel[0]", "vel[1]", "B[0]", "B[1]", "B[2]", "phi_glm","divB"],
+  info_output_min_reductions: ["press", "rho", "vel[0]", "vel[1]", "B[0]", "B[1]", "B[2]", "phi_glm","divB"],
+  scalar_output_every: 16,
   scalar_output_minmax: ["eps","rho","press",
                          "vel[0]", "vel[1]", "vel[2]", 
                          "B[0]", "B[1]", "B[2]",
-                         "phi_glm","divB"],
-  scalar_output_norm2: [],
+                         "phi_glm","divB", "gamma[0,0]","gamma[0,1]","gamma[0,2]","gamma[1,1]","gamma[1,2]","gamma[2,2]",
+                        "ext_curv[0,0]","ext_curv[0,1]","ext_curv[0,2]","ext_curv[1,1]","ext_curv[1,2]","ext_curv[2,2]",
+                         "beta[0]","beta[1]","beta[2]"],
+  scalar_output_norm2: ["press", "rho", "vel[0]", "vel[1]", "B[0]", "B[1]", "B[2]", "phi_glm","divB"],
   scalar_output_integral: [],
   output_use_hdf5: true, 
   hdf5_compression_level: 6,
-  hdf5_chunk_size: 8192
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true
 }
 system: {
-  console_log_level: "debug",
-  #console_log_level: "info",
-  file_log_level: "trace",
+  # console_log_level: "trace",
+  console_log_level: "info",
+  # file_log_level: "trace",
+  file_log_level: "info",
   flush_logs_based_on_severity: true,
-  flush_level: "trace"
+  # flush_level: "trace",
+  flush_level: "info"
 }
 evolution: {
-  time_stepper: "rk2",
-  cfl_factor: 0.2,
-  final_time: 1000.0,
+  time_stepper: "shu_osher_rk3",
+  cfl_factor: 0.20,
+  final_time: 10000.0,
   reset_id_after_regrid: "true"
 }
 grmhd: {
   id_type: "FMtorus",
-  lapse_excision : 0.3, # already deep in the horizon btw!
-  #FMTorus_a_BH:  0.5,
+  #lapse_excision : 0.55, # for CKS gauge, alp on the horizon ranges from 0.7071 at the pole to 0.634528 at the equator - let's set 0.55 for safety 
+  lapse_excision : 0.55, # for CKS gauge, alp on the horizon ranges from 0.7071 at the pole to 0.634528 at the equator - let's set 0.55 for safety 
   FMTorus_a_BH:  0.9375,
   FMTorus_M_BH: 1.0,
-  FMTorus_rho_min: 1.e-10 ,
+  FMTorus_rho_min: 1.e-6 ,
+  # FMTorus_rho_min: 1.e-10 ,
   FMTorus_press_min: 1.e-10,
-  FMTorus_lapse_min: 0.1 , # disable
+  FMTorus_lapse_min: 0.2 , # disable? it is not used at all...
   FMTorus_r_rin: 6.0, # inner radius of the disc
-  # FMTorus_r_rin: 6.0, # inner radius of the disc
   FMTorus_r_at_max_density: 12.0, # Radius at which disk reaches max density in equatorial plane
-  # FMTorus_r_at_max_density: 6.0, # Radius at which disk reaches max density in equatorial plane
   FMTorus_gamma: 1.33333333,
   FMTorus_kappa: 4.249572342033184e-03, #0.017976716690519586, # has to match the one in the EOS setup
+  FMTorus_random_min : -0.02,
+  FMTorus_random_max : +0.02,
+  set_Avec : false, # FMTorus for now has an internal setup (not yet deprecated)
   set_B_from_Avec : true,
   Avec_type : "poloidal",
-  Avec_prescription : "pressure_prescription",
+  Avec_prescription : "pressure_prescription", # note this differs from hr-etk par, but we just want to see the dynamics
   Avec_Pcut : 1e-6,
-  Avec_Ab : 10.0,
+  Avec_Ab : 0.9162655225, # times sqrt(4pi) or not?  # 1e2    
   Avec_n : 2,
-  # the above Avec settings give rise to max |B| ~
+  # the above Avec settings give rise to max |B| ~ (fill out!)
 }
 
 eos: {
@@ -99,10 +126,11 @@ eos: {
   cold_eos_type: "piecewise_polytrope",
   ye_atmosphere: 0,
   temp_atmosphere: 0,
-  rho_atmosphere: 1.e-14,
+  rho_atmosphere: 1.0e-6, # try this
   eps_maximum: 1.e+05,
-  gamma_th: 0.0,
-
+  #gamma_th: 0.0, # 1.3333333333333333333333333333333
+  gamma_th: 1.333333333333333333333333333, # 1.3333333333333333333333333333333
+ 
   piecewise_polytrope: {
     n_pieces: 1,
     gammas: [1.3333333],

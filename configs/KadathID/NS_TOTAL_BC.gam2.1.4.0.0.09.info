@@ -1,0 +1,60 @@
+ns
+{
+    chi 0
+    dim 3
+    hc 1.255912306559519
+    madm 1.3999999999999999
+    mb 1.5059770382544198
+    n_inner_shells 0
+    nc 0.0012795615327975951
+    nshells 0
+    omega 0
+    ql_madm 1.3999999999999999
+    qpig 12.566370614359172
+    res 9
+    rin 4.0570444365402079
+    rmid 8.1140888730804157
+    rout 16.228177746160831
+    eosfile /zhome/academic/HLRS/xfp/xfpolski/fuka/eos/gam2.polytrope
+    eostype Cold_PWPoly
+    h_cut 0
+    interpolation_pts 2000
+}
+fields
+{
+    conf on
+    lapse on
+    logh on
+    shift on
+}
+stages
+{
+    binary_boost off
+    norot_bc off
+    pre off
+    total_bc on
+}
+sequence_controls
+{
+    centralized_cos on
+    checkpoint off
+    co_use_shells off
+    corot_binary off
+    delete_shift off
+    fixed_bin_omega off
+    fixed_lapse off
+    fixed_mb off
+    initial_regrid off
+    resolve off
+    sequences off
+    update_initial off
+    use_boosted_co off
+    use_fixed_r off
+    use_pn off
+}
+sequence_settings
+{
+    initial_resolution 9
+    solver_max_iterations 15
+    solver_precision 1e-08
+}

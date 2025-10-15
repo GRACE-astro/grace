@@ -59,6 +59,11 @@
 #endif
 #endif
 
+#ifdef GRACE_ENABLE_KADATH
+#include <grace/physics/id/import_kadath.hh> 
+#endif
+
+
 #include <grace/config/config_parser.hh>
 #include <Kokkos_Core.hpp>
 
@@ -227,6 +232,193 @@ static void set_grmhd_spherical_blastwave_initial_data() {
                 }) ;
 }
 
+
+
+#ifdef GRACE_ENABLE_KADATH
+template< typename eos_t >
+static void set_grmhd_kadath_initial_data() {
+    using namespace grace ;
+    using namespace Kokkos ; 
+    
+    GRACE_VERBOSE("Setting Kadath initial data.") ; 
+
+    std::string const kadath_id = get_param<std::string>("kadath","kadath_id_type");
+    std::string const kadath_id_file = get_param<std::string>("kadath","filename");
+    std::string const id_dir = get_param<std::string>("kadath","id_dir");
+
+    GRACE_VERBOSE("Initial data type is: {}.", kadath_id ) ;
+    GRACE_VERBOSE("Reading from the file: {}.",kadath_id_file) ;
+    
+    auto& aux   = variable_list::get().getaux() ; 
+    auto& state = variable_list::get().getstate() ;
+    auto& idx   = grace::variable_list::get().getinvspacings()   ; 
+
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+    grace::fill_physical_coordinates(pcoords) ; 
+    
+    int64_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
+    int ngz = amr::get_n_ghosts() ; 
+    
+    int64_t nq = amr::get_local_num_quadrants() ;
+
+    auto& coord_system = grace::coordinate_system::get() ; 
+    auto h_aux_mirror = Kokkos::create_mirror_view(aux) ; 
+    auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
+
+
+    int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
+    std::vector<std::array<double, GRACE_NSPACEDIM>> cells_pcoords;
+    const bool has_matter = (kadath_id=="NS" || kadath_id=="BNS" || kadath_id=="BHNS");
+
+    int64_t const nfields= has_matter? 4+6+6+6 : 4+6+6 ;
+
+
+    std::vector<std::reference_wrapper<double>> local_vars; // will hold holds references to (nfields x npoints) values
+    local_vars.reserve(nfields*ncells); //resize or reserve?
+
+    for( int64_t icell=0; icell<ncells; ++icell) {
+        size_t const i = icell%(nx+2*ngz); 
+        size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
+        #ifdef GRACE_3D 
+        size_t const k = 
+            (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
+        size_t const q = 
+            (icell/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ;
+        #else 
+        size_t const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
+        #endif 
+        /* Physical coordinates of cell center */
+        auto pcoords = coord_system.get_physical_coordinates(
+            {VEC(i,j,k)},
+            q,
+            true
+        ) ; 
+    
+        cells_pcoords.push_back(pcoords); 
+
+        // The ordering here has to follow Kadath enums convention, e.g.:
+        // ALP = 0 
+        // BETAX = 1
+
+        // access will be done through:
+        // local_vars[icell*nfields+K_MAT::FIELD_NUM] 
+
+        #define LOCAL_REF_STATE(QUANT) local_vars.push_back(std::ref(h_state_mirror(VEC(i,j,k), QUANT, q)));
+        #define LOCAL_REF_AUX(QUANT) local_vars.push_back(std::ref(h_aux_mirror(VEC(i,j,k), QUANT, q)));
+        
+        // VACUUM:
+        LOCAL_REF_STATE(ALP)
+        LOCAL_REF_STATE(BETAX)
+        LOCAL_REF_STATE(BETAY)
+        LOCAL_REF_STATE(BETAZ)
+
+        LOCAL_REF_STATE(GXX)
+        LOCAL_REF_STATE(GXY)
+        LOCAL_REF_STATE(GXZ)
+        LOCAL_REF_STATE(GYY)
+        LOCAL_REF_STATE(GYZ)
+        LOCAL_REF_STATE(GZZ)
+
+        LOCAL_REF_STATE(KXX)
+        LOCAL_REF_STATE(KXY)
+        LOCAL_REF_STATE(KXZ)
+        LOCAL_REF_STATE(KYY)
+        LOCAL_REF_STATE(KYZ)
+        LOCAL_REF_STATE(KZZ)
+
+        // MATTER:
+        if(has_matter){
+            LOCAL_REF_AUX(RHO) 
+            LOCAL_REF_AUX(EPS) 
+            LOCAL_REF_AUX(PRESS) 
+            LOCAL_REF_AUX(VELX) 
+            LOCAL_REF_AUX(VELY) 
+            LOCAL_REF_AUX(VELZ) 
+        }
+
+    }
+   
+    // the import happens on host, so we send off the packed references to the kadath exporters
+    KadathImporter(kadath_id, id_dir+"/"+kadath_id_file, local_vars, 
+                                cells_pcoords, nfields, ncells);
+
+    // and we copy them back... 
+    Kokkos::deep_copy(aux  , h_aux_mirror  );
+    Kokkos::deep_copy(state, h_state_mirror);
+    
+
+    auto const& _eos = eos::get().get_eos<eos_t>() ; 
+    parallel_for( GRACE_EXECUTION_TAG("ID","KadathID")
+                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    auto const v2 = state(VEC(i,j,k),GXX_,q) * aux(VEC(i,j,k),VELX_,q) * aux(VEC(i,j,k),VELX_,q) +
+                                    state(VEC(i,j,k),GYY_,q) * aux(VEC(i,j,k),VELY_,q) * aux(VEC(i,j,k),VELY_,q) +
+                                    state(VEC(i,j,k),GZZ_,q) * aux(VEC(i,j,k),VELZ_,q) * aux(VEC(i,j,k),VELZ_,q) +
+                                    2. * ( 
+                                        state(VEC(i,j,k),GXY_,q) * aux(VEC(i,j,k),VELX_,q) * aux(VEC(i,j,k),VELY_,q) +
+                                        state(VEC(i,j,k),GXZ_,q) * aux(VEC(i,j,k),VELX_,q) * aux(VEC(i,j,k),VELZ_,q) +
+                                        state(VEC(i,j,k),GYZ_,q) * aux(VEC(i,j,k),VELY_,q) * aux(VEC(i,j,k),VELZ_,q) 
+                                    ) ; 
+                    auto const w = 1./Kokkos::sqrt( 1 - v2  ) ; 
+
+                    // change Eulerian velocity U^i [u^i = W(n^i + U^i)] 
+                    // to coordinate velocity V^i = u^i / u^0 = alp * U^i - bet^i
+                    aux(VEC(i,j,k),VELX_,q) = state(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELX_,q) - state(VEC(i,j,k),BETAX_,q);
+                    aux(VEC(i,j,k),VELY_,q) = state(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELY_,q) - state(VEC(i,j,k),BETAY_,q);
+                    aux(VEC(i,j,k),VELZ_,q) = state(VEC(i,j,k),ALP_,q) * aux(VEC(i,j,k),VELZ_,q) - state(VEC(i,j,k),BETAZ_,q);
+
+                    aux(VEC(i,j,k),ZVECX_,q)  = w * aux(VEC(i,j,k),VELX_,q) ; 
+                    aux(VEC(i,j,k),ZVECY_,q)  = w * aux(VEC(i,j,k),VELY_,q) ; 
+                    aux(VEC(i,j,k),ZVECZ_,q)  = w * aux(VEC(i,j,k),VELZ_,q) ; 
+                    
+                    double h, csnd2; 
+                   
+                    double ye  = _eos.ye_atmosphere()  ; 
+                    double rho_atm = _eos.rho_atmosphere() ;
+                    unsigned int err ; 
+                    double press = aux(VEC(i,j,k),PRESS_,q);
+
+                    // reset density values below density floor to atmosphere
+                    if(aux(VEC(i,j,k),RHO_,q)<rho_atm) aux(VEC(i,j,k),RHO_,q)=rho_atm;
+
+
+                    aux(VEC(i,j,k),EPS_,q) = 
+                        _eos.eps_h_csnd2_temp_entropy__press_rho_ye( h, csnd2, aux(VEC(i,j,k),TEMP_,q)
+                                                                   , aux(VEC(i,j,k),ENTROPY_,q)
+                                                                   , aux(VEC(i,j,k),PRESS_,q)
+                                                                   , aux(VEC(i,j,k),RHO_,q)
+                                                                   , ye,err);
+                    // /* Set ye */
+                    aux(VEC(i,j,k),YE_,q) = ye ; 
+                }) ;
+
+    const bool set_Bfield_from_Avec = get_param<bool>("grmhd","set_B_from_Avec") ;
+    const bool set_Avec             = get_param<bool>("grmhd", "set_Avec") ;
+
+    if(set_Avec){
+        const std::string Avec_type = get_param<std::string>("grmhd","Avec_type") ; // poloidal, dipole, monopole, linear (e.g. for shocktubes)
+        const std::string Avec_prescription = get_param<std::string>("grmhd","Avec_prescription") ; // density/pressure based
+        if(Avec_type=="poloidal" && Avec_prescription=="pressure_prescription"){
+            set_vector_potential<B_field_pol_pres_t>(state,aux,idx,pcoords);
+        }
+        else if(Avec_type=="none"){
+            set_vector_potential<B_field_zero_t>(state,aux,idx,pcoords);
+        }
+    }
+
+    // finally, we launch a separate loop to set the magnetic field from vector potential
+    // in GLM, A is only needed in the ID; vector potential is then never touched
+    if(set_Bfield_from_Avec){
+        GRACE_INFO("Computing magnetic field from vector potential"); 
+        compute_B_field_from_Avec(state, aux, idx);
+    }    
+}
+
+#endif 
+
+
 template< typename eos_t
         , typename id_t 
         , typename ... arg_t > 
@@ -255,7 +447,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
     //      -  in a subsequent call, after the grmhd_ID parallel_for, we would call an appropriate version of Avec--->Bfield transform [same as it happens for 1 now]
     
     const bool set_Bfield_from_Avec = get_param<bool>("grmhd","set_B_from_Avec") ;
-
+    const bool set_Avec             = get_param<bool>("grmhd", "set_Avec") ;
     id_t id_kernel{ _eos, pcoords, kernel_args... } ; 
     Kokkos::fence() ; 
     parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID")
@@ -347,6 +539,18 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
         
     // for (size_t idir = 0 ; idir < 3 ; idir++)
     //  set_edge_staggered_Avec<idir>(id_kernel, state, cstate, idx); 
+
+    // for generic ID kernel, here's a trigger to add any vector potential on top of the hydro+metric ID 
+    if(set_Avec){
+        const std::string Avec_type = get_param<std::string>("grmhd","Avec_type") ; // poloidal, dipole, monopole, linear (e.g. for shocktubes)
+        const std::string Avec_prescription = get_param<std::string>("grmhd","Avec_prescription") ; // density/pressure based
+        if(Avec_type=="poloidal" && Avec_prescription=="pressure_prescription"){
+            set_vector_potential<B_field_pol_pres_t>(state,aux,idx,pcoords);
+        }
+        else if(Avec_type=="none"){
+            set_vector_potential<B_field_zero_t>(state,aux,idx,pcoords);
+        }
+    }
 
     // finally, we launch a separate loop to set the magnetic field from vector potential
     // in GLM, A is only needed in the ID; vector potential is then never touched
@@ -569,7 +773,13 @@ void set_grmhd_initial_data() {
                         Avec_Pcut, Avec_n, Avec_Ab) ;
 
         GRACE_TRACE("Done with magnetized FMTorus ID.") ;  
-    } else {
+    }
+    #ifdef GRACE_ENABLE_KADATH
+    else if ( id_type == "fuka"){
+        set_grmhd_kadath_initial_data<eos_t>();
+    } 
+    #endif
+    else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }
     set_conservs_from_prims() ;
