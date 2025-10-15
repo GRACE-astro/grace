@@ -83,8 +83,9 @@ enum sim_matter_quants {
 };
 
 
-constexpr size_t VAC = 1;
-constexpr size_t MATTER = 2;
+constexpr const size_t VAC = 1;
+constexpr const size_t MATTER = 2;
+constexpr const size_t NUM_MATTER = 6; 
 
 //*****************************************************************************************************
 /**

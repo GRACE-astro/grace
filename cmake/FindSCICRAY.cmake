@@ -47,8 +47,7 @@ file(GLOB DEBUG_LIBS "${SCICRAY_LIB_DIR}/*")
 message(STATUS "SCICRAY lib dir contents: ${DEBUG_LIBS}")
 
 # the multi-threaded MPI version
-set(SCICRAY_LIBRARIES "-L${SCICRAY_LIB_DIR} -Wl,--start-group  -lsci_cray_mpi_mp -lsci_cray -Wl,--end-group -lgomp -lpthread -lm -ldl")
-# set(SCICRAY_LIBRARIES "-L${SCICRAY_LIB_DIR} -Wl,--start-group -lsci_cray_mpi_mp -lsci_cray_mpi -Wl,--end-group -lgomp -lpthread -lm -ldl")
+set(SCICRAY_LIBRARIES "-L${SCICRAY_LIB_DIR} -Wl,--start-group  -lsci_cray_mpi_mp -lsci_cray -Wl,--end-group -lpthread -lm -ldl")
 
 # the single-threaded MPI version
 # set(SCICRAY_LIBRARIES "-L${SCICRAY_LIB_DIR} -lsci_cray -lsci_cray_mpi -lgomp -lpthread -lm -ldl")

@@ -157,13 +157,12 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
   std::string id_type{kadath_id};
   std::vector<double> xx(npoints), yy(npoints), zz(npoints);
                 
-  // #pragma omp parallel for
+  #pragma omp parallel for
   for (int i = 0; i < npoints; ++i) {
     xx[i] = pcoords[i][0];
     yy[i] = pcoords[i][1];
     zz[i] = pcoords[i][2];
   }
-
 
 
   auto clock_start = std::chrono::high_resolution_clock::now() ; 
@@ -197,18 +196,6 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
   // new exporters with OpenMP support
   #ifdef KADATH_EXPORTERS_PARALLEL
 
-  constexpr const int NUM_MATTER=6; 
-
-  std::ostringstream oss;
-  Kokkos::print_configuration(std::cout, true); // lazy check
-
-  // trivial check first:
-  // putting it here results in a deadlock?! 
-  // #pragma omp parallel for
-  // for(int i=0; i<24; ++i){
-  //     printf("Thread %d working on iteration %d\n", omp_get_thread_num(), i);
-  // }
-
     // templated lambdas feature template parameters right after the closure bracket
     auto interp_data_helper = []<typename reader_t, bool has_matter = false>(reader_t& input_reader,
                                     std::vector<double>& xgrid,
@@ -224,7 +211,6 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
         // VERSION 1: PRAGMA OMP
               #pragma omp parallel for firstprivate(input_reader), schedule(static)
               for (size_t idx = 0; idx < xgrid.size(); ++idx) {
-                // GRACE_INFO("OpenMP active with {} threads", omp_get_num_threads());
                 all_data[idx] = input_reader.export_pointwise(xgrid[idx], ygrid[idx], zgrid[idx]);
               }
 
@@ -261,36 +247,32 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
     using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BCO_BH_INFO>;
     using reader_t = Kadath::FUKA_Solvers::CFMS_BH_Exporter;
     reader_t input_reader(filename.c_str()); 
-    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, false>(input_reader, xx,yy,zz));
-    // auto exported_vals = std::move(interp_data_helper<reader_t, false>(input_reader, xx,yy,zz)); 
+    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, false>(input_reader, xx,yy,zz)); // for a templated lambda 
+    // auto exported_vals = std::move(interp_data_helper<reader_t, false>(input_reader, xx,yy,zz));   // for a separate function
     import_data(state_ref,exported_vals);
   } else if(id_type == "BBH") {
     using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BIN_INFO>;
     using reader_t = Kadath::FUKA_Solvers::CFMS_BBH_Exporter;
     reader_t input_reader(filename.c_str()); 
     auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, false>(input_reader, xx,yy,zz));
-      // auto exported_vals = std::move(interp_data_helper<reader_t, false>(input_reader, xx,yy,zz)); 
     import_data(state_ref,exported_vals);
   } else if(id_type == "NS") {
     using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BCO_NS_INFO>;
     using reader_t = Kadath::FUKA_Solvers::CFMS_NS_Exporter;
     reader_t input_reader(filename.c_str()); 
     auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz)); 
-    // auto exported_vals = std::move(interp_data_helper<reader_t, true>(input_reader, xx,yy,zz)); 
     import_data_wmatter(state_ref,exported_vals);
   } else if(id_type == "BNS") {
     using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BIN_INFO>;
     using reader_t = Kadath::FUKA_Solvers::CFMS_BNS_Exporter;
     reader_t input_reader(filename.c_str()); 
     auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz));
-    // auto exported_vals = std::move(interp_data_helper<reader_t, true>(input_reader, xx,yy,zz)); 
     import_data_wmatter(state_ref,exported_vals);
   } else if(id_type == "BHNS") {
     using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BIN_INFO>;
     using reader_t = Kadath::FUKA_Solvers::CFMS_BHNS_Exporter;
     reader_t input_reader(filename.c_str()); 
     auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz));
-    // auto exported_vals = std::move(interp_data_helper<reader_t, true>(input_reader, xx,yy,zz)); 
     import_data_wmatter(state_ref,exported_vals);
   } 
   #endif
