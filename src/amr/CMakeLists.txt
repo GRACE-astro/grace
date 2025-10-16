@@ -35,6 +35,7 @@ target_link_libraries( grace_regrid PRIVATE
                         p4est::sc
                         p4est::p4est 
                         Kokkos::kokkos
+                        KokkosKernels::kokkoskernels
                         spdlog::spdlog )
 
 add_library( grace_BC_helpers OBJECT bc_helpers.cpp )

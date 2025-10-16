@@ -54,6 +54,10 @@
 
 #include <Kokkos_Core.hpp>  
 #include <cmath>
+
+#ifdef GRACE_ENABLE_ML
+#include <grace/ML/ml_networks.hh>
+#endif
 namespace grace {
 
 
@@ -102,6 +106,22 @@ void compute_auxiliary_quantities(
     #define GET_AUX
     #endif 
 
+    #ifdef GRACE_ENABLE_ML
+    auto& ml_list = ml::ml_network_list::get(); 
+    auto& c2p_view = ml_list.get_c2p_device_view();
+    auto& ml_model = c2p_view(0);  // Access the single network inside the view
+
+    if (!ml_list.is_c2p_initialized()) {
+        GRACE_WARN("C2P model not initialized!");
+        return;
+    }
+    Kokkos::fence();
+    #endif
+
+    ml_model.fill_input(state);
+    unsigned long ncells = (nx+2*ngz)*(ny+2*ngz)*(nz+2*ngz)*nq;
+    ml_model.batched_forward(ncells);
+
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 
     parallel_for(GRACE_EXECUTION_TAG("EVOL","get_auxiliaries"), policy 
@@ -109,6 +129,8 @@ void compute_auxiliary_quantities(
     {
         GET_AUX ; 
     }) ; 
+
+    
 
     #undef GET_AUX
     #if 0

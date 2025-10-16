@@ -14,3 +14,5 @@ if( GRACE_ENABLE_GRMHD )
     set(GRACE_ENABLE_BURGERS OFF)
 endif()
 
+option(GRACE_ENABLE_ML   "Enable C2P with Machine Learning" ON)
+

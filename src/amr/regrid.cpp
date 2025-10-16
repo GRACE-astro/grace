@@ -40,6 +40,10 @@
 #include <grace/utils/prolongation.hh>
 #include <grace/utils/limiters.hh>
 
+#ifdef GRACE_ENABLE_ML
+#include <grace/ML/device_network.hh>
+#include <grace/ML/ml_networks.hh>
+#endif
 namespace grace { namespace amr { 
 
 void regrid() {
@@ -404,6 +408,18 @@ void regrid() {
     /*                         Reset quadrants to default state                               */
     /******************************************************************************************/
     set_quadrants_to_default(); 
+
+    #ifdef GRACE_ENABLE_ML
+    /******************************************************************************************/
+    /*                         Reset machine learning buffer                                  */
+    /******************************************************************************************/
+    auto& ml_list = ml::ml_network_list::get(); 
+    auto& c2p_view = ml_list.get_c2p_device_view();
+    auto& ml_model = c2p_view(0);  // Access the single network inside the view
+    unsigned long batch_size = (nx+2*ngz)*(ny+2*ngz)*(nz+2*ngz)*nq_local;
+    ml_model.reset_batch_allocation(batch_size);
+    Kokkos::fence();
+    #endif
     /******************************************************************************************/
     /*                                      All done                                          */
     /******************************************************************************************/

@@ -131,6 +131,45 @@ struct grhd_c2p_t {
         error = func(zeta) ;
         return std::move(prims) ; 
     }
+
+    /**
+     * @brief Invert the primitive to conservative transformation
+     *        and return primitive variables.
+     * @param error c2p inversion residual.
+     * @return grmhd_prims_array_t Primitives.
+     * NB: When this function returns, the velocity portion 
+     * of the prims array actually contains the z-vector, 
+     * the pressure contains the lorentz factor and temperature
+     * and entropy are left empty. This is later fixed by the 
+     * calling function which will compute \f$v^i\f$, pressure, 
+     * entropy and temperature by calling the EOS and adding 
+     * the relevant metric components to the velocity.
+     */
+    grmhd_prims_array_t GRACE_HOST_DEVICE
+    invert_with_zeta(double zeta, double& error) {
+
+        auto const func = [&] (double const& zeta) {
+            return zeta - r / htilde(zeta) ; 
+        } ; 
+        double const W = Wtilde(zeta) ; 
+        grmhd_prims_array_t prims ; 
+        prims[RHOL] = D/W ;
+        prims[YEL]  = ye ;
+        /* Enforce range on eps tilde */
+        double epsmin, epsmax; 
+        unsigned int err ;
+        eos.eps_range__rho_ye(epsmin,epsmax,prims[RHOL],prims[YEL],err) ; 
+        prims[EPSL]   = math::min( epsmax
+                                 , math::max( epsmin
+                                            , epstilde(W,zeta) ) ) ; 
+        prims[PRESSL] = W ; 
+        double const h = htilde(zeta) ; 
+        prims[VXL] = StildeU[0] / D / h / W; 
+        prims[VYL] = StildeU[1] / D / h / W; 
+        prims[VZL] = StildeU[2] / D / h / W; 
+        error = func(zeta) ;
+        return std::move(prims) ; 
+    }
     
  private:
     //! Equation of state

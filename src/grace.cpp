@@ -81,6 +81,7 @@ int main(int argc, char* argv[])
             if (reset_id_after_regrid) {
                 grace::set_initial_data() ; 
             }
+            grace::compute_auxiliary_quantities() ;
         }
     }
     

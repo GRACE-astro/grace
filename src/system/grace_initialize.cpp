@@ -67,6 +67,9 @@
 #include <chrono> 
 #include <iostream> 
 
+#ifdef GRACE_ENABLE_ML
+#include <grace/ML/ml_runtime.hh>     // Nur ml_runtime!
+#endif
 
 
 namespace grace {
@@ -212,6 +215,11 @@ void initialize(int& argc, char* argv[])
         ,   grace::variable_list::get().getstaggeredcoords() ) ;
     grace::IO::detail::init_auxiliaries()  ;
     grace::eos::initialize() ;
+
+    #ifdef GRACE_ENABLE_ML
+    grace::ml_runtime::initialize();  // Eine Zeile!
+    #endif
+    
     GRACE_INFO("Initialization done.");
     GRACE_INFO("GRACE running on {} backend", GRACE_BACKEND) ; 
     //GRACE_INFO("GRACE running on {} total devices.", Kokkos::num_devices() ) ; 

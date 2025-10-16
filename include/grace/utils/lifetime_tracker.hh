@@ -53,7 +53,8 @@ enum unique_objects_lifetimes {
     GRACE_COORDINATE_SYSTEM,
     GRACE_VARIABLES,
     GRACE_EOS_STORAGE,
-    grace_NUM_GLOBAL_OBJECTS 
+    grace_NUM_GLOBAL_OBJECTS,
+    GRACE_ML_NETWORKS
 } ;
 
 namespace utils {

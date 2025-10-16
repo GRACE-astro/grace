@@ -42,7 +42,9 @@ conservs_to_prims( grmhd_cons_array_t& cons
                  , grmhd_prims_array_t& prims
                  , metric_array_t const& metric 
                  , eos_t const& eos
-                 , double const& lapse_excision ) 
+                 , double const& lapse_excision 
+                 , double zeta
+                ) 
 {
     using c2p_impl_t = grhd_c2p_t<eos_t> ;
     bool c2p_failed{ false }             ;
@@ -54,8 +56,16 @@ conservs_to_prims( grmhd_cons_array_t& cons
     if( cons[DENSL] > dens_atmo ) {
         c2p_impl_t c2p(eos,metric,cons) ;
         double residual ;
-        prims =  c2p.invert(residual) ;
+        #ifndef GRACE_ENABLE_ML
+        prims = c2p.invert(residual) ;
+        Kokkos::printf("We are never here\n");
+        #else
+        prims = c2p.invert_with_zeta(zeta,residual) ;
+        #endif
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
+        if (c2p_failed) {
+            Kokkos::printf("Dont break my heart\n");
+        }
         W = prims[PRESSL] ; // W was stored here for convenience
     } else {
         c2p_failed = true ;
@@ -142,7 +152,8 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , grace::grmhd_prims_array_t&  \
                       , grace::metric_array_t const&  \
                       , EOS const& eos \
-                      , double const& ) 
+                      , double const& \
+                      , double) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE
 

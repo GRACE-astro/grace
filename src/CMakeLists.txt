@@ -24,6 +24,10 @@ add_subdirectory(evolution)
 
 add_subdirectory(physics)
 
+if(GRACE_ENABLE_ML)
+    add_subdirectory(ML)
+endif()
+
 add_library( grace_objects INTERFACE )
 target_sources( grace_objects INTERFACE 
                 $<TARGET_OBJECTS:grace_error_handlers>
@@ -66,5 +70,6 @@ target_sources( grace_objects INTERFACE
                 $<TARGET_OBJECTS:grace_evolution> 
                 $<TARGET_OBJECTS:grace_initial_data> 
                 $<TARGET_OBJECTS:grace_c2p>
+                $<$<BOOL:${GRACE_ENABLE_ML}>:$<TARGET_OBJECTS:grace_ml>>
                 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:$<TARGET_OBJECTS:grace_profiling>>)
 

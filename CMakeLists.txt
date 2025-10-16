@@ -33,11 +33,23 @@ find_package(p4est REQUIRED)
 find_package(LibXml2 REQUIRED)
 find_package(ZLIB REQUIRED)
 include(setup_kokkos)
+include(setup_kokkoskernel)
 #include(setup_gsl)
 include(setup_yaml)
 include(setup_vtk)
 include(setup_spdlog)
 include(setup_HDF5)
+
+option(GRACE_ENABLE_ML "Enable ML inference capabilities" ON)
+if(GRACE_ENABLE_ML)
+    message(STATUS "ML inference enabled.")
+    add_compile_definitions(GRACE_ENABLE_ML)  # <-- Add this line
+    if(NOT HDF5_FOUND)
+        message(FATAL_ERROR "ML inference requires HDF5 but it was not found")
+    endif()
+else()
+    message(STATUS "ML inference disabled.")
+endif()
 
 option(GRACE_ENABLE_PROFILING "Build profiling hooks" ON)
 if( GRACE_ENABLE_PROFILING )
@@ -64,6 +76,7 @@ target_link_libraries(grace PRIVATE
         MPI::MPI_CXX
         OpenMP::OpenMP_CXX
         Kokkos::kokkos 
+	    KokkosKernels::kokkoskernels 
         p4est::p4est 
         p4est::sc
         VTK::VTK

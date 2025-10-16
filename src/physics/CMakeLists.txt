@@ -25,6 +25,7 @@ target_link_libraries( grace_grmhd PRIVATE
                         p4est::sc 
                         p4est::p4est 
                         Kokkos::kokkos 
+                        Kokkos::kokkoskernels
                         spdlog::spdlog )    
 
 add_subdirectory(eos)

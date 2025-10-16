@@ -1,0 +1,39 @@
+# ML Inference System Defaults
+# This file contains default parameters for the ML inference system
+# Users can override any of these values in their simulation configuration files
+
+ml_inference: {
+  # Global ML inference control
+  # Set to false to disable all ML inference and use traditional methods only
+  enable_ml: false,
+  
+  # C2P AI Model Configuration
+  # Path to the HDF5 model file containing the trained neural network
+  # Leave empty to disable C2P AI and use traditional root-finding methods
+  c2p_model_path: "",
+  
+  # C2P Validation and Fallback Settings
+  # Enable physics validation of AI predictions before accepting them
+  c2p_validation_enabled: true,
+  
+  # Error tolerance for AI predictions - fallback to traditional if exceeded
+  c2p_fallback_tolerance: 1e-10,
+  
+  # Device and Memory Management
+  # Size of device memory pool for ML inference (bytes)
+  # Default: 1GB, set to 0 for automatic sizing
+  device_memory_pool_size: 1073741824,
+  
+  # Maximum number of concurrent inference calls
+  max_concurrent_inferences: 1024,
+  
+  # Debugging and Monitoring
+  # Log detailed statistics about inference performance
+  log_inference_stats: false,
+  
+  # Log when AI fails and fallback is used
+  log_fallback_events: true,
+  
+  # Enable performance monitoring (may impact performance)
+  performance_monitoring: false
+}

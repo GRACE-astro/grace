@@ -176,6 +176,9 @@ g = grace::metric_array_t{                                    \
 }
 #endif 
 
+#undef A1
+#undef A0
+
 struct grmhd_id_t {
   double rho;
   double press;

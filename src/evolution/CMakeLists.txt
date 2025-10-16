@@ -6,6 +6,7 @@ target_link_libraries( grace_evolution PRIVATE
                        p4est::sc 
                        p4est::p4est 
                        Kokkos::kokkos 
+                       Kokkos::kokkoskernels
                        spdlog::spdlog )
 add_library( grace_initial_data OBJECT initial_data.cpp )
 target_include_directories( grace_initial_data PRIVATE "${HEADER_DIR}")
@@ -15,4 +16,5 @@ target_link_libraries( grace_initial_data PRIVATE
                         p4est::sc 
                         p4est::p4est 
                         Kokkos::kokkos 
+                        Kokkos::kokkoskernels
                         spdlog::spdlog )

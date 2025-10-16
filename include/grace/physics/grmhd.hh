@@ -49,6 +49,11 @@
 
 #include <type_traits>
 
+#ifdef GRACE_ENABLE_ML
+#include <grace/ML/ml_networks.hh>
+#include <grace/ML/device_network.hh>
+#endif
+
 //**************************************************************************************************/
 /**
  * \defgroup physics Physics Modules.
@@ -69,6 +74,9 @@ struct grmhd_equations_system_t
  private:
     //! Base class type 
     using base_t = hrsc_evolution_system_t<grmhd_equations_system_t<eos_t>>;
+    #ifdef GRACE_ENABLE_ML
+    Kokkos::View<grace::ml::MLInferenceNetwork*> _c2p_view;  // Add this member
+    #endif
 
  public:
 
@@ -85,6 +93,10 @@ struct grmhd_equations_system_t
      : base_t(state_,aux_), _eos(eos_)
     { 
         _lapse_excision = grace::get_param<double>("grmhd","lapse_excision") ; 
+        #ifdef GRACE_ENABLE_ML
+        auto& ml_list = ml::ml_network_list::get();  // Call on host
+        _c2p_view = ml_list.get_c2p_device_view();   // Store the view
+        #endif
     } ;
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^1\f$
@@ -385,6 +397,20 @@ struct grmhd_equations_system_t
             , ALL()
             , q
         ) ; 
+        
+        #ifdef GRACE_ENABLE_ML
+        int64_t ni,nj,nk ; 
+        ni = this->_state.extent(0);
+        nj = this->_state.extent(1);
+        nk = this->_state.extent(2);
+        int64_t nq = this->_state.extent(4) ;
+
+        auto& ml_model = _c2p_view(0);
+        unsigned long index = EXPR((ni),*(nj),*(nk))*nq;
+        const auto& output = ml_model.get_batch_output();
+        auto zeta = output(index,0);
+
+        #endif
         grmhd_cons_array_t cons ;
         cons[DENSL] = vars(DENS_)        ; 
         cons[STXL]  = vars(SX_)          ;
@@ -397,7 +423,9 @@ struct grmhd_equations_system_t
         FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
         grmhd_prims_array_t prims ;
         conservs_to_prims<eos_t>( cons, prims, metric
-                                , this->_eos, this->_lapse_excision ) ;
+                                , this->_eos, this->_lapse_excision 
+                                ,zeta
+                            ) ;
         /* Write new prims */
         aux(RHO_) = prims[RHOL]     ; 
         aux(EPS_) = prims[EPSL]     ; 

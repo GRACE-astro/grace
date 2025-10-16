@@ -58,7 +58,8 @@ conservs_to_prims(  grace::grmhd_cons_array_t& cons
                   , grace::grmhd_prims_array_t& prims
                   , grace::metric_array_t const& metric 
                   , eos_t const& eos
-                  , double const& lapse_excision) ; 
+                  , double const& lapse_excision
+                  , double zeta = 0.0) ; 
 
 void GRACE_HOST_DEVICE
 prims_to_conservs( grace::grmhd_prims_array_t& prims
@@ -72,7 +73,8 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , grace::grmhd_prims_array_t&  \
                       , grace::metric_array_t const&  \
                       , EOS const& eos \
-                      , double const& ) 
+                      , double const& \
+                      , double) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE
 }
