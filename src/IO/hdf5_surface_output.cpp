@@ -317,7 +317,8 @@ void write_grid_structure_sliced_hdf5(hid_t file_id, size_t compression_level, s
     HDF5_CALL(points_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
     hsize_t points_chunk_dim[2] = {chunk_size,3} ;
     HDF5_CALL(err, H5Pset_chunk(points_prop_id,2,points_chunk_dim)) ; 
-    HDF5_CALL(err, H5Pset_deflate(points_prop_id, compression_level)) ; 
+    if ( compression_level > 0 )
+        HDF5_CALL(err, H5Pset_deflate(points_prop_id, compression_level)) ; 
     HDF5_CALL( points_dset_id
             , H5Dcreate2( file_id
                         , "/Points"
@@ -330,7 +331,8 @@ void write_grid_structure_sliced_hdf5(hid_t file_id, size_t compression_level, s
     HDF5_CALL(cells_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ;
     hsize_t cells_chunk_dim[2] = {chunk_size,nvertex} ;
     HDF5_CALL(err, H5Pset_chunk(cells_prop_id,2,cells_chunk_dim)) ; 
-    HDF5_CALL(err, H5Pset_deflate(cells_prop_id, compression_level)) ; 
+    if ( compression_level > 0 )
+        HDF5_CALL(err, H5Pset_deflate(cells_prop_id, compression_level)) ; 
     HDF5_CALL( cells_dset_id
                 , H5Dcreate2( file_id
                             , "/Cells"
@@ -476,7 +478,8 @@ void write_volume_data_arrays_sliced_hdf5(hid_t file_id, size_t compression_leve
     HDF5_CALL(scalars_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
     hsize_t scalars_chunk_dim[1] = {chunk_size} ;
     HDF5_CALL(err, H5Pset_chunk(scalars_prop_id,1,scalars_chunk_dim)) ; 
-    HDF5_CALL(err, H5Pset_deflate(scalars_prop_id, compression_level)) ;  
+    if ( compression_level > 0 )
+        HDF5_CALL(err, H5Pset_deflate(scalars_prop_id, compression_level)) ;  
 
     /* Create local space for this rank */
     hid_t scalars_space_id ; 
@@ -531,7 +534,8 @@ void write_volume_data_arrays_sliced_hdf5(hid_t file_id, size_t compression_leve
     HDF5_CALL(vectors_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
     hsize_t vectors_chunk_dim[2] = {chunk_size, 3} ;
     HDF5_CALL(err, H5Pset_chunk(vectors_prop_id,2,vectors_chunk_dim)) ; 
-    HDF5_CALL(err, H5Pset_deflate(vectors_prop_id, compression_level)) ;  
+    if ( compression_level > 0 )
+        HDF5_CALL(err, H5Pset_deflate(vectors_prop_id, compression_level)) ;  
 
     /* Create local space for this rank */
     hid_t vectors_space_id ; 
@@ -907,7 +911,8 @@ void write_scalar_dataset_sliced( void* data, hid_t mem_type_id, hid_t file_id, 
     HDF5_CALL(prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
     hsize_t chunk_dim[1] = {chunk_size} ;
     HDF5_CALL(err, H5Pset_chunk(prop_id,1,chunk_dim)) ; 
-    HDF5_CALL(err, H5Pset_deflate(prop_id, compression_level)) ; 
+    if ( compression_level > 0 )
+        HDF5_CALL(err, H5Pset_deflate(prop_id, compression_level)) ; 
     HDF5_CALL( dset_id
              , H5Dcreate2( file_id
                          , dset_name.c_str()
