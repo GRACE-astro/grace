@@ -31,7 +31,7 @@ inline double fill_func(std::array<double,GRACE_NSPACEDIM> const& c)
     #else 
     double const z = 0 ;
     #endif  
-    return x - 3.14 * y + 1.1 * z - 2.22 ; 
+    return x - 3.14 * y + 11 * z - 2.22 ; 
 }
 
 static inline bool is_outside_grid(VEC(size_t i,size_t j, size_t k), int64_t q, VEC(double xoff,double yoff, double zoff))
@@ -125,9 +125,11 @@ static void setup_initial_data(
 
     std::array<bool,3> stagger {false,false,false}; 
     std::array<double,3> lcoord {0.5,0.5,0.5} ; 
+    int nvars = host_data.extent(GRACE_NSPACEDIM); 
     if ( stag == STAG_FACEX ) { 
         stagger[0] = true ; 
         lcoord[0] = 0 ; 
+
     }
     if ( stag == STAG_FACEY ) {
         stagger[1] = true ; 
@@ -144,7 +146,7 @@ static void setup_initial_data(
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
-            host_data(VEC(i,j,k), 0, q) = fill_func(pcoords) ; 
+            for( int ivar=0; ivar<nvars; ++ivar) host_data(VEC(i,j,k), 0, q) = fill_func(pcoords) ; 
         }, stagger, true 
     ) ; 
 }
@@ -162,6 +164,7 @@ static void invalidate_ghostzones(
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
 
     std::array<bool,3> stagger {false,false,false}; 
+    int nvars = device_data.extent(GRACE_NSPACEDIM); 
     if ( stag == STAG_FACEX ) { 
         stagger[0] = true ; 
         nx ++;  
@@ -180,7 +183,7 @@ static void invalidate_ghostzones(
     grace::host_grid_loop<true>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             if (is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz )) {
-                host_data(VEC(i,j,k), 0, q) = std::numeric_limits<double>::quiet_NaN() ; 
+                for( int ivar=0; ivar<nvars; ++ivar) host_data(VEC(i,j,k), ivar, q) = std::numeric_limits<double>::quiet_NaN() ; 
             }
         }, stagger, true 
     ) ; 
@@ -242,6 +245,7 @@ static void check_ghostzones(
 
     std::array<bool,3> stagger {false,false,false}; 
     std::array<double,3> lcoord {0.5,0.5,0.5} ; 
+    int nvars = host_data.extent(GRACE_NSPACEDIM); 
     if ( stag == STAG_FACEX ) { 
         stagger[0] = true ; 
         nx ++;  
@@ -272,15 +276,17 @@ static void check_ghostzones(
             and
             #endif  
             ! is_affected_by_boundary(VEC(i,j,k),q,2,lcoord[0],lcoord[1],lcoord[2])){
-                if ( std::isnan(host_data(VEC(i,j,k),0,q)) or (fabs(host_data(VEC(i,j,k),0,q)-ground_truth(VEC(i,j,k),0,q))>1e-14)) {
+                if ( std::isnan(host_data(VEC(i,j,k),0,q)) or (fabs(host_data(VEC(i,j,k),0,q)-ground_truth(VEC(i,j,k),0,q))>1e-15)) {
                     auto quad = grace::amr::get_quadrant(0, q).get() ; 
                     GRACE_TRACE("NaN at {}, stag {} level {} ijk {},{},{}, q {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(stag), static_cast<int>(quad->level),i,j,k,q) ;
                 }
+                for( int ivar=0 ; ivar<nvars; ++ivar ) {
+                    CHECK_THAT(
+                    host_data(VEC(i,j,k),ivar,q),
+                    Catch::Matchers::WithinAbs(ground_truth(VEC(i,j,k),ivar,q),
+                        1e-15 ) ) ; 
+                }
                 
-                CHECK_THAT(
-                host_data(VEC(i,j,k),0,q),
-                Catch::Matchers::WithinAbs(ground_truth(VEC(i,j,k),0,q),
-                    1e-14 ) ) ; 
             }
             
         }, stagger, true 
@@ -293,6 +299,8 @@ TEST_CASE("Apply BC", "[boundaries]")
     auto& ghost = grace::amr_ghosts::get() ; 
     //ghost.update() ; 
     
+    auto pcoords = grace::get_physical_coordinates({VEC(20,10,10)},1,{VEC(0.5,0.5,0.5)}, true) ;
+    GRACE_INFO("Here we are ({},{},{})", pcoords[0],pcoords[1],pcoords[2]) ; 
     auto& runtime = ghost.get_task_executor() ; 
     // now the real test 
     auto& state = grace::variable_list::get().getstate() ; 

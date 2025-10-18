@@ -87,6 +87,15 @@ class quadrant_t
     }
     //*****************************************************************************************************
     /**
+     * @brief Get quadrant's spacing in tree-logical ([0,1]) coordinates.
+     * 
+     * @return double The quadrant's spacing.
+     */
+     double GRACE_ALWAYS_INLINE spacing() {
+        return 1.0 / static_cast<double>(1<<level()) ; 
+     }
+    //*****************************************************************************************************
+    /**
      * @brief Get quadrant's refinement level.
      * 
      * @return int The quadrant's level.

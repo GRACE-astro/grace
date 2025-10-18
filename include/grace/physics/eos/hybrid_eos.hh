@@ -58,6 +58,7 @@ class hybrid_eos_t
                 , double _gamma_th_m1 
                 , double baryon_mass
                 , double c2p_rho_atm
+                , double c2p_press_atm
                 , double c2p_eps_max )
      : eos_base_t<hybrid_eos_t<cold_eos_t>>{ 0, _cold_eos.eos_rhomax, _cold_eos.eos_rhomin
                                            , 1e99, 0
@@ -67,6 +68,7 @@ class hybrid_eos_t
                                            , c2p_rho_atm 
                                            , 0
                                            , 0
+                                           , c2p_press_atm
                                            , 0
                                            , c2p_eps_max
                                            , 1.

@@ -125,13 +125,18 @@ void amr_ghosts_impl_t::update() {
                   #endif 
                   &grace_iterate_corners );             /*corner*/
     //**************************************************************************************************
+    for( int iq=0; iq<nq; ++iq) {
+        ASSERT(ghost_layer[iq].n_registered_corners == P4EST_CHILDREN, "ops") ; 
+        ASSERT(ghost_layer[iq].n_registered_edges == 12, "ops") ; 
+        ASSERT(ghost_layer[iq].n_registered_faces == 6, "ops") ; 
+    }
     //build_flux_buffers()     ;
     //**************************************************************************************************
     std::unordered_set<size_t> cbuf_qid ; 
     build_coarse_buffers(cbuf_qid)   ; 
     GRACE_TRACE("Constructed coarse buffers, we have {} quadrants", cbuf_qid.size()) ; 
-    auto& edge = ghost_layer[0].edges[4] ; 
-    GRACE_TRACE("Here, edge kind {}, filled ? {}", static_cast<int>(edge.kind), edge.filled ) ; 
+    auto& face = ghost_layer[1].faces[3] ; 
+    GRACE_TRACE("Here, face kind {}, other_quad: {}", static_cast<int>(face.kind), face.data.full.quad_id ) ; 
     //**************************************************************************************************
     build_remote_buffers()   ; 
     //**************************************************************************************************

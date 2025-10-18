@@ -37,14 +37,16 @@ grmhd: {
   # nonsense
   fmtorus: {
     a_BH: 0.9375,
-    M_BH: 1,
-    rho_min: 1e-10,
+    rho_min: 1.0e-5,
     lapse_min: 0.2,
-    press_min: 1e-11,
+    press_min: 0.333e-7,
     r_in: 6,
     r_at_max_density: 12,
     gamma: 1.33333333333333333,
-    max_inverse_beta: 100
+    max_inverse_beta: 100,
+    perturbation_amplitude: 0.02,
+    rho_power: -1.5,
+    press_power: -2.5
   }, 
   blastwave_over_pressure_factor: 2.5,
   blastwave_initial_radius: 0.5,
@@ -56,5 +58,8 @@ grmhd: {
     cutoff_fact: 0.02,
     A_phi: 0.0,
     A_n: 1.0
-  }
+  },
+  atmosphere_kind: "cold",
+  atmosphere_rho_falloff_power: -1.5,
+  atmosphere_press_falloff_power: -2.5
 }

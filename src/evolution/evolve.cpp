@@ -296,7 +296,6 @@ void advance_substep( double const t, double const dt, double const dtfact
     auto eta = grace::get_param<double>("bssn","eta") ;
     auto epsdiss = grace::get_param<double>("bssn","epsdiss") ; 
     bssn_system_t bssn_eq_system(old_state,aux,old_stag_state,k1,eta,epsdiss) ; 
-
     #endif
     //**************************************************************************************************/
     auto flux_x_policy = 
@@ -450,11 +449,11 @@ void advance_substep( double const t, double const dt, double const dtfact
 
         // now we find the wavespeeds 
         // this is min(cmin_y(i,j-1/2,k), cmin_y(i,j-1/2,k-1))
-        auto cmin_y = Kokkos::min(vbar(VEC(i,j,k),2,1,q),vbar(VEC(i,j,k-1),2,1,q)) ;
+        auto cmin_y = Kokkos::max(vbar(VEC(i,j,k),2,1,q),vbar(VEC(i,j,k-1),2,1,q)) ;
         // this is max(cmax_y(i,j-1/2,k), cmax_y(i,j-1/2,k-1)) 
         auto cmax_y = Kokkos::max(vbar(VEC(i,j,k),3,1,q),vbar(VEC(i,j,k-1),3,1,q)) ;
         // this is min(cmin_z(i,j,k-1/2), cmin_z(i,j-1,k-1/2))
-        auto cmin_z = Kokkos::min(vbar(VEC(i,j,k),2,2,q),vbar(VEC(i,j-1,k),2,2,q)) ;
+        auto cmin_z = Kokkos::max(vbar(VEC(i,j,k),2,2,q),vbar(VEC(i,j-1,k),2,2,q)) ;
         // this is max(cmax_z(i,j,k-1/2), cmax_y(i,j-1,k-1/2)) 
         auto cmax_z = Kokkos::max(vbar(VEC(i,j,k),3,2,q),vbar(VEC(i,j-1,k),3,2,q)) ;
 
@@ -505,12 +504,12 @@ void advance_substep( double const t, double const dt, double const dtfact
 
         // now we find the wavespeeds 
         // this is min(cmin_z(i,j,k-1/2), cmin_z(i-1,j,k-1/2))
-        auto cmin_z = Kokkos::min(vbar(VEC(i,j,k),2,2,q),vbar(VEC(i-1,j,k),2,2,q)) ;
+        auto cmin_z = Kokkos::max(vbar(VEC(i,j,k),2,2,q),vbar(VEC(i-1,j,k),2,2,q)) ;
         // this is max(cmax_z(i,j,k-1/2), cmax_z(i-1,j,k-1/2))
         auto cmax_z = Kokkos::max(vbar(VEC(i,j,k),3,2,q),vbar(VEC(i-1,j,k),3,2,q)) ;
 
         // this is min(cmin_x(i-1/2,j,k), cmin_z(i-1/2,j,k-1))
-        auto cmin_x = Kokkos::min(vbar(VEC(i,j,k),2,0,q),vbar(VEC(i,j,k-1),2,0,q)) ;
+        auto cmin_x = Kokkos::max(vbar(VEC(i,j,k),2,0,q),vbar(VEC(i,j,k-1),2,0,q)) ;
         // this is max(cmax_x(i-1/2,j,k), cmax_x(i-1/2,j,k-1))
         auto cmax_x = Kokkos::max(vbar(VEC(i,j,k),3,0,q),vbar(VEC(i,j,k-1),3,0,q)) ;
 
@@ -562,12 +561,12 @@ void advance_substep( double const t, double const dt, double const dtfact
 
         // now we find the wavespeeds 
         // this is min(cmin_x(i-1/2,j,k), cmin_x(i-1/2,j-1,k)
-        auto cmin_x = Kokkos::min(vbar(VEC(i,j,k),2,0,q),vbar(VEC(i,j-1,k),2,0,q)) ;
+        auto cmin_x = Kokkos::max(vbar(VEC(i,j,k),2,0,q),vbar(VEC(i,j-1,k),2,0,q)) ;
         // this is max(cmax_x(i-1/2,j,k), cmax_x(i-1/2,j-1,k)
         auto cmax_x = Kokkos::max(vbar(VEC(i,j,k),3,0,q),vbar(VEC(i,j-1,k),3,0,q)) ;
 
         // this is min(cmin_y(i,j-1/2,k), cmin_y(i-1,j-1/2,k))
-        auto cmin_y = Kokkos::min(vbar(VEC(i,j,k),2,1,q),vbar(VEC(i-1,j,k),2,1,q)) ;
+        auto cmin_y = Kokkos::max(vbar(VEC(i,j,k),2,1,q),vbar(VEC(i-1,j,k),2,1,q)) ;
         // this is max(cmax_y(i,j-1/2,k), cmax_y(i-1,j-1/2,k))
         auto cmax_y = Kokkos::max(vbar(VEC(i,j,k),3,1,q),vbar(VEC(i-1,j,k),3,1,q)) ;
 
@@ -638,6 +637,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     } ) ; 
     #endif 
     Kokkos::fence() ; 
+
     #undef RECONSTRUCT
     #undef RECONSTRUCT_V
     #undef GET_X_FLUX

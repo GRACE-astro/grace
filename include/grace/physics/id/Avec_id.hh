@@ -40,10 +40,10 @@ struct Avec_toroidal_id_t {
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     double get(
         std::array<double,3> const& coords,
-        double const& press, double const& rho
+        double const& var
     ) const  
     {
-        double const _A = _A_phi * Kokkos::pow(Kokkos::max(press-_pcut,0.0),_A_n) ; 
+        double const _A = _A_phi * Kokkos::pow(Kokkos::max(var-_cut,0.0),_A_n) ; 
         std::array<double,3> A {
             -coords[1] * _A,
             coords[0] * _A,
@@ -52,7 +52,7 @@ struct Avec_toroidal_id_t {
         return A[idir] ;
     }
 
-    double _pcut, _A_phi, _A_n ; 
+    double _cut, _A_phi, _A_n ; 
 } ; 
 
 struct Avec_toroidal_rho_rel_id_t {
@@ -74,6 +74,7 @@ struct Avec_toroidal_rho_rel_id_t {
     }
 
     double _rhomax, _rhocut, _A_phi, _A_n ; 
+    
 } ; 
 
 }

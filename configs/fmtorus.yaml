@@ -1,17 +1,17 @@
 name: "grace"
 amr: {
-  npoints_block_x: 32,
-  npoints_block_y: 32,
-  npoints_block_z: 32,
-  xmin: -80.0,
-  xmax: 80.0,
-  ymin: -80.0,
-  ymax: 80.0,
-  zmin: -40.0,
-  zmax: 40.0,
+  npoints_block_x: 128,
+  npoints_block_y: 128,
+  npoints_block_z: 128,
+  xmin: -64.0,
+  xmax: 64.0,
+  ymin: -64.0,
+  ymax: 64.0,
+  zmin: -32.0,
+  zmax: 32.0,
 
   n_ghostzones: 4,
-  initial_refinement_level: 2,
+  initial_refinement_level: 1,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 2.,
   refinement_criterion_CTODE: 1.,
@@ -24,8 +24,8 @@ IO: {
   volume_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]","Bdiv"],
   volume_output_base_directory: "output_volume",
   volume_output_every: -1,
-  plane_surface_output_cell_variables: ["alp","rho","press","eps","vel[0]", "Bvec[0]","Bdiv","beta[0]"],
-  plane_surface_output_every: 10,
+  plane_surface_output_cell_variables: ["alp","rho","press","eps","vel[0]", "Bvec[0]","Bdiv"],
+  plane_surface_output_every: 100,
   sphere_surface_output_every: -1,
   do_initial_output: true,
   info_output_every: 2,
@@ -42,29 +42,41 @@ IO: {
 }
 system: {
   console_log_level: "info",
-  file_log_level: "trace",
+  file_log_level: "info",
   flush_logs_based_on_severity: false,
   flush_level: "trace",
   n_device_streams: 4
 }
 evolution: {
-  time_stepper: "rk3",
+  time_stepper: "rk2",
   cfl_factor: 0.2,
-  final_time: 2000.0,
-  #termination_condition: "iteration",
-  #final_iteration: 15
+  final_time: 2000.0
 }
 grmhd: {
   id_type: "fmtorus",
-  lapse_excision: 0.7,
+  lapse_excision: 0.8,
   Avec_ID: {
     kind: "current_loop",
-    cutoff_var: "press",
-    cutoff_fact: 0.02,
+    cutoff_var: "rho",
+    cutoff_fact: 0.2,
     A_phi: 1.0,
     A_n: 1.0
   },
-  B_field_from_Avec: true
+  fmtorus: {
+    a_BH: 0.9375,
+    rho_min: 1.0e-5,
+    lapse_min: 0.8,
+    press_min: 0.333e-7,
+    r_in: 6,
+    r_at_max_density: 12,
+    gamma: 1.33333333333333333,
+    max_inverse_beta: 100,
+    perturbation_amplitude: 0.02,
+    rho_power: -1.5,
+    press_power: -2.5
+  },
+  B_field_from_Avec: true,
+  atmosphere_kind: "cold"
 }
 
 eos: {
@@ -73,7 +85,8 @@ eos: {
 
   ye_atmosphere: 0,
   temp_atmosphere: 0,
-  rho_atmosphere: 1.e-7,
+  rho_atmosphere: 1.e-10,
+  press_atmosphere: 1.e-7,
   eps_maximum: 1.e+05,
   gamma_th: 1.33333333333,
 

@@ -125,7 +125,7 @@ GRACE_HOST cartesian_coordinate_system_impl_t::get_logical_coordinates(
     int64_t itree = amr::get_quadrant_owner(q)   ; 
     amr::quadrant_t quad = amr::get_quadrant(itree,q) ; 
 
-    auto const dx_quad  = 1./(1<<quad.level()) ; 
+    auto const dx_quad  = quad.spacing() ; 
     auto const qcoords = quad.qcoords()     ; 
 
     EXPR(
@@ -134,16 +134,24 @@ GRACE_HOST cartesian_coordinate_system_impl_t::get_logical_coordinates(
     auto const dz_cell = dx_quad / nz ;
     ) 
 
-    return {
+    EXPR(
+    int const i = use_ghostzones ? static_cast<int>(ijk[0]) - ngz : static_cast<int>(ijk[0]);,
+    int const j = use_ghostzones ? static_cast<int>(ijk[1]) - ngz : static_cast<int>(ijk[1]);,
+    int const k = use_ghostzones ? static_cast<int>(ijk[2]) - ngz : static_cast<int>(ijk[2]);
+    )
+
+    std::array<double,GRACE_NSPACEDIM> coords = {
         VEC(
             qcoords[0] * dx_quad 
-                + (ijk[0] + cell_coordinates[0] - use_ghostzones * ngz) * dx_cell, 
+                + (static_cast<double>(i) + cell_coordinates[0]) * dx_cell, 
             qcoords[1] * dx_quad 
-                + (ijk[1] + cell_coordinates[1] - use_ghostzones * ngz) * dy_cell, 
+                + (static_cast<double>(j) + cell_coordinates[1]) * dy_cell, 
             qcoords[2] * dx_quad 
-                + (ijk[2] + cell_coordinates[2] - use_ghostzones * ngz) * dz_cell
-        ) 
+                + (static_cast<double>(k) + cell_coordinates[2]) * dz_cell
+        )
     } ; 
+
+    return coords ; 
 }
 
 std::array<double, GRACE_NSPACEDIM> GRACE_HOST 

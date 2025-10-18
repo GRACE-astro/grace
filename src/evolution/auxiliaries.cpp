@@ -97,13 +97,33 @@ void compute_auxiliary_quantities(
 
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
+
+    auto atmo_kind_str = grace::get_param<std::string>("grmhd","atmosphere_kind") ; 
+    atmo_kind_t atmo_kind ; 
+    if ( atmo_kind_str == "cold") {
+        atmo_kind = COLD_ATMO ; 
+    } else if (atmo_kind_str == "warm" ){
+        atmo_kind = WARM_ATMO ; 
+    } else {
+        ERROR("Unrecognized atmosphere_kind.") ; 
+    }
+    atmo_params_t atmo_params ; 
+    atmo_params.rho_fl = eos.rho_atmosphere() ; 
+    atmo_params.press_fl = eos.press_atmosphere() ; 
+    atmo_params.rho_fl_scaling = grace::get_param<double>("grmhd","atmosphere_rho_falloff_power") ; 
+    atmo_params.press_fl_scaling = grace::get_param<double>("grmhd","atmosphere_press_falloff_power") ;
+    GRACE_TRACE("Atmo: kind {} rho {} p {} scaling rho {} scaling p {}", 
+    static_cast<int>(atmo_kind), atmo_params.rho_fl, atmo_params.press_fl,  atmo_params.rho_fl_scaling,atmo_params.press_fl_scaling ) ; 
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,state,sstate,aux) ; 
+        grmhd_eq_system(eos,state,sstate,aux,atmo_kind, atmo_params) ; 
     #define GET_AUX \
-    grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q)
+    grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, pcoords)
     #else 
     #define GET_AUX
     #endif 
+
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+    grace::fill_physical_coordinates(pcoords) ;
 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 

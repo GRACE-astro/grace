@@ -97,7 +97,7 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>& coords
         auto const& coord_system = coordinate_system::get() ;
         auto itree = amr::get_quadrant_owner(iquad) ;  
         amr::quadrant_t quadrant = amr::get_quadrant(itree,iquad) ; 
-        auto const dx_lev = 1.0 / ( 1UL<<quadrant.level() ) ; 
+        auto const dx_lev = quadrant.spacing() ; 
         auto const VEC(dx_quad{dx_lev/nx}, dy_quad{dx_lev/ny}, dz_quad{dx_lev/nz}) ; 
         //! HERE TO SWICH COORDS
         auto const tree_spacing = amr::get_tree_spacing(itree)[0] ; 
@@ -220,7 +220,7 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
 
     auto h_coords = Kokkos::create_mirror_view(pcoords) ; 
     auto& coord_system = grace::coordinate_system::get() ; 
-    # if 1
+    # if 0
     std::array<bool,GRACE_NSPACEDIM> stagger = {VEC(static_cast<bool>(off[0]), static_cast<bool>(off[1]), static_cast<bool>(off[2]))} ; 
     grace::host_grid_loop<true>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
@@ -239,7 +239,7 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
         }, stagger, true 
     ) ; 
     #endif 
-    #if 0
+    #if 1
     for( int q=0; q<nq; ++q ) {
         EXPR( for(size_t i=0; i<nx+2*ngz+off[0]; ++i), for(size_t j=0; j<ny+2*ngz+off[1]; ++j), for(size_t k=0; k<nz+2*ngz+off[2]; ++k) ) {
             auto pcoordsl = 

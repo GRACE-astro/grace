@@ -96,7 +96,12 @@ static void rescale_B_field(double max_betam1, double max_press) {
                             , 1
                             , sc_MPI_MAX) ;
     auto max_beta_now = 2 * max_press / b2_max ; 
-    auto fact = Kokkos::sqrt( 2 * max_press / b2_max / max_betam1 ) ; 
+    double fact ; 
+    if ( b2_max > 1e-15 ) {
+        fact = Kokkos::sqrt( 2 * max_press / b2_max / max_betam1 ) ; 
+    } else {
+        fact = 1 ;
+    }
     GRACE_INFO("B2_max {} fact {}", b2_max, fact) ; 
     parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BX")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nq})
@@ -141,6 +146,31 @@ static double get_max_press()
                             , 1
                             , sc_MPI_MAX) ; 
     return pmax ; 
+}
+
+static double get_max_rho()
+{
+    DECLARE_GRID_EXTENTS ; 
+    using namespace grace ;
+    using namespace Kokkos ;
+
+    auto& aux   = variable_list::get().getaux() ; 
+
+    MinMaxScalar<double> rhomax_loc ;
+    double rhomax ; 
+    auto policy =
+            MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
+    parallel_reduce( GRACE_EXECUTION_TAG("IO","find_max_rho_loc") 
+                       , policy 
+                       , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, MinMaxScalar<double>& lres)
+        {
+            lres.max_val = lres.max_val < aux(VEC(i,j,k),RHO_,q) ? aux(VEC(i,j,k),RHO_,q) : lres.max_val    ; 
+        }, MinMax<double>(rhomax_loc)) ; 
+    parallel::mpi_allreduce( &rhomax_loc.max_val
+                            , &rhomax
+                            , 1
+                            , sc_MPI_MAX) ; 
+    return rhomax ; 
 }
 
 template< typename eos_t >
@@ -364,13 +394,19 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
         auto kind = par["kind"].as<std::string>() ; 
         ASSERT(kind == "current_loop", "Only current_loop Avec initialization supported.") ; 
         auto cutoff_var = par["cutoff_var"].as<std::string>() ; 
-        ASSERT(cutoff_var=="press", "Only pressure-based cutoff supported.") ; 
+        bool use_rho = cutoff_var == "rho" ; 
+        ASSERT(cutoff_var=="press" or cutoff_var=="rho", "Only pressure and density-based cutoff supported.") ; 
         auto A_pcut = par["cutoff_fact"].as<double>() ; 
         auto A_phi = par["A_phi"].as<double>() ; 
         auto A_n = par["A_n"].as<double>() ; 
-        auto pmax = get_max_press() ; 
+        double vmax ; 
+        if ( use_rho  ) {
+            vmax = get_max_rho() ; 
+        } else {
+            vmax = get_max_press() ; 
+        }
         auto A_id = Avec_toroidal_id_t(
-            pmax * A_pcut, A_phi, A_n 
+            vmax * A_pcut, A_phi, A_n
         ) ; 
         // Initialize Avec 
         grace::var_array_t Ax("Ax", VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz+1),1,nq) 
@@ -384,7 +420,8 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                     {
                         auto const id = id_kernel(VEC(i,j,k), q) ;
-                        Ax(VEC(i,j,k),0,q) = A_id.template get<0>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, id.press, id.rho); 
+                        auto var = use_rho ? id.rho : id.press ; 
+                        Ax(VEC(i,j,k),0,q) = A_id.template get<0>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, var); 
                     });
         // Ay
         fill_physical_coordinates(pcoords,STAG_EDGEXZ) ;
@@ -393,8 +430,9 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz+1),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                     {
-                        auto const id = id_kernel(VEC(i,j,k), q) ;  
-                        Ay(VEC(i,j,k),0,q) = A_id.template get<1>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, id.press, id.rho); 
+                        auto const id = id_kernel(VEC(i,j,k), q) ; 
+                        auto var = use_rho ? id.rho : id.press ;  
+                        Ay(VEC(i,j,k),0,q) = A_id.template get<1>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, var); 
                     });
         // Az
         fill_physical_coordinates(pcoords,STAG_EDGEXY) ;
@@ -404,7 +442,8 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                     {
                         auto const id = id_kernel(VEC(i,j,k), q) ;  
-                        Az(VEC(i,j,k),0,q) = A_id.template get<2>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, id.press, id.rho); 
+                        auto var = use_rho ? id.rho : id.press ; 
+                        Az(VEC(i,j,k),0,q) = A_id.template get<2>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, var); 
                     });
         // Now set B from A:
         // B^k = \epsilon^{ijk} d/dx^j A_k = gamma^{-1/2} [ijk] d/dx^j A_k
@@ -511,28 +550,40 @@ void set_grmhd_initial_data() {
     } else if ( id_type == "fmtorus") {
         auto pars = get_param<YAML::Node>("grmhd","fmtorus") ;
         auto a_BH = pars["a_BH"].as<double>() ; 
-        auto M_BH = pars["M_BH"].as<double>() ; 
         auto rho_min = pars["rho_min"].as<double>() ; 
         auto lapse_min = pars["lapse_min"].as<double>() ; 
         auto press_min = pars["press_min"].as<double>() ;
         auto r_in = pars["r_in"].as<double>() ; 
         auto r_at_max_rho = pars["r_at_max_density"].as<double>() ; 
         auto gamma = pars["gamma"].as<double>() ; 
+        auto rho_pow = pars["rho_power"].as<double>() ; 
+        auto press_pow = pars["press_power"].as<double>() ; 
+        torus_params_t torus ;
+        torus.spin = a_BH ; 
+        torus.gamma_adi = gamma;
+        torus.prograde = true ;
+        torus.r_edge = r_in ; 
+        torus.r_peak = r_at_max_rho ; 
+        torus.rho_max = 1.0 ; 
+        torus.psi = 0.0 ; 
+        torus.is_vertical_field = false ;
+        torus.fm_torus = true ; 
+        torus.chakrabarti_torus = false ;
 
-        double pert = 0.0 ; 
-        Kokkos::Random_XorShift64_Pool<> rand_pool(12345 + parallel::mpi_comm_rank());
-        set_grmhd_initial_data_impl<eos_t,fmtorus_id_t<eos_t>>(a_BH,M_BH,rho_min, 
-                        press_min,lapse_min,r_in,r_at_max_rho, rand_pool,-pert,pert, gamma) ;
-        double hm1;
-        double xcoord = r_at_max_rho;
-        double ycoord = 0.0;
-        double zcoord = 0.0;
-        
-        hm1=get_hm1(xcoord,ycoord,zcoord,M_BH,a_BH,r_at_max_rho,r_in);
+        torus.rho_min = rho_min ; 
+        torus.rho_pow = rho_pow ; 
 
-        double const rho_max = 1.0; //pow( hm1 * (gamma-1.0) / (kappa*gamma), 1.0/(gamma-1.0) );
-        double const kappa = hm1 * (gamma-1)/gamma;
-        double const P_max   = kappa * pow(rho_max, gamma);
+        torus.pgas_min = press_min ; 
+        torus.pgas_pow = press_pow ;
+
+        torus.lapse_excision = lapse_min ; 
+        torus.rho_excise = 1e-8 ; 
+        torus.pgas_excise = 0.33333e-10 ;
+
+        double pert = pars["perturbation_amplitude"].as<double>() ; 
+        set_grmhd_initial_data_impl<eos_t,fmtorus_id_t<eos_t>>(torus,pert) ;
+        double const P_max   = get_max_press() ;
+        GRACE_INFO("Pmax {}", P_max) ; 
         auto max_betam1 = pars["max_inverse_beta"].as<double>() ; 
         rescale_B_field(max_betam1, P_max) ; 
         GRACE_TRACE("Done with magnetized FMTorus ID.") ;

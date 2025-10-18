@@ -1,5 +1,5 @@
 /**
- * @file fmtorus.hh
+ * @file fmparams.hh
  * @author Konrad Topolski (topolski @itp.uni-frankfurt.de)
  * @brief 
  * @date 2024-10-17
@@ -25,14 +25,6 @@
  * 
  */
 
-/* ========================================================
-
- The code used here heavily relies on the SymPy-generated
- expressions for the metric and hydro fields used in the 
- WVUThorns/FishboneMoncriefID thorn 
-
-========================================================== */
-
 #ifndef GRACE_PHYSICS_ID_FMTORUS_HH
 #define GRACE_PHYSICS_ID_FMTORUS_HH
 
@@ -51,233 +43,222 @@
 #include <grace/amr/amr_functions.hh>
 #include <grace/errors/error.hh>
 
-// FMtorus-related includes:
-#include <grace/physics/id/FMTorus/KerrSchild.hh>
-#include <grace/physics/id/FMTorus/FMdisk_GRHD_velocities.hh>
-#include <grace/physics/id/FMTorus/FMdisk_GRHD_rho_initial.hh>
-#include <grace/physics/id/FMTorus/FMdisk_GRHD_hm1.hh>
+
+
 // Kokkos utils and random
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
 
+#define SQR(a) (a)*(a)
+#include <grace/physics/id/FMTorus/KerrSchild.hh>
+#include <grace/physics/id/FMTorus/fmtorus_utils.hh>
 
 namespace grace {
 
-        // template <typename eos_t>
-        // concept PiecewisePolytropicEOS = std::is_same_v<eos_t, grace::piecewise_polytropic_eos_t>;
 
-        /**
-         * @brief FMtorus initial data kernel.
-         * 
-         * @tparam eos_t Eos type
-         *         Due to the setup of the ID, the template
-         *         specializes exclusively for hybrid eos and a specific setup 
-         *         of the polytropic eos 
-         */
-        template < typename eos_t> //, typename B_field_config_t >
-        //requires PiecewisePolytropicEOS<eos_t>
-        struct fmtorus_id_t {
-            using state_t = grace::var_array_t ;
+// Useful container for physical parameters of torus
 
-            // store B-field config
-            // B_field_config_t Bfield_config;
 
-            // constructor: initializing the parameters, performing consistency checks on the ID
-            fmtorus_id_t(
-                eos_t eos_,
-                grace::coord_array_t<GRACE_NSPACEDIM> pcoords_,
-                double a_, double M_, 
-                double rho_min_, double press_min_, 
-                double lapse_min_, double r_in_, double r_at_max_density_,
-                const Kokkos::Random_XorShift64_Pool<>& rand_pool_,
-                double random_min_, double random_max_, double gamma_
-            )
-                : \
-                eos(eos_), _pcoords(pcoords_), 
-                M(M_), a(a_),
-                rho_min(rho_min_), press_min(press_min_),
-                lapse_min(lapse_min_), r_in(r_in_), r_at_max_density(r_at_max_density_),
-                gamma(gamma_),
-                rand_pool(rand_pool_),
-                random_min(random_min_), random_max(random_max_)
-            { 
-                GRACE_INFO("In FMTorus setup. Make sure kappa of the ID-FMtorus matches the EOS kappa!") ; 
-                // consistency checks:
-                if(r_in >= r_at_max_density) ERROR("r_in needs to be smaller than r_at_max_density!");
-                if(a < 0.0) ERROR("Negative spins not supported! The setup of fluid profiles assumes the positive sign.");
-                if(M <= 0.0) ERROR("M zero or negative");
-   
-                // First compute maximum pressure and density (rho_max and P_max will be filled as members)
-                {
-                    double hm1;
-                    double xcoord = r_at_max_density;
-                    double ycoord = 0.0;
-                    double zcoord = 0.0;
-                    
-                    hm1=get_hm1(xcoord,ycoord,zcoord,M,a,r_at_max_density,r_in);
+/**
+* @brief FMtorus initial data kernel.
+* 
+* @tparam eos_t Eos type
+*         Due to the setup of the ID, the template
+*         specializes exclusively for hybrid eos and a specific setup 
+*         of the polytropic eos 
+*/
+template < typename eos_t> //, typename B_field_config_t >
+//requires PiecewisePolytropicEOS<eos_t>
+struct fmtorus_id_t {
+    using state_t = grace::var_array_t ;
 
-                    rho_max = 1,0; //pow( hm1 * (gamma-1.0) / (kappa*gamma), 1.0/(gamma-1.0) );
-                    kappa = hm1 * (gamma-1)/gamma;
-                    P_max   = kappa * pow(rho_max, gamma);
-                    
-                }
-                GRACE_INFO("Using input parameters of\n  \
-                        a = {}\n,  \
-                        M = {},\n \
-                        lapse_min = {},\n \
-                        r_in = {},\n \
-                        r_at_max_density ={},\n \
-                        kappa = {}\n \
-                        gamma = {}", \
-                        a,M,lapse_min,r_in,r_at_max_density,kappa,gamma);
-                GRACE_INFO("Pmax: {}, rhomax: {}",P_max, rho_max);
+    // constructor: initializing the parameters, performing consistency checks on the ID
+    fmtorus_id_t(
+        eos_t eos_,
+        grace::coord_array_t<GRACE_NSPACEDIM> pcoords_,
+        torus_params_t _params,
+        double pert_amp
+    )
+        : \
+        eos(eos_), _pcoords(pcoords_), 
+        params(_params),
+        rand_pool64(Kokkos::Random_XorShift64_Pool<>(1234)),
+        pert_amp(pert_amp)
+    { 
+        using Kokkos::exp ; 
 
-            } 
+        double const gm1 = params.gamma_adi - 1. ; 
+        if ( params.fm_torus ) {
+            params.l_peak = CalculateLFromRPeak(params, params.r_peak) ; 
+        } else if ( params.chakrabarti_torus ) {
+            CalculateCN(params,&params.c_param,&params.n_param) ; 
+            params.l_peak = CalculateL(params,params.r_peak,1.0) ; 
+        } else {
+            ERROR("Unrecognized torus_id_type") ; 
+        }
+        params.log_h_edge = LogHAux(params,params.r_edge,1.0) ; 
+        params.log_h_peak = LogHAux(params,params.r_peak,1.0) - params.log_h_edge ; 
+        params.ptot_over_rho_peak = gm1/params.gamma_adi * (exp(params.log_h_peak)-1.0) ; 
+        params.rho_peak = Kokkos::pow(params.ptot_over_rho_peak, 1.0/gm1) / params.rho_max ;
+        
+        GRACE_INFO("Some parameters, l_peak {} log(h)_edge {} log(h)_peak {} ptot_over_rho_peak {} rho_peak {} "
+                 , params.l_peak , params.log_h_edge, params.log_h_peak, params.ptot_over_rho_peak, params.rho_peak);
 
-            // the main evaluation kernel as operator()
-            grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-            operator() (VEC(int i, int j, int k), int q) const 
-            {
-                double const x = _pcoords(VEC(i,j,k),0,q);
-                double const y = _pcoords(VEC(i,j,k),1,q);
-                #ifdef GRACE_3D 
-                double const z = _pcoords(VEC(i,j,k),2,q);
-                #else 
-                double const z = 0. ; 
-                #endif 
-                double const r = Kokkos::sqrt(EXPR(math::int_pow<2>(x), + math::int_pow<2>(y), + math::int_pow<2>(z) )) ; 
+        // find outer edge 
+        double ra = params.r_peak ; 
+        double rb = 2*ra ; 
+        double log_h_trial = LogHAux(params,rb,1.) - params.log_h_edge ; 
 
-                const double r_eps = 1e-6;
-                // AthenaK trick
-                const double bigR = Kokkos::sqrt((math::int_pow<2>(r)-math::int_pow<2>(a)+Kokkos::sqrt(math::int_pow<2>(math::int_pow<2>(r)-math::int_pow<2>(a))+4.0*math::int_pow<2>(a)*math::int_pow<2>(z)))/2.0);
-
-                // at this radius.
-                auto sol_metric = get_KS_metric(x,y,z,M,a) ;
-                grmhd_id_t id ; 
-
-                /* Set the metric */
-                id.alp = sol_metric[KS_ALPHA] ;  
-                //id.alp   = sol_metric[KS_ALPHA] ;
-                id.betax = sol_metric[KS_BETAX] ; 
-                id.betay = sol_metric[KS_BETAY] ; 
-                id.betaz = sol_metric[KS_BETAZ] ; 
-
-                id.gxx = sol_metric[KS_GXX] ;
-                id.gxy = sol_metric[KS_GXY] ;
-                id.gxz = sol_metric[KS_GXZ] ;
-                id.gyy = sol_metric[KS_GYY] ;
-                id.gyz = sol_metric[KS_GYZ] ;
-                id.gzz = sol_metric[KS_GZZ] ;
-
-                id.kxx = sol_metric[KS_KXX];
-                id.kxy = sol_metric[KS_KXY];
-                id.kxz = sol_metric[KS_KXZ];
-                id.kyy = sol_metric[KS_KYY];
-                id.kyz = sol_metric[KS_KYZ];
-                id.kzz = sol_metric[KS_KZZ];
-
-                double hm1;
-                bool set_to_atmosphere=id.alp<lapse_min;
-                unsigned int err ; 
-
-                if(r > r_in) {
-                        // compute hm1
-                        hm1=get_hm1(x,y,z,M,a,r_at_max_density,r_in);
-
-                        if(hm1 > 0) {
-                            id.rho = pow( hm1 * (gamma-1.0) / (kappa*gamma), 1.0/(gamma-1.0) ) / rho_max;
-                            id.press = kappa*pow(id.rho, gamma);
-                            auto sol_vel = get_fluid_velocities(x,y,z,M,a,r_at_max_density) ;
-                            id.vx=sol_vel[0] ; 
-                            id.vy=sol_vel[1] ; 
-                            id.vz=sol_vel[2] ; 
-                            // conversion to coordinate velocities is done outside of the kernel
-                            // the above are Valencia velocities 
-                            }
-                        else{
-                            set_to_atmosphere=true;
-                        }
-                } else {
-                    set_to_atmosphere=true;
-                }
-
-                // Outside the disk? Set to atmosphere all hydrodynamic variables!
-                if(set_to_atmosphere) {
-                    // Choose an atmosphere such that
-                    //   rho =       1e-5 * r^(-3/2), and
-                    //   P   = k rho^gamma
-                    // Add 1e-100 or 1e-300 to rr or rho to avoid divisions by zero.
-                    id.rho   = 1e-5 * pow(r + 1e-100,-3.0/2.0);
-                    id.press = kappa*pow(id.rho, gamma);
-                    double eps = id.press / ((id.rho + 1e-300) * (gamma - 1.0));
-                    id.vx = 0.0;
-                    id.vy = 0.0;
-                    id.vz = 0.0;
-                    double ye_atm  = eos.ye_atmosphere()  ; 
-                    id.ye = ye_atm;
-                   // double rho_atm = _eos.rho_atmosphere() ;
-                }
-                
-                
-                // extra checks - if the atmosphere anywhere is below what the EOS / our limits support
-                double rho_atm = eos.rho_atmosphere() ;
-
-                // if(id.rho < rho_atm || r < r_in){ // if lower than atmosphere for some reason - or inside the inner disc radius
-                if(id.rho < rho_atm){ // if lower than atmosphere for some reason - or inside the inner disc radius
-                    id.rho = rho_atm;
-                    id.press = kappa*pow(id.rho, gamma);
-                    double ye_atm  = eos.ye_atmosphere()  ; 
-                    id.ye = ye_atm;
-                    id.vx=0;
-                    id.vy=0;
-                    id.vz=0;
-                }
-
-                // Add white noise  
-                // note that this version, similar to ETK-Fishbone-MoncriefID, sets up the magnetic field
-                // based on the unperturbed pressure values
-
-                if(abs(random_min)>1e-6 || abs(random_max)>1e-6){
-                    // Seed the random number generator
-                    // random number 
-                    auto generator = rand_pool.get_state();
-                    const double eps = generator.drand(random_min,random_max);; 
-                    //const double random_number_between_min_and_max = random_min + (random_max - random_min)*random_number_between_0_and_1;
-                    id.press = id.press*(1.0 + eps);
-                    // Add 1e-300 to rho to avoid division by zero when density is zero.
-                    // eps[idx] = press[idx] /     ((rho[idx] + 1e-300) * (gamma - 1.0));
-                    //recover modified density to be consistent
-                    double ye_atm  = eos.ye_atmosphere()  ; 
-                    id.ye = ye_atm;
-                    id.rho   = Kokkos::pow(id.press/kappa, 1./gamma);  //eos.rho__press_cold_ye(id.press, id.ye, err) ; 
-                    rand_pool.free_state(generator);
-                }
-                    
-                return std::move(id) ; 
+        for (int iter=0; iter<10000; ++iter) {
+            if (log_h_trial <= 0) {
+            break;
             }
+            rb *= 2.;
+            log_h_trial = LogHAux(params, rb, 1.) - params.log_h_edge;
+        }
+        for (int iter=0; iter<10000; ++iter) {
+            if (fabs(ra - rb) < 1.e-3) {
+            break;
+            }
+            double  r_trial = (ra + rb) / 2.;
+            if (LogHAux(params, r_trial, 1.) > params.log_h_edge) {
+            ra = r_trial;
+            } else {
+            rb = r_trial;
+            }
+        }
+        params.r_outer_edge = ra;
+        GRACE_INFO("Found outer edge of torus {}", params.r_outer_edge) ; 
+    } 
 
-        // arguments to the constructor: 
-        eos_t   eos         ;                            //!< Equation of state object 
-        grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
-        /*============================================================*/
-        double a, M;             //!< BH spin and mass
-        double rho_min, press_min ;   //! < floor!
-        double lapse_min ;      //!< floor on the lapse value - should also work without it!
-        double r_in;            //!< Fixes the inner edge of the disk
-        double r_at_max_density; //!<Radius at maximum disk density. Needs to be > r_in
-        Kokkos::Random_XorShift64_Pool<> rand_pool;
-        double random_min;
-        double random_max;
-        double kappa, gamma;   //!< EOS parameters 
-        // will be filled out in the initialization but before fillin the state arrays: 
-        double P_max, rho_max;   //! < these will be filled in the constructor 
-        /*============================================================*/
+    // the main evaluation kernel as operator()
+    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    operator() (VEC(int i, int j, int k), int q) const 
+    {
+        // nb
+        double const x = _pcoords(VEC(i,j,k),0,q);
+        double const y = _pcoords(VEC(i,j,k),1,q);
+        #ifdef GRACE_3D 
+        double const z = _pcoords(VEC(i,j,k),2,q);
+        #else 
+        double const z = 0. ; 
+        #endif 
 
+        double const gm1 = params.gamma_adi - 1.0 ; 
 
-        };
+        grmhd_id_t id ; 
+
+        // at this radius.
+        double dummy ;
+        ComputeADMDecomposition(
+            x,y,z, false, params.spin,
+            &id.alp, &id.betax, &id.betay, &id.betaz,
+            &dummy, &id.gxx, &id.gxy, &id.gxz, &id.gyy, &id.gyz, &id.gzz,
+            &id.kxx, &id.kxy, &id.kxz, &id.kyy, &id.kyz, &id.kzz
+        ) ; 
+
+        double r,theta,phi ; 
+        GetBoyerLindquistCoordinates(params, x, y, z, &r, &theta, &phi);
+
+        double sin_theta = sin(theta);
+        double cos_theta = cos(theta);
+        double sin_phi = sin(phi);
+        double cos_phi = cos(phi);
+
+        // Account for tilt
+        double  sin_vartheta;
+        if (params.psi != 0.0) {
+            double  x = sin_theta * cos_phi;
+            double  y = sin_theta * sin_phi;
+            double  z = cos_theta;
+            double  varx = params.cos_psi * x - params.sin_psi * z;
+            double  vary = y;
+            sin_vartheta = sqrt(SQR(varx) + SQR(vary));
+        } else {
+            sin_vartheta = fabs(sin_theta);
+        }
+
+        // Determine if we are in the torus
+        double log_h;
+        bool in_torus = false;
+        if (r >= params.r_edge) {
+            log_h = LogHAux(params, r, sin_vartheta) - params.log_h_edge;  // (FM 3.6)
+            if (log_h >= 0.0) {
+                in_torus = true;
+            }
+        }
+
+        double rho_bg, pgas_bg ; 
+        if (id.alp > params.lapse_excision) {
+            rho_bg = params.rho_min * pow(r, params.rho_pow);
+            pgas_bg = params.pgas_min * pow(r, params.pgas_pow);
+        } else {
+            rho_bg = params.rho_excise ; 
+            pgas_bg = params.pgas_excise ; 
+        }
+        
+        
+        double  rho = rho_bg;
+        double  pgas = pgas_bg;
+        double  uu1 = 0.0;
+        double  uu2 = 0.0;
+        double  uu3 = 0.0;
+        double  urad = 0.0;
+
+        double  perturbation = 0.0;
+        // Overwrite primitives inside torus
+        if (in_torus) {
+            auto rand_gen = rand_pool64.get_state(); // get random number state this thread
+            perturbation = 2.0*pert_amp*(rand_gen.frand() - 0.5);
+            rand_pool64.free_state(rand_gen);        // free state for use by other threads
+
+            // Calculate thermodynamic variables
+            double  ptot_over_rho = gm1/params.gamma_adi * (exp(log_h) - 1.0);
+            rho = pow(ptot_over_rho, 1.0/gm1) / params.rho_peak;
+            double  temp = ptot_over_rho;
+            pgas = temp * rho;
+            // Calculate velocities in Boyer-Lindquist coordinates
+            double  u0_bl, u1_bl, u2_bl, u3_bl;
+            CalculateVelocityInTiltedTorus(params, r, theta, phi,
+                                            &u0_bl, &u1_bl, &u2_bl, &u3_bl);
+
+            // Transform to preferred coordinates
+            double  u0, u1, u2, u3;
+            TransformVector(params, u0_bl, 0.0, u2_bl, u3_bl,
+                            x, y, z, &u0, &u1, &u2, &u3);
+
+            double  glower[4][4], gupper[4][4];
+            ComputeMetricAndInverse(x, y, z, false, params.spin,
+                                    glower, gupper);
+            uu1 = u1 - gupper[0][1]/gupper[0][0] * u0;
+            uu2 = u2 - gupper[0][2]/gupper[0][0] * u0;
+            uu3 = u3 - gupper[0][3]/gupper[0][0] * u0;
+        }
+        
+
+        id.vx = id.alp > params.lapse_excision ? uu1 : 0.0 ; 
+        id.vy = id.alp > params.lapse_excision ? uu2 : 0.0 ; 
+        id.vz = id.alp > params.lapse_excision ? uu3 : 0.0 ; 
+
+        id.rho = fmax(rho,rho_bg) ; 
+        id.press = fmax(pgas,pgas_bg) * (1.0 + perturbation) ; 
+
+        id.ye = 0 ; 
+        return id ;
+    }
+
+    // arguments to the constructor: 
+    eos_t   eos         ;                            //!< Equation of state object 
+    grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
+    /*============================================================*/
+    torus_params_t params ; 
+    Kokkos::Random_XorShift64_Pool<> rand_pool64;
+    double pert_amp;
+    /*============================================================*/
+};
 
 }
 
 /* namespace grace */
-
+#undef SQR
 #endif /* GRACE_PHYSICS_ID_FMTORUS_HH */

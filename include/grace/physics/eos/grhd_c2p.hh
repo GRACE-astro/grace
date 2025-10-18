@@ -128,7 +128,9 @@ struct grhd_c2p_t {
         prims[VXL] = StildeU[0] / D / h / W; 
         prims[VYL] = StildeU[1] / D / h / W; 
         prims[VZL] = StildeU[2] / D / h / W; 
-
+        prims[BXL] = 0 ; 
+        prims[BYL] = 0 ; 
+        prims[BZL] = 0 ; 
         return func(zeta) ; 
     }
     

@@ -83,7 +83,24 @@ struct grmhd_equations_system_t
                             , grace::var_array_t state_
                             , grace::staggered_variable_arrays_t stag_state_
                             , grace::var_array_t aux_ ) 
-     : base_t(state_,stag_state_,aux_), _eos(eos_)
+     : base_t(state_,stag_state_,aux_), _eos(eos_), atmo_kind(COLD_ATMO)
+    { 
+        _lapse_excision = grace::get_param<double>("grmhd","lapse_excision") ; 
+    } ;
+    /**
+     * @brief Constructor
+     * 
+     * @param eos_ eos object.
+     * @param state_ State array.
+     * @param aux_ Auxiliary array.
+     */
+    grmhd_equations_system_t( eos_t eos_ 
+                            , grace::var_array_t state_
+                            , grace::staggered_variable_arrays_t stag_state_
+                            , grace::var_array_t aux_ 
+                            , atmo_kind_t _atmo_kind 
+                            , atmo_params_t _atmo_pars) 
+     : base_t(state_,stag_state_,aux_), _eos(eos_), atmo_kind(_atmo_kind), atmo_params(_atmo_pars)
     { 
         _lapse_excision = grace::get_param<double>("grmhd","lapse_excision") ; 
     } ;
@@ -258,31 +275,40 @@ struct grmhd_equations_system_t
                 icomp ++ ;
             }
         }
-        /* Read in the extrinsic curvature                                                                */
-        std::array<double,6> Kij ;
-        get_extrinsic_curvature(Kij,this->_state,VEC(i,j,k),q) ; 
-        //for( auto& x: Kij ) x = 0 ; 
+        
+
         /* Source for the conserved energy (added piece by piece below)                                   */
         double tau_source{0.};
 
         std::array<double,3> const shift {metric.beta(0),metric.beta(1),metric.beta(2)};
 
+        #ifndef GRACE_ENABLE_COWLING_METRIC
+        /* Read in the extrinsic curvature                                                                */
+        std::array<double,6> Kij ;
+        get_extrinsic_curvature(Kij,this->_state,VEC(i,j,k),q) ; 
         /**************************************************************************************************/
         /* Compute first piece of conserved energy source term (curvature terms)                          */
-        /*      S_{\tau} += (T^{00} \beta^i\beta^j + 2T^{0i}\beta^j  + T^{ij}) K_{ij}                     */
-        /* NB: The overall factor of \alpha \sqrt{\gamma} is introduced at the end                        */
+        /*      S_{\tau} += \alpha (T^{00} \beta^i\beta^j + 2T^{0i}\beta^j  + T^{ij}) K_{ij}              */
         /**************************************************************************************************/
-        tau_source += 
+        tau_source += metric.alp() * (
               Tupmunu[0] * metric.contract_vec_sym2tens(shift, Kij) 
             + 2. * metric.contract_vec_vec_sym2tens(shift,{Tupmunu[TX4],Tupmunu[TY4],Tupmunu[TZ4]}, Kij)
-            + metric.contract_sym2tens_sym2tens({Tupmunu[XX4],Tupmunu[XY4],Tupmunu[XZ4],Tupmunu[YY4],Tupmunu[YZ4],Tupmunu[ZZ4]}, Kij) ; 
-
+            + metric.contract_sym2tens_sym2tens({Tupmunu[XX4],Tupmunu[XY4],Tupmunu[XZ4],Tupmunu[YY4],Tupmunu[YZ4],Tupmunu[ZZ4]}, Kij) ); 
+        #endif 
 
         /* Indices for contraction of T^{0i} onto \partial_i \alpha (see tau source below)                     */
         int index_4d[GRACE_NSPACEDIM] = {VEC(TX4,TY4,TZ4)} ;
 
+        /* More indices for contraction of T^{ij} onto \partial_i \beta_j (see tau source below)               */  
+        int spatial_index_4d[GRACE_NSPACEDIM][3] = {
+            {VEC(XX4,XY4,XZ4)},
+            {VEC(XY4,YY4,YZ4)},
+            {VEC(XZ4,YZ4,ZZ4)},
+        };
+
         /* Overall factor of dt \alpha \sqrt{\gamma} to be multiplied to source terms                          */
-        double const alpha_sqrtgamma_dt = dt*dtfact*metric.alp()*metric.sqrtg();
+        double const alpha_sqrtgamma    = metric.alp()*metric.sqrtg();
+        double const alpha_sqrtgamma_dt = dt*dtfact*alpha_sqrtgamma;
 
         /*******************************************************************************************************/
         /* Direction loop for source terms                                                                     */
@@ -325,6 +351,25 @@ struct grmhd_equations_system_t
             /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
             double const dalp_dxi =  0.5*(metric_p.alp() - metric_m.alp()) ;
 
+            #ifdef GRACE_ENABLE_COWLING_METRIC
+            /**************************************************************************************************/
+            /* In Cowling approx we can use the simpler form of the source term which reads                   */
+            /* S_{\tau} +=  1/2 T^{ij} \beta^k \partial_k \gamma_{ij} + W^i_j \partial_i \beta^j              */
+            /**************************************************************************************************/ 
+            std::array<double,3> dbetaj_dxi = {
+                0.5 * (metric_p.beta(0) - metric_m.beta(0)),
+                0.5 * (metric_p.beta(1) - metric_m.beta(1)),
+                0.5 * (metric_p.beta(2) - metric_m.beta(2)),
+            } ; 
+            
+            tau_source += metric.contract_vec_vec(
+                dbetaj_dxi,
+                {Tupmunu[spatial_index_4d[idir][0]],Tupmunu[spatial_index_4d[idir][1]],Tupmunu[spatial_index_4d[idir][2]]}
+            )  + 0.5 * idx(idir,q) * shift[idir] * metric.contract_sym2tens_sym2tens(
+                {dgab_dxi[XX4],dgab_dxi[XY4],dgab_dxi[XZ4],dgab_dxi[YY4],dgab_dxi[YZ4],dgab_dxi[ZZ4]},
+                {Tupmunu[XX4],Tupmunu[XY4],Tupmunu[XZ4],Tupmunu[YY4],Tupmunu[YZ4],Tupmunu[ZZ4]}
+            );
+            #endif 
             /**************************************************************************************************/
             /* Momentum source term:                                                                          */
             /* S_{\tilde{S}_i} = \frac{1}{2} T^{\alpha\beta} g_{\alpha\beta, i}                               */
@@ -336,10 +381,9 @@ struct grmhd_equations_system_t
             /**************************************************************************************************/
             /* Second part of conserved energy source term:                                                   */
             /* S_{\tau} +=  - (T^{0 i} +  T^{00} beta^i) \partial_i \alpha                                    */
-            /* NB: The overall factor of \alpha \sqrt{\gamma} is introduced at the end                        */
             /**************************************************************************************************/
             tau_source  -= 
-                ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ; 
+                metric.alp() * ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ; 
 
             /**************************************************************************************************/
             /* Add momentum source terms                                                                      */
@@ -350,7 +394,7 @@ struct grmhd_equations_system_t
         /**************************************************************************************************/
         /* Add energy source terms                                                                        */
         /**************************************************************************************************/
-        state_new(VEC(i,j,k),TAU_,q)     += alpha_sqrtgamma_dt*tau_source ;
+        state_new(VEC(i,j,k),TAU_,q)     += dt*dtfact*metric.sqrtg()*tau_source ;
         /**************************************************************************************************/
     } ;
     /**
@@ -365,7 +409,8 @@ struct grmhd_equations_system_t
     compute_auxiliaries(  VEC( const int i 
                         ,      const int j 
                         ,      const int k) 
-                        , int64_t q ) const 
+                        , int64_t q 
+                        , grace::coord_array_t<GRACE_NSPACEDIM> pcoords) const 
     {
         using namespace grace ;
         using namespace Kokkos ; 
@@ -429,7 +474,9 @@ struct grmhd_equations_system_t
         
         grmhd_prims_array_t prims ;        
         conservs_to_prims<eos_t>( cons, prims, metric
-                                , this->_eos, this->_lapse_excision ) ;
+                                , this->_eos, this->_lapse_excision
+                                , {pcoords(VEC(i,j,k),0,q),pcoords(VEC(i,j,k),1,q),pcoords(VEC(i,j,k),2,q)}
+                                , atmo_kind, atmo_params ) ;
         
         
         /* Write new prims */
@@ -528,6 +575,10 @@ struct grmhd_equations_system_t
     eos_t _eos ;
     //! Excision lapse.
     double _lapse_excision ; 
+    //! Kind of atmosphere
+    atmo_kind_t atmo_kind; 
+    //! Parameters for atmosphere
+    atmo_params_t atmo_params;
     /***********************************************************************/
     /**
      * @brief Compute fluxes for gmrmhd equations.
@@ -1348,6 +1399,7 @@ struct grmhd_equations_system_t
     void GRACE_HOST_DEVICE compute_smallb(  std::array<double,4>& smallb, double& b2, double const& W
                         , grmhd_prims_array_t& prims, metric_array_t const& metric ) const
     {
+        #if 1
         // simple minded, can be optimized later
         double const u0 = W / metric.alp() ; 
         std::array<double,3> const vi = { 
@@ -1366,6 +1418,11 @@ struct grmhd_equations_system_t
         }
         b2 = ( metric.square_vec({prims[BXL],prims[BYL],prims[BZL]}) + metric.alp()*metric.alp() * smallb[0] * smallb[0] ) / W / W ; 
         return ;
+        #else 
+        b2 = 0 ; 
+        smallb = {0,0,0,0} ; 
+        #endif 
+
     }
     /***********************************************************************/
     /**

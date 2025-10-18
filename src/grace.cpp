@@ -43,7 +43,85 @@
 #include <grace/evolution/find_stable_timestep.hh>
 #include <grace/IO/cell_output.hh>
 #include <grace/IO/scalar_output.hh>
-/**********************************************************************************/
+/**********************************************************************************/ 
+#include <H5public.h>
+#include <hdf5.h>
+void output_fluxes() {
+    DECLARE_GRID_EXTENTS ; 
+    auto fluxes = grace::variable_list::get().getfluxesarray() ; 
+    auto fluxes_h = Kokkos::create_mirror_view(fluxes) ; 
+    auto nvars_hrsc = grace::variables::get_n_hrsc(); 
+    // dimensions: nx+1, ny+1, nz+1, nvars_hrsc, 3, nq 
+    Kokkos::deep_copy(fluxes_h, fluxes);
+
+    std::string const filename = "fluxes.h5" ; 
+
+    // dimensions of the array
+    const hsize_t dims[6] = {
+        static_cast<hsize_t>(nx+1+2*ngz),
+        static_cast<hsize_t>(ny+1+2*ngz),
+        static_cast<hsize_t>(nz+1+2*ngz),
+        static_cast<hsize_t>(nvars_hrsc),
+        static_cast<hsize_t>(3),
+        static_cast<hsize_t>(nq)
+    };
+
+    // total number of elements
+    const size_t total_elems =
+        static_cast<size_t>( (nx+1+2*ngz) * (nx+1+2*ngz) * (nx+1+2*ngz) * nvars_hrsc * 3 * nq );
+
+    // allocate a contiguous buffer for HDF5 write
+    std::vector<double> buffer(total_elems);
+
+    // flatten the Kokkos view into the buffer
+    size_t idx = 0;
+    for (int i = 0; i < nx+2*ngz+1; ++i) {
+        for (int j = 0; j < ny+2*ngz+1; ++j) {
+            for (int k = 0; k < nz+2*ngz+1; ++k) {
+                for (int v = 0; v < nvars_hrsc; ++v) {
+                    for (int dir = 0; dir < 3; ++dir) {
+                        for (int q = 0; q < nq; ++q) {
+                            buffer[idx++] = fluxes_h(i,j,k,v,dir,q);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // --- HDF5 writing ---
+    hid_t file_id = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    if (file_id < 0) {
+        std::cerr << "Error: could not create HDF5 file " << filename << std::endl;
+        return;
+    }
+
+    hid_t dataspace_id = H5Screate_simple(6, dims, NULL);
+    hid_t dataset_id   = H5Dcreate(file_id,
+                                   "fluxes",
+                                   H5T_NATIVE_DOUBLE,
+                                   dataspace_id,
+                                   H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+    // write the data
+    herr_t status = H5Dwrite(dataset_id,
+                             H5T_NATIVE_DOUBLE,
+                             H5S_ALL,
+                             H5S_ALL,
+                             H5P_DEFAULT,
+                             buffer.data());
+    if (status < 0) {
+        std::cerr << "Error writing dataset to " << filename << std::endl;
+    }
+
+    // cleanup
+    H5Dclose(dataset_id);
+    H5Sclose(dataspace_id);
+    H5Fclose(file_id);
+
+    std::cout << "Fluxes written to " << filename << " (" << total_elems << " elements)" << std::endl;
+}
+
 /**********************************************************************************/
 int main(int argc, char* argv[])
 {
@@ -103,7 +181,7 @@ int main(int argc, char* argv[])
         {
             grace::amr::regrid() ;  
             grace::amr::apply_boundary_conditions() ;
-	    grace::compute_auxiliary_quantities() ;
+	        grace::compute_auxiliary_quantities() ;
         }
         if(    (volume_output_every>0) 
            or  (plane_surface_output_every>0) 

@@ -2,179 +2,285 @@
 #define GRACE_PHYSICS_ID_FMTORUS_KERRSCHILD_HH
 
 #include <array>
-
 //**************************************************************************************************/
 /* Auxiliaries */
 //**************************************************************************************************/
 /**
 * @brief Helper indices for getting the metric and extrinsic curvature components
 */
-enum KS_spacetime {
-   KS_ALPHA = 0,
-   KS_BETAX,
-   KS_BETAY,
-   KS_BETAZ,
-   KS_GXX,
-   KS_GXY,
-   KS_GXZ,
-   KS_GYY,
-   KS_GYZ,
-   KS_GZZ,
-   KS_KXX,
-   KS_KXY,
-   KS_KXZ,
-   KS_KYY,
-   KS_KYZ,
-   KS_KZZ,
-   KS_NUM_COMPS
-} ;
 
+namespace detail {
 
-/**
-* @brief Return the Kerr-Schild metric in Kerr-Schild cartesian coordinates at location x,y,z
-* 
-* @param xcoord 1st coordinate 
-* @param ycoord 2nd coordinate 
-* @param zcoord 3rd coordinate 
-* @param M BH mass
-* @param a BH dimensionless(!) spin 
-* @returns std::array<double,16> for alpha, beta^i, g_ij, K_ij components 
-*/
+inline static double GRACE_HOST_DEVICE det(
+   double gxx, double gxy, double gxz, double gyy, double gyz, double gzz
+) 
+{ 
+return -(SQR(gxz)*gyy) 
+            + 2*gxy*gxz*gyz 
+            - gxx*SQR(gyz) 
+            - SQR(gxy)*gzz 
+            + gxx*gyy*gzz ;  
+}
 
-std::array<double,KS_NUM_COMPS> GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
-        get_KS_metric(double const xcoord, double const ycoord, double const zcoord,
-                        double const M, double const a)
-        {
-            /* 
-               * NRPy+ Finite Difference Code Generation, Step 1 of 2: Read from main memory and compute finite difference stencils:
-               * NRPy+ Finite Difference Code Generation, Step 2 of 2: Evaluate SymPy expressions and write to main memory:
-            */
-            std::array<double,KS_NUM_COMPS> gKS;
+inline static void GRACE_HOST_DEVICE inverse(
+   double invdet,
+   double gxx, double gxy, double gxz, double gyy, double gyz, double gzz,
+   double * uxx, double * uxy, double * uxz, double * uyy, double * uyz, double * uzz
+)
+{
+   *uxx = (gyy*gzz - SQR(gyz))* invdet;
+   *uxy = (-gxy*gzz + gxz*gyz)* invdet;
+   *uxz = (-(gxz*gyy) + gxy*gyz)* invdet;
+   *uyy = (gzz*gxx - SQR(gxz))* invdet;
+   *uyz = (gxy*gxz - gxx*gyz)* invdet ; 
+   *uzz = (-SQR(gxy) + gxx*gyy) *invdet;
+}
 
+}
 
-            const double FDPart3_0 = ((a)*(a));
-            const double FDPart3_1 = ((zcoord)*(zcoord));
-            const double FDPart3_2 = ((xcoord)*(xcoord));
-            const double FDPart3_3 = ((ycoord)*(ycoord));
-            const double FDPart3_4 = FDPart3_2 + FDPart3_3;
-            const double FDPart3_5 = FDPart3_1 + FDPart3_4;
-            const double FDPart3_6 = (1.0/(FDPart3_5));
-            const double FDPart3_7 = FDPart3_1*FDPart3_6;
-            const double FDPart3_8 = FDPart3_0*FDPart3_7 + FDPart3_5;
-            const double FDPart3_9 = (1.0/(FDPart3_8));
-            const double FDPart3_10 = sqrt(FDPart3_5);
-            const double FDPart3_12 = 2*FDPart3_10*M;
-            const double FDPart3_14 = FDPart3_12*FDPart3_9 + 1;
-            const double FDPart3_15 = (1.0/(FDPart3_14));
-            const double FDPart3_16 = M*xcoord;
-            const double FDPart3_20 = 2*FDPart3_15*FDPart3_9;
-            const double FDPart3_22 = 1 - FDPart3_7;
-            const double FDPart3_24 = FDPart3_0*((FDPart3_14)*(FDPart3_14))*((FDPart3_22)*(FDPart3_22));
-            const double FDPart3_25 = ((FDPart3_8)*(FDPart3_8));
-            const double FDPart3_26 = FDPart3_0*FDPart3_12*FDPart3_22*FDPart3_9 + FDPart3_0 + FDPart3_5;
-            const double FDPart3_27 = FDPart3_14*FDPart3_22*FDPart3_26*FDPart3_8 - FDPart3_24*FDPart3_8;
-            const double FDPart3_28 = (1.0/((FDPart3_27)*(FDPart3_27)*(FDPart3_27)));
-            const double FDPart3_29 = FDPart3_14*FDPart3_22*FDPart3_26 - FDPart3_24;
-            const double FDPart3_30 = (1.0/(FDPart3_14*FDPart3_22*FDPart3_25*FDPart3_26*FDPart3_28*FDPart3_29 - FDPart3_24*FDPart3_25*FDPart3_28*FDPart3_29));
-            const double FDPart3_31 = (1.0/((FDPart3_27)*(FDPart3_27)));
-            const double FDPart3_32 = FDPart3_29*FDPart3_30*FDPart3_31*FDPart3_8;
-            const double FDPart3_33 = FDPart3_14*FDPart3_32;
-            const double FDPart3_34 = xcoord*ycoord;
-            const double FDPart3_35 = (1.0/(FDPart3_4));
-            const double FDPart3_36 = FDPart3_22*FDPart3_35;
-            const double FDPart3_37 = (1.0/(FDPart3_10));
-            const double FDPart3_39 = -FDPart3_14*FDPart3_37*a;
-            const double FDPart3_41 = 2*FDPart3_32*FDPart3_34*FDPart3_36*FDPart3_39;
-            const double FDPart3_43 = (1.0/((FDPart3_4)*(FDPart3_4)));
-            const double FDPart3_44 = FDPart3_22*FDPart3_26*FDPart3_43;
-            const double FDPart3_46 = (1.0/(FDPart3_22));
-            const double FDPart3_47 = FDPart3_30*(FDPart3_14*FDPart3_22*FDPart3_25*FDPart3_26*FDPart3_31 - FDPart3_24*FDPart3_25*FDPart3_31);
-            const double FDPart3_49 = FDPart3_46*FDPart3_47/((FDPart3_5)*(FDPart3_5)*(FDPart3_5));
-            const double FDPart3_50 = FDPart3_33*FDPart3_6;
-            const double FDPart3_54 = FDPart3_37*zcoord;
-            const double FDPart3_56 = -FDPart3_14*FDPart3_32*FDPart3_36*FDPart3_54*a;
-            const double FDPart3_57 = pow(FDPart3_5, -3.0/2.0);
-            const double FDPart3_58 = FDPart3_1*FDPart3_57;
-            const double FDPart3_59 = FDPart3_37 - FDPart3_58;
-            const double FDPart3_60 = FDPart3_46*FDPart3_47*FDPart3_57*FDPart3_59;
-            const double FDPart3_62 = FDPart3_46*((FDPart3_59)*(FDPart3_59));
-            const double FDPart3_63 = (1.0/((FDPart3_5)*(FDPart3_5)));
-            const double FDPart3_64 = FDPart3_1*FDPart3_2*FDPart3_63;
-            const double FDPart3_65 = sqrt(FDPart3_14);
-            const double FDPart3_67 = acos(FDPart3_54);
-            const double FDPart3_68 = cos(2*FDPart3_67);
-            const double FDPart3_70 = 2*FDPart3_2;
-            const double FDPart3_71 = 2*FDPart3_3;
-            const double FDPart3_72 = 2*FDPart3_1 + FDPart3_70 + FDPart3_71;
-            const double FDPart3_73 = FDPart3_0*FDPart3_68 + FDPart3_0 + FDPart3_72;
-            const double FDPart3_74 = (1.0/(4*FDPart3_10*M + FDPart3_73));
-            const double FDPart3_75 = FDPart3_65*FDPart3_74;
-            const double FDPart3_76 = FDPart3_75*M;
-            const double FDPart3_78 = 4*FDPart3_46*FDPart3_76;
-            const double FDPart3_79 = (1.0/(FDPart3_73));
-            const double FDPart3_81 = 16*FDPart3_0*FDPart3_79;
-            const double FDPart3_82 = FDPart3_76*FDPart3_81;
-            const double FDPart3_83 = (1.0/((FDPart3_73)*(FDPart3_73)));
-            const double FDPart3_84 = FDPart3_0*FDPart3_68 + FDPart3_0 - FDPart3_72;
-            const double FDPart3_86 = FDPart3_36*FDPart3_65*FDPart3_83*FDPart3_84;
-            const double FDPart3_87 = FDPart3_37*FDPart3_86*a;
-            const double FDPart3_88 = 4*FDPart3_16*FDPart3_87*ycoord;
-            const double FDPart3_89 = ((a)*(a)*(a));
-            const double FDPart3_90 = FDPart3_16*FDPart3_75;
-            const double FDPart3_91 = FDPart3_90*ycoord;
-            const double FDPart3_92 = 16*FDPart3_36*FDPart3_58*FDPart3_79*FDPart3_89*FDPart3_91;
-            const double FDPart3_94 = FDPart3_83*FDPart3_84*(FDPart3_12 + FDPart3_73);
-            const double FDPart3_95 = 4*FDPart3_76*FDPart3_94;
-            const double FDPart3_96 = ((a)*(a)*(a)*(a));
-            const double FDPart3_98 = FDPart3_22*FDPart3_43*FDPart3_83*(4*FDPart3_0*FDPart3_10*FDPart3_68*(FDPart3_0 + FDPart3_10*(2*FDPart3_10 + M)) + 4*FDPart3_0*FDPart3_5*(2*FDPart3_10 - M) + 8*pow(FDPart3_5, 5.0/2.0) + FDPart3_96*(FDPart3_10 - M)*cos(4*FDPart3_67) + FDPart3_96*(3*FDPart3_10 + M));
-            const double FDPart3_99 = FDPart3_10*FDPart3_76*FDPart3_98;
-            const double FDPart3_102 = FDPart3_1*FDPart3_63*FDPart3_91;
-            const double FDPart3_104 = 8*FDPart3_79*FDPart3_89;
-            const double FDPart3_105 = FDPart3_104*FDPart3_58*FDPart3_76;
-            const double FDPart3_106 = 4*FDPart3_6*FDPart3_94;
-            const double FDPart3_107 = ((zcoord)*(zcoord)*(zcoord));
-            const double FDPart3_108 = FDPart3_54*FDPart3_59;
-            const double FDPart3_109 = 4*FDPart3_108*FDPart3_46;
-            const double FDPart3_110 = 8*FDPart3_0*FDPart3_79;
-            const double FDPart3_111 = FDPart3_75*M*ycoord;
-            const double FDPart3_112 = FDPart3_104*FDPart3_36*FDPart3_59*zcoord;
-            const double FDPart3_113 = FDPart3_1*FDPart3_3*FDPart3_63;
-            // alphaGF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = sqrt(FDPart3_15);
-            // betaU0GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = 2*FDPart3_15*FDPart3_16*FDPart3_9;
-            // betaU1GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_20*M*ycoord;
-            // betaU2GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_20*M*zcoord;
-            // gammaDD00GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_1*FDPart3_2*FDPart3_49 + FDPart3_2*FDPart3_33*FDPart3_6 + FDPart3_3*FDPart3_32*FDPart3_44 - FDPart3_41;
-            // gammaDD01GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_1*FDPart3_34*FDPart3_49 + FDPart3_2*FDPart3_32*FDPart3_36*FDPart3_39 - FDPart3_3*FDPart3_32*FDPart3_36*FDPart3_39 - FDPart3_32*FDPart3_34*FDPart3_44 + FDPart3_34*FDPart3_50;
-            // gammaDD02GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_14*FDPart3_29*FDPart3_30*FDPart3_31*FDPart3_6*FDPart3_8*xcoord*zcoord - FDPart3_56*ycoord - FDPart3_60*xcoord*zcoord;
-            // gammaDD11GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_1*FDPart3_3*FDPart3_49 + FDPart3_2*FDPart3_32*FDPart3_44 + FDPart3_3*FDPart3_50 + FDPart3_41;
-            // gammaDD12GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_50*ycoord*zcoord + FDPart3_56*xcoord - FDPart3_60*ycoord*zcoord;
-            // gammaDD22GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_33*FDPart3_7 + FDPart3_47*FDPart3_62;
-            // KDD00GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_2*FDPart3_6*FDPart3_95 + FDPart3_64*FDPart3_78 + FDPart3_64*FDPart3_82 + FDPart3_71*FDPart3_99 + FDPart3_88 + FDPart3_92;
-            // KDD01GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = 4*FDPart3_102*FDPart3_46 + FDPart3_102*FDPart3_81 - FDPart3_105*FDPart3_2*FDPart3_36 + FDPart3_105*FDPart3_3*FDPart3_36 + FDPart3_106*FDPart3_91 - FDPart3_12*FDPart3_34*FDPart3_75*FDPart3_98 - FDPart3_70*FDPart3_87*M + FDPart3_71*FDPart3_87*M;
-            // KDD02GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = 8*FDPart3_0*FDPart3_107*FDPart3_63*FDPart3_65*FDPart3_74*FDPart3_79*M*xcoord - FDPart3_108*FDPart3_110*FDPart3_90 - FDPart3_109*FDPart3_90 - FDPart3_111*FDPart3_112 + 2*FDPart3_22*FDPart3_35*FDPart3_37*FDPart3_65*FDPart3_83*FDPart3_84*M*a*ycoord*zcoord + 4*FDPart3_6*FDPart3_65*FDPart3_74*FDPart3_83*FDPart3_84*M*xcoord*zcoord*(FDPart3_12 + FDPart3_73);
-            // KDD11GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_113*FDPart3_78 + FDPart3_113*FDPart3_82 + FDPart3_3*FDPart3_6*FDPart3_95 + FDPart3_70*FDPart3_99 - FDPart3_88 - FDPart3_92;
-            // KDD12GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_106*FDPart3_111*zcoord + FDPart3_107*FDPart3_110*FDPart3_111*FDPart3_63 - FDPart3_108*FDPart3_110*FDPart3_111 - FDPart3_109*FDPart3_111 + FDPart3_112*FDPart3_90 - 2*FDPart3_16*FDPart3_54*FDPart3_86*a;
-            // KDD22GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = -FDPart3_1*FDPart3_37*FDPart3_59*FDPart3_82 + 4*FDPart3_5*FDPart3_62*FDPart3_76 + FDPart3_7*FDPart3_95;
-          
-            gKS[KS_ALPHA] =  sqrt(FDPart3_15);
-            gKS[KS_BETAX] =  2*FDPart3_15*FDPart3_16*FDPart3_9;
-            gKS[KS_BETAY] =  FDPart3_20*M*ycoord;
-            gKS[KS_BETAZ] =  FDPart3_20*M*zcoord;
-            gKS[KS_GXX]   =  FDPart3_1*FDPart3_2*FDPart3_49 + FDPart3_2*FDPart3_33*FDPart3_6 + FDPart3_3*FDPart3_32*FDPart3_44 - FDPart3_41;
-            gKS[KS_GXY]   =  FDPart3_1*FDPart3_34*FDPart3_49 + FDPart3_2*FDPart3_32*FDPart3_36*FDPart3_39 - FDPart3_3*FDPart3_32*FDPart3_36*FDPart3_39 - FDPart3_32*FDPart3_34*FDPart3_44 + FDPart3_34*FDPart3_50;
-            gKS[KS_GXZ]   =  FDPart3_14*FDPart3_29*FDPart3_30*FDPart3_31*FDPart3_6*FDPart3_8*xcoord*zcoord - FDPart3_56*ycoord - FDPart3_60*xcoord*zcoord;
-            gKS[KS_GYY]   =  FDPart3_1*FDPart3_3*FDPart3_49 + FDPart3_2*FDPart3_32*FDPart3_44 + FDPart3_3*FDPart3_50 + FDPart3_41;
-            gKS[KS_GYZ]   =  FDPart3_50*ycoord*zcoord + FDPart3_56*xcoord - FDPart3_60*ycoord*zcoord;
-            gKS[KS_GZZ]   =  FDPart3_33*FDPart3_7 + FDPart3_47*FDPart3_62;
-            gKS[KS_KXX]   =  FDPart3_2*FDPart3_6*FDPart3_95 + FDPart3_64*FDPart3_78 + FDPart3_64*FDPart3_82 + FDPart3_71*FDPart3_99 + FDPart3_88 + FDPart3_92;
-            gKS[KS_KXY]   =  4*FDPart3_102*FDPart3_46 + FDPart3_102*FDPart3_81 - FDPart3_105*FDPart3_2*FDPart3_36 + FDPart3_105*FDPart3_3*FDPart3_36 + FDPart3_106*FDPart3_91 - FDPart3_12*FDPart3_34*FDPart3_75*FDPart3_98 - FDPart3_70*FDPart3_87*M + FDPart3_71*FDPart3_87*M;
-            gKS[KS_KXZ]   =  8*FDPart3_0*FDPart3_107*FDPart3_63*FDPart3_65*FDPart3_74*FDPart3_79*M*xcoord - FDPart3_108*FDPart3_110*FDPart3_90 - FDPart3_109*FDPart3_90 - FDPart3_111*FDPart3_112 + 2*FDPart3_22*FDPart3_35*FDPart3_37*FDPart3_65*FDPart3_83*FDPart3_84*M*a*ycoord*zcoord + 4*FDPart3_6*FDPart3_65*FDPart3_74*FDPart3_83*FDPart3_84*M*xcoord*zcoord*(FDPart3_12 + FDPart3_73);
-            gKS[KS_KYY]   =  FDPart3_113*FDPart3_78 + FDPart3_113*FDPart3_82 + FDPart3_3*FDPart3_6*FDPart3_95 + FDPart3_70*FDPart3_99 - FDPart3_88 - FDPart3_92;
-            gKS[KS_KYZ]   =  FDPart3_106*FDPart3_111*zcoord + FDPart3_107*FDPart3_110*FDPart3_111*FDPart3_63 - FDPart3_108*FDPart3_110*FDPart3_111 - FDPart3_109*FDPart3_111 + FDPart3_112*FDPart3_90 - 2*FDPart3_16*FDPart3_54*FDPart3_86*a;
-            gKS[KS_KZZ]   =  -FDPart3_1*FDPart3_37*FDPart3_59*FDPart3_82 + 4*FDPart3_5*FDPart3_62*FDPart3_76 + FDPart3_7*FDPart3_95;
+KOKKOS_INLINE_FUNCTION
+static void ComputeMetricAndInverse(double x, double y, double z, bool minkowski, double a,
+                             double glower[][4], double gupper[][4]) {
+  // NOTE(@pdmullen): The following commented out floor on z dealt with the metric
+  // singularity encountered for small z near the horizon (e.g., see g_00). However, this
+  // floor was operating on z even for r_ks > 1.0, where (I believe) the metric should be
+  // well-behaved for all z.  We floor r_ks to 1.0, therefore, the floor on z is
+  // seemingly not necessary, however, if something goes awry for z ~ 0 in future
+  // applications (even after flooring r_ks = 1.0), consider revisiting this z floor...
+  // if (fabs(z) < (SMALL_NUMBER)) z = (SMALL_NUMBER);
+  double rad = sqrt(SQR(x) + SQR(y) + SQR(z));
+  double r = sqrt((SQR(rad)-SQR(a)+sqrt(SQR(SQR(rad)-SQR(a))+4.0*SQR(a)*SQR(z)))/2.0);
+  double eps = 1e-6;
+  if (r < eps) {
+    r = 0.5*(eps + r*r/eps);
+  }
+  //r = fmax(r, 1.0);  // floor r_ks to 0.5*(r_inner + r_outer)
 
+  // Set covariant components
+  // null vector l
+  double l_lower[4];
+  l_lower[0] = 1.0;
+  l_lower[1] = (r*x + (a)*y)/( SQR(r) + SQR(a) );
+  l_lower[2] = (r*y - (a)*x)/( SQR(r) + SQR(a) );
+  l_lower[3] = z/r;
 
-            return gKS;
-        }
+  // g_nm = f*l_n*l_m + eta_nm, where eta_nm is Minkowski metric
+  double f = 2.0 * SQR(r)*r / (SQR(SQR(r)) + SQR(a)*SQR(z));
+  if (minkowski) {f=0.0;}
+  glower[0][0] = f * l_lower[0]*l_lower[0] - 1.0;
+  glower[0][1] = f * l_lower[0]*l_lower[1];
+  glower[0][2] = f * l_lower[0]*l_lower[2];
+  glower[0][3] = f * l_lower[0]*l_lower[3];
+  glower[1][0] = glower[0][1];
+  glower[1][1] = f * l_lower[1]*l_lower[1] + 1.0;
+  glower[1][2] = f * l_lower[1]*l_lower[2];
+  glower[1][3] = f * l_lower[1]*l_lower[3];
+  glower[2][0] = glower[0][2];
+  glower[2][1] = glower[1][2];
+  glower[2][2] = f * l_lower[2]*l_lower[2] + 1.0;
+  glower[2][3] = f * l_lower[2]*l_lower[3];
+  glower[3][0] = glower[0][3];
+  glower[3][1] = glower[1][3];
+  glower[3][2] = glower[2][3];
+  glower[3][3] = f * l_lower[3]*l_lower[3] + 1.0;
+
+  // Set contravariant components
+  // null vector l
+  double l_upper[4];
+  l_upper[0] = -1.0;
+  l_upper[1] = l_lower[1];
+  l_upper[2] = l_lower[2];
+  l_upper[3] = l_lower[3];
+
+  // g^nm = -f*l^n*l^m + eta^nm, where eta^nm is Minkowski metric
+  gupper[0][0] = -f * l_upper[0]*l_upper[0] - 1.0;
+  gupper[0][1] = -f * l_upper[0]*l_upper[1];
+  gupper[0][2] = -f * l_upper[0]*l_upper[2];
+  gupper[0][3] = -f * l_upper[0]*l_upper[3];
+  gupper[1][0] = gupper[0][1];
+  gupper[1][1] = -f * l_upper[1]*l_upper[1] + 1.0;
+  gupper[1][2] = -f * l_upper[1]*l_upper[2];
+  gupper[1][3] = -f * l_upper[1]*l_upper[3];
+  gupper[2][0] = gupper[0][2];
+  gupper[2][1] = gupper[1][2];
+  gupper[2][2] = -f * l_upper[2]*l_upper[2] + 1.0;
+  gupper[2][3] = -f * l_upper[2]*l_upper[3];
+  gupper[3][0] = gupper[0][3];
+  gupper[3][1] = gupper[1][3];
+  gupper[3][2] = gupper[2][3];
+  gupper[3][3] = -f * l_upper[3]*l_upper[3] + 1.0;
+
+  return;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void ComputeADMDecomposition
+//! \brief computes ADM quantitiese in Cartesian Kerr-Schild coordinates
+
+// QUESTION: doesn't this assume bh_mass to be 1?
+KOKKOS_INLINE_FUNCTION
+static void ComputeADMDecomposition(double x, double y, double z, bool minkowski, double a,
+               double * alp,
+               double * betax, double * betay, double * betaz,
+               double * psi4,
+               double * gxx, double * gxy, double * gxz, double * gyy, double * gyz, double * gzz,
+               double * Kxx, double * Kxy, double * Kxz, double * Kyy, double * Kyz, double * Kzz) {
+  // See comments above in ComputeMetricAndInverse
+  double rad = sqrt(SQR(x) + SQR(y) + SQR(z));
+  double r = sqrt((SQR(rad)-SQR(a)+sqrt(SQR(SQR(rad)-SQR(a))+4.0*SQR(a)*SQR(z)))/2.0);
+  double eps = 1e-6;
+  if (r < eps) {
+    r = 0.5*(eps + r*r/eps);
+  }
+  //r = fmax(r, 1.0);
+
+  // l covector (spatial components only)
+  double l_d[3];
+  l_d[0] = (r*x + (a)*y)/( SQR(r) + SQR(a) );
+  l_d[1] = (r*y - (a)*x)/( SQR(r) + SQR(a) );
+  l_d[2] = z/r;
+
+  // l vector (spatial components only)
+  double l_u[3] = {l_d[0], l_d[1], l_d[2]};
+
+  //
+  // g_nm = 2*H*l_n*l_m + eta_nm, where eta is the Minkowski metric
+  double H = SQR(r)*r / (SQR(SQR(r)) + SQR(a)*SQR(z));
+  if (minkowski) {H=0.0;}
+
+  *alp = 1.0/sqrt(1. + 2.*H);
+  *betax = 2.*H/(1. + 2.*H)*l_u[0];
+  *betay = 2.*H/(1. + 2.*H)*l_u[1];
+  *betaz = 2.*H/(1. + 2.*H)*l_u[2];
+  double const beta_d[3] = {2.*H*l_u[0], 2.*H*l_u[1], 2.*H*l_u[2]};
+
+  *gxx = 2.*H*l_d[0]*l_d[0] + 1.;
+  *gxy = 2.*H*l_d[0]*l_d[1];
+  *gxz = 2.*H*l_d[0]*l_d[2];
+  *gyy = 2.*H*l_d[1]*l_d[1] + 1.;
+  *gyz = 2.*H*l_d[1]*l_d[2];
+  *gzz = 2.*H*l_d[2]*l_d[2] + 1.;
+
+  //
+  // conformal factor
+  double const det = detail::det(*gxx, *gxy, *gxz, *gyy, *gyz, *gzz);
+  *psi4 = pow(det, 1./3.);
+
+  //
+  // inverse metric
+  double uxx, uxy, uxz, uyy, uyz, uzz;
+  detail::inverse(1./det,
+             *gxx, *gxy, *gxz, *gyy, *gyz, *gzz,
+             &uxx, &uxy, &uxz, &uyy, &uyz, &uzz);
+  double const g_uu[3][3] = {
+    uxx, uxy, uxz,
+    uxy, uyy, uyz,
+    uxz, uyz, uzz
+  };
+
+  //
+  // derivatives of the three metric (expressions taken from below)
+  double const qa = 2.0*SQR(r) - SQR(rad) + SQR(a);
+  double const qb = SQR(r) + SQR(a);
+  double const qc = 3.0*SQR(a * z) - SQR(r)*SQR(r);
+  double const dH_d[3] = {
+    SQR(H)*x/(pow(r,3)) * ( ( qc ) )/ qa,
+    SQR(H)*y/(pow(r,3)) * ( ( qc ) )/ qa,
+    SQR(H)*z/(pow(r,5)) * ( ( qc * qb ) / qa - 2.0*SQR(a*r))
+  };
+
+  // \partial_i l_k
+  double const dl_dd[3][3] = {
+    // \partial_x l_k
+    {x*r * ( SQR(a)*x - 2.0*a*r*y - SQR(r)*x )/( SQR(qb) * qa ) + r/( qb ),
+    x*r * ( SQR(a)*y + 2.0*a*r*x - SQR(r)*y )/( SQR(qb) * qa ) - a/( qb ),
+    - x*z/(r*qa)},
+    // \partial_y l_k
+    {y*r * ( SQR(a)*x - 2.0*a*r*y - SQR(r)*x )/( SQR(qb) * qa ) + a/( qb ),
+    y*r * ( SQR(a)*y + 2.0*a*r*x - SQR(r)*y )/( SQR(qb) * qa ) + r/( qb ),
+    - y*z/(r*qa)},
+    // \partial_z l_k
+    {z/r * ( SQR(a)*x - 2.0*a*r*y - SQR(r)*x )/( (qb) * qa ),
+    z/r * ( SQR(a)*y + 2.0*a*r*x - SQR(r)*y )/( (qb) * qa ),
+    - SQR(z)/(SQR(r)*r) * ( qb )/( qa ) + 1.0/r},
+  };
+
+  double dg_ddd[3][3][3] = {0.0};
+  for (int i = 0; i < 3; i++)
+  for (int a = 0; a < 3; a++)
+  for (int b = 0; b < 3; b++) {
+    dg_ddd[i][a][b] = 2.*dH_d[i]*l_d[a]*l_d[b] +
+                      2.*H*dl_dd[i][a]*l_d[b] +
+                      2.*H*l_d[a]*dl_dd[i][b];
+  }
+
+  //
+  // Compute Christoffel symbols
+  double Gamma_udd[3][3][3];
+  for (int a = 0; a < 3; ++a)
+  for (int b = 0; b < 3; ++b)
+  for (int c = 0; c < 3; ++c) {
+    Gamma_udd[a][b][c] = 0.0;
+    for (int d = 0; d < 3; ++d) {
+      Gamma_udd[a][b][c] += 0.5*g_uu[a][d]*
+                            (dg_ddd[c][b][d] + dg_ddd[b][d][c] - dg_ddd[d][b][c]);
+    }
+  }
+
+  //
+  // Derivatives of the shift vector
+  double const dbeta_dd[3][3] = {
+    // \partial_x \beta_i
+    {2.*dH_d[0]*l_d[0] + 2.*H*dl_dd[0][0],
+    2.*dH_d[0]*l_d[1] + 2.*H*dl_dd[0][1],
+    2.*dH_d[0]*l_d[2] + 2.*H*dl_dd[0][2]},
+    // \partial_y \beta_i
+    {2.*dH_d[1]*l_d[0] + 2.*H*dl_dd[1][0],
+    2.*dH_d[1]*l_d[1] + 2.*H*dl_dd[1][1],
+    2.*dH_d[1]*l_d[2] + 2.*H*dl_dd[1][2]},
+    // \partial_z \beta_i
+    {2.*dH_d[2]*l_d[0] + 2.*H*dl_dd[2][0],
+    2.*dH_d[2]*l_d[1] + 2.*H*dl_dd[2][1],
+    2.*dH_d[2]*l_d[2] + 2.*H*dl_dd[2][2]},
+  };
+  /*double dbeta_dd[3][3];
+  for (int a = 0; a < 3; a++) {
+    for (int b = 0; b < 3; b++) {
+      dbeta_dd[a][b] = 2.*dH_d[a]*l_d[b] + 2.*H*dl_dd[a][b];
+    }
+  }*/
+
+  //
+  // Covariant derivative of the shift vector
+  double Dbeta_dd[3][3];
+  for (int a = 0; a < 3; ++a)
+  for (int b = 0; b < 3; ++b) {
+    Dbeta_dd[a][b] = dbeta_dd[a][b];
+    for (int d = 0; d < 3; ++d) {
+      Dbeta_dd[a][b] -= Gamma_udd[d][a][b]*beta_d[d];
+    }
+  }
+
+  //
+  // Extrinsic curvature: K_ab = 1/(2 alp) * (D_a beta_b + D_b beta_a)
+  /*double delta[3][3] = {0.};
+  delta[0][0] = 1.;
+  delta[1][1] = 1.;
+  delta[2][2] = 1.;*/
+  double K_dd[3][3];
+  for (int a = 0; a < 3; ++a)
+  for (int b = 0; b < 3; ++b) {
+    K_dd[a][b] = (Dbeta_dd[a][b] + Dbeta_dd[b][a])/(2.*(*alp));
+    //K_dd[a][b] = 2*(*alp)/SQR(r)*(delta[a][b] - (2. + 1./r)*l_d[a]*l_d[b]);
+  }
+
+  *Kxx = K_dd[0][0];
+  *Kxy = K_dd[0][1];
+  *Kxz = K_dd[0][2];
+  *Kyy = K_dd[1][1];
+  *Kyz = K_dd[1][2];
+  *Kzz = K_dd[2][2];
+}
+
 
 #endif /* GRACE_PHYSICS_ID_FMTORUS_KERRSCHILD_HH */

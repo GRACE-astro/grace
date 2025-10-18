@@ -4,6 +4,11 @@
 
 #include <array>
 
+
+std::array<double, 3> GRACE_HOST_DEVICE
+get_fluid_velocities(double const xcoord, double const ycoord, double const zcoord,
+              double const M, double const a, double const r_at_max_density)
+
 /**
 * @brief Return the (Valencia = Eulerian) fluid velocities U^i in Kerr-Schild cartesian coordinates at location x,y,z
 *        4-velocity decomposed as u^i = W(n^i + U^i)
@@ -28,7 +33,6 @@ get_fluid_velocities(double const xcoord, double const ycoord, double const zcoo
          *    Valencia3velocityU2GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = 2*M*zcoord/((2*M*sqrt(xcoord**2 + ycoord**2 + zcoord**2)/(a**2*zcoord**2/(xcoord**2 + ycoord**2 + zcoord**2) + xcoord**2 + ycoord**2 + zcoord**2) + 1)*(a**2*zcoord**2/(xcoord**2 + ycoord**2 + zcoord**2) + xcoord**2 + ycoord**2 + zcoord**2)*sqrt(1/(2*M*sqrt(xcoord**2 + ycoord**2 + zcoord**2)/(a**2*zcoord**2/(xcoord**2 + ycoord**2 + zcoord**2) + xcoord**2 + ycoord**2 + zcoord**2) + 1)))]"
          */
       
-      // new cactus 
       const double FDPart3_0 = ((a)*(a));
       const double FDPart3_2 = ((xcoord)*(xcoord)) + ((ycoord)*(ycoord)) + ((zcoord)*(zcoord));
       const double FDPart3_3 = ((zcoord)*(zcoord))/FDPart3_2;
@@ -55,9 +59,7 @@ get_fluid_velocities(double const xcoord, double const ycoord, double const zcoo
       const double FDPart3_30 = -1/FDPart3_17;
       const double FDPart3_31 = -FDPart3_27*FDPart3_30*FDPart3_7*a - sqrt(FDPart3_4)*sqrt(FDPart3_16*FDPart3_30)*sqrt(FDPart3_24 + 1.0/2.0);
       const double FDPart3_32 = (FDPart3_19*FDPart3_25*FDPart3_26*(-4*FDPart3_0*FDPart3_2*FDPart3_28*FDPart3_30*FDPart3_5*((M)*(M)) + FDPart3_23*FDPart3_30*FDPart3_4) - FDPart3_29*FDPart3_31)/(FDPart3_17*FDPart3_28*FDPart3_31*FDPart3_5 - FDPart3_27*FDPart3_29);
-      //   Valencia3velocityU0GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_10*FDPart3_12*xcoord - FDPart3_10*FDPart3_32*ycoord;
-      //   Valencia3velocityU1GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_10*FDPart3_12*ycoord + FDPart3_10*FDPart3_32*xcoord;
-      //   Valencia3velocityU2GF[CCTK_GFINDEX3D(cctkGH, i0, i1, i2)] = FDPart3_10*FDPart3_12*zcoord;
+
       vel[0] = FDPart3_10*FDPart3_12*xcoord - FDPart3_10*FDPart3_32*ycoord;
       vel[1] = FDPart3_10*FDPart3_12*ycoord + FDPart3_10*FDPart3_32*xcoord;
       vel[2] = FDPart3_10*FDPart3_12*zcoord;

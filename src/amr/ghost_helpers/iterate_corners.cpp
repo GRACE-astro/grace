@@ -76,6 +76,7 @@ static void register_physical_boundary_corner(
         corner.filled = true ; 
         corner.phys.type = amr::element_kind_t::CORNER ; 
         corner.phys.task_id.fill(UNSET_TASK_ID); 
+        neighbors[qid].n_registered_corners ++ ; 
     } else if (nsides==2) {
         // we are on a grid edge 
         // we need to identify the edge direction 
@@ -102,6 +103,7 @@ static void register_physical_boundary_corner(
             c1.phys.in_cbuf =false ;
             c1.phys.type = amr::element_kind_t::EDGE ; 
             c1.phys.task_id.fill(UNSET_TASK_ID);
+            neighbors[qid1].n_registered_corners ++ ; 
         }
         if ( !sides[1].is_ghost ) {
             auto& c2 = neighbors[qid2].corners[sides[1].corner] ;
@@ -117,6 +119,7 @@ static void register_physical_boundary_corner(
             c2.phys.type = amr::element_kind_t::EDGE ;
             c2.phys.in_cbuf = false ;
             c2.phys.task_id.fill(UNSET_TASK_ID);
+            neighbors[qid2].n_registered_corners ++ ; 
         }
     } else if (nsides==4) {
         int off[3][4] = {
@@ -149,12 +152,13 @@ static void register_physical_boundary_corner(
             c.phys.type = amr::element_kind_t::FACE ; 
             c.phys.in_cbuf = false ;
             c.phys.task_id.fill(UNSET_TASK_ID);
+            neighbors[qid].n_registered_corners ++ ; 
         }
     } else {
         ERROR("Unexpected number of side " << sides.size() ) ; 
     }
     
-    // neighbors[qid].n_registered_corners ++ ; 
+    
     
 }
 

@@ -175,20 +175,6 @@ struct grmhd_c2p_kastaun_t {
 
         double const error = this->f_of_mu(mu,inter_vars);
 
-        // atmosphere check:
-        double rho_atm = eos.rho_atmosphere();
-
-        if(inter_vars.rhohat <= rho_atm){
-            inter_vars.What = 1.0;
-            vhatU[0]=0.0;
-            vhatU[1]=0.0;
-            vhatU[2]=0.0;
-            inter_vars.rhohat=rho_atm;
-            inter_vars.yehat=eos.ye_atmosphere();
-            inter_vars.epsilonhat=eos.eps_atmosphere();
-        }
-        // finally,  fill out the primitives:
-
         prims[RHOL]=inter_vars.rhohat;
         prims[YEL]=inter_vars.yehat;
         prims[EPSL]=inter_vars.epsilonhat;

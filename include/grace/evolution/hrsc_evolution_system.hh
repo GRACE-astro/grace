@@ -116,9 +116,10 @@ struct hrsc_evolution_system_t {
                , VEC( const int i 
                ,      const int j 
                ,      const int k)
-               , int64_t q ) const 
+               , int64_t q 
+               , grace::coord_array_t<GRACE_NSPACEDIM> pcoords ) const 
     {
-        static_cast<EvolSystem_t const *>(this)->compute_auxiliaries(VEC(i,j,k),q) ; 
+        static_cast<EvolSystem_t const *>(this)->compute_auxiliaries(VEC(i,j,k),q,pcoords) ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 

@@ -161,6 +161,7 @@ eos_storage_t::eos_storage_t() {
     double c2p_ye_atm   = params["eos"]["ye_atmosphere"].as<double>(); 
     double c2p_rho_atm  = params["eos"]["rho_atmosphere"].as<double>(); 
     double c2p_temp_atm = params["eos"]["temp_atmosphere"].as<double>(); 
+    double c2p_press_atm = params["eos"]["press_atmosphere"].as<double>(); 
     double c2p_eps_max  = params["eos"]["eps_maximum"].as<double>();
 
     bool atm_is_beta_eq = params["eos"]["atm_is_beta_eq"].as<bool>();
@@ -181,6 +182,7 @@ eos_storage_t::eos_storage_t() {
                 , gamma_th - 1. 
                 , grace::physical_constants::mnuc_CGS
                 , c2p_rho_atm 
+                , c2p_press_atm
                 , c2p_eps_max 
             } ; 
 
