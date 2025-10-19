@@ -43,71 +43,57 @@ conservs_to_prims( grmhd_cons_array_t& cons
                  , grmhd_prims_array_t& prims
                  , metric_array_t const& metric 
                  , eos_t const& eos
-                 , double const& lapse_excision 
                  , std::array<double,3> const& xyz
-                 , atmo_kind_t atmo_kind 
-                 , atmo_params_t atmo_params ) 
+                 , atmo_params_t atmo_params
+                 , excision_params_t excision_params ) 
 {
     using c2p_impl_t = grmhd_c2p_kastaun_t<eos_t> ;
+    unsigned int err ;
     bool c2p_failed{ false }             ;
     double W                             ;
     /* Undensitize conservs */
     for( auto& c: cons) c /= metric.sqrtg() ;
     /* First we check whether we are in the atmosphere */
-    double dens_atmo ; 
-    double press_atmo ; 
-    if ( atmo_kind == COLD_ATMO ) {
-        dens_atmo = atmo_params.rho_fl ;
-    } else {
-        auto const r = Kokkos::sqrt( xyz[0]*xyz[0]
-                                   + xyz[1]*xyz[1]
-                                   + xyz[2]*xyz[2]) ; 
-        dens_atmo = atmo_params.rho_fl * Kokkos::pow(r,atmo_params.rho_fl_scaling) ; 
-        press_atmo = atmo_params.press_fl * Kokkos::pow(r,atmo_params.press_fl_scaling) ;
-    }
+    auto const r = Kokkos::sqrt( xyz[0]*xyz[0]
+                                + xyz[1]*xyz[1]
+                                + xyz[2]*xyz[2]) ; 
+    double dens_atmo = atmo_params.rho_fl * Kokkos::pow(r,atmo_params.rho_fl_scaling) ; 
+    double temp_atmo = atmo_params.temp_fl * Kokkos::pow(r,atmo_params.temp_fl_scaling) ;
+    
     
     if( cons[DENSL] > dens_atmo ) {
         c2p_impl_t c2p(eos,metric,cons) ;
         double residual = c2p.invert(prims) ;
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
-        W = prims[PRESSL] ; // W was stored here for convenience
-        
+        W = prims[PRESSL] ; // W was stored here for convenience        
     } else {
         c2p_failed = true ;
     }
 
-    /* Set pressure entropy and temperature */
-    double h, csnd2;
-    unsigned int err ;
-    prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
-        h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
-    ) ;
 
-    if ( atmo_kind == WARM_ATMO) c2p_failed |= (prims[PRESSL]<press_atmo) ; 
+
 
     if(   prims[RHOL] < (1.+1e-03) * dens_atmo
-      or  c2p_failed
-      or  metric.alp() < lapse_excision )
+      or  c2p_failed ) // TODO excision
     {  
         prims[RHOL]  = dens_atmo ;
-        prims[YEL]   = eos.ye_atmosphere()   ;
-        if ( atmo_kind == COLD_ATMO ) {
-            prims[TEMPL] = eos.temp_atmosphere() ;
-            prims[EPSL]  = eos.eps_atmosphere()  ; 
-            prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
-                h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
-            ) ;
-        } else {
-            prims[PRESSL] = press_atmo ; 
-            prims[EPSL] =  eos.eps_h_csnd2_temp_entropy__press_rho_ye(h,csnd2,prims[TEMPL],prims[ENTL],prims[PRESSL],prims[RHOL],prims[YEL],err);
-        }
-        
+        prims[YEL]   = atmo_params.ye_fl   ;
+        prims[TEMPL] = temp_atmo ; 
+        prims[EPSL] = eos.eps__temp_rho_ye(prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
         prims[VXL]   = 0. ;
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
         
         W = 1. ;
     }
+
+    /* Set pressure entropy and temperature */
+    double h, csnd2;
+    
+    prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
+        h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
+    ) ;
+
     /* Go from z-vec to velocity and remove */
     /* shift contribution.                  */
     double const u0 = W / metric.alp() ;
@@ -182,10 +168,9 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , grace::grmhd_prims_array_t&  \
                       , grace::metric_array_t const&  \
                       , EOS const& eos \
-                      , double const& \
                       , std::array<double,3> const& \
-                      , atmo_kind_t \
                       , atmo_params_t \
+                      , excision_params_t \
                     ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE

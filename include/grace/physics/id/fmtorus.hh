@@ -189,7 +189,7 @@ struct fmtorus_id_t {
         }
 
         double rho_bg, pgas_bg ; 
-        if (id.alp > params.lapse_excision) {
+        if (r>1) {
             rho_bg = params.rho_min * pow(r, params.rho_pow);
             pgas_bg = params.pgas_min * pow(r, params.pgas_pow);
         } else {
@@ -230,15 +230,15 @@ struct fmtorus_id_t {
             double  glower[4][4], gupper[4][4];
             ComputeMetricAndInverse(x, y, z, false, params.spin,
                                     glower, gupper);
-            uu1 = u1 - gupper[0][1]/gupper[0][0] * u0;
-            uu2 = u2 - gupper[0][2]/gupper[0][0] * u0;
-            uu3 = u3 - gupper[0][3]/gupper[0][0] * u0;
+            uu1 = (u1/u0 - gupper[0][1]/gupper[0][0])/id.alp;
+            uu2 = (u2/u0 - gupper[0][2]/gupper[0][0])/id.alp;
+            uu3 = (u3/u0 - gupper[0][3]/gupper[0][0])/id.alp;
         }
         
 
-        id.vx = id.alp > params.lapse_excision ? uu1 : 0.0 ; 
-        id.vy = id.alp > params.lapse_excision ? uu2 : 0.0 ; 
-        id.vz = id.alp > params.lapse_excision ? uu3 : 0.0 ; 
+        id.vx = uu1 ; 
+        id.vy = uu2 ; 
+        id.vz = uu3 ; 
 
         id.rho = fmax(rho,rho_bg) ; 
         id.press = fmax(pgas,pgas_bg) * (1.0 + perturbation) ; 

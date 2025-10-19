@@ -98,8 +98,9 @@
      tov_id_t(
            eos_t eos
          , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
+         , grace::atmo_params_t atmo_params
          , double rhoC )
-         : _eos(eos), _pcoords(pcoords), _rhoC(rhoC)
+         : _eos(eos), _pcoords(pcoords), _atmo_params(atmo_params), _rhoC(rhoC)
      { 
  
          Kokkos::View<double *, grace::default_space> tov_params("TOV_parameters", 7) ; 
@@ -112,6 +113,9 @@
          expGamma = Kokkos::View<double *, grace::default_space>("exp_Gamma", N_POINTS) ;
  
          auto rl = r ; auto massl = mass ; auto pressl = press ; auto drl = dr ; auto nul = nu ; 
+
+         double _rho_atm = _atmo_params.rho_fl ;
+         double _ye_atm  = _atmo_params.ye_fl  ; 
  
          GRACE_INFO("In TOV setup.") ; 
          Kokkos::parallel_for("solve_tov", 1, KOKKOS_LAMBDA (int dummy){
@@ -119,8 +123,8 @@
              double ye, eps;     
              double temp = 0.0; 
              double rho = rhoC ;
-             double rho_atm = eos.rho_atmosphere() ;
-             double ye_atm  = eos.ye_atmosphere()   ; 
+             double rho_atm = _rho_atm ; 
+             double ye_atm = _ye_atm ; 
              double press_atm = eos.press_cold__rho_ye(rho_atm,ye_atm, err) ;
              /* Find central pressure, eps, ye */
              double const _pressC_loc = eos.press_eps_ye__beta_eq__rho_temp(eps,ye,rho,temp,err) ; 
@@ -227,8 +231,8 @@
          unsigned int err ; 
          
          /* Check if we are inside the star */
-         double ye_atm  = _eos.ye_atmosphere()  ; 
-         double rho_atm = _eos.rho_atmosphere() ;
+         double ye_atm  = _atmo_params.ye_fl  ; 
+         double rho_atm = _atmo_params.rho_fl ; 
           
          if ( sol[1] > 1.001 * _press_atm ) {
              id.press = sol[1] ; 
@@ -356,6 +360,7 @@
      //**************************************************************************************************
      eos_t   _eos         ;                            //!< Equation of state object 
      grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
+     grace::atmo_params_t _atmo_params ;               //!< Parameters for atmosphere
      double _rhoC, _pressC;                            //!< Central density 
      double _M, _R, _R_iso;                            //!< Mass and Radius
      double _compactness, _nu_corr ;                   //!< Compactness and matching of metric potential

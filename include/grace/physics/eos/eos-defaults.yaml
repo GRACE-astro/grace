@@ -2,10 +2,6 @@ eos: {
   eos_type: "hybrid",
   cold_eos_type: "piecewise_polytrope",
 
-  ye_atmosphere: 0,
-  temp_atmosphere: 0,
-  rho_atmosphere: 1.e-14,
-  press_atmosphere: 1.e-14,
   eps_maximum: 1.e+05,
   gamma_th: 1.8,
 

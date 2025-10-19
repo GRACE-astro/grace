@@ -83,10 +83,8 @@ struct grmhd_equations_system_t
                             , grace::var_array_t state_
                             , grace::staggered_variable_arrays_t stag_state_
                             , grace::var_array_t aux_ ) 
-     : base_t(state_,stag_state_,aux_), _eos(eos_), atmo_kind(COLD_ATMO)
-    { 
-        _lapse_excision = grace::get_param<double>("grmhd","lapse_excision") ; 
-    } ;
+     : base_t(state_,stag_state_,aux_), _eos(eos_)
+    { } ;
     /**
      * @brief Constructor
      * 
@@ -98,12 +96,10 @@ struct grmhd_equations_system_t
                             , grace::var_array_t state_
                             , grace::staggered_variable_arrays_t stag_state_
                             , grace::var_array_t aux_ 
-                            , atmo_kind_t _atmo_kind 
-                            , atmo_params_t _atmo_pars) 
-     : base_t(state_,stag_state_,aux_), _eos(eos_), atmo_kind(_atmo_kind), atmo_params(_atmo_pars)
-    { 
-        _lapse_excision = grace::get_param<double>("grmhd","lapse_excision") ; 
-    } ;
+                            , atmo_params_t _atmo_pars
+                            , excision_params_t _excision_pars) 
+     : base_t(state_,stag_state_,aux_), _eos(eos_), atmo_params(_atmo_pars), excision_params(_excision_pars)
+    {} ;
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^1\f$
      * 
@@ -474,9 +470,9 @@ struct grmhd_equations_system_t
         
         grmhd_prims_array_t prims ;        
         conservs_to_prims<eos_t>( cons, prims, metric
-                                , this->_eos, this->_lapse_excision
+                                , this->_eos
                                 , {pcoords(VEC(i,j,k),0,q),pcoords(VEC(i,j,k),1,q),pcoords(VEC(i,j,k),2,q)}
-                                , atmo_kind, atmo_params ) ;
+                                , atmo_params, excision_params ) ;
         
         
         /* Write new prims */
@@ -572,13 +568,11 @@ struct grmhd_equations_system_t
     //! Number of reconstructed variables.
     static constexpr unsigned int GRMHD_NUM_RECON_VARS = 10 ; 
     //! Equation of State object.
-    eos_t _eos ;
-    //! Excision lapse.
-    double _lapse_excision ; 
-    //! Kind of atmosphere
-    atmo_kind_t atmo_kind; 
+    eos_t _eos ;    
     //! Parameters for atmosphere
     atmo_params_t atmo_params;
+    //! Parameters for excision
+    excision_params_t excision_params; 
     /***********************************************************************/
     /**
      * @brief Compute fluxes for gmrmhd equations.

@@ -87,18 +87,14 @@ class eos_base_t {
     eos_base_t( double _energy_shift, double _eos_rhomax, double _eos_rhomin
               , double _eos_tempmax, double _eos_tempmin
               , double _eos_yemax, double _eos_yemin
-              , double _baryon_mass, double _c2p_ye_atm
-              , double _c2p_rho_atm, double _c2p_temp_atm 
-              , double _c2p_eps_atm, double _c2p_press_atm, double _c2p_eps_min
+              , double _baryon_mass, double _c2p_eps_min
               , double _c2p_eps_max, double _c2p_h_min
               , double _c2p_h_max, bool _atm_is_beta_eq
               , bool _extend_table_high )
      : energy_shift(_energy_shift), eos_rhomax(_eos_rhomax), eos_rhomin(_eos_rhomin)
      , eos_tempmax(_eos_tempmax), eos_tempmin(_eos_tempmin)
      , eos_yemax(_eos_yemax), eos_yemin(_eos_yemin)
-     , baryon_mass(_baryon_mass), c2p_ye_atm(_c2p_ye_atm)
-     , c2p_rho_atm(_c2p_rho_atm), c2p_temp_atm(_c2p_temp_atm)
-     , c2p_eps_atm(_c2p_eps_atm), c2p_press_atm(_c2p_press_atm), c2p_eps_min(_c2p_eps_min), c2p_eps_max(_c2p_eps_max)
+     , baryon_mass(_baryon_mass), c2p_eps_min(_c2p_eps_min), c2p_eps_max(_c2p_eps_max)
      , c2p_h_min(_c2p_h_min), c2p_h_max(_c2p_h_max)
      , atm_is_beta_eq(_atm_is_beta_eq), extend_table_high(_extend_table_high)
     {}
@@ -490,30 +486,7 @@ class eos_base_t {
             mup,mun,Xa,Xh,Xn,Xp,Abar,Zbar,temp,rho,ye,err
             ) ; 
     }
-    /**
-     * @brief Get the atmosphere rest-mass density.
-     * 
-     */
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    rho_atmosphere() const { return c2p_rho_atm ; }
-    /**
-     * @brief Get the atmosphere press.
-     * 
-     */
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    press_atmosphere() const { return c2p_press_atm ; }
-    /**
-     * @brief Get the atmosphere temperature.
-     * 
-     */
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    temp_atmosphere() const { return c2p_temp_atm ; }
-    /**
-     * @brief Get the atmosphere electron fraction.
-     * 
-     */
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    ye_atmosphere() const { return c2p_ye_atm ; }
+  
     /**
      * @brief Get the atmosphere specific internal energy.
      * 
@@ -551,14 +524,6 @@ class eos_base_t {
     double eos_yemax, eos_yemin ; 
     //! Baryon mass.
     double baryon_mass ;
-    //! Atmosphere electron fraction.
-    double c2p_ye_atm    ; 
-    //! Atmosphere density.
-    double c2p_rho_atm   ; 
-    //! Atmosphere temperature.
-    double c2p_temp_atm  ; 
-    //! Atmosphere pressure. Only used for ideal-gas.
-    double c2p_press_atm ; 
     //! Atmosphere specific internal energy.
     double c2p_eps_atm   ; 
     //! Minimum specific internal energy.

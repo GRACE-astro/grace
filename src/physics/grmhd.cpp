@@ -239,7 +239,7 @@ static void set_grmhd_spherical_blastwave_initial_data() {
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
                     double h, csnd2; 
-                    double ye = _eos.ye_atmosphere();
+                    double ye = 0;
                     unsigned int err ; 
                     /* Set eps temp and entropy */
                     aux(VEC(i,j,k),EPS_,q) = 
@@ -322,19 +322,19 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),VELX_,q)  = id.alp * id.vx - id.betax ; 
                     aux(VEC(i,j,k),VELY_,q)  = id.alp * id.vy - id.betay ; 
                     aux(VEC(i,j,k),VELZ_,q)  = id.alp * id.vz - id.betaz ; 
+
+                    aux(VEC(i,j,k),YE_,q) = id.ye ; 
                     
                     double h, csnd2; 
-                    double ye = _eos.ye_atmosphere();
-                    unsigned int err ; 
+                    unsigned int err ;
                     /* Set eps temp and entropy */
                     aux(VEC(i,j,k),EPS_,q) = 
                         _eos.eps_h_csnd2_temp_entropy__press_rho_ye( h, csnd2, aux(VEC(i,j,k),TEMP_,q)
                                                                    , aux(VEC(i,j,k),ENTROPY_,q)
                                                                    , aux(VEC(i,j,k),PRESS_,q)
                                                                    , aux(VEC(i,j,k),RHO_,q)
-                                                                   , ye,err);
-                    /* Set ye */
-                    aux(VEC(i,j,k),YE_,q) = ye ; 
+                                                                   , aux(VEC(i,j,k),YE_,q)
+                                                                   ,err);                    
                     /* Set B field */
                     aux(VEC(i,j,k),BX_,q) = id.bx ;
                     aux(VEC(i,j,k),BY_,q) = id.by ;
@@ -528,7 +528,16 @@ void set_grmhd_initial_data() {
         set_grmhd_spherical_blastwave_initial_data<eos_t>() ; 
     } else if ( id_type == "TOV") { 
         auto const rho_c = get_param<double>("grmhd", "TOV_central_density") ; 
-        set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(rho_c) ;
+        auto atmo_pars = get_param<YAML::Node>("grmhd","atmosphere"); 
+
+        atmo_params_t atmo_params ;
+        atmo_params.rho_fl = atmo_pars["rho_fl"].as<double>() ; 
+        atmo_params.ye_fl = atmo_pars["ye_fl"].as<double>() ; 
+        atmo_params.temp_fl = atmo_pars["temp_fl"].as<double>() ; 
+        atmo_params.rho_fl_scaling = atmo_pars["rho_scaling"].as<double>() ;
+        atmo_params.temp_fl_scaling = atmo_pars["temp_scaling"].as<double>() ; 
+
+        set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(atmo_params,rho_c) ;
     } else if ( id_type == "KHI") {
         set_grmhd_initial_data_impl<eos_t, kelvin_helmholtz_id_t<eos_t>>() ; 
     } else if( id_type == "magnetic_rotor" ) {

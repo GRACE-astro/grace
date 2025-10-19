@@ -25,7 +25,7 @@ IO: {
   volume_output_base_directory: "output_volume",
   volume_output_every: -1,
   plane_surface_output_cell_variables: ["alp","rho","press","eps","vel[0]", "Bvec[0]","Bdiv"],
-  plane_surface_output_every: 100,
+  plane_surface_output_every: 10,
   sphere_surface_output_every: -1,
   do_initial_output: true,
   info_output_every: 2,
@@ -69,24 +69,33 @@ grmhd: {
     press_min: 0.333e-7,
     r_in: 6,
     r_at_max_density: 12,
-    gamma: 1.33333333333333333,
+    gamma: 1.33333333333,
     max_inverse_beta: 100,
     perturbation_amplitude: 0.02,
     rho_power: -1.5,
     press_power: -2.5
   },
   B_field_from_Avec: true,
-  atmosphere_kind: "cold"
+  excision: {
+    excision_criterion: "radius",
+    excision_radius: 1.0,
+    rho_excision: 1e-8,
+    temp_excision: 0.3333e-2,
+    excision_lapse: 0.2
+  },
+  atmosphere: {
+    ye_fl: 0,
+    temp_fl:  0.3333e-2,
+    rho_fl: 1.e-5,
+    rho_scaling: -1.5,
+    temp_scaling: -1
+  }
 }
 
 eos: {
   eos_type: "hybrid",
   cold_eos_type: "piecewise_polytrope",
 
-  ye_atmosphere: 0,
-  temp_atmosphere: 0,
-  rho_atmosphere: 1.e-10,
-  press_atmosphere: 1.e-7,
   eps_maximum: 1.e+05,
   gamma_th: 1.33333333333,
 
@@ -104,4 +113,5 @@ profiling: {
 
 checkpoints: {
   checkpoint_at_termination: false,
+  checkpoint_dir: "./checkpoints"
 }

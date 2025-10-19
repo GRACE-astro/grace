@@ -165,6 +165,40 @@ class config_parser_impl_t
  */
 using config_parser = utils::singleton_holder<detail::config_parser_impl_t> ;
 //*****************************************************************************************************
+
+namespace detail {
+template <typename... Keys>
+std::string join_path(const std::string& first, const Keys&... rest) {
+    std::ostringstream oss;
+    oss << first;
+    ((oss << " -> " << rest), ...);  // fold expression, no string literal on LHS
+    return oss.str();
+}
+
+template <typename Key, typename... Keys>
+YAML::Node get_node(const YAML::Node& prev, const Key& first, const Keys&... rest) {
+    // if prev is null at this stage, the key path was already invalid
+    if (!prev) {
+        ERROR("Missing parameter at path " << detail::join_path(first, rest...));
+    }
+
+    YAML::Node next = prev[first];
+
+    if (!next) {
+        ERROR("Missing parameter at path " << detail::join_path(first, rest...));
+    }
+
+    if constexpr (sizeof...(rest) == 0) {
+        // leaf reached
+        return next;
+    } else {
+        // keep going down
+        return get_node(next, rest...);
+    }
+}
+
+
+}
 /**
  * @brief Get a parameter from the config file.
  * 
@@ -173,17 +207,24 @@ using config_parser = utils::singleton_holder<detail::config_parser_impl_t> ;
  * @param name   Name of the parameter to be fetched.
  * @return T The parameter interpreted as a <code>T</code>.
  */
-template< typename T >
-static GRACE_ALWAYS_INLINE T 
-get_param(std::string const& module, std::string const& name) {
+template <typename T, typename... Keys>
+static GRACE_ALWAYS_INLINE T
+get_param(const std::string& first, const Keys&... rest) {
     auto& parfile = grace::config_parser::get();
+
     try {
-        return parfile[module][name].as<T>() ; 
-    } catch( const std::exception& e) {
-        ERROR("Parameter " << name 
-             << " from module " << module << " could not be retrieved as a "
-             << utils::type_name<T>() <<".\n Exception raised:\n"
-             << e.what()) ; 
+        YAML::Node entry = parfile[first];
+
+        YAML::Node node = detail::get_node(entry,rest...) ; 
+        if (!node) {
+            ERROR("Missing parameter at path: " << detail::join_path(first, rest...));
+        }
+        return node.as<T>();
+    } catch (const std::exception& e) {
+        ERROR("Parameter " << detail::join_path(first, rest...)
+              << " could not be retrieved as "
+              << utils::type_name<T>() << ".\nException raised:\n"
+              << e.what());
     }
 }
 //*****************************************************************************************************

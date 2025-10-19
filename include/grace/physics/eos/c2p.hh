@@ -40,15 +40,21 @@
 
 namespace grace {
 
-enum atmo_kind_t : uint8_t {
-    COLD_ATMO, WARM_ATMO
-} ; 
 
 struct atmo_params_t {
-    double rho_fl ; 
-    double press_fl ; 
-    double rho_fl_scaling ; 
-    double press_fl_scaling ;
+    double ye_fl ;    //!< Atmo ye
+    double rho_fl ;   //!< Atmo rho
+    double temp_fl ;  //!< Atmo T 
+    double rho_fl_scaling  ; //!< Radial scaling of atmo rho
+    double temp_fl_scaling ; //!< Radial scaling of atmo T
+} ; 
+
+struct excision_params_t {
+    double rho_ex ;         //!< Excision rho
+    double temp_ex ;        //!< Excision temp 
+    double r_ex ;           //!< Excision radius
+    double alp_ex ;         //!< Excision alpha
+    bool excise_by_radius ; //!< Whether excision is radius based (CKS) or alpha based.
 } ; 
 
 /**
@@ -70,10 +76,9 @@ conservs_to_prims(  grace::grmhd_cons_array_t& cons
                   , grace::grmhd_prims_array_t& prims
                   , grace::metric_array_t const& metric 
                   , eos_t const& eos
-                  , double const& lapse_excision
                   , std::array<double,3> const& xyz
-                  , atmo_kind_t atmo_kind 
-                  , atmo_params_t atmo_params ) ; 
+                  , atmo_params_t atmo_params 
+                  , excision_params_t excision_params) ; 
 
 void GRACE_HOST_DEVICE
 prims_to_conservs( grace::grmhd_prims_array_t& prims
@@ -87,10 +92,9 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , grace::grmhd_prims_array_t&  \
                       , grace::metric_array_t const&  \
                       , EOS const& eos \
-                      , double const& \
                       , std::array<double,3> const& \
-                      , atmo_kind_t \
                       , atmo_params_t \
+                      , excision_params_t \
                     )
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE
