@@ -34,7 +34,7 @@
 #include <Kokkos_Core.hpp>
 
 #define C2P_TOLERANCE 10
-
+#define SQR(a) (a)*(a)
 namespace grace {
 
 template< typename eos_t >
@@ -54,9 +54,12 @@ conservs_to_prims( grmhd_cons_array_t& cons
     /* Undensitize conservs */
     for( auto& c: cons) c /= metric.sqrtg() ;
     /* First we check whether we are in the atmosphere */
-    auto const r = Kokkos::sqrt( xyz[0]*xyz[0]
+    auto const rad = Kokkos::sqrt( xyz[0]*xyz[0]
                                 + xyz[1]*xyz[1]
                                 + xyz[2]*xyz[2]) ; 
+    double const a = 0.9375;
+    double r = fmax((sqrt( SQR(rad) - SQR(a) + sqrt(SQR(SQR(rad)-SQR(a))
+                      + 4.0*SQR(a)*SQR(xyz[2])) ) / sqrt(2.0)), 1.0);
     double dens_atmo = atmo_params.rho_fl * Kokkos::pow(r,atmo_params.rho_fl_scaling) ; 
     double temp_atmo = atmo_params.temp_fl * Kokkos::pow(r,atmo_params.temp_fl_scaling) ;
     
@@ -71,14 +74,17 @@ conservs_to_prims( grmhd_cons_array_t& cons
     }
 
 
-
+    bool excise = excision_params.excise_by_radius 
+                ? r <= excision_params.r_ex 
+                : metric.alp() <= excision_params.alp_ex ; 
 
     if(   prims[RHOL] < (1.+1e-03) * dens_atmo
-      or  c2p_failed ) // TODO excision
+      or  c2p_failed 
+      or  excise ) // TODO excision
     {  
-        prims[RHOL]  = dens_atmo ;
+        prims[RHOL]  = excise ? excision_params.rho_ex : dens_atmo ;
         prims[YEL]   = atmo_params.ye_fl   ;
-        prims[TEMPL] = temp_atmo ; 
+        prims[TEMPL] = excise ? excision_params.temp_ex : temp_atmo ; 
         prims[EPSL] = eos.eps__temp_rho_ye(prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
         prims[VXL]   = 0. ;
         prims[VYL]   = 0. ;
@@ -93,6 +99,19 @@ conservs_to_prims( grmhd_cons_array_t& cons
     prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
         h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
     ) ;
+
+    if ( prims[TEMPL] < temp_atmo 
+      and (not excise)
+      and (not c2p_failed) 
+    ) {
+        prims[RHOL]  = dens_atmo ;
+        prims[YEL]   = atmo_params.ye_fl   ;
+        prims[TEMPL] = temp_atmo ; 
+        prims[EPSL] = eos.eps__temp_rho_ye(prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
+        prims[VXL]   = 0. ;
+        prims[VYL]   = 0. ;
+        prims[VZL]   = 0. ;
+    }
 
     /* Go from z-vec to velocity and remove */
     /* shift contribution.                  */

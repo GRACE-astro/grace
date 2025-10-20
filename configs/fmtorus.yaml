@@ -25,7 +25,7 @@ IO: {
   volume_output_base_directory: "output_volume",
   volume_output_every: -1,
   plane_surface_output_cell_variables: ["alp","rho","press","eps","vel[0]", "Bvec[0]","Bdiv"],
-  plane_surface_output_every: 10,
+  plane_surface_output_every: 100,
   sphere_surface_output_every: -1,
   do_initial_output: true,
   info_output_every: 2,

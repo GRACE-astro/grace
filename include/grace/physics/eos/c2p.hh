@@ -40,7 +40,10 @@
 
 namespace grace {
 
-
+/**
+ * @brief Atmosphere treatment parameters
+ * 
+ */
 struct atmo_params_t {
     double ye_fl ;    //!< Atmo ye
     double rho_fl ;   //!< Atmo rho
@@ -48,7 +51,10 @@ struct atmo_params_t {
     double rho_fl_scaling  ; //!< Radial scaling of atmo rho
     double temp_fl_scaling ; //!< Radial scaling of atmo T
 } ; 
-
+/**
+ * @brief Excision parameters
+ * 
+ */
 struct excision_params_t {
     double rho_ex ;         //!< Excision rho
     double temp_ex ;        //!< Excision temp 

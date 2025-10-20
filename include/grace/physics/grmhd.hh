@@ -358,13 +358,13 @@ struct grmhd_equations_system_t
                 0.5 * (metric_p.beta(2) - metric_m.beta(2)),
             } ; 
             
-            tau_source += metric.contract_vec_vec(
+            tau_source += idx(idir,q) * ( metric.contract_vec_vec(
                 dbetaj_dxi,
                 {Tupmunu[spatial_index_4d[idir][0]],Tupmunu[spatial_index_4d[idir][1]],Tupmunu[spatial_index_4d[idir][2]]}
-            )  + 0.5 * idx(idir,q) * shift[idir] * metric.contract_sym2tens_sym2tens(
+            )  + 0.5 * shift[idir] * metric.contract_sym2tens_sym2tens(
                 {dgab_dxi[XX4],dgab_dxi[XY4],dgab_dxi[XZ4],dgab_dxi[YY4],dgab_dxi[YZ4],dgab_dxi[ZZ4]},
                 {Tupmunu[XX4],Tupmunu[XY4],Tupmunu[XZ4],Tupmunu[YY4],Tupmunu[YZ4],Tupmunu[ZZ4]}
-            );
+            )) ;
             #endif 
             /**************************************************************************************************/
             /* Momentum source term:                                                                          */
