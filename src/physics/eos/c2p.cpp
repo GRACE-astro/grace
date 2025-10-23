@@ -29,7 +29,7 @@
 
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/eos/grhd_c2p.hh>
-#include <grace/physics/eos/grmhd_c2p.hh>
+#include <grace/physics/eos/kastaun_c2p.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -47,7 +47,8 @@ conservs_to_prims( grmhd_cons_array_t& cons
                  , atmo_params_t atmo_params
                  , excision_params_t excision_params ) 
 {
-    using c2p_impl_t = grmhd_c2p_kastaun_t<eos_t> ;
+  using c2p_impl_t = kastaun_c2p_t<eos_t> ;
+  //using c2p_impl_t = grhd_c2p_t<eos_t> ; 
     unsigned int err ;
     bool c2p_failed{ false }             ;
     double W                             ;
