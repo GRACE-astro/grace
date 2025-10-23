@@ -33,7 +33,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#define C2P_TOLERANCE 10
+#define C2P_TOLERANCE 1e-10
 #define SQR(a) (a)*(a)
 namespace grace {
 

@@ -64,7 +64,7 @@ class hybrid_eos_t
                                            , baryon_mass
                                            , 0
                                            , c2p_eps_max
-                                           , 1.
+                                           , 1.00000001
                                            , 1.e99
                                            , false 
                                            , false }

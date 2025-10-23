@@ -147,12 +147,12 @@ struct grmhd_c2p_kastaun_t {
         auto f_a = [this](double mu){return this -> fa_of_mu(mu);} ; 
         auto df_a = [this](double mu){return this -> dfa_dmu(mu);} ; 
         // first, we constrain the area of search by finding mu_plus
-        double const mu_plus = utils::rootfind_newton_raphson(
+        double const mu_plus = fmax(utils::rootfind_newton_raphson(
                             0.0, 1.0/eos.enthalpy_minimum(),  // lower bound, upper bound
                             f_a, // function
                             df_a, //  derivative
                             tolerance, iter           // tolerance, iteration book-keeper
-                            ) + tiny_number;
+								   ), 1e-10) ;
         if ( iter >= iter_max ) {
             double const mu_plus = utils::brent(
                                     f_a, 
