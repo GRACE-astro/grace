@@ -90,15 +90,33 @@ struct copy_op {
             }
         } else if constexpr ( elem_kind == EDGE ) {
             if ( ie < 4 ) {
-                return (i>=ngz and i<nx+ngz) ; 
+                int side1 = ((ie>>0)&1) ; 
+                int side2 = ((ie>>1)&1) ; 
+                bool gz_in_range1 = side1 ? j < ny + 2 * ngz : j < ngz + transf.sy ;
+                bool gz_in_range2 = side2 ? k < nz + 2 * ngz : k < ngz + transf.sz ;
+                return (i>=ngz and i<nx+ngz) and gz_in_range1 and gz_in_range2 ; 
             } else if ( ie < 8 ) {
-                return (j>=ngz and j<ny+ngz) ;
+                int side1 = ((ie>>0)&1) ; 
+                int side2 = ((ie>>1)&1) ; 
+                bool gz_in_range1 = side1 ? i < nx + 2 * ngz : i < ngz + transf.sx ;
+                bool gz_in_range2 = side2 ? k < nz + 2 * ngz : k < ngz + transf.sz ;
+                return (j>=ngz and j<ny+ngz) and gz_in_range1 and gz_in_range2 ;
             } else {
-                return (k>=ngz and k<nz+ngz) ;
+                int side1 = ((ie>>0)&1) ; 
+                int side2 = ((ie>>1)&1) ; 
+                bool gz_in_range1 = side1 ? i < nx + 2 * ngz : i < ngz + transf.sx ;
+                bool gz_in_range2 = side2 ? j < ny + 2 * ngz : j < ngz + transf.sy ;
+                return (k>=ngz and k<nz+ngz) and gz_in_range1 and gz_in_range2 ;
             }
-        } 
-        return true ; 
-        
+        }  else {
+            int side1 = ((ie>>0)&1) ; 
+            int side2 = ((ie>>1)&1) ; 
+            int side3 = ((ie>>2)&1) ; 
+            bool gz_in_range1 = side1 ? i < nx + 2 * ngz : i < ngz + transf.sx ;
+            bool gz_in_range2 = side2 ? j < ny + 2 * ngz : j < ngz + transf.sy ;
+            bool gz_in_range3 = side3 ? k < nz + 2 * ngz : k < ngz + transf.sz ;
+            return gz_in_range1 and gz_in_range2 and gz_in_range3 ; 
+        }        
     }
 
     KOKKOS_INLINE_FUNCTION 
@@ -119,7 +137,7 @@ struct copy_op {
         transf.compute_indices<elem_kind,false>(
             ig, VECD(j, k), i_b, j_b, k_b, ie_dest
         ) ; 
-        if ( in_range(i_a,j_a,k_a, ie_src) ) {
+        if ( in_range(i_b,j_b,k_b, ie_dest) ) {
             view(
                 VEC(i_b,j_b,k_b), ivar, dest_q 
             ) = view(VEC(i_a,j_a,k_a), ivar, src_q) ;

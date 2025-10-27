@@ -150,9 +150,10 @@ gpu_task_t make_gpu_copy_task(
     Kokkos::DefaultExecutionSpace exec_space{stream} ; 
     
     size_t loop_off = (stag == STAG_CENTER ? 0 : 1 ) ; 
+    size_t gz_off = (elem_kind == amr::FACE) ? 0 : loop_off ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
         policy{
-            exec_space, {0,0,0,0,0}, get_iter_range<elem_kind>(ngz,nx+loop_off,nv,bucket.size())
+            exec_space, {0,0,0,0,0}, get_iter_range<elem_kind>(ngz+gz_off,nx+loop_off,nv,bucket.size())
         } ; 
  
     task._run = [functor, policy] (view_alias_t alias) mutable {

@@ -502,21 +502,21 @@ void amr_ghosts_impl_t::build_remote_buffers() {
     // Finally now we compute offsets and total sizes,
     // the hard part is over! 
     std::array<size_t,6> const elem_sizes_c {
-        nx * nx * ngz * nvars,
-        nx * ngz * ngz * nvars,
-        ngz * ngz * ngz * nvars,
-        nx * nx * ngz * nvars / 4,
-        nx * ngz * ngz * nvars / 2,
-        ngz * ngz * ngz * nvars
+        nx * nx * ngz * nvars,      /* face        */
+        nx * ngz * ngz * nvars,     /* edge        */
+        ngz * ngz * ngz * nvars,    /* corner      */
+        nx * nx * ngz * nvars / 4,  /* cbuf face   */
+        nx * ngz * ngz * nvars / 2, /* cbuf edge   */
+        ngz * ngz * ngz * nvars     /* cbuf corner */
     } ; 
 
     std::array<size_t,6> const elem_sizes_f {
-        (nx+1) * (nx+1) * ngz * nvars_f,
-        (nx+1) * ngz * ngz * nvars_f,
-        ngz * ngz * ngz * nvars_f,
-        (nx/2+1) * (nx/2+1) * ngz * nvars_f ,
-        (nx/2+1) * ngz * ngz * nvars_f ,
-        ngz * ngz * ngz * nvars_f
+        (nx+1) * (nx+1) * (ngz+1) * nvars_f,        /* face        */
+        (nx+1) * (ngz+1) * (ngz+1) * nvars_f,   /* edge        */
+        (ngz+1) * (ngz+1) * (ngz+1) * nvars_f,  /* corner      */
+        (nx/2+1) * (nx/2+1) * (ngz+1) * nvars_f ,   /* cbuf face   */
+        (nx/2+1) * (ngz+1) * (ngz+1) * nvars_f ,        /* cbuf edge   */
+        (ngz+1) * (ngz+1) * (ngz+1) * nvars_f               /* cbuf corner */
     } ; 
 
     std::array<std::array<size_t,6>,N_VAR_STAGGERINGS> elem_sizes ;
@@ -620,13 +620,13 @@ void amr_ghosts_impl_t::build_remote_buffers() {
 
     std::array<std::array<size_t,4>, N_VAR_STAGGERINGS> strides {{
         {{nx,nvars,ngz,nx/2}},
-        {{nx+1,nvars_f,ngz,nx/2+1}},
-        {{nx+1,nvars_f,ngz,nx/2+1}},
-        {{nx+1,nvars_f,ngz,nx/2+1}},
-        {{nx+1,nvars_f,ngz,nx/2+1}},
-        {{nx+1,nvars_f,ngz,nx/2+1}},
-        {{nx+1,nvars_f,ngz,nx/2+1}},
-        {{nx+1,nvars_f,ngz,nx/2+1}}
+        {{nx+1,nvars_f,ngz+1,nx/2+1}},
+        {{nx+1,nvars_f,ngz+1,nx/2+1}},
+        {{nx+1,nvars_f,ngz+1,nx/2+1}},
+        {{nx+1,nvars_f,ngz+1,nx/2+1}},
+        {{nx+1,nvars_f,ngz+1,nx/2+1}},
+        {{nx+1,nvars_f,ngz+1,nx/2+1}},
+        {{nx+1,nvars_f,ngz+1,nx/2+1}}
     }} ; 
 
     for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag) {

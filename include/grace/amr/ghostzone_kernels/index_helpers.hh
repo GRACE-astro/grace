@@ -123,23 +123,23 @@ void compute_phys_indices_edge(
         int y_off = (edge >> 0) & 1;
         int z_off = (edge >> 1) & 1;
         i_out = g + k;                          // varies
-        j_out = y_off ? ny + ig : g + sy + ig;   // fixed
-        k_out = z_off ? nz + jg : g + sz + jg;   // fixed
+        j_out = y_off ? ny + ig : g + ig;   // fixed
+        k_out = z_off ? nz + jg : g + jg;   // fixed
     }
     else if (edge < 8) {
         // Y-axis edges
         int x_off = (edge >> 0) & 1;
         int z_off = (edge >> 1) & 1;
-        i_out = x_off ? nx + ig : g + sx + ig;   // fixed
+        i_out = x_off ? nx + ig : g + ig;   // fixed
         j_out = g + k;                          // varies
-        k_out = z_off ? nz + jg : g + sz + jg;   // fixed
+        k_out = z_off ? nz + jg : g + jg;   // fixed
     }
     else {
         // Z-axis edges
         int x_off = (edge >> 0) & 1;
         int y_off = (edge >> 1) & 1;
-        i_out = x_off ? nx + ig : g + sx + ig;   // fixed
-        j_out = y_off ? ny + jg : g + sy + jg;   // fixed
+        i_out = x_off ? nx + ig : g + ig;   // fixed
+        j_out = y_off ? ny + jg : g + jg;   // fixed
         k_out = g + k;                          // varies
     }
 }
@@ -158,23 +158,23 @@ void compute_ghost_indices_edge(
         int y_off = (edge >> 0) & 1;
         int z_off = (edge >> 1) & 1;
         i_out = g + k;                      // varies
-        j_out = y_off ? ny + sy + g + ig : ig;   // fixed
-        k_out = z_off ? nz + sz + g + jg : jg;   // fixed
+        j_out = y_off ? ny + g + ig : ig;   // fixed
+        k_out = z_off ? nz + g + jg : jg;   // fixed
     }
     else if (edge < 8) {
         // Y-axis edges
         int x_off = (edge >> 0) & 1;
         int z_off = (edge >> 1) & 1;
-        i_out = x_off ? nx + sx + g + ig : ig;   // fixed
+        i_out = x_off ? nx + g + ig : ig;   // fixed
         j_out = g + k;                      // varies
-        k_out = z_off ? nz + sz + g + jg : jg;   // fixed
+        k_out = z_off ? nz + g + jg : jg;   // fixed
     }
     else {
         // Z-axis edges
         int x_off = (edge >> 0) & 1;
         int y_off = (edge >> 1) & 1;
-        i_out = x_off ? nx + sx + g + ig : ig;   // fixed
-        j_out = y_off ? ny + sy + g + jg : jg;   // fixed
+        i_out = x_off ? nx + g + ig : ig;   // fixed
+        j_out = y_off ? ny + g + jg : jg;   // fixed
         k_out = g + k;                      // varies
     }
 }
@@ -192,9 +192,9 @@ void compute_phys_indices_corner(
     int y_off = (corner >> 1) & 1 ; 
     int z_off = (corner >> 2) & 1 ; 
 
-    i_out = x_off ? nx + i  : g + sx + i ; 
-    j_out = y_off ? ny + j  : g + sy + j ; 
-    k_out = z_off ? nz + k  : g + sz + k ; 
+    i_out = x_off ? nx + i  : g + i ; 
+    j_out = y_off ? ny + j  : g + j ; 
+    k_out = z_off ? nz + k  : g + k ; 
 }
 
 KOKKOS_INLINE_FUNCTION 
@@ -210,9 +210,9 @@ void compute_ghost_indices_corner(
     int y_off = (corner >> 1) & 1 ; 
     int z_off = (corner >> 2) & 1 ; 
 
-    i_out = x_off ? nx + sx + g + i :  i ; 
-    j_out = y_off ? ny + sy + g + j :  j ; 
-    k_out = z_off ? nz + sz + g + k :  k ; 
+    i_out = x_off ? nx + g + i :  i ; 
+    j_out = y_off ? ny + g + j :  j ; 
+    k_out = z_off ? nz + g + k :  k ; 
 }
 
 struct index_transformer_t {

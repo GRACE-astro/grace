@@ -136,9 +136,10 @@ gpu_task_t make_pack_task(
     } ; 
 
     int off = (stag == STAG_CENTER ? 0 : 1) ; 
+    int gz_off = (elem_kind == amr::FACE) ? 0 : off ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
     pack_policy{
-        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx+off,nv,sb.size())
+        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz+gz_off,nx+off,nv,sb.size())
     } ; 
     
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
@@ -217,10 +218,11 @@ gpu_task_t make_pack_fine_task(
         data, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank, stag
     } ; 
 
-    int off = (stag == STAG_CENTER ? 0 : 1) ; 
+    int off = (stag == STAG_CENTER ? 0 : 1) ;
+    int gz_off = (elem_kind == amr::FACE) ? 0 : off ;  
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
     pack_policy{
-        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx+off,nv,sb.size())
+        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz+gz_off,nx+off,nv,sb.size())
     } ; 
     
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
@@ -431,9 +433,10 @@ gpu_task_t make_unpack_task(
         recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_elem, VEC(nx,ny,nz), ngz, nv, rank, stag
     } ; 
     int off = (stag == STAG_CENTER ? 0 : 1) ; 
+    int gz_off = (elem_kind == amr::FACE) ? 0 : off ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
     unpack_policy{
-        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx+off,nv,rb.size())
+        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz+gz_off,nx+off,nv,rb.size())
     } ; 
     
     unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {
