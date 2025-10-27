@@ -35,7 +35,48 @@
 
 #define C2P_TOLERANCE 1e-10
 #define SQR(a) (a)*(a)
+
+#define BETA_FLOOR 1e-4
 namespace grace {
+
+template < typename eos_t > 
+static void KOKKOS_FUNCTION 
+limit_primitives(
+  grmhd_prims_array_t& prims,
+  eos_t const& eos,
+  metric_array_t const& metric,
+  atmo_params_t atmo_params,
+  bool& recompute_cons,
+  bool& adjust_tau,
+  bool& adjust_s 
+)
+{
+  // compute plasma beta 
+  std::array<double,4> smallb ; 
+  // NB here we assume that v == vZAMO 
+  double const v2 = metric.square_vec({prims[VXL],prims[VYL],prims[VZL]}) ; 
+  double const W  = 1./Kokkos::sqrt(1-v2) ; 
+  double const u0 = W / metric.alp();
+  std::array<double,3> const ui = { 
+        (metric.alp() * prims[VXL] - metric.beta(0)) * u0,
+        (metric.alp() * prims[VYL] - metric.beta(1)) * u0,
+        (metric.alp() * prims[VZL] - metric.beta(2)) * u0,
+  } ; 
+  smallb[0] = metric.contract_vec_vec({prims[VXL],prims[VYL],prims[VZL]},{prims[BXL],prims[BYL],prims[BZL]}) * u0 ; 
+  for( int i=0; i<3; ++i) {
+      smallb[i+1] = (prims[BXL+i] + metric.alp() * smallb[0] * ui[i])/W ; 
+  }
+  double b2 = ( metric.square_vec({prims[BXL],prims[BYL],prims[BZL]}) + metric.alp()*metric.alp()* smallb[0] * smallb[0] ) / W / W ; 
+  
+  if ( prims[PRESSL] < 0.5 * BETA_FLOOR * b2) {
+    adjust_s = adjust_tau = true ; 
+    prims[PRESSL] = 1.001 * 0.5 * BETA_FLOOR * b2 ; 
+    double h, csnd2 ; 
+    unsigned int err ; 
+    prims[EPSL] = eos.eps_h_csnd2_temp_entropy__press_rho_ye(h,csnd2, prims[TEMPL], prims[ENTL], prims[PRESSL],prims[RHOL],prims[YEL],err) ; 
+  }
+
+}
 
 template< typename eos_t >
 void GRACE_HOST_DEVICE
@@ -52,7 +93,7 @@ conservs_to_prims( grmhd_cons_array_t& cons
 
     bool recompute_cons{false}, adjust_tau{false}, adjust_s{false} ; 
     unsigned int err ;
-    bool c2p_failed{ false }             ;
+    bool c2p_failed{ false }, is_atmo{false}            ;
     double W                             ;
     /* Undensitize conservs */
     for( auto& c: cons) c /= metric.sqrtg() ;
@@ -103,7 +144,8 @@ conservs_to_prims( grmhd_cons_array_t& cons
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
         
-	      recompute_cons = true ; 
+	      recompute_cons = true ;
+        is_atmo = true ; 
     }
 
     /* Set pressure entropy and temperature */
@@ -126,8 +168,12 @@ conservs_to_prims( grmhd_cons_array_t& cons
         prims[VZL]   = 0. ;
         prims[PRESSL] = eos.press__eps_rho_ye(prims[EPSL],prims[RHOL],prims[YEL],err);
         recompute_cons = true ; 
+        is_atmo = true ; 
     }
 
+    if ( ! is_atmo ) {
+      limit_primitives(prims,eos,metric,atmo_params,recompute_cons,adjust_tau,adjust_s) ; 
+    }
 
     /* The 3-velocity in grace is not in the */
     /* ZAMO frame.                           */

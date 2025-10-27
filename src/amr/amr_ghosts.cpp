@@ -280,9 +280,9 @@ void amr_ghosts_impl_t::build_task_list(
     // First decide on streams 
     auto& stream_pool = device_stream_pool::get();
     auto& copy_stream = stream_pool.next() ; 
-    auto& pup_stream = stream_pool.next() ; 
-    auto& phys_bc_stream = stream_pool.next() ; 
-    auto& interp_stream = stream_pool.next() ; 
+    auto& pup_stream = ( stag == STAG_CENTER ? stream_pool.next() : copy_stream ) ; 
+    auto& phys_bc_stream = ( stag == STAG_CENTER ? stream_pool.next() : copy_stream ) ; 
+    auto& interp_stream = ( stag == STAG_CENTER ? stream_pool.next() : copy_stream ) ; 
     /***********************************************************************/
     /***********************************************************************/
     task_id_t restrict_tid{UNSET_TASK_ID}; 
