@@ -63,6 +63,10 @@ struct excision_params_t {
     bool excise_by_radius ; //!< Whether excision is radius based (CKS) or alpha based.
 } ; 
 
+struct c2p_solver_t {
+    
+} ; 
+
 /**
  * @brief Convert conservative variables to primitive ones.
  * 

@@ -74,6 +74,7 @@ struct grhd_c2p_t {
             Kokkos::sqrt(conservs[STXL]*StildeU[0] + conservs[STYL]*StildeU[1] + conservs[STZL]*StildeU[2] ) ; 
         conservs[TAUL] = math::max(0, conservs[TAUL]) ;
         D  = conservs[DENSL] ; 
+        S_adjusted = false ; 
         /* Acausal momentum */
         if ( StildeNorm > D+conservs[TAUL] ) {
             double const fact = 0.9999*(D+conservs[TAUL]) ; 
@@ -82,7 +83,7 @@ struct grhd_c2p_t {
             conservs[STZL] *= fact/StildeNorm  ;
             StildeU = metric.raise({conservs[STXL],conservs[STYL],conservs[STZL]}) ; 
             StildeNorm = fact ; 
-            //    Kokkos::sqrt(conservs[STXL]*StildeU[0] + conservs[STYL]*StildeU[1] + conservs[STZL]*StildeU[2] ) ; 
+            S_adjusted = true ; 
         } 
         ye = conservs[YESL] / D ;
         q  = conservs[TAUL] / D ; 
@@ -104,7 +105,7 @@ struct grhd_c2p_t {
      * the relevant metric components to the velocity.
      */
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims) {
+    invert(grmhd_prims_array_t& prims, bool& adjust_tau) {
 
         auto const func = [&] (double const& zeta) {
             return zeta - r / htilde(zeta) ; 
@@ -120,20 +121,26 @@ struct grhd_c2p_t {
         double epsmin, epsmax; 
         unsigned int err ;
         eos.eps_range__rho_ye(epsmin,epsmax,prims[RHOL],prims[YEL],err) ; 
-        prims[EPSL]   = math::min( epsmax
-                                 , math::max( epsmin
-                                            , epstilde(W,zeta) ) ) ; 
+        adjust_tau = false ; 
+        double eps = epstilde(W,zeta) ; 
+        if ( eps > epsmax ) {
+            adjust_tau  = true ; 
+            eps = 0.999 * epsmax ; 
+        } else if ( eps < epsmin ) {
+            adjust_tau = true ; 
+            eps = 1.001 * epsmin ; 
+        }
+        prims[EPSL]   = eps ;  
         prims[PRESSL] = W ; 
         double const h = htilde(zeta) ; 
         prims[VXL] = StildeU[0] / D / h / W; 
         prims[VYL] = StildeU[1] / D / h / W; 
         prims[VZL] = StildeU[2] / D / h / W; 
-        prims[BXL] = 0 ; 
-        prims[BYL] = 0 ; 
-        prims[BZL] = 0 ; 
+         
         return func(zeta) ; 
     }
-    
+    //! Adjust momentum? 
+    bool S_adjusted ; 
  private:
     //! Equation of state
     eos_t const& eos ; 
@@ -151,6 +158,7 @@ struct grhd_c2p_t {
     double k  ; 
     //! Momentum with upper indices 
     std::array<double,3> StildeU ; 
+    
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     Wtilde(double const& z) const {

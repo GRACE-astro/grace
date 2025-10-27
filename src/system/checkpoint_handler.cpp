@@ -172,8 +172,8 @@ void write_data_hdf5(
 
     herr_t err ; 
 
-    static constexpr unsigned int chunk_size = 128 ; 
-    static constexpr unsigned int compression_level = 6 ;
+    static constexpr unsigned int chunk_size = 4096 ; 
+    //static constexpr unsigned int compression_level = 6 ;
     auto rank = parallel::mpi_comm_rank() ; 
     /* Get the p4est pointer */
     auto _p4est = amr::forest::get().get() ; 
@@ -196,9 +196,10 @@ void write_data_hdf5(
     /* Dataset properties */
     hid_t prop_id ; 
     HDF5_CALL(prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
-    hsize_t chunk_dim[1] = {chunk_size} ;
-    HDF5_CALL(err, H5Pset_chunk(prop_id,1,chunk_dim)) ; 
-    HDF5_CALL(err, H5Pset_deflate(prop_id, compression_level)) ;  
+    //hsize_t chunk_dim[1] = {chunk_size} ;
+    //HDF5_CALL(err, H5Pset_chunk(prop_id,1,chunk_dim)) ; 
+    //HDF5_CALL(err, H5Pset_deflate(prop_id, compression_level)) ;
+    HDF5_CALL(err,H5Pset_layout(prop_id, H5D_CONTIGUOUS));
     /* Create local space for this rank */
     hid_t space_id ; 
     hsize_t dset_dims[1] = {dim_loc} ;

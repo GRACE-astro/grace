@@ -198,8 +198,8 @@ struct fmtorus_id_t {
         }
         
         
-        double  rho = rho_bg;
-        double  pgas = pgas_bg;
+        double  rho = 0.0;
+        double  pgas = 0.0;
         double  uu1 = 0.0;
         double  uu2 = 0.0;
         double  uu3 = 0.0;
@@ -240,8 +240,13 @@ struct fmtorus_id_t {
         id.vy = uu2 ; 
         id.vz = uu3 ; 
 
-        id.rho = fmax(rho,rho_bg) ; 
-        id.press = fmax(pgas,pgas_bg) * (1.0 + perturbation) ; 
+        id.rho = rho ; 
+        id.press = pgas * ( 1. + perturbation ) ;
+
+	if ( ( rho < rho_bg * (1 + 1e-3) ) or ( pgas < pgas_bg * ( 1 + 1e-3 ) ) ) {
+	  id.rho = rho_bg; id.press = pgas_bg;
+	  id.vx  = id.vy = id.vz = 0 ; 
+	}
 
         id.ye = 0 ; 
         return id ;

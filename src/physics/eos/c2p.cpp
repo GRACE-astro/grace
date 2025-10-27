@@ -47,8 +47,10 @@ conservs_to_prims( grmhd_cons_array_t& cons
                  , atmo_params_t atmo_params
                  , excision_params_t excision_params ) 
 {
-  using c2p_impl_t = kastaun_c2p_t<eos_t> ;
-  //using c2p_impl_t = grhd_c2p_t<eos_t> ; 
+    using mhd_c2p_impl_t = kastaun_c2p_t<eos_t> ;
+    using hd_c2p_impl_t = grhd_c2p_t<eos_t> ;
+
+    bool recompute_cons{false}, adjust_tau{false}, adjust_s{false} ; 
     unsigned int err ;
     bool c2p_failed{ false }             ;
     double W                             ;
@@ -64,12 +66,22 @@ conservs_to_prims( grmhd_cons_array_t& cons
     double dens_atmo = atmo_params.rho_fl * Kokkos::pow(r,atmo_params.rho_fl_scaling) ; 
     double temp_atmo = atmo_params.temp_fl * Kokkos::pow(r,atmo_params.temp_fl_scaling) ;
     
-    
+    prims[BXL] = cons[BSXL] ; 
+    prims[BYL] = cons[BSYL] ; 
+    prims[BZL] = cons[BSZL] ;
+
     if( cons[DENSL] > dens_atmo ) {
-        c2p_impl_t c2p(eos,metric,cons) ;
-        double residual = c2p.invert(prims) ;
+        double const B2 = metric.square_vec({cons[BSXL],cons[BSYL], cons[BSZL]}) ; 
+        double residual = 100 ; 
+        if ( B2 / cons[DENSL] > 1e-15 ) {
+          mhd_c2p_impl_t c2p(eos,metric,cons) ;
+          residual = c2p.invert(prims,adjust_tau) ;
+        } else {
+          hd_c2p_impl_t c2p(eos,metric,cons) ;
+          residual = c2p.invert(prims,adjust_tau) ;
+          adjust_s = c2p.S_adjusted ; 
+        }
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
-        W = prims[PRESSL] ; // W was stored here for convenience        
     } else {
         c2p_failed = true ;
     }
@@ -91,7 +103,7 @@ conservs_to_prims( grmhd_cons_array_t& cons
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
         
-        W = 1. ;
+	      recompute_cons = true ; 
     }
 
     /* Set pressure entropy and temperature */
@@ -112,19 +124,36 @@ conservs_to_prims( grmhd_cons_array_t& cons
         prims[VXL]   = 0. ;
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
+        prims[PRESSL] = eos.press__eps_rho_ye(prims[EPSL],prims[RHOL],prims[YEL],err);
+        recompute_cons = true ; 
     }
 
-    /* Go from z-vec to velocity and remove */
-    /* shift contribution.                  */
-    double const u0 = W / metric.alp() ;
+
     /* The 3-velocity in grace is not in the */
     /* ZAMO frame.                           */
     prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;
     prims[VYL] = metric.alp()*prims[VYL] - metric.beta(1) ;
     prims[VZL] = metric.alp()*prims[VZL] - metric.beta(2) ;
+    /* re-densitize conservs */
+    for(auto& c: cons) c*=metric.sqrtg() ; 
     /* Re-compute conservative variables based  */
-    /* on new primitives.                       */
-    prims_to_conservs(prims,cons,metric) ;
+    /* on new primitives, if needed.            */
+    if (recompute_cons)
+      prims_to_conservs(prims,cons,metric) ;
+    if (adjust_tau) {
+      grmhd_cons_array_t local_cons ;
+      prims_to_conservs(prims,local_cons,metric) ;
+      cons[TAUL] = local_cons[TAUL] ; 
+    }
+    if (adjust_s) {
+      grmhd_cons_array_t local_cons ;
+      prims_to_conservs(prims,local_cons,metric) ;
+      cons[STXL] = local_cons[STXL] ; 
+      cons[STYL] = local_cons[STYL] ; 
+      cons[STZL] = local_cons[STZL] ; 
+    }
+    // no matter what, we reset the entropy 
+    cons[ENTSL] = cons[DENSL] * prims[ENTL] ; 
 }
 
 void GRACE_HOST_DEVICE

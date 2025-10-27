@@ -48,7 +48,7 @@ namespace grace {
       
       ye = conservs[YESL] / D ;
 
-      v02 = fmin(1.0-1e-5, r2 / (h0*h0 + r2 )) ;
+      v02 = fmin(0.995, r2 / (h0*h0 + r2 )) ;
     }
 
     /**
@@ -65,16 +65,13 @@ namespace grace {
      * the relevant metric components to the velocity.
      */
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims) {
+    invert(grmhd_prims_array_t& prims, bool& adjust_tau) {
 
       prims[YEL] = ye ;
-      prims[BXL] = Btilde[0] * sqrt(D) ;
-      prims[BYL] = Btilde[1] * sqrt(D) ;
-      prims[BZL] = Btilde[2] * sqrt(D) ;
 
       static constexpr double tolerance = 1e-15 ; 
       auto const fa = [this] (double mu) { return this->fa__mu(mu) ; };
-      double mu0 = sqrt(r2) < h0 ? 1./h0 : 1e-12 + utils::brent(fa, 0, 1./h0, tolerance) ;
+      double mu0 = sqrt(r2) < h0 ? 1./h0 : 1e-15 + utils::brent(fa, 0, 1./h0, tolerance) ;
 
       auto const fmu = [this] (double mu) {return this->f__mu(mu);};
       double mu = utils::brent(fmu, 0, mu0, tolerance) ; 
@@ -86,8 +83,16 @@ namespace grace {
       double epsmin,epsmax;
       unsigned int err ;
       eos.eps_range__rho_ye(epsmin,epsmax,rhohat,yel,err);
-      eps = fmax(epsmin,fmin(epsmax,eps)) ;
-      
+      adjust_tau = false ;
+      // check eps range 
+      if ( eps < epsmin ) {
+        adjust_tau = true ;
+        eps = epsmin * 1.0001 ;
+      } else if ( eps > epsmax ) {
+        adjust_tau = true ;
+        eps= 0.9999 * epsmax ;  
+      }
+            
       prims[RHOL] = rhohat ;
       prims[EPSL] = eps ;
 

@@ -48,7 +48,7 @@
 #include <Kokkos_Core.hpp>
 
 #include <type_traits>
-
+//#define GRMHD_USE_PPLIM
 //**************************************************************************************************/
 /**
  * \defgroup physics Physics Modules.
@@ -1014,8 +1014,9 @@ struct grmhd_equations_system_t
         /***********************************************************************/ 
         /*                      Compute LLF flux                               */
         /***********************************************************************/
-        grmhd_cons_array_t f_LLF ;  
-        compute_mhd_fluxes<idir,riemann_t,false>( primL, primR, metric_face, f_LLF, 1., 1.) ;
+        grmhd_cons_array_t f_LLF ;
+	std::array<double,4> dummy ; 
+        compute_mhd_fluxes<idir,riemann_t,false>( primL, primR, metric_face, f_LLF, dummy, 1., 1.) ;
         /***********************************************************************/
         // Get conserves 
         grmhd_cons_array_t consL, consR ;
@@ -1029,7 +1030,7 @@ struct grmhd_equations_system_t
         // Mix fluxes 
         double const a2CFL = 6. * (dt*dtfact/dx(idir,q)) ; 
         double theta = 1 ; 
-        double rho_atm = _eos.rho_atmosphere() ; 
+        double rho_atm = 1e-6 ; //FIXME //_eos.rho_atmosphere() ; 
         
         double const dens_min_r = rho_atm * metric_r.sqrtg() ; 
         double const dens_min_l = rho_atm * metric_l.sqrtg() ; 
@@ -1067,12 +1068,6 @@ struct grmhd_equations_system_t
                                                + (1. - theta) * f_LLF[STYL] ; 
         fluxes(VEC(i,j,k),SZ_,idir,q)          = theta * f_HLL[STZL]    
                                                + (1. - theta) * f_LLF[STZL] ; 
-        fluxes(VEC(i,j,k),ENTROPYSTAR_+1,idir,q)          = theta * f_HLL[BSXL]    
-                                               + (1. - theta) * f_LLF[BSXL] ; 
-        fluxes(VEC(i,j,k),ENTROPYSTAR_+2,idir,q)          = theta * f_HLL[BSYL]    
-                                               + (1. - theta) * f_LLF[BSYL] ; 
-        fluxes(VEC(i,j,k),ENTROPYSTAR_+3,idir,q)          = theta * f_HLL[BSZL]    
-                                               + (1. - theta) * f_LLF[BSZL] ; 
         /***********************************************************************/
         #else 
         /***********************************************************************/
@@ -1083,13 +1078,13 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[STXL] ; 
         fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL] ; 
         fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ;
-        // fill vbar and cmin/max for later
+        /***********************************************************************/
+        #endif
+	// fill vbar and cmin/max for later
         vbar(VEC(i,j,k),0,idir,q) = vb_HLL[0] ; 
         vbar(VEC(i,j,k),1,idir,q) = vb_HLL[1] ; 
         vbar(VEC(i,j,k),2,idir,q) = vb_HLL[2] ; 
         vbar(VEC(i,j,k),3,idir,q) = vb_HLL[3] ; 
-        /***********************************************************************/
-        #endif 
     }
 
     template< size_t idir
