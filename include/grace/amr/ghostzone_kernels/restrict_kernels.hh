@@ -86,6 +86,64 @@ struct restrict_op {
 
 } ; 
 
+// NOTE: ghostzone restrict fills the data on the face 
+// of the cbuf. So here we would not need to in principle.
+// However we still do since copy_to_cbuf does not. Anyway 
+// it should not matter as this data is never used in practice.
+// in conclusion --> stagger loop in one direction! 
+// Since we separate staggerings here we can just specialize 
+// the loop to have the right dimensions and we do **NOT** need 
+// a range check ( remember these are interior loops ).
+template< int stag_dir, typename view_t > 
+struct div_free_restrict_op {
+
+    view_t src_view, dest_view ; 
+    readonly_view_t<size_t> src_q, dest_q ; 
+    size_t ngz ;
+
+    div_free_restrict_op(
+        view_t _src_view, view_t _dest_view,
+        Kokkos::View<size_t*> _src_q, 
+        Kokkos::View<size_t*> _dest_q, 
+        size_t _ngz
+    ) : src_view(_src_view)
+      , dest_view(_dest_view)
+      , src_q(_src_q)
+      , dest_q(_dest_q)
+      , ngz(_ngz)
+    {}
+
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {
+        src_view = alias.get<stag>() ; 
+    }
+    // here it is assumed that the loop is staggered
+    KOKKOS_INLINE_FUNCTION
+    void operator() (size_t i, size_t j, size_t k, size_t iv, size_t iq) const 
+    {
+        auto src_qid = src_q(iq) ; 
+        auto dst_qid = dest_q(iq) ; 
+
+        int sx = stag_dir == 0 ? 0 : 1 ; 
+        int sy = stag_dir == 1 ? 0 : 1 ; 
+        int sz = stag_dir == 2 ? 0 : 1 ; 
+
+        double val = 0 ; 
+        for( int ii=0; ii<=sx; ++ ii ) {
+            for( int jj=0; jj<=sy; ++jj ) {
+                for(int kk=0; kk<=sz; ++kk) {
+                    val += src_view(2*i+ngz+ii,2*j+ngz+jj,2*k+ngz+kk,iv,src_qid) ; 
+                }
+            }
+        }
+
+        dest_view(i+ngz,j+ngz,k+ngz,iv,dst_qid) = 0.25 * val ; 
+    }
+
+
+} ; 
+
 template<element_kind_t elem_kind>
 struct ghost_restrict_tag_t {} ; 
 using ghost_restrict_face_tag   = ghost_restrict_tag_t<FACE>   ; 
@@ -234,6 +292,243 @@ struct ghost_restrict_op {
                 data(i_f     ,j_f+s[1],k_f+s[2],iv,q_id) +
                 data(i_f+s[0],j_f+s[1],k_f+s[2],iv,q_id) 
             ) ; 
+        }
+         
+    }
+
+} ; 
+
+/**
+ * @brief Restrict inside ghostzones.
+ * 
+ * @tparam view_t Type of data array.
+ */
+template<  int stag_dir, typename view_t > 
+struct div_free_ghost_restrict_op {
+
+    view_t data, cbuf ; //!< Data and coarse buffer arrays.
+    readonly_view_t<size_t> qid, cbuf_id ; //!< Data and coarse buffer quad-ids 
+    readonly_view_t<uint8_t> elem_id ; //!< Element ids
+
+    prolong_index_transformer_t transf ;  //!< Index transformations
+    
+    div_free_ghost_restrict_op(
+        view_t _data, view_t _cbuf,
+        Kokkos::View<size_t*> _qid, 
+        Kokkos::View<size_t*> _cbuf_id,
+        Kokkos::View<uint8_t*> _eid,  
+        size_t n, size_t _ngz, var_staggering_t stag
+    ) : data(_data)
+      , cbuf(_cbuf)
+      , qid(_qid)
+      , cbuf_id(_cbuf_id)
+      , elem_id(_eid)
+      , transf(n,_ngz,stag)
+    {}
+
+    // range check: all the non-gz loops are extended by 
+    // 1 since they need to apply to all face/edge orientation.
+    // we need to check if we are in range before writing
+    // NOTE: the following function assumes that transf has full
+    // n and not n/2.. therefore it must be compared with i_f... not i_c...
+    template< element_kind_t elem_kind >
+    KOKKOS_INLINE_FUNCTION
+    bool in_range(size_t i, size_t j, size_t k, int8_t ie) const {
+        
+        size_t nx  = transf.n + (stag_dir==0) ; 
+        size_t ny  = transf.n + (stag_dir==1) ; 
+        size_t nz  = transf.n + (stag_dir==2) ;
+        size_t ngz = transf.g ;
+        if constexpr ( elem_kind == FACE ) {
+            const int axis = ie / 2;
+            if ( axis == 0 ) { // across X - face
+                return (j >= ngz and j<ny+ngz) and ( k>=ngz and k<nz+ngz) ; 
+            } else if ( axis == 1 ) {
+                return (i>=ngz and i<nx+ngz) and (k>=ngz and k<nz+ngz) ;
+            } else {
+                return (i>=ngz and i<nx+ngz) and (j>=ngz and j<ny+ngz) ; 
+            }
+        } else if constexpr ( elem_kind == EDGE ) {
+            if ( ie < 4 ) {
+                return (i>=ngz and i<nx+ngz) ; 
+            } else if ( ie < 8 ) {
+                return (j>=ngz and j<ny+ngz) ;
+            } else {
+                return (k>=ngz and k<nz+ngz) ;
+            }
+        } 
+        return true ; 
+        
+    }
+
+    // Note that the loops in the GZ for fields 
+    // whose staggering aligns with the loop 
+    // direction are extended by 1. this is needed
+    // since the limited slopes in the prolongation 
+    // have a stencil of +- 1 in each direction 
+    // orthogonal to the staggering. For this reason 
+    // in the prolongation index transformer the staggering 
+    // acts in the opposite way as the normal index transf. 
+    // Instead of shifting up in the upper gz it shifts down
+    // in the lower ones. 
+
+    template< var_staggering_t stag >
+    void set_data_ptr(view_alias_t alias) 
+    {
+        data = alias.get<stag>() ; 
+    }
+    // runs to n/2 n/2 
+    KOKKOS_INLINE_FUNCTION
+    void operator() (ghost_restrict_face_tag,  size_t j, size_t k, size_t iv, size_t iq) const 
+    {
+        auto q_id = qid(iq) ; 
+        auto c_id = cbuf_id(iq) ; 
+
+        auto e_id = elem_id(iq) ;
+        auto _data = data ;
+        // this provides the stencil sign 
+        int s[3] ; 
+        transf.get_stencil<FACE>(s, e_id) ; 
+
+        s[0] = stag_dir == 0 ? 0 : s[0] ; 
+        s[1] = stag_dir == 1 ? 0 : s[1] ; 
+        s[2] = stag_dir == 2 ? 0 : s[2] ; 
+
+        // if we are filling within a face 
+        // fields staggered in that face 
+        // the loop below has to go to ng/2 + 1 
+        int orientation = (e_id/2) ; 
+        int loop_stag = (stag_dir == orientation) ;
+
+
+        auto const compute_restricted_val = [=] (size_t i_f, size_t j_f, size_t k_f)
+        {
+            double val = 0 ; 
+            for( int ii=0; ii<=(stag_dir!=0); ++ ii ) {
+                for( int jj=0; jj<=(stag_dir!=1); ++jj ) {
+                    for(int kk=0; kk<=(stag_dir!=2); ++kk) {
+                        val += _data(i_f+ii*s[0],j_f+jj*s[1],k_f+kk*s[2],iv,q_id) ; 
+                    }
+                }
+            }
+            return 0.25 * val ;
+        } ; 
+        // loop in the ghostzones, only ngz/2 ( + 1, see above )
+        for( int i=0; i<transf.g/2+loop_stag; ++i) {
+            size_t i_c, j_c, k_c ; 
+            transf.compute_indices<FACE>(
+                i,j,k, i_c,j_c,k_c, e_id, true  
+            ) ; 
+            size_t i_f, j_f, k_f ; 
+            transf.compute_indices<FACE>(
+                2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
+            ) ; 
+            if ( in_range<FACE>(i_f,j_f,k_f,e_id) ) 
+                cbuf(i_c,j_c,k_c,iv,c_id) = compute_restricted_val(i_f,j_f,k_f) ; 
+        }
+         
+    }
+    #if 1
+    // runs to ng/2 n/2 
+    KOKKOS_INLINE_FUNCTION
+    void operator() (ghost_restrict_edge_tag, size_t k, size_t iv, size_t iq) const 
+    {
+        auto q_id = qid(iq) ; 
+        auto c_id = cbuf_id(iq) ; 
+
+        auto e_id = elem_id(iq) ;
+        auto _data = data ;
+        int s[3] ; 
+        transf.get_stencil<EDGE>(s, e_id) ; 
+        s[0] = stag_dir == 0 ? 0 : s[0] ; 
+        s[1] = stag_dir == 1 ? 0 : s[1] ; 
+        s[2] = stag_dir == 2 ? 0 : s[2] ; 
+
+        auto const compute_restricted_val = [=] (size_t i_f, size_t j_f, size_t k_f)
+        {
+            double val = 0 ; 
+            for( int ii=0; ii<=(stag_dir!=0); ++ ii ) {
+                for( int jj=0; jj<=(stag_dir!=1); ++jj ) {
+                    for(int kk=0; kk<=(stag_dir!=2); ++kk) {
+                        val += _data(i_f+ii*s[0],j_f+jj*s[1],k_f+kk*s[2],iv,q_id) ; 
+                    }
+                }
+            }
+            return 0.25 * val ;
+        } ; 
+
+        int edge_dir = (e_id < 4) ? 0 : ((e_id < 8) ? 1 : 2);
+
+        // Determine transverse directions in lexicographic order
+        int i_dir, j_dir;
+        if (edge_dir == 0) { i_dir = 1; j_dir = 2; }     // edge along x
+        else if (edge_dir == 1) { i_dir = 0; j_dir = 2; } // edge along y
+        else { i_dir = 0; j_dir = 1; }                    // edge along z
+
+        // Decide how to extend loops
+        int stag_i = (stag_dir == i_dir) ? 1 : 0;
+        int stag_j = (stag_dir == j_dir) ? 1 : 0;
+
+        // only ngz/2
+        for( int j=0; j<transf.g/2+stag_j; ++j) 
+        for( int i=0; i<transf.g/2+stag_i; ++i) {
+            size_t i_c, j_c, k_c ; 
+            transf.compute_indices<EDGE>(
+                i,j,k, i_c,j_c,k_c, e_id, true  
+            ) ; 
+            size_t i_f, j_f, k_f ; 
+            transf.compute_indices<EDGE>(
+                2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
+            ) ; 
+            if ( in_range<EDGE>(i_f,j_f,k_f,e_id) ) 
+                cbuf(i_c,j_c,k_c,iv,c_id) = compute_restricted_val(i_f,j_f,k_f) ; 
+        }
+         
+    }
+    #endif 
+    // runs to ng/2 n/2 
+    KOKKOS_INLINE_FUNCTION
+    void operator() (ghost_restrict_corner_tag, size_t iv, size_t iq) const 
+    {
+        auto q_id = qid(iq) ; 
+        auto c_id = cbuf_id(iq) ; 
+
+        auto e_id = elem_id(iq) ;
+        auto _data = data ; 
+
+        int s[3] ; 
+        transf.get_stencil<CORNER>(s, e_id) ; 
+        s[0] = stag_dir == 0 ? 0 : s[0] ; 
+        s[1] = stag_dir == 1 ? 0 : s[1] ; 
+        s[2] = stag_dir == 2 ? 0 : s[2] ; 
+        
+        auto const compute_restricted_val = [=] (size_t i_f, size_t j_f, size_t k_f)
+        {
+            double val = 0 ; 
+            for( int ii=0; ii<=(stag_dir!=0); ++ ii ) {
+                for( int jj=0; jj<=(stag_dir!=1); ++jj ) {
+                    for(int kk=0; kk<=(stag_dir!=2); ++kk) {
+                        val += _data(i_f+ii*s[0],j_f+jj*s[1],k_f+kk*s[2],iv,q_id) ; 
+                    }
+                }
+            }
+            return 0.25 * val ;
+        } ; 
+
+        // only ngz/2
+        for( int k=0; k<transf.g/2+(stag_dir==2); ++k) 
+        for( int j=0; j<transf.g/2+(stag_dir==1); ++j) 
+        for( int i=0; i<transf.g/2+(stag_dir==0); ++i)  {
+            size_t i_c, j_c, k_c ; 
+            transf.compute_indices<CORNER>(
+                i,j,k, i_c,j_c,k_c, e_id, true  
+            ) ; 
+            size_t i_f, j_f, k_f ; 
+            transf.compute_indices<CORNER>(
+                2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
+            ) ; 
+            // corner: always in range
+            cbuf(i_c,j_c,k_c,iv,c_id) = compute_restricted_val(i_f,j_f,k_f) ; 
         }
          
     }

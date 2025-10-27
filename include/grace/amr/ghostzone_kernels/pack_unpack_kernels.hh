@@ -115,7 +115,7 @@ struct pack_op {
                 bool gz_in_range2 = side2 ? j < ny + ngz : j < 2*ngz + transf.sy ;
                 return (k>=ngz and k<nz+ngz) and gz_in_range1 and gz_in_range2 ;
             }
-        }  else {
+        } else {
             int side1 = ((ie>>0)&1) ; 
             int side2 = ((ie>>1)&1) ; 
             int side3 = ((ie>>2)&1) ; 
@@ -292,16 +292,58 @@ struct pack_to_cbuf_op {
         Kokkos::View<size_t*> _ghost_qid,
         Kokkos::View<uint8_t*> _src_elem,  
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
-        std::size_t _ngz, std::size_t _nvars, std::size_t _rank 
+        std::size_t _ngz, std::size_t _nvars, std::size_t _rank, var_staggering_t stag
     ) : cbuf(_view)
       , ghost_view(_ghost_view)
       , cbuf_qid(_cbuf_qid)
       , ghost_qid(_ghost_qid)
       , src_elem_view(_src_elem)
       , rank(_rank)
-      , transf(VEC(_nx,_ny,_nz),_ngz)
+      , transf(VEC(_nx,_ny,_nz),_ngz,stag)
     { } 
 
+    KOKKOS_INLINE_FUNCTION
+    bool in_range(size_t i, size_t j, size_t k, int8_t ie) const {
+        
+        size_t nx  = transf.nx/2 + transf.sx ; 
+        size_t ny  = transf.ny/2 + transf.sy ; 
+        size_t nz  = transf.nz/2 + transf.sz ;
+        size_t ngz = transf.ngz ;
+        if constexpr ( elem_kind == FACE ) {
+            const int axis = ie / 2;
+            if ( axis == 0 ) { // across X - face
+                return (j >= ngz and j<ny+ngz) and ( k>=ngz and k<nz+ngz) ; 
+            } else if ( axis == 1 ) {
+                return (i>=ngz and i<nx+ngz) and (k>=ngz and k<nz+ngz) ;
+            } else {
+                return (i>=ngz and i<nx+ngz) and (j>=ngz and j<ny+ngz) ; 
+            }
+        } else if constexpr ( elem_kind == EDGE ) {
+            int side1 = (ie>>0)&1 ; 
+            int side2 = (ie>>1)&1 ; 
+            if ( ie < 4 ) {
+                bool gz_in_range1 = side1 ? j < ny + ngz : j < 2*ngz + transf.sy ;
+                bool gz_in_range2 = side2 ? k < nz + ngz : k < 2*ngz + transf.sz ;
+                return (i>=ngz and i<nx+ngz) and gz_in_range1 and gz_in_range2 ;
+            } else if ( ie < 8 ) {
+                bool gz_in_range1 = side1 ? i < nx + ngz : i < 2*ngz + transf.sx ;
+                bool gz_in_range2 = side2 ? k < nz + ngz : k < 2*ngz + transf.sz ;
+                return (j>=ngz and j<ny+ngz) and gz_in_range1 and gz_in_range2 ;
+            } else {
+                bool gz_in_range1 = side1 ? i < nx + ngz : i < 2*ngz + transf.sx ;
+                bool gz_in_range2 = side2 ? j < ny + ngz : j < 2*ngz + transf.sy ;
+                return (k>=ngz and k<nz+ngz) and gz_in_range1 and gz_in_range2 ;
+            }
+        } else {
+            int side1 = ((ie>>0)&1) ; 
+            int side2 = ((ie>>1)&1) ; 
+            int side3 = ((ie>>2)&1) ; 
+            bool gz_in_range1 = side1 ? i < nx + ngz : i < 2*ngz + transf.sx ;
+            bool gz_in_range2 = side2 ? j < ny + ngz : j < 2*ngz + transf.sy ;
+            bool gz_in_range3 = side3 ? k < nz + ngz : k < 2*ngz + transf.sz ;
+            return gz_in_range1 and gz_in_range2 and gz_in_range3 ;
+        }        
+    }
 
     KOKKOS_INLINE_FUNCTION 
     void operator() (
@@ -318,9 +360,9 @@ struct pack_to_cbuf_op {
         transf.compute_indices<elem_kind,true>(
             ig, VECD(j, k), i_a, j_a, k_a, ie, /*half ncells*/ true 
         ) ; 
-        
-        ghost_view.at_cbuf<elem_kind>(ig,j,k,ivar,ghost_q,rank) = 
-            cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) ;
+        if ( in_range(i_a,j_a,k_a,ie))
+            ghost_view.at_cbuf<elem_kind>(ig,j,k,ivar,ghost_q,rank) = 
+                cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) ;
         
     }
 
@@ -358,7 +400,7 @@ struct unpack_from_cbuf_op {
         Kokkos::View<uint8_t*> _dst_elem,  
         Kokkos::View<uint8_t*> _ichild,
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
-        std::size_t _ngz, std::size_t _nvars, std::size_t _rank 
+        std::size_t _ngz, std::size_t _nvars, std::size_t _rank, var_staggering_t stag
     ) : view(_view)
       , ghost_view(_ghost_view)
       , qid(_qid)
@@ -366,9 +408,75 @@ struct unpack_from_cbuf_op {
       , dst_elem_view(_dst_elem)
       , ichild_view(_ichild)
       , rank(_rank)
-      , transf(VEC(_nx,_ny,_nz),_ngz)
+      , transf(VEC(_nx,_ny,_nz),_ngz,stag)
     { } 
 
+    KOKKOS_INLINE_FUNCTION
+    bool in_range(size_t i, size_t j, size_t k, int8_t ie, int8_t ichild) const {
+        size_t sx = transf.sx ; 
+        size_t sy = transf.sy ; 
+        size_t sz = transf.sz ; 
+        size_t nx  = transf.nx ; 
+        size_t ny  = transf.ny ; 
+        size_t nz  = transf.nz ;
+        size_t ngz = transf.ngz ;
+        if constexpr ( elem_kind == FACE ) {
+            const int axis = ie / 2;
+
+            const int ioff = (ic>>0)&1 ; 
+            const int joff = (ic>>1)&1 ; 
+            // if upper child : 0 to n + ngz
+            // else: ngz to n + 2 ngz 
+            const int lbi = ioff ? ngz + transf.nx/2 : ngz ; 
+            const int lbj = joff ? ngz + transf.nx/2 : ngz ; 
+            
+            if ( axis == 0 ) { // across X - face
+                const int ubi = ioff ?  ny+sy+ngz : ny/2+sy+ngz ;
+                const int ubj = joff ?  nz+sz+ngz : nz/2+sz+ngz ;  
+                return (j >= lbi and j<ubi) and ( k>=lbj and k<ubj) ; 
+            } else if ( axis == 1 ) {
+                const int ubi = ioff ?  nx+sx+ngz : nx/2+sx+ngz ;
+                const int ubj = joff ?  nz+sz+ngz : nz/2+sz+ngz ;
+                return (i>=lbi and i<ubi) and (k>=lbj and k<ubj) ;
+            } else {
+                const int ubi = ioff ?  nx+sx+ngz : nx/2+sx+ngz ;
+                const int ubj = joff ?  ny+sy+ngz : ny/2+sy+ngz ;
+                return (i>=lbi and i<ubi) and (j>=lbj and j<ubj) ; 
+            }
+        } else if constexpr ( elem_kind == EDGE ) {
+            int side1 = ((ie>>0)&1) ; 
+            int side2 = ((ie>>1)&1) ; 
+            int off = ic ; 
+            
+            if ( ie < 4 ) {
+                const int lb = off ? ngz + nx / 2 : ngz ; 
+                const int ub = off ? nx+sx+ngz : nx/2+sx+ngz ; 
+                bool gz_in_range1 = side1 ? j < ny + 2 * ngz : j < ngz + transf.sy ;
+                bool gz_in_range2 = side2 ? k < nz + 2 * ngz : k < ngz + transf.sz ;
+                return (i>=lb and i<ub) and gz_in_range1 and gz_in_range2 ; 
+            } else if ( ie < 8 ) {
+                const int lb = off ? ngz + ny / 2 : ngz ; 
+                const int ub = off ? ny+sy+ngz : ny/2+sy+ngz ; 
+                bool gz_in_range1 = side1 ? i < nx + 2 * ngz : i < ngz + transf.sx ;
+                bool gz_in_range2 = side2 ? k < nz + 2 * ngz : k < ngz + transf.sz ;
+                return (j>=lb and j<ub) and gz_in_range1 and gz_in_range2 ; 
+            } else {
+                const int lb = off ? ngz + nz / 2 : ngz ; 
+                const int ub = off ? nz+sz+ngz : nz/2+sz+ngz ; 
+                bool gz_in_range1 = side1 ? i < nx + 2 * ngz : i < ngz + transf.sx ;
+                bool gz_in_range2 = side2 ? j < ny + 2 * ngz : j < ngz + transf.sy ;
+                return (k>=lb and k<ub) and gz_in_range1 and gz_in_range2 ; 
+            }
+        } else {
+            int side1 = ((ie>>0)&1) ; 
+            int side2 = ((ie>>1)&1) ; 
+            int side3 = ((ie>>2)&1) ; 
+            bool gz_in_range1 = side1 ? i < nx + ngz : i < 2*ngz + transf.sx ;
+            bool gz_in_range2 = side2 ? j < ny + ngz : j < 2*ngz + transf.sy ;
+            bool gz_in_range3 = side3 ? k < nz + ngz : k < 2*ngz + transf.sz ;
+            return gz_in_range1 and gz_in_range2 and gz_in_range3 ;
+        }        
+    }
 
     KOKKOS_INLINE_FUNCTION 
     void operator() (
@@ -393,9 +501,9 @@ struct unpack_from_cbuf_op {
         transf.compute_indices<elem_kind,false>(
             ig, VECD(j+j_off, k+k_off), i_a, j_a, k_a, ie, /*half ncells*/ false 
         ) ; 
-        
-        view(VEC(i_a,j_a,k_a), ivar, view_q) = 
-            ghost_view.at_cbuf<elem_kind>(ig,j,k,ivar,ghost_q,rank) ;
+        if ( in_range(i_a,j_a,k_a,ie,ichild))
+            view(VEC(i_a,j_a,k_a), ivar, view_q) = 
+                ghost_view.at_cbuf<elem_kind>(ig,j,k,ivar,ghost_q,rank) ;
         
     }
 
@@ -431,7 +539,7 @@ struct unpack_to_cbuf_op {
         Kokkos::View<uint8_t*> _dst_elem,  
         Kokkos::View<uint8_t*> _ichild,
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
-        std::size_t _ngz, std::size_t _nvars, std::size_t _rank 
+        std::size_t _ngz, std::size_t _nvars, std::size_t _rank, var_staggering_t stag
     ) : cbuf(_view)
       , ghost_view(_ghost_view)
       , cbuf_qid(_qid)
@@ -439,8 +547,71 @@ struct unpack_to_cbuf_op {
       , dst_elem_view(_dst_elem)
       , ichild_view(_ichild)
       , rank(_rank)
-      , transf(VEC(_nx,_ny,_nz),_ngz)
+      , transf(VEC(_nx,_ny,_nz),_ngz,stag)
     { }
+
+    // range check:
+    // All non-gz loops are extended by 1 to accomodate staggerings
+    // independent of the element (face/edge) orientation. This means 
+    // we need to check to avoid out-of-bounds accesses. In this function
+    // since we fill the virtual edges and corners adjacent to faces 
+    // we need to accomodate for that too.
+    KOKKOS_INLINE_FUNCTION
+    bool in_range(size_t i, size_t j, size_t k, int8_t ie, int8_t ic /*child idx*/) const {
+        size_t nx  = transf.nx/2 + transf.sx ; 
+        size_t ny  = transf.ny/2 + transf.sy ; 
+        size_t nz  = transf.nz/2 + transf.sz ;
+        size_t ngz = transf.ngz ;
+        if constexpr ( elem_kind == FACE ) {
+            const int axis = ie / 2;
+            const int ioff = (ic>>0)&1 ; 
+            const int joff = (ic>>1)&1 ; 
+            // if upper child : 0 to n + ngz
+            // else: ngz to n + 2 ngz 
+            const int lbi = ioff ? 0 : ngz ; 
+            const int ubi = ioff ? ngz : 2 * ngz ; 
+            const int lbj = joff ? 0 : ngz ; 
+            const int ubj = joff ? ngz : 2 * ngz ; 
+
+            if ( axis == 0 ) { // across X - face
+                return (j >= lbi and j<ny+ubi) and ( k>=lbj and k<nz+ubj) ; 
+            } else if ( axis == 1 ) {
+                return (i>=lbi and i<nx+ubi) and (k>=lbj and k<nz+ubj) ;
+            } else {
+                return (i>=lbi and i<nx+ubi) and (j>=lbj and j<ny+ubj) ; 
+            }
+        } else if constexpr ( elem_kind == EDGE ) {
+            // if upper child : 0 to n + ngz
+            // else: ngz to n + 2 ngz 
+            const int lbi = ic ? 0 : ngz ; 
+            const int ubi = ic ? ngz : 2 * ngz ;
+            // ghostzone checks 
+            const int s1 = (ie>>0)&1 ;
+            const int s2 = (ie>>1)&1 ; 
+            if ( ie < 4 ) {
+                bool gz_in_range1 = s1 ? j < ny + 2*ngz : j < ngz + transf.sy ; 
+                bool gz_in_range2 = s2 ? k < nz + 2*ngz : k < ngz + transf.sz ; 
+                return (i>=lbi and i<nx+ubi) and gz_in_range1 and gz_in_range2 ; 
+            } else if ( ie < 8 ) {
+                bool gz_in_range1 = s1 ? i < nx + 2*ngz : i < ngz + transf.sx ; 
+                bool gz_in_range2 = s2 ? k < nz + 2*ngz : k < ngz + transf.sz ; 
+                return (j>=lbi and j<ny+ubi) and gz_in_range1 and gz_in_range2 ;
+            } else {
+                bool gz_in_range1 = s1 ? i < nx + 2*ngz : i < ngz + transf.sx ; 
+                bool gz_in_range2 = s2 ? j < ny + 2*ngz : j < ngz + transf.sy ; 
+                return (k>=lbi and k<nz+ubi) and gz_in_range1 and gz_in_range2 ;
+            }
+        } else {
+            // ghostzone checks 
+            const int s1 = (ie>>0)&1 ;
+            const int s2 = (ie>>1)&1 ; 
+            const int s3 = (ie>>2)&1 ; 
+            bool gz_in_range1 = s1 ? i < nx + 2*ngz : i < ngz + transf.sx ; 
+            bool gz_in_range2 = s2 ? j < ny + 2*ngz : j < ngz + transf.sy ;
+            bool gz_in_range3 = s3 ? k < nz + 2*ngz : k < ngz + transf.sz ;  
+            return gz_in_range1 and gz_in_range2 and gz_in_range3 ; 
+        }
+    }
 
     // here the loop will run to nx + ngz in any non-ghost direction.
     KOKKOS_INLINE_FUNCTION 
@@ -466,9 +637,9 @@ struct unpack_to_cbuf_op {
         transf.compute_indices<elem_kind,false>(
             ig, VECD(j + j_off_c, k + k_off_c), i_a, j_a, k_a, ie, /*half ncells*/ true 
         ) ; 
-
-        cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) = 
-            ghost_view.at_interface<elem_kind>(ig,j+j_off,k+k_off,ivar,ghost_q,rank) ;
+        if( in_range(i_a,j_a,k_a,ie,ichild))
+            cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) = 
+                ghost_view.at_interface<elem_kind>(ig,j+j_off,k+k_off,ivar,ghost_q,rank) ;
 
     }
 

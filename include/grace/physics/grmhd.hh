@@ -48,7 +48,7 @@
 #include <Kokkos_Core.hpp>
 
 #include <type_traits>
-//#define GRMHD_USE_PPLIM
+#define GRMHD_USE_PPLIM
 //**************************************************************************************************/
 /**
  * \defgroup physics Physics Modules.
