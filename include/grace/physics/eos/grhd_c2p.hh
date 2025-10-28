@@ -105,7 +105,7 @@ struct grhd_c2p_t {
      * the relevant metric components to the velocity.
      */
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims, bool& adjust_tau) {
+    invert(grmhd_prims_array_t& prims, double& W, bool& adjust_tau) {
 
         auto const func = [&] (double const& zeta) {
             return zeta - r / htilde(zeta) ; 
@@ -113,7 +113,7 @@ struct grhd_c2p_t {
         double const zm{ 0.5*k/Kokkos::sqrt(1-math::int_pow<2>(0.5*k))} 
                    , zp{ 1e-06 + k/Kokkos::sqrt(1-math::int_pow<2>(k))} ; 
         double const zeta = utils::brent(func,zm,zp,1e-15) ; 
-        double const W = Wtilde(zeta) ; 
+        W = Wtilde(zeta) ; 
         
         prims[RHOL] = D/W ;
         prims[YEL]  = ye ;
@@ -133,9 +133,9 @@ struct grhd_c2p_t {
         prims[EPSL]   = eps ;  
 
         double h = htilde(zeta) ; 
-        prims[VXL] = StildeU[0] / D / h / W; 
-        prims[VYL] = StildeU[1] / D / h / W; 
-        prims[VZL] = StildeU[2] / D / h / W; 
+        prims[VXL] = StildeU[0] / D / h ; 
+        prims[VYL] = StildeU[1] / D / h ; 
+        prims[VZL] = StildeU[2] / D / h ; 
         
         double csnd2 ; 
         prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(

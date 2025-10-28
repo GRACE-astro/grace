@@ -56,6 +56,7 @@ class hybrid_eos_t
 
     hybrid_eos_t( cold_eos_t _cold_eos 
                 , double _gamma_th_m1 
+                , double _ent_min
                 , double baryon_mass
                 , double c2p_eps_max )
      : eos_base_t<hybrid_eos_t<cold_eos_t>>{ 0, _cold_eos.eos_rhomax, _cold_eos.eos_rhomin
@@ -69,6 +70,7 @@ class hybrid_eos_t
                                            , false 
                                            , false }
      , gamma_th_m1(_gamma_th_m1)
+     , entropy_min(_ent_min)
      , cold_eos(_cold_eos)
     {}
 
@@ -360,6 +362,7 @@ class hybrid_eos_t
  private:
 
     double gamma_th_m1 ; 
+    double entropy_min ; 
 
     cold_eos_t cold_eos ;
 
@@ -381,7 +384,7 @@ class hybrid_eos_t
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     entropy__eps_th_rho( double& eps_th, double& rho) const 
     {
-        const double eps_th_l = math::max(eps_th, 1e-05) ; 
+        const double eps_th_l = math::max(eps_th, entropy_min) ; 
         return Kokkos::log(eps_th_l * Kokkos::pow(rho,-gamma_th_m1)) / gamma_th_m1 ; 
     }
 

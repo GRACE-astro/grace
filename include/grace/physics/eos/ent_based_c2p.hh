@@ -36,7 +36,7 @@ struct entropy_fix_c2p_t {
     }
 
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims, bool& adjust_tau) {
+    invert(grmhd_prims_array_t& prims, double& W, bool& adjust_tau) {
         adjust_tau = true ; 
 
         prims[YEL] = ye ; 
@@ -45,14 +45,36 @@ struct entropy_fix_c2p_t {
         static constexpr double tolerance = 1e-15 ; 
 
         auto const f = [this] (double x) { return this->f__x(x) ; };
+        // find W 
         double x = utils::brent(f,1.,50.,tolerance) ; 
+        // get rho
         prims[RHOL] = D / x ;  
-
+        // get P, T, eps from s, rho, Ye
         double h,csnd2 ; 
         unsigned int err ;
         prims[PRESSL] = eos.press_h_csnd2_temp_eps__entropy_rho_ye(
             h,csnd2,prims[TEMPL],prims[EPSL],prims[ENTL],prims[RHOL],prims[YEL], err 
         ) ;
+        // get v
+ 
+        /*
+        (*PRIMS)[ZVECX] =
+        lorentz * (Stilde_up[WVX] + (*CONS)[BX_CENTER] * (SdotBtilde / hW)) /
+        (hW + B2tilde);
+        (*PRIMS)[ZVECY] =
+            lorentz * (Stilde_up[WVY] + (*CONS)[BY_CENTER] * (SdotBtilde / hW)) /
+            (hW + B2tilde);
+        (*PRIMS)[ZVECZ] =
+            lorentz * (Stilde_up[WVZ] + (*CONS)[BZ_CENTER] * (SdotBtilde / hW)) /
+            (hW + B2tilde);
+        */
+        auto rU = metric.raise(r) ; 
+        double const hW = h * x ; 
+        prims[VXL] = x * (rU[0] +  Btilde[0] * (rdotBtilde/hW)) / (hW + Btilde2) ; 
+        prims[VYL] = x * (rU[1] +  Btilde[1] * (rdotBtilde/hW)) / (hW + Btilde2) ; 
+        prims[VZL] = x * (rU[2] +  Btilde[2] * (rdotBtilde/hW)) / (hW + Btilde2) ; 
+
+        W = x ; 
 
         return f__x(x) ; 
     }

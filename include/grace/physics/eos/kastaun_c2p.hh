@@ -65,7 +65,7 @@ namespace grace {
      * the relevant metric components to the velocity.
      */
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims, bool& adjust_tau) {
+    invert(grmhd_prims_array_t& prims, double& W, bool& adjust_tau) {
 
       prims[YEL] = ye ;
       
@@ -102,8 +102,9 @@ namespace grace {
       ) ;
 
       auto chi = chi__mu(mu) ;
-      for( int ii=0; ii<3; ++ii) prims[VXL+ii] = mu * chi * ( r[ii] + mu * sqrt(r_dot_Btilde2)*Btilde[ii] ) ;  
-            
+      for( int ii=0; ii<3; ++ii) prims[VXL+ii] = What * mu * chi * ( r[ii] + mu * sqrt(r_dot_Btilde2)*Btilde[ii] ) ;  
+      
+      W = What ; 
       return f__mu(mu) ; 
     }
     
