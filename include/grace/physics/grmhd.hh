@@ -48,7 +48,7 @@
 #include <Kokkos_Core.hpp>
 
 #include <type_traits>
-//#define GRMHD_USE_PPLIM
+#define GRMHD_USE_PPLIM
 //**************************************************************************************************/
 /**
  * \defgroup physics Physics Modules.
@@ -509,6 +509,10 @@ struct grmhd_equations_system_t
         vars(YESTAR_) = cons[YESL]       ; 
         vars(ENTROPYSTAR_) = cons[ENTSL] ; 
         #endif
+        std::array<double,4> dummy ; 
+        double b2 ;
+        compute_smallb(dummy,b2,W,prims,metric) ; 
+        aux(SMALLB2_) = b2 ; 
     };
     /**
      * @brief Compute maximum absolute value eigenspeed.
@@ -1384,34 +1388,6 @@ struct grmhd_equations_system_t
         h = 1. + prims[EPSL] + prims[PRESSL] / prims[RHOL] ; 
         double const v_A_sq =  b2 / ( b2 + prims[RHOL]*h) ; 
         v02 = v_A_sq + cs2 * ( 1. - v_A_sq ) ; 
-    }
-    void GRACE_HOST_DEVICE compute_smallb(  std::array<double,4>& smallb, double& b2, double const& W
-                        , grmhd_prims_array_t& prims, metric_array_t const& metric ) const
-    {
-        #if 1
-        // simple minded, can be optimized later
-        double const u0 = W / metric.alp() ; 
-        std::array<double,3> const vi = { 
-            (prims[VXL]  + metric.beta(0))/metric.alp(),
-            (prims[VYL]  + metric.beta(1))/metric.alp(),
-            (prims[VZL]  + metric.beta(2))/metric.alp(),
-        } ; 
-        std::array<double,3> const ui = { 
-            prims[VXL] * u0,
-            prims[VYL] * u0,
-            prims[VZL] * u0,
-        } ;  
-        smallb[0] = metric.contract_vec_vec(vi,{prims[BXL],prims[BYL],prims[BZL]}) * u0 ; 
-        for( int i=0; i<3; ++i) {
-            smallb[i+1] = (prims[BXL+i] + metric.alp() * smallb[0] * ui[i])/W ; 
-        }
-        b2 = ( metric.square_vec({prims[BXL],prims[BYL],prims[BZL]}) + metric.alp()*metric.alp() * smallb[0] * smallb[0] ) / W / W ; 
-        return ;
-        #else 
-        b2 = 0 ; 
-        smallb = {0,0,0,0} ; 
-        #endif 
-
     }
     /***********************************************************************/
     /**

@@ -279,6 +279,23 @@ class hybrid_eos_t
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    press_eps_csnd2_entropy__temp_rho_ye_impl( double& eps, double& csnd2, double& entropy, double& temp 
+                                       , double& rho, double& ye 
+                                       , error_type& err ) const 
+    {
+        double eps_cold ; 
+        auto press_cold = cold_eos.press_cold_eps_cold__rho(eps_cold, rho, err);
+        temp = math::max(temp,0) ; 
+        double eps_th = eps_th__temp(temp) ; 
+        const double press  = press_cold + eps_th * rho * gamma_th_m1 ;
+        eps = eps_th + eps_cold ; 
+        const double h = 1. + eps + press / rho ; 
+        csnd2 = (cold_eos.dpress_cold_drho__rho(rho,err) + gamma_th_m1 * (gamma_th_m1+1) * eps_th) / h;
+        entropy = entropy__eps_th_rho(eps_th,rho) ; 
+        return press ; 
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     press_h_csnd2_temp_eps__entropy_rho_ye_impl( double& h, double& csnd2, double& temp
                                                , double& eps, double& entropy, double& rho 
                                                , double& ye, error_type& err) const

@@ -260,7 +260,8 @@ DECLARE_VAR_INDEX_IMPL(TEMP)                        \
 DECLARE_VAR_INDEX_IMPL(YE)                          \
 DECLARE_VAR_INDEX_IMPL(ENTROPY)                     \
 DECLARE_VAR_INDEX_IMPL(EPS)                         \
-DECLARE_VAR_INDEX_IMPL(BDIV)
+DECLARE_VAR_INDEX_IMPL(BDIV)                        \
+DECLARE_VAR_INDEX_IMPL(SMALLB2)
 #ifdef GRACE_ENABLE_COWLING_METRIC
 /* ADM metric functions */
 #define VARIABLE_LIST_ADMBASE                     \

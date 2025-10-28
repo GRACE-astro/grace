@@ -116,6 +116,42 @@ compute_u0( grace::grmhd_prims_array_t const& prims
     return one_over_alp * W ; 
 }
 
+static void GRACE_HOST_DEVICE 
+compute_smallb(  std::array<double,4>& smallb, double& b2, double const& W
+              , grace::grmhd_prims_array_t const& prims, grace::metric_array_t const& metric ) 
+{
+  // simple minded, can be optimized later
+  double const u0 = W / metric.alp() ; 
+  std::array<double,3> const vi = { 
+      (prims[VXL]  + metric.beta(0))/metric.alp(),
+      (prims[VYL]  + metric.beta(1))/metric.alp(),
+      (prims[VZL]  + metric.beta(2))/metric.alp(),
+  } ; 
+  std::array<double,3> const ui = { 
+      prims[VXL] * u0,
+      prims[VYL] * u0,
+      prims[VZL] * u0,
+  } ;  
+  smallb[0] = metric.contract_vec_vec(vi,{prims[BXL],prims[BYL],prims[BZL]}) * u0 ; 
+  for( int i=0; i<3; ++i) {
+      smallb[i+1] = (prims[BXL+i] + metric.alp() * smallb[0] * ui[i])/W ; 
+  }
+  b2 = ( metric.square_vec({prims[BXL],prims[BYL],prims[BZL]}) + metric.alp()*metric.alp() * smallb[0] * smallb[0] ) / W / W ; 
+  return ;
+}
+static void GRACE_HOST_DEVICE 
+compute_smallb(  std::array<double,4>& smallb, double& b2
+              , grace::grmhd_prims_array_t const & prims, grace::metric_array_t const& metric ) 
+{
+  double const v2 = metric.square_vec(
+    {
+      metric.alp() * prims[VXL] - metric.beta(0),
+      metric.alp() * prims[VYL] - metric.beta(1),
+      metric.alp() * prims[VZL] - metric.beta(2)
+    }
+  ) ; 
+  compute_smallb(smallb,b2,1./sqrt(1-v2),prims,metric) ; 
+}
 /**
   * @brief Utility to compute \f$u^t\f$
   * 

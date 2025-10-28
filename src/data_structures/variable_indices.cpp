@@ -201,6 +201,7 @@ void register_variables() {
     REGISTER_AUX_SCALAR(EPS,"eps","none") ; 
     REGISTER_AUX_SCALAR(PRESS,"press","none") ;
     REGISTER_AUX_SCALAR(BDIV, "Bdiv","none") ; 
+    REGISTER_AUX_SCALAR(SMALLB2, "b2","none") ;
     /* registration of metric variables */
     #ifdef GRACE_ENABLE_COWLING_METRIC
     REGISTER_EVOLVED_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","outgoing",false) ; 

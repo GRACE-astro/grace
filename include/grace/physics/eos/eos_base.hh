@@ -383,6 +383,26 @@ class eos_base_t {
         return static_cast<eos_impl_t const*>(this)->eps_csnd2_entropy__temp_rho_ye_impl(csnd2,entropy,temp,rho,ye,err);
     }
     /**
+     * @brief Pressure, epsilon, square sound speed and entropy
+     *        given temperature, rho and ye.
+     * 
+     * @param eps Specific internal energy.
+     * @param csnd2 Square sound speed.
+     * @param entropy Entropy per baryon.
+     * @param temp Temperature.
+     * @param rho Rest-mass density.
+     * @param ye Electron fraction.
+     * @param err Error code.
+     * @return double The specific internal energy.
+     */
+    double GRACE_HOST_DEVICE
+    press_eps_csnd2_entropy__temp_rho_ye( double& eps, double& csnd2, double& entropy, double& temp 
+                                  , double& rho, double& ye 
+                                  , error_type& err ) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->press_eps_csnd2_entropy__temp_rho_ye_impl(eps,csnd2,entropy,temp,rho,ye,err);
+    }
+    /**
      * @brief Pressure, specific enthalpy, square sound speed, 
      *        temperature and specific internal energy given
      *        entropy, rho and ye.

@@ -68,7 +68,7 @@ namespace grace {
     invert(grmhd_prims_array_t& prims, bool& adjust_tau) {
 
       prims[YEL] = ye ;
-
+      
       static constexpr double tolerance = 1e-15 ; 
       auto const fa = [this] (double mu) { return this->fa__mu(mu) ; };
       double mu0 = sqrt(r2) < h0 ? 1./h0 : 1e-15 + utils::brent(fa, 0, 1./h0, tolerance) ;
@@ -95,6 +95,11 @@ namespace grace {
             
       prims[RHOL] = rhohat ;
       prims[EPSL] = eps ;
+
+      double h,csnd2 ; 
+      prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
+          h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
+      ) ;
 
       auto chi = chi__mu(mu) ;
       for( int ii=0; ii<3; ++ii) prims[VXL+ii] = mu * chi * ( r[ii] + mu * sqrt(r_dot_Btilde2)*Btilde[ii] ) ;  

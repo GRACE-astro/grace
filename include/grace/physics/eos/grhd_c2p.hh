@@ -131,12 +131,17 @@ struct grhd_c2p_t {
             eps = 1.001 * epsmin ; 
         }
         prims[EPSL]   = eps ;  
-        prims[PRESSL] = W ; 
-        double const h = htilde(zeta) ; 
+
+        double h = htilde(zeta) ; 
         prims[VXL] = StildeU[0] / D / h / W; 
         prims[VYL] = StildeU[1] / D / h / W; 
         prims[VZL] = StildeU[2] / D / h / W; 
-         
+        
+        double csnd2 ; 
+        prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
+            h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
+        ) ;
+
         return func(zeta) ; 
     }
     //! Adjust momentum? 

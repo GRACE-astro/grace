@@ -30,6 +30,8 @@
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/eos/grhd_c2p.hh>
 #include <grace/physics/eos/kastaun_c2p.hh>
+#include <grace/physics/eos/ent_based_c2p.hh>
+#include <grace/physics/grmhd_helpers.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -38,6 +40,18 @@
 
 #define BETA_FLOOR 1e-4
 namespace grace {
+
+static double KOKKOS_FUNCTION 
+compute_beta(
+  grmhd_prims_array_t const& prims,
+  metric_array_t const& metric
+)
+{
+  // compute plasma beta 
+  std::array<double,4> smallb ; double b2 ; 
+  compute_smallb(smallb,b2,prims,metric) ; 
+  return 2. * prims[PRESSL] / b2 ; 
+}
 
 template < typename eos_t > 
 static void KOKKOS_FUNCTION 
@@ -90,11 +104,11 @@ conservs_to_prims( grmhd_cons_array_t& cons
 {
     using mhd_c2p_impl_t = kastaun_c2p_t<eos_t> ;
     using hd_c2p_impl_t = grhd_c2p_t<eos_t> ;
+    using backup_c2p_impl_t = entropy_fix_c2p_t<eos_t> ; 
 
     bool recompute_cons{false}, adjust_tau{false}, adjust_s{false} ; 
     unsigned int err ;
     bool c2p_failed{ false }, is_atmo{false}            ;
-    double W                             ;
     /* Undensitize conservs */
     for( auto& c: cons) c /= metric.sqrtg() ;
     /* First we check whether we are in the atmosphere */
@@ -122,7 +136,14 @@ conservs_to_prims( grmhd_cons_array_t& cons
           residual = c2p.invert(prims,adjust_tau) ;
           adjust_s = c2p.S_adjusted ; 
         }
+        auto const beta = compute_beta(prims,metric) ; 
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
+        if ( c2p_failed or beta <= 1e-2 ) {
+          // backup 
+          backup_c2p_impl_t c2p(eos,metric,cons) ; 
+          residual = c2p.invert(prims,adjust_tau) ; 
+          c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
+        }
     } else {
         c2p_failed = true ;
     }
@@ -133,47 +154,27 @@ conservs_to_prims( grmhd_cons_array_t& cons
                 : metric.alp() <= excision_params.alp_ex ; 
 
     if(   prims[RHOL] < (1.+1e-03) * dens_atmo
+      or  prims[TEMPL] < temp_atmo 
       or  c2p_failed 
       or  excise ) // TODO excision
     {  
         prims[RHOL]  = excise ? excision_params.rho_ex : dens_atmo ;
         prims[YEL]   = atmo_params.ye_fl   ;
         prims[TEMPL] = excise ? excision_params.temp_ex : temp_atmo ; 
-        prims[EPSL] = eos.eps__temp_rho_ye(prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
+        double csnd2 ; 
+        prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(prims[EPSL],csnd2,prims[ENTL],prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
         prims[VXL]   = 0. ;
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
-        
-	      recompute_cons = true ;
-        is_atmo = true ; 
-    }
-
-    /* Set pressure entropy and temperature */
-    double h, csnd2;
-    
-    prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
-        h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
-    ) ;
-
-    if ( prims[TEMPL] < temp_atmo 
-      and (not excise)
-      and (not c2p_failed) 
-    ) {
-        prims[RHOL]  = dens_atmo ;
-        prims[YEL]   = atmo_params.ye_fl   ;
-        prims[TEMPL] = temp_atmo ; 
-        prims[EPSL] = eos.eps__temp_rho_ye(prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
-        prims[VXL]   = 0. ;
-        prims[VYL]   = 0. ;
-        prims[VZL]   = 0. ;
-        prims[PRESSL] = eos.press__eps_rho_ye(prims[EPSL],prims[RHOL],prims[YEL],err);
         recompute_cons = true ; 
         is_atmo = true ; 
+
     }
 
-    if ( ! is_atmo ) {
-      limit_primitives(prims,eos,metric,atmo_params,recompute_cons,adjust_tau,adjust_s) ; 
-    }
+
+    //if ( ! is_atmo ) {
+    //  limit_primitives(prims,eos,metric,atmo_params,recompute_cons,adjust_tau,adjust_s) ; 
+    //}
 
     /* The 3-velocity in grace is not in the */
     /* ZAMO frame.                           */
@@ -214,23 +215,18 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
     } ; 
     double const v2 = metric.square_vec(vZAMO) ; 
     double const W  = 1./Kokkos::sqrt(1-v2) ; 
+
+    double b2{0.} ;
+    std::array<double,4> smallb{0.,0.,0.,0.} ;
+    compute_smallb(smallb,b2,W,prims,metric) ; 
+
+
     double const u0 = W / metric.alp();
     double const alp_sqrtgamma = metric.alp() * metric.sqrtg() ;
 
     cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
 
-    double b2{0.} ;
-    std::array<double,4> smallb{0.,0.,0.,0.} ;
-    std::array<double,3> const ui = { 
-        prims[VXL] * u0,
-        prims[VYL] * u0,
-        prims[VZL] * u0,
-    } ; 
-    smallb[0] = metric.contract_vec_vec(vZAMO,{prims[BXL],prims[BYL],prims[BZL]}) * u0 ; 
-    for( int i=0; i<3; ++i) {
-        smallb[i+1] = (prims[BXL+i] + metric.alp() * smallb[0] * ui[i])/W ; 
-    }
-    b2 = ( metric.square_vec({prims[BXL],prims[BYL],prims[BZL]}) + metric.alp()*metric.alp()* smallb[0] * smallb[0] ) / W / W ; 
+
     auto smallbD = metric.lower_4vec(smallb) ; 
 
     double const one_over_alp2 = 1./math::int_pow<2>(metric.alp());
