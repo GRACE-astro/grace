@@ -38,6 +38,7 @@
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
 #include <grace/physics/grmhd_helpers.hh>
+#include <grace/physics/eos/c2p.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -105,15 +106,16 @@ struct grhd_c2p_t {
      * the relevant metric components to the velocity.
      */
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims, bool& adjust_tau) {
+    invert(grmhd_prims_array_t& prims, double& W, c2p_err_t& c2p_errors) {
 
+        c2p_errors.adjust_s = S_adjusted ; 
         auto const func = [&] (double const& zeta) {
             return zeta - r / htilde(zeta) ; 
         } ; 
         double const zm{ 0.5*k/Kokkos::sqrt(1-math::int_pow<2>(0.5*k))} 
                    , zp{ 1e-06 + k/Kokkos::sqrt(1-math::int_pow<2>(k))} ; 
         double const zeta = utils::brent(func,zm,zp,1e-15) ; 
-        double const W = Wtilde(zeta) ; 
+        W = Wtilde(zeta) ; 
         
         prims[RHOL] = D/W ;
         prims[YEL]  = ye ;
@@ -121,23 +123,27 @@ struct grhd_c2p_t {
         double epsmin, epsmax; 
         unsigned int err ;
         eos.eps_range__rho_ye(epsmin,epsmax,prims[RHOL],prims[YEL],err) ; 
-        adjust_tau = false ; 
         double eps = epstilde(W,zeta) ; 
         if ( eps > epsmax ) {
-            adjust_tau  = true ; 
+            c2p_errors.adjust_tau  = true ; 
             eps = 0.999 * epsmax ; 
         } else if ( eps < epsmin ) {
-            adjust_tau = true ; 
+            c2p_errors.adjust_tau = true ; 
             eps = 1.001 * epsmin ; 
         }
         prims[EPSL]   = eps ;  
-        prims[PRESSL] = W ; 
-        double const h = htilde(zeta) ; 
-        prims[VXL] = StildeU[0] / D / h / W; 
-        prims[VYL] = StildeU[1] / D / h / W; 
-        prims[VZL] = StildeU[2] / D / h / W; 
-         
-        return func(zeta) ; 
+
+        double h = htilde(zeta) ; 
+        prims[VXL] = StildeU[0] / D / h ; 
+        prims[VYL] = StildeU[1] / D / h ; 
+        prims[VZL] = StildeU[2] / D / h ; 
+        
+        double csnd2 ; 
+        prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
+            h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
+        ) ;
+
+        return fabs(func(zeta)) ; 
     }
     //! Adjust momentum? 
     bool S_adjusted ; 

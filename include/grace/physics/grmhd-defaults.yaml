@@ -37,6 +37,7 @@ grmhd: {
   fmtorus: {
     a_BH: 0.9375,
     rho_min: 1.0e-5,
+    rho_max: 1.0,
     lapse_min: 0.2,
     press_min: 0.333e-7,
     r_in: 6,

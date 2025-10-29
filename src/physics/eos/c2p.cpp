@@ -30,52 +30,87 @@
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/eos/grhd_c2p.hh>
 #include <grace/physics/eos/kastaun_c2p.hh>
+#include <grace/physics/eos/ent_based_c2p.hh>
+#include <grace/physics/grmhd_helpers.hh>
 
 #include <Kokkos_Core.hpp>
 
-#define C2P_TOLERANCE 1e-10
+#define C2P_TOLERANCE 1e-14
 #define SQR(a) (a)*(a)
 
 #define BETA_FLOOR 1e-4
+#define WMAX 50 
+#define zMax sqrt(SQR(WMAX)-1.)
 namespace grace {
 
-template < typename eos_t > 
-static void KOKKOS_FUNCTION 
-limit_primitives(
-  grmhd_prims_array_t& prims,
-  eos_t const& eos,
-  metric_array_t const& metric,
-  atmo_params_t atmo_params,
-  bool& recompute_cons,
-  bool& adjust_tau,
-  bool& adjust_s 
+static double KOKKOS_FUNCTION 
+compute_beta(
+  double W,
+  grmhd_prims_array_t const& prims,
+  metric_array_t const& metric
 )
 {
   // compute plasma beta 
-  std::array<double,4> smallb ; 
-  // NB here we assume that v == vZAMO 
-  double const v2 = metric.square_vec({prims[VXL],prims[VYL],prims[VZL]}) ; 
-  double const W  = 1./Kokkos::sqrt(1-v2) ; 
-  double const u0 = W / metric.alp();
-  std::array<double,3> const ui = { 
-        (metric.alp() * prims[VXL] - metric.beta(0)) * u0,
-        (metric.alp() * prims[VYL] - metric.beta(1)) * u0,
-        (metric.alp() * prims[VZL] - metric.beta(2)) * u0,
-  } ; 
-  smallb[0] = metric.contract_vec_vec({prims[VXL],prims[VYL],prims[VZL]},{prims[BXL],prims[BYL],prims[BZL]}) * u0 ; 
-  for( int i=0; i<3; ++i) {
-      smallb[i+1] = (prims[BXL+i] + metric.alp() * smallb[0] * ui[i])/W ; 
-  }
-  double b2 = ( metric.square_vec({prims[BXL],prims[BYL],prims[BZL]}) + metric.alp()*metric.alp()* smallb[0] * smallb[0] ) / W / W ; 
+  std::array<double,4> smallb ; double b2 ; 
+  compute_smallb(smallb,b2,W,prims,metric) ; 
+  return 2. * prims[PRESSL] / (b2+1e-50) ; 
+}
+
+// limit lorentz factor and maybe sigma
+template < typename eos_t > 
+static void KOKKOS_FUNCTION 
+limit_primitives(
+  double W,
+  grmhd_prims_array_t& prims,
+  grmhd_cons_array_t const& cons,
+  eos_t const& eos,
+  metric_array_t const& metric,
+  atmo_params_t atmo_params,
+  c2p_err_t& c2p_errors
+)
+{
+  /*
   
-  if ( prims[PRESSL] < 0.5 * BETA_FLOOR * b2) {
-    adjust_s = adjust_tau = true ; 
-    prims[PRESSL] = 1.001 * 0.5 * BETA_FLOOR * b2 ; 
+  // Do we need to limit the Lorentz factor?
+    if (lorentz > limits::lorentz_max) {
+      const auto zL = sqrt(SQ(lorentz) - 1.);
+
+      (*error_bits)[c2p_errors::V_MAX_EXCEEDED] = true;
+
+      (*PRIMS)[ZVECX] *= limits::z_max / zL;
+      (*PRIMS)[ZVECY] *= limits::z_max / zL;
+      (*PRIMS)[ZVECZ] *= limits::z_max / zL;
+
+      // Important we keep RHOSTAR constant so
+      // this changes RHOB
+      // Why can't we just do this further up when we compute
+      // RHOB for the first time? The answer is that we need
+      // a selfconsistent solution to obtain the correct velocities
+      // from Stilde^2 since we only limit at the very end.
+      (*PRIMS)[RHOB] = (*CONS)[RHOSTAR] / limits::lorentz_max;
+
+      // 4. Compute a by making a pressure call
+      // Update all vars here, cs2, temp, etc..
+      (*PRIMS)[PRESSURE] = eos::press_h_csnd2_temp_entropy__eps_rho_ye(
+          h, (*PRIMS)[CS2], (*PRIMS)[TEMP],
+          (*PRIMS)[ENTROPY],  // out all but temp (inout)
+          (*PRIMS)[EPS], (*PRIMS)[RHOB], (*PRIMS)[YE], error);  // in
+    }
+  */
+  if ( W > WMAX ) {
+    double const zL = sqrt(SQR(W)-1.) ; 
+    prims[VXL] *= zMax / zL ; 
+    prims[VYL] *= zMax / zL ;  
+    prims[VZL] *= zMax / zL ; 
+
+    prims[RHOL] = cons[DENSL] / WMAX ; 
     double h, csnd2 ; 
     unsigned int err ; 
-    prims[EPSL] = eos.eps_h_csnd2_temp_entropy__press_rho_ye(h,csnd2, prims[TEMPL], prims[ENTL], prims[PRESSL],prims[RHOL],prims[YEL],err) ; 
+    prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
+      h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL],err
+    ) ;
+    c2p_errors.adjust_s = c2p_errors.adjust_tau = true ; 
   }
-
 }
 
 template< typename eos_t >
@@ -86,15 +121,16 @@ conservs_to_prims( grmhd_cons_array_t& cons
                  , eos_t const& eos
                  , std::array<double,3> const& xyz
                  , atmo_params_t atmo_params
-                 , excision_params_t excision_params ) 
+                 , excision_params_t excision_params 
+                 , c2p_err_t& c2p_errors ) 
 {
     using mhd_c2p_impl_t = kastaun_c2p_t<eos_t> ;
     using hd_c2p_impl_t = grhd_c2p_t<eos_t> ;
+    using backup_c2p_impl_t = entropy_fix_c2p_t<eos_t> ; 
 
-    bool recompute_cons{false}, adjust_tau{false}, adjust_s{false} ; 
     unsigned int err ;
     bool c2p_failed{ false }, is_atmo{false}            ;
-    double W                             ;
+    double W ; 
     /* Undensitize conservs */
     for( auto& c: cons) c /= metric.sqrtg() ;
     /* First we check whether we are in the atmosphere */
@@ -116,13 +152,20 @@ conservs_to_prims( grmhd_cons_array_t& cons
         double residual = 100 ; 
         if ( B2 / cons[DENSL] > 1e-15 ) {
           mhd_c2p_impl_t c2p(eos,metric,cons) ;
-          residual = c2p.invert(prims,adjust_tau) ;
+          residual = c2p.invert(prims,W,c2p_errors) ;
         } else {
           hd_c2p_impl_t c2p(eos,metric,cons) ;
-          residual = c2p.invert(prims,adjust_tau) ;
-          adjust_s = c2p.S_adjusted ; 
+          residual = c2p.invert(prims,W,c2p_errors) ;
         }
+        auto const beta = compute_beta(W,prims,metric) ; 
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
+        if ( c2p_failed or beta <= 1e-2 ) {
+          // backup 
+          c2p_errors.adjust_tau = true ; 
+          backup_c2p_impl_t c2p(eos,metric,cons) ; 
+          residual = c2p.invert(prims,W,c2p_errors) ; 
+          c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
+        }
     } else {
         c2p_failed = true ;
     }
@@ -133,71 +176,50 @@ conservs_to_prims( grmhd_cons_array_t& cons
                 : metric.alp() <= excision_params.alp_ex ; 
 
     if(   prims[RHOL] < (1.+1e-03) * dens_atmo
+      or  prims[TEMPL] < temp_atmo 
       or  c2p_failed 
       or  excise ) // TODO excision
     {  
         prims[RHOL]  = excise ? excision_params.rho_ex : dens_atmo ;
         prims[YEL]   = atmo_params.ye_fl   ;
         prims[TEMPL] = excise ? excision_params.temp_ex : temp_atmo ; 
-        prims[EPSL] = eos.eps__temp_rho_ye(prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
+        double csnd2 ; 
+        prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(prims[EPSL],csnd2,prims[ENTL],prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
         prims[VXL]   = 0. ;
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
-        
-	      recompute_cons = true ;
+        c2p_errors.adjust_d = c2p_errors.adjust_tau = c2p_errors.adjust_s = true ; 
         is_atmo = true ; 
+        W = 1. ;
     }
 
-    /* Set pressure entropy and temperature */
-    double h, csnd2;
-    
-    prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
-        h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
-    ) ;
-
-    if ( prims[TEMPL] < temp_atmo 
-      and (not excise)
-      and (not c2p_failed) 
-    ) {
-        prims[RHOL]  = dens_atmo ;
-        prims[YEL]   = atmo_params.ye_fl   ;
-        prims[TEMPL] = temp_atmo ; 
-        prims[EPSL] = eos.eps__temp_rho_ye(prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
-        prims[VXL]   = 0. ;
-        prims[VYL]   = 0. ;
-        prims[VZL]   = 0. ;
-        prims[PRESSL] = eos.press__eps_rho_ye(prims[EPSL],prims[RHOL],prims[YEL],err);
-        recompute_cons = true ; 
-        is_atmo = true ; 
-    }
-
-    if ( ! is_atmo ) {
-      limit_primitives(prims,eos,metric,atmo_params,recompute_cons,adjust_tau,adjust_s) ; 
-    }
+    limit_primitives(W,prims,cons,eos,metric,atmo_params,c2p_errors) ; 
 
     /* The 3-velocity in grace is not in the */
     /* ZAMO frame.                           */
-    prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;
-    prims[VYL] = metric.alp()*prims[VYL] - metric.beta(1) ;
-    prims[VZL] = metric.alp()*prims[VZL] - metric.beta(2) ;
+    /* NB the c2p itself returns zvec        */
+    prims[VXL] = metric.alp()*prims[VXL]/W - metric.beta(0) ;
+    prims[VYL] = metric.alp()*prims[VYL]/W - metric.beta(1) ;
+    prims[VZL] = metric.alp()*prims[VZL]/W - metric.beta(2) ;
     /* re-densitize conservs */
     for(auto& c: cons) c*=metric.sqrtg() ; 
     /* Re-compute conservative variables based  */
     /* on new primitives, if needed.            */
-    if (recompute_cons)
-      prims_to_conservs(prims,cons,metric) ;
-    if (adjust_tau) {
-      grmhd_cons_array_t local_cons ;
-      prims_to_conservs(prims,local_cons,metric) ;
-      cons[TAUL] = local_cons[TAUL] ; 
+    grmhd_cons_array_t local_cons ;
+    prims_to_conservs(prims,local_cons,metric) ;
+    if ( c2p_errors.adjust_tau) {
+      cons[TAUL] = local_cons[TAUL] ;
     }
-    if (adjust_s) {
-      grmhd_cons_array_t local_cons ;
-      prims_to_conservs(prims,local_cons,metric) ;
+    if ( c2p_errors.adjust_d) {
+      cons[DENSL] = local_cons[DENSL] ;
+      cons[YESL] = local_cons[YESL] ;
+    }
+    if ( c2p_errors.adjust_s) {
       cons[STXL] = local_cons[STXL] ; 
       cons[STYL] = local_cons[STYL] ; 
-      cons[STZL] = local_cons[STZL] ; 
+      cons[STZL] = local_cons[STZL] ;
     }
+
     // no matter what, we reset the entropy 
     cons[ENTSL] = cons[DENSL] * prims[ENTL] ; 
 }
@@ -214,23 +236,18 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
     } ; 
     double const v2 = metric.square_vec(vZAMO) ; 
     double const W  = 1./Kokkos::sqrt(1-v2) ; 
+
+    double b2{0.} ;
+    std::array<double,4> smallb{0.,0.,0.,0.} ;
+    compute_smallb(smallb,b2,W,prims,metric) ; 
+
+
     double const u0 = W / metric.alp();
     double const alp_sqrtgamma = metric.alp() * metric.sqrtg() ;
 
     cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
 
-    double b2{0.} ;
-    std::array<double,4> smallb{0.,0.,0.,0.} ;
-    std::array<double,3> const ui = { 
-        prims[VXL] * u0,
-        prims[VYL] * u0,
-        prims[VZL] * u0,
-    } ; 
-    smallb[0] = metric.contract_vec_vec(vZAMO,{prims[BXL],prims[BYL],prims[BZL]}) * u0 ; 
-    for( int i=0; i<3; ++i) {
-        smallb[i+1] = (prims[BXL+i] + metric.alp() * smallb[0] * ui[i])/W ; 
-    }
-    b2 = ( metric.square_vec({prims[BXL],prims[BYL],prims[BZL]}) + metric.alp()*metric.alp()* smallb[0] * smallb[0] ) / W / W ; 
+
     auto smallbD = metric.lower_4vec(smallb) ; 
 
     double const one_over_alp2 = 1./math::int_pow<2>(metric.alp());
@@ -266,6 +283,7 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , std::array<double,3> const& \
                       , atmo_params_t \
                       , excision_params_t \
+                      , c2p_err_t& \
                     ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE

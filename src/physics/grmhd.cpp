@@ -573,7 +573,7 @@ void set_grmhd_initial_data() {
         torus.prograde = true ;
         torus.r_edge = r_in ; 
         torus.r_peak = r_at_max_rho ; 
-        torus.rho_max = 1.0 ; 
+        torus.rho_max = grace::get_param<double>("grmhd","fmtorus","rho_max") ; 
         torus.psi = 0.0 ; 
         torus.is_vertical_field = false ;
         torus.fm_torus = true ; 
@@ -586,8 +586,9 @@ void set_grmhd_initial_data() {
         torus.pgas_pow = press_pow ;
 
         torus.lapse_excision = lapse_min ; 
-        torus.rho_excise = 1e-8 ; 
-        torus.pgas_excise = 0.33333e-10 ;
+        torus.rho_excise = grace::get_param<double>("grmhd","excision","rho_excision") ;
+        double const temp_excise = grace::get_param<double>("grmhd","excision","temp_excision") ; 
+        torus.pgas_excise  =  temp_excise * torus.rho_excise ; 
 
         double pert = pars["perturbation_amplitude"].as<double>() ; 
         set_grmhd_initial_data_impl<eos_t,fmtorus_id_t<eos_t>>(torus,pert) ;
