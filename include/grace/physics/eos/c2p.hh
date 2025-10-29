@@ -63,8 +63,10 @@ struct excision_params_t {
     bool excise_by_radius ; //!< Whether excision is radius based (CKS) or alpha based.
 } ; 
 
-struct c2p_solver_t {
-    
+struct c2p_err_t {
+    bool adjust_tau{false}; 
+    bool adjust_s{false}; 
+    bool adjust_d{false};    
 } ; 
 
 /**
@@ -88,7 +90,8 @@ conservs_to_prims(  grace::grmhd_cons_array_t& cons
                   , eos_t const& eos
                   , std::array<double,3> const& xyz
                   , atmo_params_t atmo_params 
-                  , excision_params_t excision_params) ; 
+                  , excision_params_t excision_params
+                  , c2p_err_t& c2p_err ) ; 
 
 void GRACE_HOST_DEVICE
 prims_to_conservs( grace::grmhd_prims_array_t& prims
@@ -105,6 +108,7 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , std::array<double,3> const& \
                       , atmo_params_t \
                       , excision_params_t \
+                      , c2p_err_t& \
                     )
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE

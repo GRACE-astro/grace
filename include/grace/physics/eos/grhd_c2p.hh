@@ -38,6 +38,7 @@
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
 #include <grace/physics/grmhd_helpers.hh>
+#include <grace/physics/eos/c2p.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -105,8 +106,9 @@ struct grhd_c2p_t {
      * the relevant metric components to the velocity.
      */
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims, double& W, bool& adjust_tau) {
+    invert(grmhd_prims_array_t& prims, double& W, c2p_err_t& c2p_errors) {
 
+        c2p_errors.adjust_s = S_adjusted ; 
         auto const func = [&] (double const& zeta) {
             return zeta - r / htilde(zeta) ; 
         } ; 
@@ -121,13 +123,12 @@ struct grhd_c2p_t {
         double epsmin, epsmax; 
         unsigned int err ;
         eos.eps_range__rho_ye(epsmin,epsmax,prims[RHOL],prims[YEL],err) ; 
-        adjust_tau = false ; 
         double eps = epstilde(W,zeta) ; 
         if ( eps > epsmax ) {
-            adjust_tau  = true ; 
+            c2p_errors.adjust_tau  = true ; 
             eps = 0.999 * epsmax ; 
         } else if ( eps < epsmin ) {
-            adjust_tau = true ; 
+            c2p_errors.adjust_tau = true ; 
             eps = 1.001 * epsmin ; 
         }
         prims[EPSL]   = eps ;  
@@ -142,7 +143,7 @@ struct grhd_c2p_t {
             h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
         ) ;
 
-        return func(zeta) ; 
+        return fabs(func(zeta)) ; 
     }
     //! Adjust momentum? 
     bool S_adjusted ; 

@@ -35,7 +35,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#define C2P_TOLERANCE 1e-10
+#define C2P_TOLERANCE 1e-14
 #define SQR(a) (a)*(a)
 
 #define BETA_FLOOR 1e-4
@@ -66,9 +66,7 @@ limit_primitives(
   eos_t const& eos,
   metric_array_t const& metric,
   atmo_params_t atmo_params,
-  bool& recompute_cons,
-  bool& adjust_tau,
-  bool& adjust_s 
+  c2p_err_t& c2p_errors
 )
 {
   /*
@@ -111,7 +109,7 @@ limit_primitives(
     prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
       h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL],err
     ) ;
-    adjust_s = true;  
+    c2p_errors.adjust_s = c2p_errors.adjust_tau = true ; 
   }
 }
 
@@ -123,13 +121,13 @@ conservs_to_prims( grmhd_cons_array_t& cons
                  , eos_t const& eos
                  , std::array<double,3> const& xyz
                  , atmo_params_t atmo_params
-                 , excision_params_t excision_params ) 
+                 , excision_params_t excision_params 
+                 , c2p_err_t& c2p_errors ) 
 {
     using mhd_c2p_impl_t = kastaun_c2p_t<eos_t> ;
     using hd_c2p_impl_t = grhd_c2p_t<eos_t> ;
     using backup_c2p_impl_t = entropy_fix_c2p_t<eos_t> ; 
 
-    bool recompute_cons{false}, adjust_tau{false}, adjust_s{false} ; 
     unsigned int err ;
     bool c2p_failed{ false }, is_atmo{false}            ;
     double W ; 
@@ -154,18 +152,18 @@ conservs_to_prims( grmhd_cons_array_t& cons
         double residual = 100 ; 
         if ( B2 / cons[DENSL] > 1e-15 ) {
           mhd_c2p_impl_t c2p(eos,metric,cons) ;
-          residual = c2p.invert(prims,W,adjust_tau) ;
+          residual = c2p.invert(prims,W,c2p_errors) ;
         } else {
           hd_c2p_impl_t c2p(eos,metric,cons) ;
-          residual = c2p.invert(prims,W,adjust_tau) ;
-          adjust_s = c2p.S_adjusted ; 
+          residual = c2p.invert(prims,W,c2p_errors) ;
         }
         auto const beta = compute_beta(W,prims,metric) ; 
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
         if ( c2p_failed or beta <= 1e-2 ) {
           // backup 
+          c2p_errors.adjust_tau = true ; 
           backup_c2p_impl_t c2p(eos,metric,cons) ; 
-          residual = c2p.invert(prims,W,adjust_tau) ; 
+          residual = c2p.invert(prims,W,c2p_errors) ; 
           c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
         }
     } else {
@@ -190,15 +188,16 @@ conservs_to_prims( grmhd_cons_array_t& cons
         prims[VXL]   = 0. ;
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
-        recompute_cons = true ; 
+        c2p_errors.adjust_d = c2p_errors.adjust_tau = c2p_errors.adjust_s = true ; 
         is_atmo = true ; 
         W = 1. ;
     }
 
-    limit_primitives(W,prims,cons,eos,metric,atmo_params,recompute_cons,adjust_tau,adjust_s) ; 
+    limit_primitives(W,prims,cons,eos,metric,atmo_params,c2p_errors) ; 
 
     /* The 3-velocity in grace is not in the */
     /* ZAMO frame.                           */
+    /* NB the c2p itself returns zvec        */
     prims[VXL] = metric.alp()*prims[VXL]/W - metric.beta(0) ;
     prims[VYL] = metric.alp()*prims[VYL]/W - metric.beta(1) ;
     prims[VZL] = metric.alp()*prims[VZL]/W - metric.beta(2) ;
@@ -206,20 +205,21 @@ conservs_to_prims( grmhd_cons_array_t& cons
     for(auto& c: cons) c*=metric.sqrtg() ; 
     /* Re-compute conservative variables based  */
     /* on new primitives, if needed.            */
-    if (recompute_cons)
-      prims_to_conservs(prims,cons,metric) ;
-    if (adjust_tau) {
-      grmhd_cons_array_t local_cons ;
-      prims_to_conservs(prims,local_cons,metric) ;
-      cons[TAUL] = local_cons[TAUL] ; 
+    grmhd_cons_array_t local_cons ;
+    prims_to_conservs(prims,local_cons,metric) ;
+    if ( c2p_errors.adjust_tau) {
+      cons[TAUL] = local_cons[TAUL] ;
     }
-    if (adjust_s) {
-      grmhd_cons_array_t local_cons ;
-      prims_to_conservs(prims,local_cons,metric) ;
+    if ( c2p_errors.adjust_d) {
+      cons[DENSL] = local_cons[DENSL] ;
+      cons[YESL] = local_cons[YESL] ;
+    }
+    if ( c2p_errors.adjust_s) {
       cons[STXL] = local_cons[STXL] ; 
       cons[STYL] = local_cons[STYL] ; 
-      cons[STZL] = local_cons[STZL] ; 
+      cons[STZL] = local_cons[STZL] ;
     }
+
     // no matter what, we reset the entropy 
     cons[ENTSL] = cons[DENSL] * prims[ENTL] ; 
 }
@@ -283,6 +283,7 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , std::array<double,3> const& \
                       , atmo_params_t \
                       , excision_params_t \
+                      , c2p_err_t& \
                     ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE

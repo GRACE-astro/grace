@@ -10,6 +10,7 @@
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
 #include <grace/physics/grmhd_helpers.hh>
+#include <grace/physics/eos/c2p.hh>
 
 #define SQR(a) (a)*(a)
 
@@ -36,9 +37,9 @@ struct entropy_fix_c2p_t {
     }
 
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims, double& W, bool& adjust_tau) {
-        adjust_tau = true ; 
-
+    invert(grmhd_prims_array_t& prims, double& W, c2p_err_t& c2p_errors) {
+        c2p_errors.adjust_tau = true ; 
+        
         prims[YEL] = ye ; 
         prims[ENTL] = s ; 
 
@@ -76,7 +77,9 @@ struct entropy_fix_c2p_t {
 
         W = x ; 
 
-        return f__x(x) ; 
+        double const hh = (1 + prims[EPSL] + prims[PRESSL]/prims[RHOL]) ; 
+
+        return fabs(f__x(x)) / SQR(Btilde2 + hh * x) ; 
     }
 
     private:

@@ -159,7 +159,7 @@ eos_storage_t::eos_storage_t() {
         params["eos"]["eos_type"].as<std::string>() ;
 
     double c2p_eps_max  = params["eos"]["eps_maximum"].as<double>();
-    double c2p_entropy_min = params["eos"]["entropy_mininimum"].as<double>() ; 
+    double c2p_entropy_min = params["eos"]["entropy_minimum"].as<double>() ; 
 
     bool atm_is_beta_eq = params["eos"]["atm_is_beta_eq"].as<bool>();
 

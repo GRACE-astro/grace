@@ -10,6 +10,7 @@
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
 #include <grace/physics/grmhd_helpers.hh>
+#include <grace/physics/eos/c2p.hh>
 
 #define SQR(a) (a)*(a)
 
@@ -48,7 +49,7 @@ namespace grace {
       
       ye = conservs[YESL] / D ;
 
-      v02 = fmin(0.995, r2 / (h0*h0 + r2 )) ;
+      v02 = r2 / (h0*h0 + r2 ) ;
     }
 
     /**
@@ -65,13 +66,13 @@ namespace grace {
      * the relevant metric components to the velocity.
      */
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims, double& W, bool& adjust_tau) {
+    invert(grmhd_prims_array_t& prims, double& W, c2p_err_t& c2p_errors) {
 
       prims[YEL] = ye ;
       
       static constexpr double tolerance = 1e-15 ; 
       auto const fa = [this] (double mu) { return this->fa__mu(mu) ; };
-      double mu0 = sqrt(r2) < h0 ? 1./h0 : 1e-15 + utils::brent(fa, 0, 1./h0, tolerance) ;
+      double mu0 = sqrt(r2) < h0 ? 1./h0 : 1e-6 + utils::brent(fa, 0, 1./h0, tolerance) ;
 
       auto const fmu = [this] (double mu) {return this->f__mu(mu);};
       double mu = utils::brent(fmu, 0, mu0, tolerance) ; 
@@ -83,13 +84,12 @@ namespace grace {
       double epsmin,epsmax;
       unsigned int err ;
       eos.eps_range__rho_ye(epsmin,epsmax,rhohat,yel,err);
-      adjust_tau = false ;
       // check eps range 
       if ( eps < epsmin ) {
-        adjust_tau = true ;
+        c2p_errors.adjust_tau = true ;
         eps = epsmin * 1.0001 ;
       } else if ( eps > epsmax ) {
-        adjust_tau = true ;
+        c2p_errors.adjust_tau = true ;
         eps= 0.9999 * epsmax ;  
       }
             
@@ -105,7 +105,7 @@ namespace grace {
       for( int ii=0; ii<3; ++ii) prims[VXL+ii] = What * mu * chi * ( r[ii] + mu * sqrt(r_dot_Btilde2)*Btilde[ii] ) ;  
       
       W = What ; 
-      return f__mu(mu) ; 
+      return fabs(f__mu(mu)) ; 
     }
     
   private:

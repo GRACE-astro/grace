@@ -181,7 +181,7 @@ class hybrid_eos_t
         double eps_cold ; 
         auto press_cold = cold_eos.press_cold_eps_cold__rho(eps_cold, rho, err);
         auto const eps_th_max = this->c2p_eps_max - eps_cold ; 
-        s_min = entropy__eps_th_rho(1e-05,rho) ; 
+        s_min = entropy__eps_th_rho(entropy_min,rho) ; 
         s_max = entropy__eps_th_rho(eps_th_max, rho) ; 
     }
 
@@ -304,7 +304,7 @@ class hybrid_eos_t
     {
         double eps_cold ; 
         auto press_cold = cold_eos.press_cold_eps_cold__rho(eps_cold, rho, err);
-        double eps_th = Kokkos::exp(gamma_th_m1*entropy) * Kokkos::pow(rho,gamma_th_m1) ; 
+        double eps_th = entropy/gamma_th_m1 * Kokkos::pow(rho,gamma_th_m1) ; 
         const double press  = press_cold + eps_th * rho * gamma_th_m1 ; 
         temp = temp__eps_th(eps_th);
         eps = eps_cold + eps_th ; 
@@ -384,8 +384,7 @@ class hybrid_eos_t
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     entropy__eps_th_rho( double& eps_th, double& rho) const 
     {
-        const double eps_th_l = math::max(eps_th, entropy_min) ; 
-        return Kokkos::log(eps_th_l * Kokkos::pow(rho,-gamma_th_m1)) / gamma_th_m1 ; 
+        return gamma_th_m1 * eps_th * Kokkos::pow(rho,-gamma_th_m1) ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
