@@ -145,13 +145,13 @@ gpu_task_t make_pack_task(
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
         pack_functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
-        GRACE_TRACE("Pack start.") ; 
+        GRACE_TRACE_DBG("Pack start.") ; 
         #endif
         Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
         // TODO remove 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE("Pack done.") ;
+        GRACE_TRACE_DBG("Pack done.") ;
         #endif 
     } ; 
     pack_task.stream = &pup_stream ; 
@@ -228,13 +228,13 @@ gpu_task_t make_pack_fine_task(
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
         pack_functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
-        GRACE_TRACE("Pack start.") ; 
+        GRACE_TRACE_DBG("Pack start.") ; 
         #endif 
         Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
         // TODO remove 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE("Pack done.") ;
+        GRACE_TRACE_DBG("Pack done.") ;
         #endif 
     } ; 
     pack_task.stream = &pup_stream ; 
@@ -315,24 +315,26 @@ gpu_task_t make_pack_to_cbuf_task(
     gpu_task_t pack_task{} ;
 
     amr::pack_to_cbuf_op<elem_kind,decltype(cbuf)> pack_functor {
-        cbuf, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank
+        cbuf, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank, stag
     } ; 
 
+    size_t loop_off = (stag == STAG_CENTER ? 0 : 1 ) ; 
+    size_t gz_off = (elem_kind == amr::FACE) ? 0 : loop_off ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
     pack_policy{
-        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx/2,nv,sb.size())
+        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz+gz_off,nx/2+loop_off,nv,sb.size())
     } ; 
     
     pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         // don't change data ptr here!! 
-        GRACE_TRACE("Pack start.") ; 
+        GRACE_TRACE_DBG("Pack start.") ; 
         #endif 
         Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
         // TODO remove 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE("Pack done.") ;
+        GRACE_TRACE_DBG("Pack done.") ;
         #endif 
     } ; 
     pack_task.stream = &pup_stream ; 
@@ -420,7 +422,7 @@ gpu_task_t make_unpack_task(
         unpack_dest_elem_h(i) = elem_dst ;
         set_task_id(d) ;  
         i += 1UL ; 
-        GRACE_TRACE("Unpack qid {} eid {}", std::get<0>(d), std::get<1>(d)) ; 
+        GRACE_TRACE_DBG("Unpack qid {} eid {}", std::get<0>(d), std::get<1>(d)) ; 
     }
     Kokkos::deep_copy(unpack_src_qid,unpack_src_qid_h)   ; 
     Kokkos::deep_copy(unpack_dest_qid,unpack_dst_qid_h)  ;  
@@ -442,12 +444,12 @@ gpu_task_t make_unpack_task(
     unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {
         unpack_functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
-        GRACE_TRACE("Unpack start.") ; 
+        GRACE_TRACE_DBG("Unpack start.") ; 
         #endif 
         Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE("Unpack done.") ;
+        GRACE_TRACE_DBG("Unpack done.") ;
         #endif 
     } ; 
     unpack_task.stream = &pup_stream ; 
@@ -531,23 +533,24 @@ gpu_task_t make_unpack_to_cbuf_task(
     gpu_task_t unpack_task{} ;
 
     amr::unpack_to_cbuf_op<elem_kind,decltype(cbuf)> unpack_functor {
-        recv_buf, cbuf, ghost_qid_d, cbuf_qid_d, cbuf_elem_d, child_id_d, VEC(nx,ny,nz), ngz, nv, rank
+        recv_buf, cbuf, ghost_qid_d, cbuf_qid_d, cbuf_elem_d, child_id_d, VEC(nx,ny,nz), ngz, nv, rank, stag
     } ; 
-
+    size_t loop_off = (stag == STAG_CENTER ? 0 : 1 ) ; 
+    size_t gz_off = (elem_kind == amr::FACE) ? 0 : loop_off ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
     unpack_policy{
-        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx/2,nv,rb.size(), true /*extend loops by ngz*/)
+        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz+gz_off,nx/2+loop_off,nv,rb.size(), true /*extend loops by ngz*/)
     } ; 
     
     unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         //don't change data ptr here! 
-        GRACE_TRACE("Unpack start.") ; 
+        GRACE_TRACE_DBG("Unpack start.") ; 
         #endif 
         Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE("Unpack done.") ;
+        GRACE_TRACE_DBG("Unpack done.") ;
         #endif 
     } ; 
     unpack_task.stream = &pup_stream ; 
@@ -631,23 +634,24 @@ gpu_task_t make_unpack_from_cbuf_task(
     gpu_task_t unpack_task{} ;
 
     amr::unpack_from_cbuf_op<elem_kind,decltype(data)> unpack_functor {
-        recv_buf, data, ghost_qid_d, view_qid_d, view_elem_d, child_id_d, VEC(nx,ny,nz), ngz, nv, rank
+        recv_buf, data, ghost_qid_d, view_qid_d, view_elem_d, child_id_d, VEC(nx,ny,nz), ngz, nv, rank, stag
     } ; 
-
+    size_t loop_off = (stag == STAG_CENTER ? 0 : 1 ) ; 
+    size_t gz_off = (elem_kind == amr::FACE) ? 0 : loop_off ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
     unpack_policy{
-        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,nx/2,nv,rb.size(), false /*extend loops by ngz*/)
+        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz+gz_off,nx/2+loop_off,nv,rb.size(), false /*extend loops by ngz*/)
     } ; 
     
     unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {
         unpack_functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
-        GRACE_TRACE("Unpack start.") ; 
+        GRACE_TRACE_DBG("Unpack start.") ; 
         #endif 
         Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE("Unpack done.") ;
+        GRACE_TRACE_DBG("Unpack done.") ;
         #endif 
     } ; 
     unpack_task.stream = &pup_stream ; 

@@ -62,8 +62,8 @@ bc_t
 get_bc_type(int64_t varidx, var_staggering_t const& var_staggering)
 {
     if ( var_staggering == STAG_CENTER ) {
-        ASSERT_DBG( varidx < detail::_aux_bc_types.size(), 
-                "Requested auxiliary variable " << varidx << " does not have registered BCs."); 
+        ASSERT_DBG( varidx < detail::_var_bc_types.size(), 
+                "Requested variable " << varidx << " does not have registered BCs."); 
         return detail::_var_bc_types[varidx]  ;
     } else if ( var_staggering == STAG_FACEX ) {
         ASSERT_DBG( varidx < detail::_facex_vars_bc_types.size(), 

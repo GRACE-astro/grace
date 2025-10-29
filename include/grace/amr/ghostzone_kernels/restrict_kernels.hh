@@ -124,7 +124,9 @@ struct div_free_restrict_op {
     {
         auto src_qid = src_q(iq) ; 
         auto dst_qid = dest_q(iq) ; 
-
+        // we need to add up the 4 values 
+        // coming from within the coarse 
+        // face
         int sx = stag_dir == 0 ? 0 : 1 ; 
         int sy = stag_dir == 1 ? 0 : 1 ; 
         int sz = stag_dir == 2 ? 0 : 1 ; 
@@ -175,7 +177,7 @@ struct ghost_restrict_op {
       , qid(_qid)
       , cbuf_id(_cbuf_id)
       , elem_id(_eid)
-      , transf(n,_ngz)
+      , transf(n,_ngz, STAG_CENTER)
     {}
 
     template< var_staggering_t stag >
@@ -317,13 +319,13 @@ struct div_free_ghost_restrict_op {
         Kokkos::View<size_t*> _qid, 
         Kokkos::View<size_t*> _cbuf_id,
         Kokkos::View<uint8_t*> _eid,  
-        size_t n, size_t _ngz, var_staggering_t stag
+        size_t n, size_t _ngz
     ) : data(_data)
       , cbuf(_cbuf)
       , qid(_qid)
       , cbuf_id(_cbuf_id)
       , elem_id(_eid)
-      , transf(n,_ngz,stag)
+      , transf(n,_ngz,STAG_CENTER)
     {}
 
     // range check: all the non-gz loops are extended by 
@@ -334,30 +336,51 @@ struct div_free_ghost_restrict_op {
     template< element_kind_t elem_kind >
     KOKKOS_INLINE_FUNCTION
     bool in_range(size_t i, size_t j, size_t k, int8_t ie) const {
-        
-        size_t nx  = transf.n + (stag_dir==0) ; 
-        size_t ny  = transf.n + (stag_dir==1) ; 
-        size_t nz  = transf.n + (stag_dir==2) ;
+        size_t sx = (stag_dir==0); 
+        size_t sy = (stag_dir==1);
+        size_t sz = (stag_dir==2);
+        size_t nx  = transf.n/2 ; 
+        size_t ny  = transf.n/2 ; 
+        size_t nz  = transf.n/2 ;
         size_t ngz = transf.g ;
         if constexpr ( elem_kind == FACE ) {
             const int axis = ie / 2;
+            const int side = ie % 2; 
             if ( axis == 0 ) { // across X - face
-                return (j >= ngz and j<ny+ngz) and ( k>=ngz and k<nz+ngz) ; 
+                bool gz_in_range = side ? i < nx + ngz + ngz/2 + sx : i < ngz+sx ; 
+                return (j >= ngz and j<ny+sy+ngz) and ( k>=ngz and k<nz+sz+ngz) and gz_in_range ; 
             } else if ( axis == 1 ) {
-                return (i>=ngz and i<nx+ngz) and (k>=ngz and k<nz+ngz) ;
+                bool gz_in_range = side ? j < ny + ngz + ngz/2 + sy : j < ngz+sy ; 
+                return (i>=ngz and i<nx+sx+ngz) and (k>=ngz and k<nz+sz+ngz) and gz_in_range ;
             } else {
-                return (i>=ngz and i<nx+ngz) and (j>=ngz and j<ny+ngz) ; 
+                bool gz_in_range = side ? k < nz + ngz + ngz/2 + sz : k < ngz+sz ; 
+                return (i>=ngz and i<nx+sx+ngz) and (j>=ngz and j<ny+sy+ngz) and gz_in_range ; 
             }
         } else if constexpr ( elem_kind == EDGE ) {
+            const int side1 = (ie>>0)&1 ;
+            const int side2 = (ie>>1)&1 ; 
             if ( ie < 4 ) {
-                return (i>=ngz and i<nx+ngz) ; 
+                bool gz_in_range1 = side1 ? j < ny + ngz + ngz/2 + sy : j < ngz+sy ;
+                bool gz_in_range2 = side2 ? k < nz + ngz + ngz/2 + sz : k < ngz+sz ; 
+                return (i>=ngz and i<nx+sx+ngz) and gz_in_range1 and gz_in_range2 ; 
             } else if ( ie < 8 ) {
-                return (j>=ngz and j<ny+ngz) ;
+                bool gz_in_range1 = side1 ? i < nx + ngz + ngz/2 + sx : i < ngz+sx ; 
+                bool gz_in_range2 = side2 ? k < nz + ngz + ngz/2 + sz : k < ngz+sz ;
+                return (j>=ngz and j<ny+sy+ngz) and gz_in_range1 and gz_in_range2 ; 
             } else {
-                return (k>=ngz and k<nz+ngz) ;
+                bool gz_in_range1 = side1 ? i < nx + ngz + ngz/2 + sx : i < ngz+sx ; 
+                bool gz_in_range2 = side2 ? j < ny + ngz + ngz/2 + sy : j < ngz+sy ;
+                return (k>=ngz and k<nz+sz+ngz) and gz_in_range1 and gz_in_range2 ;
             }
-        } 
-        return true ; 
+        } else {
+            const int side1 = (ie>>0)&1 ;
+            const int side2 = (ie>>1)&1 ; 
+            const int side3 = (ie>>2)&1 ; 
+            bool gz_in_range1 = side1 ? i < nx + ngz + ngz/2 + sx : i < ngz+sx ; 
+            bool gz_in_range2 = side2 ? j < ny + ngz + ngz/2 + sy : j < ngz+sy ;
+            bool gz_in_range3 = side3 ? k < nz + ngz + ngz/2 + sz : k < ngz+sz ;
+            return gz_in_range1 and gz_in_range2 and gz_in_range3 ; 
+        }
         
     }
 
@@ -394,11 +417,7 @@ struct div_free_ghost_restrict_op {
         s[1] = stag_dir == 1 ? 0 : s[1] ; 
         s[2] = stag_dir == 2 ? 0 : s[2] ; 
 
-        // if we are filling within a face 
-        // fields staggered in that face 
-        // the loop below has to go to ng/2 + 1 
-        int orientation = (e_id/2) ; 
-        int loop_stag = (stag_dir == orientation) ;
+        
 
 
         auto const compute_restricted_val = [=] (size_t i_f, size_t j_f, size_t k_f)
@@ -413,8 +432,8 @@ struct div_free_ghost_restrict_op {
             }
             return 0.25 * val ;
         } ; 
-        // loop in the ghostzones, only ngz/2 ( + 1, see above )
-        for( int i=0; i<transf.g/2+loop_stag; ++i) {
+        // loop in the ghostzones, only ngz/2 ( + 1 )
+        for( int i=0; i<transf.g/2+1; ++i) {
             size_t i_c, j_c, k_c ; 
             transf.compute_indices<FACE>(
                 i,j,k, i_c,j_c,k_c, e_id, true  
@@ -423,7 +442,7 @@ struct div_free_ghost_restrict_op {
             transf.compute_indices<FACE>(
                 2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
             ) ; 
-            if ( in_range<FACE>(i_f,j_f,k_f,e_id) ) 
+            if ( in_range<FACE>(i_c,j_c,k_c,e_id) ) 
                 cbuf(i_c,j_c,k_c,iv,c_id) = compute_restricted_val(i_f,j_f,k_f) ; 
         }
          
@@ -457,21 +476,9 @@ struct div_free_ghost_restrict_op {
             return 0.25 * val ;
         } ; 
 
-        int edge_dir = (e_id < 4) ? 0 : ((e_id < 8) ? 1 : 2);
-
-        // Determine transverse directions in lexicographic order
-        int i_dir, j_dir;
-        if (edge_dir == 0) { i_dir = 1; j_dir = 2; }     // edge along x
-        else if (edge_dir == 1) { i_dir = 0; j_dir = 2; } // edge along y
-        else { i_dir = 0; j_dir = 1; }                    // edge along z
-
-        // Decide how to extend loops
-        int stag_i = (stag_dir == i_dir) ? 1 : 0;
-        int stag_j = (stag_dir == j_dir) ? 1 : 0;
-
         // only ngz/2
-        for( int j=0; j<transf.g/2+stag_j; ++j) 
-        for( int i=0; i<transf.g/2+stag_i; ++i) {
+        for( int j=0; j<transf.g/2+1; ++j) 
+        for( int i=0; i<transf.g/2+1; ++i) {
             size_t i_c, j_c, k_c ; 
             transf.compute_indices<EDGE>(
                 i,j,k, i_c,j_c,k_c, e_id, true  
@@ -480,7 +487,7 @@ struct div_free_ghost_restrict_op {
             transf.compute_indices<EDGE>(
                 2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
             ) ; 
-            if ( in_range<EDGE>(i_f,j_f,k_f,e_id) ) 
+            if ( in_range<EDGE>(i_c,j_c,k_c,e_id) ) 
                 cbuf(i_c,j_c,k_c,iv,c_id) = compute_restricted_val(i_f,j_f,k_f) ; 
         }
          
@@ -516,9 +523,9 @@ struct div_free_ghost_restrict_op {
         } ; 
 
         // only ngz/2
-        for( int k=0; k<transf.g/2+(stag_dir==2); ++k) 
-        for( int j=0; j<transf.g/2+(stag_dir==1); ++j) 
-        for( int i=0; i<transf.g/2+(stag_dir==0); ++i)  {
+        for( int k=0; k<transf.g/2+1; ++k) 
+        for( int j=0; j<transf.g/2+1; ++j) 
+        for( int i=0; i<transf.g/2+1; ++i)  {
             size_t i_c, j_c, k_c ; 
             transf.compute_indices<CORNER>(
                 i,j,k, i_c,j_c,k_c, e_id, true  
@@ -527,8 +534,9 @@ struct div_free_ghost_restrict_op {
             transf.compute_indices<CORNER>(
                 2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
             ) ; 
-            // corner: always in range
-            cbuf(i_c,j_c,k_c,iv,c_id) = compute_restricted_val(i_f,j_f,k_f) ; 
+            // corner: check range
+            if ( in_range<CORNER>(i_c,j_c,k_c,e_id))
+                cbuf(i_c,j_c,k_c,iv,c_id) = compute_restricted_val(i_f,j_f,k_f) ; 
         }
          
     }

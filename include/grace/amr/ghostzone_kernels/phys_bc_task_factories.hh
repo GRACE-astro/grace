@@ -98,7 +98,6 @@ make_gpu_phys_bc_task(
     gpu_task_t task{} ;
 
     auto const off = get_index_staggerings(stag) ; 
-    GRACE_TRACE("Stag {} {} {}", off[0], off[1], off[2]) ; 
     amr::phys_bc_op<elem_kind,bc_kind,decltype(data_array)> functor{
        data_array, qid_d, eid_d, dir_d, var_bc, VEC(nx+off[0],ny+off[1],nz+off[2]),ngz, is_cbuf
     } ; 
@@ -111,12 +110,12 @@ make_gpu_phys_bc_task(
     task._run = [functor, policy] (view_alias_t alias) mutable {
         functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
-        GRACE_TRACE("Fill phys start") ; 
+        GRACE_TRACE_DBG("Fill phys start") ; 
         #endif 
         Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE("Fill phys done") ; 
+        GRACE_TRACE_DBG("Fill phys done") ; 
         #endif 
     };
 
@@ -127,7 +126,6 @@ make_gpu_phys_bc_task(
     // set deps 
     for( auto const dep_id : deps ) {
         ASSERT(dep_id < task_list.size(), "Dep-id out-of-range") ;
-        GRACE_TRACE("Dep {}", dep_id) ;  
         task._dependencies.push_back(dep_id) ; 
         task_list[dep_id]->_dependents.push_back(tid) ; 
     }
@@ -253,7 +251,6 @@ inline bool unpack_dependencies(
                 insert_dependencies(EDGE,FACE,face.data.hanging.task_id[c0][stag], is_cbuf) ; 
                 insert_dependencies(EDGE,FACE,face.data.hanging.task_id[c1][stag], is_cbuf) ; 
             } else { 
-                GRACE_TRACE("Stag {} inserting edge-face eid {} fid {} qid {} dep {}", static_cast<int>(stag), std::get<1>(d), face_idx, std::get<0>(d), face.data.full.task_id[stag]) ; 
                 insert_dependencies(EDGE,FACE,face.data.full.task_id[stag], is_cbuf) ; 
             }
         }

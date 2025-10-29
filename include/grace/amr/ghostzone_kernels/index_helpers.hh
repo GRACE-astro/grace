@@ -269,7 +269,63 @@ struct index_transformer_t {
 
 } ; 
 
+/*************************************************************************************************************/
+/*************************************************************************************************************/
 
+KOKKOS_INLINE_FUNCTION
+size_t _get_first_iter_index_face(
+    int idir, int8_t ielem, size_t n, size_t g
+) 
+{
+    size_t first_indices[3]  ;
+    const int axis = ielem / 2;
+    const int side = ielem % 2;
+
+    if ( axis == 0 ) {
+        first_indices[0] = side ? n + g : 0 ;
+        first_indices[1] = g ; 
+        first_indices[2] = g ; 
+    } else if ( axis == 1 ) {
+        first_indices[1] = side ? n + g : 0 ;
+        first_indices[0] = g ; 
+        first_indices[2] = g ; 
+    } else {
+        first_indices[2] = side ? n + g : 0 ;
+        first_indices[0] = g ; 
+        first_indices[1] = g ; 
+    }
+    return first_indices[idir] ; 
+}
+
+// this index is always the one of the face 
+// center before the interior of the quadrant.
+// we need to return this since this is where 
+// an additional face at i+1/2 needs to be filled 
+// by prolong.
+KOKKOS_INLINE_FUNCTION
+size_t _get_last_iter_index_face(
+    int idir, int8_t ielem, size_t n, size_t g
+) 
+{
+    size_t last_indices[3]  ;
+    const int axis = ielem / 2;
+    const int side = ielem % 2;
+
+    if ( axis == 0 ) {
+        last_indices[0] = side ? n + 2*g-1 : g-1 ;
+        last_indices[1] = n+g-1 ; 
+        last_indices[2] = n+g-1 ; 
+    } else if ( axis == 1 ) {
+        last_indices[1] = side ? n + 2*g-1 : g-1 ;
+        last_indices[0] = n+g-1 ; 
+        last_indices[2] = n+g-1 ; 
+    } else {
+        last_indices[2] = side ? n + 2*g-1 : g-1 ;
+        last_indices[0] = n+g-1 ; 
+        last_indices[1] = n+g-1 ; 
+    }
+    return last_indices[idir] ; 
+}
 
 KOKKOS_INLINE_FUNCTION
 void _get_signs_face(
@@ -330,19 +386,85 @@ void _compute_ghost_indices_face_invert(
     const int side = face % 2;
 
     if (axis == 0) { // X-faces
-        i_out = side ? n + g + ig : g - ig - 1 ;
+        i_out = side ? n + g + ig : g - ig;
         j_out = g + j;
         k_out = g + k;
     } else if (axis == 1) { // Y-faces
         i_out = g + j;
-        j_out = side ? n + g + ig : g - ig - 1 ;
+        j_out = side ? n + g + ig : g - ig;
         k_out = g + k;
     } else { // Z-faces
         i_out = g + j;
         j_out = g + k;
-        k_out = side ? n + g + ig : g - ig - 1 ;
+        k_out = side ? n + g + ig : g - ig;
     }
 }
+
+KOKKOS_INLINE_FUNCTION
+size_t _get_first_iter_index_edge(
+    int idir, int8_t ielem, size_t n, size_t g
+) 
+{
+    size_t first_indices[3]  ;
+    
+    if ( ielem < 4 ) {
+        // X-axis edges
+        int y_off = (ielem >> 0) & 1;
+        int z_off = (ielem >> 1) & 1;
+        first_indices[0] = g ; 
+        first_indices[1] = y_off ? n + g : 0 ; 
+        first_indices[2] = z_off ? n + g : 0 ; 
+    } else if ( ielem < 8 ) {
+        // Y-axis edges
+        int x_off = (ielem >> 0) & 1;
+        int z_off = (ielem >> 1) & 1;
+        first_indices[1] = g ; 
+        first_indices[0] = x_off ? n + g : 0 ; 
+        first_indices[2] = z_off ? n + g : 0 ; 
+    } else {
+        // Z-axis edges
+        int x_off = (ielem >> 0) & 1;
+        int y_off = (ielem >> 1) & 1;
+        first_indices[2] = g ; 
+        first_indices[0] = x_off ? n + g : 0 ; 
+        first_indices[1] = y_off ? n + g : 0 ; 
+    }
+    return first_indices[idir] ; 
+}
+
+
+KOKKOS_INLINE_FUNCTION
+size_t _get_last_iter_index_edge(
+    int idir, int8_t ielem, size_t n, size_t g
+) 
+{
+    size_t last_indices[3]  ;
+    
+    if ( ielem < 4 ) {
+        // X-axis edges
+        int y_off = (ielem >> 0) & 1;
+        int z_off = (ielem >> 1) & 1;
+        last_indices[0] = n + g - 1 ; 
+        last_indices[1] = y_off ? n + 2*g -1 : g-1 ;
+        last_indices[2] = z_off ? n + 2*g -1 : g-1 ;
+    } else if ( ielem < 8 ) {
+        // Y-axis edges
+        int x_off = (ielem >> 0) & 1;
+        int z_off = (ielem >> 1) & 1;
+        last_indices[1] = n + g - 1 ; 
+        last_indices[0] = x_off ? n + 2*g -1 : g-1 ;
+        last_indices[2] = z_off ? n + 2*g -1 : g-1 ;
+    } else {
+        // Z-axis edges
+        int x_off = (ielem >> 0) & 1;
+        int y_off = (ielem >> 1) & 1;
+        last_indices[2] = n + g - 1 ; 
+        last_indices[0] = x_off ? n + 2*g -1 : g-1 ;
+        last_indices[1] = y_off ? n + 2*g -1 : g-1 ;
+    }
+    return last_indices[idir] ; 
+}
+
 
 KOKKOS_INLINE_FUNCTION
 void _get_signs_edge(
@@ -423,23 +545,59 @@ void _compute_ghost_indices_edge_invert(
         int y_off = (edge >> 0) & 1;
         int z_off = (edge >> 1) & 1;
         i_out = g + k;                              // varies
-        j_out = y_off ? n + g + ig : g - ig - 1 ;   // fixed
-        k_out = z_off ? n + g + jg : g - jg - 1 ;   // fixed
+        j_out = y_off ? n + g + ig : g - ig  ;   // fixed
+        k_out = z_off ? n + g + jg : g - jg  ;   // fixed
     } else if (edge < 8) {
         // Y-axis edges
         int x_off = (edge >> 0) & 1;
         int z_off = (edge >> 1) & 1;
-        i_out = x_off ? n + g + ig : g - ig - 1 ;   // fixed
+        i_out = x_off ? n + g + ig : g - ig  ;   // fixed
         j_out = g + k;                              // varies
-        k_out = z_off ? n + g + jg : g - jg - 1 ;   // fixed
+        k_out = z_off ? n + g + jg : g - jg  ;   // fixed
     } else {
         // Z-axis edges
         int x_off = (edge >> 0) & 1;
         int y_off = (edge >> 1) & 1;
-        i_out = x_off ? n + g + ig : g - ig - 1 ;   // fixed
-        j_out = y_off ? n + g + jg : g - jg - 1 ;   // fixed
+        i_out = x_off ? n + g + ig : g - ig ;   // fixed
+        j_out = y_off ? n + g + jg : g - jg ;   // fixed
         k_out = g + k;                              // varies
     }
+}
+
+
+KOKKOS_INLINE_FUNCTION
+size_t _get_first_iter_index_corner(
+    int idir, int8_t ielem, size_t n, size_t g
+) 
+{
+    int x_off = (ielem) & 1 ; 
+    int y_off = (ielem >> 1) & 1 ; 
+    int z_off = (ielem >> 2) & 1 ; 
+
+    size_t first_indices[] = {
+        x_off ? n + g : 0,
+        y_off ? n + g : 0,
+        z_off ? n + g : 0 
+    } ; 
+    return first_indices[idir] ; 
+}
+
+
+KOKKOS_INLINE_FUNCTION
+size_t _get_last_iter_index_corner(
+    int idir, int8_t ielem, size_t n, size_t g
+) 
+{
+    int x_off = (ielem) & 1 ; 
+    int y_off = (ielem >> 1) & 1 ; 
+    int z_off = (ielem >> 2) & 1 ; 
+
+    size_t last_indices[] = {
+        x_off ? n + 2*g - 1 : g-1,
+        y_off ? n + 2*g - 1 : g-1,
+        z_off ? n + 2*g - 1 : g-1
+    } ; 
+    return last_indices[idir] ; 
 }
 
 KOKKOS_INLINE_FUNCTION
@@ -483,14 +641,14 @@ void _compute_ghost_indices_corner_invert(
     int y_off = (corner >> 1) & 1 ; 
     int z_off = (corner >> 2) & 1 ; 
 
-    i_out = x_off ? n + g + i :  g - i - 1 ; 
-    j_out = y_off ? n + g + j :  g - j - 1 ; 
-    k_out = z_off ? n + g + k :  g - k - 1 ; 
+    i_out = x_off ? n + g + i :  g - i ; 
+    j_out = y_off ? n + g + j :  g - j ; 
+    k_out = z_off ? n + g + k :  g - k ; 
 }
 
 struct prolong_index_transformer_t {
-    std::size_t n, g;
-    prolong_index_transformer_t(std::size_t _n,std::size_t  _ngz)
+    std::size_t n, g, sx, sy, sz;
+    prolong_index_transformer_t(std::size_t _n,std::size_t  _ngz, grace::var_staggering_t stag)
         : n(_n), g(_ngz) {}
 
     
@@ -535,6 +693,32 @@ struct prolong_index_transformer_t {
             _get_stencil_edge(stencil,ielem) ; 
         } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
             _get_stencil_corner(stencil,ielem) ; 
+        }
+    }
+
+    template< element_kind_t elem_kind >
+    KOKKOS_INLINE_FUNCTION
+    size_t last_index(int idir, int8_t ielem, bool half_ncells ) const {
+        size_t _n = half_ncells ? n / 2 : n ; 
+        if constexpr ( elem_kind == element_kind_t::FACE ) {
+            return _get_last_iter_index_face(idir,ielem,_n,g) ; 
+        } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
+            return _get_last_iter_index_edge(idir,ielem,_n,g) ; 
+        } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
+            return _get_last_iter_index_corner(idir,ielem,_n,g) ; 
+        }
+    }
+
+    template< element_kind_t elem_kind >
+    KOKKOS_INLINE_FUNCTION
+    size_t first_index(int idir, int8_t ielem, bool half_ncells ) const {
+        size_t _n = half_ncells ? n / 2 : n ; 
+        if constexpr ( elem_kind == element_kind_t::FACE ) {
+            return _get_first_iter_index_face(idir,ielem,_n,g) ; 
+        } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
+            return _get_first_iter_index_edge(idir,ielem,_n,g) ; 
+        } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
+            return _get_first_iter_index_corner(idir,ielem,_n,g) ; 
         }
     }
 } ; 
@@ -678,6 +862,17 @@ constexpr std::array<std::array<int8_t,4>,P4EST_FACES> f2e =
     {{4,5,0,1}}, //4
     {{6,7,2,3}} //5 
 }}; 
+
+constexpr std::array<std::array<int8_t,4>,P4EST_FACES> f2c = 
+{{
+    {{0,2,4,6}}, //0
+    {{1,3,5,7}}, //1
+    {{0,1,4,5}}, //2
+    {{2,3,6,7}}, //3
+    {{0,1,2,3}}, //4
+    {{4,5,6,7}} //5 
+}}; 
+
 constexpr std::array<std::array<int8_t,2>,P4EST_FACES/2> face_axes = 
 {{
     {{1,2}}, {{0,2}}, {{0,1}}

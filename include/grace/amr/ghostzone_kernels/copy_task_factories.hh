@@ -126,9 +126,6 @@ gpu_task_t make_gpu_copy_task(
     
     int i{0} ; 
     for( auto const& d: bucket ) { 
-        if (elem_kind == amr::EDGE and std::get<0>(d) == 5 and std::get<1>(d) == 5) {
-            GRACE_TRACE("Here! Tid {}", task_counter ) ; 
-        }
         auto [src_qid,dst_qid,src_eid,dst_eid] = get_interface_info(d) ; 
         src_qid_h(i) = src_qid; dst_qid_h(i) = dst_qid ; 
         src_elem_h(i) = src_eid; dst_elem_h(i) = dst_eid ; 
@@ -159,12 +156,12 @@ gpu_task_t make_gpu_copy_task(
     task._run = [functor, policy] (view_alias_t alias) mutable {
         functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
-        GRACE_TRACE("Copy start.") ; 
+        GRACE_TRACE_DBG("Copy start.") ; 
         #endif 
         Kokkos::parallel_for("copy_ghostzones", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE("Copy end") ; 
+        GRACE_TRACE_DBG("Copy end") ; 
         #endif 
     };
     task.stream = &stream; 
@@ -232,9 +229,38 @@ gpu_task_t make_gpu_copy_to_cbuf_task(
         if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
             face.data.full.task_id[stag] = task_counter ;
+            // virtual edge and corner need tid as well 
+            auto cid = face.child_id ; 
+            auto ioff = (cid>>0)& 1 ;
+            auto joff = (cid>>1)& 1 ;
+            // edge 
+            int edge_ids[2] = {
+                ioff ? grace::amr::detail::f2e[std::get<1>(d)][0] 
+                     : grace::amr::detail::f2e[std::get<1>(d)][1],
+                joff ? grace::amr::detail::f2e[std::get<1>(d)][2] 
+                     : grace::amr::detail::f2e[std::get<1>(d)][3],
+            } ; 
+            
+            for( int ii=0; ii<2; ++ii ) {
+                auto& edge = ghost_array[std::get<0>(d)].edges[edge_ids[ii]] ; 
+                ASSERT_DBG(!edge.filled, "Something wrong!") ; 
+                edge.data.full.task_id[stag] = task_counter ; 
+            }
+            // corner 
+            int cidx = (ioff==0) + (joff==0)*2 ;   
+            int corner_id = grace::amr::detail::f2c[std::get<1>(d)][cidx]; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[corner_id] ; 
+            ASSERT_DBG(!corner.filled, "Something wrong!") ; 
+            corner.data.task_id[stag] = task_counter ; 
         } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
             auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
             edge.data.full.task_id[stag] = task_counter ;
+            // virtual corner need tid as well 
+            auto cid = edge.child_id ;
+            auto corner_id = grace::amr::detail::e2c[std::get<1>(d)][(cid==0)] ; 
+            auto& corner = ghost_array[std::get<0>(d)].corners[corner_id] ; 
+            ASSERT_DBG(!corner.filled, "Something wrong!") ; 
+            corner.data.task_id[stag] = task_counter ; 
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             corner.data.task_id[stag] = task_counter ;
@@ -260,25 +286,26 @@ gpu_task_t make_gpu_copy_to_cbuf_task(
     gpu_task_t task{} ;
 
     amr::copy_to_cbuf_op<elem_kind,decltype(data),decltype(cbuf)> functor{
-        data, cbuf, src_qid, dst_qid, src_elem, dst_elem, ic, VEC(nx,ny,nz), ngz
+        data, cbuf, src_qid, dst_qid, src_elem, dst_elem, ic, VEC(nx,ny,nz), ngz, stag
     } ; 
     
     Kokkos::DefaultExecutionSpace exec_space{stream} ; 
-    
+    size_t loop_off = (stag == STAG_CENTER ? 0 : 1 ) ; 
+    size_t gz_off = (elem_kind == amr::FACE) ? 0 : loop_off ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
         policy{
-            exec_space, {0,0,0,0,0}, get_iter_range<elem_kind>(ngz,nx/2,nv,bucket.size(),true /*add +ngz to nx ranges*/)
+            exec_space, {0,0,0,0,0}, get_iter_range<elem_kind>(ngz+gz_off,nx/2+loop_off,nv,bucket.size(),true /*add +ngz to nx ranges*/)
         } ; 
  
     task._run = [functor, policy] (view_alias_t alias) mutable {
         functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
-        GRACE_TRACE("Copy start.") ; 
+        GRACE_TRACE_DBG("Copy start.") ; 
         #endif 
         Kokkos::parallel_for("copy_ghostzones_v2c", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE("Copy end") ; 
+        GRACE_TRACE_DBG("Copy end") ; 
         #endif 
     };
     task.stream = &stream; 
@@ -385,25 +412,26 @@ gpu_task_t make_gpu_copy_from_cbuf_task(
         cbuf, data, 
         /*view qid*/dst_qid, /*cbuf qid*/src_qid, 
         /*view elem*/ dst_elem, /*cbuf elem*/ src_elem,  
-        ic, VEC(nx,ny,nz), ngz
+        ic, VEC(nx,ny,nz), ngz, stag
     } ; 
     
     Kokkos::DefaultExecutionSpace exec_space{stream} ; 
-    
+    size_t loop_off = (stag == STAG_CENTER ? 0 : 1 ) ; 
+    size_t gz_off = (elem_kind == amr::FACE) ? 0 : loop_off ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
         policy{
-            exec_space, {0,0,0,0,0}, get_iter_range<elem_kind>(ngz,nx/2,nv,bucket.size(),false /*add +ngz to nx ranges*/)
+            exec_space, {0,0,0,0,0}, get_iter_range<elem_kind>(ngz+gz_off,nx/2+loop_off,nv,bucket.size(),false /*add +ngz to nx ranges*/)
         } ; 
  
     task._run = [functor, policy] (view_alias_t alias) mutable {
         functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
-        GRACE_TRACE("Copy start.") ; 
+        GRACE_TRACE_DBG("Copy start.") ; 
         #endif 
         Kokkos::parallel_for("copy_ghostzones_c2v", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE("Copy end") ; 
+        GRACE_TRACE_DBG("Copy end") ; 
         #endif 
     };
     task.stream = &stream; 

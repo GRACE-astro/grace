@@ -202,9 +202,12 @@ struct copy_to_cbuf_op {
     // we need to accomodate for that too.
     KOKKOS_INLINE_FUNCTION
     bool in_range(size_t i, size_t j, size_t k, int8_t ie, int8_t ic /*child idx*/) const {
-        size_t nx  = transf.nx/2 + transf.sx ; 
-        size_t ny  = transf.ny/2 + transf.sy ; 
-        size_t nz  = transf.nz/2 + transf.sz ;
+        size_t sx = transf.sx ; 
+        size_t sy = transf.sy ; 
+        size_t sz = transf.sz ; 
+        size_t nx  = transf.nx/2 ; 
+        size_t ny  = transf.ny/2 ; 
+        size_t nz  = transf.nz/2 ;
         size_t ngz = transf.ngz ;
         if constexpr ( elem_kind == FACE ) {
             const int axis = ie / 2;
@@ -213,46 +216,52 @@ struct copy_to_cbuf_op {
             // if upper child : 0 to n + ngz
             // else: ngz to n + 2 ngz 
             const int lbi = ioff ? 0 : ngz ; 
-            const int ubi = ioff ? ngz : 2 * ngz ; 
             const int lbj = joff ? 0 : ngz ; 
-            const int ubj = joff ? ngz : 2 * ngz ; 
 
             if ( axis == 0 ) { // across X - face
-                return (j >= lbi and j<ny+ubi) and ( k>=lbj and k<nz+ubj) ; 
+                size_t const ubi = ioff ? ny + ngz + sy : ny + 2 * ngz + sy ; 
+                size_t const ubj = joff ? nz + ngz + sz : nz + 2 * ngz + sz ; 
+                return (j >= lbi and j<ubi) and ( k>=lbj and k<ubj) ; 
             } else if ( axis == 1 ) {
-                return (i>=lbi and i<nx+ubi) and (k>=lbj and k<nz+ubj) ;
+                size_t const ubi = ioff ? nx + ngz + sx : nx + 2 * ngz + sx ; 
+                size_t const ubj = joff ? nz + ngz + sz : nz + 2 * ngz + sz ;
+                return (i>=lbi and i<ubi) and (k>=lbj and k<ubj) ;
             } else {
-                return (i>=lbi and i<nx+ubi) and (j>=lbj and j<ny+ubj) ; 
+                size_t const ubi = ioff ? nx + ngz + sx : nx + 2 * ngz + sx ; 
+                size_t const ubj = joff ? ny + ngz + sy : ny + 2 * ngz + sy ; 
+                return (i>=lbi and i<ubi) and (j>=lbj and j<ubj) ; 
             }
         } else if constexpr ( elem_kind == EDGE ) {
             // if upper child : 0 to n + ngz
             // else: ngz to n + 2 ngz 
             const int lbi = ic ? 0 : ngz ; 
-            const int ubi = ic ? ngz : 2 * ngz ;
             // ghostzone checks 
-            const int s1 = (ie>>0)&1 ;
-            const int s2 = (ie>>1)&1 ; 
+            const int side1 = (ie>>0)&1 ;
+            const int side2 = (ie>>1)&1 ; 
             if ( ie < 4 ) {
-                bool gz_in_range1 = s1 ? j < ny + 2*ngz : j < ngz + transf.sy ; 
-                bool gz_in_range2 = s2 ? k < nz + 2*ngz : k < ngz + transf.sz ; 
-                return (i>=lbi and i<nx+ubi) and gz_in_range1 and gz_in_range2 ; 
+                size_t const ubi = ic ? nx + ngz + sx : nx + 2 * ngz + sx ; 
+                bool gz_in_range1 = side1 ? j < ny + sy + 2 * ngz : j < ngz + transf.sy ;
+                bool gz_in_range2 = side2 ? k < nz + sz + 2 * ngz : k < ngz + transf.sz ;
+                return (i>=lbi and i<ubi) and gz_in_range1 and gz_in_range2 ; 
             } else if ( ie < 8 ) {
-                bool gz_in_range1 = s1 ? i < nx + 2*ngz : i < ngz + transf.sx ; 
-                bool gz_in_range2 = s2 ? k < nz + 2*ngz : k < ngz + transf.sz ; 
-                return (j>=lbi and j<ny+ubi) and gz_in_range1 and gz_in_range2 ;
+                size_t const ubi = ic ? ny + ngz + sy : ny + 2 * ngz + sy ; 
+                bool gz_in_range1 = side1 ? i < nx + sx + 2 * ngz : i < ngz + transf.sx ;
+                bool gz_in_range2 = side2 ? k < nz + sz + 2 * ngz : k < ngz + transf.sz ;
+                return (j>=lbi and j<ubi) and gz_in_range1 and gz_in_range2 ;
             } else {
-                bool gz_in_range1 = s1 ? i < nx + 2*ngz : i < ngz + transf.sx ; 
-                bool gz_in_range2 = s2 ? j < ny + 2*ngz : j < ngz + transf.sy ; 
-                return (k>=lbi and k<nz+ubi) and gz_in_range1 and gz_in_range2 ;
+                size_t const ubi = ic ? nz + ngz + sz : nz + 2 * ngz + sz ; 
+                bool gz_in_range1 = side1 ? i < nx + sx + 2 * ngz : i < ngz + transf.sx ;
+                bool gz_in_range2 = side2 ? j < ny + sy + 2 * ngz : j < ngz + transf.sy ;
+                return (k>=lbi and k<ubi) and gz_in_range1 and gz_in_range2 ;
             }
         } else {
             // ghostzone checks 
-            const int s1 = (ie>>0)&1 ;
-            const int s2 = (ie>>1)&1 ; 
-            const int s3 = (ie>>2)&1 ; 
-            bool gz_in_range1 = s1 ? i < nx + 2*ngz : i < ngz + transf.sx ; 
-            bool gz_in_range2 = s2 ? j < ny + 2*ngz : j < ngz + transf.sy ;
-            bool gz_in_range3 = s3 ? k < nz + 2*ngz : k < ngz + transf.sz ;  
+            int side1 = ((ie>>0)&1) ; 
+            int side2 = ((ie>>1)&1) ; 
+            int side3 = ((ie>>2)&1) ; 
+            bool gz_in_range1 = side1 ? i < nx + sx + 2 * ngz : i < ngz + transf.sx ;
+            bool gz_in_range2 = side2 ? j < ny + sy + 2 * ngz : j < ngz + transf.sy ;
+            bool gz_in_range3 = side3 ? k < nz + sz + 2 * ngz : k < ngz + transf.sz ;  
             return gz_in_range1 and gz_in_range2 and gz_in_range3 ; 
         }
     }
@@ -362,46 +371,70 @@ struct copy_from_cbuf_op {
     // All non-gz loops are extended by 1 so we need to check 
     // range.
     KOKKOS_INLINE_FUNCTION
-    bool in_range(size_t i, size_t j, size_t k, int8_t ie) const {
-        
-        size_t nx  = transf.nx/2 + transf.sx ; 
-        size_t ny  = transf.ny/2 + transf.sy ; 
-        size_t nz  = transf.nz/2 + transf.sz ;
+    bool in_range(size_t i, size_t j, size_t k, int8_t ie, int8_t ic) const {
+        size_t sx = transf.sx ; 
+        size_t sy = transf.sy ; 
+        size_t sz = transf.sz ; 
+        size_t nx  = transf.nx ; 
+        size_t ny  = transf.ny ; 
+        size_t nz  = transf.nz ;
         size_t ngz = transf.ngz ;
-        if constexpr ( elem_kind == FACE ) {
+        if constexpr ( elem_kind == FACE ) { // for faces gz loop is ngz
             const int axis = ie / 2;
+
+            const int ioff = (ic>>0)&1 ; 
+            const int joff = (ic>>1)&1 ; 
+            // if upper child : 0 to n + ngz
+            // else: ngz to n + 2 ngz 
+            const int lbi = ioff ? ngz + transf.nx/2 : ngz ; 
+            const int lbj = joff ? ngz + transf.nx/2 : ngz ; 
+            
             if ( axis == 0 ) { // across X - face
-                return (j >= ngz and j<ny+ngz) and ( k>=ngz and k<nz+ngz) ; 
+                const int ubi = ioff ?  ny+sy+ngz : ny/2+sy+ngz ;
+                const int ubj = joff ?  nz+sz+ngz : nz/2+sz+ngz ;  
+                return (j >= lbi and j<ubi) and ( k>=lbj and k<ubj) ; 
             } else if ( axis == 1 ) {
-                return (i>=ngz and i<nx+ngz) and (k>=ngz and k<nz+ngz) ;
+                const int ubi = ioff ?  nx+sx+ngz : nx/2+sx+ngz ;
+                const int ubj = joff ?  nz+sz+ngz : nz/2+sz+ngz ;
+                return (i>=lbi and i<ubi) and (k>=lbj and k<ubj) ;
             } else {
-                return (i>=ngz and i<nx+ngz) and (j>=ngz and j<ny+ngz) ; 
+                const int ubi = ioff ?  nx+sx+ngz : nx/2+sx+ngz ;
+                const int ubj = joff ?  ny+sy+ngz : ny/2+sy+ngz ;
+                return (i>=lbi and i<ubi) and (j>=lbj and j<ubj) ; 
             }
-        } else if constexpr ( elem_kind == EDGE ) {
+        } else if constexpr ( elem_kind == EDGE ) { // for edges gz loop is gz + 1 
             int side1 = ((ie>>0)&1) ; 
             int side2 = ((ie>>1)&1) ; 
+            int off = ic ; 
+            
             if ( ie < 4 ) {
-                bool gz_in_range1 = side1 ? j < ny + 2 * ngz : j < ngz + transf.sy ;
-                bool gz_in_range2 = side2 ? k < nz + 2 * ngz : k < ngz + transf.sz ;
-                return (i>=ngz and i<nx+ngz) and gz_in_range1 and gz_in_range2 ; 
+                const int lb = off ? ngz + nx / 2 : ngz ; 
+                const int ub = off ? nx+sx+ngz : nx/2+sx+ngz ; 
+                bool gz_in_range1 = side1 ? j < ny + sy + 2 * ngz : j < ngz + transf.sy ;
+                bool gz_in_range2 = side2 ? k < nz + sz + 2 * ngz : k < ngz + transf.sz ;
+                return (i>=lb and i<ub) and gz_in_range1 and gz_in_range2 ; 
             } else if ( ie < 8 ) {
-                bool gz_in_range1 = side1 ? i < nx + 2 * ngz : i < ngz + transf.sx ;
-                bool gz_in_range2 = side2 ? k < nz + 2 * ngz : k < ngz + transf.sz ;
-                return (j>=ngz and j<ny+ngz) and gz_in_range1 and gz_in_range2 ; 
+                const int lb = off ? ngz + ny / 2 : ngz ; 
+                const int ub = off ? ny+sy+ngz : ny/2+sy+ngz ; 
+                bool gz_in_range1 = side1 ? i < nx + sx + 2 * ngz : i < ngz + transf.sx ;
+                bool gz_in_range2 = side2 ? k < nz + sz + 2 * ngz : k < ngz + transf.sz ;
+                return (j>=lb and j<ub) and gz_in_range1 and gz_in_range2 ; 
             } else {
-                bool gz_in_range1 = side1 ? i < nx + 2 * ngz : i < ngz + transf.sx ;
-                bool gz_in_range2 = side2 ? j < ny + 2 * ngz : j < ngz + transf.sy ;
-                return (k>=ngz and k<nz+ngz) and gz_in_range1 and gz_in_range2 ; 
+                const int lb = off ? ngz + nz / 2 : ngz ; 
+                const int ub = off ? nz+sz+ngz : nz/2+sz+ngz ; 
+                bool gz_in_range1 = side1 ? i < nx + sx + 2 * ngz : i < ngz + transf.sx ;
+                bool gz_in_range2 = side2 ? j < ny + sy + 2 * ngz : j < ngz + transf.sy ;
+                return (k>=lb and k<ub) and gz_in_range1 and gz_in_range2 ; 
             }
         } else {
             int side1 = ((ie>>0)&1) ; 
             int side2 = ((ie>>1)&1) ; 
             int side3 = ((ie>>2)&1) ; 
-            bool gz_in_range1 = side1 ? i < nx + 2 * ngz : i < ngz + transf.sx ;
-            bool gz_in_range2 = side2 ? j < ny + 2 * ngz : j < ngz + transf.sy ;
-            bool gz_in_range3 = side3 ? k < nz + 2 * ngz : k < ngz + transf.sz ;
+            bool gz_in_range1 = side1 ? i < nx + sx + 2 * ngz : i < ngz + transf.sx ;
+            bool gz_in_range2 = side2 ? j < ny + sy + 2 * ngz : j < ngz + transf.sy ;
+            bool gz_in_range3 = side3 ? k < nz + sz + 2 * ngz : k < ngz + transf.sz ;
             return gz_in_range1 and gz_in_range2 and gz_in_range3 ;
-        }        
+        }
     }
 
     KOKKOS_INLINE_FUNCTION 
@@ -433,7 +466,8 @@ struct copy_from_cbuf_op {
         transf.compute_indices<elem_kind,false>(
             ig, VECD(j + j_off, k + k_off), i_b, j_b, k_b, ie_view,  /* halved ncells */ false
         ) ; 
-        if ( in_range(i_a,j_a,k_a,ie_cbuf) )
+        // check view indices here
+        if ( in_range(i_b,j_b,k_b,ie_view,ichild) )
             view(
                 VEC(i_b,j_b,k_b), ivar, view_q 
             ) = cbuf(VEC(i_a,j_a,k_a), ivar, cbuf_q) ;

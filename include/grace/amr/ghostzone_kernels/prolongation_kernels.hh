@@ -35,6 +35,7 @@
 
 #include <grace/amr/ghostzone_kernels/index_helpers.hh>
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
+#include <grace/utils/limiters.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -66,7 +67,7 @@ struct prolong_op {
       , view_qid(_view_qid)
       , cbuf_qid(_cbuf_qid)
       , eid(_eid)
-      , transf(n,ngz)
+      , transf(n,ngz,STAG_CENTER)
     {} 
 
     // this loop goes full nx 
@@ -101,6 +102,287 @@ struct prolong_op {
                                             VEC(signs[0],signs[1],signs[2]),
                                             cbuf
                                         ) ; 
+        
+    }
+
+} ; 
+
+
+// specialize for faces
+template< element_kind_t elem_kind, typename view_t > 
+struct div_free_prolong_op {
+
+    view_t view_x,view_y,view_z, cbuf_x,cbuf_y,cbuf_z ; 
+    readonly_view_t<size_t> view_qid, cbuf_qid ; 
+    readonly_view_t<uint8_t> eid ; 
+    Kokkos::View<int8_t***> have_fine_data ; 
+    // _have_fine_data(0,0,iq) -> lower x face has fine data ? 
+    // _have_fine_data(0,1,iq) -> upper x face has fine data ? 
+
+    prolong_index_transformer_t transf; // TODO 
+
+    void set_data_ptr(view_alias_t alias) 
+    {
+        view_x = alias.get<STAG_FACEX>() ; 
+        view_y = alias.get<STAG_FACEY>() ; 
+        view_z = alias.get<STAG_FACEZ>() ; 
+    }
+
+    div_free_prolong_op(
+        view_t _view_x, view_t _view_y, view_t _view_z, 
+        view_t _cbuf_x, view_t _cbuf_y, view_t _cbuf_z, 
+        Kokkos::View<size_t*> _view_qid,
+        Kokkos::View<size_t*> _cbuf_qid,
+        Kokkos::View<uint8_t*> _eid,
+        Kokkos::View<int8_t***> _have_fine_data,
+        size_t n, size_t ngz 
+    ) : view_x(_view_x), view_y(_view_y), view_z(_view_z)
+      , cbuf_x(_cbuf_x), cbuf_y(_cbuf_y), cbuf_z(_cbuf_z)
+      , view_qid(_view_qid)
+      , cbuf_qid(_cbuf_qid)
+      , eid(_eid)
+      , have_fine_data(_have_fine_data)
+      , transf(n,ngz,STAG_CENTER) /* TODO fixme ? */
+    {} 
+
+    template< typename sview_t >
+    KOKKOS_INLINE_FUNCTION
+    void fill_inside_face(
+          size_t i_c, size_t j_c, size_t k_c
+        , size_t i_f, size_t j_f, size_t k_f, size_t ivar
+        , sview_t& u, sview_t& v, sview_t& w 
+        , sview_t& U, sview_t& V, sview_t& W 
+        , minmod const& limiter 
+        , bool fillx, bool filly, bool fillz )
+    const {
+        double Uy,Uz,Vx,Vz,Wx,Wy ;
+        // compute first order slopes U_y, U_z, V_x, V_z, W_x, W_y
+        // where e.g. Uy_{2,0,0} = slope_limiter(1/4 (U_{2,0,0}-U_{2,-4,0}), 1/4 (U_{2,4,0}-U_{2,0,0})) (TR 5)
+        if ( fillx ) {
+            Uy = 0.25 * limiter(U(i_c,j_c,k_c,ivar) - U(i_c,j_c-1,k_c,ivar), U(i_c,j_c+1,k_c,ivar) - U(i_c,j_c,k_c,ivar)) ; 
+            Uz = 0.25 * limiter(U(i_c,j_c,k_c,ivar) - U(i_c,j_c,k_c-1,ivar), U(i_c,j_c,k_c+1,ivar) - U(i_c,j_c,k_c,ivar)) ; 
+        }
+        
+        if ( filly ) {
+            Vx = 0.25 * limiter(V(i_c,j_c,k_c,ivar) - V(i_c-1,j_c,k_c,ivar), V(i_c+1,j_c,k_c,ivar) - V(i_c,j_c,k_c,ivar)) ; 
+            Vz = 0.25 * limiter(V(i_c,j_c,k_c,ivar) - V(i_c,j_c,k_c-1,ivar), V(i_c,j_c,k_c+1,ivar) - V(i_c,j_c,k_c,ivar)) ;
+        }
+        
+        if ( fillz ) {
+            Wx = 0.25 * limiter(W(i_c,j_c,k_c,ivar) - W(i_c-1,j_c,k_c,ivar), W(i_c,j_c+1,k_c,ivar) - W(i_c,j_c,k_c,ivar)) ; 
+            Wy = 0.25 * limiter(W(i_c,j_c,k_c,ivar) - W(i_c,j_c-1,k_c,ivar), W(i_c,j_c,k_c+1,ivar) - W(i_c,j_c,k_c,ivar)) ;
+        }
+
+        // here we fill 
+        // u_{+-2, j, k} = 1/4 (U_{+-2,0,0} + j Uy_{+-2,0,0} + k Uz_{+-2,0,0}) (TR 4.1)
+        // v_{j, +-2, k} = 1/4 (V_{0,+-2,0} + j Vx_{0,+-2,0} + k Vz_{0,+-2,0}) (TR 4.2)
+        // w_{j, k, +-2} = 1/4 (W_{0,0,+-2} + j Wx_{0,0,+-2} + k Wy_{0,0,+-2}) (TR 4.2)
+        for( int jj=0; jj<=+1; jj+=1) {
+            for( int kk=0; kk<=+1; kk+=1) {
+                int js = jj ? +1 : -1 ; 
+                int ks = kk ? +1 : -1 ; 
+                if ( fillx ) u(i_f,j_f+jj,k_f+kk,ivar) = 0.25 * ( U(i_c,j_c,k_c,ivar) + js * Uy + ks * Uz ) ; 
+                if ( filly ) v(i_f+jj,j_f,k_f+kk,ivar) = 0.25 * ( V(i_c,j_c,k_c,ivar) + js * Vx + ks * Vz ) ; 
+                if ( fillz ) w(i_f+jj,j_f+kk,k_f,ivar) = 0.25 * ( W(i_c,j_c,k_c,ivar) + js * Wx + ks * Wy ) ; 
+            }
+        }
+    } ; 
+        
+
+    // the logic behind stag center is that we don't want 
+    // the loop to be shifted in any direction. In fact 
+    // we have explicit checks to avoid replacing the fine 
+    // data on the face of the quad and anyway the other 
+    // two fields (other two staggerings) need to start at
+    // n + ng always. 
+
+    // CHECK I think that looping in reverse direction for lower 
+    // faces / edges / corners is fine here, instead of filling 
+    // u_{-2,j,k} we fill u_{+2,j,k} but the rest should be equivalent. 
+    
+    // this loop goes full nx 
+    template< typename team_handle_t >
+    KOKKOS_INLINE_FUNCTION
+    void operator() (team_handle_t const& team) const 
+    {
+        using namespace Kokkos ; 
+        // block-idx maps to the element index 
+        auto const iq = team.league_rank() ; 
+        // extract quadrant and cbuf ids
+        auto qid = view_qid(iq) ; 
+        auto cid = cbuf_qid(iq) ; 
+        auto e_id = eid(iq) ; 
+        // get some subviews real quick
+        // fine views
+        auto const u = subview(
+            view_x, VEC(ALL(),ALL(),ALL()), ALL(), qid 
+        ) ; 
+        auto const v = subview(
+            view_y, VEC(ALL(),ALL(),ALL()), ALL(), qid 
+        ) ; 
+        auto const w = subview(
+            view_z, VEC(ALL(),ALL(),ALL()), ALL(), qid 
+        ) ; 
+        // coarse views
+        auto const U = subview(
+            cbuf_x, VEC(ALL(),ALL(),ALL()), ALL(), cid 
+        ) ; 
+        auto const V = subview(
+            cbuf_y, VEC(ALL(),ALL(),ALL()), ALL(), cid 
+        ) ; 
+        auto const W = subview(
+            cbuf_z, VEC(ALL(),ALL(),ALL()), ALL(), cid 
+        ) ; 
+
+        size_t extents[4] ;
+        if constexpr ( elem_kind == FACE ) {
+            extents[0] = transf.g; 
+            extents[1] = extents[2] = transf.n ;
+            extents[3] = u.extent(GRACE_NSPACEDIM);
+        } else if constexpr ( elem_kind == EDGE ) {
+            extents[0] = extents[1] = transf.g; 
+            extents[2] = transf.n ;
+            extents[3] = u.extent(GRACE_NSPACEDIM);
+        } else {
+            extents[0] = extents[1] = extents[2] = transf.g; 
+            extents[3] = u.extent(GRACE_NSPACEDIM);
+        }
+
+        TeamThreadMDRange<Rank<4>, team_handle_t> range(team,extents[0],extents[1],extents[2],extents[3]) ;
+        
+        // create a minmod limiter 
+        minmod limiter {}; 
+
+        // In all these kernels:
+        // i_c, j_c, k_c loop over coarse cells --> -2 in TR notation
+        // i_f, j_f, k_f are the corresponding fine indices --> also -2 in TR notation
+
+        // phase 1: fill data in fine faces shared
+        //          with coarse faces 
+        parallel_for(range, 
+            [=, this](int i, int j, int k, int ivar)
+            {
+                size_t i_f,j_f,k_f ; 
+                transf.compute_indices<elem_kind>(
+                    i,j,k, i_f,j_f,k_f, e_id, false 
+                ) ;
+                size_t i_c,j_c,k_c ; 
+                transf.compute_indices<elem_kind>(
+                    i,j,k, i_c,j_c,k_c, e_id, true /* half nx */
+                ) ; 
+
+                // we don't want to fill if we have fine data 
+                bool fill_x{true}, fill_y{true}, fill_z{true} ; 
+                if ( i_c == transf.first_index<elem_kind>(0,e_id,true/*half ncells*/) and have_fine_data(0,0,iq) ) {
+                    fill_x = false ; 
+                }
+                if ( j_c == transf.first_index<elem_kind>(1,e_id,true/*half ncells*/) and have_fine_data(1,0,iq) ) {
+                    fill_y = false ; 
+                }
+                if ( k_c == transf.first_index<elem_kind>(2,e_id,true/*half ncells*/) and have_fine_data(2,0,iq) ) {
+                    fill_z = false ; 
+                }
+
+                fill_inside_face(
+                    i_c,j_c,k_c,
+                    i_f,j_f,k_f,ivar,
+                    u,v,w,
+                    U,V,W,
+                    limiter,
+                    fill_x,fill_y,fill_z) ; 
+                
+                // now we need to fill the last face at the end 
+                // if there is no fine data 
+                if ( (i_c == transf.last_index<elem_kind>(0,e_id,true/*half ncells*/) and (not have_fine_data(0,1,iq))) ) {
+                    fill_inside_face(
+                        i_c+1,j_c,k_c,
+                        i_f+2,j_f,k_f,ivar,
+                        u,v,w,
+                        U,V,W,
+                        limiter,
+                        true,false,false) ; 
+                }
+                if ( (j_c == transf.last_index<elem_kind>(1,e_id,true/*half ncells*/) and (not have_fine_data(1,1,iq))) ) {
+                    fill_inside_face(
+                        i_c+1,j_c,k_c,
+                        i_f,j_f+2,k_f,ivar,
+                        u,v,w,
+                        U,V,W,
+                        limiter,
+                        false,true,false) ; 
+                }
+                if ( (k_c == transf.last_index<elem_kind>(2,e_id,true/*half ncells*/) and (not have_fine_data(2,1,iq))) ) {
+                    fill_inside_face(
+                        i_c+1,j_c,k_c,
+                        i_f,j_f,k_f+2,ivar,
+                        u,v,w,
+                        U,V,W,
+                        limiter,
+                        false,false,true) ; 
+                }
+
+            }
+        ) ; 
+        team.team_barrier() ; 
+        // phase 2:
+        // fill all faces not shared with coarse cell
+        parallel_for(range, 
+            [=, this](int i, int j, int k, int ivar)
+            {
+                size_t i_f,j_f,k_f ; 
+                transf.compute_indices<elem_kind>(
+                    i,j,k, i_f,j_f,k_f, e_id, false 
+                ) ;
+                size_t i_c,j_c,k_c ; 
+                transf.compute_indices<elem_kind>(
+                    i,j,k, i_c,j_c,k_c, e_id, true /* half nx */
+                ) ; 
+
+                // Compute 
+                // Uxx = 1/8 sum_{i,j,k=+-1} ij v_{i,2j,k} + ik w_{i,j,2k} (TR 11)
+                // Vyy = 1/8 sum_{i,j,k=+-1} ij u_{2i,j,k} + jk w_{i,j,2k} (TR 11)
+                // Wzz = 1/8 sum_{i,j,k=+-1} ik u_{2i,j,k} + jk v_{i,2j,k} (TR 11)
+                // Uxyz = 1/8 sum_{i,j,k=+-1} ijk u_{2i,j,k} / ( (dy)^2 + (dz)^2 ) (TR 12)
+                // Vxyz = 1/8 sum_{i,j,k=+-1} ijk v_{i,2j,k} / ( (dx)^2 + (dz)^2 ) (TR 12)
+                // Wxyz = 1/8 sum_{i,j,k=+-1} ijk v_{i,j,wk} / ( (dx)^2 + (dy)^2 ) (TR 12)
+                double Uxx{0},Vyy{0},Wzz{0} ; 
+                double Uxyz{0}, Vxyz{0}, Wxyz{0} ; 
+                for( int ii=0; ii<=+1; ii+=1) {
+                    for( int jj=0; jj<=+1; jj+=1) {
+                        for( int kk=0; kk<=+1; kk+=1) {
+
+                            int is = ii ? +1 : -1 ;
+                            int js = jj ? +1 : -1 ; 
+                            int ks = kk ? +1 : -1 ; 
+
+                            Uxx += 0.125 * (is*js*v(i_f+ii,j_f+2*jj,k_f+kk,ivar) + is*ks*w(i_f+ii,j_f+jj,k_f+2*kk,ivar));
+                            Vyy += 0.125 * (is*js*u(i_f+2*ii,j_f+jj,k_f+kk,ivar) + js*ks*w(i_f+ii,j_f+jj,k_f+2*kk,ivar));
+                            Wzz += 0.125 * (is*ks*u(i_f+2*ii,j_f+jj,k_f+kk,ivar) + js*ks*v(i_f+ii,j_f+2*jj,k_f+kk,ivar));
+                             
+                            Uxyz += 0.5 * 0.125 * (is*js*ks*u(i_f+2*ii,j_f+jj,k_f+kk,ivar)) ; 
+                            Vxyz += 0.5 * 0.125 * (is*js*ks*v(i_f+ii,j_f+2*jj,k_f+kk,ivar)) ; 
+                            Wxyz += 0.5 * 0.125 * (is*js*ks*w(i_f+ii,j_f+jj,k_f+2*kk,ivar)) ; 
+                        }
+                    }
+                }
+                 
+
+                // here we fill 
+                // u_{0, j, k} = 1/2 (u_{2,j,k}+u_{-2,j,k}) + Uxx + k dz^2 Vxyz + j dy^2 Wxyz (TR 8)
+                // v_{j, 0, k} = 1/2 (v_{j,2,k}+u_{j,-2,k}) + Vyy + j dx^2 Wxyz + k dz^2 Uxyz (TR 9)
+                // w_{j, k, 0} = 1/2 (w_{j,k,2}+w_{j,k,-2}) + Wzz + j dy^2 Uxyz + k dx^2 Vxyz (TR 10)
+                for( int jj=0; jj<=+1; jj++) {
+                    for( int kk=0; kk<=+1; kk++) {
+                        int js = jj ? +1 : -1 ; 
+                        int ks = kk ? +1 : -1 ; 
+                        u(i_f+1,j_f+jj,k_f+kk,ivar) = 0.5 * (u(i_f,j_f+jj,k_f+kk,ivar)+u(i_f+2,j_f+jj,k_f+kk,ivar)) + Uxx + ks * Vxyz + js * Wxyz ; 
+                        v(i_f+jj,j_f+1,k_f+kk,ivar) = 0.5 * (v(i_f+jj,j_f,k_f+kk,ivar)+v(i_f+kk,j_f+2,k_f+kk,ivar)) + Vyy + js * Wxyz + ks * Uxyz ; 
+                        w(i_f+jj,j_f+kk,k_f+1,ivar) = 0.5 * (w(i_f+jj,j_f+kk,k_f,ivar)+w(i_f+jj,j_f+kk,k_f+2,ivar)) + Wzz + ks * Uxyz + js * Vxyz ; 
+                    }
+                }
+            }
+        ) ;
+        
         
     }
 

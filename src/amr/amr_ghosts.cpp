@@ -135,8 +135,6 @@ void amr_ghosts_impl_t::update() {
     std::unordered_set<size_t> cbuf_qid ; 
     build_coarse_buffers(cbuf_qid)   ; 
     GRACE_TRACE("Constructed coarse buffers, we have {} quadrants", cbuf_qid.size()) ; 
-    auto& face = ghost_layer[1].faces[3] ; 
-    GRACE_TRACE("Here, face kind {}, other_quad: {}", static_cast<int>(face.kind), face.data.full.quad_id ) ; 
     //**************************************************************************************************
     build_remote_buffers()   ; 
     //**************************************************************************************************
@@ -288,15 +286,25 @@ void amr_ghosts_impl_t::build_task_list(
     task_id_t restrict_tid{UNSET_TASK_ID}; 
 
     if(cbuf_qid.size()>0) {
-        restrict_tid = insert_restriction_tasks<stag>(
-            cbuf_qid,
-            ghost_layer,
-            dummy, 
-            cbuf_view, 
-            interp_stream,
-            VEC(nx,ny,nz), ngz, nv, 
-            task_counter, task_list 
-        ) ; 
+        if constexpr ( stag == STAG_CENTER ) {
+            restrict_tid = insert_restriction_tasks<stag>(
+                cbuf_qid,
+                ghost_layer,
+                dummy, 
+                cbuf_view, 
+                interp_stream,
+                VEC(nx,ny,nz), ngz, nv, 
+                task_counter, task_list 
+            ) ; 
+        } else {
+            restrict_tid = insert_div_preserving_restriction_tasks<stag>(
+                cbuf_qid, ghost_layer,
+                dummy, cbuf_view,
+                interp_stream,
+                VEC(nx,ny,nz),ngz,nv,
+                task_counter, task_list
+            ) ; 
+        } 
     }
     /***********************************************************************/
     /***********************************************************************/
@@ -352,19 +360,20 @@ void amr_ghosts_impl_t::build_task_list(
         ) ;
     /***********************************************************************/
     /***********************************************************************/
-    insert_prolongation_tasks<stag>(
-        prolong_kernels, ghost_layer,
-        dummy, cbuf_view, interp_stream,
-        VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-    ) ; 
-    #if 0
-    // TODO! 
-    insert_staggered_prolongation_tasks(
-        prolong_kernels, ghost_layer,
-        stag_state, _stag_coarse_buffers, interp_stream,
-        VEC(nx,ny,nz), ngz, nvars_f, task_counter, task_list 
-    ) ;
-    #endif  
+    if constexpr ( stag == STAG_CENTER ) {
+        insert_prolongation_tasks<STAG_CENTER>(
+            prolong_kernels, ghost_layer,
+            dummy, cbuf_view, interp_stream,
+            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
+        ) ;
+    } else if constexpr ( stag == STAG_FACEX ) { // note this is inserted once.
+        insert_div_preserving_prolongation_tasks(
+            prolong_kernels, ghost_layer,
+            dummy,_stag_coarse_buffers,
+            interp_stream, VEC(nx,ny,nz), ngz, nv,
+            task_counter, task_list 
+        ) ; 
+    } 
     /***********************************************************************/
     /***********************************************************************/
     insert_deferred_phys_bc_tasks<stag>(

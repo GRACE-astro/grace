@@ -106,12 +106,74 @@ task_id_t insert_restriction_tasks(
     task._run = [functor, policy] (view_alias_t alias) mutable {
         functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
-        GRACE_TRACE("Restrict start.") ; 
+        GRACE_TRACE_DBG("Restrict start.") ; 
         #endif 
         Kokkos::parallel_for("restrict_to_cbufs", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE("Restrict end") ; 
+        GRACE_TRACE_DBG("Restrict end") ; 
+        #endif 
+    };
+    task.stream = &stream; 
+    task.task_id = task_counter++ ; 
+
+    task_list.push_back(
+        std::make_unique<gpu_task_t>(std::move(task))
+    ) ; 
+    return task.task_id ; 
+}
+
+template< var_staggering_t stag >
+task_id_t insert_div_preserving_restriction_tasks(
+    std::unordered_set<size_t> const& cbuf_qid,
+    std::vector<quad_neighbors_descriptor_t>& ghost_array,
+    grace::var_array_t state, 
+    grace::var_array_t coarse_buffers,
+    device_stream_t& stream, 
+    VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv,
+    task_id_t& task_counter,
+    std::vector<std::unique_ptr<task_t>>& task_list 
+)
+{
+    static_assert( stag == STAG_FACEX or stag == STAG_FACEY or stag == STAG_FACEZ,
+                   "Invalid staggering in insert_div_preserving_restriction_tasks, only face-staggerings supported."  );
+    GRACE_TRACE("Recording GPU-restrict task (tid {}) number of quadrants {}", task_counter, cbuf_qid.size()) ;
+    Kokkos::View<size_t*> quad_id_d("restrict_qid", cbuf_qid.size())
+                        , cbuf_id_d("restrict_cbufid", cbuf_qid.size()) ; 
+    auto quad_id_h = Kokkos::create_mirror_view(quad_id_d) ; 
+    auto cbuf_id_h = Kokkos::create_mirror_view(cbuf_id_d) ; 
+
+    size_t i{0UL} ; 
+    for( auto const& qid: cbuf_qid) {
+        quad_id_h(i) = qid ; 
+        cbuf_id_h(i) = ghost_array[qid].cbuf_id ; 
+        i+=1UL ; 
+    }
+    Kokkos::deep_copy(quad_id_d,quad_id_h) ;
+    Kokkos::deep_copy(cbuf_id_d,cbuf_id_h) ;
+
+    gpu_task_t task{} ;
+    constexpr int stag_dir = (stag == STAG_FACEX ? 0 : (stag == STAG_FACEY ? 1 : 2)) ; 
+    amr::div_free_restrict_op<stag_dir, decltype(state)> functor(
+        state, coarse_buffers, quad_id_d, cbuf_id_d, ngz
+    ) ; 
+
+    Kokkos::DefaultExecutionSpace exec_space{stream} ;
+    int loff[3] = {stag_dir==0,stag_dir==1,stag_dir==2} ; 
+    Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+        policy{
+            exec_space, {0,0,0,0,0}, {nx/2+loff[0],nx/2+loff[1],nx/2+loff[2], nv, cbuf_qid.size()}
+        } ;
+
+    task._run = [functor, policy] (view_alias_t alias) mutable {
+        functor.template set_data_ptr<stag>(alias) ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        GRACE_TRACE_DBG("Restrict start.") ; 
+        #endif 
+        Kokkos::parallel_for("restrict_to_cbufs_stag", policy, functor) ; 
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        Kokkos::fence() ; 
+        GRACE_TRACE_DBG("Restrict end") ; 
         #endif 
     };
     task.stream = &stream; 
@@ -135,19 +197,20 @@ task_id_t insert_restriction_tasks(
  */
 template< amr::element_kind_t elem_kind >
 auto get_iter_policy(
-    device_stream_t& stream, size_t n, size_t nv, size_t nq 
+    device_stream_t& stream, size_t n, size_t nv, size_t nq, bool stag_loop=false
 ) {
     using namespace amr ; 
     using namespace Kokkos ; 
+    int off = static_cast<int>(stag_loop) ; 
     if constexpr ( elem_kind == FACE ) {
         return MDRangePolicy<Rank<4>, ghost_restrict_face_tag>(
             DefaultExecutionSpace{stream},
-            {0,0,0,0}, {n/2,n/2,nv,nq}
+            {0,0,0,0}, {n/2+1,n/2+1,nv,nq}
         ) ; 
     } else if constexpr (elem_kind == EDGE) {
         return MDRangePolicy<Rank<3>, ghost_restrict_edge_tag>(
             DefaultExecutionSpace{stream},
-            {0,0,0}, {n/2,nv,nq}
+            {0,0,0}, {n/2+1,nv,nq}
         ) ; 
     } else {
         return MDRangePolicy<Rank<2>, ghost_restrict_corner_tag>(
@@ -249,22 +312,42 @@ void make_gpu_restrict_gz_task(
     // optimization knob. For now simplest thing is to 
     // create a single task (FIXME?)
     gpu_task_t task {} ; 
+    if constexpr ( stag == STAG_CENTER ) {
+        ghost_restrict_op functor{
+            state, coarse_buffers, qid, cbuf_qid, eid, nx, ngz
+        } ; 
 
-    ghost_restrict_op functor{
-        state, coarse_buffers, qid, cbuf_qid, eid, nx, ngz
-    } ; 
+        // the rank of iterations depends on the element kind 
+        auto policy = get_iter_policy<elem_kind>(stream,nx,nv,bucket.size()) ; 
 
-    // the rank of iterations depends on the element kind 
-    auto policy = get_iter_policy<elem_kind>(stream,nx,nv,bucket.size()) ; 
+        task._run = [functor,policy] (view_alias_t alias) mutable {
+            GRACE_TRACE_DBG("GZ restrict start") ; 
+            functor.template set_data_ptr<stag>(alias) ; 
+            Kokkos::parallel_for("ghostzone_restrict", policy, functor) ; 
+            #ifdef INSERT_FENCE_DEBUG_TASKS_
+            Kokkos::fence() ; 
+            GRACE_TRACE_DBG("GZ restrict done") ; 
+            #endif 
+        } ; 
+    } else {
+        constexpr int stag_dir = (stag == STAG_FACEX ? 0 : (stag == STAG_FACEY ? 1 : 2)) ; 
+        div_free_ghost_restrict_op<stag_dir, decltype(state)> functor{
+            state,coarse_buffers,qid,cbuf_qid,eid,nx,ngz
+        } ; 
+        // the rank of iterations depends on the element kind 
+        auto policy = get_iter_policy<elem_kind>(stream,nx,nv,bucket.size(),true /*stag_loop*/) ; 
 
-    task._run = [functor,policy] (view_alias_t alias) mutable {
-        functor.template set_data_ptr<stag>(alias) ; 
-        Kokkos::parallel_for("ghostzone_restrict", policy, functor) ; 
-        #ifdef INSERT_FENCE_DEBUG_TASKS_
-        Kokkos::fence() ; 
-        GRACE_TRACE("GZ restrict done") ; 
-        #endif 
-    } ; 
+        task._run = [functor,policy] (view_alias_t alias) mutable {
+            GRACE_TRACE_DBG("GZ restrict start") ; 
+            functor.template set_data_ptr<stag>(alias) ; 
+            Kokkos::parallel_for("ghostzone_restrict_stag", policy, functor) ; 
+            #ifdef INSERT_FENCE_DEBUG_TASKS_
+            Kokkos::fence() ; 
+            GRACE_TRACE_DBG("GZ restrict done") ; 
+            #endif 
+        } ; 
+    }
+    
 
     task.stream = &stream ; 
     task.task_id = task_counter++ ; 
@@ -280,6 +363,8 @@ void make_gpu_restrict_gz_task(
         )
     ) ; 
 }
+
+
 /**
  * @brief Insert ghostzone restriction tasks in the task list.
  * 
@@ -331,9 +416,11 @@ void insert_ghost_restriction_tasks(
         
         for( int8_t e=0; e<12; ++e){
             auto& edge = ghost_array[qid].edges[e] ; 
-            if (!(edge.filled)) continue ; 
-            if (edge.kind == interface_kind_t::PHYS) continue ;  
-            if (!(edge.level_diff == level_diff_t::COARSER)) continue ;  
+            bool need_neighbor_restrict = (!edge.filled) ; 
+            if ( edge.filled) {
+                need_neighbor_restrict |= edge.level_diff == level_diff_t::COARSER;
+            }
+            if (!need_neighbor_restrict) continue ; 
             for( int iface=0; iface<2; ++iface) {
                 auto f = amr::detail::e2f[e][iface] ; 
                 auto& face = ghost_array[qid].faces[f] ; 
@@ -351,9 +438,11 @@ void insert_ghost_restriction_tasks(
         }
         for( int8_t c=0; c<P4EST_CHILDREN; ++c){
             auto& corner = ghost_array[qid].corners[c] ; 
-            if (!(corner.filled)) continue ; 
-            if (corner.kind == interface_kind_t::PHYS) continue ;  
-            if (!(corner.level_diff == level_diff_t::COARSER)) continue ;  
+            bool need_neighbor_restrict = (!corner.filled) ; 
+            if (corner.filled) {
+                need_neighbor_restrict |= (corner.level_diff == level_diff_t::COARSER) ; 
+            }
+            if (!need_neighbor_restrict) continue ; 
             for( int ie=0; ie<3; ++ie) {
                 auto e = amr::detail::c2e[c][ie] ; 
                 auto& edge = ghost_array[qid].edges[e] ; 
