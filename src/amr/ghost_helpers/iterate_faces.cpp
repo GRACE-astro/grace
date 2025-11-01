@@ -96,12 +96,12 @@ static void register_face(
     std::vector<quad_neighbors_descriptor_t>& neighbors
 )
 {
-    auto offset = grace::amr::get_local_quadrants_offset(s0.treeid);
+    
     int8_t f = s0.face ;
     if ( s0.is_hanging ) {
         for( int iq=0; iq<P4EST_CHILDREN/2; ++iq){
             if (s0.is.hanging.is_ghost[iq]) continue ; 
-            
+            auto offset = grace::amr::get_local_quadrants_offset(s0.treeid);
             auto const qid = s0.is.hanging.quadid[iq] + offset ;
             auto& desc = neighbors[qid].faces[f] ; 
             neighbors[qid].n_registered_faces ++ ; 
@@ -117,6 +117,7 @@ static void register_face(
         }
     } else {
         if ( s0.is.full.is_ghost ) return ; // don't register if remote 
+        auto offset = grace::amr::get_local_quadrants_offset(s0.treeid);
         auto const qid = s0.is.full.quadid + offset ;
         auto& desc = neighbors[qid].faces[f] ; 
         neighbors[qid].n_registered_faces ++ ; 

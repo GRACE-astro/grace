@@ -57,12 +57,6 @@ namespace grace { namespace amr {
  */
 void regrid() ; 
 
-/**
- * @brief Set the all quadrants to DEFAULT_STATE
- * \ingroup amr 
- * \cond grace_detail
- */
-void set_quadrants_to_default(); 
 
 }} /* namespace grace::amr */ 
 

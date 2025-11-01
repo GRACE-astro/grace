@@ -245,7 +245,10 @@ void make_gpu_restrict_gz_task(
     
     std::unordered_set<task_id_t> dependencies ; 
     auto insert_dependency = [&] (task_id_t tid) {
-        if ( tid == UNSET_TASK_ID ) ERROR("Unset task_id") ; 
+        if ( tid == UNSET_TASK_ID ) {
+            GRACE_TRACE_DBG("Unset task-id in gz_restrict. Element kind: {}", static_cast<int>(elem_kind)) ; 
+            ERROR("Unset task_id") ; 
+        }
         if ( tid != task_counter ) {
             dependencies.insert(tid) ; 
         } 
@@ -274,17 +277,20 @@ void make_gpu_restrict_gz_task(
     auto get_info = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t, size_t, uint8_t > {
         if constexpr (elem_kind == FACE) {
             auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
+            GRACE_TRACE_DBG("Inserting dependency FACE, qid {} fid {}", std::get<0>(d), std::get<1>(d)) ;
             ASSERT(face.level_diff != FINER, "In gz-restrict, FINER interfaces are forbidden by 2:1 balance.") ; 
             insert_dependency(face.data.full.task_id[stag]) ; 
             return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d) } ; 
         } else if constexpr (elem_kind == EDGE) {
             auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
+            GRACE_TRACE_DBG("Inserting dependency EDGE, qid {} eid {}, edge kind {} level diff {} filled {}", std::get<0>(d), std::get<1>(d), static_cast<int>(edge.kind), static_cast<int>(edge.level_diff), edge.filled) ;
             ASSERT(edge.filled, "Edge passed to restrict_gz is virtual.") ; 
             ASSERT(edge.level_diff != FINER, "In gz-restrict, FINER interfaces are forbidden by 2:1 balance.") ; 
             insert_dependency(edge.data.full.task_id[stag]) ;
             return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d) } ;
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            GRACE_TRACE_DBG("Inserting dependency CORNER, qid {} cid {}", std::get<0>(d), std::get<1>(d)) ;
             ASSERT(corner.filled, "Corner passed to restrict_gz is virtual.") ; 
             ASSERT(corner.level_diff != FINER, "In gz-restrict, FINER interfaces are forbidden by 2:1 balance.") ; 
             insert_dependency(corner.data.task_id[stag]) ; 
@@ -407,7 +413,10 @@ void insert_ghost_restriction_tasks(
                 auto e = amr::detail::f2e[f][ie] ; 
                 auto& edge = ghost_array[qid].edges[e] ; 
                 if ( ! edge.filled ) continue; 
-                if ( edge.kind == interface_kind_t::PHYS) edge.data.phys.in_cbuf = true ;  
+                if ( edge.kind == interface_kind_t::PHYS) {
+                    edge.data.phys.in_cbuf = true ;  
+                    continue ; 
+                }
                 if (!(edge.level_diff == level_diff_t::COARSER)) {
                     restrict_edges.emplace_back(qid,e) ; 
                 }
@@ -420,11 +429,14 @@ void insert_ghost_restriction_tasks(
             if ( edge.filled) {
                 need_neighbor_restrict |= edge.level_diff == level_diff_t::COARSER;
             }
-            if (!need_neighbor_restrict) continue ; 
+            if (!need_neighbor_restrict or edge.kind == interface_kind_t::PHYS) continue ; 
             for( int iface=0; iface<2; ++iface) {
                 auto f = amr::detail::e2f[e][iface] ; 
                 auto& face = ghost_array[qid].faces[f] ; 
-                if ( face.kind == interface_kind_t::PHYS) face.data.phys.in_cbuf=true ;  
+                if ( face.kind == interface_kind_t::PHYS) {
+                    face.data.phys.in_cbuf=true ;  
+                    continue ; 
+                }
                 if (!(face.level_diff == level_diff_t::COARSER)) restrict_faces.emplace_back(qid,f) ;
                 
             }
@@ -432,7 +444,10 @@ void insert_ghost_restriction_tasks(
                 auto c = amr::detail::e2c[e][ic] ; 
                 auto& corner = ghost_array[qid].corners[c] ; 
                 if ( ! corner.filled ) continue; 
-                if ( corner.kind == interface_kind_t::PHYS) corner.phys.in_cbuf=true ;  
+                if ( corner.kind == interface_kind_t::PHYS) {
+                    corner.phys.in_cbuf=true ;  
+                    continue ; 
+                }
                 if (!(corner.level_diff == level_diff_t::COARSER)) restrict_corners.emplace_back(qid,c) ; 
             }
         }
@@ -442,12 +457,15 @@ void insert_ghost_restriction_tasks(
             if (corner.filled) {
                 need_neighbor_restrict |= (corner.level_diff == level_diff_t::COARSER) ; 
             }
-            if (!need_neighbor_restrict) continue ; 
+            if (!need_neighbor_restrict or corner.kind == interface_kind_t::PHYS) continue ; 
             for( int ie=0; ie<3; ++ie) {
                 auto e = amr::detail::c2e[c][ie] ; 
                 auto& edge = ghost_array[qid].edges[e] ; 
                 if ( ! edge.filled ) continue; 
-                if ( edge.kind == interface_kind_t::PHYS) edge.data.phys.in_cbuf = true ;  
+                if ( edge.kind == interface_kind_t::PHYS) {
+                    edge.data.phys.in_cbuf = true ;
+                    continue ; 
+                }  
                 if (!(edge.level_diff == level_diff_t::COARSER)) restrict_edges.emplace_back(qid,e) ; 
             }
         }

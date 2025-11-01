@@ -86,14 +86,10 @@ static void register_physical_boundary_corner(
             {(sides[0].corner >> 2)&1, (sides[1].corner >> 2)&1},
         } ; 
 
-        // offsets 
-        auto const o1 = grace::amr::get_local_quadrants_offset(sides[0].treeid); 
-        auto const o2 = grace::amr::get_local_quadrants_offset(sides[1].treeid); 
-        // quad_ids 
-        auto qid1 = sides[0].quadid +  o1 ; 
-        auto qid2 = sides[1].quadid +  o2 ; 
         // not hanging not ghost 
         if ( !sides[0].is_ghost ) {
+            auto const o1 = grace::amr::get_local_quadrants_offset(sides[0].treeid); 
+            auto qid1 = sides[0].quadid +  o1 ; 
             auto& c1 = neighbors[qid1].corners[sides[0].corner] ; 
             c1.kind = interface_kind_t::PHYS ;
             c1.filled = true ; 
@@ -106,6 +102,8 @@ static void register_physical_boundary_corner(
             neighbors[qid1].n_registered_corners ++ ; 
         }
         if ( !sides[1].is_ghost ) {
+            auto const o2 = grace::amr::get_local_quadrants_offset(sides[1].treeid); 
+            auto qid2 = sides[1].quadid +  o2 ; 
             auto& c2 = neighbors[qid2].corners[sides[1].corner] ;
             // set kind  
             c2.kind = interface_kind_t::PHYS ;

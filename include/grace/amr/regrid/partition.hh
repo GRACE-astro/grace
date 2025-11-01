@@ -43,18 +43,20 @@
 
 namespace grace { namespace amr {
 
-template< typename ViewT > 
-parallel::grace_transfer_context_t 
+template< typename ViewT, typename SViewT > 
+static parallel::grace_transfer_context_t 
 grace_transfer_fixed_begin(
     const p4est_gloidx_t * dest_gfq,
     const p4est_gloidx_t * src_gfq,
     sc_MPI_Comm mpicomm, int tag,
-    ViewT& src, ViewT& dest, size_t data_stride
+    ViewT& src, ViewT& dest, 
+    SViewT& stag_src, SViewT& stag_dest, 
+    size_t data_stride, size_t stag_data_stride
 )
 {
     parallel::grace_transfer_context_t context ; 
 
-    if (data_stride==0) {
+    if (data_stride==0 and stag_data_stride==0) {
         // return empty context
         return context; 
     }
@@ -71,6 +73,10 @@ grace_transfer_fixed_begin(
     auto const src_begin  = src_gfq[rank]    ;
     auto const dest_end   = dest_gfq[rank+1] ;
     auto const src_end    = src_gfq[rank+1]  ;
+    GRACE_TRACE_DBG("Dest begin {} Dest end {} Src begin {} Src end {}", dest_begin,dest_end,src_begin,src_end) ; 
+    for( int q=0; q<=nproc; ++q) {
+        GRACE_TRACE_DBG("src_gfq[{}] = {}, dst_gfq[{}] = {}", q,src_gfq[q],q,dest_gfq[q]) ; 
+    }   
 
     /**************************************/
     /* Offsets and length for local copy  */
@@ -88,7 +94,7 @@ grace_transfer_fixed_begin(
     p4est_gloidx_t      gbegin, gend;
 
     /* Data size */
-    size_t transfer_size{0UL} ; 
+    size_t transfer_size{0UL}, stag_transfer_size{0UL} ; 
 
     /* If this rank is not empty */
     if (dest_begin < dest_end) {
@@ -117,7 +123,7 @@ grace_transfer_fixed_begin(
         ASSERT(first_sender <= last_sender && last_sender < nproc,
                "Last sender index out of bounds: "
                << last_sender << " for nproc = " << nproc) ;
-
+        GRACE_TRACE_DBG("First sender {} last sender {}",first_sender, last_sender) ; 
         /****************************************************/
         /* Set up the rank-specific quadrant range endpoint */
         /* as beginning.                                    */
@@ -138,6 +144,7 @@ grace_transfer_fixed_begin(
             gbegin = gend ; 
             /* End at next process begin */
             gend = src_gfq[q+1] ;
+            
             /* If this process goes till the end of the forest */
             /* it better be the last one                       */
             if (gend>dest_end)  { 
@@ -149,6 +156,7 @@ grace_transfer_fixed_begin(
             ASSERT(q == first_sender || q == last_sender ?
                     gbegin < gend : gbegin <= gend,
                     "Invalid range for sender " << q) ;
+            GRACE_TRACE_DBG("Sender {} gbegin {} gend {}", q, gbegin, gend) ; 
             /* Process q is empty */       
             if ( gbegin == gend ) {
                 ASSERT( first_sender < q && q < last_sender,
@@ -158,6 +166,7 @@ grace_transfer_fixed_begin(
             } else { 
                 /* Number of elements that need to be transferred */
                 transfer_size = (size_t) (gend-gbegin) * data_stride ; 
+                stag_transfer_size = (size_t) (gend-gbegin) * stag_data_stride ; 
                 /* Are we sending to ourselves? */
                 if ( q == rank ) {
                     /**************************************/
@@ -178,6 +187,20 @@ grace_transfer_fixed_begin(
                     parallel::mpi_irecv(
                         dest.data() + rb * data_stride, transfer_size, q, tag, mpicomm, &(rq.back())
                     ) ;
+                    /**************************************/
+                    rq.push_back(sc_MPI_Request{}) ; 
+                    parallel::mpi_irecv(
+                        stag_dest.face_staggered_fields_x.data() + rb * stag_data_stride, stag_transfer_size, q, tag+1, mpicomm, &(rq.back())
+                    ) ;
+                    rq.push_back(sc_MPI_Request{}) ; 
+                    parallel::mpi_irecv(
+                        stag_dest.face_staggered_fields_y.data() + rb * stag_data_stride, stag_transfer_size, q, tag+2, mpicomm, &(rq.back())
+                    ) ;
+                    rq.push_back(sc_MPI_Request{}) ; 
+                    parallel::mpi_irecv(
+                        stag_dest.face_staggered_fields_z.data() + rb * stag_data_stride, stag_transfer_size, q, tag+3, mpicomm, &(rq.back())
+                    ) ;
+
                 }
                 /* New quad offset       */
                 rb += (size_t) (gend-gbegin) ;  
@@ -219,7 +242,7 @@ grace_transfer_fixed_begin(
         ASSERT(first_receiver <= last_receiver && last_receiver < nproc,
                "Last receiver index out of bounds: "
                << last_receiver << " for nproc = " << nproc) ;
-        
+        GRACE_TRACE_DBG("First receiver {} last receiver {}",first_receiver, last_receiver) ;
 
         /****************************************************/
         /* Set up the rank-specific quadrant range endpoint */
@@ -245,7 +268,7 @@ grace_transfer_fixed_begin(
 
             /* End at next process begin */
             gend = dest_gfq[q+1] ;
-
+            
             /* If this process goes till the end of the forest */
             /* it better be the last one                       */
             if (gend > src_end) {
@@ -257,6 +280,7 @@ grace_transfer_fixed_begin(
             ASSERT(q == first_receiver || q == last_receiver ?
                     gbegin < gend : gbegin <= gend,
                     "Invalid range for receiver " << q) ;
+            GRACE_TRACE_DBG("Receiver {} gbegin {} gend {}", q, gbegin, gend) ; 
             /* Process q is empty */       
             if ( gbegin == gend ) {
                 ASSERT( first_receiver < q && q < last_receiver,
@@ -265,6 +289,7 @@ grace_transfer_fixed_begin(
             } else { 
                 /* Number of elements that need to be transferred */
                 transfer_size = (size_t) (gend-gbegin) * data_stride ; 
+                stag_transfer_size = (size_t) (gend-gbegin) * stag_data_stride ; 
                 /* Are we sending to ourselves? */
                 if ( q == rank ) {
                     /**************************************/
@@ -293,6 +318,19 @@ grace_transfer_fixed_begin(
                     parallel::mpi_isend (
                         src.data() + rb * data_stride , transfer_size, q, tag, mpicomm, &(rq.back())
                     ) ;
+                    
+                    rq.push_back(sc_MPI_Request{}) ; 
+                    parallel::mpi_isend (
+                        stag_src.face_staggered_fields_x.data() + rb * stag_data_stride , stag_transfer_size, q, tag+1, mpicomm, &(rq.back())
+                    ) ;
+                    rq.push_back(sc_MPI_Request{}) ; 
+                    parallel::mpi_isend (
+                        stag_src.face_staggered_fields_y.data() + rb * stag_data_stride , stag_transfer_size, q, tag+2, mpicomm, &(rq.back())
+                    ) ;
+                    rq.push_back(sc_MPI_Request{}) ; 
+                    parallel::mpi_isend (
+                        stag_src.face_staggered_fields_z.data() + rb * stag_data_stride , stag_transfer_size, q, tag+3, mpicomm, &(rq.back())
+                    ) ;
                 }
                 /* New quad offset       */
                 rb += (size_t) (gend-gbegin) ; 
@@ -304,20 +342,55 @@ grace_transfer_fixed_begin(
     GRACE_TRACE("Posted {} send and {} receive requests.", context._send_requests.size(), context._recv_requests.size());
     /****************************************/
     if ( cp_len > 0 ) {
-        auto src_view = Kokkos::subview(
-            src, VEC( Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL() ), 
-            Kokkos::ALL(), std::make_pair(src_cp_offset, src_cp_offset + cp_len) ) ;
-        auto dest_view = Kokkos::subview(
-            dest, VEC( Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL() ), 
-            Kokkos::ALL(), std::make_pair(dest_cp_offset, dest_cp_offset + cp_len) ) ;
-        Kokkos::deep_copy(default_execution_space{}, dest_view, src_view) ;
+        // cp len and offset are in quadrants, so we only need 
+        // to change the view where the deep copy happens and nothing 
+        // else for stagggered fields 
+        {
+            auto src_view = Kokkos::subview(
+                src, VEC( Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL() ), 
+                Kokkos::ALL(), std::make_pair(src_cp_offset, src_cp_offset + cp_len) ) ;
+            auto dest_view = Kokkos::subview(
+                dest, VEC( Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL() ), 
+                Kokkos::ALL(), std::make_pair(dest_cp_offset, dest_cp_offset + cp_len) ) ;
+            Kokkos::deep_copy(default_execution_space{}, dest_view, src_view) ;
+        }
+
+        {
+            auto src_view = Kokkos::subview(
+                stag_src.face_staggered_fields_x, VEC( Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL() ), 
+                Kokkos::ALL(), std::make_pair(src_cp_offset, src_cp_offset + cp_len) ) ;
+            auto dest_view = Kokkos::subview(
+                stag_dest.face_staggered_fields_x, VEC( Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL() ), 
+                Kokkos::ALL(), std::make_pair(dest_cp_offset, dest_cp_offset + cp_len) ) ;
+            Kokkos::deep_copy(default_execution_space{}, dest_view, src_view) ;
+        }
+
+        {
+            auto src_view = Kokkos::subview(
+                stag_src.face_staggered_fields_y, VEC( Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL() ), 
+                Kokkos::ALL(), std::make_pair(src_cp_offset, src_cp_offset + cp_len) ) ;
+            auto dest_view = Kokkos::subview(
+                stag_dest.face_staggered_fields_y, VEC( Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL() ), 
+                Kokkos::ALL(), std::make_pair(dest_cp_offset, dest_cp_offset + cp_len) ) ;
+            Kokkos::deep_copy(default_execution_space{}, dest_view, src_view) ;
+        }
+
+        {
+            auto src_view = Kokkos::subview(
+                stag_src.face_staggered_fields_z, VEC( Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL() ), 
+                Kokkos::ALL(), std::make_pair(src_cp_offset, src_cp_offset + cp_len) ) ;
+            auto dest_view = Kokkos::subview(
+                stag_dest.face_staggered_fields_z, VEC( Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL() ), 
+                Kokkos::ALL(), std::make_pair(dest_cp_offset, dest_cp_offset + cp_len) ) ;
+            Kokkos::deep_copy(default_execution_space{}, dest_view, src_view) ;
+        }
     } 
 
     return std::move(context) ;
 }
 
 
-void grace_transfer_fixed_end(
+static void grace_transfer_fixed_end(
     parallel::grace_transfer_context_t& context
 )
 {

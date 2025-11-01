@@ -100,10 +100,11 @@ static void register_physical_boundary_edge(
 {
     auto [dx,dy,dz] =  get_dirs(sides) ;  
     for( auto const& side: sides) {
-        auto const offset = grace::amr::get_local_quadrants_offset(side.treeid); 
+        
         if ( side.is_hanging ) {
             for( int is=0; is<2; ++is) {
                 if ( side.is.hanging.is_ghost[is]) continue ; 
+                auto const offset = grace::amr::get_local_quadrants_offset(side.treeid); 
                 // hanging local 
                 auto qid = side.is.hanging.quadid[is] +  offset ; 
                 auto& edge = neighbors[qid].edges[side.edge];
@@ -122,6 +123,7 @@ static void register_physical_boundary_edge(
         } else {
             
             if (side.is.full.is_ghost) continue ; 
+            auto const offset = grace::amr::get_local_quadrants_offset(side.treeid); 
             // not hanging not ghost 
             auto qid = side.is.full.quadid +  offset ; 
             auto & edge = neighbors[qid].edges[side.edge] ; 
@@ -184,13 +186,14 @@ static void register_edge(p8est_iter_edge_side_t const& s0,
                    p8est_iter_edge_side_t const& s1,
                    std::vector<quad_neighbors_descriptor_t>& neighbors)
 {
-    auto offset = grace::amr::get_local_quadrants_offset(s0.treeid);
+    
     int8_t e = s0.edge;
 
     if (s0.is_hanging) {
         // s0 hanging
         for (int is = 0; is < 2; ++is) {
             if (s0.is.hanging.is_ghost[is]) continue; // skip remote on our side
+            auto offset = grace::amr::get_local_quadrants_offset(s0.treeid);
             auto qid = s0.is.hanging.quadid[is] + offset;
             auto& desc = neighbors[qid].edges[e];
             neighbors[qid].n_registered_edges++;
@@ -219,6 +222,7 @@ static void register_edge(p8est_iter_edge_side_t const& s0,
     } else {
         // s0 full
         if (s0.is.full.is_ghost) return; // we only register if local
+        auto offset = grace::amr::get_local_quadrants_offset(s0.treeid);
         auto qid = s0.is.full.quadid + offset;
         auto& desc = neighbors[qid].edges[e];
         neighbors[qid].n_registered_edges++;

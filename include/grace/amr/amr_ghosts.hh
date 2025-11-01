@@ -325,6 +325,12 @@ class amr_ghosts_impl_t {
         task_id_t& 
     ) ; 
     //**************************************************************************************************
+    void build_task_list_face_stag(
+        Kokkos::View<bc_t*>&,
+        std::unordered_set<size_t> const&,
+        task_id_t& 
+    ) ; 
+    //**************************************************************************************************
     template< grace::var_staggering_t stag >
     std::tuple<size_t,size_t,size_t,size_t,size_t> 
     get_extents() {

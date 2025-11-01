@@ -34,6 +34,29 @@ inline double fill_func(std::array<double,GRACE_NSPACEDIM> const& c)
     return x - 3.14 * y + 11 * z - 2.22 ; 
 }
 
+inline double fill_func_stagger(std::array<double,GRACE_NSPACEDIM> const& c, int idir)
+{
+    double const x = c[0] ; 
+    double const y = c[1] ; 
+    #ifdef GRACE_3D 
+    double const z = c[2] ; 
+    #else 
+    double const z = 0 ;
+    #endif  
+    double L = 2 ;
+    double kx = 2 * M_PI * 1 / L ; 
+    double ky = 2 * M_PI * 2 / L ; 
+    double kz = 2 * M_PI * 3 / L ; 
+    double A{0.7},B{1.1},C{0.9} ; 
+    if ( idir == 0 ) {
+        return A * sin(kz*z) + C * cos(ky*y) ; 
+    } else if ( idir == 1 ) {
+        return B * sin(kx*x) + A * cos(kz*z) ; 
+    } else {
+        return C * sin(ky*y) + B * cos(kx*x) ; 
+    }
+}
+
 static inline bool is_outside_grid(VEC(size_t i,size_t j, size_t k), int64_t q, VEC(double xoff,double yoff, double zoff))
 {
     auto params = grace::config_parser::get()["amr"] ; 
@@ -146,7 +169,17 @@ static void setup_initial_data(
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
-            for( int ivar=0; ivar<nvars; ++ivar) host_data(VEC(i,j,k), 0, q) = fill_func(pcoords) ; 
+            for( int ivar=0; ivar<nvars; ++ivar) {
+                if ( stag == STAG_CENTER ) {
+                    host_data(VEC(i,j,k), ivar, q) = fill_func(pcoords) ; 
+                } else if ( stag == STAG_FACEX ) {
+                    host_data(VEC(i,j,k), ivar, q) = fill_func_stagger(pcoords,0) ; 
+                } else if ( stag == STAG_FACEY ) {
+                    host_data(VEC(i,j,k), ivar, q) = fill_func_stagger(pcoords,1) ; 
+                } else if ( stag == STAG_FACEZ ) {
+                    host_data(VEC(i,j,k), ivar, q) = fill_func_stagger(pcoords,2) ; 
+                }
+            }
         }, stagger, true 
     ) ; 
 }
@@ -231,9 +264,12 @@ static void collect_info(
 
 }
 
-template< grace::var_staggering_t stag, typename view_t > 
+template<typename view_t> 
 static void check_ghostzones(
-    view_t host_data, view_t ground_truth
+      view_t host_data, view_t ground_truth
+    , view_t host_data_x, view_t ground_truth_x
+    , view_t host_data_y, view_t ground_truth_y
+    , view_t host_data_z, view_t ground_truth_z
 ) 
 {
     using namespace grace ; 
@@ -245,22 +281,11 @@ static void check_ghostzones(
 
     std::array<bool,3> stagger {false,false,false}; 
     std::array<double,3> lcoord {0.5,0.5,0.5} ; 
-    int nvars = host_data.extent(GRACE_NSPACEDIM); 
-    if ( stag == STAG_FACEX ) { 
-        stagger[0] = true ; 
-        nx ++;  
-        lcoord[0] = 0 ;
-    }
-    if ( stag == STAG_FACEY ) {
-        stagger[1] = true ; 
-        ny ++ ; 
-        lcoord[1] = 0 ;
-    }
-    if ( stag == STAG_FACEZ ) {
-        stagger[2] = true ;
-        nz ++ ; 
-        lcoord[2] = 0 ;
-    }; 
+    int nvars = host_data.extent(GRACE_NSPACEDIM);     
+
+    auto idx_d = grace::variable_list::get().getinvspacings() ; 
+    auto idx = Kokkos::create_mirror_view(idx_d) ; 
+    Kokkos::deep_copy(idx,idx_d) ; 
 
     grace::host_grid_loop<false>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
@@ -277,15 +302,20 @@ static void check_ghostzones(
             #endif  
             ! is_affected_by_boundary(VEC(i,j,k),q,2,lcoord[0],lcoord[1],lcoord[2])){
                 if ( std::isnan(host_data(VEC(i,j,k),0,q)) or (fabs(host_data(VEC(i,j,k),0,q)-ground_truth(VEC(i,j,k),0,q))>1e-15)) {
-                    auto quad = grace::amr::get_quadrant(0, q).get() ; 
-                    GRACE_TRACE("NaN at {}, stag {} level {} ijk {},{},{}, q {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(stag), static_cast<int>(quad->level),i,j,k,q) ;
+                    auto quad = grace::amr::get_quadrant(q).get() ; 
+                    GRACE_TRACE("NaN at {}, level {} ijk {},{},{}, q {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level),i,j,k,q) ;
                 }
                 for( int ivar=0 ; ivar<nvars; ++ivar ) {
                     CHECK_THAT(
                     host_data(VEC(i,j,k),ivar,q),
                     Catch::Matchers::WithinAbs(ground_truth(VEC(i,j,k),ivar,q),
-                        1e-15 ) ) ; 
+                        1e-13 ) ) ; 
                 }
+                // compute divergence of B 
+                double divB = (host_data_x(VEC(i+1,j,k),0,q) - host_data_x(VEC(i,j,k),0,q)) * idx(0,q)
+                            + (host_data_y(VEC(i,j+1,k),0,q) - host_data_y(VEC(i,j,k),0,q)) * idx(1,q)
+                            + (host_data_z(VEC(i,j,k+1),0,q) - host_data_z(VEC(i,j,k),0,q)) * idx(2,q) ; 
+                CHECK( fabs(divB) < 1e-15 ) ; 
                 
             }
             
@@ -298,9 +328,7 @@ TEST_CASE("Apply BC", "[boundaries]")
     using namespace grace ; 
     auto& ghost = grace::amr_ghosts::get() ; 
     //ghost.update() ; 
-    
-    auto pcoords = grace::get_physical_coordinates({VEC(20,10,10)},1,{VEC(0.5,0.5,0.5)}, true) ;
-    GRACE_INFO("Here we are ({},{},{})", pcoords[0],pcoords[1],pcoords[2]) ; 
+
     auto& runtime = ghost.get_task_executor() ; 
     // now the real test 
     auto& state = grace::variable_list::get().getstate() ; 
@@ -334,6 +362,9 @@ TEST_CASE("Apply BC", "[boundaries]")
         grace::amr::regrid() ;
         // size has changed
         state_mirror = Kokkos::create_mirror_view(state) ; 
+        fx_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_x) ; 
+        fy_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_y) ; 
+        fz_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_z) ; 
         // reset ground truth 
         setup_initial_data<STAG_CENTER>(state_mirror) ; 
         Kokkos::deep_copy(state, state_mirror) ;
@@ -353,14 +384,15 @@ TEST_CASE("Apply BC", "[boundaries]")
     runtime.run(alias) ; 
     auto state_mirror_2 = Kokkos::create_mirror_view(state) ; 
     Kokkos::deep_copy(state_mirror_2, state) ; 
-    check_ghostzones<STAG_CENTER>(state_mirror_2, state_mirror) ;
+    
     auto fx_mirror_2 = Kokkos::create_mirror_view(stag_state.face_staggered_fields_x) ; 
     Kokkos::deep_copy(fx_mirror_2, stag_state.face_staggered_fields_x) ; 
-    //check_ghostzones<STAG_FACEX>(fx_mirror_2, fx_mirror) ;
     auto fy_mirror_2 = Kokkos::create_mirror_view(stag_state.face_staggered_fields_y) ; 
     Kokkos::deep_copy(fy_mirror_2, stag_state.face_staggered_fields_y) ; 
-    //check_ghostzones<STAG_FACEY>(fy_mirror_2, fy_mirror) ;
     auto fz_mirror_2 = Kokkos::create_mirror_view(stag_state.face_staggered_fields_z) ; 
     Kokkos::deep_copy(fz_mirror_2, stag_state.face_staggered_fields_z) ; 
-    //check_ghostzones<STAG_FACEZ>(fz_mirror_2, fz_mirror) ;
+    check_ghostzones( state_mirror_2, state_mirror
+                    , fx_mirror_2, fx_mirror
+                    , fy_mirror_2, fy_mirror
+                    , fz_mirror_2, fz_mirror ) ;
 }

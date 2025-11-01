@@ -160,6 +160,66 @@ private:
     std::size_t _size ; 
 } ; 
 
+struct face_buffer_t {
+
+    face_buffer_t() = default ; 
+
+    face_buffer_t(std::string const& name)
+        :  _data(name,0), _size(0)
+    {}
+
+    void set_strides(std::array<size_t,2> const& _strides )
+    {
+        auto n = _strides[0] ; auto nv = _strides[1]; 
+        strides = std::array<size_t,3> {n,n*n,nv*n*n};
+    }
+
+    void set_offsets(
+        std::vector<int> const& _roffsets
+    ) 
+    {
+        grace::deep_copy_vec_to_const_view(rank_offsets, _roffsets) ; 
+    }
+
+    void realloc(size_t const& _new_size) {
+        _size = _new_size ; 
+        Kokkos::realloc(_data, _new_size) ; 
+    }
+
+    GRACE_HOST GRACE_ALWAYS_INLINE 
+    size_t size() const { return _size ; }
+
+    GRACE_HOST GRACE_ALWAYS_INLINE 
+    double* data() const { return _data.data() ; }
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    double& operator() (size_t const& i, size_t const& j, size_t const& iv, size_t const& ie, size_t const& rank) const
+    {
+        return get(i,j,iv,ie,strides[0],strides[1],strides[2],rank_offsets(rank)) ; 
+    }
+
+    private:
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    double& get(
+        size_t const& i, size_t const& j, size_t const& iv, size_t const& ie, 
+        size_t const& s0, size_t const& s1, size_t const& s2, 
+        size_t const& offset) const 
+    {
+        auto c_index = i 
+                     + s0 * j
+                     + s1 * iv 
+                     + s2 * ie ;
+        return _data(offset+c_index); 
+    }
+
+    
+    readonly_view_t<int> rank_offsets;
+    std::array<size_t, 3> strides;
+    Kokkos::View<double *, grace::default_space> _data ;
+    std::size_t _size ;     
+} ; 
+
 }} /* namespace grace::amr */
 
 #endif /* GRACE_AMR_GHOST_ARRAY_HH */

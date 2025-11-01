@@ -86,7 +86,7 @@ make_div_preserving_prolongation_task(
     Kokkos::View<size_t*> qid_d{"qid", qid.size()}; 
     Kokkos::View<size_t*> cid_d{"qid", cid.size()}; 
     Kokkos::View<uint8_t*> eid_d{"eid", eid.size()} ; 
-    Kokkos::View<int8_t***> have_fine_data_d{"have_fine_data", eid.size()} ; 
+    Kokkos::View<int8_t***> have_fine_data_d{"have_fine_data", 3,2,eid.size()} ; 
     auto have_fine_data_h = Kokkos::create_mirror_view(have_fine_data_d) ; 
     grace::deep_copy_vec_to_view(qid_d,qid) ;
     grace::deep_copy_vec_to_view(cid_d,cid) ;
@@ -385,9 +385,11 @@ void insert_div_preserving_prolongation_tasks(
     std::array<std::vector<std::array<std::array<int,2>,3>>,3> has_fine ; 
 
     auto insert_dep = [&] (int elem, std::array<task_id_t,N_VAR_STAGGERINGS> const& _tids) {
-        for ( int i=STAG_FACEX; i<=STAG_FACEZ; ++i){
-            auto tid = _tids[i]; 
+        int stags[] = {static_cast<int>(STAG_FACEX),static_cast<int>(STAG_FACEY),static_cast<int>(STAG_FACEZ)} ; 
+        for ( int i=0; i<3; ++i){
+            auto tid = _tids[stags[i]]; 
             if ( tid == UNSET_TASK_ID ) {
+                GRACE_TRACE_DBG("Stag {} unset", stags[i]) ; 
                 ERROR("Unset task_id") ; 
             } else {
                 deps[elem].insert(tid) ;        
@@ -496,44 +498,61 @@ void insert_div_preserving_prolongation_tasks(
         amr::element_kind_t kind = static_cast<amr::element_kind_t>(_kind) ; 
 
         if (kind == FACE) {
+            GRACE_TRACE_DBG("Inserting prolong dep FACE qid {} fid {}", std::get<0>(d), std::get<1>(d)) ; 
             insert_dep(FACE, ghost_array[std::get<0>(d)].faces[std::get<1>(d)].data.full.task_id) ; 
             for( auto eid: amr::detail::f2e[std::get<1>(d)] ) {
                 auto& edge = ghost_array[std::get<0>(d)].edges[eid] ;
-                if ( !edge.filled ) continue ; 
-                if ( edge.kind == interface_kind_t::PHYS ) {
+                if ( !edge.filled ) {
+                    GRACE_TRACE_DBG("Inserting prolong dep FACE from virtual EDGE qid {} fid {} eid {}", std::get<0>(d), std::get<1>(d), eid) ; 
+                    insert_dep(FACE, edge.data.full.task_id) ;
+                } else if ( edge.kind == interface_kind_t::PHYS ) {
+                    GRACE_TRACE_DBG("Inserting prolong dep FACE from phys EDGE qid {} fid {} eid {}", std::get<0>(d), std::get<1>(d), eid) ; 
                     insert_dep(FACE, edge.data.phys.task_id) ;
                 } else {
+                    GRACE_TRACE_DBG("Inserting prolong dep FACE from EDGE qid {} fid {} eid {}", std::get<0>(d), std::get<1>(d), eid) ; 
                     insert_dep(FACE, edge.data.full.task_id) ;
                 }   
             }
         } else if (kind == EDGE) {
+            GRACE_TRACE_DBG("Inserting prolong dep EDGE qid {} eid {}", std::get<0>(d), std::get<1>(d)) ; 
             insert_dep(EDGE, ghost_array[std::get<0>(d)].edges[std::get<1>(d)].data.full.task_id) ; 
             for( auto fid: amr::detail::e2f[std::get<1>(d)] ) {
                 auto& face = ghost_array[std::get<0>(d)].faces[fid] ;
                 if ( face.kind == interface_kind_t::PHYS ) {
+                    GRACE_TRACE_DBG("Inserting prolong dep EDGE from FACE qid {} eid {} fid {}", std::get<0>(d), std::get<1>(d), fid) ; 
                     insert_dep(EDGE,face.data.phys.task_id) ; 
                 } else {
+                    GRACE_TRACE_DBG("Inserting prolong dep EDGE from FACE qid {} eid {} fid {}", std::get<0>(d), std::get<1>(d), fid) ; 
                     insert_dep(EDGE,face.data.full.task_id) ;  
                 }
             }
             for( auto cid: amr::detail::e2c[std::get<1>(d)] ) {
                 auto& corner = ghost_array[std::get<0>(d)].corners[cid] ; 
-                if ( !corner.filled ) continue ; 
-                if ( corner.kind == interface_kind_t::PHYS ) {
+                if ( !corner.filled ) {
+                    GRACE_TRACE_DBG("Inserting prolong dep EDGE from virtual CORNER qid {} eid {} cid {}", std::get<0>(d), std::get<1>(d), cid) ; 
+                    insert_dep(EDGE,corner.data.task_id) ; 
+                } else if ( corner.kind == interface_kind_t::PHYS ) {
+                    GRACE_TRACE_DBG("Inserting prolong dep EDGE from phys CORNER qid {} eid {} cid {}", std::get<0>(d), std::get<1>(d), cid) ; 
                     insert_dep(EDGE,corner.phys.task_id) ; 
                 } else {
+                    GRACE_TRACE_DBG("Inserting prolong dep EDGE from CORNER qid {} eid {} cid {}", std::get<0>(d), std::get<1>(d), cid) ; 
                     insert_dep(EDGE,corner.data.task_id) ; 
                 }
                 
             }
         } else {
+            GRACE_TRACE_DBG("Inserting prolong dep CORNER qid {} cid {}", std::get<0>(d), std::get<1>(d)) ; 
             insert_dep(CORNER, ghost_array[std::get<0>(d)].corners[std::get<1>(d)].data.task_id) ; 
             for( auto eid: amr::detail::c2e[std::get<1>(d)] ) {
                 auto& edge = ghost_array[std::get<0>(d)].edges[eid] ;
-                if ( !edge.filled ) continue ; 
-                if ( edge.kind == interface_kind_t::PHYS ) {
+                if ( !edge.filled ) {
+                    GRACE_TRACE_DBG("Inserting prolong dep CORNER from virtual EDGE qid {} cid {} eid {}", std::get<0>(d), std::get<1>(d), eid) ; 
+                    insert_dep(CORNER, edge.data.full.task_id) ;
+                } else if ( edge.kind == interface_kind_t::PHYS ) {
+                    GRACE_TRACE_DBG("Inserting prolong dep CORNER from phys EDGE qid {} cid {} eid {}", std::get<0>(d), std::get<1>(d), eid) ; 
                     insert_dep(CORNER, edge.data.phys.task_id) ;
                 } else {
+                    GRACE_TRACE_DBG("Inserting prolong dep CORNER from EDGE qid {} cid {} eid {}", std::get<0>(d), std::get<1>(d), eid) ; 
                     insert_dep(CORNER, edge.data.full.task_id) ;
                 } 
             }

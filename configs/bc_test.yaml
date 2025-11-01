@@ -17,7 +17,8 @@ amr: {
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 0.8,
   refinement_criterion_CTODE: 0.001,
-  do_regrid_test: true
+  do_regrid_test: true,
+  regrid_at_postinitial: false,
 }
 IO: {
   volume_output_cell_variables: ["dens"],
@@ -29,4 +30,8 @@ system: {
   flush_logs_based_on_severity: true,
   flush_level: "trace",
   n_device_streams: 4
+}
+
+checkpoints: {
+  checkpoint_at_termination: false
 }

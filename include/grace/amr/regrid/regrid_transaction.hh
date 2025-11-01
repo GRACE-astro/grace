@@ -1,0 +1,165 @@
+/**
+ * @file regrid_transaction.hh
+ * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
+ * @brief This file contains the class responsible for orchestrating a regrid.
+ * @version 0.1
+ * @date 2025-10-29
+ * 
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
+ * methods to simulate relativistic spacetimes and plasmas
+ * Copyright (C) 2023 Carlo Musolino
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ */
+#ifndef GRACE_AMR_REGRID_TRANSACTION_HH
+
+#include <grace_config.h>
+
+#include <grace/utils/device.h>
+#include <grace/utils/inline.h>
+#include <grace/utils/task_queue.hh>
+#include <grace/amr/ghostzone_kernels/ghost_array.hh>
+#include <grace/data_structures/variables.hh>
+
+#include <grace/amr/amr_ghosts.hh>
+#include <grace/system/print.hh>
+
+#include <Kokkos_Core.hpp>
+
+namespace grace { namespace amr {
+
+struct fine_face_data_desc_t {
+    int axis ; // Face axis, also stag direction
+    int side ; // 0 lower 1 upper 
+    size_t qid_ghost  ; // ghost idx
+    size_t qid_local  ; // local index in this forest 
+    size_t qid_remote ; // local index in owner rank's forest
+    size_t which_tree ; // tree index in owner rank's forest
+    int8_t fid_local ; 
+    int8_t fid_remote ; 
+} ;
+
+struct fine_interface_desc_t {
+    size_t qid_src  ; // ghost idx
+    size_t qid_dst  ; // local index in this forest 
+    int8_t fid_src ; // face idx local
+    int8_t fid_dst ; // face idx remote
+} ; 
+
+struct regrid_transaction_t {
+
+    regrid_transaction_t() : nq_init(amr::get_local_num_quadrants()) 
+    {
+        std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ;
+        ngz = grace::amr::get_n_ghosts() ; 
+        nvars_cc = variables::get_n_evolved() ; 
+        nvars_fs = variables::get_n_evolved_face_staggered() ; 
+        nvars_es = nvars_cs = 0 ; 
+
+        evaluate_criterion() ; 
+        execute_host_side_regrid() ; 
+        build_buffers() ;
+        build_task_list() ; 
+
+        task_queue.clear() ; 
+        task_queue.reserve(task_list.size()) ; 
+
+        for( auto& t: task_list) {
+            
+            runtime_task_view rtv ; 
+            rtv.t = t.get() ; 
+            ASSERT( rtv.t != nullptr, "Dangling pointer! ") ; 
+            rtv.pending = t->_dependencies.size() ; 
+            if ( rtv.pending == 0 ) {
+                t -> status = status_id_t::READY ;
+                task_queue.ready.push_back(t -> task_id) ;  
+            }
+
+            task_queue.rt.push_back(std::move(rtv)) ; 
+        }
+        GRACE_VERBOSE("Task queue constructed. {} tasks are ready to run.", task_queue.ready.size()) ;
+    } 
+
+    void execute() {
+        /* first run the data tasks */
+        task_queue.run(view_alias_t{}/*dummy argument*/) ; 
+        Kokkos::fence() ; 
+        parallel::mpi_barrier() ; 
+        // now we can partition the grid 
+        partition_grid() ; 
+        execute_partition() ; 
+        Kokkos::fence() ; 
+        parallel::mpi_barrier() ; 
+        cleanup() ; 
+        /* all done! */
+    }; 
+    
+    private:
+    //! Task list for the regrid
+    std::vector<std::unique_ptr<task_t>> task_list ;
+    executor task_queue ; 
+
+    //! Send / receive buffers for staggered data
+    face_buffer_t _send_fbuf_x, _recv_fbuf_x
+                , _send_fbuf_y, _recv_fbuf_y
+                , _send_fbuf_z, _recv_fbuf_z ; 
+
+    //! Quad ids of incoming and outgoing quads 
+    std::vector<size_t> refine_incoming, coarsen_incoming, keep_incoming ; 
+    std::vector<size_t> refine_outgoing, coarsen_outgoing, keep_outgoing ;
+    std::vector<int64_t> old_glob_qoffsets, new_glob_qoffsets ;  
+
+    std::vector<fine_interface_desc_t> local_fine_face_x, local_fine_face_y, local_fine_face_z;
+    std::vector<std::vector<fine_interface_desc_t>> remote_fine_face_send_x, remote_fine_face_send_y, remote_fine_face_send_z
+                                                  , remote_fine_face_recv_x, remote_fine_face_recv_y, remote_fine_face_recv_z;
+    std::vector<int> sdispls_x, sdispls_y, sdispls_z, rdispls_x, rdispls_y, rdispls_z ; 
+    std::vector<int> sendcounts_x, sendcounts_y, sendcounts_z, recvcounts_x, recvcounts_y, recvcounts_z ; 
+    std::vector<std::array<int8_t,2>> have_fine_data_x, have_fine_data_y, have_fine_data_z ; 
+    //! Number of quadrants: before regrid, after, and after partition
+    size_t nq_init, nq_regrid, nq_final ; 
+    size_t nx,ny,nz, ngz ; 
+    size_t nvars_cc, nvars_fs, nvars_es, nvars_cs ; 
+
+
+    //! Evaluate criterion and write flags into 
+    //! quad's user_int 
+    void evaluate_criterion() ;
+    //! Using the info stored in quadrants 
+    //! execute the regrid on the p4est, then
+    //! resize scratch states in preparation 
+    //! for data operations and extract quad 
+    //! indices of outgoing and incoming quads
+    void execute_host_side_regrid() ;
+    //! Resize state and transfer data for parallel
+    //! partition
+    void execute_partition() ;
+    //! Call p4est_partition, store qoffsets
+    void partition_grid();
+    //! Figure out what local and remote 
+    //! fine face data to copy, allocate 
+    //! transfer buffers
+    void build_buffers();
+    //! Construct the task list 
+    void build_task_list() ;
+    //! Reset quadrant flags, reallocate scratch space
+    void cleanup() ;
+    
+
+} ; 
+
+} } /* namespace grace::amr */
+
+#endif /* GRACE_AMR_REGRID_TRANSACTION_HH */

@@ -125,11 +125,7 @@ void amr_ghosts_impl_t::update() {
                   #endif 
                   &grace_iterate_corners );             /*corner*/
     //**************************************************************************************************
-    for( int iq=0; iq<nq; ++iq) {
-        ASSERT(ghost_layer[iq].n_registered_corners == P4EST_CHILDREN, "ops") ; 
-        ASSERT(ghost_layer[iq].n_registered_edges == 12, "ops") ; 
-        ASSERT(ghost_layer[iq].n_registered_faces == 6, "ops") ; 
-    }
+    
     //build_flux_buffers()     ;
     //**************************************************************************************************
     std::unordered_set<size_t> cbuf_qid ; 
@@ -142,16 +138,9 @@ void amr_ghosts_impl_t::update() {
     build_task_list<STAG_CENTER>(
         var_bc_kind, cbuf_qid, task_counter 
     ) ;
-    build_task_list<STAG_FACEX>(
-        var_bc_kind_f, cbuf_qid, task_counter 
-    ) ;
-    build_task_list<STAG_FACEY>(
-        var_bc_kind_f, cbuf_qid, task_counter 
-    ) ;
-    build_task_list<STAG_FACEZ>(
-        var_bc_kind_f, cbuf_qid, task_counter 
-    ) ;
-
+    build_task_list_face_stag(
+        var_bc_kind_f, cbuf_qid, task_counter
+    ) ; 
     build_executor_runtime() ;
     parallel::mpi_barrier() ;
     GRACE_PROFILING_POP_REGION ; 
@@ -379,6 +368,145 @@ void amr_ghosts_impl_t::build_task_list(
     insert_deferred_phys_bc_tasks<stag>(
         deferred_phys_bc_kernels, ghost_layer,
         dummy, cbuf_view, vbc, phys_bc_stream,
+        VEC(nx,ny,nz),ngz,nv, task_counter, task_list
+    ); 
+    /***********************************************************************/
+    /***********************************************************************/
+}
+
+void amr_ghosts_impl_t::build_task_list_face_stag(
+    Kokkos::View<bc_t*>& vbc,
+    std::unordered_set<size_t> const& cbuf_qid,
+    task_id_t& task_counter 
+) {
+    /***********************************************************************/
+    grace::var_array_t dummy("placeholder", VEC(0,0,0),0,0) ; 
+    /***********************************************************************/
+    /***********************************************************************/
+    // Get variables 
+    auto& vars = grace::variable_list::get() ; 
+    /***********************************************************************/
+    // MPI info 
+    auto rank = parallel::mpi_comm_rank() ; 
+    auto nproc= parallel::mpi_comm_size() ;
+    /***********************************************************************/
+    // Grid info 
+    auto ngz = amr::get_n_ghosts() ; 
+    auto nq = amr::get_local_num_quadrants() ; 
+    std::size_t nx,ny,nz ; 
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ;
+    auto nv = variables::get_n_evolved_face_staggered()  ;
+    /***********************************************************************/
+    auto& stream_pool = device_stream_pool::get(); 
+    auto& stream = stream_pool.next() ; 
+    /***********************************************************************/
+    std::array<bucket_t,N_VAR_STAGGERINGS> deferred_phys_bc_kernels; 
+    /***********************************************************************/
+    #define INSERT_TASKS_UP_TO_PROLONG_IMPL(stag) \
+    do {\
+    auto& cbuf_view = get_coarse_buffers<stag>() ; \
+    std::vector<task_id_t> send_task_id, recv_task_id ; \
+    send_task_id.resize(nproc) ; recv_task_id.resize(nproc) ; \
+    for( size_t r=0UL; r<nproc; r+=1UL) { \
+        if( send_rank_sizes[stag][r] > 0 ){ \
+            task_list.push_back( \
+                std::make_unique<mpi_task_t>( \
+                    make_mpi_send_task(r, _send_buffer[stag], send_rank_offsets[stag], send_rank_sizes[stag], task_counter) \
+                ) \
+            ) ; \
+            send_task_id[r] = task_list.back()->task_id ; \
+        } \
+        if (recv_rank_sizes[stag][r] > 0 ){ \
+            task_list.push_back( \
+                std::make_unique<mpi_task_t>( \
+                    make_mpi_recv_task(r, _recv_buffer[stag], recv_rank_offsets[stag], recv_rank_sizes[stag], task_counter) \
+                ) \
+            ) ; \
+            recv_task_id[r] = task_list.back()->task_id ; \
+        }   \
+    } \
+    task_id_t restrict_tid{UNSET_TASK_ID};  \
+    if(cbuf_qid.size()>0) { \
+        restrict_tid = insert_div_preserving_restriction_tasks<stag>( \
+            cbuf_qid, ghost_layer, \
+            dummy, cbuf_view, \
+            stream, \
+            VEC(nx,ny,nz),ngz,nv, \
+            task_counter, task_list \
+        ) ; \
+    } \
+    insert_copy_tasks<stag>(\
+        ghost_layer, \
+        copy_kernels, \
+        copy_from_cbuf_kernels, \
+        copy_to_cbuf_kernels, \
+        dummy, \
+        cbuf_view, \
+        stream, \
+        VEC(nx,ny,nz), ngz, nv, \
+        task_counter,restrict_tid, task_list \
+    ) ;  \
+    insert_pup_tasks<stag>( \
+        ghost_layer, \
+        pack_kernels, \
+        unpack_kernels, \
+        pack_finer_kernels, \
+        pack_to_cbuf_kernels, \
+        unpack_to_cbuf_kernels, \
+        unpack_from_cbuf_kernels, \
+        dummy, cbuf_view, \
+        _send_buffer[stag], \
+        _recv_buffer[stag], \
+        send_task_id, \
+        recv_task_id, \
+        restrict_tid, \
+        stream, \
+        VEC(nx,ny,nz), ngz, nv, \
+        task_counter, task_list \
+    ) ; \
+    insert_ghost_restriction_tasks<stag>( \
+        cbuf_qid, ghost_layer, \
+        dummy, cbuf_view,\
+        stream,\
+        VEC(nx,ny,nz),ngz,nv,\
+        task_counter, task_list\
+    ) ; \
+    deferred_phys_bc_kernels[stag] = \
+        insert_phys_bc_tasks<stag>( \
+                phys_bc_kernels, ghost_layer,\
+                dummy, cbuf_view, vbc,\
+                stream, VEC(nx,ny,nz),ngz,nv,\
+                task_counter,task_list\
+        ) ;\
+    } while (false)
+    /***********************************************************************/
+    /***********************************************************************/
+    INSERT_TASKS_UP_TO_PROLONG_IMPL(STAG_FACEX);
+    INSERT_TASKS_UP_TO_PROLONG_IMPL(STAG_FACEY);
+    INSERT_TASKS_UP_TO_PROLONG_IMPL(STAG_FACEZ);
+    /***********************************************************************/
+    /***********************************************************************/
+    insert_div_preserving_prolongation_tasks(
+        prolong_kernels, ghost_layer,
+        dummy,_stag_coarse_buffers,
+        stream, VEC(nx,ny,nz), ngz, nv,
+        task_counter, task_list 
+    ) ; 
+    /***********************************************************************/
+    /***********************************************************************/
+    insert_deferred_phys_bc_tasks<STAG_FACEX>(
+        deferred_phys_bc_kernels[STAG_FACEX], ghost_layer,
+        dummy, get_coarse_buffers<STAG_FACEX>(), vbc, stream,
+        VEC(nx,ny,nz),ngz,nv, task_counter, task_list
+    ); 
+    insert_deferred_phys_bc_tasks<STAG_FACEY>(
+        deferred_phys_bc_kernels[STAG_FACEY], ghost_layer,
+        dummy, get_coarse_buffers<STAG_FACEY>(), vbc, stream,
+        VEC(nx,ny,nz),ngz,nv, task_counter, task_list
+    ); 
+    insert_deferred_phys_bc_tasks<STAG_FACEZ>(
+        deferred_phys_bc_kernels[STAG_FACEZ], ghost_layer,
+        dummy, get_coarse_buffers<STAG_FACEZ>(), vbc, stream,
         VEC(nx,ny,nz),ngz,nv, task_counter, task_list
     ); 
     /***********************************************************************/

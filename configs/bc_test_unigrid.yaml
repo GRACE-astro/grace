@@ -15,6 +15,7 @@ amr: {
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 0.5,
   refinement_criterion_CTODE: 0.01,
+  regrid_at_postinitial: false,
   do_regrid_test: false
 }
 IO: {
@@ -26,4 +27,8 @@ system: {
   flush_logs_based_on_severity: true,
   flush_level: "trace",
   n_device_streams: 4
+}
+
+checkpoints: {
+  checkpoint_at_termination: false
 }

@@ -71,6 +71,7 @@ struct amr_flags_t {
  */
 static void initialize_quadrant(p4est_t* p4est, p4est_topidx_t which_tree, p4est_quadrant_t* quad)
 {
+    using namespace grace::amr ; 
     quadrant_t quadrant(quad) ; 
     quadrant.set_user_int( DEFAULT_STATE ) ; 
 }

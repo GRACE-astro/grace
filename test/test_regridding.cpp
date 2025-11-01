@@ -30,127 +30,188 @@
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/IO/vtk_output.hh>
 #include <grace/parallel/mpi_wrappers.hh>
+#include <grace/utils/gridloop.hh>
+#include <grace/IO/cell_output.hh>
+
 #include <iostream>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-template< typename coords_t > 
-std::array<double,GRACE_NSPACEDIM>
-get_coords_buffer_zone(
-    std::array<size_t,GRACE_NSPACEDIM>const& ijk,
-    std::array<double,GRACE_NSPACEDIM>const& lcoords,
-    int64_t q,
-    coords_t& coord_system
-){
+inline double fill_func(std::array<double,GRACE_NSPACEDIM> const& c)
+{
+    double const x = c[0] ; 
+    double const y = c[1] ; 
+    #ifdef GRACE_3D 
+    double const z = c[2] ; 
+    #else 
+    double const z = 0 ;
+    #endif  
+    return x - 3.14 * y + 11 * z - 2.22 ; 
+}
+
+inline double fill_func_stagger(std::array<double,GRACE_NSPACEDIM> const& c, int idir)
+{
+    double const x = c[0] ; 
+    double const y = c[1] ; 
+    #ifdef GRACE_3D 
+    double const z = c[2] ; 
+    #else 
+    double const z = 0 ;
+    #endif  
+    double L = 2 ;
+    double kx = 2 * M_PI * 1 / L ; 
+    double ky = 2 * M_PI * 2 / L ; 
+    double kz = 2 * M_PI * 3 / L ; 
+    double A{0.7},B{1.1},C{0.9} ; 
+    if ( idir == 0 ) {
+        return A * sin(kz*z) + C * cos(ky*y) ; 
+    } else if ( idir == 1 ) {
+        return B * sin(kx*x) + A * cos(kz*z) ; 
+    } else {
+        return C * sin(ky*y) + B * cos(kx*x) ; 
+    }
+}
+
+template< grace::var_staggering_t stag, typename view_t>
+static void setup_initial_data(
+    view_t host_data 
+) 
+{
     using namespace grace ; 
-    #if defined(GRACE_ENABLE_BURGERS) or defined(GRACE_ENABLE_SCALAR_ADV)
-    int const DENS = U ; 
-    int const DENS_ = U ; 
-    #endif 
-    int ngz = amr::get_n_ghosts() ; 
-    int64_t nx,ny,nz ; 
-    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    int iface = EXPR(
-          (ijk[0] < ngz) * 0 
-        + (ijk[0] > nx + ngz-1) * 1,
-        + (ijk[1] < ngz) * 2 
-        + (ijk[1] > ny + ngz-1) * 3,
-        + (ijk[2] < ngz) * 4 
-        + (ijk[2] > nz + ngz-1) * 5) ;
-    if( iface >= P4EST_FACES) iface = 0;   
-    auto& conn = amr::connectivity::get();
-    int itree = amr::get_quadrant_owner(q) ;
-    int    itree_b  = conn.tree_to_tree(itree, iface) ; 
-    int    iface_b  = conn.tree_to_face(itree, iface) ; 
-    int    polarity = conn.tree_to_tree_polarity(itree,iface) ;
-     
-    EXPR(
-    int ig = EXPR( 
-          (iface==0) * (ngz-1-ijk[0])
-        + (iface==1) * (ijk[0]-nx-ngz),
-        + (iface==2) * (ngz-1-ijk[1])
-        + (iface==3) * (ijk[1]-ny-ngz),
-        + (iface==4) * (ngz-1-ijk[2])
-        + (iface==5) * (ijk[2]-nz-ngz)  ) ;, 
-    int j  = EXPR( 
-          (iface/2==0) * ijk[1],
-        + (iface/2==1) * ijk[0],
-        + (iface/2==2) * ijk[0] ) ;, 
-    int k  = EXPR( 
-          (iface/2==0) * ijk[2],
-        + (iface/2==1) * ijk[2],
-        + (iface/2==2) * ijk[1] ) ; )
+    auto& coord_system = grace::coordinate_system::get() ; 
 
-    EXPR(
-    double i_b = EXPR(
-          (iface_b==0) * (
-            (!polarity) * (ngz-1-ig+0.5)
-          + (polarity)  * (ig+0.5) )
-        + (iface_b==1) * (
-            (!polarity) * (-1-ig+0.5)
-          + (polarity)  * (-ngz+ig+0.5)),
-        + (iface_b/2==1) * (j-ngz+0.5),
-        + (iface_b/2==2) * (j-ngz+0.5)
-    );,
-    double j_b = EXPR(
-          (iface_b==2) * (
-            (!polarity) * (ngz-1-ig)
-          + (polarity)  * (ig+0.5) )
-        + (iface_b==3) * (
-            (!polarity) * (-1-ig+0.5)
-          + (polarity)  * (-ngz+ig+0.5) ),
-        + (iface_b/2==0) * (j-ngz+0.5),
-        + (iface_b/2==2) * (k-ngz+0.5) 
-    );,
-    double k_b = EXPR(
-          (iface_b==4) * (
-            (!polarity) * (ngz-1-ig+0.5)
-          + (polarity)  * (+ig+0.5) )
-        + (iface_b==5) * (
-            (!polarity) * (-1-ig+0.5)
-          + (polarity)  * (-ngz+ig+0.5) ),
-        + (iface_b/2==0) * (k-ngz+0.5),
-        + (iface_b/2==1) * (k-ngz+0.5)
-    ) ;
-    )
+    std::array<bool,3> stagger {false,false,false}; 
+    std::array<double,3> lcoord {0.5,0.5,0.5} ; 
+    int nvars = host_data.extent(GRACE_NSPACEDIM); 
+    if ( stag == STAG_FACEX ) { 
+        stagger[0] = true ; 
+        lcoord[0] = 0 ; 
 
-    auto quad_coords = coord_system.get_logical_coordinates(
-        {VEC(0,0,0)},q,{VEC(0.,0.,0.)},false
+    }
+    if ( stag == STAG_FACEY ) {
+        stagger[1] = true ; 
+        lcoord[1] = 0 ; 
+    }
+    if ( stag == STAG_FACEZ ) {
+        stagger[2] = true ;
+        lcoord[2] = 0 ; 
+    }; 
+
+    grace::host_grid_loop<true>(
+        [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
+            auto const itree = grace::amr::get_quadrant_owner(q) ; 
+            auto pcoords = coord_system.get_physical_coordinates(
+                {VEC(i,j,k)}, q, lcoord, true 
+            ) ; 
+            for( int ivar=0; ivar<nvars; ++ivar) {
+                if ( stag == STAG_CENTER ) {
+                    host_data(VEC(i,j,k), ivar, q) = fill_func(pcoords) ; 
+                } else if ( stag == STAG_FACEX ) {
+                    host_data(VEC(i,j,k), ivar, q) = fill_func_stagger(pcoords,0) ; 
+                } else if ( stag == STAG_FACEY ) {
+                    host_data(VEC(i,j,k), ivar, q) = fill_func_stagger(pcoords,1) ; 
+                } else if ( stag == STAG_FACEZ ) {
+                    host_data(VEC(i,j,k), ivar, q) = fill_func_stagger(pcoords,2) ; 
+                }
+            }
+        }, stagger, true 
     ) ; 
-    auto quad = amr::get_quadrant(q); 
-    std::array<double,GRACE_NSPACEDIM> dxl =
-    {VEC(
-        1./(1<<quad.level())/nx,
-        1./(1<<quad.level())/ny,
-        1./(1<<quad.level())/nz
-    )};
-    EXPR(
-    double const x = quad_coords[0]
-        + ( iface == 1 ) * dxl[0] * (nx);,
-    double const y = quad_coords[1]
-        + ( iface == 3 ) * dxl[1] * (ny);,
-    double const z = quad_coords[2]
-        + ( iface == 5 ) * dxl[2] * (nz);
-    )
-    auto pcoords = get_physical_coordinates(
-          itree
-        , {VEC(x,y,z)}
+}
+
+static inline bool is_ghostzone(VEC(int i, int j, int k), VEC(int nx, int ny, int nz), int ngz)
+{
+    return (EXPR((i<ngz) + (i>nx+ngz-1), + (j<ngz) + (j>ny+ngz-1), + (k<ngz) + (k>nz+ngz-1))) > 0 ; 
+}
+
+void fill_b_field() {
+    DECLARE_GRID_EXTENTS;
+    using namespace grace ; 
+    using namespace Kokkos; 
+
+    auto& aux = variable_list::get().getaux() ;
+    auto aux_h = Kokkos::create_mirror_view(aux) ; 
+
+    auto& sstate = variable_list::get().getstaggeredstate() ;
+    auto bx = create_mirror_view(sstate.face_staggered_fields_x) ; 
+    auto by = create_mirror_view(sstate.face_staggered_fields_y) ; 
+    auto bz = create_mirror_view(sstate.face_staggered_fields_z) ;
+    deep_copy(bx,sstate.face_staggered_fields_x) ; 
+    deep_copy(by,sstate.face_staggered_fields_y) ; 
+    deep_copy(bz,sstate.face_staggered_fields_z) ;
+    auto idx_d = grace::variable_list::get().getinvspacings() ; 
+    auto idx = Kokkos::create_mirror_view(idx_d) ; 
+    Kokkos::deep_copy(idx,idx_d) ;
+    grace::host_grid_loop<false>(
+        [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
+            aux_h(VEC(i,j,k),BX,q) = (bx(VEC(i+1,j,k),0,q) + bx(VEC(i,j,k),0,q))/2 ; 
+            aux_h(VEC(i,j,k),BY,q) = (by(VEC(i,j+1,k),0,q) + by(VEC(i,j,k),0,q))/2 ; 
+            aux_h(VEC(i,j,k),BZ,q) = (bz(VEC(i,j,k+1),0,q) + bz(VEC(i,j,k),0,q))/2 ;
+            aux_h(VEC(i,j,k),BDIV,q) =   (bx(VEC(i+1,j,k),0,q) - bx(VEC(i,j,k),0,q)) * idx(0,q)
+                                     + (by(VEC(i,j+1,k),0,q) - by(VEC(i,j,k),0,q)) * idx(1,q)
+                                     + (bz(VEC(i,j,k+1),0,q) - bz(VEC(i,j,k),0,q)) * idx(2,q) ; 
+        }, {false,false,false}, false ) ;
+
+    deep_copy(aux,aux_h) ; 
+}
+
+template<typename view_t> 
+static void check(
+      view_t host_data
+    , view_t host_data_x
+    , view_t host_data_y
+    , view_t host_data_z
+) 
+{
+    using namespace grace ; 
+    size_t nx,ny,nz; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+    size_t nq = grace::amr::get_local_num_quadrants() ; 
+    size_t ngz = static_cast<size_t>(grace::amr::get_n_ghosts()) ; 
+    std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
+
+    auto& coord_system = grace::coordinate_system::get() ; 
+    std::array<bool,3> stagger {false,false,false}; 
+    std::array<double,3> lcoord {0.5,0.5,0.5} ; 
+    int nvars = host_data.extent(GRACE_NSPACEDIM);     
+
+    auto idx_d = grace::variable_list::get().getinvspacings() ; 
+    auto idx = Kokkos::create_mirror_view(idx_d) ; 
+    Kokkos::deep_copy(idx,idx_d) ; 
+
+    grace::host_grid_loop<false>(
+        [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
+            if (! is_ghostzone(i,j,k,nx,ny,nz,ngz))
+            {
+                auto pcoords = coord_system.get_physical_coordinates(
+                    {VEC(i,j,k)}, q, lcoord, true 
+                ) ;
+                double ground_truth = fill_func(pcoords);
+                if ( std::isnan(host_data(VEC(i,j,k),0,q)) or (fabs(host_data(VEC(i,j,k),0,q)-ground_truth)>1e-13)) {
+                    auto quad = grace::amr::get_quadrant(q).get() ; 
+                    GRACE_TRACE("NaN, level {} ijk {},{},{}, q {}, ground_truth {} val {}", static_cast<int>(quad->level),i,j,k,q, ground_truth, host_data(VEC(i,j,k),0,q)) ;
+                }
+                
+                for( int ivar=0 ; ivar<nvars; ++ivar ) {
+                    REQUIRE_THAT(
+                    host_data(VEC(i,j,k),ivar,q),
+                    Catch::Matchers::WithinAbs(ground_truth,
+                        1e-13 ) ) ; 
+                }
+                // compute divergence of B 
+                double divB = (host_data_x(VEC(i+1,j,k),0,q) - host_data_x(VEC(i,j,k),0,q)) * idx(0,q)
+                            + (host_data_y(VEC(i,j+1,k),0,q) - host_data_y(VEC(i,j,k),0,q)) * idx(1,q)
+                            + (host_data_z(VEC(i,j,k+1),0,q) - host_data_z(VEC(i,j,k),0,q)) * idx(2,q) ; 
+                REQUIRE( fabs(divB) < 1e-14 ) ; 
+                
+            }
+            
+        }, stagger, false 
     ) ; 
-    auto lcoords_b = get_logical_coordinates(
-          itree_b 
-        , pcoords
-    ) ; 
-    EXPR(
-    lcoords_b[0] += dxl[0] * (i_b) ;,
-    lcoords_b[1] += dxl[1] * (j_b) ;,
-    lcoords_b[2] += dxl[2] * (k_b) ;
-    )
-    return lcoords_b ; 
 }
 
 TEST_CASE("Simple regrid", "[regrid]")
 {
+    using namespace grace ;
     using namespace grace::variables ; 
     #if defined(GRACE_ENABLE_BURGERS) or defined(GRACE_ENABLE_SCALAR_ADV)
     int const DENS = U ; 
@@ -162,7 +223,6 @@ TEST_CASE("Simple regrid", "[regrid]")
     params["refinement_criterion_var"] = "dens" ; 
     #endif
     
-    auto& state  = grace::variable_list::get().getstate()  ;
     auto& coords = grace::variable_list::get().getcoords() ; 
     auto& dx     = grace::variable_list::get().getspacings(); 
     size_t nx,ny,nz; 
@@ -171,117 +231,48 @@ TEST_CASE("Simple regrid", "[regrid]")
     int ngz = grace::amr::get_n_ghosts() ; 
     auto ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
     
-    auto h_state_mirror = Kokkos::create_mirror_view(state) ; 
     auto& coord_system = grace::coordinate_system::get() ; 
 
-    auto const h_func = [&] (VEC(const double& x,const double& y,const double &z))
-    {
-        return EXPR(8.5 * x, - 5.1 * y, -2*z) - 3.14 ; 
-    } ; 
-    /*************************************************/
-    /*                   fill data                   */
-    /*     here we fill the ghost zones as well.     */
-    /*************************************************/
-    for( size_t icell=0UL; icell<ncells; icell+=1UL)
-    {
-        size_t const i = icell%(nx+2*ngz) ; 
-        size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef GRACE_3D 
-        size_t const k = 
-            (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
-        size_t const q = 
-            (icell/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ;
-        #else 
-        size_t const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
-        #endif 
-        /* Physical coordinates of cell center */
-        auto pcoords = coord_system.get_physical_coordinates(
-            {VEC(i,j,k)},
-            q,
-            true
-        ) ; 
-        h_state_mirror(VEC(i,j,k),DENS,q) = h_func(VEC(pcoords[0],pcoords[1],pcoords[2])) ; 
-    }
-    
-    /* copy data to device */
-    Kokkos::deep_copy(state,h_state_mirror); 
-    //auto& swap = grace::variable_list::get().getscratch() ; 
-    //Kokkos::deep_copy(swap, state) ; 
-    
-    /*****************************************/
-    /* compute total volume integrated value */
-    /* here the ghostzones are excluded.     */
-    /*****************************************/
-    ncells = EXPR((nx),*(ny),*(nz))*nq ;
-    double exact_total{0}, exact_total_local{0} ;  
-    for( size_t icell=0UL; icell<ncells; icell+=1UL)
-    {
-        size_t const i = icell%(nx) ; 
-        size_t const j = (icell/(nx)) % (ny) ;
-        #ifdef GRACE_3D 
-        size_t const k = 
-            (icell/(nx)/(ny)) % (nz) ; 
-        size_t const q = 
-            (icell/(nx)/(ny)/(nz)) ;
-        #else 
-        size_t const q = (icell/(nx)/(ny)) ; 
-        #endif 
+    auto& state = grace::variable_list::get().getstate() ; 
+    auto& stag_state = grace::variable_list::get().getstaggeredstate() ; 
+    auto state_mirror = Kokkos::create_mirror_view(state) ; 
+    auto fx_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_x) ; 
+    auto fy_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_y) ; 
+    auto fz_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_z) ; 
 
-        auto const cell_volume = coord_system.get_cell_volume(
-              {VEC(i,j,k)}
-            , q
-            , false
-        ) ; 
-        exact_total_local += h_state_mirror(VEC(i+ngz,j+ngz,k+ngz),DENS,q) * cell_volume ;
-    }
-    parallel::mpi_allreduce(&exact_total_local,&exact_total,1,sc_MPI_SUM) ; 
+    /*************************************************/
+    /*                     ID                        */
+    /*************************************************/
+    setup_initial_data<STAG_CENTER>(state_mirror) ; 
+    Kokkos::deep_copy(state, state_mirror) ; 
+    setup_initial_data<STAG_FACEX>(fx_mirror) ;
+    Kokkos::deep_copy(stag_state.face_staggered_fields_x, fx_mirror) ;  
+    setup_initial_data<STAG_FACEY>(fy_mirror) ; 
+    Kokkos::deep_copy(stag_state.face_staggered_fields_y, fy_mirror) ;  
+    setup_initial_data<STAG_FACEZ>(fz_mirror) ; 
+    Kokkos::deep_copy(stag_state.face_staggered_fields_z, fz_mirror) ;  
+    fill_b_field() ; 
     /*write output and regrid*/
-    //grace::IO::write_cell_output(true,true,true) ; 
+    grace::IO::write_cell_output(true,true,true) ; 
     grace::amr::regrid() ;  
-    grace::runtime::get().increment_iteration() ; 
-    //grace::IO::write_cell_output(true,true,true) ; 
-    /* compute the new volume integrated value */
-    nq = grace::amr::get_local_num_quadrants() ; // new number of quadrants (after regrid)
-    ncells = EXPR((nx),*(ny),*(nz))*nq ;
-    /* Copy data from device after regrid      */
-    auto h_state_mirror_new = Kokkos::create_mirror_view(state) ; 
-    Kokkos::deep_copy(h_state_mirror_new,state); 
-    double total_local{0},total{0}; 
-    for( size_t icell=0UL; icell<ncells; icell+=1UL)
-    {
-        size_t const i = icell%(nx) ; 
-        size_t const j = (icell/(nx)) % (ny) ;
-        #ifdef GRACE_3D 
-        size_t const k = 
-            (icell/(nx)/(ny)) % (nz) ; 
-        size_t const q = 
-            (icell/(nx)/(ny)/(nz)) ;
-        #else 
-        size_t const q = (icell/(nx)/(ny)) ; 
-        #endif 
-
-        auto const cell_volume = coord_system.get_cell_volume(
-              {VEC(i,j,k)}
-            , q
-            , false
-        ) ; 
-        auto const pcoords = coord_system.get_physical_coordinates(
-            {VEC(i,j,k)},
-            q,
-            false
-        ) ; 
-        total_local += h_state_mirror_new(VEC(i+ngz,j+ngz,k+ngz),DENS,q) * cell_volume ; 
-        #ifdef GRACE_CARTESIAN_COORDINATES
-        /* In spherical coordinates this won't work (and it should not!) */
-        REQUIRE_THAT(h_state_mirror_new(VEC(i+ngz,j+ngz,k+ngz),DENS,q)
-        , Catch::Matchers::WithinAbs(
-                  h_func(VEC(pcoords[0],pcoords[1],pcoords[2]))
-                , 1e-12)) ;
-        #endif 
-    } 
-    parallel::mpi_allreduce(&total_local,&total,1,sc_MPI_SUM) ; 
-    REQUIRE_THAT(total
-                , Catch::Matchers::WithinRel(
-                  exact_total
-                , 1e-12)) ;
+    Kokkos::fence() ; 
+    grace::runtime::get().increment_iteration() ;
+    grace::runtime::get().set_simulation_time(1) ; 
+    fill_b_field() ; 
+    grace::IO::write_cell_output(true,true,true) ; 
+    
+    auto state_mirror_2 = Kokkos::create_mirror_view(state) ; 
+    Kokkos::deep_copy(state_mirror_2, state) ; 
+    
+    auto fx_mirror_2 = Kokkos::create_mirror_view(stag_state.face_staggered_fields_x) ; 
+    Kokkos::deep_copy(fx_mirror_2, stag_state.face_staggered_fields_x) ; 
+    auto fy_mirror_2 = Kokkos::create_mirror_view(stag_state.face_staggered_fields_y) ; 
+    Kokkos::deep_copy(fy_mirror_2, stag_state.face_staggered_fields_y) ; 
+    auto fz_mirror_2 = Kokkos::create_mirror_view(stag_state.face_staggered_fields_z) ; 
+    Kokkos::deep_copy(fz_mirror_2, stag_state.face_staggered_fields_z) ; 
+    check( state_mirror_2 
+         , fx_mirror_2 
+         , fy_mirror_2
+         , fz_mirror_2 ) ;
+    
 }

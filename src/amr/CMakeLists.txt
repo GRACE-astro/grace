@@ -1,4 +1,5 @@
 add_subdirectory(ghost_helpers)
+add_subdirectory(regrid)
 
 register_grace_object(grace_connectivity connectivity.cpp)
 register_grace_object(grace_forest forest.cpp)

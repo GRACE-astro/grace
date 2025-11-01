@@ -1,82 +1,50 @@
 /**
- * @file task_factories.hh
+ * @file copy_kernels.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
- * @brief Index fiesta.
- * @date 2025-09-05
+ * @brief This file contains the copy kernel for regrid.
+ * @version 0.1
+ * @date 2025-10-29
  * 
- * @copyright This file is part of of the General Relativistic Astrophysics
- * Code for Exascale.
- * GRACE is an evolution framework that uses Finite Volume
+ * @copyright This file is part of GRACE.
+ * GRACE is an evolution framework that uses Finite Difference
  * methods to simulate relativistic spacetimes and plasmas
  * Copyright (C) 2023 Carlo Musolino
- *                                    
+ * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- *   
+ * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *   
+ * 
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
 
- #include <grace_config.h>
+#ifndef GRACE_AMR_REGRID_MPI_KERNEL_HH
+
+#include <grace_config.h>
 
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
+#include <grace/utils/limiters.hh>
+#include <grace/utils/prolongation.hh>
 
-#include <grace/data_structures/variable_utils.hh>
-#include <grace/config/config_parser.hh>
-#include <grace/errors/assert.hh>
-
-#include <grace/utils/singleton_holder.hh>
-#include <grace/utils/lifetime_tracker.hh>
-
-#include <grace/amr/amr_ghosts.hh>
-#include <grace/amr/amr_functions.hh>
-#include <grace/amr/p4est_headers.hh>
-#include <grace/amr/ghostzone_kernels/copy_kernels.hh>
-#include <grace/amr/ghostzone_kernels/phys_bc_kernels.hh>
-#include <grace/amr/ghostzone_kernels/restrict_kernels.hh>
-#include <grace/amr/ghostzone_kernels/pack_unpack_kernels.hh>
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
-
-#include <grace/data_structures/memory_defaults.hh>
-#include <grace/data_structures/variables.hh>
-
-#include <grace/system/print.hh>
 
 #include <Kokkos_Core.hpp>
 
-#include <unordered_set>
-#include <vector>
-#include <numeric>
-
-#ifndef GRACE_AMR_GHOSTZONE_MPI_TASK_FACTORY_HH
-#define GRACE_AMR_GHOSTZONE_MPI_TASK_FACTORY_HH
-
 namespace grace {
 
-/**
- * @brief Create a task that sends data to one rank via MPI.
- * @ingroup amr
- * @param rr Rank where data is sent.
- * @param send_buf Send buffer.
- * @param send_rank_offsets Data offsets per rank.
- * @param send_rank_sizes Data sizes per rank.
- * @param task_counter Current task counter.
- * @return mpi_task_t A task encapsulating the asynchronous dispatch of data to rank r.
- */
-mpi_task_t make_mpi_send_task(
+static mpi_task_t make_mpi_send_task_regrid(
       std::size_t rr 
-    , amr::ghost_array_t send_buf 
-    , std::vector<std::size_t> const& send_rank_offsets 
-    , std::vector<std::size_t> const& send_rank_sizes
+    , amr::face_buffer_t send_buf 
+    , std::vector<int> const& send_rank_offsets 
+    , std::vector<int> const& send_rank_sizes
     , task_id_t& task_counter 
 )
 {
@@ -98,21 +66,12 @@ mpi_task_t make_mpi_send_task(
     task.task_id = task_counter++; 
     return task ; 
 }
-/**
- * @brief Create a task that receives data from one rank via MPI.
- * @ingroup amr 
- * @param rr Rank where data is sent.
- * @param recv_buf Receive buffer.
- * @param recv_rank_offsets Data offsets per rank.
- * @param recv_rank_sizes Data sizes per rank.
- * @param task_counter Current task counter.
- * @return mpi_task_t A task encapsulating the asynchronous receive of data to rank r. 
- */
-mpi_task_t make_mpi_recv_task(
+
+static mpi_task_t make_mpi_recv_task_regrid(
       std::size_t rr 
-    , amr::ghost_array_t recv_buf 
-    , std::vector<std::size_t> const& recv_rank_offsets 
-    , std::vector<std::size_t> const& recv_rank_sizes
+    , amr::face_buffer_t recv_buf 
+    , std::vector<int> const& recv_rank_offsets 
+    , std::vector<int> const& recv_rank_sizes
     , task_id_t& task_counter 
 )
 {
@@ -135,7 +94,6 @@ mpi_task_t make_mpi_recv_task(
     return task ; 
 }
 
-
-}
+} /* namespace grace */
 
 #endif 

@@ -59,6 +59,7 @@ int mpi_comm_rank(sc_MPI_Comm comm)
 
 void mpi_waitall(grace_transfer_context_t& context)
 {
+    // mpi err code
     int mpi_retval; 
     if (context._recv_requests.size() > 0) {
         /* Wait for all receive requests to complete */
@@ -68,19 +69,18 @@ void mpi_waitall(grace_transfer_context_t& context)
             MPI_STATUSES_IGNORE
         ) ;
         ASSERT( mpi_retval == sc_MPI_SUCCESS, 
-            "mpi_waitall call failed.") ;
+            "mpi_waitall call failed with status " << mpi_retval << ".") ;
     }
     if (context._send_requests.size() > 0) {
         /* Wait for all send requests to complete */
-        sc_MPI_Waitall(
+        mpi_retval = sc_MPI_Waitall(
             context._send_requests.size(), 
             context._send_requests.data(), 
             MPI_STATUSES_IGNORE
         ) ;
         ASSERT( mpi_retval == sc_MPI_SUCCESS, 
-            "mpi_waitall call failed.") ;
+            "mpi_waitall call failed with status " << mpi_retval << ".") ;
     }
-    
     context.reset() ; 
 }
 

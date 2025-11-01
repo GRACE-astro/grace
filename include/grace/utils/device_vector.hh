@@ -215,7 +215,7 @@ class device_vector {
         if ( ! (size() == device_size()) ) {
             Kokkos::realloc(d_view, size()) ; 
         }
-        grace::deep_copy_vec_to_view(d_view,h_view) ; 
+        deep_copy_vec_to_view(d_view,h_view) ; 
     }
     /**
      * @brief Sync data to host.
@@ -226,7 +226,7 @@ class device_vector {
         if ( ! (size() == device_size()) ) {
             h_view.resize(device_size()) ; 
         }
-        grace::deep_copy_view_to_vec(h_view,d_view) ; 
+        deep_copy_view_to_vec(h_view,d_view) ; 
     }
 
 } ; 
