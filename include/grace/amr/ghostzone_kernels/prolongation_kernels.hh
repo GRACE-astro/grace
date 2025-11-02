@@ -77,8 +77,6 @@ struct prolong_op {
         auto qid = view_qid(iq) ; 
         auto cid = cbuf_qid(iq) ; 
         auto e_id = eid(iq) ; 
-        
-        
 
         // transform
         size_t i_c,j_c,k_c ; 
@@ -153,11 +151,13 @@ struct div_free_prolong_op {
         , sview_t& u, sview_t& v, sview_t& w 
         , sview_t& U, sview_t& V, sview_t& W 
         , minmod const& limiter 
-        , bool fillx, bool filly, bool fillz )
-    const {
+        , bool fillx, bool filly, bool fillz ) const
+    {
         double Uy,Uz,Vx,Vz,Wx,Wy ;
         // compute first order slopes U_y, U_z, V_x, V_z, W_x, W_y
         // where e.g. Uy_{2,0,0} = slope_limiter(1/4 (U_{2,0,0}-U_{2,-4,0}), 1/4 (U_{2,4,0}-U_{2,0,0})) (TR 5)
+        // NB the factor 2 difference is due to the fact that we don't do a central stencil but a slope limited 
+        // derivative
         if ( fillx ) {
             Uy = 0.25 * limiter(U(i_c,j_c,k_c,ivar) - U(i_c,j_c-1,k_c,ivar), U(i_c,j_c+1,k_c,ivar) - U(i_c,j_c,k_c,ivar)) ; 
             Uz = 0.25 * limiter(U(i_c,j_c,k_c,ivar) - U(i_c,j_c,k_c-1,ivar), U(i_c,j_c,k_c+1,ivar) - U(i_c,j_c,k_c,ivar)) ; 
@@ -169,21 +169,23 @@ struct div_free_prolong_op {
         }
         
         if ( fillz ) {
-            Wx = 0.25 * limiter(W(i_c,j_c,k_c,ivar) - W(i_c-1,j_c,k_c,ivar), W(i_c,j_c+1,k_c,ivar) - W(i_c,j_c,k_c,ivar)) ; 
-            Wy = 0.25 * limiter(W(i_c,j_c,k_c,ivar) - W(i_c,j_c-1,k_c,ivar), W(i_c,j_c,k_c+1,ivar) - W(i_c,j_c,k_c,ivar)) ;
+            Wx = 0.25 * limiter(W(i_c,j_c,k_c,ivar) - W(i_c-1,j_c,k_c,ivar), W(i_c+1,j_c,k_c,ivar) - W(i_c,j_c,k_c,ivar)) ; 
+            Wy = 0.25 * limiter(W(i_c,j_c,k_c,ivar) - W(i_c,j_c-1,k_c,ivar), W(i_c,j_c+1,k_c,ivar) - W(i_c,j_c,k_c,ivar)) ;
         }
-
+        //printf("Uy %f, Uz %f, Vx %f, Vz %f, Wx %f, Wy %f\n", Uy, Uz, Vx, Vz, Wx, Wy) ; 
         // here we fill 
         // u_{+-2, j, k} = 1/4 (U_{+-2,0,0} + j Uy_{+-2,0,0} + k Uz_{+-2,0,0}) (TR 4.1)
         // v_{j, +-2, k} = 1/4 (V_{0,+-2,0} + j Vx_{0,+-2,0} + k Vz_{0,+-2,0}) (TR 4.2)
         // w_{j, k, +-2} = 1/4 (W_{0,0,+-2} + j Wx_{0,0,+-2} + k Wy_{0,0,+-2}) (TR 4.2)
+        // NB the factor 4 difference is due to the fact that in TR the field are fluxes but here 
+        // they are averages
         for( int jj=0; jj<=+1; jj+=1) {
             for( int kk=0; kk<=+1; kk+=1) {
                 int js = jj ? +1 : -1 ; 
                 int ks = kk ? +1 : -1 ; 
-                if ( fillx ) u(i_f,j_f+jj,k_f+kk,ivar) = 0.25 * ( U(i_c,j_c,k_c,ivar) + js * Uy + ks * Uz ) ; 
-                if ( filly ) v(i_f+jj,j_f,k_f+kk,ivar) = 0.25 * ( V(i_c,j_c,k_c,ivar) + js * Vx + ks * Vz ) ; 
-                if ( fillz ) w(i_f+jj,j_f+kk,k_f,ivar) = 0.25 * ( W(i_c,j_c,k_c,ivar) + js * Wx + ks * Wy ) ; 
+                if ( fillx ) u(i_f     ,j_f+jj  ,k_f+kk  ,ivar) = ( U(i_c,j_c,k_c,ivar) + js * Uy + ks * Uz ) ; 
+                if ( filly ) v(i_f+jj  ,j_f     ,k_f+kk  ,ivar) = ( V(i_c,j_c,k_c,ivar) + js * Vx + ks * Vz ) ; 
+                if ( fillz ) w(i_f+jj  ,j_f+kk  ,k_f     ,ivar) = ( W(i_c,j_c,k_c,ivar) + js * Wx + ks * Wy ) ; 
             }
         }
     } ; 
@@ -200,7 +202,6 @@ struct div_free_prolong_op {
     // faces / edges / corners is fine here, instead of filling 
     // u_{-2,j,k} we fill u_{+2,j,k} but the rest should be equivalent. 
     
-    // this loop goes full nx 
     template< typename team_handle_t >
     KOKKOS_INLINE_FUNCTION
     void operator() (team_handle_t const& team) const 
@@ -237,11 +238,11 @@ struct div_free_prolong_op {
         size_t extents[4] ;
         if constexpr ( elem_kind == FACE ) {
             extents[0] = transf.g; 
-            extents[1] = extents[2] = transf.n ;
+            extents[1] = extents[2] = transf.n/2 ;
             extents[3] = u.extent(GRACE_NSPACEDIM);
         } else if constexpr ( elem_kind == EDGE ) {
             extents[0] = extents[1] = transf.g; 
-            extents[2] = transf.n ;
+            extents[2] = transf.n / 2;
             extents[3] = u.extent(GRACE_NSPACEDIM);
         } else {
             extents[0] = extents[1] = extents[2] = transf.g; 
@@ -264,7 +265,7 @@ struct div_free_prolong_op {
             {
                 size_t i_f,j_f,k_f ; 
                 transf.compute_indices<elem_kind>(
-                    i,j,k, i_f,j_f,k_f, e_id, false 
+                    2*i,2*j,2*k, i_f,j_f,k_f, e_id, false 
                 ) ;
                 size_t i_c,j_c,k_c ; 
                 transf.compute_indices<elem_kind>(
@@ -304,7 +305,7 @@ struct div_free_prolong_op {
                 }
                 if ( (j_c == transf.last_index<elem_kind>(1,e_id,true/*half ncells*/) and (not have_fine_data(1,1,iq))) ) {
                     fill_inside_face(
-                        i_c+1,j_c,k_c,
+                        i_c,j_c+1,k_c,
                         i_f,j_f+2,k_f,ivar,
                         u,v,w,
                         U,V,W,
@@ -313,7 +314,7 @@ struct div_free_prolong_op {
                 }
                 if ( (k_c == transf.last_index<elem_kind>(2,e_id,true/*half ncells*/) and (not have_fine_data(2,1,iq))) ) {
                     fill_inside_face(
-                        i_c+1,j_c,k_c,
+                        i_c,j_c,k_c+1,
                         i_f,j_f,k_f+2,ivar,
                         u,v,w,
                         U,V,W,
@@ -331,7 +332,7 @@ struct div_free_prolong_op {
             {
                 size_t i_f,j_f,k_f ; 
                 transf.compute_indices<elem_kind>(
-                    i,j,k, i_f,j_f,k_f, e_id, false 
+                    2*i,2*j,2*k, i_f,j_f,k_f, e_id, false 
                 ) ;
                 size_t i_c,j_c,k_c ; 
                 transf.compute_indices<elem_kind>(
@@ -355,13 +356,13 @@ struct div_free_prolong_op {
                             int js = jj ? +1 : -1 ; 
                             int ks = kk ? +1 : -1 ; 
 
-                            Uxx += 0.125 * (is*js*v(i_f+ii,j_f+2*jj,k_f+kk,ivar) + is*ks*w(i_f+ii,j_f+jj,k_f+2*kk,ivar));
-                            Vyy += 0.125 * (is*js*u(i_f+2*ii,j_f+jj,k_f+kk,ivar) + js*ks*w(i_f+ii,j_f+jj,k_f+2*kk,ivar));
-                            Wzz += 0.125 * (is*ks*u(i_f+2*ii,j_f+jj,k_f+kk,ivar) + js*ks*v(i_f+ii,j_f+2*jj,k_f+kk,ivar));
+                            Uxx += 0.125 * (is*js*v(i_f+ii  ,j_f+2*jj,k_f+kk,ivar) + is*ks*w(i_f+ii,j_f+jj  ,k_f+2*kk,ivar));
+                            Vyy += 0.125 * (is*js*u(i_f+2*ii,j_f+jj  ,k_f+kk,ivar) + js*ks*w(i_f+ii,j_f+jj  ,k_f+2*kk,ivar));
+                            Wzz += 0.125 * (is*ks*u(i_f+2*ii,j_f+jj  ,k_f+kk,ivar) + js*ks*v(i_f+ii,j_f+2*jj,k_f+kk  ,ivar));
                              
-                            Uxyz += 0.5 * 0.125 * (is*js*ks*u(i_f+2*ii,j_f+jj,k_f+kk,ivar)) ; 
-                            Vxyz += 0.5 * 0.125 * (is*js*ks*v(i_f+ii,j_f+2*jj,k_f+kk,ivar)) ; 
-                            Wxyz += 0.5 * 0.125 * (is*js*ks*w(i_f+ii,j_f+jj,k_f+2*kk,ivar)) ; 
+                            Uxyz += 0.125 * 0.5 *  (is*js*ks*u(i_f+2*ii,j_f+jj  ,k_f+kk  ,ivar)) ; 
+                            Vxyz += 0.125 * 0.5 *  (is*js*ks*v(i_f+ii  ,j_f+2*jj,k_f+kk  ,ivar)) ; 
+                            Wxyz += 0.125 * 0.5 *  (is*js*ks*w(i_f+ii  ,j_f+jj  ,k_f+2*kk,ivar)) ; 
                         }
                     }
                 }
@@ -375,9 +376,9 @@ struct div_free_prolong_op {
                     for( int kk=0; kk<=+1; kk++) {
                         int js = jj ? +1 : -1 ; 
                         int ks = kk ? +1 : -1 ; 
-                        u(i_f+1,j_f+jj,k_f+kk,ivar) = 0.5 * (u(i_f,j_f+jj,k_f+kk,ivar)+u(i_f+2,j_f+jj,k_f+kk,ivar)) + Uxx + ks * Vxyz + js * Wxyz ; 
-                        v(i_f+jj,j_f+1,k_f+kk,ivar) = 0.5 * (v(i_f+jj,j_f,k_f+kk,ivar)+v(i_f+kk,j_f+2,k_f+kk,ivar)) + Vyy + js * Wxyz + ks * Uxyz ; 
-                        w(i_f+jj,j_f+kk,k_f+1,ivar) = 0.5 * (w(i_f+jj,j_f+kk,k_f,ivar)+w(i_f+jj,j_f+kk,k_f+2,ivar)) + Wzz + ks * Uxyz + js * Vxyz ; 
+                        u(i_f+1 ,j_f+jj,k_f+kk,ivar) = 0.5 * (u(i_f   ,j_f+jj,k_f+kk,ivar)+u(i_f+2 ,j_f+jj,k_f+kk,ivar)) + Uxx + ks * Vxyz + js * Wxyz ; 
+                        v(i_f+jj,j_f+1 ,k_f+kk,ivar) = 0.5 * (v(i_f+jj,j_f   ,k_f+kk,ivar)+v(i_f+jj,j_f+2 ,k_f+kk,ivar)) + Vyy + js * Wxyz + ks * Uxyz ; 
+                        w(i_f+jj,j_f+kk,k_f+1 ,ivar) = 0.5 * (w(i_f+jj,j_f+kk,k_f   ,ivar)+w(i_f+jj,j_f+kk,k_f+2 ,ivar)) + Wzz + ks * Uxyz + js * Vxyz ; 
                     }
                 }
             }

@@ -120,7 +120,7 @@ task_id_t insert_restriction_tasks(
     task_list.push_back(
         std::make_unique<gpu_task_t>(std::move(task))
     ) ; 
-    return task.task_id ; 
+    return task_list.back()->task_id ; 
 }
 
 template< var_staggering_t stag >
@@ -182,7 +182,7 @@ task_id_t insert_div_preserving_restriction_tasks(
     task_list.push_back(
         std::make_unique<gpu_task_t>(std::move(task))
     ) ; 
-    return task.task_id ; 
+    return task_list.back()->task_id ; 
 }
 
 /**

@@ -384,22 +384,25 @@ struct copy_from_cbuf_op {
 
             const int ioff = (ic>>0)&1 ; 
             const int joff = (ic>>1)&1 ; 
-            // if upper child : 0 to n + ngz
-            // else: ngz to n + 2 ngz 
-            const int lbi = ioff ? ngz + transf.nx/2 : ngz ; 
-            const int lbj = joff ? ngz + transf.nx/2 : ngz ; 
-            
+            // if upper child : n/2+ngz to n + ngz
+            // else: n/2+ngz to n + 2 ngz 
             if ( axis == 0 ) { // across X - face
-                const int ubi = ioff ?  ny+sy+ngz : ny/2+sy+ngz ;
-                const int ubj = joff ?  nz+sz+ngz : nz/2+sz+ngz ;  
+                const int lbi = ioff ? ngz + ny/2 + sy : ngz ; 
+                const int lbj = joff ? ngz + nz/2 + sz : ngz ; 
+                const int ubi = ioff ? ngz + ny + sy   : ngz+ny/2+sy ;
+                const int ubj = joff ? ngz + nz + sz   : ngz+nz/2+sz ;  
                 return (j >= lbi and j<ubi) and ( k>=lbj and k<ubj) ; 
             } else if ( axis == 1 ) {
-                const int ubi = ioff ?  nx+sx+ngz : nx/2+sx+ngz ;
-                const int ubj = joff ?  nz+sz+ngz : nz/2+sz+ngz ;
+                const int lbi = ioff ? ngz + nx/2 + sx : ngz ; 
+                const int lbj = joff ? ngz + nz/2 + sz : ngz ; 
+                const int ubi = ioff ? ngz + nx + sx   : nx/2+sx+ngz ;
+                const int ubj = joff ? ngz + nz + sz   : nz/2+sz+ngz ;
                 return (i>=lbi and i<ubi) and (k>=lbj and k<ubj) ;
             } else {
-                const int ubi = ioff ?  nx+sx+ngz : nx/2+sx+ngz ;
-                const int ubj = joff ?  ny+sy+ngz : ny/2+sy+ngz ;
+                const int lbi = ioff ? ngz + nx/2 + sx : ngz ; 
+                const int lbj = joff ? ngz + ny/2 + sy : ngz ; 
+                const int ubi = ioff ? ngz + nx + sx   : nx/2+sx+ngz ;
+                const int ubj = joff ? ngz + ny + sy   : ny/2+sy+ngz ;
                 return (i>=lbi and i<ubi) and (j>=lbj and j<ubj) ; 
             }
         } else if constexpr ( elem_kind == EDGE ) { // for edges gz loop is gz + 1 
@@ -408,31 +411,31 @@ struct copy_from_cbuf_op {
             int off = ic ; 
             
             if ( ie < 4 ) {
-                const int lb = off ? ngz + nx / 2 : ngz ; 
-                const int ub = off ? nx+sx+ngz : nx/2+sx+ngz ; 
-                bool gz_in_range1 = side1 ? j < ny + sy + 2 * ngz : j < ngz + transf.sy ;
-                bool gz_in_range2 = side2 ? k < nz + sz + 2 * ngz : k < ngz + transf.sz ;
+                const int lb = off ? ngz + nx/2 + sx : ngz ; 
+                const int ub = off ? ngz + nx + sx   : nx/2+sx+ngz ; 
+                bool gz_in_range1 = side1 ? j < ny + sy + 2 * ngz : j < ngz + sy ;
+                bool gz_in_range2 = side2 ? k < nz + sz + 2 * ngz : k < ngz + sz ;
                 return (i>=lb and i<ub) and gz_in_range1 and gz_in_range2 ; 
             } else if ( ie < 8 ) {
-                const int lb = off ? ngz + ny / 2 : ngz ; 
-                const int ub = off ? ny+sy+ngz : ny/2+sy+ngz ; 
-                bool gz_in_range1 = side1 ? i < nx + sx + 2 * ngz : i < ngz + transf.sx ;
-                bool gz_in_range2 = side2 ? k < nz + sz + 2 * ngz : k < ngz + transf.sz ;
+                const int lb = off ? ngz + ny/2 + sy : ngz ; 
+                const int ub = off ? ngz + ny + sy   : ny/2+sy+ngz ; 
+                bool gz_in_range1 = side1 ?  i < nx + sx + 2 * ngz : i < ngz + sx ;//here i >= nx + sx + ngz and
+                bool gz_in_range2 = side2 ?  k < nz + sz + 2 * ngz : k < ngz + sz ;//k >= nz + sz + ngz and
                 return (j>=lb and j<ub) and gz_in_range1 and gz_in_range2 ; 
             } else {
-                const int lb = off ? ngz + nz / 2 : ngz ; 
-                const int ub = off ? nz+sz+ngz : nz/2+sz+ngz ; 
-                bool gz_in_range1 = side1 ? i < nx + sx + 2 * ngz : i < ngz + transf.sx ;
-                bool gz_in_range2 = side2 ? j < ny + sy + 2 * ngz : j < ngz + transf.sy ;
+                const int lb = off ? ngz + nz/2 + sz : ngz ; 
+                const int ub = off ? ngz + nz + sz   : nz/2+sz+ngz ; 
+                bool gz_in_range1 = side1 ? i < nx + sx + 2 * ngz : i < ngz + sx ;
+                bool gz_in_range2 = side2 ? j < ny + sy + 2 * ngz : j < ngz + sy ;
                 return (k>=lb and k<ub) and gz_in_range1 and gz_in_range2 ; 
             }
         } else {
             int side1 = ((ie>>0)&1) ; 
             int side2 = ((ie>>1)&1) ; 
             int side3 = ((ie>>2)&1) ; 
-            bool gz_in_range1 = side1 ? i < nx + sx + 2 * ngz : i < ngz + transf.sx ;
-            bool gz_in_range2 = side2 ? j < ny + sy + 2 * ngz : j < ngz + transf.sy ;
-            bool gz_in_range3 = side3 ? k < nz + sz + 2 * ngz : k < ngz + transf.sz ;
+            bool gz_in_range1 = side1 ? i < nx + sx + 2 * ngz : i < ngz + sx ;
+            bool gz_in_range2 = side2 ? j < ny + sy + 2 * ngz : j < ngz + sy ;
+            bool gz_in_range3 = side3 ? k < nz + sz + 2 * ngz : k < ngz + sz ;
             return gz_in_range1 and gz_in_range2 and gz_in_range3 ;
         }
     }

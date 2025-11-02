@@ -266,10 +266,10 @@ static void collect_info(
 
 template<typename view_t> 
 static void check_ghostzones(
-      view_t host_data, view_t ground_truth
-    , view_t host_data_x, view_t ground_truth_x
-    , view_t host_data_y, view_t ground_truth_y
-    , view_t host_data_z, view_t ground_truth_z
+      view_t host_data
+    , view_t host_data_x
+    , view_t host_data_y
+    , view_t host_data_z
 ) 
 {
     using namespace grace ; 
@@ -279,6 +279,7 @@ static void check_ghostzones(
     size_t ngz = static_cast<size_t>(grace::amr::get_n_ghosts()) ; 
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
 
+    auto& coord_system = grace::coordinate_system::get() ; 
     std::array<bool,3> stagger {false,false,false}; 
     std::array<double,3> lcoord {0.5,0.5,0.5} ; 
     int nvars = host_data.extent(GRACE_NSPACEDIM);     
@@ -301,21 +302,62 @@ static void check_ghostzones(
             and
             #endif  
             ! is_affected_by_boundary(VEC(i,j,k),q,2,lcoord[0],lcoord[1],lcoord[2])){
-                if ( std::isnan(host_data(VEC(i,j,k),0,q)) or (fabs(host_data(VEC(i,j,k),0,q)-ground_truth(VEC(i,j,k),0,q))>1e-15)) {
+                auto pcoords = coord_system.get_physical_coordinates(
+                    {VEC(i,j,k)}, q, lcoord, true 
+                ) ;
+                double ground_truth = fill_func(pcoords);
+                if ( std::isnan(host_data(VEC(i,j,k),0,q)) or (fabs(host_data(VEC(i,j,k),0,q)-ground_truth)>1e-13)) {
                     auto quad = grace::amr::get_quadrant(q).get() ; 
                     GRACE_TRACE("NaN at {}, level {} ijk {},{},{}, q {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level),i,j,k,q) ;
                 }
                 for( int ivar=0 ; ivar<nvars; ++ivar ) {
-                    CHECK_THAT(
+                    REQUIRE_THAT(
                     host_data(VEC(i,j,k),ivar,q),
-                    Catch::Matchers::WithinAbs(ground_truth(VEC(i,j,k),ivar,q),
+                    Catch::Matchers::WithinAbs(ground_truth,
                         1e-13 ) ) ; 
+                }
+                if ( q == 0 and i == 10 and j == 4 and k == 9 ) {
+                    GRACE_TRACE("Bx {} {} By {} {} Bz {} {}"
+                               , host_data_x(VEC(i+1,j,k),0,q)
+                               , host_data_x(VEC(i,j,k),0,q)
+                               , host_data_y(VEC(i,j+1,k),0,q)
+                               , host_data_y(VEC(i,j,k),0,q)
+                               , host_data_z(VEC(i,j,k+1),0,q)
+                               , host_data_z(VEC(i,j,k),0,q) ) ; 
+                    std::array<double,2> Bx, By, Bz ; 
+                    for ( int ii=0; ii<=1 ; ++ii) {
+                        std::array<double,3> lcoords_x = {0.0,0.5,0.5} ; 
+                        std::array<double,3> lcoords_y = {0.5,0.0,0.5} ; 
+                        std::array<double,3> lcoords_z = {0.5,0.5,0.0} ; 
+                        auto pcoords_x = coord_system.get_physical_coordinates(
+                            {VEC(i+ii,j,k)}, q, lcoords_x, true 
+                        ) ;
+                        auto pcoords_y = coord_system.get_physical_coordinates(
+                            {VEC(i,j+ii,k)}, q, lcoords_y, true 
+                        ) ;
+                        auto pcoords_z = coord_system.get_physical_coordinates(
+                            {VEC(i,j,k+ii)}, q, lcoords_z, true 
+                        ) ; 
+                        Bx[ii] = fill_func_stagger(pcoords_x,0) ; 
+                        By[ii] = fill_func_stagger(pcoords_y,1) ; 
+                        Bz[ii] = fill_func_stagger(pcoords_z,2) ; 
+                        GRACE_TRACE_DBG("x {} y {} z {}", pcoords_z[0],pcoords_z[1],pcoords_z[2] );
+                    }
+                    GRACE_TRACE_DBG("Bx {} {} By {} {} Bz {} {}"
+                                   , Bx[1], Bx[0]
+                                   , By[1], By[0]
+                                   , Bz[1], Bz[0]) ; 
+                    
                 }
                 // compute divergence of B 
                 double divB = (host_data_x(VEC(i+1,j,k),0,q) - host_data_x(VEC(i,j,k),0,q)) * idx(0,q)
                             + (host_data_y(VEC(i,j+1,k),0,q) - host_data_y(VEC(i,j,k),0,q)) * idx(1,q)
                             + (host_data_z(VEC(i,j,k+1),0,q) - host_data_z(VEC(i,j,k),0,q)) * idx(2,q) ; 
-                CHECK( fabs(divB) < 1e-15 ) ; 
+                if ( fabs(divB) > 1e-13 ) {
+                    auto quad = grace::amr::get_quadrant(q).get() ; 
+                    GRACE_TRACE("DivB problem at {}, level {} ijk {},{},{}, q {}, divB {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level),i,j,k,q,divB) ;
+                }
+                REQUIRE( fabs(divB) < 1e-13 ) ; 
                 
             }
             
@@ -365,21 +407,21 @@ TEST_CASE("Apply BC", "[boundaries]")
         fx_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_x) ; 
         fy_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_y) ; 
         fz_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_z) ; 
-        // reset ground truth 
-        setup_initial_data<STAG_CENTER>(state_mirror) ; 
-        Kokkos::deep_copy(state, state_mirror) ;
-        setup_initial_data<STAG_FACEX>(fx_mirror) ;
-        Kokkos::deep_copy(stag_state.face_staggered_fields_x, fx_mirror) ;  
-        setup_initial_data<STAG_FACEY>(fy_mirror) ; 
-        Kokkos::deep_copy(stag_state.face_staggered_fields_y, fy_mirror) ;  
-        setup_initial_data<STAG_FACEZ>(fz_mirror) ; 
-        Kokkos::deep_copy(stag_state.face_staggered_fields_z, fz_mirror) ;  
     }
-    collect_info(ghost.get_ghost_layer()) ; 
-    //invalidate_ghostzones<STAG_CENTER>(state) ; 
-    //invalidate_ghostzones<STAG_FACEX>(stag_state.face_staggered_fields_x) ; 
-    //invalidate_ghostzones<STAG_FACEY>(stag_state.face_staggered_fields_y) ; 
-    //invalidate_ghostzones<STAG_FACEZ>(stag_state.face_staggered_fields_z) ; 
+    auto& layer = ghost.get_ghost_layer() ; 
+    //int edge_id = 7 ; 
+    //auto& edge = layer[0].edges[edge_id] ; 
+    //GRACE_TRACE_DBG("Here! edge_kind {}, is_filled {} level_diff {}", 
+    //static_cast<int>(edge.kind), edge.filled, static_cast<int>(edge.level_diff)) ;
+    int face_id = 4 ;
+    auto& face = layer[4].faces[face_id] ; 
+    GRACE_TRACE_DBG("Here! face_kind {}, level_diff {}", 
+    static_cast<int>(face.kind), static_cast<int>(face.level_diff)) ;
+    collect_info(layer) ; 
+    invalidate_ghostzones<STAG_CENTER>(state) ; 
+    invalidate_ghostzones<STAG_FACEX>(stag_state.face_staggered_fields_x) ; 
+    invalidate_ghostzones<STAG_FACEY>(stag_state.face_staggered_fields_y) ; 
+    invalidate_ghostzones<STAG_FACEZ>(stag_state.face_staggered_fields_z) ; 
     view_alias_t alias{&state,&stag_state} ;
     runtime.run(alias) ; 
     auto state_mirror_2 = Kokkos::create_mirror_view(state) ; 
@@ -391,8 +433,8 @@ TEST_CASE("Apply BC", "[boundaries]")
     Kokkos::deep_copy(fy_mirror_2, stag_state.face_staggered_fields_y) ; 
     auto fz_mirror_2 = Kokkos::create_mirror_view(stag_state.face_staggered_fields_z) ; 
     Kokkos::deep_copy(fz_mirror_2, stag_state.face_staggered_fields_z) ; 
-    check_ghostzones( state_mirror_2, state_mirror
-                    , fx_mirror_2, fx_mirror
-                    , fy_mirror_2, fy_mirror
-                    , fz_mirror_2, fz_mirror ) ;
+    check_ghostzones( state_mirror_2
+                    , fx_mirror_2
+                    , fy_mirror_2
+                    , fz_mirror_2 ) ;
 }

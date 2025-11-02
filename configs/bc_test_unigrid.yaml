@@ -1,17 +1,16 @@
 name: "grace"
 amr: {
-  npoints_block_x: 6,
-  npoints_block_y: 6,
-  npoints_block_z: 6,
-
+  npoints_block_x: 8,
+  npoints_block_y: 8,
+  npoints_block_z: 8,
   xmin: -1.,
   xmax: 1.,
   ymin: -2.,
   ymax: 2.,
-  zmin: 0.,
+  zmin: -2.,
   zmax: 2.,
   n_ghostzones: 2,
-  initial_refinement_level: 1,
+  initial_refinement_level: 2,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 0.5,
   refinement_criterion_CTODE: 0.01,

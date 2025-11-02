@@ -124,17 +124,14 @@ struct div_free_restrict_op {
     {
         auto src_qid = src_q(iq) ; 
         auto dst_qid = dest_q(iq) ; 
+
         // we need to add up the 4 values 
         // coming from within the coarse 
         // face
-        int sx = stag_dir == 0 ? 0 : 1 ; 
-        int sy = stag_dir == 1 ? 0 : 1 ; 
-        int sz = stag_dir == 2 ? 0 : 1 ; 
-
         double val = 0 ; 
-        for( int ii=0; ii<=sx; ++ ii ) {
-            for( int jj=0; jj<=sy; ++jj ) {
-                for(int kk=0; kk<=sz; ++kk) {
+         for( int ii=0; ii<=(stag_dir!=0); ++ii) {
+            for( int jj=0; jj<=(stag_dir!=1); ++jj){
+                for(int kk=0; kk<=(stag_dir!=2); ++kk){
                     val += src_view(2*i+ngz+ii,2*j+ngz+jj,2*k+ngz+kk,iv,src_qid) ; 
                 }
             }

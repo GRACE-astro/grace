@@ -238,7 +238,7 @@ void amr_ghosts_impl_t::build_task_list(
     auto nq = amr::get_local_num_quadrants() ; 
     std::size_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ;
-    auto nv = (stag==STAG_CENTER ? variables::get_n_evolved() : variables::get_n_evolved_face_staggered() ) ;
+    auto nv =  variables::get_n_evolved() ;
     /***********************************************************************/
     // First we construct the mpi tasks 
     std::vector<task_id_t> send_task_id, recv_task_id ; 
@@ -266,34 +266,24 @@ void amr_ghosts_impl_t::build_task_list(
     /***********************************************************************/
     // First decide on streams 
     auto& stream_pool = device_stream_pool::get();
-    auto& copy_stream = stream_pool.next() ; 
-    auto& pup_stream = ( stag == STAG_CENTER ? stream_pool.next() : copy_stream ) ; 
-    auto& phys_bc_stream = ( stag == STAG_CENTER ? stream_pool.next() : copy_stream ) ; 
-    auto& interp_stream = ( stag == STAG_CENTER ? stream_pool.next() : copy_stream ) ; 
+    auto& copy_stream    = stream_pool.next() ; 
+    auto& pup_stream     = stream_pool.next() ; 
+    auto& phys_bc_stream = stream_pool.next() ; 
+    auto& interp_stream  = stream_pool.next() ; 
     /***********************************************************************/
     /***********************************************************************/
     task_id_t restrict_tid{UNSET_TASK_ID}; 
 
     if(cbuf_qid.size()>0) {
-        if constexpr ( stag == STAG_CENTER ) {
-            restrict_tid = insert_restriction_tasks<stag>(
-                cbuf_qid,
-                ghost_layer,
-                dummy, 
-                cbuf_view, 
-                interp_stream,
-                VEC(nx,ny,nz), ngz, nv, 
-                task_counter, task_list 
-            ) ; 
-        } else {
-            restrict_tid = insert_div_preserving_restriction_tasks<stag>(
-                cbuf_qid, ghost_layer,
-                dummy, cbuf_view,
-                interp_stream,
-                VEC(nx,ny,nz),ngz,nv,
-                task_counter, task_list
-            ) ; 
-        } 
+        restrict_tid = insert_restriction_tasks<stag>(
+            cbuf_qid,
+            ghost_layer,
+            dummy, 
+            cbuf_view, 
+            interp_stream,
+            VEC(nx,ny,nz), ngz, nv, 
+            task_counter, task_list 
+        ) ; 
     }
     /***********************************************************************/
     /***********************************************************************/
@@ -349,20 +339,12 @@ void amr_ghosts_impl_t::build_task_list(
         ) ;
     /***********************************************************************/
     /***********************************************************************/
-    if constexpr ( stag == STAG_CENTER ) {
-        insert_prolongation_tasks<STAG_CENTER>(
-            prolong_kernels, ghost_layer,
-            dummy, cbuf_view, interp_stream,
-            VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
-        ) ;
-    } else if constexpr ( stag == STAG_FACEX ) { // note this is inserted once.
-        insert_div_preserving_prolongation_tasks(
-            prolong_kernels, ghost_layer,
-            dummy,_stag_coarse_buffers,
-            interp_stream, VEC(nx,ny,nz), ngz, nv,
-            task_counter, task_list 
-        ) ; 
-    } 
+    insert_prolongation_tasks<stag>(
+        prolong_kernels, ghost_layer,
+        dummy, cbuf_view, interp_stream,
+        VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
+    ) ;
+   
     /***********************************************************************/
     /***********************************************************************/
     insert_deferred_phys_bc_tasks<stag>(
