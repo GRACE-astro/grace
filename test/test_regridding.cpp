@@ -77,6 +77,7 @@ static void setup_initial_data(
     view_t host_data 
 ) 
 {
+    DECLARE_GRID_EXTENTS ;
     using namespace grace ; 
     auto& coord_system = grace::coordinate_system::get() ; 
 
@@ -96,26 +97,26 @@ static void setup_initial_data(
         stagger[2] = true ;
         lcoord[2] = 0 ; 
     }; 
-
     grace::host_grid_loop<true>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             auto const itree = grace::amr::get_quadrant_owner(q) ; 
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
-            for( int ivar=0; ivar<nvars; ++ivar) {
-                if ( stag == STAG_CENTER ) {
-                    host_data(VEC(i,j,k), ivar, q) = fill_func(pcoords) ; 
-                } else if ( stag == STAG_FACEX ) {
-                    host_data(VEC(i,j,k), ivar, q) = fill_func_stagger(pcoords,0) ; 
-                } else if ( stag == STAG_FACEY ) {
-                    host_data(VEC(i,j,k), ivar, q) = fill_func_stagger(pcoords,1) ; 
-                } else if ( stag == STAG_FACEZ ) {
-                    host_data(VEC(i,j,k), ivar, q) = fill_func_stagger(pcoords,2) ; 
-                }
+            if ( stag == STAG_CENTER ) {
+                host_data(VEC(i,j,k), DENS, q) = fill_func(pcoords) ; 
+            } else if ( stag == STAG_FACEX ) {
+                host_data(VEC(i,j,k), 0, q) = fill_func_stagger(pcoords,0) ; 
+            } else if ( stag == STAG_FACEY ) {
+                host_data(VEC(i,j,k), 0, q) = fill_func_stagger(pcoords,1) ; 
+            } else if ( stag == STAG_FACEZ ) {
+                host_data(VEC(i,j,k), 0, q) = fill_func_stagger(pcoords,2) ; 
             }
+            
         }, stagger, true 
     ) ; 
+
+    
 }
 
 static inline bool is_ghostzone(VEC(int i, int j, int k), VEC(int nx, int ny, int nz), int ngz)
@@ -186,17 +187,16 @@ static void check(
                     {VEC(i,j,k)}, q, lcoord, true 
                 ) ;
                 double ground_truth = fill_func(pcoords);
-                if ( std::isnan(host_data(VEC(i,j,k),0,q)) or (fabs(host_data(VEC(i,j,k),0,q)-ground_truth)>1e-13)) {
+                if ( std::isnan(host_data(VEC(i,j,k),DENS,q)) or (fabs(host_data(VEC(i,j,k),DENS,q)-ground_truth)>1e-13)) {
                     auto quad = grace::amr::get_quadrant(q).get() ; 
-                    GRACE_TRACE("NaN, level {} ijk {},{},{}, q {}, ground_truth {} val {}", static_cast<int>(quad->level),i,j,k,q, ground_truth, host_data(VEC(i,j,k),0,q)) ;
+                    GRACE_TRACE("NaN, level {} ijk {},{},{}, q {}, ground_truth {} val {}", static_cast<int>(quad->level),i,j,k,q, ground_truth, host_data(VEC(i,j,k),DENS,q)) ;
                 }
                 
-                for( int ivar=0 ; ivar<nvars; ++ivar ) {
-                    REQUIRE_THAT(
-                    host_data(VEC(i,j,k),ivar,q),
-                    Catch::Matchers::WithinAbs(ground_truth,
-                        1e-13 ) ) ; 
-                }
+                REQUIRE_THAT(
+                host_data(VEC(i,j,k),DENS,q),
+                Catch::Matchers::WithinAbs(ground_truth,
+                    1e-13 ) ) ; 
+                
                 // compute divergence of B 
                 double divB = (host_data_x(VEC(i+1,j,k),0,q) - host_data_x(VEC(i,j,k),0,q)) * idx(0,q)
                             + (host_data_y(VEC(i,j+1,k),0,q) - host_data_y(VEC(i,j,k),0,q)) * idx(1,q)
@@ -213,15 +213,11 @@ TEST_CASE("Simple regrid", "[regrid]")
 {
     using namespace grace ;
     using namespace grace::variables ; 
-    #if defined(GRACE_ENABLE_BURGERS) or defined(GRACE_ENABLE_SCALAR_ADV)
-    int const DENS = U ; 
-    int const DENS_ = U ; 
-    auto params = grace::config_parser::get()["amr"] ; 
-    params["refinement_criterion_var"] = "U" ; 
-    #else
+
+    Kokkos::fence() ; 
+
     auto params = grace::config_parser::get()["amr"] ; 
     params["refinement_criterion_var"] = "dens" ; 
-    #endif
     
     auto& coords = grace::variable_list::get().getcoords() ; 
     auto& dx     = grace::variable_list::get().getspacings(); 
@@ -229,7 +225,6 @@ TEST_CASE("Simple regrid", "[regrid]")
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
     size_t nq = grace::amr::get_local_num_quadrants() ; 
     int ngz = grace::amr::get_n_ghosts() ; 
-    auto ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ; 
     
     auto& coord_system = grace::coordinate_system::get() ; 
 
@@ -253,7 +248,7 @@ TEST_CASE("Simple regrid", "[regrid]")
     Kokkos::deep_copy(stag_state.face_staggered_fields_z, fz_mirror) ;  
     fill_b_field() ; 
     /*write output and regrid*/
-    grace::IO::write_cell_output(true,true,true) ; 
+    grace::IO::write_cell_output(true,false,false) ; 
     grace::amr::regrid() ;  
     Kokkos::fence() ; 
     grace::runtime::get().increment_iteration() ;

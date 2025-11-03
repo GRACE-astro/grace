@@ -666,11 +666,11 @@ struct prolong_index_transformer_t {
     {
         size_t _n = half_ncells ? n / 2 : n ; 
         if constexpr ( elem_kind == element_kind_t::FACE ) {
-            _compute_ghost_indices_face_invert(_n,g,ig,j,k,i_out,j_out,k_out,sx,sy,sz,ielem);
+            _compute_ghost_indices_face_invert(_n,g,ig,j,k,sx,sy,sz,i_out,j_out,k_out,ielem);
         } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
-            _compute_ghost_indices_edge_invert(_n,g,ig,j,k,i_out,j_out,k_out,sx,sy,sz,ielem);
+            _compute_ghost_indices_edge_invert(_n,g,ig,j,k,sx,sy,sz,i_out,j_out,k_out,ielem);
         } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
-            _compute_ghost_indices_corner_invert(_n,g,ig,j,k,i_out,j_out,k_out,sx,sy,sz,ielem);
+            _compute_ghost_indices_corner_invert(_n,g,ig,j,k,sx,sy,sz,i_out,j_out,k_out,ielem);
         }
     }
 
@@ -726,6 +726,78 @@ struct prolong_index_transformer_t {
         } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
             return _get_first_iter_index_corner(idir,ielem,_n,g) ; 
         }
+    }
+} ; 
+
+
+void _compute_ghost_indices_face_df(
+    size_t _n,size_t g,
+    size_t ig,size_t j,size_t k,
+    size_t goff,
+    size_& i_out,size_t& j_out,size_t& k_out,
+    int8_t ielem)
+{
+    int8_t axis = ielem/2; 
+    int8_t side = ielem%2;
+    if( axis == 0) {
+        i_out = side ? n + g + ig : goff + ig ;
+        j_out = g + j ; 
+        k_out = g + k ; 
+    } else if (axis==1) {
+        j_out = side ? n + g + ig : goff + ig ;
+        i_out = g + j ; 
+        k_out = g + k ; 
+    } else {
+        k_out = side ? n + g + ig : goff + ig ;
+        i_out = g + j ; 
+        j_out = g + k ;
+    }
+}
+
+void _compute_ghost_indices_face_df(
+    size_t _n,size_t g,
+    size_t ig,size_t j,size_t k,
+    size_t goff,
+    size_& i_out,size_t& j_out,size_t& k_out,
+    int8_t ielem)
+{
+    int8_t axis = ielem/2; 
+    int8_t side = ielem%2;
+    if( axis == 0) {
+        i_out = side ? n + g + ig : goff + ig ;
+        j_out = g + j ; 
+        k_out = g + k ; 
+    } else if (axis==1) {
+        j_out = side ? n + g + ig : goff + ig ;
+        i_out = g + j ; 
+        k_out = g + k ; 
+    } else {
+        k_out = side ? n + g + ig : goff + ig ;
+        i_out = g + j ; 
+        j_out = g + k ;
+    }
+}
+
+struct div_free_prolong_index_transformer_t {
+    std::size_t n, g;
+    div_free_prolong_index_transformer_t(std::size_t _n,std::size_t  _ngz)
+        : n(_n), g(_ngz) {  }
+
+    template< element_kind_t elem_kind >
+    KOKKOS_INLINE_FUNCTION
+    void compute_indices(std::size_t ig, std::size_t j, std::size_t k,
+                         std::size_t& i_out, std::size_t& j_out,
+                         std::size_t& k_out, int ielem, bool half_ncells=false) const 
+    {
+        size_t _n = half_ncells ? n / 2 : n ; 
+        size_t _off = half_ncells ? g/2 : 0 ;
+        if constexpr ( elem_kind == element_kind_t::FACE ) {
+            _compute_ghost_indices_face_df(_n,g,ig,j,k,sx,sy,sz,i_out,j_out,k_out,ielem);
+        } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
+            _compute_ghost_indices_edge_df(_n,g,ig,j,k,sx,sy,sz,i_out,j_out,k_out,ielem);
+        } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
+            _compute_ghost_indices_corner_df(_n,g,ig,j,k,sx,sy,sz,i_out,j_out,k_out,ielem);
+        }         
     }
 } ; 
 

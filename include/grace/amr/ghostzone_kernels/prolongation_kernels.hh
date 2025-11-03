@@ -151,6 +151,7 @@ struct div_free_prolong_op {
         , size_t i_f, size_t j_f, size_t k_f, size_t ivar
         , sview_t& u, sview_t& v, sview_t& w 
         , sview_t& U, sview_t& V, sview_t& W 
+        , int s[3]
         , minmod const& limiter 
         , bool fillx, bool filly, bool fillz ) const
     {
@@ -184,9 +185,9 @@ struct div_free_prolong_op {
             for( int kk=0; kk<=+1; kk+=1) {
                 int js = jj ? +1 : -1 ; 
                 int ks = kk ? +1 : -1 ; 
-                if ( fillx ) u(i_f     ,j_f+jj  ,k_f+kk  ,ivar) = ( U(i_c,j_c,k_c,ivar) + js * Uy + ks * Uz ) ; 
-                if ( filly ) v(i_f+jj  ,j_f     ,k_f+kk  ,ivar) = ( V(i_c,j_c,k_c,ivar) + js * Vx + ks * Vz ) ; 
-                if ( fillz ) w(i_f+jj  ,j_f+kk  ,k_f     ,ivar) = ( W(i_c,j_c,k_c,ivar) + js * Wx + ks * Wy ) ; 
+                if ( fillx ) u(i_f          ,j_f+s[1]*jj  ,k_f+s[2]*kk  ,ivar) = ( U(i_c,j_c,k_c,ivar) + s[1]*js * Uy + s[2]*ks * Uz ) ; 
+                if ( filly ) v(i_f+s[0]*jj  ,j_f          ,k_f+s[2]*kk  ,ivar) = ( V(i_c,j_c,k_c,ivar) + s[0]*js * Vx + s[2]*ks * Vz ) ; 
+                if ( fillz ) w(i_f+s[0]*jj  ,j_f+s[1]*kk  ,k_f          ,ivar) = ( W(i_c,j_c,k_c,ivar) + s[0]*js * Wx + s[1]*ks * Wy ) ; 
             }
         }
     } ; 
@@ -238,15 +239,15 @@ struct div_free_prolong_op {
 
         size_t extents[4] ;
         if constexpr ( elem_kind == FACE ) {
-            extents[0] = transf.g; 
+            extents[0] = transf.g/2; 
             extents[1] = extents[2] = transf.n/2 ;
             extents[3] = u.extent(GRACE_NSPACEDIM);
         } else if constexpr ( elem_kind == EDGE ) {
-            extents[0] = extents[1] = transf.g; 
+            extents[0] = extents[1] = transf.g/2; 
             extents[2] = transf.n / 2;
             extents[3] = u.extent(GRACE_NSPACEDIM);
         } else {
-            extents[0] = extents[1] = extents[2] = transf.g; 
+            extents[0] = extents[1] = extents[2] = transf.g/2; 
             extents[3] = u.extent(GRACE_NSPACEDIM);
         }
 
@@ -254,6 +255,9 @@ struct div_free_prolong_op {
         
         // create a minmod limiter 
         minmod limiter {}; 
+
+        int s[3] ; 
+        transf.get_stencil<elem_kind>(s,e_id) ; 
 
         // In all these kernels:
         // i_c, j_c, k_c loop over coarse cells --> -2 in TR notation
@@ -275,13 +279,13 @@ struct div_free_prolong_op {
 
                 // we don't want to fill if we have fine data 
                 bool fill_x{true}, fill_y{true}, fill_z{true} ; 
-                if ( i_c == transf.first_index<elem_kind>(0,e_id,true/*half ncells*/) and have_fine_data(0,0,iq) ) {
+                if ( i_f == transf.first_index<elem_kind>(0,e_id,true/*half ncells*/) and have_fine_data(0,0,iq) ) {
                     fill_x = false ; 
                 }
-                if ( j_c == transf.first_index<elem_kind>(1,e_id,true/*half ncells*/) and have_fine_data(1,0,iq) ) {
+                if ( j_f == transf.first_index<elem_kind>(1,e_id,true/*half ncells*/) and have_fine_data(1,0,iq) ) {
                     fill_y = false ; 
                 }
-                if ( k_c == transf.first_index<elem_kind>(2,e_id,true/*half ncells*/) and have_fine_data(2,0,iq) ) {
+                if ( k_f == transf.first_index<elem_kind>(2,e_id,true/*half ncells*/) and have_fine_data(2,0,iq) ) {
                     fill_z = false ; 
                 }
 
@@ -290,6 +294,7 @@ struct div_free_prolong_op {
                     i_f,j_f,k_f,ivar,
                     u,v,w,
                     U,V,W,
+                    s,
                     limiter,
                     fill_x,fill_y,fill_z) ; 
                 
@@ -301,6 +306,7 @@ struct div_free_prolong_op {
                         i_f+2,j_f,k_f,ivar,
                         u,v,w,
                         U,V,W,
+                        s,
                         limiter,
                         true,false,false) ; 
                 }
@@ -310,6 +316,7 @@ struct div_free_prolong_op {
                         i_f,j_f+2,k_f,ivar,
                         u,v,w,
                         U,V,W,
+                        s,
                         limiter,
                         false,true,false) ; 
                 }
@@ -319,6 +326,7 @@ struct div_free_prolong_op {
                         i_f,j_f,k_f+2,ivar,
                         u,v,w,
                         U,V,W,
+                        s,
                         limiter,
                         false,false,true) ; 
                 }
@@ -353,9 +361,13 @@ struct div_free_prolong_op {
                     for( int jj=0; jj<=+1; jj+=1) {
                         for( int kk=0; kk<=+1; kk+=1) {
 
-                            int is = ii ? +1 : -1 ;
-                            int js = jj ? +1 : -1 ; 
-                            int ks = kk ? +1 : -1 ; 
+                            int is = s[0]*(ii ? +1 : -1) ;
+                            int js = s[1]*(jj ? +1 : -1) ; 
+                            int ks = s[2]*(kk ? +1 : -1) ; 
+
+                            int io = s[0] * ii ; 
+                            int jo = s[1] * jj ; 
+                            int ko = s[2] * kk ; 
 
                             Uxx += 0.125 * (is*js*v(i_f+ii  ,j_f+2*jj,k_f+kk,ivar) + is*ks*w(i_f+ii,j_f+jj  ,k_f+2*kk,ivar));
                             Vyy += 0.125 * (is*js*u(i_f+2*ii,j_f+jj  ,k_f+kk,ivar) + js*ks*w(i_f+ii,j_f+jj  ,k_f+2*kk,ivar));

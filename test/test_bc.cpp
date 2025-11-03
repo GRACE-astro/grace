@@ -145,7 +145,7 @@ static void setup_initial_data(
 {
     using namespace grace ; 
     auto& coord_system = grace::coordinate_system::get() ; 
-
+    Kokkos::fence() ; 
     std::array<bool,3> stagger {false,false,false}; 
     std::array<double,3> lcoord {0.5,0.5,0.5} ; 
     int nvars = host_data.extent(GRACE_NSPACEDIM); 
@@ -316,7 +316,7 @@ static void check_ghostzones(
                     Catch::Matchers::WithinAbs(ground_truth,
                         1e-13 ) ) ; 
                 }
-                if ( q == 0 and i == 10 and j == 4 and k == 9 ) {
+                if ( (q == 0 and i == 10 and j == 4 and k == 9) or (q==4 and i==4 and j==4 and k==0) ) {
                     GRACE_TRACE("Bx {} {} By {} {} Bz {} {}"
                                , host_data_x(VEC(i+1,j,k),0,q)
                                , host_data_x(VEC(i,j,k),0,q)
@@ -353,7 +353,7 @@ static void check_ghostzones(
                 double divB = (host_data_x(VEC(i+1,j,k),0,q) - host_data_x(VEC(i,j,k),0,q)) * idx(0,q)
                             + (host_data_y(VEC(i,j+1,k),0,q) - host_data_y(VEC(i,j,k),0,q)) * idx(1,q)
                             + (host_data_z(VEC(i,j,k+1),0,q) - host_data_z(VEC(i,j,k),0,q)) * idx(2,q) ; 
-                if ( fabs(divB) > 1e-13 ) {
+                if ( fabs(divB) > 1e-13 or std::isnan(divB)) {
                     auto quad = grace::amr::get_quadrant(q).get() ; 
                     GRACE_TRACE("DivB problem at {}, level {} ijk {},{},{}, q {}, divB {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level),i,j,k,q,divB) ;
                 }

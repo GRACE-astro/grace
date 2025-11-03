@@ -17,7 +17,8 @@ amr: {
   regrid_at_postinitial: false
 }
 IO: {
-  plane_surface_output_cell_variables: [ "Bvec[0]","dens"],
+  volume_output_cell_variables: [ "Bvec[0]","dens","Bdiv"],
+  output_extra_quantities: true
 }
 system: {
   console_log_level: "verbose",
