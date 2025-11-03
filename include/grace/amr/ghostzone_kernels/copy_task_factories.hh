@@ -270,6 +270,10 @@ gpu_task_t make_gpu_copy_to_cbuf_task(
     int i{0} ; 
     for( auto const& d: bucket ) {
         auto [src_qid, dst_qid, src_eid, dst_eid, child_id] = get_interface_info(d) ; 
+        if ( dst_qid == 16 ) {
+            GRACE_TRACE_DBG("elem kind {} stag {} (qid {} cid 16) src_qid {} src_eid {} dst_eid {} child_id {} registered.",
+                static_cast<int>(elem_kind), static_cast<int>(stag), std::get<0>(d), src_qid, src_eid, dst_eid, child_id) ; 
+        }
         src_qid_h(i) = src_qid; dst_qid_h(i) = dst_qid ; 
         src_elem_h(i) = src_eid ; dst_elem_h(i) = dst_eid ;
         ic_h(i) = child_id ; 

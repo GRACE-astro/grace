@@ -301,7 +301,9 @@ void make_gpu_restrict_gz_task(
     size_t i{0UL} ; 
     for( auto const& d: bucket ) {
         auto [_qid,_cid,_eid] = get_info(d) ;
-        
+        if ( _qid == 30 ) {
+            GRACE_TRACE_DBG("qid 30 cid {}", _cid) ; 
+        }
         qid_h(i) = _qid ; 
         cbuf_qid_h(i) = _cid ; 
         eid_h(i) = _eid ; 
@@ -427,9 +429,12 @@ void insert_ghost_restriction_tasks(
             auto& edge = ghost_array[qid].edges[e] ; 
             bool need_neighbor_restrict = (!edge.filled) ; 
             if ( edge.filled) {
-                need_neighbor_restrict |= edge.level_diff == level_diff_t::COARSER;
+                need_neighbor_restrict |= (edge.level_diff == level_diff_t::COARSER) and (edge.kind != interface_kind_t::PHYS);
             }
-            if (!need_neighbor_restrict or edge.kind == interface_kind_t::PHYS) continue ; 
+            if ( qid == 30 and e == 11 ) {
+                GRACE_TRACE_DBG("From in gz_restrict ctor, we need it! did we get it? {}", need_neighbor_restrict) ; 
+            }
+            if (!need_neighbor_restrict) continue ; 
             for( int iface=0; iface<2; ++iface) {
                 auto f = amr::detail::e2f[e][iface] ; 
                 auto& face = ghost_array[qid].faces[f] ; 
@@ -455,9 +460,9 @@ void insert_ghost_restriction_tasks(
             auto& corner = ghost_array[qid].corners[c] ; 
             bool need_neighbor_restrict = (!corner.filled) ; 
             if (corner.filled) {
-                need_neighbor_restrict |= (corner.level_diff == level_diff_t::COARSER) ; 
+                need_neighbor_restrict |= (corner.level_diff == level_diff_t::COARSER) and (corner.kind != interface_kind_t::PHYS);
             }
-            if (!need_neighbor_restrict or corner.kind == interface_kind_t::PHYS) continue ; 
+            if (!need_neighbor_restrict) continue ; 
             for( int ie=0; ie<3; ++ie) {
                 auto e = amr::detail::c2e[c][ie] ; 
                 auto& edge = ghost_array[qid].edges[e] ; 

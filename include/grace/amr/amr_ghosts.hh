@@ -263,6 +263,19 @@ class amr_ghosts_impl_t {
     /**************************************************************************************************/
     void update() ; 
     /**************************************************************************************************/
+    template <grace::var_staggering_t stag >
+    grace::var_array_t& get_coarse_buffers() {
+        if constexpr ( stag == STAG_CENTER) {
+            return _coarse_buffers;
+        } else if constexpr ( stag == STAG_FACEX) {
+            return _stag_coarse_buffers.face_staggered_fields_x;
+        } else if constexpr ( stag == STAG_FACEY) {
+            return _stag_coarse_buffers.face_staggered_fields_y;
+        } else if constexpr ( stag == STAG_FACEZ) {
+            return _stag_coarse_buffers.face_staggered_fields_z;
+        } 
+    }
+    /**************************************************************************************************/
     protected:
     /**************************************************************************************************/
     std::vector<quad_neighbors_descriptor_t> ghost_layer ; //!< Ghost layer used by GRACE
@@ -356,18 +369,6 @@ class amr_ghosts_impl_t {
                 nx,ny,nz+1,nvars_f,nq
             ) ;
         }
-    }
-    template <grace::var_staggering_t stag >
-    grace::var_array_t& get_coarse_buffers() {
-        if constexpr ( stag == STAG_CENTER) {
-            return _coarse_buffers;
-        } else if constexpr ( stag == STAG_FACEX) {
-            return _stag_coarse_buffers.face_staggered_fields_x;
-        } else if constexpr ( stag == STAG_FACEY) {
-            return _stag_coarse_buffers.face_staggered_fields_y;
-        } else if constexpr ( stag == STAG_FACEZ) {
-            return _stag_coarse_buffers.face_staggered_fields_z;
-        } 
     }
     //**************************************************************************************************
     void build_remote_buffers() ; 

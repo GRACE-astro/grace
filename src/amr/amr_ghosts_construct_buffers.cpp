@@ -589,15 +589,17 @@ void amr_ghosts_impl_t::build_remote_buffers() {
     std::array<std::string,N_VAR_STAGGERINGS> stag_labels {
         "cell center", "x face", "y face", "xy edge", "z face", "xz edge", "yz edge", "corner"
     } ; 
-    for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag ) {
-        for( int r=0; r<nproc; ++r) {
-            for( int ik=0; ik<6; ++ik){
-                GRACE_TRACE_DBG(
-                "Rank {} stag {} section {} send count {}, offset {}", r, stag_labels[istag], labels[ik], rank_send_counts[ik][r], send_offsets[istag][ik][r]
-                ) ; 
-                GRACE_TRACE_DBG(
-                    "Rank {} stag {} section {} receive count {}, offset {}", r, stag_labels[istag], labels[ik], rank_recv_counts[ik][r], recv_offsets[istag][ik][r]
-                ) ;
+    if ( nproc > 1) {
+        for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag ) {
+            for( int r=0; r<nproc; ++r) {
+                for( int ik=0; ik<6; ++ik){
+                    GRACE_TRACE_DBG(
+                    "Rank {} stag {} section {} send count {}, offset {}", r, stag_labels[istag], labels[ik], rank_send_counts[ik][r], send_offsets[istag][ik][r]
+                    ) ; 
+                    GRACE_TRACE_DBG(
+                        "Rank {} stag {} section {} receive count {}, offset {}", r, stag_labels[istag], labels[ik], rank_recv_counts[ik][r], recv_offsets[istag][ik][r]
+                    ) ;
+                }
             }
         }
     }

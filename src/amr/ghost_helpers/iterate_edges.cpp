@@ -40,6 +40,7 @@
 #include <grace/data_structures/memory_defaults.hh>
 
 #include <grace/amr/amr_ghosts.hh>
+#include <grace/amr/ghostzone_kernels/index_helpers.hh>
 
 
 #include <vector>
@@ -252,6 +253,62 @@ static void register_edge(p8est_iter_edge_side_t const& s0,
     }
 }
 
+inline void fill_hanging_corner_desc(corner_descriptor_t& desc,
+                             int8_t this_corner,
+                             int8_t other_corner,
+                             size_t qid,
+                             bool is_remote,
+                             p4est_topidx_t treeid,
+                             p4est_quadrant_t const* quad) {
+    desc.filled = true; 
+    desc.corner = other_corner;
+    desc.kind = interface_kind_t::INTERNAL;
+    desc.data.quad_id = qid;
+    desc.data.is_remote = is_remote;
+    desc.data.task_id.fill(UNSET_TASK_ID);
+    if (is_remote) {
+        desc.data.owner_rank =
+            p4est_comm_find_owner(grace::amr::forest::get().get(), treeid, quad, 0);
+    }
+};
+
+static void register_hanging_corner(
+    p8est_iter_edge_side_t const& s0,
+    p8est_iter_edge_side_t const& s1,
+    std::vector<quad_neighbors_descriptor_t>& neighbors
+)
+{
+    int8_t e = s0.edge;
+    int8_t c[] = { 
+        static_cast<int8_t>(grace::amr::detail::e2c[e][1]), 
+        static_cast<int8_t>(grace::amr::detail::e2c[e][0])
+    };
+    //nb this assumes no relative orientation
+    auto const get_opposite_corner = [=] (int8_t icorner ) -> int8_t {
+        int8_t ix = (icorner>>0) & 1 ? 0 : 1 ; 
+        int8_t iy = (icorner>>1) & 1 ? 0 : 1 ; 
+        int8_t iz = (icorner>>2) & 1 ? 0 : 1 ; 
+        return ix + (iy<<1) + (iz<<2) ; 
+    } ; 
+
+    for( int ic=0; ic<2; ++ic ) {
+        if (s0.is.hanging.is_ghost[ic]) continue; // skip remote on our side
+        int other_ic = ic ? 0 : 1 ; 
+        auto offset = grace::amr::get_local_quadrants_offset(s0.treeid);
+        auto qid = s0.is.hanging.quadid[ic] + offset;
+        auto& desc = neighbors[qid].corners[c[ic]];
+        // both hanging → SAME level
+        auto other_offset = s1.is.hanging.is_ghost[other_ic] ? 0 : grace::amr::get_local_quadrants_offset(s1.treeid);
+
+        fill_hanging_corner_desc(
+            desc, c[ic], get_opposite_corner(c[ic]),
+            s1.is.hanging.quadid[other_ic] + other_offset,
+            s1.is.hanging.is_ghost[other_ic],
+            s1.treeid,
+            s1.is.hanging.quad[other_ic] 
+        ) ; 
+    }
+}
 
 void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data) 
 {
@@ -291,6 +348,10 @@ void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data)
     for (auto const& [i0, i1] : pairs) {
         register_edge(sides[i0], sides[i1], *ghosts);
         register_edge(sides[i1], sides[i0], *ghosts);
+        if ( sides[i0].is_hanging and sides[i1].is_hanging ) {
+            register_hanging_corner(sides[i0],sides[i1], *ghosts) ; 
+            register_hanging_corner(sides[i1],sides[i0], *ghosts) ; 
+        }
     }
 }
 

@@ -49,7 +49,7 @@ struct prolong_op {
     readonly_view_t<size_t> view_qid, cbuf_qid ; 
     readonly_view_t<uint8_t> eid ; 
 
-    prolong_index_transformer_t transf; 
+    index_transformer_t transf; 
 
     template< var_staggering_t stag >
     void set_data_ptr(view_alias_t alias) 
@@ -67,7 +67,7 @@ struct prolong_op {
       , view_qid(_view_qid)
       , cbuf_qid(_cbuf_qid)
       , eid(_eid)
-      , transf(n,ngz,STAG_CENTER)
+      , transf(n,n,n,ngz,STAG_CENTER)
     {} 
 
     // this loop goes full nx 
@@ -80,19 +80,32 @@ struct prolong_op {
 
         // transform
         size_t i_c,j_c,k_c ; 
-        transf.compute_indices<elem_kind>(
-            i/2,j/2,k/2, i_c,j_c,k_c, e_id, true /* half nx */
+        transf.compute_indices<elem_kind,false>(
+            i/2,j/2,k/2, i_c,j_c,k_c, e_id, true /* half nx */, true /* stagger gz by g/2 for lower ghosts*/
         ) ; 
 
         size_t i_f,j_f,k_f ; 
-        transf.compute_indices<elem_kind>(
+        transf.compute_indices<elem_kind,false>(
             i,j,k, i_f,j_f,k_f, e_id, false 
         ) ;
 
-        int signs[3] ;
-        transf.get_signs<elem_kind>(
-            i,j,k, signs, e_id 
-        ) ; 
+        int signs[] = {
+            i_f%2 ? +1 : -1,
+            j_f%2 ? +1 : -1,
+            k_f%2 ? +1 : -1
+        } ; 
+
+        if ( qid == 30 and i_f == 10 and j_f == 10 and k_f == 8 and iv == 0) {
+            printf("Here in kernel, ic %zu jc %zu kc %zu %f %f %f %f %f %f %f",
+                i_c,j_c,k_c, 
+            cbuf(i_c,j_c,k_c,iv,cid),
+            cbuf(i_c+1,j_c,k_c,iv,cid),
+            cbuf(i_c-1,j_c,k_c,iv,cid),
+            cbuf(i_c,j_c+1,k_c,iv,cid),
+            cbuf(i_c,j_c-1,k_c,iv,cid),
+            cbuf(i_c,j_c,k_c+1,iv,cid),
+            cbuf(i_c,j_c,k_c-1,iv,cid)) ; 
+        }
 
         view(VEC(i_f,j_f,k_f),iv,qid) = interpolator::interpolate(
                                             VEC(i_c,j_c,k_c),
@@ -117,7 +130,7 @@ struct div_free_prolong_op {
     // _have_fine_data(0,0,iq) -> lower x face has fine data ? 
     // _have_fine_data(0,1,iq) -> upper x face has fine data ? 
 
-    prolong_index_transformer_t transf; // TODO 
+    index_transformer_t transf; // TODO 
 
     void set_data_ptr(view_alias_t alias) 
     {
@@ -140,7 +153,7 @@ struct div_free_prolong_op {
       , cbuf_qid(_cbuf_qid)
       , eid(_eid)
       , have_fine_data(_have_fine_data)
-      , transf(n,ngz,STAG_CENTER) 
+      , transf(n,n,n,ngz,STAG_CENTER) 
       /* TODO fixme ? --> not really, we don't need any staggering since i==ng is handled separately by the idx+1 check*/
     {} 
 
@@ -151,7 +164,6 @@ struct div_free_prolong_op {
         , size_t i_f, size_t j_f, size_t k_f, size_t ivar
         , sview_t& u, sview_t& v, sview_t& w 
         , sview_t& U, sview_t& V, sview_t& W 
-        , int s[3]
         , minmod const& limiter 
         , bool fillx, bool filly, bool fillz ) const
     {
@@ -185,9 +197,9 @@ struct div_free_prolong_op {
             for( int kk=0; kk<=+1; kk+=1) {
                 int js = jj ? +1 : -1 ; 
                 int ks = kk ? +1 : -1 ; 
-                if ( fillx ) u(i_f          ,j_f+s[1]*jj  ,k_f+s[2]*kk  ,ivar) = ( U(i_c,j_c,k_c,ivar) + s[1]*js * Uy + s[2]*ks * Uz ) ; 
-                if ( filly ) v(i_f+s[0]*jj  ,j_f          ,k_f+s[2]*kk  ,ivar) = ( V(i_c,j_c,k_c,ivar) + s[0]*js * Vx + s[2]*ks * Vz ) ; 
-                if ( fillz ) w(i_f+s[0]*jj  ,j_f+s[1]*kk  ,k_f          ,ivar) = ( W(i_c,j_c,k_c,ivar) + s[0]*js * Wx + s[1]*ks * Wy ) ; 
+                if ( fillx ) u(i_f     ,j_f+jj  ,k_f+kk  ,ivar) = ( U(i_c,j_c,k_c,ivar) + js * Uy + ks * Uz ) ; 
+                if ( filly ) v(i_f+jj  ,j_f     ,k_f+kk  ,ivar) = ( V(i_c,j_c,k_c,ivar) + js * Vx + ks * Vz ) ; 
+                if ( fillz ) w(i_f+jj  ,j_f+kk  ,k_f     ,ivar) = ( W(i_c,j_c,k_c,ivar) + js * Wx + ks * Wy ) ; 
             }
         }
     } ; 
@@ -239,15 +251,15 @@ struct div_free_prolong_op {
 
         size_t extents[4] ;
         if constexpr ( elem_kind == FACE ) {
-            extents[0] = transf.g/2; 
-            extents[1] = extents[2] = transf.n/2 ;
+            extents[0] = transf.ngz/2; 
+            extents[1] = extents[2] = transf.nx/2 ;
             extents[3] = u.extent(GRACE_NSPACEDIM);
         } else if constexpr ( elem_kind == EDGE ) {
-            extents[0] = extents[1] = transf.g/2; 
-            extents[2] = transf.n / 2;
+            extents[0] = extents[1] = transf.ngz/2; 
+            extents[2] = transf.nx / 2;
             extents[3] = u.extent(GRACE_NSPACEDIM);
         } else {
-            extents[0] = extents[1] = extents[2] = transf.g/2; 
+            extents[0] = extents[1] = extents[2] = transf.ngz/2; 
             extents[3] = u.extent(GRACE_NSPACEDIM);
         }
 
@@ -255,9 +267,6 @@ struct div_free_prolong_op {
         
         // create a minmod limiter 
         minmod limiter {}; 
-
-        int s[3] ; 
-        transf.get_stencil<elem_kind>(s,e_id) ; 
 
         // In all these kernels:
         // i_c, j_c, k_c loop over coarse cells --> -2 in TR notation
@@ -269,23 +278,23 @@ struct div_free_prolong_op {
             [=, this](int i, int j, int k, int ivar)
             {
                 size_t i_f,j_f,k_f ; 
-                transf.compute_indices<elem_kind>(
+                transf.compute_indices<elem_kind,false>(
                     2*i,2*j,2*k, i_f,j_f,k_f, e_id, false 
                 ) ;
                 size_t i_c,j_c,k_c ; 
-                transf.compute_indices<elem_kind>(
-                    i,j,k, i_c,j_c,k_c, e_id, true /* half nx */
+                transf.compute_indices<elem_kind,false>(
+                    i,j,k, i_c,j_c,k_c, e_id, true /* half nx */, true /*stag g/2*/
                 ) ; 
 
                 // we don't want to fill if we have fine data 
                 bool fill_x{true}, fill_y{true}, fill_z{true} ; 
-                if ( i_f == transf.first_index<elem_kind>(0,e_id,true/*half ncells*/) and have_fine_data(0,0,iq) ) {
+                if ( i_f == transf.first_index<elem_kind>(0,e_id,false/*half ncells*/) and have_fine_data(0,0,iq) ) {
                     fill_x = false ; 
                 }
-                if ( j_f == transf.first_index<elem_kind>(1,e_id,true/*half ncells*/) and have_fine_data(1,0,iq) ) {
+                if ( j_f == transf.first_index<elem_kind>(1,e_id,false/*half ncells*/) and have_fine_data(1,0,iq) ) {
                     fill_y = false ; 
                 }
-                if ( k_f == transf.first_index<elem_kind>(2,e_id,true/*half ncells*/) and have_fine_data(2,0,iq) ) {
+                if ( k_f == transf.first_index<elem_kind>(2,e_id,false/*half ncells*/) and have_fine_data(2,0,iq) ) {
                     fill_z = false ; 
                 }
 
@@ -294,39 +303,35 @@ struct div_free_prolong_op {
                     i_f,j_f,k_f,ivar,
                     u,v,w,
                     U,V,W,
-                    s,
                     limiter,
                     fill_x,fill_y,fill_z) ; 
                 
                 // now we need to fill the last face at the end 
                 // if there is no fine data 
-                if ( (i_c == transf.last_index<elem_kind>(0,e_id,true/*half ncells*/) and (not have_fine_data(0,1,iq))) ) {
+                if ( (i_f == transf.last_index<elem_kind>(0,e_id,false/*half ncells*/) and (not have_fine_data(0,1,iq))) ) {
                     fill_inside_face(
                         i_c+1,j_c,k_c,
                         i_f+2,j_f,k_f,ivar,
                         u,v,w,
                         U,V,W,
-                        s,
                         limiter,
                         true,false,false) ; 
                 }
-                if ( (j_c == transf.last_index<elem_kind>(1,e_id,true/*half ncells*/) and (not have_fine_data(1,1,iq))) ) {
+                if ( (j_f == transf.last_index<elem_kind>(1,e_id,false/*half ncells*/) and (not have_fine_data(1,1,iq))) ) {
                     fill_inside_face(
                         i_c,j_c+1,k_c,
                         i_f,j_f+2,k_f,ivar,
                         u,v,w,
                         U,V,W,
-                        s,
                         limiter,
                         false,true,false) ; 
                 }
-                if ( (k_c == transf.last_index<elem_kind>(2,e_id,true/*half ncells*/) and (not have_fine_data(2,1,iq))) ) {
+                if ( (k_f == transf.last_index<elem_kind>(2,e_id,false/*half ncells*/) and (not have_fine_data(2,1,iq))) ) {
                     fill_inside_face(
                         i_c,j_c,k_c+1,
                         i_f,j_f,k_f+2,ivar,
                         u,v,w,
                         U,V,W,
-                        s,
                         limiter,
                         false,false,true) ; 
                 }
@@ -340,12 +345,12 @@ struct div_free_prolong_op {
             [=, this](int i, int j, int k, int ivar)
             {
                 size_t i_f,j_f,k_f ; 
-                transf.compute_indices<elem_kind>(
+                transf.compute_indices<elem_kind,false>(
                     2*i,2*j,2*k, i_f,j_f,k_f, e_id, false 
                 ) ;
                 size_t i_c,j_c,k_c ; 
-                transf.compute_indices<elem_kind>(
-                    i,j,k, i_c,j_c,k_c, e_id, true /* half nx */
+                transf.compute_indices<elem_kind,false>(
+                    i,j,k, i_c,j_c,k_c, e_id, true /* half nx */, true /*stag gz*/
                 ) ; 
 
                 // Compute 
@@ -361,13 +366,9 @@ struct div_free_prolong_op {
                     for( int jj=0; jj<=+1; jj+=1) {
                         for( int kk=0; kk<=+1; kk+=1) {
 
-                            int is = s[0]*(ii ? +1 : -1) ;
-                            int js = s[1]*(jj ? +1 : -1) ; 
-                            int ks = s[2]*(kk ? +1 : -1) ; 
-
-                            int io = s[0] * ii ; 
-                            int jo = s[1] * jj ; 
-                            int ko = s[2] * kk ; 
+                            int is = (ii ? +1 : -1) ;
+                            int js = (jj ? +1 : -1) ; 
+                            int ks = (kk ? +1 : -1) ; 
 
                             Uxx += 0.125 * (is*js*v(i_f+ii  ,j_f+2*jj,k_f+kk,ivar) + is*ks*w(i_f+ii,j_f+jj  ,k_f+2*kk,ivar));
                             Vyy += 0.125 * (is*js*u(i_f+2*ii,j_f+jj  ,k_f+kk,ivar) + js*ks*w(i_f+ii,j_f+jj  ,k_f+2*kk,ivar));

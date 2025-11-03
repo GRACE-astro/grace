@@ -305,6 +305,9 @@ struct copy_to_cbuf_op {
             cbuf(
                 VEC(i_b,j_b,k_b), ivar, cbuf_q 
             ) = view(VEC(i_a,j_a,k_a), ivar, view_q) ;
+        if ( cbuf_q == 16 and i_b==10 and j_b == 10 and k_b == 8 and ivar==0 ) {
+                printf("Here from fill kernel: val %f \n", cbuf(i_b,j_b,k_b,ivar,cbuf_q));
+            } 
         
     }
 } ; 

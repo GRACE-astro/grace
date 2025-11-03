@@ -316,7 +316,7 @@ static void check_ghostzones(
                     Catch::Matchers::WithinAbs(ground_truth,
                         1e-13 ) ) ; 
                 }
-                if ( (q == 0 and i == 10 and j == 4 and k == 9) or (q==4 and i==4 and j==4 and k==0) ) {
+                if ( (q == 0 and i == 10 and j == 4 and k == 9) or (q==4 and i==10 and j==4 and k==0) ) {
                     GRACE_TRACE("Bx {} {} By {} {} Bz {} {}"
                                , host_data_x(VEC(i+1,j,k),0,q)
                                , host_data_x(VEC(i,j,k),0,q)
@@ -341,7 +341,6 @@ static void check_ghostzones(
                         Bx[ii] = fill_func_stagger(pcoords_x,0) ; 
                         By[ii] = fill_func_stagger(pcoords_y,1) ; 
                         Bz[ii] = fill_func_stagger(pcoords_z,2) ; 
-                        GRACE_TRACE_DBG("x {} y {} z {}", pcoords_z[0],pcoords_z[1],pcoords_z[2] );
                     }
                     GRACE_TRACE_DBG("Bx {} {} By {} {} Bz {} {}"
                                    , Bx[1], Bx[0]
@@ -367,6 +366,7 @@ static void check_ghostzones(
 
 TEST_CASE("Apply BC", "[boundaries]")
 {
+    DECLARE_GRID_EXTENTS ; 
     using namespace grace ; 
     auto& ghost = grace::amr_ghosts::get() ; 
     //ghost.update() ; 
@@ -409,15 +409,39 @@ TEST_CASE("Apply BC", "[boundaries]")
         fz_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_z) ; 
     }
     auto& layer = ghost.get_ghost_layer() ; 
-    //int edge_id = 7 ; 
-    //auto& edge = layer[0].edges[edge_id] ; 
-    //GRACE_TRACE_DBG("Here! edge_kind {}, is_filled {} level_diff {}", 
-    //static_cast<int>(edge.kind), edge.filled, static_cast<int>(edge.level_diff)) ;
-    int face_id = 4 ;
-    auto& face = layer[4].faces[face_id] ; 
-    GRACE_TRACE_DBG("Here! face_kind {}, level_diff {}", 
-    static_cast<int>(face.kind), static_cast<int>(face.level_diff)) ;
-    collect_info(layer) ; 
+    {
+        int edge_id = 11 ; 
+        auto& edge = layer[30].edges[edge_id] ; 
+        GRACE_TRACE_DBG("Here! edge_kind {}, is_filled {} level_diff {}", 
+        static_cast<int>(edge.kind), edge.filled, static_cast<int>(edge.level_diff)) ;
+    }
+    {
+        int edge_id = 3 ; 
+        auto& edge = layer[30].edges[edge_id] ; 
+        GRACE_TRACE_DBG("Here! edge_kind {}, is_filled {} level_diff {}", 
+        static_cast<int>(edge.kind), edge.filled, static_cast<int>(edge.level_diff)) ;
+    }
+    {
+        int corner_id = 7 ;
+        auto& corner = layer[30].corners[corner_id] ; 
+        GRACE_TRACE_DBG("Here! corner_kind {}, is_filled {} level_diff {}", 
+        static_cast<int>(corner.kind), corner.filled, static_cast<int>(corner.level_diff)) ;
+    }
+
+    {
+        int corner_id = 3 ;
+        auto& corner = layer[30].corners[corner_id] ; 
+        GRACE_TRACE_DBG("Here! corner_kind {}, is_filled {} level_diff {}", 
+        static_cast<int>(corner.kind), corner.filled, static_cast<int>(corner.level_diff)) ;
+    }
+    
+    
+
+    //int face_id = 4 ;
+    //auto& face = layer[4].faces[face_id] ; 
+    //GRACE_TRACE_DBG("Here! face_kind {}, level_diff {}", 
+    //static_cast<int>(face.kind), static_cast<int>(face.level_diff)) ;
+    //collect_info(layer) ; 
     invalidate_ghostzones<STAG_CENTER>(state) ; 
     invalidate_ghostzones<STAG_FACEX>(stag_state.face_staggered_fields_x) ; 
     invalidate_ghostzones<STAG_FACEY>(stag_state.face_staggered_fields_y) ; 
@@ -425,6 +449,27 @@ TEST_CASE("Apply BC", "[boundaries]")
     view_alias_t alias{&state,&stag_state} ;
     runtime.run(alias) ; 
     auto state_mirror_2 = Kokkos::create_mirror_view(state) ; 
+
+    auto& cbuf = ghost.get_coarse_buffers<STAG_CENTER>() ; 
+    auto cbuf_h = Kokkos::create_mirror_view(cbuf) ; 
+    Kokkos::deep_copy(cbuf_h,cbuf) ; 
+    size_t cbuf_id = 16 ; 
+    #if 0
+    for( int ig=0; ig<2; ++ig) {
+        for( int jg=0; jg<2; ++jg) {
+            for( int kg=0;kg<2; ++kg) {
+
+                GRACE_TRACE_DBG("i {} j {} k {} cbuf {}", ig,jg,kg, cbuf_h(
+                    ngz+nx+ig, ngz+ny+jg, ngz+nz+kg,0,cbuf_id 
+                )) ; 
+            }
+        }
+    }
+    #endif 
+    GRACE_TRACE_DBG("i {} j {} k {} cbuf {}", 6,6,6, cbuf_h(
+                    6,6,6,DENS,cbuf_id 
+                )) ;
+
     Kokkos::deep_copy(state_mirror_2, state) ; 
     
     auto fx_mirror_2 = Kokkos::create_mirror_view(stag_state.face_staggered_fields_x) ; 

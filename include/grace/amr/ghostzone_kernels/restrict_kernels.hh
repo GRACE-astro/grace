@@ -161,7 +161,7 @@ struct ghost_restrict_op {
     readonly_view_t<size_t> qid, cbuf_id ; //!< Data and coarse buffer quad-ids 
     readonly_view_t<uint8_t> elem_id ; //!< Element ids
 
-    prolong_index_transformer_t transf ;  //!< Index transformations
+    index_transformer_t transf ;  //!< Index transformations
     
     ghost_restrict_op(
         view_t _data, view_t _cbuf,
@@ -174,7 +174,7 @@ struct ghost_restrict_op {
       , qid(_qid)
       , cbuf_id(_cbuf_id)
       , elem_id(_eid)
-      , transf(n,_ngz, STAG_CENTER)
+      , transf(n,n,n,_ngz, STAG_CENTER)
     {}
 
     template< var_staggering_t stag >
@@ -191,29 +191,27 @@ struct ghost_restrict_op {
 
         auto e_id = elem_id(iq) ;
 
-        int s[3] ; 
-        transf.get_stencil<FACE>(s, e_id) ; 
 
         // loop in the ghostzones, only ngz/2
-        for( int i=0; i<transf.g/2; ++i) {
+        for( int i=0; i<transf.ngz/2; ++i) {
             size_t i_c, j_c, k_c ; 
-            transf.compute_indices<FACE>(
-                i,j,k, i_c,j_c,k_c, e_id, true  
+            transf.compute_indices<FACE,false>(
+                i,j,k, i_c,j_c,k_c, e_id, true, true /* offset by ng/2 */
             ) ; 
             size_t i_f, j_f, k_f ; 
-            transf.compute_indices<FACE>(
+            transf.compute_indices<FACE,false>(
                 2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
             ) ; 
 
             cbuf(i_c,j_c,k_c,iv,c_id) = 0.125 * (
-                data(i_f     ,j_f     ,k_f     ,iv,q_id) +
-                data(i_f+s[0],j_f     ,k_f     ,iv,q_id) +
-                data(i_f     ,j_f+s[1],k_f     ,iv,q_id) +
-                data(i_f     ,j_f     ,k_f+s[2],iv,q_id) +
-                data(i_f+s[0],j_f+s[1],k_f     ,iv,q_id) +
-                data(i_f+s[0],j_f     ,k_f+s[2],iv,q_id) +
-                data(i_f     ,j_f+s[1],k_f+s[2],iv,q_id) +
-                data(i_f+s[0],j_f+s[1],k_f+s[2],iv,q_id) 
+                data(i_f  ,j_f  ,k_f  ,iv,q_id) +
+                data(i_f+1,j_f  ,k_f  ,iv,q_id) +
+                data(i_f  ,j_f+1,k_f  ,iv,q_id) +
+                data(i_f  ,j_f  ,k_f+1,iv,q_id) +
+                data(i_f+1,j_f+1,k_f  ,iv,q_id) +
+                data(i_f+1,j_f  ,k_f+1,iv,q_id) +
+                data(i_f  ,j_f+1,k_f+1,iv,q_id) +
+                data(i_f+1,j_f+1,k_f+1,iv,q_id) 
             ) ;  
         }
          
@@ -228,30 +226,28 @@ struct ghost_restrict_op {
 
         auto e_id = elem_id(iq) ;
 
-        int s[3] ; 
-        transf.get_stencil<EDGE>(s, e_id) ; 
         // only ngz/2
-        for( int j=0; j<transf.g/2; ++j) 
-        for( int i=0; i<transf.g/2; ++i) {
+        for( int j=0; j<transf.ngz/2; ++j) 
+        for( int i=0; i<transf.ngz/2; ++i) {
             size_t i_c, j_c, k_c ; 
-            transf.compute_indices<EDGE>(
-                i,j,k, i_c,j_c,k_c, e_id, true  
+            transf.compute_indices<EDGE,false>(
+                i,j,k, i_c,j_c,k_c, e_id, true, true /*offset by ng/2 if lower*/  
             ) ; 
             size_t i_f, j_f, k_f ; 
-            transf.compute_indices<EDGE>(
+            transf.compute_indices<EDGE,false>(
                 2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
             ) ; 
 
             cbuf(i_c,j_c,k_c,iv,c_id) = 0.125 * (
-                data(i_f     ,j_f     ,k_f     ,iv,q_id) +
-                data(i_f+s[0],j_f     ,k_f     ,iv,q_id) +
-                data(i_f     ,j_f+s[1],k_f     ,iv,q_id) +
-                data(i_f     ,j_f     ,k_f+s[2],iv,q_id) +
-                data(i_f+s[0],j_f+s[1],k_f     ,iv,q_id) +
-                data(i_f+s[0],j_f     ,k_f+s[2],iv,q_id) +
-                data(i_f     ,j_f+s[1],k_f+s[2],iv,q_id) +
-                data(i_f+s[0],j_f+s[1],k_f+s[2],iv,q_id) 
-            ) ;  
+                data(i_f  ,j_f  ,k_f  ,iv,q_id) +
+                data(i_f+1,j_f  ,k_f  ,iv,q_id) +
+                data(i_f  ,j_f+1,k_f  ,iv,q_id) +
+                data(i_f  ,j_f  ,k_f+1,iv,q_id) +
+                data(i_f+1,j_f+1,k_f  ,iv,q_id) +
+                data(i_f+1,j_f  ,k_f+1,iv,q_id) +
+                data(i_f  ,j_f+1,k_f+1,iv,q_id) +
+                data(i_f+1,j_f+1,k_f+1,iv,q_id) 
+            ) ;   
         }
          
     }
@@ -264,32 +260,29 @@ struct ghost_restrict_op {
         auto c_id = cbuf_id(iq) ; 
 
         auto e_id = elem_id(iq) ;
-
-        int s[3] ; 
-        transf.get_stencil<CORNER>(s, e_id) ; 
         
         // only ngz/2
-        for( int k=0; k<transf.g/2; ++k) 
-        for( int j=0; j<transf.g/2; ++j) 
-        for( int i=0; i<transf.g/2; ++i)  {
+        for( int k=0; k<transf.ngz/2; ++k) 
+        for( int j=0; j<transf.ngz/2; ++j) 
+        for( int i=0; i<transf.ngz/2; ++i)  {
             size_t i_c, j_c, k_c ; 
-            transf.compute_indices<CORNER>(
-                i,j,k, i_c,j_c,k_c, e_id, true  
+            transf.compute_indices<CORNER,false>(
+                i,j,k, i_c,j_c,k_c, e_id, true, true /*offset by g/2 if lower*/ 
             ) ; 
             size_t i_f, j_f, k_f ; 
-            transf.compute_indices<CORNER>(
+            transf.compute_indices<CORNER,false>(
                 2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
             ) ; 
-
+            
             cbuf(i_c,j_c,k_c,iv,c_id) = 0.125 * (
-                data(i_f     ,j_f     ,k_f     ,iv,q_id) +
-                data(i_f+s[0],j_f     ,k_f     ,iv,q_id) +
-                data(i_f     ,j_f+s[1],k_f     ,iv,q_id) +
-                data(i_f     ,j_f     ,k_f+s[2],iv,q_id) +
-                data(i_f+s[0],j_f+s[1],k_f     ,iv,q_id) +
-                data(i_f+s[0],j_f     ,k_f+s[2],iv,q_id) +
-                data(i_f     ,j_f+s[1],k_f+s[2],iv,q_id) +
-                data(i_f+s[0],j_f+s[1],k_f+s[2],iv,q_id) 
+                data(i_f  ,j_f  ,k_f  ,iv,q_id) +
+                data(i_f+1,j_f  ,k_f  ,iv,q_id) +
+                data(i_f  ,j_f+1,k_f  ,iv,q_id) +
+                data(i_f  ,j_f  ,k_f+1,iv,q_id) +
+                data(i_f+1,j_f+1,k_f  ,iv,q_id) +
+                data(i_f+1,j_f  ,k_f+1,iv,q_id) +
+                data(i_f  ,j_f+1,k_f+1,iv,q_id) +
+                data(i_f+1,j_f+1,k_f+1,iv,q_id) 
             ) ; 
         }
          
@@ -309,7 +302,7 @@ struct div_free_ghost_restrict_op {
     readonly_view_t<size_t> qid, cbuf_id ; //!< Data and coarse buffer quad-ids 
     readonly_view_t<uint8_t> elem_id ; //!< Element ids
 
-    prolong_index_transformer_t transf ;  //!< Index transformations
+    index_transformer_t transf ;  //!< Index transformations
     
     div_free_ghost_restrict_op(
         view_t _data, view_t _cbuf,
@@ -322,7 +315,7 @@ struct div_free_ghost_restrict_op {
       , qid(_qid)
       , cbuf_id(_cbuf_id)
       , elem_id(_eid)
-      , transf(n,_ngz,stag)
+      , transf(n,n,n,_ngz,STAG_CENTER) // we don't want the +1 shift for faces...
     {}
 
     // range check: all the non-gz loops are extended by 
@@ -336,22 +329,22 @@ struct div_free_ghost_restrict_op {
         size_t sx = (stag_dir==0); 
         size_t sy = (stag_dir==1);
         size_t sz = (stag_dir==2);
-        size_t nx  = transf.n/2 ; 
-        size_t ny  = transf.n/2 ; 
-        size_t nz  = transf.n/2 ;
-        size_t ngz = transf.g ;
+        size_t nx  = transf.nx/2 ; 
+        size_t ny  = transf.ny/2 ; 
+        size_t nz  = transf.nz/2 ;
+        size_t ngz = transf.ngz ;
         if constexpr ( elem_kind == FACE ) {
             const int axis = ie / 2;
             const int side = ie % 2; 
             if ( axis == 0 ) { // across X - face
-                bool gz_in_range = side ? i < nx + ngz + ngz/2 + sx : i < ngz+sx ; 
+                bool gz_in_range = side ? i < nx + ngz + ngz/2 + sx : i < ngz+sx ; // fixme we don't need sx here
                 return (j >= ngz and j<ny+sy+ngz) and ( k>=ngz and k<nz+sz+ngz) and gz_in_range ; 
             } else if ( axis == 1 ) {
-                bool gz_in_range = side ? j < ny + ngz + ngz/2 + sy : j < ngz+sy ; 
+                bool gz_in_range = side ? j < ny + ngz + ngz/2 + sy : j < ngz+sy ;
                 return (i>=ngz and i<nx+sx+ngz) and (k>=ngz and k<nz+sz+ngz) and gz_in_range ;
             } else {
-                bool gz_in_range = side ? k < nz + ngz + ngz/2 + sz : k < ngz+sz ; 
-                return (i>=ngz and i<nx+sx+ngz) and (j>=ngz and j<ny+sy+ngz) and gz_in_range ; 
+                bool gz_in_range = side ? k < nz + ngz + ngz/2 + sz : k < ngz+sz ;
+                return (i>=ngz and i<nx+sx+ngz) and (j>=ngz and j<ny+sy+ngz) and gz_in_range; 
             }
         } else if constexpr ( elem_kind == EDGE ) {
             const int side1 = (ie>>0)&1 ;
@@ -406,16 +399,6 @@ struct div_free_ghost_restrict_op {
 
         auto e_id = elem_id(iq) ;
         auto _data = data ;
-        // this provides the stencil sign 
-        int s[3] ; 
-        transf.get_stencil<FACE>(s, e_id) ; 
-
-        s[0] = stag_dir == 0 ? 0 : s[0] ; 
-        s[1] = stag_dir == 1 ? 0 : s[1] ; 
-        s[2] = stag_dir == 2 ? 0 : s[2] ; 
-
-        
-
 
         auto const compute_restricted_val = [=] (size_t i_f, size_t j_f, size_t k_f)
         {
@@ -423,20 +406,20 @@ struct div_free_ghost_restrict_op {
             for( int ii=0; ii<=(stag_dir!=0); ++ ii ) {
                 for( int jj=0; jj<=(stag_dir!=1); ++jj ) {
                     for(int kk=0; kk<=(stag_dir!=2); ++kk) {
-                        val += _data(i_f+ii*s[0],j_f+jj*s[1],k_f+kk*s[2],iv,q_id) ; 
+                        val += _data(i_f+ii,j_f+jj,k_f+kk,iv,q_id) ; 
                     }
                 }
             }
             return 0.25 * val ;
         } ; 
         // loop in the ghostzones, only ngz/2 ( + 1 )
-        for( int i=0; i<transf.g/2+1; ++i) {
+        for( int i=0; i<transf.ngz/2+1; ++i) {
             size_t i_c, j_c, k_c ; 
-            transf.compute_indices<FACE>(
-                i,j,k, i_c,j_c,k_c, e_id, true  
+            transf.compute_indices<FACE,false>(
+                i,j,k, i_c,j_c,k_c, e_id, true, true  
             ) ; 
             size_t i_f, j_f, k_f ; 
-            transf.compute_indices<FACE>(
+            transf.compute_indices<FACE,false>(
                 2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
             ) ; 
             if ( in_range<FACE>(i_c,j_c,k_c,e_id) ) 
@@ -454,11 +437,7 @@ struct div_free_ghost_restrict_op {
 
         auto e_id = elem_id(iq) ;
         auto _data = data ;
-        int s[3] ; 
-        transf.get_stencil<EDGE>(s, e_id) ; 
-        s[0] = stag_dir == 0 ? 0 : s[0] ; 
-        s[1] = stag_dir == 1 ? 0 : s[1] ; 
-        s[2] = stag_dir == 2 ? 0 : s[2] ; 
+        
 
         auto const compute_restricted_val = [=] (size_t i_f, size_t j_f, size_t k_f)
         {
@@ -466,22 +445,22 @@ struct div_free_ghost_restrict_op {
             for( int ii=0; ii<=(stag_dir!=0); ++ ii ) {
                 for( int jj=0; jj<=(stag_dir!=1); ++jj ) {
                     for(int kk=0; kk<=(stag_dir!=2); ++kk) {
-                        val += _data(i_f+ii*s[0],j_f+jj*s[1],k_f+kk*s[2],iv,q_id) ; 
+                        val += _data(i_f+ii,j_f+jj,k_f+kk,iv,q_id) ; 
                     }
                 }
             }
             return 0.25 * val ;
-        } ; 
+        } ;  
 
         // only ngz/2
-        for( int j=0; j<transf.g/2+1; ++j) 
-        for( int i=0; i<transf.g/2+1; ++i) {
+        for( int j=0; j<transf.ngz/2+1; ++j) 
+        for( int i=0; i<transf.ngz/2+1; ++i) {
             size_t i_c, j_c, k_c ; 
-            transf.compute_indices<EDGE>(
-                i,j,k, i_c,j_c,k_c, e_id, true  
+            transf.compute_indices<EDGE,false>(
+                i,j,k, i_c,j_c,k_c, e_id, true, true  
             ) ; 
             size_t i_f, j_f, k_f ; 
-            transf.compute_indices<EDGE>(
+            transf.compute_indices<EDGE,false>(
                 2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
             ) ; 
             if ( in_range<EDGE>(i_c,j_c,k_c,e_id) ) 
@@ -499,12 +478,6 @@ struct div_free_ghost_restrict_op {
 
         auto e_id = elem_id(iq) ;
         auto _data = data ; 
-
-        int s[3] ; 
-        transf.get_stencil<CORNER>(s, e_id) ; 
-        s[0] = stag_dir == 0 ? 0 : s[0] ; 
-        s[1] = stag_dir == 1 ? 0 : s[1] ; 
-        s[2] = stag_dir == 2 ? 0 : s[2] ; 
         
         auto const compute_restricted_val = [=] (size_t i_f, size_t j_f, size_t k_f)
         {
@@ -512,7 +485,7 @@ struct div_free_ghost_restrict_op {
             for( int ii=0; ii<=(stag_dir!=0); ++ ii ) {
                 for( int jj=0; jj<=(stag_dir!=1); ++jj ) {
                     for(int kk=0; kk<=(stag_dir!=2); ++kk) {
-                        val += _data(i_f+ii*s[0],j_f+jj*s[1],k_f+kk*s[2],iv,q_id) ; 
+                        val += _data(i_f+ii,j_f+jj,k_f+kk,iv,q_id) ; 
                     }
                 }
             }
@@ -520,15 +493,15 @@ struct div_free_ghost_restrict_op {
         } ; 
 
         // only ngz/2
-        for( int k=0; k<transf.g/2+1; ++k) 
-        for( int j=0; j<transf.g/2+1; ++j) 
-        for( int i=0; i<transf.g/2+1; ++i)  {
+        for( int k=0; k<transf.ngz/2+1; ++k) 
+        for( int j=0; j<transf.ngz/2+1; ++j) 
+        for( int i=0; i<transf.ngz/2+1; ++i)  {
             size_t i_c, j_c, k_c ; 
-            transf.compute_indices<CORNER>(
-                i,j,k, i_c,j_c,k_c, e_id, true  
+            transf.compute_indices<CORNER,false>(
+                i,j,k, i_c,j_c,k_c, e_id, true, true
             ) ; 
             size_t i_f, j_f, k_f ; 
-            transf.compute_indices<CORNER>(
+            transf.compute_indices<CORNER,false>(
                 2*i,2*j,2*k, i_f,j_f,k_f, e_id, false  
             ) ; 
             // corner: check range

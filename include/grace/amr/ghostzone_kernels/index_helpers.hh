@@ -84,7 +84,7 @@ void compute_phys_indices_face(
 KOKKOS_INLINE_FUNCTION 
 void compute_ghost_indices_face(
     std::size_t const& nx, std::size_t const& ny, std::size_t const& nz, 
-    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz, std::size_t const& g,
+    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz, std::size_t const& g, std::size_t const& g_off,
     std::size_t const& ig, std::size_t const& j, std::size_t const& k,
     std::size_t& i_out, std::size_t& j_out,
     std::size_t& k_out, int face
@@ -94,183 +94,19 @@ void compute_ghost_indices_face(
     const int side = face % 2;
 
     if (axis == 0) { // X-faces
-        i_out = side ? nx + sx + g + ig : ig;
+        i_out = side ? nx + sx + g + ig : g_off + ig;
         j_out = g + j;
         k_out = g + k;
     } else if (axis == 1) { // Y-faces
         i_out = g + j;
-        j_out = side ? ny + sy + g + ig : ig;
+        j_out = side ? ny + sy + g + ig : g_off + ig;
         k_out = g + k;
     } else { // Z-faces
         i_out = g + j;
         j_out = g + k;
-        k_out = side ? nz + sz + g + ig : ig;
+        k_out = side ? nz + sz + g + ig : g_off + ig;
     }
 }
-
-KOKKOS_INLINE_FUNCTION 
-void compute_phys_indices_edge(
-    std::size_t const& nx, std::size_t const& ny, std::size_t const& nz, 
-    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz, std::size_t const& g,
-    std::size_t const& ig, std::size_t const& jg, std::size_t const& k,
-    std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int edge
-)
-{
-
-    if (edge < 4) {
-        // X-axis edges
-        int y_off = (edge >> 0) & 1;
-        int z_off = (edge >> 1) & 1;
-        i_out = g + k;                          // varies
-        j_out = y_off ? ny + ig : g + ig;   // fixed
-        k_out = z_off ? nz + jg : g + jg;   // fixed
-    }
-    else if (edge < 8) {
-        // Y-axis edges
-        int x_off = (edge >> 0) & 1;
-        int z_off = (edge >> 1) & 1;
-        i_out = x_off ? nx + ig : g + ig;   // fixed
-        j_out = g + k;                          // varies
-        k_out = z_off ? nz + jg : g + jg;   // fixed
-    }
-    else {
-        // Z-axis edges
-        int x_off = (edge >> 0) & 1;
-        int y_off = (edge >> 1) & 1;
-        i_out = x_off ? nx + ig : g + ig;   // fixed
-        j_out = y_off ? ny + jg : g + jg;   // fixed
-        k_out = g + k;                          // varies
-    }
-}
-KOKKOS_INLINE_FUNCTION 
-void compute_ghost_indices_edge(
-    std::size_t const& nx, std::size_t const& ny, std::size_t const& nz, 
-    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz, std::size_t const& g,
-    std::size_t const& ig, std::size_t const& jg, std::size_t const& k,
-    std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int edge
-)
-{
-
-    if (edge < 4) {
-        // X-axis edges
-        int y_off = (edge >> 0) & 1;
-        int z_off = (edge >> 1) & 1;
-        i_out = g + k;                      // varies
-        j_out = y_off ? ny + g + ig : ig;   // fixed
-        k_out = z_off ? nz + g + jg : jg;   // fixed
-    }
-    else if (edge < 8) {
-        // Y-axis edges
-        int x_off = (edge >> 0) & 1;
-        int z_off = (edge >> 1) & 1;
-        i_out = x_off ? nx + g + ig : ig;   // fixed
-        j_out = g + k;                      // varies
-        k_out = z_off ? nz + g + jg : jg;   // fixed
-    }
-    else {
-        // Z-axis edges
-        int x_off = (edge >> 0) & 1;
-        int y_off = (edge >> 1) & 1;
-        i_out = x_off ? nx + g + ig : ig;   // fixed
-        j_out = y_off ? ny + g + jg : jg;   // fixed
-        k_out = g + k;                      // varies
-    }
-}
-
-KOKKOS_INLINE_FUNCTION 
-void compute_phys_indices_corner(
-    std::size_t const& nx, std::size_t const& ny, std::size_t const& nz, 
-    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz, std::size_t const& g,
-    std::size_t const& i, std::size_t const& j, std::size_t const& k,
-    std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int corner
-)
-{
-    int x_off = (corner) & 1 ; 
-    int y_off = (corner >> 1) & 1 ; 
-    int z_off = (corner >> 2) & 1 ; 
-
-    i_out = x_off ? nx + i  : g + i ; 
-    j_out = y_off ? ny + j  : g + j ; 
-    k_out = z_off ? nz + k  : g + k ; 
-}
-
-KOKKOS_INLINE_FUNCTION 
-void compute_ghost_indices_corner(
-    std::size_t const& nx, std::size_t const& ny, std::size_t const& nz, 
-    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz, std::size_t const& g, 
-    std::size_t const& i, std::size_t const& j, std::size_t const& k,
-    std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int corner
-)
-{
-    int x_off = (corner) & 1 ; 
-    int y_off = (corner >> 1) & 1 ; 
-    int z_off = (corner >> 2) & 1 ; 
-
-    i_out = x_off ? nx + g + i :  i ; 
-    j_out = y_off ? ny + g + j :  j ; 
-    k_out = z_off ? nz + g + k :  k ; 
-}
-
-struct index_transformer_t {
-    
-
-    std::size_t nx, ny, nz, ngz;
-    std::size_t sx, sy, sz ;
-
-    index_transformer_t(std::size_t _nx, std::size_t _ny,
-                        std::size_t _nz, std::size_t _ngz, grace::var_staggering_t stag)
-        : nx(_nx), ny(_ny), nz(_nz), ngz(_ngz) {
-            auto s = get_index_staggerings(stag) ;
-            sx = s[0] ; sy = s[1] ; sz = s[2] ; 
-        }
-    
-    index_transformer_t(std::size_t _nx, std::size_t _ny,
-                        std::size_t _nz, std::size_t _ngz)
-        : nx(_nx), ny(_ny), nz(_nz), ngz(_ngz) {
-            auto s = get_index_staggerings(grace::STAG_CENTER) ;
-            sx = s[0] ; sy = s[1] ; sz = s[2] ; 
-        }
-    // Unified entry point
-    template< element_kind_t elem_kind 
-            , bool is_phys >
-    KOKKOS_INLINE_FUNCTION
-    void compute_indices(std::size_t ig, std::size_t j, std::size_t k,
-                         std::size_t& i_out, std::size_t& j_out,
-                         std::size_t& k_out, int ielem, bool half_ncells=false) const
-    {
-        size_t _nx = half_ncells ? nx / 2 : nx ; 
-        size_t _ny = half_ncells ? ny / 2 : ny ; 
-        size_t _nz = half_ncells ? nz / 2 : nz ; 
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            if constexpr ( is_phys ) {
-                compute_phys_indices_face(_nx,_ny,_nz,sx,sy,sz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
-            } else {
-                compute_ghost_indices_face(_nx,_ny,_nz,sx,sy,sz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
-            }
-        } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
-            if constexpr ( is_phys ) {
-                compute_phys_indices_edge(_nx,_ny,_nz,sx,sy,sz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
-            } else {
-                compute_ghost_indices_edge(_nx,_ny,_nz,sx,sy,sz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
-            }
-        } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
-            if constexpr ( is_phys ) {
-                compute_phys_indices_corner(_nx,_ny,_nz,sx,sy,sz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
-            } else {
-                compute_ghost_indices_corner(_nx,_ny,_nz,sx,sy,sz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
-            }
-        }
-    }
-
-
-} ; 
-
-/*************************************************************************************************************/
-/*************************************************************************************************************/
 
 KOKKOS_INLINE_FUNCTION
 size_t _get_first_iter_index_face(
@@ -312,92 +148,89 @@ size_t _get_last_iter_index_face(
     const int side = ielem % 2;
 
     if ( axis == 0 ) {
-        last_indices[0] = side ? n + 2*g-1 : g-1 ;
-        last_indices[1] = n+g-1 ; 
-        last_indices[2] = n+g-1 ; 
+        last_indices[0] = side ? n + 2*g-2 : g-2 ;
+        last_indices[1] = n+g-2 ; 
+        last_indices[2] = n+g-2 ; 
     } else if ( axis == 1 ) {
-        last_indices[1] = side ? n + 2*g-1 : g-1 ;
-        last_indices[0] = n+g-1 ; 
-        last_indices[2] = n+g-1 ; 
+        last_indices[1] = side ? n + 2*g-2 : g-2 ;
+        last_indices[0] = n+g-2 ; 
+        last_indices[2] = n+g-2 ; 
     } else {
-        last_indices[2] = side ? n + 2*g-1 : g-1 ;
-        last_indices[0] = n+g-1 ; 
-        last_indices[1] = n+g-1 ; 
+        last_indices[2] = side ? n + 2*g-2 : g-2 ;
+        last_indices[0] = n+g-2 ; 
+        last_indices[1] = n+g-2 ; 
     }
     return last_indices[idir] ; 
 }
 
-KOKKOS_INLINE_FUNCTION
-void _get_signs_face(
-    std::size_t const& ig, std::size_t const& j, std::size_t const& k,
-    int face, int signs[3]
-) 
-{
-    const int axis = face / 2;
-    const int side = face % 2;
-
-    if (axis == 0) { // X-faces
-        signs[0] = (ig%2==1) - (ig%2==0) ; 
-        signs[1] = (j%2==1) - (j%2==0) ;
-        signs[2] = (k%2==1) - (k%2==0) ;
-        signs[0] *= side ? +1 : -1 ; 
-    } else if (axis == 1) { // Y-faces
-        signs[1] = (ig%2==1) - (ig%2==0) ; 
-        signs[0] = (j%2==1) - (j%2==0) ;
-        signs[2] = (k%2==1) - (k%2==0) ;
-        signs[1] *= side ? +1 : -1 ; 
-    } else { // Z-faces
-        signs[2] = (ig%2==1) - (ig%2==0) ; 
-        signs[0] = (j%2==1) - (j%2==0) ;
-        signs[1] = (k%2==1) - (k%2==0) ;
-        signs[2] *= side ? +1 : -1 ; 
-    }
-}
-KOKKOS_INLINE_FUNCTION
-void _get_stencil_face(int stencil[3], int8_t face) {
-    const int axis = face / 2;
-    const int side = face % 2;
-
-    if (axis == 0) { 
-        // X-faces
-        stencil[0] = side ? +1 : -1 ; 
-        stencil[1] = stencil[2] = + 1; 
-    } else if (axis==1) {
-        // Y-faces
-        stencil[1] = side ? +1 : -1 ; 
-        stencil[0] = stencil[2] = + 1; 
-    } else {
-        // Z-faces
-        stencil[2] = side ? +1 : -1 ; 
-        stencil[0] = stencil[1] = + 1; 
-    }
-}
-
-
 KOKKOS_INLINE_FUNCTION 
-void _compute_ghost_indices_face_invert(
-    std::size_t const& n, std::size_t const& g, 
-    std::size_t const& ig, std::size_t const& j, std::size_t const& k,
-    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz,
+void compute_phys_indices_edge(
+    std::size_t const& nx, std::size_t const& ny, std::size_t const& nz, 
+    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz, std::size_t const& g,
+    std::size_t const& ig, std::size_t const& jg, std::size_t const& k,
     std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int face
+    std::size_t& k_out, int edge
 )
 {
-    const int axis = face / 2;
-    const int side = face % 2;
 
-    if (axis == 0) { // X-faces
-        i_out = side ? n + g + ig : g - ig - 1 + sx ;
-        j_out = g + j;
-        k_out = g + k;
-    } else if (axis == 1) { // Y-faces
-        i_out = g + j;
-        j_out = side ? n + g + ig : g - ig - 1 + sy ;
-        k_out = g + k;
-    } else { // Z-faces
-        i_out = g + j;
-        j_out = g + k;
-        k_out = side ? n + g + ig : g - ig - 1 + sz ;
+    if (edge < 4) {
+        // X-axis edges
+        int y_off = (edge >> 0) & 1;
+        int z_off = (edge >> 1) & 1;
+        i_out = g + k;                          // varies
+        j_out = y_off ? ny + ig : g + ig;   // fixed
+        k_out = z_off ? nz + jg : g + jg;   // fixed
+    }
+    else if (edge < 8) {
+        // Y-axis edges
+        int x_off = (edge >> 0) & 1;
+        int z_off = (edge >> 1) & 1;
+        i_out = x_off ? nx + ig : g + ig;   // fixed
+        j_out = g + k;                          // varies
+        k_out = z_off ? nz + jg : g + jg;   // fixed
+    }
+    else {
+        // Z-axis edges
+        int x_off = (edge >> 0) & 1;
+        int y_off = (edge >> 1) & 1;
+        i_out = x_off ? nx + ig : g + ig;   // fixed
+        j_out = y_off ? ny + jg : g + jg;   // fixed
+        k_out = g + k;                          // varies
+    }
+}
+KOKKOS_INLINE_FUNCTION 
+void compute_ghost_indices_edge(
+    std::size_t const& nx, std::size_t const& ny, std::size_t const& nz, 
+    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz, std::size_t const& g, std::size_t const& g_off,
+    std::size_t const& ig, std::size_t const& jg, std::size_t const& k,
+    std::size_t& i_out, std::size_t& j_out,
+    std::size_t& k_out, int edge
+)
+{
+
+    if (edge < 4) {
+        // X-axis edges
+        int y_off = (edge >> 0) & 1;
+        int z_off = (edge >> 1) & 1;
+        i_out = g + k;                      // varies
+        j_out = y_off ? ny + g + ig : ig + g_off ;   // fixed
+        k_out = z_off ? nz + g + jg : jg + g_off ;   // fixed
+    }
+    else if (edge < 8) {
+        // Y-axis edges
+        int x_off = (edge >> 0) & 1;
+        int z_off = (edge >> 1) & 1;
+        i_out = x_off ? nx + g + ig : ig + g_off ;   // fixed
+        j_out = g + k;                      // varies
+        k_out = z_off ? nz + g + jg : jg + g_off ;   // fixed
+    }
+    else {
+        // Z-axis edges
+        int x_off = (edge >> 0) & 1;
+        int y_off = (edge >> 1) & 1;
+        i_out = x_off ? nx + g + ig : ig + g_off ;   // fixed
+        j_out = y_off ? ny + g + jg : jg + g_off ;   // fixed
+        k_out = g + k;                      // varies
     }
 }
 
@@ -445,127 +278,62 @@ size_t _get_last_iter_index_edge(
         // X-axis edges
         int y_off = (ielem >> 0) & 1;
         int z_off = (ielem >> 1) & 1;
-        last_indices[0] = n + g - 1 ; 
-        last_indices[1] = y_off ? n + 2*g -1 : g-1 ;
-        last_indices[2] = z_off ? n + 2*g -1 : g-1 ;
+        last_indices[0] = n + g - 2 ; 
+        last_indices[1] = y_off ? n + 2*g -2 : g-2 ;
+        last_indices[2] = z_off ? n + 2*g -2 : g-2 ;
     } else if ( ielem < 8 ) {
         // Y-axis edges
         int x_off = (ielem >> 0) & 1;
         int z_off = (ielem >> 1) & 1;
-        last_indices[1] = n + g - 1 ; 
-        last_indices[0] = x_off ? n + 2*g -1 : g-1 ;
-        last_indices[2] = z_off ? n + 2*g -1 : g-1 ;
+        last_indices[1] = n + g - 2 ; 
+        last_indices[0] = x_off ? n + 2*g -2 : g-2 ;
+        last_indices[2] = z_off ? n + 2*g -2 : g-2 ;
     } else {
         // Z-axis edges
         int x_off = (ielem >> 0) & 1;
         int y_off = (ielem >> 1) & 1;
-        last_indices[2] = n + g - 1 ; 
-        last_indices[0] = x_off ? n + 2*g -1 : g-1 ;
-        last_indices[1] = y_off ? n + 2*g -1 : g-1 ;
+        last_indices[2] = n + g - 2 ; 
+        last_indices[0] = x_off ? n + 2*g -2 : g-2 ;
+        last_indices[1] = y_off ? n + 2*g -2 : g-2 ;
     }
     return last_indices[idir] ; 
 }
 
-
-KOKKOS_INLINE_FUNCTION
-void _get_signs_edge(
+KOKKOS_INLINE_FUNCTION 
+void compute_phys_indices_corner(
+    std::size_t const& nx, std::size_t const& ny, std::size_t const& nz, 
+    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz, std::size_t const& g,
     std::size_t const& i, std::size_t const& j, std::size_t const& k,
-    int edge, int signs[3]
-) 
+    std::size_t& i_out, std::size_t& j_out,
+    std::size_t& k_out, int corner
+)
 {
-    if (edge < 4) {
-        // X-axis edges
-        int y_off = (edge >> 0) & 1;
-        int z_off = (edge >> 1) & 1;
-        signs[0] = (k%2==1) - (k%2==0) ; 
-        signs[1] = (i%2==1) - (i%2==0) ;
-        signs[2] = (j%2==1) - (j%2==0) ;
+    int x_off = (corner) & 1 ; 
+    int y_off = (corner >> 1) & 1 ; 
+    int z_off = (corner >> 2) & 1 ; 
 
-        signs[1] *= y_off ? +1 : -1 ; 
-        signs[2] *= z_off ? +1 : -1 ; 
-    } else if ( edge < 8 ) {
-        // Y-axis edges
-        int x_off = (edge >> 0) & 1;
-        int z_off = (edge >> 1) & 1;
-        signs[0] = (i%2==1) - (i%2==0) ; 
-        signs[1] = (k%2==1) - (k%2==0) ;
-        signs[2] = (j%2==1) - (j%2==0) ;
-
-        signs[0] *= x_off ? +1 : -1 ; 
-        signs[2] *= z_off ? +1 : -1 ; 
-    } else {
-        // Z-axis edges
-        int x_off = (edge >> 0) & 1;
-        int y_off = (edge >> 1) & 1;
-        signs[0] = (i%2==1) - (i%2==0) ; 
-        signs[1] = (j%2==1) - (j%2==0) ;
-        signs[2] = (k%2==1) - (k%2==0) ;
-
-        signs[0] *= x_off ? +1 : -1 ; 
-        signs[1] *= y_off ? +1 : -1 ; 
-    }
-}
-KOKKOS_INLINE_FUNCTION
-void _get_stencil_edge(int stencil[3], int8_t edge) {
-
-    if (edge < 4) {
-        // X-axis edges
-        int y_off = (edge >> 0) & 1;
-        int z_off = (edge >> 1) & 1;
-        stencil[0] = +1 ; 
-        stencil[1] = y_off ? +1 : -1 ; 
-        stencil[2] = z_off ? +1 : -1 ;
-    } else if (edge < 8) {
-        // Y-axis edges
-        int x_off = (edge >> 0) & 1;
-        int z_off = (edge >> 1) & 1;
-        stencil[0] = x_off ? +1 : -1 ; 
-        stencil[1] = +1 ; 
-        stencil[2] = z_off ? +1 : -1 ;
-    } else {
-        // Z-axis edges
-        int x_off = (edge >> 0) & 1;
-        int y_off = (edge >> 1) & 1;
-        stencil[0] = x_off ? +1 : -1 ; 
-        stencil[1] = y_off ? +1 : -1 ; 
-        stencil[2] = +1 ; 
-    }
+    i_out = x_off ? nx + i  : g + i ; 
+    j_out = y_off ? ny + j  : g + j ; 
+    k_out = z_off ? nz + k  : g + k ; 
 }
 
 KOKKOS_INLINE_FUNCTION 
-void _compute_ghost_indices_edge_invert(
-    std::size_t const& n, std::size_t const& g, 
-    std::size_t const& ig, std::size_t const& jg, std::size_t const& k,
-    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz,
+void compute_ghost_indices_corner(
+    std::size_t const& nx, std::size_t const& ny, std::size_t const& nz, 
+    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz, std::size_t const& g, std::size_t const& g_off,
+    std::size_t const& i, std::size_t const& j, std::size_t const& k,
     std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int edge
+    std::size_t& k_out, int corner
 )
 {
+    int x_off = (corner) & 1 ; 
+    int y_off = (corner >> 1) & 1 ; 
+    int z_off = (corner >> 2) & 1 ; 
 
-    if (edge < 4) {
-        // X-axis edges
-        int y_off = (edge >> 0) & 1;
-        int z_off = (edge >> 1) & 1;
-        i_out = g + k;                              // varies
-        j_out = y_off ? n + g + ig : g - ig - 1 + sy ;   // fixed
-        k_out = z_off ? n + g + jg : g - jg - 1 + sz ;   // fixed
-    } else if (edge < 8) {
-        // Y-axis edges
-        int x_off = (edge >> 0) & 1;
-        int z_off = (edge >> 1) & 1;
-        i_out = x_off ? n + g + ig : g - ig - 1 + sx ;   // fixed
-        j_out = g + k;                              // varies
-        k_out = z_off ? n + g + jg : g - jg - 1 + sz ;   // fixed
-    } else {
-        // Z-axis edges
-        int x_off = (edge >> 0) & 1;
-        int y_off = (edge >> 1) & 1;
-        i_out = x_off ? n + g + ig : g - ig - 1 + sx ;   // fixed
-        j_out = y_off ? n + g + jg : g - jg - 1 + sy ;   // fixed
-        k_out = g + k;                              // varies
-    }
+    i_out = x_off ? nx + g + i :  i + g_off ; 
+    j_out = y_off ? ny + g + j :  j + g_off ; 
+    k_out = z_off ? nz + g + k :  k + g_off ; 
 }
-
 
 KOKKOS_INLINE_FUNCTION
 size_t _get_first_iter_index_corner(
@@ -595,211 +363,97 @@ size_t _get_last_iter_index_corner(
     int z_off = (ielem >> 2) & 1 ; 
 
     size_t last_indices[] = {
-        x_off ? n + 2*g - 1 : g-1,
-        y_off ? n + 2*g - 1 : g-1,
-        z_off ? n + 2*g - 1 : g-1
+        x_off ? n + 2*g - 2 : g-2,
+        y_off ? n + 2*g - 2 : g-2,
+        z_off ? n + 2*g - 2 : g-2
     } ; 
     return last_indices[idir] ; 
 }
 
-KOKKOS_INLINE_FUNCTION
-void _get_signs_corner(
-    std::size_t const& i, std::size_t const& j, std::size_t const& k,
-    int corner, int signs[3]
-) 
-{
-    int x_off = (corner) & 1 ; 
-    int y_off = (corner >> 1) & 1 ; 
-    int z_off = (corner >> 2) & 1 ; 
-
-    signs[0] = (i%2==1) - (i%2==0) ; 
-    signs[1] = (j%2==1) - (j%2==0) ;
-    signs[2] = (k%2==1) - (k%2==0) ;
-    signs[0] *= x_off ? +1 : -1 ; 
-    signs[1] *= y_off ? +1 : -1 ; 
-    signs[2] *= z_off ? +1 : -1 ; 
-}
-KOKKOS_INLINE_FUNCTION
-void _get_stencil_corner(int stencil[3], int8_t corner) {
-
-    int x_off = (corner) & 1 ; 
-    int y_off = (corner >> 1) & 1 ; 
-    int z_off = (corner >> 2) & 1 ; 
-
-    stencil[0] = x_off ? +1 : -1 ; 
-    stencil[1] = y_off ? +1 : -1 ; 
-    stencil[2] = z_off ? +1 : -1 ; 
-}
-
-KOKKOS_INLINE_FUNCTION 
-void _compute_ghost_indices_corner_invert(
-    std::size_t const& n, std::size_t const& g, 
-    std::size_t const& i, std::size_t const& j, std::size_t const& k,
-    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz,
-    std::size_t& i_out, std::size_t& j_out,
-    std::size_t& k_out, int corner
-)
-{
-    int x_off = (corner) & 1 ; 
-    int y_off = (corner >> 1) & 1 ; 
-    int z_off = (corner >> 2) & 1 ; 
-
-    i_out = x_off ? n + g + i :  g - i - 1 + sx ; 
-    j_out = y_off ? n + g + j :  g - j - 1 + sy ; 
-    k_out = z_off ? n + g + k :  g - k - 1 + sz ; 
-}
-
-struct prolong_index_transformer_t {
-    std::size_t n, g, sx, sy, sz;
-    prolong_index_transformer_t(std::size_t _n,std::size_t  _ngz, grace::var_staggering_t stag)
-        : n(_n), g(_ngz) {
-            auto s = get_index_staggerings(stag) ; 
-            sx = s[0]; sy = s[1]; sz=s[2] ; 
-        }
-
+struct index_transformer_t {
     
-    template< element_kind_t elem_kind >
+
+    std::size_t nx, ny, nz, ngz;
+    std::size_t sx, sy, sz ;
+
+    index_transformer_t(std::size_t _nx, std::size_t _ny,
+                        std::size_t _nz, std::size_t _ngz, grace::var_staggering_t stag)
+        : nx(_nx), ny(_ny), nz(_nz), ngz(_ngz) {
+            auto s = get_index_staggerings(stag) ;
+            sx = s[0] ; sy = s[1] ; sz = s[2] ; 
+        }
+    
+    index_transformer_t(std::size_t _nx, std::size_t _ny,
+                        std::size_t _nz, std::size_t _ngz)
+        : nx(_nx), ny(_ny), nz(_nz), ngz(_ngz) {
+            auto s = get_index_staggerings(grace::STAG_CENTER) ;
+            sx = s[0] ; sy = s[1] ; sz = s[2] ; 
+        }
+    // Unified entry point
+    template< element_kind_t elem_kind 
+            , bool is_phys >
     KOKKOS_INLINE_FUNCTION
     void compute_indices(std::size_t ig, std::size_t j, std::size_t k,
                          std::size_t& i_out, std::size_t& j_out,
-                         std::size_t& k_out, int ielem, bool half_ncells=false) const
+                         std::size_t& k_out, int ielem, bool half_ncells=false, bool off_gz=false) const
     {
-        size_t _n = half_ncells ? n / 2 : n ; 
+        size_t _nx = half_ncells ? nx / 2 : nx ; 
+        size_t _ny = half_ncells ? ny / 2 : ny ; 
+        size_t _nz = half_ncells ? nz / 2 : nz ; 
+        size_t _g_off = half_ncells and off_gz ? ngz / 2 : 0 ; 
         if constexpr ( elem_kind == element_kind_t::FACE ) {
-            _compute_ghost_indices_face_invert(_n,g,ig,j,k,sx,sy,sz,i_out,j_out,k_out,ielem);
+            if constexpr ( is_phys ) {
+                compute_phys_indices_face(_nx,_ny,_nz,sx,sy,sz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
+            } else {
+                compute_ghost_indices_face(_nx,_ny,_nz,sx,sy,sz,ngz,_g_off,ig,j,k,i_out,j_out,k_out,ielem);
+            }
         } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
-            _compute_ghost_indices_edge_invert(_n,g,ig,j,k,sx,sy,sz,i_out,j_out,k_out,ielem);
+            if constexpr ( is_phys ) {
+                compute_phys_indices_edge(_nx,_ny,_nz,sx,sy,sz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
+            } else {
+                compute_ghost_indices_edge(_nx,_ny,_nz,sx,sy,sz,ngz,_g_off,ig,j,k,i_out,j_out,k_out,ielem);
+            }
         } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
-            _compute_ghost_indices_corner_invert(_n,g,ig,j,k,sx,sy,sz,i_out,j_out,k_out,ielem);
-        }
-    }
-
-    
-    template< element_kind_t elem_kind >
-    KOKKOS_INLINE_FUNCTION
-    void get_signs( std::size_t ig, std::size_t j, std::size_t k,
-                    int signs[3], int ielem ) const 
-    {
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            _get_signs_face(ig,j,k,ielem,signs) ; 
-        } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
-            _get_signs_edge(ig,j,k,ielem,signs) ; 
-        } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
-            _get_signs_corner(ig,j,k,ielem,signs) ; 
-        }
-    }
-
-    template< element_kind_t elem_kind >
-    KOKKOS_INLINE_FUNCTION
-    void get_stencil( int stencil[3], int8_t ielem ) const 
-    {   
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            _get_stencil_face(stencil,ielem) ; 
-        } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
-            _get_stencil_edge(stencil,ielem) ; 
-        } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
-            _get_stencil_corner(stencil,ielem) ; 
+            if constexpr ( is_phys ) {
+                compute_phys_indices_corner(_nx,_ny,_nz,sx,sy,sz,ngz,ig,j,k,i_out,j_out,k_out,ielem);
+            } else {
+                compute_ghost_indices_corner(_nx,_ny,_nz,sx,sy,sz,ngz,_g_off,ig,j,k,i_out,j_out,k_out,ielem);
+            }
         }
     }
 
     template< element_kind_t elem_kind >
     KOKKOS_INLINE_FUNCTION
-    size_t last_index(int idir, int8_t ielem, bool half_ncells ) const {
-        size_t _n = half_ncells ? n / 2 : n ; 
+    size_t last_index(int idir, int8_t ielem, bool half_ncells=false) const {
+        size_t _n = half_ncells ? nx / 2 : nx ; 
         if constexpr ( elem_kind == element_kind_t::FACE ) {
-            return _get_last_iter_index_face(idir,ielem,_n,g) ; 
+            return _get_last_iter_index_face(idir,ielem,_n,ngz) ; 
         } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
-            return _get_last_iter_index_edge(idir,ielem,_n,g) ; 
+            return _get_last_iter_index_edge(idir,ielem,_n,ngz) ; 
         } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
-            return _get_last_iter_index_corner(idir,ielem,_n,g) ; 
+            return _get_last_iter_index_corner(idir,ielem,_n,ngz) ; 
         }
     }
 
     template< element_kind_t elem_kind >
     KOKKOS_INLINE_FUNCTION
-    size_t first_index(int idir, int8_t ielem, bool half_ncells ) const {
-        size_t _n = half_ncells ? n / 2 : n ; 
+    size_t first_index(int idir, int8_t ielem, bool half_ncells=false ) const {
+        size_t _n = half_ncells ? nx / 2 : nx ; 
         if constexpr ( elem_kind == element_kind_t::FACE ) {
-            return _get_first_iter_index_face(idir,ielem,_n,g) ; 
+            return _get_first_iter_index_face(idir,ielem,_n,ngz) ; 
         } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
-            return _get_first_iter_index_edge(idir,ielem,_n,g) ; 
+            return _get_first_iter_index_edge(idir,ielem,_n,ngz) ; 
         } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
-            return _get_first_iter_index_corner(idir,ielem,_n,g) ; 
+            return _get_first_iter_index_corner(idir,ielem,_n,ngz) ; 
         }
     }
+
+
 } ; 
 
+/*************************************************************************************************************/
+/*************************************************************************************************************/
 
-void _compute_ghost_indices_face_df(
-    size_t _n,size_t g,
-    size_t ig,size_t j,size_t k,
-    size_t goff,
-    size_& i_out,size_t& j_out,size_t& k_out,
-    int8_t ielem)
-{
-    int8_t axis = ielem/2; 
-    int8_t side = ielem%2;
-    if( axis == 0) {
-        i_out = side ? n + g + ig : goff + ig ;
-        j_out = g + j ; 
-        k_out = g + k ; 
-    } else if (axis==1) {
-        j_out = side ? n + g + ig : goff + ig ;
-        i_out = g + j ; 
-        k_out = g + k ; 
-    } else {
-        k_out = side ? n + g + ig : goff + ig ;
-        i_out = g + j ; 
-        j_out = g + k ;
-    }
-}
-
-void _compute_ghost_indices_face_df(
-    size_t _n,size_t g,
-    size_t ig,size_t j,size_t k,
-    size_t goff,
-    size_& i_out,size_t& j_out,size_t& k_out,
-    int8_t ielem)
-{
-    int8_t axis = ielem/2; 
-    int8_t side = ielem%2;
-    if( axis == 0) {
-        i_out = side ? n + g + ig : goff + ig ;
-        j_out = g + j ; 
-        k_out = g + k ; 
-    } else if (axis==1) {
-        j_out = side ? n + g + ig : goff + ig ;
-        i_out = g + j ; 
-        k_out = g + k ; 
-    } else {
-        k_out = side ? n + g + ig : goff + ig ;
-        i_out = g + j ; 
-        j_out = g + k ;
-    }
-}
-
-struct div_free_prolong_index_transformer_t {
-    std::size_t n, g;
-    div_free_prolong_index_transformer_t(std::size_t _n,std::size_t  _ngz)
-        : n(_n), g(_ngz) {  }
-
-    template< element_kind_t elem_kind >
-    KOKKOS_INLINE_FUNCTION
-    void compute_indices(std::size_t ig, std::size_t j, std::size_t k,
-                         std::size_t& i_out, std::size_t& j_out,
-                         std::size_t& k_out, int ielem, bool half_ncells=false) const 
-    {
-        size_t _n = half_ncells ? n / 2 : n ; 
-        size_t _off = half_ncells ? g/2 : 0 ;
-        if constexpr ( elem_kind == element_kind_t::FACE ) {
-            _compute_ghost_indices_face_df(_n,g,ig,j,k,sx,sy,sz,i_out,j_out,k_out,ielem);
-        } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
-            _compute_ghost_indices_edge_df(_n,g,ig,j,k,sx,sy,sz,i_out,j_out,k_out,ielem);
-        } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
-            _compute_ghost_indices_corner_df(_n,g,ig,j,k,sx,sy,sz,i_out,j_out,k_out,ielem);
-        }         
-    }
-} ; 
 
 KOKKOS_INLINE_FUNCTION
 int edge_to_face_dir(int face, int edge) {
