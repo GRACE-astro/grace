@@ -378,6 +378,7 @@ KOKKOS_INLINE_FUNCTION
 void _compute_ghost_indices_face_invert(
     std::size_t const& n, std::size_t const& g, 
     std::size_t const& ig, std::size_t const& j, std::size_t const& k,
+    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz,
     std::size_t& i_out, std::size_t& j_out,
     std::size_t& k_out, int face
 )
@@ -386,17 +387,17 @@ void _compute_ghost_indices_face_invert(
     const int side = face % 2;
 
     if (axis == 0) { // X-faces
-        i_out = side ? n + g + ig : g - ig;
+        i_out = side ? n + g + ig : g - ig - 1 + sx ;
         j_out = g + j;
         k_out = g + k;
     } else if (axis == 1) { // Y-faces
         i_out = g + j;
-        j_out = side ? n + g + ig : g - ig;
+        j_out = side ? n + g + ig : g - ig - 1 + sy ;
         k_out = g + k;
     } else { // Z-faces
         i_out = g + j;
         j_out = g + k;
-        k_out = side ? n + g + ig : g - ig;
+        k_out = side ? n + g + ig : g - ig - 1 + sz ;
     }
 }
 
@@ -535,6 +536,7 @@ KOKKOS_INLINE_FUNCTION
 void _compute_ghost_indices_edge_invert(
     std::size_t const& n, std::size_t const& g, 
     std::size_t const& ig, std::size_t const& jg, std::size_t const& k,
+    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz,
     std::size_t& i_out, std::size_t& j_out,
     std::size_t& k_out, int edge
 )
@@ -545,21 +547,21 @@ void _compute_ghost_indices_edge_invert(
         int y_off = (edge >> 0) & 1;
         int z_off = (edge >> 1) & 1;
         i_out = g + k;                              // varies
-        j_out = y_off ? n + g + ig : g - ig  ;   // fixed
-        k_out = z_off ? n + g + jg : g - jg  ;   // fixed
+        j_out = y_off ? n + g + ig : g - ig - 1 + sy ;   // fixed
+        k_out = z_off ? n + g + jg : g - jg - 1 + sz ;   // fixed
     } else if (edge < 8) {
         // Y-axis edges
         int x_off = (edge >> 0) & 1;
         int z_off = (edge >> 1) & 1;
-        i_out = x_off ? n + g + ig : g - ig  ;   // fixed
+        i_out = x_off ? n + g + ig : g - ig - 1 + sx ;   // fixed
         j_out = g + k;                              // varies
-        k_out = z_off ? n + g + jg : g - jg  ;   // fixed
+        k_out = z_off ? n + g + jg : g - jg - 1 + sz ;   // fixed
     } else {
         // Z-axis edges
         int x_off = (edge >> 0) & 1;
         int y_off = (edge >> 1) & 1;
-        i_out = x_off ? n + g + ig : g - ig ;   // fixed
-        j_out = y_off ? n + g + jg : g - jg ;   // fixed
+        i_out = x_off ? n + g + ig : g - ig - 1 + sx ;   // fixed
+        j_out = y_off ? n + g + jg : g - jg - 1 + sy ;   // fixed
         k_out = g + k;                              // varies
     }
 }
@@ -633,6 +635,7 @@ KOKKOS_INLINE_FUNCTION
 void _compute_ghost_indices_corner_invert(
     std::size_t const& n, std::size_t const& g, 
     std::size_t const& i, std::size_t const& j, std::size_t const& k,
+    std::size_t const& sx, std::size_t const& sy, std::size_t const& sz,
     std::size_t& i_out, std::size_t& j_out,
     std::size_t& k_out, int corner
 )
@@ -641,15 +644,18 @@ void _compute_ghost_indices_corner_invert(
     int y_off = (corner >> 1) & 1 ; 
     int z_off = (corner >> 2) & 1 ; 
 
-    i_out = x_off ? n + g + i :  g - i ; 
-    j_out = y_off ? n + g + j :  g - j ; 
-    k_out = z_off ? n + g + k :  g - k ; 
+    i_out = x_off ? n + g + i :  g - i - 1 + sx ; 
+    j_out = y_off ? n + g + j :  g - j - 1 + sy ; 
+    k_out = z_off ? n + g + k :  g - k - 1 + sz ; 
 }
 
 struct prolong_index_transformer_t {
     std::size_t n, g, sx, sy, sz;
     prolong_index_transformer_t(std::size_t _n,std::size_t  _ngz, grace::var_staggering_t stag)
-        : n(_n), g(_ngz) {}
+        : n(_n), g(_ngz) {
+            auto s = get_index_staggerings(stag) ; 
+            sx = s[0]; sy = s[1]; sz=s[2] ; 
+        }
 
     
     template< element_kind_t elem_kind >
@@ -660,11 +666,11 @@ struct prolong_index_transformer_t {
     {
         size_t _n = half_ncells ? n / 2 : n ; 
         if constexpr ( elem_kind == element_kind_t::FACE ) {
-            _compute_ghost_indices_face_invert(_n,g,ig,j,k,i_out,j_out,k_out,ielem);
+            _compute_ghost_indices_face_invert(_n,g,ig,j,k,i_out,j_out,k_out,sx,sy,sz,ielem);
         } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
-            _compute_ghost_indices_edge_invert(_n,g,ig,j,k,i_out,j_out,k_out,ielem);
+            _compute_ghost_indices_edge_invert(_n,g,ig,j,k,i_out,j_out,k_out,sx,sy,sz,ielem);
         } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
-            _compute_ghost_indices_corner_invert(_n,g,ig,j,k,i_out,j_out,k_out,ielem);
+            _compute_ghost_indices_corner_invert(_n,g,ig,j,k,i_out,j_out,k_out,sx,sy,sz,ielem);
         }
     }
 

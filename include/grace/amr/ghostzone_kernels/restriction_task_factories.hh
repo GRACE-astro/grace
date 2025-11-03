@@ -205,12 +205,12 @@ auto get_iter_policy(
     if constexpr ( elem_kind == FACE ) {
         return MDRangePolicy<Rank<4>, ghost_restrict_face_tag>(
             DefaultExecutionSpace{stream},
-            {0,0,0,0}, {n/2+1,n/2+1,nv,nq}
+            {0,0,0,0}, {n/2+off,n/2+off,nv,nq}
         ) ; 
     } else if constexpr (elem_kind == EDGE) {
         return MDRangePolicy<Rank<3>, ghost_restrict_edge_tag>(
             DefaultExecutionSpace{stream},
-            {0,0,0}, {n/2+1,nv,nq}
+            {0,0,0}, {n/2+off,nv,nq}
         ) ; 
     } else {
         return MDRangePolicy<Rank<2>, ghost_restrict_corner_tag>(
@@ -338,7 +338,7 @@ void make_gpu_restrict_gz_task(
     } else {
         constexpr int stag_dir = (stag == STAG_FACEX ? 0 : (stag == STAG_FACEY ? 1 : 2)) ; 
         div_free_ghost_restrict_op<stag_dir, decltype(state)> functor{
-            state,coarse_buffers,qid,cbuf_qid,eid,nx,ngz
+            state,coarse_buffers,qid,cbuf_qid,eid,nx,ngz,stag
         } ; 
         // the rank of iterations depends on the element kind 
         auto policy = get_iter_policy<elem_kind>(stream,nx,nv,bucket.size(),true /*stag_loop*/) ; 

@@ -140,7 +140,8 @@ struct div_free_prolong_op {
       , cbuf_qid(_cbuf_qid)
       , eid(_eid)
       , have_fine_data(_have_fine_data)
-      , transf(n,ngz,STAG_CENTER) /* TODO fixme ? */
+      , transf(n,ngz,STAG_CENTER) 
+      /* TODO fixme ? --> not really, we don't need any staggering since i==ng is handled separately by the idx+1 check*/
     {} 
 
     template< typename sview_t >

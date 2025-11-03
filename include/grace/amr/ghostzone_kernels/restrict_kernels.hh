@@ -316,13 +316,13 @@ struct div_free_ghost_restrict_op {
         Kokkos::View<size_t*> _qid, 
         Kokkos::View<size_t*> _cbuf_id,
         Kokkos::View<uint8_t*> _eid,  
-        size_t n, size_t _ngz
+        size_t n, size_t _ngz, var_staggering_t stag
     ) : data(_data)
       , cbuf(_cbuf)
       , qid(_qid)
       , cbuf_id(_cbuf_id)
       , elem_id(_eid)
-      , transf(n,_ngz,STAG_CENTER)
+      , transf(n,_ngz,stag)
     {}
 
     // range check: all the non-gz loops are extended by 
