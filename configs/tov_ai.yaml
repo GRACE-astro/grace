@@ -30,7 +30,7 @@ IO: {
   plane_surface_output_cell_variables: [],
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
-  info_output_every: 20,
+  info_output_every: 1,
   info_output_max_reductions: ["alp", "eps", "rho", "press", "vel[0]", "vel[1]", "vel[2]", "dens", "tau", "S"],
   info_output_min_reductions: ["alp", "eps", "rho", "press", "vel[0]", "vel[1]", "vel[2]", "dens", "tau", "S"],
   scalar_output_every: 2,
@@ -85,8 +85,8 @@ ml_inference: {
   
   # Path to your physics-guided neural network model
   # Architecture: 3 inputs (D, q, r) -> 24 hidden nodes -> 1 output (correction)
-  c2p_model_path: "/zhome/academic/HLRS/xfp/xfpmiler/codes/grace-ai/physics_guided_c2p_model.h5",
-  
+  #c2p_model_path: "/zhome/academic/HLRS/xfp/xfpmiler/codes/grace-ai/physics_guided_c2p_model.h5",
+  c2p_model_path: "/lustre/hpe/ws13/ws13.a/ws/xfpmiler-grace/grace-ai/pinn_c2p_vloss6.73e-07_20251021_164351.h5",
   # Validation settings - recommended for physics-guided models
   c2p_validation_enabled: true,
   

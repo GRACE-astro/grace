@@ -257,7 +257,6 @@ public:
         int ngz = grace::amr::get_n_ghosts() ; 
         
         int64_t nq = amr::get_local_num_quadrants() ;
-        unsigned long index = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq;
         using namespace Kokkos;
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 
@@ -274,8 +273,8 @@ public:
 
         if (has_normalization()) {
             batch_inputs_(index,0) = (dens - input_min_(0)) / (input_max_(0) - input_min_(0));
-            batch_inputs_(index,1) = (tau / dens - input_min_(0)) / (input_max_(0) - input_min_(0));
-            batch_inputs_(index,2) = (Kokkos::sqrtf(sx*sx + sy*sy + sz*sz) / dens - input_min_(0)) / (input_max_(0) - input_min_(0));
+            batch_inputs_(index,1) = (tau / dens - input_min_(1)) / (input_max_(1) - input_min_(1));
+            batch_inputs_(index,2) = (Kokkos::sqrtf(sx*sx + sy*sy + sz*sz) / dens - input_min_(2)) / (input_max_(2) - input_min_(2));
         }
         else {
             batch_inputs_(index,0) = dens;
@@ -360,23 +359,39 @@ private:
      */
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     real_t analytical_guess(real_t D, real_t q, real_t r) const {
-        // Basic kinematic guess: Z ≈ sqrt(1+r^2)
-        real_t z_kinematic = Kokkos::sqrt(1.0 + r * r);
-        
-        // Thermal correction based on internal energy
-        real_t thermal_factor = 1.0 + 0.5 * q;
-        
-        // Relativistic correction for high velocities
-        real_t relativistic_correction = 1.0 + 0.1 * r * r / (1.0 + r * r);
-        
-        // Density correction
-        real_t density_correction = 1.0 + 0.1 * Kokkos::log(1.0 + D);
-        
-        // Combined guess
-        real_t z_guess = z_kinematic * thermal_factor * relativistic_correction * density_correction;
+        //// Basic kinematic guess: Z ≈ sqrt(1+r^2)
+        //real_t z_kinematic = Kokkos::sqrt(1.0 + r * r);
+        //
+        //// Thermal correction based on internal energy
+        //real_t thermal_factor = 1.0 + 0.5 * q;
+        //
+        //// Relativistic correction for high velocities
+        //real_t relativistic_correction = 1.0 + 0.1 * r * r / (1.0 + r * r);
+        //
+        //// Density correction
+        //real_t density_correction = 1.0 + 0.1 * Kokkos::log(1.0 + D);
+        //
+        //// Combined guess
+        //real_t z_guess = z_kinematic * thermal_factor * relativistic_correction * density_correction;
+
+        real_t Z_norm =
+              4.619612e-02
+            + (-3.674585e-01) * D
+            + ( 1.013294e+00) * q
+            + ( 1.273018e+00) * r
+            + (-9.116901e-02) * (D * D)
+            + ( 5.286726e-01) * (D * q)
+            + (-6.537565e-01) * (D * r)
+            + ( 4.623025e-01) * (q * q)
+            + ( 4.519333e-02) * (q * r)
+            + (-1.306098e+00) * (r * r);
+
+        // Clamp at zero like torch.clamp(min=0.0)
+        return Kokkos::fmax(static_cast<real_t>(0.0), Z_norm);
+
         
         // Ensure physical bounds: Z ≥ 1
-        return Kokkos::fmax(1.0, z_guess);
+        // return Kokkos::fmax(1.0, z_guess);
     }
 
     /**

@@ -77,3 +77,31 @@ eos: {
 profiling: {
   do_gpu_profiling: false
 }
+# ML Inference Configuration for Physics-Guided C2P Model
+ml_inference: {
+  # Enable AI-accelerated C2P conversion
+  enable_ml: true,
+  
+  # Path to your physics-guided neural network model
+  # Architecture: 3 inputs (D, q, r) -> 24 hidden nodes -> 1 output (correction)
+  #c2p_model_path: "/zhome/academic/HLRS/xfp/xfpmiler/codes/grace-ai/physics_guided_c2p_model.h5",
+  c2p_model_path: "/lustre/hpe/ws13/ws13.a/ws/xfpmiler-grace/grace-ai/pinn_c2p_vloss6.73e-07_20251021_164351.h5",
+  # Validation settings - recommended for physics-guided models
+  c2p_validation_enabled: true,
+  
+  # Error tolerance for AI predictions
+  # Physics-guided models typically have better accuracy, so can use tighter tolerance
+  c2p_fallback_tolerance: 1e-3,
+  
+  # Memory management for the 3x24x1 network (~100 parameters)
+  # Small network requires minimal memory
+  device_memory_pool_size: 67108864,  # 64MB should be plenty
+  
+  # Concurrency settings
+  max_concurrent_inferences: 2048,  # Can handle more concurrent calls with small network
+  
+  # Debugging and monitoring
+  log_inference_stats: true,   # Enable to monitor AI performance
+  log_fallback_events: true,   # Log when traditional C2P is used
+  performance_monitoring: true # Monitor timing for the small network
+}

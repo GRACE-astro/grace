@@ -406,7 +406,7 @@ struct grmhd_equations_system_t
         int64_t nq = this->_state.extent(4) ;
 
         auto& ml_model = _c2p_view(0);
-        unsigned long index = EXPR((ni),*(nj),*(nk))*nq;
+        unsigned long index = i + ni * (j + nj * (k + nk * q));;
         const auto& output = ml_model.get_batch_output();
         auto zeta = output(index,0);
 

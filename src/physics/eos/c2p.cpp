@@ -32,7 +32,7 @@
 
 #include <Kokkos_Core.hpp>
 
-#define C2P_TOLERANCE 10
+#define C2P_TOLERANCE 1e-5
 
 namespace grace {
 
@@ -64,7 +64,7 @@ conservs_to_prims( grmhd_cons_array_t& cons
         #endif
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
         if (c2p_failed) {
-            Kokkos::printf("Dont break my heart\n");
+            Kokkos::printf("Dont break my heart; residual = %f, zeta = %.15e\n", residual, zeta);
         }
         W = prims[PRESSL] ; // W was stored here for convenience
     } else {
