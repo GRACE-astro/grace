@@ -160,6 +160,74 @@ private:
     std::size_t _size ; 
 } ; 
 
+//! For refluxing or emf exchanges
+struct reflux_array_t {
+    //! Ctor
+    reflux_array_t() = default ; 
+    //! Dtor
+    reflux_array_t(std::string const& name)
+        :  _data(name,0), _size(0)
+    {}
+
+    //! Set strides
+    void set_strides(size_t ncells, size_t nvars )
+    {
+        fstrides = std::array<size_t,3> {ncells,ncells*ncells,ncells*ncells*nvars};
+    }
+
+    //! Set offsets
+    void set_offsets(
+        std::vector<size_t> const& _roffsets, 
+    ) 
+    {
+        grace::deep_copy_vec_to_const_view(rank_offsets, _roffsets) ; 
+    }
+
+    //! Reallocate data
+    void realloc(size_t const& _new_size) {
+        _size = _new_size ; 
+        Kokkos::realloc(_data, _new_size) ; 
+    }
+
+    //! Get size
+    GRACE_HOST GRACE_ALWAYS_INLINE 
+    size_t size() const { return _size ; }
+
+    //! Get data pointer
+    GRACE_HOST GRACE_ALWAYS_INLINE 
+    double* data() const { return _data.data() ; }
+
+
+    template< element_kind_t elem_kind > 
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    double& operator() (size_t const& i, size_t const& j, size_t const& iv, size_t const& ie, size_t const& rank) const 
+    {
+        auto offset = rank_offsets(rank) ;
+        return get(i,j,iv,ie,fstrides[0],fstrides[1],fstrides[2],offset) ;  
+    }
+
+    private:
+    //! Accessor 
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    double& get(
+        size_t const& i, size_t const& j, size_t const& iv, size_t const& ie, 
+        size_t const& s0, size_t const& s1, size_t const& s2,
+        size_t const& offset) const 
+    {
+        auto c_index = i 
+                     + s0 * j 
+                     + s1 * iv 
+                     + s2 * ie ;
+        return _data(offset+c_index); 
+    }
+
+    readonly_view_t<std::size_t> rank_offsets ; 
+    std::array<size_t, 3> fstrides ; 
+    Kokkos::View<double *, grace::default_space> _data ; //! Data
+    std::size_t _size ;
+
+} ; 
+
 struct face_buffer_t {
 
     face_buffer_t() = default ; 

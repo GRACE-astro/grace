@@ -182,6 +182,17 @@ struct quad_neighbors_descriptor_t {
     int8_t n_registered_corners {0} ; 
 }  ;  
 /**************************************************************************************************/
+// For hanging faces: we need to record them separately for refluxing 
+struct hanging_face_reflux_helper_t {
+    size_t quad_id ;
+    int8_t face_id ;
+} ; 
+/**************************************************************************************************/
+// For hanging edges: we need to record them separately for refluxing 
+struct hanging_edge_reflux_helper_t {
+
+} ; 
+/**************************************************************************************************/
 template < amr::element_kind_t elem_kind > 
 inline uint8_t 
 get_adjacent_idx(uint8_t eid, const int8_t dir[3]) {return 0;};  // TODO changed interfacex

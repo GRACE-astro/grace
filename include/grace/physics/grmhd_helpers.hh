@@ -95,6 +95,46 @@ using grmhd_prims_array_t = std::array<double,NUM_PRIMS_LOC> ;
 using grmhd_cons_array_t  = std::array<double,NUM_CONS_LOC>  ;
 } /* namespace grace */
 
+/** @brief Get atmosphere settings
+ */
+GRACE_ALWAYS_INLINE
+atmo_params_t get_atmo_params()
+{
+  atmo_params_t atmo_params ; 
+    
+  atmo_params.rho_fl = grace::get_param<double>("grmhd","atmosphere","rho_fl") ; 
+  atmo_params.temp_fl = grace::get_param<double>("grmhd","atmosphere","temp_fl") ; 
+  atmo_params.ye_fl = grace::get_param<double>("grmhd","atmosphere","ye_fl") ; 
+
+  atmo_params.rho_fl_scaling = grace::get_param<double>("grmhd","atmosphere","rho_scaling") ; 
+  atmo_params.temp_fl_scaling = grace::get_param<double>("grmhd","atmosphere","temp_scaling") ;
+
+  return atmo_params ; 
+}
+
+/** @brief Get excision settings
+ */
+GRACE_ALWAYS_INLINE
+excision_params_t get_excision_params()
+{
+  excision_params_t excision_params ; 
+    auto excision_kind = grace::get_param<std::string>("grmhd","excision","excision_criterion"); 
+    //excision_pars["excision_criterion"].as<std::string>() ;
+    if ( excision_kind == "radius" ) {
+        excision_params.excise_by_radius = true ;
+    } else if ( excision_kind == "lapse") {
+        excision_params.excise_by_radius = false ;
+    } else {
+        ERROR("Unrecognized excision criterion") ; 
+    }
+    excision_params.r_ex = grace::get_param<double>("grmhd","excision","excision_radius"); 
+    excision_params.alp_ex = grace::get_param<double>("grmhd","excision","excision_lapse"); 
+    
+    excision_params.rho_ex =  grace::get_param<double>("grmhd","excision","rho_excision"); 
+    excision_params.temp_ex =  grace::get_param<double>("grmhd","excision","temp_excision"); 
+    return excision_params
+}
+
 /**
   * @brief Utility to compute \f$u^t\f$
   * 
