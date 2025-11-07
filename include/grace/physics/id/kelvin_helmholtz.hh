@@ -61,30 +61,21 @@ struct kelvin_helmholtz_id_t {
         double const y = _pcoords(VEC(i,j,k),1,q) ;
         double const z = _pcoords(VEC(i,j,k),2,q) ;
 
-        double const rho0{1.5}, rho1{0.5}, al{0.01}, yl{0.25}, vx0{0.5} ; 
-        double const sigma{0.2} ; 
-        double const dvx0{0.01}, dvy0{0.01}, dvz0{0.01} ; 
+        double const rho0{1.0} ; 
+        double const vsh = 0.25 ; 
+        double const a = 0.02 ; 
+        double const sigma_pol = 0.01 ; 
 
-        auto _tanh = Kokkos::tanh(
-            (Kokkos::fabs(y) - yl) / al 
-        ) ; 
-        auto _exp = [&] () {
-            return Kokkos::exp(
-                -math::int_pow<2>(Kokkos::fabs(y) - yl)/sigma/sigma
-            ) ;
-        } ;  
+        id.rho = rho0 ; 
 
-        //double const dvx = dvx0 * Kokkos::sin(2 * M_PI * x * nx) ; 
-        double const dvy = dvy0 * Kokkos::sin(4 * M_PI * x)*Kokkos::sin(4 * M_PI * z) ; 
-        double const dvz = dvz0 * Kokkos::sin(4 * M_PI * x)*Kokkos::sin(4 * M_PI * z) ; 
+        id.vx = -vsh * tanh(y/a) ; 
+        id.vy = 1/4e04 * sin(2*M_PI*x) * exp(-100*y*y) ; 
+        id.vz = 0 ; 
 
-        id.rho = rho0 - rho1 * _tanh ; 
+        id.press = 20.0 ; 
 
-        id.vx = vx0 * _tanh  ; 
-        id.vy = dvy * _exp() ; 
-        id.vz = dvz * _exp() ; 
-
-        id.press = 2.5 ; 
+        id.bx = sqrt(2*sigma_pol*id.press) ; 
+        id.by = id.bz = 0 ; 
 
         id.betax = 0; id.betay=0; id.betaz = 0; 
         id.alp = 1 ; 

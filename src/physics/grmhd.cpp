@@ -597,6 +597,8 @@ void set_grmhd_initial_data() {
         auto max_betam1 = pars["max_inverse_beta"].as<double>() ; 
         rescale_B_field(max_betam1, P_max) ; 
         GRACE_TRACE("Done with magnetized FMTorus ID.") ;
+    } else if (id_type == "khi") { 
+        set_grmhd_initial_data_impl<eos_t,kelvin_helmholtz_id_t<eos_t>>() ;
     } else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }

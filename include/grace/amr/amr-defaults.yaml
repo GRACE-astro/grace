@@ -54,5 +54,107 @@ amr: {
   FLASH_criterion_eps     : 0.01,
   restriction_interpolator_type: "linear",
   prolongation_limiter_type: "minmod",
-  prolongation_interpolator_type: "linear"
+  prolongation_interpolator_type: "linear",
+
+  n_fmr_boxes: 0,
+
+  fmr_box_0: {
+    target_level_delta: 1,
+    x_min: -1,
+    x_max: +1,
+    y_min: -1,
+    y_max: +1,
+    z_min: -1,
+    z_max: +1
+  },
+
+  fmr_box_1: {
+    target_level_delta: 1,
+    x_min: -1,
+    x_max: +1,
+    y_min: -1,
+    y_max: +1,
+    z_min: -1,
+    z_max: +1
+  },
+
+  fmr_box_2: {
+    target_level_delta: 1,
+    x_min: -1,
+    x_max: +1,
+    y_min: -1,
+    y_max: +1,
+    z_min: -1,
+    z_max: +1
+  },
+
+  fmr_box_3: {
+    target_level_delta: 1,
+    x_min: -1,
+    x_max: +1,
+    y_min: -1,
+    y_max: +1,
+    z_min: -1,
+    z_max: +1
+  },
+
+  fmr_box_4: {
+    target_level_delta: 1,
+    x_min: -1,
+    x_max: +1,
+    y_min: -1,
+    y_max: +1,
+    z_min: -1,
+    z_max: +1
+  },
+
+  fmr_box_5: {
+    target_level_delta: 1,
+    x_min: -1,
+    x_max: +1,
+    y_min: -1,
+    y_max: +1,
+    z_min: -1,
+    z_max: +1
+  },
+
+  fmr_box_6: {
+    target_level_delta: 1,
+    x_min: -1,
+    x_max: +1,
+    y_min: -1,
+    y_max: +1,
+    z_min: -1,
+    z_max: +1
+  },
+
+  fmr_box_7: {
+    target_level_delta: 1,
+    x_min: -1,
+    x_max: +1,
+    y_min: -1,
+    y_max: +1,
+    z_min: -1,
+    z_max: +1
+  },
+
+  fmr_box_8: {
+    target_level_delta: 1,
+    x_min: -1,
+    x_max: +1,
+    y_min: -1,
+    y_max: +1,
+    z_min: -1,
+    z_max: +1
+  },
+
+  fmr_box_9: {
+    target_level_delta: 1,
+    x_min: -1,
+    x_max: +1,
+    y_min: -1,
+    y_max: +1,
+    z_min: -1,
+    z_max: +1
+  }
 }

@@ -64,16 +64,20 @@ grmhd: {
     A_phi: 100,
     A_n: 2.0
   },
-  B_field_from_Avec: true
+  B_field_from_Avec: true,
+  atmosphere: {
+    ye_fl: 0,
+    temp_fl:  0,
+    rho_fl: 1.e-10,
+    rho_scaling: 0,
+    temp_scaling: 0
+  }
 }
 
 eos: {
   eos_type: "hybrid",
   cold_eos_type: "piecewise_polytrope",
 
-  ye_atmosphere: 0,
-  temp_atmosphere: 0,
-  rho_atmosphere: 1.e-10,
   eps_maximum: 1.e+05,
   gamma_th: 1.8,
 

@@ -95,18 +95,6 @@ struct prolong_op {
             k_f%2 ? +1 : -1
         } ; 
 
-        if ( qid == 30 and i_f == 10 and j_f == 10 and k_f == 8 and iv == 0) {
-            printf("Here in kernel, ic %zu jc %zu kc %zu %f %f %f %f %f %f %f",
-                i_c,j_c,k_c, 
-            cbuf(i_c,j_c,k_c,iv,cid),
-            cbuf(i_c+1,j_c,k_c,iv,cid),
-            cbuf(i_c-1,j_c,k_c,iv,cid),
-            cbuf(i_c,j_c+1,k_c,iv,cid),
-            cbuf(i_c,j_c-1,k_c,iv,cid),
-            cbuf(i_c,j_c,k_c+1,iv,cid),
-            cbuf(i_c,j_c,k_c-1,iv,cid)) ; 
-        }
-
         view(VEC(i_f,j_f,k_f),iv,qid) = interpolator::interpolate(
                                             VEC(i_c,j_c,k_c),
                                             cid,iv, 

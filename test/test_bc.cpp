@@ -43,7 +43,7 @@ inline double fill_func_stagger(std::array<double,GRACE_NSPACEDIM> const& c, int
     #else 
     double const z = 0 ;
     #endif  
-    double L = 2 ;
+    double L = 32 ;
     double kx = 2 * M_PI * 1 / L ; 
     double ky = 2 * M_PI * 2 / L ; 
     double kz = 2 * M_PI * 3 / L ; 
@@ -138,6 +138,37 @@ elem_kind(size_t i, size_t j, size_t k, size_t n, size_t g)
     
 }
 
+void fill_b_field() {
+    DECLARE_GRID_EXTENTS;
+    using namespace grace ; 
+    using namespace Kokkos; 
+
+    auto& aux = variable_list::get().getaux() ;
+    auto aux_h = Kokkos::create_mirror_view(aux) ; 
+
+    auto& sstate = variable_list::get().getstaggeredstate() ;
+    auto bx = create_mirror_view(sstate.face_staggered_fields_x) ; 
+    auto by = create_mirror_view(sstate.face_staggered_fields_y) ; 
+    auto bz = create_mirror_view(sstate.face_staggered_fields_z) ;
+    deep_copy(bx,sstate.face_staggered_fields_x) ; 
+    deep_copy(by,sstate.face_staggered_fields_y) ; 
+    deep_copy(bz,sstate.face_staggered_fields_z) ;
+    auto idx_d = grace::variable_list::get().getinvspacings() ; 
+    auto idx = Kokkos::create_mirror_view(idx_d) ; 
+    Kokkos::deep_copy(idx,idx_d) ;
+    grace::host_grid_loop<false>(
+        [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
+            aux_h(VEC(i,j,k),BX,q) = (bx(VEC(i+1,j,k),0,q) + bx(VEC(i,j,k),0,q))/2 ; 
+            aux_h(VEC(i,j,k),BY,q) = (by(VEC(i,j+1,k),0,q) + by(VEC(i,j,k),0,q))/2 ; 
+            aux_h(VEC(i,j,k),BZ,q) = (bz(VEC(i,j,k+1),0,q) + bz(VEC(i,j,k),0,q))/2 ;
+            aux_h(VEC(i,j,k),BDIV,q) =   (bx(VEC(i+1,j,k),0,q) - bx(VEC(i,j,k),0,q)) * idx(0,q)
+                                     + (by(VEC(i,j+1,k),0,q) - by(VEC(i,j,k),0,q)) * idx(1,q)
+                                     + (bz(VEC(i,j,k+1),0,q) - bz(VEC(i,j,k),0,q)) * idx(2,q) ; 
+        }, {false,false,false}, false ) ;
+
+    deep_copy(aux,aux_h) ; 
+}
+
 template< grace::var_staggering_t stag, typename view_t>
 static void setup_initial_data(
     view_t host_data 
@@ -182,6 +213,100 @@ static void setup_initial_data(
             }
         }, stagger, true 
     ) ; 
+}
+
+template<typename view_t>
+static void setup_initial_B_field(
+    view_t stag_state  
+) 
+{
+    DECLARE_GRID_EXTENTS ; 
+    using namespace grace ; 
+    using namespace Kokkos ; 
+    auto& coord_system = grace::coordinate_system::get() ; 
+    Kokkos::fence() ; 
+
+    View<double ****> Axd("Ax", nx + 2*ngz, ny+2*ngz +1, nz+2*ngz+1,nq) ; 
+    View<double ****> Ayd("Ay", nx + 2*ngz+1, ny+2*ngz, nz+2*ngz+1,nq) ; 
+    View<double ****> Azd("Az", nx + 2*ngz+1, ny+2*ngz +1, nz+2*ngz,nq) ; 
+    auto Ax = create_mirror_view(Axd) ; 
+    auto Ay = create_mirror_view(Ayd) ; 
+    auto Az = create_mirror_view(Azd) ; 
+    grace::host_grid_loop<true>(
+        [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
+            std::array<double,3> lcoord {0.5,0.,0.} ; 
+            auto pcoords = coord_system.get_physical_coordinates(
+                {VEC(i,j,k)}, q, lcoord, true 
+            ) ; 
+            auto rm3 = std::pow(pcoords[0] * pcoords[0] + pcoords[1] * pcoords[1] + pcoords[2] * pcoords[2],-3/2) ; 
+            Ax(i,j,k,q) = -pcoords[1] * rm3 ; 
+        }, {false,true,true}, true 
+    ) ; 
+    deep_copy(Axd,Ax) ;
+    grace::host_grid_loop<true>(
+        [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
+            std::array<double,3> lcoord {0.,0.5,0.} ; 
+            auto pcoords = coord_system.get_physical_coordinates(
+                {VEC(i,j,k)}, q, lcoord, true 
+            ) ; 
+            auto rm3 = std::pow(pcoords[0] * pcoords[0] + pcoords[1] * pcoords[1] + pcoords[2] * pcoords[2],-3/2) ; 
+            Ay(i,j,k,q) = pcoords[0] * rm3 ; 
+        }, {true,false,true}, true 
+    ) ;
+    deep_copy(Ayd,Ay) ;
+    grace::host_grid_loop<true>(
+        [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
+            std::array<double,3> lcoord {0.,0.,0.5} ; 
+            auto pcoords = coord_system.get_physical_coordinates(
+                {VEC(i,j,k)}, q, lcoord, true 
+            ) ; 
+            Az(i,j,k,q) = 0 ; 
+        }, {true,true,false}, true 
+    ) ;
+    deep_copy(Azd,Az) ;
+
+    auto& idx = variable_list::get().getinvspacings() ; 
+    parallel_for(
+        "fill_bx", 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nq}),
+        KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                    {
+                        // B^x = d/dy A^z - d/dz A^y
+                        stag_state.face_staggered_fields_x(VEC(i,j,k),0,q) = (
+                            (Azd(VEC(i  ,j+1,k  ),q) - Azd(VEC(i  ,j  ,k  ),q)) * idx(1,q)
+                          + (Ayd(VEC(i  ,j  ,k  ),q) - Ayd(VEC(i  ,j  ,k+1),q)) * idx(2,q)
+                        ) ; 
+                    }
+    );
+
+    parallel_for(
+        "fill_by", 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz),nq}),
+        KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                    {
+                        // B^x = d/dy A^z - d/dz A^y
+                        stag_state.face_staggered_fields_y(VEC(i,j,k),0,q) = (
+                            (Axd(VEC(i  ,j  ,k+1),q) - Axd(VEC(i  ,j  ,k  ),q)) * idx(2,q)
+                          + (Azd(VEC(i  ,j  ,k  ),q) - Azd(VEC(i+1,j  ,k  ),q)) * idx(0,q)
+                        ) ; 
+                    }
+    );
+
+    parallel_for(
+        "fill_bz", 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz+1),nq}),
+        KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                    { 
+                        // B^x = d/dy A^z - d/dz A^y
+                        stag_state.face_staggered_fields_z(VEC(i,j,k),0,q) = (
+                            (Ayd(VEC(i+1,j  ,k  ),q) - Ayd(VEC(i  ,j  ,k  ),q)) * idx(0,q)
+                          + (Axd(VEC(i  ,j  ,k  ),q) - Axd(VEC(i  ,j+1,k  ),q)) * idx(1,q)
+                        ) ;
+                    }
+    );
+            
+
+    
 }
 
 template< grace::var_staggering_t stag, typename view_t >
@@ -316,7 +441,7 @@ static void check_ghostzones(
                     Catch::Matchers::WithinAbs(ground_truth,
                         1e-13 ) ) ; 
                 }
-                if ( (q == 0 and i == 10 and j == 4 and k == 9) or (q==4 and i==10 and j==4 and k==0) ) {
+                if ( (q == 0 and i == 20 and j == 20 and k == 19)  ) {
                     GRACE_TRACE("Bx {} {} By {} {} Bz {} {}"
                                , host_data_x(VEC(i+1,j,k),0,q)
                                , host_data_x(VEC(i,j,k),0,q)
@@ -368,6 +493,7 @@ TEST_CASE("Apply BC", "[boundaries]")
 {
     DECLARE_GRID_EXTENTS ; 
     using namespace grace ; 
+    Kokkos::fence() ; 
     auto& ghost = grace::amr_ghosts::get() ; 
     //ghost.update() ; 
 
@@ -390,12 +516,10 @@ TEST_CASE("Apply BC", "[boundaries]")
     /*************************************************/
     setup_initial_data<STAG_CENTER>(state_mirror) ; 
     Kokkos::deep_copy(state, state_mirror) ; 
-    setup_initial_data<STAG_FACEX>(fx_mirror) ;
-    Kokkos::deep_copy(stag_state.face_staggered_fields_x, fx_mirror) ;  
-    setup_initial_data<STAG_FACEY>(fy_mirror) ; 
-    Kokkos::deep_copy(stag_state.face_staggered_fields_y, fy_mirror) ;  
-    setup_initial_data<STAG_FACEZ>(fz_mirror) ; 
-    Kokkos::deep_copy(stag_state.face_staggered_fields_z, fz_mirror) ;  
+    setup_initial_B_field(stag_state) ; 
+    Kokkos::deep_copy(fx_mirror, stag_state.face_staggered_fields_x) ; 
+    Kokkos::deep_copy(fy_mirror, stag_state.face_staggered_fields_y) ; 
+    Kokkos::deep_copy(fz_mirror, stag_state.face_staggered_fields_z) ; 
     /*************************************************/
     /*                   Regrid                      */
     /*************************************************/
@@ -411,8 +535,8 @@ TEST_CASE("Apply BC", "[boundaries]")
     auto& layer = ghost.get_ghost_layer() ; 
     {
         int edge_id = 11 ; 
-        auto& edge = layer[30].edges[edge_id] ; 
-        GRACE_TRACE_DBG("Here! edge_kind {}, is_filled {} level_diff {}", 
+        auto& edge = layer[0].edges[edge_id] ; 
+        GRACE_TRACE("Here! edge_kind {}, is_filled {} level_diff {}", 
         static_cast<int>(edge.kind), edge.filled, static_cast<int>(edge.level_diff)) ;
     }
     {
@@ -423,8 +547,8 @@ TEST_CASE("Apply BC", "[boundaries]")
     }
     {
         int corner_id = 7 ;
-        auto& corner = layer[30].corners[corner_id] ; 
-        GRACE_TRACE_DBG("Here! corner_kind {}, is_filled {} level_diff {}", 
+        auto& corner = layer[0].corners[corner_id] ; 
+        GRACE_TRACE("Here! corner_kind {}, is_filled {} level_diff {}", 
         static_cast<int>(corner.kind), corner.filled, static_cast<int>(corner.level_diff)) ;
     }
 
@@ -435,8 +559,8 @@ TEST_CASE("Apply BC", "[boundaries]")
         static_cast<int>(corner.kind), corner.filled, static_cast<int>(corner.level_diff)) ;
     }
     
-    
-
+    fill_b_field() ; 
+    grace::IO::write_cell_output(true,false,false) ; 
     //int face_id = 4 ;
     //auto& face = layer[4].faces[face_id] ; 
     //GRACE_TRACE_DBG("Here! face_kind {}, level_diff {}", 

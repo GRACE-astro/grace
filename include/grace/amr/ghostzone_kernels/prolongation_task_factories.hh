@@ -596,6 +596,11 @@ void insert_div_preserving_prolongation_tasks(
             cid[kind].push_back(_cid) ; 
             eid[kind].push_back(_eid) ; 
             has_fine[kind].push_back(_has_fine) ; 
+            if ( kind == 2 and std::get<0>(d) == 0 and std::get<1>(d) == 7 ) {
+                GRACE_TRACE("Here! has_fine? lower: {} {} {},  upper: {} {} {}"
+                           , _has_fine[0][0], _has_fine[0][1], _has_fine[0][2]
+                           , _has_fine[1][0], _has_fine[1][1], _has_fine[1][2]) ; 
+            }
         }
     }
 

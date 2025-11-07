@@ -173,7 +173,7 @@ static int coarsen_cback( p4est_t* p4est
     }
      
     
-    return  ncoarsen > (P4EST_CHILDREN/2)  ; 
+    return  ncoarsen == P4EST_CHILDREN  ; 
 }
 
 }} /* grace::amr */

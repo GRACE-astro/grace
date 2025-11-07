@@ -1030,11 +1030,21 @@ struct grmhd_equations_system_t
                         , VEC( i
                              , j
                              , k )) ; 
+        if constexpr ( idir == 0 ) {
+            primL[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) / metric_face.sqrtg() ; 
+            primR[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) / metric_face.sqrtg(); 
+        } else if constexpr ( idir == 1 ) {
+            primL[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) / metric_face.sqrtg(); 
+            primR[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) / metric_face.sqrtg(); 
+        } else {
+            primL[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) / metric_face.sqrtg(); 
+            primR[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) / metric_face.sqrtg(); 
+        }
         /***********************************************************************/ 
         /*                      Compute LLF flux                               */
         /***********************************************************************/
         grmhd_cons_array_t f_LLF ;
-	std::array<double,4> dummy ; 
+	    std::array<double,4> dummy ; 
         compute_mhd_fluxes<idir,riemann_t,false>( primL, primR, metric_face, f_LLF, dummy, 1., 1.) ;
         /***********************************************************************/
         // Get conserves 
@@ -1049,7 +1059,7 @@ struct grmhd_equations_system_t
         // Mix fluxes 
         double const a2CFL = 6. * (dt*dtfact/dx(idir,q)) ; 
         double theta = 1 ; 
-        double rho_atm = 1e-6 ; //FIXME //_eos.rho_atmosphere() ; 
+        double rho_atm = atmo_params.rho_fl ; 
         
         double const dens_min_r = rho_atm * metric_r.sqrtg() ; 
         double const dens_min_l = rho_atm * metric_l.sqrtg() ; 
@@ -1062,7 +1072,13 @@ struct grmhd_equations_system_t
 
         double theta_p = 1.; 
         double theta_m = 1.; 
+        /*
+        if(rho_star_m < rho_star_min)
+                theta_m = MIN(theta,MAX(0.0,(rho_star_min - rho_star_LLF_m)/(a2CFL*(rho_star_flux[index] - rho_star_flux_LO[index]))));
 
+        if(rho_star_p < rho_star_minm1)
+                theta_p = MIN(theta,MAX(0.0,-( rho_star_minm1 - rho_star_LLF_p)/(a2CFL*(rho_star_flux[index] - rho_star_flux_LO[index]))));
+        */
         if (dens_m < dens_min_r) {
             theta_m = math::min(theta, math::max(0, (dens_min_r-dens_LLF_m)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ; 
         }

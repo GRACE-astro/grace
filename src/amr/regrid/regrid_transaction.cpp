@@ -152,12 +152,16 @@ void regrid_transaction_t::evaluate_criterion() {
     for( size_t iq=0UL; iq<amr::get_local_num_quadrants(); ++iq)
     {
         auto quad = amr::get_quadrant(iq) ;
+        int flag = INVALID_STATE ; 
+        if ( h_regrid_flags(iq) == REFINE ) { 
+            flag = REFINE ; 
+        } else if ( h_regrid_flags(iq) == COARSEN ) {
+            flag = (quad.level() - 1 >= quad.get_user_long()) ? COARSEN : DEFAULT_STATE ; 
+        } else {
+            flag = DEFAULT_STATE ; 
+        }
         quad.set_user_int(
-            static_cast<int>(
-                (h_regrid_flags(iq) == REFINE)  * REFINE 
-            +   (h_regrid_flags(iq) == COARSEN) * COARSEN 
-            +   ((h_regrid_flags(iq) != REFINE) and (h_regrid_flags(iq) != COARSEN)) * DEFAULT_STATE )
-            
+            flag            
         ) ; 
     }
 }
@@ -330,7 +334,7 @@ void regrid_transaction_t::execute_partition() {
     auto& emf = grace::variable_list::get().getemfarray() ; 
     auto& vbar = grace::variable_list::get().getvbararray() ; 
     Kokkos::realloc( emf, VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz), GRACE_NSPACEDIM, nq_final) ;
-    Kokkos::realloc( emf, VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz), 4, GRACE_NSPACEDIM, nq_final) ;
+    Kokkos::realloc( vbar, VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz), 4, GRACE_NSPACEDIM, nq_final) ;
     // now wait 
     grace_transfer_fixed_end(context) ;  
 }; 

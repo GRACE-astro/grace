@@ -176,6 +176,16 @@ class quadrant_t
     {
         return _pquad->p.user_int ; 
     }
+    /**
+     * @brief Get the user long of this quadrant.
+     * 
+     * @return int quadrant->p.user_long
+     */
+    long GRACE_ALWAYS_INLINE
+    get_user_long() const 
+    {
+        return _pquad->p.user_long ; 
+    }
     //*****************************************************************************************************
     /**
      * @brief For halo quadrants: get tree index.

@@ -656,7 +656,7 @@ void amr_ghosts_impl_t::build_remote_buffers() {
         total_send += total_send_size[istag] ; 
         total_recv += total_recv_size[istag] ; 
     }
-    GRACE_INFO("Setup of remote buffers complete, total send/recv size [MB] {}/{}, avg message size per rank [MB] {}/{}",
+    GRACE_VERBOSE("Setup of remote buffers complete, total send/recv size [MB] {}/{}, avg message size per rank [MB] {}/{}",
            sizeof(double)*(total_send)/1e06,
            sizeof(double)*(total_recv)/1e06,
            sizeof(double)*(total_send)/1e06/active_send.size(),

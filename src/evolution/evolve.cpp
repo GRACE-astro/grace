@@ -277,8 +277,34 @@ void advance_substep( double const t, double const dt, double const dtfact
     /* Define the equation system (a couple ugly ifdef's!)*/ 
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
+    atmo_params_t atmo_params ; 
+    
+    atmo_params.rho_fl = grace::get_param<double>("grmhd","atmosphere","rho_fl") ; 
+    atmo_params.temp_fl = grace::get_param<double>("grmhd","atmosphere","temp_fl") ; 
+    atmo_params.ye_fl = grace::get_param<double>("grmhd","atmosphere","ye_fl") ; 
+
+    atmo_params.rho_fl_scaling = grace::get_param<double>("grmhd","atmosphere","rho_scaling") ; 
+    atmo_params.temp_fl_scaling = grace::get_param<double>("grmhd","atmosphere","temp_scaling") ;
+
+
+    auto excision_pars = grace::get_param<YAML::Node>("grmhd","excision") ;
+    excision_params_t excision_params ; 
+    auto excision_kind = grace::get_param<std::string>("grmhd","excision","excision_criterion"); 
+    //excision_pars["excision_criterion"].as<std::string>() ;
+    if ( excision_kind == "radius" ) {
+        excision_params.excise_by_radius = true ;
+    } else if ( excision_kind == "lapse") {
+        excision_params.excise_by_radius = false ;
+    } else {
+        ERROR("Unrecognized excision criterion") ; 
+    }
+    excision_params.r_ex = grace::get_param<double>("grmhd","excision","excision_radius"); 
+    excision_params.alp_ex = grace::get_param<double>("grmhd","excision","excision_lapse"); 
+    
+    excision_params.rho_ex =  grace::get_param<double>("grmhd","excision","rho_excision"); 
+    excision_params.temp_ex =  grace::get_param<double>("grmhd","excision","temp_excision"); 
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,old_state,old_stag_state,aux) ; 
+        grmhd_eq_system(eos,old_state,old_stag_state,aux,atmo_params,excision_params) ; 
     #define RECON weno_reconstructor_t<5>
     //slope_limited_reconstructor_t<MCbeta>
     //weno_reconstructor_t<5>
