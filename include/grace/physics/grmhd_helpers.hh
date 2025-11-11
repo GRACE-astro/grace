@@ -30,7 +30,32 @@
 
 #include <grace_config.h> 
 #include <grace/utils/metric_utils.hh>
+#include <grace/config/config_parser.hh>
 #include <array>
+
+/**
+ * @brief Atmosphere treatment parameters
+ * 
+ */
+struct atmo_params_t {
+    double ye_fl ;    //!< Atmo ye
+    double rho_fl ;   //!< Atmo rho
+    double temp_fl ;  //!< Atmo T 
+    double rho_fl_scaling  ; //!< Radial scaling of atmo rho
+    double temp_fl_scaling ; //!< Radial scaling of atmo T
+} ; 
+/**
+ * @brief Excision parameters
+ * 
+ */
+struct excision_params_t {
+    double rho_ex ;         //!< Excision rho
+    double temp_ex ;        //!< Excision temp 
+    double r_ex ;           //!< Excision radius
+    double alp_ex ;         //!< Excision alpha
+    bool excise_by_radius ; //!< Whether excision is radius based (CKS) or alpha based.
+} ; 
+
 //**************************************************************************************************/
 /* Auxiliaries */
 //**************************************************************************************************/
@@ -132,7 +157,7 @@ excision_params_t get_excision_params()
     
     excision_params.rho_ex =  grace::get_param<double>("grmhd","excision","rho_excision"); 
     excision_params.temp_ex =  grace::get_param<double>("grmhd","excision","temp_excision"); 
-    return excision_params
+    return excision_params ; 
 }
 
 /**

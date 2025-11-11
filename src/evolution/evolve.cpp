@@ -36,6 +36,7 @@
 #include <grace/config/config_parser.hh>
 
 #include <grace/amr/boundary_conditions.hh>
+#include <grace/amr/amr_ghosts.hh>
 
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/profiling/profiling.hh>
@@ -120,16 +121,16 @@ void evolve_impl() {
     grace::deep_copy(sstate_p, sstate) ; 
     if ( tstepper == "euler" ) {
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
-        advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p,aux,idx,dx,cvol,fsurf,fluxes,vbar,emf) ; 
+        advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ; 
         amr::apply_boundary_conditions(state, sstate) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if (tstepper == "rk2" ) {
         /* Compute auxiliaries at current timelevel */
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
-        advance_substep<eos_t>(t,dt,0.5,state_p,state,sstate_p,sstate,aux,idx,dx,cvol,fsurf,fluxes,vbar,emf) ; 
+        advance_substep<eos_t>(t,dt,0.5,state_p,state,sstate_p,sstate) ; 
         amr::apply_boundary_conditions(state_p,sstate_p) ; 
         compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ;
-        advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p,aux,idx,dx,cvol,fsurf,fluxes,vbar,emf) ;
+        advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ;
         amr::apply_boundary_conditions(state,sstate) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if (tstepper == "rk3" ) {
@@ -194,8 +195,7 @@ void evolve_impl() {
         advance_substep<eos_t>(
             t,dt,1.0,
             state_p,state,
-            sstate_p,sstate,aux,
-            idx,dx,cvol,fsurf, fluxes,vbar,emf) ; 
+            sstate_p,sstate) ; 
         amr::apply_boundary_conditions(state_p,sstate_p) ; 
         compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ;
         // Allocate state_pp and sstate_pp 
@@ -217,8 +217,7 @@ void evolve_impl() {
         advance_substep<eos_t>(
             t,dt,0.25,
             state_pp,state_p,
-            sstate_pp,sstate_p,aux,
-            idx,dx,cvol,fsurf, fluxes,vbar,emf) ;
+            sstate_pp,sstate_p) ;
         amr::apply_boundary_conditions(state_pp,sstate_pp) ; 
         compute_auxiliary_quantities<eos_t>(state_pp, sstate_pp, aux) ;
         // step 4: state = 1/3 u^n + 2/3 u^2
@@ -237,8 +236,7 @@ void evolve_impl() {
         advance_substep<eos_t>(
             t,dt,2./3.,
             state,state_pp,
-            sstate,sstate_pp,aux,
-            idx,dx,cvol,fsurf, fluxes,vbar,emf) ;
+            sstate,sstate_pp) ;
         amr::apply_boundary_conditions(state,sstate) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else {
@@ -249,7 +247,7 @@ void evolve_impl() {
 }
 
 template< typename eos_t >
-static void compute_fluxes(
+void compute_fluxes(
     double const t, double const dt, double const dtfact 
     , var_array_t& new_state 
     , var_array_t& old_state 
@@ -316,7 +314,7 @@ static void compute_fluxes(
     Kokkos::fence() ; 
 }
 
-static void compute_emfs(
+void compute_emfs(
     double const t, double const dt, double const dtfact 
     , var_array_t& new_state 
     , var_array_t& old_state 
@@ -527,7 +525,7 @@ static void compute_emfs(
     //**************************************************************************************************/
 }
 template< typename eos_t >
-static void add_fluxes_and_source_terms(
+void add_fluxes_and_source_terms(
     double const t, double const dt, double const dtfact 
     , var_array_t& new_state 
     , var_array_t& old_state 
@@ -562,7 +560,7 @@ static void add_fluxes_and_source_terms(
         ) ;
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_sources")
-                , geom_sources_policy 
+                , policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
         for( int ivar=0; ivar<nvars_hrsc; ++ivar) {
@@ -578,7 +576,7 @@ static void add_fluxes_and_source_terms(
     // fixme better to have two kernels? --> I don't think so nvars_hrsc is small.
 }
 
-static void update_CT(
+void update_CT(
     double const t, double const dt, double const dtfact 
     , var_array_t& new_state 
     , var_array_t& old_state 
@@ -655,7 +653,7 @@ static void update_CT(
     //**************************************************************************************************/
 }
 
-static void update_fd(
+void update_fd(
     double const t, double const dt, double const dtfact 
     , var_array_t& new_state 
     , var_array_t& old_state 
@@ -694,10 +692,7 @@ static void update_fd(
     #endif 
 }
 
-static void 
-grace_transfer_context_t reflux_fill_flux_buffers(
-    double t, double dt, double dtfact
-) 
+parallel::grace_transfer_context_t reflux_fill_flux_buffers() 
 {
     using namespace grace ; 
     using namespace Kokkos ; 
@@ -709,71 +704,74 @@ grace_transfer_context_t reflux_fill_flux_buffers(
     int nvars_hrsc = variables::get_n_hrsc() ;
     //**************************************************************************************************/
     // and some more 
-    auto sbuf = grace::ghost_layer::get().get_reflux_send_buffer() ; 
-    auto rbuf = grace::ghost_layer::get().get_reflux_recv_buffer() ; 
-    auto buf = grace::ghost_layer::get().get_reflux_local_buffer() ; 
-    auto desc = grace::ghost_layer::get().get_reflux_face_descriptor() ; 
+    auto& ghost_layer = grace::amr_ghosts::get();
+    auto sbuf = ghost_layer.get_reflux_send_buffer() ; 
+    auto rbuf = ghost_layer.get_reflux_recv_buffer() ; 
+    auto desc = ghost_layer.get_reflux_face_send_list() ; 
     //**************************************************************************************************/
-    View<reflux_face_desc_t*> info ; 
+    View<hanging_remote_reflux_desc_t*> info ; 
     grace::deep_copy_vec_to_const_view(info,desc) ; 
     //**************************************************************************************************/
     auto policy = 
         MDRangePolicy<Rank<4>> (
-            (VEC(0,0),0,0),
-            (VEC(nx,nx),nvars_hrsc,desc.size())
+            {0
+            ,0
+            ,0
+            ,0},
+            {static_cast<long>(nx/2)
+            ,static_cast<long>(nx/2)
+            ,static_cast<long>(nvars_hrsc)
+            ,static_cast<long>(desc.size())}
         ) ; 
     //**************************************************************************************************/
-    index_transformer_t transf(nx,ny,nz,ngz,STAG_CENTER) ; 
+    //**************************************************************************************************/
+    constexpr std::array<std::array<int,2>,3> other_dirs = {{
+        {{1,2}}, {{0,2}}, {{0,1}}
+    }} ; 
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_fill_flux_buffers")
             , policy 
             , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& ivar, int const& iq) {
                 auto const dsc = info(iq) ; 
 
-                auto const iface = dsc.face_idx ; 
-                auto const rank = dsc.other_rank ; // could be same as ours! 
+                auto const iface = dsc.elem_id ; 
+                auto const rank = dsc.rank ; // could be same as ours! 
                 auto const idir = iface / 2; 
-                auto const qid = dsc.quad_id ; 
+                auto const iside = iface%2 ; 
+                auto const qid = dsc.qid ; 
 
-                size_t i_s,j_s,k_s, i_d,j_d ; 
-                transf.compute_indices<grace::amr::FACE,false>(
-                    0,i,j, i_s,j_s,k_s, face_idx
-                ) ; 
-                double flux = dt * dtfact * idx(idir,q) * fluxes(i_s,j_s,k_s,ivar,idir,qid) ;
-
-                if ( dsc.sides.is_fine ) {
-                    // get indices 
-                    i_d = i/2 ; j_d = j/2;
-                    flux *= +0.25; 
-                } else {
-                    i_d = i ; j_d = j;
-                    flux *= -1 ; 
-                }   
-                auto bid = dsc.buf_id ; 
-                if ( dsc.is_remote ) {
-                    Kokkos::atomic_add(
-                        /* buf  */ &sbuf(i_d,j_d,ivar,bid,rank), /* send buffer */
-                        /* flux */ flux 
-                    ) ; 
-                } else {
-                    Kokkos::atomic_add(
-                        /* buf  */ &buf(i_d,j_d,ivar,bid,rank), /* local buffer! */
-                        /* flux */ flux 
-                    ) ;
+                size_t ijk_s[3] ; 
+                ijk_s[idir] = iside ? nx + ngz : ngz ; 
+                ijk_s[other_dirs[idir][0]] = ngz + 2*i ; 
+                ijk_s[other_dirs[idir][1]] = ngz + 2*j ; 
+                
+                double flux = 0 ; 
+                for( int ii=0; ii<=(idir!=0); ++ii) {
+                    for( int jj=0; jj<=(idir!=1); ++jj) {
+                        for( int kk=0; kk<=(idir!=2); ++kk) {
+                            flux += fluxes(ijk_s[0]+ii, ijk_s[1]+jj, ijk_s[2]+kk, ivar, idir, qid) ; 
+                        }
+                    }
                 }
                 
+                auto bid = dsc.buf_id ; 
+                sbuf(i,j,ivar,bid,rank) = 0.25*flux ; 
             }
         ) ; 
     /* now we send and receive */
-    auto offsets = ghost_layer.reflux_buffer_rank_offsets() ; 
-    auto sizes = ghost_layer.reflux_buffer_rank_sizes() ; 
-    grace_transfer_context_t context ; 
+    auto soffsets = ghost_layer.get_reflux_buffer_rank_send_offsets() ; 
+    auto ssizes = ghost_layer.get_reflux_buffer_rank_send_sizes() ;
+    
+    auto roffsets = ghost_layer.get_reflux_buffer_rank_recv_offsets() ; 
+    auto rsizes = ghost_layer.get_reflux_buffer_rank_recv_sizes() ;
+
+    parallel::grace_transfer_context_t context ; 
     auto nprocs = parallel::mpi_comm_size() ;
     auto proc = parallel::mpi_comm_rank() ; 
     for( int iproc=0; iproc<nprocs; ++iproc) {
         if ( iproc == proc ) continue ; 
         // send 
-        if ( sizes[iproc] > 0 ) {
+        if ( ssizes[iproc] > 0 ) {
             context._send_requests.push_back(MPI_Request{}) ; 
             parallel::mpi_isend(
                 sbuf.data() + soffsets[iproc],
@@ -781,9 +779,10 @@ grace_transfer_context_t reflux_fill_flux_buffers(
                 iproc,
                 0,
                 MPI_COMM_WORLD,
-                *context._send_requests.back()
+                &context._send_requests.back()
             );  
-
+        }
+        if ( rsizes[iproc] > 0 ) {
             context._recv_requests.push_back(MPI_Request{}) ; 
             parallel::mpi_irecv(
                 rbuf.data() + roffsets[iproc],
@@ -791,7 +790,7 @@ grace_transfer_context_t reflux_fill_flux_buffers(
                 iproc,
                 0,
                 MPI_COMM_WORLD,
-                *context._recv_requests.back()
+                &context._recv_requests.back()
             );  
         }
     }
@@ -799,10 +798,7 @@ grace_transfer_context_t reflux_fill_flux_buffers(
     return context ;
 }
 
-static void 
-grace_transfer_context_t reflux_fill_emf_buffers(
-    double t, double dt, double dtfact
-) 
+parallel::grace_transfer_context_t reflux_fill_emf_buffers() 
 {
     using namespace grace ; 
     using namespace Kokkos ; 
@@ -814,171 +810,556 @@ grace_transfer_context_t reflux_fill_emf_buffers(
     int nvars_hrsc = variables::get_n_hrsc() ;
     //**************************************************************************************************/
     // and some more 
-    auto sbuf = grace::ghost_layer::get().get_reflux_send_emf_buffer() ; 
-    auto rbuf = grace::ghost_layer::get().get_reflux_recv_emf_buffer() ; 
-    auto buf = grace::ghost_layer::get().get_reflux_local_emf_buffer() ; 
-    auto desc = grace::ghost_layer::get().get_reflux_face_descriptor() ; 
+    auto& ghost_layer = grace::amr_ghosts::get();
+    auto sbuf = ghost_layer.get_reflux_emf_send_buffer() ; 
+    auto rbuf = ghost_layer.get_reflux_emf_recv_buffer() ; 
+    auto desc = ghost_layer.get_reflux_face_send_list() ; 
     //**************************************************************************************************/
-    View<reflux_face_desc_t*> info ; 
+    View<hanging_remote_reflux_desc_t*> info ; 
     grace::deep_copy_vec_to_const_view(info,desc) ; 
     //**************************************************************************************************/
     auto policy = 
-        MDRangePolicy<Rank<4>> (
-            (VEC(0,0),0),
-            (VEC(nx+1,nx+1),desc.size())
+        MDRangePolicy<Rank<3>> (
+            {0,0,0},
+            {static_cast<long>(nx/2+1)
+            ,static_cast<long>(nx/2+1)
+            ,static_cast<long>(desc.size())}
         ) ; 
     //**************************************************************************************************/
-    index_transformer_t transf(nx,ny,nz,ngz,STAG_CENTER) ; 
+    //**************************************************************************************************/
+    constexpr std::array<std::array<int,2>,3> other_dirs = {{
+        {{1,2}}, {{0,2}}, {{0,1}}
+    }} ; 
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_fill_emf_buffers")
             , policy 
             , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
                 auto const dsc = info(iq) ; 
-                int orthogonal_dirs[3][2] = {
-                    {1,2}, {0,2}, {0,1}
-                } ; 
-                auto const iface = dsc.face_idx ; 
-                auto const rank = dsc.other_rank ; // could be same as ours! 
-                auto const idir = orthogonal_dirs[iface / 2][0]; 
-                auto const jdir = orthogonal_dirs[iface / 2][1]; 
-                auto const qid = dsc.quad_id ; 
+                 
+                auto const iface = dsc.elem_id ; 
+                auto const rank = dsc.rank ; // could be same as ours! 
 
-                size_t i_s,j_s,k_s, i_d,j_d ; 
-                transf.compute_indices<grace::amr::FACE,false>(
-                    0,i,j, i_s,j_s,k_s, face_idx
-                ) ; 
+                auto const fdir = iface / 2;
+                auto const idir = other_dirs[iface / 2][0]; 
+                auto const jdir = other_dirs[iface / 2][1]; 
+                auto const iside = iface % 2 ;
+
+                auto const qid = dsc.qid ; 
+
+                size_t ijk_s[3] ; 
+                ijk_s[fdir] = iside ? nx + ngz : ngz ; 
+                ijk_s[idir] = 2*i + ngz ; 
+                ijk_s[idir] = 2*i + ngz ; 
                 // note that the range is n+1 in both dirs
                 // for each, one iteration is out of bounds.
                 // however the arrays have padding of ngz and the garbage
                 // value will be unused
-                double emf_i = dt * dtfact * idx(idir,q) * emf(i_s,j_s,k_s,idir,qid);
-                double emf_j = dt * dtfact * idx(jdir,q) * emf(i_s,j_s,k_s,jdir,qid);
-
-                if ( dsc.sides.is_fine ) {
-                    // get indices 
-                    i_d = i/2 ; j_d = j/2;
-                    emf_i *= 0.5; emf_j *= 0.5 ; 
-                } else {
-                    i_d = i ; j_d = j;
-                    emf_i *= -1 ; emf_j *= -1 ;  
-                } 
+                double emf_i = 0.5 * (
+                    emf(ijk_s[0],ijk_s[1],ijk_s[2],idir,qid) + 
+                    emf(ijk_s[0] + (idir==0),ijk_s[1] + (idir==1),ijk_s[2] + (idir==2),idir,qid)
+                );
+                double emf_j = 0.5 * (
+                    emf(ijk_s[0],ijk_s[1],ijk_s[2],jdir,qid) + 
+                    emf(ijk_s[0] + (jdir==0),ijk_s[1] + (jdir==1),ijk_s[2] + (jdir==2),jdir,qid)
+                );
+                
                 auto bid = dsc.buf_id ; 
-                if ( dsc.is_remote ) {
-                    Kokkos::atomic_add(
-                        /* buf  */ &sbuf(i_d,j_d,0,bid,rank), /* send buffer */
-                        /* flux */ emf_i 
-                    ) ; 
-                    Kokkos::atomic_add(
-                        /* buf  */ &sbuf(i_d,j_d,1,bid,rank), /* send buffer */
-                        /* flux */ emf_j 
-                    ) ;
-                } else {
-                    Kokkos::atomic_add(
-                        /* buf  */ &buf(i_d,j_d,0,bid,rank), /* send buffer */
-                        /* flux */ emf_i 
-                    ) ; 
-                    Kokkos::atomic_add(
-                        /* buf  */ &buf(i_d,j_d,1,bid,rank), /* send buffer */
-                        /* flux */ emf_j 
-                    ) ;
-                }
+                sbuf(i,j,0,bid,rank) = emf_i ; 
+                sbuf(i,j,1,bid,rank) = emf_j ; 
             }
         ) ; 
     // send - receive face buffers
+    auto soffsets = ghost_layer.get_reflux_buffer_rank_send_emf_offsets() ; 
+    auto ssizes = ghost_layer.get_reflux_buffer_rank_send_emf_sizes() ;
+    
+    auto roffsets = ghost_layer.get_reflux_buffer_rank_recv_emf_offsets() ; 
+    auto rsizes = ghost_layer.get_reflux_buffer_rank_recv_emf_sizes() ;
 
-
+    parallel::grace_transfer_context_t context ; 
+    auto nprocs = parallel::mpi_comm_size() ;
+    auto proc = parallel::mpi_comm_rank() ; 
+    for( int iproc=0; iproc<nprocs; ++iproc) {
+        if ( ssizes[iproc] > 0 ) {
+            context._send_requests.push_back(MPI_Request{}) ; 
+            parallel::mpi_isend(
+                sbuf.data() + soffsets[iproc],
+                ssizes[iproc],
+                iproc,
+                0,
+                MPI_COMM_WORLD,
+                &context._send_requests.back()
+            );  
+        }
+        if ( rsizes[iproc] > 0 ) {
+            context._recv_requests.push_back(MPI_Request{}) ; 
+            parallel::mpi_irecv(
+                rbuf.data() + roffsets[iproc],
+                rsizes[iproc],
+                iproc,
+                0,
+                MPI_COMM_WORLD,
+                &context._recv_requests.back()
+            );  
+        }
+    }
+    //**************************************************************************************************/
+    auto sbuf_edge = ghost_layer.get_reflux_emf_edge_send_buffer() ; 
+    auto rbuf_edge = ghost_layer.get_reflux_emf_edge_recv_buffer() ; 
+    auto desc_edge = ghost_layer.get_reflux_edge_send_list() ; 
+    //**************************************************************************************************/
+    //**************************************************************************************************/
+    View<hanging_remote_reflux_desc_t*> info_edge ; 
+    grace::deep_copy_vec_to_const_view(info_edge,desc_edge) ; 
+    //**************************************************************************************************/
+    //**************************************************************************************************/
+    auto edge_policy = 
+        MDRangePolicy<Rank<2>> (
+            {0,0},
+            {static_cast<long>(nx),static_cast<long>(desc_edge.size())}
+        ) ; 
     // fill edge buffers 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_fill_emf_edge_buffers")
-            , policy 
+            , edge_policy 
             , KOKKOS_LAMBDA (int const& i, int const& iq) {
-                auto const dsc = info(iq) ; 
+                auto const dsc = info_edge(iq) ; 
                 
-                auto const iedge = dsc.edge_idx ; 
+                auto const iedge = dsc.elem_id ; 
                 int idir = (iedge/4) ; 
-                auto const qid = dsc.quad_id ; 
+                int jside = (iedge>>0)&1 ; 
+                int kside = (iedge>>1)&1 ;
+                int jdir = other_dirs[idir][0] ; 
+                int kdir = other_dirs[idir][1] ; 
 
-                size_t i_s,j_s,k_s, i_d ; 
-                // there are 3 other partners in this dance 
-                for( int iside=0; iside<3 ; ++iside ) {
-                    auto const rank = dsc.other_rank ; // could be same as ours! 
-                    transf.compute_indices<grace::amr::EDGE,false>(
-                        0,0,j, i_s,j_s,k_s, edge_idx 
-                    ) ;
-                    double emf_i = dt * dtfact * idx(idir,q) * emf(i_s,j_s,k_s,idir,qid);
-                    if ( dsc.sides[iside].is_fine /* this means WE are finer */) {
-                        // get indices 
-                        i_d = i/2 ; 
-                        emf_i *= 0.5 * dsc.inv_n_fine ; 
-                    } else { /* this means we are coarser */
-                        i_d = i ; 
-                        emf_i *= -dsc.inv_n_coarse ; 
-                    } 
-                    auto bid = dsc.buf_id ; 
-                    if ( dsc.is_remote ) {
-                        Kokkos::atomic_add(
-                            /* buf  */ &sbuf(i_d,j_d,0,bid,rank), /* send buffer */
-                            /* flux */ emf_i 
-                        ) ; 
-                    } else {
-                        Kokkos::atomic_add(
-                            /* buf  */ &buf(i_d,j_d,0,bid,rank), /* send buffer */
-                            /* flux */ emf_i 
-                        ) ;
-                }
-                
+                auto const qid = dsc.qid ; 
+
+                size_t ijk_s[3] ;
+                ijk_s[idir] = ngz + i ; 
+                ijk_s[jdir] = jside ? nx + ngz : ngz ; 
+                ijk_s[kdir] = kside ? nx + ngz : ngz ; 
+
+                auto const rank = dsc.rank ; // could be same as ours!
+                auto bid = dsc.buf_id ;
+                sbuf_edge(i, bid, rank) = emf(ijk_s[0],ijk_s[1],ijk_s[2],idir,qid) ; 
             }
         ) ;
-
+        // todo maybe edge bufs can be separate, this seems wasteful 
     // send - receive edge buffers 
+    auto soffsets_edge = ghost_layer.get_reflux_buffer_rank_send_emf_edge_offsets() ; 
+    auto ssizes_edge   = ghost_layer.get_reflux_buffer_rank_send_emf_edge_sizes()   ;
+    
+    auto roffsets_edge = ghost_layer.get_reflux_buffer_rank_recv_emf_edge_offsets() ; 
+    auto rsizes_edge   = ghost_layer.get_reflux_buffer_rank_recv_emf_sizes()   ;
+    for( int iproc=0; iproc<nprocs; ++iproc) {
+        if ( ssizes_edge[iproc] > 0 ) {
+            context._send_requests.push_back(MPI_Request{}) ; 
+            parallel::mpi_isend(
+                sbuf_edge.data() + soffsets_edge[iproc],
+                ssizes_edge[iproc],
+                iproc,
+                0,
+                MPI_COMM_WORLD,
+                &context._send_requests.back()
+            );  
+        }
+        if ( rsizes_edge[iproc] > 0 ) {
+            context._recv_requests.push_back(MPI_Request{}) ; 
+            parallel::mpi_irecv(
+                rbuf_edge.data() + roffsets_edge[iproc],
+                rsizes_edge[iproc],
+                iproc,
+                0,
+                MPI_COMM_WORLD,
+                &context._recv_requests.back()
+            );  
+        }
+    }
+    return context ; 
 }
+
+void reflux_correct_fluxes(
+    parallel::grace_transfer_context_t& context,
+    double t, double dt, double dtfact,
+    var_array_t & new_state 
+)
+{
+    using namespace grace ; 
+    using namespace Kokkos ; 
+    DECLARE_GRID_EXTENTS ; 
+    //**************************************************************************************************/
+    // fetch some stuff 
+    auto& idx     = grace::variable_list::get().getinvspacings() ;  
+    auto& fluxes  = grace::variable_list::get().getfluxesarray() ; 
+    int nvars_hrsc = variables::get_n_hrsc() ;
+    //**************************************************************************************************/
+    auto& ghost_layer = grace::amr_ghosts::get();
+    auto rbuf = ghost_layer.get_reflux_recv_buffer() ; 
+    auto desc = ghost_layer.get_reflux_face_descriptors() ; 
+    //**************************************************************************************************/
+    View<hanging_face_reflux_desc_t*> info ; 
+    grace::deep_copy_vec_to_const_view(info,desc) ; 
+    //**************************************************************************************************/
+    parallel::mpi_waitall(context) ; 
+    //**************************************************************************************************/
+    auto policy = 
+        MDRangePolicy<Rank<4>> (
+            {0,0,0,0},
+            {static_cast<long>(nx/2)
+            ,static_cast<long>(nx/2)
+            ,static_cast<long>(nvars_hrsc)
+            ,static_cast<long>(desc.size())}
+        ) ;
+    //**************************************************************************************************/
+    constexpr std::array<std::array<int,2>,3> other_dirs = {{
+        {{1,2}}, {{0,2}}, {{0,1}}
+    }} ; 
+    //**************************************************************************************************/
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_apply")
+            , policy 
+            , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& ivar, int const& iq) {
+                auto const dsc = info(iq) ; 
+
+                auto const qid_c  = dsc.coarse_qid     ; 
+                auto const iface_c = dsc.coarse_face_id ; 
+
+                auto const idir = iface_c / 2; 
+                auto const side = iface_c % 2;
+
+                size_t ijk_fs[3], ijk_cc[3] ; 
+                ijk_fs[idir] = (iface_c % 2)    
+                            ? ngz + nx 
+                            : ngz ;
+                // cell center index 
+                ijk_cc[idir] = (iface_c % 2)    
+                            ? ngz + nx - 1 
+                            : ngz ;
+                ijk_fs[other_dirs[idir][0]] = ijk_cc[other_dirs[idir][0]] = ngz + i ; 
+                ijk_fs[other_dirs[idir][1]] = ijk_cc[other_dirs[idir][1]] = ngz + j ; 
+
+                // compute child id 
+                int8_t ichild = (2*i>=nx) + 2 * (2*j>=nx) ; 
+
+                double flux_correction = 0 ; 
+                if ( dsc.fine_is_remote[ichild] ) {
+                    flux_correction = rbuf(i%(nx/2),j%(nx/2),ivar,dsc.fine_qid[ichild],dsc.fine_owner_rank[ichild]) ; 
+                } else {
+                    // compute flux correction 
+                    size_t qid_f = dsc.fine_qid[ichild] ; 
+                    size_t ijk_f[3] ; 
+                    // on fine side the side is opposite 
+                    ijk_f[idir] = (iface_c % 2)    
+                                ? ngz  
+                                : ngz + nx ;
+                    ijk_f[other_dirs[idir][0]] = ngz + (2*i%nx) ; 
+                    ijk_f[other_dirs[idir][1]] = ngz + (2*j%nx) ; 
+
+                    for( int ii=0; ii<=(idir!=0); ++ii) {
+                        for( int jj=0; jj<=(idir!=1); ++jj) {
+                            for( int kk=0; kk<=(idir!=2); ++kk) {
+                                flux_correction += fluxes(ijk_f[0]+ii, ijk_f[1]+jj, ijk_f[2]+kk, ivar, idir, qid_f) ; 
+                            }
+                        }
+                    }
+                    flux_correction *= 0.25 ; 
+                }
+                int sign = side ? -1 : +1 ; 
+                new_state(ijk_cc[0],ijk_cc[1],ijk_cc[2],ivar,qid_c) += sign * dt * dtfact * idx(idir,qid_c) * (
+                    flux_correction - fluxes(ijk_fs[0],ijk_fs[1],ijk_fs[2],ivar,idir,qid_c)
+                ) ; 
+            }
+        ) ;
+    //**************************************************************************************************/
+    //**************************************************************************************************/
+    //**************************************************************************************************/ 
+
+}
+
+void reflux_correct_emfs(
+    parallel::grace_transfer_context_t& context,
+    double t, double dt, double dtfact,
+    staggered_variable_arrays_t& new_stag_state
+)
+{
+    using namespace grace ; 
+    using namespace Kokkos ; 
+    DECLARE_GRID_EXTENTS ; 
+    //**************************************************************************************************/
+    // fetch some stuff 
+    auto& idx     = grace::variable_list::get().getinvspacings() ;  
+    auto& emf  = grace::variable_list::get().getemfarray() ;  
+    int nvars_hrsc = variables::get_n_hrsc() ;
+    //**************************************************************************************************/
+    auto& ghost_layer = grace::amr_ghosts::get();
+    auto rbuf = ghost_layer.get_reflux_emf_recv_buffer() ; 
+    auto desc = ghost_layer.get_reflux_face_descriptors() ; 
+    //**************************************************************************************************/
+    View<hanging_face_reflux_desc_t*> info ; 
+    grace::deep_copy_vec_to_const_view(info,desc) ; 
+    //**************************************************************************************************/
+    parallel::mpi_waitall(context) ;
+    //**************************************************************************************************/
+    auto policy = 
+        MDRangePolicy<Rank<3>> (
+            {0,0,0},
+            {static_cast<long>(nx+1)
+            ,static_cast<long>(nx+1)
+            ,static_cast<long>(desc.size())}
+        ) ;
+    //**************************************************************************************************/
+    constexpr std::array<std::array<int,2>,3> other_dirs = {{
+        {{1,2}}, {{0,2}}, {{0,1}}
+    }} ; 
+    //**************************************************************************************************/
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_face")
+            , policy 
+            , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
+                auto const dsc = info(iq) ; 
+
+                auto const iface_c = dsc.coarse_face_id ; 
+                auto const fdir = iface_c / 2 ; 
+                auto const idir = other_dirs[fdir][0]; 
+                auto const jdir = other_dirs[fdir][1]; 
+                auto const iside = iface_c % 2 ;
+                auto const qid_c = dsc.coarse_qid ; 
+
+                // indices of face center (coarse)
+                // edge center (coarse)
+                // edge center (fine)
+                size_t ijk_c[3], ijk_f[3] ; 
+
+                int ichild = (2*i>=nx) + 2*(2*j>=nx) ;
+                // upper child indices need to be shifted
+                // down by half nx for accessing the receive 
+                // buffer 
+                int off_i = (2*i>=nx) ? -nx/2 : 0 ;
+                int off_j = (2*j>=nx) ? -nx/2 : 0 ; 
+                // fine qid 
+                auto const qid_f = dsc.fine_qid[ichild] ; 
+                // emf correction 
+                double emf_corr_i{0}, emf_corr_j{0} ; 
+                if ( dsc.fine_is_remote[ichild] ) {
+                    auto rank = dsc.fine_owner_rank[ichild] ; 
+                    emf_corr_i = rbuf(i-off_i,j-off_j,0,qid_f,rank) ; 
+                    emf_corr_j = rbuf(i-off_i,j-off_j,1,qid_f,rank) ; 
+                } else {
+                    // fine side so iside is opposite
+                    ijk_f[fdir] = iside ? ngz : nx + ngz ; 
+                    ijk_f[idir] = (2*i)%nx + ngz ; 
+                    ijk_f[jdir] = (2*j)%nx + ngz ; 
+                    emf_corr_i = 0.5 * (
+                        emf(ijk_f[0],ijk_f[1],ijk_f[2],idir,qid_f) + 
+                        emf(ijk_f[0] + (idir==0),ijk_f[1] + (idir==1),ijk_f[2] + (idir==2),idir,qid_f)
+                    );
+                    emf_corr_j = 0.5 * (
+                        emf(ijk_f[0],ijk_f[1],ijk_f[2],jdir,qid_f) + 
+                        emf(ijk_f[0] + (jdir==0),ijk_f[1] + (jdir==1),ijk_f[2] + (jdir==2),jdir,qid_f)
+                    ) ; 
+                }
+                
+                // face indices --> cells to be corrected 
+                // coarse side so iside is correct
+                ijk_c[fdir] = iside ? nx + ngz : ngz ; 
+                ijk_c[idir] = i + ngz ; 
+                ijk_c[jdir] = j + ngz ; 
+
+                emf_corr_i -= emf(ijk_c[0], ijk_c[1], ijk_c[2], idir, qid_c) ; 
+                emf_corr_j -= emf(ijk_c[0], ijk_c[1], ijk_c[2], jdir, qid_c) ;
+
+                const var_array_t* views[3] = {
+                    &new_stag_state.face_staggered_fields_x,
+                    &new_stag_state.face_staggered_fields_y,
+                    &new_stag_state.face_staggered_fields_z
+                };
+                
+                // add emf_i to the cell shifted 
+                // down by one in j
+                if ( j>0 ) {
+                    int signs[3] = {+1,-1,+1} ; 
+                    (*views[fdir])(ijk_c[0]-(jdir==0),ijk_c[1]-(jdir==1),ijk_c[2]-(jdir==2),0,qid_c) += 
+                        signs[fdir] * dt * dtfact * idx(jdir,qid_c) * emf_corr_i ; 
+                }
+
+                if ( j < nx ) {
+                    int signs[3] = {+1,-1,+1} ; 
+                    (*views[fdir])(ijk_c[0]-(jdir==0),ijk_c[1]-(jdir==1),ijk_c[2]-(jdir==2),0,qid_c) += 
+                        - signs[fdir] * dt * dtfact * idx(jdir,qid_c) * emf_corr_i ; 
+                }
+
+                if ( i>0 ) {
+                    int signs[3] = {-1,+1,-1} ; 
+                    (*views[fdir])(ijk_c[0]-(idir==0),ijk_c[1]-(idir==1),ijk_c[2]-(idir==2),0,qid_c) += 
+                        signs[fdir] * dt * dtfact * idx(idir,qid_c) * emf_corr_j ; 
+                }
+
+                if ( i < nx ) {
+                    int signs[3] = {-1,+1,-1} ; 
+                    (*views[fdir])(ijk_c[0]-(idir==0),ijk_c[1]-(idir==1),ijk_c[2]-(idir==2),0,qid_c) += 
+                        - signs[fdir] * dt * dtfact * idx(idir,qid_c) * emf_corr_j ; 
+                }
+                
+
+                // moreover we correct the cell at fdir-1 of B^jdir using 
+                // emf_i 
+                {
+                    int signs[3] = {-1,+1,-1}; // Ey in Bz, Ex in Bz, Ex in By 
+                    (*views[jdir])(ijk_c[0]-(fdir==0),ijk_c[1]-(fdir==1),ijk_c[2]-(fdir==2),0,qid_c) += 
+                        signs[fdir] * dt * dtfact * idx(fdir,qid_c) * emf_corr_i ;
+                }
+                {
+                    int signs[3] = {+1,-1,+1}; // Ez in By, Ez in Bx, Ey in Bx 
+                    // and the cell at fdir-1 of B^idir using emf_j 
+                    (*views[idir])(ijk_c[0]-(fdir==0),ijk_c[1]-(fdir==1),ijk_c[2]-(fdir==2),0,qid_c) += 
+                        signs[fdir] * dt * dtfact * idx(fdir,qid_c) * emf_corr_j ;
+                }
+                
+
+            }
+                
+        ) ; 
+    
+    //**************************************************************************************************/
+    auto edge_rbuf = ghost_layer.get_reflux_emf_edge_recv_buffer() ; 
+    auto edge_desc = ghost_layer.get_reflux_edge_descriptors() ; 
+    //**************************************************************************************************/
+    View<hanging_edge_reflux_desc_t*> edge_info ; 
+    grace::deep_copy_vec_to_const_view(edge_info,edge_desc) ; 
+    //**************************************************************************************************/
+    auto edge_policy = 
+        MDRangePolicy<Rank<2>> (
+            {0,0},
+            {static_cast<long>(nx),static_cast<long>(desc.size())}
+        ) ;
+    //**************************************************************************************************/
+    // two phases, first we need to compute the correction, then we apply
+    auto emf_edge_correction = ghost_layer.get_reflux_edge_emf_accumulation_buffer() ;  
+    parallel_for(
+        GRACE_EXECUTION_TAG("EVOL", "reflux_emf_compute_edge"),
+        edge_policy,
+        KOKKOS_LAMBDA (int const& i, int const& iq) {
+            auto& desc = edge_info(iq) ; 
+            auto n_fine = desc.n_fine ; 
+            size_t ijk[3] ; 
+            for( int iside=0; iside<4; ++iside) {
+                auto& side = desc.sides[iside] ; 
+                if ( ! side.is_fine ) continue ; 
+                auto edge_id = side.edge_id ; 
+                int edge_dir = edge_id / 4 ; 
+                int side_i = (edge_id>>0)&1;
+                int side_j = (edge_id>>1)&1;
+                int ichild = 2*i>=nx ;
+                auto qid = side.octants.fine.quad_id[ichild];
+                if ( side.octants.fine.is_remote[ichild] ) {
+                    auto rank = side.octants.fine.owner_rank[ichild] ; 
+                    emf_edge_correction(2*i%nx,ichild,iq) = edge_rbuf((2*i)%nx,qid,rank) ; 
+                } else {
+                    ijk[edge_dir] = ngz + (2*i)%nx ; 
+                    ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ; 
+                    ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ; 
+                    emf_edge_correction(2*i%nx,ichild,iq) = emf(ijk[0],ijk[1],ijk[2],edge_dir,qid); 
+                }
+            }
+            emf_edge_correction(i,0,iq) /= n_fine ; 
+            emf_edge_correction(i,1,iq) /= n_fine ; 
+        }
+    );
+    #if 0
+    // apply 
+    parallel_for(
+        GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_edge"),
+        edge_policy,
+        KOKKOS_LAMBDA (int const& i, int const& iq) {
+            const grace::var_array_t* views[3] = {
+                &new_stag_state.face_staggered_fields_x,
+                &new_stag_state.face_staggered_fields_y,
+                &new_stag_state.face_staggered_fields_z
+            } ;
+            auto& desc = edge_info(iq) ; 
+            size_t ijk[3] ; 
+            for( int iside=0; iside<4; ++iside) {
+                auto& side = desc.sides[iside] ;
+                auto edge_id = side.edge_id ;  
+                int edge_dir = edge_id / 4 ; 
+                int side_i = (edge_id>>0)&1;
+                int side_j = (edge_id>>1)&1;
+                int ichild = 2*i>=nx ;
+                if ( ! side.is_fine ) {
+                    if ( side.octants.coarse.is_remote ) continue ;
+                    auto qid = side.octants.coarse.quad_id ; 
+                    ijk[edge_dir] = ngz + i ; 
+                    ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;  
+                    ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;
+                    double emf_correction = 
+                        -emf(ijk[0],ijk[1],ijk[2],edge_dir,qid)
+                        +0.5*(emf_edge_correction((2*i)%nx,ichild,iq) + emf_edge_correction((2*i)%nx+1,ichild,iq));
+                    // 2 B field values need to be corrected 
+                    {
+                        int signs[3] = {side_j ? -1 : +1, side_j ? +1 : -1, side_j ? -1 : +1 } ; 
+                        int off_i = (other_dirs[edge_dir][1] == 0) ? (side_j ? -1 : 0) : 0 ;
+                        int off_j = (other_dirs[edge_dir][1] == 1) ? (side_j ? -1 : 0) : 0 ; 
+                        int off_k = (other_dirs[edge_dir][1] == 2) ? (side_j ? -1 : 0) : 0 ; 
+                        (*views[other_dirs[edge_dir][0]])(ijk[0]+off_i,ijk[1]+off_j,ijk[2]+off_k,0,qid) += 
+                            signs[edge_dir] * dt * dtfact * idx(other_dirs[edge_dir][1],qid) * emf_correction ; 
+                    }
+                    {
+                        int signs[3] = {side_i ? +1 : -1, side_i ? -1 : +1, side_i ? +1 : -1} ; 
+                        int off_i = (other_dirs[edge_dir][0] == 0) ? (side_i ? -1 : 0) : 0 ;
+                        int off_j = (other_dirs[edge_dir][0] == 1) ? (side_i ? -1 : 0) : 0 ; 
+                        int off_k = (other_dirs[edge_dir][0] == 2) ? (side_i ? -1 : 0) : 0 ; 
+                        (*views[other_dirs[edge_dir][1]])(ijk[0]+off_i,ijk[1]+off_j,ijk[2]+off_k,0,qid) += 
+                            signs[edge_dir] * dt * dtfact * idx(other_dirs[edge_dir][0],qid) * emf_correction ;
+                    }
+
+                } else {
+                    if ( side.octants.fine.is_remote[ichild] ) continue ;
+                    auto qid = side.octants.fine.quad_id[ichild] ;
+                    ijk[edge_dir] = ngz + i ;  
+                    ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;  
+                    ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;
+                    double emf_correction = 
+                        -emf(ijk[0],ijk[1],ijk[2],edge_dir,qid)
+                        +emf_edge_correction(i,ichild,iq);
+                    // 2 B field values need to be corrected 
+                    {
+                        int signs[3] = {side_j ? -1 : +1, side_j ? +1 : -1, side_j ? -1 : +1 } ; 
+                        int off_i = (other_dirs[edge_dir][1] == 0) ? (side_j ? -1 : 0) : 0 ;
+                        int off_j = (other_dirs[edge_dir][1] == 1) ? (side_j ? -1 : 0) : 0 ; 
+                        int off_k = (other_dirs[edge_dir][1] == 2) ? (side_j ? -1 : 0) : 0 ; 
+                        (*views[other_dirs[edge_dir][0]])(ijk[0]+off_i,ijk[1]+off_j,ijk[2]+off_k,0,qid) += 
+                            signs[edge_dir] * dt * dtfact * idx(other_dirs[edge_dir][1],qid) * emf_correction ; 
+                    }
+                    {
+                        int signs[3] = {side_i ? +1 : -1, side_i ? -1 : +1, side_i ? +1 : -1} ; 
+                        int off_i = (other_dirs[edge_dir][0] == 0) ? (side_i ? -1 : 0) : 0 ;
+                        int off_j = (other_dirs[edge_dir][0] == 1) ? (side_i ? -1 : 0) : 0 ; 
+                        int off_k = (other_dirs[edge_dir][0] == 2) ? (side_i ? -1 : 0) : 0 ; 
+                        (*views[other_dirs[edge_dir][1]])(ijk[0]+off_i,ijk[1]+off_j,ijk[2]+off_k,0,qid) += 
+                            signs[edge_dir] * dt * dtfact * idx(other_dirs[edge_dir][0],qid) * emf_correction ;
+                    }
+                }
+            }
+        }
+    ) ; 
+    #endif 
+}
+
 template< typename eos_t >
 void advance_substep( double const t, double const dt, double const dtfact 
                     , var_array_t& new_state 
                     , var_array_t& old_state 
                     , staggered_variable_arrays_t & new_stag_state 
-                    , staggered_variable_arrays_t & old_stag_state 
-                    , var_array_t& aux 
-                    , scalar_array_t<GRACE_NSPACEDIM>& idx
-                    , scalar_array_t<GRACE_NSPACEDIM>& dx
-                    , cell_vol_array_t<GRACE_NSPACEDIM>& cvol
-                    , staggered_coordinate_arrays_t& surfs_and_edges
-                    , flux_array_t& fluxes  
-                    , flux_array_t& vbar
-                    , emf_array_t& emf )
+                    , staggered_variable_arrays_t & old_stag_state )
 {
     GRACE_PROFILING_PUSH_REGION("evol") ;
     using namespace grace ; 
     using namespace Kokkos  ; 
 
-    int64_t nx,ny,nz ; 
-    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    int ngz = amr::get_n_ghosts() ; 
-    
-    int64_t nq = amr::get_local_num_quadrants() ;
-    
-    int nvars_hrsc = variables::get_n_hrsc() ;
-    
-    /* Define the equation system (a couple ugly ifdef's!)*/ 
-    #ifdef GRACE_ENABLE_GRMHD
-    auto eos = eos::get().get_eos<eos_t>() ;  
-    
-
-
-    auto excision_pars = grace::get_param<YAML::Node>("grmhd","excision") ;
-    excision_params_t 
-    grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,old_state,old_stag_state,aux,atmo_params,excision_params) ; 
-    #define RECON weno_reconstructor_t<5>
-    //slope_limited_reconstructor_t<MCbeta>
-    //weno_reconstructor_t<5>
     //**************************************************************************************************/
     compute_fluxes<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/    
-    auto flux_context = reflux_fill_flux_buffers(t,dt,dtfact) ; // todo 
+    auto flux_context = reflux_fill_flux_buffers() ; // todo 
     //**************************************************************************************************/
     compute_emfs(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/
-    auto emf_context = reflux_fill_emf_buffers(t,dt,dtfact) ; //todo 
+    auto emf_context = reflux_fill_emf_buffers() ; //todo 
     //**************************************************************************************************/
     add_fluxes_and_source_terms<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
     //**************************************************************************************************/
@@ -986,12 +1367,12 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     update_fd(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/
-    reflux_correct_fluxes(flux_context,new_state) ;
+    reflux_correct_fluxes(flux_context,t,dt,dtfact,new_state) ;
     //**************************************************************************************************/
-    reflux_correct_emfs(emf_context,new_stag_state) ; 
+    reflux_correct_emfs(emf_context,t,dt,dtfact,new_stag_state) ; 
     //**************************************************************************************************/
-
-    #if 1
+    parallel::mpi_barrier() ; 
+    #if 0
     #define RECONSTRUCT(vview,vidx,q,i,j,k,uL,uR,dir) \
     do { \
     auto sview = Kokkos::subview(vview, \
@@ -1236,13 +1617,6 @@ void advance_substep( double const t, double const dt, double const dtfact
     } ) ; 
     #endif 
     Kokkos::fence() ; 
-
-    #undef RECONSTRUCT
-    #undef RECONSTRUCT_V
-    #undef GET_X_FLUX
-    #undef GET_Y_FLUX
-    #undef GET_Z_FLUX
-    #undef GET_SOURCES
     GRACE_PROFILING_POP_REGION ; 
 }
 
@@ -1251,19 +1625,25 @@ void advance_substep( double const t, double const dt, double const dtfact
 #define INSTANTIATE_TEMPLATE(EOS)                                     \
 template                                                              \
 void advance_substep<EOS>( double const , double const , double const \
-                         , grace::var_array_t&       \
-                         , grace::var_array_t&       \
-                         , grace::staggered_variable_arrays_t & \
-                         , grace::staggered_variable_arrays_t & \
-                         , grace::var_array_t&       \
-                         , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
-                         , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
-                         , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \
-                         , grace::staggered_coordinate_arrays_t&      \
-                         , grace::flux_array_t&  \
-                         , grace::flux_array_t& \
-                         , grace::emf_array_t& \
-                        ) ; \
+                         , grace::var_array_t&                        \
+                         , grace::var_array_t&                        \
+                         , grace::staggered_variable_arrays_t &       \
+                         , grace::staggered_variable_arrays_t &       \
+                        ) ;                                           \
+template                                                              \
+void compute_fluxes<EOS>( double const , double const , double const \
+                        , grace::var_array_t&                        \
+                        , grace::var_array_t&                        \
+                        , grace::staggered_variable_arrays_t &       \
+                        , grace::staggered_variable_arrays_t &       \
+                        ) ;                                          \
+template                                                             \
+void add_fluxes_and_source_terms<EOS>( double const , double const , double const \
+                        , grace::var_array_t&                        \
+                        , grace::var_array_t&                        \
+                        , grace::staggered_variable_arrays_t &       \
+                        , grace::staggered_variable_arrays_t &       \
+                        ) ;                                          \
 template                                                              \
 void evolve_impl<EOS>()
 

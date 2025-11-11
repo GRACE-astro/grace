@@ -144,12 +144,38 @@ static void register_face(
     }
 }
 
+void register_refluxing_face(
+    p4est_iter_face_side_t const& coarse_side,
+    p4est_iter_face_side_t const& fine_side,
+    p4est_iter_data_t* info 
+) 
+{
+    hanging_face_reflux_desc_t desc {} ; 
+    desc.coarse_is_remote = coarse_side.is.full.is_ghost ; 
+    desc.coarse_qid = coarse_side.is.full.is_ghost 
+                    ? coarse_side.is.full.quadid 
+                    : coarse_side.is.full.quadid + grace::amr::get_local_quadrants_offset(coarse_side.treeid) ; 
+    desc.coarse_face_id = coarse_side.face ; 
+    desc.coarse_owner_rank = p4est_comm_find_owner(grace::amr::forest::get().get(), coarse_side.treeid, coarse_side.is.full.quad, 0);
+    desc.fine_face_id = fine_side.face ; 
+    for( int ic=0; ic<P4EST_CHILDREN/2; ++ic) {
+        // local / remote 
+        desc.fine_is_remote[ic] = fine_side.is.hanging.is_ghost[ic] ; 
+        desc.fine_qid[ic] = fine_side.is.hanging.is_ghost[ic] 
+                            ? fine_side.is.hanging.quadid[ic] 
+                            : fine_side.is.hanging.quadid[ic] + grace::amr::get_local_quadrants_offset(fine_side.treeid) ; 
+        desc.fine_owner_rank[ic] = p4est_comm_find_owner(grace::amr::forest::get().get(), fine_side.treeid, fine_side.is.hanging.quad[ic], 0);
+    } 
+    info->reflux_faces->push_back(desc) ; 
+}
+
 void grace_iterate_faces(
     p4est_iter_face_info_t * info,
     void* user_data 
 ) 
 {
-    auto ghosts = reinterpret_cast<std::vector<quad_neighbors_descriptor_t>*>(user_data) ; 
+    auto iter_data = reinterpret_cast<p4est_iter_data_t*>(user_data) ; 
+    auto ghosts = iter_data->ghost_layer ; 
     sc_array_view_t<p4est_iter_face_side_t> sides{
         &(info->sides)
     } ;
@@ -173,6 +199,17 @@ void grace_iterate_faces(
     auto const& s1 = sides[1] ; 
     register_face(s0,s1,*ghosts) ; 
     register_face(s1,s0,*ghosts) ; 
+
+    if (s0.is_hanging) {
+        // register for reflux 
+        // here:
+        // if both are local we register to local array,
+        // if s0 is local we register to send array,
+        // if s1 is local we register to receive array 
+        register_refluxing_face(s1,s0,iter_data) ; 
+    } else if (s1.is_hanging) {
+        register_refluxing_face(s0,s1,iter_data) ; 
+    }
 }
 
 } /* namespace grace */

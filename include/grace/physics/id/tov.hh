@@ -47,7 +47,7 @@
  
  //**************************************************************************************************
  #define R_MAX 30 
- #define N_POINTS 100000
+ #define N_POINTS 1000000
  //**************************************************************************************************
  namespace grace {
  //**************************************************************************************************
@@ -98,7 +98,7 @@
      tov_id_t(
            eos_t eos
          , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
-         , grace::atmo_params_t atmo_params
+         , atmo_params_t atmo_params
          , double rhoC )
          : _eos(eos), _pcoords(pcoords), _atmo_params(atmo_params), _rhoC(rhoC)
      { 
@@ -360,7 +360,7 @@
      //**************************************************************************************************
      eos_t   _eos         ;                            //!< Equation of state object 
      grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
-     grace::atmo_params_t _atmo_params ;               //!< Parameters for atmosphere
+     atmo_params_t _atmo_params ;               //!< Parameters for atmosphere
      double _rhoC, _pressC;                            //!< Central density 
      double _M, _R, _R_iso;                            //!< Mass and Radius
      double _compactness, _nu_corr ;                   //!< Compactness and matching of metric potential

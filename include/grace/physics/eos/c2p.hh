@@ -40,29 +40,6 @@
 
 namespace grace {
 
-/**
- * @brief Atmosphere treatment parameters
- * 
- */
-struct atmo_params_t {
-    double ye_fl ;    //!< Atmo ye
-    double rho_fl ;   //!< Atmo rho
-    double temp_fl ;  //!< Atmo T 
-    double rho_fl_scaling  ; //!< Radial scaling of atmo rho
-    double temp_fl_scaling ; //!< Radial scaling of atmo T
-} ; 
-/**
- * @brief Excision parameters
- * 
- */
-struct excision_params_t {
-    double rho_ex ;         //!< Excision rho
-    double temp_ex ;        //!< Excision temp 
-    double r_ex ;           //!< Excision radius
-    double alp_ex ;         //!< Excision alpha
-    bool excise_by_radius ; //!< Whether excision is radius based (CKS) or alpha based.
-} ; 
-
 struct c2p_err_t {
     bool adjust_tau{false}; 
     bool adjust_s{false}; 

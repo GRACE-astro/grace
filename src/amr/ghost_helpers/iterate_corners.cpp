@@ -202,7 +202,8 @@ static void register_corner(
 
 void grace_iterate_corners(p4est_iter_corner_info_t* info, void* user_data)
 {
-    auto ghosts = reinterpret_cast<std::vector<quad_neighbors_descriptor_t>*>(user_data);
+    auto iter_data = reinterpret_cast<p4est_iter_data_t*>(user_data) ; 
+    auto ghosts = iter_data->ghost_layer ;
     sc_array_view_t<p4est_iter_corner_side_t> sides{&(info->sides)};
     
     if (sides.size() < P4EST_CHILDREN) {

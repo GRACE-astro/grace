@@ -312,7 +312,8 @@ static void register_hanging_corner(
 
 void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data) 
 {
-    auto ghosts = reinterpret_cast<std::vector<quad_neighbors_descriptor_t>*>(user_data);
+    auto iter_data = reinterpret_cast<p4est_iter_data_t*>(user_data) ; 
+    auto ghosts = iter_data->ghost_layer ; 
     sc_array_view_t<p8est_iter_edge_side_t> sides{&(info->sides)};
     if (sides.size() < 4) {
         // Boundary edge(s)
@@ -353,6 +354,46 @@ void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data)
             register_hanging_corner(sides[i1],sides[i0], *ghosts) ; 
         }
     }
+
+    // decide if we need refluxing -> if at least one is hanging 
+    int n_fine = 0 ; 
+    for( int is=0; is<4; ++is ) {
+        n_fine += sides[is].is_hanging ; 
+    }
+    bool need_reflux = (n_fine > 0) ; 
+    // if reflux is not needed we are done.
+    if ( ! need_reflux ) return ; 
+
+
+    hanging_edge_reflux_desc_t desc {} ; 
+    desc.n_fine = n_fine ; 
+    desc.n_coarse = 4-n_fine ; 
+    int ifine{0}, icoarse{0};
+    for( int is=0; is<4; ++is) {
+        auto& side = sides[is] ; 
+        auto& sdsc = desc.sides[is] ; 
+        sdsc.edge_id = side.edge ; 
+        if ( side.is_hanging ) {
+            desc.fine_sides[ifine++] = is ;
+            sdsc.is_fine = true ; 
+            for ( int ic=0; ic<2; ++ic ) {
+                sdsc.octants.fine.is_remote[ic] = side.is.hanging.is_ghost[ic] ; 
+                sdsc.octants.fine.quad_id[ic] = side.is.hanging.is_ghost[ic]
+                                              ? side.is.hanging.quadid[ic]
+                                              : side.is.hanging.quadid[ic] + grace::amr::get_local_quadrants_offset(side.treeid) ; 
+                sdsc.octants.fine.owner_rank[ic] = p4est_comm_find_owner(grace::amr::forest::get().get(), side.treeid, side.is.hanging.quad[ic], 0);
+            }
+        } else {
+            desc.coarse_sides[icoarse++] = is ; 
+            sdsc.is_fine = false ;
+            sdsc.octants.coarse.is_remote = side.is.full.is_ghost ; 
+            sdsc.octants.coarse.quad_id = side.is.full.is_ghost
+                                        ? side.is.full.quadid 
+                                        : side.is.full.quadid + grace::amr::get_local_quadrants_offset(side.treeid) ; 
+            sdsc.octants.coarse.owner_rank = p4est_comm_find_owner(grace::amr::forest::get().get(), side.treeid, side.is.full.quad, 0);
+        }
+    }
+    iter_data->reflux_edges->push_back(desc) ; 
 }
 
 

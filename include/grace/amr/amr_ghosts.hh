@@ -182,15 +182,59 @@ struct quad_neighbors_descriptor_t {
     int8_t n_registered_corners {0} ; 
 }  ;  
 /**************************************************************************************************/
+/**************************************************************************************************/
 // For hanging faces: we need to record them separately for refluxing 
-struct hanging_face_reflux_helper_t {
-    size_t quad_id ;
-    int8_t face_id ;
+struct hanging_face_reflux_desc_t {
+    size_t coarse_qid      ;
+    int coarse_owner_rank  ;
+    bool coarse_is_remote  ;   
+    int8_t coarse_face_id  ;
+
+    size_t fine_qid[4]     ; 
+    int fine_owner_rank[4] ; 
+    bool fine_is_remote[4] ; 
+    int8_t fine_face_id    ;
+} ; 
+/**************************************************************************************************/
+struct hanging_remote_reflux_desc_t {
+    size_t qid; 
+    int rank ;
+    int8_t elem_id ; 
+    size_t buf_id  ; 
+} ; 
+/**************************************************************************************************/
+/**************************************************************************************************/
+// For hanging faces: we need to record them separately for refluxing 
+struct hanging_edge_reflux_side_t {
+    union {
+        struct {
+           size_t quad_id[2] ; 
+           int owner_rank[2] ; 
+           bool is_remote[2] ;  
+        } fine ; 
+        struct {
+            size_t quad_id ; 
+            int owner_rank ; 
+            bool is_remote ; 
+        } coarse ;  
+    } octants ; 
+    int8_t edge_id ; 
+    bool is_fine ;
 } ; 
 /**************************************************************************************************/
 // For hanging edges: we need to record them separately for refluxing 
-struct hanging_edge_reflux_helper_t {
-
+struct hanging_edge_reflux_desc_t {
+    hanging_edge_reflux_side_t sides[4] ; 
+    int fine_sides[3]; // up to three 
+    int coarse_sides[3] ; // up to three 
+    int n_fine ; 
+    int n_coarse ; 
+} ; 
+/**************************************************************************************************/
+struct p4est_iter_data_t {
+    std::vector<quad_neighbors_descriptor_t>* ghost_layer ; 
+    std::vector<hanging_face_reflux_desc_t>* reflux_faces ; 
+    std::vector<hanging_edge_reflux_desc_t>* reflux_edges ; 
 } ; 
 /**************************************************************************************************/
 template < amr::element_kind_t elem_kind > 
@@ -287,6 +331,121 @@ class amr_ghosts_impl_t {
         } 
     }
     /**************************************************************************************************/
+    /*                                      REFLUX UTILITIES                                          */
+    /**************************************************************************************************/
+    GRACE_ALWAYS_INLINE 
+    Kokkos::View<double***, grace::default_space> get_reflux_edge_emf_accumulation_buffer() const {
+        return _reflux_emf_edge_accumulation_buf ; 
+    }
+    /**************************************************************************************************/
+    GRACE_ALWAYS_INLINE 
+    amr::reflux_array_t get_reflux_send_buffer() const {
+        return _reflux_snd_buf ; 
+    }
+
+    GRACE_ALWAYS_INLINE 
+    amr::reflux_array_t get_reflux_recv_buffer() const {
+        return _reflux_recv_buf ; 
+    }
+    //**************************************************************************************************/
+    amr::reflux_array_t get_reflux_emf_send_buffer() const {
+        return _reflux_emf_snd_buf ; 
+    }
+
+    GRACE_ALWAYS_INLINE 
+    amr::reflux_array_t get_reflux_emf_recv_buffer() const {
+        return _reflux_emf_recv_buf ; 
+    }
+    //**************************************************************************************************/
+    amr::reflux_edge_array_t get_reflux_emf_edge_send_buffer() const {
+        return _reflux_emf_edge_snd_buf ; 
+    }
+
+    GRACE_ALWAYS_INLINE 
+    amr::reflux_edge_array_t get_reflux_emf_edge_recv_buffer() const {
+        return _reflux_emf_edge_recv_buf ; 
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<hanging_face_reflux_desc_t> const& get_reflux_face_descriptors() const {
+        return _reflux_face_descs ;
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<hanging_edge_reflux_desc_t> const& get_reflux_edge_descriptors() const {
+        return _reflux_edge_descs ;
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<hanging_remote_reflux_desc_t> const& get_reflux_face_send_list() const {
+        return _reflux_face_snd ; 
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<hanging_remote_reflux_desc_t> const& get_reflux_edge_send_list() const {
+        return _reflux_edge_snd ; 
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_send_offsets() const {
+        return _reflux_snd_off ; 
+    }
+
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_recv_offsets() const {
+        return _reflux_rcv_off ; 
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_send_sizes() const {
+        return _reflux_snd_size ; 
+    }
+
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_recv_sizes() const {
+        return _reflux_rcv_size ; 
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_send_emf_offsets() const {
+        return _reflux_snd_emf_off; 
+    }
+
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_recv_emf_offsets() const {
+        return _reflux_rcv_emf_off ; 
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_send_emf_sizes() const {
+        return _reflux_snd_emf_size ; 
+    }
+
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_recv_emf_sizes() const {
+        return _reflux_rcv_emf_size ; 
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_send_emf_edge_offsets() const {
+        return _reflux_snd_emf_edge_off; 
+    }
+
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_recv_emf_edge_offsets() const {
+        return _reflux_rcv_emf_edge_off ; 
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_send_emf_edge_sizes() const {
+        return _reflux_snd_emf_edge_size ; 
+    }
+
+    GRACE_ALWAYS_INLINE
+    std::vector<size_t> const& get_reflux_buffer_rank_recv_emf_edge_sizes() const {
+        return _reflux_rcv_emf_edge_size ; 
+    }
+    //**************************************************************************************************/
     protected:
     /**************************************************************************************************/
     std::vector<quad_neighbors_descriptor_t> ghost_layer ; //!< Ghost layer used by GRACE
@@ -299,7 +458,24 @@ class amr_ghosts_impl_t {
     std::array<std::vector<std::size_t>,N_VAR_STAGGERINGS> send_rank_sizes, recv_rank_sizes ; //!< In # of elements
 
     std::array<amr::ghost_array_t, N_VAR_STAGGERINGS> _send_buffer, _recv_buffer ;
-
+    /**************************************************************************************************/
+    /*                                      REFLUX UTILITIES                                          */
+    /**************************************************************************************************/
+    //! Data buffers
+    amr::reflux_array_t _reflux_snd_buf, _reflux_recv_buf, _reflux_emf_snd_buf, _reflux_emf_recv_buf ; 
+    amr::reflux_edge_array_t _reflux_emf_edge_snd_buf, _reflux_emf_edge_recv_buf;
+    Kokkos::View<double***, grace::default_space> _reflux_emf_edge_accumulation_buf ; 
+    /**************************************************************************************************/
+    //! Descriptors 
+    std::vector<hanging_face_reflux_desc_t> _reflux_face_descs; 
+    std::vector<hanging_edge_reflux_desc_t> _reflux_edge_descs; 
+    std::vector<hanging_remote_reflux_desc_t> _reflux_face_snd, _reflux_face_recv ;
+    std::vector<hanging_remote_reflux_desc_t> _reflux_edge_snd, _reflux_edge_recv ;
+    /**************************************************************************************************/
+    //! Offsets and sizes 
+    std::vector<size_t> _reflux_snd_off, _reflux_rcv_off, _reflux_snd_size, _reflux_rcv_size ; 
+    std::vector<size_t> _reflux_snd_emf_off, _reflux_rcv_emf_off, _reflux_snd_emf_size, _reflux_rcv_emf_size ; 
+    std::vector<size_t> _reflux_snd_emf_edge_off, _reflux_rcv_emf_edge_off, _reflux_snd_emf_edge_size, _reflux_rcv_emf_edge_size ; 
     //**************************************************************************************************
     bucket_t phys_bc_kernels, copy_kernels, copy_to_cbuf_kernels, prolong_kernels;
     hang_bucket_t copy_from_cbuf_kernels ;
@@ -340,6 +516,30 @@ class amr_ghosts_impl_t {
             prolong_kernels[i].clear() ; 
             copy_from_cbuf_kernels[i].clear() ; 
         }
+
+        _reflux_snd_size.clear()            ; 
+        _reflux_rcv_size.clear()            ; 
+        _reflux_snd_off.clear()             ; 
+        _reflux_rcv_off.clear()             ; 
+
+        _reflux_snd_emf_size.clear()        ;
+        _reflux_rcv_emf_size.clear()        ;
+        _reflux_snd_emf_off.clear()         ; 
+        _reflux_rcv_emf_off.clear()         ;
+
+        _reflux_snd_emf_edge_size.clear()   ;
+        _reflux_rcv_emf_edge_off.clear()    ;
+        _reflux_snd_emf_edge_off.clear()    ; 
+        _reflux_rcv_emf_edge_size.clear()   ;
+
+        _reflux_face_snd.clear()            ;
+        _reflux_face_recv.clear()           ;
+        _reflux_edge_snd.clear()            ;
+        _reflux_edge_recv.clear()           ;
+
+        _reflux_face_descs.clear()          ;
+        _reflux_edge_descs.clear()          ;
+
     }
     //**************************************************************************************************
     template< grace::var_staggering_t stag >
@@ -387,6 +587,8 @@ class amr_ghosts_impl_t {
     void build_coarse_buffers(
         std::unordered_set<size_t> & 
     ) ; 
+    //**************************************************************************************************
+    void build_reflux_buffers() ; 
     //**************************************************************************************************
     void build_executor_runtime() ; 
     //**************************************************************************************************
