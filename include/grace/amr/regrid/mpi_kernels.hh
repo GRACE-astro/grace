@@ -58,7 +58,7 @@ static mpi_task_t make_mpi_send_task_regrid(
               send_buf.data() + send_rank_offsets[rr] 
             , send_rank_sizes[rr] 
             , rr 
-            , 0
+            , parallel::GRACE_PARTITION_TAG
             , MPI_COMM_WORLD
             , req
         ) ;
@@ -85,7 +85,7 @@ static mpi_task_t make_mpi_recv_task_regrid(
               recv_buf.data() + recv_rank_offsets[rr]  
             , recv_rank_sizes[rr]  
             , rr 
-            , 0
+            , parallel::GRACE_PARTITION_TAG
             , MPI_COMM_WORLD
             , req
         ) ;

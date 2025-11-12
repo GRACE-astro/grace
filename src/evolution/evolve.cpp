@@ -591,7 +591,6 @@ void update_CT(
     // fetch some stuff 
     using recon_t = weno_reconstructor_t<5> ; 
     auto& idx     = grace::variable_list::get().getinvspacings() ;
-    auto& vbar  = grace::variable_list::get().getvbararray() ;
     auto& emf  = grace::variable_list::get().getemfarray() ; 
     //**************************************************************************************************/
     // loop ranges 
@@ -611,7 +610,7 @@ void update_CT(
             , {VEC(nx+ngz,ny+ngz,nz+ngz+1),nq}
         ) ;
     //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "add_fluxes")
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "CT_advance_BX")
                 , advance_stag_policy_x 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
@@ -624,7 +623,7 @@ void update_CT(
         )  ; 
     } ) ; 
     //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "add_fluxes")
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "CT_advance_BY")
                 , advance_stag_policy_y 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
@@ -637,7 +636,7 @@ void update_CT(
         );
     } ) ; 
     //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "add_fluxes")
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "CT_advance_BZ")
                 , advance_stag_policy_z 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
@@ -777,7 +776,7 @@ parallel::grace_transfer_context_t reflux_fill_flux_buffers()
                 sbuf.data() + soffsets[iproc],
                 ssizes[iproc],
                 iproc,
-                0,
+                parallel::GRACE_REFLUX_TAG,
                 MPI_COMM_WORLD,
                 &context._send_requests.back()
             );  
@@ -788,7 +787,7 @@ parallel::grace_transfer_context_t reflux_fill_flux_buffers()
                 rbuf.data() + roffsets[iproc],
                 rsizes[iproc],
                 iproc,
-                0,
+                parallel::GRACE_REFLUX_TAG,
                 MPI_COMM_WORLD,
                 &context._recv_requests.back()
             );  
@@ -837,11 +836,11 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
                 auto const dsc = info(iq) ; 
                  
                 auto const iface = dsc.elem_id ; 
-                auto const rank = dsc.rank ; // could be same as ours! 
+                auto const rank = dsc.rank ; 
 
                 auto const fdir = iface / 2;
-                auto const idir = other_dirs[iface / 2][0]; 
-                auto const jdir = other_dirs[iface / 2][1]; 
+                auto const idir = other_dirs[fdir][0]; 
+                auto const jdir = other_dirs[fdir][1]; 
                 auto const iside = iface % 2 ;
 
                 auto const qid = dsc.qid ; 
@@ -849,7 +848,7 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
                 size_t ijk_s[3] ; 
                 ijk_s[fdir] = iside ? nx + ngz : ngz ; 
                 ijk_s[idir] = 2*i + ngz ; 
-                ijk_s[idir] = 2*i + ngz ; 
+                ijk_s[jdir] = 2*j + ngz ; 
                 // note that the range is n+1 in both dirs
                 // for each, one iteration is out of bounds.
                 // however the arrays have padding of ngz and the garbage
@@ -885,7 +884,7 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
                 sbuf.data() + soffsets[iproc],
                 ssizes[iproc],
                 iproc,
-                0,
+                parallel::GRACE_REFLUX_EMF_FACE_TAG,
                 MPI_COMM_WORLD,
                 &context._send_requests.back()
             );  
@@ -896,7 +895,7 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
                 rbuf.data() + roffsets[iproc],
                 rsizes[iproc],
                 iproc,
-                0,
+                parallel::GRACE_REFLUX_EMF_FACE_TAG,
                 MPI_COMM_WORLD,
                 &context._recv_requests.back()
             );  
@@ -956,7 +955,7 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
                 sbuf_edge.data() + soffsets_edge[iproc],
                 ssizes_edge[iproc],
                 iproc,
-                0,
+                parallel::GRACE_REFLUX_EMF_EDGE_TAG,
                 MPI_COMM_WORLD,
                 &context._send_requests.back()
             );  
@@ -967,7 +966,7 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
                 rbuf_edge.data() + roffsets_edge[iproc],
                 rsizes_edge[iproc],
                 iproc,
-                0,
+                parallel::GRACE_REFLUX_EMF_EDGE_TAG,
                 MPI_COMM_WORLD,
                 &context._recv_requests.back()
             );  
@@ -1003,8 +1002,8 @@ void reflux_correct_fluxes(
     auto policy = 
         MDRangePolicy<Rank<4>> (
             {0,0,0,0},
-            {static_cast<long>(nx/2)
-            ,static_cast<long>(nx/2)
+            {static_cast<long>(nx)
+            ,static_cast<long>(nx)
             ,static_cast<long>(nvars_hrsc)
             ,static_cast<long>(desc.size())}
         ) ;
@@ -1359,7 +1358,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     compute_emfs(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/
-    auto emf_context = reflux_fill_emf_buffers() ; //todo 
+    //auto emf_context = reflux_fill_emf_buffers() ; //todo 
     //**************************************************************************************************/
     add_fluxes_and_source_terms<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
     //**************************************************************************************************/
@@ -1369,7 +1368,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     reflux_correct_fluxes(flux_context,t,dt,dtfact,new_state) ;
     //**************************************************************************************************/
-    reflux_correct_emfs(emf_context,t,dt,dtfact,new_stag_state) ; 
+    //reflux_correct_emfs(emf_context,t,dt,dtfact,new_stag_state) ; 
     //**************************************************************************************************/
     parallel::mpi_barrier() ; 
     #if 0

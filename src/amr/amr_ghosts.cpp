@@ -131,8 +131,6 @@ void amr_ghosts_impl_t::update() {
                   #endif 
                   &grace_iterate_corners );             /*corner*/
     //**************************************************************************************************
-    
-    //build_flux_buffers()     ;
     //**************************************************************************************************
     std::unordered_set<size_t> cbuf_qid ; 
     build_coarse_buffers(cbuf_qid)   ; 
@@ -254,7 +252,7 @@ void amr_ghosts_impl_t::build_task_list(
         if( send_rank_sizes[stag][r] > 0 ){
             task_list.push_back(
                 std::make_unique<mpi_task_t>(
-                    make_mpi_send_task(r, _send_buffer[stag], send_rank_offsets[stag], send_rank_sizes[stag], task_counter)
+                    make_mpi_send_task(r, _send_buffer[stag], send_rank_offsets[stag], send_rank_sizes[stag], task_counter, static_cast<size_t>(stag))
                 )
             ) ; 
             send_task_id[r] = task_list.back()->task_id ; 
@@ -262,7 +260,7 @@ void amr_ghosts_impl_t::build_task_list(
         if (recv_rank_sizes[stag][r] > 0 ){
             task_list.push_back(
                 std::make_unique<mpi_task_t>(
-                    make_mpi_recv_task(r, _recv_buffer[stag], recv_rank_offsets[stag], recv_rank_sizes[stag], task_counter)
+                    make_mpi_recv_task(r, _recv_buffer[stag], recv_rank_offsets[stag], recv_rank_sizes[stag], task_counter, static_cast<size_t>(stag))
                 ) 
             ) ; 
             recv_task_id[r] = task_list.back()->task_id ; 
@@ -400,7 +398,7 @@ void amr_ghosts_impl_t::build_task_list_face_stag(
         if( send_rank_sizes[stag][r] > 0 ){ \
             task_list.push_back( \
                 std::make_unique<mpi_task_t>( \
-                    make_mpi_send_task(r, _send_buffer[stag], send_rank_offsets[stag], send_rank_sizes[stag], task_counter) \
+                    make_mpi_send_task(r, _send_buffer[stag], send_rank_offsets[stag], send_rank_sizes[stag], task_counter, static_cast<size_t>(stag)) \
                 ) \
             ) ; \
             send_task_id[r] = task_list.back()->task_id ; \
@@ -408,7 +406,7 @@ void amr_ghosts_impl_t::build_task_list_face_stag(
         if (recv_rank_sizes[stag][r] > 0 ){ \
             task_list.push_back( \
                 std::make_unique<mpi_task_t>( \
-                    make_mpi_recv_task(r, _recv_buffer[stag], recv_rank_offsets[stag], recv_rank_sizes[stag], task_counter) \
+                    make_mpi_recv_task(r, _recv_buffer[stag], recv_rank_offsets[stag], recv_rank_sizes[stag], task_counter, static_cast<size_t>(stag)) \
                 ) \
             ) ; \
             recv_task_id[r] = task_list.back()->task_id ; \
@@ -621,6 +619,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     for (int i = 0; i < _reflux_face_descs.size(); ++i) {
         auto &dsc = _reflux_face_descs[i];
         if (dsc.coarse_is_remote) {
+            GRACE_TRACE("Coarse remote") ; 
             hanging_remote_reflux_desc_t snd_desc{} ; 
             // coarse remote → we send to coarse owner
             for (int ic = 0; ic < P4EST_CHILDREN/2; ++ic) {
@@ -648,6 +647,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                 if (!dsc.fine_is_remote[ic]) {
                     continue;
                 }
+                GRACE_TRACE("Fine remote") ; 
                 hanging_remote_reflux_desc_t recv_desc{} ; 
                 int r = dsc.fine_owner_rank[ic];
                 int8_t elem = (dsc.fine_owner_rank[ic] < rank ?

@@ -78,6 +78,7 @@ mpi_task_t make_mpi_send_task(
     , std::vector<std::size_t> const& send_rank_offsets 
     , std::vector<std::size_t> const& send_rank_sizes
     , task_id_t& task_counter 
+    , size_t tag 
 )
 {
     GRACE_TRACE("Registering MPI Send task (tid {}).\n    Send to Rank {} {} elements, offset {}", task_counter, rr, send_rank_sizes[rr], send_rank_offsets[rr]) ; 
@@ -90,7 +91,7 @@ mpi_task_t make_mpi_send_task(
               send_buf.data() + send_rank_offsets[rr] 
             , send_rank_sizes[rr] 
             , rr 
-            , 0
+            , parallel::GRACE_HALO_EXCHANGE_TAG + tag 
             , MPI_COMM_WORLD
             , req
         ) ;
@@ -114,6 +115,7 @@ mpi_task_t make_mpi_recv_task(
     , std::vector<std::size_t> const& recv_rank_offsets 
     , std::vector<std::size_t> const& recv_rank_sizes
     , task_id_t& task_counter 
+    , size_t tag 
 )
 {
     GRACE_TRACE("Registering MPI Receive task (tid {}).\n    Receive from Rank {} {} elements, offset {}", task_counter, rr, recv_rank_sizes[rr], recv_rank_offsets[rr]) ; 
@@ -126,8 +128,8 @@ mpi_task_t make_mpi_recv_task(
               recv_buf.data() + recv_rank_offsets[rr]  
             , recv_rank_sizes[rr]  
             , rr 
-            , 0
-            , MPI_COMM_WORLD
+            , parallel::GRACE_HALO_EXCHANGE_TAG + tag 
+            , MPI_COMM_WORLD 
             , req
         ) ;
     } ; 
