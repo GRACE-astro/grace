@@ -283,12 +283,12 @@ void compute_fluxes(
     auto flux_y_policy = 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,ngz,0),0}
-            , {VEC(nx+ngz,ny+2*ngz+1,nz+2*ngz),nq}
+            , {VEC(nx+2*ngz,ny+ngz+1,nz+2*ngz),nq}
         ) ;
     auto flux_z_policy = 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,0,ngz),0}
-            , {VEC(nx+ngz,ny+2*ngz,nz+2*ngz+1),nq}
+            , {VEC(nx+2*ngz,ny+2*ngz,nz+ngz+1),nq}
         ) ;
     //**************************************************************************************************/
     //**************************************************************************************************/
@@ -734,13 +734,13 @@ parallel::grace_transfer_context_t reflux_fill_flux_buffers()
                 auto const dsc = info(iq) ; 
 
                 auto const iface = dsc.elem_id ; 
-                auto const rank = dsc.rank ; // could be same as ours! 
-                auto const idir = iface / 2; 
-                auto const iside = iface%2 ; 
-                auto const qid = dsc.qid ; 
+                auto const rank = dsc.rank     ; 
+                auto const idir = iface / 2    ; 
+                auto const iside = iface%2     ; 
+                auto const qid = dsc.qid       ; 
 
-                size_t ijk_s[3] ; 
-                ijk_s[idir] = iside ? nx + ngz : ngz ; 
+                size_t ijk_s[3]                        ; 
+                ijk_s[idir] = iside ? nx + ngz : ngz   ; 
                 ijk_s[other_dirs[idir][0]] = ngz + 2*i ; 
                 ijk_s[other_dirs[idir][1]] = ngz + 2*j ; 
                 
@@ -923,21 +923,25 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
                 auto const dsc = info_edge(iq) ; 
                 
                 auto const iedge = dsc.elem_id ; 
-                int idir = (iedge/4) ; 
-                int jside = (iedge>>0)&1 ; 
-                int kside = (iedge>>1)&1 ;
+                // edge direction 
+                int idir  = (iedge/4)          ; 
+                // upper or lower gz?
+                int jside = (iedge>>0)&1       ; 
+                int kside = (iedge>>1)&1       ;
+                // orthogonal directions (z-order)
                 int jdir = other_dirs[idir][0] ; 
                 int kdir = other_dirs[idir][1] ; 
-
+                // quad-id (fine)
                 auto const qid = dsc.qid ; 
-
+                // indices of edge 
                 size_t ijk_s[3] ;
                 ijk_s[idir] = ngz + i ; 
                 ijk_s[jdir] = jside ? nx + ngz : ngz ; 
                 ijk_s[kdir] = kside ? nx + ngz : ngz ; 
 
-                auto const rank = dsc.rank ; // could be same as ours!
+                auto const rank = dsc.rank ; 
                 auto bid = dsc.buf_id ;
+                // write to buffer
                 sbuf_edge(i, bid, rank) = emf(ijk_s[0],ijk_s[1],ijk_s[2],idir,qid) ; 
             }
         ) ;
@@ -950,6 +954,7 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
     auto rsizes_edge   = ghost_layer.get_reflux_buffer_rank_recv_emf_sizes()   ;
     for( int iproc=0; iproc<nprocs; ++iproc) {
         if ( ssizes_edge[iproc] > 0 ) {
+            GRACE_TRACE("Proc {} send {} offset {}",iproc, ssizes_edge[iproc], soffsets_edge[iproc]);
             context._send_requests.push_back(MPI_Request{}) ; 
             parallel::mpi_isend(
                 sbuf_edge.data() + soffsets_edge[iproc],
@@ -961,6 +966,7 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
             );  
         }
         if ( rsizes_edge[iproc] > 0 ) {
+            GRACE_TRACE("Proc {} receive {} offset {}",iproc, rsizes_edge[iproc], roffsets_edge[iproc]);
             context._recv_requests.push_back(MPI_Request{}) ; 
             parallel::mpi_irecv(
                 rbuf_edge.data() + roffsets_edge[iproc],
@@ -1071,7 +1077,7 @@ void reflux_correct_fluxes(
     //**************************************************************************************************/ 
 
 }
-
+#if 0 
 void reflux_correct_emfs(
     parallel::grace_transfer_context_t& context,
     double t, double dt, double dtfact,
@@ -1112,109 +1118,163 @@ void reflux_correct_emfs(
             , policy 
             , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
                 auto const dsc = info(iq) ; 
+                // B field views
+                const var_array_t* views[3] = {
+                    &new_stag_state.face_staggered_fields_x,
+                    &new_stag_state.face_staggered_fields_y,
+                    &new_stag_state.face_staggered_fields_z
+                };
 
+                // coarse face 
                 auto const iface_c = dsc.coarse_face_id ; 
+                // coarse face direction 
                 auto const fdir = iface_c / 2 ; 
+                // other directions (z-order)
                 auto const idir = other_dirs[fdir][0]; 
                 auto const jdir = other_dirs[fdir][1]; 
+                // side of the face 
                 auto const iside = iface_c % 2 ;
+                // qid of coarse side 
                 auto const qid_c = dsc.coarse_qid ; 
 
                 // indices of face center (coarse)
                 // edge center (coarse)
                 // edge center (fine)
                 size_t ijk_c[3], ijk_f[3] ; 
+                for( int ichild=0; ichild<P4EST_CHILDREN/2; ++ichild) {
+                    // fine quadid 
+                    auto const qid_f = dsc.fine_qid[ichild] ; 
+                    // emf correction 
+                    double emf_corr_i{0}, emf_corr_j{0} ; 
+                    if ( dsc.fine_is_remote[ichild] ) {
+                        auto rank = dsc.fine_owner_rank[ichild] ; 
+                        emf_corr_i = rbuf(i,j,0,qid_f,rank) ; 
+                        emf_corr_j = rbuf(i,j,1,qid_f,rank) ; 
+                    } else {
+                        // fine side so iside is opposite
+                        ijk_f[fdir] = iside ? ngz : nx + ngz ; 
+                        ijk_f[idir] = i + ngz ; 
+                        ijk_f[jdir] = j + ngz ; 
+                        emf_corr_i = 0.5 * (
+                            emf(ijk_f[0],ijk_f[1],ijk_f[2],idir,qid_f) + 
+                            emf(ijk_f[0] + (idir==0),ijk_f[1] + (idir==1),ijk_f[2] + (idir==2),idir,qid_f)
+                        );
+                        emf_corr_j = 0.5 * (
+                            emf(ijk_f[0],ijk_f[1],ijk_f[2],jdir,qid_f) + 
+                            emf(ijk_f[0] + (jdir==0),ijk_f[1] + (jdir==1),ijk_f[2] + (jdir==2),jdir,qid_f)
+                        ) ; 
+                    }
+                    // child based offset into coarse view 
+                    int ichild_i = (ichild>>0)&1 ; 
+                    int ichild_j = (ichild>>1)&1 ; 
+                    int off_i = ichild_i ? nx/2 : 0 ; 
+                    int off_j = ichild_j ? nx/2 : 0 ; 
+                    // face indices --> cells to be corrected 
+                    // coarse side so iside is correct
+                    // first we correct the B field that is orthogonal
+                    // to the face, so the staggering is in fdir 
+                    ijk_c[fdir] = iside ? nx + ngz : ngz ; 
+                    ijk_c[idir] = i + off_i + ngz ; 
+                    ijk_c[jdir] = j + off_j + ngz ; 
 
-                int ichild = (2*i>=nx) + 2*(2*j>=nx) ;
-                // upper child indices need to be shifted
-                // down by half nx for accessing the receive 
-                // buffer 
-                int off_i = (2*i>=nx) ? -nx/2 : 0 ;
-                int off_j = (2*j>=nx) ? -nx/2 : 0 ; 
-                // fine qid 
-                auto const qid_f = dsc.fine_qid[ichild] ; 
-                // emf correction 
-                double emf_corr_i{0}, emf_corr_j{0} ; 
-                if ( dsc.fine_is_remote[ichild] ) {
-                    auto rank = dsc.fine_owner_rank[ichild] ; 
-                    emf_corr_i = rbuf(i-off_i,j-off_j,0,qid_f,rank) ; 
-                    emf_corr_j = rbuf(i-off_i,j-off_j,1,qid_f,rank) ; 
-                } else {
-                    // fine side so iside is opposite
-                    ijk_f[fdir] = iside ? ngz : nx + ngz ; 
-                    ijk_f[idir] = (2*i)%nx + ngz ; 
-                    ijk_f[jdir] = (2*j)%nx + ngz ; 
-                    emf_corr_i = 0.5 * (
-                        emf(ijk_f[0],ijk_f[1],ijk_f[2],idir,qid_f) + 
-                        emf(ijk_f[0] + (idir==0),ijk_f[1] + (idir==1),ijk_f[2] + (idir==2),idir,qid_f)
-                    );
-                    emf_corr_j = 0.5 * (
-                        emf(ijk_f[0],ijk_f[1],ijk_f[2],jdir,qid_f) + 
-                        emf(ijk_f[0] + (jdir==0),ijk_f[1] + (jdir==1),ijk_f[2] + (jdir==2),jdir,qid_f)
-                    ) ; 
-                }
-                
-                // face indices --> cells to be corrected 
-                // coarse side so iside is correct
-                ijk_c[fdir] = iside ? nx + ngz : ngz ; 
-                ijk_c[idir] = i + ngz ; 
-                ijk_c[jdir] = j + ngz ; 
 
-                emf_corr_i -= emf(ijk_c[0], ijk_c[1], ijk_c[2], idir, qid_c) ; 
-                emf_corr_j -= emf(ijk_c[0], ijk_c[1], ijk_c[2], jdir, qid_c) ;
+                    emf_corr_i -= emf(ijk_c[0], ijk_c[1], ijk_c[2], idir, qid_c) ; 
+                    emf_corr_j -= emf(ijk_c[0], ijk_c[1], ijk_c[2], jdir, qid_c) ;
 
-                const var_array_t* views[3] = {
-                    &new_stag_state.face_staggered_fields_x,
-                    &new_stag_state.face_staggered_fields_y,
-                    &new_stag_state.face_staggered_fields_z
-                };
-                
-                // add emf_i to the cell shifted 
-                // down by one in j
-                if ( j>0 ) {
-                    int signs[3] = {+1,-1,+1} ; 
-                    (*views[fdir])(ijk_c[0]-(jdir==0),ijk_c[1]-(jdir==1),ijk_c[2]-(jdir==2),0,qid_c) += 
-                        signs[fdir] * dt * dtfact * idx(jdir,qid_c) * emf_corr_i ; 
-                }
+                    // the EMF i is at i-1/2,j,k-1/2 (assuming fdir==0)
+                    // the EMF j is at i-1/2,j-1/2,k 
+                    // so they touch 2 faces each within the quad face:
+                    // EMF i touches i-1/2,j,k and i-1/2,j,k-1
+                    // EMF j touches i-1/2,j,k and i-1/2,j-1,k 
 
-                if ( j < nx ) {
-                    int signs[3] = {+1,-1,+1} ; 
-                    (*views[fdir])(ijk_c[0]-(jdir==0),ijk_c[1]-(jdir==1),ijk_c[2]-(jdir==2),0,qid_c) += 
-                        - signs[fdir] * dt * dtfact * idx(jdir,qid_c) * emf_corr_i ; 
-                }
+                    // first: emf_i goes into i-1/2,j,k-1 only if j>0 (otherwise it's a ghost cell)
+                    // also: we don't correct the very last one since the edge emf corrector will 
+                    // take care of that one (if ichild_j==1).
+                    if ( (j>0) and (j<nx or ichild_j==0) and (i<nx) ) {
+                        // the signs come from the B field evolution.
+                        // For Bx: EMF_i would be E_y, and the upper z edge E_y enters the evolution
+                        // with a + sign 
+                        // For By: EMF_i is E_x, and the upper z edge enters with - sign 
+                        // For Bz: EMF_i is E_x, and the upper y edge enters with + sign 
+                        int signs[3] = {+1,-1,+1} ; 
+                        (*views[fdir])(ijk_c[0]-(jdir==0),ijk_c[1]-(jdir==1),ijk_c[2]-(jdir==2),0,qid_c) += 
+                            signs[fdir] * dt * dtfact * idx(jdir,qid_c) * emf_corr_i ; 
+                    }
 
-                if ( i>0 ) {
-                    int signs[3] = {-1,+1,-1} ; 
-                    (*views[fdir])(ijk_c[0]-(idir==0),ijk_c[1]-(idir==1),ijk_c[2]-(idir==2),0,qid_c) += 
-                        signs[fdir] * dt * dtfact * idx(idir,qid_c) * emf_corr_j ; 
-                }
+                    if ( i>0 and (i<nx or ichild_i==0) and (j<nx)) {
+                        int signs[3] = {-1,+1,-1} ; 
+                        (*views[fdir])(ijk_c[0]-(idir==0),ijk_c[1]-(idir==1),ijk_c[2]-(idir==2),0,qid_c) += 
+                            signs[fdir] * dt * dtfact * idx(idir,qid_c) * emf_corr_j ; 
+                    }
 
-                if ( i < nx ) {
-                    int signs[3] = {-1,+1,-1} ; 
-                    (*views[fdir])(ijk_c[0]-(idir==0),ijk_c[1]-(idir==1),ijk_c[2]-(idir==2),0,qid_c) += 
-                        - signs[fdir] * dt * dtfact * idx(idir,qid_c) * emf_corr_j ; 
-                }
-                
+                    // now we correct the face at i-1/2,j,k, which only needs to be corrected if 
+                    // it's not in the ghostzones
+                    // NB we don't check ichild here since we correct i-1/2,j,k at the child interface
+                    // as a i-1/2,j-1,k face in the neighbor child
+                    // note that once again we don't want to correct the very first cell in the lower 
+                    // child since the edge corrector takes care of it 
+                    if ( (j<nx) and (j>0 or ichild_j == 1) and (i<nx)) {
+                        int signs[3] = {+1,-1,+1} ; 
+                        (*views[fdir])(ijk_c[0]-(jdir==0),ijk_c[1]-(jdir==1),ijk_c[2]-(jdir==2),0,qid_c) += 
+                            - signs[fdir] * dt * dtfact * idx(jdir,qid_c) * emf_corr_i ; 
+                    }
 
-                // moreover we correct the cell at fdir-1 of B^jdir using 
-                // emf_i 
-                {
-                    int signs[3] = {-1,+1,-1}; // Ey in Bz, Ex in Bz, Ex in By 
-                    (*views[jdir])(ijk_c[0]-(fdir==0),ijk_c[1]-(fdir==1),ijk_c[2]-(fdir==2),0,qid_c) += 
-                        signs[fdir] * dt * dtfact * idx(fdir,qid_c) * emf_corr_i ;
-                }
-                {
-                    int signs[3] = {+1,-1,+1}; // Ez in By, Ez in Bx, Ey in Bx 
-                    // and the cell at fdir-1 of B^idir using emf_j 
-                    (*views[idir])(ijk_c[0]-(fdir==0),ijk_c[1]-(fdir==1),ijk_c[2]-(fdir==2),0,qid_c) += 
-                        signs[fdir] * dt * dtfact * idx(fdir,qid_c) * emf_corr_j ;
-                }
-                
+                    if ( (i < nx) and (i>0 or ichild_i == 1 ) and (j<nx) ) {
+                        int signs[3] = {-1,+1,-1} ; 
+                        (*views[fdir])(ijk_c[0]-(idir==0),ijk_c[1]-(idir==1),ijk_c[2]-(idir==2),0,qid_c) += 
+                            - signs[fdir] * dt * dtfact * idx(idir,qid_c) * emf_corr_j ; 
+                    }
 
+                    // Finally: EMF_i also touches the face at i, j, k-1/2 and i-1,j,k-1/2
+                    // Only one of them is physical, which one it is depends on the side of the 
+                    // face (iside is coarse side)
+                    int fshift = iside ? -1 : 0 ;
+                    // here too we need to be careful about collisions:
+                    // the edges of the face are taken care of by the edge
+                    // corrector, and the inner boundary between children has
+                    // to be split somehow. --> we decide that the lower child 
+                    // always takes care of things 
+                    if ( j > 0 and ( j < nx or ichild_j == 0 ) and (i<nx)) {
+                        // for fdir == x 
+                        // EMF_i is E_y, and jdir == z 
+                        // so if we are in the upper side the sign is -, otherwise + 
+                        // for fdir == y 
+                        // EMF_i is E_x, and jdir == z 
+                        // so if we are in the upper side the sign is +, otherwise - 
+                        // for fdir == z 
+                        // EMF_i is E_x and jdir == y 
+                        // so if we are in the upper side the sign is -, otherwise +
+                        int signs[3] = {
+                            iside ? -1 : +1,
+                            iside ? +1 : -1, 
+                            iside ? -1 : +1
+                        } ; 
+                        (*views[jdir])(ijk_c[0]+fshift*(fdir==0),ijk_c[1]+fshift*(fdir==1),ijk_c[2]+fshift*(fdir==2),0,qid_c) += 
+                            signs[fdir] * dt * dtfact * idx(fdir,qid_c) * emf_corr_i ; 
+                    }
+
+                    if ( i > 0 and ( i < nx or ichild_i == 0 ) and (j<nx)) {
+                        // for fdir == x 
+                        // EMF_j is E_z, and idir == y 
+                        // so if we are in the upper side the sign is +, otherwise - 
+                        // for fdir == y 
+                        // EMF_j is E_z, and idir == x
+                        // so if we are in the upper side the sign is -, otherwise +
+                        // for fdir == z 
+                        // EMF_j is E_y and idir == x 
+                        // so if we are in the upper side the sign is +, otherwise -
+                        int signs[3] = {
+                            iside ? +1 : -1,
+                            iside ? -1 : +1, 
+                            iside ? +1 : -1
+                        } ; 
+                        (*views[idir])(ijk_c[0]+fshift*(fdir==0),ijk_c[1]+fshift*(fdir==1),ijk_c[2]+fshift*(fdir==2),0,qid_c) += 
+                            signs[fdir] * dt * dtfact * idx(fdir,qid_c) * emf_corr_j ; 
+                    }
+                }    
             }
                 
         ) ; 
-    
     //**************************************************************************************************/
     auto edge_rbuf = ghost_layer.get_reflux_emf_edge_recv_buffer() ; 
     auto edge_desc = ghost_layer.get_reflux_edge_descriptors() ; 
@@ -1237,52 +1297,73 @@ void reflux_correct_emfs(
             auto& desc = edge_info(iq) ; 
             auto n_fine = desc.n_fine ; 
             size_t ijk[3] ; 
+            double emf_correction[2] = {0,0} ; // accumulate here 
             for( int iside=0; iside<4; ++iside) {
                 auto& side = desc.sides[iside] ; 
                 if ( ! side.is_fine ) continue ; 
+                // edge index 
                 auto edge_id = side.edge_id ; 
+                // direction and side
                 int edge_dir = edge_id / 4 ; 
                 int side_i = (edge_id>>0)&1;
                 int side_j = (edge_id>>1)&1;
-                int ichild = 2*i>=nx ;
-                auto qid = side.octants.fine.quad_id[ichild];
-                if ( side.octants.fine.is_remote[ichild] ) {
-                    auto rank = side.octants.fine.owner_rank[ichild] ; 
-                    emf_edge_correction(2*i%nx,ichild,iq) = edge_rbuf((2*i)%nx,qid,rank) ; 
-                } else {
-                    ijk[edge_dir] = ngz + (2*i)%nx ; 
-                    ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ; 
-                    ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ; 
-                    emf_edge_correction(2*i%nx,ichild,iq) = emf(ijk[0],ijk[1],ijk[2],edge_dir,qid); 
+                // child id loop 
+                for( int ichild=0; ichild<2; ++ichild ) {
+                    // fine quadid
+                    auto qid = side.octants.fine.quad_id[ichild];
+                    if ( side.octants.fine.is_remote[ichild] ) {
+                        auto rank = side.octants.fine.owner_rank[ichild] ; 
+                        emf_correction[ichild] += edge_rbuf(i,qid,rank) ; 
+                    } else {
+                        ijk[edge_dir] = ngz + i ; 
+                        ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ; 
+                        ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ; 
+                        emf_correction[ichild] += emf(ijk[0],ijk[1],ijk[2],edge_dir,qid); 
+                    }
                 }
+                
+                
             }
-            emf_edge_correction(i,0,iq) /= n_fine ; 
-            emf_edge_correction(i,1,iq) /= n_fine ; 
+            emf_edge_correction(i,0,iq) = emf_correction[0] / n_fine ; 
+            emf_edge_correction(i,1,iq) = emf_correction[1] / n_fine ; 
         }
     );
-    #if 0
     // apply 
     parallel_for(
         GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_edge"),
         edge_policy,
         KOKKOS_LAMBDA (int const& i, int const& iq) {
+            // B field views 
             const grace::var_array_t* views[3] = {
                 &new_stag_state.face_staggered_fields_x,
                 &new_stag_state.face_staggered_fields_y,
                 &new_stag_state.face_staggered_fields_z
             } ;
-            auto& desc = edge_info(iq) ; 
+            // information about the edge we are correcting 
+            auto const& desc = edge_info(iq) ; 
+            // pre-allocate indices 
             size_t ijk[3] ; 
+            // loop over 4 sides of the edge
             for( int iside=0; iside<4; ++iside) {
-                auto& side = desc.sides[iside] ;
+                // side descriptor 
+                auto const& side = desc.sides[iside] ;
+                // edge index 
                 auto edge_id = side.edge_id ;  
+                // direction along and orthogonal to edge (z-order)
                 int edge_dir = edge_id / 4 ; 
                 int side_i = (edge_id>>0)&1;
                 int side_j = (edge_id>>1)&1;
-                int ichild = 2*i>=nx ;
+
+                // if coarse we need to correct with - emf + 1/n_fine 1/2 sum( fine emfs )
                 if ( ! side.is_fine ) {
+                    // coarse remote nothing to do 
                     if ( side.octants.coarse.is_remote ) continue ;
+                    // quad-id 
                     auto qid = side.octants.coarse.quad_id ; 
+                    // we need to figure out if it's the upper or lower
+                    // child we are reading from 
+                    int ichild = (2*i) >= nx ; 
+                    // indices of edge 
                     ijk[edge_dir] = ngz + i ; 
                     ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;  
                     ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;
@@ -1290,6 +1371,7 @@ void reflux_correct_emfs(
                         -emf(ijk[0],ijk[1],ijk[2],edge_dir,qid)
                         +0.5*(emf_edge_correction((2*i)%nx,ichild,iq) + emf_edge_correction((2*i)%nx+1,ichild,iq));
                     // 2 B field values need to be corrected 
+                    //
                     {
                         int signs[3] = {side_j ? -1 : +1, side_j ? +1 : -1, side_j ? -1 : +1 } ; 
                         int off_i = (other_dirs[edge_dir][1] == 0) ? (side_j ? -1 : 0) : 0 ;
@@ -1308,37 +1390,39 @@ void reflux_correct_emfs(
                     }
 
                 } else {
-                    if ( side.octants.fine.is_remote[ichild] ) continue ;
-                    auto qid = side.octants.fine.quad_id[ichild] ;
-                    ijk[edge_dir] = ngz + i ;  
-                    ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;  
-                    ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;
-                    double emf_correction = 
-                        -emf(ijk[0],ijk[1],ijk[2],edge_dir,qid)
-                        +emf_edge_correction(i,ichild,iq);
-                    // 2 B field values need to be corrected 
-                    {
-                        int signs[3] = {side_j ? -1 : +1, side_j ? +1 : -1, side_j ? -1 : +1 } ; 
-                        int off_i = (other_dirs[edge_dir][1] == 0) ? (side_j ? -1 : 0) : 0 ;
-                        int off_j = (other_dirs[edge_dir][1] == 1) ? (side_j ? -1 : 0) : 0 ; 
-                        int off_k = (other_dirs[edge_dir][1] == 2) ? (side_j ? -1 : 0) : 0 ; 
-                        (*views[other_dirs[edge_dir][0]])(ijk[0]+off_i,ijk[1]+off_j,ijk[2]+off_k,0,qid) += 
-                            signs[edge_dir] * dt * dtfact * idx(other_dirs[edge_dir][1],qid) * emf_correction ; 
+                    for( int ichild=0; ichild<2; ++ichild) {
+                        if ( side.octants.fine.is_remote[ichild] ) continue ;
+                        auto qid = side.octants.fine.quad_id[ichild] ;
+                        ijk[edge_dir] = ngz + i ;  
+                        ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;  
+                        ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;
+                        double emf_correction = 
+                            -emf(ijk[0],ijk[1],ijk[2],edge_dir,qid)
+                            +emf_edge_correction(i,ichild,iq);
+                        // 2 B field values need to be corrected 
+                        {
+                            int signs[3] = {side_j ? -1 : +1, side_j ? +1 : -1, side_j ? -1 : +1 } ; 
+                            int off_i = (other_dirs[edge_dir][1] == 0) ? (side_j ? -1 : 0) : 0 ;
+                            int off_j = (other_dirs[edge_dir][1] == 1) ? (side_j ? -1 : 0) : 0 ; 
+                            int off_k = (other_dirs[edge_dir][1] == 2) ? (side_j ? -1 : 0) : 0 ; 
+                            (*views[other_dirs[edge_dir][0]])(ijk[0]+off_i,ijk[1]+off_j,ijk[2]+off_k,0,qid) += 
+                                signs[edge_dir] * dt * dtfact * idx(other_dirs[edge_dir][1],qid) * emf_correction ; 
+                        }
+                        {
+                            int signs[3] = {side_i ? +1 : -1, side_i ? -1 : +1, side_i ? +1 : -1} ; 
+                            int off_i = (other_dirs[edge_dir][0] == 0) ? (side_i ? -1 : 0) : 0 ;
+                            int off_j = (other_dirs[edge_dir][0] == 1) ? (side_i ? -1 : 0) : 0 ; 
+                            int off_k = (other_dirs[edge_dir][0] == 2) ? (side_i ? -1 : 0) : 0 ; 
+                            (*views[other_dirs[edge_dir][1]])(ijk[0]+off_i,ijk[1]+off_j,ijk[2]+off_k,0,qid) += 
+                                signs[edge_dir] * dt * dtfact * idx(other_dirs[edge_dir][0],qid) * emf_correction ;
+                        }
                     }
-                    {
-                        int signs[3] = {side_i ? +1 : -1, side_i ? -1 : +1, side_i ? +1 : -1} ; 
-                        int off_i = (other_dirs[edge_dir][0] == 0) ? (side_i ? -1 : 0) : 0 ;
-                        int off_j = (other_dirs[edge_dir][0] == 1) ? (side_i ? -1 : 0) : 0 ; 
-                        int off_k = (other_dirs[edge_dir][0] == 2) ? (side_i ? -1 : 0) : 0 ; 
-                        (*views[other_dirs[edge_dir][1]])(ijk[0]+off_i,ijk[1]+off_j,ijk[2]+off_k,0,qid) += 
-                            signs[edge_dir] * dt * dtfact * idx(other_dirs[edge_dir][0],qid) * emf_correction ;
-                    }
-                }
+                } // if fine 
             }
         }
     ) ; 
-    #endif 
 }
+#endif 
 
 template< typename eos_t >
 void advance_substep( double const t, double const dt, double const dtfact 
@@ -1354,11 +1438,11 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     compute_fluxes<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/    
-    auto flux_context = reflux_fill_flux_buffers() ; // todo 
+    auto flux_context = reflux_fill_flux_buffers() ;
     //**************************************************************************************************/
     compute_emfs(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/
-    //auto emf_context = reflux_fill_emf_buffers() ; //todo 
+    auto emf_context = reflux_fill_emf_buffers() ; 
     //**************************************************************************************************/
     add_fluxes_and_source_terms<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
     //**************************************************************************************************/
@@ -1368,253 +1452,9 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     reflux_correct_fluxes(flux_context,t,dt,dtfact,new_state) ;
     //**************************************************************************************************/
-    //reflux_correct_emfs(emf_context,t,dt,dtfact,new_stag_state) ; 
+    reflux_correct_emfs(emf_context,t,dt,dtfact,new_stag_state) ; 
     //**************************************************************************************************/
-    parallel::mpi_barrier() ; 
-    #if 0
-    #define RECONSTRUCT(vview,vidx,q,i,j,k,uL,uR,dir) \
-    do { \
-    auto sview = Kokkos::subview(vview, \
-                                Kokkos::ALL(), \
-                                Kokkos::ALL(), \
-                                Kokkos::ALL(), \
-                                vidx, \
-                                q     ) ; \
-    reconstructor(sview,i,j,k,uL,uR,dir) ; \
-    } while(false)
-    #define RECONSTRUCT_V(vview,jdir,vidx,q,i,j,k,uL,uR,dir) \
-    do { \
-    auto sview = Kokkos::subview(vview, \
-                                Kokkos::ALL(), \
-                                Kokkos::ALL(), \
-                                Kokkos::ALL(), \
-                                vidx, \
-                                jdir, \
-                                q     ) ; \
-    reconstructor(sview,i,j,k,uL,uR,dir) ; \
-    } while(false)
-    // compute EMF -- x (stag yz)
-    auto emf_policy_x = 
-        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz,ngz,ngz),0}
-            , {VEC(nx+ngz,ny+ngz+1,nz+ngz+1),nq}
-        ) ;
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "EMF_X")
-                , emf_policy_x 
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-    {
-        // i, j-1/2, k-1/2 
-        // Ex = vz By - vy Bz 
-        // reconstruct vz and By
-        RECON reconstructor {} ; 
-        hll_riemann_solver_t solver {} ;
-        double ByL,ByR;
-        RECONSTRUCT(
-            old_stag_state.face_staggered_fields_y, BSY_, q, i,j,k, ByL, ByR, 2 /*recon along z*/
-        ) ; 
-        double vbarL_z,vbarR_z;
-        RECONSTRUCT_V(
-            vbar, 1 /*y-stagger*/, 1 /*vx,vz so 1*/, q, i,j,k, vbarL_z,vbarR_z, 2 /*recon along z*/
-        ) ;
-        // reconstruct vy and Bz
-        double BzL,BzR;
-        RECONSTRUCT(
-            old_stag_state.face_staggered_fields_z, BSZ_, q, i,j,k, BzL, BzR, 1 /*recon along y*/
-        ) ; 
-        double vbarL_y,vbarR_y;
-        RECONSTRUCT_V(
-            vbar, 2 /*z-stagger*/, 1 /*vx,vy so 1*/, q, i,j,k, vbarL_y,vbarR_y, 1 /*recon along y*/
-        ) ;
-
-        // now we find the wavespeeds 
-        // this is min(cmin_y(i,j-1/2,k), cmin_y(i,j-1/2,k-1))
-        auto cmin_y = Kokkos::max(vbar(VEC(i,j,k),2,1,q),vbar(VEC(i,j,k-1),2,1,q)) ;
-        // this is max(cmax_y(i,j-1/2,k), cmax_y(i,j-1/2,k-1)) 
-        auto cmax_y = Kokkos::max(vbar(VEC(i,j,k),3,1,q),vbar(VEC(i,j,k-1),3,1,q)) ;
-        // this is min(cmin_z(i,j,k-1/2), cmin_z(i,j-1,k-1/2))
-        auto cmin_z = Kokkos::max(vbar(VEC(i,j,k),2,2,q),vbar(VEC(i,j-1,k),2,2,q)) ;
-        // this is max(cmax_z(i,j,k-1/2), cmax_y(i,j-1,k-1/2)) 
-        auto cmax_z = Kokkos::max(vbar(VEC(i,j,k),3,2,q),vbar(VEC(i,j-1,k),3,2,q)) ;
-
-        // now we can finally compute the EMF 
-        // E^x_{i,j-1/2,k-1/2} = ( cmax_z vbarL_z ByL + cmin_z vbarR_z ByR - cmax_z cmin_z (ByR -ByL) ) / ( cmax_z + cmin_z )
-        //                     - ( cmax_y vbarL_y BzL + cmin_y vbarR_y BzR - cmax_y cmin_y (BzR -BzL) ) / ( cmax_y + cmin_y )
-        emf(VEC(i,j,k),0,q) = solver(vbarL_z*ByL, vbarR_z*ByR, ByL, ByR, cmin_z, cmax_z)
-                            - solver(vbarL_y*BzL, vbarR_y*BzR, BzL, BzR, cmin_y, cmax_y) ; 
-        
-    } ) ;
-    
-    // compute EMF -- y (stag xz)
-    auto emf_policy_y = 
-        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz,ngz,ngz),0}
-            , {VEC(nx+ngz+1,ny+ngz,nz+ngz+1),nq}
-        ) ;
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "EMF_Y")
-                , emf_policy_y 
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-    {
-        // i-1/2, j, k-1/2 
-        // Ex = vx Bz - vz Bx 
-        // reconstruct vx and Bz
-        RECON reconstructor {} ; 
-        hll_riemann_solver_t solver {} ;
-        // Bz_{i,j,k-1/2} --> Bz_{i-1/2,j,k-1/2} 
-        double BzL,BzR;
-        RECONSTRUCT(
-            old_stag_state.face_staggered_fields_z, BSZ_, q, i,j,k, BzL, BzR, 0 /*recon along x*/
-        ) ; 
-        // vx_{i,j,k-1/2} --> vx_{i-1/2,j,k-1/2} 
-        double vbarL_x,vbarR_x;
-        RECONSTRUCT_V(
-            vbar, 2 /*z-stagger*/, 0 /*vx,vy so 0*/, q, i,j,k, vbarL_x,vbarR_x, 0 /*recon along x*/
-        ) ;
-        // reconstruct vz and Bx
-        // Bx_{i-1/2,j,k} --> Bx_{i-1/2,j,k-1/2} 
-        double BxL,BxR;
-        RECONSTRUCT(
-            old_stag_state.face_staggered_fields_x, BSX_, q, i,j,k, BxL, BxR, 2 /*recon along z*/
-        ) ; 
-        // vz_{i-1/2,j,k} --> vz_{i-1/2,j,k-1/2} 
-        double vbarL_z,vbarR_z;
-        RECONSTRUCT_V(
-            vbar, 0 /*x-stagger*/, 1 /*vy,vz so 1*/, q, i,j,k, vbarL_z,vbarR_z, 2 /*recon along z*/
-        ) ;
-
-        // now we find the wavespeeds 
-        // this is min(cmin_z(i,j,k-1/2), cmin_z(i-1,j,k-1/2))
-        auto cmin_z = Kokkos::max(vbar(VEC(i,j,k),2,2,q),vbar(VEC(i-1,j,k),2,2,q)) ;
-        // this is max(cmax_z(i,j,k-1/2), cmax_z(i-1,j,k-1/2))
-        auto cmax_z = Kokkos::max(vbar(VEC(i,j,k),3,2,q),vbar(VEC(i-1,j,k),3,2,q)) ;
-
-        // this is min(cmin_x(i-1/2,j,k), cmin_z(i-1/2,j,k-1))
-        auto cmin_x = Kokkos::max(vbar(VEC(i,j,k),2,0,q),vbar(VEC(i,j,k-1),2,0,q)) ;
-        // this is max(cmax_x(i-1/2,j,k), cmax_x(i-1/2,j,k-1))
-        auto cmax_x = Kokkos::max(vbar(VEC(i,j,k),3,0,q),vbar(VEC(i,j,k-1),3,0,q)) ;
-
-        // now we can finally compute the EMF 
-        // E^y_{i-1/2,j,k-1/2} = ( cmax_x vbarL_x BzL + cmin_x vbarR_x BzR - cmax_x cmin_x (BzR -BzL) ) / ( cmax_x + cmin_x )
-        //                     - ( cmax_z vbarL_z BxL + cmin_z vbarR_z BxR - cmax_z cmin_z (BxR -BxL) ) / ( cmax_z + cmin_z )
-        emf(VEC(i,j,k),1,q) = solver(vbarL_x*BzL,vbarR_x*BzR,BzL,BzR,cmin_x,cmax_x) 
-                            - solver(vbarL_z*BxL,vbarR_z*BxR,BxL,BxR,cmin_z,cmax_z) ; 
-        
-    } ) ;
-
-
-    // compute EMF -- z (stag xy)
-    auto emf_policy_z = 
-        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz,ngz,ngz),0}
-            , {VEC(nx+ngz+1,ny+ngz+1,nz+ngz),nq}
-        ) ;
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "EMF_Z")
-                , emf_policy_z 
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-    {
-        // i-1/2, j-1/2, k 
-        // Ez = vy Bx - vx By 
-        // reconstruct vy and Bx
-        RECON reconstructor {} ; 
-        hll_riemann_solver_t solver {} ;
-        // Bx_{i-1/2,j,k} --> Bx_{i-1/2,j-1/2,k} 
-        double BxL,BxR;
-        RECONSTRUCT(
-            old_stag_state.face_staggered_fields_x, BSX_, q, i,j,k, BxL, BxR, 1 /*recon along y*/
-        ) ; 
-        // vy_{i-1/2,j,k} --> vx_{i-1/2,j-1/2,k} 
-        double vbarL_y,vbarR_y;
-        RECONSTRUCT_V(
-            vbar, 0 /*x-stagger*/, 0 /*vy,vz so 0*/, q, i,j,k, vbarL_y,vbarR_y, 1 /*recon along y*/
-        ) ;
-        // reconstruct vx and By
-        // By_{i,j-1/2,k} --> Bx_{i-1/2,j-1/2,k} 
-        double ByL,ByR;
-        RECONSTRUCT(
-            old_stag_state.face_staggered_fields_y, BSY_, q, i,j,k, ByL, ByR, 0 /*recon along x*/
-        ) ; 
-        // vz_{i,j-1/2,k} --> vz_{i-1/2,j-1/2,k} 
-        double vbarL_x,vbarR_x;
-        RECONSTRUCT_V(
-            vbar, 1 /*y-stagger*/, 0 /*vx,vz so 0*/, q, i,j,k, vbarL_x,vbarR_x, 0 /*recon along x*/
-        ) ;
-
-        // now we find the wavespeeds 
-        // this is min(cmin_x(i-1/2,j,k), cmin_x(i-1/2,j-1,k)
-        auto cmin_x = Kokkos::max(vbar(VEC(i,j,k),2,0,q),vbar(VEC(i,j-1,k),2,0,q)) ;
-        // this is max(cmax_x(i-1/2,j,k), cmax_x(i-1/2,j-1,k)
-        auto cmax_x = Kokkos::max(vbar(VEC(i,j,k),3,0,q),vbar(VEC(i,j-1,k),3,0,q)) ;
-
-        // this is min(cmin_y(i,j-1/2,k), cmin_y(i-1,j-1/2,k))
-        auto cmin_y = Kokkos::max(vbar(VEC(i,j,k),2,1,q),vbar(VEC(i-1,j,k),2,1,q)) ;
-        // this is max(cmax_y(i,j-1/2,k), cmax_y(i-1,j-1/2,k))
-        auto cmax_y = Kokkos::max(vbar(VEC(i,j,k),3,1,q),vbar(VEC(i-1,j,k),3,1,q)) ;
-
-        // now we can finally compute the EMF 
-        // E^z_{i-1/2,j,k-1/2} = ( cmax_y vbarL_y BxL + cmin_y vbarR_y BxR - cmax_y cmin_y (BxR -BxL) ) / ( cmax_y + cmin_y )
-        //                     - ( cmax_x vbarL_x ByL + cmin_x vbarR_x ByR - cmax_x cmin_x (ByR -ByL) ) / ( cmax_x + cmin_x )
-        emf(VEC(i,j,k),2,q) = solver(vbarL_y*BxL,vbarR_y*BxR,BxL,BxR,cmin_y,cmax_y) 
-                            - solver(vbarL_x*ByL,vbarR_x*ByR,ByL,ByR,cmin_x,cmax_x) ; 
-        
-    } ) ;
-
-
-
-    auto advance_stag_policy_x = 
-        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz,ngz,ngz),0}
-            , {VEC(nx+ngz+1,ny+ngz,nz+ngz),nq}
-        ) ;
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "add_fluxes")
-                , advance_stag_policy_x 
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-    {
-        // d/dt B^x_i-1/2,j,k = d/dz E^y - d/dy E^z
-        //                    = 1/dz (E^y_{i-1/2,j,k+1/2}-E^y_{i-1/2,j,k-1/2})
-        //                    + 1/dy (E^z_{i-1/2,j-1/2,k}-E^z_{i-1/2,j+1/2,k})
-        new_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) += dt * dtfact * (
-            (emf(VEC(i,j,k+1),1,q)-emf(VEC(i,j,k),1,q)) * idx(2,q)
-          + (emf(VEC(i,j,k),2,q)-emf(VEC(i,j+1,k),2,q)) * idx(1,q)
-        )  ; 
-    } ) ; 
-
-    auto advance_stag_policy_y = 
-        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz,ngz,ngz),0}
-            , {VEC(nx+ngz,ny+ngz+1,nz+ngz),nq}
-        ) ;
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "add_fluxes")
-                , advance_stag_policy_y 
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-    {
-        // d/dt B^y_i,j-1/2,k = d/dx E^z - d/dz E^x
-        //                    = 1/dx (E^z_{i+1/2,j-1/2,k}-E^z_{i-1/2,j-1/2,k})
-        //                    + 1/dz (E^x_{i,j-1/2,k-1/2}-E^x_{i,j-1/2,k+1/2})
-        new_stag_state.face_staggered_fields_y(VEC(i,j,k), BSY_, q) += dt * dtfact * (
-              (emf(VEC(i+1,j,k),2,q) - emf(VEC(i,j,k),2,q)) * idx(0,q)
-            + (emf(VEC(i,j,k),0,q) - emf(VEC(i,j,k+1),0,q)) * idx(2,q)
-        );
-    } ) ; 
-
-    auto advance_stag_policy_z = 
-        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
-              {VEC(ngz,ngz,ngz),0}
-            , {VEC(nx+ngz,ny+ngz,nz+ngz+1),nq}
-        ) ;
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "add_fluxes")
-                , advance_stag_policy_z 
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-    {
-        // d/dt B^z_i,j,k-1/2 = d/dy E^x - d/dx E^y 
-        //                    = 1/dy (E^x_{i,j+1/2,k-1/2}-E^x_{i,j-1/2,k-1/2})
-        //                    + 1/dx (E^y_{i,j,k-1/2}-E^y_{i+1/2,j,k-1/2})
-        new_stag_state.face_staggered_fields_z(VEC(i,j,k), BSZ_, q) += dt * dtfact * (
-              (emf(VEC(i,j+1,k),0,q) - emf(VEC(i,j,k),0,q)) * idx(1,q)
-            + (emf(VEC(i,j,k),1,q) - emf(VEC(i+1,j,k),1,q)) * idx(0,q)
-        );
-
-
-    } ) ; 
-    #endif 
+    parallel::mpi_barrier() ;  
     Kokkos::fence() ; 
     GRACE_PROFILING_POP_REGION ; 
 }

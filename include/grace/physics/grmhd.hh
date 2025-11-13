@@ -1059,7 +1059,7 @@ struct grmhd_equations_system_t
         // Mix fluxes 
         double const a2CFL = 6. * (dt*dtfact/dx(idir,q)) ; 
         double theta = 1 ; 
-        double rho_atm = atmo_params.rho_fl ; 
+        double rho_atm = fmin(atmo_params.rho_fl, excision_params.rho_ex) ; 
         
         double const dens_min_r = rho_atm * metric_r.sqrtg() ; 
         double const dens_min_l = rho_atm * metric_l.sqrtg() ; 

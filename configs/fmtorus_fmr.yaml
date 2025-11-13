@@ -1,48 +1,24 @@
 name: "grace"
 amr: {
-  npoints_block_x: 32,
-  npoints_block_y: 32,
-  npoints_block_z: 32,
-  xmin: -512.0,
-  xmax: 512.0,
-  ymin: -512.0,
-  ymax: 512.0,
-  zmin: -1024.0,
-  zmax: 1024.0,
+  npoints_block_x: 128,
+  npoints_block_y: 128,
+  npoints_block_z: 128,
+  xmin: -128.0,
+  xmax: 128.0,
+  ymin: -128.0,
+  ymax: 128.0,
+  zmin: -64.0,
+  zmax: 64.0,
 
   n_ghostzones: 4,
   initial_refinement_level: 2,
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_CTORE: 2.,
+  refinement_criterion_CTODE: 1.,
+  refinement_criterion_var: "U",
   max_refinement_level: 7,
   regrid_every: -1,
-  regrid_at_postinitial: false,
-  n_fmr_boxes: 3,
-  fmr_box_0: {
-    target_level_delta: 1,
-    x_min: -256,
-    x_max: 256,
-    y_min: -256,
-    y_max: 256,
-    z_min: -256,
-    z_max: 256
-  },
-  fmr_box_1: {
-    target_level_delta: 2,
-    x_min: -128,
-    x_max: 128,
-    y_min: -128,
-    y_max: 128,
-    z_min: -128,
-    z_max: 128
-  },
-  fmr_box_2: {
-    target_level_delta: 3,
-    x_min: -64,
-    x_max: 64,
-    y_min: -64,
-    y_max: 64,
-    z_min: -64,
-    z_max: 64
-  }
+  regrid_at_postinitial: false
 }
 IO: {
   volume_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]","Bdiv"],

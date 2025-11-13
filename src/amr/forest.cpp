@@ -109,18 +109,21 @@ static int fmr_refine_cback(
     double x1 = x0 + dx_quad;
     double y1 = y0 + dx_quad;
     double z1 = z0 + dx_quad;
+    double xm = (x0+x1)*0.5 ;
+    double ym = (y0+y1)*0.5 ; 
+    double zm = (z0+z1)*0.5 ; 
 
     // determine if the quadrant is inside the box ;
     bool need_refine = false ;
     for( int ibox=0; ibox<n_boxes; ++ibox) {
         auto const& box = context->boxes[ibox] ;
         if ( static_cast<int>(quad->level) >= base_level + box.target_level_delta ) continue ; 
-        bool intersects =
-            !(box.xmax < x0 || box.xmin > x1 ||
-              box.ymax < y0 || box.ymin > y1 ||
-              box.zmax < z0 || box.zmin > z1);
+        bool inside =
+            (box.xmin <= xm && xm <= box.xmax) &&
+            (box.ymin <= ym && ym <= box.ymax) &&
+            (box.zmin <= zm && zm <= box.zmax);
 
-        need_refine |= intersects ; 
+        need_refine |= inside ; 
     }
     
     return need_refine ? 1 : 0 ; 

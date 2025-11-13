@@ -159,7 +159,7 @@ conservs_to_prims( grmhd_cons_array_t& cons
         }
         auto const beta = compute_beta(W,prims,metric) ; 
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
-        #if 0 
+        #if 1
         if ( c2p_failed or beta <= 1e-2 ) {
           // backup 
           c2p_errors.adjust_tau = true ; 
