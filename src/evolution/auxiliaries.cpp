@@ -116,12 +116,12 @@ void compute_auxiliary_quantities(
         return;
     }
     Kokkos::fence();
-    #endif
 
     ml_model.fill_input(state);
     unsigned long ncells = (nx+2*ngz)*(ny+2*ngz)*(nz+2*ngz)*nq;
     ml_model.batched_forward(ncells);
     Kokkos::fence();
+    #endif
 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 

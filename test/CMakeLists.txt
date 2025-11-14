@@ -353,6 +353,40 @@ target_link_libraries(  c2p_test PRIVATE
                 spdlog::spdlog
                 $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
 
+# AI-accelerated C2P test
+add_library(ai_tests_main mains/ai_tests_main.cc)
+target_include_directories(ai_tests_main PRIVATE "${HEADER_LIST}")
+target_link_libraries(  ai_tests_main PRIVATE 
+                Catch2::Catch2
+                yaml_cpp::yaml
+                Kokkos::kokkos
+                KokkosKernels::kokkoskernels
+                MPI::MPI_CXX
+                HDF5::HDF5
+                OpenMP::OpenMP_CXX
+                p4est::sc
+                p4est::p4est 
+                spdlog::spdlog
+$<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling> )
+
+add_executable( ai_c2p_test test_ai_c2p.cpp )
+target_include_directories(ai_c2p_test PRIVATE "${HEADER_LIST}")
+target_link_libraries(  ai_c2p_test PRIVATE 
+                ai_tests_main
+                Catch2::Catch2
+                grace_objects
+                yaml_cpp::yaml
+                Kokkos::kokkos
+                KokkosKernels::kokkoskernels
+                MPI::MPI_CXX
+                HDF5::HDF5
+                OpenMP::OpenMP_CXX
+                p4est::sc
+                p4est::p4est 
+                spdlog::spdlog
+                ZLIB::ZLIB
+                $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
+
 add_test(NAME parallel_test COMMAND mpirun -n 2 ./parallel_test)
 add_test(NAME parser_test COMMAND ./parser_test)
 add_test(NAME sc_wrappers_test COMMAND 
@@ -393,6 +427,9 @@ add_test(NAME gamma2_c2p_test COMMAND
         mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_gamma2.yaml )
 add_test(NAME sly4_pw_c2p_test COMMAND 
         mpirun -n 1 ./c2p_test --grace-parfile ./configs/c2p_test_sly4_pw.yaml )
+# AI C2P test
+add_test(NAME ai_c2p_test COMMAND 
+        mpirun -n 1 ./ai_c2p_test --grace-parfile ./configs/ai_c2p_test.yaml )
 ##add_custom_command(
 #        TARGET
 #        COMMENT "Run tests"

@@ -68,6 +68,7 @@ public:
     {}
 
     // Copy constructor
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     MLInferenceNetwork(const MLInferenceNetwork& other)
         : weights_input_to_hidden_(other.weights_input_to_hidden_)
         , bias_hidden_(other.bias_hidden_)
