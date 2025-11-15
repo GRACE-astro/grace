@@ -1077,7 +1077,7 @@ void reflux_correct_fluxes(
     //**************************************************************************************************/ 
 
 }
-#if 0 
+
 void reflux_correct_emfs(
     parallel::grace_transfer_context_t& context,
     double t, double dt, double dtfact,
@@ -1105,8 +1105,8 @@ void reflux_correct_emfs(
     auto policy = 
         MDRangePolicy<Rank<3>> (
             {0,0,0},
-            {static_cast<long>(nx+1)
-            ,static_cast<long>(nx+1)
+            {static_cast<long>(nx/2+1)
+            ,static_cast<long>(nx/2+1)
             ,static_cast<long>(desc.size())}
         ) ;
     //**************************************************************************************************/
@@ -1118,12 +1118,6 @@ void reflux_correct_emfs(
             , policy 
             , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
                 auto const dsc = info(iq) ; 
-                // B field views
-                const var_array_t* views[3] = {
-                    &new_stag_state.face_staggered_fields_x,
-                    &new_stag_state.face_staggered_fields_y,
-                    &new_stag_state.face_staggered_fields_z
-                };
 
                 // coarse face 
                 auto const iface_c = dsc.coarse_face_id ; 
@@ -1153,8 +1147,8 @@ void reflux_correct_emfs(
                     } else {
                         // fine side so iside is opposite
                         ijk_f[fdir] = iside ? ngz : nx + ngz ; 
-                        ijk_f[idir] = i + ngz ; 
-                        ijk_f[jdir] = j + ngz ; 
+                        ijk_f[idir] = 2*i + ngz ; 
+                        ijk_f[jdir] = 2*j + ngz ; 
                         emf_corr_i = 0.5 * (
                             emf(ijk_f[0],ijk_f[1],ijk_f[2],idir,qid_f) + 
                             emf(ijk_f[0] + (idir==0),ijk_f[1] + (idir==1),ijk_f[2] + (idir==2),idir,qid_f)
@@ -1176,105 +1170,13 @@ void reflux_correct_emfs(
                     ijk_c[fdir] = iside ? nx + ngz : ngz ; 
                     ijk_c[idir] = i + off_i + ngz ; 
                     ijk_c[jdir] = j + off_j + ngz ; 
-
-
-                    emf_corr_i -= emf(ijk_c[0], ijk_c[1], ijk_c[2], idir, qid_c) ; 
-                    emf_corr_j -= emf(ijk_c[0], ijk_c[1], ijk_c[2], jdir, qid_c) ;
-
-                    // the EMF i is at i-1/2,j,k-1/2 (assuming fdir==0)
-                    // the EMF j is at i-1/2,j-1/2,k 
-                    // so they touch 2 faces each within the quad face:
-                    // EMF i touches i-1/2,j,k and i-1/2,j,k-1
-                    // EMF j touches i-1/2,j,k and i-1/2,j-1,k 
-
-                    // first: emf_i goes into i-1/2,j,k-1 only if j>0 (otherwise it's a ghost cell)
-                    // also: we don't correct the very last one since the edge emf corrector will 
-                    // take care of that one (if ichild_j==1).
-                    if ( (j>0) and (j<nx or ichild_j==0) and (i<nx) ) {
-                        // the signs come from the B field evolution.
-                        // For Bx: EMF_i would be E_y, and the upper z edge E_y enters the evolution
-                        // with a + sign 
-                        // For By: EMF_i is E_x, and the upper z edge enters with - sign 
-                        // For Bz: EMF_i is E_x, and the upper y edge enters with + sign 
-                        int signs[3] = {+1,-1,+1} ; 
-                        (*views[fdir])(ijk_c[0]-(jdir==0),ijk_c[1]-(jdir==1),ijk_c[2]-(jdir==2),0,qid_c) += 
-                            signs[fdir] * dt * dtfact * idx(jdir,qid_c) * emf_corr_i ; 
-                    }
-
-                    if ( i>0 and (i<nx or ichild_i==0) and (j<nx)) {
-                        int signs[3] = {-1,+1,-1} ; 
-                        (*views[fdir])(ijk_c[0]-(idir==0),ijk_c[1]-(idir==1),ijk_c[2]-(idir==2),0,qid_c) += 
-                            signs[fdir] * dt * dtfact * idx(idir,qid_c) * emf_corr_j ; 
-                    }
-
-                    // now we correct the face at i-1/2,j,k, which only needs to be corrected if 
-                    // it's not in the ghostzones
-                    // NB we don't check ichild here since we correct i-1/2,j,k at the child interface
-                    // as a i-1/2,j-1,k face in the neighbor child
-                    // note that once again we don't want to correct the very first cell in the lower 
-                    // child since the edge corrector takes care of it 
-                    if ( (j<nx) and (j>0 or ichild_j == 1) and (i<nx)) {
-                        int signs[3] = {+1,-1,+1} ; 
-                        (*views[fdir])(ijk_c[0]-(jdir==0),ijk_c[1]-(jdir==1),ijk_c[2]-(jdir==2),0,qid_c) += 
-                            - signs[fdir] * dt * dtfact * idx(jdir,qid_c) * emf_corr_i ; 
-                    }
-
-                    if ( (i < nx) and (i>0 or ichild_i == 1 ) and (j<nx) ) {
-                        int signs[3] = {-1,+1,-1} ; 
-                        (*views[fdir])(ijk_c[0]-(idir==0),ijk_c[1]-(idir==1),ijk_c[2]-(idir==2),0,qid_c) += 
-                            - signs[fdir] * dt * dtfact * idx(idir,qid_c) * emf_corr_j ; 
-                    }
-
-                    // Finally: EMF_i also touches the face at i, j, k-1/2 and i-1,j,k-1/2
-                    // Only one of them is physical, which one it is depends on the side of the 
-                    // face (iside is coarse side)
-                    int fshift = iside ? -1 : 0 ;
-                    // here too we need to be careful about collisions:
-                    // the edges of the face are taken care of by the edge
-                    // corrector, and the inner boundary between children has
-                    // to be split somehow. --> we decide that the lower child 
-                    // always takes care of things 
-                    if ( j > 0 and ( j < nx or ichild_j == 0 ) and (i<nx)) {
-                        // for fdir == x 
-                        // EMF_i is E_y, and jdir == z 
-                        // so if we are in the upper side the sign is -, otherwise + 
-                        // for fdir == y 
-                        // EMF_i is E_x, and jdir == z 
-                        // so if we are in the upper side the sign is +, otherwise - 
-                        // for fdir == z 
-                        // EMF_i is E_x and jdir == y 
-                        // so if we are in the upper side the sign is -, otherwise +
-                        int signs[3] = {
-                            iside ? -1 : +1,
-                            iside ? +1 : -1, 
-                            iside ? -1 : +1
-                        } ; 
-                        (*views[jdir])(ijk_c[0]+fshift*(fdir==0),ijk_c[1]+fshift*(fdir==1),ijk_c[2]+fshift*(fdir==2),0,qid_c) += 
-                            signs[fdir] * dt * dtfact * idx(fdir,qid_c) * emf_corr_i ; 
-                    }
-
-                    if ( i > 0 and ( i < nx or ichild_i == 0 ) and (j<nx)) {
-                        // for fdir == x 
-                        // EMF_j is E_z, and idir == y 
-                        // so if we are in the upper side the sign is +, otherwise - 
-                        // for fdir == y 
-                        // EMF_j is E_z, and idir == x
-                        // so if we are in the upper side the sign is -, otherwise +
-                        // for fdir == z 
-                        // EMF_j is E_y and idir == x 
-                        // so if we are in the upper side the sign is +, otherwise -
-                        int signs[3] = {
-                            iside ? +1 : -1,
-                            iside ? -1 : +1, 
-                            iside ? +1 : -1
-                        } ; 
-                        (*views[idir])(ijk_c[0]+fshift*(fdir==0),ijk_c[1]+fshift*(fdir==1),ijk_c[2]+fshift*(fdir==2),0,qid_c) += 
-                            signs[fdir] * dt * dtfact * idx(fdir,qid_c) * emf_corr_j ; 
-                    }
+                    // E^d is not staggered in d-dir
+                    if ( ijk_c[idir] < nx ) emf(ijk_c[0], ijk_c[1], ijk_c[2], idir, qid_c) = emf_corr_i ; 
+                    if ( ijk_c[jdir] < nx ) emf(ijk_c[0], ijk_c[1], ijk_c[2], jdir, qid_c) = emf_corr_j ; 
                 }    
             }
                 
-        ) ; 
+        ) ;  
     //**************************************************************************************************/
     auto edge_rbuf = ghost_layer.get_reflux_emf_edge_recv_buffer() ; 
     auto edge_desc = ghost_layer.get_reflux_edge_descriptors() ; 
@@ -1285,7 +1187,7 @@ void reflux_correct_emfs(
     auto edge_policy = 
         MDRangePolicy<Rank<2>> (
             {0,0},
-            {static_cast<long>(nx),static_cast<long>(desc.size())}
+            {static_cast<long>(nx),static_cast<long>(edge_desc.size())}
         ) ;
     //**************************************************************************************************/
     // two phases, first we need to compute the correction, then we apply
@@ -1295,12 +1197,14 @@ void reflux_correct_emfs(
         edge_policy,
         KOKKOS_LAMBDA (int const& i, int const& iq) {
             auto& desc = edge_info(iq) ; 
+            //auto n_sides = desc.n_sides; 
             auto n_fine = desc.n_fine ; 
+            double norm =  1/desc.n_fine ;
             size_t ijk[3] ; 
             double emf_correction[2] = {0,0} ; // accumulate here 
-            for( int iside=0; iside<4; ++iside) {
+            for( int iside=0; iside</*n_sides*/ 4; ++iside) {
                 auto& side = desc.sides[iside] ; 
-                if ( ! side.is_fine ) continue ; 
+                if ( ! side.is_fine) continue ; 
                 // edge index 
                 auto edge_id = side.edge_id ; 
                 // direction and side
@@ -1321,11 +1225,10 @@ void reflux_correct_emfs(
                         emf_correction[ichild] += emf(ijk[0],ijk[1],ijk[2],edge_dir,qid); 
                     }
                 }
-                
-                
             }
-            emf_edge_correction(i,0,iq) = emf_correction[0] / n_fine ; 
-            emf_edge_correction(i,1,iq) = emf_correction[1] / n_fine ; 
+            
+            emf_edge_correction(i,0,iq) = emf_correction[0] * norm ; 
+            emf_edge_correction(i,1,iq) = emf_correction[1] * norm ; 
         }
     );
     // apply 
@@ -1333,18 +1236,12 @@ void reflux_correct_emfs(
         GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_edge"),
         edge_policy,
         KOKKOS_LAMBDA (int const& i, int const& iq) {
-            // B field views 
-            const grace::var_array_t* views[3] = {
-                &new_stag_state.face_staggered_fields_x,
-                &new_stag_state.face_staggered_fields_y,
-                &new_stag_state.face_staggered_fields_z
-            } ;
             // information about the edge we are correcting 
             auto const& desc = edge_info(iq) ; 
             // pre-allocate indices 
             size_t ijk[3] ; 
             // loop over 4 sides of the edge
-            for( int iside=0; iside<4; ++iside) {
+            for( int iside=0; iside</*desc.n_sides*/ 4; ++iside) {
                 // side descriptor 
                 auto const& side = desc.sides[iside] ;
                 // edge index 
@@ -1362,33 +1259,21 @@ void reflux_correct_emfs(
                     auto qid = side.octants.coarse.quad_id ; 
                     // we need to figure out if it's the upper or lower
                     // child we are reading from 
-                    int ichild = (2*i) >= nx ; 
                     // indices of edge 
+                    // TODO offsets need to be figured out.
+                    // When we register i and j are wrt the face dir
+                    // here they are wrt the edge dir which lies inside 
+                    // the face. So they are not consistent.. Essentially 
+                    // here we need to just take the side for the direction
+                    // orthogonal to the coarse face and offset the other if 
+                    // the child_id is 0...
                     ijk[edge_dir] = ngz + i ; 
-                    ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;  
-                    ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;
-                    double emf_correction = 
-                        -emf(ijk[0],ijk[1],ijk[2],edge_dir,qid)
+                    ijk[other_dirs[edge_dir][0]] =( side_i ? nx + ngz : ngz ) ;  
+                    ijk[other_dirs[edge_dir][1]] =( side_j ? nx + ngz : ngz ) ;
+                    int ichild = (2*i) >= nx ; 
+                    emf(ijk[0],ijk[1],ijk[2],edge_dir,qid) = 
                         +0.5*(emf_edge_correction((2*i)%nx,ichild,iq) + emf_edge_correction((2*i)%nx+1,ichild,iq));
-                    // 2 B field values need to be corrected 
-                    //
-                    {
-                        int signs[3] = {side_j ? -1 : +1, side_j ? +1 : -1, side_j ? -1 : +1 } ; 
-                        int off_i = (other_dirs[edge_dir][1] == 0) ? (side_j ? -1 : 0) : 0 ;
-                        int off_j = (other_dirs[edge_dir][1] == 1) ? (side_j ? -1 : 0) : 0 ; 
-                        int off_k = (other_dirs[edge_dir][1] == 2) ? (side_j ? -1 : 0) : 0 ; 
-                        (*views[other_dirs[edge_dir][0]])(ijk[0]+off_i,ijk[1]+off_j,ijk[2]+off_k,0,qid) += 
-                            signs[edge_dir] * dt * dtfact * idx(other_dirs[edge_dir][1],qid) * emf_correction ; 
-                    }
-                    {
-                        int signs[3] = {side_i ? +1 : -1, side_i ? -1 : +1, side_i ? +1 : -1} ; 
-                        int off_i = (other_dirs[edge_dir][0] == 0) ? (side_i ? -1 : 0) : 0 ;
-                        int off_j = (other_dirs[edge_dir][0] == 1) ? (side_i ? -1 : 0) : 0 ; 
-                        int off_k = (other_dirs[edge_dir][0] == 2) ? (side_i ? -1 : 0) : 0 ; 
-                        (*views[other_dirs[edge_dir][1]])(ijk[0]+off_i,ijk[1]+off_j,ijk[2]+off_k,0,qid) += 
-                            signs[edge_dir] * dt * dtfact * idx(other_dirs[edge_dir][0],qid) * emf_correction ;
-                    }
-
+                    
                 } else {
                     for( int ichild=0; ichild<2; ++ichild) {
                         if ( side.octants.fine.is_remote[ichild] ) continue ;
@@ -1396,33 +1281,14 @@ void reflux_correct_emfs(
                         ijk[edge_dir] = ngz + i ;  
                         ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;  
                         ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;
-                        double emf_correction = 
-                            -emf(ijk[0],ijk[1],ijk[2],edge_dir,qid)
-                            +emf_edge_correction(i,ichild,iq);
-                        // 2 B field values need to be corrected 
-                        {
-                            int signs[3] = {side_j ? -1 : +1, side_j ? +1 : -1, side_j ? -1 : +1 } ; 
-                            int off_i = (other_dirs[edge_dir][1] == 0) ? (side_j ? -1 : 0) : 0 ;
-                            int off_j = (other_dirs[edge_dir][1] == 1) ? (side_j ? -1 : 0) : 0 ; 
-                            int off_k = (other_dirs[edge_dir][1] == 2) ? (side_j ? -1 : 0) : 0 ; 
-                            (*views[other_dirs[edge_dir][0]])(ijk[0]+off_i,ijk[1]+off_j,ijk[2]+off_k,0,qid) += 
-                                signs[edge_dir] * dt * dtfact * idx(other_dirs[edge_dir][1],qid) * emf_correction ; 
-                        }
-                        {
-                            int signs[3] = {side_i ? +1 : -1, side_i ? -1 : +1, side_i ? +1 : -1} ; 
-                            int off_i = (other_dirs[edge_dir][0] == 0) ? (side_i ? -1 : 0) : 0 ;
-                            int off_j = (other_dirs[edge_dir][0] == 1) ? (side_i ? -1 : 0) : 0 ; 
-                            int off_k = (other_dirs[edge_dir][0] == 2) ? (side_i ? -1 : 0) : 0 ; 
-                            (*views[other_dirs[edge_dir][1]])(ijk[0]+off_i,ijk[1]+off_j,ijk[2]+off_k,0,qid) += 
-                                signs[edge_dir] * dt * dtfact * idx(other_dirs[edge_dir][0],qid) * emf_correction ;
-                        }
+                        emf(ijk[0],ijk[1],ijk[2],edge_dir,qid) = emf_edge_correction(i,ichild,iq);
                     }
                 } // if fine 
             }
         }
     ) ; 
 }
-#endif 
+
 
 template< typename eos_t >
 void advance_substep( double const t, double const dt, double const dtfact 
