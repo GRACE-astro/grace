@@ -951,7 +951,7 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
     auto ssizes_edge   = ghost_layer.get_reflux_buffer_rank_send_emf_edge_sizes()   ;
     
     auto roffsets_edge = ghost_layer.get_reflux_buffer_rank_recv_emf_edge_offsets() ; 
-    auto rsizes_edge   = ghost_layer.get_reflux_buffer_rank_recv_emf_sizes()   ;
+    auto rsizes_edge   = ghost_layer.get_reflux_buffer_rank_recv_emf_edge_sizes()   ;
     for( int iproc=0; iproc<nprocs; ++iproc) {
         if ( ssizes_edge[iproc] > 0 ) {
             GRACE_TRACE("Proc {} send {} offset {}",iproc, ssizes_edge[iproc], soffsets_edge[iproc]);
@@ -1312,13 +1312,13 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     add_fluxes_and_source_terms<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
     //**************************************************************************************************/
+    reflux_correct_emfs(emf_context,t,dt,dtfact,new_stag_state) ;
+    //**************************************************************************************************/
     update_CT(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/
     update_fd(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/
     reflux_correct_fluxes(flux_context,t,dt,dtfact,new_state) ;
-    //**************************************************************************************************/
-    reflux_correct_emfs(emf_context,t,dt,dtfact,new_stag_state) ; 
     //**************************************************************************************************/
     parallel::mpi_barrier() ;  
     Kokkos::fence() ; 
