@@ -67,7 +67,8 @@ struct spherical_surface_iface {
     size_t res ; 
     std::vector<point_host_t> points_h ; 
     std::vector<double> weights_h ; 
-    std::vector<intersected_cell_descriptor_t> intersected_cells ; //!< idx, i,j,k, q of intersected cells
+    std::vector<intersected_cell_descriptor_t> intersected_cells ; //!< i,j,k, q of intersected cells
+    std::vector<size_t> intersecting_points; 
     std::vector<std::array<std::array<double,4>,3>> interp_weights ; //!< Interpolation weights 
     readonly_twod_view_t<double,3> points ; // maybe don't store here in case some points are not intersected.
     readonly_view_t<double> weights ;
@@ -103,10 +104,12 @@ int grace_search_points(
         int i = static_cast<int>(xoff * idx) ; 
         int j = static_cast<int>(yoff * idx) ; 
         int k = static_cast<int>(zoff * idx) ; 
-        auto intersected_cells = static_cast<std::vector<intersected_cell_descriptor_t>*>(p4est->user_pointer) ; 
-        intersected_cells->push_back(
-            std::make_pair(p_idx,std::make_tuple(i,j,k,quadid)) 
+        auto intersected_cells = static_cast<std::vector<intersected_cell_set_t>*>(p4est->user_pointer) ; 
+
+        intersected_cells->cells->push_back(
+            std::make_tuple(i,j,k,quadid)
         ) ; 
+        intersected_cells->point_idx->push_back(p_idx) ;
     }
 
     return static_cast<int>(contained) ;
@@ -159,7 +162,13 @@ struct spherical_surface_t: public spherical_surface_iface {
         ) ; 
         // search 
         auto p4est = grace::amr::forest::get().get() ; 
-        p4est->user_pointer = static_cast<void*>(intersected_cells) ; 
+        intersected_cells.clear() ; 
+        intersecting_points.clear() ; 
+        intersected_cell_set_t set{
+            &intersected_cells,
+            &intersecting_points
+        }; 
+        p4est->user_pointer = static_cast<void*>(&set) ; 
         p4est_search_local(
             p4est, 
             false, 
@@ -167,10 +176,12 @@ struct spherical_surface_t: public spherical_surface_iface {
             &grace_search_points,
             points_array
         ) ; 
-
+        GRACE_TRACE("Spherical surface {}, number of local points {}", name, intersecting_points.size()) ; 
     }
 
-    void compute_interpolation_weights() override ;
+    void compute_interpolation_weights() override {
+        
+    };
 
     TrackingPolicy tracker ; 
 
