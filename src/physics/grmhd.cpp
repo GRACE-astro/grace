@@ -413,8 +413,6 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                          , Ay("Ay", VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz+1),1,nq) 
                          , Az("Az", VEC(nx+2*ngz+1,ny+2*ngz+1,nz+2*ngz),1,nq) ; 
         // Ax 
-        fill_physical_coordinates(pcoords,STAG_EDGEYZ) ;
-        id_kernel = id_t( _eos, pcoords, kernel_args...) ; 
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AX")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz+1),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
@@ -613,6 +611,7 @@ void set_conservs_from_prims() {
 
     auto& state = grace::variable_list::get().getstate() ; 
     auto& sstate = grace::variable_list::get().getstaggeredstate() ; 
+    auto& idx     = grace::variable_list::get().getinvspacings() ;
 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
@@ -628,11 +627,25 @@ void set_conservs_from_prims() {
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k)) ; 
         // note here we reset B-center since it is outdated 
+        auto Bx = Kokkos::subview(sstate.face_staggered_fields_x,
+                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), BSX_, q) ; 
+        auto By = Kokkos::subview(sstate.face_staggered_fields_y,
+                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), BSY_, q) ; 
+        auto Bz = Kokkos::subview(sstate.face_staggered_fields_z,
+                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), BSZ_, q) ;
         aux(VEC(i,j,k),BX_,q) = 0.5 * (sstate.face_staggered_fields_x(VEC(i,j,k),BSX_,q) + sstate.face_staggered_fields_x(VEC(i+1,j,k),BSX_,q)) / metric.sqrtg();
         aux(VEC(i,j,k),BY_,q) = 0.5 * (sstate.face_staggered_fields_y(VEC(i,j,k),BSY_,q) + sstate.face_staggered_fields_y(VEC(i,j+1,k),BSY_,q)) / metric.sqrtg();
         aux(VEC(i,j,k),BZ_,q) = 0.5 * (sstate.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) + sstate.face_staggered_fields_z(VEC(i,j,k+1),BSZ_,q)) / metric.sqrtg();
+        aux(VEC(i,j,k),BDIV_,q) = ( (Bx(VEC(i+1,j,k)) - Bx(VEC(i,j,k))) * idx(0,q) 
+                                  + (By(VEC(i,j+1,k)) - By(VEC(i,j,k))) * idx(1,q)
+                                  + (Bz(VEC(i,j,k+1)) - Bz(VEC(i,j,k))) * idx(2,q))/metric.sqrtg() ; 
+        
+
         grmhd_prims_array_t prims ; 
-        FILL_PRIMS_ARRAY(prims,aux,q,VEC(i,j,k)) ; 
+        FILL_PRIMS_ARRAY(prims,aux,q,VEC(i,j,k)) ;
+        
+        std::array<double,4> dummy; 
+        compute_smallb(dummy, aux(VEC(i,j,k),SMALLB2_,q), prims,metric) ; 
         grmhd_cons_array_t cons ;
         prims_to_conservs(prims,cons,metric) ; 
         state(VEC(i,j,k),DENS_,q) = cons[DENSL] ; 

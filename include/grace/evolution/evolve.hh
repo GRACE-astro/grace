@@ -157,46 +157,6 @@ void update_fd(
     , staggered_variable_arrays_t & old_stag_state
 ) ;
 //*****************************************************************************************************
-/** @brief Fill flux buffers for refluxing
- * @return Transfer context containing send and receive requests for fluxes.
- * \ingroup evol
- */
-parallel::grace_transfer_context_t reflux_fill_flux_buffers();
-//*****************************************************************************************************
-/** @brief Fill emf buffers for refluxing
- * @return Transfer context containing send and receive requests for emfs.
- * \ingroup evol
- */
-parallel::grace_transfer_context_t reflux_fill_emf_buffers() ; 
-//*****************************************************************************************************
-/** @brief Correct fluxes at fine-coarse interfaces
- * @param context Transfer context
- * @param t Time 
- * @param dt Time step 
- * @param dtfact Time step factor
- * @param new_state New state 
- * \ingroup evol
-*/
-void reflux_correct_fluxes(
-    parallel::grace_transfer_context_t& context,
-    double t, double dt, double dtfact,
-    var_array_t & new_state 
-) ; 
-//*****************************************************************************************************
-/** @brief Correct EMFs at fine-coarse interfaces
- * @param context Transfer context
- * @param t Time 
- * @param dt Time step 
- * @param dtfact Time step factor
- * @param new_stag_state New staggered state 
- * \ingroup evol
-*/
-void reflux_correct_emfs(
-    parallel::grace_transfer_context_t& context,
-    double t, double dt, double dtfact,
-    staggered_variable_arrays_t& new_stag_state
-) ; 
-//*****************************************************************************************************
 /**
  * @brief Advance all variables by a substep.
  * \ingroup evol

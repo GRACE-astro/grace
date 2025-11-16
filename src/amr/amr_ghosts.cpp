@@ -587,7 +587,8 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         { // send 
             auto &vec = snd_keys[r];
             std::sort(vec.begin(), vec.end(), key_cmp{});
-
+            // dedup on send
+            vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
             // build a lookup: comm_key_t -> index
             std::unordered_map<comm_key_t, size_t, comm_key_hash> snd_index;
             snd_index.reserve(vec.size());

@@ -1,2 +1,2 @@
-register_grace_object(grace_evolution auxiliaries.cpp evolve.cpp find_stable_timestep.cpp)
+register_grace_object(grace_evolution auxiliaries.cpp evolve.cpp find_stable_timestep.cpp refluxing.cpp)
 register_grace_object(grace_initial_data initial_data.cpp)
