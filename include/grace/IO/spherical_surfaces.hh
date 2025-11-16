@@ -1,6 +1,6 @@
 /**
  * @file spherical_surfaces.hh
- * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
  * @brief 
  * @date 2025-10-03
  * 
@@ -41,145 +41,76 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "surface_IO_utils.hh"
+#include "spherical_surface_helpers.hh"
+
 #include <array>
 #include <memory>
 
 namespace grace {
 
-namespace chealpix {
 
-static int isqrt(int v)
-{ return (int)(sqrt(v+0.5)); }
-
-static void pix2ang_ring_z_phi (int nside_, int pix, double *z, double *phi)
-  {
-  long ncap_=nside_*(nside_-1)*2;
-  long npix_=12*nside_*nside_;
-  double fact2_ = 4./npix_;
-  if (pix<ncap_) /* North Polar cap */
-    {
-    int iring = (1+isqrt(1+2*pix))>>1; /* counted from North pole */
-    int iphi  = (pix+1) - 2*iring*(iring-1);
-
-    *z = 1.0 - (iring*iring)*fact2_;
-    *phi = (iphi-0.5) * halfpi/iring;
-    }
-  else if (pix<(npix_-ncap_)) /* Equatorial region */
-    {
-    double fact1_  = (nside_<<1)*fact2_;
-    int ip  = pix - ncap_;
-    int iring = ip/(4*nside_) + nside_; /* counted from North pole */
-    int iphi  = ip%(4*nside_) + 1;
-    /* 1 if iring+nside is odd, 1/2 otherwise */
-    double fodd = ((iring+nside_)&1) ? 1 : 0.5;
-
-    int nl2 = 2*nside_;
-    *z = (nl2-iring)*fact1_;
-    *phi = (iphi-fodd) * pi/nl2;
-    }
-  else /* South Polar cap */
-    {
-    int ip = npix_ - pix;
-    int iring = (1+isqrt(2*ip-1))>>1; /* counted from South pole */
-    int iphi  = 4*iring + 1 - (ip - 2*iring*(iring-1));
-
-    *z = -1.0 + (iring*iring)*fact2_;
-    *phi = (iphi-0.5) * halfpi/iring;
-    }
-  }
-
-inline void pix2vec_ring(long nside, long ipix, std::array<double,3>& vec)
-  {
-  double z, phi;
-  pix2ang_ring_z_phi (nside,ipix,&z,&phi);
-  double stheta=sqrt((1.-z)*(1.+z));
-  vec[0]=stheta*cos(phi);
-  vec[1]=stheta*sin(phi);
-  vec[2]=z;
-  }
-
-void ang2vec(double theta, double phi, std::array<double,3>& vec)
-  {
-  double sz = sin(theta);
-  vec[0] = sz * cos(phi);
-  vec[1] = sz * sin(phi);
-  vec[2] = cos(theta);
-  }
-
-void vec2ang(const double *vec, double *theta, double *phi)
-  {
-  *theta = atan2(sqrt(vec[0]*vec[0]+vec[1]*vec[1]),vec[2]);
-  *phi = atan2 (vec[1],vec[0]);
-  if (*phi<0.) *phi += twopi;
-  }
-
-long npix2nside(long npix)
-  {
-  long res = isqrt(npix/12);
-  return (res*res*12==npix) ? res : -1;
-  }
-
-long nside2npix(const long nside)
-  { return 12*nside*nside; }
-
-}
-
-struct healpix_sampler_t {
-
-    static size_t get_n_points(std::pair<size_t, size_t> const& res) {
-        return nside2npix(res.fist);
-    }
-
-    static std::vector<std::array<double,3>>
-    get_points(double radius, std::array<double,3> const& center, std::pair<size_t,size_t> const& res)
-    {
-        size_t nside = res.first ; 
-        size_t npix = nside2npix(nside);
-        std::vector<std::array<double,3>> points;
-        points.reserve(nside2npix(res.fist));
-
-        for( size_t ipix=0; ipix<npix; ipix+=1UL) {
-            std::array<double,3> p; 
-            pix2vec_ring(nside,ipix,p) ; 
-            for( int i=0; i<3; ++i) p[i] += center[i] ; 
-            points.push_back(p) ;  
-        }
-
-        return points;
-    }
-    //! TODO (?) this is simply dA for all 
-    // points
-    static std::vector<double> get_quadrature_weights(double radius, std::pair<size_t,size_t> const& res) {
-        size_t npix = nside2npix(res.fist); 
-        double A = 4 * M_PI / npix * radius * radius ; 
-        return std::vector<double>(npix, A) ; 
-    }
-};
-
-struct no_tracking_policy_t {
-    void track(
-        double& radius,
-        std::array<double,3>& center
-    ) {}
-} ; 
 
 struct spherical_surface_iface {
     virtual ~spherical_surface_iface() = default;
 
     virtual void update_if_needed() = 0;
 
+    virtual void slice_oct_tree() = 0 ;
+
+    virtual void compute_interpolation_weights() = 0 ; 
+
     std::string name ; 
     double radius ; 
     std::array<double,3> center ;
     size_t npoints   ; 
     size_t res ; 
-    std::vector<std::array<double,3>> points_h ; 
+    std::vector<point_host_t> points_h ; 
     std::vector<double> weights_h ; 
+    std::vector<intersected_cell_descriptor_t> intersected_cells ; //!< idx, i,j,k, q of intersected cells
+    std::vector<std::array<std::array<double,4>,3>> interp_weights ; //!< Interpolation weights 
     readonly_twod_view_t<double,3> points ; // maybe don't store here in case some points are not intersected.
     readonly_view_t<double> weights ;
-
 };
 
+int grace_search_points(
+    p4est_t* forest,
+    p4est_topidx_t which_tree,
+    p4est_quadrant_t* quadrant, 
+    p4est_locidx_t local_num,
+    void* point
+)
+{
+    DECLARE_GRID_EXTENTS ; 
+    auto point_desc = static_cast<point_host_t*>(point) ; 
+    auto p_idx = point_desc->first ;
+    auto pcoords = point_desc->second; 
+    // now construct a cube from the quadrant 
+    auto cube  = detail::make_cube(quadrant_t{quadrant}, which_tree) ; 
+    bool contained = (
+        pcoords[0] <= cube.v[1][0] and pcoords[0] >= cube.v[0][0] and 
+        pcoords[1] <= cube.v[2][1] and pcoords[1] >= cube.v[0][1] and 
+        pcoords[2] <= cube.v[4][2] and pcoords[2] >= cube.v[0][2] and 
+    ) ; 
+
+    if ( local_num >=0 and contained ) {
+        auto quadid = local_num ; 
+        // find the indices of the cell within the quad that contains the point ; 
+        double xoff = pcoords[0] - cube.v[0][0] ; 
+        double yoff = pcoords[1] - cube.v[0][1] ; 
+        double zoff = pcoords[2] - cube.v[0][2] ; 
+        double idx = static_cast<double>(nx)/(cube.v[1][0] - cube.v[0][0]);
+        int i = static_cast<int>(xoff * idx) ; 
+        int j = static_cast<int>(yoff * idx) ; 
+        int k = static_cast<int>(zoff * idx) ; 
+        auto intersected_cells = static_cast<std::vector<intersected_cell_descriptor_t>*>(p4est->user_pointer) ; 
+        intersected_cells->push_back(
+            std::make_pair(p_idx,std::make_tuple(i,j,k,quadid)) 
+        ) ; 
+    }
+
+    return static_cast<int>(contained) ;
+}
 
 template< typename SamplingPolicy 
         , typename TrackingPolicy > 
@@ -200,6 +131,8 @@ struct spherical_surface_t: public spherical_surface_iface {
             points, points_h
         ) ; 
         grace::deep_copy_vec_to_const_view(weights,weights_h) ;
+        slice_oct_tree() ; 
+        compute_interpolation_weights() ; 
     }
 
     /**
@@ -210,7 +143,8 @@ struct spherical_surface_t: public spherical_surface_iface {
      */
     void update_if_needed() override {
         // this function is responsible for checking if update is needed
-        tracker.track(radius, center) ; 
+        auto updated = tracker.track(radius, center) ; 
+        if (!updated) return ; 
         point_h =  SamplingPolicy::get_points(radius, center, res) ; 
         weights_h = SamplingPolicy::get_quadrature_weights(radius,res) ; 
         grace::deep_copy_vec_to_const_2D_view(
@@ -219,41 +153,29 @@ struct spherical_surface_t: public spherical_surface_iface {
         grace::deep_copy_vec_to_const_view(weights,weights_h) ;
     }
 
+    void slice_oct_tree() override {
+        auto points_array = sc_array_new_data(
+            points_h.data(), sizeof(std::array<double,3>), points_h.size() 
+        ) ; 
+        // search 
+        auto p4est = grace::amr::forest::get().get() ; 
+        p4est->user_pointer = static_cast<void*>(intersected_cells) ; 
+        p4est_search_local(
+            p4est, 
+            false, 
+            nullptr, 
+            &grace_search_points,
+            points_array
+        ) ; 
+
+    }
+
+    void compute_interpolation_weights() override ;
+
     TrackingPolicy tracker ; 
 
-    #if 0
-    void _append_var(std::string const& vname, std::vector<size_t>& vidx, std::vector<size_t>& aidx)  {
-        auto& vnames = grace::variables::detail::_varnames ; 
-        auto& auxnames = grace::variables::detail::_auxnames ;
-        if(std::find(vnames.begin(), vnames.end(), vname) != vnames.end()) {
-            vidx.push_back(
-                grace::get_variable_index(vname,false) ;
-            ) ; 
-            return ; 
-        }
-        if(std::find(auxnames.begin(), auxnames.end(), vname) != auxnames.end()) {
-            aidx.push_back(
-                grace::get_variable_index(vname,true) ;
-            ) ; 
-            return ; 
-        }
+    private:
 
-        // handle "special" vars here
-        if ( vname == "mass_fluxes" ) {
-            // hydro vars needed
-            aidx.push_back(RHO) ; aidx.push_back(VELX) ; aidx.push_back(VELY) ; aidx.push_back(VELZ) ;
-            aidx.push_back(EPS) ; aidx.push_back(PRESS) ; 
-
-            vidx.push_back(GXX) ; vidx.push_back(GXY) ; vidx.push_back(GXZ) ;
-            vidx.push_back(GYY) ; vidx.push_back(GYZ) ; vidx.push_back(GZZ) ; 
-            vidx.push_back(BETAX) ; vidx.push_back(BETAY) ; vidx.push_back(BETAZ) ;
-            vidx.push_back(ALP) ; 
-
-        } 
-
-        ERROR("Variable " << vname << " not found requested for interpolation") ; 
-    }
-    #endif 
 } ; 
 //**************************************************************************************************
 //**************************************************************************************************

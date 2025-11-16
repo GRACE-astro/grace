@@ -714,7 +714,7 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     add_fluxes_and_source_terms<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
     //**************************************************************************************************/
-    reflux_correct_emfs(emf_context,t,dt,dtfact,new_stag_state) ;
+    reflux_correct_emfs(emf_context) ;
     //**************************************************************************************************/
     update_CT(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/

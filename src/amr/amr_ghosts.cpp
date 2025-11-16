@@ -252,7 +252,7 @@ void amr_ghosts_impl_t::build_task_list(
         if( send_rank_sizes[stag][r] > 0 ){
             task_list.push_back(
                 std::make_unique<mpi_task_t>(
-                    make_mpi_send_task(r, _send_buffer[stag], send_rank_offsets[stag], send_rank_sizes[stag], task_counter, static_cast<size_t>(stag))
+                    make_mpi_send_task(r, _send_buffer[stag], send_rank_offsets[stag], send_rank_sizes[stag], task_counter, parallel::GRACE_HALO_EXCHANGE_TAG_CC)
                 )
             ) ; 
             send_task_id[r] = task_list.back()->task_id ; 
@@ -260,7 +260,7 @@ void amr_ghosts_impl_t::build_task_list(
         if (recv_rank_sizes[stag][r] > 0 ){
             task_list.push_back(
                 std::make_unique<mpi_task_t>(
-                    make_mpi_recv_task(r, _recv_buffer[stag], recv_rank_offsets[stag], recv_rank_sizes[stag], task_counter, static_cast<size_t>(stag))
+                    make_mpi_recv_task(r, _recv_buffer[stag], recv_rank_offsets[stag], recv_rank_sizes[stag], task_counter, parallel::GRACE_HALO_EXCHANGE_TAG_CC)
                 ) 
             ) ; 
             recv_task_id[r] = task_list.back()->task_id ; 
@@ -389,7 +389,7 @@ void amr_ghosts_impl_t::build_task_list_face_stag(
     /***********************************************************************/
     std::array<bucket_t,N_VAR_STAGGERINGS> deferred_phys_bc_kernels; 
     /***********************************************************************/
-    #define INSERT_TASKS_UP_TO_PROLONG_IMPL(stag) \
+    #define INSERT_TASKS_UP_TO_PROLONG_IMPL(stag,tag) \
     do {\
     auto& cbuf_view = get_coarse_buffers<stag>() ; \
     std::vector<task_id_t> send_task_id, recv_task_id ; \
@@ -398,7 +398,7 @@ void amr_ghosts_impl_t::build_task_list_face_stag(
         if( send_rank_sizes[stag][r] > 0 ){ \
             task_list.push_back( \
                 std::make_unique<mpi_task_t>( \
-                    make_mpi_send_task(r, _send_buffer[stag], send_rank_offsets[stag], send_rank_sizes[stag], task_counter, static_cast<size_t>(stag)) \
+                    make_mpi_send_task(r, _send_buffer[stag], send_rank_offsets[stag], send_rank_sizes[stag], task_counter, tag) \
                 ) \
             ) ; \
             send_task_id[r] = task_list.back()->task_id ; \
@@ -406,7 +406,7 @@ void amr_ghosts_impl_t::build_task_list_face_stag(
         if (recv_rank_sizes[stag][r] > 0 ){ \
             task_list.push_back( \
                 std::make_unique<mpi_task_t>( \
-                    make_mpi_recv_task(r, _recv_buffer[stag], recv_rank_offsets[stag], recv_rank_sizes[stag], task_counter, static_cast<size_t>(stag)) \
+                    make_mpi_recv_task(r, _recv_buffer[stag], recv_rank_offsets[stag], recv_rank_sizes[stag], task_counter, tag) \
                 ) \
             ) ; \
             recv_task_id[r] = task_list.back()->task_id ; \
@@ -468,9 +468,9 @@ void amr_ghosts_impl_t::build_task_list_face_stag(
     } while (false)
     /***********************************************************************/
     /***********************************************************************/
-    INSERT_TASKS_UP_TO_PROLONG_IMPL(STAG_FACEX);
-    INSERT_TASKS_UP_TO_PROLONG_IMPL(STAG_FACEY);
-    INSERT_TASKS_UP_TO_PROLONG_IMPL(STAG_FACEZ);
+    INSERT_TASKS_UP_TO_PROLONG_IMPL(STAG_FACEX,parallel::GRACE_HALO_EXCHANGE_TAG_FX);
+    INSERT_TASKS_UP_TO_PROLONG_IMPL(STAG_FACEY,parallel::GRACE_HALO_EXCHANGE_TAG_FY);
+    INSERT_TASKS_UP_TO_PROLONG_IMPL(STAG_FACEZ,parallel::GRACE_HALO_EXCHANGE_TAG_FZ);
     /***********************************************************************/
     /***********************************************************************/
     insert_div_preserving_prolongation_tasks(

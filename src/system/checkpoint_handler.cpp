@@ -172,7 +172,6 @@ void write_data_hdf5(
 
     herr_t err ; 
 
-    static constexpr unsigned int chunk_size = 4096 ; 
     //static constexpr unsigned int compression_level = 6 ;
     auto rank = parallel::mpi_comm_rank() ; 
     /* Get the p4est pointer */
@@ -196,10 +195,15 @@ void write_data_hdf5(
     /* Dataset properties */
     hid_t prop_id ; 
     HDF5_CALL(prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
-    //hsize_t chunk_dim[1] = {chunk_size} ;
-    //HDF5_CALL(err, H5Pset_chunk(prop_id,1,chunk_dim)) ; 
-    //HDF5_CALL(err, H5Pset_deflate(prop_id, compression_level)) ;
-    HDF5_CALL(err,H5Pset_layout(prop_id, H5D_CONTIGUOUS));
+    constexpr size_t target_chunk_bytes = 8 * 1024 * 1024; // 8MB target
+    size_t target_chunk_elems = target_chunk_bytes / sizeof(double);
+
+    // Chunk must not exceed total dataset size
+    hsize_t chunk_dim[1] = { std::min(target_chunk_elems, dim_glob) };
+
+    // Apply dataset chunking policy
+    HDF5_CALL(err, H5Pset_chunk(prop_id, 1, chunk_dim));
+
     /* Create local space for this rank */
     hid_t space_id ; 
     hsize_t dset_dims[1] = {dim_loc} ;
@@ -551,6 +555,7 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
 void checkpoint_handler_impl_t::delete_checkpoint() 
 {
     auto iter = checkpoint_list.front() ; 
+    GRACE_VERBOSE("Deleting checkpoint at iter {}",iter ) ; 
     // first the forest file 
     auto fname = detail::get_filename(checkpoint_dir, "checkpoint_grid", iter, ".bin") ;
     std::filesystem::remove(fname) ;
@@ -591,10 +596,8 @@ void checkpoint_handler_impl_t::detect_checkpoints()
         std::smatch match ;
 
         if ( std::regex_match(filename, match, data_pattern)) {
-            GRACE_INFO("Hit! It's a data file") ; 
             data_iters.push_back(std::stoll(match[1].str())) ; 
         } else if ( std::regex_match(filename, match, grid_pattern)) {
-            GRACE_INFO("Hit! It's a grid file") ;
             grid_iters.push_back(std::stoll(match[1].str())) ; 
         }
     }
@@ -610,7 +613,7 @@ void checkpoint_handler_impl_t::detect_checkpoints()
         }
     }
     /**********************************************************************/
-    GRACE_INFO("Found {} checkpoints in directory {}", checkpoint_list.size(), dir.string()) ;
+    GRACE_INFO("Found {} checkpoints in directory {}, most recent at iteration {}", checkpoint_list.size(), dir.string(), checkpoint_list.front()) ;
 }
 
 bool checkpoint_handler_impl_t::need_checkpoint()  {

@@ -425,11 +425,7 @@ void reflux_correct_fluxes(
 
 }
 
-void reflux_correct_emfs(
-    parallel::grace_transfer_context_t& context,
-    double t, double dt, double dtfact,
-    staggered_variable_arrays_t& new_stag_state
-)
+void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
 {
     using namespace grace ; 
     using namespace Kokkos ; 

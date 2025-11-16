@@ -66,16 +66,10 @@ void reflux_correct_fluxes(
 //*****************************************************************************************************
 /** @brief Correct EMFs at fine-coarse interfaces
  * @param context Transfer context
- * @param t Time 
- * @param dt Time step 
- * @param dtfact Time step factor
- * @param new_stag_state New staggered state 
  * \ingroup evol
 */
 void reflux_correct_emfs(
-    parallel::grace_transfer_context_t& context,
-    double t, double dt, double dtfact,
-    staggered_variable_arrays_t& new_stag_state
+    parallel::grace_transfer_context_t& context
 ) ; 
 //*****************************************************************************************************
 } /* namespace grace */

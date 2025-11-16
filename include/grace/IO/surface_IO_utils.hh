@@ -34,6 +34,11 @@
 #include <grace/amr/grace_amr.hh>
 #include <grace/utils/grace_utils.hh>
 
+
+
+
+namespace grace { 
+    
 /**
  * @brief Cube descriptor in the form of its vertex coordinates
  */
@@ -41,7 +46,9 @@ struct cube_desc_t {
     std::array<std::array<double,3>,8> v ; 
 } ; 
 
-namespace grace { namespace amr { namespace detail {
+using intersected_cell_descriptor_t = std::pair<size_t,std::tuple<size_t,size_t,size_t,size_t>>;
+
+namespace amr { namespace detail {
 
 inline static std::array<double, 3>
 get_quad_coord_lbounds(quadrant_t quad, size_t itree) {

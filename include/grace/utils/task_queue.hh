@@ -145,14 +145,15 @@ struct mpi_task_t : public task_t {
      * @brief query the task for its status 
      */
     status_id_t query() override {
-        if (mpi_req == MPI_REQUEST_NULL) {
-            GRACE_TRACE("Query called on task {} but request is null", task_id) ; 
-            return status; // or some "not yet posted" state
-        }
-        int flag = 0 ; 
-        auto err = MPI_Test(&mpi_req, &flag, MPI_STATUS_IGNORE) ;
-        ASSERT( err==MPI_SUCCESS, "Error in MPI_Test, possibly null request passed.") ; 
-        return flag ? status_id_t::COMPLETE : status_id_t::RUNNING ;
+      ASSERT(mpi_req!=MPI_REQUEST_NULL, "Query called but MPI request is null") ; 
+      if (mpi_req == MPI_REQUEST_NULL) {
+          GRACE_TRACE("Query called on task {} but request is null", task_id) ; 
+          return status; // or some "not yet posted" state
+      }
+      int flag = 0 ; 
+      auto err = MPI_Test(&mpi_req, &flag, MPI_STATUS_IGNORE) ;
+      ASSERT( err==MPI_SUCCESS, "Error in MPI_Test, possibly null request passed.") ; 
+      return flag ? status_id_t::COMPLETE : status_id_t::RUNNING ;
     }
 
     //! MPI request
