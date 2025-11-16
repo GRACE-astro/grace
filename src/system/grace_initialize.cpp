@@ -47,6 +47,9 @@
 #include <grace/utils/device_stream_pool.hh>
 
 #include <grace/evolution/initial_data.hh>
+#include <grace/evolution/auxiliaries.hh>
+
+
 #include <grace/amr/grace_amr.hh>
 
 #include <grace/errors/error.hh>
@@ -262,6 +265,9 @@ void initialize(int& argc, char* argv[])
                 }
             }
         }
+    } else {
+        // aux vars are not in the checkpoint 
+        grace::compute_auxiliary_quantities() ;
     }
     GRACE_INFO("Initialization done.");
     GRACE_INFO("GRACE running on {} backend", GRACE_BACKEND) ; 

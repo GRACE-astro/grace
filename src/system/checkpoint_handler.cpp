@@ -544,7 +544,6 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     /**********************************************************************/
     /* Compute auxiliary quantities                                       */
     /**********************************************************************/
-    grace::compute_auxiliary_quantities() ;
     /**********************************************************************/
     next_checkpoint_time += grace::get_simulation_time() ; 
     next_checkpoint_iter += grace::get_iteration() ;
