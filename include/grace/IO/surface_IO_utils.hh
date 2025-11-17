@@ -46,7 +46,10 @@ struct cube_desc_t {
     std::array<std::array<double,3>,8> v ; 
 } ; 
 
-using intersected_cell_descriptor_t = std::pair<size_t,std::tuple<size_t,size_t,size_t,size_t>>;
+struct intersected_cell_descriptor_t {
+    size_t i,j,k;
+    size_t q ; 
+} ; 
 
 struct intersected_cell_set_t {
     std::vector<intersected_cell_descriptor_t>* cells ;

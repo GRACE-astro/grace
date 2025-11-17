@@ -1,6 +1,6 @@
 /**
  * @file spherical_surfaces.cpp
- * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
  * @brief 
  * @date 2025-10-03
  * 
@@ -44,6 +44,8 @@
 #include <array>
 #include <memory>
 
+#define LAGRANGE_INTERP_ORDER 3
+
 namespace grace {
 
 std::unique_ptr<spherical_surface_iface> 
@@ -56,11 +58,19 @@ make_surface(
 {
     if ( sampling == "healpix" ) {
         if ( tracking == "none" ) {
-            return std::make_unique<spherical_surface_t<healpix_sampler_t,no_tracking_policy_t>>(
-                spherical_surface_t<no_tracking_policy_t,healpix_sampler_t>(name,r,c,res)
+            return std::make_unique<spherical_surface_t<healpix_sampler_t,no_tracking_policy_t,LAGRANGE_INTERP_ORDER>>(
+                spherical_surface_t<no_tracking_policy_t,healpix_sampler_t,LAGRANGE_INTERP_ORDER>(name,r,c,res)
             ); 
         } else {
             ERROR("Invalid tracking requested for spherical surface") ; 
+        }
+    } else if ( sampling == "uniform" ) {
+        if ( tracking == "none") {
+            return std::make_unique<spherical_surface_t<healpix_sampler_t,no_tracking_policy_t,LAGRANGE_INTERP_ORDER>>(
+                spherical_surface_t<no_tracking_policy_t,uniform_sampler_t,LAGRANGE_INTERP_ORDER>(name,r,c,res)
+            ); 
+        } else {
+            ERROR("Invalid tracking requested for spherical surface") ;
         }
     } else {
         ERROR("Invalid sampling requested for spherical surface") ; 
@@ -69,28 +79,25 @@ make_surface(
 
 spherical_surface_manager_impl_t::spherical_surface_manager_impl_t() {
 
-    // TODO check YAML copy policy 
-    auto param_block = grace::get_param<YAML::Node>(
-        "IO", "spherical_detectors"
-    ) ; 
 
-    for (auto const& det : param_block) {
-        // what we need:
-        // radius 
-        // center 
-        // name 
-        // tracking type 
-        // sampling policy 
-        auto const r = det["radius"].as<double>() ; 
-        auto const c = det["center"].as<std::array<double,3>() ; 
-        auto const n = det["name"].as<std::string>() ;
-        auto const res = det["res"].as<size_t>() ; 
+    auto n_spheres = get_param<size_t>("spherical_surfaces","n_surfaces") ; 
 
-        auto const tracking = det["tracking"].as<std::string>() ; 
-        auto const sampling = det["sampling"].as<std::string>() ; 
 
-        detectors.push_back(make_surface(n,r,c,res,tracking,sampling));
-        name_map[n] = detectors.size() - 1; // store a mapping name -> idx 
+    #define GET_SPHERE_PARAMETERS(n) \
+    std::ostringstream oss ; \
+    oss << "spherical_surface_" << n ; \
+    auto const r = get_param<double>("spherical_surfaces",oss.str(),"radius") ; \
+    auto const xc = get_param<double>("spherical_surfaces",oss.str(),"x_c") ; \
+    auto const yc = get_param<double>("spherical_surfaces",oss.str(),"y_c") ; \
+    auto const zc = get_param<double>("spherical_surfaces",oss.str(),"z_c") ; \
+    auto const name =  get_param<std::string>("spherical_surfaces",oss.str(),"name") ; \
+    auto const res = get_param<size_t>("spherical_surfaces",oss.str(),"resolution") ; \
+    auto const tracking = get_param<std::string>("spherical_surfaces",oss.str(),"tracking") ;\
+    auto const sampling = get_param<std::string>("spherical_surfaces",oss.str(),"sampling") 
+    for (int i =0; i<n_spheres; ++i) {
+        GET_SPHERE_PARAMETERS(i);
+        detectors.push_back(make_surface(name,r,{{x_c,y_c,z_c}},res,tracking,sampling));
+        name_map[name] = detectors.size() - 1; // store a mapping name -> idx 
     }
 
 }

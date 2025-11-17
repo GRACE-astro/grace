@@ -49,29 +49,35 @@
 
 namespace grace {
 
+template< size_t order >
+struct interp_weights_t {
+    double w[order+1][3] ;
+} ; 
 
-
+template< size_t interp_order >
 struct spherical_surface_iface {
     virtual ~spherical_surface_iface() = default;
 
     virtual void update_if_needed() = 0;
 
-    virtual void slice_oct_tree() = 0 ;
 
-    virtual void compute_interpolation_weights() = 0 ; 
-
-    std::string name ; 
-    double radius ; 
-    std::array<double,3> center ;
-    size_t npoints   ; 
-    size_t res ; 
-    std::vector<point_host_t> points_h ; 
-    std::vector<double> weights_h ; 
-    std::vector<intersected_cell_descriptor_t> intersected_cells ; //!< i,j,k, q of intersected cells
-    std::vector<size_t> intersecting_points; 
-    std::vector<std::array<std::array<double,4>,3>> interp_weights ; //!< Interpolation weights 
-    readonly_twod_view_t<double,3> points ; // maybe don't store here in case some points are not intersected.
-    readonly_view_t<double> weights ;
+    std::string name ; //!< Name of this surface 
+    double radius ; //!< Radius 
+    std::array<double,3> center ; //!< Cartesian coordinates of the center 
+    size_t npoints   ; //!< Number of points on the surface
+    size_t res ; //!< "Resolution"
+    // host storage 
+    std::vector<point_host_t> points_h ; //!< Points host array -> std::pair<index, {x,y,z}>
+    std::vector<double> weights_h ; //!< Quadrature weights
+    std::vector<intersected_cell_descriptor_t> intersected_cells_h ; //!< i,j,k, q of intersected cells
+    std::vector<size_t> intersecting_points_h; //!< Indices of points contained in local grid
+    std::vector<interp_weights_t> interp_weights_h ; //!< Interpolation weights 
+    // device storage 
+    readonly_twod_view_t<double,3> points ; //!< Device storage of points coordinates
+    readonly_view_t<double> weights ; //!< Device storage of quadrature weights 
+    redonly_view_t<intersected_cell_descriptor_t> intersected_cells; //!< Device storage of local cells 
+    readonly_view_t<size_t> intersecting_points ; 
+    readonly_view_t<interp_weights_t<interp_order>> interp_weights ; //!< Device storage of interpolation weights 
 };
 
 int grace_search_points(
@@ -89,35 +95,41 @@ int grace_search_points(
     // now construct a cube from the quadrant 
     auto cube  = detail::make_cube(quadrant_t{quadrant}, which_tree) ; 
     bool contained = (
-        pcoords[0] <= cube.v[1][0] and pcoords[0] >= cube.v[0][0] and 
-        pcoords[1] <= cube.v[2][1] and pcoords[1] >= cube.v[0][1] and 
-        pcoords[2] <= cube.v[4][2] and pcoords[2] >= cube.v[0][2] and 
+        pcoords[0] < cube.v[1][0] and pcoords[0] >= cube.v[0][0] and 
+        pcoords[1] < cube.v[2][1] and pcoords[1] >= cube.v[0][1] and 
+        pcoords[2] < cube.v[4][2] and pcoords[2] >= cube.v[0][2] and 
     ) ; 
+    if (! contained ) return 0 ; 
 
-    if ( local_num >=0 and contained ) {
+    if ( local_num >=0 ) {
         auto quadid = local_num ; 
         // find the indices of the cell within the quad that contains the point ; 
+        
         double xoff = pcoords[0] - cube.v[0][0] ; 
         double yoff = pcoords[1] - cube.v[0][1] ; 
         double zoff = pcoords[2] - cube.v[0][2] ; 
         double idx = static_cast<double>(nx)/(cube.v[1][0] - cube.v[0][0]);
-        int i = static_cast<int>(xoff * idx) ; 
-        int j = static_cast<int>(yoff * idx) ; 
-        int k = static_cast<int>(zoff * idx) ; 
-        auto intersected_cells = static_cast<std::vector<intersected_cell_set_t>*>(p4est->user_pointer) ; 
+        // clamp you never know 
+        // note 0 here means ngz in the quad 
+        int i = std::min(nx-1, std::max(0, int(xoff * idx)));
+        int j = std::min(ny-1, std::max(0, int(yoff * idx)));
+        int k = std::min(nz-1, std::max(0, int(zoff * idx)));
 
+        intersected_cell_descriptor_t desc{i,j,k,quadid} ; 
+        auto intersected_cells = static_cast<intersected_cell_set_t*>(p4est->user_pointer) ; 
         intersected_cells->cells->push_back(
-            std::make_tuple(i,j,k,quadid)
+            desc
         ) ; 
         intersected_cells->point_idx->push_back(p_idx) ;
     }
 
-    return static_cast<int>(contained) ;
+    return 1 ;
 }
 
 template< typename SamplingPolicy 
-        , typename TrackingPolicy > 
-struct spherical_surface_t: public spherical_surface_iface {
+        , typename TrackingPolicy 
+        , size_t interp_order > 
+struct spherical_surface_t: public spherical_surface_iface<interp_order> {
 
     spherical_surface_t(
         std::string const& _name,
@@ -127,15 +139,7 @@ struct spherical_surface_t: public spherical_surface_iface {
     ) : name(_name), radius(_r), center(_c), res(_res)
     {
         tracker = TrackingPolicy() ; 
-        npoints = SamplingPolicy::get_n_points(res) ;
-        point_h =  SamplingPolicy::get_points(radius, center, res) ; 
-        weights_h = SamplingPolicy::get_quadrature_weights(radius,res) ; 
-        grace::deep_copy_vec_to_const_2D_view(
-            points, points_h
-        ) ; 
-        grace::deep_copy_vec_to_const_view(weights,weights_h) ;
-        slice_oct_tree() ; 
-        compute_interpolation_weights() ; 
+        update() ; 
     }
 
     /**
@@ -144,29 +148,43 @@ struct spherical_surface_t: public spherical_surface_iface {
      *        quadrature weigths
      * 
      */
-    void update_if_needed() override {
+    void update_if_needed(bool mesh_changed) override {
         // this function is responsible for checking if update is needed
         auto updated = tracker.track(radius, center) ; 
-        if (!updated) return ; 
-        point_h =  SamplingPolicy::get_points(radius, center, res) ; 
+        if (!updated and !mesh_changed) return ; 
+        update() ; 
+    }
+
+    TrackingPolicy tracker ; 
+
+    private:
+
+    void update() {
+        npoints = SamplingPolicy::get_n_points(res) ;
+        points_h =  SamplingPolicy::get_points(radius, center, res) ; 
         weights_h = SamplingPolicy::get_quadrature_weights(radius,res) ; 
-        grace::deep_copy_vec_to_const_2D_view(
-            points, points_h
-        ) ; 
+
+        slice_oct_tree() ; 
+        compute_interpolation_weights(); 
+
+        grace::deep_copy_vec_to_const_view(interp_weights,interp_weights_h );
+        grace::deep_copy_vec_to_const_view(intersected_cells, intersected_cells_h) ; 
+        grace::deep_copy_vec_to_const_view(intersecting_points, intersecting_points_h) ; 
+        grace::deep_copy_vec_to_const_2D_view(points, points_h) ; 
         grace::deep_copy_vec_to_const_view(weights,weights_h) ;
     }
 
-    void slice_oct_tree() override {
+    void slice_oct_tree() {
         auto points_array = sc_array_new_data(
             points_h.data(), sizeof(std::array<double,3>), points_h.size() 
         ) ; 
         // search 
         auto p4est = grace::amr::forest::get().get() ; 
-        intersected_cells.clear() ; 
-        intersecting_points.clear() ; 
+        intersected_cells_h.clear() ; 
+        intersecting_points_h.clear() ; 
         intersected_cell_set_t set{
-            &intersected_cells,
-            &intersecting_points
+            &intersected_cells_h,
+            &intersecting_points_h
         }; 
         p4est->user_pointer = static_cast<void*>(&set) ; 
         p4est_search_local(
@@ -176,16 +194,59 @@ struct spherical_surface_t: public spherical_surface_iface {
             &grace_search_points,
             points_array
         ) ; 
-        GRACE_TRACE("Spherical surface {}, number of local points {}", name, intersecting_points.size()) ; 
+        GRACE_TRACE("Spherical surface {}, number of local points {}", name, intersecting_points_h.size()) ; 
     }
 
-    void compute_interpolation_weights() override {
+    void compute_interpolation_weights() {
+        DECLARE_GRID_EXTENTS ; 
+        auto& coord_system = grace::coordinate_system::get() ; 
         
+        auto n_points = intersecting_points.size() ;
+        interp_weights.reserve(n_points) ; 
+
+        std::array<double,4> wj = {-1./6.,1./2.,-1./2.,1./6.} ;  
+        for( int i=0; i<n_points; ++i) {
+            auto point_idx = intersecting_points[i] ; 
+            auto const& point_coords = points_h[point_idx] ;
+            auto const ijkq = intersected_cells[i] ; 
+            double const dx = coord_system::get_spacing(ijkq.q) ; 
+            std::array<int,3> bias{{0,0,0}} ; 
+            // decide if we bias the stencil down (0) or up (1)
+            {
+                std::array<size_t,3> ijk {{
+                        std::get<0>(ijkq),
+                        std::get<1>(ijkq),
+                        std::get<2>(ijkq)
+                    }} ; 
+                auto pcoords = coord_system.get_physical_coordinates(
+                        ijk, std::get<3>(ijkq), {0.5,0.5,0.5}, false
+                    ) ; 
+                for( int idir=0; idir<3; ++idir ) bias[idir] = point_coords[idir] > pcoords[idir] ; 
+            }
+            interp_weights_t<interp_order> iweights ; 
+            for( int idir=0; idir<3; ++idir) {
+                double norm {0} ; 
+                for( int ic=0; ic<4; ++ic) {
+                    int off = ic - 2 + bias[idir] ;
+                    std::array<size_t,3> ijk {{
+                        ijkq.i + off * (idir==0),
+                        ijkq.j + off * (idir==1),
+                        ijkq.k + off * (idir==2)
+                    }} ; 
+                    auto pcoords = coord_system.get_physical_coordinates(
+                        ijk, ijkq.q, {0.5,0.5,0.5}, false
+                    ) ; 
+                    double wL = dx * wj[ic]/(point_coords[idir]-pcoords[idir]) ;
+                    norm += wL ; 
+                    iweights.w[ic][idir]= wL ;     
+                }
+                for( int ic=0; ic<4; ++ic) {
+                    iweights.w[ic][idir]/=norm ; 
+                }
+            }
+            interp_weights.push_back(iweights) ; 
+        }
     };
-
-    TrackingPolicy tracker ; 
-
-    private:
 
 } ; 
 //**************************************************************************************************
@@ -202,9 +263,9 @@ struct spherical_surface_manager_impl_t {
     //**************************************************************************************************
  public:
     //**************************************************************************************************
-    void update() {
+    void update(bool mesh_changed) {
         for( auto& d: detectors ) {
-            d->update_if_needed() ; 
+            d->update_if_needed(mesh_changed) ; 
         }
     }
     //**************************************************************************************************
@@ -232,6 +293,18 @@ struct spherical_surface_manager_impl_t {
         ASSERT(i < detectors.size(), 
         "Requested detector " << i << " exceeds maximum " << detectors.size() ) ; 
         return *detectors[i] ; // note this is a reference! 
+    }
+    //**************************************************************************************************
+    int get_index(std::string const& name) const {
+        auto it = name_map.find(name);
+        if (it != name_map.end()) {
+            // ✔ key exists
+            return it->second;
+            // do something with val
+        } else {
+            // ✘ key not found
+            return -1 ;
+        }
     }
     //**************************************************************************************************
  protected:

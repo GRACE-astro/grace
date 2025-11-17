@@ -41,6 +41,21 @@
 namespace grace { 
 
 
+
+double GRACE_HOST 
+cartesian_coordinate_system_impl_t::get_spacing(size_t const& q) const {
+    DECLARE_GRID_EXTENTS ; 
+    int64_t itree = amr::get_quadrant_owner(q)   ; 
+    amr::quadrant_t quad = amr::get_quadrant(itree,q) ; 
+    auto const dx_quad  = quad.spacing() ; 
+    return dx_quad/nx ; 
+}; 
+
+double GRACE_HOST 
+cartesian_coordinate_system_impl_t::get_inv_spacing(size_t const& q) const {
+    return 1./get_spacing(q) ;  
+}; 
+
 cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
 {
     using namespace grace ;

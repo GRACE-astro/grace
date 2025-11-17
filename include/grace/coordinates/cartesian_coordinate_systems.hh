@@ -192,6 +192,20 @@ class cartesian_coordinate_system_impl_t
     ) const ;
     //**************************************************************************************************
     /**
+     * @brief Get the inverse cell spacing within a quadrant
+     * 
+     * @param q Local index of the quadrant
+     */
+    double GRACE_HOST get_inv_spacing(size_t const& q) const ; 
+    //**************************************************************************************************
+    /**
+     * @brief Get the cell spacing within a quadrant
+     * 
+     * @param q Local index of the quadrant
+     */
+    double GRACE_HOST get_spacing(size_t const& q) const ; 
+    //**************************************************************************************************
+    /**
      * @brief Get the determinant of the Jacobian matrix of the coordinate transformation at a given point
      * 
      * @param ijk Indices of cell containing the point 
