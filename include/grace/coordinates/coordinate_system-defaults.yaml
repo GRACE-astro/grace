@@ -1,0 +1,4 @@
+coordinate_system: {
+  is_kerr_schild: false,
+  bh_spin: 0
+}

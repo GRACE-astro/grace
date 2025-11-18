@@ -7,4 +7,9 @@ register_grace_object(grace_cell_output cell_output.cpp)
 
 register_grace_object(grace_scalar_output scalar_output.cpp)
 
+register_grace_object(grace_spherical_surfaces spherical_surfaces.cpp)
+
+register_grace_object(grace_diagnostics output_diagnostics.cpp)
+
+
 register_grace_object(xmf_utilities xmf_utilities.cpp)

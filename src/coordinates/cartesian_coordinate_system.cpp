@@ -40,7 +40,7 @@
 
 namespace grace { 
 
-
+#define SQR(a) (a)*(a)
 
 double GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_spacing(size_t const& q) const {
@@ -85,8 +85,78 @@ cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
 
     deep_copy(tree_vertices_,h_tree_vertices);
     deep_copy(tree_spacings_,h_tree_spacings);
+
+    is_cks = get_param<bool>("coordinate_system", "is_kerr_schild") ; 
+    bh_spin = get_param<double>("coordinate_system", "bh_spin"); 
 }
 
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
+cartesian_coordinate_system_impl_t::cart_to_sph(
+    std::array<double, GRACE_NSPACEDIM> const& xyz 
+) const 
+{
+    double rad = sqrt(SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2]));
+    if ( is_cks ) {
+        double r = fmax((sqrt( SQR(rad) - SQR(bh_spin) + sqrt(SQR(SQR(rad)-SQR(bh_spin))
+                 + 4.0*SQR(bh_spin)*SQR(xyz[2])) ) / sqrt(2.0)), 1.0);
+        return std::array<double,GRACE_NSPACEDIM>{{
+            r,
+            (fabs(xyz[2]/r) < 1.0) ? acos(xyz[2]/r) : acos(copysign(1.0, xyz[2])),
+            atan2(r*xyz[1]-bh_spin*xyz[0], bh_spin*xyz[1]+r*xyz[0]) - bh_spin*r/(SQR(r)-2.0*r+SQR(bh_spin))
+        }};
+        
+    } else {
+        
+        return std::array<double,GRACE_NSPACEDIM>{{
+            rad,
+            acos(xyz[2]/(rad+1e-50)),
+            atan2(xyz[1],xyz[0])
+        }};
+    }
+}
+
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
+cartesian_coordinate_system_impl_t::sph_to_cart(
+    std::array<double, GRACE_NSPACEDIM> const& rtp 
+) const 
+{
+    if ( is_cks ) {
+        return std::array<double,GRACE_NSPACEDIM>{{
+            (rtp[0] * cos(rtp[2]) - bh_spin * sin(rtp[2]))*sin(rtp[1]),
+            (rtp[0] * sin(rtp[2]) + bh_spin * cos(rtp[2]))*sin(rtp[1]),
+            rtp[0] * cos(rtp[1])
+        }} ;
+    } else {
+        return std::array<double,GRACE_NSPACEDIM>{{
+            rtp[0] * cos(rtp[2])*sin(rtp[1]),
+            rtp[0] * sin(rtp[2])*sin(rtp[1]),
+            rtp[0] * cos(rtp[1])
+        }} ;
+    }
+}
+
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
+cartesian_coordinate_system_impl_t::get_physical_coordinates_sph(
+           std::array<size_t, GRACE_NSPACEDIM> const& ijk
+        , int64_t q 
+        , bool use_ghostzones 
+    ) const
+{
+    auto xyz = get_physical_coordinates(ijk,q,use_ghostzones) ; 
+    return cart_to_sph(xyz) ; 
+}
+
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
+cartesian_coordinate_system_impl_t::get_physical_coordinates_sph(
+         std::array<size_t, GRACE_NSPACEDIM> const& ijk
+        , int64_t q 
+        , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates
+        , bool use_ghostzones 
+    ) const
+{
+    auto xyz = get_physical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
+    return cart_to_sph(xyz) ; 
+}
 
 std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_physical_coordinates(

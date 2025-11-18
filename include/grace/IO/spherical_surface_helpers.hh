@@ -29,10 +29,10 @@
 #define GRACE_IO_SPHERICAL_SURFACE_HELPERS_HH
 #include <grace_config.h>
 
-#include <grace/utils/device.hh>
-#include <grace/utils/inline.hh>
+#include <grace/utils/device.h>
+#include <grace/utils/inline.h>
 
-
+#include <grace/coordinates/coordinate_systems.hh>
 
 #include "surface_IO_utils.hh"
 
@@ -55,7 +55,10 @@ static int isqrt(int v)
 { return (int)(sqrt(v+0.5)); }
 
 static void pix2ang_ring_z_phi (int nside_, int pix, double *z, double *phi)
-  {
+{
+  double const halfpi = M_PI * 0.5 ; 
+  double const pi = M_PI ; 
+  double const twopi = 2 * M_PI ; 
   long ncap_=nside_*(nside_-1)*2;
   long npix_=12*nside_*nside_;
   double fact2_ = 4./npix_;
@@ -89,73 +92,90 @@ static void pix2ang_ring_z_phi (int nside_, int pix, double *z, double *phi)
     *z = -1.0 + (iring*iring)*fact2_;
     *phi = (iphi-0.5) * halfpi/iring;
     }
-  }
+}
 
-inline void pix2vec_ring(long nside, long ipix, std::array<double,3>& vec)
-  {
+static inline void pix2vec_ring(long nside, long ipix, std::array<double,3>& vec)
+{
   double z, phi;
   pix2ang_ring_z_phi (nside,ipix,&z,&phi);
   double stheta=sqrt((1.-z)*(1.+z));
   vec[0]=stheta*cos(phi);
   vec[1]=stheta*sin(phi);
   vec[2]=z;
-  }
+}
 
-void ang2vec(double theta, double phi, std::array<double,3>& vec)
-  {
+static inline void pix2ang_ring(long nside, long ipix, std::array<double,3>& vec)
+{
+  double z, phi;
+  pix2ang_ring_z_phi (nside,ipix,&z,&phi);
+  double stheta=sqrt((1.-z)*(1.+z));
+  vec[0]=1;
+  vec[1]=asin(stheta);
+  vec[2]=phi;
+}
+
+static void ang2vec(double theta, double phi, std::array<double,3>& vec)
+{
   double sz = sin(theta);
   vec[0] = sz * cos(phi);
   vec[1] = sz * sin(phi);
   vec[2] = cos(theta);
-  }
+}
 
-void vec2ang(const double *vec, double *theta, double *phi)
-  {
+static void vec2ang(const double *vec, double *theta, double *phi)
+{
+  double const twopi = 2 * M_PI ; 
   *theta = atan2(sqrt(vec[0]*vec[0]+vec[1]*vec[1]),vec[2]);
   *phi = atan2 (vec[1],vec[0]);
   if (*phi<0.) *phi += twopi;
-  }
+}
 
-long npix2nside(long npix)
-  {
+static long npix2nside(long npix)
+{
   long res = isqrt(npix/12);
   return (res*res*12==npix) ? res : -1;
-  }
+}
 
-long nside2npix(const long nside)
-  { return 12*nside*nside; }
+static long nside2npix(const long nside)
+{ return 12*nside*nside; }
 
 }
 
 struct healpix_sampler_t {
 
     static size_t get_n_points(size_t const& res) {
-        return nside2npix(res);
+      return chealpix::nside2npix(res);
     }
 
     static std::vector<point_host_t>
-    get_points(double radius, std::array<double,3> const& center, size_t const& res)
+    get_points(double radius, std::array<double,3> const& center, size_t const& res, std::vector<std::array<double,2>>& angles)
     {
-        size_t nside = res ; 
-        size_t npix = nside2npix(nside);
-        std::vector<point_host_t> points;
-        points.reserve(nside2npix(res));
+      using namespace chealpix ;
+      auto& coord_system = grace::coordinate_system::get() ; 
+      size_t nside = res ; 
+      size_t npix = nside2npix(nside);
+      std::vector<point_host_t> points;
+      points.reserve(nside2npix(res));
+      angles.clear() ; angles.reserve(nside2npix(res));
 
-        for( size_t ipix=0; ipix<npix; ipix+=1UL) {
-            std::array<double,3> p; 
-            pix2vec_ring(nside,ipix,p) ; 
-            for( int i=0; i<3; ++i) p[i] += center[i] ; 
-            points.push_back(std::make_pair(ipix,p)) ;  
-        }
+      for( size_t ipix=0; ipix<npix; ipix+=1UL) {
+          std::array<double,3> p; 
+          pix2ang_ring(nside,ipix,p) ; 
+          angles.push_back({p[1],p[2]}) ; 
+          p[0] = radius ; 
+          p = coord_system.sph_to_cart(p) ; 
+          for( int i=0; i<3; ++i) p[i] += center[i] ; 
+          points.push_back(std::make_pair(ipix,p)) ;  
+      }
 
-        return points;
+      return points;
     }
     //! TODO (?) this is simply dA for all 
     // points
     static std::vector<double> get_quadrature_weights(double radius,size_t const& res) {
-        size_t npix = nside2npix(res); 
-        double A = 4 * M_PI / npix * radius * radius ; 
-        return std::vector<double>(npix, A) ; 
+      size_t npix = chealpix::nside2npix(res); 
+      double A = 4 * M_PI / npix * radius * radius ; 
+      return std::vector<double>(npix, A) ; 
     }
 };
 
@@ -165,13 +185,13 @@ struct  uniform_sampler_t {
     }
 
     static std::vector<point_host_t> 
-    get_points(double radius, std::array<double,3> const& center, size_t const& res)
+    get_points(double radius, std::array<double,3> const& center, size_t const& res, std::vector<std::array<double,2>>& angles)
     {
         size_t ntheta = res ; 
         size_t nphi = 2*res ; 
         size_t npoints = ntheta*nphi ; 
-
-        std::vector<std::array<double,2>> angles ; 
+        auto& coord_system = grace::coordinate_system::get() ; 
+        angles.clear() ; 
         angles.reserve(npoints); 
 
         for( int iphi=0; iphi<nphi; ++iphi) {
@@ -179,7 +199,7 @@ struct  uniform_sampler_t {
             for( int itheta=0; itheta<ntheta; ++itheta) {
                 double mu = -1.0 + 2.0/(ntheta-1) * itheta ; 
                 double theta = acos(mu) ; 
-                angles.emplace_back({{theta,phi}})
+                angles.push_back({theta,phi}) ; 
             }
         }
 
@@ -189,10 +209,13 @@ struct  uniform_sampler_t {
         for( size_t i=0; i<ntheta*nphi; i+=1UL) {
             double theta = angles[i][0] ; 
             double phi = angles[i][1] ; 
-            std::array<double,3> p ; 
-            p[0] = center[0] + radius * cos(phi) * sin(theta) ; 
-            p[1] = center[1] + radius * sin(phi) * sin(theta) ; 
-            p[2] = center[2] + radius * cos(theta) ; 
+            std::array<double,3> p{radius,theta,phi} ; 
+            // convert to cartesian, in CKS this 
+            // is not the standard formula! 
+            p = coord_system.sph_to_cart(p) ; 
+            p[0] += center[0] ; 
+            p[1] += center[1] ; 
+            p[2] += center[2] ; 
             points.push_back(std::make_pair(i,p)) ; 
         }
 
@@ -200,11 +223,34 @@ struct  uniform_sampler_t {
     }
 
 
-    static std::vector<double> get_quadrature_weights(double radius,size_t const& res) {
-        size_t n_points = get_n_points(res) ; 
-        double A = M_PI / (res) * (2.0)/res ; 
-        return std::vector<double>(n_points, A) ; 
-    }
+    static std::vector<double> get_quadrature_weights(double radius, size_t const& res)
+  {
+      size_t ntheta = res;
+      size_t nphi   = 2 * res;
+      size_t npoints = ntheta * nphi;
+
+      double dmu  = 2.0 / (ntheta - 1);
+      double dphi = 2.0 * M_PI / nphi;
+
+      std::vector<double> weights(npoints);
+
+      for (size_t itheta = 0; itheta < ntheta; ++itheta)
+      {
+          double wmu = dmu;
+          if (itheta == 0 || itheta == ntheta-1)
+              wmu *= 0.5; // half-weight at poles
+
+          for (size_t iphi = 0; iphi < nphi; ++iphi)
+              weights[iphi*ntheta + itheta] = wmu * dphi;
+      }
+
+      // If your integrals include actual sphere area: multiply by R^2
+      for (auto& w : weights)
+          w *= radius * radius;
+
+      return weights;
+  }
+
 } ; 
 
 struct no_tracking_policy_t {

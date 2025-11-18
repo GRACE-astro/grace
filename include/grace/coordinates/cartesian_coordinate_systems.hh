@@ -131,6 +131,25 @@ class cartesian_coordinate_system_impl_t
     ) const ;
     //**************************************************************************************************
     /**
+     * @brief Get the spherical-like physical coordinates of a point
+     * 
+     * @param ijk Indices of the cell containing the point.
+     * @param q Local quadrant index
+     * @param cell_coordinates Coordinates of point within the cell (should be in \f$[0,1]^N_d\f$)
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return std::array<double, GRACE_NSPACEDIM> An array containing the point's 
+     *                                               physical coordinates.
+     */
+    std::array<double, GRACE_NSPACEDIM>
+    GRACE_HOST get_physical_coordinates_sph(
+          std::array<size_t, GRACE_NSPACEDIM> const& ijk
+        , int64_t q 
+        , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates
+        , bool use_ghostzones 
+    ) const ;
+    //**************************************************************************************************
+    /**
      * @brief Get the physical coordinates of a cell centre
      * 
      * @param ijk Cell indices
@@ -146,6 +165,43 @@ class cartesian_coordinate_system_impl_t
         , int64_t q 
         , bool use_ghostzones 
     ) const ;
+    //**************************************************************************************************
+    /**
+     * @brief Get the spherical-like physical coordinates of a cell centre
+     * 
+     * @param ijk Cell indices
+     * @param q Local quadrant index
+     * @param use_ghostzones Set to true if the indices are zero-offset, false if they are 
+     *                       ngz-offset
+     * @return std::array<double, GRACE_NSPACEDIM> An array containing the point's 
+     *                                               physical coordinates.
+     */
+    std::array<double, GRACE_NSPACEDIM>
+    GRACE_HOST get_physical_coordinates_sph(
+           std::array<size_t, GRACE_NSPACEDIM> const& ijk
+        , int64_t q 
+        , bool use_ghostzones 
+    ) const ;
+    //**************************************************************************************************
+    /**
+     * @brief Convert cartesian-like to spherical-like coordinates 
+     * 
+     * @param xyz cartesian coordinates
+     * @return std::array<double, GRACE_NSPACEDIM> An array containing the point's 
+     *                                               physical coordinates.
+     */
+    std::array<double, GRACE_NSPACEDIM>
+    GRACE_HOST cart_to_sph(std::array<double,3> const& xyz) const ;
+    //**************************************************************************************************
+    /**
+     * @brief Convert spherical-like to cartesian-like coordinates 
+     * 
+     * @param rtp spherical coordinates
+     * @return std::array<double, GRACE_NSPACEDIM> An array containing the point's 
+     *                                               physical coordinates.
+     */
+    std::array<double, GRACE_NSPACEDIM>
+    GRACE_HOST sph_to_cart(std::array<double,3> const& rtp) const ;
     //**************************************************************************************************
     /**
      * @brief Get the logical coordinates of a point
@@ -614,10 +670,20 @@ class cartesian_coordinate_system_impl_t
         return cartesian_device_coordinate_system_impl_t{tree_vertices_,tree_spacings_} ;
     }
 
+    bool GRACE_ALWAYS_INLINE GRACE_HOST 
+    get_is_cks() const {return is_cks;}
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST 
+    get_bh_spin() const {return bh_spin;}
+
  private:
     //**************************************************************************************************
     //! Tree vertices and spacings        
     Kokkos::View<double*,grace::default_space> tree_vertices_, tree_spacings_ ;
+    //! Are the coordinates Kerr-Schild?
+    bool is_cks ; 
+    //! BH spin for CKS 
+    double bh_spin ; 
     //**************************************************************************************************
     /**
      * @brief Construct a new cartesian coordinate system.

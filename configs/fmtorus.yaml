@@ -48,18 +48,24 @@ IO: {
   volume_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]","Bdiv"],
   volume_output_base_directory: "output_volume",
   volume_output_every: -1,
+
   plane_surface_output_cell_variables: ["alp","rho","press","eps","vel[0]", "Bvec[0]","Bdiv","entropy","b2","c2p_err"],
   plane_surface_output_every: 100,
   sphere_surface_output_every: -1,
+
   do_initial_output: true,
   info_output_every: 2,
   info_output_max_reductions: ["rho", "press", "Bdiv","b2"],
   info_output_min_reductions: [], 
   info_output_norm2_reductions: ["Bdiv","c2p_err"], 
+
   scalar_output_every: 50,
   scalar_output_minmax: ["rho","press","eps","Bdiv"],
   scalar_output_norm2: ["Bdiv"],
   scalar_output_integral: [],
+
+  diagnostic_output_every: 50,
+
   output_use_hdf5: true, 
   hdf5_compression_level: 0,
   hdf5_chunk_size: 131072,
@@ -131,6 +137,31 @@ eos: {
     rhos:   [],
     kappa_0: 0.
   }
+}
+
+coordinate_system: {
+  is_kerr_schild: true,
+  bh_spin: 0.9375
+}
+
+spherical_surfaces: {
+  n_surfaces: 1,
+
+  spherical_surface_0: {
+    name: "bh_horizon",
+    tracking: "none",
+    radius: 1.12109,
+    x_c: 0.0,
+    y_c: 0.0,
+    z_c: 0.0,
+    
+    sampling_policy: "uniform",
+    resolution: 32
+  }
+}
+
+bh_diagnostics: {
+  detector_names: ["bh_horizon"]
 }
 
 profiling: {

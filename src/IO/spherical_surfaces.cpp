@@ -28,8 +28,8 @@
 
 #include <grace_config.h>
 
-#include <grace/utils/device.hh>
-#include <grace/utils/inline.hh>
+#include <grace/utils/device.h>
+#include <grace/utils/inline.h>
 
 #include <grace/utils/device_vector.hh>
 
@@ -48,7 +48,7 @@
 
 namespace grace {
 
-std::unique_ptr<spherical_surface_iface> 
+std::unique_ptr<spherical_surface_iface<LAGRANGE_INTERP_ORDER>> 
 make_surface(
     std::string const& name,
     double r, std::array<double,3> const& c, size_t res,
@@ -59,15 +59,15 @@ make_surface(
     if ( sampling == "healpix" ) {
         if ( tracking == "none" ) {
             return std::make_unique<spherical_surface_t<healpix_sampler_t,no_tracking_policy_t,LAGRANGE_INTERP_ORDER>>(
-                spherical_surface_t<no_tracking_policy_t,healpix_sampler_t,LAGRANGE_INTERP_ORDER>(name,r,c,res)
+                spherical_surface_t<healpix_sampler_t,no_tracking_policy_t,LAGRANGE_INTERP_ORDER>(name,r,c,res)
             ); 
         } else {
             ERROR("Invalid tracking requested for spherical surface") ; 
         }
     } else if ( sampling == "uniform" ) {
         if ( tracking == "none") {
-            return std::make_unique<spherical_surface_t<healpix_sampler_t,no_tracking_policy_t,LAGRANGE_INTERP_ORDER>>(
-                spherical_surface_t<no_tracking_policy_t,uniform_sampler_t,LAGRANGE_INTERP_ORDER>(name,r,c,res)
+            return std::make_unique<spherical_surface_t<uniform_sampler_t,no_tracking_policy_t,LAGRANGE_INTERP_ORDER>>(
+                spherical_surface_t<uniform_sampler_t,no_tracking_policy_t,LAGRANGE_INTERP_ORDER>(name,r,c,res)
             ); 
         } else {
             ERROR("Invalid tracking requested for spherical surface") ;
@@ -79,7 +79,7 @@ make_surface(
 
 spherical_surface_manager_impl_t::spherical_surface_manager_impl_t() {
 
-
+    GRACE_VERBOSE("Into spheres constructor.") ; 
     auto n_spheres = get_param<size_t>("spherical_surfaces","n_surfaces") ; 
 
 
@@ -93,13 +93,108 @@ spherical_surface_manager_impl_t::spherical_surface_manager_impl_t() {
     auto const name =  get_param<std::string>("spherical_surfaces",oss.str(),"name") ; \
     auto const res = get_param<size_t>("spherical_surfaces",oss.str(),"resolution") ; \
     auto const tracking = get_param<std::string>("spherical_surfaces",oss.str(),"tracking") ;\
-    auto const sampling = get_param<std::string>("spherical_surfaces",oss.str(),"sampling") 
+    auto const sampling = get_param<std::string>("spherical_surfaces",oss.str(),"sampling_policy") 
     for (int i =0; i<n_spheres; ++i) {
+        
         GET_SPHERE_PARAMETERS(i);
-        detectors.push_back(make_surface(name,r,{{x_c,y_c,z_c}},res,tracking,sampling));
+        detectors.push_back(make_surface(name,r,{{xc,yc,zc}},res,tracking,sampling));
         name_map[name] = detectors.size() - 1; // store a mapping name -> idx 
     }
+    GRACE_VERBOSE("Constructed spheres.") ; 
+}
 
+
+void interpolate_on_sphere( spherical_surface_iface<3> const& surf
+                       , std::vector<int> const& var_idx_h 
+                       , std::vector<int> const& aux_idx_h 
+                       , Kokkos::View<double**,grace::default_space> out )
+{
+    GRACE_VERBOSE("Into sphere interpolation onto {}", surf.name) ; 
+    DECLARE_GRID_EXTENTS ; 
+    using namespace grace ; 
+    using namespace Kokkos ; 
+
+    auto& aux = variable_list::get().getaux() ; 
+    auto& state = variable_list::get().getstate() ; 
+
+    auto nvars = var_idx_h.size() ; 
+    auto naux  = aux_idx_h.size() ; 
+
+    readonly_view_t<int> var_idx, aux_idx ; 
+    deep_copy_vec_to_const_view(var_idx,var_idx_h) ; 
+    deep_copy_vec_to_const_view(aux_idx,aux_idx_h) ; 
+
+    auto n_loc_points = surf.intersecting_points_h.size() ; 
+    //Kokkos::realloc(out, n_loc_points, nvars + naux) ; 
+
+    auto& cell_descs = surf.intersected_cells; 
+    auto& int_weights = surf.interp_weights ; 
+    auto& int_bias = surf.interp_stencils ; 
+    
+    MDRangePolicy<Rank<2>> policy_vars({0,0},{n_loc_points, nvars}) ;
+    parallel_for(
+        GRACE_EXECUTION_TAG("IO", "interp_to_sphere"),
+        policy_vars,
+        KOKKOS_LAMBDA (int const& ip, int const& iv) {
+            auto const& cell = cell_descs(ip);
+            auto q = cell.q ; 
+            auto w = int_weights(ip) ; 
+            auto u = subview(state, ALL(), ALL(), ALL(), var_idx(iv), 0) ; 
+            int bx = int_bias(ip,0); 
+            int by = int_bias(ip,1);
+            int bz = int_bias(ip,2);
+
+            double val{0};
+            for( int i=0; i<4; ++i) {
+                for( int j=0; j<4; ++j) {
+                    for( int k=0; k<4; ++k) {
+                        int io = i - 2 + bx ; 
+                        int jo = j - 2 + by ; 
+                        int ko = k - 2 + bz ; 
+                        int ic = static_cast<int>(ngz+cell.i) + io ; 
+                        int jc = static_cast<int>(ngz+cell.j) + jo ; 
+                        int kc = static_cast<int>(ngz+cell.k) + ko ; 
+                        val += w.w[i][0] * w.w[j][1] * w.w[k][2] * u(ic,jc,kc) ;
+                    }
+                }
+            }
+            out(ip,iv) = val ;
+        }   
+    ) ; 
+
+    MDRangePolicy<Rank<2>> policy_aux({0,0},{n_loc_points, naux}) ;
+    parallel_for(
+        GRACE_EXECUTION_TAG("IO", "interp_to_sphere"),
+        policy_aux,
+        KOKKOS_LAMBDA (int const& ip, int const& iv) {
+            auto const& cell = cell_descs(ip);
+            auto q = cell.q ; 
+            auto w = int_weights(ip) ; 
+            auto u = subview(aux, ALL(), ALL(), ALL(), aux_idx(iv), q) ; 
+            auto bx = int_bias(ip,0); 
+            auto by = int_bias(ip,1);
+            auto bz = int_bias(ip,2);
+
+            double val{0};
+            for( int i=0; i<4; ++i) {
+                for( int j=0; j<4; ++j) {
+                    for( int k=0; k<4; ++k) {
+                        int io = i - 2 + bx ; 
+                        int jo = j - 2 + by ; 
+                        int ko = k - 2 + bz ; 
+                        int ic = static_cast<int>(ngz+cell.i) + io ; 
+                        int jc = static_cast<int>(ngz+cell.j) + jo ; 
+                        int kc = static_cast<int>(ngz+cell.k) + ko ; 
+                        val += w.w[i][0] * w.w[j][1] * w.w[k][2] * u(ic,jc,kc) ;
+                    }
+                }
+            }
+
+            out(0,0) = val ;
+        }   
+    ) ; 
 }
 
 }
+
+

@@ -134,12 +134,7 @@ conservs_to_prims( grmhd_cons_array_t& cons
     /* Undensitize conservs */
     for( auto& c: cons) c /= metric.sqrtg() ;
     /* First we check whether we are in the atmosphere */
-    auto const rad = Kokkos::sqrt( xyz[0]*xyz[0]
-                                + xyz[1]*xyz[1]
-                                + xyz[2]*xyz[2]) ; 
-    double const a = 0.9375;
-    double r = fmax((sqrt( SQR(rad) - SQR(a) + sqrt(SQR(SQR(rad)-SQR(a))
-                      + 4.0*SQR(a)*SQR(xyz[2])) ) / sqrt(2.0)), 1.0);
+    double r = xyz[0] ; 
     double dens_atmo = atmo_params.rho_fl * Kokkos::pow(r,atmo_params.rho_fl_scaling) ; 
     double temp_atmo = atmo_params.temp_fl * Kokkos::pow(r,atmo_params.temp_fl_scaling) ;
     

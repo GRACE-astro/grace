@@ -198,7 +198,8 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>& coords
 }
 
 void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
-                              , grace::var_staggering_t stag ) 
+                              , grace::var_staggering_t stag
+                              , bool spherical )
 {
     auto off = get_index_staggerings(stag) ; 
     std::array<double,GRACE_NSPACEDIM> cell_coordinates = {
@@ -206,12 +207,13 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
              off[1] ? 0 : 0.5,
              off[2] ? 0 : 0.5 )
     } ; 
-    fill_physical_coordinates(pcoords,cell_coordinates,stag) ; 
+    fill_physical_coordinates(pcoords,cell_coordinates,stag,spherical) ; 
 }
 
 void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
                               , std::array<double,GRACE_NSPACEDIM> const& cell_coordinates
-                              , grace::var_staggering_t stag ) 
+                              , grace::var_staggering_t stag 
+                              , bool spherical ) 
 {
     DECLARE_GRID_EXTENTS ;
     using namespace grace ; 
@@ -231,6 +233,7 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
                         , cell_coordinates
                         , true 
             ) ; 
+            if ( spherical ) pcoordsl = coord_system.cart_to_sph(pcoordsl) ; 
             EXPR(
             h_coords(VEC(i,j,k),0,q) = pcoordsl[0] ;,
             h_coords(VEC(i,j,k),1,q) = pcoordsl[1] ;,
@@ -249,6 +252,7 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
                         , cell_coordinates
                         , true 
             ) ;
+            if ( spherical ) pcoordsl = coord_system.cart_to_sph(pcoordsl) ; 
             EXPR(
             h_coords(VEC(i,j,k),0,q) = pcoordsl[0] ;,
             h_coords(VEC(i,j,k),1,q) = pcoordsl[1] ;,

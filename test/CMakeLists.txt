@@ -82,6 +82,8 @@ add_grace_test(metric_test test_metric.cpp)
 add_grace_test(c2p_test test_c2p.cpp)
 add_grace_test(exchange_test test_new_exchange.cpp)
 add_grace_test(emf_reflux_test test_reflux.cpp)
+add_grace_test(test_sph_int test_spherical_surface.cpp)
+
 target_compile_options(exchange_test PRIVATE -g -gdwarf-4)
 
 add_kokkos_test(interpolator_test test_interpolators.cpp)

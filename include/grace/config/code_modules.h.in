@@ -56,6 +56,9 @@ const std::vector< std::string > code_modules {
     , "eos"
     , "profiling"
     , "checkpoints"
+    , "coordinate_system"
+    , "spherical_surfaces"
+    , "bh_diagnostics"
 } ;
 //*****************************************************************************************************
 const std::vector< std::string > code_modules_default_configs { 
@@ -79,6 +82,9 @@ const std::vector< std::string > code_modules_default_configs {
      , "${CMAKE_SOURCE_DIR}/include/grace/physics/eos/eos-defaults.yaml"
      , "${CMAKE_SOURCE_DIR}/include/grace/profiling/profiling-defaults.yaml"
      , "${CMAKE_SOURCE_DIR}/include/grace/system/checkpointing-defaults.yaml"
+     , "${CMAKE_SOURCE_DIR}/include/grace/coordinates/coordinate_system-defaults.yaml"
+     , "${CMAKE_SOURCE_DIR}/include/grace/IO/spherical_surface-defaults.yaml"
+     , "${CMAKE_SOURCE_DIR}/include/grace/IO/bh_diagnostics-defaults.yaml"
 } ;
 //*****************************************************************************************************
 }} /* namespace grace::detail */

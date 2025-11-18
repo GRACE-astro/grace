@@ -53,20 +53,24 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>&
  * @param cell_coordinates  Coordinates within the cell where physical coordinates
  *                          should be computed (defaults to 0.5 in all directions, i.e. 
  *                          the center of the cell).
+ * @param spherical         If true, returned coordinates are spherical-like, else cartesian-like.
  * @param stag              Staggering (increases pcoords array dimension by 1 in each staggered direction).
  */
 void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
                               , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates = {VEC(0.5,0.5,0.5)} 
-                              , grace::var_staggering_t stag = grace::STAG_CENTER) ;
+                              , grace::var_staggering_t stag = grace::STAG_CENTER
+                              , bool spherical = false ) ;
 /*****************************************************************************************/
 /**
  * @brief Fill a device view with physical coordinates on the grid. 
  * \ingroup coordinates
  * @param pcoords           The view to be filled with coordinates.
  * @param stag              Staggering (increases pcoords array dimension by 1 in each staggered direction).
+ * @param spherical         If true, returned coordinates are spherical-like, else cartesian-like.
  */
 void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
-                              , grace::var_staggering_t stag) ;
+                              , grace::var_staggering_t stag
+                              , bool spherical = false ) ;
 /*****************************************************************************************/
 /**
  * @brief Fill a device view with jacobians of the logical-to-physical 

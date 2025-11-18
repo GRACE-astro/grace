@@ -49,6 +49,8 @@
 #include <grace/evolution/initial_data.hh>
 #include <grace/evolution/auxiliaries.hh>
 
+#include <grace/IO/spherical_surfaces.hh>
+#include <grace/IO/output_diagnostics.hh>
 
 #include <grace/amr/grace_amr.hh>
 
@@ -240,6 +242,9 @@ void initialize(int& argc, char* argv[])
     grace::amr_ghosts::initialize() ; 
     auto& ghost = grace::amr_ghosts::get() ; 
     ghost.update() ; 
+
+    // setup spherical surfaces 
+    grace::spherical_surface_manager::initialize() ;
     /**********************************************************************************/
     /*                                 Initial data                                   */
     /**********************************************************************************/

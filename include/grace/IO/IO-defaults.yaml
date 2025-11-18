@@ -6,6 +6,7 @@ IO: {
   plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
   scalar_output_every: -1,
+  diagnostic_output_every: -1,
   info_output_every: 10,
 
   do_initial_output: true,

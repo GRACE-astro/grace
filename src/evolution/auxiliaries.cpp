@@ -134,7 +134,7 @@ void compute_auxiliary_quantities(
     #endif 
 
     coord_array_t<GRACE_NSPACEDIM> pcoords ; 
-    grace::fill_physical_coordinates(pcoords) ;
+    grace::fill_physical_coordinates(pcoords,grace::STAG_CENTER,/*spherical coords*/ true) ;
 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 
