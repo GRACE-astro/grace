@@ -12,7 +12,6 @@
 #include <grace/physics/grmhd_helpers.hh>
 #include <grace/physics/eos/c2p.hh>
 
-#define SQR(a) (a)*(a)
 
 namespace grace {
 

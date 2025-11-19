@@ -49,7 +49,6 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Random.hpp>
 
-#define SQR(a) (a)*(a)
 #include <grace/physics/id/FMTorus/KerrSchild.hh>
 #include <grace/physics/id/FMTorus/fmtorus_utils.hh>
 

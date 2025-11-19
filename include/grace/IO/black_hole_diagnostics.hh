@@ -47,8 +47,6 @@
 #include <memory>
 
 
-#define SQR(a) (a)*(a)
-
 namespace grace {
 
 
@@ -253,6 +251,34 @@ struct bh_diagnostics {
                         , bx{ivals(i,loc_var_idx_t::BXL)}
                         , by{ivals(i,loc_var_idx_t::BYL)}
                         , bz{ivals(i,loc_var_idx_t::BZL)} ; 
+                auto report_nan = [&](char const* name, double v) {
+                        if (std::isnan(v)) {
+                            GRACE_VERBOSE("NaN detected in {} at i={}", name, i);
+                        }
+                    };
+                {
+                    
+
+                    report_nan("gxx", gxx);
+                    report_nan("gxy", gxy);
+                    report_nan("gxz", gxz);
+                    report_nan("gyy", gyy);
+                    report_nan("gyz", gyz);
+                    report_nan("gzz", gzz);
+                    report_nan("betax", betax);
+                    report_nan("betay", betay);
+                    report_nan("betaz", betaz);
+                    report_nan("alp", alp);
+                    report_nan("rho", rho);
+                    report_nan("eps", eps);
+                    report_nan("press", press);
+                    report_nan("vx", vx);
+                    report_nan("vy", vy);
+                    report_nan("vz", vz);
+                    report_nan("bx", bx);
+                    report_nan("by", by);
+                    report_nan("bz", bz);
+                }
 
                 metric_array_t metric{
                     {gxx,gxy,gxz,gyy,gyz,gzz}, {betax,betay,betaz}, alp
@@ -266,13 +292,14 @@ struct bh_diagnostics {
                 auto z = detector.points_h[ip].second[2] ; 
 
                 double const one_over_alp = 1./metric.alp() ;
+                report_nan("one_over_alp",one_over_alp) ; 
                 std::array<double,3> const vN {
                     one_over_alp * ( vx + metric.beta(0) )
                     , one_over_alp * ( vy + metric.beta(1) )
                     , one_over_alp * ( vz + metric.beta(2) )
                 } ; 
                 double const W = 1./Kokkos::sqrt(1-metric.square_vec(vN)) ; 
-
+                report_nan("W",W) ; 
                 double const u0 = one_over_alp * W ; 
                 std::array<double,4> uU{{ u0, vx * u0, vy * u0, vz * u0 }};
                 auto uD = metric.lower_4vec(uU) ; 
@@ -281,11 +308,15 @@ struct bh_diagnostics {
                 double b1 = (bx+b0*uU[1])/u0;
                 double b2 = (by+b0*uU[2])/u0;
                 double b3 = (bz+b0*uU[3])/u0;
+                report_nan("bt",b0) ; 
+                report_nan("b1",b1) ; 
+                report_nan("b2",b2) ; 
+                report_nan("b3",b3) ; 
 
                 auto bD = metric.lower_4vec({b0,b1,b2,b3}) ; 
 
                 double bsq = b0 * bD[0] + b1 * bD[1] + b2 * bD[2] + b3*bD[3] ; 
-
+                report_nan("b2",bsq) ; 
                 double sth = sin(theta) ; 
                 double sph = sin(phi)   ;
                 double cph = cos(phi)   ;
@@ -331,7 +362,8 @@ struct bh_diagnostics {
                 double phi_l = 0.5 * fabs(br*u0 - b0*ur) ; 
 
                 double const domega = detector.weights_h[ip] ; 
-
+                report_nan("domega",domega) ; 
+                report_nan("sqrtmdet",sqrtmdet) ; 
                 // accretion rate
                 flux_loc[0] += - domega * sqrtmdet * rho * ur ; 
                 // energy flux 
