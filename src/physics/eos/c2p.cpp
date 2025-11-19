@@ -36,7 +36,6 @@
 #include <Kokkos_Core.hpp>
 
 #define C2P_TOLERANCE 1e-14
-#define SQR(a) (a)*(a)
 
 #define BETA_FLOOR 1e-4
 #define WMAX 50 

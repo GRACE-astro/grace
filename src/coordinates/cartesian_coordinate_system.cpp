@@ -40,7 +40,6 @@
 
 namespace grace { 
 
-#define SQR(a) (a)*(a)
 
 double GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_spacing(size_t const& q) const {

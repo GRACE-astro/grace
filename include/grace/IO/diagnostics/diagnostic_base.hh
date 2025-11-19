@@ -75,8 +75,8 @@ struct diagnostic_base_t {
             for( int i=0; i < sphere_indices.size(); ++i ) {
                 auto const& detector = sphere_list.get(sphere_indices[i]) ;
                 auto name = detector.name ;
-                for ( auto const& fname: flux_names) {
-                    std::string const pfname = grace_runtime.scalar_io_basename() + fname + "_" + name + ".dat" ;
+                for ( auto const& flname: flux_names) {
+                    std::string const pfname = grace_runtime.scalar_io_basename() + flname + "_" + name + ".dat" ;
                     std::filesystem::path fname = bdir /  pfname ; 
                     std::ofstream outfile(fname.string(),std::ios::app) ;
                     outfile << std::fixed << std::setprecision(15) ; 
@@ -87,6 +87,32 @@ struct diagnostic_base_t {
         }
     }
 
+    void write_fluxes() {
+        auto rank = parallel::mpi_comm_rank() ; 
+        if ( rank == 0 ) {
+            std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ; 
+            for( int i=0; i < sphere_indices.size(); ++i ) {
+                auto const& detector = sphere_list.get(sphere_indices[i]) ;
+                auto name = detector.name ;    
+                for( int j=0; j<derived_t::n_fluxes; ++j) {
+                    auto const& flname = flux_names[j] ; 
+
+                    std::string const pfname = grace_runtime.scalar_io_basename() + flname + "_" + name + ".dat" ;
+                    std::filesystem::path fname = bdir /  pfname ; 
+                    std::ofstream outfile(fname.string(),std::ios::app) ;
+                    outfile << std::fixed << std::setprecision(15) ; 
+                    outfile << std::left << iter << '\t'
+                            << std::left << time << '\t' 
+                            << std::left << fluxes[i][j] << '\n' ; 
+                }
+            }
+        }
+    }
+
+    void compute_and_write() {
+        static_cast<derived_t*>(this)->compute_impl(); 
+        write_fluxes() ; 
+    }
 
     //! Indices of variables that need to be interpolated 
     std::vector<int> var_interp_idx, aux_interp_idx ; 

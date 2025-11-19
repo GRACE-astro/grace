@@ -91,48 +91,6 @@ struct bh_diagnostics {
         } ; 
     }
 
-    void initialize_files() {
-        auto& sphere_list = grace::spherical_surface_manager::get() ; 
-
-        if( parallel::mpi_comm_rank() == 0 ) {
-            auto& grace_runtime = grace::runtime::get() ; 
-            static constexpr const size_t width = 20 ; 
-            std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ; 
-            for( int i=0; i < sphere_indices.size(); ++i ) {
-                auto const& detector = sphere_list.get(sphere_indices[i]) ;
-                auto name = detector.name ;
-                {
-                    std::string const pfname = grace_runtime.scalar_io_basename() + "Mdot_" + name + ".dat" ;
-                    std::filesystem::path fname = bdir /  pfname ; 
-                    std::ofstream outfile(fname.string(),std::ios::app) ;
-                    outfile << std::fixed << std::setprecision(15) ; 
-                    outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;  
-                }
-                {
-                    std::string const pfname = grace_runtime.scalar_io_basename() + "Edot_" + name + ".dat" ;
-                    std::filesystem::path fname = bdir /  pfname ; 
-                    std::ofstream outfile(fname.string(),std::ios::app) ;
-                    outfile << std::fixed << std::setprecision(15) ; 
-                    outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;  
-                }
-                {
-                    std::string const pfname = grace_runtime.scalar_io_basename() + "Ldot_" + name + ".dat" ;
-                    std::filesystem::path fname = bdir /  pfname ; 
-                    std::ofstream outfile(fname.string(),std::ios::app) ;
-                    outfile << std::fixed << std::setprecision(15) ; 
-                    outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;  
-                }
-                {
-                    std::string const pfname = grace_runtime.scalar_io_basename() + "Phi_" + name + ".dat" ;
-                    std::filesystem::path fname = bdir /  pfname ; 
-                    std::ofstream outfile(fname.string(),std::ios::app) ;
-                    outfile << std::fixed << std::setprecision(15) ; 
-                    outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ; 
-                }
-            }
-
-        }
-    }
 
     void compute() {
 
@@ -158,50 +116,7 @@ struct bh_diagnostics {
         auto& sphere_list = grace::spherical_surface_manager::get() ; 
         
         // output 
-        auto rank = parallel::mpi_comm_rank() ; 
-        if ( rank == 0 ) {
-            std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ; 
-            for( int i=0; i < sphere_indices.size(); ++i ) {
-                auto const& detector = sphere_list.get(sphere_indices[i]) ;
-                auto name = detector.name ;    
-                {
-                    std::string const pfname = grace_runtime.scalar_io_basename() + "Mdot_" + name + ".dat" ;
-                    std::filesystem::path fname = bdir /  pfname ; 
-                    std::ofstream outfile(fname.string(),std::ios::app) ;
-                    outfile << std::fixed << std::setprecision(15) ; 
-                    outfile << std::left << iter << '\t'
-                            << std::left << time << '\t' 
-                            << std::left << Mdot[i] << '\n' ; 
-                }
-                {
-                    std::string const pfname = grace_runtime.scalar_io_basename() + "Edot_" + name + ".dat" ;
-                    std::filesystem::path fname = bdir /  pfname ; 
-                    std::ofstream outfile(fname.string(),std::ios::app) ;
-                    outfile << std::fixed << std::setprecision(15) ; 
-                    outfile << std::left << iter << '\t'
-                            << std::left << time << '\t' 
-                            << std::left << Edot[i] << '\n' ; 
-                }
-                {
-                    std::string const pfname = grace_runtime.scalar_io_basename() + "Ldot_" + name + ".dat" ;
-                    std::filesystem::path fname = bdir /  pfname ; 
-                    std::ofstream outfile(fname.string(),std::ios::app) ;
-                    outfile << std::fixed << std::setprecision(15) ; 
-                    outfile << std::left << iter << '\t'
-                            << std::left << time << '\t' 
-                            << std::left << Ldot[i] << '\n' ; 
-                }
-                {
-                    std::string const pfname = grace_runtime.scalar_io_basename() + "Phi_" + name + ".dat" ;
-                    std::filesystem::path fname = bdir /  pfname ; 
-                    std::ofstream outfile(fname.string(),std::ios::app) ;
-                    outfile << std::fixed << std::setprecision(15) ; 
-                    outfile << std::left << iter << '\t'
-                            << std::left << time << '\t' 
-                            << std::left << Phi[i] << '\n' ; 
-                }
-            }
-        }
+        
             
         
     }
@@ -394,6 +309,5 @@ struct bh_diagnostics {
 } ; 
 
 }
-#undef SQR
 
 #endif /*GRACE_IO_BH_DIAGNOSTICS_HH*/
