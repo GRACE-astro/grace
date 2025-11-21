@@ -32,9 +32,16 @@
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
 
-#include <grace/amr/ghostzone_kernels/type_helpers.hh>
+#include <grace/IO/spherical_surfaces.hh>
+
+#include <grace/parallel/mpi_wrappers.hh>
+
+#include <grace/config/config_parser.hh>
+
+#include <grace/system/grace_runtime.hh>
 
 #include <grace/utils/metric_utils.hh>
+
 #include <vector> 
 
 #include <Kokkos_Core.hpp>
@@ -44,74 +51,113 @@ namespace grace {
 template < typename derived_t >
 struct diagnostic_base_t {
 
-    diagnostic_base_t(std::string const& diag_name)
-    {
-        auto sphere_names = get_param<std::vector<std::string>>(diag_name,"detector_names") ; 
-        sphere_indices = get_param<std::vector<size_t>>(diag_name,"detector_indices") ;
+    diagnostic_base_t(std::string const& diag_name) {
+        auto names = get_param<std::vector<std::string>>(diag_name,"detector_names");
+        auto idxs  = get_param<std::vector<size_t>>(diag_name,"detector_indices");
 
-        auto& sphere_list = grace::spherical_surface_manager::get() ; 
-        for( auto const& n: sphere_names ) {
-            auto idx = sphere_list.get_index(n);
-            if ( idx < 0 ) {
-                GRACE_WARN("Spherical detector {} not found", n) ; 
+        auto& spheres = grace::spherical_surface_manager::get();
+
+        for (auto const& n : names) {
+            auto idx = spheres.get_index(n);
+            if (idx < 0) {
+                GRACE_WARN("Spherical detector {} not found", n);
             } else {
-                sphere_indices.push_back(idx); 
+                idxs.push_back(idx);
             }
         }
-        std::sort(sphere_indices.begin(), sphere_indices.end());
-        sphere_indices.erase(
-            std::unique(sphere_indices.begin(), sphere_indices.end()),
-            sphere_indices.end()
-        );
-    }
+
+        std::sort(idxs.begin(), idxs.end());
+        idxs.erase(std::unique(idxs.begin(), idxs.end()), idxs.end());
+
+        sphere_indices = std::move(idxs);
+    }  
+
+
 
     void initialize_files() {
+        if (parallel::mpi_comm_rank() != 0) return;
         auto& sphere_list = grace::spherical_surface_manager::get() ; 
-
-        if( parallel::mpi_comm_rank() == 0 ) {
-            auto& grace_runtime = grace::runtime::get() ; 
-            static constexpr const size_t width = 20 ; 
-            std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ; 
-            for( int i=0; i < sphere_indices.size(); ++i ) {
-                auto const& detector = sphere_list.get(sphere_indices[i]) ;
-                auto name = detector.name ;
-                for ( auto const& flname: flux_names) {
-                    std::string const pfname = grace_runtime.scalar_io_basename() + flname + "_" + name + ".dat" ;
-                    std::filesystem::path fname = bdir /  pfname ; 
-                    std::ofstream outfile(fname.string(),std::ios::app) ;
-                    outfile << std::fixed << std::setprecision(15) ; 
-                    outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;  
-                }
+        auto& grace_runtime = grace::runtime::get() ;
+        std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ;  
+        static constexpr const size_t width = 20 ; 
+        for( int i=0; i < sphere_indices.size(); ++i ) {
+            auto const& detector = sphere_list.get(sphere_indices[i]) ;
+            auto const& dname = detector.name ;
+            for( int j=0; j<derived_t::n_fluxes; ++j) {
+                auto const& flname = derived_t::flux_names[j] ;
+                std::string pfname = grace_runtime.scalar_io_basename() + flname + "_" + dname + ".dat" ;
+                std::filesystem::path fname = bdir / pfname ; 
+                std::ofstream outfile(fname.string(),std::ios::app) ;
+                outfile << std::fixed << std::setprecision(15) ; 
+                outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;  
             }
-
         }
     }
 
     void write_fluxes() {
-        auto rank = parallel::mpi_comm_rank() ; 
-        if ( rank == 0 ) {
-            std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ; 
-            for( int i=0; i < sphere_indices.size(); ++i ) {
-                auto const& detector = sphere_list.get(sphere_indices[i]) ;
-                auto name = detector.name ;    
-                for( int j=0; j<derived_t::n_fluxes; ++j) {
-                    auto const& flname = flux_names[j] ; 
+        if ( parallel::mpi_comm_rank() != 0 ) return ; 
+        auto& sphere_list = grace::spherical_surface_manager::get() ; 
+        auto& grace_runtime = grace::runtime::get() ; 
+        std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ; 
+        size_t const iter = grace_runtime.iteration() ; 
+        double const time = grace_runtime.time()      ;
 
-                    std::string const pfname = grace_runtime.scalar_io_basename() + flname + "_" + name + ".dat" ;
-                    std::filesystem::path fname = bdir /  pfname ; 
-                    std::ofstream outfile(fname.string(),std::ios::app) ;
-                    outfile << std::fixed << std::setprecision(15) ; 
-                    outfile << std::left << iter << '\t'
-                            << std::left << time << '\t' 
-                            << std::left << fluxes[i][j] << '\n' ; 
-                }
+        for( int i=0; i < sphere_indices.size(); ++i ) {
+            auto const& detector = sphere_list.get(sphere_indices[i]) ;
+            auto const& dname = detector.name ;
+            for( int j=0; j<derived_t::n_fluxes; ++j) {
+                auto const& flname = derived_t::flux_names[j] ;
+                std::string pfname = grace_runtime.scalar_io_basename() + flname + "_" + dname + ".dat" ;
+                std::filesystem::path fname = bdir / pfname ; 
+                std::ofstream outfile(fname.string(),std::ios::app) ;
+                outfile << std::fixed << std::setprecision(15) ; 
+                outfile << std::left << iter << '\t'
+                        << std::left << time << '\t' 
+                        << std::left << fluxes[i][j] << '\n' ; 
             }
         }
+        
     }
 
     void compute_and_write() {
-        static_cast<derived_t*>(this)->compute_impl(); 
+        // reset the fluxes 
+        fluxes.clear();
+        fluxes.resize(sphere_indices.size(), std::vector<double>(derived_t::n_fluxes));
+        // compute 
+        compute(); 
+        // write to file 
         write_fluxes() ; 
+    }
+
+    protected:
+
+    void compute() {
+
+        auto& sphere_list = grace::spherical_surface_manager::get() ; 
+
+        Kokkos::View<double**,grace::default_space> ivals("interp_vars",0,0) ;
+
+        for( int id=0; id < sphere_indices.size(); ++id ) {
+            auto sphere_idx = sphere_indices[id];
+            auto const& detector = sphere_list.get(sphere_idx) ;
+            // first we interpolate 
+            interpolate_on_sphere(
+                detector, var_interp_idx, aux_interp_idx, ivals
+            ); 
+            
+            // compute local fluxes
+            auto local_fluxes = static_cast<derived_t*>(this)->compute_local_fluxes(
+                ivals, detector
+            ) ; 
+            // aggregate results into global buffer
+            parallel::mpi_allreduce(
+                local_fluxes.data(),
+                fluxes[id].data(),
+                derived_t::n_fluxes,
+                MPI_SUM
+            );
+        }
+
     }
 
     //! Indices of variables that need to be interpolated 
@@ -119,9 +165,7 @@ struct diagnostic_base_t {
     //! Indices of spheres where output will happen 
     std::vector<size_t> sphere_indices ;
     //! Fluxes 
-    std::array<std::vector<double>, derived_t::n_fluxes> fluxes; 
-    //! Flux names 
-    std::array<std::string, derived_t:n_fluxes> flux_names 
+    std::vector<std::vector<double>> fluxes; 
 } ; 
 
 

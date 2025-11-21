@@ -107,7 +107,7 @@ spherical_surface_manager_impl_t::spherical_surface_manager_impl_t() {
 void interpolate_on_sphere( spherical_surface_iface<3> const& surf
                        , std::vector<int> const& var_idx_h 
                        , std::vector<int> const& aux_idx_h 
-                       , Kokkos::View<double**,grace::default_space> out )
+                       , Kokkos::View<double**,grace::default_space>& out )
 {
     GRACE_VERBOSE("Into sphere interpolation onto {}", surf.name) ; 
     DECLARE_GRID_EXTENTS ; 
@@ -125,7 +125,7 @@ void interpolate_on_sphere( spherical_surface_iface<3> const& surf
     deep_copy_vec_to_const_view(aux_idx,aux_idx_h) ; 
 
     auto n_loc_points = surf.intersecting_points_h.size() ; 
-    //Kokkos::realloc(out, n_loc_points, nvars + naux) ; 
+    Kokkos::realloc(out, n_loc_points, nvars + naux) ; 
 
     auto& cell_descs = surf.intersected_cells; 
     auto& int_weights = surf.interp_weights ; 
@@ -139,7 +139,7 @@ void interpolate_on_sphere( spherical_surface_iface<3> const& surf
             auto const& cell = cell_descs(ip);
             auto q = cell.q ; 
             auto w = int_weights(ip) ; 
-            auto u = subview(state, ALL(), ALL(), ALL(), var_idx(iv), 0) ; 
+            auto u = subview(state, ALL(), ALL(), ALL(), var_idx(iv), q) ; 
             int bx = int_bias(ip,0); 
             int by = int_bias(ip,1);
             int bz = int_bias(ip,2);
@@ -190,7 +190,7 @@ void interpolate_on_sphere( spherical_surface_iface<3> const& surf
                 }
             }
 
-            out(0,0) = val ;
+            out(ip,nvars+iv) = val ;
         }   
     ) ; 
 }

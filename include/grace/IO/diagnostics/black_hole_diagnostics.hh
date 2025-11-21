@@ -1,5 +1,5 @@
 /**
- * @file output_diagnostics.cpp
+ * @file black_hole_diagnostics.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
  * @brief 
  * @date 2025-11-17
@@ -24,25 +24,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-
+#ifndef GRACE_IO_BH_DIAGNOSTICS_HH
+#define GRACE_IO_BH_DIAGNOSTICS_HH
 #include <grace_config.h>
 
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
 
+#include <grace/utils/metric_utils.hh>
+
 #include <grace/utils/device_vector.hh>
 
-#include <grace/amr/ghostzone_kernels/type_helpers.hh>
-#include <grace/parallel/mpi_wrappers.hh>
 #include <grace/IO/spherical_surfaces.hh>
-#include <grace/system/grace_runtime.hh>
-#include <grace/data_structures/variables.hh>
-#include <grace/data_structures/memory_defaults.hh>
-#include <grace/amr/amr_functions.hh>
 
 #include <grace/config/config_parser.hh>
 
-#include <grace/IO/diagnostics/black_hole_diagnostics.hh>
+#include <grace/IO/diagnostics/diagnostic_base.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -50,18 +47,45 @@
 #include <memory>
 
 
-namespace grace { namespace IO { 
+namespace grace {
 
+struct bh_diagnostics: 
+    public diagnostic_base_t<bh_diagnostics> 
+{
+    using base_t = diagnostic_base_t<bh_diagnostics>; 
 
-void output_diagnostics() {
-    bh_diagnostics bh_diag{};
-    bh_diag.compute_and_write() ;  
+    enum loc_var_idx_t : int {
+        GXXL=0, GXYL, GXZL, GYYL, GYZL, GZZL,
+        BETAXL, BETAYL, BETAZL, ALPL, RHOL, EPSL, PRESSL, VELXL, VELYL, VELZL,
+        BXL, BYL, BZL, NUM_VARS
+    } ; 
+
+    enum diag_var_idx_t : int {
+        MDOT=0, EDOT, LDOT, PHI, N_DIAG_VARS
+    } ; 
+
+    //! Number of fluxes computed by this class, needed 
+    //! for the base class.
+    static constexpr size_t n_fluxes = static_cast<size_t>(N_DIAG_VARS);
+
+    static std::vector<std::string> flux_names ; 
+
+    bh_diagnostics() 
+        : base_t("bh_diagnostics")
+    {
+        this->var_interp_idx = std::vector<int>({GXX, GXY, GXZ, GYY, GYZ, GZZ, BETAX, BETAY, BETAZ, ALP});
+        this->aux_interp_idx = std::vector<int>({RHO, EPS, PRESS, VELX, VELY, VELZ, BX, BY, BZ});
+
+    }
+
+    std::array<double,n_fluxes> 
+    compute_local_fluxes(
+        Kokkos::View<double**> ivals_d, 
+        spherical_surface_iface<3> const& detector 
+    )  ;
+
+} ; 
+
 }
 
-void initialize_diagnostic_files() {
-    bh_diagnostics bh_diag{};
-    bh_diag.initialize_files() ; 
-    parallel::mpi_barrier() ;
-}
-
-} } 
+#endif /*GRACE_IO_BH_DIAGNOSTICS_HH*/

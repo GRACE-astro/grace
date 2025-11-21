@@ -239,7 +239,7 @@ static void setup_initial_B_field(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
             auto rm3 = std::pow(pcoords[0] * pcoords[0] + pcoords[1] * pcoords[1] + pcoords[2] * pcoords[2],-3/2) ; 
-            Ax(i,j,k,q) = -pcoords[1]  ; 
+            Ax(i,j,k,q) = pcoords[0] * SQR(pcoords[2]-pcoords[1])  ; 
         }, {false,true,true}, true 
     ) ; 
     deep_copy(Axd,Ax) ;
@@ -250,7 +250,7 @@ static void setup_initial_B_field(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
             auto rm3 = std::pow(pcoords[0] * pcoords[0] + pcoords[1] * pcoords[1] + pcoords[2] * pcoords[2],-3/2) ; 
-            Ay(i,j,k,q) = pcoords[0]  ; 
+            Ay(i,j,k,q) = pcoords[1] * SQR(pcoords[0] + 2*pcoords[2]) ; 
         }, {true,false,true}, true 
     ) ;
     deep_copy(Ayd,Ay) ;
@@ -260,7 +260,7 @@ static void setup_initial_B_field(
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
-            Az(i,j,k,q) = 0 ; 
+            Az(i,j,k,q) = pcoords[2] * SQR(2*pcoords[0] - pcoords[1]); 
         }, {true,true,false}, true 
     ) ;
     deep_copy(Azd,Az) ;
@@ -445,7 +445,8 @@ static void check_ghostzones(
                 double divB = (host_data_x(VEC(i+1,j,k),0,q) - host_data_x(VEC(i,j,k),0,q)) * idx(0,q)
                             + (host_data_y(VEC(i,j+1,k),0,q) - host_data_y(VEC(i,j,k),0,q)) * idx(1,q)
                             + (host_data_z(VEC(i,j,k+1),0,q) - host_data_z(VEC(i,j,k),0,q)) * idx(2,q) ; 
-                if ( fabs(divB) > 1e-13 or std::isnan(divB)) {
+                GRACE_TRACE("DivB problem ijk {},{},{}, q {}, divB {}, Bx {}",i,j,k,q,divB,host_data_x(VEC(i,j,k),0,q)) ;
+                if ( fabs(divB) > 1e-14 or std::isnan(divB)) {
                     auto quad = grace::amr::get_quadrant(q).get() ; 
                     GRACE_TRACE("DivB problem at {}, level {} ijk {},{},{}, q {}, divB {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level),i,j,k,q,divB) ;
                 }

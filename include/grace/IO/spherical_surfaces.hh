@@ -278,7 +278,7 @@ struct spherical_surface_t: public spherical_surface_iface<interp_order> {
 void interpolate_on_sphere( spherical_surface_iface<3> const& surf
                        , std::vector<int> const& var_idx_h 
                        , std::vector<int> const& aux_idx_h 
-                       , Kokkos::View<double**,grace::default_space> out ); 
+                       , Kokkos::View<double**,grace::default_space>& out ); 
 
 
 //**************************************************************************************************

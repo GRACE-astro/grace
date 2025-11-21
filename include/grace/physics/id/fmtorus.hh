@@ -264,5 +264,4 @@ struct fmtorus_id_t {
 }
 
 /* namespace grace */
-#undef SQR
 #endif /* GRACE_PHYSICS_ID_FMTORUS_HH */

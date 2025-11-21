@@ -37,6 +37,8 @@
 
 #include <array> 
 
+#include <Kokkos_Core.hpp>
+
 namespace grace {
 
 /**

@@ -211,5 +211,4 @@ namespace grace {
     
 
 } /* namespace grace */
-#undef SQR
 #endif /*GRACE_C2P_KASTAUN_MHD_HH*/
