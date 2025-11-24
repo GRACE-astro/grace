@@ -766,7 +766,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                     ) ;
                 } else {
                     // fine local --> send 
-                    for( int jside=0; jside<4; ++jside){ 
+                    for( int jside=0; jside<dsc.n_sides; ++jside){ 
                         if ( jside==iside ) continue ; 
                         auto const& dsc_other = dsc.sides[jside] ; 
                         if ( dsc_other.is_fine) { // other is fine
@@ -865,7 +865,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                     dsc_this.octants.fine.quad_id[ic] = recv_lookup[r][key];
                 } else {
                     // fine local --> send 
-                    for( int jside=0; jside<4; ++jside){ 
+                    for( int jside=0; jside<dsc.n_sides; ++jside){ 
                         if ( jside==iside ) continue ; 
                         auto const& dsc_other = dsc.sides[jside] ; 
                         if ( dsc_other.is_fine) { // other is fine

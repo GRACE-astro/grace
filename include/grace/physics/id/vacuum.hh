@@ -1,0 +1,90 @@
+/**
+ * @file vacuum.hh
+ * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
+ * @brief 
+ * @date 2025-11-24
+ * 
+ * @copyright This file is part of the General Relativistic Astrophysics
+ * Code for Exascale.
+ * GRACE is an evolution framework that uses Finite Volume
+ * methods to simulate relativistic spacetimes and plasmas
+ * Copyright (C) 2023 Carlo Musolino
+ *                                    
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *   
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *   
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ */
+
+#ifndef GRACE_PHYSICS_ID_VACUUM_HH
+#define GRACE_PHYSICS_ID_VACUUM_HH
+
+#include <grace_config.h>
+
+#include <grace/utils/inline.h>
+#include <grace/utils/device.h>
+
+#include <grace/data_structures/variable_indices.hh>
+#include <grace/data_structures/variables.hh>
+#include <grace/data_structures/variable_properties.hh>
+#include <grace/physics/grmhd_helpers.hh>
+#include <grace/amr/amr_functions.hh>
+
+namespace grace {
+
+
+template < typename eos_t >
+struct vacuum_id_t {
+    using state_t = grace::var_array_t ; 
+    
+    vacuum_id_t(
+          eos_t eos 
+        , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
+        , double rho, double press, double vx, double vy, double vz )
+        : _eos(eos)
+        , _pcoords(pcoords)
+        , _rho(rho), _press(press), _vx(vx), _vy(vy), _vz(vz)
+    {} 
+
+    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    operator() (VEC(int const i, int const j, int const k), int const q) const 
+    {
+        grmhd_id_t id ; 
+
+        id.rho = _rho ; 
+        id.press = _press ;
+        id.vx = _vx ; 
+        id.vy = _vy ; 
+        id.vz = _vz ; 
+        id.bx = id.by = id.bz = 0 ; 
+
+        id.vx = 0; id.vy = 0.; id.vz = 0.;
+        id.betax = 0; id.betay=0; id.betaz = 0; 
+        id.alp = 1 ; 
+        id.gxx = 1; id.gyy = 1; id.gzz = 1;
+        id.gxy = 0; id.gxz = 0; id.gyz = 0 ;
+        id.kxx = 0; id.kyy = 0; id.kzz = 0 ;
+        id.kxy = 0; id.kxz =0 ; id.kyz = 0 ; 
+        unsigned int err ; 
+        id.ye  = _eos.ye_beta_eq__press_cold(id.press, err);
+        return std::move(id) ; 
+    }
+
+    eos_t   _eos         ;                            //!< Equation of state object 
+    grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
+    double _rho, _press, _vx, _vy, _vz;               //!< Background state
+} ; 
+
+
+}
+
+#endif 

@@ -62,7 +62,7 @@ struct m1_equations_system_t
 {
     private:
     //! Base class type 
-    using base_t = hrsc_evolution_system_t<grmhd_equations_system_t<eos_t>>;
+    using base_t = hrsc_evolution_system_t<m1_equations_system_t>;
 
     public:
 
@@ -71,6 +71,16 @@ struct m1_equations_system_t
                         , grace::var_array_t aux_ )
     : base_t(state_,stag_state_,aux_)
     {} ; 
+
+    m1_equations_system_t(grace::var_array_t state_
+                        , grace::staggered_variable_arrays_t stag_state_
+                        , grace::var_array_t aux_ 
+                        , m1_atmo_params _atmo_pars 
+                        , m1_excision_params_t _excision_pars )
+    : base_t(state_,stag_state_,aux_)
+    , atmo_params(_atmo_pars)
+    , excision_params(_excision_pars)
+    {} ;
 
     /**
      * @brief Compute M1 fluxes in direction \f$x^1\f$
@@ -98,7 +108,7 @@ struct m1_equations_system_t
                        , double const dt 
                        , double const dtfact ) const 
     {
-        getflux<0,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
+        getflux<0,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute M1 fluxes in direction \f$x^2\f$
@@ -126,7 +136,7 @@ struct m1_equations_system_t
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<1,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
+        getflux<1,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute M1 fluxes in direction \f$x^3\f$
@@ -154,7 +164,7 @@ struct m1_equations_system_t
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<2,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
+        getflux<2,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
     }
     
 
@@ -183,20 +193,177 @@ struct m1_equations_system_t
     {
         using namespace grace  ;
         using namespace Kokkos ;
+        /**************************************************************************************************/
+        /* Convenience indices to make the code slightly less unreadable                                  */
+        static constexpr int TT4=0; 
+        static constexpr int TX4=1;
+        static constexpr int TY4=2;
+        static constexpr int TZ4=3;
+        static constexpr int XX4=4;
+        static constexpr int XY4=5;
+        static constexpr int XZ4=6;
+        static constexpr int YY4=7;
+        static constexpr int YZ4=8;
+        static constexpr int ZZ4=9;
+        /**************************************************************************************************/
+        /* Read in the metric                                                                             */
+        metric_array_t metric ; 
+        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
+        /**************************************************************************************************/
+        // construct closure and get pressure 
+        m1_prims_array_t prims ; 
+        FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
+        prims[ERADL] /= metric.sqrtg() ; 
+        prims[FXL] /= metric.sqrtg(); 
+        prims[FYL] /= metric.sqrtg(); 
+        prims[FZL] /= metric.sqrtg(); 
 
+        m1_closure_t cl{prims,metric} ;
+        cl.update_closure(0.) ; 
+        auto const& PUU = cl.PUU ; 
+        /**************************************************************************************************/
+        /* Indices for contraction of P^{ij} onto \partial_i \beta_j (see E source below)                 */  
+        int spatial_index[3][3] = {
+            {VEC(0,1,2)},
+            {VEC(1,3,4)},
+            {VEC(2,4,5)},
+        };
+        /**************************************************************************************************/
+        double E_source{0.} ; 
+        /**************************************************************************************************/
+        for( int idir=0; idir<3; ++idir) {
+            /**************************************************************************************************/
+            /**************************************************************************************************/
+            /* Read metric components at neighor cell centres for metric derivative                           */
+            metric_array_t metric_m, metric_p ; 
+            FILL_METRIC_ARRAY( metric_m, this->_state
+                             , q
+                             , VEC( i-utils::delta(0,idir)
+                                  , j-utils::delta(1,idir)
+                                  , k-utils::delta(2,idir)) ) ; 
+            FILL_METRIC_ARRAY( metric_p, this->_state
+                             , q
+                             , VEC( i+utils::delta(0,idir)
+                                  , j+utils::delta(1,idir)
+                                  , k+utils::delta(2,idir) ) ) ; 
+            /**************************************************************************************************/
+            /* Compute metric derivatives                                                                     */
+            /* We need \partial_i \gamma_{ij} and \partial_i \alpha                                           */
+            /**************************************************************************************************/
+            std::array<double, 6> dgab_dxi  ;
+
+            /**************************************************************************************************/
+            /* Compute metric derivative (factor of 1./dx introduced after)                                 */
+            #pragma unroll 6
+            for( int ii=0; ii<6; ++ii) { 
+                dgab_dxi[ii] =  0.5*(metric_p.gamma(ii) - metric_m.gamma(ii)) ;
+            }
+            /**************************************************************************************************/
+            /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
+            double const dalp_dxi =  0.5*(metric_p.alp() - metric_m.alp()) ;
+
+            #ifdef GRACE_ENABLE_COWLING_METRIC
+            /**************************************************************************************************/
+            /* In Cowling approx we can use the simpler form of the source term which reads                   */
+            /* S_{E} +=  1/2 P^{ij} \beta^k \partial_k \gamma_{ij} + P^i_j \partial_i \beta^j                 */
+            /**************************************************************************************************/ 
+            std::array<double,3> dbetaj_dxi = {
+                0.5 * (metric_p.beta(0) - metric_m.beta(0)),
+                0.5 * (metric_p.beta(1) - metric_m.beta(1)),
+                0.5 * (metric_p.beta(2) - metric_m.beta(2)),
+            } ; 
+
+            E_source += idx(idir,q) * (
+                0.5 * metric.beta(idir) * metric.contract_sym2tens_sym2tens(dgab_dxi,PUU)
+              + metric.contract_vec_vec( 
+                    dbetaj_dxi
+                ,   {PUU[spatial_index[idir][0]],PUU[spatial_index[idir][1]],PUU[spatial_index[idir][2]]})
+            ) ; 
+            #endif 
+            /**************************************************************************************************/
+            /* Other piece of the source term                                                                 */
+            /* S_{E} += - F^i \partial_i \alpha                                                               */
+            /**************************************************************************************************/ 
+            E_source -= idx(idir,q) * dalp_dxi * cl.FU[idir] ; 
+            /**************************************************************************************************/
+            /* S_{F_i} = -E \partial_i alpha + F_k \partial_i \betaˆk                                         */
+            /*         + \alpha/2 Pˆ{jk} \partial_i \gamma_{jk}                                               */
+            /**************************************************************************************************/
+            double F_source = idx(idir,q) * ( -cl.E*dalp_dxi + metric.contract_vec_covec(cl.FD,dbetaj_dxi) 
+                                              + 0.5 * metric.alp() *  metric.contract_sym2tens_sym2tens(dgab_dxi,PUU) ) ; 
+            state_new(VEC(i,j,k),FRADX_+idir,q) += dt * dtfact * metric.sqrtg() * F_source ; 
+        }
+        state_new(VEC(i,j,k),ERAD_,q) += dt * dtfact * metric.sqrtg() * E_source ; 
+    }
+
+    /**
+     * @brief Compute M1 auxiliary quantities.
+     * 
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param q Quadrant index.
+     */
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    compute_auxiliaries(  VEC( const int i 
+                        ,      const int j 
+                        ,      const int k) 
+                        , int64_t q 
+                        , grace::coord_array_t<GRACE_NSPACEDIM> pcoords) const 
+    {
+        using namespace grace ;
+        using namespace Kokkos ; 
+        m1_prims_array_t prims ; 
+        FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
+        
+        metric_array_t metric; 
+        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ; 
+
+        prims[ERADL] /= metric.sqrtg() ; 
+        prims[FXL] /= metric.sqrtg() ; 
+        prims[FYL] /= metric.sqrtg() ; 
+        prims[FZL] /= metric.sqrtg() ; 
+
+        m1_closure_t cl{
+            prims, metric
+        } ; 
+        // rescale if superluminal
+        if ( cl.F >= cl.E ) {
+            double fact = 0.9999 * cl.E ; 
+            this->_state(VEC(i,j,k),FRADX_,q) *= fact ; 
+            this->_state(VEC(i,j,k),FRADY_,q) *= fact ; 
+            this->_state(VEC(i,j,k),FRADZ_,q) *= fact ; 
+        }
+
+        // Set atmosphere / excision 
+        double r = xyz[0] ; 
+        bool excise = excision_params.excise_by_radius 
+                ? r <= excision_params.r_ex 
+                : metric.alp() <= excision_params.alp_ex ; 
+        double E_atmo = atmo_params.E_fl * Kokkos::pow(r,atmo_params.E_fl_scaling) ; 
+        if ( cl.E < E_atmo * (1. + 1.e-3 ) 
+            or excise ) 
+        {
+            this->_state(VEC(i,j,k),ERAD_,q) = 
+                excise ? metric.sqrtg() * excision_params.E_ex
+                       : metric.sqrtg() * E_atmo ; 
+            this->_state(VEC(i,j,k),FRADX_,q) = 0.0 ; 
+            this->_state(VEC(i,j,k),FRADY_,q) = 0.0 ; 
+            this->_state(VEC(i,j,k),FRADZ_,q) = 0.0 ;
+        }
+        
     }
 
 
     private:
     /***********************************************************************/
     //! Number of reconstructed variables.
-    static constexpr unsigned int M1_NUM_RECON_VARS = 4*N_M1_RAD_SPECIES ; 
-    //! Equation of State object.
-    eos_t _eos ;    
+    static constexpr unsigned int M1_NUM_RECON_VARS = 7 ; 
+  
     //! Parameters for atmosphere
-    atmo_params_t atmo_params;
+    m1_atmo_params_t atmo_params;
     //! Parameters for excision
-    excision_params_t excision_params; 
+    m1_excision_params_t excision_params; 
     /***********************************************************************/
     /***********************************************************************/
     /**
@@ -215,7 +382,7 @@ struct m1_equations_system_t
     template< int idir 
             , typename riemann_t
             , typename recon_t   >
-    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE void
     getflux(  VEC( const int i 
             ,      const int j 
             ,      const int k)
@@ -267,14 +434,14 @@ struct m1_equations_system_t
         }
         // now we need to reconstruct zvec from the hydro 
         std::array<int, 3>
-            recon_indices{
+            recon_indices_aux{
                   ZVECX_
                 , ZVECY_
                 , ZVECZ_
             } ; 
         /* Local indices in prims array (note z^k -> v^k) */
         std::array<int, 3>
-            recon_indices_loc{
+            recon_indices_aux_loc{
                   ZXL 
                 , ZYL 
                 , ZZL
@@ -283,11 +450,11 @@ struct m1_equations_system_t
         for( int ivar=0; ivar<3; ++ivar) {
             auto u = Kokkos::subview( this->_aux
                                     , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()) 
-                                    , recon_indices[ivar] 
+                                    , recon_indices_aux[ivar] 
                                     , q ) ;
             reconstructor( u, VEC(i,j,k)
-                         , primL[recon_indices_loc[ivar]]
-                         , primR[recon_indices_loc[ivar]]
+                         , primL[recon_indices_aux_loc[ivar]]
+                         , primR[recon_indices_aux_loc[ivar]]
                          , idir) ;
         }
         // note that at this stage F is actually F/E, we need to fix that here
@@ -315,15 +482,15 @@ struct m1_equations_system_t
             {0,1,2}, {1,3,4}, {2,4,5}
         } ; 
         auto const& PUU_l = cl.PUU ; auto const& PUU_r = cr.PUU ; 
-        auto const PUD_l = metric_face.lower_vec(
+        auto const PUD_l = metric_face.lower(
             {PUU_l[imap[idir][0]], PUU_l[imap[idir][1]],PUU_l[imap[idir][2]]}
         ) ; 
-        auto const PUD_r = metric_face.lower_vec(
+        auto const PUD_r = metric_face.lower(
             {PUU_r[imap[idir][0]], PUU_r[imap[idir][1]],PUU_r[imap[idir][2]]}
         ) ; 
         // compute the A factor for asymptotic flux correction 
         double const kappa = this->_aux(VEC(i,j,k),KAPPAA_,q) + this->_aux(VEC(i,j,k),KAPPAS_,q) ; 
-        double const A = min(1, idx(idir,q) / kappa ) ; 
+        double const A = min(1, 1. / dx(idir,q) / kappa ) ; 
         // compute one component of the upper-index flux for the E flux 
         
         double FUd_l = metric_face.invgamma(imap[idir][0]) * primL[FXL] 
@@ -349,34 +516,34 @@ struct m1_equations_system_t
         double E_r = primR[ERADL] * metric_face.sqrtg() ; 
         double f_E_l = metric_face.sqrtg() * (metric_face.alp() * FUd_l - metric_face.beta(idir) * primL[ERADL]) ; 
         double f_E_r = metric_face.sqrtg() * (metric_face.alp() * FUd_r - metric_face.beta(idir) * primR[ERADL]) ; 
-        fluxes(VEC(i,j,k),ERAD_,q) = (cmax*f_E_l + cmin*f_E_r - A * cmax * cmin * (E_r-E_l))/(cmax+cmin) ; 
+        fluxes(VEC(i,j,k),ERAD_,idir,q) = (cmax*f_E_l + cmin*f_E_r - A * cmax * cmin * (E_r-E_l))/(cmax+cmin) ; 
         // Fx 
         double Fx_l = primL[FXL] * metric_face.sqrtg() ;
         double Fx_r = primR[FXL] * metric_face.sqrtg() ;
         double f_Fx_l = metric_face.sqrtg() * (metric_face.alp() * PUD_l[0] - metric_face.beta(idir) * primL[FXL]) ; 
         double f_Fx_r = metric_face.sqrtg() * (metric_face.alp() * PUD_r[0] - metric_face.beta(idir) * primR[FXL]) ; 
-        fluxes(VEC(i,j,k),FRADX_,q) = (SQR(A)*(cmax*f_Fx_l + cmin*f_Fx_r) - A * cmax * cmin * (Fx_r-Fx_l))/(cmax+cmin) 
+        fluxes(VEC(i,j,k),FRADX_,idir,q) = (SQR(A)*(cmax*f_Fx_l + cmin*f_Fx_r) - A * cmax * cmin * (Fx_r-Fx_l))/(cmax+cmin) 
                                     + (1-SQR(A)) * 0.5 * (f_Fx_l+f_Fx_r); 
         // Fy 
         double Fy_l = primL[FYL] * metric_face.sqrtg() ;
         double Fy_r = primR[FYL] * metric_face.sqrtg() ;
         double f_Fy_l = metric_face.sqrtg() * (metric_face.alp() * PUD_l[1] - metric_face.beta(idir) * primL[FYL]) ; 
         double f_Fy_r = metric_face.sqrtg() * (metric_face.alp() * PUD_r[1] - metric_face.beta(idir) * primR[FYL]) ;
-        fluxes(VEC(i,j,k),FRADY_,q) = (SQR(A)*(cmax*f_Fy_l + cmin*f_Fy_r) - A * cmax * cmin * (Fy_r-Fy_l))/(cmax+cmin) 
+        fluxes(VEC(i,j,k),FRADY_,idir,q) = (SQR(A)*(cmax*f_Fy_l + cmin*f_Fy_r) - A * cmax * cmin * (Fy_r-Fy_l))/(cmax+cmin) 
                                     + (1-SQR(A)) * 0.5 * (f_Fy_l+f_Fy_r); 
         // Fz 
         double Fz_l = primL[FZL] * metric_face.sqrtg() ;
         double Fz_r = primR[FZL] * metric_face.sqrtg() ;
         double f_Fz_l = metric_face.sqrtg() * (metric_face.alp() * PUD_l[2] - metric_face.beta(idir) * primL[FZL]) ; 
         double f_Fz_r = metric_face.sqrtg() * (metric_face.alp() * PUD_r[2] - metric_face.beta(idir) * primR[FZL]) ;
-        fluxes(VEC(i,j,k),FRADZ_,q) = (SQR(A)*(cmax*f_Fz_l + cmin*f_Fz_r) - A * cmax * cmin * (Fz_r-Fz_l))/(cmax+cmin) 
+        fluxes(VEC(i,j,k),FRADZ_,idir,q) = (SQR(A)*(cmax*f_Fz_l + cmin*f_Fz_r) - A * cmax * cmin * (Fz_r-Fz_l))/(cmax+cmin) 
                                     + (1-SQR(A)) * 0.5 * (f_Fz_l+f_Fz_r); 
     }
 
     template< size_t idir >
-    void compute_cp_cm(
+    GRACE_HOST_DEVICE void compute_cp_cm(
         double& cp, double &cm, m1_closure_t const& cl, metric_array_t const& metric
-    )
+    ) const 
     {
         double const cpthin = -metric.beta(idir) + metric.alp() * fabs(cl.FU[idir])/cl.F ; 
         double const cmthin = -metric.beta(idir) - metric.alp() * fabs(cl.FU[idir])/cl.F ; 
@@ -401,6 +568,40 @@ struct m1_equations_system_t
 
 } ; 
 
+/**************************************************************************************************/
+/* Standalone functions for m1 initial data and eas calculations                                  */
+/**************************************************************************************************/
+template < typename eos_t >
+void set_m1_eas(
+      grace::var_array_t& state
+    , grace::staggered_variable_arrays_t& sstate
+    , grace::var_array_t& aux
+) ; 
+
+template < typename eos_t >
+void set_m1_eas() ;
+
+template < typename eos_t >
+void set_m1_initial_data() ; 
+
+/***********************************************************************/
+// Explicit template instantiation
+#define INSTANTIATE_TEMPLATE(EOS)        \
+extern template                          \
+void set_m1_initial_data<EOS>( );        \
+extern template                          \
+void set_m1_eas<EOS>(                    \
+      grace::var_array_t&                \
+    , grace::staggered_variable_arrays_t&\
+    , grace::var_array_t&                \
+)                                        \
+extern template                          \
+void set_m1_eas<EOS>()
+
+
+INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+#undef INSTANTIATE_TEMPLATE
+/***********************************************************************/
 } /* namespace grace */
 
 #endif /*GRACE_PHYSICS_M1_HH*/

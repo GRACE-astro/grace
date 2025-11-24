@@ -60,6 +60,10 @@
 #include <grace/physics/bssn.hh>
 #include <grace/physics/bssn_helpers.hh>
 #endif 
+#ifdef GRACE_ENABLE_M1 
+#include <grace/physics/m1_helpers.hh>
+#include <grace/physics/m1.hh>
+#endif 
 #include <grace/physics/eos/eos_types.hh>
 
 #include <grace/amr/grace_amr.hh>
@@ -274,6 +278,29 @@ void compute_fluxes(
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,old_state,old_stag_state,aux,atmo_params,excision_params) ; 
     //**************************************************************************************************/
+    #ifdef GRACE_ENABLE_M1
+    m1_equations_system_t m1_eq_system(old_state,old_stag_state,aux) ; 
+    // normalize 
+    auto m1_norm_policy = 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(0,0,0),0}
+            , {VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}
+        ) ; 
+    parallel_for(
+          GRACE_EXECUTION_TAG("evol", "m1_normalize_conservs")
+        , m1_norm_policy
+        , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+
+            metric_array_t metric ; 
+            FILL_METRIC_ARRAY(metric,old_state,q,VEC(i,j,k)) ;
+            old_state(VEC(i,j,k),FRADX_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
+            old_state(VEC(i,j,k),FRADY_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
+            old_state(VEC(i,j,k),FRADZ_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
+            old_state(VEC(i,j,k),ERAD_,q) /= metric.sqrtg() ; 
+        }
+    ) ; 
+    #endif 
+    //**************************************************************************************************/
     // loop ranges 
     auto flux_x_policy = 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
@@ -297,21 +324,52 @@ void compute_fluxes(
                 , flux_x_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact) ;
+        #ifdef GRACE_ENABLE_M1
+        m1_eq_system.template compute_x_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        ) ; 
+        #endif 
     }) ; 
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
                 , flux_y_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
+        #ifdef GRACE_ENABLE_M1
+        m1_eq_system.template compute_y_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        ) ; 
+        #endif
     }) ;
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
                 , flux_z_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
+        #ifdef GRACE_ENABLE_M1
+        m1_eq_system.template compute_z_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        ) ; 
+        #endif
     }) ; 
     //**************************************************************************************************/
     Kokkos::fence() ; 
+    #ifdef GRACE_ENABLE_M1
+    // un-normalize
+    parallel_for(
+          GRACE_EXECUTION_TAG("evol", "m1_unnormalize_conservs")
+        , m1_norm_policy
+        , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+
+            metric_array_t metric ; 
+            FILL_METRIC_ARRAY(metric,old_state,q,VEC(i,j,k)) ;
+            old_state(VEC(i,j,k),FRADX_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
+            old_state(VEC(i,j,k),FRADY_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
+            old_state(VEC(i,j,k),FRADZ_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
+            old_state(VEC(i,j,k),ERAD_,q) *= metric.sqrtg() ; 
+        }
+    ) ; 
+    #endif 
 }
 
 void compute_emfs(

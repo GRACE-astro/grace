@@ -169,6 +169,93 @@ void register_refluxing_face(
     info->reflux_faces->push_back(desc) ; 
 }
 
+void register_refluxing_edges(
+    p4est_iter_face_side_t const& coarse_side,
+    p4est_iter_face_side_t const& fine_side,
+    p4est_iter_data_t* info 
+) 
+{
+    auto fdir = coarse_side.face / 2 ; 
+    std::array<std::array<int,2>,3> other_dirs {{
+        {{1,2}}, {{0,2}}, {{0,1}}
+    }} ; 
+
+    std::array<std::array<int,2>,6> face_coarse_edges {{
+        {{4,8}}, // 0
+        {{5,9}}, // 1
+        {{0,8}}, // 2
+        {{1,10}}, // 3
+        {{0,4}}, // 4
+        {{2,6}} // 5
+    }} ;
+     
+    auto const get_fine_edge_id = [&] (int8_t idir, int8_t iside) -> int8_t  {
+        return grace::amr::detail::f2e[fine_side.face][2*!idir+!iside]; 
+    } ;
+    for( int idir=0; idir<2; ++idir) {
+        int edge_dir = other_dirs[fdir][idir] ; 
+        // ... 
+        hanging_edge_reflux_desc_t desc {} ; 
+        desc.n_fine = 2 ; 
+        desc.n_coarse = 1 ;
+        desc.n_sides = 3 ; // only three sides here 
+        desc.fine_sides[0] = 1 ;
+        desc.fine_sides[1] = 2 ;
+        desc.coarse_sides[0] = 0 ; 
+
+        auto& csd = desc.sides[0] ; // by convention we put the coarse side at 0 
+        csd.is_fine = false ; 
+        csd.octants.coarse.is_remote = coarse_side.is.full.is_ghost ;
+        csd.octants.coarse.quad_id = coarse_side.is.full.is_ghost 
+                                ? coarse_side.is.full.quadid 
+                                : coarse_side.is.full.quadid + grace::amr::get_local_quadrants_offset(coarse_side.treeid) ; 
+        csd.octants.coarse.owner_rank = p4est_comm_find_owner(grace::amr::forest::get().get(), coarse_side.treeid, coarse_side.is.full.quad, 0);
+
+        csd.edge_id = face_coarse_edges[fdir][idir] ; 
+
+        // now these are used inside the kernel writing 
+        // data back to the emf in the coarse buffer, to 
+        // decide whether the emf index should be shifted
+        // by nx/2.
+        // In that kernel, i and j represent the two 
+        // directions orthogonal to the EMF in z-order.
+        // Therefore here we want to be consistent with that.
+        // In particular, one of these dirs will always be fdir,
+        // and the other one (the one we want to shift) is the 
+        // direction orthogonal to fdir and idir. The code below
+        // implements that:
+        // if fdir > other_dirs[fdir][!idir] --> we need to shift i in EMF kernel
+        // if fdir < other_dirs[fdir][!idir] --> we need to shift j in EMF kernel
+        csd.off_i = (fdir > other_dirs[fdir][!idir]) ; 
+        csd.off_j = (fdir < other_dirs[fdir][!idir]) ; 
+
+        // each edge has 2 sides that are fine 
+        // here we loop over them in the direction
+        // of increasing coordinate across the edge 
+        // and within the face
+        for( int iside=0; iside<2; ++iside) {
+            // fetch desc
+            auto& fsd = desc.sides[1+iside] ; 
+            // edge id is opposite ours 
+            fsd.edge_id = get_fine_edge_id(idir,iside) ; 
+            fsd.off_i = fsd.off_j = 0 ; 
+            fsd.is_fine = true; 
+            for ( int ichild2=0; ichild2<2; ++ichild2) {
+                int ichild = idir == 0 ? ichild2 + 2 * iside 
+                                       : iside   + 2 * ichild2 ; 
+
+                fsd.octants.fine.is_remote[ichild2] = fine_side.is.hanging.is_ghost[ichild] ; 
+                fsd.octants.fine.quad_id[ichild2] = fine_side.is.hanging.is_ghost[ichild]
+                                                  ? fine_side.is.hanging.quadid[ichild]
+                                                  : fine_side.is.hanging.quadid[ichild] + grace::amr::get_local_quadrants_offset(fine_side.treeid) ; 
+                fsd.octants.fine.owner_rank[ichild2] = p4est_comm_find_owner(grace::amr::forest::get().get(), fine_side.treeid, fine_side.is.hanging.quad[ichild], 0);
+            }   
+        }
+        info->reflux_edges->push_back(desc) ; 
+    }  // loop over edge dir within face 
+}
+
+
 void grace_iterate_faces(
     p4est_iter_face_info_t * info,
     void* user_data 
@@ -207,8 +294,12 @@ void grace_iterate_faces(
         // if s0 is local we register to send array,
         // if s1 is local we register to receive array 
         register_refluxing_face(s1,s0,iter_data) ; 
+        // register the virtual edges too
+        register_refluxing_edges(s1,s0,iter_data) ;
     } else if (s1.is_hanging) {
         register_refluxing_face(s0,s1,iter_data) ; 
+        // register the virtual edges too 
+        register_refluxing_edges(s0,s1,iter_data) ; 
     }
 }
 

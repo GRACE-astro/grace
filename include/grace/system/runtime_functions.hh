@@ -47,6 +47,12 @@ double get_total_runtime() ;
  */
 double get_simulation_time() ; 
 /**
+ * @brief Get the time at which this run started.
+ * 
+ * @return double The initial simulation time.
+ */
+double get_initial_simulation_time() ; 
+/**
  * @brief Increment the simulation time 
  *        by the current timestep.
  */
@@ -56,6 +62,10 @@ void increment_simulation_time() ;
  *        by the current timestep.
  */
 void set_simulation_time(double const& _new_t) ; 
+/**
+ * @brief Set the initial simulation time (only done when reading checkpoints)
+ */
+void set_initial_simulation_time(double const& _new_t) ; 
 /**
  * @brief Get the iteration count.
  * 

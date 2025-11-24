@@ -37,6 +37,7 @@
 #include <grace/physics/bssn_helpers.hh>
 #endif
 #include <grace/physics/id/shocktube.hh>
+#include <grace/physics/id/vacuum.hh>
 //#include <grace/physics/id/blastwave.hh>
 #include <grace/physics/id/kelvin_helmholtz.hh>
 #include <grace/physics/id/tov.hh>
@@ -501,7 +502,16 @@ void set_grmhd_initial_data() {
     auto const id_type = get_param<std::string>("grmhd","id_type") ;
     GRACE_VERBOSE("Setting grmhd initial data of type {}.", id_type) ;  
     /* Set requested initial data */
-    if( id_type == "shocktube" ) {
+    if ( id_type == "minkowski_vacuum" ) { 
+        auto const rho_bg = get_param<double>("grmhd","vacuum","rho_floor") ; 
+        auto const press_bg = get_param<double>("grmhd","vacuum","press_floor") ; 
+        auto const vx_bg = get_param<double>("grmhd","vacuum","velocity_x") ; 
+        auto const vy_bg = get_param<double>("grmhd","vacuum","velocity_y") ; 
+        auto const vz_bg = get_param<double>("grmhd","vacuum","velocity_z") ; 
+        set_grmhd_initial_data_impl<eos_t, vacuum_id_t<eos_t>(
+            rho_bg,press_bg,vx_bg,vy_bg,vz_bg
+        ) ; 
+    } else if( id_type == "shocktube" ) {
         auto pars = get_param<YAML::Node>("grmhd","shocktube") ; 
         auto const rho_L = pars["rho_L"].as<double>() ; 
         auto const rho_R = pars["rho_R"].as<double>() ; 

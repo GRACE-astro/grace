@@ -51,7 +51,15 @@ double get_simulation_time() {
 }
 
 void set_simulation_time(double const& _new_t) { 
-    return grace::runtime::get().set_simulation_time(_new_t) ; 
+    grace::runtime::get().set_simulation_time(_new_t) ; 
+}
+
+double get_initial_simulation_time() {
+    return grace::runtime::get().initial_time() ; 
+}
+
+void set_initial_simulation_time(double const& _new_t) {
+    grace::runtime::get().set_initial_simulation_time(_new_t) ; 
 }
 
 size_t get_iteration() {

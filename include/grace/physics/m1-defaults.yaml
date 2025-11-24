@@ -1,0 +1,32 @@
+m1: {
+  # initial data for radiation 
+  id_type: "straight_beam",
+
+  # atmosphere and excision settings 
+  atmosphere: {
+    E_fl: 1e-14,
+    E_scaling: 0
+  },
+  excision: {
+    E_ex: 1e-14
+  },
+
+  # emission absorption scattering 
+  # computation policy 
+  eas: {
+    kind: "test"
+  },
+
+  # specific parameters for 
+  # scattering tests 
+  scattering_test: {
+    k_s: 1e02, 
+    velocity: 0
+  },
+
+  # specific parameters for 
+  # emitting sphere tests 
+  emitting_sphere_test: {
+    kappa_eta: 0.125 
+  }
+}

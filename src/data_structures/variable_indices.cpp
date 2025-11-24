@@ -189,6 +189,10 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(TAU,"tau","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing",true) ;
+    #ifdef GRACE_ENABLE_M1
+    REGISTER_EVOLVED_SCALAR(ERAD,"Erad","outgoing",true) ;
+    REGISTER_EVOLVED_VECTOR(FRADX,FRADY,FRADZ,"Frad","outgoing",true) ;
+    #endif 
     REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(BSX,BSY,BSZ,"B_face", "outgoing"/*FIXME?*/, false);
     /* GRMHD primitives */
     REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
@@ -203,6 +207,11 @@ void register_variables() {
     REGISTER_AUX_SCALAR(BDIV, "Bdiv","none") ; 
     REGISTER_AUX_SCALAR(SMALLB2, "b2","none") ;
     REGISTER_AUX_SCALAR(C2P_ERR, "c2p_err","none") ;
+    #ifdef GRACE_ENABLE_M1
+    REGISTER_AUX_SCALAR(KAPPAA,"kappa_a","none"); 
+    REGISTER_AUX_SCALAR(KAPPAS,"kappa_s","none"); 
+    REGISTER_AUX_SCALAR(ETA,"eta","none"); 
+    #endif
     /* registration of metric variables */
     #ifdef GRACE_ENABLE_COWLING_METRIC
     REGISTER_EVOLVED_TENSOR(GXX,GXY,GXZ,GYY,GYZ,GZZ,"gamma","outgoing",false) ; 

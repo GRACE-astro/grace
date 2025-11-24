@@ -121,7 +121,7 @@ class grace_runtime_impl_t
     /* iteration count */ 
     size_t _iter ; 
     /* current simulation time */
-    double _time, _dt ; 
+    double _time, _dt, _initial_time ; 
     /* total walltime clock */
     spdlog::stopwatch _walltime ; 
     /* termination condition */
@@ -159,6 +159,11 @@ class grace_runtime_impl_t
         return _time ;
     }
 
+    double GRACE_ALWAYS_INLINE
+    initial_time() const {
+        return _initial_time ;
+    }
+
     double GRACE_ALWAYS_INLINE 
     timestep() const {
         return _dt ; 
@@ -182,6 +187,11 @@ class grace_runtime_impl_t
     void GRACE_ALWAYS_INLINE 
     set_simulation_time(double const& _new_t ) {
         _time = _new_t ; 
+    }
+
+    void GRACE_ALWAYS_INLINE 
+    set_initial_simulation_time(double const& _new_t ) {
+        _initial_time = _new_t ; 
     }
 
     void GRACE_ALWAYS_INLINE 
@@ -745,6 +755,7 @@ class grace_runtime_impl_t
         _iter = 0UL ; 
         /* Set time to 0            */
         _time = 0.0 ; 
+        _initial_time = 0.0 ; 
         _dt   = 0.0 ;  
         /****************************/
         if( parallel::mpi_comm_rank() == grace::master_rank() ) 

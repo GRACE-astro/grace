@@ -470,6 +470,7 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     // Set iteration and time in grace runtime 
     grace::set_iteration(iter) ;
     grace::set_simulation_time(time_read) ;
+    grace::set_initial_simulation_time(time_read) ;
     /**********************************************************************/
     /* Read the data from the hdf5 file                                   */
     /**********************************************************************/

@@ -381,8 +381,9 @@ void info_output() {
 
     int64_t iter = grace::get_iteration() ; 
     double  time = grace::get_simulation_time() ;
+    double  initial_time = grace::get_initial_simulation_time() ;
     double walltime = grace::get_total_runtime() ; 
-    double rate = time / walltime * 3.6e03 ; 
+    double rate = (time-initial_time) / walltime * 3.6e03 ; 
 
     int64_t outinfo_every = grace::config_parser::get()["IO"]["info_output_every"].as<int64_t>() * 10 ; 
 

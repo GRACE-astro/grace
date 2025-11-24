@@ -537,12 +537,12 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
         edge_policy,
         KOKKOS_LAMBDA (int const& i, int const& iq) {
             auto& desc = edge_info(iq) ; 
-            //auto n_sides = desc.n_sides; 
+            auto n_sides = desc.n_sides; 
             auto n_fine = desc.n_fine ; 
             double norm =  1.0/static_cast<double>(desc.n_fine) ;
             size_t ijk[3] ; 
             double emf_correction[2] = {0,0} ; // accumulate here 
-            for( int iside=0; iside</*n_sides*/ 4; ++iside) {
+            for( int iside=0; iside<n_sides; ++iside) {
                 auto& side = desc.sides[iside] ; 
                 if ( ! side.is_fine) continue ; 
                 // edge index 
@@ -581,7 +581,7 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
             // pre-allocate indices 
             size_t ijk[3] ; 
             // loop over 4 sides of the edge
-            for( int iside=0; iside</*desc.n_sides*/ 4; ++iside) {
+            for( int iside=0; iside<desc.n_sides; ++iside) {
                 // side descriptor 
                 auto const& side = desc.sides[iside] ;
                 // edge index 
@@ -607,13 +607,14 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                     // here we need to just take the side for the direction
                     // orthogonal to the coarse face and offset the other if 
                     // the child_id is 0...
+                    int ichild = (2*i)>=nx ; 
+
                     ijk[edge_dir] = ngz + i ; 
-                    ijk[other_dirs[edge_dir][0]] =( side_i ? nx + ngz : ngz ) ;  
-                    ijk[other_dirs[edge_dir][1]] =( side_j ? nx + ngz : ngz ) ;
-                    int ichild = (2*i) >= nx ; 
+                    ijk[other_dirs[edge_dir][0]] = side.off_i ? nx/2 + ngz : ( side_i ? nx + ngz : ngz ) ;  
+                    ijk[other_dirs[edge_dir][1]] = side.off_j ? nx/2 + ngz : ( side_j ? nx + ngz : ngz ) ;
+                    
                     emf(ijk[0],ijk[1],ijk[2],edge_dir,qid) = 
                         +0.5*(emf_edge_correction((2*i)%nx,ichild,iq) + emf_edge_correction((2*i)%nx+1,ichild,iq));
-                    
                 } else {
                     for( int ichild=0; ichild<2; ++ichild) {
                         if ( side.octants.fine.is_remote[ichild] ) continue ;
@@ -626,6 +627,7 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 } // if fine 
             }
         }
+       
     ) ; 
 }
 

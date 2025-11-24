@@ -47,6 +47,11 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
 #endif
+#ifdef GRACE_ENABLE_M1
+#include <grace/physics/eas_policies.hh>
+#include <grace/physics/m1_helpers.hh>
+#include <grace/physics/m1.hh>
+#endif 
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
@@ -132,6 +137,17 @@ void compute_auxiliary_quantities(
     #else 
     #define GET_AUX
     #endif 
+    #ifdef GRACE_ENABLE_M1 
+    m1_excision_params_t m1_excision_params ;
+    m1_excision_params.excise_by_radius = excision_params.excise_by_radius;
+    m1_excision_params.r_ex = excision_params.r_ex;
+    m1_excision_params.alp_ex = excision_params.alp_ex;
+    m1_excision_params.E_ex = grace::get_param<double>("m1", "excision", "E_excision") ; 
+    m1_atmo_params_t m1_atmo_params ; 
+    m1_atmo_params.E_fl = grace::get_param<double>("m1", "atmosphere", "E_fl") ;
+    m1_atmo_params.E_fl_scaling = grace::get_param<double>("m1", "atmosphere", "E_scaling") ;
+    m1_equations_system_t m1_eq_system(state,sstate,aux,m1_atmo_params,m1_excision_params) ; 
+    #endif 
 
     coord_array_t<GRACE_NSPACEDIM> pcoords ; 
     grace::fill_physical_coordinates(pcoords,grace::STAG_CENTER,/*spherical coords*/ true) ;
@@ -142,6 +158,9 @@ void compute_auxiliary_quantities(
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
         GET_AUX ; 
+        #ifdef GRACE_ENABLE_M1 
+        m1_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, pcoords);
+        #endif 
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k)) ; 
         auto Bx = Kokkos::subview(sstate.face_staggered_fields_x,
@@ -154,7 +173,10 @@ void compute_auxiliary_quantities(
                                   + (By(VEC(i,j+1,k)) - By(VEC(i,j,k))) * idx(1,q)
                                   + (Bz(VEC(i,j,k+1)) - Bz(VEC(i,j,k))) * idx(2,q))/metric.sqrtg() ;         
     }) ; 
-
+    #ifdef GRACE_ENABLE_M1
+    // now fill out the eas 
+    set_m1_eas<eos_t>(state,sstate,aux) ; 
+    #endif 
     #undef GET_AUX
     Kokkos::Profiling::popRegion() ; 
 }

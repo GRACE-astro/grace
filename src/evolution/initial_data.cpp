@@ -42,6 +42,10 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
 #endif
+#ifdef GRACE_ENABLE_M1
+#include <grace/physics/m1_helpers.hh>
+#include <grace/physics/m1.hh>
+#endif 
 #include <grace/physics/eos/eos_types.hh>
 
 #include <Kokkos_Core.hpp>

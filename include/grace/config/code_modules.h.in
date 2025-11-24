@@ -53,6 +53,9 @@ const std::vector< std::string > code_modules {
     #ifdef GRACE_ENABLE_BSSN_METRIC
     , "bssn"
     #endif
+    #ifdef GRACE_ENABLE_M1
+    , "m1"
+    #endif 
     , "eos"
     , "profiling"
     , "checkpoints"
@@ -78,6 +81,9 @@ const std::vector< std::string > code_modules_default_configs {
      #endif
      #ifdef GRACE_ENABLE_BSSN_METRIC
      , "${CMAKE_SOURCE_DIR}/include/grace/physics/bssn-defaults.yaml"
+     #endif
+     #ifdef GRACE_ENABLE_M1
+     , "${CMAKE_SOURCE_DIR}/include/grace/physics/m1-defaults.yaml"
      #endif
      , "${CMAKE_SOURCE_DIR}/include/grace/physics/eos/eos-defaults.yaml"
      , "${CMAKE_SOURCE_DIR}/include/grace/profiling/profiling-defaults.yaml"

@@ -366,6 +366,7 @@ void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data)
 
 
     hanging_edge_reflux_desc_t desc {} ; 
+    desc.n_sides = 4 ; 
     desc.n_fine = n_fine ; 
     desc.n_coarse = 4-n_fine ; 
     int ifine{0}, icoarse{0};
@@ -373,6 +374,7 @@ void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data)
         auto& side = sides[is] ; 
         auto& sdsc = desc.sides[is] ; 
         sdsc.edge_id = side.edge ; 
+        sdsc.off_i = sdsc.off_j = 0 ; 
         if ( side.is_hanging ) {
             desc.fine_sides[ifine++] = is ;
             sdsc.is_fine = true ; 

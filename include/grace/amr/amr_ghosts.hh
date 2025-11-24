@@ -220,6 +220,7 @@ struct hanging_edge_reflux_side_t {
     } octants ; 
     int8_t edge_id ; 
     bool is_fine ;
+    int off_i{0}, off_j{0} ; 
 } ; 
 /**************************************************************************************************/
 // For hanging edges: we need to record them separately for refluxing 
@@ -229,6 +230,7 @@ struct hanging_edge_reflux_desc_t {
     int coarse_sides[3] ; // up to three 
     int n_fine ; 
     int n_coarse ; 
+    int n_sides  ; 
 } ; 
 /**************************************************************************************************/
 struct p4est_iter_data_t {

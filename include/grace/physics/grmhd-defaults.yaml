@@ -1,5 +1,18 @@
 grmhd: {
-  id_type: "shocktube",
+  id_type: "minkowski_vacuum",
+
+  # This just sets a 
+  # constant state on 
+  # a Minkowski background.
+  # The state can have finite 
+  # density and velocity
+  vacuum: {
+    rho_floor: 1e-15,
+    velocity_x: 0.,
+    velocity_y: 0.,
+    velocity_z: 0.
+  },
+
   shocktube: {
     press_L: 13.3,
     press_R: 0.66e-6,

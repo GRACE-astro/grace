@@ -39,6 +39,8 @@
 
 #include <grace/utils/metric_utils.hh>
 
+#include <grace/utils/rootfinding.hh>
+
 #include <Kokkos_Core.hpp>
 
 #include <type_traits>
@@ -50,6 +52,9 @@ enum m1_var_idx_loc : int {
     FXL,
     FYL,
     FZL,
+    ZXL,
+    ZYL,
+    ZZL,
     N_M1_VARS
 } ; 
 
@@ -60,16 +65,56 @@ enum m1_eas_idx_loc : int {
     N_M1_EAS
 } ; 
 
-using m1_prims_array_t = std::array<double,N_M1_VARS+3> ; // velocity included here 
+using m1_prims_array_t = std::array<double,N_M1_VARS> ; // velocity included here 
 
 using m1_cons_array_t = std::array<double,N_M1_VARS> ;
 
-using m1_eas_array_t = std::arrat<double,N_M1_EAS> ; 
+using m1_eas_array_t = std::array<double,N_M1_EAS> ; 
+
+#define FILL_M1_PRIMS_ARRAY(primsarr,vview,aview,q,...)\
+primsarr[ERADL] = vview(__VA_ARGS__,ERAD_,q);      \
+primsarr[FXL] = vview(__VA_ARGS__,FRADX_,q) ; \
+primsarr[FYL] = vview(__VA_ARGS__,FRADY_,q) ;     \
+primsarr[FZL] = vview(__VA_ARGS__,FRADZ_,q) ;     \
+primsarr[ZXL] = aview(__VA_ARGS__,ZVECX_,q) ;     \
+primsarr[ZYL] = aview(__VA_ARGS__,ZVECY_,q) ;       \
+primsarr[ZZL] = aview(__VA_ARGS__,ZVECZ_,q) 
+
 
 struct m1_closure_t {
     using vec_t = std::array<double,3> ;
+
+    GRACE_HOST_DEVICE m1_closure_t(
+        m1_prims_array_t const& prims,
+        metric_array_t _metric
+    ) : E(prims[ERADL])
+      , FD({prims[FXL],prims[FYL],prims[FZL]})
+      , vU({prims[ZXL],prims[ZYL],prims[ZZL]})
+      , metric(_metric)
+    {
+        FU = metric.raise(FD) ;
+        F2 = metric.square_vec(FU) + TINY ; 
+        F = sqrt(F2) ; 
+        // v here is actually z, we convert now 
+        double const z2 = metric.square_vec(vU) ; 
+        W2 = (1+z2) ; 
+        W = sqrt(W2) ; 
+        vU[0]/=W ; vU[1]/=W; vU[2]/=W ; 
+
+        vdotF = FD[0] * vU[0] + FD[1] * vU[1] + FD[2] * vU[2] + TINY ; 
+        vD = metric.lower(vU) ; 
+        v2 = metric.square_vec(vU) ; 
+
+        fhD = vec_t({
+            FD[0]/F,
+            FD[1]/F,
+            FD[2]/F
+        }) ; 
+        fhU = metric.raise(fhD) ; 
+        Fdotfh = F ; 
+    }
     //! Ctor without zeta
-    m1_closure_t(
+    GRACE_HOST_DEVICE m1_closure_t(
         double _E,
         vec_t const& _FD,
         vec_t const& _vU,
@@ -98,7 +143,7 @@ struct m1_closure_t {
         Fdotfh = F ; 
     }
     //! Ctor with zeta 
-    m1_closure_t(
+    GRACE_HOST_DEVICE m1_closure_t(
         double _zeta,
         double _E,
         vec_t const& _FD,
@@ -131,7 +176,8 @@ struct m1_closure_t {
     }
 
 
-    void update_closure(double zeta0, double update=true)
+    void GRACE_HOST_DEVICE
+    update_closure(double zeta0, double update=true)
     {
         JJ0 = W2 * (E-2.0*vdotF) ; 
         JJthin = W2 * E * vdotfh * vdotfh ; 
@@ -152,7 +198,7 @@ struct m1_closure_t {
 
         HH0 = SQR(cv) * v2 + SQR(cF) * F2 + 2. * cv * cF * vdotF - SQR(cn) ; 
         HHthickthick = SQR(cthickv) * v2 + SQR(cthickF) * F2 + 2. * cthickF * cthickv * vdotF - SQR(cthickn) ; 
-        HHthinthin = SQR(cthinv) * v2 + sqr(cthinfh) + 2. * cthinv * cthinfh * vdotfh - SQR(cthinn) ; 
+        HHthinthin = SQR(cthinv) * v2 + SQR(cthinfh) + 2. * cthinv * cthinfh * vdotfh - SQR(cthinn) ; 
         HHthin = 2.*(cv * cthinv *v2 + cF * cthinfh * Fdotfh  + cthinfh * cv * vdotfh + cthinv * cF * vdotF - cthinn * cn);
         HHthick = 2. * (cv * cthickv * v2 + cF * cthickF * F2 + cthickF * cv * vdotF + cthickv * cF * vdotF - cthickn * cn) ; 
         HHthickthin = 2. * (cthinv * cthickv * v2 + cthinfh * cthickF * Fdotfh + cthinfh * cthickv * vdotfh + cthinv * cthickF * vdotF - cthinn * cthickn ) ; 
@@ -167,7 +213,7 @@ struct m1_closure_t {
             } else {
                 zeta = zeta0 ; 
             }
-            auto _z_func = [this,=] (double const xi) {
+            auto _z_func = [=,this] (double const xi) {
                 return this->z_func(xi) ; 
             } ;
             zeta = utils::brent(_z_func, 0.0, 1.0, 1e-15) ; 
@@ -212,7 +258,7 @@ struct m1_closure_t {
 
     }
 
-    constexpr double TINY = 1e-50 ; 
+    static constexpr double TINY = 1e-50 ; 
 
     vec_t FD, fhD, vD, vU, FU, fhU, HU; 
     double E, J, F2, F, vdotF, vdotfh, Fdotfh, v2, W, W2, zeta; 
@@ -230,7 +276,8 @@ struct m1_closure_t {
 
     private:
 
-    double z_func(double const& xi) {
+    double GRACE_HOST_DEVICE
+    z_func(double const& xi) {
         double const chil = closure_func(xi) ; 
         double const athin = 1.5 * chil - 0.5 ;
         double const athick = 1.5 - 1.5 * chil ; 
@@ -242,12 +289,24 @@ struct m1_closure_t {
         return (SQR(Jl*xi) - H2l) / (SQR(Eclosure)) ; 
     }
 
-    double closure_func( double const& z ) {
+    double GRACE_HOST_DEVICE
+    closure_func( double const& z ) {
         return 1./3. + SQR(z) * (6.-2.*z+6.*SQR(z))/15. ; 
     }
 
-}
+} ; 
 
+
+struct m1_atmo_params_t {
+    double E_fl ; 
+    double E_fl_scaling ; 
+} ; 
+
+struct m1_excision_params_t {
+    bool excise_by_radius ; 
+    double r_ex, alp_ex ; 
+    double E_ex ;  
+}
 
 }
 
