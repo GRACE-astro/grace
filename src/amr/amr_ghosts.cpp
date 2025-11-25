@@ -923,7 +923,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
 
 
     GRACE_VERBOSE("EMF-edge buffers constructed total size send: {} receive: {}", total_snd_emf_edge, total_rcv_emf_edge) ; 
-    
+    GRACE_VERBOSE("Total amount of edges to be corrected {}", _reflux_edge_descs.size()) ; 
     _reflux_emf_edge_accumulation_buf = Kokkos::View<double***, grace::default_space>(
         "reflux_emf_edge_local_buffer", nx, 2, _reflux_edge_descs.size()
     ) ; 

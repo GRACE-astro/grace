@@ -102,7 +102,7 @@ static void setup_initial_emf()
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
-            emf_h(i,j,k,0,q) = pcoords[0]  ; 
+            emf_h(i,j,k,0,q) = pcoords[0]  * (SQR(pcoords[1])-1.333*SQR(pcoords[2])); 
         }, {false,true,true}, true 
     ) ; 
     grace::host_grid_loop<true>(
@@ -111,7 +111,7 @@ static void setup_initial_emf()
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
-            emf_h(i,j,k,1,q) = pcoords[1]  ; 
+            emf_h(i,j,k,1,q) = pcoords[1] * (SQR(pcoords[0])-4.333*pcoords[2]); 
         }, {true,false,true}, true 
     ) ;
     grace::host_grid_loop<true>(
@@ -120,11 +120,55 @@ static void setup_initial_emf()
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
-            emf_h(i,j,k,2,q) = pcoords[2]  ; 
+            emf_h(i,j,k,2,q) = pcoords[2] * (SQR(pcoords[0])+pcoords[1]); 
         }, {true,true,false}, true 
     ) ;
     deep_copy(emf,emf_h) ;
 }
+
+void dump(const std::vector<grace::hanging_edge_reflux_desc_t>& vec, const std::string& fname)
+{
+    std::ofstream out(fname);
+
+    for (size_t i = 0; i < vec.size(); i++) {
+        const auto& d = vec[i];
+
+        out << "DESC " << i << "\n";
+        out << "  NFINE "   << d.n_fine   << "\n";
+        out << "  NCOARSE " << d.n_coarse << "\n";
+        out << "  NSIDES "  << d.n_sides  << "\n";
+
+        for (int s = 0; s < d.n_sides; s++) {
+            const auto& side = d.sides[s];
+
+            out << "  SIDE " << s 
+                << " is_fine=" << side.is_fine
+                << " edge_id=" << int(side.edge_id)
+                << " off_i="   << side.off_i
+                << " off_j="   << side.off_j
+                << "\n";
+
+            if (side.is_fine) {
+                out << "    FINE quad_id=[" 
+                    << side.octants.fine.quad_id[0] << ","
+                    << side.octants.fine.quad_id[1] << "]"
+                    << " owner=[" 
+                    << side.octants.fine.owner_rank[0] << ","
+                    << side.octants.fine.owner_rank[1] << "]"
+                    << " remote=["
+                    << side.octants.fine.is_remote[0] << ","
+                    << side.octants.fine.is_remote[1] << "]"
+                    << "\n";
+            } else {
+                out << "    COARSE quad_id="  << side.octants.coarse.quad_id
+                    << " owner="              << side.octants.coarse.owner_rank
+                    << " remote="             << side.octants.coarse.is_remote
+                    << "\n";
+            }
+        }
+    }
+}
+
 
 
 static void check() 
@@ -132,11 +176,14 @@ static void check()
     DECLARE_GRID_EXTENTS ; 
     auto& coord_system = grace::coordinate_system::get() ; 
     auto& emf = grace::variable_list::get().getemfarray() ; 
-
+    auto& ghost_layer = grace::amr_ghosts::get();
+    auto const& edge_desc = ghost_layer.get_reflux_edge_descriptors() ; 
+    dump(edge_desc,"edge_desc.out"); 
     using namespace grace ; 
 
     auto emf_h = create_mirror_view(emf) ; 
     deep_copy(emf_h,emf) ; 
+
 
     grace::host_grid_loop<false>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
@@ -144,7 +191,12 @@ static void check()
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
-            REQUIRE( fabs(emf_h(i,j,k,0,q) - pcoords[0]) < 1e-13 ) ; 
+            double check = fabs(emf_h(i,j,k,0,q) - (pcoords[0]  * (SQR(pcoords[1])-1.333*SQR(pcoords[2]))));
+            if ( check > 1e-10 ) {
+                GRACE_VERBOSE("Issue (E^x) at i {} j {} k {} q {} target {} actual {}", 
+                    i,j,k,q, (pcoords[0]  * (SQR(pcoords[1])-1.333*SQR(pcoords[2]))),emf_h(i,j,k,0,q));
+            }
+            REQUIRE( check < 1e-10 ) ; 
         }, {false,true,true}, true 
     ) ; 
 
@@ -154,7 +206,12 @@ static void check()
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
-            REQUIRE( fabs(emf_h(i,j,k,1,q) - pcoords[1]) < 1e-13 ) ; 
+            double check = fabs(emf_h(i,j,k,1,q) - (pcoords[1] * (SQR(pcoords[0])-4.333*pcoords[2])));
+            if ( check > 1e-10 ) {
+                GRACE_VERBOSE("Issue (E^y) at i {} j {} k {} q {} target {} actual {}", 
+                    i,j,k,q, (pcoords[1] * (SQR(pcoords[0])-4.333*pcoords[2])),emf_h(i,j,k,1,q));
+            }
+            REQUIRE( check < 1e-10 ) ; 
         }, {true,false,true}, true 
     ) ;
 
@@ -164,7 +221,12 @@ static void check()
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
-            REQUIRE(fabs(emf_h(i,j,k,2,q) - pcoords[2]) < 1e-13)  ; 
+            double check = fabs(emf_h(i,j,k,2,q) - (pcoords[2] * (SQR(pcoords[0])+pcoords[1])));
+            if ( check > 1e-10 ) {
+                GRACE_VERBOSE("Issue (E^z) at i {} j {} k {} q {} target {} actual {}", 
+                    i,j,k,q, (pcoords[2] * (SQR(pcoords[0])+pcoords[1])),emf_h(i,j,k,2,q));
+            }
+            REQUIRE( check < 1e-10)  ; 
         }, {true,true,false}, true 
     ) ;
 }

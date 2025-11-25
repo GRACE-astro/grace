@@ -522,6 +522,32 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
     //**************************************************************************************************/
     auto edge_rbuf = ghost_layer.get_reflux_emf_edge_recv_buffer() ; 
     auto edge_desc = ghost_layer.get_reflux_edge_descriptors() ; 
+    auto print_desc = [](const hanging_edge_reflux_desc_t &d) {
+        GRACE_VERBOSE("=== Reflux Descriptor ===\n");
+        GRACE_VERBOSE("  n_sides={} n_fine={} n_coarse={}\n",
+                    d.n_sides, d.n_fine, d.n_coarse);
+
+        for (int s = 0; s < d.n_sides; s++) {
+            const auto &side = d.sides[s];
+            GRACE_VERBOSE(
+                "  SIDE {}: is_fine={} edge_id={} off_i={} off_j={}\n",
+                s, side.is_fine, int(side.edge_id), side.off_i, side.off_j);
+
+            if (side.is_fine) {
+                GRACE_VERBOSE(
+                    "    FINE quad_id=[{},{}] owner=[{},{}] remote=[{},{}]\n",
+                    side.octants.fine.quad_id[0], side.octants.fine.quad_id[1],
+                    side.octants.fine.owner_rank[0], side.octants.fine.owner_rank[1],
+                    side.octants.fine.is_remote[0], side.octants.fine.is_remote[1]);
+            } else {
+                GRACE_VERBOSE(
+                    "    COARSE quad_id={} owner={} remote={}\n",
+                    side.octants.coarse.quad_id,
+                    side.octants.coarse.owner_rank,
+                    side.octants.coarse.is_remote);
+            }
+        }
+    };
     //**************************************************************************************************/
     View<hanging_edge_reflux_desc_t*> edge_info ; 
     grace::deep_copy_vec_to_const_view(edge_info,edge_desc) ; 
@@ -577,6 +603,7 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
             emf_edge_correction(i,1,iq) = cnt ? emf_correction[1] / static_cast<double>(cnt) : 0.0 ; 
         }
     );
+    Kokkos::fence() ; 
     // apply 
     parallel_for(
         GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_edge"),

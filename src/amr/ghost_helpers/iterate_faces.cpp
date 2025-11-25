@@ -211,8 +211,7 @@ void register_refluxing_edges(
                                 : coarse_side.is.full.quadid + grace::amr::get_local_quadrants_offset(coarse_side.treeid) ; 
         csd.octants.coarse.owner_rank = p4est_comm_find_owner(grace::amr::forest::get().get(), coarse_side.treeid, coarse_side.is.full.quad, 0);
 
-        csd.edge_id = face_coarse_edges[fdir][idir] ; 
-
+        csd.edge_id = face_coarse_edges[coarse_side.face][idir] ; 
         // now these are used inside the kernel writing 
         // data back to the emf in the coarse buffer, to 
         // decide whether the emf index should be shifted
@@ -243,9 +242,9 @@ void register_refluxing_edges(
             fsd.off_i = fsd.off_j = 0 ; 
             fsd.is_fine = true; 
             for ( int ichild2=0; ichild2<2; ++ichild2) {
-                int ichild = idir == 0 ? ichild2 + 2 * iside 
-                                       : iside   + 2 * ichild2 ; 
-
+                int ichild = (idir == 0) ? ichild2 + 2 * iside 
+                                         : iside   + 2 * ichild2 ; 
+                
                 fsd.octants.fine.is_remote[ichild2] = fine_side.is.hanging.is_ghost[ichild] ; 
                 fsd.octants.fine.quad_id[ichild2] = fine_side.is.hanging.is_ghost[ichild]
                                                   ? fine_side.is.hanging.quadid[ichild]
@@ -297,11 +296,11 @@ void grace_iterate_faces(
         // if s1 is local we register to receive array 
         register_refluxing_face(s1,s0,iter_data) ; 
         // register the virtual edges too
-        //register_refluxing_edges(s1,s0,iter_data) ;
+        register_refluxing_edges(s1,s0,iter_data) ;
     } else if (s1.is_hanging) {
         register_refluxing_face(s0,s1,iter_data) ; 
         // register the virtual edges too 
-        //register_refluxing_edges(s0,s1,iter_data) ; 
+        register_refluxing_edges(s0,s1,iter_data) ; 
     }
 }
 

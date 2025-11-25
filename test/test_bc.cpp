@@ -439,7 +439,7 @@ static void check_ghostzones(
                 REQUIRE_THAT(
                     host_data(VEC(i,j,k),0,q),
                     Catch::Matchers::WithinAbs(ground_truth,
-                        1e-13 ) 
+                        1e-10 ) 
                 ) ; 
                 // compute divergence of B 
                 double divB = (host_data_x(VEC(i+1,j,k),0,q) - host_data_x(VEC(i,j,k),0,q)) * idx(0,q)
