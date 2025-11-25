@@ -158,6 +158,37 @@ void update_fd(
 ) ;
 //*****************************************************************************************************
 /**
+ * @brief Advance all variables by an implicit substep.
+ * \ingroup evol
+ * @tparam eos_t Type of active EOS.
+ * @param t Current time.
+ * @param dt Timestep size.
+ * @param dtfact Timestep factor.
+ * @param state  State array.
+ * @param state_p Scratch state array.
+ * 
+ * This routine advances all variables by an implicit substep. It **assumes** 
+ * that the implicit part of the equations can be written as
+ * \f[
+ *   G(U)
+ * \f]
+ * where the operator \f$ G \f$ does not contain derivatives.
+ *
+ * Under these conditions, this routine solves the implicit fixed-point equation
+ * \f[
+ *   U = G(U)
+ * \f]
+ * everywhere, including ghost zones.
+ */
+
+template< typename eos_t >
+void advance_implicit_substep( double const t, double const dt, double const dtfact 
+                    , grace::var_array_t& state 
+                    , grace::var_array_t& state_p 
+                    , grace::staggered_variable_arrays_t & sstate 
+                    , grace::staggered_variable_arrays_t & sstate_p) ;
+//*****************************************************************************************************
+/**
  * @brief Advance all variables by a substep.
  * \ingroup evol
  * @tparam eos_t Type of active EOS.
@@ -189,6 +220,13 @@ void advance_substep( double const t, double const dt, double const dtfact
 #define INSTANTIATE_TEMPLATE(EOS)                                     \
 extern template                                                       \
 void advance_substep<EOS>( double const , double const , double const \
+                         , grace::var_array_t&       \
+                         , grace::var_array_t&       \
+                         , grace::staggered_variable_arrays_t & \
+                         , grace::staggered_variable_arrays_t & \
+                        ) ; \
+extern template                                                       \
+void advance_implicit_substep<EOS>( double const , double const , double const \
                          , grace::var_array_t&       \
                          , grace::var_array_t&       \
                          , grace::staggered_variable_arrays_t & \

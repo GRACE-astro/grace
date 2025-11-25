@@ -226,8 +226,10 @@ void register_refluxing_edges(
         // implements that:
         // if fdir > other_dirs[fdir][!idir] --> we need to shift i in EMF kernel
         // if fdir < other_dirs[fdir][!idir] --> we need to shift j in EMF kernel
-        csd.off_i = (fdir > other_dirs[fdir][!idir]) ; 
-        csd.off_j = (fdir < other_dirs[fdir][!idir]) ; 
+        // equivalently, we can just compare fdir to the orthogonal directions of 
+        // edge dir. The one (i or j) which is fdir does **not** need shifting
+        csd.off_i = (fdir == other_dirs[edge_dir][1]) ; 
+        csd.off_j = (fdir == other_dirs[edge_dir][0]) ; 
 
         // each edge has 2 sides that are fine 
         // here we loop over them in the direction
@@ -295,11 +297,11 @@ void grace_iterate_faces(
         // if s1 is local we register to receive array 
         register_refluxing_face(s1,s0,iter_data) ; 
         // register the virtual edges too
-        register_refluxing_edges(s1,s0,iter_data) ;
+        //register_refluxing_edges(s1,s0,iter_data) ;
     } else if (s1.is_hanging) {
         register_refluxing_face(s0,s1,iter_data) ; 
         // register the virtual edges too 
-        register_refluxing_edges(s0,s1,iter_data) ; 
+        //register_refluxing_edges(s0,s1,iter_data) ; 
     }
 }
 

@@ -749,6 +749,13 @@ void update_fd(
     #endif 
 }
 
+template< typename eos_t >
+void advance_implicit_substep( double const t, double const dt, double const dtfact 
+                    , var_array_t& new_state 
+                    , var_array_t& old_state 
+                    , staggered_variable_arrays_t & new_stag_state 
+                    , staggered_variable_arrays_t & old_stag_state )
+{/*to do*/}
 
 template< typename eos_t >
 void advance_substep( double const t, double const dt, double const dtfact 
@@ -790,6 +797,14 @@ void advance_substep( double const t, double const dt, double const dtfact
 #define INSTANTIATE_TEMPLATE(EOS)                                     \
 template                                                              \
 void advance_substep<EOS>( double const , double const , double const \
+                         , grace::var_array_t&                        \
+                         , grace::var_array_t&                        \
+                         , grace::staggered_variable_arrays_t &       \
+                         , grace::staggered_variable_arrays_t &       \
+                        ) ;                                           \
+template                                                              \
+void advance_implicit_substep<EOS>(                                   \
+                           double const , double const , double const \
                          , grace::var_array_t&                        \
                          , grace::var_array_t&                        \
                          , grace::staggered_variable_arrays_t &       \

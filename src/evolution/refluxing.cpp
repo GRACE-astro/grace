@@ -505,14 +505,16 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                     int ichild_j = (ichild>>1)&1 ; 
                     int off_i = ichild_i ? nx/2 : 0 ; 
                     int off_j = ichild_j ? nx/2 : 0 ; 
-                    // face indices --> cells to be corrected 
+                    // edge indices --> emfs to be corrected 
                     // coarse side so iside is correct
                     ijk_c[fdir] = iside ? nx + ngz : ngz ; 
                     ijk_c[idir] = i + off_i + ngz ; 
                     ijk_c[jdir] = j + off_j + ngz ; 
                     // E^d is not staggered in d-dir
-                    if ( ijk_c[idir] < nx + ngz ) emf(ijk_c[0], ijk_c[1], ijk_c[2], idir, qid_c) = emf_corr_i ; 
-                    if ( ijk_c[jdir] < nx + ngz ) emf(ijk_c[0], ijk_c[1], ijk_c[2], jdir, qid_c) = emf_corr_j ; 
+                    // also avoid writing twice to the same 
+                    // emf where face children meet 
+                    if ( ijk_c[idir] < nx + ngz and (ichild_j or ijk_c[jdir] != nx/2 + ngz)) emf(ijk_c[0], ijk_c[1], ijk_c[2], idir, qid_c) = emf_corr_i ; 
+                    if ( ijk_c[jdir] < nx + ngz and (ichild_i or ijk_c[idir] != nx/2 + ngz)) emf(ijk_c[0], ijk_c[1], ijk_c[2], jdir, qid_c) = emf_corr_j ; 
                 }    
             }
                 
@@ -542,9 +544,11 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
             double norm =  1.0/static_cast<double>(desc.n_fine) ;
             size_t ijk[3] ; 
             double emf_correction[2] = {0,0} ; // accumulate here 
+            int cnt = 0 ; 
             for( int iside=0; iside<n_sides; ++iside) {
                 auto& side = desc.sides[iside] ; 
                 if ( ! side.is_fine) continue ; 
+                cnt ++ ; 
                 // edge index 
                 auto edge_id = side.edge_id ; 
                 // direction and side
@@ -555,20 +559,22 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 for( int ichild=0; ichild<2; ++ichild ) {
                     // fine quadid
                     auto qid = side.octants.fine.quad_id[ichild];
+                    double val = 0.0;
                     if ( side.octants.fine.is_remote[ichild] ) {
                         auto rank = side.octants.fine.owner_rank[ichild] ; 
-                        emf_correction[ichild] += edge_rbuf(i,qid,rank) ; 
+                        val = edge_rbuf(i,qid,rank) ; 
                     } else {
                         ijk[edge_dir] = ngz + i ; 
                         ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ; 
                         ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ; 
-                        emf_correction[ichild] += emf(ijk[0],ijk[1],ijk[2],edge_dir,qid); 
+                        val = emf(ijk[0],ijk[1],ijk[2],edge_dir,qid); 
                     }
+                    emf_correction[ichild] += val ; 
                 }
             }
             
-            emf_edge_correction(i,0,iq) = emf_correction[0] * norm ; 
-            emf_edge_correction(i,1,iq) = emf_correction[1] * norm ; 
+            emf_edge_correction(i,0,iq) = cnt ? emf_correction[0] / static_cast<double>(cnt) : 0.0 ; 
+            emf_edge_correction(i,1,iq) = cnt ? emf_correction[1] / static_cast<double>(cnt) : 0.0 ; 
         }
     );
     // apply 
@@ -593,7 +599,7 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
 
                 // if coarse we need to correct with - emf + 1/n_fine 1/2 sum( fine emfs )
                 if ( ! side.is_fine ) {
-                    // coarse remote nothing to do 
+                    // Remote: nothing to do 
                     if ( side.octants.coarse.is_remote ) continue ;
                     // quad-id 
                     auto qid = side.octants.coarse.quad_id ; 
@@ -617,8 +623,11 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                         +0.5*(emf_edge_correction((2*i)%nx,ichild,iq) + emf_edge_correction((2*i)%nx+1,ichild,iq));
                 } else {
                     for( int ichild=0; ichild<2; ++ichild) {
+                        // Remote: nothing to do
                         if ( side.octants.fine.is_remote[ichild] ) continue ;
+                        // quad-id
                         auto qid = side.octants.fine.quad_id[ichild] ;
+                        // indices of emf to be corrected
                         ijk[edge_dir] = ngz + i ;  
                         ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;  
                         ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;

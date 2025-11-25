@@ -583,12 +583,15 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     }
     // sort keys
     std::vector<std::unordered_map<comm_key_t, size_t, comm_key_hash>> send_lookup(nproc), recv_lookup(nproc) ; 
+    std::vector<size_t> rank_send_counts(nproc,0), rank_recv_counts(nproc,0) ; 
     for (int r = 0; r < nproc; ++r) {
         { // send 
             auto &vec = snd_keys[r];
             std::sort(vec.begin(), vec.end(), key_cmp{});
             // dedup on send
             vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
+            // count 
+            rank_send_counts[r] = vec.size() ; 
             // build a lookup: comm_key_t -> index
             std::unordered_map<comm_key_t, size_t, comm_key_hash> snd_index;
             snd_index.reserve(vec.size());
@@ -600,7 +603,9 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         { // receive 
             auto &vec = rcv_keys[r];
             std::sort(vec.begin(), vec.end(), key_cmp{});
-
+            vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
+            // count 
+            rank_recv_counts[r] = vec.size() ; 
             // build a lookup: comm_key_t -> index
             std::unordered_map<comm_key_t, size_t, comm_key_hash> recv_index;
             recv_index.reserve(vec.size());
@@ -613,9 +618,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     }
 
     std::vector<hanging_face_reflux_desc_t> local_interfaces ; 
-    _reflux_face_snd.clear() ; _reflux_face_recv.clear() ; // todo: what do we even need recv descs for? 
-
-    std::vector<size_t> rank_send_counts(nproc,0), rank_recv_counts(nproc,0) ; 
+    _reflux_face_snd.clear() ;  
 
     for (int i = 0; i < _reflux_face_descs.size(); ++i) {
         auto &dsc = _reflux_face_descs[i];
@@ -638,7 +641,6 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                 snd_desc.elem_id =  dsc.fine_face_id ; // note 
                 snd_desc.buf_id = send_lookup[r][key];
                 _reflux_face_snd.push_back(snd_desc) ;
-                rank_send_counts[r] ++ ; 
             }
         }
         else {
@@ -648,7 +650,6 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                     continue;
                 }
                 GRACE_TRACE("Fine remote") ; 
-                hanging_remote_reflux_desc_t recv_desc{} ; 
                 int r = dsc.fine_owner_rank[ic];
                 int8_t elem = (dsc.fine_owner_rank[ic] < rank ?
                             dsc.fine_face_id : dsc.coarse_face_id);
@@ -656,13 +657,6 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                 comm_key_t key{ dsc.fine_qid[ic], elem };
                 // replace fine qid with the buf id 
                 dsc.fine_qid[ic] = recv_lookup[r][key];
-
-                recv_desc.qid = dsc.coarse_qid ; 
-                recv_desc.rank = r ; 
-                recv_desc.elem_id = dsc.coarse_face_id ; //unused actually 
-                recv_desc.buf_id = recv_lookup[r][key];
-                _reflux_face_recv.push_back(recv_desc) ; 
-                rank_recv_counts[r] ++ ; 
             }
             // since coarse is local we need 
             // to keep track of this
@@ -739,31 +733,23 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
 
 
     // now: edges 
+    // the convention is that the sender sets the element id 
     snd_keys = std::vector<std::vector<comm_key_t>>(nproc) ; 
     rcv_keys = std::vector<std::vector<comm_key_t>>(nproc) ; 
     for( int i=0; i<_reflux_edge_descs.size(); ++i) {
         auto& dsc = _reflux_edge_descs[i] ; 
-        // here since there are 4 partners we just pick 
-        // the smallest element id, there might be multiple
-        // eids associated with the same rank and we would 
-        // not know which one to pick 
-        std::array<int8_t, 4> edges = {
-                        dsc.sides[0].edge_id,
-                        dsc.sides[1].edge_id,
-                        dsc.sides[2].edge_id,
-                        dsc.sides[3].edge_id
-                    } ; 
-        auto elem_id = *(std::min_element(edges.begin(), edges.end())) ; 
+
         // only loop over fine, these are the ones we send and receive 
-        for( int j=0; j<dsc.n_fine; ++j) {
-            auto iside = dsc.fine_sides[j] ; 
+        for( int iside=0; iside<dsc.n_sides; ++iside) {
             auto const& dsc_this = dsc.sides[iside] ; 
+            if ( !dsc_this.is_fine ) continue ; 
+
             for( int ic=0; ic<2; ++ic) {
                 if ( dsc_this.octants.fine.is_remote[ic] ) {
                     // fine remote --> receive 
                     rcv_keys[dsc_this.octants.fine.owner_rank[ic]].push_back(
                         comm_key_t{
-                            dsc_this.octants.fine.quad_id[ic], elem_id
+                            dsc_this.octants.fine.quad_id[ic], dsc_this.edge_id
                         }
                     ) ;
                 } else {
@@ -777,7 +763,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                                 // note, in send we use **our** qid
                                 snd_keys[dsc_other.octants.fine.owner_rank[icj]].push_back(
                                     comm_key_t{
-                                        dsc_this.octants.fine.quad_id[ic], elem_id
+                                        dsc_this.octants.fine.quad_id[ic], dsc_this.edge_id
                                     }
                                 ) ;
                             }
@@ -785,7 +771,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                             if ( !dsc_other.octants.coarse.is_remote) continue ; 
                             snd_keys[dsc_other.octants.coarse.owner_rank].push_back(
                                     comm_key_t{
-                                        dsc_this.octants.fine.quad_id[ic], elem_id
+                                        dsc_this.octants.fine.quad_id[ic], dsc_this.edge_id
                                     }
                                 ) ;
                         }
@@ -820,6 +806,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         { // receive 
             auto &vec = rcv_keys[r];
             std::sort(vec.begin(), vec.end(), key_cmp{});
+            vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
             rank_recv_counts[r] = vec.size() ; 
             // build a lookup: comm_key_t -> index
             std::unordered_map<comm_key_t, size_t, comm_key_hash> recv_index;
@@ -833,7 +820,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     } // loop 
 
     // fixme, we are not filling recv here cause I don't think it's necessary, if true come back and remove it altogether
-    _reflux_edge_snd.clear() ; _reflux_edge_recv.clear() ; // todo: what do we even need recv descs for? 
+    _reflux_edge_snd.clear() ; 
     // reset counts 
     
     // goals of this loop: 
@@ -841,26 +828,17 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     // 3 write back recv ids into the original struct 
     for( int i=0; i<_reflux_edge_descs.size(); ++i) {
         auto& dsc = _reflux_edge_descs[i] ; 
-        // here since there are 4 partners we just pick 
-        // the smallest element id, there might be multiple
-        // eids associated with the same rank and we would 
-        // not know which one to pick 
-        std::array<int8_t, 4> edges = {
-                        dsc.sides[0].edge_id,
-                        dsc.sides[1].edge_id,
-                        dsc.sides[2].edge_id,
-                        dsc.sides[3].edge_id
-                    } ; 
-        auto elem_id = *(std::min_element(edges.begin(), edges.end())) ; 
+
         // only loop over fine, these are the ones we send and receive 
-        for( int j=0; j<dsc.n_fine; ++j) {
-            auto iside = dsc.fine_sides[j] ; 
+        for( int iside=0; iside<dsc.n_sides; ++iside) {
             auto& dsc_this = dsc.sides[iside] ; 
+            if (!dsc_this.is_fine) continue ; 
+
             for( int ic=0; ic<2; ++ic) {
                 if ( dsc_this.octants.fine.is_remote[ic] ) {
                     // fine remote --> receive 
                     comm_key_t key {
-                            dsc_this.octants.fine.quad_id[ic], elem_id
+                            dsc_this.octants.fine.quad_id[ic], dsc_this.edge_id
                         } ; 
                     // fixme, ensure this is never used again 
                     auto r = dsc_this.octants.fine.owner_rank[ic] ; 
@@ -875,7 +853,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                                 if (!dsc_other.octants.fine.is_remote[icj]) continue ; 
                                 // note, in send we use **our** qid
                                 comm_key_t key {
-                                    dsc_this.octants.fine.quad_id[ic], elem_id
+                                    dsc_this.octants.fine.quad_id[ic], dsc_this.edge_id
                                 } ; 
                                 hanging_remote_reflux_desc_t snd_desc{} ; 
                                 snd_desc.qid = dsc_this.octants.fine.quad_id[ic] ; 
@@ -888,7 +866,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                         } else { // other is coarse
                             if ( !dsc_other.octants.coarse.is_remote) continue ; 
                             comm_key_t key {
-                                        dsc_this.octants.fine.quad_id[ic], elem_id
+                                        dsc_this.octants.fine.quad_id[ic], dsc_this.edge_id
                             } ; 
                             hanging_remote_reflux_desc_t snd_desc{} ;
                             snd_desc.qid = dsc_this.octants.fine.quad_id[ic] ; 
