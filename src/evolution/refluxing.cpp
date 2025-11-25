@@ -511,8 +511,8 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                     ijk_c[idir] = i + off_i + ngz ; 
                     ijk_c[jdir] = j + off_j + ngz ; 
                     // E^d is not staggered in d-dir
-                    if ( ijk_c[idir] < nx ) emf(ijk_c[0], ijk_c[1], ijk_c[2], idir, qid_c) = emf_corr_i ; 
-                    if ( ijk_c[jdir] < nx ) emf(ijk_c[0], ijk_c[1], ijk_c[2], jdir, qid_c) = emf_corr_j ; 
+                    if ( ijk_c[idir] < nx + ngz ) emf(ijk_c[0], ijk_c[1], ijk_c[2], idir, qid_c) = emf_corr_i ; 
+                    if ( ijk_c[jdir] < nx + ngz ) emf(ijk_c[0], ijk_c[1], ijk_c[2], jdir, qid_c) = emf_corr_j ; 
                 }    
             }
                 

@@ -36,58 +36,90 @@
 #include <grace/config/config_parser.hh>
 #include <grace/data_structures/grace_data_structures.hh>
 
+#include <grace/amr/ghostzone_kernels/type_helpers.hh>
+
 #include<array>
 
 namespace grace { 
 
-struct cartesian_device_coordinate_system_impl_t
-{
-    cartesian_device_coordinate_system_impl_t( Kokkos::View<double*,grace::default_space> vertices
-                                             , Kokkos::View<double*,grace::default_space> spacings )
-        : tree_vertices_(vertices), tree_spacings_(spacings) 
-    {} ; 
-    
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    get_physical_coordinates( int itree, double * l_coords, double * p_coords) const
-    {
-        EXPR(
-        p_coords[0] = 
-            tree_vertices_(GRACE_NSPACEDIM * itree + 0UL) + l_coords[0] * tree_spacings_(GRACE_NSPACEDIM * itree + 0UL);,
-        p_coords[1] = 
-            tree_vertices_(GRACE_NSPACEDIM * itree + 1UL) + l_coords[1] * tree_spacings_(GRACE_NSPACEDIM * itree + 1UL);,
-        p_coords[2] = 
-            tree_vertices_(GRACE_NSPACEDIM * itree + 2UL) + l_coords[2] * tree_spacings_(GRACE_NSPACEDIM * itree + 2UL);
-        )
-        return ;
-    };
 
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    get_logical_coordinates( int itree, double * p_coords, double * l_coords) const 
-    {
-        EXPR(
-        l_coords[0] = 
-            (p_coords[0] - tree_vertices_(GRACE_NSPACEDIM * itree + 0UL)) / tree_spacings_(GRACE_NSPACEDIM * itree + 0UL);,
-        l_coords[1] = 
-            (p_coords[1] - tree_vertices_(GRACE_NSPACEDIM * itree + 1UL)) / tree_spacings_(GRACE_NSPACEDIM * itree + 1UL);,
-        l_coords[2] = 
-            (p_coords[2] - tree_vertices_(GRACE_NSPACEDIM * itree + 2UL)) / tree_spacings_(GRACE_NSPACEDIM * itree + 2UL);
+struct cartesian_device_coordinate_system_impl_t{
 
-        )
-        return ;
-    };
+  void KOKKOS_INLINE_FUNCTION
+  get_physical_coordinates(
+    int const i, int const j, int const k, int64_t const q, double *xyz
+  ) const {
+      double ccoords[3] = {0.5,0.5,0.5} ; 
+      get_physical_coordinates(i,j,k,q,ccoords,xyz,1) ; 
+  }
 
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    transfer_coordinates( int tree_a, int tree_b, 
-                          int face_a, int face_b,
-                          double * l_coords_a, double * l_coords_b  )
-    {
-        get_physical_coordinates(tree_a, l_coords_a, l_coords_a) ; 
-        get_logical_coordinates(tree_b, l_coords_a, l_coords_b ) ; 
+  void KOKKOS_INLINE_FUNCTION
+  get_physical_coordinates(
+    int const i, int const j, int const k, int64_t const q, double* ccoords, double *xyz, int offset_ngz
+  ) const {
+      int const igg = i - offset_ngz * ngz ; 
+      int const jgg = j - offset_ngz * ngz ; 
+      int const kgg = k - offset_ngz * ngz ; 
+      
+      xyz[0] = qx(q,0) + qdx(q) * (static_cast<double>(igg) + ccoords[0]) ; 
+      xyz[1] = qx(q,1) + qdx(q) * (static_cast<double>(jgg) + ccoords[1]) ; 
+      xyz[2] = qx(q,2) + qdx(q) * (static_cast<double>(kgg) + ccoords[2]) ; 
+  }
+
+  void KOKKOS_INLINE_FUNCTION
+  get_physical_coordinates_sph(
+    int const i, int const j, int const k, int64_t const q, double *xyz
+  ) const {
+      double ccoords[3] = {0.5,0.5,0.5} ; 
+      get_physical_coordinates_sph(i,j,k,q,ccoords,xyz,1) ; 
+  }
+
+  void KOKKOS_INLINE_FUNCTION
+  get_physical_coordinates_sph(
+    int const i, int const j, int const k, int64_t const q, double* ccoords, double *rtp, int offset_ngz
+  ) const {
+      double xyz[3] ; 
+      get_physical_coordinates(i,j,k,q,ccoords,xyz,offset_ngz) ;
+      cart_to_sph(xyz,rtp) ; 
+  }
+
+  void KOKKOS_INLINE_FUNCTION
+  cart_to_sph(double *xyz, double *rtp) const {
+    double rad = sqrt(SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2]));
+    if ( is_cks ) {
+        double r = fmax((sqrt( SQR(rad) - SQR(bh_spin) + sqrt(SQR(SQR(rad)-SQR(bh_spin))
+                 + 4.0*SQR(bh_spin)*SQR(xyz[2])) ) / sqrt(2.0)), 1.0);
+        rtp[0] = r ; 
+        rtp[1] = (fabs(xyz[2]/r) < 1.0) ? acos(xyz[2]/r) : acos(copysign(1.0, xyz[2]));
+        rtp[2] = atan2(r*xyz[1]-bh_spin*xyz[0], bh_spin*xyz[1]+r*xyz[0]) - bh_spin*r/(SQR(r)-2.0*r+SQR(bh_spin));        
+    } else {
+        rtp[0] = rad ; 
+        rtp[1] = acos(xyz[2]/(rad+1e-50));
+        rtp[2] = atan2(xyz[1],xyz[0]);
     }
- private:
-    Kokkos::View<double*,grace::default_space> tree_vertices_, tree_spacings_ ;
+  }
 
+  void KOKKOS_INLINE_FUNCTION
+  sph_to_cart(double *rtp, double *xyz) const {
+    if ( is_cks ) {
+      xyz[0] = (rtp[0] * cos(rtp[2]) - bh_spin * sin(rtp[2]))*sin(rtp[1]);
+      xyz[1] = (rtp[0] * sin(rtp[2]) + bh_spin * cos(rtp[2]))*sin(rtp[1]);
+      xyz[2] = rtp[0] * cos(rtp[1]);
+
+    } else {
+      xyz[0] = rtp[0] * cos(rtp[2])*sin(rtp[1]);
+      xyz[1] = rtp[0] * sin(rtp[2])*sin(rtp[1]);
+      xyz[2] = rtp[0] * cos(rtp[1]);
+    }
+  }
+
+  int ngz ;
+  readonly_twod_view_t<double,3> qx ; 
+  readonly_view_t<double> qdx ; 
+  bool is_cks ; 
+  double bh_spin ;
 } ; 
+
 //**************************************************************************************************
 /**
  * @brief Implementation of coordinate system class for cartesian grids.
@@ -659,16 +691,6 @@ class cartesian_coordinate_system_impl_t
     , std::array<double, GRACE_NSPACEDIM> const& dxl 
     , bool use_ghostzones) const ;
     //**************************************************************************************************
-    /**
-     * @brief Get the device coord system object
-     * 
-     * @return cartesian_device_coordinate_system_impl_t A lightweight coordinate system object
-     *                                                   whose methods are accessible from device.
-     */
-    cartesian_device_coordinate_system_impl_t GRACE_ALWAYS_INLINE 
-    get_device_coord_system() const {
-        return cartesian_device_coordinate_system_impl_t{tree_vertices_,tree_spacings_} ;
-    }
 
     bool GRACE_ALWAYS_INLINE GRACE_HOST 
     get_is_cks() const {return is_cks;}
@@ -676,10 +698,27 @@ class cartesian_coordinate_system_impl_t
     double GRACE_ALWAYS_INLINE GRACE_HOST 
     get_bh_spin() const {return bh_spin;}
 
+    cartesian_device_coordinate_system_impl_t GRACE_ALWAYS_INLINE 
+    get_device_coord_system() const {
+      DECLARE_GRID_EXTENTS;
+      cartesian_device_coordinate_system_impl_t out{} ;
+
+      out.ngz = ngz ; 
+
+      out.is_cks = is_cks ; 
+      out.bh_spin = bh_spin ; 
+
+      deep_copy_vec_to_const_view(out.qdx, qdx_h) ; 
+      deep_copy_vec_to_const_2D_view(out.qx, qx_h) ; 
+
+      return out ; 
+    }
+
  private:
     //**************************************************************************************************
     //! Tree vertices and spacings        
-    Kokkos::View<double*,grace::default_space> tree_vertices_, tree_spacings_ ;
+    std::vector<std::array<double,3>> qx_h ; //! Physical cartesian coordinates of quadrant's lower-left corner
+    std::vector<double> qdx_h ;              //! Physical cartesian cell-spacing within each quadrant
     //! Are the coordinates Kerr-Schild?
     bool is_cks ; 
     //! BH spin for CKS 

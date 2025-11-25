@@ -508,7 +508,7 @@ void set_grmhd_initial_data() {
         auto const vx_bg = get_param<double>("grmhd","vacuum","velocity_x") ; 
         auto const vy_bg = get_param<double>("grmhd","vacuum","velocity_y") ; 
         auto const vz_bg = get_param<double>("grmhd","vacuum","velocity_z") ; 
-        set_grmhd_initial_data_impl<eos_t, vacuum_id_t<eos_t>(
+        set_grmhd_initial_data_impl<eos_t, vacuum_id_t<eos_t>>(
             rho_bg,press_bg,vx_bg,vy_bg,vz_bg
         ) ; 
     } else if( id_type == "shocktube" ) {

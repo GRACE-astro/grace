@@ -643,7 +643,6 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         }
         else {
             // coarse local → receiver side
-            local_interfaces.push_back( dsc ); // we will replace the fine idx s
             for (int ic = 0; ic < P4EST_CHILDREN/2; ++ic) {
                 if (!dsc.fine_is_remote[ic]) {
                     continue;
@@ -665,6 +664,9 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                 _reflux_face_recv.push_back(recv_desc) ; 
                 rank_recv_counts[r] ++ ; 
             }
+            // since coarse is local we need 
+            // to keep track of this
+            local_interfaces.push_back( dsc ); 
         }
     }
     _reflux_face_descs.swap(local_interfaces) ; // note, we discard the total array here and only keep the locals

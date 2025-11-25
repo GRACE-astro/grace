@@ -306,7 +306,7 @@ struct m1_excision_params_t {
     bool excise_by_radius ; 
     double r_ex, alp_ex ; 
     double E_ex ;  
-}
+} ;
 
 }
 

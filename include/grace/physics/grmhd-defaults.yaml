@@ -8,6 +8,7 @@ grmhd: {
   # density and velocity
   vacuum: {
     rho_floor: 1e-15,
+    press_floor: 1e-15,
     velocity_x: 0.,
     velocity_y: 0.,
     velocity_z: 0.

@@ -59,31 +59,26 @@ cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
 {
     using namespace grace ;
     using namespace Kokkos ; 
-    
-    int ntrees = amr::connectivity::get().get()->num_trees;
+    DECLARE_GRID_EXTENTS;
 
-    tree_vertices_ =
-        View<double*, default_space>( "device_coords_tree_vertices"
-                                    , GRACE_NSPACEDIM*ntrees ) ;
-    tree_spacings_ =
-        View<double*, default_space>( "device_coords_tree_vertices"
-                                    , GRACE_NSPACEDIM*ntrees ) ;
+    qx_h.reserve(nq); qdx_h.reserve(nq) ; 
+    for( int i=0; i<nq; ++i) {
+        auto itree = amr::get_quadrant_owner(i) ; 
+        auto quad = amr::get_quadrant(itree,i) ; 
+        auto dx = quad.spacing() ; 
+        auto dx_tree = amr::get_tree_spacing(itree)[0] ; 
+        qdx_h.push_back(dx_tree*dx/nx) ; 
 
-    auto h_tree_spacings = create_mirror_view(tree_spacings_) ;
-    auto h_tree_vertices = create_mirror_view(tree_vertices_) ; 
-    for(int itree=0; itree<ntrees; ++itree)
-    {
-        auto const _vertex = amr::get_tree_vertex(itree,0UL) ;
-        auto const dx      = amr::get_tree_spacing(itree)    ; 
-        for(int idim=0; idim<GRACE_NSPACEDIM; ++idim){
-            h_tree_vertices(GRACE_NSPACEDIM*itree+idim) = _vertex[idim] ; 
-            h_tree_spacings(GRACE_NSPACEDIM*itree+idim) = dx[idim]      ; 
-        }
-         
+        auto qx_i = quad.qcoords() ; 
+        auto vx = amr::get_tree_vertex(itree,0UL) ; 
+
+        qx_h.push_back({
+            vx[0] + qx_i[0] * dx * dx_tree,
+            vx[1] + qx_i[1] * dx * dx_tree,
+            vx[2] + qx_i[2] * dx * dx_tree
+        }) ; 
     }
 
-    deep_copy(tree_vertices_,h_tree_vertices);
-    deep_copy(tree_spacings_,h_tree_spacings);
 
     is_cks = get_param<bool>("coordinate_system", "is_kerr_schild") ; 
     bh_spin = get_param<double>("coordinate_system", "bh_spin"); 

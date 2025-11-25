@@ -358,17 +358,18 @@ struct div_free_prolong_op {
                             int js = (jj ? +1 : -1) ; 
                             int ks = (kk ? +1 : -1) ; 
 
-                            Uxx += 0.125 * (is*js*v(i_f+ii  ,j_f+2*jj,k_f+kk,ivar) + is*ks*w(i_f+ii,j_f+jj  ,k_f+2*kk,ivar));
-                            Vyy += 0.125 * (is*js*u(i_f+2*ii,j_f+jj  ,k_f+kk,ivar) + js*ks*w(i_f+ii,j_f+jj  ,k_f+2*kk,ivar));
-                            Wzz += 0.125 * (is*ks*u(i_f+2*ii,j_f+jj  ,k_f+kk,ivar) + js*ks*v(i_f+ii,j_f+2*jj,k_f+kk  ,ivar));
+                            Uxx += is*js*v(i_f+ii  ,j_f+2*jj,k_f+kk,ivar) + is*ks*w(i_f+ii,j_f+jj  ,k_f+2*kk,ivar);
+                            Vyy += is*js*u(i_f+2*ii,j_f+jj  ,k_f+kk,ivar) + js*ks*w(i_f+ii,j_f+jj  ,k_f+2*kk,ivar);
+                            Wzz += is*ks*u(i_f+2*ii,j_f+jj  ,k_f+kk,ivar) + js*ks*v(i_f+ii,j_f+2*jj,k_f+kk  ,ivar);
                              
-                            Uxyz += 0.125 * 0.5 *  (is*js*ks*u(i_f+2*ii,j_f+jj  ,k_f+kk  ,ivar)) ; 
-                            Vxyz += 0.125 * 0.5 *  (is*js*ks*v(i_f+ii  ,j_f+2*jj,k_f+kk  ,ivar)) ; 
-                            Wxyz += 0.125 * 0.5 *  (is*js*ks*w(i_f+ii  ,j_f+jj  ,k_f+2*kk,ivar)) ; 
+                            Uxyz += is*js*ks*u(i_f+2*ii,j_f+jj  ,k_f+kk  ,ivar) ; 
+                            Vxyz += is*js*ks*v(i_f+ii  ,j_f+2*jj,k_f+kk  ,ivar) ; 
+                            Wxyz += is*js*ks*w(i_f+ii  ,j_f+jj  ,k_f+2*kk,ivar) ; 
                         }
                     }
                 }
-                 
+                Uxx *= 0.125 ; Vyy *= 0.125; Wzz *= 0.125 ; 
+                Uxyz *= 0.0625; Vxyz *= 0.0625; Wxyz *= 0.0625;
 
                 // here we fill 
                 // u_{0, j, k} = 1/2 (u_{2,j,k}+u_{-2,j,k}) + Uxx + k dz^2 Vxyz + j dy^2 Wxyz (TR 8)

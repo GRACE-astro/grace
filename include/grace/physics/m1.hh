@@ -75,7 +75,7 @@ struct m1_equations_system_t
     m1_equations_system_t(grace::var_array_t state_
                         , grace::staggered_variable_arrays_t stag_state_
                         , grace::var_array_t aux_ 
-                        , m1_atmo_params _atmo_pars 
+                        , m1_atmo_params_t _atmo_pars 
                         , m1_excision_params_t _excision_pars )
     : base_t(state_,stag_state_,aux_)
     , atmo_params(_atmo_pars)
@@ -336,7 +336,7 @@ struct m1_equations_system_t
         }
 
         // Set atmosphere / excision 
-        double r = xyz[0] ; 
+        double r = pcoords(VEC(i,j,k),0,q) ; 
         bool excise = excision_params.excise_by_radius 
                 ? r <= excision_params.r_ex 
                 : metric.alp() <= excision_params.alp_ex ; 
@@ -594,7 +594,7 @@ void set_m1_eas<EOS>(                    \
       grace::var_array_t&                \
     , grace::staggered_variable_arrays_t&\
     , grace::var_array_t&                \
-)                                        \
+);                                       \
 extern template                          \
 void set_m1_eas<EOS>()
 

@@ -46,12 +46,12 @@
 namespace grace {
 
 struct test_eas_op {
-    enum test_t : int {
+    enum test_t  {
         ZERO_EAS=0,
         LARGE_KS,
         EMITTING_SPHERE,
         SHADOW_CAST
-    }
+    } ; 
     test_eas_op(
         grace::var_array_t _aux 
     ) : aux(_aux) 
@@ -72,7 +72,7 @@ struct test_eas_op {
         } else if (
             _which_test == "shadow"
         ) {
-            which_test = SHADOW_CAST 
+            which_test = SHADOW_CAST; 
         } else if ( 
             _which_test == "emitting_sphere"
         ) {
@@ -85,12 +85,12 @@ struct test_eas_op {
 
     void KOKKOS_INLINE_FUNCTION
     operator() (
-        VEC(const int i, const int j, const int k), int64_t q,
+        VEC(const int i, const int j, const int k), int64_t q
         , double* xyz
-    ) 
+    ) const
     {
         auto u = Kokkos::subview(aux,VEC(i,j,k),Kokkos::ALL(),q) ; 
-
+        double r=0;
         switch (which_test) {
             case ZERO_EAS:
             u(KAPPAA_) = u(KAPPAS_) = u(ETA_) = 0. ; 
@@ -101,7 +101,7 @@ struct test_eas_op {
             break ; 
             case SHADOW_CAST:
             // we assume pcoords is cartesian 
-            double const r = sqrt(
+            r = sqrt(
                 SQR(xyz[0]+0.2) + SQR(xyz[1]) + SQR(xyz[2])
             ) ;
             u(KAPPAA_) = u(KAPPAS_) = u(ETA_) = 0. ; 
@@ -111,7 +111,7 @@ struct test_eas_op {
             break ; 
             case EMITTING_SPHERE:
             // we assume pcoords is cartesian 
-            double const r = sqrt(
+            r = sqrt(
                 SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2])
             ) ; 
             u(KAPPAA_) = u(KAPPAS_) = u(ETA_) = 0. ; 
@@ -123,7 +123,7 @@ struct test_eas_op {
     }
 
     var_array_t aux ; 
-    test_t which_test
+    test_t which_test;
     double _ks_value ; 
     double _emitting_sphere_keta ; 
 } ; 
