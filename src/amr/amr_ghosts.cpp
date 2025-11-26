@@ -670,7 +670,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     // first fluxes: size of each is n/2 x n/2 x nvars 
     size_t send_size_flux = (nx/2)*(nx/2) * nvars_hrsc ; 
     // then emfs: size of each is (n/2+1) x (n/2+1) x 2 (the 2 because two edge dirs per face)
-    size_t send_size_emf = (nx/2+1)*(nx/2+1) * 2  ;
+    size_t send_size_emf = (nx/2)*(nx/2) * 2  ;
     _reflux_snd_off = std::vector<size_t>(nproc,0) ; 
     _reflux_rcv_off = std::vector<size_t>(nproc,0) ; 
     _reflux_snd_size = std::vector<size_t>(nproc,0) ; 

@@ -166,8 +166,8 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
     auto policy = 
         MDRangePolicy<Rank<3>> (
             {0,0,0},
-            {static_cast<long>(nx/2+1)
-            ,static_cast<long>(nx/2+1)
+            {static_cast<long>(nx/2)
+            ,static_cast<long>(nx/2)
             ,static_cast<long>(desc.size())}
         ) ; 
     //**************************************************************************************************/
@@ -447,8 +447,8 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
     auto policy = 
         MDRangePolicy<Rank<3>> (
             {0,0,0},
-            {static_cast<long>(nx/2+1)
-            ,static_cast<long>(nx/2+1)
+            {static_cast<long>(nx/2)
+            ,static_cast<long>(nx/2)
             ,static_cast<long>(desc.size())}
         ) ;
     //**************************************************************************************************/
@@ -510,11 +510,23 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                     ijk_c[fdir] = iside ? nx + ngz : ngz ; 
                     ijk_c[idir] = i + off_i + ngz ; 
                     ijk_c[jdir] = j + off_j + ngz ; 
-                    // E^d is not staggered in d-dir
-                    // also avoid writing twice to the same 
-                    // emf where face children meet 
-                    if ( ijk_c[idir] < nx + ngz and (ichild_j or ijk_c[jdir] != nx/2 + ngz)) emf(ijk_c[0], ijk_c[1], ijk_c[2], idir, qid_c) = emf_corr_i ; 
-                    if ( ijk_c[jdir] < nx + ngz and (ichild_i or ijk_c[idir] != nx/2 + ngz)) emf(ijk_c[0], ijk_c[1], ijk_c[2], jdir, qid_c) = emf_corr_j ; 
+                    // a few things to check: 
+                    // 1) we don't want to write on the edges of 
+                    //    the quadrant nor in the middle since this
+                    //    is taken care of by the edge corrector
+                    // 2) Eˆd is **not** staggered in d-direction, 
+                    //    so we avoid the very last iteration in 
+                    //    the d index.
+                    if ( ijk_c[jdir] != nx/2+ngz and 
+                         ijk_c[jdir] != ngz     ) 
+                    { 
+                        emf(ijk_c[0], ijk_c[1], ijk_c[2], idir, qid_c) = emf_corr_i ;
+                    } 
+                    if ( ijk_c[idir] != nx/2+ngz and 
+                         ijk_c[idir] != ngz      ) 
+                    { 
+                        emf(ijk_c[0], ijk_c[1], ijk_c[2], jdir, qid_c) = emf_corr_j ; 
+                    }
                 }    
             }
                 
@@ -522,32 +534,6 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
     //**************************************************************************************************/
     auto edge_rbuf = ghost_layer.get_reflux_emf_edge_recv_buffer() ; 
     auto edge_desc = ghost_layer.get_reflux_edge_descriptors() ; 
-    auto print_desc = [](const hanging_edge_reflux_desc_t &d) {
-        GRACE_VERBOSE("=== Reflux Descriptor ===\n");
-        GRACE_VERBOSE("  n_sides={} n_fine={} n_coarse={}\n",
-                    d.n_sides, d.n_fine, d.n_coarse);
-
-        for (int s = 0; s < d.n_sides; s++) {
-            const auto &side = d.sides[s];
-            GRACE_VERBOSE(
-                "  SIDE {}: is_fine={} edge_id={} off_i={} off_j={}\n",
-                s, side.is_fine, int(side.edge_id), side.off_i, side.off_j);
-
-            if (side.is_fine) {
-                GRACE_VERBOSE(
-                    "    FINE quad_id=[{},{}] owner=[{},{}] remote=[{},{}]\n",
-                    side.octants.fine.quad_id[0], side.octants.fine.quad_id[1],
-                    side.octants.fine.owner_rank[0], side.octants.fine.owner_rank[1],
-                    side.octants.fine.is_remote[0], side.octants.fine.is_remote[1]);
-            } else {
-                GRACE_VERBOSE(
-                    "    COARSE quad_id={} owner={} remote={}\n",
-                    side.octants.coarse.quad_id,
-                    side.octants.coarse.owner_rank,
-                    side.octants.coarse.is_remote);
-            }
-        }
-    };
     //**************************************************************************************************/
     View<hanging_edge_reflux_desc_t*> edge_info ; 
     grace::deep_copy_vec_to_const_view(edge_info,edge_desc) ; 

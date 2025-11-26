@@ -445,7 +445,7 @@ static void check_ghostzones(
                 double divB = (host_data_x(VEC(i+1,j,k),0,q) - host_data_x(VEC(i,j,k),0,q)) * idx(0,q)
                             + (host_data_y(VEC(i,j+1,k),0,q) - host_data_y(VEC(i,j,k),0,q)) * idx(1,q)
                             + (host_data_z(VEC(i,j,k+1),0,q) - host_data_z(VEC(i,j,k),0,q)) * idx(2,q) ; 
-                GRACE_TRACE("DivB problem ijk {},{},{}, q {}, divB {}, Bx {}",i,j,k,q,divB,host_data_x(VEC(i,j,k),0,q)) ;
+                //GRACE_TRACE("DivB problem ijk {},{},{}, q {}, divB {}, Bx {}",i,j,k,q,divB,host_data_x(VEC(i,j,k),0,q)) ;
                 if ( fabs(divB) > 1e-14 or std::isnan(divB)) {
                     auto quad = grace::amr::get_quadrant(q).get() ; 
                     GRACE_TRACE("DivB problem at {}, level {} ijk {},{},{}, q {}, divB {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level),i,j,k,q,divB) ;
