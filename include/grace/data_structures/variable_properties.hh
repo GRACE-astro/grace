@@ -262,6 +262,20 @@ struct staggered_variable_arrays_t {
       , corner_staggered_fields("corner staggered variables", VEC(0,0,0),0,0) 
     {} 
 
+    staggered_variable_arrays_t(VEC(int nx, int ny, int nz), int ngz, int nq, int nvars_face, int nvars_edge, int nvars_corner) 
+      : VEC( face_staggered_fields_x("x-face staggered variables", VEC(0,0,0),0,0)
+           , face_staggered_fields_y("y-face staggered variables", VEC(0,0,0),0,0)
+           , face_staggered_fields_z("z-face staggered variables", VEC(0,0,0),0,0) )
+    #ifdef GRACE_3D 
+      , VEC( edge_staggered_fields_xy("xy-face staggered variables", VEC(0,0,0),0,0)
+           , edge_staggered_fields_xz("xz-face staggered variables", VEC(0,0,0),0,0)
+           , edge_staggered_fields_yz("yz-face staggered variables", VEC(0,0,0),0,0) )
+    #endif 
+      , corner_staggered_fields("corner staggered variables", VEC(0,0,0),0,0) 
+    {
+        realloc(VEC(nx,ny,nz),ngz,nq,nvars_face,nvars_edge,nvars_corner) ; 
+    } 
+    
     void 
     realloc(VEC(int nx, int ny, int nz), int ngz, int nq, int nvars_face, int nvars_edge, int nvars_corner) {
         EXPR(

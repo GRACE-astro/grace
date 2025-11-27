@@ -534,14 +534,22 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
     //**************************************************************************************************/
     auto edge_rbuf = ghost_layer.get_reflux_emf_edge_recv_buffer() ; 
     auto edge_desc = ghost_layer.get_reflux_edge_descriptors() ; 
+    auto coarse_edge_desc = ghost_layer.get_reflux_coarse_edge_descriptors() ; 
     //**************************************************************************************************/
     View<hanging_edge_reflux_desc_t*> edge_info ; 
     grace::deep_copy_vec_to_const_view(edge_info,edge_desc) ; 
+    View<hanging_edge_reflux_desc_t*> coarse_edge_info ; 
+    grace::deep_copy_vec_to_const_view(coarse_edge_info,coarse_edge_desc) ;
     //**************************************************************************************************/
     auto edge_policy = 
         MDRangePolicy<Rank<2>> (
             {0,0},
             {static_cast<long>(nx),static_cast<long>(edge_desc.size())}
+        ) ;
+    auto coarse_edge_policy = 
+        MDRangePolicy<Rank<2>> (
+            {0,0},
+            {static_cast<long>(nx),static_cast<long>(coarse_edge_desc.size())}
         ) ;
     //**************************************************************************************************/
     // two phases, first we need to compute the correction, then we apply
@@ -587,6 +595,39 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
             
             emf_edge_correction(i,0,iq) = cnt ? emf_correction[0] / static_cast<double>(cnt) : 0.0 ; 
             emf_edge_correction(i,1,iq) = cnt ? emf_correction[1] / static_cast<double>(cnt) : 0.0 ; 
+        }
+    );
+    auto emf_coarse_edge_correction = ghost_layer.get_reflux_coarse_edge_emf_accumulation_buffer() ; 
+    parallel_for(
+        GRACE_EXECUTION_TAG("EVOL", "reflux_coarse_emf_compute_edge"),
+        coarse_edge_policy,
+        KOKKOS_LAMBDA (int const& i, int const& iq) {
+            auto& desc = coarse_edge_info(iq) ; 
+            auto n_sides = desc.n_sides; 
+            double norm =  1./static_cast<double>(desc.n_sides) ;
+            size_t ijk[3] ; 
+            double emf_correction{0} ; // accumulate here 
+            for( int iside=0; iside<n_sides; ++iside) {
+                auto& side = desc.sides[iside] ; 
+                // edge index 
+                auto edge_id = side.edge_id ; 
+                // direction and side
+                int edge_dir = edge_id / 4 ; 
+                int side_i = (edge_id>>0)&1;
+                int side_j = (edge_id>>1)&1;
+                // coarse quadid
+                auto qid = side.octants.coarse.quad_id;
+                if ( side.octants.coarse.is_remote ) {
+                    auto rank = side.octants.coarse.owner_rank ; 
+                    emf_correction += edge_rbuf(i,qid,rank) ; 
+                } else {
+                    ijk[edge_dir] = ngz + i ; 
+                    ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ; 
+                    ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ; 
+                    emf_correction += emf(ijk[0],ijk[1],ijk[2],edge_dir,qid); 
+                }
+            }
+            emf_coarse_edge_correction(i,iq) = emf_correction * norm ; 
         }
     );
     Kokkos::fence() ; 
@@ -650,6 +691,41 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
             }
         }
        
+    ) ; 
+
+    parallel_for(
+        GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_coarse_edge"),
+        coarse_edge_policy,
+        KOKKOS_LAMBDA (int const& i, int const& iq) {
+            // information about the edge we are correcting 
+            auto const& desc = coarse_edge_info(iq) ; 
+            // pre-allocate indices 
+            size_t ijk[3] ; 
+            // loop over 4 sides of the edge
+            for( int iside=0; iside<desc.n_sides; ++iside) {
+                // side descriptor 
+                auto const& side = desc.sides[iside] ;
+                // edge index 
+                auto edge_id = side.edge_id ;  
+                // direction along and orthogonal to edge (z-order)
+                int edge_dir = edge_id / 4 ; 
+                int side_i = (edge_id>>0)&1;
+                int side_j = (edge_id>>1)&1;
+
+                // coarse remote nothing to do 
+                if ( side.octants.coarse.is_remote ) continue ;
+                // quad-id 
+                auto qid = side.octants.coarse.quad_id ; 
+                // we need to figure out if it's the upper or lower
+                // child we are reading from 
+                // indices of edge 
+                ijk[edge_dir] = ngz + i ; 
+                ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;  
+                ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;
+                // for coarse-only we store it here 
+                emf(ijk[0],ijk[1],ijk[2],edge_dir,qid) = emf_coarse_edge_correction(i,iq) ; 
+            }
+        }
     ) ; 
 }
 

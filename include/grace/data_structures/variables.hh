@@ -153,6 +153,24 @@ public:
     getscratch() { return _state_p ; }
     //*****************************************************************************************************
     /**
+     * @brief Get the staging buffer for time-stepping. 
+     * 
+     * @return The staging buffer, it consists in a set of var_arrays_t. The
+     *         number of which depends on the active timestepper.
+     */
+    GRACE_ALWAYS_INLINE std::vector<var_array_t>&
+    getstagingbuffer() { return _staging_buffer ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the staging buffer for time-stepping. 
+     * 
+     * @return The staging buffer, it consists in a set of var_arrays_t. The
+     *         number of which depends on the active timestepper.
+     */
+    GRACE_ALWAYS_INLINE std::vector<staggered_variable_arrays_t>&
+    getstagstagingbuffer() { return _stag_staging_buffer ; }
+    //*****************************************************************************************************
+    /**
      * @brief Get the fluxes vector 
      * 
      * @return The fluxes vector, used during time 
@@ -234,10 +252,12 @@ private:
     var_array_t _state_p ;     //!< Second timelevel, allocated at all times 
     var_array_t _halo    ;     //!< Halo exchange buffer, allocated when necessary
     var_array_t _aux     ;     //!< Auxiliary variables  
+    std::vector<var_array_t> _staging_buffer; //!< Additional storage for timestepper
     staggered_coordinate_arrays_t _staggered_coords ; //!< Staggered coordinate utilities (surfaces, lengths) 
     staggered_variable_arrays_t   _staggered_vars   ; //!< Staggered variable arrays 
     staggered_variable_arrays_t   _staggered_vars_p ; //!< Staggered scratch state
     staggered_variable_arrays_t   _staggered_aux    ; //!< Auxiliary variables on staggered grids.
+    std::vector<staggered_variable_arrays_t> _stag_staging_buffer ; //!< Additional storage for timestepper 
     flux_array_t   _fluxes              ; //!< Fluxes for time evolution.
     flux_array_t   _vbar              ; //!< Fluxes for time evolution.
     emf_array_t   _emf                  ; //!< EMF for time evolution of ideal MHD.

@@ -117,7 +117,8 @@ void amr_ghosts_impl_t::update() {
     p4est_iter_data_t iter_data {
         &ghost_layer,
         &_reflux_face_descs,
-        &_reflux_edge_descs
+        &_reflux_edge_descs,
+        &_reflux_coarse_edge_descs
     } ; 
     //**************************************************************************************************
     // Register neighbor faces into ghost_layer
@@ -781,7 +782,35 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
             
         }
     } // for loop 
-
+    // now the coarse edges (same send list)
+    for( int i=0; i<_reflux_coarse_edge_descs.size(); ++i) {
+        auto& dsc = _reflux_coarse_edge_descs[i] ;
+        for( int iside=0; iside<dsc.n_sides; ++iside) {
+            auto const& dsc_this = dsc.sides[iside] ; 
+            if ( dsc_this.octants.coarse.is_remote ) {
+                GRACE_TRACE_DBG("Receive coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_this.octants.coarse.owner_rank,dsc_this.edge_id );
+                // receive 
+                rcv_keys[dsc_this.octants.coarse.owner_rank].push_back(
+                        comm_key_t{
+                            dsc_this.octants.coarse.quad_id, dsc_this.edge_id
+                        }
+                    ) ;
+            } else {
+                // send 
+                for( int jside=0; jside<dsc.n_sides; ++jside){ 
+                    if ( jside==iside ) continue ;
+                    auto const& dsc_other = dsc.sides[jside] ; 
+                    GRACE_TRACE_DBG("Send coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_other.octants.coarse.owner_rank,dsc_this.edge_id );
+                    if ( !dsc_other.octants.coarse.is_remote ) continue ; 
+                    snd_keys[dsc_other.octants.coarse.owner_rank].push_back(
+                                    comm_key_t{
+                                        dsc_this.octants.coarse.quad_id, dsc_this.edge_id
+                                    }
+                                ) ;
+                }
+            }
+        }
+    }
     // note: we need to dedup since if multiple remotes are on the same rank 
     // we send the data to each octant, which is redundant. 
     for (auto& m : send_lookup) m.clear();
@@ -882,6 +911,40 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
 
         } // for desc 
     }
+    // now coarse 
+    for( int i=0; i<_reflux_coarse_edge_descs.size(); ++i) {
+        auto& dsc = _reflux_coarse_edge_descs[i] ;
+
+        for( int iside=0; iside<dsc.n_sides; ++iside) {
+            auto& dsc_this = dsc.sides[iside] ; 
+            if ( dsc_this.octants.coarse.is_remote ) {
+                // receive 
+                comm_key_t key {
+                            dsc_this.octants.coarse.quad_id, dsc_this.edge_id
+                        } ;
+                // fixme, ensure this is never used again 
+                auto r = dsc_this.octants.coarse.owner_rank ; 
+                dsc_this.octants.coarse.quad_id = recv_lookup[r][key];
+            } else {
+                // send 
+                for( int jside=0; jside<dsc.n_sides; ++jside){ 
+                    if ( jside==iside ) continue ;
+                    auto const& dsc_other = dsc.sides[jside] ; 
+                    if ( !dsc_other.octants.coarse.is_remote ) continue ; 
+                    comm_key_t key {
+                                    dsc_this.octants.coarse.quad_id, dsc_this.edge_id
+                                } ; 
+                    hanging_remote_reflux_desc_t snd_desc{} ; 
+                    snd_desc.qid = dsc_this.octants.coarse.quad_id ; 
+                    auto r = dsc_other.octants.coarse.owner_rank ;
+                    snd_desc.rank = r; 
+                    snd_desc.elem_id = dsc_this.edge_id ; 
+                    snd_desc.buf_id = send_lookup[r][key] ; 
+                    _reflux_edge_snd.push_back(snd_desc) ;
+                }
+            }
+        }
+    }
     // finally allocate 
     // here we always send the emf along the edge --> no stagger
     // also we always send just one --> send size simply nx 
@@ -928,7 +991,9 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         "reflux_emf_edge_local_buffer", nx, 2, _reflux_edge_descs.size()
     ) ; 
 
-    
+    _reflux_emf_coarse_edge_accumulation_buf = Kokkos::View<double**, grace::default_space>(
+        "reflux_emf_coarse_edge_local_buffer", nx, _reflux_coarse_edge_descs.size()
+    ) ; 
 }
 
 } /* namespace grace */

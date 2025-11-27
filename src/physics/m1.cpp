@@ -131,8 +131,11 @@ static void set_m1_initial_data_impl(
         GRACE_EXECUTION_TAG("ID","set_m1_id"),
         policy,
         KOKKOS_LAMBDA (VEC(int const i, int const j, int const k), int const q) {
-
-
+            auto id = id_kernel(i,j,k,q) ; 
+            state(VEC(i,j,k),ERAD_,q) = id.erad ; 
+            state(VEC(i,j,k),FRADX_,q) = id.fradx ; 
+            state(VEC(i,j,k),FRADY_,q) = id.fradx ; 
+            state(VEC(i,j,k),FRADZ_,q) = id.fradx ; 
         }
     ) ; 
 }
@@ -153,6 +156,7 @@ void set_m1_initial_data() {
     if ( id_type == "straight_beam" ) {
         auto hydro_id_type = grace::get_param<std::string>("grmhd","id_type") ;
         ASSERT(hydro_id_type=="minkowski_vacuum", "For M1 tests the hydro must be set to minkowski_vacuum") ; 
+        
 
     } else if (id_type == "curved_beam" ) {
         auto hydro_id_type = grace::get_param<std::string>("grmhd","id_type") ;

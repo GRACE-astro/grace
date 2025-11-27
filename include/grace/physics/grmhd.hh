@@ -1087,6 +1087,7 @@ struct grmhd_equations_system_t
         }
 
         theta = math::min(theta_m, theta_p) ;
+        if ( std::isnan(theta) ) theta = 1. ; 
         /***********************************************************************/
         /***********************************************************************/
         fluxes(VEC(i,j,k),DENS_,idir,q)        = theta * f_HLL[DENSL]    

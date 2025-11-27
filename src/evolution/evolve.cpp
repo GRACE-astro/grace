@@ -44,6 +44,7 @@
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
+#include <grace/utils/tstep_utils.hh>
 #ifdef GRACE_ENABLE_BURGERS 
 #include <grace/physics/burgers.hh>
 #endif 
@@ -138,63 +139,6 @@ void evolve_impl() {
         amr::apply_boundary_conditions(state,sstate) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if (tstepper == "rk3" ) {
-        
-        auto update_policy =
-        Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
-               {VEC(0,0,0), 0, 0}
-            , {VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nvars_cc, nq}
-        ) ;
-        auto const stag_update = [&] (
-            grace::staggered_variable_arrays_t& A,
-            grace::staggered_variable_arrays_t& B,
-            grace::staggered_variable_arrays_t& C, double b, double c
-        ) {
-            auto staggered_update_policy_x =
-            Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
-                {VEC(0,0,0), 0, 0}
-                , {VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nvars_face, nq}
-            ) ;
-            Kokkos::parallel_for(
-            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
-                , staggered_update_policy_x
-                , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
-                {
-                    A.face_staggered_fields_x(VEC(i,j,k), ivar, q)
-                        = b * B.face_staggered_fields_x(VEC(i,j,k), ivar, q)
-                        + c * C.face_staggered_fields_x(VEC(i,j,k), ivar, q) ; 
-                }
-            ) ;
-            auto staggered_update_policy_y =
-            Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
-                {VEC(0,0,0), 0, 0}
-                , {VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz),nvars_face, nq}
-            ) ;
-            Kokkos::parallel_for(
-            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
-                , staggered_update_policy_y
-                , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
-                {
-                    A.face_staggered_fields_y(VEC(i,j,k), ivar, q)
-                        = b * B.face_staggered_fields_y(VEC(i,j,k), ivar, q)
-                        + c * C.face_staggered_fields_y(VEC(i,j,k), ivar, q) ; 
-                }
-            ) ;
-            auto staggered_update_policy_z =
-            Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+2>> (
-                {VEC(0,0,0), 0, 0}
-                , {VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz+1),nvars_face, nq}
-            ) ;
-            Kokkos::parallel_for(
-            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
-                , staggered_update_policy_z
-                , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
-                {
-                    A.face_staggered_fields_z(VEC(i,j,k), ivar, q)
-                        = b * B.face_staggered_fields_z(VEC(i,j,k), ivar, q)
-                        + c * C.face_staggered_fields_z(VEC(i,j,k), ivar, q) ; 
-                }
-            ) ;
-        } ; 
         // step 1: state_p -> u^1 = u^n + dt L( u^n )
         advance_substep<eos_t>(
             t,dt,1.0,
@@ -203,20 +147,11 @@ void evolve_impl() {
         amr::apply_boundary_conditions(state_p,sstate_p) ; 
         compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ;
         // Allocate state_pp and sstate_pp 
-        auto state_pp  = grace::variable_list::get().allocate_state() ;
-        auto sstate_pp = grace::variable_list::get().allocate_staggered_state() ;
+        auto state_pp  = grace::variable_list::get().getstagingbuffer()[0] ;
+        auto sstate_pp = grace::variable_list::get().getstagstagingbuffer()[0];
         // step 2: state_pp = 3/4 u^n + 1/4 u^1
-        stag_update(sstate_pp, sstate, sstate_p, 0.75, 0.25) ; 
-        Kokkos::parallel_for(
-            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
-            , update_policy
-            , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
-            {
-                state_pp(VEC(i,j,k), ivar, q)
-                    = 0.75 * state(VEC(i,j,k), ivar, q)
-                    + 0.25 * state_p(VEC(i,j,k), ivar, q) ; 
-            }
-        ) ;
+        linop_apply(state_pp,state,state_p,
+                    sstate_pp,sstate,sstate_p, 0.75, 0.25) ;
         // step 3: state_pp -> u^2 = 3/4 u^n + 1/4 u^1 + 1/4 dt L( u^1 )
         advance_substep<eos_t>(
             t,dt,0.25,
@@ -225,17 +160,8 @@ void evolve_impl() {
         amr::apply_boundary_conditions(state_pp,sstate_pp) ; 
         compute_auxiliary_quantities<eos_t>(state_pp, sstate_pp, aux) ;
         // step 4: state = 1/3 u^n + 2/3 u^2
-        stag_update(sstate, sstate, sstate_pp, 1./3, 2./3.) ; 
-        Kokkos::parallel_for(
-            GRACE_EXECUTION_TAG("EVOL","RK3_substep")
-            , update_policy
-            , KOKKOS_LAMBDA (VEC(int i, int j, int k), int ivar, int q)
-            {
-                state(VEC(i,j,k), ivar, q)
-                    = 1./3. * state(VEC(i,j,k), ivar, q)
-                    + 2./3. * state_pp(VEC(i,j,k), ivar, q) ; 
-            }
-        ) ;
+        linop_apply(state,state,state_pp,
+                    sstate,sstate,sstate_pp, 1./3, 2./3.) ; 
         // step 5: state -> u^n+1 = 1/3 u^n + 2/3 u^2 + 2/3 dt L( u^2 )
         advance_substep<eos_t>(
             t,dt,2./3.,
@@ -243,6 +169,89 @@ void evolve_impl() {
             sstate,sstate_pp) ;
         amr::apply_boundary_conditions(state,sstate) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
+    } else if (tstepper == "imex1") { 
+        advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ;
+        amr::apply_boundary_conditions(state,sstate) ; 
+        advance_implicit_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ;
+        compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;  
+    } else if (tstepper == "imex222" ) {
+        
+        double const lambda = 1.0 - 1.0/sqrt(2.0); 
+        // Fetch state_pp and sstate_pp 
+        auto& stage  = grace::variable_list::get().getstagingbuffer() ;
+        auto& sstage = grace::variable_list::get().getstagstagingbuffer();
+
+        // initialize s2 as yˆn 
+        auto state_pp = stage[0] ; 
+        auto sstate_pp = sstage[0] ; 
+        Kokkos::deep_copy(state_pp,state) ; 
+        deep_copy(sstate_pp,sstate) ; 
+
+        // xi1 = yˆn + lambda dt G(xi1) 
+        // store xi1 in s2 
+        advance_implicit_substep<eos_t>(
+            t,dt,lambda,
+            /*new*/state_pp,/*old*/state,
+            /*new*/sstate_pp,/*old*/sstate
+        ) ;
+
+        // set s1 = yˆn + dt X(xi1) 
+        advance_substep<eos_t>(
+            t,dt,1.0,
+            /*new*/state_p,/*old*/state_pp,
+            /*new*/sstate_p,/*old*/sstate_pp
+        ) ; 
+        amr::apply_boundary_conditions(state_p,sstate_p) ;
+        compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ; 
+        // set s2 = dt G(xi1)
+        linop_apply(
+            state_pp, state_pp, state,
+            sstate_pp, sstate_pp, sstate,
+            1/lambda,-1/lambda
+        ) ; 
+        // set s  = y^n + dt/2 F(xi1)
+        linop_apply(
+            state, state, state_p, state_pp,
+            sstate, sstate, sstate_p, sstate_pp,
+            0.5,0.5,0.5
+        ) ;
+        // set s1 = yˆn + dt X(xi1) + (1-2 lambda) dt G(xi1)
+        linop_apply(
+            state_p, state_p, state_pp, 
+            sstate_p, sstate_p, sstate_pp,
+            1.0, (1.0-2.0*lambda)
+        ) ;
+        // apply BC 
+        amr::apply_boundary_conditions(state_p,sstate_p) ; 
+        // reset s2 = xi1
+        linop_apply(
+            state_pp, state_pp, state_p,
+            sstate_pp, sstate_pp, sstate_p,
+            (2.0-lambda), -1.0
+        ) ; 
+        // solve xi2 = s1 + lambda dt G(xi2)
+        advance_implicit_substep<eos_t>(
+            t,dt,lambda,
+            /*new*/state_pp,/*old*/state,
+            /*new*/sstate_pp,/*old*/sstate
+        );
+        // add dt / 2 G(xi2) to s
+        linop_apply(
+            state, state, state_pp, state_p,
+            sstate, sstate, sstate_pp, sstate_p,
+            1.0, 1./(2*lambda), -1./(2*lambda)
+        ) ; 
+        // set s = yˆn + dt/2 (F(xi1)+F(xi2)) == yˆ{n+1}
+        advance_substep<eos_t>(
+            t, dt, 0.5,
+            /*new*/ state, /*old*/ state_pp,
+            /*new*/ sstate, /*old*/ sstate_pp
+        ) ; 
+        amr::apply_boundary_conditions(state,sstate) ;
+        compute_auxiliary_quantities<eos_t>(state, sstate, aux) ; 
+        /* done */
+    } else if (tstepper == "imex232" ) { 
+        ERROR("Imex 3 not implemented yet") ; 
     } else {
         ERROR("Unrecognised time-stepper.") ; 
     }

@@ -159,7 +159,23 @@ variable_list_impl_t::variable_list_impl_t()
     
     ASSERT(variables::detail::_varnames.size() == variables::detail::num_evolved, 
     "Num evolved is " << variables::detail::num_evolved << " but varnames.size() is " << variables::detail::_varnames.size() ) ; 
-
+    // allocate staging buffers for timestepper 
+    auto tstepper = get_param<std::string>("evolution","time_stepper") ; 
+    int n_staging_bufs{0} ;  
+    if ( tstepper == "rk3" or tstepper == "imex222") { 
+        n_staging_bufs = 1 ; 
+    }
+    _staging_buffer.reserve(n_staging_bufs) ; 
+    _stag_staging_buffer.reserve(n_staging_bufs) ;
+    for( int i=0; i<n_staging_bufs; ++i) {
+        _staging_buffer.emplace_back("staging_buffer", nx+2*ngz,ny+2*ngz,nz+2*ngz,variables::detail::num_evolved,nq) ; 
+        _stag_staging_buffer.emplace_back(
+            nx,ny,nz,ngz,nq,
+            variables::detail::num_face_staggered_vars,
+            variables::detail::num_edge_staggered_vars,
+            variables::detail::num_corner_staggered_vars
+        ); 
+    }
     /* all done */
 }
 

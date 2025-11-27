@@ -237,6 +237,7 @@ struct p4est_iter_data_t {
     std::vector<quad_neighbors_descriptor_t>* ghost_layer ; 
     std::vector<hanging_face_reflux_desc_t>* reflux_faces ; 
     std::vector<hanging_edge_reflux_desc_t>* reflux_edges ; 
+    std::vector<hanging_edge_reflux_desc_t>* reflux_coarse_edges ; 
 } ; 
 /**************************************************************************************************/
 template < amr::element_kind_t elem_kind > 
@@ -341,6 +342,11 @@ class amr_ghosts_impl_t {
     }
     /**************************************************************************************************/
     GRACE_ALWAYS_INLINE 
+    Kokkos::View<double**, grace::default_space> get_reflux_coarse_edge_emf_accumulation_buffer() const {
+        return _reflux_emf_coarse_edge_accumulation_buf ; 
+    }
+    /**************************************************************************************************/
+    GRACE_ALWAYS_INLINE 
     amr::reflux_array_t get_reflux_send_buffer() const {
         return _reflux_snd_buf ; 
     }
@@ -376,6 +382,11 @@ class amr_ghosts_impl_t {
     GRACE_ALWAYS_INLINE
     std::vector<hanging_edge_reflux_desc_t> const& get_reflux_edge_descriptors() const {
         return _reflux_edge_descs ;
+    }
+    //**************************************************************************************************/
+    GRACE_ALWAYS_INLINE
+    std::vector<hanging_edge_reflux_desc_t> const& get_reflux_coarse_edge_descriptors() const {
+        return _reflux_coarse_edge_descs ;
     }
     //**************************************************************************************************/
     GRACE_ALWAYS_INLINE
@@ -467,10 +478,11 @@ class amr_ghosts_impl_t {
     amr::reflux_array_t _reflux_snd_buf, _reflux_recv_buf, _reflux_emf_snd_buf, _reflux_emf_recv_buf ; 
     amr::reflux_edge_array_t _reflux_emf_edge_snd_buf, _reflux_emf_edge_recv_buf;
     Kokkos::View<double***, grace::default_space> _reflux_emf_edge_accumulation_buf ; 
+    Kokkos::View<double**, grace::default_space>_reflux_emf_coarse_edge_accumulation_buf ; 
     /**************************************************************************************************/
     //! Descriptors 
     std::vector<hanging_face_reflux_desc_t> _reflux_face_descs; 
-    std::vector<hanging_edge_reflux_desc_t> _reflux_edge_descs; 
+    std::vector<hanging_edge_reflux_desc_t> _reflux_edge_descs, _reflux_coarse_edge_descs; 
     std::vector<hanging_remote_reflux_desc_t> _reflux_face_snd, _reflux_face_recv ;
     std::vector<hanging_remote_reflux_desc_t> _reflux_edge_snd, _reflux_edge_recv ;
     /**************************************************************************************************/
@@ -541,7 +553,7 @@ class amr_ghosts_impl_t {
 
         _reflux_face_descs.clear()          ;
         _reflux_edge_descs.clear()          ;
-
+        _reflux_coarse_edge_descs.clear()   ;
     }
     //**************************************************************************************************
     template< grace::var_staggering_t stag >

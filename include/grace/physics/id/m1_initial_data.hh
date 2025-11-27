@@ -33,6 +33,8 @@
 #include <grace/utils/inline.h>
 #include <grace/utils/device.h>
 
+#include <grace/coordinates/coordinate_systems.hh>
+
 #include <grace/data_structures/variable_indices.hh>
 #include <grace/data_structures/variables.hh>
 #include <grace/data_structures/variable_properties.hh>
@@ -42,27 +44,72 @@
 namespace grace {
 
 struct m1_id_t {
-    double E, Fx, Fy, Fz ; //! lower indices
+    double erad, fradx, frady, fradz ; //! lower indices
 }
 
 struct zero_m1_id_t {
     zero_m1_id_t(
         m1_atmo_params_t _atmo, 
-        m1_excision_params_t _excision 
-    ) : atmo(_atmo), excision(_excision)
+        m1_excision_params_t _excision,
+        device_coordinate_system _coord_system
+    ) : atmo(_atmo), excision(_excision), coord_system(_coord_system)
     {}
 
     m1_id_t KOKKOS_INLINE_FUNCTION 
     operator() (
         VEC(int const i, int const j, int const k), 
-        int const q, std::array<double,3> pcoords ) const 
+        int const q) const 
     {
+        m1_id_t id ; 
+        double rtp[3] ; 
+        coord_system.get_spherical_coordinates(VEC(i,j,k),q,rtp) ;
+
+        auto E_atmo = atmo.E_fl * Kokkos::pow(rtp[0], atmo.E_fl_scaling) ; 
+
+        bool excise = excision.excise_by_radius ? rtp[0] <= excision.r_ex : false ; /*we don't have alp here*/
         
+        if ( excise ) {
+            id.erad = excision.E_ex ; 
+        } else {
+            id.erad = E_atmo ;
+        }
+        id.fradx = id.frady = id.fradz = 0. ; 
+        return id ; 
     }
 
     m1_atmo_params_t atmo ; 
     m1_excision_params_t excision ; 
 } ; 
+
+struct straight_beam_m1_id_t {
+    straight_beam_m1_id_t(
+        m1_atmo_params_t _atmo, 
+        m1_excision_params_t _excision,
+        device_coordinate_system _coord_system
+    ) : atmo(_atmo), excision(_excision), coord_system(_coord_system)
+    {}
+
+    m1_id_t KOKKOS_INLINE_FUNCTION 
+    operator() (
+        VEC(int const i, int const j, int const k), 
+        int const q) const 
+    {
+        m1_id_t id ; 
+        double xyz[3] ; 
+        coord_system.get_cartesian_coordinates(VEC(i,j,k),q,xyz) ;
+        
+        id.erad = id.fradx = id.frady = id.fradz = 0. ; 
+
+        if ( xyz[0] <= -0.5 ) {
+            id.erad = id.fradx = 1.0 ; 
+        }
+
+        return id ; 
+    }
+
+    m1_atmo_params_t atmo ; 
+    m1_excision_params_t excision ; 
+} ;
 
 
 } /* namespace grace */

@@ -360,9 +360,9 @@ void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data)
     for( int is=0; is<4; ++is ) {
         n_fine += sides[is].is_hanging ; 
     }
-    bool need_reflux = (n_fine > 0) ; 
+    //bool need_reflux = (n_fine > 0) ; 
     // if reflux is not needed we are done.
-    if ( ! need_reflux ) return ; 
+    //if ( ! need_reflux ) return ; 
 
 
     hanging_edge_reflux_desc_t desc {} ; 
@@ -395,7 +395,11 @@ void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data)
             sdsc.octants.coarse.owner_rank = p4est_comm_find_owner(grace::amr::forest::get().get(), side.treeid, side.is.full.quad, 0);
         }
     }
-    iter_data->reflux_edges->push_back(desc) ; 
+    if ( n_fine > 0 ) { 
+        iter_data->reflux_edges->push_back(desc) ; 
+    } else {
+        iter_data->reflux_coarse_edges->push_back(desc) ; 
+    }
 }
 
 
