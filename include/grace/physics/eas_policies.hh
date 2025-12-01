@@ -102,10 +102,10 @@ struct test_eas_op {
             case SHADOW_CAST:
             // we assume pcoords is cartesian 
             r = sqrt(
-                SQR(xyz[0]+0.2) + SQR(xyz[1]) + SQR(xyz[2])
+                SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2])
             ) ;
             u(KAPPAA_) = u(KAPPAS_) = u(ETA_) = 0. ; 
-            if ( r<0.07 ) {
+            if ( r<0.046875 ) {
                 u(KAPPAA_) = 1e06 ; 
             } 
             break ; 

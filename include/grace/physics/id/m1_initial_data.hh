@@ -45,14 +45,14 @@ namespace grace {
 
 struct m1_id_t {
     double erad, fradx, frady, fradz ; //! lower indices
-}
+} ; 
 
 struct zero_m1_id_t {
     zero_m1_id_t(
         m1_atmo_params_t _atmo, 
         m1_excision_params_t _excision,
-        device_coordinate_system _coord_system
-    ) : atmo(_atmo), excision(_excision), coord_system(_coord_system)
+        coord_array_t<GRACE_NSPACEDIM> _pcoords
+    ) : atmo(_atmo), excision(_excision), pcoords(_pcoords)
     {}
 
     m1_id_t KOKKOS_INLINE_FUNCTION 
@@ -61,8 +61,12 @@ struct zero_m1_id_t {
         int const q) const 
     {
         m1_id_t id ; 
-        double rtp[3] ; 
-        coord_system.get_spherical_coordinates(VEC(i,j,k),q,rtp) ;
+        /* we assume coords are spherical here! */
+        double rtp[3] = {
+            pcoords(VEC(i,j,k),0,q),
+            pcoords(VEC(i,j,k),1,q),
+            pcoords(VEC(i,j,k),2,q)
+        }; 
 
         auto E_atmo = atmo.E_fl * Kokkos::pow(rtp[0], atmo.E_fl_scaling) ; 
 
@@ -79,14 +83,15 @@ struct zero_m1_id_t {
 
     m1_atmo_params_t atmo ; 
     m1_excision_params_t excision ; 
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
 } ; 
 
 struct straight_beam_m1_id_t {
     straight_beam_m1_id_t(
         m1_atmo_params_t _atmo, 
         m1_excision_params_t _excision,
-        device_coordinate_system _coord_system
-    ) : atmo(_atmo), excision(_excision), coord_system(_coord_system)
+        coord_array_t<GRACE_NSPACEDIM> _pcoords
+    ) : atmo(_atmo), excision(_excision), pcoords(_pcoords)
     {}
 
     m1_id_t KOKKOS_INLINE_FUNCTION 
@@ -95,12 +100,18 @@ struct straight_beam_m1_id_t {
         int const q) const 
     {
         m1_id_t id ; 
-        double xyz[3] ; 
-        coord_system.get_cartesian_coordinates(VEC(i,j,k),q,xyz) ;
+        double xyz[3] = {
+            pcoords(VEC(i,j,k),0,q),
+            pcoords(VEC(i,j,k),1,q),
+            pcoords(VEC(i,j,k),2,q)
+        }; 
         
-        id.erad = id.fradx = id.frady = id.fradz = 0. ; 
+        id.erad = atmo.E_fl ;
+        id.fradx = id.frady = id.fradz = 0. ; 
 
-        if ( xyz[0] <= -0.5 ) {
+        if ( xyz[0] <= -0.25 and 
+            xyz[1] < 0.0625 and xyz[1] > - 0.0625 and 
+            xyz[2] < 0.0625 and xyz[2] > - 0.0625) {
             id.erad = id.fradx = 1.0 ; 
         }
 
@@ -109,6 +120,84 @@ struct straight_beam_m1_id_t {
 
     m1_atmo_params_t atmo ; 
     m1_excision_params_t excision ; 
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+} ;
+
+struct scattering_diffusion_m1_id_t {
+    scattering_diffusion_m1_id_t(
+        m1_atmo_params_t _atmo, 
+        m1_excision_params_t _excision,
+        coord_array_t<GRACE_NSPACEDIM> _pcoords,
+        double _ks, double _t0
+    ) : atmo(_atmo), excision(_excision), pcoords(_pcoords), ks(_ks), t0(_t0)
+    {}
+
+    m1_id_t KOKKOS_INLINE_FUNCTION 
+    operator() (
+        VEC(int const i, int const j, int const k), 
+        int const q) const 
+    {
+        m1_id_t id ; 
+        double xyz[3] = {
+            pcoords(VEC(i,j,k),0,q),
+            pcoords(VEC(i,j,k),1,q),
+            pcoords(VEC(i,j,k),2,q)
+        }; 
+        double r2 = SQR(xyz[0])+SQR(xyz[1])+SQR(xyz[2]);
+        double r = sqrt(r2) ; 
+        id.erad = Kokkos::pow(ks/t0,3./2.) * Kokkos::exp(-3*ks*r2/(4.*t0)) ; 
+
+        double Hr = r/(2.*t0) * id.erad ; 
+
+        id.fradx = xyz[0]/r * Hr ; 
+        id.frady = xyz[1]/r * Hr ; 
+        id.fradz = xyz[2]/r * Hr ; 
+
+        return id ; 
+    }
+
+    m1_atmo_params_t atmo ; 
+    m1_excision_params_t excision ; 
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+    double ks, t0;
+} ;
+
+struct moving_scattering_diffusion_m1_id_t {
+    moving_scattering_diffusion_m1_id_t(
+        m1_atmo_params_t _atmo, 
+        m1_excision_params_t _excision,
+        coord_array_t<GRACE_NSPACEDIM> _pcoords,
+        double _v0
+    ) : atmo(_atmo), excision(_excision), pcoords(_pcoords), v0(_v0)
+    {}
+
+    m1_id_t KOKKOS_INLINE_FUNCTION 
+    operator() (
+        VEC(int const i, int const j, int const k), 
+        int const q) const 
+    {
+        m1_id_t id ; 
+        double xyz[3] = {
+            pcoords(VEC(i,j,k),0,q),
+            pcoords(VEC(i,j,k),1,q),
+            pcoords(VEC(i,j,k),2,q)
+        }; 
+
+        id.erad = Kokkos::exp(-9.0*SQR(xyz[0])) ; 
+
+        double const W2 = 1./(1-SQR(v0)) ; 
+        double J = 3.*id.erad  / (4.*W2-1.); 
+
+        id.fradx = 4./3. * J * W2 * v0 ; 
+        id.frady = id.fradz = 0. ;  
+
+        return id ; 
+    }
+
+    m1_atmo_params_t atmo ; 
+    m1_excision_params_t excision ; 
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+    double v0;
 } ;
 
 

@@ -393,6 +393,57 @@ contract_sym2tens_sym2tens( std::array<double,6> const& A
              + A[YZ]*B[YZ] ) ;
 }
 
+/**
+ * @brief Compute the full contraction of two
+ *        symmetric rank 2 spatial tensors.
+ * 
+ * @param A Covariant components of the first 2-tensor.
+ * @param B Contravariant components of the other 2-tensor.
+ * @return double \f$A_{i j} B^{i j}\f$.
+ */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_sym2tens_sym2tens( double const (&A)[3][3]
+                          , std::array<double,6> const& B ) const 
+{
+    return A[0][0]*B[XX] + A[1][1]*B[YY] + A[2][2]*B[ZZ] 
+        +  2*( A[0][1]*B[XY] 
+             + A[0][2]*B[XZ]  
+             + A[1][2]*B[YZ] ) ;
+}
+
+/**
+ * @brief Compute the full contraction of two
+ *        symmetric rank 2 spatial tensors.
+ * 
+ * @param A Covariant components of the first 2-tensor.
+ * @param B Contravariant components of the other 2-tensor.
+ * @return double \f$A_{i j} B^{i j}\f$.
+ */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_sym2tens_sym2tens( std::array<double,6> const& A
+                          , double const (&B) [3][3] ) const 
+{ 
+    return contract_sym2tens_sym2tens(B,A) ;
+}
+
+/**
+ * @brief Compute the full contraction of two
+ *        symmetric rank 2 spatial tensors.
+ * 
+ * @param A Covariant components of the first 2-tensor.
+ * @param B Contravariant components of the other 2-tensor.
+ * @return double \f$A_{i j} B^{i j}\f$.
+ */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_sym2tens_sym2tens( double const (&A)[3][3]
+                          , double const (&B) [3][3] ) const 
+{ 
+    return A[0][0]*B[0][0] + A[1][1]*B[1][1] + A[2][2]*B[2][2]
+        +  2*( A[0][1]*B[0][1] 
+             + A[0][2]*B[0][2]  
+             + A[1][2]*B[1][2] ) ;
+}
+
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 contract_vec_vec_sym2tens( std::array<double,3> const& v
                          , std::array<double,3> const& w 

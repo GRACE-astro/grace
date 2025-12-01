@@ -194,7 +194,8 @@ void evolve_impl() {
             /*new*/state_pp,/*old*/state,
             /*new*/sstate_pp,/*old*/sstate
         ) ;
-
+        // no bc as implicit update acts in the gzs 
+        compute_auxiliary_quantities<eos_t>(state_pp, sstate_pp, aux) ; 
         // set s1 = yˆn + dt X(xi1) 
         advance_substep<eos_t>(
             t,dt,1.0,
@@ -232,8 +233,8 @@ void evolve_impl() {
         // solve xi2 = s1 + lambda dt G(xi2)
         advance_implicit_substep<eos_t>(
             t,dt,lambda,
-            /*new*/state_pp,/*old*/state,
-            /*new*/sstate_pp,/*old*/sstate
+            /*new*/state_pp,/*old*/state_p,
+            /*new*/sstate_pp,/*old*/sstate_p
         );
         // add dt / 2 G(xi2) to s
         linop_apply(
@@ -241,6 +242,7 @@ void evolve_impl() {
             sstate, sstate, sstate_pp, sstate_p,
             1.0, 1./(2*lambda), -1./(2*lambda)
         ) ; 
+        compute_auxiliary_quantities<eos_t>(state_pp, sstate_pp, aux) ; 
         // set s = yˆn + dt/2 (F(xi1)+F(xi2)) == yˆ{n+1}
         advance_substep<eos_t>(
             t, dt, 0.5,
@@ -288,7 +290,7 @@ void compute_fluxes(
         grmhd_eq_system(eos,old_state,old_stag_state,aux,atmo_params,excision_params) ; 
     //**************************************************************************************************/
     #ifdef GRACE_ENABLE_M1
-    m1_equations_system_t m1_eq_system(old_state,old_stag_state,aux) ; 
+    m1_equations_system_t m1_eq_system(old_state,old_stag_state,aux) ;
     // normalize 
     auto m1_norm_policy = 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
@@ -332,7 +334,7 @@ void compute_fluxes(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux")
                 , flux_x_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-        grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact) ;
+        //grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact) ;
         #ifdef GRACE_ENABLE_M1
         m1_eq_system.template compute_x_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
@@ -343,7 +345,7 @@ void compute_fluxes(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
                 , flux_y_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-        grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
+        //grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
         #ifdef GRACE_ENABLE_M1
         m1_eq_system.template compute_y_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
@@ -354,7 +356,7 @@ void compute_fluxes(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
                 , flux_z_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-        grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
+        //grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
         #ifdef GRACE_ENABLE_M1
         m1_eq_system.template compute_z_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
@@ -629,7 +631,7 @@ void add_fluxes_and_source_terms(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_sources")
                 , policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-        grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
+        //grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
         for( int ivar=0; ivar<nvars_hrsc; ++ivar) {
             new_state(VEC(i,j,k),ivar,q) += 
                 dt * dtfact * (
@@ -758,13 +760,46 @@ void update_fd(
     #endif 
 }
 
+
+// new_state = old_state + dt * dtfact * G(new_state)
 template< typename eos_t >
 void advance_implicit_substep( double const t, double const dt, double const dtfact 
                     , var_array_t& new_state 
                     , var_array_t& old_state 
                     , staggered_variable_arrays_t & new_stag_state 
                     , staggered_variable_arrays_t & old_stag_state )
-{/*to do*/}
+{/*to do*/
+
+    DECLARE_GRID_EXTENTS ; 
+
+    using namespace grace ; 
+    using namespace Kokkos ; 
+
+    Kokkos::deep_copy(new_state,old_state) ; 
+    deep_copy(new_stag_state,old_stag_state) ; 
+
+    auto& _idx = variable_list::get().getinvspacings() ; 
+    auto& aux  = variable_list::get().getaux() ; 
+
+    #ifdef GRACE_ENABLE_M1 
+    auto policy = 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(0,0,0),0}
+            , {VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}
+        ) ;
+    m1_equations_system_t m1_eq_system(old_state,old_stag_state,aux) ; 
+    parallel_for(
+          GRACE_EXECUTION_TAG("evol", "m1_implicit_sources")
+        , policy
+        , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+
+            m1_eq_system.compute_implicit_update(
+                q, VEC(i,j,k), _idx, new_state, dt, dtfact
+            );
+        }
+    ) ; 
+    #endif
+}
 
 template< typename eos_t >
 void advance_substep( double const t, double const dt, double const dtfact 

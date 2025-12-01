@@ -94,14 +94,13 @@ struct prolong_op {
             j_f%2 ? +1 : -1,
             k_f%2 ? +1 : -1
         } ; 
-
         view(VEC(i_f,j_f,k_f),iv,qid) = interpolator::interpolate(
                                             VEC(i_c,j_c,k_c),
                                             cid,iv, 
                                             VEC(signs[0],signs[1],signs[2]),
                                             cbuf
                                         ) ; 
-        
+
     }
 
 } ; 

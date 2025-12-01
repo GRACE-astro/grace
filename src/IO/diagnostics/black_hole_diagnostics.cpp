@@ -212,7 +212,7 @@ bh_diagnostics::compute_local_fluxes(
             u_phi = (-r*sph-a*cph)*sth*uD[1] + (r*cph-a*sph)*sth*uD[2] ; 
             b_phi = (-r*sph-a*cph)*sth*bD[1] + (r*cph-a*sph)*sth*bD[2] ; 
 
-            sqrtmdet = (r2 * SQR(a*cos(theta))) ; 
+            sqrtmdet = (r2 + SQR(a*cos(theta))) ; 
 
         } else {
             double drdx = x/r ; 

@@ -81,6 +81,9 @@ void set_initial_data_impl() {
     #ifdef GRACE_ENABLE_GRMHD
     set_grmhd_initial_data<eos_t>();
     #endif 
+    #ifdef GRACE_ENABLE_M1
+    set_m1_initial_data<eos_t>();
+    #endif 
     //transform_to_logical_frame() ; 
     Kokkos::Profiling::popRegion() ; 
 } 

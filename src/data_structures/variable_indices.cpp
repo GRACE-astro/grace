@@ -190,8 +190,8 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing",true) ; 
     REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing",true) ;
     #ifdef GRACE_ENABLE_M1
-    REGISTER_EVOLVED_SCALAR(ERAD,"Erad","outgoing",true) ;
-    REGISTER_EVOLVED_VECTOR(FRADX,FRADY,FRADZ,"Frad","outgoing",true) ;
+    REGISTER_EVOLVED_SCALAR(ERAD,"Erad","none",true) ;
+    REGISTER_EVOLVED_VECTOR(FRADX,FRADY,FRADZ,"Frad","none",true) ;
     #endif 
     REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(BSX,BSY,BSZ,"B_face", "outgoing"/*FIXME?*/, false);
     /* GRMHD primitives */

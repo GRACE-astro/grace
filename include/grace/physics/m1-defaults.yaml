@@ -8,7 +8,7 @@ m1: {
     E_scaling: 0
   },
   excision: {
-    E_ex: 1e-14
+    E_excision: 1e-14
   },
 
   # emission absorption scattering 
@@ -21,12 +21,13 @@ m1: {
   # scattering tests 
   scattering_test: {
     k_s: 1e02, 
-    velocity: 0
+    t_0: 1,
+    is_static_background: true
   },
 
   # specific parameters for 
   # emitting sphere tests 
   emitting_sphere_test: {
-    kappa_eta: 0.125 
+    kappa_eta: 0.125
   }
 }

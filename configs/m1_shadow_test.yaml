@@ -1,0 +1,56 @@
+name: "grace"
+amr: {
+  npoints_block_x: 32,
+  npoints_block_y: 32,
+  npoints_block_z: 32,
+  xmin: -0.5,
+  xmax: 0.5,
+  ymin: -0.125,
+  ymax: 0.125,
+  zmin: -0.125,
+  zmax: 0.125,
+  periodic_y: true,
+  periodic_z: true,
+  n_ghostzones: 4,
+  initial_refinement_level: 1,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+
+IO: {
+  plane_surface_output_cell_variables: ["Erad", "Frad[0]"],
+  plane_surface_output_every: 10,
+  info_output_every: 2,
+  info_output_max_reductions: ["Erad","rho"],
+  info_output_min_reductions: ["Erad","rho"],
+  output_use_hdf5: true, 
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 512
+}
+
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  flush_logs_based_on_severity: false,
+  n_device_streams: 4
+}
+
+evolution: {
+  time_stepper: "imex222",
+  cfl_factor: 0.2,
+  final_time: 0.25,
+  #termination_condition: "iteration",
+  #final_iteration: 15
+}
+
+m1: {
+  id_type: "shadow"
+}
+
+profiling: {
+  do_gpu_profiling: false
+}
+
+checkpoints: {
+  checkpoint_at_termination: false,
+}

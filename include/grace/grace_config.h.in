@@ -136,7 +136,7 @@ namespace grace {
 #define SQRTG_TO_CONFFACT(sqrtg) 1./6.*Kokkos::log(sqrtg)
 #endif
 
-#define SQR(a) (a)*(a)
+#define SQR(a) ((a)*(a))
 
 }
 #endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

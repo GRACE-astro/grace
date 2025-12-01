@@ -176,6 +176,8 @@ forest_impl_t::forest_impl_t()
         p4est_refine(_p4est, 1, fmr_refine_cback, fmr_init_cback) ;
         // call balance 
         p4est_balance(_p4est, P4EST_CONNECT_FULL, fmr_init_cback) ; 
+        // call partition! 
+        p4est_partition(_p4est, 1, nullptr) ; 
     }
 
     GRACE_INFO("Forest initialized with {} ({}) total (local) quadrants."

@@ -717,8 +717,8 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
 
     _reflux_snd_buf.set_strides(nx/2, nvars_hrsc) ; 
     _reflux_recv_buf.set_strides(nx/2, nvars_hrsc) ; 
-    _reflux_emf_snd_buf.set_strides(nx/2+1, 2) ; 
-    _reflux_emf_recv_buf.set_strides(nx/2+1, 2) ; 
+    _reflux_emf_snd_buf.set_strides(nx/2, 2) ; 
+    _reflux_emf_recv_buf.set_strides(nx/2, 2) ; 
 
     _reflux_snd_buf.set_offsets(_reflux_snd_off)          ; 
     _reflux_recv_buf.set_offsets(_reflux_rcv_off)         ; 

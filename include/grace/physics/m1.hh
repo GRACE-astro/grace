@@ -44,6 +44,7 @@
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
 #include <grace/utils/advanced_riemann_solvers.hh>
+#include <grace/physics/m1_helpers.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -220,6 +221,7 @@ struct m1_equations_system_t
 
         m1_closure_t cl{prims,metric} ;
         cl.update_closure(0.) ; 
+        cl.compute_pressure() ; 
         auto const& PUU = cl.PUU ; 
         /**************************************************************************************************/
         /* Indices for contraction of P^{ij} onto \partial_i \beta_j (see E source below)                 */  
@@ -261,7 +263,7 @@ struct m1_equations_system_t
             /**************************************************************************************************/
             /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
             double const dalp_dxi =  0.5*(metric_p.alp() - metric_m.alp()) ;
-
+            double const PAB_dgab_dxi = metric.contract_sym2tens_sym2tens(dgab_dxi,PUU) ;
             #ifdef GRACE_ENABLE_COWLING_METRIC
             /**************************************************************************************************/
             /* In Cowling approx we can use the simpler form of the source term which reads                   */
@@ -274,10 +276,10 @@ struct m1_equations_system_t
             } ; 
 
             E_source += idx(idir,q) * (
-                0.5 * metric.beta(idir) * metric.contract_sym2tens_sym2tens(dgab_dxi,PUU)
+                0.5 * metric.beta(idir) * PAB_dgab_dxi
               + metric.contract_vec_vec( 
                     dbetaj_dxi
-                ,   {PUU[spatial_index[idir][0]],PUU[spatial_index[idir][1]],PUU[spatial_index[idir][2]]})
+                ,   {PUU[idir][0],PUU[idir][1],PUU[idir][2]})
             ) ; 
             #endif 
             /**************************************************************************************************/
@@ -290,7 +292,7 @@ struct m1_equations_system_t
             /*         + \alpha/2 Pˆ{jk} \partial_i \gamma_{jk}                                               */
             /**************************************************************************************************/
             double F_source = idx(idir,q) * ( -cl.E*dalp_dxi + metric.contract_vec_covec(cl.FD,dbetaj_dxi) 
-                                              + 0.5 * metric.alp() *  metric.contract_sym2tens_sym2tens(dgab_dxi,PUU) ) ; 
+                                              + 0.5 * metric.alp() *  PAB_dgab_dxi ) ; 
             state_new(VEC(i,j,k),FRADX_+idir,q) += dt * dtfact * metric.sqrtg() * F_source ; 
         }
         state_new(VEC(i,j,k),ERAD_,q) += dt * dtfact * metric.sqrtg() * E_source ; 
@@ -329,7 +331,7 @@ struct m1_equations_system_t
         } ; 
         // rescale if superluminal
         if ( cl.F >= cl.E ) {
-            double fact = 0.9999 * cl.E ; 
+            double fact = 0.9999 * cl.E / cl.F ; 
             this->_state(VEC(i,j,k),FRADX_,q) *= fact ; 
             this->_state(VEC(i,j,k),FRADY_,q) *= fact ; 
             this->_state(VEC(i,j,k),FRADZ_,q) *= fact ; 
@@ -354,7 +356,113 @@ struct m1_equations_system_t
         
     }
 
+    /**
+     * @brief Compute M1 implicit update.
+     * 
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param q Quadrant index.
+     */
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    compute_implicit_update( const int q 
+                         , VEC( const int i 
+                         ,      const int j 
+                         ,      const int k)
+                         , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
+                         , grace::var_array_t const state_new
+                         , double const dt 
+                         , double const dtfact ) const 
+    {
+        using namespace grace  ;
+        using namespace Kokkos ;
+        /**************************************************************************************************/
+        /* Read in the metric                                                                             */
+        metric_array_t metric ; 
+        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
+        /**************************************************************************************************/
+        // read in eas 
+        m1_eas_array_t eas ; 
+        eas[KAL]  = this->_aux(VEC(i,j,k),KAPPAA_,q) ; 
+        eas[KSL]  = this->_aux(VEC(i,j,k),KAPPAS_,q) ; 
+        eas[ETAL] = this->_aux(VEC(i,j,k),ETA_,q) ; 
+        /**************************************************************************************************/
+        // construct closure and update
+        m1_prims_array_t prims ; 
+        FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
+        prims[ERADL] /= metric.sqrtg() ; 
+        prims[FXL] /= metric.sqrtg(); 
+        prims[FYL] /= metric.sqrtg(); 
+        prims[FZL] /= metric.sqrtg(); 
 
+        m1_closure_t cl{prims,metric} ;
+        cl.update_closure(0.) ;
+        /**************************************************************************************************/
+        // store explicitly updated state 
+        double W[4] ; 
+        W[0] = prims[ERADL] ; W[1] = prims[FXL] ; W[2] = prims[FYL] ; W[3] = prims[FZL] ;   
+        /**************************************************************************************************/
+        // construct the initial guess 
+        double U[4] ; 
+        cl.get_implicit_update_initial_guess(eas, U, dt, dtfact);
+        /**************************************************************************************************/
+        // construct the lambdas for the evaluation of the update 
+        auto const func = [&cl,eas,W,dt,dtfact] (double (&u)[4], double (&s)[4]) {
+            cl.implicit_update_func(eas,u,W,s,dt,dtfact) ; 
+        } ; 
+        auto const dfunc = [&cl,eas,W,dt,dtfact] (double (&u)[4], double (&s)[4], double (&J)[4][4]) {
+            cl.implicit_update_dfunc(eas,u,W,s,J,dt,dtfact) ; 
+        } ; 
+        /**************************************************************************************************/
+        // call rootfinder 
+        unsigned long maxiter = 30 ; 
+        int err ; 
+        utils::rootfind_nd_newton_raphson<4>(
+            func, dfunc, U, maxiter, 1e-15, err
+        ) ; 
+        /**************************************************************************************************/
+        if ( err != utils::nr_err_t::SUCCESS ) {
+            // assume optically thick closure and 
+            // repeat 
+            cl = m1_closure_t(prims,metric) ;
+            cl.update_closure(0.,false /*nb no update here*/) ;
+
+            cl.get_implicit_update_initial_guess(eas, U, dt, dtfact);
+
+            auto const fixed_closure_func = [&cl,eas,W,dt,dtfact] (double (&u)[4], double (&s)[4]) {
+                cl.implicit_update_func(eas,u,W,s,dt,dtfact,false) ; 
+            } ; 
+            auto const fixed_closure_dfunc = [&cl,eas,W,dt,dtfact] (double (&u)[4], double (&s)[4], double (&J)[4][4]) {
+                cl.implicit_update_dfunc(eas,u,W,s,J,dt,dtfact) ; 
+            } ; 
+            utils::rootfind_nd_newton_raphson<4>(
+                fixed_closure_func, fixed_closure_dfunc, U, maxiter, 1e-15, err
+            ) ; 
+            // if we failed again we just take a linear step and call it 
+            if ( err != utils::nr_err_t::SUCCESS ) {
+                cl.update_closure(prims,0,true) ; 
+                double J[4][4] ; 
+                double S[4] ; 
+                cl.get_implicit_jacobian(eas,J) ; 
+                for( int i=0; i<4; ++i ) {
+                    U[i] = - W[i] ; 
+                    for ( int j=0; j<4; ++j) {
+                        J[i][j] = dt * dtfact * J[i][j] - (i==j) ; 
+                    }
+                }
+                int piv[5];
+                LUPDecompose<4>(J,1e-15,piv) ; 
+                LUPSolve(J,piv,U) ; 
+            }
+        }
+        /**************************************************************************************************/
+        // write back to the new state 
+        state_new(VEC(i,j,k),ERAD_,q)  = metric.sqrtg() * U[0] ; 
+        state_new(VEC(i,j,k),FRADX_,q) = metric.sqrtg() * U[1] ;
+        state_new(VEC(i,j,k),FRADY_,q) = metric.sqrtg() * U[2] ;
+        state_new(VEC(i,j,k),FRADZ_,q) = metric.sqrtg() * U[3] ;
+        /**************************************************************************************************/
+    }
     private:
     /***********************************************************************/
     //! Number of reconstructed variables.
@@ -477,20 +585,21 @@ struct m1_equations_system_t
         }; 
 
         cl.update_closure(0) ; cr.update_closure(0) ;  
+        cl.compute_pressure(); cr.compute_pressure() ; 
         // compute P^i_j 
         int imap[3][3] = {
             {0,1,2}, {1,3,4}, {2,4,5}
         } ; 
-        auto const& PUU_l = cl.PUU ; auto const& PUU_r = cr.PUU ; 
+        auto const PUU_l = cl.PUU ; auto const PUU_r = cr.PUU ; 
         auto const PUD_l = metric_face.lower(
-            {PUU_l[imap[idir][0]], PUU_l[imap[idir][1]],PUU_l[imap[idir][2]]}
+            {PUU_l[idir][0], PUU_l[idir][1],PUU_l[idir][2]}
         ) ; 
         auto const PUD_r = metric_face.lower(
-            {PUU_r[imap[idir][0]], PUU_r[imap[idir][1]],PUU_r[imap[idir][2]]}
+            {PUU_r[idir][0], PUU_r[idir][1],PUU_r[idir][2]}
         ) ; 
         // compute the A factor for asymptotic flux correction 
-        double const kappa = this->_aux(VEC(i,j,k),KAPPAA_,q) + this->_aux(VEC(i,j,k),KAPPAS_,q) ; 
-        double const A = min(1, 1. / dx(idir,q) / kappa ) ; 
+        double const kappa = this->_aux(VEC(i,j,k),KAPPAA_,q) + this->_aux(VEC(i,j,k),KAPPAS_,q) + 1e-20 ; 
+        double const A = fmin(1., 1. / dx(idir,q) / kappa ) ; 
         // compute one component of the upper-index flux for the E flux 
         
         double FUd_l = metric_face.invgamma(imap[idir][0]) * primL[FXL] 
@@ -545,24 +654,18 @@ struct m1_equations_system_t
         double& cp, double &cm, m1_closure_t const& cl, metric_array_t const& metric
     ) const 
     {
-        double const cpthin = -metric.beta(idir) + metric.alp() * fabs(cl.FU[idir])/cl.F ; 
-        double const cmthin = -metric.beta(idir) - metric.alp() * fabs(cl.FU[idir])/cl.F ; 
 
-        double const p = metric.alp() * cl.vU[idir]/cl.W ; 
-        int const icomp = (idir==0) * 0 + (idir==1)*2 + (idir==2)*5 ;
-        double const r = sqrt(SQR(metric.alp()) * metric.invgamma(icomp) * (2.*cl.W2 + 1.) - 2.*cl.W2 * SQR(p));
-
-        double const cpthick = min(
-            -metric.beta(idir) + (2.*p*cl.W2+r)/(2.*cl.W2+1.), -metric.beta(idir) + p 
-        ) ; 
-        double const cmthick = min(
-            -metric.beta(idir) + (2.*p*cl.W2-r)/(2.*cl.W2+1.), -metric.beta(idir) + p 
-        ) ; 
+        int const icomp = (idir==0)*0 + (idir==1)*3 + (idir==2)*5 ;
 
         double dthin = cl.chi * 1.5 - 0.5 ; 
         double dthick = 1.5 - cl.chi * 1.5 ;
-        cp = dthin * cpthin + dthick * cpthick ;
-        cm = dthin * cmthin + dthick * cmthick ; 
+
+        m1_wavespeeds(
+            dthin, dthick, metric.alp(),
+            cl.F, cl.W, metric.beta(idir),
+            cl.FU[idir], metric.invgamma(icomp),
+            cl.vU[idir], &cp, &cm
+        ) ; 
 
     }
 

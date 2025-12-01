@@ -178,7 +178,12 @@ static void check()
     auto& emf = grace::variable_list::get().getemfarray() ; 
     auto& ghost_layer = grace::amr_ghosts::get();
     auto const& edge_desc = ghost_layer.get_reflux_edge_descriptors() ; 
-    dump(edge_desc,"edge_desc.out"); 
+    auto const& coarse_edge_desc = ghost_layer.get_reflux_coarse_edge_descriptors() ; 
+
+    auto rank = parallel::mpi_comm_rank() ; 
+    dump(edge_desc, "edge_desc" + std::to_string(rank) + ".out");
+    dump(coarse_edge_desc, "coarse_edge_desc" + std::to_string(rank) + ".out");
+
     using namespace grace ; 
 
     auto emf_h = create_mirror_view(emf) ; 
