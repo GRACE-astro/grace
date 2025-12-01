@@ -201,5 +201,46 @@ struct moving_scattering_diffusion_m1_id_t {
 } ;
 
 
+struct emitting_sphere_m1_id_t {
+    emitting_sphere_m1_id_t(
+        m1_atmo_params_t _atmo, 
+        m1_excision_params_t _excision,
+        coord_array_t<GRACE_NSPACEDIM> _pcoords
+    ) : atmo(_atmo), excision(_excision), pcoords(_pcoords)
+    {}
+
+    m1_id_t KOKKOS_INLINE_FUNCTION 
+    operator() (
+        VEC(int const i, int const j, int const k), 
+        int const q) const 
+    {
+        m1_id_t id ; 
+        double xyz[3] = {
+            pcoords(VEC(i,j,k),0,q),
+            pcoords(VEC(i,j,k),1,q),
+            pcoords(VEC(i,j,k),2,q)
+        }; 
+
+        double r2 = SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2]) ; 
+        double r = sqrt(r2) ; 
+
+        if ( r < 1. ) {
+            id.erad = 1. ; 
+            id.fradx=id.frady=id.fradz = 0 ; 
+        } else {
+            id.erad = 1/r2 ;
+            id.fradx = 0.5/r2 * xyz[0]/r ; 
+            id.frady = 0.5/r2 * xyz[1]/r ; 
+            id.fradz = 0.5/r2 * xyz[2]/r ; 
+        }
+
+        return id ; 
+    }
+
+    m1_atmo_params_t atmo ; 
+    m1_excision_params_t excision ; 
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+} ;
+
 } /* namespace grace */
 #endif /*GRACE_PHYSICS_ID_M1_HH*/

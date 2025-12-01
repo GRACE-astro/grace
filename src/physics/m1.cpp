@@ -213,10 +213,10 @@ void set_m1_initial_data() {
     } else if ( id_type == "emitting_sphere") {
         auto hydro_id_type = grace::get_param<std::string>("grmhd","id_type") ;
         ASSERT(hydro_id_type=="minkowski_vacuum", "For M1 tests the hydro must be set to minkowski_vacuum") ; 
-        coord_array_t<GRACE_NSPACEDIM> sph_pcoords ; 
-        grace::fill_physical_coordinates(sph_pcoords,grace::STAG_CENTER,/*spherical coords*/ true) ;
-        zero_m1_id_t id{ 
-            m1_atmo_params, m1_excision_params, sph_pcoords
+        coord_array_t<GRACE_NSPACEDIM> cart_pcoords ; 
+        grace::fill_physical_coordinates(cart_pcoords,grace::STAG_CENTER,/*cartesian coords*/ false) ;
+        emitting_sphere_m1_id_t id{ 
+            m1_atmo_params, m1_excision_params, cart_pcoords 
         } ; 
         set_m1_initial_data_impl(id) ; 
     } else if ( id_type == "zero") {

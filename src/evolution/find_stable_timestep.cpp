@@ -41,6 +41,10 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
 #endif
+#ifdef GRACE_ENABLE_M1
+#include <grace/physics/m1_helpers.hh>
+#include <grace/physics/m1.hh>
+#endif 
 #include <grace/physics/eos/eos_types.hh>
 
 #include <Kokkos_Core.hpp>
@@ -108,7 +112,9 @@ void find_stable_timestep_impl() {
     #define GET_CMAX \
     grmhd_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
     #endif 
-
+    #ifdef GRACE_ENABLE_M1 
+    m1_equations_system_t m1_eq_system(state,sstate,aux) ;
+    #endif 
     double dt_local ; 
 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
@@ -119,10 +125,14 @@ void find_stable_timestep_impl() {
                    , KOKKOS_LAMBDA(VEC(int const& i, int const& j, int const& k), int const& q, double& dtmax)
     {
         #ifndef GRACE_ENABLE_BSSN_METRIC
-        double const cmax = GET_CMAX; 
+        double cmax = GET_CMAX; 
         #else 
-        double const cmax = 1 ; 
+        double cmax = 1 ; 
         #endif 
+        #ifdef GRACE_ENABLE_M1 
+        cmax = fmax(cmax,m1_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)) ; 
+        #endif 
+
         double L    ; 
         #ifdef GRACE_3D 
         L = Kokkos::cbrt(cvol(VEC(i,j,k),q)) ; 

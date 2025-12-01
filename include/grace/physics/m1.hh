@@ -463,6 +463,64 @@ struct m1_equations_system_t
         state_new(VEC(i,j,k),FRADZ_,q) = metric.sqrtg() * U[3] ;
         /**************************************************************************************************/
     }
+
+    /**
+     * @brief Compute maximum absolute value eigenspeed.
+     * 
+     * @param i Cell index in \f$x^1\f$ direction.
+     * @param j Cell index in \f$x^2\f$ direction.
+     * @param k Cell index in \f$x^3\f$ direction.
+     * @param q Quadrant index.
+     * @return double Maximum eigenspeed of GRMHD equations.
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_max_eigenspeed( VEC( const int i 
+                          ,      const int j 
+                          ,      const int k) 
+                          , int64_t q ) const 
+    {
+        using namespace grace; 
+        using namespace Kokkos ; 
+        /**************************************************************************************************/
+        /* Read in the metric                                                                             */
+        metric_array_t metric ; 
+        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
+        /**************************************************************************************************/
+        // read in eas 
+        m1_eas_array_t eas ; 
+        eas[KAL]  = this->_aux(VEC(i,j,k),KAPPAA_,q) ; 
+        eas[KSL]  = this->_aux(VEC(i,j,k),KAPPAS_,q) ; 
+        eas[ETAL] = this->_aux(VEC(i,j,k),ETA_,q) ; 
+        /**************************************************************************************************/
+        // construct closure and update
+        m1_prims_array_t prims ; 
+        FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
+        prims[ERADL] /= metric.sqrtg() ; 
+        prims[FXL] /= metric.sqrtg(); 
+        prims[FYL] /= metric.sqrtg(); 
+        prims[FZL] /= metric.sqrtg(); 
+
+        m1_closure_t cl{prims,metric} ;
+        cl.update_closure(0.) ;
+        /**************************************************************************************************/
+        double cmax=0. ; 
+        {
+            double cp, cm ; 
+            compute_cp_cm<0>(cp,cm,cl,metric) ; 
+            cmax = fmax(cmax,fmax(fabs(cp),fabs(cm))) ; 
+        }
+        {
+            double cp, cm ; 
+            compute_cp_cm<1>(cp,cm,cl,metric) ; 
+            cmax = fmax(cmax,fmax(fabs(cp),fabs(cm))) ; 
+        }
+        {
+            double cp, cm ; 
+            compute_cp_cm<2>(cp,cm,cl,metric) ; 
+            cmax = fmax(cmax,fmax(fabs(cp),fabs(cm))) ; 
+        }
+        return cmax ; 
+    }
     private:
     /***********************************************************************/
     //! Number of reconstructed variables.
