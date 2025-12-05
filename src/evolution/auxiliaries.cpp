@@ -132,20 +132,14 @@ void compute_auxiliary_quantities(
 
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,state,sstate,aux,atmo_params,excision_params) ; 
-    #define GET_AUX 
-    //grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, pcoords)
+    #define GET_AUX \
+    grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, pcoords)
     #else 
     #define GET_AUX
     #endif 
     #ifdef GRACE_ENABLE_M1 
-    m1_excision_params_t m1_excision_params ;
-    m1_excision_params.excise_by_radius = excision_params.excise_by_radius;
-    m1_excision_params.r_ex = excision_params.r_ex;
-    m1_excision_params.alp_ex = excision_params.alp_ex;
-    m1_excision_params.E_ex = grace::get_param<double>("m1", "excision", "E_excision") ; 
-    m1_atmo_params_t m1_atmo_params ; 
-    m1_atmo_params.E_fl = grace::get_param<double>("m1", "atmosphere", "E_fl") ;
-    m1_atmo_params.E_fl_scaling = grace::get_param<double>("m1", "atmosphere", "E_scaling") ;
+    m1_excision_params_t m1_excision_params = get_m1_excision_params() ; 
+    m1_atmo_params_t m1_atmo_params = get_m1_atmo_params() ; 
     m1_equations_system_t m1_eq_system(state,sstate,aux,m1_atmo_params,m1_excision_params) ; 
     #endif 
 

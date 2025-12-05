@@ -5,10 +5,15 @@ m1: {
   # atmosphere and excision settings 
   atmosphere: {
     E_fl: 1e-14,
-    E_scaling: 0
+    E_scaling: 0,
+    eps_fl: 1,
+    eps_fl_scaling: 0,
+    eps_min: 1,
+    eps_max: 10
   },
   excision: {
-    E_excision: 1e-14
+    E_excision: 1e-14,
+    eps_excision: 1
   },
 
   # emission absorption scattering 

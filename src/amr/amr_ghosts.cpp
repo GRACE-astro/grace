@@ -117,6 +117,7 @@ void amr_ghosts_impl_t::update() {
     p4est_iter_data_t iter_data {
         &ghost_layer,
         &_reflux_face_descs,
+        &_reflux_coarse_face_descs,
         &_reflux_edge_descs,
         &_reflux_coarse_edge_descs
     } ; 
@@ -665,6 +666,29 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         }
     }
     _reflux_face_descs.swap(local_interfaces) ; // note, we discard the total array here and only keep the locals
+    // we need to dedup 
+    std::sort(_reflux_face_snd.begin(), _reflux_face_snd.end(), 
+        [](const hanging_remote_reflux_desc_t& a, const hanging_remote_reflux_desc_t& b) {
+            if (a.rank < b.rank) return true;
+            if (b.rank < a.rank) return false;
+            if (a.buf_id < b.buf_id) return true;
+            if (b.buf_id < a.buf_id) return false;
+            if (a.qid < b.qid) return true;
+            if (b.qid < a.qid) return false;
+            return (a.elem_id < b.elem_id);
+        }
+    );
+
+    // Then remove consecutive duplicates
+    _reflux_face_snd.erase(
+        std::unique(_reflux_face_snd.begin(), _reflux_face_snd.end(),
+            [](const hanging_remote_reflux_desc_t& a, const hanging_remote_reflux_desc_t& b) {
+                return a.rank == b.rank && a.buf_id == b.buf_id && 
+                    a.qid == b.qid && a.elem_id == b.elem_id;
+            }
+        ),
+        _reflux_face_snd.end()
+    );
     GRACE_VERBOSE("We have {} local faces which need refluxing", _reflux_face_descs.size() ) ; 
     // allocate buffers 
     // we know counts, now we need per-rank sizes and per-rank offsets 
@@ -731,8 +755,134 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     _reflux_emf_recv_buf.realloc(total_rcv_emf) ; 
 
     GRACE_VERBOSE("Flux buffers constructed, total size send flux: {} emf: {}, total size receive flux: {} emf: {}", total_snd_flux, total_snd_emf, total_rcv_flux, total_rcv_emf) ; 
+    // now: coarse faces 
+    snd_keys = std::vector<std::vector<comm_key_t>>(nproc) ; 
+    rcv_keys = std::vector<std::vector<comm_key_t>>(nproc) ;
+    // loop over coarse
+    for( int i=0; i<_reflux_coarse_face_descs.size(); ++i) {
+        auto const& dsc =  _reflux_coarse_face_descs[i] ; 
+        for( int is=0; is<2; ++is ) {
+            if ( dsc.is_remote[is] ) {
+                // send and receive 
+                int8_t elem_id = dsc.owner_rank[is] < rank ? dsc.face_id[is] : dsc.face_id[1-is] ;
+                // we send the other qid 
+                snd_keys[dsc.owner_rank[is]].push_back(
+                    comm_key_t(dsc.qid[1-is], elem_id)
+                ) ; 
+                // we receive this qid 
+                rcv_keys[dsc.owner_rank[is]].push_back(
+                    comm_key_t(dsc.qid[is], elem_id)
+                ) ; 
+            }
+        }
+    }
 
+    for (auto& m : send_lookup) m.clear();
+    for (auto& m : recv_lookup) m.clear();
+    rank_send_counts = std::vector<size_t>(nproc,0); rank_recv_counts = std::vector<size_t>(nproc,0) ; 
+    for (int r = 0; r < nproc; ++r) {
+        { // send 
+            auto &vec = snd_keys[r];
+            std::sort(vec.begin(), vec.end(), key_cmp{});
+            // dedup on send
+            vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
+            // count 
+            rank_send_counts[r] = vec.size() ; 
+            // build a lookup: comm_key_t -> index
+            std::unordered_map<comm_key_t, size_t, comm_key_hash> snd_index;
+            snd_index.reserve(vec.size());
+            for (size_t k = 0; k < vec.size(); ++k)
+                snd_index[vec[k]] = k;
 
+            send_lookup[r] = std::move(snd_index);
+        }
+        { // receive 
+            auto &vec = rcv_keys[r];
+            std::sort(vec.begin(), vec.end(), key_cmp{});
+            vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
+            // count 
+            rank_recv_counts[r] = vec.size() ; 
+            // build a lookup: comm_key_t -> index
+            std::unordered_map<comm_key_t, size_t, comm_key_hash> recv_index;
+            recv_index.reserve(vec.size());
+            for (size_t k = 0; k < vec.size(); ++k)
+                recv_index[vec[k]] = k;
+
+            recv_lookup[r] = std::move(recv_index);
+        }
+    }
+    _reflux_coarse_face_snd.clear() ; 
+    // loop over coarse
+    for( int i=0; i<_reflux_coarse_face_descs.size(); ++i) {
+        auto& dsc =  _reflux_coarse_face_descs[i] ; 
+        for( int is=0; is<2; ++is ) {
+            if ( dsc.is_remote[is] ) {
+                auto r = dsc.owner_rank[is] ; 
+                // send and receive 
+                int8_t elem_id = r < rank ? dsc.face_id[is] : dsc.face_id[1-is] ;
+
+                // send: we need to register into the send list 
+                comm_key_t snd_key{
+                    dsc.qid[1-is], elem_id
+                } ; 
+                hanging_remote_reflux_desc_t snd_desc{} ;
+                snd_desc.qid = dsc.qid[1-is] ;
+                snd_desc.rank = r ; 
+                snd_desc.elem_id =  dsc.face_id[1-is] ;
+                snd_desc.buf_id = send_lookup[r][snd_key];
+                _reflux_coarse_face_snd.push_back(snd_desc) ;
+
+                // receive: we write back the bufid into the desc
+                comm_key_t rcv_key{
+                    dsc.qid[is], elem_id
+                } ; 
+                dsc.qid[is] = recv_lookup[r][rcv_key] ; 
+            }
+        }
+    }
+    // NB no duplicates here
+    send_size_emf = nx*nx*2 ; 
+    _reflux_snd_emf_coarse_off = std::vector<size_t>(nproc,0) ; 
+    _reflux_rcv_emf_coarse_off = std::vector<size_t>(nproc,0) ; 
+    _reflux_snd_emf_coarse_size = std::vector<size_t>(nproc,0) ; 
+    _reflux_rcv_emf_coarse_size = std::vector<size_t>(nproc,0) ;
+
+    // sizes first 
+    for( int r=0; r<nproc; ++r) {
+        _reflux_snd_emf_coarse_size[r] = rank_send_counts[r] * send_size_emf ; 
+        _reflux_rcv_emf_coarse_size[r] = rank_recv_counts[r] * send_size_emf ; 
+    }
+    // then offsets
+    for( int r=1; r<nproc; ++r) {
+        _reflux_snd_emf_coarse_off[r] = _reflux_snd_emf_coarse_off[r-1] + _reflux_snd_emf_coarse_size[r-1] ;
+        _reflux_rcv_emf_coarse_off[r] = _reflux_rcv_emf_coarse_off[r-1] + _reflux_rcv_emf_coarse_size[r-1] ;
+    }
+
+    total_snd_emf = total_rcv_emf = 0 ; 
+    for (size_t r = 0; r < nproc; ++r) {
+        total_snd_emf  += _reflux_snd_emf_coarse_size[r];
+        total_rcv_emf  += _reflux_rcv_emf_coarse_size[r];
+    }
+
+    _reflux_emf_coarse_snd_buf = amr::reflux_array_t("reflux_emf_coarse_send") ; 
+    _reflux_emf_coarse_recv_buf = amr::reflux_array_t("reflux_emf_coarse_receive") ; 
+
+    _reflux_emf_coarse_snd_buf.set_strides(nx, 2) ; 
+    _reflux_emf_coarse_recv_buf.set_strides(nx, 2) ;
+    _reflux_emf_coarse_snd_buf.set_offsets(_reflux_snd_emf_coarse_off)  ; 
+    _reflux_emf_coarse_recv_buf.set_offsets(_reflux_rcv_emf_coarse_off) ; 
+    _reflux_emf_coarse_snd_buf.realloc(total_snd_emf)  ; 
+    _reflux_emf_coarse_recv_buf.realloc(total_rcv_emf) ; 
+    GRACE_VERBOSE("Coarse faces: total send {} total receive {}", total_snd_emf,total_rcv_emf) ; 
+    // Detailed per-rank breakdown
+    for( int r=0; r<nproc; ++r) {
+        if (_reflux_snd_emf_coarse_size[r] > 0 || _reflux_rcv_emf_coarse_size[r] > 0) {
+            GRACE_VERBOSE("Coarse faces: Rank {}: send[off={}, size={}] recv[off={}, size={}]", 
+                r, 
+                _reflux_snd_emf_coarse_off[r], _reflux_snd_emf_coarse_size[r],
+                _reflux_rcv_emf_coarse_off[r], _reflux_rcv_emf_coarse_size[r]);
+        }
+    }
     // now: edges 
     // the convention is that the sender sets the element id 
     snd_keys = std::vector<std::vector<comm_key_t>>(nproc) ; 
@@ -945,6 +1095,28 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
             }
         }
     }
+    // we need to dedup _reflux_edge_snd 
+    std::sort(_reflux_edge_snd.begin(), _reflux_edge_snd.end(), 
+        [](const hanging_remote_reflux_desc_t& a, const hanging_remote_reflux_desc_t& b) {
+            if (a.rank < b.rank) return true;
+            if (b.rank < a.rank) return false;
+            if (a.buf_id < b.buf_id) return true;
+            if (b.buf_id < a.buf_id) return false;
+            if (a.qid < b.qid) return true;
+            if (b.qid < a.qid) return false;
+            return (a.elem_id < b.elem_id);
+        }
+    );
+    _reflux_edge_snd.erase(
+        std::unique(_reflux_edge_snd.begin(), _reflux_edge_snd.end(),
+            [](const hanging_remote_reflux_desc_t& a, const hanging_remote_reflux_desc_t& b) {
+                return a.rank == b.rank && a.buf_id == b.buf_id && 
+                    a.qid == b.qid && a.elem_id == b.elem_id;
+            }
+        ),
+        _reflux_edge_snd.end()
+    );
+
     // finally allocate 
     // here we always send the emf along the edge --> no stagger
     // also we always send just one --> send size simply nx 
@@ -994,6 +1166,18 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     _reflux_emf_coarse_edge_accumulation_buf = Kokkos::View<double**, grace::default_space>(
         "reflux_emf_coarse_edge_local_buffer", nx, _reflux_coarse_edge_descs.size()
     ) ; 
+
+    GRACE_VERBOSE("Send size {} receive size {} send buffer {}", total_snd_emf_edge/send_size_emf, total_rcv_emf_edge/send_size_emf, _reflux_edge_snd.size());
+    
+    // Detailed per-rank breakdown
+    for( int r=0; r<nproc; ++r) {
+        if (_reflux_snd_emf_edge_size[r] > 0 || _reflux_rcv_emf_edge_size[r] > 0) {
+            GRACE_VERBOSE("Rank {}: send[off={}, size={}] recv[off={}, size={}]", 
+                r, 
+                _reflux_snd_emf_edge_off[r], _reflux_snd_emf_edge_size[r],
+                _reflux_rcv_emf_edge_off[r], _reflux_rcv_emf_edge_size[r]);
+        }
+    }
 }
 
 } /* namespace grace */

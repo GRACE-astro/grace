@@ -134,10 +134,15 @@ static void set_m1_initial_data_impl(
         policy,
         KOKKOS_LAMBDA (VEC(int const i, int const j, int const k), int const q) {
             auto id = id_kernel(i,j,k,q) ; 
-            state(VEC(i,j,k),ERAD_,q) = id.erad ; 
-            state(VEC(i,j,k),FRADX_,q) = id.fradx ; 
-            state(VEC(i,j,k),FRADY_,q) = id.frady ; 
-            state(VEC(i,j,k),FRADZ_,q) = id.fradz ; 
+            // metric 
+            metric_array_t metric ; 
+            FILL_METRIC_ARRAY(metric,state,q,i,j,k) ; 
+            // set id 
+            state(VEC(i,j,k),ERAD_,q)  = metric.sqrtg() * id.erad ; 
+            state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * id.nrad ; 
+            state(VEC(i,j,k),FRADX_,q) = metric.sqrtg() * id.fradx ; 
+            state(VEC(i,j,k),FRADY_,q) = metric.sqrtg() * id.frady ; 
+            state(VEC(i,j,k),FRADZ_,q) = metric.sqrtg() * id.fradz ; 
         }
     ) ; 
 }
@@ -155,15 +160,8 @@ void set_m1_initial_data() {
     auto& coord_system = grace::coordinate_system::get() ; 
     auto device_coord_system = coord_system.get_device_coord_system() ; 
 
-    m1_excision_params_t m1_excision_params ;
-    m1_excision_params.excise_by_radius = m1_excision_params.excise_by_radius;
-    m1_excision_params.r_ex = m1_excision_params.r_ex;
-    m1_excision_params.alp_ex = m1_excision_params.alp_ex;
-    m1_excision_params.E_ex = grace::get_param<double>("m1", "excision", "E_excision") ; 
-    m1_atmo_params_t m1_atmo_params ; 
-    m1_atmo_params.E_fl = grace::get_param<double>("m1", "atmosphere", "E_fl") ;
-    m1_atmo_params.E_fl_scaling = grace::get_param<double>("m1", "atmosphere", "E_scaling") ;
-
+    m1_excision_params_t m1_excision_params = get_m1_excision_params() ;
+    m1_atmo_params_t m1_atmo_params = get_m1_atmo_params() ; 
 
     GRACE_VERBOSE("Setting M1 initial data of type {}", id_type) ; 
     if ( id_type == "straight_beam" ) {

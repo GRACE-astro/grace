@@ -397,10 +397,9 @@ void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data)
     }
     if ( n_fine > 0 ) { 
         iter_data->reflux_edges->push_back(desc) ; 
-    } 
-    //else {
-    //    iter_data->reflux_coarse_edges->push_back(desc) ; 
-    //}
+    } else {
+        iter_data->reflux_coarse_edges->push_back(desc) ; 
+    }
 }
 
 

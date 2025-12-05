@@ -50,7 +50,8 @@
 namespace grace {
 
 enum m1_var_idx_loc : int {
-    ERADL,
+    ERADL=0,
+    NRADL,
     FXL,
     FYL,
     FZL,
@@ -61,9 +62,11 @@ enum m1_var_idx_loc : int {
 } ; 
 
 enum m1_eas_idx_loc : int {
-    KAL,
+    KAL=0,
     KSL,
     ETAL,
+    ETANL,
+    KANL,
     N_M1_EAS
 } ; 
 
@@ -74,12 +77,13 @@ using m1_cons_array_t = std::array<double,N_M1_VARS> ;
 using m1_eas_array_t = std::array<double,N_M1_EAS> ; 
 
 #define FILL_M1_PRIMS_ARRAY(primsarr,vview,aview,q,...)\
-primsarr[ERADL] = vview(__VA_ARGS__,ERAD_,q);      \
-primsarr[FXL] = vview(__VA_ARGS__,FRADX_,q) ; \
-primsarr[FYL] = vview(__VA_ARGS__,FRADY_,q) ;     \
-primsarr[FZL] = vview(__VA_ARGS__,FRADZ_,q) ;     \
-primsarr[ZXL] = aview(__VA_ARGS__,ZVECX_,q) ;     \
-primsarr[ZYL] = aview(__VA_ARGS__,ZVECY_,q) ;       \
+primsarr[ERADL] = vview(__VA_ARGS__,ERAD_,q);          \
+primsarr[ERADL] = vview(__VA_ARGS__,NRAD_,q);          \
+primsarr[FXL] = vview(__VA_ARGS__,FRADX_,q) ;          \
+primsarr[FYL] = vview(__VA_ARGS__,FRADY_,q) ;          \
+primsarr[FZL] = vview(__VA_ARGS__,FRADZ_,q) ;          \
+primsarr[ZXL] = aview(__VA_ARGS__,ZVECX_,q) ;          \
+primsarr[ZYL] = aview(__VA_ARGS__,ZVECY_,q) ;          \
 primsarr[ZZL] = aview(__VA_ARGS__,ZVECZ_,q) 
 
 
@@ -126,6 +130,14 @@ struct m1_closure_t {
         E = prims[ERADL]; 
         FD = vec_t{prims[FXL],prims[FYL],prims[FZL]}; 
         vU = vec_t{prims[ZXL],prims[ZYL],prims[ZZL]} ; 
+        initialize() ; 
+        update_closure(zeta0,update) ; 
+    }
+
+    void GRACE_HOST_DEVICE
+    update_closure(double (&U)[4], double zeta0, bool update) {
+        E = U[0]; 
+        FD = vec_t{U[1],U[2],U[3]}; 
         initialize() ; 
         update_closure(zeta0,update) ; 
     }
@@ -191,6 +203,7 @@ struct m1_closure_t {
         );
         #endif 
         HU = metric.raise(HD) ; 
+        Gamma = W * (E-vdotF)/J ; 
     }
 
     void GRACE_HOST_DEVICE
@@ -298,10 +311,19 @@ struct m1_closure_t {
         ) ; 
     }
 
+    void get_N_implicit_update(
+        m1_prims_array_t const& prims, m1_eas_array_t const& eas, 
+        double dt, double dtfact, double *N, double *dN
+    )
+    {
+        *N = (prims[NRADL] + metric.alp() * dt * dtfact * eas[ETANL]) / (1.0 + metric.alp() * dt * dtfact * eas[KANL]/Gamma ) ; 
+        *dN = (*N - prims[NRADL])/dt/dtfact ; 
+    }
+
     static constexpr double TINY = 1e-50 ; 
 
     vec_t FD, fhD, HD, vD, vU, FU, fhU, HU; 
-    double E, J, F2, F, vdotF, vdotfh, Fdotfh, v2, W, W2, zeta; 
+    double E, J, F2, F, vdotF, vdotfh, Fdotfh, v2, W, W2, zeta, Gamma; 
     double PUU[3][3];
     
     metric_array_t metric ; 
@@ -346,15 +368,41 @@ struct m1_closure_t {
 
 
 struct m1_atmo_params_t {
-    double E_fl ; 
-    double E_fl_scaling ; 
+    double E_fl, eps_fl ; 
+    double E_fl_scaling, eps_fl_scaling ; 
+    double eps_min, eps_max ; 
 } ; 
 
 struct m1_excision_params_t {
     bool excise_by_radius ; 
     double r_ex, alp_ex ; 
-    double E_ex ;  
+    double E_ex, eps_ex ;  
 } ;
+
+static m1_excision_params_t 
+get_m1_excision_params() {
+    m1_excision_params_t m1_excision_params ;
+    m1_excision_params.excise_by_radius = excision_params.excise_by_radius;
+    m1_excision_params.r_ex = excision_params.r_ex;
+    m1_excision_params.alp_ex = excision_params.alp_ex;
+    m1_excision_params.E_ex = grace::get_param<double>("m1", "excision", "E_excision") ; 
+    m1_excision_params.eps_ex = grace::get_param<double>("m1", "excision", "eps_excision") ; 
+    return m1_excision_params ; 
+}
+
+
+
+static m1_atmo_params_t 
+get_m1_atmo_params() {
+    m1_atmo_params_t m1_atmo_params ; 
+    m1_atmo_params.E_fl = grace::get_param<double>("m1", "atmosphere", "E_fl") ;
+    m1_atmo_params.E_fl_scaling = grace::get_param<double>("m1", "atmosphere", "E_scaling") ;
+    m1_atmo_params.eps_fl = grace::get_param<double>("m1", "atmosphere", "eps_fl") ;
+    m1_atmo_params.eps_fl_scaling = grace::get_param<double>("m1", "atmosphere", "eps_scaling") ;
+    m1_atmo_params.eps_min = grace::get_param<double>("m1", "atmosphere", "eps_min") ; 
+    m1_atmo_params.eps_max = grace::get_param<double>("m1", "atmosphere", "eps_max") ; 
+    return m1_atmo_params ; 
+}
 
 }
 

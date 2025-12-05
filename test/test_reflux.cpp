@@ -201,7 +201,7 @@ static void check()
                 GRACE_VERBOSE("Issue (E^x) at i {} j {} k {} q {} target {} actual {}", 
                     i,j,k,q, (pcoords[0]  * (SQR(pcoords[1])-1.333*SQR(pcoords[2]))),emf_h(i,j,k,0,q));
             }
-            REQUIRE( check < 1e-10 ) ; 
+            REQUIRE( check <= 1e-10*fabs(emf_h(i,j,k,0,q))) ; 
         }, {false,true,true}, true 
     ) ; 
 
@@ -216,7 +216,7 @@ static void check()
                 GRACE_VERBOSE("Issue (E^y) at i {} j {} k {} q {} target {} actual {}", 
                     i,j,k,q, (pcoords[1] * (SQR(pcoords[0])-4.333*pcoords[2])),emf_h(i,j,k,1,q));
             }
-            REQUIRE( check < 1e-10 ) ; 
+            REQUIRE( check <= 1e-10*fabs(emf_h(i,j,k,1,q)) ) ; 
         }, {true,false,true}, true 
     ) ;
 
@@ -231,7 +231,7 @@ static void check()
                 GRACE_VERBOSE("Issue (E^z) at i {} j {} k {} q {} target {} actual {}", 
                     i,j,k,q, (pcoords[2] * (SQR(pcoords[0])+pcoords[1])),emf_h(i,j,k,2,q));
             }
-            REQUIRE( check < 1e-10)  ; 
+            REQUIRE( check <= 1e-10*fabs(emf_h(i,j,k,2,q)))  ; 
         }, {true,true,false}, true 
     ) ;
 }

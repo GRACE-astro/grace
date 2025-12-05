@@ -334,7 +334,7 @@ void compute_fluxes(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux")
                 , flux_x_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-        //grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact) ;
+        grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact) ;
         #ifdef GRACE_ENABLE_M1
         m1_eq_system.template compute_x_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
@@ -345,7 +345,7 @@ void compute_fluxes(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
                 , flux_y_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-        //grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
+        grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
         #ifdef GRACE_ENABLE_M1
         m1_eq_system.template compute_y_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
@@ -356,7 +356,7 @@ void compute_fluxes(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
                 , flux_z_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-        //grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
+        grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
         #ifdef GRACE_ENABLE_M1
         m1_eq_system.template compute_z_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
@@ -631,7 +631,7 @@ void add_fluxes_and_source_terms(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_sources")
                 , policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-        //grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
+        grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
         for( int ivar=0; ivar<nvars_hrsc; ++ivar) {
             new_state(VEC(i,j,k),ivar,q) += 
                 dt * dtfact * (

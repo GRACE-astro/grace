@@ -169,6 +169,30 @@ void register_refluxing_face(
     info->reflux_faces->push_back(desc) ; 
 }
 
+void register_refluxing_coarse_face(
+    p4est_iter_face_side_t const& s0,
+    p4est_iter_face_side_t const& s1,
+    p4est_iter_data_t* info 
+) 
+{
+    full_face_reflux_desc_t desc {} ;
+    desc.is_remote[0] = s0.is.full.is_ghost ;  
+    desc.qid[0] = s0.is.full.is_ghost
+                ? s0.is.full.quadid
+                : s0.is.full.quadid + grace::amr::get_local_quadrants_offset(s0.treeid) ; 
+    desc.owner_rank[0] = p4est_comm_find_owner(grace::amr::forest::get().get(), s0.treeid, s0.is.full.quad, 0);
+    desc.face_id[0] = s0.face ; 
+
+    desc.is_remote[1] = s1.is.full.is_ghost ;  
+    desc.qid[1] = s1.is.full.is_ghost
+                ? s1.is.full.quadid
+                : s1.is.full.quadid + grace::amr::get_local_quadrants_offset(s1.treeid) ; 
+    desc.owner_rank[1] = p4est_comm_find_owner(grace::amr::forest::get().get(), s1.treeid, s1.is.full.quad, 0);
+    desc.face_id[1] = s1.face ; 
+    
+    info->reflux_coarse_faces->push_back(desc) ; 
+}
+
 void register_refluxing_edges(
     p4est_iter_face_side_t const& coarse_side,
     p4est_iter_face_side_t const& fine_side,
@@ -301,6 +325,8 @@ void grace_iterate_faces(
         register_refluxing_face(s0,s1,iter_data) ; 
         // register the virtual edges too 
         register_refluxing_edges(s0,s1,iter_data) ; 
+    } else {
+        register_refluxing_coarse_face(s0,s1,iter_data) ; 
     }
 }
 

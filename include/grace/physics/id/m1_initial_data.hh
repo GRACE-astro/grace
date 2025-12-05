@@ -44,7 +44,7 @@
 namespace grace {
 
 struct m1_id_t {
-    double erad, fradx, frady, fradz ; //! lower indices
+    double erad, nrad, fradx, frady, fradz ; //! lower indices
 } ; 
 
 struct zero_m1_id_t {
@@ -55,6 +55,7 @@ struct zero_m1_id_t {
     ) : atmo(_atmo), excision(_excision), pcoords(_pcoords)
     {}
 
+    // NB this assumes all optically thin! 
     m1_id_t KOKKOS_INLINE_FUNCTION 
     operator() (
         VEC(int const i, int const j, int const k), 
@@ -69,13 +70,16 @@ struct zero_m1_id_t {
         }; 
 
         auto E_atmo = atmo.E_fl * Kokkos::pow(rtp[0], atmo.E_fl_scaling) ; 
+        auto eps_atmo = atmo.eps_fl * Kokkos::pow(rtp[0], atmo.eps_fl_scaling) ; 
 
         bool excise = excision.excise_by_radius ? rtp[0] <= excision.r_ex : false ; /*we don't have alp here*/
         
         if ( excise ) {
             id.erad = excision.E_ex ; 
+            id.nrad = excision.E_ex / excision.eps_ex ; 
         } else {
             id.erad = E_atmo ;
+            id.nrad = E_atmo / eps_atmo ; 
         }
         id.fradx = id.frady = id.fradz = 0. ; 
         return id ; 
@@ -85,6 +89,57 @@ struct zero_m1_id_t {
     m1_excision_params_t excision ; 
     coord_array_t<GRACE_NSPACEDIM> pcoords ; 
 } ; 
+
+struct equil_m1_id_t {
+    equil_m1_id_t(
+        m1_atmo_params_t _atmo, 
+        m1_excision_params_t _excision,
+        var_array_t _aux,
+        scalar_array_t<GRACE_NSPACEDIM> const _dx,
+        coord_array_t<GRACE_NSPACEDIM> _pcoords
+    ) : atmo(_atmo), excision(_excision), aux(_aux), dx(_dx), pcoords(_pcoords)
+    {}
+
+    // NB this assumes all optically thin! 
+    m1_id_t KOKKOS_INLINE_FUNCTION 
+    operator() (
+        VEC(int const i, int const j, int const k), 
+        int const q) const 
+    {
+        m1_id_t id ; 
+        /* we assume coords are spherical here! */
+        double rtp[3] = {
+            pcoords(VEC(i,j,k),0,q),
+            pcoords(VEC(i,j,k),1,q),
+            pcoords(VEC(i,j,k),2,q)
+        }; 
+        /* Get eas to check regime */
+        m1_eas_array_t eas ; 
+        eas[KAL] = aux(VEC(i,j,k),KAPPAA_,q) ; 
+        eas[KSL] = aux(VEC(i,j,k),KAPPAS_,q) ; 
+        eas[ETAL] = aux(VEC(i,j,k),ETA_,q) ; 
+
+        // this is l / dx --> small == thick
+        double A = fmin(1.,1./((eas[KAL]+eas[KSL]+1e-20)*dx(0,q))) ; 
+
+        if ( A < 2./3. ) {
+            // here we set variables to their 
+            // equilibrium value 
+        } else if ( A >= 1. ) {
+
+        } else {
+
+        }
+
+        return id ; 
+    }
+
+    m1_atmo_params_t atmo ; 
+    m1_excision_params_t excision ; 
+    var_array_t aux; 
+    scalar_array_t<GRACE_NSPACEDIM> dx;
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+} ;
 
 struct straight_beam_m1_id_t {
     straight_beam_m1_id_t(

@@ -67,7 +67,7 @@ struct vacuum_id_t {
         id.vz = _vz ; 
         id.bx = id.by = id.bz = 0 ; 
 
-        id.vx = 0; id.vy = 0.; id.vz = 0.;
+        id.vx = _vx; id.vy = _vy; id.vz = _vz;
         id.betax = 0; id.betay=0; id.betaz = 0; 
         id.alp = 1 ; 
         id.gxx = 1; id.gyy = 1; id.gzz = 1;

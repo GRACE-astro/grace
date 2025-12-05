@@ -36,7 +36,7 @@ system: {
 evolution: {
   time_stepper: "imex222",
   cfl_factor: 0.2,
-  final_time: 4,
+  final_time: 10.,
   #termination_condition: "iteration",
   #final_iteration: 15
 }

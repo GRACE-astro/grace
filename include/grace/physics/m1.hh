@@ -321,7 +321,8 @@ struct m1_equations_system_t
         metric_array_t metric; 
         FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ; 
 
-        prims[ERADL] /= metric.sqrtg() ; 
+        prims[ERADL] /= metric.sqrtg() ;
+        prims[NRADL] /= metric.sqrtg() ; 
         prims[FXL] /= metric.sqrtg() ; 
         prims[FYL] /= metric.sqrtg() ; 
         prims[FZL] /= metric.sqrtg() ; 
@@ -329,6 +330,7 @@ struct m1_equations_system_t
         m1_closure_t cl{
             prims, metric
         } ; 
+        cl.update_closure(0) ; 
         // rescale if superluminal
         if ( cl.F >= cl.E ) {
             double fact = 0.9999 * cl.E / cl.F ; 
@@ -336,22 +338,44 @@ struct m1_equations_system_t
             this->_state(VEC(i,j,k),FRADY_,q) *= fact ; 
             this->_state(VEC(i,j,k),FRADZ_,q) *= fact ; 
         }
-
+        // compute radiation avg energy 
+        double epsilon = cl.J / prims[NRADL] * cl.Gamma ; 
         // Set atmosphere / excision 
         double r = pcoords(VEC(i,j,k),0,q) ; 
         bool excise = excision_params.excise_by_radius 
                 ? r <= excision_params.r_ex 
                 : metric.alp() <= excision_params.alp_ex ; 
         double E_atmo = atmo_params.E_fl * Kokkos::pow(r,atmo_params.E_fl_scaling) ; 
-        if ( cl.E < E_atmo * (1. + 1.e-3 ) 
-            or excise ) 
+        double eps_atmo = atmo_params.eps_fl * Kokkos::pow(r,atmo_params.eps_fl_scaling) ; 
+        if ( cl.E < E_atmo * (1. + 1.e-3 ) ) 
         {
-            this->_state(VEC(i,j,k),ERAD_,q) = 
-                excise ? metric.sqrtg() * excision_params.E_ex
-                       : metric.sqrtg() * E_atmo ; 
+            double atmo_state[4] = {E_atmo,0.0, 0.0, 0.0} ; 
+            this->_state(VEC(i,j,k),ERAD_,q)  = metric.sqrtg() * atmo_state[0]; 
+            this->_state(VEC(i,j,k),FRADX_,q) = atmo_state[1] ; 
+            this->_state(VEC(i,j,k),FRADY_,q) = atmo_state[2] ; 
+            this->_state(VEC(i,j,k),FRADZ_,q) = atmo_state[3] ;
+            // We set N in order to ensure a sensible average energy 
+            cl.update_closure(atmo_state,0,true) ; 
+            this->_state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * cl.Gamma * cl.J / eps_atmo ; 
+            epsilon = eps_atmo ; 
+        } else if ( excise ) {
+            this->_state(VEC(i,j,k),ERAD_,q)  = metric.sqrtg() * excision_params.E_ex ; 
             this->_state(VEC(i,j,k),FRADX_,q) = 0.0 ; 
             this->_state(VEC(i,j,k),FRADY_,q) = 0.0 ; 
             this->_state(VEC(i,j,k),FRADZ_,q) = 0.0 ;
+            // here since we are in excision it's safe to assume v^i == 0 :
+            // Gamma == 1 and N = sqrtg E / eps_target 
+            this->_state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * excision_params.E_ex/excision_params.eps_ex ;
+            epsilon = eps_ex;  
+        } 
+        // Finally check epsilon, if out of range 
+        // we adjust **only** Nrad
+        if ( epsilon < atmo_params.eps_min ) {
+            this->_state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * cl.Gamma * cl.J / atmo_params.eps_min ; 
+        } else if ( epsilon > atmo_params.eps_max ) {
+            // avoid subnormal 
+            double n = fmax(1e-20, cl.J / atmo_params.eps_max ) ; 
+            this->_state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * cl.Gamma * n ; 
         }
         
     }
@@ -383,14 +407,17 @@ struct m1_equations_system_t
         /**************************************************************************************************/
         // read in eas 
         m1_eas_array_t eas ; 
-        eas[KAL]  = this->_aux(VEC(i,j,k),KAPPAA_,q) ; 
-        eas[KSL]  = this->_aux(VEC(i,j,k),KAPPAS_,q) ; 
-        eas[ETAL] = this->_aux(VEC(i,j,k),ETA_,q) ; 
+        eas[KAL]   = this->_aux(VEC(i,j,k),KAPPAA_,q) ; 
+        eas[KSL]   = this->_aux(VEC(i,j,k),KAPPAS_,q) ; 
+        eas[ETAL]  = this->_aux(VEC(i,j,k),ETA_,q) ; 
+        eas[ETANL] = this->_aux(VEC(i,j,k),ETAN_,q) ; 
+        eas[KANL]  = this->_aux(VEC(i,j,k),KAPPAAN_,q) ; 
         /**************************************************************************************************/
         // construct closure and update
         m1_prims_array_t prims ; 
         FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
         prims[ERADL] /= metric.sqrtg() ; 
+        prims[NRADL] /= metric.sqrtg() ; 
         prims[FXL] /= metric.sqrtg(); 
         prims[FYL] /= metric.sqrtg(); 
         prims[FZL] /= metric.sqrtg(); 
@@ -440,6 +467,7 @@ struct m1_equations_system_t
             ) ; 
             // if we failed again we just take a linear step and call it 
             if ( err != utils::nr_err_t::SUCCESS ) {
+                printf("Error!\n") ; 
                 cl.update_closure(prims,0,true) ; 
                 double J[4][4] ; 
                 double S[4] ; 
@@ -462,6 +490,18 @@ struct m1_equations_system_t
         state_new(VEC(i,j,k),FRADY_,q) = metric.sqrtg() * U[2] ;
         state_new(VEC(i,j,k),FRADZ_,q) = metric.sqrtg() * U[3] ;
         /**************************************************************************************************/
+        // Number source is linear
+        // we need to update the closure on the starred state 
+        // to get the correct Gamma factor! 
+        double N, dN ; 
+        cl.update_closure(U,0,true) ; 
+        // prims here are **not** the implicitly updated ones
+        cl.get_N_implicit_update(
+            prims, eas, &N, &dN 
+        ) ; 
+        state_new(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * N ; 
+        /**************************************************************************************************/
+        // if needed add dN to ye here! 
     }
 
     /**
@@ -488,14 +528,17 @@ struct m1_equations_system_t
         /**************************************************************************************************/
         // read in eas 
         m1_eas_array_t eas ; 
-        eas[KAL]  = this->_aux(VEC(i,j,k),KAPPAA_,q) ; 
-        eas[KSL]  = this->_aux(VEC(i,j,k),KAPPAS_,q) ; 
-        eas[ETAL] = this->_aux(VEC(i,j,k),ETA_,q) ; 
+        eas[KAL]   = this->_aux(VEC(i,j,k),KAPPAA_,q) ; 
+        eas[KSL]   = this->_aux(VEC(i,j,k),KAPPAS_,q) ; 
+        eas[ETAL]  = this->_aux(VEC(i,j,k),ETA_,q) ; 
+        eas[ETANL] = this->_aux(VEC(i,j,k),ETAN_,q) ; 
+        eas[KANL]  = this->_aux(VEC(i,j,k),KAPPAAN_,q) ; 
         /**************************************************************************************************/
         // construct closure and update
         m1_prims_array_t prims ; 
         FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
         prims[ERADL] /= metric.sqrtg() ; 
+        prims[NRADL] /= metric.sqrtg() ; 
         prims[FXL] /= metric.sqrtg(); 
         prims[FYL] /= metric.sqrtg(); 
         prims[FZL] /= metric.sqrtg(); 
@@ -573,6 +616,7 @@ struct m1_equations_system_t
         std::array<int, 4>
             recon_indices{
                   ERAD_
+                , NRAD_
                 , FRADX_
                 , FRADY_
                 , FRADZ_
@@ -581,6 +625,7 @@ struct m1_equations_system_t
         std::array<int, 4>
             recon_indices_loc{
                   ERADL
+                , NRADL
                 , FXL
                 , FYL 
                 , FZL 
@@ -628,6 +673,9 @@ struct m1_equations_system_t
             primL[FXL+ii] *= primL[ERADL] ; 
             primR[FXL+ii] *= primR[ERADL] ;  
         }
+        // ditto for N 
+        primL[NRADL] *= primL[ERADL] ; 
+        primR[NRADL] *= primR[ERADL] ;
         // closures 
         m1_closure_t cl{
             primL[ERADL],
@@ -705,6 +753,13 @@ struct m1_equations_system_t
         double f_Fz_r = metric_face.sqrtg() * (metric_face.alp() * PUD_r[2] - metric_face.beta(idir) * primR[FZL]) ;
         fluxes(VEC(i,j,k),FRADZ_,idir,q) = (SQR(A)*(cmax*f_Fz_l + cmin*f_Fz_r) - A * cmax * cmin * (Fz_r-Fz_l))/(cmax+cmin) 
                                     + (1-SQR(A)) * 0.5 * (f_Fz_l+f_Fz_r); 
+        // Nrad 
+        double N_l = primL[NRADL] *  metric_face.sqrtg() ;
+        double N_r = primR[NRADL] *  metric_face.sqrtg() ;
+        double f_N_l = metric_face.alp() * N_l/cl.Gamma * ( cl.W * (cl.vU[idir]-metric.beta(idir)/metric.alp()) + cl.HU[idir]/cl.J ) ; 
+        double f_N_r = metric_face.alp() * N_r/cr.Gamma * ( cr.W * (cr.vU[idir]-metric.beta(idir)/metric.alp()) + cr.HU[idir]/cr.J ) ; 
+        fluxes(VEC(i,j,k),NRAD_,idir,q) = (cmax*f_N_l + cmin*f_N_r - A * cmax * cmin * (N_r-N_l))/(cmax+cmin) ; 
+
     }
 
     template< size_t idir >
