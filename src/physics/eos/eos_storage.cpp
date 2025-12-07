@@ -147,7 +147,7 @@ static piecewise_polytropic_eos_t setup_cold_politrope()
         , _pwpoly_press
         , _pwpoly_n_pieces
         , 1e+10
-        , 1e-20
+        , 1e-100
     }) ; 
 
 }
@@ -185,6 +185,8 @@ eos_storage_t::eos_storage_t() {
         } else {
             ERROR("Unsupported cold_eos_type.") ; 
         }
+    } else if ( eos_type == "ideal_gas" ) {
+        ERROR("Unsupported eos_type") ; 
     } else {
         ERROR("Unsupported eos_type") ; 
     }

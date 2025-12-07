@@ -25,6 +25,8 @@ IO: {
   surface_output_base_filename: "surface_out",
   surface_output_base_directory: "output_surface",
 
+  sphere_surface_output_base_directory: "output_spheres",
+
   scalar_output_base_filename: "",
   scalar_output_base_directory: "output_scalar",
 
@@ -108,71 +110,6 @@ IO: {
   output_plane_name_9: "9",
 
   n_output_spheres: 0,
-  output_sphere_x_center_0: 0,
-  output_sphere_x_center_1: 0,
-  output_sphere_x_center_2: 0,
-  output_sphere_x_center_3: 0,
-  output_sphere_x_center_4: 0,
-  output_sphere_x_center_5: 0,
-  output_sphere_x_center_6: 0,
-  output_sphere_x_center_7: 0,
-  output_sphere_x_center_8: 0,
-  output_sphere_x_center_9: 0,
-
-  output_sphere_y_center_0: 0,
-  output_sphere_y_center_1: 0,
-  output_sphere_y_center_2: 0,
-  output_sphere_y_center_3: 0,
-  output_sphere_y_center_4: 0,
-  output_sphere_y_center_5: 0,
-  output_sphere_y_center_6: 0,
-  output_sphere_y_center_7: 0,
-  output_sphere_y_center_8: 0,
-  output_sphere_y_center_9: 0,
-
-  output_sphere_z_center_0: 0,
-  output_sphere_z_center_1: 0,
-  output_sphere_z_center_2: 0,
-  output_sphere_z_center_3: 0,
-  output_sphere_z_center_4: 0,
-  output_sphere_z_center_5: 0,
-  output_sphere_z_center_6: 0,
-  output_sphere_z_center_7: 0,
-  output_sphere_z_center_8: 0,
-  output_sphere_z_center_9: 0,
-
-  output_sphere_radius_0: 1,
-  output_sphere_radius_1: 1,
-  output_sphere_radius_2: 1,
-  output_sphere_radius_3: 1,
-  output_sphere_radius_4: 1,
-  output_sphere_radius_5: 1,
-  output_sphere_radius_6: 1,
-  output_sphere_radius_7: 1,
-  output_sphere_radius_8: 1,
-  output_sphere_radius_9: 1,
-
-  output_sphere_name_0: "0",
-  output_sphere_name_1: "1",
-  output_sphere_name_2: "2",
-  output_sphere_name_3: "3",
-  output_sphere_name_4: "4",
-  output_sphere_name_5: "5",
-  output_sphere_name_6: "6",
-  output_sphere_name_7: "7",
-  output_sphere_name_8: "8",
-  output_sphere_name_9: "9",
-
-  output_sphere_tracking_0: "none",
-  output_sphere_tracking_1: "none",
-  output_sphere_tracking_2: "none",
-  output_sphere_tracking_3: "none",
-  output_sphere_tracking_4: "none",
-  output_sphere_tracking_5: "none",
-  output_sphere_tracking_6: "none",
-  output_sphere_tracking_7: "none",
-  output_sphere_tracking_8: "none",
-  output_sphere_tracking_9: "none"
-
+  output_sphere_names: []
 
 }

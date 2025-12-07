@@ -40,6 +40,7 @@ enum EOS_ERROR_T {
     EOS_NO_ERROR=0,
     EOS_RHO_TOO_HIGH,
     EOS_RHO_TOO_LOW,
+    ERR_EPS_TOO_HIGH,
     EOS_NUM_ERRORS
 } ; 
 

@@ -1,4 +1,5 @@
 coordinate_system: {
   is_kerr_schild: false,
-  bh_spin: 0
+  bh_spin: 0,
+  mass_scale: 1 #only relevant for radiation runs
 }

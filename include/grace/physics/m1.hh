@@ -215,6 +215,7 @@ struct m1_equations_system_t
         m1_prims_array_t prims ; 
         FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
         prims[ERADL] /= metric.sqrtg() ; 
+        prims[NRADL] /= metric.sqrtg() ; 
         prims[FXL] /= metric.sqrtg(); 
         prims[FYL] /= metric.sqrtg(); 
         prims[FZL] /= metric.sqrtg(); 
@@ -366,7 +367,7 @@ struct m1_equations_system_t
             // here since we are in excision it's safe to assume v^i == 0 :
             // Gamma == 1 and N = sqrtg E / eps_target 
             this->_state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * excision_params.E_ex/excision_params.eps_ex ;
-            epsilon = eps_ex;  
+            epsilon = excision_params.eps_ex;  
         } 
         // Finally check epsilon, if out of range 
         // we adjust **only** Nrad
@@ -374,7 +375,7 @@ struct m1_equations_system_t
             this->_state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * cl.Gamma * cl.J / atmo_params.eps_min ; 
         } else if ( epsilon > atmo_params.eps_max ) {
             // avoid subnormal 
-            double n = fmax(1e-20, cl.J / atmo_params.eps_max ) ; 
+            double n = fmax(1e-200, cl.J / atmo_params.eps_max ) ; 
             this->_state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * cl.Gamma * n ; 
         }
         
@@ -388,7 +389,7 @@ struct m1_equations_system_t
      * @param k Cell index in \f$x^3\f$ direction.
      * @param q Quadrant index.
      */
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    void KOKKOS_INLINE_FUNCTION 
     compute_implicit_update( const int q 
                          , VEC( const int i 
                          ,      const int j 
@@ -426,24 +427,33 @@ struct m1_equations_system_t
         cl.update_closure(0.) ;
         /**************************************************************************************************/
         // store explicitly updated state 
-        double W[4] ; 
+        double  W[4]  ; 
         W[0] = prims[ERADL] ; W[1] = prims[FXL] ; W[2] = prims[FYL] ; W[3] = prims[FZL] ;   
         /**************************************************************************************************/
         // construct the initial guess 
-        double U[4] ; 
+        double  U[4]  ; 
         cl.get_implicit_update_initial_guess(eas, U, dt, dtfact);
+        //U[0] = ( prims[ERADL] + dt * dtfact * eas[ETAL]) / ( 1. + dt * dtfact * eas[KAL]) ; 
+        #if 0
+        if ( i == 4 and j == 4 and k == 4 ) {
+            printf("E_guess %.16g eta %.16g kappa %.16g \n", U[0], eas[ETAL], eas[KAL]) ; 
+        }
+        #endif 
+        // take a pointer so we can capture it 
+        // in the lambda 
+        m1_closure_t* pcl = &cl; 
         /**************************************************************************************************/
         // construct the lambdas for the evaluation of the update 
-        auto const func = [&cl,eas,W,dt,dtfact] (double (&u)[4], double (&s)[4]) {
-            cl.implicit_update_func(eas,u,W,s,dt,dtfact) ; 
+        auto const func = [pcl,eas,W,dt,dtfact] (double (&u)[4], double (&s)[4]) {
+            pcl->implicit_update_func(eas,u,W,s,dt,dtfact) ; 
         } ; 
-        auto const dfunc = [&cl,eas,W,dt,dtfact] (double (&u)[4], double (&s)[4], double (&J)[4][4]) {
-            cl.implicit_update_dfunc(eas,u,W,s,J,dt,dtfact) ; 
+        auto const dfunc = [pcl,eas,W,dt,dtfact] (double (&u)[4], double (&s)[4], double (&J)[4][4]) {
+            pcl->implicit_update_dfunc(eas,u,W,s,J,dt,dtfact) ; 
         } ; 
         /**************************************************************************************************/
         // call rootfinder 
         unsigned long maxiter = 30 ; 
-        int err ; 
+        int err = 0; 
         utils::rootfind_nd_newton_raphson<4>(
             func, dfunc, U, maxiter, 1e-15, err
         ) ; 
@@ -451,57 +461,73 @@ struct m1_equations_system_t
         if ( err != utils::nr_err_t::SUCCESS ) {
             // assume optically thick closure and 
             // repeat 
-            cl = m1_closure_t(prims,metric) ;
-            cl.update_closure(0.,false /*nb no update here*/) ;
+            cl.update_closure(prims,0.,false /*nb no update here*/) ;
 
             cl.get_implicit_update_initial_guess(eas, U, dt, dtfact);
 
-            auto const fixed_closure_func = [&cl,eas,W,dt,dtfact] (double (&u)[4], double (&s)[4]) {
-                cl.implicit_update_func(eas,u,W,s,dt,dtfact,false) ; 
+            auto const fixed_closure_func = [pcl,eas,W,dt,dtfact] (double (&u)[4], double (&s)[4]) {
+                pcl->implicit_update_func(eas,u,W,s,dt,dtfact,false) ; 
             } ; 
-            auto const fixed_closure_dfunc = [&cl,eas,W,dt,dtfact] (double (&u)[4], double (&s)[4], double (&J)[4][4]) {
-                cl.implicit_update_dfunc(eas,u,W,s,J,dt,dtfact) ; 
+            auto const fixed_closure_dfunc = [pcl,eas,W,dt,dtfact] (double (&u)[4], double (&s)[4], double (&J)[4][4]) {
+                pcl->implicit_update_dfunc(eas,u,W,s,J,dt,dtfact) ; 
             } ; 
             utils::rootfind_nd_newton_raphson<4>(
                 fixed_closure_func, fixed_closure_dfunc, U, maxiter, 1e-15, err
             ) ; 
             // if we failed again we just take a linear step and call it 
             if ( err != utils::nr_err_t::SUCCESS ) {
-                printf("Error!\n") ; 
                 cl.update_closure(prims,0,true) ; 
-                double J[4][4] ; 
-                double S[4] ; 
-                cl.get_implicit_jacobian(eas,J) ; 
-                for( int i=0; i<4; ++i ) {
-                    U[i] = - W[i] ; 
-                    for ( int j=0; j<4; ++j) {
-                        J[i][j] = dt * dtfact * J[i][j] - (i==j) ; 
-                    }
-                }
-                int piv[5];
-                LUPDecompose<4>(J,1e-15,piv) ; 
-                LUPSolve(J,piv,U) ; 
+                cl.get_implicit_update_initial_guess(eas, U, dt, dtfact); 
             }
         }
+        // the compiler seems to sometimes think U is never 
+        // modified and just elides the whole function....
+        volatile double U0 = U[0];
+        volatile double U1 = U[1];
+        volatile double U2 = U[2];
+        volatile double U3 = U[3];
         /**************************************************************************************************/
         // write back to the new state 
-        state_new(VEC(i,j,k),ERAD_,q)  = metric.sqrtg() * U[0] ; 
-        state_new(VEC(i,j,k),FRADX_,q) = metric.sqrtg() * U[1] ;
-        state_new(VEC(i,j,k),FRADY_,q) = metric.sqrtg() * U[2] ;
-        state_new(VEC(i,j,k),FRADZ_,q) = metric.sqrtg() * U[3] ;
+        #define VOLATILE_WRITE(ivar,val) \
+        state_new(i,j,k,ivar,q) = val
+        //VOLATILE_WRITE(ERAD_ , metric.sqrtg() * U0) ; 
+        //VOLATILE_WRITE(FRADX_, metric.sqrtg() * U1) ; 
+        //VOLATILE_WRITE(FRADY_, metric.sqrtg() * U2) ; 
+        //VOLATILE_WRITE(FRADZ_, metric.sqrtg() * U3) ; 
+        state_new(i,j,k,ERAD_,q)  = metric.sqrtg() * U[0] ; 
+        state_new(i,j,k,FRADX_,q) = metric.sqrtg() * U[1] ; 
+        state_new(i,j,k,FRADY_,q) = metric.sqrtg() * U[2] ; 
+        state_new(i,j,k,FRADZ_,q) = metric.sqrtg() * U[3] ; 
+        /**************************************************************************************************/
+        #ifndef GRACE_FREEZE_HYDRO
+        double const dE = 0.0 ; //this->_state(VEC(i,j,k),ERAD_,q) - state_new(VEC(i,j,k),ERAD_,q) ; 
+        state_new(VEC(i,j,k),TAU_,q) += dE ; 
+        double const dSx = 0.0 ; // this->_state(VEC(i,j,k),FRADX_,q) - state_new(VEC(i,j,k),FRADX_,q) ;
+        state_new(VEC(i,j,k),SX_,q) += dSx ; 
+        double const dSy = 0.0 ; // this->_state(VEC(i,j,k),FRADY_,q) - state_new(VEC(i,j,k),FRADY_,q) ;
+        state_new(VEC(i,j,k),SY_,q) += dSy ; 
+        double const dSz = 0.0 ; // this->_state(VEC(i,j,k),FRADZ_,q) - state_new(VEC(i,j,k),FRADZ_,q) ; 
+        state_new(VEC(i,j,k),SZ_,q) += dSz ; 
+        #endif
         /**************************************************************************************************/
         // Number source is linear
         // we need to update the closure on the starred state 
         // to get the correct Gamma factor! 
         double N, dN ; 
-        cl.update_closure(U,0,true) ; 
+        cl.update_closure(U0, {U1,U2,U3},0,true) ; 
         // prims here are **not** the implicitly updated ones
         cl.get_N_implicit_update(
-            prims, eas, &N, &dN 
+            prims, eas, dt, dtfact, &N, &dN 
         ) ; 
+        //VOLATILE_WRITE(NRAD_,metric.sqrtg()*N) ; 
         state_new(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * N ; 
         /**************************************************************************************************/
         // if needed add dN to ye here! 
+        #if 0
+        if ( i == 4 and j == 4 and k == 4 ) {
+            printf("E_old %.16g E_new %.16g eta %.16g kappa %.16g \n", prims[ERADL], U[0], eas[ETAL], eas[KAL]) ; 
+        }
+        #endif 
     }
 
     /**
@@ -613,7 +639,7 @@ struct m1_equations_system_t
         /***********************************************************************/
         /*              Reconstruct primitive variables                        */
         /***********************************************************************/
-        std::array<int, 4>
+        std::array<int, 5>
             recon_indices{
                   ERAD_
                 , NRAD_
@@ -622,7 +648,7 @@ struct m1_equations_system_t
                 , FRADZ_
             } ; 
         /* Local indices in prims array (note z^k -> v^k) */
-        std::array<int, 4>
+        std::array<int, 5>
             recon_indices_loc{
                   ERADL
                 , NRADL
@@ -632,8 +658,8 @@ struct m1_equations_system_t
             } ;
         /* Reconstruction                                  */
         m1_prims_array_t primL, primR ; 
-        #pragma unroll 4
-        for( int ivar=0; ivar<4; ++ivar) {
+        #pragma unroll 5
+        for( int ivar=0; ivar<5; ++ivar) {
             auto u = Kokkos::subview( this->_state
                                     , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()) 
                                     , recon_indices[ivar] 
@@ -704,8 +730,12 @@ struct m1_equations_system_t
             {PUU_r[idir][0], PUU_r[idir][1],PUU_r[idir][2]}
         ) ; 
         // compute the A factor for asymptotic flux correction 
-        double const kappa = this->_aux(VEC(i,j,k),KAPPAA_,q) + this->_aux(VEC(i,j,k),KAPPAS_,q) + 1e-20 ; 
-        double const A = fmin(1., 1. / dx(idir,q) / kappa ) ; 
+        double const kappa_a = this->_aux(VEC(i,j,k),KAPPAA_,q);
+        double const kappa_s = this->_aux(VEC(i,j,k),KAPPAS_,q);
+        double const _dx = dx(idir,q);
+        // this prevents division by zero while also clamping it 
+        // in [0,1]... I think! 
+        double const A = 1./( _dx * fmax(kappa_a+kappa_s,1./_dx) ) ; 
         // compute one component of the upper-index flux for the E flux 
         
         double FUd_l = metric_face.invgamma(imap[idir][0]) * primL[FXL] 
@@ -756,8 +786,8 @@ struct m1_equations_system_t
         // Nrad 
         double N_l = primL[NRADL] *  metric_face.sqrtg() ;
         double N_r = primR[NRADL] *  metric_face.sqrtg() ;
-        double f_N_l = metric_face.alp() * N_l/cl.Gamma * ( cl.W * (cl.vU[idir]-metric.beta(idir)/metric.alp()) + cl.HU[idir]/cl.J ) ; 
-        double f_N_r = metric_face.alp() * N_r/cr.Gamma * ( cr.W * (cr.vU[idir]-metric.beta(idir)/metric.alp()) + cr.HU[idir]/cr.J ) ; 
+        double f_N_l = metric_face.sqrtg() * metric_face.alp() * N_l/cl.Gamma * ( cl.W * (cl.vU[idir]-metric_face.beta(idir)/metric_face.alp()) + cl.HU[idir]/cl.J ) ; 
+        double f_N_r = metric_face.sqrtg() * metric_face.alp() * N_r/cr.Gamma * ( cr.W * (cr.vU[idir]-metric_face.beta(idir)/metric_face.alp()) + cr.HU[idir]/cr.J ) ; 
         fluxes(VEC(i,j,k),NRAD_,idir,q) = (cmax*f_N_l + cmin*f_N_r - A * cmax * cmin * (N_r-N_l))/(cmax+cmin) ; 
 
     }

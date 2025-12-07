@@ -934,25 +934,10 @@ struct grmhd_equations_system_t
                               , j
                               , k )) ;
         /***********************************************************************/
-        /* 2nd order interpolation at cell interface                           */
+        /* 3rd order interpolation at cell interface                           */
         /***********************************************************************/
-        #if 0
-        metric_array_t const metric_face{
-            { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
-            , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
-            , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
-            , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
-            , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
-            , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
-        ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            , 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
-        ,   0.5 * (metric_l.alp() + metric_r.alp())
-        } ; 
-        #else 
         metric_array_t metric_face ; 
         COMPUTE_FCVAL(metric_face,this->_state,i,j,k,q,idir) ; 
-        #endif
         /***********************************************************************/
         /*              Reconstruct primitive variables                        */
         /***********************************************************************/
@@ -1080,10 +1065,10 @@ struct grmhd_equations_system_t
                 theta_p = MIN(theta,MAX(0.0,-( rho_star_minm1 - rho_star_LLF_p)/(a2CFL*(rho_star_flux[index] - rho_star_flux_LO[index]))));
         */
         if (dens_m < dens_min_r) {
-            theta_m = math::min(theta, math::max(0, (dens_min_r-dens_LLF_m)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ; 
+            theta_m = math::min(theta, math::max(0, (dens_min_r-dens_LLF_m)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])+1e-50))) ; 
         }
         if ( dens_p < dens_min_l ) {
-            theta_p = math::min(theta, math::max(0, -(dens_min_l-dens_LLF_p)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ; 
+            theta_p = math::min(theta, math::max(0, -(dens_min_l-dens_LLF_p)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])+1e-50))) ; 
         }
 
         theta = math::min(theta_m, theta_p) ;
@@ -1200,7 +1185,7 @@ struct grmhd_equations_system_t
             cmin = -Kokkos::min(0., Kokkos::min(cml,cmr)) ; 
             cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ; 
             /* Add some diffusion in weakly hyperbolic limit */
-            if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
+            if( cmin < 1e-50 and cmax < 1e-50 ) { cmin=1; cmax=1; }
         } else {
             cmin = cmin_loc ; 
             cmax = cmax_loc ; 

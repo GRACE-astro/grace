@@ -405,7 +405,8 @@ rootfind_nd_newton_raphson(FT&& func, DFT&& dfunc, double (&x)[ND], unsigned lon
     
     tol = 2.0 * macheps * xmax + t;
     if ( test < tol ) {
-        return ; 
+      err = SUCCESS ; 
+      return ; 
     }
     double sum=0. ; 
     for( int i=0; i<ND; ++i ) sum += SQR(x[i]) ; 

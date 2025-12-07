@@ -304,10 +304,11 @@ void compute_fluxes(
 
             metric_array_t metric ; 
             FILL_METRIC_ARRAY(metric,old_state,q,VEC(i,j,k)) ;
+            old_state(VEC(i,j,k),NRAD_,q)  /=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),FRADX_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),FRADY_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),FRADZ_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),ERAD_,q) /= metric.sqrtg() ; 
+            old_state(VEC(i,j,k),ERAD_,q)  /= metric.sqrtg() ; 
         }
     ) ; 
     #endif 
@@ -334,7 +335,9 @@ void compute_fluxes(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux")
                 , flux_x_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+        #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact) ;
+        #endif 
         #ifdef GRACE_ENABLE_M1
         m1_eq_system.template compute_x_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
@@ -345,7 +348,9 @@ void compute_fluxes(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
                 , flux_y_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+        #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
+        #endif 
         #ifdef GRACE_ENABLE_M1
         m1_eq_system.template compute_y_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
@@ -356,7 +361,9 @@ void compute_fluxes(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
                 , flux_z_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+        #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
+        #endif 
         #ifdef GRACE_ENABLE_M1
         m1_eq_system.template compute_z_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
@@ -374,10 +381,11 @@ void compute_fluxes(
 
             metric_array_t metric ; 
             FILL_METRIC_ARRAY(metric,old_state,q,VEC(i,j,k)) ;
+            old_state(VEC(i,j,k),NRAD_,q)  *=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),FRADX_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),FRADY_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),FRADZ_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),ERAD_,q) *= metric.sqrtg() ; 
+            old_state(VEC(i,j,k),ERAD_,q)  *= metric.sqrtg() ; 
         }
     ) ; 
     #endif 
@@ -631,7 +639,9 @@ void add_fluxes_and_source_terms(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_sources")
                 , policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+        #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
+        #endif 
         for( int ivar=0; ivar<nvars_hrsc; ++ivar) {
             new_state(VEC(i,j,k),ivar,q) += 
                 dt * dtfact * (
@@ -792,13 +802,13 @@ void advance_implicit_substep( double const t, double const dt, double const dtf
           GRACE_EXECUTION_TAG("evol", "m1_implicit_sources")
         , policy
         , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-
             m1_eq_system.compute_implicit_update(
                 q, VEC(i,j,k), _idx, new_state, dt, dtfact
             );
         }
     ) ; 
     #endif
+    Kokkos::fence() ; 
 }
 
 template< typename eos_t >

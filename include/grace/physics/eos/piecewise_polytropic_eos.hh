@@ -114,7 +114,7 @@ class piecewise_polytropic_eos_t
         err = rho < eos_rhomin ? 1 : 0; 
         err = rho > eos_rhomax ? 2 : 0; 
 
-        rho = math::max(eos_rhomin, math::min(eos_rhomax, rho)) ; 
+        rho = fmax(eos_rhomin, fmin(eos_rhomax, rho)) ; 
         for( int ii=0; ii<num_pieces-1; ++ii) {
             if( rho > _rho(ii) and rho <= _rho(ii+1) ) {
                 return ii ; 

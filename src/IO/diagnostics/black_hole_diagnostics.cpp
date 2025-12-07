@@ -135,12 +135,10 @@ bh_diagnostics::compute_local_fluxes(
 
         double const one_over_alp = 1./metric.alp() ;
         report_nan("one_over_alp",one_over_alp) ; 
-        std::array<double,3> const vN {
-            one_over_alp * ( vx + metric.beta(0) )
-            , one_over_alp * ( vy + metric.beta(1) )
-            , one_over_alp * ( vz + metric.beta(2) )
-        } ; 
-        double const W = 1./Kokkos::sqrt(1-metric.square_vec(vN)) ; 
+
+        // W^2 = 1 + z^2
+        double const W = Kokkos::sqrt(1+metric.square_vec({vx,vy,vz})) ; 
+
         if (std::isnan(W)) {
             GRACE_VERBOSE(
                 "NaN in W at point {} on detector {}:\n"
@@ -149,12 +147,10 @@ bh_diagnostics::compute_local_fluxes(
                 "    beta = ({}, {}, {})\n"
                 "    alp  = {}\n"
                 "    rho  = {}, eps = {}, press = {}\n"
-                "    v = ({}, {}, {})\n"
+                "    z = ({}, {}, {})\n"
                 "    B = ({}, {}, {})\n"
                 "  Computed quantities:\n"
-                "    vN = ({}, {}, {})   (Eulerian 3-velocity)\n"
-                "    vN^2 = {}\n"
-                "    1 - vN^2 = {}\n"
+                "    z^2 = {}\n"
                 "    one_over_alp = {}\n"
                 "  Coordinates:\n"
                 "    x = {}, y = {}, z = {}\n",
@@ -165,16 +161,19 @@ bh_diagnostics::compute_local_fluxes(
                 rho, eps, press,
                 vx, vy, vz,
                 bx, by, bz,
-                vN[0], vN[1], vN[2],
-                metric.square_vec(vN),
-                1.0 - metric.square_vec(vN),
+                metric.square_vec({vx,vy,vz}),
                 one_over_alp,
                 x, y, z
             );
         }
         report_nan("W",W) ; 
         double const u0 = one_over_alp * W ; 
-        std::array<double,4> uU{{ u0, vx * u0, vy * u0, vz * u0 }};
+
+        std::array<double,4> uU{{ 
+            u0, 
+            vx - one_over_alp * metric.beta(0), 
+            vy - one_over_alp * metric.beta(1), 
+            vz - one_over_alp * metric.beta(2) }};
         auto uD = metric.lower_4vec(uU) ; 
 
         double b0 = uD[1] * bx + uD[2] * by + uD[3] * bz ; 

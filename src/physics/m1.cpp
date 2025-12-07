@@ -107,6 +107,21 @@ void set_m1_eas(
                 op(VEC(i,j,k),q,xyz) ; 
             }
         ); 
+    } else if ( eas_kind == "photon_rates" ) {
+        coord_array_t<GRACE_NSPACEDIM> cart_pcoords ; 
+        grace::fill_physical_coordinates(cart_pcoords,grace::STAG_CENTER,/*cartesian coords*/ false) ;
+        photon_eas_op op(aux) ; 
+        parallel_for(GRACE_EXECUTION_TAG("EVOL","compute_eas"), policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+            {
+                double xyz[3] = {
+                    cart_pcoords(VEC(i,j,k),0,q),
+                    cart_pcoords(VEC(i,j,k),1,q),
+                    cart_pcoords(VEC(i,j,k),2,q)
+                } ; 
+                op(VEC(i,j,k),q,xyz) ; 
+            }
+        );
     } else {
         ERROR("EAS computation method not supported.") ; 
     }
@@ -213,8 +228,14 @@ void set_m1_initial_data() {
         ASSERT(hydro_id_type=="minkowski_vacuum", "For M1 tests the hydro must be set to minkowski_vacuum") ; 
         coord_array_t<GRACE_NSPACEDIM> cart_pcoords ; 
         grace::fill_physical_coordinates(cart_pcoords,grace::STAG_CENTER,/*cartesian coords*/ false) ;
+        #if 0
         emitting_sphere_m1_id_t id{ 
             m1_atmo_params, m1_excision_params, cart_pcoords 
+        } ; 
+        set_m1_initial_data_impl(id) ; 
+        #endif 
+        zero_m1_id_t id{ 
+            m1_atmo_params, m1_excision_params, cart_pcoords
         } ; 
         set_m1_initial_data_impl(id) ; 
     } else if ( id_type == "zero") {

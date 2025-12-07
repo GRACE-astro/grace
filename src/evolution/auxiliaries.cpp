@@ -132,10 +132,6 @@ void compute_auxiliary_quantities(
 
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,state,sstate,aux,atmo_params,excision_params) ; 
-    #define GET_AUX \
-    grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, pcoords)
-    #else 
-    #define GET_AUX
     #endif 
     #ifdef GRACE_ENABLE_M1 
     m1_excision_params_t m1_excision_params = get_m1_excision_params() ; 
@@ -151,7 +147,11 @@ void compute_auxiliary_quantities(
     parallel_for(GRACE_EXECUTION_TAG("EVOL","get_auxiliaries"), policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
-        GET_AUX ; 
+        #ifdef GRACE_ENABLE_GRMHD 
+        #ifndef GRACE_FREEZE_HYDRO 
+        grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, pcoords);
+        #endif 
+        #endif 
         #ifdef GRACE_ENABLE_M1 
         m1_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, pcoords);
         #endif 

@@ -34,6 +34,7 @@
 #include <grace/system/grace_system.hh>
 #include <grace/IO/hdf5_output.hh>
 #include <grace/IO/hdf5_surface_output.hh>
+#include <grace/IO/hdf5_sphere_output.hh>
 
 #include <grace/parallel/mpi_wrappers.hh>
 
@@ -73,6 +74,9 @@ void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere) {
     if( out_plane ) {
         write_plane_cell_data() ; 
     } 
+    if ( out_sphere ) {
+        write_sphere_cell_data() ; 
+    }
     parallel::mpi_barrier() ; 
 }
 

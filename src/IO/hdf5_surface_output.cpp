@@ -1,6 +1,6 @@
 /**
  * @file hdf5_surface_output.cpp
- * @author Keneth Miler (miler@itp.uni-frankfurt.de)
+ * @author Keneth Miler (miler@itp.uni-frankfurt.de) & Carlo Musolino (carlo.musolino@aei.mpg.de)
  * @brief 
  * @version 0.1
  * @date 2024-05-23

@@ -74,7 +74,7 @@ struct bh_diagnostics:
         : base_t("bh_diagnostics")
     {
         this->var_interp_idx = std::vector<int>({GXX, GXY, GXZ, GYY, GYZ, GZZ, BETAX, BETAY, BETAZ, ALP});
-        this->aux_interp_idx = std::vector<int>({RHO, EPS, PRESS, VELX, VELY, VELZ, BX, BY, BZ});
+        this->aux_interp_idx = std::vector<int>({RHO, EPS, PRESS, ZVECX, ZVECY, ZVECZ, BX, BY, BZ});
 
     }
 

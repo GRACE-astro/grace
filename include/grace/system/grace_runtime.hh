@@ -100,10 +100,7 @@ class grace_runtime_impl_t
     std::vector<std::string>          _output_planes_names   ; 
     /* Output spheres */
     int _n_output_spheres ; 
-    std::vector<std::array<double,3>> _output_spheres_centers  ; 
-    std::vector<double>               _output_spheres_radii    ; 
-    std::vector<std::string>          _output_spheres_names    ; 
-    std::vector<std::string>          _output_spheres_tracking ;
+    std::vector<std::string>          _output_spheres_names   ; 
     /* Output parameters */ 
     bool   _volume_output        ;
     bool   _surface_output       ; 
@@ -114,9 +111,11 @@ class grace_runtime_impl_t
     int _info_output_every           ;
     std::filesystem::path _volume_io_basepath ;
     std::filesystem::path _surface_io_basepath ;
+    std::filesystem::path _sphere_io_basepath ; 
     std::filesystem::path _scalar_io_basepath ;
     std::string _volume_io_basename  ; 
     std::string _surface_io_basename ;
+    
     std::string _scalar_io_basename ;
     /* iteration count */ 
     size_t _iter ; 
@@ -219,6 +218,9 @@ class grace_runtime_impl_t
 
     std::string GRACE_ALWAYS_INLINE
     surface_io_basepath() const { return _surface_io_basepath ; }
+
+    std::string GRACE_ALWAYS_INLINE
+    sphere_io_basepath() const { return _sphere_io_basepath ; }
 
     std::string GRACE_ALWAYS_INLINE
     scalar_io_basepath() const { return _scalar_io_basepath ; }
@@ -407,31 +409,10 @@ class grace_runtime_impl_t
         return _n_output_spheres ; 
     }
 
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_sphere_surface_output_centers() const {
-        return _output_spheres_centers ; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_sphere_surface_output_radii() const {
-        return _output_spheres_radii ; 
-    }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
     cell_sphere_surface_output_names() const {
         return _output_spheres_names ;
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_sphere_surface_output_tracking() const {
-        return _output_spheres_tracking ;
-    }
-
-    void GRACE_ALWAYS_INLINE 
-    set_output_sphere_center(int isphere, std::array<double,3>const& new_center)
-    {
-        for( int ii=0; ii<3; ++ii)
-            _output_spheres_centers[isphere][ii] = new_center[ii] ;
     }
 
     double GRACE_ALWAYS_INLINE 
@@ -465,6 +446,8 @@ class grace_runtime_impl_t
             std::filesystem::path(grace::get_param<std::string>("IO", "surface_output_base_directory")); 
         _scalar_io_basepath  = 
             std::filesystem::path(grace::get_param<std::string>("IO", "scalar_output_base_directory")); 
+        _sphere_io_basepath = 
+            std::filesystem::path(grace::get_param<std::string>("IO","sphere_surface_output_base_directory")) ; 
         /* Create output directories if they don't exist */
         if( not std::filesystem::exists( _volume_io_basepath ) ){
             std::filesystem::create_directory(_volume_io_basepath) ; 
@@ -472,6 +455,10 @@ class grace_runtime_impl_t
 
         if( not std::filesystem::exists( _surface_io_basepath ) ){
             std::filesystem::create_directory(_surface_io_basepath) ; 
+        }
+
+        if( not std::filesystem::exists( _sphere_io_basepath ) ){
+            std::filesystem::create_directory(_sphere_io_basepath) ; 
         }
 
         if( not std::filesystem::exists( _scalar_io_basepath ) ){
@@ -505,34 +492,7 @@ class grace_runtime_impl_t
             _output_planes_names[iplane] = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
         }
         _n_output_spheres = grace::get_param<int>("IO", "n_output_spheres") ;
-        _output_spheres_centers.resize(_n_output_spheres)  ;
-        _output_spheres_radii.resize(_n_output_spheres)    ;
-        _output_spheres_names.resize(_n_output_spheres)    ;
-        _output_spheres_tracking.resize(_n_output_spheres) ;
-        for (int isphere=0; isphere < _n_output_spheres; ++isphere) {
-            std::ostringstream oss_x,oss_y,oss_z;
-            oss_x << "output_sphere_x_center_" << isphere;
-            oss_y << "output_sphere_y_center_" << isphere;
-            oss_z << "output_sphere_z_center_" << isphere;
-            _output_spheres_centers[isphere] = {
-                READ_IO_PARAM(oss_x.str(), AS_TYPE(double)),
-                READ_IO_PARAM(oss_y.str(), AS_TYPE(double)),
-                READ_IO_PARAM(oss_z.str(), AS_TYPE(double))
-            } ; 
-            oss_x.str("");  // Reset content to empty string
-            oss_x.clear();
-            oss_x << "output_sphere_radius_" << isphere;
-            _output_spheres_radii[isphere]    = READ_IO_PARAM(oss_x.str(), AS_TYPE(double)) ; 
-            oss_x.str("");  // Reset content to empty string
-            oss_x.clear();
-            oss_x << "output_sphere_name_" << isphere;
-            _output_spheres_names[isphere]    = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
-            oss_x.str("");  // Reset content to empty string
-            oss_x.clear();
-            oss_x << "output_sphere_tracking_" << isphere;
-            _output_spheres_tracking[isphere] = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
-        }
-        #undef READ_IO_PARAM
+        _output_spheres_names = grace::get_param<std::vector<std::string>>("IO", "output_sphere_names") ; 
         /* Volume and surface output variables */
         auto out_cell_vars_volume = 
             params["IO"]["volume_output_cell_variables"].as<std::vector<std::string>>() ; 

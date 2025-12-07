@@ -65,6 +65,8 @@ void compute_reductions() {
     int ngz = amr::get_n_ghosts() ; 
     int64_t nq = amr::get_local_num_quadrants() ;
 
+    size_t global_ncells = math::int_pow<3>(nx) * grace::amr::forest::get().get()->global_num_quadrants ;
+
     auto& state = variable_list::get().getstate()   ; 
     auto& aux   = variable_list::get().getaux()     ; 
     auto& cvols = variable_list::get().getvolumes() ; 
@@ -86,8 +88,9 @@ void compute_reductions() {
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, MinMaxScalar<double>& lres)
         {
-            lres.min_val = lres.min_val < u(VEC(i,j,k),q) ? lres.min_val    : u(VEC(i,j,k),q) ; 
-            lres.max_val = lres.max_val < u(VEC(i,j,k),q) ? u(VEC(i,j,k),q) : lres.max_val    ; 
+            double v = u(VEC(i,j,k), q);
+            if (v < lres.min_val) lres.min_val = v;
+            if (v > lres.max_val) lres.max_val = v;
         }, MinMax<double>(res)) ; 
         
         parallel::mpi_allreduce( &res.min_val
@@ -98,7 +101,7 @@ void compute_reductions() {
                                , &detail::_minmax_reduction_vars_results[vname].max_val
                                , 1
                                , sc_MPI_MAX) ; 
-        GRACE_TRACE("Min {}, Max {}", res.min_val, res.max_val) ; 
+        GRACE_TRACE("Min {}, Max {}", detail::_minmax_reduction_vars_results[vname].min_val, detail::_minmax_reduction_vars_results[vname].max_val) ; 
     }
     for( auto const& vname: minmax_aux ) {
         auto const vidx = get_variable_index(vname, true) ; 
@@ -110,8 +113,9 @@ void compute_reductions() {
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, MinMaxScalar<double>& lres)
         {
-            lres.min_val = lres.min_val < u(VEC(i,j,k),q) ? lres.min_val    : u(VEC(i,j,k),q) ; 
-            lres.max_val = lres.max_val < u(VEC(i,j,k),q) ? u(VEC(i,j,k),q) : lres.max_val    ; 
+            double v = u(VEC(i,j,k), q);
+            if (v < lres.min_val) lres.min_val = v;
+            if (v > lres.max_val) lres.max_val = v;
         }, MinMax<double>(res)) ; 
         
         parallel::mpi_allreduce( &res.min_val
@@ -134,20 +138,21 @@ void compute_reductions() {
         auto policy =
             MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
         auto const u = subview(state, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
-        double res ; 
+        double res{0.}; 
         parallel_reduce( GRACE_EXECUTION_TAG("IO","norm2_reduction_vars") 
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
         {
-            lres += math::int_pow<2>(u(VEC(i,j,k),q)) ; 
+            lres += SQR(u(VEC(i,j,k),q)) ; 
         }, Sum<double>(res)) ; 
         
         parallel::mpi_allreduce( &res
                                , &detail::_norm2_reduction_vars_results[vname]
                                , 1
                                , sc_MPI_SUM) ; 
-        detail::_norm2_reduction_vars_results[vname] = std::sqrt(detail::_norm2_reduction_vars_results[vname]) ; 
-        GRACE_TRACE("norm {}", std::sqrt(res)) ; 
+        
+        detail::_norm2_reduction_vars_results[vname] = std::sqrt(detail::_norm2_reduction_vars_results[vname]/global_ncells) ; 
+        GRACE_TRACE("norm {}", detail::_norm2_reduction_vars_results[vname]) ; 
     } 
     for( auto const& vname: norm2_aux ) {
         auto const vidx = get_variable_index(vname, true) ; 
@@ -155,20 +160,20 @@ void compute_reductions() {
         auto policy =
             MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
         auto const u = subview(aux, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
-        double res ; 
+        double res{0.}; 
         parallel_reduce( GRACE_EXECUTION_TAG("IO","norm2_reduction_aux") 
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
         {
-            lres += math::int_pow<2>(u(VEC(i,j,k),q)) ; 
+            lres += SQR(u(VEC(i,j,k),q)) ; 
         }, Sum<double>(res)) ; 
         
         parallel::mpi_allreduce( &res
                                , &detail::_norm2_reduction_aux_results[vname]
                                , 1
                                , sc_MPI_SUM) ; 
-        detail::_norm2_reduction_aux_results[vname] = std::sqrt(detail::_norm2_reduction_aux_results[vname]) ; 
-        GRACE_TRACE("norm {}", std::sqrt(res)) ; 
+        detail::_norm2_reduction_aux_results[vname] = std::sqrt(detail::_norm2_reduction_aux_results[vname]/global_ncells) ; 
+        GRACE_TRACE("norm {}", std::sqrt(detail::_norm2_reduction_aux_results[vname])) ; 
     }
     /* Then: compute integral reductions */ 
     auto const integral_vars = grace_runtime.integral_reduction_vars() ; 
@@ -180,7 +185,7 @@ void compute_reductions() {
         auto policy =
             MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
         auto const u = subview(state, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
-        double res ; 
+        double res{0.}; 
         parallel_reduce( GRACE_EXECUTION_TAG("IO","integral_reduction_vars") 
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
@@ -199,7 +204,7 @@ void compute_reductions() {
         auto policy =
             MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
         auto const u = subview(aux, VEC(ALL(),ALL(),ALL()), vidx, ALL()) ; 
-        double res ; 
+        double res{0.}; 
         parallel_reduce( GRACE_EXECUTION_TAG("IO","integral_reduction_aux") 
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
@@ -239,14 +244,14 @@ void write_scalar_output() {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::fixed << std::setprecision(15) ; 
+        outfile << std::scientific << std::setprecision(15) ; 
         outfile << std::left << iter << '\t'
                 << std::left << time << '\t' 
                 << std::left << detail::_minmax_reduction_vars_results[vname].min_val << '\n' ; 
         std::string const pfname_max = grace_runtime.scalar_io_basename() + vname + "_max.dat" ;
         std::filesystem::path fname_max = bdir /  pfname_max ; 
         std::ofstream outfile_max(fname_max.string(),std::ios::app) ; 
-        outfile_max << std::fixed << std::setprecision(15) ; 
+        outfile_max << std::scientific << std::setprecision(15) ; 
         outfile_max << std::left << iter << '\t'
                     << std::left << time << '\t' 
                     << std::left << detail::_minmax_reduction_vars_results[vname].max_val << '\n' ;
@@ -255,14 +260,14 @@ void write_scalar_output() {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_min.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::fixed << std::setprecision(15) ; 
+        outfile << std::scientific << std::setprecision(15) ; 
         outfile << std::left << iter << '\t'
                 << std::left << time << '\t' 
                 << std::left << detail::_minmax_reduction_aux_results[vname].min_val << '\n' ; 
         std::string const pfname_max = grace_runtime.scalar_io_basename() + vname + "_max.dat" ;
         std::filesystem::path fname_max = bdir /  pfname_max ; 
         std::ofstream outfile_max(fname_max.string(),std::ios::app) ; 
-        outfile_max << std::fixed << std::setprecision(15) ; 
+        outfile_max << std::scientific << std::setprecision(15) ; 
         outfile_max << std::left << iter << '\t'
                     << std::left << time << '\t' 
                     << std::left << detail::_minmax_reduction_aux_results[vname].max_val << '\n' ; 
@@ -274,7 +279,7 @@ void write_scalar_output() {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::fixed << std::setprecision(15) ; 
+        outfile << std::scientific << std::setprecision(15) ; 
         outfile << std::left << iter << '\t'
                 << std::left << time << '\t'
                 << std::left << detail::_norm2_reduction_vars_results[vname] << '\n' ; 
@@ -283,7 +288,7 @@ void write_scalar_output() {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_norm2.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ;
-        outfile << std::fixed << std::setprecision(15) ;  
+        outfile << std::scientific << std::setprecision(15) ;  
         outfile << std::left << iter << '\t'
                 << std::left << time << '\t' 
                 << std::left << detail::_norm2_reduction_aux_results[vname] << '\n' ; 
@@ -295,7 +300,7 @@ void write_scalar_output() {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_integral.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::fixed << std::setprecision(15) ; 
+        outfile << std::scientific << std::setprecision(15) ; 
         outfile << std::left << iter << '\t'
                 << std::left << time << '\t' 
                 << std::left << detail::_integral_reduction_vars_results[vname] << '\n' ; 
@@ -304,7 +309,7 @@ void write_scalar_output() {
         std::string const pfname = grace_runtime.scalar_io_basename() + vname + "_integral.dat" ;
         std::filesystem::path fname = bdir /  pfname ; 
         std::ofstream outfile(fname.string(),std::ios::app) ; 
-        outfile << std::fixed << std::setprecision(15) ; 
+        outfile << std::scientific << std::setprecision(15) ; 
         outfile << std::left << iter << '\t'
                 << std::left << time << '\t'
                 << std::left << detail::_integral_reduction_aux_results[vname] << '\n' ; 
@@ -388,7 +393,7 @@ void info_output() {
     int64_t outinfo_every = grace::config_parser::get()["IO"]["info_output_every"].as<int64_t>() * 10 ; 
 
     std::ostringstream os ; 
-    os << std::fixed << std::setprecision(5) ; 
+    os << std::scientific << std::setprecision(5) ; 
 
     auto& grace_runtime = grace::runtime::get() ; 
     auto const max_vars = grace_runtime.info_output_max_vars() ; 

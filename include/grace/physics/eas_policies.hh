@@ -38,6 +38,7 @@
 
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
+#include <grace/physics/eos/physical_constants.hh>
 
 #include <grace/config/config_parser.hh>
 
@@ -77,7 +78,8 @@ struct test_eas_op {
             _which_test == "emitting_sphere"
         ) {
             which_test = EMITTING_SPHERE ; 
-            _emitting_sphere_keta = grace::get_param<double>("m1","emitting_sphere_test","kappa_eta") ; 
+            _emitting_sphere_temperature = grace::get_param<double>("m1","emitting_sphere_test","temperature") ;
+            _emitting_sphere_cross_section = grace::get_param<double>("m1","emitting_sphere_test","cross_section") ; 
         } else {
             ERROR("Unknown m1 test") ; 
         }
@@ -93,10 +95,10 @@ struct test_eas_op {
         double r=0;
         switch (which_test) {
             case ZERO_EAS:
-            u(KAPPAA_) = u(KAPPAS_) = u(ETA_) = 0. ; 
+            u(KAPPAA_) = u(KAPPAS_) = u(ETA_) = u(KAPPAAN_) = u(ETAN_) = 0. ; 
             break ; 
             case LARGE_KS:
-            u(KAPPAA_) = u(ETA_) = 0. ; 
+            u(KAPPAA_) = u(ETA_) = u(KAPPAAN_) = u(ETAN_) = 0. ; 
             u(KAPPAS_) = _ks_value ; 
             break ; 
             case SHADOW_CAST:
@@ -104,9 +106,10 @@ struct test_eas_op {
             r = sqrt(
                 SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2])
             ) ;
-            u(KAPPAA_) = u(KAPPAS_) = u(ETA_) = 0. ; 
+            u(KAPPAA_) = u(KAPPAS_) = u(ETA_) = u(KAPPAAN_) = u(ETAN_) = 0. ; 
             if ( r<0.046875 ) {
                 u(KAPPAA_) = 1e06 ; 
+                u(KAPPAAN_) = 1e06 ; 
             } 
             break ; 
             case EMITTING_SPHERE:
@@ -114,9 +117,17 @@ struct test_eas_op {
             r = sqrt(
                 SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2])
             ) ; 
-            u(KAPPAA_) = u(KAPPAS_) = u(ETA_) = 0. ; 
+            u(KAPPAA_) = u(KAPPAS_) = u(ETA_) = u(KAPPAAN_) = u(ETAN_) = 0. ; 
             if ( r < 1. ) {
-                u(KAPPAA_) = u(ETA_) = _emitting_sphere_keta ; 
+                double T = _emitting_sphere_temperature ; 
+                double sigma = _emitting_sphere_cross_section ; 
+                // we set the rates according to LTE, 
+                // for simplicity the Stefan Boltzmann constant is 1 here
+                u(KAPPAA_) = _emitting_sphere_cross_section ; 
+                u(ETA_) = SQR(T)*SQR(T) * _emitting_sphere_cross_section ; 
+                
+                u(KAPPAAN_) = _emitting_sphere_cross_section ; 
+                u(ETAN_) = SQR(T)*T * _emitting_sphere_cross_section ; 
             } 
             break ; 
         }
@@ -125,7 +136,54 @@ struct test_eas_op {
     var_array_t aux ; 
     test_t which_test;
     double _ks_value ; 
-    double _emitting_sphere_keta ; 
+    double _emitting_sphere_cross_section, _emitting_sphere_temperature; 
+} ; 
+
+
+struct photon_eas_op {
+    photon_eas_op(
+        var_array_t _aux
+    ) 
+     : mass_scale(grace::get_param<double>("coordinate_system","mass_scale")) 
+     , aux(_aux)
+    {} 
+
+    void KOKKOS_INLINE_FUNCTION
+    operator() (
+        VEC(const int i, const int j, const int k), int64_t q
+        , double* xyz
+    ) const
+    {
+        using namespace grace::physical_constants ; 
+        double mu = 0.5 ; // fully ionized, fixme 
+        double const rho = aux(VEC(i,j,k),RHO_,q)  * Msun_cgs / (Msun_to_cm*SQR(Msun_to_cm*mass_scale)) ; 
+        double const T   = k_cgs * aux(VEC(i,j,k),TEMP_,q) / (mu * mp_cgs);// erg
+        // Energy rates 
+        double eta_cgs = 1.4e-27 * sqrt(T/k_cgs) * SQR(rho)/me_cgs/mp_cgs ; // gaunt factor 1
+        // Kirchoff law 
+        // 2 *( k_cgs *T )**4 * np.pi**4 / ( 15 * clight**2 * h_cgs**3)
+        double BB = 2 * SQR(M_PI*T)*SQR(M_PI*T) / ( 15. * SQR(clight) * SQR(h_cgs) * h_cgs) ; 
+        // Planck mean opacity
+        double kappa_cgs = eta_cgs / BB ; 
+
+        double BBn = 4 * SQR(T)*T / (SQR(clight)*SQR(h_cgs)*h_cgs) * 1.20206 ; // numerical factor is Zeta(3)
+
+        aux(i,j,k,ETA_,q)    = eta_cgs  / Msun_to_erg * SQR(Msun_to_cm)*Msun_to_cm * Msun_to_s * SQR(mass_scale) * mass_scale ;
+        aux(i,j,k,KAPPAA_,q) = kappa_cgs * Msun_to_cm * mass_scale ;
+        // Number rates 
+        // The integral over frequency is IR divergence, we cutoff at the plasma frequency 
+        // and plop the result (~log(h nu_min/(kT))) into the Gaunt factor 
+        // now -- we don't really care about eta anyway, eta/kappa is unaffected by this 
+        // for now we prentend the gaunt factor stays one and sweep this under the rug 
+        // but FIXME please 
+        aux(i,j,k,ETAN_,q)    = eta_cgs / T * SQR(Msun_to_cm)*Msun_to_cm * Msun_to_s * SQR(mass_scale) * SQR(mass_scale) / Msun_to_erg ; 
+        aux(i,j,k,KAPPAAN_,q) = eta_cgs / T / BBn * Msun_to_cm * mass_scale ; 
+        // Scattering 
+        aux(i,j,k,KAPPAS_,q) = 0;//rho/me_cgs * sigma_T * Msun_to_cm * mass_scale; 
+    }
+
+    var_array_t aux ; 
+    double mass_scale; 
 } ; 
 
 } /* namespace grace */

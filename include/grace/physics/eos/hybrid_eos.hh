@@ -65,7 +65,7 @@ class hybrid_eos_t
                                            , baryon_mass
                                            , 0
                                            , c2p_eps_max
-                                           , 1.00000001
+                                           , 1.0
                                            , 1.e99
                                            , false 
                                            , false }
@@ -378,7 +378,7 @@ class hybrid_eos_t
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     eps_th__press_press_cold_rho( double& press, double& press_cold, double& rho) const 
     {
-        return math::max(0, (press-press_cold) / (rho*gamma_th_m1)) ; 
+        return fmax(0, (press-press_cold) / (rho*gamma_th_m1)) ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -390,13 +390,13 @@ class hybrid_eos_t
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     temp__eps_th( double& eps_th) const 
     {
-        return math::max(0, eps_th * gamma_th_m1 ) ;
+        return fmax(0.0, eps_th * gamma_th_m1 ) ;
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     eps_th__temp( double& temp) const 
     {
-        return math::max(0, temp / gamma_th_m1 ) ;
+        return fmax(0.0, temp / gamma_th_m1 ) ;
     }
     
     

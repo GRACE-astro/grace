@@ -78,7 +78,7 @@ using m1_eas_array_t = std::array<double,N_M1_EAS> ;
 
 #define FILL_M1_PRIMS_ARRAY(primsarr,vview,aview,q,...)\
 primsarr[ERADL] = vview(__VA_ARGS__,ERAD_,q);          \
-primsarr[ERADL] = vview(__VA_ARGS__,NRAD_,q);          \
+primsarr[NRADL] = vview(__VA_ARGS__,NRAD_,q);          \
 primsarr[FXL] = vview(__VA_ARGS__,FRADX_,q) ;          \
 primsarr[FYL] = vview(__VA_ARGS__,FRADY_,q) ;          \
 primsarr[FZL] = vview(__VA_ARGS__,FRADZ_,q) ;          \
@@ -143,6 +143,14 @@ struct m1_closure_t {
     }
 
     void GRACE_HOST_DEVICE
+    update_closure(double _E, std::array<double,3> _F, double zeta0, bool update) {
+        E = _E; 
+        FD = _F; 
+        initialize() ; 
+        update_closure(zeta0,update) ; 
+    }
+
+    void GRACE_HOST_DEVICE
     update_closure(double zeta0, bool update=true)
     {
         double ff_params[9] ; 
@@ -154,8 +162,9 @@ struct m1_closure_t {
         if ( v2 > 1e-15 and update ) {
             Eclosure = E ; 
             if ( zeta0 < 1e-5 or zeta0 > 1.0 ) {
-                zeta = sqrt(F2/(E*E+TINY)) ;
-                if ( F2<=TINY ) zeta = 0 ;
+                double const E2 = fmax(E*E, f2_floor) ; 
+                zeta = sqrt(F2/E2) ;
+                if ( F2<=f2_floor ) zeta = 0 ;
                 zeta = fmin(zeta,1.) ; 
             } else {
                 zeta = zeta0 ; 
@@ -178,8 +187,9 @@ struct m1_closure_t {
             zeta = utils::brent(_z_func, 0.0, 1.0, 1e-15) ; 
         } else if (update) {
             // if v == 0 the two frames coincide 
-            zeta = sqrt(F2/(E*E+TINY)) ;
-            if ( F2<=TINY ) zeta = 0 ;
+            double const E2 = fmax(E*E, f2_floor) ; 
+            zeta = sqrt(F2/E2) ;
+            if ( F2<=f2_floor ) zeta = 0 ;
             zeta = fmin(zeta,1.) ; 
         }
 
@@ -203,7 +213,7 @@ struct m1_closure_t {
         );
         #endif 
         HU = metric.raise(HD) ; 
-        Gamma = W * (E-vdotF)/J ; 
+        Gamma = W * (E-vdotF)/fmax(J,f_floor) ; 
     }
 
     void GRACE_HOST_DEVICE
@@ -311,7 +321,7 @@ struct m1_closure_t {
         ) ; 
     }
 
-    void get_N_implicit_update(
+    void GRACE_HOST_DEVICE get_N_implicit_update(
         m1_prims_array_t const& prims, m1_eas_array_t const& eas, 
         double dt, double dtfact, double *N, double *dN
     )
@@ -320,8 +330,10 @@ struct m1_closure_t {
         *dN = (*N - prims[NRADL])/dt/dtfact ; 
     }
 
-    static constexpr double TINY = 1e-50 ; 
+    static constexpr double TINY   = 1e-20 ; 
+    static constexpr double DBLMIN = 1e-200 ; 
 
+    double f2_floor, f_floor ;
     vec_t FD, fhD, HD, vD, vU, FU, fhU, HU; 
     double E, J, F2, F, vdotF, vdotfh, Fdotfh, v2, W, W2, zeta, Gamma; 
     double PUU[3][3];
@@ -336,16 +348,24 @@ struct m1_closure_t {
 
     void GRACE_HOST_DEVICE 
     initialize() {
+        f2_floor = fmax(TINY * E * E, DBLMIN) ; 
+        f_floor  = fmax(TINY * E    , DBLMIN) ; 
+
         FU = metric.raise(FD) ;
-        F2 = metric.square_vec(FU) + TINY ; 
-        F = sqrt(F2) ; 
+        F2 = metric.square_vec(FU) ; 
+        F  = sqrt(F2) ; 
+
+        F2 = fmax(F2, f2_floor) ; 
+        F  = fmax(F , f_floor ) ; 
+
         // v here is actually z, we convert now 
         double const z2 = metric.square_vec(vU) ; 
         W2 = (1.0+z2) ; 
         W = sqrt(W2) ; 
         vU[0]/=W ; vU[1]/=W; vU[2]/=W ; 
 
-        vdotF = FD[0] * vU[0] + FD[1] * vU[1] + FD[2] * vU[2] + TINY ; 
+        vdotF = fmax(FD[0] * vU[0] + FD[1] * vU[1] + FD[2] * vU[2], f_floor) ; 
+
         vD = metric.lower(vU) ; 
         v2 = metric.square_vec(vU) ; 
 
@@ -382,9 +402,9 @@ struct m1_excision_params_t {
 static m1_excision_params_t 
 get_m1_excision_params() {
     m1_excision_params_t m1_excision_params ;
-    m1_excision_params.excise_by_radius = excision_params.excise_by_radius;
-    m1_excision_params.r_ex = excision_params.r_ex;
-    m1_excision_params.alp_ex = excision_params.alp_ex;
+    m1_excision_params.excise_by_radius = ( grace::get_param<std::string>("grmhd", "excision", "excision_criterion") == "radius"); 
+    m1_excision_params.r_ex = grace::get_param<double>("grmhd", "excision", "excision_radius");
+    m1_excision_params.alp_ex = grace::get_param<double>("grmhd", "excision", "excision_lapse");
     m1_excision_params.E_ex = grace::get_param<double>("m1", "excision", "E_excision") ; 
     m1_excision_params.eps_ex = grace::get_param<double>("m1", "excision", "eps_excision") ; 
     return m1_excision_params ; 
