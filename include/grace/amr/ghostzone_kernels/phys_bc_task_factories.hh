@@ -99,13 +99,14 @@ make_gpu_phys_bc_task(
 
     auto const off = get_index_staggerings(stag) ; 
     amr::phys_bc_op<elem_kind,bc_kind,decltype(data_array)> functor{
-       data_array, qid_d, eid_d, dir_d, var_bc, VEC(nx+off[0],ny+off[1],nz+off[2]),ngz, is_cbuf
+       data_array, qid_d, eid_d, dir_d, var_bc, VEC(nx+off[0],ny+off[1],nz+off[2]),ngz, nv, is_cbuf
     } ; 
     
-    Kokkos::MDRangePolicy<Kokkos::Rank<2, Kokkos::Iterate::Left>>   
+    Kokkos::TeamPolicy
         policy{
-            exec_space, {0,0}, {nv, qid_h.size()}
-        } ;
+            exec_space, static_cast<int>(qid_h.size()), Kokkos::AUTO
+        } ; 
+
     
     task._run = [functor, policy] (view_alias_t alias) mutable {
         functor.template set_data_ptr<stag>(alias) ; 

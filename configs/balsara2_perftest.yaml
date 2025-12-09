@@ -1,8 +1,8 @@
 name: "grace"
 amr: {
-  npoints_block_x: 64,
-  npoints_block_y: 64,
-  npoints_block_z: 64,
+  npoints_block_x: 128,
+  npoints_block_y: 128,
+  npoints_block_z: 128,
   xmin: -0.5,
   xmax: 0.5,
   ymin: -0.1,
@@ -10,15 +10,15 @@ amr: {
   zmin: -0.1,
   zmax: 0.1,
   n_ghostzones: 4,
-  initial_refinement_level: 1,
+  initial_refinement_level: 0,
   regrid_every: -1,
   regrid_at_postinitial: false
 }
 IO: {
   plane_surface_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]","Bdiv"],
-  plane_surface_output_every: 10,
+  plane_surface_output_every: -1,
   sphere_surface_output_every: -1,
-  do_initial_output: true,
+  do_initial_output: false,
   info_output_every: 2,
   info_output_max_reductions: ["rho", "press", "Bvec[1]", "Bdiv"],
   info_output_min_reductions: ["rho", "press", "Bvec[1]"], 
@@ -39,9 +39,10 @@ system: {
   n_device_streams: 4
 }
 evolution: {
-  time_stepper: "rk3",
-  cfl_factor: 0.25,
-  final_time: 0.45
+  time_stepper: "rk2",
+  cfl_factor: 0.2,
+  termination_condition: "iteration",
+  final_iteration: 50
 }
 grmhd: {
   id_type: "shocktube",

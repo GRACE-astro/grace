@@ -110,7 +110,7 @@ struct phys_bc_op {
 
     // only one view involved, if nx needs to be 
     // halved, just do it here 
-    size_t nx, ny, nz, ngz ; 
+    size_t nx, ny, nz, ngz, nv ; 
 
     template< var_staggering_t stag >
     void set_data_ptr(view_alias_t alias) 
@@ -122,15 +122,15 @@ struct phys_bc_op {
         view_t _data ,
         Kokkos::View<size_t*> _qid, Kokkos::View<uint8_t*> _eid, 
         Kokkos::View<int8_t*[3]> _dir, Kokkos::View<bc_t*> _var_bcs, 
-         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, bool _is_cbuf
+         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, size_t _nv, bool _is_cbuf
     ) : qid(_qid),  eid(_eid), dir(_dir), var_bcs(_var_bcs), data(_data), 
-        nx(_nx), ny(_ny), nz(_nz), ngz(_ngz), is_cbuf(_is_cbuf)
+        nx(_nx), ny(_ny), nz(_nz), ngz(_ngz), nv(_nv), is_cbuf(_is_cbuf)
     {
         outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ;
     }
 
     KOKKOS_INLINE_FUNCTION 
-    void compute_zero_dir(size_t& lmin, size_t& lmax, size_t& idir, uint8_t dir_idx, uint8_t eid) const {
+    void compute_zero_dir(size_t& lmin, size_t& lmax, size_t& idir, size_t& extent, uint8_t dir_idx, uint8_t eid) const {
         idir = +1;
         size_t _ncells[3] = {nx,ny,nz} ; 
         size_t const n = _ncells[dir_idx] ; 
@@ -139,11 +139,13 @@ struct phys_bc_op {
             lmin = ((eid>>dir_idx) & 1) ? n + ngz : 0 ; 
 
             lmax = lmin + ngz;
+            extent = ngz ; 
         } else if constexpr ((elem_kind == element_kind_t::EDGE) && (bc_kind == element_kind_t::FACE)) { 
             // supercalifragilistichespiralidoso 
             if(eid/4 == dir_idx) { 
                 // along-edge -> full sweep
                 lmin = ngz; lmax = n + ngz; idir = +1;
+                extent = n ; 
             } else {
                 // perpendicular -> ghost only
                 if(eid < 4) {          // X-axis edges
@@ -154,76 +156,150 @@ struct phys_bc_op {
                     lmin = ((eid>>dir_idx)&1) ? n + ngz : 0;
                 }
                 lmax = lmin + ngz;
+                extent = ngz ; 
             }
 
         } else {
             lmin = ngz; lmax = n + ngz ;
+            extent = n ; 
         }
     }
     
     KOKKOS_INLINE_FUNCTION 
-    void compute_bounds_impl(int8_t dir, size_t& lmin, size_t& lmax, size_t& idir, uint8_t idx, uint8_t eid) const
+    void compute_bounds_impl(int8_t dir, size_t& lmin, size_t& lmax, size_t& idir, size_t& extent, uint8_t idx, uint8_t eid) const
     {
         size_t _ncells[3] = {nx,ny,nz} ; 
         if (dir < 0) {
-            lmin = ngz - 1; lmax = -1; idir = -1;
+            lmin = ngz - 1; lmax = -1; idir = -1; extent = ngz ; 
         } else if (dir > 0) {
             lmin = _ncells[idx] + ngz; lmax = _ncells[idx] + 2 * ngz; idir = +1;
+            extent = ngz ; 
         } else {
             // anche se ti sembra che abbia un suono spaventoso 
-            compute_zero_dir(lmin,lmax,idir,idx,eid) ;  
+            compute_zero_dir(lmin,lmax,idir,extent,idx,eid) ;  
         }
     };
 
     KOKKOS_INLINE_FUNCTION 
-    void compute_bounds(const int8_t dir[3], size_t lmin[3], size_t lmax[3], size_t idir[3], uint8_t eid) const
+    void compute_bounds(
+        const int8_t dir[3], size_t lmin[3], 
+        size_t lmax[3], size_t idir[3], 
+        size_t ext[3], int pdim[3], int npdim[3],
+        uint8_t eid) const
     {
+        int npc{0}, pc{0} ; 
         #pragma unroll 
-        for( int ii=0; ii<3; ++ii) compute_bounds_impl(dir[ii],lmin[ii],lmax[ii],idir[ii],ii,eid) ; 
+        for( int ii=0; ii<3; ++ii) {
+            compute_bounds_impl(dir[ii],lmin[ii],lmax[ii],idir[ii],ext[ii],ii,eid) ; 
+            if ( dir[ii] != 0 ) {
+                // dir nonzero -> ghostzone direction
+                npdim[npc++] = ii ;
+            } else {
+                // dir zero -> we can parallelize 
+                pdim[pc++] = ii ; 
+            }
+        }
     };
 
-    KOKKOS_INLINE_FUNCTION
-    void operator() (
-        std::size_t iv, std::size_t iq 
-    ) const 
-    {
-        auto _eid = eid(iq) ; 
-        auto _qid = qid(iq)  ; 
-        auto _bc_kind = var_bcs(iv) ;         
-        
-        int8_t _dir[] = {dir(iq,0), dir(iq,1), dir(iq,2)} ; 
-        // se lo dici forte avrà un successo strepitoso 
-        size_t lmin[3], lmax[3], idir[3];
-        compute_bounds(_dir, lmin, lmax, idir, _eid);
 
+    KOKKOS_INLINE_FUNCTION 
+    void apply_bc_impl(int iv, const int ijk[3], const int8_t _dir[3], size_t qid) const {
         auto sv = Kokkos::subview(
             data, 
             VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
-            iv, _qid 
-        ) ; 
+            iv, qid 
+        ) ;
+        auto _bc_kind = var_bcs(iv) ;       
+        switch (_bc_kind) {
+            case BC_OUTFLOW:
+                outflow_kernel.template apply<decltype(sv)>(
+                    sv, VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]));
+                break;
 
-        
-        // loop not unrollable 
-        for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2])
-        for (int jg = lmin[1]; jg != lmax[1]; jg += idir[1])
-        for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0]) {
-            switch (_bc_kind) {
-                case BC_OUTFLOW:
-                    outflow_kernel.template apply<decltype(sv)>(
-                        sv, VEC(ig,jg,kg), VEC(_dir[0], _dir[1], _dir[2]));
-                    break;
-
-                case BC_LAGRANGE_EXTRAP:
-                    extrap_kernel.template apply<decltype(sv)>(
-                        sv, VEC(ig,jg,kg), VEC(_dir[0], _dir[1], _dir[2]));
-                    break;
-                case BC_NONE:
-                    break;
-                default:
-                    // fallback or assert
-                    break;
-            }
+            case BC_LAGRANGE_EXTRAP:
+                extrap_kernel.template apply<decltype(sv)>(
+                    sv, VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]));
+                break;
+            case BC_NONE:
+                break;
+            default:
+                // fallback or assert
+                break;
         }
+    }
+    template< typename team_handle_t >
+    KOKKOS_INLINE_FUNCTION
+    void operator() (
+        team_handle_t const& team
+    ) const 
+    {
+        using namespace Kokkos ; 
+        auto const iq = team.league_rank() ; 
+
+        auto _eid = eid(iq) ; 
+        auto _qid = qid(iq)  ; 
+          
+        
+        int8_t _dir[] = {dir(iq,0), dir(iq,1), dir(iq,2)} ; 
+        // se lo dici forte avrà un successo strepitoso 
+        size_t lmin[3], lmax[3], idir[3], extents[3];
+        int pdim[3], npdim[3] ; 
+        compute_bounds(_dir, lmin, lmax, idir, extents, pdim, npdim, _eid);
+
+         
+
+        // idea here is: 
+        // depending on BC kind we have some number of loops 
+        // which cannot be parallelized
+        // anything in faces: 2 dirs parallelizable 
+        // anything in edges: 1 
+        // corner: all serial 
+        if constexpr (bc_kind == element_kind_t::FACE) {
+            TeamThreadMDRange<Rank<2>, team_handle_t> 
+                range(team, extents[pdim[0]], extents[pdim[1]]) ; 
+            parallel_for(
+                range,
+                [=,this] ( int i, int j ) {
+                    int ijk[3] ; 
+                    ijk[pdim[0]] = lmin[pdim[0]] + idir[pdim[0]] * i ; 
+                    ijk[pdim[1]] = lmin[pdim[1]] + idir[pdim[1]] * j ; 
+                    for( int k=0; k<extents[npdim[0]]; ++k) {
+                        ijk[npdim[0]] = lmin[npdim[0]]+ idir[npdim[0]] * k ;
+                        for( int iv=0; iv<nv; ++iv) {
+                            apply_bc_impl(iv,ijk,_dir,_qid) ; 
+                        }
+                    }
+                } 
+            ) ; 
+
+        } else if constexpr ( bc_kind == element_kind_t::EDGE ) {
+            parallel_for(
+                TeamThreadRange(team,extents[pdim[0]]),
+                [=,this] ( int i ) {
+                    int ijk[3] ; 
+                    ijk[pdim[0]] = lmin[pdim[0]] + idir[pdim[0]] * i ; 
+                    for( int j=0; j<extents[npdim[0]]; ++j)
+                    for( int k=0; k<extents[npdim[1]]; ++k) {
+                        ijk[npdim[0]] = lmin[npdim[0]]+ idir[npdim[0]] * j ;
+                        ijk[npdim[1]] = lmin[npdim[1]]+ idir[npdim[1]] * k ; 
+                        for( int iv=0; iv<nv; ++iv) {
+                            apply_bc_impl(iv,ijk,_dir,_qid) ; 
+                        }
+                    }
+                } 
+            ) ;
+        } else {
+            // loop not unrollable 
+            for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2])
+            for (int jg = lmin[1]; jg != lmax[1]; jg += idir[1])
+            for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0]) {
+                for( int iv=0; iv<nv; ++iv) {
+                    int ijk[3] = {ig,jg,kg} ; 
+                    apply_bc_impl(iv,ijk,_dir,_qid) ; 
+                }
+            }
+        }       
+        
     }
 
     

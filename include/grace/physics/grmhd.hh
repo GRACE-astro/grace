@@ -471,7 +471,8 @@ struct grmhd_equations_system_t
         grmhd_prims_array_t prims ;        
         conservs_to_prims<eos_t>( cons, prims, metric
                                 , this->_eos
-                                , {pcoords(VEC(i,j,k),0,q),pcoords(VEC(i,j,k),1,q),pcoords(VEC(i,j,k),2,q)}
+                                /*, {pcoords(VEC(i,j,k),0,q),pcoords(VEC(i,j,k),1,q),pcoords(VEC(i,j,k),2,q)}*/
+                                , {0,0,0}
                                 , atmo_params, excision_params, c2p_errors ) ;
         
         
@@ -1065,10 +1066,10 @@ struct grmhd_equations_system_t
                 theta_p = MIN(theta,MAX(0.0,-( rho_star_minm1 - rho_star_LLF_p)/(a2CFL*(rho_star_flux[index] - rho_star_flux_LO[index]))));
         */
         if (dens_m < dens_min_r) {
-            theta_m = math::min(theta, math::max(0, (dens_min_r-dens_LLF_m)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])+1e-50))) ; 
+            theta_m = math::min(theta, math::max(0, (dens_min_r-dens_LLF_m)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ; 
         }
         if ( dens_p < dens_min_l ) {
-            theta_p = math::min(theta, math::max(0, -(dens_min_l-dens_LLF_p)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])+1e-50))) ; 
+            theta_p = math::min(theta, math::max(0, -(dens_min_l-dens_LLF_p)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ; 
         }
 
         theta = math::min(theta_m, theta_p) ;
