@@ -260,6 +260,11 @@ void write_sphere_cell_data_impl(const spherical_surface_iface<3>& sphere) {
     size_t compression_level = params["IO"]["hdf5_compression_level"].as<size_t>() ;
     size_t chunk_size = params["IO"]["hdf5_chunk_size"].as<size_t>() ;
 
+    if( chunk_size > sphere.npoints_glob ) {
+        GRACE_WARN("Chunk size {} < number of cells {} will be overridden." , chunk_size, sphere.npoints_glob ) ; 
+        chunk_size = max(1,sphere.npoints_glob ); 
+    }
+
     auto comm = parallel::get_comm_world() ; 
     auto rank = parallel::mpi_comm_rank()  ; 
     auto size = parallel::mpi_comm_size()  ;

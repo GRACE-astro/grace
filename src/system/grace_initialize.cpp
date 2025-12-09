@@ -41,6 +41,7 @@
 #include <grace/amr/forest.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/amr/amr_ghosts.hh>
+#include <grace/amr/boundary_conditions.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/profiling/profiling_runtime.hh>
@@ -242,7 +243,9 @@ void initialize(int& argc, char* argv[])
     grace::amr_ghosts::initialize() ; 
     auto& ghost = grace::amr_ghosts::get() ; 
     ghost.update() ; 
-
+    if ( started_from_checkpoint ) {
+        amr::apply_boundary_conditions() ; 
+    }
     // setup spherical surfaces 
     grace::spherical_surface_manager::initialize() ;
     /**********************************************************************************/

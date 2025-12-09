@@ -1185,7 +1185,7 @@ struct grmhd_equations_system_t
             cmin = -Kokkos::min(0., Kokkos::min(cml,cmr)) ; 
             cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ; 
             /* Add some diffusion in weakly hyperbolic limit */
-            if( cmin < 1e-50 and cmax < 1e-50 ) { cmin=1; cmax=1; }
+            if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
         } else {
             cmin = cmin_loc ; 
             cmax = cmax_loc ; 

@@ -52,7 +52,7 @@ compute_beta(
   // compute plasma beta 
   std::array<double,4> smallb ; double b2 ; 
   compute_smallb(smallb,b2,W,prims,metric) ; 
-  return 2. * prims[PRESSL] / (b2+1e-50) ; 
+  return 2. * prims[PRESSL] / fmax(b2,1e-100) ; 
 }
 
 // limit lorentz factor and maybe sigma

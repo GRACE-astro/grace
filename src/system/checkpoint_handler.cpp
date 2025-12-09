@@ -144,10 +144,22 @@ void read_data_hdf5(
 
     // Read data 
     auto h_mirror = Kokkos::create_mirror_view(data)  ;
+    std::vector<double> serial_data(dim_loc) ; 
     HDF5_CALL(
-        err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, memspace_id, space_id, dxpl, h_mirror.data())
+        err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, memspace_id, space_id, dxpl, serial_data.data())
     ) ;
-
+    size_t ipos{0} ; 
+    for( int q=0; q<nq; ++q) {
+        for( int ivar=0; ivar<data.extent(GRACE_NSPACEDIM); ++ivar) {
+            for( int k=0; k<data.extent(2); ++k){
+                for( int j=0; j<data.extent(1); ++j) {
+                    for( int i=0; i<data.extent(0); ++i) {
+                        h_mirror(i,j,k,ivar,q) = serial_data[ipos++] ; 
+                    }
+                }
+            }
+        }
+    } 
     // We need to shuffle the data a bit since in general the 
     // target View will have a different layout than the 
     // HDF5 buffer due to padding 
@@ -211,6 +223,19 @@ void write_data_hdf5(
     /* Start data transfer */
     auto h_mirror = Kokkos::create_mirror_view(data) ; 
     Kokkos::deep_copy(grace::default_execution_space{},h_mirror,data) ; 
+    std::vector<double> serial_data(dim_loc) ; 
+    size_t ipos{0} ; 
+    for( int q=0; q<nq; ++q) {
+        for( int ivar=0; ivar<data.extent(GRACE_NSPACEDIM); ++ivar) {
+            for( int k=0; k<data.extent(2); ++k){
+                for( int j=0; j<data.extent(1); ++j) {
+                    for( int i=0; i<data.extent(0); ++i) {
+                        serial_data[ipos++] = h_mirror(i,j,k,ivar,q) ; 
+                    }
+                }
+            }
+        }
+    } 
     /* Create dataset */
     hid_t dset_id ; 
         HDF5_CALL( dset_id
@@ -240,7 +265,7 @@ void write_data_hdf5(
                         , space_id
                         , space_id_glob 
                         , dxpl 
-                        , reinterpret_cast<void*>(h_mirror.data()) )) ;
+                        , serial_data.data() )) ;
 
     /* Close dataset */
     HDF5_CALL(err, H5Dclose(dset_id)) ; 

@@ -40,6 +40,7 @@
 #include <grace/physics/id/vacuum.hh>
 //#include <grace/physics/id/blastwave.hh>
 #include <grace/physics/id/kelvin_helmholtz.hh>
+#include <grace/physics/id/cloud.hh>
 #include <grace/physics/id/tov.hh>
 #include <grace/physics/id/magnetic_rotor.hh>
 #include <grace/physics/id/orszag_tang_vortex.hh>
@@ -607,6 +608,12 @@ void set_grmhd_initial_data() {
         GRACE_TRACE("Done with magnetized FMTorus ID.") ;
     } else if (id_type == "khi") { 
         set_grmhd_initial_data_impl<eos_t,kelvin_helmholtz_id_t<eos_t>>() ;
+    } else if ( id_type == "gas_cloud") {
+        double const rho0 = get_param<double>("grmhd","gas_cloud","rho0") ; 
+        double const r0 = get_param<double>("grmhd","gas_cloud","r0") ; 
+        double const T0 = get_param<double>("grmhd","gas_cloud","temp") ;
+        double const p = get_param<double>("grmhd","gas_cloud","scaling") ; 
+        set_grmhd_initial_data_impl<eos_t,cloud_id_t<eos_t>>(rho0,T0,r0,p) ;
     } else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }

@@ -2,7 +2,7 @@
  * @file m1.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
  * @brief 
- * @date 2024-11-21
+ * @date 2025-11-26
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
  * Code for Exascale.
@@ -500,13 +500,13 @@ struct m1_equations_system_t
         state_new(i,j,k,FRADZ_,q) = metric.sqrtg() * U[3] ; 
         /**************************************************************************************************/
         #ifndef GRACE_FREEZE_HYDRO
-        double const dE = 0.0 ; //this->_state(VEC(i,j,k),ERAD_,q) - state_new(VEC(i,j,k),ERAD_,q) ; 
+        double const dE = this->_state(VEC(i,j,k),ERAD_,q) - state_new(VEC(i,j,k),ERAD_,q) ; 
         state_new(VEC(i,j,k),TAU_,q) += dE ; 
-        double const dSx = 0.0 ; // this->_state(VEC(i,j,k),FRADX_,q) - state_new(VEC(i,j,k),FRADX_,q) ;
+        double const dSx = this->_state(VEC(i,j,k),FRADX_,q) - state_new(VEC(i,j,k),FRADX_,q) ;
         state_new(VEC(i,j,k),SX_,q) += dSx ; 
-        double const dSy = 0.0 ; // this->_state(VEC(i,j,k),FRADY_,q) - state_new(VEC(i,j,k),FRADY_,q) ;
+        double const dSy = this->_state(VEC(i,j,k),FRADY_,q) - state_new(VEC(i,j,k),FRADY_,q) ;
         state_new(VEC(i,j,k),SY_,q) += dSy ; 
-        double const dSz = 0.0 ; // this->_state(VEC(i,j,k),FRADZ_,q) - state_new(VEC(i,j,k),FRADZ_,q) ; 
+        double const dSz = this->_state(VEC(i,j,k),FRADZ_,q) - state_new(VEC(i,j,k),FRADZ_,q) ; 
         state_new(VEC(i,j,k),SZ_,q) += dSz ; 
         #endif
         /**************************************************************************************************/

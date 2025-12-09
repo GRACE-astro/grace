@@ -82,6 +82,13 @@ grmhd: {
     temp_scaling: -1
   },
 
+  gas_cloud: {
+    rho0: 1.,
+    r0: 1.,
+    scaling: -2.,
+    temp: .1
+  },
+
   excision: {
     excision_criterion: "lapse",
     excision_lapse: 0.05,

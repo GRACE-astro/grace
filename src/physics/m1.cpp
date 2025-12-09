@@ -238,7 +238,7 @@ void set_m1_initial_data() {
             m1_atmo_params, m1_excision_params, cart_pcoords
         } ; 
         set_m1_initial_data_impl(id) ; 
-    } else if ( id_type == "zero") {
+    } else if ( id_type == "zero" or id_type == "coupling_test" ) {
         coord_array_t<GRACE_NSPACEDIM> sph_pcoords ; 
         grace::fill_physical_coordinates(sph_pcoords,grace::STAG_CENTER,/*spherical coords*/ true) ;
         zero_m1_id_t id{ 
