@@ -108,17 +108,13 @@ void set_m1_eas(
             }
         ); 
     } else if ( eas_kind == "photon_rates" ) {
-        coord_array_t<GRACE_NSPACEDIM> cart_pcoords ; 
-        grace::fill_physical_coordinates(cart_pcoords,grace::STAG_CENTER,/*cartesian coords*/ false) ;
+        auto coords = grace::coordinate_system::get().get_device_coord_system() ; 
         photon_eas_op op(aux) ; 
         parallel_for(GRACE_EXECUTION_TAG("EVOL","compute_eas"), policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
             {
-                double xyz[3] = {
-                    cart_pcoords(VEC(i,j,k),0,q),
-                    cart_pcoords(VEC(i,j,k),1,q),
-                    cart_pcoords(VEC(i,j,k),2,q)
-                } ; 
+                double xyz[3] ;
+                coords.get_physical_coordinates(i,j,k,q,xyz) ; 
                 op(VEC(i,j,k),q,xyz) ; 
             }
         );
@@ -188,10 +184,6 @@ void set_m1_initial_data() {
             m1_atmo_params, m1_excision_params, cart_pcoords
         ) ; 
         set_m1_initial_data_impl(id) ; 
-    } else if (id_type == "curved_beam" ) {
-        auto hydro_id_type = grace::get_param<std::string>("grmhd","id_type") ;
-        ASSERT(hydro_id_type=="minkowski_vacuum", "For M1 tests the hydro must be set to minkowski_vacuum") ; 
-
     } else if ( id_type == "scattering") {
         auto hydro_id_type = grace::get_param<std::string>("grmhd","id_type") ;
         ASSERT(hydro_id_type=="minkowski_vacuum", "For M1 tests the hydro must be set to minkowski_vacuum") ; 
@@ -244,6 +236,16 @@ void set_m1_initial_data() {
         zero_m1_id_t id{ 
             m1_atmo_params, m1_excision_params, sph_pcoords
         } ; 
+        set_m1_initial_data_impl(id) ; 
+    } else if ( id_type == "curved_beam" ) {
+        auto& coord_system = coordinate_system::get() ; 
+        ASSERT(coord_system.get_is_cks(), "Curved beam requires cks coordinates!") ; 
+        coord_array_t<GRACE_NSPACEDIM> sph_pcoords ; 
+        grace::fill_physical_coordinates(sph_pcoords,grace::STAG_CENTER,/*spherical coords*/ false) ;
+        auto& state = variable_list::get().getstate() ; 
+        curved_beam_m1_id_t id(
+            m1_atmo_params, m1_excision_params, sph_pcoords, state
+        ) ; 
         set_m1_initial_data_impl(id) ; 
     }
 

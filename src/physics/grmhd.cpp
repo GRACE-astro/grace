@@ -509,8 +509,9 @@ void set_grmhd_initial_data() {
         auto const vx_bg = get_param<double>("grmhd","vacuum","velocity_x") ; 
         auto const vy_bg = get_param<double>("grmhd","vacuum","velocity_y") ; 
         auto const vz_bg = get_param<double>("grmhd","vacuum","velocity_z") ; 
+        auto const is_cks = get_param<bool>("coordinate_system", "is_kerr_schild") ; 
         set_grmhd_initial_data_impl<eos_t, vacuum_id_t<eos_t>>(
-            rho_bg,press_bg,vx_bg,vy_bg,vz_bg
+            rho_bg,press_bg,vx_bg,vy_bg,vz_bg, is_cks
         ) ; 
     } else if( id_type == "shocktube" ) {
         auto pars = get_param<YAML::Node>("grmhd","shocktube") ; 

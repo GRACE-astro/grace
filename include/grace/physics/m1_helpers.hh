@@ -153,7 +153,7 @@ struct m1_closure_t {
     void GRACE_HOST_DEVICE
     update_closure(double zeta0, bool update=true)
     {
-        double ff_params[9] ; 
+        double ff_params[11] ; 
         m1_closure_helpers(
             v2, W, E, vdotF, vdotfh, ff_params
         ) ; 
@@ -176,10 +176,7 @@ struct m1_closure_t {
                 double res ; 
                 m1_z_rootfind(
                     xi, dthin, dthick,
-                    v2, Eclosure,
-                    FU.data(), FD.data(),
-                    vU.data(), vD.data(),
-                    fhU.data(), fhD.data(),
+                    v2, vdotF, vdotfh, W, F, Eclosure,
                     ff_params, &res
                 ) ; 
                 return res;
@@ -224,7 +221,7 @@ struct m1_closure_t {
         m1_PUU(
             athin, athick,
             vdotF, vdotfh, E, F, W,
-            FU.data(), vU.data(), HU.data(),
+            FU.data(), vU.data(), 
             metric._ginv.data(), PUU
         ) ;
     }

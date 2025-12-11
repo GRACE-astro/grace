@@ -139,8 +139,8 @@ void compute_auxiliary_quantities(
     m1_equations_system_t m1_eq_system(state,sstate,aux,m1_atmo_params,m1_excision_params) ; 
     #endif 
 
-    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
-    //grace::fill_physical_coordinates(pcoords,grace::STAG_CENTER,/*spherical coords*/ true) ;
+    auto& coord_system = grace::coordinate_system::get() ; 
+    auto dev_coords = coord_system.get_device_coord_system() ; 
 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 
@@ -149,11 +149,11 @@ void compute_auxiliary_quantities(
     {
         #ifdef GRACE_ENABLE_GRMHD 
         #ifndef GRACE_FREEZE_HYDRO 
-        grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, pcoords);
+        grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, dev_coords);
         #endif 
         #endif 
         #ifdef GRACE_ENABLE_M1 
-        m1_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, pcoords);
+        m1_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, dev_coords);
         #endif 
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k)) ; 

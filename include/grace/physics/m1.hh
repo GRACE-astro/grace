@@ -38,6 +38,7 @@
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/grmhd_helpers.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
+#include <grace/coordinates/coordinate_systems.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
 #include <grace/utils/reconstruction.hh>
@@ -225,17 +226,14 @@ struct m1_equations_system_t
         cl.compute_pressure() ; 
         auto const& PUU = cl.PUU ; 
         /**************************************************************************************************/
-        /* Indices for contraction of P^{ij} onto \partial_i \beta_j (see E source below)                 */  
-        int spatial_index[3][3] = {
-            {VEC(0,1,2)},
-            {VEC(1,3,4)},
-            {VEC(2,4,5)},
-        };
-        /**************************************************************************************************/
-        double E_source{0.} ; 
-        /**************************************************************************************************/
+        // we need derivative of gamma_{ij}, derivatives of beta^i and beta_i, derivatives of 
+        // alpha 
+        double dalpha[3], dbetau_x[3], dbetau_y[3], dbetau_z[3] ; 
+        double dgdd_x[3][3], dgdd_y[3][3], dgdd_z[3][3] ; 
+        double *dbetau[3] = {dbetau_x,dbetau_y,dbetau_z};
+        double (*dgdd[3])[3] = {dgdd_x, dgdd_y, dgdd_z};
+        #pragma unroll 
         for( int idir=0; idir<3; ++idir) {
-            /**************************************************************************************************/
             /**************************************************************************************************/
             /* Read metric components at neighor cell centres for metric derivative                           */
             metric_array_t metric_m, metric_p ; 
@@ -248,55 +246,33 @@ struct m1_equations_system_t
                              , q
                              , VEC( i+utils::delta(0,idir)
                                   , j+utils::delta(1,idir)
-                                  , k+utils::delta(2,idir) ) ) ; 
-            /**************************************************************************************************/
-            /* Compute metric derivatives                                                                     */
-            /* We need \partial_i \gamma_{ij} and \partial_i \alpha                                           */
-            /**************************************************************************************************/
-            std::array<double, 6> dgab_dxi  ;
-
-            /**************************************************************************************************/
-            /* Compute metric derivative (factor of 1./dx introduced after)                                 */
-            #pragma unroll 6
-            for( int ii=0; ii<6; ++ii) { 
-                dgab_dxi[ii] =  0.5*(metric_p.gamma(ii) - metric_m.gamma(ii)) ;
+                                  , k+utils::delta(2,idir) ) ) ;
+            dalpha[idir] = 0.5*(metric_p.alp() - metric_m.alp()) * idx(idir,q) ;
+            int ii=0; 
+            for( int j=0; j<3; ++j) {
+                dbetau[idir][j] =  0.5*(metric_p.beta(j) - metric_m.beta(j)) * idx(idir,q) ;
+                for( int k=j; k<3; ++k) {
+                    dgdd[idir][j][k] = dgdd[idir][k][j] = 0.5*(metric_p.gamma(ii) - metric_m.gamma(ii)) * idx(idir,q) ;
+                    ii++ ; 
+                }
             }
-            /**************************************************************************************************/
-            /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
-            double const dalp_dxi =  0.5*(metric_p.alp() - metric_m.alp()) ;
-            double const PAB_dgab_dxi = metric.contract_sym2tens_sym2tens(dgab_dxi,PUU) ;
-            #ifdef GRACE_ENABLE_COWLING_METRIC
-            /**************************************************************************************************/
-            /* In Cowling approx we can use the simpler form of the source term which reads                   */
-            /* S_{E} +=  1/2 P^{ij} \beta^k \partial_k \gamma_{ij} + P^i_j \partial_i \beta^j                 */
-            /**************************************************************************************************/ 
-            std::array<double,3> dbetaj_dxi = {
-                0.5 * (metric_p.beta(0) - metric_m.beta(0)),
-                0.5 * (metric_p.beta(1) - metric_m.beta(1)),
-                0.5 * (metric_p.beta(2) - metric_m.beta(2)),
-            } ; 
-
-            E_source += idx(idir,q) * (
-                0.5 * metric.beta(idir) * PAB_dgab_dxi
-              + metric.contract_vec_vec( 
-                    dbetaj_dxi
-                ,   {PUU[idir][0],PUU[idir][1],PUU[idir][2]})
-            ) ; 
-            #endif 
-            /**************************************************************************************************/
-            /* Other piece of the source term                                                                 */
-            /* S_{E} += - F^i \partial_i \alpha                                                               */
-            /**************************************************************************************************/ 
-            E_source -= idx(idir,q) * dalp_dxi * cl.FU[idir] ; 
-            /**************************************************************************************************/
-            /* S_{F_i} = -E \partial_i alpha + F_k \partial_i \betaˆk                                         */
-            /*         + \alpha/2 Pˆ{jk} \partial_i \gamma_{jk}                                               */
-            /**************************************************************************************************/
-            double F_source = idx(idir,q) * ( -cl.E*dalp_dxi + metric.contract_vec_covec(cl.FD,dbetaj_dxi) 
-                                              + 0.5 * metric.alp() *  PAB_dgab_dxi ) ; 
-            state_new(VEC(i,j,k),FRADX_+idir,q) += dt * dtfact * metric.sqrtg() * F_source ; 
+            
         }
-        state_new(VEC(i,j,k),ERAD_,q) += dt * dtfact * metric.sqrtg() * E_source ; 
+        /**************************************************************************************************/
+        auto betad = metric.lower(metric._beta) ; 
+        double source[4] ; 
+        m1_source_terms(
+            dgdd_x,dgdd_y,dgdd_z,
+            dbetau_x,dbetau_y,dbetau_z,
+            dalpha,betad.data(),metric._g.data(),metric._ginv.data(),
+            metric.alp(),metric.sqrtg(),
+            cl.E, cl.FD.data(), cl.FU.data(), PUU, source
+        ) ; 
+        
+        state_new(VEC(i,j,k),ERAD_,q)  += dt * dtfact * source[0] ;
+        state_new(VEC(i,j,k),FRADX_,q) += dt * dtfact * source[1] ;
+        state_new(VEC(i,j,k),FRADY_,q) += dt * dtfact * source[2] ;
+        state_new(VEC(i,j,k),FRADZ_,q) += dt * dtfact * source[3] ;
     }
 
     /**
@@ -312,10 +288,15 @@ struct m1_equations_system_t
                         ,      const int j 
                         ,      const int k) 
                         , int64_t q 
-                        , grace::coord_array_t<GRACE_NSPACEDIM> pcoords) const 
+                        , grace::device_coordinate_system coords) const 
     {
         using namespace grace ;
         using namespace Kokkos ; 
+
+        double rtp[3] ; 
+        coords.get_physical_coordinates_sph(i,j,k,q,rtp) ; 
+
+
         m1_prims_array_t prims ; 
         FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
         
@@ -342,7 +323,7 @@ struct m1_equations_system_t
         // compute radiation avg energy 
         double epsilon = cl.J / prims[NRADL] * cl.Gamma ; 
         // Set atmosphere / excision 
-        double r = pcoords(VEC(i,j,k),0,q) ; 
+        double r = rtp[0] ; 
         bool excise = excision_params.excise_by_radius 
                 ? r <= excision_params.r_ex 
                 : metric.alp() <= excision_params.alp_ex ; 

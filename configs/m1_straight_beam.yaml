@@ -1,8 +1,8 @@
 name: "grace"
 amr: {
-  npoints_block_x: 32,
-  npoints_block_y: 32,
-  npoints_block_z: 32,
+  npoints_block_x: 128,
+  npoints_block_y: 128,
+  npoints_block_z: 128,
   xmin: -0.5,
   xmax: 0.5,
   ymin: -0.125,

@@ -57,16 +57,20 @@ grmhd: {
     By_R: 0.7,
     Bz_L: 6.,
     Bz_R: 0.7
-  }
+  },
+  atmosphere: {
+    ye_fl: 0,
+    temp_fl:  0.3333e-2,
+    rho_fl: 1.e-5,
+    rho_scaling: -1.5,
+    temp_scaling: -1
+  },
 }
 
 eos: {
   eos_type: "hybrid",
   cold_eos_type: "piecewise_polytrope",
-
-  ye_atmosphere: 0,
-  temp_atmosphere: 0,
-  rho_atmosphere: 1.e-14,
+  
   eps_maximum: 1.e+05,
   gamma_th: 1.66666,
 

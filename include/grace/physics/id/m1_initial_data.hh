@@ -297,5 +297,57 @@ struct emitting_sphere_m1_id_t {
     coord_array_t<GRACE_NSPACEDIM> pcoords ; 
 } ;
 
+struct curved_beam_m1_id_t {
+    curved_beam_m1_id_t(
+        m1_atmo_params_t _atmo, 
+        m1_excision_params_t _excision,
+        coord_array_t<GRACE_NSPACEDIM> _pcoords,
+        var_array_t _state
+    ) : atmo(_atmo), excision(_excision), pcoords(_pcoords), state(_state)
+    {}
+
+    m1_id_t KOKKOS_INLINE_FUNCTION 
+    operator() (
+        VEC(int const i, int const j, int const k), 
+        int const q) const 
+    {
+        m1_id_t id ; 
+        double xyz[3] = {
+            pcoords(VEC(i,j,k),0,q),
+            pcoords(VEC(i,j,k),1,q),
+            pcoords(VEC(i,j,k),2,q)
+        }; 
+        
+        id.erad = atmo.E_fl ; id.nrad = atmo.E_fl / atmo.eps_fl ; 
+        id.fradx = id.frady = id.fradz = 0. ;  
+
+        if ( xyz[0] <= 0. and 
+            xyz[1] < 0.25 and xyz[1] > - 0.25 and 
+            xyz[2] <= 3.5 and xyz[2] >= 3.0 ) {
+            id.erad = 1.0 ; 
+            // F_i F^i = E * E  
+            metric_array_t metric ; 
+            FILL_METRIC_ARRAY(metric,this->state,q,i,j,k) ; 
+            double FY = metric.beta(1) * id.erad / metric.alp() ; 
+            double FZ = metric.beta(2) * id.erad / metric.alp() ; 
+
+            double const a = metric.gamma(0) ; 
+            double const b = 2 * FY * metric.gamma(1) + 2 * FZ * metric.gamma(2) ; 
+            double const c = - 0.9999 * SQR(id.erad) + SQR(FY) * metric.gamma(3) + SQR(FZ) * metric.gamma(5) + 2. * FY * FZ * metric.gamma(4) ; 
+
+            double const FX = (-b + sqrt(SQR(b)-4.*a*c))/(2.*a) ; 
+            auto Fd = metric.lower({FX,FY,FZ}) ; 
+            id.fradx = Fd[0] ; id.frady = Fd[1] ; id.fradz = Fd[2] ; 
+        }
+
+        return id ; 
+    }
+
+    m1_atmo_params_t atmo ; 
+    m1_excision_params_t excision ; 
+    var_array_t state ; 
+    coord_array_t<GRACE_NSPACEDIM> pcoords ; 
+} ;
+
 } /* namespace grace */
 #endif /*GRACE_PHYSICS_ID_M1_HH*/

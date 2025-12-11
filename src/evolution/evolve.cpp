@@ -381,11 +381,11 @@ void compute_fluxes(
 
             metric_array_t metric ; 
             FILL_METRIC_ARRAY(metric,old_state,q,VEC(i,j,k)) ;
+            old_state(VEC(i,j,k),ERAD_,q)  *= metric.sqrtg() ; 
             old_state(VEC(i,j,k),NRAD_,q)  *=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),FRADX_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),FRADY_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),FRADZ_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
-            old_state(VEC(i,j,k),ERAD_,q)  *= metric.sqrtg() ; 
         }
     ) ; 
     #endif 
@@ -628,6 +628,9 @@ void add_fluxes_and_source_terms(
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,old_state,old_stag_state,aux,atmo_params,excision_params) ;
+    #ifdef GRACE_ENABLE_M1 
+    m1_equations_system_t m1_eq_system(old_state,old_stag_state,aux) ; 
+    #endif 
     //**************************************************************************************************/
     // loop range 
     auto policy = 
@@ -641,6 +644,9 @@ void add_fluxes_and_source_terms(
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
+        #endif 
+        #ifdef GRACE_ENABLE_M1
+        m1_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
         #endif 
         for( int ivar=0; ivar<nvars_hrsc; ++ivar) {
             new_state(VEC(i,j,k),ivar,q) += 

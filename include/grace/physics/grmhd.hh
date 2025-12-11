@@ -40,6 +40,7 @@
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
+#include <grace/coordinates/coordinate_systems.hh>
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
@@ -406,10 +407,14 @@ struct grmhd_equations_system_t
                         ,      const int j 
                         ,      const int k) 
                         , int64_t q 
-                        , grace::coord_array_t<GRACE_NSPACEDIM> pcoords) const 
+                        , grace::device_coordinate_system coords) const 
     {
         using namespace grace ;
         using namespace Kokkos ; 
+
+        double rtp[3] ; 
+        coords.get_physical_coordinates_sph(i,j,k,q,rtp) ; 
+
         auto vars = subview(
               this->_state
             , VEC( i
@@ -471,8 +476,7 @@ struct grmhd_equations_system_t
         grmhd_prims_array_t prims ;        
         conservs_to_prims<eos_t>( cons, prims, metric
                                 , this->_eos
-                                /*, {pcoords(VEC(i,j,k),0,q),pcoords(VEC(i,j,k),1,q),pcoords(VEC(i,j,k),2,q)}*/
-                                , {0,0,0}
+                                , {rtp[0],rtp[1],rtp[2]}
                                 , atmo_params, excision_params, c2p_errors ) ;
         
         

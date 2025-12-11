@@ -32,6 +32,7 @@
 
 #include <grace/utils/grace_utils.hh>
 #include <grace/data_structures/variable_properties.hh>
+#include <grace/coordinates/coordinate_systems.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
 
 namespace grace {
@@ -117,7 +118,7 @@ struct hrsc_evolution_system_t {
                ,      const int j 
                ,      const int k)
                , int64_t q 
-               , grace::coord_array_t<GRACE_NSPACEDIM> pcoords ) const 
+               , grace::device_coordinate_system pcoords ) const 
     {
         static_cast<EvolSystem_t const *>(this)->compute_auxiliaries(VEC(i,j,k),q,pcoords) ; 
     }
