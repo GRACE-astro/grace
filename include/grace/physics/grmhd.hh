@@ -49,7 +49,7 @@
 #include <Kokkos_Core.hpp>
 
 #include <type_traits>
-#define GRMHD_USE_PPLIM
+//#define GRMHD_USE_PPLIM
 //**************************************************************************************************/
 /**
  * \defgroup physics Physics Modules.
@@ -475,9 +475,7 @@ struct grmhd_equations_system_t
         c2p_err_t c2p_errors ; 
         grmhd_prims_array_t prims ;        
         conservs_to_prims<eos_t>( cons, prims, metric
-                                , this->_eos
-                                , {rtp[0],rtp[1],rtp[2]}
-                                , atmo_params, excision_params, c2p_errors ) ;
+                                , this->_eos, 0.05 ) ;
         
         
         /* Write new prims */
@@ -500,35 +498,22 @@ struct grmhd_equations_system_t
         } ; 
 
         double const W = 1./Kokkos::sqrt(1.-metric.square_vec(vN)) ;
-        
+
         aux(ZVECX_) = W * vN[0] ; 
         aux(ZVECY_) = W * vN[1] ; 
         aux(ZVECZ_) = W * vN[2] ; 
-
-        aux(C2P_ERR_) = 0 ; 
-        /* Overwrite conserved where needed */
-        if ( c2p_errors.adjust_d ){
-            aux(C2P_ERR_) += fabs(vars(DENS_)-cons[DENSL]) ; 
-            vars(YESTAR_) = cons[YESL]       ; 
-            vars(DENS_)  = cons[DENSL]       ; 
-        }
-        if ( c2p_errors.adjust_s ) {
-            aux(C2P_ERR_) +=  fabs(vars(SX_)-cons[STXL]) 
-                            + fabs(vars(SY_)-cons[STYL]) 
-                            + fabs(vars(SZ_)-cons[STZL]) ; 
-            vars(SX_)    = cons[STXL]        ; 
-            vars(SY_)    = cons[STYL]        ;
-            vars(SZ_)    = cons[STZL]        ;
-        }
-        if ( c2p_errors.adjust_tau) {
-            aux(C2P_ERR_) += fabs(vars(TAU_)-cons[TAUL]) ; 
-            vars(TAU_)   = cons[TAUL]        ;
-        }
+        /* Overwrite conserved */
+        #if 1
+        vars(DENS_)  = cons[DENSL]       ; 
+        vars(SX_)    = cons[STXL]        ; 
+        vars(SY_)    = cons[STYL]        ;
+        vars(SZ_)    = cons[STZL]        ;
+        vars(TAU_)   = cons[TAUL]        ;
+        vars(YESTAR_) = cons[YESL]       ; 
         vars(ENTROPYSTAR_) = cons[ENTSL] ; 
+        #endif
 
-        aux(C2P_ERR_) /= (
-            cons[DENSL] + cons[TAUL] + fabs(cons[STXL]) + fabs(cons[STYL]) + fabs(cons[STZL])
-        ) ; 
+        aux(C2P_ERR_) = 0;
         std::array<double,4> dummy ; 
         double b2 ;
         compute_smallb(dummy,b2,W,prims,metric) ; 

@@ -436,10 +436,11 @@ static void check_ghostzones(
                     auto quad = grace::amr::get_quadrant(q).get() ; 
                     GRACE_TRACE("NaN at {}, level {} ijk {},{},{}, q {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level),i,j,k,q) ;
                 }
+                static constexpr double macheps = std::numeric_limits<double>::epsilon() ; 
                 REQUIRE_THAT(
-                    host_data(VEC(i,j,k),0,q),
-                    Catch::Matchers::WithinAbs(ground_truth,
-                        1e-10 ) 
+                    fabs(host_data(VEC(i,j,k),0,q)-ground_truth),
+                    Catch::Matchers::WithinAbs(0.0,
+                        2*macheps*fabs(ground_truth) + 1e-16 ) 
                 ) ; 
                 // compute divergence of B 
                 double divB = (host_data_x(VEC(i+1,j,k),0,q) - host_data_x(VEC(i,j,k),0,q)) * idx(0,q)

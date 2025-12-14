@@ -252,54 +252,58 @@ brent(F& f, const double &a, const double &b, const double t)
    * In this way, we are not restricting ourselves to lvalues and can invoke this function also 
    * on lambdas 
    */ 
-  template <typename F, typename DF>
-  double GRACE_HOST_DEVICE
-  rootfind_newton_raphson(double const& a, double const& b,
-                            F&& f, DF&& df,
-                            double const& tol, unsigned long& iter)
+  template <typename F>
+double KOKKOS_FUNCTION
+rootfind_newton_raphson(double sa, double sb,
+                        F&& f, unsigned long const maxiter, double tol, int& err)
     {
-      unsigned long const maxiter = iter ;
 
       constexpr const double macheps = std::numeric_limits<double>::epsilon() ;
-      
-      #define INVK(TYPE, FUNC, ARG) std::invoke(std::forward<TYPE>(FUNC), ARG);
+      double a{sa}, b{sb} ;       
+      double fa,fb,dummy ; 
+      f(a,fa,dummy); 
+      f(b,fb,dummy); 
+      if ( fa == 0 ) {
+        err = 0 ; 
+        return a ; 
+      } else if ( fb == 0 ) {
+        err = 0 ; 
+        return b; 
+      }
 
-      auto const fa = INVK(F, f, a); //f(a);
-      auto const fb = INVK(F, f, b); //f(b);
+      // check the root is bracketed 
+      if ( fa * fb > 0 ) { 
+        err = 1 ;
+        return 0 ; 
+      }
+      double x = ( fb * a - fa * b ) / ( fb - fa ) ;    
+      int iter = 0 ; 
       
-      auto x0 = ( fa * a - fb * b ) / ( fa - fb ) ;
-      //auto f0 = f(x0) ; 
-      auto f0 = INVK(F, f,x0) ; 
-    
-      iter = 0 ; 
-      auto x1 = x0 ;
-    
+      double t, xold, fx, dfx; 
       do {
-        x0  =    x1 ;
-        //f0  =  f(x1);
-        //auto df0 = df(x1);
-        f0 = INVK(F, f, x1);
-        auto df0 = INVK(DF, df, x1);
-
-        #undef INVK
-
-        x1  = x0 - f0 / df0 ;
-
-        if ( std::fabs(x0-x1) <= tol + 2. * macheps * std::fabs(x1) )
-        return x1 ;
-
-        if ( x1 < a || x1 > b ) { 
-          if ( f0 * fa < 0 )
-            x1 = ( fa * a - f0*x0 ) / ( fa - f0 ) ;
-          else
-            x1 = ( fb * b - f0*x0 ) / ( fb - f0 ) ;
+        xold = x ; 
+        f(x,fx,dfx) ; 
+        if ( fx * fb > 0 ) {
+          fb = fx ; 
+          b = x ;
+        } else if ( fx * fa > 0 ) {
+          fa = fx ; 
+          a = x ; 
         }
-  
+        x -= fx / dfx ; 
+        t = 2. * macheps * fabs(x) + tol;
+        if ( fabs(x-xold) < t || fx == 0 ) {
+          err = 0 ; 
+          return x ; 
+        }
+        if ( x > b or x < a) {
+          x = 0.5 * ( b + a ) ; 
+        }
         iter ++ ;
-        } while(  iter < maxiter  ) ;
-
-        return x1 ; 
-    }
+      } while(  iter < maxiter  ) ;
+      err = 1 ; 
+      return 0 ; 
+}
 //****************************************************************************
 enum nr_err_t {
   SUCCESS=0,

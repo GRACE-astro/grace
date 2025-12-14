@@ -15,6 +15,147 @@
 
 namespace grace {
 
+  struct fbrack_t {
+    KOKKOS_FUNCTION fbrack_t(double _rsqr, double _bsqr, double _rbsqr,  double _h0)
+      : rsqr(_rsqr), bsqr(_bsqr), rbsqr(_rbsqr), h0sqr(_h0*_h0) 
+    {}
+
+    double KOKKOS_INLINE_FUNCTION 
+    x__mu(double mu) const {
+      return 1./(1. + mu*bsqr) ; 
+    }
+
+    double KOKKOS_INLINE_FUNCTION 
+    rbsq__mu_x(double mu, double x) const {
+      return x * (rsqr * x + mu * (x + 1.0) * rbsqr);  
+    }
+
+    double KOKKOS_INLINE_FUNCTION 
+    h0w__mu_x(double mu, double x) const {
+      return sqrt(h0sqr + rbsq__mu_x(mu,x));  
+    }
+    #if 0
+    void KOKKOS_INLINE_FUNCTION
+    operator() (double mu, double& f, double& df) const {
+      double x0 = bsqr*mu;
+      double x1 = x0 + 1;
+      double x2 = 1/((x1*x1));
+      double x3 = rsqr*x2;
+      double x4 = 1/(x1);
+      double x5 = rbsqr*(x4 + 1);
+      double x6 = x4*x5;
+      double x7 = sqrt(h0sqr + mu*x6 + x3);
+      f = mu*x7 - 1;
+      df = -1.0/2.0*mu*x4*(2*bsqr*x3 + rbsqr*x0*x2 + x0*x6 - x5)/x7 + x7;
+    }   
+    #endif 
+    double KOKKOS_INLINE_FUNCTION
+    operator() (double mu) const {
+      double x0 = bsqr*mu + 1;
+      double x1 = 1/(x0);
+      return mu*sqrt(h0sqr + mu*rbsqr*x1*(x1 + 1) + rsqr/(x0*x0)) - 1;
+    } 
+
+    double rsqr, bsqr, rbsqr, h0sqr; 
+  } ; 
+  
+  template< typename eos_t > 
+  struct froot_t {
+
+    KOKKOS_FUNCTION froot_t(
+      eos_t _eos, double _d, double _q, double _rsqr, double _rbsqr, double _bsqr, double _ye, double h0
+    ) : eos(_eos), d(_d), qtot(_q), ye(_ye), rsqr(_rsqr), bsqr(_bsqr), rbsqr(_rbsqr), brosqr(_rsqr*_bsqr-_rbsqr)
+    {
+      double zsqrmax = rsqr/(h0*h0) ; 
+      double wsqrmax = 1 + zsqrmax ; 
+      wmax = sqrt(wsqrmax) ; 
+      vsqrmax = zsqrmax/wsqrmax ; 
+
+    }
+
+    double KOKKOS_INLINE_FUNCTION 
+    x__mu(double mu) const {
+      return 1./(1. + mu*bsqr) ; 
+    }
+
+    double KOKKOS_INLINE_FUNCTION 
+    rfsqr__mu_x(double mu, double x) const {
+      return x * (rsqr * x + mu * (x + 1.0) * rbsqr);  
+    }
+    
+    double KOKKOS_INLINE_FUNCTION
+    qf__mu_x(double mu, double x) const {
+      double mux = mu*x ; 
+      return qtot - 0.5 * (bsqr + mux*mux*brosqr) ;
+    }
+
+    double KOKKOS_INLINE_FUNCTION
+    eps_raw__mu_qf_rfsqr_w(
+      double mu, double qf, double rfsqr, double w
+    ) const 
+    {
+      return w * (qf - mu * rfsqr*(1.0 - mu * w / (1 + w)));
+    }
+
+    void KOKKOS_INLINE_FUNCTION
+    get_eps_range(double& epsmin, double& epsmax, double rho) const {
+      double yel{ye} ;
+      unsigned int err ;
+      double rhol{rho} ; 
+      eos.eps_range__rho_ye(epsmin,epsmax,rhol,yel,err);
+    }
+
+    double KOKKOS_INLINE_FUNCTION
+    operator() (double mu) 
+    {
+      lmu                = mu ; 
+      x                  = x__mu(mu) ;
+      const double rfsqr = rfsqr__mu_x(mu,x) ; 
+      const double qf    = qf__mu_x(mu,x) ; 
+      vsqr               = rfsqr * mu * mu ; 
+
+      if ( vsqr > vsqrmax ) {
+        vsqr = vsqrmax ; 
+        w    = wmax    ; 
+      } else {
+        w = 1/sqrt(1-vsqrmax) ; 
+      }
+
+      rho = d/w ; 
+
+      eps = eps_raw__mu_qf_rfsqr_w(mu,qf,rfsqr,w) ;
+      double epsmin, epsmax ;  
+      get_eps_range(epsmin,epsmax,rho) ;
+      eps = fmin(epsmax,fmax(epsmin,eps)) ; 
+
+      double hh,csnd2 ; 
+      unsigned int err ; 
+      press = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
+        hh,csnd2,temp,ent,eps,rho,ye,err
+      ) ; 
+
+      double const a = press/(rho*(1+eps)) ; 
+      double const h = (1+eps) * (1+a) ; 
+
+      double const hbw_raw = (1+a) * (1+qf-mu*rfsqr) ; 
+      double const hbw     = fmax(hbw_raw, h/w)      ; 
+      double const newmu   = 1. / (hbw + rfsqr * mu) ;
+
+      return mu - newmu;
+    }
+
+
+    eos_t eos ; 
+
+    double d, qtot, ye ; 
+
+    double rsqr, bsqr, rbsqr, brosqr, h0sqr; 
+
+    double lmu, x, rho, w, eps, press, temp, ent, vsqr; 
+
+    double vsqrmax, wmax ; 
+  } ; 
+
   template< typename eos_t >
   struct kastaun_c2p_t {
 
@@ -41,8 +182,8 @@ namespace grace {
 
       r2 = metric.square_covec(r) ;
       Btilde2 = metric.square_vec(Btilde);
-      r_dot_Btilde2 = SQR(r[0]*Btilde[0] + r[1]*Btilde[1] + r[2]*Btilde[2]) ; 
-      Brorth2 = Btilde2 * r2 - r_dot_Btilde2 ;
+      r_dot_Btilde = (r[0]*Btilde[0] + r[1]*Btilde[1] + r[2]*Btilde[2]) ;
+      r_dot_Btilde2 = r_dot_Btilde*r_dot_Btilde;
 
       r = metric.raise(r) ; 
       
@@ -70,143 +211,56 @@ namespace grace {
       prims[YEL] = ye ;
       
       static constexpr double tolerance = 1e-15 ; 
-      auto const fa = [this] (double mu) { return this->fa__mu(mu) ; };
-      double mu0 = sqrt(r2) < h0 ? 1./h0 : 1e-6 + utils::brent(fa, 0, 1./h0, tolerance) ;
 
-      auto const fmu = [this] (double mu) {return this->f__mu(mu);};
-      double mu = utils::brent(fmu, 0, mu0, tolerance) ; 
-
-      double What = What__mu(mu) ; 
-      double eps = epshat__mu(mu) ; 
-      double rhohat = D/What ; 
-      double yel{ye} ;
-      double epsmin,epsmax;
-      unsigned int err ;
-      eos.eps_range__rho_ye(epsmin,epsmax,rhohat,yel,err);
-      // check eps range 
-      if ( eps < epsmin ) {
-        c2p_errors.adjust_tau = true ;
-        eps = epsmin * 1.0001 ;
-      } else if ( eps > epsmax ) {
-        c2p_errors.adjust_tau = true ;
-        eps= 0.9999 * epsmax ;  
+      // initial bracket 
+      #if 0 
+      double mu0 = 1/h0 ; 
+      if ( r2 >= h0 ) {
+        fbrack_t g(r2,Btilde2,r_dot_Btilde2,h0) ; 
+        int err ; 
+        mu0 = utils::rootfind_newton_raphson(0,1./h0,g,30,1e-10,err) ; 
+        if ( err == 0 ) {
+          mu0 *= 1+1e-10 ; 
+        } else {
+          mu0 = 1./h0 ; 
+        }
       }
-            
-      prims[RHOL] = rhohat ;
-      prims[EPSL] = eps ;
+      #endif 
+      fbrack_t g(r2,Btilde2,r_dot_Btilde2,h0) ; 
+      int err ; 
+      double mu0 = utils::brent(g,0,1./h0,1e-10) ;
+      //if ( err == 0 ) {
+        mu0 *= 1+1e-10 ; 
+      //} else {
+      //  printf("Warning!\n") ;
+      //  mu0 = 1./h0 ; 
+      //}
 
-      double h,csnd2 ; 
-      prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
-          h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
-      ) ;
+      froot_t fmu(eos,D,q,r2,r_dot_Btilde2,Btilde2,ye,h0) ; 
+      double mu = utils::brent(fmu, 0, mu0, tolerance) ; 
+      double residual = fmu(mu) ; 
 
-      auto chi = chi__mu(mu) ;
-      for( int ii=0; ii<3; ++ii) prims[VXL+ii] = What * mu * chi * ( r[ii] + mu * sqrt(r_dot_Btilde2)*Btilde[ii] ) ;  
+      W = fmu.w ; 
+      prims[EPSL]   = fmu.eps   ; 
+      prims[RHOL]   = fmu.rho   ; 
+      prims[PRESSL] = fmu.press ;
+      prims[YEL]    = fmu.ye    ; 
+      prims[TEMPL]  = fmu.temp  ; 
+      prims[ENTL]   = fmu.ent   ;
+
+      double x = fmu.x; 
+
+      for( int ii=0; ii<3; ++ii) 
+        prims[VXL+ii] = mu * x * ( r[ii] + mu * r_dot_Btilde * Btilde[ii] ) ;  
       
-      W = What ; 
-      return fabs(f__mu(mu)) ; 
+      return residual ; 
     }
     
   private:
     eos_t eos ;
     metric_array_t metric ;
-    double r2, q, Btilde2, Brorth2, D, ye, r_dot_Btilde2, h0, v02 ;
+    double r2, q, Btilde2, D, ye, r_dot_Btilde, r_dot_Btilde2, h0, v02 ;
     std::array<double,3> r, Btilde ;
-
-    double KOKKOS_INLINE_FUNCTION
-    chi__mu(double mu) const {
-      return 1./(1.+mu*Btilde2) ; 
-    }
-    double KOKKOS_INLINE_FUNCTION
-    rbar2__mu(double mu) const {
-      double chi = chi__mu(mu) ;
-      return r2 * SQR(chi) + mu * chi * ( 1.0 + chi) * r_dot_Btilde2 ; 
-    }
-    
-    double KOKKOS_INLINE_FUNCTION
-    fa__mu(double mu) const {
-      return mu * sqrt(h0*h0 + rbar2__mu(mu)) - 1. ; 
-    }
-
-    double KOKKOS_INLINE_FUNCTION
-    qbar__mu(double mu) const {
-      return q - 0.5 * Btilde2 - 0.5 * SQR(mu) * SQR(chi__mu(mu)) * Brorth2 ; 
-    }
-
-    double KOKKOS_INLINE_FUNCTION
-    vhat2__mu(double mu) const {
-      return fmin(v02, mu * mu * rbar2__mu(mu)) ; 
-    }
-
-    double KOKKOS_INLINE_FUNCTION
-    What__mu(double mu) const {
-      return 1. / sqrt(1. - vhat2__mu(mu)) ; 
-    }
-
-    double KOKKOS_INLINE_FUNCTION
-    epshat__mu(double mu) const {
-      double const qbar = qbar__mu(mu) ;
-      double const rbar2 = rbar2__mu(mu) ;
-      double const vhat2 = vhat2__mu(mu) ;
-      double const What = What__mu(mu) ;
-       
-      return What * ( qbar - mu * rbar2 ) + vhat2 * SQR(What)/(1+What) ; 
-    }
-
-    double KOKKOS_INLINE_FUNCTION
-    rhohat__mu(double mu) const {
-      return D / What__mu(mu) ; 
-    }
-    
-    double KOKKOS_INLINE_FUNCTION
-    phat__mu(double rhohat, double epshat) const {
-      double yehat{ye} ; 
-      unsigned int err ;      
-      auto press = eos.press__eps_rho_ye(epshat,rhohat,yehat,err) ;
-      return press ; 
-    }
-    
-    double KOKKOS_INLINE_FUNCTION
-    ahat__mu(double mu) const {
-      double rhohat = rhohat__mu(mu) ;
-      double epshat = epshat__mu(mu) ;
-      double yel{ye} ;
-      double epsmin,epsmax; 
-      unsigned int err ; 
-      eos.eps_range__rho_ye(epsmin,epsmax,rhohat,yel,err); 
-      epshat = fmax(epsmin,fmin(epsmax,epshat)) ; 
-      double phat = phat__mu(rhohat,epshat) ;
-      return phat / (rhohat * (1+epshat) ) ; 
-    }
-
-    double KOKKOS_INLINE_FUNCTION
-    nuA__mu(double mu) const {
-      double const What = What__mu(mu) ;
-      double const epshat = epshat__mu(mu) ;
-      double const ahat = ahat__mu(mu) ;
-      return (1.+ahat) * ( 1 + epshat ) / What ; 
-    }
-
-    double KOKKOS_INLINE_FUNCTION
-    nuB__mu(double mu) const {
-      double const qbar = qbar__mu(mu) ; 
-      double const ahat = ahat__mu(mu) ;
-      double const rbar2 = rbar2__mu(mu) ; 
-      return (1.+ahat) * ( 1 + qbar - mu * rbar2 ); 
-    }
-
-    double KOKKOS_INLINE_FUNCTION
-    nuhat__mu(double mu) const {
-      return fmax(nuA__mu(mu),nuB__mu(mu)); 
-    }
-
-    double KOKKOS_INLINE_FUNCTION
-    f__mu(double mu) const {
-      double nuhat = nuhat__mu(mu) ;
-      double const rbar2 = rbar2__mu(mu) ; 
-      return mu - 1./(nuhat + mu * rbar2) ; 
-    }
-    
   };
     
 

@@ -1,4 +1,5 @@
 
+
 /**
  * @file grmhd_c2p_kastaun.hh
  * @author Konrad Topolski (topolski@itp.uni-frankfurt.de)
@@ -143,32 +144,22 @@ struct grmhd_c2p_kastaun_t {
         //unsigned long iter_max = 2000;  // change this to be determined elsewhere! 
         unsigned long iter_max = 2000;  // change this to be determined elsewhere! 
         double const tolerance = 1e-15; // change this
-        unsigned long iter = iter_max ; 
         auto f_a = [this](double mu){return this -> fa_of_mu(mu);} ; 
         auto df_a = [this](double mu){return this -> dfa_dmu(mu);} ; 
         // first, we constrain the area of search by finding mu_plus
-	double mu_plus ; 
-        //mu_plus = utils::rootfind_newton_raphson(
-        //                    0.0, 1.0/eos.enthalpy_minimum(),  // lower bound, upper bound
-        //                    f_a, // function
-        //                    df_a, //  derivative
-        //                    tolerance, iter           // tolerance, iteration book-keeper
-	//							   ) + tiny_number ;
-	//if ( iter >= iter_max ) {
-	mu_plus = utils::brent(f_a, 0, 1./eos.enthalpy_minimum(),tolerance);
-	//}
-	double mu{0} ;
-	if ( mu_plus > 1e-10 ) {
-	 
-	  // f_of_mu is a non-static member function, so to pass it into brent, we need to wrap it in a named lambda
-	  auto f_mu=[this](double lambda){return this->f_of_mu(lambda);};
-	  // now we look for the root of the master function in the (0, mu_plus] interval:
-	  mu = utils::brent(f_mu,
-			    0.0, 
-			    mu_plus, 
-			    tolerance);
-	}
-	
+        double const mu_plus = utils::brent(f_a,
+                            0.0, 1.0/eos.enthalpy_minimum(),  
+                            tolerance           // tolerance, iteration book-keeper
+                            ) + tiny_number;
+
+        // f_of_mu is a non-static member function, so to pass it into brent, we need to wrap it in a named lambda
+        auto f_mu=[this](double lambda){return this->f_of_mu(lambda);};
+        // now we look for the root of the master function in the (0, mu_plus] interval:
+        auto mu = utils::brent(f_mu,
+                                0.0, 
+                                mu_plus, 
+                                1e-15);
+        
         std::array<double, 3> vhatU;
         auto chi =  1. / (1. + mu * math::int_pow<2>(BtildeNorm));
         for(size_t i=0; i<3; i++){
@@ -176,7 +167,21 @@ struct grmhd_c2p_kastaun_t {
         }
 
 
-        double const error = this->f_of_mu(mu,true);
+        double const error = this->f_of_mu(mu,inter_vars);
+
+        // atmosphere check:
+        double rho_atm = 1e-14;
+
+        if(inter_vars.rhohat <= rho_atm){
+            inter_vars.What = 1.0;
+            vhatU[0]=0.0;
+            vhatU[1]=0.0;
+            vhatU[2]=0.0;
+            inter_vars.rhohat=rho_atm;
+            inter_vars.yehat=0;
+            inter_vars.epsilonhat=0;
+        }
+        // finally,  fill out the primitives:
 
         prims[RHOL]=inter_vars.rhohat;
         prims[YEL]=inter_vars.yehat;
@@ -282,7 +287,7 @@ struct grmhd_c2p_kastaun_t {
 
     // the master function of the Kastaun C2P scheme
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    f_of_mu(double const& mu, bool write_inter=false) {
+    f_of_mu(double const& mu, std::optional<std::reference_wrapper<intermediate_variables>> inter_results = std::nullopt) const {
         auto qbar = qbar_of_mu(mu);
         auto rbar2= rbar2_of_mu(mu);
         auto vhat2=math::min(mu*mu*rbar2 ,  v0sqrt) ;
@@ -306,12 +311,12 @@ struct grmhd_c2p_kastaun_t {
         auto nu_A = (1 + ahat) * (1 + epsilonhat) / What; 
         auto nu_B = (1 + ahat) * (1 + qbar - mu* rbar2);
 
-        if (write_inter) {
-            inter_vars.What = What;
-            inter_vars.rhohat = rhohat;
-            inter_vars.epsilonhat = epsilonhat;
-            inter_vars.yehat = yel;
-            inter_vars.vhat2 = vhat2;
+        if (inter_results) {
+            inter_results->get().What = What;
+            inter_results->get().rhohat = rhohat;
+            inter_results->get().epsilonhat = epsilonhat;
+            inter_results->get().yehat = yel;
+            inter_results->get().vhat2 = vhat2;
         }
 
         // finally, we return f(\mu)

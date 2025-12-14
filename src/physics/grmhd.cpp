@@ -619,6 +619,7 @@ void set_grmhd_initial_data() {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }
     set_conservs_from_prims() ;
+    Kokkos::fence() ; 
 }
 
 void set_conservs_from_prims() {

@@ -643,7 +643,7 @@ void add_fluxes_and_source_terms(
                 , policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
-        grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
+        //grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
         #endif 
         #ifdef GRACE_ENABLE_M1
         m1_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );

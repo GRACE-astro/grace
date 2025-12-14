@@ -128,7 +128,7 @@ struct grhd_c2p_t {
             c2p_errors.adjust_tau  = true ; 
             eps = 0.999 * epsmax ; 
         } else if ( eps < epsmin ) {
-            printf("Here!") ; 
+            printf("Here!\n") ; 
             c2p_errors.adjust_tau = true ; 
             eps = 1.001 * epsmin ; 
         }

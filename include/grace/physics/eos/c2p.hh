@@ -61,14 +61,11 @@ struct c2p_err_t {
  */
 template< typename eos_t >
 void GRACE_HOST_DEVICE
-conservs_to_prims(  grace::grmhd_cons_array_t& cons 
-                  , grace::grmhd_prims_array_t& prims
-                  , grace::metric_array_t const& metric 
-                  , eos_t const& eos
-                  , std::array<double,3> const& xyz
-                  , atmo_params_t atmo_params 
-                  , excision_params_t excision_params
-                  , c2p_err_t& c2p_err ) ; 
+conservs_to_prims( grmhd_cons_array_t& cons 
+                 , grmhd_prims_array_t& prims
+                 , metric_array_t const& metric 
+                 , eos_t const& eos
+                 , double const& lapse_excision ) ; 
 
 void GRACE_HOST_DEVICE
 prims_to_conservs( grace::grmhd_prims_array_t& prims
@@ -82,11 +79,7 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , grace::grmhd_prims_array_t&  \
                       , grace::metric_array_t const&  \
                       , EOS const& eos \
-                      , std::array<double,3> const& \
-                      , atmo_params_t \
-                      , excision_params_t \
-                      , c2p_err_t& \
-                    )
+                      , double const& ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE
 }
