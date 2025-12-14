@@ -474,8 +474,10 @@ struct grmhd_equations_system_t
         aux(BZ_) = cons[BSZL] / metric.sqrtg() ;
         c2p_err_t c2p_errors ; 
         grmhd_prims_array_t prims ;        
-        conservs_to_prims<eos_t>( cons, prims, metric
-                                , this->_eos, 0.05 ) ;
+        conservs_to_prims<eos_t>( 
+            cons, prims, metric, this->_eos, 
+            this->atmo_params, this->excision_params, rtp,
+            c2p_errors ) ;
         
         
         /* Write new prims */
@@ -503,7 +505,7 @@ struct grmhd_equations_system_t
         aux(ZVECY_) = W * vN[1] ; 
         aux(ZVECZ_) = W * vN[2] ; 
         /* Overwrite conserved */
-        #if 1
+        #if 0
         vars(DENS_)  = cons[DENSL]       ; 
         vars(SX_)    = cons[STXL]        ; 
         vars(SY_)    = cons[STYL]        ;
@@ -514,6 +516,21 @@ struct grmhd_equations_system_t
         #endif
 
         aux(C2P_ERR_) = 0;
+        
+        if ( c2p_errors.adjust_d ) {
+            aux(C2P_ERR_) += fabs(cons[DENSL]-vars(DENS_));
+            vars(DENS_) = cons[DENSL] ; 
+        }
+        if ( c2p_errors.adjust_s ) {
+            for( int ii=0; ii<3; ++ii) {
+                aux(C2P_ERR_) += fabs(cons[STXL+ii]-vars(SX_+ii));
+                vars(SX_+ii)=cons[STXL+ii] ; 
+            }
+        }
+        if ( c2p_errors.adjust_tau ) {
+            aux(C2P_ERR_) += fabs(cons[TAUL]-vars(TAU_));
+            vars(TAU_)=cons[TAUL];
+        }
         std::array<double,4> dummy ; 
         double b2 ;
         compute_smallb(dummy,b2,W,prims,metric) ; 

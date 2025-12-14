@@ -34,7 +34,7 @@ namespace grace {
     h0w__mu_x(double mu, double x) const {
       return sqrt(h0sqr + rbsq__mu_x(mu,x));  
     }
-    #if 0
+    #if 1
     void KOKKOS_INLINE_FUNCTION
     operator() (double mu, double& f, double& df) const {
       double x0 = bsqr*mu;
@@ -48,14 +48,14 @@ namespace grace {
       f = mu*x7 - 1;
       df = -1.0/2.0*mu*x4*(2*bsqr*x3 + rbsqr*x0*x2 + x0*x6 - x5)/x7 + x7;
     }   
-    #endif 
+    
     double KOKKOS_INLINE_FUNCTION
     operator() (double mu) const {
-      double x0 = bsqr*mu + 1;
-      double x1 = 1/(x0);
-      return mu*sqrt(h0sqr + mu*rbsqr*x1*(x1 + 1) + rsqr/(x0*x0)) - 1;
+      double x = x__mu(mu) ; 
+      double rfsqr = rbsq__mu_x(mu,x) ; 
+      return mu * Kokkos::sqrt(h0sqr + rfsqr) - 1. ; 
     } 
-
+    #endif 
     double rsqr, bsqr, rbsqr, h0sqr; 
   } ; 
   
@@ -118,15 +118,15 @@ namespace grace {
         vsqr = vsqrmax ; 
         w    = wmax    ; 
       } else {
-        w = 1/sqrt(1-vsqrmax) ; 
+        w = 1/sqrt(1-vsqr) ; 
       }
 
       rho = d/w ; 
 
-      eps = eps_raw__mu_qf_rfsqr_w(mu,qf,rfsqr,w) ;
+      double epshat = eps_raw__mu_qf_rfsqr_w(mu,qf,rfsqr,w) ;
       double epsmin, epsmax ;  
       get_eps_range(epsmin,epsmax,rho) ;
-      eps = fmin(epsmax,fmax(epsmin,eps)) ; 
+      eps = fmax(epsmin,fmin(epsmax,epshat)) ; 
 
       double hh,csnd2 ; 
       unsigned int err ; 
@@ -179,7 +179,7 @@ namespace grace {
       r = {conservs[STXL]/D, conservs[STYL]/D, conservs[STZL]/D} ;
       
       Btilde = {conservs[BSXL]/sqrt(D),conservs[BSYL]/sqrt(D), conservs[BSZL]/sqrt(D)} ;
-
+      B = {conservs[BSXL],conservs[BSYL], conservs[BSZL]}; 
       r2 = metric.square_covec(r) ;
       Btilde2 = metric.square_vec(Btilde);
       r_dot_Btilde = (r[0]*Btilde[0] + r[1]*Btilde[1] + r[2]*Btilde[2]) ;
@@ -206,14 +206,14 @@ namespace grace {
      * the relevant metric components to the velocity.
      */
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims, double& W, c2p_err_t& c2p_errors) {
+    invert(grmhd_prims_array_t& prims) {
 
       prims[YEL] = ye ;
       
       static constexpr double tolerance = 1e-15 ; 
 
       // initial bracket 
-      #if 0 
+      #if 1
       double mu0 = 1/h0 ; 
       if ( r2 >= h0 ) {
         fbrack_t g(r2,Btilde2,r_dot_Btilde2,h0) ; 
@@ -222,31 +222,25 @@ namespace grace {
         if ( err == 0 ) {
           mu0 *= 1+1e-10 ; 
         } else {
-          mu0 = 1./h0 ; 
+          mu0 = utils::brent(g,0,1./h0,tolerance) ;
         }
       }
       #endif 
-      fbrack_t g(r2,Btilde2,r_dot_Btilde2,h0) ; 
-      int err ; 
-      double mu0 = utils::brent(g,0,1./h0,1e-10) ;
-      //if ( err == 0 ) {
-        mu0 *= 1+1e-10 ; 
-      //} else {
-      //  printf("Warning!\n") ;
-      //  mu0 = 1./h0 ; 
-      //}
 
       froot_t fmu(eos,D,q,r2,r_dot_Btilde2,Btilde2,ye,h0) ; 
       double mu = utils::brent(fmu, 0, mu0, tolerance) ; 
       double residual = fmu(mu) ; 
 
-      W = fmu.w ; 
+      double const W = fmu.w ; 
       prims[EPSL]   = fmu.eps   ; 
       prims[RHOL]   = fmu.rho   ; 
       prims[PRESSL] = fmu.press ;
       prims[YEL]    = fmu.ye    ; 
       prims[TEMPL]  = fmu.temp  ; 
       prims[ENTL]   = fmu.ent   ;
+      prims[BXL]    = B[0] ; 
+      prims[BYL]    = B[1] ; 
+      prims[BZL]    = B[2] ; 
 
       double x = fmu.x; 
 
@@ -260,7 +254,7 @@ namespace grace {
     eos_t eos ;
     metric_array_t metric ;
     double r2, q, Btilde2, D, ye, r_dot_Btilde, r_dot_Btilde2, h0, v02 ;
-    std::array<double,3> r, Btilde ;
+    std::array<double,3> r, Btilde, B ;
   };
     
 

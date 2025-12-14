@@ -30,6 +30,7 @@
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/eos/grhd_c2p.hh>
 #include <grace/physics/eos/grmhd_c2p.hh>
+#include <grace/physics/eos/kastaun_c2p.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -38,53 +39,120 @@
 namespace grace {
 
 template< typename eos_t >
-void GRACE_HOST_DEVICE
-conservs_to_prims( grmhd_cons_array_t& cons 
-                 , grmhd_prims_array_t& prims
-                 , metric_array_t const& metric 
-                 , eos_t const& eos
-                 , double const& lapse_excision ) 
+static void KOKKOS_INLINE_FUNCTION 
+limit_conserved(
+    grace::grmhd_cons_array_t&  cons,
+    metric_array_t const& metric,
+    eos_t const& eos,
+    c2p_err_t& c2p_err
+)
 {
-    using c2p_impl_t = grmhd_c2p_kastaun_t<eos_t> ;
+    // Tau cannot be lower than
+    // D * (1 + eps_min) + B^2 / 2 - D
+    // FIXME here we assume eps_min == 0
+    double const tau_floor = metric.square_vec({cons[BSXL],cons[BSYL],cons[BSZL]}) ; 
+    if ( cons[TAUL] < tau_floor ) {
+        c2p_err.adjust_tau = true ; 
+        cons[TAUL] = tau_floor ;
+    }
+
+    // Moreover, S^2 cannot be higher than
+    // (tau + D)^2
+    double const S2_max = SQR((cons[TAUL] + cons[DENSL])); 
+    double const S2 = metric.square_covec({cons[STXL],cons[STYL],cons[STZL]}) ; 
+    if ( S2 > S2_max ) {
+        c2p_err.adjust_s = true ; 
+        double const fact = 0.9999 * S2_max/S2 ; 
+        cons[STXL] *= fact ; 
+        cons[STYL] *= fact ; 
+        cons[STZL] *= fact ; 
+    }
+}
+
+template< typename eos_t >
+void GRACE_HOST_DEVICE
+conservs_to_prims(  grace::grmhd_cons_array_t&  cons
+                  , grace::grmhd_prims_array_t& prims
+                  , grace::metric_array_t const& metric
+                  , eos_t const& eos 
+                  , atmo_params_t const& atmo 
+                  , excision_params_t const& excision 
+                  , double * rtp
+                  , c2p_err_t& c2p_err )
+{
+    
+    using c2p_impl_t = kastaun_c2p_t<eos_t> ;
     bool c2p_failed{ false }             ;
-    double W                             ;
+
     /* Undensitize conservs */
     for( auto& c: cons) c /= metric.sqrtg() ;
-    /* First we check whether we are in the atmosphere */
-    auto const dens_atmo = 1e-14 ;
+    
+    /* Limit conserved vars  */
+    limit_conserved<eos_t>(cons,metric,eos,c2p_err) ; 
+
+    /* Get atmo rho and temp */
+    auto const dens_atmo =  atmo.rho_fl * pow(rtp[0], atmo.rho_fl_scaling);
+    auto const temp_atmo =  atmo.rho_fl * pow(rtp[0], atmo.rho_fl_scaling);
+    
+    /* If D>rho_atm we solve*/
     if( cons[DENSL] > dens_atmo ) {
         c2p_impl_t c2p(eos,metric,cons) ;
         double residual = c2p.invert(prims) ;
         c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
-        W = prims[PRESSL] ; // W was stored here for convenience
-        
     } else {
         c2p_failed = true ;
     }
-    if(   prims[RHOL] < (1.+1e-03) * dens_atmo
-      or  c2p_failed
-      or  metric.alp() < lapse_excision )
-    {  
-        prims[RHOL]  = dens_atmo ;
-        prims[TEMPL] = 0 ;
-        prims[YEL]   = 0   ;
-        prims[EPSL]  = 0  ; 
+
+    // now we check for atmo / excision 
+
+    // excision criterion 
+    bool excise = excision.excise_by_radius     
+                ? rtp[0] <= excision.r_ex 
+                : metric.alp() <= excision.alp_ex ; 
+    if ( excise ) {
+        prims[RHOL]  = excision.rho_ex  ; 
+        prims[TEMPL] = excision.temp_ex ; 
         prims[VXL]   = 0. ;
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
-        
-        W = 1. ;
+        prims[YEL]   = 0   ;
+        // get pressure, eps and entropy
+        double csnd2 ;  
+        unsigned int eos_err;  
+        prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(
+            prims[EPSL], csnd2, prims[TEMPL], prims[RHOL], prims[YEL], eos_err
+        ); 
+        // reset all conserved
+        c2p_err.adjust_tau = c2p_err.adjust_d = c2p_err.adjust_s = true ; 
+    } else if (prims[RHOL] < (1.+1e-03) * dens_atmo or c2p_failed ) {
+        prims[RHOL]  = dens_atmo  ; 
+        prims[TEMPL] = temp_atmo  ; 
+        prims[VXL]   = 0. ;
+        prims[VYL]   = 0. ;
+        prims[VZL]   = 0. ;
+        prims[YEL]   = 0   ;
+        // get pressure, eps and entropy
+        double csnd2 ;  
+        unsigned int eos_err;  
+        prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(
+            prims[EPSL], csnd2, prims[TEMPL], prims[RHOL], prims[YEL], eos_err
+        ); 
+        // reset all conserved
+        c2p_err.adjust_tau = c2p_err.adjust_d = c2p_err.adjust_s = true ; 
+    } else if (prims[TEMPL] < temp_atmo) {
+        // In this case we only reset 
+        // T, eps and press 
+        prims[TEMPL] = temp_atmo  ; 
+        // get pressure, eps and entropy
+        double csnd2 ;  
+        unsigned int eos_err;  
+        prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(
+            prims[EPSL], csnd2, prims[TEMPL], prims[RHOL], prims[YEL], eos_err
+        ); 
+        // reset all conserved
+        c2p_err.adjust_tau = c2p_err.adjust_s = true ; 
     }
-    /* set B field */
-    /* Set pressure entropy and temperature */
-    double h, csnd2;
-    unsigned int err ;
-    prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
-        h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
-    ) ;
-    /* Go from z-vec to velocity and remove */
-    /* shift contribution.                  */
-    double const u0 = W / metric.alp() ;
+
     /* The 3-velocity in grace is not in the */
     /* ZAMO frame.                           */
     prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;
@@ -158,7 +226,10 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , grace::grmhd_prims_array_t&  \
                       , grace::metric_array_t const&  \
                       , EOS const& eos \
-                      , double const& ) 
+                      , atmo_params_t const& atmo \
+                      , excision_params_t const& excision \
+                      , double * rtp \
+                      , c2p_err_t& c2p_err ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE
 

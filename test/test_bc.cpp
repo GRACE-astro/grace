@@ -437,11 +437,18 @@ static void check_ghostzones(
                     GRACE_TRACE("NaN at {}, level {} ijk {},{},{}, q {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level),i,j,k,q) ;
                 }
                 static constexpr double macheps = std::numeric_limits<double>::epsilon() ; 
+                #if 0
                 REQUIRE_THAT(
                     fabs(host_data(VEC(i,j,k),0,q)-ground_truth),
                     Catch::Matchers::WithinAbs(0.0,
                         2*macheps*fabs(ground_truth) + 1e-16 ) 
                 ) ; 
+                #endif 
+                REQUIRE_THAT(
+                    host_data(VEC(i,j,k),0,q),
+                    Catch::Matchers::WithinULP(ground_truth, 4)
+                );
+
                 // compute divergence of B 
                 double divB = (host_data_x(VEC(i+1,j,k),0,q) - host_data_x(VEC(i,j,k),0,q)) * idx(0,q)
                             + (host_data_y(VEC(i,j+1,k),0,q) - host_data_y(VEC(i,j,k),0,q)) * idx(1,q)
@@ -452,6 +459,7 @@ static void check_ghostzones(
                     GRACE_TRACE("DivB problem at {}, level {} ijk {},{},{}, q {}, divB {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level),i,j,k,q,divB) ;
                 }
                 REQUIRE( fabs(divB) < 1e-13 ) ; 
+                double Bx = (host_data_x(VEC(i+1,j,k),0,q) + host_data_x(VEC(i,j,k),0,q)) * 0.5 ;
                 
             }
             
