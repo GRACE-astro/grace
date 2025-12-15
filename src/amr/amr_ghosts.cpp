@@ -762,6 +762,8 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     for( int i=0; i<_reflux_coarse_face_descs.size(); ++i) {
         auto const& dsc =  _reflux_coarse_face_descs[i] ; 
         for( int is=0; is<2; ++is ) {
+            // Note they can't both be remote 
+            // or we woulnd't be here
             if ( dsc.is_remote[is] ) {
                 // send and receive 
                 int8_t elem_id = dsc.owner_rank[is] < rank ? dsc.face_id[is] : dsc.face_id[1-is] ;

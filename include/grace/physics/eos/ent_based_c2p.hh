@@ -39,7 +39,7 @@ struct entropy_fix_c2p_t {
     invert(grmhd_prims_array_t& prims, c2p_sig_t& err) {
 
         err = C2P_SUCCESS ;
-         
+
         prims[YEL] = ye ; 
         prims[ENTL] = s ; 
 
@@ -52,9 +52,9 @@ struct entropy_fix_c2p_t {
         prims[RHOL] = D / x ;  
         // get P, T, eps from s, rho, Ye
         double h,csnd2 ; 
-        unsigned int err ;
+        unsigned int eos_err ;
         prims[PRESSL] = eos.press_h_csnd2_temp_eps__entropy_rho_ye(
-            h,csnd2,prims[TEMPL],prims[EPSL],prims[ENTL],prims[RHOL],prims[YEL], err 
+            h,csnd2,prims[TEMPL],prims[EPSL],prims[ENTL],prims[RHOL],prims[YEL], eos_err 
         ) ;
         // get v
  

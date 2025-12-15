@@ -123,20 +123,21 @@ namespace grace {
         w = 1/sqrt(1-vsqr) ; 
       }
 
+      double const rhomax = eos.density_maximum();
+      double const rhomin = eos.density_minimum();
       rho = d/w ; 
-      if ( rho >= eos.density_maximum() ) {
+      if ( rho >= rhomax ) {
         err = C2P_RHO_TOO_HIGH ; 
         rho = rhomax ; 
-      } else if ( rho <= eos.density_minimum() ) {
+      } else if ( rho <= rhomin ) {
         err = C2P_RHO_TOO_LOW ; 
         rho = rhomin ; 
       } 
 
-      double epshat = eps_raw__mu_qf_rfsqr_w(mu,qf,rfsqr,w) ;
+      double eps = eps_raw__mu_qf_rfsqr_w(mu,qf,rfsqr,w) ;
       double epsmin, epsmax ;  
       get_eps_range(epsmin,epsmax,rho) ;
-      double eps ; 
-      if ( epshat >= epsmax ) {
+      if ( eps >= epsmax ) {
         err = C2P_EPS_TOO_HIGH ; 
         eps = epsmax ; 
       } else if ( eps <= epsmin ) {
