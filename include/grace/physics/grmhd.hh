@@ -49,7 +49,7 @@
 #include <Kokkos_Core.hpp>
 
 #include <type_traits>
-//#define GRMHD_USE_PPLIM
+#define GRMHD_USE_PPLIM
 //**************************************************************************************************/
 /**
  * \defgroup physics Physics Modules.
@@ -273,7 +273,27 @@ struct grmhd_equations_system_t
             }
         }
         
-
+        /* Get Wij for tau source */
+        /* Wij = T00 beta^i beta^j + 2 T0i beta^j + T^ij */
+        #if 1
+        std::array<double,6> Wij {{
+            Tupmunu[0] * metric.beta(0)*metric.beta(0) + 2.*Tupmunu[TX4] * metric.beta(0) + Tupmunu[XX4],
+            Tupmunu[0] * metric.beta(0)*metric.beta(1) + 2.*Tupmunu[TX4] * metric.beta(1) + Tupmunu[XY4],
+            Tupmunu[0] * metric.beta(0)*metric.beta(2) + 2.*Tupmunu[TX4] * metric.beta(2) + Tupmunu[XZ4],
+            Tupmunu[0] * metric.beta(1)*metric.beta(1) + 2.*Tupmunu[TY4] * metric.beta(1) + Tupmunu[YY4],
+            Tupmunu[0] * metric.beta(1)*metric.beta(2) + 2.*Tupmunu[TY4] * metric.beta(2) + Tupmunu[YZ4],
+            Tupmunu[0] * metric.beta(2)*metric.beta(2) + 2.*Tupmunu[TZ4] * metric.beta(2) + Tupmunu[ZZ4],
+        }} ; 
+        #else 
+        std::array<double,6> Wij {{
+            Tupmunu[XX4],
+            Tupmunu[XY4],
+            Tupmunu[XZ4],
+            Tupmunu[YY4],
+            Tupmunu[YZ4],
+            Tupmunu[ZZ4],
+        }} ; 
+        #endif 
         /* Source for the conserved energy (added piece by piece below)                                   */
         double tau_source{0.};
 
@@ -298,9 +318,9 @@ struct grmhd_equations_system_t
 
         /* More indices for contraction of T^{ij} onto \partial_i \beta_j (see tau source below)               */  
         int spatial_index_4d[GRACE_NSPACEDIM][3] = {
-            {VEC(XX4,XY4,XZ4)},
-            {VEC(XY4,YY4,YZ4)},
-            {VEC(XZ4,YZ4,ZZ4)},
+            {VEC(0,1,2)},
+            {VEC(1,3,4)},
+            {VEC(2,3,5)},
         };
 
         /* Overall factor of dt \alpha \sqrt{\gamma} to be multiplied to source terms                          */
@@ -351,7 +371,7 @@ struct grmhd_equations_system_t
             #ifdef GRACE_ENABLE_COWLING_METRIC
             /**************************************************************************************************/
             /* In Cowling approx we can use the simpler form of the source term which reads                   */
-            /* S_{\tau} +=  1/2 T^{ij} \beta^k \partial_k \gamma_{ij} + W^i_j \partial_i \beta^j              */
+            /* S_{\tau} +=  1/2 W^{ij} \beta^k \partial_k \gamma_{ij} + W^i_j \partial_i \beta^j              */
             /**************************************************************************************************/ 
             std::array<double,3> dbetaj_dxi = {
                 0.5 * (metric_p.beta(0) - metric_m.beta(0)),
@@ -361,10 +381,10 @@ struct grmhd_equations_system_t
             
             tau_source += idx(idir,q) * ( metric.contract_vec_vec(
                 dbetaj_dxi,
-                {Tupmunu[spatial_index_4d[idir][0]],Tupmunu[spatial_index_4d[idir][1]],Tupmunu[spatial_index_4d[idir][2]]}
+                {Wij[spatial_index_4d[idir][0]],Wij[spatial_index_4d[idir][1]],Wij[spatial_index_4d[idir][2]]}
             )  + 0.5 * shift[idir] * metric.contract_sym2tens_sym2tens(
                 {dgab_dxi[XX4],dgab_dxi[XY4],dgab_dxi[XZ4],dgab_dxi[YY4],dgab_dxi[YZ4],dgab_dxi[ZZ4]},
-                {Tupmunu[XX4],Tupmunu[XY4],Tupmunu[XZ4],Tupmunu[YY4],Tupmunu[YZ4],Tupmunu[ZZ4]}
+                Wij
             )) ;
             #endif 
             /**************************************************************************************************/
@@ -530,6 +550,9 @@ struct grmhd_equations_system_t
         if ( c2p_errors.adjust_tau ) {
             aux(C2P_ERR_) += fabs(cons[TAUL]-vars(TAU_));
             vars(TAU_)=cons[TAUL];
+        }
+        if ( c2p_errors.adjust_ent ) {
+            vars(ENTROPYSTAR_) = cons[ENTSL] ; 
         }
         std::array<double,4> dummy ; 
         double b2 ;

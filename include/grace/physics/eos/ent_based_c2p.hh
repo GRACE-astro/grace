@@ -36,9 +36,10 @@ struct entropy_fix_c2p_t {
     }
 
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims, double& W, c2p_err_t& c2p_errors) {
-        c2p_errors.adjust_tau = true ; 
-        
+    invert(grmhd_prims_array_t& prims, c2p_sig_t& err) {
+
+        err = C2P_SUCCESS ;
+         
         prims[YEL] = ye ; 
         prims[ENTL] = s ; 
 
@@ -70,11 +71,9 @@ struct entropy_fix_c2p_t {
         */
         auto rU = metric.raise(r) ; 
         double const hW = h * x ; 
-        prims[VXL] = x * (rU[0] +  Btilde[0] * (rdotBtilde/hW)) / (hW + Btilde2) ; 
-        prims[VYL] = x * (rU[1] +  Btilde[1] * (rdotBtilde/hW)) / (hW + Btilde2) ; 
-        prims[VZL] = x * (rU[2] +  Btilde[2] * (rdotBtilde/hW)) / (hW + Btilde2) ; 
-
-        W = x ; 
+        prims[VXL] = (rU[0] +  Btilde[0] * (rdotBtilde/hW)) / (hW + Btilde2) ; 
+        prims[VYL] = (rU[1] +  Btilde[1] * (rdotBtilde/hW)) / (hW + Btilde2) ; 
+        prims[VZL] = (rU[2] +  Btilde[2] * (rdotBtilde/hW)) / (hW + Btilde2) ; 
 
         double const hh = (1 + prims[EPSL] + prims[PRESSL]/prims[RHOL]) ; 
 

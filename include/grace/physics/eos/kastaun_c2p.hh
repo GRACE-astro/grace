@@ -108,6 +108,7 @@ namespace grace {
     double KOKKOS_INLINE_FUNCTION
     operator() (double mu) 
     {
+      err = C2P_SUCCESS ; 
       lmu                = mu ; 
       x                  = x__mu(mu) ;
       const double rfsqr = rfsqr__mu_x(mu,x) ; 
@@ -117,16 +118,31 @@ namespace grace {
       if ( vsqr > vsqrmax ) {
         vsqr = vsqrmax ; 
         w    = wmax    ; 
+        err = C2P_VEL_TOO_HIGH ; 
       } else {
         w = 1/sqrt(1-vsqr) ; 
       }
 
       rho = d/w ; 
+      if ( rho >= eos.density_maximum() ) {
+        err = C2P_RHO_TOO_HIGH ; 
+        rho = rhomax ; 
+      } else if ( rho <= eos.density_minimum() ) {
+        err = C2P_RHO_TOO_LOW ; 
+        rho = rhomin ; 
+      } 
 
       double epshat = eps_raw__mu_qf_rfsqr_w(mu,qf,rfsqr,w) ;
       double epsmin, epsmax ;  
       get_eps_range(epsmin,epsmax,rho) ;
-      eps = fmax(epsmin,fmin(epsmax,epshat)) ; 
+      double eps ; 
+      if ( epshat >= epsmax ) {
+        err = C2P_EPS_TOO_HIGH ; 
+        eps = epsmax ; 
+      } else if ( eps <= epsmin ) {
+        err = C2P_EPS_TOO_LOW ; 
+        eps = epsmin ; 
+      }
 
       double hh,csnd2 ; 
       unsigned int err ; 
@@ -154,6 +170,8 @@ namespace grace {
     double lmu, x, rho, w, eps, press, temp, ent, vsqr; 
 
     double vsqrmax, wmax ; 
+
+    c2p_sig_t err ; 
   } ; 
 
   template< typename eos_t >
@@ -206,7 +224,7 @@ namespace grace {
      * the relevant metric components to the velocity.
      */
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims) {
+    invert(grmhd_prims_array_t& prims, c2p_sig_t& err) {
 
       prims[YEL] = ye ;
       
@@ -222,7 +240,7 @@ namespace grace {
         if ( err == 0 ) {
           mu0 *= 1+1e-10 ; 
         } else {
-          mu0 = utils::brent(g,0,1./h0,tolerance) ;
+          mu0 = utils::brent(g,0,1./h0,tolerance)*(1+1e-10) ;
         }
       }
       #endif 
@@ -231,7 +249,7 @@ namespace grace {
       double mu = utils::brent(fmu, 0, mu0, tolerance) ; 
       double residual = fmu(mu) ; 
 
-      double const W = fmu.w ; 
+      double const W = fmu.w    ; 
       prims[EPSL]   = fmu.eps   ; 
       prims[RHOL]   = fmu.rho   ; 
       prims[PRESSL] = fmu.press ;
@@ -242,12 +260,14 @@ namespace grace {
       prims[BYL]    = B[1] ; 
       prims[BZL]    = B[2] ; 
 
+      err = fmu.err ; 
+
       double x = fmu.x; 
 
       for( int ii=0; ii<3; ++ii) 
         prims[VXL+ii] = mu * x * ( r[ii] + mu * r_dot_Btilde * Btilde[ii] ) ;  
       
-      return residual ; 
+      return SQR(W) * fabs(residual) / (1e-50 + mu) ; 
     }
     
   private:

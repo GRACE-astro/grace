@@ -40,10 +40,21 @@
 
 namespace grace {
 
+enum c2p_sig_t : uint8_t {
+    C2P_SUCCESS=0,
+    C2P_EPS_TOO_HIGH,
+    C2P_EPS_TOO_LOW,
+    C2P_RHO_TOO_HIGH,
+    C2P_RHO_TOO_LOW,
+    C2P_VEL_TOO_HIGH,
+    C2P_NSIG
+} ; 
+
 struct c2p_err_t {
     bool adjust_tau{false}; 
     bool adjust_s{false}; 
     bool adjust_d{false};    
+    bool adjust_ent{true};
 } ; 
 
 /**

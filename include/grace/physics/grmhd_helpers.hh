@@ -43,6 +43,10 @@ struct atmo_params_t {
     double temp_fl ;  //!< Atmo T 
     double rho_fl_scaling  ; //!< Radial scaling of atmo rho
     double temp_fl_scaling ; //!< Radial scaling of atmo T
+    double c2p_tol   ; //!< C2P tolerance 
+    double max_w     ; //!< Maximum Lorentz factor
+    double max_sigma ; //!< Maximum magnetization b^2/rho
+    bool use_ent_backup ; //!< Use backup c2p?
 } ; 
 /**
  * @brief Excision parameters
@@ -133,6 +137,13 @@ atmo_params_t get_atmo_params()
 
   atmo_params.rho_fl_scaling = grace::get_param<double>("grmhd","atmosphere","rho_scaling") ; 
   atmo_params.temp_fl_scaling = grace::get_param<double>("grmhd","atmosphere","temp_scaling") ;
+
+  atmo_params.use_ent_backup = grace::get_param<bool>("grmhd","atmosphere","use_c2p_entropy_backup") ;
+
+  atmo_params.c2p_tol = grace::get_param<double>("grmhd","atmosphere","c2p_tolerance") ;
+
+  atmo_params.max_w = grace::get_param<double>("grmhd","atmosphere","max_sigma") ;
+  atmo_params.max_sigma = grace::get_param<double>("grmhd","atmosphere","max_lorentz") ;
 
   return atmo_params ; 
 }

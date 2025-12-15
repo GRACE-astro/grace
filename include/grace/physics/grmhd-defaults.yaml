@@ -79,7 +79,11 @@ grmhd: {
     temp_fl:  0.3333e-2,
     rho_fl: 1.e-5,
     rho_scaling: -1.5,
-    temp_scaling: -1
+    temp_scaling: -1,
+    max_lorentz: 50,
+    max_sigma: 100,
+    c2p_tolerance: 1e-10,
+    use_c2p_entropy_backup: true
   },
 
   gas_cloud: {

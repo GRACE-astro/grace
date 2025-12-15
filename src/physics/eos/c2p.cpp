@@ -31,12 +31,23 @@
 #include <grace/physics/eos/grhd_c2p.hh>
 #include <grace/physics/eos/grmhd_c2p.hh>
 #include <grace/physics/eos/kastaun_c2p.hh>
+#include <grace/physics/eos/ent_based_c2p.hh>
 
 #include <Kokkos_Core.hpp>
 
-#define C2P_TOLERANCE 10
-
 namespace grace {
+
+static double KOKKOS_FUNCTION 
+compute_beta(
+    grmhd_prims_array_t const& prims,
+    metric_array_t const& metric
+)
+{
+    std::array<double,4> dummy ;
+    double b2 ; 
+    compute_smallb(dummy,b2,prims,metric) ; 
+    return 2.0 * prims[PRESSL]/fmax(b2, 1e-50) ; 
+}
 
 template< typename eos_t >
 static void KOKKOS_INLINE_FUNCTION 
@@ -55,7 +66,7 @@ limit_conserved(
         c2p_err.adjust_tau = true ; 
         cons[TAUL] = tau_floor ;
     }
-
+    #if 0
     // Moreover, S^2 cannot be higher than
     // (tau + D)^2
     double const S2_max = SQR((cons[TAUL] + cons[DENSL])); 
@@ -66,6 +77,47 @@ limit_conserved(
         cons[STXL] *= fact ; 
         cons[STYL] *= fact ; 
         cons[STZL] *= fact ; 
+    }
+    #endif
+}
+
+template< typename eos_t >
+static void KOKKOS_INLINE_FUNCTION 
+limit_primitives(
+    grace::grmhd_cons_array_t&  prims,
+    metric_array_t const& metric,
+    eos_t const& eos,
+    double max_w,
+    double max_sigma,
+    c2p_err_t& c2p_err
+)
+{  
+    // here v is actually z 
+    double const W2 = 1 + metric.square_vec({prims[VXL],prims[VYL],prims[VZL]}) ; 
+    if ( W2 >= max_w*max_w ) {
+        double znorm = 0.99 * max_w / sqrt(W2) ; 
+        prims[VXL] *= znorm ; 
+        prims[VYL] *= znorm ; 
+        prims[VZL] *= znorm ; 
+        // W has changed so the conserved are outdated
+        c2p_err.adjust_s = c2p_err.adjust_tau = c2p_err.adjust_ent = c2p_err.adjust_d = true; 
+    }
+    std::array<double,4> dummy ;
+    double b2 ; 
+    compute_smallb(dummy,b2,prims,metric) ; 
+    double const sigma = b2 / prims[RHOL] ; 
+    if ( sigma >= max_sigma ) {
+        // add some density here! 
+        double const rhofact = 1.001 * sigma/max_sigma ;
+        prims[RHOL] *= rhofact ; 
+        // recompute other prims 
+        unsigned int eos_err ; 
+        double csnd2; 
+        prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(
+            prims[EPSL], csnd2, prims[ENTL], prims[TEMPL], prims[RHOL], prims[YEL], eos_err
+        ); 
+        // rho, P and entropy have changed so the conserved are outdated
+        c2p_err.adjust_s = c2p_err.adjust_tau = c2p_err.adjust_ent = c2p_err.adjust_d = true; 
     }
 }
 
@@ -78,27 +130,55 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
                   , atmo_params_t const& atmo 
                   , excision_params_t const& excision 
                   , double * rtp
-                  , c2p_err_t& c2p_err )
+                  , c2p_err_t& c2p_err)
 {
     
     using c2p_impl_t = kastaun_c2p_t<eos_t> ;
+    using c2p_backup_t = entropy_fix_c2p_t<eos_t> ;
     bool c2p_failed{ false }             ;
+
+    // by default we overwrite S_star 
+    c2p_err.adjust_ent = true ; 
+
+    // store 
+    const double c2p_tolerance = atmo.c2p_tol ; 
 
     /* Undensitize conservs */
     for( auto& c: cons) c /= metric.sqrtg() ;
     
+    /* Set B */
+    /* NB now the cons contains   */
+    /* Cell centered undensitized */
+    /* B                          */
+    prims[BXL] = cons[BSXL] ; 
+    prims[BYL] = cons[BSYL] ; 
+    prims[BZL] = cons[BSZL] ; 
+
     /* Limit conserved vars  */
     limit_conserved<eos_t>(cons,metric,eos,c2p_err) ; 
 
     /* Get atmo rho and temp */
     auto const dens_atmo =  atmo.rho_fl * pow(rtp[0], atmo.rho_fl_scaling);
-    auto const temp_atmo =  atmo.rho_fl * pow(rtp[0], atmo.rho_fl_scaling);
+    auto const temp_atmo =  atmo.temp_fl * pow(rtp[0], atmo.temp_fl_scaling);
     
     /* If D>rho_atm we solve*/
     if( cons[DENSL] > dens_atmo ) {
+        c2p_sig_t c2p_ret ; 
         c2p_impl_t c2p(eos,metric,cons) ;
-        double residual = c2p.invert(prims) ;
-        c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
+        double residual = c2p.invert(prims,c2p_ret) ;
+        c2p_failed = (math::abs(residual) > c2p_tolerance) ;
+        double beta = compute_beta(prims,metric) ; 
+        if ( (     c2p_failed 
+                or beta <= 1e-2 
+                or c2p_ret == C2P_EPS_TOO_HIGH ) 
+            and atmo.use_ent_backup ) 
+        {
+            c2p_err.adjust_ent = false ; 
+            c2p_err.adjust_tau = true  ; 
+            c2p_backup_t e_c2p(eos,metric,cons) ;
+            double residual = c2p.invert(prims,c2p_ret) ; 
+            c2p_failed = (math::abs(residual) > c2p_tolerance) ;
+        }
     } else {
         c2p_failed = true ;
     }
@@ -119,26 +199,26 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         // get pressure, eps and entropy
         double csnd2 ;  
         unsigned int eos_err;  
-        prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(
-            prims[EPSL], csnd2, prims[TEMPL], prims[RHOL], prims[YEL], eos_err
+        prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(
+            prims[EPSL], csnd2, prims[ENTL], prims[TEMPL], prims[RHOL], prims[YEL], eos_err
         ); 
         // reset all conserved
-        c2p_err.adjust_tau = c2p_err.adjust_d = c2p_err.adjust_s = true ; 
-    } else if (prims[RHOL] < (1.+1e-03) * dens_atmo or c2p_failed ) {
+        c2p_err.adjust_tau = c2p_err.adjust_d = c2p_err.adjust_s = c2p_err.adjust_ent = true ; 
+    } else if ((prims[RHOL] < (1.+1e-03) * dens_atmo) or c2p_failed ) {
         prims[RHOL]  = dens_atmo  ; 
         prims[TEMPL] = temp_atmo  ; 
         prims[VXL]   = 0. ;
         prims[VYL]   = 0. ;
         prims[VZL]   = 0. ;
-        prims[YEL]   = 0   ;
+        prims[YEL]   = 0. ;
         // get pressure, eps and entropy
         double csnd2 ;  
         unsigned int eos_err;  
-        prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(
-            prims[EPSL], csnd2, prims[TEMPL], prims[RHOL], prims[YEL], eos_err
+        prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(
+            prims[EPSL], csnd2, prims[ENTL], prims[TEMPL], prims[RHOL], prims[YEL], eos_err
         ); 
         // reset all conserved
-        c2p_err.adjust_tau = c2p_err.adjust_d = c2p_err.adjust_s = true ; 
+        c2p_err.adjust_tau = c2p_err.adjust_d = c2p_err.adjust_s = c2p_err.adjust_ent = true ; 
     } else if (prims[TEMPL] < temp_atmo) {
         // In this case we only reset 
         // T, eps and press 
@@ -146,13 +226,16 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         // get pressure, eps and entropy
         double csnd2 ;  
         unsigned int eos_err;  
-        prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(
-            prims[EPSL], csnd2, prims[TEMPL], prims[RHOL], prims[YEL], eos_err
+        prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(
+            prims[EPSL], csnd2, prims[ENTL], prims[TEMPL], prims[RHOL], prims[YEL], eos_err
         ); 
-        // reset all conserved
-        c2p_err.adjust_tau = c2p_err.adjust_s = true ; 
+        // reset all conserved except for D, since rho and W are unchanged
+        c2p_err.adjust_tau = c2p_err.adjust_s = c2p_err.adjust_ent = true ; 
     }
-
+    /* Limit lorentz fact and magnetization  */
+    limit_primitives<eos_t>(
+        prims, metric, eos, atmo.max_w, atmo.max_sigma, c2p_err
+    ) ; 
     /* The 3-velocity in grace is not in the */
     /* ZAMO frame.                           */
     prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;
@@ -161,8 +244,6 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     /* Re-compute conservative variables based  */
     /* on new primitives.                       */
     prims_to_conservs(prims,cons,metric) ;
-    /* Re-densitize conservs */
-    //for( auto& c: cons) c *= metric.sqrtg() ;
 }
 
 void GRACE_HOST_DEVICE
