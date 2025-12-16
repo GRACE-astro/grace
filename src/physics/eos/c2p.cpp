@@ -155,7 +155,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     prims[BZL] = cons[BSZL] ; 
 
     /* Limit conserved vars  */
-    //limit_conserved<eos_t>(cons,metric,eos,c2p_err) ; 
+    limit_conserved<eos_t>(cons,metric,eos,c2p_err) ; 
 
     /* Get atmo rho and temp */
     auto const dens_atmo =  atmo.rho_fl * pow(rtp[0], atmo.rho_fl_scaling);
@@ -169,8 +169,8 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         c2p_failed = (math::abs(residual) > c2p_tolerance) ;
         double beta = compute_beta(prims,metric) ; 
         if ( (     c2p_failed 
-                or beta <= 1e-2 )
-                //or c2p_ret == C2P_EPS_TOO_HIGH ) 
+                or beta <= 1e-2 
+                or c2p_ret == C2P_EPS_TOO_HIGH ) 
             and atmo.use_ent_backup ) 
         {
             c2p_err.adjust_ent = false ; 
@@ -235,11 +235,12 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     #if 0
     else {
         /* Limit lorentz fact and magnetization  */
-        limit_primitives<eos_t>(
-            prims, metric, eos, atmo.max_w, atmo.max_sigma, c2p_err
-        ) ; 
+         
     }
     #endif 
+    limit_primitives<eos_t>(
+            prims, metric, eos, atmo.max_w, atmo.max_sigma, c2p_err
+        ) ;
     /* The 3-velocity in grace is not in the */
     /* ZAMO frame.                           */
     prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;

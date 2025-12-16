@@ -134,7 +134,7 @@ namespace grace {
         rho = rhomin ; 
       } 
 
-      double eps = eps_raw__mu_qf_rfsqr_w(mu,qf,rfsqr,w) ;
+      eps = eps_raw__mu_qf_rfsqr_w(mu,qf,rfsqr,w) ;
       double epsmin, epsmax ;  
       get_eps_range(epsmin,epsmax,rho) ;
       if ( eps >= epsmax ) {

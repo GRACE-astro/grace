@@ -275,7 +275,6 @@ struct grmhd_equations_system_t
         
         /* Get Wij for tau source */
         /* Wij = T00 beta^i beta^j + 2 T0i beta^j + T^ij */
-        #if 1
         std::array<double,6> Wij {{
             Tupmunu[0] * metric.beta(0)*metric.beta(0) + 2.*Tupmunu[TX4] * metric.beta(0) + Tupmunu[XX4],
             Tupmunu[0] * metric.beta(0)*metric.beta(1) + 2.*Tupmunu[TX4] * metric.beta(1) + Tupmunu[XY4],
@@ -284,22 +283,11 @@ struct grmhd_equations_system_t
             Tupmunu[0] * metric.beta(1)*metric.beta(2) + 2.*Tupmunu[TY4] * metric.beta(2) + Tupmunu[YZ4],
             Tupmunu[0] * metric.beta(2)*metric.beta(2) + 2.*Tupmunu[TZ4] * metric.beta(2) + Tupmunu[ZZ4],
         }} ; 
-        #else 
-        std::array<double,6> Wij {{
-            Tupmunu[XX4],
-            Tupmunu[XY4],
-            Tupmunu[XZ4],
-            Tupmunu[YY4],
-            Tupmunu[YZ4],
-            Tupmunu[ZZ4],
-        }} ; 
-        #endif 
         /* Source for the conserved energy (added piece by piece below)                                   */
         double tau_source{0.};
 
         std::array<double,3> const shift {metric.beta(0),metric.beta(1),metric.beta(2)};
 
-        #ifndef GRACE_ENABLE_COWLING_METRIC
         /* Read in the extrinsic curvature                                                                */
         std::array<double,6> Kij ;
         get_extrinsic_curvature(Kij,this->_state,VEC(i,j,k),q) ; 
@@ -307,11 +295,7 @@ struct grmhd_equations_system_t
         /* Compute first piece of conserved energy source term (curvature terms)                          */
         /*      S_{\tau} += \alpha (T^{00} \beta^i\beta^j + 2T^{0i}\beta^j  + T^{ij}) K_{ij}              */
         /**************************************************************************************************/
-        tau_source += metric.alp() * (
-              Tupmunu[0] * metric.contract_vec_sym2tens(shift, Kij) 
-            + 2. * metric.contract_vec_vec_sym2tens(shift,{Tupmunu[TX4],Tupmunu[TY4],Tupmunu[TZ4]}, Kij)
-            + metric.contract_sym2tens_sym2tens({Tupmunu[XX4],Tupmunu[XY4],Tupmunu[XZ4],Tupmunu[YY4],Tupmunu[YZ4],Tupmunu[ZZ4]}, Kij) ); 
-        #endif 
+        tau_source +=  metric.contract_sym2tens_sym2tens(Wij, Kij) ; 
 
         /* Indices for contraction of T^{0i} onto \partial_i \alpha (see tau source below)                     */
         int index_4d[GRACE_NSPACEDIM] = {VEC(TX4,TY4,TZ4)} ;
