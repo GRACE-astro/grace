@@ -232,15 +232,15 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         // reset all conserved except for D, since rho and W are unchanged
         c2p_err.adjust_tau = c2p_err.adjust_s = c2p_err.adjust_ent = true ; 
     } 
-    #if 0
+    #if 1
     else {
         /* Limit lorentz fact and magnetization  */
-         
-    }
-    #endif 
-    limit_primitives<eos_t>(
+        limit_primitives<eos_t>(
             prims, metric, eos, atmo.max_w, atmo.max_sigma, c2p_err
         ) ;
+    }
+    #endif 
+    
     /* The 3-velocity in grace is not in the */
     /* ZAMO frame.                           */
     prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;

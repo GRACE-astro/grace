@@ -132,14 +132,31 @@ struct test_eas_op {
                 u(KAPPAAN_) = _emitting_sphere_cross_section ; 
                 u(ETAN_) = SQR(T)*T * _emitting_sphere_cross_section ; 
             } 
+            break;
             case COUPLING_TEST:
-            double T = aux(VEC(i,j,k),TEMP_,q)  ;
-            double rho = aux(VEC(i,j,k),RHO_,q) ;
-            aux(i,j,k,KAPPAS_,q) = 10.0 * rho ;
-            aux(i,j,k,KAPPAA_,q) = rho ; 
-            aux(i,j,k,ETA_,q) = rho * T * T * T * T ; 
-            aux(i,j,k,KAPPAAN_,q) = rho ; 
-            aux(i,j,k,ETAN_,q) = rho * T * T * T ; 
+            r = sqrt(
+                SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2])
+            ) ; 
+            aux(i,j,k,KAPPAS_,q) = 0.0 ;
+            if ( r < 1.0 ) {
+                aux(i,j,k,KAPPAA_,q) = 1.0 ; 
+                aux(i,j,k,KAPPAAN_,q) = 1.0; 
+                if ( r < 0.5 ) {
+                    // effectively T = 1 
+                    aux(i,j,k,ETA_,q) = 0.01  ; 
+                    aux(i,j,k,ETAN_,q) = 0.01 ; 
+                } else {
+                    double T = 1. - (r-0.5)/0.5 ;
+                    aux(i,j,k,ETA_,q) = 0.01  * T * T * T * T; 
+                    aux(i,j,k,ETAN_,q) = 0.01  * T * T * T ; 
+                }
+            } else {
+                aux(i,j,k,KAPPAA_,q) = 0.0 ; 
+                aux(i,j,k,KAPPAAN_,q) = 0.0; 
+                aux(i,j,k,ETA_,q) = 0.0;
+                aux(i,j,k,ETAN_,q) = 0.0;
+            }
+            
             break ; 
         }
     }

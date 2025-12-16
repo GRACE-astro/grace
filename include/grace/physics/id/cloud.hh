@@ -68,14 +68,18 @@ struct cloud_id_t {
             SQR(_pcoords(i,j,k,2,q)) 
         ) ; 
         id.rho = _rho0 ; 
+
         if ( r <= _r0 ) {
-            //id.rho = _rho0 ; 
+            id.rho = _rho0 ; 
+        } else {
+            id.rho =  _rho0 * pow(r/_r0, _p) ;
+        }
+
+        if ( r<=_r0/2) {
             id.press = _T0 * id.rho ; 
         } else {
-            //id.rho = _rho0 * pow(r/_r0, _p) ; 
-            id.press = _T0 * pow(r/_r0, _p) * id.rho ; 
+            id.press = _T0 * pow(r/(0.5*_r0), _p) * id.rho ; 
         }
-        
         id.bx = id.by = id.bz = 0.; 
         id.vx = 0; id.vy = 0.; id.vz = 0.;
         id.betax = 0; id.betay=0; id.betaz = 0; 

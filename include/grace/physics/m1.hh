@@ -228,10 +228,7 @@ struct m1_equations_system_t
         /**************************************************************************************************/
         // we need derivative of gamma_{ij}, derivatives of beta^i and beta_i, derivatives of 
         // alpha 
-        double dalpha[3], dbetau_x[3], dbetau_y[3], dbetau_z[3] ; 
-        double dgdd_x[3][3], dgdd_y[3][3], dgdd_z[3][3] ; 
-        double *dbetau[3] = {dbetau_x,dbetau_y,dbetau_z};
-        double (*dgdd[3])[3] = {dgdd_x, dgdd_y, dgdd_z};
+        double dalpha_dx[3], dbetau_dx[9], dgdd_dx[18];
         #pragma unroll 
         for( int idir=0; idir<3; ++idir) {
             /**************************************************************************************************/
@@ -247,26 +244,26 @@ struct m1_equations_system_t
                              , VEC( i+utils::delta(0,idir)
                                   , j+utils::delta(1,idir)
                                   , k+utils::delta(2,idir) ) ) ;
-            dalpha[idir] = 0.5*(metric_p.alp() - metric_m.alp()) * idx(idir,q) ;
+            dalpha_dx[idir] = 0.5*(metric_p.alp() - metric_m.alp()) * idx(idir,q) ;
             int ii=0; 
             for( int j=0; j<3; ++j) {
-                dbetau[idir][j] =  0.5*(metric_p.beta(j) - metric_m.beta(j)) * idx(idir,q) ;
+                dbetau_dx[3 * idir + j] =  0.5*(metric_p.beta(j) - metric_m.beta(j)) * idx(idir,q) ;
                 for( int k=j; k<3; ++k) {
-                    dgdd[idir][j][k] = dgdd[idir][k][j] = 0.5*(metric_p.gamma(ii) - metric_m.gamma(ii)) * idx(idir,q) ;
+                    dgdd_dx[6*idir + ii] =  0.5*(metric_p.gamma(ii) - metric_m.gamma(ii)) * idx(idir,q) ;
                     ii++ ; 
                 }
             }
             
         }
         /**************************************************************************************************/
+        std::array<double,6> Kij ; 
+        get_extrinsic_curvature(Kij,this->_state,VEC(i,j,k),q) ; 
+        /**************************************************************************************************/
         auto betad = metric.lower(metric._beta) ; 
         double source[4] ; 
         m1_source_terms(
-            dgdd_x,dgdd_y,dgdd_z,
-            dbetau_x,dbetau_y,dbetau_z,
-            dalpha,betad.data(),metric._g.data(),metric._ginv.data(),
-            metric.alp(),metric.sqrtg(),
-            cl.E, cl.FD.data(), cl.FU.data(), PUU, source
+            dgdd_dx,dbetau_dx,dalpha_dx,Kij.data(),
+            metric.alp(), cl.E, cl.FU.data(), cl.FD.data(), PUU, source
         ) ; 
         
         state_new(VEC(i,j,k),ERAD_,q)  += dt * dtfact * source[0] ;

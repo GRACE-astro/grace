@@ -646,7 +646,7 @@ void add_fluxes_and_source_terms(
         grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
         #endif 
         #ifdef GRACE_ENABLE_M1
-        m1_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
+        //m1_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
         #endif 
         for( int ivar=0; ivar<nvars_hrsc; ++ivar) {
             new_state(VEC(i,j,k),ivar,q) += 

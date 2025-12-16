@@ -45,7 +45,7 @@ static void KOKKOS_INLINE_FUNCTION
 m1_z_rootfind(
     double z, double dthin, double dthick,
     double v2, double vdotF, double vdotfh, double W, double F, double E, 
-    double *coeffs, double *out
+    double * __restrict__ coeffs, double * __restrict__ out
 )
 {
     *out = (-((F)*(F))*coeffs[7] - W*((coeffs[0])*(coeffs[0]))*coeffs[8] + 2*coeffs[0]*((coeffs[7])*(coeffs[7]))*vdotF + ((coeffs[9])*(coeffs[9])) - ((dthick)*(dthick))*(((F)*(F))*((coeffs[8])*(coeffs[8])) - ((coeffs[11])*(coeffs[11])) + ((coeffs[5])*(coeffs[5]))*v2 + coeffs[8]*vdotF*(2*W*(E*(3 - 2*((coeffs[7])*(coeffs[7]))) + vdotF*(2*((W)*(W)) - 1))/(2*((W)*(W)) + 1) + 2*coeffs[11])) - dthick*dthin*(2*F*coeffs[6]*coeffs[8] + 2*W*coeffs[1]*coeffs[8]*vdotF + 2*coeffs[11]*coeffs[1]*coeffs[7] + 2*coeffs[1]*coeffs[5]*coeffs[8] + 2*coeffs[5]*coeffs[6]*vdotfh) - dthick*(-2*((F)*(F))*((coeffs[7])*(coeffs[7]))*v2 + 2*W*coeffs[0]*coeffs[8]*vdotF + 2*coeffs[0]*coeffs[5]*coeffs[8] - 2*coeffs[11]*coeffs[9] + 2*coeffs[5]*coeffs[7]*vdotF) - ((dthin)*(dthin))*(E*coeffs[1] + W*((coeffs[1])*(coeffs[1]))*coeffs[8] - ((coeffs[1])*(coeffs[1]))*((coeffs[7])*(coeffs[7])) + 2*((coeffs[1])*(coeffs[1]))) - dthin*(2*F*coeffs[6]*coeffs[7] + 2*W*coeffs[0]*coeffs[1]*coeffs[8] + 2*coeffs[0]*coeffs[1] - 2*coeffs[1]*((coeffs[7])*(coeffs[7]))*vdotF + 2*coeffs[1]*coeffs[7]*coeffs[9]) + ((z)*(z))*((coeffs[0] + coeffs[1]*dthin + coeffs[2]*dthick)*(coeffs[0] + coeffs[1]*dthin + coeffs[2]*dthick)))/((E)*(E));
@@ -53,7 +53,7 @@ m1_z_rootfind(
 
 static void KOKKOS_INLINE_FUNCTION
 m1_J(
-    double dthin, double dthick, double *coeffs, double *out
+    double dthin, double dthick, double * __restrict__ coeffs, double * __restrict__ out
 )
 {
     *out = coeffs[0] + coeffs[1]*dthin + coeffs[2]*dthick;
@@ -62,8 +62,8 @@ m1_J(
 static void KOKKOS_INLINE_FUNCTION
 m1_Hd(
     double dthin, double dthick, double v2, 
-    double *Fd, double *fd, double *vd, double *coeffs,
-    double *out
+    double * __restrict__ Fd, double * __restrict__ fd, double * __restrict__ vd, double * __restrict__ coeffs,
+    double * __restrict__ out
 )
 {
     double x0 = coeffs[6]*dthin;
@@ -78,7 +78,7 @@ static void KOKKOS_INLINE_FUNCTION
 m1_PUU(
     double dthin, double dthick,
     double vdotF, double vdotfh, double E, double F, double W,
-    double *Fu, double *vu, double *guu, double (&out)[3][3]
+    double * __restrict__ Fu, double * __restrict__ vu, double * __restrict__ guu, double (&out)[3][3]
 )
 {
     double x0 = E*dthin/((F)*(F));
@@ -116,7 +116,7 @@ static void KOKKOS_INLINE_FUNCTION
 m1_source(
     double W, double J, double E, double vdotF, 
     double alp, double ka, double ks, double eta,
-    double *Hd, double *vd, double (&out) [4]
+    double * __restrict__ Hd, double * __restrict__ vd, double (&out) [4]
 )
 {
     double x0 = ka + ks;
@@ -132,8 +132,8 @@ m1_jacobian(
     double dthin, double dthick, double W, double alp, double v2,
     double E, double F, double vdotfh, 
     double ka, double ks, double eta,
-    double *vd, double *vu, 
-    double *fd, double *fu,
+    double * __restrict__ vd, double * __restrict__ vu, 
+    double * __restrict__ fd, double * __restrict__ fu,
     double (&out)[4][4] 
 )
 {
@@ -207,7 +207,7 @@ m1_jacobian(
 
 static void KOKKOS_INLINE_FUNCTION
 m1_fluid_to_lab_thick(
-    double W, double Ht, double J, double alp, double *beta, double *vd, double *Hd, double (&out)[4]
+    double W, double Ht, double J, double alp, double * __restrict__ beta, double * __restrict__ vd, double * __restrict__ Hd, double (&out)[4]
 )
 {
     double x0 = (-Hd[0]*beta[0] - Hd[1]*beta[1] - Hd[2]*beta[2] + Ht)/alp;
@@ -220,7 +220,7 @@ m1_fluid_to_lab_thick(
 
 static void KOKKOS_INLINE_FUNCTION
 m1_wavespeeds(
-    double dthin, double dthick, double alp, double F, double W, double betaDIR, double FDIR, double gammaDD, double vDIR, double *lp, double *lm
+    double dthin, double dthick, double alp, double F, double W, double betaDIR, double FDIR, double gammaDD, double vDIR, double * __restrict__ lp, double * __restrict__ lm
 )
 {
     double x0 = alp*fabs(FDIR)/F;
@@ -235,63 +235,31 @@ m1_wavespeeds(
 
 static void KOKKOS_FUNCTION 
 m1_source_terms(
-    double const gdd_x[3][3], double const gdd_y[3][3], double const gdd_z[3][3],
-    double const betau_x[3], double const betau_y[3], double const betau_z[3],
-    double const dalpha[3], double const betad[3], double const gdd[5], double const guu[5],
-    double const alp, double const sqrtg,
+    double * __restrict__ dgdd_dx, 
+    double * __restrict__ dbeta_dx, 
+    double * __restrict__ dalpha,
+    double * __restrict__ Kdd,
+    double const alp, 
     double const E,
-    double const Fd[3],
-    double const Fu[3],
+    double * __restrict__ Fu,
+    double * __restrict__ Fd,
     double const Puu[3][3],
-    double (&out)[4]
+    double * __restrict__ out
 )
 {
-    double x0 = 2*gdd[1];
-    double x1 = 2*gdd[2];
-    double x2 = 2*gdd_x[1][0] - gdd_y[0][0];
-    double x3 = 2*gdd_x[2][0] - gdd_z[0][0];
-    double x4 = 1.0*betad[0];
-    double x5 = 1.0*betad[1];
-    double x6 = 1.0*betad[2];
-    double x7 = (1.0/2.0)*Puu[0][0];
-    double x8 = gdd_x[0][1] - gdd_x[1][0] + gdd_y[0][0];
-    double x9 = gdd_x[2][1] + gdd_y[2][0];
-    double x10 = -gdd_z[1][0] + x9;
-    double x11 = betau_x[0]*gdd[1] + betau_x[1]*gdd[3] + betau_x[2]*gdd[4] + betau_y[0]*gdd[0] + betau_y[1]*gdd[1] + betau_y[2]*gdd[2];
-    double x12 = (1.0/2.0)*Puu[0][1];
-    double x13 = gdd_x[1][1] - gdd_y[0][1] + gdd_y[1][0];
-    double x14 = -gdd_z[0][1] + x9;
-    double x15 = gdd_x[0][2] - gdd_x[2][0] + gdd_z[0][0];
-    double x16 = gdd_x[1][2] + gdd_z[1][0];
-    double x17 = -gdd_y[2][0] + x16;
-    double x18 = betau_x[0]*gdd[2] + betau_x[1]*gdd[4] + betau_x[2]*gdd[5] + betau_z[0]*gdd[0] + betau_z[1]*gdd[1] + betau_z[2]*gdd[2];
-    double x19 = (1.0/2.0)*Puu[0][2];
-    double x20 = -gdd_y[0][2] + x16;
-    double x21 = gdd_x[2][2] - gdd_z[0][2] + gdd_z[2][0];
-    double x22 = 2*gdd[4];
-    double x23 = -gdd_x[1][1] + 2*gdd_y[0][1];
-    double x24 = 2*gdd_y[2][1] - gdd_z[1][1];
-    double x25 = (1.0/2.0)*Puu[1][1];
-    double x26 = gdd_y[0][2] + gdd_z[0][1];
-    double x27 = -gdd_x[2][1] + x26;
-    double x28 = gdd_y[1][2] - gdd_y[2][1] + gdd_z[1][1];
-    double x29 = betau_y[0]*gdd[2] + betau_y[1]*gdd[4] + betau_y[2]*gdd[5] + betau_z[0]*gdd[1] + betau_z[1]*gdd[3] + betau_z[2]*gdd[4];
-    double x30 = (1.0/2.0)*Puu[1][2];
-    double x31 = -gdd_x[1][2] + x26;
-    double x32 = gdd_y[2][2] - gdd_z[1][2] + gdd_z[2][1];
-    double x33 = -gdd_x[2][2] + 2*gdd_z[0][2];
-    double x34 = -gdd_y[2][2] + 2*gdd_z[1][2];
-    double x35 = (1.0/2.0)*Puu[2][2];
-    double x36 = alp*x7;
-    double x37 = alp*x12;
-    double x38 = alp*x19;
-    double x39 = alp*x25;
-    double x40 = alp*x30;
-    double x41 = alp*x35;
-    out[0] = sqrtg*(Fu[0]*dalpha[0] + Fu[1]*dalpha[1] + Fu[2]*dalpha[2] + x12*(x11 - x4*(gdd_x[1][1]*guu[1] + guu[0]*x8 + guu[2]*x10) - x5*(gdd_x[1][1]*guu[3] + guu[1]*x8 + guu[4]*x10) - x6*(gdd_x[1][1]*guu[4] + guu[2]*x8 + guu[5]*x10)) + x12*(x11 - x4*(gdd_y[0][0]*guu[0] + guu[1]*x13 + guu[2]*x14) - x5*(gdd_y[0][0]*guu[1] + guu[3]*x13 + guu[4]*x14) - x6*(gdd_y[0][0]*guu[2] + guu[4]*x13 + guu[5]*x14)) + x19*(x18 - x4*(gdd_x[2][2]*guu[2] + guu[0]*x15 + guu[1]*x17) - x5*(gdd_x[2][2]*guu[4] + guu[1]*x15 + guu[3]*x17) - x6*(gdd_x[2][2]*guu[5] + guu[2]*x15 + guu[4]*x17)) + x19*(x18 - x4*(gdd_z[0][0]*guu[0] + guu[1]*x20 + guu[2]*x21) - x5*(gdd_z[0][0]*guu[1] + guu[3]*x20 + guu[4]*x21) - x6*(gdd_z[0][0]*guu[2] + guu[4]*x20 + guu[5]*x21)) - x25*(-betau_y[0]*x0 - 2*betau_y[1]*gdd[3] - betau_y[2]*x22 + x4*(gdd_y[1][1]*guu[1] + guu[0]*x23 + guu[2]*x24) + x5*(gdd_y[1][1]*guu[3] + guu[1]*x23 + guu[4]*x24) + x6*(gdd_y[1][1]*guu[4] + guu[2]*x23 + guu[5]*x24)) + x30*(x29 - x4*(gdd_y[2][2]*guu[2] + guu[0]*x27 + guu[1]*x28) - x5*(gdd_y[2][2]*guu[4] + guu[1]*x27 + guu[3]*x28) - x6*(gdd_y[2][2]*guu[5] + guu[2]*x27 + guu[4]*x28)) + x30*(x29 - x4*(gdd_z[1][1]*guu[1] + guu[0]*x31 + guu[2]*x32) - x5*(gdd_z[1][1]*guu[3] + guu[1]*x31 + guu[4]*x32) - x6*(gdd_z[1][1]*guu[4] + guu[2]*x31 + guu[5]*x32)) - x35*(-betau_z[0]*x1 - betau_z[1]*x22 - 2*betau_z[2]*gdd[5] + x4*(gdd_z[2][2]*guu[2] + guu[0]*x33 + guu[1]*x34) + x5*(gdd_z[2][2]*guu[4] + guu[1]*x33 + guu[3]*x34) + x6*(gdd_z[2][2]*guu[5] + guu[2]*x33 + guu[4]*x34)) - x7*(-2*betau_x[0]*gdd[0] - betau_x[1]*x0 - betau_x[2]*x1 + x4*(gdd_x[0][0]*guu[0] + guu[1]*x2 + guu[2]*x3) + x5*(gdd_x[0][0]*guu[1] + guu[3]*x2 + guu[4]*x3) + x6*(gdd_x[0][0]*guu[2] + guu[4]*x2 + guu[5]*x3)));
-    out[1] = sqrtg*(-E*dalpha[0] + Fd[0]*betau_x[0] + Fd[1]*betau_x[1] + Fd[2]*betau_x[2] + gdd_x[0][0]*x36 + gdd_x[0][1]*x37 + gdd_x[0][2]*x38 + gdd_x[1][0]*x37 + gdd_x[1][1]*x39 + gdd_x[1][2]*x40 + gdd_x[2][0]*x38 + gdd_x[2][1]*x40 + gdd_x[2][2]*x41);
-    out[2] = sqrtg*(-E*dalpha[1] + Fd[0]*betau_y[0] + Fd[1]*betau_y[1] + Fd[2]*betau_y[2] + gdd_y[0][0]*x36 + gdd_y[0][1]*x37 + gdd_y[0][2]*x38 + gdd_y[1][0]*x37 + gdd_y[1][1]*x39 + gdd_y[1][2]*x40 + gdd_y[2][0]*x38 + gdd_y[2][1]*x40 + gdd_y[2][2]*x41);
-    out[3] = sqrtg*(-E*dalpha[2] + Fd[0]*betau_z[0] + Fd[1]*betau_z[1] + Fd[2]*betau_z[2] + gdd_z[0][0]*x36 + gdd_z[0][1]*x37 + gdd_z[0][2]*x38 + gdd_z[1][0]*x37 + gdd_z[1][1]*x39 + gdd_z[1][2]*x40 + gdd_z[2][0]*x38 + gdd_z[2][1]*x40 + gdd_z[2][2]*x41);
+    double x0 = Puu[0][0]*alp;
+    double x1 = Puu[1][1]*alp;
+    double x2 = Puu[2][2]*alp;
+    double x3 = Puu[0][1]*alp;
+    double x4 = Puu[0][2]*alp;
+    double x5 = Puu[1][2]*alp;
+    double x6 = (1.0/2.0)*x0;
+    double x7 = (1.0/2.0)*x1;
+    double x8 = (1.0/2.0)*x2;
+    out[0] = -Fu[0]*dalpha[0] - Fu[1]*dalpha[1] - Fu[2]*dalpha[2] + Kdd[0]*x0 + 2*Kdd[1]*x3 + 2*Kdd[2]*x4 + Kdd[3]*x1 + 2*Kdd[4]*x5 + Kdd[5]*x2;
+    out[1] = -E*dalpha[0] + Fd[0]*dbeta_dx[0] + Fd[1]*dbeta_dx[1] + Fd[2]*dbeta_dx[2] + dgdd_dx[0]*x6 + dgdd_dx[1]*x3 + dgdd_dx[2]*x4 + dgdd_dx[3]*x7 + dgdd_dx[4]*x5 + dgdd_dx[5]*x8;
+    out[2] = -E*dalpha[1] + Fd[0]*dbeta_dx[3] + Fd[1]*dbeta_dx[4] + Fd[2]*dbeta_dx[5] + dgdd_dx[10]*x5 + dgdd_dx[11]*x8 + dgdd_dx[6]*x6 + dgdd_dx[7]*x3 + dgdd_dx[8]*x4 + dgdd_dx[9]*x7;
+    out[3] = -E*dalpha[2] + Fd[0]*dbeta_dx[6] + Fd[1]*dbeta_dx[7] + Fd[2]*dbeta_dx[8] + dgdd_dx[12]*x6 + dgdd_dx[13]*x3 + dgdd_dx[14]*x4 + dgdd_dx[15]*x7 + dgdd_dx[16]*x5 + dgdd_dx[17]*x8;
 }
 
 }
