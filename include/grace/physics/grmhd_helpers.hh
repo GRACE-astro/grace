@@ -256,7 +256,7 @@ void get_extrinsic_curvature( std::array<double,6>& Kij, grace::var_array_t stat
 
   #ifdef GRACE_ENABLE_COWLING_METRIC
   #pragma unroll 
-  for( int i=0; i<6; ++i) Kij[i] = state(VEC(i,j,k),KXX_+i,q);
+  for( int ii=0; ii<6; ++ii) Kij[ii] = state(VEC(i,j,k),KXX_+ii,q);
   #elif defined(GRACE_ENABLE_BSSN_METRIC)
   std::array<double,6> Atij{ 
               state(VEC(i,j,k),ATXX_,q)

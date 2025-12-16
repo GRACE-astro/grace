@@ -352,25 +352,6 @@ struct grmhd_equations_system_t
             /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
             double const dalp_dxi =  0.5*(metric_p.alp() - metric_m.alp()) ;
 
-            #ifdef GRACE_ENABLE_COWLING_METRIC
-            /**************************************************************************************************/
-            /* In Cowling approx we can use the simpler form of the source term which reads                   */
-            /* S_{\tau} +=  1/2 W^{ij} \beta^k \partial_k \gamma_{ij} + W^i_j \partial_i \beta^j              */
-            /**************************************************************************************************/ 
-            std::array<double,3> dbetaj_dxi = {
-                0.5 * (metric_p.beta(0) - metric_m.beta(0)),
-                0.5 * (metric_p.beta(1) - metric_m.beta(1)),
-                0.5 * (metric_p.beta(2) - metric_m.beta(2)),
-            } ; 
-            
-            tau_source += idx(idir,q) * ( metric.contract_vec_vec(
-                dbetaj_dxi,
-                {Wij[spatial_index_4d[idir][0]],Wij[spatial_index_4d[idir][1]],Wij[spatial_index_4d[idir][2]]}
-            )  + 0.5 * shift[idir] * metric.contract_sym2tens_sym2tens(
-                {dgab_dxi[XX4],dgab_dxi[XY4],dgab_dxi[XZ4],dgab_dxi[YY4],dgab_dxi[YZ4],dgab_dxi[ZZ4]},
-                Wij
-            )) ;
-            #endif 
             /**************************************************************************************************/
             /* Momentum source term:                                                                          */
             /* S_{\tilde{S}_i} = \frac{1}{2} T^{\alpha\beta} g_{\alpha\beta, i}                               */
@@ -383,8 +364,7 @@ struct grmhd_equations_system_t
             /* Second part of conserved energy source term:                                                   */
             /* S_{\tau} +=  - (T^{0 i} +  T^{00} beta^i) \partial_i \alpha                                    */
             /**************************************************************************************************/
-            tau_source  -= 
-                metric.alp() * ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ; 
+            tau_source  -= ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ; 
 
             /**************************************************************************************************/
             /* Add momentum source terms                                                                      */
@@ -395,7 +375,7 @@ struct grmhd_equations_system_t
         /**************************************************************************************************/
         /* Add energy source terms                                                                        */
         /**************************************************************************************************/
-        state_new(VEC(i,j,k),TAU_,q)     += dt*dtfact*metric.sqrtg()*tau_source ;
+        state_new(VEC(i,j,k),TAU_,q)     += alpha_sqrtgamma_dt*tau_source ;
         /**************************************************************************************************/
     } ;
     /**
