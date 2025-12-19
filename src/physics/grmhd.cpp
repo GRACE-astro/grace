@@ -45,6 +45,7 @@
 #include <grace/physics/id/magnetic_rotor.hh>
 #include <grace/physics/id/orszag_tang_vortex.hh>
 #include <grace/physics/id/fmtorus.hh>
+#include <grace/physics/id/bondi_accretion.hh>
 #include <grace/physics/id/Avec_id.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
@@ -615,6 +616,13 @@ void set_grmhd_initial_data() {
         double const T0 = get_param<double>("grmhd","gas_cloud","temp") ;
         double const p = get_param<double>("grmhd","gas_cloud","scaling") ; 
         set_grmhd_initial_data_impl<eos_t,cloud_id_t<eos_t>>(rho0,T0,r0,p) ;
+    } else if ( id_type == "bondi") {
+        double const rc = get_param<double>("grmhd","bondi_flow","r_c") ; 
+        double const K  = get_param<double>("grmhd","bondi_flow","K") ; 
+        double const gamma = get_param<double>("grmhd","bondi_flow","gamma") ; 
+        double const rmin = get_param<double>("grmhd","bondi_flow","r_min") ; 
+        double const rmax = get_param<double>("grmhd","bondi_flow","r_max") ;
+        set_grmhd_initial_data_impl<eos_t,bondi_id_t<eos_t>>(gamma,K,rc,rmin,rmax) ; 
     } else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }

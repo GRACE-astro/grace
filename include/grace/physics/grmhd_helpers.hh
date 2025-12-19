@@ -142,8 +142,8 @@ atmo_params_t get_atmo_params()
 
   atmo_params.c2p_tol = grace::get_param<double>("grmhd","atmosphere","c2p_tolerance") ;
 
-  atmo_params.max_w = grace::get_param<double>("grmhd","atmosphere","max_sigma") ;
-  atmo_params.max_sigma = grace::get_param<double>("grmhd","atmosphere","max_lorentz") ;
+  atmo_params.max_sigma = grace::get_param<double>("grmhd","atmosphere","max_sigma") ;
+  atmo_params.max_w     = grace::get_param<double>("grmhd","atmosphere","max_lorentz") ;
 
   return atmo_params ; 
 }

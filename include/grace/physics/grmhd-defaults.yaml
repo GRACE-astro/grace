@@ -99,5 +99,13 @@ grmhd: {
     excision_radius: 1.0,
     rho_excision: 1e-8,
     temp_excision: 0.3333e-2
+  },
+
+  bondi_flow: {
+    r_c: 8.0,
+    K: 1.0,
+    gamma: 1.3333,
+    r_min: 1,
+    r_max: 100
   }
 }

@@ -304,6 +304,44 @@ rootfind_newton_raphson(double sa, double sb,
       err = 1 ; 
       return 0 ; 
 }
+
+  template <typename F>
+double KOKKOS_FUNCTION
+rootfind_newton_raphson_unsafe(double x0, F&& f, unsigned long const maxiter, double tol, int& err)
+    {
+
+      constexpr const double macheps = std::numeric_limits<double>::epsilon() ;
+      double x, fx, dfx ; 
+      x = x0; 
+      f(x,fx,dfx) ; 
+      if ( fx == 0 ) {
+        err = 0 ;
+        return x0 ; 
+      } 
+ 
+      int iter = 0 ; 
+      
+      double t, xold; 
+      do {
+        if (fabs(dfx) < 10 * macheps) {
+            err = 2;
+            return x;
+        }
+
+        xold = x ; 
+        x -= fx / dfx ; 
+        f(x,fx,dfx) ; 
+        // Robust convergence check
+        t = 2. * macheps * fabs(x) + tol;
+        if (fabs(x-xold) < t || fabs(fx) < tol) {
+            err = 0;
+            return x;
+        }
+        iter ++ ;
+      } while(  iter < maxiter  ) ;
+      err = 1 ; 
+      return 0 ; 
+}
 //****************************************************************************
 enum nr_err_t {
   SUCCESS=0,
