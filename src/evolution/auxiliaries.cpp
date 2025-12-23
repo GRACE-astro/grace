@@ -47,6 +47,10 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
 #endif
+#ifdef GRACE_ENABLE_BSSN_METRIC
+#include <grace/physics/bssn.hh>
+#include <grace/physics/bssn_helpers.hh>
+#endif 
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
@@ -164,6 +168,29 @@ void compute_auxiliary_quantities(
         }
         #endif
     }) ; 
+
+
+    #ifdef GRACE_ENABLE_BSSN_METRIC
+    auto k1 = grace::get_param<double>("bssn","k1") ;
+    auto eta = grace::get_param<double>("bssn","eta") ;
+    auto epsdiss = grace::get_param<double>("bssn","epsdiss") ; 
+    bssn_system_t bssn_eq_system(state,aux,sstate,k1,eta,epsdiss) ; 
+
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
+            interior_policy({VEC(ngz,ngz,ngz),0},{VEC(nx+ngz,ny+ngz,nz+ngz),nq}) ; 
+        
+    parallel_for(GRACE_EXECUTION_TAG("EVOL","get_bssn_auxiliaries"), interior_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        bssn_eq_system.template compute_constraint_violations<4>(
+            aux, 
+            {idx(0,q),idx(1,q),idx(2,q)}, 
+            VEC(i,j,k), 
+            q) ; 
+ 
+    }) ; 
+    #endif 
+
 
     #undef GET_AUX
     Kokkos::Profiling::popRegion() ; 

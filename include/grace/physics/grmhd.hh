@@ -37,6 +37,7 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/grmhd_helpers.hh>
+#include <grace/physics/grmhd_metric_utils.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
@@ -622,19 +623,27 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         /* 2nd order interpolation at cell interface                           */
         /***********************************************************************/
-        metric_array_t const metric_face{
-            { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
-            , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
-            , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
-            , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
-            , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
-            , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
-        ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            , 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
-        ,   0.5 * (metric_l.alp() + metric_r.alp())
-        } ; 
-        
+        #if 0
+            metric_array_t const metric_face{
+                { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
+                , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
+                , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
+                , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
+                , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
+                , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
+            ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
+                , 0.5*(metric_l.beta(1) + metric_r.beta(1))
+                , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
+            ,   0.5 * (metric_l.alp() + metric_r.alp())
+            } ; 
+        #else 
+        /***********************************************************************/
+        /* 3rd order interpolation at cell interface                           */
+        /***********************************************************************/
+            std::array<bool,3> stag_dir{idir==0, idir==1, idir==2};
+            metric_array_t const metric_face = get_metric_array(this->_state, VEC(i, j, k),
+                                            q, stag_dir) ; 
+        #endif
         /***********************************************************************/
         /* Initialize Riemann solver                                           */
         /***********************************************************************/
@@ -918,21 +927,25 @@ struct grmhd_equations_system_t
         /* 2nd order interpolation at cell interface                           */
         /***********************************************************************/
         #if 0
-        metric_array_t const metric_face{
-            { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
-            , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
-            , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
-            , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
-            , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
-            , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
-        ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            , 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
-        ,   0.5 * (metric_l.alp() + metric_r.alp())
-        } ; 
+            metric_array_t const metric_face{
+                { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
+                , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
+                , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
+                , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
+                , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
+                , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
+            ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
+                , 0.5*(metric_l.beta(1) + metric_r.beta(1))
+                , 0.5*(metric_l.beta(2) + metric_r.beta(2))}
+            ,   0.5 * (metric_l.alp() + metric_r.alp())
+            } ; 
         #else 
-        metric_array_t metric_face ; 
-        COMPUTE_FCVAL(metric_face,this->_state,i,j,k,q,idir) ; 
+        /***********************************************************************/
+        /* 3rd order interpolation at cell interface                           */
+        /***********************************************************************/
+            std::array<bool,3> stag_dir{idir==0, idir==1, idir==2};
+            metric_array_t const metric_face = get_metric_array(this->_state, VEC(i,j,k),
+                                            q, stag_dir) ; 
         #endif
         /***********************************************************************/
         /*              Reconstruct primitive variables                        */

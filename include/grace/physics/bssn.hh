@@ -57,6 +57,14 @@ compute_bssn_rhs( VEC(int i, int j, int k), int q
                 , std::array<double,GRACE_NSPACEDIM> const& idx
                 , double const k1, double const eta );
 
+                
+template< size_t der_order >
+std::array<double,4> GRACE_HOST_DEVICE 
+compute_bssn_constraint_violations(
+    VEC(int i, int j, int k), int q
+    , grace::var_array_t const state
+    , std::array<std::array<double,4>,4> const& Tdd
+    , std::array<double,GRACE_NSPACEDIM> const& idx);
 
 struct bssn_system_t 
     : public fd_evolution_system_t<bssn_system_t> 
@@ -104,6 +112,29 @@ struct bssn_system_t
         
     }
 
+    //**************************************************************************************************
+    //**************************************************************************************************
+    template< size_t der_order >
+    void GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+    compute_constraint_violations( 
+        grace::var_array_t aux, std::array<double,3> const& idx, 
+        VEC(int i, int j, int k), int64_t q ) const 
+    {
+        using namespace grace  ; 
+        using namespace Kokkos ;
+
+        std::array<std::array<double,4>,4> Tdd {{{0},{0},{0},{0}}} ; 
+
+        auto constr_loc = 
+                    compute_bssn_constraint_violations<der_order>(VEC(i,j,k),q,this->_state,Tdd,idx) ;
+
+        aux(VEC(i,j,k),HAM_ ,q) = constr_loc[0] ;
+        aux(VEC(i,j,k),MOMX_,q) = constr_loc[1] ;
+        aux(VEC(i,j,k),MOMY_,q) = constr_loc[2] ;
+        aux(VEC(i,j,k),MOMZ_,q) = constr_loc[3] ;
+        
+    } ;
+
     KOKKOS_FUNCTION
     std::array<std::array<double,4>,4> get_Tmunu(
         grmhd_prims_array_t const& prims,
@@ -143,7 +174,7 @@ struct bssn_system_t
     {
 
     }
-
+     
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_max_eigenspeed( VEC( const int i
                                , const int j
@@ -200,6 +231,8 @@ struct bssn_system_t
         state(VEC(i,j,k),ATXX_+5,q) -= 1./3. * state(VEC(i,j,k),GTXX_+5,q) * ATR ; 
 
     }
+
+
 
     double _k1, _eta, _epsdiss;
 

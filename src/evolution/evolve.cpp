@@ -275,6 +275,8 @@ void advance_substep( double const t, double const dt, double const dtfact
     int nvars_hrsc = variables::get_n_hrsc() ;
     
     /* Define the equation system (a couple ugly ifdef's!)*/ 
+#if 0  // turn GRMHD off
+ 
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
@@ -290,13 +292,6 @@ void advance_substep( double const t, double const dt, double const dtfact
     grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,RECON>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact)
     #define GET_SOURCES \
     grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i+ngz,j+ngz,k+ngz), idx, new_state, dt, dtfact )
-    #endif 
-    #ifdef GRACE_ENABLE_BSSN_METRIC
-    auto k1 = grace::get_param<double>("bssn","k1") ;
-    auto eta = grace::get_param<double>("bssn","eta") ;
-    auto epsdiss = grace::get_param<double>("bssn","epsdiss") ; 
-    bssn_system_t bssn_eq_system(old_state,aux,old_stag_state,k1,eta,epsdiss) ; 
-    #endif
     //**************************************************************************************************/
     auto flux_x_policy = 
         Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
@@ -379,6 +374,17 @@ void advance_substep( double const t, double const dt, double const dtfact
             ) ; 
         #endif 
     }) ; 
+    #endif
+
+#endif // turn GRMHD off
+
+    #ifdef GRACE_ENABLE_BSSN_METRIC
+    auto k1 = grace::get_param<double>("bssn","k1") ;
+    auto eta = grace::get_param<double>("bssn","eta") ;
+    auto epsdiss = grace::get_param<double>("bssn","epsdiss") ; 
+    bssn_system_t bssn_eq_system(old_state,aux,old_stag_state,k1,eta,epsdiss) ; 
+    #endif
+
     #ifdef GRACE_ENABLE_BSSN_METRIC
     auto advance_bssn_policy = 
     Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>> (
@@ -392,7 +398,7 @@ void advance_substep( double const t, double const dt, double const dtfact
                     bssn_eq_system.compute_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact);
                 }) ; 
     #endif 
-    #if 1
+    #if 0
     #define RECONSTRUCT(vview,vidx,q,i,j,k,uL,uR,dir) \
     do { \
     auto sview = Kokkos::subview(vview, \

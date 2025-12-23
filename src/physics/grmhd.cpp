@@ -43,6 +43,7 @@
 #include <grace/physics/id/magnetic_rotor.hh>
 #include <grace/physics/id/orszag_tang_vortex.hh>
 #include <grace/physics/id/fmtorus.hh>
+#include <grace/physics/id/irrot_bh_isotropic.hh>
 #include <grace/physics/id/Avec_id.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
@@ -596,7 +597,12 @@ void set_grmhd_initial_data() {
         auto max_betam1 = pars["max_inverse_beta"].as<double>() ; 
         rescale_B_field(max_betam1, P_max) ; 
         GRACE_TRACE("Done with magnetized FMTorus ID.") ;
-    } else {
+    }  else if ( id_type == "irrot_bh_iso") {
+        auto pars = get_param<YAML::Node>("grmhd","irrot_bh_iso") ;
+        auto M = pars["M"].as<double>() ; 
+        set_grmhd_initial_data_impl<eos_t,irrot_bh_iso_id_t<eos_t>>(M) ;
+    }
+    else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }
     set_conservs_from_prims() ;
