@@ -93,19 +93,19 @@ metric_array_t( std::array<double,6>const& g_
  * @param alp_ Lapse function.
  * NB: The order of metric components should be: (XX,XY,XZ,YY,YZ,ZZ).
  */
- #ifdef GRACE_ENABLE_BSSN_METRIC
+ #ifdef GRACE_ENABLE_Z4C_METRIC
 GRACE_HOST_DEVICE
 metric_array_t( std::array<double,6>const& gt_
-              , double const& phi_
+              , double const& chi_
               , std::array<double,3>const& beta_ 
               , double const& alp_ )
     : _g(), _ginv(), _beta(beta_), _alp(alp_), _sqrtg()
 {
     #pragma unroll 6
     for( int ii=0; ii<6; ++ii) {
-        _g[ii] = POW_CONFFACT(phi_) * gt_[ii] ; 
+        _g[ii] = gt_[ii]/chi_ ; 
     }
-    _sqrtg = CONFFACT_TO_SQRTG(phi_) ; // TODO 
+    _sqrtg = pow(chi_,-3.0/2.0) ; // TODO 
     _ginv[0] = (_g[3]*_g[5] - math::int_pow<2>(_g[4]))/math::int_pow<2>(_sqrtg);
     _ginv[1] = (-_g[1]*_g[5] + _g[2]*_g[4])/math::int_pow<2>(_sqrtg);
     _ginv[2] = (-(_g[2]*_g[3]) + _g[1]*_g[4])/math::int_pow<2>(_sqrtg);

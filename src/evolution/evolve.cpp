@@ -57,9 +57,9 @@
 #include <grace/physics/eos/eos_storage.hh>
 #include <grace/utils/advanced_riemann_solvers.hh>
 #endif
-#ifdef GRACE_ENABLE_BSSN_METRIC
-#include <grace/physics/bssn.hh>
-#include <grace/physics/bssn_helpers.hh>
+#ifdef GRACE_ENABLE_Z4C_METRIC
+#include <grace/physics/z4c.hh>
+#include <grace/physics/z4c_helpers.hh>
 #endif 
 #ifdef GRACE_ENABLE_M1 
 #include <grace/physics/m1_helpers.hh>
@@ -745,7 +745,7 @@ void update_fd(
     , staggered_variable_arrays_t & old_stag_state
 ) 
 {
-    #ifdef GRACE_ENABLE_BSSN_METRIC
+    #ifdef GRACE_ENABLE_Z4C_METRIC
     using namespace grace ; 
     using namespace Kokkos ; 
     DECLARE_GRID_EXTENTS ; 
@@ -755,22 +755,19 @@ void update_fd(
     auto& dx     = grace::variable_list::get().getspacings() ;  
     auto& aux     = grace::variable_list::get().getaux()     ; 
     //**************************************************************************************************/
-    auto k1 = grace::get_param<double>("bssn","k1") ;
-    auto eta = grace::get_param<double>("bssn","eta") ;
-    auto epsdiss = grace::get_param<double>("bssn","epsdiss") ; 
-    bssn_system_t bssn_eq_system(old_state,aux,old_stag_state,k1,eta,epsdiss) ; 
+    z4c_system_t z4c_eq_system(old_state,aux,old_stag_state) ; 
     //**************************************************************************************************/
-    auto advance_bssn_policy = 
+    auto advance_policy = 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(ngz,ngz,ngz),0}
             , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
         ) ;
     //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL","BSSN_update")
-                , advance_bssn_policy
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_update")
+                , advance_policy
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
                 {
-                    bssn_eq_system.compute_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact);
+                    z4c_eq_system.compute_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact);
                 }) ; 
     //**************************************************************************************************/
     #endif 

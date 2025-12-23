@@ -73,7 +73,7 @@ bh_diagnostics::compute_local_fluxes(
     for(int i=0; i<npoints; ++i) {
 
         auto ip = detector.intersecting_points_h[i] ; 
-
+        #ifndef GRACE_ENABLE_Z4C_METRIC
         double gxx{ivals(i,loc_var_idx_t::GXXL)}
                 , gxy{ivals(i,loc_var_idx_t::GXYL)}
                 , gxz{ivals(i,loc_var_idx_t::GXZL)}
@@ -92,7 +92,29 @@ bh_diagnostics::compute_local_fluxes(
                 , vz{ivals(i,loc_var_idx_t::VELZL)}
                 , bx{ivals(i,loc_var_idx_t::BXL)}
                 , by{ivals(i,loc_var_idx_t::BYL)}
-                , bz{ivals(i,loc_var_idx_t::BZL)} ; 
+                , bz{ivals(i,loc_var_idx_t::BZL)} ;
+        #else 
+        double gxx{ivals(i,loc_var_idx_t::GTXXL)}
+                , gxy{ivals(i,loc_var_idx_t::GTXYL)}
+                , gxz{ivals(i,loc_var_idx_t::GTXZL)}
+                , gyy{ivals(i,loc_var_idx_t::GTYYL)}
+                , gyz{ivals(i,loc_var_idx_t::GTYZL)}
+                , gzz{ivals(i,loc_var_idx_t::GTZZL)}
+                , chi{ivals(i,loc_var_idx_t::CHIL)}
+                , betax{ivals(i,loc_var_idx_t::BETAXL)}
+                , betay{ivals(i,loc_var_idx_t::BETAYL)}
+                , betaz{ivals(i,loc_var_idx_t::BETAZL)}
+                , alp{ivals(i,loc_var_idx_t::ALPL)}
+                , rho{ivals(i,loc_var_idx_t::RHOL)}
+                , eps{ivals(i,loc_var_idx_t::EPSL)}
+                , press{ivals(i,loc_var_idx_t::PRESSL)}
+                , vx{ivals(i,loc_var_idx_t::VELXL)}
+                , vy{ivals(i,loc_var_idx_t::VELYL)}
+                , vz{ivals(i,loc_var_idx_t::VELZL)}
+                , bx{ivals(i,loc_var_idx_t::BXL)}
+                , by{ivals(i,loc_var_idx_t::BYL)}
+                , bz{ivals(i,loc_var_idx_t::BZL)} ;
+        #endif 
         auto report_nan = [&](char const* name, double v) {
                 if (std::isnan(v)) {
                     GRACE_VERBOSE("NaN detected in {} at i={}", name, i);
@@ -121,11 +143,15 @@ bh_diagnostics::compute_local_fluxes(
             report_nan("by", by);
             report_nan("bz", bz);
         }
-
+        #ifndef GRACE_ENABLE_Z4C_METRIC
         metric_array_t metric{
             {gxx,gxy,gxz,gyy,gyz,gzz}, {betax,betay,betaz}, alp
         } ;
-
+        #else 
+        metric_array_t metric{
+            {gxx,gxy,gxz,gyy,gyz,gzz}, chi, {betax,betay,betaz}, alp
+        } ;
+        #endif 
         auto r = detector.radius ; 
         auto theta = detector.angles_h[ip][0] ; 
         auto phi   = detector.angles_h[ip][1] ; 

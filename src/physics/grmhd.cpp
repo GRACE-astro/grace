@@ -33,8 +33,8 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/grmhd_helpers.hh>
-#ifdef GRACE_ENABLE_BSSN_METRIC
-#include <grace/physics/bssn_helpers.hh>
+#ifdef GRACE_ENABLE_Z4C_METRIC
+#include <grace/physics/z4c_helpers.hh>
 #endif
 #include <grace/physics/id/shocktube.hh>
 #include <grace/physics/id/vacuum.hh>
@@ -304,8 +304,8 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     state(VEC(i,j,k),KYY_,q) = id.kyy ; 
                     state(VEC(i,j,k),KYZ_,q) = id.kyz ;
                     state(VEC(i,j,k),KZZ_,q) = id.kzz ;
-                    #elif defined(GRACE_ENABLE_BSSN_METRIC)
-                    adm_to_bssn(id,state,VEC(i,j,k),q);
+                    #elif defined(GRACE_ENABLE_Z4C_METRIC)
+                    adm_to_z4c(id,state,VEC(i,j,k),q);
                     #endif
 
                     auto const v2 = id.gxx * id.vx * id.vx +
@@ -343,16 +343,16 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),BY_,q) = id.by ;
                     aux(VEC(i,j,k),BZ_,q) = id.bz ; 
                 }) ; 
-    #ifdef GRACE_ENABLE_BSSN_METRIC 
+    #ifdef GRACE_ENABLE_Z4C_METRIC 
     {
         Kokkos::fence(); 
         auto& idx = variable_list::get().getinvspacings() ; 
-        parallel_for( GRACE_EXECUTION_TAG("ID","BSSN_Gamma")
+        parallel_for( GRACE_EXECUTION_TAG("ID","Z4C_fill_Gammatilde")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                     {
                         std::array<double,3> _idx{idx(0,q),idx(1,q),idx(2,q)} ; 
-                        compute_gamma_tilde<BSSN_DER_ORDER>(state,VEC(i,j,k),q,_idx,VEC(nx,ny,nz),ngz) ; 
+                        compute_gamma_tilde<4>(state,VEC(i,j,k),q,_idx,VEC(nx,ny,nz),ngz) ; 
                     });
     }
     #endif 

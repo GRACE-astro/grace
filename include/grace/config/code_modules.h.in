@@ -50,8 +50,8 @@ const std::vector< std::string > code_modules {
     , "grmhd"
     , "admbase"
     #endif 
-    #ifdef GRACE_ENABLE_BSSN_METRIC
-    , "bssn"
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    , "z4c"
     #endif
     #ifdef GRACE_ENABLE_M1
     , "m1"
@@ -79,8 +79,8 @@ const std::vector< std::string > code_modules_default_configs {
      , "${CMAKE_SOURCE_DIR}/include/grace/physics/grmhd-defaults.yaml"
      , "${CMAKE_SOURCE_DIR}/include/grace/physics/admbase-defaults.yaml"
      #endif
-     #ifdef GRACE_ENABLE_BSSN_METRIC
-     , "${CMAKE_SOURCE_DIR}/include/grace/physics/bssn-defaults.yaml"
+     #ifdef GRACE_ENABLE_Z4C_METRIC
+     , "${CMAKE_SOURCE_DIR}/include/grace/physics/z4c-defaults.yaml"
      #endif
      #ifdef GRACE_ENABLE_M1
      , "${CMAKE_SOURCE_DIR}/include/grace/physics/m1-defaults.yaml"

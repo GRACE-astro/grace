@@ -246,7 +246,6 @@
              id.press = _press_atm ; 
          }
  
-         double const mL = sol[0] ; 
          double const nuL = sol[2] ; 
          
          id.vx = 0 ; id.vy = 0; id.vz = 0;
@@ -258,7 +257,7 @@
          id.betay = 0. ; 
          id.betaz = 0. ; 
  
-         id.gxx = id.gyy = id.gzz = sol[0] ; 
+         id.gxx = id.gyy = id.gzz = sol[0]; 
          id.gxy = id.gxz = id.gyz =  0;
  
          id.kxx = 0. ;

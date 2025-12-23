@@ -124,13 +124,13 @@ void find_stable_timestep_impl() {
                    , policy
                    , KOKKOS_LAMBDA(VEC(int const& i, int const& j, int const& k), int const& q, double& dtmax)
     {
-        #ifndef GRACE_ENABLE_BSSN_METRIC
+        #ifndef GRACE_ENABLE_Z4C_METRIC
         double cmax = GET_CMAX; 
-        #else 
-        double cmax = 1 ; 
-        #endif 
         #ifdef GRACE_ENABLE_M1 
         cmax = fmax(cmax,m1_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)) ; 
+        #endif 
+        #else 
+        double cmax = 1 ; 
         #endif 
 
         double L    ; 

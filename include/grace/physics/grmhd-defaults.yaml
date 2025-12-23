@@ -83,6 +83,7 @@ grmhd: {
     max_lorentz: 50,
     max_sigma: 100,
     c2p_tolerance: 1e-10,
+    beta_fallback: 1e-2,
     use_c2p_entropy_backup: true
   },
 

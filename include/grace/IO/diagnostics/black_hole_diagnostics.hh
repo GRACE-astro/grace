@@ -31,6 +31,8 @@
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
 
+#include <grace/data_structures/variable_indices.hh>
+
 #include <grace/utils/metric_utils.hh>
 
 #include <grace/utils/device_vector.hh>
@@ -53,13 +55,19 @@ struct bh_diagnostics:
     public diagnostic_base_t<bh_diagnostics> 
 {
     using base_t = diagnostic_base_t<bh_diagnostics>; 
-
+    #ifndef GRACE_ENABLE_Z4C_METRIC
     enum loc_var_idx_t : int {
         GXXL=0, GXYL, GXZL, GYYL, GYZL, GZZL,
         BETAXL, BETAYL, BETAZL, ALPL, RHOL, EPSL, PRESSL, VELXL, VELYL, VELZL,
         BXL, BYL, BZL, NUM_VARS
     } ; 
-
+    #else
+    enum loc_var_idx_t : int {
+        GTXXL=0, GTXYL, GTXZL, GTYYL, GTYZL, GTZZL, CHIL,
+        BETAXL, BETAYL, BETAZL, ALPL, RHOL, EPSL, PRESSL, VELXL, VELYL, VELZL,
+        BXL, BYL, BZL, NUM_VARS
+    } ; 
+    #endif 
     enum diag_var_idx_t : int {
         MDOT=0, EDOT, LDOT, PHI, N_DIAG_VARS
     } ; 
@@ -73,7 +81,11 @@ struct bh_diagnostics:
     bh_diagnostics() 
         : base_t("bh_diagnostics")
     {
+        #ifndef GRACE_ENABLE_Z4C_METRIC
         this->var_interp_idx = std::vector<int>({GXX, GXY, GXZ, GYY, GYZ, GZZ, BETAX, BETAY, BETAZ, ALP});
+        #else 
+        this->var_interp_idx = std::vector<int>({GTXX, GTXY, GTXZ, GTYY, GTYZ, GTZZ, CHI, BETAX, BETAY, BETAZ, ALP});
+        #endif 
         this->aux_interp_idx = std::vector<int>({RHO, EPS, PRESS, ZVECX, ZVECY, ZVECZ, BX, BY, BZ});
 
     }

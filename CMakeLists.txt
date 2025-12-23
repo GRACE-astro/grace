@@ -15,6 +15,21 @@ include(setup_flags)
 configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )
 include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
 
+# --- Options ---
+option(GRACE_ENABLE_COWLING_METRIC "Use Cowling approximation (default)" ON)
+option(GRACE_ENABLE_Z4C_METRIC     "Use full Z4c evolution" OFF)
+
+if(GRACE_ENABLE_Z4C_METRIC)
+    message(STATUS "GRACE will use full Z4c metric (GRACE_ENABLE_Z4C_METRIC=ON).")
+    set(GRACE_ENABLE_COWLING_METRIC OFF)
+elseif(GRACE_ENABLE_COWLING_METRIC)
+    message(STATUS "GRACE will use full Cowling metric (GRACE_ENABLE_COWLING=ON).")
+    set(GRACE_ENABLE_Z4C_METRIC OFF)
+else()
+    message(STATUS "No option explicitly enabled; defaulting to Cowling metric.")
+    set(GRACE_ENABLE_COWLING_METRIC ON)
+endif()
+
 configure_file("${CMAKE_SOURCE_DIR}/include/grace/grace_config.h.in" grace_config.h)
 
 set(HEADER_DIR "${PROJECT_SOURCE_DIR}/include/")
@@ -45,7 +60,7 @@ if ( GRACE_ENABLE_VTK )
 endif() 
 
 
-option(GRACE_ENABLE_PROFILING "Build profiling hooks" ON)
+option(GRACE_ENABLE_PROFILING "Build profiling hooks" OFF)
 if( GRACE_ENABLE_PROFILING )
     message(STATUS "Profiling enabled.")
     if( GRACE_ENABLE_HIP )
@@ -56,6 +71,7 @@ if( GRACE_ENABLE_PROFILING )
 else()
     message(STATUS "Profiling disabled.")
 endif()
+
 
 add_subdirectory(src)
 

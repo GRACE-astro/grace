@@ -1,8 +1,8 @@
 /**
  * @file bssn_helpers.hh
- * @author Carlo Musolino
+ * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
  * @brief 
- * @date 2024-09-03
+ * @date 2026-12-21
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
  * Code for Exascale.
@@ -25,8 +25,8 @@
  * 
  */
 
-#ifndef GRACE_PHYSICS_BSSN_HELPERS_HH 
-#define GRACE_PHYSICS_BSSN_HELPERS_HH
+#ifndef GRACE_PHYSICS_Z4C_HELPERS_HH 
+#define GRACE_PHYSICS_Z4C_HELPERS_HH
 
 #include <grace_config.h> 
 
@@ -124,11 +124,11 @@ adm_to_z4c(
     double const sqrtgamma = adm_metric.sqrtg(); 
     double const one_over_cbrtgamma = 1./Kokkos::cbrt(math::int_pow<2>(sqrtgamma)) ;
 
-    double const chi  = SQRTG_TO_CONFFACT(sqrtgamma) ; 
+    double const chi  = pow(sqrtgamma,-2.0/3.0) ; 
 
     #pragma unroll 6 
     for( int icomp=0; icomp<6; ++icomp ) {
-        state(VEC(i,j,k),GTXX_+icomp,q) = INVPOW_CONFFACT(chi) * __g[icomp] ; 
+        state(VEC(i,j,k),GTXX_+icomp,q) = chi * __g[icomp] ; 
     }
     
     // Compute trace of extrinsic curvature 
@@ -136,12 +136,12 @@ adm_to_z4c(
 
     #pragma unroll 6
     for( int icomp=0; icomp<6; ++icomp ) {
-        state(VEC(i,j,k),ATXX_+icomp,q) = INVPOW_CONFFACT(chi) * (__Kij[icomp] - 1./3. * __g[icomp] * K) ; 
+        state(VEC(i,j,k),ATXX_+icomp,q) = chi * (__Kij[icomp] - 1./3. * __g[icomp] * K) ; 
     }
 
-    state(VEC(i,j,k),CHI_,q) = chi ; 
-    state(VEC(i,j,k),K_  ,q) = K   ; 
-    state(VEC(i,j,k),ALP_,q) = id.alp ; 
+    state(VEC(i,j,k),CHI_  ,q) = chi ; 
+    state(VEC(i,j,k),KHAT_ ,q) = K   ; 
+    state(VEC(i,j,k),ALP_  ,q) = id.alp ; 
     state(VEC(i,j,k),BETAX_,q) = id.betax ; 
     state(VEC(i,j,k),BETAY_,q) = id.betay ; 
     state(VEC(i,j,k),BETAZ_,q) = id.betaz ; 
@@ -188,9 +188,9 @@ compute_gamma_tilde(
     double const gtzzdz = grace::fd_der_bnd_check<der_order,2>(state,GTXX_+5, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[2 ];
 
     // \tilde{\Gamma}^i = - D_j \tilde{\gamma}^{ij}
-    state(VEC(i,j,k),GAMMATX_+0, q) = gtxz*gtyydz - gtyz*(gtxydz + gtxzdy - 2*gtyzdx) - gtxz*gtyzdy - gtxy*gtyzdz + gtxydy*gtzz - gtyydx*gtzz + gtyy*(gtxzdz - gtzzdx) + gtxy*gtzzdy;
-    state(VEC(i,j,k),GAMMATX_+1, q) = -(gtxy*gtxzdz) + (gtxxdz - gtxzdx)*gtyz - gtxz*(gtxydz - 2*gtxzdy + gtyzdx) + gtxx*gtyzdz - gtxxdy*gtzz + gtxydx*gtzz + gtxy*gtzzdx - gtxx*gtzzdy;
-    state(VEC(i,j,k),GAMMATX_+2, q) = -(gtxydy*gtxz) + (-gtxxdz + gtxzdx)*gtyy + gtxz*gtyydx - gtxx*gtyydz + gtxxdy*gtyz - gtxydx*gtyz + gtxy*(2*gtxydz - gtxzdy - gtyzdx) + gtxx*gtyzdy;
+    state(VEC(i,j,k),GAMMATX_+0, q) = 0.0; //gtxz*gtyydz - gtyz*(gtxydz + gtxzdy - 2*gtyzdx) - gtxz*gtyzdy - gtxy*gtyzdz + gtxydy*gtzz - gtyydx*gtzz + gtyy*(gtxzdz - gtzzdx) + gtxy*gtzzdy;
+    state(VEC(i,j,k),GAMMATX_+1, q) = 0.0; //-(gtxy*gtxzdz) + (gtxxdz - gtxzdx)*gtyz - gtxz*(gtxydz - 2*gtxzdy + gtyzdx) + gtxx*gtyzdz - gtxxdy*gtzz + gtxydx*gtzz + gtxy*gtzzdx - gtxx*gtzzdy;
+    state(VEC(i,j,k),GAMMATX_+2, q) = 0.0; //-(gtxydy*gtxz) + (-gtxxdz + gtxzdx)*gtyy + gtxz*gtyydx - gtxx*gtyydz + gtxxdy*gtyz - gtxydx*gtyz + gtxy*(2*gtxydz - gtxzdy - gtyzdx) + gtxx*gtyzdy;
 
 }
 

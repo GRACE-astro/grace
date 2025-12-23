@@ -66,19 +66,6 @@ limit_conserved(
         c2p_err.adjust_tau = true ; 
         cons[TAUL] = tau_floor ;
     }
-    #if 0
-    // Moreover, S^2 cannot be higher than
-    // (tau + D)^2
-    double const S2_max = SQR((cons[TAUL] + cons[DENSL])); 
-    double const S2 = metric.square_covec({cons[STXL],cons[STYL],cons[STZL]}) ; 
-    if ( S2 > S2_max ) {
-        c2p_err.adjust_s = true ; 
-        double const fact = 0.9999 * S2_max/S2 ; 
-        cons[STXL] *= fact ; 
-        cons[STYL] *= fact ; 
-        cons[STZL] *= fact ; 
-    }
-    #endif
 }
 
 template< typename eos_t >
@@ -155,7 +142,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     prims[BZL] = cons[BSZL] ; 
 
     /* Limit conserved vars  */
-    limit_conserved<eos_t>(cons,metric,eos,c2p_err) ; 
+    //limit_conserved<eos_t>(cons,metric,eos,c2p_err) ; 
 
     /* Get atmo rho and temp */
     auto const dens_atmo =  atmo.rho_fl * pow(rtp[0], atmo.rho_fl_scaling);
@@ -169,7 +156,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         c2p_failed = (math::abs(residual) > c2p_tolerance) ;
         double beta = compute_beta(prims,metric) ; 
         if ( (     c2p_failed 
-                or beta <= 1e-2 
+                or beta <= atmo.beta_fallback
                 or c2p_ret == C2P_EPS_TOO_HIGH ) 
             and atmo.use_ent_backup ) 
         {

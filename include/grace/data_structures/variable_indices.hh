@@ -297,7 +297,7 @@ DECLARE_VAR_INDEX_IMPL(KXZ)                       \
 DECLARE_VAR_INDEX_IMPL(KYY)                       \
 DECLARE_VAR_INDEX_IMPL(KYZ)                       \
 DECLARE_VAR_INDEX_IMPL(KZZ)                       
-#elif defined(GRACE_ENABLE_BSSN_METRIC)
+#elif defined(GRACE_ENABLE_Z4C_METRIC)
 #define VARIABLE_LIST_ADMBASE                     \
 DECLARE_VAR_INDEX_IMPL(GTXX)                     \
 DECLARE_VAR_INDEX_IMPL(GTXY)                     \
@@ -305,24 +305,22 @@ DECLARE_VAR_INDEX_IMPL(GTXZ)                     \
 DECLARE_VAR_INDEX_IMPL(GTYY)                     \
 DECLARE_VAR_INDEX_IMPL(GTYZ)                     \
 DECLARE_VAR_INDEX_IMPL(GTZZ)                     \
-DECLARE_VAR_INDEX_IMPL(PHI)                      \
-DECLARE_VAR_INDEX_IMPL(GAMMAX)                   \
-DECLARE_VAR_INDEX_IMPL(GAMMAY)                   \
-DECLARE_VAR_INDEX_IMPL(GAMMAZ)                   \
+DECLARE_VAR_INDEX_IMPL(CHI)                      \
+DECLARE_VAR_INDEX_IMPL(THETA)                    \
+DECLARE_VAR_INDEX_IMPL(GAMMATX)                  \
+DECLARE_VAR_INDEX_IMPL(GAMMATY)                  \
+DECLARE_VAR_INDEX_IMPL(GAMMATZ)                  \
 DECLARE_VAR_INDEX_IMPL(ATXX)                     \
 DECLARE_VAR_INDEX_IMPL(ATXY)                     \
 DECLARE_VAR_INDEX_IMPL(ATXZ)                     \
 DECLARE_VAR_INDEX_IMPL(ATYY)                     \
 DECLARE_VAR_INDEX_IMPL(ATYZ)                     \
 DECLARE_VAR_INDEX_IMPL(ATZZ)                     \
-DECLARE_VAR_INDEX_IMPL(K)                        \
+DECLARE_VAR_INDEX_IMPL(KHAT)                     \
 DECLARE_VAR_INDEX_IMPL(ALP)                      \
 DECLARE_VAR_INDEX_IMPL(BETAX)                    \
 DECLARE_VAR_INDEX_IMPL(BETAY)                    \
 DECLARE_VAR_INDEX_IMPL(BETAZ)                    \
-DECLARE_VAR_INDEX_IMPL(BBX)                      \
-DECLARE_VAR_INDEX_IMPL(BBY)                      \
-DECLARE_VAR_INDEX_IMPL(BBZ)                      \
 DECLARE_VAR_INDEX_IMPL(HAM)                      \
 DECLARE_VAR_INDEX_IMPL(MOMX)                     \
 DECLARE_VAR_INDEX_IMPL(MOMY)                     \

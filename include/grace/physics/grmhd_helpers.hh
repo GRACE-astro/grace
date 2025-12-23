@@ -46,6 +46,7 @@ struct atmo_params_t {
     double c2p_tol   ; //!< C2P tolerance 
     double max_w     ; //!< Maximum Lorentz factor
     double max_sigma ; //!< Maximum magnetization b^2/rho
+    double beta_fallback ; //!< beta < fallback we use ent
     bool use_ent_backup ; //!< Use backup c2p?
 } ; 
 /**
@@ -144,6 +145,8 @@ atmo_params_t get_atmo_params()
 
   atmo_params.max_sigma = grace::get_param<double>("grmhd","atmosphere","max_sigma") ;
   atmo_params.max_w     = grace::get_param<double>("grmhd","atmosphere","max_lorentz") ;
+
+  atmo_params.beta_fallback = grace::get_param<double>("grmhd","atmosphere","beta_fallback") ;
 
   return atmo_params ; 
 }
@@ -257,7 +260,7 @@ void get_extrinsic_curvature( std::array<double,6>& Kij, grace::var_array_t stat
   #ifdef GRACE_ENABLE_COWLING_METRIC
   #pragma unroll 
   for( int ii=0; ii<6; ++ii) Kij[ii] = state(VEC(i,j,k),KXX_+ii,q);
-  #elif defined(GRACE_ENABLE_BSSN_METRIC)
+  #elif defined(GRACE_ENABLE_Z4C_METRIC)
   std::array<double,6> Atij{ 
               state(VEC(i,j,k),ATXX_,q)
             , state(VEC(i,j,k),ATXY_,q)
@@ -274,13 +277,15 @@ void get_extrinsic_curvature( std::array<double,6>& Kij, grace::var_array_t stat
             , state(VEC(i,j,k),GTYZ_,q)
             , state(VEC(i,j,k),GTZZ_,q)
         } ;
-  double const K = state(VEC(i,j,k),K_,q);
-  double const phi = state(VEC(i,j,k),PHI_,q);
-  for( int i=0; i<6; ++i)
-        Kij[i] = POW_CONFFACT(phi) * ( Atij[i] + 1/3 * gtij[i] * K ) ;
+  double const Khat = state(VEC(i,j,k),KHAT_,q);
+  double const theta = state(VEC(i,j,k),THETA_,q);
+  double const K = Khat + 2. * theta ; 
+  double const chi = state(VEC(i,j,k),CHI_,q);
+  for( int ii=0; ii<6; ++ii)
+        Kij[ii] = ( Atij[ii] + 1/3 * gtij[ii] * K )/chi ;
   #endif 
 }
-#ifndef GRACE_ENABLE_BSSN_METRIC
+#ifndef GRACE_ENABLE_Z4C_METRIC
 #define FILL_METRIC_ARRAY(g, view, q, ...)                    \
 g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \
                           , view(__VA_ARGS__,GXY_,q)     \
@@ -300,7 +305,7 @@ g = grace::metric_array_t{  { view(__VA_ARGS__,GTXX_,q)   \
                           , view(__VA_ARGS__,GTYY_,q)     \
                           , view(__VA_ARGS__,GTYZ_,q)     \
                           , view(__VA_ARGS__,GTZZ_,q) }   \
-                          , view(__VA_ARGS__,PHI_,q)     \
+                          , view(__VA_ARGS__,CHI_,q)     \
                           , { view(__VA_ARGS__,BETAX_,q) \
                           , view(__VA_ARGS__,BETAY_,q)   \
                           , view(__VA_ARGS__,BETAZ_,q) } \
@@ -354,6 +359,7 @@ consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q)
 + AM1*mview(i-utils::delta(0,idir),j-utils::delta(1,idir),k-utils::delta(2,idir),ivar,q)       \
 + A0*mview(i,j,k,ivar,q)                                                                       \
 + A1*mview(i+utils::delta(0,idir),j+utils::delta(1,idir),k+utils::delta(2,idir),ivar,q)        
+#ifndef GRACE_ENABLE_Z4C_METRIC
 #define COMPUTE_FCVAL(g,mview,i,j,k,q,idir)                     \
 g = grace::metric_array_t{                                      \
       {                                                         \
@@ -364,6 +370,7 @@ g = grace::metric_array_t{                                      \
         , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYZ_,q,idir)         \
         , COMPUTE_FCVAL_HELPER(mview,i,j,k,GZZ_,q,idir)         \
       }                                                         \
+    , COMPUTE_FCVAL_HELPER(mview,i,j,k,CHI_,q,idir)             \
     , {                                                         \
           COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAX_,q,idir)       \
         , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAY_,q,idir)       \
@@ -371,6 +378,25 @@ g = grace::metric_array_t{                                      \
       }                                                         \
     , COMPUTE_FCVAL_HELPER(mview,i,j,k,ALP_,q,idir)             \
 }
+#else
+#define COMPUTE_FCVAL(g,mview,i,j,k,q,idir)                     \
+g = grace::metric_array_t{                                      \
+      {                                                         \
+          COMPUTE_FCVAL_HELPER(mview,i,j,k,GTXX_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTXY_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTXZ_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTYY_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTYZ_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTZZ_,q,idir)         \
+      }                                                         \
+    , {                                                         \
+          COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAX_,q,idir)       \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAY_,q,idir)       \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAZ_,q,idir)       \
+      }                                                         \
+    , COMPUTE_FCVAL_HELPER(mview,i,j,k,ALP_,q,idir)             \
+}
+#endif 
 #else
 #define COMPUTE_FCVAL_HELPER(mview,i,j,ivar,q,idir)                   \
   AM2*mview(i-2*utils::delta(0,idir),j-2*utils::delta(1,idir),ivar,q) \

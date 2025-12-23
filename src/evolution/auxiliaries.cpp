@@ -52,6 +52,9 @@
 #include <grace/physics/m1_helpers.hh>
 #include <grace/physics/m1.hh>
 #endif 
+#ifdef GRACE_ENABLE_Z4C_METRIC
+#include <grace/physics/z4c.hh>
+#endif 
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
@@ -112,7 +115,9 @@ void compute_auxiliary_quantities(
     m1_atmo_params_t m1_atmo_params = get_m1_atmo_params() ; 
     m1_equations_system_t m1_eq_system(state,sstate,aux,m1_atmo_params,m1_excision_params) ; 
     #endif 
-
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    z4c_system_t z4c_eq_system(state,aux,sstate) ; 
+    #endif 
     auto& coord_system = grace::coordinate_system::get() ; 
     auto dev_coords = coord_system.get_device_coord_system() ; 
 
@@ -128,6 +133,9 @@ void compute_auxiliary_quantities(
         #endif 
         #ifdef GRACE_ENABLE_M1 
         m1_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, dev_coords);
+        #endif 
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        z4c_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx);
         #endif 
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k)) ; 
