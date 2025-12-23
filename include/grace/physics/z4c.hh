@@ -121,17 +121,32 @@ struct z4c_system_t
         double idx[3] = {_idx(0,q),_idx(1,q),_idx(2,q)} ; 
 
         // fill derivatives 
-        fill_deriv_scalar()
-        fill_scalar_derivative(i,j,k,ALP_,q,beta,&dalp_dx,&dalp_dx_upw,&ddalp_dx2,idx) ; 
-        fill_scalar_derivative(i,j,k,CHI_,q,beta,&dchi_dx,&dchi_dx_upw,&ddchi_dx2,idx) ; 
-        fill_scalar_derivative(i,j,k,KHAT_,q,beta,&dKhat_dx,&dKhat_dx_upw,idx) ; 
-        fill_scalar_derivative(i,j,k,THETA_,q,beta,&dtheta_dx,&dtheta_dx_upw,idx) ; 
+        fill_deriv_scalar(this->_state,i,j,k,ALP_,q,dalp_dx,idx[0]) ; 
+        fill_deriv_scalar_upw(this->_state,i,j,k,ALP_,q,dalp_dx_upw,beta,idx[0]) ; 
+        fill_second_deriv_scalar(this->_state,i,j,k,ALP_,q,ddalp_dx2,idx[0]) ; 
 
-        fill_vector_derivative(i,j,k,BETAX_,q,beta,&dbeta_dx,&dbeta_dx_upw,&ddbeta_dx2,idx) ; 
-        fill_vector_derivative(i,j,k,GAMMATX_,q,beta,&dGammat_dx,&dGammat_dx_upw,idx) ; 
+        fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ; 
+        fill_deriv_scalar_upw(this->_state,i,j,k,CHI_,q,dchi_dx_upw,beta,idx[0]) ; 
+        fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ; 
 
-        fill_tensor_derivative(i,j,k,GTXX_,q,beta,&dgtdd_dx,&dgtdd_dx_upw,&ddgtdd_dx2,idx) ; 
-        fill_tensor_derivative(i,j,k,ATXX_,q,beta,&dAtdd_dx_upw,idx) ; 
+        fill_deriv_scalar(this->_state,i,j,k,KHAT_,q,dKhat_dx,idx[0]) ; 
+        fill_deriv_scalar_upw(this->_state,i,j,k,KHAT_,q,dKhat_dx_upw,beta,idx[0]) ;
+
+        fill_deriv_scalar(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ; 
+        fill_deriv_scalar_upw(this->_state,i,j,k,THETA_,q,dtheta_dx_upw,beta,idx[0]) ;
+
+        fill_deriv_vector(this->_state,i,j,k,BETAX_,q,dbeta_dx,idx[0]) ;
+        fill_deriv_vector_upw(this->_state,i,j,k,BETAX_,q,dbeta_dx_upw,beta,idx[0]) ;
+        fill_second_deriv_vector(this->_state,i,j,k,BETAX_,q,ddbeta_dx2,idx[0]) ;
+
+        fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
+        fill_deriv_vector_upw(this->_state,i,j,k,GAMMATX_,q,dGammat_dx_upw,beta,idx[0]) ;
+
+        fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
+        fill_deriv_tensor_upw(this->_state,i,j,k,GTXX_,q,dgtdd_dx_upw,beta,idx[0]) ;
+        fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
+
+        fill_deriv_tensor_upw(this->_state,i,j,k,ATXX_,q,dAtdd_dx_upw,beta,idx[0]) ; 
 
         // compute matter couplings 
         double rho0{a(RHO_)}, eps{a(EPS_)}, press{a(PRESS_)} ; 
@@ -226,18 +241,28 @@ struct z4c_system_t
         double dKhat_dx[3], dKhat_dx_upw[3] ; 
         double dtheta_dx[3], dtheta_dx_upw[3] ; 
         double dgtdd_dx[18], dgtdd_dx_upw[18], ddgtdd_dx2[36] ;
-        double dAtdd_dx[18], dummy1[18], dummy2[36] ;   
+        double dAtdd_dx[18] ;   
         // inverse spacing 
         double idx[3] = {_idx(0,q),_idx(1,q),_idx(2,q)} ; 
         // fill derivatives 
-        fill_scalar_derivative(i,j,k,CHI_,q,beta,&dchi_dx,&dchi_dx_upw,&ddchi_dx2,idx) ; 
-        fill_scalar_derivative(i,j,k,KHAT_,q,beta,&dKhat_dx,&dKhat_dx_upw,idx) ; 
-        fill_scalar_derivative(i,j,k,THETA_,q,beta,&dtheta_dx,&dtheta_dx_upw,idx) ; 
+        fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ; 
+        fill_deriv_scalar_upw(this->_state,i,j,k,CHI_,q,dchi_dx_upw,beta,idx[0]) ; 
+        fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ; 
 
-        fill_vector_derivative(i,j,k,GAMMATX_,q,beta,&dGammat_dx,&dGammat_dx_upw,idx) ; 
+        fill_deriv_scalar(this->_state,i,j,k,KHAT_,q,dKhat_dx,idx[0]) ; 
+        fill_deriv_scalar_upw(this->_state,i,j,k,KHAT_,q,dKhat_dx_upw,beta,idx[0]) ;
 
-        fill_tensor_derivative(i,j,k,GTXX_,q,beta,&dgtdd_dx,&dgtdd_dx_upw,&ddgtdd_dx2,idx) ; 
-        fill_tensor_derivative(i,j,k,ATXX_,q,beta,&dAtdd_dx,&dummy1, &dummy2, idx) ; 
+        fill_deriv_scalar(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ; 
+        fill_deriv_scalar_upw(this->_state,i,j,k,THETA_,q,dtheta_dx_upw,beta,idx[0]) ;
+
+        fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
+        fill_deriv_vector_upw(this->_state,i,j,k,GAMMATX_,q,dGammat_dx_upw,beta,idx[0]) ;
+
+        fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
+        fill_deriv_tensor_upw(this->_state,i,j,k,GTXX_,q,dgtdd_dx_upw,beta,idx[0]) ;
+        fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
+
+        fill_deriv_tensor(this->_state,i,j,k,ATXX_,q,dAtdd_dx,idx[0]) ;
 
         // compute matter couplings 
         double rho0{a(RHO_)}, eps{a(EPS_)}, press{a(PRESS_)} ; 
@@ -279,247 +304,6 @@ struct z4c_system_t
         double const dudy = (u(i,j-3,k) - 6*u(i,j-2,k) + 15*u(i,j-1,k) - 20*u(i,j,k) + 15*u(i,j+1,k) - 6*u(i,j+2,k) + u(i,j+3,k))*idx[1] ; 
         double const dudz = (u(i,j,k-3) - 6*u(i,j,k-2) + 15*u(i,j,k-1) - 20*u(i,j,k) + 15*u(i,j,k+1) - 6*u(i,j,k+2) + u(i,j,k+3))*idx[2] ;
         return (dudx+dudy+dudz) * (1./64.) ;  
-    }
-
-    void KOKKOS_INLINE_FUNCTION 
-    fill_scalar_derivative(int i, int j, int k, size_t iv, int q, double beta[3], double (*d1)[3], double (*d1_u)[3], double (*d2)[6], double idx[3]) const 
-    {
-        #define GDER(dir)\
-        fd_der<4,dir>(this->_state,iv,i,j,k,q)
-        #define GDER2(dir1,dir2)\
-        fd_der<4,dir1,dir2>(this->_state,iv,i,j,k,q)
-        #define GUDER(dir1)\
-        fd_der_upwind<4,dir1>(this->_state,iv,i,j,k,q,{-beta[0],-beta[1],-beta[2]})
-        #define GSDER(dir)\
-        fd_second_der<4,dir>(this->_state,iv,i,j,k,q)
-        
-        // first deriv
-        (*d1)[0] = GDER(0) * idx[0];
-        (*d1)[1] = GDER(1) * idx[1];
-        (*d1)[2] = GDER(2) * idx[2];
-        // second derivs
-        (*d2)[0] = GSDER(0)   * idx[0] * idx[0];
-        (*d2)[1] = GDER2(0,1) * idx[0] * idx[1];
-        (*d2)[2] = GDER2(0,2) * idx[0] * idx[2];
-        (*d2)[3] = GSDER(1)   * idx[1] * idx[1];
-        (*d2)[4] = GDER2(1,2) * idx[1] * idx[2];
-        (*d2)[5] = GSDER(2)   * idx[2] * idx[2];
-        // upwind 
-        (*d1_u)[0] = GUDER(0) * idx[0];
-        (*d1_u)[1] = GUDER(1) * idx[1];
-        (*d1_u)[2] = GUDER(2) * idx[2];
-
-        #undef GDER 
-        #undef GUDER
-        #undef GSDER 
-        #undef GDER2
-    }
-
-    void KOKKOS_INLINE_FUNCTION 
-    fill_scalar_derivative(int i, int j, int k, size_t iv, int q, double beta[3], double (*d1)[3], double (*d1_u)[3], double idx[3]) const 
-    {
-        #define GDER(dir)\
-        fd_der<4,dir>(this->_state,iv,i,j,k,q)
-        #define GUDER(dir1)\
-        fd_der_upwind<4,dir1>(this->_state,iv,i,j,k,q,{-beta[0],-beta[1],-beta[2]})
-        
-        // first deriv
-        (*d1)[0] = GDER(0) * idx[0];
-        (*d1)[1] = GDER(1) * idx[1];
-        (*d1)[2] = GDER(2) * idx[2];
-        // upwind 
-        (*d1_u)[0] = GUDER(0) * idx[0];
-        (*d1_u)[1] = GUDER(1) * idx[1];
-        (*d1_u)[2] = GUDER(2) * idx[2];
-
-        #undef GDER 
-        #undef GUDER
-    }
-
-    void KOKKOS_INLINE_FUNCTION 
-    fill_vector_derivative(int i, int j, int k, size_t iv, int q, double beta[3], double (*d1)[9], double (*d1_u)[9], double (*d2)[6*3], double idx[3]) const 
-    {
-        #define GDER(dir,comp)\
-        fd_der<4,dir>(this->_state,iv+comp,i,j,k,q)
-        #define GDER2(dir1,dir2,comp)\
-        fd_der<4,dir1,dir2>(this->_state,iv+comp,i,j,k,q)
-        #define GUDER(dir1,comp)\
-        fd_der_upwind<4,dir1>(this->_state,iv+comp,i,j,k,q,{-beta[0],-beta[1],-beta[2]})
-        #define GSDER(dir,comp)\
-        fd_second_der<4,dir>(this->_state,iv+comp,i,j,k,q)
-        
-        // first deriv
-        int ww=0; 
-        #pragma unroll 3
-        for(int icomp=0; icomp<3; ++icomp) {
-            (*d1)[ww]   = GDER(0,icomp) * idx[0];
-            (*d1_u)[ww] = GUDER(0,icomp)* idx[0];
-            ww++;
-        }
-        #pragma unroll 3
-        for(int icomp=0; icomp<3; ++icomp) {
-            (*d1)[ww]   = GDER(1,icomp) * idx[1];
-            (*d1_u)[ww] = GUDER(1,icomp)* idx[1];
-            ww++;
-        }
-        #pragma unroll 3
-        for(int icomp=0; icomp<3; ++icomp) {
-            (*d1)[ww]   = GDER(2,icomp) * idx[2];
-            (*d1_u)[ww] = GUDER(2,icomp)* idx[2];
-            ww++;
-        }
-        ww = 0 ;
-        #pragma unroll 3
-        for(int icomp=0; icomp<3; ++icomp) {
-            (*d2)[ww++] = GSDER(0,icomp) * idx[0] * idx[0] ; 
-        }
-        #pragma unroll 3
-        for(int icomp=0; icomp<3; ++icomp) {
-            (*d2)[ww++] = GDER2(0,1,icomp) * idx[0] * idx[1] ; 
-        }
-        #pragma unroll 3
-        for(int icomp=0; icomp<3; ++icomp) {
-            (*d2)[ww++] = GDER2(0,2,icomp) * idx[0] * idx[2] ; 
-        }
-        #pragma unroll 3
-        for(int icomp=0; icomp<3; ++icomp) {
-            (*d2)[ww++] = GSDER(1,icomp) * idx[1] * idx[1] ; 
-        }
-        #pragma unroll 3
-        for(int icomp=0; icomp<3; ++icomp) {
-            (*d2)[ww++] = GDER2(1,2,icomp) * idx[1] * idx[2] ; 
-        }
-        #pragma unroll 3
-        for(int icomp=0; icomp<3; ++icomp) {
-            (*d2)[ww++] = GSDER(2,icomp) * idx[2] * idx[2] ; 
-        }
-
-        #undef GDER 
-        #undef GUDER
-        #undef GSDER 
-        #undef GDER2
-    }
-
-    void KOKKOS_INLINE_FUNCTION 
-    fill_vector_derivative(int i, int j, int k, size_t iv, int q, double beta[3], double (*d1)[9], double (*d1_u)[9], double idx[3]) const 
-    {
-        #define GDER(dir,comp)\
-        fd_der<4,dir>(this->_state,iv+comp,i,j,k,q)
-        #define GUDER(dir1,comp)\
-        fd_der_upwind<4,dir1>(this->_state,iv+comp,i,j,k,q,{-beta[0],-beta[1],-beta[2]})
-        
-        // first deriv
-        int ww=0; 
-        #pragma unroll 3
-        for(int icomp=0; icomp<3; ++icomp) {
-            (*d1)[ww]   = GDER(0,icomp) * idx[0];
-            (*d1_u)[ww] = GUDER(0,icomp)* idx[0];
-            ww++;
-        }
-        #pragma unroll 3
-        for(int icomp=0; icomp<3; ++icomp) {
-            (*d1)[ww]   = GDER(1,icomp) * idx[1];
-            (*d1_u)[ww] = GUDER(1,icomp)* idx[1];
-            ww++;
-        }
-        #pragma unroll 3
-        for(int icomp=0; icomp<3; ++icomp) {
-            (*d1)[ww]   = GDER(2,icomp) * idx[2];
-            (*d1_u)[ww] = GUDER(2,icomp)* idx[2];
-            ww++;
-        }
-        
-        #undef GDER 
-        #undef GUDER
-    }
-
-    void KOKKOS_INLINE_FUNCTION 
-    fill_tensor_derivative(int i, int j, int k, size_t iv, int q, double beta[3], double (*d1)[18], double (*d1_u)[18], double (*d2)[6*6], double idx[3]) const 
-    {
-        #define GDER(dir,comp)\
-        fd_der<4,dir>(this->_state,iv+comp,i,j,k,q)
-        #define GDER2(dir1,dir2,comp)\
-        fd_der<4,dir1,dir2>(this->_state,iv+comp,i,j,k,q)
-        #define GUDER(dir1,comp)\
-        fd_der_upwind<4,dir1>(this->_state,iv+comp,i,j,k,q,{-beta[0],-beta[1],-beta[2]})
-        #define GSDER(dir,comp)\
-        fd_second_der<4,dir>(this->_state,iv+comp,i,j,k,q)
-        
-        // first deriv
-        int ww=0; 
-        #pragma unroll 6
-        for(int icomp=0; icomp<6; ++icomp) {
-            (*d1)[ww]   = GDER(0,icomp) * idx[0];
-            (*d1_u)[ww] = GUDER(0,icomp)* idx[0];
-            ww++;
-        }
-        #pragma unroll 6
-        for(int icomp=0; icomp<6; ++icomp) {
-            (*d1)[ww]   = GDER(1,icomp) * idx[1];
-            (*d1_u)[ww] = GUDER(1,icomp)* idx[1];
-            ww++;
-        }
-        #pragma unroll 6
-        for(int icomp=0; icomp<6; ++icomp) {
-            (*d1)[ww]   = GDER(2,icomp) * idx[2];
-            (*d1_u)[ww] = GUDER(2,icomp)* idx[2];
-            ww++;
-        }
-        ww = 0 ;
-        #pragma unroll 6
-        for(int icomp=0; icomp<6; ++icomp) {
-            (*d2)[ww++] = GSDER(0,icomp) * idx[0] * idx[0];
-        }
-        #pragma unroll 6
-        for(int icomp=0; icomp<6; ++icomp) {
-            (*d2)[ww++] = GDER2(0,1,icomp) * idx[0] * idx[1];
-        }
-        #pragma unroll 6
-        for(int icomp=0; icomp<6; ++icomp) {
-            (*d2)[ww++] = GDER2(0,2,icomp) * idx[0] * idx[2]; 
-        }
-        #pragma unroll 6
-        for(int icomp=0; icomp<6; ++icomp) {
-            (*d2)[ww++] = GSDER(1,icomp) * idx[1] * idx[1]; 
-        }
-        #pragma unroll 6
-        for(int icomp=0; icomp<6; ++icomp) {
-            (*d2)[ww++] = GDER2(1,2,icomp) * idx[1] * idx[2];
-        }
-        #pragma unroll 6
-        for(int icomp=0; icomp<6; ++icomp) {
-            (*d2)[ww++] = GSDER(2,icomp) * idx[2] * idx[2];
-        }
-
-        #undef GDER 
-        #undef GUDER
-        #undef GSDER 
-        #undef GDER2
-    }
-
-    void KOKKOS_INLINE_FUNCTION 
-    fill_tensor_derivative(int i, int j, int k, size_t iv, int q, double beta[3], double (*d1_u)[18], double idx[3]) const 
-    {
-        #define GUDER(dir1,comp)\
-        fd_der_upwind<4,dir1>(this->_state,iv+comp,i,j,k,q,{-beta[0],-beta[1],-beta[2]})
-        // first deriv
-        int ww=0; 
-        #pragma unroll 6
-        for(int icomp=0; icomp<6; ++icomp) {
-            (*d1_u)[ww] = GUDER(0,icomp) * idx[0];
-            ww++;
-        }
-        #pragma unroll 6
-        for(int icomp=0; icomp<6; ++icomp) {
-            (*d1_u)[ww] = GUDER(1,icomp) * idx[1];
-            ww++;
-        }
-        #pragma unroll 6
-        for(int icomp=0; icomp<6; ++icomp) {
-            (*d1_u)[ww] = GUDER(2,icomp) * idx[2];
-            ww++;
-        }
-        #undef GUDER
     }
 
     void KOKKOS_INLINE_FUNCTION 

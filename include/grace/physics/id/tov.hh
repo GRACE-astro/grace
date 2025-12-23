@@ -149,18 +149,34 @@
                  nul(ii) = solver.state[2]    ;
                  rl(ii) = solver.t            ; 
                  
-                 if ( (solver.state[1] < 1e-12) or (ii>=N_POINTS-1) ) {
+                 if ( (solver.state[1] <= press_atm) or ( solver.state[1] <= 0.0 ) or (ii>=N_POINTS-1) ) {
                      break ; 
                  } 
                  
              }
-              
-             tov_params(0) = solver.t ; 
-             tov_params(1) = solver.state[0] ; 
-             tov_params(2) = _pressC_loc ; 
-             tov_params(3) = solver.state[2] ; 
-             tov_params(4) = press_atm ; 
-             tov_params(5) = ii+1  ; 
+            // find M and R at the edge:
+            auto const _linterp = [=] (double x, double x0, double x1, double y0, double y1) {
+                double lambda = (x-x0)/(x1-x0) ;
+                return y0 * (1.0-lambda) + y1 * lambda ;  
+            } ; 
+            double r_edge = _linterp(press_atm, pressl(ii-1), pressl(ii), rl(ii-1), rl(ii)) ; 
+            double m_tov = _linterp(press_atm, pressl(ii-1), pressl(ii), massl(ii-1), massl(ii)) ; 
+            
+            // replace last solved point with edge 
+            press(ii) = press_atm ; 
+            massl(ii) = m_tov ; 
+            nul(ii) = _linterp(r_edge,rl(ii-1),rl(ii),nul(ii-1),nul(ii)) ; 
+
+            rl(ii) = r_edge ; 
+            drl(ii) = r_edge - rl(ii-1) ; 
+            // store these to extract them 
+            // from the kernel 
+            tov_params(0) = r_edge ; 
+            tov_params(1) = m_tov ; 
+            tov_params(2) = _pressC_loc ; 
+            tov_params(3) = solver.state[2] ; 
+            tov_params(4) = press_atm ; 
+            tov_params(5) = ii+1  ; 
          }) ; 
          Kokkos::fence() ; 
          GRACE_INFO("TOV solver done.") ; 

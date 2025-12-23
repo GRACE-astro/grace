@@ -46,6 +46,7 @@
 #include <grace/physics/id/orszag_tang_vortex.hh>
 #include <grace/physics/id/fmtorus.hh>
 #include <grace/physics/id/bondi_accretion.hh>
+#include <grace/physics/id/puncture.hh>
 #include <grace/physics/id/Avec_id.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
@@ -623,6 +624,9 @@ void set_grmhd_initial_data() {
         double const rmin = get_param<double>("grmhd","bondi_flow","r_min") ; 
         double const rmax = get_param<double>("grmhd","bondi_flow","r_max") ;
         set_grmhd_initial_data_impl<eos_t,bondi_id_t<eos_t>>(gamma,K,rc,rmin,rmax) ; 
+    } else if ( id_type == "puncture") {
+        double m=1.0 ; 
+        set_grmhd_initial_data_impl<eos_t,puncture_id_t<eos_t>>(m) ; 
     } else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }

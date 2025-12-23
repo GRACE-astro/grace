@@ -461,7 +461,7 @@ fill_deriv_vector_upw(view_t state, int i, int j, int k, int iv, int q, double d
 }
 template< typename view_t >
 static void KOKKOS_INLINE_FUNCTION
-fill_deriv_tensor(view_t state, int i, int j, int k, int iv, int q, double d[18], double h)
+fill_deriv_tensor_upw(view_t state, int i, int j, int k, int iv, int q, double d[18], double v[3], double h)
 {
 	using namespace Kokkos;
 	auto uxx = subview(state,ALL(),ALL(),ALL(),iv,q)  ;
