@@ -63,12 +63,13 @@ struct bondi_id_t {
         , double _rc 
         , double _rmin
         , double _rmax
-    ) : eos(_eos), _pcoords(pcoords), gamma(_gamma), n(1/(_gamma-1)), K(_K), rc(_rc), lrmin(log(_rmin)), lrmax(log(_rmax))
+        , double _spin 
+    ) : eos(_eos), _pcoords(pcoords), gamma(_gamma), n(1/(_gamma-1)), K(_K), rc(_rc), lrmin(log(_rmin)), lrmax(log(_rmax)), spin(_spin)
     {
         using namespace Kokkos ;
         // Compute temperature and radial 4 velocity at the sonic  
         // point 
-        bondi_uc_Tc(1.0/*Mass always 1*/, n, rc, &uc, &Tc) ; 
+        bondi_uc_Tc(1.0/*Mass always 1*/, rc, n, &uc, &Tc) ; 
         GRACE_INFO("Into Bondi initial data, solving on radial grid.") ; 
         GRACE_INFO("Setup: r_c: {} T_c: {} u_c: {}", rc, Tc, uc) ; 
         // we solve the problem on a log r grid and store the solutions for 
@@ -99,7 +100,8 @@ struct bondi_id_t {
         for( int i=i_c; i!=-1; i--) {
             double r = exp(logr_h(i)); 
             auto froot = [=] (double T, double& f, double& df) {
-                    bondi_T__r(1.0/*mass always 1*/, T, _Tc, _n, r, _rc, _uc, &f, &df) ;
+                    double const M = 1.0 ; 
+                    bondi_T__r(_n,_uc,r,_Tc,T,M,_rc,&f,&df);
                 } ;
             double Tg = i==i_c ? Tc*(1+1e-06) : exp(logT_h(i+1)); // guess 
             int rerr ; 
@@ -117,7 +119,8 @@ struct bondi_id_t {
         for( int i=i_c+1; i<npoints; i++) {
             double r = exp(logr_h(i)); 
             auto froot = [=] (double T, double& f, double& df) {
-                    bondi_T__r(1.0/*mass always 1*/, T, _Tc, _n, r, _rc, _uc, &f, &df) ;
+                    double const M = 1.0 ; 
+                    bondi_T__r(_n,_uc,r,_Tc,T,M,_rc,&f,&df);
                 } ;
             double Tg = i==i_c+1 ? Tc*(1-1e-06) : exp(logT_h(i-1)); // guess 
             int rerr ; 
@@ -150,7 +153,8 @@ struct bondi_id_t {
         xyz[2] = _pcoords(i,j,k,2,q) ; 
         // transform cks to bl coords
         double r,theta,phi ; 
-        kerr_schild_to_boyer_lindquist(xyz,0.0/*fixme*/,1,&r,&theta,&phi) ; 
+        double r_eps = 1e-6; 
+        kerr_schild_to_boyer_lindquist(xyz,0.0,r_eps,&r,&theta,&phi) ; 
         // log radius
         double _logr = log(r) ; 
         // find the index 
@@ -164,7 +168,7 @@ struct bondi_id_t {
         // compute other quantities 
         double uBL[4] = {0,0,0,0}; 
         bondi_ur_rho_p__r(
-            K, exp(_logT), Tc, n, r, rc, uc, &(uBL[1]), &id.rho, &id.press
+            Tc,exp(_logT),n,rc,uc,exp(_logr),K,&(uBL[1]),&id.rho,&id.press
         ) ; 
         
         // for now no B field 
@@ -172,7 +176,8 @@ struct bondi_id_t {
         
         // four metric 
         double g4dd[4][4], g4uu[4][4] ; 
-        kerr_schild_four_metric(xyz,0.0,1e-6,&g4dd,&g4uu) ; 
+        r_eps = 1e-6 ; 
+        kerr_schild_four_metric(xyz,0.0,r_eps,&g4dd,&g4uu) ; 
 
         // radial vector
         // TODO change this to be BL to CKS 
@@ -184,7 +189,7 @@ struct bondi_id_t {
         // get metric 
         double guu[6] ; 
         kerr_schild_adm_metric(
-            1e-6,xyz,0.0,
+            xyz,0.0,r_eps,
             &id.gxx, &id.gxy, &id.gxz, &id.gyy, &id.gyz, &id.gzz,
             &guu[0], &guu[1], &guu[2], &guu[3], &guu[4], &guu[5], 
             &id.alp, &id.betax, &id.betay, &id.betaz, 
@@ -196,7 +201,7 @@ struct bondi_id_t {
             id.gxy * id.betax + id.gyy * id.betay + id.gyz * id.betaz,
             id.gxz * id.betax + id.gyz * id.betay + id.gzz * id.betaz
         } ; 
-        double A = g4dd[0][0]; //-SQR(id.alp) + (id.betax*betad[0] + id.betay*betad[1] + id.betaz*betad[2]) ;  // gtt 
+        double A = -SQR(id.alp) + (id.betax*betad[0] + id.betay*betad[1] + id.betaz*betad[2]) ;  // gtt 
         double B = (betad[0] * uKS[1] + betad[1] * uKS[2] + betad[2] * uKS[3]) ;  // g_ti u^i 
         double C = id.gxx * uKS[1] * uKS[1] + id.gyy * uKS[2] * uKS[2] + id.gzz * uKS[3] * uKS[3] +
             2.0 * ( id.gxy * uKS[1] * uKS[2] + id.gxz * uKS[1] * uKS[3] + id.gyz * uKS[2] * uKS[3] ) + 1.0;  // 1 + g_{ij} u^i u^j 
@@ -218,7 +223,7 @@ struct bondi_id_t {
     eos_t eos ; 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;
 
-    double gamma, n, K, rc, uc, Tc, lrmin, lrmax, dlogr ; 
+    double gamma, n, K, rc, uc, Tc, lrmin, lrmax, dlogr, spin ; 
 
     view_t logr, logT ; 
 

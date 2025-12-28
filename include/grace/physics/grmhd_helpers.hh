@@ -359,17 +359,17 @@ consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q)
 + AM1*mview(i-utils::delta(0,idir),j-utils::delta(1,idir),k-utils::delta(2,idir),ivar,q)       \
 + A0*mview(i,j,k,ivar,q)                                                                       \
 + A1*mview(i+utils::delta(0,idir),j+utils::delta(1,idir),k+utils::delta(2,idir),ivar,q)        
-#ifndef GRACE_ENABLE_Z4C_METRIC
+#ifdef GRACE_ENABLE_Z4C_METRIC
 #define COMPUTE_FCVAL(g,mview,i,j,k,q,idir)                     \
 g = grace::metric_array_t{                                      \
       {                                                         \
-          COMPUTE_FCVAL_HELPER(mview,i,j,k,GXX_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GXY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GXZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GZZ_,q,idir)         \
-      }                                                         \
+          COMPUTE_FCVAL_HELPER(mview,i,j,k,GTXX_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTXY_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTXZ_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTYY_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTYZ_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTZZ_,q,idir)         \
+      }                                                           \
     , COMPUTE_FCVAL_HELPER(mview,i,j,k,CHI_,q,idir)             \
     , {                                                         \
           COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAX_,q,idir)       \
@@ -382,12 +382,12 @@ g = grace::metric_array_t{                                      \
 #define COMPUTE_FCVAL(g,mview,i,j,k,q,idir)                     \
 g = grace::metric_array_t{                                      \
       {                                                         \
-          COMPUTE_FCVAL_HELPER(mview,i,j,k,GTXX_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTXY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTXZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTYY_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTYZ_,q,idir)         \
-        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GTZZ_,q,idir)         \
+          COMPUTE_FCVAL_HELPER(mview,i,j,k,GXX_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GXY_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GXZ_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYY_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GYZ_,q,idir)         \
+        , COMPUTE_FCVAL_HELPER(mview,i,j,k,GZZ_,q,idir)         \
       }                                                         \
     , {                                                         \
           COMPUTE_FCVAL_HELPER(mview,i,j,k,BETAX_,q,idir)       \

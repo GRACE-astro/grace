@@ -107,6 +107,7 @@ grmhd: {
     K: 1.0,
     gamma: 1.3333,
     r_min: 1,
-    r_max: 100
+    r_max: 100,
+    spin: 0.0
   }
 }

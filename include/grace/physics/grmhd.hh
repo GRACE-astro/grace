@@ -242,7 +242,7 @@ struct grmhd_equations_system_t
         /* Read the primitive variables                                                                   */
         /**************************************************************************************************/
         grmhd_prims_array_t prims ; 
-        FILL_PRIMS_ARRAY(prims,this->_aux,q,VEC(i,j,k))   ;
+        FILL_PRIMS_ARRAY_ZVEC(prims,this->_aux,q,VEC(i,j,k))   ;
         double const eps   = prims[EPSL]   ; 
         double const rho   = prims[RHOL]   ; 
         double const p     = prims[PRESSL] ;

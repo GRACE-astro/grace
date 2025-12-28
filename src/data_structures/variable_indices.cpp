@@ -291,6 +291,8 @@ static bc_t get_bc_type(std::string const& bc_string)
         return bc_t::BC_OUTFLOW ;
     } else if ( bc_string == "third_order_lagrange") {
         return bc_t::BC_LAGRANGE_EXTRAP ; 
+    } else if ( bc_string == "sommerfeld") { 
+        return bc_t::BC_SOMMERFELD ; 
     } else if ( bc_string == "none" ) {
         return bc_t::BC_NONE ; 
     } else{

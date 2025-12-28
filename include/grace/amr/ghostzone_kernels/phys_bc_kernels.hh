@@ -31,7 +31,9 @@
 
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
-#include <grace/utils/fd_utils.hh>
+#include <grace/physics/fd_subexpressions.hh>
+
+#include <grace/coordinates/coordinate_systems.hh>
 
 #include <grace/amr/ghostzone_kernels/index_helpers.hh>
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
@@ -67,7 +69,6 @@ struct extrap_bc_t<0>
       }; 
 } ; 
 
-
 template<>
 struct extrap_bc_t<3>
 {
@@ -86,12 +87,69 @@ struct extrap_bc_t<3>
       }; 
 } ;
 
+struct sommerfeld_bc_t  
+{
+      template< typename view_t >
+      void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      apply (
+            view_t view, view_t view_p,
+            double r, double h, double v, double f0, double s[3], double dt, double dtfact,
+            VEC( size_t i, size_t j, size_t k),
+            VEC( int8_t dx, int8_t dy, int8_t dz)
+        ) const
+      {
+        #if 1
+        double dudx,dudy,dudz; 
+        if ( dx>0 ) {
+            fd_der_2_x_l1(view_p,h,i,j,k,&dudx) ; 
+        } else if ( dx<0 ) {
+            fd_der_2_x_r1(view_p,h,i,j,k,&dudx) ; 
+        } else {
+            fd_der_2_x(h,view_p,i,j,k,&dudx) ; 
+        }
+        if ( dy>0 ) {
+            fd_der_2_y_l1(view_p,h,i,j,k,&dudy) ; 
+        } else if ( dy<0 ) {
+            fd_der_2_y_r1(view_p,h,i,j,k,&dudy) ; 
+        } else {
+            fd_der_2_y(view_p,h,i,j,k,&dudy) ; 
+        }
+        if ( dz>0 ) {
+            fd_der_2_z_l1(view_p,h,i,j,k,&dudz) ; 
+        } else if ( dz<0 ) {
+            fd_der_2_z_r1(view_p,h,i,j,k,&dudz) ; 
+        } else {
+            fd_der_2_z(view_p,h,i,j,k,&dudz) ; 
+        }
+        double dudt = -v*(s[0]*dudx + s[1]*dudy + s[2]*dudz) + (f0 - view_p(i,j,k))/r;
+        view(i,j,k) = view_p(i,j,k) + dudt * dt * dtfact ;  // dt should be passed in
+        #endif 
+      }; 
+} ; 
+
 /**
  * @brief Apply outgoing boundary conditions.
  * \ingroup amr
  */
 using outflow_bc_t = extrap_bc_t<0> ;
 
+KOKKOS_INLINE_FUNCTION 
+static void get_somm_props(int iv, double *v, double *f0) {
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    if ( iv == ALP_ or iv == KHAT_ ) {
+        *v = sqrt(2) ; 
+    } else {
+        *v = 1.0 ; 
+    }
+    if ( iv == ALP_ or iv == GTXX_ or iv == GTYY_ or iv == GTZZ_ ) {
+        *f0 = 1.0;
+    } else {
+        *f0 = 0.0 ;
+    }
+    #else
+    *f0=0.0 ; *v=1.;
+    #endif 
+} 
 
 template< element_kind_t elem_kind, element_kind_t bc_kind, typename view_t >
 struct phys_bc_op {
@@ -101,10 +159,11 @@ struct phys_bc_op {
     readonly_twod_view_t<int8_t,3> dir ;
     readonly_view_t<bc_t> var_bcs      ; 
     
-    view_t data ; 
+    view_t data, data_p ; 
 
     outflow_bc_t outflow_kernel ;
     extrap_bc_t<3> extrap_kernel ; 
+    sommerfeld_bc_t sommerfeld_kernel ; 
 
     bool is_cbuf ; //!< If the data is cbuf set_data_ptr **must** be no-op
 
@@ -112,21 +171,37 @@ struct phys_bc_op {
     // halved, just do it here 
     size_t nx, ny, nz, ngz, nv ; 
 
+    double dt, dtfact ; 
+
+    device_coordinate_system coords; 
+    scalar_array_t<GRACE_NSPACEDIM> dx ; 
+
     template< var_staggering_t stag >
     void set_data_ptr(view_alias_t alias) 
     {
-        if (!is_cbuf) data = alias.get<stag>() ; 
+        // NB this wont work if 
+        // the phys boundaries
+        // sit at an AMR boundary.
+        // I don't see a way around 
+        // the issue. 
+        if (!is_cbuf) {
+            data   = alias.get<stag>() ;
+            data_p = alias.get_p<stag>() ;
+            dt = alias._dt; dtfact = alias._dtfact;
+        }
+
     }
 
     phys_bc_op(
-        view_t _data ,
+        view_t _data, view_t _data_p, scalar_array_t<GRACE_NSPACEDIM> _dx, device_coordinate_system _coords,
         Kokkos::View<size_t*> _qid, Kokkos::View<uint8_t*> _eid, 
         Kokkos::View<int8_t*[3]> _dir, Kokkos::View<bc_t*> _var_bcs, 
          VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, size_t _nv, bool _is_cbuf
-    ) : qid(_qid),  eid(_eid), dir(_dir), var_bcs(_var_bcs), data(_data), 
+    ) : qid(_qid),  eid(_eid), dir(_dir), var_bcs(_var_bcs), dx(_dx), coords(_coords),
+        data(_data), data_p(_data_p),
         nx(_nx), ny(_ny), nz(_nz), ngz(_ngz), nv(_nv), is_cbuf(_is_cbuf)
     {
-        outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ;
+        outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ; sommerfeld_kernel = sommerfeld_bc_t{} ;
     }
 
     KOKKOS_INLINE_FUNCTION 
@@ -209,17 +284,38 @@ struct phys_bc_op {
             VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
             iv, qid 
         ) ;
+        
         auto _bc_kind = var_bcs(iv) ;       
         switch (_bc_kind) {
-            case BC_OUTFLOW:
+            case BC_OUTFLOW:{
                 outflow_kernel.template apply<decltype(sv)>(
                     sv, VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]));
                 break;
-
-            case BC_LAGRANGE_EXTRAP:
+            }
+            case BC_LAGRANGE_EXTRAP: {
                 extrap_kernel.template apply<decltype(sv)>(
                     sv, VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]));
                 break;
+            }
+            case BC_SOMMERFELD: {
+                double vel,f0;
+                get_somm_props(iv, &vel, &f0) ; 
+                double h = dx(0,qid) ; 
+                double s[3] ; 
+                coords.get_physical_coordinates(
+                    ijk[0],ijk[1],ijk[2],qid,s
+                ) ; 
+                auto sv_p = Kokkos::subview(
+                    data_p, 
+                    VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+                    iv, qid 
+                ) ;
+                double r = sqrt(SQR(s[0])+SQR(s[1])+SQR(s[2]));
+                s[0]/=r; s[1]/=r; s[2]/=r ; 
+                sommerfeld_kernel.template apply<decltype(sv)>(
+                    sv, sv_p, r,h,vel,f0,s,dt,dtfact,VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]));
+                break ; 
+            }
             case BC_NONE:
                 break;
             default:

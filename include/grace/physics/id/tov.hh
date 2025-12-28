@@ -58,24 +58,32 @@
   * @param r Radius.
   * @param state Array containing (m,press,nu).
   * @param _eos Eos.
-  * @return std::array<double,3> Array containing rhs: (dm/dr,dP/dr,dnu/dr).
+  * @return std::array<double,4> Array containing rhs: (dm/dr,dP/dr,dnu/dr,dR_iso/dr).
   */
  template< typename eos_t >
- static std::array<double,3> GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
- tov_rhs(double const& r, std::array<double,3> const& state, eos_t const& _eos) {
-     double m     = state[0] ; 
-     double press = state[1] ; 
-     double phi   = state[2] ; 
- 
-     unsigned int err ;
-     double ye = 0 ;
-     auto const e = _eos.energy_cold__press_cold_ye(press, ye, err) ; 
-     double const dPdr = -(e + press) * ( m + 4*M_PI * math::int_pow<3>(r) * press) / (r*(r-2.*m)+1e-50); 
-     return std::array<double,3> {
-         4. * M_PI * math::int_pow<2>(r) * e 
-         , dPdr 
-         , -dPdr/(e + press + 1e-50)  
-     } ; 
+ static std::array<double,4> GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE 
+ tov_rhs(double const& r, std::array<double,4> const& state, eos_t const& _eos) {
+    if ( r < 1e-12 ) {
+        return {0,0,0,1.0} ; 
+    }
+
+    double m     = state[0] ; 
+    double press = state[1] ; 
+    double phi   = state[2] ; 
+    double riso  = state[3] ; 
+
+    unsigned int err ;
+    double ye = 0 ;
+    auto const e = _eos.energy_cold__press_cold_ye(press, ye, err) ; 
+    double const A = 1.0/(1.0-2.0*m/r) ; 
+    double const B = (m + 4*M_PI*SQR(r)*r * press) / (SQR(r)) ; 
+
+    return std::array<double,4> {
+        4. * M_PI * math::int_pow<2>(r) * e 
+        , -(e + press) * A * B   
+        , A * B 
+        , riso / (r)*sqrt(A)
+    } ; 
  }
  //**************************************************************************************************
  /**
@@ -99,8 +107,8 @@
            eos_t eos
          , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
          , atmo_params_t atmo_params
-         , double rhoC )
-         : _eos(eos), _pcoords(pcoords), _atmo_params(atmo_params), _rhoC(rhoC)
+         , double rhoC, double press_floor )
+         : _eos(eos), _pcoords(pcoords), _atmo_params(atmo_params), _rhoC(rhoC), _press_floor(press_floor)
      { 
  
          Kokkos::View<double *, grace::default_space> tov_params("TOV_parameters", 7) ; 
@@ -110,34 +118,29 @@
          r = Kokkos::View<double *, grace::default_space>("r", N_POINTS) ;
          dr = Kokkos::View<double *, grace::default_space>("dr", N_POINTS) ;
          r_iso = Kokkos::View<double *, grace::default_space>("r_iso", N_POINTS) ;
-         expGamma = Kokkos::View<double *, grace::default_space>("exp_Gamma", N_POINTS) ;
  
-         auto rl = r ; auto massl = mass ; auto pressl = press ; auto drl = dr ; auto nul = nu ; 
+         auto rl = r ; auto massl = mass ; auto pressl = press ; auto drl = dr ; auto nul = nu ; auto risol = r_iso ; 
 
-         double _rho_atm = _atmo_params.rho_fl ;
-         double _ye_atm  = _atmo_params.ye_fl  ; 
- 
          GRACE_INFO("In TOV setup.") ; 
          Kokkos::parallel_for("solve_tov", 1, KOKKOS_LAMBDA (int dummy){
              unsigned int err ; 
              double ye, eps;     
              double temp = 0.0; 
              double rho = rhoC ;
-             double rho_atm = _rho_atm ; 
-             double ye_atm = _ye_atm ; 
-             double press_atm = eos.press_cold__rho_ye(rho_atm,ye_atm, err) ;
+
              /* Find central pressure, eps, ye */
              double const _pressC_loc = eos.press_eps_ye__beta_eq__rho_temp(eps,ye,rho,temp,err) ; 
-             rk45_t<3> solver{{0.,R_MAX}, {0., _pressC_loc, 0.}, 1e-04, 1e-02 } ;
+             rk45_t<4> solver{{0.,R_MAX}, {0., _pressC_loc, 0., 0.}, 1e-04, 1e-02 } ;
  
-             auto cback = [&] (double const& r, std::array<double,3> const& state) -> std::array<double,3>
+             auto cback = [&] (double const& r, std::array<double,4> const& state) -> std::array<double,4>
              { 
                  return tov_rhs<eos_t>(r,state,eos) ; 
              } ; 
  
              massl(0) = 0. ;
              pressl(0) = _pressC_loc ; 
-             nul(0)  = 0. ; 
+             nul(0)   = 0.0 ; 
+             risol(0) = 0.0 ; 
          
              size_t ii = 0 ;
              while(true) {
@@ -148,35 +151,51 @@
                  pressl(ii) = solver.state[1] ;
                  nul(ii) = solver.state[2]    ;
                  rl(ii) = solver.t            ; 
+                 risol(ii) = solver.state[3]  ;
                  
-                 if ( (solver.state[1] <= press_atm) or ( solver.state[1] <= 0.0 ) or (ii>=N_POINTS-1) ) {
-                     break ; 
-                 } 
+                 if ( ( solver.state[1] <= press_floor) 
+                   or ( solver.state[1] <= 0.0 ) 
+                   or (ii>=N_POINTS-1) ) 
+                {
+                    break ; 
+                } 
                  
              }
             // find M and R at the edge:
-            auto const _linterp = [=] (double x, double x0, double x1, double y0, double y1) {
+            auto const _linterp = [] (double x, double x0, double x1, double y0, double y1) {
                 double lambda = (x-x0)/(x1-x0) ;
                 return y0 * (1.0-lambda) + y1 * lambda ;  
             } ; 
-            double r_edge = _linterp(press_atm, pressl(ii-1), pressl(ii), rl(ii-1), rl(ii)) ; 
-            double m_tov = _linterp(press_atm, pressl(ii-1), pressl(ii), massl(ii-1), massl(ii)) ; 
-            
-            // replace last solved point with edge 
-            press(ii) = press_atm ; 
-            massl(ii) = m_tov ; 
-            nul(ii) = _linterp(r_edge,rl(ii-1),rl(ii),nul(ii-1),nul(ii)) ; 
+            double r_edge = _linterp(press_floor, pressl(ii-1), pressl(ii), rl(ii-1), rl(ii)) ; 
+            double m_tov = _linterp(press_floor, pressl(ii-1), pressl(ii), massl(ii-1), massl(ii)) ; 
 
-            rl(ii) = r_edge ; 
+            // replace last solved point with edge 
+            pressl(ii) = press_floor ; 
+            massl(ii)  = m_tov ; 
+            nul(ii)    = _linterp(r_edge,rl(ii-1),rl(ii),nul(ii-1),nul(ii)) ; 
+            risol(ii)  = _linterp(r_edge,rl(ii-1),rl(ii),risol(ii-1),risol(ii)) ; 
+
+            rl(ii)  = r_edge ; 
             drl(ii) = r_edge - rl(ii-1) ; 
+
+            // rescale nu and r_iso 
+            // to match schwarzschild exterior 
+            double const corr = 0.5 * log(1-2*m_tov/r_edge) - nul(ii) ; 
+            double const riso_corr = 0.5*(r_edge-m_tov+sqrt(r_edge*(r_edge-2*m_tov)))/risol(ii) ; 
+            for ( int j=0; j<ii+1; ++j) {
+                nul(j) += corr ; 
+                risol(j) *= riso_corr ; 
+            }
+
             // store these to extract them 
             // from the kernel 
             tov_params(0) = r_edge ; 
             tov_params(1) = m_tov ; 
             tov_params(2) = _pressC_loc ; 
             tov_params(3) = solver.state[2] ; 
-            tov_params(4) = press_atm ; 
+            tov_params(4) = press_floor ; 
             tov_params(5) = ii+1  ; 
+            tov_params(6) = risol(ii) ; 
          }) ; 
          Kokkos::fence() ; 
          GRACE_INFO("TOV solver done.") ; 
@@ -186,17 +205,16 @@
                     "   Central density  : {}\n"
                     "   Central pressure : {}\n"
                     "   Mass             : {}\n"   
-                    "   Radius           : {}", _rhoC, h_tov_params(2), h_tov_params(1), h_tov_params(0)) ; 
+                    "   Radius           : {}\n"
+                    "   Isotropic Radius : {}", _rhoC, h_tov_params(2), h_tov_params(1), h_tov_params(0),h_tov_params(6)) ; 
          _M = h_tov_params(1) ; 
          _R = h_tov_params(0) ; 
+         _R_iso = h_tov_params(6) ; 
          _pressC = h_tov_params(2) ;
          _compactness = _M/_R ; 
          _nu_corr = 0.5 * log(1-2*_compactness) - h_tov_params(3) ;  
          _press_atm = h_tov_params(4) ; 
          _npoints = static_cast<size_t>(h_tov_params(5)) ;
- 
-         auto h_r = Kokkos::create_mirror_view(r) ; 
-         Kokkos::deep_copy(h_r, r) ; 
  
          Kokkos::resize(mass, static_cast<size_t>(_npoints)) ; 
          Kokkos::resize(press, static_cast<size_t>(_npoints)) ; 
@@ -204,12 +222,7 @@
          Kokkos::resize(r, static_cast<size_t>(_npoints)) ; 
          Kokkos::resize(dr, static_cast<size_t>(_npoints)) ; 
          Kokkos::resize(r_iso, static_cast<size_t>(_npoints)) ;
-         Kokkos::resize(expGamma, static_cast<size_t>(_npoints));  
- 
-         compute_C_and_r_iso(_npoints) ;
- 
-         GRACE_INFO("Isotropic star radius: {}", _R_iso) ; 
- 
+   
      } 
      //**************************************************************************************************
      //**************************************************************************************************
@@ -241,6 +254,7 @@
          // This returns: ADM mass, pressure and metric potential
          // at this radius.
          auto sol = get_solution(rL) ;
+         auto rs  = get_r_schwarzschild(rL) ; 
  
          grmhd_id_t id ; 
  
@@ -249,20 +263,21 @@
          /* Check if we are inside the star */
          double ye_atm  = _atmo_params.ye_fl  ; 
          double rho_atm = _atmo_params.rho_fl ; 
-          
-         if ( sol[1] > 1.001 * _press_atm ) {
-             id.press = sol[1] ; 
-             id.ye    = _eos.ye_beta_eq__press_cold(sol[1],err) ;
+         double press_atm = _eos.press_cold__rho_ye(rho_atm,ye_atm,err) ; 
+
+         if ( sol[0] > 1.001 * press_atm ) {
+             id.press = sol[0] ; 
+             id.ye    = _eos.ye_beta_eq__press_cold(sol[0],err) ;
              // Get rho and eps from press 
              double eps ; 
-             id.rho   = _eos.rho__press_cold_ye(sol[1], id.ye, err) ; 
+             id.rho   = _eos.rho__press_cold_ye(sol[0], id.ye, err) ; 
          } else {
              id.rho   = rho_atm   ;
              id.ye    = ye_atm    ;
-             id.press = _press_atm ; 
+             id.press = press_atm ; 
          }
  
-         double const nuL = sol[2] ; 
+         double const nuL = sol[1] ; 
          
          id.vx = 0 ; id.vy = 0; id.vz = 0;
          id.bx = id.by = id.bz = 0;
@@ -272,8 +287,9 @@
          id.betax = 0. ; 
          id.betay = 0. ; 
          id.betaz = 0. ; 
- 
-         id.gxx = id.gyy = id.gzz = sol[0]; 
+         
+         double const psi4 = rL>0 ? SQR((rs/rL)) : 1.0;
+         id.gxx = id.gyy = id.gzz = psi4 ; 
          id.gxy = id.gxz = id.gyz =  0;
  
          id.kxx = 0. ;
@@ -288,22 +304,29 @@
      //**************************************************************************************************
  
      //**************************************************************************************************
-     std::array<double,3> GRACE_HOST_DEVICE
+     std::array<double,2> GRACE_HOST_DEVICE
      get_solution(double const R) const
      {
          double const Rs = R * math::int_pow<2>( 1 + 0.5 * _M / R ) ; 
          if( R > _R_iso ) {
-             return std::array<double,3>{
-                 math::int_pow<4>(1+0.5*_M/R), 
+             return std::array<double,2>{
                  0,
                  0.5*Kokkos::log(1.-2*_M/Rs)
              } ; 
          } else { 
              return {
-                 math::int_pow<2>(interp_solution(R, r_iso, expGamma)), 
                  interp_solution(R, r_iso, press   ),
-                 interp_solution(R, r_iso, nu      ) + _nu_corr 
+                 interp_solution(R, r_iso, nu      )  
              };
+         } 
+     }
+
+     double GRACE_HOST_DEVICE 
+     get_r_schwarzschild(double R) const {
+        if( R > _R_iso ) {
+             return SQR((1+0.5*_M/R)) * R ; 
+         } else { 
+             return interp_solution(R, r_iso, r) ; 
          } 
      }
  
@@ -333,56 +356,20 @@
          }
          return lower;
      }
-     void compute_C_and_r_iso(
-         int npoints 
-     ) 
-     {
-       auto r_h = Kokkos::create_mirror_view(r) ; 
-         decltype(r_h) integrand("r_iso_integrand", npoints) ; 
-         auto h_r        = Kokkos::create_mirror_view(r) ; 
-         auto h_m        = Kokkos::create_mirror_view(mass) ; 
-         Kokkos::deep_copy(h_r,r) ; Kokkos::deep_copy(h_m, mass) ;
  
-         #pragma omp parallel for 
-         for( int i=0; i<npoints; ++i ) {
-             auto fact = Kokkos::sqrt(1 - 2*h_m(i)/(h_r(i)+1e-20)) ; 
-             integrand(i) = (1.-fact)/(1e-20+h_r(i)*fact) ; 
-         }
-         auto h_r_iso = Kokkos::create_mirror_view(r_iso) ; 
-         auto h_expGamma = Kokkos::create_mirror_view(expGamma) ; 
- 
-         // Compute the constant 
-         _C = 1/(2*_R) *  ( Kokkos::sqrt(_R*_R - 2*_M*_R) + _R  - _M ) 
-             * Kokkos::exp(-utils::trapz(h_r, integrand)) ; 
-         utils::cumtrapz(h_r,integrand,h_r_iso ) ; 
-         // Compute isotropic radius and conformal factor 
-         //#pragma omp parallel for 
-         for( int i=0; i<npoints; ++i) {
-             h_r_iso(i) = _C * h_r(i) * Kokkos::exp(h_r_iso(i)) ; 
-             h_expGamma(i) = h_r(i) / ( 1e-20 + h_r_iso(i) ) ; 
-         }
-         h_expGamma(0) = h_expGamma(1) ; 
- 
-         // Store the TOV radius in isotropic coordinates 
-         _R_iso = h_r_iso(npoints-2) ;
- 
-         // Copy h2d isotropic radius and conformal factor 
-         Kokkos::deep_copy(expGamma, h_expGamma) ; 
-         Kokkos::deep_copy(r_iso, h_r_iso)       ; 
-         
-     } 
      //**************************************************************************************************
      //**************************************************************************************************
      eos_t   _eos         ;                            //!< Equation of state object 
      grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
-     atmo_params_t _atmo_params ;               //!< Parameters for atmosphere
+     atmo_params_t _atmo_params ; 
      double _rhoC, _pressC;                            //!< Central density 
+     double _press_floor ;                             //!< Pressure at star's edge
      double _M, _R, _R_iso;                            //!< Mass and Radius
      double _compactness, _nu_corr ;                   //!< Compactness and matching of metric potential
      double _press_atm ;                               //!< Atmosphere pressure
      size_t _npoints ;                                 //!< Number of points in solution
      double _C ;                                       //!< Conversion between isotropic and Schwartzschild coordinates 
-     Kokkos::View<double *, grace::default_space> mass, press, nu, r, dr, r_iso, expGamma ; //!< Arrays containing TOV solution 
+     Kokkos::View<double *, grace::default_space> mass, press, nu, r, dr, r_iso ; //!< Arrays containing TOV solution 
      //**************************************************************************************************
  } ;
  //**************************************************************************************************

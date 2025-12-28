@@ -51,10 +51,14 @@ namespace grace { namespace amr {
 void apply_boundary_conditions() {
     auto& vars = variable_list::get().getstate() ;
     auto& stag_vars = variable_list::get().getstaggeredstate() ; 
-    apply_boundary_conditions(vars, stag_vars)              ; 
+    apply_boundary_conditions(vars, stag_vars,vars,stag_vars,0,0)              ; 
 }
 
-void apply_boundary_conditions(grace::var_array_t& vars, grace::staggered_variable_arrays_t& stag_vars) {
+void apply_boundary_conditions(
+    grace::var_array_t& vars, grace::staggered_variable_arrays_t& stag_vars,
+    grace::var_array_t& vars_p, grace::staggered_variable_arrays_t& stag_vars_p,
+    double dt, double dtfact
+) {
     Kokkos::Profiling::pushRegion("BC") ; 
     GRACE_VERBOSE("Initiating ghost-zone filling.") ; 
     using namespace grace ;
@@ -66,7 +70,7 @@ void apply_boundary_conditions(grace::var_array_t& vars, grace::staggered_variab
     spdlog::stopwatch sw ; 
     auto& ghost = grace::amr_ghosts::get() ; 
     auto& halo_executor = ghost.get_task_executor() ; 
-    halo_executor.run(view_alias_t{&vars,&stag_vars}) ; 
+    halo_executor.run(view_alias_t{&vars,&vars_p,&stag_vars,&stag_vars_p,dt,dtfact}) ; 
     halo_executor.reset();
     Kokkos::fence() ; 
     parallel::mpi_barrier() ; 

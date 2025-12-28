@@ -12,9 +12,6 @@ include(check_compiler)
 include(prohibit_in_source_build)
 include(setup_flags)
 
-configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )
-include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
-
 # --- Options ---
 option(GRACE_ENABLE_COWLING_METRIC "Use Cowling approximation (default)" ON)
 option(GRACE_ENABLE_Z4C_METRIC     "Use full Z4c evolution" OFF)
@@ -29,8 +26,6 @@ else()
     message(STATUS "No option explicitly enabled; defaulting to Cowling metric.")
     set(GRACE_ENABLE_COWLING_METRIC ON)
 endif()
-
-configure_file("${CMAKE_SOURCE_DIR}/include/grace/grace_config.h.in" grace_config.h)
 
 set(HEADER_DIR "${PROJECT_SOURCE_DIR}/include/")
 
@@ -48,12 +43,11 @@ find_package(p4est REQUIRED)
 find_package(LibXml2 REQUIRED)
 find_package(ZLIB REQUIRED)
 include(setup_kokkos)
-#include(setup_gsl)
 include(setup_yaml)
 include(setup_spdlog)
 include(setup_HDF5)
 
-option( GRACE_ENABLE_VTK "Enable VTK support" ON)
+option( GRACE_ENABLE_VTK "Enable VTK support" OFF)
 if ( GRACE_ENABLE_VTK )
     message(STATUS "VTK support enabled")
     include(setup_vtk)
@@ -72,6 +66,10 @@ else()
     message(STATUS "Profiling disabled.")
 endif()
 
+configure_file("${CMAKE_SOURCE_DIR}/include/grace/grace_config.h.in" grace_config.h)
+
+configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )
+include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
 
 add_subdirectory(src)
 

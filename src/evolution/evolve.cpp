@@ -127,16 +127,16 @@ void evolve_impl() {
     if ( tstepper == "euler" ) {
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
         advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ; 
-        amr::apply_boundary_conditions(state, sstate) ; 
+        amr::apply_boundary_conditions(state, sstate,state_p,sstate_p,dt,1.0) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if (tstepper == "rk2" ) {
         /* Compute auxiliaries at current timelevel */
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
         advance_substep<eos_t>(t,dt,0.5,state_p,state,sstate_p,sstate) ; 
-        amr::apply_boundary_conditions(state_p,sstate_p) ; 
+        amr::apply_boundary_conditions(state_p,sstate_p,state,sstate,dt,0.5) ; 
         compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ;
         advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ;
-        amr::apply_boundary_conditions(state,sstate) ; 
+        amr::apply_boundary_conditions(state,sstate,state_p,sstate_p,dt,1.0) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if (tstepper == "rk3" ) {
         // step 1: state_p -> u^1 = u^n + dt L( u^n )
@@ -144,7 +144,7 @@ void evolve_impl() {
             t,dt,1.0,
             state_p,state,
             sstate_p,sstate) ; 
-        amr::apply_boundary_conditions(state_p,sstate_p) ; 
+        amr::apply_boundary_conditions(state_p,sstate_p,state,sstate,dt,1.0) ; 
         compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ;
         // Allocate state_pp and sstate_pp 
         auto state_pp  = grace::variable_list::get().getstagingbuffer()[0] ;
@@ -155,9 +155,9 @@ void evolve_impl() {
         // step 3: state_pp -> u^2 = 3/4 u^n + 1/4 u^1 + 1/4 dt L( u^1 )
         advance_substep<eos_t>(
             t,dt,0.25,
-            state_pp,state_p,
+            state_pp/*new*/,state_p/*old*/,
             sstate_pp,sstate_p) ;
-        amr::apply_boundary_conditions(state_pp,sstate_pp) ; 
+        amr::apply_boundary_conditions(state_pp,sstate_pp,state_p,sstate_p,dt,0.25) ; 
         compute_auxiliary_quantities<eos_t>(state_pp, sstate_pp, aux) ;
         // step 4: state = 1/3 u^n + 2/3 u^2
         linop_apply(state,state,state_pp,
@@ -167,11 +167,11 @@ void evolve_impl() {
             t,dt,2./3.,
             state,state_pp,
             sstate,sstate_pp) ;
-        amr::apply_boundary_conditions(state,sstate) ; 
+        amr::apply_boundary_conditions(state,sstate,state_pp,sstate_pp,dt,2./3.) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if (tstepper == "imex1") { 
         advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ;
-        amr::apply_boundary_conditions(state,sstate) ; 
+        amr::apply_boundary_conditions(state,sstate,state_p,sstate_p,dt,1.0) ; 
         advance_implicit_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ;
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;  
     } else if (tstepper == "imex222" ) {
@@ -202,7 +202,7 @@ void evolve_impl() {
             /*new*/state_p,/*old*/state_pp,
             /*new*/sstate_p,/*old*/sstate_pp
         ) ; 
-        amr::apply_boundary_conditions(state_p,sstate_p) ;
+        amr::apply_boundary_conditions(state_p,sstate_p,state_pp,sstate_pp,dt,1.0) ;
         compute_auxiliary_quantities<eos_t>(state_p, sstate_p, aux) ; 
         // set s2 = dt G(xi1)
         linop_apply(
@@ -223,7 +223,9 @@ void evolve_impl() {
             1.0, (1.0-2.0*lambda)
         ) ;
         // apply BC 
-        amr::apply_boundary_conditions(state_p,sstate_p) ; 
+        // For Sommerfeld: here we keep the BC frozen since 
+        // 
+        amr::apply_boundary_conditions(state_p,sstate_p,state_p,sstate_p,dt,0.0/*FIXME*/) ; 
         // reset s2 = xi1
         linop_apply(
             state_pp, state_pp, state_p,
@@ -249,7 +251,7 @@ void evolve_impl() {
             /*new*/ state, /*old*/ state_pp,
             /*new*/ sstate, /*old*/ sstate_pp
         ) ; 
-        amr::apply_boundary_conditions(state,sstate) ;
+        amr::apply_boundary_conditions(state,sstate,state_pp,sstate_pp,dt,0.5) ;
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ; 
         /* done */
     } else if (tstepper == "imex232" ) { 
@@ -646,7 +648,7 @@ void add_fluxes_and_source_terms(
         grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
         #endif 
         #ifdef GRACE_ENABLE_M1
-        //m1_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
+        m1_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
         #endif 
         for( int ivar=0; ivar<nvars_hrsc; ++ivar) {
             new_state(VEC(i,j,k),ivar,q) += 

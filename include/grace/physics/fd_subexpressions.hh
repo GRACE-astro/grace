@@ -219,6 +219,132 @@ fd_der_z_r2(
 
 template< typename view_t>
 static void KOKKOS_INLINE_FUNCTION
+fd_der_2_x_l1(
+	view_t u,
+	double h,
+	int i,
+	int j,
+	int k,
+	double * __restrict__ du
+)
+{
+	*du = ((3.0/2.0)*u(i,j,k) - 2*u(i-1,j,k) + (1.0/2.0)*u(i-2,j,k))/h;
+}
+
+template< typename view_t>
+static void KOKKOS_INLINE_FUNCTION
+fd_der_2_x(
+	double h,
+	view_t u,
+	int i,
+	int j,
+	int k,
+	double * __restrict__ du
+)
+{
+	*du = (1.0/2.0)*(u(i+1,j,k) - u(i-1,j,k))/h;
+}
+
+template< typename view_t>
+static void KOKKOS_INLINE_FUNCTION
+fd_der_2_x_r1(
+	view_t u,
+	double h,
+	int i,
+	int j,
+	int k,
+	double * __restrict__ du
+)
+{
+	*du = (2*u(i+1,j,k) - 1.0/2.0*u(i+2,j,k) - 3.0/2.0*u(i,j,k))/h;
+}
+
+template< typename view_t>
+static void KOKKOS_INLINE_FUNCTION
+fd_der_2_y_l1(
+	view_t u,
+	double h,
+	int i,
+	int j,
+	int k,
+	double * __restrict__ du
+)
+{
+	*du = ((3.0/2.0)*u(i,j,k) - 2*u(i,j-1,k) + (1.0/2.0)*u(i,j-2,k))/h;
+}
+
+template< typename view_t>
+static void KOKKOS_INLINE_FUNCTION
+fd_der_2_y(
+	view_t u,
+	double h,
+	int i,
+	int j,
+	int k,
+	double * __restrict__ du
+)
+{
+	*du = (1.0/2.0)*(u(i,j+1,k) - u(i,j-1,k))/h;
+}
+
+template< typename view_t>
+static void KOKKOS_INLINE_FUNCTION
+fd_der_2_y_r1(
+	view_t u,
+	double h,
+	int i,
+	int j,
+	int k,
+	double * __restrict__ du
+)
+{
+	*du = (2*u(i,j+1,k) - 1.0/2.0*u(i,j+2,k) - 3.0/2.0*u(i,j,k))/h;
+}
+
+template< typename view_t>
+static void KOKKOS_INLINE_FUNCTION
+fd_der_2_z_l1(
+	view_t u,
+	double h,
+	int i,
+	int j,
+	int k,
+	double * __restrict__ du
+)
+{
+	*du = ((3.0/2.0)*u(i,j,k) - 2*u(i,j,k-1) + (1.0/2.0)*u(i,j,k-2))/h;
+}
+
+template< typename view_t>
+static void KOKKOS_INLINE_FUNCTION
+fd_der_2_z(
+	view_t u,
+	double h,
+	int i,
+	int j,
+	int k,
+	double * __restrict__ du
+)
+{
+	*du = (1.0/2.0)*(u(i,j,k+1) - u(i,j,k-1))/h;
+}
+
+template< typename view_t>
+static void KOKKOS_INLINE_FUNCTION
+fd_der_2_z_r1(
+	view_t u,
+	double h,
+	int i,
+	int j,
+	int k,
+	double * __restrict__ du
+)
+{
+	*du = (-3.0/2.0*u(i,j,k) + 2*u(i,j,k+1) - 1.0/2.0*u(i,j,k+2))/h;
+}
+
+template< typename view_t>
+static void KOKKOS_INLINE_FUNCTION
 fd_der_xx(
 	view_t u,
 	double h,

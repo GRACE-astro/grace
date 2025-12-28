@@ -77,7 +77,8 @@ make_gpu_phys_bc_task(
     std::vector<std::unique_ptr<task_t>>& task_list, bool is_cbuf=false
 )
 {
-
+    auto& dx = grace::variable_list::get().getspacings() ; 
+    auto coords = grace::coordinate_system::get().get_device_coord_system();
     std::unordered_map<amr::element_kind_t,std::string> const name = {
         {amr::FACE,"face"}, {amr::EDGE,"edge"}, {amr::CORNER,"corner"}
     } ; 
@@ -99,7 +100,7 @@ make_gpu_phys_bc_task(
 
     auto const off = get_index_staggerings(stag) ; 
     amr::phys_bc_op<elem_kind,bc_kind,decltype(data_array)> functor{
-       data_array, qid_d, eid_d, dir_d, var_bc, VEC(nx+off[0],ny+off[1],nz+off[2]),ngz, nv, is_cbuf
+       data_array, data_array, dx, coords, qid_d, eid_d, dir_d, var_bc, VEC(nx+off[0],ny+off[1],nz+off[2]),ngz, nv, is_cbuf
     } ; 
     
     Kokkos::TeamPolicy

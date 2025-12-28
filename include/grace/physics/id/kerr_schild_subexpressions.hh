@@ -1,3 +1,4 @@
+
 /****************************************************************************/
 /*                  Kerr-Schild helpers, SymPy generated                    */
 /****************************************************************************/
@@ -27,9 +28,9 @@ kerr_schild_to_boyer_lindquist(
 
 static void KOKKOS_INLINE_FUNCTION
 kerr_schild_adm_metric(
-	double reps,
 	const double xyz[3],
 	double a,
+	double reps,
 	double * __restrict__ gxx,
 	double * __restrict__ gxy,
 	double * __restrict__ gxz,
@@ -103,7 +104,7 @@ kerr_schild_adm_metric(
 	double x46 = x22 + 1;
 	double x47 = sqrt(x46);
 	double x48 = 1/(x46);
-	double x49 = x29*x48;
+	double x49 = x22*x48;
 	double x50 = 1/(x8);
 	double x51 = x50*x7 + 1;
 	double x52 = 1/(x9);
@@ -237,9 +238,9 @@ kerr_schild_adm_metric(
 	*gYZ = x37*x42;
 	*gZZ = -x40*x42 + 1;
 	*alp = 1/(x47);
-	*betaX = x15*x49;
-	*betaY = -x25*x49;
-	*betaZ = x48*xyz[2]/x10;
+	*betaX = x30*x49;
+	*betaY = -x36*x49;
+	*betaZ = x32*x48;
 	*Kxx = -x126*(2*x1*x11*x13*x15*x51*x52*x53*xyz[0] + 4*x1*x15*x19*x20*x29*x51*x52*x53*xyz[0] - x125 - x56*(x38 + x4*x55) - x57*x58);
 	*Kxy = -1.0/2.0*x126*(2*x1*x11*x13*x15*x51*x52*x53*xyz[1] + 4*x1*x15*x19*x20*x29*x51*x52*x53*xyz[1] + 3*x1*x25*x29*x51*x52*x53*xyz[0] + x10*x29*x87 - x11*x26*x93 - x125 - x138 - x29*x89 - x36*x95 - x58*x90);
 	*Kxz = -x157*(2*x1*x13*x15*x18*x52*x53*x69*xyz[2] + 4*x1*x19*x20*x51*x52*x53*xyz[0]*xyz[2] - x10*x115 - x107*xyz[2] + 4*x11*x15*x20*x29*x77*xyz[2] - x110*xyz[2] - x121*x65*xyz[2] + x124*x13*x18*x20*x25*xyz[2] - x155 - x93*xyz[2]);
@@ -253,8 +254,8 @@ kerr_schild_four_metric(
 	const double xyz[3],
 	double a,
 	double reps,
-	double  (*g4dd)[4][4],
-	double  (*g4uu)[4][4]
+	double (*g4dd)[4][4],
+	double (*g4uu)[4][4]
 )
 {
 	double x0 = ((a)*(a));
@@ -262,57 +263,52 @@ kerr_schild_four_metric(
 	double x2 = x0*x1;
 	double x3 = -x0 + x1 + ((xyz[0])*(xyz[0])) + ((xyz[1])*(xyz[1]));
 	double x4 = fmax(reps, (1.0/2.0)*M_SQRT2*sqrt(x3 + sqrt(4*x2 + ((x3)*(x3)))));
-	double x5 = a*xyz[1] + x4*xyz[0];
-	double x6 = ((x4)*(x4));
-	double x7 = x0 + x6;
-	double x8 = 1/(x7);
-	double x9 = x5*x8;
-	double x10 = 2/(x2 + ((x4)*(x4)*(x4)*(x4)));
-	double x11 = x10*((x4)*(x4)*(x4));
-	double x12 = a*xyz[0] - x4*xyz[1];
-	double x13 = x12*x8;
-	double x14 = -x11*x13;
-	double x15 = x10*x6;
-	double x16 = x15*xyz[2];
-	double x17 = 1/(((x7)*(x7)));
-	double x18 = x17*((x5)*(x5));
-	double x19 = x12*x17*x5;
-	double x20 = -x11*x19;
-	double x21 = x16*x9;
-	double x22 = ((x12)*(x12))*x17;
-	double x23 = -x13*x16;
-	double x24 = x1*x10*x4;
-	double x25 = -x13;
-	double x26 = 1/(x4);
-	double x27 = x26*xyz[2];
-	double x28 = 1/(x11 + 1);
-	double x29 = x1/x6;
-	double x30 = 1/(x11*(x18 + x22 + x29) + 1);
-	double x31 = x11*x30;
-	double x32 = x19*(x28 + x31);
-	double x33 = xyz[2]*(x15*x30 + x26*x28);
-	double x34 = -x33*x9;
-	double x35 = x13*x33;
-	(*g4dd)[0][0] = x11*x9;
+	double x5 = ((x4)*(x4)*(x4));
+	double x6 = 1/(x2 + ((x4)*(x4)*(x4)*(x4)));
+	double x7 = a*xyz[1] + x4*xyz[0];
+	double x8 = ((x4)*(x4));
+	double x9 = x0 + x8;
+	double x10 = 1/(x9);
+	double x11 = 2.0*x6;
+	double x12 = x11*x5;
+	double x13 = x10*x12;
+	double x14 = x13*x7;
+	double x15 = a*xyz[0] - x4*xyz[1];
+	double x16 = -x13*x15;
+	double x17 = x8*xyz[2];
+	double x18 = x11*x17;
+	double x19 = 2*x6;
+	double x20 = x19*x5/((x9)*(x9));
+	double x21 = x20*((x7)*(x7));
+	double x22 = x15*x20*x7;
+	double x23 = -x22;
+	double x24 = x10*x17*x19;
+	double x25 = x24*x7;
+	double x26 = ((x15)*(x15))*x20;
+	double x27 = x15*x24;
+	double x28 = -x27;
+	double x29 = x1*x19*x4;
+	double x30 = -x25;
+	(*g4dd)[0][0] = 2.0*x5*x6 - 1;
 	(*g4dd)[0][1] = (*g4dd)[1][0] = x14;
 	(*g4dd)[0][2] = (*g4dd)[2][0] = x16;
-	(*g4dd)[0][3] = (*g4dd)[3][0] = 0;
-	(*g4dd)[1][1] = x11*x18 + 1;
-	(*g4dd)[1][2] = (*g4dd)[2][1] = x20;
-	(*g4dd)[1][3] = (*g4dd)[3][1] = x21;
-	(*g4dd)[2][2] = x11*x22 + 1;
-	(*g4dd)[2][3] = (*g4dd)[3][2] = x23;
-	(*g4dd)[3][3] = x24 + 1;
-	(*g4uu)[0][0] = x9;
-	(*g4uu)[0][1] = (*g4uu)[1][0] = x25;
-	(*g4uu)[0][2] = (*g4uu)[2][0] = x27;
-	(*g4uu)[0][3] = (*g4uu)[3][0] = 0;
-	(*g4uu)[1][1] = -x18*x28 - x18*x31 + 1;
-	(*g4uu)[1][2] = (*g4uu)[2][1] = x32;
-	(*g4uu)[1][3] = (*g4uu)[3][1] = x34;
-	(*g4uu)[2][2] = -x22*x28 - x22*x31 + 1;
-	(*g4uu)[2][3] = (*g4uu)[3][2] = x35;
-	(*g4uu)[3][3] = -x24*x30 - x28*x29 + 1;
+	(*g4dd)[0][3] = (*g4dd)[3][0] = x18;
+	(*g4dd)[1][1] = x21 + 1;
+	(*g4dd)[1][2] = (*g4dd)[2][1] = x23;
+	(*g4dd)[1][3] = (*g4dd)[3][1] = x25;
+	(*g4dd)[2][2] = x26 + 1;
+	(*g4dd)[2][3] = (*g4dd)[3][2] = x28;
+	(*g4dd)[3][3] = x29 + 1;
+	(*g4uu)[0][0] = -x12 - 1;
+	(*g4uu)[0][1] = (*g4uu)[1][0] = x14;
+	(*g4uu)[0][2] = (*g4uu)[2][0] = x16;
+	(*g4uu)[0][3] = (*g4uu)[3][0] = x18;
+	(*g4uu)[1][1] = 1 - x21;
+	(*g4uu)[1][2] = (*g4uu)[2][1] = x22;
+	(*g4uu)[1][3] = (*g4uu)[3][1] = x30;
+	(*g4uu)[2][2] = 1 - x26;
+	(*g4uu)[2][3] = (*g4uu)[3][2] = x27;
+	(*g4uu)[3][3] = 1 - x29;
 }
 
 static void KOKKOS_INLINE_FUNCTION
@@ -320,7 +316,7 @@ kerr_schild_to_bl_jac(
 	const double xyz[3],
 	double a,
 	double reps,
-	double (*j)[3][3] 
+	double (*j)[3][3]
 )
 {
 	double x0 = ((a)*(a));
@@ -331,32 +327,36 @@ kerr_schild_to_bl_jac(
 	double x5 = 2*x3;
 	double x6 = ((x3)*(x3));
 	double x7 = 1/(x0 - x5 + x6);
-	double x8 = -x5*x7*(x3 - 1) + 1;
-	double x9 = a*xyz[0] - x3*xyz[1];
-	double x10 = a*x9;
-	double x11 = (1.0/sqrt(((x4)*(x4)) + ((x9)*(x9))));
-	double x12 = x11*sqrt(-x1/x6 + 1);
-	double x13 = x10 + x3*x4;
-	double x14 = x11*xyz[2]/x3;
-	double x15 = x13*x14;
-	double x16 = a*x4 - x3*x9;
-	double x17 = -x12*x16;
-	double x18 = x12*x13;
-	(*j)[0][0] = -x12*(x0*x4*x7*x8 - x10*x3*x7*x8 - x4);
-	(*j)[0][1] = (*j)[1][0] = x15;
-	(*j)[0][2] = (*j)[2][0] = x17;
-	(*j)[1][1] = x14*x16;
-	(*j)[1][2] = (*j)[2][1] = x18;
+	double x8 = x5*x7*(x3 - 1) - 1;
+	double x9 = -x8;
+	double x10 = a*xyz[0] - x3*xyz[1];
+	double x11 = a*x10;
+	double x12 = sqrt(-x1/x6 + 1);
+	double x13 = (1.0/sqrt(((x10)*(x10)) + ((x4)*(x4))));
+	double x14 = x12*x13;
+	double x15 = x3*x4;
+	double x16 = x11 + x15;
+	double x17 = xyz[2]/x3;
+	double x18 = x13*x17;
+	double x19 = a*x4 - x10*x3;
+	(*j)[0][0] = -x14*(x0*x4*x7*x9 - x11*x3*x7*x9 - x4);
+	(*j)[0][1] = x16*x18;
+	(*j)[0][2] = -x14*x19;
+	(*j)[1][0] = -x14*(a*x15*x7*x8 + x0*x10*x7*x8 + x10);
+	(*j)[1][1] = x18*x19;
+	(*j)[1][2] = x14*x16;
+	(*j)[2][0] = x17;
+	(*j)[2][1] = -x12*x3;
 	(*j)[2][2] = 0;
 }
 
 static void KOKKOS_INLINE_FUNCTION
 transform_vector_bl2ks(
-	const double vBL[4],
 	const double xyz[3],
 	double a,
 	double reps,
-	double (*vKS)[4] 
+	const double vBL[4],
+	double (*vKS)[4]
 )
 {
 	double x0 = ((a)*(a));
@@ -372,22 +372,23 @@ transform_vector_bl2ks(
 	double x10 = ((x9)*(x9));
 	double x11 = a*xyz[0] - x3*xyz[1];
 	double x12 = -x11;
-	double x13 = (1.0/sqrt(x10 + ((x12)*(x12))));
-	double x14 = a*x12 - x3*x9;
+	double x13 = x3*x9;
+	double x14 = xyz[2]/x3;
 	double x15 = vBL[2]*x14;
-	double x16 = 1/(x3);
-	double x17 = x16*xyz[2];
-	double x18 = a*x9;
-	double x19 = x12*x3;
-	double x20 = x18 + x19;
-	double x21 = sqrt(-x1/x5 + 1);
-	double x22 = vBL[3]*x21;
-	double x23 = x6*(x4*x6*(1 - x3) + 1);
-	double x24 = x13*x14;
+	double x16 = a*x9;
+	double x17 = x12*x3;
+	double x18 = sqrt(-x1/x5 + 1);
+	double x19 = vBL[3]*x18;
+	double x20 = x3 - 1;
+	double x21 = x4*x6;
+	double x22 = -x20*x21 + 1;
+	double x23 = x0*x6;
+	double x24 = vBL[1]*x18;
+	double x25 = x20*x21 - 1;
 	(*vKS)[0] = vBL[0] + 2*vBL[1]*x6;
-	(*vKS)[1] = -x13*(vBL[1]*x21*(a*x19*x23 + x0*x23*x9 - x7 - x8) + x15*x17 + x20*x22);
-	(*vKS)[2] = -vBL[1]*x17*x24 + vBL[2]*x16*xyz[2]*(-x11*x3 + x18)/sqrt(x10 + ((x11)*(x11))) - x22*x24;
-	(*vKS)[3] = -x13*x21*(vBL[1]*x20 + x15);
+	(*vKS)[1] = -(x15*(a*x12 - x13) + x19*(x16 + x17) + x24*(a*x17*x22*x6 + x22*x23*x9 - x7 - x8))/sqrt(x10 + ((x12)*(x12)));
+	(*vKS)[2] = (x15*(-x11*x3 + x16) + x19*(a*x11 + x13) - x24*(x11*x23*x25 + x11 + x16*x25*x3*x6))/sqrt(x10 + ((x11)*(x11)));
+	(*vKS)[3] = vBL[1]*x14 - vBL[2]*x18*x3;
 }
 
 #endif 

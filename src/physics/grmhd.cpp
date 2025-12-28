@@ -549,7 +549,7 @@ void set_grmhd_initial_data() {
         atmo_params.rho_fl_scaling = atmo_pars["rho_scaling"].as<double>() ;
         atmo_params.temp_fl_scaling = atmo_pars["temp_scaling"].as<double>() ; 
 
-        set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(atmo_params,rho_c) ;
+        set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(atmo_params,rho_c,1e-15) ;
     } else if ( id_type == "KHI") {
         set_grmhd_initial_data_impl<eos_t, kelvin_helmholtz_id_t<eos_t>>() ; 
     } else if( id_type == "magnetic_rotor" ) {
@@ -623,7 +623,8 @@ void set_grmhd_initial_data() {
         double const gamma = get_param<double>("grmhd","bondi_flow","gamma") ; 
         double const rmin = get_param<double>("grmhd","bondi_flow","r_min") ; 
         double const rmax = get_param<double>("grmhd","bondi_flow","r_max") ;
-        set_grmhd_initial_data_impl<eos_t,bondi_id_t<eos_t>>(gamma,K,rc,rmin,rmax) ; 
+        double const rmax = get_param<double>("grmhd","bondi_flow","spin") ;
+        set_grmhd_initial_data_impl<eos_t,bondi_id_t<eos_t>>(gamma,K,rc,rmin,rmax,spin) ; 
     } else if ( id_type == "puncture") {
         double m=1.0 ; 
         set_grmhd_initial_data_impl<eos_t,puncture_id_t<eos_t>>(m) ; 

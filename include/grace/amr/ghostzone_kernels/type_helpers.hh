@@ -40,6 +40,8 @@ namespace grace {
 struct view_alias_t {
     grace::var_array_t* _view_ptr, *_view_ptr_p ; 
     grace::staggered_variable_arrays_t* _stag_view_ptr, *_stag_view_ptr_p ;
+    double _dt, _dtfact ; 
+
     template< var_staggering_t staggering >
     grace::var_array_t get() {
         if constexpr ( staggering == STAG_CENTER ) {
@@ -90,21 +92,25 @@ struct view_alias_t {
       , _view_ptr_p(nullptr)
       , _stag_view_ptr(stag_ptr)
       , _stag_view_ptr_p(nullptr)
+      , _dt(0), _dtfact(0)
     {} 
 
     view_alias_t(
         grace::var_array_t* ptr, 
         grace::var_array_t* ptr_p, 
         grace::staggered_variable_arrays_t* stag_ptr,
-        grace::staggered_variable_arrays_t* stag_ptr_p
+        grace::staggered_variable_arrays_t* stag_ptr_p,
+        double dt, double dtfact
     ) : _view_ptr(ptr)
       , _view_ptr_p(ptr_p)
       , _stag_view_ptr(stag_ptr)
       , _stag_view_ptr_p(stag_ptr_p)
+      , _dt(dt), _dtfact(dtfact)
     {} 
 
     view_alias_t() : _view_ptr(nullptr), _view_ptr_p(nullptr)
                    , _stag_view_ptr(nullptr), _stag_view_ptr_p(nullptr)
+                   , _dt(0), _dtfact(0)
     {}
 } ; 
 
