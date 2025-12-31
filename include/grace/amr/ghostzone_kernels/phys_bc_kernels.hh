@@ -93,36 +93,55 @@ struct sommerfeld_bc_t
       void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
       apply (
             view_t view, view_t view_p,
-            double r, double h, double v, double f0, double s[3], double dt, double dtfact,
+            double r, double invh, double v, double f0, double s[3], double dt, double dtfact,
             VEC( size_t i, size_t j, size_t k),
-            VEC( int8_t dx, int8_t dy, int8_t dz)
+            VEC( int8_t dx, int8_t dy, int8_t dz),
+            VEC( size_t nx, size_t ny, size_t nz), size_t ngz 
         ) const
       {
         #if 1
         double dudx,dudy,dudz; 
         if ( dx>0 ) {
-            fd_der_2_x_l1(view_p,h,i,j,k,&dudx) ; 
+            fd_der_2_x_l1(view_p,i,j,k,invh,&dudx) ; 
         } else if ( dx<0 ) {
-            fd_der_2_x_r1(view_p,h,i,j,k,&dudx) ; 
+            fd_der_2_x_r1(view_p,i,j,k,invh,&dudx) ; 
         } else {
-            fd_der_2_x(h,view_p,i,j,k,&dudx) ; 
+            if ( i > 0 and i < nx + 2*ngz - 2 ) {
+                fd_der_2_x(view_p,i,j,k,invh,&dudx) ; 
+            } else if ( i == 0 ) {
+                fd_der_2_x_r1(view_p,i,j,k,invh,&dudx) ; 
+            } else {
+                fd_der_2_x_l1(view_p,i,j,k,invh,&dudx) ; 
+            }
         }
         if ( dy>0 ) {
-            fd_der_2_y_l1(view_p,h,i,j,k,&dudy) ; 
+            fd_der_2_y_l1(view_p,i,j,k,invh,&dudy) ; 
         } else if ( dy<0 ) {
-            fd_der_2_y_r1(view_p,h,i,j,k,&dudy) ; 
+            fd_der_2_y_r1(view_p,i,j,k,invh,&dudy) ; 
         } else {
-            fd_der_2_y(view_p,h,i,j,k,&dudy) ; 
+            if ( j > 0 and j < ny + 2*ngz - 2 ) {
+                fd_der_2_y(view_p,i,j,k,invh,&dudy) ;  
+            } else if ( j ==  0 ) {
+                fd_der_2_y_r1(view_p,i,j,k,invh,&dudy) ; 
+            } else {
+                fd_der_2_y_l1(view_p,i,j,k,invh,&dudy) ; 
+            }
         }
         if ( dz>0 ) {
-            fd_der_2_z_l1(view_p,h,i,j,k,&dudz) ; 
+            fd_der_2_z_l1(view_p,i,j,k,invh,&dudz) ; 
         } else if ( dz<0 ) {
-            fd_der_2_z_r1(view_p,h,i,j,k,&dudz) ; 
+            fd_der_2_z_r1(view_p,i,j,k,invh,&dudz) ; 
         } else {
-            fd_der_2_z(view_p,h,i,j,k,&dudz) ; 
+            if ( k > 0 and k < nz + 2*ngz - 2 ) {
+                fd_der_2_z(view_p,i,j,k,invh,&dudz) ;  
+            } else if ( k == 0 ) {
+                fd_der_2_z_r1(view_p,i,j,k,invh,&dudz) ; 
+            } else {
+                fd_der_2_z_l1(view_p,i,j,k,invh,&dudz) ; 
+            }
         }
-        double dudt = -v*(s[0]*dudx + s[1]*dudy + s[2]*dudz) + (f0 - view_p(i,j,k))/r;
-        view(i,j,k) = view_p(i,j,k) + dudt * dt * dtfact ;  // dt should be passed in
+        double dudt = -v*(s[0]*dudx + s[1]*dudy + s[2]*dudz) + (f0 - view(i,j,k))*v/r;
+        view(i,j,k) += dudt * dt * dtfact ;  // dt should be passed in
         #endif 
       }; 
 } ; 
@@ -141,7 +160,7 @@ static void get_somm_props(int iv, double *v, double *f0) {
     } else {
         *v = 1.0 ; 
     }
-    if ( iv == ALP_ or iv == GTXX_ or iv == GTYY_ or iv == GTZZ_ ) {
+    if ( iv == ALP_ or iv == GTXX_ or iv == GTYY_ or iv == GTZZ_ or iv == CHI_ ) {
         *f0 = 1.0;
     } else {
         *f0 = 0.0 ;
@@ -313,7 +332,7 @@ struct phys_bc_op {
                 double r = sqrt(SQR(s[0])+SQR(s[1])+SQR(s[2]));
                 s[0]/=r; s[1]/=r; s[2]/=r ; 
                 sommerfeld_kernel.template apply<decltype(sv)>(
-                    sv, sv_p, r,h,vel,f0,s,dt,dtfact,VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]));
+                    sv, sv_p, r,h,vel,f0,s,dt,dtfact,VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]),nx,ny,nz,ngz);
                 break ; 
             }
             case BC_NONE:

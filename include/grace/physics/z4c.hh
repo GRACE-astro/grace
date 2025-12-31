@@ -156,24 +156,20 @@ struct z4c_system_t
         // outputs 
         double rho, Strace, Si[3], Sij[6] ;
         z4c_get_matter_sources(
-            B,press,gtdd,z,alp,rho0,chi,eps,beta,&rho,&Strace,&Si,&Sij
+            gtdd,beta,alp,chi,z,B,rho0,press,eps,&rho,&Strace,&Si,&Sij
         );
         
         // compute rhs 
         double dchi, dalp, dtheta, dKhat ; 
         double dgtdd[6], dAtdd[6], dGammat[3], dbetau[3] ; 
         z4c_get_rhs(
-            beta, alp, dbeta_dx, dchi_dx_upw,
-            theta, chi, Khat, dgtdd_dx_upw,
-            Atdd, gtdd, k2, dgtdd_dx, dKhat_dx_upw,
-            dchi_dx, dalp_dx, Strace, rho, k1,
-            ddbeta_dx2, dtheta_dx, dGammat_dx_upw,
-            Si, dKhat_dx, Gammat, dtheta_dx_upw,
-            ddgtdd_dx2, ddchi_dx2, dGammat_dx,
-            ddalp_dx2, dAtdd_dx_upw, Sij,
-            dalp_dx_upw, dbeta_dx_upw, eta,
-            &dchi, &dgtdd, &dKhat, &dGammat, 
-            &dtheta, &dAtdd, &dalp, &dbetau
+            gtdd,Atdd,beta,alp,chi,Gammat,
+            theta,Khat,Strace,rho,Sij,Si,k1,k2,eta,
+            dgtdd_dx,dgtdd_dx_upw,dAtdd_dx_upw,
+            dbeta_dx,dbeta_dx_upw,dGammat_dx,dGammat_dx_upw,
+            dKhat_dx,dKhat_dx_upw,dchi_dx,dchi_dx_upw,dalp_dx,dalp_dx_upw,
+            dtheta_dx,dtheta_dx_upw,ddgtdd_dx2,ddbeta_dx2,ddalp_dx2,ddchi_dx2,
+            &dchi,&dgtdd,&dKhat,&dGammat,&dtheta,&dAtdd,&dalp,&dbetau
         ) ; 
 
         // add dissipation
@@ -271,13 +267,14 @@ struct z4c_system_t
         // outputs 
         double rho, Strace, Si[3], Sij[6] ;
         z4c_get_matter_sources(
-            B,press,gtdd,z,alp,rho0,chi,eps,beta,&rho,&Strace,&Si,&Sij
+            gtdd,beta,alp,chi,z,B,rho0,press,eps,&rho,&Strace,&Si,&Sij
         );
         // get constraints 
         double H, Mi[3] ; 
         z4c_get_constraints(
-            Atdd,ddgtdd_dx2,ddchi_dx2,dgtdd_dx,dchi_dx,dGammat_dx,gtdd,
-            Khat,rho,chi,theta,dAtdd_dx,dtheta_dx,Si,dKhat_dx, &H, &Mi
+            gtdd,Atdd,chi,theta,Khat,rho,Si,dgtdd_dx,
+            dAtdd_dx,dGammat_dx,dKhat_dx,dchi_dx,dtheta_dx,
+            ddgtdd_dx2,ddchi_dx2,&H,&Mi
         ) ; 
         // Store 
         a(HAM_) = H ; 

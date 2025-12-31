@@ -623,7 +623,7 @@ void set_grmhd_initial_data() {
         double const gamma = get_param<double>("grmhd","bondi_flow","gamma") ; 
         double const rmin = get_param<double>("grmhd","bondi_flow","r_min") ; 
         double const rmax = get_param<double>("grmhd","bondi_flow","r_max") ;
-        double const rmax = get_param<double>("grmhd","bondi_flow","spin") ;
+        double const spin = get_param<double>("grmhd","bondi_flow","spin") ;
         set_grmhd_initial_data_impl<eos_t,bondi_id_t<eos_t>>(gamma,K,rc,rmin,rmax,spin) ; 
     } else if ( id_type == "puncture") {
         double m=1.0 ; 
