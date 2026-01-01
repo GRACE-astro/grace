@@ -518,7 +518,7 @@ TEST_CASE("Apply BC", "[boundaries]")
     invalidate_ghostzones<STAG_FACEZ>(stag_state.face_staggered_fields_z) ; 
 
     GRACE_VERBOSE("Filling ghostzones") ;
-    view_alias_t alias{&state,&stag_state} ;
+    view_alias_t alias{&state,&state,&stag_state,&stag_state,1.0,1.0} ;
     runtime.run(alias) ; 
     GRACE_VERBOSE("Done filling ghostzones") ;
 
