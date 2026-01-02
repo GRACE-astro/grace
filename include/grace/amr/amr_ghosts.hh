@@ -71,11 +71,11 @@ enum level_diff_t : int8_t {FINER=-1, SAME=0, COARSER=+1} ; // The other one is 
 /**************************************************************************************************/
 struct full_face_t {
         std::size_t quad_id       ; //!< Index of quadrant on the other side 
-        std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
-        std::size_t send_buffer_id ; //!< Index in send array 
+        std::size_t recv_buffer_id, cbuf_recv_buffer_id ; //!< Index in receive array, if relevant
+        std::size_t send_buffer_id, cbuf_send_buffer_id ; //!< Index in send array 
         bool is_remote            ; //!< Whether the quadrant is local or remote 
         std::size_t owner_rank    ; //!< Owner rank if remote
-        std::array<task_id_t,N_VAR_STAGGERINGS>  task_id   ;
+        std::array<task_id_t,N_VAR_STAGGERINGS>  task_id   ; //!< Identifier of last task that touched this data
 } ; 
 struct hanging_face_t {
         std::size_t quad_id[P4EST_CHILDREN/2]    ; //!< Indices of hanging quads (in coarse bufs)
@@ -110,8 +110,8 @@ struct face_descriptor_t {
 /**************************************************************************************************/
 struct full_edge_t {
     std::size_t quad_id       ; //!< Index of quadrant on the other side 
-    std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
-    std::size_t send_buffer_id ; //!< Index in send array, if relevant
+    std::size_t recv_buffer_id, cbuf_recv_buffer_id ; //!< Index in receive array, if relevant
+    std::size_t send_buffer_id, cbuf_send_buffer_id ; //!< Index in send array, if relevant
     bool is_remote            ; //!< Whether the quadrant is local or remote 
     std::size_t owner_rank    ; //!< Owner rank if remote
     std::array<task_id_t,N_VAR_STAGGERINGS> task_id; 
@@ -146,8 +146,8 @@ struct edge_descriptor_t {
 /**************************************************************************************************/
 struct corner_data_t {
     std::size_t quad_id        ; //!< Index of hanging quads (in coarse bufs)
-    std::size_t recv_buffer_id ; //!< Index in receive array, if relevant
-    std::size_t send_buffer_id ; //!< Index in send array, if relevant 
+    std::size_t recv_buffer_id, cbuf_recv_buffer_id ; //!< Index in receive array, if relevant
+    std::size_t send_buffer_id, cbuf_send_buffer_id ; //!< Index in send array, if relevant 
     bool is_remote             ; //!< Are the quads remote 
     std::size_t owner_rank     ; //!< owner ranks if remote 
     std::array<task_id_t,N_VAR_STAGGERINGS>    task_id ; 
@@ -541,9 +541,9 @@ class amr_ghosts_impl_t {
     std::vector<size_t> _reflux_snd_emf_coarse_off, _reflux_rcv_emf_coarse_off, _reflux_snd_emf_coarse_size, _reflux_rcv_emf_coarse_size ; 
     std::vector<size_t> _reflux_snd_emf_edge_off, _reflux_rcv_emf_edge_off, _reflux_snd_emf_edge_size, _reflux_rcv_emf_edge_size ; 
     //**************************************************************************************************
-    bucket_t phys_bc_kernels, copy_kernels, copy_to_cbuf_kernels, prolong_kernels;
+    bucket_t phys_bc_kernels, copy_kernels, copy_to_cbuf_kernels, prolong_kernels, cbuf_p2p_copy_kernels;
     hang_bucket_t copy_from_cbuf_kernels ;
-    std::vector<bucket_t> pack_kernels, unpack_kernels
+    std::vector<bucket_t> pack_kernels, unpack_kernels, cbuf_p2p_pack_kernels, cbuf_p2p_unpack_kernels
                         , pack_to_cbuf_kernels  
                         , unpack_to_cbuf_kernels ;
     std::vector<hang_bucket_t>  pack_finer_kernels, unpack_from_cbuf_kernels ; 
@@ -568,6 +568,8 @@ class amr_ghosts_impl_t {
 
         pack_kernels.clear() ; 
         unpack_kernels.clear() ; 
+        cbuf_p2p_pack_kernels.clear();
+        cbuf_p2p_unpack_kernels.clear() ;
         pack_to_cbuf_kernels.clear() ; 
         unpack_to_cbuf_kernels.clear() ; 
         pack_finer_kernels.clear() ; 
@@ -576,6 +578,7 @@ class amr_ghosts_impl_t {
         for( int i=0; i<3; ++i) {
             phys_bc_kernels[i].clear() ; 
             copy_kernels[i].clear() ; 
+            cbuf_p2p_copy_kernels[i].clear();
             copy_to_cbuf_kernels[i].clear() ; 
             prolong_kernels[i].clear() ; 
             copy_from_cbuf_kernels[i].clear() ; 

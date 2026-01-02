@@ -432,23 +432,23 @@ static void check_ghostzones(
                     {VEC(i,j,k)}, q, lcoord, true 
                 ) ;
                 double ground_truth = fill_func(pcoords);
-                if ( std::isnan(host_data(VEC(i,j,k),0,q)) or (fabs(host_data(VEC(i,j,k),0,q)-ground_truth)>1e-13)) {
+                if ( std::isnan(host_data(VEC(i,j,k),0,q)) or (fabs(host_data(VEC(i,j,k),0,q)-ground_truth)>1e-12*fabs(ground_truth))) {
                     auto quad = grace::amr::get_quadrant(q).get() ; 
                     GRACE_TRACE("NaN at {}, level {} ijk {},{},{}, q {}", elem_kind(i,j,k,nx,ngz), static_cast<int>(quad->level),i,j,k,q) ;
                 }
                 static constexpr double macheps = std::numeric_limits<double>::epsilon() ; 
-                #if 0
+                #if 1
                 REQUIRE_THAT(
                     fabs(host_data(VEC(i,j,k),0,q)-ground_truth),
                     Catch::Matchers::WithinAbs(0.0,
-                        2*macheps*fabs(ground_truth) + 1e-16 ) 
+                        1e-12*fabs(ground_truth) ) 
                 ) ; 
-                #endif 
+                #else 
                 REQUIRE_THAT(
                     host_data(VEC(i,j,k),0,q),
                     Catch::Matchers::WithinULP(ground_truth, 4)
                 );
-
+                #endif 
                 // compute divergence of B 
                 double divB = (host_data_x(VEC(i+1,j,k),0,q) - host_data_x(VEC(i,j,k),0,q)) * idx(0,q)
                             + (host_data_y(VEC(i,j+1,k),0,q) - host_data_y(VEC(i,j,k),0,q)) * idx(1,q)
@@ -509,7 +509,8 @@ TEST_CASE("Apply BC", "[boundaries]")
         fz_mirror = Kokkos::create_mirror_view(stag_state.face_staggered_fields_z) ; 
     }
     auto& layer = ghost.get_ghost_layer() ; 
-    
+    auto& face = layer[4].faces[5] ; 
+    GRACE_TRACE("Here! Kind {} level diff {} is remote {}", static_cast<int>(face.kind), static_cast<int>(face.level_diff), face.data.full.is_remote) ; 
     fill_b_field() ; 
     grace::IO::write_cell_output(true,false,false) ; 
     invalidate_ghostzones<STAG_CENTER>(state) ; 

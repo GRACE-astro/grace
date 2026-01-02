@@ -633,5 +633,124 @@ inline constexpr std::array<std::array<uint8_t,3>,P4EST_CHILDREN> c2e =
 
 } /*namespace detail*/
 
-}} /* namespace grace::amr */
+} /* namespace grace::amr */
+
+namespace detail {
+//! Unsafe function, use with care
+static void get_face_prolong_dependencies(int eid, int * faces, int * edges, int * corners)
+{
+    static const int other_dirs[3][2] = {
+        {1,2}, {0,2}, {0,1}
+    } ; 
+    static const int other_dirs_2[3][3] = {
+        {-1,2,1}, {2,-1,0}, {1,0,-1}
+    } ;
+
+    int8_t fdir  = eid/2 ; 
+    int8_t fside = eid%2 ; 
+
+    int facts[3] = {1,2,4} ;
+
+    int icorner = 0 ;
+    for( int iside=0; iside<2; ++iside) {
+        for( int jside=0; jside<2; ++jside) {
+            int idir = other_dirs[fdir][0]; 
+            int jdir = other_dirs[fdir][1];
+            corners[icorner++] = facts[fdir] * fside + facts[idir]*iside + facts[jdir] * jside ; 
+        }
+    }
+    int iface=0;
+    for( int jside=0; jside<2; ++jside) {
+        for( int idx_d=0; idx_d<2; ++idx_d) {
+            int idir = other_dirs[fdir][idx_d] ; 
+            faces[iface++] = 2*idir + jside ; 
+        }
+    }
+    int iedge = 0 ; 
+    for( int iside=0; iside<2; ++iside) {
+        for( int jside=0; jside<2; ++jside) {
+            edges[iedge++] = 4*fdir + iside + 2*jside;
+        }
+    }
+
+    for( int idx_d=0; idx_d<2; ++idx_d){
+        for ( int iside=0; iside<2; ++iside) {
+            int idir = other_dirs[fdir][idx_d] ; 
+            int ff = fdir<other_dirs_2[fdir][idir] ? 1 : 2 ; 
+            int fi = fdir<other_dirs_2[fdir][idir] ? 2 : 1 ; 
+            edges[iedge++] = 4 * idir + ff * fside + fi*iside ; 
+        }
+    }
+}
+
+static void get_edge_prolong_dependencies(int eid, int * faces, int * edges, int * corners)
+{
+    static const int other_dirs[3][2] = {
+        {1,2}, {0,2}, {0,1}
+    } ; 
+    static const int other_dirs_2[3][3] = {
+        {-1,2,1}, {2,-1,0}, {1,0,-1}
+    } ;
+
+    int edir = eid/4;
+    int iside = (eid>>0)&1;
+    int jside = (eid>>1)&1;
+    int sides[2] = {iside,jside};
+
+    int facts[3] = {1,2,4};
+
+    int icorner=0;
+    for( int kside=0; kside<2; ++kside) {
+        int idir = other_dirs[edir][0];
+        int jdir = other_dirs[edir][1];
+        corners[icorner++] = facts[edir]*kside + facts[idir]*iside + facts[jdir]*jside ; 
+    }
+
+    int iface=0;
+    for( int idx_d=0; idx_d<2; ++idx_d) {
+        int idir = other_dirs[edir][idx_d];
+        faces[iface++] = 2*idir + sides[idx_d] ;
+    }
+    for( int fside=0; fside<2; ++fside) {
+        faces[iface++] = 2*edir + fside ; 
+    }
+
+    int iedge=0;
+    for( int idx_d=0; idx_d<2; ++idx_d) {
+        for( int kside=0; kside<2; ++kside) {
+            int jdir = other_dirs[edir][idx_d]  ; 
+            int kdir = other_dirs_2[edir][jdir] ;
+            int sidx = kdir<jdir ? 0 : 1 ;
+            int fk = edir < kdir ? 1 : 2 ; 
+            int fj = edir < kdir ? 2 : 1 ; 
+            edges[iedge++] = 4 * jdir + fk * kside + fj * sides[sidx] ;  
+        }
+    }
+}
+
+static void get_corner_prolong_dependencies(int eid, int * faces, int * edges, int * corners)
+{
+    static const int other_dirs[3][2] = {
+        {1,2}, {0,2}, {0,1}
+    } ; 
+
+    int iside = (eid>>0)&1 ;
+    int jside = (eid>>1)&1 ; 
+    int kside = (eid>>2)&1 ; 
+    int sides[3] = {iside,jside,kside} ; 
+
+    int iface=0;
+    for( int idir=0; idir<3; ++idir){
+        faces[iface++] = 2 * idir + sides[idir] ; 
+    }
+
+    int iedge=0; 
+    for( int idir=0; idir<3; ++idir) {
+        edges[iedge++] = 4 * idir + sides[other_dirs[idir][0]] + 2*sides[other_dirs[idir][1]];
+    }
+}
+
+}
+
+} /* namespace grace */
 #endif /* GRACE_AMR_INDEX_HELPERS_HH */

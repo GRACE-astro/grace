@@ -82,11 +82,14 @@ namespace grace {
 template< amr::element_kind_t elem_kind, var_staggering_t stag >
 gpu_task_t make_pack_task(
       std::vector<gpu_task_desc_t> const& sb
+    , std::vector<gpu_task_desc_t> const& cbuf_sb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
     , size_t rank 
     , grace::var_array_t data 
+    , grace::var_array_t coarse_buffers
     , amr::ghost_array_t send_buf 
     , std::vector<task_id_t> const& send_task_id
+    , task_id_t const& restrict_tid
     , device_stream_t& pup_stream
     , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv
     , task_id_t& task_counter 
@@ -97,11 +100,18 @@ gpu_task_t make_pack_task(
     // construct pack task
     Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
     Kokkos::View<size_t*> pack_src_qid{"pack_src_qid", sb.size()}
-                        , pack_dest_qid{"pack_dst_qid", sb.size()} ; 
-    Kokkos::View<uint8_t*> pack_src_elem{"unpack_dst_eid", sb.size()}  ;
+                        , pack_dest_qid{"pack_dst_qid", sb.size()} 
+                        , pack_src_cbuf_qid{"pack_src_cbuf_qid", cbuf_sb.size()}
+                        , pack_dest_cbuf_qid{"pack_dst_cbuf_qid", cbuf_sb.size()} ; 
+    Kokkos::View<uint8_t*> pack_src_elem{"pack_src_eid", sb.size()}, pack_src_cbuf_elem{"pack_src_cbuf_eid", cbuf_sb.size()}   ;
+
     auto pack_src_qid_h = Kokkos::create_mirror_view(pack_src_qid) ; 
     auto pack_dst_qid_h = Kokkos::create_mirror_view(pack_dest_qid) ; 
     auto pack_src_elem_h =  Kokkos::create_mirror_view(pack_src_elem) ; 
+
+    auto pack_src_cbuf_qid_h = Kokkos::create_mirror_view(pack_src_cbuf_qid) ; 
+    auto pack_dst_cbuf_qid_h = Kokkos::create_mirror_view(pack_dest_cbuf_qid) ; 
+    auto pack_src_cbuf_elem_h =  Kokkos::create_mirror_view(pack_src_cbuf_elem) ; 
 
     auto const get_interface_info = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t, size_t, uint8_t>  {
         if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
@@ -116,6 +126,19 @@ gpu_task_t make_pack_task(
         }
     } ; 
 
+    auto const get_interface_info_cbuf_p2p = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t, size_t, uint8_t>  {
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
+
+            return {ghost_array[std::get<0>(d)].cbuf_id,face.data.full.cbuf_send_buffer_id, std::get<1>(d)} ;
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
+            return {ghost_array[std::get<0>(d)].cbuf_id, edge.data.full.cbuf_send_buffer_id, std::get<1>(d)} ;
+        } else {
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            return {ghost_array[std::get<0>(d)].cbuf_id, corner.data.cbuf_send_buffer_id, std::get<1>(d)} ;
+        }
+    } ; 
 
     size_t i{0UL} ; 
     for( auto const& d: sb ) {
@@ -129,11 +152,28 @@ gpu_task_t make_pack_task(
     Kokkos::deep_copy(pack_dest_qid,pack_dst_qid_h)  ;  
     Kokkos::deep_copy(pack_src_elem,pack_src_elem_h) ;
 
+    i=0UL ; 
+    for( auto const& d: cbuf_sb ) {
+        auto [qid_src, qid_dst, elem_src] = get_interface_info_cbuf_p2p(d) ; 
+        pack_src_cbuf_qid_h(i) = qid_src ; 
+        pack_dst_cbuf_qid_h(i) = qid_dst ; 
+        pack_src_cbuf_elem_h(i) = elem_src ; 
+        i += 1UL ; 
+    }
+    Kokkos::deep_copy(pack_src_cbuf_qid,pack_src_cbuf_qid_h)   ; 
+    Kokkos::deep_copy(pack_dest_cbuf_qid,pack_dst_cbuf_qid_h)  ;  
+    Kokkos::deep_copy(pack_src_cbuf_elem,pack_src_cbuf_elem_h) ;
+
     gpu_task_t pack_task{} ;
 
     amr::pack_op<elem_kind,decltype(data)> pack_functor {
-        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank, stag
+        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank, stag, false
     } ; 
+
+    amr::pack_op<elem_kind,decltype(data)> cbuf_pack_functor {
+        coarse_buffers, send_buf, pack_src_cbuf_qid, pack_dest_cbuf_qid, pack_src_cbuf_elem, VEC(nx/2,ny/2,nz/2), ngz, nv, rank, stag, true
+    } ; 
+
 
     int off = (stag == STAG_CENTER ? 0 : 1) ; 
     int gz_off = (elem_kind == amr::FACE) ? 0 : off ; 
@@ -141,14 +181,19 @@ gpu_task_t make_pack_task(
     pack_policy{
         exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz+gz_off,nx+off,nv,sb.size())
     } ; 
+
+    Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+    cbuf_pack_policy{
+        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz+gz_off,nx/2+off,nv,cbuf_sb.size())
+    } ; 
     
-    pack_task._run = [pack_functor, pack_policy] (view_alias_t alias) mutable {
+    pack_task._run = [pack_functor, cbuf_pack_functor, pack_policy, cbuf_pack_policy] (view_alias_t alias) mutable {
         pack_functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE_DBG("Pack start.") ; 
         #endif
         Kokkos::parallel_for("pack_ghostzones", pack_policy, pack_functor) ; 
-        // TODO remove 
+        Kokkos::parallel_for("cbuf_p2p_pack_ghostzones", cbuf_pack_policy, cbuf_pack_functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
         GRACE_TRACE_DBG("Pack done.") ;
@@ -159,6 +204,11 @@ gpu_task_t make_pack_task(
     // send depends on this 
     pack_task._dependents.push_back(send_task_id[rank]) ; 
     task_list[send_task_id[rank]] -> _dependencies.push_back(pack_task.task_id); 
+    if ( cbuf_sb.size() > 0 ) {
+        ASSERT(restrict_tid!=UNSET_TASK_ID, "cbuf p2p scheduled but no restriction happened.") ; 
+        pack_task._dependencies.push_back(restrict_tid) ; 
+        task_list[restrict_tid]->_dependents.push_back(pack_task.task_id) ; 
+    }
     return pack_task ; 
 }
 
@@ -215,7 +265,7 @@ gpu_task_t make_pack_fine_task(
     gpu_task_t pack_task{} ;
 
     amr::pack_op<elem_kind,decltype(data)> pack_functor {
-        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank, stag
+        data, send_buf, pack_src_qid, pack_dest_qid, pack_src_elem, VEC(nx,ny,nz), ngz, nv, rank, stag, false
     } ; 
 
     int off = (stag == STAG_CENTER ? 0 : 1) ;
@@ -367,9 +417,11 @@ gpu_task_t make_pack_to_cbuf_task(
 template< amr::element_kind_t elem_kind, var_staggering_t stag >
 gpu_task_t make_unpack_task(
       std::vector<gpu_task_desc_t> const& rb
+    , std::vector<gpu_task_desc_t> const& cbuf_rb
     , std::vector<quad_neighbors_descriptor_t>& ghost_array 
     , size_t rank
-    , grace::var_array_t data 
+    , grace::var_array_t data
+    , grace::var_array_t coarse_buffers 
     , amr::ghost_array_t recv_buf 
     , std::vector<task_id_t> const& recv_task_id
     , device_stream_t& pup_stream
@@ -382,11 +434,17 @@ gpu_task_t make_unpack_task(
     // construct unpack task 
     Kokkos::DefaultExecutionSpace exec_space{pup_stream} ; 
     Kokkos::View<size_t*> unpack_src_qid{"unpack_src_qid", rb.size()}
-                            , unpack_dest_qid{"unpack_dst_qid", rb.size()} ; 
-    Kokkos::View<uint8_t*> unpack_dest_elem{"unpack_src_eid", rb.size()}  ;
+                        , unpack_dest_qid{"unpack_dst_qid", rb.size()} 
+                        , unpack_src_cbuf_qid{"unpack_src_cbuf_qid", cbuf_rb.size()}
+                        , unpack_dest_cbuf_qid{"unpack_dst_cbuf_qid", cbuf_rb.size()}; 
+    Kokkos::View<uint8_t*> unpack_dest_elem{"unpack_src_eid", rb.size()}, unpack_dest_cbuf_elem{"unpack_src_cbuf_eid", cbuf_rb.size()}  ;
     auto unpack_src_qid_h = Kokkos::create_mirror_view(unpack_src_qid) ; 
     auto unpack_dst_qid_h = Kokkos::create_mirror_view(unpack_dest_qid) ; 
     auto unpack_dest_elem_h =  Kokkos::create_mirror_view(unpack_dest_elem) ; 
+
+    auto unpack_src_cbuf_qid_h = Kokkos::create_mirror_view(unpack_src_cbuf_qid) ; 
+    auto unpack_dst_cbuf_qid_h = Kokkos::create_mirror_view(unpack_dest_cbuf_qid) ; 
+    auto unpack_dest_cbuf_elem_h =  Kokkos::create_mirror_view(unpack_dest_cbuf_elem) ;
 
     auto const get_interface_info = [&] (gpu_task_desc_t const& d)-> std::tuple<size_t, size_t, uint8_t>  {
         if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
@@ -400,6 +458,20 @@ gpu_task_t make_unpack_task(
             return { corner.data.recv_buffer_id, std::get<0>(d), std::get<1>(d)} ;
         }
     } ; 
+
+    auto const get_interface_info_cbuf_p2p = [&] (gpu_task_desc_t const& d)-> std::tuple<size_t, size_t, uint8_t>  {
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ; 
+            return {face.data.full.cbuf_recv_buffer_id,ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d)} ;
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
+            return {edge.data.full.cbuf_recv_buffer_id, ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d)} ;
+        } else {
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
+            return { corner.data.cbuf_recv_buffer_id, ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d)} ;
+        }
+    } ;
+
     auto const set_task_id = [&] (gpu_task_desc_t const& d)
     {
         if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
@@ -422,31 +494,54 @@ gpu_task_t make_unpack_task(
         unpack_dest_elem_h(i) = elem_dst ;
         set_task_id(d) ;  
         i += 1UL ; 
-        GRACE_TRACE_DBG("Unpack qid {} eid {}", std::get<0>(d), std::get<1>(d)) ; 
+        GRACE_TRACE_DBG("Unpack qid {} eid {} rcv_id {}", std::get<0>(d), std::get<1>(d), qid_src) ; 
     }
     Kokkos::deep_copy(unpack_src_qid,unpack_src_qid_h)   ; 
     Kokkos::deep_copy(unpack_dest_qid,unpack_dst_qid_h)  ;  
     Kokkos::deep_copy(unpack_dest_elem,unpack_dest_elem_h) ;
 
+    i = 0UL; 
+    for( auto const& d: cbuf_rb ) {
+        auto [qid_src, qid_dst, elem_dst] = get_interface_info_cbuf_p2p(d) ; 
+        unpack_src_cbuf_qid_h(i) = qid_src ; 
+        unpack_dst_cbuf_qid_h(i) = qid_dst ; 
+        unpack_dest_cbuf_elem_h(i) = elem_dst ;
+        i += 1UL ; 
+        GRACE_TRACE_DBG("Unpack cbuf qid {} eid {} rcv_id {}", std::get<0>(d), std::get<1>(d), qid_src) ; 
+    }
+    Kokkos::deep_copy(unpack_src_cbuf_qid,unpack_src_cbuf_qid_h)   ; 
+    Kokkos::deep_copy(unpack_dest_cbuf_qid,unpack_dst_cbuf_qid_h)  ;  
+    Kokkos::deep_copy(unpack_dest_cbuf_elem,unpack_dest_cbuf_elem_h) ;
     
     gpu_task_t unpack_task{} ;
 
     amr::unpack_op<elem_kind,decltype(data)> unpack_functor {
-        recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_elem, VEC(nx,ny,nz), ngz, nv, rank, stag
+        recv_buf, data, unpack_src_qid, unpack_dest_qid, unpack_dest_elem, VEC(nx,ny,nz), ngz, nv, rank, stag, false
     } ; 
+
+    amr::unpack_op<elem_kind,decltype(data)> cbuf_unpack_functor {
+        recv_buf, coarse_buffers, unpack_src_cbuf_qid, unpack_dest_cbuf_qid, unpack_dest_cbuf_elem, VEC(nx/2,ny/2,nz/2), ngz, nv, rank, stag, true
+    } ; 
+
     int off = (stag == STAG_CENTER ? 0 : 1) ; 
     int gz_off = (elem_kind == amr::FACE) ? 0 : off ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
     unpack_policy{
         exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz+gz_off,nx+off,nv,rb.size())
     } ; 
+
+    Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+    cbuf_unpack_policy{
+        exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz+gz_off,nx/2+off,nv,cbuf_rb.size())
+    } ; 
     
-    unpack_task._run = [unpack_functor, unpack_policy] (view_alias_t alias) mutable {
+    unpack_task._run = [unpack_functor, cbuf_unpack_functor, unpack_policy, cbuf_unpack_policy] (view_alias_t alias) mutable {
         unpack_functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE_DBG("Unpack start.") ; 
         #endif 
         Kokkos::parallel_for("unpack_ghostzones", unpack_policy, unpack_functor) ; 
+        Kokkos::parallel_for("cbuf_p2p_unpack_ghostzones", cbuf_unpack_policy, cbuf_unpack_functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
         GRACE_TRACE_DBG("Unpack done.") ;
@@ -668,7 +763,9 @@ template< var_staggering_t stag >
 void insert_pup_tasks(
       std::vector<quad_neighbors_descriptor_t> & ghost_array
     , std::vector<bucket_t> const& pack_kernels
+    , std::vector<bucket_t> const& cbuf_p2p_pack_kernels
     , std::vector<bucket_t> const& unpack_kernels
+    , std::vector<bucket_t> const& cbuf_p2p_unpack_kernels
     , std::vector<hang_bucket_t> const& pack_finer_kernels
     , std::vector<bucket_t> const& pack_to_cbuf_kernels
     , std::vector<bucket_t> const& unpack_to_cbuf_kernels
@@ -694,8 +791,9 @@ void insert_pup_tasks(
         std::make_unique<gpu_task_t>( \
             make_pack_task<kind,stag>( \
                 pack_kernels[r][static_cast<size_t>(kind)], \
-                ghost_array, r, data, \
-                send_buf, send_task_id, pup_stream, \
+                cbuf_p2p_pack_kernels[r][static_cast<size_t>(kind)], \
+                ghost_array, r, data, coarse_buffers, \
+                send_buf, send_task_id, restrict_task_id, pup_stream, \
                 VEC(nx,ny,nz), ngz, nv, \
                 task_counter, task_list \
             ) \
@@ -734,7 +832,8 @@ void insert_pup_tasks(
         std::make_unique<gpu_task_t>( \
             make_unpack_task<kind,stag>( \
                 unpack_kernels[r][static_cast<size_t>(kind)], \
-                ghost_array, r, data, \
+                cbuf_p2p_unpack_kernels[r][static_cast<size_t>(kind)], \
+                ghost_array, r, data, coarse_buffers, \
                 recv_buf, recv_task_id, pup_stream, \
                 VEC(nx,ny,nz), ngz, nv, \
                 task_counter, task_list \

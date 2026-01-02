@@ -77,25 +77,38 @@ namespace grace {
 template< amr::element_kind_t elem_kind, var_staggering_t stag >
 gpu_task_t make_gpu_copy_task(
       std::vector<gpu_task_desc_t> const& bucket
+    , std::vector<gpu_task_desc_t> const& cbuf_bucket
     , std::vector<quad_neighbors_descriptor_t>& ghost_array
+    , std::unordered_set<size_t> const & cbuf_qid
     , grace::var_array_t data 
+    , grace::var_array_t cbufs
     , device_stream_t& stream
+    , task_id_t const& restrict_tid 
     , VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv 
     , task_id_t& task_counter 
-
+    , std::vector<std::unique_ptr<task_t>>& task_list 
 ) 
 {
     using namespace grace::amr ;
     
     GRACE_TRACE("Recording GPU-copy task (tid {}). Number of elements processed {}.", task_counter, bucket.size()) ; 
     Kokkos::View<size_t*> src_qid{"copy_src_qid", bucket.size()}
-                        , dst_qid{"copy_dst_qid", bucket.size()} ; 
+                        , dst_qid{"copy_dst_qid", bucket.size()} 
+                        , src_cbuf_qid{"cbuf_p2p_copy_src_qid", cbuf_bucket.size()}
+                        , dst_cbuf_qid{"cbuf_p2p_copy_dst_qid", cbuf_bucket.size()}; 
     Kokkos::View<uint8_t*> src_elem{"copy_src_elem_id", bucket.size()}
-                         , dst_elem{"copy_dst_elem_id", bucket.size()}  ;
+                         , dst_elem{"copy_dst_elem_id", bucket.size()}  
+                         , src_cbuf_elem{"cbuf_p2p_copy_src_elem_id", cbuf_bucket.size()}
+                         , dst_cbuf_elem{"cbuf_p2p_copy_dst_elem_id", cbuf_bucket.size()};;
     auto src_qid_h = Kokkos::create_mirror_view(src_qid) ; 
     auto dst_qid_h = Kokkos::create_mirror_view(dst_qid) ; 
     auto src_elem_h = Kokkos::create_mirror_view(src_elem) ; 
     auto dst_elem_h = Kokkos::create_mirror_view(dst_elem) ; 
+
+    auto src_cbuf_qid_h = Kokkos::create_mirror_view(src_cbuf_qid) ; 
+    auto dst_cbuf_qid_h = Kokkos::create_mirror_view(dst_cbuf_qid) ; 
+    auto src_cbuf_elem_h = Kokkos::create_mirror_view(src_cbuf_elem) ; 
+    auto dst_cbuf_elem_h = Kokkos::create_mirror_view(dst_cbuf_elem) ; 
 
     auto const get_interface_info = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t,size_t,uint8_t,uint8_t> {
         if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
@@ -107,6 +120,36 @@ gpu_task_t make_gpu_copy_task(
         } else {
             auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
             return {corner.data.quad_id, std::get<0>(d), corner.corner, std::get<1>(d)} ;
+        }
+    } ; 
+
+    auto const get_cbuf_interface_info = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t,size_t,uint8_t,uint8_t> {
+        ASSERT(cbuf_qid.contains(std::get<0>(d)), "Cbuf does not exist for face copy") ; 
+        size_t cbuf_dst = ghost_array[std::get<0>(d)].cbuf_id         ; 
+        if constexpr ( elem_kind == amr::element_kind_t::FACE ) {
+            auto& face = ghost_array[std::get<0>(d)].faces[std::get<1>(d)] ;
+
+            size_t cbuf_src = ghost_array[face.data.full.quad_id].cbuf_id ;
+        
+            ASSERT(cbuf_qid.contains(face.data.full.quad_id), "Cbuf does not exist for face copy") ; 
+
+            return {cbuf_src, cbuf_dst, face.face, std::get<1>(d)} ;
+        } else if constexpr (elem_kind == amr::element_kind_t::EDGE) {
+            auto& edge = ghost_array[std::get<0>(d)].edges[std::get<1>(d)] ; 
+
+            size_t cbuf_src = ghost_array[edge.data.full.quad_id].cbuf_id ;
+
+            ASSERT(cbuf_qid.contains(edge.data.full.quad_id), "Cbuf does not exist for face copy") ; 
+
+            return {cbuf_src, cbuf_dst, edge.edge, std::get<1>(d)} ;
+        } else {
+            auto& corner = ghost_array[std::get<0>(d)].corners[std::get<1>(d)] ; 
+
+            size_t cbuf_src = ghost_array[corner.data.quad_id].cbuf_id ;
+
+            ASSERT(cbuf_qid.contains(corner.data.quad_id), "Cbuf does not exist for face copy") ; 
+
+            return {cbuf_src, cbuf_dst, corner.corner, std::get<1>(d)} ;
         }
     } ; 
 
@@ -132,16 +175,34 @@ gpu_task_t make_gpu_copy_task(
         set_task_id(d) ; 
         i++ ; 
     }
-
+    
     Kokkos::deep_copy(src_qid,src_qid_h) ; 
     Kokkos::deep_copy(dst_qid,dst_qid_h) ; 
     Kokkos::deep_copy(src_elem,src_elem_h) ; 
     Kokkos::deep_copy(dst_elem,dst_elem_h) ; 
 
+    i=0;
+    for( auto const& d: cbuf_bucket ) { 
+        auto [src_qid,dst_qid,src_eid,dst_eid] = get_cbuf_interface_info(d) ; 
+        src_cbuf_qid_h(i) = src_qid; dst_cbuf_qid_h(i) = dst_qid ; 
+        src_cbuf_elem_h(i) = src_eid; dst_cbuf_elem_h(i) = dst_eid ; 
+        //set_task_id(d) ; 
+        i++ ; 
+    }
+
+    Kokkos::deep_copy(src_cbuf_qid,src_cbuf_qid_h) ; 
+    Kokkos::deep_copy(dst_cbuf_qid,dst_cbuf_qid_h) ; 
+    Kokkos::deep_copy(src_cbuf_elem,src_cbuf_elem_h) ; 
+    Kokkos::deep_copy(dst_cbuf_elem,dst_cbuf_elem_h) ; 
+
     gpu_task_t task{} ;
     
     amr::copy_op<elem_kind,decltype(data)> functor{
         data, src_qid, dst_qid, src_elem, dst_elem, VEC(nx,ny,nz), stag, ngz
+    } ; 
+
+    amr::copy_op<elem_kind,decltype(data)> cbuf_functor{
+        cbufs, src_cbuf_qid, dst_cbuf_qid, src_cbuf_elem, dst_cbuf_elem, VEC(nx/2,ny/2,nz/2), stag, ngz
     } ; 
     
     Kokkos::DefaultExecutionSpace exec_space{stream} ; 
@@ -152,13 +213,19 @@ gpu_task_t make_gpu_copy_task(
         policy{
             exec_space, {0,0,0,0,0}, get_iter_range<elem_kind>(ngz+gz_off,nx+loop_off,nv,bucket.size())
         } ; 
+
+    Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+        cbuf_policy{
+            exec_space, {0,0,0,0,0}, get_iter_range<elem_kind>(ngz+gz_off,nx/2+loop_off,nv,cbuf_bucket.size())
+        } ; 
  
-    task._run = [functor, policy] (view_alias_t alias) mutable {
+    task._run = [functor, cbuf_functor, policy, cbuf_policy] (view_alias_t alias) mutable {
         functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE_DBG("Copy start.") ; 
         #endif 
         Kokkos::parallel_for("copy_ghostzones", policy, functor) ; 
+        Kokkos::parallel_for("copy_cbuf_ghostzones", cbuf_policy, cbuf_functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
         GRACE_TRACE_DBG("Copy end") ; 
@@ -166,6 +233,12 @@ gpu_task_t make_gpu_copy_task(
     };
     task.stream = &stream; 
     task.task_id = task_counter++ ; 
+
+    if ( cbuf_bucket.size() > 0 ) {
+        ASSERT(restrict_tid!=UNSET_TASK_ID, "cbuf p2p scheduled but no restriction happened.") ; 
+        task._dependencies.push_back(restrict_tid) ; 
+        task_list[restrict_tid]->_dependents.push_back(task.task_id) ; 
+    }
 
     return std::move(task) ; 
 
@@ -467,7 +540,9 @@ gpu_task_t make_gpu_copy_from_cbuf_task(
 template< var_staggering_t stag >
 void insert_copy_tasks(
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
+    std::unordered_set<size_t> const& cbuf_qid,
     bucket_t& copy_kernels,
+    bucket_t& cbuf_p2p_copy_kernels,
     hang_bucket_t& copy_from_cbuf_kernels,
     bucket_t& copy_to_cbuf_kernels,
     grace::var_array_t state, 
@@ -484,7 +559,7 @@ void insert_copy_tasks(
     if(copy_kernels[static_cast<size_t>(kind)].size()>0)\
     task_list.push_back( \
         std::make_unique<gpu_task_t>( \
-            make_gpu_copy_task<kind,stag>(copy_kernels[static_cast<size_t>(kind)], ghost_array, state, stream, VEC(nx,ny,nz), ngz, nv, task_counter) \
+            make_gpu_copy_task<kind,stag>(copy_kernels[static_cast<size_t>(kind)], cbuf_p2p_copy_kernels[static_cast<size_t>(kind)], ghost_array, cbuf_qid, state, coarse_buffers, stream, restrict_task_id, VEC(nx,ny,nz), ngz, nv, task_counter, task_list) \
         ) \
     ) 
     #define MAKE_COPY_TO_CBUF(kind)\

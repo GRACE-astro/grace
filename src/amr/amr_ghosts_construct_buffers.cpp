@@ -43,6 +43,8 @@
 #include <grace/amr/ghostzone_kernels/copy_kernels.hh>
 #include <grace/amr/ghostzone_kernels/phys_bc_kernels.hh>
 #include <grace/amr/ghostzone_kernels/pack_unpack_kernels.hh>
+#include <grace/amr/ghostzone_kernels/index_helpers.hh>
+
 
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/data_structures/variables.hh>
@@ -77,12 +79,14 @@ struct comm_key_t {
     size_t quad_id  ; //!< Quadrant id 
     int8_t elem_id  ; //!< Element id
     int8_t elem_slot ; //!< If needed 
+    bool is_cbuf_p2p{false}; //!< Is this a coarse buffer peer-to-peer communication?
 
     bool operator==(const comm_key_t & other) const {
         return (rank == other.rank) && 
                (quad_id == other.quad_id) && 
                (elem_id == other.elem_id) && 
-               (kind == other.kind) ;
+               (kind == other.kind) && 
+               (is_cbuf_p2p == other.is_cbuf_p2p);
     }
 } ;
 
@@ -92,12 +96,14 @@ struct comm_key_hash {
         std::size_t h2 = std::hash<size_t>{}(k.quad_id);
         std::size_t h3 = std::hash<int8_t>{}(k.elem_id);
         std::size_t h4 = std::hash<sec_t>{}(k.kind); // assuming sec_t is enum or integral
+        std::size_t h5 = std::hash<bool>{}(k.is_cbuf_p2p) ;
 
         // Combine hashes (boost-like method)
         std::size_t seed = h1;
         seed ^= h2 + 0x9e3779b97f4a7c15ULL + (seed<<6) + (seed>>2);
         seed ^= h3 + 0x9e3779b97f4a7c15ULL + (seed<<6) + (seed>>2);
         seed ^= h4 + 0x9e3779b97f4a7c15ULL + (seed<<6) + (seed>>2);
+        seed ^= h5 + 0x9e3779b97f4a7c15ULL + (seed<<6) + (seed>>2);
 
         return seed;
     }
@@ -114,21 +120,14 @@ struct key_cmp {
         if (a.kind > b.kind) return false ; 
         if (a.quad_id < b.quad_id) return true ;
         if (a.quad_id > b.quad_id) return false ; 
-        return (a.elem_id < b.elem_id) ; 
-    }
-};
+        if (a.elem_id < b.elem_id) return true ; 
+        if (a.elem_id > b.elem_id) return false ; 
+        // Standard bool comparison: false < true
+        if (a.is_cbuf_p2p < b.is_cbuf_p2p) return true;
+        if (b.is_cbuf_p2p < a.is_cbuf_p2p) return false;
 
-using idx_key_t = std::tuple<size_t /*rank*/, size_t /*qid*/, int8_t /*element_id*/, int /*elem kind*/> ; 
-struct idx_key_hash_t {
-    std::size_t operator()(const idx_key_t &k) const noexcept {
-        auto [rank, qid, element_id, elem_kind] = k;
-
-        std::size_t h = std::hash<size_t>{}(rank);
-        h ^= std::hash<size_t>{}(qid) + 0x9e3779b9 + (h << 6) + (h >> 2);
-        h ^= std::hash<int8_t>{}(element_id) + 0x9e3779b9 + (h << 6) + (h >> 2);
-        h ^= std::hash<int>{}(elem_kind) + 0x9e3779b9 + (h << 6) + (h >> 2);
-
-        return h;
+        // CRITICAL: If we get here, they are exactly equal/equivalent
+        return false;
     }
 };
 
@@ -161,6 +160,23 @@ void register_index(
     }, desc);
 }
 
+void register_index_cbuf_p2p(
+    desc_ptr_t const& desc, int8_t ic, size_t idx, bool send
+) {
+    std::visit([&](auto* d) {
+        using T = std::decay_t<decltype(*d)>;
+        if constexpr (std::is_same_v<T, face_descriptor_t>) {
+            if (send) d->data.full.cbuf_send_buffer_id = idx;
+            else      d->data.full.cbuf_recv_buffer_id = idx;
+        } else if constexpr (std::is_same_v<T, edge_descriptor_t>) {
+            if (send) d->data.full.cbuf_send_buffer_id = idx;
+            else      d->data.full.cbuf_recv_buffer_id = idx;
+        } else if constexpr (std::is_same_v<T, corner_descriptor_t>) {
+            if (send) d->data.cbuf_send_buffer_id = idx;
+            else      d->data.cbuf_recv_buffer_id = idx;
+        }
+    }, desc);
+}
 
 void process_key_arrays(
     std::set<comm_key_t, key_cmp> & send_comm_keys,
@@ -183,9 +199,16 @@ void process_key_arrays(
 
         auto& count = send_counts[kind][rank] ; 
         for( auto const& desc: send_map[key] ) {
-            register_index(
-                desc, key.elem_slot, count, true /*send*/
-            ) ; 
+            if (!key.is_cbuf_p2p) {
+                register_index(
+                    desc, key.elem_slot, count, true /*send*/
+                ) ; 
+            } else {
+                register_index_cbuf_p2p(
+                    desc, key.elem_slot, count, true
+                ) ;
+            }
+            
         }
         count++ ; 
     }
@@ -195,11 +218,16 @@ void process_key_arrays(
         auto const kind = key.kind ; 
 
         auto& count = recv_counts[kind][rank] ;
-
         for( auto const& desc: recv_map[key] ) {
-            register_index(
-                desc, key.elem_slot, count, false /*recv*/
-            ) ; 
+            if (!key.is_cbuf_p2p) {
+                register_index(
+                    desc, key.elem_slot, count, false /*receive*/
+                ) ; 
+            } else {
+                register_index_cbuf_p2p(
+                    desc, key.elem_slot, count, false
+                ) ;
+            } 
         }
         count++;
     }
@@ -233,6 +261,8 @@ void amr_ghosts_impl_t::build_remote_buffers() {
     pack_to_cbuf_kernels.resize(nproc) ;
     unpack_to_cbuf_kernels.resize(nproc) ;
     unpack_from_cbuf_kernels.resize(nproc) ;
+    cbuf_p2p_pack_kernels.resize(nproc) ; 
+    cbuf_p2p_unpack_kernels.resize(nproc) ; 
     /****************************************************/
     // start: allocate a bunch of temp helpers 
     using svec_t = std::array<std::vector<size_t>,N_VAR_STAGGERINGS> ; 
@@ -253,12 +283,16 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                              int8_t this_ie,
                              int8_t other_ie, 
                              desc_ptr_t elem,
-                             int8_t ic)
+                             int8_t ic,
+                             bool is_cbuf_p2p )
     {
         comm_key_t mkey, hkey ; 
 
         mkey.elem_slot = ic ; 
         hkey.elem_slot = ic ; 
+
+        mkey.is_cbuf_p2p = is_cbuf_p2p;
+        hkey.is_cbuf_p2p = is_cbuf_p2p;
 
         mkey.kind = m_kind ; 
         hkey.kind = h_kind ; 
@@ -277,6 +311,10 @@ void amr_ghosts_impl_t::build_remote_buffers() {
 
         auto [itm, inserted_m] = mirror_keys.insert(mkey);
         auto [ith, inserted_h] = halo_keys.insert(hkey);
+
+        if (miq == 4 and this_ie == 5 and m_kind == sec_t::FACE ) {
+            GRACE_TRACE("Here! inserted? {} {}", inserted_m, inserted_h) ; 
+        }
 
         if (inserted_h) {
             halo_descs[*ith] = { elem };
@@ -308,11 +346,69 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                             rank, face.data.full.owner_rank, 
                             iq /*should it be cbuf*/,face.data.full.quad_id, 
                             f, face.face,
-                            &face, 0 /*not needed*/) ; 
+                            &face, 0 /*not needed*/, false) ; 
                     // other side is coarser, this means we need to 
                     // pack - unpack a coarse buf 
                     pack_to_cbuf_kernels[face.data.full.owner_rank][amr::element_kind_t::FACE].emplace_back(iq, f) ;
                     unpack_to_cbuf_kernels[face.data.full.owner_rank][amr::element_kind_t::FACE].emplace_back(iq, f) ;
+                }
+                /* Now deal with cbufs */
+                GRACE_TRACE_DBG("dependencies call for face {} q {}",f, iq) ; 
+                int af[4],ae[8],ac[4];
+                detail::get_face_prolong_dependencies(f,af,ae,ac) ;
+                GRACE_TRACE_DBG("got : [{},{},{},{}], [{},{},{},{},{},{},{},{}], [{},{},{},{}]",af[0],af[1],af[2],af[3],ae[0],ae[1],ae[2],ae[3],ae[4],ae[5],ae[6],ae[7],ac[0],ac[1],ac[2],ac[3]); 
+                for( int iaf=0; iaf<4; ++iaf) {
+                    auto& adjacent_face = ghost_layer[iq].faces[af[iaf]] ; 
+                    if ( adjacent_face.level_diff != SAME ) continue ; // can only be coarser again, in which case nothing to do.
+                    if ( adjacent_face.kind == PHYS ) continue ; 
+                    if ( !adjacent_face.data.full.is_remote ) {
+                        cbuf_p2p_copy_kernels[amr::element_kind_t::FACE].emplace_back(iq,af[iaf]) ; 
+                    } else {
+                        auto const r = adjacent_face.data.full.owner_rank ; 
+                        append_keys(sec_t::CBFACE, sec_t::CBFACE, 
+                            rank, r, 
+                            iq, adjacent_face.data.full.quad_id,
+                            af[iaf], adjacent_face.face, &adjacent_face, 0, true
+                        );
+                        cbuf_p2p_pack_kernels[r][amr::element_kind_t::FACE].emplace_back(iq,af[iaf]) ;
+                        cbuf_p2p_unpack_kernels[r][amr::element_kind_t::FACE].emplace_back(iq,af[iaf]) ;
+                    }
+                }
+                for( int iae=0; iae<8; ++iae) {
+                    auto& adj_edge = ghost_layer[iq].edges[ae[iae]] ;
+                    if(!adj_edge.filled) continue; // Not filled means cbuf has data
+                    if ( adj_edge.kind == PHYS ) continue ; 
+                    if ( adj_edge.level_diff != SAME ) continue ; // can only be coarser again, in which case nothing to do.
+                    if(!adj_edge.data.full.is_remote) {
+                        cbuf_p2p_copy_kernels[amr::element_kind_t::EDGE].emplace_back(iq,ae[iae]) ;
+                    } else {
+                        auto const r = adj_edge.data.full.owner_rank ; 
+                        append_keys(sec_t::CBEDGE, sec_t::CBEDGE, 
+                            rank, r, 
+                            iq, adj_edge.data.full.quad_id,
+                            ae[iae], adj_edge.edge, &adj_edge, 0, true
+                        );
+                        cbuf_p2p_pack_kernels[r][amr::element_kind_t::EDGE].emplace_back(iq,ae[iae]) ;
+                        cbuf_p2p_unpack_kernels[r][amr::element_kind_t::EDGE].emplace_back(iq,ae[iae]) ;
+                    }
+                }
+                for( int iac=0; iac<4; ++iac) {
+                    auto& adj_corner = ghost_layer[iq].corners[ac[iac]] ;
+                    if(!adj_corner.filled) continue; // Not filled means cbuf has data
+                    if ( adj_corner.kind == PHYS ) continue ; 
+                    if ( adj_corner.level_diff != SAME ) continue ; // can only be coarser again, in which case nothing to do.
+                    if(!adj_corner.data.is_remote) {
+                        cbuf_p2p_copy_kernels[amr::element_kind_t::CORNER].emplace_back(iq,ac[iac]) ;
+                    } else {
+                        auto const r = adj_corner.data.owner_rank ; 
+                        append_keys(sec_t::CBCORNER, sec_t::CBCORNER, 
+                            rank, r, 
+                            iq, adj_corner.data.quad_id,
+                            ac[iac], adj_corner.corner, &adj_corner, 0, true
+                        );
+                        cbuf_p2p_pack_kernels[r][amr::element_kind_t::CORNER].emplace_back(iq,ac[iac]) ;
+                        cbuf_p2p_unpack_kernels[r][amr::element_kind_t::CORNER].emplace_back(iq,ac[iac]) ;
+                    }
                 }
                 
             } else if (face.level_diff == level_diff_t::FINER) {
@@ -325,7 +421,7 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                             rank, face.data.hanging.owner_rank[ic], 
                             iq,face.data.hanging.quad_id[ic]/*should this be cbuf*/, 
                             f, face.face,
-                            &face, ic) ; 
+                            &face, ic, false) ; 
                         // pack into normal buf, unpack from cbuf
                         pack_finer_kernels[face.data.hanging.owner_rank[ic]][amr::element_kind_t::FACE].emplace_back(iq,f,ic) ; 
                         unpack_from_cbuf_kernels[face.data.hanging.owner_rank[ic]][amr::element_kind_t::FACE].emplace_back(iq,f,ic) ; 
@@ -341,7 +437,7 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                             rank, face.data.full.owner_rank, 
                             iq,face.data.full.quad_id, 
                             f, face.face,
-                            &face, 0 /*not needed*/) ; 
+                            &face, 0 /*not needed*/, false) ; 
                     /* remote */
                     pack_kernels[face.data.full.owner_rank][amr::element_kind_t::FACE].emplace_back(iq,f) ; 
                     unpack_kernels[face.data.full.owner_rank][amr::element_kind_t::FACE].emplace_back(iq,f) ; 
@@ -374,10 +470,70 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                             rank, edge.data.full.owner_rank, 
                             iq /*should it be cbuf*/,edge.data.full.quad_id, 
                             e, edge.edge,
-                            &edge, 0 /*not needed*/) ;
+                            &edge, 0 /*not needed*/, false) ;
                     pack_to_cbuf_kernels[edge.data.full.owner_rank][amr::element_kind_t::EDGE].emplace_back(iq, e) ;
                     unpack_to_cbuf_kernels[edge.data.full.owner_rank][amr::element_kind_t::EDGE].emplace_back(iq, e) ;
                 }
+                /* Now deal with cbufs */
+                GRACE_TRACE_DBG("dep call edge {}",e) ; 
+                int af[4],ae[4],ac[2];
+                detail::get_edge_prolong_dependencies(e,af,ae,ac) ;
+                GRACE_TRACE_DBG("got : [{},{},{},{}], [{},{},{},{}], [{},{}]",af[0],af[1],af[2],af[3],ae[0],ae[1],ae[2],ae[3],ac[0],ac[1]); 
+
+                for( int iaf=0; iaf<4; ++iaf) {
+                    auto& adjacent_face = ghost_layer[iq].faces[af[iaf]] ; 
+                    if ( adjacent_face.kind == PHYS ) continue ; 
+                    if ( adjacent_face.level_diff != SAME ) continue ; // can only be coarser again, in which case nothing to do.
+                    if ( !adjacent_face.data.full.is_remote ) {
+                        cbuf_p2p_copy_kernels[amr::element_kind_t::FACE].emplace_back(iq,af[iaf]) ; 
+                    } else {
+                        auto const r = adjacent_face.data.full.owner_rank ; 
+                        append_keys(sec_t::CBFACE, sec_t::CBFACE, 
+                            rank, r, 
+                            iq, adjacent_face.data.full.quad_id,
+                            af[iaf], adjacent_face.face, &adjacent_face, 0, true
+                        );
+                        cbuf_p2p_pack_kernels[r][amr::element_kind_t::FACE].emplace_back(iq,af[iaf]) ;
+                        cbuf_p2p_unpack_kernels[r][amr::element_kind_t::FACE].emplace_back(iq,af[iaf]) ;
+                    }
+                }
+                for( int iae=0; iae<4; ++iae) {
+                    auto& adj_edge = ghost_layer[iq].edges[ae[iae]] ;
+                    if(!adj_edge.filled) continue; // Not filled means cbuf has data
+                    if ( adj_edge.kind == PHYS ) continue ; 
+                    if ( adj_edge.level_diff != SAME ) continue ; // can only be coarser again, in which case nothing to do.
+                    if(!adj_edge.data.full.is_remote) {
+                        cbuf_p2p_copy_kernels[amr::element_kind_t::EDGE].emplace_back(iq,ae[iae]) ;
+                    } else {
+                        auto const r = adj_edge.data.full.owner_rank ; 
+                        append_keys(sec_t::CBEDGE, sec_t::CBEDGE, 
+                            rank, r, 
+                            iq, adj_edge.data.full.quad_id,
+                            ae[iae], adj_edge.edge, &adj_edge, 0, true
+                        );
+                        cbuf_p2p_pack_kernels[r][amr::element_kind_t::EDGE].emplace_back(iq,ae[iae]) ;
+                        cbuf_p2p_unpack_kernels[r][amr::element_kind_t::EDGE].emplace_back(iq,ae[iae]) ;
+                    }
+                }
+                for( int iac=0; iac<2; ++iac) {
+                    auto& adj_corner = ghost_layer[iq].corners[ac[iac]] ;
+                    if(!adj_corner.filled) continue; // Not filled means cbuf has data
+                    if ( adj_corner.kind == PHYS ) continue ; 
+                    if ( adj_corner.level_diff != SAME ) continue ; // can only be coarser again, in which case nothing to do.
+                    if(!adj_corner.data.is_remote) {
+                        cbuf_p2p_copy_kernels[amr::element_kind_t::CORNER].emplace_back(iq,ac[iac]) ;
+                    } else {
+                        auto const r = adj_corner.data.owner_rank ; 
+                        append_keys(sec_t::CBCORNER, sec_t::CBCORNER, 
+                            rank, r, 
+                            iq, adj_corner.data.quad_id,
+                            ac[iac], adj_corner.corner, &adj_corner, 0, true
+                        );
+                        cbuf_p2p_pack_kernels[r][amr::element_kind_t::CORNER].emplace_back(iq,ac[iac]) ;
+                        cbuf_p2p_unpack_kernels[r][amr::element_kind_t::CORNER].emplace_back(iq,ac[iac]) ;
+                    }
+                }
+                
                 
             } else if ( edge.level_diff == level_diff_t::FINER ) {
                 for ( int ic=0; ic<2; ++ic){
@@ -388,7 +544,7 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                             rank, edge.data.hanging.owner_rank[ic], 
                             iq /*should it be cbuf*/,edge.data.hanging.quad_id[ic], 
                             e, edge.edge,
-                            &edge, ic) ;
+                            &edge, ic, false) ;
                         pack_finer_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e,ic) ; 
                         unpack_from_cbuf_kernels[edge.data.hanging.owner_rank[ic]][amr::element_kind_t::EDGE].emplace_back(iq,e, ic) ; 
                     }
@@ -402,7 +558,7 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                             rank, edge.data.full.owner_rank, 
                             iq,edge.data.full.quad_id, 
                             e, edge.edge,
-                            &edge, 0/*not used*/) ;
+                            &edge, 0/*not used*/, false) ;
                     pack_kernels[edge.data.full.owner_rank][amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
                     unpack_kernels[edge.data.full.owner_rank][amr::element_kind_t::EDGE].emplace_back(iq,e) ; 
                 }
@@ -429,11 +585,51 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                             rank, corner.data.owner_rank, 
                             iq,corner.data.quad_id, 
                             c, corner.corner,
-                            &corner, 0 /*not used*/) ;
+                            &corner, 0 /*not used*/, false) ;
                     pack_to_cbuf_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c) ; 
                     unpack_to_cbuf_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c) ; 
                 }
-                 
+                /* Now deal with cbufs */
+                GRACE_TRACE_DBG("dep call corner {}", c) ; 
+                int af[3],ae[3],ac[1];
+                detail::get_corner_prolong_dependencies(c,af,ae,ac) ;
+                GRACE_TRACE_DBG("got : [{},{},{}], [{},{},{}]",af[0],af[1],af[2],ae[0],ae[1],ae[2]); 
+                for( int iaf=0; iaf<3; ++iaf) {
+                    auto& adjacent_face = ghost_layer[iq].faces[af[iaf]] ; 
+                    if ( adjacent_face.kind == PHYS ) continue ; 
+                    if ( adjacent_face.level_diff != SAME ) continue ; // can only be coarser again, in which case nothing to do.
+                    if ( !adjacent_face.data.full.is_remote ) {
+                        cbuf_p2p_copy_kernels[amr::element_kind_t::FACE].emplace_back(iq,af[iaf]) ; 
+                    } else {
+                        auto const r = adjacent_face.data.full.owner_rank ; 
+                        append_keys(sec_t::CBFACE, sec_t::CBFACE, 
+                            rank, r, 
+                            iq, adjacent_face.data.full.quad_id,
+                            af[iaf], adjacent_face.face, &adjacent_face, 0, true
+                        );
+                        cbuf_p2p_pack_kernels[r][amr::element_kind_t::FACE].emplace_back(iq,af[iaf]) ;
+                        cbuf_p2p_unpack_kernels[r][amr::element_kind_t::FACE].emplace_back(iq,af[iaf]) ;
+                    }
+                }
+                for( int iae=0; iae<3; ++iae) {
+                    auto& adj_edge = ghost_layer[iq].edges[ae[iae]] ;
+                    if(!adj_edge.filled) continue; // Not filled means cbuf has data
+                    if ( adj_edge.kind == PHYS ) continue ; 
+                    if ( adj_edge.level_diff != SAME ) continue ; // can only be coarser again, in which case nothing to do.
+                    if(!adj_edge.data.full.is_remote) {
+                        cbuf_p2p_copy_kernels[amr::element_kind_t::EDGE].emplace_back(iq,ae[iae]) ;
+                    } else {
+                        auto const r = adj_edge.data.full.owner_rank ; 
+                        append_keys(sec_t::CBEDGE, sec_t::CBEDGE, 
+                            rank, r, 
+                            iq, adj_edge.data.full.quad_id,
+                            ae[iae], adj_edge.edge, &adj_edge, 0, true
+                        );
+                        cbuf_p2p_pack_kernels[r][amr::element_kind_t::EDGE].emplace_back(iq,ae[iae]) ;
+                        cbuf_p2p_unpack_kernels[r][amr::element_kind_t::EDGE].emplace_back(iq,ae[iae]) ;
+                    }
+                }
+                
             } else if (corner.level_diff == level_diff_t::FINER) {
                 if ( !corner.data.is_remote ) {
                     copy_from_cbuf_kernels[amr::element_kind_t::CORNER].emplace_back(iq,c,0) ; 
@@ -442,7 +638,7 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                             rank, corner.data.owner_rank, 
                             iq,corner.data.quad_id, 
                             c, corner.corner,
-                            &corner, 0 /*not used*/) ; 
+                            &corner, 0 /*not used*/, false) ; 
                     pack_finer_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c,0 ) ; 
                     unpack_from_cbuf_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c,0) ; 
                 }
@@ -455,7 +651,7 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                             rank, corner.data.owner_rank, 
                             iq,corner.data.quad_id, 
                             c, corner.corner,
-                            &corner, 0 /*not used*/) ;
+                            &corner, 0 /*not used*/, false) ;
                     pack_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c);
                     unpack_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c);
                 }
@@ -488,6 +684,33 @@ void amr_ghosts_impl_t::build_remote_buffers() {
         dedup(pack_finer_kernels[ip][FACE]) ; 
         dedup(pack_finer_kernels[ip][EDGE]) ; 
         dedup(pack_finer_kernels[ip][CORNER]) ; 
+    }
+    // we also need to dedup the peer-to-peer coarse buffer 
+    // operations since it is possible for multiple elements 
+    // to request the same copy / pack / unpack 
+    auto const dedup_cbuf = [&] (std::vector<gpu_task_desc_t>& vec) {
+        struct comp_desc {
+            bool operator() (gpu_task_desc_t const& a, gpu_task_desc_t const& b) 
+            const {
+                if ( std::get<0>(a) < std::get<0>(b)) return true ; 
+                if ( std::get<0>(a) > std::get<0>(b)) return false ; 
+                return std::get<1>(a) < std::get<1>(b) ; 
+            }
+        } ;
+        if (vec.empty()) return ; 
+        std::set<gpu_task_desc_t, comp_desc> s( vec.begin(), vec.end() );
+        vec.assign( s.begin(), s.end() );
+    } ; 
+    dedup_cbuf(cbuf_p2p_copy_kernels[FACE]);
+    dedup_cbuf(cbuf_p2p_copy_kernels[EDGE]);
+    dedup_cbuf(cbuf_p2p_copy_kernels[CORNER]);
+    for( int ip=0; ip<nproc; ++ip ) {
+        dedup_cbuf(cbuf_p2p_pack_kernels[ip][FACE]);
+        dedup_cbuf(cbuf_p2p_pack_kernels[ip][EDGE]);
+        dedup_cbuf(cbuf_p2p_pack_kernels[ip][CORNER]);
+        dedup_cbuf(cbuf_p2p_unpack_kernels[ip][FACE]);
+        dedup_cbuf(cbuf_p2p_unpack_kernels[ip][EDGE]);
+        dedup_cbuf(cbuf_p2p_unpack_kernels[ip][CORNER]);
     }
 
     // counts of faces / edges / corners per rank (send & recv)

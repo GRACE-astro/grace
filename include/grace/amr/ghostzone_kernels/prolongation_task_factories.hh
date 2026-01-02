@@ -254,44 +254,85 @@ void insert_prolongation_tasks(
 
         if (kind == FACE) {
             insert_dep(FACE, ghost_array[std::get<0>(d)].faces[std::get<1>(d)].data.full.task_id[stag]) ; 
-            for( auto eid: amr::detail::f2e[std::get<1>(d)] ) {
-                auto& edge = ghost_array[std::get<0>(d)].edges[eid] ;
-                if ( !edge.filled ) continue ; 
-                if ( edge.kind == interface_kind_t::PHYS ) {
-                    insert_dep(FACE, edge.data.phys.task_id[stag]) ;
+            // get dependencies 
+            int af[4],ae[8],ac[4];
+            grace::detail::get_face_prolong_dependencies(std::get<1>(d),af,ae,ac) ;
+            for( int iaf=0; iaf<4; ++iaf) {
+                auto& adjacent_face = ghost_array[std::get<0>(d)].faces[af[iaf]] ; 
+                if ( adjacent_face.kind == interface_kind_t::PHYS ) {
+                    insert_dep(FACE,adjacent_face.data.phys.task_id[stag]) ; 
                 } else {
-                    insert_dep(FACE, edge.data.full.task_id[stag]) ;
-                }   
+                    insert_dep(FACE,adjacent_face.data.full.task_id[stag]) ; 
+                }
             }
+            for( int iae=0; iae<8; ++iae) {
+                auto& adj_edge = ghost_array[std::get<0>(d)].edges[ae[iae]] ;
+                if(!adj_edge.filled) continue; // Not filled means cbuf has data
+                if ( adj_edge.kind == interface_kind_t::PHYS ) {
+                    insert_dep(FACE, adj_edge.data.phys.task_id[stag]) ;
+                } else {
+                    insert_dep(FACE, adj_edge.data.full.task_id[stag]) ;
+                } 
+            }
+            for( int iac=0; iac<4; ++iac) {
+                auto& adj_corner = ghost_array[std::get<0>(d)].corners[ac[iac]] ;
+                if(!adj_corner.filled) continue; // Not filled means cbuf has data
+                if ( adj_corner.kind == interface_kind_t::PHYS ) {
+                    insert_dep(FACE, adj_corner.phys.task_id[stag]) ;
+                } else {
+                    insert_dep(FACE, adj_corner.data.task_id[stag]) ;
+                } 
+            }
+
         } else if (kind == EDGE) {
             insert_dep(EDGE, ghost_array[std::get<0>(d)].edges[std::get<1>(d)].data.full.task_id[stag]) ; 
-            for( auto fid: amr::detail::e2f[std::get<1>(d)] ) {
-                auto& face = ghost_array[std::get<0>(d)].faces[fid] ;
-                if ( face.kind == interface_kind_t::PHYS ) {
-                    insert_dep(EDGE,face.data.phys.task_id[stag]) ; 
+            int af[4],ae[4],ac[2];
+            grace::detail::get_edge_prolong_dependencies(std::get<1>(d),af,ae,ac) ;
+            for( int iaf=0; iaf<4; ++iaf) {
+                auto& adjacent_face = ghost_array[std::get<0>(d)].faces[af[iaf]] ; 
+                if ( adjacent_face.kind == interface_kind_t::PHYS ) {
+                    insert_dep(EDGE,adjacent_face.data.phys.task_id[stag]) ; 
                 } else {
-                    insert_dep(EDGE,face.data.full.task_id[stag]) ; 
+                    insert_dep(EDGE,adjacent_face.data.full.task_id[stag]) ; 
                 }
             }
-            for( auto cid: amr::detail::e2c[std::get<1>(d)] ) {
-                auto& corner = ghost_array[std::get<0>(d)].corners[cid] ; 
-                if ( !corner.filled ) continue ; 
-                if ( corner.kind == interface_kind_t::PHYS ) {
-                    insert_dep(EDGE,corner.phys.task_id[stag]) ; 
+            for( int iae=0; iae<4; ++iae) {
+                auto& adj_edge = ghost_array[std::get<0>(d)].edges[ae[iae]] ;
+                if ( !adj_edge.filled ) continue ; 
+                if ( adj_edge.kind == interface_kind_t::PHYS ) {
+                    insert_dep(EDGE,adj_edge.data.phys.task_id[stag]) ; 
                 } else {
-                    insert_dep(EDGE,corner.data.task_id[stag]) ; 
+                    insert_dep(EDGE,adj_edge.data.full.task_id[stag]) ; 
                 }
-                
+            }
+            for( int iac=0; iac<2; ++iac) {
+                auto& adj_corner = ghost_array[std::get<0>(d)].corners[ac[iac]] ;
+                if ( !adj_corner.filled ) continue ; 
+                if ( adj_corner.kind == interface_kind_t::PHYS ) {
+                    insert_dep(EDGE,adj_corner.phys.task_id[stag]) ; 
+                } else {
+                    insert_dep(EDGE,adj_corner.data.task_id[stag]) ; 
+                }
             }
         } else {
             insert_dep(CORNER, ghost_array[std::get<0>(d)].corners[std::get<1>(d)].data.task_id[stag]) ; 
-            for( auto eid: amr::detail::c2e[std::get<1>(d)] ) {
-                auto& edge = ghost_array[std::get<0>(d)].edges[eid] ;
-                if ( !edge.filled ) continue ; 
-                if ( edge.kind == interface_kind_t::PHYS ) {
-                    insert_dep(CORNER, edge.data.phys.task_id[stag]) ;
+            int af[3],ae[3],ac[1];
+            grace::detail::get_corner_prolong_dependencies(std::get<1>(d),af,ae,ac) ;
+            for( int iaf=0; iaf<3; ++iaf) {
+                auto& adjacent_face = ghost_array[std::get<0>(d)].faces[af[iaf]] ; 
+                if ( adjacent_face.kind == interface_kind_t::PHYS ) {
+                    insert_dep(CORNER,adjacent_face.data.phys.task_id[stag]) ; 
                 } else {
-                    insert_dep(CORNER, edge.data.full.task_id[stag]) ;
+                    insert_dep(CORNER,adjacent_face.data.full.task_id[stag]) ; 
+                }
+            }
+            for( int iae=0; iae<3; ++iae) {
+                auto& adj_edge = ghost_array[std::get<0>(d)].edges[ae[iae]] ;
+                if ( !adj_edge.filled ) continue ; 
+                if ( adj_edge.kind == interface_kind_t::PHYS ) {
+                    insert_dep(CORNER, adj_edge.data.phys.task_id[stag]) ;
+                } else {
+                    insert_dep(CORNER, adj_edge.data.full.task_id[stag]) ;
                 } 
             }
         }

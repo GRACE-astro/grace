@@ -296,7 +296,9 @@ void amr_ghosts_impl_t::build_task_list(
     /***********************************************************************/
     insert_copy_tasks<stag>(
         ghost_layer,
+        cbuf_qid,
         copy_kernels,
+        cbuf_p2p_copy_kernels,
         copy_from_cbuf_kernels,
         copy_to_cbuf_kernels,
         dummy,
@@ -310,7 +312,9 @@ void amr_ghosts_impl_t::build_task_list(
     insert_pup_tasks<stag>(
         ghost_layer,
         pack_kernels,
+        cbuf_p2p_pack_kernels,
         unpack_kernels,
+        cbuf_p2p_unpack_kernels,
         pack_finer_kernels,
         pack_to_cbuf_kernels,
         unpack_to_cbuf_kernels,
@@ -328,6 +332,7 @@ void amr_ghosts_impl_t::build_task_list(
 
     /***********************************************************************/
     /***********************************************************************/
+    #if 0
     insert_ghost_restriction_tasks<stag>(
         cbuf_qid, ghost_layer,
         dummy, cbuf_view,
@@ -335,6 +340,7 @@ void amr_ghosts_impl_t::build_task_list(
         VEC(nx,ny,nz),ngz,nv,
         task_counter, task_list
     ) ; 
+    #endif 
     /***********************************************************************/
     /***********************************************************************/
     auto const deferred_phys_bc_kernels = 
@@ -426,7 +432,9 @@ void amr_ghosts_impl_t::build_task_list_face_stag(
     } \
     insert_copy_tasks<stag>(\
         ghost_layer, \
+        cbuf_qid, \
         copy_kernels, \
+        cbuf_p2p_copy_kernels, \
         copy_from_cbuf_kernels, \
         copy_to_cbuf_kernels, \
         dummy, \
@@ -438,7 +446,9 @@ void amr_ghosts_impl_t::build_task_list_face_stag(
     insert_pup_tasks<stag>( \
         ghost_layer, \
         pack_kernels, \
+        cbuf_p2p_pack_kernels,\
         unpack_kernels, \
+        cbuf_p2p_unpack_kernels,\
         pack_finer_kernels, \
         pack_to_cbuf_kernels, \
         unpack_to_cbuf_kernels, \
@@ -452,13 +462,6 @@ void amr_ghosts_impl_t::build_task_list_face_stag(
         stream, \
         VEC(nx,ny,nz), ngz, nv, \
         task_counter, task_list \
-    ) ; \
-    insert_ghost_restriction_tasks<stag>( \
-        cbuf_qid, ghost_layer, \
-        dummy, cbuf_view,\
-        stream,\
-        VEC(nx,ny,nz),ngz,nv,\
-        task_counter, task_list\
     ) ; \
     deferred_phys_bc_kernels[stag] = \
         insert_phys_bc_tasks<stag>( \

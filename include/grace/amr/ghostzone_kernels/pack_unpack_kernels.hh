@@ -55,6 +55,8 @@ struct pack_op {
 
     index_transformer_t transf ; 
 
+    bool view_is_cbuf{false} ; 
+
     template< var_staggering_t stag >
     void set_data_ptr(view_alias_t alias) 
     {
@@ -69,7 +71,7 @@ struct pack_op {
         Kokkos::View<uint8_t*> _src_elem,  
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
         std::size_t _ngz, std::size_t _nvars, std::size_t _rank,
-        grace::var_staggering_t stag
+        grace::var_staggering_t stag, bool _view_is_cbuf
     ) : src_view(_src_view)
       , dest_view(_dest_view)
       , src_qid(_src_qid)
@@ -77,6 +79,7 @@ struct pack_op {
       , src_elem_view(_src_elem)
       , rank(_rank)
       , transf(VEC(_nx,_ny,_nz),_ngz, stag)
+      , view_is_cbuf(_view_is_cbuf)
     { } 
     // here we pick phys indices
     KOKKOS_INLINE_FUNCTION
@@ -144,8 +147,13 @@ struct pack_op {
         if ( in_range(i_a,j_a,k_a,ie) ) {
             //if ( transf.sx or transf.sy or transf.sz )
             //    printf("Pack: stag (%zu,%zu,%zu) i %zu j %zu k %zu q %zu ie %d value %f\n", transf.sx,transf.sy,transf.sz,i_a,j_a,k_a,src_q,ie, src_view(VEC(i_a,j_a,k_a), ivar, src_q)) ;
-            dest_view.at_interface<elem_kind>(ig,j,k,ivar,dest_q,rank) = 
-                src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
+            if (view_is_cbuf) {
+                dest_view.at_cbuf<elem_kind>(ig,j,k,ivar,dest_q,rank) = 
+                    src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
+            } else {
+                dest_view.at_interface<elem_kind>(ig,j,k,ivar,dest_q,rank) = 
+                    src_view(VEC(i_a,j_a,k_a), ivar, src_q) ;
+            }
         }
     }
  
@@ -166,6 +174,8 @@ struct unpack_op {
     std::size_t rank ; 
 
     index_transformer_t transf ; 
+
+    bool view_is_cbuf{false} ; 
 
     template< var_staggering_t stag >
     void set_data_ptr(view_alias_t alias) 
@@ -228,7 +238,7 @@ struct unpack_op {
         Kokkos::View<uint8_t*> _dest_ie,  
         VEC( std::size_t _nx, std::size_t _ny, std::size_t _nz),
         std::size_t _ngz, std::size_t _nvars, std::size_t _rank,
-        grace::var_staggering_t stag
+        grace::var_staggering_t stag, bool _view_is_cbuf
     ) : src_view(_src_view)
       , dest_view(_dest_view)
       , src_qid(_src_qid)
@@ -236,6 +246,7 @@ struct unpack_op {
       , dest_element_view(_dest_ie)
       , rank(_rank)
       , transf(VEC(_nx,_ny,_nz),_ngz, stag)
+      , view_is_cbuf(_view_is_cbuf)
     { } 
 
 
@@ -257,7 +268,12 @@ struct unpack_op {
         if ( in_range(i_a,j_a,k_a,ie) ) {   
             //if ( transf.sx or transf.sy or transf.sz )
             //    printf("Unpack: stag (%zu,%zu,%zu) i %zu j %zu k %zu q %zu ie %d value %f\n", transf.sx,transf.sy,transf.sz,i_a,j_a,k_a,dest_q,ie, src_view.at_interface<elem_kind>(ig,j,k,ivar,src_q,rank)) ;  
-            dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) = src_view.at_interface<elem_kind>(ig,j,k,ivar,src_q,rank) ; 
+            if (view_is_cbuf) {
+                dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) = src_view.at_cbuf<elem_kind>(ig,j,k,ivar,src_q,rank) ; 
+            } else {
+                dest_view(VEC(i_a,j_a,k_a), ivar, dest_q) = src_view.at_interface<elem_kind>(ig,j,k,ivar,src_q,rank) ; 
+            }
+            
         }
         
     }
