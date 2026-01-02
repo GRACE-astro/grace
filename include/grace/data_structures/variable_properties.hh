@@ -37,6 +37,9 @@ namespace grace {
 
 enum bc_t: uint8_t {BC_OUTFLOW=0, BC_LAGRANGE_EXTRAP, BC_SOMMERFELD, BC_NONE} ; 
 
+enum var_amr_interp_t: uint8_t {INTERP_SECOND_ORDER=0, INTERP_FOURTH_ORDER, INTERP_DIV_PRESERVING, INTERP_NONE} ; 
+
+
 enum var_staggering_t : uint8_t {
     STAG_CENTER=0, STAG_FACEX, STAG_FACEY, STAG_EDGEXY, STAG_FACEZ, STAG_EDGEXZ, STAG_EDGEYZ, STAG_CORNER, N_VAR_STAGGERINGS
 } ; 
@@ -72,6 +75,7 @@ struct variable_properties_t<2>
     bool is_tensor ; 
     int8_t comp_num ; 
     bc_t bc_type ; 
+    var_amr_interp_t interp_op_kind ; 
     size_t index ;
 
     std::string name ; 
@@ -91,6 +95,7 @@ struct variable_properties_t<3>
     bool is_tensor ; 
     int8_t comp_num ; 
     bc_t bc_type ; 
+    var_amr_interp_t interp_op_kind ; 
     size_t index ;
 
     std::string name ; 

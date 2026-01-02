@@ -40,12 +40,13 @@
  * @param bc   Variable BC type
  * @param is_hrsc Is it evolved with FV scheme?
 */
-#define REGISTER_EVOLVED_SCALAR(idx,name,bc, is_hrsc) \
+#define REGISTER_EVOLVED_SCALAR(idx,name,bc,interp,is_hrsc) \
 idx = register_variable( name \
                         , {VEC(false,false,false)} \
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp \
                         , false ) 
 
 /**
@@ -55,12 +56,13 @@ idx = register_variable( name \
  * @param bc   Variable BC type
  * @param is_hrsc Is it evolved with FV scheme?
 */
-#define REGISTER_EVOLVED_CORNER_SCALAR(idx,name,bc, is_hrsc) \
+#define REGISTER_EVOLVED_CORNER_SCALAR(idx,name,bc,interp, is_hrsc) \
 idx = register_variable( name \
                         , {VEC(true,true,true)} \
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , false ) 
 /**
  * @brief Register (FV) evolved (cell-centered) vector variable.
@@ -71,12 +73,13 @@ idx = register_variable( name \
  * @param bc    Variable BC type
  * @param is_hrsc Is it evolved with FV scheme?
  */
-#define REGISTER_EVOLVED_VECTOR(idx0, idx1, idx2, name,bc, is_hrsc) \
+#define REGISTER_EVOLVED_VECTOR(idx0, idx1, idx2, name,bc,interp, is_hrsc) \
 idx0 = register_variable( name "[0]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , true \
                         , false \
                         , 0 \
@@ -86,6 +89,7 @@ idx1 = register_variable( name "[1]"\
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , true \
                         , false \
                         , 1 \
@@ -95,6 +99,7 @@ idx2 = register_variable( name "[2]"\
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , true \
                         , false \
                         , 2 \
@@ -112,12 +117,13 @@ idx2 = register_variable( name "[2]"\
  * @param bc    Variable BC type
  * @param is_hrsc Is it evolved with FV scheme?
  */
-#define REGISTER_EVOLVED_TENSOR(idx0, idx1, idx2, idx3, idx4, idx5, name,bc, is_hrsc) \
+#define REGISTER_EVOLVED_TENSOR(idx0, idx1, idx2, idx3, idx4, idx5, name,bc,interp, is_hrsc) \
 idx0 = register_variable( name "[0,0]"\
                         , {VEC(false,false,false)} \
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , false \
                         , true \
                         , 0  \
@@ -127,6 +133,7 @@ idx1 = register_variable( name "[0,1]"\
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , false\
                         , true\
                         , 1 \
@@ -136,6 +143,7 @@ idx2 = register_variable( name "[0,2]"\
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , false \
                         , true \
                         , 2  \
@@ -145,6 +153,7 @@ idx3 = register_variable( name "[1,1]"\
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , false \
                         , true \
                         , 3  \
@@ -154,6 +163,7 @@ idx4 = register_variable( name "[1,2]"\
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , false \
                         , true \
                         , 4  \
@@ -163,6 +173,7 @@ idx5 = register_variable( name "[2,2]"\
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , false \
                         , true \
                         , 5 \
@@ -175,12 +186,13 @@ idx5 = register_variable( name "[2,2]"\
  * @param name  Variable name 
  * @param bc    Variable BC type
  */
-#define REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(idx0, idx1, idx2,name,bc,is_hrsc) \
+#define REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(idx0, idx1, idx2,name,bc,interp,is_hrsc) \
 idx0 = register_variable( name "[0]"\
                         , {VEC(true,false,false)} \
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , true \
                         , false \
                         , 0 \
@@ -190,6 +202,7 @@ idx1 = register_variable( name "[1]"\
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , true \
                         , false \
                         , 1 \
@@ -199,6 +212,7 @@ idx2 = register_variable( name "[2]"\
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , true \
                         , false \
                         , 2 \
@@ -211,12 +225,13 @@ idx2 = register_variable( name "[2]"\
  * @param name  Variable name 
  * @param bc    Variable BC type
  */
-#define REGISTER_EVOLVED_EDGE_STAGGERED_VECTOR(idx0, idx1, idx2, idx3,name,bc,is_hrsc) \
+#define REGISTER_EVOLVED_EDGE_STAGGERED_VECTOR(idx0, idx1, idx2, idx3,name,bc,interp,is_hrsc) \
 idx0 = register_variable( name "[0]"\
                         , {VEC(false,true,true)} \
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , true \
                         , false \
                         , 0 \
@@ -226,6 +241,7 @@ idx1 = register_variable( name "[1]"\
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , true \
                         , false \
                         , 1 \
@@ -235,6 +251,7 @@ idx2 = register_variable( name "[2]"\
                         , true \
                         , is_hrsc \
                         , bc \
+                        , interp\
                         , true \
                         , false \
                         , 2 \
@@ -251,6 +268,7 @@ idx = register_variable( name \
                         , false \
                         , false \
                         , bc \
+                        , "none"\
                         , false ) 
 /**
  * @brief Register auxiliary vector.
@@ -266,6 +284,7 @@ idx0 = register_variable( name "[0]"\
                         , false \
                         , false \
                         , bc \
+                        , "none"\
                         , true \
                         , false \
                         , 0 \
@@ -275,6 +294,7 @@ idx1 = register_variable( name "[1]"\
                         , false \
                         , false \
                         , bc \
+                        , "none"\
                         , true \
                         , false \
                         , 1 \
@@ -284,6 +304,7 @@ idx2 = register_variable( name "[2]"\
                         , false \
                         , false \
                         , bc \
+                        , "none"\
                         , true \
                         , false \
                         , 2 \
@@ -305,6 +326,7 @@ idx0 = register_variable( name "[0,0]"\
                         , false \
                         , false \
                         , bc \
+                        , "none"\
                         , false \
                         , true \
                         , 0  \
@@ -314,6 +336,7 @@ idx1 = register_variable( name "[0,1]"\
                         , false \
                         , false \
                         , bc \
+                        , "none"\
                         , false\
                         , true\
                         , 1 \
@@ -323,6 +346,7 @@ idx2 = register_variable( name "[0,2]"\
                         , false \
                         , false \
                         , bc \
+                        , "none"\
                         , false \
                         , true \
                         , 2  \
@@ -332,6 +356,7 @@ idx3 = register_variable( name "[1,1]"\
                         , false \
                         , false \
                         , bc \
+                        , "none"\
                         , false \
                         , true \
                         , 3  \
@@ -341,6 +366,7 @@ idx4 = register_variable( name "[1,2]"\
                         , false \
                         , false \
                         , bc \
+                        , "none"\
                         , false \
                         , true \
                         , 4  \
@@ -350,6 +376,7 @@ idx5 = register_variable( name "[2,2]"\
                         , false \
                         , false \
                         , bc \
+                        , "none"\
                         , false \
                         , true \
                         , 5 \

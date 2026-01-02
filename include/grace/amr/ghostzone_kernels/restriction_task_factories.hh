@@ -45,6 +45,7 @@
 #include <grace/amr/ghostzone_kernels/restrict_kernels.hh>
 #include <grace/amr/ghostzone_kernels/pack_unpack_kernels.hh>
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
+#include <grace/amr/ghostzone_kernels/pr_helpers.hh>
 
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/data_structures/variables.hh>
@@ -69,18 +70,33 @@ task_id_t insert_restriction_tasks(
     std::vector<quad_neighbors_descriptor_t>& ghost_array,
     grace::var_array_t state, 
     grace::var_array_t coarse_buffers,
+    std::vector<size_t> const& varlist_lo,
+    std::vector<size_t> const& varlist_ho,
+    std::vector<double> const& ho_restrict_coeffs,
     device_stream_t& stream, 
     VEC(size_t nx, size_t ny, size_t nz), size_t ngz, size_t nv,
     task_id_t& task_counter,
     std::vector<std::unique_ptr<task_t>>& task_list 
 )
 {
+    using restrict_lo_op = second_order_restrict_op;
+    using restrict_ho_op = fourth_order_restrict_op;
+
+
     GRACE_TRACE("Recording GPU-restrict task (tid {}) number of quadrants {}", task_counter, cbuf_qid.size()) ;
     Kokkos::View<size_t*> quad_id_d("restrict_qid", cbuf_qid.size())
-                        , cbuf_id_d("restrict_cbufid", cbuf_qid.size()) ; 
+                        , cbuf_id_d("restrict_cbufid", cbuf_qid.size()) 
+                        , varlist_lo_d("restrict_vlist_lo", varlist_lo.size())
+                        , varlist_ho_d("restrict_vlist_ho", varlist_ho.size()); 
+    Kokkos::View<double*> ho_restrict_coeffs_d("ho_restrict_coeffs", ho_restrict_coeffs.size());
+    deep_copy_vec_to_view(ho_restrict_coeffs_d,ho_restrict_coeffs);
+
+    deep_copy_vec_to_view(varlist_lo_d,varlist_lo);
+    deep_copy_vec_to_view(varlist_ho_d,varlist_ho);
+
     auto quad_id_h = Kokkos::create_mirror_view(quad_id_d) ; 
     auto cbuf_id_h = Kokkos::create_mirror_view(cbuf_id_d) ; 
-
+    
     size_t i{0UL} ; 
     for( auto const& qid: cbuf_qid) {
         quad_id_h(i) = qid ; 
@@ -92,23 +108,35 @@ task_id_t insert_restriction_tasks(
 
     gpu_task_t task{} ;
 
-    amr::restrict_op<decltype(state)> functor(
-        state, coarse_buffers, quad_id_d, cbuf_id_d, ngz
+    amr::restrict_op<restrict_lo_op,decltype(state)> 
+    functor(
+        state, coarse_buffers, quad_id_d, cbuf_id_d, varlist_lo_d, restrict_lo_op{}, ngz
     ) ; 
+
+    amr::restrict_op<restrict_ho_op,decltype(state)> 
+    functor_ho(
+        state, coarse_buffers, quad_id_d, cbuf_id_d, varlist_ho_d, restrict_ho_op(ho_restrict_coeffs_d,nx,ny,nz,ngz), ngz
+    ) ;
 
     Kokkos::DefaultExecutionSpace exec_space{stream} ;
 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
         policy{
-            exec_space, {0,0,0,0,0}, {nx/2,nx/2,nx/2, nv, cbuf_qid.size()}
+            exec_space, {0,0,0,0,0}, {nx/2,nx/2,nx/2, varlist_lo.size(), cbuf_qid.size()}
         } ;
-
-    task._run = [functor, policy] (view_alias_t alias) mutable {
+    Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+        policy_ho{
+            exec_space, {0,0,0,0,0}, {nx/2,nx/2,nx/2, varlist_ho.size(), cbuf_qid.size()}
+        } ;
+        
+    task._run = [functor, functor_ho, policy, policy_ho] (view_alias_t alias) mutable {
         functor.template set_data_ptr<stag>(alias) ; 
+        functor_ho.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE_DBG("Restrict start.") ; 
         #endif 
-        Kokkos::parallel_for("restrict_to_cbufs", policy, functor) ; 
+        Kokkos::parallel_for("restrict_to_cbufs", policy, functor) ;
+        Kokkos::parallel_for("restrict_to_cbufs_high_order", policy_ho, functor_ho) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
         GRACE_TRACE_DBG("Restrict end") ; 

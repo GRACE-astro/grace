@@ -40,23 +40,28 @@
 
 namespace grace { namespace amr {
 
-template< typename view_t > 
+template< typename interp_t, typename view_t > 
 struct restrict_op {
 
     view_t src_view, dest_view ; 
-    readonly_view_t<size_t> src_q, dest_q ; 
+    readonly_view_t<size_t> src_q, dest_q, var_idx ; 
     size_t ngz ;
+    interp_t op ;
 
     restrict_op(
         view_t _src_view, view_t _dest_view,
         Kokkos::View<size_t*> _src_q, 
         Kokkos::View<size_t*> _dest_q, 
+        Kokkos::View<size_t*> _var_idx, 
+        interp_t _op,
         size_t _ngz
     ) : src_view(_src_view)
       , dest_view(_dest_view)
       , src_q(_src_q)
       , dest_q(_dest_q)
+      , var_idx(_var_idx)
       , ngz(_ngz)
+      , op(_op)
     {}
 
     template< var_staggering_t stag >
@@ -66,11 +71,18 @@ struct restrict_op {
     }
 
     KOKKOS_INLINE_FUNCTION
-    void operator() (size_t i, size_t j, size_t k, size_t iv, size_t iq) const 
+    void operator() (size_t i, size_t j, size_t k, size_t vidx, size_t iq) const 
     {
+        using namespace Kokkos ; 
+
         auto src_qid = src_q(iq) ; 
         auto dst_qid = dest_q(iq) ; 
+        auto iv = var_idx(vidx) ; 
 
+        auto u = subview(src_view,ALL(),ALL(),ALL(),iv,src_qid) ; 
+
+        dest_view(i+ngz,j+ngz,k+ngz,iv,dst_qid) = op(u,2*i+ngz,2*j+ngz,2*k+ngz) ; 
+        #if 0
         dest_view(i+ngz,j+ngz,k+ngz,iv,dst_qid) = 0.125 * (
             src_view(2*i+ngz  ,2*j+ngz  ,2*k+ngz  ,iv,src_qid) + 
             src_view(2*i+ngz+1,2*j+ngz  ,2*k+ngz  ,iv,src_qid) + 
@@ -81,6 +93,7 @@ struct restrict_op {
             src_view(2*i+ngz  ,2*j+ngz+1,2*k+ngz+1,iv,src_qid) +
             src_view(2*i+ngz+1,2*j+ngz+1,2*k+ngz+1,iv,src_qid)  
         ) ; 
+        #endif 
     }
 
 

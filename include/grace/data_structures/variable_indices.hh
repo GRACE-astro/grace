@@ -78,6 +78,7 @@ static int register_variable(     std::string const& name
                                 , bool is_evolved 
                                 , bool need_fluxes
                                 , std::string const & bc_type = "none"
+                                , std::string const & interp_type = "none"
                                 , bool is_vector = false
                                 , bool is_tensor = false 
                                 , int comp_num = 0 
@@ -88,12 +89,14 @@ namespace detail {
 static int register_scalar( std::string const& name
                           , bool is_evolved 
                           , bool need_fluxes 
-                          , bc_t const& bc_type ) ;
+                          , bc_t const& bc_type 
+                          , var_amr_interp_t const& int_type ) ;
  
 static int register_staggered_variable( std::string const& name
                                       , bool is_evolved 
                                       , bool need_fluxes
                                       , bc_t const & bc_type 
+                                      , var_amr_interp_t const& int_type
                                       , grace::var_staggering_t const& staggering 
                                       , bool is_vector = false 
                                       , bool is_tensor = false 
@@ -103,13 +106,15 @@ static int register_vector( std::string const& name
                           , bool is_evolved 
                           , bool need_fluxes
                           , int num_comp
-                          , bc_t const & bc_type ) ; 
+                          , bc_t const & bc_type 
+                          , var_amr_interp_t const& int_type) ; 
 
 static int register_tensor( std::string const& name
                           , bool is_evolved 
                           , bool need_fluxes
                           , int num_comp
-                          , bc_t const & bc_type ) ; 
+                          , bc_t const & bc_type 
+                          , var_amr_interp_t const& int_type) ; 
 
 }
 
@@ -200,6 +205,24 @@ extern std::vector<grace::bc_t> _edgexz_vars_bc_types ;
 extern std::vector<grace::bc_t> _edgeyz_vars_bc_types ;
 
 extern std::vector<grace::bc_t> _corner_vars_bc_types ;
+/****************************************************/
+/*      Prolong/Restrict operator arrays            */
+/****************************************************/
+extern std::vector<grace::var_amr_interp_t> _var_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _facex_vars_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _facey_vars_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _facez_vars_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _edgexy_vars_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _edgexz_vars_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _edgeyz_vars_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _corner_vars_interp_types ;
 /****************************************************/
 /****************************************************/
  

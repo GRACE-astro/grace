@@ -552,6 +552,11 @@ class amr_ghosts_impl_t {
     grace::staggered_variable_arrays_t _stag_coarse_buffers ; 
     Kokkos::View<bc_t*> var_bc_kind, var_bc_kind_f ; //!< Boundary condition per-variable
     //**************************************************************************************************
+    //! For prolongation/restriction, store indices of variables needing high or low order operators 
+    std::vector<size_t> high_order_interp_varlist, low_order_interp_varlist;
+    //! For prolongation/restriction, store weights for 4th order Lagrange polynomials 
+    std::vector<double> ho_prolong_coefficients, ho_restrict_coefficients;
+    
     //void build_flux_buffers() ; /* TODO ! */
     //**************************************************************************************************
     void reset() {

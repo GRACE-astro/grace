@@ -342,6 +342,9 @@ static void invalidate_ghostzones(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             if (is_ghostzone(VEC(i,j,k),VEC(nx,ny,nz),ngz )) {
                 host_data(VEC(i,j,k), 0, q) = std::numeric_limits<double>::quiet_NaN() ; 
+                #ifdef GRACE_ENABLE_Z4C_METRIC
+                host_data(VEC(i,j,k), GTXX, q) = std::numeric_limits<double>::quiet_NaN() ; 
+                #endif 
             }
         }, stagger, true 
     ) ; 
@@ -443,6 +446,13 @@ static void check_ghostzones(
                     Catch::Matchers::WithinAbs(0.0,
                         1e-12*fabs(ground_truth) ) 
                 ) ; 
+                #ifdef GRACE_ENABLE_Z4C_METRIC
+                REQUIRE_THAT(
+                    fabs(host_data(VEC(i,j,k),GTXX,q)-ground_truth),
+                    Catch::Matchers::WithinAbs(0.0,
+                        1e-12*fabs(ground_truth) ) 
+                ) ; 
+                #endif 
                 #else 
                 REQUIRE_THAT(
                     host_data(VEC(i,j,k),0,q),

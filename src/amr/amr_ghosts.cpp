@@ -43,6 +43,8 @@
 #include <grace/amr/ghostzone_kernels/phys_bc_kernels.hh>
 #include <grace/amr/ghostzone_kernels/pack_unpack_kernels.hh>
 #include <grace/amr/ghostzone_kernels/task_factories.hh>
+#include <grace/amr/ghostzone_kernels/pr_helpers.hh>
+#include <grace/amr/ghostzone_kernels/pr_ho_coeffs.hh>
 
 
 #include <grace/data_structures/memory_defaults.hh>
@@ -58,8 +60,7 @@
 #include <numeric>
 #include <unordered_set>
 
-//#define INSERT_FENCE_DEBUG_TASKS_ 
-//#define INSERT_FENCE_DEBUG_TASKS_ 
+//#define INSERT_FENCE_DEBUG_TASKS_  
 
 namespace grace {
 
@@ -85,9 +86,19 @@ void amr_ghosts_impl_t::update() {
     var_bc_kind = Kokkos::View<bc_t*>{
         "BC_types", static_cast<size_t>(nvar) 
     } ;
+    high_order_interp_varlist = std::vector<size_t>() ; 
+    low_order_interp_varlist = std::vector<size_t>() ; 
     auto var_bc_kind_h = Kokkos::create_mirror_view(var_bc_kind) ; 
     for(int ivar=0; ivar<nvar; ++ivar){
         var_bc_kind_h(ivar) = variables::get_bc_type(ivar) ; 
+        auto interp_kind = variables::get_interp_type(ivar) ; 
+        if ( interp_kind ==  var_amr_interp_t::INTERP_SECOND_ORDER) {
+            low_order_interp_varlist.push_back(ivar) ; 
+        } else if (  interp_kind ==  var_amr_interp_t::INTERP_FOURTH_ORDER ) {
+            high_order_interp_varlist.push_back(ivar) ; 
+        } else {
+            ERROR("Unrecognised prolongation/restriction operator requested for var " << ivar) ; 
+        }
     }
     Kokkos::deep_copy(var_bc_kind,var_bc_kind_h) ; 
 
@@ -100,6 +111,10 @@ void amr_ghosts_impl_t::update() {
         var_bc_kind_f_h(ivar) = variables::get_bc_type(ivar,STAG_FACEX) ;
     }
     Kokkos::deep_copy(var_bc_kind_f,var_bc_kind_f_h) ;
+
+    // initialize weights for 4th order restrict/prolong 
+    grace::detail::fill_fourth_order_prolongation_coefficients(ho_prolong_coefficients) ; 
+    grace::detail::fill_fourth_order_restriction_coefficients(ho_restrict_coefficients) ; 
 
     // Destroy old ghost layer if present
     if (p4est_ghost_layer) {
@@ -287,6 +302,9 @@ void amr_ghosts_impl_t::build_task_list(
             ghost_layer,
             dummy, 
             cbuf_view, 
+            low_order_interp_varlist,
+            high_order_interp_varlist,
+            ho_restrict_coefficients,
             interp_stream,
             VEC(nx,ny,nz), ngz, nv, 
             task_counter, task_list 
@@ -354,7 +372,8 @@ void amr_ghosts_impl_t::build_task_list(
     /***********************************************************************/
     insert_prolongation_tasks<stag>(
         prolong_kernels, ghost_layer,
-        dummy, cbuf_view, interp_stream,
+        low_order_interp_varlist, high_order_interp_varlist, ho_prolong_coefficients,
+        dummy, cbuf_view, interp_stream, 
         VEC(nx,ny,nz), ngz, nv, task_counter, task_list 
     ) ;
    
@@ -362,7 +381,7 @@ void amr_ghosts_impl_t::build_task_list(
     /***********************************************************************/
     insert_deferred_phys_bc_tasks<stag>(
         deferred_phys_bc_kernels, ghost_layer,
-        dummy, cbuf_view, vbc, phys_bc_stream,
+        dummy, cbuf_view, vbc, phys_bc_stream, 
         VEC(nx,ny,nz),ngz,nv, task_counter, task_list
     ); 
     /***********************************************************************/

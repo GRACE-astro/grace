@@ -98,6 +98,46 @@ get_bc_type(int64_t varidx, var_staggering_t const& var_staggering)
     }
 }
 
+grace::var_amr_interp_t
+get_interp_type( int64_t varidx, var_staggering_t const& var_staggering )  
+{
+    if ( var_staggering == STAG_CENTER ) {
+        ASSERT_DBG( varidx < detail::_var_interp_types.size(), 
+                "Requested variable " << varidx << " does not have registered PRs."); 
+        return detail::_var_interp_types[varidx]  ;
+    } else if ( var_staggering == STAG_FACEX ) {
+        ASSERT_DBG( varidx < detail::_facex_vars_interp_types.size(), 
+                "Requested face-staggered variable " << varidx << " does not have registered PRs."); 
+        return detail::_facex_vars_interp_types[varidx]  ;
+    } else if ( var_staggering == STAG_FACEY ) {
+        ASSERT_DBG( varidx < detail::_facey_vars_interp_types.size(), 
+                "Requested face-staggered variable " << varidx << " does not have registered PRs."); 
+        return detail::_facey_vars_interp_types[varidx]  ;
+    } else if ( var_staggering == STAG_FACEZ ) {
+        ASSERT_DBG( varidx < detail::_facez_vars_interp_types.size(), 
+                "Requested face-staggered variable " << varidx << " does not have registered PRs."); 
+        return detail::_facez_vars_interp_types[varidx]  ;
+    } else if ( var_staggering == STAG_EDGEXY ) {
+        ASSERT_DBG( varidx < detail::_edgexy_vars_interp_types.size(), 
+                "Requested edge-staggered variable " << varidx << " does not have registered PRs."); 
+        return detail::_edgexy_vars_interp_types[varidx]  ;
+    } else if ( var_staggering == STAG_EDGEXZ ) {
+        ASSERT_DBG( varidx < detail::_edgexz_vars_interp_types.size(), 
+                "Requested edge-staggered variable " << varidx << " does not have registered PRs."); 
+        return detail::_edgexz_vars_interp_types[varidx]  ;
+    } else if ( var_staggering == STAG_EDGEYZ ) {
+        ASSERT_DBG( varidx < detail::_edgeyz_vars_interp_types.size(), 
+                "Requested edge-staggered variable " << varidx << " does not have registered PRs."); 
+        return detail::_edgeyz_vars_interp_types[varidx]  ;
+    } else if ( var_staggering == STAG_CORNER ) {
+        ASSERT_DBG( varidx < detail::_corner_vars_interp_types.size(), 
+                "Requested edge-staggered variable " << varidx << " does not have registered PRs."); 
+        return detail::_corner_vars_interp_types[varidx]  ;
+    } else {
+        ERROR("Unrecognized variable type in get_bc_type.") ; 
+    }
+}
+
 std::string get_var_name(int64_t var_idx, bool is_aux) {
     return is_aux ? detail::_auxnames[var_idx]
                   : detail::_varnames[var_idx] ; 

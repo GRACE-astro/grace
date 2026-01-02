@@ -49,6 +49,9 @@ get_n_auxiliary() ;
 grace::bc_t
 get_bc_type( int64_t var_idx, var_staggering_t const& var_staggering = grace::var_staggering_t::STAG_CENTER)  ;
 
+grace::var_amr_interp_t
+get_interp_type( int64_t var_idx, var_staggering_t const& var_staggering = grace::var_staggering_t::STAG_CENTER)  ;
+
 std::string
 get_var_name(int64_t var_idx, bool is_aux)   ; 
 

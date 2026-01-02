@@ -1,8 +1,8 @@
 /**
- * @file amr_ghosts.cpp
- * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
- * @brief Index fiesta.
- * @date 2025-09-05
+ * @file amr_ghosts_construct_buffers.cpp
+ * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
+ * @brief Helpers for 4th order prolongation and restriction
+ * @date 2026-01-02
  * 
  * @copyright This file is part of of the General Relativistic Astrophysics
  * Code for Exascale.

@@ -45,8 +45,9 @@
 #include <grace/amr/ghostzone_kernels/restrict_kernels.hh>
 #include <grace/amr/ghostzone_kernels/prolongation_kernels.hh>
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
+#include <grace/amr/ghostzone_kernels/pr_helpers.hh>
 
-#include <grace/utils/prolongation.hh>
+
 #include <grace/utils/limiters.hh>
 
 #include <grace/data_structures/memory_defaults.hh>
@@ -151,6 +152,9 @@ make_prolongation_task(
     std::vector<size_t> const& qid, 
     std::vector<size_t> const& cid, 
     std::vector<uint8_t> const& eid,
+    std::vector<size_t> const& varlist_lo,
+    std::vector<size_t> const& varlist_ho,
+    std::vector<double> const& ho_prolong_coeffs,
     std::unordered_set<task_id_t> const& deps,
     device_stream_t& stream,
     task_id_t& task_counter,
@@ -160,38 +164,65 @@ make_prolongation_task(
     std::vector<std::unique_ptr<task_t>>& task_list 
 )
 {
+    using prolong_op_lo = slope_limited_prolong_op<grace::minmod> ; 
+    using prolong_op_ho = fourth_order_prolong_op ; 
+
     GRACE_TRACE("Recording GPU-prolong task (tid {}), number of elements {}", task_counter, qid.size()) ; 
     Kokkos::View<size_t*> qid_d{"qid", qid.size()}; 
     Kokkos::View<size_t*> cid_d{"qid", cid.size()}; 
     Kokkos::View<uint8_t*> eid_d{"eid", eid.size()} ; 
+    Kokkos::View<size_t*> varlist_lo_d{"vlist_lo_prolong", varlist_lo.size()} ; 
+    Kokkos::View<size_t*> varlist_ho_d{"vlist_ho_prolong", varlist_ho.size()} ; 
+    Kokkos::View<double*> ho_prolong_coeffs_d{"prolong_coefficients",ho_prolong_coeffs.size() } ; 
 
     grace::deep_copy_vec_to_view(qid_d,qid) ;
     grace::deep_copy_vec_to_view(cid_d,cid) ;
     grace::deep_copy_vec_to_view(eid_d,eid) ;
+    grace::deep_copy_vec_to_view(varlist_lo_d,varlist_lo) ;
+    grace::deep_copy_vec_to_view(varlist_ho_d,varlist_ho) ;
+    grace::deep_copy_vec_to_view(ho_prolong_coeffs_d,ho_prolong_coeffs) ;
 
     auto exec_space = Kokkos::DefaultExecutionSpace{stream} ; 
 
     gpu_task_t task{} ;
 
-    amr::prolong_op<utils::linear_prolongator_t<grace::minmod>,elem_kind,decltype(coarse_buffers)> 
+    
+    amr::prolong_op<prolong_op_lo,elem_kind,decltype(coarse_buffers)> 
     functor{
        data,
        coarse_buffers,
-       qid_d, cid_d, eid_d, 
+       qid_d, cid_d, eid_d, varlist_lo_d,
+       prolong_op_lo{},
        n, ngz
     } ; 
     
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
         policy{
-            exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,n,nv,qid.size())
+            exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,n,varlist_lo.size(),qid.size())
         } ;
 
-    task._run = [functor,policy] (view_alias_t alias) mutable {
+    amr::prolong_op<prolong_op_ho,elem_kind,decltype(coarse_buffers)> 
+    functor_ho{
+       data,
+       coarse_buffers,
+       qid_d, cid_d, eid_d, varlist_ho_d,
+       prolong_op_ho{ho_prolong_coeffs_d},
+       n, ngz
+    } ; 
+    
+    Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
+        policy_ho{
+            exec_space, {0,0,0,0,0}, amr::get_iter_range<elem_kind>(ngz,n,varlist_ho.size(),qid.size())
+        } ;
+
+    task._run = [functor,functor_ho,policy,policy_ho] (view_alias_t alias) mutable {
         functor.template set_data_ptr<stag>(alias) ; 
+        functor_ho.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE_DBG("Prolong start.") ; 
         #endif 
         Kokkos::parallel_for("prolong_ghostzones", policy, functor) ; 
+        Kokkos::parallel_for("prolong_ghostzones_high_order", policy_ho, functor_ho) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence(); 
         GRACE_TRACE_DBG("Prolong end.");
@@ -217,6 +248,9 @@ template < var_staggering_t stag >
 void insert_prolongation_tasks(
     bucket_t const & prolong_tasks,
     std::vector<quad_neighbors_descriptor_t> & ghost_array, 
+    std::vector<size_t> const& varlist_lo,
+    std::vector<size_t> const& varlist_ho,
+    std::vector<double> const& ho_prolong_coeffs,
     grace::var_array_t state, 
     grace::var_array_t coarse_buffers,
     device_stream_t& stream, 
@@ -378,7 +412,8 @@ void insert_prolongation_tasks(
     if ( qid[FACE].size() > 0 ) 
     {
         tid = make_prolongation_task<FACE, stag>(
-            qid[FACE], cid[FACE], eid[FACE], deps[FACE], 
+            qid[FACE], cid[FACE], eid[FACE], 
+            varlist_lo,varlist_ho,ho_prolong_coeffs,deps[FACE],
             stream, task_counter, state, coarse_buffers,
             nx, nv, ngz, task_list 
         ) ; 
@@ -386,7 +421,8 @@ void insert_prolongation_tasks(
     }
     if ( qid[EDGE].size() > 0 ){
         tid = make_prolongation_task<EDGE, stag>(
-            qid[EDGE], cid[EDGE], eid[EDGE], deps[EDGE], 
+            qid[EDGE], cid[EDGE], eid[EDGE], 
+            varlist_lo,varlist_ho,ho_prolong_coeffs,deps[EDGE], 
             stream, task_counter, state, coarse_buffers,
             nx, nv, ngz, task_list 
         ) ; 
@@ -395,7 +431,8 @@ void insert_prolongation_tasks(
     if ( qid[CORNER].size() > 0 ) 
     {
         tid = make_prolongation_task<CORNER, stag>(
-            qid[CORNER], cid[CORNER], eid[CORNER], deps[CORNER], 
+            qid[CORNER], cid[CORNER], eid[CORNER], 
+            varlist_lo,varlist_ho,ho_prolong_coeffs,deps[CORNER], 
             stream, task_counter, state, coarse_buffers,
             nx, nv, ngz, task_list 
         ) ; 

@@ -35,21 +35,24 @@
 
 #include <grace/amr/ghostzone_kernels/index_helpers.hh>
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
+#include <grace/amr/ghostzone_kernels/pr_helpers.hh>
 #include <grace/utils/limiters.hh>
 
 #include <Kokkos_Core.hpp>
 
 namespace grace { namespace amr {
 
-
-template< typename interpolator, element_kind_t elem_kind, typename view_t > 
+template< typename interpolator_t, element_kind_t elem_kind, typename view_t > 
 struct prolong_op {
 
     view_t view, cbuf ; 
     readonly_view_t<size_t> view_qid, cbuf_qid ; 
     readonly_view_t<uint8_t> eid ; 
+    readonly_view_t<size_t> var_idx ;
 
     index_transformer_t transf; 
+
+    interpolator_t op ; //!< Must be copiable to device
 
     template< var_staggering_t stag >
     void set_data_ptr(view_alias_t alias) 
@@ -62,21 +65,28 @@ struct prolong_op {
         Kokkos::View<size_t*> _view_qid,
         Kokkos::View<size_t*> _cbuf_qid,
         Kokkos::View<uint8_t*> _eid,
+        Kokkos::View<size_t*> _vidx,
+        interpolator_t _op,
         size_t n, size_t ngz 
     ) : view(_view), cbuf(_cbuf)
       , view_qid(_view_qid)
       , cbuf_qid(_cbuf_qid)
       , eid(_eid)
+      , var_idx(_vidx)
       , transf(n,n,n,ngz,STAG_CENTER)
+      , op(_op)
     {} 
 
     // this loop goes full nx 
     KOKKOS_INLINE_FUNCTION
-    void operator() (size_t i, size_t j, size_t k, size_t iv, size_t iq) const 
+    void operator() (size_t i, size_t j, size_t k, size_t vidx, size_t iq) const 
     {
+        using namespace Kokkos ; 
+
         auto qid = view_qid(iq) ; 
         auto cid = cbuf_qid(iq) ; 
         auto e_id = eid(iq) ; 
+        auto iv = var_idx(vidx) ;
 
         // transform
         size_t i_c,j_c,k_c ; 
@@ -90,16 +100,13 @@ struct prolong_op {
         ) ;
 
         int signs[] = {
-            i_f%2 ? +1 : -1,
-            j_f%2 ? +1 : -1,
-            k_f%2 ? +1 : -1
+            i_f%2 ? interpolator_t::up_cell_flag : interpolator_t::low_cell_flag,
+            j_f%2 ? interpolator_t::up_cell_flag : interpolator_t::low_cell_flag,
+            k_f%2 ? interpolator_t::up_cell_flag : interpolator_t::low_cell_flag,
         } ; 
-        view(VEC(i_f,j_f,k_f),iv,qid) = interpolator::interpolate(
-                                            VEC(i_c,j_c,k_c),
-                                            cid,iv, 
-                                            VEC(signs[0],signs[1],signs[2]),
-                                            cbuf
-                                        ) ; 
+
+        auto u = subview(cbuf, ALL(),ALL(),ALL(), iv, cid) ; 
+        view(VEC(i_f,j_f,k_f),iv,qid) = op( u, VEC(i_c,j_c,k_c),VEC(signs[0],signs[1],signs[2]) ) ; 
 
     }
 
