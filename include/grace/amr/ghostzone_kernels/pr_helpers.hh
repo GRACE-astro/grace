@@ -71,14 +71,15 @@ struct slope_limited_prolong_op {
 	}
 } ; 
 
-struct fourth_order_prolong_op {
+template< size_t order >
+struct lagrange_prolong_op {
 
 	static constexpr int low_cell_flag = 0 ; 
 	static constexpr int up_cell_flag  = 1 ; 
 
     readonly_view_t<double> coeffs ; //!< Interp coefficients
 
-	fourth_order_prolong_op(
+	lagrange_prolong_op(
 		Kokkos::View<double*, grace::default_space> _coeffs
 	) : coeffs(_coeffs) {} 
 
@@ -95,31 +96,24 @@ struct fourth_order_prolong_op {
         int cj = bj - 2 ;
         int ck = bk - 2 ; 
 
+        size_t oi = (order+1)*bi ; 
+        size_t oj = (order+1)*bj ; 
+        size_t ok = (order+1)*bk ; 
+
         double res = 0 ; 
         #pragma unroll 16
-        for (int dd = 0; dd < 64; ++dd) {
+        for (int dd = 0; dd < (order+1)*(order+1); ++dd) {
             int di = dd & 3;
             int dj = (dd >> 2) & 3;
             int dk = (dd >> 4);
 
-            // Mirror the coefficient access based on the fine-cell sub-index
-            // If bi == 1, we read 0,1,2,3. If bi == 0, we read 3,2,1,0.
-            // by convention, bi == 0 for the cell which sits below the coarse
-            // center 
-            int r_di = bi ? (3-di) : di;
-            int r_dj = bj ? (3-dj) : dj;
-            int r_dk = bk ? (3-dk) : dk;
+            double coeff = coeffs(oi+di) * coeffs(oj+dj) * coeffs(ok+dk) ; 
 
-            res += coeffs(fold_index(r_di,r_dj,r_dk)) * u(i+di+ci,j+dj+cj,k+dk+ck) ; 
+            res += coeff * u(i+di+ci,j+dj+cj,k+dk+ck) ; 
         }
         return res ; 
     }
 
-    size_t KOKKOS_INLINE_FUNCTION 
-    fold_index(int i, int j, int k) const 
-    {
-        return i + 4 * ( j + 4 * (k)) ; 
-    }
 } ; 
 
 struct second_order_restrict_op {
@@ -139,7 +133,8 @@ struct second_order_restrict_op {
 	}
 } ; 
 
-struct fourth_order_restrict_op {
+template< size_t order >
+struct lagrange_restrict_op {
 
     enum stencil_repr_t : int {
         L2=0, L1, CENTER, R1, R2
@@ -148,7 +143,7 @@ struct fourth_order_restrict_op {
     readonly_view_t<double> coeffs ; //!< Interp coefficients
     int nx,ny,nz,ngz; //!< Number of cells and ghostzones
 
-	fourth_order_restrict_op(
+	lagrange_restrict_op(
 		Kokkos::View<double*, grace::default_space> _coeffs,
 		int _nx, int _ny, int _nz, int _ngz 
 	) : coeffs(_coeffs), nx(_nx), ny(_ny), nz(_nz), ngz(_ngz) {}
@@ -165,26 +160,24 @@ struct fourth_order_restrict_op {
     operator() (view_t u, int i, int j, int k) const
     {
         // first we need to determine the stencil 
-        int ox = compute_offset(i,nx);
-        int oy = compute_offset(j,ny);
-        int oz = compute_offset(k,nz);
+        int ox = compute_offset(i,nx) * (order+1);
+        int oy = compute_offset(j,ny) * (order+1);
+        int oz = compute_offset(k,nz) * (order+1);
 
-        int cx = ox-3;
-        int cy = oy-3;
-        int cz = oz-3;
+        int cx = ox-2;
+        int cy = oy-2;
+        int cz = oz-2;
 
         double res=0; 
-
-        size_t const base_offset = 64 * (ox + 5 * (oy + 5 * oz)); 
-
         // maybe too much unrolling..
         #pragma unroll 16 
-        for ( int dd=0; dd<64; ++dd) {
+        for ( int dd=0; dd<(order+1)*(order+1); ++dd) {
             int di = dd & 3;          // dd % 4
             int dj = (dd >> 2) & 3;   // (dd / 4) % 4
             int dk = (dd >> 4);       // dd / 16
 
-            res += coeffs(dd+base_offset) * u(i+di+cx,j+dj+cy,k+dk+cz) ; 
+            double coeff = coeffs(ox+di) * coeffs(oy+dj) * coeffs(oz+dk) ; 
+            res += coeff * u(i+di+cx,j+dj+cy,k+dk+cz) ; 
         }
 
         return res ; 
@@ -195,10 +188,11 @@ struct fourth_order_restrict_op {
     int compute_offset(int pos, int n) const {
         int lb = pos - ngz;
         int ub = n + ngz - pos - 1;
-
-        if (lb < 2) return (lb == 0) ? stencil_repr_t::R2 : stencil_repr_t::R1;
-        if (ub < 2) return (ub == 0) ? stencil_repr_t::L2 : stencil_repr_t::L1;
-        return stencil_repr_t::CENTER;
+        if constexpr (order==3) {
+            if (lb == 0) return 2;
+            if (ub == 1) return 0;
+            return 1 ;
+        } 
     }
 } ; 
 

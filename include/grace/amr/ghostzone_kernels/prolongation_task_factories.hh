@@ -165,7 +165,7 @@ make_prolongation_task(
 )
 {
     using prolong_op_lo = slope_limited_prolong_op<grace::minmod> ; 
-    using prolong_op_ho = fourth_order_prolong_op ; 
+    using prolong_op_ho = lagrange_prolong_op<3> ; 
 
     GRACE_TRACE("Recording GPU-prolong task (tid {}), number of elements {}", task_counter, qid.size()) ; 
     Kokkos::View<size_t*> qid_d{"qid", qid.size()}; 

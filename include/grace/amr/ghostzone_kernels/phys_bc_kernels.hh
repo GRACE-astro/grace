@@ -295,6 +295,62 @@ struct phys_bc_op {
         }
     };
 
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    KOKKOS_INLINE_FUNCTION 
+    void impose_algebraic_constraintz_z4c(const int ijk[3], size_t qid) const {
+        auto sv = Kokkos::subview(
+            data, 
+            ijk[0],ijk[1],ijk[2],
+            Kokkos::ALL(), qid
+        );
+        double gtxx = sv(GTXX_+0);
+        double gtxy = sv(GTXX_+1);
+        double gtxz = sv(GTXX_+2);
+        double gtyy = sv(GTXX_+3);
+        double gtyz = sv(GTXX_+4);
+        double gtzz = sv(GTXX_+5);
+
+        double const detgt     = -(gtxz*gtxz*gtyy) + 2*gtxy*gtxz*gtyz - gtxx*(gtyz*gtyz) - gtxy*gtxy*gtzz + gtxx*gtyy*gtzz;
+        double const cbrtdetgt = Kokkos::cbrt(detgt);
+
+        gtxx/=cbrtdetgt;
+        gtxy/=cbrtdetgt;
+        gtxz/=cbrtdetgt;
+        gtyy/=cbrtdetgt;
+        gtyz/=cbrtdetgt;
+        gtzz/=cbrtdetgt;
+
+        double const gtXX=(-(gtyz*gtyz) + gtyy*gtzz)/detgt ;
+        double const gtXY=(gtxz*gtyz - gtxy*gtzz)/detgt    ;
+        double const gtXZ=(-(gtxz*gtyy) + gtxy*gtyz)/detgt ;
+        double const gtYY=(-(gtxz*gtxz) + gtxx*gtzz)/detgt ;
+        double const gtYZ=(gtxy*gtxz - gtxx*gtyz)/detgt    ;
+        double const gtZZ=(-(gtxy*gtxy) + gtxx*gtyy)/detgt ; 
+
+        double const Atxx = sv(ATXX_+0);
+        double const Atxy = sv(ATXX_+1);
+        double const Atxz = sv(ATXX_+2);
+        double const Atyy = sv(ATXX_+3);
+        double const Atyz = sv(ATXX_+4);
+        double const Atzz = sv(ATXX_+5);
+
+        double const ATR = Atxx*gtXX + 2*Atxy*gtXY + 2*Atxz*gtXZ + Atyy*gtYY + 2*Atyz*gtYZ + Atzz*gtZZ ; 
+        
+        sv(ATXX_+0) -= 1./3. * gtxx * ATR ; 
+        sv(ATXX_+1) -= 1./3. * gtxy * ATR ; 
+        sv(ATXX_+2) -= 1./3. * gtxz * ATR ; 
+        sv(ATXX_+3) -= 1./3. * gtyy * ATR ; 
+        sv(ATXX_+4) -= 1./3. * gtyz * ATR ; 
+        sv(ATXX_+5) -= 1./3. * gtzz * ATR ; 
+
+        sv(GTXX_+0) = gtxx ; 
+        sv(GTXX_+1) = gtxy ; 
+        sv(GTXX_+2) = gtxz ; 
+        sv(GTXX_+3) = gtyy ; 
+        sv(GTXX_+4) = gtyz ; 
+        sv(GTXX_+5) = gtzz ; 
+    }
+    #endif 
 
     KOKKOS_INLINE_FUNCTION 
     void apply_bc_impl(int iv, const int ijk[3], const int8_t _dir[3], size_t qid) const {
@@ -383,6 +439,9 @@ struct phys_bc_op {
                         for( int iv=0; iv<nv; ++iv) {
                             apply_bc_impl(iv,ijk,_dir,_qid) ; 
                         }
+                        #ifdef GRACE_ENABLE_Z4C_METRIC
+                        impose_algebraic_constraintz_z4c(ijk,_qid) ; 
+                        #endif 
                     }
                 } 
             ) ; 
@@ -400,6 +459,9 @@ struct phys_bc_op {
                         for( int iv=0; iv<nv; ++iv) {
                             apply_bc_impl(iv,ijk,_dir,_qid) ; 
                         }
+                        #ifdef GRACE_ENABLE_Z4C_METRIC
+                        impose_algebraic_constraintz_z4c(ijk,_qid) ; 
+                        #endif 
                     }
                 } 
             ) ;
@@ -408,10 +470,13 @@ struct phys_bc_op {
             for (int kg = lmin[2]; kg != lmax[2]; kg += idir[2])
             for (int jg = lmin[1]; jg != lmax[1]; jg += idir[1])
             for (int ig = lmin[0]; ig != lmax[0]; ig += idir[0]) {
+                int ijk[3] = {ig,jg,kg} ; 
                 for( int iv=0; iv<nv; ++iv) {
-                    int ijk[3] = {ig,jg,kg} ; 
                     apply_bc_impl(iv,ijk,_dir,_qid) ; 
                 }
+                #ifdef GRACE_ENABLE_Z4C_METRIC
+                impose_algebraic_constraintz_z4c(ijk,_qid) ; 
+                #endif 
             }
         }       
         
