@@ -176,11 +176,13 @@ struct z4c_system_t
         dchi   += epsdiss * kreiss_olinger_operator(i,j,k,q,CHI_,idx) ;  
         dKhat  += epsdiss * kreiss_olinger_operator(i,j,k,q,KHAT_,idx) ;
         dalp   += epsdiss * kreiss_olinger_operator(i,j,k,q,ALP_,idx) ;
+        #if 0
         #pragma unroll 6
         for(int icomp=0; icomp<6; ++icomp) {
             dgtdd[icomp] += epsdiss * kreiss_olinger_operator(i,j,k,q,GTXX_+icomp,idx) ;  
             dAtdd[icomp] += epsdiss * kreiss_olinger_operator(i,j,k,q,ATXX_+icomp,idx) ;  
         } 
+        #endif 
         # pragma unroll 3
         for(int icomp=0; icomp<3; ++icomp) {
             dbetau[icomp]  += epsdiss * kreiss_olinger_operator(i,j,k,q,BETAX_+icomp,idx) ;  
@@ -295,6 +297,7 @@ struct z4c_system_t
     double KOKKOS_INLINE_FUNCTION
     kreiss_olinger_operator(int i, int j, int k, int q, int iv, double idx[3]) const 
     {
+        // Eq 63 of https://arxiv.org/pdf/gr-qc/0610128 with r = 3 
         using namespace Kokkos ; 
         auto u = subview(this->_state,ALL(),ALL(),ALL(),iv,q) ; 
         double const dudx = (u(i-3,j,k) - 6*u(i-2,j,k) + 15*u(i-1,j,k) - 20*u(i,j,k) + 15*u(i+1,j,k) - 6*u(i+2,j,k) + u(i+3,j,k))*idx[0] ; 
@@ -307,46 +310,46 @@ struct z4c_system_t
     impose_algebraic_constraints(grace::var_array_t state, VEC(int i, int j, int k), int q) const 
     {
         /* First impose the det(gtilde) = 1 constraint */
-        double const gtxx = state(VEC(i,j,k),GTXX_+0,q);
-        double const gtxy = state(VEC(i,j,k),GTXX_+1,q);
-        double const gtxz = state(VEC(i,j,k),GTXX_+2,q);
-        double const gtyy = state(VEC(i,j,k),GTXX_+3,q);
-        double const gtyz = state(VEC(i,j,k),GTXX_+4,q);
-        double const gtzz = state(VEC(i,j,k),GTXX_+5,q);
+        double * gtxx = &(state(VEC(i,j,k),GTXX_+0,q));
+        double * gtxy = &(state(VEC(i,j,k),GTXX_+1,q));
+        double * gtxz = &(state(VEC(i,j,k),GTXX_+2,q));
+        double * gtyy = &(state(VEC(i,j,k),GTXX_+3,q));
+        double * gtyz = &(state(VEC(i,j,k),GTXX_+4,q));
+        double * gtzz = &(state(VEC(i,j,k),GTXX_+5,q));
 
-        double const detgt     = -(gtxz*gtxz*gtyy) + 2*gtxy*gtxz*gtyz - gtxx*(gtyz*gtyz) - gtxy*gtxy*gtzz + gtxx*gtyy*gtzz;
+        double const detgt     = -((*gtxz)*(*gtxz)*(*gtyy)) + 2*(*gtxy)*(*gtxz)*(*gtyz) - (*gtxx)*((*gtyz)*(*gtyz)) - (*gtxy)*(*gtxy)*(*gtzz) + (*gtxx)*(*gtyy)*(*gtzz);
         double const cbrtdetgt = Kokkos::cbrt(detgt);
 
-        state(VEC(i,j,k),GTXX_+0,q) /= cbrtdetgt ; 
-        state(VEC(i,j,k),GTXX_+1,q) /= cbrtdetgt ; 
-        state(VEC(i,j,k),GTXX_+2,q) /= cbrtdetgt ; 
-        state(VEC(i,j,k),GTXX_+3,q) /= cbrtdetgt ; 
-        state(VEC(i,j,k),GTXX_+4,q) /= cbrtdetgt ; 
-        state(VEC(i,j,k),GTXX_+5,q) /= cbrtdetgt ; 
+        (*gtxx) /= cbrtdetgt ; 
+        (*gtxy) /= cbrtdetgt ; 
+        (*gtxz) /= cbrtdetgt ; 
+        (*gtyy) /= cbrtdetgt ; 
+        (*gtyz) /= cbrtdetgt ; 
+        (*gtzz) /= cbrtdetgt ; 
 
         /* And the trace-free Aij constraint next */
-        double const gtXX=(-(gtyz*gtyz) + gtyy*gtzz)/detgt ;
-        double const gtXY=(gtxz*gtyz - gtxy*gtzz)/detgt    ;
-        double const gtXZ=(-(gtxz*gtyy) + gtxy*gtyz)/detgt ;
-        double const gtYY=(-(gtxz*gtxz) + gtxx*gtzz)/detgt ;
-        double const gtYZ=(gtxy*gtxz - gtxx*gtyz)/detgt    ;
-        double const gtZZ=(-(gtxy*gtxy) + gtxx*gtyy)/detgt ; 
+        double const gtXX=(-((*gtyz)*(*gtyz)) + (*gtyy)*(*gtzz)) ;
+        double const gtXY=((*gtxz)*(*gtyz) - (*gtxy)*(*gtzz))    ;
+        double const gtXZ=(-((*gtxz)*(*gtyy)) + (*gtxy)*(*gtyz)) ;
+        double const gtYY=(-((*gtxz)*(*gtxz)) + (*gtxx)*(*gtzz)) ;
+        double const gtYZ=((*gtxy)*(*gtxz) - (*gtxx)*(*gtyz))     ;
+        double const gtZZ=(-((*gtxy)*(*gtxy)) + (*gtxx)*(*gtyy)) ; 
 
-        double const Atxx = state(VEC(i,j,k),ATXX_+0,q);
-        double const Atxy = state(VEC(i,j,k),ATXX_+1,q);
-        double const Atxz = state(VEC(i,j,k),ATXX_+2,q);
-        double const Atyy = state(VEC(i,j,k),ATXX_+3,q);
-        double const Atyz = state(VEC(i,j,k),ATXX_+4,q);
-        double const Atzz = state(VEC(i,j,k),ATXX_+5,q);
+        double * Atxx = &(state(VEC(i,j,k),ATXX_+0,q));
+        double * Atxy = &(state(VEC(i,j,k),ATXX_+1,q));
+        double * Atxz = &(state(VEC(i,j,k),ATXX_+2,q));
+        double * Atyy = &(state(VEC(i,j,k),ATXX_+3,q));
+        double * Atyz = &(state(VEC(i,j,k),ATXX_+4,q));
+        double * Atzz = &(state(VEC(i,j,k),ATXX_+5,q));
 
-        double const ATR = Atxx*gtXX + 2*Atxy*gtXY + 2*Atxz*gtXZ + Atyy*gtYY + 2*Atyz*gtYZ + Atzz*gtZZ ; 
-        
-        state(VEC(i,j,k),ATXX_+0,q) -= 1./3. * state(VEC(i,j,k),GTXX_+0,q) * ATR ; 
-        state(VEC(i,j,k),ATXX_+1,q) -= 1./3. * state(VEC(i,j,k),GTXX_+1,q) * ATR ; 
-        state(VEC(i,j,k),ATXX_+2,q) -= 1./3. * state(VEC(i,j,k),GTXX_+2,q) * ATR ; 
-        state(VEC(i,j,k),ATXX_+3,q) -= 1./3. * state(VEC(i,j,k),GTXX_+3,q) * ATR ; 
-        state(VEC(i,j,k),ATXX_+4,q) -= 1./3. * state(VEC(i,j,k),GTXX_+4,q) * ATR ; 
-        state(VEC(i,j,k),ATXX_+5,q) -= 1./3. * state(VEC(i,j,k),GTXX_+5,q) * ATR ; 
+        double const ATR = (*Atxx)*gtXX + 2*(*Atxy)*gtXY + 2*(*Atxz)*gtXZ + (*Atyy)*gtYY + 2*(*Atyz)*gtYZ + (*Atzz)*gtZZ ; 
+        double const corr = -1./3. * ATR ; 
+        *Atxx += corr * (*gtxx) ; 
+        *Atxy += corr * (*gtxy) ; 
+        *Atxz += corr * (*gtxz) ; 
+        *Atyy += corr * (*gtyy) ; 
+        *Atyz += corr * (*gtyz) ; 
+        *Atzz += corr * (*gtzz) ; 
 
     }
 

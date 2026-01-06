@@ -100,7 +100,7 @@ make_gpu_phys_bc_task(
 
     auto const off = get_index_staggerings(stag) ; 
     amr::phys_bc_op<elem_kind,bc_kind,decltype(data_array)> functor{
-       data_array, data_array, idx, coords, qid_d, eid_d, dir_d, var_bc, VEC(nx+off[0],ny+off[1],nz+off[2]),ngz, nv, is_cbuf
+       data_array, data_array, idx, coords, qid_d, eid_d, dir_d, var_bc, VEC(nx+off[0],ny+off[1],nz+off[2]),ngz, nv, is_cbuf, stag
     } ; 
     
     Kokkos::TeamPolicy

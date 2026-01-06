@@ -198,7 +198,7 @@ static void check()
             ) ; 
             double ground_truth = (pcoords[0]  * (SQR(pcoords[1])-1.333*SQR(pcoords[2])));
             double check = fabs(emf_h(i,j,k,0,q) - (pcoords[0]  * (SQR(pcoords[1])-1.333*SQR(pcoords[2]))));
-            if ( check > 1e-10 ) {
+            if ( check > 1e-10 * fabs(ground_truth)) {
                 GRACE_VERBOSE("Issue (E^x) at i {} j {} k {} q {} target {} actual {}", 
                     i,j,k,q, (pcoords[0]  * (SQR(pcoords[1])-1.333*SQR(pcoords[2]))),emf_h(i,j,k,0,q));
             }
@@ -207,7 +207,7 @@ static void check()
         }, {false,true,true}, true 
     ) ; 
 
-    grace::host_grid_loop<true>(
+    grace::host_grid_loop<false>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             std::array<double,3> lcoord {0.,0.5,0.} ; 
             auto pcoords = coord_system.get_physical_coordinates(
@@ -215,7 +215,7 @@ static void check()
             ) ; 
             double ground_truth = (pcoords[1] * (SQR(pcoords[0])-4.333*pcoords[2]));
             double check = fabs(emf_h(i,j,k,1,q) - (pcoords[1] * (SQR(pcoords[0])-4.333*pcoords[2])));
-            if ( check > 1e-10 ) {
+            if ( check > 1e-10* fabs(ground_truth) ) {
                 GRACE_VERBOSE("Issue (E^y) at i {} j {} k {} q {} target {} actual {}", 
                     i,j,k,q, (pcoords[1] * (SQR(pcoords[0])-4.333*pcoords[2])),emf_h(i,j,k,1,q));
             }
@@ -224,15 +224,15 @@ static void check()
         }, {true,false,true}, true 
     ) ;
 
-    grace::host_grid_loop<true>(
+    grace::host_grid_loop<false>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
             std::array<double,3> lcoord {0.,0.,0.5} ; 
             auto pcoords = coord_system.get_physical_coordinates(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
-            double ground_truth = (pcoords[1] * (pcoords[2] * (SQR(pcoords[0])+pcoords[1])));
+            double ground_truth = (pcoords[2] * (SQR(pcoords[0])+pcoords[1]));
             double check = fabs(emf_h(i,j,k,2,q) - (pcoords[2] * (SQR(pcoords[0])+pcoords[1])));
-            if ( check > 1e-10 ) {
+            if ( check > 1e-10 * fabs(ground_truth) ) {
                 GRACE_VERBOSE("Issue (E^z) at i {} j {} k {} q {} target {} actual {}", 
                     i,j,k,q, (pcoords[2] * (SQR(pcoords[0])+pcoords[1])),emf_h(i,j,k,2,q));
             }
@@ -250,6 +250,7 @@ TEST_CASE("Test_EMF_REFLUX", "[refluxing]")
     
     setup_initial_emf() ; 
     auto context = reflux_fill_emf_buffers() ; 
+    Kokkos::fence() ; 
     reflux_correct_emfs(context) ;
     check() ; 
 }

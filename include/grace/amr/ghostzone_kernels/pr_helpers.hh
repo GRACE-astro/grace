@@ -102,7 +102,7 @@ struct lagrange_prolong_op {
 
         double res = 0 ; 
         #pragma unroll 16
-        for (int dd = 0; dd < (order+1)*(order+1); ++dd) {
+        for (int dd = 0; dd < (order+1)*(order+1)*(order+1); ++dd) {
             int di = dd & 3;
             int dj = (dd >> 2) & 3;
             int dk = (dd >> 4);
@@ -160,23 +160,27 @@ struct lagrange_restrict_op {
     operator() (view_t u, int i, int j, int k) const
     {
         // first we need to determine the stencil 
-        int ox = compute_offset(i,nx) * (order+1);
-        int oy = compute_offset(j,ny) * (order+1);
-        int oz = compute_offset(k,nz) * (order+1);
+        int ox = compute_offset(i,nx) ;
+        int oy = compute_offset(j,ny) ;
+        int oz = compute_offset(k,nz) ;
 
         int cx = ox-2;
         int cy = oy-2;
         int cz = oz-2;
 
+        int off_i = (order+1)*ox ; 
+        int off_j = (order+1)*oy ; 
+        int off_k = (order+1)*oz ; 
+
         double res=0; 
         // maybe too much unrolling..
         #pragma unroll 16 
-        for ( int dd=0; dd<(order+1)*(order+1); ++dd) {
+        for ( int dd=0; dd<(order+1)*(order+1)*(order+1); ++dd) {
             int di = dd & 3;          // dd % 4
             int dj = (dd >> 2) & 3;   // (dd / 4) % 4
             int dk = (dd >> 4);       // dd / 16
 
-            double coeff = coeffs(ox+di) * coeffs(oy+dj) * coeffs(oz+dk) ; 
+            double coeff = coeffs(off_i+di) * coeffs(off_j+dj) * coeffs(off_k+dk) ; 
             res += coeff * u(i+di+cx,j+dj+cy,k+dk+cz) ; 
         }
 

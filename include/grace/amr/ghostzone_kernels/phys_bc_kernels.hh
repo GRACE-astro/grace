@@ -99,14 +99,13 @@ struct sommerfeld_bc_t
             VEC( size_t nx, size_t ny, size_t nz), size_t ngz 
         ) const
       {
-        #if 1
         double dudx,dudy,dudz; 
         if ( dx>0 ) {
             fd_der_2_x_l1(view_p,i,j,k,invh,&dudx) ; 
         } else if ( dx<0 ) {
             fd_der_2_x_r1(view_p,i,j,k,invh,&dudx) ; 
         } else {
-            if ( i > 0 and i < nx + 2*ngz - 2 ) {
+            if ( i > 0 and i < nx + 2*ngz - 1 ) {
                 fd_der_2_x(view_p,i,j,k,invh,&dudx) ; 
             } else if ( i == 0 ) {
                 fd_der_2_x_r1(view_p,i,j,k,invh,&dudx) ; 
@@ -119,7 +118,7 @@ struct sommerfeld_bc_t
         } else if ( dy<0 ) {
             fd_der_2_y_r1(view_p,i,j,k,invh,&dudy) ; 
         } else {
-            if ( j > 0 and j < ny + 2*ngz - 2 ) {
+            if ( j > 0 and j < ny + 2*ngz - 1 ) {
                 fd_der_2_y(view_p,i,j,k,invh,&dudy) ;  
             } else if ( j ==  0 ) {
                 fd_der_2_y_r1(view_p,i,j,k,invh,&dudy) ; 
@@ -132,7 +131,7 @@ struct sommerfeld_bc_t
         } else if ( dz<0 ) {
             fd_der_2_z_r1(view_p,i,j,k,invh,&dudz) ; 
         } else {
-            if ( k > 0 and k < nz + 2*ngz - 2 ) {
+            if ( k > 0 and k < nz + 2*ngz - 1 ) {
                 fd_der_2_z(view_p,i,j,k,invh,&dudz) ;  
             } else if ( k == 0 ) {
                 fd_der_2_z_r1(view_p,i,j,k,invh,&dudz) ; 
@@ -140,9 +139,8 @@ struct sommerfeld_bc_t
                 fd_der_2_z_l1(view_p,i,j,k,invh,&dudz) ; 
             }
         }
-        double dudt = -v*(s[0]*dudx + s[1]*dudy + s[2]*dudz) + (f0 - view(i,j,k))*v/r;
+        double dudt = -v*(s[0]*dudx + s[1]*dudy + s[2]*dudz) + (f0-view_p(i,j,k))*v/r;
         view(i,j,k) += dudt * dt * dtfact ;  // dt should be passed in
-        #endif 
       }; 
 } ; 
 
@@ -186,6 +184,8 @@ struct phys_bc_op {
 
     bool is_cbuf ; //!< If the data is cbuf set_data_ptr **must** be no-op
 
+    var_staggering_t stag ; 
+
     // only one view involved, if nx needs to be 
     // halved, just do it here 
     size_t nx, ny, nz, ngz, nv ; 
@@ -215,10 +215,10 @@ struct phys_bc_op {
         view_t _data, view_t _data_p, scalar_array_t<GRACE_NSPACEDIM> _dx, device_coordinate_system _coords,
         Kokkos::View<size_t*> _qid, Kokkos::View<uint8_t*> _eid, 
         Kokkos::View<int8_t*[3]> _dir, Kokkos::View<bc_t*> _var_bcs, 
-         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, size_t _nv, bool _is_cbuf
+         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, size_t _nv, bool _is_cbuf, var_staggering_t _stag
     ) : qid(_qid),  eid(_eid), dir(_dir), var_bcs(_var_bcs), dx(_dx), coords(_coords),
         data(_data), data_p(_data_p),
-        nx(_nx), ny(_ny), nz(_nz), ngz(_ngz), nv(_nv), is_cbuf(_is_cbuf)
+        nx(_nx), ny(_ny), nz(_nz), ngz(_ngz), nv(_nv), is_cbuf(_is_cbuf), stag(_stag)
     {
         outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ; sommerfeld_kernel = sommerfeld_bc_t{} ;
     }
@@ -303,12 +303,12 @@ struct phys_bc_op {
             ijk[0],ijk[1],ijk[2],
             Kokkos::ALL(), qid
         );
-        double gtxx = sv(GTXX_+0);
-        double gtxy = sv(GTXX_+1);
-        double gtxz = sv(GTXX_+2);
-        double gtyy = sv(GTXX_+3);
-        double gtyz = sv(GTXX_+4);
-        double gtzz = sv(GTXX_+5);
+        double gtxx = sv(GTXX_);
+        double gtxy = sv(GTXY_);
+        double gtxz = sv(GTXZ_);
+        double gtyy = sv(GTYY_);
+        double gtyz = sv(GTYZ_);
+        double gtzz = sv(GTZZ_);
 
         double const detgt     = -(gtxz*gtxz*gtyy) + 2*gtxy*gtxz*gtyz - gtxx*(gtyz*gtyz) - gtxy*gtxy*gtzz + gtxx*gtyy*gtzz;
         double const cbrtdetgt = Kokkos::cbrt(detgt);
@@ -320,35 +320,35 @@ struct phys_bc_op {
         gtyz/=cbrtdetgt;
         gtzz/=cbrtdetgt;
 
-        double const gtXX=(-(gtyz*gtyz) + gtyy*gtzz)/detgt ;
-        double const gtXY=(gtxz*gtyz - gtxy*gtzz)/detgt    ;
-        double const gtXZ=(-(gtxz*gtyy) + gtxy*gtyz)/detgt ;
-        double const gtYY=(-(gtxz*gtxz) + gtxx*gtzz)/detgt ;
-        double const gtYZ=(gtxy*gtxz - gtxx*gtyz)/detgt    ;
-        double const gtZZ=(-(gtxy*gtxy) + gtxx*gtyy)/detgt ; 
+        double const gtXX=(-(gtyz*gtyz) + gtyy*gtzz) ;
+        double const gtXY=(gtxz*gtyz - gtxy*gtzz)    ;
+        double const gtXZ=(-(gtxz*gtyy) + gtxy*gtyz) ;
+        double const gtYY=(-(gtxz*gtxz) + gtxx*gtzz) ;
+        double const gtYZ=(gtxy*gtxz - gtxx*gtyz)    ;
+        double const gtZZ=(-(gtxy*gtxy) + gtxx*gtyy) ; 
 
-        double const Atxx = sv(ATXX_+0);
-        double const Atxy = sv(ATXX_+1);
-        double const Atxz = sv(ATXX_+2);
-        double const Atyy = sv(ATXX_+3);
-        double const Atyz = sv(ATXX_+4);
-        double const Atzz = sv(ATXX_+5);
+        double const Atxx = sv(ATXX_);
+        double const Atxy = sv(ATXY_);
+        double const Atxz = sv(ATXZ_);
+        double const Atyy = sv(ATYY_);
+        double const Atyz = sv(ATYZ_);
+        double const Atzz = sv(ATZZ_);
 
         double const ATR = Atxx*gtXX + 2*Atxy*gtXY + 2*Atxz*gtXZ + Atyy*gtYY + 2*Atyz*gtYZ + Atzz*gtZZ ; 
         
-        sv(ATXX_+0) -= 1./3. * gtxx * ATR ; 
-        sv(ATXX_+1) -= 1./3. * gtxy * ATR ; 
-        sv(ATXX_+2) -= 1./3. * gtxz * ATR ; 
-        sv(ATXX_+3) -= 1./3. * gtyy * ATR ; 
-        sv(ATXX_+4) -= 1./3. * gtyz * ATR ; 
-        sv(ATXX_+5) -= 1./3. * gtzz * ATR ; 
+        sv(ATXX_) -= 1./3. * gtxx * ATR ; 
+        sv(ATXY_) -= 1./3. * gtxy * ATR ; 
+        sv(ATXZ_) -= 1./3. * gtxz * ATR ; 
+        sv(ATYY_) -= 1./3. * gtyy * ATR ; 
+        sv(ATYZ_) -= 1./3. * gtyz * ATR ; 
+        sv(ATZZ_) -= 1./3. * gtzz * ATR ; 
 
-        sv(GTXX_+0) = gtxx ; 
-        sv(GTXX_+1) = gtxy ; 
-        sv(GTXX_+2) = gtxz ; 
-        sv(GTXX_+3) = gtyy ; 
-        sv(GTXX_+4) = gtyz ; 
-        sv(GTXX_+5) = gtzz ; 
+        sv(GTXX_) = gtxx ; 
+        sv(GTXY_) = gtxy ; 
+        sv(GTXZ_) = gtxz ; 
+        sv(GTYY_) = gtyy ; 
+        sv(GTYZ_) = gtyz ; 
+        sv(GTZZ_) = gtzz ; 
     }
     #endif 
 
@@ -440,7 +440,7 @@ struct phys_bc_op {
                             apply_bc_impl(iv,ijk,_dir,_qid) ; 
                         }
                         #ifdef GRACE_ENABLE_Z4C_METRIC
-                        impose_algebraic_constraintz_z4c(ijk,_qid) ; 
+                        if (stag==var_staggering_t::STAG_CENTER) impose_algebraic_constraintz_z4c(ijk,_qid) ; 
                         #endif 
                     }
                 } 
@@ -460,7 +460,7 @@ struct phys_bc_op {
                             apply_bc_impl(iv,ijk,_dir,_qid) ; 
                         }
                         #ifdef GRACE_ENABLE_Z4C_METRIC
-                        impose_algebraic_constraintz_z4c(ijk,_qid) ; 
+                        if (stag==var_staggering_t::STAG_CENTER) impose_algebraic_constraintz_z4c(ijk,_qid) ; 
                         #endif 
                     }
                 } 
@@ -475,7 +475,7 @@ struct phys_bc_op {
                     apply_bc_impl(iv,ijk,_dir,_qid) ; 
                 }
                 #ifdef GRACE_ENABLE_Z4C_METRIC
-                impose_algebraic_constraintz_z4c(ijk,_qid) ; 
+                if (stag==var_staggering_t::STAG_CENTER) impose_algebraic_constraintz_z4c(ijk,_qid) ; 
                 #endif 
             }
         }       
