@@ -55,6 +55,9 @@
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/physics/z4c.hh>
 #endif 
+#ifdef GRACE_ENABLE_BSSN_METRIC
+#include <grace/physics/bssn.hh>
+#endif 
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
@@ -118,6 +121,9 @@ void compute_auxiliary_quantities(
     #ifdef GRACE_ENABLE_Z4C_METRIC
     z4c_system_t z4c_eq_system(state,aux,sstate) ; 
     #endif 
+    #ifdef GRACE_ENABLE_BSSN_METRIC
+    bssn_system_t bssn_eq_system(state,aux,sstate) ; 
+    #endif 
     auto& coord_system = grace::coordinate_system::get() ; 
     auto dev_coords = coord_system.get_device_coord_system() ; 
 
@@ -136,6 +142,9 @@ void compute_auxiliary_quantities(
         #endif 
         #ifdef GRACE_ENABLE_Z4C_METRIC
         z4c_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx);
+        #endif 
+        #ifdef GRACE_ENABLE_BSSN_METRIC
+        bssn_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx);
         #endif 
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k)) ; 

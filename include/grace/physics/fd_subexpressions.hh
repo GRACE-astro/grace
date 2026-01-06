@@ -429,6 +429,90 @@ fd_der_yz(
 
 template< typename view_t >
 static void KOKKOS_INLINE_FUNCTION
+fd_der_x_upw_neg(
+	view_t u,
+	int i,
+	int j,
+	int k,
+	double invh,
+	double * __restrict__ du
+)
+{
+	*du = (1.0/24.0)*invh*(17*u(i+1,j,k) - 30*u(i-1,j,k) + 16*u(i-2,j,k) - 3*u(i-3,j,k));
+}
+
+template< typename view_t >
+static void KOKKOS_INLINE_FUNCTION
+fd_der_x_upw_pos(
+	view_t u,
+	int i,
+	int j,
+	int k,
+	double invh,
+	double * __restrict__ du
+)
+{
+	*du = (1.0/24.0)*invh*(30*u(i+1,j,k) - 16*u(i+2,j,k) + 3*u(i+3,j,k) - 17*u(i-1,j,k));
+}
+
+template< typename view_t >
+static void KOKKOS_INLINE_FUNCTION
+fd_der_y_upw_neg(
+	view_t u,
+	int i,
+	int j,
+	int k,
+	double invh,
+	double * __restrict__ du
+)
+{
+	*du = (1.0/24.0)*invh*(17*u(i,j+1,k) - 30*u(i,j-1,k) + 16*u(i,j-2,k) - 3*u(i,j-3,k));
+}
+
+template< typename view_t >
+static void KOKKOS_INLINE_FUNCTION
+fd_der_y_upw_pos(
+	view_t u,
+	int i,
+	int j,
+	int k,
+	double invh,
+	double * __restrict__ du
+)
+{
+	*du = (1.0/24.0)*invh*(30*u(i,j+1,k) - 16*u(i,j+2,k) + 3*u(i,j+3,k) - 17*u(i,j-1,k));
+}
+
+template< typename view_t >
+static void KOKKOS_INLINE_FUNCTION
+fd_der_z_upw_neg(
+	view_t u,
+	int i,
+	int j,
+	int k,
+	double invh,
+	double * __restrict__ du
+)
+{
+	*du = (1.0/24.0)*invh*(17*u(i,j,k+1) - 30*u(i,j,k-1) + 16*u(i,j,k-2) - 3*u(i,j,k-3));
+}
+
+template< typename view_t >
+static void KOKKOS_INLINE_FUNCTION
+fd_der_z_upw_pos(
+	view_t u,
+	int i,
+	int j,
+	int k,
+	double invh,
+	double * __restrict__ du
+)
+{
+	*du = (1.0/24.0)*invh*(30*u(i,j,k+1) - 16*u(i,j,k+2) + 3*u(i,j,k+3) - 17*u(i,j,k-1));
+}
+
+template< typename view_t >
+static void KOKKOS_INLINE_FUNCTION
 fill_deriv_scalar(view_t state, int i, int j, int k, int iv, int q, double d[3], double invh)
 {
 	using namespace Kokkos;
@@ -492,23 +576,23 @@ fill_deriv_scalar_upw(view_t state, int i, int j, int k, int iv, int q, double d
 	using namespace Kokkos;
 	auto u = subview(state,ALL(),ALL(),ALL(),iv,q);
 	if (v[0]>0){
-		fd_der_x_r1(u,i,j,k,invh,&(d[0]));
+		fd_der_x_upw_pos(u,i,j,k,invh,&(d[0]));
 	}else if (v[0]<0){
-		fd_der_x_l1(u,i,j,k,invh,&(d[0]));
+		fd_der_x_upw_neg(u,i,j,k,invh,&(d[0]));
 	}else{
 		fd_der_x(u,i,j,k,invh,&(d[0]));
 	}
 	if (v[1]>0){
-		fd_der_y_r1(u,i,j,k,invh,&(d[1]));
+		fd_der_y_upw_pos(u,i,j,k,invh,&(d[1]));
 	}else if (v[1]<0){
-		fd_der_y_l1(u,i,j,k,invh,&(d[1]));
+		fd_der_y_upw_neg(u,i,j,k,invh,&(d[1]));
 	}else{
 		fd_der_y(u,i,j,k,invh,&(d[1]));
 	}
 	if (v[2]>0){
-		fd_der_z_r1(u,i,j,k,invh,&(d[2]));
+		fd_der_z_upw_pos(u,i,j,k,invh,&(d[2]));
 	}else if (v[2]<0){
-		fd_der_z_l1(u,i,j,k,invh,&(d[2]));
+		fd_der_z_upw_neg(u,i,j,k,invh,&(d[2]));
 	}else{
 		fd_der_z(u,i,j,k,invh,&(d[2]));
 	}
@@ -522,65 +606,65 @@ fill_deriv_vector_upw(view_t state, int i, int j, int k, int iv, int q, double d
 	auto uy = subview(state,ALL(),ALL(),ALL(),iv+1,q);
 	auto uz = subview(state,ALL(),ALL(),ALL(),iv+2,q);
 	if (v[0]>0){
-		fd_der_x_r1(ux,i,j,k,invh,&(d[0]));
+		fd_der_x_upw_pos(ux,i,j,k,invh,&(d[0]));
 	}else if (v[0]<0){
-		fd_der_x_l1(ux,i,j,k,invh,&(d[0]));
+		fd_der_x_upw_neg(ux,i,j,k,invh,&(d[0]));
 	}else{
 		fd_der_x(ux,i,j,k,invh,&(d[0]));
 	}
 	if (v[0]>0){
-		fd_der_x_r1(uy,i,j,k,invh,&(d[1]));
+		fd_der_x_upw_pos(uy,i,j,k,invh,&(d[1]));
 	}else if (v[0]<0){
-		fd_der_x_l1(uy,i,j,k,invh,&(d[1]));
+		fd_der_x_upw_neg(uy,i,j,k,invh,&(d[1]));
 	}else{
 		fd_der_x(uy,i,j,k,invh,&(d[1]));
 	}
 	if (v[0]>0){
-		fd_der_x_r1(uz,i,j,k,invh,&(d[2]));
+		fd_der_x_upw_pos(uz,i,j,k,invh,&(d[2]));
 	}else if (v[0]<0){
-		fd_der_x_l1(uz,i,j,k,invh,&(d[2]));
+		fd_der_x_upw_neg(uz,i,j,k,invh,&(d[2]));
 	}else{
 		fd_der_x(uz,i,j,k,invh,&(d[2]));
 	}
 	if (v[1]>0){
-		fd_der_y_r1(ux,i,j,k,invh,&(d[3]));
+		fd_der_y_upw_pos(ux,i,j,k,invh,&(d[3]));
 	}else if (v[1]<0){
-		fd_der_y_l1(ux,i,j,k,invh,&(d[3]));
+		fd_der_y_upw_neg(ux,i,j,k,invh,&(d[3]));
 	}else{
 		fd_der_y(ux,i,j,k,invh,&(d[3]));
 	}
 	if (v[1]>0){
-		fd_der_y_r1(uy,i,j,k,invh,&(d[4]));
+		fd_der_y_upw_pos(uy,i,j,k,invh,&(d[4]));
 	}else if (v[1]<0){
-		fd_der_y_l1(uy,i,j,k,invh,&(d[4]));
+		fd_der_y_upw_neg(uy,i,j,k,invh,&(d[4]));
 	}else{
 		fd_der_y(uy,i,j,k,invh,&(d[4]));
 	}
 	if (v[1]>0){
-		fd_der_y_r1(uz,i,j,k,invh,&(d[5]));
+		fd_der_y_upw_pos(uz,i,j,k,invh,&(d[5]));
 	}else if (v[1]<0){
-		fd_der_y_l1(uz,i,j,k,invh,&(d[5]));
+		fd_der_y_upw_neg(uz,i,j,k,invh,&(d[5]));
 	}else{
 		fd_der_y(uz,i,j,k,invh,&(d[5]));
 	}
 	if (v[2]>0){
-		fd_der_z_r1(ux,i,j,k,invh,&(d[6]));
+		fd_der_z_upw_pos(ux,i,j,k,invh,&(d[6]));
 	}else if (v[2]<0){
-		fd_der_z_l1(ux,i,j,k,invh,&(d[6]));
+		fd_der_z_upw_neg(ux,i,j,k,invh,&(d[6]));
 	}else{
 		fd_der_z(ux,i,j,k,invh,&(d[6]));
 	}
 	if (v[2]>0){
-		fd_der_z_r1(uy,i,j,k,invh,&(d[7]));
+		fd_der_z_upw_pos(uy,i,j,k,invh,&(d[7]));
 	}else if (v[2]<0){
-		fd_der_z_l1(uy,i,j,k,invh,&(d[7]));
+		fd_der_z_upw_neg(uy,i,j,k,invh,&(d[7]));
 	}else{
 		fd_der_z(uy,i,j,k,invh,&(d[7]));
 	}
 	if (v[2]>0){
-		fd_der_z_r1(uz,i,j,k,invh,&(d[8]));
+		fd_der_z_upw_pos(uz,i,j,k,invh,&(d[8]));
 	}else if (v[2]<0){
-		fd_der_z_l1(uz,i,j,k,invh,&(d[8]));
+		fd_der_z_upw_neg(uz,i,j,k,invh,&(d[8]));
 	}else{
 		fd_der_z(uz,i,j,k,invh,&(d[8]));
 	}
@@ -597,128 +681,128 @@ fill_deriv_tensor_upw(view_t state, int i, int j, int k, int iv, int q, double d
 	auto uyz = subview(state,ALL(),ALL(),ALL(),iv+4,q);
 	auto uzz = subview(state,ALL(),ALL(),ALL(),iv+5,q);
 	if (v[0]>0){
-		fd_der_x_r1(uxx,i,j,k,invh,&(d[0]));
+		fd_der_x_upw_pos(uxx,i,j,k,invh,&(d[0]));
 	}else if (v[0]<0){
-		fd_der_x_l1(uxx,i,j,k,invh,&(d[0]));
+		fd_der_x_upw_neg(uxx,i,j,k,invh,&(d[0]));
 	}else{
 		fd_der_x(uxx,i,j,k,invh,&(d[0]));
 	}
 	if (v[0]>0){
-		fd_der_x_r1(uxy,i,j,k,invh,&(d[1]));
+		fd_der_x_upw_pos(uxy,i,j,k,invh,&(d[1]));
 	}else if (v[0]<0){
-		fd_der_x_l1(uxy,i,j,k,invh,&(d[1]));
+		fd_der_x_upw_neg(uxy,i,j,k,invh,&(d[1]));
 	}else{
 		fd_der_x(uxy,i,j,k,invh,&(d[1]));
 	}
 	if (v[0]>0){
-		fd_der_x_r1(uxz,i,j,k,invh,&(d[2]));
+		fd_der_x_upw_pos(uxz,i,j,k,invh,&(d[2]));
 	}else if (v[0]<0){
-		fd_der_x_l1(uxz,i,j,k,invh,&(d[2]));
+		fd_der_x_upw_neg(uxz,i,j,k,invh,&(d[2]));
 	}else{
 		fd_der_x(uxz,i,j,k,invh,&(d[2]));
 	}
 	if (v[0]>0){
-		fd_der_x_r1(uyy,i,j,k,invh,&(d[3]));
+		fd_der_x_upw_pos(uyy,i,j,k,invh,&(d[3]));
 	}else if (v[0]<0){
-		fd_der_x_l1(uyy,i,j,k,invh,&(d[3]));
+		fd_der_x_upw_neg(uyy,i,j,k,invh,&(d[3]));
 	}else{
 		fd_der_x(uyy,i,j,k,invh,&(d[3]));
 	}
 	if (v[0]>0){
-		fd_der_x_r1(uyz,i,j,k,invh,&(d[4]));
+		fd_der_x_upw_pos(uyz,i,j,k,invh,&(d[4]));
 	}else if (v[0]<0){
-		fd_der_x_l1(uyz,i,j,k,invh,&(d[4]));
+		fd_der_x_upw_neg(uyz,i,j,k,invh,&(d[4]));
 	}else{
 		fd_der_x(uyz,i,j,k,invh,&(d[4]));
 	}
 	if (v[0]>0){
-		fd_der_x_r1(uzz,i,j,k,invh,&(d[5]));
+		fd_der_x_upw_pos(uzz,i,j,k,invh,&(d[5]));
 	}else if (v[0]<0){
-		fd_der_x_l1(uzz,i,j,k,invh,&(d[5]));
+		fd_der_x_upw_neg(uzz,i,j,k,invh,&(d[5]));
 	}else{
 		fd_der_x(uzz,i,j,k,invh,&(d[5]));
 	}
 	if (v[1]>0){
-		fd_der_y_r1(uxx,i,j,k,invh,&(d[6]));
+		fd_der_y_upw_pos(uxx,i,j,k,invh,&(d[6]));
 	}else if (v[1]<0){
-		fd_der_y_l1(uxx,i,j,k,invh,&(d[6]));
+		fd_der_y_upw_neg(uxx,i,j,k,invh,&(d[6]));
 	}else{
 		fd_der_y(uxx,i,j,k,invh,&(d[6]));
 	}
 	if (v[1]>0){
-		fd_der_y_r1(uxy,i,j,k,invh,&(d[7]));
+		fd_der_y_upw_pos(uxy,i,j,k,invh,&(d[7]));
 	}else if (v[1]<0){
-		fd_der_y_l1(uxy,i,j,k,invh,&(d[7]));
+		fd_der_y_upw_neg(uxy,i,j,k,invh,&(d[7]));
 	}else{
 		fd_der_y(uxy,i,j,k,invh,&(d[7]));
 	}
 	if (v[1]>0){
-		fd_der_y_r1(uxz,i,j,k,invh,&(d[8]));
+		fd_der_y_upw_pos(uxz,i,j,k,invh,&(d[8]));
 	}else if (v[1]<0){
-		fd_der_y_l1(uxz,i,j,k,invh,&(d[8]));
+		fd_der_y_upw_neg(uxz,i,j,k,invh,&(d[8]));
 	}else{
 		fd_der_y(uxz,i,j,k,invh,&(d[8]));
 	}
 	if (v[1]>0){
-		fd_der_y_r1(uyy,i,j,k,invh,&(d[9]));
+		fd_der_y_upw_pos(uyy,i,j,k,invh,&(d[9]));
 	}else if (v[1]<0){
-		fd_der_y_l1(uyy,i,j,k,invh,&(d[9]));
+		fd_der_y_upw_neg(uyy,i,j,k,invh,&(d[9]));
 	}else{
 		fd_der_y(uyy,i,j,k,invh,&(d[9]));
 	}
 	if (v[1]>0){
-		fd_der_y_r1(uyz,i,j,k,invh,&(d[10]));
+		fd_der_y_upw_pos(uyz,i,j,k,invh,&(d[10]));
 	}else if (v[1]<0){
-		fd_der_y_l1(uyz,i,j,k,invh,&(d[10]));
+		fd_der_y_upw_neg(uyz,i,j,k,invh,&(d[10]));
 	}else{
 		fd_der_y(uyz,i,j,k,invh,&(d[10]));
 	}
 	if (v[1]>0){
-		fd_der_y_r1(uzz,i,j,k,invh,&(d[11]));
+		fd_der_y_upw_pos(uzz,i,j,k,invh,&(d[11]));
 	}else if (v[1]<0){
-		fd_der_y_l1(uzz,i,j,k,invh,&(d[11]));
+		fd_der_y_upw_neg(uzz,i,j,k,invh,&(d[11]));
 	}else{
 		fd_der_y(uzz,i,j,k,invh,&(d[11]));
 	}
 	if (v[2]>0){
-		fd_der_z_r1(uxx,i,j,k,invh,&(d[12]));
+		fd_der_z_upw_pos(uxx,i,j,k,invh,&(d[12]));
 	}else if (v[2]<0){
-		fd_der_z_l1(uxx,i,j,k,invh,&(d[12]));
+		fd_der_z_upw_neg(uxx,i,j,k,invh,&(d[12]));
 	}else{
 		fd_der_z(uxx,i,j,k,invh,&(d[12]));
 	}
 	if (v[2]>0){
-		fd_der_z_r1(uxy,i,j,k,invh,&(d[13]));
+		fd_der_z_upw_pos(uxy,i,j,k,invh,&(d[13]));
 	}else if (v[2]<0){
-		fd_der_z_l1(uxy,i,j,k,invh,&(d[13]));
+		fd_der_z_upw_neg(uxy,i,j,k,invh,&(d[13]));
 	}else{
 		fd_der_z(uxy,i,j,k,invh,&(d[13]));
 	}
 	if (v[2]>0){
-		fd_der_z_r1(uxz,i,j,k,invh,&(d[14]));
+		fd_der_z_upw_pos(uxz,i,j,k,invh,&(d[14]));
 	}else if (v[2]<0){
-		fd_der_z_l1(uxz,i,j,k,invh,&(d[14]));
+		fd_der_z_upw_neg(uxz,i,j,k,invh,&(d[14]));
 	}else{
 		fd_der_z(uxz,i,j,k,invh,&(d[14]));
 	}
 	if (v[2]>0){
-		fd_der_z_r1(uyy,i,j,k,invh,&(d[15]));
+		fd_der_z_upw_pos(uyy,i,j,k,invh,&(d[15]));
 	}else if (v[2]<0){
-		fd_der_z_l1(uyy,i,j,k,invh,&(d[15]));
+		fd_der_z_upw_neg(uyy,i,j,k,invh,&(d[15]));
 	}else{
 		fd_der_z(uyy,i,j,k,invh,&(d[15]));
 	}
 	if (v[2]>0){
-		fd_der_z_r1(uyz,i,j,k,invh,&(d[16]));
+		fd_der_z_upw_pos(uyz,i,j,k,invh,&(d[16]));
 	}else if (v[2]<0){
-		fd_der_z_l1(uyz,i,j,k,invh,&(d[16]));
+		fd_der_z_upw_neg(uyz,i,j,k,invh,&(d[16]));
 	}else{
 		fd_der_z(uyz,i,j,k,invh,&(d[16]));
 	}
 	if (v[2]>0){
-		fd_der_z_r1(uzz,i,j,k,invh,&(d[17]));
+		fd_der_z_upw_pos(uzz,i,j,k,invh,&(d[17]));
 	}else if (v[2]<0){
-		fd_der_z_l1(uzz,i,j,k,invh,&(d[17]));
+		fd_der_z_upw_neg(uzz,i,j,k,invh,&(d[17]));
 	}else{
 		fd_der_z(uzz,i,j,k,invh,&(d[17]));
 	}

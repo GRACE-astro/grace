@@ -39,66 +39,6 @@
 
 namespace grace {
 
-
-enum BSSN_VARENUM_t {
-    GTXXL=0,
-    GTXYL,
-    GTXZL, 
-    GTYYL,
-    GTYZL,
-    GTZZL,
-    PHIL,
-    GAMMAXL,
-    GAMMAYL,
-    GAMMAZL,
-    ATXXL,
-    ATXYL,
-    ATXZL,
-    ATYYL,
-    ATYZL,
-    ATZZL,
-    KL,
-    ALPL,
-    BETAXL,
-    BETAYL,
-    BETAZL,
-    BBXL,
-    BBYL,
-    BBZL,
-    NUM_BSSN_VARS
-} ; 
-
-using bssn_state_t = std::array<double, NUM_BSSN_VARS> ;
-
-#define FILL_BSSN_STATE(sstate, vview, q, ...)\
-do{                                      \
-sstate[PHIL] = vview(__VA_ARGS__, PHI_     , q); \
-sstate[GTXXL] = vview(__VA_ARGS__, GTXX_   , q); \
-sstate[GTXYL] = vview(__VA_ARGS__, GTXY_   , q); \
-sstate[GTXZL] = vview(__VA_ARGS__, GTXZ_   , q); \
-sstate[GTYYL] = vview(__VA_ARGS__, GTYY_   , q); \
-sstate[GTYZL] = vview(__VA_ARGS__, GTYZ_   , q); \
-sstate[GTZZL] = vview(__VA_ARGS__, GTZZ_   , q); \
-sstate[ATXXL] = vview(__VA_ARGS__, ATXX_   , q); \
-sstate[ATXYL] = vview(__VA_ARGS__, ATXY_   , q); \
-sstate[ATXZL] = vview(__VA_ARGS__, ATXZ_   , q); \
-sstate[ATYYL] = vview(__VA_ARGS__, ATYY_   , q); \
-sstate[ATYZL] = vview(__VA_ARGS__, ATYZ_   , q); \
-sstate[ATZZL] = vview(__VA_ARGS__, ATZZ_   , q); \
-sstate[KL]    = vview(__VA_ARGS__, K_      , q); \
-sstate[GAMMAXL] = vview(__VA_ARGS__,GAMMAX_, q); \
-sstate[GAMMAYL] = vview(__VA_ARGS__,GAMMAY_, q); \
-sstate[GAMMAZL] = vview(__VA_ARGS__,GAMMAZ_, q); \
-sstate[ALPL]    = vview(__VA_ARGS__,ALP_,q)    ; \
-sstate[BETAXL]  = vview(__VA_ARGS__,BETAX_,q)  ; \
-sstate[BETAYL]  = vview(__VA_ARGS__,BETAY_,q)  ; \
-sstate[BETAZL]  = vview(__VA_ARGS__,BETAZ_,q)  ; \
-sstate[BBXL]     = vview(__VA_ARGS__,BBX_,q)     ; \
-sstate[BBYL]     = vview(__VA_ARGS__,BBY_,q)     ; \
-sstate[BBZL]     = vview(__VA_ARGS__,BBZ_,q)     ; \
-} while(false)
-
-
 static void GRACE_HOST_DEVICE
 adm_to_z4c(
     grmhd_id_t const& id, 

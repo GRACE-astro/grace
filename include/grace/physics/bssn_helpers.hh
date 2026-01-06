@@ -1,8 +1,8 @@
 /**
  * @file bssn_helpers.hh
- * @author Carlo Musolino
+ * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
  * @brief 
- * @date 2024-09-03
+ * @date 2026-12-21
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
  * Code for Exascale.
@@ -39,68 +39,8 @@
 
 namespace grace {
 
-
-enum BSSN_VARENUM_t {
-    GTXXL=0,
-    GTXYL,
-    GTXZL, 
-    GTYYL,
-    GTYZL,
-    GTZZL,
-    PHIL,
-    GAMMAXL,
-    GAMMAYL,
-    GAMMAZL,
-    ATXXL,
-    ATXYL,
-    ATXZL,
-    ATYYL,
-    ATYZL,
-    ATZZL,
-    KL,
-    ALPL,
-    BETAXL,
-    BETAYL,
-    BETAZL,
-    BBXL,
-    BBYL,
-    BBZL,
-    NUM_BSSN_VARS
-} ; 
-
-using bssn_state_t = std::array<double, NUM_BSSN_VARS> ;
-
-#define FILL_BSSN_STATE(sstate, vview, q, ...)\
-do{                                      \
-sstate[PHIL] = vview(__VA_ARGS__, PHI_     , q); \
-sstate[GTXXL] = vview(__VA_ARGS__, GTXX_   , q); \
-sstate[GTXYL] = vview(__VA_ARGS__, GTXY_   , q); \
-sstate[GTXZL] = vview(__VA_ARGS__, GTXZ_   , q); \
-sstate[GTYYL] = vview(__VA_ARGS__, GTYY_   , q); \
-sstate[GTYZL] = vview(__VA_ARGS__, GTYZ_   , q); \
-sstate[GTZZL] = vview(__VA_ARGS__, GTZZ_   , q); \
-sstate[ATXXL] = vview(__VA_ARGS__, ATXX_   , q); \
-sstate[ATXYL] = vview(__VA_ARGS__, ATXY_   , q); \
-sstate[ATXZL] = vview(__VA_ARGS__, ATXZ_   , q); \
-sstate[ATYYL] = vview(__VA_ARGS__, ATYY_   , q); \
-sstate[ATYZL] = vview(__VA_ARGS__, ATYZ_   , q); \
-sstate[ATZZL] = vview(__VA_ARGS__, ATZZ_   , q); \
-sstate[KL]    = vview(__VA_ARGS__, K_      , q); \
-sstate[GAMMAXL] = vview(__VA_ARGS__,GAMMAX_, q); \
-sstate[GAMMAYL] = vview(__VA_ARGS__,GAMMAY_, q); \
-sstate[GAMMAZL] = vview(__VA_ARGS__,GAMMAZ_, q); \
-sstate[ALPL]    = vview(__VA_ARGS__,ALP_,q)    ; \
-sstate[BETAXL]  = vview(__VA_ARGS__,BETAX_,q)  ; \
-sstate[BETAYL]  = vview(__VA_ARGS__,BETAY_,q)  ; \
-sstate[BETAZL]  = vview(__VA_ARGS__,BETAZ_,q)  ; \
-sstate[BBXL]     = vview(__VA_ARGS__,BBX_,q)     ; \
-sstate[BBYL]     = vview(__VA_ARGS__,BBY_,q)     ; \
-sstate[BBZL]     = vview(__VA_ARGS__,BBZ_,q)     ; \
-} while(false)
-
-
 static void GRACE_HOST_DEVICE
-adm_to_z4c(
+adm_to_bssn(
     grmhd_id_t const& id, 
     grace::var_array_t state,
     VEC(int i, int j, int k), int q
@@ -124,11 +64,11 @@ adm_to_z4c(
     double const sqrtgamma = adm_metric.sqrtg(); 
     double const one_over_cbrtgamma = 1./Kokkos::cbrt(math::int_pow<2>(sqrtgamma)) ;
 
-    double const chi  = SQRTG_TO_CONFFACT(sqrtgamma) ; 
+    double const chi  = one_over_cbrtgamma ; 
 
     #pragma unroll 6 
     for( int icomp=0; icomp<6; ++icomp ) {
-        state(VEC(i,j,k),GTXX_+icomp,q) = INVPOW_CONFFACT(chi) * __g[icomp] ; 
+        state(VEC(i,j,k),GTXX_+icomp,q) = chi * __g[icomp] ; 
     }
     
     // Compute trace of extrinsic curvature 
@@ -136,18 +76,15 @@ adm_to_z4c(
 
     #pragma unroll 6
     for( int icomp=0; icomp<6; ++icomp ) {
-        state(VEC(i,j,k),ATXX_+icomp,q) = INVPOW_CONFFACT(chi) * (__Kij[icomp] - 1./3. * __g[icomp] * K) ; 
+        state(VEC(i,j,k),ATXX_+icomp,q) = chi * (__Kij[icomp] - 1./3. * __g[icomp] * K) ; 
     }
 
-    state(VEC(i,j,k),CHI_,q) = chi ; 
-    state(VEC(i,j,k),K_  ,q) = K   ; 
-    state(VEC(i,j,k),ALP_,q) = id.alp ; 
+    state(VEC(i,j,k),CHI_  ,q) = chi ; 
+    state(VEC(i,j,k),KTR_ ,q) = K   ; 
+    state(VEC(i,j,k),ALP_  ,q) = id.alp ; 
     state(VEC(i,j,k),BETAX_,q) = id.betax ; 
     state(VEC(i,j,k),BETAY_,q) = id.betay ; 
     state(VEC(i,j,k),BETAZ_,q) = id.betaz ; 
-    // Theta is initially zero 
-    state(VEC(i,j,k),THETA_,q) = 0.0 ; 
-
 }
 
 template< size_t der_order >

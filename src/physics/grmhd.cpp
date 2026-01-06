@@ -36,6 +36,9 @@
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/physics/z4c_helpers.hh>
 #endif
+#ifdef GRACE_ENABLE_BSSN_METRIC
+#include <grace/physics/bssn_helpers.hh>
+#endif
 #include <grace/physics/id/shocktube.hh>
 #include <grace/physics/id/vacuum.hh>
 //#include <grace/physics/id/blastwave.hh>
@@ -307,6 +310,8 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     state(VEC(i,j,k),KZZ_,q) = id.kzz ;
                     #elif defined(GRACE_ENABLE_Z4C_METRIC)
                     adm_to_z4c(id,state,VEC(i,j,k),q);
+                    #elif defined(GRACE_ENABLE_BSSN_METRIC)
+                    adm_to_bssn(id,state,VEC(i,j,k),q);
                     #endif
 
                     auto const v2 = id.gxx * id.vx * id.vx +
@@ -349,6 +354,19 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
         Kokkos::fence(); 
         auto& idx = variable_list::get().getinvspacings() ; 
         parallel_for( GRACE_EXECUTION_TAG("ID","Z4C_fill_Gammatilde")
+                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
+                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                    {
+                        std::array<double,3> _idx{idx(0,q),idx(1,q),idx(2,q)} ; 
+                        compute_gamma_tilde<4>(state,VEC(i,j,k),q,_idx,VEC(nx,ny,nz),ngz) ; 
+                    });
+    }
+    #endif 
+    #ifdef GRACE_ENABLE_BSSN_METRIC 
+    {
+        Kokkos::fence(); 
+        auto& idx = variable_list::get().getinvspacings() ; 
+        parallel_for( GRACE_EXECUTION_TAG("ID","BSSN_fill_Gammatilde")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                     {

@@ -173,10 +173,11 @@ struct z4c_system_t
         ) ; 
 
         // add dissipation
-        dchi   += epsdiss * kreiss_olinger_operator(i,j,k,q,CHI_,idx) ;  
-        dKhat  += epsdiss * kreiss_olinger_operator(i,j,k,q,KHAT_,idx) ;
-        dalp   += epsdiss * kreiss_olinger_operator(i,j,k,q,ALP_,idx) ;
-        #if 0
+        dchi   += epsdiss * kreiss_olinger_operator(i,j,k,q,CHI_,idx)   ;   
+        dKhat  += epsdiss * kreiss_olinger_operator(i,j,k,q,KHAT_,idx)  ;
+        dalp   += epsdiss * kreiss_olinger_operator(i,j,k,q,ALP_,idx)   ;
+        dtheta += epsdiss * kreiss_olinger_operator(i,j,k,q,THETA_,idx) ;
+        #if 1
         #pragma unroll 6
         for(int icomp=0; icomp<6; ++icomp) {
             dgtdd[icomp] += epsdiss * kreiss_olinger_operator(i,j,k,q,GTXX_+icomp,idx) ;  

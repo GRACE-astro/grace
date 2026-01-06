@@ -260,7 +260,7 @@ void get_extrinsic_curvature( std::array<double,6>& Kij, grace::var_array_t stat
   #ifdef GRACE_ENABLE_COWLING_METRIC
   #pragma unroll 
   for( int ii=0; ii<6; ++ii) Kij[ii] = state(VEC(i,j,k),KXX_+ii,q);
-  #elif defined(GRACE_ENABLE_Z4C_METRIC)
+  #else
   std::array<double,6> Atij{ 
               state(VEC(i,j,k),ATXX_,q)
             , state(VEC(i,j,k),ATXY_,q)
@@ -277,15 +277,19 @@ void get_extrinsic_curvature( std::array<double,6>& Kij, grace::var_array_t stat
             , state(VEC(i,j,k),GTYZ_,q)
             , state(VEC(i,j,k),GTZZ_,q)
         } ;
+  #ifdef GRACE_ENABLE_Z4C_METRIC
   double const Khat = state(VEC(i,j,k),KHAT_,q);
   double const theta = state(VEC(i,j,k),THETA_,q);
   double const K = Khat + 2. * theta ; 
+  #elif defined(GRACE_ENABLE_BSSN_METRIC)
+  double const K = state(VEC(i,j,k),KTR_,q) ; 
+  #endif 
   double const chi = state(VEC(i,j,k),CHI_,q);
   for( int ii=0; ii<6; ++ii)
         Kij[ii] = ( Atij[ii] + 1/3 * gtij[ii] * K )/chi ;
   #endif 
 }
-#ifndef GRACE_ENABLE_Z4C_METRIC
+#ifdef GRACE_ENABLE_COWLING_METRIC
 #define FILL_METRIC_ARRAY(g, view, q, ...)                    \
 g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \
                           , view(__VA_ARGS__,GXY_,q)     \
@@ -359,7 +363,7 @@ consarr[ENTSL] = vview(__VA_ARGS__,ENTROPYSTAR_,q)
 + AM1*mview(i-utils::delta(0,idir),j-utils::delta(1,idir),k-utils::delta(2,idir),ivar,q)       \
 + A0*mview(i,j,k,ivar,q)                                                                       \
 + A1*mview(i+utils::delta(0,idir),j+utils::delta(1,idir),k+utils::delta(2,idir),ivar,q)        
-#ifdef GRACE_ENABLE_Z4C_METRIC
+#ifndef GRACE_ENABLE_COWLING_METRIC
 #define COMPUTE_FCVAL(g,mview,i,j,k,q,idir)                     \
 g = grace::metric_array_t{                                      \
       {                                                         \
