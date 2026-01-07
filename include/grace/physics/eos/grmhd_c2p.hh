@@ -186,9 +186,9 @@ struct grmhd_c2p_kastaun_t {
         prims[RHOL]=inter_vars.rhohat;
         prims[YEL]=inter_vars.yehat;
         prims[EPSL]=inter_vars.epsilonhat;
-        prims[VXL]=vhatU[0];
-        prims[VYL]=vhatU[1];
-        prims[VZL]=vhatU[2];
+        prims[ZXL]=vhatU[0];
+        prims[ZYL]=vhatU[1];
+        prims[ZZL]=vhatU[2];
         prims[BXL] = conservs[BSXL] ; 
         prims[BYL] = conservs[BSYL] ; 
         prims[BZL] = conservs[BSZL] ; 

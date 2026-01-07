@@ -127,18 +127,18 @@ void regrid_transaction_t::evaluate_criterion() {
         auto vx = Kokkos::subview(aux, VEC( Kokkos::ALL() 
                                         , Kokkos::ALL() 
                                         , Kokkos::ALL() )
-                                        , VELX
+                                        , ZVECX
                                         , Kokkos::ALL() ) ; 
         auto vy = Kokkos::subview(aux, VEC( Kokkos::ALL() 
                                         , Kokkos::ALL() 
                                         , Kokkos::ALL() )
-                                        , VELY
+                                        , ZVECY
                                         , Kokkos::ALL() ) ; 
     #ifdef GRACE_3D
         auto vz = Kokkos::subview(aux, VEC( Kokkos::ALL() 
                                         , Kokkos::ALL() 
                                         , Kokkos::ALL() )
-                                        , VELZ
+                                        , ZVECZ
                                         , Kokkos::ALL() ) ; 
     #endif 
         amr::shear_criterion<decltype(vx)> kernel{ VEC(vx,vy,vz) } ; 

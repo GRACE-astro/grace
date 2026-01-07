@@ -215,7 +215,6 @@ void register_variables() {
     REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(BSX,BSY,BSZ,"B_face", "outgoing"/*FIXME?*/, "div_preserving", false);
     /* GRMHD primitives */
     REGISTER_AUX_SCALAR(RHO,"rho","none") ; 
-    REGISTER_AUX_VECTOR(VELX,VELY,VELZ,"vel","none") ; 
     REGISTER_AUX_VECTOR(ZVECX,ZVECY,ZVECZ,"zvec","none") ;
     REGISTER_AUX_VECTOR(BX,BY,BZ,"Bvec","none") ; 
     REGISTER_AUX_SCALAR(YE,"ye","none") ; 

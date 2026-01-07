@@ -39,9 +39,12 @@
 #ifdef GRACE_ENABLE_BSSN_METRIC
 #include <grace/physics/bssn_helpers.hh>
 #endif
+#ifdef GRACE_ENABLE_GRMHD
+#include <grace/physics/grmhd_subexpressions.hh>
+#endif 
 #include <grace/physics/id/shocktube.hh>
 #include <grace/physics/id/vacuum.hh>
-//#include <grace/physics/id/blastwave.hh>
+#include <grace/physics/id/blastwave.hh>
 #include <grace/physics/id/kelvin_helmholtz.hh>
 #include <grace/physics/id/cloud.hh>
 #include <grace/physics/id/tov.hh>
@@ -87,15 +90,20 @@ static void rescale_B_field(double max_betam1, double max_press) {
             FILL_METRIC_ARRAY(metric,state,q,VEC(i,j,k)) ; 
             grmhd_prims_array_t prims ; 
             FILL_PRIMS_ARRAY_ZVEC(prims,aux,q,VEC(i,j,k)) ; 
-            auto W = Kokkos::sqrt(1+metric.square_vec({prims[VXL],prims[VYL],prims[VZL]}));
-
-            std::array<double,3> const B = {
+            auto W = Kokkos::sqrt(1+metric.square_vec({prims[ZXL],prims[ZYL],prims[ZZL]}));
+            double B[3] = {
                 0.5 * (stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) + stag_state.face_staggered_fields_x(VEC(i+1,j,k),BSX_,q)),
                 0.5 * (stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) + stag_state.face_staggered_fields_y(VEC(i,j+1,k),BSY_,q)),
                 0.5 * (stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) + stag_state.face_staggered_fields_z(VEC(i,j,k+1),BSZ_,q))
             } ; 
-            auto b2 = metric.square_vec(B) / W / W / metric.sqrtg() / metric.sqrtg() ; // assume B_i v^i == 0 ! 
 
+            double smallbu[4];
+            double b2;
+            grmhd_get_smallbu_smallb2(
+                metric._beta.data(), metric._g.data(),
+                B, &(prims[ZXL]), W, metric.alp(), 
+                &smallbu, &b2
+            ) ; 
             lres.max_val = lres.max_val < b2 ? b2 : lres.max_val    ; 
         }, MinMax<double>(b2_max_loc)) ; 
     parallel::mpi_allreduce( &b2_max_loc.max_val
@@ -180,86 +188,6 @@ static double get_max_rho()
     return rhomax ; 
 }
 
-template< typename eos_t >
-static void set_grmhd_spherical_blastwave_initial_data() {
-    using namespace grace ;
-    using namespace Kokkos ; 
-
-    GRACE_VERBOSE("Setting Shocktube initial data.") ; 
-
-    auto const press_fact = get_param<double>("grmhd","blastwave_over_pressure_factor") ; 
-    auto const rblast     = get_param<double>("grmhd","blastwave_initial_radius") ; 
-
-    auto& aux   = variable_list::get().getaux() ; 
-    auto& state = variable_list::get().getstate() ;
-    int64_t nx,ny,nz ; 
-    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
-    int ngz = amr::get_n_ghosts() ; 
-    
-    int64_t nq = amr::get_local_num_quadrants() ;
-
-    auto& coord_system = grace::coordinate_system::get() ; 
-    auto h_state_mirror = Kokkos::create_mirror_view(aux) ; 
-
-
-    int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
-    #pragma omp parallel for 
-    for( int64_t icell=0; icell<ncells; ++icell) {
-        size_t const i = icell%(nx+2*ngz); 
-        size_t const j = (icell/(nx+2*ngz)) % (ny+2*ngz) ;
-        #ifdef GRACE_3D 
-        size_t const k = 
-            (icell/(nx+2*ngz)/(ny+2*ngz)) % (nz+2*ngz) ; 
-        size_t const q = 
-            (icell/(nx+2*ngz)/(ny+2*ngz)/(nz+2*ngz)) ;
-        #else 
-        size_t const q = (icell/(nx+2*ngz)/(ny+2*ngz)) ; 
-        #endif 
-        /* Physical coordinates of cell center */
-        auto pcoords = coord_system.get_physical_coordinates(
-            {VEC(i,j,k)},
-            q,
-            true
-        ) ; 
-
-        double const r = 
-	  Kokkos::sqrt( EXPR( pcoords[0]*pcoords[0], + pcoords[1]*pcoords[1], + pcoords[2] * pcoords[2])) ;
-
-        
-        h_state_mirror(VEC(i,j,k),VELX,q) = 0. ;
-        h_state_mirror(VEC(i,j,k),VELY,q) = 0. ;
-        h_state_mirror(VEC(i,j,k),VELZ,q) = 0. ;
-        h_state_mirror(VEC(i,j,k),ZVECX,q) = 0. ;
-        h_state_mirror(VEC(i,j,k),ZVECY,q) = 0. ;
-        h_state_mirror(VEC(i,j,k),ZVECZ,q) = 0. ;
-        h_state_mirror(VEC(i,j,k),RHO,q) = 1. ;
-        h_state_mirror(VEC(i,j,k),PRESS,q) = 0.1 ;
-        if ( r <= rblast ) {
-            h_state_mirror(VEC(i,j,k),PRESS,q) *= press_fact ; 
-        }
-    }
-    Kokkos::deep_copy(aux,h_state_mirror) ;
-    
-    auto const& _eos = eos::get().get_eos<eos_t>() ; 
-    parallel_for( GRACE_EXECUTION_TAG("ID","shocktube_ID")
-                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                {
-                    double h, csnd2; 
-                    double ye = 0;
-                    unsigned int err ; 
-                    /* Set eps temp and entropy */
-                    aux(VEC(i,j,k),EPS_,q) = 
-                        _eos.eps_h_csnd2_temp_entropy__press_rho_ye( h, csnd2, aux(VEC(i,j,k),TEMP_,q)
-                                                                   , aux(VEC(i,j,k),ENTROPY_,q)
-                                                                   , aux(VEC(i,j,k),PRESS_,q)
-                                                                   , aux(VEC(i,j,k),RHO_,q)
-                                                                   , ye,err);
-                    /* Set ye */
-                    aux(VEC(i,j,k),YE_,q) = ye ; 
-                }) ;
-}
-
 template< typename eos_t
         , typename id_t 
         , typename ... arg_t > 
@@ -327,10 +255,6 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),ZVECX_,q)  = w * id.vx ; 
                     aux(VEC(i,j,k),ZVECY_,q)  = w * id.vy ; 
                     aux(VEC(i,j,k),ZVECZ_,q)  = w * id.vz ; 
-
-                    aux(VEC(i,j,k),VELX_,q)  = id.alp * id.vx - id.betax ; 
-                    aux(VEC(i,j,k),VELY_,q)  = id.alp * id.vy - id.betay ; 
-                    aux(VEC(i,j,k),VELZ_,q)  = id.alp * id.vz - id.betaz ; 
 
                     aux(VEC(i,j,k),YE_,q) = id.ye ; 
                     
@@ -555,7 +479,7 @@ void set_grmhd_initial_data() {
         Kokkos::fence() ; 
         GRACE_TRACE("Done with hydro ID.") ;  
     } else if ( id_type == "blastwave" ) {
-        set_grmhd_spherical_blastwave_initial_data<eos_t>() ; 
+        set_grmhd_initial_data_impl<eos_t,blastwave_id_t<eos_t>>() ;
     } else if ( id_type == "TOV") { 
         auto const rho_c = get_param<double>("grmhd", "TOV_central_density") ; 
         auto atmo_pars = get_param<YAML::Node>("grmhd","atmosphere"); 
@@ -670,12 +594,22 @@ void set_conservs_from_prims() {
     int64_t nq = amr::get_local_num_quadrants() ;
     auto& aux = variable_list::get().getaux() ;
 
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    bssn_system_t metric_evol_eq_system(state,aux,sstate) ; 
+    #elif defined(GRACE_ENABLE_BSSN_METRIC)
+    bssn_system_t metric_evol_eq_system(state,aux,sstate) ; 
+    #endif 
+
     parallel_for( GRACE_EXECUTION_TAG("ID","set_conservs_from_prims")
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {
         metric_array_t metric ; 
-        FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k)) ; 
+        FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k)) ;
+
+        /*************************************************/
+        /*                    Set B                      */
+        /*************************************************/ 
         // note here we reset B-center since it is outdated 
         auto Bx = Kokkos::subview(sstate.face_staggered_fields_x,
                                  VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), BSX_, q) ; 
@@ -690,12 +624,28 @@ void set_conservs_from_prims() {
                                   + (By(VEC(i,j+1,k)) - By(VEC(i,j,k))) * idx(1,q)
                                   + (Bz(VEC(i,j,k+1)) - Bz(VEC(i,j,k))) * idx(2,q))/metric.sqrtg() ; 
         
-
+        /*************************************************/
+        /*                    Set b2                     */
+        /*************************************************/
         grmhd_prims_array_t prims ; 
-        FILL_PRIMS_ARRAY(prims,aux,q,VEC(i,j,k)) ;
+        FILL_PRIMS_ARRAY_ZVEC(prims,aux,q,VEC(i,j,k)) ;
+        double const * const betau = metric._beta.data() ;
+        double const * const gdd   = metric._g.data() ;
+        double const alp           = metric.sqrtg() ;    
+        double const * const z     = &(prims[ZXL]) ; 
+        double const * const B     = &(prims[BXL]) ; 
         
-        std::array<double,4> dummy; 
-        compute_smallb(dummy, aux(VEC(i,j,k),SMALLB2_,q), prims,metric) ; 
+        double W ; 
+        grmhd_get_W(gdd,z,&W) ; 
+
+        double smallbu[4]; 
+        grmhd_get_smallbu_smallb2(
+            betau, gdd, B, z, W, alp,
+            &smallbu, &(aux(VEC(i,j,k),SMALLB2_,q))
+        ) ; 
+        /*************************************************/
+        /*               Set conserved                   */
+        /*************************************************/
         grmhd_cons_array_t cons ;
         prims_to_conservs(prims,cons,metric) ; 
         state(VEC(i,j,k),DENS_,q) = cons[DENSL] ; 
@@ -705,6 +655,13 @@ void set_conservs_from_prims() {
         state(VEC(i,j,k),TAU_,q) = cons[TAUL] ;
         state(VEC(i,j,k),YESTAR_,q) = cons[YESL] ; 
         state(VEC(i,j,k),ENTROPYSTAR_,q) = cons[ENTSL] ; 
+
+        /*************************************************/
+        /* If evolved metric, set constraint violations  */
+        /*************************************************/
+        #ifndef GRACE_ENABLE_COWLING_METRIC
+        metric_evol_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx);
+        #endif 
     }) ;
 }
 // Explicit template instantiation

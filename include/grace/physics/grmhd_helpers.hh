@@ -71,9 +71,9 @@ struct excision_params_t {
 enum GRMHD_PRIMS_LOC_INDICES {
     RHOL = 0,
     PRESSL,
-    VXL,
-    VYL,
-    VZL,
+    ZXL,
+    ZYL,
+    ZZL,
     YEL,
     TEMPL,
     EPSL,
@@ -174,83 +174,6 @@ excision_params_t get_excision_params()
     return excision_params ; 
 }
 
-/**
-  * @brief Utility to compute \f$u^t\f$
-  * 
-  * @param prims Primitive variables.
-  * @param metric Metric tensor.
-  * @return double The 0th component of contravariant 4-velocity.
-  */
-double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-compute_u0( grace::grmhd_prims_array_t const& prims 
-          , grace::metric_array_t const& metric ) 
-{
-    double const one_over_alp = 1./metric.alp() ;
-    std::array<double,3> const vN {
-          one_over_alp * ( prims[VXL] + metric.beta(0) )
-        , one_over_alp * ( prims[VYL] + metric.beta(1) )
-        , one_over_alp * ( prims[VZL] + metric.beta(2) )
-    } ; 
-    double const W = 1./Kokkos::sqrt(1-metric.square_vec(vN)) ; 
-    return one_over_alp * W ; 
-}
-
-static void GRACE_HOST_DEVICE 
-compute_smallb(  std::array<double,4>& smallb, double& b2, double const& W
-              , grace::grmhd_prims_array_t const& prims, grace::metric_array_t const& metric ) 
-{
-  // simple minded, can be optimized later
-  double const u0 = W / metric.alp() ; 
-  std::array<double,3> const vi = { 
-      (prims[VXL]  + metric.beta(0))/metric.alp(),
-      (prims[VYL]  + metric.beta(1))/metric.alp(),
-      (prims[VZL]  + metric.beta(2))/metric.alp(),
-  } ; 
-  std::array<double,3> const ui = { 
-      prims[VXL] * u0,
-      prims[VYL] * u0,
-      prims[VZL] * u0,
-  } ;  
-  smallb[0] = metric.contract_vec_vec(vi,{prims[BXL],prims[BYL],prims[BZL]}) * u0 ; 
-  for( int i=0; i<3; ++i) {
-      smallb[i+1] = (prims[BXL+i] + metric.alp() * smallb[0] * ui[i])/W ; 
-  }
-  b2 = ( metric.square_vec({prims[BXL],prims[BYL],prims[BZL]}) + metric.alp()*metric.alp() * smallb[0] * smallb[0] ) / W / W ; 
-  return ;
-}
-static void GRACE_HOST_DEVICE 
-compute_smallb(  std::array<double,4>& smallb, double& b2
-              , grace::grmhd_prims_array_t const & prims, grace::metric_array_t const& metric ) 
-{
-  double const v2 = metric.square_vec(
-    {
-      metric.alp() * prims[VXL] - metric.beta(0),
-      metric.alp() * prims[VYL] - metric.beta(1),
-      metric.alp() * prims[VZL] - metric.beta(2)
-    }
-  ) ; 
-  compute_smallb(smallb,b2,1./sqrt(1-v2),prims,metric) ; 
-}
-/**
-  * @brief Utility to compute \f$u^t\f$
-  * 
-  * @param prims Primitive variables.
-  * @param metric Metric tensor.
-  * @return double The 0th component of contravariant 4-velocity.
-  */
-double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-compute_W( grace::grmhd_prims_array_t const& prims 
-          , grace::metric_array_t const& metric ) 
-{
-    double const one_over_alp = 1./metric.alp() ;
-    std::array<double,3> const vN {
-          one_over_alp * ( prims[VXL] + metric.beta(0) )
-        , one_over_alp * ( prims[VYL] + metric.beta(1) )
-        , one_over_alp * ( prims[VZL] + metric.beta(2) )
-    } ; 
-    double const W = 1./Kokkos::sqrt(1-metric.square_vec(vN)) ; 
-    return W ; 
-}
 
 KOKKOS_INLINE_FUNCTION
 void get_extrinsic_curvature( std::array<double,6>& Kij, grace::var_array_t state
@@ -315,27 +238,13 @@ g = grace::metric_array_t{  { view(__VA_ARGS__,GTXX_,q)   \
                           , view(__VA_ARGS__,BETAZ_,q) } \
                           , view(__VA_ARGS__,ALP_,q) } 
 #endif 
-                  
-#define FILL_PRIMS_ARRAY(primsarr,vview,q,...)        \
-primsarr[RHOL] = vview(__VA_ARGS__,RHO_,q);      \
-primsarr[PRESSL] = vview(__VA_ARGS__,PRESS_,q) ; \
-primsarr[VXL] = vview(__VA_ARGS__,VELX_,q) ;     \
-primsarr[VYL] = vview(__VA_ARGS__,VELY_,q) ;     \
-primsarr[VZL] = vview(__VA_ARGS__,VELZ_,q) ;     \
-primsarr[YEL] = vview(__VA_ARGS__,YE_,q) ;       \
-primsarr[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
-primsarr[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \
-primsarr[ENTL] = vview(__VA_ARGS__,ENTROPY_,q);  \
-primsarr[BXL] = vview(__VA_ARGS__,BX_,q);        \
-primsarr[BYL] = vview(__VA_ARGS__,BY_,q);        \
-primsarr[BZL] = vview(__VA_ARGS__,BZ_,q)         
 
 #define FILL_PRIMS_ARRAY_ZVEC(primsarr,vview,q,...)        \
 primsarr[RHOL] = vview(__VA_ARGS__,RHO_,q);      \
 primsarr[PRESSL] = vview(__VA_ARGS__,PRESS_,q) ; \
-primsarr[VXL] = vview(__VA_ARGS__,ZVECX_,q) ;     \
-primsarr[VYL] = vview(__VA_ARGS__,ZVECY_,q) ;     \
-primsarr[VZL] = vview(__VA_ARGS__,ZVECZ_,q) ;     \
+primsarr[ZXL] = vview(__VA_ARGS__,ZVECX_,q) ;     \
+primsarr[ZYL] = vview(__VA_ARGS__,ZVECY_,q) ;     \
+primsarr[ZZL] = vview(__VA_ARGS__,ZVECZ_,q) ;     \
 primsarr[YEL] = vview(__VA_ARGS__,YE_,q) ;       \
 primsarr[TEMPL] = vview(__VA_ARGS__,TEMP_,q) ;   \
 primsarr[EPSL] = vview(__VA_ARGS__,EPS_,q) ;     \

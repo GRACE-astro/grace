@@ -270,9 +270,6 @@ DECLARE_VAR_INDEX_IMPL(BSY)                         \
 DECLARE_VAR_INDEX_IMPL(BSZ)                         \
 DECLARE_VAR_INDEX_IMPL(RHO)                         \
 DECLARE_VAR_INDEX_IMPL(PRESS)                       \
-DECLARE_VAR_INDEX_IMPL(VELX)                        \
-DECLARE_VAR_INDEX_IMPL(VELY)                        \
-DECLARE_VAR_INDEX_IMPL(VELZ)                        \
 DECLARE_VAR_INDEX_IMPL(ZVECX)                        \
 DECLARE_VAR_INDEX_IMPL(ZVECY)                        \
 DECLARE_VAR_INDEX_IMPL(ZVECZ)                        \

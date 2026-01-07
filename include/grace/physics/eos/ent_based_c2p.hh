@@ -188,7 +188,7 @@ namespace grace {
       double x = fmu.x; 
 
       for( int ii=0; ii<3; ++ii) 
-        prims[VXL+ii] = mu * x * ( r[ii] + mu * r_dot_Btilde * Btilde[ii] ) ;  
+        prims[ZXL+ii] = W * mu * x * ( r[ii] + mu * r_dot_Btilde * Btilde[ii] ) ;  
       
       return SQR(W) * fabs(residual) / (1e-50 + mu) ; 
     }

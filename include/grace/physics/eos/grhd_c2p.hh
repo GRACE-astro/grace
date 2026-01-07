@@ -135,9 +135,9 @@ struct grhd_c2p_t {
         prims[EPSL]   = eps ;  
 
         double h = htilde(zeta) ; 
-        prims[VXL] = StildeU[0] / D / h ; 
-        prims[VYL] = StildeU[1] / D / h ; 
-        prims[VZL] = StildeU[2] / D / h ; 
+        prims[ZXL] = StildeU[0] / D / h ; 
+        prims[ZYL] = StildeU[1] / D / h ; 
+        prims[ZZL] = StildeU[2] / D / h ; 
         
         double csnd2 ; 
         prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(

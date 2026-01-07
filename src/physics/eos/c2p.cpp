@@ -27,9 +27,9 @@
 
 #include <grace_config.h>
 
+#include <grace/physics/grmhd_subexpressions.hh>
 #include <grace/physics/eos/c2p.hh>
 #include <grace/physics/eos/grhd_c2p.hh>
-#include <grace/physics/eos/grmhd_c2p.hh>
 #include <grace/physics/eos/kastaun_c2p.hh>
 #include <grace/physics/eos/ent_based_c2p.hh>
 
@@ -43,10 +43,21 @@ compute_beta(
     metric_array_t const& metric
 )
 {
-    std::array<double,4> dummy ;
-    double b2 ; 
-    compute_smallb(dummy,b2,prims,metric) ; 
-    return 2.0 * prims[PRESSL]/fmax(b2, 1e-50) ; 
+    double const * const betau = metric._beta.data() ; 
+    double const * const gdd   = metric._g.data() ; 
+    double const * const z     = &(prims[ZXL]) ; 
+    double const * const B     = &(prims[BXL]) ; 
+    double const alp{metric.alp()} ; 
+    
+    double W;
+    grmhd_get_W(gdd,z,&W) ; 
+
+    double smallbu[4];
+    double smallb2;
+    grmhd_get_smallbu_smallb2(
+        betau,gdd,B,z,W,alp,&smallbu,&smallb2
+    ) ; 
+    return 2.0 * prims[PRESSL]/fmax(smallb2, 1e-50) ; 
 }
 
 template< typename eos_t >
@@ -79,20 +90,32 @@ limit_primitives(
     c2p_err_t& c2p_err
 )
 {  
-    // here v is actually z 
-    double const W2 = 1 + metric.square_vec({prims[VXL],prims[VYL],prims[VZL]}) ; 
+    // limit velocities 
+    double const W2 = 1 + metric.square_vec({prims[ZXL],prims[ZYL],prims[ZZL]}) ; 
     if ( W2 >= max_w*max_w ) {
         double znorm = 0.99 * max_w / sqrt(W2) ; 
-        prims[VXL] *= znorm ; 
-        prims[VYL] *= znorm ; 
-        prims[VZL] *= znorm ; 
+        prims[ZXL] *= znorm ; 
+        prims[ZYL] *= znorm ; 
+        prims[ZZL] *= znorm ; 
         // W has changed so the conserved are outdated
         c2p_err.adjust_s = c2p_err.adjust_tau = c2p_err.adjust_ent = c2p_err.adjust_d = true; 
     }
-    std::array<double,4> dummy ;
-    double b2 ; 
-    compute_smallb(dummy,b2,prims,metric) ; 
-    double const sigma = b2 / prims[RHOL] ; 
+    // limit magnetization 
+    double const * const betau = metric._beta.data() ; 
+    double const * const gdd   = metric._g.data() ; 
+    double const * const z     = &(prims[ZXL]) ; 
+    double const * const B     = &(prims[BXL]) ; 
+    double const alp{metric.alp()} ; 
+    
+    double W;
+    grmhd_get_W(gdd,z,&W) ; 
+
+    double smallbu[4];
+    double smallb2;
+    grmhd_get_smallbu_smallb2(
+        betau,gdd,B,z,W,alp,&smallbu,&smallb2
+    ) ;
+    double const sigma = smallb2 / prims[RHOL] ; 
     if ( sigma >= max_sigma ) {
         // add some density here! 
         double const rhofact = 1.001 * sigma/max_sigma ;
@@ -141,9 +164,6 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     prims[BYL] = cons[BSYL] ; 
     prims[BZL] = cons[BSZL] ; 
 
-    /* Limit conserved vars  */
-    //limit_conserved<eos_t>(cons,metric,eos,c2p_err) ; 
-
     /* Get atmo rho and temp */
     auto const dens_atmo =  atmo.rho_fl * pow(rtp[0], atmo.rho_fl_scaling);
     auto const temp_atmo =  atmo.temp_fl * pow(rtp[0], atmo.temp_fl_scaling);
@@ -179,9 +199,9 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     if ( excise ) {
         prims[RHOL]  = excision.rho_ex  ; 
         prims[TEMPL] = excision.temp_ex ; 
-        prims[VXL]   = 0. ;
-        prims[VYL]   = 0. ;
-        prims[VZL]   = 0. ;
+        prims[ZXL]   = 0. ;
+        prims[ZYL]   = 0. ;
+        prims[ZZL]   = 0. ;
         prims[YEL]   = 0   ;
         // get pressure, eps and entropy
         double csnd2 ;  
@@ -194,9 +214,9 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     } else if ((prims[RHOL] < (1.+1e-03) * dens_atmo) or c2p_failed ) {
         prims[RHOL]  = dens_atmo  ; 
         prims[TEMPL] = temp_atmo  ; 
-        prims[VXL]   = 0. ;
-        prims[VYL]   = 0. ;
-        prims[VZL]   = 0. ;
+        prims[ZXL]   = 0. ;
+        prims[ZYL]   = 0. ;
+        prims[ZZL]   = 0. ;
         prims[YEL]   = 0. ;
         // get pressure, eps and entropy
         double csnd2 ;  
@@ -228,11 +248,6 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     }
     #endif 
     
-    /* The 3-velocity in grace is not in the */
-    /* ZAMO frame.                           */
-    prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;
-    prims[VYL] = metric.alp()*prims[VYL] - metric.beta(1) ;
-    prims[VZL] = metric.alp()*prims[VZL] - metric.beta(2) ;
     /* Re-compute conservative variables based  */
     /* on new primitives.                       */
     prims_to_conservs(prims,cons,metric) ;
@@ -243,51 +258,38 @@ prims_to_conservs( grace::grmhd_prims_array_t& prims
                  , grace::grmhd_cons_array_t& cons 
                  , grace::metric_array_t const& metric )
 {
-    std::array<double,3> vZAMO {
-          (prims[VXL]+metric.beta(0))/metric.alp()
-        , (prims[VYL]+metric.beta(1))/metric.alp()
-        , (prims[VZL]+metric.beta(2))/metric.alp()
-    } ; 
-    double const v2 = metric.square_vec(vZAMO) ; 
-    double const W  = 1./Kokkos::sqrt(1-v2) ; 
-    double const u0 = W / metric.alp();
-    double const alp_sqrtgamma = metric.alp() * metric.sqrtg() ;
-
-    cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
-
-    double b2{0.} ;
-    std::array<double,4> smallb{0.,0.,0.,0.} ;
-    std::array<double,3> const ui = { 
-        prims[VXL] * u0,
-        prims[VYL] * u0,
-        prims[VZL] * u0,
-    } ; 
-    smallb[0] = metric.contract_vec_vec(vZAMO,{prims[BXL],prims[BYL],prims[BZL]}) * u0 ; 
-    for( int i=0; i<3; ++i) {
-        smallb[i+1] = (prims[BXL+i] + metric.alp() * smallb[0] * ui[i])/W ; 
-    }
-    b2 = ( metric.square_vec({prims[BXL],prims[BYL],prims[BZL]}) + metric.alp()*metric.alp()* smallb[0] * smallb[0] ) / W / W ; 
-    auto smallbD = metric.lower_4vec(smallb) ; 
-
-    double const one_over_alp2 = 1./math::int_pow<2>(metric.alp());
-    double const rho0_h_plus_b2 = (prims[RHOL]*(1+prims[EPSL])) + prims[PRESSL] + b2 ;
-    double const alp2_sqrtgamma = math::int_pow<2>(metric.alp()) * metric.sqrtg() ;
-    double const g4uptt = -one_over_alp2 ; 
+    double const * const betau = metric._beta.data() ; 
+    double const * const gdd   = metric._g.data() ; 
+    double const * const z     = &(prims[ZXL]) ; 
+    double const * const B     = &(prims[BXL]) ; 
+    double const alp{metric.alp()} ; 
     
-    double const P_plus_half_b2 = (prims[PRESSL] + 0.5*b2);
-    double const Tuptt = rho0_h_plus_b2 * math::int_pow<2>(u0) + P_plus_half_b2 * g4uptt - math::int_pow<2>(smallb[0]) ; 
-    cons[TAUL] = alp2_sqrtgamma * Tuptt - cons[DENSL] ;
+    double W;
+    grmhd_get_W(gdd,z,&W) ; 
 
-     
-    auto uD = metric.lower({prims[VXL]+metric.beta(0),prims[VYL]+metric.beta(1),prims[VZL]+metric.beta(2)}) ; 
-    for(auto & uu: uD) uu *= u0 ; 
+    double smallbu[4];
+    double smallb2;
+    grmhd_get_smallbu_smallb2(
+        betau,gdd,B,z,W,alp,&smallbu,&smallb2
+    ) ; 
 
-    cons[STXL] = alp_sqrtgamma * (rho0_h_plus_b2*u0*uD[0]-smallb[0]*smallbD[1]) ; 
-    cons[STYL] = alp_sqrtgamma * (rho0_h_plus_b2*u0*uD[1]-smallb[0]*smallbD[2]) ; 
-    cons[STZL] = alp_sqrtgamma * (rho0_h_plus_b2*u0*uD[2]-smallb[0]*smallbD[3]) ;
+    double D,tau,sstar ;
+    double Stilde[3] ; 
+    grmhd_get_conserved(
+        W, prims[RHOL], smallbu, smallb2,
+        alp, prims[EPSL], prims[PRESSL],
+        betau, z, gdd, prims[ENTL],
+        &D, &tau, &Stilde, &sstar
+    ) ; 
 
-    cons[YESL] = cons[DENSL] * prims[YEL] ;
-    cons[ENTSL] = cons[DENSL] * prims[ENTL] ;
+    double const sqrtg = metric.sqrtg() ; 
+    cons[DENSL] = sqrtg * D ; 
+    cons[STXL]  = sqrtg * Stilde[0];
+    cons[STYL]  = sqrtg * Stilde[1];
+    cons[STZL]  = sqrtg * Stilde[2];
+    cons[TAUL]  = sqrtg * tau ;
+    cons[ENTSL] = sqrtg * sstar ; 
+    cons[YESL]  = cons[DENSL] * prims[YEL] ;
     ////
     return ; 
 }

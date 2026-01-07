@@ -44,7 +44,7 @@
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
-#include <grace/utils/advanced_riemann_solvers.hh>
+//#include <grace/utils/advanced_riemann_solvers.hh>
 #include "grmhd_subexpressions.hh"
 
 #include <Kokkos_Core.hpp>
@@ -246,8 +246,8 @@ struct grmhd_equations_system_t
         double const eps   = prims[EPSL]   ; 
         double const rho   = prims[RHOL]   ; 
         double const p     = prims[PRESSL] ;
-        double * const   z = &(prims[VXL]) ;  
-        double * const   B = &(prims[BXL]) ;  
+        double const * const   z = &(prims[ZXL]) ;  
+        double const * const   B = &(prims[BXL]) ;  
         /**************************************************************************************************/
         double W ; 
         grmhd_get_W(gdd,z,&W) ; 
@@ -378,7 +378,8 @@ struct grmhd_equations_system_t
         aux(BY_) = cons[BSYL] / metric.sqrtg() ;
         aux(BZ_) = cons[BSZL] / metric.sqrtg() ;
         c2p_err_t c2p_errors ; 
-        grmhd_prims_array_t prims ;        
+        grmhd_prims_array_t prims ;     
+        // this used to return vtilde (TODO: changeme!)   
         conservs_to_prims<eos_t>( 
             cons, prims, metric, this->_eos, 
             this->atmo_params, this->excision_params, rtp,
@@ -389,26 +390,12 @@ struct grmhd_equations_system_t
         aux(RHO_) = prims[RHOL]     ; 
         aux(EPS_) = prims[EPSL]     ; 
         aux(PRESS_) = prims[PRESSL] ; 
-        aux(VELX_) = prims[VXL]     ;
-        aux(VELY_) = prims[VYL]     ; 
-        aux(VELZ_) = prims[VZL]     ; 
         aux(TEMP_) = prims[TEMPL]   ; 
         aux(ENTROPY_) = prims[ENTL]  ; 
         aux(YE_)   = prims[YEL]     ;
-        
-        /* Compute ZVEC */
-        double const one_over_alp = 1./metric.alp(); 
-        std::array<double,3> const vN {
-              one_over_alp * (prims[VXL] + metric.beta(0))
-            , one_over_alp * (prims[VYL] + metric.beta(1))
-            , one_over_alp * (prims[VZL] + metric.beta(2))
-        } ; 
-
-        double const W = 1./Kokkos::sqrt(1.-metric.square_vec(vN)) ;
-
-        aux(ZVECX_) = W * vN[0] ; 
-        aux(ZVECY_) = W * vN[1] ; 
-        aux(ZVECZ_) = W * vN[2] ; 
+        aux(ZVECX_) = prims[ZXL] ; 
+        aux(ZVECY_) = prims[ZYL] ; 
+        aux(ZVECZ_) = prims[ZZL] ; 
         /* Overwrite conserved */
         #if 0
         vars(DENS_)  = cons[DENSL]       ; 
@@ -439,9 +426,16 @@ struct grmhd_equations_system_t
         if ( c2p_errors.adjust_ent ) {
             vars(ENTROPYSTAR_) = cons[ENTSL] ; 
         }
-        std::array<double,4> dummy ; 
+        /* Compute W */
+        double const W = Kokkos::sqrt(1.+metric.square_vec({prims[ZXL],prims[ZYL],prims[ZZL]})) ;
+        /* Compute smallb2 */
+        double smallbu[4] ; 
         double b2 ;
-        compute_smallb(dummy,b2,W,prims,metric) ; 
+        grmhd_get_smallbu_smallb2(
+            metric._beta.data(), metric._g.data(),
+            &(prims[BXL]), &(prims[ZXL]), W, metric.alp(),
+            &smallbu, &b2 
+        ) ; 
         aux(SMALLB2_) = b2 ; 
     };
     /**
@@ -459,42 +453,75 @@ struct grmhd_equations_system_t
                           ,      const int k) 
                           , int64_t q ) const 
     {
+        /****************************************************/
+        /****************************************************/
+
         using namespace grace; 
         using namespace Kokkos ; 
 
+        /****************************************************/
         /* Get prims */
         grmhd_prims_array_t prims ;
-        FILL_PRIMS_ARRAY(prims,this->_aux,q,VEC(i,j,k)) ;
+        FILL_PRIMS_ARRAY_ZVEC(prims,this->_aux,q,VEC(i,j,k)) ;
         /* Get metric */
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k));
+        /* Get some pointers */
+        double * const  betau = metric._beta.data() ;
+        double * const  gdd   = metric._g.data()    ;
+        double const alp = metric.alp() ; 
+
+        double * const z = &(prims[ZXL]) ; 
+        double * const B = &(prims[BXL]) ; 
+        double rho    = prims[RHOL]  ; 
+        double T      = prims[TEMPL] ;
+        double ye     = prims[YEL] ; 
+        double eps    = prims[EPSL] ; 
+        double press  = prims[PRESSL] ;
+        /****************************************************/
+
         /* Get soundspeed, enthalpy */
         double csnd2, h ; 
         unsigned int err ; 
-        double dummy = _eos.press_h_csnd2__temp_rho_ye( h, csnd2, prims[TEMPL]
-                                                      , prims[RHOL], prims[YEL], err ) ;
-        /* Compute magnetosonic speed */
-        double b2{0.} ;
-        std::array<double,4> dummy2 ; 
-        double const u0 = compute_u0(prims,metric) ;  
-        auto W = u0 * metric.alp() ; 
-        compute_smallb(dummy2,b2,W,prims,metric) ; 
-        
-        double const v_A_sq =  b2 / ( b2 + prims[RHOL]*h) ; 
-        double const v02 = v_A_sq + csnd2 * ( 1. - v_A_sq ) ;
+        double dummy = _eos.press_h_csnd2__temp_rho_ye( h, csnd2, T, rho, ye, err);
+
+        /* Compute Lorentz factor */
+        double W ;
+        grmhd_get_W(
+            gdd, z, &W
+        ) ; 
+
+        /* Compute smallb */
+        double smallbu[4] ; 
+        double b2;
+        grmhd_get_smallbu_smallb2(
+            betau,gdd,B,z,W,alp,
+            &smallbu,&b2
+        ) ; 
+
+        /* Compute vtilde */
+        double vt[3] ; 
+        grmhd_get_vtildeu(
+            betau, W, z, alp, &vt
+        ) ;
+        /****************************************************/
         /* Find maximum eigenvalue (amongst all directions) */
         double cmax {0}; 
         std::array<unsigned int, 3> const metric_comp{ 0, 3, 5 } ; 
-        
         for( int idir=0; idir<3; ++idir){ 
             double cp, cm ; 
-            compute_cp_cm( cp, cm, v02, u0, prims[VXL+idir]
-                         , 1./math::int_pow<2>(metric.alp())
-                         , metric.beta(idir)
-                         , metric.invgamma(metric_comp[idir]) );
+            grmhd_get_cm_cp(
+                csnd2, vt, b2, betau, W, eps, rho, 
+                metric.invgamma(metric_comp[idir]),
+                alp, press, idir, 
+                &cm, &cp
+            ) ; 
             cmax = math::max(cmax,math::abs(cp),math::abs(cm)) ; 
         }
+        /****************************************************/
         return cmax ; 
+        /****************************************************/
+        /****************************************************/
     };
 
  private:
@@ -508,6 +535,7 @@ struct grmhd_equations_system_t
     //! Parameters for excision
     excision_params_t excision_params; 
     /***********************************************************************/
+    #if 0
     /**
      * @brief Compute fluxes for gmrmhd equations.
      * 
@@ -599,9 +627,9 @@ struct grmhd_equations_system_t
         std::array<int, GRMHD_NUM_RECON_VARS>
             recon_indices_loc{
                   RHOL
-                , VXL
-                , VYL
-                , VZL
+                , ZXL
+                , ZYL
+                , ZZL
                 , YEL
                 , TEMPL
                 , ENTL
@@ -643,9 +671,9 @@ struct grmhd_equations_system_t
         /* W = sqrt(1+z^2)  */
         double const alp = metric_face.alp() ;
         double const wl   = Kokkos::sqrt(1. 
-            + metric_face.square_vec({primL[VXL], primL[VYL], primL[VZL]}));
+            + metric_face.square_vec({primL[ZXL], primL[ZYL], primL[ZZL]}));
         double const wr   = Kokkos::sqrt(1. 
-            + metric_face.square_vec({primR[VXL], primR[VYL], primR[VZL]}));
+            + metric_face.square_vec({primR[ZXL], primR[ZYL], primR[ZZL]}));
         
         /* u^0             */
         double u0_l = wl / alp ; 
@@ -664,15 +692,9 @@ struct grmhd_equations_system_t
         double cs2l, cs2r ; 
         unsigned int eos_err; 
         primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primL[EPSL], cs2l, primL[TEMPL], primL[RHOL], primL[YEL], eos_err) ; 
-        primL[VXL] = alp * primL[VXL] / wl - metric_face.beta(0) ;
-        primL[VYL] = alp * primL[VYL] / wl - metric_face.beta(1) ;
-        primL[VZL] = alp * primL[VZL] / wl - metric_face.beta(2) ; 
 
         /* Right */
         primR[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primR[EPSL], cs2r, primR[TEMPL], primR[RHOL], primR[YEL], eos_err) ; 
-        primR[VXL] = alp * primR[VXL] / wr - metric_face.beta(0) ;
-        primR[VYL] = alp * primR[VYL] / wr - metric_face.beta(1) ;
-        primR[VZL] = alp * primR[VZL] / wr - metric_face.beta(2) ;
 
         std::array<double,3> uD_l, uD_r ; 
         solver.transform_velocities_to_tetrad_frame(u0_l, primL, uD_l) ; 
@@ -686,9 +708,9 @@ struct grmhd_equations_system_t
 
         /* Get wavespeeds      */ 
         double cpr, cmr, cpl, cml;
-        compute_cp_cm( cpl, cml, cs2l, u0_l, primL[VXL+idir], 1
+        compute_cp_cm( cpl, cml, cs2l, u0_l, primL[ZXL+idir], 1
                      , 0, 1) ;
-        compute_cp_cm( cpr, cmr, cs2r, u0_r, primR[VXL+idir], 1
+        compute_cp_cm( cpr, cmr, cs2r, u0_r, primR[ZXL+idir], 1
                      , 0, 1) ;
         double cmin = -math::min(0., math::min(cml,cmr)) ; 
         double cmax =  math::max(0., math::max(cpl,cpr)) ; 
@@ -701,8 +723,8 @@ struct grmhd_equations_system_t
         uL[DENSL] = alp * primL[RHOL] * u0_l ;
         uR[DENSL] = alp * primR[RHOL] * u0_r ;
 
-        fL[DENSL] = uL[DENSL] * primL[VXL+idir] ; 
-        fR[DENSL] = uR[DENSL] * primR[VXL+idir] ; 
+        fL[DENSL] = uL[DENSL] * primL[ZXL+idir] ; 
+        fR[DENSL] = uR[DENSL] * primR[ZXL+idir] ; 
 
         /***********************************************************************/
         /*                          Get ye_star flux                           */
@@ -710,8 +732,8 @@ struct grmhd_equations_system_t
         uL[YESL] = uL[DENSL] * primL[YEL] ; 
         uR[YESL] = uR[DENSL] * primR[YEL] ; 
         
-        fL[YESL] = uL[YESL] * primL[VXL+idir] ; 
-        fR[YESL] = uR[YESL] * primR[VXL+idir] ; 
+        fL[YESL] = uL[YESL] * primL[ZXL+idir] ; 
+        fR[YESL] = uR[YESL] * primR[ZXL+idir] ; 
 
         /***********************************************************************/
         /*                          Get s_star flux                            */
@@ -719,8 +741,8 @@ struct grmhd_equations_system_t
         uL[ENTSL] = uL[DENSL] * primL[ENTL] ; 
         uR[ENTSL] = uR[DENSL] * primR[ENTL] ; 
 
-        fL[ENTSL] = uL[ENTSL] * primL[VXL+idir] ; 
-        fR[ENTSL] = uR[ENTSL] * primR[VXL+idir] ; 
+        fL[ENTSL] = uL[ENTSL] * primL[ZXL+idir] ; 
+        fR[ENTSL] = uR[ENTSL] * primR[ZXL+idir] ; 
 
         /***********************************************************************/ 
         /*                           Get tau flux                              */
@@ -735,8 +757,8 @@ struct grmhd_equations_system_t
         /***************************************************************************/
         /* F^{d}_{\rm tau} = \sqrt{\gamma} (\tau + P) v^d                          */
         /***************************************************************************/
-        fL[TAUL] = tau_plus_P_l * primL[VXL+idir] ;
-        fR[TAUL] = tau_plus_P_r * primR[VXL+idir] ;
+        fL[TAUL] = tau_plus_P_l * primL[ZXL+idir] ;
+        fR[TAUL] = tau_plus_P_r * primR[ZXL+idir] ;
         /***********************************************************************/
         /* Momentum flux in direction d for S_j : \alpha \sqrt{\gamma} T^d_j   */
         /***********************************************************************/
@@ -756,8 +778,8 @@ struct grmhd_equations_system_t
         uL[STXL] = D_h_l * uD_l[0] ;
         uR[STXL] = D_h_r * uD_r[0] ;
 
-        fL[STXL] = uL[STXL] * primL[VXL+idir] + primL[PRESSL] * utils::delta(idir,0) ;
-        fR[STXL] = uR[STXL] * primR[VXL+idir] + primR[PRESSL] * utils::delta(idir,0) ;
+        fL[STXL] = uL[STXL] * primL[ZXL+idir] + primL[PRESSL] * utils::delta(idir,0) ;
+        fR[STXL] = uR[STXL] * primR[ZXL+idir] + primR[PRESSL] * utils::delta(idir,0) ;
 
         /***********************************************************************/
         /* Get S_y flux                                                        */
@@ -771,8 +793,8 @@ struct grmhd_equations_system_t
         uL[STYL] = D_h_l * uD_l[1] ;
         uR[STYL] = D_h_r * uD_r[1] ;
 
-        fL[STYL] = uL[STYL] * primL[VXL+idir] + primL[PRESSL] * utils::delta(idir,1) ;
-        fR[STYL] = uR[STYL] * primR[VXL+idir] + primR[PRESSL] * utils::delta(idir,1) ; 
+        fL[STYL] = uL[STYL] * primL[ZXL+idir] + primL[PRESSL] * utils::delta(idir,1) ;
+        fR[STYL] = uR[STYL] * primR[ZXL+idir] + primR[PRESSL] * utils::delta(idir,1) ; 
 
         /***********************************************************************/
         /* Get S_z flux                                                        */
@@ -786,9 +808,9 @@ struct grmhd_equations_system_t
         uL[STZL] = D_h_l * uD_l[2] ;
         uR[STZL] = D_h_r * uD_r[2] ;
 
-        fL[STZL] = uL[STZL] * primL[VXL+idir] 
+        fL[STZL] = uL[STZL] * primL[ZXL+idir] 
             + primL[PRESSL] * utils::delta(idir,2) ;
-        fR[STZL] = uR[STZL] * primR[VXL+idir] 
+        fR[STZL] = uR[STZL] * primR[ZXL+idir] 
             + primR[PRESSL] * utils::delta(idir,2) ; 
         /***********************************************************************/
         grmhd_cons_array_t fHLLC = 
@@ -803,6 +825,7 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SZ_,idir,q)          = alpha_sqrtgamma * fHLLC[STZL]  ;
         /***********************************************************************/
     };
+    #endif
     /**
      * @brief Compute fluxes for gmrmhd equations.
      * 
@@ -878,9 +901,9 @@ struct grmhd_equations_system_t
         std::array<int, GRMHD_NUM_RECON_VARS>
             recon_indices_loc{
                   RHOL
-                , VXL
-                , VYL
-                , VZL
+                , ZXL
+                , ZYL
+                , ZZL
                 , YEL
                 , TEMPL
                 , ENTL
@@ -1045,8 +1068,8 @@ struct grmhd_equations_system_t
         double const * const betau = metric_face._beta.data(); 
         double const alp           = metric_face.alp() ; 
         double const sqrtg         = metric_face.sqrtg() ; 
-        double const * const zl    = &(primL[VXL]) ; 
-        double const * const zr    = &(primR[VXL]) ; 
+        double const * const zl    = &(primL[ZXL]) ; 
+        double const * const zr    = &(primR[ZXL]) ; 
         double const * const Bl    = &(primL[BXL]) ; 
         double const * const Br    = &(primR[BXL]) ; 
         double& rhol          = primL[RHOL]   ; 
@@ -1170,30 +1193,6 @@ struct grmhd_equations_system_t
     }
     /***********************************************************************/
     /***********************************************************************/
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    compute_cp_cm( double& cp, double& cm
-                 , double const& v02, double const& u0
-                 , double const& vd, double const& one_over_alp2 
-                 , double const& betad, double const& gupdd ) const
-    {
-        double const u0_sq = math::int_pow<2>(u0) ; 
-
-        double const a = u0_sq * ( 1- v02 ) + v02 * one_over_alp2 ; 
-
-        double const b = 2. * ( betad * one_over_alp2 * v02 - u0_sq * vd * (1. - v02 )) ; 
-
-        double const c = u0_sq * math::int_pow<2>(vd) * ( 1.-v02 ) 
-            - v02 * ( gupdd - math::int_pow<2>(betad)*one_over_alp2) ;
-        
-        //double det = math::int_pow<2>(b) - 4. * a * c ; 
-        double const det = Kokkos::sqrt(math::max(0., math::int_pow<2>(b) - 4. * a * c))  ; 
-
-        double const c1 =  0.5*(det-b) / a ; 
-        double const c2 = -0.5*(det+b) / a ; 
-
-        cp = Kokkos::max(c1,c2) ; 
-        cm = Kokkos::min(c1,c2) ; 
-    }
 } ; 
 /***********************************************************************/
 template< typename eos_t >
