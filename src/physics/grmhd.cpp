@@ -42,6 +42,15 @@
 #ifdef GRACE_ENABLE_GRMHD
 #include <grace/physics/grmhd_subexpressions.hh>
 #endif 
+#ifdef GRACE_ENABLE_LORENE
+#include <grace/physics/id/lorene_bns.hh>
+#endif 
+#ifdef GRACE_ENABLE_Z4C_METRIC
+#include <grace/physics/z4c.hh>
+#endif
+#ifdef GRACE_ENABLE_BSSN_METRIC
+#include <grace/physics/bssn.hh>
+#endif 
 #include <grace/physics/id/shocktube.hh>
 #include <grace/physics/id/vacuum.hh>
 #include <grace/physics/id/blastwave.hh>
@@ -207,6 +216,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
 
     id_t id_kernel{ _eos, pcoords, kernel_args... } ; 
     Kokkos::fence() ; 
+    // main ID loop, here we fill hydro and metric 
     parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID")
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
@@ -273,6 +283,8 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),BY_,q) = id.by ;
                     aux(VEC(i,j,k),BZ_,q) = id.bz ; 
                 }) ; 
+    
+    // Evolved metric needs gammatilde, which is a derivative 
     #ifdef GRACE_ENABLE_Z4C_METRIC 
     {
         Kokkos::fence(); 
@@ -299,11 +311,12 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     });
     }
     #endif 
-    auto B_from_A = grace::get_param<bool>("grmhd","B_field_from_Avec") ; 
-    if ( ! B_from_A ) {
+    // set up B fields 
+    auto B_init_type = grace::get_param<std::string>("grmhd","B_field_initialization") ; 
+    if ( B_init_type == "direct" ) {
         // get staggered coordinates 
         fill_physical_coordinates(pcoords,STAG_FACEX) ; 
-        id_kernel = id_t( _eos, pcoords, kernel_args...) ; 
+        id_kernel = id_t(_eos, pcoords, kernel_args... ) ; 
         // now we set the staggered fields 
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BX")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nq})
@@ -315,7 +328,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     });
         // get staggered coordinates 
         fill_physical_coordinates(pcoords,STAG_FACEY) ; 
-        id_kernel = id_t( _eos, pcoords, kernel_args...) ; 
+        id_kernel = id_t(_eos, pcoords, kernel_args... ) ; 
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BY")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
@@ -325,7 +338,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                         stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) = id.by * metric.sqrtg() ; 
                     });
         fill_physical_coordinates(pcoords,STAG_FACEZ) ; 
-        id_kernel = id_t( _eos, pcoords, kernel_args...) ; 
+        id_kernel = id_t(_eos, pcoords, kernel_args... ) ; 
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BZ")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz+1),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
@@ -334,7 +347,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                         metric_array_t metric({id.gxx,id.gxy,id.gxz,id.gyy,id.gyz,id.gzz},{id.betax,id.betay,id.betaz},id.alp) ; 
                         stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = id.bz * metric.sqrtg() ; 
                     });
-    } else {
+    } else if ( B_init_type == "from_Avec" ) {
 
         auto par = get_param<YAML::Node>("grmhd","Avec_ID") ; 
         auto kind = par["kind"].as<std::string>() ; 
@@ -345,20 +358,34 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
         auto A_pcut = par["cutoff_fact"].as<double>() ; 
         auto A_phi = par["A_phi"].as<double>() ; 
         auto A_n = par["A_n"].as<double>() ; 
+
+        auto is_binary = par["is_binary"].as<bool>() ; 
+        
+        std::array<double,3> center_1, center_2 ; 
+        center_1[0] = par["x_c_1"].as<double>() ;
+        center_1[1] = par["y_c_1"].as<double>() ; 
+        center_1[2] = par["z_c_1"].as<double>() ; 
+
+        center_2[0] = par["x_c_2"].as<double>() ;
+        center_2[1] = par["y_c_2"].as<double>() ; 
+        center_2[2] = par["z_c_2"].as<double>() ;  
+
         double vmax ; 
         if ( use_rho  ) {
             vmax = get_max_rho() ; 
         } else {
             vmax = get_max_press() ; 
         }
-        auto A_id = Avec_toroidal_id_t(
-            vmax * A_pcut, A_phi, A_n
+        auto A_id = Avec_poloidal_id_t(
+            vmax * A_pcut, A_phi, A_n, is_binary, center_1, center_2
         ) ; 
         // Initialize Avec 
         grace::var_array_t Ax("Ax", VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz+1),1,nq) 
                          , Ay("Ay", VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz+1),1,nq) 
                          , Az("Az", VEC(nx+2*ngz+1,ny+2*ngz+1,nz+2*ngz),1,nq) ; 
         // Ax 
+        fill_physical_coordinates(pcoords,STAG_EDGEYZ) ;
+        id_kernel = id_t(_eos, pcoords, kernel_args... ) ; 
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AX")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz+1),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
@@ -369,7 +396,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     });
         // Ay
         fill_physical_coordinates(pcoords,STAG_EDGEXZ) ;
-        id_kernel = id_t( _eos, pcoords, kernel_args...) ; 
+        id_kernel = id_t(_eos, pcoords, kernel_args... ) ; 
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AY")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz+1),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
@@ -380,7 +407,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     });
         // Az
         fill_physical_coordinates(pcoords,STAG_EDGEXY) ;
-        id_kernel = id_t( _eos, pcoords, kernel_args...) ; 
+        id_kernel = id_t(_eos, pcoords, kernel_args... ) ; 
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AZ")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz+1,nz+2*ngz),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
@@ -393,15 +420,11 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
         // B^k = \epsilon^{ijk} d/dx^j A_k = gamma^{-1/2} [ijk] d/dx^j A_k
         // we want sqrt(gamma) B^k so the metric factors cancel out 
         auto& idx = variable_list::get().getinvspacings() ; 
-        // Bx
-        fill_physical_coordinates(pcoords,STAG_FACEX) ; 
-        id_kernel._pcoords = pcoords ; 
+        // Bx 
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BX")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                     {
-                        auto const id = id_kernel(VEC(i,j,k), q) ;  
-                        metric_array_t metric_face({id.gxx,id.gxy,id.gxz,id.gyy,id.gyz,id.gzz},{id.betax,id.betay,id.betaz},id.alp) ;  
                         // B^x = d/dy A^z - d/dz A^y
                         stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) = (
                             (Az(VEC(i  ,j+1,k  ),0,q) - Az(VEC(i  ,j  ,k  ),0,q)) * idx(1,q)
@@ -409,35 +432,50 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                         ) ; 
                     });
         // By
-        fill_physical_coordinates(pcoords,STAG_FACEY) ; 
-        id_kernel._pcoords = pcoords ; 
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BY")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {
-                        auto const id = id_kernel(VEC(i,j,k), q) ;  
-                        metric_array_t metric_face({id.gxx,id.gxy,id.gxz,id.gyy,id.gyz,id.gzz},{id.betax,id.betay,id.betaz},id.alp) ;   
+                    {  
                         // B^y = d/dz A^x - d/dx A^z
                         stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) = (
                             (Ax(VEC(i  ,j  ,k+1),0,q) - Ax(VEC(i  ,j  ,k  ),0,q)) * idx(2,q)
                           + (Az(VEC(i  ,j  ,k  ),0,q) - Az(VEC(i+1,j  ,k  ),0,q)) * idx(0,q)
                         ) ; 
                     });
-        // Bz
-        fill_physical_coordinates(pcoords,STAG_FACEZ) ; 
-        id_kernel._pcoords = pcoords ; 
+        // Bz 
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BZ")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz+1),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                     {
-                        auto const id = id_kernel(VEC(i,j,k), q) ;  
-                        metric_array_t metric_face({id.gxx,id.gxy,id.gxz,id.gyy,id.gyz,id.gzz},{id.betax,id.betay,id.betaz},id.alp) ;  
                         // B^z = d/dx A^y - d/dy A^x
                         stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = (
                             (Ay(VEC(i+1,j  ,k  ),0,q) - Ay(VEC(i  ,j  ,k  ),0,q)) * idx(0,q)
                           + (Ax(VEC(i  ,j  ,k  ),0,q) - Ax(VEC(i  ,j+1,k  ),0,q)) * idx(1,q)
                         ) ; 
                     });
+    } else if (B_init_type == "none") {
+        // Strictly speaking views are zero-initialized so we don't need this,
+        // but let's be pedantic
+        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BX")
+                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nq})
+                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                    {
+                        stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) = 0.0 ; 
+                    });
+        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BY")
+                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz),nq})
+                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                    {
+                        stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) = 0.0 ; 
+                    });
+        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BZ")
+                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz+1),nq})
+                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                    {
+                        stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = 0.0 ; 
+                    });
+    } else {
+        ERROR("Unrecognized Bvec_id") ; 
     }
     
 }
@@ -570,6 +608,13 @@ void set_grmhd_initial_data() {
     } else if ( id_type == "puncture") {
         double m=1.0 ; 
         set_grmhd_initial_data_impl<eos_t,puncture_id_t<eos_t>>(m) ; 
+    } else if ( id_type == "lorene_bns") {
+        auto fname = get_param<std::string>("grmhd","lorene_bns","filename") ; 
+        #ifdef GRACE_ENABLE_LORENE
+        set_grmhd_initial_data_impl<eos_t,lorene_bns_id_t<eos_t>>(fname) ; 
+        #else 
+        ERROR("LORENE id requested but GRACE was not compiled with LORENE support.") ; 
+        #endif 
     } else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }
@@ -595,7 +640,7 @@ void set_conservs_from_prims() {
     auto& aux = variable_list::get().getaux() ;
 
     #ifdef GRACE_ENABLE_Z4C_METRIC
-    bssn_system_t metric_evol_eq_system(state,aux,sstate) ; 
+    z4c_system_t metric_evol_eq_system(state,aux,sstate) ; 
     #elif defined(GRACE_ENABLE_BSSN_METRIC)
     bssn_system_t metric_evol_eq_system(state,aux,sstate) ; 
     #endif 

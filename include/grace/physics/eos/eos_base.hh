@@ -191,6 +191,19 @@ class eos_base_t {
      * @return double The pressure at \f$T=0\f$
      */
     double GRACE_HOST_DEVICE
+    rho__energy_cold(double& e_cold, error_type& err) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->rho__energy_cold_impl(e_cold,err) ; 
+    }
+    /**
+     * @brief Get cold energy density given press and ye.
+     * 
+     * @param press Pressure.
+     * @param ye Electron fraction.
+     * @param err Error code.
+     * @return double The pressure at \f$T=0\f$
+     */
+    double GRACE_HOST_DEVICE
     energy_cold__press_cold_ye(double& press_cold, double& ye, error_type& err) const 
     {
         return static_cast<eos_impl_t const*>(this)->energy_cold__press_cold_ye_impl(press_cold,ye,err) ; 
@@ -476,6 +489,18 @@ class eos_base_t {
     ye_beta_eq__press_cold(double& press_cold, error_type& err) const 
     {
         return static_cast<eos_impl_t const*>(this)->ye_beta_eq__press_cold_impl(press_cold,err) ; 
+    }
+    /**
+     * @brief Get beta-equilibrium ye at T=0 given rho.
+     * 
+     * @param rho Rest-mass density
+     * @param err Error code.
+     * @return double The charge fraction at cold beta-eq.
+     */
+    double GRACE_HOST_DEVICE 
+    ye_beta_eq__rho_cold(double& rho, error_type& err) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->ye_beta_eq__rho_cold_impl(rho,err) ; 
     }
     /**
      * @brief Electron, proton, neutron chemical potentials, 

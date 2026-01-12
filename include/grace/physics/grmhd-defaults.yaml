@@ -65,13 +65,24 @@ grmhd: {
   blastwave_over_pressure_factor: 2.5,
   blastwave_initial_radius: 0.5,
   TOV_central_density: 1.28e-03,
-  B_field_from_Avec: false,
+  B_field_initialization: "none",
   Avec_ID: {
+
     kind: "current_loop",
     cutoff_var: "press",
     cutoff_fact: 0.02,
     A_phi: 0.0,
-    A_n: 1.0
+    A_n: 1.0,
+
+    is_binary: false,
+
+    x_c_1: -15.0,
+    y_c_1:  0.0,
+    z_c_1:  0.0,
+
+    x_c_2:  15.0,
+    y_c_2:  0.0,
+    z_c_2:  0.0
   },
 
   atmosphere: {

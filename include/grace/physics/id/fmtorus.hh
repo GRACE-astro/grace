@@ -242,10 +242,10 @@ struct fmtorus_id_t {
         id.rho = rho ; 
         id.press = pgas * ( 1. + perturbation ) ;
 
-	if ( ( rho < rho_bg * (1 + 1e-3) ) or ( pgas < pgas_bg * ( 1 + 1e-3 ) ) ) {
-	  id.rho = rho_bg; id.press = pgas_bg;
-	  id.vx  = id.vy = id.vz = 0 ; 
-	}
+        if ( ( rho < rho_bg * (1 + 1e-3) ) or ( pgas < pgas_bg * ( 1 + 1e-3 ) ) ) {
+            id.rho = rho_bg; id.press = pgas_bg;
+            id.vx  = id.vy = id.vz = 0 ; 
+        }
 
         id.ye = 0 ; 
         return id ;

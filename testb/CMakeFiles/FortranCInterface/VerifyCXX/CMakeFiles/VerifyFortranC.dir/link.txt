@@ -1,0 +1,1 @@
+/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc -O3 -DNDEBUG CMakeFiles/VerifyFortranC.dir/main.c.o CMakeFiles/VerifyFortranC.dir/VerifyC.c.o CMakeFiles/VerifyFortranC.dir/VerifyCXX.cxx.o -o VerifyFortranC  libVerifyFortran.a -lgfortran -lgcc -lquadmath -lgcc -lgcc -lgcc -lgcc 

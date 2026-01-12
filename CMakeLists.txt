@@ -53,6 +53,12 @@ if ( GRACE_ENABLE_VTK )
     include(setup_vtk)
 endif() 
 
+option( GRACE_ENABLE_LORENE "Lorene support" OFF )
+if ( GRACE_ENABLE_LORENE )
+    message(STATUS "LORENE support enabled")
+    find_package(LORENE REQUIRED)
+endif() 
+
 
 option(GRACE_ENABLE_PROFILING "Build profiling hooks" OFF)
 if( GRACE_ENABLE_PROFILING )
@@ -89,6 +95,7 @@ target_link_libraries(grace PRIVATE
 	    ZLIB::ZLIB
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
         $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
+        $<$<BOOL:${GRACE_ENABLE_LORENE}>:LORENE::LORENE>
         )
 if ( GRACE_ENABLE_VTK )
     vtk_module_autoinit(

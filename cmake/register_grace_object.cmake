@@ -18,7 +18,8 @@ function(register_grace_object_conditional target_name condition)
             HDF5::HDF5
             ZLIB::ZLIB
             $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
-            $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
+            $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
+            $<$<BOOL:${GRACE_ENABLE_LORENE}>:LORENE::LORENE>)
         # Init VTK modules if support is requested 
         if ( GRACE_ENABLE_VTK )
             vtk_module_autoinit(
@@ -49,7 +50,8 @@ function(register_grace_object target_name)
         HDF5::HDF5
         ZLIB::ZLIB
         $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
-        $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
+        $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
+        $<$<BOOL:${GRACE_ENABLE_LORENE}>:LORENE::LORENE>)
     # Register the object files of the target into the grace_objects interface library
     target_sources(grace_objects INTERFACE $<TARGET_OBJECTS:${target_name}>)
 endfunction()

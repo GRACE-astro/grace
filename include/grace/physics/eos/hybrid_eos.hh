@@ -135,6 +135,12 @@ class hybrid_eos_t
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    rho__energy_cold_impl(double& e_cold, error_type& err) const 
+    {
+        return cold_eos.rho__energy_cold(e_cold,err) ; 
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     eps_cold__rho_ye_impl(double& rho, double& ye, error_type& err) const 
     {
         double eps_cold ; 
@@ -150,6 +156,11 @@ class hybrid_eos_t
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     ye_beta_eq__press_cold_impl(double const& press, error_type& err) const {
+        return 0. ; 
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    ye_beta_eq__rho_cold_impl(double const& rho, error_type& err) const {
         return 0. ; 
     }
 

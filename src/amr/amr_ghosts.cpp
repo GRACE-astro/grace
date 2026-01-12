@@ -557,7 +557,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         bool operator() (
             comm_key_t const& a,
             comm_key_t const& b
-        )
+        ) const
         {
             if ( a.qid < b.qid ) return true ; 
             if ( b.qid < a.qid ) return false ; 
@@ -838,7 +838,29 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
             }
         }
     }
-    // NB no duplicates here
+    std::sort(_reflux_coarse_face_snd.begin(), _reflux_coarse_face_snd.end(), 
+        [](const hanging_remote_reflux_desc_t& a, const hanging_remote_reflux_desc_t& b) {
+            if (a.rank < b.rank) return true;
+            if (b.rank < a.rank) return false;
+            if (a.buf_id < b.buf_id) return true;
+            if (b.buf_id < a.buf_id) return false;
+            if (a.qid < b.qid) return true;
+            if (b.qid < a.qid) return false;
+            return (a.elem_id < b.elem_id);
+        }
+    );
+
+    // Then remove consecutive duplicates
+    _reflux_coarse_face_snd.erase(
+        std::unique(_reflux_coarse_face_snd.begin(), _reflux_coarse_face_snd.end(),
+            [](const hanging_remote_reflux_desc_t& a, const hanging_remote_reflux_desc_t& b) {
+                return a.rank == b.rank && a.buf_id == b.buf_id && 
+                    a.qid == b.qid && a.elem_id == b.elem_id;
+            }
+        ),
+        _reflux_coarse_face_snd.end()
+    );
+    
     send_size_emf = nx*nx*2 ; 
 
     size_t total_snd_emf_coarse, total_recv_emf_coarse ; 
@@ -916,35 +938,6 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
             
         }
     } // for loop 
-    // now the coarse edges (same send list)
-    for( int i=0; i<_reflux_coarse_edge_descs.size(); ++i) {
-        auto& dsc = _reflux_coarse_edge_descs[i] ;
-        for( int iside=0; iside<dsc.n_sides; ++iside) {
-            auto const& dsc_this = dsc.sides[iside] ; 
-            if ( dsc_this.octants.coarse.is_remote ) {
-                GRACE_TRACE_DBG("Receive coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_this.octants.coarse.owner_rank,dsc_this.edge_id );
-                // receive 
-                rcv_keys[dsc_this.octants.coarse.owner_rank].push_back(
-                        comm_key_t{
-                            dsc_this.octants.coarse.quad_id, dsc_this.edge_id
-                        }
-                    ) ;
-            } else {
-                // send 
-                for( int jside=0; jside<dsc.n_sides; ++jside){ 
-                    if ( jside==iside ) continue ;
-                    auto const& dsc_other = dsc.sides[jside] ; 
-                    GRACE_TRACE_DBG("Send coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_other.octants.coarse.owner_rank,dsc_this.edge_id );
-                    if ( !dsc_other.octants.coarse.is_remote ) continue ; 
-                    snd_keys[dsc_other.octants.coarse.owner_rank].push_back(
-                                    comm_key_t{
-                                        dsc_this.octants.coarse.quad_id, dsc_this.edge_id
-                                    }
-                                ) ;
-                }
-            }
-        }
-    }
     // note: we need to dedup since if multiple remotes are on the same rank 
     // we send the data to each octant, which is redundant. 
     std::tie(send_lookup,rank_send_counts) = cpb.sort_and_dedup(snd_keys) ;
@@ -1010,41 +1003,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
             }
 
         } // for desc 
-    }
-    // now coarse 
-    for( int i=0; i<_reflux_coarse_edge_descs.size(); ++i) {
-        auto& dsc = _reflux_coarse_edge_descs[i] ;
-
-        for( int iside=0; iside<dsc.n_sides; ++iside) {
-            auto& dsc_this = dsc.sides[iside] ; 
-            if ( dsc_this.octants.coarse.is_remote ) {
-                // receive 
-                comm_key_t key {
-                            dsc_this.octants.coarse.quad_id, dsc_this.edge_id
-                        } ;
-                // fixme, ensure this is never used again 
-                auto r = dsc_this.octants.coarse.owner_rank ; 
-                dsc_this.octants.coarse.quad_id = recv_lookup[r][key];
-            } else {
-                // send 
-                for( int jside=0; jside<dsc.n_sides; ++jside){ 
-                    if ( jside==iside ) continue ;
-                    auto const& dsc_other = dsc.sides[jside] ; 
-                    if ( !dsc_other.octants.coarse.is_remote ) continue ; 
-                    comm_key_t key {
-                                    dsc_this.octants.coarse.quad_id, dsc_this.edge_id
-                                } ; 
-                    hanging_remote_reflux_desc_t snd_desc{} ; 
-                    snd_desc.qid = dsc_this.octants.coarse.quad_id ; 
-                    auto r = dsc_other.octants.coarse.owner_rank ;
-                    snd_desc.rank = r; 
-                    snd_desc.elem_id = dsc_this.edge_id ; 
-                    snd_desc.buf_id = send_lookup[r][key] ; 
-                    _reflux_edge_snd.push_back(snd_desc) ;
-                }
-            }
-        }
-    }
+    }    
     // we need to dedup _reflux_edge_snd 
     std::sort(_reflux_edge_snd.begin(), _reflux_edge_snd.end(), 
         [](const hanging_remote_reflux_desc_t& a, const hanging_remote_reflux_desc_t& b) {
@@ -1096,10 +1055,6 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         "reflux_emf_edge_local_buffer", nx, 2, _reflux_edge_descs.size()
     ) ; 
 
-    _reflux_emf_coarse_edge_accumulation_buf = Kokkos::View<double**, grace::default_space>(
-        "reflux_emf_coarse_edge_local_buffer", nx, _reflux_coarse_edge_descs.size()
-    ) ; 
-    
     // Detailed per-rank breakdown
     for( int r=0; r<nproc; ++r) {
         if (_reflux_snd_emf_edge_size[r] > 0 || _reflux_rcv_emf_edge_size[r] > 0) {
@@ -1107,6 +1062,134 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                 r, 
                 _reflux_snd_emf_edge_off[r], _reflux_snd_emf_edge_size[r],
                 _reflux_rcv_emf_edge_off[r], _reflux_rcv_emf_edge_size[r]);
+        }
+    }
+
+    // now the coarse edge
+    snd_keys = std::vector<std::vector<comm_key_t>>(nproc) ; 
+    rcv_keys = std::vector<std::vector<comm_key_t>>(nproc) ; 
+    for( int i=0; i<_reflux_coarse_edge_descs.size(); ++i) {
+        auto& dsc = _reflux_coarse_edge_descs[i] ;
+        
+        for( int iside=0; iside<dsc.n_sides; ++iside) {
+            auto const& dsc_this = dsc.sides[iside] ; 
+            ASSERT(!dsc_this.is_fine, "In coarse edges got fine side.") ; 
+            if ( dsc_this.octants.coarse.is_remote ) {
+                GRACE_TRACE_DBG("Receive coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_this.octants.coarse.owner_rank,dsc_this.edge_id );
+                // receive 
+                rcv_keys[dsc_this.octants.coarse.owner_rank].push_back(
+                        comm_key_t{
+                            dsc_this.octants.coarse.quad_id, dsc_this.edge_id
+                        }
+                    ) ;
+            } else {
+                // send 
+                for( int jside=0; jside<dsc.n_sides; ++jside){ 
+                    if ( jside==iside ) continue ;
+                    auto const& dsc_other = dsc.sides[jside] ; 
+                    GRACE_TRACE_DBG("Send coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_other.octants.coarse.owner_rank,dsc_this.edge_id );
+                    if ( !dsc_other.octants.coarse.is_remote ) continue ; 
+                    snd_keys[dsc_other.octants.coarse.owner_rank].push_back(
+                                    comm_key_t{
+                                        dsc_this.octants.coarse.quad_id, dsc_this.edge_id
+                                    }
+                                ) ;
+                }
+            }
+        }
+    }
+    std::tie(send_lookup,rank_send_counts) = cpb.sort_and_dedup(snd_keys) ;
+    std::tie(recv_lookup,rank_recv_counts) = cpb.sort_and_dedup(rcv_keys) ;
+    _reflux_coarse_edge_snd.clear() ;
+    for( int i=0; i<_reflux_coarse_edge_descs.size(); ++i) {
+        auto& dsc = _reflux_coarse_edge_descs[i] ;
+
+        for( int iside=0; iside<dsc.n_sides; ++iside) {
+            auto& dsc_this = dsc.sides[iside] ; 
+            if ( dsc_this.octants.coarse.is_remote ) {
+                // receive 
+                comm_key_t key {
+                            dsc_this.octants.coarse.quad_id, dsc_this.edge_id
+                        } ;
+                // fixme, ensure this is never used again 
+                auto r = dsc_this.octants.coarse.owner_rank ; 
+                dsc_this.octants.coarse.quad_id = recv_lookup[r][key];
+            } else {
+                // send 
+                for( int jside=0; jside<dsc.n_sides; ++jside){ 
+                    if ( jside==iside ) continue ;
+                    auto const& dsc_other = dsc.sides[jside] ; 
+                    if ( !dsc_other.octants.coarse.is_remote ) continue ; 
+                    comm_key_t key {
+                                    dsc_this.octants.coarse.quad_id, dsc_this.edge_id
+                                } ; 
+                    hanging_remote_reflux_desc_t snd_desc{} ; 
+                    snd_desc.qid = dsc_this.octants.coarse.quad_id ; 
+                    auto r = dsc_other.octants.coarse.owner_rank ;
+                    snd_desc.rank = r; 
+                    snd_desc.elem_id = dsc_this.edge_id ; 
+                    snd_desc.buf_id = send_lookup[r][key] ; 
+                    _reflux_coarse_edge_snd.push_back(snd_desc) ;
+                }
+            }
+        }
+    }
+    // we need to dedup _reflux_coarse_edge_snd 
+    std::sort(_reflux_coarse_edge_snd.begin(), _reflux_coarse_edge_snd.end(), 
+        [](const hanging_remote_reflux_desc_t& a, const hanging_remote_reflux_desc_t& b) {
+            if (a.rank < b.rank) return true;
+            if (b.rank < a.rank) return false;
+            if (a.buf_id < b.buf_id) return true;
+            if (b.buf_id < a.buf_id) return false;
+            if (a.qid < b.qid) return true;
+            if (b.qid < a.qid) return false;
+            return (a.elem_id < b.elem_id);
+        }
+    );
+    _reflux_coarse_edge_snd.erase(
+        std::unique(_reflux_coarse_edge_snd.begin(), _reflux_coarse_edge_snd.end(),
+            [](const hanging_remote_reflux_desc_t& a, const hanging_remote_reflux_desc_t& b) {
+                return a.rank == b.rank && a.buf_id == b.buf_id && 
+                    a.qid == b.qid && a.elem_id == b.elem_id;
+            }
+        ),
+        _reflux_coarse_edge_snd.end()
+    );
+    // finally allocate 
+    // here we always send the emf along the edge --> no stagger
+    // also we always send just one --> send size simply nx 
+    send_size_emf = (nx) ; 
+
+    size_t total_snd_emf_coarse_edge, total_rcv_emf_coarse_edge;
+    std::tie(total_snd_emf_coarse_edge,_reflux_snd_emf_coarse_edge_size,_reflux_snd_emf_coarse_edge_off) = cpb.get_offsets_and_sizes(rank_send_counts,send_size_emf) ; 
+    std::tie(total_rcv_emf_coarse_edge,_reflux_rcv_emf_coarse_edge_size,_reflux_rcv_emf_coarse_edge_off) = cpb.get_offsets_and_sizes(rank_recv_counts,send_size_emf) ; 
+
+    ASSERT(total_snd_emf_coarse_edge/send_size_emf==_reflux_coarse_edge_snd.size(), "Mismatch send element count in coarse edge descriptor") ;
+    _reflux_emf_coarse_edge_snd_buf = amr::reflux_edge_array_t("reflux_emf_coarse_edge_send") ; 
+    _reflux_emf_coarse_edge_recv_buf = amr::reflux_edge_array_t("reflux_emf_coarse_edge_receive") ;
+    
+    _reflux_emf_coarse_edge_snd_buf.set_strides(nx) ; 
+    _reflux_emf_coarse_edge_recv_buf.set_strides(nx) ; 
+
+    _reflux_emf_coarse_edge_snd_buf.set_offsets(_reflux_snd_emf_coarse_edge_off) ; 
+    _reflux_emf_coarse_edge_recv_buf.set_offsets(_reflux_rcv_emf_coarse_edge_off) ; 
+
+    _reflux_emf_coarse_edge_snd_buf.realloc(total_snd_emf_coarse_edge) ; 
+    _reflux_emf_coarse_edge_recv_buf.realloc(total_rcv_emf_coarse_edge) ;
+
+    GRACE_VERBOSE("[REFLUX]: EMF-coarse-edge buffers constructed, total size send emf: {}, total size receive: {}", total_snd_emf_coarse_edge, total_rcv_emf_coarse_edge) ;
+
+    _reflux_emf_coarse_edge_accumulation_buf = Kokkos::View<double**, grace::default_space>(
+        "reflux_emf_coarse_edge_local_buffer", nx, _reflux_coarse_edge_descs.size()
+    ) ; 
+
+    // Detailed per-rank breakdown
+    for( int r=0; r<nproc; ++r) {
+        if (_reflux_snd_emf_coarse_edge_size[r] > 0 || _reflux_rcv_emf_coarse_edge_size[r] > 0) {
+            GRACE_VERBOSE("[REFLUX]: EMFs coarse-edge: Rank {}: send[off={}, size={}] recv[off={}, size={}]", 
+                r, 
+                _reflux_snd_emf_coarse_edge_off[r], _reflux_snd_emf_coarse_edge_size[r],
+                _reflux_rcv_emf_coarse_edge_off[r], _reflux_rcv_emf_coarse_edge_size[r]);
         }
     }
 }

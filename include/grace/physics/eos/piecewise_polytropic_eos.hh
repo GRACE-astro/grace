@@ -33,6 +33,7 @@
 #include <grace/utils/grace_utils.hh>
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/data_structures/memory_defaults.hh>
+#include <grace/utils/rootfinding.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -91,6 +92,32 @@ class piecewise_polytropic_eos_t
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    rho__energy_cold(double & e, error_type& err) const {
+        auto func = [=,this] (double rho, double& f, double& df) {
+            error_type errl ; 
+            unsigned int idx = find_index_rho(rho,errl) ; 
+            double g = _gamma(idx) ; 
+            double K = _k(idx) ; 
+            double ei = rho * ( 1. + _eps(idx) ) ; 
+
+            f = (ei - e)+ K/(g-1.)  * pow(rho,g) ; 
+            df = 1. + _eps(idx) + g*K/(g-1.) * pow(rho,g-1.) ; 
+        } ;
+        int rerr ; 
+        // TODO: should we rootfind in logrho? 
+        // rho can never exceed e = rho ( 1 + eps )
+        // and the function is monotonic
+        auto rho = utils::rootfind_newton_raphson(
+            0.0, e, func, 30, 1e-15, rerr
+        ) ; 
+        if ( rerr != 0 ) {
+            err = 1 ;
+            return _rho(0) ; 
+        }
+        return rho ; 
+    }
+
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     energy_cold__press_cold(double & press, error_type& err) const {
         unsigned int idx = find_index_press(press, err) ; 
         double const rho =  Kokkos::pow(press/_k(idx), 1./_gamma(idx));
@@ -118,6 +145,7 @@ class piecewise_polytropic_eos_t
         for( int ii=0; ii<num_pieces-1; ++ii) {
             if( rho > _rho(ii) and rho <= _rho(ii+1) ) {
                 return ii ; 
+                break ; 
             }
         }
         return num_pieces - 1 ;
@@ -128,13 +156,38 @@ class piecewise_polytropic_eos_t
         if( press < _press(0) ) {
             press = _press(0) ; 
             err = 1 ; 
-            return _rho(0) ; 
+            return 0 ; 
         }
 
         int idx = num_pieces-1; 
         for( int nn=1; nn<num_pieces; ++nn) {
             if( press <= _press(nn) and press > _press(nn-1)) {
                 idx = nn - 1 ; 
+                break ; 
+            }
+        }
+        return idx ;
+    } 
+
+    unsigned int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    find_index_ener(double& e, error_type& err) const {
+        double emin = _rho(0) * (1.0 + _eps(0));
+        double emax = _rho(num_pieces-1) * (1.0 + _eps(num_pieces-1));
+        if( e < emin ) {
+            e = emin ; 
+            err = 1 ; 
+            return 0 ; 
+        } else if ( e > emax ) {
+            e = emax ; 
+            err = 2 ; 
+            return num_pieces-1;
+        }
+
+        int idx = num_pieces-1; 
+        for( int nn=1; nn<num_pieces; ++nn) {
+            if( e <= _rho(nn) * (1.0 + _eps(nn)) and e > _rho(nn-1) * (1. + _eps(nn-1))) {
+                idx = nn - 1 ; 
+                break ; 
             }
         }
         return idx ;

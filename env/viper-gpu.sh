@@ -11,6 +11,8 @@ export YAML_ROOT=${LIB_BASEDIR}/install/yamlcpp
 export CATCH2_ROOT=${LIB_BASEDIR}/install/catch2
 export SPDLOG_ROOT=${LIB_BASEDIR}/install/spdlog
 
+export LORENE_ROOT=/u/cmusolino/lorene/Lorene
+
 export KOKKOS_TOOLS_PATH=${KOKKOS_TOOLS_ROOT}/lib64
 
 export LD_LIBRARY_PATH=${KOKKOS_TOOLS_LIB}:${LD_LIBRARY_PATH}

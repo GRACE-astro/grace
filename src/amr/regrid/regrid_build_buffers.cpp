@@ -208,7 +208,7 @@ void regrid_transaction_t::build_buffers() {
     // flatten the receive array, which we are about to **send**
     #define MPI_FLATTEN_ARRAY(axis)\
     std::vector<fine_face_data_desc_t> recvbuf_##axis, sendbuf_##axis; \
-    sendbuf_##axis.resize(send_size_##axis);\
+    sendbuf_##axis.resize(send_size_##axis/sizeof(fine_face_data_desc_t));\
     for (int r = 0; r < nprocs; ++r){\
         recvbuf_##axis.insert(recvbuf_##axis.end(), recv_##axis[r].begin(), recv_##axis[r].end());\
     }
