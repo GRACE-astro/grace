@@ -180,13 +180,11 @@ struct z4c_system_t
         dKhat  += epsdiss * kreiss_olinger_operator(i,j,k,q,KHAT_,idx)  ;
         dalp   += epsdiss * kreiss_olinger_operator(i,j,k,q,ALP_,idx)   ;
         dtheta += epsdiss * kreiss_olinger_operator(i,j,k,q,THETA_,idx) ;
-        #if 1
         #pragma unroll 6
         for(int icomp=0; icomp<6; ++icomp) {
             dgtdd[icomp] += epsdiss * kreiss_olinger_operator(i,j,k,q,GTXX_+icomp,idx) ;  
             dAtdd[icomp] += epsdiss * kreiss_olinger_operator(i,j,k,q,ATXX_+icomp,idx) ;  
         } 
-        #endif 
         # pragma unroll 3
         for(int icomp=0; icomp<3; ++icomp) {
             dBdr[icomp] += epsdiss * kreiss_olinger_operator(i,j,k,q,BDRIVERX_+icomp,idx) ;  
