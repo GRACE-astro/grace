@@ -5,5 +5,6 @@ checkpoints: {
   iteration_interval: 1000,
   time_interval: 204,
   checkpoint_at_termination: true,
+  checkpoint_at_startup: false,
   walltime_interval: 12 # hours 
 }

@@ -225,6 +225,20 @@ grace_diagnostics/fast:
 .PHONY : grace_diagnostics/fast
 
 # Convenience name for target.
+src/IO/CMakeFiles/grace_gw_integrals.dir/rule:
+	cd /u/cmusolino/grace-private-src/testb && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/IO/CMakeFiles/grace_gw_integrals.dir/rule
+.PHONY : src/IO/CMakeFiles/grace_gw_integrals.dir/rule
+
+# Convenience name for target.
+grace_gw_integrals: src/IO/CMakeFiles/grace_gw_integrals.dir/rule
+.PHONY : grace_gw_integrals
+
+# fast build rule for target.
+grace_gw_integrals/fast:
+	cd /u/cmusolino/grace-private-src/testb && $(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_gw_integrals.dir/build.make src/IO/CMakeFiles/grace_gw_integrals.dir/build
+.PHONY : grace_gw_integrals/fast
+
+# Convenience name for target.
 src/IO/CMakeFiles/xmf_utilities.dir/rule:
 	cd /u/cmusolino/grace-private-src/testb && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/IO/CMakeFiles/xmf_utilities.dir/rule
 .PHONY : src/IO/CMakeFiles/xmf_utilities.dir/rule
@@ -285,6 +299,30 @@ diagnostics/black_hole_diagnostics.s: diagnostics/black_hole_diagnostics.cpp.s
 diagnostics/black_hole_diagnostics.cpp.s:
 	cd /u/cmusolino/grace-private-src/testb && $(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_diagnostics.dir/build.make src/IO/CMakeFiles/grace_diagnostics.dir/diagnostics/black_hole_diagnostics.cpp.s
 .PHONY : diagnostics/black_hole_diagnostics.cpp.s
+
+diagnostics/gw_integrals.o: diagnostics/gw_integrals.cpp.o
+.PHONY : diagnostics/gw_integrals.o
+
+# target to build an object file
+diagnostics/gw_integrals.cpp.o:
+	cd /u/cmusolino/grace-private-src/testb && $(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_gw_integrals.dir/build.make src/IO/CMakeFiles/grace_gw_integrals.dir/diagnostics/gw_integrals.cpp.o
+.PHONY : diagnostics/gw_integrals.cpp.o
+
+diagnostics/gw_integrals.i: diagnostics/gw_integrals.cpp.i
+.PHONY : diagnostics/gw_integrals.i
+
+# target to preprocess a source file
+diagnostics/gw_integrals.cpp.i:
+	cd /u/cmusolino/grace-private-src/testb && $(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_gw_integrals.dir/build.make src/IO/CMakeFiles/grace_gw_integrals.dir/diagnostics/gw_integrals.cpp.i
+.PHONY : diagnostics/gw_integrals.cpp.i
+
+diagnostics/gw_integrals.s: diagnostics/gw_integrals.cpp.s
+.PHONY : diagnostics/gw_integrals.s
+
+# target to generate assembly for a file
+diagnostics/gw_integrals.cpp.s:
+	cd /u/cmusolino/grace-private-src/testb && $(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_gw_integrals.dir/build.make src/IO/CMakeFiles/grace_gw_integrals.dir/diagnostics/gw_integrals.cpp.s
+.PHONY : diagnostics/gw_integrals.cpp.s
 
 hdf5_output.o: hdf5_output.cpp.o
 .PHONY : hdf5_output.o
@@ -489,6 +527,7 @@ help:
 	@echo "... test"
 	@echo "... grace_cell_output"
 	@echo "... grace_diagnostics"
+	@echo "... grace_gw_integrals"
 	@echo "... grace_hdf5_output"
 	@echo "... grace_hdf5_sphere_output"
 	@echo "... grace_hdf5_surface_output"
@@ -501,6 +540,9 @@ help:
 	@echo "... diagnostics/black_hole_diagnostics.o"
 	@echo "... diagnostics/black_hole_diagnostics.i"
 	@echo "... diagnostics/black_hole_diagnostics.s"
+	@echo "... diagnostics/gw_integrals.o"
+	@echo "... diagnostics/gw_integrals.i"
+	@echo "... diagnostics/gw_integrals.s"
 	@echo "... hdf5_output.o"
 	@echo "... hdf5_output.i"
 	@echo "... hdf5_output.s"

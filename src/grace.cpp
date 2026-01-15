@@ -49,14 +49,18 @@
 int main(int argc, char* argv[])
 {
     /**********************************************************************************/
+    using namespace grace::variables ;
+    using namespace Kokkos ;
+    using namespace grace ; 
+    /**********************************************************************************/
     /*                               Initialize runtime                               */
     /**********************************************************************************/
     grace::initialize(argc, argv) ; 
     /**********************************************************************************/
+    if ( grace::get_param<bool>("checkpoints","checkpoint_at_startup") ) {
+        grace::checkpoint_handler::get().save_checkpoint() ; 
+    }
     /**********************************************************************************/
-    using namespace grace::variables ;
-    using namespace Kokkos ;
-    using namespace grace ; 
     /**********************************************************************************/
     int64_t regrid_every = grace::get_param<int64_t>("amr","regrid_every") ;  
     int64_t volume_output_every = grace::get_param<int64_t>("IO","volume_output_every") ;

@@ -43,7 +43,9 @@
 #include <grace/config/config_parser.hh>
 
 #include <grace/IO/diagnostics/black_hole_diagnostics.hh>
-
+#ifdef GRACE_ENABLE_Z4C_METRIC
+#include <grace/IO/diagnostics/gw_integrals.hh>
+#endif
 #include <Kokkos_Core.hpp>
 
 #include <array>
@@ -56,11 +58,19 @@ namespace grace { namespace IO {
 void output_diagnostics() {
     bh_diagnostics bh_diag{};
     bh_diag.compute_and_write() ;  
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    gw_integrals gw_ints{} ; 
+    gw_ints.compute_and_write() ;  
+    #endif
 }
 
 void initialize_diagnostic_files() {
     bh_diagnostics bh_diag{};
     bh_diag.initialize_files() ; 
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    gw_integrals gw_ints{} ; 
+    gw_ints.initialize_files() ;  
+    #endif
     parallel::mpi_barrier() ;
 }
 

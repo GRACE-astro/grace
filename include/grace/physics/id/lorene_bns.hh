@@ -60,6 +60,16 @@ struct lorene_bns_id_t {
     ) : _pcoords(pcoords), _eos(eos)
     {
         DECLARE_GRID_EXTENTS;
+
+        _e   = sview_t("e_lorene", nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
+        _vel = vview_t("vel_lorene", 3,nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
+
+        _alp   = sview_t("lapse_lorene", nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
+        _beta  = vview_t("shift_lorene", 3,nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
+        _g     = vview_t("metric_lorene", 6,nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
+        _k     = vview_t("ext_curv_lorene", 6,nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ;
+
+
         // unit conversions 
         double const cSI = Lorene::Unites::c_si ; 
         double const GSI = Lorene::Unites::g_si ;
@@ -86,6 +96,7 @@ struct lorene_bns_id_t {
         const int nyg = ny + 2*ngz;
         const int nzg = nz + 2*ngz;
         size_t ncells = nxg*nyg*nzg*nq ; 
+
         auto unroll_idx = [=] (int idx) {
             size_t tmp = idx;
 
@@ -131,15 +142,7 @@ struct lorene_bns_id_t {
         delete[] yc ;
         delete[] zc ;
 
-        // 3) read fields into host buffers 
-        _e   = sview_t("e_lorene", nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
-        _vel = vview_t("vel_lorene", 3,nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
-
-        _alp   = sview_t("lapse_lorene", nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
-        _beta  = vview_t("shift_lorene", 3,nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
-        _g     = vview_t("metric_lorene", 6,nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
-        _k     = vview_t("ext_curv_lorene", 6,nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ;
-
+        // 3) read fields into host buffers
         auto _he = Kokkos::create_mirror_view(_e) ; 
         auto _hv = Kokkos::create_mirror_view(_vel) ; 
 
@@ -213,6 +216,7 @@ struct lorene_bns_id_t {
         Kokkos::deep_copy(_alp,_halp) ;
         Kokkos::deep_copy(_g,_hg) ;
         Kokkos::deep_copy(_k,_hk) ;
+
     }
 
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -273,12 +277,12 @@ struct lorene_bns_id_t {
         return id ; 
     }
 
-
     eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
 
     sview_t _e, _alp ; 
     vview_t _vel, _g, _k, _beta ; 
+
 
     // unit conversions 
     struct unit_conversions {

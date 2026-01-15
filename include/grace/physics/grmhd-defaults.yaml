@@ -62,9 +62,15 @@ grmhd: {
     rho_power: -1.5,
     press_power: -2.5
   }, 
+  tov: {
+    rho_c: 1.28e-3,
+    press_floor: 1e-6,
+    dr: 1e-3
+  },
+  
   blastwave_over_pressure_factor: 2.5,
   blastwave_initial_radius: 0.5,
-  TOV_central_density: 1.28e-03,
+  
   B_field_initialization: "none",
   Avec_ID: {
 

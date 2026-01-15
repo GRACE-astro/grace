@@ -1587,8 +1587,11 @@ src/IO/CMakeFiles/grace_diagnostics.dir/output_diagnostics.cpp.o: /u/cmusolino/g
   /u/cmusolino/grace-private-src/include/grace/IO/spherical_surface_helpers.hh \
   /u/cmusolino/grace-private-src/include/grace/IO/diagnostics/black_hole_diagnostics.hh \
   /u/cmusolino/grace-private-src/include/grace/utils/metric_utils.hh \
-  /u/cmusolino/grace-private-src/include/grace/IO/diagnostics/diagnostic_base.hh
+  /u/cmusolino/grace-private-src/include/grace/IO/diagnostics/diagnostic_base.hh \
+  /u/cmusolino/grace-private-src/include/grace/IO/diagnostics/gw_integrals.hh
 
+
+/u/cmusolino/grace-private-src/include/grace/IO/diagnostics/gw_integrals.hh:
 
 /u/cmusolino/grace-private-src/include/grace/IO/spherical_surface_helpers.hh:
 

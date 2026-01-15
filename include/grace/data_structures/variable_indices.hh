@@ -341,6 +341,11 @@ DECLARE_VAR_INDEX_IMPL(ALP)                      \
 DECLARE_VAR_INDEX_IMPL(BETAX)                    \
 DECLARE_VAR_INDEX_IMPL(BETAY)                    \
 DECLARE_VAR_INDEX_IMPL(BETAZ)                    \
+DECLARE_VAR_INDEX_IMPL(BDRIVERX)                 \
+DECLARE_VAR_INDEX_IMPL(BDRIVERY)                 \
+DECLARE_VAR_INDEX_IMPL(BDRIVERZ)                 \
+DECLARE_VAR_INDEX_IMPL(PSI4RE)                   \
+DECLARE_VAR_INDEX_IMPL(PSI4IM)                   \
 DECLARE_VAR_INDEX_IMPL(HAM)                      \
 DECLARE_VAR_INDEX_IMPL(MOMX)                     \
 DECLARE_VAR_INDEX_IMPL(MOMY)                     \

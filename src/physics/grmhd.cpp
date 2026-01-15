@@ -519,7 +519,11 @@ void set_grmhd_initial_data() {
     } else if ( id_type == "blastwave" ) {
         set_grmhd_initial_data_impl<eos_t,blastwave_id_t<eos_t>>() ;
     } else if ( id_type == "TOV") { 
-        auto const rho_c = get_param<double>("grmhd", "TOV_central_density") ; 
+        
+        auto const rho_c = get_param<double>("grmhd", "tov", "rho_c") ; 
+        auto const p_floor = get_param<double>("grmhd", "tov", "press_floor") ; 
+        auto const dr = get_param<double>("grmhd", "tov", "dr") ; 
+        
         auto atmo_pars = get_param<YAML::Node>("grmhd","atmosphere"); 
 
         atmo_params_t atmo_params ;
@@ -529,7 +533,7 @@ void set_grmhd_initial_data() {
         atmo_params.rho_fl_scaling = atmo_pars["rho_scaling"].as<double>() ;
         atmo_params.temp_fl_scaling = atmo_pars["temp_scaling"].as<double>() ; 
 
-        set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(atmo_params,rho_c,1e-15) ;
+        set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(atmo_params,rho_c,p_floor,dr) ;
     } else if ( id_type == "KHI") {
         set_grmhd_initial_data_impl<eos_t, kelvin_helmholtz_id_t<eos_t>>() ; 
     } else if( id_type == "magnetic_rotor" ) {
@@ -638,7 +642,8 @@ void set_conservs_from_prims() {
     
     int64_t nq = amr::get_local_num_quadrants() ;
     auto& aux = variable_list::get().getaux() ;
-
+    auto& csys = grace::coordinate_system::get() ;
+    auto dev_coords = csys.get_device_coord_system() ;  
     #ifdef GRACE_ENABLE_Z4C_METRIC
     z4c_system_t metric_evol_eq_system(state,aux,sstate) ; 
     #elif defined(GRACE_ENABLE_BSSN_METRIC)
@@ -705,7 +710,8 @@ void set_conservs_from_prims() {
         /* If evolved metric, set constraint violations  */
         /*************************************************/
         #ifndef GRACE_ENABLE_COWLING_METRIC
-        metric_evol_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx);
+        if (i>=ngz-1 and i<=nx+ngz and j>=ngz-1 and j<=ny+ngz and k>=ngz-1 and k<=nz+ngz) 
+            metric_evol_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx,dev_coords);
         #endif 
     }) ;
 }

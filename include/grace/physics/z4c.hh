@@ -62,7 +62,7 @@ struct z4c_system_t
     private:
     using base_t = fd_evolution_system_t<z4c_system_t>  ;
 
-    double k1,k2,eta,muS,muL,epsdiss;
+    double k1,k2,eta,chi_safeguard,epsdiss;
 
     public:
     z4c_system_t( 
@@ -74,9 +74,8 @@ struct z4c_system_t
         k1 = get_param<double>("z4c", "kappa_1") ; 
         k2 = get_param<double>("z4c", "kappa_2") ; 
         eta = get_param<double>("z4c", "eta") ; 
-        muS = get_param<double>("z4c", "mu_S") ; 
-        muL = get_param<double>("z4c", "mu_L") ; 
         epsdiss = get_param<double>("z4c", "eps_diss") ; 
+        chi_safeguard = get_param<double>("z4c", "chi_floor") ; 
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -95,7 +94,7 @@ struct z4c_system_t
         auto a = subview(this->_aux,i,j,k,ALL(),q) ;
 
         // Declare variables
-        double alp{s(ALP_)}, theta{s(THETA_)}, chi{s(CHI_)}, Khat{s(KHAT_)}  ; 
+        double alp{s(ALP_)}, theta{s(THETA_)}, chi{fmax(chi_safeguard,s(CHI_))}, Khat{s(KHAT_)}  ; 
         double beta[3] = {s(BETAX_), s(BETAY_), s(BETAZ_)} ; 
         double gtdd[6] = {
             s(GTXX_), s(GTXY_), s(GTXZ_), 
@@ -106,9 +105,11 @@ struct z4c_system_t
             s(ATYY_), s(ATYZ_), s(ATZZ_)
         } ;
         double Gammat[3] = {s(GAMMATX_), s(GAMMATY_), s(GAMMATZ_)} ; 
-        
+        double Bdriver[3] = {s(BDRIVERX_), s(BDRIVERY_), s(BDRIVERZ_) } ; 
+
         // derivatives
         double dbeta_dx[9], dbeta_dx_upw[9], ddbeta_dx2[18] ; 
+        double dBdr_dx_upw[9] ; 
         double dGammat_dx[9], dGammat_dx_upw[9] ; 
         double dalp_dx[3], dalp_dx_upw[3], ddalp_dx2[6];
         double dchi_dx[3], dchi_dx_upw[3], ddchi_dx2[6];
@@ -148,6 +149,8 @@ struct z4c_system_t
 
         fill_deriv_tensor_upw(this->_state,i,j,k,ATXX_,q,dAtdd_dx_upw,beta,idx[0]) ; 
 
+        fill_deriv_vector_upw(this->_state,i,j,k,BDRIVERX_,q,dBdr_dx_upw,beta,idx[0]) ;
+
         // compute matter couplings 
         double rho0{a(RHO_)}, eps{a(EPS_)}, press{a(PRESS_)} ; 
         double z[3] = {a(ZVECX_),a(ZVECY_),a(ZVECZ_)} ; 
@@ -161,15 +164,15 @@ struct z4c_system_t
         
         // compute rhs 
         double dchi, dalp, dtheta, dKhat ; 
-        double dgtdd[6], dAtdd[6], dGammat[3], dbetau[3] ; 
+        double dgtdd[6], dAtdd[6], dGammat[3], dbetau[3], dBdr[3] ; 
         z4c_get_rhs(
-            gtdd,Atdd,beta,alp,chi,Gammat,
+            gtdd,Atdd,beta,alp,chi,Bdriver,Gammat,
             theta,Khat,Strace,rho,Sij,Si,k1,k2,eta,
             dgtdd_dx,dgtdd_dx_upw,dAtdd_dx_upw,
-            dbeta_dx,dbeta_dx_upw,dGammat_dx,dGammat_dx_upw,
+            dbeta_dx,dbeta_dx_upw,dBdr_dx_upw,dGammat_dx,dGammat_dx_upw,
             dKhat_dx,dKhat_dx_upw,dchi_dx,dchi_dx_upw,dalp_dx,dalp_dx_upw,
             dtheta_dx,dtheta_dx_upw,ddgtdd_dx2,ddbeta_dx2,ddalp_dx2,ddchi_dx2,
-            &dchi,&dgtdd,&dKhat,&dGammat,&dtheta,&dAtdd,&dalp,&dbetau
+            &dchi,&dgtdd,&dKhat,&dGammat,&dtheta,&dAtdd,&dalp,&dbetau,&dBdr
         ) ; 
 
         // add dissipation
@@ -186,6 +189,7 @@ struct z4c_system_t
         #endif 
         # pragma unroll 3
         for(int icomp=0; icomp<3; ++icomp) {
+            dBdr[icomp] += epsdiss * kreiss_olinger_operator(i,j,k,q,BDRIVERX_+icomp,idx) ;  
             dbetau[icomp]  += epsdiss * kreiss_olinger_operator(i,j,k,q,BETAX_+icomp,idx) ;  
             dGammat[icomp] += epsdiss * kreiss_olinger_operator(i,j,k,q,GAMMATX_+icomp,idx) ;  
         }
@@ -203,6 +207,7 @@ struct z4c_system_t
         }
         #pragma unroll 3
         for( int ww=0; ww<3; ++ww) {
+            n(BDRIVERX_+ww) += dt*dtfact*dBdr[ww] ;
             n(BETAX_+ww)   += dt*dtfact*dbetau[ww] ;
             n(GAMMATX_+ww) += dt*dtfact*dGammat[ww] ; 
         }
@@ -216,7 +221,8 @@ struct z4c_system_t
                             , const int j
                             , const int k)
                         , const int64_t q 
-                        , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx ) const 
+                        , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx 
+                        , grace::device_coordinate_system coords  ) const 
     {
         using namespace Kokkos ; 
         auto s = subview(this->_state,i,j,k,ALL(),q) ;
@@ -284,6 +290,18 @@ struct z4c_system_t
         a(MOMX_) = Mi[0] ; 
         a(MOMY_) = Mi[1] ; 
         a(MOMZ_) = Mi[2] ; 
+        // psi4 
+        double xyz[3] ; 
+        coords.get_physical_coordinates(i,j,k,q,xyz) ; 
+        if ( SQR(xyz[0]) + SQR(xyz[1]) < 1e-10 ) {
+            xyz[0] += 1e-8 ; 
+        }
+        z4c_get_psi4(
+            gtdd, Atdd, chi, theta, Khat,
+            dgtdd_dx, dAtdd_dx, dKhat_dx, dchi_dx,
+            dtheta_dx, ddgtdd_dx2, ddchi_dx2, xyz,
+            &(a(PSI4RE_)), &(a(PSI4IM_))
+        ) ;
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 

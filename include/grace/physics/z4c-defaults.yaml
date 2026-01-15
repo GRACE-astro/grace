@@ -2,7 +2,6 @@ z4c: {
   kappa_1: 0.75,
   kappa_2: 0.75,
   eta: 1.00,
-  mu_S: 1.0,
-  mu_L: 1.0,
-  eps_diss: 0.0
+  eps_diss: 0.0,
+  chi_floor: 1e-12
 }

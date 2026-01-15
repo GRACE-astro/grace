@@ -141,7 +141,8 @@ void compute_auxiliary_quantities(
         m1_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, dev_coords);
         #endif 
         #ifdef GRACE_ENABLE_Z4C_METRIC
-        z4c_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx);
+        if (i>=ngz-1 and i<=nx+ngz and j>=ngz-1 and j<=ny+ngz and k>=ngz-1 and k<=nz+ngz) 
+            z4c_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx, dev_coords);
         #endif 
         #ifdef GRACE_ENABLE_BSSN_METRIC
         bssn_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx);

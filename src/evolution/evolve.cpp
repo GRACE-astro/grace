@@ -759,8 +759,8 @@ void update_fd(
     //**************************************************************************************************/
     // fetch some stuff 
     auto& idx     = grace::variable_list::get().getinvspacings() ;  
-    auto& dx     = grace::variable_list::get().getspacings() ;  
     auto& aux     = grace::variable_list::get().getaux()     ; 
+    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ; 
     //**************************************************************************************************/
     z4c_system_t z4c_eq_system(old_state,aux,old_stag_state) ; 
     //**************************************************************************************************/
@@ -781,7 +781,6 @@ void update_fd(
     //**************************************************************************************************/
     // fetch some stuff 
     auto& idx     = grace::variable_list::get().getinvspacings() ;  
-    auto& dx     = grace::variable_list::get().getspacings() ;  
     auto& aux     = grace::variable_list::get().getaux()     ; 
     //**************************************************************************************************/
     bssn_system_t bssn_eq_system(old_state,aux,old_stag_state) ; 

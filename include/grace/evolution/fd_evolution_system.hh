@@ -68,10 +68,11 @@ struct fd_evolution_system_t {
                ,      const int j 
                ,      const int k)
                , int64_t q 
-               , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx ) const 
+               , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx 
+               , grace::device_coordinate_system coords ) const 
 
     {
-        static_cast<EvolSystem_t const *>(this)->compute_auxiliaries(VEC(i,j,k),q,_idx) ; 
+        static_cast<EvolSystem_t const *>(this)->compute_auxiliaries(VEC(i,j,k),q,_idx,coords) ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 

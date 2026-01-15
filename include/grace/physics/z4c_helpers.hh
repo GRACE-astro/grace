@@ -87,7 +87,10 @@ adm_to_z4c(
     state(VEC(i,j,k),BETAZ_,q) = id.betaz ; 
     // Theta is initially zero 
     state(VEC(i,j,k),THETA_,q) = 0.0 ; 
-
+    // dbeta_dt also zero 
+    state(VEC(i,j,k),BDRIVERX_,q) = 0.0 ; 
+    state(VEC(i,j,k),BDRIVERY_,q) = 0.0 ; 
+    state(VEC(i,j,k),BDRIVERZ_,q) = 0.0 ; 
 }
 
 template< size_t der_order >
@@ -128,10 +131,12 @@ compute_gamma_tilde(
     double const gtzzdz = grace::fd_der_bnd_check<der_order,2>(state,GTXX_+5, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[2 ];
 
     // \tilde{\Gamma}^i = - D_j \tilde{\gamma}^{ij}
-    state(VEC(i,j,k),GAMMATX_+0, q) = gtxz*gtyydz - gtyz*(gtxydz + gtxzdy - 2*gtyzdx) - gtxz*gtyzdy - gtxy*gtyzdz + gtxydy*gtzz - gtyydx*gtzz + gtyy*(gtxzdz - gtzzdx) + gtxy*gtzzdy;
-    state(VEC(i,j,k),GAMMATX_+1, q) = -(gtxy*gtxzdz) + (gtxxdz - gtxzdx)*gtyz - gtxz*(gtxydz - 2*gtxzdy + gtyzdx) + gtxx*gtyzdz - gtxxdy*gtzz + gtxydx*gtzz + gtxy*gtzzdx - gtxx*gtzzdy;
-    state(VEC(i,j,k),GAMMATX_+2, q) = -(gtxydy*gtxz) + (-gtxxdz + gtxzdx)*gtyy + gtxz*gtyydx - gtxx*gtyydz + gtxxdy*gtyz - gtxydx*gtyz + gtxy*(2*gtxydz - gtxzdy - gtyzdx) + gtxx*gtyzdy;
-
+    //state(VEC(i,j,k),GAMMATX_+0, q) = gtxz*gtyydz - gtyz*(gtxydz + gtxzdy - 2*gtyzdx) - gtxz*gtyzdy - gtxy*gtyzdz + gtxydy*gtzz - gtyydx*gtzz + gtyy*(gtxzdz - gtzzdx) + gtxy*gtzzdy;
+    //state(VEC(i,j,k),GAMMATX_+1, q) = -(gtxy*gtxzdz) + (gtxxdz - gtxzdx)*gtyz - gtxz*(gtxydz - 2*gtxzdy + gtyzdx) + gtxx*gtyzdz - gtxxdy*gtzz + gtxydx*gtzz + gtxy*gtzzdx - gtxx*gtzzdy;
+    //state(VEC(i,j,k),GAMMATX_+2, q) = -(gtxydy*gtxz) + (-gtxxdz + gtxzdx)*gtyy + gtxz*gtyydx - gtxx*gtyydz + gtxxdy*gtyz - gtxydx*gtyz + gtxy*(2*gtxydz - gtxzdy - gtyzdx) + gtxx*gtyzdy;
+    state(VEC(i,j,k),GAMMATX_+0, q)=0.0;
+    state(VEC(i,j,k),GAMMATX_+1, q)=0.0;
+    state(VEC(i,j,k),GAMMATX_+2, q)=0.0;
 }
 
 }

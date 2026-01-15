@@ -247,6 +247,9 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(KHAT,"z4c_Khat","sommerfeld","fourth_order",false);
     REGISTER_EVOLVED_SCALAR(ALP,"alp","sommerfeld","fourth_order",false);
     REGISTER_EVOLVED_VECTOR(BETAX,BETAY,BETAZ,"beta","sommerfeld","fourth_order",false);
+    REGISTER_EVOLVED_VECTOR(BDRIVERX,BDRIVERY,BDRIVERZ,"z4c_Bdriver","sommerfeld","fourth_order",false);
+    REGISTER_AUX_SCALAR(PSI4RE, "Psi4Re", "none");
+    REGISTER_AUX_SCALAR(PSI4IM, "Psi4Im", "none");
     REGISTER_AUX_SCALAR(HAM,"z4c_H","none");
     REGISTER_AUX_VECTOR(MOMX,MOMY,MOMZ,"z4c_M","none");
     #elif defined(GRACE_ENABLE_BSSN_METRIC)

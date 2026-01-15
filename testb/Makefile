@@ -556,6 +556,19 @@ grace_diagnostics/fast:
 .PHONY : grace_diagnostics/fast
 
 #=============================================================================
+# Target rules for targets named grace_gw_integrals
+
+# Build rule for target.
+grace_gw_integrals: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 grace_gw_integrals
+.PHONY : grace_gw_integrals
+
+# fast build rule for target.
+grace_gw_integrals/fast:
+	$(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_gw_integrals.dir/build.make src/IO/CMakeFiles/grace_gw_integrals.dir/build
+.PHONY : grace_gw_integrals/fast
+
+#=============================================================================
 # Target rules for targets named xmf_utilities
 
 # Build rule for target.
@@ -1049,6 +1062,7 @@ help:
 	@echo "... grace_ghost_buffers"
 	@echo "... grace_ghosts"
 	@echo "... grace_grmhd"
+	@echo "... grace_gw_integrals"
 	@echo "... grace_hdf5_output"
 	@echo "... grace_hdf5_sphere_output"
 	@echo "... grace_hdf5_surface_output"

@@ -771,7 +771,7 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
             ,static_cast<long>(nx)
             ,static_cast<long>(coarse_desc.size())}
         ) ;
-    #if 0
+    #if 1
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_coarse_face")
             , coarse_policy 
@@ -825,7 +825,8 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
             }
                 
         ) ; 
-    #endif 
+    #endif
+    #if 1
     //**************************************************************************************************/
     auto edge_rbuf = ghost_layer.get_reflux_emf_edge_recv_buffer() ; 
     auto edge_desc = ghost_layer.get_reflux_edge_descriptors() ; 
@@ -996,7 +997,8 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
         }
        
     ) ; 
-    #if 0
+    #endif 
+    #if 1
     auto coarse_edge_rbuf = ghost_layer.get_reflux_emf_coarse_edge_recv_buffer() ; 
     auto coarse_edge_desc = ghost_layer.get_reflux_coarse_edge_descriptors() ; 
     //**************************************************************************************************/

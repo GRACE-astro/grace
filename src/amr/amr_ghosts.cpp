@@ -838,6 +838,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
             }
         }
     }
+    #if 1
     std::sort(_reflux_coarse_face_snd.begin(), _reflux_coarse_face_snd.end(), 
         [](const hanging_remote_reflux_desc_t& a, const hanging_remote_reflux_desc_t& b) {
             if (a.rank < b.rank) return true;
@@ -860,7 +861,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         ),
         _reflux_coarse_face_snd.end()
     );
-    
+    #endif 
     send_size_emf = nx*nx*2 ; 
 
     size_t total_snd_emf_coarse, total_recv_emf_coarse ; 
@@ -1134,6 +1135,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
             }
         }
     }
+    #if 1
     // we need to dedup _reflux_coarse_edge_snd 
     std::sort(_reflux_coarse_edge_snd.begin(), _reflux_coarse_edge_snd.end(), 
         [](const hanging_remote_reflux_desc_t& a, const hanging_remote_reflux_desc_t& b) {
@@ -1155,6 +1157,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         ),
         _reflux_coarse_edge_snd.end()
     );
+    #endif
     // finally allocate 
     // here we always send the emf along the edge --> no stagger
     // also we always send just one --> send size simply nx 

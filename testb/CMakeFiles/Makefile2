@@ -132,6 +132,7 @@ src/IO/all: src/IO/CMakeFiles/grace_cell_output.dir/all
 src/IO/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 src/IO/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 src/IO/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+src/IO/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 src/IO/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 .PHONY : src/IO/all
 
@@ -147,6 +148,7 @@ src/IO/clean: src/IO/CMakeFiles/grace_cell_output.dir/clean
 src/IO/clean: src/IO/CMakeFiles/grace_scalar_output.dir/clean
 src/IO/clean: src/IO/CMakeFiles/grace_spherical_surfaces.dir/clean
 src/IO/clean: src/IO/CMakeFiles/grace_diagnostics.dir/clean
+src/IO/clean: src/IO/CMakeFiles/grace_gw_integrals.dir/clean
 src/IO/clean: src/IO/CMakeFiles/xmf_utilities.dir/clean
 .PHONY : src/IO/clean
 
@@ -476,6 +478,7 @@ CMakeFiles/grace.dir/all: src/IO/CMakeFiles/grace_cell_output.dir/all
 CMakeFiles/grace.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 CMakeFiles/grace.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 CMakeFiles/grace.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+CMakeFiles/grace.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 CMakeFiles/grace.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 CMakeFiles/grace.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 CMakeFiles/grace.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -1160,7 +1163,7 @@ src/data_structures/CMakeFiles/grace_variable_utils.dir/clean:
 src/IO/CMakeFiles/grace_hdf5_output.dir/all:
 	$(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_hdf5_output.dir/build.make src/IO/CMakeFiles/grace_hdf5_output.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_hdf5_output.dir/build.make src/IO/CMakeFiles/grace_hdf5_output.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/u/cmusolino/grace-private-src/testb/CMakeFiles --progress-num=48 "Built target grace_hdf5_output"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/u/cmusolino/grace-private-src/testb/CMakeFiles --progress-num=49 "Built target grace_hdf5_output"
 .PHONY : src/IO/CMakeFiles/grace_hdf5_output.dir/all
 
 # Build rule for subdir invocation for target.
@@ -1186,12 +1189,12 @@ src/IO/CMakeFiles/grace_hdf5_output.dir/clean:
 src/IO/CMakeFiles/grace_hdf5_surface_output.dir/all:
 	$(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_hdf5_surface_output.dir/build.make src/IO/CMakeFiles/grace_hdf5_surface_output.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_hdf5_surface_output.dir/build.make src/IO/CMakeFiles/grace_hdf5_surface_output.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/u/cmusolino/grace-private-src/testb/CMakeFiles --progress-num=50,51 "Built target grace_hdf5_surface_output"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/u/cmusolino/grace-private-src/testb/CMakeFiles --progress-num=51 "Built target grace_hdf5_surface_output"
 .PHONY : src/IO/CMakeFiles/grace_hdf5_surface_output.dir/all
 
 # Build rule for subdir invocation for target.
 src/IO/CMakeFiles/grace_hdf5_surface_output.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /u/cmusolino/grace-private-src/testb/CMakeFiles 2
+	$(CMAKE_COMMAND) -E cmake_progress_start /u/cmusolino/grace-private-src/testb/CMakeFiles 1
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/IO/CMakeFiles/grace_hdf5_surface_output.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /u/cmusolino/grace-private-src/testb/CMakeFiles 0
 .PHONY : src/IO/CMakeFiles/grace_hdf5_surface_output.dir/rule
@@ -1212,7 +1215,7 @@ src/IO/CMakeFiles/grace_hdf5_surface_output.dir/clean:
 src/IO/CMakeFiles/grace_hdf5_sphere_output.dir/all:
 	$(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_hdf5_sphere_output.dir/build.make src/IO/CMakeFiles/grace_hdf5_sphere_output.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_hdf5_sphere_output.dir/build.make src/IO/CMakeFiles/grace_hdf5_sphere_output.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/u/cmusolino/grace-private-src/testb/CMakeFiles --progress-num=49 "Built target grace_hdf5_sphere_output"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/u/cmusolino/grace-private-src/testb/CMakeFiles --progress-num=50 "Built target grace_hdf5_sphere_output"
 .PHONY : src/IO/CMakeFiles/grace_hdf5_sphere_output.dir/all
 
 # Build rule for subdir invocation for target.
@@ -1334,6 +1337,32 @@ grace_diagnostics: src/IO/CMakeFiles/grace_diagnostics.dir/rule
 src/IO/CMakeFiles/grace_diagnostics.dir/clean:
 	$(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_diagnostics.dir/build.make src/IO/CMakeFiles/grace_diagnostics.dir/clean
 .PHONY : src/IO/CMakeFiles/grace_diagnostics.dir/clean
+
+#=============================================================================
+# Target rules for target src/IO/CMakeFiles/grace_gw_integrals.dir
+
+# All Build rule for target.
+src/IO/CMakeFiles/grace_gw_integrals.dir/all:
+	$(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_gw_integrals.dir/build.make src/IO/CMakeFiles/grace_gw_integrals.dir/depend
+	$(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_gw_integrals.dir/build.make src/IO/CMakeFiles/grace_gw_integrals.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/u/cmusolino/grace-private-src/testb/CMakeFiles --progress-num=48 "Built target grace_gw_integrals"
+.PHONY : src/IO/CMakeFiles/grace_gw_integrals.dir/all
+
+# Build rule for subdir invocation for target.
+src/IO/CMakeFiles/grace_gw_integrals.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /u/cmusolino/grace-private-src/testb/CMakeFiles 1
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/IO/CMakeFiles/grace_gw_integrals.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /u/cmusolino/grace-private-src/testb/CMakeFiles 0
+.PHONY : src/IO/CMakeFiles/grace_gw_integrals.dir/rule
+
+# Convenience name for target.
+grace_gw_integrals: src/IO/CMakeFiles/grace_gw_integrals.dir/rule
+.PHONY : grace_gw_integrals
+
+# clean rule for target.
+src/IO/CMakeFiles/grace_gw_integrals.dir/clean:
+	$(MAKE) $(MAKESILENT) -f src/IO/CMakeFiles/grace_gw_integrals.dir/build.make src/IO/CMakeFiles/grace_gw_integrals.dir/clean
+.PHONY : src/IO/CMakeFiles/grace_gw_integrals.dir/clean
 
 #=============================================================================
 # Target rules for target src/IO/CMakeFiles/xmf_utilities.dir
@@ -1693,6 +1722,7 @@ test/CMakeFiles/connectivity_test.dir/all: src/IO/CMakeFiles/grace_cell_output.d
 test/CMakeFiles/connectivity_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/connectivity_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/connectivity_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/connectivity_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/connectivity_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/connectivity_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/connectivity_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -1757,6 +1787,7 @@ test/CMakeFiles/sc_wrappers_test.dir/all: src/IO/CMakeFiles/grace_cell_output.di
 test/CMakeFiles/sc_wrappers_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/sc_wrappers_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/sc_wrappers_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/sc_wrappers_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/sc_wrappers_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/sc_wrappers_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/sc_wrappers_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -1821,6 +1852,7 @@ test/CMakeFiles/forest_test.dir/all: src/IO/CMakeFiles/grace_cell_output.dir/all
 test/CMakeFiles/forest_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/forest_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/forest_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/forest_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/forest_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/forest_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/forest_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -1885,6 +1917,7 @@ test/CMakeFiles/varlist_test.dir/all: src/IO/CMakeFiles/grace_cell_output.dir/al
 test/CMakeFiles/varlist_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/varlist_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/varlist_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/varlist_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/varlist_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/varlist_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/varlist_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -1949,6 +1982,7 @@ test/CMakeFiles/coordinate_test.dir/all: src/IO/CMakeFiles/grace_cell_output.dir
 test/CMakeFiles/coordinate_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/coordinate_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/coordinate_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/coordinate_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/coordinate_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/coordinate_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/coordinate_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2013,6 +2047,7 @@ test/CMakeFiles/volume_output_test.dir/all: src/IO/CMakeFiles/grace_cell_output.
 test/CMakeFiles/volume_output_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/volume_output_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/volume_output_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/volume_output_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/volume_output_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/volume_output_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/volume_output_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2077,6 +2112,7 @@ test/CMakeFiles/regrid_test.dir/all: src/IO/CMakeFiles/grace_cell_output.dir/all
 test/CMakeFiles/regrid_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/regrid_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/regrid_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/regrid_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/regrid_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/regrid_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/regrid_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2141,6 +2177,7 @@ test/CMakeFiles/bc_test.dir/all: src/IO/CMakeFiles/grace_cell_output.dir/all
 test/CMakeFiles/bc_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/bc_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/bc_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/bc_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/bc_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/bc_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/bc_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2205,6 +2242,7 @@ test/CMakeFiles/bc_test_unigrid.dir/all: src/IO/CMakeFiles/grace_cell_output.dir
 test/CMakeFiles/bc_test_unigrid.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/bc_test_unigrid.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/bc_test_unigrid.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/bc_test_unigrid.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/bc_test_unigrid.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/bc_test_unigrid.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/bc_test_unigrid.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2269,6 +2307,7 @@ test/CMakeFiles/scalar_reductions_test.dir/all: src/IO/CMakeFiles/grace_cell_out
 test/CMakeFiles/scalar_reductions_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/scalar_reductions_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/scalar_reductions_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/scalar_reductions_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/scalar_reductions_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/scalar_reductions_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/scalar_reductions_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2333,6 +2372,7 @@ test/CMakeFiles/hdf5_output_test.dir/all: src/IO/CMakeFiles/grace_cell_output.di
 test/CMakeFiles/hdf5_output_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/hdf5_output_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/hdf5_output_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/hdf5_output_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/hdf5_output_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/hdf5_output_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/hdf5_output_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2397,6 +2437,7 @@ test/CMakeFiles/eos_test.dir/all: src/IO/CMakeFiles/grace_cell_output.dir/all
 test/CMakeFiles/eos_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/eos_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/eos_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/eos_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/eos_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/eos_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/eos_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2461,6 +2502,7 @@ test/CMakeFiles/metric_test.dir/all: src/IO/CMakeFiles/grace_cell_output.dir/all
 test/CMakeFiles/metric_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/metric_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/metric_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/metric_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/metric_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/metric_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/metric_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2525,6 +2567,7 @@ test/CMakeFiles/c2p_test.dir/all: src/IO/CMakeFiles/grace_cell_output.dir/all
 test/CMakeFiles/c2p_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/c2p_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/c2p_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/c2p_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/c2p_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/c2p_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/c2p_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2589,6 +2632,7 @@ test/CMakeFiles/exchange_test.dir/all: src/IO/CMakeFiles/grace_cell_output.dir/a
 test/CMakeFiles/exchange_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/exchange_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/exchange_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/exchange_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/exchange_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/exchange_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/exchange_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2653,6 +2697,7 @@ test/CMakeFiles/emf_reflux_test.dir/all: src/IO/CMakeFiles/grace_cell_output.dir
 test/CMakeFiles/emf_reflux_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/emf_reflux_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/emf_reflux_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/emf_reflux_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/emf_reflux_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/emf_reflux_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/emf_reflux_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2717,6 +2762,7 @@ test/CMakeFiles/test_sph_int.dir/all: src/IO/CMakeFiles/grace_cell_output.dir/al
 test/CMakeFiles/test_sph_int.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/test_sph_int.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/test_sph_int.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/test_sph_int.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/test_sph_int.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/test_sph_int.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/test_sph_int.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all
@@ -2781,6 +2827,7 @@ test/CMakeFiles/interp_on_sphere_test.dir/all: src/IO/CMakeFiles/grace_cell_outp
 test/CMakeFiles/interp_on_sphere_test.dir/all: src/IO/CMakeFiles/grace_scalar_output.dir/all
 test/CMakeFiles/interp_on_sphere_test.dir/all: src/IO/CMakeFiles/grace_spherical_surfaces.dir/all
 test/CMakeFiles/interp_on_sphere_test.dir/all: src/IO/CMakeFiles/grace_diagnostics.dir/all
+test/CMakeFiles/interp_on_sphere_test.dir/all: src/IO/CMakeFiles/grace_gw_integrals.dir/all
 test/CMakeFiles/interp_on_sphere_test.dir/all: src/IO/CMakeFiles/xmf_utilities.dir/all
 test/CMakeFiles/interp_on_sphere_test.dir/all: src/evolution/CMakeFiles/grace_evolution.dir/all
 test/CMakeFiles/interp_on_sphere_test.dir/all: src/evolution/CMakeFiles/grace_initial_data.dir/all

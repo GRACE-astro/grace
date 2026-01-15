@@ -64,6 +64,7 @@
 /u/cmusolino/grace-private-src/testb/src/IO/CMakeFiles/grace_scalar_output.dir
 /u/cmusolino/grace-private-src/testb/src/IO/CMakeFiles/grace_spherical_surfaces.dir
 /u/cmusolino/grace-private-src/testb/src/IO/CMakeFiles/grace_diagnostics.dir
+/u/cmusolino/grace-private-src/testb/src/IO/CMakeFiles/grace_gw_integrals.dir
 /u/cmusolino/grace-private-src/testb/src/IO/CMakeFiles/xmf_utilities.dir
 /u/cmusolino/grace-private-src/testb/src/IO/CMakeFiles/test.dir
 /u/cmusolino/grace-private-src/testb/src/IO/CMakeFiles/edit_cache.dir
