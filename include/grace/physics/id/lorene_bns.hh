@@ -133,10 +133,11 @@ struct lorene_bns_id_t {
         }
 
         // 2) call LORENE 
+        spdlog::stopwatch sw ; 
         auto * bns = new Lorene::Bin_NS(
             ncells, xc,yc,zc, fname.c_str()
         ) ; 
-        GRACE_VERBOSE("LORENE data read complete.") ; 
+        GRACE_VERBOSE("LORENE data read complete, time elapsed {} s", sw) ; 
 
         delete[] xc ;
         delete[] yc ;

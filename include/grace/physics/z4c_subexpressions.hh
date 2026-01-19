@@ -723,9 +723,9 @@ z4c_get_rhs(
 	(*dbetau)[0] = (3.0/4.0)*Bdriver[0] + betau[0]*dbetau_dx_upwind[0] + betau[1]*dbetau_dx_upwind[3] + betau[2]*dbetau_dx_upwind[6];
 	(*dbetau)[1] = (3.0/4.0)*Bdriver[1] + betau[0]*dbetau_dx_upwind[1] + betau[1]*dbetau_dx_upwind[4] + betau[2]*dbetau_dx_upwind[7];
 	(*dbetau)[2] = (3.0/4.0)*Bdriver[2] + betau[0]*dbetau_dx_upwind[2] + betau[1]*dbetau_dx_upwind[5] + betau[2]*dbetau_dx_upwind[8];
-	(*dBdriver)[0] = -Bdriver[0]*eta + betau[0]*dBdriver_dx_upwind[0] + betau[1]*dBdriver_dx_upwind[3] + betau[2]*dBdriver_dx_upwind[6] + x241;
-	(*dBdriver)[1] = -Bdriver[1]*eta + betau[0]*dBdriver_dx_upwind[1] + betau[1]*dBdriver_dx_upwind[4] + betau[2]*dBdriver_dx_upwind[7] + x258;
-	(*dBdriver)[2] = -Bdriver[2]*eta + betau[0]*dBdriver_dx_upwind[2] + betau[1]*dBdriver_dx_upwind[5] + betau[2]*dBdriver_dx_upwind[8] + x271;
+	(*dBdriver)[0] = -Bdriver[0]*eta + betau[0]*(dBdriver_dx_upwind[0] - dGammatu_dx_upwind[0]) + betau[1]*(dBdriver_dx_upwind[3] - dGammatu_dx_upwind[3]) + betau[2]*(dBdriver_dx_upwind[6] - dGammatu_dx_upwind[6]) + x241;
+	(*dBdriver)[1] = -Bdriver[1]*eta + betau[0]*(dBdriver_dx_upwind[1] - dGammatu_dx_upwind[1]) + betau[1]*(dBdriver_dx_upwind[4] - dGammatu_dx_upwind[4]) + betau[2]*(dBdriver_dx_upwind[7] - dGammatu_dx_upwind[7]) + x258;
+	(*dBdriver)[2] = -Bdriver[2]*eta + betau[0]*(dBdriver_dx_upwind[2] - dGammatu_dx_upwind[2]) + betau[1]*(dBdriver_dx_upwind[5] - dGammatu_dx_upwind[5]) + betau[2]*(dBdriver_dx_upwind[8] - dGammatu_dx_upwind[8]) + x271;
 }
 
 static void KOKKOS_INLINE_FUNCTION
@@ -1941,6 +1941,22 @@ z4c_get_psi4(
 	double x720 = x23*x709*x711;
 	*Psi4Re = x4*(x23*x232*x37*x639 + x23*x315*x37*x641 + x23*x37*x43*x47*x51*x674 + x23*x37*x45*x47*x51*x675 + x23*x37*x45*x47*x51*x676 - x23*x37*x48*x51*x663 - x231*x52 - x232*x313 + x232*x37*x622*xyz[2] - x232*x566 - x232*x580 - x24*x521*x660 + x26*x315*x37*x643 + x26*x37*x43*x47*x51*x677 + x26*x37*x43*x47*x51*x678 + x26*x37*x45*x47*x51*x679 + x26*x37*x48*x51*x665 + x26*x37*x52*x642 - x27*x565*x660 + x315*x37*x633*xyz[2] + x315*x37*x636*xyz[2] - x315*x377 - x315*x386 - x315*x667 + x37*x43*x47*x51*x663*xyz[2] + x37*x45*x47*x51*x673*xyz[2] + x37*x52*x617*xyz[2] - x432*(x125*x391 + x125*x392 + x125*x428 + x125*x429 - x134*x154*x387 + x135*x393 + x135*x394 + x135*x431 + x141*x396 + x141*x397 - x152*x372 + x159*x414 - x160*x388 - x166*x388 + x180*x415 - x186*x423 - x193*x419*x71 + x201*x425 - x207*x423 - x216*x418 - x236*x72 - x281*x387 - x298*x423 + x319*x413 + x379*x416 - x380*x402 - ((x387)*(x387))*x75 + x387*x76 - x388*x405 - x388*x407 + x389*x98 + x390*x98 + x398*x399 + x398*x400 + x401*x412 - x402*x403 + x409*x98 + x411*x98 - x420*x64 - x421*x422 + x421*x424 + x425*x426 - x66*x74) - x52*x524 - x52*x581 - x571*x572 - x571*x672 - x572*x575 - x575*x672 - x594*x595 - x595*x599 - x595*x647*x686 - x603*x604 - x604*x605 - x604*x657*x687 - x645*x659 - x645*x685 - x646*x648 - x646*x671 - x648*x650 - x649*x659 - x649*x685 - x650*x671 - x652*x658 - x652*x669 - x653*x654 - x653*x684 - x654*x656 - x655*x658 - x655*x669 - x656*x684 - x680*x681 - x680*x683 - x681*x682 - x682*x683);
 	*Psi4Im = x4*(x13*x26*x687*x712 - x13*x673*x705 - x21*x23*x686*x712 + x21*x663*x705 - x231*x699 + x313*x701 + x377*x691 + x386*x691 - x39*x639*x701 - x39*x641*x691 + x39*x674*x697 + x40*x642*x699 - x40*x643*x691 - x40*x679*x694 - x524*x699 + x566*x701 + x571*x692 + x575*x692 + x580*x701 - x581*x699 - x594*x697 - x599*x697 + x603*x694 + x605*x694 + x617*x704*x710 - x622*x704*x709 - x633*x693 - x636*x693 + x645*x696 + x645*x716 - x646*x708 + x646*x720 + x649*x696 + x649*x716 - x650*x708 + x650*x720 + x652*x702 - x652*x719 + x653*x695 - x653*x718 + x655*x702 - x655*x719 + x656*x695 - x656*x718 + x667*x691 - x675*x707 - x676*x707 + x677*x706 + x678*x706 + x713*x714 - x713*x717 + x714*x715 - x715*x717);
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_adaptive_eta(
+	const double gtdd[6],
+	double chi,
+	double eta,
+	const double dchi_dx[3],
+	double apar,
+	double bpar,
+	double epstiny,
+	double * __restrict__ eta_adaptive
+)
+{
+	double x0 = 2*dchi_dx[1];
+	*eta_adaptive = (1.0/2.0)*eta*sqrt(((dchi_dx[0])*(dchi_dx[0]))*(gtdd[3]*gtdd[5] - ((gtdd[4])*(gtdd[4]))) + 2*dchi_dx[0]*dchi_dx[2]*(gtdd[1]*gtdd[4] - gtdd[2]*gtdd[3]) - dchi_dx[0]*x0*(gtdd[1]*gtdd[5] - gtdd[2]*gtdd[4]) + ((dchi_dx[1])*(dchi_dx[1]))*(gtdd[0]*gtdd[5] - ((gtdd[2])*(gtdd[2]))) + ((dchi_dx[2])*(dchi_dx[2]))*(gtdd[0]*gtdd[3] - ((gtdd[1])*(gtdd[1]))) - dchi_dx[2]*x0*(gtdd[0]*gtdd[4] - gtdd[1]*gtdd[2]))/(sqrt(chi)*pow(1 - pow(chi, apar), bpar) + epstiny);
 }
 
 #endif 

@@ -1,0 +1,18 @@
+coordinate_system:
+  is_kerr_schild:
+    type: bool 
+    default: false 
+    description: >
+      Is the code running in CKS coordinates?
+
+  bh_spin:
+    type: double
+    default: 0.0
+    description: >
+      If CKS coordinates, adimensional black hole spin 
+
+  mass_scale:
+    type: double
+    default: 1.0
+    description: >
+      How much is MBH in code units? Should really be 1.

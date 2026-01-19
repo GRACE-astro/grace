@@ -119,6 +119,7 @@ class piecewise_polytropic_eos_t
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     energy_cold__press_cold(double & press, error_type& err) const {
+        if(press<=0) return 0.0;
         unsigned int idx = find_index_press(press, err) ; 
         double const rho =  Kokkos::pow(press/_k(idx), 1./_gamma(idx));
         return rho + rho * _eps(idx) + press/(_gamma(idx)-1.) ; 

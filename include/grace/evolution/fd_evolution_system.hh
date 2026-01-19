@@ -57,9 +57,10 @@ struct fd_evolution_system_t {
                   , grace::var_array_t const state_new 
                   , grace::staggered_variable_arrays_t const sstate_new 
                   , double const dt 
-                  , double const dtfact ) const 
+                  , double const dtfact 
+                  , grace::device_coordinate_system coords ) const 
     {
-        return static_cast<EvolSystem_t const*>(this)->compute_update_impl(q,VEC(i,j,k),idx,state_new,sstate_new,dt,dtfact) ;
+        return static_cast<EvolSystem_t const*>(this)->compute_update_impl(q,VEC(i,j,k),idx,state_new,sstate_new,dt,dtfact,coords) ;
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 

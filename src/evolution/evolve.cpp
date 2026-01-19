@@ -342,10 +342,10 @@ void compute_fluxes(
                 , flux_x_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
-        grmhd_eq_system.template compute_x_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact) ;
+        grmhd_eq_system.template compute_x_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact) ;
         #endif 
         #ifdef GRACE_ENABLE_M1
-        m1_eq_system.template compute_x_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
+        m1_eq_system.template compute_x_flux<slope_limited_reconstructor_t<MCbeta>>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
         ) ; 
         #endif 
@@ -355,10 +355,10 @@ void compute_fluxes(
                 , flux_y_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
-        grmhd_eq_system.template compute_y_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
+        grmhd_eq_system.template compute_y_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
         #endif 
         #ifdef GRACE_ENABLE_M1
-        m1_eq_system.template compute_y_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
+        m1_eq_system.template compute_y_flux<slope_limited_reconstructor_t<MCbeta>>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
         ) ; 
         #endif
@@ -368,10 +368,10 @@ void compute_fluxes(
                 , flux_z_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
-        grmhd_eq_system.template compute_z_flux<hll_riemann_solver_t,recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
+        grmhd_eq_system.template compute_z_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
         #endif 
         #ifdef GRACE_ENABLE_M1
-        m1_eq_system.template compute_z_flux<hll_riemann_solver_t, slope_limited_reconstructor_t<MCbeta>>(
+        m1_eq_system.template compute_z_flux<slope_limited_reconstructor_t<MCbeta>>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
         ) ; 
         #endif
@@ -774,7 +774,7 @@ void update_fd(
                 , advance_policy
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
                 {
-                    z4c_eq_system.compute_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact);
+                    z4c_eq_system.compute_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
                 }) ; 
     //**************************************************************************************************/
     #elif defined(GRACE_ENABLE_BSSN_METRIC)

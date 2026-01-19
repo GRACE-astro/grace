@@ -112,6 +112,29 @@ void amr_ghosts_impl_t::update() {
     }
     Kokkos::deep_copy(var_bc_kind_f,var_bc_kind_f_h) ;
 
+    // collect parity factors for reflection symmetries
+    var_reflect_parity = Kokkos::View<double*[3]>(
+        "reflection_parities", static_cast<size_t>(nvar) 
+    ) ; 
+    auto var_reflect_parity_h = Kokkos::create_mirror_view(var_reflect_parity) ; 
+    for(int ivar=0; ivar<nvar; ++ivar){
+        var_reflect_parity_h(ivar,0) = var_reflect_parity_h(ivar,1) = var_reflect_parity_h(ivar,2) = 1.0;
+
+        auto props = variables::detail::_varprops[variables::detail::_varnames[ivar]] ; 
+        if ( props.is_vector ) {
+            var_reflect_parity_h(ivar,props.comp_num) = -1.0 ; 
+        } else if ( props.is_tensor ) {
+            if (props.comp_num==1) {
+                var_reflect_parity_h(ivar,0) = var_reflect_parity_h(ivar,1) = -1. ;
+            } else if (props.comp_num==2) {
+                var_reflect_parity_h(ivar,0) = var_reflect_parity_h(ivar,2) = -1. ;
+            } else if (props.comp_num==4) {
+                var_reflect_parity_h(ivar,1) = var_reflect_parity_h(ivar,2) = -1. ;
+            }
+        }
+    }
+    deep_copy(var_reflect_parity,var_reflect_parity_h) ; 
+
     // initialize weights for 4th order restrict/prolong 
     grace::detail::fill_fourth_order_prolongation_coefficients(ho_prolong_coefficients) ; 
     grace::detail::fill_fourth_order_restriction_coefficients(ho_restrict_coefficients) ; 
@@ -359,14 +382,17 @@ void amr_ghosts_impl_t::build_task_list(
         task_counter, task_list
     ) ; 
     #endif 
+    tag_bcs_in_cbuf<stag>(
+        cbuf_qid, ghost_layer
+    ) ; 
     /***********************************************************************/
     /***********************************************************************/
     auto const deferred_phys_bc_kernels = 
         insert_phys_bc_tasks<stag>(
                 phys_bc_kernels, ghost_layer,
-                dummy, cbuf_view, vbc,
+                dummy, cbuf_view, vbc, var_reflect_parity,
                 phys_bc_stream, VEC(nx,ny,nz),ngz,nv,
-                task_counter,task_list
+                restrict_tid, task_counter,task_list
         ) ;
     /***********************************************************************/
     /***********************************************************************/
@@ -381,7 +407,7 @@ void amr_ghosts_impl_t::build_task_list(
     /***********************************************************************/
     insert_deferred_phys_bc_tasks<stag>(
         deferred_phys_bc_kernels, ghost_layer,
-        dummy, cbuf_view, vbc, phys_bc_stream, 
+        dummy, cbuf_view, vbc, var_reflect_parity, phys_bc_stream, 
         VEC(nx,ny,nz),ngz,nv, task_counter, task_list
     ); 
     /***********************************************************************/
@@ -485,9 +511,9 @@ void amr_ghosts_impl_t::build_task_list_face_stag(
     deferred_phys_bc_kernels[stag] = \
         insert_phys_bc_tasks<stag>( \
                 phys_bc_kernels, ghost_layer,\
-                dummy, cbuf_view, vbc,\
+                dummy, cbuf_view, vbc, var_reflect_parity,\
                 stream, VEC(nx,ny,nz),ngz,nv,\
-                task_counter,task_list\
+                restrict_tid,task_counter,task_list\
         ) ;\
     } while (false)
     /***********************************************************************/
@@ -507,17 +533,17 @@ void amr_ghosts_impl_t::build_task_list_face_stag(
     /***********************************************************************/
     insert_deferred_phys_bc_tasks<STAG_FACEX>(
         deferred_phys_bc_kernels[STAG_FACEX], ghost_layer,
-        dummy, get_coarse_buffers<STAG_FACEX>(), vbc, stream,
+        dummy, get_coarse_buffers<STAG_FACEX>(), vbc, var_reflect_parity, stream,
         VEC(nx,ny,nz),ngz,nv, task_counter, task_list
     ); 
     insert_deferred_phys_bc_tasks<STAG_FACEY>(
         deferred_phys_bc_kernels[STAG_FACEY], ghost_layer,
-        dummy, get_coarse_buffers<STAG_FACEY>(), vbc, stream,
+        dummy, get_coarse_buffers<STAG_FACEY>(), vbc, var_reflect_parity, stream,
         VEC(nx,ny,nz),ngz,nv, task_counter, task_list
     ); 
     insert_deferred_phys_bc_tasks<STAG_FACEZ>(
         deferred_phys_bc_kernels[STAG_FACEZ], ghost_layer,
-        dummy, get_coarse_buffers<STAG_FACEZ>(), vbc, stream,
+        dummy, get_coarse_buffers<STAG_FACEZ>(), vbc, var_reflect_parity, stream,
         VEC(nx,ny,nz),ngz,nv, task_counter, task_list
     ); 
     /***********************************************************************/

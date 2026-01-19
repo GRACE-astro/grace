@@ -1,0 +1,7 @@
+bh_diagnostics:
+  detector_names:
+    type: list 
+    item_type: string 
+    min_items: 0
+    description: >
+      Names of detectors where BH diagnostics should be computed 

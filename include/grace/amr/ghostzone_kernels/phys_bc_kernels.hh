@@ -42,6 +42,20 @@
 
 namespace grace { namespace amr {
 
+struct reflect_bc_t 
+{
+    template< typename view_t >
+      void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+      apply (
+            view_t view,
+            VEC( size_t i, size_t j, size_t k),
+            VEC( int8_t is, int8_t js, int8_t ks), double f
+      ) const
+      {
+        view(i,j,k) = f*view(is,js,ks) ; 
+      }
+} ;
+
 template< size_t order >
 struct extrap_bc_t 
 {
@@ -174,13 +188,18 @@ struct phys_bc_op {
     readonly_view_t<std::size_t> qid   ;
     readonly_view_t<uint8_t> eid       ;
     readonly_twod_view_t<int8_t,3> dir ;
+    readonly_twod_view_t<double,3> var_refl_fact ;
     readonly_view_t<bc_t> var_bcs      ; 
+
+    readonly_twod_view_t<int,3> exloop       ;
+    readonly_twod_view_t<int,3> offloop      ;
     
     view_t data, data_p ; 
 
     outflow_bc_t outflow_kernel ;
     extrap_bc_t<3> extrap_kernel ; 
     sommerfeld_bc_t sommerfeld_kernel ; 
+    reflect_bc_t reflect_kernel ; 
 
     bool is_cbuf ; //!< If the data is cbuf set_data_ptr **must** be no-op
 
@@ -189,6 +208,10 @@ struct phys_bc_op {
     // only one view involved, if nx needs to be 
     // halved, just do it here 
     size_t nx, ny, nz, ngz, nv ; 
+
+
+
+    bool rx,ry,rz ; 
 
     double dt, dtfact ; 
 
@@ -213,14 +236,19 @@ struct phys_bc_op {
 
     phys_bc_op(
         view_t _data, view_t _data_p, scalar_array_t<GRACE_NSPACEDIM> _dx, device_coordinate_system _coords,
-        Kokkos::View<size_t*> _qid, Kokkos::View<uint8_t*> _eid, 
-        Kokkos::View<int8_t*[3]> _dir, Kokkos::View<bc_t*> _var_bcs, 
-         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, size_t _nv, bool _is_cbuf, var_staggering_t _stag
-    ) : qid(_qid),  eid(_eid), dir(_dir), var_bcs(_var_bcs), dx(_dx), coords(_coords),
+        Kokkos::View<size_t*> _qid, 
+        Kokkos::View<uint8_t*> _eid, 
+        Kokkos::View<int8_t*[3]> _dir, 
+        Kokkos::View<int*[3]> _ext,
+        Kokkos::View<int*[3]> _off_l, 
+        Kokkos::View<double*[3]> _var_rfact,  
+        Kokkos::View<bc_t*> _var_bcs, 
+         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, size_t _nv, bool _is_cbuf, var_staggering_t _stag, bool _rx, bool _ry, bool _rz
+    ) : qid(_qid),  eid(_eid), dir(_dir), var_refl_fact(_var_rfact), var_bcs(_var_bcs), exloop(_ext), offloop(_off_l), dx(_dx), coords(_coords),
         data(_data), data_p(_data_p),
-        nx(_nx), ny(_ny), nz(_nz), ngz(_ngz), nv(_nv), is_cbuf(_is_cbuf), stag(_stag)
+        nx(_nx), ny(_ny), nz(_nz), ngz(_ngz), nv(_nv), is_cbuf(_is_cbuf), stag(_stag), rx(_rx), ry(_ry), rz(_rz)
     {
-        outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ; sommerfeld_kernel = sommerfeld_bc_t{} ;
+        outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ; sommerfeld_kernel = sommerfeld_bc_t{} ; reflect_kernel = reflect_bc_t{} ; 
     }
 
     KOKKOS_INLINE_FUNCTION 
@@ -359,6 +387,55 @@ struct phys_bc_op {
             VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
             iv, qid 
         ) ;
+
+        // first we detect reflections
+        if ( rx or ry or rz ) {
+            bool do_reflection = false ; 
+            int ijk_s[3] = {ijk[0],ijk[1],ijk[2]}; 
+
+            double parities[3] ; 
+            if ( stag == STAG_CENTER ) {
+                parities[0] = var_refl_fact(iv,0);
+                parities[1] = var_refl_fact(iv,1);
+                parities[2] = var_refl_fact(iv,2); 
+            } else if ( stag == STAG_FACEX ) {
+                parities[0] = -1 ; 
+                parities[1] = parities[2] = 1;
+            } else if ( stag == STAG_FACEY ) {
+                parities[1] = -1 ; 
+                parities[0] = parities[2] = 1;
+            } else if ( stag == STAG_FACEZ ) {
+                parities[2] = -1 ; 
+                parities[0] = parities[1] = 1;
+            }
+
+            double fact = 1.0 ; 
+            if ( _dir[0] == -1 and rx ) {
+                ijk_s[0] = ngz + (ngz-1-ijk[0]) ; 
+                ijk_s[0] += stag==STAG_FACEX ; 
+                fact *= parities[0] ; 
+                do_reflection = true ; 
+            }
+
+            if ( _dir[1] == -1 and ry ) {
+                ijk_s[1] = ngz + (ngz-1-ijk[1]) ; 
+                ijk_s[1] += stag==STAG_FACEY ; 
+                fact *= parities[1] ; 
+                do_reflection = true ; 
+            }
+
+            if ( _dir[2] == -1 and rz ) {
+                ijk_s[2] = ngz + (ngz-1-ijk[2]) ; 
+                ijk_s[2] += stag==STAG_FACEZ ; 
+                fact *= parities[2] ; 
+                do_reflection = true ; 
+            }
+
+            if (do_reflection) {
+                reflect_kernel.template apply<decltype(sv)>(sv,ijk[0],ijk[1],ijk[2],ijk_s[0],ijk_s[1],ijk_s[2],fact) ; 
+                return ; 
+            }
+        }
         
         auto _bc_kind = var_bcs(iv) ;       
         switch (_bc_kind) {
@@ -417,7 +494,15 @@ struct phys_bc_op {
         int pdim[3], npdim[3] ; 
         compute_bounds(_dir, lmin, lmax, idir, extents, pdim, npdim, _eid);
 
-         
+        // this is an ugly solution to the 
+        // case where we are filling cbuf gzs
+        // in the edge of a quadrant outside 
+        // a face of the grid 
+        #pragma unroll
+        for( int ii=0; ii<3; ++ii) {
+            extents[ii] += exloop(iq,ii) ; 
+            lmin[ii] += offloop(iq,ii) ; 
+        }
 
         // idea here is: 
         // depending on BC kind we have some number of loops 

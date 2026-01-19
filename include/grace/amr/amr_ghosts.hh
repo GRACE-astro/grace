@@ -587,6 +587,7 @@ class amr_ghosts_impl_t {
     grace::var_array_t _coarse_buffers; 
     grace::staggered_variable_arrays_t _stag_coarse_buffers ; 
     Kokkos::View<bc_t*> var_bc_kind, var_bc_kind_f ; //!< Boundary condition per-variable
+    Kokkos::View<double*[3]> var_reflect_parity; //!< Parity under reflection
     //**************************************************************************************************
     //! For prolongation/restriction, store indices of variables needing high or low order operators 
     std::vector<size_t> high_order_interp_varlist, low_order_interp_varlist;

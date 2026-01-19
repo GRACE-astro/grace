@@ -62,6 +62,9 @@ const std::vector< std::string > code_modules {
     , "coordinate_system"
     , "spherical_surfaces"
     , "bh_diagnostics"
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    , "gw_integrals"
+    #endif
 } ;
 //*****************************************************************************************************
 const std::vector< std::string > code_modules_default_configs { 
@@ -91,6 +94,9 @@ const std::vector< std::string > code_modules_default_configs {
      , "/u/cmusolino/grace-private-src/include/grace/coordinates/coordinate_system-defaults.yaml"
      , "/u/cmusolino/grace-private-src/include/grace/IO/spherical_surface-defaults.yaml"
      , "/u/cmusolino/grace-private-src/include/grace/IO/bh_diagnostics-defaults.yaml"
+     #ifdef GRACE_ENABLE_Z4C_METRIC
+     , "/u/cmusolino/grace-private-src/include/grace/IO/gw_integrals-defaults.yaml"
+     #endif
 } ;
 //*****************************************************************************************************
 }} /* namespace grace::detail */

@@ -523,7 +523,7 @@ void set_grmhd_initial_data() {
         auto const rho_c = get_param<double>("grmhd", "tov", "rho_c") ; 
         auto const p_floor = get_param<double>("grmhd", "tov", "press_floor") ; 
         auto const dr = get_param<double>("grmhd", "tov", "dr") ; 
-        
+        auto const pert_amp = get_param<double>("grmhd", "tov", "pert_amp") ;
         auto atmo_pars = get_param<YAML::Node>("grmhd","atmosphere"); 
 
         atmo_params_t atmo_params ;
@@ -533,9 +533,7 @@ void set_grmhd_initial_data() {
         atmo_params.rho_fl_scaling = atmo_pars["rho_scaling"].as<double>() ;
         atmo_params.temp_fl_scaling = atmo_pars["temp_scaling"].as<double>() ; 
 
-        set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(atmo_params,rho_c,p_floor,dr) ;
-    } else if ( id_type == "KHI") {
-        set_grmhd_initial_data_impl<eos_t, kelvin_helmholtz_id_t<eos_t>>() ; 
+        set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(atmo_params,rho_c,p_floor,dr,pert_amp) ;
     } else if( id_type == "magnetic_rotor" ) {
         auto pars = get_param<YAML::Node>("grmhd","magnetic_rotor") ; 
         auto const rho_in  = pars["rho_in"].as<double>() ; 

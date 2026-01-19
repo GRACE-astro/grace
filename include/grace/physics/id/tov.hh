@@ -107,8 +107,8 @@
            eos_t eos
          , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
          , atmo_params_t atmo_params
-         , double rhoC, double press_floor, double dr )
-         : _eos(eos), _pcoords(pcoords), _atmo_params(atmo_params), _rhoC(rhoC), _press_floor(press_floor), _dr(dr)
+         , double rhoC, double press_floor, double dr, double pert_amp )
+         : _eos(eos), _pcoords(pcoords), _atmo_params(atmo_params), _rhoC(rhoC), _press_floor(press_floor), _dr(dr), _pert_amp(pert_amp)
      { 
  
         Kokkos::View<double *, grace::default_space> tov_params("TOV_parameters", 7) ; 
@@ -292,7 +292,13 @@
 
         double const nuL = sol[1] ; 
         
-        id.vx = 0 ; id.vy = 0; id.vz = 0;
+        double s[3] = {
+            x/rL, y/rL, z/rL
+        } ; 
+        id.vx = _pert_amp * s[0] * rL ; 
+        id.vy = _pert_amp * s[1] * rL ; 
+        id.vz = _pert_amp * s[2] * rL ; 
+
         id.bx = id.by = id.bz = 0;
         /* Set the metric */
         id.alp   = 
@@ -380,6 +386,7 @@
     double _M, _R, _R_iso;                            //!< Mass and Radius
     double _compactness ;                             //!< Compactness
     double _press_atm ;                               //!< Atmosphere pressure
+    double _pert_amp  ;                               //!< Perturbation delta v^r = A r 
     size_t _npoints ;                                 //!< Number of points in solution
     double _C ;                                       //!< Conversion between isotropic and Schwartzschild coordinates 
     Kokkos::View<double *, grace::default_space> mass, press, nu, r, r_iso ; //!< Arrays containing TOV solution 

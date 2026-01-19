@@ -1,0 +1,55 @@
+evolution:
+  time_stepper:
+    type: keyword
+    allowed: ["euler", "rk2", "rk3", "imex222"]
+    default: "euler"
+    description: >
+      What timestepper is used for MoL evolution 
+  cfl_factor:
+    type: double
+    range: "(0,*)"
+    default: 0.2
+    description: >
+      CFL factor
+
+  timestep_selection_mode:
+    type: keyword 
+    allowed: ["automatic", "manual"]
+    default: "automatic"
+    description: >
+      How to select the timestep, manual means user provided 
+
+  timestep: 
+    type: double 
+    range: "(0,*)"
+    default: 0.1 
+    description: >
+      If timestep selection is manual, provide timestep 
+  
+  termination_condition:
+    type: keyword 
+    allowed: ["time","iteration","walltime"]
+    default: "time"
+    description: >
+      How to decide when to terminate the execution 
+
+  final_time: 
+    type: double 
+    range: "(0,*)"
+    default: 2.0
+    description: >
+      If termination condition is time, simulation time (in code units) when the simulation ends 
+
+  final_iteration:
+    type: unsigned int 
+    range: "(0,*)"
+    default: 100
+    description: >
+      If termination condition is iteration, iteration when the simulation ends 
+
+  final_walltime:
+    type: double
+    range: "(0,*)"
+    default: 24
+    description: >
+      If termination condition is walltime, walltime (in hours) when the simulation ends 

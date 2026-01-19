@@ -63,6 +63,8 @@ struct z4c_system_t
     using base_t = fd_evolution_system_t<z4c_system_t>  ;
 
     double k1,k2,eta,chi_safeguard,epsdiss;
+    double eta_ad_a, eta_ad_b, eta_ad_r ; 
+    bool adaptive_eta ; 
 
     public:
     z4c_system_t( 
@@ -76,6 +78,10 @@ struct z4c_system_t
         eta = get_param<double>("z4c", "eta") ; 
         epsdiss = get_param<double>("z4c", "eps_diss") ; 
         chi_safeguard = get_param<double>("z4c", "chi_floor") ; 
+        adaptive_eta = get_param<bool>("z4c", "adaptive_eta") ; 
+        eta_ad_a = get_param<double>("z4c", "adaptive_eta_a") ; 
+        eta_ad_b = get_param<double>("z4c", "adaptive_eta_b") ; 
+        eta_ad_r = get_param<double>("z4c", "eta_damp_radius") ; 
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -87,7 +93,8 @@ struct z4c_system_t
                        , grace::var_array_t const state_new 
                        , grace::staggered_variable_arrays_t sstate_new
                        , double const dt 
-                       , double const dtfact ) const
+                       , double const dtfact 
+                       , grace::device_coordinate_system coords ) const
     {
         using namespace Kokkos ; 
         auto s = subview(this->_state,i,j,k,ALL(),q) ;
@@ -161,13 +168,24 @@ struct z4c_system_t
         z4c_get_matter_sources(
             gtdd,beta,alp,chi,z,B,rho0,press,eps,&rho,&Strace,&Si,&Sij
         );
-        
+
+        // compute local eta if adapted treatment enabled 
+        double xyz[3] ; 
+        coords.get_physical_coordinates(i,j,k,q,xyz) ;
+        double r = sqrt(SQR(xyz[0])+SQR(xyz[1])+SQR(xyz[2])); 
+        double etaL = (r>eta_ad_r) ? eta*eta_ad_r/r : eta ; 
+        if (adaptive_eta) {
+            z4c_get_adaptive_eta(
+                gtdd,chi,etaL,dchi_dx,eta_ad_a,eta_ad_b,1e-15,&etaL
+            ) ; 
+        }
+
         // compute rhs 
         double dchi, dalp, dtheta, dKhat ; 
         double dgtdd[6], dAtdd[6], dGammat[3], dbetau[3], dBdr[3] ; 
         z4c_get_rhs(
             gtdd,Atdd,beta,alp,chi,Bdriver,Gammat,
-            theta,Khat,Strace,rho,Sij,Si,k1,k2,eta,
+            theta,Khat,Strace,rho,Sij,Si,k1,k2,etaL,
             dgtdd_dx,dgtdd_dx_upw,dAtdd_dx_upw,
             dbeta_dx,dbeta_dx_upw,dBdr_dx_upw,dGammat_dx,dGammat_dx_upw,
             dKhat_dx,dKhat_dx_upw,dchi_dx,dchi_dx_upw,dalp_dx,dalp_dx_upw,

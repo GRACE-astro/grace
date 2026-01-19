@@ -65,7 +65,8 @@ grmhd: {
   tov: {
     rho_c: 1.28e-3,
     press_floor: 1e-6,
-    dr: 1e-3
+    dr: 1e-3,
+    pert_amp: 0.0
   },
   
   blastwave_over_pressure_factor: 2.5,

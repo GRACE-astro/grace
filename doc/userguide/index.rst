@@ -12,7 +12,7 @@ If you're wondering what grace even is, please refer to the :doc:`Introduction <
 Input parameters
 ******************
 
-Input parameters control the runtime behaviour of GRACE. They can be provided through a file, aptly called parameter file, which has 
+Input parameters control the runtime behaviour of GRACE. They can be provided through a parameter file, which has 
 to be written in `YAML <https://en.wikipedia.org/wiki/YAML>`__ format. The parameter file can be passed to the GRACE executable with 
 the following invocation:
 
@@ -24,6 +24,7 @@ GRACE supports many different parameters that allow for very detailed customizat
 of the code. We will now give a list of all possible parameters, their type, their default value and the range 
 of values they support. Parameters in the ``yaml`` config file are split into sections, which roughly correspond 
 with GRACE's modules, so we'll provide description of the parameters together grouped by the module they belong to.
+For a quick example, see the configurations provided in the ``configs`` directory in the GRACE repository.
 
 .. toctree::
     :maxdepth: 1

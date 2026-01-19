@@ -1,0 +1,471 @@
+grmhd:
+  id_type: 
+    type: keyword 
+    allowed: ["minkowski_vacuum", "shocktube", "magnetic_rotor", "bondi_flow", "orszag_tang_vortex", "fmtorus", "tov", "blastwave", "gas_cloud","puncture","lorene_bns"]
+    default: "minkowski_vacuum"
+    description: > 
+      Initial data type 
+  
+  atmosphere:
+    description: >
+      Parameters describing atmosphere conditions 
+    rho_fl:
+      type: double 
+      range: "[0,*)"
+      default: 1e-14
+      description: >
+        Rest mass density floor 
+    ye_fl: 
+      type: double 
+      range: "[0,*)"
+      default: 0.0
+      description: >
+        Ye floor (if not beta_eq)
+    temp_fl:
+      type: double 
+      range: "[0,*)"
+      default: 0.0
+      description: >
+        temperature floor
+    rho_scaling:
+      type: double 
+      range: "(*,*)"
+      default: 0.0
+      description: >
+        Atmosphere density is rho_fl * r^(rho_scaling)
+    temp_scaling:
+      type: double 
+      range: "(*,*)"
+      default: 0.0
+      description: >
+        Atmosphere temperature is temp_fl * r^(temp_scaling)
+    atmosphere_is_beta_eq:
+      type: bool 
+      default: true 
+      description: >
+        Override ye_fl with beta equilibrium ye at atmosphere conditions 
+  
+  excision: 
+    description: >
+      Parameters describing excision conditions 
+    excision_criterion:
+      type: keyword 
+      allowed: ["lapse","radius"]
+      default: "lapse"
+      description: >
+        Either excise when alpha<alpha_exc or r<r_exc 
+    excision_lapse:
+      type: double 
+      range: "(0,*)"
+      default: 0.05 
+      description: >
+        If excision criterion is lapse, where to excise 
+    excision_radius:
+      type: double 
+      range: "(0,*)"
+      default: 1.0
+      description: >
+        If excision criterion is radius, where to excise 
+    rho_excision:
+      type: double 
+      range: "[0,*)"
+      default: 1e-14
+      description: >
+        Rest mass density inside excised region 
+    temp_excision:
+      type: double 
+      range: "[0,*)"
+      default: 0.0
+      description: >
+        Temperature inside excised region
+    
+  c2p: 
+    description: >
+      Parameters that control the behaviour of the c2p 
+    tolerance: 
+      type: double 
+      range: "(0,*)"
+      default: 1e-10
+      description: >
+        Tolerance for accepting c2p inversion 
+    max_lorentz:
+      type: double 
+      range: "[1,*)"
+      default: 50
+      description: >
+        Maximum allowed Lorentz factor 
+    max_sigma:
+      type: double 
+      range: "[0,*)"
+      default: 100
+      description: >
+        Maximum allowed magnetization
+    use_c2p_entropy_backup:
+      type: bool 
+      default: true 
+      description: >
+        Fall back to entropy prescription on c2p failure 
+    beta_fallback:
+      type: double 
+      range: "[0,*)"
+      default: 1e-2
+      description: >
+        Directly use entropy backup if beta<fallback_threshold
+    
+  B_field_initialization:
+    type: keyword
+    allowed: ["none", "from_A", "direct"]
+
+  Avec_ID:
+    description: >
+      Parameters for initialization of vector potential at cell edges 
+    Avec_kind:
+      type: keyword 
+      allowed: ["current_loop"]
+      default: "current_loop"
+      description: >
+        Avec prescription 
+    cutoff_var: 
+      type: string 
+      default: "press"
+      description: >
+        Variable on which A depends
+    cutoff_fact:
+      type: double 
+      range: "(0,1)"
+      default: 0.02 
+      description: > 
+        Fraction of max(var) at below which A is zero 
+    A_phi:
+      type: double 
+      range: "[0,*)"
+      default: 0.0
+      description: >
+        Rescaling factor of A_phi 
+    A_n: 
+      type: double 
+      range: "[0,*)"
+      default: 1.0 
+      description: >
+        Power law index of A(var) dependence
+    is_binary:
+      type: bool 
+      default: false 
+      description: >
+        Is initial data a binary system? 
+    x_c_1:
+      type: double 
+      range: "(*,*)"
+      default: 0.0 
+      description: >
+        Center around which A is set (if binary center of star 1)
+    y_c_1:
+      type: double 
+      range: "(*,*)"
+      default: 0.0 
+      description: >
+        Center around which A is set (if binary center of star 1)
+    z_c_1:
+      type: double 
+      range: "(*,*)"
+      default: 0.0 
+      description: >
+        Only for binary: center of second star 
+    x_c_2:
+      type: double 
+      range: "(*,*)"
+      default: 0.0 
+      description: >
+        Only for binary: center of second star 
+    y_c_2:
+      type: double 
+      range: "(*,*)"
+      default: 0.0 
+      description: >
+        Only for binary: center of second star 
+    z_c_2:
+      type: double 
+      range: "(*,*)"
+      default: 0.0 
+      description: >
+        Only for binary: center of second star 
+  
+  bondi_flow: 
+    description: > 
+      Parameters for Bondi ID 
+    r_c:
+      type: double 
+      range: "(0,*)"
+      default: 8.0
+      description: >
+        Critical radius 
+    K: 
+      type: double 
+      range: "(0,*)"
+      default: 1.0 
+      description: >
+        Initial data adiabat 
+    gamma:
+      type: double 
+      range: "(1,*)"
+      default: 1.3333
+      description: >
+        Initial data gamma 
+    r_min:
+      type: double 
+      range: "(0,*)"
+      default: 1
+      description: >
+        Where the Bondi grid is cutoff 
+    r_max:
+      type: double 
+      range: "(0,*)"
+      default: 100
+      description: >
+        Where the Bondi grid is cutoff
+    spin:
+      type: double 
+      range: "[0,1)"
+      default: 0.0
+      description: >
+        Black hole spin 
+
+  vacuum:
+    description: >
+      Parameters for minkowski constant state 
+    rho_floor: 
+      type: double 
+      range: "(0,*)"
+      default: 1e-15
+      description: > 
+        Rest mass density 
+    press_floor: 
+      type: double 
+      range: "(0,*)"
+      default: 1e-15
+      description: > 
+        Pressure
+    velocity_x: 
+      type: double 
+      range: "(0,*)"
+      default: 0.0
+      description: > 
+        v^x
+    velocity_y: 
+      type: double 
+      range: "(0,*)"
+      default: 0.0
+      description: > 
+        v^y
+    velocity_z: 
+      type: double 
+      range: "(0,*)"
+      default: 0.0
+      description: > 
+        v^z
+
+  shocktube:
+    description: >
+      Parameters for shocktube problem 
+    press_L:
+      type: double 
+      range: "(0,*)"
+      default: 13.3
+      description: >
+        Pressure in left state 
+    press_R:
+      type: double 
+      range: "(0,*)"
+      default: 0.66e-6
+      description: >
+        Pressure in right state
+
+    rho_L:
+      type: double 
+      range: "(0,*)"
+      default: 10.0
+      description: >
+        Rest mass density in left state 
+    rho_R:
+      type: double 
+      range: "(0,*)"
+      default: 1.0
+      description: >
+        Rest mass density in right state
+
+    Bx_L:
+      type: double 
+      range: "(*,*)"
+      default: 0.0 
+      description: >
+        B^x in left state (note you must set B_initialization to direct)
+    Bx_R:
+      type: double 
+      range: "(*,*)"
+      default: 0.0 
+      description: >
+        B^x in right state (note you must set B_initialization to direct)
+
+    By_L:
+      type: double 
+      range: "(*,*)"
+      default: 0.0 
+      description: >
+        B^y in left state (note you must set B_initialization to direct)
+    By_R:
+      type: double 
+      range: "(*,*)"
+      default: 0.0 
+      description: >
+        B^y in right state (note you must set B_initialization to direct)
+
+    Bz_L:
+      type: double 
+      range: "(*,*)"
+      default: 0.0 
+      description: >
+        B^z in left state (note you must set B_initialization to direct)
+    Bz_R:
+      type: double 
+      range: "(*,*)"
+      default: 0.0 
+      description: >
+        B^z in right state (note you must set B_initialization to direct)
+
+  magnetic_rotor:
+    description: >
+      Parameters for magnetic rotor test 
+    rho_in: 
+      type: double 
+      range: "(0,*)"
+      default: 10.0
+      description: >
+        Density inside cylinder 
+    
+    rho_out: 
+      type: double 
+      range: "(0,*)"
+      default: 1.0
+      description: >
+        Density outside cylinder 
+    
+    press: 
+      type: double 
+      range: "(0,*)"
+      default: 1.0
+      description: >
+        Pressure 
+
+    B0: 
+      type: double 
+      range: "(*,*)"
+      default: 1.0
+      description: >
+        B^x 
+
+  orszag_tang_vortex:
+    description: >
+      Parameters for Orszag-Tang vortex test 
+    press: 
+      type: double 
+      range: "(0,*)"
+      default: 10.0
+      description: >
+        Pressure
+    rho: 
+      type: double 
+      range: "(0,*)"
+      default: 1.0
+      description: >
+        density 
+
+  fmtorus:
+    description: >
+      Parameters for Fishborne Moncrief torus 
+    a_BH:
+      type: double 
+      range: "(0,1)"
+      default: 0.9375
+      description: >
+        Black hole spin 
+    rho_min:
+      type: double 
+      range: "(0,*)"
+      default: 1.0e-5
+      description: >
+        Minimum density
+    rho_min:
+      type: double 
+      range: "(0,*)"
+      default: 1.0e-5
+      description: >
+        Minimum density
+    
+    lapse_min:
+      type: double 
+      range: "(0,*)"
+      default: 0.2
+      description: >
+        Minimum lapse
+
+    press_min:
+      type: double 
+      range: "(0,*)"
+      default: 0.333e-7
+      description: >
+        Minimum pressure
+
+    r_in:
+      type: double 
+      range: "(0,*)"
+      default: 6.0
+      description: >
+        Radius of inner edge 
+    
+    r_at_max_density:
+      type: double 
+      range: "(0,*)"
+      default: 12.0
+      description: >
+        Radius of max density location
+
+    gamma:
+      type: double 
+      range: "(1,*)"
+      default: 1.333333
+      description: >
+        Gamma of initial data EOS (polytrope selected by rho_max/press_max)
+
+    max_inverse_beta:
+      type: double 
+      range: "[0,*)"
+      default: 100
+      description: >
+        Scale of magnetic field 
+    
+    perturbation_amplitude:
+      type: double 
+      range: "[0,*)"
+      default: 0.0
+      description: >
+        Pressure perturbation scale, currently broken
+
+    rho_power:
+      type: double 
+      range: "[0,*)"
+      default: -1.5
+      description: >
+        Power law decay in rho
+
+    press_power:
+      type: double 
+      range: "[0,*)"
+      default: -2.5
+      description: >
+        Power law decay in press
+    
+    
+
+
+     
+    
