@@ -284,21 +284,21 @@
             // Get rho and eps from press 
             double eps ; 
             id.rho   = _eos.rho__press_cold_ye(sol[0], id.ye, err) ; 
+            double s[3] = {
+                x/rL, y/rL, z/rL
+            } ; 
+            id.vx = _pert_amp * s[0] * rL ; 
+            id.vy = _pert_amp * s[1] * rL ; 
+            id.vz = _pert_amp * s[2] * rL ; 
         } else {
             id.rho   = rho_atm   ;
             id.ye    = ye_atm    ;
             id.press = press_atm ; 
+            id.vx = id.vy = id.vz = 0.0 ; 
         }
 
         double const nuL = sol[1] ; 
         
-        double s[3] = {
-            x/rL, y/rL, z/rL
-        } ; 
-        id.vx = _pert_amp * s[0] * rL ; 
-        id.vy = _pert_amp * s[1] * rL ; 
-        id.vz = _pert_amp * s[2] * rL ; 
-
         id.bx = id.by = id.bz = 0;
         /* Set the metric */
         id.alp   = 

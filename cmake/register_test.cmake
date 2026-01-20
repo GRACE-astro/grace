@@ -90,6 +90,7 @@ function(add_grace_test target_name source_file)
     HDF5::HDF5
     $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
     $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
+    $<$<BOOL:${GRACE_ENABLE_LORENE}>:LORENE::LORENE>
     )
     if ( GRACE_ENABLE_VTK )
             vtk_module_autoinit(

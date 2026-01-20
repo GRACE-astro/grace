@@ -37,16 +37,12 @@ namespace grace {
     #if 1
     void KOKKOS_INLINE_FUNCTION
     operator() (double mu, double& f, double& df) const {
-      double x0 = bsqr*mu;
-      double x1 = x0 + 1;
-      double x2 = 1/((x1*x1));
-      double x3 = rsqr*x2;
-      double x4 = 1/(x1);
-      double x5 = rbsqr*(x4 + 1);
-      double x6 = x4*x5;
-      double x7 = sqrt(h0sqr + mu*x6 + x3);
-      f = mu*x7 - 1;
-      df = -1.0/2.0*mu*x4*(2*bsqr*x3 + rbsqr*x0*x2 + x0*x6 - x5)/x7 + x7;
+      double x = x__mu(mu) ; 
+      double xsqr = x*x ; 
+      double hw = h0w__mu_x(mu,x) ; 
+      double b = x * (xsqr * rsqr + mu * (1 + x + xsqr) * rbsqr);
+      f     = mu * hw - 1.;
+      df    = (h0sqr + b) / hw;
     }   
     
     double KOKKOS_INLINE_FUNCTION
@@ -56,6 +52,21 @@ namespace grace {
       return mu * Kokkos::sqrt(h0sqr + rfsqr) - 1. ; 
     } 
     #endif 
+
+    void KOKKOS_INLINE_FUNCTION 
+    bracket(double& mu_min, double& mu_max) const {
+      mu_min = 1./(h0sqr + rsqr) ; 
+      double mu0 = 1./sqrt(h0sqr) ; 
+      double rfsqr_min = rbsq__mu_x(mu0, x__mu(mu0));
+      mu_max    = 1.0 / sqrt(h0sqr + rfsqr_min);
+      mu_min *= (1-1e-10) ; 
+      mu_max *= (1+1e-10) ; 
+      if (mu_max <= mu_min) 
+      { 
+        mu_min = 0;
+        mu_max = mu0 * (1.0 + 1e-10);
+      }
+    }
     double rsqr, bsqr, rbsqr, h0sqr; 
   } ; 
   
@@ -100,9 +111,9 @@ namespace grace {
     void KOKKOS_INLINE_FUNCTION
     get_eps_range(double& epsmin, double& epsmax, double rho) const {
       double yel{ye} ;
-      unsigned int err ;
+      unsigned int eos_err ;
       double rhol{rho} ; 
-      eos.eps_range__rho_ye(epsmin,epsmax,rhol,yel,err);
+      eos.eps_range__rho_ye(epsmin,epsmax,rhol,yel,eos_err);
     }
 
     double KOKKOS_INLINE_FUNCTION
@@ -139,16 +150,16 @@ namespace grace {
       get_eps_range(epsmin,epsmax,rho) ;
       if ( eps >= epsmax ) {
         err = C2P_EPS_TOO_HIGH ; 
-        eps = epsmax ; 
+        eps = epsmax * 0.999; 
       } else if ( eps <= epsmin ) {
         err = C2P_EPS_TOO_LOW ; 
-        eps = epsmin ; 
+        eps = epsmin * 1.001; 
       }
 
       double hh,csnd2 ; 
-      unsigned int err ; 
+      unsigned int eos_err ; 
       press = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
-        hh,csnd2,temp,ent,eps,rho,ye,err
+        hh,csnd2,temp,ent,eps,rho,ye,eos_err
       ) ; 
 
       double const a = press/(rho*(1+eps)) ; 
@@ -183,7 +194,7 @@ namespace grace {
 		  eos_t const& _eos,
 		  metric_array_t const& _metric,
 		  grmhd_cons_array_t& conservs
-		  ) : eos(_eos), metric(_metric), h0(_eos.enthalpy_minimum())
+		  ) : eos(_eos), metric(_metric), h0(1.0+1e-10)
     {
       
 
@@ -232,16 +243,18 @@ namespace grace {
       static constexpr double tolerance = 1e-15 ; 
 
       // initial bracket 
-      #if 1
       double mu0 = 1/h0 ; 
-      if ( r2 >= h0 ) {
+      #if 1
+      if ( r2 >= h0*h0 ) {
         fbrack_t g(r2,Btilde2,r_dot_Btilde2,h0) ; 
+        double mu0_min, mu0_max ; 
+        g.bracket(mu0_min,mu0_max) ; 
         int err ; 
-        mu0 = utils::rootfind_newton_raphson(0,1./h0,g,30,1e-10,err) ; 
+        mu0 = utils::rootfind_newton_raphson(mu0_min,mu0_max,g,30,1e-10,err) ; 
         if ( err == 0 ) {
           mu0 *= 1+1e-10 ; 
         } else {
-          mu0 = utils::brent(g,0,1./h0,tolerance)*(1+1e-10) ;
+          mu0 = 1.0/h0 ;
         }
       }
       #endif 
@@ -268,7 +281,7 @@ namespace grace {
       for( int ii=0; ii<3; ++ii) 
         prims[ZXL+ii] = W * mu * x * ( r[ii] + mu * r_dot_Btilde * Btilde[ii] ) ;  
       
-      return SQR(W) * fabs(residual) / (1e-50 + mu) ; 
+      return fabs(residual) ; 
     }
     
   private:

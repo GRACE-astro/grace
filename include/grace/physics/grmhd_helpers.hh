@@ -174,6 +174,21 @@ excision_params_t get_excision_params()
     return excision_params ; 
 }
 
+double KOKKOS_INLINE_FUNCTION
+det_sym_tens(double * __restrict__ a) {
+  return -(a[2]*a[2]*a[3] + 2*(a[1]*a[2]*a[4]) - a[0]*a[4]*a[4] - a[1]*a[1]*a[5] + a[0]*a[3]*a[5]) ; 
+}
+
+void KOKKOS_INLINE_FUNCTION 
+inverse_sym_tens(double invdet, double const * __restrict__ a, double * __restrict__ ainv) 
+{
+  ainv[0] = (-(a[4]*a[4]) + a[3]*a[5]) * invdet ; 
+  ainv[1] = ((a[2]*a[4]) - a[1]*a[5]) * invdet ; 
+  ainv[2] = (-(a[2]*a[3]) + a[1]*a[4]) * invdet ; 
+  ainv[3] = (-(a[2]*a[2]) + a[0]*a[5]) * invdet ; 
+  ainv[4] = ((a[1]*a[2]) - a[0]*a[4]) * invdet ; 
+  ainv[5] = (-(a[1]*a[1]) + a[0]*a[3]) * invdet ; 
+}
 
 KOKKOS_INLINE_FUNCTION
 void get_extrinsic_curvature( std::array<double,6>& Kij, grace::var_array_t state

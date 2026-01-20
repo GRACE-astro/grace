@@ -209,21 +209,50 @@ struct grmhd_equations_system_t
     {
         using namespace grace  ;
         using namespace Kokkos ;
+        auto s = subview(this->_state,i,j,k,ALL(),q) ;
         /**************************************************************************************************/
         /* Read in the metric                                                                             */
         /**************************************************************************************************/
-        metric_array_t metric ; 
-        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
-        double const alp           = metric.alp()        ; 
-        double const * const betau = metric._beta.data() ; 
-        double const * const gdd   = metric._g.data()    ;
-        double const * const guu   = metric._ginv.data() ;
-        /**************************************************************************************************/
-        /* Read in the extrinsic curvature                                                                */
-        /**************************************************************************************************/
-        std::array<double,6> Kij ;
-        get_extrinsic_curvature(Kij,this->_state,VEC(i,j,k),q) ; 
-        double const * const Kdd = Kij.data() ; 
+        // Declare variables
+        double alp{s(ALP_)}; 
+        double betau[3] = {s(BETAX_), s(BETAY_), s(BETAZ_)} ; 
+        #ifdef GRACE_ENABLE_COWLING_METRIC
+        double const gdd[6] = {
+            s(GXX_), s(GXY_), s(GXZ_), 
+            s(GYY_), s(GYZ_), s(GZZ_)
+        } ; 
+        double const Kdd[6] = {
+            s(KXX_), s(KXY_), s(KXZ_), 
+            s(KYY_), s(KYZ_), s(KZZ_)
+        } ; 
+        double sqrtg{det_sym_tens(gdd)} ; 
+        #else
+        double theta{s(THETA_)}, chi{fmax(1e-15,s(CHI_))}, Khat{s(KHAT_)}  ; 
+        double oochi = 1./chi ;
+        
+        double gtdd[6] = {
+            s(GTXX_), s(GTXY_), s(GTXZ_), 
+            s(GTYY_), s(GTYZ_), s(GTZZ_)
+        } ;
+        double guu[6]; 
+        inverse_sym_tens(1.,gtdd,guu) ; 
+        
+        double Atdd[6] = {
+            s(ATXX_), s(ATXY_), s(ATXZ_), 
+            s(ATYY_), s(ATYZ_), s(ATZZ_)
+        } ;
+        double gdd[6] ;
+        double Kdd[6] ; 
+        for( int a=0; a<6; ++a) {
+            // gamma_ij = gammatilde_ij / chi 
+            gdd[a] = gtdd[a] * oochi ; 
+            // gamma^ij = gammatilde^ij * chi 
+            guu[a] = guu[a] * chi ; 
+            // K_ij = (Atilde_ij + 1/3 gammatilde_ij K ) / chi 
+            Kdd[a] = oochi * Atdd[a] + 1./3. * gdd[a] * (Khat+2.*theta) ; 
+        }
+        double sqrtg = pow(chi,-3./2.) ; 
+        #endif 
         /**************************************************************************************************/
         /* Read the primitive variables                                                                   */
         /**************************************************************************************************/
@@ -248,7 +277,6 @@ struct grmhd_equations_system_t
         #ifdef GRACE_ENABLE_COWLING_METRIC
         fill_deriv_tensor(this->_state, i,j,k, GXX_, q, dgdd_dx, idx(0,q)) ;
         #else 
-        double chi{this->_state(i,j,k,CHI_,q)} ; 
         double dchi_dx[3] ; 
         fill_deriv_scalar(this->_state, i,j,k, CHI_, q, dchi_dx, idx(0,q)) ;
         fill_deriv_tensor(this->_state, i,j,k, GTXX_, q, dgdd_dx, idx(0,q)) ;
@@ -270,13 +298,13 @@ struct grmhd_equations_system_t
         /**************************************************************************************************/
         /* Add energy source terms                                                                        */
         /**************************************************************************************************/
-        state_new(VEC(i,j,k),TAU_,q)     += metric.sqrtg() * dt * dtfact * tau_src ;
+        state_new(VEC(i,j,k),TAU_,q)     += sqrtg * dt * dtfact * tau_src ;
         /**************************************************************************************************/
-        state_new(VEC(i,j,k),SX_,q)      += metric.sqrtg() * dt * dtfact * stilde_src[0] ;
+        state_new(VEC(i,j,k),SX_,q)      += sqrtg * dt * dtfact * stilde_src[0] ;
         /**************************************************************************************************/
-        state_new(VEC(i,j,k),SY_,q)      += metric.sqrtg() * dt * dtfact * stilde_src[1] ;
+        state_new(VEC(i,j,k),SY_,q)      += sqrtg * dt * dtfact * stilde_src[1] ;
         /**************************************************************************************************/
-        state_new(VEC(i,j,k),SZ_,q)      += metric.sqrtg() * dt * dtfact * stilde_src[2] ;
+        state_new(VEC(i,j,k),SZ_,q)      += sqrtg * dt * dtfact * stilde_src[2] ;
         /**************************************************************************************************/
     } ;
     /**
@@ -688,6 +716,7 @@ struct grmhd_equations_system_t
 
         theta = math::min(theta_m, theta_p) ;
         if ( std::isnan(theta) ) theta = 1. ; 
+        if ( metric_face.alp() < 0.2 ) theta = 0 ; 
         /***********************************************************************/
         /***********************************************************************/
         fluxes(VEC(i,j,k),DENS_,idir,q)        = theta * f_HLL[DENSL]    

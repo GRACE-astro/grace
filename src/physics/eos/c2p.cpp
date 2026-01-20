@@ -149,6 +149,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
 
     // by default we overwrite S_star 
     c2p_err.adjust_ent = true ; 
+    c2p_err.adjust_tau = c2p_err.adjust_d = c2p_err.adjust_s = false ; 
 
     // store 
     const double c2p_tolerance = atmo.c2p_tol ; 
@@ -183,7 +184,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
             c2p_err.adjust_ent = false ; 
             c2p_err.adjust_tau = true  ; 
             c2p_backup_t e_c2p(eos,metric,cons) ;
-            double residual = c2p.invert(prims,c2p_ret) ; 
+            double residual = e_c2p.invert(prims,c2p_ret) ; 
             c2p_failed = (math::abs(residual) > c2p_tolerance) ;
         }
     } else {

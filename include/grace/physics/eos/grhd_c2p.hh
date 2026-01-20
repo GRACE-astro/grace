@@ -106,16 +106,15 @@ struct grhd_c2p_t {
      * the relevant metric components to the velocity.
      */
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims, double& W, c2p_err_t& c2p_errors) {
+    invert(grmhd_prims_array_t& prims, c2p_sig_t& c2p_errors) {
 
-        c2p_errors.adjust_s = S_adjusted ; 
         auto const func = [&] (double const& zeta) {
             return zeta - r / htilde(zeta) ; 
         } ; 
         double const zm{ 0.5*k/Kokkos::sqrt(1-math::int_pow<2>(0.5*k))} 
                    , zp{ 1e-06 + k/Kokkos::sqrt(1-math::int_pow<2>(k))} ; 
         double const zeta = utils::brent(func,zm,zp,1e-15) ; 
-        W = Wtilde(zeta) ; 
+        double W = Wtilde(zeta) ; 
         
         prims[RHOL] = D/W ;
         prims[YEL]  = ye ;
@@ -125,11 +124,10 @@ struct grhd_c2p_t {
         eos.eps_range__rho_ye(epsmin,epsmax,prims[RHOL],prims[YEL],err) ; 
         double eps = epstilde(W,zeta) ; 
         if ( eps > epsmax ) {
-            c2p_errors.adjust_tau  = true ; 
+            c2p_errors  = C2P_EPS_TOO_HIGH ; 
             eps = 0.999 * epsmax ; 
         } else if ( eps < epsmin ) {
-            printf("Here!\n") ; 
-            c2p_errors.adjust_tau = true ; 
+            c2p_errors  = C2P_EPS_TOO_LOW ; 
             eps = 1.001 * epsmin ; 
         }
         prims[EPSL]   = eps ;  
