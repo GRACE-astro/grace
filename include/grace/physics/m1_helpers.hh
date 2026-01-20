@@ -153,9 +153,9 @@ struct m1_closure_t {
     void GRACE_HOST_DEVICE
     update_closure(double zeta0, bool update=true)
     {
-        double ff_params[11] ; 
+        double ff_params[12] ; 
         m1_closure_helpers(
-            v2, W, E, vdotF, vdotfh, ff_params
+            W, v2, E, vdotfh, vdotF, &ff_params
         ) ; 
 
         // solve the closure 
@@ -175,9 +175,8 @@ struct m1_closure_t {
                 double dthick = 1.5 - 1.5 * chi ;  
                 double res ; 
                 m1_z_rootfind(
-                    xi, dthin, dthick,
-                    v2, vdotF, vdotfh, W, F, Eclosure,
-                    ff_params, &res
+                    W, dthin, dthick, v2, E, F,
+                    vdotfh, vdotF, xi, ff_params, &res
                 ) ; 
                 return res;
             } ;
@@ -193,13 +192,12 @@ struct m1_closure_t {
         chi = closure_func(zeta) ; 
         double athin = 1.5 * chi - 0.5 ;
         double athick = 1.5 - 1.5 * chi ; 
-        
-        m1_J(athin,athick,ff_params,&J) ; 
-        m1_Hd(
-            athin,athick,
-            v2,FD.data(),fhD.data(),vD.data(), ff_params,
-            HD.data()
-        ) ; 
+        // check that pointer to data() is the same as pointer to double[3]
+        double HDloc[3] ; //hacky change this! 
+        m1_J_Hd(
+            athin,athick,v2,FD.data(),vD.data(),fhD.data(),ff_params, &J, &(HDloc)
+        ); 
+        HD[0] = HDloc[0] ; HD[1] = HDloc[1] ; HD[2] = HDloc[2] ; 
         #if 0
         printf(
             "E %g Fx %g Fy %g Fz %g params {%g,%g,%g,%g,%g,%g,%g,%g,%g} J %g H {%g,%g,%g}\n",
@@ -219,11 +217,11 @@ struct m1_closure_t {
         double athin = 1.5 * chi - 0.5 ;
         double athick = 1.5 - 1.5 * chi ; 
         m1_PUU(
-            athin, athick,
-            vdotF, vdotfh, E, F, W,
-            FU.data(), vU.data(), 
-            metric._ginv.data(), PUU
-        ) ;
+            W, athin, athick, E, F, 
+            FU.data(), vU.data(),
+            vdotF, metric._ginv.data(), 
+            &PUU
+        ) ; 
     }
 
     void GRACE_HOST_DEVICE 
@@ -284,9 +282,15 @@ struct m1_closure_t {
             Hhat_0 -= Hhat[i] * ( metric.alp()*vU[i] - metric.beta(i)) ; 
         }
         // transform back assuming zeta == 0 
+        double Ethick, Fthick[3] ; 
         m1_fluid_to_lab_thick(
-            W, Hhat_0, Jhat, metric.alp(), metric._beta.data(), vD.data(), Hhat, u
-        );
+            W, vD.data(), metric.alp(), metric._beta.data(),
+            Jhat, Hhat, Hhat_0, &(Ethick), &(Fthick)
+        ); 
+        for( int icomp=0; icomp<3; ++icomp) {
+            u[icomp+1] = Fthick[icomp] ; 
+        }
+        u[0] = Ethick ; 
     } 
 
     void GRACE_HOST_DEVICE 
@@ -294,9 +298,10 @@ struct m1_closure_t {
         m1_eas_array_t const& eas, double (&S)[4]
     )
     {
-        m1_source(
-            W, J, E, vdotF, metric.alp(), eas[KAL], eas[KSL], eas[ETAL],
-            HD.data(), vD.data(), S
+        double dE, dF[3] ; 
+        m1_source( 
+            W, E, vD.data(), eas[KAL], eas[KSL], eas[ETAL],
+            vdotF, metric.alp(), J, HD.data(), &(dE), &(dF)
         ) ; 
     }
 
@@ -310,11 +315,9 @@ struct m1_closure_t {
         double const dthin  = 1.5 * chil - 0.5 ;
         double const dthick = 1.5 - 1.5 * chil ; 
         m1_jacobian(
-            dthin, dthick, W, metric.alp(), v2, E, F, vdotfh,
-            eas[KAL], eas[KSL], eas[ETAL],
-            vD.data(), vU.data(),
-            fhD.data(), fhU.data(),
-            J
+            W, dthin, dthick, v2, E, F, vU.data(), vD.data(),
+            fhU.data(), fhD.data(), eas[KAL], eas[KSL],
+            vdotfh, metric.alp(), &J
         ) ; 
     }
 

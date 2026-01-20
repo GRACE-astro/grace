@@ -44,7 +44,6 @@
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
-#include <grace/utils/advanced_riemann_solvers.hh>
 #include <grace/physics/m1_helpers.hh>
 
 #include <Kokkos_Core.hpp>
@@ -97,8 +96,7 @@ struct m1_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename riemann_t 
-            , typename recon_t >
+    template< typename recon_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_x_flux_impl( int const q 
                        , VEC( const int i 
@@ -110,7 +108,7 @@ struct m1_equations_system_t
                        , double const dt 
                        , double const dtfact ) const 
     {
-        getflux<0,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
+        getflux<0,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute M1 fluxes in direction \f$x^2\f$
@@ -125,8 +123,7 @@ struct m1_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename riemann_t 
-            , typename recon_t >
+    template< typename recon_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_y_flux_impl( int const q 
                        , VEC( const int i 
@@ -138,7 +135,7 @@ struct m1_equations_system_t
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<1,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
+        getflux<1,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute M1 fluxes in direction \f$x^3\f$
@@ -153,8 +150,7 @@ struct m1_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename riemann_t 
-            , typename recon_t >
+    template< typename recon_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_z_flux_impl( int const q 
                        , VEC( const int i 
@@ -166,7 +162,7 @@ struct m1_equations_system_t
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<2,riemann_t,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
+        getflux<2,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
     }
     
 
@@ -260,16 +256,17 @@ struct m1_equations_system_t
         get_extrinsic_curvature(Kij,this->_state,VEC(i,j,k),q) ; 
         /**************************************************************************************************/
         auto betad = metric.lower(metric._beta) ; 
-        double source[4] ; 
-        m1_source_terms(
-            dgdd_dx,dbetau_dx,dalpha_dx,Kij.data(),
-            metric.alp(), cl.E, cl.FU.data(), cl.FD.data(), PUU, source
-        ) ; 
-        
-        state_new(VEC(i,j,k),ERAD_,q)  += dt * dtfact * source[0] ;
-        state_new(VEC(i,j,k),FRADX_,q) += dt * dtfact * source[1] ;
-        state_new(VEC(i,j,k),FRADY_,q) += dt * dtfact * source[2] ;
-        state_new(VEC(i,j,k),FRADZ_,q) += dt * dtfact * source[3] ;
+        double dE, dF[3] ; 
+        m1_geom_source_terms(
+            cl.E, cl.FD.data(), cl.FU.data(), metric.alp(),
+            Kij.data(), dalpha_dx, dgdd_dx, dbetau_dx, PUU,
+            &dE, &dF
+        ) ;
+        double sqrtg = metric.sqrtg() ; 
+        state_new(VEC(i,j,k),ERAD_,q)  += sqrtg * dt * dtfact * dE ;
+        state_new(VEC(i,j,k),FRADX_,q) += sqrtg * dt * dtfact * dF[0] ;
+        state_new(VEC(i,j,k),FRADY_,q) += sqrtg * dt * dtfact * dF[1] ;
+        state_new(VEC(i,j,k),FRADZ_,q) += sqrtg * dt * dtfact * dF[2] ;
     }
 
     /**
@@ -593,7 +590,6 @@ struct m1_equations_system_t
      * @param fluxes Flux array.
      */
     template< int idir 
-            , typename riemann_t
             , typename recon_t   >
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE void
     getflux(  VEC( const int i 
@@ -780,12 +776,11 @@ struct m1_equations_system_t
 
         double dthin = cl.chi * 1.5 - 0.5 ; 
         double dthick = 1.5 - cl.chi * 1.5 ;
-
         m1_wavespeeds(
-            dthin, dthick, metric.alp(),
-            cl.F, cl.W, metric.beta(idir),
-            cl.FU[idir], metric.invgamma(icomp),
-            cl.vU[idir], &cp, &cm
+            cl.W, dthin, dthick, cl.F, metric.alp(), 
+            cl.vU[idir], metric.invgamma(icomp),
+            metric.beta(idir),cl.FU[idir],
+            &cm, &cp
         ) ; 
 
     }

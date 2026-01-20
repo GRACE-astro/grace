@@ -3,13 +3,18 @@ amr: {
   npoints_block_x: 32,
   npoints_block_y: 32,
   npoints_block_z: 32,
-  xmin: -0.5,
+  xmin: 0.,
   xmax: 0.5,
-  ymin: -0.5,
+  ymin: 0.,
   ymax: 0.5,
-  zmin: -0.5,
+  zmin: 0.,
   zmax: 0.5,
-  n_ghostzones: 4,
+  reflection_symmetries: {
+    x: true,
+    y: true,
+    z: true
+  },
+  n_ghostzones: 4, # always 4 for WENO-Z 
   initial_refinement_level: 2,
   regrid_every: -1,
   regrid_at_postinitial: false
@@ -18,9 +23,11 @@ amr: {
 IO: {
   plane_surface_output_cell_variables: ["Erad", "Frad[0]"],
   plane_surface_output_every: 10,
+
   info_output_every: 2,
   info_output_max_reductions: ["Erad","rho"],
   info_output_min_reductions: ["Erad","rho"],
+  
   output_use_hdf5: true, 
   hdf5_compression_level: 0,
   hdf5_chunk_size: 512

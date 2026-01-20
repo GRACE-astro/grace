@@ -226,6 +226,9 @@ struct grmhd_equations_system_t
             s(KYY_), s(KYZ_), s(KZZ_)
         } ; 
         double sqrtg{det_sym_tens(gdd)} ; 
+        double guu[6]; 
+        inverse_sym_tens(sqrtg,gdd,guu) ;
+        sqrtg = sqrt(sqrtg) ;  
         #else
         double theta{s(THETA_)}, chi{fmax(1e-15,s(CHI_))}, Khat{s(KHAT_)}  ; 
         double oochi = 1./chi ;

@@ -175,7 +175,7 @@ excision_params_t get_excision_params()
 }
 
 double KOKKOS_INLINE_FUNCTION
-det_sym_tens(double * __restrict__ a) {
+det_sym_tens(const double * const a) {
   return -(a[2]*a[2]*a[3] + 2*(a[1]*a[2]*a[4]) - a[0]*a[4]*a[4] - a[1]*a[1]*a[5] + a[0]*a[3]*a[5]) ; 
 }
 
