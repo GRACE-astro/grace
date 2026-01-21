@@ -1,5 +1,0 @@
-/u/cmusolino/grace-private-src/testb/CMakeFiles/FortranCInterface/CMakeFiles/myfort.dir
-/u/cmusolino/grace-private-src/testb/CMakeFiles/FortranCInterface/CMakeFiles/symbols.dir
-/u/cmusolino/grace-private-src/testb/CMakeFiles/FortranCInterface/CMakeFiles/FortranCInterface.dir
-/u/cmusolino/grace-private-src/testb/CMakeFiles/FortranCInterface/CMakeFiles/edit_cache.dir
-/u/cmusolino/grace-private-src/testb/CMakeFiles/FortranCInterface/CMakeFiles/rebuild_cache.dir

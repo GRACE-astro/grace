@@ -1,1 +1,0 @@
-/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc -fgpu-rdc --hip-link CMakeFiles/integrator_test.dir/test_integration.cpp.o -o integrator_test  /u/cmusolino/grace-libs/install/catch2/lib64/libCatch2Main.a /u/cmusolino/grace-libs/install/catch2/lib64/libCatch2.a 
