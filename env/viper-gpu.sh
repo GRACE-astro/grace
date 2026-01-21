@@ -1,8 +1,11 @@
 #!/bin/zsh
 
 module load gcc/14 rocm/6.3 openmpi/5.0 hdf5-mpi
+module load gsl mkl
 
 export LIB_BASEDIR=/u/cmusolino/grace-libs
+
+export HOME_LORENE=/u/cmusolino/lorene/Lorene
 
 export KOKKOS_TOOLS_ROOT=${LIB_BASEDIR}/install/kokkos-tools
 export KOKKOS_ROOT=${LIB_BASEDIR}/install/kokkos
@@ -10,8 +13,6 @@ export P4EST_ROOT=${LIB_BASEDIR}/install/p4est
 export YAML_ROOT=${LIB_BASEDIR}/install/yamlcpp
 export CATCH2_ROOT=${LIB_BASEDIR}/install/catch2
 export SPDLOG_ROOT=${LIB_BASEDIR}/install/spdlog
-
-export LORENE_ROOT=/u/cmusolino/lorene/Lorene
 
 export KOKKOS_TOOLS_PATH=${KOKKOS_TOOLS_ROOT}/lib64
 

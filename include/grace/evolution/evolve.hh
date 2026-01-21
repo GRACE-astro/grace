@@ -214,6 +214,9 @@ void advance_substep( double const t, double const dt, double const dtfact
                     , grace::var_array_t& state_p 
                     , grace::staggered_variable_arrays_t & sstate 
                     , grace::staggered_variable_arrays_t & sstate_p) ; 
+#ifdef GRACE_ENABLE_Z4C_METRIC
+void enforce_algebraic_constraints(grace::var_array_t& state) ; 
+#endif 
 //*****************************************************************************************************
 //*****************************************************************************************************
 // Explicit template instantiation

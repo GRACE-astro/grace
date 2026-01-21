@@ -754,8 +754,8 @@ src/evolution/CMakeFiles/grace_evolution.dir/auxiliaries.cpp.o: \
   /u/cmusolino/grace-private-src/include/grace/utils/riemann_solvers.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/grmhd_subexpressions.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/fd_subexpressions.hh \
+  /u/cmusolino/grace-private-src/include/grace/physics/z4c_subexpressions.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/eos/eos_storage.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/z4c.hh \
   /u/cmusolino/grace-private-src/include/grace/utils/fd_utils.hh \
-  /u/cmusolino/grace-private-src/include/grace/evolution/fd_evolution_system.hh \
-  /u/cmusolino/grace-private-src/include/grace/physics/z4c_subexpressions.hh
+  /u/cmusolino/grace-private-src/include/grace/evolution/fd_evolution_system.hh

@@ -35,6 +35,7 @@
 #include <grace/utils/inline.h>
 #include <grace/evolution/evolution_kernel_tags.hh>
 #include <grace/data_structures/variable_properties.hh>
+#include <grace/coordinates/coordinate_systems.hh>
 
 namespace grace {
 

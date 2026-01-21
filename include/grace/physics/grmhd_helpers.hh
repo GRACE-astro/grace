@@ -174,59 +174,6 @@ excision_params_t get_excision_params()
     return excision_params ; 
 }
 
-double KOKKOS_INLINE_FUNCTION
-det_sym_tens(const double * const a) {
-  return -(a[2]*a[2]*a[3] + 2*(a[1]*a[2]*a[4]) - a[0]*a[4]*a[4] - a[1]*a[1]*a[5] + a[0]*a[3]*a[5]) ; 
-}
-
-void KOKKOS_INLINE_FUNCTION 
-inverse_sym_tens(double invdet, double const * __restrict__ a, double * __restrict__ ainv) 
-{
-  ainv[0] = (-(a[4]*a[4]) + a[3]*a[5]) * invdet ; 
-  ainv[1] = ((a[2]*a[4]) - a[1]*a[5]) * invdet ; 
-  ainv[2] = (-(a[2]*a[3]) + a[1]*a[4]) * invdet ; 
-  ainv[3] = (-(a[2]*a[2]) + a[0]*a[5]) * invdet ; 
-  ainv[4] = ((a[1]*a[2]) - a[0]*a[4]) * invdet ; 
-  ainv[5] = (-(a[1]*a[1]) + a[0]*a[3]) * invdet ; 
-}
-
-KOKKOS_INLINE_FUNCTION
-void get_extrinsic_curvature( std::array<double,6>& Kij, grace::var_array_t state
-                            , VEC(int i, int j, int k), std::size_t q) 
-{
-
-  #ifdef GRACE_ENABLE_COWLING_METRIC
-  #pragma unroll 
-  for( int ii=0; ii<6; ++ii) Kij[ii] = state(VEC(i,j,k),KXX_+ii,q);
-  #else
-  std::array<double,6> Atij{ 
-              state(VEC(i,j,k),ATXX_,q)
-            , state(VEC(i,j,k),ATXY_,q)
-            , state(VEC(i,j,k),ATXZ_,q)
-            , state(VEC(i,j,k),ATYY_,q)
-            , state(VEC(i,j,k),ATYZ_,q)
-            , state(VEC(i,j,k),ATZZ_,q)
-        } ;
-  std::array<double,6> gtij{ 
-              state(VEC(i,j,k),GTXX_,q)
-            , state(VEC(i,j,k),GTXY_,q)
-            , state(VEC(i,j,k),GTXZ_,q)
-            , state(VEC(i,j,k),GTYY_,q)
-            , state(VEC(i,j,k),GTYZ_,q)
-            , state(VEC(i,j,k),GTZZ_,q)
-        } ;
-  #ifdef GRACE_ENABLE_Z4C_METRIC
-  double const Khat = state(VEC(i,j,k),KHAT_,q);
-  double const theta = state(VEC(i,j,k),THETA_,q);
-  double const K = Khat + 2. * theta ; 
-  #elif defined(GRACE_ENABLE_BSSN_METRIC)
-  double const K = state(VEC(i,j,k),KTR_,q) ; 
-  #endif 
-  double const chi = state(VEC(i,j,k),CHI_,q);
-  for( int ii=0; ii<6; ++ii)
-        Kij[ii] = ( Atij[ii] + 1/3 * gtij[ii] * K )/chi ;
-  #endif 
-}
 #ifdef GRACE_ENABLE_COWLING_METRIC
 #define FILL_METRIC_ARRAY(g, view, q, ...)                    \
 g = grace::metric_array_t{  { view(__VA_ARGS__,GXX_,q)   \

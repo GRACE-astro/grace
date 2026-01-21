@@ -156,6 +156,7 @@ void evolve_impl() {
         // step 2: state_pp = 3/4 u^n + 1/4 u^1
         linop_apply(state_pp,state,state_p,
                     sstate_pp,sstate,sstate_p, 0.75, 0.25) ;
+        
         // step 3: state_pp -> u^2 = 3/4 u^n + 1/4 u^1 + 1/4 dt L( u^1 )
         advance_substep<eos_t>(
             t,dt,0.25,
@@ -166,6 +167,7 @@ void evolve_impl() {
         // step 4: state = 1/3 u^n + 2/3 u^2
         linop_apply(state,state,state_pp,
                     sstate,sstate,sstate_pp, 1./3, 2./3.) ; 
+        
         // step 5: state -> u^n+1 = 1/3 u^n + 2/3 u^2 + 2/3 dt L( u^2 )
         advance_substep<eos_t>(
             t,dt,2./3.,
@@ -876,6 +878,36 @@ void advance_substep( double const t, double const dt, double const dtfact
     Kokkos::fence() ; 
     GRACE_PROFILING_POP_REGION ; 
 }
+
+#ifdef GRACE_ENABLE_Z4C_METRIC
+void enforce_algebraic_constraints(grace::var_array_t& state) {
+    using namespace grace ; 
+    using namespace Kokkos ; 
+    DECLARE_GRID_EXTENTS ;
+    //**************************************************************************************************/
+    // fetch some stuff 
+    auto& idx     = grace::variable_list::get().getinvspacings() ;  
+    auto& aux     = grace::variable_list::get().getaux()     ; 
+    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ; 
+    auto dummy = grace::variable_list::get().getstaggeredstate() ; 
+    //**************************************************************************************************/
+    z4c_system_t z4c_eq_system(state,aux,dummy) ; 
+    //**************************************************************************************************/
+    auto policy = 
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(0,0,0),0}
+            , {VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}
+        ) ;
+    //**************************************************************************************************/
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_update")
+                , policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
+                {
+                    z4c_eq_system.impose_algebraic_constraints(state,i,j,k,q) ; 
+                }) ; 
+    //**************************************************************************************************/
+}; 
+#endif 
 
 
 // Explicit template instantiation

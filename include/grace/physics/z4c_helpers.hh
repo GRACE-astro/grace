@@ -64,11 +64,11 @@ adm_to_z4c(
     double const sqrtgamma = adm_metric.sqrtg(); 
     double const one_over_cbrtgamma = 1./Kokkos::cbrt(math::int_pow<2>(sqrtgamma)) ;
 
-    double const chi  = one_over_cbrtgamma ; 
+    double const chi  = 1./cbrt(sqrtgamma) ;
 
     #pragma unroll 6 
     for( int icomp=0; icomp<6; ++icomp ) {
-        state(VEC(i,j,k),GTXX_+icomp,q) = chi * __g[icomp] ; 
+        state(VEC(i,j,k),GTXX_+icomp,q) = SQR(chi) * __g[icomp] ; 
     }
     
     // Compute trace of extrinsic curvature 
@@ -76,7 +76,7 @@ adm_to_z4c(
 
     #pragma unroll 6
     for( int icomp=0; icomp<6; ++icomp ) {
-        state(VEC(i,j,k),ATXX_+icomp,q) = chi * (__Kij[icomp] - 1./3. * __g[icomp] * K) ; 
+        state(VEC(i,j,k),ATXX_+icomp,q) = SQR(chi) * (__Kij[icomp] - 1./3. * __g[icomp] * K) ; 
     }
 
     state(VEC(i,j,k),CHI_  ,q) = chi ; 

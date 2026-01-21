@@ -3,9 +3,11 @@ z4c: {
   kappa_2: 0.75,
   eta: 1.00,
   eps_diss: 0.0,
-  chi_floor: 1e-12,
+  chi_floor: 1e-11,
+  alp_min: 1e-11,
   eta_damp_radius: 1e99,
   adaptive_eta: false,
   adaptive_eta_a: 1, #notice we use chi, so a is a/2 from Lousto et al.
-  adaptive_eta_b: 2
+  adaptive_eta_b: 2,
+  is_vacuum: false
 }

@@ -48,6 +48,7 @@
 #include "grmhd_subexpressions.hh"
 //#include "hllc_subexpressions.hh"
 #include "fd_subexpressions.hh"
+#include "z4c_subexpressions.hh"
 #include <Kokkos_Core.hpp>
 
 #include <type_traits>
@@ -87,7 +88,11 @@ struct grmhd_equations_system_t
                             , grace::staggered_variable_arrays_t stag_state_
                             , grace::var_array_t aux_ ) 
      : base_t(state_,stag_state_,aux_), _eos(eos_)
-    { } ;
+    { 
+        excision_params = get_excision_params() ; 
+        atmo_params = get_atmo_params() ; 
+        dcoords = grace::coordinate_system::get().get_device_coord_system();
+    } ;
     /**
      * @brief Constructor
      * 
@@ -102,7 +107,9 @@ struct grmhd_equations_system_t
                             , atmo_params_t _atmo_pars
                             , excision_params_t _excision_pars) 
      : base_t(state_,stag_state_,aux_), _eos(eos_), atmo_params(_atmo_pars), excision_params(_excision_pars)
-    {} ;
+    {
+        dcoords = grace::coordinate_system::get().get_device_coord_system();
+    } ;
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^1\f$
      * 
@@ -213,49 +220,8 @@ struct grmhd_equations_system_t
         /**************************************************************************************************/
         /* Read in the metric                                                                             */
         /**************************************************************************************************/
-        // Declare variables
-        double alp{s(ALP_)}; 
-        double betau[3] = {s(BETAX_), s(BETAY_), s(BETAZ_)} ; 
-        #ifdef GRACE_ENABLE_COWLING_METRIC
-        double const gdd[6] = {
-            s(GXX_), s(GXY_), s(GXZ_), 
-            s(GYY_), s(GYZ_), s(GZZ_)
-        } ; 
-        double const Kdd[6] = {
-            s(KXX_), s(KXY_), s(KXZ_), 
-            s(KYY_), s(KYZ_), s(KZZ_)
-        } ; 
-        double sqrtg{det_sym_tens(gdd)} ; 
-        double guu[6]; 
-        inverse_sym_tens(sqrtg,gdd,guu) ;
-        sqrtg = sqrt(sqrtg) ;  
-        #else
-        double theta{s(THETA_)}, chi{fmax(1e-15,s(CHI_))}, Khat{s(KHAT_)}  ; 
-        double oochi = 1./chi ;
-        
-        double gtdd[6] = {
-            s(GTXX_), s(GTXY_), s(GTXZ_), 
-            s(GTYY_), s(GTYZ_), s(GTZZ_)
-        } ;
-        double guu[6]; 
-        inverse_sym_tens(1.,gtdd,guu) ; 
-        
-        double Atdd[6] = {
-            s(ATXX_), s(ATXY_), s(ATXZ_), 
-            s(ATYY_), s(ATYZ_), s(ATZZ_)
-        } ;
-        double gdd[6] ;
-        double Kdd[6] ; 
-        for( int a=0; a<6; ++a) {
-            // gamma_ij = gammatilde_ij / chi 
-            gdd[a] = gtdd[a] * oochi ; 
-            // gamma^ij = gammatilde^ij * chi 
-            guu[a] = guu[a] * chi ; 
-            // K_ij = (Atilde_ij + 1/3 gammatilde_ij K ) / chi 
-            Kdd[a] = oochi * Atdd[a] + 1./3. * gdd[a] * (Khat+2.*theta) ; 
-        }
-        double sqrtg = pow(chi,-3./2.) ; 
-        #endif 
+        metric_array_t metric ; 
+        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;        
         /**************************************************************************************************/
         /* Read the primitive variables                                                                   */
         /**************************************************************************************************/
@@ -264,8 +230,13 @@ struct grmhd_equations_system_t
         double const eps   = prims[EPSL]   ; 
         double const rho   = prims[RHOL]   ; 
         double const p     = prims[PRESSL] ;
-        double const * const   z = &(prims[ZXL]) ;  
-        double const * const   B = &(prims[BXL]) ;  
+        double const * const   z   = &(prims[ZXL])       ;  
+        double const * const   B   = &(prims[BXL])       ;  
+        double const * const betau = metric._beta.data() ; 
+        double const * const gdd   = metric._g.data()    ; 
+        double const * const guu   = metric._ginv.data() ; 
+        double const sqrtg         = metric.sqrtg()      ; 
+        double const alp           = metric.alp()        ; 
         /**************************************************************************************************/
         double W ; 
         grmhd_get_W(gdd,z,&W) ; 
@@ -280,15 +251,42 @@ struct grmhd_equations_system_t
         #ifdef GRACE_ENABLE_COWLING_METRIC
         fill_deriv_tensor(this->_state, i,j,k, GXX_, q, dgdd_dx, idx(0,q)) ;
         #else 
+        double chi = s(CHI_) ; 
+        double oochi = 1./fmax(1e-100,chi) ; 
         double dchi_dx[3] ; 
         fill_deriv_scalar(this->_state, i,j,k, CHI_, q, dchi_dx, idx(0,q)) ;
         fill_deriv_tensor(this->_state, i,j,k, GTXX_, q, dgdd_dx, idx(0,q)) ;
         // gdd = gtdd/chi
-        // dgdd/dx = dgtdd/dx / chi - gdd / chi dchi/dx 
+        // dgdd/dx = dgtdd/dx / chi^2 - gdd / chi dchi/dx 
         for( int idir=0; idir<3; ++idir) {
             for( int a=0; a<6; ++a) {
-                dgdd_dx[a + 6*idir] = dgdd_dx[a + 6*idir]/chi - gdd[a] * dchi_dx[idir] / chi ; 
+                dgdd_dx[a + 6*idir] = SQR(oochi) *  dgdd_dx[a + 6*idir] - 2 * oochi * gdd[a] * dchi_dx[idir] ; 
             }
+        }
+        #endif 
+        /**************************************************************************************************/
+        /* Extrinsic curvature                                                                            */
+        /**************************************************************************************************/
+        double Kdd[6] ; 
+        #ifdef GRACE_ENABLE_COWLING_METRIC
+        Kdd[0] = s(KXX_) ; Kdd[1] = s(KXY_) ; Kdd[2] = s(KXZ_) ; 
+        Kdd[3] = s(KYY_) ; Kdd[4] = s(KYZ_) ; Kdd[5] = s(KZZ_) ; 
+        #else
+        double Atdd[6] = { 
+              s(ATXX_), s(ATXY_), s(ATXZ_),
+              s(ATYY_), s(ATYZ_), s(ATZZ_)
+        } ;
+        double Atr = guu[0] * Atdd[0] + guu[3] * Atdd[3] + guu[5] * Atdd[5]
+                    + 2 * ( guu[1] * Atdd[1] + guu[2] * Atdd[2] + guu[4] * Atdd[4] );
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        double const Khat  = s(KHAT_);
+        double const theta = s(THETA_);
+        double const Ktr = Khat + 2. * theta ; 
+        #elif defined(GRACE_ENABLE_BSSN_METRIC)
+        double const Ktr = s(KTR_) ; 
+        #endif 
+        for( int a=0; a<6; ++a ) {
+            Kdd[a] = SQR(oochi) * Atdd[a] + (Ktr - Atr) * gdd[a] / 3. ; 
         }
         #endif 
         /**************************************************************************************************/
@@ -535,6 +533,8 @@ struct grmhd_equations_system_t
     atmo_params_t atmo_params;
     //! Parameters for excision
     excision_params_t excision_params; 
+    //! Coordinate helper 
+    grace::device_coordinate_system dcoords ; 
     /***********************************************************************/
     /**
      * @brief Compute fluxes for gmrmhd equations.
@@ -718,8 +718,26 @@ struct grmhd_equations_system_t
         }
 
         theta = math::min(theta_m, theta_p) ;
+        
+
+        // mix in the lapse 
+        double theta_exc ; 
+        if ( excision_params.excise_by_radius ) {
+            double fcoords[3] = {
+                idir == 0 ? 0. : 0.5 ,
+                idir == 1 ? 0. : 0.5 ,
+                idir == 2 ? 0. : 0.5 ,
+            } ; 
+            double rtp[3] ; 
+            dcoords.get_physical_coordinates_sph(i,j,k,q,fcoords,rtp,1) ; 
+            theta_exc = 0.5 * (1.0 + tanh((rtp[0] - 1.5*excision_params.r_ex)/(0.25*excision_params.r_ex))) ; 
+        } else {
+            theta_exc = 0.5 * (1.0 + tanh((metric_face.alp()-1.5*excision_params.alp_ex)/(0.25*excision_params.alp_ex))) ; 
+        }
+        theta *= fmin(fmax(theta_exc,0.),1.) ; 
+
         if ( std::isnan(theta) ) theta = 1. ; 
-        if ( metric_face.alp() < 0.2 ) theta = 0 ; 
+        //if ( metric_face.alp() < 0.2 ) theta = 0 ; 
         /***********************************************************************/
         /***********************************************************************/
         fluxes(VEC(i,j,k),DENS_,idir,q)        = theta * f_HLL[DENSL]    

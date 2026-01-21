@@ -8,1046 +8,586 @@
 #include <Kokkos_Core.hpp>
 
 static void KOKKOS_INLINE_FUNCTION
-z4c_get_rhs(
+z4c_get_det_conf_metric(
+	const double gtdd[6],
+	double * __restrict__ detg
+)
+{
+	*detg = gtdd[0]*gtdd[3]*gtdd[5] - gtdd[0]*((gtdd[4])*(gtdd[4])) - ((gtdd[1])*(gtdd[1]))*gtdd[5] + 2*gtdd[1]*gtdd[2]*gtdd[4] - ((gtdd[2])*(gtdd[2]))*gtdd[3];
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_inverse_conf_metric(
+	const double gtdd[6],
+	double detg,
+	double (*gtuu)[6]
+)
+{
+	double x0 = 1/(detg);
+	double x1 = -x0*(gtdd[1]*gtdd[5] - gtdd[2]*gtdd[4]);
+	double x2 = x0*(gtdd[1]*gtdd[4] - gtdd[2]*gtdd[3]);
+	double x3 = -x0*(gtdd[0]*gtdd[4] - gtdd[1]*gtdd[2]);
+	(*gtuu)[0] = x0*(gtdd[3]*gtdd[5] - ((gtdd[4])*(gtdd[4])));
+	(*gtuu)[1] = x1;
+	(*gtuu)[2] = x2;
+	(*gtuu)[3] = x0*(gtdd[0]*gtdd[5] - ((gtdd[2])*(gtdd[2])));
+	(*gtuu)[4] = x3;
+	(*gtuu)[5] = x0*(gtdd[0]*gtdd[3] - ((gtdd[1])*(gtdd[1])));
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_Christoffel(
+	const double dgtdd_dx[18],
+	double (*Gammatddd)[18]
+)
+{
+	double x0 = (1.0/2.0)*dgtdd_dx[6];
+	double x1 = (1.0/2.0)*dgtdd_dx[12];
+	double x2 = (1.0/2.0)*(dgtdd_dx[13] - dgtdd_dx[4] + dgtdd_dx[8]);
+	double x3 = (1.0/2.0)*dgtdd_dx[15];
+	(*Gammatddd)[0] = (1.0/2.0)*dgtdd_dx[0];
+	(*Gammatddd)[1] = x0;
+	(*Gammatddd)[2] = x1;
+	(*Gammatddd)[3] = 0;
+	(*Gammatddd)[4] = 0;
+	(*Gammatddd)[5] = 0;
+	(*Gammatddd)[6] = x0;
+	(*Gammatddd)[7] = -1.0/2.0*dgtdd_dx[3] + dgtdd_dx[7];
+	(*Gammatddd)[8] = x2;
+	(*Gammatddd)[9] = (1.0/2.0)*dgtdd_dx[9];
+	(*Gammatddd)[10] = x3;
+	(*Gammatddd)[11] = 0;
+	(*Gammatddd)[12] = x1;
+	(*Gammatddd)[13] = x2;
+	(*Gammatddd)[14] = dgtdd_dx[14] - 1.0/2.0*dgtdd_dx[5];
+	(*Gammatddd)[15] = x3;
+	(*Gammatddd)[16] = -1.0/2.0*dgtdd_dx[11] + dgtdd_dx[16];
+	(*Gammatddd)[17] = (1.0/2.0)*dgtdd_dx[17];
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_DiDjalp(
+	const double gtdd[6],
+	double W,
+	const double gtuu[6],
+	const double Gammatddd[18],
+	const double dW_dx[3],
+	const double dalp_dx[3],
+	const double ddalp_dx2[6],
+	double (*DiDjalp)[6]
+)
+{
+	double x0 = 1/(W);
+	double x1 = gtdd[0]*x0;
+	double x2 = dW_dx[0]*dalp_dx[0];
+	double x3 = dW_dx[0]*dalp_dx[1];
+	double x4 = dW_dx[0]*dalp_dx[2];
+	double x5 = dW_dx[1]*dalp_dx[0];
+	double x6 = dW_dx[1]*dalp_dx[1];
+	double x7 = dW_dx[1]*dalp_dx[2];
+	double x8 = dW_dx[2]*dalp_dx[0];
+	double x9 = dW_dx[2]*dalp_dx[1];
+	double x10 = dW_dx[2]*dalp_dx[2];
+	double x11 = -ddalp_dx2[1];
+	double x12 = gtdd[1]*x0;
+	double x13 = -x0*(x3 + x5);
+	double x14 = -ddalp_dx2[2];
+	double x15 = gtdd[2]*x0;
+	double x16 = -x0*(x4 + x8);
+	double x17 = gtdd[3]*x0;
+	double x18 = -ddalp_dx2[4];
+	double x19 = gtdd[4]*x0;
+	double x20 = -x0*(x7 + x9);
+	double x21 = gtdd[5]*x0;
+	(*DiDjalp)[0] = 2*dW_dx[0]*dalp_dx[0]*x0 - dalp_dx[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) - dalp_dx[1]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) - dalp_dx[2]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + ddalp_dx2[0] - gtuu[0]*x1*x2 - gtuu[1]*x1*x3 - gtuu[1]*x1*x5 - gtuu[2]*x1*x4 - gtuu[2]*x1*x8 - gtuu[3]*x1*x6 - gtuu[4]*x1*x7 - gtuu[4]*x1*x9 - gtuu[5]*x1*x10;
+	(*DiDjalp)[1] = -dalp_dx[0]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) - dalp_dx[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) - dalp_dx[2]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) - gtuu[0]*x12*x2 - gtuu[1]*x12*x3 - gtuu[1]*x12*x5 - gtuu[2]*x12*x4 - gtuu[2]*x12*x8 - gtuu[3]*x12*x6 - gtuu[4]*x12*x7 - gtuu[4]*x12*x9 - gtuu[5]*x10*x12 - x11 - x13;
+	(*DiDjalp)[2] = -dalp_dx[0]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) - dalp_dx[1]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) - dalp_dx[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) - gtuu[0]*x15*x2 - gtuu[1]*x15*x3 - gtuu[1]*x15*x5 - gtuu[2]*x15*x4 - gtuu[2]*x15*x8 - gtuu[3]*x15*x6 - gtuu[4]*x15*x7 - gtuu[4]*x15*x9 - gtuu[5]*x10*x15 - x14 - x16;
+	(*DiDjalp)[3] = 2*dW_dx[1]*dalp_dx[1]*x0 - dalp_dx[0]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) - dalp_dx[1]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) - dalp_dx[2]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + ddalp_dx2[3] - gtuu[0]*x17*x2 - gtuu[1]*x17*x3 - gtuu[1]*x17*x5 - gtuu[2]*x17*x4 - gtuu[2]*x17*x8 - gtuu[3]*x17*x6 - gtuu[4]*x17*x7 - gtuu[4]*x17*x9 - gtuu[5]*x10*x17;
+	(*DiDjalp)[4] = -dalp_dx[0]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) - dalp_dx[1]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) - dalp_dx[2]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) - gtuu[0]*x19*x2 - gtuu[1]*x19*x3 - gtuu[1]*x19*x5 - gtuu[2]*x19*x4 - gtuu[2]*x19*x8 - gtuu[3]*x19*x6 - gtuu[4]*x19*x7 - gtuu[4]*x19*x9 - gtuu[5]*x10*x19 - x18 - x20;
+	(*DiDjalp)[5] = 2*dW_dx[2]*dalp_dx[2]*x0 - dalp_dx[0]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) - dalp_dx[1]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) - dalp_dx[2]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + ddalp_dx2[5] - gtuu[0]*x2*x21 - gtuu[1]*x21*x3 - gtuu[1]*x21*x5 - gtuu[2]*x21*x4 - gtuu[2]*x21*x8 - gtuu[3]*x21*x6 - gtuu[4]*x21*x7 - gtuu[4]*x21*x9 - gtuu[5]*x10*x21;
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_DiDialp(
+	double W,
+	const double gtuu[6],
+	const double DiDjalp[6],
+	double * __restrict__ DiDialp
+)
+{
+	*DiDialp = ((W)*(W))*(DiDjalp[0]*gtuu[0] + 2*DiDjalp[1]*gtuu[1] + 2*DiDjalp[2]*gtuu[2] + DiDjalp[3]*gtuu[3] + 2*DiDjalp[4]*gtuu[4] + DiDjalp[5]*gtuu[5]);
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_Ricci1(
+	const double gtuu[6],
+	const double ddgtdd_dx2[36],
+	double (*Rw)[6]
+)
+{
+	double x0 = (1.0/2.0)*gtuu[0];
+	double x1 = (1.0/2.0)*gtuu[3];
+	double x2 = (1.0/2.0)*gtuu[5];
+	double x3 = -ddgtdd_dx2[13]*gtuu[2] - ddgtdd_dx2[19]*x1 - ddgtdd_dx2[1]*x0 - ddgtdd_dx2[25]*gtuu[4] - ddgtdd_dx2[31]*x2 - ddgtdd_dx2[7]*gtuu[1];
+	double x4 = -ddgtdd_dx2[14]*gtuu[2] - ddgtdd_dx2[20]*x1 - ddgtdd_dx2[26]*gtuu[4] - ddgtdd_dx2[2]*x0 - ddgtdd_dx2[32]*x2 - ddgtdd_dx2[8]*gtuu[1];
+	double x5 = -ddgtdd_dx2[10]*gtuu[1] - ddgtdd_dx2[16]*gtuu[2] - ddgtdd_dx2[22]*x1 - ddgtdd_dx2[28]*gtuu[4] - ddgtdd_dx2[34]*x2 - ddgtdd_dx2[4]*x0;
+	(*Rw)[0] += -ddgtdd_dx2[0]*x0 - ddgtdd_dx2[12]*gtuu[2] - ddgtdd_dx2[18]*x1 - ddgtdd_dx2[24]*gtuu[4] - ddgtdd_dx2[30]*x2 - ddgtdd_dx2[6]*gtuu[1];
+	(*Rw)[1] += x3;
+	(*Rw)[2] += x4;
+	(*Rw)[3] += -ddgtdd_dx2[15]*gtuu[2] - ddgtdd_dx2[21]*x1 - ddgtdd_dx2[27]*gtuu[4] - ddgtdd_dx2[33]*x2 - ddgtdd_dx2[3]*x0 - ddgtdd_dx2[9]*gtuu[1];
+	(*Rw)[4] += x5;
+	(*Rw)[5] += -ddgtdd_dx2[11]*gtuu[1] - ddgtdd_dx2[17]*gtuu[2] - ddgtdd_dx2[23]*x1 - ddgtdd_dx2[29]*gtuu[4] - ddgtdd_dx2[35]*x2 - ddgtdd_dx2[5]*x0;
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_Ricci2(
+	const double gtdd[6],
+	const double gtuu[6],
+	const double Gammatddd[18],
+	const double dGammatu_dx[9],
+	double (*Rgd)[6]
+)
+{
+	double x0 = 2*gtuu[1];
+	double x1 = 2*gtuu[2];
+	double x2 = 2*gtuu[4];
+	double x3 = gtuu[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + gtuu[3]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + gtuu[5]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + x0*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + x1*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + x2*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]);
+	double x4 = gtuu[0]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + gtuu[3]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + gtuu[5]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + x0*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + x1*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + x2*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]);
+	double x5 = gtuu[0]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + gtuu[3]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + gtuu[5]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + x0*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + x1*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + x2*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]);
+	double x6 = (1.0/2.0)*(Gammatddd[1]*x3 + Gammatddd[3]*x4 + Gammatddd[4]*x5 + Gammatddd[6]*x3 + Gammatddd[7]*x4 + Gammatddd[8]*x5 + dGammatu_dx[0]*gtdd[1] + dGammatu_dx[1]*gtdd[3] + dGammatu_dx[2]*gtdd[4] + dGammatu_dx[3]*gtdd[0] + dGammatu_dx[4]*gtdd[1] + dGammatu_dx[5]*gtdd[2]);
+	double x7 = (1.0/2.0)*(Gammatddd[12]*x3 + Gammatddd[13]*x4 + Gammatddd[14]*x5 + Gammatddd[2]*x3 + Gammatddd[4]*x4 + Gammatddd[5]*x5 + dGammatu_dx[0]*gtdd[2] + dGammatu_dx[1]*gtdd[4] + dGammatu_dx[2]*gtdd[5] + dGammatu_dx[6]*gtdd[0] + dGammatu_dx[7]*gtdd[1] + dGammatu_dx[8]*gtdd[2]);
+	double x8 = (1.0/2.0)*(Gammatddd[10]*x4 + Gammatddd[11]*x5 + Gammatddd[13]*x3 + Gammatddd[15]*x4 + Gammatddd[16]*x5 + Gammatddd[8]*x3 + dGammatu_dx[3]*gtdd[2] + dGammatu_dx[4]*gtdd[4] + dGammatu_dx[5]*gtdd[5] + dGammatu_dx[6]*gtdd[1] + dGammatu_dx[7]*gtdd[3] + dGammatu_dx[8]*gtdd[4]);
+	(*Rgd)[0] += Gammatddd[0]*x3 + Gammatddd[1]*x4 + Gammatddd[2]*x5 + dGammatu_dx[0]*gtdd[0] + dGammatu_dx[1]*gtdd[1] + dGammatu_dx[2]*gtdd[2];
+	(*Rgd)[1] += x6;
+	(*Rgd)[2] += x7;
+	(*Rgd)[3] += Gammatddd[10]*x5 + Gammatddd[7]*x3 + Gammatddd[9]*x4 + dGammatu_dx[3]*gtdd[1] + dGammatu_dx[4]*gtdd[3] + dGammatu_dx[5]*gtdd[4];
+	(*Rgd)[4] += x8;
+	(*Rgd)[5] += Gammatddd[14]*x3 + Gammatddd[16]*x4 + Gammatddd[17]*x5 + dGammatu_dx[6]*gtdd[2] + dGammatu_dx[7]*gtdd[4] + dGammatu_dx[8]*gtdd[5];
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_Ricci3(
+	const double gtuu[6],
+	const double Gammatddd[18],
+	double (*Rgg)[6]
+)
+{
+	double x0 = 3*gtuu[3];
+	double x1 = 3*gtuu[5];
+	double x2 = 3*gtuu[0];
+	(*Rgg)[0] += 3*Gammatddd[0]*gtuu[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + Gammatddd[1]*x0*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[2]*x1*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + gtuu[0]*(Gammatddd[12] + 2*Gammatddd[2])*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + gtuu[0]*(2*Gammatddd[1] + Gammatddd[6])*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + gtuu[1]*(Gammatddd[0]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + 2*Gammatddd[1]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1])) + gtuu[1]*(2*Gammatddd[0]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[1]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1])) + gtuu[1]*(Gammatddd[12]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + 2*Gammatddd[4]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4])) + gtuu[1]*(Gammatddd[13]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + 2*Gammatddd[2]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4])) + gtuu[1]*(2*Gammatddd[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[7]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3])) + gtuu[1]*(2*Gammatddd[3]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + Gammatddd[6]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3])) + gtuu[2]*(Gammatddd[0]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + 2*Gammatddd[2]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1])) + gtuu[2]*(2*Gammatddd[0]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + Gammatddd[2]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1])) + gtuu[2]*(Gammatddd[12]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + 2*Gammatddd[5]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4])) + gtuu[2]*(Gammatddd[14]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + 2*Gammatddd[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])) + gtuu[2]*(2*Gammatddd[1]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[8]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3])) + gtuu[2]*(2*Gammatddd[4]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + Gammatddd[6]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3])) + gtuu[3]*(Gammatddd[13] + 2*Gammatddd[4])*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + gtuu[3]*(2*Gammatddd[3] + Gammatddd[7])*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + gtuu[4]*(Gammatddd[13]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + 2*Gammatddd[5]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4])) + gtuu[4]*(Gammatddd[14]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + 2*Gammatddd[4]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])) + gtuu[4]*(Gammatddd[1]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + 2*Gammatddd[2]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1])) + gtuu[4]*(2*Gammatddd[1]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + Gammatddd[2]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1])) + gtuu[4]*(2*Gammatddd[3]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[8]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3])) + gtuu[4]*(2*Gammatddd[4]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[7]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3])) + gtuu[5]*(Gammatddd[14] + 2*Gammatddd[5])*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + gtuu[5]*(2*Gammatddd[4] + Gammatddd[8])*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]);
+	(*Rgg)[1] += gtuu[0]*(Gammatddd[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + 2*Gammatddd[7]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3])) + gtuu[0]*(Gammatddd[0]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[1]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + Gammatddd[6]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1])) + gtuu[0]*(Gammatddd[13]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + Gammatddd[2]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[8]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4])) + gtuu[1]*(2*Gammatddd[1]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[7]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1])) + gtuu[1]*(Gammatddd[0]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + Gammatddd[3]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + Gammatddd[6]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1])) + gtuu[1]*(Gammatddd[10]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + Gammatddd[13]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[4]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4])) + gtuu[1]*(Gammatddd[15]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + Gammatddd[2]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + Gammatddd[8]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4])) + gtuu[1]*(Gammatddd[1]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + Gammatddd[7]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[9]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3])) + gtuu[1]*(Gammatddd[3]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[7]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[9]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3])) + gtuu[2]*(Gammatddd[0]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[4]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + Gammatddd[6]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1])) + gtuu[2]*(Gammatddd[10]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + Gammatddd[1]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + Gammatddd[7]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3])) + gtuu[2]*(Gammatddd[10]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + Gammatddd[4]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[7]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3])) + gtuu[2]*(Gammatddd[11]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + Gammatddd[13]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[5]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4])) + gtuu[2]*(Gammatddd[16]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + Gammatddd[2]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + Gammatddd[8]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])) + gtuu[2]*(Gammatddd[1]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + Gammatddd[2]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[8]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1])) + gtuu[3]*(Gammatddd[3]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + 2*Gammatddd[9]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3])) + gtuu[3]*(Gammatddd[10]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[15]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[4]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4])) + gtuu[3]*(Gammatddd[1]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + Gammatddd[3]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[7]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1])) + gtuu[4]*(Gammatddd[10]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[3]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + Gammatddd[9]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3])) + gtuu[4]*(Gammatddd[10]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[4]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + Gammatddd[9]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3])) + gtuu[4]*(Gammatddd[10]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[16]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[4]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) + gtuu[4]*(Gammatddd[11]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[15]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[5]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4])) + gtuu[4]*(Gammatddd[1]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[4]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[7]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1])) + gtuu[4]*(Gammatddd[2]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + Gammatddd[3]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + Gammatddd[8]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1])) + gtuu[5]*(2*Gammatddd[10]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[4]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[5]*(Gammatddd[11]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[16]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[5]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) + gtuu[5]*(Gammatddd[2]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[4]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + Gammatddd[8]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]));
+	(*Rgg)[2] += gtuu[0]*(2*Gammatddd[14]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + Gammatddd[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])) + gtuu[0]*(Gammatddd[0]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + Gammatddd[12]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + Gammatddd[2]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1])) + gtuu[0]*(Gammatddd[13]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + Gammatddd[1]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[8]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3])) + gtuu[1]*(Gammatddd[0]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[12]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[4]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1])) + gtuu[1]*(Gammatddd[10]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + Gammatddd[13]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[1]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[1]*(Gammatddd[13]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + Gammatddd[1]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + Gammatddd[2]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1])) + gtuu[1]*(Gammatddd[14]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[16]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + Gammatddd[2]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) + gtuu[1]*(Gammatddd[14]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[16]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + Gammatddd[4]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])) + gtuu[1]*(Gammatddd[15]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + Gammatddd[3]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[8]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3])) + gtuu[2]*(Gammatddd[14]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + 2*Gammatddd[2]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1])) + gtuu[2]*(Gammatddd[0]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + Gammatddd[12]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + Gammatddd[5]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1])) + gtuu[2]*(Gammatddd[11]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + Gammatddd[13]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[1]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) + gtuu[2]*(Gammatddd[14]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[17]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + Gammatddd[2]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2])) + gtuu[2]*(Gammatddd[14]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[17]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + Gammatddd[5]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])) + gtuu[2]*(Gammatddd[16]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + Gammatddd[4]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[8]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3])) + gtuu[3]*(2*Gammatddd[16]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[4]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) + gtuu[3]*(Gammatddd[10]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[15]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[3]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[3]*(Gammatddd[13]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[1]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[4]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1])) + gtuu[4]*(Gammatddd[10]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[16]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[4]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[4]*(Gammatddd[11]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[15]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[3]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) + gtuu[4]*(Gammatddd[13]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + Gammatddd[1]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + Gammatddd[5]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1])) + gtuu[4]*(Gammatddd[14]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[2]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[4]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1])) + gtuu[4]*(Gammatddd[16]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[17]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[4]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2])) + gtuu[4]*(Gammatddd[16]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[17]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[5]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) + gtuu[5]*(2*Gammatddd[17]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[5]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2])) + gtuu[5]*(Gammatddd[11]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[16]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[4]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) + gtuu[5]*(Gammatddd[14]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + Gammatddd[2]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + Gammatddd[5]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]));
+	(*Rgg)[3] += Gammatddd[10]*x1*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + Gammatddd[7]*x2*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + 3*Gammatddd[9]*gtuu[3]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + gtuu[0]*(Gammatddd[13] + 2*Gammatddd[8])*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + gtuu[0]*(Gammatddd[1] + 2*Gammatddd[6])*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + gtuu[1]*(2*Gammatddd[10]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[13]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4])) + gtuu[1]*(Gammatddd[15]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + 2*Gammatddd[8]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4])) + gtuu[1]*(Gammatddd[1]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + 2*Gammatddd[7]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1])) + gtuu[1]*(Gammatddd[3]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + 2*Gammatddd[6]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1])) + gtuu[1]*(Gammatddd[7]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + 2*Gammatddd[9]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3])) + gtuu[1]*(2*Gammatddd[7]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + Gammatddd[9]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3])) + gtuu[2]*(Gammatddd[10]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + 2*Gammatddd[7]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[2]*(2*Gammatddd[10]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[7]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[2]*(2*Gammatddd[11]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[13]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) + gtuu[2]*(Gammatddd[16]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + 2*Gammatddd[8]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) + gtuu[2]*(Gammatddd[1]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + 2*Gammatddd[8]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1])) + gtuu[2]*(Gammatddd[4]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + 2*Gammatddd[6]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0])) + gtuu[3]*(2*Gammatddd[10] + Gammatddd[15])*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + gtuu[3]*(Gammatddd[3] + 2*Gammatddd[7])*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + gtuu[4]*(2*Gammatddd[10]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + Gammatddd[16]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4])) + gtuu[4]*(Gammatddd[10]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + 2*Gammatddd[9]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[4]*(2*Gammatddd[10]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + Gammatddd[9]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[4]*(2*Gammatddd[11]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + Gammatddd[15]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) + gtuu[4]*(Gammatddd[3]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + 2*Gammatddd[8]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1])) + gtuu[4]*(Gammatddd[4]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + 2*Gammatddd[7]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0])) + gtuu[5]*(2*Gammatddd[11] + Gammatddd[16])*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + gtuu[5]*(Gammatddd[4] + 2*Gammatddd[8])*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]);
+	(*Rgg)[4] += gtuu[0]*(2*Gammatddd[14]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[8]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])) + gtuu[0]*(Gammatddd[12]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[2]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[6]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1])) + gtuu[0]*(Gammatddd[13]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[7]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[8]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3])) + gtuu[1]*(Gammatddd[10]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[13]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + Gammatddd[7]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[1]*(Gammatddd[10]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[14]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + Gammatddd[16]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4])) + gtuu[1]*(Gammatddd[12]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + Gammatddd[4]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[6]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0])) + gtuu[1]*(Gammatddd[13]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[2]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + Gammatddd[7]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1])) + gtuu[1]*(Gammatddd[14]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + Gammatddd[16]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[8]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) + gtuu[1]*(Gammatddd[15]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[8]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + Gammatddd[9]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3])) + gtuu[2]*(Gammatddd[10]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[16]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[8]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[2]*(Gammatddd[11]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + Gammatddd[13]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + Gammatddd[7]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) + gtuu[2]*(Gammatddd[11]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[14]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + Gammatddd[17]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4])) + gtuu[2]*(Gammatddd[12]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[5]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[6]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0])) + gtuu[2]*(Gammatddd[14]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + Gammatddd[17]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + Gammatddd[8]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2])) + gtuu[2]*(Gammatddd[14]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + Gammatddd[2]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[8]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1])) + gtuu[3]*(Gammatddd[10]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + 2*Gammatddd[16]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4])) + gtuu[3]*(Gammatddd[10]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + Gammatddd[15]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + Gammatddd[9]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[3]*(Gammatddd[13]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + Gammatddd[4]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + Gammatddd[7]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0])) + gtuu[4]*(2*Gammatddd[10]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + Gammatddd[16]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3])) + gtuu[4]*(Gammatddd[10]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + Gammatddd[16]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + Gammatddd[17]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4])) + gtuu[4]*(Gammatddd[11]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + Gammatddd[16]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + Gammatddd[17]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4])) + gtuu[4]*(Gammatddd[11]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + Gammatddd[15]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + Gammatddd[9]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) + gtuu[4]*(Gammatddd[13]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[5]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + Gammatddd[7]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0])) + gtuu[4]*(Gammatddd[14]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + Gammatddd[4]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[8]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0])) + gtuu[5]*(Gammatddd[11]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + 2*Gammatddd[17]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) + gtuu[5]*(Gammatddd[10]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + Gammatddd[11]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + Gammatddd[16]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[5]*(Gammatddd[14]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[5]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[8]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]));
+	(*Rgg)[5] += Gammatddd[14]*x2*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + Gammatddd[16]*x0*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + 3*Gammatddd[17]*gtuu[5]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + gtuu[0]*(2*Gammatddd[12] + Gammatddd[2])*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + gtuu[0]*(2*Gammatddd[13] + Gammatddd[8])*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + gtuu[1]*(Gammatddd[10]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + 2*Gammatddd[13]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[1]*(2*Gammatddd[12]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[4]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1])) + gtuu[1]*(2*Gammatddd[13]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + Gammatddd[2]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0])) + gtuu[1]*(Gammatddd[14]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + 2*Gammatddd[16]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])) + gtuu[1]*(2*Gammatddd[14]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + Gammatddd[16]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])) + gtuu[1]*(2*Gammatddd[15]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[8]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[2]*(Gammatddd[11]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + 2*Gammatddd[13]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) + gtuu[2]*(2*Gammatddd[12]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + Gammatddd[5]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1])) + gtuu[2]*(Gammatddd[14]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + 2*Gammatddd[17]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])) + gtuu[2]*(2*Gammatddd[14]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + Gammatddd[17]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])) + gtuu[2]*(2*Gammatddd[14]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + Gammatddd[2]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0])) + gtuu[2]*(2*Gammatddd[16]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + Gammatddd[8]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) + gtuu[3]*(Gammatddd[10] + 2*Gammatddd[15])*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + gtuu[3]*(2*Gammatddd[13] + Gammatddd[4])*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + gtuu[4]*(Gammatddd[10]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + 2*Gammatddd[16]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) + gtuu[4]*(Gammatddd[11]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + 2*Gammatddd[15]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) + gtuu[4]*(2*Gammatddd[13]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + Gammatddd[5]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0])) + gtuu[4]*(2*Gammatddd[14]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + Gammatddd[4]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0])) + gtuu[4]*(Gammatddd[16]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + 2*Gammatddd[17]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) + gtuu[4]*(2*Gammatddd[16]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + Gammatddd[17]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) + gtuu[5]*(Gammatddd[11] + 2*Gammatddd[16])*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + gtuu[5]*(2*Gammatddd[14] + Gammatddd[5])*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]);
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_Ricci4(
+	const double gtdd[6],
+	double W,
+	const double gtuu[6],
+	const double Gammatddd[18],
+	const double dW_dx[3],
+	const double ddW_dx2[6],
+	double (*Rphi)[6]
+)
+{
+	double x0 = 1/(W);
+	double x1 = 2*x0;
+	double x2 = ((dW_dx[0])*(dW_dx[0]))*x1;
+	double x3 = -ddW_dx2[0];
+	double x4 = ((dW_dx[1])*(dW_dx[1]))*x1;
+	double x5 = -ddW_dx2[3];
+	double x6 = ((dW_dx[2])*(dW_dx[2]))*x1;
+	double x7 = -ddW_dx2[5];
+	double x8 = 2*gtdd[0];
+	double x9 = dW_dx[0]*x1;
+	double x10 = dW_dx[1]*x9;
+	double x11 = -ddW_dx2[1];
+	double x12 = dW_dx[2]*x9;
+	double x13 = -ddW_dx2[2];
+	double x14 = dW_dx[1]*dW_dx[2]*x1;
+	double x15 = -ddW_dx2[4];
+	double x16 = 2*gtdd[1];
+	double x17 = 2*gtdd[2];
+	double x18 = 2*gtdd[3];
+	double x19 = 2*gtdd[4];
+	double x20 = 2*gtdd[5];
+	(*Rphi)[0] += x0*(-dW_dx[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) - dW_dx[1]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) - dW_dx[2]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) - gtdd[0]*gtuu[0]*(dW_dx[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + dW_dx[1]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + dW_dx[2]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + x2 + x3) - gtdd[0]*gtuu[3]*(dW_dx[0]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + dW_dx[1]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + dW_dx[2]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + x4 + x5) - gtdd[0]*gtuu[5]*(dW_dx[0]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + dW_dx[1]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + dW_dx[2]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + x6 + x7) - gtuu[1]*x8*(dW_dx[0]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + dW_dx[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + dW_dx[2]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + x10 + x11) - gtuu[2]*x8*(dW_dx[0]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + dW_dx[1]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + dW_dx[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + x12 + x13) - gtuu[4]*x8*(dW_dx[0]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + dW_dx[1]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + dW_dx[2]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + x14 + x15) - x3);
+	(*Rphi)[1] += x0*(-dW_dx[0]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) - dW_dx[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) - dW_dx[2]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) - gtdd[1]*gtuu[0]*(dW_dx[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + dW_dx[1]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + dW_dx[2]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + x2 + x3) - gtdd[1]*gtuu[3]*(dW_dx[0]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + dW_dx[1]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + dW_dx[2]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + x4 + x5) - gtdd[1]*gtuu[5]*(dW_dx[0]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + dW_dx[1]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + dW_dx[2]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + x6 + x7) - gtuu[1]*x16*(dW_dx[0]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + dW_dx[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + dW_dx[2]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + x10 + x11) - gtuu[2]*x16*(dW_dx[0]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + dW_dx[1]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + dW_dx[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + x12 + x13) - gtuu[4]*x16*(dW_dx[0]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + dW_dx[1]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + dW_dx[2]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + x14 + x15) - x11);
+	(*Rphi)[2] += x0*(-dW_dx[0]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) - dW_dx[1]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) - dW_dx[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) - gtdd[2]*gtuu[0]*(dW_dx[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + dW_dx[1]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + dW_dx[2]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + x2 + x3) - gtdd[2]*gtuu[3]*(dW_dx[0]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + dW_dx[1]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + dW_dx[2]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + x4 + x5) - gtdd[2]*gtuu[5]*(dW_dx[0]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + dW_dx[1]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + dW_dx[2]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + x6 + x7) - gtuu[1]*x17*(dW_dx[0]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + dW_dx[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + dW_dx[2]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + x10 + x11) - gtuu[2]*x17*(dW_dx[0]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + dW_dx[1]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + dW_dx[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + x12 + x13) - gtuu[4]*x17*(dW_dx[0]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + dW_dx[1]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + dW_dx[2]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + x14 + x15) - x13);
+	(*Rphi)[3] += x0*(-dW_dx[0]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) - dW_dx[1]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) - dW_dx[2]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) - gtdd[3]*gtuu[0]*(dW_dx[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + dW_dx[1]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + dW_dx[2]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + x2 + x3) - gtdd[3]*gtuu[3]*(dW_dx[0]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + dW_dx[1]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + dW_dx[2]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + x4 + x5) - gtdd[3]*gtuu[5]*(dW_dx[0]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + dW_dx[1]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + dW_dx[2]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + x6 + x7) - gtuu[1]*x18*(dW_dx[0]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + dW_dx[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + dW_dx[2]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + x10 + x11) - gtuu[2]*x18*(dW_dx[0]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + dW_dx[1]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + dW_dx[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + x12 + x13) - gtuu[4]*x18*(dW_dx[0]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + dW_dx[1]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + dW_dx[2]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + x14 + x15) - x5);
+	(*Rphi)[4] += x0*(-dW_dx[0]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) - dW_dx[1]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) - dW_dx[2]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) - gtdd[4]*gtuu[0]*(dW_dx[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + dW_dx[1]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + dW_dx[2]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + x2 + x3) - gtdd[4]*gtuu[3]*(dW_dx[0]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + dW_dx[1]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + dW_dx[2]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + x4 + x5) - gtdd[4]*gtuu[5]*(dW_dx[0]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + dW_dx[1]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + dW_dx[2]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + x6 + x7) - gtuu[1]*x19*(dW_dx[0]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + dW_dx[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + dW_dx[2]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + x10 + x11) - gtuu[2]*x19*(dW_dx[0]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + dW_dx[1]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + dW_dx[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + x12 + x13) - gtuu[4]*x19*(dW_dx[0]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + dW_dx[1]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + dW_dx[2]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + x14 + x15) - x15);
+	(*Rphi)[5] += x0*(-dW_dx[0]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) - dW_dx[1]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) - dW_dx[2]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) - gtdd[5]*gtuu[0]*(dW_dx[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + dW_dx[1]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + dW_dx[2]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + x2 + x3) - gtdd[5]*gtuu[3]*(dW_dx[0]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + dW_dx[1]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + dW_dx[2]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + x4 + x5) - gtdd[5]*gtuu[5]*(dW_dx[0]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + dW_dx[1]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + dW_dx[2]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + x6 + x7) - gtuu[1]*x20*(dW_dx[0]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + dW_dx[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + dW_dx[2]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + x10 + x11) - gtuu[2]*x20*(dW_dx[0]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + dW_dx[1]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + dW_dx[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + x12 + x13) - gtuu[4]*x20*(dW_dx[0]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + dW_dx[1]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + dW_dx[2]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + x14 + x15) - x7);
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_Ricci_trace(
+	double W,
+	const double gtuu[6],
+	const double Rdd[6],
+	double * __restrict__ Rtrace
+)
+{
+	*Rtrace = ((W)*(W))*(Rdd[0]*gtuu[0] + 2*Rdd[1]*gtuu[1] + 2*Rdd[2]*gtuu[2] + Rdd[3]*gtuu[3] + 2*Rdd[4]*gtuu[4] + Rdd[5]*gtuu[5]);
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_chi_rhs(
+	const double betau[3],
+	double alp,
+	double W,
+	double theta,
+	double Khat,
+	const double dbetau_dx[9],
+	const double dW_dx_upwind[3],
+	double * __restrict__ dW
+)
+{
+	double x0 = (1.0/3.0)*W;
+	*dW = alp*x0*(Khat + 2*theta) + betau[0]*dW_dx_upwind[0] + betau[1]*dW_dx_upwind[1] + betau[2]*dW_dx_upwind[2] - dbetau_dx[0]*x0 - dbetau_dx[4]*x0 - dbetau_dx[8]*x0;
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_gtdd_rhs(
 	const double gtdd[6],
 	const double Atdd[6],
 	const double betau[3],
 	double alp,
-	double chi,
-	const double Bdriver[3],
-	const double Gammatu[3],
-	double theta,
-	double Khat,
-	double S,
-	double rho,
-	const double Sij[6],
-	const double Si[3],
-	double kappa1,
-	double kappa2,
-	double eta,
-	const double dgtdd_dx[18],
 	const double dgtdd_dx_upwind[18],
-	const double dAtdd_dx_upwind[18],
 	const double dbetau_dx[9],
-	const double dbetau_dx_upwind[9],
-	const double dBdriver_dx_upwind[9],
-	const double dGammatu_dx[9],
-	const double dGammatu_dx_upwind[9],
-	const double dKhat_dx[3],
-	const double dKhat_dx_upwind[3],
-	const double dchi_dx[3],
-	const double dchi_dx_upwind[3],
-	const double dalp_dx[3],
-	const double dalp_dx_upwind[3],
-	const double dtheta_dx[3],
-	const double dtheta_dx_upwind[3],
-	const double ddgtdd_dx2[36],
-	const double ddbetau_dx2[18],
-	const double ddalp_dx2[6],
-	const double ddchi_dx2[6],
-	double * __restrict__ dchi,
-	double (*dgtdd)[6],
-	double * __restrict__ dKhat,
-	double (*dGammatu)[3],
-	double * __restrict__ dtheta,
-	double (*dAtdd)[6],
-	double * __restrict__ dalp,
-	double (*dbetau)[3],
-	double (*dBdriver)[3]
+	double (*dgtdd_dt)[6]
 )
 {
-	double x0 = (2.0/3.0)*chi;
-	double x1 = Khat + 2*theta;
-	double x2 = alp*x1;
-	double x3 = 2*alp;
-	double x4 = Atdd[0]*x3;
-	double x5 = 2*gtdd[1];
-	double x6 = 2*gtdd[2];
-	double x7 = (2.0/3.0)*gtdd[0];
-	double x8 = (4.0/3.0)*dbetau_dx[0];
-	double x9 = Atdd[1]*x3;
-	double x10 = (2.0/3.0)*dbetau_dx[8];
-	double x11 = (1.0/3.0)*gtdd[1];
-	double x12 = betau[0]*dgtdd_dx_upwind[1] + betau[1]*dgtdd_dx_upwind[7] + betau[2]*dgtdd_dx_upwind[13] + dbetau_dx[0]*x11 + dbetau_dx[1]*gtdd[3] + dbetau_dx[2]*gtdd[4] + dbetau_dx[3]*gtdd[0] + dbetau_dx[4]*x11 + dbetau_dx[5]*gtdd[2] - gtdd[1]*x10 - x9;
-	double x13 = Atdd[2]*x3;
-	double x14 = (2.0/3.0)*dbetau_dx[4];
-	double x15 = (1.0/3.0)*gtdd[2];
-	double x16 = betau[0]*dgtdd_dx_upwind[2] + betau[1]*dgtdd_dx_upwind[8] + betau[2]*dgtdd_dx_upwind[14] + dbetau_dx[0]*x15 + dbetau_dx[1]*gtdd[4] + dbetau_dx[2]*gtdd[5] + dbetau_dx[6]*gtdd[0] + dbetau_dx[7]*gtdd[1] + dbetau_dx[8]*x15 - gtdd[2]*x14 - x13;
-	double x17 = Atdd[3]*x3;
-	double x18 = 2*gtdd[4];
-	double x19 = (2.0/3.0)*dbetau_dx[0];
-	double x20 = (4.0/3.0)*dbetau_dx[4];
-	double x21 = Atdd[4]*x3;
-	double x22 = (1.0/3.0)*gtdd[4];
-	double x23 = betau[0]*dgtdd_dx_upwind[4] + betau[1]*dgtdd_dx_upwind[10] + betau[2]*dgtdd_dx_upwind[16] + dbetau_dx[3]*gtdd[2] + dbetau_dx[4]*x22 + dbetau_dx[5]*gtdd[5] + dbetau_dx[6]*gtdd[1] + dbetau_dx[7]*gtdd[3] + dbetau_dx[8]*x22 - gtdd[4]*x19 - x21;
-	double x24 = Atdd[5]*x3;
-	double x25 = (4.0/3.0)*dbetau_dx[8];
-	double x26 = ((x1)*(x1));
-	double x27 = ((gtdd[4])*(gtdd[4]));
-	double x28 = gtdd[3]*gtdd[5];
-	double x29 = -x27 + x28;
-	double x30 = gtdd[1]*gtdd[5];
-	double x31 = -gtdd[2]*gtdd[4] + x30;
-	double x32 = -x31;
-	double x33 = Atdd[1]*x32;
-	double x34 = gtdd[1]*gtdd[4];
-	double x35 = gtdd[2]*gtdd[3];
-	double x36 = x34 - x35;
-	double x37 = Atdd[2]*x36;
-	double x38 = Atdd[0]*x29 + x33 + x37;
-	double x39 = x29*x38;
-	double x40 = Atdd[2]*x29 + Atdd[4]*x32 + Atdd[5]*x36;
-	double x41 = x36*x40;
-	double x42 = Atdd[1]*x29 + Atdd[3]*x32 + Atdd[4]*x36;
-	double x43 = x32*x42;
-	double x44 = x39 + x41 + x43;
-	double x45 = ((gtdd[2])*(gtdd[2]));
-	double x46 = gtdd[0]*gtdd[5];
-	double x47 = -x45 + x46;
-	double x48 = x42*x47;
-	double x49 = gtdd[0]*gtdd[4];
-	double x50 = -gtdd[1]*gtdd[2] + x49;
-	double x51 = -x50;
-	double x52 = x40*x51;
-	double x53 = x32*x38;
-	double x54 = x48 + x52 + x53;
-	double x55 = Atdd[0]*x32 + Atdd[1]*x47 + Atdd[2]*x51;
-	double x56 = x29*x55;
-	double x57 = Atdd[2]*x32 + Atdd[4]*x47 + Atdd[5]*x51;
-	double x58 = x36*x57;
-	double x59 = Atdd[4]*x51;
-	double x60 = Atdd[3]*x47 + x33 + x59;
-	double x61 = x32*x60;
-	double x62 = x56 + x58 + x61;
-	double x63 = ((gtdd[1])*(gtdd[1]));
-	double x64 = gtdd[0]*gtdd[3];
-	double x65 = -x63 + x64;
-	double x66 = x40*x65;
-	double x67 = x42*x51;
-	double x68 = x36*x38;
-	double x69 = x66 + x67 + x68;
-	double x70 = Atdd[0]*x36 + Atdd[1]*x51 + Atdd[2]*x65;
-	double x71 = x29*x70;
-	double x72 = Atdd[5]*x65 + x37 + x59;
-	double x73 = x36*x72;
-	double x74 = Atdd[1]*x36 + Atdd[3]*x51 + Atdd[4]*x65;
-	double x75 = x32*x74;
-	double x76 = x71 + x73 + x75;
-	double x77 = x47*x60;
-	double x78 = x51*x57;
-	double x79 = x32*x55;
-	double x80 = x77 + x78 + x79;
-	double x81 = x57*x65;
-	double x82 = x51*x60;
-	double x83 = x36*x55;
-	double x84 = x81 + x82 + x83;
-	double x85 = x47*x74;
-	double x86 = x51*x72;
-	double x87 = x32*x70;
-	double x88 = x85 + x86 + x87;
-	double x89 = x65*x72;
-	double x90 = x51*x74;
-	double x91 = x36*x70;
-	double x92 = x89 + x90 + x91;
-	double x93 = Atdd[0]*x44 + Atdd[1]*x54 + Atdd[1]*x62 + Atdd[2]*x69 + Atdd[2]*x76 + Atdd[3]*x80 + Atdd[4]*x84 + Atdd[4]*x88 + Atdd[5]*x92;
-	double x94 = 2*dgtdd_dx[7];
-	double x95 = dgtdd_dx[3] - x94;
-	double x96 = -dgtdd_dx[15];
-	double x97 = 2*dgtdd_dx[10];
-	double x98 = x96 + x97;
-	double x99 = dgtdd_dx[9]*x31 + x29*x95 - x36*x98;
-	double x100 = x47*x99;
-	double x101 = 2*dgtdd_dx[2];
-	double x102 = dgtdd_dx[12] - x101;
-	double x103 = -dgtdd_dx[6];
-	double x104 = 2*dgtdd_dx[1];
-	double x105 = x103 + x104;
-	double x106 = dgtdd_dx[0]*x29;
-	double x107 = x102*x36 + x105*x31 - x106;
-	double x108 = x107*x29;
-	double x109 = dgtdd_dx[17]*x36;
-	double x110 = 2*dgtdd_dx[16];
-	double x111 = dgtdd_dx[11] - x110;
-	double x112 = -dgtdd_dx[5];
-	double x113 = 2*dgtdd_dx[14];
-	double x114 = x112 + x113;
-	double x115 = x109 + x111*x31 + x114*x29;
-	double x116 = x115*x65;
-	double x117 = -dgtdd_dx[8];
-	double x118 = dgtdd_dx[4] + x117;
-	double x119 = dgtdd_dx[13] + x118;
-	double x120 = dgtdd_dx[12]*x29 + dgtdd_dx[5]*x36;
-	double x121 = -x119*x31 + x120;
-	double x122 = 4*x36;
-	double x123 = dgtdd_dx[11]*x36;
-	double x124 = -dgtdd_dx[4];
-	double x125 = dgtdd_dx[13] + x124;
-	double x126 = dgtdd_dx[8] + x125;
-	double x127 = -dgtdd_dx[15]*x31 + x123 + x126*x29;
-	double x128 = 4*x50;
-	double x129 = dgtdd_dx[6]*x29;
-	double x130 = -dgtdd_dx[13];
-	double x131 = dgtdd_dx[8] + x130;
-	double x132 = dgtdd_dx[4] + x131;
-	double x133 = -dgtdd_dx[3]*x31 + x129 + x132*x36;
-	double x134 = 4*x31;
-	double x135 = x100 + x108 - x116 - x121*x122 + x127*x128 + x133*x134;
-	double x136 = dgtdd_dx[9]*x50 + x36*x95 - x65*x98;
-	double x137 = x136*x47;
-	double x138 = dgtdd_dx[0]*x36;
-	double x139 = x102*x65 + x105*x50 - x138;
-	double x140 = x139*x29;
-	double x141 = dgtdd_dx[17]*x65;
-	double x142 = x111*x50 + x114*x36 + x141;
-	double x143 = x142*x65;
-	double x144 = dgtdd_dx[12]*x36 + dgtdd_dx[5]*x65;
-	double x145 = -x119*x50 + x144;
-	double x146 = dgtdd_dx[11]*x65;
-	double x147 = -dgtdd_dx[15]*x50 + x126*x36 + x146;
-	double x148 = dgtdd_dx[6]*x36;
-	double x149 = -dgtdd_dx[3]*x50 + x132*x65 + x148;
-	double x150 = -x122*x145 + x128*x147 + x134*x149 + x137 + x140 - x143;
-	double x151 = dgtdd_dx[9]*x47;
-	double x152 = x151 + x31*x95 - x50*x98;
-	double x153 = x152*x47;
-	double x154 = -dgtdd_dx[0]*x31 + x102*x50 + x105*x47;
-	double x155 = x154*x29;
-	double x156 = dgtdd_dx[17]*x50 + x111*x47 + x114*x31;
-	double x157 = x156*x65;
-	double x158 = dgtdd_dx[12]*x31 + dgtdd_dx[5]*x50 - x119*x47;
-	double x159 = dgtdd_dx[15]*x47;
-	double x160 = dgtdd_dx[11]*x50 + x126*x31 - x159;
-	double x161 = dgtdd_dx[3]*x47;
-	double x162 = dgtdd_dx[6]*x31 + x132*x50 - x161;
-	double x163 = -x122*x158 + x128*x160 + x134*x162 + x153 + x155 - x157;
-	double x164 = chi*(dalp_dx[0]*x135 - dalp_dx[1]*x163 + dalp_dx[2]*x150);
-	double x165 = dchi_dx[0]*x29;
-	double x166 = (1.0/2.0)*dalp_dx[0];
-	double x167 = dchi_dx[2]*x36;
-	double x168 = dchi_dx[1]*x47;
-	double x169 = (1.0/2.0)*dalp_dx[1];
-	double x170 = dchi_dx[0]*x36;
-	double x171 = (1.0/2.0)*dalp_dx[2];
-	double x172 = dchi_dx[2]*x65;
-	double x173 = chi*ddalp_dx2[0]*x29;
-	double x174 = chi*ddalp_dx2[3]*x47;
-	double x175 = chi*ddalp_dx2[5]*x65;
-	double x176 = 2*x36;
-	double x177 = 2*x31;
-	double x178 = 2*x50;
-	double x179 = M_PI*alp;
-	double x180 = dchi_dx[1]*x31;
-	double x181 = dchi_dx[0]*x31;
-	double x182 = dchi_dx[2]*x50;
-	double x183 = dchi_dx[1]*x50;
-	double x184 = kappa1*theta;
-	double x185 = x127*x50;
-	double x186 = x133*x31;
-	double x187 = -1.0/3.0*x100 - 1.0/3.0*x108 + (1.0/3.0)*x115*x65 + (4.0/3.0)*x121*x36 - 4.0/3.0*x185 - 4.0/3.0*x186;
-	double x188 = -1.0/3.0*x27 + (1.0/3.0)*x28;
-	double x189 = (1.0/3.0)*gtdd[2]*gtdd[4] - 1.0/3.0*x30;
-	double x190 = (1.0/3.0)*x34 - 1.0/3.0*x35;
-	double x191 = (1.0/2.0)*x100 + (1.0/2.0)*x108 - 1.0/2.0*x116 - 2*x121*x36 + 2*x185 + 2*x186;
-	double x192 = -x191;
-	double x193 = (1.0/2.0)*x153 + (1.0/2.0)*x155 - 1.0/2.0*x157 - x158*x176 + x160*x178 + x162*x177;
-	double x194 = (1.0/2.0)*x137 + (1.0/2.0)*x140 - 1.0/2.0*x143 - x145*x176 + x147*x178 + x149*x177;
-	double x195 = -x194;
-	double x196 = 2*x51;
-	double x197 = 2*x32;
-	double x198 = kappa1*x3;
-	double x199 = (1.0/2.0)*dgtdd_dx[13];
-	double x200 = (1.0/2.0)*dgtdd_dx[8];
-	double x201 = (1.0/2.0)*dgtdd_dx[4];
-	double x202 = x199 + x200 - x201;
-	double x203 = 2*x29;
-	double x204 = dgtdd_dx[15]*x32 + x123 + x202*x203;
-	double x205 = x204*x3;
-	double x206 = x199 - x200 + x201;
-	double x207 = x120 + x197*x206;
-	double x208 = x207*x3;
-	double x209 = -x199 + x200 + x201;
-	double x210 = dgtdd_dx[3]*x32 + x129 + x176*x209;
-	double x211 = x210*x3;
-	double x212 = dgtdd_dx[10] - 1.0/2.0*dgtdd_dx[15];
-	double x213 = -1.0/2.0*dgtdd_dx[3] + dgtdd_dx[7];
-	double x214 = (1.0/2.0)*x32;
-	double x215 = dgtdd_dx[9]*x214 + x212*x36 + x213*x29;
-	double x216 = x3*x80;
-	double x217 = dgtdd_dx[14] - 1.0/2.0*dgtdd_dx[5];
-	double x218 = -1.0/2.0*dgtdd_dx[11] + dgtdd_dx[16];
-	double x219 = (1.0/2.0)*x109 + x217*x29 + x218*x32;
-	double x220 = x3*x92;
-	double x221 = dgtdd_dx[1] - 1.0/2.0*dgtdd_dx[6];
-	double x222 = -1.0/2.0*dgtdd_dx[12] + dgtdd_dx[2];
-	double x223 = (1.0/2.0)*x106 + x221*x32 + x222*x36;
-	double x224 = x3*x44;
-	double x225 = (2.0/3.0)*alp;
-	double x226 = x225*(2*dKhat_dx[0] + dtheta_dx[0]);
-	double x227 = x225*(2*dKhat_dx[1] + dtheta_dx[1]);
-	double x228 = x225*(2*dKhat_dx[2] + dtheta_dx[2]);
-	double x229 = 16*x179;
-	double x230 = Si[0]*x229;
-	double x231 = Si[1]*x229;
-	double x232 = Si[2]*x229;
-	double x233 = 1/(chi);
-	double x234 = dchi_dx[0]*x233;
-	double x235 = 3*alp;
-	double x236 = x234*x235;
-	double x237 = dchi_dx[1]*x233;
-	double x238 = x235*x237;
-	double x239 = dchi_dx[2]*x233;
-	double x240 = x235*x239;
-	double x241 = betau[0]*dGammatu_dx_upwind[0] + betau[1]*dGammatu_dx_upwind[3] + betau[2]*dGammatu_dx_upwind[6] - dalp_dx[0]*(2*x39 + 2*x41 + 2*x43) - dalp_dx[1]*(2*x48 + 2*x52 + 2*x53) - dalp_dx[2]*(2*x66 + 2*x67 + 2*x68) + dbetau_dx[0]*x187 - dbetau_dx[0]*x192 - dbetau_dx[3]*x193 + dbetau_dx[4]*x187 - dbetau_dx[6]*x195 + dbetau_dx[8]*x187 + ddbetau_dx2[0]*x188 + ddbetau_dx2[0]*x29 + ddbetau_dx2[10]*x189 + ddbetau_dx2[12]*x196 + ddbetau_dx2[13]*x190 + ddbetau_dx2[14]*x189 + ddbetau_dx2[15]*x65 + ddbetau_dx2[17]*x190 + ddbetau_dx2[3]*x189 + ddbetau_dx2[3]*x197 + ddbetau_dx2[4]*x188 + ddbetau_dx2[6]*x176 + ddbetau_dx2[6]*x190 + ddbetau_dx2[8]*x188 + ddbetau_dx2[9]*x47 - x198*(Gammatu[0] + x191) + x205*x84 + x205*x88 + x208*x69 + x208*x76 + x211*x54 + x211*x62 + x215*x216 + x219*x220 + x223*x224 - x226*x29 - x227*x32 - x228*x36 - x230*x29 - x231*x32 - x232*x36 - x236*x44 - x238*x54 - x240*x69;
-	double x242 = (4.0/3.0)*x50;
-	double x243 = (4.0/3.0)*x31;
-	double x244 = (1.0/3.0)*x153 + (1.0/3.0)*x155 - 1.0/3.0*x157 - 4.0/3.0*x158*x36 + x160*x242 + x162*x243;
-	double x245 = -1.0/3.0*x45 + (1.0/3.0)*x46;
-	double x246 = (1.0/3.0)*gtdd[1]*gtdd[2] - 1.0/3.0*x49;
-	double x247 = dgtdd_dx[11]*x51 + x159 + x197*x202;
-	double x248 = x247*x3;
-	double x249 = 2*x47;
-	double x250 = dgtdd_dx[12]*x32 + dgtdd_dx[5]*x51 + x206*x249;
-	double x251 = x250*x3;
-	double x252 = dgtdd_dx[6]*x32 + x161 + x196*x209;
-	double x253 = x252*x3;
-	double x254 = (1.0/2.0)*x151 + x212*x51 + x213*x32;
-	double x255 = (1.0/2.0)*x51;
-	double x256 = dgtdd_dx[17]*x255 + x217*x32 + x218*x47;
-	double x257 = dgtdd_dx[0]*x214 + x221*x47 + x222*x51;
-	double x258 = betau[0]*dGammatu_dx_upwind[1] + betau[1]*dGammatu_dx_upwind[4] + betau[2]*dGammatu_dx_upwind[7] - dalp_dx[0]*(2*x56 + 2*x58 + 2*x61) - dalp_dx[1]*(2*x77 + 2*x78 + 2*x79) - dalp_dx[2]*(2*x81 + 2*x82 + 2*x83) + dbetau_dx[0]*x244 - dbetau_dx[1]*x192 - dbetau_dx[4]*x193 + dbetau_dx[4]*x244 - dbetau_dx[7]*x195 + dbetau_dx[8]*x244 + ddbetau_dx2[0]*x189 + ddbetau_dx2[10]*x245 + ddbetau_dx2[10]*x47 + ddbetau_dx2[13]*x196 + ddbetau_dx2[13]*x246 + ddbetau_dx2[14]*x245 + ddbetau_dx2[16]*x65 + ddbetau_dx2[17]*x246 + ddbetau_dx2[1]*x29 + ddbetau_dx2[3]*x245 + ddbetau_dx2[4]*x189 + ddbetau_dx2[4]*x197 + ddbetau_dx2[6]*x246 + ddbetau_dx2[7]*x176 + ddbetau_dx2[8]*x189 - x198*(Gammatu[1] - x193) + x216*x254 + x220*x256 + x224*x257 - x226*x32 - x227*x47 - x228*x51 - x230*x32 - x231*x47 - x232*x51 - x236*x62 - x238*x80 - x240*x84 + x248*x84 + x248*x88 + x251*x69 + x251*x76 + x253*x54 + x253*x62;
-	double x259 = -1.0/3.0*x137 - 1.0/3.0*x140 + (1.0/3.0)*x142*x65 + (4.0/3.0)*x145*x36 - x147*x242 - x149*x243;
-	double x260 = -1.0/3.0*x63 + (1.0/3.0)*x64;
-	double x261 = dgtdd_dx[15]*x51 + x146 + x176*x202;
-	double x262 = x261*x3;
-	double x263 = x144 + x196*x206;
-	double x264 = x263*x3;
-	double x265 = 2*x65;
-	double x266 = dgtdd_dx[3]*x51 + x148 + x209*x265;
-	double x267 = x266*x3;
-	double x268 = dgtdd_dx[9]*x255 + x212*x65 + x213*x36;
-	double x269 = (1.0/2.0)*x141 + x217*x36 + x218*x51;
-	double x270 = (1.0/2.0)*x138 + x221*x51 + x222*x65;
-	double x271 = betau[0]*dGammatu_dx_upwind[2] + betau[1]*dGammatu_dx_upwind[5] + betau[2]*dGammatu_dx_upwind[8] - dalp_dx[0]*(2*x71 + 2*x73 + 2*x75) - dalp_dx[1]*(2*x85 + 2*x86 + 2*x87) - dalp_dx[2]*(2*x89 + 2*x90 + 2*x91) + dbetau_dx[0]*x259 - dbetau_dx[2]*x192 + dbetau_dx[4]*x259 - dbetau_dx[5]*x193 - dbetau_dx[8]*x195 + dbetau_dx[8]*x259 + ddbetau_dx2[0]*x190 + ddbetau_dx2[10]*x246 + ddbetau_dx2[11]*x47 + ddbetau_dx2[13]*x260 + ddbetau_dx2[14]*x196 + ddbetau_dx2[14]*x246 + ddbetau_dx2[17]*x260 + ddbetau_dx2[17]*x65 + ddbetau_dx2[2]*x29 + ddbetau_dx2[3]*x246 + ddbetau_dx2[4]*x190 + ddbetau_dx2[5]*x197 + ddbetau_dx2[6]*x260 + ddbetau_dx2[8]*x176 + ddbetau_dx2[8]*x190 - x198*(Gammatu[2] + x194) + x216*x268 + x220*x269 + x224*x270 - x226*x36 - x227*x51 - x228*x65 - x230*x36 - x231*x51 - x232*x65 - x236*x76 - x238*x88 - x240*x92 + x262*x84 + x262*x88 + x264*x69 + x264*x76 + x267*x54 + x267*x62;
-	double x272 = dgtdd_dx[10]*x163;
-	double x273 = dgtdd_dx[17]*x147;
-	double x274 = 4*x273;
-	double x275 = x65*(-x111*x142 + x274);
-	double x276 = 2*dgtdd_dx[5];
-	double x277 = x114*x127;
-	double x278 = x65*(x115*x119 + x127*x276 + 2*x277);
-	double x279 = dgtdd_dx[15]*x152;
-	double x280 = dgtdd_dx[9]*x160;
-	double x281 = x47*(x152*x98 + x279 - 2*x280);
-	double x282 = dgtdd_dx[17]*x136;
-	double x283 = 2*x147;
-	double x284 = dgtdd_dx[11]*x283;
-	double x285 = 2*x111;
-	double x286 = x50*(x147*x285 + x282 - x284);
-	double x287 = 2*x160;
-	double x288 = x50*(dgtdd_dx[9]*x156 + x111*x152 + x287*x98);
-	double x289 = 2*x127;
-	double x290 = x102*x289;
-	double x291 = 2*x114;
-	double x292 = x133*x291;
-	double x293 = x36*(x105*x115 - x290 + x292);
-	double x294 = dgtdd_dx[17]*x149;
-	double x295 = 2*x294;
-	double x296 = dgtdd_dx[5]*x147;
-	double x297 = 2*x296;
-	double x298 = x36*(x119*x142 + x295 + x297);
-	double x299 = dgtdd_dx[9]*x158;
-	double x300 = 2*x299;
-	double x301 = x162*x98;
-	double x302 = x31*(-x119*x152 + x300 + 2*x301);
-	double x303 = dgtdd_dx[15]*x162;
-	double x304 = 2*x303;
-	double x305 = dgtdd_dx[3]*x160;
-	double x306 = 2*x305;
-	double x307 = x31*(-x132*x152 + x304 + x306);
-	double x308 = dgtdd_dx[16]*x150;
-	double x309 = dgtdd_dx[4]*x135;
-	double x310 = dgtdd_dx[15]*x156;
-	double x311 = x111*x160;
-	double x312 = x65*(dgtdd_dx[11]*x287 + x310 - 2*x311);
-	double x313 = x126*x99;
-	double x314 = x47*(-dgtdd_dx[3]*x289 + x132*x99 + x313);
-	double x315 = 4*dgtdd_dx[15];
-	double x316 = x50*(dgtdd_dx[11]*x152 - x160*x315);
-	double x317 = x50*(dgtdd_dx[15]*x142 - x282 + x284);
-	double x318 = x50*(dgtdd_dx[3]*x115 - x114*x99 + x132*x289);
-	double x319 = x50*(-dgtdd_dx[5]*x99 + x119*x289 + x126*x289);
-	double x320 = x162*x285;
-	double x321 = x132*x287;
-	double x322 = x36*(dgtdd_dx[3]*x156 - x320 + x321);
-	double x323 = x105*x289;
-	double x324 = x126*x133;
-	double x325 = x31*(x102*x99 + x323 + 2*x324);
-	double x326 = dgtdd_dx[12]*x99;
-	double x327 = dgtdd_dx[3]*x121;
-	double x328 = x132*x133;
-	double x329 = x31*(-x326 + 2*x327 + 2*x328);
-	double x330 = dgtdd_dx[15]*x145;
-	double x331 = dgtdd_dx[11]*x149;
-	double x332 = 2*x331;
-	double x333 = -dgtdd_dx[5]*x136 + x332;
-	double x334 = x31*(2*x330 + x333);
-	double x335 = x119*x283;
-	double x336 = x31*(x333 + x335);
-	double x337 = ddgtdd_dx2[16]*x36;
-	double x338 = dgtdd_dx[11]*x136;
-	double x339 = dgtdd_dx[15]*x147;
-	double x340 = x338 - x339;
-	double x341 = dgtdd_dx[3]*x158;
-	double x342 = x119*x162;
-	double x343 = x132*x162;
-	double x344 = x341 + x342 + x343;
-	double x345 = x119*x160;
-	double x346 = dgtdd_dx[15]*x158;
-	double x347 = dgtdd_dx[11]*x162 + x346;
-	double x348 = x345 + x347;
-	double x349 = 2*gtdd[5];
-	double x350 = 2*gtdd[3];
-	double x351 = x119*x145;
-	double x352 = dgtdd_dx[5]*x149;
-	double x353 = 2*x352;
-	double x354 = x351 + x353;
-	double x355 = dgtdd_dx[12]*x133;
-	double x356 = x105*x121;
-	double x357 = x102*x133;
-	double x358 = x355 + x356 - x357;
-	double x359 = x119*x121;
-	double x360 = dgtdd_dx[12]*x127;
-	double x361 = dgtdd_dx[5]*x133 + x360;
-	double x362 = x359 + x361;
-	double x363 = -x111*x145;
-	double x364 = x294 + x296 + x363;
-	double x365 = ddgtdd_dx2[10]*x31;
-	double x366 = ddgtdd_dx2[28]*x50;
-	double x367 = (1.0/2.0)*x50;
-	double x368 = dgtdd_dx[7]*x163;
-	double x369 = 2*x149;
-	double x370 = x149*x98;
-	double x371 = x47*(dgtdd_dx[15]*x369 - x126*x136 + 2*x370);
-	double x372 = 4*x133;
-	double x373 = x31*(dgtdd_dx[3]*x107 - dgtdd_dx[6]*x372);
-	double x374 = 2*x133;
-	double x375 = x119*x374;
-	double x376 = 2*x121;
-	double x377 = x50*(x326 - x375 + x376*x95);
-	double x378 = 2*x145;
-	double x379 = x149*x285;
-	double x380 = x50*(x114*x136 - x378*x98 + x379);
-	double x381 = x50*(-x126*x152 + x300 + x304);
-	double x382 = x149*x291;
-	double x383 = x132*x145;
-	double x384 = x36*(x111*x139 + x382 + 2*x383);
-	double x385 = -dgtdd_dx[11]*x139;
-	double x386 = dgtdd_dx[12]*x283;
-	double x387 = x36*(2*x351 + x385 + x386);
-	double x388 = dgtdd_dx[6]*x121;
-	double x389 = 2*x388;
-	double x390 = 2*x355;
-	double x391 = x389 + x390;
-	double x392 = x36*(-x107*x119 + x391);
-	double x393 = x107*x126;
-	double x394 = dgtdd_dx[0]*x289;
-	double x395 = x36*(2*x356 - x393 + x394);
-	double x396 = x31*(dgtdd_dx[12]*x136 - x119*x369 + x139*x98);
-	double x397 = dgtdd_dx[13]*x150;
-	double x398 = dgtdd_dx[1]*x135;
-	double x399 = dgtdd_dx[9]*x162;
-	double x400 = 4*x399;
-	double x401 = x47*(x152*x95 + x400);
-	double x402 = dgtdd_dx[6]*x99;
-	double x403 = x133*x95;
-	double x404 = x47*(-dgtdd_dx[3]*x374 + x402 + 2*x403);
-	double x405 = dgtdd_dx[6]*x107;
-	double x406 = dgtdd_dx[0]*x133;
-	double x407 = x29*(x105*x107 + x405 - 2*x406);
-	double x408 = x132*x139;
-	double x409 = x29*(-dgtdd_dx[12]*x369 + x119*x139 + x408);
-	double x410 = 2*x341;
-	double x411 = -dgtdd_dx[15]*x154;
-	double x412 = 2*dgtdd_dx[6];
-	double x413 = x160*x412 + x411;
-	double x414 = x36*(x410 + x413);
-	double x415 = 2*x162;
-	double x416 = x126*x415;
-	double x417 = x36*(x410 + x411 + x416);
-	double x418 = -dgtdd_dx[3]*x415 + dgtdd_dx[9]*x154;
-	double x419 = x31*(dgtdd_dx[6]*x152 + x418);
-	double x420 = x31*(x415*x95 + x418);
-	double x421 = x31*(-dgtdd_dx[0]*x99 + x105*x374 + x107*x95);
-	double x422 = x31*(-dgtdd_dx[15]*x139 + x126*x369 + x132*x369);
-	double x423 = ddgtdd_dx2[13]*x36;
-	double x424 = x126*x160;
-	double x425 = 2*x346 + x424;
-	double x426 = x126*x147;
-	double x427 = x330 + x331 + x426;
-	double x428 = dgtdd_dx[6]*x127;
-	double x429 = x324 + x428;
-	double x430 = x327 + x429;
-	double x431 = 2*gtdd[0];
-	double x432 = dgtdd_dx[11]*x145;
-	double x433 = x114*x147 + x432;
-	double x434 = x363 + x433;
-	double x435 = x121*x126;
-	double x436 = x359 + x360 + x435;
-	double x437 = dgtdd_dx[3]*x154;
-	double x438 = dgtdd_dx[6]*x162;
-	double x439 = x437 - x438;
-	double x440 = -x160*x95 + x303;
-	double x441 = x299 + x440;
-	double x442 = ddgtdd_dx2[25]*x50;
-	double x443 = ddgtdd_dx2[7]*x31;
-	double x444 = (1.0/2.0)*x31;
-	double x445 = dgtdd_dx[8]*x163;
-	double x446 = dgtdd_dx[17]*x145;
-	double x447 = 4*x446;
-	double x448 = x65*(x114*x142 + x447);
-	double x449 = dgtdd_dx[12]*x115;
-	double x450 = x114*x121;
-	double x451 = x65*(x121*x276 + x449 + 2*x450);
-	double x452 = -dgtdd_dx[12]*x107;
-	double x453 = dgtdd_dx[0]*x121;
-	double x454 = x29*(x102*x107 + x452 + 2*x453);
-	double x455 = x119*x154;
-	double x456 = x29*(x132*x154 - x158*x412 + x455);
-	double x457 = 4*dgtdd_dx[12];
-	double x458 = x36*(-dgtdd_dx[5]*x107 + x121*x457);
-	double x459 = -dgtdd_dx[17]*x139 + x145*x276;
-	double x460 = x36*(dgtdd_dx[12]*x142 + x459);
-	double x461 = x36*(x145*x291 + x459);
-	double x462 = x31*(2*x357 + x393 - x394);
-	double x463 = x31*(2*x343 + x413);
-	double x464 = dgtdd_dx[14]*x150;
-	double x465 = dgtdd_dx[2]*x135;
-	double x466 = x111*x158;
-	double x467 = 2*x158;
-	double x468 = x65*(dgtdd_dx[11]*x467 + x126*x156 - 2*x466);
-	double x469 = x132*x376;
-	double x470 = x50*(dgtdd_dx[6]*x115 + x292 + x469);
-	double x471 = x467*x98;
-	double x472 = x50*(x156*x95 + x320 - x471);
-	double x473 = 2*x432;
-	double x474 = x50*(x126*x142 + x295 + x473);
-	double x475 = x36*(dgtdd_dx[6]*x156 + x111*x154 + x132*x467);
-	double x476 = x36*(-dgtdd_dx[0]*x115 + x102*x376 + x107*x114);
-	double x477 = x36*(-dgtdd_dx[11]*x154 + x119*x467 + x126*x467);
-	double x478 = x467*x95;
-	double x479 = x31*(x154*x98 - 2*x342 + x478);
-	double x480 = x353 + x385;
-	double x481 = x31*(x386 + x480);
-	double x482 = x126*x378;
-	double x483 = x31*(x480 + x482);
-	double x484 = x31*(-x107*x132 + x391);
-	double x485 = ddgtdd_dx2[14]*x36;
-	double x486 = x301 + x440;
-	double x487 = x294 + x433;
-	double x488 = x361 + x435;
-	double x489 = x332 + x426;
-	double x490 = x328 + x429;
-	double x491 = dgtdd_dx[12]*x145;
-	double x492 = -dgtdd_dx[5]*x139;
-	double x493 = x491 + x492;
-	double x494 = x347 + x424;
-	double x495 = ddgtdd_dx2[26]*x50;
-	double x496 = ddgtdd_dx2[8]*x31;
-	double x497 = dgtdd_dx[11]*x163;
-	double x498 = x36*(4*dgtdd_dx[5]*x121 + x449);
-	double x499 = x50*(4*dgtdd_dx[11]*x160 + x310);
-	double x500 = dgtdd_dx[5]*x142;
-	double x501 = x36*(x447 + x500);
-	double x502 = dgtdd_dx[17]*x150;
-	double x503 = dgtdd_dx[5]*x135;
-	double x504 = dgtdd_dx[11]*x142;
-	double x505 = x50*(x274 + x504);
-	double x506 = 4*x127;
-	double x507 = x50*(dgtdd_dx[5]*x506 + x115*x126);
-	double x508 = 4*x158;
-	double x509 = x36*(dgtdd_dx[11]*x508 + x119*x156);
-	double x510 = ddgtdd_dx2[17]*x36;
-	double x511 = x297 + x432;
-	double x512 = x273 + x504;
-	double x513 = x360 + x469;
-	double x514 = x296 + x473;
-	double x515 = x115*x132 + x277;
-	double x516 = x102*x115 - x450;
-	double x517 = x321 + x346;
-	double x518 = x446 + x500;
-	double x519 = x156*x98 - x311;
-	double x520 = -x132*x156 + x466;
-	double x521 = x345 + x471;
-	double x522 = x290 - x435;
-	double x523 = dGammatu_dx[6]*gtdd[2];
-	double x524 = dGammatu_dx[7]*gtdd[4];
-	double x525 = dGammatu_dx[8]*gtdd[5];
-	double x526 = ddgtdd_dx2[11]*x31;
-	double x527 = ddgtdd_dx2[29]*x50;
-	double x528 = x116*(dgtdd_dx[5] + x113);
-	double x529 = x157*(dgtdd_dx[11] + x110);
-	double x530 = dgtdd_dx[12] - 4*dgtdd_dx[2];
-	double x531 = x160*(4*dgtdd_dx[10] + x96);
-	double x532 = 3*dgtdd_dx[4];
-	double x533 = x158*(x131 + x532);
-	double x534 = 3*dgtdd_dx[8];
-	double x535 = x127*(dgtdd_dx[4] + x130 + x534);
-	double x536 = x141*x142;
-	double x537 = 6*x47;
-	double x538 = dgtdd_dx[11]*x147;
-	double x539 = 6*x29;
-	double x540 = dgtdd_dx[5]*x145;
-	double x541 = dgtdd_dx[15]*x150;
-	double x542 = dgtdd_dx[3]*x135;
-	double x543 = x50*(x279 - 4*x280);
-	double x544 = dgtdd_dx[3]*x152;
-	double x545 = x31*(-x400 + x544);
-	double x546 = x50*(dgtdd_dx[3]*x506 - x313);
-	double x547 = x31*(dgtdd_dx[3]*x372 - x402);
-	double x548 = x31*(-x132*x136 + x149*x315);
-	double x549 = x338 - 4*x339;
-	double x550 = x331 + x335;
-	double x551 = x375 + x428;
-	double x552 = x119*x99 + x127*x95;
-	double x553 = x323 + x324;
-	double x554 = x105*x99 + x403;
-	double x555 = x303 + x306;
-	double x556 = x279 - x280;
-	double x557 = x304 + x305;
-	double x558 = -x399 + x544;
-	double x559 = x111*x136 + x147*x98;
-	double x560 = -x132*x147 + x379;
-	double x561 = -x119*x136 + x370;
-	double x562 = ddgtdd_dx2[15]*x36;
-	double x563 = x137*(dgtdd_dx[15] + x97);
-	double x564 = x100*(dgtdd_dx[3] + x94);
-	double x565 = 4*dgtdd_dx[1] + x103;
-	double x566 = 3*dgtdd_dx[13];
-	double x567 = x118 + x566;
-	double x568 = dgtdd_dx[13] + x117 + x532;
-	double x569 = x147*(dgtdd_dx[11] - 4*dgtdd_dx[16]);
-	double x570 = 6*x65;
-	double x571 = dgtdd_dx[15]*x160;
-	double x572 = dgtdd_dx[3]*x162;
-	double x573 = dgtdd_dx[0]*x135;
-	double x574 = dgtdd_dx[12]*x150;
-	double x575 = x31*(x437 - 4*x438);
-	double x576 = x36*(dgtdd_dx[6]*x508 - x455);
-	double x577 = -x405;
-	double x578 = x31*(4*x406 + x577);
-	double x579 = x31*(x149*x457 - x408);
-	double x580 = x452 + 4*x453;
-	double x581 = 4*x491 + x492;
-	double x582 = x452 + x453;
-	double x583 = x341 + x416;
-	double x584 = x102*x149 + x126*x139;
-	double x585 = x105*x162 + x154*x95;
-	double x586 = x406 + x577;
-	double x587 = x355 + x389;
-	double x588 = x352 + x482;
-	double x589 = x388 + x390;
-	double x590 = x382 + x383;
-	double x591 = -x342 + x478;
-	double x592 = x102*x145 + x114*x139;
-	double x593 = x105*x158 - x126*x154;
-	double x594 = ddgtdd_dx2[12]*x36;
-	double x595 = x140*(dgtdd_dx[12] + x101);
-	double x596 = dgtdd_dx[6] + x104;
-	double x597 = dgtdd_dx[3] - 4*dgtdd_dx[7];
-	double x598 = 4*dgtdd_dx[14] + x112;
-	double x599 = x125 + x534;
-	double x600 = x158*(dgtdd_dx[8] + x124 + x566);
-	double x601 = x106*x107;
-	double x602 = -1.0/4.0*x29*(-4*dGammatu_dx[0]*gtdd[0] - 4*dGammatu_dx[1]*gtdd[1] - 4*dGammatu_dx[2]*gtdd[2] + ddgtdd_dx2[0]*x203 + ddgtdd_dx2[18]*x249 - 4*ddgtdd_dx2[24]*x50 + ddgtdd_dx2[30]*x265 - 4*ddgtdd_dx2[6]*x31 - dgtdd_dx[12]*x121*x570 - dgtdd_dx[6]*x133*x537 - dgtdd_dx[6]*x163 - x145*x265*x598 - x149*x249*x599 - x155*x596 - x162*x249*x597 - x176*x582 + x176*x592 + x176*x593 - x177*x584 - x177*x585 + x177*x586 - x178*x583 + x178*x587 + x178*x588 + x178*x589 + x178*x590 + x178*x591 + x265*x600 - x36*x580 - x36*x581 + x573 + x574 + x575 + x576 + x578 + x579 + 4*x594 + x595 + 3*x601) + (1.0/2.0)*x36*(dGammatu_dx[0]*x6 + dGammatu_dx[1]*x18 + dGammatu_dx[2]*x349 + dGammatu_dx[6]*x431 + dGammatu_dx[7]*x5 + dGammatu_dx[8]*x6 - ddgtdd_dx2[20]*x249 - ddgtdd_dx2[2]*x203 - ddgtdd_dx2[32]*x265 - x178*x487 - x178*x488 + x178*x494 + x203*x493 - x249*x486 + x249*x489 + x249*x490 + x445 + x448 + x451 + x454 + x456 + x458 + x460 + x461 + x462 + x463 - x464 - x465 - x468 - x470 - x472 - x474 - x475 - x476 - x477 - x479 - x481 - x483 - x484 - 4*x485 + 4*x495 + 4*x496) - x367*(dGammatu_dx[3]*x6 + dGammatu_dx[4]*x18 + dGammatu_dx[5]*x349 + dGammatu_dx[6]*x5 + dGammatu_dx[7]*x350 + dGammatu_dx[8]*x18 - ddgtdd_dx2[22]*x249 - ddgtdd_dx2[34]*x265 - ddgtdd_dx2[4]*x203 - x176*x348 + x176*x362 + x176*x364 - x203*x344 + x203*x354 + x203*x358 - x249*x340 + x272 + x275 + x278 + x281 + x286 + x288 + x293 + x298 + x302 + x307 - x308 - x309 - x312 - x314 - x316 - x317 - x318 - x319 - x322 - x325 - x329 - x334 - x336 - 4*x337 + 4*x365 + 4*x366) - x444*(dGammatu_dx[0]*x5 + dGammatu_dx[1]*x350 + dGammatu_dx[2]*x18 + dGammatu_dx[3]*x431 + dGammatu_dx[4]*x5 + dGammatu_dx[5]*x6 - ddgtdd_dx2[19]*x249 - ddgtdd_dx2[1]*x203 - ddgtdd_dx2[31]*x265 - x178*x427 - x178*x430 + x178*x441 + x203*x439 - x265*x425 + x265*x434 + x265*x436 + x368 + x371 + x373 + x377 + x380 + x381 + x384 + x387 + x392 + x395 + x396 - x397 - x398 - x401 - x404 - x407 - x409 - x414 - x417 - x419 - x420 - x421 - x422 - 4*x423 + 4*x442 + 4*x443) - 1.0/4.0*x47*(-4*dGammatu_dx[3]*gtdd[1] - 4*dGammatu_dx[4]*gtdd[3] - 4*dGammatu_dx[5]*gtdd[4] + ddgtdd_dx2[21]*x249 - 4*ddgtdd_dx2[27]*x50 + ddgtdd_dx2[33]*x265 + ddgtdd_dx2[3]*x203 - 4*ddgtdd_dx2[9]*x31 - dgtdd_dx[9]*x163 - x127*x265*x567 - x133*x203*x565 - x149*x203*x568 - 3*x151*x152 - x176*x550 - x176*x551 - x176*x553 + x176*x555 + x176*x557 + x176*x560 - x177*x554 + x177*x558 + x177*x561 - x178*x552 + x178*x556 + x178*x559 + x265*x569 - x50*x549 + x539*x572 + x541 + x542 + x543 + x545 + x546 + x547 + x548 + 4*x562 + x563 + x564 + x570*x571) + (1.0/4.0)*x65*(-ddgtdd_dx2[23]*x249 - ddgtdd_dx2[35]*x265 - ddgtdd_dx2[5]*x203 - x121*x203*x530 - x176*x516 + x176*x518 + x176*x520 - x177*x511 - x177*x513 - x177*x514 + x177*x517 + x177*x521 + x177*x522 - x178*x512 - x178*x515 + x178*x519 - x203*x533 - x249*x531 + x249*x535 + x497 + x498 + x499 + x501 - x502 - x503 - x505 - x507 - x509 - 4*x510 + 4*x523 + 4*x524 + 4*x525 + 4*x526 + 4*x527 + x528 - x529 + 3*x536 + x537*x538 + x539*x540);
-	double x603 = 5*dchi_dx[2];
-	double x604 = 4*chi;
-	double x605 = ((dchi_dx[2])*(dchi_dx[2]));
-	double x606 = (1.0/2.0)*x65;
-	double x607 = ((dchi_dx[1])*(dchi_dx[1]));
-	double x608 = (1.0/2.0)*x47;
-	double x609 = ((dchi_dx[0])*(dchi_dx[0]));
-	double x610 = (1.0/2.0)*x29;
-	double x611 = dchi_dx[0]*dchi_dx[1];
-	double x612 = chi*(dchi_dx[0]*x135 - dchi_dx[1]*x163 + dchi_dx[2]*x150) - x31*(ddchi_dx2[1]*x604 - 5*x611) + x36*(-dchi_dx[0]*x603 + ddchi_dx2[2]*x604) - x50*(-dchi_dx[1]*x603 + ddchi_dx2[4]*x604) + x606*(ddchi_dx2[5]*x604 - 5*x605) + x608*(ddchi_dx2[3]*x604 - 5*x607) + x610*(ddchi_dx2[0]*x604 - 5*x609);
-	double x613 = 8*M_PI;
-	double x614 = (1.0/2.0)*x36;
-	double x615 = -ddchi_dx2[2];
-	double x616 = -ddchi_dx2[4];
-	double x617 = -ddchi_dx2[1];
-	double x618 = (1.0/2.0)*x233;
-	double x619 = 1/(((chi)*(chi)));
-	double x620 = x165 + x167;
-	double x621 = x170 + x172;
-	double x622 = x618*(-x176*(dchi_dx[0]*x121 - dchi_dx[1]*x158 + dchi_dx[2]*x145 + x615) + x177*(dchi_dx[0]*x133 - dchi_dx[1]*x162 + dchi_dx[2]*x149 + x617) + x178*(dchi_dx[0]*x127 - dchi_dx[1]*x160 + dchi_dx[2]*x147 + x616) - x606*(dchi_dx[0]*x115 - dchi_dx[1]*x156 + dchi_dx[2]*x142 - 2*ddchi_dx2[5]) + x608*(dchi_dx[0]*x99 - dchi_dx[1]*x152 + dchi_dx[2]*x136 + 2*ddchi_dx2[3]) + x610*(dchi_dx[0]*x107 - dchi_dx[1]*x154 + dchi_dx[2]*x139 + 2*ddchi_dx2[0])) - 3.0/4.0*x619*(dchi_dx[0]*(-x180 + x620) - dchi_dx[1]*(-x168 + x181 + x182) + dchi_dx[2]*(-x183 + x621));
-	double x623 = (1.0/4.0)*x619;
-	double x624 = dalp_dx[0]*x618*(dchi_dx[1]*x32 + x620) + dalp_dx[1]*x618*(dchi_dx[0]*x32 + dchi_dx[2]*x51 + x168) + dalp_dx[2]*x618*(dchi_dx[1]*x51 + x621);
-	double x625 = (1.0/6.0)*dalp_dx[1];
-	double x626 = x233*((1.0/3.0)*alp*(-S*x613 + chi*x602 + x233*x612) + (2.0/3.0)*chi*ddalp_dx2[1]*x31 + (2.0/3.0)*chi*ddalp_dx2[4]*x50 + (1.0/6.0)*dalp_dx[0]*dchi_dx[0]*x29 + (1.0/6.0)*dalp_dx[0]*dchi_dx[2]*x36 - 1.0/6.0*dalp_dx[0]*x180 + (1.0/6.0)*dalp_dx[1]*dchi_dx[1]*x47 + (1.0/6.0)*dalp_dx[2]*dchi_dx[0]*x36 + (1.0/6.0)*dalp_dx[2]*dchi_dx[2]*x65 - 1.0/6.0*dalp_dx[2]*x183 - ddalp_dx2[2]*x0*x36 - 1.0/6.0*x164 - 1.0/3.0*x173 - 1.0/3.0*x174 - 1.0/3.0*x175 - x181*x625 - x182*x625);
-	double x627 = 2*Atdd[1];
-	double x628 = 2*Atdd[2];
-	double x629 = (1.0/2.0)*gtdd[1];
-	double x630 = (1.0/2.0)*dGammatu_dx[1];
-	double x631 = (1.0/2.0)*dGammatu_dx[2];
-	double x632 = (1.0/2.0)*gtdd[0];
-	double x633 = (1.0/2.0)*gtdd[2];
-	double x634 = (1.0/2.0)*dchi_dx[0];
-	double x635 = (1.0/3.0)*Atdd[1];
-	double x636 = Atdd[0]*dbetau_dx[3] - Atdd[1]*x10 + Atdd[1]*x2 + Atdd[2]*dbetau_dx[5] + Atdd[3]*dbetau_dx[1] + Atdd[4]*dbetau_dx[2] + betau[0]*dAtdd_dx_upwind[1] + betau[1]*dAtdd_dx_upwind[7] + betau[2]*dAtdd_dx_upwind[13] + chi*(alp*(-Sij[1]*x613 + dGammatu_dx[0]*x629 + dGammatu_dx[3]*x632 + dGammatu_dx[4]*x629 + dGammatu_dx[5]*x633 - ddgtdd_dx2[19]*x608 - ddgtdd_dx2[1]*x610 - ddgtdd_dx2[31]*x606 + gtdd[1]*x622 + gtdd[3]*x630 + gtdd[4]*x631 - x367*x427 - x367*x430 + x367*x441 + (1.0/4.0)*x368 + (1.0/4.0)*x371 + (1.0/4.0)*x373 + (1.0/4.0)*x377 + (1.0/4.0)*x380 + (1.0/4.0)*x381 + (1.0/4.0)*x384 + (1.0/4.0)*x387 + (1.0/4.0)*x392 + (1.0/4.0)*x395 + (1.0/4.0)*x396 - 1.0/4.0*x397 - 1.0/4.0*x398 - 1.0/4.0*x401 - 1.0/4.0*x404 - 1.0/4.0*x407 - 1.0/4.0*x409 - 1.0/4.0*x414 - 1.0/4.0*x417 - 1.0/4.0*x419 - 1.0/4.0*x420 - 1.0/4.0*x421 - 1.0/4.0*x422 - x423 - x425*x606 + x434*x606 + x436*x606 + x439*x610 + x442 + x443 - x611*x623 + x618*(-dchi_dx[0]*x210 - dchi_dx[1]*x252 - dchi_dx[2]*x266 - x617)) + dalp_dx[0]*x210 + dalp_dx[1]*x252 + dalp_dx[2]*x266 - ddalp_dx2[1] + gtdd[1]*x624 - gtdd[1]*x626 - x233*(dalp_dx[1]*x634 + dchi_dx[1]*x166)) + dbetau_dx[0]*x635 + dbetau_dx[4]*x635 - x17*x55 - x21*x70 - x38*x9;
-	double x637 = dchi_dx[2]*x623;
-	double x638 = (1.0/3.0)*Atdd[2];
-	double x639 = Atdd[0]*dbetau_dx[6] + Atdd[1]*dbetau_dx[7] - Atdd[2]*x14 + Atdd[2]*x2 + Atdd[4]*dbetau_dx[1] + Atdd[5]*dbetau_dx[2] + betau[0]*dAtdd_dx_upwind[2] + betau[1]*dAtdd_dx_upwind[8] + betau[2]*dAtdd_dx_upwind[14] + chi*(alp*(-Sij[2]*x613 + dGammatu_dx[0]*x633 + dGammatu_dx[6]*x632 + dGammatu_dx[7]*x629 + dGammatu_dx[8]*x633 - dchi_dx[0]*x637 - ddgtdd_dx2[20]*x608 - ddgtdd_dx2[2]*x610 - ddgtdd_dx2[32]*x606 + gtdd[2]*x622 + gtdd[4]*x630 + gtdd[5]*x631 - x367*x487 - x367*x488 + x367*x494 + (1.0/4.0)*x445 + (1.0/4.0)*x448 + (1.0/4.0)*x451 + (1.0/4.0)*x454 + (1.0/4.0)*x456 + (1.0/4.0)*x458 + (1.0/4.0)*x460 + (1.0/4.0)*x461 + (1.0/4.0)*x462 + (1.0/4.0)*x463 - 1.0/4.0*x464 - 1.0/4.0*x465 - 1.0/4.0*x468 - 1.0/4.0*x470 - 1.0/4.0*x472 - 1.0/4.0*x474 - 1.0/4.0*x475 - 1.0/4.0*x476 - 1.0/4.0*x477 - 1.0/4.0*x479 - 1.0/4.0*x481 - 1.0/4.0*x483 - 1.0/4.0*x484 - x485 - x486*x608 + x489*x608 + x490*x608 + x493*x610 + x495 + x496 + x618*(-dchi_dx[0]*x207 - dchi_dx[1]*x250 - dchi_dx[2]*x263 - x615)) + dalp_dx[0]*x207 + dalp_dx[1]*x250 + dalp_dx[2]*x263 - ddalp_dx2[2] + gtdd[2]*x624 - gtdd[2]*x626 - x233*(dalp_dx[2]*x634 + dchi_dx[2]*x166)) + dbetau_dx[0]*x638 + dbetau_dx[8]*x638 - x13*x38 - x21*x55 - x24*x70;
-	double x640 = (3.0/2.0)*x29;
-	double x641 = 2*Atdd[4];
-	double x642 = (1.0/2.0)*gtdd[4];
-	double x643 = (1.0/3.0)*Atdd[4];
-	double x644 = Atdd[1]*dbetau_dx[6] + Atdd[2]*dbetau_dx[3] + Atdd[3]*dbetau_dx[7] - Atdd[4]*x19 + Atdd[4]*x2 + Atdd[5]*dbetau_dx[5] + betau[0]*dAtdd_dx_upwind[4] + betau[1]*dAtdd_dx_upwind[10] + betau[2]*dAtdd_dx_upwind[16] + chi*(alp*(-Sij[4]*x613 + dGammatu_dx[3]*x633 + dGammatu_dx[4]*x642 + (1.0/2.0)*dGammatu_dx[5]*gtdd[5] + dGammatu_dx[6]*x629 + (1.0/2.0)*dGammatu_dx[7]*gtdd[3] + dGammatu_dx[8]*x642 - dchi_dx[1]*x637 - ddgtdd_dx2[22]*x608 - ddgtdd_dx2[34]*x606 - ddgtdd_dx2[4]*x610 + gtdd[4]*x622 + (1.0/4.0)*x272 + (1.0/4.0)*x275 + (1.0/4.0)*x278 + (1.0/4.0)*x281 + (1.0/4.0)*x286 + (1.0/4.0)*x288 + (1.0/4.0)*x293 + (1.0/4.0)*x298 + (1.0/4.0)*x302 + (1.0/4.0)*x307 - 1.0/4.0*x308 - 1.0/4.0*x309 - 1.0/4.0*x312 - 1.0/4.0*x314 - 1.0/4.0*x316 - 1.0/4.0*x317 - 1.0/4.0*x318 - 1.0/4.0*x319 - 1.0/4.0*x322 - 1.0/4.0*x325 - 1.0/4.0*x329 - 1.0/4.0*x334 - 1.0/4.0*x336 - x337 - x340*x608 - x344*x610 - x348*x614 + x354*x610 + x358*x610 + x362*x614 + x364*x614 + x365 + x366 + x618*(-dchi_dx[0]*x204 - dchi_dx[1]*x247 - dchi_dx[2]*x261 - x616)) + dalp_dx[0]*x204 + dalp_dx[1]*x247 + dalp_dx[2]*x261 - ddalp_dx2[4] + gtdd[4]*x624 - gtdd[4]*x626 - x233*(dchi_dx[1]*x171 + dchi_dx[2]*x169)) + dbetau_dx[4]*x643 + dbetau_dx[8]*x643 - x13*x42 - x21*x60 - x24*x74;
-	*dchi = betau[0]*dchi_dx_upwind[0] + betau[1]*dchi_dx_upwind[1] + betau[2]*dchi_dx_upwind[2] - dbetau_dx[0]*x0 - dbetau_dx[4]*x0 - dbetau_dx[8]*x0 + x0*x2;
-	(*dgtdd)[0] = betau[0]*dgtdd_dx_upwind[0] + betau[1]*dgtdd_dx_upwind[6] + betau[2]*dgtdd_dx_upwind[12] + dbetau_dx[1]*x5 + dbetau_dx[2]*x6 - dbetau_dx[4]*x7 - dbetau_dx[8]*x7 + gtdd[0]*x8 - x4;
-	(*dgtdd)[1] = x12;
-	(*dgtdd)[2] = x16;
-	(*dgtdd)[3] = betau[0]*dgtdd_dx_upwind[3] + betau[1]*dgtdd_dx_upwind[9] + betau[2]*dgtdd_dx_upwind[15] + dbetau_dx[3]*x5 + dbetau_dx[5]*x18 - gtdd[3]*x10 - gtdd[3]*x19 + gtdd[3]*x20 - x17;
-	(*dgtdd)[4] = x23;
-	(*dgtdd)[5] = betau[0]*dgtdd_dx_upwind[5] + betau[1]*dgtdd_dx_upwind[11] + betau[2]*dgtdd_dx_upwind[17] + dbetau_dx[6]*x6 + dbetau_dx[7]*x18 - gtdd[5]*x14 - gtdd[5]*x19 + gtdd[5]*x25 - x24;
-	*dKhat = alp*x184*(1 - kappa2) + alp*((1.0/3.0)*x26 + x93) + betau[0]*dKhat_dx_upwind[0] + betau[1]*dKhat_dx_upwind[1] + betau[2]*dKhat_dx_upwind[2] + chi*ddalp_dx2[1]*x177 - chi*ddalp_dx2[2]*x176 + chi*ddalp_dx2[4]*x178 - 1.0/2.0*x164 + x165*x166 + x166*x167 - x166*x180 + x168*x169 - x169*x181 - x169*x182 + x170*x171 + x171*x172 - x171*x183 - x173 - x174 - x175 + 4*x179*(S + rho);
-	(*dGammatu)[0] = x241;
-	(*dGammatu)[1] = x258;
-	(*dGammatu)[2] = x271;
-	*dtheta = -alp*(rho*x613 + x184*(kappa2 + 2)) + (1.0/2.0)*alp*(chi*x602 + x233*x612 + (2.0/3.0)*x26 - x93) + betau[0]*dtheta_dx_upwind[0] + betau[1]*dtheta_dx_upwind[1] + betau[2]*dtheta_dx_upwind[2];
-	(*dAtdd)[0] = -Atdd[0]*x10 - Atdd[0]*x14 + Atdd[0]*x2 + Atdd[0]*x8 + betau[0]*dAtdd_dx_upwind[0] + betau[1]*dAtdd_dx_upwind[6] + betau[2]*dAtdd_dx_upwind[12] + chi*(alp*(-Sij[0]*x613 + dGammatu_dx[0]*gtdd[0] + dGammatu_dx[1]*gtdd[1] + dGammatu_dx[2]*gtdd[2] - ddgtdd_dx2[0]*x610 - ddgtdd_dx2[18]*x608 + ddgtdd_dx2[24]*x50 - ddgtdd_dx2[30]*x606 + ddgtdd_dx2[6]*x31 + (3.0/2.0)*dgtdd_dx[12]*x121*x65 + (3.0/2.0)*dgtdd_dx[6]*x133*x47 + (1.0/4.0)*dgtdd_dx[6]*x163 + gtdd[0]*x622 + (1.0/2.0)*x145*x598*x65 + (1.0/2.0)*x149*x47*x599 + (1.0/4.0)*x154*x29*x596 + (1.0/2.0)*x162*x47*x597 + (1.0/2.0)*x233*(-dchi_dx[0]*x223 - dchi_dx[1]*x257 - dchi_dx[2]*x270 + ddchi_dx2[0]) + (1.0/2.0)*x31*x584 + (1.0/2.0)*x31*x585 + (1.0/4.0)*x36*x580 + (1.0/4.0)*x36*x581 + (1.0/2.0)*x36*x582 - x367*x587 - x367*x588 - x367*x589 - x367*x590 - x367*x591 - x444*x586 + (1.0/2.0)*x50*x583 - 1.0/4.0*x573 - 1.0/4.0*x574 - 1.0/4.0*x575 - 1.0/4.0*x576 - 1.0/4.0*x578 - 1.0/4.0*x579 - x592*x614 - x593*x614 - x594 - 1.0/4.0*x595 - x600*x606 - 3.0/4.0*x601 - x609*x623) + dalp_dx[0]*x223 - dalp_dx[0]*x234 + dalp_dx[1]*x257 + dalp_dx[2]*x270 - ddalp_dx2[0] + gtdd[0]*x624 - gtdd[0]*x626) + dbetau_dx[1]*x627 + dbetau_dx[2]*x628 - x13*x70 - x38*x4 - x55*x9;
-	(*dAtdd)[1] = x636;
-	(*dAtdd)[2] = x639;
-	(*dAtdd)[3] = -Atdd[3]*x10 - Atdd[3]*x19 + Atdd[3]*x2 + Atdd[3]*x20 + betau[0]*dAtdd_dx_upwind[3] + betau[1]*dAtdd_dx_upwind[9] + betau[2]*dAtdd_dx_upwind[15] + chi*(alp*(-Sij[3]*x613 + dGammatu_dx[3]*gtdd[1] + dGammatu_dx[4]*gtdd[3] + dGammatu_dx[5]*gtdd[4] - ddgtdd_dx2[21]*x608 + ddgtdd_dx2[27]*x50 - ddgtdd_dx2[33]*x606 - ddgtdd_dx2[3]*x610 + ddgtdd_dx2[9]*x31 + (3.0/4.0)*dgtdd_dx[9]*x152*x47 + (1.0/4.0)*dgtdd_dx[9]*x163 + gtdd[3]*x622 + (1.0/2.0)*x127*x567*x65 + (1.0/2.0)*x133*x29*x565 + (1.0/2.0)*x149*x29*x568 + (1.0/2.0)*x233*(-dchi_dx[0]*x215 - dchi_dx[1]*x254 - dchi_dx[2]*x268 + ddchi_dx2[3]) + (1.0/2.0)*x31*x554 + (1.0/2.0)*x36*x550 + (1.0/2.0)*x36*x551 + (1.0/2.0)*x36*x553 - x367*x556 - x367*x559 - x444*x558 - x444*x561 + (1.0/4.0)*x50*x549 + (1.0/2.0)*x50*x552 - 1.0/4.0*x541 - 1.0/4.0*x542 - 1.0/4.0*x543 - 1.0/4.0*x545 - 1.0/4.0*x546 - 1.0/4.0*x547 - 1.0/4.0*x548 - x555*x614 - x557*x614 - x560*x614 - x562 - 1.0/4.0*x563 - 1.0/4.0*x564 - x569*x606 - 3.0/2.0*x571*x65 - x572*x640 - x607*x623) + dalp_dx[0]*x215 - dalp_dx[1]*x237 + dalp_dx[1]*x254 + dalp_dx[2]*x268 - ddalp_dx2[3] + gtdd[3]*x624 - gtdd[3]*x626) + dbetau_dx[3]*x627 + dbetau_dx[5]*x641 - x17*x60 - x21*x74 - x42*x9;
-	(*dAtdd)[4] = x644;
-	(*dAtdd)[5] = -Atdd[5]*x14 - Atdd[5]*x19 + Atdd[5]*x2 + Atdd[5]*x25 + betau[0]*dAtdd_dx_upwind[5] + betau[1]*dAtdd_dx_upwind[11] + betau[2]*dAtdd_dx_upwind[17] + chi*(alp*(-Sij[5]*x613 - ddgtdd_dx2[23]*x608 - ddgtdd_dx2[35]*x606 - ddgtdd_dx2[5]*x610 + gtdd[5]*x622 - x121*x530*x610 - x367*x512 - x367*x515 + x367*x519 - x444*x511 - x444*x513 - x444*x514 + x444*x517 + x444*x521 + x444*x522 + (3.0/2.0)*x47*x538 + (1.0/4.0)*x497 + (1.0/4.0)*x498 + (1.0/4.0)*x499 + (1.0/4.0)*x501 - 1.0/4.0*x502 - 1.0/4.0*x503 - 1.0/4.0*x505 - 1.0/4.0*x507 - 1.0/4.0*x509 - x510 - x516*x614 + x518*x614 + x520*x614 + x523 + x524 + x525 + x526 + x527 + (1.0/4.0)*x528 - 1.0/4.0*x529 - x531*x608 - x533*x610 + x535*x608 + (3.0/4.0)*x536 + x540*x640 - x605*x623 + x618*(-dchi_dx[0]*x219 - dchi_dx[1]*x256 - dchi_dx[2]*x269 + ddchi_dx2[5])) + dalp_dx[0]*x219 + dalp_dx[1]*x256 - dalp_dx[2]*x239 + dalp_dx[2]*x269 - ddalp_dx2[5] + gtdd[5]*x624 - gtdd[5]*x626) + dbetau_dx[6]*x628 + dbetau_dx[7]*x641 - x13*x40 - x21*x57 - x24*x72;
-	*dalp = -Khat*x3 + betau[0]*dalp_dx_upwind[0] + betau[1]*dalp_dx_upwind[1] + betau[2]*dalp_dx_upwind[2];
-	(*dbetau)[0] = (3.0/4.0)*Bdriver[0] + betau[0]*dbetau_dx_upwind[0] + betau[1]*dbetau_dx_upwind[3] + betau[2]*dbetau_dx_upwind[6];
-	(*dbetau)[1] = (3.0/4.0)*Bdriver[1] + betau[0]*dbetau_dx_upwind[1] + betau[1]*dbetau_dx_upwind[4] + betau[2]*dbetau_dx_upwind[7];
-	(*dbetau)[2] = (3.0/4.0)*Bdriver[2] + betau[0]*dbetau_dx_upwind[2] + betau[1]*dbetau_dx_upwind[5] + betau[2]*dbetau_dx_upwind[8];
-	(*dBdriver)[0] = -Bdriver[0]*eta + betau[0]*(dBdriver_dx_upwind[0] - dGammatu_dx_upwind[0]) + betau[1]*(dBdriver_dx_upwind[3] - dGammatu_dx_upwind[3]) + betau[2]*(dBdriver_dx_upwind[6] - dGammatu_dx_upwind[6]) + x241;
-	(*dBdriver)[1] = -Bdriver[1]*eta + betau[0]*(dBdriver_dx_upwind[1] - dGammatu_dx_upwind[1]) + betau[1]*(dBdriver_dx_upwind[4] - dGammatu_dx_upwind[4]) + betau[2]*(dBdriver_dx_upwind[7] - dGammatu_dx_upwind[7]) + x258;
-	(*dBdriver)[2] = -Bdriver[2]*eta + betau[0]*(dBdriver_dx_upwind[2] - dGammatu_dx_upwind[2]) + betau[1]*(dBdriver_dx_upwind[5] - dGammatu_dx_upwind[5]) + betau[2]*(dBdriver_dx_upwind[8] - dGammatu_dx_upwind[8]) + x271;
+	double x0 = 2*alp;
+	double x1 = 2*gtdd[1];
+	double x2 = 2*gtdd[2];
+	double x3 = (2.0/3.0)*gtdd[0];
+	double x4 = (1.0/3.0)*gtdd[1];
+	double x5 = (2.0/3.0)*dbetau_dx[8];
+	double x6 = -Atdd[1]*x0 + betau[0]*dgtdd_dx_upwind[1] + betau[1]*dgtdd_dx_upwind[7] + betau[2]*dgtdd_dx_upwind[13] + dbetau_dx[0]*x4 + dbetau_dx[1]*gtdd[3] + dbetau_dx[2]*gtdd[4] + dbetau_dx[3]*gtdd[0] + dbetau_dx[4]*x4 + dbetau_dx[5]*gtdd[2] - gtdd[1]*x5;
+	double x7 = (1.0/3.0)*gtdd[2];
+	double x8 = (2.0/3.0)*dbetau_dx[4];
+	double x9 = -Atdd[2]*x0 + betau[0]*dgtdd_dx_upwind[2] + betau[1]*dgtdd_dx_upwind[8] + betau[2]*dgtdd_dx_upwind[14] + dbetau_dx[0]*x7 + dbetau_dx[1]*gtdd[4] + dbetau_dx[2]*gtdd[5] + dbetau_dx[6]*gtdd[0] + dbetau_dx[7]*gtdd[1] + dbetau_dx[8]*x7 - gtdd[2]*x8;
+	double x10 = (2.0/3.0)*dbetau_dx[0];
+	double x11 = 2*gtdd[4];
+	double x12 = (1.0/3.0)*gtdd[4];
+	double x13 = -Atdd[4]*x0 + betau[0]*dgtdd_dx_upwind[4] + betau[1]*dgtdd_dx_upwind[10] + betau[2]*dgtdd_dx_upwind[16] + dbetau_dx[3]*gtdd[2] + dbetau_dx[4]*x12 + dbetau_dx[5]*gtdd[5] + dbetau_dx[6]*gtdd[1] + dbetau_dx[7]*gtdd[3] + dbetau_dx[8]*x12 - gtdd[4]*x10;
+	(*dgtdd_dt)[0] = -Atdd[0]*x0 + betau[0]*dgtdd_dx_upwind[0] + betau[1]*dgtdd_dx_upwind[6] + betau[2]*dgtdd_dx_upwind[12] + (4.0/3.0)*dbetau_dx[0]*gtdd[0] + dbetau_dx[1]*x1 + dbetau_dx[2]*x2 - dbetau_dx[4]*x3 - dbetau_dx[8]*x3;
+	(*dgtdd_dt)[1] = x6;
+	(*dgtdd_dt)[2] = x9;
+	(*dgtdd_dt)[3] = -Atdd[3]*x0 + betau[0]*dgtdd_dx_upwind[3] + betau[1]*dgtdd_dx_upwind[9] + betau[2]*dgtdd_dx_upwind[15] + dbetau_dx[3]*x1 + (4.0/3.0)*dbetau_dx[4]*gtdd[3] + dbetau_dx[5]*x11 - gtdd[3]*x10 - gtdd[3]*x5;
+	(*dgtdd_dt)[4] = x13;
+	(*dgtdd_dt)[5] = -Atdd[5]*x0 + betau[0]*dgtdd_dx_upwind[5] + betau[1]*dgtdd_dx_upwind[11] + betau[2]*dgtdd_dx_upwind[17] + dbetau_dx[6]*x2 + dbetau_dx[7]*x11 + (4.0/3.0)*dbetau_dx[8]*gtdd[5] - gtdd[5]*x10 - gtdd[5]*x8;
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_Khat_rhs(
+	const double Atdd[6],
+	const double betau[3],
+	double alp,
+	double theta,
+	double Ktr,
+	double S,
+	double rho,
+	double kappa1,
+	double kappa2,
+	const double gtuu[6],
+	double DiDialp,
+	const double dKhat_dx_upwind[3],
+	double * __restrict__ dKhat_dt
+)
+{
+	double x0 = Atdd[1]*gtuu[1];
+	double x1 = Atdd[2]*gtuu[2];
+	double x2 = Atdd[0]*gtuu[0] + x0 + x1;
+	double x3 = Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2];
+	double x4 = Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2];
+	double x5 = Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4];
+	double x6 = Atdd[4]*gtuu[4];
+	double x7 = Atdd[3]*gtuu[3] + x0 + x6;
+	double x8 = Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4];
+	double x9 = 3*Atdd[1];
+	double x10 = Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5];
+	double x11 = Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5];
+	double x12 = Atdd[5]*gtuu[5] + x1 + x6;
+	double x13 = 3*Atdd[2];
+	double x14 = 3*Atdd[4];
+	*dKhat_dt = -DiDialp - alp*kappa1*theta*(kappa2 - 1) + 4*M_PI*alp*(S + rho) + (1.0/3.0)*alp*(3*Atdd[0]*(gtuu[0]*x2 + gtuu[1]*x3 + gtuu[2]*x4) + 3*Atdd[3]*(gtuu[1]*x5 + gtuu[3]*x7 + gtuu[4]*x8) + 3*Atdd[5]*(gtuu[2]*x10 + gtuu[4]*x11 + gtuu[5]*x12) + ((Ktr)*(Ktr)) + x13*(gtuu[0]*x10 + gtuu[1]*x11 + gtuu[2]*x12) + x13*(gtuu[2]*x2 + gtuu[4]*x3 + gtuu[5]*x4) + x14*(gtuu[1]*x10 + gtuu[3]*x11 + gtuu[4]*x12) + x14*(gtuu[2]*x5 + gtuu[4]*x7 + gtuu[5]*x8) + x9*(gtuu[0]*x5 + gtuu[1]*x7 + gtuu[2]*x8) + x9*(gtuu[1]*x2 + gtuu[3]*x3 + gtuu[4]*x4)) + betau[0]*dKhat_dx_upwind[0] + betau[1]*dKhat_dx_upwind[1] + betau[2]*dKhat_dx_upwind[2];
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_Gammatilde_rhs(
+	const double Atdd[6],
+	const double betau[3],
+	double alp,
+	double W,
+	const double Gammatu[3],
+	const double Si[3],
+	double kappa1,
+	const double gtuu[6],
+	const double Gammatddd[18],
+	const double dbetau_dx[9],
+	const double dGammatu_dx_upwind[9],
+	const double dKhat_dx[3],
+	const double dW_dx[3],
+	const double dalp_dx[3],
+	const double dtheta_dx[3],
+	const double ddbetau_dx2[18],
+	double (*dGammatu_dt)[3]
+)
+{
+	double x0 = 16*M_PI*alp;
+	double x1 = Si[0]*x0;
+	double x2 = Si[1]*x0;
+	double x3 = Si[2]*x0;
+	double x4 = (2.0/3.0)*alp;
+	double x5 = x4*(2*dKhat_dx[0] + dtheta_dx[0]);
+	double x6 = x4*(2*dKhat_dx[1] + dtheta_dx[1]);
+	double x7 = x4*(2*dKhat_dx[2] + dtheta_dx[2]);
+	double x8 = 2*dalp_dx[0];
+	double x9 = 2*dalp_dx[1];
+	double x10 = 2*dalp_dx[2];
+	double x11 = 6*alp/W;
+	double x12 = dW_dx[0]*x11;
+	double x13 = dW_dx[1]*x11;
+	double x14 = dW_dx[2]*x11;
+	double x15 = 2*alp;
+	double x16 = kappa1*x15;
+	(*dGammatu_dt)[0] = betau[0]*dGammatu_dx_upwind[0] + betau[1]*dGammatu_dx_upwind[3] + betau[2]*dGammatu_dx_upwind[6] - 1.0/3.0*dbetau_dx[0]*(gtuu[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + 2*gtuu[1]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + 2*gtuu[2]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + gtuu[3]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + 2*gtuu[4]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + gtuu[5]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0])) - dbetau_dx[3]*(gtuu[0]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + 2*gtuu[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + 2*gtuu[2]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + gtuu[3]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + 2*gtuu[4]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + gtuu[5]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) + dbetau_dx[4]*((2.0/3.0)*gtuu[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + (4.0/3.0)*gtuu[1]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + (4.0/3.0)*gtuu[2]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + (2.0/3.0)*gtuu[3]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + (4.0/3.0)*gtuu[4]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + (2.0/3.0)*gtuu[5]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0])) - dbetau_dx[6]*(gtuu[0]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + 2*gtuu[1]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + 2*gtuu[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + gtuu[3]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + 2*gtuu[4]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + gtuu[5]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2])) + dbetau_dx[8]*((2.0/3.0)*gtuu[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + (4.0/3.0)*gtuu[1]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + (4.0/3.0)*gtuu[2]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + (2.0/3.0)*gtuu[3]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + (4.0/3.0)*gtuu[4]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + (2.0/3.0)*gtuu[5]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0])) + (4.0/3.0)*ddbetau_dx2[0]*gtuu[0] + (1.0/3.0)*ddbetau_dx2[10]*gtuu[1] + 2*ddbetau_dx2[12]*gtuu[4] + (1.0/3.0)*ddbetau_dx2[13]*gtuu[2] + (1.0/3.0)*ddbetau_dx2[14]*gtuu[1] + ddbetau_dx2[15]*gtuu[5] + (1.0/3.0)*ddbetau_dx2[17]*gtuu[2] + (7.0/3.0)*ddbetau_dx2[3]*gtuu[1] + (1.0/3.0)*ddbetau_dx2[4]*gtuu[0] + (7.0/3.0)*ddbetau_dx2[6]*gtuu[2] + (1.0/3.0)*ddbetau_dx2[8]*gtuu[0] + ddbetau_dx2[9]*gtuu[3] - gtuu[0]*x1 - gtuu[0]*x5 - gtuu[1]*x2 - gtuu[1]*x6 - gtuu[2]*x3 - gtuu[2]*x7 - x10*(gtuu[2]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[4]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[5]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) - x12*(gtuu[0]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[1]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[2]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) - x13*(gtuu[1]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[3]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[4]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) - x14*(gtuu[2]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[4]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[5]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) + x15*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1])*(gtuu[0]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[1]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[2]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) + x15*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0])*(gtuu[1]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[3]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[4]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) + x15*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0])*(gtuu[2]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[4]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[5]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) + x15*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0])*(gtuu[2]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[4]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[5]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) + x15*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1])*(gtuu[0]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[1]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[2]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) + x15*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1])*(gtuu[1]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[3]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[4]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) + x15*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1])*(gtuu[0]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[1]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[2]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) + x15*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1])*(gtuu[2]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[4]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[5]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) + x15*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1])*(gtuu[1]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[3]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[4]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) + x16*(-Gammatu[0] + gtuu[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + 2*gtuu[1]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + 2*gtuu[2]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + gtuu[3]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + 2*gtuu[4]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + gtuu[5]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0])) - x8*(gtuu[0]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[1]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[2]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) - x9*(gtuu[1]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[3]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[4]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2]));
+	(*dGammatu_dt)[1] = betau[0]*dGammatu_dx_upwind[1] + betau[1]*dGammatu_dx_upwind[4] + betau[2]*dGammatu_dx_upwind[7] + dbetau_dx[0]*((2.0/3.0)*gtuu[0]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + (4.0/3.0)*gtuu[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + (4.0/3.0)*gtuu[2]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + (2.0/3.0)*gtuu[3]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + (4.0/3.0)*gtuu[4]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + (2.0/3.0)*gtuu[5]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) - dbetau_dx[1]*(gtuu[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + 2*gtuu[1]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + 2*gtuu[2]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + gtuu[3]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + 2*gtuu[4]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + gtuu[5]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0])) - 1.0/3.0*dbetau_dx[4]*(gtuu[0]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + 2*gtuu[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + 2*gtuu[2]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + gtuu[3]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + 2*gtuu[4]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + gtuu[5]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) - dbetau_dx[7]*(gtuu[0]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + 2*gtuu[1]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + 2*gtuu[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + gtuu[3]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + 2*gtuu[4]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + gtuu[5]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2])) + dbetau_dx[8]*((2.0/3.0)*gtuu[0]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + (4.0/3.0)*gtuu[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + (4.0/3.0)*gtuu[2]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + (2.0/3.0)*gtuu[3]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + (4.0/3.0)*gtuu[4]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + (2.0/3.0)*gtuu[5]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) + (1.0/3.0)*ddbetau_dx2[0]*gtuu[1] + (4.0/3.0)*ddbetau_dx2[10]*gtuu[3] + (7.0/3.0)*ddbetau_dx2[13]*gtuu[4] + (1.0/3.0)*ddbetau_dx2[14]*gtuu[3] + ddbetau_dx2[16]*gtuu[5] + (1.0/3.0)*ddbetau_dx2[17]*gtuu[4] + ddbetau_dx2[1]*gtuu[0] + (1.0/3.0)*ddbetau_dx2[3]*gtuu[3] + (7.0/3.0)*ddbetau_dx2[4]*gtuu[1] + (1.0/3.0)*ddbetau_dx2[6]*gtuu[4] + 2*ddbetau_dx2[7]*gtuu[2] + (1.0/3.0)*ddbetau_dx2[8]*gtuu[1] - gtuu[1]*x1 - gtuu[1]*x5 - gtuu[3]*x2 - gtuu[3]*x6 - gtuu[4]*x3 - gtuu[4]*x7 - x10*(gtuu[2]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[4]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[5]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) - x12*(gtuu[0]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[1]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[2]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) - x13*(gtuu[1]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[3]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[4]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) - x14*(gtuu[2]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[4]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[5]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) + x15*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3])*(gtuu[0]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[1]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[2]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) + x15*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])*(gtuu[1]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[3]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[4]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) + x15*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])*(gtuu[2]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[4]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[5]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) + x15*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])*(gtuu[2]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[4]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[5]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) + x15*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3])*(gtuu[0]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[1]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[2]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) + x15*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3])*(gtuu[1]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[3]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[4]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) + x15*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3])*(gtuu[0]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[1]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[2]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) + x15*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3])*(gtuu[2]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[4]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[5]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) + x15*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3])*(gtuu[1]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[3]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[4]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) + x16*(-Gammatu[1] + gtuu[0]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + 2*gtuu[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + 2*gtuu[2]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + gtuu[3]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + 2*gtuu[4]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + gtuu[5]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) - x8*(gtuu[0]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[1]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[2]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) - x9*(gtuu[1]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[3]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[4]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4]));
+	(*dGammatu_dt)[2] = betau[0]*dGammatu_dx_upwind[2] + betau[1]*dGammatu_dx_upwind[5] + betau[2]*dGammatu_dx_upwind[8] + dbetau_dx[0]*((2.0/3.0)*gtuu[0]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + (4.0/3.0)*gtuu[1]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + (4.0/3.0)*gtuu[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + (2.0/3.0)*gtuu[3]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + (4.0/3.0)*gtuu[4]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + (2.0/3.0)*gtuu[5]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2])) - dbetau_dx[2]*(gtuu[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + 2*gtuu[1]*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + 2*gtuu[2]*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + gtuu[3]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + 2*gtuu[4]*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + gtuu[5]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0])) + dbetau_dx[4]*((2.0/3.0)*gtuu[0]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + (4.0/3.0)*gtuu[1]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + (4.0/3.0)*gtuu[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + (2.0/3.0)*gtuu[3]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + (4.0/3.0)*gtuu[4]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + (2.0/3.0)*gtuu[5]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2])) - dbetau_dx[5]*(gtuu[0]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + 2*gtuu[1]*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + 2*gtuu[2]*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + gtuu[3]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + 2*gtuu[4]*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + gtuu[5]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1])) - 1.0/3.0*dbetau_dx[8]*(gtuu[0]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + 2*gtuu[1]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + 2*gtuu[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + gtuu[3]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + 2*gtuu[4]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + gtuu[5]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2])) + (1.0/3.0)*ddbetau_dx2[0]*gtuu[2] + (1.0/3.0)*ddbetau_dx2[10]*gtuu[4] + ddbetau_dx2[11]*gtuu[3] + (1.0/3.0)*ddbetau_dx2[13]*gtuu[5] + (7.0/3.0)*ddbetau_dx2[14]*gtuu[4] + (4.0/3.0)*ddbetau_dx2[17]*gtuu[5] + ddbetau_dx2[2]*gtuu[0] + (1.0/3.0)*ddbetau_dx2[3]*gtuu[4] + (1.0/3.0)*ddbetau_dx2[4]*gtuu[2] + 2*ddbetau_dx2[5]*gtuu[1] + (1.0/3.0)*ddbetau_dx2[6]*gtuu[5] + (7.0/3.0)*ddbetau_dx2[8]*gtuu[2] - gtuu[2]*x1 - gtuu[2]*x5 - gtuu[4]*x2 - gtuu[4]*x6 - gtuu[5]*x3 - gtuu[5]*x7 - x10*(gtuu[2]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[4]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[5]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) - x12*(gtuu[0]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[1]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[2]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) - x13*(gtuu[1]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[3]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[4]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) - x14*(gtuu[2]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[4]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[5]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) + x15*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4])*(gtuu[0]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[1]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[2]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) + x15*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])*(gtuu[1]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[3]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[4]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) + x15*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])*(gtuu[2]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[4]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[5]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) + x15*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2])*(gtuu[2]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[4]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[5]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) + x15*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4])*(gtuu[0]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[1]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[2]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) + x15*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4])*(gtuu[1]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[3]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[4]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) + x15*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])*(gtuu[0]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[1]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[2]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) + x15*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4])*(gtuu[2]*(Atdd[0]*gtuu[0] + Atdd[1]*gtuu[1] + Atdd[2]*gtuu[2]) + gtuu[4]*(Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2]) + gtuu[5]*(Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2])) + x15*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4])*(gtuu[1]*(Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4]) + gtuu[3]*(Atdd[1]*gtuu[1] + Atdd[3]*gtuu[3] + Atdd[4]*gtuu[4]) + gtuu[4]*(Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4])) + x16*(-Gammatu[2] + gtuu[0]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + 2*gtuu[1]*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + 2*gtuu[2]*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + gtuu[3]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + 2*gtuu[4]*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + gtuu[5]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2])) - x8*(gtuu[0]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[1]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[2]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5])) - x9*(gtuu[1]*(Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5]) + gtuu[3]*(Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5]) + gtuu[4]*(Atdd[2]*gtuu[2] + Atdd[4]*gtuu[4] + Atdd[5]*gtuu[5]));
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_theta_rhs(
+	const double Atdd[6],
+	const double betau[3],
+	double alp,
+	double theta,
+	double Khat,
+	double rho,
+	double kappa1,
+	double kappa2,
+	const double gtuu[6],
+	double Rtrace,
+	const double dtheta_dx_upwind[3],
+	double * __restrict__ dtheta_dt
+)
+{
+	double x0 = Atdd[1]*gtuu[1];
+	double x1 = Atdd[2]*gtuu[2];
+	double x2 = Atdd[0]*gtuu[0] + x0 + x1;
+	double x3 = Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + Atdd[4]*gtuu[2];
+	double x4 = Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + Atdd[5]*gtuu[2];
+	double x5 = Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + Atdd[2]*gtuu[4];
+	double x6 = Atdd[4]*gtuu[4];
+	double x7 = Atdd[3]*gtuu[3] + x0 + x6;
+	double x8 = Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + Atdd[5]*gtuu[4];
+	double x9 = 3*Atdd[1];
+	double x10 = Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + Atdd[2]*gtuu[5];
+	double x11 = Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + Atdd[4]*gtuu[5];
+	double x12 = Atdd[5]*gtuu[5] + x1 + x6;
+	double x13 = 3*Atdd[2];
+	double x14 = 3*Atdd[4];
+	*dtheta_dt = -alp*(kappa1*theta*(kappa2 + 2) + 8*M_PI*rho) - 1.0/6.0*alp*(3*Atdd[0]*(gtuu[0]*x2 + gtuu[1]*x3 + gtuu[2]*x4) + 3*Atdd[3]*(gtuu[1]*x5 + gtuu[3]*x7 + gtuu[4]*x8) + 3*Atdd[5]*(gtuu[2]*x10 + gtuu[4]*x11 + gtuu[5]*x12) - 3*Rtrace + x13*(gtuu[0]*x10 + gtuu[1]*x11 + gtuu[2]*x12) + x13*(gtuu[2]*x2 + gtuu[4]*x3 + gtuu[5]*x4) + x14*(gtuu[1]*x10 + gtuu[3]*x11 + gtuu[4]*x12) + x14*(gtuu[2]*x5 + gtuu[4]*x7 + gtuu[5]*x8) + x9*(gtuu[0]*x5 + gtuu[1]*x7 + gtuu[2]*x8) + x9*(gtuu[1]*x2 + gtuu[3]*x3 + gtuu[4]*x4) - 2*((Khat + 2*theta)*(Khat + 2*theta))) + betau[0]*dtheta_dx_upwind[0] + betau[1]*dtheta_dx_upwind[1] + betau[2]*dtheta_dx_upwind[2];
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_Atdd_rhs(
+	const double gtdd[6],
+	const double Atdd[6],
+	const double betau[3],
+	double alp,
+	double W,
+	double Ktr,
+	double S,
+	const double Sij[6],
+	const double gtuu[6],
+	const double DiDjalp[6],
+	double DiDialp,
+	const double Rdd[6],
+	double Rtrace,
+	const double dAtdd_dx_upwind[18],
+	const double dbetau_dx[9],
+	double (*dAtdd_dt)[6]
+)
+{
+	double x0 = (2.0/3.0)*Atdd[0];
+	double x1 = 2*Atdd[1];
+	double x2 = 2*Atdd[2];
+	double x3 = Ktr*alp;
+	double x4 = alp*gtuu[2];
+	double x5 = x2*x4;
+	double x6 = Atdd[2]*x1;
+	double x7 = alp*gtuu[4];
+	double x8 = 2*alp;
+	double x9 = ((Atdd[2])*(Atdd[2]))*x8;
+	double x10 = 8*M_PI;
+	double x11 = (1.0/3.0)*DiDialp - 1.0/3.0*alp*(Rtrace - S*x10);
+	double x12 = ((W)*(W));
+	double x13 = (1.0/3.0)*Atdd[1];
+	double x14 = (2.0/3.0)*dbetau_dx[8];
+	double x15 = x2*x7;
+	double x16 = alp*gtuu[5];
+	double x17 = x16*x2;
+	double x18 = Atdd[0]*dbetau_dx[3] - Atdd[1]*x14 + Atdd[1]*x3 + Atdd[2]*dbetau_dx[5] + Atdd[3]*dbetau_dx[1] - Atdd[3]*x15 + Atdd[4]*dbetau_dx[2] - Atdd[4]*x17 + betau[0]*dAtdd_dx_upwind[1] + betau[1]*dAtdd_dx_upwind[7] + betau[2]*dAtdd_dx_upwind[13] + dbetau_dx[0]*x13 + dbetau_dx[4]*x13 + gtdd[1]*x11 - x12*(DiDjalp[1] - alp*(Rdd[1] - Sij[1]*x10)) - x4*x6;
+	double x19 = (1.0/3.0)*Atdd[2];
+	double x20 = (2.0/3.0)*dbetau_dx[4];
+	double x21 = Atdd[0]*dbetau_dx[6] + Atdd[1]*dbetau_dx[7] - Atdd[2]*x20 + Atdd[2]*x3 + Atdd[4]*dbetau_dx[1] - Atdd[4]*x15 + Atdd[5]*dbetau_dx[2] - Atdd[5]*x17 + betau[0]*dAtdd_dx_upwind[2] + betau[1]*dAtdd_dx_upwind[8] + betau[2]*dAtdd_dx_upwind[14] + dbetau_dx[0]*x19 + dbetau_dx[8]*x19 + gtdd[2]*x11 - gtuu[2]*x9 - x12*(DiDjalp[2] - alp*(Rdd[2] - Sij[2]*x10));
+	double x22 = (2.0/3.0)*dbetau_dx[0];
+	double x23 = 2*Atdd[4];
+	double x24 = x23*x7;
+	double x25 = ((Atdd[4])*(Atdd[4]))*x8;
+	double x26 = (1.0/3.0)*Atdd[4];
+	double x27 = Atdd[1]*dbetau_dx[6] + Atdd[2]*dbetau_dx[3] + Atdd[3]*dbetau_dx[7] - Atdd[4]*x22 + Atdd[4]*x3 - Atdd[4]*x5 + Atdd[5]*dbetau_dx[5] - Atdd[5]*x16*x23 + betau[0]*dAtdd_dx_upwind[4] + betau[1]*dAtdd_dx_upwind[10] + betau[2]*dAtdd_dx_upwind[16] + dbetau_dx[4]*x26 + dbetau_dx[8]*x26 + gtdd[4]*x11 - gtuu[4]*x25 - x12*(DiDjalp[4] - alp*(Rdd[4] - Sij[4]*x10));
+	(*dAtdd_dt)[0] = (4.0/3.0)*Atdd[0]*dbetau_dx[0] + Atdd[0]*x3 - Atdd[0]*x5 + betau[0]*dAtdd_dx_upwind[0] + betau[1]*dAtdd_dx_upwind[6] + betau[2]*dAtdd_dx_upwind[12] + dbetau_dx[1]*x1 + dbetau_dx[2]*x2 - dbetau_dx[4]*x0 - dbetau_dx[8]*x0 + gtdd[0]*x11 - gtuu[5]*x9 - x12*(DiDjalp[0] - alp*(Rdd[0] - Sij[0]*x10)) - x6*x7;
+	(*dAtdd_dt)[1] = x18;
+	(*dAtdd_dt)[2] = x21;
+	(*dAtdd_dt)[3] = (4.0/3.0)*Atdd[3]*dbetau_dx[4] - Atdd[3]*x14 - Atdd[3]*x22 - Atdd[3]*x24 + Atdd[3]*x3 - Atdd[4]*x1*x4 + betau[0]*dAtdd_dx_upwind[3] + betau[1]*dAtdd_dx_upwind[9] + betau[2]*dAtdd_dx_upwind[15] + dbetau_dx[3]*x1 + dbetau_dx[5]*x23 + gtdd[3]*x11 - gtuu[5]*x25 - x12*(DiDjalp[3] - alp*(Rdd[3] - Sij[3]*x10));
+	(*dAtdd_dt)[4] = x27;
+	(*dAtdd_dt)[5] = -((Atdd[5])*(Atdd[5]))*gtuu[5]*x8 + (4.0/3.0)*Atdd[5]*dbetau_dx[8] - Atdd[5]*x20 - Atdd[5]*x22 - Atdd[5]*x24 + Atdd[5]*x3 - Atdd[5]*x5 + betau[0]*dAtdd_dx_upwind[5] + betau[1]*dAtdd_dx_upwind[11] + betau[2]*dAtdd_dx_upwind[17] + dbetau_dx[6]*x2 + dbetau_dx[7]*x23 + gtdd[5]*x11 - x12*(DiDjalp[5] - alp*(Rdd[5] - Sij[5]*x10));
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_alpha_rhs(
+	const double betau[3],
+	double alp,
+	double Khat,
+	const double dalp_dx_upwind[3],
+	double * __restrict__ dalpha_dt
+)
+{
+	*dalpha_dt = -2*Khat*alp + betau[0]*dalp_dx_upwind[0] + betau[1]*dalp_dx_upwind[1] + betau[2]*dalp_dx_upwind[2];
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_beta_rhs(
+	const double betau[3],
+	const double Bdriver[3],
+	const double dbetau_dx_upwind[9],
+	double (*dbeta_dt)[3]
+)
+{
+	(*dbeta_dt)[0] = (3.0/4.0)*Bdriver[0] + betau[0]*dbetau_dx_upwind[0] + betau[1]*dbetau_dx_upwind[3] + betau[2]*dbetau_dx_upwind[6];
+	(*dbeta_dt)[1] = (3.0/4.0)*Bdriver[1] + betau[0]*dbetau_dx_upwind[1] + betau[1]*dbetau_dx_upwind[4] + betau[2]*dbetau_dx_upwind[7];
+	(*dbeta_dt)[2] = (3.0/4.0)*Bdriver[2] + betau[0]*dbetau_dx_upwind[2] + betau[1]*dbetau_dx_upwind[5] + betau[2]*dbetau_dx_upwind[8];
+}
+
+static void KOKKOS_INLINE_FUNCTION
+z4c_get_Bdriver_rhs(
+	const double betau[3],
+	const double Bdriver[3],
+	double eta,
+	const double dGammatu_dt[3],
+	const double dBdriver_dx_upwind[9],
+	const double dGammatu_dx_upwind[9],
+	double (*dBd_dt)[3]
+)
+{
+	(*dBd_dt)[0] = -Bdriver[0]*eta + betau[0]*(dBdriver_dx_upwind[0] - dGammatu_dx_upwind[0]) + betau[1]*(dBdriver_dx_upwind[3] - dGammatu_dx_upwind[3]) + betau[2]*(dBdriver_dx_upwind[6] - dGammatu_dx_upwind[6]) + dGammatu_dt[0];
+	(*dBd_dt)[1] = -Bdriver[1]*eta + betau[0]*(dBdriver_dx_upwind[1] - dGammatu_dx_upwind[1]) + betau[1]*(dBdriver_dx_upwind[4] - dGammatu_dx_upwind[4]) + betau[2]*(dBdriver_dx_upwind[7] - dGammatu_dx_upwind[7]) + dGammatu_dt[1];
+	(*dBd_dt)[2] = -Bdriver[2]*eta + betau[0]*(dBdriver_dx_upwind[2] - dGammatu_dx_upwind[2]) + betau[1]*(dBdriver_dx_upwind[5] - dGammatu_dx_upwind[5]) + betau[2]*(dBdriver_dx_upwind[8] - dGammatu_dx_upwind[8]) + dGammatu_dt[2];
 }
 
 static void KOKKOS_INLINE_FUNCTION
 z4c_get_constraints(
-	const double gtdd[6],
 	const double Atdd[6],
-	double chi,
+	double W,
 	double theta,
 	double Khat,
 	double rho,
 	const double Si[3],
+	const double gtuu[6],
+	const double Gammatddd[18],
+	double Rtrace,
 	const double dgtdd_dx[18],
 	const double dAtdd_dx[18],
-	const double dGammatu_dx[9],
 	const double dKhat_dx[3],
-	const double dchi_dx[3],
+	const double dW_dx[3],
 	const double dtheta_dx[3],
-	const double ddgtdd_dx2[36],
-	const double ddchi_dx2[6],
 	double * __restrict__ H,
 	double (*M)[3]
 )
 {
-	double x0 = gtdd[1]*gtdd[4] - gtdd[2]*gtdd[3];
-	double x1 = gtdd[3]*gtdd[5] - ((gtdd[4])*(gtdd[4]));
-	double x2 = gtdd[1]*gtdd[5] - gtdd[2]*gtdd[4];
-	double x3 = Atdd[2]*x1 - Atdd[4]*x2 + Atdd[5]*x0;
-	double x4 = Atdd[1]*x1 - Atdd[3]*x2 + Atdd[4]*x0;
-	double x5 = Atdd[2]*x0;
-	double x6 = Atdd[1]*x2;
-	double x7 = Atdd[0]*x1 + x5 - x6;
-	double x8 = x0*x3 + x1*x7 - x2*x4;
-	double x9 = gtdd[0]*gtdd[3] - ((gtdd[1])*(gtdd[1]));
-	double x10 = gtdd[0]*gtdd[4] - gtdd[1]*gtdd[2];
-	double x11 = x0*x7 - x10*x4 + x3*x9;
-	double x12 = Atdd[4]*x10;
-	double x13 = Atdd[5]*x9 - x12 + x5;
-	double x14 = Atdd[1]*x0 - Atdd[3]*x10 + Atdd[4]*x9;
-	double x15 = Atdd[0]*x0 - Atdd[1]*x10 + Atdd[2]*x9;
-	double x16 = x0*x13 + x1*x15 - x14*x2;
-	double x17 = x0*x15 - x10*x14 + x13*x9;
-	double x18 = gtdd[0]*gtdd[5] - ((gtdd[2])*(gtdd[2]));
-	double x19 = -x10*x3 + x18*x4 - x2*x7;
-	double x20 = -x10*x13 + x14*x18 - x15*x2;
-	double x21 = -Atdd[2]*x2 + Atdd[4]*x18 - Atdd[5]*x10;
-	double x22 = Atdd[3]*x18 - x12 - x6;
-	double x23 = -Atdd[0]*x2 + Atdd[1]*x18 - Atdd[2]*x10;
-	double x24 = x0*x21 + x1*x23 - x2*x22;
-	double x25 = x0*x23 - x10*x22 + x21*x9;
-	double x26 = -x10*x21 + x18*x22 - x2*x23;
-	double x27 = 1/(chi);
-	double x28 = 4*chi;
-	double x29 = 5*dchi_dx[1];
-	double x30 = 2*x2;
-	double x31 = 2*x0;
-	double x32 = 2*x10;
-	double x33 = dgtdd_dx[11]*x0;
-	double x34 = -dgtdd_dx[4];
-	double x35 = dgtdd_dx[13] + x34;
-	double x36 = dgtdd_dx[8] + x35;
-	double x37 = -dgtdd_dx[15]*x2 + x1*x36 + x33;
-	double x38 = 4*x10;
-	double x39 = dgtdd_dx[5]*x0;
-	double x40 = dgtdd_dx[12]*x1;
-	double x41 = -dgtdd_dx[8];
-	double x42 = dgtdd_dx[4] + x41;
-	double x43 = dgtdd_dx[13] + x42;
-	double x44 = -x2*x43 + x39 + x40;
-	double x45 = 4*x0;
-	double x46 = dgtdd_dx[6]*x1;
-	double x47 = -dgtdd_dx[13];
-	double x48 = dgtdd_dx[8] + x47;
-	double x49 = dgtdd_dx[4] + x48;
-	double x50 = -dgtdd_dx[3]*x2 + x0*x49 + x46;
-	double x51 = 4*x2;
-	double x52 = dgtdd_dx[17]*x0;
-	double x53 = 2*dgtdd_dx[16];
-	double x54 = dgtdd_dx[11] - x53;
-	double x55 = 2*dgtdd_dx[14];
-	double x56 = -dgtdd_dx[5];
-	double x57 = x55 + x56;
-	double x58 = x1*x57 + x2*x54 + x52;
-	double x59 = x58*x9;
-	double x60 = 2*dgtdd_dx[7];
-	double x61 = dgtdd_dx[3] - x60;
-	double x62 = 2*dgtdd_dx[10];
-	double x63 = -dgtdd_dx[15];
-	double x64 = x62 + x63;
-	double x65 = dgtdd_dx[9]*x2 - x0*x64 + x1*x61;
-	double x66 = x18*x65;
-	double x67 = dgtdd_dx[0]*x1;
-	double x68 = 2*dgtdd_dx[2];
-	double x69 = dgtdd_dx[12] - x68;
-	double x70 = 2*dgtdd_dx[1];
-	double x71 = -dgtdd_dx[6];
-	double x72 = x70 + x71;
-	double x73 = x0*x69 + x2*x72 - x67;
-	double x74 = x1*x73 + x37*x38 - x44*x45 + x50*x51 - x59 + x66;
-	double x75 = dgtdd_dx[11]*x9;
-	double x76 = -dgtdd_dx[15]*x10 + x0*x36 + x75;
-	double x77 = dgtdd_dx[12]*x0;
-	double x78 = dgtdd_dx[5]*x9;
-	double x79 = -x10*x43 + x77 + x78;
-	double x80 = dgtdd_dx[6]*x0;
-	double x81 = -dgtdd_dx[3]*x10 + x49*x9 + x80;
-	double x82 = dgtdd_dx[17]*x9;
-	double x83 = x0*x57 + x10*x54 + x82;
-	double x84 = dgtdd_dx[9]*x10 + x0*x61 - x64*x9;
-	double x85 = x18*x84;
-	double x86 = dgtdd_dx[0]*x0;
-	double x87 = x10*x72 + x69*x9 - x86;
-	double x88 = x1*x87;
-	double x89 = x38*x76 - x45*x79 + x51*x81 - x83*x9 + x85 + x88;
-	double x90 = dgtdd_dx[11]*x10;
-	double x91 = dgtdd_dx[15]*x18;
-	double x92 = x2*x36 + x90 - x91;
-	double x93 = dgtdd_dx[12]*x2;
-	double x94 = dgtdd_dx[5]*x10;
-	double x95 = -x18*x43 + x93 + x94;
-	double x96 = dgtdd_dx[6]*x2;
-	double x97 = dgtdd_dx[3]*x18;
-	double x98 = x10*x49 + x96 - x97;
-	double x99 = dgtdd_dx[17]*x10;
-	double x100 = x18*x54 + x2*x57 + x99;
-	double x101 = x100*x9;
-	double x102 = dgtdd_dx[9]*x18;
-	double x103 = -x10*x64 + x102 + x2*x61;
-	double x104 = dgtdd_dx[0]*x2;
-	double x105 = x10*x69 - x104 + x18*x72;
-	double x106 = x1*x105;
-	double x107 = -x101 + x103*x18 + x106 + x38*x92 - x45*x95 + x51*x98;
-	double x108 = 4*gtdd[2];
-	double x109 = 4*gtdd[4];
-	double x110 = 2*x18;
-	double x111 = 2*x9;
-	double x112 = 2*x1;
-	double x113 = 6*x18;
-	double x114 = 6*x1;
-	double x115 = 3*dgtdd_dx[8];
-	double x116 = 2*x37;
-	double x117 = 3*dgtdd_dx[4];
-	double x118 = dgtdd_dx[11]*x79;
-	double x119 = dgtdd_dx[5]*x76;
-	double x120 = 2*x119;
-	double x121 = 2*x118;
-	double x122 = dgtdd_dx[11]*x92;
-	double x123 = dgtdd_dx[15]*x100;
-	double x124 = dgtdd_dx[17]*x76;
-	double x125 = dgtdd_dx[11]*x83;
-	double x126 = 4*dgtdd_dx[5];
-	double x127 = dgtdd_dx[12]*x58;
-	double x128 = dgtdd_dx[17]*x79;
-	double x129 = dgtdd_dx[5]*x83;
-	double x130 = 4*x128;
-	double x131 = 4*x124;
-	double x132 = dgtdd_dx[12]*x37;
-	double x133 = 2*x49;
-	double x134 = x133*x44;
-	double x135 = dgtdd_dx[15]*x95;
-	double x136 = x133*x92;
-	double x137 = 4*x95;
-	double x138 = x116*x69;
-	double x139 = x36*x44;
-	double x140 = x43*x92;
-	double x141 = 2*x95;
-	double x142 = x141*x64;
-	double x143 = x54*x95;
-	double x144 = x54*x92;
-	double x145 = x37*x57;
-	double x146 = x44*x57;
-	double x147 = 4*gtdd[1];
-	double x148 = dgtdd_dx[15]*x92;
-	double x149 = 6*x9;
-	double x150 = 3*dgtdd_dx[13];
-	double x151 = dgtdd_dx[15]*x98;
-	double x152 = dgtdd_dx[3]*x92;
-	double x153 = 2*x152;
-	double x154 = 2*x151;
-	double x155 = dgtdd_dx[9]*x92;
-	double x156 = dgtdd_dx[15]*x103;
-	double x157 = dgtdd_dx[9]*x98;
-	double x158 = 4*x157;
-	double x159 = dgtdd_dx[3]*x103;
-	double x160 = dgtdd_dx[11]*x81;
-	double x161 = 2*x43;
-	double x162 = x161*x76;
-	double x163 = dgtdd_dx[15]*x76;
-	double x164 = dgtdd_dx[11]*x84;
-	double x165 = 4*dgtdd_dx[3];
-	double x166 = dgtdd_dx[6]*x65;
-	double x167 = dgtdd_dx[6]*x37;
-	double x168 = x161*x50;
-	double x169 = 4*x81;
-	double x170 = x36*x65;
-	double x171 = 2*x81;
-	double x172 = x171*x54;
-	double x173 = x36*x50;
-	double x174 = x116*x72;
-	double x175 = x50*x61;
-	double x176 = x64*x81;
-	double x177 = dgtdd_dx[12]*x44;
-	double x178 = dgtdd_dx[6]*x50;
-	double x179 = dgtdd_dx[12]*x50;
-	double x180 = dgtdd_dx[6]*x44;
-	double x181 = 2*x180;
-	double x182 = 2*x179;
-	double x183 = dgtdd_dx[6]*x98;
-	double x184 = dgtdd_dx[3]*x105;
-	double x185 = dgtdd_dx[0]*x44;
-	double x186 = -dgtdd_dx[12]*x73;
-	double x187 = dgtdd_dx[0]*x50;
-	double x188 = dgtdd_dx[6]*x73;
-	double x189 = -x188;
-	double x190 = dgtdd_dx[3]*x95;
-	double x191 = 2*x36;
-	double x192 = x191*x98;
-	double x193 = dgtdd_dx[5]*x81;
-	double x194 = x191*x79;
-	double x195 = dgtdd_dx[12]*x79;
-	double x196 = -dgtdd_dx[5]*x87;
-	double x197 = x49*x87;
-	double x198 = x105*x43;
-	double x199 = x141*x61;
-	double x200 = x43*x98;
-	double x201 = x49*x79;
-	double x202 = x171*x57;
-	double x203 = 2*gtdd[2];
-	double x204 = 2*gtdd[4];
-	double x205 = 2*gtdd[5];
-	double x206 = 2*dGammatu_dx[6];
-	double x207 = 2*dGammatu_dx[7];
-	double x208 = 2*x193;
-	double x209 = x43*x79;
-	double x210 = dgtdd_dx[11]*x98 + x135;
-	double x211 = x43*x44;
-	double x212 = dgtdd_dx[5]*x50 + x132;
-	double x213 = dgtdd_dx[17]*x81;
-	double x214 = -x54*x79;
-	double x215 = dgtdd_dx[15]*x79;
-	double x216 = 2*x160;
-	double x217 = -dgtdd_dx[5]*x84 + x216;
-	double x218 = 2*x76;
-	double x219 = dgtdd_dx[11]*x218;
-	double x220 = dgtdd_dx[17]*x84;
-	double x221 = 2*x54;
-	double x222 = 2*x213;
-	double x223 = x49*x98;
-	double x224 = x50*x69;
-	double x225 = x44*x72;
-	double x226 = dgtdd_dx[3]*x44;
-	double x227 = dgtdd_dx[12]*x65;
-	double x228 = x49*x50;
-	double x229 = x221*x98;
-	double x230 = dgtdd_dx[9]*x95;
-	double x231 = 2*x230;
-	double x232 = x64*x98;
-	double x233 = 2*x92;
-	double x234 = 2*x57;
-	double x235 = x234*x50;
-	double x236 = x36*x76;
-	double x237 = x36*x92;
-	double x238 = x118 + x57*x76;
-	double x239 = dgtdd_dx[12]*x218;
-	double x240 = -dgtdd_dx[11]*x87;
-	double x241 = x208 + x240;
-	double x242 = 2*dgtdd_dx[5];
-	double x243 = -dgtdd_dx[17]*x87 + x242*x79;
-	double x244 = x167 + x173;
-	double x245 = x151 - x61*x92;
-	double x246 = -dgtdd_dx[15]*x105;
-	double x247 = dgtdd_dx[6]*x233 + x246;
-	double x248 = x181 + x182;
-	double x249 = dgtdd_dx[0]*x116;
-	double x250 = x36*x73;
-	double x251 = 2*x44;
-	double x252 = 2*gtdd[1];
-	double x253 = 2*x190;
-	double x254 = 2*dgtdd_dx[3];
-	double x255 = dgtdd_dx[9]*x105 - x254*x98;
-	double x256 = 8*M_PI;
-	double x257 = Si[2]*x256;
-	double x258 = ((x0)*(x0));
-	double x259 = ((x2)*(x2));
-	double x260 = Si[0]*x256;
-	double x261 = dKhat_dx[1] + 2*dtheta_dx[1];
-	double x262 = (2.0/3.0)*(dKhat_dx[2] + 2*dtheta_dx[2]);
-	double x263 = (2.0/3.0)*(dKhat_dx[0] + 2*dtheta_dx[0]);
-	double x264 = x0*x10;
-	double x265 = x0*x2;
-	double x266 = x1*x10;
-	double x267 = dAtdd_dx[16]*x9;
-	double x268 = x1*x2;
-	double x269 = x18*x2;
-	double x270 = (2.0/3.0)*x27;
-	double x271 = dchi_dx[0]*x270;
-	double x272 = dchi_dx[2]*x270;
-	double x273 = dchi_dx[1]*x270;
-	double x274 = dgtdd_dx[14]*x16;
-	double x275 = dgtdd_dx[2]*x8;
-	double x276 = dgtdd_dx[14]*x17;
-	double x277 = dgtdd_dx[16]*x20;
-	double x278 = dgtdd_dx[2]*x11;
-	double x279 = dgtdd_dx[4]*x19;
-	double x280 = dgtdd_dx[13]*x20;
-	double x281 = dgtdd_dx[1]*x19;
-	double x282 = dgtdd_dx[8]*x24;
-	double x283 = dgtdd_dx[10]*x26;
-	double x284 = dgtdd_dx[8]*x25;
-	double x285 = dgtdd_dx[7]*x26;
-	double x286 = (1.0/2.0)*x107;
-	double x287 = ((x10)*(x10));
-	double x288 = x10*x2;
-	double x289 = x0*x18;
-	double x290 = x10*x18;
-	double x291 = -x95;
-	double x292 = -x92;
-	double x293 = -x98;
-	double x294 = x2*x9;
-	*H = -Atdd[0]*x8 - Atdd[1]*x19 - Atdd[1]*x24 - Atdd[2]*x11 - Atdd[2]*x16 - Atdd[3]*x26 - Atdd[4]*x20 - Atdd[4]*x25 - Atdd[5]*x17 - 1.0/4.0*chi*(x1*(-4*dGammatu_dx[0]*gtdd[0] - dGammatu_dx[1]*x147 - dGammatu_dx[2]*x108 + ddgtdd_dx2[0]*x112 + ddgtdd_dx2[12]*x45 + ddgtdd_dx2[18]*x110 - ddgtdd_dx2[24]*x38 + ddgtdd_dx2[30]*x111 - ddgtdd_dx2[6]*x51 + dgtdd_dx[0]*x74 + dgtdd_dx[12]*x89 - dgtdd_dx[6]*x107 - x0*(4*x185 + x186) - x0*(4*x195 + x196) + x0*(dgtdd_dx[6]*x137 - x198) - x106*(dgtdd_dx[6] + x70) - x110*x81*(x115 + x35) - x110*x98*(dgtdd_dx[3] - 4*dgtdd_dx[7]) - x111*x79*(4*dgtdd_dx[14] + x56) + x111*x95*(dgtdd_dx[8] + x150 + x34) - x113*x178 - x149*x177 + x2*(-4*x183 + x184) + x2*(4*x187 + x189) + x2*(dgtdd_dx[12]*x169 - x197) + x30*(x187 + x189) - x30*(x105*x61 + x72*x98) - x30*(x36*x87 + x69*x81) - x31*(x185 + x186) + x31*(-x105*x36 + x72*x95) + x31*(x57*x87 + x69*x79) + x32*(x179 + x181) + x32*(x180 + x182) - x32*(x190 + x192) + x32*(x193 + x194) + x32*(x199 - x200) + x32*(x201 + x202) + 3*x67*x73 + x88*(dgtdd_dx[12] + x68)) + x18*(-dGammatu_dx[3]*x147 - 4*dGammatu_dx[4]*gtdd[3] - dGammatu_dx[5]*x109 + ddgtdd_dx2[15]*x45 + ddgtdd_dx2[21]*x110 - ddgtdd_dx2[27]*x38 + ddgtdd_dx2[33]*x111 + ddgtdd_dx2[3]*x112 - ddgtdd_dx2[9]*x51 + dgtdd_dx[15]*x89 + dgtdd_dx[3]*x114*x98 + dgtdd_dx[3]*x74 - dgtdd_dx[9]*x107 + x10*(-4*x155 + x156) - x10*(-4*x163 + x164) + x10*(x165*x37 - x170) - 3*x102*x103 + x111*x76*(dgtdd_dx[11] - 4*dgtdd_dx[16]) - x112*x50*(4*dgtdd_dx[1] + x71) - x112*x81*(dgtdd_dx[13] + x117 + x41) - x116*x9*(x150 + x42) + x148*x149 + x2*(-x158 + x159) + x2*(dgtdd_dx[15]*x169 - x49*x84) + x2*(x165*x50 - x166) + x30*(-x157 + x159) - x30*(x175 + x65*x72) + x30*(x176 - x43*x84) + x31*(x151 + x153) + x31*(x152 + x154) - x31*(x160 + x162) - x31*(x167 + x168) + x31*(x172 - x49*x76) - x31*(x173 + x174) + x32*(-x155 + x156) - x32*(x37*x61 + x43*x65) + x32*(x54*x84 + x64*x76) + x66*(dgtdd_dx[3] + x60) + x85*(dgtdd_dx[15] + x62)) + x30*(dGammatu_dx[0]*x252 + 2*dGammatu_dx[1]*gtdd[3] + dGammatu_dx[2]*x204 + 2*dGammatu_dx[3]*gtdd[0] + dGammatu_dx[4]*x252 + dGammatu_dx[5]*x203 - ddgtdd_dx2[13]*x45 - ddgtdd_dx2[19]*x110 - ddgtdd_dx2[1]*x112 + ddgtdd_dx2[25]*x38 - ddgtdd_dx2[31]*x111 + ddgtdd_dx2[7]*x51 - dgtdd_dx[13]*x89 - dgtdd_dx[1]*x74 + dgtdd_dx[7]*x107 - x0*(x247 + x253) + x0*(x248 - x43*x73) - x0*(x192 + x246 + x253) + x0*(2*x201 + x202 + x54*x87) + x0*(2*x209 + x239 + x240) + x0*(2*x225 + x249 - x250) - x1*(-2*x187 + x188 + x72*x73) - x1*(-dgtdd_dx[12]*x171 + x197 + x43*x87) + x10*(-x168 + x227 + x251*x61) + x10*(x172 + x57*x84 - 2*x64*x79) + x10*(-x103*x36 + x154 + x231) - x111*(2*x135 + x237) + x111*(x214 + x238) + x111*(x132 + x139 + x211) + x112*(-x183 + x184) - x18*(x103*x61 + x158) - x18*(x166 + 2*x175 - x254*x50) + x18*(dgtdd_dx[15]*x171 + 2*x176 - x36*x84) - x2*(x255 + 2*x61*x98) + x2*(dgtdd_dx[3]*x73 - 4*x178) - x2*(dgtdd_dx[6]*x103 + x255) - x2*(-dgtdd_dx[0]*x65 + 2*x50*x72 + x61*x73) + x2*(dgtdd_dx[12]*x84 - x161*x81 + x64*x87) - x2*(-dgtdd_dx[15]*x87 + x171*x36 + x171*x49) - x32*(x226 + x244) + x32*(x230 + x245) - x32*(x160 + x215 + x236)) - x31*(dGammatu_dx[0]*x203 + dGammatu_dx[1]*x204 + dGammatu_dx[2]*x205 + dGammatu_dx[8]*x203 - ddgtdd_dx2[14]*x45 - ddgtdd_dx2[20]*x110 + ddgtdd_dx2[26]*x38 - ddgtdd_dx2[2]*x112 - ddgtdd_dx2[32]*x111 + ddgtdd_dx2[8]*x51 - dgtdd_dx[14]*x89 - dgtdd_dx[2]*x74 + dgtdd_dx[8]*x107 + gtdd[0]*x206 + gtdd[1]*x207 + x0*(dgtdd_dx[12]*x83 + x243) + x0*(-dgtdd_dx[5]*x73 + 4*x177) + x0*(x234*x79 + x243) - x0*(-dgtdd_dx[0]*x58 + x251*x69 + x57*x73) - x0*(-dgtdd_dx[11]*x105 + x161*x95 + x191*x95) - x0*(dgtdd_dx[6]*x100 + x105*x54 + x141*x49) + x1*(2*x185 + x186 + x69*x73) + x1*(-dgtdd_dx[6]*x141 + x105*x49 + x198) - x10*(x121 + x222 + x36*x83) - x10*(dgtdd_dx[6]*x58 + x134 + x235) - x10*(x100*x61 - x142 + x229) + x110*(x216 + x236) + x110*(x228 + x244) - x110*(x232 + x245) + x112*(x195 + x196) - x2*(x194 + x241) + x2*(2*x223 + x247) - x2*(x239 + x241) - x2*(x248 - x49*x73) + x2*(2*x224 - x249 + x250) - x2*(x105*x64 + x199 - 2*x200) - x32*(x139 + x212) + x32*(x210 + x237) - x32*(x213 + x238) + x9*(x130 + x57*x83) + x9*(x127 + 2*x146 + x242*x44) - x9*(dgtdd_dx[11]*x141 + x100*x36 - 2*x143)) + x32*(dGammatu_dx[3]*x203 + dGammatu_dx[4]*x204 + dGammatu_dx[5]*x205 + dGammatu_dx[8]*x204 + ddgtdd_dx2[10]*x51 - ddgtdd_dx2[16]*x45 - ddgtdd_dx2[22]*x110 + ddgtdd_dx2[28]*x38 - ddgtdd_dx2[34]*x111 - ddgtdd_dx2[4]*x112 + dgtdd_dx[10]*x107 - dgtdd_dx[16]*x89 - dgtdd_dx[4]*x74 + gtdd[1]*x206 + gtdd[3]*x207 + x0*(x120 + x222 + x43*x83) + x0*(-x138 + x235 + x58*x72) - x0*(dgtdd_dx[3]*x100 + x136 - x229) - x10*(dgtdd_dx[11]*x103 - 4*x148) + x10*(-x219 + x220 + x221*x76) - x10*(dgtdd_dx[15]*x83 + x219 - x220) - x10*(dgtdd_dx[3]*x58 + x116*x49 - x57*x65) - x10*(-dgtdd_dx[5]*x65 + x116*x36 + x161*x37) + x10*(dgtdd_dx[9]*x100 + x103*x54 + x233*x64) - x110*(-x163 + x164) + x112*(x208 + x209) + x112*(x179 - x224 + x225) - x112*(x190 + x200 + x223) - x18*(-dgtdd_dx[3]*x116 + x170 + x49*x65) + x18*(x103*x64 - 2*x155 + x156) - x2*(x162 + x217) - x2*(2*x215 + x217) - x2*(2*x173 + x174 + x65*x69) - x2*(2*x226 - x227 + 2*x228) + x2*(-x103*x43 + x231 + 2*x232) + x2*(-x103*x49 + x153 + x154) - x31*(x140 + x210) + x31*(x211 + x212) + x31*(x119 + x213 + x214) + x9*(x131 - x54*x83) - x9*(2*x122 + x123 - 2*x144) + x9*(dgtdd_dx[5]*x116 + 2*x145 + x43*x58)) - x9*(dGammatu_dx[6]*x108 + dGammatu_dx[7]*x109 + 4*dGammatu_dx[8]*gtdd[5] + ddgtdd_dx2[11]*x51 - ddgtdd_dx2[17]*x45 - ddgtdd_dx2[23]*x110 + ddgtdd_dx2[29]*x38 - ddgtdd_dx2[35]*x111 - ddgtdd_dx2[5]*x112 + dgtdd_dx[11]*x107 + dgtdd_dx[11]*x113*x76 - dgtdd_dx[17]*x89 + dgtdd_dx[5]*x114*x79 - dgtdd_dx[5]*x74 + x0*(x129 + x130) - x0*(dgtdd_dx[11]*x137 + x100*x43) + x0*(x126*x44 + x127) + x10*(4*x122 + x123) - x10*(x125 + x131) - x10*(x126*x37 + x36*x58) - x101*(dgtdd_dx[11] + x53) - x110*x92*(4*dgtdd_dx[10] + x63) - x112*x44*(dgtdd_dx[12] - 4*dgtdd_dx[2]) - x112*x95*(x117 + x48) + x116*x18*(dgtdd_dx[4] + x115 + x47) - x30*(x118 + x120) - x30*(x119 + x121) - x30*(x132 + x134) + x30*(x135 + x136) + x30*(x138 - x139) + x30*(x140 + x142) + x31*(x128 + x129) - x31*(-x146 + x58*x69) + x31*(-x100*x49 + x143) - x32*(x124 + x125) - x32*(x145 + x49*x58) + x32*(x100*x64 - x144) + x59*(dgtdd_dx[5] + x55) + 3*x82*x83)) - 16*M_PI*rho + (1.0/2.0)*x27*(2*chi*(dchi_dx[0]*x74 - dchi_dx[1]*x107 + dchi_dx[2]*x89) + x1*(-5*((dchi_dx[0])*(dchi_dx[0])) + ddchi_dx2[0]*x28) + x18*(-5*((dchi_dx[1])*(dchi_dx[1])) + ddchi_dx2[3]*x28) - x30*(-dchi_dx[0]*x29 + ddchi_dx2[1]*x28) + x31*(-5*dchi_dx[0]*dchi_dx[2] + ddchi_dx2[2]*x28) - x32*(-dchi_dx[2]*x29 + ddchi_dx2[4]*x28) + x9*(-5*((dchi_dx[2])*(dchi_dx[2])) + ddchi_dx2[5]*x28)) + (2.0/3.0)*((Khat + 2*theta)*(Khat + 2*theta));
-	(*M)[0] = 8*M_PI*Si[1]*x2 + dAtdd_dx[0]*((x1)*(x1)) + dAtdd_dx[10]*x0*x18 + dAtdd_dx[10]*x10*x2 - dAtdd_dx[11]*x264 + dAtdd_dx[12]*x0*x1 - dAtdd_dx[13]*x265 - dAtdd_dx[13]*x266 + dAtdd_dx[14]*x1*x9 + dAtdd_dx[14]*x258 + dAtdd_dx[15]*x10*x2 - dAtdd_dx[16]*x264 + dAtdd_dx[17]*x0*x9 - dAtdd_dx[1]*x1*x30 + 2*dAtdd_dx[2]*x0*x1 + dAtdd_dx[3]*x259 - dAtdd_dx[4]*x0*x30 + dAtdd_dx[5]*x258 - dAtdd_dx[6]*x268 + dAtdd_dx[7]*x1*x18 + dAtdd_dx[7]*x259 - dAtdd_dx[8]*x265 - dAtdd_dx[8]*x266 - dAtdd_dx[9]*x269 + dgtdd_dx[10]*x2*x25 + dgtdd_dx[13]*x16*x2 + dgtdd_dx[15]*x2*x20 + dgtdd_dx[16]*x17*x2 + dgtdd_dx[1]*x2*x8 + dgtdd_dx[3]*x19*x2 + dgtdd_dx[4]*x11*x2 + dgtdd_dx[7]*x2*x24 + dgtdd_dx[9]*x2*x26 - x0*x257 - x0*x262 - x0*x274 - x0*x275 - x0*x277 - x0*x279 - x0*x282 - x0*x283 - x1*x260 - x1*x263 - x1*x276 - x1*x278 - x1*x280 - x1*x281 - x1*x284 - x1*x285 - x11*x272 - x11*x39 + x11*x44 - x16*x40 + x16*x44 - x17*x52 + (1.0/2.0)*x17*x58 - x19*x273 + x19*x50 + (2.0/3.0)*x2*x261 - x2*x267 + x20*x37 - x24*x46 + x24*x50 - x25*x33 + x25*x37 - 1.0/2.0*x26*x65 - x271*x8 - x286*x4 + (1.0/2.0)*x3*x89 - x67*x8 + (1.0/2.0)*x7*x74 - 1.0/2.0*x73*x8;
-	(*M)[1] = -Si[1]*x18*x256 - dAtdd_dx[0]*x268 - dAtdd_dx[10]*x18*x32 + dAtdd_dx[11]*x287 - dAtdd_dx[12]*x0*x2 + dAtdd_dx[13]*x288 + dAtdd_dx[13]*x289 - dAtdd_dx[14]*x2*x9 - dAtdd_dx[14]*x264 - dAtdd_dx[15]*x290 + dAtdd_dx[16]*x287 - dAtdd_dx[17]*x10*x9 + dAtdd_dx[1]*x1*x18 + dAtdd_dx[1]*x259 - dAtdd_dx[2]*x265 - dAtdd_dx[2]*x266 - dAtdd_dx[3]*x269 + dAtdd_dx[4]*x288 + dAtdd_dx[4]*x289 - dAtdd_dx[5]*x264 + dAtdd_dx[6]*x259 - dAtdd_dx[7]*x18*x30 + dAtdd_dx[8]*x2*x32 + dAtdd_dx[9]*((x18)*(x18)) - dgtdd_dx[10]*x18*x25 - dgtdd_dx[13]*x16*x18 + dgtdd_dx[13]*x2*x20 + dgtdd_dx[14]*x17*x2 - dgtdd_dx[16]*x17*x18 - dgtdd_dx[1]*x18*x8 + dgtdd_dx[1]*x19*x2 + dgtdd_dx[2]*x11*x2 - dgtdd_dx[4]*x11*x18 - dgtdd_dx[7]*x18*x24 + dgtdd_dx[7]*x2*x26 + dgtdd_dx[8]*x2*x25 + x10*x257 + x10*x262 + x10*x274 + x10*x275 + x10*x277 + x10*x279 + x10*x282 + x10*x283 - 1.0/2.0*x100*x17 - x102*x26 + (1.0/2.0)*x103*x26 + x104*x8 + (1.0/2.0)*x105*x8 + x11*x291 + x11*x94 + x16*x291 + x16*x93 + x17*x99 - 2.0/3.0*x18*x261 + x18*x267 + x19*x293 - x19*x97 + x2*x260 + x2*x263 + x20*x292 - x20*x91 + (1.0/2.0)*x21*x89 - x22*x286 + (1.0/2.0)*x23*x74 - x24*x271 + x24*x293 + x24*x96 - x25*x272 + x25*x292 + x25*x90 - x26*x273;
-	(*M)[2] = 8*M_PI*Si[1]*x10 + dAtdd_dx[0]*x0*x1 + dAtdd_dx[10]*x18*x9 + dAtdd_dx[10]*x287 - dAtdd_dx[11]*x10*x9 + dAtdd_dx[12]*x258 - dAtdd_dx[13]*x0*x32 + 2*dAtdd_dx[14]*x0*x9 + dAtdd_dx[15]*x287 + dAtdd_dx[17]*((x9)*(x9)) - dAtdd_dx[1]*x265 - dAtdd_dx[1]*x266 + dAtdd_dx[2]*x1*x9 + dAtdd_dx[2]*x258 + dAtdd_dx[3]*x10*x2 - dAtdd_dx[4]*x264 - dAtdd_dx[4]*x294 + dAtdd_dx[5]*x0*x9 - dAtdd_dx[6]*x265 + dAtdd_dx[7]*x0*x18 + dAtdd_dx[7]*x10*x2 - dAtdd_dx[8]*x264 - dAtdd_dx[8]*x294 - dAtdd_dx[9]*x290 + dgtdd_dx[10]*x10*x25 + dgtdd_dx[13]*x10*x16 + dgtdd_dx[15]*x10*x20 + dgtdd_dx[16]*x10*x17 + dgtdd_dx[1]*x10*x8 + dgtdd_dx[3]*x10*x19 + dgtdd_dx[4]*x10*x11 + dgtdd_dx[7]*x10*x24 + dgtdd_dx[9]*x10*x26 - x0*x260 - x0*x263 - x0*x276 - x0*x278 - x0*x280 - x0*x281 - x0*x284 - x0*x285 + (2.0/3.0)*x10*x261 - x11*x78 + x11*x79 + (1.0/2.0)*x13*x89 - x14*x286 + (1.0/2.0)*x15*x74 - x16*x271 - x16*x77 + x16*x79 - x17*x272 - x17*x82 + (1.0/2.0)*x17*x83 + x19*x81 - x20*x273 + x20*x76 - x24*x80 + x24*x81 - x25*x75 + x25*x76 - x257*x9 - 1.0/2.0*x26*x84 - x262*x9 - x267*x32 - x274*x9 - x275*x9 - x277*x9 - x279*x9 - x282*x9 - x283*x9 - x8*x86 - 1.0/2.0*x8*x87;
+	double x0 = Atdd[1]*gtuu[1];
+	double x1 = Atdd[2]*gtuu[2];
+	double x2 = Atdd[0]*gtuu[0] + x0 + x1;
+	double x3 = Atdd[4]*gtuu[2];
+	double x4 = Atdd[1]*gtuu[0] + Atdd[3]*gtuu[1] + x3;
+	double x5 = Atdd[5]*gtuu[2];
+	double x6 = Atdd[2]*gtuu[0] + Atdd[4]*gtuu[1] + x5;
+	double x7 = gtuu[0]*x2 + gtuu[1]*x4 + gtuu[2]*x6;
+	double x8 = Atdd[2]*gtuu[4];
+	double x9 = Atdd[0]*gtuu[1] + Atdd[1]*gtuu[3] + x8;
+	double x10 = Atdd[4]*gtuu[4];
+	double x11 = Atdd[3]*gtuu[3] + x0 + x10;
+	double x12 = Atdd[5]*gtuu[4];
+	double x13 = Atdd[2]*gtuu[1] + Atdd[4]*gtuu[3] + x12;
+	double x14 = gtuu[0]*x9 + gtuu[1]*x11 + gtuu[2]*x13;
+	double x15 = gtuu[1]*x2 + gtuu[3]*x4 + gtuu[4]*x6;
+	double x16 = Atdd[2]*gtuu[5];
+	double x17 = Atdd[0]*gtuu[2] + Atdd[1]*gtuu[4] + x16;
+	double x18 = Atdd[4]*gtuu[5];
+	double x19 = Atdd[1]*gtuu[2] + Atdd[3]*gtuu[4] + x18;
+	double x20 = Atdd[5]*gtuu[5];
+	double x21 = x1 + x10 + x20;
+	double x22 = gtuu[0]*x17 + gtuu[1]*x19 + gtuu[2]*x21;
+	double x23 = gtuu[2]*x2 + gtuu[4]*x4 + gtuu[5]*x6;
+	double x24 = gtuu[1]*x9 + gtuu[3]*x11 + gtuu[4]*x13;
+	double x25 = gtuu[1]*x17 + gtuu[3]*x19 + gtuu[4]*x21;
+	double x26 = gtuu[2]*x9 + gtuu[4]*x11 + gtuu[5]*x13;
+	double x27 = gtuu[2]*x17 + gtuu[4]*x19 + gtuu[5]*x21;
+	double x28 = 8*M_PI;
+	double x29 = Si[0]*x28;
+	double x30 = Si[1]*x28;
+	double x31 = Si[2]*x28;
+	double x32 = ((gtuu[2])*(gtuu[2]));
+	double x33 = ((gtuu[1])*(gtuu[1]));
+	double x34 = (2.0/3.0)*(dKhat_dx[0] + 2*dtheta_dx[0]);
+	double x35 = (2.0/3.0)*(dKhat_dx[1] + 2*dtheta_dx[1]);
+	double x36 = (2.0/3.0)*(dKhat_dx[2] + 2*dtheta_dx[2]);
+	double x37 = dgtdd_dx[0]*x7;
+	double x38 = dgtdd_dx[10]*x26;
+	double x39 = dgtdd_dx[10]*x24;
+	double x40 = dgtdd_dx[11]*x26;
+	double x41 = dgtdd_dx[12]*x22;
+	double x42 = dgtdd_dx[13]*x25;
+	double x43 = dgtdd_dx[13]*x22;
+	double x44 = dgtdd_dx[14]*x27;
+	double x45 = dgtdd_dx[14]*x22;
+	double x46 = dgtdd_dx[15]*x25;
+	double x47 = dgtdd_dx[16]*x27;
+	double x48 = dgtdd_dx[16]*x25;
+	double x49 = dgtdd_dx[17]*x27;
+	double x50 = dgtdd_dx[1]*x15;
+	double x51 = dgtdd_dx[1]*x7;
+	double x52 = dgtdd_dx[2]*x23;
+	double x53 = dgtdd_dx[2]*x7;
+	double x54 = dgtdd_dx[3]*x15;
+	double x55 = dgtdd_dx[4]*x23;
+	double x56 = dgtdd_dx[4]*x15;
+	double x57 = dgtdd_dx[5]*x23;
+	double x58 = dgtdd_dx[6]*x14;
+	double x59 = dgtdd_dx[7]*x24;
+	double x60 = dgtdd_dx[7]*x14;
+	double x61 = dgtdd_dx[8]*x26;
+	double x62 = dgtdd_dx[8]*x14;
+	double x63 = dgtdd_dx[9]*x24;
+	double x64 = 3/W;
+	double x65 = dW_dx[0]*x64;
+	double x66 = dW_dx[1]*x64;
+	double x67 = dW_dx[2]*x64;
+	double x68 = 2*gtuu[1];
+	double x69 = 2*gtuu[2];
+	double x70 = 2*gtuu[4];
+	double x71 = ((gtuu[4])*(gtuu[4]));
+	*H = -Atdd[0]*x7 - Atdd[1]*x14 - Atdd[1]*x15 - Atdd[2]*x22 - Atdd[2]*x23 - Atdd[3]*x24 - Atdd[4]*x25 - Atdd[4]*x26 - Atdd[5]*x27 + Rtrace - 16*M_PI*rho + (2.0/3.0)*((Khat + 2*theta)*(Khat + 2*theta));
+	(*M)[0] = dAtdd_dx[0]*((gtuu[0])*(gtuu[0])) + dAtdd_dx[10]*gtuu[1]*gtuu[4] + dAtdd_dx[10]*gtuu[2]*gtuu[3] + dAtdd_dx[11]*gtuu[2]*gtuu[4] + dAtdd_dx[12]*gtuu[0]*gtuu[2] + dAtdd_dx[13]*gtuu[0]*gtuu[4] + dAtdd_dx[13]*gtuu[1]*gtuu[2] + dAtdd_dx[14]*gtuu[0]*gtuu[5] + dAtdd_dx[14]*x32 + dAtdd_dx[15]*gtuu[1]*gtuu[4] + dAtdd_dx[16]*gtuu[1]*gtuu[5] + dAtdd_dx[16]*gtuu[2]*gtuu[4] + dAtdd_dx[17]*gtuu[2]*gtuu[5] + 2*dAtdd_dx[1]*gtuu[0]*gtuu[1] + 2*dAtdd_dx[2]*gtuu[0]*gtuu[2] + dAtdd_dx[3]*x33 + 2*dAtdd_dx[4]*gtuu[1]*gtuu[2] + dAtdd_dx[5]*x32 + dAtdd_dx[6]*gtuu[0]*gtuu[1] + dAtdd_dx[7]*gtuu[0]*gtuu[3] + dAtdd_dx[7]*x33 + dAtdd_dx[8]*gtuu[0]*gtuu[4] + dAtdd_dx[8]*gtuu[1]*gtuu[2] + dAtdd_dx[9]*gtuu[1]*gtuu[3] - gtuu[0]*x29 - gtuu[0]*x34 - gtuu[0]*x37 - gtuu[0]*x41 - gtuu[0]*x42 - gtuu[0]*x44 - gtuu[0]*x50 - gtuu[0]*x52 - gtuu[0]*x58 - gtuu[0]*x59 - gtuu[0]*x61 - gtuu[1]*x30 - gtuu[1]*x35 - gtuu[1]*x38 - gtuu[1]*x43 - gtuu[1]*x46 - gtuu[1]*x47 - gtuu[1]*x51 - gtuu[1]*x54 - gtuu[1]*x55 - gtuu[1]*x60 - gtuu[1]*x63 - gtuu[2]*x31 - gtuu[2]*x36 - gtuu[2]*x39 - gtuu[2]*x40 - gtuu[2]*x45 - gtuu[2]*x48 - gtuu[2]*x49 - gtuu[2]*x53 - gtuu[2]*x56 - gtuu[2]*x57 - gtuu[2]*x62 - x1*(gtuu[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + gtuu[3]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + gtuu[5]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + x68*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + x69*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + x70*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0])) + x14*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) - x15*x66 + x15*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + x22*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) - x23*x67 + x23*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + x24*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + x25*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + x26*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]) + x27*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) - x3*(gtuu[0]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + gtuu[3]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + gtuu[5]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + x68*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + x69*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + x70*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) - x5*(gtuu[0]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + gtuu[3]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + gtuu[5]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + x68*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + x69*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + x70*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) - x65*x7 + x7*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]);
+	(*M)[1] = dAtdd_dx[0]*gtuu[0]*gtuu[1] + 2*dAtdd_dx[10]*gtuu[3]*gtuu[4] + dAtdd_dx[11]*x71 + dAtdd_dx[12]*gtuu[1]*gtuu[2] + dAtdd_dx[13]*gtuu[1]*gtuu[4] + dAtdd_dx[13]*gtuu[2]*gtuu[3] + dAtdd_dx[14]*gtuu[1]*gtuu[5] + dAtdd_dx[14]*gtuu[2]*gtuu[4] + dAtdd_dx[15]*gtuu[3]*gtuu[4] + dAtdd_dx[16]*gtuu[3]*gtuu[5] + dAtdd_dx[16]*x71 + dAtdd_dx[17]*gtuu[4]*gtuu[5] + dAtdd_dx[1]*gtuu[0]*gtuu[3] + dAtdd_dx[1]*x33 + dAtdd_dx[2]*gtuu[0]*gtuu[4] + dAtdd_dx[2]*gtuu[1]*gtuu[2] + dAtdd_dx[3]*gtuu[1]*gtuu[3] + dAtdd_dx[4]*gtuu[1]*gtuu[4] + dAtdd_dx[4]*gtuu[2]*gtuu[3] + dAtdd_dx[5]*gtuu[2]*gtuu[4] + dAtdd_dx[6]*x33 + 2*dAtdd_dx[7]*gtuu[1]*gtuu[3] + 2*dAtdd_dx[8]*gtuu[1]*gtuu[4] + dAtdd_dx[9]*((gtuu[3])*(gtuu[3])) - gtuu[1]*x29 - gtuu[1]*x34 - gtuu[1]*x37 - gtuu[1]*x41 - gtuu[1]*x42 - gtuu[1]*x44 - gtuu[1]*x50 - gtuu[1]*x52 - gtuu[1]*x58 - gtuu[1]*x59 - gtuu[1]*x61 - gtuu[3]*x30 - gtuu[3]*x35 - gtuu[3]*x38 - gtuu[3]*x43 - gtuu[3]*x46 - gtuu[3]*x47 - gtuu[3]*x51 - gtuu[3]*x54 - gtuu[3]*x55 - gtuu[3]*x60 - gtuu[3]*x63 - gtuu[4]*x31 - gtuu[4]*x36 - gtuu[4]*x39 - gtuu[4]*x40 - gtuu[4]*x45 - gtuu[4]*x48 - gtuu[4]*x49 - gtuu[4]*x53 - gtuu[4]*x56 - gtuu[4]*x57 - gtuu[4]*x62 - x10*(gtuu[0]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + gtuu[3]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + gtuu[5]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + x68*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + x69*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + x70*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) - x12*(gtuu[0]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + gtuu[3]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + gtuu[5]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + x68*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + x69*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + x70*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) - x14*x65 + x14*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + x15*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + x22*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + x23*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) - x24*x66 + x24*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + x25*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) - x26*x67 + x26*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1]) + x27*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + x7*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) - x8*(gtuu[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + gtuu[3]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + gtuu[5]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + x68*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + x69*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + x70*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0]));
+	(*M)[2] = dAtdd_dx[0]*gtuu[0]*gtuu[2] + dAtdd_dx[10]*gtuu[3]*gtuu[5] + dAtdd_dx[10]*x71 + dAtdd_dx[11]*gtuu[4]*gtuu[5] + dAtdd_dx[12]*x32 + 2*dAtdd_dx[13]*gtuu[2]*gtuu[4] + 2*dAtdd_dx[14]*gtuu[2]*gtuu[5] + dAtdd_dx[15]*x71 + 2*dAtdd_dx[16]*gtuu[4]*gtuu[5] + dAtdd_dx[17]*((gtuu[5])*(gtuu[5])) + dAtdd_dx[1]*gtuu[0]*gtuu[4] + dAtdd_dx[1]*gtuu[1]*gtuu[2] + dAtdd_dx[2]*gtuu[0]*gtuu[5] + dAtdd_dx[2]*x32 + dAtdd_dx[3]*gtuu[1]*gtuu[4] + dAtdd_dx[4]*gtuu[1]*gtuu[5] + dAtdd_dx[4]*gtuu[2]*gtuu[4] + dAtdd_dx[5]*gtuu[2]*gtuu[5] + dAtdd_dx[6]*gtuu[1]*gtuu[2] + dAtdd_dx[7]*gtuu[1]*gtuu[4] + dAtdd_dx[7]*gtuu[2]*gtuu[3] + dAtdd_dx[8]*gtuu[1]*gtuu[5] + dAtdd_dx[8]*gtuu[2]*gtuu[4] + dAtdd_dx[9]*gtuu[3]*gtuu[4] - gtuu[2]*x29 - gtuu[2]*x34 - gtuu[2]*x37 - gtuu[2]*x41 - gtuu[2]*x42 - gtuu[2]*x44 - gtuu[2]*x50 - gtuu[2]*x52 - gtuu[2]*x58 - gtuu[2]*x59 - gtuu[2]*x61 - gtuu[4]*x30 - gtuu[4]*x35 - gtuu[4]*x38 - gtuu[4]*x43 - gtuu[4]*x46 - gtuu[4]*x47 - gtuu[4]*x51 - gtuu[4]*x54 - gtuu[4]*x55 - gtuu[4]*x60 - gtuu[4]*x63 - gtuu[5]*x31 - gtuu[5]*x36 - gtuu[5]*x39 - gtuu[5]*x40 - gtuu[5]*x45 - gtuu[5]*x48 - gtuu[5]*x49 - gtuu[5]*x53 - gtuu[5]*x56 - gtuu[5]*x57 - gtuu[5]*x62 + x14*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + x15*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) - x16*(gtuu[0]*(Gammatddd[0]*gtuu[0] + Gammatddd[12]*gtuu[2] + Gammatddd[6]*gtuu[1]) + gtuu[3]*(Gammatddd[15]*gtuu[2] + Gammatddd[3]*gtuu[0] + Gammatddd[9]*gtuu[1]) + gtuu[5]*(Gammatddd[11]*gtuu[1] + Gammatddd[17]*gtuu[2] + Gammatddd[5]*gtuu[0]) + x68*(Gammatddd[13]*gtuu[2] + Gammatddd[1]*gtuu[0] + Gammatddd[7]*gtuu[1]) + x69*(Gammatddd[14]*gtuu[2] + Gammatddd[2]*gtuu[0] + Gammatddd[8]*gtuu[1]) + x70*(Gammatddd[10]*gtuu[1] + Gammatddd[16]*gtuu[2] + Gammatddd[4]*gtuu[0])) - x18*(gtuu[0]*(Gammatddd[0]*gtuu[1] + Gammatddd[12]*gtuu[4] + Gammatddd[6]*gtuu[3]) + gtuu[3]*(Gammatddd[15]*gtuu[4] + Gammatddd[3]*gtuu[1] + Gammatddd[9]*gtuu[3]) + gtuu[5]*(Gammatddd[11]*gtuu[3] + Gammatddd[17]*gtuu[4] + Gammatddd[5]*gtuu[1]) + x68*(Gammatddd[13]*gtuu[4] + Gammatddd[1]*gtuu[1] + Gammatddd[7]*gtuu[3]) + x69*(Gammatddd[14]*gtuu[4] + Gammatddd[2]*gtuu[1] + Gammatddd[8]*gtuu[3]) + x70*(Gammatddd[10]*gtuu[3] + Gammatddd[16]*gtuu[4] + Gammatddd[4]*gtuu[1])) - x20*(gtuu[0]*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]) + gtuu[3]*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) + gtuu[5]*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + x68*(Gammatddd[13]*gtuu[5] + Gammatddd[1]*gtuu[2] + Gammatddd[7]*gtuu[4]) + x69*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + x70*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2])) - x22*x65 + x22*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + x23*(Gammatddd[14]*gtuu[5] + Gammatddd[2]*gtuu[2] + Gammatddd[8]*gtuu[4]) + x24*(Gammatddd[15]*gtuu[5] + Gammatddd[3]*gtuu[2] + Gammatddd[9]*gtuu[4]) - x25*x66 + x25*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) + x26*(Gammatddd[10]*gtuu[4] + Gammatddd[16]*gtuu[5] + Gammatddd[4]*gtuu[2]) - x27*x67 + x27*(Gammatddd[11]*gtuu[4] + Gammatddd[17]*gtuu[5] + Gammatddd[5]*gtuu[2]) + x7*(Gammatddd[0]*gtuu[2] + Gammatddd[12]*gtuu[5] + Gammatddd[6]*gtuu[4]);
 }
 
 static void KOKKOS_INLINE_FUNCTION
@@ -1055,7 +595,8 @@ z4c_get_matter_sources(
 	const double gtdd[6],
 	const double betau[3],
 	double alp,
-	double chi,
+	double W,
+	const double gtuu[6],
 	const double zvec[3],
 	const double Bvec[3],
 	double rho0,
@@ -1069,7 +610,7 @@ z4c_get_matter_sources(
 {
 	double x0 = ((alp)*(alp));
 	double x1 = 1/(x0);
-	double x2 = 1/(chi);
+	double x2 = 1/(((W)*(W)));
 	double x3 = betau[0]*gtdd[0] + betau[1]*gtdd[1] + betau[2]*gtdd[2];
 	double x4 = x2*x3;
 	double x5 = betau[0]*gtdd[1] + betau[1]*gtdd[3] + betau[2]*gtdd[4];
@@ -1151,8 +692,8 @@ z4c_get_matter_sources(
 	double x81 = x2*((1.0/2.0)*x51 + x53 - x55);
 	double x82 = x2*((1.0/2.0)*x58 + x59 - x60);
 	double x83 = x2*((1.0/2.0)*x62 + x63 - x64);
-	*rho_adm = x1*(((betau[0])*(betau[0]))*x2*x38 + ((betau[1])*(betau[1]))*x2*x44 + betau[1]*x56*x57 + ((betau[2])*(betau[2]))*x2*x50 - betau[2]*x2*(x75 + 2*x76 - 2*x77) + betau[2]*x57*x61 + betau[2]*x65*x66 + (1.0/2.0)*x16*x9 + ((x23)*(x23))*x24 - x57*(x67 + 2*x69 - 2*x71) - x66*(x72 + 2*x73 - 2*x74) - ((x31)*(x31))/((chi)*(chi)));
-	*S_adm_trace = x38*(gtdd[3]*gtdd[5] - ((gtdd[4])*(gtdd[4]))) + x44*(gtdd[0]*gtdd[5] - ((gtdd[2])*(gtdd[2]))) + x50*(gtdd[0]*gtdd[3] - ((gtdd[1])*(gtdd[1]))) - x56*(gtdd[1]*gtdd[5] - gtdd[2]*gtdd[4]) + x61*(gtdd[1]*gtdd[4] - gtdd[2]*gtdd[3]) - x65*(gtdd[0]*gtdd[4] - gtdd[1]*gtdd[2]);
+	*rho_adm = x1*(((betau[0])*(betau[0]))*x2*x38 + ((betau[1])*(betau[1]))*x2*x44 + betau[1]*x56*x57 + ((betau[2])*(betau[2]))*x2*x50 - betau[2]*x2*(x75 + 2*x76 - 2*x77) + betau[2]*x57*x61 + betau[2]*x65*x66 + (1.0/2.0)*x16*x9 + ((x23)*(x23))*x24 - x57*(x67 + 2*x69 - 2*x71) - x66*(x72 + 2*x73 - 2*x74) - ((x31)*(x31))/((W)*(W)*(W)*(W)));
+	*S_adm_trace = gtuu[0]*x38 + gtuu[1]*x56 + gtuu[2]*x61 + gtuu[3]*x44 + gtuu[4]*x65 + gtuu[5]*x50;
 	(*Sd_adm)[0] = x80*(betau[0]*x38 + betau[1]*x78 + x61*x79 - 1.0/2.0*x67 - x69 + x71);
 	(*Sd_adm)[1] = x80*(betau[0]*x78 + betau[1]*x44 + x65*x79 - 1.0/2.0*x72 - x73 + x74);
 	(*Sd_adm)[2] = x80*((1.0/2.0)*betau[0]*x61 + (1.0/2.0)*betau[1]*x65 + betau[2]*x50 - 1.0/2.0*x75 - x76 + x77);
@@ -1166,797 +707,48 @@ z4c_get_matter_sources(
 
 static void KOKKOS_INLINE_FUNCTION
 z4c_get_gammatilde_initial(
-	const double gtdd[6],
+	const double gtuu[6],
 	const double dgtdd_dx[18],
 	double (*Gammatu_id)[3]
 )
 {
-	double x0 = gtdd[1]*gtdd[4] - gtdd[2]*gtdd[3];
-	double x1 = ((x0)*(x0));
-	double x2 = gtdd[1]*gtdd[5] - gtdd[2]*gtdd[4];
-	double x3 = ((x2)*(x2));
-	double x4 = gtdd[3]*gtdd[5] - ((gtdd[4])*(gtdd[4]));
-	double x5 = gtdd[0]*gtdd[4] - gtdd[1]*gtdd[2];
-	double x6 = x2*x5;
-	double x7 = gtdd[0]*gtdd[5] - ((gtdd[2])*(gtdd[2]));
-	double x8 = x0*x7;
-	double x9 = x0*x5;
-	double x10 = dgtdd_dx[12]*x0;
-	double x11 = x0*x2;
-	double x12 = gtdd[0]*gtdd[3] - ((gtdd[1])*(gtdd[1]));
-	double x13 = dgtdd_dx[17]*x12;
-	double x14 = x4*x5;
-	double x15 = dgtdd_dx[14]*x12;
-	double x16 = dgtdd_dx[16]*x12;
-	double x17 = x2*x4;
-	double x18 = x0*x4;
-	double x19 = x2*x7;
-	double x20 = ((x5)*(x5));
-	double x21 = x5*x7;
-	double x22 = x12*x2;
-	(*Gammatu_id)[0] = dgtdd_dx[0]*((x4)*(x4)) + dgtdd_dx[10]*x6 + dgtdd_dx[10]*x8 - dgtdd_dx[11]*x9 - dgtdd_dx[13]*x11 - dgtdd_dx[13]*x14 + dgtdd_dx[14]*x1 + dgtdd_dx[15]*x6 - dgtdd_dx[16]*x9 - 2*dgtdd_dx[1]*x17 + 2*dgtdd_dx[2]*x18 + dgtdd_dx[3]*x3 - 2*dgtdd_dx[4]*x11 + dgtdd_dx[5]*x1 - dgtdd_dx[6]*x17 + dgtdd_dx[7]*x3 + dgtdd_dx[7]*x4*x7 - dgtdd_dx[8]*x11 - dgtdd_dx[8]*x14 - dgtdd_dx[9]*x19 + x0*x13 + x10*x4 + x15*x4 - x16*x2;
-	(*Gammatu_id)[1] = -dgtdd_dx[0]*x17 - 2*dgtdd_dx[10]*x21 + dgtdd_dx[11]*x20 + dgtdd_dx[13]*x0*x7 + dgtdd_dx[13]*x2*x5 - dgtdd_dx[14]*x9 - dgtdd_dx[15]*x21 + dgtdd_dx[16]*x12*x7 + dgtdd_dx[16]*x20 + dgtdd_dx[1]*x3 + dgtdd_dx[1]*x4*x7 - dgtdd_dx[2]*x11 - dgtdd_dx[2]*x14 - dgtdd_dx[3]*x19 + dgtdd_dx[4]*x0*x7 + dgtdd_dx[4]*x2*x5 - dgtdd_dx[5]*x9 + dgtdd_dx[6]*x3 - 2*dgtdd_dx[7]*x19 + 2*dgtdd_dx[8]*x2*x5 + dgtdd_dx[9]*((x7)*(x7)) - x10*x2 - x13*x5 - x15*x2;
-	(*Gammatu_id)[2] = dgtdd_dx[0]*x18 + dgtdd_dx[10]*x12*x7 + dgtdd_dx[10]*x20 - dgtdd_dx[11]*x12*x5 + dgtdd_dx[12]*x1 - 2*dgtdd_dx[13]*x9 + dgtdd_dx[15]*x20 + dgtdd_dx[17]*((x12)*(x12)) - dgtdd_dx[1]*x11 - dgtdd_dx[1]*x14 + dgtdd_dx[2]*x1 + dgtdd_dx[2]*x12*x4 + dgtdd_dx[3]*x6 - dgtdd_dx[4]*x22 - dgtdd_dx[4]*x9 + dgtdd_dx[5]*x0*x12 - dgtdd_dx[6]*x11 + dgtdd_dx[7]*x6 + dgtdd_dx[7]*x8 - dgtdd_dx[8]*x22 - dgtdd_dx[8]*x9 - dgtdd_dx[9]*x21 + 2*x0*x15 - 2*x16*x5;
-}
-
-static void KOKKOS_INLINE_FUNCTION
-z4c_get_psi4(
-	const double gtdd[6],
-	const double Atdd[6],
-	double chi,
-	double theta,
-	double Khat,
-	const double dgtdd_dx[18],
-	const double dAtdd_dx[18],
-	const double dKhat_dx[3],
-	const double dchi_dx[3],
-	const double dtheta_dx[3],
-	const double ddgtdd_dx2[36],
-	const double ddchi_dx2[6],
-	const double xyz[3],
-	double * __restrict__ Psi4Re,
-	double * __restrict__ Psi4Im
-)
-{
-	double x0 = ((xyz[2])*(xyz[2]));
-	double x1 = ((xyz[0])*(xyz[0]));
-	double x2 = ((xyz[1])*(xyz[1]));
-	double x3 = x1 + x2;
-	double x4 = sqrt(x0 + x3);
-	double x5 = 1/(chi);
-	double x6 = gtdd[0]*x5;
-	double x7 = gtdd[3]*x5;
-	double x8 = xyz[0]*xyz[1];
-	double x9 = gtdd[1]*x5;
-	double x10 = 2*x9;
-	double x11 = x1*x7 - x10*x8 + x2*x6;
-	double x12 = 1/(x11);
-	double x13 = xyz[0]*xyz[2];
-	double x14 = (1.0/sqrt(x11));
-	double x15 = x14*x2*x9;
-	double x16 = x14*xyz[1];
-	double x17 = -x3;
-	double x18 = x17*x5;
-	double x19 = gtdd[2]*x18;
-	double x20 = gtdd[1]*x1*x14*x5*xyz[2] + gtdd[3]*x14*x5*xyz[0]*xyz[1]*xyz[2] + gtdd[4]*x14*x17*x5*xyz[0] - x13*x16*x6 - x15*xyz[2] - x16*x19;
-	double x21 = xyz[1]*xyz[2];
-	double x22 = gtdd[1]*x1*x14*x5 - gtdd[2]*x14*x21*x5 + gtdd[3]*x14*x5*xyz[0]*xyz[1] + gtdd[4]*x14*x5*xyz[0]*xyz[2] - x15 - x16*x6*xyz[0];
-	double x23 = x16*x22 + xyz[0];
-	double x24 = ((x23)*(x23));
-	double x25 = x14*xyz[0];
-	double x26 = -x22*x25 + xyz[1];
-	double x27 = ((x26)*(x26));
-	double x28 = gtdd[5]*x5;
-	double x29 = x23*x26;
-	double x30 = x23*xyz[2];
-	double x31 = gtdd[2]*x5;
-	double x32 = 2*x31;
-	double x33 = x26*xyz[2];
-	double x34 = gtdd[4]*x5;
-	double x35 = 2*x34;
-	double x36 = x0*x28 + x10*x29 + x24*x6 + x27*x7 + x30*x32 + x33*x35;
-	double x37 = (1.0/sqrt(x36));
-	double x38 = x0*x37;
-	double x39 = x23*x37;
-	double x40 = x26*x37;
-	double x41 = x37*xyz[2];
-	double x42 = x37*(gtdd[4]*x18*x40 + x13*x39*x6 + x13*x40*x9 + x17*x28*x41 + x19*x39 + x21*x39*x9 + x21*x40*x7 + x31*x38*xyz[0] + x34*x38*xyz[1]);
-	double x43 = x13 + x16*x20 - x23*x42;
-	double x44 = ((x43)*(x43));
-	double x45 = -x20*x25 - x26*x42 + xyz[1]*xyz[2];
-	double x46 = ((x45)*(x45));
-	double x47 = -x3 - x42*xyz[2];
-	double x48 = ((x47)*(x47));
-	double x49 = x45*x47;
-	double x50 = x10*x43*x45 + x28*x48 + x32*x43*x47 + x35*x49 + x44*x6 + x46*x7;
-	double x51 = 1/(x50);
-	double x52 = -x12*x2 + x44*x51;
-	double x53 = -dchi_dx[0]*x28 + dgtdd_dx[5];
-	double x54 = ((x53)*(x53));
-	double x55 = ((gtdd[1])*(gtdd[1]));
-	double x56 = gtdd[0]*gtdd[3];
-	double x57 = -x55 + x56;
-	double x58 = ((x57)*(x57));
-	double x59 = (1.0/16.0)*x58;
-	double x60 = (1.0/3.0)*Khat - 2.0/3.0*theta;
-	double x61 = Atdd[0] + gtdd[0]*x60;
-	double x62 = ((gtdd[4])*(gtdd[4]));
-	double x63 = gtdd[3]*gtdd[5];
-	double x64 = -x62 + x63;
-	double x65 = (1.0/4.0)*x5;
-	double x66 = x64*x65;
-	double x67 = Atdd[1] + gtdd[1]*x60;
-	double x68 = ((x67)*(x67));
-	double x69 = ((gtdd[2])*(gtdd[2]));
-	double x70 = gtdd[0]*gtdd[5];
-	double x71 = -x69 + x70;
-	double x72 = x65*x71;
-	double x73 = Atdd[2] + gtdd[2]*x60;
-	double x74 = ((x73)*(x73));
-	double x75 = x57*x65;
-	double x76 = x65*(Khat - 2*theta);
-	double x77 = ((chi)*(chi));
-	double x78 = 1/(x77);
-	double x79 = dchi_dx[0]*dgtdd_dx[14] + dchi_dx[2]*dgtdd_dx[2];
-	double x80 = ddgtdd_dx2[14]*x5;
-	double x81 = gtdd[2]*x78;
-	double x82 = 1/(((chi)*(chi)*(chi)));
-	double x83 = 4*x82;
-	double x84 = dchi_dx[0]*dchi_dx[2];
-	double x85 = gtdd[2]*x84;
-	double x86 = gtdd[0]*x78;
-	double x87 = ((dchi_dx[2])*(dchi_dx[2]));
-	double x88 = 2*x82;
-	double x89 = gtdd[0]*x88;
-	double x90 = 2*x78;
-	double x91 = dchi_dx[2]*x90;
-	double x92 = ddchi_dx2[5]*x86 - ddgtdd_dx2[30]*x5 + dgtdd_dx[12]*x91 - x87*x89;
-	double x93 = ddchi_dx2[0]*x78;
-	double x94 = ((dchi_dx[0])*(dchi_dx[0]))*x88;
-	double x95 = dchi_dx[0]*x90;
-	double x96 = -ddgtdd_dx2[5]*x5 + dgtdd_dx[5]*x95 + gtdd[5]*x93 - gtdd[5]*x94;
-	double x97 = -2*ddchi_dx2[2]*x81 - 2*x78*x79 + 2*x80 + x83*x85 + x92 + x96;
-	double x98 = (1.0/8.0)*chi;
-	double x99 = x57*x98;
-	double x100 = x78*(dchi_dx[0]*dgtdd_dx[7] + dchi_dx[1]*dgtdd_dx[1]);
-	double x101 = gtdd[1]*x78;
-	double x102 = ddchi_dx2[1]*x101;
-	double x103 = dchi_dx[1]*x90;
-	double x104 = ((dchi_dx[1])*(dchi_dx[1]));
-	double x105 = -ddchi_dx2[3]*x86 + ddgtdd_dx2[18]*x5 - dgtdd_dx[6]*x103 + x104*x89;
-	double x106 = ddgtdd_dx2[3]*x5 - dgtdd_dx[3]*x95 - gtdd[3]*x93 + gtdd[3]*x94;
-	double x107 = 4*dchi_dx[0]*dchi_dx[1]*gtdd[1]*x82 + 2*ddgtdd_dx2[7]*x5 - 2*x100 - 2*x102 - x105 - x106;
-	double x108 = x107*x98;
-	double x109 = x78*(dchi_dx[0]*dgtdd_dx[13] + dchi_dx[2]*dgtdd_dx[1]);
-	double x110 = ddgtdd_dx2[13]*x5;
-	double x111 = ddchi_dx2[2]*x101;
-	double x112 = ddgtdd_dx2[4]*x5;
-	double x113 = gtdd[4]*x93;
-	double x114 = gtdd[4]*x94;
-	double x115 = dgtdd_dx[4]*x95;
-	double x116 = -x112 + x113 - x114 + x115;
-	double x117 = x78*(dchi_dx[1]*dgtdd_dx[12] + dchi_dx[2]*dgtdd_dx[6]);
-	double x118 = ddgtdd_dx2[24]*x5;
-	double x119 = ddchi_dx2[4]*x86;
-	double x120 = dchi_dx[1]*dchi_dx[2];
-	double x121 = x120*x89;
-	double x122 = x117 - x118 + x119 - x121;
-	double x123 = gtdd[1]*x83*x84 - 2*x109 + 2*x110 - 2*x111 + x116 + x122;
-	double x124 = -gtdd[0]*gtdd[4] + gtdd[1]*gtdd[2];
-	double x125 = x124*x98;
-	double x126 = x78*(dchi_dx[0]*dgtdd_dx[8] + dchi_dx[1]*dgtdd_dx[2]);
-	double x127 = ddchi_dx2[1]*x78;
-	double x128 = gtdd[2]*x127;
-	double x129 = -x117 + x118 - x119 + x121;
-	double x130 = x112 - x113 + x114 - x115;
-	double x131 = 4*dchi_dx[0]*dchi_dx[1]*gtdd[2]*x82 + 2*ddgtdd_dx2[8]*x5 - 2*x126 - 2*x128 - x129 - x130;
-	double x132 = -ddchi_dx2[2]*x86 + ddgtdd_dx2[12]*x5 - ddgtdd_dx2[2]*x5 + dgtdd_dx[2]*x95 + gtdd[2]*x93 - gtdd[2]*x94 - x78*(dchi_dx[0]*dgtdd_dx[12] + dchi_dx[2]*dgtdd_dx[0]) + x84*x89;
-	double x133 = gtdd[2]*gtdd[3];
-	double x134 = gtdd[1]*gtdd[4] - x133;
-	double x135 = x134*x98;
-	double x136 = -x132;
-	double x137 = dchi_dx[0]*dchi_dx[1];
-	double x138 = ddchi_dx2[1]*x86 + ddgtdd_dx2[1]*x5 - ddgtdd_dx2[6]*x5 - dgtdd_dx[1]*x95 - gtdd[1]*x93 + gtdd[1]*x94 - x137*x89 + x78*(dchi_dx[0]*dgtdd_dx[6] + dchi_dx[1]*dgtdd_dx[0]);
-	double x139 = gtdd[1]*gtdd[5];
-	double x140 = gtdd[2]*gtdd[4] - x139;
-	double x141 = x140*x98;
-	double x142 = -x138;
-	double x143 = (1.0/16.0)*x53;
-	double x144 = -dchi_dx[0]*x7 + dgtdd_dx[3];
-	double x145 = ((x124)*(x124));
-	double x146 = x144*x145;
-	double x147 = ((x134)*(x134));
-	double x148 = -dchi_dx[0]*x6 + dgtdd_dx[0];
-	double x149 = x147*x148;
-	double x150 = x61*x67;
-	double x151 = (1.0/2.0)*x5;
-	double x152 = x140*x151;
-	double x153 = x134*x61;
-	double x154 = x151*x73;
-	double x155 = x124*x67;
-	double x156 = -dchi_dx[2]*x6 + dgtdd_dx[12];
-	double x157 = dchi_dx[0]*x5;
-	double x158 = -x151*x156 + x5*(dgtdd_dx[2] - gtdd[2]*x157);
-	double x159 = -dchi_dx[2]*x7 + dgtdd_dx[15];
-	double x160 = x145*x159;
-	double x161 = chi*x160;
-	double x162 = x158*x161;
-	double x163 = x158*x98;
-	double x164 = -dchi_dx[2]*x28 + dgtdd_dx[17];
-	double x165 = x164*x58;
-	double x166 = x147*x156;
-	double x167 = x151*(dgtdd_dx[4] - gtdd[4]*x157);
-	double x168 = dchi_dx[1]*x5;
-	double x169 = x151*(dgtdd_dx[8] - gtdd[2]*x168);
-	double x170 = dchi_dx[2]*x5;
-	double x171 = x151*(dgtdd_dx[13] - gtdd[1]*x170);
-	double x172 = x167 + x169 - x171;
-	double x173 = x172*x77;
-	double x174 = x167 - x169 + x171;
-	double x175 = x145*x174;
-	double x176 = x173*x175;
-	double x177 = (1.0/4.0)*x57;
-	double x178 = ((x172)*(x172))*x77;
-	double x179 = x177*x178;
-	double x180 = x134*x143;
-	double x181 = x156*x57;
-	double x182 = -dchi_dx[1]*x6 + dgtdd_dx[6];
-	double x183 = x124*x182;
-	double x184 = (1.0/2.0)*x158;
-	double x185 = -x167 + x169 + x171;
-	double x186 = x134*x185;
-	double x187 = x124*x77;
-	double x188 = x186*x187;
-	double x189 = -dchi_dx[1]*x28 + dgtdd_dx[11];
-	double x190 = chi*x124;
-	double x191 = x189*x190;
-	double x192 = x158*x191;
-	double x193 = -x151*x159 + x5*(dgtdd_dx[10] - gtdd[4]*x168);
-	double x194 = x158*x77;
-	double x195 = x193*x194;
-	double x196 = x177*x195;
-	double x197 = -x151*x189 + x5*(dgtdd_dx[16] - gtdd[4]*x170);
-	double x198 = x124*x194;
-	double x199 = x197*x198;
-	double x200 = -x151*x53 + x5*(dgtdd_dx[14] - gtdd[2]*x170);
-	double x201 = x134*x200;
-	double x202 = x177*x201;
-	double x203 = -x144*x151 + x5*(dgtdd_dx[7] - gtdd[1]*x168);
-	double x204 = x134*x203;
-	double x205 = x194*x204;
-	double x206 = x205*x71;
-	double x207 = x134*x174;
-	double x208 = x198*x207;
-	double x209 = x140*x144;
-	double x210 = x125*x158;
-	double x211 = x140*x182;
-	double x212 = x135*x211;
-	double x213 = -dchi_dx[1]*x7 + dgtdd_dx[9];
-	double x214 = x213*x71;
-	double x215 = x190*x53;
-	double x216 = x172*x177;
-	double x217 = -x151*x182 + x5*(dgtdd_dx[1] - gtdd[1]*x157);
-	double x218 = x124*x173;
-	double x219 = x140*x218;
-	double x220 = x217*x219;
-	double x221 = x135*x172;
-	double x222 = x140*x148;
-	double x223 = x134*x156;
-	double x224 = x125*x172;
-	double x225 = x144*x71;
-	double x226 = x124*x99;
-	double x227 = x174*x53;
-	double x228 = x134*x53;
-	double x229 = x125*x217;
-	double x230 = x182*x71;
-	double x231 = x108*x71 + x123*x125 + x125*x131 + x132*x135 + x135*x136 + x138*x141 + x141*x142 + x143*x146 + x143*x149 - x150*x152 - x153*x154 - x154*x155 - x158*x212 - 1.0/4.0*x162 - x163*x165 - x163*x166 + (1.0/4.0)*x176 - x177*x192 - x177*x199 + x179*x71 + x180*x181 + x180*x183 - x184*x188 - x194*x202 - x196*x71 - 1.0/4.0*x206 - 1.0/4.0*x208 - x209*x210 - x210*x214 + x215*x216 + (1.0/4.0)*x220 + x221*x222 + x221*x230 + x223*x224 + x224*x225 + x226*x227 + x228*x229 + x54*x59 - ((x61)*(x61))*x66 + x61*x76 - x68*x72 - x74*x75 + x97*x99;
-	double x232 = -x1*x12 + x46*x51;
-	double x233 = ((x189)*(x189));
-	double x234 = Atdd[3] + gtdd[3]*x60;
-	double x235 = Atdd[4] + gtdd[4]*x60;
-	double x236 = ((x235)*(x235));
-	double x237 = ddgtdd_dx2[33]*x5;
-	double x238 = dchi_dx[1]*dgtdd_dx[16] + dchi_dx[2]*dgtdd_dx[10];
-	double x239 = x238*x78;
-	double x240 = gtdd[3]*x78;
-	double x241 = ddchi_dx2[5]*x240;
-	double x242 = dgtdd_dx[15]*x91;
-	double x243 = x87*x88;
-	double x244 = gtdd[3]*x243;
-	double x245 = ddchi_dx2[4]*x78;
-	double x246 = gtdd[4]*x245;
-	double x247 = ddchi_dx2[3]*x78;
-	double x248 = x104*x88;
-	double x249 = ddgtdd_dx2[23]*x5 - dgtdd_dx[11]*x103 - gtdd[5]*x247 + gtdd[5]*x248;
-	double x250 = 4*dchi_dx[1]*dchi_dx[2]*gtdd[4]*x82 + 2*ddgtdd_dx2[28]*x5 - x237 - 2*x239 + x241 + x242 - x244 - 2*x246 - x249;
-	double x251 = gtdd[3]*x88;
-	double x252 = ddchi_dx2[4]*x240 + ddgtdd_dx2[22]*x5 - ddgtdd_dx2[27]*x5 - dgtdd_dx[10]*x103 - gtdd[4]*x247 + gtdd[4]*x248 - x120*x251 + x78*(dchi_dx[1]*dgtdd_dx[15] + dchi_dx[2]*dgtdd_dx[9]);
-	double x253 = -x252;
-	double x254 = x78*(dchi_dx[0]*dgtdd_dx[10] + dchi_dx[1]*dgtdd_dx[4]);
-	double x255 = ddgtdd_dx2[10]*x5;
-	double x256 = gtdd[4]*x127;
-	double x257 = x78*(dchi_dx[0]*dgtdd_dx[15] + dchi_dx[2]*dgtdd_dx[3]);
-	double x258 = ddgtdd_dx2[15]*x5;
-	double x259 = ddchi_dx2[2]*x240;
-	double x260 = x251*x84;
-	double x261 = x257 - x258 + x259 - x260;
-	double x262 = ddgtdd_dx2[20]*x5;
-	double x263 = gtdd[2]*x247;
-	double x264 = gtdd[2]*x248;
-	double x265 = dgtdd_dx[8]*x103;
-	double x266 = -x262 + x263 - x264 + x265;
-	double x267 = gtdd[4]*x137*x83 - 2*x254 + 2*x255 - 2*x256 + x261 + x266;
-	double x268 = x78*(dchi_dx[1]*dgtdd_dx[13] + dchi_dx[2]*dgtdd_dx[7]);
-	double x269 = ddchi_dx2[4]*x101;
-	double x270 = x262 - x263 + x264 - x265;
-	double x271 = -x257 + x258 - x259 + x260;
-	double x272 = 4*dchi_dx[1]*dchi_dx[2]*gtdd[1]*x82 + 2*ddgtdd_dx2[25]*x5 - 2*x268 - 2*x269 - x270 - x271;
-	double x273 = ddchi_dx2[1]*x240 + ddgtdd_dx2[19]*x5 - ddgtdd_dx2[9]*x5 - dgtdd_dx[7]*x103 - gtdd[1]*x247 + gtdd[1]*x248 - x137*x251 + x78*(dchi_dx[0]*dgtdd_dx[9] + dchi_dx[1]*dgtdd_dx[3]);
-	double x274 = -x273;
-	double x275 = (1.0/16.0)*x189;
-	double x276 = x145*x213;
-	double x277 = x147*x182;
-	double x278 = x234*x67;
-	double x279 = x134*x67;
-	double x280 = x124*x235;
-	double x281 = x151*x280;
-	double x282 = (1.0/4.0)*x166;
-	double x283 = chi*x282;
-	double x284 = x193*x98;
-	double x285 = x147*x185;
-	double x286 = x173*x285;
-	double x287 = x124*x275;
-	double x288 = x159*x57;
-	double x289 = x134*x144;
-	double x290 = (1.0/2.0)*x193;
-	double x291 = x187*x207;
-	double x292 = chi*x134;
-	double x293 = x193*x53;
-	double x294 = x292*x293;
-	double x295 = x193*x77;
-	double x296 = x124*x295;
-	double x297 = x197*x296;
-	double x298 = x217*x64;
-	double x299 = x296*x298;
-	double x300 = x186*x296;
-	double x301 = x135*x193;
-	double x302 = x148*x64;
-	double x303 = x125*x193;
-	double x304 = x189*x292;
-	double x305 = x173*x204;
-	double x306 = x140*x305;
-	double x307 = x189*x99;
-	double x308 = x125*x204;
-	double x309 = x134*x159;
-	double x310 = x144*x64;
-	double x311 = x182*x64;
-	double x312 = x140*x213;
-	double x313 = x108*x64 + x125*x252 + x125*x253 + x135*x267 + x135*x272 + x141*x273 + x141*x274 - x151*x235*x279 - x152*x278 - x160*x284 - x165*x284 - x177*x294 - x177*x297 + x179*x64 + x186*x307 + x189*x308 - x193*x212 - x193*x283 - x196*x64 - x202*x295 - x209*x303 + x216*x304 + x221*x311 + x224*x309 + x224*x310 + x224*x312 + x233*x59 - ((x234)*(x234))*x72 - x234*x281 + x234*x76 - x236*x75 + x250*x99 + x275*x276 + x275*x277 + (1.0/4.0)*x286 + x287*x288 + x287*x289 - x290*x291 - 1.0/4.0*x299 - 1.0/4.0*x300 - x301*x302 + (1.0/4.0)*x306 - x66*x68;
-	double x314 = x43*x51;
-	double x315 = x12*x8 + x314*x45;
-	double x316 = x161*x172;
-	double x317 = x172*x98;
-	double x318 = x175*x295;
-	double x319 = x134*x275;
-	double x320 = (1.0/2.0)*x172;
-	double x321 = x305*x71;
-	double x322 = x207*x218;
-	double x323 = x140*x296;
-	double x324 = x217*x323;
-	double x325 = x189*x226;
-	double x326 = x134*x189;
-	double x327 = x140*x65;
-	double x328 = x78*(dchi_dx[0]*dgtdd_dx[16] + dchi_dx[2]*dgtdd_dx[4]);
-	double x329 = ddgtdd_dx2[16]*x5;
-	double x330 = gtdd[4]*x78;
-	double x331 = ddchi_dx2[2]*x330;
-	double x332 = x84*x88;
-	double x333 = gtdd[4]*x332;
-	double x334 = x137*x88;
-	double x335 = ddgtdd_dx2[11]*x5 - gtdd[5]*x127 + gtdd[5]*x334 - x78*(dchi_dx[0]*dgtdd_dx[11] + dchi_dx[1]*dgtdd_dx[5]);
-	double x336 = x328 - x329 + x331 - x333 + x335;
-	double x337 = x78*(dchi_dx[1]*dgtdd_dx[14] + dchi_dx[2]*dgtdd_dx[8]);
-	double x338 = ddgtdd_dx2[26]*x5;
-	double x339 = gtdd[2]*x245;
-	double x340 = x120*x88;
-	double x341 = gtdd[2]*x340;
-	double x342 = x337 - x338 + x339 - x341;
-	double x343 = ddgtdd_dx2[31]*x5;
-	double x344 = ddchi_dx2[5]*x101;
-	double x345 = dgtdd_dx[13]*x91;
-	double x346 = gtdd[1]*x243;
-	double x347 = x343 - x344 - x345 + x346;
-	double x348 = -x336 - x342 - x347;
-	double x349 = gtdd[4]*x334 - x254 + x255 - x256;
-	double x350 = x261 + x349;
-	double x351 = -x350;
-	double x352 = ddgtdd_dx2[25]*x5;
-	double x353 = gtdd[1]*x340;
-	double x354 = x268 + x269 - x352 - x353;
-	double x355 = x270 + x354;
-	double x356 = ddgtdd_dx2[8]*x5;
-	double x357 = gtdd[2]*x334;
-	double x358 = x126 + x128 - x356 - x357;
-	double x359 = x129 + x358;
-	double x360 = gtdd[1]*x332 - x109 + x110 - x111;
-	double x361 = x116 + x360;
-	double x362 = -x361;
-	double x363 = -ddgtdd_dx2[7]*x5 - gtdd[1]*x334 + x100 + x102;
-	double x364 = x105 + x363;
-	double x365 = x106 + x363;
-	double x366 = x189*x53;
-	double x367 = x327*x61;
-	double x368 = x153*x65;
-	double x369 = x65*x73;
-	double x370 = x280*x65;
-	double x371 = x124*x234;
-	double x372 = x235*x73;
-	double x373 = x197*x218;
-	double x374 = x172*x99;
-	double x375 = x158*x307;
-	double x376 = x125*x351 + x125*x355 + x134*x375 + x135*x359 + x135*x362 - x140*x179 + x140*x196 + x141*x364 + x141*x365 - x150*x66 - x165*x317 - x172*x212 - x172*x325 - x173*x202 - x177*x373 - x209*x224 + x226*x293 - x228*x374 - x234*x367 - x235*x368 - x278*x72 - x279*x369 - x327*x68 + x348*x99 + x366*x59 - x369*x371 - x370*x67 - x372*x75 + x67*x76;
-	double x377 = x146*x275 + x149*x275 - x166*x317 + x174*x325 + x181*x319 + x183*x319 - x188*x320 - x214*x224 + x222*x301 + x223*x303 + x225*x303 + x229*x326 + x230*x301 - 1.0/4.0*x316 + (1.0/4.0)*x318 - 1.0/4.0*x321 - 1.0/4.0*x322 + (1.0/4.0)*x324 + x376;
-	double x378 = x194*x285;
-	double x379 = x124*x143;
-	double x380 = x124*x144;
-	double x381 = x218*x298;
-	double x382 = x186*x218;
-	double x383 = x140*x205;
-	double x384 = x186*x53;
-	double x385 = x135*x158;
-	double x386 = x143*x276 + x143*x277 - x160*x317 - x172*x283 + x180*x380 + x210*x309 + x210*x310 + x210*x312 - x221*x302 + x288*x379 - x291*x320 + x308*x53 + x311*x385 + x376 + (1.0/4.0)*x378 - 1.0/4.0*x381 - 1.0/4.0*x382 + (1.0/4.0)*x383 + x384*x99;
-	double x387 = Atdd[5] + gtdd[5]*x60;
-	double x388 = (1.0/16.0)*x164;
-	double x389 = x250*x71;
-	double x390 = x64*x97;
-	double x391 = ddchi_dx2[5]*x330 + ddgtdd_dx2[29]*x5 - ddgtdd_dx2[34]*x5 + dgtdd_dx[16]*x91 - gtdd[4]*x243 - gtdd[5]*x245 + gtdd[5]*x340 - x78*(dchi_dx[1]*dgtdd_dx[17] + dchi_dx[2]*dgtdd_dx[11]);
-	double x392 = -x391;
-	double x393 = -ddchi_dx2[2]*gtdd[5]*x78 + ddchi_dx2[5]*x81 + ddgtdd_dx2[17]*x5 - ddgtdd_dx2[32]*x5 + dgtdd_dx[14]*x91 - gtdd[2]*x243 + gtdd[5]*x332 - x78*(dchi_dx[0]*dgtdd_dx[17] + dchi_dx[2]*dgtdd_dx[5]);
-	double x394 = -x393;
-	double x395 = x335 + x347;
-	double x396 = 4*dchi_dx[1]*dchi_dx[2]*gtdd[2]*x82 + 2*ddgtdd_dx2[26]*x5 - 2*x337 - 2*x339 - x395;
-	double x397 = 4*dchi_dx[0]*dchi_dx[2]*gtdd[4]*x82 + 2*ddgtdd_dx2[16]*x5 - 2*x328 - 2*x331 - x395;
-	double x398 = (1.0/16.0)*x57;
-	double x399 = x233*x71;
-	double x400 = x54*x64;
-	double x401 = (1.0/8.0)*x140;
-	double x402 = x164*x401;
-	double x403 = x134*x182;
-	double x404 = x134*x148;
-	double x405 = x404*x64;
-	double x406 = x124*x71;
-	double x407 = x213*x406;
-	double x408 = x145*x197;
-	double x409 = x189*x408;
-	double x410 = x147*x200;
-	double x411 = x410*x53;
-	double x412 = x366*x57;
-	double x413 = x140*x156;
-	double x414 = x287*x71;
-	double x415 = x156*x64;
-	double x416 = x140*x159;
-	double x417 = chi*x164;
-	double x418 = x140*x417;
-	double x419 = x164*x99;
-	double x420 = x158*x419;
-	double x421 = x135*x71;
-	double x422 = x164*x203;
-	double x423 = x125*x164;
-	double x424 = x185*x189;
-	double x425 = x125*x189;
-	double x426 = x140*x174;
-	double x427 = x174*x64;
-	double x428 = x427*x53;
-	double x429 = x197*x228;
-	double x430 = x140*x53;
-	double x431 = x185*x430;
-	double x432 = x48*x51;
-	double x433 = (1.0/4.0)*x78;
-	double x434 = (1.0/8.0)*x78;
-	double x435 = x160*x53;
-	double x436 = (1.0/4.0)*x164;
-	double x437 = (1.0/2.0)*chi;
-	double x438 = x175*x189;
-	double x439 = (1.0/4.0)*x53;
-	double x440 = x140*x439;
-	double x441 = (1.0/4.0)*x189;
-	double x442 = x140*x441;
-	double x443 = x124*x441;
-	double x444 = x441*x71;
-	double x445 = x177*x223;
-	double x446 = x134*x183;
-	double x447 = x124*x437;
-	double x448 = x217*x447;
-	double x449 = x140*x189;
-	double x450 = x164*x57;
-	double x451 = x174*x447;
-	double x452 = x134*x164;
-	double x453 = x53*x57;
-	double x454 = x197*x447;
-	double x455 = x134*x437;
-	double x456 = x200*x455;
-	double x457 = x71*(x266 - x268 - x269 + x350 + x352 + x353);
-	double x458 = -x343 + x344 + x345 - x346;
-	double x459 = x337 - x338 + x339 - x341 - x458;
-	double x460 = -ddchi_dx2[2]*gtdd[2]*x78 - x78*x79 + x80 + x85*x88;
-	double x461 = -x460 - x92;
-	double x462 = -x460 - x96;
-	double x463 = -x122 - x360;
-	double x464 = x140*x437;
-	double x465 = x130 + x358;
-	double x466 = x134*x54;
-	double x467 = x177*x366;
-	double x468 = x57*x71;
-	double x469 = chi*x468;
-	double x470 = x189*x57;
-	double x471 = chi*x140;
-	double x472 = x184*x471;
-	double x473 = x190*x320;
-	double x474 = x184*x57;
-	double x475 = x417*x474;
-	double x476 = chi*x320;
-	double x477 = x430*x57;
-	double x478 = x455*x71;
-	double x479 = x203*x53;
-	double x480 = x447*x53;
-	double x481 = -x124*x467 + x134*x475 - x177*x466 + x189*x320*x469 - x207*x480 - x282*x53 - x290*x469*x53 + x336*x447 - x407*x439 + x437*x457 + x447*x459 + x450*x473 + x455*x461 + x455*x462 + x463*x464 + x464*x465 + x470*x472 - x476*x477 - x478*x479;
-	double x482 = x146*x436 + x149*x436 + x164*x445 - x186*x215 + x223*x443 - x380*x440 + x380*x444 - x403*x440 + x403*x444 + x404*x442 - 1.0/2.0*x435 + x436*x446 + x437*x438 + x448*x449 + x448*x452 + x450*x451 - x453*x454 - x453*x456 + x481;
-	double x483 = gtdd[2]*x65;
-	double x484 = x173*x408;
-	double x485 = x194*x410;
-	double x486 = (1.0/2.0)*x140;
-	double x487 = x380*x53;
-	double x488 = x403*x486;
-	double x489 = x186*x71;
-	double x490 = x173*x489;
-	double x491 = x198*x427;
-	double x492 = x201*x218;
-	double x493 = x134*x199;
-	double x494 = x174*x219;
-	double x495 = x140*x186;
-	double x496 = x194*x495;
-	double x497 = x292*x415;
-	double x498 = x134*x413;
-	double x499 = x159*x406;
-	double x500 = x184*x190;
-	double x501 = x184*x497 - x298*x480 - x384*x447 - x405*x439 + x416*x500 - 1.0/4.0*x435 + x476*x498 + x476*x499 + x481 + x484 + x485 - x486*x487 - x488*x53 + x490 + x491 + x492 + x493 + x494 + x496;
-	double x502 = x380*x486;
-	double x503 = x134*x439;
-	double x504 = x124*x439;
-	double x505 = x189*x447;
-	double x506 = x172*x57;
-	double x507 = x164*x447;
-	double x508 = -1.0/4.0*x160*x436 - 1.0/4.0*x164*x282 - 1.0/4.0*x164*x488 - 1.0/4.0*x164*x502 + (1.0/4.0)*x177*x399 + (1.0/4.0)*x177*x400 - 1.0/4.0*x186*x507 + (1.0/4.0)*x201*x505 - 1.0/4.0*x207*x507 - 1.0/4.0*x290*x417*x468 - 1.0/4.0*x298*x507 + (1.0/4.0)*x389*x437 + (1.0/4.0)*x390*x437 + (1.0/4.0)*x391*x447 + (1.0/4.0)*x392*x447 + (1.0/4.0)*x393*x455 + (1.0/4.0)*x394*x455 + (1.0/4.0)*x396*x464 + (1.0/4.0)*x397*x464 - 1.0/4.0*x405*x436 - 1.0/4.0*x407*x436 + (1.0/4.0)*x409*x437 + (1.0/4.0)*x411*x437 + (1.0/4.0)*x412*x486 + (1.0/4.0)*x415*x503 + (1.0/4.0)*x416*x504 - 1.0/4.0*x418*x506 - 1.0/4.0*x422*x478 + (1.0/4.0)*x424*x478 + (1.0/4.0)*x426*x505 + (1.0/4.0)*x428*x447 + (1.0/4.0)*x429*x447 + (1.0/4.0)*x431*x455 + (1.0/4.0)*x441*x498 + (1.0/4.0)*x441*x499 - 1.0/4.0*x475*x64;
-	double x509 = (1.0/4.0)*x58;
-	double x510 = x437*x57;
-	double x511 = x107*x437;
-	double x512 = chi*x165;
-	double x513 = chi*x166;
-	double x514 = x320*x471;
-	double x515 = x476*x71;
-	double x516 = x201*x57;
-	double x517 = chi*x184;
-	double x518 = x123*x447 + x131*x447 + x132*x455 + x136*x455 + x138*x464 + x142*x464 + x146*x439 + x149*x439 - x162 + x176 + x178*x468 - x184*x512 - x184*x513 - 2*x186*x198 - x192*x57 - x194*x516 - x195*x468 - x199*x57 - x206 - x208 + x215*x506 + x220 + x223*x473 + x227*x447*x57 + x228*x448 - x380*x472 + x380*x515 - x403*x472 + x403*x515 + x404*x514 - x407*x517 + x439*x446 + x445*x53 + x509*x54 + x510*x97 + x511*x71;
-	double x519 = (1.0/4.0)*x28;
-	double x520 = x387*x433;
-	double x521 = -x433*x74 + x434*x69 - x434*x70 - x482*x483 - x483*x501 + x508*x6 + x518*x519 + x520*x61;
-	double x522 = 1/(x36);
-	double x523 = x0*x522;
-	double x524 = x521*x523;
-	double x525 = x166*x189;
-	double x526 = x285*x53;
-	double x527 = x124*x159;
-	double x528 = x177*x527;
-	double x529 = x124*x289;
-	double x530 = x439*x64;
-	double x531 = x185*x455;
-	double x532 = x203*x430;
-	double x533 = x64*(x122 - x126 - x128 + x356 + x357 + x361);
-	double x534 = ddgtdd_dx2[28]*x5;
-	double x535 = gtdd[4]*x340;
-	double x536 = x239 + x246 + x249 - x534 - x535;
-	double x537 = ddchi_dx2[4]*gtdd[4]*x78 + x237 + x238*x78 - x241 - x242 + x244 - x534 - x535;
-	double x538 = x335 + x342;
-	double x539 = x328 - x329 + x331 - x333 - x458;
-	double x540 = x271 + x354;
-	double x541 = -x266 - x349;
-	double x542 = x124*x233;
-	double x543 = x190*x290;
-	double x544 = x320*x57;
-	double x545 = x476*x64;
-	double x546 = chi*x290;
-	double x547 = x517*x64;
-	double x548 = x134*x417*x544 - x134*x467 - x160*x441 - x177*x542 - x186*x505 - x298*x505 - x405*x441 + x437*x533 + x447*x536 + x447*x537 + x450*x543 + x453*x545 + x455*x538 + x455*x539 + x464*x540 + x464*x541 - x470*x514 - x470*x547 + x477*x546;
-	double x549 = x124*x213*x440 + x164*x528 - x191*x207 + x204*x507 + x276*x436 + x277*x436 - x380*x442 + x380*x530 - x403*x442 + x403*x530 + x436*x529 + x437*x526 + x450*x531 - x454*x470 + x455*x532 - x456*x470 + x503*x527 - 1.0/2.0*x525 + x548;
-	double x550 = gtdd[4]*x65;
-	double x551 = x295*x408;
-	double x552 = x173*x410;
-	double x553 = x295*x489;
-	double x554 = x218*x427;
-	double x555 = x201*x296;
-	double x556 = x134*x373;
-	double x557 = x174*x323;
-	double x558 = x173*x495;
-	double x559 = x189*x203;
-	double x560 = -x189*x282 - x189*x488 - x189*x502 - x207*x505 + x320*x497 - x407*x441 + x416*x473 - x478*x559 + x498*x546 + x499*x546 + x548 + x551 + x552 + x553 + x554 + x555 + x556 + x557 + x558;
-	double x561 = x178*x57;
-	double x562 = x195*x57;
-	double x563 = x290*x471;
-	double x564 = -x161*x290 + x189*x528 - x193*x513 + x204*x505 - 2*x207*x296 + x233*x509 + x250*x510 + x252*x447 + x253*x447 + x267*x455 + x272*x455 + x273*x464 + x274*x464 + x276*x441 + x277*x441 + x286 + x289*x443 - x290*x512 - x294*x57 - x295*x516 - x297*x57 - x299 - x300 + x304*x506 + x306 + x309*x473 + x312*x473 + x380*x545 - x380*x563 + x403*x545 - x403*x563 - x405*x546 + x470*x531 + x511*x64 + x561*x64 - x562*x64;
-	double x565 = x234*x520 - x236*x433 + x434*x62 - x434*x63 + x508*x7 + x519*x564 - x549*x550 - x550*x560;
-	double x566 = x523*x565;
-	double x567 = -x140*x561 + x140*x562 - x173*x516 - x191*x544 + x215*x290*x57 - x292*x320*x453 + x304*x474 - x320*x512 + x348*x510 + x351*x447 + x355*x447 + x359*x455 + x362*x455 + x364*x464 + x365*x464 + x366*x509 - x373*x57 - x380*x514 - x403*x514;
-	double x568 = -x161*x320 - x172*x513 + x204*x480 + x276*x439 + x277*x439 + x289*x504 + x309*x500 + x312*x500 - 2*x322 + x378 + x380*x547 - x381 - x382 + x383 + x403*x547 - x405*x476 + x453*x531 + x528*x53 + x567;
-	double x569 = x235*x433;
-	double x570 = gtdd[2]*gtdd[4]*x434 - x139*x434 + x508*x9 + x520*x67 - x569*x73;
-	double x571 = -x483*x549 - x501*x550 + x519*x568 + x570;
-	double x572 = x315*x523;
-	double x573 = x546*x71;
-	double x574 = x146*x441 + x149*x441 + x189*x445 + x223*x543 - x316 + x318 - x320*x513 - x321 - x322 + x324 + x326*x448 + x380*x573 - 2*x382 + x403*x573 + x404*x563 - x407*x476 + x441*x446 + x451*x470 + x567;
-	double x575 = -x482*x550 - x483*x560 + x519*x574 + x570;
-	double x576 = (1.0/4.0)*x9;
-	double x577 = (1.0/4.0)*x6;
-	double x578 = x234*x433*x61 - x433*x68 + x434*x55 - x434*x56 + (1.0/4.0)*x518*x7 + x564*x577 - x568*x576 - x574*x576;
-	double x579 = x522*x578;
-	double x580 = x24*x579;
-	double x581 = x27*x579;
-	double x582 = x148*x319;
-	double x583 = x164*x226;
-	double x584 = x134*x65;
-	double x585 = x67*x73;
-	double x586 = x235*x67;
-	double x587 = x155*x65;
-	double x588 = x73*x75;
-	double x589 = x213*x379;
-	double x590 = x293*x99;
-	double x591 = x125*x53;
-	double x592 = x172*x307;
-	double x593 = x125*x336 + x125*x459 + x134*x420 + x135*x461 + x135*x462 + x140*x375 + x141*x463 + x141*x465 - x143*x166 + x172*x583 - x207*x591 - x235*x367 - x280*x369 - x327*x585 - x368*x387 - x374*x430 - x379*x470 - x387*x587 - x387*x588 - x398*x466 - x421*x479 + x457*x98 - x584*x74 - x586*x72 - x589*x71 - x590*x71 + x592*x71 - x61*x66*x73 + x73*x76;
-	double x594 = x134*x181*x388 + x140*x582 + x144*x414 + x146*x388 + x149*x388 + x174*x583 - x180*x211 - x186*x190*x439 - x197*x226*x53 - x201*x53*x99 - x209*x379 + x223*x287 + x229*x449 + x229*x452 + x230*x319 + x388*x446 - 1.0/8.0*x435 + x438*x98 + x593;
-	double x595 = x314*x47;
-	double x596 = x401*x403;
-	double x597 = x180*x64;
-	double x598 = x159*x71;
-	double x599 = -x125*x384 - x143*x160 - x148*x597 + x210*x416 + x221*x413 + x224*x598 - x298*x591 + x385*x415 - x401*x487 + (1.0/4.0)*x484 + (1.0/4.0)*x485 + (1.0/4.0)*x490 + (1.0/4.0)*x491 + (1.0/4.0)*x492 + (1.0/4.0)*x493 + (1.0/4.0)*x494 + (1.0/4.0)*x496 - x53*x596 + x593;
-	double x600 = x387*x65;
-	double x601 = x235*x75;
-	double x602 = -x124*x236*x65 + x125*x536 + x125*x537 + x135*x538 + x135*x539 + x140*x590 - x140*x592 + x141*x540 + x141*x541 - x160*x275 - x180*x470 - x186*x425 + x193*x583 - x234*x235*x72 - x234*x327*x73 + x235*x76 - x279*x600 - x298*x425 - x327*x586 - x371*x600 - x372*x584 + x374*x452 + x374*x53*x64 - x375*x64 - x387*x601 - x398*x542 + x533*x98 - x582*x64 - x585*x66;
-	double x603 = -chi*x207*x443 + x124*x288*x388 + x135*x532 + x140*x589 + x164*x308 + x180*x527 + x182*x597 + x186*x419 - x197*x325 - x201*x307 - x209*x287 - x211*x319 + x276*x388 + x277*x388 + x310*x379 + x388*x529 - 1.0/8.0*x525 + x526*x98 + x602;
-	double x604 = x49*x51;
-	double x605 = -x166*x275 - x189*x380*x401 - x189*x596 - x207*x425 - x213*x414 + x221*x415 + x224*x416 + x301*x413 + x303*x598 - x421*x559 + (1.0/4.0)*x551 + (1.0/4.0)*x552 + (1.0/4.0)*x553 + (1.0/4.0)*x554 + (1.0/4.0)*x555 + (1.0/4.0)*x556 + (1.0/4.0)*x557 + (1.0/4.0)*x558 + x602;
-	double x606 = x151*x60;
-	double x607 = (1.0/3.0)*dKhat_dx[2] - 2.0/3.0*dtheta_dx[2];
-	double x608 = (1.0/2.0)*x607;
-	double x609 = (1.0/2.0)*x73;
-	double x610 = dchi_dx[0]*x78;
-	double x611 = x134*x609;
-	double x612 = x387*x57;
-	double x613 = (1.0/3.0)*dKhat_dx[0] - 2.0/3.0*dtheta_dx[0];
-	double x614 = x151*x613;
-	double x615 = (1.0/2.0)*x78;
-	double x616 = dchi_dx[2]*x615;
-	double x617 = dAtdd_dx[12]*x151 - dAtdd_dx[2]*x151 + dgtdd_dx[12]*x606 - dgtdd_dx[2]*x606 - gtdd[2]*x614 + x158*x611 + x184*x280 + x184*x612 - x368*x53 - x53*x587 - x53*x588 + x6*x608 + x609*x610 - x61*x616;
-	double x618 = dchi_dx[1]*x615;
-	double x619 = (1.0/3.0)*dKhat_dx[1] - 2.0/3.0*dtheta_dx[1];
-	double x620 = x151*x619;
-	double x621 = x189*x65;
-	double x622 = -dAtdd_dx[10]*x151 + dAtdd_dx[15]*x151 - dgtdd_dx[10]*x606 + dgtdd_dx[15]*x606 - gtdd[4]*x620 - x189*x601 + x193*x611 - x234*x616 + x235*x618 - x279*x621 + x280*x290 + x290*x612 - x371*x621 + x608*x7;
-	double x623 = dAtdd_dx[4]*x151;
-	double x624 = (1.0/2.0)*x610;
-	double x625 = x235*x624;
-	double x626 = dgtdd_dx[4]*x606;
-	double x627 = gtdd[4]*x614;
-	double x628 = x189*x368;
-	double x629 = x189*x587;
-	double x630 = x189*x588;
-	double x631 = x151*x607;
-	double x632 = dAtdd_dx[13]*x151 + dgtdd_dx[13]*x606 + gtdd[1]*x631 + x172*x611 + x280*x320 + x320*x612 - x616*x67;
-	double x633 = -x623 + x625 - x626 - x627 - x628 - x629 - x630 + x632;
-	double x634 = x53*x65;
-	double x635 = -dAtdd_dx[8]*x151 + dchi_dx[1]*x609*x78 - dgtdd_dx[8]*x606 - gtdd[2]*x620 - x279*x634 - x371*x634 - x53*x601;
-	double x636 = x632 + x635;
-	double x637 = x57*x609;
-	double x638 = x235*x57;
-	double x639 = dAtdd_dx[3]*x151 - dAtdd_dx[7]*x151 + dgtdd_dx[3]*x606 - dgtdd_dx[7]*x606 - gtdd[1]*x620 + x153*x290 + x155*x290 + x193*x637 - x234*x624 - x279*x320 - x320*x371 - x320*x638 + (1.0/2.0)*x613*x7 + x618*x67;
-	double x640 = (1.0/2.0)*x619;
-	double x641 = dAtdd_dx[1]*x151 - dAtdd_dx[6]*x151 + dgtdd_dx[1]*x606 - dgtdd_dx[6]*x606 + gtdd[1]*x614 + x153*x320 + x155*x320 + x172*x637 - x184*x279 - x184*x371 - x184*x638 - x6*x640 + x61*x618 - x624*x67;
-	double x642 = -x641;
-	double x643 = -x639;
-	double x644 = -1.0/8.0*gtdd[1]*gtdd[4]*x78 - 1.0/4.0*gtdd[2]*x5*x564 + x133*x434 - 1.0/4.0*x234*x73*x78 + x569*x67;
-	double x645 = -1.0/4.0*gtdd[3]*x482*x5 + x549*x576 + x550*x574 + x644;
-	double x646 = -x645;
-	double x647 = x30*x522;
-	double x648 = x232*x647;
-	double x649 = -1.0/4.0*gtdd[3]*x5*x501 + x550*x568 + x560*x576 + x644;
-	double x650 = -x649;
-	double x651 = -1.0/8.0*gtdd[0]*gtdd[4]*x78 + gtdd[1]*gtdd[2]*x434 + x518*x550 + x569*x61 - 1.0/4.0*x67*x73*x78;
-	double x652 = -1.0/4.0*gtdd[1]*x482*x5 - 1.0/4.0*gtdd[2]*x5*x568 + x549*x577 + x651;
-	double x653 = -x652;
-	double x654 = x315*x647;
-	double x655 = -1.0/4.0*gtdd[1]*x5*x501 - 1.0/4.0*gtdd[2]*x5*x574 + x560*x577 + x651;
-	double x656 = -x655;
-	double x657 = x33*x522;
-	double x658 = x52*x657;
-	double x659 = x315*x657;
-	double x660 = x432*x522;
-	double x661 = x584*x73;
-	double x662 = x387*x75;
-	double x663 = dAtdd_dx[14]*x151 - 1.0/2.0*dAtdd_dx[5]*x5 - 1.0/2.0*dchi_dx[2]*x73*x78 + dgtdd_dx[14]*x606 - 1.0/2.0*dgtdd_dx[5]*x5*x60 + gtdd[2]*x631 - 1.0/2.0*gtdd[5]*x5*x613 - 1.0/4.0*x124*x164*x5*x67 - 1.0/4.0*x134*x164*x5*x61 - 1.0/4.0*x164*x5*x57*x73 + x370*x53 + x387*x624 + x53*x661 + x53*x662;
-	double x664 = x164*x65;
-	double x665 = dAtdd_dx[11]*x151 - dAtdd_dx[16]*x151 + dgtdd_dx[11]*x606 - dgtdd_dx[16]*x606 - gtdd[4]*x631 + x164*x601 - x189*x370 - x189*x661 - x189*x662 + x235*x616 + x279*x664 + x28*x640 + x371*x664 - x387*x618;
-	double x666 = x29*x522;
-	double x667 = -2*x578*x666;
-	double x668 = x24*x522;
-	double x669 = x604*x668;
-	double x670 = x27*x522;
-	double x671 = x595*x670;
-	double x672 = x29*x660;
-	double x673 = -x665;
-	double x674 = -x617;
-	double x675 = -x633;
-	double x676 = x623 - x625 + x626 + x627 + x628 + x629 + x630 + x635;
-	double x677 = -x636;
-	double x678 = -x676;
-	double x679 = -x622;
-	double x680 = -x575;
-	double x681 = x604*x647;
-	double x682 = -x571;
-	double x683 = x595*x657;
-	double x684 = x595*x666;
-	double x685 = x604*x666;
-	double x686 = -2*x521;
-	double x687 = -2*x565;
-	double x688 = (1.0/sqrt(x50));
-	double x689 = x25*x688;
-	double x690 = x16*x688;
-	double x691 = x43*x689 - x45*x690;
-	double x692 = x523*x691;
-	double x693 = x41*x691;
-	double x694 = x47*x689;
-	double x695 = x647*x691;
-	double x696 = x657*x691;
-	double x697 = x47*x690;
-	double x698 = 2*x43;
-	double x699 = x690*x698;
-	double x700 = 2*x45;
-	double x701 = x689*x700;
-	double x702 = x668*x694;
-	double x703 = x14*x688;
-	double x704 = x37*x703;
-	double x705 = x47*x704;
-	double x706 = x40*x697;
-	double x707 = x39*x694;
-	double x708 = x670*x697;
-	double x709 = x13*x700;
-	double x710 = x21*x698;
-	double x711 = x522*x703;
-	double x712 = x47*x711;
-	double x713 = x680*x712;
-	double x714 = x13*x23;
-	double x715 = x682*x712;
-	double x716 = x666*x694;
-	double x717 = x21*x26;
-	double x718 = x666*x697;
-	double x719 = x26*x710*x711;
-	double x720 = x23*x709*x711;
-	*Psi4Re = x4*(x23*x232*x37*x639 + x23*x315*x37*x641 + x23*x37*x43*x47*x51*x674 + x23*x37*x45*x47*x51*x675 + x23*x37*x45*x47*x51*x676 - x23*x37*x48*x51*x663 - x231*x52 - x232*x313 + x232*x37*x622*xyz[2] - x232*x566 - x232*x580 - x24*x521*x660 + x26*x315*x37*x643 + x26*x37*x43*x47*x51*x677 + x26*x37*x43*x47*x51*x678 + x26*x37*x45*x47*x51*x679 + x26*x37*x48*x51*x665 + x26*x37*x52*x642 - x27*x565*x660 + x315*x37*x633*xyz[2] + x315*x37*x636*xyz[2] - x315*x377 - x315*x386 - x315*x667 + x37*x43*x47*x51*x663*xyz[2] + x37*x45*x47*x51*x673*xyz[2] + x37*x52*x617*xyz[2] - x432*(x125*x391 + x125*x392 + x125*x428 + x125*x429 - x134*x154*x387 + x135*x393 + x135*x394 + x135*x431 + x141*x396 + x141*x397 - x152*x372 + x159*x414 - x160*x388 - x166*x388 + x180*x415 - x186*x423 - x193*x419*x71 + x201*x425 - x207*x423 - x216*x418 - x236*x72 - x281*x387 - x298*x423 + x319*x413 + x379*x416 - x380*x402 - ((x387)*(x387))*x75 + x387*x76 - x388*x405 - x388*x407 + x389*x98 + x390*x98 + x398*x399 + x398*x400 + x401*x412 - x402*x403 + x409*x98 + x411*x98 - x420*x64 - x421*x422 + x421*x424 + x425*x426 - x66*x74) - x52*x524 - x52*x581 - x571*x572 - x571*x672 - x572*x575 - x575*x672 - x594*x595 - x595*x599 - x595*x647*x686 - x603*x604 - x604*x605 - x604*x657*x687 - x645*x659 - x645*x685 - x646*x648 - x646*x671 - x648*x650 - x649*x659 - x649*x685 - x650*x671 - x652*x658 - x652*x669 - x653*x654 - x653*x684 - x654*x656 - x655*x658 - x655*x669 - x656*x684 - x680*x681 - x680*x683 - x681*x682 - x682*x683);
-	*Psi4Im = x4*(x13*x26*x687*x712 - x13*x673*x705 - x21*x23*x686*x712 + x21*x663*x705 - x231*x699 + x313*x701 + x377*x691 + x386*x691 - x39*x639*x701 - x39*x641*x691 + x39*x674*x697 + x40*x642*x699 - x40*x643*x691 - x40*x679*x694 - x524*x699 + x566*x701 + x571*x692 + x575*x692 + x580*x701 - x581*x699 - x594*x697 - x599*x697 + x603*x694 + x605*x694 + x617*x704*x710 - x622*x704*x709 - x633*x693 - x636*x693 + x645*x696 + x645*x716 - x646*x708 + x646*x720 + x649*x696 + x649*x716 - x650*x708 + x650*x720 + x652*x702 - x652*x719 + x653*x695 - x653*x718 + x655*x702 - x655*x719 + x656*x695 - x656*x718 + x667*x691 - x675*x707 - x676*x707 + x677*x706 + x678*x706 + x713*x714 - x713*x717 + x714*x715 - x715*x717);
+	double x0 = gtuu[1]*gtuu[4];
+	double x1 = gtuu[2]*gtuu[3];
+	double x2 = gtuu[2]*gtuu[4];
+	double x3 = dgtdd_dx[12]*gtuu[2];
+	double x4 = gtuu[0]*gtuu[4];
+	double x5 = gtuu[1]*gtuu[2];
+	double x6 = dgtdd_dx[14]*gtuu[5];
+	double x7 = dgtdd_dx[16]*gtuu[5];
+	double x8 = dgtdd_dx[17]*gtuu[5];
+	double x9 = gtuu[0]*gtuu[1];
+	double x10 = gtuu[0]*gtuu[3];
+	double x11 = gtuu[1]*gtuu[3];
+	double x12 = ((gtuu[2])*(gtuu[2]));
+	double x13 = ((gtuu[1])*(gtuu[1]));
+	double x14 = gtuu[0]*gtuu[2];
+	double x15 = gtuu[3]*gtuu[4];
+	double x16 = ((gtuu[4])*(gtuu[4]));
+	double x17 = gtuu[1]*gtuu[5];
+	(*Gammatu_id)[0] = dgtdd_dx[0]*((gtuu[0])*(gtuu[0])) + dgtdd_dx[10]*x0 + dgtdd_dx[10]*x1 + dgtdd_dx[11]*x2 + dgtdd_dx[13]*x4 + dgtdd_dx[13]*x5 + dgtdd_dx[14]*x12 + dgtdd_dx[15]*x0 + dgtdd_dx[16]*x2 + 2*dgtdd_dx[1]*x9 + 2*dgtdd_dx[2]*x14 + dgtdd_dx[3]*x13 + 2*dgtdd_dx[4]*x5 + dgtdd_dx[5]*x12 + dgtdd_dx[6]*x9 + dgtdd_dx[7]*x10 + dgtdd_dx[7]*x13 + dgtdd_dx[8]*x4 + dgtdd_dx[8]*x5 + dgtdd_dx[9]*x11 + gtuu[0]*x3 + gtuu[0]*x6 + gtuu[1]*x7 + gtuu[2]*x8;
+	(*Gammatu_id)[1] = dgtdd_dx[0]*x9 + 2*dgtdd_dx[10]*x15 + dgtdd_dx[11]*x16 + dgtdd_dx[13]*x0 + dgtdd_dx[13]*x1 + dgtdd_dx[14]*x2 + dgtdd_dx[15]*x15 + dgtdd_dx[16]*x16 + dgtdd_dx[1]*x10 + dgtdd_dx[1]*x13 + dgtdd_dx[2]*x4 + dgtdd_dx[2]*x5 + dgtdd_dx[3]*x11 + dgtdd_dx[4]*x0 + dgtdd_dx[4]*x1 + dgtdd_dx[5]*x2 + dgtdd_dx[6]*x13 + 2*dgtdd_dx[7]*x11 + 2*dgtdd_dx[8]*x0 + dgtdd_dx[9]*((gtuu[3])*(gtuu[3])) + gtuu[1]*x3 + gtuu[1]*x6 + gtuu[3]*x7 + gtuu[4]*x8;
+	(*Gammatu_id)[2] = dgtdd_dx[0]*x14 + dgtdd_dx[10]*gtuu[3]*gtuu[5] + dgtdd_dx[10]*x16 + dgtdd_dx[11]*gtuu[4]*gtuu[5] + dgtdd_dx[12]*x12 + 2*dgtdd_dx[13]*x2 + dgtdd_dx[15]*x16 + dgtdd_dx[17]*((gtuu[5])*(gtuu[5])) + dgtdd_dx[1]*x4 + dgtdd_dx[1]*x5 + dgtdd_dx[2]*gtuu[0]*gtuu[5] + dgtdd_dx[2]*x12 + dgtdd_dx[3]*x0 + dgtdd_dx[4]*x17 + dgtdd_dx[4]*x2 + dgtdd_dx[5]*gtuu[2]*gtuu[5] + dgtdd_dx[6]*x5 + dgtdd_dx[7]*x0 + dgtdd_dx[7]*x1 + dgtdd_dx[8]*x17 + dgtdd_dx[8]*x2 + dgtdd_dx[9]*x15 + 2*gtuu[2]*x6 + 2*gtuu[4]*x7;
 }
 
 static void KOKKOS_INLINE_FUNCTION
 z4c_get_adaptive_eta(
-	const double gtdd[6],
-	double chi,
+	double W,
 	double eta,
-	const double dchi_dx[3],
+	const double gtuu[6],
+	const double dW_dx[3],
 	double apar,
 	double bpar,
 	double epstiny,
 	double * __restrict__ eta_adaptive
 )
 {
-	double x0 = 2*dchi_dx[1];
-	*eta_adaptive = (1.0/2.0)*eta*sqrt(((dchi_dx[0])*(dchi_dx[0]))*(gtdd[3]*gtdd[5] - ((gtdd[4])*(gtdd[4]))) + 2*dchi_dx[0]*dchi_dx[2]*(gtdd[1]*gtdd[4] - gtdd[2]*gtdd[3]) - dchi_dx[0]*x0*(gtdd[1]*gtdd[5] - gtdd[2]*gtdd[4]) + ((dchi_dx[1])*(dchi_dx[1]))*(gtdd[0]*gtdd[5] - ((gtdd[2])*(gtdd[2]))) + ((dchi_dx[2])*(dchi_dx[2]))*(gtdd[0]*gtdd[3] - ((gtdd[1])*(gtdd[1]))) - dchi_dx[2]*x0*(gtdd[0]*gtdd[4] - gtdd[1]*gtdd[2]))/(sqrt(chi)*pow(1 - pow(chi, apar), bpar) + epstiny);
+	double x0 = 2*dW_dx[0];
+	*eta_adaptive = (1.0/2.0)*eta*sqrt(((dW_dx[0])*(dW_dx[0]))*gtuu[0] + ((dW_dx[1])*(dW_dx[1]))*gtuu[3] + 2*dW_dx[1]*dW_dx[2]*gtuu[4] + dW_dx[1]*gtuu[1]*x0 + ((dW_dx[2])*(dW_dx[2]))*gtuu[5] + dW_dx[2]*gtuu[2]*x0)/(epstiny + pow(1 - pow(W, apar), bpar));
 }
 
 #endif 

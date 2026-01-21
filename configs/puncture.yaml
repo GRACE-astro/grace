@@ -1,0 +1,127 @@
+name: "grace"
+amr: {
+  npoints_block_x: 32,
+  npoints_block_y: 32,
+  npoints_block_z: 32,
+  xmin: 0.0,
+  xmax: 64.0,
+  ymin: 0.0,
+  ymax: 64.0,
+  zmin: 0.0,
+  zmax: 64.0,
+
+  n_ghostzones: 4,
+  initial_refinement_level: 1,
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+  n_fmr_boxes: 3,
+  fmr_box_0: {
+    target_level_delta: 1,
+    x_min: 0,
+    x_max: 32,
+    y_min: 0,
+    y_max: 32,
+    z_min: 0,
+    z_max: 32
+  },
+  fmr_box_1: {
+    target_level_delta: 2,
+    x_min: 0,
+    x_max: 16,
+    y_min: 0,
+    y_max: 16,
+    z_min: 0,
+    z_max: 16
+  },
+  fmr_box_2: {
+    target_level_delta: 3,
+    x_min: 0,
+    x_max: 8,
+    y_min: 0,
+    y_max: 8,
+    z_min: 0,
+    z_max: 8
+  }
+}
+
+IO: {
+  volume_output_cell_variables: ["rho","press","eps","vel[0]", "alp", "beta[0]"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: -1,
+
+  plane_surface_output_cell_variables: ["z4c_H", "z4c_M[0]", "beta[0]", "z4c_Khat", "gamma_tilde[0,0]", "gamma_tilde[0,1]", "gamma_tilde[0,2]", "gamma_tilde[1,1]", "gamma_tilde[1,2]", "gamma_tilde[2,2]", "z4c_theta", "conf_fact", "z4c_Gamma[0]","A_tilde[0,0]","A_tilde[0,1]","zvec[0]"],
+  plane_surface_output_every: 50,
+
+  sphere_surface_output_every: -1,
+
+  info_output_every: 2,
+  info_output_max_reductions: ["rho"],
+  info_output_min_reductions: ["alp"],
+  info_output_norm2_reductions: ["z4c_H"],
+
+  scalar_output_every: 2,
+  scalar_output_minmax: ["rho","press","eps","alp"],
+  scalar_output_norm2: ["z4c_H"],
+  scalar_output_integral: [],
+
+  output_use_hdf5: true,
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  flush_logs_based_on_severity: false,
+  flush_level: "trace",
+  n_device_streams: 4
+}
+evolution: {
+  time_stepper: "rk3",
+  cfl_factor: 0.2,
+  final_time: 4000
+}
+
+grmhd: {
+  id_type: "puncture",
+
+  Avec_ID: {
+    kind: "current_loop",
+    cutoff_var: "press",
+    cutoff_fact: 0.02,
+    A_phi: 0,
+    A_n: 2.0
+  },
+  B_field_from_Avec: true,
+
+  atmosphere: {
+    ye_fl: 0,
+    temp_fl:  0.0,
+    rho_fl: 1.e-14,
+    rho_scaling:  0,
+    temp_scaling: 0,
+    max_lorentz: 50,
+    max_sigma: 100,
+    c2p_tolerance: 1e-10,
+    beta_fallback: 1e-2,
+    use_c2p_entropy_backup: true
+  },
+
+  excision: {
+    excision_criterion: "lapse",
+    excision_lapse: 0.05,
+    excision_radius: 1.0,
+    rho_excision: 1e-14,
+    temp_excision: 0.01
+  }
+
+}
+
+z4c: {
+  kappa_1: 0.02,
+  kappa_2: 0.0,
+  eta: 2.0,
+  eps_diss: 0.1
+}
+

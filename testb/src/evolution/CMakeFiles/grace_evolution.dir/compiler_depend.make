@@ -806,11 +806,11 @@ src/evolution/CMakeFiles/grace_evolution.dir/auxiliaries.cpp.o: /u/cmusolino/gra
   /u/cmusolino/grace-private-src/include/grace/utils/riemann_solvers.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/grmhd_subexpressions.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/fd_subexpressions.hh \
+  /u/cmusolino/grace-private-src/include/grace/physics/z4c_subexpressions.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/eos/eos_storage.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/z4c.hh \
   /u/cmusolino/grace-private-src/include/grace/utils/fd_utils.hh \
-  /u/cmusolino/grace-private-src/include/grace/evolution/fd_evolution_system.hh \
-  /u/cmusolino/grace-private-src/include/grace/physics/z4c_subexpressions.hh
+  /u/cmusolino/grace-private-src/include/grace/evolution/fd_evolution_system.hh
 
 src/evolution/CMakeFiles/grace_evolution.dir/evolve.cpp.o: /u/cmusolino/grace-private-src/src/evolution/evolve.cpp \
   /u/system/soft/RHEL_9/packages/x86_64/rocm/6.3.4/lib/llvm/lib/clang/18/include/__clang_hip_runtime_wrapper.h \
@@ -1631,11 +1631,11 @@ src/evolution/CMakeFiles/grace_evolution.dir/evolve.cpp.o: /u/cmusolino/grace-pr
   /u/cmusolino/grace-private-src/include/grace/coordinates/spherical_coordinate_systems.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/grmhd_subexpressions.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/fd_subexpressions.hh \
+  /u/cmusolino/grace-private-src/include/grace/physics/z4c_subexpressions.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/eos/eos_storage.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/z4c.hh \
   /u/cmusolino/grace-private-src/include/grace/utils/fd_utils.hh \
   /u/cmusolino/grace-private-src/include/grace/evolution/fd_evolution_system.hh \
-  /u/cmusolino/grace-private-src/include/grace/physics/z4c_subexpressions.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/z4c_helpers.hh \
   /u/cmusolino/grace-private-src/include/grace/coordinates/coordinates.hh \
   /u/cmusolino/grace-private-src/include/grace/amr/grace_amr.hh \
@@ -2443,6 +2443,7 @@ src/evolution/CMakeFiles/grace_evolution.dir/find_stable_timestep.cpp.o: /u/cmus
   /u/cmusolino/grace-private-src/include/grace/utils/weno_reconstruction.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/grmhd_subexpressions.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/fd_subexpressions.hh \
+  /u/cmusolino/grace-private-src/include/grace/physics/z4c_subexpressions.hh \
   /u/cmusolino/grace-private-src/include/grace/physics/eos/eos_storage.hh
 
 src/evolution/CMakeFiles/grace_evolution.dir/refluxing.cpp.o: /u/cmusolino/grace-private-src/src/evolution/refluxing.cpp \
@@ -3245,13 +3246,13 @@ src/evolution/CMakeFiles/grace_evolution.dir/refluxing.cpp.o: /u/cmusolino/grace
 
 /u/cmusolino/grace-private-src/include/grace/evolution/refluxing.hh:
 
-/u/cmusolino/grace-private-src/include/grace/physics/z4c_subexpressions.hh:
-
 /u/cmusolino/grace-private-src/include/grace/utils/fd_utils.hh:
 
 /u/cmusolino/grace-private-src/include/grace/physics/z4c.hh:
 
 /u/cmusolino/grace-private-src/include/grace/physics/eos/eos_storage.hh:
+
+/u/cmusolino/grace-private-src/include/grace/physics/z4c_subexpressions.hh:
 
 /u/cmusolino/grace-private-src/include/grace/physics/fd_subexpressions.hh:
 

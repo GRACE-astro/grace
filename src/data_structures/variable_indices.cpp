@@ -208,9 +208,9 @@ void register_variables() {
     REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing","second_order",true) ; 
     REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing","second_order",true) ;
     #ifdef GRACE_ENABLE_M1
-    REGISTER_EVOLVED_SCALAR(ERAD,"Erad","outgoing","second_order",true) ;
-    REGISTER_EVOLVED_SCALAR(NRAD,"Nrad","outgoing","second_order",true) ;
-    REGISTER_EVOLVED_VECTOR(FRADX,FRADY,FRADZ,"Frad","outgoing","second_order",true) ;
+    REGISTER_EVOLVED_SCALAR(ERAD,"Erad","none","second_order",true) ;
+    REGISTER_EVOLVED_SCALAR(NRAD,"Nrad","none","second_order",true) ;
+    REGISTER_EVOLVED_VECTOR(FRADX,FRADY,FRADZ,"Frad","none","second_order",true) ;
     #endif 
     REGISTER_EVOLVED_FACE_STAGGERED_VECTOR(BSX,BSY,BSZ,"B_face", "outgoing"/*FIXME?*/, "div_preserving", false);
     /* GRMHD primitives */

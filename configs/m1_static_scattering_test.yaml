@@ -30,7 +30,10 @@ IO: {
   
   output_use_hdf5: true, 
   hdf5_compression_level: 0,
-  hdf5_chunk_size: 512
+  hdf5_chunk_size: 512,
+
+  n_output_planes: 1,
+  output_plane_z_origin_0: 0.08
 }
 
 system: {

@@ -45,7 +45,7 @@
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
 #include <grace/physics/m1_helpers.hh>
-
+#include "fd_subexpressions.hh"
 #include <Kokkos_Core.hpp>
 
 #include <type_traits>
@@ -192,81 +192,94 @@ struct m1_equations_system_t
         using namespace grace  ;
         using namespace Kokkos ;
         /**************************************************************************************************/
-        /* Convenience indices to make the code slightly less unreadable                                  */
-        static constexpr int TT4=0; 
-        static constexpr int TX4=1;
-        static constexpr int TY4=2;
-        static constexpr int TZ4=3;
-        static constexpr int XX4=4;
-        static constexpr int XY4=5;
-        static constexpr int XZ4=6;
-        static constexpr int YY4=7;
-        static constexpr int YZ4=8;
-        static constexpr int ZZ4=9;
+        auto s = subview(this->_state,i,j,k,ALL(),q) ;
         /**************************************************************************************************/
         /* Read in the metric                                                                             */
+        /**************************************************************************************************/
         metric_array_t metric ; 
-        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
+        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;     
+        /**************************************************************************************************/
         /**************************************************************************************************/
         // construct closure and get pressure 
         m1_prims_array_t prims ; 
         FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
         prims[ERADL] /= metric.sqrtg() ; 
         prims[NRADL] /= metric.sqrtg() ; 
-        prims[FXL] /= metric.sqrtg(); 
-        prims[FYL] /= metric.sqrtg(); 
-        prims[FZL] /= metric.sqrtg(); 
+        prims[FXL]   /= metric.sqrtg() ; 
+        prims[FYL]   /= metric.sqrtg() ; 
+        prims[FZL]   /= metric.sqrtg() ; 
 
         m1_closure_t cl{prims,metric} ;
         cl.update_closure(0.) ; 
         cl.compute_pressure() ; 
-        auto const& PUU = cl.PUU ; 
         /**************************************************************************************************/
-        // we need derivative of gamma_{ij}, derivatives of beta^i and beta_i, derivatives of 
-        // alpha 
-        double dalpha_dx[3], dbetau_dx[9], dgdd_dx[18];
-        #pragma unroll 
+        auto const& PUU            = cl.PUU              ; 
+        double const E             = cl.E                ; 
+        double const * const Fu    = cl.FU.data()        ;
+        double const * const Fd    = cl.FD.data()        ;
+        double const * const betau = metric._beta.data() ; 
+        double const * const gdd   = metric._g.data()    ; 
+        double const * const guu   = metric._ginv.data() ; 
+        double const sqrtg         = metric.sqrtg()      ; 
+        double const alp           = metric.alp()        ;
+        /**************************************************************************************************/
+        /* Metric derivatives                                                                             */
+        /**************************************************************************************************/
+        double dalpha_dx[3], dgdd_dx[18], dbetau_dx[9] ; 
+        fill_deriv_scalar(this->_state, i,j,k, ALP_, q, dalpha_dx, idx(0,q)) ; 
+        fill_deriv_vector(this->_state, i,j,k, BETAX_, q, dbetau_dx, idx(0,q)) ;
+        #ifdef GRACE_ENABLE_COWLING_METRIC
+        fill_deriv_tensor(this->_state, i,j,k, GXX_, q, dgdd_dx, idx(0,q)) ;
+        #else 
+        double chi = s(CHI_) ; 
+        double oochi = 1./fmax(1e-15,chi) ; 
+        double dchi_dx[3] ; 
+        fill_deriv_scalar(this->_state, i,j,k, CHI_, q, dchi_dx, idx(0,q)) ;
+        fill_deriv_tensor(this->_state, i,j,k, GTXX_, q, dgdd_dx, idx(0,q)) ;
+        // gdd = gtdd/chi
+        // dgdd/dx = dgtdd/dx / chi - gdd / chi dchi/dx 
         for( int idir=0; idir<3; ++idir) {
-            /**************************************************************************************************/
-            /* Read metric components at neighor cell centres for metric derivative                           */
-            metric_array_t metric_m, metric_p ; 
-            FILL_METRIC_ARRAY( metric_m, this->_state
-                             , q
-                             , VEC( i-utils::delta(0,idir)
-                                  , j-utils::delta(1,idir)
-                                  , k-utils::delta(2,idir)) ) ; 
-            FILL_METRIC_ARRAY( metric_p, this->_state
-                             , q
-                             , VEC( i+utils::delta(0,idir)
-                                  , j+utils::delta(1,idir)
-                                  , k+utils::delta(2,idir) ) ) ;
-            dalpha_dx[idir] = 0.5*(metric_p.alp() - metric_m.alp()) * idx(idir,q) ;
-            int ii=0; 
-            for( int j=0; j<3; ++j) {
-                dbetau_dx[3 * idir + j] =  0.5*(metric_p.beta(j) - metric_m.beta(j)) * idx(idir,q) ;
-                for( int k=j; k<3; ++k) {
-                    dgdd_dx[6*idir + ii] =  0.5*(metric_p.gamma(ii) - metric_m.gamma(ii)) * idx(idir,q) ;
-                    ii++ ; 
-                }
+            for( int a=0; a<6; ++a) {
+                dgdd_dx[a + 6*idir] = oochi * ( dgdd_dx[a + 6*idir] - gdd[a] * dchi_dx[idir] ); 
             }
-            
         }
+        #endif 
         /**************************************************************************************************/
-        std::array<double,6> Kij ; 
-        get_extrinsic_curvature(Kij,this->_state,VEC(i,j,k),q) ; 
+        /* Extrinsic curvature                                                                            */
         /**************************************************************************************************/
-        auto betad = metric.lower(metric._beta) ; 
+        double Kdd[6] ; 
+        #ifdef GRACE_ENABLE_COWLING_METRIC
+        Kdd[0] = s(KXX_) ; Kdd[1] = s(KXY_) ; Kdd[2] = s(KXZ_) ; 
+        Kdd[3] = s(KYY_) ; Kdd[4] = s(KYZ_) ; Kdd[5] = s(KZZ_) ; 
+        #else
+        double Atdd[6] = { 
+              s(ATXX_), s(ATXY_), s(ATXZ_),
+              s(ATYY_), s(ATYZ_), s(ATZZ_)
+        } ;
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        double const Khat  = s(KHAT_);
+        double const theta = s(THETA_);
+        double const Ktr = Khat + 2. * theta ; 
+        #elif defined(GRACE_ENABLE_BSSN_METRIC)
+        double const Ktr = s(KTR_) ; 
+        #endif 
+        for( int a=0; a<6; ++a ) {
+            Kdd[a] = oochi * Atdd[a] + Ktr * gdd[a] / 3. ; 
+        }
+        #endif 
+        /**************************************************************************************************/
         double dE, dF[3] ; 
         m1_geom_source_terms(
-            cl.E, cl.FD.data(), cl.FU.data(), metric.alp(),
-            Kij.data(), dalpha_dx, dgdd_dx, dbetau_dx, PUU,
+            E, Fd, Fu, alp, Kdd,
+            dalpha_dx, dgdd_dx, dbetau_dx, PUU,
             &dE, &dF
         ) ;
-        double sqrtg = metric.sqrtg() ; 
-        state_new(VEC(i,j,k),ERAD_,q)  += sqrtg * dt * dtfact * dE ;
+        /**************************************************************************************************/
+        state_new(VEC(i,j,k),ERAD_,q)  += sqrtg * dt * dtfact * dE    ;
         state_new(VEC(i,j,k),FRADX_,q) += sqrtg * dt * dtfact * dF[0] ;
         state_new(VEC(i,j,k),FRADY_,q) += sqrtg * dt * dtfact * dF[1] ;
         state_new(VEC(i,j,k),FRADZ_,q) += sqrtg * dt * dtfact * dF[2] ;
+        /**************************************************************************************************/
     }
 
     /**

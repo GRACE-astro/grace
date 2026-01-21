@@ -49,7 +49,7 @@ struct puncture_id_t {
         double const psim2 = 1/(psi*psi) ; 
         double const psi4 = SQR(psi)*SQR(psi) ;
 
-        id.alp = 1. ; 
+        id.alp = psim2 ; 
 
         id.gxx = psi4; id.gyy = psi4; id.gzz = psi4;
         id.gxy = 0; id.gxz = 0; id.gyz = 0 ;

@@ -101,17 +101,19 @@ metric_array_t( std::array<double,6>const& gt_
               , double const& alp_ )
     : _g(), _ginv(), _beta(beta_), _alp(alp_), _sqrtg()
 {
+    double oochi = 1./fmax(1e-100,chi_) ; 
     #pragma unroll 6
     for( int ii=0; ii<6; ++ii) {
-        _g[ii] = gt_[ii]/chi_ ; 
+        _g[ii] = gt_[ii] * SQR(oochi) ; 
     }
-    _sqrtg = pow(chi_,-3.0/2.0) ; // TODO 
-    _ginv[0] = (_g[3]*_g[5] - math::int_pow<2>(_g[4]))/math::int_pow<2>(_sqrtg);
-    _ginv[1] = (-_g[1]*_g[5] + _g[2]*_g[4])/math::int_pow<2>(_sqrtg);
-    _ginv[2] = (-(_g[2]*_g[3]) + _g[1]*_g[4])/math::int_pow<2>(_sqrtg);
-    _ginv[3] = (_g[5]*_g[0] - math::int_pow<2>(_g[2]))/math::int_pow<2>(_sqrtg);
-    _ginv[4] = (_g[1]*_g[2] - _g[0]*_g[4])/math::int_pow<2>(_sqrtg) ; 
-    _ginv[5] = (-math::int_pow<2>(_g[1]) + _g[0]*_g[3]) /math::int_pow<2>(_sqrtg);
+    _sqrtg = det(_g) ; // TODO 
+    _ginv[0] = (_g[3]*_g[5] - math::int_pow<2>(_g[4]))/_sqrtg;
+    _ginv[1] = (-_g[1]*_g[5] + _g[2]*_g[4])/_sqrtg;
+    _ginv[2] = (-(_g[2]*_g[3]) + _g[1]*_g[4])/_sqrtg;
+    _ginv[3] = (_g[5]*_g[0] - math::int_pow<2>(_g[2]))/_sqrtg;
+    _ginv[4] = (_g[1]*_g[2] - _g[0]*_g[4])/_sqrtg ; 
+    _ginv[5] = (-math::int_pow<2>(_g[1]) + _g[0]*_g[3]) /_sqrtg ;
+    _sqrtg = sqrt(_sqrtg) ; 
 }
 #endif
 /**
@@ -489,6 +491,11 @@ double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
 trace_sym2tens_lower(std::array<double,6> const& A) const 
 {
     return (*this).contract_sym2tens_sym2tens(_ginv,A) ; 
+}
+
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+det(std::array<double,6> const& A) const {
+    return A[0]*A[3]*A[5] - A[0]*((A[4])*(A[4])) - ((A[1])*(A[1]))*A[5] + 2*A[1]*A[2]*A[4] - ((A[2])*(A[2]))*A[3] ; 
 }
 
 std::array<double,6> _g, _ginv ; //!< Spatial metric and inverse components.

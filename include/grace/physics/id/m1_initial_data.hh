@@ -321,7 +321,7 @@ struct curved_beam_m1_id_t {
         id.erad = atmo.E_fl ; id.nrad = atmo.E_fl / atmo.eps_fl ; 
         id.fradx = id.frady = id.fradz = 0. ;  
 
-        if ( xyz[0] <= 0. and 
+        if ( xyz[0] <= 0.015625 and 
             xyz[1] < 0.25 and xyz[1] > - 0.25 and 
             xyz[2] <= 3.5 and xyz[2] >= 3.0 ) {
             id.erad = 1.0 ; 
