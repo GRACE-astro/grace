@@ -276,8 +276,6 @@ struct grmhd_equations_system_t
               s(ATXX_), s(ATXY_), s(ATXZ_),
               s(ATYY_), s(ATYZ_), s(ATZZ_)
         } ;
-        double Atr = guu[0] * Atdd[0] + guu[3] * Atdd[3] + guu[5] * Atdd[5]
-                    + 2 * ( guu[1] * Atdd[1] + guu[2] * Atdd[2] + guu[4] * Atdd[4] );
         #ifdef GRACE_ENABLE_Z4C_METRIC
         double const Khat  = s(KHAT_);
         double const theta = s(THETA_);
@@ -286,7 +284,7 @@ struct grmhd_equations_system_t
         double const Ktr = s(KTR_) ; 
         #endif 
         for( int a=0; a<6; ++a ) {
-            Kdd[a] = SQR(oochi) * Atdd[a] + (Ktr - Atr) * gdd[a] / 3. ; 
+            Kdd[a] = SQR(oochi) * Atdd[a] + (Ktr) * gdd[a] / 3. ; 
         }
         #endif 
         /**************************************************************************************************/
@@ -718,7 +716,7 @@ struct grmhd_equations_system_t
         }
 
         theta = math::min(theta_m, theta_p) ;
-        
+        if ( std::isnan(theta) ) theta = 1. ; 
 
         // mix in the lapse 
         double theta_exc ; 
@@ -730,13 +728,17 @@ struct grmhd_equations_system_t
             } ; 
             double rtp[3] ; 
             dcoords.get_physical_coordinates_sph(i,j,k,q,fcoords,rtp,1) ; 
-            theta_exc = 0.5 * (1.0 + tanh((rtp[0] - 1.5*excision_params.r_ex)/(0.25*excision_params.r_ex))) ; 
+            double a0 = 0.5 * (excision_params.r_f+excision_params.r_ex) ; 
+            double da = 0.25 * (excision_params.r_f-excision_params.r_ex) ;
+            theta_exc = 0.5 * (1.0 + tanh((rtp[0]-a0)/da)) ; 
         } else {
-            theta_exc = 0.5 * (1.0 + tanh((metric_face.alp()-1.5*excision_params.alp_ex)/(0.25*excision_params.alp_ex))) ; 
+            double a0 = 0.5 * (excision_params.alp_f+excision_params.alp_ex) ; 
+            double da = 0.25 * (excision_params.alp_f-excision_params.alp_ex) ;
+            theta_exc = 0.5 * (1.0 + tanh((metric_face.alp()-a0)/da)) ; 
         }
         theta *= fmin(fmax(theta_exc,0.),1.) ; 
 
-        if ( std::isnan(theta) ) theta = 1. ; 
+        
         //if ( metric_face.alp() < 0.2 ) theta = 0 ; 
         /***********************************************************************/
         /***********************************************************************/

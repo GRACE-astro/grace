@@ -3347,3 +3347,627 @@ events:
         
       exitCode: 2
 ...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "cmake/setup_mpi.cmake:2 (find_package)"
+      - "CMakeLists.txt:40 (include)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QoBYR7"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QoBYR7"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QoBYR7
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_aa47f/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_aa47f.dir/build.make CMakeFiles/cmTC_aa47f.dir/build
+        gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QoBYR7'
+        Building C object CMakeFiles/cmTC_aa47f.dir/test_mpi.c.o
+        /usr/bin/cc  -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include/openmpi -isystem /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include  -o CMakeFiles/cmTC_aa47f.dir/test_mpi.c.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QoBYR7/test_mpi.c
+        Linking C executable cmTC_aa47f
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_aa47f.dir/link.txt --verbose=1
+        /usr/bin/cc -Wl,-rpath -Wl,/mpcdf/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib -Wl,--enable-new-dtags -L/viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib CMakeFiles/cmTC_aa47f.dir/test_mpi.c.o -o cmTC_aa47f  -Wl,-rpath,/u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib/libmpi.so 
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QoBYR7'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "cmake/setup_mpi.cmake:2 (find_package)"
+      - "CMakeLists.txt:40 (include)"
+    description: "The MPI test test_mpi for CXX in mode normal"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-SMk5vd"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-SMk5vd"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "MPI_RESULT_CXX_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-SMk5vd
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_86569/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_86569.dir/build.make CMakeFiles/cmTC_86569.dir/build
+        gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-SMk5vd'
+        Building CXX object CMakeFiles/cmTC_86569.dir/test_mpi.cpp.o
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc  -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include/openmpi -isystem /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -std=gnu++20 -MD -MT CMakeFiles/cmTC_86569.dir/test_mpi.cpp.o -MF CMakeFiles/cmTC_86569.dir/test_mpi.cpp.o.d -o CMakeFiles/cmTC_86569.dir/test_mpi.cpp.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-SMk5vd/test_mpi.cpp
+        Linking CXX executable cmTC_86569
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_86569.dir/link.txt --verbose=1
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc -Wl,-rpath -Wl,/mpcdf/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib -Wl,--enable-new-dtags -L/viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib CMakeFiles/cmTC_86569.dir/test_mpi.cpp.o -o cmTC_86569  -Wl,-rpath,/u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib/libmpi.so 
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-SMk5vd'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1672 (_MPI_try_staged_settings)"
+      - "cmake/setup_mpi.cmake:2 (find_package)"
+      - "CMakeLists.txt:40 (include)"
+    description: "The MPI test test_mpi for CXX in mode MPICXX"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ViHlCA"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ViHlCA"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "MPI_RESULT_CXX_test_mpi_MPICXX"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ViHlCA
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_55c2a/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_55c2a.dir/build.make CMakeFiles/cmTC_55c2a.dir/build
+        gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ViHlCA'
+        Building CXX object CMakeFiles/cmTC_55c2a.dir/test_mpi.cpp.o
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc  -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include/openmpi -isystem /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -std=gnu++20 -MD -MT CMakeFiles/cmTC_55c2a.dir/test_mpi.cpp.o -MF CMakeFiles/cmTC_55c2a.dir/test_mpi.cpp.o.d -o CMakeFiles/cmTC_55c2a.dir/test_mpi.cpp.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ViHlCA/test_mpi.cpp
+        Linking CXX executable cmTC_55c2a
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_55c2a.dir/link.txt --verbose=1
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc -Wl,-rpath -Wl,/mpcdf/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib -Wl,--enable-new-dtags -L/viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib CMakeFiles/cmTC_55c2a.dir/test_mpi.cpp.o -o cmTC_55c2a  -Wl,-rpath,/u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib/libmpi.so 
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ViHlCA'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindOpenMP.cmake:419 (try_compile)"
+      - "/usr/share/cmake/Modules/FindOpenMP.cmake:557 (_OPENMP_GET_SPEC_DATE)"
+      - "CMakeLists.txt:41 (find_package)"
+    description: "Detecting CXX OpenMP version"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "OpenMP_SPECTEST_CXX_"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_93d2e/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_93d2e.dir/build.make CMakeFiles/cmTC_93d2e.dir/build
+        gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi'
+        Building CXX object CMakeFiles/cmTC_93d2e.dir/OpenMPCheckVersion.cpp.o
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc   -fopenmp=libomp -std=gnu++20 -MD -MT CMakeFiles/cmTC_93d2e.dir/OpenMPCheckVersion.cpp.o -MF CMakeFiles/cmTC_93d2e.dir/OpenMPCheckVersion.cpp.o.d -o CMakeFiles/cmTC_93d2e.dir/OpenMPCheckVersion.cpp.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi/OpenMPCheckVersion.cpp
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi/OpenMPCheckVersion.cpp:6:38: error: use of undeclared identifier '_OPENMP'
+            6 |                             ('0' + ((_OPENMP/100000)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi/OpenMPCheckVersion.cpp:7:38: error: use of undeclared identifier '_OPENMP'
+            7 |                             ('0' + ((_OPENMP/10000)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi/OpenMPCheckVersion.cpp:8:38: error: use of undeclared identifier '_OPENMP'
+            8 |                             ('0' + ((_OPENMP/1000)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi/OpenMPCheckVersion.cpp:9:38: error: use of undeclared identifier '_OPENMP'
+            9 |                             ('0' + ((_OPENMP/100)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi/OpenMPCheckVersion.cpp:10:38: error: use of undeclared identifier '_OPENMP'
+           10 |                             ('0' + ((_OPENMP/10)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi/OpenMPCheckVersion.cpp:11:38: error: use of undeclared identifier '_OPENMP'
+           11 |                             ('0' + ((_OPENMP/1)%10)),
+              |                                      ^
+        6 errors generated when compiling for gfx906.
+        failed to execute:/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/lib/llvm/bin/clang++  -O3  -fopenmp=libomp -std=gnu++20 -MD -MT CMakeFiles/cmTC_93d2e.dir/OpenMPCheckVersion.cpp.o -MF CMakeFiles/cmTC_93d2e.dir/OpenMPCheckVersion.cpp.o.d -o "CMakeFiles/cmTC_93d2e.dir/OpenMPCheckVersion.cpp.o" -c -x hip /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi/OpenMPCheckVersion.cpp
+        gmake[1]: *** [CMakeFiles/cmTC_93d2e.dir/build.make:79: CMakeFiles/cmTC_93d2e.dir/OpenMPCheckVersion.cpp.o] Error 1
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7dW9pi'
+        gmake: *** [Makefile:127: cmTC_93d2e/fast] Error 2
+        
+      exitCode: 2
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "cmake/setup_mpi.cmake:2 (find_package)"
+      - "CMakeLists.txt:40 (include)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ZUJrYM"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ZUJrYM"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ZUJrYM
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_57714/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_57714.dir/build.make CMakeFiles/cmTC_57714.dir/build
+        gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ZUJrYM'
+        Building C object CMakeFiles/cmTC_57714.dir/test_mpi.c.o
+        /usr/bin/cc  -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include/openmpi -isystem /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include  -o CMakeFiles/cmTC_57714.dir/test_mpi.c.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ZUJrYM/test_mpi.c
+        Linking C executable cmTC_57714
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_57714.dir/link.txt --verbose=1
+        /usr/bin/cc -Wl,-rpath -Wl,/mpcdf/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib -Wl,--enable-new-dtags -L/viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib CMakeFiles/cmTC_57714.dir/test_mpi.c.o -o cmTC_57714  -Wl,-rpath,/u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib/libmpi.so 
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ZUJrYM'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "cmake/setup_mpi.cmake:2 (find_package)"
+      - "CMakeLists.txt:40 (include)"
+    description: "The MPI test test_mpi for CXX in mode normal"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Rc9YkL"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Rc9YkL"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "MPI_RESULT_CXX_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Rc9YkL
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_7018d/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_7018d.dir/build.make CMakeFiles/cmTC_7018d.dir/build
+        gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Rc9YkL'
+        Building CXX object CMakeFiles/cmTC_7018d.dir/test_mpi.cpp.o
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc  -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include/openmpi -isystem /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -std=gnu++20 -MD -MT CMakeFiles/cmTC_7018d.dir/test_mpi.cpp.o -MF CMakeFiles/cmTC_7018d.dir/test_mpi.cpp.o.d -o CMakeFiles/cmTC_7018d.dir/test_mpi.cpp.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Rc9YkL/test_mpi.cpp
+        Linking CXX executable cmTC_7018d
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_7018d.dir/link.txt --verbose=1
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc -Wl,-rpath -Wl,/mpcdf/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib -Wl,--enable-new-dtags -L/viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib CMakeFiles/cmTC_7018d.dir/test_mpi.cpp.o -o cmTC_7018d  -Wl,-rpath,/u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib/libmpi.so 
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Rc9YkL'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1672 (_MPI_try_staged_settings)"
+      - "cmake/setup_mpi.cmake:2 (find_package)"
+      - "CMakeLists.txt:40 (include)"
+    description: "The MPI test test_mpi for CXX in mode MPICXX"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-GDqsZV"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-GDqsZV"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "MPI_RESULT_CXX_test_mpi_MPICXX"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-GDqsZV
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_52149/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_52149.dir/build.make CMakeFiles/cmTC_52149.dir/build
+        gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-GDqsZV'
+        Building CXX object CMakeFiles/cmTC_52149.dir/test_mpi.cpp.o
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc  -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include/openmpi -isystem /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -std=gnu++20 -MD -MT CMakeFiles/cmTC_52149.dir/test_mpi.cpp.o -MF CMakeFiles/cmTC_52149.dir/test_mpi.cpp.o.d -o CMakeFiles/cmTC_52149.dir/test_mpi.cpp.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-GDqsZV/test_mpi.cpp
+        Linking CXX executable cmTC_52149
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_52149.dir/link.txt --verbose=1
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc -Wl,-rpath -Wl,/mpcdf/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib -Wl,--enable-new-dtags -L/viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib CMakeFiles/cmTC_52149.dir/test_mpi.cpp.o -o cmTC_52149  -Wl,-rpath,/u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib/libmpi.so 
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-GDqsZV'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindOpenMP.cmake:419 (try_compile)"
+      - "/usr/share/cmake/Modules/FindOpenMP.cmake:557 (_OPENMP_GET_SPEC_DATE)"
+      - "CMakeLists.txt:41 (find_package)"
+    description: "Detecting CXX OpenMP version"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "OpenMP_SPECTEST_CXX_"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_8610c/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_8610c.dir/build.make CMakeFiles/cmTC_8610c.dir/build
+        gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8'
+        Building CXX object CMakeFiles/cmTC_8610c.dir/OpenMPCheckVersion.cpp.o
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc   -fopenmp=libomp -std=gnu++20 -MD -MT CMakeFiles/cmTC_8610c.dir/OpenMPCheckVersion.cpp.o -MF CMakeFiles/cmTC_8610c.dir/OpenMPCheckVersion.cpp.o.d -o CMakeFiles/cmTC_8610c.dir/OpenMPCheckVersion.cpp.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8/OpenMPCheckVersion.cpp
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8/OpenMPCheckVersion.cpp:6:38: error: use of undeclared identifier '_OPENMP'
+            6 |                             ('0' + ((_OPENMP/100000)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8/OpenMPCheckVersion.cpp:7:38: error: use of undeclared identifier '_OPENMP'
+            7 |                             ('0' + ((_OPENMP/10000)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8/OpenMPCheckVersion.cpp:8:38: error: use of undeclared identifier '_OPENMP'
+            8 |                             ('0' + ((_OPENMP/1000)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8/OpenMPCheckVersion.cpp:9:38: error: use of undeclared identifier '_OPENMP'
+            9 |                             ('0' + ((_OPENMP/100)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8/OpenMPCheckVersion.cpp:10:38: error: use of undeclared identifier '_OPENMP'
+           10 |                             ('0' + ((_OPENMP/10)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8/OpenMPCheckVersion.cpp:11:38: error: use of undeclared identifier '_OPENMP'
+           11 |                             ('0' + ((_OPENMP/1)%10)),
+              |                                      ^
+        6 errors generated when compiling for gfx906.
+        failed to execute:/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/lib/llvm/bin/clang++  -O3  -fopenmp=libomp -std=gnu++20 -MD -MT CMakeFiles/cmTC_8610c.dir/OpenMPCheckVersion.cpp.o -MF CMakeFiles/cmTC_8610c.dir/OpenMPCheckVersion.cpp.o.d -o "CMakeFiles/cmTC_8610c.dir/OpenMPCheckVersion.cpp.o" -c -x hip /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8/OpenMPCheckVersion.cpp
+        gmake[1]: *** [CMakeFiles/cmTC_8610c.dir/build.make:79: CMakeFiles/cmTC_8610c.dir/OpenMPCheckVersion.cpp.o] Error 1
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-KVtxk8'
+        gmake: *** [Makefile:127: cmTC_8610c/fast] Error 2
+        
+      exitCode: 2
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "cmake/setup_mpi.cmake:2 (find_package)"
+      - "CMakeLists.txt:40 (include)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-EZIoKd"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-EZIoKd"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-EZIoKd
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_3df09/fast && gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-EZIoKd'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_3df09.dir/build.make CMakeFiles/cmTC_3df09.dir/build
+        gmake[2]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-EZIoKd'
+        Building C object CMakeFiles/cmTC_3df09.dir/test_mpi.c.o
+        /usr/bin/cc  -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include/openmpi -isystem /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include  -o CMakeFiles/cmTC_3df09.dir/test_mpi.c.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-EZIoKd/test_mpi.c
+        Linking C executable cmTC_3df09
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_3df09.dir/link.txt --verbose=1
+        /usr/bin/cc -Wl,-rpath -Wl,/mpcdf/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib -Wl,--enable-new-dtags -L/viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib CMakeFiles/cmTC_3df09.dir/test_mpi.c.o -o cmTC_3df09  -Wl,-rpath,/u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib/libmpi.so 
+        gmake[2]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-EZIoKd'
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-EZIoKd'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "cmake/setup_mpi.cmake:2 (find_package)"
+      - "CMakeLists.txt:40 (include)"
+    description: "The MPI test test_mpi for CXX in mode normal"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ThfPsH"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ThfPsH"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "MPI_RESULT_CXX_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ThfPsH
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_b1ac1/fast && gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ThfPsH'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_b1ac1.dir/build.make CMakeFiles/cmTC_b1ac1.dir/build
+        gmake[2]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ThfPsH'
+        Building CXX object CMakeFiles/cmTC_b1ac1.dir/test_mpi.cpp.o
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc  -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include/openmpi -isystem /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -std=gnu++20 -MD -MT CMakeFiles/cmTC_b1ac1.dir/test_mpi.cpp.o -MF CMakeFiles/cmTC_b1ac1.dir/test_mpi.cpp.o.d -o CMakeFiles/cmTC_b1ac1.dir/test_mpi.cpp.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ThfPsH/test_mpi.cpp
+        Linking CXX executable cmTC_b1ac1
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_b1ac1.dir/link.txt --verbose=1
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc -Wl,-rpath -Wl,/mpcdf/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib -Wl,--enable-new-dtags -L/viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib CMakeFiles/cmTC_b1ac1.dir/test_mpi.cpp.o -o cmTC_b1ac1  -Wl,-rpath,/u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib/libmpi.so 
+        gmake[2]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ThfPsH'
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-ThfPsH'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1672 (_MPI_try_staged_settings)"
+      - "cmake/setup_mpi.cmake:2 (find_package)"
+      - "CMakeLists.txt:40 (include)"
+    description: "The MPI test test_mpi for CXX in mode MPICXX"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-qj693N"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-qj693N"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "MPI_RESULT_CXX_test_mpi_MPICXX"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-qj693N
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_28986/fast && gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-qj693N'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_28986.dir/build.make CMakeFiles/cmTC_28986.dir/build
+        gmake[2]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-qj693N'
+        Building CXX object CMakeFiles/cmTC_28986.dir/test_mpi.cpp.o
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc  -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include/openmpi -isystem /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -std=gnu++20 -MD -MT CMakeFiles/cmTC_28986.dir/test_mpi.cpp.o -MF CMakeFiles/cmTC_28986.dir/test_mpi.cpp.o.d -o CMakeFiles/cmTC_28986.dir/test_mpi.cpp.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-qj693N/test_mpi.cpp
+        Linking CXX executable cmTC_28986
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_28986.dir/link.txt --verbose=1
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc -Wl,-rpath -Wl,/mpcdf/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib -Wl,--enable-new-dtags -L/viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib CMakeFiles/cmTC_28986.dir/test_mpi.cpp.o -o cmTC_28986  -Wl,-rpath,/u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib/libmpi.so 
+        gmake[2]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-qj693N'
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-qj693N'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindOpenMP.cmake:419 (try_compile)"
+      - "/usr/share/cmake/Modules/FindOpenMP.cmake:557 (_OPENMP_GET_SPEC_DATE)"
+      - "CMakeLists.txt:41 (find_package)"
+    description: "Detecting CXX OpenMP version"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "OpenMP_SPECTEST_CXX_"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_0f321/fast && gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_0f321.dir/build.make CMakeFiles/cmTC_0f321.dir/build
+        gmake[2]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG'
+        Building CXX object CMakeFiles/cmTC_0f321.dir/OpenMPCheckVersion.cpp.o
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc   -fopenmp=libomp -std=gnu++20 -MD -MT CMakeFiles/cmTC_0f321.dir/OpenMPCheckVersion.cpp.o -MF CMakeFiles/cmTC_0f321.dir/OpenMPCheckVersion.cpp.o.d -o CMakeFiles/cmTC_0f321.dir/OpenMPCheckVersion.cpp.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG/OpenMPCheckVersion.cpp
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG/OpenMPCheckVersion.cpp:6:38: error: use of undeclared identifier '_OPENMP'
+            6 |                             ('0' + ((_OPENMP/100000)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG/OpenMPCheckVersion.cpp:7:38: error: use of undeclared identifier '_OPENMP'
+            7 |                             ('0' + ((_OPENMP/10000)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG/OpenMPCheckVersion.cpp:8:38: error: use of undeclared identifier '_OPENMP'
+            8 |                             ('0' + ((_OPENMP/1000)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG/OpenMPCheckVersion.cpp:9:38: error: use of undeclared identifier '_OPENMP'
+            9 |                             ('0' + ((_OPENMP/100)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG/OpenMPCheckVersion.cpp:10:38: error: use of undeclared identifier '_OPENMP'
+           10 |                             ('0' + ((_OPENMP/10)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG/OpenMPCheckVersion.cpp:11:38: error: use of undeclared identifier '_OPENMP'
+           11 |                             ('0' + ((_OPENMP/1)%10)),
+              |                                      ^
+        6 errors generated when compiling for gfx906.
+        failed to execute:/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/lib/llvm/bin/clang++  -O3  -fopenmp=libomp -std=gnu++20 -MD -MT CMakeFiles/cmTC_0f321.dir/OpenMPCheckVersion.cpp.o -MF CMakeFiles/cmTC_0f321.dir/OpenMPCheckVersion.cpp.o.d -o "CMakeFiles/cmTC_0f321.dir/OpenMPCheckVersion.cpp.o" -c -x hip /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG/OpenMPCheckVersion.cpp
+        gmake[2]: *** [CMakeFiles/cmTC_0f321.dir/build.make:79: CMakeFiles/cmTC_0f321.dir/OpenMPCheckVersion.cpp.o] Error 1
+        gmake[2]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG'
+        gmake[1]: *** [Makefile:127: cmTC_0f321/fast] Error 2
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-7yuTJG'
+        
+      exitCode: 2
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "cmake/setup_mpi.cmake:2 (find_package)"
+      - "CMakeLists.txt:40 (include)"
+    description: "The MPI test test_mpi for C in mode normal"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-cS0cF5"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-cS0cF5"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "MPI_RESULT_C_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-cS0cF5
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_61f22/fast && gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-cS0cF5'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_61f22.dir/build.make CMakeFiles/cmTC_61f22.dir/build
+        gmake[2]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-cS0cF5'
+        Building C object CMakeFiles/cmTC_61f22.dir/test_mpi.c.o
+        /usr/bin/cc  -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include/openmpi -isystem /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include  -o CMakeFiles/cmTC_61f22.dir/test_mpi.c.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-cS0cF5/test_mpi.c
+        Linking C executable cmTC_61f22
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_61f22.dir/link.txt --verbose=1
+        /usr/bin/cc -Wl,-rpath -Wl,/mpcdf/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib -Wl,--enable-new-dtags -L/viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib CMakeFiles/cmTC_61f22.dir/test_mpi.c.o -o cmTC_61f22  -Wl,-rpath,/u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib/libmpi.so 
+        gmake[2]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-cS0cF5'
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-cS0cF5'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1322 (_MPI_try_staged_settings)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1645 (_MPI_check_lang_works)"
+      - "cmake/setup_mpi.cmake:2 (find_package)"
+      - "CMakeLists.txt:40 (include)"
+    description: "The MPI test test_mpi for CXX in mode normal"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Y8ZWdh"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Y8ZWdh"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "MPI_RESULT_CXX_test_mpi_normal"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Y8ZWdh
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_f810c/fast && gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Y8ZWdh'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_f810c.dir/build.make CMakeFiles/cmTC_f810c.dir/build
+        gmake[2]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Y8ZWdh'
+        Building CXX object CMakeFiles/cmTC_f810c.dir/test_mpi.cpp.o
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc  -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include/openmpi -isystem /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -std=gnu++20 -MD -MT CMakeFiles/cmTC_f810c.dir/test_mpi.cpp.o -MF CMakeFiles/cmTC_f810c.dir/test_mpi.cpp.o.d -o CMakeFiles/cmTC_f810c.dir/test_mpi.cpp.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Y8ZWdh/test_mpi.cpp
+        Linking CXX executable cmTC_f810c
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f810c.dir/link.txt --verbose=1
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc -Wl,-rpath -Wl,/mpcdf/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib -Wl,--enable-new-dtags -L/viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib CMakeFiles/cmTC_f810c.dir/test_mpi.cpp.o -o cmTC_f810c  -Wl,-rpath,/u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib/libmpi.so 
+        gmake[2]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Y8ZWdh'
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-Y8ZWdh'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1278 (try_compile)"
+      - "/usr/share/cmake/Modules/FindMPI.cmake:1672 (_MPI_try_staged_settings)"
+      - "cmake/setup_mpi.cmake:2 (find_package)"
+      - "CMakeLists.txt:40 (include)"
+    description: "The MPI test test_mpi for CXX in mode MPICXX"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QFu1l3"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QFu1l3"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "MPI_RESULT_CXX_test_mpi_MPICXX"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QFu1l3
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_2e38f/fast && gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QFu1l3'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_2e38f.dir/build.make CMakeFiles/cmTC_2e38f.dir/build
+        gmake[2]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QFu1l3'
+        Building CXX object CMakeFiles/cmTC_2e38f.dir/test_mpi.cpp.o
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc  -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -isystem /viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include/openmpi -isystem /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/include -std=gnu++20 -MD -MT CMakeFiles/cmTC_2e38f.dir/test_mpi.cpp.o -MF CMakeFiles/cmTC_2e38f.dir/test_mpi.cpp.o.d -o CMakeFiles/cmTC_2e38f.dir/test_mpi.cpp.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QFu1l3/test_mpi.cpp
+        Linking CXX executable cmTC_2e38f
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_2e38f.dir/link.txt --verbose=1
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc -Wl,-rpath -Wl,/mpcdf/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib -Wl,--enable-new-dtags -L/viper/u2/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib CMakeFiles/cmTC_2e38f.dir/test_mpi.cpp.o -o cmTC_2e38f  -Wl,-rpath,/u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib /u/system/soft/RHEL_9/packages/znver4/openmpi/gcc_14-14.1.0/5.0.9/lib/libmpi.so 
+        gmake[2]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QFu1l3'
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-QFu1l3'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake/Modules/FindOpenMP.cmake:419 (try_compile)"
+      - "/usr/share/cmake/Modules/FindOpenMP.cmake:557 (_OPENMP_GET_SPEC_DATE)"
+      - "CMakeLists.txt:41 (find_package)"
+    description: "Detecting CXX OpenMP version"
+    directories:
+      source: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr"
+      binary: "/u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "/u/cmusolino/grace-private-src/cmake"
+    buildResult:
+      variable: "OpenMP_SPECTEST_CXX_"
+      cached: true
+      stdout: |
+        Change Dir: /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr
+        
+        Run Build Command(s):/usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_9e751/fast && gmake[1]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_9e751.dir/build.make CMakeFiles/cmTC_9e751.dir/build
+        gmake[2]: Entering directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr'
+        Building CXX object CMakeFiles/cmTC_9e751.dir/OpenMPCheckVersion.cpp.o
+        /mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc   -fopenmp=libomp -std=gnu++20 -MD -MT CMakeFiles/cmTC_9e751.dir/OpenMPCheckVersion.cpp.o -MF CMakeFiles/cmTC_9e751.dir/OpenMPCheckVersion.cpp.o.d -o CMakeFiles/cmTC_9e751.dir/OpenMPCheckVersion.cpp.o -c /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr/OpenMPCheckVersion.cpp
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr/OpenMPCheckVersion.cpp:6:38: error: use of undeclared identifier '_OPENMP'
+            6 |                             ('0' + ((_OPENMP/100000)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr/OpenMPCheckVersion.cpp:7:38: error: use of undeclared identifier '_OPENMP'
+            7 |                             ('0' + ((_OPENMP/10000)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr/OpenMPCheckVersion.cpp:8:38: error: use of undeclared identifier '_OPENMP'
+            8 |                             ('0' + ((_OPENMP/1000)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr/OpenMPCheckVersion.cpp:9:38: error: use of undeclared identifier '_OPENMP'
+            9 |                             ('0' + ((_OPENMP/100)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr/OpenMPCheckVersion.cpp:10:38: error: use of undeclared identifier '_OPENMP'
+           10 |                             ('0' + ((_OPENMP/10)%10)),
+              |                                      ^
+        /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr/OpenMPCheckVersion.cpp:11:38: error: use of undeclared identifier '_OPENMP'
+           11 |                             ('0' + ((_OPENMP/1)%10)),
+              |                                      ^
+        6 errors generated when compiling for gfx906.
+        failed to execute:/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/lib/llvm/bin/clang++  -O3  -fopenmp=libomp -std=gnu++20 -MD -MT CMakeFiles/cmTC_9e751.dir/OpenMPCheckVersion.cpp.o -MF CMakeFiles/cmTC_9e751.dir/OpenMPCheckVersion.cpp.o.d -o "CMakeFiles/cmTC_9e751.dir/OpenMPCheckVersion.cpp.o" -c -x hip /u/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr/OpenMPCheckVersion.cpp
+        gmake[2]: *** [CMakeFiles/cmTC_9e751.dir/build.make:79: CMakeFiles/cmTC_9e751.dir/OpenMPCheckVersion.cpp.o] Error 1
+        gmake[2]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr'
+        gmake[1]: *** [Makefile:127: cmTC_9e751/fast] Error 2
+        gmake[1]: Leaving directory '/viper/u2/cmusolino/grace-private-src/testb/CMakeFiles/CMakeScratch/TryCompile-6s5aWr'
+        
+      exitCode: 2
+...

@@ -58,6 +58,8 @@ namespace grace {
 
 #define GRACE_ENABLE_LORENE
 
+#define GRACE_ENABLE_TWO_PUNCTURES
+
 #define GRACE_BANNER                                                          \
 "                                                                           \n" \
 "                                                                           \n" \

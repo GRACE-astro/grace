@@ -59,6 +59,11 @@ if ( GRACE_ENABLE_LORENE )
     find_package(LORENE REQUIRED)
 endif() 
 
+option( GRACE_ENABLE_TWO_PUNCTURES "TwoPunctures support" OFF )
+if ( GRACE_ENABLE_TWO_PUNCTURES )
+    message(STATUS "TwoPunctures support enabled")
+    find_package(TwoPunctures REQUIRED)
+endif() 
 
 option(GRACE_ENABLE_PROFILING "Build profiling hooks" OFF)
 if( GRACE_ENABLE_PROFILING )
@@ -96,6 +101,7 @@ target_link_libraries(grace PRIVATE
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
         $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
         $<$<BOOL:${GRACE_ENABLE_LORENE}>:LORENE::LORENE>
+        $<$<BOOL:${GRACE_ENABLE_TWO_PUNCTURES}>:TwoPunctures::TwoPunctures>
         )
 if ( GRACE_ENABLE_VTK )
     vtk_module_autoinit(

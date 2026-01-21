@@ -45,6 +45,9 @@
 #ifdef GRACE_ENABLE_LORENE
 #include <grace/physics/id/lorene_bns.hh>
 #endif 
+#ifdef GRACE_ENABLE_TWO_PUNCTURES
+#include <grace/physics/id/twopuncture.hh>
+#endif 
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/physics/z4c.hh>
 #endif
@@ -616,6 +619,12 @@ void set_grmhd_initial_data() {
         set_grmhd_initial_data_impl<eos_t,lorene_bns_id_t<eos_t>>(fname) ; 
         #else 
         ERROR("LORENE id requested but GRACE was not compiled with LORENE support.") ; 
+        #endif 
+    } else if (id_type == "two_punctures") {
+        #ifdef GRACE_ENABLE_TWO_PUNCTURES
+        set_grmhd_initial_data_impl<eos_t,two_punctures_id_t<eos_t>>() ; 
+        #else 
+        ERROR("TwoPunctures id requested but GRACE was not compiled with TwoPunctures support.") ; 
         #endif 
     } else {
         ERROR("Unrecognized id_type " << id_type ) ; 

@@ -51,8 +51,8 @@ CMAKE_BUILD_TYPE:STRING=
 //Enable/Disable color output during build.
 CMAKE_COLOR_MAKEFILE:BOOL=ON
 
-//CXX compiler
-CMAKE_CXX_COMPILER:STRING=/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.3.4/bin/hipcc
+//No help, variable specified on the command line.
+CMAKE_CXX_COMPILER:UNINITIALIZED=hipcc
 
 //LLVM archiver
 CMAKE_CXX_COMPILER_AR:FILEPATH=CMAKE_CXX_COMPILER_AR-NOTFOUND
@@ -350,6 +350,12 @@ GRACE_ENABLE_SERIAL:BOOL=OFF
 //Build the tests
 GRACE_ENABLE_TESTING:BOOL=ON
 
+//No help, variable specified on the command line.
+GRACE_ENABLE_TWOPUNCTURES:UNINITIALIZED=ON
+
+//TwoPunctures support
+GRACE_ENABLE_TWO_PUNCTURES:BOOL=ON
+
 //Enable VTK support
 GRACE_ENABLE_VTK:BOOL=OFF
 
@@ -518,6 +524,12 @@ PKG_CONFIG_ARGN:STRING=
 
 //pkg-config executable
 PKG_CONFIG_EXECUTABLE:FILEPATH=/usr/bin/pkg-config
+
+//Path to a file.
+TwoPunctures_INCLUDE_DIR:PATH=/u/cmusolino/Standalone-TwoPunctures-C-Cpp/Source
+
+//Path to a library.
+TwoPunctures_LIBRARY:FILEPATH=/u/cmusolino/Standalone-TwoPunctures-C-Cpp/Source/libtwopunctures.a
 
 //Path to a file.
 ZLIB_INCLUDE_DIR:PATH=/usr/include
@@ -786,6 +798,8 @@ FIND_PACKAGE_MESSAGE_DETAILS_OpenMP_CXX:INTERNAL=[-fopenmp=libomp][/u/system/sof
 FIND_PACKAGE_MESSAGE_DETAILS_PkgConfig:INTERNAL=[/usr/bin/pkg-config][v1.7.3()]
 //Details about finding Threads
 FIND_PACKAGE_MESSAGE_DETAILS_Threads:INTERNAL=[TRUE][v()]
+//Details about finding TwoPunctures
+FIND_PACKAGE_MESSAGE_DETAILS_TwoPunctures:INTERNAL=[/u/cmusolino/Standalone-TwoPunctures-C-Cpp/Source/libtwopunctures.a][/u/cmusolino/Standalone-TwoPunctures-C-Cpp/Source][v()]
 //Details about finding ZLIB
 FIND_PACKAGE_MESSAGE_DETAILS_ZLIB:INTERNAL=[/usr/lib64/libz.so][/usr/include][c ][v1.2.11()]
 //Details about finding p4est
@@ -999,6 +1013,10 @@ PKG_FFTW_fftw3_INCLUDEDIR:INTERNAL=
 PKG_FFTW_fftw3_LIBDIR:INTERNAL=
 PKG_FFTW_fftw3_PREFIX:INTERNAL=
 PKG_FFTW_fftw3_VERSION:INTERNAL=
+//ADVANCED property for variable: TwoPunctures_INCLUDE_DIR
+TwoPunctures_INCLUDE_DIR-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: TwoPunctures_LIBRARY
+TwoPunctures_LIBRARY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: ZLIB_INCLUDE_DIR
 ZLIB_INCLUDE_DIR-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: ZLIB_LIBRARY_DEBUG

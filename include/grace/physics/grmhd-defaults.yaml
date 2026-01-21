@@ -115,7 +115,9 @@ grmhd: {
   excision: {
     excision_criterion: "lapse",
     excision_lapse: 0.05,
+    flim_lapse: 0.1,
     excision_radius: 1.0,
+    flim_radius: 0.1,
     rho_excision: 1e-8,
     temp_excision: 0.3333e-2
   },
@@ -127,5 +129,31 @@ grmhd: {
     r_min: 1,
     r_max: 100,
     spin: 0.0
+  },
+
+  two_punctures: {
+    par_b: 3.257,
+
+    target_M_plus: 0.505,
+    par_P_plus_x: 0.0,
+    par_P_plus_y: -0.133,
+    par_P_plus_z: 0.0,
+    par_S_plus_x: 0.0,
+    par_S_plus_y: 0.0,
+    par_S_plus_z: 0.0,
+
+    target_M_minus: 0.505,
+    par_P_minus_x: 0.0,
+    par_P_minus_y: -0.133,
+    par_P_minus_z: 0.0,
+    par_S_minus_x: 0.0,
+    par_S_minus_y: 0.0,
+    par_S_minus_z: 0.0,
+
+    npoints_A: 30,
+    npoints_B: 30,
+    npoints_phi: 16,
+
+    TP_epsilon: 0.0
   }
 }

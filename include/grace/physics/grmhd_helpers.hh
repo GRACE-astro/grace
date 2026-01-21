@@ -57,7 +57,9 @@ struct excision_params_t {
     double rho_ex ;         //!< Excision rho
     double temp_ex ;        //!< Excision temp 
     double r_ex ;           //!< Excision radius
+    double r_f  ;           //!< Start limiting fluxes here
     double alp_ex ;         //!< Excision alpha
+    double alp_f  ;         //!< Start limiting fluxes here
     bool excise_by_radius ; //!< Whether excision is radius based (CKS) or alpha based.
 } ; 
 
@@ -169,8 +171,11 @@ excision_params_t get_excision_params()
     excision_params.r_ex = grace::get_param<double>("grmhd","excision","excision_radius"); 
     excision_params.alp_ex = grace::get_param<double>("grmhd","excision","excision_lapse"); 
     
-    excision_params.rho_ex =  grace::get_param<double>("grmhd","excision","rho_excision"); 
+    excision_params.rho_ex  =  grace::get_param<double>("grmhd","excision","rho_excision"); 
     excision_params.temp_ex =  grace::get_param<double>("grmhd","excision","temp_excision"); 
+
+    excision_params.r_f     = grace::get_param<double>("grmhd","excision","flim_radius"); 
+    excision_params.alp_f   = grace::get_param<double>("grmhd","excision","flim_lapse") ; 
     return excision_params ; 
 }
 

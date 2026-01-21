@@ -51,6 +51,7 @@ set(CMAKE_MAKEFILE_DEPENDS
   "/u/cmusolino/grace-private-src/CMakeLists.txt"
   "/u/cmusolino/grace-private-src/cmake/FindFFTW.cmake"
   "/u/cmusolino/grace-private-src/cmake/FindLORENE.cmake"
+  "/u/cmusolino/grace-private-src/cmake/FindTwoPunctures.cmake"
   "/u/cmusolino/grace-private-src/cmake/Findp4est.cmake"
   "/u/cmusolino/grace-private-src/cmake/check_compiler.cmake"
   "/u/cmusolino/grace-private-src/cmake/code_modules.cmake"

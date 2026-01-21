@@ -132,15 +132,6 @@ struct z4c_system_t
             gtdd, detg, &gtuu
         ) ; 
 
-        #pragma unroll 6
-        for( int a=0; a<6; ++a ) gtdd[a] /= cbrt(detg) ; 
-
-        double Atr = gtuu[0] * Atdd[0] + gtuu[3] * Atdd[3] + gtuu[5] * Atdd[5]
-                    + 2 * ( gtuu[1] * Atdd[1] + gtuu[2] * Atdd[2] + gtuu[4] * Atdd[4] );
-         
-        #pragma unroll 6
-        for( int a=0; a<6; ++a ) Atdd[a] -= gtdd[a] * Atr / 3. ; 
-
         double idx[3] = {_idx(0,q),_idx(1,q),_idx(2,q)} ; 
 
         // get beta deriv,
@@ -426,15 +417,6 @@ struct z4c_system_t
             gtdd, detg, &gtuu
         ) ; 
 
-        #pragma unroll 6
-        for( int a=0; a<6; ++a ) gtdd[a] /= cbrt(detg) ; 
-
-        double Atr = gtuu[0] * Atdd[0] + gtuu[3] * Atdd[3] + gtuu[5] * Atdd[5]
-                    + 2 * ( gtuu[1] * Atdd[1] + gtuu[2] * Atdd[2] + gtuu[4] * Atdd[4] );
-         
-        #pragma unroll 6
-        for( int a=0; a<6; ++a ) Atdd[a] -= gtdd[a] * Atr / 3. ; 
-
         // derivatives
         double dchi_dx[3], dKhat_dx[3], dtheta_dx[3], dAtdd_dx[18], dgtdd_dx[18];
         // inverse spacing 
@@ -542,53 +524,50 @@ struct z4c_system_t
     void KOKKOS_INLINE_FUNCTION 
     impose_algebraic_constraints(grace::var_array_t state, VEC(int i, int j, int k), int q) const 
     {
-        /* First impose the det(gtilde) = 1 constraint */
-        double * gtxx = &(state(VEC(i,j,k),GTXX_+0,q));
-        double * gtxy = &(state(VEC(i,j,k),GTXX_+1,q));
-        double * gtxz = &(state(VEC(i,j,k),GTXX_+2,q));
-        double * gtyy = &(state(VEC(i,j,k),GTXX_+3,q));
-        double * gtyz = &(state(VEC(i,j,k),GTXX_+4,q));
-        double * gtzz = &(state(VEC(i,j,k),GTXX_+5,q));
+        auto s = Kokkos::subview(state,i,j,k,Kokkos::ALL(),q) ;
 
-        double const detgt     = -((*gtxz)*(*gtxz)*(*gtyy)) + 2*(*gtxy)*(*gtxz)*(*gtyz) - (*gtxx)*((*gtyz)*(*gtyz)) - (*gtxy)*(*gtxy)*(*gtzz) + (*gtxx)*(*gtyy)*(*gtzz);
-        double const cbrtdetgt = Kokkos::cbrt(detgt);
+        double gtdd[6] = {
+            s(GTXX_), s(GTXY_), s(GTXZ_), 
+            s(GTYY_), s(GTYZ_), s(GTZZ_)
+        } ; 
+        double Atdd[6] = {
+            s(ATXX_), s(ATXY_), s(ATXZ_), 
+            s(ATYY_), s(ATYZ_), s(ATZZ_)
+        } ;
 
-        (*gtxx) /= cbrtdetgt ; 
-        (*gtxy) /= cbrtdetgt ; 
-        (*gtxz) /= cbrtdetgt ; 
-        (*gtyy) /= cbrtdetgt ; 
-        (*gtyz) /= cbrtdetgt ; 
-        (*gtzz) /= cbrtdetgt ; 
+        // determinant
+        double detg ; 
+        z4c_get_det_conf_metric(
+            gtdd, &detg 
+        ) ; 
 
-        /* And the trace-free Aij constraint next */
-        double const gtXX=(-((*gtyz)*(*gtyz)) + (*gtyy)*(*gtzz)) ;
-        double const gtXY=((*gtxz)*(*gtyz) - (*gtxy)*(*gtzz))    ;
-        double const gtXZ=(-((*gtxz)*(*gtyy)) + (*gtxy)*(*gtyz)) ;
-        double const gtYY=(-((*gtxz)*(*gtxz)) + (*gtxx)*(*gtzz)) ;
-        double const gtYZ=((*gtxy)*(*gtxz) - (*gtxx)*(*gtyz))     ;
-        double const gtZZ=(-((*gtxy)*(*gtxy)) + (*gtxx)*(*gtyy)) ; 
+        double const inv_cbrt_detg = 1.0 / fabs(cbrt(detg));
+        #pragma unroll 6
+        for( int a=0; a<6; ++a ) gtdd[a] *= inv_cbrt_detg ; 
 
-        double * Atxx = &(state(VEC(i,j,k),ATXX_+0,q));
-        double * Atxy = &(state(VEC(i,j,k),ATXX_+1,q));
-        double * Atxz = &(state(VEC(i,j,k),ATXX_+2,q));
-        double * Atyy = &(state(VEC(i,j,k),ATXX_+3,q));
-        double * Atyz = &(state(VEC(i,j,k),ATXX_+4,q));
-        double * Atzz = &(state(VEC(i,j,k),ATXX_+5,q));
+        // get metric inverse 
+        double gtuu[6] ; 
+        z4c_get_inverse_conf_metric(
+            gtdd, 1.0, &gtuu
+        ) ; 
 
-        double const ATR = (*Atxx)*gtXX + 2*(*Atxy)*gtXY + 2*(*Atxz)*gtXZ + (*Atyy)*gtYY + 2*(*Atyz)*gtYZ + (*Atzz)*gtZZ ; 
-        double const corr = -1./3. * ATR ; 
-        *Atxx += corr * (*gtxx) ; 
-        *Atxy += corr * (*gtxy) ; 
-        *Atxz += corr * (*gtxz) ; 
-        *Atyy += corr * (*gtyy) ; 
-        *Atyz += corr * (*gtyz) ; 
-        *Atzz += corr * (*gtzz) ; 
+        double Atr = gtuu[0] * Atdd[0] + gtuu[3] * Atdd[3] + gtuu[5] * Atdd[5]
+                    + 2 * ( gtuu[1] * Atdd[1] + gtuu[2] * Atdd[2] + gtuu[4] * Atdd[4] );
+
+        double const fixfact = - Atr / 3.;
+        #pragma unroll 6
+        for( int a=0; a<6; ++a ) Atdd[a] += gtdd[a] * fixfact ; 
+
+        #pragma unroll 6
+        for( int a=0; a<6; ++a ) {
+            s(ATXX_+a) = Atdd[a] ; 
+            s(GTXX_+a) = gtdd[a] ; 
+        }
 
         // enforce lapse and conf fact positivity 
         double * chi = &(state(VEC(i,j,k),CHI_,q)) ; 
         if ((*chi)<=0) (*chi) = chi_safeguard ;
         state(VEC(i,j,k),ALP_,q) = fmax(state(VEC(i,j,k),ALP_,q), alp_min) ; 
-
     }
 
 } ; 

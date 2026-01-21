@@ -6,23 +6,6 @@ amr: {
   n_ghostzones: 1,
   initial_refinement_level: 0
 }
-grmhd: {
-  atmosphere: {
-    ye_fl: 0,
-    temp_fl:  0,
-    rho_fl: 1.e-15,
-    rho_scaling: 0,
-    temp_scaling: 0,
-    max_lorentz: 1e99,
-    max_sigma: 1e99,
-    c2p_tolerance: 1e-10, #1e-10,
-    beta_fallback: -10.0, #1e-2,
-    use_c2p_entropy_backup: true
-  }
-}
-system: {
-  n_device_streams: 4
-}
 eos: {
   eos_type: "hybrid",
   cold_eos_type: "piecewise_polytrope",

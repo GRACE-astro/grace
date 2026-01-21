@@ -91,6 +91,7 @@ function(add_grace_test target_name source_file)
     $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
     $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
     $<$<BOOL:${GRACE_ENABLE_LORENE}>:LORENE::LORENE>
+    $<$<BOOL:${GRACE_ENABLE_TWO_PUNCTURES}>:TwoPunctures::TwoPunctures>
     )
     if ( GRACE_ENABLE_VTK )
             vtk_module_autoinit(

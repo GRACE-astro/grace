@@ -6,6 +6,7 @@ module load gsl mkl
 export LIB_BASEDIR=/u/cmusolino/grace-libs
 
 export HOME_LORENE=/u/cmusolino/lorene/Lorene
+export TwoPunctures_ROOT=/u/cmusolino/Standalone-TwoPunctures-C-Cpp
 
 export KOKKOS_TOOLS_ROOT=${LIB_BASEDIR}/install/kokkos-tools
 export KOKKOS_ROOT=${LIB_BASEDIR}/install/kokkos
