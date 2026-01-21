@@ -88,7 +88,7 @@ struct cartesian_device_coordinate_system_impl_t{
     double rad = sqrt(SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2]));
     if ( is_cks ) {
         double r = fmax((sqrt( SQR(rad) - SQR(bh_spin) + sqrt(SQR(SQR(rad)-SQR(bh_spin))
-                 + 4.0*SQR(bh_spin)*SQR(xyz[2])) ) / sqrt(2.0)), 1.0);
+                 + 4.0*SQR(bh_spin)*SQR(xyz[2])) ) / sqrt(2.0)), 1.0e-6);
         rtp[0] = r ; 
         rtp[1] = (fabs(xyz[2]/r) < 1.0) ? acos(xyz[2]/r) : acos(copysign(1.0, xyz[2]));
         rtp[2] = atan2(r*xyz[1]-bh_spin*xyz[0], bh_spin*xyz[1]+r*xyz[0]) - bh_spin*r/(SQR(r)-2.0*r+SQR(bh_spin));        

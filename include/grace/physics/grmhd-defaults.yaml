@@ -102,7 +102,8 @@ grmhd: {
     max_sigma: 100,
     c2p_tolerance: 1e-10,
     beta_fallback: 1e-2,
-    use_c2p_entropy_backup: true
+    use_c2p_entropy_backup: true,
+    psi6_bh: 1e10
   },
 
   gas_cloud: {
@@ -144,7 +145,7 @@ grmhd: {
 
     target_M_minus: 0.505,
     par_P_minus_x: 0.0,
-    par_P_minus_y: -0.133,
+    par_P_minus_y: 0.133,
     par_P_minus_z: 0.0,
     par_S_minus_x: 0.0,
     par_S_minus_y: 0.0,

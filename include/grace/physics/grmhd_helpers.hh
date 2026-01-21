@@ -43,11 +43,12 @@ struct atmo_params_t {
     double temp_fl ;  //!< Atmo T 
     double rho_fl_scaling  ; //!< Radial scaling of atmo rho
     double temp_fl_scaling ; //!< Radial scaling of atmo T
-    double c2p_tol   ; //!< C2P tolerance 
-    double max_w     ; //!< Maximum Lorentz factor
-    double max_sigma ; //!< Maximum magnetization b^2/rho
+    double c2p_tol       ; //!< C2P tolerance 
+    double max_w         ; //!< Maximum Lorentz factor
+    double max_sigma     ; //!< Maximum magnetization b^2/rho
     double beta_fallback ; //!< beta < fallback we use ent
-    bool use_ent_backup ; //!< Use backup c2p?
+    double psi6_bh       ; //!< Psi^6 > thresh we relax c2p
+    bool use_ent_backup  ; //!< Use backup c2p?
 } ; 
 /**
  * @brief Excision parameters
@@ -149,6 +150,8 @@ atmo_params_t get_atmo_params()
   atmo_params.max_w     = grace::get_param<double>("grmhd","atmosphere","max_lorentz") ;
 
   atmo_params.beta_fallback = grace::get_param<double>("grmhd","atmosphere","beta_fallback") ;
+
+  atmo_params.psi6_bh = grace::get_param<double>("grmhd","atmosphere","psi6_bh") ;
 
   return atmo_params ; 
 }

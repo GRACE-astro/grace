@@ -60,22 +60,82 @@ compute_beta(
     return 2.0 * prims[PRESSL]/fmax(smallb2, 1e-50) ; 
 }
 
-template< typename eos_t >
-static void KOKKOS_INLINE_FUNCTION 
-limit_conserved(
-    grace::grmhd_cons_array_t&  cons,
+
+template< typename eos_t > 
+static void GRACE_HOST_DEVICE 
+limit_conserved_inside_BH(
+    grmhd_cons_array_t& conservs,
     metric_array_t const& metric,
+    atmo_params_t const& atmo_params,
     eos_t const& eos,
     c2p_err_t& c2p_err
-)
+) 
 {
-    // Tau cannot be lower than
-    // D * (1 + eps_min) + B^2 / 2 - D
-    // FIXME here we assume eps_min == 0
-    double const tau_floor = metric.square_vec({cons[BSXL],cons[BSYL],cons[BSZL]}) ; 
-    if ( cons[TAUL] < tau_floor ) {
+    double const D = conservs[DENSL] ; 
+    std::array<double,3> Stilde = {conservs[STXL]/D, conservs[STYL]/D, conservs[STZL]/D} ;
+    std::array<double,3> Btilde = {conservs[BSXL]/sqrt(D),conservs[BSYL]/sqrt(D), conservs[BSZL]/sqrt(D)} ;
+    double SdotBtilde = Stilde[0] * Btilde[0] + Stilde[1] * Btilde[1] + Stilde[2] * Btilde[2] ; 
+    double Stilde2 = metric.square_covec(Stilde) ; 
+    double Btilde2 = metric.square_covec(Btilde) ; 
+
+    double const Wm = sqrt(eos.enthalpy_minimum() + SQR(SdotBtilde)) ; 
+    double const Sm2 = 
+    (SQR(Wm) * Stilde2 + SQR(SdotBtilde) * (Btilde2 + 2*Wm))/(SQR(Wm+Btilde2)) ; 
+    double const Wmin = sqrt(Sm2 + eos.enthalpy_minimum()) ; 
+
+    double const tau_fl_min = conservs[TAUL]/D
+        - 0.5 * Btilde2 - (Btilde2*Stilde2 - SQR(SdotBtilde)) * 0.5 / (SQR(Wmin+Btilde2) ) ; 
+
+    double rhoL = conservs[DENSL] / (1.2 * atmo_params.max_w) ; 
+    double yeL = conservs[YESL]/conservs[DENSL] ; 
+    double epsmin, epsmax; 
+    unsigned int eos_err ;
+    eos.eps_range__rho_ye(epsmin,epsmax,rhoL,yeL,eos_err) ; 
+
+    if ( tau_fl_min < epsmin ) {
+        conservs[TAUL] = conservs[DENSL] * (epsmin + 0.5 * Btilde2 +
+        (Btilde2*Stilde2 - SQR(SdotBtilde)) * 0.5 / (SQR(Wmin+Btilde2))) ; 
         c2p_err.adjust_tau = true ; 
-        cons[TAUL] = tau_floor ;
+    }
+
+    double const stilde_sq_max = 0.999999 * SQR(conservs[TAUL]/conservs[DENSL] + 1.) ; 
+
+    if ( Stilde2 > stilde_sq_max ) {
+        double const fix = sqrt(stilde_sq_max / Stilde2) ; 
+
+        conservs[STXL] *= fix ; conservs[STYL] *= fix ; conservs[STZL] *= fix ; 
+
+        c2p_err.adjust_s = true; 
+    } 
+}
+
+template< typename eos_t > 
+static void GRACE_HOST_DEVICE 
+limit_conserved(
+    grmhd_cons_array_t& conservs,
+    metric_array_t const& metric,
+    atmo_params_t const& atmo_params,
+    eos_t const& eos,
+    c2p_err_t& c2p_err
+)  
+{
+    if ( conservs[DENSL] < 0 ) {
+        conservs[DENSL] = atmo_params.rho_fl ; 
+        c2p_err.adjust_d = true ;
+    }
+    double B2L = metric.square_vec({conservs[BSXL],conservs[BSYL], conservs[BSZL]}) ;
+    double rhoL = conservs[DENSL] ; 
+    double yeL = conservs[YESL]/conservs[DENSL] ; 
+    double epsmin, epsmax; 
+    unsigned int eos_err ;
+    eos.eps_range__rho_ye(epsmin,epsmax,rhoL,yeL,eos_err) ; 
+
+    if ( conservs[TAUL] - 0.5 * B2L < 0. ) {
+        conservs[TAUL] = conservs[DENSL] * epsmin + 0.5 * B2L ; 
+        c2p_err.adjust_tau = true ; 
+    }
+    if (metric.sqrtg() > atmo_params.psi6_bh /*and B2L > 1e-15 * conservs[DENSL]*/ ) {
+        limit_conserved_inside_BH(conservs,metric,atmo_params,eos,c2p_err) ; 
     }
 }
 
@@ -143,9 +203,10 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
                   , c2p_err_t& c2p_err)
 {
     
-    using c2p_impl_t = kastaun_c2p_t<eos_t> ;
+    using c2p_mhd_t    = kastaun_c2p_t<eos_t>     ;
+    using c2p_hydro_t  = grhd_c2p_t<eos_t>        ;
     using c2p_backup_t = entropy_fix_c2p_t<eos_t> ;
-    bool c2p_failed{ false }             ;
+    bool c2p_failed{ false }                      ;  
 
     // by default we overwrite S_star 
     c2p_err.adjust_ent = true ; 
@@ -165,27 +226,42 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     prims[BYL] = cons[BSYL] ; 
     prims[BZL] = cons[BSZL] ; 
 
+    /* limit conservative vars */
+    limit_conserved(cons,metric,atmo,eos,c2p_err) ; 
+
     /* Get atmo rho and temp */
     auto const dens_atmo =  atmo.rho_fl * pow(rtp[0], atmo.rho_fl_scaling);
     auto const temp_atmo =  atmo.temp_fl * pow(rtp[0], atmo.temp_fl_scaling);
     
     /* If D>rho_atm we solve*/
     if( cons[DENSL] > dens_atmo ) {
-        c2p_sig_t c2p_ret ; 
-        c2p_impl_t c2p(eos,metric,cons) ;
-        double residual = c2p.invert(prims,c2p_ret) ;
-        c2p_failed = (math::abs(residual) > c2p_tolerance) ;
-        double beta = compute_beta(prims,metric) ; 
+        // initialize ret code
+        c2p_sig_t c2p_ret{C2P_SUCCESS} ; 
+        // initialize beta 
+        double beta=1e100 ; 
+        // check if we need mhd c2p 
+        double hydro_thresh = 1e-15 * fmin(cons[TAUL]/cons[DENSL], 1e-5) ; 
+        double Btilde2 = metric.square_vec({cons[BSXL],cons[BSYL],cons[BSZL]}) / cons[DENSL] ; 
+        if ( Btilde2 < hydro_thresh ) {
+            c2p_hydro_t c2p(eos,metric,cons) ;
+            double residual = c2p.invert(prims,c2p_ret) ;
+            c2p_failed = (math::abs(residual) > c2p_tolerance) || (c2p_ret != C2P_SUCCESS);
+        } else {
+            c2p_mhd_t c2p(eos,metric,cons) ;
+            double residual = c2p.invert(prims,c2p_ret) ;
+            c2p_failed = (math::abs(residual) > c2p_tolerance) || (c2p_ret != C2P_SUCCESS);
+            beta = compute_beta(prims,metric) ; 
+        }
         if ( (     c2p_failed 
-                or beta <= atmo.beta_fallback
-                or c2p_ret == C2P_EPS_TOO_HIGH ) 
+                or beta <= atmo.beta_fallback ) 
             and atmo.use_ent_backup ) 
         {
+            c2p_ret = C2P_SUCCESS ; 
             c2p_err.adjust_ent = false ; 
             c2p_err.adjust_tau = true  ; 
             c2p_backup_t e_c2p(eos,metric,cons) ;
             double residual = e_c2p.invert(prims,c2p_ret) ; 
-            c2p_failed = (math::abs(residual) > c2p_tolerance) ;
+            c2p_failed = (math::abs(residual) > c2p_tolerance) || (c2p_ret == C2P_EPS_TOO_HIGH);
         }
     } else {
         c2p_failed = true ;

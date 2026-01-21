@@ -73,19 +73,9 @@ struct grhd_c2p_t {
         StildeU = metric.raise({conservs[STXL],conservs[STYL],conservs[STZL]}) ; 
         auto StildeNorm = 
             Kokkos::sqrt(conservs[STXL]*StildeU[0] + conservs[STYL]*StildeU[1] + conservs[STZL]*StildeU[2] ) ; 
-        conservs[TAUL] = math::max(0, conservs[TAUL]) ;
+
         D  = conservs[DENSL] ; 
-        S_adjusted = false ; 
-        /* Acausal momentum */
-        if ( StildeNorm > D+conservs[TAUL] ) {
-            double const fact = 0.9999*(D+conservs[TAUL]) ; 
-            conservs[STXL] *= fact/StildeNorm ; 
-            conservs[STYL] *= fact/StildeNorm  ;
-            conservs[STZL] *= fact/StildeNorm  ;
-            StildeU = metric.raise({conservs[STXL],conservs[STYL],conservs[STZL]}) ; 
-            StildeNorm = fact ; 
-            S_adjusted = true ; 
-        } 
+
         ye = conservs[YESL] / D ;
         q  = conservs[TAUL] / D ; 
         r = StildeNorm / D ; 
@@ -107,7 +97,7 @@ struct grhd_c2p_t {
      */
     double  GRACE_HOST_DEVICE
     invert(grmhd_prims_array_t& prims, c2p_sig_t& c2p_errors) {
-
+        c2p_errors = C2P_SUCCESS ; 
         auto const func = [&] (double const& zeta) {
             return zeta - r / htilde(zeta) ; 
         } ; 

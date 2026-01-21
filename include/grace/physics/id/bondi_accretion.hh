@@ -67,6 +67,7 @@ struct bondi_id_t {
     ) : eos(_eos), _pcoords(pcoords), gamma(_gamma), n(1/(_gamma-1)), K(_K), rc(_rc), lrmin(log(_rmin)), lrmax(log(_rmax)), spin(_spin)
     {
         using namespace Kokkos ;
+        excision_params = get_excision_params() ; 
         // Compute temperature and radial 4 velocity at the sonic  
         // point 
         bondi_uc_Tc(1.0/*Mass always 1*/, rc, n, &uc, &Tc) ; 
@@ -189,7 +190,7 @@ struct bondi_id_t {
         // get metric 
         double guu[6] ; 
         kerr_schild_adm_metric(
-            xyz,0.0,r_eps,
+            xyz,0.0,0.25,
             &id.gxx, &id.gxy, &id.gxz, &id.gyy, &id.gyz, &id.gzz,
             &guu[0], &guu[1], &guu[2], &guu[3], &guu[4], &guu[5], 
             &id.alp, &id.betax, &id.betay, &id.betaz, 
@@ -217,6 +218,16 @@ struct bondi_id_t {
 
         // ye
         id.ye = 0.0 ; 
+
+        if ( excision_params.excise_by_radius and r < excision_params.r_ex ) {
+            id.rho = excision_params.rho_ex ; 
+            id.bx = id.by = id.bz = 0.0;
+            id.vx = id.vy = id.vz = 0.0;
+            double temp = excision_params.temp_ex ; 
+            unsigned int eoserr ; 
+            id.press = eos.press__temp_rho_ye_impl(temp,id.rho,id.ye,eoserr) ; 
+        }
+
         return id ; 
     }
 
@@ -224,7 +235,7 @@ struct bondi_id_t {
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;
 
     double gamma, n, K, rc, uc, Tc, lrmin, lrmax, dlogr, spin ; 
-
+    excision_params_t excision_params ; 
     view_t logr, logT ; 
 
 } ; 
