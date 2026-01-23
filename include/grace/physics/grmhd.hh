@@ -674,7 +674,7 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         grmhd_cons_array_t f_LLF ;
 	    std::array<double,4> dummy ; 
-        compute_mhd_fluxes<idir,false>( primL, primR, metric_face, f_LLF, dummy, 1., 1.) ;
+        compute_mhd_fluxes<idir,true>( primL, primR, metric_face, f_LLF, dummy, 1., 1.) ;
         /***********************************************************************/
         // Get conserves 
         grmhd_cons_array_t consL, consR ;
@@ -738,7 +738,15 @@ struct grmhd_equations_system_t
         }
         theta *= fmin(fmax(theta_exc,0.),1.) ; 
 
-        
+        // fixme! 
+        double fcoords[3] = {
+                idir == 0 ? 0. : 0.5 ,
+                idir == 1 ? 0. : 0.5 ,
+                idir == 2 ? 0. : 0.5 ,
+            } ; 
+        double rtp[3] ; 
+        dcoords.get_physical_coordinates_sph(i,j,k,q,fcoords,rtp,1) ; 
+        if ( rtp[0] <= excision_params.r_f) theta = 0 ; 
         //if ( metric_face.alp() < 0.2 ) theta = 0 ; 
         /***********************************************************************/
         /***********************************************************************/

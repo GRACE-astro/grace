@@ -75,7 +75,7 @@ struct grhd_c2p_t {
             Kokkos::sqrt(conservs[STXL]*StildeU[0] + conservs[STYL]*StildeU[1] + conservs[STZL]*StildeU[2] ) ; 
 
         D  = conservs[DENSL] ; 
-
+        
         ye = conservs[YESL] / D ;
         q  = conservs[TAUL] / D ; 
         r = StildeNorm / D ; 
@@ -118,7 +118,7 @@ struct grhd_c2p_t {
             eps = 0.999 * epsmax ; 
         } else if ( eps < epsmin ) {
             c2p_errors  = C2P_EPS_TOO_LOW ; 
-            eps = 1.001 * epsmin ; 
+            eps = epsmin ; 
         }
         prims[EPSL]   = eps ;  
 
@@ -134,8 +134,7 @@ struct grhd_c2p_t {
 
         return fabs(func(zeta)) ; 
     }
-    //! Adjust momentum? 
-    bool S_adjusted ; 
+
  private:
     //! Equation of state
     eos_t const& eos ; 
@@ -186,7 +185,7 @@ struct grhd_c2p_t {
         double yel{ye} ; 
         unsigned int err; 
         eos.eps_range__rho_ye(epsmin,epsmax,rho,yel,err) ; 
-        auto eps = math::max(epsmin,math::min(epsmax,epstilde(W,z))) ; 
+        auto eps = fmax(epsmin,fmin(epsmax,epstilde(W,z))) ; 
         return (1+eps) * (1+atilde(rho,eps)) ; 
     }
 } ; 

@@ -6,8 +6,11 @@ z4c: {
   chi_floor: 1e-11,
   alp_min: 1e-11,
   eta_damp_radius: 1e99,
+  kappa_damp_radius: 1e99,
+  theta_damp_radius: -1,
   adaptive_eta: false,
   adaptive_eta_a: 1, #notice we use chi, so a is a/2 from Lousto et al.
   adaptive_eta_b: 2,
+  alp_excision: -1, # Only for constraints to remove horizons from norms, <0 means disabled
   is_vacuum: false
 }

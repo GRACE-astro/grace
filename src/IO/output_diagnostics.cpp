@@ -45,6 +45,7 @@
 #include <grace/IO/diagnostics/black_hole_diagnostics.hh>
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/IO/diagnostics/gw_integrals.hh>
+#include <grace/physics/z4c.hh>
 #endif
 #include <Kokkos_Core.hpp>
 
@@ -56,9 +57,27 @@ namespace grace { namespace IO {
 
 
 void output_diagnostics() {
+    DECLARE_GRID_EXTENTS ; 
+    using namespace grace ; 
+    using namespace Kokkos  ; 
+    
     bh_diagnostics bh_diag{};
     bh_diag.compute_and_write() ;  
     #ifdef GRACE_ENABLE_Z4C_METRIC
+    auto state   = variable_list::get().getstate() ; 
+    auto sstate  = variable_list::get().getstaggeredstate() ; 
+    auto aux     = variable_list::get().getaux() ; 
+    auto idx     = variable_list::get().getinvspacings() ;  
+    auto coords  = coordinate_system::get().get_device_coord_system() ; 
+    // compute psi4 
+    z4c_system_t z4c_eq_system(state,aux,sstate) ; 
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
+        policy({VEC(0,0,0),0},{VEC(nx+1,ny+1,nz+1),nq}) ;
+    parallel_for(GRACE_EXECUTION_TAG("EVOL","compute_psi4"), policy 
+    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        z4c_eq_system.compute_psi4(i,j,k,q,idx,coords) ; 
+    }) ; 
     gw_integrals gw_ints{} ; 
     gw_ints.compute_and_write() ;  
     #endif

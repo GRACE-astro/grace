@@ -66,6 +66,8 @@
 #include <grace/physics/id/bondi_accretion.hh>
 #include <grace/physics/id/puncture.hh>
 #include <grace/physics/id/Avec_id.hh>
+#include <grace/physics/id/linear_gw.hh>
+#include <grace/physics/id/robust_stability.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
@@ -626,6 +628,10 @@ void set_grmhd_initial_data() {
         #else 
         ERROR("TwoPunctures id requested but GRACE was not compiled with TwoPunctures support.") ; 
         #endif 
+    } else if ( id_type == "linear_gw") {
+        set_grmhd_initial_data_impl<eos_t,linear_gw_id_t<eos_t>>() ; 
+    } else if (id_type == "robust_stability") {
+        set_grmhd_initial_data_impl<eos_t,robust_stability_id_t<eos_t>>() ; 
     } else {
         ERROR("Unrecognized id_type " << id_type ) ; 
     }

@@ -153,7 +153,7 @@ namespace grace {
         eps = epsmax * 0.999; 
       } else if ( eps <= epsmin ) {
         err = C2P_EPS_TOO_LOW ; 
-        eps = epsmin * 1.001; 
+        eps = epsmin; 
       }
 
       double hh,csnd2 ; 
@@ -236,7 +236,7 @@ namespace grace {
      * the relevant metric components to the velocity.
      */
     double  GRACE_HOST_DEVICE
-    invert(grmhd_prims_array_t& prims, c2p_sig_t& err) {
+    invert(grmhd_prims_array_t& prims, c2p_sig_t& c2p_errors) {
 
       prims[YEL] = ye ;
       
@@ -249,9 +249,9 @@ namespace grace {
         fbrack_t g(r2,Btilde2,r_dot_Btilde2,h0) ; 
         double mu0_min, mu0_max ; 
         g.bracket(mu0_min,mu0_max) ; 
-        int err ; 
-        mu0 = utils::rootfind_newton_raphson(mu0_min,mu0_max,g,30,1e-10,err) ; 
-        if ( err == 0 ) {
+        int rootfind_err ; 
+        mu0 = utils::rootfind_newton_raphson(mu0_min,mu0_max,g,30,1e-10,rootfind_err) ; 
+        if ( rootfind_err == 0 ) {
           mu0 *= 1+1e-10 ; 
         } else {
           mu0 = 1.0/h0 ;
@@ -274,7 +274,7 @@ namespace grace {
       prims[BYL]    = B[1] ; 
       prims[BZL]    = B[2] ; 
 
-      err = fmu.err ; 
+      c2p_errors = fmu.err ; 
 
       double x = fmu.x; 
 

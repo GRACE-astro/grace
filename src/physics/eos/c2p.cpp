@@ -204,7 +204,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
 {
     
     using c2p_mhd_t    = kastaun_c2p_t<eos_t>     ;
-    using c2p_hydro_t  = grhd_c2p_t<eos_t>        ;
+    using c2p_hydro_t  = kastaun_c2p_t<eos_t>        ;
     using c2p_backup_t = entropy_fix_c2p_t<eos_t> ;
     bool c2p_failed{ false }                      ;  
 
@@ -245,13 +245,14 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         if ( Btilde2 < hydro_thresh ) {
             c2p_hydro_t c2p(eos,metric,cons) ;
             double residual = c2p.invert(prims,c2p_ret) ;
-            c2p_failed = (math::abs(residual) > c2p_tolerance) || (c2p_ret != C2P_SUCCESS);
+            c2p_failed = (math::abs(residual) > c2p_tolerance) || (c2p_ret == C2P_EPS_TOO_HIGH);
         } else {
             c2p_mhd_t c2p(eos,metric,cons) ;
             double residual = c2p.invert(prims,c2p_ret) ;
-            c2p_failed = (math::abs(residual) > c2p_tolerance) || (c2p_ret != C2P_SUCCESS);
+            c2p_failed = (math::abs(residual) > c2p_tolerance) || (c2p_ret == C2P_EPS_TOO_HIGH);
             beta = compute_beta(prims,metric) ; 
         }
+        
         if ( (     c2p_failed 
                 or beta <= atmo.beta_fallback ) 
             and atmo.use_ent_backup ) 
