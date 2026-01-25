@@ -137,15 +137,16 @@ struct z4c_system_t
         // should be 1, but we invert the
         // metric with the det anyway to
         // avoid roundoff shenanigans
+        #if 0
         double detg ; 
         z4c_get_det_conf_metric(
             gtdd, &detg 
         ) ; 
-
+        #endif
         // get metric inverse 
         double gtuu[6] ; 
         z4c_get_inverse_conf_metric(
-            gtdd, detg, &gtuu
+            gtdd, 1.0, &gtuu
         ) ; 
 
         double idx[3] = {_idx(0,q),_idx(1,q),_idx(2,q)} ; 
