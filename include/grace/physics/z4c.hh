@@ -172,7 +172,7 @@ struct z4c_system_t
 
         { // gtdd rhs 
             double dgtdd_dx_upw[6] ; 
-             fill_deriv_tensor_upw(this->_state,i,j,k,GTXX_,q,dgtdd_dx_upw,beta,idx[0]) ;
+            fill_deriv_tensor_upw(this->_state,i,j,k,GTXX_,q,dgtdd_dx_upw,beta,idx[0]) ;
 
             z4c_get_gtdd_rhs(
                 gtdd,Atdd,alp,dgtdd_dx_upw,dbeta_dx,&dgtdd
@@ -198,7 +198,7 @@ struct z4c_system_t
             ) ; 
         }
         // compute DiDj alp
-        double DiDjalp[6], DiDialp ; 
+        double W2DiDjalp[6], DiDialp ; 
         // need some more derivs 
         double dchi_dx[3], dalp_dx[3] ;
         {
@@ -207,16 +207,16 @@ struct z4c_system_t
             // get rid of it 
             double ddalp_dx2[6];
             fill_deriv_scalar(this->_state,i,j,k,ALP_,q,dalp_dx,idx[0]) ; 
-            fill_second_deriv_scalar(this->_state,i,j,k,ALP_,q,ddalp_dx2,idx[0]) ; 
             fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ;
+            fill_second_deriv_scalar(this->_state,i,j,k,ALP_,q,ddalp_dx2,idx[0]) ; 
             
             z4c_get_DiDjalp(
                 gtdd, chi, gtuu, Gammatudd, dchi_dx, dalp_dx, ddalp_dx2, 
-                &DiDjalp
+                &W2DiDjalp
             ) ; 
 
             z4c_get_DiDialp(
-                gtuu, DiDjalp, &DiDialp
+                gtuu, W2DiDjalp, &DiDialp
             ) ; 
         }
 
@@ -244,7 +244,7 @@ struct z4c_system_t
         
         // Ricci 
         double Rtrace; 
-        double Rdd[6] = {0.,0.,0.,0.,0.,0.};
+        double W2Rdd[6] = {0.,0.,0.,0.,0.,0.};
         {
             // part 1 
             {
@@ -253,7 +253,7 @@ struct z4c_system_t
                 fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
                 fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
                 z4c_get_Ricci(
-                    gtdd,chi, gtuu,Gammatddd,Gammatudd,GammatDu,dGammat_dx,ddgtdd_dx2, &Rdd
+                    gtdd,chi, gtuu,Gammatddd,Gammatudd,GammatDu,dGammat_dx,ddgtdd_dx2, &W2Rdd
                 ) ; 
             }
             // part 2
@@ -261,13 +261,13 @@ struct z4c_system_t
                 double ddchi_dx2[6];
                 fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ; 
                 z4c_get_Ricci_conf(
-                    gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &Rdd
+                    gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &W2Rdd
                 ) ;
             }
                         
             
             z4c_get_Ricci_trace(
-                gtuu, Rdd, &Rtrace
+                gtuu, W2Rdd, &Rtrace
             ) ; 
         }   
         
@@ -287,7 +287,7 @@ struct z4c_system_t
             fill_deriv_tensor_upw(this->_state,i,j,k,ATXX_,q,dAtdd_dx_upw,beta,idx[0]) ; 
             z4c_get_Atdd_rhs(
                 gtdd, Atdd, alp, chi, Ktr, Strace,
-                Sij, gtuu, DiDjalp, DiDialp, Rdd, Rtrace, 
+                Sij, gtuu, W2DiDjalp, DiDialp, W2Rdd, Rtrace, 
                 dAtdd_dx_upw, dbeta_dx, 
                 &dAtdd
             ) ; 
@@ -317,10 +317,11 @@ struct z4c_system_t
         double dGammat_dx_upw[3];
         {
             double dKhat_dx[3], ddbeta_dx2[18], dtheta_dx[3] ; 
-            fill_deriv_vector_upw(this->_state,i,j,k,GAMMATX_,q,dGammat_dx_upw,beta,idx[0]) ;
             fill_deriv_scalar(this->_state,i,j,k,KHAT_,q,dKhat_dx,idx[0]) ;
-            fill_second_deriv_vector(this->_state,i,j,k,BETAX_,q,ddbeta_dx2,idx[0]) ;
             fill_deriv_scalar(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ; 
+            fill_second_deriv_vector(this->_state,i,j,k,BETAX_,q,ddbeta_dx2,idx[0]) ;
+            fill_deriv_vector_upw(this->_state,i,j,k,GAMMATX_,q,dGammat_dx_upw,beta,idx[0]) ;
+            
 
             z4c_get_Gammatilde_rhs(
                 alp,chi,Gammat,Si,k1L,
@@ -455,8 +456,9 @@ struct z4c_system_t
             ) ;
             // Ricci 
             double Rtrace; 
-            double Rdd[6] = {0.,0.,0.,0.,0.,0.};
+            
             {
+                double W2Rdd[6] = {0.,0.,0.,0.,0.,0.};
                 // part 1 
                 {
                     double ddgtdd_dx2[36] ; 
@@ -464,7 +466,7 @@ struct z4c_system_t
                     fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
                     fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
                     z4c_get_Ricci(
-                        gtdd,chi, gtuu,Gammatddd,Gammatudd,GammatDu,dGammat_dx,ddgtdd_dx2, &Rdd
+                        gtdd,chi, gtuu,Gammatddd,Gammatudd,GammatDu,dGammat_dx,ddgtdd_dx2, &W2Rdd
                     ) ; 
                 }
                 // part 2
@@ -472,13 +474,13 @@ struct z4c_system_t
                     double ddchi_dx2[6];
                     fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ; 
                     z4c_get_Ricci_conf(
-                        gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &Rdd
+                        gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &W2Rdd
                     ) ;
                 }
                             
                 
                 z4c_get_Ricci_trace(
-                    gtuu, Rdd, &Rtrace
+                    gtuu, W2Rdd, &Rtrace
                 ) ; 
             }   
             // compute matter couplings 
@@ -583,6 +585,8 @@ struct z4c_system_t
         return 1. ; 
     } 
 
+    #if 0
+    // this is okay for 4th order FD, but 6th order is hard-coded as of now
     double KOKKOS_INLINE_FUNCTION
     kreiss_olinger_operator(int i, int j, int k, int q, int iv, double idx[3]) const 
     {
@@ -594,6 +598,20 @@ struct z4c_system_t
         double const dudz = (u(i,j,k-3) - 6*u(i,j,k-2) + 15*u(i,j,k-1) - 20*u(i,j,k) + 15*u(i,j,k+1) - 6*u(i,j,k+2) + u(i,j,k+3))*idx[2] ;
         return (dudx+dudy+dudz) * (1./64.) ;  
     }
+    #else
+    double KOKKOS_INLINE_FUNCTION
+    kreiss_olinger_operator(int i, int j, int k, int q, int iv, double idx[3]) const 
+    {
+        // Eq 63 of https://arxiv.org/pdf/gr-qc/0610128 with r = 3 
+        using namespace Kokkos ; 
+        auto u = subview(this->_state,ALL(),ALL(),ALL(),iv,q) ; 
+        double dudx, dudy, dudz; 
+        fd_diss_x(u,i,j,k,idx[0],&dudx) ; 
+        fd_diss_y(u,i,j,k,idx[1],&dudy) ; 
+        fd_diss_z(u,i,j,k,idx[2],&dudz) ; 
+        return -(dudx+dudy+dudz) * (1./256.) ;  
+    }
+    #endif
 
     void KOKKOS_INLINE_FUNCTION 
     impose_algebraic_constraints(grace::var_array_t state, VEC(int i, int j, int k), int q) const 

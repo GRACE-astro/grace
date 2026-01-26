@@ -7,6 +7,49 @@ namespace grace {
 
 namespace detail {
 
+static void fill_fifth_order_restriction_coefficients(std::vector<double>& coeffs) {
+    coeffs.resize(20);
+    static const double raw_data[20] = {
+        -5.0/128.0,
+    7.0/32.0,
+    -35.0/64.0,
+    35.0/32.0,
+    35.0/128.0,
+    3.0/128.0,
+    -5.0/32.0,
+    45.0/64.0,
+    15.0/32.0,
+    -5.0/128.0,
+    -5.0/128.0,
+    15.0/32.0,
+    45.0/64.0,
+    -5.0/32.0,
+    3.0/128.0,
+    35.0/128.0,
+    35.0/32.0,
+    -35.0/64.0,
+    7.0/32.0,
+    -5.0/128.0
+    };
+    coeffs.assign(raw_data, raw_data + 20);
+}
+
+static void fill_fifth_order_prolongation_coefficients(std::vector<double>& coeffs) {
+    coeffs.resize(10);
+    static const double raw_data[10] = {
+        -45.0/2048.0,
+    105.0/512.0,
+    945.0/1024.0,
+    -63.0/512.0,
+    35.0/2048.0,
+    35.0/2048.0,
+    -63.0/512.0,
+    945.0/1024.0,
+    105.0/512.0,
+    -45.0/2048.0
+    };
+    coeffs.assign(raw_data, raw_data + 10);
+}
 
 static void fill_fourth_order_restriction_coefficients(std::vector<double>& coeffs) {
     coeffs.resize(12);

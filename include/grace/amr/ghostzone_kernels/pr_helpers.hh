@@ -92,20 +92,27 @@ struct lagrange_prolong_op {
         // for bi == 0 i.e. cell at x_c - dx/4 
         // we need to pick i-2 i-1 i i+1
         // whereas for bi==1 i-1 i i+1 i+2 
-        int ci = bi - 2 ; 
-        int cj = bj - 2 ;
-        int ck = bk - 2 ; 
+        int ci,cj,ck ; 
+        if constexpr(order==3){
+            ci = bi - 2 ; 
+            cj = bj - 2 ;
+            ck = bk - 2 ; 
+        } else if constexpr(order==4) {
+            ci=cj=ck=-2;
+        }
+        
 
         size_t oi = (order+1)*bi ; 
         size_t oj = (order+1)*bj ; 
         size_t ok = (order+1)*bk ; 
 
+        int N = order+1 ; 
         double res = 0 ; 
         #pragma unroll 16
         for (int dd = 0; dd < (order+1)*(order+1)*(order+1); ++dd) {
-            int di = dd & 3;
-            int dj = (dd >> 2) & 3;
-            int dk = (dd >> 4);
+            int di = dd % N;
+            int dj = (dd / N) % N;
+            int dk = dd / (N * N);
 
             double coeff = coeffs(oi+di) * coeffs(oj+dj) * coeffs(ok+dk) ; 
 
@@ -163,22 +170,30 @@ struct lagrange_restrict_op {
         int ox = compute_offset(i,nx) ;
         int oy = compute_offset(j,ny) ;
         int oz = compute_offset(k,nz) ;
-
-        int cx = ox-2;
-        int cy = oy-2;
-        int cz = oz-2;
+        int cx,cy,cz ; 
+        if constexpr (order==3){
+            cx = ox-2;
+            cy = oy-2;
+            cz = oz-2;
+        } else if constexpr (order==4) {
+            cx = ox-3;
+            cy = oy-3;
+            cz = oz-3;
+        }
 
         int off_i = (order+1)*ox ; 
         int off_j = (order+1)*oy ; 
         int off_k = (order+1)*oz ; 
 
+        int N = order + 1;
+
         double res=0; 
         // maybe too much unrolling..
         #pragma unroll 16 
         for ( int dd=0; dd<(order+1)*(order+1)*(order+1); ++dd) {
-            int di = dd & 3;          // dd % 4
-            int dj = (dd >> 2) & 3;   // (dd / 4) % 4
-            int dk = (dd >> 4);       // dd / 16
+            int di = dd % N;
+            int dj = (dd / N) % N;
+            int dk = dd / (N * N);
 
             double coeff = coeffs(off_i+di) * coeffs(off_j+dj) * coeffs(off_k+dk) ; 
             res += coeff * u(i+di+cx,j+dj+cy,k+dk+cz) ; 
@@ -196,7 +211,15 @@ struct lagrange_restrict_op {
             if (lb == 0) return 2;
             if (ub == 1) return 0;
             return 1 ;
-        } 
+        } else if constexpr (order==4) {
+            // left shift
+            if (ub==1) return 0 ; 
+            if (ub==2) return 1 ; 
+            // right shift 
+            if (lb==0) return 3 ;
+            // center 
+            return 2 ;
+        }
     }
 } ; 
 

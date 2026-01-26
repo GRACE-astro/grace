@@ -135,9 +135,9 @@ void amr_ghosts_impl_t::update() {
     }
     deep_copy(var_reflect_parity,var_reflect_parity_h) ; 
 
-    // initialize weights for 4th order restrict/prolong 
-    grace::detail::fill_fourth_order_prolongation_coefficients(ho_prolong_coefficients) ; 
-    grace::detail::fill_fourth_order_restriction_coefficients(ho_restrict_coefficients) ; 
+    // initialize weights for 5th order restrict/prolong 
+    grace::detail::fill_fifth_order_prolongation_coefficients(ho_prolong_coefficients) ; 
+    grace::detail::fill_fifth_order_restriction_coefficients(ho_restrict_coefficients) ; 
 
     // Destroy old ghost layer if present
     if (p4est_ghost_layer) {

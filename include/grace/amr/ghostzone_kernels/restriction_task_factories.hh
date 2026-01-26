@@ -80,7 +80,7 @@ task_id_t insert_restriction_tasks(
 )
 {
     using restrict_lo_op = second_order_restrict_op;
-    using restrict_ho_op = lagrange_restrict_op<3>;
+    using restrict_ho_op = lagrange_restrict_op<4>;
 
 
     GRACE_TRACE("Recording GPU-restrict task (tid {}) number of quadrants {}", task_counter, cbuf_qid.size()) ;
