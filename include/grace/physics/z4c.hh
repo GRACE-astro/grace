@@ -149,6 +149,9 @@ struct z4c_system_t
             gtdd, 1.0, &gtuu
         ) ; 
 
+        double Atuu[6] ; 
+        z4c_get_Atuu(Atdd,gtuu,&Atuu) ; 
+
         double idx[3] = {_idx(0,q),_idx(1,q),_idx(2,q)} ; 
 
         // get beta deriv,
@@ -158,35 +161,40 @@ struct z4c_system_t
         fill_deriv_vector(this->_state,i,j,k,BETAX_,q,dbeta_dx,idx[0]) ;
 
         { // chi rhs 
-            double dchi_dx_upw[3] ; 
-            fill_deriv_scalar_upw(this->_state,i,j,k,CHI_,q,dchi_dx_upw,beta,idx[0]) ; 
+            double dchi_dx_upw ; 
+            fill_deriv_scalar_upw(this->_state,i,j,k,CHI_,q,&dchi_dx_upw,beta,idx[0]) ; 
 
             z4c_get_chi_rhs(
-                beta, alp, chi, theta, Khat, dbeta_dx, dchi_dx_upw, &dchi
+                alp, chi, theta, Khat, dbeta_dx, dchi_dx_upw, &dchi
             ) ; 
             // let the derivative fall out of scope
         }
 
         { // gtdd rhs 
-            double dgtdd_dx_upw[18] ; 
+            double dgtdd_dx_upw[6] ; 
              fill_deriv_tensor_upw(this->_state,i,j,k,GTXX_,q,dgtdd_dx_upw,beta,idx[0]) ;
 
             z4c_get_gtdd_rhs(
-                gtdd,Atdd,beta,alp,dgtdd_dx_upw,dbeta_dx,&dgtdd
+                gtdd,Atdd,alp,dgtdd_dx_upw,dbeta_dx,&dgtdd
             ) ; 
             // let the derivative fall out of scope
         }
 
         // christoffel 
-        // compute christoffel
-        double Gammatddd[18] ; 
+        double Gammatddd[18], Gammatudd[18], GammatDu[3] ; 
         {
             // get deriv
             double dgtdd_dx[18] ; 
             fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
             
-            z4c_get_Christoffel(
+            z4c_get_first_Christoffel(
                 dgtdd_dx, &Gammatddd
+            ) ; 
+            z4c_get_second_Christoffel(
+                gtuu, Gammatddd, &Gammatudd
+            ) ; 
+            z4c_get_contracted_Christoffel(
+                gtuu,Gammatudd,&GammatDu
             ) ; 
         }
         // compute DiDj alp
@@ -203,12 +211,12 @@ struct z4c_system_t
             fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ;
             
             z4c_get_DiDjalp(
-                gtdd, chi, gtuu, Gammatddd, dchi_dx, dalp_dx, ddalp_dx2, 
+                gtdd, chi, gtuu, Gammatudd, dchi_dx, dalp_dx, ddalp_dx2, 
                 &DiDjalp
             ) ; 
 
             z4c_get_DiDialp(
-                chi, gtuu, DiDjalp, &DiDialp
+                gtuu, DiDjalp, &DiDialp
             ) ; 
         }
 
@@ -227,10 +235,10 @@ struct z4c_system_t
         
         // Khat rhs
         {
-            double dKhat_dx_upw[3] ; 
-            fill_deriv_scalar_upw(this->_state,i,j,k,KHAT_,q,dKhat_dx_upw,beta,idx[0]) ;
+            double dKhat_dx_upw ; 
+            fill_deriv_scalar_upw(this->_state,i,j,k,KHAT_,q,&dKhat_dx_upw,beta,idx[0]) ;
             z4c_get_Khat_rhs(
-                Atdd, beta, alp, theta, Ktr, Strace, rho, k1L, k2, gtuu, DiDialp, dKhat_dx_upw, &dKhat
+                Atdd, alp, theta, Ktr, Strace, rho, k1L, k2, Atuu, DiDialp, dKhat_dx_upw, &dKhat
             ) ; 
         }
         
@@ -241,56 +249,44 @@ struct z4c_system_t
             // part 1 
             {
                 double ddgtdd_dx2[36] ; 
+                double dGammat_dx[9] ; 
                 fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
-                z4c_get_Ricci1(
-                    gtuu, ddgtdd_dx2, &Rdd
+                fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
+                z4c_get_Ricci(
+                    gtdd,chi, gtuu,Gammatddd,Gammatudd,GammatDu,dGammat_dx,ddgtdd_dx2, &Rdd
                 ) ; 
             }
             // part 2
             {
-                double dGammat_dx[9] ; 
-                fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
-                z4c_get_Ricci2(
-                    gtdd, gtuu, Gammatddd, dGammat_dx, &Rdd
-                ) ; 
-            }
-            // part 3
-            {
-                z4c_get_Ricci3(
-                    gtuu,Gammatddd,&Rdd
-                ) ; 
-            }
-            // part 4
-            {
                 double ddchi_dx2[6];
                 fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ; 
-                z4c_get_Ricci4(
-                    gtdd, chi, gtuu, Gammatddd, dchi_dx, ddchi_dx2, &Rdd
+                z4c_get_Ricci_conf(
+                    gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &Rdd
                 ) ;
             }
                         
             
             z4c_get_Ricci_trace(
-                chi, gtuu, Rdd, &Rtrace
+                gtuu, Rdd, &Rtrace
             ) ; 
         }   
         
         // theta rhs 
         {
             double theta_damp_fact = (theta_ad_r > 0) ? exp(-(r*r/(theta_ad_r*theta_ad_r))) : 1.0 ;
-            double dtheta_dx_upw[3] ; 
-            fill_deriv_scalar_upw(this->_state,i,j,k,THETA_,q,dtheta_dx_upw,beta,idx[0]) ;
+            double dtheta_dx_upw ; 
+            fill_deriv_scalar_upw(this->_state,i,j,k,THETA_,q,&dtheta_dx_upw,beta,idx[0]) ;
             z4c_get_theta_rhs(
-                Atdd, beta, alp, theta, Khat, rho, k1L, k2, theta_damp_fact, gtuu, Rtrace, dtheta_dx_upw, &dtheta 
+                Atdd, alp, theta, Khat, rho, k1L, k2, theta_damp_fact, Atuu, Rtrace, dtheta_dx_upw, &dtheta 
             ) ; 
         }
 
         // Atdd rhs 
         {
-            double dAtdd_dx_upw[18] ;   
+            double dAtdd_dx_upw[6] ;   
             fill_deriv_tensor_upw(this->_state,i,j,k,ATXX_,q,dAtdd_dx_upw,beta,idx[0]) ; 
             z4c_get_Atdd_rhs(
-                gtdd, Atdd, beta, alp, chi, Ktr, Strace,
+                gtdd, Atdd, alp, chi, Ktr, Strace,
                 Sij, gtuu, DiDjalp, DiDialp, Rdd, Rtrace, 
                 dAtdd_dx_upw, dbeta_dx, 
                 &dAtdd
@@ -299,26 +295,26 @@ struct z4c_system_t
 
         // lapse rhs 
         {
-            double dalp_dx_upw[3] ; 
-            fill_deriv_scalar_upw(this->_state,i,j,k,ALP_,q,dalp_dx_upw,beta,idx[0]) ; 
+            double dalp_dx_upw ; 
+            fill_deriv_scalar_upw(this->_state,i,j,k,ALP_,q,&dalp_dx_upw,beta,idx[0]) ; 
 
             z4c_get_alpha_rhs(
-                beta, alp, Khat, dalp_dx_upw,
+                alp, Khat, dalp_dx_upw,
                 &dalp
             ) ; 
         }
         // shift rhs 
         double Bdriver[3] = {s(BDRIVERX_), s(BDRIVERY_), s(BDRIVERZ_) } ; 
         {
-            double dbeta_dx_upw[9]; 
+            double dbeta_dx_upw[3]; 
             fill_deriv_vector_upw(this->_state,i,j,k,BETAX_,q,dbeta_dx_upw,beta,idx[0]) ;
             z4c_get_beta_rhs(
-                beta, Bdriver, dbeta_dx_upw, &dbetau
+                Bdriver, dbeta_dx_upw, &dbetau
             ) ; 
         }
 
         // Gammatilde rhs 
-        double dGammat_dx_upw[9];
+        double dGammat_dx_upw[3];
         {
             double dKhat_dx[3], ddbeta_dx2[18], dtheta_dx[3] ; 
             fill_deriv_vector_upw(this->_state,i,j,k,GAMMATX_,q,dGammat_dx_upw,beta,idx[0]) ;
@@ -327,8 +323,9 @@ struct z4c_system_t
             fill_deriv_scalar(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ; 
 
             z4c_get_Gammatilde_rhs(
-                Atdd, beta, alp, chi, Gammat, Si, k1L, gtuu,
-                Gammatddd, dbeta_dx, dGammat_dx_upw, dKhat_dx, 
+                alp,chi,Gammat,Si,k1L,
+                gtuu,Atuu,Gammatudd,GammatDu,
+                dbeta_dx, dGammat_dx_upw, dKhat_dx,
                 dchi_dx, dalp_dx, dtheta_dx, ddbeta_dx2,
                 &dGammat
             ) ; 
@@ -345,10 +342,10 @@ struct z4c_system_t
 
         // B driver rhs 
         {
-            double dBdr_dx_upw[9] ; 
+            double dBdr_dx_upw[3] ; 
             fill_deriv_vector_upw(this->_state,i,j,k,BDRIVERX_,q,dBdr_dx_upw,beta,idx[0]) ;
             z4c_get_Bdriver_rhs(
-                beta, Bdriver, etaL, dGammat, dBdr_dx_upw, dGammat_dx_upw, &dBdr
+                Bdriver, etaL, dGammat, dBdr_dx_upw, dGammat_dx_upw, &dBdr
             ) ; 
         }
 
@@ -432,6 +429,9 @@ struct z4c_system_t
                 gtdd, detg, &gtuu
             ) ; 
 
+            double Atuu[6] ; 
+            z4c_get_Atuu(Atdd,gtuu,&Atuu) ; 
+
             // derivatives
             double dchi_dx[3], dKhat_dx[3], dtheta_dx[3], dAtdd_dx[18], dgtdd_dx[18];
             // inverse spacing 
@@ -443,9 +443,15 @@ struct z4c_system_t
             fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
             fill_deriv_tensor(this->_state,i,j,k,ATXX_,q,dAtdd_dx,idx[0]) ;
 
-            double Gammatddd[18] ; 
-            z4c_get_Christoffel(
+            double Gammatddd[18], Gammatudd[18], GammatDu[3]; 
+            z4c_get_first_Christoffel(
                 dgtdd_dx, &Gammatddd
+            ) ;
+            z4c_get_second_Christoffel(
+                gtuu, Gammatddd, &Gammatudd
+            ) ;
+            z4c_get_contracted_Christoffel(
+                gtuu, Gammatudd, &GammatDu
             ) ;
             // Ricci 
             double Rtrace; 
@@ -454,39 +460,27 @@ struct z4c_system_t
                 // part 1 
                 {
                     double ddgtdd_dx2[36] ; 
+                    double dGammat_dx[9] ; 
                     fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
-                    z4c_get_Ricci1(
-                        gtuu, ddgtdd_dx2, &Rdd
+                    fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
+                    z4c_get_Ricci(
+                        gtdd,chi, gtuu,Gammatddd,Gammatudd,GammatDu,dGammat_dx,ddgtdd_dx2, &Rdd
                     ) ; 
                 }
                 // part 2
                 {
-                    double dGammat_dx[9] ; 
-                    fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
-                    z4c_get_Ricci2(
-                        gtdd, gtuu, Gammatddd, dGammat_dx, &Rdd
-                    ) ; 
-                }
-                // part 3
-                {
-                    z4c_get_Ricci3(
-                        gtuu,Gammatddd,&Rdd
-                    ) ; 
-                }
-                // part 4
-                {
                     double ddchi_dx2[6];
                     fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ; 
-                    z4c_get_Ricci4(
-                        gtdd, chi, gtuu, Gammatddd, dchi_dx, ddchi_dx2, &Rdd
+                    z4c_get_Ricci_conf(
+                        gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &Rdd
                     ) ;
                 }
                             
                 
                 z4c_get_Ricci_trace(
-                    chi, gtuu, Rdd, &Rtrace
+                    gtuu, Rdd, &Rtrace
                 ) ; 
-            }  
+            }   
             // compute matter couplings 
             double rho{0}, Strace{0}, Si[3] = {0,0,0}, Sij[6] = {0,0,0,0,0,0};
             if (!is_vacuum) {
@@ -503,9 +497,9 @@ struct z4c_system_t
             // get constraints 
             double H, Mi[3] ; 
             z4c_get_constraints(
-                Atdd, chi, theta, Khat, rho, Si, gtuu,
-                Gammatddd, Rtrace, dgtdd_dx, dAtdd_dx,
-                dKhat_dx, dchi_dx, dtheta_dx,
+                Atdd, chi, theta, Khat, rho, Si, gtuu, Atuu,
+                Gammatudd, GammatDu, Rtrace, dgtdd_dx, dAtdd_dx,
+                dKhat_dx, dchi_dx, dtheta_dx, 
                 &H, &Mi
             ) ; 
             // Store 

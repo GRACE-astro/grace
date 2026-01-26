@@ -571,107 +571,113 @@ fill_deriv_tensor(view_t state, int i, int j, int k, int iv, int q, double d[18]
 }
 template< typename view_t >
 static void KOKKOS_INLINE_FUNCTION
-fill_deriv_scalar_upw(view_t state, int i, int j, int k, int iv, int q, double d[3], double v[3], double invh)
+fill_deriv_scalar_upw(view_t state, int i, int j, int k, int iv, int q, double * d, double v[3], double invh)
 {
 	using namespace Kokkos;
 	auto u = subview(state,ALL(),ALL(),ALL(),iv,q);
+	(*d) = 0 ;
+	double dl;
+	dl=0.0;
 	if (v[0]>0){
-		fd_der_x_upw_pos(u,i,j,k,invh,&(d[0]));
+		fd_der_x_upw_pos(u,i,j,k,invh,&(dl));
 	}else if (v[0]<0){
-		fd_der_x_upw_neg(u,i,j,k,invh,&(d[0]));
-	}else{
-		fd_der_x(u,i,j,k,invh,&(d[0]));
+		fd_der_x_upw_neg(u,i,j,k,invh,&(dl));
 	}
+	(*d) += dl * v[0];
+	dl=0.0;
 	if (v[1]>0){
-		fd_der_y_upw_pos(u,i,j,k,invh,&(d[1]));
+		fd_der_y_upw_pos(u,i,j,k,invh,&(dl));
 	}else if (v[1]<0){
-		fd_der_y_upw_neg(u,i,j,k,invh,&(d[1]));
-	}else{
-		fd_der_y(u,i,j,k,invh,&(d[1]));
+		fd_der_y_upw_neg(u,i,j,k,invh,&(dl));
 	}
+	(*d) += dl * v[1];
+	dl=0.0;
 	if (v[2]>0){
-		fd_der_z_upw_pos(u,i,j,k,invh,&(d[2]));
+		fd_der_z_upw_pos(u,i,j,k,invh,&(dl));
 	}else if (v[2]<0){
-		fd_der_z_upw_neg(u,i,j,k,invh,&(d[2]));
-	}else{
-		fd_der_z(u,i,j,k,invh,&(d[2]));
+		fd_der_z_upw_neg(u,i,j,k,invh,&(dl));
 	}
+	(*d) += dl * v[2];
 }
 template< typename view_t >
 static void KOKKOS_INLINE_FUNCTION
-fill_deriv_vector_upw(view_t state, int i, int j, int k, int iv, int q, double d[9], double v[3], double invh)
+fill_deriv_vector_upw(view_t state, int i, int j, int k, int iv, int q, double d[3], double v[3], double invh)
 {
 	using namespace Kokkos;
 	auto ux = subview(state,ALL(),ALL(),ALL(),iv,q)  ;
 	auto uy = subview(state,ALL(),ALL(),ALL(),iv+1,q);
 	auto uz = subview(state,ALL(),ALL(),ALL(),iv+2,q);
+	double dl;
+	d[0] = 0;
+	dl=0.0;
 	if (v[0]>0){
-		fd_der_x_upw_pos(ux,i,j,k,invh,&(d[0]));
+		fd_der_x_upw_pos(ux,i,j,k,invh,&(dl));
 	}else if (v[0]<0){
-		fd_der_x_upw_neg(ux,i,j,k,invh,&(d[0]));
-	}else{
-		fd_der_x(ux,i,j,k,invh,&(d[0]));
+		fd_der_x_upw_neg(ux,i,j,k,invh,&(dl));
 	}
+	d[0] += dl * v[0];
+	dl=0.0;
+	if (v[1]>0){
+		fd_der_y_upw_pos(ux,i,j,k,invh,&(dl));
+	}else if (v[1]<0){
+		fd_der_y_upw_neg(ux,i,j,k,invh,&(dl));
+	}
+	d[0] += dl * v[1];
+	dl=0.0;
+	if (v[2]>0){
+		fd_der_z_upw_pos(ux,i,j,k,invh,&(dl));
+	}else if (v[2]<0){
+		fd_der_z_upw_neg(ux,i,j,k,invh,&(dl));
+	}
+	d[0] += dl * v[2];
+	d[1] = 0;
+	dl=0.0;
 	if (v[0]>0){
-		fd_der_x_upw_pos(uy,i,j,k,invh,&(d[1]));
+		fd_der_x_upw_pos(uy,i,j,k,invh,&(dl));
 	}else if (v[0]<0){
-		fd_der_x_upw_neg(uy,i,j,k,invh,&(d[1]));
-	}else{
-		fd_der_x(uy,i,j,k,invh,&(d[1]));
+		fd_der_x_upw_neg(uy,i,j,k,invh,&(dl));
 	}
+	d[1] += dl * v[0];
+	dl=0.0;
+	if (v[1]>0){
+		fd_der_y_upw_pos(uy,i,j,k,invh,&(dl));
+	}else if (v[1]<0){
+		fd_der_y_upw_neg(uy,i,j,k,invh,&(dl));
+	}
+	d[1] += dl * v[1];
+	dl=0.0;
+	if (v[2]>0){
+		fd_der_z_upw_pos(uy,i,j,k,invh,&(dl));
+	}else if (v[2]<0){
+		fd_der_z_upw_neg(uy,i,j,k,invh,&(dl));
+	}
+	d[1] += dl * v[2];
+	d[2] = 0;
+	dl=0.0;
 	if (v[0]>0){
-		fd_der_x_upw_pos(uz,i,j,k,invh,&(d[2]));
+		fd_der_x_upw_pos(uz,i,j,k,invh,&(dl));
 	}else if (v[0]<0){
-		fd_der_x_upw_neg(uz,i,j,k,invh,&(d[2]));
-	}else{
-		fd_der_x(uz,i,j,k,invh,&(d[2]));
+		fd_der_x_upw_neg(uz,i,j,k,invh,&(dl));
 	}
+	d[2] += dl * v[0];
+	dl=0.0;
 	if (v[1]>0){
-		fd_der_y_upw_pos(ux,i,j,k,invh,&(d[3]));
+		fd_der_y_upw_pos(uz,i,j,k,invh,&(dl));
 	}else if (v[1]<0){
-		fd_der_y_upw_neg(ux,i,j,k,invh,&(d[3]));
-	}else{
-		fd_der_y(ux,i,j,k,invh,&(d[3]));
+		fd_der_y_upw_neg(uz,i,j,k,invh,&(dl));
 	}
-	if (v[1]>0){
-		fd_der_y_upw_pos(uy,i,j,k,invh,&(d[4]));
-	}else if (v[1]<0){
-		fd_der_y_upw_neg(uy,i,j,k,invh,&(d[4]));
-	}else{
-		fd_der_y(uy,i,j,k,invh,&(d[4]));
-	}
-	if (v[1]>0){
-		fd_der_y_upw_pos(uz,i,j,k,invh,&(d[5]));
-	}else if (v[1]<0){
-		fd_der_y_upw_neg(uz,i,j,k,invh,&(d[5]));
-	}else{
-		fd_der_y(uz,i,j,k,invh,&(d[5]));
-	}
+	d[2] += dl * v[1];
+	dl=0.0;
 	if (v[2]>0){
-		fd_der_z_upw_pos(ux,i,j,k,invh,&(d[6]));
+		fd_der_z_upw_pos(uz,i,j,k,invh,&(dl));
 	}else if (v[2]<0){
-		fd_der_z_upw_neg(ux,i,j,k,invh,&(d[6]));
-	}else{
-		fd_der_z(ux,i,j,k,invh,&(d[6]));
+		fd_der_z_upw_neg(uz,i,j,k,invh,&(dl));
 	}
-	if (v[2]>0){
-		fd_der_z_upw_pos(uy,i,j,k,invh,&(d[7]));
-	}else if (v[2]<0){
-		fd_der_z_upw_neg(uy,i,j,k,invh,&(d[7]));
-	}else{
-		fd_der_z(uy,i,j,k,invh,&(d[7]));
-	}
-	if (v[2]>0){
-		fd_der_z_upw_pos(uz,i,j,k,invh,&(d[8]));
-	}else if (v[2]<0){
-		fd_der_z_upw_neg(uz,i,j,k,invh,&(d[8]));
-	}else{
-		fd_der_z(uz,i,j,k,invh,&(d[8]));
-	}
+	d[2] += dl * v[2];
 }
 template< typename view_t >
 static void KOKKOS_INLINE_FUNCTION
-fill_deriv_tensor_upw(view_t state, int i, int j, int k, int iv, int q, double d[18], double v[3], double invh)
+fill_deriv_tensor_upw(view_t state, int i, int j, int k, int iv, int q, double d[6], double v[3], double invh)
 {
 	using namespace Kokkos;
 	auto uxx = subview(state,ALL(),ALL(),ALL(),iv,q)  ;
@@ -680,132 +686,139 @@ fill_deriv_tensor_upw(view_t state, int i, int j, int k, int iv, int q, double d
 	auto uyy = subview(state,ALL(),ALL(),ALL(),iv+3,q);
 	auto uyz = subview(state,ALL(),ALL(),ALL(),iv+4,q);
 	auto uzz = subview(state,ALL(),ALL(),ALL(),iv+5,q);
+	double dl;
+	d[0] = 0;
+	dl=0.0;
 	if (v[0]>0){
-		fd_der_x_upw_pos(uxx,i,j,k,invh,&(d[0]));
+		fd_der_x_upw_pos(uxx,i,j,k,invh,&(dl));
 	}else if (v[0]<0){
-		fd_der_x_upw_neg(uxx,i,j,k,invh,&(d[0]));
-	}else{
-		fd_der_x(uxx,i,j,k,invh,&(d[0]));
+		fd_der_x_upw_neg(uxx,i,j,k,invh,&(dl));
 	}
+	d[0] += dl * v[0];
+	dl=0.0;
+	if (v[1]>0){
+		fd_der_y_upw_pos(uxx,i,j,k,invh,&(dl));
+	}else if (v[1]<0){
+		fd_der_y_upw_neg(uxx,i,j,k,invh,&(dl));
+	}
+	d[0] += dl * v[1];
+	dl=0.0;
+	if (v[2]>0){
+		fd_der_z_upw_pos(uxx,i,j,k,invh,&(dl));
+	}else if (v[2]<0){
+		fd_der_z_upw_neg(uxx,i,j,k,invh,&(dl));
+	}
+	d[0] += dl * v[2];
+	d[1] = 0;
+	dl=0.0;
 	if (v[0]>0){
-		fd_der_x_upw_pos(uxy,i,j,k,invh,&(d[1]));
+		fd_der_x_upw_pos(uxy,i,j,k,invh,&(dl));
 	}else if (v[0]<0){
-		fd_der_x_upw_neg(uxy,i,j,k,invh,&(d[1]));
-	}else{
-		fd_der_x(uxy,i,j,k,invh,&(d[1]));
+		fd_der_x_upw_neg(uxy,i,j,k,invh,&(dl));
 	}
+	d[1] += dl * v[0];
+	dl=0.0;
+	if (v[1]>0){
+		fd_der_y_upw_pos(uxy,i,j,k,invh,&(dl));
+	}else if (v[1]<0){
+		fd_der_y_upw_neg(uxy,i,j,k,invh,&(dl));
+	}
+	d[1] += dl * v[1];
+	dl=0.0;
+	if (v[2]>0){
+		fd_der_z_upw_pos(uxy,i,j,k,invh,&(dl));
+	}else if (v[2]<0){
+		fd_der_z_upw_neg(uxy,i,j,k,invh,&(dl));
+	}
+	d[1] += dl * v[2];
+	d[2] = 0;
+	dl=0.0;
 	if (v[0]>0){
-		fd_der_x_upw_pos(uxz,i,j,k,invh,&(d[2]));
+		fd_der_x_upw_pos(uxz,i,j,k,invh,&(dl));
 	}else if (v[0]<0){
-		fd_der_x_upw_neg(uxz,i,j,k,invh,&(d[2]));
-	}else{
-		fd_der_x(uxz,i,j,k,invh,&(d[2]));
+		fd_der_x_upw_neg(uxz,i,j,k,invh,&(dl));
 	}
+	d[2] += dl * v[0];
+	dl=0.0;
+	if (v[1]>0){
+		fd_der_y_upw_pos(uxz,i,j,k,invh,&(dl));
+	}else if (v[1]<0){
+		fd_der_y_upw_neg(uxz,i,j,k,invh,&(dl));
+	}
+	d[2] += dl * v[1];
+	dl=0.0;
+	if (v[2]>0){
+		fd_der_z_upw_pos(uxz,i,j,k,invh,&(dl));
+	}else if (v[2]<0){
+		fd_der_z_upw_neg(uxz,i,j,k,invh,&(dl));
+	}
+	d[2] += dl * v[2];
+	d[3] = 0;
+	dl=0.0;
 	if (v[0]>0){
-		fd_der_x_upw_pos(uyy,i,j,k,invh,&(d[3]));
+		fd_der_x_upw_pos(uyy,i,j,k,invh,&(dl));
 	}else if (v[0]<0){
-		fd_der_x_upw_neg(uyy,i,j,k,invh,&(d[3]));
-	}else{
-		fd_der_x(uyy,i,j,k,invh,&(d[3]));
+		fd_der_x_upw_neg(uyy,i,j,k,invh,&(dl));
 	}
+	d[3] += dl * v[0];
+	dl=0.0;
+	if (v[1]>0){
+		fd_der_y_upw_pos(uyy,i,j,k,invh,&(dl));
+	}else if (v[1]<0){
+		fd_der_y_upw_neg(uyy,i,j,k,invh,&(dl));
+	}
+	d[3] += dl * v[1];
+	dl=0.0;
+	if (v[2]>0){
+		fd_der_z_upw_pos(uyy,i,j,k,invh,&(dl));
+	}else if (v[2]<0){
+		fd_der_z_upw_neg(uyy,i,j,k,invh,&(dl));
+	}
+	d[3] += dl * v[2];
+	d[4] = 0;
+	dl=0.0;
 	if (v[0]>0){
-		fd_der_x_upw_pos(uyz,i,j,k,invh,&(d[4]));
+		fd_der_x_upw_pos(uyz,i,j,k,invh,&(dl));
 	}else if (v[0]<0){
-		fd_der_x_upw_neg(uyz,i,j,k,invh,&(d[4]));
-	}else{
-		fd_der_x(uyz,i,j,k,invh,&(d[4]));
+		fd_der_x_upw_neg(uyz,i,j,k,invh,&(dl));
 	}
+	d[4] += dl * v[0];
+	dl=0.0;
+	if (v[1]>0){
+		fd_der_y_upw_pos(uyz,i,j,k,invh,&(dl));
+	}else if (v[1]<0){
+		fd_der_y_upw_neg(uyz,i,j,k,invh,&(dl));
+	}
+	d[4] += dl * v[1];
+	dl=0.0;
+	if (v[2]>0){
+		fd_der_z_upw_pos(uyz,i,j,k,invh,&(dl));
+	}else if (v[2]<0){
+		fd_der_z_upw_neg(uyz,i,j,k,invh,&(dl));
+	}
+	d[4] += dl * v[2];
+	d[5] = 0;
+	dl=0.0;
 	if (v[0]>0){
-		fd_der_x_upw_pos(uzz,i,j,k,invh,&(d[5]));
+		fd_der_x_upw_pos(uzz,i,j,k,invh,&(dl));
 	}else if (v[0]<0){
-		fd_der_x_upw_neg(uzz,i,j,k,invh,&(d[5]));
-	}else{
-		fd_der_x(uzz,i,j,k,invh,&(d[5]));
+		fd_der_x_upw_neg(uzz,i,j,k,invh,&(dl));
 	}
+	d[5] += dl * v[0];
+	dl=0.0;
 	if (v[1]>0){
-		fd_der_y_upw_pos(uxx,i,j,k,invh,&(d[6]));
+		fd_der_y_upw_pos(uzz,i,j,k,invh,&(dl));
 	}else if (v[1]<0){
-		fd_der_y_upw_neg(uxx,i,j,k,invh,&(d[6]));
-	}else{
-		fd_der_y(uxx,i,j,k,invh,&(d[6]));
+		fd_der_y_upw_neg(uzz,i,j,k,invh,&(dl));
 	}
-	if (v[1]>0){
-		fd_der_y_upw_pos(uxy,i,j,k,invh,&(d[7]));
-	}else if (v[1]<0){
-		fd_der_y_upw_neg(uxy,i,j,k,invh,&(d[7]));
-	}else{
-		fd_der_y(uxy,i,j,k,invh,&(d[7]));
-	}
-	if (v[1]>0){
-		fd_der_y_upw_pos(uxz,i,j,k,invh,&(d[8]));
-	}else if (v[1]<0){
-		fd_der_y_upw_neg(uxz,i,j,k,invh,&(d[8]));
-	}else{
-		fd_der_y(uxz,i,j,k,invh,&(d[8]));
-	}
-	if (v[1]>0){
-		fd_der_y_upw_pos(uyy,i,j,k,invh,&(d[9]));
-	}else if (v[1]<0){
-		fd_der_y_upw_neg(uyy,i,j,k,invh,&(d[9]));
-	}else{
-		fd_der_y(uyy,i,j,k,invh,&(d[9]));
-	}
-	if (v[1]>0){
-		fd_der_y_upw_pos(uyz,i,j,k,invh,&(d[10]));
-	}else if (v[1]<0){
-		fd_der_y_upw_neg(uyz,i,j,k,invh,&(d[10]));
-	}else{
-		fd_der_y(uyz,i,j,k,invh,&(d[10]));
-	}
-	if (v[1]>0){
-		fd_der_y_upw_pos(uzz,i,j,k,invh,&(d[11]));
-	}else if (v[1]<0){
-		fd_der_y_upw_neg(uzz,i,j,k,invh,&(d[11]));
-	}else{
-		fd_der_y(uzz,i,j,k,invh,&(d[11]));
-	}
+	d[5] += dl * v[1];
+	dl=0.0;
 	if (v[2]>0){
-		fd_der_z_upw_pos(uxx,i,j,k,invh,&(d[12]));
+		fd_der_z_upw_pos(uzz,i,j,k,invh,&(dl));
 	}else if (v[2]<0){
-		fd_der_z_upw_neg(uxx,i,j,k,invh,&(d[12]));
-	}else{
-		fd_der_z(uxx,i,j,k,invh,&(d[12]));
+		fd_der_z_upw_neg(uzz,i,j,k,invh,&(dl));
 	}
-	if (v[2]>0){
-		fd_der_z_upw_pos(uxy,i,j,k,invh,&(d[13]));
-	}else if (v[2]<0){
-		fd_der_z_upw_neg(uxy,i,j,k,invh,&(d[13]));
-	}else{
-		fd_der_z(uxy,i,j,k,invh,&(d[13]));
-	}
-	if (v[2]>0){
-		fd_der_z_upw_pos(uxz,i,j,k,invh,&(d[14]));
-	}else if (v[2]<0){
-		fd_der_z_upw_neg(uxz,i,j,k,invh,&(d[14]));
-	}else{
-		fd_der_z(uxz,i,j,k,invh,&(d[14]));
-	}
-	if (v[2]>0){
-		fd_der_z_upw_pos(uyy,i,j,k,invh,&(d[15]));
-	}else if (v[2]<0){
-		fd_der_z_upw_neg(uyy,i,j,k,invh,&(d[15]));
-	}else{
-		fd_der_z(uyy,i,j,k,invh,&(d[15]));
-	}
-	if (v[2]>0){
-		fd_der_z_upw_pos(uyz,i,j,k,invh,&(d[16]));
-	}else if (v[2]<0){
-		fd_der_z_upw_neg(uyz,i,j,k,invh,&(d[16]));
-	}else{
-		fd_der_z(uyz,i,j,k,invh,&(d[16]));
-	}
-	if (v[2]>0){
-		fd_der_z_upw_pos(uzz,i,j,k,invh,&(d[17]));
-	}else if (v[2]<0){
-		fd_der_z_upw_neg(uzz,i,j,k,invh,&(d[17]));
-	}else{
-		fd_der_z(uzz,i,j,k,invh,&(d[17]));
-	}
+	d[5] += dl * v[2];
 }
 template< typename view_t >
 static void KOKKOS_INLINE_FUNCTION
