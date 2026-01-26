@@ -175,6 +175,8 @@ void evolve_impl() {
             sstate,sstate_pp) ;
         amr::apply_boundary_conditions(state,sstate,state_pp,sstate_pp,dt,2./3.) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
+    } else if ( tstepper == "rk4" ) { 
+        ERROR("RK4 not implemented yet.") ; 
     } else if (tstepper == "imex1") { 
         advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ;
         amr::apply_boundary_conditions(state,sstate,state_p,sstate_p,dt,1.0) ; 

@@ -63,7 +63,7 @@ struct z4c_system_t
     using base_t = fd_evolution_system_t<z4c_system_t>  ;
 
     double k1,k2,eta,chi_safeguard,alp_min,epsdiss;
-    double eta_ad_a, eta_ad_b, eta_ad_r, theta_ad_r, kappa_ad_r, alp_excise ; 
+    double eta_ad_a, eta_ad_b, eta_ad_r, theta_ad_r, kappa_ad_r, chi_excise ; 
     bool adaptive_eta, is_vacuum ; 
 
     public:
@@ -86,7 +86,7 @@ struct z4c_system_t
         kappa_ad_r = get_param<double>("z4c", "kappa_damp_radius") ; 
         alp_min = get_param<double>("z4c", "alp_min") ;
         is_vacuum =  get_param<bool>("z4c", "is_vacuum") ; 
-        alp_excise = get_param<double>("z4c", "alp_excision") ;
+        chi_excise = get_param<double>("z4c", "chi_excision") ;
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -120,7 +120,7 @@ struct z4c_system_t
         double dgtdd[6], dAtdd[6], dGammat[3], dbetau[3], dBdr[3] ; 
 
         // Declare variables
-        double alp{s(ALP_)}, theta{s(THETA_)}, chi{fmax(chi_safeguard,s(CHI_))}, Khat{s(KHAT_)};
+        double alp{s(ALP_)}, theta{s(THETA_)}, chi{s(CHI_)}, Khat{s(KHAT_)};
         double Ktr{Khat+2*theta} ; 
         double beta[3] = {s(BETAX_), s(BETAY_), s(BETAZ_)} ; 
         double gtdd[6] = {
@@ -133,16 +133,7 @@ struct z4c_system_t
         } ;
         double Gammat[3] = {s(GAMMATX_), s(GAMMATY_), s(GAMMATZ_)} ; 
 
-        // determinant
-        // should be 1, but we invert the
-        // metric with the det anyway to
-        // avoid roundoff shenanigans
-        #if 0
-        double detg ; 
-        z4c_get_det_conf_metric(
-            gtdd, &detg 
-        ) ; 
-        #endif
+
         // get metric inverse 
         double gtuu[6] ; 
         z4c_get_inverse_conf_metric(
@@ -151,6 +142,9 @@ struct z4c_system_t
 
         double Atuu[6] ; 
         z4c_get_Atuu(Atdd,gtuu,&Atuu) ; 
+
+        double AA{0.} ; 
+        z4c_get_Asqr(Atdd,Atuu,&AA) ; 
 
         double idx[3] = {_idx(0,q),_idx(1,q),_idx(2,q)} ; 
 
@@ -238,7 +232,7 @@ struct z4c_system_t
             double dKhat_dx_upw ; 
             fill_deriv_scalar_upw(this->_state,i,j,k,KHAT_,q,&dKhat_dx_upw,beta,idx[0]) ;
             z4c_get_Khat_rhs(
-                Atdd, alp, theta, Ktr, Strace, rho, k1L, k2, Atuu, DiDialp, dKhat_dx_upw, &dKhat
+                alp, theta, Ktr, Strace, rho, k1L, k2, AA, DiDialp, dKhat_dx_upw, &dKhat
             ) ; 
         }
         
@@ -277,7 +271,7 @@ struct z4c_system_t
             double dtheta_dx_upw ; 
             fill_deriv_scalar_upw(this->_state,i,j,k,THETA_,q,&dtheta_dx_upw,beta,idx[0]) ;
             z4c_get_theta_rhs(
-                Atdd, alp, theta, Khat, rho, k1L, k2, theta_damp_fact, Atuu, Rtrace, dtheta_dx_upw, &dtheta 
+                alp, theta, Khat, rho, k1L, k2, theta_damp_fact, AA, Rtrace, dtheta_dx_upw, &dtheta 
             ) ; 
         }
 
@@ -417,7 +411,7 @@ struct z4c_system_t
         // should be zero, but to be safe we 
         // spend an extra 20 FLOPs and enforce it
         // again.
-        if( alp > alp_excise ) {
+        if( chi > chi_excise ) {
             // determinant
             double detg ; 
             z4c_get_det_conf_metric(
@@ -432,6 +426,11 @@ struct z4c_system_t
 
             double Atuu[6] ; 
             z4c_get_Atuu(Atdd,gtuu,&Atuu) ; 
+
+            double AA{0} ; 
+            z4c_get_Asqr(
+                Atdd,Atuu,&AA
+            ) ; 
 
             // derivatives
             double dchi_dx[3], dKhat_dx[3], dtheta_dx[3], dAtdd_dx[18], dgtdd_dx[18];
@@ -499,7 +498,7 @@ struct z4c_system_t
             // get constraints 
             double H, Mi[3] ; 
             z4c_get_constraints(
-                Atdd, chi, theta, Khat, rho, Si, gtuu, Atuu,
+                Atdd, chi, theta, Khat, rho, Si, gtuu, Atuu, AA,
                 Gammatudd, GammatDu, Rtrace, dgtdd_dx, dAtdd_dx,
                 dKhat_dx, dchi_dx, dtheta_dx, 
                 &H, &Mi
@@ -657,7 +656,9 @@ struct z4c_system_t
         }
 
         // enforce lapse and conf fact positivity 
-        state(VEC(i,j,k),CHI_,q) = fmax(state(VEC(i,j,k),CHI_,q), chi_safeguard ) ;
+        auto chi = state(VEC(i,j,k),CHI_,q);
+        if ( chi <= 0 ) state(VEC(i,j,k),CHI_,q) = chi_safeguard ; 
+
         state(VEC(i,j,k),ALP_,q) = fmax(state(VEC(i,j,k),ALP_,q), alp_min       ) ; 
     }
 
