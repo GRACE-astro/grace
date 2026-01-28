@@ -9,20 +9,6 @@
 
 template< typename view_t >
 static void KOKKOS_INLINE_FUNCTION
-fd_der_x_l2(
-	view_t u,
-	int i,
-	int j,
-	int k,
-	double invh,
-	double * __restrict__ du
-)
-{
-	*du = invh*((1.0/6.0)*u(i+1,j,k) + (77.0/60.0)*u(i,j,k) - 5.0/2.0*u(i-1,j,k) + (5.0/3.0)*u(i-2,j,k) - 5.0/6.0*u(i-3,j,k) + (1.0/4.0)*u(i-4,j,k) - 1.0/30.0*u(i-5,j,k));
-}
-
-template< typename view_t >
-static void KOKKOS_INLINE_FUNCTION
 fd_der_x_l1(
 	view_t u,
 	int i,
@@ -61,34 +47,6 @@ fd_der_x_r1(
 )
 {
 	*du = invh*((4.0/3.0)*u(i+1,j,k) - 1.0/2.0*u(i+2,j,k) + (2.0/15.0)*u(i+3,j,k) - 1.0/60.0*u(i+4,j,k) - 7.0/12.0*u(i,j,k) - 2.0/5.0*u(i-1,j,k) + (1.0/30.0)*u(i-2,j,k));
-}
-
-template< typename view_t >
-static void KOKKOS_INLINE_FUNCTION
-fd_der_x_r2(
-	view_t u,
-	int i,
-	int j,
-	int k,
-	double invh,
-	double * __restrict__ du
-)
-{
-	*du = invh*((5.0/2.0)*u(i+1,j,k) - 5.0/3.0*u(i+2,j,k) + (5.0/6.0)*u(i+3,j,k) - 1.0/4.0*u(i+4,j,k) + (1.0/30.0)*u(i+5,j,k) - 77.0/60.0*u(i,j,k) - 1.0/6.0*u(i-1,j,k));
-}
-
-template< typename view_t >
-static void KOKKOS_INLINE_FUNCTION
-fd_der_y_l2(
-	view_t u,
-	int i,
-	int j,
-	int k,
-	double invh,
-	double * __restrict__ du
-)
-{
-	*du = invh*((1.0/6.0)*u(i,j+1,k) + (77.0/60.0)*u(i,j,k) - 5.0/2.0*u(i,j-1,k) + (5.0/3.0)*u(i,j-2,k) - 5.0/6.0*u(i,j-3,k) + (1.0/4.0)*u(i,j-4,k) - 1.0/30.0*u(i,j-5,k));
 }
 
 template< typename view_t >
@@ -135,34 +93,6 @@ fd_der_y_r1(
 
 template< typename view_t >
 static void KOKKOS_INLINE_FUNCTION
-fd_der_y_r2(
-	view_t u,
-	int i,
-	int j,
-	int k,
-	double invh,
-	double * __restrict__ du
-)
-{
-	*du = invh*((5.0/2.0)*u(i,j+1,k) - 5.0/3.0*u(i,j+2,k) + (5.0/6.0)*u(i,j+3,k) - 1.0/4.0*u(i,j+4,k) + (1.0/30.0)*u(i,j+5,k) - 77.0/60.0*u(i,j,k) - 1.0/6.0*u(i,j-1,k));
-}
-
-template< typename view_t >
-static void KOKKOS_INLINE_FUNCTION
-fd_der_z_l2(
-	view_t u,
-	int i,
-	int j,
-	int k,
-	double invh,
-	double * __restrict__ du
-)
-{
-	*du = invh*((77.0/60.0)*u(i,j,k) + (1.0/6.0)*u(i,j,k+1) - 5.0/2.0*u(i,j,k-1) + (5.0/3.0)*u(i,j,k-2) - 5.0/6.0*u(i,j,k-3) + (1.0/4.0)*u(i,j,k-4) - 1.0/30.0*u(i,j,k-5));
-}
-
-template< typename view_t >
-static void KOKKOS_INLINE_FUNCTION
 fd_der_z_l1(
 	view_t u,
 	int i,
@@ -205,7 +135,7 @@ fd_der_z_r1(
 
 template< typename view_t >
 static void KOKKOS_INLINE_FUNCTION
-fd_der_z_r2(
+fd_der_4_x(
 	view_t u,
 	int i,
 	int j,
@@ -214,7 +144,35 @@ fd_der_z_r2(
 	double * __restrict__ du
 )
 {
-	*du = invh*(-77.0/60.0*u(i,j,k) + (5.0/2.0)*u(i,j,k+1) - 5.0/3.0*u(i,j,k+2) + (5.0/6.0)*u(i,j,k+3) - 1.0/4.0*u(i,j,k+4) + (1.0/30.0)*u(i,j,k+5) - 1.0/6.0*u(i,j,k-1));
+	*du = invh*((2.0/3.0)*u(i+1,j,k) - 1.0/12.0*u(i+2,j,k) - 2.0/3.0*u(i-1,j,k) + (1.0/12.0)*u(i-2,j,k));
+}
+
+template< typename view_t >
+static void KOKKOS_INLINE_FUNCTION
+fd_der_4_y(
+	view_t u,
+	int i,
+	int j,
+	int k,
+	double invh,
+	double * __restrict__ du
+)
+{
+	*du = invh*((2.0/3.0)*u(i,j+1,k) - 1.0/12.0*u(i,j+2,k) - 2.0/3.0*u(i,j-1,k) + (1.0/12.0)*u(i,j-2,k));
+}
+
+template< typename view_t >
+static void KOKKOS_INLINE_FUNCTION
+fd_der_4_z(
+	view_t u,
+	int i,
+	int j,
+	int k,
+	double invh,
+	double * __restrict__ du
+)
+{
+	*du = invh*((2.0/3.0)*u(i,j,k+1) - 1.0/12.0*u(i,j,k+2) - 2.0/3.0*u(i,j,k-1) + (1.0/12.0)*u(i,j,k-2));
 }
 
 template< typename view_t >
@@ -553,6 +511,64 @@ fd_diss_z(
 	*du = invh*(70*u(i,j,k) - 56*u(i,j,k+1) + 28*u(i,j,k+2) - 8*u(i,j,k+3) + u(i,j,k+4) - 56*u(i,j,k-1) + 28*u(i,j,k-2) - 8*u(i,j,k-3) + u(i,j,k-4));
 }
 
+template< typename view_t >
+static void KOKKOS_INLINE_FUNCTION
+fill_deriv_scalar_4(view_t state, int i, int j, int k, int iv, int q, double d[3], double invh)
+{
+	using namespace Kokkos;
+	auto u = subview(state,ALL(),ALL(),ALL(),iv,q);
+	fd_der_4_x(u,i,j,k,invh,&(d[0]));
+	fd_der_4_y(u,i,j,k,invh,&(d[1]));
+	fd_der_4_z(u,i,j,k,invh,&(d[2]));
+}
+template< typename view_t >
+static void KOKKOS_INLINE_FUNCTION
+fill_deriv_vector_4(view_t state, int i, int j, int k, int iv, int q, double d[9], double invh)
+{
+	using namespace Kokkos;
+	auto ux = subview(state,ALL(),ALL(),ALL(),iv,q)  ;
+	auto uy = subview(state,ALL(),ALL(),ALL(),iv+1,q);
+	auto uz = subview(state,ALL(),ALL(),ALL(),iv+2,q);
+	fd_der_4_x(ux,i,j,k,invh,&(d[0]));
+	fd_der_4_x(uy,i,j,k,invh,&(d[1]));
+	fd_der_4_x(uz,i,j,k,invh,&(d[2]));
+	fd_der_4_y(ux,i,j,k,invh,&(d[3]));
+	fd_der_4_y(uy,i,j,k,invh,&(d[4]));
+	fd_der_4_y(uz,i,j,k,invh,&(d[5]));
+	fd_der_4_z(ux,i,j,k,invh,&(d[6]));
+	fd_der_4_z(uy,i,j,k,invh,&(d[7]));
+	fd_der_4_z(uz,i,j,k,invh,&(d[8]));
+}
+template< typename view_t >
+static void KOKKOS_INLINE_FUNCTION
+fill_deriv_tensor_4(view_t state, int i, int j, int k, int iv, int q, double d[18], double invh)
+{
+	using namespace Kokkos;
+	auto uxx = subview(state,ALL(),ALL(),ALL(),iv,q)  ;
+	auto uxy = subview(state,ALL(),ALL(),ALL(),iv+1,q);
+	auto uxz = subview(state,ALL(),ALL(),ALL(),iv+2,q);
+	auto uyy = subview(state,ALL(),ALL(),ALL(),iv+3,q);
+	auto uyz = subview(state,ALL(),ALL(),ALL(),iv+4,q);
+	auto uzz = subview(state,ALL(),ALL(),ALL(),iv+5,q);
+	fd_der_4_x(uxx,i,j,k,invh,&(d[0]));
+	fd_der_4_x(uxy,i,j,k,invh,&(d[1]));
+	fd_der_4_x(uxz,i,j,k,invh,&(d[2]));
+	fd_der_4_x(uyy,i,j,k,invh,&(d[3]));
+	fd_der_4_x(uyz,i,j,k,invh,&(d[4]));
+	fd_der_4_x(uzz,i,j,k,invh,&(d[5]));
+	fd_der_4_y(uxx,i,j,k,invh,&(d[6]));
+	fd_der_4_y(uxy,i,j,k,invh,&(d[7]));
+	fd_der_4_y(uxz,i,j,k,invh,&(d[8]));
+	fd_der_4_y(uyy,i,j,k,invh,&(d[9]));
+	fd_der_4_y(uyz,i,j,k,invh,&(d[10]));
+	fd_der_4_y(uzz,i,j,k,invh,&(d[11]));
+	fd_der_4_z(uxx,i,j,k,invh,&(d[12]));
+	fd_der_4_z(uxy,i,j,k,invh,&(d[13]));
+	fd_der_4_z(uxz,i,j,k,invh,&(d[14]));
+	fd_der_4_z(uyy,i,j,k,invh,&(d[15]));
+	fd_der_4_z(uyz,i,j,k,invh,&(d[16]));
+	fd_der_4_z(uzz,i,j,k,invh,&(d[17]));
+}
 template< typename view_t >
 static void KOKKOS_INLINE_FUNCTION
 fill_deriv_scalar(view_t state, int i, int j, int k, int iv, int q, double d[3], double invh)

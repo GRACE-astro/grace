@@ -1,6 +1,6 @@
 z4c: {
-  kappa_1: 0.75,
-  kappa_2: 0.75,
+  kappa_1: 0.02,
+  kappa_2: 0.0,
   eta: 1.00,
   eps_diss: 0.0,
   chi_floor: 1e-11,

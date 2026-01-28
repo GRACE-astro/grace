@@ -529,7 +529,7 @@ struct z4c_system_t
         auto s = subview(this->_state,i,j,k,ALL(),q) ;
         auto a = subview(this->_aux,i,j,k,ALL(),q) ;
         // Declare variables
-        double alp{s(ALP_)}, theta{s(THETA_)}, chi{fmax(chi_safeguard,s(CHI_))}, Khat{s(KHAT_)} ; 
+        double alp{s(ALP_)}, theta{s(THETA_)}, chi{s(CHI_)}, Khat{s(KHAT_)} ; 
         double gtdd[6] = {
             s(GTXX_), s(GTXY_), s(GTXZ_), 
             s(GTYY_), s(GTYZ_), s(GTZZ_)

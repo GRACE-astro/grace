@@ -1,5 +1,5 @@
 /**
- * @file black_hole_diagnostics.cpp
+ * @file adm_integrals.cpp
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
  * @brief 
  * @date 2026-01-15
@@ -34,7 +34,7 @@
 
 #include <grace/IO/spherical_surfaces.hh>
 
-#include <grace/IO/diagnostics/gw_integrals.hh>
+#include <grace/IO/diagnostics/adm_integrals.hh>
 
 #include <array>
 #include <vector>
@@ -43,78 +43,7 @@
 namespace grace {
 
 
-
-
-struct cmplx_t {
-    double re, im ; 
-
-    cmplx_t(): re(0), im(0) {} ; 
-
-    cmplx_t(double a, double b): re(a), im(b) {} 
-} ; 
-
-cmplx_t bar(cmplx_t const& x) {
-    return cmplx_t{x.re,-x.im} ; 
-}
-
-cmplx_t operator*(cmplx_t const& x, cmplx_t const& y) {
-    return cmplx_t{x.re*y.re-x.im*y.im, x.re*y.im + x.im*y.re} ; 
-}
-
-cmplx_t operator+(cmplx_t const& x, cmplx_t const& y) {
-    return cmplx_t{x.re+y.re, x.im+y.im} ; 
-}
-
-cmplx_t operator*(cmplx_t const& x, double alpha) {
-    return cmplx_t{alpha*x.re, alpha*x.im} ; 
-}
-
-cmplx_t operator*(double alpha, cmplx_t const& x ) {
-    return cmplx_t{alpha*x.re, alpha*x.im} ; 
-}
-
-cmplx_t operator-(cmplx_t const& x, cmplx_t const& y) {
-    return x + (y*(-1)) ; 
-}
-namespace detail {
-cmplx_t GRACE_ALWAYS_INLINE
-Y2m2(double theta, double phi) 
-{
-    double const K = sqrt(5./(64.*M_PI)) * SQR((1.-cos(theta))) ; 
-    return {K*cos(2*phi), -K*sin(2*phi)} ; 
-}
-
-cmplx_t GRACE_ALWAYS_INLINE
-Y2m1(double theta, double phi) 
-{
-    double const K = - sqrt(5./(16.*M_PI)) * sin(theta)*(1.-cos(theta)) ; 
-    return {K*cos(phi), -K*sin(phi)} ; 
-}
-
-cmplx_t GRACE_ALWAYS_INLINE
-Y20(double theta, double phi) 
-{
-    double const K = sqrt(15./(32.*M_PI)) * SQR((sin(theta))) ; 
-    return {K, 0} ; 
-}
-
-cmplx_t  GRACE_ALWAYS_INLINE
-Y21(double theta, double phi) 
-{
-    double const K = - sqrt(5./(16.*M_PI)) * sin(theta) * (1.+cos(theta)) ; 
-    return {K*cos(phi), K*sin(phi)} ; 
-}
-
-cmplx_t GRACE_ALWAYS_INLINE
-Y22(double theta, double phi) 
-{
-    double const K = sqrt(5./(64.*M_PI)) * SQR((1.+cos(theta))) ; 
-    return {K*cos(2*phi), K*sin(2*phi)} ; 
-}
-
-}
-
-std::vector<std::string> gw_integrals::flux_names = {"Psi2m2_re", "Psi2m2_im", "Psi2m1_re", "Psi2m1_im", "Psi20_re", "Psi20_im", "Psi21_re", "Psi21_im", "Psi22_im", "Psi22_re"} ; 
+std::vector<std::string> gw_integrals::flux_names = {"E_ADM", "Px_ADM", "Py_ADM", "Pz_ADM", "Jx_ADM", "Jy_ADM", "Jz_ADM"} ; 
 
 std::array<double,gw_integrals::n_fluxes> 
 

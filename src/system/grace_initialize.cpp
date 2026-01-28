@@ -52,6 +52,7 @@
 
 #include <grace/IO/spherical_surfaces.hh>
 #include <grace/IO/output_diagnostics.hh>
+#include <grace/IO/diagnostics/puncture_tracker.hh>
 
 #include <grace/amr/grace_amr.hh>
 
@@ -277,6 +278,7 @@ void initialize(int& argc, char* argv[])
         // aux vars are not in the checkpoint 
         grace::compute_auxiliary_quantities() ;
     }
+    grace::puncture_tracker::initialize() ; 
     GRACE_INFO("Initialization done.");
     GRACE_INFO("GRACE running on {} backend", GRACE_BACKEND) ; 
     //GRACE_INFO("GRACE running on {} total devices.", Kokkos::num_devices() ) ; 

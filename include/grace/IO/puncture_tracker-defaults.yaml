@@ -1,0 +1,7 @@
+puncture_tracker: {
+  n_punctures: 0,
+  puncture_x_initial: [],
+  puncture_y_initial: [],
+  puncture_z_initial: [],
+  output_frequency: -1
+}

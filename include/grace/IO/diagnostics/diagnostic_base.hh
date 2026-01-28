@@ -136,18 +136,19 @@ struct diagnostic_base_t {
         auto& sphere_list = grace::spherical_surface_manager::get() ; 
 
         Kokkos::View<double**,grace::default_space> ivals("interp_vars",0,0) ;
+        Kokkos::View<double**,grace::default_space> ivals_aux("interp_vars",0,0) ;
 
         for( int id=0; id < sphere_indices.size(); ++id ) {
             auto sphere_idx = sphere_indices[id];
             auto const& detector = sphere_list.get(sphere_idx) ;
             // first we interpolate 
             interpolate_on_sphere(
-                detector, var_interp_idx, aux_interp_idx, ivals
+                detector, var_interp_idx, aux_interp_idx, ivals, ivals_aux
             ); 
             
             // compute local fluxes
             auto local_fluxes = static_cast<derived_t*>(this)->compute_local_fluxes(
-                ivals, detector
+                ivals, ivals_aux, detector
             ) ; 
             // aggregate results into global buffer
             parallel::mpi_allreduce(

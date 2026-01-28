@@ -202,11 +202,11 @@ void register_variables() {
     /********************************************************************************/
     /* Valencia hydrodynamics */
     /* Conserved variables    */
-    REGISTER_EVOLVED_SCALAR(DENS,"dens","none","second_order",true) ; 
-    REGISTER_EVOLVED_VECTOR(SX,SY,SZ,"stilde","none","second_order",true) ;
-    REGISTER_EVOLVED_SCALAR(TAU,"tau","none","second_order",true) ; 
-    REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","none","second_order",true) ; 
-    REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "none","second_order",true) ;
+    REGISTER_EVOLVED_SCALAR(DENS,"dens","outgoing","second_order",true) ; 
+    REGISTER_EVOLVED_VECTOR(SX,SY,SZ,"stilde","outgoing","second_order",true) ;
+    REGISTER_EVOLVED_SCALAR(TAU,"tau","outgoing","second_order",true) ; 
+    REGISTER_EVOLVED_SCALAR(YESTAR,"ye_star","outgoing","second_order",true) ; 
+    REGISTER_EVOLVED_SCALAR(ENTROPYSTAR,"s_star", "outgoing","second_order",true) ;
     #ifdef GRACE_ENABLE_M1
     REGISTER_EVOLVED_SCALAR(ERAD,"Erad","none","second_order",true) ;
     REGISTER_EVOLVED_SCALAR(NRAD,"Nrad","none","second_order",true) ;

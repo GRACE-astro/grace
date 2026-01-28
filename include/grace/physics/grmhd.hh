@@ -246,21 +246,22 @@ struct grmhd_equations_system_t
         /* Metric derivatives                                                                             */
         /**************************************************************************************************/
         double dalpha_dx[3], dgdd_dx[18], dbetau_dx[9] ; 
-        fill_deriv_scalar(this->_state, i,j,k, ALP_, q, dalpha_dx, idx(0,q)) ; 
-        fill_deriv_vector(this->_state, i,j,k, BETAX_, q, dbetau_dx, idx(0,q)) ;
+        fill_deriv_scalar_4(this->_state, i,j,k, ALP_, q, dalpha_dx, idx(0,q)) ; 
+        fill_deriv_vector_4(this->_state, i,j,k, BETAX_, q, dbetau_dx, idx(0,q)) ;
         #ifdef GRACE_ENABLE_COWLING_METRIC
-        fill_deriv_tensor(this->_state, i,j,k, GXX_, q, dgdd_dx, idx(0,q)) ;
+        fill_deriv_tensor_4(this->_state, i,j,k, GXX_, q, dgdd_dx, idx(0,q)) ;
         #else 
         double chi = s(CHI_) ; 
-        double oochi = 1./fmax(1e-100,chi) ; 
+        double ooW = 1./(fmax(1e-100,chi)) ; 
+        double ooWsqr = SQR(ooW) ; 
         double dchi_dx[3] ; 
-        fill_deriv_scalar(this->_state, i,j,k, CHI_, q, dchi_dx, idx(0,q)) ;
-        fill_deriv_tensor(this->_state, i,j,k, GTXX_, q, dgdd_dx, idx(0,q)) ;
-        // gdd = gtdd/chi
-        // dgdd/dx = dgtdd/dx / chi^2 - gdd / chi dchi/dx 
+        fill_deriv_scalar_4(this->_state, i,j,k, CHI_, q, dchi_dx, idx(0,q)) ;
+        fill_deriv_tensor_4(this->_state, i,j,k, GTXX_, q, dgdd_dx, idx(0,q)) ;
+        // gdd = gtdd/W^2
+        // dgdd/dx = d gtdd / dx / W^2 - 2 gtdd d W / dx / W^3 
         for( int idir=0; idir<3; ++idir) {
             for( int a=0; a<6; ++a) {
-                dgdd_dx[a + 6*idir] = SQR(oochi) *  dgdd_dx[a + 6*idir] - 2 * oochi * gdd[a] * dchi_dx[idir] ; 
+                dgdd_dx[a + 6*idir] = ooWsqr * dgdd_dx[a + 6*idir] - 2. * ooW * dchi_dx[idir] * gdd[a] ;  
             }
         }
         #endif 
@@ -284,7 +285,7 @@ struct grmhd_equations_system_t
         double const Ktr = s(KTR_) ; 
         #endif 
         for( int a=0; a<6; ++a ) {
-            Kdd[a] = SQR(oochi) * Atdd[a] + (Ktr) * gdd[a] / 3. ; 
+            Kdd[a] = ooWsqr * Atdd[a] + (Ktr) * gdd[a] / 3. ; 
         }
         #endif 
         /**************************************************************************************************/
@@ -737,7 +738,7 @@ struct grmhd_equations_system_t
             theta_exc = 0.5 * (1.0 + tanh((metric_face.alp()-a0)/da)) ; 
         }
         theta *= fmin(fmax(theta_exc,0.),1.) ; 
-
+        #if 0
         // fixme! 
         double fcoords[3] = {
                 idir == 0 ? 0. : 0.5 ,
@@ -747,6 +748,7 @@ struct grmhd_equations_system_t
         double rtp[3] ; 
         dcoords.get_physical_coordinates_sph(i,j,k,q,fcoords,rtp,1) ; 
         if ( rtp[0] <= excision_params.r_f) theta = 0 ; 
+        #endif 
         //if ( metric_face.alp() < 0.2 ) theta = 0 ; 
         /***********************************************************************/
         /***********************************************************************/

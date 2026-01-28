@@ -836,7 +836,6 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                             , recv_rank_offsets[istag].begin(), 0) ;
     }
 
-
     std::array<size_t,N_VAR_STAGGERINGS> total_send_size, total_recv_size ; 
     // reduce for total sizes
     for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag) {
@@ -874,6 +873,7 @@ void amr_ghosts_impl_t::build_remote_buffers() {
         _recv_buffer[istag].set_strides(strides[istag]);
         _recv_buffer[istag].realloc(total_recv_size[istag]) ;
     }
+    
     size_t total_send{0}, total_recv{0} ; 
     for( int istag=0; istag<N_VAR_STAGGERINGS; ++istag) {
         total_send += total_send_size[istag] ; 

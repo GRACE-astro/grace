@@ -46,15 +46,6 @@ struct cube_desc_t {
     std::array<std::array<double,3>,8> v ; 
 } ; 
 
-struct intersected_cell_descriptor_t {
-    size_t i,j,k;
-    size_t q ; 
-} ; 
-
-struct intersected_cell_set_t {
-    std::vector<intersected_cell_descriptor_t>* cells ;
-    std::vector<size_t>* point_idx ;
-} ; 
 
 namespace amr { namespace detail {
 

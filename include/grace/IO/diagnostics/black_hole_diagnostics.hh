@@ -58,16 +58,18 @@ struct bh_diagnostics:
     #ifndef GRACE_ENABLE_Z4C_METRIC
     enum loc_var_idx_t : int {
         GXXL=0, GXYL, GXZL, GYYL, GYZL, GZZL,
-        BETAXL, BETAYL, BETAZL, ALPL, RHOL, EPSL, PRESSL, VELXL, VELYL, VELZL,
-        BXL, BYL, BZL, NUM_VARS
+        BETAXL, BETAYL, BETAZL, ALPL, NUM_VARS 
     } ; 
     #else
     enum loc_var_idx_t : int {
         GTXXL=0, GTXYL, GTXZL, GTYYL, GTYZL, GTZZL, CHIL,
-        BETAXL, BETAYL, BETAZL, ALPL, RHOL, EPSL, PRESSL, VELXL, VELYL, VELZL,
-        BXL, BYL, BZL, NUM_VARS
+        BETAXL, BETAYL, BETAZL, ALPL, NUM_VARS
     } ; 
     #endif 
+    enum loc_aux_idx_t : int { 
+        RHOL=0, EPSL, PRESSL, VELXL, VELYL, VELZL,
+        BXL, BYL, BZL, NUM_AUX
+    };
     enum diag_var_idx_t : int {
         MDOT=0, EDOT, LDOT, PHI, N_DIAG_VARS
     } ; 
@@ -93,7 +95,8 @@ struct bh_diagnostics:
     std::array<double,n_fluxes> 
     compute_local_fluxes(
         Kokkos::View<double**> ivals_d, 
-        spherical_surface_iface<3> const& detector 
+        Kokkos::View<double**> ivals_aux_d, 
+        spherical_surface_iface const& detector 
     )  ;
 
 } ; 

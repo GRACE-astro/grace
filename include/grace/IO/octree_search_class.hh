@@ -109,8 +109,6 @@ struct oct_tree_plane_slicer_t {
     }
 
 } ; 
-
-
 } // namespace amr
 } // namespace grace
 #endif

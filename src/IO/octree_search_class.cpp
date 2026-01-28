@@ -81,5 +81,7 @@ void oct_tree_plane_slicer_t::slice() {
 }
 
 #endif // GRACE_3D
+    
+
 } // namespace amr
 } // namespace grace

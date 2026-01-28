@@ -45,6 +45,9 @@
 #include <grace/IO/cell_output.hh>
 #include <grace/IO/scalar_output.hh>
 #include <grace/IO/output_diagnostics.hh>
+#ifdef GRACE_ENABLE_Z4C_METRIC
+#include <grace/IO/diagnostics/puncture_tracker.hh>
+#endif 
 /**********************************************************************************/
 int main(int argc, char* argv[])
 {
@@ -148,6 +151,9 @@ int main(int argc, char* argv[])
             and (iter%diagnostic_output_every == 0 )) {
                 grace::IO::output_diagnostics() ; 
         }
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        grace::puncture_tracker::get().update_and_write() ; 
+        #endif 
         /**********************************************************************************/
         /* Update spherical surfaces if needed                                            */
         /**********************************************************************************/

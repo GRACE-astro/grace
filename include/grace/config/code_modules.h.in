@@ -64,6 +64,7 @@ const std::vector< std::string > code_modules {
     , "bh_diagnostics"
     #ifdef GRACE_ENABLE_Z4C_METRIC
     , "gw_integrals"
+    , "puncture_tracker"
     #endif
 } ;
 //*****************************************************************************************************
@@ -96,6 +97,7 @@ const std::vector< std::string > code_modules_default_configs {
      , "${CMAKE_SOURCE_DIR}/include/grace/IO/bh_diagnostics-defaults.yaml"
      #ifdef GRACE_ENABLE_Z4C_METRIC
      , "${CMAKE_SOURCE_DIR}/include/grace/IO/gw_integrals-defaults.yaml"
+     , "${CMAKE_SOURCE_DIR}/include/grace/IO/puncture_tracker-defaults.yaml"
      #endif
 } ;
 //*****************************************************************************************************

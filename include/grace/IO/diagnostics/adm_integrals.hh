@@ -1,5 +1,5 @@
 /**
- * @file black_hole_diagnostics.hh
+ * @file adm_integrals.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
  * @brief 
  * @date 2026-01-15
@@ -25,8 +25,8 @@
  * 
  */
 
-#ifndef GRACE_IO_GW_INTEGRALS_HH
-#define GRACE_IO_GW_INTEGRALS_HH
+#ifndef GRACE_IO_ADM_INTEGRALS_HH
+#define GRACE_IO_ADM_INTEGRALS_HH
 
 #include <grace_config.h>
 
@@ -43,22 +43,34 @@
 #include <vector>
 #include <string> 
 
+
 namespace grace {
 
-struct gw_integrals: 
-    public diagnostic_base_t<gw_integrals> 
+struct adm_integrals: 
+    public diagnostic_base_t<adm_integrals> 
 {
-    using base_t = diagnostic_base_t<gw_integrals>; 
+    using base_t = diagnostic_base_t<adm_integrals>; 
 
-    static constexpr size_t n_fluxes = static_cast<size_t>(2 * 5);
+    static constexpr size_t n_fluxes = static_cast<size_t>(1 + 3 + 3 /*E P J*/);
 
     static std::vector<std::string> flux_names ; 
 
 
-    gw_integrals()
+    adm_integrals()
         : base_t("gw_integrals")
     {
-        this->aux_interp_idx = std::vector<int>({PSI4RE,PSI4IM});
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        this->var_interp_idx = std::vector<int>({
+            GTXX,GTXY,GTXZ,GTYY,GTYZ,GTZZ,
+            ATXX,ATXY,ATXZ,ATYY,ATYZ,ATZZ,
+            KHAT,THETA,CHI
+        });
+        #else 
+        this->var_interp_idx = std::vector<int>({
+            GXX,GXY,GXZ,GYY,GYZ,GZZ,
+            KXX,KXY,KXZ,KYY,KYZ,KZZ
+        });
+        #endif 
     }
 
     std::array<double,n_fluxes> 

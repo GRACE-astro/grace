@@ -227,7 +227,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     prims[BZL] = cons[BSZL] ; 
 
     /* limit conservative vars */
-    limit_conserved(cons,metric,atmo,eos,c2p_err) ; 
+    //limit_conserved(cons,metric,atmo,eos,c2p_err) ; 
 
     /* Get atmo rho and temp */
     auto const dens_atmo =  atmo.rho_fl * pow(rtp[0], atmo.rho_fl_scaling);
@@ -320,7 +320,6 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     #if 1
     else {
         /* Limit lorentz fact and magnetization  */
-        double max_w = metric.alp() <= 0.2 ? 2 : atmo.max_w ;
         limit_primitives<eos_t>(
             prims, metric, eos, atmo.max_w, atmo.max_sigma, c2p_err
         ) ;

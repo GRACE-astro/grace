@@ -35,6 +35,7 @@
 #include <grace/coordinates/coordinate_systems.hh>
 
 #include "surface_IO_utils.hh"
+#include "octree_search_class.hh"
 
 #include <array>
 #include <memory>
@@ -45,7 +46,6 @@
 
 namespace grace {
 
-using point_host_t = std::pair<size_t,std::array<double,3>> ; 
 
 
 
@@ -244,7 +244,6 @@ struct  uniform_sampler_t {
               weights[iphi*ntheta + itheta] = wmu * dphi;
       }
 
-      // If your integrals include actual sphere area: multiply by R^2
       for (auto& w : weights)
           w *= radius * radius;
 

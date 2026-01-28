@@ -118,9 +118,6 @@ void compute_auxiliary_quantities(
     m1_atmo_params_t m1_atmo_params = get_m1_atmo_params() ; 
     m1_equations_system_t m1_eq_system(state,sstate,aux,m1_atmo_params,m1_excision_params) ; 
     #endif 
-    #ifdef GRACE_ENABLE_Z4C_METRIC
-    z4c_system_t z4c_eq_system(state,aux,sstate) ; 
-    #endif 
     #ifdef GRACE_ENABLE_BSSN_METRIC
     bssn_system_t bssn_eq_system(state,aux,sstate) ; 
     #endif 
@@ -139,10 +136,6 @@ void compute_auxiliary_quantities(
         #endif 
         #ifdef GRACE_ENABLE_M1 
         m1_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, dev_coords);
-        #endif 
-        #ifdef GRACE_ENABLE_Z4C_METRIC
-        if (i>=ngz-1 and i<=nx+ngz and j>=ngz-1 and j<=ny+ngz and k>=ngz-1 and k<=nz+ngz) 
-            z4c_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx, dev_coords);
         #endif 
         #ifdef GRACE_ENABLE_BSSN_METRIC
         bssn_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx);

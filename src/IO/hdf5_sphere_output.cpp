@@ -63,9 +63,9 @@
 
 namespace grace { namespace IO {
 
-void write_sphere_cell_data_impl(const spherical_surface_iface<3>&) ; 
-void write_grid_structure_sphere_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size, const spherical_surface_iface<3>& sphere) ; 
-void write_data_arrays_sphere_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size, const spherical_surface_iface<3>& sphere) ;
+void write_sphere_cell_data_impl(const spherical_surface_iface&) ; 
+void write_grid_structure_sphere_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size, const spherical_surface_iface& sphere) ; 
+void write_data_arrays_sphere_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size, const spherical_surface_iface& sphere) ;
 
 
 template< typename ViewT> 
@@ -245,7 +245,7 @@ void write_sphere_cell_data() {
     Kokkos::Profiling::popRegion() ;
 }
 
-void write_sphere_cell_data_impl(const spherical_surface_iface<3>& sphere) {
+void write_sphere_cell_data_impl(const spherical_surface_iface& sphere) {
     auto& rt = grace::runtime::get() ;
 
     std::filesystem::path base_path (rt.sphere_io_basepath()) ;
@@ -311,7 +311,7 @@ void write_sphere_cell_data_impl(const spherical_surface_iface<3>& sphere) {
 
 }; 
 
-void write_grid_structure_sphere_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size, const spherical_surface_iface<3>& sphere) {
+void write_grid_structure_sphere_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size, const spherical_surface_iface& sphere) {
     DECLARE_GRID_EXTENTS ; 
 
     herr_t err ; 
@@ -443,7 +443,7 @@ collect_variables_for_output(
     return map ; 
 }
 
-void write_data_arrays_sphere_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size, const spherical_surface_iface<3>& sphere) 
+void write_data_arrays_sphere_hdf5(hid_t file_id, size_t compression_level, size_t chunk_size, const spherical_surface_iface& sphere) 
 {
     /******************************************************/
     /* First we collect all the variables and interpolate */
@@ -452,9 +452,12 @@ void write_data_arrays_sphere_hdf5(hid_t file_id, size_t compression_level, size
     std::vector<int> varidx, auxidx; 
     auto map = collect_variables_for_output(varidx,auxidx) ; 
     Kokkos::View<double**,grace::default_space> interp_data_d ; 
-    interpolate_on_sphere(sphere,varidx,auxidx,interp_data_d) ; 
+    Kokkos::View<double**,grace::default_space> interp_data_aux_d ; 
+    interpolate_on_sphere(sphere,varidx,auxidx,interp_data_d, interp_data_aux_d) ; 
     auto interp_data_h = Kokkos::create_mirror_view(interp_data_d) ; 
     Kokkos::deep_copy(interp_data_h,interp_data_d) ; 
+    auto interp_data_aux_h = Kokkos::create_mirror_view(interp_data_d) ;
+    Kokkos::deep_copy(interp_data_aux_h,interp_data_aux_d) ;  
     /******************************************************/
     /* Then we write them to file one at a time           */
     /******************************************************/
@@ -514,7 +517,7 @@ void write_data_arrays_sphere_hdf5(hid_t file_id, size_t compression_level, size
         aux_scalars, map,
         file_id, dxpl,
         scalars_space_id_glob, scalars_space_id, scalars_prop_id,
-        npoints_loc, local_offset, interp_data_h) ;
+        npoints_loc, local_offset, interp_data_aux_h) ;
     /*****************************************************************************************/
     /*                                  Close data spaces                                    */
     /*****************************************************************************************/
@@ -568,7 +571,7 @@ void write_data_arrays_sphere_hdf5(hid_t file_id, size_t compression_level, size
         map,
         file_id,dxpl,
         vectors_space_id_glob,vectors_space_id,vectors_prop_id,
-        npoints_loc, local_offset, interp_data_h) ;
+        npoints_loc, local_offset, interp_data_aux_h) ;
     /*****************************************************************************************/
     /*                                  Close data spaces                                    */
     /*****************************************************************************************/

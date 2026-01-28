@@ -72,7 +72,7 @@ void output_diagnostics() {
     // compute psi4 
     z4c_system_t z4c_eq_system(state,aux,sstate) ; 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
-        policy({VEC(0,0,0),0},{VEC(nx+1,ny+1,nz+1),nq}) ;
+        policy({VEC(ngz-1,ngz-1,ngz-1),0},{VEC(nx+ngz+1,ny+ngz+1,nz+ngz+1),nq}) ;
     parallel_for(GRACE_EXECUTION_TAG("EVOL","compute_psi4"), policy 
     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
     {

@@ -125,7 +125,7 @@ make_div_preserving_prolongation_task(
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         GRACE_TRACE_DBG("Prolong start.") ; 
         #endif 
-        Kokkos::parallel_for("prolong_ghostzones", policy, functor) ; 
+        Kokkos::parallel_for("prolong_ghostzones_div_preserving", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence(); 
         GRACE_TRACE_DBG("Prolong end.");

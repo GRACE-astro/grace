@@ -47,7 +47,8 @@ std::vector<std::string> bh_diagnostics::flux_names = {"Mdot", "Edot", "Ldot", "
 std::array<double,bh_diagnostics::n_fluxes> 
 bh_diagnostics::compute_local_fluxes(
     Kokkos::View<double**> ivals_d, 
-    spherical_surface_iface<3> const& detector 
+    Kokkos::View<double**> ivals_aux_d, 
+    spherical_surface_iface const& detector 
 ) 
 {
     GRACE_VERBOSE("Computing BH diagnostics on sphere {}", detector.name ) ; 
@@ -64,6 +65,7 @@ bh_diagnostics::compute_local_fluxes(
 
     // copy to host 
     auto ivals = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), ivals_d);
+    auto ivals_aux = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), ivals_aux_d);
 
 
     // fetch coord system 
@@ -84,15 +86,15 @@ bh_diagnostics::compute_local_fluxes(
                 , betay{ivals(i,loc_var_idx_t::BETAYL)}
                 , betaz{ivals(i,loc_var_idx_t::BETAZL)}
                 , alp{ivals(i,loc_var_idx_t::ALPL)}
-                , rho{ivals(i,loc_var_idx_t::RHOL)}
-                , eps{ivals(i,loc_var_idx_t::EPSL)}
-                , press{ivals(i,loc_var_idx_t::PRESSL)}
-                , vx{ivals(i,loc_var_idx_t::VELXL)}
-                , vy{ivals(i,loc_var_idx_t::VELYL)}
-                , vz{ivals(i,loc_var_idx_t::VELZL)}
-                , bx{ivals(i,loc_var_idx_t::BXL)}
-                , by{ivals(i,loc_var_idx_t::BYL)}
-                , bz{ivals(i,loc_var_idx_t::BZL)} ;
+                , rho{ivals_aux(i,loc_aux_idx_t::RHOL)}
+                , eps{ivals_aux(i,loc_aux_idx_t::EPSL)}
+                , press{ivals_aux(i,loc_aux_idx_t::PRESSL)}
+                , vx{ivals_aux(i,loc_aux_idx_t::VELXL)}
+                , vy{ivals_aux(i,loc_aux_idx_t::VELYL)}
+                , vz{ivals_aux(i,loc_aux_idx_t::VELZL)}
+                , bx{ivals_aux(i,loc_aux_idx_t::BXL)}
+                , by{ivals_aux(i,loc_aux_idx_t::BYL)}
+                , bz{ivals_aux(i,loc_aux_idx_t::BZL)} ;
         #else 
         double gxx{ivals(i,loc_var_idx_t::GTXXL)}
                 , gxy{ivals(i,loc_var_idx_t::GTXYL)}
@@ -105,15 +107,15 @@ bh_diagnostics::compute_local_fluxes(
                 , betay{ivals(i,loc_var_idx_t::BETAYL)}
                 , betaz{ivals(i,loc_var_idx_t::BETAZL)}
                 , alp{ivals(i,loc_var_idx_t::ALPL)}
-                , rho{ivals(i,loc_var_idx_t::RHOL)}
-                , eps{ivals(i,loc_var_idx_t::EPSL)}
-                , press{ivals(i,loc_var_idx_t::PRESSL)}
-                , vx{ivals(i,loc_var_idx_t::VELXL)}
-                , vy{ivals(i,loc_var_idx_t::VELYL)}
-                , vz{ivals(i,loc_var_idx_t::VELZL)}
-                , bx{ivals(i,loc_var_idx_t::BXL)}
-                , by{ivals(i,loc_var_idx_t::BYL)}
-                , bz{ivals(i,loc_var_idx_t::BZL)} ;
+                , rho{ivals_aux(i,loc_aux_idx_t::RHOL)}
+                , eps{ivals_aux(i,loc_aux_idx_t::EPSL)}
+                , press{ivals_aux(i,loc_aux_idx_t::PRESSL)}
+                , vx{ivals_aux(i,loc_aux_idx_t::VELXL)}
+                , vy{ivals_aux(i,loc_aux_idx_t::VELYL)}
+                , vz{ivals_aux(i,loc_aux_idx_t::VELZL)}
+                , bx{ivals_aux(i,loc_aux_idx_t::BXL)}
+                , by{ivals_aux(i,loc_aux_idx_t::BYL)}
+                , bz{ivals_aux(i,loc_aux_idx_t::BZL)} ;
         #endif 
         auto report_nan = [&](char const* name, double v) {
                 if (std::isnan(v)) {

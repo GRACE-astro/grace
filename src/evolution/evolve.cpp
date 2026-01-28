@@ -269,6 +269,10 @@ void evolve_impl() {
     }
     Kokkos::deep_copy(state_p,state) ; 
     grace::deep_copy(sstate_p,sstate) ; 
+
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    compute_constraint_violations() ; 
+    #endif 
 }
 
 template< typename eos_t >
@@ -882,6 +886,34 @@ void advance_substep( double const t, double const dt, double const dtfact
 }
 
 #ifdef GRACE_ENABLE_Z4C_METRIC
+void compute_constraint_violations() {
+    using namespace grace ; 
+    using namespace Kokkos  ; 
+    DECLARE_GRID_EXTENTS ;
+    //**************************************************************************************************/
+    // fetch some stuff 
+    auto& idx     = grace::variable_list::get().getinvspacings() ;  
+    auto& aux     = grace::variable_list::get().getaux()     ; 
+    auto& state   = grace::variable_list::get().getstate()   ; 
+    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ; 
+    auto dummy = grace::variable_list::get().getstaggeredstate() ; 
+    //**************************************************************************************************/
+    z4c_system_t z4c_eq_system(state,aux,dummy) ; 
+    //**************************************************************************************************/
+    auto policy = 
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
+        ) ;
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_compute_constraint_violations")
+                , policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
+                {
+                    z4c_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx, dev_coords);
+                }) ; 
+    //**************************************************************************************************/
+}
+
 void enforce_algebraic_constraints(grace::var_array_t& state) {
     using namespace grace ; 
     using namespace Kokkos ; 
