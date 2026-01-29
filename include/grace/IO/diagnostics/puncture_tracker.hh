@@ -237,9 +237,9 @@ struct puncture_tracker_impl_t
                     centers, intersecting_points_h, intersected_cells_h
                 ) ; 
                 Kokkos::View<double**,grace::default_space> vals("ptracker_shift",0,0); 
-                auto& aux = grace::variable_list::get().getaux() ; 
+                auto& state = grace::variable_list::get().getstate() ; 
                 interpolator.interpolate(
-                    aux, {BETAX,BETAY,BETAZ}, vals
+                    state, {BETAX,BETAY,BETAZ}, vals
                 ) ; 
                 auto vals_h = Kokkos::create_mirror_view_and_copy(
                     Kokkos::HostSpace(), vals 

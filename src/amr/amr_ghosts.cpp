@@ -1102,7 +1102,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
             auto const& dsc_this = dsc.sides[iside] ; 
             ASSERT(!dsc_this.is_fine, "In coarse edges got fine side.") ; 
             if ( dsc_this.octants.coarse.is_remote ) {
-                GRACE_TRACE_DBG("Receive coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_this.octants.coarse.owner_rank,dsc_this.edge_id );
+                GRACE_TRACE("Receive coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_this.octants.coarse.owner_rank,dsc_this.edge_id );
                 // receive 
                 rcv_keys[dsc_this.octants.coarse.owner_rank].push_back(
                         comm_key_t{
@@ -1114,7 +1114,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                 for( int jside=0; jside<dsc.n_sides; ++jside){ 
                     if ( jside==iside ) continue ;
                     auto const& dsc_other = dsc.sides[jside] ; 
-                    GRACE_TRACE_DBG("Send coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_other.octants.coarse.owner_rank,dsc_this.edge_id );
+                    GRACE_TRACE("Send coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_other.octants.coarse.owner_rank,dsc_this.edge_id );
                     if ( !dsc_other.octants.coarse.is_remote ) continue ; 
                     snd_keys[dsc_other.octants.coarse.owner_rank].push_back(
                                     comm_key_t{
@@ -1140,6 +1140,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                         } ;
                 // fixme, ensure this is never used again 
                 auto r = dsc_this.octants.coarse.owner_rank ; 
+                GRACE_TRACE("Receive coarse, quadid {} rank {} edge {} buf idx {}",dsc_this.octants.coarse.quad_id,dsc_this.octants.coarse.owner_rank,dsc_this.edge_id, recv_lookup[r][key] );
                 dsc_this.octants.coarse.quad_id = recv_lookup[r][key];
             } else {
                 // send 
@@ -1157,6 +1158,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                     snd_desc.elem_id = dsc_this.edge_id ; 
                     snd_desc.buf_id = send_lookup[r][key] ; 
                     _reflux_coarse_edge_snd.push_back(snd_desc) ;
+                    GRACE_TRACE("Send coarse, quadid {} rank {} edge {} buf idx {}",dsc_this.octants.coarse.quad_id,dsc_other.octants.coarse.owner_rank,dsc_this.edge_id, send_lookup[r][key]  );
                 }
             }
         }
