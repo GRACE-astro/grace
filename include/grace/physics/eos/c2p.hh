@@ -25,46 +25,113 @@
  * 
  */
 
-#ifndef GRACE_PHYSICS_EOS_C2P_HH
-#define GRACE_PHYSICS_EOS_C2P_HH
-
 #include <grace_config.h>
-#include <grace/data_structures/grace_data_structures.hh>
-#include <grace/utils/grace_utils.hh>
-#include <grace/utils/metric_utils.hh>
-#include <grace/physics/eos/eos_base.hh>
-#include <grace/physics/eos/hybrid_eos.hh>
-#include <grace/physics/eos/piecewise_polytropic_eos.hh>
-#include <grace/physics/grmhd_helpers.hh>
 
+#include <grace/physics/eos/grhd_c2p.hh>
+
+#include <Kokkos_Core.hpp>
+
+#define C2P_TOLERANCE 10
 
 namespace grace {
-/**
- * @brief Convert conservative variables to primitive ones.
- * 
- * @tparam eos_t Type of EOS.
- * @param cons Conservative variables (at one cell).
- * @param prims Primitive variables (at one cell).
- * @param metric Metric utilities.
- * @param eos Equation of State.
- * @param lapse_excision minimum lapse function below which MHD is excised.
- * Atmosphere conditions are enforced by this routine.
- * Conserved variables are recomputed to be consistent with inverted
- * primitives.
- */
-template< typename eos_t >
-void GRACE_HOST_DEVICE
-conservs_to_prims(  grace::grmhd_cons_array_t& cons 
-                  , grace::grmhd_prims_array_t& prims
-                  , grace::metric_array_t const& metric 
-                  , eos_t const& eos
-                  , double const& lapse_excision) ; 
 
-void GRACE_HOST_DEVICE
-prims_to_conservs( grace::grmhd_prims_array_t& prims
+inline void prims_to_conservs( grace::grmhd_prims_array_t& prims
                  , grace::grmhd_cons_array_t& cons 
-                 , grace::metric_array_t const& metric ) ; 
-// Explicit template instantiation
+                 , grace::metric_array_t const& metric )
+{
+    std::array<double,3> vZAMO {
+          (prims[VXL]+metric.beta(0))/metric.alp()
+        , (prims[VYL]+metric.beta(1))/metric.alp()
+        , (prims[VZL]+metric.beta(2))/metric.alp()
+    } ; 
+    double const v2 = metric.square_vec(vZAMO) ; 
+    double const W  = 1./Kokkos::sqrt(1-v2) ; 
+    double const u0 = W / metric.alp();
+    double const alp_sqrtgamma = metric.alp() * metric.sqrtg() ;
+
+    cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
+
+    double const b2{0.}, smallbt{0.} ; 
+    double const one_over_alp2 = 1./math::int_pow<2>(metric.alp());
+    double const rho0_h_plus_b2 = (prims[RHOL]*(1+prims[EPSL])) + prims[PRESSL] + b2 ;
+    double const alp2_sqrtgamma = math::int_pow<2>(metric.alp()) * metric.sqrtg() ;
+    double const g4uptt = -one_over_alp2 ; 
+    
+    double const P_plus_half_b2 = (prims[PRESSL] + 0.5*b2);
+    double const Tuptt = rho0_h_plus_b2 * math::int_pow<2>(u0) + P_plus_half_b2 * g4uptt - math::int_pow<2>(smallbt) ; 
+    cons[TAUL] = alp2_sqrtgamma * Tuptt - cons[DENSL] ;
+
+    std::array<double,4> smallb{0.,0.,0.,0.}, smallbD{0.,0.,0.,0.} ; 
+    auto uD = metric.lower({prims[VXL]+metric.beta(0),prims[VYL]+metric.beta(1),prims[VZL]+metric.beta(2)}) ; 
+    for(auto & uu: uD) uu *= u0 ; 
+
+    cons[STXL] = alp_sqrtgamma * (rho0_h_plus_b2*u0*uD[0]-smallb[0]*smallbD[1]) ; 
+    cons[STYL] = alp_sqrtgamma * (rho0_h_plus_b2*u0*uD[1]-smallb[0]*smallbD[2]) ; 
+    cons[STZL] = alp_sqrtgamma * (rho0_h_plus_b2*u0*uD[2]-smallb[0]*smallbD[3]) ;
+
+    cons[YESL] = cons[DENSL] * prims[YEL] ;
+    cons[ENTSL] = cons[DENSL] * prims[ENTL] ;
+
+    return ; 
+}
+
+template< typename eos_t >
+inline void conservs_to_prims( grmhd_cons_array_t& cons 
+                 , grmhd_prims_array_t& prims
+                 , metric_array_t const& metric 
+                 , eos_t const& eos
+                 , double const& lapse_excision ) 
+{
+    using c2p_impl_t = grhd_c2p_t<eos_t> ;
+    bool c2p_failed{ false }             ;
+    double W                             ;
+    /* Undensitize conservs */
+    for( auto& c: cons) c /= metric.sqrtg() ;
+    /* First we check whether we are in the atmosphere */
+    auto const dens_atmo = eos.rho_atmosphere() ;
+    if( cons[DENSL] > dens_atmo ) {
+        c2p_impl_t c2p(eos,metric,cons) ;
+        double residual ;
+        prims =  c2p.invert(residual) ;
+        c2p_failed = (math::abs(residual) > C2P_TOLERANCE) ;
+        W = prims[PRESSL] ; // W was stored here for convenience
+    } else {
+        c2p_failed = true ;
+    }
+    if(   prims[RHOL] < (1.+1e-03) * dens_atmo
+      or  c2p_failed
+      or  metric.alp() < lapse_excision )
+    {  
+        prims[RHOL]  = dens_atmo ;
+        prims[TEMPL] = eos.temp_atmosphere() ;
+        prims[YEL]   = eos.ye_atmosphere()   ;
+        prims[EPSL]  = eos.eps_atmosphere()  ; 
+        prims[VXL]   = 0. ;
+        prims[VYL]   = 0. ;
+        prims[VZL]   = 0. ;
+        W = 1. ;
+    }
+    /* Set pressure entropy and temperature */
+    double h, csnd2;
+    unsigned int err ;
+    prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
+        h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
+    ) ;
+    /* Go from z-vec to velocity and remove */
+    /* shift contribution.                  */
+    double const u0 = W / metric.alp() ;
+    /* The 3-velocity in grace is not in the */
+    /* ZAMO frame.                           */
+    prims[VXL] = metric.alp()*prims[VXL] - metric.beta(0) ;
+    prims[VYL] = metric.alp()*prims[VYL] - metric.beta(1) ;
+    prims[VZL] = metric.alp()*prims[VZL] - metric.beta(2) ;
+    /* Re-compute conservative variables based  */
+    /* on new primitives.                       */
+    prims_to_conservs(prims,cons,metric) ;
+    /* Re-densitize conservs */
+    //for( auto& c: cons) c *= metric.sqrtg() ;
+}
+
 #define INSTANTIATE_TEMPLATE(EOS) \
 extern template \
 void GRACE_HOST_DEVICE \
@@ -75,6 +142,5 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , double const& ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE
-}
 
-#endif /* GRACE_PHYSICS_EOS_C2P_HH */
+}

@@ -31,12 +31,18 @@
 #include <grace_config.h>
 
 #include <grace/errors/assert.hh>
+#include <grace/errors/warn.hh>
 #include <grace/utils/type_traits.hh>
 /// This header contains
 /// a `mock` MPI implementation
 /// in case we don't actually link to
 /// MPI. 
 #include <sc.h>
+
+#ifndef MPI_STATUSES_IGNORE
+#define MPI_STATUSES_IGNORE nullptr
+#endif
+
 
 #include <vector>
 
@@ -108,15 +114,13 @@ namespace detail {
 
 struct grace_transfer_context_t 
 { 
-    
-    std::vector<sc_MPI_Request> _recv_requests ; 
-    std::vector<sc_MPI_Request> _send_requests ; 
-
+    std::vector<sc_MPI_Request> _recv_requests;
+    std::vector<sc_MPI_Request> _send_requests;
     void reset() { 
-        _send_requests.clear() ;  
-        _recv_requests.clear() ;  
-    } ; 
-} ; 
+        _recv_requests.clear();
+        _send_requests.clear();
+    }
+};
 
 void mpi_init(int* argc, char *** argv) ;
 
@@ -139,7 +143,7 @@ void mpi_gather(T* send_buffer,
                 T* recv_buffer,
                 int recv_count,
                 int root=0,
-                sc_MPI_Comm comm = MPI_COMM_WORLD)
+                sc_MPI_Comm comm = sc_MPI_COMM_WORLD)
 { 
     int mpi_retval = sc_MPI_Gather( static_cast<void*>(send_buffer),
                                     send_count,
@@ -159,7 +163,7 @@ void mpi_gatherv(T* send_buffer,
                  int* recv_counts,
                  int* recv_offsets,
                  int root=0,
-                 sc_MPI_Comm comm = MPI_COMM_WORLD) 
+                 sc_MPI_Comm comm = sc_MPI_COMM_WORLD)
 {
 
     int mpi_retval = sc_MPI_Gatherv(static_cast<void*>(send_buffer),
@@ -181,7 +185,7 @@ void mpi_allgather(T* send_buffer,
                    int send_count,
                    T* recv_buffer,
                    int recv_count,
-                   sc_MPI_Comm comm = MPI_COMM_WORLD)
+                   sc_MPI_Comm comm = sc_MPI_COMM_WORLD)
 {
     int mpi_retval = sc_MPI_Allgather( static_cast<void*>(send_buffer),
                                        send_count,
@@ -201,7 +205,7 @@ void mpi_allgatherv(T* send_buffer,
                     T* recv_buffer,
                     int* recv_counts,
                     int* recv_offsets,
-                    sc_MPI_Comm comm = MPI_COMM_WORLD)
+                    sc_MPI_Comm comm = sc_MPI_COMM_WORLD)
 {
     int mpi_retval = sc_MPI_Allgatherv( static_cast<void*>(send_buffer),
                                        send_count,
@@ -221,7 +225,7 @@ void mpi_alltoall(T* send_buffer,
                   int send_count,
                   T* recv_buffer,
                   int count_recv,
-                  sc_MPI_Comm comm = MPI_COMM_WORLD)
+                  sc_MPI_Comm comm = sc_MPI_COMM_WORLD)
 {
     
     int mpi_retval = sc_MPI_Alltoall( static_cast<void*>(send_buffer),
@@ -241,7 +245,7 @@ static inline
 void mpi_bcast(T* send_buffer,
                int send_count,
                int root,
-               sc_MPI_Comm comm = MPI_COMM_WORLD) 
+               sc_MPI_Comm comm = sc_MPI_COMM_WORLD)
 {
 
     int mpi_retval = sc_MPI_Bcast( static_cast<void*>(send_buffer),
@@ -260,7 +264,7 @@ void mpi_reduce(T* send_buffer,
                 int count,
                 sc_MPI_Op op,
                 int root=0,
-                sc_MPI_Comm comm=MPI_COMM_WORLD) 
+                sc_MPI_Comm comm=sc_MPI_COMM_WORLD)
 {
     ASSERT_DBG( (send_buffer != nullptr) or (count == 0), 
                 "Trying to reduce more than zero"
@@ -282,7 +286,7 @@ void mpi_allreduce(T* send_buffer,
                    T* recv_buffer,
                    int count,
                    sc_MPI_Op op,
-                   sc_MPI_Comm comm=MPI_COMM_WORLD)
+                   sc_MPI_Comm comm=sc_MPI_COMM_WORLD)
 {
     
     ASSERT_DBG( (send_buffer != nullptr) or (count == 0), 
@@ -306,7 +310,7 @@ static inline
 void mpi_send(T* send_buffer, int size,
               int dest,
               int tag,
-              sc_MPI_Comm comm=MPI_COMM_WORLD) 
+              sc_MPI_Comm comm=sc_MPI_COMM_WORLD)
 {
     #ifndef SC_ENABLE_MPI
     ASSERT(0, 
@@ -332,7 +336,7 @@ static inline
 sc_MPI_Status mpi_recv(T* recv_buffer, int size,
               int source,
               int tag,
-              sc_MPI_Comm comm=MPI_COMM_WORLD)
+              sc_MPI_Comm comm=sc_MPI_COMM_WORLD)
 {
     #ifndef SC_ENABLE_MPI
     ASSERT(0, 
@@ -408,6 +412,32 @@ void mpi_irecv(T* recv_buffer, int size,
     ASSERT( mpi_retval == sc_MPI_SUCCESS, 
             "mpi_irecv call failed.") ;
 }
+
+static inline 
+int mpi_test(sc_MPI_Request* request, int* flag, sc_MPI_Status* status = sc_MPI_STATUS_IGNORE)
+{
+    #ifndef SC_ENABLE_MPI
+    ASSERT(0,
+           "Please make sure that a real MPI implementation"
+           " is linked before attempting to call mpi_test"
+           "(build sc with --enable-mpi)");
+    #endif
+
+    ASSERT_DBG(request != nullptr, 
+               "Attempting to mpi_test a null request.");
+
+    #ifdef SC_ENABLE_MPI
+    int mpi_retval = MPI_Test(request, flag, status);
+    #else
+    int mpi_retval = sc_MPI_SUCCESS;
+    *flag = 1;
+    #endif
+    
+    ASSERT(mpi_retval == sc_MPI_SUCCESS, "mpi_test call failed.");
+
+    return mpi_retval;
+}
+
 
 void mpi_waitall(grace_transfer_context_t& context);
 

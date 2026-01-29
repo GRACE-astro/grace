@@ -1,0 +1,1750 @@
+[28-01-2026 17.22:03.940] [info] Startup of file logger completed.
+[28-01-2026 17.22:03.940] [info]                                                                            
+                                                                           
+                                                                           
+   _____ _____            _____ ______                                     
+  / ____|  __ \     /\   / ____|  ____|                                  
+ | |  __| |__) |   /  \ | |    | |__                                      
+ | | |_ |  _  /   / /\ \| |    |  __|                                    
+ | |__| | | \ \  / ____ \ |____| |____                                  
+  \_____|_|  \_\/_/    \_\_____|______|                               
+                                                                           
+                                                                           
+                                                                           
+                                                                           
+This is version 0.5
+of the General Relativistic Astrophysics Code for Exascale.                
+GRACE is an evolution framework that uses Finite Volume
+methods to simulate relativistic spacetimes and plasmas
+Copyright (C) 2023 Carlo Musolino
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+[28-01-2026 17.22:03.940] [debug] This is p4est 2.8.7.999
+
+[28-01-2026 17.22:03.940] [info] GRACE running with cartesian coordinates.
+[28-01-2026 17.22:03.940] [info] Inititalizing connectivity object...
+[28-01-2026 17.22:03.940] [info] Initializing forest of oct-trees...
+[28-01-2026 17.22:03.940] [debug] Into p8est_new with min quadrants 0 level 2 uniform 1
+
+[28-01-2026 17.22:03.940] [debug] New p8est with 1 trees on 2 processors
+
+[28-01-2026 17.22:03.940] [debug] Initial level 2 potential global quadrants 64 per tree 64
+
+[28-01-2026 17.22:03.940] [debug] Done p8est_new with 64 total quadrants
+
+[28-01-2026 17.22:03.940] [info] Forest initialized with 64 (32) total (local) quadrants.
+[28-01-2026 17.22:03.940] [info] Allocating memory...
+[28-01-2026 17.22:03.941] [info] 35 total variables registered, of which 23 evolved, 12 auxiliary. 7 variables require fluxes.
+[28-01-2026 17.22:03.941] [debug] Evolved variables:
+dens needs fluxes: yes,
+stilde[0] needs fluxes: yes,
+stilde[1] needs fluxes: yes,
+stilde[2] needs fluxes: yes,
+tau needs fluxes: yes,
+ye_star needs fluxes: yes,
+s_star needs fluxes: yes,
+gamma[0,0] needs fluxes: no,
+gamma[0,1] needs fluxes: no,
+gamma[0,2] needs fluxes: no,
+gamma[1,1] needs fluxes: no,
+gamma[1,2] needs fluxes: no,
+gamma[2,2] needs fluxes: no,
+alp needs fluxes: no,
+beta[0] needs fluxes: no,
+beta[1] needs fluxes: no,
+beta[2] needs fluxes: no,
+ext_curv[0,0] needs fluxes: no,
+ext_curv[0,1] needs fluxes: no,
+ext_curv[0,2] needs fluxes: no,
+ext_curv[1,1] needs fluxes: no,
+ext_curv[1,2] needs fluxes: no,
+ext_curv[2,2] needs fluxes: no
+
+[28-01-2026 17.22:03.941] [debug] Auxiliary variables:
+rho,
+vel[0],
+vel[1],
+vel[2],
+zvec[0],
+zvec[1],
+zvec[2],
+ye,
+temperature,
+entropy,
+eps,
+press,
+
+[28-01-2026 17.22:03.944] [info] Filling coordinate arrays...
+[28-01-2026 17.22:03.973] [debug] Coordinate filling loop took 2.474e+04 mus.
+[28-01-2026 17.22:03.975] [debug] Coordinate view copy (h2d) took 1.956e+03 mus.
+[28-01-2026 17.22:03.975] [info] Polytropic EOS initialized.
+[28-01-2026 17.22:03.975] [info] Polytropic has 7 segments.
+[28-01-2026 17.22:03.975] [info] Polytropic Gammas: [1.584250000000000, 1.287330000000000, 0.622230000000000, 1.356920000000000, 3.005000000000000, 2.988000000000000, 2.851000000000000].
+[28-01-2026 17.22:03.975] [info] Polytropic rhos: [0.000000000000000, 0.000000000039512, 0.000000612596000, 0.000004254672000, 0.000236744900000, 0.000811472100000, 0.001619100000000].
+[28-01-2026 17.22:03.975] [info] Polytropic K: [168.581899999999990, 0.137363164349499, 0.000010132574801, 0.089503124045754, 84588.976494396571070, 74949.962727262784028, 31077.202264319490496].
+[28-01-2026 17.22:03.975] [info] Polytropic press: [0.000000000000000, 0.000000000000006, 0.000000001380108, 0.000000004609344, 0.000001076532312, 0.000043619523363, 0.000343622153687].
+[28-01-2026 17.22:03.975] [info] Polytropic eps: [0.000000000000000, -0.000249090292454, 0.013555310059615, 0.007652227522033, 0.018124464596800, 0.017895206075187, 0.009993784188260].
+[28-01-2026 17.22:03.975] [debug] Into p8est_ghost_new CORNER
+
+[28-01-2026 17.22:03.977] [debug] Done p8est_ghost_new
+
+[28-01-2026 17.22:03.977] [trace] Rank 0 section faces send count 0, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 0 section faces receive count 0, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 0 section edges send count 0, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 0 section edges receive count 0, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 0 section corners send count 0, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 0 section corners receive count 0, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 0 section cbuf_faces send count 0, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 0 section cbuf_faces receive count 0, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 0 section cbuf_edges send count 0, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 0 section cbuf_edges receive count 0, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 0 section cbuf_corners send count 0, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 0 section cbuf_corners receive count 0, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 1 section faces send count 16, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 1 section faces receive count 16, offset 0
+[28-01-2026 17.22:03.977] [trace] Rank 1 section edges send count 48, offset 188416
+[28-01-2026 17.22:03.977] [trace] Rank 1 section edges receive count 48, offset 188416
+[28-01-2026 17.22:03.977] [trace] Rank 1 section corners send count 9, offset 259072
+[28-01-2026 17.22:03.977] [trace] Rank 1 section corners receive count 9, offset 259072
+[28-01-2026 17.22:03.977] [trace] Rank 1 section cbuf_faces send count 0, offset 260728
+[28-01-2026 17.22:03.977] [trace] Rank 1 section cbuf_faces receive count 0, offset 260728
+[28-01-2026 17.22:03.977] [trace] Rank 1 section cbuf_edges send count 0, offset 260728
+[28-01-2026 17.22:03.977] [trace] Rank 1 section cbuf_edges receive count 0, offset 260728
+[28-01-2026 17.22:03.977] [trace] Rank 1 section cbuf_corners send count 0, offset 260728
+[28-01-2026 17.22:03.977] [trace] Rank 1 section cbuf_corners receive count 0, offset 260728
+[28-01-2026 17.22:03.978] [info] Setup of remote buffers complete, total send/recv size [MB] 2.085824/2.085824, avg message size per rank [MB] 2.085824/2.085824
+[28-01-2026 17.22:03.978] [trace] Registering MPI Send task (tid 0).
+    Send to Rank 1 260728 elements, offset 0
+[28-01-2026 17.22:03.978] [trace] Registering MPI Receive task (tid 1).
+    Receive from Rank 1 260728 elements, offset 0
+[28-01-2026 17.22:03.978] [trace] Recording GPU-copy task (tid 2). Number of faces processed 64.
+[28-01-2026 17.22:03.978] [trace] Recording GPU-copy task (tid 3). Number of faces processed 64.
+[28-01-2026 17.22:03.979] [trace] Recording GPU-pack task (tid 4). Number of faces processed 16.
+[28-01-2026 17.22:03.979] [trace] Recording GPU-unpack task (tid 6). Number of faces processed 16.
+[28-01-2026 17.22:03.979] [trace] 0
+[28-01-2026 17.22:03.979] [trace] 1
+[28-01-2026 17.22:03.979] [trace] 2
+[28-01-2026 17.22:03.979] [trace] 3
+[28-01-2026 17.22:03.979] [trace] 4
+[28-01-2026 17.22:03.979] [trace] 5
+[28-01-2026 17.22:03.979] [trace] 6
+[28-01-2026 17.22:03.979] [trace] 7
+[28-01-2026 17.22:03.979] [trace] 8
+[28-01-2026 17.22:03.979] [trace] 9
+[28-01-2026 17.22:03.979] [trace] 10
+[28-01-2026 17.22:03.979] [trace] 11
+[28-01-2026 17.22:03.979] [trace] 12
+[28-01-2026 17.22:03.979] [trace] 13
+[28-01-2026 17.22:03.979] [trace] 14
+[28-01-2026 17.22:03.979] [trace] 15
+[28-01-2026 17.22:03.979] [trace] Recording phys_BC task (tid 6). Number of faces processed 48.
+[28-01-2026 17.22:03.979] [info] Registered 128 kernels to copy 2 internal faces.
+[28-01-2026 17.22:03.979] [trace] Task queue constructed. 5 tasks are ready to run.
+[28-01-2026 17.22:03.979] [info] Initialization done.
+[28-01-2026 17.22:03.979] [info] GRACE running on CUDA backend
+[28-01-2026 17.22:03.979] [info] Rank 0 mapped to device_id 0
+[28-01-2026 17.22:03.980] [info] Setting initial data.
+[28-01-2026 17.22:03.980] [debug] Setting grmhd initial data of type shocktube.
+[28-01-2026 17.22:03.992] [trace] Filled physical coordinates array.
+[28-01-2026 17.22:03.993] [trace] Done with hydro ID.
+[28-01-2026 17.22:03.993] [debug] Setting conservative variables from primitives.
+[28-01-2026 17.22:03.993] [info] Performing initial regrid.
+[28-01-2026 17.22:03.993] [info] Regrid level 1.
+[28-01-2026 17.22:03.993] [debug] Into p8est_refine with 64 total quadrants, allowed level 10
+
+[28-01-2026 17.22:03.993] [debug] Done p8est_refine with 64 total quadrants
+
+[28-01-2026 17.22:03.993] [debug] Into p8est_coarsen with 64 total quadrants
+
+[28-01-2026 17.22:03.993] [debug] Done p8est_coarsen with 8 total quadrants
+
+[28-01-2026 17.22:03.993] [debug] Into p8est_balance CORNER with 8 total quadrants
+
+[28-01-2026 17.22:03.993] [debug] Done p8est_balance with 8 total quadrants
+
+[28-01-2026 17.22:03.999] [debug] Coordinate filling loop took 3.246e+03 mus.
+[28-01-2026 17.22:03.999] [debug] Coordinate view copy (h2d) took 3.620e+02 mus.
+[28-01-2026 17.22:04.005] [debug] Into p8est_partition with 8 total quadrants
+
+[28-01-2026 17.22:04.005] [debug] Into p8est_partition_given with 8 total quadrants
+
+[28-01-2026 17.22:04.005] [debug] Done p8est_partition_given shipped 0 quadrants 0%
+
+[28-01-2026 17.22:04.005] [debug] Done p8est_partition shipped 0 quadrants 0%
+
+[28-01-2026 17.22:04.010] [debug] Coordinate filling loop took 3.249e+03 mus.
+[28-01-2026 17.22:04.010] [debug] Coordinate view copy (h2d) took 3.580e+02 mus.
+[28-01-2026 17.22:04.010] [trace] Resizing aux array 12 aux vars registered, new quad count 4
+[28-01-2026 17.22:04.011] [trace] Resizing flux array 7 flux vars registered
+[28-01-2026 17.22:04.011] [debug] Into p8est_ghost_new CORNER
+
+[28-01-2026 17.22:04.011] [debug] Done p8est_ghost_new
+
+[28-01-2026 17.22:04.011] [trace] Rank 0 section faces send count 0, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 0 section faces receive count 0, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 0 section edges send count 0, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 0 section edges receive count 0, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 0 section corners send count 0, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 0 section corners receive count 0, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 0 section cbuf_faces send count 0, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 0 section cbuf_faces receive count 0, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 0 section cbuf_edges send count 0, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 0 section cbuf_edges receive count 0, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 0 section cbuf_corners send count 0, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 0 section cbuf_corners receive count 0, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 1 section faces send count 4, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 1 section faces receive count 4, offset 0
+[28-01-2026 17.22:04.011] [trace] Rank 1 section edges send count 8, offset 47104
+[28-01-2026 17.22:04.011] [trace] Rank 1 section edges receive count 8, offset 47104
+[28-01-2026 17.22:04.011] [trace] Rank 1 section corners send count 1, offset 58880
+[28-01-2026 17.22:04.011] [trace] Rank 1 section corners receive count 1, offset 58880
+[28-01-2026 17.22:04.011] [trace] Rank 1 section cbuf_faces send count 0, offset 59064
+[28-01-2026 17.22:04.011] [trace] Rank 1 section cbuf_faces receive count 0, offset 59064
+[28-01-2026 17.22:04.011] [trace] Rank 1 section cbuf_edges send count 0, offset 59064
+[28-01-2026 17.22:04.011] [trace] Rank 1 section cbuf_edges receive count 0, offset 59064
+[28-01-2026 17.22:04.011] [trace] Rank 1 section cbuf_corners send count 0, offset 59064
+[28-01-2026 17.22:04.011] [trace] Rank 1 section cbuf_corners receive count 0, offset 59064
+[28-01-2026 17.22:04.012] [info] Setup of remote buffers complete, total send/recv size [MB] 0.472512/0.472512, avg message size per rank [MB] 0.472512/0.472512
+[28-01-2026 17.22:04.012] [trace] Registering MPI Send task (tid 0).
+    Send to Rank 1 59064 elements, offset 0
+[28-01-2026 17.22:04.012] [trace] Registering MPI Receive task (tid 1).
+    Receive from Rank 1 59064 elements, offset 0
+[28-01-2026 17.22:04.012] [trace] Recording GPU-pack task (tid 2). Number of faces processed 4.
+[28-01-2026 17.22:04.012] [trace] Recording GPU-unpack task (tid 4). Number of faces processed 4.
+[28-01-2026 17.22:04.012] [trace] 0
+[28-01-2026 17.22:04.012] [trace] 1
+[28-01-2026 17.22:04.012] [trace] 2
+[28-01-2026 17.22:04.012] [trace] 3
+[28-01-2026 17.22:04.012] [trace] Recording GPU-copy task (tid 4). Number of faces processed 8.
+[28-01-2026 17.22:04.012] [trace] Recording phys_BC task (tid 5). Number of faces processed 12.
+[28-01-2026 17.22:04.013] [info] Registered 8 kernels to copy 0 internal faces.
+[28-01-2026 17.22:04.013] [trace] Task queue constructed. 10 tasks are ready to run.
+[28-01-2026 17.22:04.013] [trace] Launching MPI task 1
+[28-01-2026 17.22:04.013] [trace] Launching GPU task 2
+[28-01-2026 17.22:04.013] [trace] Launching GPU task 3
+[29-01-2026 10.29:23.655] [info] Startup of file logger completed.
+[29-01-2026 10.29:23.655] [info]                                                                            
+                                                                           
+                                                                           
+   _____ _____            _____ ______                                     
+  / ____|  __ \     /\   / ____|  ____|                                  
+ | |  __| |__) |   /  \ | |    | |__                                      
+ | | |_ |  _  /   / /\ \| |    |  __|                                    
+ | |__| | | \ \  / ____ \ |____| |____                                  
+  \_____|_|  \_\/_/    \_\_____|______|                               
+                                                                           
+                                                                           
+                                                                           
+                                                                           
+This is version 0.5
+of the General Relativistic Astrophysics Code for Exascale.                
+GRACE is an evolution framework that uses Finite Volume
+methods to simulate relativistic spacetimes and plasmas
+Copyright (C) 2023 Carlo Musolino
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+[29-01-2026 10.29:23.656] [debug] This is p4est 2.8.7.999
+
+[29-01-2026 10.29:23.656] [info] GRACE running with cartesian coordinates.
+[29-01-2026 10.29:23.656] [info] Inititalizing connectivity object...
+[29-01-2026 10.29:23.656] [info] Initializing forest of oct-trees...
+[29-01-2026 10.29:23.656] [debug] Into p8est_new with min quadrants 0 level 2 uniform 1
+
+[29-01-2026 10.29:23.656] [debug] New p8est with 1 trees on 2 processors
+
+[29-01-2026 10.29:23.656] [debug] Initial level 2 potential global quadrants 64 per tree 64
+
+[29-01-2026 10.29:23.656] [debug] Done p8est_new with 64 total quadrants
+
+[29-01-2026 10.29:23.656] [info] Forest initialized with 64 (32) total (local) quadrants.
+[29-01-2026 10.29:23.656] [info] Allocating memory...
+[29-01-2026 10.29:23.658] [info] 35 total variables registered, of which 23 evolved, 12 auxiliary. 7 variables require fluxes.
+[29-01-2026 10.29:23.658] [debug] Evolved variables:
+dens needs fluxes: yes,
+stilde[0] needs fluxes: yes,
+stilde[1] needs fluxes: yes,
+stilde[2] needs fluxes: yes,
+tau needs fluxes: yes,
+ye_star needs fluxes: yes,
+s_star needs fluxes: yes,
+gamma[0,0] needs fluxes: no,
+gamma[0,1] needs fluxes: no,
+gamma[0,2] needs fluxes: no,
+gamma[1,1] needs fluxes: no,
+gamma[1,2] needs fluxes: no,
+gamma[2,2] needs fluxes: no,
+alp needs fluxes: no,
+beta[0] needs fluxes: no,
+beta[1] needs fluxes: no,
+beta[2] needs fluxes: no,
+ext_curv[0,0] needs fluxes: no,
+ext_curv[0,1] needs fluxes: no,
+ext_curv[0,2] needs fluxes: no,
+ext_curv[1,1] needs fluxes: no,
+ext_curv[1,2] needs fluxes: no,
+ext_curv[2,2] needs fluxes: no
+
+[29-01-2026 10.29:23.658] [debug] Auxiliary variables:
+rho,
+vel[0],
+vel[1],
+vel[2],
+zvec[0],
+zvec[1],
+zvec[2],
+ye,
+temperature,
+entropy,
+eps,
+press,
+
+[29-01-2026 10.29:23.661] [info] Filling coordinate arrays...
+[29-01-2026 10.29:23.690] [debug] Coordinate filling loop took 2.489e+04 mus.
+[29-01-2026 10.29:23.692] [debug] Coordinate view copy (h2d) took 1.761e+03 mus.
+[29-01-2026 10.29:23.692] [info] Polytropic EOS initialized.
+[29-01-2026 10.29:23.692] [info] Polytropic has 7 segments.
+[29-01-2026 10.29:23.692] [info] Polytropic Gammas: [1.584250000000000, 1.287330000000000, 0.622230000000000, 1.356920000000000, 3.005000000000000, 2.988000000000000, 2.851000000000000].
+[29-01-2026 10.29:23.692] [info] Polytropic rhos: [0.000000000000000, 0.000000000039512, 0.000000612596000, 0.000004254672000, 0.000236744900000, 0.000811472100000, 0.001619100000000].
+[29-01-2026 10.29:23.692] [info] Polytropic K: [168.581899999999990, 0.137363164349499, 0.000010132574801, 0.089503124045754, 84588.976494396571070, 74949.962727262784028, 31077.202264319490496].
+[29-01-2026 10.29:23.692] [info] Polytropic press: [0.000000000000000, 0.000000000000006, 0.000000001380108, 0.000000004609344, 0.000001076532312, 0.000043619523363, 0.000343622153687].
+[29-01-2026 10.29:23.692] [info] Polytropic eps: [0.000000000000000, -0.000249090292454, 0.013555310059615, 0.007652227522033, 0.018124464596800, 0.017895206075187, 0.009993784188260].
+[29-01-2026 10.29:23.692] [debug] Into p8est_ghost_new CORNER
+
+[29-01-2026 10.29:23.693] [debug] Done p8est_ghost_new
+
+[29-01-2026 10.29:23.694] [trace] Rank 0 section faces send count 0, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 0 section faces receive count 0, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 0 section edges send count 0, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 0 section edges receive count 0, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 0 section corners send count 0, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 0 section corners receive count 0, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 0 section cbuf_faces send count 0, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 0 section cbuf_faces receive count 0, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 0 section cbuf_edges send count 0, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 0 section cbuf_edges receive count 0, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 0 section cbuf_corners send count 0, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 0 section cbuf_corners receive count 0, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 1 section faces send count 16, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 1 section faces receive count 16, offset 0
+[29-01-2026 10.29:23.694] [trace] Rank 1 section edges send count 48, offset 188416
+[29-01-2026 10.29:23.694] [trace] Rank 1 section edges receive count 48, offset 188416
+[29-01-2026 10.29:23.694] [trace] Rank 1 section corners send count 9, offset 259072
+[29-01-2026 10.29:23.694] [trace] Rank 1 section corners receive count 9, offset 259072
+[29-01-2026 10.29:23.694] [trace] Rank 1 section cbuf_faces send count 0, offset 260728
+[29-01-2026 10.29:23.694] [trace] Rank 1 section cbuf_faces receive count 0, offset 260728
+[29-01-2026 10.29:23.694] [trace] Rank 1 section cbuf_edges send count 0, offset 260728
+[29-01-2026 10.29:23.694] [trace] Rank 1 section cbuf_edges receive count 0, offset 260728
+[29-01-2026 10.29:23.694] [trace] Rank 1 section cbuf_corners send count 0, offset 260728
+[29-01-2026 10.29:23.694] [trace] Rank 1 section cbuf_corners receive count 0, offset 260728
+[29-01-2026 10.29:23.695] [info] Setup of remote buffers complete, total send/recv size [MB] 2.085824/2.085824, avg message size per rank [MB] 2.085824/2.085824
+[29-01-2026 10.29:23.695] [trace] Registering MPI Send task (tid 0).
+    Send to Rank 1 260728 elements, offset 0
+[29-01-2026 10.29:23.695] [trace] Registering MPI Receive task (tid 1).
+    Receive from Rank 1 260728 elements, offset 0
+[29-01-2026 10.29:23.695] [trace] Recording GPU-copy task (tid 2). Number of faces processed 64.
+[29-01-2026 10.29:23.695] [trace] Recording GPU-copy task (tid 3). Number of faces processed 64.
+[29-01-2026 10.29:23.696] [trace] Recording GPU-pack task (tid 4). Number of faces processed 16.
+[29-01-2026 10.29:23.696] [trace] Recording GPU-unpack task (tid 6). Number of faces processed 16.
+[29-01-2026 10.29:23.696] [trace] 0
+[29-01-2026 10.29:23.696] [trace] 1
+[29-01-2026 10.29:23.696] [trace] 2
+[29-01-2026 10.29:23.696] [trace] 3
+[29-01-2026 10.29:23.696] [trace] 4
+[29-01-2026 10.29:23.696] [trace] 5
+[29-01-2026 10.29:23.696] [trace] 6
+[29-01-2026 10.29:23.696] [trace] 7
+[29-01-2026 10.29:23.696] [trace] 8
+[29-01-2026 10.29:23.696] [trace] 9
+[29-01-2026 10.29:23.696] [trace] 10
+[29-01-2026 10.29:23.696] [trace] 11
+[29-01-2026 10.29:23.696] [trace] 12
+[29-01-2026 10.29:23.696] [trace] 13
+[29-01-2026 10.29:23.696] [trace] 14
+[29-01-2026 10.29:23.696] [trace] 15
+[29-01-2026 10.29:23.696] [trace] Recording phys_BC task (tid 6). Number of faces processed 48.
+[29-01-2026 10.29:23.696] [info] Registered 128 kernels to copy 2 internal faces.
+[29-01-2026 10.29:23.696] [trace] Task queue constructed. 5 tasks are ready to run.
+[29-01-2026 10.29:23.696] [info] Initialization done.
+[29-01-2026 10.29:23.696] [info] GRACE running on CUDA backend
+[29-01-2026 10.29:23.696] [info] Rank 0 mapped to device_id 0
+[29-01-2026 10.29:23.696] [info] Setting initial data.
+[29-01-2026 10.29:23.696] [debug] Setting grmhd initial data of type shocktube.
+[29-01-2026 10.29:23.709] [trace] Filled physical coordinates array.
+[29-01-2026 10.29:23.711] [trace] Done with hydro ID.
+[29-01-2026 10.29:23.711] [debug] Setting conservative variables from primitives.
+[29-01-2026 10.29:23.711] [info] Performing initial regrid.
+[29-01-2026 10.29:23.711] [info] Regrid level 1.
+[29-01-2026 10.29:23.713] [debug] Into p8est_refine with 64 total quadrants, allowed level 10
+
+[29-01-2026 10.29:23.713] [debug] Done p8est_refine with 64 total quadrants
+
+[29-01-2026 10.29:23.713] [debug] Into p8est_coarsen with 64 total quadrants
+
+[29-01-2026 10.29:23.713] [debug] Done p8est_coarsen with 8 total quadrants
+
+[29-01-2026 10.29:23.713] [debug] Into p8est_balance CORNER with 8 total quadrants
+
+[29-01-2026 10.29:23.713] [debug] Done p8est_balance with 8 total quadrants
+
+[29-01-2026 10.29:23.718] [debug] Coordinate filling loop took 3.214e+03 mus.
+[29-01-2026 10.29:23.719] [debug] Coordinate view copy (h2d) took 3.390e+02 mus.
+[29-01-2026 10.29:23.725] [debug] Into p8est_partition with 8 total quadrants
+
+[29-01-2026 10.29:23.725] [debug] Into p8est_partition_given with 8 total quadrants
+
+[29-01-2026 10.29:23.725] [debug] Done p8est_partition_given shipped 0 quadrants 0%
+
+[29-01-2026 10.29:23.725] [debug] Done p8est_partition shipped 0 quadrants 0%
+
+[29-01-2026 10.29:23.730] [debug] Coordinate filling loop took 3.230e+03 mus.
+[29-01-2026 10.29:23.730] [debug] Coordinate view copy (h2d) took 3.570e+02 mus.
+[29-01-2026 10.29:23.730] [trace] Resizing aux array 12 aux vars registered, new quad count 4
+[29-01-2026 10.29:23.730] [trace] Resizing flux array 7 flux vars registered
+[29-01-2026 10.29:23.730] [debug] Into p8est_ghost_new CORNER
+
+[29-01-2026 10.29:23.730] [debug] Done p8est_ghost_new
+
+[29-01-2026 10.29:23.730] [trace] Rank 0 section faces send count 0, offset 0
+[29-01-2026 10.29:23.730] [trace] Rank 0 section faces receive count 0, offset 0
+[29-01-2026 10.29:23.730] [trace] Rank 0 section edges send count 0, offset 0
+[29-01-2026 10.29:23.730] [trace] Rank 0 section edges receive count 0, offset 0
+[29-01-2026 10.29:23.730] [trace] Rank 0 section corners send count 0, offset 0
+[29-01-2026 10.29:23.730] [trace] Rank 0 section corners receive count 0, offset 0
+[29-01-2026 10.29:23.731] [trace] Rank 0 section cbuf_faces send count 0, offset 0
+[29-01-2026 10.29:23.731] [trace] Rank 0 section cbuf_faces receive count 0, offset 0
+[29-01-2026 10.29:23.731] [trace] Rank 0 section cbuf_edges send count 0, offset 0
+[29-01-2026 10.29:23.731] [trace] Rank 0 section cbuf_edges receive count 0, offset 0
+[29-01-2026 10.29:23.731] [trace] Rank 0 section cbuf_corners send count 0, offset 0
+[29-01-2026 10.29:23.731] [trace] Rank 0 section cbuf_corners receive count 0, offset 0
+[29-01-2026 10.29:23.731] [trace] Rank 1 section faces send count 4, offset 0
+[29-01-2026 10.29:23.731] [trace] Rank 1 section faces receive count 4, offset 0
+[29-01-2026 10.29:23.731] [trace] Rank 1 section edges send count 8, offset 47104
+[29-01-2026 10.29:23.731] [trace] Rank 1 section edges receive count 8, offset 47104
+[29-01-2026 10.29:23.731] [trace] Rank 1 section corners send count 1, offset 58880
+[29-01-2026 10.29:23.731] [trace] Rank 1 section corners receive count 1, offset 58880
+[29-01-2026 10.29:23.731] [trace] Rank 1 section cbuf_faces send count 0, offset 59064
+[29-01-2026 10.29:23.731] [trace] Rank 1 section cbuf_faces receive count 0, offset 59064
+[29-01-2026 10.29:23.731] [trace] Rank 1 section cbuf_edges send count 0, offset 59064
+[29-01-2026 10.29:23.731] [trace] Rank 1 section cbuf_edges receive count 0, offset 59064
+[29-01-2026 10.29:23.731] [trace] Rank 1 section cbuf_corners send count 0, offset 59064
+[29-01-2026 10.29:23.731] [trace] Rank 1 section cbuf_corners receive count 0, offset 59064
+[29-01-2026 10.29:23.731] [info] Setup of remote buffers complete, total send/recv size [MB] 0.472512/0.472512, avg message size per rank [MB] 0.472512/0.472512
+[29-01-2026 10.29:23.731] [trace] Registering MPI Send task (tid 0).
+    Send to Rank 1 59064 elements, offset 0
+[29-01-2026 10.29:23.731] [trace] Registering MPI Receive task (tid 1).
+    Receive from Rank 1 59064 elements, offset 0
+[29-01-2026 10.29:23.731] [trace] Recording GPU-pack task (tid 2). Number of faces processed 4.
+[29-01-2026 10.29:23.732] [trace] Recording GPU-unpack task (tid 4). Number of faces processed 4.
+[29-01-2026 10.29:23.732] [trace] 0
+[29-01-2026 10.29:23.732] [trace] 1
+[29-01-2026 10.29:23.732] [trace] 2
+[29-01-2026 10.29:23.732] [trace] 3
+[29-01-2026 10.29:23.732] [trace] Recording GPU-copy task (tid 4). Number of faces processed 8.
+[29-01-2026 10.29:23.732] [trace] Recording phys_BC task (tid 5). Number of faces processed 12.
+[29-01-2026 10.29:23.732] [info] Registered 8 kernels to copy 0 internal faces.
+[29-01-2026 10.29:23.732] [trace] Task queue constructed. 10 tasks are ready to run.
+[29-01-2026 10.29:23.732] [trace] Launching MPI task 1
+[29-01-2026 10.29:23.732] [trace] Launching GPU task 2
+[29-01-2026 10.29:23.733] [trace] Launching GPU task 3
+[29-01-2026 10.29:42.990] [info] Startup of file logger completed.
+[29-01-2026 10.29:42.990] [info]                                                                            
+                                                                           
+                                                                           
+   _____ _____            _____ ______                                     
+  / ____|  __ \     /\   / ____|  ____|                                  
+ | |  __| |__) |   /  \ | |    | |__                                      
+ | | |_ |  _  /   / /\ \| |    |  __|                                    
+ | |__| | | \ \  / ____ \ |____| |____                                  
+  \_____|_|  \_\/_/    \_\_____|______|                               
+                                                                           
+                                                                           
+                                                                           
+                                                                           
+This is version 0.5
+of the General Relativistic Astrophysics Code for Exascale.                
+GRACE is an evolution framework that uses Finite Volume
+methods to simulate relativistic spacetimes and plasmas
+Copyright (C) 2023 Carlo Musolino
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+[29-01-2026 10.29:42.990] [debug] This is p4est 2.8.7.999
+
+[29-01-2026 10.29:42.990] [info] GRACE running with cartesian coordinates.
+[29-01-2026 10.29:42.990] [info] Inititalizing connectivity object...
+[29-01-2026 10.29:42.990] [info] Initializing forest of oct-trees...
+[29-01-2026 10.29:42.990] [debug] Into p8est_new with min quadrants 0 level 3 uniform 1
+
+[29-01-2026 10.29:42.990] [debug] New p8est with 1 trees on 2 processors
+
+[29-01-2026 10.29:42.990] [debug] Initial level 3 potential global quadrants 512 per tree 512
+
+[29-01-2026 10.29:42.990] [debug] Done p8est_new with 512 total quadrants
+
+[29-01-2026 10.29:42.990] [info] Forest initialized with 512 (256) total (local) quadrants.
+[29-01-2026 10.29:42.990] [info] Allocating memory...
+[29-01-2026 10.29:42.991] [info] 35 total variables registered, of which 23 evolved, 12 auxiliary. 7 variables require fluxes.
+[29-01-2026 10.29:42.991] [debug] Evolved variables:
+dens needs fluxes: yes,
+stilde[0] needs fluxes: yes,
+stilde[1] needs fluxes: yes,
+stilde[2] needs fluxes: yes,
+tau needs fluxes: yes,
+ye_star needs fluxes: yes,
+s_star needs fluxes: yes,
+gamma[0,0] needs fluxes: no,
+gamma[0,1] needs fluxes: no,
+gamma[0,2] needs fluxes: no,
+gamma[1,1] needs fluxes: no,
+gamma[1,2] needs fluxes: no,
+gamma[2,2] needs fluxes: no,
+alp needs fluxes: no,
+beta[0] needs fluxes: no,
+beta[1] needs fluxes: no,
+beta[2] needs fluxes: no,
+ext_curv[0,0] needs fluxes: no,
+ext_curv[0,1] needs fluxes: no,
+ext_curv[0,2] needs fluxes: no,
+ext_curv[1,1] needs fluxes: no,
+ext_curv[1,2] needs fluxes: no,
+ext_curv[2,2] needs fluxes: no
+
+[29-01-2026 10.29:42.991] [debug] Auxiliary variables:
+rho,
+vel[0],
+vel[1],
+vel[2],
+zvec[0],
+zvec[1],
+zvec[2],
+ye,
+temperature,
+entropy,
+eps,
+press,
+
+[29-01-2026 10.29:42.994] [info] Filling coordinate arrays...
+[29-01-2026 10.29:43.199] [debug] Coordinate filling loop took 1.881e+05 mus.
+[29-01-2026 10.29:43.214] [debug] Coordinate view copy (h2d) took 1.477e+04 mus.
+[29-01-2026 10.29:43.215] [info] Polytropic EOS initialized.
+[29-01-2026 10.29:43.215] [info] Polytropic has 1 segments.
+[29-01-2026 10.29:43.215] [info] Polytropic Gammas: [2.000000000000000].
+[29-01-2026 10.29:43.215] [info] Polytropic rhos: [0.000000000000000].
+[29-01-2026 10.29:43.215] [info] Polytropic K: [100.000000000000000].
+[29-01-2026 10.29:43.215] [info] Polytropic press: [0.000000000000000].
+[29-01-2026 10.29:43.215] [info] Polytropic eps: [0.000000000000000].
+[29-01-2026 10.29:43.215] [debug] Into p8est_ghost_new CORNER
+
+[29-01-2026 10.29:43.216] [debug] Done p8est_ghost_new
+
+[29-01-2026 10.29:43.217] [trace] Rank 0 section faces send count 0, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 0 section faces receive count 0, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 0 section edges send count 0, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 0 section edges receive count 0, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 0 section corners send count 0, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 0 section corners receive count 0, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 0 section cbuf_faces send count 0, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 0 section cbuf_faces receive count 0, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 0 section cbuf_edges send count 0, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 0 section cbuf_edges receive count 0, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 0 section cbuf_corners send count 0, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 0 section cbuf_corners receive count 0, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 1 section faces send count 64, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 1 section faces receive count 64, offset 0
+[29-01-2026 10.29:43.217] [trace] Rank 1 section edges send count 224, offset 753664
+[29-01-2026 10.29:43.217] [trace] Rank 1 section edges receive count 224, offset 753664
+[29-01-2026 10.29:43.217] [trace] Rank 1 section corners send count 49, offset 1083392
+[29-01-2026 10.29:43.217] [trace] Rank 1 section corners receive count 49, offset 1083392
+[29-01-2026 10.29:43.217] [trace] Rank 1 section cbuf_faces send count 0, offset 1092408
+[29-01-2026 10.29:43.217] [trace] Rank 1 section cbuf_faces receive count 0, offset 1092408
+[29-01-2026 10.29:43.217] [trace] Rank 1 section cbuf_edges send count 0, offset 1092408
+[29-01-2026 10.29:43.217] [trace] Rank 1 section cbuf_edges receive count 0, offset 1092408
+[29-01-2026 10.29:43.217] [trace] Rank 1 section cbuf_corners send count 0, offset 1092408
+[29-01-2026 10.29:43.217] [trace] Rank 1 section cbuf_corners receive count 0, offset 1092408
+[29-01-2026 10.29:43.219] [info] Setup of remote buffers complete, total send/recv size [MB] 8.739264/8.739264, avg message size per rank [MB] 8.739264/8.739264
+[29-01-2026 10.29:43.219] [trace] Registering MPI Send task (tid 0).
+    Send to Rank 1 1092408 elements, offset 0
+[29-01-2026 10.29:43.219] [trace] Registering MPI Receive task (tid 1).
+    Receive from Rank 1 1092408 elements, offset 0
+[29-01-2026 10.29:43.219] [trace] Recording GPU-copy task (tid 2). Number of faces processed 64.
+[29-01-2026 10.29:43.219] [trace] Recording GPU-copy task (tid 3). Number of faces processed 64.
+[29-01-2026 10.29:43.219] [trace] Recording GPU-copy task (tid 4). Number of faces processed 64.
+[29-01-2026 10.29:43.220] [trace] Recording GPU-copy task (tid 5). Number of faces processed 64.
+[29-01-2026 10.29:43.220] [trace] Recording GPU-copy task (tid 6). Number of faces processed 64.
+[29-01-2026 10.29:43.220] [trace] Recording phys_BC task (tid 7). Number of faces processed 64.
+[29-01-2026 10.29:43.220] [trace] Recording GPU-copy task (tid 8). Number of faces processed 64.
+[29-01-2026 10.29:43.221] [trace] Recording GPU-copy task (tid 9). Number of faces processed 64.
+[29-01-2026 10.29:43.221] [trace] Recording GPU-copy task (tid 10). Number of faces processed 64.
+[29-01-2026 10.29:43.221] [trace] Recording GPU-copy task (tid 11). Number of faces processed 64.
+[29-01-2026 10.29:43.221] [trace] Recording GPU-copy task (tid 12). Number of faces processed 64.
+[29-01-2026 10.29:43.222] [trace] Recording GPU-copy task (tid 13). Number of faces processed 64.
+[29-01-2026 10.29:43.222] [trace] Recording GPU-copy task (tid 14). Number of faces processed 64.
+[29-01-2026 10.29:43.222] [trace] Recording phys_BC task (tid 15). Number of faces processed 64.
+[29-01-2026 10.29:43.222] [trace] Recording GPU-copy task (tid 16). Number of faces processed 64.
+[29-01-2026 10.29:43.223] [trace] Recording GPU-copy task (tid 17). Number of faces processed 64.
+[29-01-2026 10.29:43.223] [trace] Recording GPU-copy task (tid 18). Number of faces processed 64.
+[29-01-2026 10.29:43.223] [trace] Recording GPU-copy task (tid 19). Number of faces processed 64.
+[29-01-2026 10.29:43.224] [trace] Recording GPU-copy task (tid 20). Number of faces processed 64.
+[29-01-2026 10.29:43.224] [trace] Recording GPU-copy task (tid 21). Number of faces processed 64.
+[29-01-2026 10.29:43.224] [trace] Recording GPU-copy task (tid 22). Number of faces processed 64.
+[29-01-2026 10.29:43.224] [trace] Recording phys_BC task (tid 23). Number of faces processed 64.
+[29-01-2026 10.29:43.225] [trace] Recording GPU-copy task (tid 24). Number of faces processed 64.
+[29-01-2026 10.29:43.225] [trace] Recording GPU-pack task (tid 25). Number of faces processed 64.
+[29-01-2026 10.29:43.225] [trace] Recording GPU-unpack task (tid 27). Number of faces processed 64.
+[29-01-2026 10.29:43.225] [trace] 0
+[29-01-2026 10.29:43.225] [trace] 1
+[29-01-2026 10.29:43.225] [trace] 2
+[29-01-2026 10.29:43.225] [trace] 3
+[29-01-2026 10.29:43.225] [trace] 4
+[29-01-2026 10.29:43.225] [trace] 5
+[29-01-2026 10.29:43.225] [trace] 6
+[29-01-2026 10.29:43.225] [trace] 7
+[29-01-2026 10.29:43.225] [trace] 8
+[29-01-2026 10.29:43.225] [trace] 9
+[29-01-2026 10.29:43.225] [trace] 10
+[29-01-2026 10.29:43.225] [trace] 11
+[29-01-2026 10.29:43.225] [trace] 12
+[29-01-2026 10.29:43.225] [trace] 13
+[29-01-2026 10.29:43.225] [trace] 14
+[29-01-2026 10.29:43.225] [trace] 15
+[29-01-2026 10.29:43.225] [trace] 16
+[29-01-2026 10.29:43.225] [trace] 17
+[29-01-2026 10.29:43.225] [trace] 18
+[29-01-2026 10.29:43.225] [trace] 19
+[29-01-2026 10.29:43.225] [trace] 20
+[29-01-2026 10.29:43.225] [trace] 21
+[29-01-2026 10.29:43.225] [trace] 22
+[29-01-2026 10.29:43.225] [trace] 23
+[29-01-2026 10.29:43.225] [trace] 24
+[29-01-2026 10.29:43.225] [trace] 25
+[29-01-2026 10.29:43.225] [trace] 26
+[29-01-2026 10.29:43.225] [trace] 27
+[29-01-2026 10.29:43.225] [trace] 28
+[29-01-2026 10.29:43.225] [trace] 29
+[29-01-2026 10.29:43.225] [trace] 30
+[29-01-2026 10.29:43.225] [trace] 31
+[29-01-2026 10.29:43.225] [trace] 32
+[29-01-2026 10.29:43.225] [trace] 33
+[29-01-2026 10.29:43.225] [trace] 34
+[29-01-2026 10.29:43.225] [trace] 35
+[29-01-2026 10.29:43.225] [trace] 36
+[29-01-2026 10.29:43.225] [trace] 37
+[29-01-2026 10.29:43.225] [trace] 38
+[29-01-2026 10.29:43.225] [trace] 39
+[29-01-2026 10.29:43.225] [trace] 40
+[29-01-2026 10.29:43.225] [trace] 41
+[29-01-2026 10.29:43.225] [trace] 42
+[29-01-2026 10.29:43.225] [trace] 43
+[29-01-2026 10.29:43.225] [trace] 44
+[29-01-2026 10.29:43.225] [trace] 45
+[29-01-2026 10.29:43.225] [trace] 46
+[29-01-2026 10.29:43.225] [trace] 47
+[29-01-2026 10.29:43.225] [trace] 48
+[29-01-2026 10.29:43.225] [trace] 49
+[29-01-2026 10.29:43.225] [trace] 50
+[29-01-2026 10.29:43.225] [trace] 51
+[29-01-2026 10.29:43.225] [trace] 52
+[29-01-2026 10.29:43.225] [trace] 53
+[29-01-2026 10.29:43.225] [trace] 54
+[29-01-2026 10.29:43.225] [trace] 55
+[29-01-2026 10.29:43.225] [trace] 56
+[29-01-2026 10.29:43.225] [trace] 57
+[29-01-2026 10.29:43.225] [trace] 58
+[29-01-2026 10.29:43.225] [trace] 59
+[29-01-2026 10.29:43.225] [trace] 60
+[29-01-2026 10.29:43.225] [trace] 61
+[29-01-2026 10.29:43.225] [trace] 62
+[29-01-2026 10.29:43.225] [trace] 63
+[29-01-2026 10.29:43.225] [info] Registered 1280 kernels to copy 20 internal faces.
+[29-01-2026 10.29:43.225] [trace] Task queue constructed. 25 tasks are ready to run.
+[29-01-2026 10.29:43.225] [info] Initialization done.
+[29-01-2026 10.29:43.225] [info] GRACE running on CUDA backend
+[29-01-2026 10.29:43.225] [info] Rank 0 mapped to device_id 0
+[29-01-2026 10.29:43.225] [info] Setting initial data.
+[29-01-2026 10.29:43.225] [debug] Setting grmhd initial data of type TOV.
+[29-01-2026 10.29:43.325] [trace] Filled physical coordinates array.
+[29-01-2026 10.29:43.326] [info] In TOV setup.
+[29-01-2026 10.29:43.334] [info] TOV solver (all in code units):
+   Central density  : 0.00128
+   Central pressure : 0.00016384000000000003
+   Mass             : 1.3868937252405886
+   Radius           : 9.55536473495918
+[29-01-2026 10.29:43.336] [debug] Setting conservative variables from primitives.
+[29-01-2026 10.29:43.416] [debug] Slab offset 0, size 1048576, total 2097152
+[29-01-2026 10.29:44.657] [debug] Slab offset 0, size 1257728, total 2515456
+[29-01-2026 10.29:45.420] [trace] Writing var alp to output. Variable index 13 from auxiliaries? false
+[29-01-2026 10.29:45.460] [trace] Writing var rho to output. Variable index 0 from auxiliaries? true
+[29-01-2026 10.29:45.498] [trace] Writing var press to output. Variable index 11 from auxiliaries? true
+[29-01-2026 10.29:45.534] [trace] Writing var eps to output. Variable index 10 from auxiliaries? true
+[29-01-2026 10.29:45.578] [trace] Writing vector var vel to output. Variable index 1 from auxiliaries? true
+[29-01-2026 10.29:45.690] [trace] Writing vector var zvec to output. Variable index 4 from auxiliaries? true
+[29-01-2026 10.29:45.944] [trace] Performing minmax reduction of variable alp
+[29-01-2026 10.29:45.945] [trace] Min 0, Max 0
+[29-01-2026 10.29:45.949] [debug] Performing scalar output iteration at 0.
+[29-01-2026 10.29:45.951] [info] Starting evolution.
+[29-01-2026 10.29:45.951] [info] Iteration      Time           M/h            alp [max]      eps [max]      rho [max]      press [max]    alp [min]      eps [min]      rho [min]      press [min]    
+
+[29-01-2026 10.29:45.951] [info] 0              0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        
+
+[29-01-2026 10.29:45.951] [debug] Computing timestep at iteration 0, old timestep 0
+[29-01-2026 10.29:45.952] [debug] New timestep 1.7976931348623157e+308
+[29-01-2026 10.29:45.952] [debug] Performing timestep integration at iteration 0
+[29-01-2026 10.29:45.959] [trace] Launching MPI task 1
+[29-01-2026 10.29:45.959] [trace] Launching GPU task 2
+[29-01-2026 10.29:45.960] [trace] Launching GPU task 3
+[29-01-2026 10.29:45.960] [trace] Launching GPU task 4
+[29-01-2026 10.29:45.960] [trace] Launching GPU task 5
+[29-01-2026 10.29:45.960] [trace] Launching GPU task 6
+[29-01-2026 10.29:45.961] [trace] Launching GPU task 7
+[29-01-2026 10.29:45.961] [trace] Fill phys start
+[29-01-2026 10.29:45.961] [trace] Fill phys done
+[29-01-2026 10.29:45.961] [trace] Launching GPU task 8
+[29-01-2026 10.29:45.961] [trace] Launching GPU task 9
+[29-01-2026 10.29:45.961] [trace] Launching GPU task 10
+[29-01-2026 10.29:45.962] [trace] Launching GPU task 11
+[29-01-2026 10.29:45.962] [trace] Launching GPU task 12
+[29-01-2026 10.29:45.962] [trace] Launching GPU task 13
+[29-01-2026 10.29:45.962] [trace] Launching GPU task 14
+[29-01-2026 10.29:45.962] [trace] Launching GPU task 15
+[29-01-2026 10.29:45.962] [trace] Fill phys start
+[29-01-2026 10.29:45.963] [trace] Fill phys done
+[29-01-2026 10.29:45.963] [trace] Launching GPU task 16
+[29-01-2026 10.29:45.963] [trace] Launching GPU task 17
+[29-01-2026 10.29:45.963] [trace] Launching GPU task 18
+[29-01-2026 10.29:45.963] [trace] Launching GPU task 19
+[29-01-2026 10.29:45.964] [trace] Launching GPU task 20
+[29-01-2026 10.29:45.964] [trace] Launching GPU task 21
+[29-01-2026 10.29:45.964] [trace] Launching GPU task 22
+[29-01-2026 10.29:45.964] [trace] Launching GPU task 23
+[29-01-2026 10.29:45.964] [trace] Fill phys start
+[29-01-2026 10.29:45.965] [trace] Fill phys done
+[29-01-2026 10.29:45.965] [trace] Launching GPU task 24
+[29-01-2026 10.29:45.965] [trace] Launching GPU task 25
+[29-01-2026 10.29:45.965] [trace] Pack start.
+[29-01-2026 10.29:45.965] [trace] Pack done.
+[29-01-2026 10.29:45.965] [trace] GPU task 2 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 3 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 4 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 5 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 6 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 7 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 8 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 9 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 10 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 11 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 12 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 13 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 14 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 15 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 16 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 17 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 18 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 19 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 20 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 21 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 22 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 23 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 24 complete
+[29-01-2026 10.29:45.965] [trace] GPU task 25 complete
+[29-01-2026 10.29:45.965] [trace] Launching MPI task 0
+[29-01-2026 10.29:45.977] [trace] MPI task 1 complete
+[29-01-2026 10.29:45.977] [trace] Launching GPU task 26
+[29-01-2026 10.29:45.977] [trace] Unpack start.
+[29-01-2026 10.29:45.977] [trace] MPI task 0 complete
+[29-01-2026 10.29:45.978] [trace] GPU task 26 complete
+[29-01-2026 10.29:45.978] [trace] All done in BC. Total number of cells processed: 47104000.
+Total time elapsed 0.018468503 s.
+
+[29-01-2026 10.29:45.978] [debug] Computing auxiliary quantities at iteration 0
+[29-01-2026 10.31:56.193] [info] Startup of file logger completed.
+[29-01-2026 10.31:56.193] [info]                                                                            
+                                                                           
+                                                                           
+   _____ _____            _____ ______                                     
+  / ____|  __ \     /\   / ____|  ____|                                  
+ | |  __| |__) |   /  \ | |    | |__                                      
+ | | |_ |  _  /   / /\ \| |    |  __|                                    
+ | |__| | | \ \  / ____ \ |____| |____                                  
+  \_____|_|  \_\/_/    \_\_____|______|                               
+                                                                           
+                                                                           
+                                                                           
+                                                                           
+This is version 0.5
+of the General Relativistic Astrophysics Code for Exascale.                
+GRACE is an evolution framework that uses Finite Volume
+methods to simulate relativistic spacetimes and plasmas
+Copyright (C) 2023 Carlo Musolino
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+[29-01-2026 10.31:56.193] [debug] This is p4est 2.8.7.999
+
+[29-01-2026 10.31:56.193] [info] GRACE running with cartesian coordinates.
+[29-01-2026 10.31:56.193] [info] Inititalizing connectivity object...
+[29-01-2026 10.31:56.193] [info] Initializing forest of oct-trees...
+[29-01-2026 10.31:56.193] [debug] Into p8est_new with min quadrants 0 level 3 uniform 1
+
+[29-01-2026 10.31:56.193] [debug] New p8est with 1 trees on 1 processors
+
+[29-01-2026 10.31:56.193] [debug] Initial level 3 potential global quadrants 512 per tree 512
+
+[29-01-2026 10.31:56.193] [debug] Done p8est_new with 512 total quadrants
+
+[29-01-2026 10.31:56.193] [info] Forest initialized with 512 (512) total (local) quadrants.
+[29-01-2026 10.31:56.193] [info] Allocating memory...
+[29-01-2026 10.31:56.194] [info] 35 total variables registered, of which 23 evolved, 12 auxiliary. 7 variables require fluxes.
+[29-01-2026 10.31:56.194] [debug] Evolved variables:
+dens needs fluxes: yes,
+stilde[0] needs fluxes: yes,
+stilde[1] needs fluxes: yes,
+stilde[2] needs fluxes: yes,
+tau needs fluxes: yes,
+ye_star needs fluxes: yes,
+s_star needs fluxes: yes,
+gamma[0,0] needs fluxes: no,
+gamma[0,1] needs fluxes: no,
+gamma[0,2] needs fluxes: no,
+gamma[1,1] needs fluxes: no,
+gamma[1,2] needs fluxes: no,
+gamma[2,2] needs fluxes: no,
+alp needs fluxes: no,
+beta[0] needs fluxes: no,
+beta[1] needs fluxes: no,
+beta[2] needs fluxes: no,
+ext_curv[0,0] needs fluxes: no,
+ext_curv[0,1] needs fluxes: no,
+ext_curv[0,2] needs fluxes: no,
+ext_curv[1,1] needs fluxes: no,
+ext_curv[1,2] needs fluxes: no,
+ext_curv[2,2] needs fluxes: no
+
+[29-01-2026 10.31:56.194] [debug] Auxiliary variables:
+rho,
+vel[0],
+vel[1],
+vel[2],
+zvec[0],
+zvec[1],
+zvec[2],
+ye,
+temperature,
+entropy,
+eps,
+press,
+
+[29-01-2026 10.31:56.199] [info] Filling coordinate arrays...
+[29-01-2026 10.31:56.609] [debug] Coordinate filling loop took 3.856e+05 mus.
+[29-01-2026 10.31:56.627] [debug] Coordinate view copy (h2d) took 1.883e+04 mus.
+[29-01-2026 10.31:56.629] [info] Polytropic EOS initialized.
+[29-01-2026 10.31:56.629] [info] Polytropic has 1 segments.
+[29-01-2026 10.31:56.629] [info] Polytropic Gammas: [2.000000000000000].
+[29-01-2026 10.31:56.629] [info] Polytropic rhos: [0.000000000000000].
+[29-01-2026 10.31:56.629] [info] Polytropic K: [100.000000000000000].
+[29-01-2026 10.31:56.629] [info] Polytropic press: [0.000000000000000].
+[29-01-2026 10.31:56.629] [info] Polytropic eps: [0.000000000000000].
+[29-01-2026 10.31:56.629] [debug] Into p8est_ghost_new CORNER
+
+[29-01-2026 10.31:56.629] [debug] Done p8est_ghost_new
+
+[29-01-2026 10.31:56.630] [trace] Rank 0 section faces send count 0, offset 0
+[29-01-2026 10.31:56.630] [trace] Rank 0 section faces receive count 0, offset 0
+[29-01-2026 10.31:56.630] [trace] Rank 0 section edges send count 0, offset 0
+[29-01-2026 10.31:56.630] [trace] Rank 0 section edges receive count 0, offset 0
+[29-01-2026 10.31:56.630] [trace] Rank 0 section corners send count 0, offset 0
+[29-01-2026 10.31:56.630] [trace] Rank 0 section corners receive count 0, offset 0
+[29-01-2026 10.31:56.630] [trace] Rank 0 section cbuf_faces send count 0, offset 0
+[29-01-2026 10.31:56.630] [trace] Rank 0 section cbuf_faces receive count 0, offset 0
+[29-01-2026 10.31:56.630] [trace] Rank 0 section cbuf_edges send count 0, offset 0
+[29-01-2026 10.31:56.630] [trace] Rank 0 section cbuf_edges receive count 0, offset 0
+[29-01-2026 10.31:56.630] [trace] Rank 0 section cbuf_corners send count 0, offset 0
+[29-01-2026 10.31:56.630] [trace] Rank 0 section cbuf_corners receive count 0, offset 0
+[29-01-2026 10.31:56.631] [info] Setup of remote buffers complete, total send/recv size [MB] 0/0, avg message size per rank [MB] -nan/-nan
+[29-01-2026 10.31:56.631] [trace] Recording GPU-copy task (tid 0). Number of faces processed 64.
+[29-01-2026 10.31:56.631] [trace] Recording GPU-copy task (tid 1). Number of faces processed 64.
+[29-01-2026 10.31:56.631] [trace] Recording GPU-copy task (tid 2). Number of faces processed 64.
+[29-01-2026 10.31:56.632] [trace] Recording GPU-copy task (tid 3). Number of faces processed 64.
+[29-01-2026 10.31:56.632] [trace] Recording GPU-copy task (tid 4). Number of faces processed 64.
+[29-01-2026 10.31:56.632] [trace] Recording GPU-copy task (tid 5). Number of faces processed 64.
+[29-01-2026 10.31:56.632] [trace] Recording phys_BC task (tid 6). Number of faces processed 64.
+[29-01-2026 10.31:56.633] [trace] Recording GPU-copy task (tid 7). Number of faces processed 64.
+[29-01-2026 10.31:56.633] [trace] Recording GPU-copy task (tid 8). Number of faces processed 64.
+[29-01-2026 10.31:56.633] [trace] Recording GPU-copy task (tid 9). Number of faces processed 64.
+[29-01-2026 10.31:56.633] [trace] Recording GPU-copy task (tid 10). Number of faces processed 64.
+[29-01-2026 10.31:56.634] [trace] Recording GPU-copy task (tid 11). Number of faces processed 64.
+[29-01-2026 10.31:56.634] [trace] Recording GPU-copy task (tid 12). Number of faces processed 64.
+[29-01-2026 10.31:56.634] [trace] Recording phys_BC task (tid 13). Number of faces processed 64.
+[29-01-2026 10.31:56.634] [trace] Recording GPU-copy task (tid 14). Number of faces processed 64.
+[29-01-2026 10.31:56.635] [trace] Recording GPU-copy task (tid 15). Number of faces processed 64.
+[29-01-2026 10.31:56.635] [trace] Recording GPU-copy task (tid 16). Number of faces processed 64.
+[29-01-2026 10.31:56.635] [trace] Recording GPU-copy task (tid 17). Number of faces processed 64.
+[29-01-2026 10.31:56.635] [trace] Recording GPU-copy task (tid 18). Number of faces processed 64.
+[29-01-2026 10.31:56.636] [trace] Recording GPU-copy task (tid 19). Number of faces processed 64.
+[29-01-2026 10.31:56.636] [trace] Recording GPU-copy task (tid 20). Number of faces processed 64.
+[29-01-2026 10.31:56.637] [trace] Recording GPU-copy task (tid 21). Number of faces processed 64.
+[29-01-2026 10.31:56.637] [trace] Recording phys_BC task (tid 22). Number of faces processed 64.
+[29-01-2026 10.31:56.638] [trace] Recording GPU-copy task (tid 23). Number of faces processed 64.
+[29-01-2026 10.31:56.638] [trace] Recording GPU-copy task (tid 24). Number of faces processed 64.
+[29-01-2026 10.31:56.638] [trace] Recording GPU-copy task (tid 25). Number of faces processed 64.
+[29-01-2026 10.31:56.638] [trace] Recording GPU-copy task (tid 26). Number of faces processed 64.
+[29-01-2026 10.31:56.639] [trace] Recording GPU-copy task (tid 27). Number of faces processed 64.
+[29-01-2026 10.31:56.639] [trace] Recording GPU-copy task (tid 28). Number of faces processed 64.
+[29-01-2026 10.31:56.639] [trace] Recording GPU-copy task (tid 29). Number of faces processed 64.
+[29-01-2026 10.31:56.639] [trace] Recording GPU-copy task (tid 30). Number of faces processed 64.
+[29-01-2026 10.31:56.640] [trace] Recording phys_BC task (tid 31). Number of faces processed 64.
+[29-01-2026 10.31:56.640] [trace] Recording GPU-copy task (tid 32). Number of faces processed 64.
+[29-01-2026 10.31:56.640] [trace] Recording GPU-copy task (tid 33). Number of faces processed 64.
+[29-01-2026 10.31:56.640] [trace] Recording GPU-copy task (tid 34). Number of faces processed 64.
+[29-01-2026 10.31:56.641] [trace] Recording GPU-copy task (tid 35). Number of faces processed 64.
+[29-01-2026 10.31:56.641] [trace] Recording GPU-copy task (tid 36). Number of faces processed 64.
+[29-01-2026 10.31:56.641] [trace] Recording GPU-copy task (tid 37). Number of faces processed 64.
+[29-01-2026 10.31:56.641] [trace] Recording GPU-copy task (tid 38). Number of faces processed 64.
+[29-01-2026 10.31:56.642] [trace] Recording phys_BC task (tid 39). Number of faces processed 64.
+[29-01-2026 10.31:56.642] [trace] Recording GPU-copy task (tid 40). Number of faces processed 64.
+[29-01-2026 10.31:56.642] [trace] Recording GPU-copy task (tid 41). Number of faces processed 64.
+[29-01-2026 10.31:56.642] [trace] Recording GPU-copy task (tid 42). Number of faces processed 64.
+[29-01-2026 10.31:56.643] [trace] Recording GPU-copy task (tid 43). Number of faces processed 64.
+[29-01-2026 10.31:56.643] [trace] Recording GPU-copy task (tid 44). Number of faces processed 64.
+[29-01-2026 10.31:56.643] [trace] Recording GPU-copy task (tid 45). Number of faces processed 64.
+[29-01-2026 10.31:56.643] [trace] Recording GPU-copy task (tid 46). Number of faces processed 64.
+[29-01-2026 10.31:56.644] [trace] Recording phys_BC task (tid 47). Number of faces processed 64.
+[29-01-2026 10.31:56.644] [info] Registered 2688 kernels to copy 42 internal faces.
+[29-01-2026 10.31:56.644] [trace] Task queue constructed. 48 tasks are ready to run.
+[29-01-2026 10.31:56.644] [info] Initialization done.
+[29-01-2026 10.31:56.644] [info] GRACE running on CUDA backend
+[29-01-2026 10.31:56.644] [info] Rank 0 mapped to device_id 0
+[29-01-2026 10.31:56.644] [info] Setting initial data.
+[29-01-2026 10.31:56.644] [debug] Setting grmhd initial data of type TOV.
+[29-01-2026 10.31:56.834] [trace] Filled physical coordinates array.
+[29-01-2026 10.31:56.835] [info] In TOV setup.
+[29-01-2026 10.31:56.843] [info] TOV solver (all in code units):
+   Central density  : 0.00128
+   Central pressure : 0.00016384000000000003
+   Mass             : 1.3868937252405886
+   Radius           : 9.55536473495918
+[29-01-2026 10.31:56.846] [debug] Setting conservative variables from primitives.
+[29-01-2026 10.31:56.978] [debug] Slab offset 0, size 2097152, total 2097152
+[29-01-2026 10.31:59.441] [debug] Slab offset 0, size 2515456, total 2515456
+[29-01-2026 10.32:00.923] [trace] Writing var alp to output. Variable index 13 from auxiliaries? false
+[29-01-2026 10.32:00.995] [trace] Writing var rho to output. Variable index 0 from auxiliaries? true
+[29-01-2026 10.32:01.065] [trace] Writing var press to output. Variable index 11 from auxiliaries? true
+[29-01-2026 10.32:01.134] [trace] Writing var eps to output. Variable index 10 from auxiliaries? true
+[29-01-2026 10.32:01.212] [trace] Writing vector var vel to output. Variable index 1 from auxiliaries? true
+[29-01-2026 10.32:01.429] [trace] Writing vector var zvec to output. Variable index 4 from auxiliaries? true
+[29-01-2026 10.32:01.895] [trace] Performing minmax reduction of variable alp
+[29-01-2026 10.32:01.896] [trace] Min 0, Max 0
+[29-01-2026 10.32:01.898] [debug] Performing scalar output iteration at 0.
+[29-01-2026 10.32:01.900] [info] Starting evolution.
+[29-01-2026 10.32:01.900] [info] Iteration      Time           M/h            alp [max]      eps [max]      rho [max]      press [max]    alp [min]      eps [min]      rho [min]      press [min]    
+
+[29-01-2026 10.32:01.900] [info] 0              0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        
+
+[29-01-2026 10.32:01.900] [debug] Computing timestep at iteration 0, old timestep 0
+[29-01-2026 10.32:01.901] [debug] New timestep 1.7976931348623157e+308
+[29-01-2026 10.32:01.901] [debug] Performing timestep integration at iteration 0
+[29-01-2026 10.32:01.912] [trace] Launching GPU task 0
+[29-01-2026 10.32:01.912] [trace] Launching GPU task 1
+[29-01-2026 10.32:01.913] [trace] Launching GPU task 2
+[29-01-2026 10.32:01.913] [trace] Launching GPU task 3
+[29-01-2026 10.32:01.913] [trace] Launching GPU task 4
+[29-01-2026 10.32:01.913] [trace] Launching GPU task 5
+[29-01-2026 10.32:01.913] [trace] Launching GPU task 6
+[29-01-2026 10.32:01.913] [trace] Fill phys start
+[29-01-2026 10.32:01.914] [trace] Fill phys done
+[29-01-2026 10.32:01.914] [trace] Launching GPU task 7
+[29-01-2026 10.32:01.914] [trace] Launching GPU task 8
+[29-01-2026 10.32:01.914] [trace] Launching GPU task 9
+[29-01-2026 10.32:01.914] [trace] Launching GPU task 10
+[29-01-2026 10.32:01.915] [trace] Launching GPU task 11
+[29-01-2026 10.32:01.915] [trace] Launching GPU task 12
+[29-01-2026 10.32:01.915] [trace] Launching GPU task 13
+[29-01-2026 10.32:01.915] [trace] Fill phys start
+[29-01-2026 10.32:01.915] [trace] Fill phys done
+[29-01-2026 10.32:01.915] [trace] Launching GPU task 14
+[29-01-2026 10.32:01.916] [trace] Launching GPU task 15
+[29-01-2026 10.32:01.916] [trace] Launching GPU task 16
+[29-01-2026 10.32:01.916] [trace] Launching GPU task 17
+[29-01-2026 10.32:01.916] [trace] Launching GPU task 18
+[29-01-2026 10.32:01.917] [trace] Launching GPU task 19
+[29-01-2026 10.32:01.917] [trace] Launching GPU task 20
+[29-01-2026 10.32:01.917] [trace] Launching GPU task 21
+[29-01-2026 10.32:01.917] [trace] Launching GPU task 22
+[29-01-2026 10.32:01.917] [trace] Fill phys start
+[29-01-2026 10.32:01.918] [trace] Fill phys done
+[29-01-2026 10.32:01.918] [trace] Launching GPU task 23
+[29-01-2026 10.32:01.918] [trace] Launching GPU task 24
+[29-01-2026 10.32:01.918] [trace] Launching GPU task 25
+[29-01-2026 10.32:01.918] [trace] Launching GPU task 26
+[29-01-2026 10.32:01.918] [trace] Launching GPU task 27
+[29-01-2026 10.32:01.919] [trace] Launching GPU task 28
+[29-01-2026 10.32:01.919] [trace] Launching GPU task 29
+[29-01-2026 10.32:01.919] [trace] Launching GPU task 30
+[29-01-2026 10.32:01.919] [trace] Launching GPU task 31
+[29-01-2026 10.32:01.919] [trace] Fill phys start
+[29-01-2026 10.32:01.920] [trace] Fill phys done
+[29-01-2026 10.32:01.920] [trace] Launching GPU task 32
+[29-01-2026 10.32:01.920] [trace] Launching GPU task 33
+[29-01-2026 10.32:01.920] [trace] Launching GPU task 34
+[29-01-2026 10.32:01.920] [trace] Launching GPU task 35
+[29-01-2026 10.32:01.921] [trace] Launching GPU task 36
+[29-01-2026 10.32:01.921] [trace] Launching GPU task 37
+[29-01-2026 10.32:01.921] [trace] Launching GPU task 38
+[29-01-2026 10.32:01.921] [trace] Launching GPU task 39
+[29-01-2026 10.32:01.921] [trace] Fill phys start
+[29-01-2026 10.32:01.922] [trace] Fill phys done
+[29-01-2026 10.32:01.922] [trace] Launching GPU task 40
+[29-01-2026 10.32:01.922] [trace] Launching GPU task 41
+[29-01-2026 10.32:01.922] [trace] Launching GPU task 42
+[29-01-2026 10.32:01.922] [trace] Launching GPU task 43
+[29-01-2026 10.32:01.923] [trace] Launching GPU task 44
+[29-01-2026 10.32:01.923] [trace] Launching GPU task 45
+[29-01-2026 10.32:01.923] [trace] Launching GPU task 46
+[29-01-2026 10.32:01.923] [trace] Launching GPU task 47
+[29-01-2026 10.32:01.923] [trace] Fill phys start
+[29-01-2026 10.32:01.923] [trace] Fill phys done
+[29-01-2026 10.32:01.923] [trace] GPU task 0 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 1 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 2 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 3 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 4 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 5 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 6 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 7 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 8 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 9 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 10 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 11 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 12 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 13 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 14 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 15 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 16 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 17 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 18 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 19 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 20 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 21 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 22 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 23 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 24 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 25 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 26 complete
+[29-01-2026 10.32:01.923] [trace] GPU task 27 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 28 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 29 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 30 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 31 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 32 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 33 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 34 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 35 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 36 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 37 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 38 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 39 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 40 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 41 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 42 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 43 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 44 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 45 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 46 complete
+[29-01-2026 10.32:01.924] [trace] GPU task 47 complete
+[29-01-2026 10.32:01.924] [trace] All done in BC. Total number of cells processed: 94208000.
+Total time elapsed 0.012250358000000001 s.
+
+[29-01-2026 10.32:01.924] [debug] Computing auxiliary quantities at iteration 0
+[29-01-2026 10.33:40.287] [info] Startup of file logger completed.
+[29-01-2026 10.33:40.287] [info]                                                                            
+                                                                           
+                                                                           
+   _____ _____            _____ ______                                     
+  / ____|  __ \     /\   / ____|  ____|                                  
+ | |  __| |__) |   /  \ | |    | |__                                      
+ | | |_ |  _  /   / /\ \| |    |  __|                                    
+ | |__| | | \ \  / ____ \ |____| |____                                  
+  \_____|_|  \_\/_/    \_\_____|______|                               
+                                                                           
+                                                                           
+                                                                           
+                                                                           
+This is version 0.5
+of the General Relativistic Astrophysics Code for Exascale.                
+GRACE is an evolution framework that uses Finite Volume
+methods to simulate relativistic spacetimes and plasmas
+Copyright (C) 2023 Carlo Musolino
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+[29-01-2026 10.33:40.287] [debug] This is p4est 2.8.7.999
+
+[29-01-2026 10.33:40.287] [info] GRACE running with cartesian coordinates.
+[29-01-2026 10.33:40.287] [info] Inititalizing connectivity object...
+[29-01-2026 10.33:40.287] [info] Initializing forest of oct-trees...
+[29-01-2026 10.33:40.287] [debug] Into p8est_new with min quadrants 0 level 3 uniform 1
+
+[29-01-2026 10.33:40.287] [debug] New p8est with 1 trees on 2 processors
+
+[29-01-2026 10.33:40.287] [debug] Initial level 3 potential global quadrants 512 per tree 512
+
+[29-01-2026 10.33:40.287] [debug] Done p8est_new with 512 total quadrants
+
+[29-01-2026 10.33:40.287] [info] Forest initialized with 512 (256) total (local) quadrants.
+[29-01-2026 10.33:40.287] [info] Allocating memory...
+[29-01-2026 10.33:40.288] [info] 35 total variables registered, of which 23 evolved, 12 auxiliary. 7 variables require fluxes.
+[29-01-2026 10.33:40.288] [debug] Evolved variables:
+dens needs fluxes: yes,
+stilde[0] needs fluxes: yes,
+stilde[1] needs fluxes: yes,
+stilde[2] needs fluxes: yes,
+tau needs fluxes: yes,
+ye_star needs fluxes: yes,
+s_star needs fluxes: yes,
+gamma[0,0] needs fluxes: no,
+gamma[0,1] needs fluxes: no,
+gamma[0,2] needs fluxes: no,
+gamma[1,1] needs fluxes: no,
+gamma[1,2] needs fluxes: no,
+gamma[2,2] needs fluxes: no,
+alp needs fluxes: no,
+beta[0] needs fluxes: no,
+beta[1] needs fluxes: no,
+beta[2] needs fluxes: no,
+ext_curv[0,0] needs fluxes: no,
+ext_curv[0,1] needs fluxes: no,
+ext_curv[0,2] needs fluxes: no,
+ext_curv[1,1] needs fluxes: no,
+ext_curv[1,2] needs fluxes: no,
+ext_curv[2,2] needs fluxes: no
+
+[29-01-2026 10.33:40.288] [debug] Auxiliary variables:
+rho,
+vel[0],
+vel[1],
+vel[2],
+zvec[0],
+zvec[1],
+zvec[2],
+ye,
+temperature,
+entropy,
+eps,
+press,
+
+[29-01-2026 10.33:40.292] [info] Filling coordinate arrays...
+[29-01-2026 10.33:40.498] [debug] Coordinate filling loop took 1.890e+05 mus.
+[29-01-2026 10.33:40.513] [debug] Coordinate view copy (h2d) took 1.507e+04 mus.
+[29-01-2026 10.33:40.514] [info] Polytropic EOS initialized.
+[29-01-2026 10.33:40.514] [info] Polytropic has 1 segments.
+[29-01-2026 10.33:40.514] [info] Polytropic Gammas: [2.000000000000000].
+[29-01-2026 10.33:40.514] [info] Polytropic rhos: [0.000000000000000].
+[29-01-2026 10.33:40.514] [info] Polytropic K: [100.000000000000000].
+[29-01-2026 10.33:40.514] [info] Polytropic press: [0.000000000000000].
+[29-01-2026 10.33:40.514] [info] Polytropic eps: [0.000000000000000].
+[29-01-2026 10.33:40.514] [debug] Into p8est_ghost_new CORNER
+
+[29-01-2026 10.33:40.516] [debug] Done p8est_ghost_new
+
+[29-01-2026 10.33:40.516] [trace] Rank 0 section faces send count 0, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 0 section faces receive count 0, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 0 section edges send count 0, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 0 section edges receive count 0, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 0 section corners send count 0, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 0 section corners receive count 0, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 0 section cbuf_faces send count 0, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 0 section cbuf_faces receive count 0, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 0 section cbuf_edges send count 0, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 0 section cbuf_edges receive count 0, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 0 section cbuf_corners send count 0, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 0 section cbuf_corners receive count 0, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 1 section faces send count 64, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 1 section faces receive count 64, offset 0
+[29-01-2026 10.33:40.516] [trace] Rank 1 section edges send count 224, offset 753664
+[29-01-2026 10.33:40.516] [trace] Rank 1 section edges receive count 224, offset 753664
+[29-01-2026 10.33:40.516] [trace] Rank 1 section corners send count 49, offset 1083392
+[29-01-2026 10.33:40.516] [trace] Rank 1 section corners receive count 49, offset 1083392
+[29-01-2026 10.33:40.516] [trace] Rank 1 section cbuf_faces send count 0, offset 1092408
+[29-01-2026 10.33:40.516] [trace] Rank 1 section cbuf_faces receive count 0, offset 1092408
+[29-01-2026 10.33:40.516] [trace] Rank 1 section cbuf_edges send count 0, offset 1092408
+[29-01-2026 10.33:40.516] [trace] Rank 1 section cbuf_edges receive count 0, offset 1092408
+[29-01-2026 10.33:40.516] [trace] Rank 1 section cbuf_corners send count 0, offset 1092408
+[29-01-2026 10.33:40.516] [trace] Rank 1 section cbuf_corners receive count 0, offset 1092408
+[29-01-2026 10.33:40.518] [info] Setup of remote buffers complete, total send/recv size [MB] 8.739264/8.739264, avg message size per rank [MB] 8.739264/8.739264
+[29-01-2026 10.33:40.518] [trace] Registering MPI Send task (tid 0).
+    Send to Rank 1 1092408 elements, offset 0
+[29-01-2026 10.33:40.518] [trace] Registering MPI Receive task (tid 1).
+    Receive from Rank 1 1092408 elements, offset 0
+[29-01-2026 10.33:40.518] [trace] Recording GPU-copy task (tid 2). Number of faces processed 64.
+[29-01-2026 10.33:40.518] [trace] Recording GPU-copy task (tid 3). Number of faces processed 64.
+[29-01-2026 10.33:40.518] [trace] Recording GPU-copy task (tid 4). Number of faces processed 64.
+[29-01-2026 10.33:40.519] [trace] Recording GPU-copy task (tid 5). Number of faces processed 64.
+[29-01-2026 10.33:40.519] [trace] Recording GPU-copy task (tid 6). Number of faces processed 64.
+[29-01-2026 10.33:40.519] [trace] Recording phys_BC task (tid 7). Number of faces processed 64.
+[29-01-2026 10.33:40.519] [trace] Recording GPU-copy task (tid 8). Number of faces processed 64.
+[29-01-2026 10.33:40.520] [trace] Recording GPU-copy task (tid 9). Number of faces processed 64.
+[29-01-2026 10.33:40.520] [trace] Recording GPU-copy task (tid 10). Number of faces processed 64.
+[29-01-2026 10.33:40.520] [trace] Recording GPU-copy task (tid 11). Number of faces processed 64.
+[29-01-2026 10.33:40.521] [trace] Recording GPU-copy task (tid 12). Number of faces processed 64.
+[29-01-2026 10.33:40.521] [trace] Recording GPU-copy task (tid 13). Number of faces processed 64.
+[29-01-2026 10.33:40.521] [trace] Recording GPU-copy task (tid 14). Number of faces processed 64.
+[29-01-2026 10.33:40.522] [trace] Recording phys_BC task (tid 15). Number of faces processed 64.
+[29-01-2026 10.33:40.522] [trace] Recording GPU-copy task (tid 16). Number of faces processed 64.
+[29-01-2026 10.33:40.522] [trace] Recording GPU-copy task (tid 17). Number of faces processed 64.
+[29-01-2026 10.33:40.522] [trace] Recording GPU-copy task (tid 18). Number of faces processed 64.
+[29-01-2026 10.33:40.523] [trace] Recording GPU-copy task (tid 19). Number of faces processed 64.
+[29-01-2026 10.33:40.523] [trace] Recording GPU-copy task (tid 20). Number of faces processed 64.
+[29-01-2026 10.33:40.523] [trace] Recording GPU-copy task (tid 21). Number of faces processed 64.
+[29-01-2026 10.33:40.524] [trace] Recording GPU-copy task (tid 22). Number of faces processed 64.
+[29-01-2026 10.33:40.524] [trace] Recording phys_BC task (tid 23). Number of faces processed 64.
+[29-01-2026 10.33:40.524] [trace] Recording GPU-copy task (tid 24). Number of faces processed 64.
+[29-01-2026 10.33:40.524] [trace] Recording GPU-pack task (tid 25). Number of faces processed 64.
+[29-01-2026 10.33:40.525] [trace] Recording GPU-unpack task (tid 27). Number of faces processed 64.
+[29-01-2026 10.33:40.525] [trace] 0
+[29-01-2026 10.33:40.525] [trace] 1
+[29-01-2026 10.33:40.525] [trace] 2
+[29-01-2026 10.33:40.525] [trace] 3
+[29-01-2026 10.33:40.525] [trace] 4
+[29-01-2026 10.33:40.525] [trace] 5
+[29-01-2026 10.33:40.525] [trace] 6
+[29-01-2026 10.33:40.525] [trace] 7
+[29-01-2026 10.33:40.525] [trace] 8
+[29-01-2026 10.33:40.525] [trace] 9
+[29-01-2026 10.33:40.525] [trace] 10
+[29-01-2026 10.33:40.525] [trace] 11
+[29-01-2026 10.33:40.525] [trace] 12
+[29-01-2026 10.33:40.525] [trace] 13
+[29-01-2026 10.33:40.525] [trace] 14
+[29-01-2026 10.33:40.525] [trace] 15
+[29-01-2026 10.33:40.525] [trace] 16
+[29-01-2026 10.33:40.525] [trace] 17
+[29-01-2026 10.33:40.525] [trace] 18
+[29-01-2026 10.33:40.525] [trace] 19
+[29-01-2026 10.33:40.525] [trace] 20
+[29-01-2026 10.33:40.525] [trace] 21
+[29-01-2026 10.33:40.525] [trace] 22
+[29-01-2026 10.33:40.525] [trace] 23
+[29-01-2026 10.33:40.525] [trace] 24
+[29-01-2026 10.33:40.525] [trace] 25
+[29-01-2026 10.33:40.525] [trace] 26
+[29-01-2026 10.33:40.525] [trace] 27
+[29-01-2026 10.33:40.525] [trace] 28
+[29-01-2026 10.33:40.525] [trace] 29
+[29-01-2026 10.33:40.525] [trace] 30
+[29-01-2026 10.33:40.525] [trace] 31
+[29-01-2026 10.33:40.525] [trace] 32
+[29-01-2026 10.33:40.525] [trace] 33
+[29-01-2026 10.33:40.525] [trace] 34
+[29-01-2026 10.33:40.525] [trace] 35
+[29-01-2026 10.33:40.525] [trace] 36
+[29-01-2026 10.33:40.525] [trace] 37
+[29-01-2026 10.33:40.525] [trace] 38
+[29-01-2026 10.33:40.525] [trace] 39
+[29-01-2026 10.33:40.525] [trace] 40
+[29-01-2026 10.33:40.525] [trace] 41
+[29-01-2026 10.33:40.525] [trace] 42
+[29-01-2026 10.33:40.525] [trace] 43
+[29-01-2026 10.33:40.525] [trace] 44
+[29-01-2026 10.33:40.525] [trace] 45
+[29-01-2026 10.33:40.525] [trace] 46
+[29-01-2026 10.33:40.525] [trace] 47
+[29-01-2026 10.33:40.525] [trace] 48
+[29-01-2026 10.33:40.525] [trace] 49
+[29-01-2026 10.33:40.525] [trace] 50
+[29-01-2026 10.33:40.525] [trace] 51
+[29-01-2026 10.33:40.525] [trace] 52
+[29-01-2026 10.33:40.525] [trace] 53
+[29-01-2026 10.33:40.525] [trace] 54
+[29-01-2026 10.33:40.525] [trace] 55
+[29-01-2026 10.33:40.525] [trace] 56
+[29-01-2026 10.33:40.525] [trace] 57
+[29-01-2026 10.33:40.525] [trace] 58
+[29-01-2026 10.33:40.525] [trace] 59
+[29-01-2026 10.33:40.525] [trace] 60
+[29-01-2026 10.33:40.525] [trace] 61
+[29-01-2026 10.33:40.525] [trace] 62
+[29-01-2026 10.33:40.525] [trace] 63
+[29-01-2026 10.33:40.525] [info] Registered 1280 kernels to copy 20 internal faces.
+[29-01-2026 10.33:40.525] [trace] Task queue constructed. 25 tasks are ready to run.
+[29-01-2026 10.33:40.525] [info] Initialization done.
+[29-01-2026 10.33:40.525] [info] GRACE running on CUDA backend
+[29-01-2026 10.33:40.525] [info] Rank 0 mapped to device_id 0
+[29-01-2026 10.33:40.525] [info] Setting initial data.
+[29-01-2026 10.33:40.525] [debug] Setting grmhd initial data of type TOV.
+[29-01-2026 10.33:40.625] [trace] Filled physical coordinates array.
+[29-01-2026 10.33:40.626] [info] In TOV setup.
+[29-01-2026 10.33:40.634] [info] TOV solver (all in code units):
+   Central density  : 0.00128
+   Central pressure : 0.00016384000000000003
+   Mass             : 1.3868937252405886
+   Radius           : 9.55536473495918
+[29-01-2026 10.33:40.636] [debug] Setting conservative variables from primitives.
+[29-01-2026 10.33:40.706] [debug] Slab offset 0, size 1048576, total 2097152
+[29-01-2026 10.33:41.949] [debug] Slab offset 0, size 1257728, total 2515456
+[29-01-2026 10.33:42.710] [trace] Writing var alp to output. Variable index 13 from auxiliaries? false
+[29-01-2026 10.33:42.751] [trace] Writing var rho to output. Variable index 0 from auxiliaries? true
+[29-01-2026 10.33:42.788] [trace] Writing var press to output. Variable index 11 from auxiliaries? true
+[29-01-2026 10.33:42.825] [trace] Writing var eps to output. Variable index 10 from auxiliaries? true
+[29-01-2026 10.33:42.872] [trace] Writing vector var vel to output. Variable index 1 from auxiliaries? true
+[29-01-2026 10.33:42.988] [trace] Writing vector var zvec to output. Variable index 4 from auxiliaries? true
+[29-01-2026 10.33:43.242] [trace] Performing minmax reduction of variable alp
+[29-01-2026 10.33:43.243] [trace] Min 0, Max 0
+[29-01-2026 10.33:43.245] [debug] Performing scalar output iteration at 0.
+[29-01-2026 10.33:43.247] [info] Starting evolution.
+[29-01-2026 10.33:43.247] [info] Iteration      Time           M/h            alp [max]      eps [max]      rho [max]      press [max]    alp [min]      eps [min]      rho [min]      press [min]    
+
+[29-01-2026 10.33:43.247] [info] 0              0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        
+
+[29-01-2026 10.33:43.247] [debug] Computing timestep at iteration 0, old timestep 0
+[29-01-2026 10.33:43.248] [debug] New timestep 1.7976931348623157e+308
+[29-01-2026 10.33:43.248] [debug] Performing timestep integration at iteration 0
+[29-01-2026 10.33:43.254] [trace] Launching MPI task 1
+[29-01-2026 10.33:43.254] [trace] Launching GPU task 2
+[29-01-2026 10.33:43.254] [trace] Launching GPU task 3
+[29-01-2026 10.33:43.254] [trace] Launching GPU task 4
+[29-01-2026 10.33:43.254] [trace] Launching GPU task 5
+[29-01-2026 10.33:43.255] [trace] Launching GPU task 6
+[29-01-2026 10.33:43.255] [trace] Launching GPU task 7
+[29-01-2026 10.33:43.255] [trace] Fill phys start
+[29-01-2026 10.33:43.255] [trace] Fill phys done
+[29-01-2026 10.33:43.255] [trace] Launching GPU task 8
+[29-01-2026 10.33:43.255] [trace] Launching GPU task 9
+[29-01-2026 10.33:43.256] [trace] Launching GPU task 10
+[29-01-2026 10.33:43.256] [trace] Launching GPU task 11
+[29-01-2026 10.33:43.256] [trace] Launching GPU task 12
+[29-01-2026 10.33:43.256] [trace] Launching GPU task 13
+[29-01-2026 10.33:43.257] [trace] Launching GPU task 14
+[29-01-2026 10.33:43.257] [trace] Launching GPU task 15
+[29-01-2026 10.33:43.257] [trace] Fill phys start
+[29-01-2026 10.33:43.257] [trace] Fill phys done
+[29-01-2026 10.33:43.257] [trace] Launching GPU task 16
+[29-01-2026 10.33:43.257] [trace] Launching GPU task 17
+[29-01-2026 10.33:43.258] [trace] Launching GPU task 18
+[29-01-2026 10.33:43.258] [trace] Launching GPU task 19
+[29-01-2026 10.33:43.258] [trace] Launching GPU task 20
+[29-01-2026 10.33:43.258] [trace] Launching GPU task 21
+[29-01-2026 10.33:43.258] [trace] Launching GPU task 22
+[29-01-2026 10.33:43.259] [trace] Launching GPU task 23
+[29-01-2026 10.33:43.259] [trace] Fill phys start
+[29-01-2026 10.33:43.259] [trace] Fill phys done
+[29-01-2026 10.33:43.259] [trace] Launching GPU task 24
+[29-01-2026 10.33:43.259] [trace] Launching GPU task 25
+[29-01-2026 10.33:43.259] [trace] Pack start.
+[29-01-2026 10.33:43.259] [trace] Pack done.
+[29-01-2026 10.33:43.259] [trace] GPU task 2 complete
+[29-01-2026 10.33:43.259] [trace] GPU task 3 complete
+[29-01-2026 10.33:43.259] [trace] GPU task 4 complete
+[29-01-2026 10.33:43.259] [trace] GPU task 5 complete
+[29-01-2026 10.33:43.259] [trace] GPU task 6 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 7 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 8 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 9 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 10 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 11 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 12 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 13 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 14 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 15 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 16 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 17 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 18 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 19 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 20 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 21 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 22 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 23 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 24 complete
+[29-01-2026 10.33:43.260] [trace] GPU task 25 complete
+[29-01-2026 10.33:43.260] [trace] Launching MPI task 0
+[29-01-2026 10.33:43.271] [trace] MPI task 0 complete
+[29-01-2026 10.33:43.271] [trace] MPI task 1 complete
+[29-01-2026 10.33:43.271] [trace] Launching GPU task 26
+[29-01-2026 10.33:43.272] [trace] Unpack start.
+[29-01-2026 10.33:43.272] [trace] GPU task 26 complete
+[29-01-2026 10.33:43.272] [trace] All done in BC. Total number of cells processed: 47104000.
+Total time elapsed 0.018192801 s.
+
+[29-01-2026 10.33:43.272] [debug] Computing auxiliary quantities at iteration 0
+[29-01-2026 10.35:45.887] [info] Startup of file logger completed.
+[29-01-2026 10.35:45.887] [info]                                                                            
+                                                                           
+                                                                           
+   _____ _____            _____ ______                                     
+  / ____|  __ \     /\   / ____|  ____|                                  
+ | |  __| |__) |   /  \ | |    | |__                                      
+ | | |_ |  _  /   / /\ \| |    |  __|                                    
+ | |__| | | \ \  / ____ \ |____| |____                                  
+  \_____|_|  \_\/_/    \_\_____|______|                               
+                                                                           
+                                                                           
+                                                                           
+                                                                           
+This is version 0.5
+of the General Relativistic Astrophysics Code for Exascale.                
+GRACE is an evolution framework that uses Finite Volume
+methods to simulate relativistic spacetimes and plasmas
+Copyright (C) 2023 Carlo Musolino
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+[29-01-2026 10.35:45.887] [debug] This is p4est 2.8.7.999
+
+[29-01-2026 10.35:45.887] [info] GRACE running with cartesian coordinates.
+[29-01-2026 10.35:45.887] [info] Inititalizing connectivity object...
+[29-01-2026 10.35:45.887] [info] Initializing forest of oct-trees...
+[29-01-2026 10.35:45.887] [debug] Into p8est_new with min quadrants 0 level 3 uniform 1
+
+[29-01-2026 10.35:45.887] [debug] New p8est with 1 trees on 2 processors
+
+[29-01-2026 10.35:45.887] [debug] Initial level 3 potential global quadrants 512 per tree 512
+
+[29-01-2026 10.35:45.887] [debug] Done p8est_new with 512 total quadrants
+
+[29-01-2026 10.35:45.887] [info] Forest initialized with 512 (256) total (local) quadrants.
+[29-01-2026 10.35:45.887] [info] Allocating memory...
+[29-01-2026 10.35:45.888] [info] 35 total variables registered, of which 23 evolved, 12 auxiliary. 7 variables require fluxes.
+[29-01-2026 10.35:45.888] [debug] Evolved variables:
+dens needs fluxes: yes,
+stilde[0] needs fluxes: yes,
+stilde[1] needs fluxes: yes,
+stilde[2] needs fluxes: yes,
+tau needs fluxes: yes,
+ye_star needs fluxes: yes,
+s_star needs fluxes: yes,
+gamma[0,0] needs fluxes: no,
+gamma[0,1] needs fluxes: no,
+gamma[0,2] needs fluxes: no,
+gamma[1,1] needs fluxes: no,
+gamma[1,2] needs fluxes: no,
+gamma[2,2] needs fluxes: no,
+alp needs fluxes: no,
+beta[0] needs fluxes: no,
+beta[1] needs fluxes: no,
+beta[2] needs fluxes: no,
+ext_curv[0,0] needs fluxes: no,
+ext_curv[0,1] needs fluxes: no,
+ext_curv[0,2] needs fluxes: no,
+ext_curv[1,1] needs fluxes: no,
+ext_curv[1,2] needs fluxes: no,
+ext_curv[2,2] needs fluxes: no
+
+[29-01-2026 10.35:45.888] [debug] Auxiliary variables:
+rho,
+vel[0],
+vel[1],
+vel[2],
+zvec[0],
+zvec[1],
+zvec[2],
+ye,
+temperature,
+entropy,
+eps,
+press,
+
+[29-01-2026 10.35:45.893] [info] Filling coordinate arrays...
+[29-01-2026 10.35:46.250] [debug] Coordinate filling loop took 3.296e+05 mus.
+[29-01-2026 10.35:46.279] [debug] Coordinate view copy (h2d) took 2.909e+04 mus.
+[29-01-2026 10.35:46.281] [info] Polytropic EOS initialized.
+[29-01-2026 10.35:46.281] [info] Polytropic has 1 segments.
+[29-01-2026 10.35:46.281] [info] Polytropic Gammas: [2.000000000000000].
+[29-01-2026 10.35:46.281] [info] Polytropic rhos: [0.000000000000000].
+[29-01-2026 10.35:46.281] [info] Polytropic K: [100.000000000000000].
+[29-01-2026 10.35:46.281] [info] Polytropic press: [0.000000000000000].
+[29-01-2026 10.35:46.281] [info] Polytropic eps: [0.000000000000000].
+[29-01-2026 10.35:46.281] [debug] Into p8est_ghost_new CORNER
+
+[29-01-2026 10.35:46.282] [debug] Done p8est_ghost_new
+
+[29-01-2026 10.35:46.283] [trace] Rank 0 section faces send count 0, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 0 section faces receive count 0, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 0 section edges send count 0, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 0 section edges receive count 0, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 0 section corners send count 0, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 0 section corners receive count 0, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 0 section cbuf_faces send count 0, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 0 section cbuf_faces receive count 0, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 0 section cbuf_edges send count 0, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 0 section cbuf_edges receive count 0, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 0 section cbuf_corners send count 0, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 0 section cbuf_corners receive count 0, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 1 section faces send count 64, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 1 section faces receive count 64, offset 0
+[29-01-2026 10.35:46.283] [trace] Rank 1 section edges send count 224, offset 1507328
+[29-01-2026 10.35:46.283] [trace] Rank 1 section edges receive count 224, offset 1507328
+[29-01-2026 10.35:46.283] [trace] Rank 1 section corners send count 49, offset 2826240
+[29-01-2026 10.35:46.283] [trace] Rank 1 section corners receive count 49, offset 2826240
+[29-01-2026 10.35:46.283] [trace] Rank 1 section cbuf_faces send count 0, offset 2898368
+[29-01-2026 10.35:46.283] [trace] Rank 1 section cbuf_faces receive count 0, offset 2898368
+[29-01-2026 10.35:46.283] [trace] Rank 1 section cbuf_edges send count 0, offset 2898368
+[29-01-2026 10.35:46.283] [trace] Rank 1 section cbuf_edges receive count 0, offset 2898368
+[29-01-2026 10.35:46.283] [trace] Rank 1 section cbuf_corners send count 0, offset 2898368
+[29-01-2026 10.35:46.283] [trace] Rank 1 section cbuf_corners receive count 0, offset 2898368
+[29-01-2026 10.35:46.284] [info] Setup of remote buffers complete, total send/recv size [MB] 23.186944/23.186944, avg message size per rank [MB] 23.186944/23.186944
+[29-01-2026 10.35:46.284] [trace] Registering MPI Send task (tid 0).
+    Send to Rank 1 2898368 elements, offset 0
+[29-01-2026 10.35:46.284] [trace] Registering MPI Receive task (tid 1).
+    Receive from Rank 1 2898368 elements, offset 0
+[29-01-2026 10.35:46.284] [trace] Recording GPU-copy task (tid 2). Number of faces processed 64.
+[29-01-2026 10.35:46.285] [trace] Recording GPU-copy task (tid 3). Number of faces processed 64.
+[29-01-2026 10.35:46.285] [trace] Recording GPU-copy task (tid 4). Number of faces processed 64.
+[29-01-2026 10.35:46.285] [trace] Recording GPU-copy task (tid 5). Number of faces processed 64.
+[29-01-2026 10.35:46.285] [trace] Recording GPU-copy task (tid 6). Number of faces processed 64.
+[29-01-2026 10.35:46.286] [trace] Recording phys_BC task (tid 7). Number of faces processed 64.
+[29-01-2026 10.35:46.286] [trace] Recording GPU-copy task (tid 8). Number of faces processed 64.
+[29-01-2026 10.35:46.286] [trace] Recording GPU-copy task (tid 9). Number of faces processed 64.
+[29-01-2026 10.35:46.286] [trace] Recording GPU-copy task (tid 10). Number of faces processed 64.
+[29-01-2026 10.35:46.287] [trace] Recording GPU-copy task (tid 11). Number of faces processed 64.
+[29-01-2026 10.35:46.287] [trace] Recording GPU-copy task (tid 12). Number of faces processed 64.
+[29-01-2026 10.35:46.287] [trace] Recording GPU-copy task (tid 13). Number of faces processed 64.
+[29-01-2026 10.35:46.287] [trace] Recording GPU-copy task (tid 14). Number of faces processed 64.
+[29-01-2026 10.35:46.288] [trace] Recording phys_BC task (tid 15). Number of faces processed 64.
+[29-01-2026 10.35:46.288] [trace] Recording GPU-copy task (tid 16). Number of faces processed 64.
+[29-01-2026 10.35:46.288] [trace] Recording GPU-copy task (tid 17). Number of faces processed 64.
+[29-01-2026 10.35:46.289] [trace] Recording GPU-copy task (tid 18). Number of faces processed 64.
+[29-01-2026 10.35:46.289] [trace] Recording GPU-copy task (tid 19). Number of faces processed 64.
+[29-01-2026 10.35:46.289] [trace] Recording GPU-copy task (tid 20). Number of faces processed 64.
+[29-01-2026 10.35:46.289] [trace] Recording GPU-copy task (tid 21). Number of faces processed 64.
+[29-01-2026 10.35:46.290] [trace] Recording GPU-copy task (tid 22). Number of faces processed 64.
+[29-01-2026 10.35:46.290] [trace] Recording phys_BC task (tid 23). Number of faces processed 64.
+[29-01-2026 10.35:46.290] [trace] Recording GPU-copy task (tid 24). Number of faces processed 64.
+[29-01-2026 10.35:46.290] [trace] Recording GPU-pack task (tid 25). Number of faces processed 64.
+[29-01-2026 10.35:46.291] [trace] Recording GPU-unpack task (tid 27). Number of faces processed 64.
+[29-01-2026 10.35:46.291] [trace] 0
+[29-01-2026 10.35:46.291] [trace] 1
+[29-01-2026 10.35:46.291] [trace] 2
+[29-01-2026 10.35:46.291] [trace] 3
+[29-01-2026 10.35:46.291] [trace] 4
+[29-01-2026 10.35:46.291] [trace] 5
+[29-01-2026 10.35:46.291] [trace] 6
+[29-01-2026 10.35:46.291] [trace] 7
+[29-01-2026 10.35:46.291] [trace] 8
+[29-01-2026 10.35:46.291] [trace] 9
+[29-01-2026 10.35:46.291] [trace] 10
+[29-01-2026 10.35:46.291] [trace] 11
+[29-01-2026 10.35:46.291] [trace] 12
+[29-01-2026 10.35:46.291] [trace] 13
+[29-01-2026 10.35:46.291] [trace] 14
+[29-01-2026 10.35:46.291] [trace] 15
+[29-01-2026 10.35:46.291] [trace] 16
+[29-01-2026 10.35:46.291] [trace] 17
+[29-01-2026 10.35:46.291] [trace] 18
+[29-01-2026 10.35:46.291] [trace] 19
+[29-01-2026 10.35:46.291] [trace] 20
+[29-01-2026 10.35:46.291] [trace] 21
+[29-01-2026 10.35:46.291] [trace] 22
+[29-01-2026 10.35:46.291] [trace] 23
+[29-01-2026 10.35:46.291] [trace] 24
+[29-01-2026 10.35:46.291] [trace] 25
+[29-01-2026 10.35:46.291] [trace] 26
+[29-01-2026 10.35:46.291] [trace] 27
+[29-01-2026 10.35:46.291] [trace] 28
+[29-01-2026 10.35:46.291] [trace] 29
+[29-01-2026 10.35:46.291] [trace] 30
+[29-01-2026 10.35:46.291] [trace] 31
+[29-01-2026 10.35:46.291] [trace] 32
+[29-01-2026 10.35:46.291] [trace] 33
+[29-01-2026 10.35:46.291] [trace] 34
+[29-01-2026 10.35:46.291] [trace] 35
+[29-01-2026 10.35:46.291] [trace] 36
+[29-01-2026 10.35:46.291] [trace] 37
+[29-01-2026 10.35:46.291] [trace] 38
+[29-01-2026 10.35:46.291] [trace] 39
+[29-01-2026 10.35:46.291] [trace] 40
+[29-01-2026 10.35:46.291] [trace] 41
+[29-01-2026 10.35:46.291] [trace] 42
+[29-01-2026 10.35:46.291] [trace] 43
+[29-01-2026 10.35:46.291] [trace] 44
+[29-01-2026 10.35:46.291] [trace] 45
+[29-01-2026 10.35:46.291] [trace] 46
+[29-01-2026 10.35:46.291] [trace] 47
+[29-01-2026 10.35:46.291] [trace] 48
+[29-01-2026 10.35:46.291] [trace] 49
+[29-01-2026 10.35:46.291] [trace] 50
+[29-01-2026 10.35:46.291] [trace] 51
+[29-01-2026 10.35:46.291] [trace] 52
+[29-01-2026 10.35:46.291] [trace] 53
+[29-01-2026 10.35:46.291] [trace] 54
+[29-01-2026 10.35:46.291] [trace] 55
+[29-01-2026 10.35:46.291] [trace] 56
+[29-01-2026 10.35:46.291] [trace] 57
+[29-01-2026 10.35:46.291] [trace] 58
+[29-01-2026 10.35:46.291] [trace] 59
+[29-01-2026 10.35:46.291] [trace] 60
+[29-01-2026 10.35:46.291] [trace] 61
+[29-01-2026 10.35:46.291] [trace] 62
+[29-01-2026 10.35:46.291] [trace] 63
+[29-01-2026 10.35:46.291] [info] Registered 1280 kernels to copy 20 internal faces.
+[29-01-2026 10.35:46.291] [trace] Task queue constructed. 25 tasks are ready to run.
+[29-01-2026 10.35:46.291] [info] Initialization done.
+[29-01-2026 10.35:46.291] [info] GRACE running on CUDA backend
+[29-01-2026 10.35:46.291] [info] Rank 0 mapped to device_id 0
+[29-01-2026 10.35:46.291] [info] Setting initial data.
+[29-01-2026 10.35:46.291] [debug] Setting grmhd initial data of type TOV.
+[29-01-2026 10.35:46.465] [trace] Filled physical coordinates array.
+[29-01-2026 10.35:46.466] [info] In TOV setup.
+[29-01-2026 10.35:46.474] [info] TOV solver (all in code units):
+   Central density  : 0.00128
+   Central pressure : 0.00016384000000000003
+   Mass             : 1.3868937252405886
+   Radius           : 9.55536473495918
+[29-01-2026 10.35:46.476] [debug] Setting conservative variables from primitives.
+[29-01-2026 10.35:46.547] [debug] Slab offset 0, size 1048576, total 2097152
+[29-01-2026 10.35:47.791] [debug] Slab offset 0, size 1257728, total 2515456
+[29-01-2026 10.35:48.551] [trace] Writing var alp to output. Variable index 13 from auxiliaries? false
+[29-01-2026 10.35:48.592] [trace] Writing var rho to output. Variable index 0 from auxiliaries? true
+[29-01-2026 10.35:48.629] [trace] Writing var press to output. Variable index 11 from auxiliaries? true
+[29-01-2026 10.35:48.666] [trace] Writing var eps to output. Variable index 10 from auxiliaries? true
+[29-01-2026 10.35:48.711] [trace] Writing vector var vel to output. Variable index 1 from auxiliaries? true
+[29-01-2026 10.35:48.821] [trace] Writing vector var zvec to output. Variable index 4 from auxiliaries? true
+[29-01-2026 10.35:49.127] [trace] Performing minmax reduction of variable alp
+[29-01-2026 10.35:49.128] [trace] Min 0, Max 0
+[29-01-2026 10.35:49.130] [debug] Performing scalar output iteration at 0.
+[29-01-2026 10.35:49.132] [info] Starting evolution.
+[29-01-2026 10.35:49.132] [info] Iteration      Time           M/h            alp [max]      eps [max]      rho [max]      press [max]    alp [min]      eps [min]      rho [min]      press [min]    
+
+[29-01-2026 10.35:49.132] [info] 0              0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        0.00000        
+
+[29-01-2026 10.35:49.132] [debug] Computing timestep at iteration 0, old timestep 0
+[29-01-2026 10.35:49.133] [debug] New timestep 1.7976931348623157e+308
+[29-01-2026 10.35:49.133] [debug] Performing timestep integration at iteration 0
+[29-01-2026 10.35:49.139] [trace] Launching MPI task 1
+[29-01-2026 10.35:49.139] [trace] Launching GPU task 2
+[29-01-2026 10.35:49.139] [trace] Launching GPU task 3
+[29-01-2026 10.35:49.140] [trace] Launching GPU task 4
+[29-01-2026 10.35:49.140] [trace] Launching GPU task 5
+[29-01-2026 10.35:49.140] [trace] Launching GPU task 6
+[29-01-2026 10.35:49.140] [trace] Launching GPU task 7
+[29-01-2026 10.35:49.140] [trace] Fill phys start
+[29-01-2026 10.35:49.141] [trace] Fill phys done
+[29-01-2026 10.35:49.141] [trace] Launching GPU task 8
+[29-01-2026 10.35:49.141] [trace] Launching GPU task 9
+[29-01-2026 10.35:49.141] [trace] Launching GPU task 10
+[29-01-2026 10.35:49.141] [trace] Launching GPU task 11
+[29-01-2026 10.35:49.142] [trace] Launching GPU task 12
+[29-01-2026 10.35:49.142] [trace] Launching GPU task 13
+[29-01-2026 10.35:49.142] [trace] Launching GPU task 14
+[29-01-2026 10.35:49.142] [trace] Launching GPU task 15
+[29-01-2026 10.35:49.142] [trace] Fill phys start
+[29-01-2026 10.35:49.142] [trace] Fill phys done
+[29-01-2026 10.35:49.142] [trace] Launching GPU task 16
+[29-01-2026 10.35:49.143] [trace] Launching GPU task 17
+[29-01-2026 10.35:49.143] [trace] Launching GPU task 18
+[29-01-2026 10.35:49.143] [trace] Launching GPU task 19
+[29-01-2026 10.35:49.143] [trace] Launching GPU task 20
+[29-01-2026 10.35:49.144] [trace] Launching GPU task 21
+[29-01-2026 10.35:49.144] [trace] Launching GPU task 22
+[29-01-2026 10.35:49.144] [trace] Launching GPU task 23
+[29-01-2026 10.35:49.144] [trace] Fill phys start
+[29-01-2026 10.35:49.144] [trace] Fill phys done
+[29-01-2026 10.35:49.144] [trace] Launching GPU task 24
+[29-01-2026 10.35:49.145] [trace] Launching GPU task 25
+[29-01-2026 10.35:49.145] [trace] Pack start.
+[29-01-2026 10.35:49.145] [trace] Pack done.
+[29-01-2026 10.35:49.145] [trace] GPU task 2 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 3 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 4 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 5 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 6 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 7 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 8 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 9 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 10 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 11 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 12 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 13 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 14 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 15 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 16 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 17 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 18 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 19 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 20 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 21 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 22 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 23 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 24 complete
+[29-01-2026 10.35:49.145] [trace] GPU task 25 complete
+[29-01-2026 10.35:49.145] [trace] Launching MPI task 0
+[29-01-2026 10.35:49.158] [trace] MPI task 0 complete
+[29-01-2026 10.35:49.158] [trace] MPI task 1 complete
+[29-01-2026 10.35:49.158] [trace] Launching GPU task 26
+[29-01-2026 10.35:49.158] [trace] Unpack start.
+[29-01-2026 10.35:49.158] [trace] GPU task 26 complete
+[29-01-2026 10.35:49.158] [trace] All done in BC. Total number of cells processed: 81395712.
+Total time elapsed 0.019420614000000003 s.
+
+[29-01-2026 10.35:49.158] [debug] Computing auxiliary quantities at iteration 0

@@ -9,7 +9,7 @@ amr: {
   ymax: 32,
   zmin: -32,
   zmax: 32,
-  n_ghostzones: 2,
+  n_ghostzones: 4,
   initial_refinement_level: 3,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 1e-05,

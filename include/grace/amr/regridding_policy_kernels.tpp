@@ -46,19 +46,24 @@ struct flash_second_deriv_criterion {
 
     ViewT u ; //!< Variable on which the criterion is evaluated.
     static constexpr double tiny = 1e-99; 
+    double eps ;
+    flash_second_deriv_criterion(ViewT u_)
+        : u(u_)
+    {
+        auto& params = grace::config_parser::get();
+        eps = params["amr"]["FLASH_criterion_eps"].as<double>(); 
+    }
     /**
      * @brief Evaluates the regridding criterion at a cell.
      * 
      * @param q Quadrant index.
-     * @param eps Amplitude of denominator correction.
      * @return double The error estimate according to the Löhner criterion.
      */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator()  ( VEC( int const & i 
                      , int const & j
                      , int const & k ) 
-                , int const& q
-                , double const& eps ) const 
+                , int const& q) const 
     {   
         using Kokkos::fabs ; 
         double const num = EXPR(

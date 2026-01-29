@@ -59,8 +59,7 @@ template< typename ViewT
     , typename KerT 
     , typename ... KerArgT> 
 void evaluate_regrid_criterion( ViewT flag_view
-                              , KerT kernel  
-                              , KerArgT&& ... kernel_args) 
+                              , KerT kernel) 
 {
     using namespace grace  ;  
     auto& params = config_parser::get() ; 
@@ -75,6 +74,8 @@ void evaluate_regrid_criterion( ViewT flag_view
 
     double CTORE = params["amr"]["refinement_criterion_CTORE"].as<double>() ; 
     double CTODE = params["amr"]["refinement_criterion_CTODE"].as<double>() ;
+
+    int64_t total_cells = EXPR(nx, *ny, *nz);
     
     /* Each thread league deals with a single quadrant */ 
     Kokkos::TeamPolicy<default_execution_space> policy(nq, Kokkos::AUTO() ) ; 
@@ -88,21 +89,17 @@ void evaluate_regrid_criterion( ViewT flag_view
         * parallel reduction of regridding criterion 
         * over quadrant cells 
         */ 
-        auto reduce_range = 
-            Kokkos::TeamThreadRange( 
-                    team_member 
-                , EXPR(nx,*ny,*nz) ) ; 
         int const q = team_member.league_rank() ; 
         Kokkos::parallel_reduce(  
-                reduce_range 
-            , KOKKOS_LAMBDA (int64_t& icell, double& leps )
+              Kokkos::TeamThreadRange(team_member, total_cells) 
+            , [&] (const int64_t& icell, double& leps )
             {
                 int const i = icell%nx ;
                 int const j = icell/nx%ny; 
                 #ifdef GRACE_3D 
                 int const k = icell/nx/ny ; 
                 #endif  
-                auto eps_new = kernel(VEC(i+ngz,j+ngz,k+ngz), q, kernel_args...) ; 
+                auto eps_new = kernel(VEC(i+ngz,j+ngz,k+ngz), q) ; 
                 if( eps_new > leps ) {
                     leps = eps_new ;
                 }
@@ -251,7 +248,7 @@ void restrict_variables(      InViewT  in_state
             , VEC(nx,ny,nz),nvar ) ;
         
         parallel_for( team_range
-                    , KOKKOS_LAMBDA ( VEC(int& i, int& j, int& k), int& ivar)
+                    , [&] ( VEC(int& i, int& j, int& k), int& ivar)
                     {
                         int q_out[P4EST_CHILDREN]; 
                         for(int ichild=0;ichild<P4EST_CHILDREN;++ichild) {

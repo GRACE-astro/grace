@@ -36,7 +36,9 @@
 
 #include <grace/parallel/mpi_wrappers.hh>
 
-#include <hdf5.h>
+#include "hdf5.h"
+#include "H5public.h"
+#include "H5Ppublic.h"  
 #include <omp.h>
 /* xdmf */
 #include <grace/IO/xmf_utilities.hh>

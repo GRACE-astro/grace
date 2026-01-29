@@ -495,13 +495,13 @@ mpi_task_t make_mpi_send_task(
     ASSERT(send_rank_offsets[rr] + send_rank_sizes[rr] <= send_buf.size(), "Send out-of-bounds" ) ; 
 
     mpi_task_t task ; 
-    task._run = [&, send_buf, rr] (MPI_Request* req) {
+    task._run = [&, send_buf, rr] (sc_MPI_Request* req) {
         parallel::mpi_isend(
               send_buf.data() + send_rank_offsets[rr]
             , send_rank_sizes[rr]
             , rr 
             , 0
-            , MPI_COMM_WORLD
+            , sc_MPI_COMM_WORLD
             , req
         ) ;
     } ; 
@@ -522,13 +522,13 @@ mpi_task_t make_mpi_recv_task(
     ASSERT(recv_rank_offsets[rr] + recv_rank_sizes[rr] <= recv_buf.size(), "Receive out-of-bounds" ) ; 
 
     mpi_task_t task ; 
-    task._run = [&, recv_buf, rr] (MPI_Request* req) {
+    task._run = [&, recv_buf, rr] (sc_MPI_Request* req) {
         parallel::mpi_irecv(
               recv_buf.data() + recv_rank_offsets[rr]
             , recv_rank_sizes[rr]
             , rr 
             , 0
-            , MPI_COMM_WORLD
+            , sc_MPI_COMM_WORLD
             , req
         ) ;
     } ; 

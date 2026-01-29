@@ -52,4 +52,5 @@ function(register_grace_object target_name)
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>)
     # Register the object files of the target into the grace_objects interface library
     target_sources(grace_objects INTERFACE $<TARGET_OBJECTS:${target_name}>)
+    target_link_libraries(grace_objects INTERFACE ${target_name})
 endfunction()

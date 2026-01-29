@@ -178,12 +178,36 @@ void initialize(int& argc, char* argv[])
     argc = argc_new;
     argv = argv_new; 
     /* Initialize global objects in correct order */ 
-    install_signal_handlers(); 
-    grace::config_parser::initialize(parfile) ; 
-    grace::mpi_runtime::initialize(argc, argv)  ;
-    grace::kokkos_runtime::initialize(&argc, argv) ; 
-    grace::initialize_loggers() ; 
-    grace::device_stream_pool::initialize() ;
+    /* ------------------------------------------------------------------ */
+    std::cout << "[CHKPT] Before install_signal_handlers()" << std::endl;
+    install_signal_handlers();
+    std::cout << "[CHKPT] After install_signal_handlers()" << std::endl;
+
+    /* ------------------------------------------------------------------ */
+    std::cout << "[CHKPT] Before config_parser::initialize()" << std::endl;
+    grace::config_parser::initialize(parfile);
+    std::cout << "[CHKPT] After config_parser::initialize()" << std::endl;
+
+    /* ------------------------------------------------------------------ */
+    std::cout << "[CHKPT] Before mpi_runtime::initialize()" << std::endl;
+    grace::mpi_runtime::initialize(argc, argv);
+    std::cout << "[CHKPT] After mpi_runtime::initialize()" << std::endl;
+
+    /* ------------------------------------------------------------------ */
+    std::cout << "[CHKPT] Before kokkos_runtime::initialize()" << std::endl;
+    grace::kokkos_runtime::initialize(&argc, argv);
+    std::cout << "[CHKPT] After kokkos_runtime::initialize()" << std::endl;
+
+    /* ------------------------------------------------------------------ */
+    std::cout << "[CHKPT] Before initialize_loggers()" << std::endl;
+    grace::initialize_loggers();
+    std::cout << "[CHKPT] After initialize_loggers()" << std::endl;
+
+    /* ------------------------------------------------------------------ */
+    std::cout << "[CHKPT] Before device_stream_pool::initialize()" << std::endl;
+    grace::device_stream_pool::initialize();
+    std::cout << "[CHKPT] After device_stream_pool::initialize()" << std::endl;
+
     GRACE_INFO(GRACE_BANNER) ; 
     #ifdef GRACE_ENABLE_PROFILING
     grace::profiling_runtime::initialize() ; 

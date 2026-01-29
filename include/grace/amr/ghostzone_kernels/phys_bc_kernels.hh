@@ -31,7 +31,6 @@
 
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
-#include <grace/utils/fd_utils.hh>
 
 #include <grace/amr/ghostzone_kernels/index_helpers.hh>
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>

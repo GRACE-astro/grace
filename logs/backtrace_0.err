@@ -1,0 +1,7 @@
+[29-01-2026 10.34:51.722] [critical] ./build_test/grace() [0x551d98] Address (to be read by addr2line): 0x551d98
+./build_test/grace() [0x555e08] Address (to be read by addr2line): 0x555e08
+./build_test/grace() [0x57c589] Address (to be read by addr2line): 0x57c589
+./build_test/grace() [0x41cba5] Address (to be read by addr2line): 0x41cba5
+/lib64/libc.so.6(__libc_start_main+0xe5) [0x151c951917e5] Address (to be read by addr2line): 0x3a7e5
+./build_test/grace() [0x41b9ee] Address (to be read by addr2line): 0x41b9ee
+
