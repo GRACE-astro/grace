@@ -27,7 +27,6 @@
 
 #include <grace/amr/amr_functions.hh>
 
-#include <grace/data_structures/macros.hh>
 #include <grace/amr/tree.hh>
 #include <grace/amr/connectivity.hh>
 #include <grace/amr/forest.hh> 
@@ -60,7 +59,7 @@ get_local_num_quadrants()
     return grace::amr::forest::get().local_num_quadrants() ; 
 }
 
-size_t 
+int 
 get_quadrant_owner(size_t iquad)
 {
     auto& forest = grace::amr::forest::get() ;

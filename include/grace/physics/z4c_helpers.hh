@@ -33,7 +33,6 @@
 #include <grace/data_structures/variable_indices.hh>
 #include <grace/system/print.hh>
 #include <grace/coordinates/coordinates.hh>
-#include <grace/utils/fd_utils.hh>
 
 #include <array>
 
@@ -103,7 +102,7 @@ compute_gamma_tilde(
 {
     using namespace grace ; 
     using namespace utils ; 
-
+    #if 0
     double const gtxx = state(VEC(i,j,k),GTXX_+0,q);
     double const gtxy = state(VEC(i,j,k),GTXX_+1,q);
     double const gtxz = state(VEC(i,j,k),GTXX_+2,q);
@@ -129,7 +128,7 @@ compute_gamma_tilde(
     double const gtzzdx = grace::fd_der_bnd_check<der_order,0>(state,GTXX_+5, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[0 ];
     double const gtzzdy = grace::fd_der_bnd_check<der_order,1>(state,GTXX_+5, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[1 ];
     double const gtzzdz = grace::fd_der_bnd_check<der_order,2>(state,GTXX_+5, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[2 ];
-
+    #endif 
     // \tilde{\Gamma}^i = - D_j \tilde{\gamma}^{ij}
     //state(VEC(i,j,k),GAMMATX_+0, q) = gtxz*gtyydz - gtyz*(gtxydz + gtxzdy - 2*gtyzdx) - gtxz*gtyzdy - gtxy*gtyzdz + gtxydy*gtzz - gtyydx*gtzz + gtyy*(gtxzdz - gtzzdx) + gtxy*gtzzdy;
     //state(VEC(i,j,k),GAMMATX_+1, q) = -(gtxy*gtxzdz) + (gtxxdz - gtxzdx)*gtyz - gtxz*(gtxydz - 2*gtxzdy + gtyzdx) + gtxx*gtyzdz - gtxxdy*gtzz + gtxydx*gtzz + gtxy*gtzzdx - gtxx*gtzzdy;

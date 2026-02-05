@@ -85,6 +85,108 @@
         , riso / (r)*sqrt(A)
     } ; 
  }
+
+template< typename eos_t >
+static void 
+solve_tov(
+    eos_t eos, double rho_c, double press_floor, double dr, 
+    Kokkos::View<double*,grace::default_space> massl,
+    Kokkos::View<double*,grace::default_space> rl,
+    Kokkos::View<double*,grace::default_space> pressl,
+    Kokkos::View<double*,grace::default_space> nul,
+    Kokkos::View<double*,grace::default_space> risol,
+    Kokkos::View<double *, grace::default_space> tov_params
+)
+{
+    Kokkos::parallel_for("solve_tov", 1, KOKKOS_LAMBDA (int dummy){
+        unsigned int err ; 
+        double ye, eps;     
+        double temp = 0.0; 
+        double rho = rho_c ;
+
+        /* Find central pressure, eps, ye */
+        double const _pressC_loc = eos.press_eps_ye__beta_eq__rho_temp(eps,ye,rho,temp,err) ; 
+
+        massl(0) = 0. ;
+        pressl(0) = _pressC_loc ; 
+        nul(0)   = 0.0 ; 
+        risol(0) = 0.0 ; 
+            
+        size_t npt=1;
+        for( int ii=0; ii<N_POINTS-1; ++ii) {
+            double rr; 
+            // initialize state for rk4 
+            std::array<double,4> y = {massl(ii),pressl(ii),nul(ii),risol(ii)} ;
+            auto state = y ; 
+            // rk4 
+            rr = ii*dr ; 
+            auto k1 = tov_rhs<eos_t>(rr,state,eos);
+            for( int jj=0; jj<4; ++jj) {
+                state[jj] = y[jj] + 0.5 * dr * k1[jj] ; 
+            }
+            rr = (ii+0.5)*dr;
+            auto k2 = tov_rhs<eos_t>(rr,state,eos);
+            for( int jj=0; jj<4; ++jj) {
+                state[jj] = y[jj] + 0.5 * dr * k2[jj] ; 
+            }
+            auto k3 = tov_rhs<eos_t>(rr,state,eos);
+            for( int jj=0; jj<4; ++jj) {
+                state[jj] = y[jj] + dr * k3[jj] ; 
+            }
+            rr = (ii+1)*dr;
+            auto k4 = tov_rhs<eos_t>(rr,state,eos);
+            for( int jj=0; jj<4; ++jj) {
+                state[jj] = y[jj] + (dr/6.0) * (k1[jj] + 2*k2[jj] + 2*k3[jj] + k4[jj]) ; 
+            }
+
+            if ( ( state[1] <= press_floor) or (state[1] <= 0)) 
+            {
+                npt = ii+1; 
+                break ; 
+            } 
+
+            massl(ii+1)  = state[0]  ; 
+            pressl(ii+1) = state[1]  ;
+            nul(ii+1)    = state[2]  ;
+            rl(ii+1)     = rr        ; 
+            risol(ii+1)  = state[3]  ;
+        }
+        // find M and R at the edge:
+        auto const _linterp = [] (double x, double x0, double x1, double y0, double y1) {
+            double lambda = (x-x0)/(x1-x0) ;
+            return y0 * (1.0-lambda) + y1 * lambda ;  
+        } ; 
+        double r_edge = _linterp(press_floor, pressl(npt-2), pressl(npt-1), rl(npt-2), rl(npt-1)) ; 
+        double m_tov = _linterp(press_floor, pressl(npt-2), pressl(npt-1), massl(npt-2), massl(npt-1)) ; 
+
+        // replace last solved point with edge 
+        pressl(npt-1) = press_floor ; 
+        massl(npt-1)  = m_tov ; 
+        nul(npt-1)    = _linterp(r_edge,rl(npt-2),rl(npt-1),nul(npt-2),nul(npt-1)) ; 
+        risol(npt-1)  = _linterp(r_edge,rl(npt-2),rl(npt-1),risol(npt-2),risol(npt-1)) ; 
+
+        rl(npt-1)  = r_edge ; 
+
+        // rescale nu and r_iso 
+        // to match schwarzschild exterior 
+        double const corr = 0.5 * log(1-2*m_tov/r_edge) - nul(npt-1) ; 
+        double const riso_corr = 0.5*(r_edge-m_tov+sqrt(r_edge*(r_edge-2*m_tov)))/risol(npt-1) ; 
+        for ( int j=0; j<npt; ++j) {
+            nul(j) += corr ; 
+            risol(j) *= riso_corr ; 
+        }
+
+        // store these to extract them 
+        // from the kernel 
+        tov_params(0) = r_edge ; 
+        tov_params(1) = m_tov ; 
+        tov_params(2) = _pressC_loc ; 
+        tov_params(3) = 0.0 ; // unused, remove 
+        tov_params(4) = press_floor ; 
+        tov_params(5) = npt  ; 
+        tov_params(6) = risol(npt-1) ; 
+    }) ;
+}
  //**************************************************************************************************
  /**
   * @brief TOV initial data kernel.
@@ -118,97 +220,8 @@
         r = Kokkos::View<double *, grace::default_space>("r", N_POINTS) ;
         r_iso = Kokkos::View<double *, grace::default_space>("r_iso", N_POINTS) ;
 
-        auto rl = r ; auto massl = mass ; auto pressl = press ; auto nul = nu ; auto risol = r_iso ; 
-
         GRACE_INFO("In TOV setup.") ; 
-        Kokkos::parallel_for("solve_tov", 1, KOKKOS_LAMBDA (int dummy){
-            unsigned int err ; 
-            double ye, eps;     
-            double temp = 0.0; 
-            double rho = rhoC ;
-
-            /* Find central pressure, eps, ye */
-            double const _pressC_loc = eos.press_eps_ye__beta_eq__rho_temp(eps,ye,rho,temp,err) ; 
-
-            massl(0) = 0. ;
-            pressl(0) = _pressC_loc ; 
-            nul(0)   = 0.0 ; 
-            risol(0) = 0.0 ; 
-             
-            size_t npt=1;
-            for( int ii=0; ii<N_POINTS-1; ++ii) {
-                double rr; 
-                // initialize state for rk4 
-                std::array<double,4> y = {massl(ii),pressl(ii),nul(ii),risol(ii)} ;
-                auto state = y ; 
-                // rk4 
-                rr = ii*dr ; 
-                auto k1 = tov_rhs<eos_t>(rr,state,eos);
-                for( int jj=0; jj<4; ++jj) {
-                    state[jj] = y[jj] + 0.5 * dr * k1[jj] ; 
-                }
-                rr = (ii+0.5)*dr;
-                auto k2 = tov_rhs<eos_t>(rr,state,eos);
-                for( int jj=0; jj<4; ++jj) {
-                    state[jj] = y[jj] + 0.5 * dr * k2[jj] ; 
-                }
-                auto k3 = tov_rhs<eos_t>(rr,state,eos);
-                for( int jj=0; jj<4; ++jj) {
-                    state[jj] = y[jj] + dr * k3[jj] ; 
-                }
-                rr = (ii+1)*dr;
-                auto k4 = tov_rhs<eos_t>(rr,state,eos);
-                for( int jj=0; jj<4; ++jj) {
-                    state[jj] = y[jj] + (dr/6.0) * (k1[jj] + 2*k2[jj] + 2*k3[jj] + k4[jj]) ; 
-                }
-
-                if ( ( state[1] <= press_floor) or (state[1] <= 0)) 
-                {
-                    npt = ii+1; 
-                    break ; 
-                } 
-
-                massl(ii+1)  = state[0]  ; 
-                pressl(ii+1) = state[1]  ;
-                nul(ii+1)    = state[2]  ;
-                rl(ii+1)     = rr        ; 
-                risol(ii+1)  = state[3]  ;
-            }
-            // find M and R at the edge:
-            auto const _linterp = [] (double x, double x0, double x1, double y0, double y1) {
-                double lambda = (x-x0)/(x1-x0) ;
-                return y0 * (1.0-lambda) + y1 * lambda ;  
-            } ; 
-            double r_edge = _linterp(press_floor, pressl(npt-2), pressl(npt-1), rl(npt-2), rl(npt-1)) ; 
-            double m_tov = _linterp(press_floor, pressl(npt-2), pressl(npt-1), massl(npt-2), massl(npt-1)) ; 
-
-            // replace last solved point with edge 
-            pressl(npt-1) = press_floor ; 
-            massl(npt-1)  = m_tov ; 
-            nul(npt-1)    = _linterp(r_edge,rl(npt-2),rl(npt-1),nul(npt-2),nul(npt-1)) ; 
-            risol(npt-1)  = _linterp(r_edge,rl(npt-2),rl(npt-1),risol(npt-2),risol(npt-1)) ; 
-
-            rl(npt-1)  = r_edge ; 
-
-            // rescale nu and r_iso 
-            // to match schwarzschild exterior 
-            double const corr = 0.5 * log(1-2*m_tov/r_edge) - nul(npt-1) ; 
-            double const riso_corr = 0.5*(r_edge-m_tov+sqrt(r_edge*(r_edge-2*m_tov)))/risol(npt-1) ; 
-            for ( int j=0; j<npt; ++j) {
-                nul(j) += corr ; 
-                risol(j) *= riso_corr ; 
-            }
-
-            // store these to extract them 
-            // from the kernel 
-            tov_params(0) = r_edge ; 
-            tov_params(1) = m_tov ; 
-            tov_params(2) = _pressC_loc ; 
-            tov_params(3) = 0.0 ; // unused, remove 
-            tov_params(4) = press_floor ; 
-            tov_params(5) = npt  ; 
-            tov_params(6) = risol(npt-1) ; 
-        }) ; 
+        solve_tov(eos,rhoC,press_floor,dr,mass,r,press,nu,r_iso,tov_params);
         Kokkos::fence() ; 
         GRACE_INFO("TOV solver done.") ; 
         auto h_tov_params = Kokkos::create_mirror_view(tov_params) ; 
@@ -282,7 +295,6 @@
             id.press = sol[0] ; 
             id.ye    = _eos.ye_beta_eq__press_cold(sol[0],err) ;
             // Get rho and eps from press 
-            double eps ; 
             id.rho   = _eos.rho__press_cold_ye(sol[0], id.ye, err) ; 
             double s[3] = {
                 x/rL, y/rL, z/rL

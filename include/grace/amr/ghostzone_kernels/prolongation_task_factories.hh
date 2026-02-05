@@ -272,10 +272,7 @@ void insert_prolongation_tasks(
         }
     };
 
-    auto const get_info = [&] (int _kind, gpu_task_desc_t const& d) -> std::tuple<size_t,size_t,uint8_t> {
-        using namespace amr ; 
-        amr::element_kind_t kind = static_cast<amr::element_kind_t>(_kind) ; 
-
+    auto const get_info = [&] (gpu_task_desc_t const& d) -> std::tuple<size_t,size_t,uint8_t> {
         return {std::get<0>(d), ghost_array[std::get<0>(d)].cbuf_id, std::get<1>(d)} ; 
     } ; 
 
@@ -399,7 +396,7 @@ void insert_prolongation_tasks(
     // loop through bucket, fill
     for( int kind=0; kind<3 ; ++kind) { // element kind 
         for( auto const& d: prolong_tasks[kind]) { 
-            auto [_qid,_cid,_eid] = get_info(kind,d) ; 
+            auto [_qid,_cid,_eid] = get_info(d) ; 
             unpack_dependencies(kind,d) ; 
 
             qid[kind].push_back(_qid) ; 

@@ -430,7 +430,7 @@ void compute_emfs(
                                 ALL(), \
                                 ALL(), \
                                 ALL(), \
-                                vidx, \
+                                static_cast<size_t>(vidx), \
                                 q     ) ; \
     reconstructor(sview,i,j,k,uL,uR,dir) ; \
     } while(false)
@@ -440,7 +440,7 @@ void compute_emfs(
                                 ALL(), \
                                 ALL(), \
                                 ALL(), \
-                                vidx, \
+                                static_cast<size_t>(vidx), \
                                 jdir, \
                                 q     ) ; \
     reconstructor(sview,i,j,k,uL,uR,dir) ; \

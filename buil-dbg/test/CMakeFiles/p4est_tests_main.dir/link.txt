@@ -1,0 +1,2 @@
+/usr/bin/ar qc libp4est_tests_main.a CMakeFiles/p4est_tests_main.dir/mains/p4est_tests_main.cc.o
+/usr/bin/ranlib libp4est_tests_main.a

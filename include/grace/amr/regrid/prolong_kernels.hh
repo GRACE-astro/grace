@@ -32,9 +32,10 @@
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
 #include <grace/utils/limiters.hh>
-#include <grace/utils/prolongation.hh>
 
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
+#include <grace/amr/ghostzone_kernels/pr_helpers.hh>
+
 
 #include <Kokkos_Core.hpp>
 
@@ -44,29 +45,36 @@
 namespace grace {
 
 
-template< typename interpolator, typename view_t >
+template< typename interpolator_t, typename view_t >
 struct regrid_prolong_op {
     view_t data_in, data_out ; 
-    readonly_view_t<std::size_t> qid_in, qid_out ; 
+    readonly_view_t<std::size_t> qid_in, qid_out, varidx ;
     size_t n, g ; 
+    interpolator_t op ; //!< Must be copiable to device
 
     regrid_prolong_op(
         view_t _data_in,
         view_t _data_out,
         Kokkos::View<size_t*> _qid_in,
         Kokkos::View<size_t*> _qid_out,
+        Kokkos::View<size_t*> _varidx,
+        interpolator_t _op,
         size_t _n, size_t _g
     ) : data_in(_data_in)
       , data_out(_data_out)
       , qid_in(_qid_in)
       , qid_out(_qid_out)
+      , varidx(_varidx)
+      , op(_op)
       , n(_n), g(_g)
     {}
 
     KOKKOS_INLINE_FUNCTION
-    void operator() (size_t i, size_t j, size_t k, size_t iv, size_t iq) const 
+    void operator() (size_t i, size_t j, size_t k, size_t vidx, size_t iq) const 
     {
+        using namespace Kokkos ; 
         auto qid_fine = qid_in(iq) ; 
+        auto iv = varidx(vidx) ; 
 
         int8_t ichild = iq % P4EST_CHILDREN ; 
         int off_x = ((ichild>>0)&1) * n/2 ;
@@ -76,14 +84,17 @@ struct regrid_prolong_op {
         auto qid_coarse = qid_out(iq/P4EST_CHILDREN) ; 
 
         int signs[3] = {
-            (i%2) ? +1 : -1,
-            (j%2) ? +1 : -1,
-            (k%2) ? +1 : -1
+            (i%2) ? interpolator_t::up_cell_flag : interpolator_t::low_cell_flag,
+            (j%2) ? interpolator_t::up_cell_flag : interpolator_t::low_cell_flag,
+            (k%2) ? interpolator_t::up_cell_flag : interpolator_t::low_cell_flag,
         } ; 
-
-        data_in(i+g,j+g,k+g,iv,qid_fine) = interpolator::interpolate(
-            off_x + g + i/2, off_y + g + j/2, off_z + g + k/2, qid_coarse, iv,
-            signs[0], signs[1], signs[2], data_out
+        auto u = subview(data_out, ALL(),ALL(),ALL(), iv, qid_coarse) ; 
+        data_in(i+g,j+g,k+g,iv,qid_fine) = op(
+            u,
+            off_x + g + i/2,
+            off_y + g + j/2,
+            off_z + g + k/2,
+            signs[0], signs[1], signs[2]
         ) ; 
     }
 } ; 
@@ -331,32 +342,53 @@ gpu_task_t make_prolong(
     view_t& data_out,
     std::vector<size_t> const& qin, 
     std::vector<size_t> const& qout,
+    std::vector<size_t> const& varlist_lo,
+    std::vector<size_t> const& varlist_ho,
+    std::vector<double> const& ho_prolong_coeffs,
     grace::device_stream_t& stream,
-    size_t nvars,
     task_id_t& task_counter)
 {
     using namespace Kokkos ; 
     DECLARE_GRID_EXTENTS;
+
+    using prolong_op_lo = slope_limited_prolong_op<grace::minmod> ; 
+    using prolong_op_ho = lagrange_prolong_op<4> ; 
+
     GRACE_TRACE("Registering prolong task, tid {}, n elements {}", task_counter, qin.size());
     Kokkos::View<size_t*> qid_src("regrid_prolong_src_qid", qout.size()) 
-                        , qid_dst("regrid_prolong_dst_qid", qin.size()) ;
+                        , qid_dst("regrid_prolong_dst_qid", qin.size()) 
+                        , varidx_lo("regrid_prolong_lo_vidx", varlist_lo.size())
+                        , varidx_ho("regrid_prolong_ho_vidx", varlist_ho.size());
     deep_copy_vec_to_view(qid_src, qout) ; 
     deep_copy_vec_to_view(qid_dst, qin) ;
-    
+    deep_copy_vec_to_view(varidx_lo, varlist_lo) ; 
+    deep_copy_vec_to_view(varidx_ho, varlist_ho) ; 
+
+    Kokkos::View<double*> ho_prolong_coeffs_d("prolong_coefficients", ho_prolong_coeffs.size()) ; 
+    deep_copy_vec_to_view(ho_prolong_coeffs_d,ho_prolong_coeffs) ; 
+
     gpu_task_t task {} ; 
 
-    regrid_prolong_op<utils::linear_prolongator_t<minmod>,view_t>
-        functor(data_in,data_out,qid_dst,qid_src, nx, ngz) ; 
+    regrid_prolong_op<prolong_op_lo,view_t>
+        functor_lo(data_in,data_out,qid_dst,qid_src,varidx_lo,prolong_op_lo{}, nx, ngz) ; 
+    regrid_prolong_op<prolong_op_ho,view_t>
+        functor_ho(data_in,data_out,qid_dst,qid_src,varidx_ho,prolong_op_ho{ho_prolong_coeffs_d}, nx, ngz) ; 
 
     DefaultExecutionSpace exec_space{stream} ; 
     // loop over fine quad_ids --> qid_in 
     MDRangePolicy<Rank<5,Iterate::Left>>
-    policy{
-        exec_space, {0,0,0,0,0}, {nx,ny,nz,nvars,qin.size()}
+    policy_lo{
+        exec_space, {0,0,0,0,0}, {nx,ny,nz,varlist_lo.size(),qin.size()}
     } ; 
+
+    MDRangePolicy<Rank<5,Iterate::Left>>
+    policy_ho{
+        exec_space, {0,0,0,0,0}, {nx,ny,nz,varlist_ho.size(),qin.size()}
+    } ;
     
-    task._run = [functor, policy] (view_alias_t dummy) {
-        parallel_for("regrid_prolong", policy, functor) ;
+    task._run = [functor_lo, functor_ho, policy_lo, policy_ho] (view_alias_t dummy) {
+        parallel_for("regrid_prolong", policy_lo, functor_lo) ;
+        parallel_for("regrid_prolong_high_order", policy_ho, functor_ho) ;
         #ifdef GRACE_DEBUG 
         Kokkos::fence() ; 
         #endif

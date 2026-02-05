@@ -62,97 +62,10 @@ enum grace_variable_types {
     N_GRACE_VARIABLE_TYPES 
 } ; 
 //*****************************************************************************************************
-/**
-* @brief Register a variable within GRACE.
-* \ingroup variables
-* @param name            Name of the variable.
-* @param staggered       Staggering of variable in each direction.
-* @param need_ghostzones Whether the variable needs extra ghostzone storage.
-* @param is_evolved      Whether the variable is evolved.
-* @param need_fluxes     Whether the variables needs fluxes. 
-* @param is_vector       True if the variable is a component of a vector.
-* @return int            Index of the variable in respective state array.
-*/
-static int register_variable(     std::string const& name
-                                , std::array<bool, GRACE_NSPACEDIM> staggering  
-                                , bool is_evolved 
-                                , bool need_fluxes
-                                , std::string const & bc_type = "none"
-                                , std::string const & interp_type = "none"
-                                , bool is_vector = false
-                                , bool is_tensor = false 
-                                , int comp_num = 0 
-                                , std::string const& vec_name = "" ) ;
-//*****************************************************************************************************
 namespace detail {
-
-static int register_scalar( std::string const& name
-                          , bool is_evolved 
-                          , bool need_fluxes 
-                          , bc_t const& bc_type 
-                          , var_amr_interp_t const& int_type ) ;
- 
-static int register_staggered_variable( std::string const& name
-                                      , bool is_evolved 
-                                      , bool need_fluxes
-                                      , bc_t const & bc_type 
-                                      , var_amr_interp_t const& int_type
-                                      , grace::var_staggering_t const& staggering 
-                                      , bool is_vector = false 
-                                      , bool is_tensor = false 
-                                      , int num_comp  = 0) ;
-
-static int register_vector( std::string const& name
-                          , bool is_evolved 
-                          , bool need_fluxes
-                          , int num_comp
-                          , bc_t const & bc_type 
-                          , var_amr_interp_t const& int_type) ; 
-
-static int register_tensor( std::string const& name
-                          , bool is_evolved 
-                          , bool need_fluxes
-                          , int num_comp
-                          , bc_t const & bc_type 
-                          , var_amr_interp_t const& int_type) ; 
-
-}
-
-/**
- * @brief Register all variables.
- * \ingroup variables
- * Whenever a new physics module needs to be defined, the indices for 
- * its variables need to be defined as <code>extern int</code>s with 
- * unique uppercase identifiers in this file. These variables are then 
- * filled with values in the correct order within this routine, which 
- * needs to be updated with appropriate calls to <code>register_variable</code>
- * for the new grid functions. 
- */
-void register_variables() ; 
-
-namespace detail {
-
-extern int num_vars      ; 
-extern int last_evolved  ; 
-extern int num_fluxes    ;
-extern int last_flux     ;  
-extern int first_flux     ;  
-
 /****************************************************/
 /*                Variable arrays sizes             */
 /****************************************************/
-extern int num_evolved   ;
-extern int num_auxiliary ;
-
-extern int num_face_staggered_vars ;
-extern int num_face_staggered_aux  ;
-
-extern int num_edge_staggered_vars ;
-extern int num_edge_staggered_aux  ;
-
-extern int num_corner_staggered_vars ;
-extern int num_corner_staggered_aux  ;
-
 extern int num_vector_vars ;
 extern int num_tensor_vars ; 
 /****************************************************/
@@ -165,25 +78,18 @@ extern std::vector<std::string> _varnames ;
 extern std::vector<std::string> _auxnames ; 
 
 extern std::vector<std::string> _facex_staggered_varnames ;
-extern std::vector<std::string> _facex_staggered_auxnames ;
 
 extern std::vector<std::string> _facey_staggered_varnames ;
-extern std::vector<std::string> _facey_staggered_auxnames ;
 
 extern std::vector<std::string> _facez_staggered_varnames ;
-extern std::vector<std::string> _facez_staggered_auxnames ;
 
 extern std::vector<std::string> _edgexy_staggered_varnames ; 
-extern std::vector<std::string> _edgexy_staggered_auxnames ;
 
 extern std::vector<std::string> _edgexz_staggered_varnames ; 
-extern std::vector<std::string> _edgexz_staggered_auxnames ;
 
 extern std::vector<std::string> _edgeyz_staggered_varnames ; 
-extern std::vector<std::string> _edgeyz_staggered_auxnames ;
 
 extern std::vector<std::string> _corner_staggered_varnames ; 
-extern std::vector<std::string> _corner_staggered_auxnames ;
 /****************************************************/
 /****************************************************/
  
@@ -230,8 +136,6 @@ extern std::vector<grace::var_amr_interp_t> _corner_vars_interp_types ;
 /*              Handling of vector/tensor           */
 /*                    components                    */
 /****************************************************/
-extern std::vector<int> _vector_var_indices ; 
-extern std::vector<int> _tensor_var_indices ; 
 
 extern std::unordered_map<std::string, variable_properties_t<GRACE_NSPACEDIM>> 
     _varprops; 
@@ -240,164 +144,151 @@ extern std::unordered_map<std::string, variable_properties_t<GRACE_NSPACEDIM>>
 
 } /* namespace grace::variables::detail */
 
+
+/**
+ * @brief Register all variables.
+ * \ingroup variables
+ * Whenever a new physics module needs to be defined, the indices for 
+ * its variables need to be defined as <code>extern int</code>s with 
+ * unique uppercase identifiers in this file. These variables are then 
+ * filled with values in the correct order within this routine, which 
+ * needs to be updated with appropriate calls to <code>register_variable</code>
+ * for the new grid functions. 
+ */
+void register_variables() ; 
+
 } } /* namespace grace::variables */
 
-#ifdef GRACE_ENABLE_BURGERS 
-#define VARIABLE_LIST_BURGERS \
-DECLARE_VAR_INDEX_IMPL(U)     
-#else 
-#define VARIABLE_LIST_BURGERS
-#endif 
-#ifdef GRACE_ENABLE_SCALAR_ADV
-#define VARIABLE_LIST_SCALAR_ADV \
-DECLARE_VAR_INDEX_IMPL(U)        \
-DECLARE_VAR_INDEX_IMPL(ERR)      
-#else
-#define VARIABLE_LIST_SCALAR_ADV
-#endif 
-//#ifdef GRACE_ENABLE_GRMHD 
-/* Valencia GRMHD conservatives */
-#define VARIABLE_LIST_HYDROBASE                     \
-DECLARE_VAR_INDEX_IMPL(DENS)                        \
-DECLARE_VAR_INDEX_IMPL(SX)                          \
-DECLARE_VAR_INDEX_IMPL(SY)                          \
-DECLARE_VAR_INDEX_IMPL(SZ)                          \
-DECLARE_VAR_INDEX_IMPL(TAU)                         \
-DECLARE_VAR_INDEX_IMPL(YESTAR)                      \
-DECLARE_VAR_INDEX_IMPL(ENTROPYSTAR)                 \
-DECLARE_VAR_INDEX_IMPL(BSX)                         \
-DECLARE_VAR_INDEX_IMPL(BSY)                         \
-DECLARE_VAR_INDEX_IMPL(BSZ)                         \
-DECLARE_VAR_INDEX_IMPL(RHO)                         \
-DECLARE_VAR_INDEX_IMPL(PRESS)                       \
-DECLARE_VAR_INDEX_IMPL(ZVECX)                        \
-DECLARE_VAR_INDEX_IMPL(ZVECY)                        \
-DECLARE_VAR_INDEX_IMPL(ZVECZ)                        \
-DECLARE_VAR_INDEX_IMPL(BX)                        \
-DECLARE_VAR_INDEX_IMPL(BY)                        \
-DECLARE_VAR_INDEX_IMPL(BZ)                        \
-DECLARE_VAR_INDEX_IMPL(TEMP)                        \
-DECLARE_VAR_INDEX_IMPL(YE)                          \
-DECLARE_VAR_INDEX_IMPL(ENTROPY)                     \
-DECLARE_VAR_INDEX_IMPL(EPS)                         \
-DECLARE_VAR_INDEX_IMPL(BDIV)                        \
-DECLARE_VAR_INDEX_IMPL(SMALLB2)                     \
-DECLARE_VAR_INDEX_IMPL(C2P_ERR)
-#ifdef GRACE_ENABLE_M1
-#define VARIABLE_LIST_M1        \
-DECLARE_VAR_INDEX_IMPL(ERAD)    \
-DECLARE_VAR_INDEX_IMPL(NRAD)    \
-DECLARE_VAR_INDEX_IMPL(FRADX)   \
-DECLARE_VAR_INDEX_IMPL(FRADY)   \
-DECLARE_VAR_INDEX_IMPL(FRADZ)   \
-DECLARE_VAR_INDEX_IMPL(KAPPAA)  \
-DECLARE_VAR_INDEX_IMPL(KAPPAS)  \
-DECLARE_VAR_INDEX_IMPL(ETA)     \
-DECLARE_VAR_INDEX_IMPL(ETAN)    \
-DECLARE_VAR_INDEX_IMPL(KAPPAAN)    
-#else 
-#define VARIABLE_LIST_M1
-#endif 
-#ifdef GRACE_ENABLE_COWLING_METRIC
-/* ADM metric functions */
-#define VARIABLE_LIST_ADMBASE                     \
-DECLARE_VAR_INDEX_IMPL(GXX)                       \
-DECLARE_VAR_INDEX_IMPL(GXY)                       \
-DECLARE_VAR_INDEX_IMPL(GXZ)                       \
-DECLARE_VAR_INDEX_IMPL(GYY)                       \
-DECLARE_VAR_INDEX_IMPL(GYZ)                       \
-DECLARE_VAR_INDEX_IMPL(GZZ)                       \
-DECLARE_VAR_INDEX_IMPL(ALP)                       \
-DECLARE_VAR_INDEX_IMPL(BETAX)                     \
-DECLARE_VAR_INDEX_IMPL(BETAY)                     \
-DECLARE_VAR_INDEX_IMPL(BETAZ)                     \
-DECLARE_VAR_INDEX_IMPL(KXX)                       \
-DECLARE_VAR_INDEX_IMPL(KXY)                       \
-DECLARE_VAR_INDEX_IMPL(KXZ)                       \
-DECLARE_VAR_INDEX_IMPL(KYY)                       \
-DECLARE_VAR_INDEX_IMPL(KYZ)                       \
-DECLARE_VAR_INDEX_IMPL(KZZ)                       
-#elif defined(GRACE_ENABLE_Z4C_METRIC)
-#define VARIABLE_LIST_ADMBASE                     \
-DECLARE_VAR_INDEX_IMPL(GTXX)                     \
-DECLARE_VAR_INDEX_IMPL(GTXY)                     \
-DECLARE_VAR_INDEX_IMPL(GTXZ)                     \
-DECLARE_VAR_INDEX_IMPL(GTYY)                     \
-DECLARE_VAR_INDEX_IMPL(GTYZ)                     \
-DECLARE_VAR_INDEX_IMPL(GTZZ)                     \
-DECLARE_VAR_INDEX_IMPL(CHI)                      \
-DECLARE_VAR_INDEX_IMPL(THETA)                    \
-DECLARE_VAR_INDEX_IMPL(GAMMATX)                  \
-DECLARE_VAR_INDEX_IMPL(GAMMATY)                  \
-DECLARE_VAR_INDEX_IMPL(GAMMATZ)                  \
-DECLARE_VAR_INDEX_IMPL(ATXX)                     \
-DECLARE_VAR_INDEX_IMPL(ATXY)                     \
-DECLARE_VAR_INDEX_IMPL(ATXZ)                     \
-DECLARE_VAR_INDEX_IMPL(ATYY)                     \
-DECLARE_VAR_INDEX_IMPL(ATYZ)                     \
-DECLARE_VAR_INDEX_IMPL(ATZZ)                     \
-DECLARE_VAR_INDEX_IMPL(KHAT)                     \
-DECLARE_VAR_INDEX_IMPL(ALP)                      \
-DECLARE_VAR_INDEX_IMPL(BETAX)                    \
-DECLARE_VAR_INDEX_IMPL(BETAY)                    \
-DECLARE_VAR_INDEX_IMPL(BETAZ)                    \
-DECLARE_VAR_INDEX_IMPL(BDRIVERX)                 \
-DECLARE_VAR_INDEX_IMPL(BDRIVERY)                 \
-DECLARE_VAR_INDEX_IMPL(BDRIVERZ)                 \
-DECLARE_VAR_INDEX_IMPL(PSI4RE)                   \
-DECLARE_VAR_INDEX_IMPL(PSI4IM)                   \
-DECLARE_VAR_INDEX_IMPL(HAM)                      \
-DECLARE_VAR_INDEX_IMPL(MOMX)                     \
-DECLARE_VAR_INDEX_IMPL(MOMY)                     \
-DECLARE_VAR_INDEX_IMPL(MOMZ)                       
-#elif defined(GRACE_ENABLE_BSSN_METRIC)
-#define VARIABLE_LIST_ADMBASE                     \
-DECLARE_VAR_INDEX_IMPL(GTXX)                     \
-DECLARE_VAR_INDEX_IMPL(GTXY)                     \
-DECLARE_VAR_INDEX_IMPL(GTXZ)                     \
-DECLARE_VAR_INDEX_IMPL(GTYY)                     \
-DECLARE_VAR_INDEX_IMPL(GTYZ)                     \
-DECLARE_VAR_INDEX_IMPL(GTZZ)                     \
-DECLARE_VAR_INDEX_IMPL(CHI)                      \
-DECLARE_VAR_INDEX_IMPL(GAMMATX)                  \
-DECLARE_VAR_INDEX_IMPL(GAMMATY)                  \
-DECLARE_VAR_INDEX_IMPL(GAMMATZ)                  \
-DECLARE_VAR_INDEX_IMPL(ATXX)                     \
-DECLARE_VAR_INDEX_IMPL(ATXY)                     \
-DECLARE_VAR_INDEX_IMPL(ATXZ)                     \
-DECLARE_VAR_INDEX_IMPL(ATYY)                     \
-DECLARE_VAR_INDEX_IMPL(ATYZ)                     \
-DECLARE_VAR_INDEX_IMPL(ATZZ)                     \
-DECLARE_VAR_INDEX_IMPL(KTR)                      \
-DECLARE_VAR_INDEX_IMPL(ALP)                      \
-DECLARE_VAR_INDEX_IMPL(BETAX)                    \
-DECLARE_VAR_INDEX_IMPL(BETAY)                    \
-DECLARE_VAR_INDEX_IMPL(BETAZ)                    \
-DECLARE_VAR_INDEX_IMPL(HAM)                      \
-DECLARE_VAR_INDEX_IMPL(MOMX)                     \
-DECLARE_VAR_INDEX_IMPL(MOMY)                     \
-DECLARE_VAR_INDEX_IMPL(MOMZ)                       
-#endif  
-//#else 
-//#define VARIABLE_LIST_ADMBASE 
-//#define VARIABLE_LIST_HYDROBASE
-//#endif 
+enum evol_hrsc_var_cc_idx : int {
+    DENS_ = 0,
+    SX_,
+    SY_,
+    SZ_,
+    TAU_,
+    YESTAR_,
+    ENTROPYSTAR_,
+    #ifdef GRACE_ENABLE_M1
+    ERAD_,
+    NRAD_,
+    FRADX_,
+    FRADY_,
+    FRADZ_,
+    #endif 
+    N_HRSC_CC
+} ; 
 
-#define DECLARE_VARIABLE_INDICES    \
-VARIABLE_LIST_HYDROBASE             \
-VARIABLE_LIST_ADMBASE               \
-VARIABLE_LIST_M1                    \
-VARIABLE_LIST_BURGERS               \
-VARIABLE_LIST_SCALAR_ADV
+enum evol_var_fc_x_idx : int {
+    BSX_=0,
+    N_FC_X
+} ; 
 
-#define DECLARE_VAR_INDEX_IMPL(var) extern int var;
-DECLARE_VARIABLE_INDICES
-#undef DECLARE_VAR_INDEX_IMPL
+enum evol_var_fc_y_idx : int {
+    BSY_=0,
+    N_FC_Y
+} ; 
 
-#define  DECLARE_VAR_INDEX_IMPL(var) extern GRACE_DEVICE int var##_;
-DECLARE_VARIABLE_INDICES
-#undef DECLARE_VAR_INDEX_IMPL
+enum evol_var_fc_z_idx : int {
+    BSZ_=0,
+    N_FC_Z
+} ; 
 
-#define DECLARE_VAR_INDEX_IMPL(name) 
+enum evol_var_ec_yz_idx : int {
+    N_EC_YZ=0
+} ; 
+
+enum evol_var_ec_xz_idx : int {
+    N_EC_XZ=0
+} ; 
+
+enum evol_var_ec_xy_idx : int {
+    N_EC_XY=0
+} ; 
+
+enum evol_var_vc_idx : int {
+    N_VC=0
+} ; 
+
+enum evol_fd_var_cc_idx : int {
+    #ifdef GRACE_ENABLE_COWLING_METRIC
+    GXX_=N_HRSC_CC,
+    GXY_,
+    GXZ_,
+    GYY_,
+    GYZ_,
+    GZZ_,
+    ALP_,
+    BETAX_,
+    BETAY_,
+    BETAZ_,
+    KXX_,
+    KXY_,
+    KXZ_,
+    KYY_,
+    KYZ_,
+    KZZ_,
+    #endif 
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    GTXX_=N_HRSC_CC,
+    GTXY_,
+    GTXZ_,
+    GTYY_,
+    GTYZ_,
+    GTZZ_,
+    CHI_,
+    THETA_,
+    GAMMATX_,
+    GAMMATY_,
+    GAMMATZ_,
+    ATXX_,
+    ATXY_,
+    ATXZ_,
+    ATYY_,
+    ATYZ_,
+    ATZZ_,
+    KHAT_,
+    ALP_,
+    BETAX_,
+    BETAY_,
+    BETAZ_,
+    BDRIVERX_,
+    BDRIVERY_,
+    BDRIVERZ_,
+    #endif
+    N_EVOL_VARS
+} ; 
+
+enum aux_var_idx : int {
+    RHO_=0,
+    ZVECX_,
+    ZVECY_,
+    ZVECZ_,
+    BX_,
+    BY_,
+    BZ_,
+    YE_,
+    TEMP_,
+    ENTROPY_,
+    EPS_,
+    PRESS_,
+    BDIV_,
+    SMALLB2_,
+    C2P_ERR_,
+    #ifdef GRACE_ENABLE_M1
+    KAPPAA_,
+    KAPPAS_,
+    ETA_,
+    ETAN_,
+    KAPPAAN_,
+    #endif
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    PSI4RE_,
+    PSI4IM_,
+    HAM_,
+    MOMX_,
+    MOMY_,
+    MOMZ_,
+    #endif
+    N_AUX_VARS
+} ; 
 
 #endif /* INCLUDE_GRACE_DATA_STRUCTURES_VARIABLE_INDICES */

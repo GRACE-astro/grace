@@ -740,13 +740,12 @@ inline uint8_t
 get_adjacent_idx<amr::FACE>(uint8_t eid, const int8_t dir[3]) {
     using namespace amr::detail ; 
     
-    int nz0=-1, nz1=-1;
-    int sgn0=0, sgn1=0;
+    int nz0=-1;
+    int sgn0=0;
     int cnt=0;
     for(int i=0;i<3;++i){
         if(dir[i]!=0){
             if(cnt==0){ nz0=i; sgn0=dir[i]>0; }
-            else { nz1=i; sgn1=dir[i]>0; }
             ++cnt;
         }
     }
@@ -761,13 +760,12 @@ inline uint8_t
 get_adjacent_idx<amr::EDGE>(uint8_t eid, const int8_t dir[3]) {
     using namespace amr::detail ; 
 
-    int nz0=-1, nz1=-1;
-    int sgn0=0, sgn1=0;
+    int nz0=-1;
+    int sgn0=0;
     int cnt=0;
     for(int i=0;i<3;++i){
         if(dir[i]!=0){
             if(cnt==0){ nz0=i; sgn0=dir[i]>0; }
-            else { nz1=i; sgn1=dir[i]>0; }
             ++cnt;
         }
     }
@@ -797,13 +795,11 @@ inline uint8_t
 get_adjacent_idx<amr::CORNER>(uint8_t eid, const int8_t dir[3]) {
     using namespace amr::detail ; 
 
-    int nz0=-1, nz1=-1;
-    int sgn0=0, sgn1=0;
+    int nz0=-1;
     int cnt=0;
     for(int i=0;i<3;++i){
         if(dir[i]!=0){
-            if(cnt==0){ nz0=i; sgn0=dir[i]>0; }
-            else { nz1=i; sgn1=dir[i]>0; }
+            if(cnt==0){ nz0=i;  }
             ++cnt;
         }
     }

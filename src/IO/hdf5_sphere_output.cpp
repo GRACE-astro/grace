@@ -262,7 +262,7 @@ void write_sphere_cell_data_impl(const spherical_surface_iface& sphere) {
 
     if( chunk_size > sphere.npoints_glob ) {
         GRACE_WARN("Chunk size {} < number of cells {} will be overridden." , chunk_size, sphere.npoints_glob ) ; 
-        chunk_size = max(1,sphere.npoints_glob ); 
+        chunk_size = max(1UL,sphere.npoints_glob ); 
     }
 
     auto comm = parallel::get_comm_world() ; 

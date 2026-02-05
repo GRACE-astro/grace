@@ -81,34 +81,29 @@ struct bondi_id_t {
         dlogr = (lrmax-lrmin)/npoints; 
         // view ptr 
         view_t alias_logr = logr ; 
-        double _lrmin{lrmin}, _dlr{dlogr} ; 
-        parallel_for(
-            "Fill_r_Bondi",
-            npoints,
-            [=] GRACE_HOST_DEVICE ( int i) {
-                alias_logr(i) = _lrmin + i * _dlr ; 
-            }
-        ) ;
-        auto logr_h = create_mirror_view(logr) ; 
-        deep_copy(logr_h, logr) ; 
+        auto logr_h = create_mirror_view(logr) ;
+        for( int i=0; i<npoints; ++i) {
+            logr_h(i) = lrmin + i * dlogr ; 
+        } 
+        deep_copy(logr, logr_h) ; 
         // solve the problem 
         // i_c is the index of the last point before the 
         // sonic radius
-        int i_c = static_cast<int>((log(rc)-lrmin)/dlogr);
+        int i_c = static_cast<int>((Kokkos::log(rc)-lrmin)/dlogr);
         auto logT_h = create_mirror_view(logT) ; 
         double _Tc(Tc), _n(n), _uc(uc) ; 
         // first we solve inwards of the sonic point 
         for( int i=i_c; i!=-1; i--) {
-            double r = exp(logr_h(i)); 
+            double r = Kokkos::exp(logr_h(i)); 
             auto froot = [=] (double T, double& f, double& df) {
                     double const M = 1.0 ; 
                     bondi_T__r(_n,_uc,r,_Tc,T,M,_rc,&f,&df);
                 } ;
-            double Tg = i==i_c ? Tc*(1+1e-06) : exp(logT_h(i+1)); // guess 
+            double Tg = i==i_c ? Tc*(1+1e-06) : Kokkos::exp(logT_h(i+1)); // guess 
             int rerr ; 
             double Tl = utils::rootfind_newton_raphson_unsafe(Tg,froot,30,1e-12,rerr) ; 
             if ( rerr != 1 ) {
-                logT_h(i) = log(Tl) ; 
+                logT_h(i) = Kokkos::log(Tl) ; 
             } else {
                 double f,df ; 
                 froot(Tg,f,df);
@@ -118,16 +113,16 @@ struct bondi_id_t {
         }   
         // Then we solve outwards
         for( int i=i_c+1; i<npoints; i++) {
-            double r = exp(logr_h(i)); 
+            double r = Kokkos::exp(logr_h(i)); 
             auto froot = [=] (double T, double& f, double& df) {
                     double const M = 1.0 ; 
                     bondi_T__r(_n,_uc,r,_Tc,T,M,_rc,&f,&df);
                 } ;
-            double Tg = i==i_c+1 ? Tc*(1-1e-06) : exp(logT_h(i-1)); // guess 
+            double Tg = i==i_c+1 ? Tc*(1-1e-06) : Kokkos::exp(logT_h(i-1)); // guess 
             int rerr ; 
             double Tl = utils::rootfind_newton_raphson_unsafe(Tg,froot,30,1e-12,rerr) ; 
             if ( rerr != 1 ) {
-                logT_h(i) = log(Tl) ; 
+                logT_h(i) = Kokkos::log(Tl) ; 
             } else {
                 double f,df ; 
                 froot(Tg,f,df);
@@ -157,19 +152,19 @@ struct bondi_id_t {
         double r_eps = 1e-6; 
         kerr_schild_to_boyer_lindquist(xyz,0.0,r_eps,&r,&theta,&phi) ; 
         // log radius
-        double _logr = log(r) ; 
+        double _logr = Kokkos::log(r) ; 
         // find the index 
         if ( _logr < lrmin or _logr > lrmax ) {
             Kokkos::abort("Bondi grid does not cover the domain") ; 
         }
         // Interpolate temperature from solution grid 
-        int ig = min(static_cast<int>((_logr-lrmin)/dlogr), npoints-2); 
+        int ig = Kokkos::min(static_cast<int>((_logr-lrmin)/dlogr), static_cast<int>(npoints-2)); 
         double const lambda = (_logr - logr(ig)) / dlogr;
         double _logT = (1.0 - lambda) * logT(ig) + lambda * logT(ig+1);
         // compute other quantities 
         double uBL[4] = {0,0,0,0}; 
         bondi_ur_rho_p__r(
-            Tc,exp(_logT),n,rc,uc,exp(_logr),K,&(uBL[1]),&id.rho,&id.press
+            Tc,Kokkos::exp(_logT),n,rc,uc,Kokkos::exp(_logr),K,&(uBL[1]),&id.rho,&id.press
         ) ; 
         
         // for now no B field 

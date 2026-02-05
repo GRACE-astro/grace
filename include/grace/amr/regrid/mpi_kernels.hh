@@ -32,7 +32,6 @@
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
 #include <grace/utils/limiters.hh>
-#include <grace/utils/prolongation.hh>
 
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
 

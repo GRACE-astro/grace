@@ -31,7 +31,6 @@
 #include <grace/coordinates/cartesian_coordinate_systems.hh>
 #include <grace/utils/grace_utils.hh>
 #include <grace/data_structures/grace_data_structures.hh>
-#include <grace/data_structures/macros.hh>
 #include <grace/config/config_parser.hh>
 #include <grace/errors/error.hh> 
 

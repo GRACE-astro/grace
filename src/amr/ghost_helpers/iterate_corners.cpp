@@ -53,9 +53,6 @@ static void register_physical_boundary_corner(
 {
     size_t const nsides = sides.size() ; 
 
-    // first order of business, figure out directions 
-    std::array<int8_t, 3> dir ;
-
     auto const get_dir = [&] (int off) -> int8_t {
         return off ? static_cast<int8_t>(+1) : static_cast<int8_t>(-1) ; 
     } ; 

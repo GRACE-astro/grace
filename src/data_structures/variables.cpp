@@ -41,7 +41,7 @@
 namespace grace 
 {
 
-size_t get_variable_index(std::string const& name, bool is_aux)
+int get_variable_index(std::string const& name, bool is_aux)
 {
     using namespace grace::variables::detail ; 
     /* first check if it's a state variable */
@@ -114,17 +114,17 @@ variable_list_impl_t::variable_list_impl_t()
                    ) ;
     Kokkos::realloc( _state
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
-                   , variables::detail::num_evolved
+                   , N_EVOL_VARS
                    , nq 
                    ) ;
     Kokkos::realloc( _state_p
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
-                   , variables::detail::num_evolved
+                   , N_EVOL_VARS
                    , nq 
                    ) ;
     Kokkos::realloc( _aux
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
-                   , variables::detail::num_auxiliary
+                   , N_EVOL_VARS
                    , nq 
                    ) ;  
     Kokkos::realloc( _fluxes
@@ -145,20 +145,20 @@ variable_list_impl_t::variable_list_impl_t()
                    , nq ) ; 
     _staggered_coords.realloc(VEC(nx,ny,nz),ngz,nq) ; 
     _staggered_vars.realloc( VEC(nx,ny,nz),ngz,nq
-                           , variables::detail::num_face_staggered_vars
-                           , variables::detail::num_edge_staggered_vars 
-                           , variables::detail::num_corner_staggered_vars) ;
+                           , N_FC_X
+                           , N_EC_YZ
+                           , N_VC) ;
     _staggered_vars_p.realloc( VEC(nx,ny,nz),ngz,nq
-                             , variables::detail::num_face_staggered_vars
-                             , variables::detail::num_edge_staggered_vars 
-                             , variables::detail::num_corner_staggered_vars) ;
+                             , N_FC_X
+                             , N_EC_YZ
+                             , N_VC) ;
     _staggered_aux.realloc( VEC(nx,ny,nz),ngz,nq
-                          , variables::detail::num_face_staggered_aux
-                          , variables::detail::num_edge_staggered_aux
-                          , variables::detail::num_corner_staggered_aux) ;
+                          , 0
+                          , 0
+                          , 0) ;
     
-    ASSERT(variables::detail::_varnames.size() == variables::detail::num_evolved, 
-    "Num evolved is " << variables::detail::num_evolved << " but varnames.size() is " << variables::detail::_varnames.size() ) ; 
+    ASSERT(variables::detail::_varnames.size() == N_EVOL_VARS, 
+    "Num evolved is " << N_EVOL_VARS << " but varnames.size() is " << variables::detail::_varnames.size() ) ; 
     // allocate staging buffers for timestepper 
     auto tstepper = get_param<std::string>("evolution","time_stepper") ; 
     int n_staging_bufs{0} ;  
@@ -168,12 +168,12 @@ variable_list_impl_t::variable_list_impl_t()
     _staging_buffer.reserve(n_staging_bufs) ; 
     _stag_staging_buffer.reserve(n_staging_bufs) ;
     for( int i=0; i<n_staging_bufs; ++i) {
-        _staging_buffer.emplace_back("staging_buffer", nx+2*ngz,ny+2*ngz,nz+2*ngz,variables::detail::num_evolved,nq) ; 
+        _staging_buffer.emplace_back("staging_buffer", nx+2*ngz,ny+2*ngz,nz+2*ngz,N_EVOL_VARS,nq) ; 
         _stag_staging_buffer.emplace_back(
             nx,ny,nz,ngz,nq,
-            variables::detail::num_face_staggered_vars,
-            variables::detail::num_edge_staggered_vars,
-            variables::detail::num_corner_staggered_vars
+            N_FC_X,
+            N_EC_YZ,
+            N_VC
         ); 
     }
     /* all done */

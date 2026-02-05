@@ -1,0 +1,22 @@
+{
+	"InstallScripts" : 
+	[
+		"/u/cmusolino/grace-pvt/buil-dbg/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/parallel/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/errors/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/utils/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/amr/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/amr/ghost_helpers/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/amr/regrid/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/coordinates/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/system/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/data_structures/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/IO/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/evolution/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/physics/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/src/physics/eos/cmake_install.cmake",
+		"/u/cmusolino/grace-pvt/buil-dbg/test/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

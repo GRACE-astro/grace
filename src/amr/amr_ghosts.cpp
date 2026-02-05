@@ -691,7 +691,6 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         auto &dsc = _reflux_face_descs[i];
         if (dsc.coarse_is_remote) {
             GRACE_TRACE("Coarse remote") ; 
-            hanging_remote_reflux_desc_t snd_desc{} ; 
             // coarse remote → we send to coarse owner
             for (int ic = 0; ic < P4EST_CHILDREN/2; ++ic) {
                 if (dsc.fine_is_remote[ic]) {
@@ -1114,8 +1113,8 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                 for( int jside=0; jside<dsc.n_sides; ++jside){ 
                     if ( jside==iside ) continue ;
                     auto const& dsc_other = dsc.sides[jside] ; 
-                    GRACE_TRACE("Send coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_other.octants.coarse.owner_rank,dsc_this.edge_id );
                     if ( !dsc_other.octants.coarse.is_remote ) continue ; 
+                    GRACE_TRACE("Send coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_other.octants.coarse.owner_rank,dsc_this.edge_id );
                     snd_keys[dsc_other.octants.coarse.owner_rank].push_back(
                                     comm_key_t{
                                         dsc_this.octants.coarse.quad_id, dsc_this.edge_id

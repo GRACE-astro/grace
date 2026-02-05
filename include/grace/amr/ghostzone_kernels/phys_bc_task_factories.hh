@@ -88,9 +88,9 @@ make_gpu_phys_bc_task(
     bool ry = get_param<bool>("amr","reflection_symmetries", "y") ; 
     bool rz = get_param<bool>("amr","reflection_symmetries", "z") ; 
 
-    GRACE_TRACE("Registering phys-bc task ({}-{}, tid {}) number of elements {}", 
+    GRACE_TRACE("Registering phys-bc task ({}-{}, tid {}) number of elements {} staggering {}", 
         detail::elem_kind_names[static_cast<int>(elem_kind)], 
-        detail::elem_kind_names[static_cast<int>(bc_kind)], task_counter, qid_h.size()) ; 
+        detail::elem_kind_names[static_cast<int>(bc_kind)], task_counter, qid_h.size(), static_cast<int>(stag)) ; 
     Kokkos::View<size_t*> qid_d{"qid", qid_h.size()}; 
     Kokkos::View<uint8_t*> eid_d{"eid", qid_h.size()} ; 
     Kokkos::View<int8_t*[3]> dir_d{"dir", qid_h.size()} ; 
@@ -102,8 +102,8 @@ make_gpu_phys_bc_task(
     for( int i=0; i<qid_h.size(); ++i) {
         if (elem_kind == amr::EDGE and bc_kind == amr::FACE and is_cbuf ) {
             auto eid = eid_h[i] ; 
-            ext_d(i,eid/4) = 2 * ngz ; 
-            off_d(i,eid/4) = -ngz ; 
+            ext_h(i,eid/4) = 2 * ngz ; 
+            off_h(i,eid/4) = -ngz ; 
         }
     }
     Kokkos::deep_copy(ext_d,ext_h) ; 
@@ -132,12 +132,12 @@ make_gpu_phys_bc_task(
     task._run = [functor, policy] (view_alias_t alias) mutable {
         functor.template set_data_ptr<stag>(alias) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
-        GRACE_TRACE_DBG("Fill phys start") ; 
+        GRACE_TRACE("Fill phys start") ; 
         #endif 
         Kokkos::parallel_for("fill_phys_ghostzones", policy, functor) ; 
         #ifdef INSERT_FENCE_DEBUG_TASKS_
         Kokkos::fence() ; 
-        GRACE_TRACE_DBG("Fill phys done") ; 
+        GRACE_TRACE("Fill phys done") ; 
         #endif 
     };
 
@@ -230,11 +230,9 @@ get_cids_edge_face(uint8_t iface, const int8_t dir[3])
 inline uint8_t 
 get_cid_corner_face(const int8_t dir[3])
 {
-    uint8_t idir ; 
     uint8_t isign ; 
     for( uint8_t i=0; i<3; ++i) {
         if ( dir[i] ) {
-            idir = i ;
             isign = static_cast<uint8_t>(dir[i] > 0) ;
             break ;  
         }
@@ -451,8 +449,6 @@ bucket_t insert_phys_bc_tasks(
         // write back tid 
         set_task_id(EDGE,qid[EDGE][FACE],eid[EDGE][FACE],tid) ;
         dependencies[CORNER][EDGE].insert(tid) ; 
-        // just for cbufs! 
-        dependencies[CORNER][FACE].insert(tid) ; 
     }
     if (qid[CORNER][FACE].size() > 0) {
         // and corners in faces 
@@ -540,6 +536,8 @@ bucket_t insert_phys_bc_tasks(
         // write back tid 
         set_task_id(EDGE,qid_cbuf[EDGE][FACE],eid_cbuf[EDGE][FACE],tid) ;
         dependencies_cbuf[CORNER][EDGE].insert(tid) ;
+        // just for cbufs! 
+        dependencies_cbuf[CORNER][FACE].insert(tid) ; 
     }
     if (qid_cbuf[CORNER][FACE].size() > 0) {
         // == 

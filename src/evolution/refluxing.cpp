@@ -789,8 +789,8 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                     auto const iside = fid % 2 ;
                     // qid 
                     auto const qid = cfqid(iq,is); 
-                    if ( hcfremote(iq,is) ) {
-                        int const r = hcfrank(iq,is) ; 
+                    if ( cfremote(iq,is) ) {
+                        int const r = cfrank(iq,is) ; 
                         emf_corr[0] += coarse_rbuf(i,j,0,qid,r) ; 
                         emf_corr[1] += coarse_rbuf(i,j,1,qid,r) ; 
                     } else {
@@ -814,7 +814,7 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                     auto const iside = fid % 2 ;
                     // qid 
                     auto const qid = cfqid(iq,is); 
-                    if ( !hcfremote(iq,is) ) {
+                    if ( !cfremote(iq,is) ) {
                         ijk[fdir] = iside ? nx + ngz : ngz ; 
                         ijk[idir] = ngz + i ; 
                         ijk[jdir] = ngz + j ; 
@@ -1056,9 +1056,9 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 int side_i = (edge_id>>0)&1;
                 int side_j = (edge_id>>1)&1;
                 // coarse quadid
-                auto qid = hceqid(iq,iside);
-                if ( hceisremote(iq,iside) ) {
-                    auto rank =hcerank(iq,iside) ; 
+                auto qid = ceqid(iq,iside);
+                if ( ceisremote(iq,iside) ) {
+                    auto rank = cerank(iq,iside) ; 
                     emf_correction += coarse_edge_rbuf(i,qid,rank) ; 
                 } else {
                     ijk[edge_dir] = ngz + i ; 
@@ -1088,9 +1088,9 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 int side_j = (edge_id>>1)&1;
 
                 // coarse remote nothing to do 
-                if ( hceisremote(iq,iside) ) continue ;
+                if ( ceisremote(iq,iside) ) continue ;
                 // quad-id 
-                auto qid = hceqid(iq,iside);
+                auto qid = ceqid(iq,iside);
                 // we need to figure out if it's the upper or lower
                 // child we are reading from 
                 // indices of edge 

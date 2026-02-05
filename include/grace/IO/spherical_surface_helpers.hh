@@ -58,7 +58,6 @@ static void pix2ang_ring_z_phi (int nside_, int pix, double *z, double *phi)
 {
   double const halfpi = M_PI * 0.5 ; 
   double const pi = M_PI ; 
-  double const twopi = 2 * M_PI ; 
   long ncap_=nside_*(nside_-1)*2;
   long npix_=12*nside_*nside_;
   double fact2_ = 4./npix_;

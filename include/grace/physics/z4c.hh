@@ -37,7 +37,6 @@
 #include <grace/parallel/mpi_wrappers.hh>
 
 #include <grace/utils/metric_utils.hh>
-#include <grace/utils/fd_utils.hh>
 
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/c2p.hh>
@@ -110,7 +109,7 @@ struct z4c_system_t
         {
             double xyz[3] ; 
             coords.get_physical_coordinates(i,j,k,q,xyz) ;
-            r = sqrt(SQR(xyz[0])+SQR(xyz[1])+SQR(xyz[2])); 
+            r = Kokkos::sqrt(SQR(xyz[0])+SQR(xyz[1])+SQR(xyz[2])); 
         }
         // get local k1 
         double k1L = (r>kappa_ad_r) ? k1 * kappa_ad_r/r : k1 ; 
@@ -267,7 +266,7 @@ struct z4c_system_t
         
         // theta rhs 
         {
-            double theta_damp_fact = (theta_ad_r > 0) ? exp(-(r*r/(theta_ad_r*theta_ad_r))) : 1.0 ;
+            double theta_damp_fact = (theta_ad_r > 0) ? Kokkos::exp(-(r*r/(theta_ad_r*theta_ad_r))) : 1.0 ;
             double dtheta_dx_upw ; 
             fill_deriv_scalar_upw(this->_state,i,j,k,THETA_,q,&dtheta_dx_upw,beta,idx[0]) ;
             z4c_get_theta_rhs(
@@ -395,7 +394,7 @@ struct z4c_system_t
         auto s = subview(this->_state,i,j,k,ALL(),q) ;
         auto a = subview(this->_aux,i,j,k,ALL(),q) ;
         // Declare variables
-        double alp{s(ALP_)}, theta{s(THETA_)}, chi{fmax(chi_safeguard,s(CHI_))}, Khat{s(KHAT_)} ; 
+        double alp{s(ALP_)}, theta{s(THETA_)}, chi{s(CHI_)}, Khat{s(KHAT_)} ; 
         double beta[3] = {s(BETAX_), s(BETAY_), s(BETAZ_)} ; 
         double gtdd[6] = {
             s(GTXX_), s(GTXY_), s(GTXZ_), 

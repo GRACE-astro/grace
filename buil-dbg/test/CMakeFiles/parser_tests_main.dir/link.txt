@@ -1,0 +1,2 @@
+/usr/bin/ar qc libparser_tests_main.a CMakeFiles/parser_tests_main.dir/mains/parser_tests_main.cc.o
+/usr/bin/ranlib libparser_tests_main.a

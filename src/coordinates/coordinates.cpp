@@ -36,7 +36,6 @@
 #include <grace/config/config_parser.hh>
 
 #include <grace/data_structures/variables.hh>
-#include <grace/data_structures/macros.hh>
 #include <grace/data_structures/memory_defaults.hh>
 
 

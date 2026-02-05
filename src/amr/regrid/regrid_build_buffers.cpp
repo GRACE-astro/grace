@@ -174,16 +174,28 @@ void regrid_transaction_t::build_buffers() {
     #define MPI_EXCHANGE_COUNTS(axis) \
     do { \
         for (int r = 0; r < nprocs; ++r) \
-            recvcounts_##axis[r] = sizeof(fine_face_data_desc_t) * recv_##axis[r].size(); \
+            recvcounts_##axis[r] =  recv_##axis[r].size(); \
         MPI_Alltoall(recvcounts_##axis.data(), 1, MPI_INT, \
-                    sendcounts_##axis.data(), 1, MPI_INT, \
-                    MPI_COMM_WORLD); \
+                     sendcounts_##axis.data(), 1, MPI_INT, \
+                     MPI_COMM_WORLD ); \
     } while(0)
     MPI_EXCHANGE_COUNTS(x);
     MPI_EXCHANGE_COUNTS(y);
     MPI_EXCHANGE_COUNTS(z);
 
-    // 2) Compute displacements
+    // 2) From now on we work with byte counts
+    #define CONVERT_SIZES_TO_BYTES(axis) \
+    do { \
+        for( int r=0; r<nprocs; ++r) \
+            recvcounts_##axis[r] *= sizeof(fine_face_data_desc_t) ; \
+    } while(0)
+
+    CONVERT_SIZES_TO_BYTES(x);
+    CONVERT_SIZES_TO_BYTES(y);
+    CONVERT_SIZES_TO_BYTES(z);
+
+
+    // 3) Compute displacements
     #define MPI_COMPUTE_DISPLACEMENTS(axis) \
     sdispls_##axis.resize(nprocs,0); rdispls_##axis.resize(nprocs, 0);\
     for (int r = 1; r < nprocs; ++r) {\
@@ -194,7 +206,7 @@ void regrid_transaction_t::build_buffers() {
     MPI_COMPUTE_DISPLACEMENTS(y);
     MPI_COMPUTE_DISPLACEMENTS(z);
 
-    // total sizes (in bytes)
+    // 4) total sizes (in bytes)
     #define GET_TOTAL_SIZE(axis)\
     size_t recv_size_##axis{0UL}, send_size_##axis{0UL} ; \
     for (int r = 0; r < nprocs; ++r){\
@@ -205,7 +217,7 @@ void regrid_transaction_t::build_buffers() {
     GET_TOTAL_SIZE(y);
     GET_TOTAL_SIZE(z);
 
-    // flatten the receive array, which we are about to **send**
+    // 5) flatten the receive array, which we are about to **send**
     #define MPI_FLATTEN_ARRAY(axis)\
     std::vector<fine_face_data_desc_t> recvbuf_##axis, sendbuf_##axis; \
     sendbuf_##axis.resize(send_size_##axis/sizeof(fine_face_data_desc_t));\
@@ -216,7 +228,7 @@ void regrid_transaction_t::build_buffers() {
     MPI_FLATTEN_ARRAY(y);
     MPI_FLATTEN_ARRAY(z);
 
-    // finally we are ready for alltoallv
+    // 6) finally we are ready for alltoallv
     // we send our receive buffer, since this means it's what 
     // we need to receive data-wise. Likewise we receive into send buf 
     // since that is what we will need to send data-wise

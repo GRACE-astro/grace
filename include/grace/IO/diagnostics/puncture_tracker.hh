@@ -239,7 +239,7 @@ struct puncture_tracker_impl_t
                 Kokkos::View<double**,grace::default_space> vals("ptracker_shift",0,0); 
                 auto& state = grace::variable_list::get().getstate() ; 
                 interpolator.interpolate(
-                    state, {BETAX,BETAY,BETAZ}, vals
+                    state, {BETAX_,BETAY_,BETAZ_}, vals
                 ) ; 
                 auto vals_h = Kokkos::create_mirror_view_and_copy(
                     Kokkos::HostSpace(), vals 

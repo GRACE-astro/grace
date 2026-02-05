@@ -466,7 +466,6 @@ int edge_to_face_dir(int face, int edge) {
 
     // Sort so j = min, k = max
     int j_axis = t0 < t1 ? t0 : t1;
-    int k_axis = t0 < t1 ? t1 : t0;
 
     // Now map edge axis to j/k
     return (edge_axis == j_axis) ? 0 : 1;

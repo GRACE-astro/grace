@@ -36,25 +36,25 @@ namespace grace { namespace variables  {
 int 
 get_n_evolved()
 {
-    return detail::num_evolved ;
+    return N_EVOL_VARS ;
 } 
 
 int 
 get_n_evolved_face_staggered()
 {
-    return detail::num_face_staggered_vars ;
+    return N_FC_X ;
 } 
 
 int 
 get_n_hrsc()
 {
-    return detail::num_fluxes ;
+    return N_HRSC_CC ;
 } 
 
 int 
 get_n_auxiliary()
 {
-    return detail::num_auxiliary ;
+    return N_AUX_VARS ;
 } 
 
 

@@ -135,7 +135,7 @@ void write_plane_cell_data_impl(amr::plane_desc_t const& plane) {
     octree_slicer.glob_nq = glob_sliced_nq ;  
     if( chunk_size > octree_slicer.glob_ncells ) {
         GRACE_WARN("Chunk size {} < number of cells {} will be overridden." , chunk_size, octree_slicer.glob_ncells) ; 
-        chunk_size = max(1,octree_slicer.glob_ncells); 
+        chunk_size = max(1UL,octree_slicer.glob_ncells); 
     }
 
     auto comm = parallel::get_comm_world() ; 

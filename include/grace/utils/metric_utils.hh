@@ -48,7 +48,7 @@ namespace grace {
 struct metric_array_t {
 
 GRACE_HOST_DEVICE
-metric_array_t() = default;
+metric_array_t() {/*silence warnings*/};
 /**
  * @brief Constructor. This is marked 
  *        <code>__host__ __device__</code>

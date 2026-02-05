@@ -252,7 +252,7 @@ struct grmhd_equations_system_t
         fill_deriv_tensor_4(this->_state, i,j,k, GXX_, q, dgdd_dx, idx(0,q)) ;
         #else 
         double chi = s(CHI_) ; 
-        double ooW = 1./(fmax(1e-100,chi)) ; 
+        double ooW = 1./chi ; 
         double ooWsqr = SQR(ooW) ; 
         double dchi_dx[3] ; 
         fill_deriv_scalar_4(this->_state, i,j,k, CHI_, q, dchi_dx, idx(0,q)) ;
@@ -349,7 +349,7 @@ struct grmhd_equations_system_t
             , VEC( ALL()
                  , ALL()
                  , ALL() )
-            , BSX_
+            , static_cast<size_t>(BSX_)
             , q
         ) ; 
         auto By = subview(
@@ -357,7 +357,7 @@ struct grmhd_equations_system_t
             , VEC( ALL()
                  , ALL()
                  , ALL() )
-            , BSY_
+            , static_cast<size_t>(BSY_)
             , q
         ) ;
         auto Bz = subview(
@@ -365,7 +365,7 @@ struct grmhd_equations_system_t
             , VEC( ALL()
                  , ALL()
                  , ALL() )
-            , BSZ_
+            , static_cast<size_t>(BSZ_)
             , q
         ) ;
         grmhd_cons_array_t cons ;
@@ -408,17 +408,17 @@ struct grmhd_equations_system_t
         aux(C2P_ERR_) = 0;
         
         if ( c2p_errors.adjust_d ) {
-            aux(C2P_ERR_) += fabs(cons[DENSL]-vars(DENS_));
+            aux(C2P_ERR_) += Kokkos::fabs(cons[DENSL]-vars(DENS_));
             vars(DENS_) = cons[DENSL] ; 
         }
         if ( c2p_errors.adjust_s ) {
             for( int ii=0; ii<3; ++ii) {
-                aux(C2P_ERR_) += fabs(cons[STXL+ii]-vars(SX_+ii));
+                aux(C2P_ERR_) += Kokkos::fabs(cons[STXL+ii]-vars(SX_+ii));
                 vars(SX_+ii)=cons[STXL+ii] ; 
             }
         }
         if ( c2p_errors.adjust_tau ) {
-            aux(C2P_ERR_) += fabs(cons[TAUL]-vars(TAU_));
+            aux(C2P_ERR_) += Kokkos::fabs(cons[TAUL]-vars(TAU_));
             vars(TAU_)=cons[TAUL];
         }
         if ( c2p_errors.adjust_ent ) {
@@ -731,13 +731,13 @@ struct grmhd_equations_system_t
             dcoords.get_physical_coordinates_sph(i,j,k,q,fcoords,rtp,1) ; 
             double a0 = 0.5 * (excision_params.r_f+excision_params.r_ex) ; 
             double da = 0.25 * (excision_params.r_f-excision_params.r_ex) ;
-            theta_exc = 0.5 * (1.0 + tanh((rtp[0]-a0)/da)) ; 
+            theta_exc = 0.5 * (1.0 + Kokkos::tanh((rtp[0]-a0)/da)) ; 
         } else {
             double a0 = 0.5 * (excision_params.alp_f+excision_params.alp_ex) ; 
             double da = 0.25 * (excision_params.alp_f-excision_params.alp_ex) ;
-            theta_exc = 0.5 * (1.0 + tanh((metric_face.alp()-a0)/da)) ; 
+            theta_exc = 0.5 * (1.0 + Kokkos::tanh((metric_face.alp()-a0)/da)) ; 
         }
-        theta *= fmin(fmax(theta_exc,0.),1.) ; 
+        theta *= Kokkos::fmin(Kokkos::fmax(theta_exc,0.),1.) ; 
         #if 0
         // fixme! 
         double fcoords[3] = {
@@ -1080,8 +1080,8 @@ struct grmhd_equations_system_t
             vhatr, uhatr, Bhatr,
             &cmr, &cpr
         ) ;
-        double cmin = - fmin(0.0,fmin(cml,cmr)) ; 
-        double cmax =   fmax(0.0,fmax(cpl,cpr)) ; 
+        double cmin = - Kokkos::fmin(0.0,Kokkos::fmin(cml,cmr)) ; 
+        double cmax =   Kokkos::fmax(0.0,Kokkos::fmax(cpl,cpr)) ; 
 
         /***********************************************************************/
         /* Get contact speed                                                   */

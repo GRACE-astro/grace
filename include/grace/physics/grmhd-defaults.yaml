@@ -1,6 +1,7 @@
 grmhd: {
   id_type: "minkowski_vacuum",
 
+  bc_kind: "outgoing",
   # This just sets a 
   # constant state on 
   # a Minkowski background.

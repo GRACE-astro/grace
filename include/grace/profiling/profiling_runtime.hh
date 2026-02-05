@@ -186,8 +186,9 @@ class profiling_runtime_impl_t
      * 
      */
     profiling_runtime_impl_t() {
-        auto hasher = std::hash<std::string>{} ;
+        
 	#ifdef GRACE_ENABLE_HIP
+        auto hasher = std::hash<std::string>{} ;
         auto const counters 
             = grace::get_param<std::vector<std::string>>("profiling","enabled_hardware_counters") ;
         for( auto const& x: counters) 

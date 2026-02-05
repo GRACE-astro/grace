@@ -84,11 +84,11 @@ struct bh_diagnostics:
         : base_t("bh_diagnostics")
     {
         #ifndef GRACE_ENABLE_Z4C_METRIC
-        this->var_interp_idx = std::vector<int>({GXX, GXY, GXZ, GYY, GYZ, GZZ, BETAX, BETAY, BETAZ, ALP});
+        this->var_interp_idx = std::vector<int>({GXX_, GXY_, GXZ_, GYY_, GYZ_, GZZ_, BETAX_, BETAY_, BETAZ_, ALP_});
         #else 
-        this->var_interp_idx = std::vector<int>({GTXX, GTXY, GTXZ, GTYY, GTYZ, GTZZ, CHI, BETAX, BETAY, BETAZ, ALP});
+        this->var_interp_idx = std::vector<int>({GTXX_, GTXY_, GTXZ_, GTYY_, GTYZ_, GTZZ_, CHI_, BETAX_, BETAY_, BETAZ_, ALP_});
         #endif 
-        this->aux_interp_idx = std::vector<int>({RHO, EPS, PRESS, ZVECX, ZVECY, ZVECZ, BX, BY, BZ});
+        this->aux_interp_idx = std::vector<int>({RHO_, EPS_, PRESS_, ZVECX_, ZVECY_, ZVECZ_, BX_, BY_, BZ_});
 
     }
 

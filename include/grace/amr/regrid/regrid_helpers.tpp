@@ -36,7 +36,6 @@
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/amr/regrid/regridding_policy_kernels.tpp>
 
-#include <grace/utils/interpolators.hh>
 #include <grace/utils/device_vector.hh>
 
 #include <Kokkos_Core.hpp>
@@ -59,8 +58,7 @@ template< typename ViewT
     , typename KerT 
     , typename ... KerArgT> 
 void evaluate_regrid_criterion( ViewT flag_view
-                              , KerT kernel  
-                              , KerArgT&& ... kernel_args) 
+                              , KerT kernel) 
 {
     using namespace grace  ;  
     auto& params = config_parser::get() ; 
@@ -95,14 +93,14 @@ void evaluate_regrid_criterion( ViewT flag_view
         int const q = team_member.league_rank() ; 
         Kokkos::parallel_reduce(  
                 reduce_range 
-            , KOKKOS_LAMBDA (int64_t& icell, double& leps )
+            , [=] (int64_t& icell, double& leps )
             {
                 int const i = icell%nx ;
                 int const j = icell/nx%ny; 
                 #ifdef GRACE_3D 
                 int const k = icell/nx/ny ; 
                 #endif  
-                auto eps_new = kernel(VEC(i+ngz,j+ngz,k+ngz), q, kernel_args...) ; 
+                auto eps_new = kernel(VEC(i+ngz,j+ngz,k+ngz), q) ; 
                 if( eps_new > leps ) {
                     leps = eps_new ;
                 }

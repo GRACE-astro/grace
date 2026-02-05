@@ -137,16 +137,16 @@ struct two_punctures_id_t {
             double Q[TP::Z4VectorShortcuts::Qlen] ; 
             tp.Interpolate(pos,Q) ; 
 
-            _alp(i,j,k,q) = Q[TP::Z4VectorShortcuts::lapse] ; 
+            _halp(i,j,k,q) = Q[TP::Z4VectorShortcuts::lapse] ; 
 
             for( int a=0; a<6; ++a ) {
-                _g(a,i,j,k,q) = Q[TP::Z4VectorShortcuts::g11 + a] ;
-                _k(a,i,j,k,q) = Q[TP::Z4VectorShortcuts::K11 + a] ;
+                _hg(a,i,j,k,q) = Q[TP::Z4VectorShortcuts::g11 + a] ;
+                _hk(a,i,j,k,q) = Q[TP::Z4VectorShortcuts::K11 + a] ;
             }
 
             for( int a=0; a<3; ++a ) {
                 // looking at the source it seems this is just zero
-                _beta(a,i,j,k,q) = Q[TP::Z4VectorShortcuts::shift1 + a] ;
+                _hbeta(a,i,j,k,q) = Q[TP::Z4VectorShortcuts::shift1 + a] ;
             }
         }
 

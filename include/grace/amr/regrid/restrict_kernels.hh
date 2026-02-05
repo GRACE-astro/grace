@@ -34,14 +34,17 @@
 
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
 
+#include <grace/amr/ghostzone_kernels/pr_helpers.hh>
+
 #include <Kokkos_Core.hpp>
 
 namespace grace {
 
-template< typename view_t >
+template< typename interp_t, typename view_t >
 struct regrid_restrict_op {
     view_t data_in, data_out ; 
-    readonly_view_t<std::size_t> qid_in, qid_out ; 
+    readonly_view_t<std::size_t> qid_in, qid_out, varidx ; 
+    interp_t op;
     size_t n, g ; 
 
     regrid_restrict_op(
@@ -49,19 +52,25 @@ struct regrid_restrict_op {
         view_t _data_out,
         Kokkos::View<size_t*> _qid_in,
         Kokkos::View<size_t*> _qid_out,
+        Kokkos::View<size_t*> _varidx,
+        interp_t _op,
         size_t _n, size_t _g
     ) : data_in(_data_in)
       , data_out(_data_out)
       , qid_in(_qid_in)
       , qid_out(_qid_out)
+      , varidx(_varidx)
+      , op(_op)
       , n(_n), g(_g)
     {}
 
     // loop runs over coarse indices 
     KOKKOS_INLINE_FUNCTION 
-    void operator() (size_t i, size_t j, size_t k, size_t ivar, size_t iq) const
+    void operator() (size_t i, size_t j, size_t k, size_t vidx, size_t iq) const
     {
+        using namespace Kokkos ;
         // restrict: fine = out, coarse = in 
+        auto iv = varidx(vidx) ; 
 
         // coarse quad_id
         auto qc = qid_in(iq) ;
@@ -74,11 +83,11 @@ struct regrid_restrict_op {
         size_t i_f = 2*i%n ; 
         size_t j_f = 2*j%n ; 
         size_t k_f = 2*k%n ; 
-        // sum the 8 fine cells inside the coarse cell
-        double val{0} ; 
-        for( int ii=0; ii<2; ++ii) for( int jj=0; jj<2; ++jj) for(int kk=0; kk<2;++kk) 
-            val += data_out(g + i_f + ii,g + j_f + jj,g + k_f + kk, ivar, qf) ; 
-        data_in(i+g,j+g,k+g,ivar,qc) = val * 0.125 ; 
+
+        auto u = subview(data_out,ALL(),ALL(),ALL(),iv,qf) ; 
+        data_in(i+g,j+g,k+g,iv,qc) = op(
+            u, g + i_f, g + j_f, g + k_f
+        ); 
     }
 } ; 
 
@@ -212,32 +221,58 @@ gpu_task_t make_restrict(
     view_t& data_out,
     std::vector<size_t> const& qin, 
     std::vector<size_t> const& qout,
+    std::vector<size_t> const& varlist_lo,
+    std::vector<size_t> const& varlist_ho,
+    std::vector<double> const& ho_restrict_coeffs,
     grace::device_stream_t& stream,
     size_t nvars,
     task_id_t& task_counter)
 {
     using namespace Kokkos ; 
+    using restrict_lo_op = second_order_restrict_op;
+    using restrict_ho_op = lagrange_restrict_op<4>;
+
     DECLARE_GRID_EXTENTS ; 
     GRACE_TRACE("Registering restrict task, tid {}, n elements {}", task_counter, qin.size());
     Kokkos::View<size_t*> qid_src("regrid_copy_src_qid", qout.size()) 
-                        , qid_dst("regrid_copy_dst_qid", qin.size()) ;
+                        , qid_dst("regrid_copy_dst_qid", qin.size()) 
+                        , vidx_lo("regrid_restrict_lo_vidx", varlist_lo.size())
+                        , vidx_ho("regrid_restrict_ho_vidx", varlist_ho.size());
     deep_copy_vec_to_view(qid_src, qout) ; 
     deep_copy_vec_to_view(qid_dst, qin) ;
-    
+    deep_copy_vec_to_view(vidx_lo,varlist_lo);
+    deep_copy_vec_to_view(vidx_ho,varlist_ho);
+
+    Kokkos::View<double*> ho_restrict_coeffs_d("restrict_coeffs",ho_restrict_coeffs.size());
+    deep_copy_vec_to_view(ho_restrict_coeffs_d,ho_restrict_coeffs) ; 
+
     gpu_task_t task {} ; 
     
-    regrid_restrict_op functor(data_in,data_out,qid_dst,qid_src,nx,ngz) ; 
+    regrid_restrict_op<restrict_lo_op,decltype(data_in)>
+        functor_lo(data_in,data_out,qid_dst,qid_src,vidx_lo,restrict_lo_op{},nx,ngz) ; 
+    regrid_restrict_op<restrict_ho_op,decltype(data_in)>
+        functor_ho(
+            data_in,data_out,
+            qid_dst,qid_src,vidx_ho,
+            restrict_ho_op(ho_restrict_coeffs_d,nx,ny,nz,ngz),nx,ngz) ; 
 
     DefaultExecutionSpace exec_space{stream} ; 
 
     // loop over coarse quads 
     MDRangePolicy<Rank<5,Iterate::Left>>
-    policy{
-        exec_space, {0,0,0,0,0}, {nx,ny,nz,nvars,qin.size()}
+    policy_lo{
+        exec_space, {0,0,0,0,0}, {nx,ny,nz,varlist_lo.size(),qin.size()}
     } ;
 
-    task._run = [functor, policy] (view_alias_t dummy) {
-        parallel_for("regrid_restrict", policy, functor) ;
+    // loop over coarse quads 
+    MDRangePolicy<Rank<5,Iterate::Left>>
+    policy_ho{
+        exec_space, {0,0,0,0,0}, {nx,ny,nz,varlist_ho.size(),qin.size()}
+    } ;
+
+    task._run = [functor_lo, functor_ho, policy_lo, policy_ho] (view_alias_t dummy) {
+        parallel_for("regrid_restrict", policy_lo, functor_lo) ;
+        parallel_for("regrid_restrict_high_order", policy_ho, functor_ho) ;
         #ifdef GRACE_DEBUG 
         Kokkos::fence() ; 
         #endif

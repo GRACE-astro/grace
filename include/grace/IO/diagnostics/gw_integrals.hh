@@ -58,7 +58,7 @@ struct gw_integrals:
     gw_integrals()
         : base_t("gw_integrals")
     {
-        this->aux_interp_idx = std::vector<int>({PSI4RE,PSI4IM});
+        this->aux_interp_idx = std::vector<int>({PSI4RE_,PSI4IM_});
     }
 
     std::array<double,n_fluxes> 

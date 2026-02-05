@@ -33,9 +33,7 @@
 #include <grace/coordinates/coordinates.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/prolongation.hh>
 #include <grace/utils/limiters.hh>
-#include <grace/data_structures/macros.hh>
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/data_structures/variable_indices.hh>
 #include <grace/data_structures/variable_properties.hh>

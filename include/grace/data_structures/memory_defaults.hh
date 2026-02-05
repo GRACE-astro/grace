@@ -71,7 +71,7 @@ using default_execution_space = default_space::execution_space ;
  */
 template< typename ViewT
         , typename T >
-static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+static void GRACE_ALWAYS_INLINE
 deep_copy_vec_to_view(ViewT view, std::vector<T> const& vec)
 {
     static_assert(std::is_same_v<T,typename ViewT::value_type>
@@ -96,7 +96,7 @@ deep_copy_vec_to_view(ViewT view, std::vector<T> const& vec)
 template< size_t N
         , typename ViewT
         , typename T >
-static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+static void GRACE_ALWAYS_INLINE
 deep_copy_vec_to_2D_view(ViewT view, std::vector<std::array<T,N>> const& vec)
 {
     Kokkos::realloc(view, vec.size()) ; 
@@ -117,7 +117,7 @@ deep_copy_vec_to_2D_view(ViewT view, std::vector<std::array<T,N>> const& vec)
  */
 template< typename ViewT
         , typename T >
-static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+static void GRACE_ALWAYS_INLINE
 deep_copy_vec_to_const_view(ViewT& view, std::vector<T> const& vec)
 {
     static_assert(std::is_same_v<T,std::remove_cv_t< typename ViewT::value_type> >
@@ -142,7 +142,7 @@ deep_copy_vec_to_const_view(ViewT& view, std::vector<T> const& vec)
 template< size_t N
         , typename ViewT
         , typename T >
-static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+static void GRACE_ALWAYS_INLINE
 deep_copy_vec_to_const_2D_view(ViewT& view, std::vector<std::array<T,N>> const& vec)
 {
     static_assert(std::is_same_v<T,std::remove_cv_t< typename ViewT::value_type> >
@@ -166,7 +166,7 @@ deep_copy_vec_to_const_2D_view(ViewT& view, std::vector<std::array<T,N>> const& 
  */
 template< typename ViewT
         , typename T >
-static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+static void GRACE_ALWAYS_INLINE
 deep_copy_view_to_vec(std::vector<T> const& vec, ViewT view)
 {
     static_assert(std::is_same_v<T,typename ViewT::value_type>

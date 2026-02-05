@@ -1,4 +1,5 @@
 z4c: {
+  bc_kind: "sommerfeld",
   kappa_1: 0.02,
   kappa_2: 0.0,
   eta: 1.00,

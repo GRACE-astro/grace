@@ -35,7 +35,6 @@
 #include<code_modules.h>
 #include<grace/data_structures/variable_properties.hh>
 #include<grace/data_structures/variable_indices.hh>
-#include<grace/data_structures/macros.hh>
 #include<grace/amr/amr_functions.hh>
 #include<grace/utils/inline.h>
 #include<grace/utils/singleton_holder.hh> 
@@ -44,7 +43,7 @@
 
 namespace grace { 
 //*****************************************************************************************************
-size_t get_variable_index(std::string const& name, bool is_aux=false) ;
+int get_variable_index(std::string const& name, bool is_aux=false) ;
 //*****************************************************************************************************
 /**
  * @brief Implementation of the variable list type.

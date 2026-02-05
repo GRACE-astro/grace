@@ -46,6 +46,11 @@ struct flash_second_deriv_criterion {
 
     ViewT u ; //!< Variable on which the criterion is evaluated.
     static constexpr double tiny = 1e-99; 
+    double eps ; 
+    flash_second_deriv_criterion(
+        ViewT _u, double _eps
+    ) : u(_u), eps(_eps) {}
+
     /**
      * @brief Evaluates the regridding criterion at a cell.
      * 
@@ -57,8 +62,7 @@ struct flash_second_deriv_criterion {
     operator()  ( VEC( int const & i 
                      , int const & j
                      , int const & k ) 
-                , int const& q
-                , double const& eps ) const 
+                , int const& q) const 
     {   
         using Kokkos::fabs ; 
         double const num = EXPR(

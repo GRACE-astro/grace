@@ -1,0 +1,2 @@
+/usr/bin/ar qc libkokkos_tests_main.a CMakeFiles/kokkos_tests_main.dir/mains/kokkos_tests_main.cc.o
+/usr/bin/ranlib libkokkos_tests_main.a

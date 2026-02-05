@@ -36,13 +36,13 @@
 
 #include <grace/utils/task_queue.hh>
 #include <grace/utils/sc_wrappers.hh>
-#include <grace/utils/prolongation.hh>
 #include <grace/utils/limiters.hh>
 #include <grace/utils/device_stream_pool.hh>
 
 #include <grace/amr/amr_functions.hh>
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
 #include <grace/amr/ghostzone_kernels/ghost_array.hh>
+#include <grace/amr/ghostzone_kernels/pr_ho_coeffs.hh>
 
 
 #include <grace/amr/regrid/copy_kernels.hh>
@@ -108,11 +108,10 @@ void regrid_transaction_t::evaluate_criterion() {
                                         , Kokkos::ALL() ) ; 
     if( ref_criterion == "FLASH_second_deriv") {
         double eps = params["amr"]["FLASH_criterion_eps"].as<double>() ; 
-        amr::flash_second_deriv_criterion<decltype(u)> kernel{ u } ; 
+        amr::flash_second_deriv_criterion<decltype(u)> kernel{ u, eps } ; 
         evaluate_regrid_criterion(
                 d_regrid_flags
-                , kernel 
-                , eps) ;
+                , kernel ) ;
     } else if ( ref_criterion == "simple_threshold" ) {
         amr::simple_threshold_criterion<decltype(u)> kernel{ u } ; 
         evaluate_regrid_criterion(
@@ -127,18 +126,18 @@ void regrid_transaction_t::evaluate_criterion() {
         auto vx = Kokkos::subview(aux, VEC( Kokkos::ALL() 
                                         , Kokkos::ALL() 
                                         , Kokkos::ALL() )
-                                        , ZVECX
+                                        , static_cast<size_t>(ZVECX_)
                                         , Kokkos::ALL() ) ; 
         auto vy = Kokkos::subview(aux, VEC( Kokkos::ALL() 
                                         , Kokkos::ALL() 
                                         , Kokkos::ALL() )
-                                        , ZVECY
+                                        , static_cast<size_t>(ZVECY_)
                                         , Kokkos::ALL() ) ; 
     #ifdef GRACE_3D
         auto vz = Kokkos::subview(aux, VEC( Kokkos::ALL() 
                                         , Kokkos::ALL() 
                                         , Kokkos::ALL() )
-                                        , ZVECZ
+                                        , static_cast<size_t>(ZVECZ_)
                                         , Kokkos::ALL() ) ; 
     #endif 
         amr::shear_criterion<decltype(vx)> kernel{ VEC(vx,vy,vz) } ; 
@@ -387,6 +386,23 @@ void regrid_transaction_t::partition_grid() {
 void regrid_transaction_t::build_task_list() {
     using namespace Kokkos ; 
     /*****************************************************************/
+    // get high order p/r coefficients 
+    std::vector<double> ho_prolong_coefficients,ho_restrict_coefficients ;
+    grace::detail::fill_fifth_order_prolongation_coefficients(ho_prolong_coefficients) ; 
+    grace::detail::fill_fifth_order_restriction_coefficients(ho_restrict_coefficients) ; 
+    // get list of vars for lo and ho p/r
+    std::vector<size_t> high_order_interp_varlist, low_order_interp_varlist; 
+    for(int ivar=0; ivar<N_EVOL_VARS; ++ivar){
+        auto interp_kind = variables::get_interp_type(ivar) ; 
+        if ( interp_kind ==  var_amr_interp_t::INTERP_SECOND_ORDER) {
+            low_order_interp_varlist.push_back(static_cast<size_t>(ivar)) ; 
+        } else if (  interp_kind ==  var_amr_interp_t::INTERP_FOURTH_ORDER ) {
+            high_order_interp_varlist.push_back(static_cast<size_t>(ivar)) ; 
+        } else {
+            ERROR("Unrecognised prolongation/restriction operator requested for var " << ivar) ; 
+        }
+    }
+    /*****************************************************************/
     task_id_t task_counter{0UL} ; 
     std::unordered_set<task_id_t> prolong_fs_dependencies ;
     /*****************************************************************/
@@ -511,6 +527,9 @@ void regrid_transaction_t::build_task_list() {
             make_restrict(
                 state_dst, state_src,
                 coarsen_incoming, coarsen_outgoing,
+                low_order_interp_varlist,
+                high_order_interp_varlist,
+                ho_restrict_coefficients,
                 interp_stream, nvars_cc, task_counter 
             )
         )
@@ -565,8 +584,10 @@ void regrid_transaction_t::build_task_list() {
                 state_src,
                 refine_incoming,
                 refine_outgoing,
+                low_order_interp_varlist,
+                high_order_interp_varlist,
+                ho_prolong_coefficients,
                 interp_stream,
-                nvars_cc,
                 task_counter
             )
         )

@@ -675,11 +675,11 @@ void set_conservs_from_prims() {
         /*************************************************/ 
         // note here we reset B-center since it is outdated 
         auto Bx = Kokkos::subview(sstate.face_staggered_fields_x,
-                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), BSX_, q) ; 
+                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), static_cast<size_t>(BSX_), q) ; 
         auto By = Kokkos::subview(sstate.face_staggered_fields_y,
-                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), BSY_, q) ; 
+                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), static_cast<size_t>(BSY_), q) ; 
         auto Bz = Kokkos::subview(sstate.face_staggered_fields_z,
-                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), BSZ_, q) ;
+                                 VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()), static_cast<size_t>(BSZ_), q) ;
         aux(VEC(i,j,k),BX_,q) = 0.5 * (sstate.face_staggered_fields_x(VEC(i,j,k),BSX_,q) + sstate.face_staggered_fields_x(VEC(i+1,j,k),BSX_,q)) / metric.sqrtg();
         aux(VEC(i,j,k),BY_,q) = 0.5 * (sstate.face_staggered_fields_y(VEC(i,j,k),BSY_,q) + sstate.face_staggered_fields_y(VEC(i,j+1,k),BSY_,q)) / metric.sqrtg();
         aux(VEC(i,j,k),BZ_,q) = 0.5 * (sstate.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) + sstate.face_staggered_fields_z(VEC(i,j,k+1),BSZ_,q)) / metric.sqrtg();

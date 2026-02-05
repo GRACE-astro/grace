@@ -189,6 +189,7 @@ struct phys_bc_op {
     readonly_view_t<uint8_t> eid       ;
     readonly_twod_view_t<int8_t,3> dir ;
     readonly_twod_view_t<double,3> var_refl_fact ;
+
     readonly_view_t<bc_t> var_bcs      ; 
 
     readonly_twod_view_t<int,3> exloop       ;
@@ -252,7 +253,7 @@ struct phys_bc_op {
     }
 
     KOKKOS_INLINE_FUNCTION 
-    void compute_zero_dir(size_t& lmin, size_t& lmax, size_t& idir, size_t& extent, uint8_t dir_idx, uint8_t eid) const {
+    void compute_zero_dir(int& lmin, int& lmax, int& idir, int& extent, uint8_t dir_idx, uint8_t eid) const {
         idir = +1;
         size_t _ncells[3] = {nx,ny,nz} ; 
         size_t const n = _ncells[dir_idx] ; 
@@ -288,7 +289,7 @@ struct phys_bc_op {
     }
     
     KOKKOS_INLINE_FUNCTION 
-    void compute_bounds_impl(int8_t dir, size_t& lmin, size_t& lmax, size_t& idir, size_t& extent, uint8_t idx, uint8_t eid) const
+    void compute_bounds_impl(int8_t dir, int& lmin, int& lmax, int& idir, int& extent, uint8_t idx, uint8_t eid) const
     {
         size_t _ncells[3] = {nx,ny,nz} ; 
         if (dir < 0) {
@@ -304,9 +305,9 @@ struct phys_bc_op {
 
     KOKKOS_INLINE_FUNCTION 
     void compute_bounds(
-        const int8_t dir[3], size_t lmin[3], 
-        size_t lmax[3], size_t idir[3], 
-        size_t ext[3], int pdim[3], int npdim[3],
+        const int8_t dir[3], int lmin[3], 
+        int lmax[3], int idir[3], 
+        int ext[3], int pdim[3], int npdim[3],
         uint8_t eid) const
     {
         int npc{0}, pc{0} ; 
@@ -385,15 +386,15 @@ struct phys_bc_op {
         auto sv = Kokkos::subview(
             data, 
             VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
-            iv, qid 
+            static_cast<size_t>(iv), qid 
         ) ;
 
+        bool do_reflection = false ; 
+        double fact = 1.0;
+        int ijk_s[3] = {ijk[0],ijk[1],ijk[2]}; 
         // first we detect reflections
         if ( rx or ry or rz ) {
-            bool do_reflection = false ; 
-            int ijk_s[3] = {ijk[0],ijk[1],ijk[2]}; 
-
-            double parities[3] ; 
+            double parities[3] = {1.,1.,1.} ; 
             if ( stag == STAG_CENTER ) {
                 parities[0] = var_refl_fact(iv,0);
                 parities[1] = var_refl_fact(iv,1);
@@ -409,70 +410,67 @@ struct phys_bc_op {
                 parities[0] = parities[1] = 1;
             }
 
-            double fact = 1.0 ; 
             if ( _dir[0] == -1 and rx ) {
                 ijk_s[0] = ngz + (ngz-1-ijk[0]) ; 
-                ijk_s[0] += stag==STAG_FACEX ; 
+                ijk_s[0] += stag==STAG_FACEX ? 1 : 0; 
                 fact *= parities[0] ; 
                 do_reflection = true ; 
             }
 
             if ( _dir[1] == -1 and ry ) {
                 ijk_s[1] = ngz + (ngz-1-ijk[1]) ; 
-                ijk_s[1] += stag==STAG_FACEY ; 
+                ijk_s[1] += stag==STAG_FACEY ? 1 : 0; 
                 fact *= parities[1] ; 
                 do_reflection = true ; 
             }
 
             if ( _dir[2] == -1 and rz ) {
                 ijk_s[2] = ngz + (ngz-1-ijk[2]) ; 
-                ijk_s[2] += stag==STAG_FACEZ ; 
+                ijk_s[2] += stag==STAG_FACEZ ? 1 : 0; 
                 fact *= parities[2] ; 
                 do_reflection = true ; 
             }
-
-            if (do_reflection) {
-                reflect_kernel.template apply<decltype(sv)>(sv,ijk[0],ijk[1],ijk[2],ijk_s[0],ijk_s[1],ijk_s[2],fact) ; 
-                return ; 
-            }
         }
-        
-        auto _bc_kind = var_bcs(iv) ;       
-        switch (_bc_kind) {
-            case BC_OUTFLOW:{
-                outflow_kernel.template apply<decltype(sv)>(
-                    sv, VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]));
-                break;
+        if (do_reflection) {
+            reflect_kernel.template apply<decltype(sv)>(sv,ijk[0],ijk[1],ijk[2],ijk_s[0],ijk_s[1],ijk_s[2],fact) ;
+        } else {
+            auto _bc_kind = var_bcs(iv) ;       
+            switch (_bc_kind) {
+                case BC_OUTFLOW:{
+                    outflow_kernel.template apply<decltype(sv)>(
+                        sv, VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]));
+                    break;
+                }
+                case BC_LAGRANGE_EXTRAP: {
+                    extrap_kernel.template apply<decltype(sv)>(
+                        sv, VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]));
+                    break;
+                }
+                case BC_SOMMERFELD: {
+                    double vel,f0;
+                    get_somm_props(iv, &vel, &f0) ; 
+                    double h = dx(0,qid) ; 
+                    double s[3] ; 
+                    coords.get_physical_coordinates(
+                        ijk[0],ijk[1],ijk[2],qid,s
+                    ) ; 
+                    auto sv_p = Kokkos::subview(
+                        data_p, 
+                        VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
+                        iv, qid 
+                    ) ;
+                    double r = sqrt(SQR(s[0])+SQR(s[1])+SQR(s[2]));
+                    s[0]/=r; s[1]/=r; s[2]/=r ; 
+                    sommerfeld_kernel.template apply<decltype(sv)>(
+                        sv, sv_p, r,h,vel,f0,s,dt,dtfact,VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]),nx,ny,nz,ngz);
+                    break ; 
+                }
+                case BC_NONE:
+                    break;
+                default:
+                    // fallback or assert
+                    break;
             }
-            case BC_LAGRANGE_EXTRAP: {
-                extrap_kernel.template apply<decltype(sv)>(
-                    sv, VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]));
-                break;
-            }
-            case BC_SOMMERFELD: {
-                double vel,f0;
-                get_somm_props(iv, &vel, &f0) ; 
-                double h = dx(0,qid) ; 
-                double s[3] ; 
-                coords.get_physical_coordinates(
-                    ijk[0],ijk[1],ijk[2],qid,s
-                ) ; 
-                auto sv_p = Kokkos::subview(
-                    data_p, 
-                    VEC(Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL()),
-                    iv, qid 
-                ) ;
-                double r = sqrt(SQR(s[0])+SQR(s[1])+SQR(s[2]));
-                s[0]/=r; s[1]/=r; s[2]/=r ; 
-                sommerfeld_kernel.template apply<decltype(sv)>(
-                    sv, sv_p, r,h,vel,f0,s,dt,dtfact,VEC(ijk[0],ijk[1],ijk[2]), VEC(_dir[0], _dir[1], _dir[2]),nx,ny,nz,ngz);
-                break ; 
-            }
-            case BC_NONE:
-                break;
-            default:
-                // fallback or assert
-                break;
         }
     }
     template< typename team_handle_t >
@@ -490,7 +488,7 @@ struct phys_bc_op {
         
         int8_t _dir[] = {dir(iq,0), dir(iq,1), dir(iq,2)} ; 
         // se lo dici forte avrà un successo strepitoso 
-        size_t lmin[3], lmax[3], idir[3], extents[3];
+        int lmin[3], lmax[3], idir[3], extents[3];
         int pdim[3], npdim[3] ; 
         compute_bounds(_dir, lmin, lmax, idir, extents, pdim, npdim, _eid);
 

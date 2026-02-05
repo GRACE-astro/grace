@@ -62,7 +62,6 @@ new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
     x_ext = nx * min_ext;
     y_ext = ny * min_ext;
     z_ext = nz * min_ext;
-    double x_tree { min_ext } , y_tree { min_ext }, z_tree { min_ext } ; 
     auto conn = p4est_connectivity_new_brick( nx,ny,nz, periodic_x,periodic_y,periodic_z ) ;
     // We manually set the vertices' coordinates to their physical value  
     auto vertices = conn->vertices; 

@@ -388,7 +388,7 @@ lnsrch(
             *check = ERR_SMALLSTEP;
             return ;
         } else {
-            double tmplam, alam2, f2 ; 
+            double tmplam{0}, alam2{0}, f2{0} ; // initialize to silence warnings
             if ( nfix == 0 ) {
                 tmplam = - slope / (2.*(*f-fold-slope)) ; 
             } else {

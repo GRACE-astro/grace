@@ -31,7 +31,6 @@
 #include <Kokkos_Core.hpp> 
 
 #include <grace/data_structures/memory_defaults.hh>
-#include <grace/data_structures/macros.hh>
 
 namespace grace {
 

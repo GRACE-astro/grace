@@ -29,10 +29,12 @@
 #define GRACE_AMR_COORDINATES_SYSTEMS_HH
 
 #include <grace_config.h>
-
+#ifdef GRACE_CARTESIAN_COORDINATES
 #include <grace/coordinates/cartesian_coordinate_systems.hh>
+#endif 
+#ifdef GRACE_SPHERICAL_COORDINATES
 #include <grace/coordinates/spherical_coordinate_systems.hh>
-
+#endif 
 namespace grace { 
 /**
  * \defgroup grace_coordinates Coordinate utilities for GRACE
