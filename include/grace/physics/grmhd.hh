@@ -718,7 +718,7 @@ struct grmhd_equations_system_t
 
         theta = math::min(theta_m, theta_p) ;
         if ( std::isnan(theta) ) theta = 1. ; 
-
+        #if 0
         // mix in the lapse 
         double theta_exc ; 
         if ( excision_params.excise_by_radius ) {
@@ -738,7 +738,7 @@ struct grmhd_equations_system_t
             theta_exc = 0.5 * (1.0 + Kokkos::tanh((metric_face.alp()-a0)/da)) ; 
         }
         theta *= Kokkos::fmin(Kokkos::fmax(theta_exc,0.),1.) ; 
-        #if 0
+        
         // fixme! 
         double fcoords[3] = {
                 idir == 0 ? 0. : 0.5 ,

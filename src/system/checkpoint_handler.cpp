@@ -87,6 +87,66 @@ std::filesystem::path inline get_filename(
     return dir / ss.str() ; 
 }
 
+void read_buffer_hdf5(
+    double* data, 
+    hid_t file_id,
+    hid_t dxpl,
+    hid_t dset_id,
+    size_t slab_off,
+    size_t slab_size
+)
+{
+    herr_t herr ; 
+
+
+    // retrieve space 
+    hid_t filespace ; 
+    HDF5_CALL(filespace,H5Dget_space(dset_id));
+
+    /* Create local space for this rank */
+    hid_t memspace ; 
+    hsize_t dset_dims[1] = {slab_size} ;
+    HDF5_CALL(memspace, H5Screate_simple(1, dset_dims, NULL)) ;
+
+
+    /* Select hyperslab for this rank's output */
+    hsize_t slab_start[1]  = {slab_off} ; 
+    hsize_t slab_count[1]  = {slab_size} ;
+    HDF5_CALL( herr
+            , H5Sselect_hyperslab( filespace
+                                , H5S_SELECT_SET
+                                , slab_start
+                                , NULL
+                                , slab_count 
+                                , NULL )) ;
+
+    HDF5_CALL(
+        herr, H5Dread(dset_id, H5T_NATIVE_DOUBLE, memspace, filespace, dxpl, data)
+    ) ;
+
+    HDF5_CALL(herr, H5Sclose(memspace)) ; 
+    HDF5_CALL(herr, H5Sclose(filespace)) ; 
+}
+
+template< typename v_t > 
+void read_contiguous_buffer(
+    v_t dst, std::vector<double>const & src
+)
+{
+    size_t ipos{0} ; 
+    for( int q=0; q<dst.extent(4); ++q) {
+        for( int ivar=0; ivar<dst.extent(3); ++ivar) {
+            for( int k=0; k<dst.extent(2); ++k){
+                for( int j=0; j<dst.extent(1); ++j) {
+                    for( int i=0; i<dst.extent(0); ++i) {
+                        dst(i,j,k,ivar,q) = src[ipos++]; 
+                    }
+                }
+            }
+        }
+    } 
+}
+
 void read_data_hdf5(
     hid_t file_id,
     hid_t dxpl, 
@@ -109,6 +169,8 @@ void read_data_hdf5(
     /* Global dataset dimension */
     unsigned long const dim_loc  = npts_quad * data.extent(GRACE_NSPACEDIM) * nq ; 
     unsigned long const dim_glob = npts_quad * data.extent(GRACE_NSPACEDIM) * nq_glob ;
+    // offset
+    unsigned long const off_loc  = npts_quad * data.extent(GRACE_NSPACEDIM) * local_quad_offset ; 
 
     // If there are no variables return 
     // FIXME if the code was somehow compiled with different variables than the code that wrote the checkpoint this is a bug! 
@@ -141,37 +203,97 @@ void read_data_hdf5(
         err, H5Sselect_hyperslab(space_id, H5S_SELECT_SET, offset, NULL, count, NULL)
     ) ;
 
-
-    // Read data 
-    auto h_mirror = Kokkos::create_mirror_view(data)  ;
-    std::vector<double> serial_data(dim_loc) ; 
-    HDF5_CALL(
-        err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, memspace_id, space_id, dxpl, serial_data.data())
-    ) ;
-    size_t ipos{0} ; 
-    for( int q=0; q<nq; ++q) {
-        for( int ivar=0; ivar<data.extent(GRACE_NSPACEDIM); ++ivar) {
-            for( int k=0; k<data.extent(2); ++k){
-                for( int j=0; j<data.extent(1); ++j) {
-                    for( int i=0; i<data.extent(0); ++i) {
-                        h_mirror(i,j,k,ivar,q) = serial_data[ipos++] ; 
-                    }
-                }
-            }
+    if constexpr ( Kokkos::SpaceAccessibility<Kokkos::HostSpace, grace::default_space>::accessible ) {
+        if ( data.span_is_contiguous() ) {
+            read_buffer_hdf5(data.data(), file_id, dxpl, dset_id, off_loc, dim_loc ) ; 
+        } else {
+            std::vector<double> flatbuf(dim_loc) ; 
+            read_buffer_hdf5(flatbuf.data(), file_id, dxpl, dset_id, off_loc, dim_loc ) ; 
+            read_contiguous_buffer(data, flatbuf) ; 
         }
-    } 
-    // We need to shuffle the data a bit since in general the 
-    // target View will have a different layout than the 
-    // HDF5 buffer due to padding 
-
-    // Copy h2d 
-    Kokkos::deep_copy(data, h_mirror) ;
+    } else {
+        auto h_mirror = Kokkos::create_mirror_view(data)  ;
+        if ( h_mirror.span_is_contiguous() ) {
+            read_buffer_hdf5(h_mirror.data(), file_id, dxpl, dset_id, off_loc, dim_loc ) ; 
+        } else {
+            std::vector<double> flatbuf(dim_loc) ; 
+            read_buffer_hdf5(flatbuf.data(), file_id, dxpl, dset_id, off_loc, dim_loc ) ; 
+            read_contiguous_buffer(h_mirror, flatbuf) ; 
+        }
+         Kokkos::deep_copy(data, h_mirror) ;
+    }
 
     // Close everything
     HDF5_CALL(err, H5Sclose(memspace_id)) ;
     HDF5_CALL(err, H5Dclose(dset_id)) ;
     HDF5_CALL(err, H5Sclose(space_id)) ;
 }
+
+void write_buffer_hdf5(
+    double* data, 
+    hid_t file_id,
+    hid_t dxpl,
+    hid_t dset_id,
+    size_t slab_off,
+    size_t slab_size
+)
+{
+    herr_t herr ; 
+
+
+    // retrieve space 
+    hid_t filespace ; 
+    HDF5_CALL(filespace,H5Dget_space(dset_id));
+
+    /* Create local space for this rank */
+    hid_t memspace ; 
+    hsize_t dset_dims[1] = {slab_size} ;
+    HDF5_CALL(memspace, H5Screate_simple(1, dset_dims, NULL)) ;
+
+
+    /* Select hyperslab for this rank's output */
+    hsize_t slab_start[1]  = {slab_off} ; 
+    hsize_t slab_count[1]  = {slab_size} ;
+    HDF5_CALL( herr
+            , H5Sselect_hyperslab( filespace
+                                , H5S_SELECT_SET
+                                , slab_start
+                                , NULL
+                                , slab_count 
+                                , NULL )) ;
+
+    /* write to dataset */
+    HDF5_CALL( herr
+                , H5Dwrite( dset_id
+                        , H5T_NATIVE_DOUBLE
+                        , memspace
+                        , filespace 
+                        , dxpl 
+                        , data )) ;
+
+    HDF5_CALL(herr, H5Sclose(memspace)) ; 
+    HDF5_CALL(herr, H5Sclose(filespace)) ; 
+}
+
+template< typename v_t > 
+void fill_contiguous_buffer(
+    std::vector<double>& dst, v_t src
+)
+{
+    size_t ipos{0} ; 
+    for( int q=0; q<src.extent(4); ++q) {
+        for( int ivar=0; ivar<src.extent(3); ++ivar) {
+            for( int k=0; k<src.extent(2); ++k){
+                for( int j=0; j<src.extent(1); ++j) {
+                    for( int i=0; i<src.extent(0); ++i) {
+                        dst[ipos++] = src(i,j,k,ivar,q) ; 
+                    }
+                }
+            }
+        }
+    } 
+}
+
 
 void write_data_hdf5(
     hid_t file_id, 
@@ -196,6 +318,8 @@ void write_data_hdf5(
     /* Global dataset dimension */
     unsigned long const dim_loc  = npts_quad * data.extent(GRACE_NSPACEDIM) * nq ; 
     unsigned long const dim_glob = npts_quad * data.extent(GRACE_NSPACEDIM) * nq_glob ;
+    /* Local offset */
+    unsigned long const off_loc = local_quad_offset * npts_quad * data.extent(GRACE_NSPACEDIM) ; 
 
     // If there are no variables return 
     if (dim_glob == 0) return ; 
@@ -216,26 +340,6 @@ void write_data_hdf5(
     // Apply dataset chunking policy
     HDF5_CALL(err, H5Pset_chunk(prop_id, 1, chunk_dim));
 
-    /* Create local space for this rank */
-    hid_t space_id ; 
-    hsize_t dset_dims[1] = {dim_loc} ;
-    HDF5_CALL(space_id, H5Screate_simple(1, dset_dims, NULL)) ;
-    /* Start data transfer */
-    auto h_mirror = Kokkos::create_mirror_view(data) ; 
-    Kokkos::deep_copy(grace::default_execution_space{},h_mirror,data) ; 
-    std::vector<double> serial_data(dim_loc) ; 
-    size_t ipos{0} ; 
-    for( int q=0; q<nq; ++q) {
-        for( int ivar=0; ivar<data.extent(GRACE_NSPACEDIM); ++ivar) {
-            for( int k=0; k<data.extent(2); ++k){
-                for( int j=0; j<data.extent(1); ++j) {
-                    for( int i=0; i<data.extent(0); ++i) {
-                        serial_data[ipos++] = h_mirror(i,j,k,ivar,q) ; 
-                    }
-                }
-            }
-        }
-    } 
     /* Create dataset */
     hid_t dset_id ; 
         HDF5_CALL( dset_id
@@ -246,33 +350,43 @@ void write_data_hdf5(
                             , H5P_DEFAULT
                             , prop_id
                             , H5P_DEFAULT) ) ;
-    /* Select hyperslab for this rank's output */
-    hsize_t slab_start[1]  = {local_quad_offset * npts_quad * data.extent(GRACE_NSPACEDIM)} ; 
-    hsize_t slab_count[1]  = {dim_loc} ;
-    HDF5_CALL( err
-            , H5Sselect_hyperslab( space_id_glob
-                                , H5S_SELECT_SET
-                                , slab_start
-                                , NULL
-                                , slab_count 
-                                , NULL )) ;
-    Kokkos::fence() ; // Wait for data transfer here! 
 
-    /* write to dataset */
-    HDF5_CALL( err
-                , H5Dwrite( dset_id
-                        , H5T_NATIVE_DOUBLE
-                        , space_id
-                        , space_id_glob 
-                        , dxpl 
-                        , serial_data.data() )) ;
+    double * dptr = nullptr ; 
+    std::vector<double> flatbuf ; 
+    if constexpr ( Kokkos::SpaceAccessibility<Kokkos::HostSpace, grace::default_space>::accessible ) {
+        if ( data.span_is_contiguous() ) {
+            dptr = data.data() ; 
+        } else {
+            flatbuf.resize(dim_loc) ; 
+            fill_contiguous_buffer(flatbuf, data) ; 
+            dptr = flatbuf.data() ; 
+        }
+    } else {
+        auto h_mirror = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, data) ; 
+        if ( h_mirror.span_is_contiguous() ) {
+            dptr = h_mirror.data() ; 
+        } else {
+            flatbuf.resize(dim_loc) ; 
+            fill_contiguous_buffer(flatbuf, h_mirror) ; 
+            dptr = flatbuf.data() ; 
+        }
+    }
+    
+    /* Write to file */
+    write_buffer_hdf5(
+        dptr,
+        file_id,
+        dxpl,
+        dset_id,
+        off_loc,
+        dim_loc
+    ) ; 
 
     /* Close dataset */
     HDF5_CALL(err, H5Dclose(dset_id)) ; 
     /*****************************************************************************************/
     /*                                  Close data space                                     */
     /*****************************************************************************************/
-    HDF5_CALL(err, H5Sclose(space_id)) ; 
     HDF5_CALL(err, H5Sclose(space_id_glob)) ;
     HDF5_CALL(err, H5Pclose(prop_id)) ;
 

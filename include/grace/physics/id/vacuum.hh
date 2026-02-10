@@ -93,7 +93,7 @@ struct vacuum_id_t {
         }
         
         unsigned int err ; 
-        id.ye  = _eos.ye_beta_eq__press_cold(id.press, err);
+        id.ye  = _eos.ye_cold__press(id.press, err);
         return std::move(id) ; 
     }
 

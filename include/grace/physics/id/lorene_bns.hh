@@ -77,13 +77,13 @@ struct lorene_bns_id_t {
         //double const mu0 = Lorene::Unites::mu_si ; 
         //double const eps0 = 1.0/(mu0*cSI*cSI) ; 
 
-        units.length = GSI * MSI / (cSI*cSI) ; // cm to Msun 
+        units.length = GSI * MSI / (cSI*cSI) ; // m to Msun 
         units.time = units.length / cSI ; 
         units.mass = MSI ; 
         
         //units.Bfield = (1.0/units.length/sqrt(eps0*GSI/(cSI*cSI))) / 1e09 ; 
 
-        // g/cm^3 to Msun^-2 
+        // kg/m^3 to Msun^-2 
         units.dens = MSI/(units.length*units.length*units.length) ; 
         units.vel = units.length/units.time / cSI ; 
 
@@ -181,9 +181,9 @@ struct lorene_bns_id_t {
 
             // velocity 
             double velu[3] = {
-                bns->u_euler_x[idx] / units.vel,
-                bns->u_euler_y[idx] / units.vel,
-                bns->u_euler_z[idx] / units.vel
+                bns->u_euler_x[idx],
+                bns->u_euler_y[idx],
+                bns->u_euler_z[idx]
             } ; 
             double v2 = 0 ;  
             for( int ii=0; ii<3; ++ii) {
@@ -234,17 +234,17 @@ struct lorene_bns_id_t {
         if ( rho < (1.+1e-3) * rho_atm || !Kokkos::isfinite(rho)) {
             id.rho = rho_atm ; 
             // get ye at beta eq
-            id.ye = _eos.ye_beta_eq__rho_cold(id.rho, eos_err) ;
+            id.ye = _eos.ye_cold__press(id.rho, eos_err) ;
             // get pressure from EOS
-            id.press = _eos.press_cold__rho_ye(id.rho,id.ye,eos_err) ; 
+            id.press = _eos.press_cold__rho(id.rho,eos_err) ; 
             // set velocities 
             id.vx = id.vy = id.vz = 0.0 ;
         } else {
             id.rho = rho ; 
             // get ye at beta eq
-            id.ye = _eos.ye_beta_eq__rho_cold(id.rho, eos_err) ;
+            id.ye = _eos.ye_cold__press(id.rho, eos_err) ;
             // get pressure from EOS
-            id.press = _eos.press_cold__rho_ye(id.rho,id.ye,eos_err) ; 
+            id.press = _eos.press_cold__rho(id.rho,eos_err) ; 
             // set velocities 
             id.vx = _vel(0,i,j,k,q) ; 
             id.vy = _vel(1,i,j,k,q) ; 

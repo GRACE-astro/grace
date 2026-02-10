@@ -74,7 +74,7 @@
 
     unsigned int err ;
     double ye = 0 ;
-    auto const e = _eos.energy_cold__press_cold_ye(press, ye, err) ; 
+    auto const e = _eos.energy_cold__press_cold(press, err) ; 
     double const A = 1.0/(1.0-2.0*m/r) ; 
     double const B = (m + 4*M_PI*SQR(r)*r * press) / (SQR(r)) ; 
 
@@ -100,12 +100,11 @@ solve_tov(
 {
     Kokkos::parallel_for("solve_tov", 1, KOKKOS_LAMBDA (int dummy){
         unsigned int err ; 
-        double ye, eps;     
-        double temp = 0.0; 
+        
         double rho = rho_c ;
 
         /* Find central pressure, eps, ye */
-        double const _pressC_loc = eos.press_eps_ye__beta_eq__rho_temp(eps,ye,rho,temp,err) ; 
+        double const _pressC_loc = eos.press_cold__rho(rho,err) ; 
 
         massl(0) = 0. ;
         pressl(0) = _pressC_loc ; 
@@ -289,13 +288,13 @@ solve_tov(
         /* Check if we are inside the star */
         double ye_atm  = _atmo_params.ye_fl  ; 
         double rho_atm = _atmo_params.rho_fl ; 
-        double press_atm = _eos.press_cold__rho_ye(rho_atm,ye_atm,err) ; 
+        double press_atm = _eos.press_cold__rho(rho_atm,err) ; 
 
         if ( sol[0] > 1.001 * press_atm ) {
             id.press = sol[0] ; 
-            id.ye    = _eos.ye_beta_eq__press_cold(sol[0],err) ;
+            id.ye    = _eos.ye_cold__press(sol[0],err) ;
             // Get rho and eps from press 
-            id.rho   = _eos.rho__press_cold_ye(sol[0], id.ye, err) ; 
+            id.rho   = _eos.rho__press_cold(sol[0], err) ; 
             double s[3] = {
                 x/rL, y/rL, z/rL
             } ; 

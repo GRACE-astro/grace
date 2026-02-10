@@ -161,7 +161,7 @@ struct magnetic_rotor_id_t {
         id.vz    = 0.0 ;
 
         unsigned int err ; 
-        id.ye  = _eos.ye_beta_eq__press_cold(id.press, err);
+        id.ye  = _eos.ye_cold__press(id.press, err);
        
         return std::move(id) ; 
     }

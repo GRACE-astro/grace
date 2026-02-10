@@ -138,7 +138,7 @@ struct orszag_tang_vortex_mhd_id_t {
         #endif 
 
         unsigned int err ; 
-        id.ye  = _eos.ye_beta_eq__press_cold(id.press, err);
+        id.ye  = _eos.ye_cold__press(id.press, err);
         return std::move(id) ; 
     }
     //**************************************************************************************************

@@ -41,6 +41,10 @@ enum EOS_ERROR_T {
     EOS_RHO_TOO_HIGH,
     EOS_RHO_TOO_LOW,
     ERR_EPS_TOO_HIGH,
+    ERR_YE_TOO_LOW,
+    ERR_YE_TOO_HIGH,
+    ERR_TEMPERATURE_TOO_LOW,
+    ERR_TEMPERATURE_TOO_HIGH,
     EOS_NUM_ERRORS
 } ; 
 
@@ -157,95 +161,6 @@ class eos_base_t {
         return static_cast<eos_impl_t const*>(this)->eps__temp_rho_ye_impl(temp,rho,ye,err) ; 
     }
     /**
-     * @brief Get cold pressure given rho and ye.
-     * 
-     * @param rho Rest-mass density.
-     * @param ye Electron fraction.
-     * @param err Error code.
-     * @return double The pressure at \f$T=0\f$
-     */
-    double GRACE_HOST_DEVICE
-    press_cold__rho_ye(double& rho, double& ye, error_type& err) const 
-    {
-        return static_cast<eos_impl_t const*>(this)->press_cold__rho_ye_impl(rho,ye,err) ; 
-    }
-    /**
-     * @brief Get cold energy density given press and ye.
-     * 
-     * @param press Pressure.
-     * @param ye Electron fraction.
-     * @param err Error code.
-     * @return double The pressure at \f$T=0\f$
-     */
-    double GRACE_HOST_DEVICE
-    rho__press_cold_ye(double& press_cold, double& ye, error_type& err) const 
-    {
-        return static_cast<eos_impl_t const*>(this)->rho__press_cold_ye_impl(press_cold,ye,err) ; 
-    }
-    /**
-     * @brief Get cold energy density given press and ye.
-     * 
-     * @param press Pressure.
-     * @param ye Electron fraction.
-     * @param err Error code.
-     * @return double The pressure at \f$T=0\f$
-     */
-    double GRACE_HOST_DEVICE
-    rho__energy_cold(double& e_cold, error_type& err) const 
-    {
-        return static_cast<eos_impl_t const*>(this)->rho__energy_cold_impl(e_cold,err) ; 
-    }
-    /**
-     * @brief Get cold energy density given press and ye.
-     * 
-     * @param press Pressure.
-     * @param ye Electron fraction.
-     * @param err Error code.
-     * @return double The pressure at \f$T=0\f$
-     */
-    double GRACE_HOST_DEVICE
-    energy_cold__press_cold_ye(double& press_cold, double& ye, error_type& err) const 
-    {
-        return static_cast<eos_impl_t const*>(this)->energy_cold__press_cold_ye_impl(press_cold,ye,err) ; 
-    }
-    /**
-     * @brief Cold specific internal energy given rho and ye.
-     * 
-     * @param rho Rest-mass density.
-     * @param ye Electron fraction.
-     * @param err Error code.
-     * @return double The specific internal energy at \f$T=0\f$
-     */
-    double GRACE_HOST_DEVICE
-    eps_cold__rho_ye(double& rho, double& ye, error_type& err) const 
-    {
-        return static_cast<eos_impl_t const*>(this)->eps_cold__rho_ye_impl(rho,ye,err) ; 
-    }
-    /**
-     * @brief Returns the minimum temperature.
-     */
-    double GRACE_HOST_DEVICE
-    temp_cold__rho_ye(double& rho, double& ye, error_type& err) const 
-    {
-        return static_cast<eos_impl_t const*>(this)->temp_cold__rho_ye_impl(rho,ye,err) ; 
-    }
-    /**
-     * @brief Specific internal energy given pressure,
-     *        temperature rho and ye.
-     * 
-     * @param press Pressure.
-     * @param temp  Temperature.
-     * @param rho   Rest-mass density.
-     * @param ye    Electron fraction.
-     * @param err   Error code.
-     * @return double The specific internal energy.
-     */
-    double GRACE_HOST_DEVICE 
-    eps__press_temp_rho_ye(double& press, double& temp, double& rho, double& ye, error_type& err) const 
-    {
-        return static_cast<eos_impl_t const*>(this)->eps__press_temp_rho_ye_impl(press,temp,rho,ye,err) ; 
-    }
-    /**
      * @brief Range of epsilon given rho and ye.
      * 
      * @param eps_min Minimum epsilon.
@@ -312,26 +227,6 @@ class eos_base_t {
                               , error_type &err) const 
     {
         return static_cast<eos_impl_t const*>(this)->press_h_csnd2__temp_rho_ye_impl(h,csnd2,temp,rho,ye,err) ; 
-    }
-    /**
-     * @brief Specific internal energy, specific enthalpy and 
-     *        square sound speed given pressure, 
-     *        rho and ye.
-     * 
-     * @param h Specific enthalpy.
-     * @param csnd2 Sound speed squared.
-     * @param press Pressure.
-     * @param rho Rest-mass density.
-     * @param ye Electron fraction.
-     * @param err Error code.
-     * @return double The specific internal energy.
-     */
-    double GRACE_HOST_DEVICE
-    eps_h_csnd2__press_rho_ye( double &h, double &csnd2, double &press
-                             , double &rho, double &ye
-                             , error_type &err) const 
-    {
-        return static_cast<eos_impl_t const*>(this)->eps_h_csnd2__press_rho_ye_impl(h,csnd2,press,rho,ye,err) ; 
     }
     /**
      * @brief Pressure, specific internal energy
@@ -460,47 +355,118 @@ class eos_base_t {
     {
         return static_cast<eos_impl_t const*>(this)->eps_h_csnd2_temp_entropy__press_rho_ye_impl(h,csnd2,temp,entropy,press,rho,ye,err) ; 
     }
+    
     /**
-     * @brief Pressure, specific internal energy and electron fraction
-     *        at beta equilibrium given rho and temperature.
+     * @brief Get cold pressure given rho and ye.
      * 
-     * @param eps Specific internal energy.
-     * @param ye Electron fraction.
      * @param rho Rest-mass density.
-     * @param temp Temperature.
      * @param err Error code.
-     * @return double The pressure.
+     * @return double The pressure at \f$T=0\f$
      */
     double GRACE_HOST_DEVICE
-    press_eps_ye__beta_eq__rho_temp( double& eps, double& ye
-                                   , double& rho, double& temp
-                                   , error_type& err) const 
+    press_cold__rho(double& rho, error_type& err) const 
     {
-        return static_cast<eos_impl_t const*>(this)->press_eps_ye__beta_eq__rho_temp_impl(eps,ye,rho,temp,err) ; 
+        return static_cast<eos_impl_t const*>(this)->press_cold__rho_impl(rho,err) ; 
     }
     /**
-     * @brief Get beta-equilibrium ye at T=0 given cold pressure.
+     * @brief Get cold energy density given press and ye.
      * 
-     * @param press_cold Cold pressure.
-     * @param err        Error code.
-     * @return double The charge fraction at cold beta-eq.
-     */
-    double GRACE_HOST_DEVICE 
-    ye_beta_eq__press_cold(double& press_cold, error_type& err) const 
-    {
-        return static_cast<eos_impl_t const*>(this)->ye_beta_eq__press_cold_impl(press_cold,err) ; 
-    }
-    /**
-     * @brief Get beta-equilibrium ye at T=0 given rho.
-     * 
-     * @param rho Rest-mass density
+     * @param press Pressure.
+     * @param ye Electron fraction.
      * @param err Error code.
-     * @return double The charge fraction at cold beta-eq.
+     * @return double The pressure at \f$T=0\f$
      */
-    double GRACE_HOST_DEVICE 
-    ye_beta_eq__rho_cold(double& rho, error_type& err) const 
+    double GRACE_HOST_DEVICE
+    rho__press_cold(double& press_cold, error_type& err) const 
     {
-        return static_cast<eos_impl_t const*>(this)->ye_beta_eq__rho_cold_impl(rho,err) ; 
+        return static_cast<eos_impl_t const*>(this)->rho__press_cold_impl(press_cold,err) ; 
+    }
+    /**
+     * @brief Get cold energy density given press and ye.
+     * 
+     * @param press Pressure.
+     * @param ye Electron fraction.
+     * @param err Error code.
+     * @return double The pressure at \f$T=0\f$
+     */
+    double GRACE_HOST_DEVICE
+    rho__energy_cold(double& e_cold, error_type& err) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->rho__energy_cold_impl(e_cold,err) ; 
+    }
+    /**
+     * @brief Get cold energy density given press and ye.
+     * 
+     * @param press Pressure.
+     * @param ye Electron fraction.
+     * @param err Error code.
+     * @return double The pressure at \f$T=0\f$
+     */
+    double GRACE_HOST_DEVICE
+    energy_cold__press_cold(double& press_cold, error_type& err) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->energy_cold__press_cold_impl(press_cold,err) ; 
+    }
+    /**
+     * @brief Cold specific internal energy given rho and ye.
+     * 
+     * @param rho Rest-mass density.
+     * @param ye Electron fraction.
+     * @param err Error code.
+     * @return double The specific internal energy at \f$T=0\f$
+     */
+    double GRACE_HOST_DEVICE
+    eps_cold__rho(double& rho, error_type& err) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->eps_cold__rho_impl(rho,err) ; 
+    }
+    /**
+     * @brief Electron fraction on cold table given rest mass dens
+     * 
+     * @param rho Rest-mass density.
+     * @param err Error code.
+     * @return double The electron fraction
+     */
+    double GRACE_HOST_DEVICE
+    ye_cold__rho(double& rho,  error_type& err) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->ye_cold__rho_impl(rho,err) ; 
+    }
+    /**
+     * @brief Electron fraction on cold table given pressure
+     * 
+     * @param press Cold pressure.
+     * @param err Error code.
+     * @return double The electron fraction
+     */
+    double GRACE_HOST_DEVICE
+    ye_cold__press(double& press,  error_type& err) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->ye_cold__press_impl(press,err) ; 
+    }
+    /**
+     * @brief Temperature of cold slice given rest mass dens
+     * 
+     * @param rho Rest-mass density.
+     * @param err Error code.
+     * @return double The temperature 
+     */
+    double GRACE_HOST_DEVICE
+    temp_cold__rho(double& rho,  error_type& err) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->temp_cold__rho_impl(rho,err) ;  
+    }
+    /**
+     * @brief Temperature of cold slice given rest mass dens
+     * 
+     * @param rho Rest-mass density.
+     * @param err Error code.
+     * @return double The temperature 
+     */
+    double GRACE_HOST_DEVICE
+    entropy_cold__rho(double& rho,  error_type& err) const 
+    {
+        return static_cast<eos_impl_t const*>(this)->entropy_cold__rho_impl(rho,err) ;  
     }
     /**
      * @brief Electron, proton, neutron chemical potentials, 
