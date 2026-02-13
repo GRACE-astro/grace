@@ -723,7 +723,7 @@ void set_conservs_from_prims() {
         /* If evolved metric, set constraint violations  */
         /*************************************************/
         #ifndef GRACE_ENABLE_COWLING_METRIC
-        if (i>=ngz-1 and i<=nx+ngz and j>=ngz-1 and j<=ny+ngz and k>=ngz-1 and k<=nz+ngz) 
+        if (i>=ngz and i<nx+ngz and j>=ngz and j<ny+ngz and k>=ngz and k<nz+ngz) 
             metric_evol_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx,dev_coords);
         #endif 
     }) ;

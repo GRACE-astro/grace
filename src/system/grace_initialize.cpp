@@ -279,6 +279,8 @@ void initialize(int& argc, char* argv[])
         grace::compute_auxiliary_quantities() ;
     }
     grace::puncture_tracker::initialize() ; 
+    Kokkos::fence() ; 
+    parallel::mpi_barrier() ; 
     GRACE_INFO("Initialization done.");
     GRACE_INFO("GRACE running on {} backend", GRACE_BACKEND) ; 
     //GRACE_INFO("GRACE running on {} total devices.", Kokkos::num_devices() ) ; 

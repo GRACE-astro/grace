@@ -195,12 +195,30 @@ struct hanging_face_reflux_desc_t {
     std::array<bool,4> fine_is_remote ; 
     int8_t fine_face_id    ;
 } ; 
+// device counterpart 
+struct hanging_face_reflux_device_desc_t {
+    Kokkos::View<int*> coarse_qid      ;
+    Kokkos::View<int*> coarse_owner_rank  ;
+    Kokkos::View<uint8_t*> coarse_is_remote  ;   
+    Kokkos::View<int8_t*> coarse_face_id  ;
+
+    Kokkos::View<int8_t*> fine_face_id; 
+    Kokkos::View<int*[4]> fine_qid ; 
+    Kokkos::View<int*[4]> fine_owner_rank ; 
+    Kokkos::View<uint8_t*[4]> fine_is_remote ; 
+} ; 
 // for non hanging faces
 struct full_face_reflux_desc_t {
     std::array<size_t,2> qid      ;
     std::array<int,2> owner_rank  ;
     std::array<bool,2> is_remote  ;   
     std::array<int8_t,2> face_id  ;
+} ; 
+struct full_face_reflux_device_desc_t {
+    Kokkos::View<int*[2]> qid; 
+    Kokkos::View<int*[2]> owner_rank; 
+    Kokkos::View<uint8_t*[2]> is_remote; 
+    Kokkos::View<uint8_t*[2]> face_id;
 } ; 
 /**************************************************************************************************/
 struct hanging_remote_reflux_desc_t {
@@ -209,6 +227,13 @@ struct hanging_remote_reflux_desc_t {
     int8_t elem_id ; 
     size_t buf_id  ; 
 } ; 
+// device counterpart 
+struct hanging_remote_reflux_device_desc_t {
+    Kokkos::View<size_t*> qid ; 
+    Kokkos::View<size_t*> bug_id ; 
+    Kokkos::View<int*> rank   ; 
+    Kokkos::View<int8_t*> elem_id ; 
+}
 /**************************************************************************************************/
 /**************************************************************************************************/
 // For hanging faces: we need to record them separately for refluxing 
@@ -229,6 +254,7 @@ struct hanging_edge_reflux_side_t {
     bool is_fine ;
     int off_i{0}, off_j{0} ; 
 } ; 
+
 /**************************************************************************************************/
 // For hanging edges: we need to record them separately for refluxing 
 struct hanging_edge_reflux_desc_t {
@@ -238,6 +264,45 @@ struct hanging_edge_reflux_desc_t {
     int n_fine ; 
     int n_coarse ; 
     int n_sides  ; 
+} ; 
+/**************************************************************************************************/
+struct hanging_edge_reflux_device_desc_t {
+    hanging_edge_reflux_device_desc_t(size_t N)
+    {
+        is_fine.realloc(N) ; 
+        n_sides.realloc(N) ; 
+        fine_qid.realloc(N) ; 
+        fine_owner_rank.realloc(N) ; 
+        fine_is_remote.realloc(N) ; 
+        coarse_qid.realloc(N) ; 
+        coarse_owner_rank.realloc(N) ; 
+        coarse_is_remote.realloc(N) ; 
+
+        edge_id.realloc(N) ; 
+
+        off_i.realloc(N) ; 
+        off_j.realloc(N) ; 
+    }
+    // side descriptors 
+    Kokkos::View<uint8_t*[4]> is_fine ; 
+    Kokkos::View<uint8_t*> n_sides ; 
+    
+    // for fine sides 
+    Kokkos::View<int*[4][2]> fine_qid ; 
+    Kokkos::View<int*[4][2]> fine_owner_rank ; 
+    Kokkos::View<uint8_t*[4][2]> fine_is_remote ; 
+
+    // for coarse sides 
+    Kokkos::View<int*[4]> coarse_qid ; 
+    Kokkos::View<int*[4]> coarse_owner_rank ; 
+    Kokkos::View<uint8_t*[4]> coarse_is_remote ;
+    
+    // edge id per siee
+    Kokkos::View<uint8_t*[4]> edge_id ; 
+
+    // offsets 
+    Kokkos::View<int*[4]> off_i ; 
+    Kokkos::View<int*[4]> off_j ; 
 } ; 
 /**************************************************************************************************/
 struct p4est_iter_data_t {
@@ -401,23 +466,23 @@ class amr_ghosts_impl_t {
     }
     //**************************************************************************************************/
     GRACE_ALWAYS_INLINE
-    std::vector<hanging_face_reflux_desc_t> const& get_reflux_face_descriptors() const {
-        return _reflux_face_descs ;
+    hanging_face_reflux_device_desc_t const& get_reflux_face_descriptors() const {
+        return _reflux_face_descs_d ;
     }
     //**************************************************************************************************/
     GRACE_ALWAYS_INLINE
-    std::vector<full_face_reflux_desc_t> const& get_reflux_coarse_face_descriptors() const {
-        return _reflux_coarse_face_descs ;
+    full_face_reflux_device_desc_t const& get_reflux_coarse_face_descriptors() const {
+        return _reflux_coarse_face_descs_d ;
     }
     //**************************************************************************************************/
     GRACE_ALWAYS_INLINE
-    std::vector<hanging_edge_reflux_desc_t> const& get_reflux_edge_descriptors() const {
-        return _reflux_edge_descs ;
+    hanging_edge_reflux_device_desc_t const& get_reflux_edge_descriptors() const {
+        return _reflux_edge_descs_d ;
     }
     //**************************************************************************************************/
     GRACE_ALWAYS_INLINE
-    std::vector<hanging_edge_reflux_desc_t> const& get_reflux_coarse_edge_descriptors() const {
-        return _reflux_coarse_edge_descs ;
+    hanging_edge_reflux_device_desc_t const& get_reflux_coarse_edge_descriptors() const {
+        return _reflux_coarse_edge_descs_d ;
     }
     //**************************************************************************************************/
     GRACE_ALWAYS_INLINE
@@ -569,6 +634,15 @@ class amr_ghosts_impl_t {
     std::vector<hanging_remote_reflux_desc_t> _reflux_coarse_face_snd ;
     std::vector<hanging_remote_reflux_desc_t> _reflux_edge_snd;
     std::vector<hanging_remote_reflux_desc_t> _reflux_coarse_edge_snd ;
+    // device counterparts 
+    hanging_face_reflux_device_desc_t _reflux_face_descs_d ; 
+    full_face_reflux_device_desc_t _reflux_coarse_face_descs_d ; 
+    hanging_edge_reflux_device_desc_t _reflux_edge_descs_d, _reflux_coarse_edge_descs_d ; 
+
+    hanging_remote_reflux_device_desc_t _reflux_face_snd_d, _reflux_coarse_edge_descs_d ; 
+    hanging_remote_reflux_device_desc_t _reflux_coarse_face_snd_d ;
+    hanging_remote_reflux_device_desc_t _reflux_edge_snd_d; 
+    hanging_remote_reflux_device_desc_t _reflux_coarse_edge_snd_d; 
     /**************************************************************************************************/
     //! Offsets and sizes 
     std::vector<size_t> _reflux_snd_off, _reflux_rcv_off, _reflux_snd_size, _reflux_rcv_size ; 
