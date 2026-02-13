@@ -44,6 +44,7 @@ amr:
   initial_refinement_level:
     type: unsigned int
     range: "[0,*)"
+    default: 0
     description: >
       Refinement level of base grid 
 
@@ -51,22 +52,26 @@ amr:
   npoints_block_x:
     type: unsigned int
     range: "[1,*)"
+    default: 16
     description: >
       Number of cells/quadrant in x direction. Prefer powers of 2, must be larger than 2*n_ghost. WARNING: currently grace requires number of cells in all directions to be equal.
   npoints_block_y:
     type: unsigned int
     range: "[1,*)"
+    default: 16
     description: >
       Number of cells/quadrant in y direction. Prefer powers of 2, must be larger than 2*n_ghost. WARNING: currently grace requires number of cells in all directions to be equal.
   npoints_block_z:
     type: unsigned int
     range: "[1,*)"
+    default: 16
     description: >
       Number of cells/quadrant in z direction. Prefer powers of 2, must be larger than 2*n_ghost. WARNING: currently grace requires number of cells in all directions to be equal.
   
   n_ghostzones:
     type: unsigned int
     range: "[1,*)"
+    default: 4
     description: >
       Number of ghost cells per quadrant. Must be even. Unless code is modified, must be >=4 for WENO-5 reconstruction and 4th order FD.
 
@@ -91,6 +96,7 @@ amr:
       Is the grid periodic in z?
 
   reflection_symmetries:
+    type: schema
     description: >
       Grid reflection symmetries 
     x:
@@ -205,23 +211,30 @@ amr:
       target_level_delta:
         type: unsigned int
         range: "[1,*)"
+        default: 1
         description: >
           How many levels above the base grid?
       x_min:
         type: double
+        default: -1.0
         range: "(*,*)"
       x_max:
         type: double
+        default: 1.0
         range: "(*,*)"
       y_min:
         type: double
+        default: -1.0
         range: "(*,*)"
       y_max:
         type: double
+        default: 1.0
         range: "(*,*)"
       z_min:
         type: double
+        default: -1.0
         range: "(*,*)"
       z_max:
         type: double
+        default: 1.0
         range: "(*,*)"

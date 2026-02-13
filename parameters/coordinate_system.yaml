@@ -14,5 +14,6 @@ coordinate_system:
   mass_scale:
     type: double
     default: 1.0
+    range: "(0,*)"
     description: >
       How much is MBH in code units? Should really be 1.

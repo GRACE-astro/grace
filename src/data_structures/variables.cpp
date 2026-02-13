@@ -162,7 +162,7 @@ variable_list_impl_t::variable_list_impl_t()
     // allocate staging buffers for timestepper 
     auto tstepper = get_param<std::string>("evolution","time_stepper") ; 
     int n_staging_bufs{0} ;  
-    if ( tstepper == "rk3" or tstepper == "imex222") { 
+    if ( tstepper == "rk3" or tstepper == "imex222" or tstepper=="rk4") { 
         n_staging_bufs = 1 ; 
     }
     _staging_buffer.reserve(n_staging_bufs) ; 

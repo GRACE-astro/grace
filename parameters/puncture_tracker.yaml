@@ -1,0 +1,31 @@
+puncture_tracker:
+  n_punctures:
+    type: unsigned int 
+    default: 0
+    range: "[0,*)"
+    description: >
+      Number of punctures 
+
+  puncture_x_initial:
+    type: list 
+    item_type: double 
+    description: > 
+      X location of punctures at t=0
+  puncture_y_initial:
+    type: list 
+    item_type: double 
+    description: > 
+      Y location of punctures at t=0
+  puncture_z_initial:
+    type: list 
+    item_type: double 
+    description: > 
+      Z location of punctures at t=0
+
+  output_frequency:
+    type: int
+    default: -1
+    range: "[-1,*)"
+    description: >
+      How often to compute and output locations, in iterations. -1 means never.
+  

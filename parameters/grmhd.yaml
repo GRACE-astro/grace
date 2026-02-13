@@ -1,7 +1,7 @@
 grmhd:
   id_type: 
     type: keyword 
-    allowed: ["minkowski_vacuum", "shocktube", "magnetic_rotor", "bondi_flow", "orszag_tang_vortex", "fmtorus", "tov", "blastwave", "gas_cloud","puncture","lorene_bns"]
+    allowed: ["minkowski_vacuum", "shocktube", "magnetic_rotor", "bondi_flow", "orszag_tang_vortex", "fmtorus", "tov", "blastwave", "gas_cloud","puncture","lorene_bns", "two_punctures"]
     default: "minkowski_vacuum"
     description: > 
       Initial data type 
@@ -464,8 +464,123 @@ grmhd:
       description: >
         Power law decay in press
     
+  lorene_bns:
+    filename:
+      type: string
+      default: "./id.res"
+      description: >
+        Filename containing initial data for LORENE ID 
+  
+  two_punctures:
+    par_b:
+      type: double
+      default: 1
+      range: "(0,*)"
+      description: >
+        Distance of the two punctures along the x axis 
+      
+    par_M_plus:
+      type: double 
+      default: 1
+      range: "(0,*)"
+      description: >
+        ADM mass of the first puncture 
+    par_P_plus_x:
+      type: double 
+      default: 0
+      range: "(*,*)"
+      description: >
+        Momentum of the first puncture along x
+    par_P_plus_y:
+      type: double 
+      default: 0
+      range: "(*,*)"
+      description: >
+        Momentum of the first puncture along y
+    par_P_plus_z:
+      type: double 
+      default: 0
+      range: "(*,*)"
+      description: >
+        Momentum of the first puncture along z
+    par_S_plus_x:
+      type: double 
+      default: 0
+      range: "(*,*)"
+      description: >
+        Angular momentum of the first puncture along x
+    par_S_plus_y:
+      type: double 
+      default: 0
+      range: "(*,*)"
+      description: >
+        Angular momentum of the first puncture along y
+    par_S_plus_z:
+      type: double 
+      default: 0
+      range: "(*,*)"
+      description: >
+        Angular momentum of the first puncture along z
     
+    par_M_minus:
+      type: double 
+      default: 1
+      range: "(0,*)"
+      description: >
+        ADM mass of the second puncture 
+    par_P_minus_x:
+      type: double 
+      default: 0
+      range: "(*,*)"
+      description: >
+        Momentum of the second puncture along x
+    par_P_minus_y:
+      type: double 
+      default: 0
+      range: "(*,*)"
+      description: >
+        Momentum of the second puncture along y
+    par_P_minus_z:
+      type: double 
+      default: 0
+      range: "(*,*)"
+      description: >
+        Momentum of the second puncture along z
+    par_S_minus_x:
+      type: double 
+      default: 0
+      range: "(*,*)"
+      description: >
+        Angular momentum of the second puncture along x
+    par_S_minus_y:
+      type: double 
+      default: 0
+      range: "(*,*)"
+      description: >
+        Angular momentum of the second puncture along y
+    par_S_minus_z:
+      type: double 
+      default: 0
+      range: "(*,*)"
+      description: >
+        Angular momentum of the second puncture along z
 
-
-     
+    npoints_A:
+      type: unsigned int 
+      default: 30
+      range: "(0,*)"
+      description: >
+        Number of points on grid for first puncture 
+    npoints_B:
+      type: unsigned int 
+      default: 30
+      range: "(0,*)"
+      description: >
+        Number of points on grid for second puncture 
+    npoints_phi:
+      type: unsigned int 
+      default: 16
+      range: "(0,*)"
+      description: >
+        Number of points on phi grid, must be multiple of 4
     

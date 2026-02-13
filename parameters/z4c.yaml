@@ -1,0 +1,100 @@
+z4c:
+  bc_kind:
+    type: keyword 
+    allowed: ["none", "outgoing", "sommerfeld"]
+    default: "sommerfeld"
+    description: >
+      Outer boundary conditions for z4c, should really be Sommerfeld 
+
+  kappa_1:
+    type: double 
+    default: 0.02 
+    range: "[0,*)"
+    description: >
+      Z4c damping parameter, should not really change unless you know what you're doing 
+
+  kappa_2:
+    type: double 
+    default: 0.0 
+    range: "[0,*)"
+    description: >
+      Z4c damping parameter, should not really change unless you know what you're doing 
+  
+  eta:
+    type: double 
+    default: 1.0 
+    range: "[0,*)"
+    description: >
+      Shift damping parameter, should be 2/M or 2-2/M 
+
+  eps_diss:
+    type: double 
+    default: 0.0 
+    range: "[0,*)"
+    description: >
+      KO dissipation strength, typically ~0.1 
+  
+  chi_floor:
+    type: double 
+    default: 1.0e-11
+    range: "[0,*)"
+    description: >
+      Floor of conformal factor
+
+  alp_min:
+    type: double 
+    default: 1.0e-11
+    range: "[0,*)"
+    description: >
+      Floor of lapse 
+
+  eta_damp_radius:
+    type: double 
+    default: 1e99
+    range: "(0,*)"
+    description: >
+      Eta decays as 1/r for r>this parameter 
+
+  kappa_damp_radius:
+    type: double 
+    default: 1e99
+    range: "(0,*)"
+    description: >
+      kappa_1 decays as 1/r for r>this parameter 
+
+  theta_damp_radius:
+    type: double 
+    range: "[-1,*)"
+    default: -1
+    description: >
+      theta evolution damped as exp(-r/this parameter) -1 deactivates this 
+
+  is_vacuum:
+    type: bool 
+    default: false
+    description: >
+      Is there matter? 
+    
+  adaptive_eta:
+    type: bool 
+    default: false
+    description: >
+      A la Lousto
+
+  adaptive_eta_a:
+    type: int 
+    default: 1
+    range: "[0,*)"
+    description: >
+      A la Lousto
+  adaptive_eta_b:
+    type: int 
+    default: 2
+    range: "[0,*)"
+    description: >
+      A la Lousto
+
+  
+  
+
+  

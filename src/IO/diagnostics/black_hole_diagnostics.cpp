@@ -265,13 +265,13 @@ bh_diagnostics::compute_local_fluxes(
         report_nan("domega",domega) ; 
         report_nan("sqrtmdet",sqrtmdet) ; 
         // accretion rate
-        flux_loc[0] += - domega * sqrtmdet * rho * ur ; 
+        flux_loc[0] += - r * r * domega * sqrtmdet * rho * ur ; 
         // energy flux 
-        flux_loc[1] += - domega * sqrtmdet * tr_0 ; 
+        flux_loc[1] += - r * r * domega * sqrtmdet * tr_0 ; 
         // angular momentum flux 
-        flux_loc[2] += domega * sqrtmdet * tr_3 ; 
+        flux_loc[2] += r * r * domega * sqrtmdet * tr_3 ; 
         // magnetic flux 
-        flux_loc[3] += domega * sqrtmdet * phi_l ; 
+        flux_loc[3] += r * r * domega * sqrtmdet * phi_l ; 
 
     }
 

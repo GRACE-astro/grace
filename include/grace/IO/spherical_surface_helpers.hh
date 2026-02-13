@@ -180,71 +180,86 @@ struct healpix_sampler_t {
 
 struct  uniform_sampler_t {
     static size_t get_n_points(size_t const& res) {
-        return 2 * res * res ; 
+        return (2 * res) * (res) ; 
     }
 
     static std::vector<point_host_t> 
     get_points(double radius, std::array<double,3> const& center, size_t const& res, std::vector<std::array<double,2>>& angles)
     {
-        size_t ntheta = res ; 
-        size_t nphi = 2*res ; 
-        size_t npoints = ntheta*nphi ; 
-        auto& coord_system = grace::coordinate_system::get() ; 
-        angles.clear() ; 
-        angles.reserve(npoints); 
+      bool equatorial_symm{grace::get_param<bool>("amr","reflection_symmetries","z")} ; 
+      ASSERT(res%2, "Simpson rule requires odd npoints") ; 
+      double mu_min = equatorial_symm ? 0.0 : -1.0;
+      double mu_max = 1.0;
 
-        for( int iphi=0; iphi<nphi; ++iphi) {
-            double phi = M_PI / ntheta * iphi ; 
-            for( int itheta=0; itheta<ntheta; ++itheta) {
-                double mu = -1.0 + 2.0/(ntheta-1) * itheta ; 
-                double theta = acos(mu) ; 
-                angles.push_back({theta,phi}) ; 
-            }
-        }
+      size_t ntheta = res ; 
+      size_t nphi = 2 * res;
+      size_t npoints = ntheta*nphi ; 
+      auto& coord_system = grace::coordinate_system::get() ; 
+      angles.clear() ; 
+      angles.reserve(npoints); 
 
-        std::vector<point_host_t> points;
-        points.reserve(ntheta*nphi);
+      for( int iphi=0; iphi<nphi; ++iphi) {
+          double phi = 2 * M_PI / (nphi) * iphi ; // this excludes the endpoint 2pi == 0 
+          for( int itheta=0; itheta<ntheta; ++itheta) {
+              double mu = mu_min + (mu_max-mu_min)/(ntheta-1) * itheta ; 
+              double theta = acos(mu) ; 
+              angles.push_back({theta,phi}) ; 
+          }
+      }
 
-        for( size_t i=0; i<ntheta*nphi; i+=1UL) {
-            double theta = angles[i][0] ; 
-            double phi = angles[i][1] ; 
-            std::array<double,3> p{radius,theta,phi} ; 
-            // convert to cartesian, in CKS this 
-            // is not the standard formula! 
-            p = coord_system.sph_to_cart(p) ; 
-            p[0] += center[0] ; 
-            p[1] += center[1] ; 
-            p[2] += center[2] ; 
-            points.push_back(std::make_pair(i,p)) ; 
-        }
+      std::vector<point_host_t> points;
+      points.reserve(ntheta*nphi);
 
-        return points;
+      for( size_t i=0; i<ntheta*nphi; i+=1UL) {
+          double theta = angles[i][0] ; 
+          double phi = angles[i][1] ; 
+          std::array<double,3> p{radius,theta,phi} ; 
+          // convert to cartesian, in CKS this 
+          // is not the standard formula! 
+          p = coord_system.sph_to_cart(p) ; 
+          p[0] += center[0] ; 
+          p[1] += center[1] ; 
+          p[2] += center[2] ; 
+          if (equatorial_symm) p[2] = fmax(p[2],1e-15) ; // ensure not == 0 otherwise might fall outside grid
+          points.push_back(std::make_pair(i,p)) ; 
+      }
+
+      return points;
     }
 
 
-    static std::vector<double> get_quadrature_weights(double radius, size_t const& res)
+  static std::vector<double> get_quadrature_weights(double radius, size_t const& res)
   {
-      size_t ntheta = res;
-      size_t nphi   = 2 * res;
-      size_t npoints = ntheta * nphi;
+      bool equatorial_symm{grace::get_param<bool>("amr","reflection_symmetries","z")} ; 
+      ASSERT(res%2, "Simpson rule requires odd npoints") ; 
+      double mu_min = equatorial_symm ? 0.0 : -1.0;
+      double mu_max = 1.0;
 
-      double dmu  = 2.0 / (ntheta - 1);
-      double dphi = 2.0 * M_PI / nphi;
+
+      size_t ntheta = res;
+      size_t nphi   = 2 * res ;
+      size_t npoints = ntheta * nphi;
 
       std::vector<double> weights(npoints);
 
+      double htheta = (mu_max-mu_min) / (ntheta - 1);
+      double hphi = 2*M_PI / (nphi);
+
       for (size_t itheta = 0; itheta < ntheta; ++itheta)
       {
-          double wmu = dmu;
+          double wmu;
+
           if (itheta == 0 || itheta == ntheta-1)
-              wmu *= 0.5; // half-weight at poles
+              wmu = 1.0;
+          else if (itheta % 2 == 1)
+              wmu = 4.0;
+          else
+              wmu = 2.0;
 
-          for (size_t iphi = 0; iphi < nphi; ++iphi)
-              weights[iphi*ntheta + itheta] = wmu * dphi;
+          wmu *= htheta / 3.0;
+          for (size_t iphi = 0; iphi < nphi; ++iphi) 
+            weights[iphi*ntheta + itheta] = wmu * hphi;          
       }
-
-      for (auto& w : weights)
-          w *= radius * radius;
 
       return weights;
   }

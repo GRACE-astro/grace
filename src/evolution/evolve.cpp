@@ -176,7 +176,108 @@ void evolve_impl() {
         amr::apply_boundary_conditions(state,sstate,state_pp,sstate_pp,dt,2./3.) ; 
         compute_auxiliary_quantities<eos_t>(state, sstate, aux) ;
     } else if ( tstepper == "rk4" ) { 
-        ERROR("RK4 not implemented yet.") ; 
+        // get storage 
+        auto& s1  = state    ; 
+        auto& ss1 = sstate   ;
+        auto& s2  = state_p  ;
+        auto& ss2 = sstate_p ;
+        auto s3   = grace::variable_list::get().getstagingbuffer()[0]    ;
+        auto ss3  = grace::variable_list::get().getstagstagingbuffer()[0];
+        // S2 method of 
+        // coefficients 
+        double delta, gamma1, gamma2, beta ; 
+        // stage 1 
+        delta = 1.0 ; 
+        gamma1 = 0.0 ; gamma2 = 1.0;
+        beta = 1.193743905974738;
+        // s2 = s2 + delta s1 
+        // we already start with s2 = s1 
+        // s3 = gamma1 s1 + gamma2 s2 
+        linop_apply(
+            s3,s1,s2,
+            ss3,ss1,ss2,
+            gamma1,gamma2
+        ) ; 
+        // s3 = s3 + dt F(s1)
+        advance_substep<eos_t>(
+            t,dt,beta,
+            s3,s1,
+            ss3,ss1
+        ) ; 
+        // apply bc 
+        amr::apply_boundary_conditions(s3,ss3,s1,ss1,dt,beta) ;
+        compute_auxiliary_quantities<eos_t>(s3, ss3, aux) ;  
+        // stage 2 
+        delta  = 0.217683334308543;
+        gamma1 = 0.121098479554482 ; gamma2 = 0.721781678111411;
+        beta = 0.099279895495783;
+        // s2 = s2 + delta s3 
+        linop_apply(
+            s2,s2,s3,
+            ss2,ss2,ss3,
+            1.0,delta 
+        ) ;
+        // s1 = gamma1 s3 + gamma2 s2 
+        linop_apply(
+            s1,s3,s2,
+            ss1,ss3,ss2,
+            gamma1,gamma2
+        ) ; 
+        // s1 += beta dt F(s3)
+        advance_substep<eos_t>(
+            t,dt,beta,
+            s1,s3,
+            ss1,ss3
+        ) ; 
+        // apply bc 
+        amr::apply_boundary_conditions(s1,ss1,s3,ss3,dt,beta) ;
+        compute_auxiliary_quantities<eos_t>(s1, ss1, aux) ; 
+        // stage 3
+        delta  = 1.065841341361089;
+        gamma1 = -3.843833699660025 ; gamma2 = 2.121209265338722;
+        beta = 1.131678018054042;
+        // s2 = s2 + delta s1 
+        linop_apply(
+            s2,s2,s1,
+            ss2,ss2,ss1,
+            1.0,delta
+        ) ;
+        // s3 = gamma1 s1 + gamma2 s2 
+        linop_apply(
+            s3,s1,s2,
+            ss3,ss1,ss2,
+            gamma1,gamma2
+        ) ; 
+        // s3 = s3 + dt F(s1)
+        advance_substep<eos_t>(
+            t,dt,beta,
+            s3,s1,
+            ss3,ss1
+        ) ; 
+        // apply bc 
+        amr::apply_boundary_conditions(s3,ss3,s1,ss1,dt,beta) ;
+        compute_auxiliary_quantities<eos_t>(s3, ss3, aux) ; 
+        // stage 4
+        delta  = 0.000000000000000;
+        gamma1 = 0.546370891121863 ; gamma2 = 0.198653035682705;
+        beta = 0.310665766509336;
+        // s2 = s2 + delta s3 (delta == 0, skip!)
+        // -- 
+        // s1 = gamma1 s3 + gamma2 s2 
+        linop_apply(
+            s1,s3,s2,
+            ss1,ss3,ss2,
+            gamma1,gamma2
+        ) ; 
+        // s1 += beta dt F(s3)
+        advance_substep<eos_t>(
+            t,dt,beta,
+            s1,s3,
+            ss1,ss3
+        ) ; 
+        // apply bc 
+        amr::apply_boundary_conditions(s1,ss1,s3,ss3,dt,beta) ;
+        compute_auxiliary_quantities<eos_t>(s1, ss1, aux) ; 
     } else if (tstepper == "imex1") { 
         advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ;
         amr::apply_boundary_conditions(state,sstate,state_p,sstate_p,dt,1.0) ; 
