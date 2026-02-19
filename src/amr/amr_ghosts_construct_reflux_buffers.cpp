@@ -628,24 +628,11 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
             }
         } // loop over sides 
     } // loop over coarse 
-    std::ofstream file("coarse_face_descs_"+std::to_string(rank)+".dat");
-    for( int i=0; i<_reflux_coarse_face_descs.size(); ++i) {
-        auto const dsc =  _reflux_coarse_face_descs[i] ; 
-        for( int is=0; is<2; ++is ) {
-            file << i << "\t" << is << "\t" << dsc.is_remote[is] << "\t" << dsc.owner_rank[is] << "\t" << dsc.face_id[is] << "\t" << dsc.qid[is] << '\t' << dsc.bid[is] << '\n'; 
-        }
-    }
-    
     /************************************************************************************************/
     sort_and_dedup<rdesc_cmp,rdesc_eq>(_reflux_coarse_face_snd) ; 
     _reflux_coarse_face_snd_d = to_device(_reflux_coarse_face_snd) ; 
     _reflux_coarse_face_descs_d = to_device(_reflux_coarse_face_descs) ; 
     GRACE_VERBOSE("[REFLUX] We have {} coarse faces which need refluxing", _reflux_coarse_face_descs.size()) ; 
-    std::ofstream file4("coarse_face_send_"+std::to_string(rank)+".dat");
-    for( int i=0; i<_reflux_coarse_face_snd.size(); ++i) {
-        auto const& dsc = _reflux_coarse_face_snd[i] ; 
-        file4 << i << "\t" << dsc.rank << "\t" <<  dsc.elem_id << "\t" << dsc.qid << '\t' << dsc.buf_id << '\n'; 
-    }
     /************************************************************************************************/
     // allocate buffers 
     send_size_emf = nx*nx*2 ; 
@@ -904,19 +891,6 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     // upload 
     _reflux_coarse_edge_snd_d = to_device(_reflux_coarse_edge_snd) ; 
     _reflux_coarse_edge_descs_d = to_device(_reflux_coarse_edge_descs) ; 
-    std::ofstream file2("coarse_edge_descs_"+std::to_string(rank)+".dat");
-    for( int i=0; i<_reflux_coarse_edge_descs.size(); ++i) {
-        auto const dsc =  _reflux_coarse_edge_descs[i] ; 
-        for( int is=0; is<4; ++is ) {
-            auto& dsc_this = dsc.sides[is] ; 
-            file2 << i << "\t" << is << "\t" << dsc_this.octants.coarse.is_remote << "\t" << dsc_this.octants.coarse.owner_rank << "\t" <<  dsc_this.edge_id << "\t" << dsc_this.octants.coarse.quad_id << '\t' << dsc_this.octants.coarse.buf_id << '\n'; 
-        }
-    }
-    std::ofstream file3("coarse_edge_send_"+std::to_string(rank)+".dat");
-    for( int i=0; i<_reflux_coarse_edge_snd.size(); ++i) {
-        auto const& dsc = _reflux_coarse_edge_snd[i] ; 
-        file3 << i << "\t" << dsc.rank << "\t" <<  dsc.elem_id << "\t" << dsc.qid << '\t' << dsc.buf_id << '\n'; 
-    }
     /************************************************************************************************/
     // allocate the buffers 
     send_size_emf = (nx) ; 

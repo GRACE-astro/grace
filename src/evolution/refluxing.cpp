@@ -592,7 +592,7 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
         {{1,2}}, {{0,2}}, {{0,1}}
     }} ; 
     //**************************************************************************************************/
-    #if 0
+    #if 1
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_face")
             , policy 
             , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
@@ -752,7 +752,7 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
             {static_cast<long>(nx),static_cast<long>(edge_desc.coarse_qid.extent(0))}
         ) ;
     //**************************************************************************************************/
-    #if 0
+    #if 1
     // two phases, first we need to compute the correction, then we apply
     auto emf_edge_correction = ghost_layer.get_reflux_edge_emf_accumulation_buffer() ;  
     parallel_for(
@@ -889,18 +889,12 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 if ( coarse_edge_desc.coarse_is_remote(iq,iside) ) {
                     auto bid = coarse_edge_desc.coarse_bid(iq,iside);
                     auto rank = coarse_edge_desc.coarse_owner_rank(iq,iside) ; 
-                    if ( (edge_dir < 2) and fabs(coarse_edge_rbuf(i,bid,rank))>1e-15 ) {
-                        printf("Remote flagged R %d i %d iq %d iside %d e %d bid %d rank %d val %.7g \n", myproc, i, iq, iside,  edge_id, bid, rank, coarse_edge_rbuf(i,bid,rank)) ; 
-                    }
                     emf_correction += coarse_edge_rbuf(i,bid,rank) ; 
                 } else {
                     auto qid = coarse_edge_desc.coarse_qid(iq,iside);
                     ijk[edge_dir] = ngz + i ; 
                     ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ; 
                     ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ; 
-                    if ( (edge_dir < 2) and fabs(emf(ijk[0],ijk[1],ijk[2],edge_dir,qid))>1e-15 ) {
-                        printf("Local flagged ii %d i %d j %d k %d e %d val %.7g \n", i, ijk[0], ijk[1], ijk[2], edge_id, emf(ijk[0],ijk[1],ijk[2],edge_dir,qid)) ; 
-                    }
                     emf_correction += emf(ijk[0],ijk[1],ijk[2],edge_dir,qid); 
                 }
             }
@@ -935,11 +929,6 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;  
                 ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;
                 // for coarse-only we store it here 
-                // TODO REMOVE!! 
-                double diff = emf(ijk[0],ijk[1],ijk[2],edge_dir,qid) - emf_coarse_edge_correction(i,iq) ; 
-                if ( diff > 1e-15 ) {
-                    printf("In coarse-edge: diff %.6g ii %d iq %d edge %d qid %d i %zu j %zu k %zu\n", diff, i, iq, edge_id, qid, ijk[0], ijk[1], ijk[2]) ; 
-                }
                 emf(ijk[0],ijk[1],ijk[2],edge_dir,qid) = emf_coarse_edge_correction(i,iq) ; 
             }
         }
