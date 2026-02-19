@@ -64,7 +64,7 @@ namespace grace {
 // communication key 
 struct comm_key_t {
     size_t qid ;
-    int8_t elem_id ; // face or edge 
+    int elem_id ; // face or edge 
     bool operator==(const comm_key_t & other) const {
     return (qid == other.qid) && 
             (elem_id == other.elem_id);
@@ -75,7 +75,7 @@ struct comm_key_t {
 struct comm_key_hash {
     std::size_t operator()(comm_key_t const& k) const noexcept {
         std::size_t h1 = std::hash<size_t>{}(k.qid);
-        std::size_t h2 = std::hash<int8_t>{}(k.elem_id);
+        std::size_t h2 = std::hash<int>{}(k.elem_id);
 
         // Combine hashes (boost-like method)
         std::size_t seed = h1;
@@ -173,10 +173,10 @@ static hanging_remote_reflux_device_desc_t
 to_device(std::vector<hanging_remote_reflux_desc_t> const& v ) {
     using namespace Kokkos ; 
     hanging_remote_reflux_device_desc_t out{} ; 
-    out.qid.realloc(v.size()) ; 
-    out.buf_id.realloc(v.size()) ; 
-    out.rank.realloc(v.size()) ; 
-    out.elem_id.realloc(v.size()) ;    
+    Kokkos::realloc(out.qid,v.size()) ; 
+    Kokkos::realloc(out.buf_id,v.size()) ; 
+    Kokkos::realloc(out.rank,v.size()) ; 
+    Kokkos::realloc(out.elem_id,v.size()) ;    
 
     auto qidh = create_mirror_view(out.qid) ; 
     auto bidh = create_mirror_view(out.buf_id) ; 
@@ -206,15 +206,16 @@ to_device(std::vector<hanging_face_reflux_desc_t> const& v)
 
     hanging_face_reflux_device_desc_t out ; 
 
-    out.coarse_qid.realloc(N) ; 
-    out.coarse_owner_rank.realloc(N) ; 
-    out.coarse_is_remote.realloc(N) ; 
-    out.coarse_face_id.realloc(N) ; 
+    Kokkos::realloc(out.coarse_qid,N) ; 
+    Kokkos::realloc(out.coarse_owner_rank,N) ; 
+    Kokkos::realloc(out.coarse_is_remote,N) ; 
+    Kokkos::realloc(out.coarse_face_id,N) ; 
 
-    out.fine_face_id.realloc(N) ; 
-    out.fine_qid.realloc(N) ; 
-    out.fine_owner_rank.realloc(N) ; 
-    out.fine_is_remote.realloc(N) ; 
+    Kokkos::realloc(out.fine_face_id,N) ; 
+    Kokkos::realloc(out.fine_qid,N) ; 
+    Kokkos::realloc(out.fine_bid,N) ; 
+    Kokkos::realloc(out.fine_owner_rank,N) ; 
+    Kokkos::realloc(out.fine_is_remote,N) ; 
 
     auto cqh = create_mirror_view(out.coarse_qid) ; 
     auto crh = create_mirror_view(out.coarse_owner_rank) ; 
@@ -222,6 +223,7 @@ to_device(std::vector<hanging_face_reflux_desc_t> const& v)
     auto cfh = create_mirror_view(out.coarse_face_id) ; 
 
     auto fqh = create_mirror_view(out.fine_qid) ; 
+    auto fbh = create_mirror_view(out.fine_bid) ; 
     auto frh = create_mirror_view(out.fine_owner_rank) ; 
     auto fremoteh = create_mirror_view(out.fine_is_remote) ; 
     auto ffh = create_mirror_view(out.fine_face_id) ; 
@@ -235,6 +237,7 @@ to_device(std::vector<hanging_face_reflux_desc_t> const& v)
         ffh(i) = dsc.fine_face_id ; 
         for ( int ic=0; ic<4; ++ic) {
             fqh(i,ic) = static_cast<int>(dsc.fine_qid[ic]) ; 
+            fbh(i,ic) = static_cast<int>(dsc.fine_bid[ic]) ; 
             frh(i,ic) = dsc.fine_owner_rank[ic] ; 
             fremoteh(i,ic) = static_cast<uint8_t>(dsc.fine_is_remote[ic]) ; 
         }
@@ -246,6 +249,7 @@ to_device(std::vector<hanging_face_reflux_desc_t> const& v)
     deep_copy(out.coarse_face_id,cfh);
 
     deep_copy(out.fine_qid,fqh);
+    deep_copy(out.fine_bid,fbh);
     deep_copy(out.fine_owner_rank,frh);
     deep_copy(out.fine_is_remote,fremoteh);
     deep_copy(out.fine_face_id,ffh);
@@ -261,13 +265,15 @@ to_device(std::vector<full_face_reflux_desc_t> const& v)
 
     full_face_reflux_device_desc_t out ; 
 
-    out.qid.realloc(N) ; 
-    out.owner_rank.realloc(N) ; 
-    out.is_remote.realloc(N) ; 
-    out.face_id.realloc(N) ; 
+    Kokkos::realloc(out.qid,N) ; 
+    Kokkos::realloc(out.bid,N) ; 
+    Kokkos::realloc(out.owner_rank,N) ; 
+    Kokkos::realloc(out.is_remote,N) ; 
+    Kokkos::realloc(out.face_id,N) ; 
 
 
     auto cqh = create_mirror_view(out.qid) ; 
+    auto cbh = create_mirror_view(out.bid) ; 
     auto crh = create_mirror_view(out.owner_rank) ; 
     auto cremoteh = create_mirror_view(out.is_remote) ; 
     auto cfh = create_mirror_view(out.face_id) ; 
@@ -277,6 +283,7 @@ to_device(std::vector<full_face_reflux_desc_t> const& v)
         auto const& dsc = v[i] ; 
         for ( int ic=0; ic<2; ++ic) {
             cqh(i,ic) = static_cast<int>(dsc.qid[ic]) ; 
+            cbh(i,ic) = static_cast<int>(dsc.bid[ic]) ; 
             crh(i,ic) = dsc.owner_rank[ic] ; 
             cremoteh(i,ic) = static_cast<uint8_t>(dsc.is_remote[ic]) ; 
             cfh(i,ic) = static_cast<uint8_t>(dsc.face_id[ic]) ; 
@@ -284,6 +291,7 @@ to_device(std::vector<full_face_reflux_desc_t> const& v)
     }
 
     deep_copy(out.qid,cqh);
+    deep_copy(out.bid,cbh);
     deep_copy(out.owner_rank,crh);
     deep_copy(out.is_remote,cremoteh);
     deep_copy(out.face_id,cfh);
@@ -303,10 +311,12 @@ to_device(std::vector<hanging_edge_reflux_desc_t> const& v)
     auto n_sidesh = create_mirror_view(out.n_sides) ; 
 
     auto fine_qidh = create_mirror_view(out.fine_qid) ; 
+    auto fine_bidh = create_mirror_view(out.fine_bid) ; 
     auto fine_owner_rankh = create_mirror_view(out.fine_owner_rank) ; 
     auto fine_is_remoteh = create_mirror_view(out.fine_is_remote) ; 
 
     auto coarse_qidh = create_mirror_view(out.coarse_qid) ;
+    auto coarse_bidh = create_mirror_view(out.coarse_bid) ;
     auto coarse_owner_rankh = create_mirror_view(out.coarse_owner_rank) ; 
     auto coarse_is_remoteh = create_mirror_view(out.coarse_is_remote) ;
 
@@ -327,11 +337,13 @@ to_device(std::vector<hanging_edge_reflux_desc_t> const& v)
             if ( dthis.is_fine ) {
                 for( int ic=0; ic<2; ++ic) {
                     fine_qidh(i,iside,ic) = dthis.octants.fine.quad_id[ic] ; 
+                    fine_bidh(i,iside,ic) = dthis.octants.fine.buf_id[ic] ; 
                     fine_owner_rankh(i,iside,ic) = dthis.octants.fine.owner_rank[ic] ; 
-                    fine_is_remoteh(i,iside,ic) = dthis.octants.fine.is_remote[ic] ''
+                    fine_is_remoteh(i,iside,ic) = dthis.octants.fine.is_remote[ic];
                 }
             } else {
                 coarse_qidh(i,iside) = dthis.octants.coarse.quad_id ; 
+                coarse_bidh(i,iside) = dthis.octants.coarse.buf_id ; 
                 coarse_owner_rankh(i,iside) = dthis.octants.coarse.owner_rank ; 
                 coarse_is_remoteh(i,iside) = dthis.octants.coarse.is_remote ; 
             }
@@ -342,10 +354,12 @@ to_device(std::vector<hanging_edge_reflux_desc_t> const& v)
     deep_copy(out.n_sides,n_sidesh) ; 
 
     deep_copy(out.fine_qid,fine_qidh) ; 
+    deep_copy(out.fine_bid,fine_bidh) ; 
     deep_copy(out.fine_owner_rank,fine_owner_rankh) ; 
     deep_copy(out.fine_is_remote,fine_is_remoteh) ; 
 
     deep_copy(out.coarse_qid,coarse_qidh) ; 
+    deep_copy(out.coarse_bid,coarse_bidh) ; 
     deep_copy(out.coarse_owner_rank,coarse_owner_rankh) ; 
     deep_copy(out.coarse_is_remote,coarse_is_remoteh) ; 
 
@@ -396,6 +410,8 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     // get mpi info
     auto rank = parallel::mpi_comm_rank() ; 
     auto nproc= parallel::mpi_comm_size() ;
+    // nvars 
+    auto nvars_hrsc = variables::get_n_hrsc() ;
     // helper 
     comm_patt_builder cpb{nproc} ; 
     // this we will use over and over 
@@ -440,7 +456,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     /************************************************************************************************/
     // TODO remove this 
     size_t tnsnd{0UL},tnrcv{0UL} ; 
-    for( int iproc=0; iproc<nprocs; ++iproc) {
+    for( int iproc=0; iproc<nproc; ++iproc) {
         tnsnd += snd_keys[iproc].size() ;
         tnrcv += rcv_keys[iproc].size() ; 
     } 
@@ -453,7 +469,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     std::tie(recv_lookup,rank_recv_counts) = cpb.sort_and_dedup(rcv_keys) ;
 
     tnsnd = 0UL ; tnrcv = 0UL ; 
-    for( int iproc=0; iproc<nprocs; ++iproc) {
+    for( int iproc=0; iproc<nproc; ++iproc) {
         tnsnd += snd_keys[iproc].size() ;
         tnrcv += rcv_keys[iproc].size() ; 
     } 
@@ -496,8 +512,8 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                 int8_t elem = (dsc.fine_owner_rank[ic] < rank ?
                             dsc.fine_face_id : dsc.coarse_face_id);
                 comm_key_t key{ dsc.fine_qid[ic], elem };
-                // replace fine qid with the buf id 
-                dsc.fine_qid[ic] = recv_lookup[r][key];
+                // no longer replace fine qid with the buf id 
+                dsc.fine_bid[ic] = recv_lookup[r][key];
             } // for ic 
             // no need to keep interfaces where the coarse side 
             // is not local
@@ -578,11 +594,15 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     std::tie(recv_lookup,rank_recv_counts) = cpb.sort_and_dedup(rcv_keys) ;
     /************************************************************************************************/
     _reflux_coarse_face_snd.clear() ; 
+    
     // second loop over coarse
     for( int i=0; i<_reflux_coarse_face_descs.size(); ++i) {
-         auto& dsc =  _reflux_coarse_face_descs[i] ; 
+        auto& dsc =  _reflux_coarse_face_descs[i] ; 
+         
         for( int is=0; is<2; ++is ) {
+            
             if ( dsc.is_remote[is] ) {
+                ASSERT(!dsc.is_remote[1-is], "both sides remote!") ; 
                 // remote owner rank id 
                 auto r = dsc.owner_rank[is] ;
                 // send and receive 
@@ -604,15 +624,28 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                 comm_key_t rcv_key{
                     dsc.qid[is], elem_id
                 } ; 
-                dsc.qid[is] = recv_lookup[r][rcv_key] ; 
+                dsc.bid[is] = recv_lookup[r][rcv_key] ; 
             }
         } // loop over sides 
     } // loop over coarse 
+    std::ofstream file("coarse_face_descs_"+std::to_string(rank)+".dat");
+    for( int i=0; i<_reflux_coarse_face_descs.size(); ++i) {
+        auto const dsc =  _reflux_coarse_face_descs[i] ; 
+        for( int is=0; is<2; ++is ) {
+            file << i << "\t" << is << "\t" << dsc.is_remote[is] << "\t" << dsc.owner_rank[is] << "\t" << dsc.face_id[is] << "\t" << dsc.qid[is] << '\t' << dsc.bid[is] << '\n'; 
+        }
+    }
+    
     /************************************************************************************************/
     sort_and_dedup<rdesc_cmp,rdesc_eq>(_reflux_coarse_face_snd) ; 
     _reflux_coarse_face_snd_d = to_device(_reflux_coarse_face_snd) ; 
     _reflux_coarse_face_descs_d = to_device(_reflux_coarse_face_descs) ; 
-    GRACE_VERBOSE("[REFLUX] We have {} coarse faces which need refluxing", _reflux_coarse_face_snd.size()) ; 
+    GRACE_VERBOSE("[REFLUX] We have {} coarse faces which need refluxing", _reflux_coarse_face_descs.size()) ; 
+    std::ofstream file4("coarse_face_send_"+std::to_string(rank)+".dat");
+    for( int i=0; i<_reflux_coarse_face_snd.size(); ++i) {
+        auto const& dsc = _reflux_coarse_face_snd[i] ; 
+        file4 << i << "\t" << dsc.rank << "\t" <<  dsc.elem_id << "\t" << dsc.qid << '\t' << dsc.buf_id << '\n'; 
+    }
     /************************************************************************************************/
     // allocate buffers 
     send_size_emf = nx*nx*2 ; 
@@ -623,6 +656,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     make_rflux_array(_reflux_emf_coarse_recv_buf,"reflux_emf_coarse_receive",_reflux_rcv_emf_coarse_off,total_recv_emf_coarse,nx,2) ;
     // Detailed per-rank breakdown
     for( int r=0; r<nproc; ++r) {
+        
         if (_reflux_snd_emf_coarse_size[r] > 0 || _reflux_rcv_emf_coarse_size[r] > 0) {
             GRACE_VERBOSE("[REFLUX]: Coarse faces: Rank {}: send[off={}, size={}] recv[off={}, size={}]", 
                 r, 
@@ -652,12 +686,12 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                     rcv_keys[r].push_back(
                         comm_key_t{
                             dsc_this.octants.fine.quad_id[ic],
-                            dsc_this.octants.fine.edge_id
+                            dsc_this.edge_id
                         } 
                     ) ; 
                 } else {
                     // local -> send 
-                    for( int jside=0; jside<desc.n_sides; ++jside) {
+                    for( int jside=0; jside<dsc.n_sides; ++jside) {
                         if ( iside == jside ) continue ; 
                         auto const& dsc_other = dsc.sides[jside] ; 
                         if (dsc_other.is_fine) {
@@ -670,7 +704,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                             snd_keys[r].push_back(
                                 comm_key_t{
                                     dsc_this.octants.fine.quad_id[ic],
-                                    dsc_this.octants.fine.edge_id
+                                    dsc_this.edge_id
                                 } 
                             ) ;
                         } else { // other is coarse 
@@ -680,7 +714,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                             snd_keys[r].push_back(
                                 comm_key_t{
                                     dsc_this.octants.fine.quad_id[ic],
-                                    dsc_this.octants.fine.edge_id
+                                    dsc_this.edge_id
                                 } 
                             ) ; 
                         } // if other is fine 
@@ -718,7 +752,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                     // tree. The only time we ever need that number is 
                     // to ensure stable ordering in the send / receive buffers,
                     // which we already constructed. FIXME is this right? 
-                    dsc_this.octants.fine.quad_id[ic] = recv_lookup[r][key];
+                    dsc_this.octants.fine.buf_id[ic] = recv_lookup[r][key];
                 } else { // local 
                     for( int jside=0; jside<dsc.n_sides; ++jside){ 
                         if ( jside==iside ) continue ; 
@@ -842,7 +876,7 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                 // fixme, ensure this is never used again 
                 auto r = dsc_this.octants.coarse.owner_rank ; 
                 GRACE_TRACE("Receive coarse, quadid {} rank {} edge {} buf idx {}",dsc_this.octants.coarse.quad_id,dsc_this.octants.coarse.owner_rank,dsc_this.edge_id, recv_lookup[r][key] );
-                dsc_this.octants.coarse.quad_id = recv_lookup[r][key];
+                dsc_this.octants.coarse.buf_id = recv_lookup[r][key];
             } else {
                 // send 
                 for( int jside=0; jside<dsc.n_sides; ++jside){ 
@@ -864,11 +898,25 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
             }
         }
     }
+    
     // we need to dedup 
     sort_and_dedup<rdesc_cmp,rdesc_eq>(_reflux_coarse_edge_snd) ; 
     // upload 
     _reflux_coarse_edge_snd_d = to_device(_reflux_coarse_edge_snd) ; 
     _reflux_coarse_edge_descs_d = to_device(_reflux_coarse_edge_descs) ; 
+    std::ofstream file2("coarse_edge_descs_"+std::to_string(rank)+".dat");
+    for( int i=0; i<_reflux_coarse_edge_descs.size(); ++i) {
+        auto const dsc =  _reflux_coarse_edge_descs[i] ; 
+        for( int is=0; is<4; ++is ) {
+            auto& dsc_this = dsc.sides[is] ; 
+            file2 << i << "\t" << is << "\t" << dsc_this.octants.coarse.is_remote << "\t" << dsc_this.octants.coarse.owner_rank << "\t" <<  dsc_this.edge_id << "\t" << dsc_this.octants.coarse.quad_id << '\t' << dsc_this.octants.coarse.buf_id << '\n'; 
+        }
+    }
+    std::ofstream file3("coarse_edge_send_"+std::to_string(rank)+".dat");
+    for( int i=0; i<_reflux_coarse_edge_snd.size(); ++i) {
+        auto const& dsc = _reflux_coarse_edge_snd[i] ; 
+        file3 << i << "\t" << dsc.rank << "\t" <<  dsc.elem_id << "\t" << dsc.qid << '\t' << dsc.buf_id << '\n'; 
+    }
     /************************************************************************************************/
     // allocate the buffers 
     send_size_emf = (nx) ; 

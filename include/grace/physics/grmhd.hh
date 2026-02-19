@@ -245,7 +245,7 @@ struct grmhd_equations_system_t
         /**************************************************************************************************/
         /* Metric derivatives                                                                             */
         /**************************************************************************************************/
-        double dalpha_dx[3], dgdd_dx[18], dbetau_dx[9] ; 
+        double dalpha_dx[3], dgdd_dx[18], dbetau_dx[9]; 
         fill_deriv_scalar_4(this->_state, i,j,k, ALP_, q, dalpha_dx, idx(0,q)) ; 
         fill_deriv_vector_4(this->_state, i,j,k, BETAX_, q, dbetau_dx, idx(0,q)) ;
         #ifdef GRACE_ENABLE_COWLING_METRIC
@@ -265,6 +265,8 @@ struct grmhd_equations_system_t
             }
         }
         #endif 
+        
+
         /**************************************************************************************************/
         /* Extrinsic curvature                                                                            */
         /**************************************************************************************************/
@@ -675,7 +677,7 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         grmhd_cons_array_t f_LLF ;
 	    std::array<double,4> dummy ; 
-        compute_mhd_fluxes<idir,true>( primL, primR, metric_face, f_LLF, dummy, 1., 1.) ;
+        compute_mhd_fluxes<idir,false>( primL, primR, metric_face, f_LLF, dummy, 1., 1.) ;
         /***********************************************************************/
         // Get conserves 
         grmhd_cons_array_t consL, consR ;

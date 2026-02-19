@@ -52,10 +52,8 @@ parallel::grace_transfer_context_t reflux_fill_flux_buffers()
     auto& ghost_layer = grace::amr_ghosts::get();
     auto sbuf = ghost_layer.get_reflux_send_buffer() ; 
     auto rbuf = ghost_layer.get_reflux_recv_buffer() ; 
-    auto desc = ghost_layer.get_reflux_face_send_list() ; 
+    auto info = ghost_layer.get_reflux_face_send_list() ; 
     //**************************************************************************************************/
-    View<hanging_remote_reflux_desc_t*> info ; 
-    grace::deep_copy_vec_to_const_view(info,desc) ; 
     //**************************************************************************************************/
     auto policy = 
         MDRangePolicy<Rank<4>> (
@@ -66,7 +64,7 @@ parallel::grace_transfer_context_t reflux_fill_flux_buffers()
             {static_cast<long>(nx/2)
             ,static_cast<long>(nx/2)
             ,static_cast<long>(nvars_hrsc)
-            ,static_cast<long>(desc.size())}
+            ,static_cast<long>(info.qid.size())}
         ) ; 
     //**************************************************************************************************/
     //**************************************************************************************************/
@@ -77,13 +75,12 @@ parallel::grace_transfer_context_t reflux_fill_flux_buffers()
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_fill_flux_buffers")
             , policy 
             , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& ivar, int const& iq) {
-                auto const dsc = info(iq) ; 
 
-                auto const iface = dsc.elem_id ; 
-                auto const rank = dsc.rank     ; 
+                auto const iface = info.elem_id(iq) ; 
+                auto const rank = info.rank(iq)     ; 
                 auto const idir = iface / 2    ; 
                 auto const iside = iface%2     ; 
-                auto const qid = dsc.qid       ; 
+                auto const qid = info.qid(iq)      ; 
 
                 size_t ijk_s[3]                        ; 
                 ijk_s[idir] = iside ? nx + ngz : ngz   ; 
@@ -99,10 +96,11 @@ parallel::grace_transfer_context_t reflux_fill_flux_buffers()
                     }
                 }
                 
-                auto bid = dsc.buf_id ; 
+                auto bid = info.buf_id(iq) ; 
                 sbuf(i,j,ivar,bid,rank) = 0.25*flux ; 
             }
         ) ; 
+    Kokkos::fence() ; 
     /* now we send and receive */
     auto soffsets = ghost_layer.get_reflux_buffer_rank_send_offsets() ; 
     auto ssizes = ghost_layer.get_reflux_buffer_rank_send_sizes() ;
@@ -158,17 +156,15 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
     auto& ghost_layer = grace::amr_ghosts::get();
     auto sbuf = ghost_layer.get_reflux_emf_send_buffer() ; 
     auto rbuf = ghost_layer.get_reflux_emf_recv_buffer() ; 
-    auto desc = ghost_layer.get_reflux_face_send_list() ; 
+    auto info = ghost_layer.get_reflux_face_send_list() ; 
     //**************************************************************************************************/
-    View<hanging_remote_reflux_desc_t*> info ; 
-    grace::deep_copy_vec_to_const_view(info,desc) ; 
     //**************************************************************************************************/
     auto policy = 
         MDRangePolicy<Rank<3>> (
             {0,0,0},
             {static_cast<long>(nx/2)
             ,static_cast<long>(nx/2)
-            ,static_cast<long>(desc.size())}
+            ,static_cast<long>(info.qid.extent(0))}
         ) ; 
     //**************************************************************************************************/
     //**************************************************************************************************/
@@ -179,17 +175,16 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_fill_emf_buffers")
             , policy 
             , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
-                auto const dsc = info(iq) ; 
                  
-                auto const iface = dsc.elem_id ; 
-                auto const rank = dsc.rank ; 
+                auto const iface = info.elem_id(iq) ; 
+                auto const rank = info.rank(iq) ; 
 
                 auto const fdir = iface / 2;
                 auto const idir = other_dirs[fdir][0]; 
                 auto const jdir = other_dirs[fdir][1]; 
                 auto const iside = iface % 2 ;
 
-                auto const qid = dsc.qid ; 
+                auto const qid = info.qid(iq) ; 
 
                 size_t ijk_s[3] ; 
                 ijk_s[fdir] = iside ? nx + ngz : ngz ; 
@@ -208,11 +203,12 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
                     emf(ijk_s[0] + (jdir==0),ijk_s[1] + (jdir==1),ijk_s[2] + (jdir==2),jdir,qid)
                 );
                 
-                auto bid = dsc.buf_id ; 
+                auto bid = info.buf_id(iq) ; 
                 sbuf(i,j,0,bid,rank) = emf_i ; 
                 sbuf(i,j,1,bid,rank) = emf_j ; 
             }
         ) ; 
+    Kokkos::fence() ; 
     // send - receive face buffers
     auto soffsets = ghost_layer.get_reflux_buffer_rank_send_emf_offsets() ; 
     auto ssizes = ghost_layer.get_reflux_buffer_rank_send_emf_sizes() ;
@@ -250,34 +246,30 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
     //**************************************************************************************************/
     auto coarse_sbuf = ghost_layer.get_reflux_emf_coarse_send_buffer() ; 
     auto coarse_rbuf = ghost_layer.get_reflux_emf_coarse_recv_buffer() ; 
-    auto coarse_desc = ghost_layer.get_reflux_coarse_face_send_list() ; 
+    auto coarse_info = ghost_layer.get_reflux_coarse_face_send_list() ; 
     //**************************************************************************************************/
-    View<hanging_remote_reflux_desc_t*> coarse_info ; 
-    grace::deep_copy_vec_to_const_view(coarse_info,coarse_desc) ; 
     //**************************************************************************************************/
     auto coarse_policy = 
         MDRangePolicy<Rank<3>> (
             {0,0,0},
             {static_cast<long>(nx)
             ,static_cast<long>(nx)
-            ,static_cast<long>(coarse_desc.size())}
+            ,static_cast<long>(coarse_info.qid.extent(0))}
         ) ; 
     //**************************************************************************************************/ 
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_fill_emf_coarse_buffers")
             , coarse_policy 
-            , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
-                auto const dsc = coarse_info(iq) ; 
-                 
-                auto const iface = dsc.elem_id ; 
-                auto const rank = dsc.rank ; 
+            , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {                 
+                auto const iface = coarse_info.elem_id(iq) ; 
+                auto const rank = coarse_info.rank(iq) ; 
 
                 auto const fdir = iface / 2;
                 auto const idir = other_dirs[fdir][0]; 
                 auto const jdir = other_dirs[fdir][1]; 
                 auto const iside = iface % 2 ;
 
-                auto const qid = dsc.qid ; 
+                auto const qid = coarse_info.qid(iq) ; 
 
                 size_t ijk_s[3] ; 
                 ijk_s[fdir] = iside ? nx + ngz : ngz ; 
@@ -285,11 +277,12 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
                 ijk_s[jdir] = j + ngz ; 
                 
                 
-                auto bid = dsc.buf_id ; 
+                auto bid = coarse_info.buf_id(iq) ; 
                 coarse_sbuf(i,j,0,bid,rank) = emf(ijk_s[0],ijk_s[1],ijk_s[2],idir,qid) ; 
                 coarse_sbuf(i,j,1,bid,rank) = emf(ijk_s[0],ijk_s[1],ijk_s[2],jdir,qid) ; 
             }
         ) ; 
+    Kokkos::fence() ; 
     //**************************************************************************************************/
     // send - receive face buffers
     auto coarse_soffsets = ghost_layer.get_reflux_buffer_rank_send_emf_coarse_offsets() ; 
@@ -326,25 +319,21 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
     //**************************************************************************************************/
     auto sbuf_edge = ghost_layer.get_reflux_emf_edge_send_buffer() ; 
     auto rbuf_edge = ghost_layer.get_reflux_emf_edge_recv_buffer() ; 
-    auto desc_edge = ghost_layer.get_reflux_edge_send_list() ; 
+    auto info_edge = ghost_layer.get_reflux_edge_send_list() ; 
     //**************************************************************************************************/
     //**************************************************************************************************/
-    View<hanging_remote_reflux_desc_t*> info_edge ; 
-    grace::deep_copy_vec_to_const_view(info_edge,desc_edge) ; 
     //**************************************************************************************************/
     //**************************************************************************************************/
     auto edge_policy = 
         MDRangePolicy<Rank<2>> (
             {0,0},
-            {static_cast<long>(nx),static_cast<long>(desc_edge.size())}
+            {static_cast<long>(nx),static_cast<long>(info_edge.qid.extent(0))}
         ) ; 
     // fill edge buffers 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_fill_emf_edge_buffers")
             , edge_policy 
-            , KOKKOS_LAMBDA (int const& i, int const& iq) {
-                auto const dsc = info_edge(iq) ; 
-                
-                auto const iedge = dsc.elem_id ; 
+            , KOKKOS_LAMBDA (int const& i, int const& iq) {                
+                auto const iedge = info_edge.elem_id(iq); 
                 // edge direction 
                 int idir  = (iedge/4)          ; 
                 // upper or lower gz?
@@ -354,19 +343,20 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
                 int jdir = other_dirs[idir][0] ; 
                 int kdir = other_dirs[idir][1] ; 
                 // quad-id (fine)
-                auto const qid = dsc.qid ; 
+                auto const qid = info_edge.qid(iq) ; 
                 // indices of edge 
                 size_t ijk_s[3] ;
                 ijk_s[idir] = ngz + i ; 
                 ijk_s[jdir] = jside ? nx + ngz : ngz ; 
                 ijk_s[kdir] = kside ? nx + ngz : ngz ; 
 
-                auto const rank = dsc.rank ; 
-                auto bid = dsc.buf_id ;
+                auto const rank = info_edge.rank(iq) ; 
+                auto bid = info_edge.buf_id(iq);
                 // write to buffer
                 sbuf_edge(i, bid, rank) = emf(ijk_s[0],ijk_s[1],ijk_s[2],idir,qid) ; 
             }
         ) ;
+    Kokkos::fence() ; 
         // todo maybe edge bufs can be separate, this seems wasteful 
     // send - receive edge buffers 
     auto soffsets_edge = ghost_layer.get_reflux_buffer_rank_send_emf_edge_offsets() ; 
@@ -404,25 +394,20 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
     // coarse edges 
     auto sbuf_cedge = ghost_layer.get_reflux_emf_coarse_edge_send_buffer() ; 
     auto rbuf_cedge = ghost_layer.get_reflux_emf_coarse_edge_recv_buffer() ; 
-    auto desc_cedge = ghost_layer.get_reflux_coarse_edge_send_list() ; 
+    auto info_cedge = ghost_layer.get_reflux_coarse_edge_send_list() ; 
     //**************************************************************************************************/
-    //**************************************************************************************************/
-    View<hanging_remote_reflux_desc_t*> info_cedge ; 
-    grace::deep_copy_vec_to_const_view(info_cedge,desc_cedge) ; 
     //**************************************************************************************************/
     //**************************************************************************************************/
     auto cedge_policy = 
         MDRangePolicy<Rank<2>> (
             {0,0},
-            {static_cast<long>(nx),static_cast<long>(desc_cedge.size())}
+            {static_cast<long>(nx),static_cast<long>(info_cedge.qid.extent(0))}
         ) ; 
     // fill edge buffers 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_fill_emf_coarse_edge_buffers")
             , cedge_policy 
-            , KOKKOS_LAMBDA (int const& i, int const& iq) {
-                auto const dsc = info_cedge(iq) ; 
-                
-                auto const iedge = dsc.elem_id ; 
+            , KOKKOS_LAMBDA (int const& i, int const& iq) {                
+                auto const iedge = info_cedge.elem_id(iq); 
                 // edge direction 
                 int idir  = (iedge/4)          ; 
                 // upper or lower gz?
@@ -432,20 +417,21 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
                 int jdir = other_dirs[idir][0] ; 
                 int kdir = other_dirs[idir][1] ; 
                 // quad-id (fine)
-                auto const qid = dsc.qid ; 
+                auto const qid = info_cedge.qid(iq) ; 
                 // indices of edge 
                 size_t ijk_s[3] ;
                 ijk_s[idir] = ngz + i ; 
                 ijk_s[jdir] = jside ? nx + ngz : ngz ; 
                 ijk_s[kdir] = kside ? nx + ngz : ngz ; 
 
-                auto const rank = dsc.rank ; 
-                auto bid = dsc.buf_id ;
+                auto const rank = info_cedge.rank(iq) ; 
+                auto bid = info_cedge.buf_id(iq);
                 // write to buffer
                 sbuf_cedge(i, bid, rank) = emf(ijk_s[0],ijk_s[1],ijk_s[2],idir,qid) ; 
             }
         ) ;
-        // todo maybe edge bufs can be separate, this seems wasteful 
+    Kokkos::fence() ; 
+    // todo maybe edge bufs can be separate, this seems wasteful 
     // send - receive edge buffers 
     auto soffsets_cedge = ghost_layer.get_reflux_buffer_rank_send_emf_coarse_edge_offsets() ; 
     auto ssizes_cedge   = ghost_layer.get_reflux_buffer_rank_send_emf_coarse_edge_sizes()   ;
@@ -500,32 +486,7 @@ void reflux_correct_fluxes(
     auto& ghost_layer = grace::amr_ghosts::get();
     auto rbuf = ghost_layer.get_reflux_recv_buffer() ; 
     auto desc = ghost_layer.get_reflux_face_descriptors() ; 
-    //**************************************************************************************************/
-    View<size_t*, default_space> fqid_c("qid_c",desc.size()) ;
-    View<uint8_t*, default_space> ffid_c("fid_c",desc.size()) ;
-    View<uint8_t**, default_space> fisremote_f("isremote_f",desc.size(),P4EST_CHILDREN/2) ;
-    View<size_t**, default_space> fqid_f("qid_f",desc.size(),P4EST_CHILDREN/2) ;
-    View<int**, default_space> frank_f("rank_f",desc.size(),P4EST_CHILDREN/2) ;
-    auto hfqid_c = create_mirror_view(fqid_c) ; 
-    auto hffid_c = create_mirror_view(ffid_c) ; 
-    auto hfisremote_f = create_mirror_view(fisremote_f) ; 
-    auto hfqid_f = create_mirror_view(fqid_f) ; 
-    auto hfrank_f = create_mirror_view(frank_f) ; 
-    for( int id=0; id<desc.size(); ++id) {
-        auto const& dsc = desc[id] ; 
-        hfqid_c(id) = dsc.coarse_qid ; 
-        hffid_c(id) = dsc.coarse_face_id ; 
-        for( int ichild=0; ichild<P4EST_CHILDREN/2; ++ichild) {
-            hfisremote_f(id,ichild) = dsc.fine_is_remote[ichild];
-            hfqid_f(id,ichild) = dsc.fine_qid[ichild] ; 
-            hfrank_f(id,ichild) = dsc.fine_owner_rank[ichild];
-        }
-    }
-    deep_copy(fqid_c,hfqid_c);
-    deep_copy(ffid_c,hffid_c);
-    deep_copy(fisremote_f,hfisremote_f);
-    deep_copy(fqid_f,hfqid_f);
-    deep_copy(frank_f,hfrank_f);
+    //**************************************************************************************************/    
     //**************************************************************************************************/
     parallel::mpi_waitall(context) ; 
     //**************************************************************************************************/
@@ -535,7 +496,7 @@ void reflux_correct_fluxes(
             {static_cast<long>(nx)
             ,static_cast<long>(nx)
             ,static_cast<long>(nvars_hrsc)
-            ,static_cast<long>(desc.size())}
+            ,static_cast<long>(desc.coarse_qid.extent(0))}
         ) ;
     //**************************************************************************************************/
     constexpr std::array<std::array<int,2>,3> other_dirs = {{
@@ -545,8 +506,8 @@ void reflux_correct_fluxes(
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_apply")
             , policy 
             , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& ivar, int const& iq) {
-                auto const qid_c  = fqid_c(iq)     ; 
-                auto const iface_c = ffid_c(iq) ; 
+                auto const qid_c  = desc.coarse_qid(iq)     ; 
+                auto const iface_c = desc.coarse_face_id(iq) ; 
 
                 auto const idir = iface_c / 2; 
                 auto const side = iface_c % 2;
@@ -567,11 +528,11 @@ void reflux_correct_fluxes(
                 int8_t ichild = (2*i>=nx) + 2 * (2*j>=nx) ; 
 
                 double flux_correction = 0 ; 
-                if ( fisremote_f(iq,ichild) ) {
-                    flux_correction = rbuf(i%(nx/2),j%(nx/2),ivar,fqid_f(iq,ichild),frank_f(iq,ichild)) ; 
+                if ( desc.fine_is_remote(iq,ichild) ) {
+                    flux_correction = rbuf(i%(nx/2),j%(nx/2),ivar,desc.fine_bid(iq,ichild),desc.fine_owner_rank(iq,ichild)) ; 
                 } else {
                     // compute flux correction 
-                    size_t qid_f = fqid_f(iq,ichild);
+                    size_t qid_f = desc.fine_qid(iq,ichild);
                     size_t ijk_f[3] ; 
                     // on fine side the side is opposite 
                     ijk_f[idir] = (iface_c % 2)    
@@ -606,6 +567,7 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
     using namespace grace ; 
     using namespace Kokkos ; 
     DECLARE_GRID_EXTENTS ; 
+    auto myproc = parallel::mpi_comm_rank() ; 
     //**************************************************************************************************/
     // fetch some stuff 
     auto& idx     = grace::variable_list::get().getinvspacings() ;  
@@ -615,39 +577,6 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
     auto rbuf = ghost_layer.get_reflux_emf_recv_buffer() ; 
     auto desc = ghost_layer.get_reflux_face_descriptors() ; 
     //**************************************************************************************************/
-    View<uint8_t*, default_space> fid_c("face_cfid",desc.size()) ; 
-
-    View<size_t*, default_space> fqid_c("face_cqid",desc.size()) ; 
-    View<size_t**, default_space> fqid_f("face_fqid",desc.size(),4) ;
-
-    View<bool**, default_space> is_remote_f("face_fremote",desc.size(),4) ;
-    View<bool**, default_space> rank_f("face_frank",desc.size(),4) ;
-
-    auto hfid_c = create_mirror_view(fid_c) ;
-
-    auto hqid_c = create_mirror_view(fqid_c) ;
-    auto hqid_f = create_mirror_view(fqid_f) ;
-
-    auto hr_f = create_mirror_view(is_remote_f) ;
-    auto hrank_f = create_mirror_view(rank_f) ;
-    for( int id=0; id<desc.size(); ++id) {
-        auto const& dsc = desc[id] ;
-
-        hfid_c(id) = dsc.coarse_face_id ; 
-        hqid_c(id) = dsc.coarse_qid;
-
-        for( int ichild=0; ichild<P4EST_CHILDREN/2; ++ichild) {
-            hr_f(id,ichild) = dsc.fine_is_remote[ichild] ; 
-            hrank_f(id,ichild) = dsc.fine_owner_rank[ichild] ; 
-            hqid_f(id,ichild) = dsc.fine_qid[ichild] ; 
-        }
-    }
-
-    deep_copy(fid_c,hfid_c);
-    deep_copy(fqid_c,hqid_c);
-    deep_copy(fqid_f,hqid_f);
-    deep_copy(is_remote_f,hr_f);
-    deep_copy(rank_f,hrank_f);
     //**************************************************************************************************/
     parallel::mpi_waitall(context) ;
     //**************************************************************************************************/
@@ -656,18 +585,19 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
             {0,0,0},
             {static_cast<long>(nx/2)
             ,static_cast<long>(nx/2)
-            ,static_cast<long>(desc.size())}
+            ,static_cast<long>(desc.coarse_qid.extent(0))}
         ) ;
     //**************************************************************************************************/
     constexpr std::array<std::array<int,2>,3> other_dirs = {{
         {{1,2}}, {{0,2}}, {{0,1}}
     }} ; 
     //**************************************************************************************************/
+    #if 0
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_face")
             , policy 
             , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
                 // coarse face 
-                auto const iface_c = fid_c(iq) ; 
+                auto const iface_c = desc.coarse_face_id(iq) ; 
                 // coarse face direction 
                 auto const fdir = iface_c / 2 ; 
                 // other directions (z-order)
@@ -676,22 +606,25 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 // side of the face 
                 auto const iside = iface_c % 2 ;
                 // qid of coarse side 
-                auto const qid_c = fqid_c(iq) ; 
+                auto const qid_c = desc.coarse_qid(iq) ; 
 
                 // indices of face center (coarse)
                 // edge center (coarse)
                 // edge center (fine)
                 size_t ijk_c[3], ijk_f[3] ; 
                 for( int ichild=0; ichild<P4EST_CHILDREN/2; ++ichild) {
-                    // fine quadid 
-                    auto const qid_f = fqid_f(iq,ichild) ; 
+                     
                     // emf correction 
                     double emf_corr_i{0}, emf_corr_j{0} ; 
-                    if ( is_remote_f(iq,ichild) ) {
-                        auto rank = rank_f(iq,ichild) ; 
+                    if ( desc.fine_is_remote(iq,ichild) ) {
+                        // fine quadid 
+                        auto const qid_f = desc.fine_bid(iq,ichild) ;
+                        auto rank = desc.fine_owner_rank(iq,ichild) ; 
                         emf_corr_i = rbuf(i,j,0,qid_f,rank) ; 
                         emf_corr_j = rbuf(i,j,1,qid_f,rank) ; 
                     } else {
+                        // fine quadid 
+                        auto const qid_f = desc.fine_qid(iq,ichild) ;
                         // fine side so iside is opposite
                         ijk_f[fdir] = iside ? ngz : nx + ngz ; 
                         ijk_f[idir] = 2*i + ngz ; 
@@ -736,42 +669,21 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
             }
                 
         ) ;  
+    #endif 
+    #if 1
     //**************************************************************************************************/
     auto coarse_rbuf = ghost_layer.get_reflux_emf_coarse_recv_buffer() ; 
     auto coarse_desc = ghost_layer.get_reflux_coarse_face_descriptors() ; 
     //**************************************************************************************************/ 
-    View<uint8_t**,default_space> cffid("emf_cf_fid", coarse_desc.size(), 2) ; 
-    View<size_t**,default_space> cfqid("emf_cf_qid", coarse_desc.size(), 2) ; 
-    View<uint8_t**,default_space> cfremote("emf_cf_is_remote", coarse_desc.size(), 2) ;
-    View<int**,default_space> cfrank("emf_cf_rank", coarse_desc.size(), 2) ;
-    //**************************************************************************************************/
-    auto hcffid = create_mirror_view(cffid);
-    auto hcfqid = create_mirror_view(cfqid);
-    auto hcfremote = create_mirror_view(cfremote);
-    auto hcfrank = create_mirror_view(cfrank);
-    for( int id=0; id<coarse_desc.size(); ++id) {
-        auto const dsc = coarse_desc[id] ; 
-        for( int is=0; is<2; ++is) {
-            hcffid(id,is) = dsc.face_id[is] ; 
-            hcfqid(id,is) = dsc.qid[is] ; 
-            hcfremote(id,is) = dsc.is_remote[is];
-            hcfrank(id,is) = dsc.owner_rank[is];
-        }
-    }
-    //**************************************************************************************************/
-    deep_copy(cffid,hcffid) ;
-    deep_copy(cfqid,hcfqid) ;
-    deep_copy(cfremote,hcfremote) ;
-    deep_copy(cfrank,hcfrank) ;
     //**************************************************************************************************/
     auto coarse_policy = 
         MDRangePolicy<Rank<3>> (
             {0,0,0},
             {static_cast<long>(nx)
             ,static_cast<long>(nx)
-            ,static_cast<long>(coarse_desc.size())}
+            ,static_cast<long>(coarse_desc.qid.extent(0))}
         ) ;
-    #if 1
+    GRACE_TRACE("About to run reflux {}", coarse_desc.qid.extent(0) ) ; 
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_coarse_face")
             , coarse_policy 
@@ -780,20 +692,23 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 size_t ijk[3] ; 
                 double emf_corr[2] = {0,0}; 
                 for( int is=0; is<2; ++is) {
-                    auto const fid = cffid(iq,is) ;
+                    auto const fid = coarse_desc.face_id(iq,is) ;
                     auto const fdir = fid / 2 ; 
                     // other directions (z-order)
                     auto const idir = other_dirs[fdir][0]; 
                     auto const jdir = other_dirs[fdir][1]; 
                     // iside 
                     auto const iside = fid % 2 ;
-                    // qid 
-                    auto const qid = cfqid(iq,is); 
-                    if ( cfremote(iq,is) ) {
-                        int const r = cfrank(iq,is) ; 
-                        emf_corr[0] += coarse_rbuf(i,j,0,qid,r) ; 
-                        emf_corr[1] += coarse_rbuf(i,j,1,qid,r) ; 
+                     
+                    if ( coarse_desc.is_remote(iq,is) ) {
+                        // id 
+                        auto const bid = coarse_desc.bid(iq,is);
+                        int const r = coarse_desc.owner_rank(iq,is) ; 
+                        emf_corr[0] += coarse_rbuf(i,j,0,bid,r) ; 
+                        emf_corr[1] += coarse_rbuf(i,j,1,bid,r) ; 
                     } else {
+                        // qid 
+                        auto const qid = coarse_desc.qid(iq,is);
                         ijk[fdir] = iside ? nx + ngz : ngz ; 
                         ijk[idir] = ngz + i ; 
                         ijk[jdir] = ngz + j ; 
@@ -805,16 +720,16 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 emf_corr[1] *= 0.5 ; 
                 // step two correct 
                 for( int is=0; is<2; ++is) {
-                    auto const fid = cffid(iq,is) ;
+                    auto const fid = coarse_desc.face_id(iq,is) ;
                     auto const fdir = fid / 2 ; 
                     // other directions (z-order)
                     auto const idir = other_dirs[fdir][0]; 
                     auto const jdir = other_dirs[fdir][1]; 
                     // iside 
                     auto const iside = fid % 2 ;
-                    // qid 
-                    auto const qid = cfqid(iq,is); 
-                    if ( !cfremote(iq,is) ) {
+                    if ( !coarse_desc.is_remote(iq,is) ) {
+                        // qid 
+                        auto const qid = coarse_desc.qid(iq,is); 
                         ijk[fdir] = iside ? nx + ngz : ngz ; 
                         ijk[idir] = ngz + i ; 
                         ijk[jdir] = ngz + j ; 
@@ -825,91 +740,35 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
             }
                 
         ) ; 
-    #endif
-    #if 1
+    #endif 
     //**************************************************************************************************/
     auto edge_rbuf = ghost_layer.get_reflux_emf_edge_recv_buffer() ; 
     auto edge_desc = ghost_layer.get_reflux_edge_descriptors() ; 
     //**************************************************************************************************/
-    View<int*, default_space> ensides("emf_e_nsides",edge_desc.size()) ; 
-    View<int*, default_space> enfine("emf_e_nfine",edge_desc.size()) ; 
-    View<uint8_t**, default_space> eisfine("emf_e_isfine",edge_desc.size(),4) ; 
-    View<uint8_t**, default_space> eeid("emf_e_eid", edge_desc.size(),4);
-    View<size_t**, default_space> ecqid("emf_e_cqid", edge_desc.size(),4);
-    View<size_t***, default_space> efqid("emf_e_fqid", edge_desc.size(),4,2);
-    View<uint8_t**, default_space> ecremote("emf_e_cremote", edge_desc.size(), 4);
-    View<uint8_t***, default_space> efremote("emf_e_fremote", edge_desc.size(), 4,2);
-    View<int***, default_space> efrank("emf_e_frank", edge_desc.size(), 4,2);
-    View<int***, default_space> eoff("emf_e_offij", edge_desc.size(), 4,2);
-    //**************************************************************************************************/
-    auto hensides = create_mirror_view(ensides);
-    auto henfine = create_mirror_view(enfine) ; 
-    auto heisfine = create_mirror_view(eisfine) ; 
-    auto heeid = create_mirror_view(eeid) ; 
-    auto hecqid = create_mirror_view(ecqid) ; 
-    auto hefqid = create_mirror_view(efqid) ; 
-    auto hecremote = create_mirror_view(ecremote) ; 
-    auto hefremote = create_mirror_view(efremote) ; 
-    auto hefrank = create_mirror_view(efrank) ; 
-    auto heoff = create_mirror_view(eoff) ; 
-    //**************************************************************************************************/
-    for( int id=0; id<edge_desc.size(); ++id) {
-        auto const& dsc = edge_desc[id] ; 
-        hensides(id) = dsc.n_sides ; 
-        henfine(id) = dsc.n_fine ; 
-        for( int is=0; is<dsc.n_sides; ++is) {
-            heisfine(id,is) = dsc.sides[is].is_fine ; 
-            heeid(id,is) = dsc.sides[is].edge_id ; 
-            heoff(id,is,0) =dsc.sides[is].off_i ; 
-            heoff(id,is,1) =dsc.sides[is].off_j ; 
-            if (!dsc.sides[is].is_fine) {
-                hecqid(id,is) = dsc.sides[is].octants.coarse.quad_id; 
-                hecremote(id,is) = dsc.sides[is].octants.coarse.is_remote ; 
-            } else {
-                for( int ichild=0; ichild<2; ++ichild){
-                    hefqid(id,is,ichild) = dsc.sides[is].octants.fine.quad_id[ichild] ; 
-                    hefremote(id,is,ichild) = dsc.sides[is].octants.fine.is_remote[ichild] ; 
-                    hefrank(id,is,ichild) = dsc.sides[is].octants.fine.owner_rank[ichild] ; 
-                }
-            }
-            
-        }
-    }
-    //**************************************************************************************************/
-    deep_copy(ensides,hensides) ; 
-    deep_copy(enfine,henfine) ; 
-    deep_copy(eisfine,heisfine) ; 
-    deep_copy(eeid,heeid) ; 
-    deep_copy(ecqid,hecqid) ; 
-    deep_copy(efqid,hefqid) ; 
-    deep_copy(efremote,hefremote) ; 
-    deep_copy(ecremote,hecremote) ; 
-    deep_copy(efrank,hefrank) ; 
-    deep_copy(eoff,heoff) ; 
     //**************************************************************************************************/
     auto edge_policy = 
         MDRangePolicy<Rank<2>> (
             {0,0},
-            {static_cast<long>(nx),static_cast<long>(edge_desc.size())}
+            {static_cast<long>(nx),static_cast<long>(edge_desc.coarse_qid.extent(0))}
         ) ;
     //**************************************************************************************************/
+    #if 0
     // two phases, first we need to compute the correction, then we apply
     auto emf_edge_correction = ghost_layer.get_reflux_edge_emf_accumulation_buffer() ;  
     parallel_for(
         GRACE_EXECUTION_TAG("EVOL", "reflux_emf_compute_edge"),
         edge_policy,
         KOKKOS_LAMBDA (int const& i, int const& iq) {
-            auto n_sides = ensides(iq); 
-            auto n_fine = enfine(iq) ; 
-            double norm =  1.0/static_cast<double>(n_fine) ;
+            auto n_sides = edge_desc.n_sides(iq); 
+            
             size_t ijk[3] ; 
             double emf_correction[2] = {0,0} ; // accumulate here 
             int cnt = 0 ; 
             for( int iside=0; iside<n_sides; ++iside) {
-                if ( ! eisfine(iq,iside) ) continue ; 
+                if ( ! edge_desc.is_fine(iq,iside) ) continue ; 
                 cnt ++ ; 
                 // edge index 
-                auto edge_id = eeid(iq,iside) ; 
+                auto edge_id = edge_desc.edge_id(iq,iside) ; 
                 // direction and side
                 int edge_dir = edge_id / 4 ; 
                 int side_i = (edge_id>>0)&1;
@@ -917,12 +776,14 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 // child id loop 
                 for( int ichild=0; ichild<2; ++ichild ) {
                     // fine quadid
-                    auto qid = efqid(iq,iside,ichild);
+                    
                     double val = 0.0;
-                    if ( efremote(iq,iside,ichild) ) {
-                        auto rank = efrank(iq,iside,ichild) ; 
-                        val = edge_rbuf(i,qid,rank) ; 
+                    if ( edge_desc.fine_is_remote(iq,iside,ichild) ) {
+                        auto bid = edge_desc.fine_bid(iq,iside,ichild);
+                        auto rank = edge_desc.fine_owner_rank(iq,iside,ichild) ; 
+                        val = edge_rbuf(i,bid,rank) ; 
                     } else {
+                        auto qid = edge_desc.fine_qid(iq,iside,ichild);
                         ijk[edge_dir] = ngz + i ; 
                         ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ; 
                         ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ; 
@@ -932,8 +793,8 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 }
             }
             
-            emf_edge_correction(i,0,iq) = cnt ? emf_correction[0] * norm : 0.0 ; 
-            emf_edge_correction(i,1,iq) = cnt ? emf_correction[1] * norm : 0.0 ; 
+            emf_edge_correction(i,0,iq) = cnt ? emf_correction[0] * 1./((double)cnt) : 0.0 ; 
+            emf_edge_correction(i,1,iq) = cnt ? emf_correction[1] * 1./((double)cnt) : 0.0 ; 
         }
     );
     //**************************************************************************************************/
@@ -944,24 +805,24 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
         edge_policy,
         KOKKOS_LAMBDA (int const& i, int const& iq) {
             // information about the edge we are correcting 
-            auto const n_sides = ensides(iq); 
+            auto const n_sides = edge_desc.n_sides(iq); 
             // pre-allocate indices 
             size_t ijk[3] ; 
             // loop over 4 sides of the edge
             for( int iside=0; iside<n_sides; ++iside) {
                 // edge index 
-                auto edge_id = eeid(iq,iside) ;  
+                auto edge_id = edge_desc.edge_id(iq,iside) ;  
                 // direction along and orthogonal to edge (z-order)
                 int edge_dir = edge_id / 4 ; 
                 int side_i = (edge_id>>0)&1;
                 int side_j = (edge_id>>1)&1;
 
                 // if coarse we need to correct with - emf + 1/n_fine 1/2 sum( fine emfs )
-                if ( ! eisfine(iq,iside) ) {
+                if ( ! edge_desc.is_fine(iq,iside) ) {
                     // Remote: nothing to do 
-                    if ( ecremote(iq,iside) ) continue ;
+                    if ( edge_desc.coarse_is_remote(iq,iside) ) continue ;
                     // quad-id 
-                    auto qid = ecqid(iq,iside) ; 
+                    auto qid = edge_desc.coarse_qid(iq,iside) ; 
                     // we need to figure out if it's the upper or lower
                     // child we are reading from 
                     // indices of edge 
@@ -975,17 +836,17 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                     int ichild = (2*i)>=nx ; 
 
                     ijk[edge_dir] = ngz + i ; 
-                    ijk[other_dirs[edge_dir][0]] = eoff(iq,iside,0) ? nx/2 + ngz : ( side_i ? nx + ngz : ngz ) ;  
-                    ijk[other_dirs[edge_dir][1]] = eoff(iq,iside,1) ? nx/2 + ngz : ( side_j ? nx + ngz : ngz ) ;
+                    ijk[other_dirs[edge_dir][0]] = edge_desc.off_i(iq,iside) ? nx/2 + ngz : ( side_i ? nx + ngz : ngz ) ;  
+                    ijk[other_dirs[edge_dir][1]] = edge_desc.off_j(iq,iside) ? nx/2 + ngz : ( side_j ? nx + ngz : ngz ) ;
                     
                     emf(ijk[0],ijk[1],ijk[2],edge_dir,qid) = 
                         +0.5*(emf_edge_correction((2*i)%nx,ichild,iq) + emf_edge_correction((2*i)%nx+1,ichild,iq));
                 } else {
                     for( int ichild=0; ichild<2; ++ichild) {
                         // Remote: nothing to do
-                        if ( efremote(iq,iside,ichild) ) continue ;
+                        if ( edge_desc.fine_is_remote(iq,iside,ichild) ) continue ;
                         // quad-id
-                        auto qid = efqid(iq,iside,ichild) ;
+                        auto qid = edge_desc.fine_qid(iq,iside,ichild) ;
                         // indices of emf to be corrected
                         ijk[edge_dir] = ngz + i ;  
                         ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;  
@@ -998,72 +859,48 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
        
     ) ; 
     #endif 
-    #if 1
     auto coarse_edge_rbuf = ghost_layer.get_reflux_emf_coarse_edge_recv_buffer() ; 
     auto coarse_edge_desc = ghost_layer.get_reflux_coarse_edge_descriptors() ; 
     //**************************************************************************************************/
-    View<int*,default_space> censides("emf_ce_nsides",coarse_edge_desc.size()) ; 
-    View<uint8_t**,default_space> ceeid("emf_ce_eid",coarse_edge_desc.size(),4) ; 
-    View<size_t**,default_space> ceqid("emf_ce_qid",coarse_edge_desc.size(),4) ; 
-    View<uint8_t**,default_space> ceisremote("emf_ce_isremote",coarse_edge_desc.size(),4) ; 
-    View<int**,default_space> cerank("emf_ce_rank",coarse_edge_desc.size(),4) ; 
-
-    auto hcensides = create_mirror_view(censides) ; 
-    auto hceeid = create_mirror_view(ceeid) ; 
-    auto hceqid = create_mirror_view(ceqid) ; 
-    auto hceisremote = create_mirror_view(ceisremote) ; 
-    auto hcerank = create_mirror_view(cerank) ; 
-
-    for( int id=0 ;id<coarse_edge_desc.size(); ++id) {
-        auto const& dsc = coarse_edge_desc[id] ; 
-
-        hcensides(id) = dsc.n_sides ; 
-        for(int is=0; is<dsc.n_sides; ++is) {
-            auto& side = dsc.sides[is] ; 
-            hceeid(id,is) = side.edge_id ; 
-            hceqid(id,is) = side.octants.coarse.quad_id;
-            hceisremote(id,is) = side.octants.coarse.is_remote;
-            hcerank(id,is) = side.octants.coarse.owner_rank ; 
-        }
-    }
-
-    deep_copy(censides,hcensides) ; 
-    deep_copy(ceeid,hceeid);
-    deep_copy(ceqid,hceqid);
-    deep_copy(ceisremote,hceisremote);
-    deep_copy(cerank,hcerank);
     //**************************************************************************************************/
     auto emf_coarse_edge_correction = ghost_layer.get_reflux_coarse_edge_emf_accumulation_buffer() ; 
     //**************************************************************************************************/
      auto coarse_edge_policy = 
         MDRangePolicy<Rank<2>> (
             {0,0},
-            {static_cast<long>(nx),static_cast<long>(coarse_edge_desc.size())}
+            {static_cast<long>(nx),static_cast<long>(coarse_edge_desc.n_sides.extent(0))}
         ) ;
     //**************************************************************************************************/
     parallel_for(
         GRACE_EXECUTION_TAG("EVOL", "reflux_coarse_emf_compute_coarse_edge"),
         coarse_edge_policy,
         KOKKOS_LAMBDA (int const& i, int const& iq) {
-            auto n_sides = censides(iq); 
+            auto n_sides = coarse_edge_desc.n_sides(iq); 
             size_t ijk[3] ; 
             double emf_correction{0} ; // accumulate here 
             for( int iside=0; iside<n_sides; ++iside) {
                 // edge index 
-                auto edge_id = ceeid(iq,iside) ; 
+                auto edge_id = coarse_edge_desc.edge_id(iq,iside) ; 
                 // direction and side
                 int edge_dir = edge_id / 4 ; 
                 int side_i = (edge_id>>0)&1;
                 int side_j = (edge_id>>1)&1;
                 // coarse quadid
-                auto qid = ceqid(iq,iside);
-                if ( ceisremote(iq,iside) ) {
-                    auto rank = cerank(iq,iside) ; 
-                    emf_correction += coarse_edge_rbuf(i,qid,rank) ; 
+                if ( coarse_edge_desc.coarse_is_remote(iq,iside) ) {
+                    auto bid = coarse_edge_desc.coarse_bid(iq,iside);
+                    auto rank = coarse_edge_desc.coarse_owner_rank(iq,iside) ; 
+                    if ( (edge_dir < 2) and fabs(coarse_edge_rbuf(i,bid,rank))>1e-15 ) {
+                        printf("Remote flagged R %d i %d iq %d iside %d e %d bid %d rank %d val %.7g \n", myproc, i, iq, iside,  edge_id, bid, rank, coarse_edge_rbuf(i,bid,rank)) ; 
+                    }
+                    emf_correction += coarse_edge_rbuf(i,bid,rank) ; 
                 } else {
+                    auto qid = coarse_edge_desc.coarse_qid(iq,iside);
                     ijk[edge_dir] = ngz + i ; 
                     ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ; 
                     ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ; 
+                    if ( (edge_dir < 2) and fabs(emf(ijk[0],ijk[1],ijk[2],edge_dir,qid))>1e-15 ) {
+                        printf("Local flagged ii %d i %d j %d k %d e %d val %.7g \n", i, ijk[0], ijk[1], ijk[2], edge_id, emf(ijk[0],ijk[1],ijk[2],edge_dir,qid)) ; 
+                    }
                     emf_correction += emf(ijk[0],ijk[1],ijk[2],edge_dir,qid); 
                 }
             }
@@ -1075,22 +912,22 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
         GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_coarse_edge"),
         coarse_edge_policy,
         KOKKOS_LAMBDA (int const& i, int const& iq) {
-            auto n_sides = censides(iq); 
+            auto n_sides = coarse_edge_desc.n_sides(iq); 
             // pre-allocate indices 
             size_t ijk[3] ; 
             // loop over 4 sides of the edge
             for( int iside=0; iside<n_sides; ++iside) {
                 // edge index 
-                auto edge_id = ceeid(iq,iside) ; 
+                auto edge_id = coarse_edge_desc.edge_id(iq,iside) ; 
                 // direction along and orthogonal to edge (z-order)
                 int edge_dir = edge_id / 4 ; 
                 int side_i = (edge_id>>0)&1;
                 int side_j = (edge_id>>1)&1;
 
                 // coarse remote nothing to do 
-                if ( ceisremote(iq,iside) ) continue ;
+                if ( coarse_edge_desc.coarse_is_remote(iq,iside) ) continue ;
                 // quad-id 
-                auto qid = ceqid(iq,iside);
+                auto qid = coarse_edge_desc.coarse_qid(iq,iside);
                 // we need to figure out if it's the upper or lower
                 // child we are reading from 
                 // indices of edge 
@@ -1098,11 +935,15 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;  
                 ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;
                 // for coarse-only we store it here 
+                // TODO REMOVE!! 
+                double diff = emf(ijk[0],ijk[1],ijk[2],edge_dir,qid) - emf_coarse_edge_correction(i,iq) ; 
+                if ( diff > 1e-15 ) {
+                    printf("In coarse-edge: diff %.6g ii %d iq %d edge %d qid %d i %zu j %zu k %zu\n", diff, i, iq, edge_id, qid, ijk[0], ijk[1], ijk[2]) ; 
+                }
                 emf(ijk[0],ijk[1],ijk[2],edge_dir,qid) = emf_coarse_edge_correction(i,iq) ; 
             }
         }
     ) ; 
-    #endif 
 }
 
 

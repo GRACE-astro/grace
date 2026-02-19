@@ -18,7 +18,7 @@ fd_der_x_l1(
 	double * __restrict__ du
 )
 {
-	*du = invh*((2.0/5.0)*u(i+1,j,k) - 1.0/30.0*u(i+2,j,k) + (7.0/12.0)*u(i,j,k) - 4.0/3.0*u(i-1,j,k) + (1.0/2.0)*u(i-2,j,k) - 2.0/15.0*u(i-3,j,k) + (1.0/60.0)*u(i-4,j,k));
+	*du = (1.0/60.0)*invh*(24*u(i+1,j,k) - 2*u(i+2,j,k) + 35*u(i,j,k) - 80*u(i-1,j,k) + 30*u(i-2,j,k) - 8*u(i-3,j,k) + u(i-4,j,k));
 }
 
 template< typename view_t >
@@ -32,7 +32,7 @@ fd_der_x(
 	double * __restrict__ du
 )
 {
-	*du = invh*((3.0/4.0)*u(i+1,j,k) - 3.0/20.0*u(i+2,j,k) + (1.0/60.0)*u(i+3,j,k) - 3.0/4.0*u(i-1,j,k) + (3.0/20.0)*u(i-2,j,k) - 1.0/60.0*u(i-3,j,k));
+	*du = (1.0/60.0)*invh*(45*u(i+1,j,k) - 9*u(i+2,j,k) + u(i+3,j,k) - 45*u(i-1,j,k) + 9*u(i-2,j,k) - u(i-3,j,k));
 }
 
 template< typename view_t >
@@ -46,7 +46,7 @@ fd_der_x_r1(
 	double * __restrict__ du
 )
 {
-	*du = invh*((4.0/3.0)*u(i+1,j,k) - 1.0/2.0*u(i+2,j,k) + (2.0/15.0)*u(i+3,j,k) - 1.0/60.0*u(i+4,j,k) - 7.0/12.0*u(i,j,k) - 2.0/5.0*u(i-1,j,k) + (1.0/30.0)*u(i-2,j,k));
+	*du = (1.0/60.0)*invh*(80*u(i+1,j,k) - 30*u(i+2,j,k) + 8*u(i+3,j,k) - u(i+4,j,k) - 35*u(i,j,k) - 24*u(i-1,j,k) + 2*u(i-2,j,k));
 }
 
 template< typename view_t >
@@ -60,7 +60,7 @@ fd_der_y_l1(
 	double * __restrict__ du
 )
 {
-	*du = invh*((2.0/5.0)*u(i,j+1,k) - 1.0/30.0*u(i,j+2,k) + (7.0/12.0)*u(i,j,k) - 4.0/3.0*u(i,j-1,k) + (1.0/2.0)*u(i,j-2,k) - 2.0/15.0*u(i,j-3,k) + (1.0/60.0)*u(i,j-4,k));
+	*du = (1.0/60.0)*invh*(24*u(i,j+1,k) - 2*u(i,j+2,k) + 35*u(i,j,k) - 80*u(i,j-1,k) + 30*u(i,j-2,k) - 8*u(i,j-3,k) + u(i,j-4,k));
 }
 
 template< typename view_t >
@@ -74,7 +74,7 @@ fd_der_y(
 	double * __restrict__ du
 )
 {
-	*du = invh*((3.0/4.0)*u(i,j+1,k) - 3.0/20.0*u(i,j+2,k) + (1.0/60.0)*u(i,j+3,k) - 3.0/4.0*u(i,j-1,k) + (3.0/20.0)*u(i,j-2,k) - 1.0/60.0*u(i,j-3,k));
+	*du = (1.0/60.0)*invh*(45*u(i,j+1,k) - 9*u(i,j+2,k) + u(i,j+3,k) - 45*u(i,j-1,k) + 9*u(i,j-2,k) - u(i,j-3,k));
 }
 
 template< typename view_t >
@@ -88,7 +88,7 @@ fd_der_y_r1(
 	double * __restrict__ du
 )
 {
-	*du = invh*((4.0/3.0)*u(i,j+1,k) - 1.0/2.0*u(i,j+2,k) + (2.0/15.0)*u(i,j+3,k) - 1.0/60.0*u(i,j+4,k) - 7.0/12.0*u(i,j,k) - 2.0/5.0*u(i,j-1,k) + (1.0/30.0)*u(i,j-2,k));
+	*du = (1.0/60.0)*invh*(80*u(i,j+1,k) - 30*u(i,j+2,k) + 8*u(i,j+3,k) - u(i,j+4,k) - 35*u(i,j,k) - 24*u(i,j-1,k) + 2*u(i,j-2,k));
 }
 
 template< typename view_t >
@@ -102,7 +102,7 @@ fd_der_z_l1(
 	double * __restrict__ du
 )
 {
-	*du = invh*((7.0/12.0)*u(i,j,k) + (2.0/5.0)*u(i,j,k+1) - 1.0/30.0*u(i,j,k+2) - 4.0/3.0*u(i,j,k-1) + (1.0/2.0)*u(i,j,k-2) - 2.0/15.0*u(i,j,k-3) + (1.0/60.0)*u(i,j,k-4));
+	*du = (1.0/60.0)*invh*(35*u(i,j,k) + 24*u(i,j,k+1) - 2*u(i,j,k+2) - 80*u(i,j,k-1) + 30*u(i,j,k-2) - 8*u(i,j,k-3) + u(i,j,k-4));
 }
 
 template< typename view_t >
@@ -116,7 +116,7 @@ fd_der_z(
 	double * __restrict__ du
 )
 {
-	*du = invh*((3.0/4.0)*u(i,j,k+1) - 3.0/20.0*u(i,j,k+2) + (1.0/60.0)*u(i,j,k+3) - 3.0/4.0*u(i,j,k-1) + (3.0/20.0)*u(i,j,k-2) - 1.0/60.0*u(i,j,k-3));
+	*du = (1.0/60.0)*invh*(45*u(i,j,k+1) - 9*u(i,j,k+2) + u(i,j,k+3) - 45*u(i,j,k-1) + 9*u(i,j,k-2) - u(i,j,k-3));
 }
 
 template< typename view_t >
@@ -130,7 +130,7 @@ fd_der_z_r1(
 	double * __restrict__ du
 )
 {
-	*du = invh*(-7.0/12.0*u(i,j,k) + (4.0/3.0)*u(i,j,k+1) - 1.0/2.0*u(i,j,k+2) + (2.0/15.0)*u(i,j,k+3) - 1.0/60.0*u(i,j,k+4) - 2.0/5.0*u(i,j,k-1) + (1.0/30.0)*u(i,j,k-2));
+	*du = -1.0/60.0*invh*(35*u(i,j,k) - 80*u(i,j,k+1) + 30*u(i,j,k+2) - 8*u(i,j,k+3) + u(i,j,k+4) + 24*u(i,j,k-1) - 2*u(i,j,k-2));
 }
 
 template< typename view_t >
@@ -144,7 +144,7 @@ fd_der_4_x(
 	double * __restrict__ du
 )
 {
-	*du = invh*((2.0/3.0)*u(i+1,j,k) - 1.0/12.0*u(i+2,j,k) - 2.0/3.0*u(i-1,j,k) + (1.0/12.0)*u(i-2,j,k));
+	*du = (1.0/12.0)*invh*(8*u(i+1,j,k) - u(i+2,j,k) - 8*u(i-1,j,k) + u(i-2,j,k));
 }
 
 template< typename view_t >
@@ -158,7 +158,7 @@ fd_der_4_y(
 	double * __restrict__ du
 )
 {
-	*du = invh*((2.0/3.0)*u(i,j+1,k) - 1.0/12.0*u(i,j+2,k) - 2.0/3.0*u(i,j-1,k) + (1.0/12.0)*u(i,j-2,k));
+	*du = (1.0/12.0)*invh*(8*u(i,j+1,k) - u(i,j+2,k) - 8*u(i,j-1,k) + u(i,j-2,k));
 }
 
 template< typename view_t >
@@ -172,7 +172,7 @@ fd_der_4_z(
 	double * __restrict__ du
 )
 {
-	*du = invh*((2.0/3.0)*u(i,j,k+1) - 1.0/12.0*u(i,j,k+2) - 2.0/3.0*u(i,j,k-1) + (1.0/12.0)*u(i,j,k-2));
+	*du = (1.0/12.0)*invh*(8*u(i,j,k+1) - u(i,j,k+2) - 8*u(i,j,k-1) + u(i,j,k-2));
 }
 
 template< typename view_t >
@@ -186,7 +186,7 @@ fd_der_2_x_l1(
 	double * __restrict__ du
 )
 {
-	*du = invh*((3.0/2.0)*u(i,j,k) - 2*u(i-1,j,k) + (1.0/2.0)*u(i-2,j,k));
+	*du = (1.0/2.0)*invh*(3*u(i,j,k) - 4*u(i-1,j,k) + u(i-2,j,k));
 }
 
 template< typename view_t >
@@ -200,7 +200,7 @@ fd_der_2_x(
 	double * __restrict__ du
 )
 {
-	*du = invh*((1.0/2.0)*u(i+1,j,k) - 1.0/2.0*u(i-1,j,k));
+	*du = (1.0/2.0)*invh*(u(i+1,j,k) - u(i-1,j,k));
 }
 
 template< typename view_t >
@@ -214,7 +214,7 @@ fd_der_2_x_r1(
 	double * __restrict__ du
 )
 {
-	*du = invh*(2*u(i+1,j,k) - 1.0/2.0*u(i+2,j,k) - 3.0/2.0*u(i,j,k));
+	*du = (1.0/2.0)*invh*(4*u(i+1,j,k) - u(i+2,j,k) - 3*u(i,j,k));
 }
 
 template< typename view_t >
@@ -228,7 +228,7 @@ fd_der_2_y_l1(
 	double * __restrict__ du
 )
 {
-	*du = invh*((3.0/2.0)*u(i,j,k) - 2*u(i,j-1,k) + (1.0/2.0)*u(i,j-2,k));
+	*du = (1.0/2.0)*invh*(3*u(i,j,k) - 4*u(i,j-1,k) + u(i,j-2,k));
 }
 
 template< typename view_t >
@@ -242,7 +242,7 @@ fd_der_2_y(
 	double * __restrict__ du
 )
 {
-	*du = invh*((1.0/2.0)*u(i,j+1,k) - 1.0/2.0*u(i,j-1,k));
+	*du = (1.0/2.0)*invh*(u(i,j+1,k) - u(i,j-1,k));
 }
 
 template< typename view_t >
@@ -256,7 +256,7 @@ fd_der_2_y_r1(
 	double * __restrict__ du
 )
 {
-	*du = invh*(2*u(i,j+1,k) - 1.0/2.0*u(i,j+2,k) - 3.0/2.0*u(i,j,k));
+	*du = (1.0/2.0)*invh*(4*u(i,j+1,k) - u(i,j+2,k) - 3*u(i,j,k));
 }
 
 template< typename view_t >
@@ -270,7 +270,7 @@ fd_der_2_z_l1(
 	double * __restrict__ du
 )
 {
-	*du = invh*((3.0/2.0)*u(i,j,k) - 2*u(i,j,k-1) + (1.0/2.0)*u(i,j,k-2));
+	*du = (1.0/2.0)*invh*(3*u(i,j,k) - 4*u(i,j,k-1) + u(i,j,k-2));
 }
 
 template< typename view_t >
@@ -284,7 +284,7 @@ fd_der_2_z(
 	double * __restrict__ du
 )
 {
-	*du = invh*((1.0/2.0)*u(i,j,k+1) - 1.0/2.0*u(i,j,k-1));
+	*du = (1.0/2.0)*invh*(u(i,j,k+1) - u(i,j,k-1));
 }
 
 template< typename view_t >
@@ -298,7 +298,7 @@ fd_der_2_z_r1(
 	double * __restrict__ du
 )
 {
-	*du = invh*(-3.0/2.0*u(i,j,k) + 2*u(i,j,k+1) - 1.0/2.0*u(i,j,k+2));
+	*du = -1.0/2.0*invh*(3*u(i,j,k) - 4*u(i,j,k+1) + u(i,j,k+2));
 }
 
 template< typename view_t >
@@ -312,7 +312,7 @@ fd_der_xx(
 	double * __restrict__ du
 )
 {
-	*du = ((invh)*(invh))*((3.0/2.0)*u(i+1,j,k) - 3.0/20.0*u(i+2,j,k) + (1.0/90.0)*u(i+3,j,k) - 49.0/18.0*u(i,j,k) + (3.0/2.0)*u(i-1,j,k) - 3.0/20.0*u(i-2,j,k) + (1.0/90.0)*u(i-3,j,k));
+	*du = (1.0/180.0)*((invh)*(invh))*(270*u(i+1,j,k) - 27*u(i+2,j,k) + 2*u(i+3,j,k) - 490*u(i,j,k) + 270*u(i-1,j,k) - 27*u(i-2,j,k) + 2*u(i-3,j,k));
 }
 
 template< typename view_t >
@@ -326,7 +326,7 @@ fd_der_yy(
 	double * __restrict__ du
 )
 {
-	*du = ((invh)*(invh))*((3.0/2.0)*u(i,j+1,k) - 3.0/20.0*u(i,j+2,k) + (1.0/90.0)*u(i,j+3,k) - 49.0/18.0*u(i,j,k) + (3.0/2.0)*u(i,j-1,k) - 3.0/20.0*u(i,j-2,k) + (1.0/90.0)*u(i,j-3,k));
+	*du = (1.0/180.0)*((invh)*(invh))*(270*u(i,j+1,k) - 27*u(i,j+2,k) + 2*u(i,j+3,k) - 490*u(i,j,k) + 270*u(i,j-1,k) - 27*u(i,j-2,k) + 2*u(i,j-3,k));
 }
 
 template< typename view_t >
@@ -340,7 +340,7 @@ fd_der_zz(
 	double * __restrict__ du
 )
 {
-	*du = ((invh)*(invh))*(-49.0/18.0*u(i,j,k) + (3.0/2.0)*u(i,j,k+1) - 3.0/20.0*u(i,j,k+2) + (1.0/90.0)*u(i,j,k+3) + (3.0/2.0)*u(i,j,k-1) - 3.0/20.0*u(i,j,k-2) + (1.0/90.0)*u(i,j,k-3));
+	*du = -1.0/180.0*((invh)*(invh))*(490*u(i,j,k) - 270*u(i,j,k+1) + 27*u(i,j,k+2) - 2*u(i,j,k+3) - 270*u(i,j,k-1) + 27*u(i,j,k-2) - 2*u(i,j,k-3));
 }
 
 template< typename view_t >
@@ -354,7 +354,7 @@ fd_der_xy(
 	double * __restrict__ du
 )
 {
-	*du = ((invh)*(invh))*((9.0/16.0)*u(i+1,j+1,k) - 9.0/80.0*u(i+1,j+2,k) + (1.0/80.0)*u(i+1,j+3,k) - 9.0/16.0*u(i+1,j-1,k) + (9.0/80.0)*u(i+1,j-2,k) - 1.0/80.0*u(i+1,j-3,k) - 9.0/80.0*u(i+2,j+1,k) + (9.0/400.0)*u(i+2,j+2,k) - 1.0/400.0*u(i+2,j+3,k) + (9.0/80.0)*u(i+2,j-1,k) - 9.0/400.0*u(i+2,j-2,k) + (1.0/400.0)*u(i+2,j-3,k) + (1.0/80.0)*u(i+3,j+1,k) - 1.0/400.0*u(i+3,j+2,k) + (1.0/3600.0)*u(i+3,j+3,k) - 1.0/80.0*u(i+3,j-1,k) + (1.0/400.0)*u(i+3,j-2,k) - 1.0/3600.0*u(i+3,j-3,k) - 9.0/16.0*u(i-1,j+1,k) + (9.0/80.0)*u(i-1,j+2,k) - 1.0/80.0*u(i-1,j+3,k) + (9.0/16.0)*u(i-1,j-1,k) - 9.0/80.0*u(i-1,j-2,k) + (1.0/80.0)*u(i-1,j-3,k) + (9.0/80.0)*u(i-2,j+1,k) - 9.0/400.0*u(i-2,j+2,k) + (1.0/400.0)*u(i-2,j+3,k) - 9.0/80.0*u(i-2,j-1,k) + (9.0/400.0)*u(i-2,j-2,k) - 1.0/400.0*u(i-2,j-3,k) - 1.0/80.0*u(i-3,j+1,k) + (1.0/400.0)*u(i-3,j+2,k) - 1.0/3600.0*u(i-3,j+3,k) + (1.0/80.0)*u(i-3,j-1,k) - 1.0/400.0*u(i-3,j-2,k) + (1.0/3600.0)*u(i-3,j-3,k));
+	*du = (1.0/3600.0)*((invh)*(invh))*(2025*u(i+1,j+1,k) - 405*u(i+1,j+2,k) + 45*u(i+1,j+3,k) - 2025*u(i+1,j-1,k) + 405*u(i+1,j-2,k) - 45*u(i+1,j-3,k) - 405*u(i+2,j+1,k) + 81*u(i+2,j+2,k) - 9*u(i+2,j+3,k) + 405*u(i+2,j-1,k) - 81*u(i+2,j-2,k) + 9*u(i+2,j-3,k) + 45*u(i+3,j+1,k) - 9*u(i+3,j+2,k) + u(i+3,j+3,k) - 45*u(i+3,j-1,k) + 9*u(i+3,j-2,k) - u(i+3,j-3,k) - 2025*u(i-1,j+1,k) + 405*u(i-1,j+2,k) - 45*u(i-1,j+3,k) + 2025*u(i-1,j-1,k) - 405*u(i-1,j-2,k) + 45*u(i-1,j-3,k) + 405*u(i-2,j+1,k) - 81*u(i-2,j+2,k) + 9*u(i-2,j+3,k) - 405*u(i-2,j-1,k) + 81*u(i-2,j-2,k) - 9*u(i-2,j-3,k) - 45*u(i-3,j+1,k) + 9*u(i-3,j+2,k) - u(i-3,j+3,k) + 45*u(i-3,j-1,k) - 9*u(i-3,j-2,k) + u(i-3,j-3,k));
 }
 
 template< typename view_t >
@@ -368,7 +368,7 @@ fd_der_xz(
 	double * __restrict__ du
 )
 {
-	*du = ((invh)*(invh))*((9.0/16.0)*u(i+1,j,k+1) - 9.0/80.0*u(i+1,j,k+2) + (1.0/80.0)*u(i+1,j,k+3) - 9.0/16.0*u(i+1,j,k-1) + (9.0/80.0)*u(i+1,j,k-2) - 1.0/80.0*u(i+1,j,k-3) - 9.0/80.0*u(i+2,j,k+1) + (9.0/400.0)*u(i+2,j,k+2) - 1.0/400.0*u(i+2,j,k+3) + (9.0/80.0)*u(i+2,j,k-1) - 9.0/400.0*u(i+2,j,k-2) + (1.0/400.0)*u(i+2,j,k-3) + (1.0/80.0)*u(i+3,j,k+1) - 1.0/400.0*u(i+3,j,k+2) + (1.0/3600.0)*u(i+3,j,k+3) - 1.0/80.0*u(i+3,j,k-1) + (1.0/400.0)*u(i+3,j,k-2) - 1.0/3600.0*u(i+3,j,k-3) - 9.0/16.0*u(i-1,j,k+1) + (9.0/80.0)*u(i-1,j,k+2) - 1.0/80.0*u(i-1,j,k+3) + (9.0/16.0)*u(i-1,j,k-1) - 9.0/80.0*u(i-1,j,k-2) + (1.0/80.0)*u(i-1,j,k-3) + (9.0/80.0)*u(i-2,j,k+1) - 9.0/400.0*u(i-2,j,k+2) + (1.0/400.0)*u(i-2,j,k+3) - 9.0/80.0*u(i-2,j,k-1) + (9.0/400.0)*u(i-2,j,k-2) - 1.0/400.0*u(i-2,j,k-3) - 1.0/80.0*u(i-3,j,k+1) + (1.0/400.0)*u(i-3,j,k+2) - 1.0/3600.0*u(i-3,j,k+3) + (1.0/80.0)*u(i-3,j,k-1) - 1.0/400.0*u(i-3,j,k-2) + (1.0/3600.0)*u(i-3,j,k-3));
+	*du = (1.0/3600.0)*((invh)*(invh))*(2025*u(i+1,j,k+1) - 405*u(i+1,j,k+2) + 45*u(i+1,j,k+3) - 2025*u(i+1,j,k-1) + 405*u(i+1,j,k-2) - 45*u(i+1,j,k-3) - 405*u(i+2,j,k+1) + 81*u(i+2,j,k+2) - 9*u(i+2,j,k+3) + 405*u(i+2,j,k-1) - 81*u(i+2,j,k-2) + 9*u(i+2,j,k-3) + 45*u(i+3,j,k+1) - 9*u(i+3,j,k+2) + u(i+3,j,k+3) - 45*u(i+3,j,k-1) + 9*u(i+3,j,k-2) - u(i+3,j,k-3) - 2025*u(i-1,j,k+1) + 405*u(i-1,j,k+2) - 45*u(i-1,j,k+3) + 2025*u(i-1,j,k-1) - 405*u(i-1,j,k-2) + 45*u(i-1,j,k-3) + 405*u(i-2,j,k+1) - 81*u(i-2,j,k+2) + 9*u(i-2,j,k+3) - 405*u(i-2,j,k-1) + 81*u(i-2,j,k-2) - 9*u(i-2,j,k-3) - 45*u(i-3,j,k+1) + 9*u(i-3,j,k+2) - u(i-3,j,k+3) + 45*u(i-3,j,k-1) - 9*u(i-3,j,k-2) + u(i-3,j,k-3));
 }
 
 template< typename view_t >
@@ -382,7 +382,7 @@ fd_der_yz(
 	double * __restrict__ du
 )
 {
-	*du = ((invh)*(invh))*((9.0/16.0)*u(i,j+1,k+1) - 9.0/80.0*u(i,j+1,k+2) + (1.0/80.0)*u(i,j+1,k+3) - 9.0/16.0*u(i,j+1,k-1) + (9.0/80.0)*u(i,j+1,k-2) - 1.0/80.0*u(i,j+1,k-3) - 9.0/80.0*u(i,j+2,k+1) + (9.0/400.0)*u(i,j+2,k+2) - 1.0/400.0*u(i,j+2,k+3) + (9.0/80.0)*u(i,j+2,k-1) - 9.0/400.0*u(i,j+2,k-2) + (1.0/400.0)*u(i,j+2,k-3) + (1.0/80.0)*u(i,j+3,k+1) - 1.0/400.0*u(i,j+3,k+2) + (1.0/3600.0)*u(i,j+3,k+3) - 1.0/80.0*u(i,j+3,k-1) + (1.0/400.0)*u(i,j+3,k-2) - 1.0/3600.0*u(i,j+3,k-3) - 9.0/16.0*u(i,j-1,k+1) + (9.0/80.0)*u(i,j-1,k+2) - 1.0/80.0*u(i,j-1,k+3) + (9.0/16.0)*u(i,j-1,k-1) - 9.0/80.0*u(i,j-1,k-2) + (1.0/80.0)*u(i,j-1,k-3) + (9.0/80.0)*u(i,j-2,k+1) - 9.0/400.0*u(i,j-2,k+2) + (1.0/400.0)*u(i,j-2,k+3) - 9.0/80.0*u(i,j-2,k-1) + (9.0/400.0)*u(i,j-2,k-2) - 1.0/400.0*u(i,j-2,k-3) - 1.0/80.0*u(i,j-3,k+1) + (1.0/400.0)*u(i,j-3,k+2) - 1.0/3600.0*u(i,j-3,k+3) + (1.0/80.0)*u(i,j-3,k-1) - 1.0/400.0*u(i,j-3,k-2) + (1.0/3600.0)*u(i,j-3,k-3));
+	*du = (1.0/3600.0)*((invh)*(invh))*(2025*u(i,j+1,k+1) - 405*u(i,j+1,k+2) + 45*u(i,j+1,k+3) - 2025*u(i,j+1,k-1) + 405*u(i,j+1,k-2) - 45*u(i,j+1,k-3) - 405*u(i,j+2,k+1) + 81*u(i,j+2,k+2) - 9*u(i,j+2,k+3) + 405*u(i,j+2,k-1) - 81*u(i,j+2,k-2) + 9*u(i,j+2,k-3) + 45*u(i,j+3,k+1) - 9*u(i,j+3,k+2) + u(i,j+3,k+3) - 45*u(i,j+3,k-1) + 9*u(i,j+3,k-2) - u(i,j+3,k-3) - 2025*u(i,j-1,k+1) + 405*u(i,j-1,k+2) - 45*u(i,j-1,k+3) + 2025*u(i,j-1,k-1) - 405*u(i,j-1,k-2) + 45*u(i,j-1,k-3) + 405*u(i,j-2,k+1) - 81*u(i,j-2,k+2) + 9*u(i,j-2,k+3) - 405*u(i,j-2,k-1) + 81*u(i,j-2,k-2) - 9*u(i,j-2,k-3) - 45*u(i,j-3,k+1) + 9*u(i,j-3,k+2) - u(i,j-3,k+3) + 45*u(i,j-3,k-1) - 9*u(i,j-3,k-2) + u(i,j-3,k-3));
 }
 
 template< typename view_t >
@@ -396,7 +396,7 @@ fd_der_x_upw_neg(
 	double * __restrict__ du
 )
 {
-	*du = invh*((2.0/5.0)*u(i+1,j,k) - 1.0/30.0*u(i+2,j,k) + (7.0/12.0)*u(i,j,k) - 4.0/3.0*u(i-1,j,k) + (1.0/2.0)*u(i-2,j,k) - 2.0/15.0*u(i-3,j,k) + (1.0/60.0)*u(i-4,j,k));
+	*du = (1.0/60.0)*invh*(24*u(i+1,j,k) - 2*u(i+2,j,k) + 35*u(i,j,k) - 80*u(i-1,j,k) + 30*u(i-2,j,k) - 8*u(i-3,j,k) + u(i-4,j,k));
 }
 
 template< typename view_t >
@@ -410,7 +410,7 @@ fd_der_x_upw_pos(
 	double * __restrict__ du
 )
 {
-	*du = invh*((4.0/3.0)*u(i+1,j,k) - 1.0/2.0*u(i+2,j,k) + (2.0/15.0)*u(i+3,j,k) - 1.0/60.0*u(i+4,j,k) - 7.0/12.0*u(i,j,k) - 2.0/5.0*u(i-1,j,k) + (1.0/30.0)*u(i-2,j,k));
+	*du = (1.0/60.0)*invh*(80*u(i+1,j,k) - 30*u(i+2,j,k) + 8*u(i+3,j,k) - u(i+4,j,k) - 35*u(i,j,k) - 24*u(i-1,j,k) + 2*u(i-2,j,k));
 }
 
 template< typename view_t >
@@ -424,7 +424,7 @@ fd_der_y_upw_neg(
 	double * __restrict__ du
 )
 {
-	*du = invh*((2.0/5.0)*u(i,j+1,k) - 1.0/30.0*u(i,j+2,k) + (7.0/12.0)*u(i,j,k) - 4.0/3.0*u(i,j-1,k) + (1.0/2.0)*u(i,j-2,k) - 2.0/15.0*u(i,j-3,k) + (1.0/60.0)*u(i,j-4,k));
+	*du = (1.0/60.0)*invh*(24*u(i,j+1,k) - 2*u(i,j+2,k) + 35*u(i,j,k) - 80*u(i,j-1,k) + 30*u(i,j-2,k) - 8*u(i,j-3,k) + u(i,j-4,k));
 }
 
 template< typename view_t >
@@ -438,7 +438,7 @@ fd_der_y_upw_pos(
 	double * __restrict__ du
 )
 {
-	*du = invh*((4.0/3.0)*u(i,j+1,k) - 1.0/2.0*u(i,j+2,k) + (2.0/15.0)*u(i,j+3,k) - 1.0/60.0*u(i,j+4,k) - 7.0/12.0*u(i,j,k) - 2.0/5.0*u(i,j-1,k) + (1.0/30.0)*u(i,j-2,k));
+	*du = (1.0/60.0)*invh*(80*u(i,j+1,k) - 30*u(i,j+2,k) + 8*u(i,j+3,k) - u(i,j+4,k) - 35*u(i,j,k) - 24*u(i,j-1,k) + 2*u(i,j-2,k));
 }
 
 template< typename view_t >
@@ -452,7 +452,7 @@ fd_der_z_upw_neg(
 	double * __restrict__ du
 )
 {
-	*du = invh*((7.0/12.0)*u(i,j,k) + (2.0/5.0)*u(i,j,k+1) - 1.0/30.0*u(i,j,k+2) - 4.0/3.0*u(i,j,k-1) + (1.0/2.0)*u(i,j,k-2) - 2.0/15.0*u(i,j,k-3) + (1.0/60.0)*u(i,j,k-4));
+	*du = (1.0/60.0)*invh*(35*u(i,j,k) + 24*u(i,j,k+1) - 2*u(i,j,k+2) - 80*u(i,j,k-1) + 30*u(i,j,k-2) - 8*u(i,j,k-3) + u(i,j,k-4));
 }
 
 template< typename view_t >
@@ -466,7 +466,7 @@ fd_der_z_upw_pos(
 	double * __restrict__ du
 )
 {
-	*du = invh*(-7.0/12.0*u(i,j,k) + (4.0/3.0)*u(i,j,k+1) - 1.0/2.0*u(i,j,k+2) + (2.0/15.0)*u(i,j,k+3) - 1.0/60.0*u(i,j,k+4) - 2.0/5.0*u(i,j,k-1) + (1.0/30.0)*u(i,j,k-2));
+	*du = -1.0/60.0*invh*(35*u(i,j,k) - 80*u(i,j,k+1) + 30*u(i,j,k+2) - 8*u(i,j,k+3) + u(i,j,k+4) + 24*u(i,j,k-1) - 2*u(i,j,k-2));
 }
 
 template< typename view_t >
@@ -480,7 +480,7 @@ fd_diss_x(
 	double * __restrict__ du
 )
 {
-	*du = invh*(-56*u(i+1,j,k) + 28*u(i+2,j,k) - 8*u(i+3,j,k) + u(i+4,j,k) + 70*u(i,j,k) - 56*u(i-1,j,k) + 28*u(i-2,j,k) - 8*u(i-3,j,k) + u(i-4,j,k));
+	*du = -invh*(56*u(i+1,j,k) - 28*u(i+2,j,k) + 8*u(i+3,j,k) - u(i+4,j,k) - 70*u(i,j,k) + 56*u(i-1,j,k) - 28*u(i-2,j,k) + 8*u(i-3,j,k) - u(i-4,j,k));
 }
 
 template< typename view_t >
@@ -494,7 +494,7 @@ fd_diss_y(
 	double * __restrict__ du
 )
 {
-	*du = invh*(-56*u(i,j+1,k) + 28*u(i,j+2,k) - 8*u(i,j+3,k) + u(i,j+4,k) + 70*u(i,j,k) - 56*u(i,j-1,k) + 28*u(i,j-2,k) - 8*u(i,j-3,k) + u(i,j-4,k));
+	*du = -invh*(56*u(i,j+1,k) - 28*u(i,j+2,k) + 8*u(i,j+3,k) - u(i,j+4,k) - 70*u(i,j,k) + 56*u(i,j-1,k) - 28*u(i,j-2,k) + 8*u(i,j-3,k) - u(i,j-4,k));
 }
 
 template< typename view_t >

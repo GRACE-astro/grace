@@ -75,7 +75,101 @@
 
 #include <string> 
 
+
+#include <fstream> 
+#include <iomanip> 
+
 namespace grace {
+
+void emergency_print_emf(const std::string& fname)
+{
+    DECLARE_GRID_EXTENTS;
+
+    static int counter = 0 ; 
+    int rank  = parallel::mpi_comm_rank();
+    int nproc = parallel::mpi_comm_size();
+    auto qoff = amr::forest::get().global_quadrant_offset(rank) ;
+
+    auto& emf = grace::variable_list::get().getemfarray();
+    auto iter = grace::get_iteration();
+    if ( iter % 17 ) return ; 
+    // Filenames
+    std::string fnamex_t = fname + "_" + std::to_string(rank) + "_" + std::to_string(counter) + "_x.dat";
+    std::string fnamey_t = fname + "_" + std::to_string(rank) + "_" + std::to_string(counter) + "_y.dat";
+    std::string fnamez_t = fname + "_" + std::to_string(rank) + "_" + std::to_string(counter) + "_z.dat";
+
+    std::ofstream filex(fnamex_t);
+    std::ofstream filey(fnamey_t);
+    std::ofstream filez(fnamez_t);
+
+
+    if (!filex || !filey || !filez) {
+        ERROR("oops") ; 
+    }
+
+    filex << std::setprecision(17);
+    filey << std::setprecision(17);
+    filez << std::setprecision(17);
+
+    auto const bcheck = [nx,ngz](int i) {
+        if (i==ngz) {
+            return true ;
+        } else if (i==nx+ngz) {
+            return true ;
+        } else {
+            return false ;
+        }
+    } ;
+
+    for (int q = 0; q < nq; ++q) {
+
+        for (int i = ngz; i < nx + ngz + 1; ++i) {
+            for (int j = ngz; j < ny + ngz + 1; ++j) {
+                for (int k = ngz; k < nz + ngz + 1; ++k) {
+
+                    int qg = q + qoff;
+                    if ((i < nx + ngz) and fabs(emf(i,j,k,0,q)) > 1e-15 ) {
+                        GRACE_TRACE("EMF x spotted i j k {} {} {} q {} emf {}", i,j,k,q,emf(i,j,k,0,q)) ; 
+                    }
+                    if ((j < nx + ngz) and fabs(emf(i,j,k,1,q)) > 1e-15 ) {
+                        GRACE_TRACE("EMF y spotted i j k {} {} {} q {} emf {}", i,j,k,q,emf(i,j,k,1,q)) ; 
+                    }
+                    // Ex: staggered in y,z
+                    if ((i < nx + ngz) and (bcheck(j) or bcheck(k))) {
+                        filex << i << '\t'
+                              << j << '\t'
+                              << k << '\t'
+                              << qg << '\t'
+                              << emf(i,j,k,0,q)
+                              << '\n';
+                    }
+
+                    // Ey: staggered in x,z
+                    if ((j < ny + ngz) and (bcheck(i) or bcheck(k))) {
+                        filey << i << '\t'
+                              << j << '\t'
+                              << k << '\t'
+                              << qg << '\t'
+                              << emf(i,j,k,1,q)
+                              << '\n';
+                    }
+
+                    // Ez: staggered in x,y
+                    if ((k < nz + ngz) and (bcheck(i) or bcheck(j))) {
+                        filez << i << '\t'
+                              << j << '\t'
+                              << k << '\t'
+                              << qg << '\t'
+                              << emf(i,j,k,2,q)
+                              << '\n';
+                    }
+                }
+            }
+        }
+    }
+    counter ++ ; 
+}
+
 
 void evolve() {
     auto const eos_type = grace::get_param<std::string>("eos", "eos_type") ;
@@ -87,9 +181,13 @@ void evolve() {
             evolve_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ;
         } else if ( cold_eos_type == "tabulated" ) {
             ERROR("Not implemented yet.") ;
+        } else {
+            ERROR("Unknown cold eos type " << cold_eos_type) ;
         }
     } else if ( eos_type == "tabulated" ) {
         ERROR("Not implemented yet.") ; 
+    } else {
+        ERROR("Unknown EOS " << eos_type) ; 
     }
 }
 
@@ -397,7 +495,7 @@ void compute_fluxes(
     auto& vbar  = grace::variable_list::get().getvbararray() ;
     //**************************************************************************************************/
     // construct grmhd object 
-    using recon_t = weno_reconstructor_t<5> ; 
+    using recon_t = slope_limited_reconstructor_t<MCbeta>; //weno_reconstructor_t<5> ; 
     auto atmo_params = get_atmo_params();
     auto excision_params = get_excision_params() ; 
     auto eos = eos::get().get_eos<eos_t>() ;  
@@ -519,7 +617,7 @@ void compute_emfs(
     DECLARE_GRID_EXTENTS ; 
     //**************************************************************************************************/
     // fetch some stuff 
-    using recon_t = weno_reconstructor_t<5> ; 
+    using recon_t = slope_limited_reconstructor_t<MCbeta>; //weno_reconstructor_t<5> ; 
     auto& idx     = grace::variable_list::get().getinvspacings() ;
     auto& vbar  = grace::variable_list::get().getvbararray() ;
     auto& emf  = grace::variable_list::get().getemfarray() ; 
@@ -737,7 +835,7 @@ void add_fluxes_and_source_terms(
     int nvars_hrsc = variables::get_n_hrsc() ;
     //**************************************************************************************************/
     // construct grmhd object 
-    using recon_t = weno_reconstructor_t<5> ; 
+    using recon_t = slope_limited_reconstructor_t<MCbeta>;//weno_reconstructor_t<5> ; 
     auto atmo_params = get_atmo_params();
     auto excision_params = get_excision_params() ; 
     auto eos = eos::get().get_eos<eos_t>() ;  
@@ -789,7 +887,7 @@ void update_CT(
     DECLARE_GRID_EXTENTS ; 
     //**************************************************************************************************/
     // fetch some stuff 
-    using recon_t = weno_reconstructor_t<5> ; 
+    using recon_t = slope_limited_reconstructor_t<MCbeta>;//weno_reconstructor_t<5> ; 
     auto& idx     = grace::variable_list::get().getinvspacings() ;
     auto& emf  = grace::variable_list::get().getemfarray() ; 
     //**************************************************************************************************/
@@ -969,11 +1067,15 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     compute_emfs(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/
+    Kokkos::fence() ; 
+    emergency_print_emf("before") ; 
     auto emf_context = reflux_fill_emf_buffers() ; 
     //**************************************************************************************************/
     add_fluxes_and_source_terms<eos_t>(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
     //**************************************************************************************************/
     reflux_correct_emfs(emf_context) ;
+    Kokkos::fence(); 
+    emergency_print_emf("after") ; 
     //**************************************************************************************************/
     update_CT(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/

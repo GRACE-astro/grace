@@ -124,7 +124,7 @@ variable_list_impl_t::variable_list_impl_t()
                    ) ;
     Kokkos::realloc( _aux
                    , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
-                   , N_EVOL_VARS
+                   , N_AUX_VARS
                    , nq 
                    ) ;  
     Kokkos::realloc( _fluxes

@@ -221,7 +221,7 @@ struct lagrange_interpolator_t {
                     if ( ijk[idir] - (order+1)/2 < ngz - _valid_gz ) {
                         bias[idir] = +1 ;
                     } 
-                    if ( ijk[idir] - (order+1)/2 + order >= nx + _valid_gz ) {
+                    if ( ijk[idir] - (order+1)/2 + order >= nx + ngz + _valid_gz ) {
                         bias[idir] = -1 ;
                     }
                 }
@@ -241,7 +241,7 @@ struct lagrange_interpolator_t {
                     auto pcoords = coord_system.get_physical_coordinates(
                         ijk, ijkq.q, {0.5,0.5,0.5}, false
                     ) ; 
-                    double wL = dx * wj[ic]/(point_coords[idir]-pcoords[idir]) ;
+                    double wL = dx * wj[ic]/(point_coords[idir]-pcoords[idir]+1e-15) ;
                     norm += wL ; 
                     iweights.w[ic][idir]= wL ;     
                 }

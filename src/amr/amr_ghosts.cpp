@@ -549,7 +549,7 @@ void amr_ghosts_impl_t::build_task_list_face_stag(
     /***********************************************************************/
     /***********************************************************************/
 }
-
+#if 0
 void amr_ghosts_impl_t::build_reflux_buffers() {
     // goals: figure out how much data needs to be 
     // send and received from / to whom in reflux.
@@ -1223,6 +1223,6 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
         }
     }
 }
-
+#endif 
 } /* namespace grace */
 
