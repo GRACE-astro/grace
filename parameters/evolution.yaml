@@ -5,7 +5,7 @@ evolution:
   
   time_stepper:
     type: keyword
-    allowed: ["euler", "rk2", "rk3", "imex222"]
+    allowed: ["euler", "rk2", "rk3", "rk4", "imex222"]
     default: "euler"
     description: >
       What timestepper is used for MoL evolution 

@@ -62,7 +62,7 @@ struct z4c_system_t
     using base_t = fd_evolution_system_t<z4c_system_t>  ;
 
     double k1,k2,eta,chi_safeguard,alp_min,epsdiss;
-    double eta_ad_a, eta_ad_b, eta_ad_r, theta_ad_r, kappa_ad_r, chi_excise ; 
+    double eta_ad_a, eta_ad_b, eta_ad_r, theta_ad_r, kappa_ad_r ; 
     bool adaptive_eta, is_vacuum ; 
 
     public:
@@ -85,7 +85,6 @@ struct z4c_system_t
         kappa_ad_r = get_param<double>("z4c", "kappa_damp_radius") ; 
         alp_min = get_param<double>("z4c", "alp_min") ;
         is_vacuum =  get_param<bool>("z4c", "is_vacuum") ; 
-        chi_excise = get_param<double>("z4c", "chi_excision") ;
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -410,109 +409,103 @@ struct z4c_system_t
         // should be zero, but to be safe we 
         // spend an extra 20 FLOPs and enforce it
         // again.
-        if( chi > chi_excise ) {
-            // determinant
-            double detg ; 
-            z4c_get_det_conf_metric(
-                gtdd, &detg 
-            ) ; 
+        // determinant
+        double detg ; 
+        z4c_get_det_conf_metric(
+            gtdd, &detg 
+        ) ; 
 
-            // get metric inverse 
-            double gtuu[6] ; 
-            z4c_get_inverse_conf_metric(
-                gtdd, detg, &gtuu
-            ) ; 
+        // get metric inverse 
+        double gtuu[6] ; 
+        z4c_get_inverse_conf_metric(
+            gtdd, detg, &gtuu
+        ) ; 
 
-            double Atuu[6] ; 
-            z4c_get_Atuu(Atdd,gtuu,&Atuu) ; 
+        double Atuu[6] ; 
+        z4c_get_Atuu(Atdd,gtuu,&Atuu) ; 
 
-            double AA{0} ; 
-            z4c_get_Asqr(
-                Atdd,Atuu,&AA
-            ) ; 
+        double AA{0} ; 
+        z4c_get_Asqr(
+            Atdd,Atuu,&AA
+        ) ; 
 
-            // derivatives
-            double dchi_dx[3], dKhat_dx[3], dtheta_dx[3], dAtdd_dx[18], dgtdd_dx[18];
-            // inverse spacing 
-            double idx[3] = {_idx(0,q),_idx(1,q),_idx(2,q)} ; 
-            // fill derivatives 
-            fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ; 
-            fill_deriv_scalar(this->_state,i,j,k,KHAT_,q,dKhat_dx,idx[0]) ; 
-            fill_deriv_scalar(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ; 
-            fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
-            fill_deriv_tensor(this->_state,i,j,k,ATXX_,q,dAtdd_dx,idx[0]) ;
+        // derivatives
+        double dchi_dx[3], dKhat_dx[3], dtheta_dx[3], dAtdd_dx[18], dgtdd_dx[18];
+        // inverse spacing 
+        double idx[3] = {_idx(0,q),_idx(1,q),_idx(2,q)} ; 
+        // fill derivatives 
+        fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ; 
+        fill_deriv_scalar(this->_state,i,j,k,KHAT_,q,dKhat_dx,idx[0]) ; 
+        fill_deriv_scalar(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ; 
+        fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
+        fill_deriv_tensor(this->_state,i,j,k,ATXX_,q,dAtdd_dx,idx[0]) ;
 
-            double Gammatddd[18], Gammatudd[18], GammatDu[3]; 
-            z4c_get_first_Christoffel(
-                dgtdd_dx, &Gammatddd
-            ) ;
-            z4c_get_second_Christoffel(
-                gtuu, Gammatddd, &Gammatudd
-            ) ;
-            z4c_get_contracted_Christoffel(
-                gtuu, Gammatudd, &GammatDu
-            ) ;
-            // Ricci 
-            double Rtrace; 
-            
+        double Gammatddd[18], Gammatudd[18], GammatDu[3]; 
+        z4c_get_first_Christoffel(
+            dgtdd_dx, &Gammatddd
+        ) ;
+        z4c_get_second_Christoffel(
+            gtuu, Gammatddd, &Gammatudd
+        ) ;
+        z4c_get_contracted_Christoffel(
+            gtuu, Gammatudd, &GammatDu
+        ) ;
+        // Ricci 
+        double Rtrace; 
+        
+        {
+            double W2Rdd[6] = {0.,0.,0.,0.,0.,0.};
+            // part 1 
             {
-                double W2Rdd[6] = {0.,0.,0.,0.,0.,0.};
-                // part 1 
-                {
-                    double ddgtdd_dx2[36] ; 
-                    double dGammat_dx[9] ; 
-                    fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
-                    fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
-                    z4c_get_Ricci(
-                        gtdd,chi, gtuu,Gammatddd,Gammatudd,GammatDu,dGammat_dx,ddgtdd_dx2, &W2Rdd
-                    ) ; 
-                }
-                // part 2
-                {
-                    double ddchi_dx2[6];
-                    fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ; 
-                    z4c_get_Ricci_conf(
-                        gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &W2Rdd
-                    ) ;
-                }
-                            
-                
-                z4c_get_Ricci_trace(
-                    gtuu, W2Rdd, &Rtrace
-                ) ; 
-            }   
-            // compute matter couplings 
-            double rho{0}, Strace{0}, Si[3] = {0,0,0}, Sij[6] = {0,0,0,0,0,0};
-            if (!is_vacuum) {
-                // compute matter couplings 
-                double rho0{a(RHO_)}, eps{a(EPS_)}, press{a(PRESS_)} ; 
-                double z[3] = {a(ZVECX_),a(ZVECY_),a(ZVECZ_)} ; 
-                double B[3] = {a(BX_),a(BY_),a(BZ_)} ; 
-                
-                z4c_get_matter_sources(
-                    gtdd, beta, alp, chi, gtuu, z, B, rho0, press, eps,
-                    &rho, &Strace, &Si, &Sij
+                double ddgtdd_dx2[36] ; 
+                double dGammat_dx[9] ; 
+                fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
+                fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
+                z4c_get_Ricci(
+                    gtdd,chi, gtuu,Gammatddd,Gammatudd,GammatDu,dGammat_dx,ddgtdd_dx2, &W2Rdd
                 ) ; 
             }
-            // get constraints 
-            double H, Mi[3] ; 
-            z4c_get_constraints(
-                Atdd, chi, theta, Khat, rho, Si, gtuu, Atuu, AA,
-                Gammatudd, GammatDu, Rtrace, dgtdd_dx, dAtdd_dx,
-                dKhat_dx, dchi_dx, dtheta_dx, 
-                &H, &Mi
+            // part 2
+            {
+                double ddchi_dx2[6];
+                fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ; 
+                z4c_get_Ricci_conf(
+                    gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &W2Rdd
+                ) ;
+            }
+                        
+            
+            z4c_get_Ricci_trace(
+                gtuu, W2Rdd, &Rtrace
             ) ; 
-            // Store 
-            a(HAM_) = H ; 
-            a(MOMX_) = Mi[0] ; 
-            a(MOMY_) = Mi[1] ; 
-            a(MOMZ_) = Mi[2] ; 
-        } else {
-            a(HAM_)  = 0.0 ; 
-            a(MOMX_) = 0.0 ; 
-            a(MOMY_) = 0.0 ; 
-            a(MOMZ_) = 0.0 ;
+        }   
+        // compute matter couplings 
+        double rho{0}, Strace{0}, Si[3] = {0,0,0}, Sij[6] = {0,0,0,0,0,0};
+        if (!is_vacuum) {
+            // compute matter couplings 
+            double rho0{a(RHO_)}, eps{a(EPS_)}, press{a(PRESS_)} ; 
+            double z[3] = {a(ZVECX_),a(ZVECY_),a(ZVECZ_)} ; 
+            double B[3] = {a(BX_),a(BY_),a(BZ_)} ; 
+            
+            z4c_get_matter_sources(
+                gtdd, beta, alp, chi, gtuu, z, B, rho0, press, eps,
+                &rho, &Strace, &Si, &Sij
+            ) ; 
         }
+        // get constraints 
+        double H, Mi[3] ; 
+        z4c_get_constraints(
+            Atdd, chi, theta, Khat, rho, Si, gtuu, Atuu, AA,
+            Gammatudd, GammatDu, Rtrace, dgtdd_dx, dAtdd_dx,
+            dKhat_dx, dchi_dx, dtheta_dx, 
+            &H, &Mi
+        ) ; 
+        // Store 
+        a(HAM_) = H ; 
+        a(MOMX_) = Mi[0] ; 
+        a(MOMY_) = Mi[1] ; 
+        a(MOMZ_) = Mi[2] ; 
+
         
         
     }

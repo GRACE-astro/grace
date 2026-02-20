@@ -39,7 +39,18 @@
 #include <grace/utils/device.h>
 
 namespace grace {
-
+/**
+ * @brief Linear operator on arrays (staggered and not staggered) 
+ * @param[out] A Output, overwritten 
+ * @param[in] B Input
+ * @param[out] As Output, overwritten 
+ * @param[in] Bs Input 
+ * @param[in] b Coefficient 
+ * Computes 
+ * \[
+ *  A = b B
+ * \] 
+ */
 static void linop_apply(
     var_array_t A, var_array_t B,
     staggered_variable_arrays_t AS, staggered_variable_arrays_t BS, 
@@ -113,7 +124,18 @@ static void linop_apply(
         }
     ) ;
 }
-
+/**
+ * @brief Linear operator on arrays 
+ * @param[out] A Output, overwritten 
+ * @param[in] B Input 
+ * @param[in] C Input 
+ * @param[in] b Coefficient 
+ * @param[in] c Coefficient 
+ * Computes 
+ * \[
+ *  A = b B + c C 
+ * \] 
+ */
 static void linop_apply(
     var_array_t A, var_array_t B, var_array_t C,
     staggered_variable_arrays_t AS, staggered_variable_arrays_t BS, staggered_variable_arrays_t CS, 
@@ -192,7 +214,20 @@ static void linop_apply(
     ) ;
 }
 
-
+/**
+ * @brief Linear operator on arrays 
+ * @param[out] A Output, overwritten 
+ * @param[in] B Input 
+ * @param[in] C Input 
+ * @param[in] D Input 
+ * @param[in] b Coefficient 
+ * @param[in] c Coefficient 
+ * @param[in] d Coefficient 
+ * Computes 
+ * \[
+ *  A = b B + c C + d D
+ * \] 
+ */
 static void linop_apply(
     var_array_t A, var_array_t B, var_array_t C, var_array_t D,
     staggered_variable_arrays_t AS, staggered_variable_arrays_t BS, staggered_variable_arrays_t CS, staggered_variable_arrays_t DS, 

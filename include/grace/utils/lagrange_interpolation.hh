@@ -173,6 +173,7 @@ struct lagrange_interpolator_t {
                 for( int i=0; i<order+1; ++i) {
                     for( int j=0; j<order+1; ++j) {
                         for( int k=0; k<order+1; ++k) {
+                            // FIXME this should be - (order+1)/2 but hardcoded 4 so fine.. 
                             int io = i - 2 + bx ; 
                             int jo = j - 2 + by ; 
                             int ko = k - 2 + bz ; 
