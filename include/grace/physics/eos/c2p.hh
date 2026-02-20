@@ -78,6 +78,7 @@ conservs_to_prims( grace::grmhd_cons_array_t&
                       , eos_t const& eos 
                       , atmo_params_t const& atmo 
                       , excision_params_t const& excision 
+                      , c2p_params_t const& c2p_pars
                       , double * rtp
                       , c2p_err_t& c2p_err ) ; 
 
@@ -95,6 +96,7 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , EOS const& eos \
                       , atmo_params_t const& atmo \
                       , excision_params_t const& excision \
+                      , c2p_params_t const& c2p_pars \
                       , double * rtp \
                       , c2p_err_t& c2p_err ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;

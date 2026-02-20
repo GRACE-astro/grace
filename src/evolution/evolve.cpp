@@ -86,7 +86,7 @@ void evolve() {
     GRACE_VERBOSE("Performing timestep integration at iteration {}", grace::get_iteration()) ; 
     if( eos_type == "hybrid" ) {
         auto const cold_eos_type = 
-            grace::get_param<std::string>("eos", "cold_eos_type") ;
+            get_param<std::string>("eos","hybrid_eos","cold_eos_type") ;  
         if( cold_eos_type == "piecewise_polytrope" ) {
             evolve_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ;
         } else if ( cold_eos_type == "tabulated" ) {
@@ -406,11 +406,9 @@ void compute_fluxes(
     //**************************************************************************************************/
     // construct grmhd object 
     using recon_t = slope_limited_reconstructor_t<MCbeta>; //weno_reconstructor_t<5> ; 
-    auto atmo_params = get_atmo_params();
-    auto excision_params = get_excision_params() ; 
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,old_state,old_stag_state,aux,atmo_params,excision_params) ; 
+        grmhd_eq_system(eos,old_state,old_stag_state,aux) ; 
     //**************************************************************************************************/
     #ifdef GRACE_ENABLE_M1
     m1_equations_system_t m1_eq_system(old_state,old_stag_state,aux) ;
@@ -746,11 +744,9 @@ void add_fluxes_and_source_terms(
     //**************************************************************************************************/
     // construct grmhd object 
     using recon_t = slope_limited_reconstructor_t<MCbeta>;//weno_reconstructor_t<5> ; 
-    auto atmo_params = get_atmo_params();
-    auto excision_params = get_excision_params() ; 
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,old_state,old_stag_state,aux,atmo_params,excision_params) ;
+        grmhd_eq_system(eos,old_state,old_stag_state,aux) ;
     #ifdef GRACE_ENABLE_M1 
     m1_equations_system_t m1_eq_system(old_state,old_stag_state,aux) ; 
     #endif 

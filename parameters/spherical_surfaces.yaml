@@ -1,4 +1,14 @@
 spherical_surfaces:
+  type: schema 
+  description: >
+    Spheres 
+  
+  n_surfaces:
+    type: unsigned int 
+    default: 0
+    range: "[0,*)"
+    description: >
+      Number of spherical surfaces
 
   spherical_detectors:
     type: list 

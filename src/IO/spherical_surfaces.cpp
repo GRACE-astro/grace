@@ -43,7 +43,7 @@
 
 #include <array>
 #include <memory>
-
+#include <string>
 
 namespace grace {
 
@@ -80,24 +80,28 @@ spherical_surface_manager_impl_t::spherical_surface_manager_impl_t() {
 
     GRACE_VERBOSE("Into spheres constructor.") ; 
     auto n_spheres = get_param<size_t>("spherical_surfaces","n_surfaces") ; 
-
-
-    #define GET_SPHERE_PARAMETERS(n) \
-    std::ostringstream oss ; \
-    oss << "spherical_surface_" << n ; \
-    auto const r = get_param<double>("spherical_surfaces",oss.str(),"radius") ; \
-    auto const xc = get_param<double>("spherical_surfaces",oss.str(),"x_c") ; \
-    auto const yc = get_param<double>("spherical_surfaces",oss.str(),"y_c") ; \
-    auto const zc = get_param<double>("spherical_surfaces",oss.str(),"z_c") ; \
-    auto const name =  get_param<std::string>("spherical_surfaces",oss.str(),"name") ; \
-    auto const res = get_param<size_t>("spherical_surfaces",oss.str(),"resolution") ; \
-    auto const tracking = get_param<std::string>("spherical_surfaces",oss.str(),"tracking") ;\
-    auto const sampling = get_param<std::string>("spherical_surfaces",oss.str(),"sampling_policy") 
-    for (int i =0; i<n_spheres; ++i) {
-        
-        GET_SPHERE_PARAMETERS(i);
-        detectors.push_back(make_surface(name,r,{{xc,yc,zc}},res,tracking,sampling));
-        name_map[name] = detectors.size() - 1; // store a mapping name -> idx 
+    if (n_spheres>0){
+        auto params = grace::config_parser::get().get() ; 
+        auto sphere_pars = params["spherical_surfaces"]["spherical_detectors"];
+        for (int i =0; i<n_spheres; ++i) {
+            double r,xc,yc,zc ; 
+            int res ; 
+            std::string name, tracking, sampling ;
+            try{
+                r = sphere_pars[i]["radius"].as<double>() ; 
+                xc = sphere_pars[i]["x_c"].as<double>() ; 
+                yc = sphere_pars[i]["y_c"].as<double>() ; 
+                zc = sphere_pars[i]["z_c"].as<double>() ; 
+                name = sphere_pars[i]["name"].as<std::string>() ; 
+                tracking = sphere_pars[i]["tracking"].as<std::string>() ; 
+                sampling = sphere_pars[i]["sampling_policy"].as<std::string>() ; 
+                res = sphere_pars[i]["resolution"].as<int>() ; 
+            } catch (const YAML::BadConversion&) {
+                ERROR("Could not construct sphere[" << i << "] due to parameter reading error.") ; 
+            }
+            detectors.push_back(make_surface(name,r,{{xc,yc,zc}},res,tracking,sampling));
+            name_map[name] = detectors.size() - 1; // store a mapping name -> idx 
+        }
     }
     GRACE_VERBOSE("Constructed spheres.") ; 
 }

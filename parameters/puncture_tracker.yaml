@@ -1,4 +1,8 @@
 puncture_tracker:
+  type: schema 
+  description: >
+    Puncture tracker 
+
   n_punctures:
     type: unsigned int 
     default: 0
@@ -9,16 +13,19 @@ puncture_tracker:
   puncture_x_initial:
     type: list 
     item_type: double 
+    default: []
     description: > 
       X location of punctures at t=0
   puncture_y_initial:
     type: list 
     item_type: double 
+    default: []
     description: > 
       Y location of punctures at t=0
   puncture_z_initial:
     type: list 
     item_type: double 
+    default: []
     description: > 
       Z location of punctures at t=0
 

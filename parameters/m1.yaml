@@ -1,0 +1,135 @@
+m1:
+  description: >
+    M1 scheme 
+  type: schema 
+
+  bc_kind: 
+    type: keyword 
+    allowed: ["outgoing", "none"]
+    default: "outgoing"
+    description: >
+      Boundary conditions
+  
+  id_type: 
+    type: keyword
+    allowed: ["straight_beam", "scattering", "shadow", "emitting_sphere", "zero", "curved_beam"] 
+    default: "zero"
+    description: >
+      Initialization prescription for radiation fields 
+  
+  atmosphere:
+    type: schema 
+    description: >
+      Atmosphere settings for M1 
+    
+    E_fl: 
+      type: double 
+      range: "(0,*)"
+      default: 1.e-14 
+      description: >
+        Floor of energy density 
+    
+    E_scaling: 
+      type: double 
+      range: "[0,*)"
+      default: 0
+      description: >
+        Radial dependence of energy density floor 
+    
+    eps_fl:
+      type: double 
+      default: 1 
+      range: "(0,*)" 
+      description: >
+        Flooring value for average energy 
+    
+    eps_min: 
+      type: double 
+      default: 1 
+      range: "(0,*)" 
+      description: >
+        Minimum allowed average energy 
+    
+    eps_max: 
+      type: double 
+      default: 1 
+      range: "(0,*)" 
+      description: >
+        Maximum allowed average energy 
+  
+  excision: 
+    type: schema 
+    description: > 
+      Excision parameters for M1 transport
+
+    E_excision: 
+      type: double 
+      default: 1.e-14 
+      range: "(0,*)"
+      description: > 
+        Value of energy density inside excised regions 
+
+    eps_excision: 
+      type: double 
+      default: 1
+      range: "(0,*)"
+      description: > 
+        Value of average energy inside excised regions 
+
+
+  eas: 
+    type: schema 
+    description: >
+      Parameters controlling emission absorption and scattering rates 
+
+    kind: 
+      type: keyword 
+      allowed: ["test", "basic_photon_rates"]
+      default: "test" 
+      description: > 
+        What prescription to use to set eas 
+
+  scattering_test:
+    type: schema 
+    description: > 
+      Parameters of scattering test 
+
+    k_s: 
+      type: double 
+      default: 100 
+      range: "(0,*)" 
+      description: > 
+        Constant scattering opacity 
+    
+    t_0: 
+      type: double 
+      default: 1 
+      range: "(0,*)" 
+      description: >
+        Time of initial data 
+
+    is_static_background:
+      type: bool 
+      default: true 
+      description: >
+        Is background fluid static or moving? 
+
+  emitting_sphere_test:
+    type: schema 
+    description: >
+      Parameters for emitting sphere test 
+    
+    temperature: 
+      type: double 
+      default: 1 
+      range: "(0,*)"
+      description: > 
+        Temperature for rates 
+    
+    cross_section:
+      type: double 
+      default: 10 
+      range: "(0,*)"
+      description: > 
+        Cross section for rates 
+    

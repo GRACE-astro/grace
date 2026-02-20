@@ -1,4 +1,8 @@
 amr:
+  type: schema 
+  description: >
+    Grid parameters 
+  
   xmin:
     type: double
     default: -1.0

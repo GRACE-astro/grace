@@ -1,7 +1,11 @@
 gw_integrals:
+  type: schema 
+  description: >
+    Gravitational Wave diagnostics 
+
   detector_names:
     type: list 
     item_type: string 
-    min_items: 0
+    default: []
     description: >
       Names of detectors where Psi4 should be computed 

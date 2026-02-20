@@ -60,85 +60,6 @@ compute_beta(
     return 2.0 * prims[PRESSL]/fmax(smallb2, 1e-50) ; 
 }
 
-
-template< typename eos_t > 
-static void GRACE_HOST_DEVICE 
-limit_conserved_inside_BH(
-    grmhd_cons_array_t& conservs,
-    metric_array_t const& metric,
-    atmo_params_t const& atmo_params,
-    eos_t const& eos,
-    c2p_err_t& c2p_err
-) 
-{
-    double const D = conservs[DENSL] ; 
-    std::array<double,3> Stilde = {conservs[STXL]/D, conservs[STYL]/D, conservs[STZL]/D} ;
-    std::array<double,3> Btilde = {conservs[BSXL]/sqrt(D),conservs[BSYL]/sqrt(D), conservs[BSZL]/sqrt(D)} ;
-    double SdotBtilde = Stilde[0] * Btilde[0] + Stilde[1] * Btilde[1] + Stilde[2] * Btilde[2] ; 
-    double Stilde2 = metric.square_covec(Stilde) ; 
-    double Btilde2 = metric.square_covec(Btilde) ; 
-
-    double const Wm = sqrt(eos.enthalpy_minimum() + SQR(SdotBtilde)) ; 
-    double const Sm2 = 
-    (SQR(Wm) * Stilde2 + SQR(SdotBtilde) * (Btilde2 + 2*Wm))/(SQR(Wm+Btilde2)) ; 
-    double const Wmin = sqrt(Sm2 + eos.enthalpy_minimum()) ; 
-
-    double const tau_fl_min = conservs[TAUL]/D
-        - 0.5 * Btilde2 - (Btilde2*Stilde2 - SQR(SdotBtilde)) * 0.5 / (SQR(Wmin+Btilde2) ) ; 
-
-    double rhoL = conservs[DENSL] / (1.2 * atmo_params.max_w) ; 
-    double yeL = conservs[YESL]/conservs[DENSL] ; 
-    double epsmin, epsmax; 
-    unsigned int eos_err ;
-    eos.eps_range__rho_ye(epsmin,epsmax,rhoL,yeL,eos_err) ; 
-
-    if ( tau_fl_min < epsmin ) {
-        conservs[TAUL] = conservs[DENSL] * (epsmin + 0.5 * Btilde2 +
-        (Btilde2*Stilde2 - SQR(SdotBtilde)) * 0.5 / (SQR(Wmin+Btilde2))) ; 
-        c2p_err.adjust_tau = true ; 
-    }
-
-    double const stilde_sq_max = 0.999999 * SQR(conservs[TAUL]/conservs[DENSL] + 1.) ; 
-
-    if ( Stilde2 > stilde_sq_max ) {
-        double const fix = sqrt(stilde_sq_max / Stilde2) ; 
-
-        conservs[STXL] *= fix ; conservs[STYL] *= fix ; conservs[STZL] *= fix ; 
-
-        c2p_err.adjust_s = true; 
-    } 
-}
-
-template< typename eos_t > 
-static void GRACE_HOST_DEVICE 
-limit_conserved(
-    grmhd_cons_array_t& conservs,
-    metric_array_t const& metric,
-    atmo_params_t const& atmo_params,
-    eos_t const& eos,
-    c2p_err_t& c2p_err
-)  
-{
-    if ( conservs[DENSL] < 0 ) {
-        conservs[DENSL] = atmo_params.rho_fl ; 
-        c2p_err.adjust_d = true ;
-    }
-    double B2L = metric.square_vec({conservs[BSXL],conservs[BSYL], conservs[BSZL]}) ;
-    double rhoL = conservs[DENSL] ; 
-    double yeL = conservs[YESL]/conservs[DENSL] ; 
-    double epsmin, epsmax; 
-    unsigned int eos_err ;
-    eos.eps_range__rho_ye(epsmin,epsmax,rhoL,yeL,eos_err) ; 
-
-    if ( conservs[TAUL] - 0.5 * B2L < 0. ) {
-        conservs[TAUL] = conservs[DENSL] * epsmin + 0.5 * B2L ; 
-        c2p_err.adjust_tau = true ; 
-    }
-    if (metric.sqrtg() > atmo_params.psi6_bh /*and B2L > 1e-15 * conservs[DENSL]*/ ) {
-        limit_conserved_inside_BH(conservs,metric,atmo_params,eos,c2p_err) ; 
-    }
-}
-
 template< typename eos_t >
 static void KOKKOS_INLINE_FUNCTION 
 limit_primitives(
@@ -199,6 +120,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
                   , eos_t const& eos 
                   , atmo_params_t const& atmo 
                   , excision_params_t const& excision 
+                  , c2p_params_t const& c2p_pars
                   , double * rtp
                   , c2p_err_t& c2p_err)
 {
@@ -211,9 +133,6 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     // by default we overwrite S_star 
     c2p_err.adjust_ent = true ; 
     c2p_err.adjust_tau = c2p_err.adjust_d = c2p_err.adjust_s = false ; 
-
-    // store 
-    const double c2p_tolerance = atmo.c2p_tol ; 
 
     /* Undensitize conservs */
     for( auto& c: cons) c /= metric.sqrtg() ;
@@ -245,24 +164,24 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         if ( Btilde2 < hydro_thresh ) {
             c2p_hydro_t c2p(eos,metric,cons) ;
             double residual = c2p.invert(prims,c2p_ret) ;
-            c2p_failed = (math::abs(residual) > c2p_tolerance) || (c2p_ret == C2P_EPS_TOO_HIGH);
+            c2p_failed = (math::abs(residual) > c2p_pars.tol) || (c2p_ret == C2P_EPS_TOO_HIGH);
         } else {
             c2p_mhd_t c2p(eos,metric,cons) ;
             double residual = c2p.invert(prims,c2p_ret) ;
-            c2p_failed = (math::abs(residual) > c2p_tolerance) || (c2p_ret == C2P_EPS_TOO_HIGH);
+            c2p_failed = (math::abs(residual) > c2p_pars.tol) || (c2p_ret == C2P_EPS_TOO_HIGH);
             beta = compute_beta(prims,metric) ; 
         }
         
         if ( (     c2p_failed 
-                or beta <= atmo.beta_fallback ) 
-            and atmo.use_ent_backup ) 
+                or beta <= c2p_pars.beta_fallback ) 
+               and c2p_pars.use_ent_backup ) 
         {
             c2p_ret = C2P_SUCCESS ; 
             c2p_err.adjust_ent = false ; 
             c2p_err.adjust_tau = true  ; 
             c2p_backup_t e_c2p(eos,metric,cons) ;
             double residual = e_c2p.invert(prims,c2p_ret) ; 
-            c2p_failed = (math::abs(residual) > c2p_tolerance) || (c2p_ret == C2P_EPS_TOO_HIGH);
+            c2p_failed = (math::abs(residual) > c2p_pars.tol) || (c2p_ret == C2P_EPS_TOO_HIGH);
         }
     } else {
         c2p_failed = true ;
@@ -319,7 +238,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     } else {
         /* Limit lorentz fact and magnetization  */
         limit_primitives<eos_t>(
-            prims, metric, eos, atmo.max_w, atmo.max_sigma, c2p_err
+            prims, metric, eos, c2p_pars.max_w, c2p_pars.max_sigma, c2p_err
         ) ;
     }
     
@@ -378,6 +297,7 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , EOS const& eos \
                       , atmo_params_t const& atmo \
                       , excision_params_t const& excision \
+                      , c2p_params_t const& c2p_pars \
                       , double * rtp \
                       , c2p_err_t& c2p_err ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;

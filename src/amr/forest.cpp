@@ -39,6 +39,50 @@
 namespace grace { namespace amr {
 
 struct fmr_box_t {
+    fmr_box_t(node_t node) {
+        try {
+            target_level_delta = node["target_level_delta"].as<int>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve target_level_delta from fmr box") ; 
+        }
+
+        try {
+            xmin = node["x_min"].as<double>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve x_min from fmr box") ; 
+        }
+
+        try {
+            xmax = node["x_max"].as<double>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve x_max from fmr box") ; 
+        }
+
+        try {
+            ymin = node["y_min"].as<double>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve y_min from fmr box") ; 
+        }
+
+        try {
+            ymax = node["y_max"].as<double>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve y_max from fmr box") ; 
+        }
+
+        try {
+            zmin = node["z_min"].as<double>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve z_min from fmr box") ; 
+        }
+
+        try {
+            zmax = node["z_max"].as<double>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve z_max from fmr box") ; 
+        }
+        
+    }
     int target_level_delta ;
     double xmin,xmax,ymin,ymax,zmin,zmax ; 
 } ; 
@@ -147,24 +191,12 @@ forest_impl_t::forest_impl_t()
     // first: get the fmr boxes 
     auto n_boxes = grace::get_param<unsigned>("amr","n_fmr_boxes") ; 
     auto base_level = grace::get_param<unsigned>("amr", "initial_refinement_level") ; 
-    #define STR(x) #x
-    #define FILL_BOX(n,b) \
-    do {\
-    std::ostringstream oss ; \
-    oss << "fmr_box_" << n ; \
-    b.xmin = grace::get_param<double>("amr", oss.str() ,"x_min");\
-    b.xmax = grace::get_param<double>("amr", oss.str() ,"x_max");\
-    b.ymin = grace::get_param<double>("amr", oss.str() ,"y_min");\
-    b.ymax = grace::get_param<double>("amr", oss.str() ,"y_max");\
-    b.zmin = grace::get_param<double>("amr", oss.str() ,"z_min");\
-    b.zmax = grace::get_param<double>("amr", oss.str() ,"z_max");\
-    b.target_level_delta = grace::get_param<unsigned>("amr",oss.str() ,"target_level_delta");\
-    } while(false)
+    auto fmr_boxes_params = grace::config_parser::get().get()["amr"]["fmr_boxes"] ; 
 
-    std::vector<fmr_box_t> boxes(n_boxes) ; 
+    std::vector<fmr_box_t> boxes ; 
     for( int ib=0; ib<n_boxes; ++ib) {
-        auto& box = boxes[ib] ; 
-        FILL_BOX(ib,box) ; 
+        fmr_box_t box(fmr_boxes_params[ib]) ; 
+        boxes.push_back(box) ; 
     }
 
     if (n_boxes>0) {

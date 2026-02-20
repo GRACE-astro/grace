@@ -1,4 +1,8 @@
 coordinate_system:
+  type: schema 
+  description: >
+    Coordinate system 
+  
   is_kerr_schild:
     type: bool 
     default: false 
@@ -8,6 +12,7 @@ coordinate_system:
   bh_spin:
     type: double
     default: 0.0
+    range: "[0,*)"
     description: >
       If CKS coordinates, adimensional black hole spin 
 

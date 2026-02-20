@@ -1,4 +1,7 @@
 IO:
+  type: schema 
+  description: >
+    Output 
   volume_output_every:
     type: int 
     range: "[-1,*)"
@@ -55,7 +58,7 @@ IO:
   
   info_output_max_reductions:
     type: list 
-    min_items: 0
+    default: []
 
     item_type: string 
 
@@ -64,7 +67,7 @@ IO:
   
   info_output_min_reductions:
     type: list 
-    min_items: 0
+    default: []
 
     item_type: string 
 
@@ -73,7 +76,7 @@ IO:
 
   info_output_norm2_reductions:
     type: list 
-    min_items: 0
+    default: []
 
     item_type: string 
 
@@ -82,38 +85,38 @@ IO:
 
   scalar_output_minmax:
     type: list 
-    min_items: 0
+    default: []
     item_type: string 
     description: >
       List of variables whose min and max values are written to scalar output 
   scalar_output_norm2:
     type: list 
-    min_items: 0
+    default: []
     item_type: string 
     description: >
       List of variables whose L2 norm is written to scalar output 
   scalar_output_integral:
     type: list 
-    min_items: 0
+    default: []
     item_type: string 
     description: >
       List of variables whose integral (wrt coordinate volume!) is written to scalar output
 
   volume_output_cell_variables:
     type: list 
-    min_items: 0
+    default: []
     item_type: string 
     description: >
       List of variables in 3D output 
   plane_surface_output_cell_variables:
     type: list 
-    min_items: 0
+    default: []
     item_type: string 
     description: >
       List of variables in 2D plane output 
   sphere_surface_output_cell_variables:
     type: list 
-    min_items: 0
+    default: []
     item_type: string 
     description: >
       List of variables in 2D sphere output 
@@ -153,6 +156,12 @@ IO:
     default: "./output_surface"
     description: >
       Path where 2D outputs are written, relative to running directory 
+  
+  sphere_surface_output_base_directory:
+    type: string 
+    default: "./output_spheres"
+    description: >
+      Path where 2D sphere outputs are written, relative to running directory 
 
   scalar_output_base_filename:
     type: string 
@@ -176,80 +185,39 @@ IO:
   hdf5_compression_level:
     type: int 
     default: 0
+    range: "[0,*)"
     description: >
       Compression level to be used in HDF5 output, can save space but generally hurts performance. Library must support this in conjunction with parallel output.
 
   hdf5_chunk_size:
     type: int 
     default: 4096
+    range: "(0,*)"
     description: >
       Size of chunking for HDF5 output 
 
-  xy_plane_offsets:
+  xy_plane_offset:
+    type: double 
+    range: "(*,*)"
+    default: 0.0
     description: >
-      Coordinate offsets of xy plane for output 
-    x:
-      type: double 
-      range: "(*,*)"
-      default: 0.0
-      description: >
-        X offset 
-    y:
-      type: double 
-      range: "(*,*)"
-      default: 0.0
-      description: >
-        Y offset 
-    z:
-      type: double 
-      range: "(*,*)"
-      default: 0.0
-      description: >
-        Z offset 
+      Z offset 
 
-  xz_plane_offsets:
-    description: >
-      Coordinate offsets of xz plane for output 
-    x:
-      type: double 
-      range: "(*,*)"
-      default: 0.0
-      description: >
-        X offset 
-    y:
-      type: double 
-      range: "(*,*)"
-      default: 0.0
-      description: >
-        Y offset 
-    z:
-      type: double 
-      range: "(*,*)"
-      default: 0.0
-      description: >
-        Z offset 
+      
 
-  yz_plane_offsets:
+  xz_plane_offset:
+    type: double 
+    range: "(*,*)"
+    default: 0.0
     description: >
-      Coordinate offsets of yz plane for output 
-    x:
-      type: double 
-      range: "(*,*)"
-      default: 0.0
-      description: >
-        X offset 
-    y:
-      type: double 
-      range: "(*,*)"
-      default: 0.0
-      description: >
-        Y offset 
-    z:
-      type: double 
-      range: "(*,*)"
-      default: 0.0
-      description: >
-        Z offset 
+      Y offset 
+
+  yz_plane_offset:
+    type: double 
+    range: "(*,*)"
+    default: 0.0
+    description: >
+      X offset 
 
 
   n_output_spheres:
@@ -262,7 +230,7 @@ IO:
   output_sphere_names: 
     type: list 
     item_type: string 
-    min_items: 0
+    default: []
     description: >
       Name of spherical detectors where 2D output is requested 
   

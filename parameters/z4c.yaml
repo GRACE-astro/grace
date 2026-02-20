@@ -1,4 +1,8 @@
 z4c:
+  type: schema 
+  description: >
+    Z4c
+
   bc_kind:
     type: keyword 
     allowed: ["none", "outgoing", "sommerfeld"]

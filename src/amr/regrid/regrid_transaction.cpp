@@ -97,7 +97,7 @@ void regrid_transaction_t::evaluate_criterion() {
     std::string ref_criterion = 
         params["amr"]["refinement_criterion"].as<std::string>() ;
     auto varname = params["amr"]["refinement_criterion_var"].as<std::string>() ;
-    bool var_is_aux = params["amr"]["refinement_criterion_var_is_aux"].as<bool>() ; 
+    bool var_is_aux = get_param<bool>("amr", "refinement_criterion_var_is_aux"); 
     auto varidx = get_variable_index(varname, var_is_aux) ; 
     ASSERT(varidx>=0, "Index of variable " << varname << " not found.") ; 
     auto& criterion_view = var_is_aux ? aux : state ; 

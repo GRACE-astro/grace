@@ -354,26 +354,25 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     });
     } else if ( B_init_type == "from_Avec" ) {
 
-        auto par = get_param<YAML::Node>("grmhd","Avec_ID") ; 
-        auto kind = par["kind"].as<std::string>() ; 
+        auto kind = get_param<std::string>("grmhd", "Avec_ID","Avec_kind") ;
         ASSERT(kind == "current_loop", "Only current_loop Avec initialization supported.") ; 
-        auto cutoff_var = par["cutoff_var"].as<std::string>() ; 
+        auto cutoff_var = get_param<std::string>("grmhd", "Avec_ID","cutoff_var") ;
         bool use_rho = cutoff_var == "rho" ; 
         ASSERT(cutoff_var=="press" or cutoff_var=="rho", "Only pressure and density-based cutoff supported.") ; 
-        auto A_pcut = par["cutoff_fact"].as<double>() ; 
-        auto A_phi = par["A_phi"].as<double>() ; 
-        auto A_n = par["A_n"].as<double>() ; 
+        auto A_pcut = get_param<double>("grmhd", "Avec_ID","cutoff_fact") ;
+        auto A_phi = get_param<double>("grmhd", "Avec_ID","A_phi") ;
+        auto A_n = get_param<double>("grmhd", "Avec_ID","A_n") ;
 
-        auto is_binary = par["is_binary"].as<bool>() ; 
+        auto is_binary = get_param<bool>("grmhd", "Avec_ID", "is_binary") ; 
         
         std::array<double,3> center_1, center_2 ; 
-        center_1[0] = par["x_c_1"].as<double>() ;
-        center_1[1] = par["y_c_1"].as<double>() ; 
-        center_1[2] = par["z_c_1"].as<double>() ; 
+        center_1[0] = get_param<double>("grmhd", "Avec_ID","x_c_1") ;
+        center_1[1] = get_param<double>("grmhd", "Avec_ID","y_c_1") ;
+        center_1[2] = get_param<double>("grmhd", "Avec_ID","z_c_1") ;
 
-        center_2[0] = par["x_c_2"].as<double>() ;
-        center_2[1] = par["y_c_2"].as<double>() ; 
-        center_2[2] = par["z_c_2"].as<double>() ;  
+        center_2[0] = get_param<double>("grmhd", "Avec_ID","x_c_2") ;
+        center_2[1] = get_param<double>("grmhd", "Avec_ID","y_c_2") ;
+        center_2[2] = get_param<double>("grmhd", "Avec_ID","z_c_2") ;
 
         double vmax ; 
         if ( use_rho  ) {
@@ -523,20 +522,14 @@ void set_grmhd_initial_data() {
         GRACE_TRACE("Done with hydro ID.") ;  
     } else if ( id_type == "blastwave" ) {
         set_grmhd_initial_data_impl<eos_t,blastwave_id_t<eos_t>>() ;
-    } else if ( id_type == "TOV") { 
+    } else if ( id_type == "tov") { 
         
         auto const rho_c = get_param<double>("grmhd", "tov", "rho_c") ; 
         auto const p_floor = get_param<double>("grmhd", "tov", "press_floor") ; 
         auto const dr = get_param<double>("grmhd", "tov", "dr") ; 
         auto const pert_amp = get_param<double>("grmhd", "tov", "pert_amp") ;
-        auto atmo_pars = get_param<YAML::Node>("grmhd","atmosphere"); 
 
-        atmo_params_t atmo_params ;
-        atmo_params.rho_fl = atmo_pars["rho_fl"].as<double>() ; 
-        atmo_params.ye_fl = atmo_pars["ye_fl"].as<double>() ; 
-        atmo_params.temp_fl = atmo_pars["temp_fl"].as<double>() ; 
-        atmo_params.rho_fl_scaling = atmo_pars["rho_scaling"].as<double>() ;
-        atmo_params.temp_fl_scaling = atmo_pars["temp_scaling"].as<double>() ; 
+        atmo_params_t atmo_params = get_atmo_params() ;
 
         set_grmhd_initial_data_impl<eos_t,tov_id_t<eos_t>>(atmo_params,rho_c,p_floor,dr,pert_amp) ;
     } else if( id_type == "magnetic_rotor" ) {

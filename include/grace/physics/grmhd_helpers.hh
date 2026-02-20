@@ -43,12 +43,16 @@ struct atmo_params_t {
     double temp_fl ;  //!< Atmo T 
     double rho_fl_scaling  ; //!< Radial scaling of atmo rho
     double temp_fl_scaling ; //!< Radial scaling of atmo T
-    double c2p_tol       ; //!< C2P tolerance 
-    double max_w         ; //!< Maximum Lorentz factor
-    double max_sigma     ; //!< Maximum magnetization b^2/rho
-    double beta_fallback ; //!< beta < fallback we use ent
-    double psi6_bh       ; //!< Psi^6 > thresh we relax c2p
-    bool use_ent_backup  ; //!< Use backup c2p?
+} ;
+/**
+ * @brief Parameters controlling C2P behaviour 
+ */
+struct c2p_params_t {
+  double tol           ; //!< C2P tolerance 
+  double max_w         ; //!< Maximum Lorentz factor
+  double max_sigma     ; //!< Maximum magnetization b^2/rho
+  double beta_fallback ; //!< beta < fallback we use ent
+  bool use_ent_backup  ; //!< Use backup c2p?
 } ; 
 /**
  * @brief Excision parameters
@@ -142,18 +146,20 @@ atmo_params_t get_atmo_params()
   atmo_params.rho_fl_scaling = grace::get_param<double>("grmhd","atmosphere","rho_scaling") ; 
   atmo_params.temp_fl_scaling = grace::get_param<double>("grmhd","atmosphere","temp_scaling") ;
 
-  atmo_params.use_ent_backup = grace::get_param<bool>("grmhd","atmosphere","use_c2p_entropy_backup") ;
-
-  atmo_params.c2p_tol = grace::get_param<double>("grmhd","atmosphere","c2p_tolerance") ;
-
-  atmo_params.max_sigma = grace::get_param<double>("grmhd","atmosphere","max_sigma") ;
-  atmo_params.max_w     = grace::get_param<double>("grmhd","atmosphere","max_lorentz") ;
-
-  atmo_params.beta_fallback = grace::get_param<double>("grmhd","atmosphere","beta_fallback") ;
-
-  atmo_params.psi6_bh = grace::get_param<double>("grmhd","atmosphere","psi6_bh") ;
-
   return atmo_params ; 
+}
+
+GRACE_ALWAYS_INLINE 
+c2p_params_t get_c2p_params() 
+{
+  c2p_params_t c2p_params ; 
+
+  c2p_params.tol = grace::get_param<double>("grmhd","c2p","tolerance") ; 
+  c2p_params.max_w = grace::get_param<double>("grmhd","c2p","max_lorentz") ; 
+  c2p_params.max_sigma = grace::get_param<double>("grmhd","c2p","max_sigma") ; 
+  c2p_params.beta_fallback = grace::get_param<double>("grmhd","c2p","beta_fallback") ; 
+  c2p_params.use_ent_backup = grace::get_param<bool>("grmhd","c2p","use_c2p_entropy_backup") ;
+  return c2p_params ; 
 }
 
 /** @brief Get excision settings
@@ -177,8 +183,9 @@ excision_params_t get_excision_params()
     excision_params.rho_ex  =  grace::get_param<double>("grmhd","excision","rho_excision"); 
     excision_params.temp_ex =  grace::get_param<double>("grmhd","excision","temp_excision"); 
 
-    excision_params.r_f     = grace::get_param<double>("grmhd","excision","flim_radius"); 
-    excision_params.alp_f   = grace::get_param<double>("grmhd","excision","flim_lapse") ; 
+    //excision_params.r_f     = grace::get_param<double>("grmhd","excision","flim_radius"); 
+    //excision_params.alp_f   = grace::get_param<double>("grmhd","excision","flim_lapse") ; 
+    
     return excision_params ; 
 }
 

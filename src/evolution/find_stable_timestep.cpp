@@ -56,7 +56,7 @@ void find_stable_timestep() {
     GRACE_VERBOSE("Computing timestep at iteration {}, old timestep {}", grace::get_iteration(), grace::get_timestep()) ; 
     if( eos_type == "hybrid" ) {
         auto const cold_eos_type = 
-            grace::get_param<std::string>("eos", "cold_eos_type") ;
+            get_param<std::string>("eos","hybrid_eos","cold_eos_type") ;  
         if( cold_eos_type == "piecewise_polytrope" ) {
             find_stable_timestep_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ; 
         } else if ( cold_eos_type == "tabulated" ) {

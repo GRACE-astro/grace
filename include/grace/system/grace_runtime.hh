@@ -52,6 +52,35 @@
 
 namespace grace {
 
+template <typename Container>
+static void print_list(const std::string& title, const Container& c)
+{
+    std::cout << "    " << title << ":\n";
+
+    if (c.empty()) {
+        std::cout << "      (none)\n";
+        return;
+    }
+
+    for (const auto& x : c) {
+        std::cout << "      - " << x << '\n';
+    }
+}
+
+template <typename S, typename V, typename AS, typename AV>
+void print_variable_group(const S& scalars,
+                          const V& vectors,
+                          const AS& aux_scalars,
+                          const AV& aux_vectors)
+{
+    print_list("Scalars", scalars);
+    print_list("Vectors", vectors);
+
+    std::cout << "    Auxiliaries:\n";
+    print_list("Scalars", aux_scalars);
+    print_list("Vectors", aux_vectors);
+}
+
 enum terminate : uint8_t {ITERATION, TIME, WALLTIME} ; 
 
 class grace_runtime_impl_t 
@@ -94,16 +123,10 @@ class grace_runtime_impl_t
     std::vector<std::string> _integral_reduction_vars ;
     std::vector<std::string> _integral_reduction_aux  ;
     /* Output planes */
-    int _n_output_planes ; 
     std::vector<std::array<double,3>> _output_planes_origins ; 
-    std::vector<int>                  _output_planes_dirs    ; 
-    std::vector<std::string>          _output_planes_names   ; 
     /* Output spheres */
     int _n_output_spheres ; 
     std::vector<std::string>          _output_spheres_names   ; 
-    /* Output parameters */ 
-    bool   _volume_output        ;
-    bool   _surface_output       ; 
     int _volume_output_every  ; 
     int _plane_surface_output_every ; 
     int _sphere_surface_output_every ; 
@@ -384,24 +407,9 @@ class grace_runtime_impl_t
         return _integral_reduction_aux; 
     }
 
-    int GRACE_ALWAYS_INLINE 
-    n_surface_output_planes() const {
-        return _n_output_planes ; 
-    }
-
     decltype(auto) GRACE_ALWAYS_INLINE 
     cell_plane_surface_output_origins() const {
         return _output_planes_origins ;  
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_plane_surface_output_dirs() const {
-        return _output_planes_dirs ; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_plane_surface_output_names() const {
-        return _output_planes_names ; 
     }
 
     int GRACE_ALWAYS_INLINE 
@@ -428,8 +436,6 @@ class grace_runtime_impl_t
          * parse IO section of parfile and sort variables into aux and state 
          * and into scalars and vectors.
         */
-        _surface_output = grace::get_param<bool>("IO", "surface_output") ; 
-        _volume_output = grace::get_param<bool>("IO", "volume_output") ; 
         /* Output frequencies              */
         _sphere_surface_output_every = grace::get_param<int>("IO", "sphere_surface_output_every") ; 
         _plane_surface_output_every = grace::get_param<int>("IO", "plane_surface_output_every") ; 
@@ -449,48 +455,35 @@ class grace_runtime_impl_t
         _sphere_io_basepath = 
             std::filesystem::path(grace::get_param<std::string>("IO","sphere_surface_output_base_directory")) ; 
         /* Create output directories if they don't exist */
-        if( not std::filesystem::exists( _volume_io_basepath ) ){
+        if( not std::filesystem::exists( _volume_io_basepath ) and (parallel::mpi_comm_rank() == 0)){
             std::filesystem::create_directory(_volume_io_basepath) ; 
         }
 
-        if( not std::filesystem::exists( _surface_io_basepath ) ){
+        if( not std::filesystem::exists( _surface_io_basepath) and (parallel::mpi_comm_rank() == 0)) {
             std::filesystem::create_directory(_surface_io_basepath) ; 
         }
 
-        if( not std::filesystem::exists( _sphere_io_basepath ) ){
+        if( not std::filesystem::exists( _sphere_io_basepath) and (parallel::mpi_comm_rank() == 0)) {
             std::filesystem::create_directory(_sphere_io_basepath) ; 
         }
 
-        if( not std::filesystem::exists( _scalar_io_basepath ) ){
+        if( not std::filesystem::exists( _scalar_io_basepath) and (parallel::mpi_comm_rank() == 0)) {
             std::filesystem::create_directory(_scalar_io_basepath) ; 
         }
         /* Set output planes and spheres properties      */
-        _n_output_planes = grace::get_param<int>("IO", "n_output_planes") ;
-        #define READ_IO_PARAM(s,t) grace::get_param<t>("IO",s) 
-        #define AS_TYPE(t) t
-        _output_planes_origins.resize(_n_output_planes) ;
-        _output_planes_dirs.resize(_n_output_planes) ;
-        _output_planes_names.resize(_n_output_planes)   ; 
-        for (int iplane=0; iplane < _n_output_planes; ++iplane) {
-            std::ostringstream oss_x,oss_y,oss_z;
-            oss_x << "output_plane_x_origin_" << iplane;
-            oss_y << "output_plane_y_origin_" << iplane;
-            oss_z << "output_plane_z_origin_" << iplane;
-            _output_planes_origins[iplane] = {
-                READ_IO_PARAM(oss_x.str(), AS_TYPE(double)),
-                READ_IO_PARAM(oss_y.str(), AS_TYPE(double)),
-                READ_IO_PARAM(oss_z.str(), AS_TYPE(double))
-            } ; 
-            oss_x.str("");  // Reset content to empty string
-            oss_x.clear();
-            oss_x << "output_plane_dir_" << iplane;
-            _output_planes_dirs[iplane] = READ_IO_PARAM(oss_x.str(), AS_TYPE(int)) ; 
+        _output_planes_origins.resize(3) ;
+        _output_planes_origins[0][0] = 0.0;
+        _output_planes_origins[0][1] = 0.0;
+        _output_planes_origins[0][2] = grace::get_param<double>("IO","xy_plane_offset") ;
 
-            oss_x.str("");  // Reset content to empty string
-            oss_x.clear();
-            oss_x << "output_plane_name_" << iplane;
-            _output_planes_names[iplane] = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
-        }
+        _output_planes_origins[1][0] = 0.0 ; 
+        _output_planes_origins[1][1] = grace::get_param<double>("IO","xz_plane_offset") ; 
+        _output_planes_origins[1][2] = 0.0 ; 
+
+        _output_planes_origins[2][0] = grace::get_param<double>("IO","yz_plane_offset") ; 
+        _output_planes_origins[2][1] = 0.0 ; 
+        _output_planes_origins[2][2] = 0.0 ; 
+        
         _n_output_spheres = grace::get_param<int>("IO", "n_output_spheres") ;
         _output_spheres_names = grace::get_param<std::vector<std::string>>("IO", "output_sphere_names") ; 
         /* Volume and surface output variables */
@@ -720,69 +713,64 @@ class grace_runtime_impl_t
         /****************************/
         if( parallel::mpi_comm_rank() == grace::master_rank() ) 
         {
-            if ( _volume_output ) 
-            {
-                std::cout << "Volume output requested every " << _volume_output_every << " iterations\n" ; 
-                std::cout << "Variables registered for volume (co-dimension 0) output:\n" ; 
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_volume_output_scalar_vars){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_volume_output_vector_vars){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Auxiliaries: \n";
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_volume_output_scalar_aux){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_volume_output_vector_aux){
-                    std::cout << x << std::endl ; 
-                }      
-            }
-            if ( _surface_output )
-            {
-                std::cout << "Plane surface output requested every " << _plane_surface_output_every << " iterations\n" ; 
-                std::cout << "Sphere surface output requested every " << _sphere_surface_output_every << " iterations\n" ; 
-                std::cout << "Variables registered for plane surface (co-dimension 1) output: \n" ; 
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_plane_surface_output_scalar_vars){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_plane_surface_output_vector_vars){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Auxiliaries: \n";
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_plane_surface_output_scalar_aux){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_plane_surface_output_vector_aux){
-                    std::cout << x << std::endl ; 
-                }  
-                std::cout << "Variables registered for sphere surface (co-dimension 1) output: \n" ; 
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_sphere_surface_output_scalar_vars){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_sphere_surface_output_vector_vars){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Auxiliaries: \n";
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_sphere_surface_output_scalar_aux){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_sphere_surface_output_vector_aux){
-                    std::cout << x << std::endl ; 
-                }    
-            }
+            
+            std::cout << "\n========================================\n";
+            std::cout << " Output Configuration\n";
+            std::cout << "========================================\n\n";
+
+            /* ---------------- Volume ---------------- */
+
+            std::cout << "[Volume Output | co-dimension 0]\n";
+            std::cout << "  Interval: every "
+                    << _volume_output_every
+                    << " iterations\n";
+
+            print_variable_group(
+                _cell_volume_output_scalar_vars,
+                _cell_volume_output_vector_vars,
+                _cell_volume_output_scalar_aux,
+                _cell_volume_output_vector_aux
+            );
+
+            std::cout << "\n";
+
+            /* ---------------- Surfaces ---------------- */
+
+            std::cout << "[Surface Output | co-dimension 1]\n";
+
+            std::cout << "  Plane interval:  every "
+                    << _plane_surface_output_every
+                    << " iterations\n";
+
+            std::cout << "  Sphere interval: every "
+                    << _sphere_surface_output_every
+                    << " iterations\n\n";
+
+            /* ---- Plane ---- */
+
+            std::cout << "  > Plane Surface\n";
+
+            print_variable_group(
+                _cell_plane_surface_output_scalar_vars,
+                _cell_plane_surface_output_vector_vars,
+                _cell_plane_surface_output_scalar_aux,
+                _cell_plane_surface_output_vector_aux
+            );
+
+            std::cout << "\n";
+
+            /* ---- Sphere ---- */
+
+            std::cout << "  > Sphere Surface\n";
+
+            print_variable_group(
+                _cell_sphere_surface_output_scalar_vars,
+                _cell_sphere_surface_output_vector_vars,
+                _cell_sphere_surface_output_scalar_aux,
+                _cell_sphere_surface_output_vector_aux
+            );
+
+            std::cout << "\n========================================\n\n";
         }
 
         auto const term_cnd = grace::get_param<std::string>("evolution", "termination_condition") ; 

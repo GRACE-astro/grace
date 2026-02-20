@@ -1,4 +1,15 @@
 grmhd:
+  type: schema 
+  description: >
+    GRMHD 
+
+  bc_kind: 
+    type: keyword 
+    allowed: ["outgoing", "none"]
+    default: "outgoing"
+    description: >
+      Boundary conditions 
+
   id_type: 
     type: keyword 
     allowed: ["minkowski_vacuum", "shocktube", "magnetic_rotor", "bondi_flow", "orszag_tang_vortex", "fmtorus", "tov", "blastwave", "gas_cloud","puncture","lorene_bns", "two_punctures"]
@@ -7,6 +18,7 @@ grmhd:
       Initial data type 
   
   atmosphere:
+    type: schema
     description: >
       Parameters describing atmosphere conditions 
     rho_fl:
@@ -46,6 +58,7 @@ grmhd:
         Override ye_fl with beta equilibrium ye at atmosphere conditions 
   
   excision: 
+    type: schema
     description: >
       Parameters describing excision conditions 
     excision_criterion:
@@ -78,8 +91,9 @@ grmhd:
       default: 0.0
       description: >
         Temperature inside excised region
-    
+  
   c2p: 
+    type: schema
     description: >
       Parameters that control the behaviour of the c2p 
     tolerance: 
@@ -111,12 +125,16 @@ grmhd:
       default: 1e-2
       description: >
         Directly use entropy backup if beta<fallback_threshold
-    
+  
   B_field_initialization:
     type: keyword
     allowed: ["none", "from_A", "direct"]
+    default: "none"
+    description: >
+      How should we initialize the magnetic field?
 
   Avec_ID:
+    type: schema
     description: >
       Parameters for initialization of vector potential at cell edges 
     Avec_kind:
@@ -191,6 +209,7 @@ grmhd:
         Only for binary: center of second star 
   
   bondi_flow: 
+    type: schema
     description: > 
       Parameters for Bondi ID 
     r_c:
@@ -231,6 +250,7 @@ grmhd:
         Black hole spin 
 
   vacuum:
+    type: schema
     description: >
       Parameters for minkowski constant state 
     rho_floor: 
@@ -247,24 +267,25 @@ grmhd:
         Pressure
     velocity_x: 
       type: double 
-      range: "(0,*)"
+      range: "(*,*)"
       default: 0.0
       description: > 
         v^x
     velocity_y: 
       type: double 
-      range: "(0,*)"
+      range: "(*,*)"
       default: 0.0
       description: > 
         v^y
     velocity_z: 
       type: double 
-      range: "(0,*)"
+      range: "(*,*)"
       default: 0.0
       description: > 
         v^z
 
   shocktube:
+    type: schema
     description: >
       Parameters for shocktube problem 
     press_L:
@@ -331,8 +352,9 @@ grmhd:
       default: 0.0 
       description: >
         B^z in right state (note you must set B_initialization to direct)
-
+  
   magnetic_rotor:
+    type: schema
     description: >
       Parameters for magnetic rotor test 
     rho_in: 
@@ -364,6 +386,7 @@ grmhd:
         B^x 
 
   orszag_tang_vortex:
+    type: schema
     description: >
       Parameters for Orszag-Tang vortex test 
     press: 
@@ -380,6 +403,7 @@ grmhd:
         density 
 
   fmtorus:
+    type: schema
     description: >
       Parameters for Fishborne Moncrief torus 
     a_BH:
@@ -394,12 +418,12 @@ grmhd:
       default: 1.0e-5
       description: >
         Minimum density
-    rho_min:
+    rho_max:
       type: double 
       range: "(0,*)"
-      default: 1.0e-5
+      default: 1.0
       description: >
-        Minimum density
+        Maximum density
     
     lapse_min:
       type: double 
@@ -452,19 +476,22 @@ grmhd:
 
     rho_power:
       type: double 
-      range: "[0,*)"
+      range: "(*,*)"
       default: -1.5
       description: >
         Power law decay in rho
 
     press_power:
       type: double 
-      range: "[0,*)"
+      range: "(*,*)"
       default: -2.5
       description: >
         Power law decay in press
     
   lorene_bns:
+    type: schema
+    description: >
+      Lorene BNS ID 
     filename:
       type: string
       default: "./id.res"
@@ -472,6 +499,7 @@ grmhd:
         Filename containing initial data for LORENE ID 
   
   two_punctures:
+    type: schema
     par_b:
       type: double
       default: 1
@@ -583,4 +611,37 @@ grmhd:
       range: "(0,*)"
       description: >
         Number of points on phi grid, must be multiple of 4
+
+  tov: 
+    type: schema 
+    description: >
+      TOV initial data 
+
+    rho_c: 
+      type: double 
+      default: 1.28e-3
+      range: "(0,*)"
+      description: >
+        Central density of the TOV 
+
+    press_floor: 
+      type: double 
+      default: 1e-6 
+      range: "(0,*)"
+      description: >
+        Floor of the pressure 
+
+    dr:
+      type: double 
+      default: 1e-3 
+      range: "(0,*)"
+      description: >
+        Radial grid spacing 
+
+    pert_amp: 
+      type: double 
+      default: 0.0 
+      range: "(*,*)" 
+      description: >
+        Radial velocity perturbation amplitude 
     

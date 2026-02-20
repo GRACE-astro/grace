@@ -35,6 +35,8 @@
 #include <grace/utils/type_name.hh>
 #include <yaml-cpp/yaml.h>
 
+#include "yaml_helpers.hh"
+
 #include <fstream>
 #include <string>
 
@@ -143,15 +145,13 @@ class config_parser_impl_t
         for( int i=0 ; i < code_modules.size(); ++i ) { 
             auto mod = code_modules[i] ; 
             auto defaults = YAML::LoadFile(code_modules_default_configs[i]) ; 
-            if ( not config[ mod ] ) { 
-                config[mod] = defaults[mod] ; 
-            } else { 
-                for( auto it = defaults[mod].begin(); it != defaults[mod].end(); ++it ) { 
-                    if ( not config[mod][ it->first.as<std::string>() ] ) {
-                        config[mod][ it->first.as<std::string>() ] = it->second ; 
-                    }
-                }
-            }
+            if (!config[mod] || !config[mod].IsMap()) {
+                config[mod] = YAML::Node(YAML::NodeType::Map);
+        } 
+            
+            param_path path ; 
+            traverse_section(path + mod, defaults[mod], config[mod]) ; 
+            
         }
     }; 
 } ; 

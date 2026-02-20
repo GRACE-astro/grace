@@ -75,7 +75,7 @@ void compute_auxiliary_quantities() {
     auto const eos_type = grace::get_param<std::string>("eos", "eos_type") ;
     if( eos_type == "hybrid" ) {
         auto const cold_eos_type = 
-            grace::get_param<std::string>("eos", "cold_eos_type") ;
+            grace::get_param<std::string>("eos", "hybrid_eos", "cold_eos_type") ;
         if( cold_eos_type == "piecewise_polytrope" ) {
             compute_auxiliary_quantities<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>(state,sstate,aux) ; 
         } else if ( cold_eos_type == "tabulated" ) {
@@ -108,10 +108,8 @@ void compute_auxiliary_quantities(
 
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
-    auto excision_params = get_excision_params() ;
-    auto atmo_params = get_atmo_params() ;
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,state,sstate,aux,atmo_params,excision_params) ; 
+        grmhd_eq_system(eos,state,sstate,aux) ; 
     #endif 
     #ifdef GRACE_ENABLE_M1 
     m1_excision_params_t m1_excision_params = get_m1_excision_params() ; 

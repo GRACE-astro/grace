@@ -52,8 +52,9 @@
 
 #include <grace/IO/spherical_surfaces.hh>
 #include <grace/IO/output_diagnostics.hh>
+#ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/IO/diagnostics/puncture_tracker.hh>
-
+#endif 
 #include <grace/amr/grace_amr.hh>
 
 #include <grace/errors/error.hh>
@@ -258,8 +259,6 @@ void initialize(int& argc, char* argv[])
         bool regrid_at_postinitial = grace::get_param<bool>("amr","regrid_at_postinitial") ; 
         int postinitial_regrid_depth = 
             grace::get_param<int>("amr","postinitial_regrid_depth") ;
-        bool reset_id_after_regrid = 
-            grace::get_param<bool>("evolution","reset_id_after_regrid") ; 
         /**********************************************************************************/
         /*                                 Post-Initial data                              */
         /**********************************************************************************/
@@ -269,16 +268,16 @@ void initialize(int& argc, char* argv[])
                 GRACE_INFO("Regrid level {}.", ilev+1) ;
                 grace::amr::regrid() ;  
                 grace::amr::apply_boundary_conditions() ; 
-                if (reset_id_after_regrid) {
-                    grace::set_initial_data() ; 
-                }
+                grace::set_initial_data() ; 
             }
         }
     } else {
         // aux vars are not in the checkpoint 
         grace::compute_auxiliary_quantities() ;
     }
+    #ifdef GRACE_ENABLE_Z4C_METRIC
     grace::puncture_tracker::initialize() ; 
+    #endif 
     Kokkos::fence() ; 
     parallel::mpi_barrier() ; 
     GRACE_INFO("Initialization done.");

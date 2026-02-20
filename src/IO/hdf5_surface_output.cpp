@@ -76,10 +76,10 @@ void write_plane_cell_data() {
     GRACE_VERBOSE("Performing HDF5 output of surface data.") ; 
     auto& rt = grace::runtime::get() ; 
 
-    auto n_planes = rt.n_surface_output_planes() ; 
-    auto plane_names = rt.cell_plane_surface_output_names() ; 
+    auto n_planes = 3 ; 
+    std::vector<std::string> plane_names = std::vector<std::string>( {"xy","xz","yz"} ) ; 
     auto plane_offsets = rt.cell_plane_surface_output_origins() ; 
-    auto plane_dirs = rt.cell_plane_surface_output_dirs() ; 
+    std::vector<double> plane_dirs{2,1,0} ; 
 
     for( int i=0 ; i<n_planes; ++i) {
         amr::plane_desc_t plane ; 

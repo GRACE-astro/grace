@@ -53,7 +53,7 @@ struct diagnostic_base_t {
 
     diagnostic_base_t(std::string const& diag_name) {
         auto names = get_param<std::vector<std::string>>(diag_name,"detector_names");
-        auto idxs  = get_param<std::vector<size_t>>(diag_name,"detector_indices");
+        std::vector<size_t> idxs ;
 
         auto& spheres = grace::spherical_surface_manager::get();
 

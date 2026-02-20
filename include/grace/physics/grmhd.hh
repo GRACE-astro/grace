@@ -91,25 +91,10 @@ struct grmhd_equations_system_t
     { 
         excision_params = get_excision_params() ; 
         atmo_params = get_atmo_params() ; 
+        c2p_params = get_c2p_params() ; 
         dcoords = grace::coordinate_system::get().get_device_coord_system();
     } ;
-    /**
-     * @brief Constructor
-     * 
-     * @param eos_ eos object.
-     * @param state_ State array.
-     * @param aux_ Auxiliary array.
-     */
-    grmhd_equations_system_t( eos_t eos_ 
-                            , grace::var_array_t state_
-                            , grace::staggered_variable_arrays_t stag_state_
-                            , grace::var_array_t aux_ 
-                            , atmo_params_t _atmo_pars
-                            , excision_params_t _excision_pars) 
-     : base_t(state_,stag_state_,aux_), _eos(eos_), atmo_params(_atmo_pars), excision_params(_excision_pars)
-    {
-        dcoords = grace::coordinate_system::get().get_device_coord_system();
-    } ;
+    
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^1\f$
      * 
@@ -392,7 +377,7 @@ struct grmhd_equations_system_t
         // this used to return vtilde (TODO: changeme!)   
         conservs_to_prims<eos_t>( 
             cons, prims, metric, this->_eos, 
-            this->atmo_params, this->excision_params, rtp,
+            this->atmo_params, this->excision_params, this->c2p_params, rtp,
             c2p_errors ) ;
         
         
@@ -534,6 +519,8 @@ struct grmhd_equations_system_t
     atmo_params_t atmo_params;
     //! Parameters for excision
     excision_params_t excision_params; 
+    //! con2prim parameters 
+    c2p_params_t c2p_params ; 
     //! Coordinate helper 
     grace::device_coordinate_system dcoords ; 
     /***********************************************************************/

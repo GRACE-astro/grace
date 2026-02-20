@@ -56,7 +56,7 @@ void set_initial_data() {
     auto const eos_type = grace::get_param<std::string>("eos", "eos_type") ;
     if( eos_type == "hybrid" ) {
         auto const cold_eos_type = 
-            grace::get_param<std::string>("eos", "cold_eos_type") ;
+            get_param<std::string>("eos","hybrid_eos","cold_eos_type") ;  
         if( cold_eos_type == "piecewise_polytrope" ) {
             set_initial_data_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ; 
         } else if ( cold_eos_type == "tabulated" ) {

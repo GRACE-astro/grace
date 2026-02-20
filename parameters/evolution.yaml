@@ -1,4 +1,8 @@
 evolution:
+  type: schema 
+  description: >
+    Evolution 
+  
   time_stepper:
     type: keyword
     allowed: ["euler", "rk2", "rk3", "imex222"]

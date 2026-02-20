@@ -40,15 +40,8 @@ const std::vector< std::string > code_modules {
     "system",
     "IO",
     "evolution"
-    #ifdef GRACE_ENABLE_SCALAR_ADV
-    , "scalar_advection"
-    #endif 
-    #ifdef GRACE_ENABLE_BURGERS
-    , "burgers_equation"
-    #endif 
     #ifdef GRACE_ENABLE_GRMHD
     , "grmhd"
-    , "admbase"
     #endif 
     #ifdef GRACE_ENABLE_Z4C_METRIC
     , "z4c"
@@ -57,7 +50,6 @@ const std::vector< std::string > code_modules {
     , "m1"
     #endif 
     , "eos"
-    , "profiling"
     , "checkpoints"
     , "coordinate_system"
     , "spherical_surfaces"
@@ -69,35 +61,27 @@ const std::vector< std::string > code_modules {
 } ;
 //*****************************************************************************************************
 const std::vector< std::string > code_modules_default_configs { 
-     "${CMAKE_SOURCE_DIR}/include/grace/amr/amr-defaults.yaml",
-     "${CMAKE_SOURCE_DIR}/include/grace/system/system-defaults.yaml",
-     "${CMAKE_SOURCE_DIR}/include/grace/IO/IO-defaults.yaml",
-     "${CMAKE_SOURCE_DIR}/include/grace/evolution/evolution-defaults.yaml"
-     #ifdef GRACE_ENABLE_SCALAR_ADV
-     , "${CMAKE_SOURCE_DIR}/include/grace/physics/scalar_advection-defaults.yaml"
-     #endif 
-     #ifdef GRACE_ENABLE_BURGERS
-     , "${CMAKE_SOURCE_DIR}/include/grace/physics/burgers_equation-defaults.yaml"
-     #endif 
+     "${CMAKE_SOURCE_DIR}/parameters/amr.yaml",
+     "${CMAKE_SOURCE_DIR}/parameters/system.yaml",
+     "${CMAKE_SOURCE_DIR}/parameters/IO.yaml",
+     "${CMAKE_SOURCE_DIR}/parameters/evolution.yaml"
      #ifdef GRACE_ENABLE_GRMHD
-     , "${CMAKE_SOURCE_DIR}/include/grace/physics/grmhd-defaults.yaml"
-     , "${CMAKE_SOURCE_DIR}/include/grace/physics/admbase-defaults.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/grmhd.yaml"
      #endif
      #ifdef GRACE_ENABLE_Z4C_METRIC
-     , "${CMAKE_SOURCE_DIR}/include/grace/physics/z4c-defaults.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/z4c.yaml"
      #endif
      #ifdef GRACE_ENABLE_M1
-     , "${CMAKE_SOURCE_DIR}/include/grace/physics/m1-defaults.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/m1.yaml"
      #endif
-     , "${CMAKE_SOURCE_DIR}/include/grace/physics/eos/eos-defaults.yaml"
-     , "${CMAKE_SOURCE_DIR}/include/grace/profiling/profiling-defaults.yaml"
-     , "${CMAKE_SOURCE_DIR}/include/grace/system/checkpointing-defaults.yaml"
-     , "${CMAKE_SOURCE_DIR}/include/grace/coordinates/coordinate_system-defaults.yaml"
-     , "${CMAKE_SOURCE_DIR}/include/grace/IO/spherical_surface-defaults.yaml"
-     , "${CMAKE_SOURCE_DIR}/include/grace/IO/bh_diagnostics-defaults.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/eos.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/checkpoints.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/coordinate_system.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/spherical_surfaces.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/bh_diagnostics.yaml"
      #ifdef GRACE_ENABLE_Z4C_METRIC
-     , "${CMAKE_SOURCE_DIR}/include/grace/IO/gw_integrals-defaults.yaml"
-     , "${CMAKE_SOURCE_DIR}/include/grace/IO/puncture_tracker-defaults.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/gw_integrals.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/puncture_tracker.yaml"
      #endif
 } ;
 //*****************************************************************************************************
