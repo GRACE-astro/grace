@@ -989,6 +989,66 @@ dark-mode-toggle::part(toggleLabel){
 .custom-list-table th:nth-child(2), .custom-list-table td:nth-child(2) {
     width: 70%;  /* Set width as a percentage of the table width */
 }
+.schema-block {
+    margin: 2em 0;
+    padding: 1.2em 1.5em;
+
+    border-left: 3px solid var(--color-foreground-secondary, #ddd);
+    background: var(--color-background-secondary, transparent);
+
+    border-radius: 3px;
+}
+
+.schema-block .schema-block {
+    margin: 1.5em 0 1.5em 1em;
+    padding: 1em 1.2em;
+
+    border-left: 2px solid var(--color-foreground-muted, #ccc);
+    background: transparent;
+}
+
+.schema-block .schema-block .schema-block {
+    border-left: 1px solid var(--color-foreground-muted, #ddd);
+}
+
+.schema-block > h2,
+.schema-block > h3,
+.schema-block > h4,
+.schema-block > h5 {
+    margin-top: 0.3em;
+}
+
+/* Section titles styled like inline code literals */
+.custom-param-title {
+    display: block;
+
+    /* Match Sphinx code literal color */
+    color: var(--code-literal-color);
+
+    /* Same font as inline code */
+    font-family: var(--code-font-family, monospace);
+
+    /* Code-like sizing */
+    font-size: 0.95em;
+    line-height: 1.4;
+
+    /* Subtle spacing */
+    padding: 2px 4px;
+    margin: 0.5em 0;
+
+    /* Transparent background */
+    background: transparent;
+
+    /* Slight rounding like code */
+    border-radius: 3px;
+
+    /* Optional: subtle border for readability */
+    border: 1px solid transparent;
+
+    /* Prevent wrapping weirdly */
+    white-space: nowrap;
+}
+
 .data-type {
     font-family: "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "Courier", "monospace";
     color: #012A4A;
