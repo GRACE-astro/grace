@@ -114,7 +114,7 @@ Y22(double theta, double phi)
 
 }
 
-std::vector<std::string> gw_integrals::flux_names = {"Psi2m2_re", "Psi2m2_im", "Psi2m1_re", "Psi2m1_im", "Psi20_re", "Psi20_im", "Psi21_re", "Psi21_im", "Psi22_im", "Psi22_re"} ; 
+std::vector<std::string> gw_integrals::flux_names = {"Psi2m2_re", "Psi2m2_im", "Psi2m1_re", "Psi2m1_im", "Psi20_re", "Psi20_im", "Psi21_re", "Psi21_im", "Psi22_re", "Psi22_im"} ; 
 
 std::array<double,gw_integrals::n_fluxes> 
 
@@ -130,7 +130,7 @@ gw_integrals::compute_local_fluxes(
     GRACE_VERBOSE("We have {} points", npoints) ; 
 
     // initialize local flux array
-    std::array<double,n_fluxes> flux_loc = {0.,0.,0.,0.} ; 
+    std::array<double,n_fluxes> flux_loc = {0.,0.,0.,0.,0.,0.,0.,0.,0.} ; 
 
     // if no local points return 
     if (npoints == 0 ) return flux_loc ; 

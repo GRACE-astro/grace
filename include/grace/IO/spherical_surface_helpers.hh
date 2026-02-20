@@ -197,11 +197,12 @@ struct  uniform_sampler_t {
       auto& coord_system = grace::coordinate_system::get() ; 
       angles.clear() ; 
       angles.reserve(npoints); 
-
+      
       for( int iphi=0; iphi<nphi; ++iphi) {
           double phi = 2 * M_PI / (nphi) * iphi ; // this excludes the endpoint 2pi == 0 
           for( int itheta=0; itheta<ntheta; ++itheta) {
-              double mu = mu_min + (mu_max-mu_min)/(ntheta-1) * itheta ; 
+              //double mu = mu_min + (mu_max-mu_min)/(ntheta-1) * itheta ; 
+              double mu = mu_max - (mu_max - mu_min)/(ntheta-1) * itheta ; 
               double theta = acos(mu) ; 
               angles.push_back({theta,phi}) ; 
           }

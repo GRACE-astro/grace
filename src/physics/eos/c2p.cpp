@@ -316,15 +316,12 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         ); 
         // reset all conserved except for D, since rho and W are unchanged
         c2p_err.adjust_tau = c2p_err.adjust_s = c2p_err.adjust_ent = true ; 
-    } 
-    #if 1
-    else {
+    } else {
         /* Limit lorentz fact and magnetization  */
         limit_primitives<eos_t>(
             prims, metric, eos, atmo.max_w, atmo.max_sigma, c2p_err
         ) ;
     }
-    #endif 
     
     /* Re-compute conservative variables based  */
     /* on new primitives.                       */
