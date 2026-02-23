@@ -69,7 +69,7 @@ void compute_reductions() {
 
     auto& state = variable_list::get().getstate()   ; 
     auto& aux   = variable_list::get().getaux()     ; 
-    auto& cvols = variable_list::get().getvolumes() ; 
+    auto& dx = variable_list::get().getspacings() ; 
 
     auto& grace_runtime = grace::runtime::get() ; 
 
@@ -190,7 +190,8 @@ void compute_reductions() {
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
         {
-            lres += u(VEC(i,j,k),q) * cvols(VEC(i,j,k),q) ; 
+            double cvol = dx(0,q) * dx(1,q) * dx(2,q) ; 
+            lres += u(VEC(i,j,k),q) * cvol ; 
         }, Sum<double>(res)) ; 
         
         parallel::mpi_allreduce( &res
@@ -209,7 +210,8 @@ void compute_reductions() {
                        , policy 
                        , KOKKOS_LAMBDA(VEC(int i, int j, int k), int q, double& lres)
         {
-            lres += u(VEC(i,j,k),q) * cvols(VEC(i,j,k),q) ; 
+            double cvol = dx(0,q) * dx(1,q) * dx(2,q) ; 
+            lres += u(VEC(i,j,k),q) * cvol ; 
         }, Sum<double>(res)) ; 
         
         parallel::mpi_allreduce( &res
@@ -387,7 +389,7 @@ void info_output() {
     int64_t iter = grace::get_iteration() ; 
     double  time = grace::get_simulation_time() ;
     double  initial_time = grace::get_initial_simulation_time() ;
-    double walltime = grace::get_total_runtime() ; 
+    double walltime = grace::get_evol_runtime() ; 
     double rate = (time-initial_time) / walltime * 3.6e03 ; 
 
     int64_t outinfo_every = grace::config_parser::get()["IO"]["info_output_every"].as<int64_t>() * 10 ; 

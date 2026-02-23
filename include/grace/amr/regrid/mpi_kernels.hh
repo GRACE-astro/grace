@@ -45,6 +45,7 @@ static mpi_task_t make_mpi_send_task_regrid(
     , std::vector<int> const& send_rank_offsets 
     , std::vector<int> const& send_rank_sizes
     , task_id_t& task_counter 
+    , size_t tag
 )
 {
     GRACE_TRACE("Registering MPI Send task (tid {}).\n    Send to Rank {} {} elements, offset {}", task_counter, rr, send_rank_sizes[rr], send_rank_offsets[rr]) ; 
@@ -52,12 +53,12 @@ static mpi_task_t make_mpi_send_task_regrid(
     ASSERT(send_rank_offsets[rr] + send_rank_sizes[rr] <= send_buf.size(), "Send out-of-bounds" ) ; 
 
     mpi_task_t task ; 
-    task._run = [&, send_buf, rr] (MPI_Request* req) {
+    task._run = [&, send_buf, rr, tag] (MPI_Request* req) {
         parallel::mpi_isend(
               send_buf.data() + send_rank_offsets[rr] 
             , send_rank_sizes[rr] 
             , rr 
-            , parallel::GRACE_PARTITION_TAG
+            , tag
             , MPI_COMM_WORLD
             , req
         ) ;
@@ -72,6 +73,7 @@ static mpi_task_t make_mpi_recv_task_regrid(
     , std::vector<int> const& recv_rank_offsets 
     , std::vector<int> const& recv_rank_sizes
     , task_id_t& task_counter 
+    , size_t tag
 )
 {
     GRACE_TRACE("Registering MPI Receive task (tid {}).\n    Receive from Rank {} {} elements, offset {}", task_counter, rr, recv_rank_sizes[rr], recv_rank_offsets[rr]) ; 
@@ -79,12 +81,12 @@ static mpi_task_t make_mpi_recv_task_regrid(
     ASSERT(recv_rank_offsets[rr] + recv_rank_sizes[rr] <= recv_buf.size(), "Receive out-of-bounds" ) ; 
 
     mpi_task_t task ; 
-    task._run = [&, recv_buf, rr] (MPI_Request* req) {
+    task._run = [&, recv_buf, rr, tag] (MPI_Request* req) {
         parallel::mpi_irecv(
               recv_buf.data() + recv_rank_offsets[rr]  
             , recv_rank_sizes[rr]  
             , rr 
-            , parallel::GRACE_PARTITION_TAG
+            , tag
             , MPI_COMM_WORLD
             , req
         ) ;

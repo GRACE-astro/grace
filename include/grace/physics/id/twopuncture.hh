@@ -125,6 +125,7 @@ struct two_punctures_id_t {
 
         auto _hcoords = Kokkos::create_mirror_view(_pcoords) ;
         Kokkos::deep_copy(_hcoords,_pcoords) ; 
+        GRACE_TRACE("nq {} hcoords {} alp {}", nq, _hcoords.extent(4), _halp.extent(3));
         //#pragma omp parallel for 
         for( size_t idx=0UL; idx<ncells; ++idx) {
             int i,j,k,q ; 

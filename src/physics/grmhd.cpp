@@ -221,6 +221,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
 
     id_t id_kernel{ _eos, pcoords, kernel_args... } ; 
     Kokkos::fence() ; 
+    GRACE_TRACE("Setting initial data");
     // main ID loop, here we fill hydro and metric 
     parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID")
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
@@ -288,7 +289,8 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),BY_,q) = id.by ;
                     aux(VEC(i,j,k),BZ_,q) = id.bz ; 
                 }) ; 
-    
+    Kokkos::fence() ; 
+    GRACE_TRACE("Done filling initial data") ; 
     // Evolved metric needs gammatilde, which is a derivative 
     #ifdef GRACE_ENABLE_Z4C_METRIC 
     {
@@ -716,8 +718,8 @@ void set_conservs_from_prims() {
         /* If evolved metric, set constraint violations  */
         /*************************************************/
         #ifndef GRACE_ENABLE_COWLING_METRIC
-        if (i>=ngz and i<nx+ngz and j>=ngz and j<ny+ngz and k>=ngz and k<nz+ngz) 
-            metric_evol_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx,dev_coords);
+        //if (i>=ngz and i<nx+ngz and j>=ngz and j<ny+ngz and k>=ngz and k<nz+ngz) 
+        //    metric_evol_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx,dev_coords);
         #endif 
     }) ;
 }

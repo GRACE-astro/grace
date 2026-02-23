@@ -54,7 +54,7 @@ cartesian_coordinate_system_impl_t::get_inv_spacing(size_t const& q) const {
     return 1./get_spacing(q) ;  
 }; 
 
-cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
+void cartesian_coordinate_system_impl_t::update_grid_structure() 
 {
     using namespace grace ;
     using namespace Kokkos ; 
@@ -77,7 +77,12 @@ cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
             vx[2] + qx_i[2] * dx * dx_tree
         }) ; 
     }
+}
 
+cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
+{
+    
+    update_grid_structure() ; 
 
     is_cks = get_param<bool>("coordinate_system", "is_kerr_schild") ; 
     bh_spin = get_param<double>("coordinate_system", "bh_spin"); 

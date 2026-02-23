@@ -37,14 +37,11 @@
 namespace grace { 
 /*****************************************************************************************/
 /**
- * @brief Fill cell coordinates array.
+ * @brief Fill cell coordinate spacing arrays.
  * \ingroup coordinates 
  */
-void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>&
-                          , scalar_array_t<GRACE_NSPACEDIM>&
-                          , scalar_array_t<GRACE_NSPACEDIM>&
-                          , cell_vol_array_t<GRACE_NSPACEDIM>&
-                          , staggered_coordinate_arrays_t& ) ; 
+void fill_cell_spacings( scalar_array_t<GRACE_NSPACEDIM>&
+                        , scalar_array_t<GRACE_NSPACEDIM>& ) ; 
 /*****************************************************************************************/
 /**
  * @brief Fill a device view with physical coordinates on the grid. 

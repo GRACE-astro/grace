@@ -128,7 +128,7 @@ grmhd:
   
   B_field_initialization:
     type: keyword
-    allowed: ["none", "from_A", "direct"]
+    allowed: ["none", "from_Avec", "direct"]
     default: "none"
     description: >
       How should we initialize the magnetic field?

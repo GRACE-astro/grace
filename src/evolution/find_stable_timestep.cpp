@@ -83,7 +83,7 @@ void find_stable_timestep_impl() {
     auto& state = variable_list::get().getstate()   ;
     auto& sstate = variable_list::get().getstaggeredstate()   ; 
     auto& aux   = variable_list::get().getaux()     ; 
-    auto& cvol  = variable_list::get().getvolumes() ; 
+    auto& dx  = variable_list::get().getspacings() ; 
 
     auto& params = config_parser::get() ; 
     double const CFL = params["evolution"]["cfl_factor"].as<double>() ; 
@@ -132,13 +132,7 @@ void find_stable_timestep_impl() {
         #else 
         double cmax = 1 ; 
         #endif 
-
-        double L    ; 
-        #ifdef GRACE_3D 
-        L = Kokkos::cbrt(cvol(VEC(i,j,k),q)) ; 
-        #else 
-        L = Kokkos::sqrt(cvol(VEC(i,j,k),q)) ;
-        #endif 
+        double L = dx(0,q);        
         dtmax = dtmax > CFL/cmax*L ? CFL/cmax*L : dtmax ;  
 
     }, Kokkos::Min<double>(dt_local)) ; 

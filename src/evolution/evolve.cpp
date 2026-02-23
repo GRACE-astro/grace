@@ -120,9 +120,7 @@ void evolve_impl() {
     auto& sstate_p = grace::variable_list::get().getstaggeredscratch() ; 
 
     auto& aux     = grace::variable_list::get().getaux()     ; 
-
-    auto& cvol    = grace::variable_list::get().getvolumes() ; 
-    auto& fsurf   = grace::variable_list::get().getstaggeredcoords() ;
+    
     auto& idx     = grace::variable_list::get().getinvspacings() ;  
     auto& dx     = grace::variable_list::get().getspacings() ;  
     auto& fluxes  = grace::variable_list::get().getfluxesarray() ; 

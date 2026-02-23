@@ -82,6 +82,7 @@ static void set_quadrants_to_default()
 
 
 void regrid_transaction_t::evaluate_criterion() {
+    GRACE_TRACE("Evaluating regrid criterion") ;
     auto& params = config_parser::get()             ; 
     auto& state  = variable_list::get().getstate()  ; 
     auto& aux = variable_list::get().getaux()       ; 
@@ -107,8 +108,7 @@ void regrid_transaction_t::evaluate_criterion() {
                                         , varidx
                                         , Kokkos::ALL() ) ; 
     if( ref_criterion == "FLASH_second_deriv") {
-        double eps = params["amr"]["FLASH_criterion_eps"].as<double>() ; 
-        amr::flash_second_deriv_criterion<decltype(u)> kernel{ u, eps } ; 
+        amr::flash_second_deriv_criterion<decltype(u)> kernel{ u } ; 
         evaluate_regrid_criterion(
                 d_regrid_flags
                 , kernel ) ;
@@ -166,6 +166,7 @@ void regrid_transaction_t::evaluate_criterion() {
 }
 
 void regrid_transaction_t::execute_host_side_regrid() {
+    GRACE_TRACE("Executing host side regrid") ;
     auto const grace_maxlevel = get_param<int>("amr","max_refinement_level") ; 
     /******************************************************************************************/
     /* Call to p4est_refine                                                                   */  
@@ -259,6 +260,7 @@ void regrid_transaction_t::execute_host_side_regrid() {
 }
 
 void regrid_transaction_t::execute_partition() {
+    GRACE_TRACE("Partitioning the grid over MPI") ;
     auto& state = variable_list::get().getstate() ; 
     auto& state_swap = variable_list::get().getscratch() ;
     auto& sstate = variable_list::get().getstaggeredstate() ; 
@@ -290,55 +292,22 @@ void regrid_transaction_t::execute_partition() {
     // now we can refill the coordinates and so on while we wait 
     auto& idx = variable_list::get().getinvspacings()  ;
     auto& dx = variable_list::get().getspacings()    ;
-    auto& coords = variable_list::get().getcoords()  ; 
-    auto& vol = variable_list::get().getvolumes()    ;
-    auto& staggered_coords = variable_list::get().getstaggeredcoords() ; 
-    Kokkos::resize( coords      ,   GRACE_NSPACEDIM
-                                ,   nq_final 
-                                 ) ;
     Kokkos::realloc( idx        , GRACE_NSPACEDIM
                                 ,   nq_final 
                                  ) ;
     Kokkos::realloc(  dx        , GRACE_NSPACEDIM
                                 ,   nq_final 
                                  ) ;
-    Kokkos::realloc( vol        , VEC(  nx + 2*ngz 
-                                      , ny + 2*ngz 
-                                      , nz + 2*ngz )
-                                ,  nq_final 
-                                 ) ;
-    staggered_coords.realloc(VEC(nx,ny,nz),ngz,nq_final) ; 
-    fill_cell_coordinates(coords, idx, dx, vol,staggered_coords) ;
-    // realloc aux as well 
-    int nvars_aux = grace::variables::get_n_auxiliary() ; 
-    auto& aux = variable_list::get().getaux() ; 
-    GRACE_TRACE("Resizing aux array {} aux vars registered, new quad count {}", nvars_aux, nq_final) ; 
-    Kokkos::realloc( aux        ,   VEC(  nx + 2*ngz 
-                                        , ny + 2*ngz 
-                                        , nz + 2*ngz )
-                                ,   nvars_aux
-                                ,   nq_final 
-                                ) ;  
-    // and also the fluxes 
-    auto& fluxes  = grace::variable_list::get().getfluxesarray() ; 
-    int nvars_hrsc = grace::variables::get_n_hrsc() ; 
-    GRACE_TRACE("Resizing flux array {} flux vars registered", nvars_hrsc) ; 
-    Kokkos::realloc( fluxes
-                   , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
-                   , nvars_hrsc 
-                   , GRACE_NSPACEDIM
-                   , nq_final 
-                   ) ; 
-    // and the emf 
-    auto& emf = grace::variable_list::get().getemfarray() ; 
-    auto& vbar = grace::variable_list::get().getvbararray() ; 
-    Kokkos::realloc( emf, VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz), GRACE_NSPACEDIM, nq_final) ;
-    Kokkos::realloc( vbar, VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz), 4, GRACE_NSPACEDIM, nq_final) ;
+    fill_cell_spacings(idx, dx) ;
+    // realloc staging buffers, fluxes, aux 
+    GRACE_TRACE("Resizing aux array new quad count {}", nq_final) ; 
+    grace::variable_list::get().resize_aux_staging_and_flux_buffers(nq_final) ; 
     // now wait 
     grace_transfer_fixed_end(context) ;  
 }; 
 
 void regrid_transaction_t::cleanup() {
+    GRACE_TRACE("Regrid done, cleaning up") ;
     // fixme is this necessary? 
     auto& state = variable_list::get().getstate() ; 
     auto& state_swap = variable_list::get().getscratch() ;
@@ -356,11 +325,12 @@ void regrid_transaction_t::cleanup() {
     Kokkos::deep_copy(state_swap, state) ; 
     sstate_swap.realloc(nx,ny,nz,ngz,nq_final,nvars_fs,nvars_es,nvars_cs) ; 
     deep_copy(sstate_swap,sstate) ;  
-
+     
     set_quadrants_to_default(); 
 }; 
 
 void regrid_transaction_t::partition_grid() {
+    GRACE_TRACE("Executing host side partition") ;
     /******************************************************************************************/
     /*                      Partition the new forest in parallel                              */
     /*                      we store global quadrant offsets, then                            */
@@ -384,6 +354,7 @@ void regrid_transaction_t::partition_grid() {
 }
 
 void regrid_transaction_t::build_task_list() {
+    GRACE_TRACE("Building regrid task list") ;
     using namespace Kokkos ; 
     /*****************************************************************/
     // get high order p/r coefficients 
@@ -423,32 +394,72 @@ void regrid_transaction_t::build_task_list() {
     // first: mpi transfers
     // these vectors contain for each rank tid_x, tid_y, tid_z 
     /*****************************************************************/
-    #define INSERT_MPI_TASKS(axis,idx)\
-    if ( recvcounts_##axis[r] > 0 ){\
-            task_list.push_back(\
-                std::make_unique<mpi_task_t>(\
-                    make_mpi_recv_task_regrid(\
-                        r, _recv_fbuf_##axis, rdispls_##axis, recvcounts_##axis, task_counter\
-                    )\
-                ) \
-            ) ; \
-            mpi_recv_tid[r][idx] = task_list.back()->task_id ;\
-    }\
-    if ( sendcounts_##axis[r] > 0) {\
-        task_list.push_back(\
-                std::make_unique<mpi_task_t>(\
-                    make_mpi_send_task_regrid(\
-                        r, _send_fbuf_##axis, sdispls_##axis, sendcounts_##axis, task_counter\
-                    )\
-                ) \
-            ) ; \
-            mpi_send_tid[r][idx] = task_list.back()->task_id ;\
-    }
+    have_fine_data_x.resize(refine_incoming.size(), {{0,0}}) ; 
+    have_fine_data_y.resize(refine_incoming.size(), {{0,0}}) ; 
+    have_fine_data_z.resize(refine_incoming.size(), {{0,0}}) ; 
+    #if 0
     std::vector<std::array<task_id_t,3>> mpi_send_tid(nprocs), mpi_recv_tid(nprocs) ; 
     for( int r=0; r<nprocs; ++r) {
-        INSERT_MPI_TASKS(x,0);
-        INSERT_MPI_TASKS(y,1);
-        INSERT_MPI_TASKS(z,2);
+        if ( recvcounts_x[r] > 0 ){
+            task_list.push_back(
+                std::make_unique<mpi_task_t>(
+                    make_mpi_recv_task_regrid(
+                        r, _recv_fbuf_x, rdispls_x, recvcounts_x, task_counter, parallel::GRACE_REGRID_TAG_FX
+                    )
+                ) 
+            ) ; 
+            mpi_recv_tid[r][0] = task_list.back()->task_id ;
+        }
+        if ( sendcounts_x[r] > 0) {
+            task_list.push_back(
+                    std::make_unique<mpi_task_t>(
+                        make_mpi_send_task_regrid(
+                            r, _send_fbuf_x, sdispls_x, sendcounts_x, task_counter, parallel::GRACE_REGRID_TAG_FX
+                        )
+                    ) 
+                ) ; 
+                mpi_send_tid[r][0] = task_list.back()->task_id ;
+        }
+        if ( recvcounts_y[r] > 0 ){
+            task_list.push_back(
+                std::make_unique<mpi_task_t>(
+                    make_mpi_recv_task_regrid(
+                        r, _recv_fbuf_y, rdispls_y, recvcounts_y, task_counter, parallel::GRACE_REGRID_TAG_FY
+                    )
+                ) 
+            ) ; 
+            mpi_recv_tid[r][1] = task_list.back()->task_id ;
+        }
+        if ( sendcounts_y[r] > 0) {
+            task_list.push_back(
+                    std::make_unique<mpi_task_t>(
+                        make_mpi_send_task_regrid(
+                            r, _send_fbuf_y, sdispls_y, sendcounts_y, task_counter, parallel::GRACE_REGRID_TAG_FY
+                        )
+                    ) 
+                ) ; 
+                mpi_send_tid[r][1] = task_list.back()->task_id ;
+        }
+        if ( recvcounts_z[r] > 0 ){
+            task_list.push_back(
+                std::make_unique<mpi_task_t>(
+                    make_mpi_recv_task_regrid(
+                        r, _recv_fbuf_z, rdispls_z, recvcounts_z, task_counter, parallel::GRACE_REGRID_TAG_FZ
+                    )
+                ) 
+            ) ; 
+            mpi_recv_tid[r][2] = task_list.back()->task_id ;
+        }
+        if ( sendcounts_z[r] > 0) {
+            task_list.push_back(
+                    std::make_unique<mpi_task_t>(
+                        make_mpi_send_task_regrid(
+                            r, _send_fbuf_z, sdispls_z, sendcounts_z, task_counter, parallel::GRACE_REGRID_TAG_FZ
+                        )
+                    ) 
+                ) ; 
+                mpi_send_tid[r][2] = task_list.back()->task_id ;
+        }
     }
 
     // local face copies
@@ -505,6 +516,7 @@ void regrid_transaction_t::build_task_list() {
         INSERT_FUPACK_TASKS(y,1);
         INSERT_FUPACK_TASKS(z,2);
     }
+    #endif 
     /********************************************************************************/
     #define INSERT_COPY(stag,dst,src,nv) \
     task_list.push_back(\

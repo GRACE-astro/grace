@@ -312,10 +312,6 @@ void amr_ghosts_impl_t::build_remote_buffers() {
         auto [itm, inserted_m] = mirror_keys.insert(mkey);
         auto [ith, inserted_h] = halo_keys.insert(hkey);
 
-        if (miq == 4 and this_ie == 5 and m_kind == sec_t::FACE ) {
-            GRACE_TRACE("Here! inserted? {} {}", inserted_m, inserted_h) ; 
-        }
-
         if (inserted_h) {
             halo_descs[*ith] = { elem };
         } else {
@@ -353,10 +349,10 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                     unpack_to_cbuf_kernels[face.data.full.owner_rank][amr::element_kind_t::FACE].emplace_back(iq, f) ;
                 }
                 /* Now deal with cbufs */
-                GRACE_TRACE_DBG("dependencies call for face {} q {}",f, iq) ; 
+                //GRACE_TRACE_DBG("dependencies call for face {} q {}",f, iq) ; 
                 int af[4],ae[8],ac[4];
                 detail::get_face_prolong_dependencies(f,af,ae,ac) ;
-                GRACE_TRACE_DBG("got : [{},{},{},{}], [{},{},{},{},{},{},{},{}], [{},{},{},{}]",af[0],af[1],af[2],af[3],ae[0],ae[1],ae[2],ae[3],ae[4],ae[5],ae[6],ae[7],ac[0],ac[1],ac[2],ac[3]); 
+                //GRACE_TRACE_DBG("got : [{},{},{},{}], [{},{},{},{},{},{},{},{}], [{},{},{},{}]",af[0],af[1],af[2],af[3],ae[0],ae[1],ae[2],ae[3],ae[4],ae[5],ae[6],ae[7],ac[0],ac[1],ac[2],ac[3]); 
                 for( int iaf=0; iaf<4; ++iaf) {
                     auto& adjacent_face = ghost_layer[iq].faces[af[iaf]] ; 
                     if ( adjacent_face.level_diff != SAME ) continue ; // can only be coarser again, in which case nothing to do.
@@ -475,10 +471,10 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                     unpack_to_cbuf_kernels[edge.data.full.owner_rank][amr::element_kind_t::EDGE].emplace_back(iq, e) ;
                 }
                 /* Now deal with cbufs */
-                GRACE_TRACE_DBG("dep call edge {}",e) ; 
+                //GRACE_TRACE_DBG("dep call edge {}",e) ; 
                 int af[4],ae[4],ac[2];
                 detail::get_edge_prolong_dependencies(e,af,ae,ac) ;
-                GRACE_TRACE_DBG("got : [{},{},{},{}], [{},{},{},{}], [{},{}]",af[0],af[1],af[2],af[3],ae[0],ae[1],ae[2],ae[3],ac[0],ac[1]); 
+                //GRACE_TRACE_DBG("got : [{},{},{},{}], [{},{},{},{}], [{},{}]",af[0],af[1],af[2],af[3],ae[0],ae[1],ae[2],ae[3],ac[0],ac[1]); 
 
                 for( int iaf=0; iaf<4; ++iaf) {
                     auto& adjacent_face = ghost_layer[iq].faces[af[iaf]] ; 
@@ -590,10 +586,10 @@ void amr_ghosts_impl_t::build_remote_buffers() {
                     unpack_to_cbuf_kernels[corner.data.owner_rank][amr::element_kind_t::CORNER].emplace_back(iq,c) ; 
                 }
                 /* Now deal with cbufs */
-                GRACE_TRACE_DBG("dep call corner {}", c) ; 
+                //GRACE_TRACE_DBG("dep call corner {}", c) ; 
                 int af[3],ae[3],ac[1];
                 detail::get_corner_prolong_dependencies(c,af,ae,ac) ;
-                GRACE_TRACE_DBG("got : [{},{},{}], [{},{},{}]",af[0],af[1],af[2],ae[0],ae[1],ae[2]); 
+                //GRACE_TRACE_DBG("got : [{},{},{}], [{},{},{}]",af[0],af[1],af[2],ae[0],ae[1],ae[2]); 
                 for( int iaf=0; iaf<3; ++iaf) {
                     auto& adjacent_face = ghost_layer[iq].faces[af[iaf]] ; 
                     if ( adjacent_face.kind == PHYS ) continue ; 

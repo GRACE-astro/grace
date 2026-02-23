@@ -505,9 +505,6 @@ struct z4c_system_t
         a(MOMX_) = Mi[0] ; 
         a(MOMY_) = Mi[1] ; 
         a(MOMZ_) = Mi[2] ; 
-
-        
-        
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 

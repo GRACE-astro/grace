@@ -65,18 +65,13 @@ int get_variable_index(std::string const& name, bool is_aux)
 }
 
 variable_list_impl_t::variable_list_impl_t() 
-    : _coords("coordinates", 0,0)
-    , _coords_ispacing("inverse_grid_spacing", 0,0)
+    : _coords_ispacing("inverse_grid_spacing", 0,0)
     , _coords_spacing("grid_spacing", 0,0)
-    , _cell_volumes("cell_volumes",VEC(0,0,0),0)
     , _state("state", VEC(0,0,0),0,0)
     , _state_p("scratch_state", VEC(0,0,0),0,0)
-    , _halo("halo", VEC(0,0,0),0,0)
     , _aux("auxiliaries", VEC(0,0,0),0,0)
-    , _staggered_coords()
     , _staggered_vars() 
     , _staggered_vars_p() 
-    , _staggered_aux() 
     , _fluxes()
     , _emf()
 {
@@ -96,20 +91,12 @@ variable_list_impl_t::variable_list_impl_t()
     /* allocate memory for states */ 
     size_t nq          = forest.local_num_quadrants() ;
     int nvars_hrsc = variables::get_n_hrsc() ;
-    Kokkos::realloc( _coords
-                   , GRACE_NSPACEDIM
-                   , nq 
-                   ) ;
     Kokkos::realloc( _coords_ispacing
                    , GRACE_NSPACEDIM
                    , nq 
                    ) ;
     Kokkos::realloc( _coords_spacing
                    , GRACE_NSPACEDIM
-                   , nq 
-                   ) ;
-    Kokkos::realloc( _cell_volumes
-                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
                    , nq 
                    ) ;
     Kokkos::realloc( _state
@@ -143,7 +130,6 @@ variable_list_impl_t::variable_list_impl_t()
                    , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
                    , GRACE_NSPACEDIM 
                    , nq ) ; 
-    _staggered_coords.realloc(VEC(nx,ny,nz),ngz,nq) ; 
     _staggered_vars.realloc( VEC(nx,ny,nz),ngz,nq
                            , N_FC_X
                            , N_EC_YZ
@@ -152,10 +138,6 @@ variable_list_impl_t::variable_list_impl_t()
                              , N_FC_X
                              , N_EC_YZ
                              , N_VC) ;
-    _staggered_aux.realloc( VEC(nx,ny,nz),ngz,nq
-                          , 0
-                          , 0
-                          , 0) ;
     
     ASSERT(variables::detail::_varnames.size() == N_EVOL_VARS, 
     "Num evolved is " << N_EVOL_VARS << " but varnames.size() is " << variables::detail::_varnames.size() ) ; 
@@ -177,6 +159,48 @@ variable_list_impl_t::variable_list_impl_t()
         ); 
     }
     /* all done */
+}
+
+void variable_list_impl_t::resize_aux_staging_and_flux_buffers(int nq_new) 
+{
+    DECLARE_GRID_EXTENTS;
+    int nvars_hrsc = variables::get_n_hrsc() ;
+    Kokkos::realloc( _aux
+                   , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+                   , N_AUX_VARS
+                   , nq_new
+                   ) ;  
+    Kokkos::realloc( _fluxes
+                   , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
+                   , nvars_hrsc 
+                   , GRACE_NSPACEDIM
+                   , nq_new 
+                   ) ;
+    Kokkos::realloc( _vbar
+                   , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
+                   , 4 // v^i v^j c_p c_m
+                   , GRACE_NSPACEDIM
+                   , nq_new 
+                   ) ; 
+    Kokkos::realloc( _emf
+                   , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
+                   , GRACE_NSPACEDIM 
+                   , nq_new ) ; 
+
+    for( int ibuf=0; ibuf<_staging_buffer.size(); ++ibuf) {
+        Kokkos::realloc(
+            _staging_buffer[ibuf]
+            , VEC(nx + 2*ngz,ny + 2*ngz,nz + 2*ngz)
+            , N_EVOL_VARS
+            , nq_new 
+        ) ; 
+        _stag_staging_buffer[ibuf].realloc(
+            nx,ny,nz,ngz,nq_new,
+            N_FC_X,
+            N_EC_YZ,
+            N_VC
+        ) ; 
+    }
 }
 
 

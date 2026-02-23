@@ -262,6 +262,7 @@ gpu_task_t make_copy(
         parallel_for("regrid_copy", policy, functor) ;
         #ifdef GRACE_DEBUG 
         Kokkos::fence() ; 
+        GRACE_TRACE("Copy done") ; 
         #endif
     } ; 
 
@@ -303,6 +304,7 @@ gpu_task_t make_copy_face(
         parallel_for("regrid_copy", policy, functor) ;
         #ifdef GRACE_DEBUG 
         Kokkos::fence() ; 
+        GRACE_TRACE("Face copy done") ; 
         #endif
     } ; 
 

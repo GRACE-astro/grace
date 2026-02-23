@@ -49,13 +49,11 @@
 
 namespace grace { 
 
-void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>& coords
-                          , scalar_array_t<GRACE_NSPACEDIM>& ispacing
-                          , scalar_array_t<GRACE_NSPACEDIM>& spacing
-                          , cell_vol_array_t<GRACE_NSPACEDIM>& volume
-                          , staggered_coordinate_arrays_t& surfaces_and_edges) 
+void fill_cell_spacings(scalar_array_t<GRACE_NSPACEDIM>& ispacing,
+                        scalar_array_t<GRACE_NSPACEDIM>& spacing)
 {
     using namespace grace ; 
+
     auto& forest = grace::amr::forest::get()        ; 
     auto& conn   = grace::amr::connectivity::get()  ; 
     auto& params = grace::config_parser::get()      ;
@@ -66,32 +64,10 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>& coords
     
     auto nq = amr::get_local_num_quadrants() ; 
 
-    auto h_coords = Kokkos::create_mirror_view(coords) ; 
     auto h_idx = Kokkos::create_mirror_view(ispacing) ; 
     auto h_dx  = Kokkos::create_mirror_view(spacing) ; 
-    auto h_vol = Kokkos::create_mirror_view(volume) ; 
-    
-    auto h_surfx = Kokkos::create_mirror_view(surfaces_and_edges.cell_face_surfaces_x) ; 
-    auto h_surfy = Kokkos::create_mirror_view(surfaces_and_edges.cell_face_surfaces_y) ; 
-    auto h_surfz = Kokkos::create_mirror_view(surfaces_and_edges.cell_face_surfaces_z) ; 
-    #ifdef GRACE_3D 
-    auto h_edgexy = Kokkos::create_mirror_view(surfaces_and_edges.cell_edge_lengths_xy) ; 
-    auto h_edgeyz = Kokkos::create_mirror_view(surfaces_and_edges.cell_edge_lengths_yz) ; 
-    auto h_edgexz = Kokkos::create_mirror_view(surfaces_and_edges.cell_edge_lengths_xz) ; 
-    #endif 
-    decltype(h_surfx) surf[GRACE_NSPACEDIM] = {
-        VEC(h_surfx, h_surfy, h_surfz)
-    } ; 
-    #ifdef GRACE_3D 
-    decltype(h_edgexy) edge[GRACE_NSPACEDIM] = {
-        VEC(h_edgeyz,h_edgexz,h_edgexy) 
-    } ; 
-    #endif 
-    auto clock_start = std::chrono::high_resolution_clock::now() ;
-    double avg_time = 0. ;  
     /* 2) Number of ghostzones for evolved vars */
     long ngz { params["amr"]["n_ghostzones"].as<long>() } ;
-    #pragma omp parallel for schedule(static), reduction(+:avg_time)
     for( int iquad=0; iquad<nq; ++iquad ) {
         auto const& coord_system = coordinate_system::get() ;
         auto itree = amr::get_quadrant_owner(iquad) ;  
@@ -101,11 +77,7 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>& coords
         //! HERE TO SWICH COORDS
         auto const tree_spacing = amr::get_tree_spacing(itree)[0] ; 
         auto const VEC(dx_phys{dx_quad*tree_spacing}, dy_phys{dy_quad*tree_spacing}, dz_phys{dz_quad*tree_spacing}) ; 
-        /* coordinates of lower left corner of quadrant */
-        auto const qcoords = quadrant.qcoords() ; 
-        h_coords(0,iquad) = qcoords[0] * dx_lev; 
-        h_coords(1,iquad) = qcoords[1] * dx_lev;
-        h_coords(2,iquad) = qcoords[2] * dx_lev;
+
         EXPR(
         h_idx(0,iquad) = 1./dx_phys ;, 
         h_idx(1,iquad) = 1./dy_phys ;,
@@ -114,86 +86,10 @@ void fill_cell_coordinates( scalar_array_t<GRACE_NSPACEDIM>& coords
         h_dx(0,iquad) = dx_phys ;,
         h_dx(1,iquad) = dy_phys ;,
         h_dx(2,iquad) = dz_phys ;)
-        auto thread_clock_start = std::chrono::high_resolution_clock::now() ;
-        EXPR( for(size_t i=0; i<nx+2*ngz; ++i), for(size_t j=0; j<ny+2*ngz; ++j), for(size_t k=0; k<nz+2*ngz; ++k) ) {
-            h_vol(VEC(i,j,k),iquad) = coord_system.get_cell_volume(
-                  {VEC( qcoords[0] * dx_lev + (int(i)-ngz) * dx_quad
-                      , qcoords[1] * dx_lev + (int(j)-ngz) * dy_quad
-                      , qcoords[2] * dx_lev + (int(k)-ngz) * dz_quad) }
-                , itree 
-                , {VEC(dx_quad,dy_quad,dz_quad)}
-                , true )  ; 
-            ASSERT_DBG(
-                !std::isnan(h_vol(VEC(i,j,k),iquad)),
-                "Cell volume NaN at " 
-                EXPR(<< i ,<< ", " << j,<< ", " << k)
-                << ", " << iquad << ", " << itree << '\n'
-                EXPR(<< h_coords(0,iquad) + dx_quad * (i-ngz) 
-                    ,<< ", " << h_coords(1,iquad) + dy_quad * (j-ngz)
-                    ,<< ", " << h_coords(2,iquad) + dz_quad * (k-ngz)) << ", " << dx_quad 
-            ) ;
-            
-            ASSERT_DBG(
-                h_vol(VEC(i,j,k),iquad)>0,
-                "Non positive cell volume " << h_vol(VEC(i,j,k),iquad)
-                << " at " 
-                EXPR(<< i ,<< ", " << j,<< ", " << k)
-                << ", " << iquad << ", " << itree << '\n'
-                EXPR(<< h_coords(0,iquad) + dx_quad * (i-ngz) 
-                    ,<< ", " << h_coords(1,iquad) + dy_quad * (j-ngz)
-                    ,<< ", " << h_coords(2,iquad) + dz_quad * (k-ngz)) << ", " << dx_quad 
-            ) ;
-        }
+    }
 
-        for(int idim=0; idim<GRACE_NSPACEDIM; ++idim) { 
-            EXPR( for(size_t i=0; i<nx+2*ngz+utils::delta(0,idim); ++i), for(size_t j=0; j<ny+2*ngz+utils::delta(1,idim); ++j), for(size_t k=0; k<nz+2*ngz+utils::delta(2,idim); ++k) ) 
-            {
-                surf[idim](VEC(i,j,k),iquad) = coord_system.get_cell_face_surface(
-                    {VEC( qcoords[0] * dx_lev + (int(i)-ngz) * dx_quad
-                      , qcoords[1] * dx_lev + (int(j)-ngz) * dy_quad
-                      , qcoords[2] * dx_lev + (int(k)-ngz) * dz_quad) }
-                    , idim
-                    , itree 
-                    , {VEC(dx_quad,dy_quad,dz_quad)}
-                    , true ) ; 
-            }
-            #ifdef GRACE_3D 
-            EXPR( for(size_t i=0; i<nx+2*ngz+1-utils::delta(0,idim); ++i), for(size_t j=0; j<ny+2*ngz+1-utils::delta(1,idim); ++j), for(size_t k=0; k<nz+2*ngz+1-utils::delta(2,idim); ++k) ) 
-            {
-                edge[idim](VEC(i,j,k),iquad) = coord_system.get_cell_edge_length(
-                    {VEC( qcoords[0] * dx_lev + (int(i)-ngz) * dx_quad
-                      , qcoords[1] * dx_lev + (int(j)-ngz) * dy_quad
-                      , qcoords[2] * dx_lev + (int(k)-ngz) * dz_quad) }
-                    , idim
-                    , itree 
-                    , {VEC(dx_quad,dy_quad,dz_quad)}
-                    , true ) ; 
-            }
-            #endif 
-
-        }
-        auto thread_clock_end = std::chrono::high_resolution_clock::now() ;
-        avg_time += double(std::chrono::duration_cast <std::chrono::microseconds> (thread_clock_end - thread_clock_start).count());
-    } /* quadrant loop */
-    auto clock_end = std::chrono::high_resolution_clock::now() ;
-    float currentTime = float(std::chrono::duration_cast <std::chrono::microseconds> (clock_end - clock_start).count());
-    GRACE_VERBOSE("Coordinate filling loop took {:.3e} mus.",currentTime) ; 
-    clock_start = std::chrono::high_resolution_clock::now() ; 
-    Kokkos::deep_copy(coords,h_coords) ; 
     Kokkos::deep_copy(ispacing,h_idx) ; 
     Kokkos::deep_copy(spacing,h_dx) ; 
-    Kokkos::deep_copy(volume,h_vol) ;
-    Kokkos::deep_copy(surfaces_and_edges.cell_face_surfaces_x, h_surfx) ; 
-    Kokkos::deep_copy(surfaces_and_edges.cell_face_surfaces_y, h_surfy) ; 
-    Kokkos::deep_copy(surfaces_and_edges.cell_face_surfaces_z, h_surfz) ; 
-    #ifdef GRACE_3D 
-    Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_xy, h_edgexy) ; 
-    Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_xz, h_edgexz) ; 
-    Kokkos::deep_copy(surfaces_and_edges.cell_edge_lengths_yz, h_edgeyz) ;
-    #endif  
-    clock_end = std::chrono::high_resolution_clock::now() ; 
-    currentTime = float(std::chrono::duration_cast <std::chrono::microseconds> (clock_end - clock_start).count());
-    GRACE_VERBOSE("Coordinate view copy (h2d) took {:.3e} mus.",currentTime) ;
 }
 
 void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords 
@@ -262,54 +158,5 @@ void fill_physical_coordinates( coord_array_t<GRACE_NSPACEDIM>& pcoords
     #endif 
     Kokkos::deep_copy(pcoords,h_coords) ; 
 }
-#if 0 
-void fill_jacobian_matrices( jacobian_array_t& jac 
-                           , jacobian_array_t& inv_jac 
-                           , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates ) 
-{
-    DECLARE_GRID_EXTENTS ;
-    using namespace grace ; 
-
-    Kokkos::realloc(jac,VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),GRACE_NSPACEDIM,GRACE_NSPACEDIM,nq) ; 
-    Kokkos::realloc(inv_jac,VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),GRACE_NSPACEDIM,GRACE_NSPACEDIM,nq) ; 
-
-    auto hj  = Kokkos::create_mirror_view(jac)     ; 
-    auto hij = Kokkos::create_mirror_view(inv_jac) ; 
-
-    auto& coord_system = grace::coordinate_system::get() ; 
-
-    grace::host_grid_loop<true>(
-        [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
-            auto J = coord_system.get_jacobian_matrix(
-                  {VEC(i,j,k)}
-                , q
-                , cell_coordinates
-                , true 
-            ) ; 
-
-            auto Ji = coord_system.get_inverse_jacobian_matrix(
-                  {VEC(i,j,k)}
-                , q
-                , cell_coordinates
-                , true 
-            ) ; 
-
-            int idx = 0 ;
-            #pragma unroll GRACE_NSPACEDIM*GRACE_NSPACEDIM
-            for( int im=0; im<GRACE_NSPACEDIM; ++im){
-                for( int jm=0; jm<GRACE_NSPACEDIM; ++jm){
-                    hj(VEC(i,j,k),im,jm,q)  = J[idx]  ;
-                    hij(VEC(i,j,k),im,jm,q) = Ji[idx] ;
-                    idx ++ ; 
-                }
-            }
-            
-        }, true 
-    ) ; 
- 
-    Kokkos::deep_copy(jac    , hj ) ;
-    Kokkos::deep_copy(inv_jac, hij) ;  
-}
-#endif 
 
 } /* namespace grace */ 

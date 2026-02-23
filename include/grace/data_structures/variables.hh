@@ -59,29 +59,6 @@ class variable_list_impl_t
 
 public:
     //*****************************************************************************************************
-    /**
-     * @brief Get quadrant coordinates.
-     * 
-     * @return Quadrant coordinates. 
-     */
-    GRACE_ALWAYS_INLINE scalar_array_t<GRACE_NSPACEDIM>&
-    getcoords() { return _coords ; } 
-    //*****************************************************************************************************
-    /**
-     * @brief Get quadrant coordinates.
-     * 
-     * @return Quadrant coordinates. 
-     */
-    GRACE_ALWAYS_INLINE staggered_coordinate_arrays_t&
-    getstaggeredcoords() { return _staggered_coords ; } 
-    //*****************************************************************************************************
-    /**
-     * @brief Get inverse spacing of cell coordinates.
-     * 
-     * @return Spacing of cell coordinates  
-     */
-    GRACE_ALWAYS_INLINE cell_vol_array_t<GRACE_NSPACEDIM>&
-    getvolumes() { return _cell_volumes ; }
     //*****************************************************************************************************
     /**
      * @brief Get inverse spacing of cell coordinates.
@@ -106,14 +83,6 @@ public:
      */
     GRACE_ALWAYS_INLINE var_array_t&  
     getaux() { return _aux ; }
-    //*****************************************************************************************************
-    /**
-     * @brief Get the staggered auxiliary variables.
-     * 
-     * @return The staggered auxiliary variables. 
-     */
-    GRACE_ALWAYS_INLINE staggered_variable_arrays_t&  
-    getstaggeredaux() { return _staggered_aux  ; }
     //*****************************************************************************************************
     /**
      * @brief Get state vector
@@ -196,12 +165,6 @@ public:
     GRACE_ALWAYS_INLINE emf_array_t& 
     getemfarray() { return _emf ; }
     //*****************************************************************************************************
-    /**
-     * @brief Get the halo state vector 
-     */
-    GRACE_ALWAYS_INLINE var_array_t& 
-    gethalo() { return _halo ; }
-    //*****************************************************************************************************
     template< typename ... ArgT >
     void realloc_state(ArgT&& ... args)
     {
@@ -226,7 +189,8 @@ public:
         tmp_storage.realloc(VEC(nx,ny,nz), ngz, nq, nvars_face, nvars_edge, nvars_corner) ;
         return tmp_storage ; 
     }
-
+    //*****************************************************************************************************
+    void resize_aux_staging_and_flux_buffers(int nq_new) ; 
 private: 
     //*****************************************************************************************************
     /**
@@ -243,19 +207,14 @@ private:
     //*****************************************************************************************************
     //******** Member variables ***************************************************************************
     //*****************************************************************************************************
-    scalar_array_t<GRACE_NSPACEDIM>  _coords  ;  //!< tree-logical coordinates of quadrant corners 
     scalar_array_t<GRACE_NSPACEDIM>  _coords_ispacing  ;  //!< Inverse spacing of coordinate system
     scalar_array_t<GRACE_NSPACEDIM>  _coords_spacing  ;  //!< Spacing of coordinate system
-    cell_vol_array_t<GRACE_NSPACEDIM> _cell_volumes ; //!< Volume of cells 
     var_array_t _state   ;     //!< State variables 
     var_array_t _state_p ;     //!< Second timelevel, allocated at all times 
-    var_array_t _halo    ;     //!< Halo exchange buffer, allocated when necessary
     var_array_t _aux     ;     //!< Auxiliary variables  
     std::vector<var_array_t> _staging_buffer; //!< Additional storage for timestepper
-    staggered_coordinate_arrays_t _staggered_coords ; //!< Staggered coordinate utilities (surfaces, lengths) 
     staggered_variable_arrays_t   _staggered_vars   ; //!< Staggered variable arrays 
     staggered_variable_arrays_t   _staggered_vars_p ; //!< Staggered scratch state
-    staggered_variable_arrays_t   _staggered_aux    ; //!< Auxiliary variables on staggered grids.
     std::vector<staggered_variable_arrays_t> _stag_staging_buffer ; //!< Additional storage for timestepper 
     flux_array_t   _fluxes              ; //!< Fluxes for time evolution.
     flux_array_t   _vbar              ; //!< Fluxes for time evolution.

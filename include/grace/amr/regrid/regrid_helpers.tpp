@@ -71,49 +71,96 @@ void evaluate_regrid_criterion( ViewT flag_view
     size_t REFINE_FLAG  = amr::quadrant_flags_t::REFINE  ;  
     size_t COARSEN_FLAG = amr::quadrant_flags_t::COARSEN ; 
 
-    double CTORE = params["amr"]["refinement_criterion_CTORE"].as<double>() ; 
-    double CTODE = params["amr"]["refinement_criterion_CTODE"].as<double>() ;
-    
-    /* Each thread league deals with a single quadrant */ 
+    double CTORE = get_param<double>("amr","refinement_criterion_CTORE");  
+    double CTODE = get_param<double>("amr","refinement_criterion_CTODE");
+
+    auto reduction = get_param<std::string>("amr", "refinement_criterion_reduction") ; 
     Kokkos::TeamPolicy<default_execution_space> policy(nq, Kokkos::AUTO() ) ; 
-    using member_type = Kokkos::TeamPolicy<default_execution_space>::member_type ; 
-    Kokkos::parallel_for( GRACE_EXECUTION_TAG("AMR","eval_refine_coarsen_criterion")
-                        , policy 
-                        , KOKKOS_LAMBDA (member_type team_member)
-    {
-        double eps ; 
-        /* 
-        * parallel reduction of regridding criterion 
-        * over quadrant cells 
-        */ 
-        auto reduce_range = 
-            Kokkos::TeamThreadRange( 
-                    team_member 
-                , EXPR(nx,*ny,*nz) ) ; 
-        int const q = team_member.league_rank() ; 
-        Kokkos::parallel_reduce(  
-                reduce_range 
-            , [=] (int64_t& icell, double& leps )
-            {
-                int const i = icell%nx ;
-                int const j = icell/nx%ny; 
-                #ifdef GRACE_3D 
-                int const k = icell/nx/ny ; 
-                #endif  
-                auto eps_new = kernel(VEC(i+ngz,j+ngz,k+ngz), q) ; 
-                if( eps_new > leps ) {
-                    leps = eps_new ;
-                }
-            } 
-            , Kokkos::Max<double>(eps)  
-        ) ; 
-        team_member.team_barrier() ; 
-        if( team_member.team_rank() == 0 ) 
+    using member_type = Kokkos::TeamPolicy<default_execution_space>::member_type ;
+
+    if ( reduction == "max" ) {
+        /* Each thread league deals with a  single quadrant */ 
+     
+        Kokkos::parallel_for( GRACE_EXECUTION_TAG("AMR","eval_refine_coarsen_criterion")
+                            , policy 
+                            , KOKKOS_LAMBDA (member_type team_member)
         {
-            flag_view(q) = REFINE_FLAG  * ( eps > CTORE )
-                         + COARSEN_FLAG * ( eps < CTODE ) ; 
-        } 
-    }) ;
+            double eps ; 
+            /* 
+            * parallel reduction of regridding criterion 
+            * over quadrant cells 
+            */ 
+            auto reduce_range = 
+                Kokkos::TeamThreadRange( 
+                        team_member 
+                    , EXPR(nx,*ny,*nz) ) ; 
+            int const q = team_member.league_rank() ; 
+            Kokkos::parallel_reduce(  
+                    reduce_range 
+                , [=] (int64_t& icell, double& leps )
+                {
+                    int const i = icell%nx ;
+                    int const j = icell/nx%ny; 
+                    #ifdef GRACE_3D 
+                    int const k = icell/nx/ny ; 
+                    #endif  
+                    auto eps_new = kernel(VEC(i+ngz,j+ngz,k+ngz), q) ; 
+                    if( eps_new > leps ) {
+                        leps = eps_new ;
+                    }
+                } 
+                , Kokkos::Max<double>(eps)  
+            ) ; 
+            team_member.team_barrier() ; 
+            if( team_member.team_rank() == 0 ) 
+            {
+                flag_view(q) = REFINE_FLAG  * ( eps > CTORE )
+                            + COARSEN_FLAG * ( eps < CTODE ) ; 
+            } 
+        }) ;
+    } else if ( reduction == "min" ) {
+        /* Each thread league deals with a  single quadrant */ 
+        Kokkos::parallel_for( GRACE_EXECUTION_TAG("AMR","eval_refine_coarsen_criterion")
+                            , policy 
+                            , KOKKOS_LAMBDA (member_type team_member)
+        {
+            double eps ; 
+            /* 
+            * parallel reduction of regridding criterion 
+            * over quadrant cells 
+            */ 
+            auto reduce_range = 
+                Kokkos::TeamThreadRange( 
+                        team_member 
+                    , EXPR(nx,*ny,*nz) ) ; 
+            int const q = team_member.league_rank() ; 
+            Kokkos::parallel_reduce(  
+                    reduce_range 
+                , [=] (int64_t& icell, double& leps )
+                {
+                    int const i = icell%nx ;
+                    int const j = icell/nx%ny; 
+                    #ifdef GRACE_3D 
+                    int const k = icell/nx/ny ; 
+                    #endif  
+                    auto eps_new = kernel(VEC(i+ngz,j+ngz,k+ngz), q) ; 
+                    if( eps_new < leps ) {
+                        leps = eps_new ;
+                    }
+                } 
+                , Kokkos::Min<double>(eps)  
+            ) ; 
+            team_member.team_barrier() ; 
+            if( team_member.team_rank() == 0 ) 
+            {
+                flag_view(q) = REFINE_FLAG  * ( eps < CTORE )
+                             + COARSEN_FLAG * ( eps > CTODE ) ; 
+            } 
+        }) ;
+    } else {
+        ERROR("Unrecognized reduction for refinement.") ; 
+    }
+    
 }
 
 

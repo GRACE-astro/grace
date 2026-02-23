@@ -41,6 +41,12 @@ int master_rank() ;
  */
 double get_total_runtime() ; 
 /**
+ * @brief Get the total evolution runtime of this simulation.
+ * 
+ * @return double The runtime since evolution began (in seconds).
+ */
+double get_evol_runtime() ;
+/**
  * @brief Get the simulation time.
  * 
  * @return double The simulation time.

@@ -104,7 +104,7 @@ static void setup_initial_data(
                 {VEC(i,j,k)}, q, lcoord, true 
             ) ; 
             if ( stag == STAG_CENTER ) {
-                host_data(VEC(i,j,k), DENS, q) = fill_func(pcoords) ; 
+                host_data(VEC(i,j,k), DENS_, q) = fill_func(pcoords) ; 
             } else if ( stag == STAG_FACEX ) {
                 host_data(VEC(i,j,k), 0, q) = fill_func_stagger(pcoords,0) ; 
             } else if ( stag == STAG_FACEY ) {
@@ -144,10 +144,10 @@ void fill_b_field() {
     Kokkos::deep_copy(idx,idx_d) ;
     grace::host_grid_loop<false>(
         [&] (VEC(size_t i, size_t j, size_t k), size_t q) {
-            aux_h(VEC(i,j,k),BX,q) = (bx(VEC(i+1,j,k),0,q) + bx(VEC(i,j,k),0,q))/2 ; 
-            aux_h(VEC(i,j,k),BY,q) = (by(VEC(i,j+1,k),0,q) + by(VEC(i,j,k),0,q))/2 ; 
-            aux_h(VEC(i,j,k),BZ,q) = (bz(VEC(i,j,k+1),0,q) + bz(VEC(i,j,k),0,q))/2 ;
-            aux_h(VEC(i,j,k),BDIV,q) =   (bx(VEC(i+1,j,k),0,q) - bx(VEC(i,j,k),0,q)) * idx(0,q)
+            aux_h(VEC(i,j,k),BX_,q) = (bx(VEC(i+1,j,k),0,q) + bx(VEC(i,j,k),0,q))/2 ; 
+            aux_h(VEC(i,j,k),BY_,q) = (by(VEC(i,j+1,k),0,q) + by(VEC(i,j,k),0,q))/2 ; 
+            aux_h(VEC(i,j,k),BZ_,q) = (bz(VEC(i,j,k+1),0,q) + bz(VEC(i,j,k),0,q))/2 ;
+            aux_h(VEC(i,j,k),BDIV_,q) =   (bx(VEC(i+1,j,k),0,q) - bx(VEC(i,j,k),0,q)) * idx(0,q)
                                      + (by(VEC(i,j+1,k),0,q) - by(VEC(i,j,k),0,q)) * idx(1,q)
                                      + (bz(VEC(i,j,k+1),0,q) - bz(VEC(i,j,k),0,q)) * idx(2,q) ; 
         }, {false,false,false}, false ) ;
@@ -281,13 +281,13 @@ static void check(
                     {VEC(i,j,k)}, q, lcoord, true 
                 ) ;
                 double ground_truth = fill_func(pcoords);
-                if ( std::isnan(host_data(VEC(i,j,k),DENS,q)) or (fabs(host_data(VEC(i,j,k),DENS,q)-ground_truth)>1e-13)) {
+                if ( std::isnan(host_data(VEC(i,j,k),DENS_,q)) or (fabs(host_data(VEC(i,j,k),DENS_,q)-ground_truth)>1e-13)) {
                     auto quad = grace::amr::get_quadrant(q).get() ; 
-                    GRACE_TRACE("NaN, level {} ijk {},{},{}, q {}, ground_truth {} val {}", static_cast<int>(quad->level),i,j,k,q, ground_truth, host_data(VEC(i,j,k),DENS,q)) ;
+                    GRACE_TRACE("NaN, level {} ijk {},{},{}, q {}, ground_truth {} val {}", static_cast<int>(quad->level),i,j,k,q, ground_truth, host_data(VEC(i,j,k),DENS_,q)) ;
                 }
                 
                 REQUIRE_THAT(
-                host_data(VEC(i,j,k),DENS,q),
+                host_data(VEC(i,j,k),DENS_,q),
                 Catch::Matchers::WithinAbs(ground_truth,
                     1e-13 ) ) ; 
                 

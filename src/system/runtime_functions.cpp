@@ -43,6 +43,10 @@ int master_rank()
 }
 
 double get_total_runtime() {
+    return grace::runtime::get().total_elapsed() ; 
+}
+
+double get_evol_runtime() {
     return grace::runtime::get().elapsed() ; 
 }
 
@@ -96,7 +100,7 @@ bool check_termination_condition()
         case terminate::TIME:
         return runtime.time() > runtime.max_time() ; 
         case terminate::WALLTIME:
-        return runtime.elapsed()/3600 > runtime.max_walltime() ; 
+        return runtime.total_elapsed()/3600 > runtime.max_walltime() ; 
         default:
         ERROR("Unrecognized termination condition.") ; 
     }

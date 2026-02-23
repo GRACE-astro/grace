@@ -54,6 +54,7 @@
 #include <grace/IO/output_diagnostics.hh>
 #ifdef GRACE_ENABLE_Z4C_METRIC
 #include <grace/IO/diagnostics/puncture_tracker.hh>
+#include <grace/evolution/evolve.hh>
 #endif 
 #include <grace/amr/grace_amr.hh>
 
@@ -233,12 +234,9 @@ void initialize(int& argc, char* argv[])
     }
     
     GRACE_INFO("Filling coordinate arrays...") ;
-    grace::fill_cell_coordinates(
-            grace::variable_list::get().getcoords()
-        ,   grace::variable_list::get().getinvspacings()
-        ,   grace::variable_list::get().getspacings()
-        ,   grace::variable_list::get().getvolumes()
-        ,   grace::variable_list::get().getstaggeredcoords() ) ;
+    grace::fill_cell_spacings(
+            grace::variable_list::get().getinvspacings()
+        ,   grace::variable_list::get().getspacings()   ) ;
     #ifdef GRACE_ENABLE_VTK
     grace::IO::detail::init_auxiliaries()  ;
     #endif 
@@ -267,7 +265,6 @@ void initialize(int& argc, char* argv[])
             for( int ilev=0; ilev<postinitial_regrid_depth; ++ilev){
                 GRACE_INFO("Regrid level {}.", ilev+1) ;
                 grace::amr::regrid() ;  
-                grace::amr::apply_boundary_conditions() ; 
                 grace::set_initial_data() ; 
             }
         }
@@ -275,6 +272,9 @@ void initialize(int& argc, char* argv[])
         // aux vars are not in the checkpoint 
         grace::compute_auxiliary_quantities() ;
     }
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    grace::compute_constraint_violations() ; 
+    #endif 
     #ifdef GRACE_ENABLE_Z4C_METRIC
     grace::puncture_tracker::initialize() ; 
     #endif 

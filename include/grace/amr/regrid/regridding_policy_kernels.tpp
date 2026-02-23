@@ -45,11 +45,10 @@ template< typename ViewT >
 struct flash_second_deriv_criterion {
 
     ViewT u ; //!< Variable on which the criterion is evaluated.
-    static constexpr double tiny = 1e-99; 
-    double eps ; 
+
     flash_second_deriv_criterion(
-        ViewT _u, double _eps
-    ) : u(_u), eps(_eps) {}
+        ViewT _u
+    ) : u(_u){}
 
     /**
      * @brief Evaluates the regridding criterion at a cell.
@@ -65,24 +64,22 @@ struct flash_second_deriv_criterion {
                 , int const& q) const 
     {   
         using Kokkos::fabs ; 
-        double const num = EXPR(
-              math::int_pow<2>(u(VEC(i+1,j,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i-1,j,k),q)),
-            + math::int_pow<2>(u(VEC(i,j+1,k),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j-1,k),q)),
-            + math::int_pow<2>(u(VEC(i,j,k+1),q) - 2*u(VEC(i,j,k),q) + u(VEC(i,j,k-1),q))
-        ) ; 
-        double const denom = EXPR(
-              fabs(u(VEC(i+1,j,k),q) - u(VEC(i,j,k),q)) 
-            + fabs(u(VEC(i,j,k),q) - u(VEC(i-1,j,k),q))
-            + eps * (fabs(u(VEC(i+1,j,k),q)) - 2.*fabs(u(VEC(i,j,k),q)) + fabs(u(VEC(i-1,j,k),q))),
-            + fabs(u(VEC(i,j+1,k),q) - u(VEC(i,j,k),q)) 
-            + fabs(u(VEC(i,j,k),q) - u(VEC(i,j-1,k),q))
-            + eps * (fabs(u(VEC(i,j+1,k),q)) - 2.*fabs(u(VEC(i,j,k),q)) + fabs(u(VEC(i,j-1,k),q))),
-            + fabs(u(VEC(i,j,k+1),q) - u(VEC(i,j,k),q)) 
-            + fabs(u(VEC(i,j,k),q) - u(VEC(i,j,k-1),q))
-            + eps * (fabs(u(VEC(i,j,k+1),q)) - 2.*fabs(u(VEC(i,j,k),q)) + fabs(u(VEC(i,j,k-1),q)))
-            + tiny
-        ) ; 
-        return num / denom ; 
+        
+        double uc,up,um ; 
+        auto get_eps = [] (double up, double um, double u) {
+            return Kokkos::fabs(up-2*u+um)/(Kokkos::fabs(up-u) + Kokkos::fabs(u-um) + 1e-12) ; 
+        } ; 
+        uc = u(i,j,k,q)   ; 
+        up = u(i+1,j,k,q) ;
+        um = u(i-1,j,k,q) ; 
+        double eps = get_eps(up,um,uc) ; 
+        up = u(i,j+1,k,q) ;
+        um = u(i,j-1,k,q) ; 
+        eps = Kokkos::max(eps, get_eps(up,um,uc)) ; 
+        up = u(i,j,k+1,q) ;
+        um = u(i,j,k-1,q) ; 
+        eps = Kokkos::max(eps, get_eps(up,um,uc)) ; 
+        return eps ;  
     }
 } ; 
 /**
@@ -113,7 +110,7 @@ struct gradient_criterion {
             {
                 VEC( u(VEC(i+1,j,k),q)-u(VEC(i-1,j,k),q) 
                    , u(VEC(i,j+1,k),q)-u(VEC(i,j-1,k),q) 
-                   , u(VEC(i+1,j,k+1),q)-u(VEC(i,j,k-1),q))
+                   , u(VEC(i,j,k+1),q)-u(VEC(i,j,k-1),q))
             } ; 
         return 0.5*Kokkos::sqrt(EXPR(grad[0]*grad[0],+grad[1]*grad[1],+grad[2]*grad[2])) / (u(VEC(i,j,k),q)+tiny) ; 
     }

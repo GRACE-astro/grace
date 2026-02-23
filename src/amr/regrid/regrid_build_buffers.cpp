@@ -52,7 +52,7 @@
 namespace grace { namespace amr {
 
 void regrid_transaction_t::build_buffers() {
-    GRACE_TRACE_DBG("Entering build buffers") ; 
+    GRACE_TRACE("Entering build buffers") ; 
     /******************************************************************************************/
     auto nprocs = parallel::mpi_comm_size() ; 
     /******************************************************************************************/
@@ -90,7 +90,7 @@ void regrid_transaction_t::build_buffers() {
             if ( face.level_diff == level_diff_t::FINER ) {
                 for( int icx=0; icx<2; ++icx) {
                     for ( int icy=0; icy<2; ++icy) {
-                        int ic = icx + (icy<<1) ; 
+                        int ic = icx + (icy<<1) ; // child id in nbor face, 0,..,3 
                         if ( face.data.hanging.is_remote[ic] ) {
                             auto owner_rank = face.data.hanging.owner_rank[ic] ; 
                             fine_face_data_desc_t desc {} ; 
@@ -173,11 +173,15 @@ void regrid_transaction_t::build_buffers() {
     recvcounts_z.resize(nprocs);
     #define MPI_EXCHANGE_COUNTS(axis) \
     do { \
-        for (int r = 0; r < nprocs; ++r) \
+        for (int r = 0; r < nprocs; ++r) { \
             recvcounts_##axis[r] =  recv_##axis[r].size(); \
+            GRACE_TRACE("Rank {} receive size {}",r,recv_##axis[r].size());\
+        }\
         MPI_Alltoall(recvcounts_##axis.data(), 1, MPI_INT, \
                      sendcounts_##axis.data(), 1, MPI_INT, \
                      MPI_COMM_WORLD ); \
+        for (int r = 0; r < nprocs; ++r)\
+            GRACE_TRACE("Rank {} send size {}", r, sendcounts_##axis[r]) ; \
     } while(0)
     MPI_EXCHANGE_COUNTS(x);
     MPI_EXCHANGE_COUNTS(y);
@@ -195,7 +199,7 @@ void regrid_transaction_t::build_buffers() {
     CONVERT_SIZES_TO_BYTES(z);
 
 
-    // 3) Compute displacements
+    // 3) Compute displacements (in bytes)
     #define MPI_COMPUTE_DISPLACEMENTS(axis) \
     sdispls_##axis.resize(nprocs,0); rdispls_##axis.resize(nprocs, 0);\
     for (int r = 1; r < nprocs; ++r) {\
@@ -275,6 +279,8 @@ void regrid_transaction_t::build_buffers() {
     REALLOC_BUF(z);
     // for send data: src is local dst is buffer (pack)
     // for reecv data: reverse (unpack)
+    // Note on send: The local source of data was recorder by
+    // remote partner under qid_remote and which_tree. 
     #define FILL_BUF_DESC(axis)\
     remote_fine_face_recv_##axis.resize(nprocs);\
     remote_fine_face_send_##axis.resize(nprocs);\
@@ -286,20 +292,25 @@ void regrid_transaction_t::build_buffers() {
             desc.fid_src = recvbuf_##axis[ircv+rdispls_##axis[r]].fid_remote ;\
             desc.fid_dst = recvbuf_##axis[ircv+rdispls_##axis[r]].fid_local ;\
             remote_fine_face_recv_##axis[r].push_back(desc);\
+            GRACE_TRACE("Remote face recv rank r {} qsrc {} qdst {} fsrc {} fdst {}", r, desc.qid_src, desc.qid_dst, desc.fid_src, desc.fid_dst  );\
         }\
         for( int isnd=0; isnd<sendcounts_##axis[r]; ++isnd) {\
+            auto const& info = sendbuf_##axis[isnd+sdispls_##axis[r]];\
             fine_interface_desc_t desc; \
             desc.qid_dst = isnd ; \
-            desc.qid_src = sendbuf_##axis[isnd+sdispls_##axis[r]].qid_local ;\
-            desc.fid_src = sendbuf_##axis[isnd+sdispls_##axis[r]].fid_local ;\
-            desc.fid_dst = sendbuf_##axis[isnd+sdispls_##axis[r]].fid_remote ;\
+            desc.qid_src = info.qid_remote + grace::amr::get_local_quadrants_offset(info.which_tree);\
+            desc.fid_src = info.fid_remote ;\
+            desc.fid_dst = info.fid_local  ;\
             remote_fine_face_send_##axis[r].push_back(desc);\
+            GRACE_TRACE("Remote face send rank r {} qsrc {} qdst {} fsrc {} fdst {}", r, desc.qid_src, desc.qid_dst, desc.fid_src, desc.fid_dst  );\
         }\
     }
 
     FILL_BUF_DESC(x);
     FILL_BUF_DESC(y);
     FILL_BUF_DESC(z);
+
+    parallel::mpi_barrier() ; 
 };
 
 }}

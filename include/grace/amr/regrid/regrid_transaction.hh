@@ -53,10 +53,19 @@ struct fine_face_data_desc_t {
 } ;
 
 struct fine_interface_desc_t {
-    size_t qid_src  ; // ghost idx
-    size_t qid_dst  ; // local index in this forest 
-    int8_t fid_src ; // face idx local
-    int8_t fid_dst ; // face idx remote
+    size_t qid_src  ; //!< ghost idx
+    size_t qid_dst  ; //!< local index in this forest 
+    uint8_t fid_src ; //!< face idx local
+    uint8_t fid_dst ; //!< face idx remote
+    bool is_remote  ; //!< other side is remote   
+} ; 
+
+struct fine_interface_desc_device_t {
+    readonly_view_t<int> qid_src       ; //!< ghost idx
+    readonly_view_t<int> qid_dst       ; //!< local index in this forest 
+    readonly_view_t<uint8_t> fid_src   ; //!< face idx local
+    readonly_view_t<uint8_t> fid_dst   ; //!< face idx remote
+    readonly_view_t<uint8_t> is_remote ; //!< other side is remote 
 } ; 
 
 struct regrid_transaction_t {
@@ -71,7 +80,7 @@ struct regrid_transaction_t {
 
         evaluate_criterion() ; 
         execute_host_side_regrid() ; 
-        build_buffers() ;
+        //build_buffers() ;
         build_task_list() ; 
 
         task_queue.clear() ; 
@@ -128,6 +137,7 @@ struct regrid_transaction_t {
     std::vector<int> sdispls_x, sdispls_y, sdispls_z, rdispls_x, rdispls_y, rdispls_z ; 
     std::vector<int> sendcounts_x, sendcounts_y, sendcounts_z, recvcounts_x, recvcounts_y, recvcounts_z ; 
     std::vector<std::array<int8_t,2>> have_fine_data_x, have_fine_data_y, have_fine_data_z ; 
+    fine_interface_desc_device_t fine_face_descs ; 
     //! Number of quadrants: before regrid, after, and after partition
     size_t nq_init, nq_regrid, nq_final ; 
     size_t nx,ny,nz, ngz ; 

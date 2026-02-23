@@ -143,7 +143,7 @@ class grace_runtime_impl_t
     /* iteration count */ 
     size_t _iter ; 
     /* current simulation time */
-    double _time, _dt, _initial_time ; 
+    double _time, _dt, _initial_time, _initial_wtime ; 
     /* total walltime clock */
     spdlog::stopwatch _walltime ; 
     /* termination condition */
@@ -423,9 +423,19 @@ class grace_runtime_impl_t
         return _output_spheres_names ;
     }
 
+    void GRACE_ALWAYS_INLINE 
+    start_walltime_clock() {
+        _initial_wtime = _walltime.elapsed().count() ; 
+    }
+
     double GRACE_ALWAYS_INLINE 
     elapsed() {
-        return _walltime.elapsed().count() ; 
+        return _walltime.elapsed().count() - _initial_wtime; 
+    }
+    
+    double GRACE_ALWAYS_INLINE 
+    total_elapsed() {
+        return _walltime.elapsed().count(); 
     }
 
  private:
@@ -710,6 +720,7 @@ class grace_runtime_impl_t
         _time = 0.0 ; 
         _initial_time = 0.0 ; 
         _dt   = 0.0 ;  
+        _initial_wtime = 0.0 ; 
         /****************************/
         if( parallel::mpi_comm_rank() == grace::master_rank() ) 
         {

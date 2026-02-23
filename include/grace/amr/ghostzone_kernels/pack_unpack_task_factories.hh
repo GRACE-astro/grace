@@ -494,7 +494,7 @@ gpu_task_t make_unpack_task(
         unpack_dest_elem_h(i) = elem_dst ;
         set_task_id(d) ;  
         i += 1UL ; 
-        GRACE_TRACE_DBG("Unpack qid {} eid {} rcv_id {}", std::get<0>(d), std::get<1>(d), qid_src) ; 
+        //GRACE_TRACE_DBG("Unpack qid {} eid {} rcv_id {}", std::get<0>(d), std::get<1>(d), qid_src) ; 
     }
     Kokkos::deep_copy(unpack_src_qid,unpack_src_qid_h)   ; 
     Kokkos::deep_copy(unpack_dest_qid,unpack_dst_qid_h)  ;  
@@ -507,7 +507,7 @@ gpu_task_t make_unpack_task(
         unpack_dst_cbuf_qid_h(i) = qid_dst ; 
         unpack_dest_cbuf_elem_h(i) = elem_dst ;
         i += 1UL ; 
-        GRACE_TRACE_DBG("Unpack cbuf qid {} eid {} rcv_id {}", std::get<0>(d), std::get<1>(d), qid_src) ; 
+        //GRACE_TRACE_DBG("Unpack cbuf qid {} eid {} rcv_id {}", std::get<0>(d), std::get<1>(d), qid_src) ; 
     }
     Kokkos::deep_copy(unpack_src_cbuf_qid,unpack_src_cbuf_qid_h)   ; 
     Kokkos::deep_copy(unpack_dest_cbuf_qid,unpack_dst_cbuf_qid_h)  ;  
