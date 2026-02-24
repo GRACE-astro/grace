@@ -65,29 +65,22 @@ amr: {
 }
 
 IO: {
-  plane_surface_output_cell_variables: ["rho","alp","z4c_H", "z4c_M[0]", "beta[0]", "z4c_Khat", "gamma_tilde[0,0]", "gamma_tilde[0,1]", "gamma_tilde[0,2]", "gamma_tilde[1,1]", "gamma_tilde[1,2]", "gamma_tilde[2,2]", "z4c_theta", "conf_fact", "z4c_Gamma[0]","A_tilde[0,0]","A_tilde[0,1]","zvec[0]","c2p_err","Bvec[0]","Bdiv"],
-  plane_surface_output_every: 2,
 
-  sphere_surface_output_every: -1,
+  plane_surface_output_cell_variables: ["rho","zvec[0]","c2p_err"],
+  plane_surface_output_every: 100,
+
 
   info_output_every: 2,
   info_output_max_reductions: ["rho"],
-  info_output_min_reductions: ["alp"],
-  info_output_norm2_reductions: ["z4c_H"],
 
   scalar_output_every: 10,
   scalar_output_minmax: ["rho","press","eps","alp"],
-  scalar_output_norm2: ["z4c_H"],
-  scalar_output_integral: [],
 
   output_use_hdf5: true,
   hdf5_compression_level: 0,
   hdf5_chunk_size: 8192,
   output_extra_quantities: true,
-
-  xy_plane_offset: 1e-5,
-  xz_plane_offset: 1e-5,
-  yz_plane_offset: 1e-5
+  xy_plane_offset: 1e-5
 
 }
 system: {
@@ -113,7 +106,7 @@ grmhd: {
 
   atmosphere: {
     temp_fl:  1e-10,
-    rho_fl: 1.e-10
+    rho_fl: 1.e-12
   },
 
   c2p: {
@@ -122,19 +115,6 @@ grmhd: {
     use_c2p_entropy_backup: false
   },
 
-  B_field_initialization: "from_Avec",
-
-  Avec_ID: {
-    cutoff_var: "press",
-    cutoff_fact: 0.02,
-    A_phi: 100,
-    A_n: 2
-  }
-
-}
-
-z4c: {
-  eps_diss: 0.1
 }
 
 eos: {

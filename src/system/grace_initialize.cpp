@@ -246,8 +246,6 @@ void initialize(int& argc, char* argv[])
     if ( started_from_checkpoint ) {
         amr::apply_boundary_conditions() ; 
     }
-    // setup spherical surfaces 
-    grace::spherical_surface_manager::initialize() ;
     /**********************************************************************************/
     /*                                 Initial data                                   */
     /**********************************************************************************/
@@ -272,6 +270,11 @@ void initialize(int& argc, char* argv[])
         // aux vars are not in the checkpoint 
         grace::compute_auxiliary_quantities() ;
     }
+    //--
+    // setup spherical surfaces 
+    //--
+    grace::spherical_surface_manager::initialize() ;
+    //--
     #ifdef GRACE_ENABLE_Z4C_METRIC
     grace::compute_constraint_violations() ; 
     #endif 

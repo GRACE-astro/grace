@@ -403,10 +403,7 @@ void regrid_transaction_t::build_task_list() {
     // first: mpi transfers
     // these vectors contain for each rank tid_x, tid_y, tid_z 
     /*****************************************************************/
-    have_fine_data_x.resize(refine_incoming.size(), {{0,0}}) ; 
-    have_fine_data_y.resize(refine_incoming.size(), {{0,0}}) ; 
-    have_fine_data_z.resize(refine_incoming.size(), {{0,0}}) ; 
-    #if 0
+    #if 1
     std::vector<std::array<task_id_t,3>> mpi_send_tid(nprocs), mpi_recv_tid(nprocs) ; 
     for( int r=0; r<nprocs; ++r) {
         if ( recvcounts_x[r] > 0 ){

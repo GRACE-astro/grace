@@ -112,11 +112,13 @@ void evaluate_regrid_criterion( ViewT flag_view
                 , Kokkos::Max<double>(eps)  
             ) ; 
             team_member.team_barrier() ; 
-            if( team_member.team_rank() == 0 ) 
-            {
-                flag_view(q) = REFINE_FLAG  * ( eps > CTORE )
-                            + COARSEN_FLAG * ( eps < CTODE ) ; 
-            } 
+            Kokkos::single( 
+                Kokkos::PerTeam(team_member),
+                [&] () {
+                    flag_view(q) = REFINE_FLAG  * ( eps >= CTORE )  
+                                 + COARSEN_FLAG * ( eps <= CTODE ) ; 
+                }
+            ) ; 
         }) ;
     } else if ( reduction == "min" ) {
         /* Each thread league deals with a  single quadrant */ 
@@ -151,11 +153,13 @@ void evaluate_regrid_criterion( ViewT flag_view
                 , Kokkos::Min<double>(eps)  
             ) ; 
             team_member.team_barrier() ; 
-            if( team_member.team_rank() == 0 ) 
-            {
-                flag_view(q) = REFINE_FLAG  * ( eps < CTORE )
-                             + COARSEN_FLAG * ( eps > CTODE ) ; 
-            } 
+            Kokkos::single( 
+                Kokkos::PerTeam(team_member),
+                [&] () {
+                    flag_view(q) = REFINE_FLAG  * ( eps <= CTORE )  
+                                 + COARSEN_FLAG * ( eps >= CTODE ) ; 
+                }
+            ) ; 
         }) ;
     } else {
         ERROR("Unrecognized reduction for refinement.") ; 

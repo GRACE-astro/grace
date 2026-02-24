@@ -80,7 +80,7 @@ struct regrid_transaction_t {
 
         evaluate_criterion() ; 
         execute_host_side_regrid() ; 
-        //build_buffers() ;
+        build_buffers() ;
         build_task_list() ; 
 
         task_queue.clear() ; 
@@ -115,6 +115,9 @@ struct regrid_transaction_t {
         cleanup() ; 
         /* all done! */
     }; 
+
+    size_t get_nq_init() {return nq_init;}
+    size_t get_nq_final() {return nq_final;}
     
     private:
     

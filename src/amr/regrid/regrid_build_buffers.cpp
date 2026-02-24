@@ -52,7 +52,7 @@
 namespace grace { namespace amr {
 
 void regrid_transaction_t::build_buffers() {
-    GRACE_TRACE("Entering build buffers") ; 
+    GRACE_TRACE("[REGRID] Entering build buffers") ; 
     /******************************************************************************************/
     auto nprocs = parallel::mpi_comm_size() ; 
     /******************************************************************************************/
@@ -175,13 +175,13 @@ void regrid_transaction_t::build_buffers() {
     do { \
         for (int r = 0; r < nprocs; ++r) { \
             recvcounts_##axis[r] =  recv_##axis[r].size(); \
-            GRACE_TRACE("Rank {} receive size {}",r,recv_##axis[r].size());\
+            GRACE_TRACE("[REGRID] Rank {} receive size {}",r,recv_##axis[r].size());\
         }\
         MPI_Alltoall(recvcounts_##axis.data(), 1, MPI_INT, \
                      sendcounts_##axis.data(), 1, MPI_INT, \
                      MPI_COMM_WORLD ); \
         for (int r = 0; r < nprocs; ++r)\
-            GRACE_TRACE("Rank {} send size {}", r, sendcounts_##axis[r]) ; \
+            GRACE_TRACE("[REGRID] Rank {} send size {}", r, sendcounts_##axis[r]) ; \
     } while(0)
     MPI_EXCHANGE_COUNTS(x);
     MPI_EXCHANGE_COUNTS(y);
@@ -244,7 +244,6 @@ void regrid_transaction_t::build_buffers() {
     MPI_EXCHANGE_ALLTOALL(y);
     MPI_EXCHANGE_ALLTOALL(z);
 
-
     // now we know what to send and what to recveive.
     // These guys are also ordered since we received 
     // the lists from all ranks just now.
@@ -292,7 +291,7 @@ void regrid_transaction_t::build_buffers() {
             desc.fid_src = recvbuf_##axis[ircv+rdispls_##axis[r]].fid_remote ;\
             desc.fid_dst = recvbuf_##axis[ircv+rdispls_##axis[r]].fid_local ;\
             remote_fine_face_recv_##axis[r].push_back(desc);\
-            GRACE_TRACE("Remote face recv rank r {} qsrc {} qdst {} fsrc {} fdst {}", r, desc.qid_src, desc.qid_dst, desc.fid_src, desc.fid_dst  );\
+            GRACE_TRACE("[REGRID] Remote face recv rank r {} qsrc {} qdst {} fsrc {} fdst {}", r, desc.qid_src, desc.qid_dst, desc.fid_src, desc.fid_dst  );\
         }\
         for( int isnd=0; isnd<sendcounts_##axis[r]; ++isnd) {\
             auto const& info = sendbuf_##axis[isnd+sdispls_##axis[r]];\
@@ -302,7 +301,7 @@ void regrid_transaction_t::build_buffers() {
             desc.fid_src = info.fid_remote ;\
             desc.fid_dst = info.fid_local  ;\
             remote_fine_face_send_##axis[r].push_back(desc);\
-            GRACE_TRACE("Remote face send rank r {} qsrc {} qdst {} fsrc {} fdst {}", r, desc.qid_src, desc.qid_dst, desc.fid_src, desc.fid_dst  );\
+            GRACE_TRACE("[REGRID] Remote face send rank r {} qsrc {} qdst {} fsrc {} fdst {}", r, desc.qid_src, desc.qid_dst, desc.fid_src, desc.fid_dst  );\
         }\
     }
 

@@ -559,7 +559,80 @@ static void traverse_section(
         }
     }
 
-} /* namespace utils */
+} 
+// forward declare 
+static void check_unknown_parameters(
+    param_path const& path,
+    node_t schema,
+    node_t params
+); 
+
+static void check_unknown_parameter_list(
+    param_path const& path,
+    node_t schema,
+    node_t params
+)
+{
+    if (!params.IsSequence()) return ; 
+
+    for (std::size_t i = 0; i < params.size(); ++i) {
+        YAML::Node elem = params[i];
+        for (auto it = params.begin(); it != params.end(); ++it) {
+            const std::string name =
+                it->first.as<std::string>();
+            check_unknown_parameters(
+                path + "["+ std::to_string(i) + "]" + name , 
+                schema["item_schema"],
+                it->second
+            ) ; 
+        }
+    }
+}
+
+static void check_unknown_parameters(
+    param_path const& path,
+    node_t schema,
+    node_t params
+)
+{
+    if (!params || !params.IsMap()) return;
+    if (!schema || !schema.IsMap()) return;
+
+    for (auto it = params.begin(); it != params.end(); ++it) {
+
+        const std::string name =
+            it->first.as<std::string>();
+
+        // Ignore keys that exist in schema
+        if (!schema[name]) {
+            GRACE_WARN("Unknown parameter at path {}", path.to_string()) ; 
+            continue;
+        }
+
+        // If schema says "schema", recurse
+        if (schema[name]["type"]
+            && schema[name]["type"].as<std::string>() == "schema")
+        {
+            check_unknown_parameters(
+                path + name,
+                schema[name],
+                it->second
+            );
+        }
+
+        // If schema says "schema", recurse
+        if (schema[name]["type"]
+            && schema[name]["type"].as<std::string>() == "list"
+            && schema[name]["item_type"].as<std::string>() == "node" )
+        {
+            check_unknown_parameter_list(
+                path + name,
+                schema[name],
+                it->second
+            );
+        }
+    }
+}
 
 } /* namespace grace */
 

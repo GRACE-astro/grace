@@ -33,6 +33,8 @@
 #include <grace/amr/forest.hh>
 
 #include <grace/errors/assert.hh>
+#include <grace/errors/warn.hh>
+#include <grace/system/print.hh>
 
 #include <vector>
 #include <algorithm>
@@ -51,13 +53,16 @@ int get_variable_index(std::string const& name, bool is_aux)
         {
             return std::distance(_varnames.begin(),it) ; 
         } 
+        GRACE_WARN("Variable index could not be retrieved for {}", name) ; 
     } else {
         auto it = std::find(_auxnames.begin(), _auxnames.end(), name); 
         if (it != _auxnames.end())
         {
             return std::distance(_auxnames.begin(),it) ; 
         } 
+        GRACE_WARN("Auxiliary variable index could not be retrieved for {}", name) ;
     }
+    
     ASSERT_DBG(0, 
     "In get_variable_index, variable "
     << name << " not found.") ; 

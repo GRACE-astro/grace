@@ -80,15 +80,16 @@ amr: {
   ],
 
   regrid_at_postinitial: true,
-  postinitial_regrid_depth: 1,
+  postinitial_regrid_depth: 2,
 
   regrid_every: 10,
 
-  rrefinement_criterion: "simple_threshold",
+  refinement_criterion: "simple_threshold",
   refinement_criterion_var: "conf_fact",
   refinement_criterion_CTORE: 0.01,
   refinement_criterion_CTODE: 0.5,
-  refinement_criterion_reduction: "min"
+  refinement_criterion_reduction: "min",
+  refinement_criterion_var_is_aux: false
 }
 
 IO: {

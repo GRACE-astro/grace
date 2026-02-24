@@ -33,6 +33,7 @@
 #include <code_modules.h> 
 #include <grace/utils/inline.h>
 #include <grace/utils/type_name.hh>
+#include <grace/system/print.hh>
 #include <yaml-cpp/yaml.h>
 
 #include "yaml_helpers.hh"
@@ -151,7 +152,11 @@ class config_parser_impl_t
             
             param_path path ; 
             traverse_section(path + mod, defaults[mod], config[mod]) ; 
-            
+            check_unknown_parameters(
+                path + mod,
+                defaults[mod],
+                config[mod]
+            );
         }
     }; 
 } ; 

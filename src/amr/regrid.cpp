@@ -31,18 +31,22 @@
 #include <grace/amr/regrid/regrid_transaction.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 
+#include <spdlog/stopwatch.h>
 
 namespace grace { namespace amr { 
 
 void regrid() {
     Kokkos::Profiling::pushRegion("regrid") ;
-    GRACE_VERBOSE("Initiating regrid.") ;  
+    GRACE_INFO("Initiating regrid.") ;  
+    spdlog::stopwatch sw ; 
     /******************************************************************************************/
     /*                              Do the thing                                              */
     /******************************************************************************************/
     regrid_transaction_t trx{} ; 
     Kokkos::fence() ; 
     trx.execute() ; 
+    /******************************************************************************************/
+    GRACE_INFO("Regrid done: nq_intial {} final {} time elapsed {} s", trx.get_nq_init(), trx.get_nq_final(), sw) ; 
     /******************************************************************************************/
     /******************************************************************************************/
     Kokkos::Profiling::popRegion() ;
