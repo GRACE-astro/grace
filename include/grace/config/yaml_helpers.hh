@@ -31,6 +31,7 @@
 #include <grace_config.h> 
 
 #include <yaml-cpp/yaml.h>
+#include <grace/utils/type_name.hh>
 
 #include <fstream>
 #include <string>
@@ -42,7 +43,11 @@
 #include <vector>
 #include <iostream> 
 
-#define PRINT_ERROR_AND_EXIT(m)        \
+// CM: NB we can't use the normal error
+// and print macros because when the 
+// parfile is loaded the loggers are 
+// not yet initialized! 
+#define GRACE_PRINT_ERROR_AND_EXIT(m)        \
 do {                                  \
     std::cerr << m << std::endl;       \
     std::abort();                     \
@@ -82,14 +87,14 @@ static T get_param_safe(YAML::Node const& n, param_path const& path)
 {
     auto name = path.identifiers.back() ; 
     if (!n[name]) {
-        PRINT_ERROR_AND_EXIT("Parameter missing at " << path.to_string());
+        GRACE_PRINT_ERROR_AND_EXIT("Parameter missing at " << path.to_string());
     }
     T v; 
     try {
         v = n[name].as<T>();
     }
     catch (const YAML::BadConversion&) {
-        PRINT_ERROR_AND_EXIT("Parameter cannot be converted to "
+        GRACE_PRINT_ERROR_AND_EXIT("Parameter cannot be converted to "
               << utils::type_name<T>());
     }
     return v ; 
@@ -103,16 +108,6 @@ static param_path operator+(param_path path, std::string const& name) {
     return path;
 }
 
-
-/**
- * @brief Traverse a section of a yaml file 
- */
-static void traverse_section(
-    param_path const& path,
-    node_t schema,
-    node_t params
-) ; 
-
 /**
  * @brief Helper to represent numeric parameter ranges 
  */
@@ -123,7 +118,7 @@ struct numeric_range {
 
     numeric_range(const std::string& desc) {
         if (desc.size() < 5)
-            PRINT_ERROR_AND_EXIT("Invalid range format");
+            GRACE_PRINT_ERROR_AND_EXIT("Invalid range format");
 
         // ---- Left bracket ----
         if (desc.front() == '[')
@@ -131,7 +126,7 @@ struct numeric_range {
         else if (desc.front() == '(')
             inclusive[0] = false;
         else
-            PRINT_ERROR_AND_EXIT("Invalid left bracket");
+            GRACE_PRINT_ERROR_AND_EXIT("Invalid left bracket");
 
         // ---- Right bracket ----
         if (desc.back() == ']')
@@ -139,7 +134,7 @@ struct numeric_range {
         else if (desc.back() == ')')
             inclusive[1] = false;
         else
-            PRINT_ERROR_AND_EXIT("Invalid right bracket");
+            GRACE_PRINT_ERROR_AND_EXIT("Invalid right bracket");
 
         // ---- Remove brackets ----
         std::string inner = desc.substr(1, desc.size() - 2);
@@ -147,7 +142,7 @@ struct numeric_range {
         // ---- Split at comma ----
         auto comma = inner.find(',');
         if (comma == std::string::npos)
-            PRINT_ERROR_AND_EXIT("Missing comma");
+            GRACE_PRINT_ERROR_AND_EXIT("Missing comma");
 
         std::string left  = inner.substr(0, comma);
         std::string right = inner.substr(comma + 1);
@@ -165,7 +160,7 @@ struct numeric_range {
             ss >> range[0];
 
             if (!ss)
-                PRINT_ERROR_AND_EXIT("Invalid left bound");
+                GRACE_PRINT_ERROR_AND_EXIT("Invalid left bound");
         }
 
         // ---- Parse right bound ----
@@ -180,12 +175,12 @@ struct numeric_range {
             ss >> range[1];
 
             if (!ss)
-                PRINT_ERROR_AND_EXIT("Invalid right bound");
+                GRACE_PRINT_ERROR_AND_EXIT("Invalid right bound");
         }
 
         // ---- Sanity check ----
         if (range[0] > range[1])
-            PRINT_ERROR_AND_EXIT("Invalid range ordering");
+            GRACE_PRINT_ERROR_AND_EXIT("Invalid range ordering");
     }
 
     bool check(const T& val) const {
@@ -209,7 +204,7 @@ static void check_type_and_range_impl_numeric(
 )
 {
     if (!param.IsScalar()) {
-        PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()
+        GRACE_PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()
               << " is not scalar.");
     }
 
@@ -219,14 +214,14 @@ static void check_type_and_range_impl_numeric(
         val = param.as<T>();
     }
     catch (const YAML::BadConversion&) {
-        PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()
+        GRACE_PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()
               << " cannot be converted to " << utils::type_name<T>() );
     }
 
     auto range_node = schema["range"];
 
     if (!range_node) {
-        PRINT_ERROR_AND_EXIT("Missing range for parameter "
+        GRACE_PRINT_ERROR_AND_EXIT("Missing range for parameter "
               << path.to_string());
     }
 
@@ -234,173 +229,52 @@ static void check_type_and_range_impl_numeric(
         range_node.as<std::string>());
 
     if (!range.check(val)) {
-        PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()
+        GRACE_PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()
               << " not in allowed range.");
     }
 }
 
-static void check_type_and_range_impl_bool(
+void check_type_and_range_impl_bool(
     param_path const& path,
     node_t param,
     node_t schema
-)
-{
-    if (!param.IsScalar()) {
-        PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()
-              << " is not scalar.");
-    }
+) ; 
 
-    bool val;
-
-    try {
-        val = param.as<bool>();
-    }
-    catch (const YAML::BadConversion&) {
-        PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()
-              << " cannot be converted to bool" );
-    }
-}
 
 /**
  * @brief Check string parameter
  */
-static void check_type_and_range_impl_string(
+void check_type_and_range_impl_string(
     param_path const& path,
     node_t param,
     node_t schema
-)
-{
-    if (!param.IsScalar()) {
-        PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()
-              << " is not scalar.");
-    }
-
-    std::string val;
-
-    try {
-        val = param.as<std::string>();
-    }
-    catch (const YAML::BadConversion&) {
-        PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()
-              << " cannot be converted to string" );
-    }
-}
+) ; 
 
 /**
  * @brief Check keyword parameter
  */
-static void check_type_and_range_impl_kw(
+void check_type_and_range_impl_kw(
     param_path const& path,
     node_t param,
     node_t schema
-)
-{
-    // ---- Must be scalar ----
-    if (!param.IsScalar()) {
-        PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()
-              << " is not scalar.");
-    }
-
-    // ---- Read value ----
-    std::string val;
-
-    try {
-        val = param.as<std::string>();
-    }
-    catch (const YAML::BadConversion&) {
-        PRINT_ERROR_AND_EXIT("Parameter " << path.to_string()
-              << " cannot be converted to string");
-    }
-
-    // ---- Read allowed list ----
-    auto allowed_node = schema["allowed"];
-
-    if (!allowed_node || !allowed_node.IsSequence()) {
-        PRINT_ERROR_AND_EXIT("Schema for parameter " << path.to_string()
-              << " does not define a valid 'allowed' list");
-    }
-
-    std::vector<std::string> allowed;
-
-    try {
-        allowed = allowed_node.as<std::vector<std::string>>();
-    }
-    catch (const YAML::BadConversion&) {
-        PRINT_ERROR_AND_EXIT("Schema for parameter " << path.to_string()
-              << " has invalid 'allowed' values");
-    }
-
-    // ---- Check membership ----
-    bool ok = false;
-
-    for (const auto& s : allowed) {
-        if (s == val) {
-            ok = true;
-            break;
-        }
-    }
-
-    if (!ok) {
-        PRINT_ERROR_AND_EXIT("Invalid value '" << val
-              << "' for parameter " << path.to_string() );
-    }
-}
+) ; 
 
 /**
  * @brief Check type and range of any parameter
  */
-static void check_type_and_range(
+void check_type_and_range(
     param_path const& path,
     node_t param,
     node_t schema 
-)
-{
-    const auto type_str = schema["type"].as<std::string>();
-
-    if (type_str == "double") {
-        check_type_and_range_impl_numeric<double>(path, param, schema);
-    }
-    else if (type_str == "unsigned int") {
-        check_type_and_range_impl_numeric<unsigned int>(path, param, schema);
-    }
-    else if (type_str == "int") {
-        check_type_and_range_impl_numeric<int>(path, param, schema);
-    }
-    else if (type_str == "bool") {
-        check_type_and_range_impl_bool(path, param, schema);
-    }
-    else if (type_str == "keyword") {
-        check_type_and_range_impl_kw(path, param, schema);
-    }
-    else if (type_str == "string") {
-        check_type_and_range_impl_string(path, param, schema);
-    }
-    else {
-        PRINT_ERROR_AND_EXIT("Unknown type '" << type_str
-              << "' for parameter " << path.to_string());
-    }
-}
-
+) ; 
 /**
  * @brief Parse a scalar parameter of any kind 
  */
-static void parse_scalar_parameter(
+void parse_scalar_parameter(
     param_path const& path,
     node_t schema,
     node_t list 
-)
-{
-    auto default_val = schema["default"] ;
-    if (!default_val) {
-        PRINT_ERROR_AND_EXIT("Missing default for parameter " << path.to_string() ) ; 
-    }
-    auto key = path.identifiers.back() ; 
-    if (!list[key]) {
-        list[key] = default_val ;
-    }
-
-    check_type_and_range(path, list[key], schema) ; 
-}
+); 
 
 /**
  * @brief Parse a list of numbers
@@ -413,7 +287,7 @@ static void parse_list_numeric_impl(
 )
 {
     if (!list.IsSequence()) {
-        PRINT_ERROR_AND_EXIT("Expected list at " << path.to_string() );
+        GRACE_PRINT_ERROR_AND_EXIT("Expected list at " << path.to_string() );
     }
 
     for (std::size_t i = 0; i < list.size(); ++i) {
@@ -425,216 +299,68 @@ static void parse_list_numeric_impl(
 /**
  * @brief Parse a list of bools 
  */
-static void parse_list_impl_bool(
+void parse_list_impl_bool(
     param_path const& path,
     node_t schema,
     node_t list 
-)
-{
-    if (!list.IsSequence()) {
-        PRINT_ERROR_AND_EXIT("Expected list at " << path.to_string() );
-    }
-    
-    for (std::size_t i = 0; i < list.size(); ++i) {
-        YAML::Node elem = list[i];
-        check_type_and_range_impl_bool(path+("[" + std::to_string(i) + "]"),elem,schema) ; 
-    }
-}
+) ;
 
 /**
  * @brief Parse a list of strings
  */
-static void parse_list_impl_string(
+void parse_list_impl_string(
     param_path const& path,
     node_t schema,
     node_t list 
-)
-{
-    if (!list.IsSequence()) {
-        PRINT_ERROR_AND_EXIT("Expected list at " << path.to_string() );
-    }
-    
-    for (std::size_t i = 0; i < list.size(); ++i) {
-        YAML::Node elem = list[i];
-        check_type_and_range_impl_string(path+("[" + std::to_string(i) + "]"),elem,schema) ; 
-    }
-}
+) ;
 
 /**
  * @brief Parse a list of custom types
  */
-static void parse_node_list_impl(
+void parse_node_list_impl(
     param_path const& path,
     node_t schema,
     node_t list 
-) 
-{
-    if (!list.IsSequence()) {
-        PRINT_ERROR_AND_EXIT("Expected list at " << path.to_string() );
-    }
-
-    for (std::size_t i = 0; i < list.size(); ++i) {
-        YAML::Node elem = list[i];
-        traverse_section(path+("[" + std::to_string(i) + "]"), schema["item_schema"], elem) ; 
-    }
-}
+) ;
 
 /**
  * @brief Parse a list 
  */
-static void parse_list_parameter(
+void parse_list_parameter(
     param_path const& path,
     node_t schema,
     node_t list 
-)
-{
-    auto key = path.identifiers.back() ; 
-    if (!list[key]) {
-        if (schema["default"]) {
-            list[key] = schema["default"] ; 
-        } else {
-            list[key] = YAML::Node(YAML::NodeType::Sequence);
-        }
-    }
-    
-    auto item_type_str = get_param_safe<std::string>(schema,path+"item_type") ; 
-    if (item_type_str == "node") {
-        parse_node_list_impl(path,schema,list[key]) ; 
-    } else if (item_type_str == "double" ) {
-        parse_list_numeric_impl<double>(path,schema,list[key]) ; 
-    } else if (item_type_str == "unsigned int") {
-        parse_list_numeric_impl<unsigned int>(path,schema,list[key]) ; 
-    } else if (item_type_str == "bool") {
-        parse_list_impl_bool(path,schema,list[key]) ; 
-    } else if (item_type_str == "int") {
-        parse_list_numeric_impl<int>(path,schema,list[key]) ; 
-    } else if (item_type_str == "string") {
-        parse_list_impl_string(path,schema,list[key]) ; 
-    } else {
-        PRINT_ERROR_AND_EXIT("Unrecognized item_type " << item_type_str << " for list at " << path.to_string()) ; 
-    }
-}
+) ; 
 
-static void traverse_section(
-    param_path const& path,
-    node_t schema,
-    node_t params
-)
-{
 
-    for (auto it = schema.begin(); it != schema.end(); ++it) {
-
-        const std::string name =
-            it->first.as<std::string>();
-
-        // NB: We are assuming here that if a 
-        // node is scalar it is NOT a parameter. 
-        // This is because of the nested nature of 
-        // the parameter file, where sections sometimes
-        // have a description or even a type == "schema"
-        // which should not be misunderstood as parameters
-        if ( it->second.IsScalar() ) continue ; 
-
-        const std::string type_str =
-            it->second["type"].as<std::string>();
-        
-        if (type_str == "list") {
-            parse_list_parameter(path + name,
-                                 it->second,
-                                 params);
-        }
-        else if ( type_str == "schema" ) {
-            if (!params[name] || !params[name].IsMap()) {
-                params[name] = YAML::Node(YAML::NodeType::Map);
-            }
-            traverse_section(
-                path+name,
-                it->second,
-                params[name]
-            ) ; 
-        } else {
-            parse_scalar_parameter(path + name,
-                                   it->second,
-                                   params);
-        }
-    }
-
-} 
 // forward declare 
-static void check_unknown_parameters(
+void check_unknown_parameters(
     param_path const& path,
     node_t schema,
     node_t params
 ); 
 
-static void check_unknown_parameter_list(
+void check_unknown_parameter_list(
     param_path const& path,
     node_t schema,
     node_t params
-)
-{
-    if (!params.IsSequence()) return ; 
+) ; 
 
-    for (std::size_t i = 0; i < params.size(); ++i) {
-        YAML::Node elem = params[i];
-        for (auto it = params.begin(); it != params.end(); ++it) {
-            const std::string name =
-                it->first.as<std::string>();
-            check_unknown_parameters(
-                path + "["+ std::to_string(i) + "]" + name , 
-                schema["item_schema"],
-                it->second
-            ) ; 
-        }
-    }
-}
-
-static void check_unknown_parameters(
+void check_unknown_parameters(
     param_path const& path,
     node_t schema,
     node_t params
-)
-{
-    if (!params || !params.IsMap()) return;
-    if (!schema || !schema.IsMap()) return;
+) ;
 
-    for (auto it = params.begin(); it != params.end(); ++it) {
-
-        const std::string name =
-            it->first.as<std::string>();
-
-        // Ignore keys that exist in schema
-        if (!schema[name]) {
-            GRACE_WARN("Unknown parameter at path {}", path.to_string()) ; 
-            continue;
-        }
-
-        // If schema says "schema", recurse
-        if (schema[name]["type"]
-            && schema[name]["type"].as<std::string>() == "schema")
-        {
-            check_unknown_parameters(
-                path + name,
-                schema[name],
-                it->second
-            );
-        }
-
-        // If schema says "schema", recurse
-        if (schema[name]["type"]
-            && schema[name]["type"].as<std::string>() == "list"
-            && schema[name]["item_type"].as<std::string>() == "node" )
-        {
-            check_unknown_parameter_list(
-                path + name,
-                schema[name],
-                it->second
-            );
-        }
-    }
-}
+/**
+ * @brief Traverse a section of a yaml file 
+ */
+void traverse_section(
+    param_path const& path,
+    node_t schema,
+    node_t params
+) ; 
 
 } /* namespace grace */
 
-#undef PRINT_ERROR_AND_EXIT
 #endif 

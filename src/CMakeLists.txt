@@ -25,3 +25,5 @@ endif()
 add_subdirectory(evolution)
 
 add_subdirectory(physics)
+
+add_subdirectory(config)

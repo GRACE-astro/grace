@@ -51,4 +51,10 @@ system:
     description: > 
       If flush_logs_based_on_time, how often? (in s I think..)
 
+  n_device_streams:
+    type: unsigned int 
+    default: 1
+    range: "[1,*)"
+    description: >
+      How many streams to keep in the pool
   

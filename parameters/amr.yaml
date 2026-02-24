@@ -133,7 +133,7 @@ amr:
     default: 11
     range: "[1,*)"
     description: >
-      Maximum allowed regrid depth
+      Maximum allowed regrid depth. Note this only affects AMR. FMR ignores this.
 
   regrid_at_postinitial:
     type: bool 

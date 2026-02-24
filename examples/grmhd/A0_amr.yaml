@@ -11,8 +11,7 @@ amr: {
   zmax: 128.0,
 
   n_ghostzones: 4,
-  initial_refinement_level: 1,
-  
+  initial_refinement_level: 1,  
   max_refinement_level: 7,
   
   n_fmr_boxes: 2,
