@@ -121,18 +121,6 @@ get_quadrant_locidx(p4est_quadrant_t* quad)
 }
 
 int 
-get_halo_quad_owner(quadrant_t& quad)
-{
-    return quad.halo_owner_rank() ; 
-};
-
-int 
-get_halo_quad_owner(p4est_quadrant_t* quad)
-{
-    return quadrant_t(quad).halo_owner_rank() ;
-}
-
-int 
 trees_have_opposite_polarity( int64_t treeid, int face )
 {
     return connectivity::get().tree_to_tree_polarity(treeid, face) ; 

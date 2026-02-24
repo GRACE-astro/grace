@@ -29,7 +29,6 @@
 #define AMR_FLAGS_HH
 
 #include <grace/amr/p4est_headers.hh> 
-#include <grace/amr/quadrant.hh> 
 #include <grace/errors/error.hh>
 
 namespace grace { namespace amr { 
@@ -57,8 +56,9 @@ enum quadrant_flags_t : int8_t
  * \cond grace_detail
  * \ingroup amr 
  */
-struct amr_flags_t {
-    quadrant_flags_t quadrant_status ; 
+struct grace_quadrant_user_data_t {
+    quadrant_flags_t regrid_flag ; //!< Regrid status
+    int min_level ;                //!< Minimuma allowed level
 } ; 
 
 /**
@@ -72,8 +72,10 @@ struct amr_flags_t {
 static void initialize_quadrant(p4est_t* p4est, p4est_topidx_t which_tree, p4est_quadrant_t* quad)
 {
     using namespace grace::amr ; 
-    quadrant_t quadrant(quad) ; 
-    quadrant.set_user_int( DEFAULT_STATE ) ; 
+    grace_quadrant_user_data_t* pd = 
+            static_cast<grace_quadrant_user_data_t*>(quad->p.user_data) ; 
+    pd->regrid_flag     = DEFAULT_STATE ; 
+    pd->min_level       = 0 ; 
 }
 
 /**
@@ -98,32 +100,40 @@ static void set_quadrant_flag( p4est_t* p4est
 
     if( num_outgoing == 1 and num_incoming == P4EST_CHILDREN ) // refinement 
     {
-        quadrant_t quadrant( outgoing[0] ) ;
+        grace_quadrant_user_data_t* pdo = 
+                static_cast<grace_quadrant_user_data_t*>(outgoing[0]->p.user_data) ; 
         auto prev_state = 
-            quadrant.get_user_int() ; 
-        quadrant.set_user_int( INVALID_STATE ) ;
+            pdo->regrid_flag ; 
+        auto min_level = pdo->min_level ; 
+        pdo->regrid_flag = INVALID_STATE ; 
+
         for(int iquad=0; iquad<P4EST_CHILDREN; ++iquad) {
-            quadrant = quadrant_t(incoming[iquad] ) ; 
-            quadrant.set_user_int( 
-                (prev_state == NEED_RESTRICTION ? DEFAULT_STATE : NEED_PROLONGATION)
-                ) ;
+            grace_quadrant_user_data_t* pd = 
+                static_cast<grace_quadrant_user_data_t*>(incoming[iquad]->p.user_data) ; 
+            pd->regrid_flag     = (prev_state == NEED_RESTRICTION ? DEFAULT_STATE : NEED_PROLONGATION);
+            pd->min_level       = min_level ; 
         } 
-    } else if ( num_outgoing == P4EST_CHILDREN and num_incoming == 1 ) // coarsening 
+    } else if ( (num_outgoing == P4EST_CHILDREN) && (num_incoming == 1) ) // coarsening 
     {
         int prev_state = -1 ;
+        int min_level = 0 ;
         for(int iquad=0; iquad<P4EST_CHILDREN; ++iquad) {
             if( outgoing[iquad] != nullptr )
             {
-                quadrant_t quadrant = quadrant_t(outgoing[iquad] ) ;
+                grace_quadrant_user_data_t* pdo = 
+                    static_cast<grace_quadrant_user_data_t*>(outgoing[iquad]->p.user_data) ; 
                 prev_state = 
-                    quadrant.get_user_int() ; 
-                quadrant.set_user_int( INVALID_STATE ) ;
+                    pdo->regrid_flag ; 
+                min_level = std::max(min_level, pdo->min_level) ; 
+
+                pdo->regrid_flag = INVALID_STATE ; 
             }
         }
-        quadrant_t quadrant( incoming[0] ) ; 
-        quadrant.set_user_int( 
-            prev_state==NEED_PROLONGATION ? DEFAULT_STATE : NEED_RESTRICTION
-             ) ;
+        grace_quadrant_user_data_t* pd = 
+            static_cast<grace_quadrant_user_data_t*>(incoming[0]->p.user_data) ; 
+        pd->regrid_flag =
+            prev_state==NEED_PROLONGATION ? DEFAULT_STATE : NEED_RESTRICTION;
+        pd->min_level   =  min_level;
     } else {
         ERROR( "In call to initialize_quadrant, num_incoming"
                "and num_outgoing incompatible with both refinement and coarsening. ") ; 
@@ -143,8 +153,9 @@ static int refine_cback( p4est_t* p4est
                        , p4est_topidx_t which_tree 
                        , p4est_quadrant_t * quadrant )
 {
-    quadrant_t quad{quadrant} ; 
-    return  quad.get_user_int() == REFINE ; 
+    grace_quadrant_user_data_t* pd = 
+            static_cast<grace_quadrant_user_data_t*>(quadrant->p.user_data) ; 
+    return  pd->regrid_flag == REFINE ; 
 }
 
 /**
@@ -166,9 +177,10 @@ static int coarsen_cback( p4est_t* p4est
         if( quadrants[ichild] == nullptr ) {
             continue ; 
         } else {
-        quadrant_t quad(quadrants[ichild]) ; 
+        grace_quadrant_user_data_t* pd = 
+            static_cast<grace_quadrant_user_data_t*>(quadrants[ichild]->p.user_data) ; 
         ncoarsen += 
-            (quad.get_user_int() == COARSEN);
+            (pd->regrid_flag == COARSEN);
         }
     }
      

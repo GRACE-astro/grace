@@ -1,8 +1,8 @@
 name: "grace"
 amr: {
-  npoints_block_x: 32,
-  npoints_block_y: 32,
-  npoints_block_z: 32,
+  npoints_block_x: 16,
+  npoints_block_y: 16,
+  npoints_block_z: 16,
   xmin: -1024.0,
   xmax: 1024.0,
   ymin: -1024.0,
@@ -86,8 +86,8 @@ amr: {
 
   refinement_criterion: "simple_threshold",
   refinement_criterion_var: "conf_fact",
-  refinement_criterion_CTORE: 0.01,
-  refinement_criterion_CTODE: 0.5,
+  refinement_criterion_CTORE: 0.25,
+  refinement_criterion_CTODE: 0.9,
   refinement_criterion_reduction: "min",
   refinement_criterion_var_is_aux: false
 }
@@ -120,7 +120,7 @@ IO: {
 
 }
 system: {
-  console_log_level: "trace",
+  console_log_level: "info",
   file_log_level: "trace",
   n_device_streams: 4,
   flush_logs_based_on_severity: true,
@@ -205,8 +205,7 @@ spherical_surfaces: {
 }
 
 gw_integrals: {
-  detector_names: ["GW_1","GW_2"],
-  detector_indices: []
+  detector_names: ["GW_1","GW_2"]
 }
 
 checkpoints: {

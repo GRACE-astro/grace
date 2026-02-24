@@ -76,7 +76,7 @@ static void set_quadrants_to_default()
         auto quadrants = forest::get().tree(itree).quadrants() ; 
         for( int iquad=0; iquad<quadrants.size(); ++iquad) {
             quadrant_t quad{ &(quadrants[iquad]) } ;
-            quad.set_user_int( static_cast<int>(DEFAULT_STATE) ) ; 
+            quad.set_regrid_flag(DEFAULT_STATE) ; 
         }
     }
 }
@@ -153,23 +153,32 @@ void regrid_transaction_t::evaluate_criterion() {
     for( size_t iq=0UL; iq<amr::get_local_num_quadrants(); ++iq)
     {
         auto quad = amr::get_quadrant(iq) ;
-        int flag = INVALID_STATE ; 
+        quadrant_flags_t flag = INVALID_STATE ; 
+        auto min_level = quad.get_min_level() ; 
         if ( h_regrid_flags(iq) == REFINE ) { 
             flag = REFINE ; 
         } else if ( h_regrid_flags(iq) == COARSEN ) {
-            flag = (quad.level() - 1 >= quad.get_user_long()) ? COARSEN : DEFAULT_STATE ; 
+            flag = (quad.level() - 1 >= min_level) ? COARSEN : DEFAULT_STATE ; 
+            GRACE_TRACE("Level {} min level {} flag {}",quad.level(),min_level,static_cast<int>(flag));
         } else {
             flag = DEFAULT_STATE ; 
         }
-        quad.set_user_int(
-            flag            
-        ) ; 
+        quad.set_regrid_flag(flag) ; 
     }
 }
 
 void regrid_transaction_t::execute_host_side_regrid() {
+    /******************************************************************************************/
     GRACE_TRACE("Executing host side regrid") ;
     auto const grace_maxlevel = get_param<int>("amr","max_refinement_level") ; 
+    /******************************************************************************************/
+    // store old min_levels so we can restore them 
+    std::vector<long> min_levels(nq_init); 
+    for( int iq=0; iq<nq_init; ++iq) {
+        quadrant_t quadrant = amr::get_quadrant(iq) ;
+        min_levels[iq] = quadrant.get_min_level();
+        GRACE_TRACE("Old level {}", quadrant.get_min_level()) ; 
+    }
     /******************************************************************************************/
     /* Call to p4est_refine                                                                   */  
     /* The arguments are:                                                                     */
@@ -222,12 +231,12 @@ void regrid_transaction_t::execute_host_side_regrid() {
     keep_incoming.clear(); keep_outgoing.clear() ; 
     size_t iq_new{0UL}, iq_old{0UL} ; 
     while( iq_new < nq_regrid ) {
-        quadrant_t quadrant = amr::get_quadrant(iq_new) ; 
-        int flag = 
-            quadrant.get_user_int() ; 
-        if ( (flag == DEFAULT_STATE) or (flag==REFINE) or (flag==COARSEN) ) {
-            keep_incoming.push_back(iq_new++) ;  keep_outgoing.push_back(iq_old++) ; 
-        } else if ( flag == NEED_PROLONGATION ) {
+        quadrant_t new_quad = amr::get_quadrant(iq_new) ; 
+        quadrant_flags_t flag = new_quad.get_regrid_flag() ; 
+        GRACE_TRACE("iq_new {} iq_old {} flag {}", iq_new, iq_old, static_cast<int>(flag)) ; 
+        ASSERT( flag != INVALID_STATE, "Quadrant " << iq_new <<  " found in invalid state"); 
+        
+        if ( flag == NEED_PROLONGATION ) {
             refine_outgoing.push_back(iq_old) ; 
             iq_old++ ; 
             for( int ichild=0; ichild<P4EST_CHILDREN; ++ichild){
@@ -242,7 +251,8 @@ void regrid_transaction_t::execute_host_side_regrid() {
                 iq_old++ ;
             }
         } else {
-            ERROR("Invalid state " << flag << " for quadrant " << iq_new << '\n') ;
+            new_quad.set_min_level(min_levels[iq_old]) ; 
+            keep_incoming.push_back(iq_new++) ;  keep_outgoing.push_back(iq_old++) ; 
         }
 
     }

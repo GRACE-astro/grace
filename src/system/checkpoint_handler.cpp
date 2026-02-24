@@ -408,7 +408,7 @@ void checkpoint_handler_impl_t::save_checkpoint()
     p4est_save(
         forest_file.string().c_str(),
         amr::forest::get().get(),
-        false
+        true
     ) ; 
 
     // Now we write the state data to an hdf5 file 
@@ -546,8 +546,8 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     p4est_t* p4est  = p4est_load( 
         grid_fname.string().c_str(), 
         sc_MPI_COMM_WORLD, 
-        0, 
-        0, 
+        sizeof(amr::grace_quadrant_user_data_t), 
+        true, 
         nullptr, 
         &conn
     ) ; 

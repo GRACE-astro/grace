@@ -95,30 +95,7 @@ struct fmr_context {
 forest_impl_t::forest_impl_t(
     p4est_t* _forest_ptr
 ) : _p4est(_forest_ptr)
-{
-    GRACE_INFO("Forest initialized from file with {} ({}) total (local) quadrants."
-                 , _p4est->global_num_quadrants, _p4est->local_num_quadrants ) ;
-    auto & params       = grace::config_parser::get()   ; 
-    Kokkos::View<size_t[4]> _gp_d("grid_params") ; 
-    auto _gp_h = Kokkos::create_mirror_view(_gp_d) ; 
-    _gp_h(0) = params["amr"]["npoints_block_x"].as<size_t>() ; 
-    _gp_h(1) = params["amr"]["npoints_block_y"].as<size_t>() ; 
-    _gp_h(2) = params["amr"]["npoints_block_z"].as<size_t>() ; 
-    _gp_h(3) = params["amr"]["n_ghostzones"].as<size_t>() ; 
-    Kokkos::deep_copy(_gp_d, _gp_h) ;
-    _grid_properties = _gp_d ; 
-}
-
-static void fmr_init_cback(
-    p4est_t *p4est,
-    p4est_topidx_t which_tree,
-    p4est_quadrant_t *quad
-)
-{
-    // we write the level here so we can prevent 
-    // derefinement of the FMR grid in AMR 
-    quad->p.user_long = static_cast<long>(quad->level) ; 
-}
+{ }
 
 static int fmr_refine_cback(
     p4est_t* p4est,
@@ -179,14 +156,14 @@ forest_impl_t::forest_impl_t()
     auto & params       = grace::config_parser::get()   ; 
     auto & connectivity = grace::amr::connectivity::get() ; 
     int min_level( params["amr"]["initial_refinement_level"].as<int>() ) ; 
-    _p4est =  p4est_new_ext(  parallel::get_comm_world()
-                            , connectivity.get()   
-                            , 0 
-                            , min_level
-                            , 1 
-                            , 0
-                            , nullptr
-                            , nullptr ) ; 
+    _p4est =  p4est_new_ext(  parallel::get_comm_world()          // MPI comm
+                            , connectivity.get()                  // Connectivity
+                            , 0                                   // min_quadrants 
+                            , min_level                           // min_level 
+                            , 1                                   // fill_uniform 
+                            , sizeof(grace_quadrant_user_data_t)  // data_size
+                            , initialize_quadrant                      // init_fn 
+                            , nullptr ) ;                         // user_ptr 
     // set up fmr grid if needed
     // first: get the fmr boxes 
     auto n_boxes = grace::get_param<unsigned>("amr","n_fmr_boxes") ; 
@@ -205,24 +182,15 @@ forest_impl_t::forest_impl_t()
         context.base_level = base_level ; 
         _p4est->user_pointer = &context ; 
         // call refine
-        p4est_refine(_p4est, 1, fmr_refine_cback, fmr_init_cback) ;
+        p4est_refine(_p4est, 1, fmr_refine_cback, initialize_quadrant) ;
         // call balance 
-        p4est_balance(_p4est, P4EST_CONNECT_FULL, fmr_init_cback) ; 
+        p4est_balance(_p4est, P4EST_CONNECT_FULL, initialize_quadrant) ; 
         // call partition! 
         p4est_partition(_p4est, 1, nullptr) ; 
     }
 
     GRACE_INFO("Forest initialized with {} ({}) total (local) quadrants."
                  , _p4est->global_num_quadrants, _p4est->local_num_quadrants ) ; 
-
-    Kokkos::View<size_t[4]> _gp_d("grid_params") ; 
-    auto _gp_h = Kokkos::create_mirror_view(_gp_d) ; 
-    _gp_h(0) = params["amr"]["npoints_block_x"].as<size_t>() ; 
-    _gp_h(1) = params["amr"]["npoints_block_y"].as<size_t>() ; 
-    _gp_h(2) = params["amr"]["npoints_block_z"].as<size_t>() ; 
-    _gp_h(3) = params["amr"]["n_ghostzones"].as<size_t>() ; 
-    Kokkos::deep_copy(_gp_d, _gp_h) ;
-    _grid_properties = _gp_d ; 
 }
 
 forest_impl_t::~forest_impl_t() 

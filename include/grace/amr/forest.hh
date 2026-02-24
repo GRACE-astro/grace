@@ -126,8 +126,6 @@ class forest_impl_t
       return _p4est->global_first_quadrant[rank] ; 
     }
    //*****************************************************************************************************
-   GRACE_ALWAYS_INLINE static_readonly_view_t<size_t,4> 
-   get_grid_properties() const {return _grid_properties ; }
  private:
    //*****************************************************************************************************
     /**
@@ -150,7 +148,6 @@ class forest_impl_t
     friend class memory::new_delete_creator<forest_impl_t, memory::new_delete_allocator> ; //!< Give access
     static constexpr unsigned int longevity = AMR_FOREST ; //!< Longevity of p4est object. 
    //*****************************************************************************************************
-   static_readonly_view_t<size_t,4> _grid_properties ; 
    //*****************************************************************************************************
 } ; 
 //*****************************************************************************************************

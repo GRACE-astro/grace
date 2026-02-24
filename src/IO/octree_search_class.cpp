@@ -34,7 +34,8 @@ int grace_search_plane(
     // if the quadrant is a leaf we write back 
     // to its user_int to flag it 
     if ( local_num >= 0 and intersect ) {
-        quadrant->p.user_int = 1 ;
+        auto quadlist = static_cast<std::vector<size_t>*>(forest->user_pointer) ; 
+        quadlist->push_back( local_num + amr::get_local_quadrants_offset(which_tree) ) ; 
     }
     return intersect ; 
 }
@@ -45,19 +46,17 @@ void oct_tree_plane_slicer_t::search() {
     auto plane_arr = sc_array_new_data(
         _buf.data(),sizeof(plane_desc_t), 1
     ) ; 
+    // get forest ptr 
+    p4est_t * p4est = grace::amr::forest::get().get(); 
+    p4est->user_pointer = reinterpret_cast<void*>(&(sliced_quads)) ;
     // search 
     p4est_search_local(
-        grace::amr::forest::get().get(), 
+        p4est, 
         false, 
         nullptr, 
         &grace_search_plane,
         plane_arr
     ) ; 
-    // collect quadrants that returned 1 
-    for( size_t iq=0UL; iq<_nq; iq+=1UL) {
-        auto quad = amr::get_quadrant(iq) ; 
-        if (quad.get_user_int()) sliced_quads.push_back(iq) ; 
-    }
 }
 
 void oct_tree_plane_slicer_t::find_cells() {
@@ -75,7 +74,6 @@ void oct_tree_plane_slicer_t::find_cells() {
 }
 
 void oct_tree_plane_slicer_t::slice() {
-    reset_quads() ; 
     search() ; 
     find_cells() ;
 }

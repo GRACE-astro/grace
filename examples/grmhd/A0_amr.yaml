@@ -80,7 +80,7 @@ system: {
   console_log_level: "info",
   file_log_level: "trace",
   n_device_streams: 4,
-  flush_logs_based_on_severity: false,
+  flush_logs_based_on_severity: true,
   flush_severity_level: "trace"
 }
 evolution: {
@@ -123,7 +123,8 @@ grmhd: {
 }
 
 z4c: {
-  eps_diss: 0.1
+  eps_diss: 0.1,
+  eta: 1.4
 }
 
 eos: {

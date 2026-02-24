@@ -138,22 +138,6 @@ get_quadrant_locidx(quadrant_t quad);
 int64_t 
 get_quadrant_locidx(p4est_quadrant_t* quad);
 /**
- * @brief For halo quadrants: get owner mpi 
- *        rank.
- * \ingroup amr
- * \cond grace_detail
- */
-int 
-get_halo_quad_owner(quadrant_t& quad);
-/**
- * @brief For halo quadrants: get owner mpi 
- *        rank.
- * \ingroup amr
- * \cond grace_detail
- */
-int 
-get_halo_quad_owner(p4est_quadrant_t* quad);
-/**
  * @brief Determine whether coordinates flip across 
  *        tree boundary.
  * \ingroup amr

@@ -500,6 +500,8 @@ grmhd:
   
   two_punctures:
     type: schema
+    description: >
+      Parameters for TwoPunctures initial data 
     par_b:
       type: double
       default: 1
@@ -507,7 +509,7 @@ grmhd:
       description: >
         Distance of the two punctures along the x axis 
       
-    par_M_plus:
+    target_M_plus:
       type: double 
       default: 1
       range: "(0,*)"
@@ -550,7 +552,7 @@ grmhd:
       description: >
         Angular momentum of the first puncture along z
     
-    par_M_minus:
+    target_M_minus:
       type: double 
       default: 1
       range: "(0,*)"
@@ -611,6 +613,13 @@ grmhd:
       range: "(0,*)"
       description: >
         Number of points on phi grid, must be multiple of 4
+    
+    TP_epsilon:
+      type: double 
+      default: 0
+      range: "[0,*)"
+      description: >
+        A small number to smooth out singularities at the puncture locations
 
   tov: 
     type: schema 

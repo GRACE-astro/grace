@@ -92,9 +92,9 @@ struct oct_tree_plane_slicer_t {
 
     size_t n_sliced_quads() const { return sliced_quads.size() ; }
 
-    size_t _nq, _ngz ; 
-    plane_desc_t _plane ; //!< The plane that is used to slice 
-    std::vector<size_t> sliced_quads ; //!< Local quad-ids of sliced quads 
+    size_t _nq, _ngz ;                         //!< 
+    plane_desc_t _plane ;                      //!< The plane that is used to slice 
+    std::vector<size_t> sliced_quads ;         //!< Local quad-ids of sliced quads 
     std::vector<size_t > sliced_cell_offsets ; //!< Map quad_id -> offset from ngz 
     
     size_t ncells, glob_nq, glob_ncells, local_quad_offset ; //!< Filled during output for convenience 
@@ -102,13 +102,6 @@ struct oct_tree_plane_slicer_t {
     private:
     void search() ; 
     void find_cells() ; 
-    void reset_quads() {
-        // reset quadrant status 
-        for( size_t iq=0UL; iq<_nq; iq+=1UL) {
-            auto quad = amr::get_quadrant(iq) ; 
-            quad.set_user_int(0) ; 
-        }
-    }
 
 } ; 
 } // namespace amr
