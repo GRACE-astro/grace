@@ -54,14 +54,15 @@ cartesian_coordinate_system_impl_t::get_inv_spacing(size_t const& q) const {
     return 1./get_spacing(q) ;  
 }; 
 
-void cartesian_coordinate_system_impl_t::update_grid_structure() 
+void cartesian_coordinate_system_impl_t::update_grid_structure(int nq_new) 
 {
     using namespace grace ;
     using namespace Kokkos ; 
     DECLARE_GRID_EXTENTS;
-
-    qx_h.reserve(nq); qdx_h.reserve(nq) ; 
-    for( int i=0; i<nq; ++i) {
+    GRACE_TRACE("Reizing quad coords nq {}", nq_new) ; 
+    qx_h.clear() ; qdx_h.clear() ;
+    qx_h.reserve(nq_new); qdx_h.reserve(nq_new) ; 
+    for( int i=0; i<nq_new; ++i) {
         auto itree = amr::get_quadrant_owner(i) ; 
         auto quad = amr::get_quadrant(itree,i) ; 
         auto dx = quad.spacing() ; 
@@ -82,7 +83,7 @@ void cartesian_coordinate_system_impl_t::update_grid_structure()
 cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
 {
     
-    update_grid_structure() ; 
+    update_grid_structure(amr::get_local_num_quadrants()) ; 
 
     is_cks = get_param<bool>("coordinate_system", "is_kerr_schild") ; 
     bh_spin = get_param<double>("coordinate_system", "bh_spin"); 

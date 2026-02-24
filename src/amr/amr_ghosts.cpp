@@ -83,11 +83,11 @@ void amr_ghosts_impl_t::update() {
     reset() ; 
 
     auto nvar = variables::get_n_evolved() ; 
-    var_bc_kind = Kokkos::View<bc_t*>{
-        "BC_types", static_cast<size_t>(nvar) 
-    } ;
-    high_order_interp_varlist = std::vector<size_t>() ; 
-    low_order_interp_varlist = std::vector<size_t>() ; 
+
+    // collect bc types of all variables 
+    high_order_interp_varlist.clear() ; 
+    low_order_interp_varlist.clear() ; 
+    Kokkos::realloc(var_bc_kind, static_cast<size_t>(nvar)) ; 
     auto var_bc_kind_h = Kokkos::create_mirror_view(var_bc_kind) ; 
     for(int ivar=0; ivar<nvar; ++ivar){
         var_bc_kind_h(ivar) = variables::get_bc_type(ivar) ; 
@@ -103,9 +103,7 @@ void amr_ghosts_impl_t::update() {
     Kokkos::deep_copy(var_bc_kind,var_bc_kind_h) ; 
 
     auto nvar_f = variables::get_n_evolved_face_staggered() ; 
-    var_bc_kind_f = Kokkos::View<bc_t*>{
-        "BC_types", static_cast<size_t>(nvar_f) 
-    } ;
+    Kokkos::realloc(var_bc_kind_f,static_cast<size_t>(nvar_f)); 
     auto var_bc_kind_f_h = Kokkos::create_mirror_view(var_bc_kind_f) ; 
     for(int ivar=0; ivar<nvar_f; ++ivar){
         var_bc_kind_f_h(ivar) = variables::get_bc_type(ivar,STAG_FACEX) ;
@@ -113,9 +111,7 @@ void amr_ghosts_impl_t::update() {
     Kokkos::deep_copy(var_bc_kind_f,var_bc_kind_f_h) ;
 
     // collect parity factors for reflection symmetries
-    var_reflect_parity = Kokkos::View<double*[3]>(
-        "reflection_parities", static_cast<size_t>(nvar) 
-    ) ; 
+    Kokkos::realloc(var_reflect_parity, static_cast<size_t>(nvar) ) ; 
     auto var_reflect_parity_h = Kokkos::create_mirror_view(var_reflect_parity) ; 
     for(int ivar=0; ivar<nvar; ++ivar){
         var_reflect_parity_h(ivar,0) = var_reflect_parity_h(ivar,1) = var_reflect_parity_h(ivar,2) = 1.0;
@@ -138,11 +134,6 @@ void amr_ghosts_impl_t::update() {
     // initialize weights for 5th order restrict/prolong 
     grace::detail::fill_fifth_order_prolongation_coefficients(ho_prolong_coefficients) ; 
     grace::detail::fill_fifth_order_restriction_coefficients(ho_restrict_coefficients) ; 
-
-    // Destroy old ghost layer if present
-    if (p4est_ghost_layer) {
-        p4est_ghost_destroy(p4est_ghost_layer);
-    }
 
     // Rebuild ghost layer from scratch
     p4est_ghost_layer = p4est_ghost_new(grace::amr::forest::get().get(), P4EST_CONNECT_FULL);

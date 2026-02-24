@@ -52,7 +52,6 @@ namespace grace { namespace amr {
  * @tparam KerArgT Type of extra arguments to the kernel.
  * @param flag_view View containing regrid flags. 
  * @param kernel    Cell-wise kernel to decide whether to regrid.
- * @param kernel_args Extra arguments to kernel.
  */
 template< typename ViewT 
     , typename KerT 
@@ -61,20 +60,21 @@ void evaluate_regrid_criterion( ViewT flag_view
                               , KerT kernel) 
 {
     using namespace grace  ;  
-    auto& params = config_parser::get() ; 
+    // Get arrays 
     auto  state  = variable_list::get().getstate() ; 
+    // Get array sizes 
     int64_t nx,ny,nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     size_t nq = amr::get_local_num_quadrants() ; 
     size_t ngz = amr::get_n_ghosts() ; 
-
+    // Store flags 
     size_t REFINE_FLAG  = amr::quadrant_flags_t::REFINE  ;  
     size_t COARSEN_FLAG = amr::quadrant_flags_t::COARSEN ; 
-
+    // Store parameters 
     double CTORE = get_param<double>("amr","refinement_criterion_CTORE");  
     double CTODE = get_param<double>("amr","refinement_criterion_CTODE");
-
     auto reduction = get_param<std::string>("amr", "refinement_criterion_reduction") ; 
+    // Policy 
     Kokkos::TeamPolicy<default_execution_space> policy(nq, Kokkos::AUTO() ) ; 
     using member_type = Kokkos::TeamPolicy<default_execution_space>::member_type ;
 
@@ -97,7 +97,7 @@ void evaluate_regrid_criterion( ViewT flag_view
             int const q = team_member.league_rank() ; 
             Kokkos::parallel_reduce(  
                     reduce_range 
-                , [=] (int64_t& icell, double& leps )
+                , [=] (int64_t const icell, double& leps )
                 {
                     int const i = icell%nx ;
                     int const j = icell/nx%ny; 
@@ -136,7 +136,7 @@ void evaluate_regrid_criterion( ViewT flag_view
             int const q = team_member.league_rank() ; 
             Kokkos::parallel_reduce(  
                     reduce_range 
-                , [=] (int64_t& icell, double& leps )
+                , [=] (int64_t const icell, double& leps )
                 {
                     int const i = icell%nx ;
                     int const j = icell/nx%ny; 

@@ -67,7 +67,7 @@ void oct_tree_plane_slicer_t::find_cells() {
         auto const idx = detail::get_inv_cell_spacing(iq, _plane.dir);
         auto const qc = detail::get_quad_coord_lbounds(iq) ; 
         size_t const offset = math::floor_int(
-            Kokkos::fabs(qc[_plane.dir] - _plane.d[_plane.dir]) * idx + 0.5
+            Kokkos::fabs(qc[_plane.dir] - _plane.d[_plane.dir]) * idx + 1e-15
         ) ; 
         sliced_cell_offsets.push_back(offset) ; 
         

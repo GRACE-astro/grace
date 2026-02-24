@@ -63,7 +63,7 @@ static inline bool intersects(plane_desc_t const& plane, cube_desc_t const& cube
     double const dx = cube.v[1][0] - cube.v[0][0] ; 
     #pragma unroll
     for( int i=0; i<8; ++i) {
-        double f = (cube.v[i][plane.dir] - plane.d[plane.dir]) ; 
+        double f = (cube.v[i][plane.dir] - plane.d[plane.dir]) + 1e-15 * dx ; 
         if(f >= 0) pos = true;
         if(f < 0) neg = true;
     }
@@ -84,13 +84,15 @@ struct oct_tree_plane_slicer_t {
     oct_tree_plane_slicer_t(
         plane_desc_t const& plane,
         size_t nq) 
-    : _nq(nq), _plane(plane) {}
+    : _nq(nq), _plane(plane) {
+        _ngz = amr::get_n_ghosts() ; 
+    }
 
     void slice() ;
 
     size_t n_sliced_quads() const { return sliced_quads.size() ; }
 
-    size_t _nq ; 
+    size_t _nq, _ngz ; 
     plane_desc_t _plane ; //!< The plane that is used to slice 
     std::vector<size_t> sliced_quads ; //!< Local quad-ids of sliced quads 
     std::vector<size_t > sliced_cell_offsets ; //!< Map quad_id -> offset from ngz 

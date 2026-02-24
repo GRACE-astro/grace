@@ -130,7 +130,7 @@ class cartesian_coordinate_system_impl_t
 {
  public: 
     //**************************************************************************************************
-    void update_grid_structure() ; 
+    void update_grid_structure(int nq_new) ; 
     //**************************************************************************************************
     /**
      * @brief Get the physical coordinates of a point

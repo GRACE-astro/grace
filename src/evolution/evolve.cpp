@@ -403,7 +403,7 @@ void compute_fluxes(
     auto& vbar  = grace::variable_list::get().getvbararray() ;
     //**************************************************************************************************/
     // construct grmhd object 
-    using recon_t = slope_limited_reconstructor_t<MCbeta>; //weno_reconstructor_t<5> ; 
+    using recon_t = weno_reconstructor_t<5> ; 
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,old_state,old_stag_state,aux) ; 
@@ -523,7 +523,7 @@ void compute_emfs(
     DECLARE_GRID_EXTENTS ; 
     //**************************************************************************************************/
     // fetch some stuff 
-    using recon_t = slope_limited_reconstructor_t<MCbeta>; //weno_reconstructor_t<5> ; 
+    using recon_t = weno_reconstructor_t<5> ; 
     auto& idx     = grace::variable_list::get().getinvspacings() ;
     auto& vbar  = grace::variable_list::get().getvbararray() ;
     auto& emf  = grace::variable_list::get().getemfarray() ; 
@@ -741,7 +741,6 @@ void add_fluxes_and_source_terms(
     int nvars_hrsc = variables::get_n_hrsc() ;
     //**************************************************************************************************/
     // construct grmhd object 
-    using recon_t = slope_limited_reconstructor_t<MCbeta>;//weno_reconstructor_t<5> ; 
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,old_state,old_stag_state,aux) ;

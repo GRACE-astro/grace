@@ -59,6 +59,7 @@
 #include <grace/amr/amr_ghosts.hh>
 
 #include <grace/coordinates/coordinates.hh>
+#include <grace/coordinates/coordinate_systems.hh>
 
 namespace grace { namespace amr {
 /**
@@ -146,8 +147,9 @@ void regrid_transaction_t::evaluate_criterion() {
     } else {
         ERROR("Unsupported refinement criterion.") ; 
     }
-    /* copy flags from device to host */ 
+    /* copy flags from device to host         */ 
     Kokkos::deep_copy(h_regrid_flags, d_regrid_flags) ; 
+    /* store the flags directly in the forest */
     for( size_t iq=0UL; iq<amr::get_local_num_quadrants(); ++iq)
     {
         auto quad = amr::get_quadrant(iq) ;
@@ -289,7 +291,12 @@ void regrid_transaction_t::execute_partition() {
                     , quadrant_data_size 
                     , quadrant_data_size_fs
             ) ;
-    // now we can refill the coordinates and so on while we wait 
+    // now we can refill the coordinates and so on while we wait   
+    /******************************************************************************************/
+    /*                     Update coordinate data structures                                  */
+    /******************************************************************************************/
+    grace::coordinate_system::get().update_grid_structure(amr::get_local_num_quadrants());
+    /******************************************************************************************/
     auto& idx = variable_list::get().getinvspacings()  ;
     auto& dx = variable_list::get().getspacings()    ;
     Kokkos::realloc( idx        , GRACE_NSPACEDIM
@@ -298,7 +305,9 @@ void regrid_transaction_t::execute_partition() {
     Kokkos::realloc(  dx        , GRACE_NSPACEDIM
                                 ,   nq_final 
                                  ) ;
+    /******************************************************************************************/
     fill_cell_spacings(idx, dx) ;
+    /******************************************************************************************/
     // realloc staging buffers, fluxes, aux 
     GRACE_TRACE("Resizing aux array new quad count {}", nq_final) ; 
     grace::variable_list::get().resize_aux_staging_and_flux_buffers(nq_final) ; 

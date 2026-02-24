@@ -42,14 +42,14 @@
 namespace grace { namespace amr {
 
 struct fine_face_data_desc_t {
-    int axis ; // Face axis, also stag direction
-    int side ; // 0 lower 1 upper 
-    size_t qid_ghost  ; // ghost idx
-    size_t qid_local  ; // local index in this forest 
-    size_t qid_remote ; // local index in owner rank's forest
-    size_t which_tree ; // tree index in owner rank's forest
-    int8_t fid_local ; 
-    int8_t fid_remote ; 
+    int axis ; //!< Face axis, also stag direction
+    int side ; //!< 0 lower 1 upper 
+    size_t qid_ghost  ; //!< ghost idx
+    size_t qid_local  ; //!< local index in this forest 
+    size_t qid_remote ; //!< local index in owner rank's forest
+    size_t which_tree ; //!< tree index in owner rank's forest
+    int8_t fid_local ;  //!< Local face index 
+    int8_t fid_remote ; //<! Remote face index 
 } ;
 
 struct fine_interface_desc_t {
@@ -117,6 +117,7 @@ struct regrid_transaction_t {
     }; 
     
     private:
+    
     //! Task list for the regrid
     std::vector<std::unique_ptr<task_t>> task_list ;
     executor task_queue ; 
@@ -130,17 +131,21 @@ struct regrid_transaction_t {
     std::vector<size_t> refine_incoming, coarsen_incoming, keep_incoming ; 
     std::vector<size_t> refine_outgoing, coarsen_outgoing, keep_outgoing ;
     std::vector<int64_t> old_glob_qoffsets, new_glob_qoffsets ;  
-
+    //! For MPI: indices of local and remote fine faces that need to be exchanged 
     std::vector<fine_interface_desc_t> local_fine_face_x, local_fine_face_y, local_fine_face_z;
     std::vector<std::vector<fine_interface_desc_t>> remote_fine_face_send_x, remote_fine_face_send_y, remote_fine_face_send_z
                                                   , remote_fine_face_recv_x, remote_fine_face_recv_y, remote_fine_face_recv_z;
+    //! For MPI: counts and displacements of sends and receives 
     std::vector<int> sdispls_x, sdispls_y, sdispls_z, rdispls_x, rdispls_y, rdispls_z ; 
     std::vector<int> sendcounts_x, sendcounts_y, sendcounts_z, recvcounts_x, recvcounts_y, recvcounts_z ; 
+    //! Flags indicating whether fine data is available on faces, if available, it will be copied instead of prolonged.
     std::vector<std::array<int8_t,2>> have_fine_data_x, have_fine_data_y, have_fine_data_z ; 
     fine_interface_desc_device_t fine_face_descs ; 
     //! Number of quadrants: before regrid, after, and after partition
     size_t nq_init, nq_regrid, nq_final ; 
+    //! Number of cells and ghost cells 
     size_t nx,ny,nz, ngz ; 
+    //! Number of variables in each staggering 
     size_t nvars_cc, nvars_fs, nvars_es, nvars_cs ; 
 
 
