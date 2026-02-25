@@ -35,7 +35,7 @@ int grace_search_plane(
     // to its user_int to flag it 
     if ( local_num >= 0 and intersect ) {
         auto quadlist = static_cast<std::vector<size_t>*>(forest->user_pointer) ; 
-        quadlist->push_back( local_num + amr::get_local_quadrants_offset(which_tree) ) ; 
+        quadlist->push_back( local_num /*+ amr::get_local_quadrants_offset(which_tree)*/ ) ; 
     }
     return intersect ; 
 }

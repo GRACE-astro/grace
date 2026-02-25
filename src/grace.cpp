@@ -120,6 +120,9 @@ int main(int argc, char* argv[])
             grace::amr::apply_boundary_conditions() ;
 	        grace::compute_auxiliary_quantities() ;
             grace::spherical_surface_manager::get().update(true) ; 
+            #ifdef GRACE_ENABLE_Z4C_METRIC
+            grace::compute_constraint_violations() ; 
+            #endif 
         }
         if(    (volume_output_every>0) 
            or  (plane_surface_output_every>0) 

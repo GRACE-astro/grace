@@ -79,6 +79,23 @@ static void initialize_quadrant(p4est_t* p4est, p4est_topidx_t which_tree, p4est
 }
 
 /**
+ * @brief Initialize a quadrant to default state.
+ * \cond grace_detail 
+ * \ingroup amr 
+ * @param p4est        The oct-tree forest. 
+ * @param which_tree   Id of the tree where the quadrants live.
+ * @param quad         Quadrant being initialized 
+ */
+static void initialize_quadrant_fmr(p4est_t* p4est, p4est_topidx_t which_tree, p4est_quadrant_t* quad)
+{
+    using namespace grace::amr ; 
+    grace_quadrant_user_data_t* pd = 
+            static_cast<grace_quadrant_user_data_t*>(quad->p.user_data) ; 
+    pd->regrid_flag     = DEFAULT_STATE ; 
+    pd->min_level       = static_cast<int>(quad->level) ; 
+}
+
+/**
  * @brief Flag quadrants in need of prolongation and/or restriction
  *        after refinement and coarsening.
  * \cond grace_detail 

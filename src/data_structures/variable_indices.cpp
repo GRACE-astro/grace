@@ -428,6 +428,7 @@ void register_variables() {
     register_aux_vector({BX_,BY_,BZ_}, "Bvec") ;
     register_aux_scalar(YE_, "ye") ; 
     register_aux_scalar(TEMP_,"temperature") ; 
+    register_aux_scalar(ENTROPY_,"entropy") ; 
     register_aux_scalar(EPS_,"eps") ; 
     register_aux_scalar(PRESS_,"press") ;
     register_aux_scalar(BDIV_, "Bdiv") ; 

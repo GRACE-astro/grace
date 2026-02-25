@@ -139,8 +139,8 @@ struct regrid_transaction_t {
     std::vector<std::vector<fine_interface_desc_t>> remote_fine_face_send_x, remote_fine_face_send_y, remote_fine_face_send_z
                                                   , remote_fine_face_recv_x, remote_fine_face_recv_y, remote_fine_face_recv_z;
     //! For MPI: counts and displacements of sends and receives 
-    std::vector<int> sdispls_x, sdispls_y, sdispls_z, rdispls_x, rdispls_y, rdispls_z ; 
-    std::vector<int> sendcounts_x, sendcounts_y, sendcounts_z, recvcounts_x, recvcounts_y, recvcounts_z ; 
+    std::vector<int> send_off_x, send_off_y, send_off_z, recv_off_x, recv_off_y, recv_off_z ; 
+    std::vector<int> send_size_x, send_size_y, send_size_z, recv_size_x, recv_size_y, recv_size_z ; 
     //! Flags indicating whether fine data is available on faces, if available, it will be copied instead of prolonged.
     std::vector<std::array<int8_t,2>> have_fine_data_x, have_fine_data_y, have_fine_data_z ; 
     fine_interface_desc_device_t fine_face_descs ; 

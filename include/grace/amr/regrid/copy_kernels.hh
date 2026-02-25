@@ -244,15 +244,15 @@ gpu_task_t make_copy(
     MDRangePolicy<Rank<5,Iterate::Left>>
     policy{
         exec_space, 
-        { static_cast<long>(ngz),
-          static_cast<long>(ngz),
-          static_cast<long>(ngz),
+        { static_cast<long>(0),
+          static_cast<long>(0),
+          static_cast<long>(0),
           0,
           0
         }, 
-        { static_cast<long>(nx+s[0]+ngz),
-          static_cast<long>(ny+s[1]+ngz),
-          static_cast<long>(nz+s[2]+ngz),
+        { static_cast<long>(nx+s[0]+2*ngz),
+          static_cast<long>(ny+s[1]+2*ngz),
+          static_cast<long>(nz+s[2]+2*ngz),
           static_cast<long>(nvars),
           static_cast<long>(qin.size())
         }

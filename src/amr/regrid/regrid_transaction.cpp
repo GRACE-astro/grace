@@ -416,61 +416,61 @@ void regrid_transaction_t::build_task_list() {
     #if 1
     std::vector<std::array<task_id_t,3>> mpi_send_tid(nprocs), mpi_recv_tid(nprocs) ; 
     for( int r=0; r<nprocs; ++r) {
-        if ( recvcounts_x[r] > 0 ){
+        if ( recv_size_x[r] > 0 ){
             task_list.push_back(
                 std::make_unique<mpi_task_t>(
                     make_mpi_recv_task_regrid(
-                        r, _recv_fbuf_x, rdispls_x, recvcounts_x, task_counter, parallel::GRACE_REGRID_TAG_FX
+                        r, _recv_fbuf_x, recv_off_x, recv_size_x, task_counter, parallel::GRACE_REGRID_TAG_FX
                     )
                 ) 
             ) ; 
             mpi_recv_tid[r][0] = task_list.back()->task_id ;
         }
-        if ( sendcounts_x[r] > 0) {
+        if ( send_size_x[r] > 0) {
             task_list.push_back(
                     std::make_unique<mpi_task_t>(
                         make_mpi_send_task_regrid(
-                            r, _send_fbuf_x, sdispls_x, sendcounts_x, task_counter, parallel::GRACE_REGRID_TAG_FX
+                            r, _send_fbuf_x, send_off_x, send_size_x, task_counter, parallel::GRACE_REGRID_TAG_FX
                         )
                     ) 
                 ) ; 
                 mpi_send_tid[r][0] = task_list.back()->task_id ;
         }
-        if ( recvcounts_y[r] > 0 ){
+        if ( recv_size_y[r] > 0 ){
             task_list.push_back(
                 std::make_unique<mpi_task_t>(
                     make_mpi_recv_task_regrid(
-                        r, _recv_fbuf_y, rdispls_y, recvcounts_y, task_counter, parallel::GRACE_REGRID_TAG_FY
+                        r, _recv_fbuf_y, recv_off_y, recv_size_y, task_counter, parallel::GRACE_REGRID_TAG_FY
                     )
                 ) 
             ) ; 
             mpi_recv_tid[r][1] = task_list.back()->task_id ;
         }
-        if ( sendcounts_y[r] > 0) {
+        if ( send_size_y[r] > 0) {
             task_list.push_back(
                     std::make_unique<mpi_task_t>(
                         make_mpi_send_task_regrid(
-                            r, _send_fbuf_y, sdispls_y, sendcounts_y, task_counter, parallel::GRACE_REGRID_TAG_FY
+                            r, _send_fbuf_y, send_off_y, send_size_y, task_counter, parallel::GRACE_REGRID_TAG_FY
                         )
                     ) 
                 ) ; 
                 mpi_send_tid[r][1] = task_list.back()->task_id ;
         }
-        if ( recvcounts_z[r] > 0 ){
+        if ( recv_size_z[r] > 0 ){
             task_list.push_back(
                 std::make_unique<mpi_task_t>(
                     make_mpi_recv_task_regrid(
-                        r, _recv_fbuf_z, rdispls_z, recvcounts_z, task_counter, parallel::GRACE_REGRID_TAG_FZ
+                        r, _recv_fbuf_z, recv_off_z, recv_size_z, task_counter, parallel::GRACE_REGRID_TAG_FZ
                     )
                 ) 
             ) ; 
             mpi_recv_tid[r][2] = task_list.back()->task_id ;
         }
-        if ( sendcounts_z[r] > 0) {
+        if ( send_size_z[r] > 0) {
             task_list.push_back(
                     std::make_unique<mpi_task_t>(
                         make_mpi_send_task_regrid(
-                            r, _send_fbuf_z, sdispls_z, sendcounts_z, task_counter, parallel::GRACE_REGRID_TAG_FZ
+                            r, _send_fbuf_z, send_off_z, send_size_z, task_counter, parallel::GRACE_REGRID_TAG_FZ
                         )
                     ) 
                 ) ; 

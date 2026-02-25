@@ -164,17 +164,32 @@ void regrid_transaction_t::build_buffers() {
     // we will receive the data from the 
     // descriptors above.
     
+    
+    // 
+    // Nomenclature : counts means numbers of faces, sizes means number of doubles 
+    // 
+    // Each face's size (in doubles is)
+    int const send_size_face = nx * nx * nvars_fs ; 
+
+    std::vector<int> sendcounts_x(nprocs), sendcounts_y(nprocs), sendcounts_z(nprocs) ; 
+    std::vector<int> recvcounts_x(nprocs), recvcounts_y(nprocs), recvcounts_z(nprocs) ; 
+    std::vector<int> sendbcounts_x(nprocs), sendbcounts_y(nprocs), sendbcounts_z(nprocs) ; 
+    std::vector<int> recvbcounts_x(nprocs), recvbcounts_y(nprocs), recvbcounts_z(nprocs) ; 
+
+    send_size_x.resize(nprocs);
+    send_size_y.resize(nprocs); 
+    send_size_z.resize(nprocs);
+    recv_size_x.resize(nprocs); 
+    recv_size_y.resize(nprocs); 
+    recv_size_z.resize(nprocs);
+
     // 1) exchange counts: send our receive counts, receive other ranks' receive counts
-    sendcounts_x.resize(nprocs);
-    sendcounts_y.resize(nprocs); 
-    sendcounts_z.resize(nprocs);
-    recvcounts_x.resize(nprocs); 
-    recvcounts_y.resize(nprocs); 
-    recvcounts_z.resize(nprocs);
     #define MPI_EXCHANGE_COUNTS(axis) \
     do { \
         for (int r = 0; r < nprocs; ++r) { \
-            recvcounts_##axis[r] =  recv_##axis[r].size(); \
+            recvcounts_##axis[r]  =  recv_##axis[r].size()                                ; \
+            recvbcounts_##axis[r] =  recvcounts_##axis[r] * sizeof(fine_face_data_desc_t) ; \
+            recv_size_##axis[r]   =  recvcounts_##axis[r] * send_size_face                ; \
             GRACE_TRACE("[REGRID] Rank {} receive size {}",r,recv_##axis[r].size());\
         }\
         MPI_Alltoall(recvcounts_##axis.data(), 1, MPI_INT, \
@@ -187,24 +202,43 @@ void regrid_transaction_t::build_buffers() {
     MPI_EXCHANGE_COUNTS(y);
     MPI_EXCHANGE_COUNTS(z);
 
-    // 2) From now on we work with byte counts
-    #define CONVERT_SIZES_TO_BYTES(axis) \
-    do { \
-        for( int r=0; r<nprocs; ++r) \
-            recvcounts_##axis[r] *= sizeof(fine_face_data_desc_t) ; \
-    } while(0)
+    // 2) Compute byte counts on send 
+    #define CALC_BCOUNT_AND_SIZE(axis)\
+    do {\
+        for (int r = 0; r < nprocs; ++r) { \
+            sendbcounts_##axis[r] = sendcounts_##axis[r] * sizeof(fine_face_data_desc_t) ;\
+            send_size_##axis[r]   = sendcounts_##axis[r] * send_size_face                ;\
+        }\
+    } while(false)
+    
+    CALC_BCOUNT_AND_SIZE(x);
+    CALC_BCOUNT_AND_SIZE(y);
+    CALC_BCOUNT_AND_SIZE(z);
 
-    CONVERT_SIZES_TO_BYTES(x);
-    CONVERT_SIZES_TO_BYTES(y);
-    CONVERT_SIZES_TO_BYTES(z);
 
 
-    // 3) Compute displacements (in bytes)
+    // 3) Compute displacements 
+    std::vector<int> sdispls_x(nprocs,0), sdispls_y(nprocs,0), sdispls_z(nprocs,0) ; 
+    std::vector<int> rdispls_x(nprocs,0), rdispls_y(nprocs,0), rdispls_z(nprocs,0) ; 
+    std::vector<int> sbdispls_x(nprocs,0), sbdispls_y(nprocs,0), sbdispls_z(nprocs,0) ; 
+    std::vector<int> rbdispls_x(nprocs,0), rbdispls_y(nprocs,0), rbdispls_z(nprocs,0) ; 
+
+    send_off_x.resize(nprocs,0) ; 
+    send_off_y.resize(nprocs,0) ; 
+    send_off_z.resize(nprocs,0) ; 
+    recv_off_x.resize(nprocs,0) ; 
+    recv_off_y.resize(nprocs,0) ; 
+    recv_off_z.resize(nprocs,0) ; 
+
+
     #define MPI_COMPUTE_DISPLACEMENTS(axis) \
-    sdispls_##axis.resize(nprocs,0); rdispls_##axis.resize(nprocs, 0);\
     for (int r = 1; r < nprocs; ++r) {\
         sdispls_##axis[r] = sdispls_##axis[r-1] + sendcounts_##axis[r-1];\
         rdispls_##axis[r] = rdispls_##axis[r-1] + recvcounts_##axis[r-1];\
+        sbdispls_##axis[r] = sbdispls_##axis[r-1] + sendbcounts_##axis[r-1] ;\
+        rbdispls_##axis[r] = rbdispls_##axis[r-1] + recvbcounts_##axis[r-1] ;\
+        send_off_##axis[r] = send_off_##axis[r-1] + send_size_##axis[r-1];\
+        recv_off_##axis[r] = recv_off_##axis[r-1] + recv_size_##axis[r-1];\
     }
     MPI_COMPUTE_DISPLACEMENTS(x);
     MPI_COMPUTE_DISPLACEMENTS(y);
@@ -212,10 +246,16 @@ void regrid_transaction_t::build_buffers() {
 
     // 4) total sizes (in bytes)
     #define GET_TOTAL_SIZE(axis)\
-    size_t recv_size_##axis{0UL}, send_size_##axis{0UL} ; \
+    size_t recv_total_size_##axis{0UL}, send_total_size_##axis{0UL} ; \
+    size_t recv_total_count_##axis{0UL}, send_total_count_##axis{0UL}; \
+    size_t recv_total_bcount_##axis{0UL}, send_total_bcount_##axis{0UL}; \
     for (int r = 0; r < nprocs; ++r){\
-        recv_size_##axis += recvcounts_##axis[r] ; \
-        send_size_##axis += sendcounts_##axis[r] ; \
+        recv_total_size_##axis += recv_size_##axis[r] ; \
+        send_total_size_##axis += send_size_##axis[r] ; \
+        send_total_count_##axis += sendcounts_##axis[r] ; \
+        recv_total_count_##axis += recvcounts_##axis[r] ; \
+        send_total_bcount_##axis += sendbcounts_##axis[r] ; \
+        recv_total_bcount_##axis += recvbcounts_##axis[r] ; \
     }
     GET_TOTAL_SIZE(x);
     GET_TOTAL_SIZE(y);
@@ -224,7 +264,7 @@ void regrid_transaction_t::build_buffers() {
     // 5) flatten the receive array, which we are about to **send**
     #define MPI_FLATTEN_ARRAY(axis)\
     std::vector<fine_face_data_desc_t> recvbuf_##axis, sendbuf_##axis; \
-    sendbuf_##axis.resize(send_size_##axis/sizeof(fine_face_data_desc_t));\
+    sendbuf_##axis.resize(send_total_count_##axis);\
     for (int r = 0; r < nprocs; ++r){\
         recvbuf_##axis.insert(recvbuf_##axis.end(), recv_##axis[r].begin(), recv_##axis[r].end());\
     }
@@ -237,41 +277,22 @@ void regrid_transaction_t::build_buffers() {
     // we need to receive data-wise. Likewise we receive into send buf 
     // since that is what we will need to send data-wise
     #define MPI_EXCHANGE_ALLTOALL(axis)\
-    MPI_Alltoallv(recvbuf_##axis.data(), recvcounts_##axis.data(), rdispls_##axis.data(), MPI_BYTE,\
-            sendbuf_##axis.data(), sendcounts_##axis.data(), sdispls_##axis.data(), MPI_BYTE,\
+    MPI_Alltoallv(recvbuf_##axis.data(), recvbcounts_##axis.data(), rbdispls_##axis.data(), MPI_BYTE,\
+            sendbuf_##axis.data(), sendbcounts_##axis.data(), sbdispls_##axis.data(), MPI_BYTE,\
             MPI_COMM_WORLD)
     MPI_EXCHANGE_ALLTOALL(x);
     MPI_EXCHANGE_ALLTOALL(y);
     MPI_EXCHANGE_ALLTOALL(z);
 
-    // now we know what to send and what to recveive.
-    // These guys are also ordered since we received 
-    // the lists from all ranks just now.
-    // next step is to divide the counts and offsets by 
-    // the size in bytes of the struct and finally 
-    // allocate the buffers.
-    #define NBYTES_TO_NELEM(axis)\
-    recv_size_##axis /= sizeof(fine_face_data_desc_t) ; \
-    send_size_##axis /= sizeof(fine_face_data_desc_t) ; \
-    for (int r = 0; r < nprocs; ++r){\
-        recvcounts_##axis[r] /= sizeof(fine_face_data_desc_t) ; \
-        rdispls_##axis[r] /= sizeof(fine_face_data_desc_t) ; \
-        sendcounts_##axis[r] /= sizeof(fine_face_data_desc_t) ; \
-        sdispls_##axis[r] /= sizeof(fine_face_data_desc_t) ; \
-    }
-    NBYTES_TO_NELEM(x);
-    NBYTES_TO_NELEM(y);
-    NBYTES_TO_NELEM(z);
-
     
 
     #define REALLOC_BUF(axis)\
-    _recv_fbuf_##axis.realloc(nx*nx*nvars_fs*recv_size_##axis) ;\
-    _send_fbuf_##axis.realloc(nx*nx*nvars_fs*send_size_##axis) ;\
+    _recv_fbuf_##axis.realloc(recv_total_size_##axis) ;\
+    _send_fbuf_##axis.realloc(send_total_size_##axis) ;\
     _recv_fbuf_##axis.set_strides({nx,nvars_fs});\
     _send_fbuf_##axis.set_strides({nx,nvars_fs});\
-    _recv_fbuf_##axis.set_offsets(rdispls_##axis);\
-    _send_fbuf_##axis.set_offsets(sdispls_##axis)
+    _recv_fbuf_##axis.set_offsets(recv_off_##axis);\
+    _send_fbuf_##axis.set_offsets(send_off_##axis)
 
     REALLOC_BUF(x);
     REALLOC_BUF(y);
@@ -280,6 +301,8 @@ void regrid_transaction_t::build_buffers() {
     // for reecv data: reverse (unpack)
     // Note on send: The local source of data was recorder by
     // remote partner under qid_remote and which_tree. 
+    // NOTE: docs of p4est_ghosts say that the piggy3 local number
+    // is CUMULATIVE over trees! 
     #define FILL_BUF_DESC(axis)\
     remote_fine_face_recv_##axis.resize(nprocs);\
     remote_fine_face_send_##axis.resize(nprocs);\
@@ -297,7 +320,7 @@ void regrid_transaction_t::build_buffers() {
             auto const& info = sendbuf_##axis[isnd+sdispls_##axis[r]];\
             fine_interface_desc_t desc; \
             desc.qid_dst = isnd ; \
-            desc.qid_src = info.qid_remote + grace::amr::get_local_quadrants_offset(info.which_tree);\
+            desc.qid_src = info.qid_remote ;/*+ grace::amr::get_local_quadrants_offset(info.which_tree);*/\
             desc.fid_src = info.fid_remote ;\
             desc.fid_dst = info.fid_local  ;\
             remote_fine_face_send_##axis[r].push_back(desc);\

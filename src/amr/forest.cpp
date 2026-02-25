@@ -162,7 +162,7 @@ forest_impl_t::forest_impl_t()
                             , min_level                           // min_level 
                             , 1                                   // fill_uniform 
                             , sizeof(grace_quadrant_user_data_t)  // data_size
-                            , initialize_quadrant                      // init_fn 
+                            , initialize_quadrant_fmr              // init_fn 
                             , nullptr ) ;                         // user_ptr 
     // set up fmr grid if needed
     // first: get the fmr boxes 
@@ -182,9 +182,9 @@ forest_impl_t::forest_impl_t()
         context.base_level = base_level ; 
         _p4est->user_pointer = &context ; 
         // call refine
-        p4est_refine(_p4est, 1, fmr_refine_cback, initialize_quadrant) ;
+        p4est_refine(_p4est, 1, fmr_refine_cback, initialize_quadrant_fmr) ;
         // call balance 
-        p4est_balance(_p4est, P4EST_CONNECT_FULL, initialize_quadrant) ; 
+        p4est_balance(_p4est, P4EST_CONNECT_FULL, initialize_quadrant_fmr) ; 
         // call partition! 
         p4est_partition(_p4est, 1, nullptr) ; 
     }
