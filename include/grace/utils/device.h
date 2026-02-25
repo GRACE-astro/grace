@@ -108,22 +108,23 @@
     #define EVENT_QUERY(event) hipEventQuery(event)
 #elif defined(GRACE_ENABLE_SYCL)
     #include <sycl/sycl.hpp>
-    // due to the differences in the SYCL DAG and CUDA/HIP stream concurrency models, 
-    // these macros need to be no-op; in gpu_task_t we fence for SYCL
-    // after very kernel dispatch and accordingly assume query always
-    // returns SUCCESS
-    #define DEVICE_SUCCESS 0                  // dummy, not really used
+    /* 
+    * Due to the differences in the SYCL DAG and CUDA/HIP stream concurrency models, 
+    * these macros need to be no-op;
+    * this is achieved in two ways: 
+    * 1 ) in gpu_task_t we fence for SYCL after every kernel dispatch (end of run routine) 
+    * 2 ) query always returns SUCCESS
+    */
+    #define DEVICE_SUCCESS 0                  // 0 for success 
     #define DEVICE_NOT_READY -1               // dummy, SYCL does not have this
 
     struct dummy_stream { 
-        sycl::queue q{sycl::default_selector_v}; // hold a default SYCL queue 
+        sycl::queue q{sycl::default_selector_v, sycl::property::queue::in_order()}; // hold a default SYCL queue 
     };
-
 
     struct dummy_event {};
 
     using device_err_t = int ;  
-    // using stream_t = dummy_stream* ;
     using stream_t = dummy_stream ;
     #define STREAM_CREATE(stream) dummy_stream{};
     #define STREAM_DESTROY(stream) 
@@ -134,7 +135,7 @@
     #define EVENT_RECORD(event, stream) 
     #define EVENT_SYNCHRONIZE(event) 
     #define EVENT_ELAPSED_TIME(ms, start, stop) 
-    #define EVENT_QUERY(event)  
+    #define EVENT_QUERY(event) DEVICE_SUCCESS // always return success 
 #else 
     using stream_t = char ;
     #define STREAM_CREATE(stream) 
