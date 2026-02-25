@@ -217,7 +217,7 @@ void KOKKOS_INLINE_FUNCTION c2p_handle_eos_signals(
  * primitives.
  */
 template< typename eos_t >
-void GRACE_HOST_DEVICE
+void GRACE_HOST_DEVICE GRACE_DEVICE_EXTERNAL_LINKAGE
 conservs_to_prims( grace::grmhd_cons_array_t&  
                       , grace::grmhd_prims_array_t&  
                       , grace::metric_array_t const&  
@@ -228,7 +228,7 @@ conservs_to_prims( grace::grmhd_cons_array_t&
                       , double * rtp
                       , c2p_err_t& c2p_err ) ; 
 
-void GRACE_HOST_DEVICE
+void GRACE_HOST_DEVICE GRACE_DEVICE_EXTERNAL_LINKAGE
 prims_to_conservs( grace::grmhd_prims_array_t& prims
                  , grace::grmhd_cons_array_t& cons 
                  , grace::metric_array_t const& metric ) ; 

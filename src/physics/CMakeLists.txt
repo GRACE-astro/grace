@@ -4,3 +4,4 @@ register_grace_object_conditional(grace_burgers_eq GRACE_ENABLE_BURGERS burgers_
 register_grace_object_conditional(grace_grmhd GRACE_ENABLE_GRMHD grmhd.cpp )
 register_grace_object_conditional(grace_bssn GRACE_ENABLE_BSSN_METRIC bssn.cpp)
 register_grace_object_conditional(grace_m1 GRACE_ENABLE_M1 m1.cpp ) 
+register_grace_object_conditional(grace_kadath GRACE_ENABLE_FUKA import_kadath.cpp )

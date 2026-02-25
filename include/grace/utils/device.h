@@ -31,19 +31,32 @@
 #ifndef GRACE_UTILS_DEVICE_H
 #define GRACE_UTILS_DEVICE_H
 
-#if defined(GRACE_ENABLE_CUDA) or defined (GRACE_ENABLE_HIP)
+#if defined(GRACE_ENABLE_CUDA) or defined (GRACE_ENABLE_HIP) //or defined(GRACE_ENABLE_SYCL)
 #define GRACE_DEVICE __device__ 
 #define GRACE_HOST   __host__ 
 #define GRACE_HOST_DEVICE __host__ __device__
+#define GRACE_DEVICE_EXTERNAL_LINKAGE
 #ifndef GRACE_ALLOW_DEVICE_CONDITIONALS
 #define DEVICE_CONDITIONAL(cond,a,b) ((static_cast<bool>(cond)) * a + (1-static_cast<bool>(cond)) * b) 
+#endif
+#elif defined(GRACE_ENABLE_SYCL)
+  // SYCL does NOT support __host__ or __device__, so define empty
+  #define GRACE_DEVICE
+  #define GRACE_HOST
+  #define GRACE_HOST_DEVICE 
+  #define GRACE_DEVICE_EXTERNAL_LINKAGE SYCL_EXTERNAL
+  //   #define GRACE_EXTERN SYCL_EXTERNAL somehow defining a macro through a macro doesn't work...
+  #ifndef GRACE_ALLOW_DEVICE_CONDITIONALS
+  #define DEVICE_CONDITIONAL(cond,a,b) ((static_cast<bool>(cond)) * a + (1-static_cast<bool>(cond)) * b) 
+  #endif 
 #else 
 #define DEVICE_CONDITIONAL(cond,a,b) ((cond) ? a : b)
-#endif
-#else 
+// #endif
+// #else 
 #define GRACE_DEVICE 
 #define GRACE_HOST 
 #define GRACE_HOST_DEVICE 
+#define GRACE_DEVICE_EXTERNAL_LINKAGE 
 #define DEVICE_CONDITIONAL(cond,a,b) ((cond) ? a : b)
 #endif 
 
@@ -93,6 +106,35 @@
     #define EVENT_SYNCHRONIZE(event) HIP_CALL(hipEventSynchronize(event))
     #define EVENT_ELAPSED_TIME(ms, start, stop) HIP_CALL(hipEventElapsedTime(ms, start, stop))
     #define EVENT_QUERY(event) hipEventQuery(event)
+#elif defined(GRACE_ENABLE_SYCL)
+    #include <sycl/sycl.hpp>
+    // due to the differences in the SYCL DAG and CUDA/HIP stream concurrency models, 
+    // these macros need to be no-op; in gpu_task_t we fence for SYCL
+    // after very kernel dispatch and accordingly assume query always
+    // returns SUCCESS
+    #define DEVICE_SUCCESS 0                  // dummy, not really used
+    #define DEVICE_NOT_READY -1               // dummy, SYCL does not have this
+
+    struct dummy_stream { 
+        sycl::queue q{sycl::default_selector_v}; // hold a default SYCL queue 
+    };
+
+
+    struct dummy_event {};
+
+    using device_err_t = int ;  
+    // using stream_t = dummy_stream* ;
+    using stream_t = dummy_stream ;
+    #define STREAM_CREATE(stream) dummy_stream{};
+    #define STREAM_DESTROY(stream) 
+    #define STREAM_SYNCHRONIZE(stream) 
+    using event_t = dummy_event* ;
+    #define EVENT_CREATE(event) 
+    #define EVENT_DESTROY(event) 
+    #define EVENT_RECORD(event, stream) 
+    #define EVENT_SYNCHRONIZE(event) 
+    #define EVENT_ELAPSED_TIME(ms, start, stop) 
+    #define EVENT_QUERY(event)  
 #else 
     using stream_t = char ;
     #define STREAM_CREATE(stream) 

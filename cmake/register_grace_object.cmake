@@ -17,6 +17,23 @@ function(register_grace_object_conditional target_name condition)
             spdlog::spdlog
             HDF5::HDF5
             ZLIB::ZLIB
+            # FUKA handling:
+            $<$<BOOL:${GRACE_ENABLE_FUKA}>:Kadath::kadath>
+            $<$<BOOL:${GRACE_ENABLE_FUKA}>:${GSL_LIBRARY}>
+            $<$<BOOL:${GRACE_ENABLE_FUKA}>:${FFTW_LIB}>
+            # Libraries to link if GRACE_ENABLE_FUKA and MKL_FOUND are both true
+            $<$<AND:$<BOOL:${GRACE_ENABLE_FUKA}>,$<BOOL:${MKL_FOUND}>>:
+            ${MKL_SCALAPACK_LIBRARY}
+            ${MKL_INTERFACE_LIBRARY}
+            ${MKL_SEQUENTIAL_LAYER_LIBRARY}
+            ${MKL_CORE_LIBRARY}
+            ${MKL_BLACS_LIBRARY}
+            >
+            # Libraries to link to otherwise 
+            $<$<AND:$<BOOL:${GRACE_ENABLE_FUKA}>,$<NOT:$<BOOL:${MKL_FOUND}>>>:
+            ${SCALAPACK_LIBRARIES}        
+            ${OpenBLAS_LIB}
+            >
             $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
             $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
             $<$<BOOL:${GRACE_ENABLE_LORENE}>:LORENE::LORENE>
@@ -50,6 +67,23 @@ function(register_grace_object target_name)
         spdlog::spdlog
         HDF5::HDF5
         ZLIB::ZLIB
+        # FUKA handling:
+        $<$<BOOL:${GRACE_ENABLE_FUKA}>:Kadath::kadath>
+        $<$<BOOL:${GRACE_ENABLE_FUKA}>:${GSL_LIBRARY}>
+        $<$<BOOL:${GRACE_ENABLE_FUKA}>:${FFTW_LIB}>
+        # Libraries to link if GRACE_ENABLE_FUKA and MKL_FOUND are both true
+        $<$<AND:$<BOOL:${GRACE_ENABLE_FUKA}>,$<BOOL:${MKL_FOUND}>>:
+        ${MKL_SCALAPACK_LIBRARY}
+        ${MKL_INTERFACE_LIBRARY}
+        ${MKL_SEQUENTIAL_LAYER_LIBRARY}
+        ${MKL_CORE_LIBRARY}
+        ${MKL_BLACS_LIBRARY}
+        >
+        # Libraries to link to otherwise 
+        $<$<AND:$<BOOL:${GRACE_ENABLE_FUKA}>,$<NOT:$<BOOL:${MKL_FOUND}>>>:
+        ${SCALAPACK_LIBRARIES}        
+        ${OpenBLAS_LIB}
+        >
         $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
         $<$<BOOL:${GRACE_ENABLE_LORENE}>:LORENE::LORENE>

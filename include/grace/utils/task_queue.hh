@@ -102,12 +102,18 @@ struct gpu_task_t : public task_t {
         dev_event.reset() ; 
         _run(alias) ; 
         dev_event.record(*stream) ; 
+        #ifdef GRACE_ENABLE_SYCL 
+        Kokkos::fence() ; 
+        #endif 
     }
 
     /**
      * @brief query the task for its status 
      */
     status_id_t query() override {
+	#ifdef GRACE_ENABLE_SYCL 	
+	   return status_id_t::COMPLETE;
+	#endif 
         auto s = dev_event.query() ;
         if (s == DEVICE_SUCCESS) return status_id_t::COMPLETE;
         if (s == DEVICE_NOT_READY) return status_id_t::RUNNING;

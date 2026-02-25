@@ -68,6 +68,10 @@
 #include <grace/physics/id/Avec_id.hh>
 #include <grace/physics/id/linear_gw.hh>
 #include <grace/physics/id/robust_stability.hh>
+#ifdef GRACE_ENABLE_FUKA
+// #include <grace/physics/id/import_kadath.hh> 
+#include <grace/physics/id/fuka_id.hh> 
+#endif
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
@@ -607,6 +611,15 @@ void set_grmhd_initial_data() {
         #else 
         ERROR("LORENE id requested but GRACE was not compiled with LORENE support.") ; 
         #endif 
+    } else if ( id_type == "fuka"){
+        #ifdef GRACE_ENABLE_FUKA
+        auto id_type = get_param<std::string>("grmhd","fuka","id_type") ; 
+        auto id_dir = get_param<std::string>("grmhd","fuka","id_dir") ; 
+        auto fname = get_param<std::string>("grmhd","fuka","filename") ; 
+        set_grmhd_initial_data_impl<eos_t,fuka_id_t<eos_t>>(id_type,id_dir,fname) ; 
+        #else 
+        ERROR("FUKA id requested but GRACE was not compiled with KADATH support.") ; 
+        #endif
     } else if (id_type == "two_punctures") {
         #ifdef GRACE_ENABLE_TWO_PUNCTURES
         set_grmhd_initial_data_impl<eos_t,two_punctures_id_t<eos_t>>() ; 

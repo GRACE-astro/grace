@@ -40,6 +40,7 @@ namespace grace {
 
 #cmakedefine GRACE_ENABLE_CUDA 
 #cmakedefine GRACE_ENABLE_HIP
+#cmakedefine GRACE_ENABLE_SYCL 
 #cmakedefine GRACE_ENABLE_OMP 
 #cmakedefine GRACE_ENABLE_SERIAL 
 
@@ -57,7 +58,7 @@ namespace grace {
 #cmakedefine GRACE_FREEZE_HYDRO
 
 #cmakedefine GRACE_ENABLE_LORENE
-
+#cmakedefine GRACE_ENABLE_FUKA
 #cmakedefine GRACE_ENABLE_TWO_PUNCTURES
 
 #define GRACE_BANNER                                                          \
@@ -104,6 +105,8 @@ namespace grace {
 #define GRACE_BACKEND "CUDA"
 #elif defined(GRACE_ENABLE_HIP)
 #define GRACE_BACKEND "HIP"
+#elif defined(GRACE_ENABLE_SYCL)
+#define GRACE_BACKEND "SYCL"
 #else 
 #define GRACE_BACKEND "HOST"
 #endif 

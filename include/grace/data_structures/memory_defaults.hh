@@ -55,6 +55,9 @@ namespace grace {
 using default_space = Kokkos::CudaSpace   ;  
 #elif defined(GRACE_ENABLE_HIP)
 using default_space = Kokkos::HIPSpace    ;
+#elif defined(GRACE_ENABLE_SYCL)
+// using default_space = Kokkos::SYCLDeviceUSMSpace    ;
+using default_space = Kokkos::Experimental::SYCLDeviceUSMSpace    ;
 #elif defined(GRACE_ENABLE_OMP) or defined(GRACE_ENABLE_SERIAL)
 using default_space = Kokkos::HostSpace   ;
 #endif   

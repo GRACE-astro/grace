@@ -48,6 +48,7 @@ struct device_stream_t {
      : _stream()
     {
         STREAM_CREATE(_stream) ; 
+        
     }
 
     /* Move & Copy */
@@ -77,12 +78,28 @@ struct device_stream_t {
 
     /**
      * @brief Implicit cast to hipStream_t 
-     * 
+     * @note for SYCL it returns a dummy_stream with default SYCL queue as a member 
      * @return hipStream_t The underlying stream
      */
     operator stream_t() const {
-        return _stream;
+            return _stream;
     }
+    
+    /*
+    * @brief Conversion operator from dummy SYCL stream to SYCL queue 
+    * @note necessary to initialize Kokkos execution spaces 
+    * @return sycl_queue SYCL queue
+    */
+    #ifdef GRACE_ENABLE_SYCL
+    operator sycl::queue&() {
+        return _stream.q;
+    }
+
+    operator const sycl::queue&() const {
+        return _stream.q;
+    }
+    #endif 
+
 
 } ;
 

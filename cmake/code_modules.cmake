@@ -17,3 +17,7 @@ if( GRACE_ENABLE_GRMHD )
     set(GRACE_ENABLE_BURGERS OFF)
 endif()
 
+if( GRACE_ENABLE_FUKA )
+    message(STATUS "FUKA module enabled.")
+endif()
+
