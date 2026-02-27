@@ -1,8 +1,8 @@
 name: "grace"
 amr: {
-  npoints_block_x: 32,
-  npoints_block_y: 32,
-  npoints_block_z: 32,
+  npoints_block_x: 64,
+  npoints_block_y: 64,
+  npoints_block_z: 64,
   xmin: -1024.0,
   xmax: 1024.0,
   ymin: -1024.0,
@@ -21,7 +21,7 @@ amr: {
   
   max_refinement_level: 10,
 
-  n_fmr_boxes: 6,
+  n_fmr_boxes: 8,
   fmr_boxes: [
     {
       target_level_delta: 1,
@@ -43,15 +43,6 @@ amr: {
     },
     {
       target_level_delta: 3,
-      x_min: -128,
-      x_max: 128,
-      y_min: -128,
-      y_max: 128,
-      z_min: 0,
-      z_max: 64
-    },
-    {
-      target_level_delta: 4,
       x_min: -64,
       x_max: 64,
       y_min: -64,
@@ -60,43 +51,58 @@ amr: {
       z_max: 32
     },
     {
-      target_level_delta: 5,
+      target_level_delta: 4,
       x_min: -32,
       x_max: 32,
       y_min: -32,
       y_max: 32,
       z_min: 0,
-      z_max: 16
+      z_max: 24
     },
     {
-      target_level_delta: 6,
+      target_level_delta: 5,
       x_min: -16,
       x_max: 16,
       y_min: -16,
       y_max: 16,
       z_min: 0,
+      z_max: 16
+    },
+    {
+      target_level_delta: 6,
+      x_min: -12,
+      x_max: 12,
+      y_min: -12,
+      y_max: 12,
+      z_min: 0,
       z_max: 8
+    },
+    {
+      target_level_delta: 7,
+      x_min: -8,
+      x_max: 8,
+      y_min: -8,
+      y_max: 8,
+      z_min: 0,
+      z_max: 6
+    },
+    {
+      target_level_delta: 8,
+      x_min: -6,
+      x_max: 6,
+      y_min: -6,
+      y_max: 6,
+      z_min: 0,
+      z_max: 4
     }
-  ],
-
-  regrid_at_postinitial: true,
-  postinitial_regrid_depth: 2,
-
-  regrid_every: 50,
-
-  refinement_criterion: "simple_threshold",
-  refinement_criterion_var: "conf_fact",
-  refinement_criterion_CTORE: 0.7,
-  refinement_criterion_CTODE: 0.8,
-  refinement_criterion_reduction: "min",
-  refinement_criterion_var_is_aux: false
+  ]
 }
 
 IO: {
   volume_output_every: -1,
 
-  plane_surface_output_cell_variables: ["metric"],
-  plane_surface_output_every: 100,
+  plane_surface_output_cell_variables: ["z4c_H", "z4c_M[0]", "beta[0]", "z4c_Khat", "gamma_tilde[0,0]", "gamma_tilde[0,1]", "gamma_tilde[0,2]", "gamma_tilde[1,1]", "gamma_tilde[1,2]", "gamma_tilde[2,2]", "z4c_theta", "conf_fact", "z4c_Gamma[0]","A_tilde[0,0]","A_tilde[0,1]","alp"],
+  plane_surface_output_every: 1000,
 
   sphere_surface_output_every: -1,
 
@@ -121,10 +127,8 @@ IO: {
 }
 system: {
   console_log_level: "info",
-  file_log_level: "trace",
-  n_device_streams: 4,
-  flush_logs_based_on_severity: true,
-  flush_severity_level: "trace"
+  file_log_level: "info",
+  n_device_streams: 4
 }
 evolution: {
   time_stepper: "rk4",
@@ -205,7 +209,8 @@ spherical_surfaces: {
 }
 
 gw_integrals: {
-  detector_names: ["GW_1","GW_2"]
+  detector_names: ["GW_1","GW_2"],
+  detector_indices: []
 }
 
 checkpoints: {

@@ -681,19 +681,16 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                     for( int jside=0; jside<dsc.n_sides; ++jside) {
                         if ( iside == jside ) continue ; 
                         auto const& dsc_other = dsc.sides[jside] ; 
-                        if (dsc_other.is_fine) {
-                            // only need to consider 
-                            // matching ic 
-                            // this assumes coordinates align 
-                            if ( !dsc_other.octants.fine.is_remote[ic] ) continue ; 
-                            // send 
-                            auto r =  dsc_other.octants.fine.owner_rank[ic] ; 
-                            snd_keys[r].push_back(
-                                comm_key_t{
-                                    dsc_this.octants.fine.quad_id[ic],
-                                    dsc_this.edge_id
-                                } 
-                            ) ;
+                        if ( dsc_other.is_fine) { // other is fine
+                            for( int icj=0; icj<2; ++icj) {
+                                if (!dsc_other.octants.fine.is_remote[icj]) continue ; 
+                                // note, in send we use **our** qid
+                                snd_keys[dsc_other.octants.fine.owner_rank[icj]].push_back(
+                                    comm_key_t{
+                                        dsc_this.octants.fine.quad_id[ic], dsc_this.edge_id
+                                    }
+                                ) ;
+                            }
                         } else { // other is coarse 
                             if ( !dsc_other.octants.coarse.is_remote ) continue ; 
                             // send 
@@ -745,20 +742,20 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                         if ( jside==iside ) continue ; 
                         auto const& dsc_other = dsc.sides[jside] ; 
                         if ( dsc_other.is_fine) { // other is fine
-                            // note we only check matching ic the other one
-                            // is staggered (this changed from previous v)
-                            if (!dsc_other.octants.fine.is_remote[ic]) continue ; 
-                            // note, in send we use **our** qid and eid 
-                            comm_key_t key {
-                                dsc_this.octants.fine.quad_id[ic], dsc_this.edge_id
-                            } ; 
-                            hanging_remote_reflux_desc_t snd_desc{} ; 
-                            snd_desc.qid = dsc_this.octants.fine.quad_id[ic] ; 
-                            auto r = dsc_other.octants.fine.owner_rank[ic] ;
-                            snd_desc.rank = r; 
-                            snd_desc.elem_id = dsc_this.edge_id ; 
-                            snd_desc.buf_id = send_lookup[r][key] ; 
-                            _reflux_edge_snd.push_back(snd_desc) ; 
+                            for( int icj=0; icj<2; ++icj) {
+                                if (!dsc_other.octants.fine.is_remote[icj]) continue ; 
+                                // note, in send we use **our** qid
+                                comm_key_t key {
+                                    dsc_this.octants.fine.quad_id[ic], dsc_this.edge_id
+                                } ; 
+                                hanging_remote_reflux_desc_t snd_desc{} ; 
+                                snd_desc.qid = dsc_this.octants.fine.quad_id[ic] ; 
+                                auto r = dsc_other.octants.fine.owner_rank[icj] ;
+                                snd_desc.rank = r; 
+                                snd_desc.elem_id = dsc_this.edge_id ; 
+                                snd_desc.buf_id = send_lookup[r][key] ; 
+                                _reflux_edge_snd.push_back(snd_desc) ; 
+                            }
                         } else {
                             if ( !dsc_other.octants.coarse.is_remote) continue ; 
                             // note, in send we use **our** qid and eid 

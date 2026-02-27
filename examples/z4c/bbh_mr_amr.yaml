@@ -1,8 +1,8 @@
 name: "grace"
 amr: {
-  npoints_block_x: 32,
-  npoints_block_y: 32,
-  npoints_block_z: 32,
+  npoints_block_x: 64,
+  npoints_block_y: 64,
+  npoints_block_z: 64,
   xmin: -1024.0,
   xmax: 1024.0,
   ymin: -1024.0,
@@ -96,7 +96,7 @@ IO: {
   volume_output_every: -1,
 
   plane_surface_output_cell_variables: ["metric"],
-  plane_surface_output_every: 100,
+  plane_surface_output_every: 1000,
 
   sphere_surface_output_every: -1,
 
