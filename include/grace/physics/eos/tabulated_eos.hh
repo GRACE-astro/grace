@@ -87,6 +87,9 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
       Kokkos::View<double*, grace::default_space> logtemp,
       Kokkos::View<double*, grace::default_space> yes,
       Kokkos::View<double***, grace::default_space> epstable, //TODO!! This does not seem to be needed
+      Kokkos::View<double*, grace::default_space> cold_logpress,
+      Kokkos::View<double*, grace::default_space> cold_eps,
+      Kokkos::View<double*, grace::default_space> cold_ye,
       Kokkos::View<double [dim::num_dim], grace::default_space> coord_spacing,
       Kokkos::View<double [dim::num_dim], grace::default_space> inverse_coord_spacing,
       double c2p_ye_atm,
@@ -117,7 +120,8 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
                                 , extend_table_high}
 
     , _alltables(alltables), _logrho(logrho), _logtemp(logtemp), _yes(yes)
-    , _epstable(epstable), _coord_spacing(coord_spacing)
+    , _epstable(epstable), _cold_logpress(cold_logpress)
+    , _cold_eps(cold_eps), _cold_ye(cold_ye), _coord_spacing(coord_spacing)
     , _inverse_coord_spacing(inverse_coord_spacing), _eos_rhomax(eos_rhomax)
     , _eos_rhomin(eos_rhomin), _eos_tempmax(eos_tempmax), _eos_tempmin(eos_tempmin)
     , _eos_yemax(eos_yemax), _eos_yemin(eos_yemin), _energy_shift(energy_shift)
@@ -127,9 +131,11 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
   private:
 
     Kokkos::View<double****, grace::default_space> _alltables ; 
-    Kokkos::View<double***, grace::default_space> _epstable;
+    Kokkos::View<double***, grace::default_space> _epstable ;
+    Kokkos::View<double*, grace::default_space> _cold_logpress ; 
+    Kokkos::View<double*, grace::default_space> _cold_eps ;      
+    Kokkos::View<double*, grace::default_space> _cold_ye ; 
     Kokkos::View<double*, grace::default_space> _logrho, _logtemp, _yes ;
-
 
 
     //Get nearest table index of input value xin
@@ -350,6 +356,52 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
 
       return utils::brent(func, _logtemp(0), _logtemp(_logtemp.size() - 1), 1.e-14);
 
+    }
+
+    // 1D interpolation on the cold slice given log(rho).
+    // Returns linearly interpolated value from a cold_* array.
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    double interp_cold_1d(const Kokkos::View<double*, grace::default_space>& cold_slice,
+                          const double& lrho) const {
+        
+        int i = find_index_uniform(_logrho, _inverse_coord_spacing(dim::rho), lrho);
+
+        // Linear interpolation in log(rho)
+        const double t = (lrho - _logrho(i)) * _inverse_coord_spacing(dim::rho);
+        return cold_slice(i) + t * (cold_slice(i+1) - cold_slice(i));
+    }
+
+    // Invert P_cold(rho) -> rho given a target pressure.
+    // cold_logpress is monotonically increasing (guaranteed by remove_unphys_points).
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    double find_logrho_from_cold_press(double press_cold, error_type &err) const {
+
+        const double lpress_target = log(press_cold);
+        const int    nrho          = static_cast<int>(_cold_logpress.extent(0));
+
+        // Bounds check
+        if (lpress_target <= _cold_logpress(0)) {
+            err = EOS_ERROR_T::EOS_RHO_TOO_LOW;
+            return _logrho(0);
+        }
+        if (lpress_target >= _cold_logpress(nrho - 1)) {
+            err = EOS_ERROR_T::EOS_RHO_TOO_HIGH;
+            return _logrho(nrho - 1);
+        }
+
+        // Binary search for bracket [i, i+1] such that
+        // cold_logpress(i) <= lpress_target < cold_logpress(i+1)
+        int lo = 0, hi = nrho - 1;
+        while (hi - lo > 1) {
+            int mid = (lo + hi) / 2;
+            if (_cold_logpress(mid) <= lpress_target) lo = mid;
+            else                                       hi = mid;
+        }
+
+        // Linear interpolation in log(P) -> log(rho)
+        const double t = (lpress_target   - _cold_logpress(lo))
+                       / (_cold_logpress(hi) - _cold_logpress(lo));
+        return _logrho(lo) + t * (_logrho(hi) - _logrho(lo));
     }
 
     
@@ -759,6 +811,45 @@ class tabulated_eos_t : public eos_base_t<tabulated_eos_t>
       return MUE;
 
       }
+
+    // -----------------------------------------------------------------------
+    // rho__press_cold_ye_impl
+    // Given P_cold and Ye (unused for beta-eq tabulated EOS), return rho.
+    // -----------------------------------------------------------------------
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    double rho__press_cold_ye_impl(double press_cold, double ye, error_type &err) const {
+
+        const double lrho = find_logrho_from_cold_press(press_cold, err);
+        return exp(lrho);
+    }
+
+    // -----------------------------------------------------------------------
+    // energy_cold__press_cold_ye_impl
+    // Given P_cold and Ye (unused), return eps_cold.
+    // -----------------------------------------------------------------------
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    double energy_cold__press_cold_ye_impl(double press_cold, double ye, error_type &err) const {
+
+        const double lrho = find_logrho_from_cold_press(press_cold, err);
+        
+        const double rho  = exp(lrho);
+        const double eps  = interp_cold_1d(_cold_eps, lrho);
+        
+        // Return total energy density e = rho * (1 + eps)
+        // as expected by tov_rhs
+        return rho * (1.0 + eps);
+    }
+
+    // -----------------------------------------------------------------------
+    // ye_beta_eq__press_cold_impl
+    // Given P_cold, return the beta-equilibrium Ye at that density.
+    // -----------------------------------------------------------------------
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    double ye_beta_eq__press_cold_impl(double press_cold, error_type &err) const {
+
+        const double lrho = find_logrho_from_cold_press(press_cold, err);
+        return interp_cold_1d(_cold_ye, lrho);
+    }
 
 
 } ;

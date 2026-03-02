@@ -304,7 +304,7 @@ void set_grmhd_initial_data() {
         auto const rho_R = get_param<double>("grmhd","shocktube_rho_R") ; 
         auto const press_L = get_param<double>("grmhd","shocktube_press_L") ; 
         auto const press_R = get_param<double>("grmhd","shocktube_press_R") ;
-        set_grmhd_initial_data_impl<eos_t,shocktube_id_t<eos_t>>(rho_L, rho_R, press_L, press_R) ;
+        set_grmhd_initial_data_impl<eos_t,shocktube_id_t<eos_t>>(rho_L, rho_R) ;
         Kokkos::fence() ; 
         GRACE_TRACE("Done with hydro ID.") ;  
     } else if ( id_type == "blastwave" ) {
@@ -358,5 +358,6 @@ template                                                                \
 void set_grmhd_initial_data<EOS>( )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 }

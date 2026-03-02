@@ -59,7 +59,7 @@ void set_initial_data() {
             ERROR("Not implemented yet.") ;
         }
     } else if ( eos_type == "tabulated" ) {
-        ERROR("Not implemented yet.") ; 
+        set_initial_data_impl<grace::tabulated_eos_t>() ;
     }
 }
 
@@ -240,5 +240,6 @@ void transform_to_logical_frame() {
 template                            \
 void set_initial_data_impl<EOS>()
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;  
 #undef INSTANTIATE_TEMPLATE
 }

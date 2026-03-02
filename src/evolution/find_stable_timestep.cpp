@@ -59,7 +59,7 @@ void find_stable_timestep() {
             ERROR("Not implemented yet.") ;
         }
     } else if ( eos_type == "tabulated" ) {
-        ERROR("Not implemented yet.") ; 
+        find_stable_timestep_impl<grace::tabulated_eos_t>() ;
     }
     GRACE_VERBOSE("New timestep {}", grace::get_timestep()) ; 
 }

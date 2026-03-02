@@ -237,12 +237,14 @@ TEST_CASE("c2p", "[c2p-hydro]") {
     // auto eos = grace::eos::get().get_hybrid_pwpoly() ; 
     // check_c2p(eos) ; 
 
-    std::string table_path = "/home/it4i-kpierre/data/DD2+VQCD_soft_quark_fraction.h5";  
+    //std::string table_path = "/home/it4i-kpierre/data/DD2+VQCD_soft_quark_fraction.h5";  
+    std::string table_path = "/users/pierrekh/data/eos_tables/compose_tables/DD2+VQCD_soft_quark_fraction.h5" ;
 
     grace::tabulated_eos_t _tabulated = grace::setup_tabulated_eos_compose(table_path.c_str());
 
     // auto eos = grace::eos::get().get_hybrid_pwpoly();
 
+    
     check_c2p<grace::tabulated_eos_t>(_tabulated) ;
 
 

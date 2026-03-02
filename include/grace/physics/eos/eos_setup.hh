@@ -517,7 +517,6 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
 
 
   //Table bounds
-  //!TODO Talk to Carlo about GPU accessability of variables 
   double eos_rhomax = exp(h_logrhoview(nrho - 1));
   double eos_rhomin = exp(h_logrhoview(0));
 
@@ -555,6 +554,136 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
 
   bool extend_table_high = params["eos"]["extend_table_high"].as<bool>(); 
 
+  //---------------------------------------Cold Slices---------------------------------------//
+  // Compute cold beta-equilibrium slice at T = T_min
+  // Code is inspired from pizzatools:
+  // for each rho, find Ye s.t. mu_n = mu_p + mu_e at T_min,
+  // then read off P_cold and eps_cold.
+
+  Kokkos::View<double*, grace::default_space> cold_logpress("ColdLogPress", nrho);
+  Kokkos::View<double*, grace::default_space> cold_eps     ("ColdEps",      nrho);
+  Kokkos::View<double*, grace::default_space> cold_ye      ("ColdYe",       nrho);
+
+  auto h_cold_logpress = Kokkos::create_mirror_view(cold_logpress);
+  auto h_cold_eps      = Kokkos::create_mirror_view(cold_eps);
+  auto h_cold_ye       = Kokkos::create_mirror_view(cold_ye);
+
+  {
+      // Ye grid spacing (assumed uniform, consistent with how coord_spacing
+      // is computed for the full 3D table above)
+      const double dye_spacing = h_yesview(1) - h_yesview(0);
+
+      for (int i = 0; i < nrho; ++i) {
+
+          // ----------------------------------------------------------------
+          // Step 1: Find beta-equilibrium Ye at (rho_i, T_min)
+          // Condition: mu_hat(Ye) = mu_e + mu_p - mu_n = 0
+          // Note: chemical potentials in h_alltables have already had the
+          // COMPOSE sign convention fixed above (MUP += MUN, MUE -= MUQ)
+          // ----------------------------------------------------------------
+          int    iye_lo    = -1;
+          double mu_hat_lo = 0.;
+          double mu_hat_hi = 0.;
+
+          for (int k = 0; k < nye - 1; ++k) {
+              const double f0 = h_alltables(i, 0, k,   tabulated_eos_t::EV::MUE)
+                              + h_alltables(i, 0, k,   tabulated_eos_t::EV::MUP)
+                              - h_alltables(i, 0, k,   tabulated_eos_t::EV::MUN);
+              const double f1 = h_alltables(i, 0, k+1, tabulated_eos_t::EV::MUE)
+                              + h_alltables(i, 0, k+1, tabulated_eos_t::EV::MUP)
+                              - h_alltables(i, 0, k+1, tabulated_eos_t::EV::MUN);
+
+              if (f0 * f1 <= 0.0) {
+                  iye_lo    = k;
+                  mu_hat_lo = f0;
+                  mu_hat_hi = f1;
+                  break;
+              }
+          }
+
+          double ye_eq;
+
+          if (iye_lo < 0) {
+              // No sign change found: beta-eq is outside the table range.
+              // Check sign at the first point to decide which edge to clamp to.
+              // If mu_hat > 0 everywhere, matter wants to be more neutron-rich
+              // (lower Ye) than the table allows -> clamp to Ye_min.
+              // If mu_hat < 0 everywhere, matter wants higher Ye -> clamp to Ye_max.
+              // This matches the warning behaviour in find_beta_eq() in betaeq.py.
+              const double f_first = h_alltables(i, 0, 0, tabulated_eos_t::EV::MUE)
+                                    + h_alltables(i, 0, 0, tabulated_eos_t::EV::MUP)
+                                    - h_alltables(i, 0, 0, tabulated_eos_t::EV::MUN);
+              ye_eq = (f_first > 0.0) ? h_yesview(0) : h_yesview(nye - 1);
+
+              GRACE_INFO("Cold beta-eq slice: no beta equilibrium found in table "
+                          "at rho index {}, clamping Ye to {}", i, ye_eq);
+          } else {
+              // Bracket found in [iye_lo, iye_lo+1].
+              // Use Brent's method within this single cell for accuracy.
+              // Since the bracket is already tight (one Ye cell width),
+              // convergence is very fast regardless.
+              auto const mu_hat_func = [&](double ye_try) {
+                  // Linear interpolation in Ye at fixed (rho=i, temp=0)
+                  int ik = std::max(0, std::min(nye - 2,
+                            (int)((ye_try - h_yesview(0)) / dye_spacing)));
+                  const double t = (ye_try      - h_yesview(ik))
+                                  / dye_spacing ;
+
+                  const double mue = h_alltables(i, 0, ik,   tabulated_eos_t::EV::MUE) * (1. - t)
+                                    + h_alltables(i, 0, ik+1, tabulated_eos_t::EV::MUE) * t;
+                  const double mup = h_alltables(i, 0, ik,   tabulated_eos_t::EV::MUP) * (1. - t)
+                                    + h_alltables(i, 0, ik+1, tabulated_eos_t::EV::MUP) * t;
+                  const double mun = h_alltables(i, 0, ik,   tabulated_eos_t::EV::MUN) * (1. - t)
+                                    + h_alltables(i, 0, ik+1, tabulated_eos_t::EV::MUN) * t;
+
+                  return mue + mup - mun;
+              };
+
+              ye_eq = utils::brent(mu_hat_func,
+                                    h_yesview(iye_lo),
+                                    h_yesview(iye_lo + 1),
+                                    1.e-14);
+          }
+
+          // Clamp to table range as a safety measure
+          ye_eq = std::max(h_yesview(0), std::min(h_yesview(nye - 1), ye_eq));
+
+          // ----------------------------------------------------------------
+          // Step 2: Interpolate P_cold and eps_cold at (rho_i, T_min, Ye_eq)
+          // ----------------------------------------------------------------
+
+          // Find Ye index for interpolation
+          int iye = static_cast<int>((ye_eq - h_yesview(0)) / dye_spacing);
+          iye     = std::max(0, std::min(nye - 2, iye));
+
+          const double t_ye = (ye_eq        - h_yesview(iye))
+                              / (h_yesview(iye + 1) - h_yesview(iye));
+
+          // Pressure is stored as log(P) after the unit conversion loop above
+          const double lp0          = h_alltables(i, 0, iye,     tabulated_eos_t::EV::PRESS);
+          const double lp1          = h_alltables(i, 0, iye + 1, tabulated_eos_t::EV::PRESS);
+          h_cold_logpress(i)        = lp0 + t_ye * (lp1 - lp0);
+
+          // Eps is stored as log(eps + energy_shift) after the unit conversion loop.
+          // We want linear eps_cold (matching eps_cold__rho_ye_impl: exp(vars) - energy_shift)
+          const double le0          = h_alltables(i, 0, iye,     tabulated_eos_t::EV::EPS);
+          const double le1          = h_alltables(i, 0, iye + 1, tabulated_eos_t::EV::EPS);
+          h_cold_eps(i)             = exp(le0 + t_ye * (le1 - le0)) - energy_shift;
+
+          h_cold_ye(i)              = ye_eq;
+      }
+  }
+
+  // Copy cold slices to device
+  Kokkos::deep_copy(cold_logpress, h_cold_logpress);
+  Kokkos::deep_copy(cold_eps,      h_cold_eps);
+  Kokkos::deep_copy(cold_ye,       h_cold_ye);
+
+  GRACE_INFO("Cold beta-eq slice computed over {} density points", nrho);
+  GRACE_INFO("  Ye   range: [{:.4f}, {:.4f}]", h_cold_ye(0),       h_cold_ye(nrho - 1));
+  GRACE_INFO("  logP range: [{:.4f}, {:.4f}]", h_cold_logpress(0), h_cold_logpress(nrho - 1));
+  GRACE_INFO("  eps  range: [{:.4e}, {:.4e}]", h_cold_eps(0),      h_cold_eps(nrho - 1));
+  
   //---------------------------------------For testing---------------------------------------//
 
   //For unit testing I want to overwrite the pressure table with a linear function
@@ -622,12 +751,15 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
     , logtempview
     , yesview
     , epstable
+    , cold_logpress   
+    , cold_eps        
+    , cold_ye
     , coord_spacing
     , inverse_coord_spacing
     , c2p_ye_atm
     , c2p_rho_atm
     , c2p_temp_atm
-    , 0 //TODO! Need to work out how to implement c2p_eps_atm best
+    , 0 //TODO! Need to work out how to implement c2p_eps_atm best. Can use the eps__temp_rho_ye_impl routine to calculate.
     , c2p_eps_min
     , c2p_eps_max
     , c2p_h_min
@@ -642,8 +774,8 @@ static tabulated_eos_t setup_tabulated_eos_compose(const char *nuceos_table_name
     , baryon_mass_tabulated
     , energy_shift
     , atm_is_beta_eq
-    , extend_table_high};
-
+    , extend_table_high
+   } ;
 
 } 
 

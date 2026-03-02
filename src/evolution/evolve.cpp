@@ -75,7 +75,7 @@ void evolve() {
             ERROR("Not implemented yet.") ;
         }
     } else if ( eos_type == "tabulated" ) {
-        ERROR("Not implemented yet.") ; 
+        evolve_impl<grace::tabulated_eos_t>() ;
     }
 }
 

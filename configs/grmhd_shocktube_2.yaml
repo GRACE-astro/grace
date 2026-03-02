@@ -10,7 +10,7 @@ amr: {
   zmin: -0.05,
   zmax: 0.05,
   n_ghostzones: 2,
-  initial_refinement_level: 5,
+  initial_refinement_level: 2,
   refinement_criterion: "simple_threshold",
   refinement_criterion_CTORE: 4.,
   refinement_criterion_CTODE: 2,

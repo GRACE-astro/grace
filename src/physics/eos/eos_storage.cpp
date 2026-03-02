@@ -81,8 +81,7 @@ eos_storage_t::eos_storage_t() {
         }
     } else if (eos_type == "tabulated") { 
 
-        std::string table_path = "/home/it4i-kpierre/data/DD2+VQCD_soft_quark_fraction.h5";  
-
+        std::string table_path = params["eos"]["tabulated_path"].as<std::string>() ;
         _tabulated = grace::setup_tabulated_eos_compose(table_path.c_str());
 
 
