@@ -80,9 +80,15 @@ if (TwoPunctures_FOUND AND NOT TARGET TwoPunctures::TwoPunctures)
     target_include_directories(TwoPunctures::TwoPunctures INTERFACE
       ${TwoPunctures_INCLUDE_DIR}
     )
-    target_link_libraries(TwoPunctures::TwoPunctures INTERFACE
-        GSL::gsl
-    )
+    #target_link_libraries(TwoPunctures::TwoPunctures INTERFACE
+    #    GSL::gsl
+    #)
+        if(TARGET GSL::gsl)
+	  target_link_libraries(TwoPunctures::TwoPunctures INTERFACE GSL::gsl)
+	else()
+	  target_link_libraries(TwoPunctures::TwoPunctures INTERFACE ${GSL_LIBRARIES})
+	  target_include_directories(TwoPunctures::TwoPunctures INTERFACE ${GSL_INCLUDE_DIRS})
+	endif()
 endif() 
 
 mark_as_advanced(

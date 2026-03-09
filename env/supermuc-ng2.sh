@@ -41,3 +41,15 @@ export I_MPI_DEBUG=3
 module load user_spack
 spack load libxml2@2.10.3%oneapi@2024.1.0 arch=linux-sles15-sapphirerapids
 
+
+export TwoPunctures_ROOT=/hppfs/work/pn67xi/di75rur/Standalone-TwoPunctures-C-Cpp/
+export FFTW_BASE="${LIBSROOT}/fftw-3.3.10-install"
+export GSL_BASE="${LIBSROOT}/gsl-2.8-install"
+export FFTW_ROOT="${FFTW_BASE}"
+export FFTW_DIR="${FFTW_BASE}"
+#export FFTW_LIBRARIES="fftw3"
+export GSL_ROOT_DIR=${GSL_BASE}
+export BOOST_ROOT_DIR=${BOOST_BASE}
+export BOOST_ROOT=${BOOST_BASE}
+
+

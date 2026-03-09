@@ -131,7 +131,7 @@ struct fmtorus_id_t {
     } 
 
     // the main evaluation kernel as operator()
-    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE GRACE_DEVICE_EXTERNAL_LINKAGE
     operator() (VEC(int i, int j, int k), int q) const 
     {
         // nb

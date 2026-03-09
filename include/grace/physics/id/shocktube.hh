@@ -62,7 +62,7 @@ struct shocktube_id_t {
         , _BzL(BzL), _BzR(BzR)
     {} 
 
-    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE GRACE_DEVICE_EXTERNAL_LINKAGE
     operator() (VEC(int const i, int const j, int const k), int const q) const 
     {
         grmhd_id_t id ; 

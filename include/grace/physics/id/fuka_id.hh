@@ -180,7 +180,7 @@ struct fuka_id_t {
 
     }
 
-    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE GRACE_DEVICE_EXTERNAL_LINKAGE
     operator() (VEC(int const i, int const j, int const k), int const q) const 
     {
         grmhd_id_t id ; 
@@ -194,17 +194,17 @@ struct fuka_id_t {
         if ( rho < (1.+1e-3) * rho_atm || !Kokkos::isfinite(rho)) {
             id.rho = rho_atm ; 
             // get ye at beta eq
-            id.ye = _eos.ye_beta_eq__rho_cold(id.rho, eos_err) ;
+            id.ye = _eos.ye_cold__press(id.rho, eos_err) ;
             // get pressure from EOS
-            id.press = _eos.press_cold__rho_ye(id.rho,id.ye,eos_err) ; 
+            id.press = _eos.press_cold__rho(id.rho,eos_err) ; 
             // set velocities 
             id.vx = id.vy = id.vz = 0.0 ;
         } else {
             id.rho = rho ; 
             // get ye at beta eq
-            id.ye = _eos.ye_beta_eq__rho_cold(id.rho, eos_err) ;
+            id.ye = _eos.ye_cold__press(id.rho, eos_err) ;
             // get pressure from EOS
-            id.press = _eos.press_cold__rho_ye(id.rho,id.ye,eos_err) ;
+            id.press = _eos.press_cold__rho(id.rho,eos_err) ; 
             // alternatively, we could just import:
             // id.press = _press(VEC(i,j,k),q));
             // set velocities 

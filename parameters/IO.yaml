@@ -203,8 +203,6 @@ IO:
     description: >
       Z offset 
 
-      
-
   xz_plane_offset:
     type: double 
     range: "(*,*)"
@@ -219,6 +217,12 @@ IO:
     description: >
       X offset 
 
+  output_plane_z_origin_0:
+    type: double 
+    range: "(*,*)"
+    default: 0.0
+    description: >
+      z origin for z-symm runs 
 
   n_output_spheres:
     type: int 
