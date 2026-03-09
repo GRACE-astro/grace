@@ -71,6 +71,7 @@ if( GRACE_ENABLE_FUKA )
     # note that order of linking will be important for the final executable!
     find_package(Kadath REQUIRED)
     find_package(GSL REQUIRED)
+    find_package(Boost REQUIRED)
     find_package(FFTW REQUIRED COMPONENTS DOUBLE)
 
     find_package(MKL QUIET) 
@@ -136,12 +137,15 @@ target_link_libraries(grace PRIVATE
         $<$<BOOL:${GRACE_ENABLE_FUKA}>:${GSL_LIBRARY}>
         $<$<BOOL:${GRACE_ENABLE_FUKA}>:${FFTW_LIB}>
         # Libraries to link if GRACE_ENABLE_FUKA and MKL_FOUND are both true
-        $<$<AND:$<BOOL:${GRACE_ENABLE_FUKA}>,$<BOOL:${MKL_FOUND}>>:
+	#$<$<AND:$<BOOL:${GRACE_ENABLE_FUKA}>,$<BOOL:${MKL_FOUND}>>:MKL::MKL>
+	$<$<AND:$<BOOL:${GRACE_ENABLE_FUKA}>,$<BOOL:${MKL_FOUND}>>:
+	-Wl,--start-group
         ${MKL_SCALAPACK_LIBRARY}
         ${MKL_INTERFACE_LIBRARY}
         ${MKL_SEQUENTIAL_LAYER_LIBRARY}
         ${MKL_CORE_LIBRARY}
         ${MKL_BLACS_LIBRARY}
+	-Wl,--end-group
         >
         # Libraries to link to otherwise 
         $<$<AND:$<BOOL:${GRACE_ENABLE_FUKA}>,$<NOT:$<BOOL:${MKL_FOUND}>>>:
