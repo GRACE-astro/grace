@@ -262,8 +262,12 @@ void initialize(int& argc, char* argv[])
             GRACE_INFO("Performing initial regrid.") ;
             for( int ilev=0; ilev<postinitial_regrid_depth; ++ilev){
                 GRACE_INFO("Regrid level {}.", ilev+1) ;
-                grace::amr::regrid() ;  
-                grace::set_initial_data() ; 
+                auto grid_has_changed = grace::amr::regrid() ;  
+                // only reset ID and update ghost struct if grid was modified 
+                if (grid_has_changed) {
+                    ghost.update() ; 
+                    grace::set_initial_data() ; 
+                }
             }
         }
     } else {

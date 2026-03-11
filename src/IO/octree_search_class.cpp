@@ -25,12 +25,9 @@ int grace_search_plane(
     ASSERT(point, "Nullptr") ; 
     // get the plane we are checking 
     auto plane = static_cast<plane_desc_t*>(point) ; 
-    // now construct a cube from the quadrant 
-    auto cube  = detail::make_cube(quadrant_t{quadrant}, which_tree) ; 
     // finally check for intersection 
-    bool intersect = intersects(*plane,cube) ;
-    GRACE_TRACE("Cube ({},{},{}) intersect ? {} local_num {} which_tree {}",
-		cube.v[0][0],cube.v[0][1],cube.v[0][2], intersect, local_num, which_tree) ; 
+    quadrant_t quad{quadrant} ; 
+    bool intersect = quadrant_intersects_plane(quad, which_tree, *plane) ;
     // if the quadrant is a leaf we write back 
     // to its user_int to flag it 
     if ( local_num >= 0 and intersect ) {
@@ -62,12 +59,24 @@ void oct_tree_plane_slicer_t::search() {
 void oct_tree_plane_slicer_t::find_cells() {
     sliced_cell_offsets.clear() ; 
     sliced_cell_offsets.reserve(sliced_quads.size()) ; 
+    auto plane_axis = _plane.axis ; 
+    int plane_dir ; 
+    if ( plane_axis == amr::plane_axis::XY ) {
+        plane_dir = 2; 
+    } else if ( plane_axis == amr::plane_axis::YZ ) {
+        plane_dir = 0; 
+    } else {
+        plane_dir = 1; 
+    }
     for ( auto const& iq: sliced_quads ) {
-        auto const idx = detail::get_inv_cell_spacing(iq, _plane.dir);
+        auto const idx = detail::get_inv_cell_spacing(iq, plane_dir);
         auto const qc = detail::get_quad_coord_lbounds(iq) ; 
-        size_t const offset = math::floor_int(
-            Kokkos::fabs(qc[_plane.dir] - _plane.d[_plane.dir]) * idx + 1e-15
-        ) ; 
+
+        double const local = (_plane.coord - qc[plane_dir]) * idx;
+
+        size_t const offset = static_cast<int>(
+            std::clamp(std::floor(local), 0.0, static_cast<double>(_ncells - 1))
+        );
         sliced_cell_offsets.push_back(offset) ; 
         
     }

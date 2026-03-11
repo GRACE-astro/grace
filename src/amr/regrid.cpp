@@ -35,7 +35,7 @@
 
 namespace grace { namespace amr { 
 
-void regrid() {
+bool regrid() {
     Kokkos::Profiling::pushRegion("regrid") ;
     GRACE_INFO("Initiating regrid.") ;  
     spdlog::stopwatch sw ; 
@@ -43,21 +43,23 @@ void regrid() {
     /*                              Do the thing                                              */
     /******************************************************************************************/
     regrid_transaction_t trx{} ; 
+    bool grid_has_changed = trx.grid_has_changed() ; 
     Kokkos::fence() ; 
     trx.execute() ; 
     /******************************************************************************************/
-    GRACE_INFO("Regrid done: nq_intial {} final {} time elapsed {} s", trx.get_nq_init(), trx.get_nq_final(), sw) ; 
+    if ( grid_has_changed ) {
+        GRACE_INFO("Regrid done: nq_intial {} final {} time elapsed {} s", trx.get_nq_init(), trx.get_nq_final(), sw) ; 
+    } else {
+        GRACE_INFO("Regrid done: grid unchanged, time elapsed {} s", sw) ; 
+    }
+    
     /******************************************************************************************/
     /******************************************************************************************/
     Kokkos::Profiling::popRegion() ;
     /******************************************************************************************/
-    /*                         Update ghost layer                                             */
-    /******************************************************************************************/
-    auto& ghost = grace::amr_ghosts::get() ; 
-    ghost.update() ;
-    /******************************************************************************************/
     /*                                      All done                                          */
     /******************************************************************************************/
+    return grid_has_changed ; 
     
 }; 
 

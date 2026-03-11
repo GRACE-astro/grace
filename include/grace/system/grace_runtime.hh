@@ -124,7 +124,7 @@ class grace_runtime_impl_t
     std::vector<std::string> _integral_reduction_vars ;
     std::vector<std::string> _integral_reduction_aux  ;
     /* Output planes */
-    std::vector<std::array<double,3>> _output_planes_origins ; 
+    std::vector<double> _output_planes_origins ; 
     /* Output spheres */
     int _n_output_spheres ; 
     std::vector<std::string>          _output_spheres_names   ; 
@@ -483,17 +483,11 @@ class grace_runtime_impl_t
         }
         /* Set output planes and spheres properties      */
         _output_planes_origins.resize(3) ;
-        _output_planes_origins[0][0] = 0.0;
-        _output_planes_origins[0][1] = 0.0;
-        _output_planes_origins[0][2] = grace::get_param<double>("IO","xy_plane_offset") ;
+        _output_planes_origins[0] = grace::get_param<double>("IO","xy_plane_offset") ;
 
-        _output_planes_origins[1][0] = 0.0 ; 
-        _output_planes_origins[1][1] = grace::get_param<double>("IO","xz_plane_offset") ; 
-        _output_planes_origins[1][2] = 0.0 ; 
+        _output_planes_origins[1] = grace::get_param<double>("IO","xz_plane_offset") ; 
 
-        _output_planes_origins[2][0] = grace::get_param<double>("IO","yz_plane_offset") ; 
-        _output_planes_origins[2][1] = 0.0 ; 
-        _output_planes_origins[2][2] = 0.0 ; 
+        _output_planes_origins[2] = grace::get_param<double>("IO","yz_plane_offset") ; 
         
         _n_output_spheres = grace::get_param<int>("IO", "n_output_spheres") ;
         _output_spheres_names = grace::get_param<std::vector<std::string>>("IO", "output_sphere_names") ; 

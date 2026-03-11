@@ -62,25 +62,6 @@
 #include <grace/coordinates/coordinate_systems.hh>
 
 namespace grace { namespace amr {
-/**
- * @brief Set all quadrants to default state.
- * \cond grace_detail 
- * \ingroup amr 
- */
-static void set_quadrants_to_default()  
-{
-    for(int itree=forest::get().first_local_tree();
-            itree<=forest::get().last_local_tree();
-            ++itree) 
-    {
-        auto quadrants = forest::get().tree(itree).quadrants() ; 
-        for( int iquad=0; iquad<quadrants.size(); ++iquad) {
-            quadrant_t quad{ &(quadrants[iquad]) } ;
-            quad.set_regrid_flag(DEFAULT_STATE) ; 
-        }
-    }
-}
-
 
 void regrid_transaction_t::evaluate_criterion() {
     GRACE_TRACE("Evaluating regrid criterion") ;
@@ -167,18 +148,23 @@ void regrid_transaction_t::evaluate_criterion() {
     }
 }
 
-void regrid_transaction_t::execute_host_side_regrid() {
+bool regrid_transaction_t::execute_host_side_regrid() {
     /******************************************************************************************/
     GRACE_TRACE("Executing host side regrid") ;
     auto const grace_maxlevel = get_param<int>("amr","max_refinement_level") ; 
     /******************************************************************************************/
     // store old min_levels so we can restore them 
-    std::vector<long> min_levels(nq_init); 
+    min_levels.resize(nq_init) ; 
     for( int iq=0; iq<nq_init; ++iq) {
         quadrant_t quadrant = amr::get_quadrant(iq) ;
         min_levels[iq] = quadrant.get_min_level();
         GRACE_TRACE("Old level {}", quadrant.get_min_level()) ; 
     }
+    /******************************************************************************************/
+    // Fetch the ptr to the forest and the current revision number 
+    /******************************************************************************************/
+    p4est_t * forest_ptr = amr::forest::get().get()  ; 
+    auto cur_rev = forest_ptr->revision ; 
     /******************************************************************************************/
     /* Call to p4est_refine                                                                   */  
     /* The arguments are:                                                                     */
@@ -190,7 +176,7 @@ void regrid_transaction_t::execute_host_side_regrid() {
     /* init_fn          --> Function to initialize new quadrants.                             */
     /* replace_fn       --> Function to modify the new quadrants.                             */
     /******************************************************************************************/ 
-    p4est_refine_ext( amr::forest::get().get() 
+    p4est_refine_ext( forest_ptr
                     , 0, grace_maxlevel 
                     , amr::refine_cback
                     , amr::initialize_quadrant 
@@ -206,7 +192,7 @@ void regrid_transaction_t::execute_host_side_regrid() {
     /* init_fn           --> Function to initialize new quadrants.                            */
     /* replace_fn        --> Function to modify the new quadrants.                            */
     /******************************************************************************************/
-    p4est_coarsen_ext( amr::forest::get().get() 
+    p4est_coarsen_ext( forest_ptr
                     , 0, 0 
                     , amr::coarsen_cback
                     , amr::initialize_quadrant 
@@ -215,7 +201,7 @@ void regrid_transaction_t::execute_host_side_regrid() {
     /* Call to p4est_balance                                                                  */
     /* This ensures the grid is 2:1 balanced.                                                 */
     /******************************************************************************************/
-    p4est_balance_ext( amr::forest::get().get() 
+    p4est_balance_ext( forest_ptr
                     , P4EST_CONNECT_FULL
                     , amr::initialize_quadrant 
                     , amr::set_quadrant_flag ) ;
@@ -223,8 +209,13 @@ void regrid_transaction_t::execute_host_side_regrid() {
     /* Now we know the quad count                                                             */
     /******************************************************************************************/
     nq_regrid = amr::get_local_num_quadrants() ; 
+
+    return cur_rev != (forest_ptr->revision) ; 
+}
+
+void regrid_transaction_t::prepare_device_side() {
     /******************************************************************************************/
-    /* Finally we fill the *outgoing *incoming vectors                                        */
+    /* Fill the *outgoing *incoming vectors                                                   */
     /******************************************************************************************/
     coarsen_incoming.clear() ; coarsen_outgoing.clear() ; 
     refine_incoming.clear() ; refine_outgoing.clear() ; 
@@ -254,7 +245,7 @@ void regrid_transaction_t::execute_host_side_regrid() {
             new_quad.set_min_level(min_levels[iq_old]) ; 
             keep_incoming.push_back(iq_new++) ;  keep_outgoing.push_back(iq_old++) ; 
         }
-
+        
     }
     /******************************************************************************************/
     /*                       Resize variable arrays, we use state_p                           */

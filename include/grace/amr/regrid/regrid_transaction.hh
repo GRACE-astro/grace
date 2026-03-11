@@ -79,8 +79,22 @@ struct regrid_transaction_t {
         nvars_es = nvars_cs = 0 ; 
 
         evaluate_criterion() ; 
-        execute_host_side_regrid() ; 
+        changed = execute_host_side_regrid() ; 
+
+        // if nothing changed we can finish here
+        // but first we reset quads to default 
+        // status 
+        if (!changed) {
+            set_quadrants_to_default() ; 
+            return ; 
+        }
+
+        // otherwise we 
+        // 1) tag quads for prolong / restrict and resize scratch space 
+        prepare_device_side() ; 
+        // 2) build MPI buffers for magnetic field transfer 
         build_buffers() ;
+        // 3) build task list for device side regrid 
         build_task_list() ; 
 
         task_queue.clear() ; 
@@ -103,6 +117,9 @@ struct regrid_transaction_t {
     } 
 
     void execute() {
+        // nothing to do if the grid 
+        // hasn't changed 
+        if (!changed) return ; 
         /* first run the data tasks */
         task_queue.run(view_alias_t{}/*dummy argument*/) ; 
         Kokkos::fence() ; 
@@ -118,6 +135,8 @@ struct regrid_transaction_t {
 
     size_t get_nq_init() {return nq_init;}
     size_t get_nq_final() {return nq_final;}
+
+    bool grid_has_changed() { return changed ; }
     
     private:
     
@@ -144,12 +163,16 @@ struct regrid_transaction_t {
     //! Flags indicating whether fine data is available on faces, if available, it will be copied instead of prolonged.
     std::vector<std::array<int8_t,2>> have_fine_data_x, have_fine_data_y, have_fine_data_z ; 
     fine_interface_desc_device_t fine_face_descs ; 
+    //! Minimum allowed refinement level for each quadrant 
+    std::vector<long> min_levels ; 
     //! Number of quadrants: before regrid, after, and after partition
     size_t nq_init, nq_regrid, nq_final ; 
     //! Number of cells and ghost cells 
     size_t nx,ny,nz, ngz ; 
     //! Number of variables in each staggering 
     size_t nvars_cc, nvars_fs, nvars_es, nvars_cs ; 
+    //! Has the grid changed? 
+    bool changed ; 
 
 
     //! Evaluate criterion and write flags into 
@@ -159,8 +182,13 @@ struct regrid_transaction_t {
     //! execute the regrid on the p4est, then
     //! resize scratch states in preparation 
     //! for data operations and extract quad 
-    //! indices of outgoing and incoming quads
-    void execute_host_side_regrid() ;
+    //! indices of outgoing and incoming quads.
+    //! Returns true or false depending on whether
+    //! the grid was modified. 
+    bool execute_host_side_regrid() ;
+    //! Prepare structures necessary to perform
+    //! the actual regrid 
+    void prepare_device_side() ; 
     //! Resize state and transfer data for parallel
     //! partition
     void execute_partition() ;
@@ -174,8 +202,24 @@ struct regrid_transaction_t {
     void build_task_list() ;
     //! Reset quadrant flags, reallocate scratch space
     void cleanup() ;
-    
-
+    /**
+     * @brief Set all quadrants to default state.
+     * \cond grace_detail 
+     * \ingroup amr 
+     */
+    void set_quadrants_to_default()  
+    {
+        for(int itree=forest::get().first_local_tree();
+                itree<=forest::get().last_local_tree();
+                ++itree) 
+        {
+            auto quadrants = forest::get().tree(itree).quadrants() ; 
+            for( int iquad=0; iquad<quadrants.size(); ++iquad) {
+                quadrant_t quad{ &(quadrants[iquad]) } ;
+                quad.set_regrid_flag(DEFAULT_STATE) ; 
+            }
+        }
+    }
 } ; 
 
 } } /* namespace grace::amr */

@@ -230,24 +230,36 @@ grmhd:
       default: 1.3333
       description: >
         Initial data gamma 
-    r_min:
+    temp_min:
       type: double 
       range: "(0,*)"
-      default: 1
+      default: 0.01
       description: >
-        Where the Bondi grid is cutoff 
-    r_max:
+        Lower bound for T
+    temp_max:
       type: double 
       range: "(0,*)"
-      default: 100
+      default: 10
       description: >
-        Where the Bondi grid is cutoff
+        Upper bound of T 
     spin:
       type: double 
       range: "[0,1)"
       default: 0.0
       description: >
         Black hole spin 
+    spec_ang_mom:
+      type: double
+      range: "[0,*)"
+      default: 0.0 
+      description: >
+        Specific angular momentum 
+    spec_ang_mom_scaling:
+      type: double 
+      range: "(*,*)"
+      default: 0.0
+      description: >
+        Scaling of j with theta 
 
   vacuum:
     type: schema

@@ -420,7 +420,6 @@ void compute_fluxes(
           GRACE_EXECUTION_TAG("evol", "m1_normalize_conservs")
         , m1_norm_policy
         , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-
             metric_array_t metric ; 
             FILL_METRIC_ARRAY(metric,old_state,q,VEC(i,j,k)) ;
             old_state(VEC(i,j,k),NRAD_,q)  /=  old_state(VEC(i,j,k),ERAD_,q); 

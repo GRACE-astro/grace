@@ -42,6 +42,8 @@
 
 namespace grace { namespace amr {
 
+enum class plane_axis { XY, XZ, YZ } ; 
+
 /**
  * @brief Plane descriptor in the form 
  * \f[
@@ -51,23 +53,30 @@ namespace grace { namespace amr {
  */
 struct plane_desc_t {
     std::string name ; 
-    double dir ; //!< 0,1,2 for x y z 
-    std::array<double,3> d ;  //!< x,y,z offsets 
+    plane_axis axis ;
+    double coord ; 
 } ;
 
 
 
 
-static inline bool intersects(plane_desc_t const& plane, cube_desc_t const& cube) {
-    bool pos = false, neg = false;
-    double const dx = cube.v[1][0] - cube.v[0][0] ; 
-    #pragma unroll
-    for( int i=0; i<8; ++i) {
-        double f = (cube.v[i][plane.dir] - plane.d[plane.dir]) + 1e-15 * dx ; 
-        if(f >= 0) pos = true;
-        if(f < 0) neg = true;
+inline static bool
+quadrant_intersects_plane(quadrant_t quad, p4est_topidx_t itree,
+                           const plane_desc_t& plane)
+{
+    auto cl = detail::get_quad_coord_lbounds(quad, itree);
+    double dx = amr::get_tree_spacing(itree)[0] * (1.0 / (1 << quad.level()));
+
+    double lo, hi;
+    switch (plane.axis) {
+        case plane_axis::XY: lo = cl[2]; hi = cl[2] + dx; break;
+        case plane_axis::XZ: lo = cl[1]; hi = cl[1] + dx; break;
+        case plane_axis::YZ: lo = cl[0]; hi = cl[0] + dx; break;
     }
-    return pos && neg ; 
+
+    // Half-open interval: [lo, hi)
+    // Guarantees exactly one quadrant owns any given plane position.
+    return (plane.coord >= lo) && (plane.coord < hi);
 }
 
 int grace_search_plane(
@@ -83,8 +92,9 @@ struct oct_tree_plane_slicer_t {
 
     oct_tree_plane_slicer_t(
         plane_desc_t const& plane,
+        size_t ncells,
         size_t nq) 
-    : _nq(nq), _plane(plane) {
+    : _nq(nq), _ncells(ncells), _plane(plane) {
         _ngz = amr::get_n_ghosts() ; 
     }
 
@@ -92,7 +102,7 @@ struct oct_tree_plane_slicer_t {
 
     size_t n_sliced_quads() const { return sliced_quads.size() ; }
 
-    size_t _nq, _ngz ;                         //!< 
+    size_t _nq, _ncells, _ngz ;                         //!< 
     plane_desc_t _plane ;                      //!< The plane that is used to slice 
     std::vector<size_t> sliced_quads ;         //!< Local quad-ids of sliced quads 
     std::vector<size_t > sliced_cell_offsets ; //!< Map quad_id -> offset from ngz 

@@ -79,13 +79,12 @@ void write_plane_cell_data() {
     auto n_planes = 3 ; 
     std::vector<std::string> plane_names = std::vector<std::string>( {"xy","xz","yz"} ) ; 
     auto plane_offsets = rt.cell_plane_surface_output_origins() ; 
-    std::vector<double> plane_dirs{2,1,0} ; 
-
+    std::vector<amr::plane_axis> plane_axes{amr::plane_axis::XY, amr::plane_axis::XZ, amr::plane_axis::YZ } ; 
     for( int i=0 ; i<n_planes; ++i) {
         amr::plane_desc_t plane ; 
-        plane.name = plane_names[i] ; 
-        plane.d = plane_offsets[i] ;
-        plane.dir = plane_dirs[i] ;  
+        plane.name  = plane_names[i] ; 
+        plane.coord = plane_offsets[i] ;
+        plane.axis  = plane_axes[i] ;  
         write_plane_cell_data_impl(plane) ; 
     }
 
@@ -120,7 +119,7 @@ void write_plane_cell_data_impl(amr::plane_desc_t const& plane) {
     size_t nq = amr::get_local_num_quadrants() ; 
 
     /* Get the sliced octants*/
-    amr::oct_tree_plane_slicer_t octree_slicer(plane, nq);
+    amr::oct_tree_plane_slicer_t octree_slicer(plane,nx,nq);
     octree_slicer.slice() ; 
     auto sliced_nq = octree_slicer.n_sliced_quads() ; 
     auto sliced_cells = sliced_nq * nx * nx ;
@@ -216,7 +215,6 @@ void write_grid_structure_sliced_hdf5(hid_t file_id, size_t compression_level, s
 
     /* Number of unique points per quadrant */
     unsigned long npoints_quad_sliced = (nx+1) * (nx+1); 
-    auto const dir = octree_slicer._plane.dir ;
 
     /* Local number of points  */
     unsigned long const npoints_sliced = npoints_quad_sliced * nq_s ;  
@@ -270,16 +268,16 @@ void write_grid_structure_sliced_hdf5(hid_t file_id, size_t compression_level, s
     }
 
     // coordinates 
-    #pragma omp parallel for 
+    //#pragma omp parallel for 
     for( int iq = 0; iq<octree_slicer.sliced_quads.size(); ++iq) {
         for( int i=0; i<nx+1; ++i) for( int j=0; j<nx+1; ++j) {
             auto const q = octree_slicer.sliced_quads[iq] ; 
             auto const ipoint = get_point_index(i,j,iq) ; 
             std::array<size_t,3> ijk ; 
-            if ( octree_slicer._plane.dir == 0 ) {
+            if ( octree_slicer._plane.axis == amr::plane_axis::YZ ) {
                 ijk[0] = octree_slicer.sliced_cell_offsets[iq] ; 
                 ijk[1] = i ; ijk[2] = j ;
-            } else if ( octree_slicer._plane.dir == 1 ) {
+            } else if ( octree_slicer._plane.axis == amr::plane_axis::XZ ) {
                 ijk[1] = octree_slicer.sliced_cell_offsets[iq] ; 
                 ijk[0] = i ; ijk[2] = j ;
             } else {
@@ -450,8 +448,6 @@ void write_volume_data_arrays_sliced_hdf5(hid_t file_id, size_t compression_leve
     unsigned long const ncells_glob_sliced = ncells_quad_sliced * nq_glob_sliced ; 
     /* Number of unique points per quadrant */
     unsigned long ncorners_quad_sliced = (nx+1) * (nx+1); 
-    auto const dir = octree_slicer._plane.dir;
-
 
     /* Create parallel dataset properties */
     hid_t dxpl ; 
@@ -594,8 +590,7 @@ void write_var_arrays_sliced_hdf5( std::vector<std::string> const& varlist
     unsigned long const ncells_quad_sliced = nx*nx ; 
     /* Number of corners per quadrant */
     unsigned long ncorners_quad_sliced = (nx+1)*(nx+1) ;
-    auto dir = octree_slicer._plane.dir;
-
+    auto const dir = octree_slicer._plane.axis ; 
     //-----------
     auto vars = grace::variable_list::get().getstate() ; 
     auto aux  = grace::variable_list::get().getaux()   ;
@@ -648,10 +643,10 @@ void write_var_arrays_sliced_hdf5( std::vector<std::string> const& varlist
             Kokkos::MDRangePolicy<Kokkos::Rank<3>>({0,0,0}, {nx,nx,nq_s}),
             KOKKOS_LAMBDA( int i, int j, int iq) {
                 int ijk[3] ; 
-                if ( dir == 0 ) {
+                if ( dir == amr::plane_axis::YZ ) {
                     ijk[0] = d_cell_offsets(iq) ; 
                     ijk[1] = i ; ijk[2] = j ; 
-                } else if (dir==1) {
+                } else if (dir == amr::plane_axis::XZ) {
                     ijk[1] = d_cell_offsets(iq) ; 
                     ijk[0] = i ; ijk[2] = j ; 
                 } else {
@@ -717,7 +712,7 @@ void write_vector_var_arrays_sliced_hdf5( std::vector<std::string> const& varlis
     unsigned long const ncells_quad_sliced = nx*nx ; 
     /* Number of corners per quadrant */
     unsigned long ncorners_quad_sliced = (nx+1)*(nx+1) ;
-    auto dir = octree_slicer._plane.dir;
+    auto const dir = octree_slicer._plane.axis ; 
 
     /* Fetch variable arrays */
     auto vars = grace::variable_list::get().getstate() ; 
@@ -764,10 +759,10 @@ void write_vector_var_arrays_sliced_hdf5( std::vector<std::string> const& varlis
             Kokkos::MDRangePolicy<Kokkos::Rank<3>>({0,0,0}, {nx,nx,nq_s}),
             KOKKOS_LAMBDA( int i, int j, int iq) {
                 int ijk[3] ; 
-                if ( dir == 0 ) {
+                if ( dir == amr::plane_axis::YZ ) {
                     ijk[0] = d_cell_offsets(iq) + ngz ; 
                     ijk[1] = i + ngz; ijk[2] = j + ngz; 
-                } else if (dir==1) {
+                } else if (dir==amr::plane_axis::XZ) {
                     ijk[1] = d_cell_offsets(iq) + ngz; 
                     ijk[0] = i + ngz; ijk[2] = j + ngz; 
                 } else {
@@ -827,7 +822,6 @@ void write_extra_arrays_sliced_hdf5(
 
     /* Number of corners per quadrant */
     unsigned long ncorners_quad_sliced = (nx+1)*(nx+1) ;
-    auto dir = octree_slicer._plane.dir;
 
     auto const rank_loc = parallel::mpi_comm_rank() ; 
     /* Get the p4est pointer */

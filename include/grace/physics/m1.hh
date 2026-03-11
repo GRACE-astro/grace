@@ -628,7 +628,7 @@ struct m1_equations_system_t
         /***********************************************************************/
         std::array<int, 5>
             recon_indices{
-                  ERAD_
+                  ERAD_ 
                 , NRAD_
                 , FRADX_
                 , FRADY_

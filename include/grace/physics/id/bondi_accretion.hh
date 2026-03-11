@@ -49,6 +49,99 @@
 
 namespace grace {
 
+struct bondi_params_t {
+    double rc     ; //!< Critical radius 
+    double gamma  ; //!< Gamma 
+    double K      ; //!< Adiabat 
+    double M      ; //!< Mass (1)
+    double j      ; //!< Specific ang mom 
+    double j_pow  ; //!< Scaling of j with theta 
+    double bh_spin; //!< Spin of black hole 
+    double t_min  ; //!< Lower bound of temp 
+    double t_max  ; //!< Upper bound of temp 
+    //! derived qtities 
+    double n;
+    double uc;
+    double Tc;
+} ; 
+
+//! Find temperature where residual sign changes 
+//! inspired by Athena !!! 
+static double KOKKOS_INLINE_FUNCTION 
+find_temp_range(double r, bondi_params_t const& par) 
+{
+    double t_min{par.t_min}, t_max{par.t_max} ; 
+
+    auto const rootfun = [&] (double T) {
+        double out ; 
+        bondi_T__r(par.M,par.rc,par.n,T,r,par.Tc,par.uc,&out);
+        return out ; 
+    } ; 
+
+    double const ratio = 0.3819660112501051 ; 
+    int const max_iter = 40                 ;
+    
+    double t_mid = t_min + ratio * (t_max-t_min) ; 
+    double res_mid = rootfun(t_mid) ; 
+
+    double t_new, res_new ; 
+    bool go_right = true ; 
+    for( int it=0; it<max_iter; ++it) {
+        if ( res_mid < 0 ) {
+            return t_mid ; 
+        } 
+
+        if ( go_right ) {
+            t_new = t_mid + ratio * (t_max-t_mid); 
+            res_new = rootfun(t_new) ; 
+
+            if ( res_new < res_mid ) {
+                t_min = t_mid ; 
+                t_mid = t_new ; 
+                res_mid = res_new ;
+            } else {
+                t_max = t_new ; 
+                go_right = false ; 
+            }
+        } else {
+            t_new = t_mid - ratio * (t_mid - t_min) ; 
+            res_new = rootfun(t_new) ;
+            if ( res_new < res_mid ) {
+                t_max = t_mid ; 
+                t_mid = t_new ; 
+                res_mid = res_new ; 
+            } else {
+                t_min = t_new; 
+                go_right = true ; 
+            }
+        }
+    }
+    return -1; 
+}
+
+
+static double KOKKOS_INLINE_FUNCTION 
+get_temperature_bondi(double r, bondi_params_t const& par ) {
+    double t_res = find_temp_range(r,par) ; 
+    if ( t_res < 0 ) {
+        Kokkos::abort("could not find temperature range") ; 
+    }
+
+    auto const rootfun = [=] (double T) {
+        double out ; 
+        bondi_T__r(par.M,par.rc,par.n,T,r,par.Tc,par.uc,&out);
+        return out ; 
+    };
+
+    if ( r < par.rc ) {
+        return utils::brent(rootfun, par.t_min, t_res, 1e-15) ; 
+    } else if ( r > par.rc ) {
+        return utils::brent(rootfun, t_res, par.t_max, 1e-15) ; 
+    } else {
+        return par.Tc ; 
+    }
+}
+
 template < typename eos_t >
 struct bondi_id_t {
     using state_t = grace::var_array_t ; 
@@ -58,85 +151,39 @@ struct bondi_id_t {
     bondi_id_t(
           eos_t _eos 
         , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
-        , double _gamma
-        , double _K
-        , double _rc 
-        , double _rmin
-        , double _rmax
-        , double _spin 
-    ) : eos(_eos), _pcoords(pcoords), gamma(_gamma), n(1/(_gamma-1)), K(_K), rc(_rc), lrmin(log(_rmin)), lrmax(log(_rmax)), spin(_spin)
+    ) : eos(_eos), _pcoords(pcoords)
     {
         using namespace Kokkos ;
-        excision_params = get_excision_params() ; 
+        excision_params = get_excision_params() ;
+
+        par.rc    = get_param<double>("grmhd","bondi_flow","r_c") ; 
+        par.K     = get_param<double>("grmhd","bondi_flow","K")   ;
+        par.gamma = get_param<double>("grmhd","bondi_flow","gamma")   ;
+        par.M     = 1. ; 
+        // fixme! 
+        par.j     = get_param<double>("grmhd","bondi_flow","spec_ang_mom") ; 
+        par.j_pow = get_param<double>("grmhd","bondi_flow","spec_ang_mom_scaling") ; 
+
+        par.bh_spin = get_param<double>("grmhd","bondi_flow","spin")   ;
+        par.t_min = get_param<double>("grmhd","bondi_flow","temp_min")   ;
+        par.t_max = get_param<double>("grmhd","bondi_flow","temp_max")   ;
+
+        par.n = 1./(par.gamma-1.) ; 
+
         // Compute temperature and radial 4 velocity at the sonic  
         // point 
-        bondi_uc_Tc(1.0/*Mass always 1*/, rc, n, &uc, &Tc) ; 
+        bondi_uc_Tc(par.M, par.rc, par.n, &par.uc, &par.Tc) ; 
         GRACE_INFO("Into Bondi initial data, solving on radial grid.") ; 
-        GRACE_INFO("Setup: r_c: {} T_c: {} u_c: {}", rc, Tc, uc) ; 
-        // we solve the problem on a log r grid and store the solutions for 
-        // interpolation 
-        logr = view_t("log_r_Bondi", npoints) ; 
-        logT = view_t("T_Bondi",npoints) ; 
-        // fill radial coordinate 
-        dlogr = (lrmax-lrmin)/npoints; 
-        // view ptr 
-        view_t alias_logr = logr ; 
-        auto logr_h = create_mirror_view(logr) ;
-        for( int i=0; i<npoints; ++i) {
-            logr_h(i) = lrmin + i * dlogr ; 
-        } 
-        deep_copy(logr, logr_h) ; 
-        // solve the problem 
-        // i_c is the index of the last point before the 
-        // sonic radius
-        int i_c = static_cast<int>((Kokkos::log(rc)-lrmin)/dlogr);
-        auto logT_h = create_mirror_view(logT) ; 
-        double _Tc(Tc), _n(n), _uc(uc) ; 
-        // first we solve inwards of the sonic point 
-        for( int i=i_c; i!=-1; i--) {
-            double r = Kokkos::exp(logr_h(i)); 
-            auto froot = [=] (double T, double& f, double& df) {
-                    double const M = 1.0 ; 
-                    bondi_T__r(_n,_uc,r,_Tc,T,M,_rc,&f,&df);
-                } ;
-            double Tg = i==i_c ? Tc*(1+1e-06) : Kokkos::exp(logT_h(i+1)); // guess 
-            int rerr ; 
-            double Tl = utils::rootfind_newton_raphson_unsafe(Tg,froot,30,1e-12,rerr) ; 
-            if ( rerr != 1 ) {
-                logT_h(i) = Kokkos::log(Tl) ; 
-            } else {
-                double f,df ; 
-                froot(Tg,f,df);
-                GRACE_INFO("Radius {} initial guess {} err {} fun {} dfun {}", r, Tg, rerr, f,df) ; 
-                ERROR("Failed to converge to a root for temperature in inward bondi flow solve") ; 
-            }
-        }   
-        // Then we solve outwards
-        for( int i=i_c+1; i<npoints; i++) {
-            double r = Kokkos::exp(logr_h(i)); 
-            auto froot = [=] (double T, double& f, double& df) {
-                    double const M = 1.0 ; 
-                    bondi_T__r(_n,_uc,r,_Tc,T,M,_rc,&f,&df);
-                } ;
-            double Tg = i==i_c+1 ? Tc*(1-1e-06) : Kokkos::exp(logT_h(i-1)); // guess 
-            int rerr ; 
-            double Tl = utils::rootfind_newton_raphson_unsafe(Tg,froot,30,1e-12,rerr) ; 
-            if ( rerr != 1 ) {
-                logT_h(i) = Kokkos::log(Tl) ; 
-            } else {
-                double f,df ; 
-                froot(Tg,f,df);
-                GRACE_INFO("Radius {} initial guess {} err {} fun {} dfun {}", r, Tg, rerr, f,df) ; 
-                ERROR("Failed to converge to a root for temperature in inward bondi flow solve") ; 
-            }
-        }
-        deep_copy(logT,logT_h) ; 
+        GRACE_INFO("Setup: r_c: {} T_c: {} u_c: {}", par.rc, par.Tc, par.uc) ; 
+
     }
 
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     operator() (VEC(int const i, int const j, int const k), int const q) const 
     {
         grmhd_id_t id ; 
+        double r_exc = excision_params.r_ex; 
+
         // TODO we assume Schwarzschild now 
         double xyz[3] ; 
         #if 0 
@@ -147,24 +194,17 @@ struct bondi_id_t {
         xyz[0] = _pcoords(i,j,k,0,q) ; 
         xyz[1] = _pcoords(i,j,k,1,q) ; 
         xyz[2] = _pcoords(i,j,k,2,q) ; 
+
         // transform cks to bl coords
         double r,theta,phi ; 
-        double r_eps = 1e-6; 
-        kerr_schild_to_boyer_lindquist(xyz,0.0,r_eps,&r,&theta,&phi) ; 
-        // log radius
-        double _logr = Kokkos::log(r) ; 
-        // find the index 
-        if ( _logr < lrmin or _logr > lrmax ) {
-            Kokkos::abort("Bondi grid does not cover the domain") ; 
-        }
-        // Interpolate temperature from solution grid 
-        int ig = Kokkos::min(static_cast<int>((_logr-lrmin)/dlogr), static_cast<int>(npoints-2)); 
-        double const lambda = (_logr - logr(ig)) / dlogr;
-        double _logT = (1.0 - lambda) * logT(ig) + lambda * logT(ig+1);
+        kerr_schild_to_boyer_lindquist(xyz,0.0,r_exc,&r,&theta,&phi) ; 
+        // find temperature 
+        double T = get_temperature_bondi(r, par) ; 
+
         // compute other quantities 
         double uBL[4] = {0,0,0,0}; 
         bondi_ur_rho_p__r(
-            Tc,Kokkos::exp(_logT),n,rc,uc,Kokkos::exp(_logr),K,&(uBL[1]),&id.rho,&id.press
+            par.rc,par.n,par.K,T,r,par.Tc,par.uc,&(uBL[1]),&id.rho,&id.press
         ) ; 
         
         // for now no B field 
@@ -172,8 +212,7 @@ struct bondi_id_t {
         
         // four metric 
         double g4dd[4][4], g4uu[4][4] ; 
-        r_eps = 1e-6 ; 
-        kerr_schild_four_metric(xyz,0.0,r_eps,&g4dd,&g4uu) ; 
+        kerr_schild_four_metric(xyz,0.0,r_exc,&g4dd,&g4uu) ; 
 
         // radial vector
         // TODO change this to be BL to CKS 
@@ -185,7 +224,7 @@ struct bondi_id_t {
         // get metric 
         double guu[6] ; 
         kerr_schild_adm_metric(
-            xyz,0.0,0.25,
+            xyz,0.0,r_exc,
             &id.gxx, &id.gxy, &id.gxz, &id.gyy, &id.gyz, &id.gzz,
             &guu[0], &guu[1], &guu[2], &guu[3], &guu[4], &guu[5], 
             &id.alp, &id.betax, &id.betay, &id.betaz, 
@@ -214,7 +253,7 @@ struct bondi_id_t {
         // ye
         id.ye = 0.0 ; 
 
-        if ( excision_params.excise_by_radius and r < excision_params.r_ex ) {
+        if ( excision_params.excise_by_radius and r <= ( 1e-12 + r_exc ) ) {
             id.rho = excision_params.rho_ex ; 
             id.bx = id.by = id.bz = 0.0;
             id.vx = id.vy = id.vz = 0.0;
@@ -229,9 +268,8 @@ struct bondi_id_t {
     eos_t eos ; 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;
 
-    double gamma, n, K, rc, uc, Tc, lrmin, lrmax, dlogr, spin ; 
+    bondi_params_t par ; 
     excision_params_t excision_params ; 
-    view_t logr, logT ; 
 
 } ; 
 

@@ -32,6 +32,7 @@
 /**********************************************************************************/
 #include <grace/system/grace_system.hh>
 #include <grace/amr/grace_amr.hh>
+#include <grace/amr/amr_ghosts.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/utils/grace_utils.hh>
 #include <grace/parallel/mpi_wrappers.hh>
@@ -116,13 +117,32 @@ int main(int argc, char* argv[])
         if (    (iter % regrid_every == 0) 
             and (regrid_every>0)) 
         {
-            grace::amr::regrid() ;  
-            grace::amr::apply_boundary_conditions() ;
-	        grace::compute_auxiliary_quantities() ;
-            grace::spherical_surface_manager::get().update(true) ; 
-            #ifdef GRACE_ENABLE_Z4C_METRIC
-            grace::compute_constraint_violations() ; 
-            #endif 
+            auto grid_has_changed = grace::amr::regrid() ;
+            if ( grid_has_changed ) {
+                /******************************************************************************************/
+                /*                         Update ghost layer                                             */
+                /******************************************************************************************/
+                auto& ghost = grace::amr_ghosts::get() ; 
+                ghost.update() ;
+                //******************************************************************************************/
+                /*                         Refill the ghostzones                                           */
+                //******************************************************************************************/
+                grace::amr::apply_boundary_conditions() ;
+                //******************************************************************************************/
+                /*                               Recompute aux                                             */
+                //******************************************************************************************/
+                grace::compute_auxiliary_quantities() ;
+                //******************************************************************************************/
+                /*                               Update spheres                                            */
+                //******************************************************************************************/
+                grace::spherical_surface_manager::get().update(true) ; 
+                //******************************************************************************************/
+                /*                           Recompute violations                                          */
+                //******************************************************************************************/
+                #ifdef GRACE_ENABLE_Z4C_METRIC
+                grace::compute_constraint_violations() ; 
+                #endif 
+            } 
         }
         if(    (volume_output_every>0) 
            or  (plane_surface_output_every>0) 
