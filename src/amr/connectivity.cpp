@@ -31,6 +31,8 @@
 
 #include <grace/amr/connectivities_impl.hh>
 #include <grace/amr/connectivity.hh>
+#include <grace/utils/affine_transformation.hh>
+
 
 #include <grace/utils/affine_transformation.hh>
 
@@ -42,6 +44,7 @@ namespace grace{ namespace amr {
 
 namespace detail{
 
+//**************************************************************************************************
 #ifdef GRACE_3D 
 //**************************************************************************************************
 p4est_connectivity_t* 
@@ -265,37 +268,34 @@ new_spherical_connectivity( double L, double R, double Rlog)
 //**************************************************************************************************
 p4est_connectivity_t*
 new_cartesian_connectivity( double xmin, double xmax, bool periodic_x
-                             , double ymin, double ymax, bool periodic_y )
+                            , double ymin, double ymax, bool periodic_y )
 {
-    auto x_ext{xmax-xmin}, y_ext{ymax-ymin}; 
+    auto x_ext{xmax-xmin}, y_ext{ymax-ymin} ; 
 
-    uint32_t nx,ny; 
-    if( x_ext < y_ext ) { 
-        nx = 1 ; 
-        ny = static_cast<uint32_t>(y_ext / x_ext) ;
-        y_ext = ny * x_ext ;
-    } else { 
-        ny = 1 ; 
-        nx = static_cast<uint32_t>(x_ext / y_ext) ;
-        x_ext = nx * y_ext ; 
-    }
-    double x_tree { x_ext / nx } , y_tree { y_ext / ny }  ; 
+    // Determine the minimum extent to base the grid size on
+    double min_ext = std::min({x_ext, y_ext, z_ext});
+
+    uint32_t nx = static_cast<uint32_t>(x_ext / min_ext);
+    uint32_t ny = static_cast<uint32_t>(y_ext / min_ext);
+
+    // Adjust the extents to fit the grid
+    x_ext = nx * min_ext;
+    y_ext = ny * min_ext;
+    double x_tree { min_ext } , y_tree { min_ext }  ; 
     auto conn = p4est_connectivity_new_brick( nx,ny, periodic_x,periodic_y ) ;
     // We manually set the vertices' coordinates to their physical value  
     auto vertices = conn->vertices; 
-    auto t2v      = conn->tree_to_vertex ; 
-    size_t nt = 0 ; 
-    for(uint32_t j=0; j<ny; ++j) for( uint32_t i=0; i<nx; ++i) { 
-        for( uint32_t v=0; v<4; ++v) {
-            size_t nv = t2v[ 4 * nt + v ] ; 
-            vertices[ 3*nv ]     = ( i + (uint32_t)(v%2U)          ) * x_tree + xmin; 
-            vertices[ 3*nv + 1 ] = ( j + (uint32_t)((v>>1U) & 1U)  ) * y_tree + ymin;
-            vertices[ 3*nv + 2 ] = 0;
-        }   
-        ++nt ; 
-    }
-  return conn ;
-} ; 
+    auto n_vertices      = conn->num_vertices; 
+
+    for( uint32_t nv=0; nv<n_vertices; ++nv) {
+        vertices[ 3*nv     ] = utils::affine_transformation(vertices[ 3*nv   ], 0.0, static_cast<double>(nx), xmin, xmax);
+        vertices[ 3*nv + 1 ] = utils::affine_transformation(vertices[ 3*nv+1 ], 0.0, static_cast<double>(ny), ymin, ymax);
+        vertices[ 3*nv + 2 ] = 0 ;
+    }   
+      
+    
+  return conn ; 
+} ;
 #endif 
 
 
