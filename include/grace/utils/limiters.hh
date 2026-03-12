@@ -48,7 +48,7 @@ struct minmod {
      * @return double Limited slope.
      */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    operator() (double const& slopeL, double const& slopeR){
+    operator() (double const& slopeL, double const& slopeR) const {
         auto const signL = math::sgn(slopeL) ;
         auto const signR = math::sgn(slopeR) ; 
         return 0.5 * ( signL + signR ) * math::min(Kokkos::fabs(slopeL),Kokkos::fabs(slopeR)) ; 
@@ -68,7 +68,7 @@ struct MCbeta {
      * @return double Limited slope.
      */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    operator() (double const& slopeL, double const& slopeR){
+    operator() (double const& slopeL, double const& slopeR) const {
         auto const slopeC = 0.5 * (slopeR + slopeL) ; 
         auto const signR  = math::sgn(slopeR) ;
         auto const signC  = math::sgn(slopeC) ;

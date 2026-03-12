@@ -33,15 +33,30 @@
 #include <grace/system/p4est_runtime.hh>
 #include <grace/system/kokkos_runtime.hh>
 #include <grace/system/grace_runtime.hh>
+#include <grace/system/checkpoint_handler.hh>
 
 #include <grace/config/config_parser.hh>
 
 #include <grace/amr/connectivity.hh>
 #include <grace/amr/forest.hh>
 #include <grace/amr/amr_functions.hh>
+#include <grace/amr/amr_ghosts.hh>
+#include <grace/amr/boundary_conditions.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/coordinates/coordinates.hh>
 #include <grace/profiling/profiling_runtime.hh>
+#include <grace/utils/device_stream_pool.hh>
+
+#include <grace/evolution/initial_data.hh>
+#include <grace/evolution/auxiliaries.hh>
+
+#include <grace/IO/spherical_surfaces.hh>
+#include <grace/IO/output_diagnostics.hh>
+#ifdef GRACE_ENABLE_Z4C_METRIC
+#include <grace/IO/diagnostics/puncture_tracker.hh>
+#include <grace/evolution/evolve.hh>
+#endif 
+#include <grace/amr/grace_amr.hh>
 
 #include <grace/errors/error.hh>
 
@@ -50,8 +65,9 @@
 #include <grace/data_structures/variables.hh>
 
 #include <grace/system/print.hh>
+#ifdef GRACE_ENABLE_VTK
 #include <grace/IO/vtk_output_auxiliaries.hh>
-
+#endif 
 #include <grace/physics/eos/eos_storage.hh>
 
 #include <spdlog/spdlog.h>
@@ -180,6 +196,7 @@ void initialize(int& argc, char* argv[])
     grace::mpi_runtime::initialize(argc, argv)  ;
     grace::kokkos_runtime::initialize(&argc, argv) ; 
     grace::initialize_loggers() ; 
+    grace::device_stream_pool::initialize() ;
     GRACE_INFO(GRACE_BANNER) ; 
     #ifdef GRACE_ENABLE_PROFILING
     grace::profiling_runtime::initialize() ; 
@@ -192,26 +209,84 @@ void initialize(int& argc, char* argv[])
     #ifdef GRACE_SPHERICAL_COORDINATES
     GRACE_INFO("GRACE running with spherical coordinates.");
     #endif 
-    GRACE_INFO("Inititalizing connectivity object...") ; 
-    grace::amr::connectivity::initialize() ; 
-    grace::amr::forest::initialize()       ;
-    grace::amr::detail::_nx = grace::config_parser::get()["amr"]["npoints_block_x"].as<int64_t>() ;
-    grace::amr::detail::_ny = grace::config_parser::get()["amr"]["npoints_block_y"].as<int64_t>() ;
-    grace::amr::detail::_nz = grace::config_parser::get()["amr"]["npoints_block_z"].as<int64_t>() ;
-    grace::amr::detail::_ngz = grace::config_parser::get()["amr"]["n_ghostzones"].as<int>() ;
-    GRACE_INFO("Allocating memory...");
-    grace::variable_list::initialize() ;
-    grace::runtime::initialize() ; 
-    grace::coordinate_system::initialize() ;
+    // Here we initialize the checkpoint handler and 
+    // have it autodetect existing checkpoints.
+    // If they are found the initialization of the grid 
+    // is taken over by the checkpoint handler.
+    bool started_from_checkpoint = false ; 
+    checkpoint_handler::initialize() ; 
+    if( checkpoint_handler::get().have_checkpoint() ) {
+        checkpoint_handler::get().load_checkpoint() ; 
+        started_from_checkpoint = true ; 
+    } else {
+        GRACE_INFO("Inititalizing connectivity object...") ; 
+        grace::amr::connectivity::initialize() ; 
+        grace::amr::forest::initialize()       ;
+        grace::amr::detail::_nx = grace::config_parser::get()["amr"]["npoints_block_x"].as<int64_t>() ;
+        grace::amr::detail::_ny = grace::config_parser::get()["amr"]["npoints_block_y"].as<int64_t>() ;
+        grace::amr::detail::_nz = grace::config_parser::get()["amr"]["npoints_block_z"].as<int64_t>() ;
+        grace::amr::detail::_ngz = grace::config_parser::get()["amr"]["n_ghostzones"].as<int>() ;
+        GRACE_INFO("Allocating memory...");
+        grace::variable_list::initialize() ;
+        grace::runtime::initialize() ; 
+        grace::coordinate_system::initialize() ;
+        grace::eos::initialize() ;
+    }
+    
     GRACE_INFO("Filling coordinate arrays...") ;
-    grace::fill_cell_coordinates(
-            grace::variable_list::get().getcoords()
-        ,   grace::variable_list::get().getinvspacings()
-        ,   grace::variable_list::get().getspacings()
-        ,   grace::variable_list::get().getvolumes()
-        ,   grace::variable_list::get().getstaggeredcoords() ) ;
+    grace::fill_cell_spacings(
+            grace::variable_list::get().getinvspacings()
+        ,   grace::variable_list::get().getspacings()   ) ;
+    #ifdef GRACE_ENABLE_VTK
     grace::IO::detail::init_auxiliaries()  ;
-    grace::eos::initialize() ;
+    #endif 
+    grace::amr_ghosts::initialize() ; 
+    auto& ghost = grace::amr_ghosts::get() ; 
+    ghost.update() ; 
+    if ( started_from_checkpoint ) {
+        amr::apply_boundary_conditions() ; 
+    }
+    /**********************************************************************************/
+    /*                                 Initial data                                   */
+    /**********************************************************************************/
+    if ( ! started_from_checkpoint ) {
+        GRACE_INFO("Setting initial data.") ; 
+        grace::set_initial_data() ; 
+        bool regrid_at_postinitial = grace::get_param<bool>("amr","regrid_at_postinitial") ; 
+        int postinitial_regrid_depth = 
+            grace::get_param<int>("amr","postinitial_regrid_depth") ;
+        /**********************************************************************************/
+        /*                                 Post-Initial data                              */
+        /**********************************************************************************/
+        if( regrid_at_postinitial ) {
+            GRACE_INFO("Performing initial regrid.") ;
+            for( int ilev=0; ilev<postinitial_regrid_depth; ++ilev){
+                GRACE_INFO("Regrid level {}.", ilev+1) ;
+                auto grid_has_changed = grace::amr::regrid() ;  
+                // only reset ID and update ghost struct if grid was modified 
+                if (grid_has_changed) {
+                    ghost.update() ; 
+                    grace::set_initial_data() ; 
+                }
+            }
+        }
+    } else {
+        // aux vars are not in the checkpoint 
+        grace::compute_auxiliary_quantities() ;
+    }
+    //--
+    // setup spherical surfaces 
+    //--
+    grace::spherical_surface_manager::initialize() ;
+    //--
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    grace::compute_constraint_violations() ; 
+    #endif 
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    grace::puncture_tracker::initialize() ; 
+    #endif 
+    Kokkos::fence() ; 
+    parallel::mpi_barrier() ; 
     GRACE_INFO("Initialization done.");
     GRACE_INFO("GRACE running on {} backend", GRACE_BACKEND) ; 
     //GRACE_INFO("GRACE running on {} total devices.", Kokkos::num_devices() ) ; 

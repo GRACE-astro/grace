@@ -62,55 +62,88 @@ enum grace_variable_types {
     N_GRACE_VARIABLE_TYPES 
 } ; 
 //*****************************************************************************************************
-/**
-* @brief Register a variable within GRACE.
-* \ingroup variables
-* @param name            Name of the variable.
-* @param staggered       Staggering of variable in each direction.
-* @param need_ghostzones Whether the variable needs extra ghostzone storage.
-* @param is_evolved      Whether the variable is evolved.
-* @param need_fluxes     Whether the variables needs fluxes. 
-* @param is_vector       True if the variable is a component of a vector.
-* @return int            Index of the variable in respective state array.
-*/
-static int register_variable( std::string const& name
-                            , std::array<bool,GRACE_NSPACEDIM> staggered  
-                            , bool need_ghostzones 
-                            , bool is_evolved 
-                            , bool need_fluxes
-                            , std::string const& bc_type=""
-                            , bool is_vector=false
-                            , bool is_tensor=false 
-                            , int  comp_num=0
-                            , std::string const& vecname=""
-                             ) ;
-//*****************************************************************************************************
 namespace detail {
+/****************************************************/
+/*                Variable arrays sizes             */
+/****************************************************/
+extern int num_vector_vars ;
+extern int num_tensor_vars ; 
+/****************************************************/
+/****************************************************/
 
-static int register_scalar( std::string const& name
-                          , bool is_evolved 
-                          , bool need_fluxes 
-                          , std::string const& bc_type ) ;
+/****************************************************/
+/*                Variable name arrays              */
+/****************************************************/
+extern std::vector<std::string> _varnames ; 
+extern std::vector<std::string> _auxnames ; 
+
+extern std::vector<std::string> _facex_staggered_varnames ;
+
+extern std::vector<std::string> _facey_staggered_varnames ;
+
+extern std::vector<std::string> _facez_staggered_varnames ;
+
+extern std::vector<std::string> _edgexy_staggered_varnames ; 
+
+extern std::vector<std::string> _edgexz_staggered_varnames ; 
+
+extern std::vector<std::string> _edgeyz_staggered_varnames ; 
+
+extern std::vector<std::string> _corner_staggered_varnames ; 
+/****************************************************/
+/****************************************************/
  
-static int register_staggered_variable( std::string const& name
-                                      , bool is_evolved 
-                                      , bool need_fluxes 
-                                      , std::string const& bc_type 
-                                      , std::array<bool,GRACE_NSPACEDIM> const& staggering ) ;
+/****************************************************/
+/*             Boundary condition arrays            */
+/****************************************************/
+extern std::vector<grace::bc_t> _var_bc_types ;
 
-static int register_vector( std::string const& name
-                          , bool is_evolved 
-                          , bool need_fluxes
-                          , int num_comp
-                          , std::string const & bc_type ) ; 
+extern std::vector<grace::bc_t> _facex_vars_bc_types ;
 
-static int register_tensor( std::string const& name
-                          , bool is_evolved 
-                          , bool need_fluxes
-                          , int num_comp
-                          , std::string const & bc_type ) ; 
+extern std::vector<grace::bc_t> _facey_vars_bc_types ;
 
-}
+extern std::vector<grace::bc_t> _facez_vars_bc_types ;
+
+extern std::vector<grace::bc_t> _edgexy_vars_bc_types ;
+
+extern std::vector<grace::bc_t> _edgexz_vars_bc_types ;
+
+extern std::vector<grace::bc_t> _edgeyz_vars_bc_types ;
+
+extern std::vector<grace::bc_t> _corner_vars_bc_types ;
+/****************************************************/
+/*      Prolong/Restrict operator arrays            */
+/****************************************************/
+extern std::vector<grace::var_amr_interp_t> _var_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _facex_vars_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _facey_vars_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _facez_vars_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _edgexy_vars_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _edgexz_vars_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _edgeyz_vars_interp_types ;
+
+extern std::vector<grace::var_amr_interp_t> _corner_vars_interp_types ;
+/****************************************************/
+/****************************************************/
+ 
+/****************************************************/
+/*              Handling of vector/tensor           */
+/*                    components                    */
+/****************************************************/
+
+extern std::unordered_map<std::string, variable_properties_t<GRACE_NSPACEDIM>> 
+    _varprops; 
+extern std::unordered_map<std::string, variable_properties_t<GRACE_NSPACEDIM>> 
+    _auxprops; 
+
+} /* namespace grace::variables::detail */
+
 
 /**
  * @brief Register all variables.
@@ -124,156 +157,138 @@ static int register_tensor( std::string const& name
  */
 void register_variables() ; 
 
-namespace detail {
-
-extern int num_vars      ; 
-extern int last_evolved  ; 
-extern int num_fluxes    ;
-extern int last_flux     ;  
-extern int first_flux     ;  
-
-/****************************************************/
-/*                Variable arrays sizes             */
-/****************************************************/
-extern int num_evolved   ;
-extern int num_auxiliary ;
-
-extern int num_face_staggered_vars ;
-extern int num_face_staggered_aux  ;
-
-extern int num_edge_staggered_vars ;
-extern int num_edge_staggered_aux  ;
-
-extern int num_corner_staggered_vars ;
-extern int num_corner_staggered_aux  ;
-
-extern int num_vector_vars ;
-extern int num_tensor_vars ; 
-/****************************************************/
-/****************************************************/
-
-/****************************************************/
-/*                Variable name arrays              */
-/****************************************************/
-extern std::vector<std::string> _varnames ; 
-extern std::vector<std::string> _auxnames ; 
-
-extern std::vector<std::string> _face_staggered_varnames ;
-extern std::vector<std::string> _face_staggered_auxnames ;
-
-extern std::vector<std::string> _edge_staggered_varnames ; 
-extern std::vector<std::string> _edge_staggered_auxnames ; 
-
-extern std::vector<std::string> _corner_staggered_varnames ; 
-extern std::vector<std::string> _corner_staggered_auxnames ;
-/****************************************************/
-/****************************************************/
- 
-/****************************************************/
-/*             Boundary condition arrays            */
-/****************************************************/
-extern std::vector<std::string> _var_bc_types ;
-extern std::vector<std::string> _aux_bc_types ;
-
-extern std::vector<std::string> _face_vars_bc_types ;
-extern std::vector<std::string> _face_aux_bc_types ;
-
-extern std::vector<std::string> _edge_vars_bc_types ;
-extern std::vector<std::string> _edge_aux_bc_types ;
-
-extern std::vector<std::string> _corner_vars_bc_types ;
-extern std::vector<std::string> _corner_aux_bc_types ;
-/****************************************************/
-/****************************************************/
- 
-/****************************************************/
-/*              Handling of vector/tensor           */
-/*                    components                    */
-/****************************************************/
-extern std::vector<int> _vector_var_indices ; 
-extern std::vector<int> _tensor_var_indices ; 
-
-extern std::unordered_map<std::string, variable_properties_t<GRACE_NSPACEDIM>> 
-    _varprops; 
-extern std::unordered_map<std::string, variable_properties_t<GRACE_NSPACEDIM>> 
-    _auxprops; 
-
-} /* namespace grace::variables::detail */
-
 } } /* namespace grace::variables */
 
-#ifdef GRACE_ENABLE_BURGERS 
-#define VARIABLE_LIST_BURGERS \
-DECLARE_VAR_INDEX_IMPL(U)     
-#else 
-#define VARIABLE_LIST_BURGERS
-#endif 
-#ifdef GRACE_ENABLE_SCALAR_ADV
-#define VARIABLE_LIST_SCALAR_ADV \
-DECLARE_VAR_INDEX_IMPL(U)        \
-DECLARE_VAR_INDEX_IMPL(ERR)      
-#else
-#define VARIABLE_LIST_SCALAR_ADV
-#endif 
-//#ifdef GRACE_ENABLE_GRMHD 
-/* Valencia GRMHD conservatives */
-#define VARIABLE_LIST_HYDROBASE                     \
-DECLARE_VAR_INDEX_IMPL(DENS)                        \
-DECLARE_VAR_INDEX_IMPL(SX)                          \
-DECLARE_VAR_INDEX_IMPL(SY)                          \
-DECLARE_VAR_INDEX_IMPL(SZ)                          \
-DECLARE_VAR_INDEX_IMPL(TAU)                         \
-DECLARE_VAR_INDEX_IMPL(YESTAR)                      \
-DECLARE_VAR_INDEX_IMPL(ENTROPYSTAR)                 \
-DECLARE_VAR_INDEX_IMPL(RHO)                         \
-DECLARE_VAR_INDEX_IMPL(PRESS)                       \
-DECLARE_VAR_INDEX_IMPL(VELX)                        \
-DECLARE_VAR_INDEX_IMPL(VELY)                        \
-DECLARE_VAR_INDEX_IMPL(VELZ)                        \
-DECLARE_VAR_INDEX_IMPL(ZVECX)                        \
-DECLARE_VAR_INDEX_IMPL(ZVECY)                        \
-DECLARE_VAR_INDEX_IMPL(ZVECZ)                        \
-DECLARE_VAR_INDEX_IMPL(TEMP)                        \
-DECLARE_VAR_INDEX_IMPL(YE)                          \
-DECLARE_VAR_INDEX_IMPL(ENTROPY)                     \
-DECLARE_VAR_INDEX_IMPL(EPS)                         
-/* ADM metric functions */
-#define VARIABLE_LIST_ADMBASE                     \
-DECLARE_VAR_INDEX_IMPL(GXX)                       \
-DECLARE_VAR_INDEX_IMPL(GXY)                       \
-DECLARE_VAR_INDEX_IMPL(GXZ)                       \
-DECLARE_VAR_INDEX_IMPL(GYY)                       \
-DECLARE_VAR_INDEX_IMPL(GYZ)                       \
-DECLARE_VAR_INDEX_IMPL(GZZ)                       \
-DECLARE_VAR_INDEX_IMPL(ALP)                       \
-DECLARE_VAR_INDEX_IMPL(BETAX)                     \
-DECLARE_VAR_INDEX_IMPL(BETAY)                     \
-DECLARE_VAR_INDEX_IMPL(BETAZ)                     \
-DECLARE_VAR_INDEX_IMPL(KXX)                       \
-DECLARE_VAR_INDEX_IMPL(KXY)                       \
-DECLARE_VAR_INDEX_IMPL(KXZ)                       \
-DECLARE_VAR_INDEX_IMPL(KYY)                       \
-DECLARE_VAR_INDEX_IMPL(KYZ)                       \
-DECLARE_VAR_INDEX_IMPL(KZZ)                       
-//#else 
-//#define VARIABLE_LIST_ADMBASE 
-//#define VARIABLE_LIST_HYDROBASE
-//#endif 
+enum evol_hrsc_var_cc_idx : int {
+    DENS_ = 0,
+    SX_,
+    SY_,
+    SZ_,
+    TAU_,
+    YESTAR_,
+    ENTROPYSTAR_,
+    #ifdef GRACE_ENABLE_M1
+    ERAD_,
+    NRAD_,
+    FRADX_,
+    FRADY_,
+    FRADZ_,
+    #endif 
+    N_HRSC_CC
+} ; 
 
-#define DECLARE_VARIABLE_INDICES    \
-VARIABLE_LIST_HYDROBASE             \
-VARIABLE_LIST_ADMBASE               \
-VARIABLE_LIST_BURGERS               \
-VARIABLE_LIST_SCALAR_ADV
+enum evol_var_fc_x_idx : int {
+    BSX_=0,
+    N_FC_X
+} ; 
 
-#define DECLARE_VAR_INDEX_IMPL(var) extern int var;
-DECLARE_VARIABLE_INDICES
-#undef DECLARE_VAR_INDEX_IMPL
+enum evol_var_fc_y_idx : int {
+    BSY_=0,
+    N_FC_Y
+} ; 
 
-#define  DECLARE_VAR_INDEX_IMPL(var) extern GRACE_DEVICE int var##_;
-DECLARE_VARIABLE_INDICES
-#undef DECLARE_VAR_INDEX_IMPL
+enum evol_var_fc_z_idx : int {
+    BSZ_=0,
+    N_FC_Z
+} ; 
 
-#define DECLARE_VAR_INDEX_IMPL(name) 
+enum evol_var_ec_yz_idx : int {
+    N_EC_YZ=0
+} ; 
+
+enum evol_var_ec_xz_idx : int {
+    N_EC_XZ=0
+} ; 
+
+enum evol_var_ec_xy_idx : int {
+    N_EC_XY=0
+} ; 
+
+enum evol_var_vc_idx : int {
+    N_VC=0
+} ; 
+
+enum evol_fd_var_cc_idx : int {
+    #ifdef GRACE_ENABLE_COWLING_METRIC
+    GXX_=N_HRSC_CC,
+    GXY_,
+    GXZ_,
+    GYY_,
+    GYZ_,
+    GZZ_,
+    ALP_,
+    BETAX_,
+    BETAY_,
+    BETAZ_,
+    KXX_,
+    KXY_,
+    KXZ_,
+    KYY_,
+    KYZ_,
+    KZZ_,
+    #endif 
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    GTXX_=N_HRSC_CC,
+    GTXY_,
+    GTXZ_,
+    GTYY_,
+    GTYZ_,
+    GTZZ_,
+    CHI_,
+    THETA_,
+    GAMMATX_,
+    GAMMATY_,
+    GAMMATZ_,
+    ATXX_,
+    ATXY_,
+    ATXZ_,
+    ATYY_,
+    ATYZ_,
+    ATZZ_,
+    KHAT_,
+    ALP_,
+    BETAX_,
+    BETAY_,
+    BETAZ_,
+    BDRIVERX_,
+    BDRIVERY_,
+    BDRIVERZ_,
+    #endif
+    N_EVOL_VARS
+} ; 
+
+enum aux_var_idx : int {
+    RHO_=0,
+    ZVECX_,
+    ZVECY_,
+    ZVECZ_,
+    BX_,
+    BY_,
+    BZ_,
+    YE_,
+    TEMP_,
+    ENTROPY_,
+    EPS_,
+    PRESS_,
+    BDIV_,
+    SMALLB2_,
+    C2P_ERR_,
+    #ifdef GRACE_ENABLE_M1
+    KAPPAA_,
+    KAPPAS_,
+    ETA_,
+    ETAN_,
+    KAPPAAN_,
+    #endif
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    PSI4RE_,
+    PSI4IM_,
+    HAM_,
+    MOMX_,
+    MOMY_,
+    MOMZ_,
+    #endif
+    N_AUX_VARS
+} ; 
 
 #endif /* INCLUDE_GRACE_DATA_STRUCTURES_VARIABLE_INDICES */

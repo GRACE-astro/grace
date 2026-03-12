@@ -37,6 +37,8 @@
 
 #include <array> 
 
+#include <Kokkos_Core.hpp>
+
 namespace grace {
 
 /**
@@ -46,7 +48,7 @@ namespace grace {
 struct metric_array_t {
 
 GRACE_HOST_DEVICE
-metric_array_t() = default;
+metric_array_t() {/*silence warnings*/};
 /**
  * @brief Constructor. This is marked 
  *        <code>__host__ __device__</code>
@@ -78,6 +80,42 @@ metric_array_t( std::array<double,6>const& g_
     _ginv[5] = (-math::int_pow<2>(_g[1]) + _g[0]*_g[3]) / _sqrtg;
     _sqrtg   = Kokkos::sqrt(_sqrtg) ; 
 }
+/**
+ * @brief Constructor using conformal metric. This is marked 
+ *        <code>__host__ __device__</code>
+ *        to allow for construction in parallel
+ *        regions.
+ * 
+ * @param gt_ Array containing the nontrivial components of the conformal spatial 
+ *           metric.
+ * @param phi_ Conformal factor.
+ * @param beta_ Array containing components of contravariant shift.
+ * @param alp_ Lapse function.
+ * NB: The order of metric components should be: (XX,XY,XZ,YY,YZ,ZZ).
+ */
+ #ifdef GRACE_ENABLE_Z4C_METRIC
+GRACE_HOST_DEVICE
+metric_array_t( std::array<double,6>const& gt_
+              , double const& chi_
+              , std::array<double,3>const& beta_ 
+              , double const& alp_ )
+    : _g(), _ginv(), _beta(beta_), _alp(alp_), _sqrtg()
+{
+    double oochi = 1./fmax(1e-100,chi_) ; 
+    #pragma unroll 6
+    for( int ii=0; ii<6; ++ii) {
+        _g[ii] = gt_[ii] * SQR(oochi) ; 
+    }
+    _sqrtg = det(_g) ; // TODO 
+    _ginv[0] = (_g[3]*_g[5] - math::int_pow<2>(_g[4]))/_sqrtg;
+    _ginv[1] = (-_g[1]*_g[5] + _g[2]*_g[4])/_sqrtg;
+    _ginv[2] = (-(_g[2]*_g[3]) + _g[1]*_g[4])/_sqrtg;
+    _ginv[3] = (_g[5]*_g[0] - math::int_pow<2>(_g[2]))/_sqrtg;
+    _ginv[4] = (_g[1]*_g[2] - _g[0]*_g[4])/_sqrtg ; 
+    _ginv[5] = (-math::int_pow<2>(_g[1]) + _g[0]*_g[3]) /_sqrtg ;
+    _sqrtg = sqrt(_sqrtg) ; 
+}
+#endif
 /**
  * @brief Get a component of the covariant metric.
  * 
@@ -202,6 +240,25 @@ lower(std::array<double,3> const& v ) const {
     } ; 
 }
 /**
+ * @brief Lower the index of a 3-vector.
+ * 
+ * @param v Components of the 3-vector.
+ * @return std::array<double,3> The 3-covector 
+ *         obtained as \f$\gamma_{i j} v^j\f$.
+ */
+std::array<double,4> GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+ lower_4vec(std::array<double,4> const& v ) const {
+     // TT TX TY TZ TX XX XY XZ TY XY YY YZ TZ XZ YZ ZZ 
+     // 0  1  2  3  1  4  5  6  2  5  7  8  3  6  8  9
+     auto _guu = gmunu()  ;
+     return std::array<double,4> {
+           _guu[0] * v[0] + _guu[1] * v[1] + _guu[2] * v[2] + _guu[3] * v[3]
+         , _guu[1] * v[0] + _guu[4] * v[1] + _guu[5] * v[2] + _guu[6] * v[3]
+         , _guu[2] * v[0] + _guu[5] * v[1] + _guu[7] * v[2] + _guu[8] * v[3]
+         , _guu[3] * v[0] + _guu[6] * v[1] + _guu[8] * v[2] + _guu[9] * v[3]
+     } ; 
+ }
+/**
  * @brief Compute the square norm of a 3-vector.
  * 
  * @param v Components of the 3-vector.
@@ -248,7 +305,7 @@ contract_4dvec_4dcovec( std::array<double,4> const& v
  * @brief Contract a spatial vector and covector
  * 
  * @param v Contravariant components of the vector.
- * @param w Contravariant components of the covector.
+ * @param w Covariant components of the covector.
  * @return double \f$v^{i} w_{i}\f$.
  */
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -256,6 +313,19 @@ contract_vec_covec( std::array<double,3> const& v
                   , std::array<double,3> const& w ) const
 {
     return v[0]*w[0] + v[1] * w[1] + v[2] * w[2] ; 
+}
+/**
+ * @brief Contract two spatial vectors
+ * 
+ * @param v Contravariant components of the vector.
+ * @param w Contravariant components of the second vector.
+ * @return double \f$\gamma_{ij} v^{i} w^{j}\f$.
+ */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_vec_vec( std::array<double,3> const& v
+                , std::array<double,3> const& w ) const
+{
+    return contract_vec_covec(v,lower(w)); 
 }
 /**
  * @brief Compute the full contraction of two
@@ -325,6 +395,57 @@ contract_sym2tens_sym2tens( std::array<double,6> const& A
              + A[YZ]*B[YZ] ) ;
 }
 
+/**
+ * @brief Compute the full contraction of two
+ *        symmetric rank 2 spatial tensors.
+ * 
+ * @param A Covariant components of the first 2-tensor.
+ * @param B Contravariant components of the other 2-tensor.
+ * @return double \f$A_{i j} B^{i j}\f$.
+ */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_sym2tens_sym2tens( double const (&A)[3][3]
+                          , std::array<double,6> const& B ) const 
+{
+    return A[0][0]*B[XX] + A[1][1]*B[YY] + A[2][2]*B[ZZ] 
+        +  2*( A[0][1]*B[XY] 
+             + A[0][2]*B[XZ]  
+             + A[1][2]*B[YZ] ) ;
+}
+
+/**
+ * @brief Compute the full contraction of two
+ *        symmetric rank 2 spatial tensors.
+ * 
+ * @param A Covariant components of the first 2-tensor.
+ * @param B Contravariant components of the other 2-tensor.
+ * @return double \f$A_{i j} B^{i j}\f$.
+ */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_sym2tens_sym2tens( std::array<double,6> const& A
+                          , double const (&B) [3][3] ) const 
+{ 
+    return contract_sym2tens_sym2tens(B,A) ;
+}
+
+/**
+ * @brief Compute the full contraction of two
+ *        symmetric rank 2 spatial tensors.
+ * 
+ * @param A Covariant components of the first 2-tensor.
+ * @param B Contravariant components of the other 2-tensor.
+ * @return double \f$A_{i j} B^{i j}\f$.
+ */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_sym2tens_sym2tens( double const (&A)[3][3]
+                          , double const (&B) [3][3] ) const 
+{ 
+    return A[0][0]*B[0][0] + A[1][1]*B[1][1] + A[2][2]*B[2][2]
+        +  2*( A[0][1]*B[0][1] 
+             + A[0][2]*B[0][2]  
+             + A[1][2]*B[1][2] ) ;
+}
+
 double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
 contract_vec_vec_sym2tens( std::array<double,3> const& v
                          , std::array<double,3> const& w 
@@ -358,6 +479,23 @@ contract_4dsym2tens_4dsym2tens( std::array<double,10> const& A
          + 2*( A[1]*B[1]  + A[2]*B[2] 
              + A[3]*B[3]  + A[5]*B[5] 
              + A[6]*B[6]  + A[8]*B[8] ) ;
+}
+
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+trace_sym2tens_upper(std::array<double,6> const& A) const 
+{
+    return (*this).contract_sym2tens_sym2tens(_g,A) ; 
+}
+
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+trace_sym2tens_lower(std::array<double,6> const& A) const 
+{
+    return (*this).contract_sym2tens_sym2tens(_ginv,A) ; 
+}
+
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+det(std::array<double,6> const& A) const {
+    return A[0]*A[3]*A[5] - A[0]*((A[4])*(A[4])) - ((A[1])*(A[1]))*A[5] + 2*A[1]*A[2]*A[4] - ((A[2])*(A[2]))*A[3] ; 
 }
 
 std::array<double,6> _g, _ginv ; //!< Spatial metric and inverse components.

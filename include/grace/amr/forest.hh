@@ -35,10 +35,13 @@
 #include <grace/utils/creation_policies.hh>
 #include <grace/utils/sc_wrappers.hh>
 
+#include <grace/amr/ghostzone_kernels/type_helpers.hh>
 #include <grace/amr/p4est_headers.hh>
 
 #include <grace/amr/tree.hh>
 #include <grace/amr/quadrant.hh>
+
+#include <grace/amr/ghostzone_kernels/type_helpers.hh>
 
 #include <grace/parallel/mpi_wrappers.hh> 
 
@@ -123,13 +126,17 @@ class forest_impl_t
       return _p4est->global_first_quadrant[rank] ; 
     }
    //*****************************************************************************************************
-
  private:
    //*****************************************************************************************************
     /**
      * @brief Never construct a new forest_impl_t object
      */
     forest_impl_t() ; 
+    //*****************************************************************************************************
+    /**
+     * @brief Never construct a new forest_impl_t object
+     */
+    forest_impl_t(p4est_t * _forest_ptr) ; 
    //*****************************************************************************************************
     /**
      * @brief Never destroy the forest_impl_t object
@@ -140,6 +147,7 @@ class forest_impl_t
     friend class utils::singleton_holder<forest_impl_t, memory::default_create> ;          //!< Give access 
     friend class memory::new_delete_creator<forest_impl_t, memory::new_delete_allocator> ; //!< Give access
     static constexpr unsigned int longevity = AMR_FOREST ; //!< Longevity of p4est object. 
+   //*****************************************************************************************************
    //*****************************************************************************************************
 } ; 
 //*****************************************************************************************************

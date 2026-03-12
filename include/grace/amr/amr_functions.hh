@@ -34,7 +34,6 @@
 #include <grace/utils/inline.h> 
 #include <grace/utils/device.h> 
 
-#include <grace/data_structures/macros.hh>
 #include <grace/amr/quadrant.hh>
 
 #include <vector>
@@ -43,7 +42,27 @@
 #include <cstdlib>
 
 namespace grace { namespace amr {
+#if 0
+struct grid_properties_view_t {
+    grid_properties_view_t() 
+     : _gp(forest::get().get_grid_properties())
+    {}  
 
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    size_t nx() const { return _gp(0) ; }
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    size_t ny() const { return _gp(1) ; }
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    size_t nz() const { return _gp(2) ; }
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    size_t ngz() const { return _gp(3) ; }
+
+    static_readonly_view_t<size_t,4> _gp ; 
+} ; 
+#endif 
 /**
  * @brief Get the number of grid cells per quadrant 
  *        in each direction. 
@@ -75,7 +94,7 @@ get_local_num_quadrants() ;
  *        0 and <code>forest::local_num_quadrants()</code>
  * @return size_t Index of the tree that owns this quadrant.
  */
-size_t 
+int 
 get_quadrant_owner(size_t iquad) ;
 /**
  * @brief Get the local quadrants offset of a tree.
@@ -118,22 +137,6 @@ get_quadrant_locidx(quadrant_t quad);
  */
 int64_t 
 get_quadrant_locidx(p4est_quadrant_t* quad);
-/**
- * @brief For halo quadrants: get owner mpi 
- *        rank.
- * \ingroup amr
- * \cond grace_detail
- */
-int 
-get_halo_quad_owner(quadrant_t& quad);
-/**
- * @brief For halo quadrants: get owner mpi 
- *        rank.
- * \ingroup amr
- * \cond grace_detail
- */
-int 
-get_halo_quad_owner(p4est_quadrant_t* quad);
 /**
  * @brief Determine whether coordinates flip across 
  *        tree boundary.
@@ -179,13 +182,15 @@ extern int64_t _nx;
 extern int64_t _ny;
 extern int64_t _nz;
 extern int _ngz;
+
 }
 
 #define DECLARE_GRID_EXTENTS                              \
 size_t nx, ny, nz;                                        \
 std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; \
 auto const ngz = grace::amr::get_n_ghosts()             ; \
-auto const nq  = grace::amr::get_local_num_quadrants()    
+auto const nq  = grace::amr::get_local_num_quadrants()   
+
 
 } } /* grace::amr */ 
 

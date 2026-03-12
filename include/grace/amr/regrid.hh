@@ -45,6 +45,7 @@ namespace grace { namespace amr {
 
 /**
  * @brief Perform a regridding operation.
+ * @return True if the grid has changed. 
  * \ingroup amr
  * This function refines and coarsens the grid based on 
  * the user-provided refinement criterion, it prolongates 
@@ -55,14 +56,8 @@ namespace grace { namespace amr {
  * out of this routine. The coordinates are re-computed on the 
  * new grid.
  */
-void regrid() ; 
+bool regrid() ; 
 
-/**
- * @brief Set the all quadrants to DEFAULT_STATE
- * \ingroup amr 
- * \cond grace_detail
- */
-void set_quadrants_to_default(); 
 
 }} /* namespace grace::amr */ 
 

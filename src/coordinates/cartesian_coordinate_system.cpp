@@ -31,7 +31,6 @@
 #include <grace/coordinates/cartesian_coordinate_systems.hh>
 #include <grace/utils/grace_utils.hh>
 #include <grace/data_structures/grace_data_structures.hh>
-#include <grace/data_structures/macros.hh>
 #include <grace/config/config_parser.hh>
 #include <grace/errors/error.hh> 
 
@@ -41,37 +40,122 @@
 namespace grace { 
 
 
-cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
+double GRACE_HOST 
+cartesian_coordinate_system_impl_t::get_spacing(size_t const& q) const {
+    DECLARE_GRID_EXTENTS ; 
+    int64_t itree = amr::get_quadrant_owner(q)   ; 
+    amr::quadrant_t quad = amr::get_quadrant(itree,q) ; 
+    auto const dx_quad  = quad.spacing() ; 
+    return dx_quad/nx ; 
+}; 
+
+double GRACE_HOST 
+cartesian_coordinate_system_impl_t::get_inv_spacing(size_t const& q) const {
+    return 1./get_spacing(q) ;  
+}; 
+
+void cartesian_coordinate_system_impl_t::update_grid_structure(int nq_new) 
 {
     using namespace grace ;
     using namespace Kokkos ; 
-    
-    int ntrees = amr::connectivity::get().get()->num_trees;
+    DECLARE_GRID_EXTENTS;
+    GRACE_TRACE("Reizing quad coords nq {}", nq_new) ; 
+    qx_h.clear() ; qdx_h.clear() ;
+    qx_h.reserve(nq_new); qdx_h.reserve(nq_new) ; 
+    for( int i=0; i<nq_new; ++i) {
+        auto itree = amr::get_quadrant_owner(i) ; 
+        auto quad = amr::get_quadrant(itree,i) ; 
+        auto dx = quad.spacing() ; 
+        auto dx_tree = amr::get_tree_spacing(itree)[0] ; 
+        qdx_h.push_back(dx_tree*dx/nx) ; 
 
-    tree_vertices_ =
-        View<double*, default_space>( "device_coords_tree_vertices"
-                                    , GRACE_NSPACEDIM*ntrees ) ;
-    tree_spacings_ =
-        View<double*, default_space>( "device_coords_tree_vertices"
-                                    , GRACE_NSPACEDIM*ntrees ) ;
+        auto qx_i = quad.qcoords() ; 
+        auto vx = amr::get_tree_vertex(itree,0UL) ; 
 
-    auto h_tree_spacings = create_mirror_view(tree_spacings_) ;
-    auto h_tree_vertices = create_mirror_view(tree_vertices_) ; 
-    for(int itree=0; itree<ntrees; ++itree)
-    {
-        auto const _vertex = amr::get_tree_vertex(itree,0UL) ;
-        auto const dx      = amr::get_tree_spacing(itree)    ; 
-        for(int idim=0; idim<GRACE_NSPACEDIM; ++idim){
-            h_tree_vertices(GRACE_NSPACEDIM*itree+idim) = _vertex[idim] ; 
-            h_tree_spacings(GRACE_NSPACEDIM*itree+idim) = dx[idim]      ; 
-        }
-         
+        qx_h.push_back({
+            vx[0] + qx_i[0] * dx * dx_tree,
+            vx[1] + qx_i[1] * dx * dx_tree,
+            vx[2] + qx_i[2] * dx * dx_tree
+        }) ; 
     }
-
-    deep_copy(tree_vertices_,h_tree_vertices);
-    deep_copy(tree_spacings_,h_tree_spacings);
 }
 
+cartesian_coordinate_system_impl_t::cartesian_coordinate_system_impl_t()
+{
+    
+    update_grid_structure(amr::get_local_num_quadrants()) ; 
+
+    is_cks = get_param<bool>("coordinate_system", "is_kerr_schild") ; 
+    bh_spin = get_param<double>("coordinate_system", "bh_spin"); 
+}
+
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
+cartesian_coordinate_system_impl_t::cart_to_sph(
+    std::array<double, GRACE_NSPACEDIM> const& xyz 
+) const 
+{
+    double rad = sqrt(SQR(xyz[0]) + SQR(xyz[1]) + SQR(xyz[2]));
+    if ( is_cks ) {
+        double r = fmax((sqrt( SQR(rad) - SQR(bh_spin) + sqrt(SQR(SQR(rad)-SQR(bh_spin))
+                 + 4.0*SQR(bh_spin)*SQR(xyz[2])) ) / sqrt(2.0)), 1.0);
+        return std::array<double,GRACE_NSPACEDIM>{{
+            r,
+            (fabs(xyz[2]/r) < 1.0) ? acos(xyz[2]/r) : acos(copysign(1.0, xyz[2])),
+            atan2(r*xyz[1]-bh_spin*xyz[0], bh_spin*xyz[1]+r*xyz[0]) - bh_spin*r/(SQR(r)-2.0*r+SQR(bh_spin))
+        }};
+        
+    } else {
+        
+        return std::array<double,GRACE_NSPACEDIM>{{
+            rad,
+            acos(xyz[2]/(rad+1e-50)),
+            atan2(xyz[1],xyz[0])
+        }};
+    }
+}
+
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
+cartesian_coordinate_system_impl_t::sph_to_cart(
+    std::array<double, GRACE_NSPACEDIM> const& rtp 
+) const 
+{
+    if ( is_cks ) {
+        return std::array<double,GRACE_NSPACEDIM>{{
+            (rtp[0] * cos(rtp[2]) - bh_spin * sin(rtp[2]))*sin(rtp[1]),
+            (rtp[0] * sin(rtp[2]) + bh_spin * cos(rtp[2]))*sin(rtp[1]),
+            rtp[0] * cos(rtp[1])
+        }} ;
+    } else {
+        return std::array<double,GRACE_NSPACEDIM>{{
+            rtp[0] * cos(rtp[2])*sin(rtp[1]),
+            rtp[0] * sin(rtp[2])*sin(rtp[1]),
+            rtp[0] * cos(rtp[1])
+        }} ;
+    }
+}
+
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
+cartesian_coordinate_system_impl_t::get_physical_coordinates_sph(
+           std::array<size_t, GRACE_NSPACEDIM> const& ijk
+        , int64_t q 
+        , bool use_ghostzones 
+    ) const
+{
+    auto xyz = get_physical_coordinates(ijk,q,use_ghostzones) ; 
+    return cart_to_sph(xyz) ; 
+}
+
+std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
+cartesian_coordinate_system_impl_t::get_physical_coordinates_sph(
+         std::array<size_t, GRACE_NSPACEDIM> const& ijk
+        , int64_t q 
+        , std::array<double, GRACE_NSPACEDIM> const& cell_coordinates
+        , bool use_ghostzones 
+    ) const
+{
+    auto xyz = get_physical_coordinates(ijk,q,cell_coordinates,use_ghostzones) ; 
+    return cart_to_sph(xyz) ; 
+}
 
 std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
 cartesian_coordinate_system_impl_t::get_physical_coordinates(
@@ -125,7 +209,7 @@ GRACE_HOST cartesian_coordinate_system_impl_t::get_logical_coordinates(
     int64_t itree = amr::get_quadrant_owner(q)   ; 
     amr::quadrant_t quad = amr::get_quadrant(itree,q) ; 
 
-    auto const dx_quad  = 1./(1<<quad.level()) ; 
+    auto const dx_quad  = quad.spacing() ; 
     auto const qcoords = quad.qcoords()     ; 
 
     EXPR(
@@ -134,16 +218,24 @@ GRACE_HOST cartesian_coordinate_system_impl_t::get_logical_coordinates(
     auto const dz_cell = dx_quad / nz ;
     ) 
 
-    return {
+    EXPR(
+    int const i = use_ghostzones ? static_cast<int>(ijk[0]) - ngz : static_cast<int>(ijk[0]);,
+    int const j = use_ghostzones ? static_cast<int>(ijk[1]) - ngz : static_cast<int>(ijk[1]);,
+    int const k = use_ghostzones ? static_cast<int>(ijk[2]) - ngz : static_cast<int>(ijk[2]);
+    )
+
+    std::array<double,GRACE_NSPACEDIM> coords = {
         VEC(
             qcoords[0] * dx_quad 
-                + (ijk[0] + cell_coordinates[0] - use_ghostzones * ngz) * dx_cell, 
+                + (static_cast<double>(i) + cell_coordinates[0]) * dx_cell, 
             qcoords[1] * dx_quad 
-                + (ijk[1] + cell_coordinates[1] - use_ghostzones * ngz) * dy_cell, 
+                + (static_cast<double>(j) + cell_coordinates[1]) * dy_cell, 
             qcoords[2] * dx_quad 
-                + (ijk[2] + cell_coordinates[2] - use_ghostzones * ngz) * dz_cell
-        ) 
+                + (static_cast<double>(k) + cell_coordinates[2]) * dz_cell
+        )
     } ; 
+
+    return coords ; 
 }
 
 std::array<double, GRACE_NSPACEDIM> GRACE_HOST 
@@ -410,8 +502,7 @@ GRACE_HOST cartesian_coordinate_system_impl_t::get_cell_volume(
     auto& conn = amr::connectivity::get();
     ASSERT_DBG(
             itree < amr::connectivity::get().get()->num_trees,
-            "Tree out of bounds " << itree << 
-            " at " << ijk[0] << " " << ijk[1] 
+            "Tree out of bounds " << itree  
         ) ;
     auto dx_tree = amr::get_tree_spacing(itree) ; 
     
@@ -496,9 +587,7 @@ cartesian_coordinate_system_impl_t::get_cell_face_surface(
     auto& conn = amr::connectivity::get();
     ASSERT_DBG(
             itree < amr::connectivity::get().get()->num_trees,
-            "Tree out of bounds " << itree << 
-            " at " << ijk[0] << " " << ijk[1] 
-        ) ;
+            "Tree out of bounds " << itree ) ;
     auto dx_tree = amr::get_tree_spacing(itree) ; 
     
     if( EXPR(
@@ -580,9 +669,7 @@ cartesian_coordinate_system_impl_t::get_cell_edge_length(
     auto& conn = amr::connectivity::get();
     ASSERT_DBG(
             itree < amr::connectivity::get().get()->num_trees,
-            "Tree out of bounds " << itree << 
-            " at " << ijk[0] << " " << ijk[1] 
-        ) ;
+            "Tree out of bounds " << itree ) ;
     auto dx_tree = amr::get_tree_spacing(itree) ; 
     
     if( EXPR(

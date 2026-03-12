@@ -28,7 +28,6 @@
 #ifndef GRACE_DATA_STRUCTURES_DATA_STRUCTURES_HH
 #define GRACE_DATA_STRUCTURES_DATA_STRUCTURES_HH
 
-#include <grace/data_structures/macros.hh>
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/data_structures/variable_properties.hh>
 #include <grace/data_structures/variable_indices.hh>

@@ -39,6 +39,24 @@
 
 
 namespace grace {
+
+enum c2p_sig_t : uint8_t {
+    C2P_SUCCESS=0,
+    C2P_EPS_TOO_HIGH,
+    C2P_EPS_TOO_LOW,
+    C2P_RHO_TOO_HIGH,
+    C2P_RHO_TOO_LOW,
+    C2P_VEL_TOO_HIGH,
+    C2P_NSIG
+} ; 
+
+struct c2p_err_t {
+    bool adjust_tau{false}; 
+    bool adjust_s{false}; 
+    bool adjust_d{false};    
+    bool adjust_ent{true};
+} ; 
+
 /**
  * @brief Convert conservative variables to primitive ones.
  * 
@@ -54,11 +72,15 @@ namespace grace {
  */
 template< typename eos_t >
 void GRACE_HOST_DEVICE
-conservs_to_prims(  grace::grmhd_cons_array_t& cons 
-                  , grace::grmhd_prims_array_t& prims
-                  , grace::metric_array_t const& metric 
-                  , eos_t const& eos
-                  , double const& lapse_excision) ; 
+conservs_to_prims( grace::grmhd_cons_array_t&  
+                      , grace::grmhd_prims_array_t&  
+                      , grace::metric_array_t const&  
+                      , eos_t const& eos 
+                      , atmo_params_t const& atmo 
+                      , excision_params_t const& excision 
+                      , c2p_params_t const& c2p_pars
+                      , double * rtp
+                      , c2p_err_t& c2p_err ) ; 
 
 void GRACE_HOST_DEVICE
 prims_to_conservs( grace::grmhd_prims_array_t& prims
@@ -72,7 +94,11 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , grace::grmhd_prims_array_t&  \
                       , grace::metric_array_t const&  \
                       , EOS const& eos \
-                      , double const& ) 
+                      , atmo_params_t const& atmo \
+                      , excision_params_t const& excision \
+                      , c2p_params_t const& c2p_pars \
+                      , double * rtp \
+                      , c2p_err_t& c2p_err ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 #undef INSTANTIATE_TEMPLATE
 }

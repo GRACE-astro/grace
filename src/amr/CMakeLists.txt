@@ -1,60 +1,10 @@
-add_library( grace_connectivity OBJECT connectivity.cpp )
-target_include_directories( grace_connectivity PRIVATE "${HEADER_DIR}" )
-target_link_libraries( grace_connectivity PRIVATE 
-                       yaml_cpp::yaml
-                       MPI::MPI_CXX
-                       p4est::sc
-                       p4est::p4est 
-                       spdlog::spdlog )
+add_subdirectory(ghost_helpers)
+add_subdirectory(regrid)
 
-add_library( grace_forest OBJECT forest.cpp )
-target_include_directories( grace_forest PRIVATE "${HEADER_DIR}" )
-target_link_libraries( grace_forest PRIVATE 
-                       yaml_cpp::yaml
-                       MPI::MPI_CXX
-                       p4est::sc
-                       p4est::p4est 
-                       spdlog::spdlog )
-
-add_library( grace_amr_functions OBJECT amr_functions.cpp )
-target_include_directories( grace_amr_functions PRIVATE "${HEADER_DIR}" )
-target_link_libraries( grace_amr_functions PRIVATE 
-                        yaml_cpp::yaml
-                        MPI::MPI_CXX
-                        p4est::sc
-                        p4est::p4est  
-                        spdlog::spdlog )
-
-
-add_library( grace_regrid OBJECT regrid.cpp )
-target_include_directories( grace_regrid PRIVATE "${HEADER_DIR}" )
-target_compile_options(grace_regrid PRIVATE -Wno-dangling-field)
-target_link_libraries( grace_regrid PRIVATE 
-                        yaml_cpp::yaml
-                        MPI::MPI_CXX
-                        p4est::sc
-                        p4est::p4est 
-                        Kokkos::kokkos
-                        spdlog::spdlog )
-
-add_library( grace_BC_helpers OBJECT bc_helpers.cpp )
-target_include_directories( grace_BC_helpers PRIVATE "${HEADER_DIR}" )
-target_compile_options(grace_BC_helpers PRIVATE -Wno-dangling-field)
-target_link_libraries( grace_BC_helpers PRIVATE 
-                        yaml_cpp::yaml
-                        MPI::MPI_CXX
-                        p4est::sc
-                        p4est::p4est 
-                        Kokkos::kokkos 
-                        spdlog::spdlog )
-
-add_library( grace_BC OBJECT boundary_conditions.cpp )
-target_include_directories( grace_BC PRIVATE "${HEADER_DIR}" )
-target_compile_options(grace_BC PRIVATE -Wno-dangling-field)
-target_link_libraries( grace_BC PRIVATE 
-                        yaml_cpp::yaml
-                        MPI::MPI_CXX
-                        p4est::sc
-                        p4est::p4est 
-                        Kokkos::kokkos 
-                        spdlog::spdlog )
+register_grace_object(grace_connectivity connectivity.cpp)
+register_grace_object(grace_forest forest.cpp)
+register_grace_object(grace_amr_functions amr_functions.cpp)
+register_grace_object(grace_regrid regrid.cpp)
+register_grace_object(grace_ghosts amr_ghosts.cpp)
+register_grace_object(grace_ghost_buffers amr_ghosts_construct_buffers.cpp amr_ghosts_construct_reflux_buffers.cpp)
+register_grace_object(grace_BC boundary_conditions.cpp)

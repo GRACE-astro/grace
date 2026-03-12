@@ -33,32 +33,35 @@
 
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
-
+#include <grace/evolution/evolution_kernel_tags.hh>
 #include <grace/data_structures/variable_properties.hh>
+#include <grace/coordinates/coordinate_systems.hh>
 
 namespace grace {
 
 template < typename EvolSystem_t > 
 struct fd_evolution_system_t {
 
-    fd_evolution_system_t( grace::var_array_t<GRACE_NSPACEDIM> state_ 
-                         , grace::var_array_t<GRACE_NSPACEDIM> aux_ )
-        : _state(state_), _aux(aux_)
+    fd_evolution_system_t( grace::var_array_t state_ 
+                         , grace::var_array_t aux_
+                         , grace::staggered_variable_arrays_t sstate_ )
+        : _state(state_), _aux(aux_), _sstate(sstate_)
     {} 
 
 
-    template< size_t der_order >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_update( int const q 
                   , VEC( int const i 
                        , int const j 
                        , int const k)
                   , grace::scalar_array_t<GRACE_NSPACEDIM> const idx 
-                  , grace::var_array_t<GRACE_NSPACEDIM> const state_new 
+                  , grace::var_array_t const state_new 
+                  , grace::staggered_variable_arrays_t const sstate_new 
                   , double const dt 
-                  , double const dtfact ) const 
+                  , double const dtfact 
+                  , grace::device_coordinate_system coords ) const 
     {
-        return static_cast<EvolSystem_t const*>(this)->compute_update_impl(q,VEC(i,j,k),idx,state_new,dt,dtfact) ;
+        return static_cast<EvolSystem_t const*>(this)->compute_update_impl(q,VEC(i,j,k),idx,state_new,sstate_new,dt,dtfact,coords) ;
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -66,9 +69,12 @@ struct fd_evolution_system_t {
                , VEC( const int i 
                ,      const int j 
                ,      const int k)
-               , int64_t q ) const 
+               , int64_t q 
+               , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx 
+               , grace::device_coordinate_system coords ) const 
+
     {
-        static_cast<EvolSystem_t const *>(this)->compute_auxiliaries(VEC(i,j,k),q) ; 
+        static_cast<EvolSystem_t const *>(this)->compute_auxiliaries(VEC(i,j,k),q,_idx,coords) ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
@@ -82,7 +88,8 @@ struct fd_evolution_system_t {
     } ; 
 
  protected:
-    grace::var_array_t<GRACE_NSPACEDIM> _state, _aux ; 
+    grace::var_array_t _state, _aux ; 
+    grace::staggered_variable_arrays_t _sstate       ; 
 
 } ; 
 } // namespace grace 

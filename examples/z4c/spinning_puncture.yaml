@@ -1,0 +1,206 @@
+# Finest resolution: 0.0833
+# Resolution at GW : 0.6666
+# Mass 1 spin 0.5, perturbed by companion
+
+# Runs in a few hours on 4 Mi300A cards 
+
+name: "grace"
+amr: {
+  npoints_block_x: 48,
+  npoints_block_y: 48,
+  npoints_block_z: 48,
+
+  xmin: -1024.0,
+  xmax: 1024.0,
+  ymin: -1024.0,
+  ymax: 1024.0,
+  zmin: 0.0,
+  zmax: 1024.0,
+
+  reflection_symmetries: {
+  			 x: false,
+  			 y: false,
+  			 z: true
+  }, 
+
+  n_ghostzones: 4,
+  initial_refinement_level: 2,
+
+  n_fmr_boxes: 6,
+  fmr_boxes: [
+    {
+      target_level_delta: 1,
+      x_min: -512,
+      x_max: 512,
+      y_min: -512,
+      y_max: 512,
+      z_min: 0,
+      z_max: 512
+    },
+    {
+      target_level_delta: 2,
+      x_min: -128,
+      x_max: 128,
+      y_min: -128,
+      y_max: 128,
+      z_min: 0,
+      z_max: 128
+    },
+    {
+      target_level_delta: 3,
+      x_min: -64,
+      x_max: 64,
+      y_min: -64,
+      y_max: 64,
+      z_min: 0,
+      z_max: 64
+    },
+    {
+      target_level_delta: 4,
+      x_min: -32,
+      x_max: 32,
+      y_min: -32,
+      y_max: 32,
+      z_min: 0,
+      z_max: 32
+    },
+    {
+      target_level_delta: 5,
+      x_min: -16,
+      x_max: 16,
+      y_min: -16,
+      y_max: 16,
+      z_min: 0,
+      z_max: 16
+    },
+    {
+      target_level_delta: 6,
+      x_min: -8,
+      x_max: 8,
+      y_min: -8,
+      y_max: 8,
+      z_min: 0,
+      z_max: 8
+    }
+  ],
+
+  max_refinement_level: 10,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+
+IO: {
+  plane_surface_output_cell_variables: ["z4c_H", "z4c_M[0]", "beta[0]", "z4c_Khat", "gamma_tilde[0,0]", "gamma_tilde[0,1]", "gamma_tilde[0,2]", "gamma_tilde[1,1]", "gamma_tilde[1,2]", "gamma_tilde[2,2]", "z4c_theta", "conf_fact", "z4c_Gamma[0]","A_tilde[0,0]","A_tilde[0,1]","A_tilde[0,2]", "A_tilde[1,1]", "A_tilde[1,2]", "A_tilde[2,2]", "alp", "Psi4Re", "Psi4Im"],
+  plane_surface_output_every: 1000,
+
+  info_output_every: 2,
+  info_output_max_reductions: ["conf_fact", "z4c_Gamma[0]"],
+  info_output_min_reductions: ["alp","conf_fact"],
+  info_output_norm2_reductions: ["z4c_H"],
+
+  scalar_output_every: 2,
+  scalar_output_minmax: ["z4c_H","conf_fact","alp"],
+  scalar_output_norm2: ["z4c_H"],
+  scalar_output_integral: [],
+
+  output_use_hdf5: true,
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true,
+
+  output_plane_z_origin_0: 1e-5,
+  # This is to match dt_out with EinsteinToolkit
+  # config I was running 
+  diagnostic_output_every: 2 
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  n_device_streams: 4
+}
+evolution: {
+  time_stepper: "rk4",
+  cfl_factor: 0.4,
+  final_walltime: 23.5,
+  termination_condition: "walltime"
+}
+
+grmhd: {
+  id_type: "two_punctures",
+  two_punctures: {
+    par_b: 1e-5,
+
+    target_M_plus: 1.0,
+    par_P_plus_x: 0.0,
+    par_P_plus_y: 0.0,
+    par_P_plus_z: 0.0,
+    par_S_plus_x: 0.0,
+    par_S_plus_y: 0.0,
+    par_S_plus_z: 0.5,
+
+    target_M_minus: 1.0e-12,
+    par_P_minus_x: 0.0,
+    par_P_minus_y: 0.0,
+    par_P_minus_z: 0.0,
+    par_S_minus_x: 0.0,
+    par_S_minus_y: 0.0,
+    par_S_minus_z: 0.0,
+
+    npoints_A: 30,
+    npoints_B: 30,
+    npoints_phi: 16,
+
+    TP_epsilon: 1.e-8
+  }
+}
+
+z4c: {
+  kappa_1: 0.02,
+  kappa_2: 0.0,
+  eta: 1.,
+  eps_diss: 0.25,
+  is_vacuum: true,
+  eta_damp_radius: 512,
+  theta_damp_radius: 512,
+  kappa_damp_radius: 512
+}
+
+spherical_surfaces: {
+
+  n_surfaces: 2,
+
+  spherical_surface_0: {
+    name: "GW_1",
+    tracking: "none",
+    radius: 60.0,
+    x_c: 0.0,
+    y_c: 0.0,
+    z_c: 0.0,
+    
+    sampling_policy: "uniform",
+    resolution: 181
+  },
+
+  spherical_surface_1: {
+    name: "GW_2",
+    tracking: "none",
+    radius: 60.0,
+    x_c: 0.0,
+    y_c: 0.0,
+    z_c: 0.0,
+    
+    sampling_policy: "uniform",
+    resolution: 31
+  }
+}
+
+gw_integrals: {
+  detector_names: ["GW_1","GW_2"],
+  detector_indices: []
+}
+
+checkpoints: {
+  checkpoint_dir: "../checkpoints",
+  max_n_checkpoints: 4,
+  checkpoint_at_startup: true
+}

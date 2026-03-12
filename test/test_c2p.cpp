@@ -56,42 +56,11 @@
 #define N 100
 #define DUMP_RESIDUAL_TO_FILE
 
-static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-conservs_from_prims(grace::grmhd_cons_array_t& cons, grace::grmhd_prims_array_t& prims, grace::metric_array_t const& metric)
-{
-    double const v2 = metric.square_vec({prims[VXL],prims[VYL],prims[VZL]}) ; 
-    double const alp_sqrtgamma = metric.alp() * metric.sqrtg() ;
-    double const W  = 1./Kokkos::sqrt(1-v2) ; 
-    double const u0 = W / metric.alp();
-    cons[DENSL] = alp_sqrtgamma * u0 * prims[RHOL] ; 
-    double const b2{0.}, smallbt{0.} ; 
-    double const one_over_alp2 = 1./math::int_pow<2>(metric.alp());
-    double const rho0_h_plus_b2 = (prims[RHOL]*(1+prims[EPSL])) + prims[PRESSL] + b2 ;
-    double const alp2_sqrtgamma = math::int_pow<2>(metric.alp()) * metric.sqrtg() ;
-    double const g4uptt = -one_over_alp2 ; 
-    
-    double const P_plus_half_b2 = (prims[PRESSL] + 0.5*b2);
-    double const Tuptt = rho0_h_plus_b2 * math::int_pow<2>(u0) + P_plus_half_b2 * g4uptt - math::int_pow<2>(smallbt) ; 
-    cons[TAUL] = alp2_sqrtgamma * Tuptt - cons[DENSL] ;
-
-    std::array<double,4> smallb{0.,0.,0.,0.}, smallbD{0.,0.,0.,0.} ;
-    /* After initialization this is the Eulerian 3-vel (not that it matters in Minkowski)*/ 
-    auto vD = metric.lower({prims[VXL],prims[VYL],prims[VZL]}) ; 
-
-    cons[STXL] = metric.sqrtg() * (rho0_h_plus_b2*math::int_pow<2>(W)*vD[0]-smallb[0]*smallbD[1]) ; 
-    cons[STYL] = metric.sqrtg() * (rho0_h_plus_b2*math::int_pow<2>(W)*vD[1]-smallb[0]*smallbD[2]) ; 
-    cons[STZL] = metric.sqrtg() * (rho0_h_plus_b2*math::int_pow<2>(W)*vD[2]-smallb[0]*smallbD[3]) ;
-    cons[YESL] = prims[YEL] * cons[DENSL] ; 
-    cons[ENTSL] = cons[DENSL] * prims[ENTL] ;
-    return ; 
-}
-
-
 static double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
 compute_residual(grace::grmhd_prims_array_t const& new_prims, grace::grmhd_prims_array_t& old_prims)
 {
     double err{0.} ; 
-    std::array<unsigned int, 5> indices {RHOL, EPSL,VXL,VYL,VZL} ; 
+    std::array<unsigned int, 5> indices {RHOL, EPSL,ZXL,ZYL,ZZL} ; 
     for( auto const i: indices ) {
         err += math::abs((new_prims[i]-old_prims[i])/(old_prims[i]+1e-50)) ; 
     }
@@ -102,7 +71,7 @@ static void GRACE_ALWAYS_INLINE
 fill_primitive_views(Kokkos::View<double *> lrho, Kokkos::View<double *> ltemp) {
     double const start_logrho{-12};
     double const end_logrho{-2.8}   ; 
-    double const start_logT{-1}   ; 
+    double const start_logT{-10}   ; 
     double const end_logT{2.3}    ;
     double const dlrho{(end_logrho-start_logrho)/N}, dlT{(end_logT-start_logT)/N} ; 
     Kokkos::parallel_for("fill_views", N, 
@@ -127,15 +96,16 @@ static void generateRandomUnitVector(double &x, double &y, double &z) {
     z = std::cos(phi);
 }
 
-static void get_velocity_from_W(double const& W, Kokkos::View<double ***> vel) {
-    double const v = Kokkos::sqrt( math::int_pow<2>(W) -  1) / W; 
+static void get_velocity_from_W(double const& W, grace::metric_array_t const& metric, Kokkos::View<double ***> vel) {
+    double const z = sqrt(W*W-1.) ;
     auto h_vel = Kokkos::create_mirror_view(vel) ; 
     for( int i=0; i<N;++i) { 
         for( int j=0; j<N; ++j){
             generateRandomUnitVector(h_vel(i,j,0),h_vel(i,j,1),h_vel(i,j,2)) ; 
+            double n2 = metric.square_vec({h_vel(i,j,0),h_vel(i,j,1),h_vel(i,j,2)}) ; 
             //h_vel(i,j,0) = 0.; h_vel(i,j,1)=1.; h_vel(i,j,2) = 0.;
             for(int iv=0; iv<3; ++iv)
-                h_vel(i,j,iv) *= v ; 
+                h_vel(i,j,iv) *= z / sqrt(n2) ; 
         }
     }
     Kokkos::deep_copy(vel,h_vel) ; 
@@ -143,8 +113,11 @@ static void get_velocity_from_W(double const& W, Kokkos::View<double ***> vel) {
 
 template<typename eos_t>
 static void check_c2p(eos_t eos){
+    // let's initialize the metric to something non-trivial 
+    double chi = 0.25 ;
+    double alp = 0.6 ;
     using namespace grace ;
-    metric_array_t minkowski_metric ({1.,0.,0.,1.,0.,1.},{0.,0.,0.},1.) ; 
+    metric_array_t minkowski_metric ({1./chi,0.,0.,1./chi,0.,1./chi},{0.,0.,0.},alp) ; 
         
     double const W = 2. ; 
 
@@ -155,34 +128,40 @@ static void check_c2p(eos_t eos){
     Kokkos::View<double **> d_eps("eps", N,N) ;
     Kokkos::View<double **> d_press("press", N,N) ;
     fill_primitive_views(d_logrho,d_logT) ; 
-    get_velocity_from_W(W, d_vel) ; 
+    get_velocity_from_W(W, minkowski_metric, d_vel) ; 
     double const ye = 0.1 ; 
-
+    
+    auto atmo_params = get_atmo_params() ; 
+    auto excision_params = get_excision_params() ; 
     Kokkos::parallel_for("check_c2p_residual", Kokkos::MDRangePolicy<Kokkos::Rank<2>>({0,0},{N,N}),
     KOKKOS_LAMBDA( int const& i, int const& j ) {
         grmhd_prims_array_t prims ; 
         prims[RHOL] = Kokkos::pow(10.,d_logrho(i)) ; 
         prims[TEMPL] = Kokkos::pow(10.,d_logT(j))  ; 
         prims[YEL] = ye; 
-        prims[VXL] = d_vel(i,j,0) ; 
-        prims[VYL] = d_vel(i,j,1) ; 
-        prims[VZL] = d_vel(i,j,2) ; 
+        prims[ZXL] = d_vel(i,j,0) ; 
+        prims[ZYL] = d_vel(i,j,1) ; 
+        prims[ZZL] = d_vel(i,j,2) ; 
+        prims[BXL] = prims[BYL] = prims[BZL] = 0.0 ; 
         
         double csnd2 ;
         unsigned int err ;  
         double temp{0} ; 
-        prims[PRESSL] = eos.press_eps_csnd2__temp_rho_ye(prims[EPSL],csnd2,prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
+        prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye_impl(prims[EPSL],csnd2,prims[ENTL],prims[TEMPL],prims[RHOL],prims[YEL],err) ; 
         grmhd_cons_array_t cons ; 
-        conservs_from_prims(cons,prims,minkowski_metric) ; 
-        d_eps(i,j) = cons[STYL] ;
+        prims_to_conservs(prims,cons,minkowski_metric) ; 
+        cons[BSXL] = cons[BSYL] = cons[BSZL] = 0.0 ; 
+
+        double rtp[3] = {1,1,1} ; //unused 
         grmhd_prims_array_t new_prims = prims ; 
-        conservs_to_prims<eos_t>(cons,new_prims,minkowski_metric,eos,0.) ; 
+        c2p_err_t c2perr ; 
+        conservs_to_prims<eos_t>(cons,new_prims,minkowski_metric,eos,atmo_params,excision_params,rtp,c2perr) ; 
 
         d_res(i,j) = compute_residual(new_prims,prims) ;
-         //d_press(i,j) = new_prims[PRESSL] ;  
-        d_press(i,j) = d_vel(i,j,0)*d_vel(i,j,0) 
-                     + d_vel(i,j,1)*d_vel(i,j,1)
-                     + d_vel(i,j,2)*d_vel(i,j,2) ; 
+        d_press(i,j) = new_prims[PRESSL] ;  
+        //d_press(i,j) = d_vel(i,j,0)*d_vel(i,j,0) 
+        //             + d_vel(i,j,1)*d_vel(i,j,1)
+        //             + d_vel(i,j,2)*d_vel(i,j,2) ; 
 
     }) ; 
     auto h_res = Kokkos::create_mirror_view(d_res) ;
@@ -204,12 +183,12 @@ static void check_c2p(eos_t eos){
     for( int i=0; i<N; ++i){
         for(int j=0; j<N; ++j){
             #ifdef DUMP_RESIDUAL_TO_FILE
-            outfile << std::fixed << std::setprecision(15) ;
-            outfile << std::left << std::setw(width) << h_rho(i)
-                    << std::left << std::setw(width) << h_temp(j)
-                    << std::left << std::setw(width) << h_eps(i,j)
-                    << std::left << std::setw(width) << h_press(i,j)
-                    << std::left << std::setw(width) << h_res(i,j) << std::endl ; 
+            outfile << std::fixed << std::setprecision(16) ;
+            outfile << h_rho(i)
+                    << '\t' << h_temp(j)
+                    << '\t' << h_eps(i,j)
+                    << '\t' << h_press(i,j)
+                    << '\t' << h_res(i,j) << std::endl ; 
             #endif 
             #if 1
             CHECK_THAT(

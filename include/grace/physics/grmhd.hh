@@ -40,15 +40,19 @@
 #include <grace/evolution/hrsc_evolution_system.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
+#include <grace/coordinates/coordinate_systems.hh>
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
-#include <grace/utils/advanced_riemann_solvers.hh>
-
+//#include <grace/utils/advanced_riemann_solvers.hh>
+#include "grmhd_subexpressions.hh"
+//#include "hllc_subexpressions.hh"
+#include "fd_subexpressions.hh"
+#include "z4c_subexpressions.hh"
 #include <Kokkos_Core.hpp>
 
 #include <type_traits>
-
+#define GRMHD_USE_PPLIM
 //**************************************************************************************************/
 /**
  * \defgroup physics Physics Modules.
@@ -80,12 +84,17 @@ struct grmhd_equations_system_t
      * @param aux_ Auxiliary array.
      */
     grmhd_equations_system_t( eos_t eos_ 
-                            , grace::var_array_t<GRACE_NSPACEDIM> state_
-                            , grace::var_array_t<GRACE_NSPACEDIM> aux_ ) 
-     : base_t(state_,aux_), _eos(eos_)
+                            , grace::var_array_t state_
+                            , grace::staggered_variable_arrays_t stag_state_
+                            , grace::var_array_t aux_ ) 
+     : base_t(state_,stag_state_,aux_), _eos(eos_)
     { 
-        _lapse_excision = grace::get_param<double>("grmhd","lapse_excision") ; 
+        excision_params = get_excision_params() ; 
+        atmo_params = get_atmo_params() ; 
+        c2p_params = get_c2p_params() ; 
+        dcoords = grace::coordinate_system::get().get_device_coord_system();
     } ;
+    
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^1\f$
      * 
@@ -99,20 +108,19 @@ struct grmhd_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename riemann_t 
-            , typename recon_t >
+    template< typename recon_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_x_flux_impl( int const q 
                        , VEC( const int i 
                        ,      const int j 
                        ,      const int k)
-                       , int ngz
                        , grace::flux_array_t const  fluxes
+                       , grace::flux_array_t const  vbar
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                        , double const dt 
                        , double const dtfact ) const 
     {
-        getflux<0,riemann_t,recon_t>(VEC(i,j,k),q,ngz,fluxes,dx,dt,dtfact);
+        getflux<0,recon_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^2\f$
@@ -127,20 +135,19 @@ struct grmhd_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename riemann_t 
-            , typename recon_t >
+    template< typename recon_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_y_flux_impl( int const q 
                        , VEC( const int i 
                        ,      const int j 
                        ,      const int k)
-                       , int ngz
                        , grace::flux_array_t const  fluxes
+                       , grace::flux_array_t const  vbar
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<1,riemann_t,recon_t>(VEC(i,j,k),q,ngz,fluxes,dx,dt,dtfact);
+        getflux<1,recon_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
     }
     /**
      * @brief Compute GRMHD fluxes in direction \f$x^3\f$
@@ -155,20 +162,19 @@ struct grmhd_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename riemann_t 
-            , typename recon_t >
+    template< typename recon_t >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_z_flux_impl( int const q 
                        , VEC( const int i 
                        ,      const int j 
                        ,      const int k)
-                       , int ngz
                        , grace::flux_array_t const  fluxes
+                       , grace::flux_array_t const  vbar
                        , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<2,riemann_t,recon_t>(VEC(i,j,k),q,ngz,fluxes,dx,dt,dtfact);
+        getflux<2,recon_t>(VEC(i,j,k),q,fluxes,vbar,dx,dt,dtfact);
     }
     /**
      * @brief Compute geometric source terms for GRMHD equations.
@@ -189,168 +195,103 @@ struct grmhd_equations_system_t
                          ,      const int j 
                          ,      const int k)
                          , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
-                         , grace::var_array_t<GRACE_NSPACEDIM> const state_new
+                         , grace::var_array_t const state_new
                          , double const dt 
                          , double const dtfact ) const 
     {
         using namespace grace  ;
         using namespace Kokkos ;
+        auto s = subview(this->_state,i,j,k,ALL(),q) ;
         /**************************************************************************************************/
-        /* Convenience indices to make the code slightly less unreadable                                  */
-        static constexpr int TT4=0; 
-        static constexpr int TX4=1;
-        static constexpr int TY4=2;
-        static constexpr int TZ4=3;
-        static constexpr int XX4=4;
-        static constexpr int XY4=5;
-        static constexpr int XZ4=6;
-        static constexpr int YY4=7;
-        static constexpr int YZ4=8;
-        static constexpr int ZZ4=9;
-        /**************************************************************************************************/
-
         /* Read in the metric                                                                             */
+        /**************************************************************************************************/
         metric_array_t metric ; 
-        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
-
-        /* Compute inverse (contravariant) four-metric                                                    */
-        auto const gupmunu = metric.invgmunu() ;
-        
+        FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;        
         /**************************************************************************************************/
-        /* Computation of T^{\mu\nu}, needed for the source term of \tau and \tilde{S}_i                  */
-        /**************************************************************************************************/
-        std::array<double, 10> Tupmunu ;
-
         /* Read the primitive variables                                                                   */
+        /**************************************************************************************************/
         grmhd_prims_array_t prims ; 
-        FILL_PRIMS_ARRAY(prims,this->_aux,q,VEC(i,j,k))   ;
-
-        /* Get fluid 4-velocity                                                                           */
-        auto const u0 = compute_u0(prims,metric) ; 
-        double umu[4] ; 
-        umu[0] = u0; 
-        #pragma unroll 3
-        for(int ii=0; ii<3; ++ii) {
-            umu[ii+1] = u0 * prims[VXL+ii] ; 
-        }
-
-        /* Compute common factors for T^{\mu\nu}                                                          */
-        double const b2{0.} ; // No B field yet
-        double const rho0_h_plus_b2 = 
-            prims[RHOL] * ( 1 + prims[EPSL] ) + prims[PRESSL] + b2 ; 
-        double const P_plus_half_b2 = 
-            prims[PRESSL] + 0.5 * b2 ; 
-        /* Compute comoving magnetic field (0 for now)                                                     */
-        std::array<double,4> smallb{0,0,0,0} ; 
-
-        int icomp{0} ; 
-        for( int mu=0; mu<4; ++mu) {
-            for(int nu=mu; nu<4; ++nu) {
-                Tupmunu[icomp] = rho0_h_plus_b2 * umu[mu] * umu[nu] 
-                               + P_plus_half_b2 * gupmunu[icomp]
-                               - smallb[mu] * smallb[nu] ; 
-                icomp ++ ;
+        FILL_PRIMS_ARRAY_ZVEC(prims,this->_aux,q,VEC(i,j,k))   ;
+        double const eps   = prims[EPSL]   ; 
+        double const rho   = prims[RHOL]   ; 
+        double const p     = prims[PRESSL] ;
+        double const * const   z   = &(prims[ZXL])       ;  
+        double const * const   B   = &(prims[BXL])       ;  
+        double const * const betau = metric._beta.data() ; 
+        double const * const gdd   = metric._g.data()    ; 
+        double const * const guu   = metric._ginv.data() ; 
+        double const sqrtg         = metric.sqrtg()      ; 
+        double const alp           = metric.alp()        ; 
+        /**************************************************************************************************/
+        double W ; 
+        grmhd_get_W(gdd,z,&W) ; 
+        double b2, smallb[4] ; 
+        grmhd_get_smallbu_smallb2(betau,gdd,B,z,W,alp,&smallb,&b2) ; 
+        /**************************************************************************************************/
+        /* Metric derivatives                                                                             */
+        /**************************************************************************************************/
+        double dalpha_dx[3], dgdd_dx[18], dbetau_dx[9]; 
+        fill_deriv_scalar_4(this->_state, i,j,k, ALP_, q, dalpha_dx, idx(0,q)) ; 
+        fill_deriv_vector_4(this->_state, i,j,k, BETAX_, q, dbetau_dx, idx(0,q)) ;
+        #ifdef GRACE_ENABLE_COWLING_METRIC
+        fill_deriv_tensor_4(this->_state, i,j,k, GXX_, q, dgdd_dx, idx(0,q)) ;
+        #else 
+        double chi = s(CHI_) ; 
+        double ooW = 1./chi ; 
+        double ooWsqr = SQR(ooW) ; 
+        double dchi_dx[3] ; 
+        fill_deriv_scalar_4(this->_state, i,j,k, CHI_, q, dchi_dx, idx(0,q)) ;
+        fill_deriv_tensor_4(this->_state, i,j,k, GTXX_, q, dgdd_dx, idx(0,q)) ;
+        // gdd = gtdd/W^2
+        // dgdd/dx = d gtdd / dx / W^2 - 2 gtdd d W / dx / W^3 
+        for( int idir=0; idir<3; ++idir) {
+            for( int a=0; a<6; ++a) {
+                dgdd_dx[a + 6*idir] = ooWsqr * dgdd_dx[a + 6*idir] - 2. * ooW * dchi_dx[idir] * gdd[a] ;  
             }
         }
-        /* Read in the extrinsic curvature                                                                */
-        std::array<double,6> Kij{ 
-              this->_state(VEC(i,j,k),KXX_,q)
-            , this->_state(VEC(i,j,k),KXY_,q)
-            , this->_state(VEC(i,j,k),KXZ_,q)
-            , this->_state(VEC(i,j,k),KYY_,q)
-            , this->_state(VEC(i,j,k),KYZ_,q)
-            , this->_state(VEC(i,j,k),KZZ_,q)
-        } ; 
-        //for( auto& x: Kij ) x = 0 ; 
-        /* Source for the conserved energy (added piece by piece below)                                   */
-        double tau_source{0.};
-
-        std::array<double,3> const shift {metric.beta(0),metric.beta(1),metric.beta(2)};
+        #endif 
+        
 
         /**************************************************************************************************/
-        /* Compute first piece of conserved energy source term (curvature terms)                          */
-        /*      S_{\tau} += (T^{00} \beta^i\beta^j + 2T^{0i}\beta^j  + T^{ij}) K_{ij}                     */
-        /* NB: The overall factor of \alpha \sqrt{\gamma} is introduced at the end                        */
+        /* Extrinsic curvature                                                                            */
         /**************************************************************************************************/
-        tau_source += 
-              Tupmunu[0] * metric.contract_vec_sym2tens(shift, Kij) 
-            + 2. * metric.contract_vec_vec_sym2tens(shift,{Tupmunu[TX4],Tupmunu[TY4],Tupmunu[TZ4]}, Kij)
-            + metric.contract_sym2tens_sym2tens({Tupmunu[XX4],Tupmunu[XY4],Tupmunu[XZ4],Tupmunu[YY4],Tupmunu[YZ4],Tupmunu[ZZ4]}, Kij) ; 
-
-
-        /* Indices for contraction of T^{0i} onto \partial_i \alpha (see tau source below)                     */
-        int index_4d[GRACE_NSPACEDIM] = {VEC(TX4,TY4,TZ4)} ;
-
-        /* Overall factor of dt \alpha \sqrt{\gamma} to be multiplied to source terms                          */
-        double const alpha_sqrtgamma_dt = dt*dtfact*metric.alp()*metric.sqrtg();
-
-        /*******************************************************************************************************/
-        /* Direction loop for source terms                                                                     */
-        /* Although the source term of \tau is scalar (obviously) we add it piece by piece because it contains */
-        /* the derivative of \alpha which is more convenient to compute one direction at a time. This loop is  */
-        /* anyway needed for the momentum source terms which are a vector and which also contain directional   */
-        /* derivatives.                                                                                        */
-        /*******************************************************************************************************/
-        for( int idir=0; idir<GRACE_NSPACEDIM; ++idir) {
-
-            /* Read metric components at neighor cell centres for metric derivative                           */
-            metric_array_t metric_m, metric_p ; 
-            FILL_METRIC_ARRAY( metric_m, this->_state
-                             , q
-                             , VEC( i-utils::delta(0,idir)
-                                  , j-utils::delta(1,idir)
-                                  , k-utils::delta(2,idir)) ) ; 
-            FILL_METRIC_ARRAY( metric_p, this->_state
-                             , q
-                             , VEC( i+utils::delta(0,idir)
-                                  , j+utils::delta(1,idir)
-                                  , k+utils::delta(2,idir) ) ) ; 
-            
-            /**************************************************************************************************/
-            /* Compute metric derivatives                                                                     */
-            /* We need \partial_i g_{\alpha\beta} for the momentum source term and \partial_i \alpha for the  */
-            /* conserved energy source term.                                                                  */
-            /**************************************************************************************************/
-            std::array<double, 10> dgab_dxi  ;
-
-            /* Get 4 metric                                                                                   */
-            auto const gmunu_m = metric_m.gmunu() ;
-            auto const gmunu_p = metric_p.gmunu() ;
-
-            /* Compute 4 metric derivative (factor of 1./dx introduced after)                                 */
-            #pragma unroll 10
-            for( int ii=0; ii<10; ++ii) { 
-                dgab_dxi[ii] =  0.5*(gmunu_p[ii] - gmunu_m[ii]) ;
-            }
-            /* Compute lapse derivative (factor of 1./dx introduced after)                                    */
-            double const dalp_dxi =  0.5*(metric_p.alp() - metric_m.alp()) ;
-
-            /**************************************************************************************************/
-            /* Momentum source term:                                                                          */
-            /* S_{\tilde{S}_i} = \frac{1}{2} T^{\alpha\beta} g_{\alpha\beta, i}                               */
-            /* NB: The overall factor of \alpha \sqrt{\gamma} is introduced at the end                        */
-            /**************************************************************************************************/
-            double const st_i_source = 
-                0.5 * metric.contract_4dsym2tens_4dsym2tens(dgab_dxi, Tupmunu) * idx(idir,q) ; 
-
-            /**************************************************************************************************/
-            /* Second part of conserved energy source term:                                                   */
-            /* S_{\tau} +=  - (T^{0 i} +  T^{00} beta^i) \partial_i \alpha                                    */
-            /* NB: The overall factor of \alpha \sqrt{\gamma} is introduced at the end                        */
-            /**************************************************************************************************/
-            tau_source  -= 
-                ( Tupmunu[index_4d[idir]] + Tupmunu[TT4] * metric.beta(idir) ) * dalp_dxi * idx(idir,q) ; 
-
-            /**************************************************************************************************/
-            /* Add momentum source terms                                                                      */
-            /**************************************************************************************************/
-            state_new(VEC(i,j,k),SX_+idir,q) += alpha_sqrtgamma_dt*st_i_source ; 
-            /**************************************************************************************************/
+        double Kdd[6] ; 
+        #ifdef GRACE_ENABLE_COWLING_METRIC
+        Kdd[0] = s(KXX_) ; Kdd[1] = s(KXY_) ; Kdd[2] = s(KXZ_) ; 
+        Kdd[3] = s(KYY_) ; Kdd[4] = s(KYZ_) ; Kdd[5] = s(KZZ_) ; 
+        #else
+        double Atdd[6] = { 
+              s(ATXX_), s(ATXY_), s(ATXZ_),
+              s(ATYY_), s(ATYZ_), s(ATZZ_)
+        } ;
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        double const Khat  = s(KHAT_);
+        double const theta = s(THETA_);
+        double const Ktr = Khat + 2. * theta ; 
+        #elif defined(GRACE_ENABLE_BSSN_METRIC)
+        double const Ktr = s(KTR_) ; 
+        #endif 
+        for( int a=0; a<6; ++a ) {
+            Kdd[a] = ooWsqr * Atdd[a] + (Ktr) * gdd[a] / 3. ; 
         }
+        #endif 
+        /**************************************************************************************************/
+        /* Compute source terms                                                                           */
+        /**************************************************************************************************/
+        double tau_src, stilde_src[3] ; 
+        grmhd_get_geom_sources(
+            betau, z, Kdd, dalpha_dx, guu, B, gdd, eps, alp, W, rho, p, dgdd_dx, dbetau_dx, &tau_src, &stilde_src
+        ) ; 
         /**************************************************************************************************/
         /* Add energy source terms                                                                        */
         /**************************************************************************************************/
-        state_new(VEC(i,j,k),TAU_,q)     += alpha_sqrtgamma_dt*tau_source ;
+        state_new(VEC(i,j,k),TAU_,q)     += sqrtg * dt * dtfact * tau_src ;
+        /**************************************************************************************************/
+        state_new(VEC(i,j,k),SX_,q)      += sqrtg * dt * dtfact * stilde_src[0] ;
+        /**************************************************************************************************/
+        state_new(VEC(i,j,k),SY_,q)      += sqrtg * dt * dtfact * stilde_src[1] ;
+        /**************************************************************************************************/
+        state_new(VEC(i,j,k),SZ_,q)      += sqrtg * dt * dtfact * stilde_src[2] ;
         /**************************************************************************************************/
     } ;
     /**
@@ -365,10 +306,15 @@ struct grmhd_equations_system_t
     compute_auxiliaries(  VEC( const int i 
                         ,      const int j 
                         ,      const int k) 
-                        , int64_t q ) const 
+                        , int64_t q 
+                        , grace::device_coordinate_system coords) const 
     {
         using namespace grace ;
         using namespace Kokkos ; 
+
+        double rtp[3] ; 
+        coords.get_physical_coordinates_sph(i,j,k,q,rtp) ; 
+
         auto vars = subview(
               this->_state
             , VEC( i
@@ -385,6 +331,30 @@ struct grmhd_equations_system_t
             , ALL()
             , q
         ) ; 
+        auto Bx = subview(
+              this->_stag_state.face_staggered_fields_x
+            , VEC( ALL()
+                 , ALL()
+                 , ALL() )
+            , static_cast<size_t>(BSX_)
+            , q
+        ) ; 
+        auto By = subview(
+              this->_stag_state.face_staggered_fields_y
+            , VEC( ALL()
+                 , ALL()
+                 , ALL() )
+            , static_cast<size_t>(BSY_)
+            , q
+        ) ;
+        auto Bz = subview(
+              this->_stag_state.face_staggered_fields_z
+            , VEC( ALL()
+                 , ALL()
+                 , ALL() )
+            , static_cast<size_t>(BSZ_)
+            , q
+        ) ;
         grmhd_cons_array_t cons ;
         cons[DENSL] = vars(DENS_)        ; 
         cons[STXL]  = vars(SX_)          ;
@@ -393,44 +363,65 @@ struct grmhd_equations_system_t
         cons[TAUL]  = vars(TAU_)         ;
         cons[YESL]  = vars(YESTAR_)      ; 
         cons[ENTSL] = vars(ENTROPYSTAR_) ; 
+        cons[BSXL]  = 0.5*(Bx(VEC(i,j,k)) + Bx(VEC(i+1,j,k))) ; 
+        cons[BSYL]  = 0.5*(By(VEC(i,j,k)) + By(VEC(i,j+1,k))) ; 
+        cons[BSZL]  = 0.5*(Bz(VEC(i,j,k)) + Bz(VEC(i,j,k+1))) ; 
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ;
-        grmhd_prims_array_t prims ;
-        conservs_to_prims<eos_t>( cons, prims, metric
-                                , this->_eos, this->_lapse_excision ) ;
+        // Set cell-centered **primitive** B^i
+        aux(BX_) = cons[BSXL] / metric.sqrtg() ;
+        aux(BY_) = cons[BSYL] / metric.sqrtg() ;
+        aux(BZ_) = cons[BSZL] / metric.sqrtg() ;
+        c2p_err_t c2p_errors ; 
+        grmhd_prims_array_t prims ;     
+        // this used to return vtilde (TODO: changeme!)   
+        conservs_to_prims<eos_t>( 
+            cons, prims, metric, this->_eos, 
+            this->atmo_params, this->excision_params, this->c2p_params, rtp,
+            c2p_errors ) ;
+        
+        
         /* Write new prims */
-        aux(RHO_) = prims[RHOL]     ; 
-        aux(EPS_) = prims[EPSL]     ; 
-        aux(PRESS_) = prims[PRESSL] ; 
-        aux(VELX_) = prims[VXL]     ;
-        aux(VELY_) = prims[VYL]     ; 
-        aux(VELZ_) = prims[VZL]     ; 
-        aux(TEMP_) = prims[TEMPL]   ; 
-        aux(ENTROPY_) = prims[ENTL]  ; 
-        aux(YE_)   = prims[YEL]     ;
-        /* Compute ZVEC */
-        double const one_over_alp = 1./metric.alp(); 
-        std::array<double,3> const vN {
-              one_over_alp * (prims[VXL] + metric.beta(0))
-            , one_over_alp * (prims[VYL] + metric.beta(1))
-            , one_over_alp * (prims[VZL] + metric.beta(2))
-        } ; 
+        aux(RHO_)     = prims[RHOL]    ; 
+        aux(EPS_)     = prims[EPSL]    ; 
+        aux(PRESS_)   = prims[PRESSL]  ; 
+        aux(TEMP_)    = prims[TEMPL]   ; 
+        aux(ENTROPY_) = prims[ENTL]    ; 
+        aux(YE_)      = prims[YEL]     ;
+        aux(ZVECX_)   = prims[ZXL]     ; 
+        aux(ZVECY_)   = prims[ZYL]     ; 
+        aux(ZVECZ_)   = prims[ZZL]     ; 
 
-        double const W = 1./Kokkos::sqrt(1.-metric.square_vec(vN)) ;
-
-        aux(ZVECX_) = W * vN[0] ; 
-        aux(ZVECY_) = W * vN[1] ; 
-        aux(ZVECZ_) = W * vN[2] ; 
-        /* Overwrite conserved */
-        #if 1
-        vars(DENS_)  = cons[DENSL]       ; 
-        vars(SX_)    = cons[STXL]        ; 
-        vars(SY_)    = cons[STYL]        ;
-        vars(SZ_)    = cons[STZL]        ;
-        vars(TAU_)   = cons[TAUL]        ;
-        vars(YESTAR_) = cons[YESL]       ; 
-        vars(ENTROPYSTAR_) = cons[ENTSL] ; 
-        #endif
+        aux(C2P_ERR_) = 0;
+        
+        if ( c2p_errors.adjust_d ) {
+            aux(C2P_ERR_) += Kokkos::fabs(cons[DENSL]-vars(DENS_));
+            vars(DENS_) = cons[DENSL] ; 
+        }
+        if ( c2p_errors.adjust_s ) {
+            for( int ii=0; ii<3; ++ii) {
+                aux(C2P_ERR_) += Kokkos::fabs(cons[STXL+ii]-vars(SX_+ii));
+                vars(SX_+ii)=cons[STXL+ii] ; 
+            }
+        }
+        if ( c2p_errors.adjust_tau ) {
+            aux(C2P_ERR_) += Kokkos::fabs(cons[TAUL]-vars(TAU_));
+            vars(TAU_)=cons[TAUL];
+        }
+        if ( c2p_errors.adjust_ent ) {
+            vars(ENTROPYSTAR_) = cons[ENTSL] ; 
+        }
+        /* Compute W */
+        double const W = Kokkos::sqrt(1.+metric.square_vec({prims[ZXL],prims[ZYL],prims[ZZL]})) ;
+        /* Compute smallb2 */
+        double smallbu[4] ; 
+        double b2 ;
+        grmhd_get_smallbu_smallb2(
+            metric._beta.data(), metric._g.data(),
+            &(prims[BXL]), &(prims[ZXL]), W, metric.alp(),
+            &smallbu, &b2 
+        ) ; 
+        aux(SMALLB2_) = b2 ; 
     };
     /**
      * @brief Compute maximum absolute value eigenspeed.
@@ -447,54 +438,91 @@ struct grmhd_equations_system_t
                           ,      const int k) 
                           , int64_t q ) const 
     {
+        /****************************************************/
+        /****************************************************/
+
         using namespace grace; 
         using namespace Kokkos ; 
-        auto const vars = subview(
-              this->_state
-            , VEC( i
-                 , j
-                 , k )
-            , ALL()
-            , q
-        ) ; 
+
+        /****************************************************/
         /* Get prims */
         grmhd_prims_array_t prims ;
-        FILL_PRIMS_ARRAY(prims,this->_aux,q,VEC(i,j,k)) ;
+        FILL_PRIMS_ARRAY_ZVEC(prims,this->_aux,q,VEC(i,j,k)) ;
         /* Get metric */
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k));
+        /* Get some pointers */
+        double * const  betau = metric._beta.data() ;
+        double * const  gdd   = metric._g.data()    ;
+        double const alp = metric.alp() ; 
+
+        double * const z = &(prims[ZXL]) ; 
+        double * const B = &(prims[BXL]) ; 
+        double rho    = prims[RHOL]  ; 
+        double T      = prims[TEMPL] ;
+        double ye     = prims[YEL] ; 
+        double eps    = prims[EPSL] ; 
+        double press  = prims[PRESSL] ;
+        /****************************************************/
+
         /* Get soundspeed, enthalpy */
         double csnd2, h ; 
         unsigned int err ; 
-        double dummy = _eos.press_h_csnd2__temp_rho_ye( h, csnd2, prims[TEMPL]
-                                                      , prims[RHOL], prims[YEL], err ) ;
-        /* Compute magnetosonic speed */
-        double const b2{0.} ;
-        double const v_A_sq = 0. ; // b2 / ( b2 + prims[RHOL]*h) ; 
-        double const v02 = v_A_sq + csnd2 * ( 1. - v_A_sq ) ;
+        double dummy = _eos.press_h_csnd2__temp_rho_ye( h, csnd2, T, rho, ye, err);
+
+        /* Compute Lorentz factor */
+        double W ;
+        grmhd_get_W(
+            gdd, z, &W
+        ) ; 
+
+        /* Compute smallb */
+        double smallbu[4] ; 
+        double b2;
+        grmhd_get_smallbu_smallb2(
+            betau,gdd,B,z,W,alp,
+            &smallbu,&b2
+        ) ; 
+
+        /* Compute vtilde */
+        double vt[3] ; 
+        grmhd_get_vtildeu(
+            betau, W, z, alp, &vt
+        ) ;
+        /****************************************************/
         /* Find maximum eigenvalue (amongst all directions) */
         double cmax {0}; 
         std::array<unsigned int, 3> const metric_comp{ 0, 3, 5 } ; 
-        double const u0 = compute_u0(prims,metric) ;  
         for( int idir=0; idir<3; ++idir){ 
             double cp, cm ; 
-            compute_cp_cm( cp, cm, v02, u0, prims[VXL+idir]
-                         , 1./math::int_pow<2>(metric.alp())
-                         , metric.beta(idir)
-                         , metric.invgamma(metric_comp[idir]) );
+            grmhd_get_cm_cp(
+                csnd2, vt, b2, betau, W, eps, rho, 
+                metric.invgamma(metric_comp[idir]),
+                alp, press, idir, 
+                &cm, &cp
+            ) ; 
             cmax = math::max(cmax,math::abs(cp),math::abs(cm)) ; 
         }
+        /****************************************************/
         return cmax ; 
+        /****************************************************/
+        /****************************************************/
     };
 
  private:
     /***********************************************************************/
     //! Number of reconstructed variables.
-    static constexpr unsigned int GRMHD_NUM_RECON_VARS = 7 ; 
+    static constexpr unsigned int GRMHD_NUM_RECON_VARS = 10 ; 
     //! Equation of State object.
-    eos_t _eos ;
-    //! Excision lapse.
-    double _lapse_excision ; 
+    eos_t _eos ;    
+    //! Parameters for atmosphere
+    atmo_params_t atmo_params;
+    //! Parameters for excision
+    excision_params_t excision_params; 
+    //! con2prim parameters 
+    c2p_params_t c2p_params ; 
+    //! Coordinate helper 
+    grace::device_coordinate_system dcoords ; 
     /***********************************************************************/
     /**
      * @brief Compute fluxes for gmrmhd equations.
@@ -510,293 +538,14 @@ struct grmhd_equations_system_t
      * @param fluxes Flux array.
      */
     template< int idir 
-            , typename riemann_t
             , typename recon_t   >
-    std::enable_if<std::is_same_v<riemann_t,grace::hllc_riemann_solver_t<idir>>,void>::type
-    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     getflux(  VEC( const int i 
             ,      const int j 
             ,      const int k)
             , const int64_t q 
-            , int ngz
             , grace::flux_array_t const fluxes
-            , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
-            , double const dt 
-            , double const dtfact ) const 
-    {
-        /***********************************************************************/
-        /* Initialize reconstructor                                            */
-        /***********************************************************************/
-        recon_t reconstructor{} ; 
-        
-
-        /***********************************************************************/
-        /* Define and interpolate metric                                       */
-        /***********************************************************************/
-        metric_array_t metric_l, metric_r;
-        FILL_METRIC_ARRAY( metric_l, this->_state, q
-                         , VEC( i+ngz-utils::delta(idir,0)
-                              , j+ngz-utils::delta(idir,1)
-                              , k+ngz-utils::delta(idir,2))) ; 
-        FILL_METRIC_ARRAY( metric_r, this->_state, q
-                         , VEC( i+ngz
-                              , j+ngz
-                              , k+ngz )) ;
-        /***********************************************************************/
-        /* 2nd order interpolation at cell interface                           */
-        /***********************************************************************/
-        metric_array_t const metric_face{
-            { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
-            , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
-            , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
-            , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
-            , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
-            , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
-        ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            + 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
-        ,   0.5 * (metric_l.alp() + metric_r.alp())
-        } ; 
-        
-        /***********************************************************************/
-        /* Initialize Riemann solver                                           */
-        /***********************************************************************/
-        riemann_t solver     {metric_face} ;
-
-        /***********************************************************************/
-        /*              Reconstruct primitive variables                        */
-        /***********************************************************************/
-        /* Indices of variables being reconstructed                            */
-        /* NB: reconstruction is done on zvec = W v_n                          */
-        /*     to avoid getting acausal velocities at the                      */
-        /*     interface.                                                      */
-        /***********************************************************************/
-        std::array<int, GRMHD_NUM_RECON_VARS>
-            recon_indices{
-                  RHO_
-                , ZVECX_
-                , ZVECY_
-                , ZVECZ_
-                , YE_
-                , TEMP_
-                , ENTROPY_
-            } ; 
-        /* Local indices in prims array (note z^k -> v^k) */
-        std::array<int, GRMHD_NUM_RECON_VARS>
-            recon_indices_loc{
-                  RHOL
-                , VXL
-                , VYL
-                , VZL
-                , YEL
-                , TEMPL
-                , ENTL
-            } ;
-        /* Reconstruction                                  */
-        grmhd_prims_array_t primL, primR ; 
-        #pragma unroll GRMHD_NUM_RECON_VARS
-        for( int ivar=0; ivar<GRMHD_NUM_RECON_VARS; ++ivar) {
-            auto u = Kokkos::subview( this->_aux
-                                    , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()) 
-                                    , recon_indices[ivar] 
-                                    , q ) ;
-            reconstructor( u, VEC(i+ngz,j+ngz,k+ngz)
-                         , primL[recon_indices_loc[ivar]]
-                         , primR[recon_indices_loc[ivar]]
-                         , idir) ;
-        }
-
-        /***********************************************************************/
-        /* Compute u0 on both sides                                            */
-        /***********************************************************************/
-        /* Lorentz factors  */
-        /* W = sqrt(1+z^2)  */
-        double const alp = metric_face.alp() ;
-        double const wl   = Kokkos::sqrt(1. 
-            + metric_face.square_vec({primL[VXL], primL[VYL], primL[VZL]}));
-        double const wr   = Kokkos::sqrt(1. 
-            + metric_face.square_vec({primR[VXL], primR[VYL], primR[VZL]}));
-        
-        /* u^0             */
-        double u0_l = wl / alp ; 
-        double u0_r = wr / alp ; 
-
-        /***********************************************************************/
-        /* Fill up primitive array on both sides of the face.                  */
-        /* Right now we have:                                                  */
-        /* 1) The correct rho                                                  */
-        /* 2) No pressure (computed below)                                     */
-        /* 3) The temperature but no eps                                       */
-        /* 4) The z vector (W v_{n}^i) as opposed to v^i (swapped below)       */
-        /***********************************************************************/
-        
-        /* Left */
-        double cs2l, cs2r ; 
-        unsigned int eos_err; 
-        primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primL[EPSL], cs2l, primL[TEMPL], primL[RHOL], primL[YEL], eos_err) ; 
-        primL[VXL] = alp * primL[VXL] / wl - metric_face.beta(0) ;
-        primL[VYL] = alp * primL[VYL] / wl - metric_face.beta(1) ;
-        primL[VZL] = alp * primL[VZL] / wl - metric_face.beta(2) ; 
-
-        /* Right */
-        primR[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primR[EPSL], cs2r, primR[TEMPL], primR[RHOL], primR[YEL], eos_err) ; 
-        primR[VXL] = alp * primR[VXL] / wr - metric_face.beta(0) ;
-        primR[VYL] = alp * primR[VYL] / wr - metric_face.beta(1) ;
-        primR[VZL] = alp * primR[VZL] / wr - metric_face.beta(2) ;
-
-        std::array<double,3> uD_l, uD_r ; 
-        solver.transform_velocities_to_tetrad_frame(u0_l, primL, uD_l) ; 
-        solver.transform_velocities_to_tetrad_frame(u0_r, primR, uD_r) ; 
-
-        /* Compute specific enthalpies */
-        double h_l = 1 + primL[EPSL] + primL[PRESSL]/primL[RHOL] ;
-        double h_r = 1 + primR[EPSL] + primR[PRESSL]/primR[RHOL] ;
-        
-        grmhd_cons_array_t fL, fR, uL, uR; 
-
-        /* Get wavespeeds      */ 
-        double cpr, cmr, cpl, cml;
-        compute_cp_cm( cpl, cml, cs2l, u0_l, primL[VXL+idir], 1
-                     , 0, 1) ;
-        compute_cp_cm( cpr, cmr, cs2r, u0_r, primR[VXL+idir], 1
-                     , 0, 1) ;
-        double cmin = -math::min(0., math::min(cml,cmr)) ; 
-        double cmax =  math::max(0., math::max(cpl,cpr)) ; 
-        /* Add some diffusion in weakly hyperbolic limit */
-        if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
-        /***********************************************************************/
-        /*                          Get dens flux                              */
-        /***********************************************************************/
-        double const alpha_sqrtgamma = alp * metric_face.sqrtg() ;
-        uL[DENSL] = alp * primL[RHOL] * u0_l ;
-        uR[DENSL] = alp * primR[RHOL] * u0_r ;
-
-        fL[DENSL] = uL[DENSL] * primL[VXL+idir] ; 
-        fR[DENSL] = uR[DENSL] * primR[VXL+idir] ; 
-
-        /***********************************************************************/
-        /*                          Get ye_star flux                           */
-        /***********************************************************************/
-        uL[YESL] = uL[DENSL] * primL[YEL] ; 
-        uR[YESL] = uR[DENSL] * primR[YEL] ; 
-        
-        fL[YESL] = uL[YESL] * primL[VXL+idir] ; 
-        fR[YESL] = uR[YESL] * primR[VXL+idir] ; 
-
-        /***********************************************************************/
-        /*                          Get s_star flux                            */
-        /***********************************************************************/
-        uL[ENTSL] = uL[DENSL] * primL[ENTL] ; 
-        uR[ENTSL] = uR[DENSL] * primR[ENTL] ; 
-
-        fL[ENTSL] = uL[ENTSL] * primL[VXL+idir] ; 
-        fR[ENTSL] = uR[ENTSL] * primR[VXL+idir] ; 
-
-        /***********************************************************************/ 
-        /*                           Get tau flux                              */
-        /***********************************************************************/
-        double const tau_plus_P_l = uL[DENSL] * ( alp * h_l * u0_l - 1. ) ; 
-        double const tau_plus_P_r = uR[DENSL] * ( alp * h_r * u0_r - 1. ) ;
-        /***************************************************************************/
-        /* \tau = \sqrt{\gamma} D (Wh-P/D-1)                                       */
-        /***************************************************************************/
-        uL[TAUL] = tau_plus_P_l - primL[PRESSL] ; 
-        uR[TAUL] = tau_plus_P_r - primR[PRESSL] ;
-        /***************************************************************************/
-        /* F^{d}_{\rm tau} = \sqrt{\gamma} (\tau + P) v^d                          */
-        /***************************************************************************/
-        fL[TAUL] = tau_plus_P_l * primL[VXL+idir] ;
-        fR[TAUL] = tau_plus_P_r * primR[VXL+idir] ;
-        /***********************************************************************/
-        /* Momentum flux in direction d for S_j : \alpha \sqrt{\gamma} T^d_j   */
-        /***********************************************************************/
-
-        /***********************************************************************/
-        /* Get S_x flux                                                        */
-        /***********************************************************************/
-        
-        /***********************************************************************/
-        /* F^d_{S_x} = \alpha \sqrt{\gamma} T^d_x                              */
-        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_x                */
-        /*                         + p \delta^d_x - b^d b_x )                  */  
-        /***********************************************************************/
-        double const D_h_l = uL[DENSL] * h_l ; 
-        double const D_h_r = uR[DENSL] * h_r ; 
-
-        uL[STXL] = D_h_l * uD_l[0] ;
-        uR[STXL] = D_h_r * uD_r[0] ;
-
-        fL[STXL] = uL[STXL] * primL[VXL+idir] + primL[PRESSL] * utils::delta(idir,0) ;
-        fR[STXL] = uR[STXL] * primR[VXL+idir] + primR[PRESSL] * utils::delta(idir,0) ;
-
-        /***********************************************************************/
-        /* Get S_y flux                                                        */
-        /***********************************************************************/
-
-        /***********************************************************************/
-        /* F^d_{S_y} = \alpha \sqrt{\gamma} T^d_y                              */
-        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_y                */
-        /*                         + p \delta^d_y - b^d b_y )                  */  
-        /***********************************************************************/
-        uL[STYL] = D_h_l * uD_l[1] ;
-        uR[STYL] = D_h_r * uD_r[1] ;
-
-        fL[STYL] = uL[STYL] * primL[VXL+idir] + primL[PRESSL] * utils::delta(idir,1) ;
-        fR[STYL] = uR[STYL] * primR[VXL+idir] + primR[PRESSL] * utils::delta(idir,1) ; 
-
-        /***********************************************************************/
-        /* Get S_z flux                                                        */
-        /***********************************************************************/
-
-        /***********************************************************************/
-        /* F^d_{S_z} = \alpha \sqrt{\gamma} T^d_z                              */
-        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_z                */
-        /*                         + p \delta^d_z - b^d b_z )                  */  
-        /***********************************************************************/
-        uL[STZL] = D_h_l * uD_l[2] ;
-        uR[STZL] = D_h_r * uD_r[2] ;
-
-        fL[STZL] = uL[STZL] * primL[VXL+idir] 
-            + primL[PRESSL] * utils::delta(idir,2) ;
-        fR[STZL] = uR[STZL] * primR[VXL+idir] 
-            + primR[PRESSL] * utils::delta(idir,2) ; 
-        /***********************************************************************/
-        grmhd_cons_array_t fHLLC = 
-            solver(fL,fR,uL,uR,primL,primR,cmin,cmax) ; 
-        /***********************************************************************/
-        fluxes(VEC(i,j,k),DENS_,idir,q)        = alpha_sqrtgamma * fHLLC[DENSL] ; 
-        fluxes(VEC(i,j,k),YESTAR_,idir,q)      = alpha_sqrtgamma * fHLLC[YESL]  ; 
-        fluxes(VEC(i,j,k),ENTROPYSTAR_,idir,q) = alpha_sqrtgamma * fHLLC[ENTSL] ;
-        fluxes(VEC(i,j,k),TAU_,idir,q)         = alpha_sqrtgamma * fHLLC[TAUL]  ;
-        fluxes(VEC(i,j,k),SX_,idir,q)          = alpha_sqrtgamma * fHLLC[STXL]  ;
-        fluxes(VEC(i,j,k),SY_,idir,q)          = alpha_sqrtgamma * fHLLC[STYL]  ;
-        fluxes(VEC(i,j,k),SZ_,idir,q)          = alpha_sqrtgamma * fHLLC[STZL]  ;
-        /***********************************************************************/
-    };
-    /**
-     * @brief Compute fluxes for gmrmhd equations.
-     * 
-     * @tparam idir Direction the fluxes are computed in.
-     * @tparam recon_t Type of reconstruction.
-     * @tparam riemann_t Type of Riemann solver.
-     * @param i zero-offset x cell index.
-     * @param j zero-offset y cell index.
-     * @param k zero-offset z cell index.
-     * @param q quadrant index.
-     * @param ngz Number of ghost-zones.
-     * @param fluxes Flux array.
-     */
-    template< int idir 
-            , typename riemann_t 
-            , typename recon_t   >
-    std::enable_if<std::is_same_v<riemann_t,grace::hll_riemann_solver_t>,void>::type 
-    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    getflux(  VEC( const int i 
-            ,      const int j 
-            ,      const int k)
-            , const int64_t q 
-            , int ngz
-            , grace::flux_array_t const fluxes
+            , grace::flux_array_t const vbar
             , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
             , double const dt 
             , double const dtfact ) const 
@@ -811,29 +560,18 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         metric_array_t metric_l, metric_r;
         FILL_METRIC_ARRAY( metric_l, this->_state, q
-                         , VEC( i+ngz-utils::delta(idir,0)
-                              , j+ngz-utils::delta(idir,1)
-                              , k+ngz-utils::delta(idir,2))) ; 
+                         , VEC( i-utils::delta(idir,0)
+                              , j-utils::delta(idir,1)
+                              , k-utils::delta(idir,2))) ; 
         FILL_METRIC_ARRAY( metric_r, this->_state, q
-                         , VEC( i+ngz
-                              , j+ngz
-                              , k+ngz )) ;
+                         , VEC( i
+                              , j
+                              , k )) ;
         /***********************************************************************/
-        /* 2nd order interpolation at cell interface                           */
+        /* 3rd order interpolation at cell interface                           */
         /***********************************************************************/
-        metric_array_t const metric_face{
-            { 0.5*(metric_l.gamma(0) + metric_r.gamma(0))
-            , 0.5*(metric_l.gamma(1) + metric_r.gamma(1))
-            , 0.5*(metric_l.gamma(2) + metric_r.gamma(2))
-            , 0.5*(metric_l.gamma(3) + metric_r.gamma(3))
-            , 0.5*(metric_l.gamma(4) + metric_r.gamma(4))
-            , 0.5*(metric_l.gamma(5) + metric_r.gamma(5))}
-        ,   { 0.5*(metric_l.beta(0) + metric_r.beta(0))
-            + 0.5*(metric_l.beta(1) + metric_r.beta(1))
-            + 0.5*(metric_l.beta(2) + metric_r.beta(2))}
-        ,   0.5 * (metric_l.alp() + metric_r.alp())
-        } ; 
-        
+        metric_array_t metric_face ; 
+        COMPUTE_FCVAL(metric_face,this->_state,i,j,k,q,idir) ; 
         /***********************************************************************/
         /*              Reconstruct primitive variables                        */
         /***********************************************************************/
@@ -851,17 +589,23 @@ struct grmhd_equations_system_t
                 , YE_
                 , TEMP_
                 , ENTROPY_
+                , BX_ 
+                , BY_
+                , BZ_
             } ; 
         /* Local indices in prims array (note z^k -> v^k) */
         std::array<int, GRMHD_NUM_RECON_VARS>
             recon_indices_loc{
                   RHOL
-                , VXL
-                , VYL
-                , VZL
+                , ZXL
+                , ZYL
+                , ZZL
                 , YEL
                 , TEMPL
                 , ENTL
+                , BXL 
+                , BYL 
+                , BZL
             } ;
         /* Reconstruction                                  */
         grmhd_prims_array_t primL, primR ; 
@@ -871,45 +615,64 @@ struct grmhd_equations_system_t
                                     , VEC(Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL()) 
                                     , recon_indices[ivar] 
                                     , q ) ;
-            reconstructor( u, VEC(i+ngz,j+ngz,k+ngz)
+            reconstructor( u, VEC(i,j,k)
                          , primL[recon_indices_loc[ivar]]
                          , primR[recon_indices_loc[ivar]]
                          , idir) ;
         }
+        /***********************************************************************/
+        /* Replace B^d_L/R with face staggered                                 */
+        /***********************************************************************/
+        if constexpr ( idir == 0 ) {
+            primL[BXL] = primR[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) / metric_face.sqrtg() ; 
+        } else if constexpr ( idir == 1 ) {
+            primL[BYL] = primR[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) / metric_face.sqrtg(); 
+        } else {
+            primL[BZL] = primR[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) / metric_face.sqrtg(); 
+        }
         // Compute HLL fluxes
         grmhd_cons_array_t f_HLL ; 
-        compute_mhd_fluxes<idir,riemann_t,true>( primL, primR, metric_face, f_HLL, 1, 1) ; 
+        std::array<double,4> vb_HLL ; 
+        compute_mhd_fluxes<idir,true>( primL, primR, metric_face, f_HLL, vb_HLL, 1, 1) ; 
         #ifdef GRMHD_USE_PPLIM
         /***********************************************************************/
         // And LLF fluxes to mix in for positivity preserving limiter 
         /***********************************************************************/
         FILL_PRIMS_ARRAY_ZVEC( primL, this->_aux, q 
-                        , VEC( i+ngz-utils::delta(idir,0)
-                             , j+ngz-utils::delta(idir,1)
-                             , k+ngz-utils::delta(idir,2) )) ;
+                        , VEC( i-utils::delta(idir,0)
+                             , j-utils::delta(idir,1)
+                             , k-utils::delta(idir,2) )) ;
         FILL_PRIMS_ARRAY_ZVEC( primR, this->_aux, q 
-                        , VEC( i+ngz
-                             , j+ngz
-                             , k+ngz )) ; 
+                        , VEC( i
+                             , j
+                             , k )) ; 
+        if constexpr ( idir == 0 ) {
+            primL[BXL] = primR[BXL] = this->_stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) / metric_face.sqrtg() ; 
+        } else if constexpr ( idir == 1 ) {
+            primL[BYL] = primR[BYL] = this->_stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) / metric_face.sqrtg(); 
+        } else {
+            primL[BZL] = primR[BZL] = this->_stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) / metric_face.sqrtg(); 
+        }
         /***********************************************************************/ 
         /*                      Compute LLF flux                               */
         /***********************************************************************/
-        grmhd_cons_array_t f_LLF ;  
-        compute_mhd_fluxes<idir,riemann_t,false>( primL, primR, metric_face, f_LLF, 1., 1.) ;
+        grmhd_cons_array_t f_LLF ;
+	    std::array<double,4> dummy ; 
+        compute_mhd_fluxes<idir,false>( primL, primR, metric_face, f_LLF, dummy, 1., 1.) ;
         /***********************************************************************/
         // Get conserves 
         grmhd_cons_array_t consL, consR ;
         FILL_CONS_ARRAY(consL, this->_state, q 
-                     , VEC(   i+ngz-utils::delta(idir,0)
-                            , j+ngz-utils::delta(idir,1)
-                            , k+ngz-utils::delta(idir,2) ) ) ; 
+                     , VEC(   i-utils::delta(idir,0)
+                            , j-utils::delta(idir,1)
+                            , k-utils::delta(idir,2) ) ) ; 
         FILL_CONS_ARRAY(consR, this->_state, q
-                       , VEC(i+ngz,j+ngz,k+ngz)) ; 
+                       , VEC(i,j,k)) ; 
         /***********************************************************************/
         // Mix fluxes 
         double const a2CFL = 6. * (dt*dtfact/dx(idir,q)) ; 
         double theta = 1 ; 
-        double rho_atm = _eos.rho_atmosphere() ; 
+        double rho_atm = fmin(atmo_params.rho_fl, excision_params.rho_ex) ; 
         
         double const dens_min_r = rho_atm * metric_r.sqrtg() ; 
         double const dens_min_l = rho_atm * metric_l.sqrtg() ; 
@@ -922,7 +685,13 @@ struct grmhd_equations_system_t
 
         double theta_p = 1.; 
         double theta_m = 1.; 
+        /*
+        if(rho_star_m < rho_star_min)
+                theta_m = MIN(theta,MAX(0.0,(rho_star_min - rho_star_LLF_m)/(a2CFL*(rho_star_flux[index] - rho_star_flux_LO[index]))));
 
+        if(rho_star_p < rho_star_minm1)
+                theta_p = MIN(theta,MAX(0.0,-( rho_star_minm1 - rho_star_LLF_p)/(a2CFL*(rho_star_flux[index] - rho_star_flux_LO[index]))));
+        */
         if (dens_m < dens_min_r) {
             theta_m = math::min(theta, math::max(0, (dens_min_r-dens_LLF_m)/(a2CFL*(f_HLL[DENSL]-f_LLF[DENSL])))) ; 
         }
@@ -931,6 +700,39 @@ struct grmhd_equations_system_t
         }
 
         theta = math::min(theta_m, theta_p) ;
+        if ( std::isnan(theta) ) theta = 1. ; 
+        #if 0
+        // mix in the lapse 
+        double theta_exc ; 
+        if ( excision_params.excise_by_radius ) {
+            double fcoords[3] = {
+                idir == 0 ? 0. : 0.5 ,
+                idir == 1 ? 0. : 0.5 ,
+                idir == 2 ? 0. : 0.5 ,
+            } ; 
+            double rtp[3] ; 
+            dcoords.get_physical_coordinates_sph(i,j,k,q,fcoords,rtp,1) ; 
+            double a0 = 0.5 * (excision_params.r_f+excision_params.r_ex) ; 
+            double da = 0.25 * (excision_params.r_f-excision_params.r_ex) ;
+            theta_exc = 0.5 * (1.0 + Kokkos::tanh((rtp[0]-a0)/da)) ; 
+        } else {
+            double a0 = 0.5 * (excision_params.alp_f+excision_params.alp_ex) ; 
+            double da = 0.25 * (excision_params.alp_f-excision_params.alp_ex) ;
+            theta_exc = 0.5 * (1.0 + Kokkos::tanh((metric_face.alp()-a0)/da)) ; 
+        }
+        theta *= Kokkos::fmin(Kokkos::fmax(theta_exc,0.),1.) ; 
+        
+        // fixme! 
+        double fcoords[3] = {
+                idir == 0 ? 0. : 0.5 ,
+                idir == 1 ? 0. : 0.5 ,
+                idir == 2 ? 0. : 0.5 ,
+            } ; 
+        double rtp[3] ; 
+        dcoords.get_physical_coordinates_sph(i,j,k,q,fcoords,rtp,1) ; 
+        if ( rtp[0] <= excision_params.r_f) theta = 0 ; 
+        #endif 
+        //if ( metric_face.alp() < 0.2 ) theta = 0 ; 
         /***********************************************************************/
         /***********************************************************************/
         fluxes(VEC(i,j,k),DENS_,idir,q)        = theta * f_HLL[DENSL]    
@@ -956,354 +758,446 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),TAU_,idir,q)         = f_HLL[TAUL] ; 
         fluxes(VEC(i,j,k),SX_,idir,q)          = f_HLL[STXL] ; 
         fluxes(VEC(i,j,k),SY_,idir,q)          = f_HLL[STYL] ; 
-        fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ; 
+        fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ;
         /***********************************************************************/
-        #endif 
+        #endif
+	    // fill vbar and cmin/max for later
+        vbar(VEC(i,j,k),0,idir,q) = vb_HLL[0] ; 
+        vbar(VEC(i,j,k),1,idir,q) = vb_HLL[1] ; 
+        vbar(VEC(i,j,k),2,idir,q) = vb_HLL[2] ; 
+        vbar(VEC(i,j,k),3,idir,q) = vb_HLL[3] ; 
     }
-
     template< size_t idir
-            , typename riemann_t 
             , bool recompute_cp_cm >
     GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
     void compute_mhd_fluxes( grmhd_prims_array_t& primL
                            , grmhd_prims_array_t& primR 
                            , metric_array_t const& metric_face 
                            , grmhd_cons_array_t& f
+                           , std::array<double,4>& vbar
                            , double const cmin_loc = 1
                            , double const cmax_loc = 1 ) const 
     {
-
-        riemann_t solver     {} ;
         /***********************************************************************/
-        /* Compute u0 on both sides                                            */
+        hll_riemann_solver_t solver     {} ;
         /***********************************************************************/
-        /* Lorentz factors  */
-        /* W = sqrt(1+z^2)  */
-        double const alp = metric_face.alp() ;
-        double const wl   = Kokkos::sqrt(1. 
-            + metric_face.square_vec({primL[VXL], primL[VYL], primL[VZL]}));
-        double const wr   = Kokkos::sqrt(1. 
-            + metric_face.square_vec({primR[VXL], primR[VYL], primR[VZL]}));
+        /* Get some pointers                                                   */
+        /***********************************************************************/
+        double const * const gdd   = metric_face._g.data();
+        double const * const guu   = metric_face._ginv.data();
+        double const * const betau = metric_face._beta.data(); 
+        double const alp           = metric_face.alp() ; 
+        double const sqrtg         = metric_face.sqrtg() ; 
+        double const * const zl    = &(primL[ZXL]) ; 
+        double const * const zr    = &(primR[ZXL]) ; 
+        double const * const Bl    = &(primL[BXL]) ; 
+        double const * const Br    = &(primR[BXL]) ; 
+        double& rhol          = primL[RHOL]   ; 
+        double& rhor          = primR[RHOL]   ; 
+        double& sl            = primL[ENTL]   ; 
+        double& sr            = primR[ENTL]   ;
+        double& tl            = primL[TEMPL]  ;
+        double& tr            = primR[TEMPL]  ;
+        #ifdef GRACE_EVOLVE_YE
+        double& yel           = primL[YEL]    ;
+        double& yer           = primR[YEL]    ;
+        #else 
+        double yel            = 0.0           ;
+        double yer            = 0.0           ;
+        #endif
         
-        /* u^0             */
-        double const u0_l = wl / alp ; 
-        double const u0_r = wr / alp ; 
-
         /***********************************************************************/
-        /* Fill up primitive array on both sides of the face.                  */
-        /* Right now we have:                                                  */
-        /* 1) The correct rho                                                  */
-        /* 2) No pressure (computed below)                                     */
-        /* 3) The temperature but no eps                                       */
-        /* 4) The z vector (W v_{n}^i) as opposed to v^i (swapped below)       */
+        /* Compute W on both sides                                             */
         /***********************************************************************/
-        
-        /* Left */
-        double cs2l, cs2r ; 
+        double wl,wr ;
+        grmhd_get_W(gdd, zl, &wl) ; 
+        grmhd_get_W(gdd, zr, &wr) ; 
+        /***********************************************************************/
+        /* Compute press and cs2 on both sides                                 */
+        /***********************************************************************/
+        double epsl,epsr,pl,pr,cs2l,cs2r ; 
         unsigned int eos_err; 
-        primL[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primL[EPSL], cs2l, primL[TEMPL], primL[RHOL], primL[YEL], eos_err) ; 
-        primL[VXL] = alp * primL[VXL] / wl - metric_face.beta(0) ;
-        primL[VYL] = alp * primL[VYL] / wl - metric_face.beta(1) ;
-        primL[VZL] = alp * primL[VZL] / wl - metric_face.beta(2) ; 
-
-        /* Right */
-        primR[PRESSL] = _eos.press_eps_csnd2__temp_rho_ye(primR[EPSL], cs2r, primR[TEMPL], primR[RHOL], primR[YEL], eos_err) ; 
-        primR[VXL] = alp * primR[VXL] / wr - metric_face.beta(0) ;
-        primR[VYL] = alp * primR[VYL] / wr - metric_face.beta(1) ;
-        primR[VZL] = alp * primR[VZL] / wr - metric_face.beta(2) ;
-
-        /* Compute small b */
-        std::array<double,4> smallbL{0,0,0,0}, smallbR{0,0,0,0} ; 
-        double b2l{0.}, b2r{0.}; 
-        //compute_smallb(smallbL, b2l, primL, metric_face) ; 
-        //compute_smallb(smallbR, b2r, primR, metric_face) ; 
-
-        /* Compute Alfvén speeds */
-        double v02r,v02l, h_r,h_l;
-        compute_v02(h_l, v02l, cs2l, b2l, primL) ; 
-        compute_v02(h_r, v02r, cs2r, b2r, primR) ;
-
-        /* Get wavespeeds      */
-        double const one_over_alp2 = 1./math::int_pow<2>(alp); 
-
-        double cmin, cmax ;
+        pl = _eos.press_eps_csnd2__temp_rho_ye(epsl, cs2l, tl, rhol, yel, eos_err) ; 
+        pr = _eos.press_eps_csnd2__temp_rho_ye(epsr, cs2r, tr, rhor, yer, eos_err) ; 
+        /***********************************************************************/
+        /* Compute b and b2 on both sides                                      */
+        /***********************************************************************/
+        double smallbl[4], smallbr[4] ; 
+        double b2l, b2r ;
+        grmhd_get_smallbu_smallb2(
+            betau, gdd, Bl, zl, wl, alp, &smallbl, &b2l
+        ) ;
+        grmhd_get_smallbu_smallb2(
+            betau, gdd, Br, zr, wr, alp, &smallbr, &b2r
+        ) ;
+        /***********************************************************************/
+        /* Compute vtilde on both sides                                        */
+        /***********************************************************************/
+        double vtildel[3], vtilder[3] ; 
+        grmhd_get_vtildeu(
+            betau, wl, zl, alp, &vtildel
+        ) ; 
+        grmhd_get_vtildeu(
+            betau, wr, zr, alp, &vtilder
+        ) ; 
+        /***********************************************************************/
+        /* Compute cm/cp if needed                                             */
+        /***********************************************************************/
+        double cmin, cmax ; 
         if constexpr ( recompute_cp_cm ) {
             double cpr, cmr, cpl, cml;
-            int metric_comps[3] { 0, 3, 5} ; 
-            compute_cp_cm( cpl, cml, v02l, u0_l, primL[VXL+idir], one_over_alp2
-                        , metric_face.beta(idir), metric_face.invgamma(metric_comps[idir])) ;
-            compute_cp_cm( cpr, cmr, v02r, u0_r, primR[VXL+idir], one_over_alp2
-                        , metric_face.beta(idir), metric_face.invgamma(metric_comps[idir])) ;
+            int metric_comps[3] {0, 3, 5} ; 
+            int jk[3][2] = {
+                {1,2},
+                {0,2},
+                {0,1}
+            } ; 
+            grmhd_get_cm_cp( 
+                cs2l, vtildel, b2l, betau, wl, epsl, rhol, guu[metric_comps[idir]],
+                alp, pl, idir, &cml, &cpl
+            ) ;
+            grmhd_get_cm_cp( 
+                cs2r, vtilder, b2r, betau, wr, epsr, rhor, guu[metric_comps[idir]],
+                alp, pr, idir, &cmr, &cpr
+            ) ;
             cmin = -Kokkos::min(0., Kokkos::min(cml,cmr)) ; 
             cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ; 
             /* Add some diffusion in weakly hyperbolic limit */
             if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
+            /* Store cmin/cmax and vtilde for EMF            */
+            vbar[0] = solver(vtildel[jk[idir][0]],vtilder[jk[idir][0]],0,0,cmin,cmax) ;
+            vbar[1] = solver(vtildel[jk[idir][1]],vtilder[jk[idir][1]],0,0,cmin,cmax) ; 
+            vbar[2] = cmin; vbar[3] = cmax ; 
         } else {
             cmin = cmin_loc ; 
             cmax = cmax_loc ; 
         }
         /***********************************************************************/
-        /*                          Get dens flux                              */
+        /* Compute fluxes and conserved on both sides                          */
         /***********************************************************************/
-        double const alpha_sqrtgamma = alp * metric_face.sqrtg() ;
-        double const dens_l = alpha_sqrtgamma * primL[RHOL] * u0_l ;
-        double const dens_r = alpha_sqrtgamma * primR[RHOL] * u0_r ;
+        double densl, taul, entsl, densr, taur, entsr ; 
+        double stl[3], str[3] ; 
+        double fdl, ftl, fel, fstl[3] ; 
+        double fdr, ftr, fer, fstr[3] ;
 
-        double fl = dens_l * primL[VXL+idir] ; 
-        double fr = dens_r * primR[VXL+idir] ; 
+        grmhd_get_fluxes(
+            wl, rhol, smallbl, b2l, alp, epsl, pl,
+            betau, zl, gdd, sl, vtildel, idir,
+            &densl, &taul, &stl, &entsl,
+            &fdl, &ftl, &fstl, &fel
+        ) ; 
 
-        f[DENSL] = solver(fl,fr,dens_l,dens_r,cmin,cmax) ; 
-
+        grmhd_get_fluxes(
+            wr, rhor, smallbr, b2r, alp, epsr, pr,
+            betau, zr, gdd, sr, vtilder, idir,
+            &densr, &taur, &str, &entsr,
+            &fdr, &ftr, &fstr, &fer
+        ) ;
         /***********************************************************************/
-        /*                          Get ye_star flux                           */
+        /* Use Riemann solver                                                  */
         /***********************************************************************/
-        double const ye_star_l = dens_l * primL[YEL] ; 
-        double const ye_star_r = dens_r * primR[YEL] ; 
-        
-        fl = ye_star_l * primL[VXL+idir] ; 
-        fr = ye_star_l * primR[VXL+idir] ; 
-
-        f[YESL] = solver(fl,fr,ye_star_l,ye_star_r,cmin,cmax) ;
-
+        f[DENSL] = sqrtg * solver(fdl,fdr,densl,densr,cmin,cmax) ; 
         /***********************************************************************/
-        /*                          Get s_star flux                            */
+        f[ENTSL] = sqrtg * solver(fel,fer,entsl,entsr,cmin,cmax) ;
         /***********************************************************************/
-        double const s_star_l = dens_l * primL[ENTL] ; 
-        double const s_star_r = dens_r * primR[ENTL] ; 
-
-        fl = s_star_l * primL[VXL+idir] ; 
-        fr = s_star_r * primR[VXL+idir] ; 
-
-        f[ENTSL] = solver(fl,fr,s_star_l,s_star_r,cmin,cmax) ;
-
-        /***********************************************************************/ 
-        /*                           Get tau flux                              */
+        f[TAUL]  = sqrtg * solver(ftl,ftr,taul,taur,cmin,cmax) ; 
         /***********************************************************************/
-        /* Auxiliary metric quantitites */
-        double const alp2_sqrtgamma = math::int_pow<2>(alp) * metric_face.sqrtg() ; 
-        double const g4uptd = one_over_alp2 * metric_face.beta(idir) ; 
-        double const g4uptt = -one_over_alp2 ; 
-
-        /***************************************************************************/
-        /***************************************************************************/
-        /* Left flux */
-        double const rho0_h_plus_b2_l = primL[RHOL]*(1+primL[EPSL]) + primL[PRESSL] 
-                                      + b2l ;
-        
-        double const P_plus_half_b2_l = primL[PRESSL] + 0.5*b2l;
-        /***************************************************************************/
-        /* T^{td} = (rho h + b^2) u^0 (u^0 v^d) + (P + b^2/2) g^{td} - b^t b^d     */
-        /***************************************************************************/
-        double const TUPtd_l = rho0_h_plus_b2_l * math::int_pow<2>(u0_l) * primL[VXL+idir] 
-            + P_plus_half_b2_l*g4uptd - smallbL[0]*smallbL[1+idir] ;
-        /***************************************************************************/
-        /* F^{d}_{\rm tau} = \alpha^2 \sqrt{\gamma} T^{td} - D v^d                 */
-        /***************************************************************************/
-        fl = alp2_sqrtgamma * TUPtd_l - dens_l * primL[VXL+idir] ;
-        /***************************************************************************/
-        /* T^{tt} = (rho h + b^2) u^0 u^0 + (P + b^2/2 ) g^{tt} - b^t b^t          */
-        /***************************************************************************/
-        double const Tuptt_l = rho0_h_plus_b2_l*math::int_pow<2>(u0_l) 
-            + P_plus_half_b2_l*g4uptt - math::int_pow<2>(smallbL[0]) ;
-        /***************************************************************************/
-        /* \tau = \alpha^2 \sqrt{\gamma} T^{tt} - D                                */
-        /***************************************************************************/
-        double const tau_l = alp2_sqrtgamma * Tuptt_l - dens_l ;
-
-        /***************************************************************************/
-        /***************************************************************************/
-        /* Right flux */
-        double const rho0_h_plus_b2_r = primR[RHOL]*(1+primR[EPSL]) + primR[PRESSL] 
-                                      + b2r ;
-
-        double const P_plus_half_b2_r = primR[PRESSL] + 0.5*b2r;
-        /***************************************************************************/
-        /* T^{td} = (rho h + b^2) u^0 (u^0 v^d) + (P + b^2/2) g^{td} - b^t b^d     */
-        /***************************************************************************/
-        double const TUPtd_r = rho0_h_plus_b2_r * math::int_pow<2>(u0_r) * primR[VXL+idir] 
-            + P_plus_half_b2_r*g4uptd - smallbR[0]*smallbR[1+idir] ; 
-        /**************************************************************************/
-        /* F^{d}_{\rm tau} = \alpha^2 \sqrt{\gamma} T^{td} - D v^d                */
-        /**************************************************************************/
-        fr = alp2_sqrtgamma * TUPtd_r - dens_r * primR[VXL+idir] ;
-        /**************************************************************************/
-        /* T^{tt} = (rho h + b^2) u^0 u^0 + (P + b^2/2 ) g^{tt} - b^t b^t         */
-        /**************************************************************************/
-        double const Tuptt_r = rho0_h_plus_b2_r*math::int_pow<2>(u0_r) 
-            + P_plus_half_b2_r*g4uptt - math::int_pow<2>(smallbR[0]) ; 
+        f[STXL] = sqrtg * solver(fstl[0],fstr[0],stl[0],str[0],cmin,cmax) ; 
+        f[STYL] = sqrtg * solver(fstl[1],fstr[1],stl[1],str[1],cmin,cmax) ; 
+        f[STZL] = sqrtg * solver(fstl[2],fstr[2],stl[2],str[2],cmin,cmax) ; 
         /***********************************************************************/
-        /* \tau = \alpha^2 \sqrt{\gamma} T^{tt} - D                            */
+        #ifdef GRACE_EVOLVE_YE
+        f[YESL] = sqrtg * solver(yel*fdl,yer*fdr,yel*densl,yer*densr,cmin,cmax) ;
         /***********************************************************************/
-        double const tau_r = alp2_sqrtgamma * Tuptt_r - dens_r ; 
-
-        /***************************************************************************/
-        f[TAUL] = solver(fl,fr,tau_l,tau_r,cmin,cmax) ; 
-        /***************************************************************************/
-
-        /***********************************************************************/
-        /* Momentum flux in direction d for S_j : \alpha \sqrt{\gamma} T^d_j   */
-        /***********************************************************************/
-        /* Compute u_i */
-        auto uD_l = metric_face.lower({ primL[VXL]+metric_face.beta(0)
-                                      , primL[VYL]+metric_face.beta(1)
-                                      , primL[VZL]+metric_face.beta(2) }) ; 
-        for(auto& uu: uD_l) uu *= u0_l ; 
-        auto uD_r = metric_face.lower({ primR[VXL]+metric_face.beta(0)
-                                      , primR[VYL]+metric_face.beta(1)
-                                      , primR[VZL]+metric_face.beta(2) }) ; 
-        for(auto& uu: uD_r) uu *= u0_r ; 
-        /***********************************************************************/
-        /* Get S_x flux                                                        */
-        /***********************************************************************/
-        std::array<double,3> smallbDL{0,0,0}, smallbDR{0,0,0};
-        /***********************************************************************/
-        /* F^d_{S_x} = \alpha \sqrt{\gamma} T^d_x                              */
-        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_x                */
-        /*                         + p \delta^d_x - b^d b_x )                  */  
-        /***********************************************************************/
-        fl = alpha_sqrtgamma * ( rho0_h_plus_b2_l * (u0_l*primL[VXL+idir])*uD_l[0]
-           + P_plus_half_b2_l*utils::delta(0,idir) - smallbL[idir+1]*smallbDL[0] ) ; 
-        fr = alpha_sqrtgamma * ( rho0_h_plus_b2_r * (u0_r*primR[VXL+idir])*uD_r[0]
-           + P_plus_half_b2_r*utils::delta(0,idir) - smallbR[idir+1]*smallbDR[0] ) ;  
-
-        double const s_x_l = alpha_sqrtgamma * (  rho0_h_plus_b2_l*u0_l*uD_l[0]
-                                                - smallbL[0]*smallbDL[0] ) ; 
-
-        double const s_x_r = alpha_sqrtgamma * (  rho0_h_plus_b2_r*u0_r*uD_r[0]
-                                                - smallbR[0]*smallbDR[0] ) ; 
-
-        /***********************************************************************/
-        f[STXL] = solver(fl,fr,s_x_l,s_x_r,cmin,cmax) ; 
-        /***********************************************************************/
-
-        /***********************************************************************/
-        /* Get S_y flux                                                        */
-        /***********************************************************************/
-
-        /***********************************************************************/
-        /* F^d_{S_y} = \alpha \sqrt{\gamma} T^d_y                              */
-        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_y                */
-        /*                         + p \delta^d_y - b^d b_y )                  */  
-        /***********************************************************************/
-        fl = alpha_sqrtgamma * ( rho0_h_plus_b2_l * (u0_l*primL[VXL+idir])*uD_l[1]
-           + P_plus_half_b2_l*utils::delta(1,idir) - smallbL[idir+1]*smallbDL[1] ) ; 
-        fr = alpha_sqrtgamma * ( rho0_h_plus_b2_r * (u0_r*primR[VXL+idir])*uD_r[1]
-           + P_plus_half_b2_r*utils::delta(1,idir) - smallbR[idir+1]*smallbDR[1] ) ;
-         
-        
-        double const s_y_l = alpha_sqrtgamma * ( rho0_h_plus_b2_l*u0_l*uD_l[1]
-                                               - smallbL[0]*smallbDL[1] ) ; 
-
-        double const s_y_r = alpha_sqrtgamma * ( rho0_h_plus_b2_r*u0_r*uD_r[1]
-                                               - smallbR[0]*smallbDR[1] ) ; 
-        
-        /***********************************************************************/
-        f[STYL] = solver(fl,fr,s_y_l,s_y_r,cmin,cmax) ;
-        /***********************************************************************/
-
-        /***********************************************************************/
-        /* Get S_z flux                                                        */
-        /***********************************************************************/
-
-        /***********************************************************************/
-        /* F^d_{S_z} = \alpha \sqrt{\gamma} T^d_z                              */
-        /*  = \alpha \sqrt{\gamma} ( (\rho h + b^2) u^0 v^d u_z                */
-        /*                         + p \delta^d_z - b^d b_z )                  */  
-        /***********************************************************************/
-        fl = alpha_sqrtgamma * ( rho0_h_plus_b2_l * u0_l*primL[VXL+idir]*uD_l[2]
-           + P_plus_half_b2_l*utils::delta(2,idir) - smallbL[idir+1]*smallbDL[2] ) ; 
-        fr = alpha_sqrtgamma * ( rho0_h_plus_b2_r * u0_r*primR[VXL+idir]*uD_r[2]
-           + P_plus_half_b2_r*utils::delta(2,idir) - smallbR[idir+1]*smallbDR[2] ) ;  
-
-        double const s_z_l = alpha_sqrtgamma * ( rho0_h_plus_b2_l*u0_l*uD_l[2]
-                                               - smallbL[0]*smallbDL[2] ) ; 
-
-        double const s_z_r = alpha_sqrtgamma * ( rho0_h_plus_b2_r*u0_r*uD_r[2]
-                                               - smallbR[0]*smallbDR[2] ) ; 
-
-        /***********************************************************************/
-        f[STZL] = solver(fl,fr,s_z_l,s_z_r,cmin,cmax) ; 
-        /***********************************************************************/
-        /***********************************************************************/
-    };
-    /***********************************************************************/
-    /**
-     * @brief Compute Alfvén speed, specific enthalpy 
-     *        and approximate magnetosonic wave speed.
-     * 
-     * @param h Enthalpy.
-     * @param v02 Squared magnetosonic wave (approximate) speed.
-     * @param cs2 Squared sound speed.
-     * @param b2  Square comoving magnetic field.
-     * @param prims Primitive variables.
-     */
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_v02( double& h, double& v02, double const& cs2, double const& b2
-               , grmhd_prims_array_t const& prims ) const
-    {
-        h = 1. + prims[EPSL] + prims[PRESSL] / prims[RHOL] ; 
-        double const v_A_sq = 0.; // b2 / ( b2 + prims[RHOL]*h) ; 
-        v02 = v_A_sq + cs2 * ( 1. - v_A_sq ) ; 
+        #endif  
     }
     /***********************************************************************/
-    /**
-     * @brief Compute approximate GRMHD wave-speeds according to 
-     *        eq. (28) in https://iopscience.iop.org/article/10.1086/374594/pdf.
-     * 
-     * @param cp Maximum wavespeed
-     * @param cm Minimum wavespeed
-     * @param v02 Squared v0.
-     * @param vd  3 velocity in direction d.
-     * @param one_over_alp2 One over lapse squared.
-     * @param betad Shift in direction d.
-     * @param gupdd (d,d) component of contravariant metric.
-     */
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    compute_cp_cm( double& cp, double& cm
-                 , double const& v02, double const& u0
-                 , double const& vd, double const& one_over_alp2 
-                 , double const& betad, double const& gupdd ) const
-    {
-        double const u0_sq = math::int_pow<2>(u0) ; 
-
-        double const a = u0_sq * ( 1- v02 ) + v02 * one_over_alp2 ; 
-
-        double const b = 2. * ( betad * one_over_alp2 * v02 - u0_sq * vd * (1. - v02 )) ; 
-
-        double const c = u0_sq * math::int_pow<2>(vd) * ( 1.-v02 ) 
-            - v02 * ( gupdd - math::int_pow<2>(betad)*one_over_alp2) ;
-        
-        //double det = math::int_pow<2>(b) - 4. * a * c ; 
-        double const det = Kokkos::sqrt(math::max(0., math::int_pow<2>(b) - 4. * a * c))  ; 
-
-        double const c1 =  0.5*(det-b) / a ; 
-        double const c2 = -0.5*(det+b) / a ; 
-
-        cp = Kokkos::max(c1,c2) ; 
-        cm = Kokkos::min(c1,c2) ; 
-    }
     /***********************************************************************/
-    /**
-     * @brief Utility to compute \f$u^t\f$
-     * 
-     * @param prims Primitive variables.
-     * @param metric Metric tensor.
-     * @return double The 0th component of contravariant 4-velocity.
-     */
-    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    compute_u0( grace::grmhd_prims_array_t const& prims 
-              , grace::metric_array_t const& metric ) const 
+    #if 0
+    template< size_t idir
+            , bool recompute_cp_cm >
+    GRACE_HOST_DEVICE GRACE_ALWAYS_INLINE
+    void compute_mhd_fluxes_hllc( grmhd_prims_array_t& primL
+                                , grmhd_prims_array_t& primR 
+                                , metric_array_t const& metric_face 
+                                , grmhd_cons_array_t& f
+                                , std::array<double,4>& vbar
+                                , double const cmin_loc = 1
+                                , double const cmax_loc = 1 ) const 
     {
-        double const one_over_alp = 1./metric.alp() ;
-        std::array<double,3> const vN {
-              one_over_alp * ( prims[VXL] + metric.beta(0) )
-            , one_over_alp * ( prims[VYL] + metric.beta(1) )
-            , one_over_alp * ( prims[VZL] + metric.beta(2) )
+        /***********************************************************************/
+        hll_riemann_solver_t hlle_solver     {} ;
+        /***********************************************************************/
+        /* Get some pointers                                                   */
+        /***********************************************************************/
+        double const * const gdd   = metric_face._g.data();
+        double const * const guu   = metric_face._ginv.data();
+        double const * const betau = metric_face._beta.data(); 
+        double const alp           = metric_face.alp() ; 
+        double const sqrtg         = metric_face.sqrtg() ; 
+        double const * const zl    = &(primL[ZXL]) ; 
+        double const * const zr    = &(primR[ZXL]) ; 
+        double const * const Bl    = &(primL[BXL]) ; 
+        double const * const Br    = &(primR[BXL]) ; 
+        double& rhol          = primL[RHOL]   ; 
+        double& rhor          = primR[RHOL]   ; 
+        double& sl            = primL[ENTL]   ; 
+        double& sr            = primR[ENTL]   ;
+        double& tl            = primL[TEMPL]  ;
+        double& tr            = primR[TEMPL]  ;
+        #ifdef GRACE_EVOLVE_YE
+        double& yel           = primL[YEL]    ;
+        double& yer           = primR[YEL]    ;
+        #else 
+        double yel            = 0.0           ;
+        double yer            = 0.0           ;
+        #endif
+        
+        /***********************************************************************/
+        /* Compute W on both sides                                             */
+        /***********************************************************************/
+        double wl,wr ;
+        double vl[3],vr[3];
+        hllc_get_W_vel(gdd, zl, &wl, &vl) ; 
+        hllc_get_W_vel(gdd, zr, &wr, &vr) ; 
+        /***********************************************************************/
+        /* Compute press and cs2 on both sides                                 */
+        /***********************************************************************/
+        double epsl,epsr,pl,pr,cs2l,cs2r ; 
+        unsigned int eos_err; 
+        pl = _eos.press_eps_csnd2__temp_rho_ye(epsl, cs2l, tl, rhol, yel, eos_err) ; 
+        pr = _eos.press_eps_csnd2__temp_rho_ye(epsr, cs2r, tr, rhor, yer, eos_err) ; 
+        /***********************************************************************/
+        /* Get tetrad                                                          */
+        /***********************************************************************/
+        int jdir = idir == 0 ? 1 : 0 ; 
+        int kdir = idir == 2 ? 1 : 2 ;
+        double gamma_dd[3][3] = {
+            {gdd[0], gdd[1], gdd[2]},
+            {gdd[1], gdd[3], gdd[4]},
+            {gdd[2], gdd[4], gdd[5]}
         } ; 
-        double const W = 1./Kokkos::sqrt(1-metric.square_vec(vN)) ; 
-        return one_over_alp * W ; 
+        double gamma_uu[3][3] = {
+            {guu[0], guu[1], guu[2]},
+            {guu[1], guu[3], guu[4]},
+            {guu[2], guu[4], guu[5]}
+        } ; 
+        double betad[3] = {0.0, 0.0, 0.0} ; 
+        for( int a=0; a<3; ++a) {
+            for( int b=0; b<3; ++b){
+                betad[a] += gamma_dd[a][b] * betau[b] ; 
+            }
+        }
+
+        double eUU[4][4], edd[4][4] ; 
+        hllc_get_tetrad(
+            idir,jdir,kdir,
+            gamma_uu, gamma_dd,
+            betau, betad,
+            &(eUU[0]),
+            &(eUU[idir+1]),
+            &(eUU[jdir+1]),
+            &(eUU[kdir+1]),
+            &(edd[0]),
+            &(edd[idir+1]),
+            &(edd[jdir+1]),
+            &(edd[kdir+1])
+        ) ; 
+
+        /***********************************************************************/
+        /* Transform vectors to tetrad frame                                   */
+        /***********************************************************************/
+        double vhatl[3], Bhatl[3], uhatl[3] ; 
+        hllc_transform_vectors(
+            alp, betau, Bl, zl, wl,
+            edd[0], edd[1], edd[2], edd[3],
+            &uhatl, &vhatl, &Bhatl
+        ) ;
+        double vhatr[3], Bhatr[3], uhatr[3] ; 
+        hllc_transform_vectors(
+            alp, betau, Br, zr, wr,
+            edd[0], edd[1], edd[2], edd[3],
+            &uhatr, &vhatr, &Bhatr
+        ) ;
+        /***********************************************************************/
+        /* Get L/R states and fluxes                                           */
+        /***********************************************************************/
+        double densl, taul, stildel[3], entsl, yesl ; 
+        double fdensl, ftaul, fstildel[3], fentsl, fyesl ; 
+        hllc_get_state_and_fluxes(
+            rhol, pl, epsl, wl, idir,
+            vhatl, uhatl, Bhatl,
+            &densl, &stildel, &taul,
+            &fdensl, &fstildel, &ftaul
+        ) ; 
+        entsl  = densl * sl   ; 
+        yesl   = densl * yel  ; 
+        fentsl = fdensl * sl  ; 
+        fyesl  = fdensl * yel ; 
+
+        double densr, taur, stilder[3], entsr, yesr ; 
+        double fdensr, ftaur, fstilder[3], fentsr, fyesr ; 
+        hllc_get_state_and_fluxes(
+            rhor, pr, epsr, wr, idir,
+            vhatr, uhatr, Bhatr,
+            &densr, &stilder, &taur,
+            &fdensr, &fstilder, &ftaur
+        ) ; 
+        entsr  = densr * sr   ; 
+        yesr   = densr * yer  ; 
+        fentsr = fdensr * sr  ; 
+        fyesr  = fdensr * yer ; 
+
+        /***********************************************************************/
+        /* Get wavespeeds cmax/cmin                                            */
+        /***********************************************************************/
+        double cpl, cml ;
+        hllc_get_wavespeeds(
+            rhol, pl, epsl, cs2l, wl,
+            vhatl, uhatl, Bhatl,
+            &cml, &cpl
+        ) ;
+        double cpr, cmr ;
+        hllc_get_wavespeeds(
+            rhor, pr, epsr, cs2r, wr,
+            vhatr, uhatr, Bhatr,
+            &cmr, &cpr
+        ) ;
+        double cmin = - Kokkos::fmin(0.0,Kokkos::fmin(cml,cmr)) ; 
+        double cmax =   Kokkos::fmax(0.0,Kokkos::fmax(cpl,cpr)) ; 
+
+        /***********************************************************************/
+        /* Get contact speed                                                   */
+        /***********************************************************************/
+        double fdenshlle = hlle_solver(fdensl,fdensr,densl,densr,cmin,cmax) ;
+        double denshlle  = hlle_solver.get_state(fdensl,fdensr,densl,densr,cmin,cmax) ; 
+        double ftauhlle  = hlle_solver(ftaul,ftaur,taul,taur,cmin,cmax) ;
+        double tauhlle   = hlle_solver.get_state(ftaul,ftaur,taul,taur,cmin,cmax) ; 
+        double fstildehlle[3], stildehlle[3] ; 
+        for( int a=0; a<3; ++a ) {
+            fstildehlle[a] = hlle_solver(fstildel[a],fstilder[a],stildel[a],stilder[a],cmin,cmax) ; 
+            stildehlle[a]  = hlle_solver.get_state(fstildel[a],fstilder[a],stildel[a],stilder[a],cmin,cmax) ; 
+        }
+        double lambda_c ; 
+        hllc_get_contact_speed(fstildehlle,stildehlle,ftauhlle,fdenshlle,tauhlle,denshlle,&lambda_c) ; 
+
+        /***********************************************************************/
+        /* Get interface speed                                                 */
+        /***********************************************************************/
+        double lambda_i ; 
+        hllc_get_interface_velocity(
+            alp, gamma_uu, betau, &lambda_i
+        ) ; 
+
+        /***********************************************************************/
+        /* Get cL/cR state and fluxes                                          */
+        /***********************************************************************/
+        double fdenscl, ftaucl, fstildecl[3], fentscl, fyescl ; 
+        double denscl, taucl, stildecl[3], entscl, yescl ; 
+        hllc_get_central_state_and_fluxes(
+            idir, fstildehll, fdenshll, lambda_c, -cmin,
+            densl, taul, stildel, vhatl, pl, fdensl, ftaul, fstildel,
+            &denscl, &stildecl, &taucl, &fdenscl, &fstildecl, &ftaucl
+        ) ; 
+        entscl  = entsl * denscl   ; 
+        yescl   = yesl * denscl    ; 
+        fentscl = entscl * fdenscl ; 
+        fyescl  = yescl * fyescl   ; 
+
+        double fdenscr, ftaucr, fstildecr[3], fentscr, fyescr ; 
+        double denscr, taucr, stildecr[3], entscr, yescr ; 
+        hllc_get_central_state_and_fluxes(
+            idir, fstildehll, fdenshll, lambda_c, cmax,
+            densr, taur, stilder, vhatr, pr, fdensr, ftaur, fstilder,
+            &denscr, &stildecr, &taucr, &fdenscr, &fstildecr, &ftaucr
+        ) ; 
+        entscr  = entsr * denscr   ; 
+        yescr   = yesr * denscr    ; 
+        fentscr = entscr * fdenscr ; 
+        fyescr  = yescr * fyescr   ; 
+        
+        /***********************************************************************/
+        /* Assemble HLLC fluxes                                                */
+        /***********************************************************************/
+        double fdens, fstilde[3], ftau, fents, fyes ; 
+        double dens, stilde[3], tau, ents, yes ;
+        if ( (-cmin) > lambda_i ) {
+            // left 
+            fdens      = fdensl      ;
+            fstilde[0] = fstildel[0] ; 
+            fstilde[1] = fstildel[1] ; 
+            fstilde[2] = fstildel[2] ;
+            ftau       = ftaul       ;
+            fents      = fentsl      ; 
+            fyes       = fyesl       ;
+            dens       = densl       ; 
+            stilde[0]  = stildel[0]  ; 
+            stilde[1]  = stildel[1]  ; 
+            stilde[2]  = stildel[2]  ;
+            tau        = taul        ;
+            ents       = entsl       ; 
+            yes        = yesl        ;
+        } else if ( ((-cmin) <= lambda_i) and ( lambda_i < lambda_c )) {
+            // center-left 
+            fdens      = fdenscl      ;
+            fstilde[0] = fstildecl[0] ; 
+            fstilde[1] = fstildecl[1] ; 
+            fstilde[2] = fstildecl[2] ;
+            ftau       = ftaucl       ;
+            fents      = fentscl      ; 
+            fyes       = fyescl       ;
+            dens       = denscl       ; 
+            stilde[0]  = stildecl[0]  ; 
+            stilde[1]  = stildecl[1]  ; 
+            stilde[2]  = stildecl[2]  ;
+            tau        = taucl        ;
+            ents       = entscl       ; 
+            yes        = yescl        ;
+        } else if ( (lambda_c <= lambda_i) and (lambda_i < lambda_r) ) {
+            // center-right 
+            fdens      = fdenscr      ;
+            fstilde[0] = fstildecr[0] ; 
+            fstilde[1] = fstildecr[1] ; 
+            fstilde[2] = fstildecr[2] ;
+            ftau       = ftaucr       ;
+            fents      = fentscr      ; 
+            fyes       = fyescr       ;
+            dens       = denscr       ; 
+            stilde[0]  = stildecr[0]  ; 
+            stilde[1]  = stildecr[1]  ; 
+            stilde[2]  = stildecr[2]  ;
+            tau        = taucr        ;
+            ents       = entscr       ; 
+            yes        = yescr        ;
+        } else {
+            // right 
+            fdens      = fdensr      ;
+            fstilde[0] = fstilder[0] ; 
+            fstilde[1] = fstilder[1] ; 
+            fstilde[2] = fstilder[2] ;
+            ftau       = ftaur       ;
+            fents      = fentsr      ; 
+            fyes       = fyesr       ;
+            dens       = densr       ; 
+            stilde[0]  = stilder[0]  ; 
+            stilde[1]  = stilder[1]  ; 
+            stilde[2]  = stilder[2]  ;
+            tau        = taur        ;
+            ents       = entsr       ; 
+            yes        = yesr        ;
+        }
+        /***********************************************************************/
+        /* Transform back                                                      */
+        /***********************************************************************/
+        hllc_transform_fluxes_to_grid_frame(
+            alp, idir, eUU, edd, 
+            dens, fdens, stilde, fstilde, tau, ftau,
+            &(f[DENSL]), &(f[STXL]), &(f[TAUL])
+        ) ;
+        f[ENTSL] = f[DENSL] * ents ; 
+        f[YESL]  = f[DENSL] * yes  ;
     }
-    /***********************************************************************/
+    #endif 
 } ; 
 /***********************************************************************/
 template< typename eos_t >

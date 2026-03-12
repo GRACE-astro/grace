@@ -41,6 +41,10 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
 #endif
+#ifdef GRACE_ENABLE_M1
+#include <grace/physics/m1_helpers.hh>
+#include <grace/physics/m1.hh>
+#endif 
 #include <grace/physics/eos/eos_types.hh>
 
 #include <Kokkos_Core.hpp>
@@ -52,7 +56,7 @@ void find_stable_timestep() {
     GRACE_VERBOSE("Computing timestep at iteration {}, old timestep {}", grace::get_iteration(), grace::get_timestep()) ; 
     if( eos_type == "hybrid" ) {
         auto const cold_eos_type = 
-            grace::get_param<std::string>("eos", "cold_eos_type") ;
+            get_param<std::string>("eos","hybrid_eos","cold_eos_type") ;  
         if( cold_eos_type == "piecewise_polytrope" ) {
             find_stable_timestep_impl<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>() ; 
         } else if ( cold_eos_type == "tabulated" ) {
@@ -76,9 +80,10 @@ void find_stable_timestep_impl() {
     int ngz = amr::get_n_ghosts() ;    
     int64_t nq = amr::get_local_num_quadrants() ; 
 
-    auto& state = variable_list::get().getstate()   ; 
+    auto& state = variable_list::get().getstate()   ;
+    auto& sstate = variable_list::get().getstaggeredstate()   ; 
     auto& aux   = variable_list::get().getaux()     ; 
-    auto& cvol  = variable_list::get().getvolumes() ; 
+    auto& dx  = variable_list::get().getspacings() ; 
 
     auto& params = config_parser::get() ; 
     double const CFL = params["evolution"]["cfl_factor"].as<double>() ; 
@@ -103,11 +108,13 @@ void find_stable_timestep_impl() {
     #ifdef GRACE_ENABLE_GRMHD
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
-        grmhd_eq_system(eos,state,aux) ; 
+        grmhd_eq_system(eos,state,sstate,aux) ; 
     #define GET_CMAX \
     grmhd_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)
     #endif 
-
+    #ifdef GRACE_ENABLE_M1 
+    m1_equations_system_t m1_eq_system(state,sstate,aux) ;
+    #endif 
     double dt_local ; 
 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
@@ -117,13 +124,15 @@ void find_stable_timestep_impl() {
                    , policy
                    , KOKKOS_LAMBDA(VEC(int const& i, int const& j, int const& k), int const& q, double& dtmax)
     {
-        double const cmax = GET_CMAX; 
-        double L    ; 
-        #ifdef GRACE_3D 
-        L = Kokkos::cbrt(cvol(VEC(i,j,k),q)) ; 
-        #else 
-        L = Kokkos::sqrt(cvol(VEC(i,j,k),q)) ;
+        #if !defined(GRACE_ENABLE_Z4C_METRIC) && !defined(GRACE_ENABLE_BSSN_METRIC)
+        double cmax = GET_CMAX; 
+        #ifdef GRACE_ENABLE_M1 
+        cmax = fmax(cmax,m1_eq_system(eigenspeed_kernel_t{}, VEC(i,j,k),q)) ; 
         #endif 
+        #else 
+        double cmax = 1 ; 
+        #endif 
+        double L = dx(0,q);        
         dtmax = dtmax > CFL/cmax*L ? CFL/cmax*L : dtmax ;  
 
     }, Kokkos::Min<double>(dt_local)) ; 

@@ -33,20 +33,13 @@
 #include <grace/coordinates/coordinates.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/IO/hdf5_output.hh>
+#include <grace/IO/hdf5_surface_output.hh>
+#include <grace/IO/hdf5_sphere_output.hh>
 
 #include <grace/parallel/mpi_wrappers.hh>
 
 #include <hdf5.h>
 #include <omp.h>
-/* cell types */
-#include <vtkCellData.h>
-#include <vtkHexahedron.h>
-#include <vtkBiQuadraticQuadraticHexahedron.h> 
-#include <vtkQuad.h>
-#include <vtkQuadraticLinearQuad.h> 
-/* memory */
-#include <vtkSmartPointer.h>
-#include <vtkNew.h>
 /* xdmf */
 #include <grace/IO/xmf_utilities.hh>
 /* stl */
@@ -78,13 +71,19 @@ void write_cell_data_hdf5(bool out_vol, bool out_plane, bool out_sphere) {
     if( out_vol ) {
         write_volume_cell_data_hdf5() ; 
     }
+    if( out_plane ) {
+        write_plane_cell_data() ; 
+    } 
+    if ( out_sphere ) {
+        write_sphere_cell_data() ; 
+    }
     parallel::mpi_barrier() ; 
 }
 
 
 void write_volume_cell_data_hdf5() {
     Kokkos::Profiling::pushRegion("HDF5 volume output") ;
-
+    GRACE_VERBOSE("Performing HDF5 output of volume data.") ; 
     detail::_volume_output_iterations.push_back(grace::get_iteration())  ; 
     detail::_volume_output_times.push_back(grace::get_simulation_time()) ;
 
@@ -103,12 +102,12 @@ void write_volume_cell_data_hdf5() {
 
     auto _p4est = grace::amr::forest::get().get() ; 
     /* Get global number of quadrants and quadrant offset for this rank */
-    unsigned long const nq_glob = _p4est->global_num_quadrants ;
+    uint64_t const nq_glob = _p4est->global_num_quadrants ;
     size_t nx,ny,nz; 
     std::tie(nx,ny,nz) = grace::amr::get_quadrant_extents() ; 
-    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+    uint64_t const ncells_quad = EXPR(nx,*ny,*nz) ; 
     /* Global number of cells  */
-    unsigned long const ncells_glob = ncells_quad * nq_glob ; 
+    uint64_t const ncells_glob = ncells_quad * nq_glob ; 
     if( chunk_size > ncells_glob ) {
         GRACE_WARN("Chunk size {} < number of cells {} will be overridden." , chunk_size, ncells_glob) ; 
         chunk_size = ncells_glob; 
@@ -157,7 +156,8 @@ void write_volume_cell_data_hdf5() {
     if( output_extra ) {
         write_extra_arrays_hdf5(file_id, compression_level, chunk_size) ; 
     }
-    parallel::mpi_barrier() ; 
+    parallel::mpi_barrier() ;
+    GRACE_TRACE("Cleaning up");
     /* Close the file */
     HDF5_CALL(err,H5Fclose(file_id)) ; 
     HDF5_CALL(err,H5Pclose(plist_id)) ; 
@@ -185,19 +185,15 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
 
     #ifdef GRACE_3D 
     #ifdef GRACE_CARTESIAN_COORDINATES
-    using cell_type = vtkHexahedron ; 
     size_t constexpr nvertex = 8 ;
     #elif defined(GRACE_SPHERICAL_COORDINATES)
-    using cell_type = vtkBiQuadraticQuadraticHexahedron ; 
     size_t constexpr nvertex = 24 ;
     #endif 
     #else 
     #ifdef GRACE_CARTESIAN_COORDINATES
     size_t nvertex = 4 ; 
-    using cell_type = vtkQuad ; 
     #elif defined(GRACE_SPHERICAL_COORDINATES)
     size_t nvertex = 6 ; 
-    using cell_type = vtkQuadraticLinearQuad ;
     #endif 
     #endif 
 
@@ -205,67 +201,114 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     /* Get the p4est pointer */
     auto _p4est = grace::amr::forest::get().get() ; 
     /* Get global number of quadrants and quadrant offset for this rank */
-    unsigned long const nq_glob = _p4est->global_num_quadrants ; 
-    unsigned long const local_quad_offset = _p4est->global_first_quadrant[rank] ; 
-    /* Get parametric coordinates of cells vertices */
-    vtkNew<cell_type> _tmpcell ;
-    auto lcoords = _tmpcell->GetParametricCoords() ;
+    uint64_t const nq_glob = _p4est->global_num_quadrants ; 
+    uint64_t const local_quad_offset = _p4est->global_first_quadrant[rank] ; 
     /* Number of cells per quadrant */
-    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+    uint64_t const ncells_quad = EXPR(nx,*ny,*nz) ; 
     /* Local number of cells   */
-    unsigned long const ncells = ncells_quad * nq ; 
+    uint64_t const ncells = ncells_quad * nq ; 
     /* Global number of cells  */
-    unsigned long const ncells_glob = ncells_quad * nq_glob ; 
+    uint64_t const ncells_glob = ncells_quad * nq_glob ; 
+    /* Number of unique points per quadrant */
+    uint64_t const npoints_quad = (nx+1) * (ny+1) * (nz+1) ; 
     /* Local number of points  */
-    unsigned long const npoints = ncells * nvertex ; 
+    uint64_t const npoints = npoints_quad * nq ;  
     /* Global number of points */
-    unsigned long const npoints_glob = ncells_glob * nvertex ; 
+    uint64_t const npoints_glob = npoints_quad * nq_glob ;
 
     detail::_volume_output_ncells.push_back(ncells_glob) ; 
 
     double*  points = (double*)  malloc(sizeof(double)  * npoints * 3 ) ; 
-    unsigned int* cells  = (unsigned int*) malloc(sizeof(unsigned int) * ncells * nvertex ) ; 
-    const size_t global_point_offset = local_quad_offset * ncells_quad * nvertex;  
-    unsigned int icell  = 0L ; 
-    unsigned int ipoint = 0U ; 
-    //#pragma omp parallel for collapse(GRACE_NSPACEDIM+1) reduction(+:icell,ipoint)
+    uint64_t* cells  = (uint64_t*) malloc(sizeof(uint64_t) * ncells * nvertex ) ; 
+    const size_t global_point_offset = local_quad_offset * npoints_quad ;  
+    uint64_t icell  = 0L ; 
+    uint64_t ipoint = 0U ; 
+
+    ASSERT(cells!=nullptr,"Failed to allocate cells buffer") ;
+    ASSERT(points!=nullptr, "Failed to allocate points buffer") ;
+    
+    auto const get_point_index = 
+    [&] 
+    (
+        VEC(int i, int j, int k), int64_t q
+    ) -> uint64_t
+    {
+        #ifdef GRACE_3D 
+        return i + (nx+1) * (j + (ny+1) * (k + (nz+1) * q)) ; 
+        #else 
+        return i + (nx+1) * (j + (ny+1) * q) ; 
+        #endif
+    } ; 
+
+    auto const get_cell_vertex_indices = [&]
+    (
+        VEC(int i, int j, int k), int64_t q, int iv
+    ) 
+    {
+        static constexpr std::array<std::array<int,3>,8> vertex_coords {{
+            {0, 0, 0}, //
+            {1, 0, 0}, //
+            {1, 1, 0}, //
+            {0, 1, 0}, //
+            {0, 0, 1}, //
+            {1, 0, 1}, //
+            {1, 1, 1}, //
+            {0, 1, 1}  //
+        }} ; 
+        return std::make_tuple(
+            VEC(
+                i+vertex_coords[iv][0],
+                j+vertex_coords[iv][1],
+                k+vertex_coords[iv][2]
+            )
+        ) ; 
+    } ;
+    #pragma omp parallel for collapse(GRACE_NSPACEDIM+1) 
     for(int64_t iq=0; iq<nq; ++iq) {
         #ifdef GRACE_3D
         for(size_t k=0; k<nz; ++k  ) {
         #endif  
             for( size_t j=0; j<ny; ++j) { 
                 for(size_t i=0; i<nx; ++i){
+                int64_t const icell = i + nx * ( j + ny * ( k  + nz * iq )) ; 
                 for( int iv=0; iv<nvertex; ++iv ) {
-                    auto const pcoords = 
-                        coord_system.get_physical_coordinates( {VEC(i,j,k)}
-                                                             , iq
-                                                             , {VEC( lcoords[3*iv+0]
-                                                                   , lcoords[3*iv+1]
-                                                                   , lcoords[3*iv+2])}
-                                                             , false) ; 
-                    points[GRACE_NSPACEDIM*(nvertex*icell + iv) + 0 ] = pcoords[0] ; 
-                    points[GRACE_NSPACEDIM*(nvertex*icell + iv) + 1 ] = pcoords[1] ;
-                    
-                    points[GRACE_NSPACEDIM*(nvertex*icell + iv) + 2 ] 
-                    #ifdef GRACE_3D 
-                        = pcoords[2] ;
-                    #else 
-                        = 0.0 ; 
-                    #endif  
-
-                    cells[nvertex * icell + iv] = ipoint + global_point_offset; 
-                    ipoint ++ ; 
+                    int ip, jp, kp ; 
+                    std::tie(ip,jp,kp) = get_cell_vertex_indices(VEC(i,j,k),iq,iv) ; 
+                    cells[nvertex * icell + iv] = get_point_index(VEC(ip,jp,kp),iq+local_quad_offset); 
                 }
-
-                icell ++ ; 
                 #ifdef GRACE_3D
                 }
                 #endif 
             }
         }
     }
-    ASSERT(icell == ncells, "Something went really wrong") ; 
-    ASSERT(ipoint == npoints, "Something went really wrong") ; 
+    #pragma omp parallel for collapse(GRACE_NSPACEDIM+1) 
+    for(int64_t iq=0; iq<nq; ++iq) {
+        #ifdef GRACE_3D
+        for(size_t k=0; k<nz+1; ++k  ) {
+        #endif  
+            for( size_t j=0; j<ny+1; ++j) { 
+                for(size_t i=0; i<nx+1; ++i){
+                    auto const pcoords = 
+                        coord_system.get_physical_coordinates( {VEC(i,j,k)}
+                                                             , iq
+                                                             , {VEC( 0,0,0 )}
+                                                             , false) ; 
+                    auto const ipoint = get_point_index(VEC(i,j,k),iq) ; 
+                    points[GRACE_NSPACEDIM*ipoint + 0 ] = pcoords[0] ; 
+                    points[GRACE_NSPACEDIM*ipoint + 1 ] = pcoords[1] ;
+                    points[GRACE_NSPACEDIM*ipoint + 2 ] 
+                    #ifdef GRACE_3D 
+                        = pcoords[2] ;
+                    #else 
+                        = 0.0 ; 
+                    #endif  
+                }
+            }
+        #ifdef GRACE_3D
+        }
+        #endif 
+    }
     /* Create parallel dataset properties */
     hid_t dxpl ; 
     HDF5_CALL(dxpl, H5Pcreate(H5P_DATASET_XFER)) ; 
@@ -285,8 +328,9 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
     hid_t points_prop_id, cells_prop_id  ;
     HDF5_CALL(points_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
     hsize_t points_chunk_dim[2] = {chunk_size,3} ;
-    HDF5_CALL(err, H5Pset_chunk(points_prop_id,2,points_chunk_dim)) ; 
-    HDF5_CALL(err, H5Pset_deflate(points_prop_id, compression_level)) ; 
+    HDF5_CALL(err, H5Pset_chunk(points_prop_id,2,points_chunk_dim)) ;
+    if ( compression_level > 0 )
+      HDF5_CALL(err, H5Pset_deflate(points_prop_id, compression_level)) ; 
     HDF5_CALL( points_dset_id
             , H5Dcreate2( file_id
                         , "/Points"
@@ -298,12 +342,13 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
 
     HDF5_CALL(cells_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ;
     hsize_t cells_chunk_dim[2] = {chunk_size,nvertex} ;
-    HDF5_CALL(err, H5Pset_chunk(cells_prop_id,2,cells_chunk_dim)) ; 
-    HDF5_CALL(err, H5Pset_deflate(cells_prop_id, compression_level)) ; 
+    HDF5_CALL(err, H5Pset_chunk(cells_prop_id,2,cells_chunk_dim)) ;
+    if ( compression_level > 0 )
+      HDF5_CALL(err, H5Pset_deflate(cells_prop_id, compression_level)) ; 
     HDF5_CALL( cells_dset_id
                 , H5Dcreate2( file_id
                             , "/Cells"
-                            , H5T_NATIVE_UINT
+                            , H5T_STD_U64LE
                             , cells_space_id_glob
                             , H5P_DEFAULT
                             , cells_prop_id
@@ -342,10 +387,10 @@ void write_grid_structure_hdf5(hid_t file_id, size_t compression_level, size_t c
                                   , cells_slab_count 
                                   , NULL )) ;
 
-
+    GRACE_TRACE("Writing cells to output") ;
     HDF5_CALL( err
              , H5Dwrite( cells_dset_id
-                       , H5T_NATIVE_UINT
+                       , H5T_STD_U64LE
                        , cells_space_id
                        , cells_space_id_glob 
                        , dxpl 
@@ -414,14 +459,14 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
     /* Get the p4est pointer */
     auto _p4est = grace::amr::forest::get().get() ; 
     /* Get global number of quadrants and quadrant offset for this rank */
-    unsigned long const nq_glob = _p4est->global_num_quadrants ; 
-    unsigned long const local_quad_offset = _p4est->global_first_quadrant[rank] ; 
+    uint64_t const nq_glob = _p4est->global_num_quadrants ; 
+    uint64_t const local_quad_offset = _p4est->global_first_quadrant[rank] ; 
     /* Number of cells per quadrant */
-    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+    uint64_t const ncells_quad = EXPR(nx,*ny,*nz) ; 
     /* Local number of cells   */
-    unsigned long const ncells = ncells_quad * nq ; 
+    uint64_t const ncells = ncells_quad * nq ; 
     /* Global number of cells  */
-    unsigned long const ncells_glob = ncells_quad * nq_glob ; 
+    uint64_t const ncells_glob = ncells_quad * nq_glob ; 
 
     /* Create parallel dataset properties */
     hid_t dxpl ; 
@@ -440,8 +485,9 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
     hid_t scalars_prop_id ;
     HDF5_CALL(scalars_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
     hsize_t scalars_chunk_dim[1] = {chunk_size} ;
-    HDF5_CALL(err, H5Pset_chunk(scalars_prop_id,1,scalars_chunk_dim)) ; 
-    HDF5_CALL(err, H5Pset_deflate(scalars_prop_id, compression_level)) ;  
+    HDF5_CALL(err, H5Pset_chunk(scalars_prop_id,1,scalars_chunk_dim)) ;
+    if ( compression_level > 0 ) 
+      HDF5_CALL(err, H5Pset_deflate(scalars_prop_id, compression_level)) ;  
 
     /* Create local space for this rank */
     hid_t scalars_space_id ; 
@@ -471,8 +517,9 @@ void write_volume_data_arrays_hdf5(hid_t file_id, size_t compression_level, size
     hid_t vectors_prop_id ;
     HDF5_CALL(vectors_prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
     hsize_t vectors_chunk_dim[2] = {chunk_size, 3} ;
-    HDF5_CALL(err, H5Pset_chunk(vectors_prop_id,2,vectors_chunk_dim)) ; 
-    HDF5_CALL(err, H5Pset_deflate(vectors_prop_id, compression_level)) ;  
+    HDF5_CALL(err, H5Pset_chunk(vectors_prop_id,2,vectors_chunk_dim)) ;
+    if ( compression_level > 0 )
+      HDF5_CALL(err, H5Pset_deflate(vectors_prop_id, compression_level)) ;  
 
     /* Create local space for this rank */
     hid_t vectors_space_id ; 
@@ -513,7 +560,7 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
     nq = grace::amr::get_local_num_quadrants() ; 
     size_t ngz = grace::amr::get_n_ghosts() ;
     /* Number of cells per quadrant */
-    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+    uint64_t const ncells_quad = EXPR(nx,*ny,*nz) ; 
 
     /* Fetch variable arrays */
     auto vars = grace::variable_list::get().getstate() ; 
@@ -553,26 +600,17 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
         write_dataset_string_attribute_hdf5(dset_id, "VariableStaggering", "Cell");
 
         /* Shuffle data around to put it in the right form */
-        for( int iq=0; iq<nq; ++iq){
-            /* Copy data d2d */
-            auto sview = Kokkos::subview( view
-                                        , Kokkos::pair<int,int>(ngz,nx+ngz)
-                                        , Kokkos::pair<int,int>(ngz,ny+ngz)
-                                        #ifdef GRACE_3D
-                                        , Kokkos::pair<int,int>(ngz,nz+ngz)
-                                        #endif 
-                                        , varidx 
-                                        , iq ) ; 
-            auto mirror_sview = Kokkos::subview( d_mirror
-                                        , Kokkos::ALL()
-                                        , Kokkos::ALL()
-                                        #ifdef GRACE_3D
-                                        , Kokkos::ALL()
-                                        #endif 
-                                        , iq ) ; 
-            /* This deep copy operation is asynchronous */
-            Kokkos::deep_copy(mirror_sview, sview) ; 
-        }
+        auto sview = Kokkos::subview( view
+                                    , Kokkos::pair<int,int>(ngz,nx+ngz)
+                                    , Kokkos::pair<int,int>(ngz,ny+ngz)
+                                    #ifdef GRACE_3D
+                                    , Kokkos::pair<int,int>(ngz,nz+ngz)
+                                    #endif 
+                                    , varidx
+                                    , Kokkos::ALL() ) ; 
+ 
+        /* This deep copy operation is asynchronous */
+        Kokkos::deep_copy(d_mirror, sview) ;
         /* Copy data d2h */
         Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
 
@@ -599,6 +637,7 @@ void write_var_arrays_hdf5( std::vector<std::string> const& varlist
         /* Close dataset */
         HDF5_CALL(err, H5Dclose(dset_id)) ; 
     }
+    GRACE_TRACE("Done writing scalars"); 
 }
 
 void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist 
@@ -621,7 +660,7 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
     nq = grace::amr::get_local_num_quadrants() ; 
     size_t ngz = grace::amr::get_n_ghosts() ;
     /* Number of cells per quadrant */
-    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+    uint64_t const ncells_quad = EXPR(nx,*ny,*nz) ; 
 
     /* Fetch variable arrays */
     auto vars = grace::variable_list::get().getstate() ; 
@@ -639,13 +678,19 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
     Kokkos::View<double *EXPR(*,*,*)*, Kokkos::LayoutLeft> 
         d_mirror("Device output mirror", 3, VEC(nx,ny,nz), nq) ; 
     auto h_mirror = Kokkos::create_mirror_view(d_mirror) ; 
-    for( int ivar=0; ivar<varlist.size(); ++ivar)
+    for( auto const& vname: varlist )
     {
-        size_t varidx = grace::get_variable_index(varlist[ivar]+"[0]",isaux) ; 
+        std::array<std::string, 3> const compnames 
+                = {
+                    vname + "[0]",
+                    vname + "[1]",
+                    vname + "[2]"
+                } ;
+        size_t varidx = grace::get_variable_index(compnames[0],isaux) ; 
         GRACE_TRACE("Writing vector var {} to output. Variable index {} from auxiliaries? {}"
-                   , varlist[ivar], varidx, isaux) ; 
+                   , vname, varidx, isaux) ; 
         /* create HDF5 dataset */
-        std::string dset_name = "/" + varlist[ivar] ; 
+        std::string dset_name = "/" + vname ; 
         hid_t dset_id ; 
         HDF5_CALL( dset_id
                 , H5Dcreate2( file_id
@@ -660,58 +705,25 @@ void write_vector_var_arrays_hdf5( std::vector<std::string> const& varlist
         write_dataset_string_attribute_hdf5(dset_id, "VariableStaggering", "Cell");
 
         /* Shuffle data around to put it in the right form */
-        for( int iq=0; iq<nq; ++iq){
-            for( int icomp=0; icomp<3; ++icomp){
-                /* Copy data d2d */
-                auto sview = Kokkos::subview( view
-                                            , Kokkos::pair<int,int>(ngz,nx+ngz)
-                                            , Kokkos::pair<int,int>(ngz,ny+ngz)
-                                            #ifdef GRACE_3D
-                                            , Kokkos::pair<int,int>(ngz,nz+ngz)
-                                            #endif 
-                                            , varidx+icomp
-                                            , iq ) ; 
-                auto mirror_sview = Kokkos::subview( d_mirror
-                                            , icomp
-                                            , Kokkos::ALL()
-                                            , Kokkos::ALL()
-                                            #ifdef GRACE_3D
-                                            , Kokkos::ALL()
-                                            #endif 
-                                            , iq  ) ; 
-                /* This deep copy operation is synchronous */
-                Kokkos::deep_copy(mirror_sview, sview) ; 
+        
+        /* Copy data d2d */
+        auto sview = Kokkos::subview( view
+                                    , Kokkos::pair<int,int>(ngz,nx+ngz)
+                                    , Kokkos::pair<int,int>(ngz,ny+ngz)
+                                    #ifdef GRACE_3D
+                                    , Kokkos::pair<int,int>(ngz,nz+ngz)
+                                    #endif 
+                                    , Kokkos::pair<int,int>(varidx, varidx+3)
+                                    , Kokkos::ALL() ) ; 
+        auto policy = Kokkos::MDRangePolicy<Kokkos::Rank<5>>{
+            {0,0,0,0}, {static_cast<long>(nx),static_cast<long>(ny),static_cast<long>(nz),3,static_cast<long>(nq)}
+        } ; 
+        Kokkos::parallel_for("copy_to_mirror", policy, 
+            KOKKOS_LAMBDA (int i, int j, int k, int iv, int q) {
+                d_mirror(iv, i,j,k,q) = sview(i,j,k,iv,q) ; 
             }
-        }
-        /************************************************/
-        /* Transform variable to physical frame         */
-        /************************************************/
-        /* Fill coordinate jacobian matrices on device  */
-        /* at cell centers                              */
-        /************************************************/
-        #if 0
-        jacobian_array_t jac, invjac ; 
-        fill_jacobian_matrices(jac,invjac) ;  
-        parallel_for(GRACE_EXECUTION_TAG("IO","convert_to_physical")
-                , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
-                {
-                    std::array<double,3> const vin
-                    {
-                          d_mirror(0, VEC(i,j,k), q)
-                        , d_mirror(1, VEC(i,j,k), q)
-                        , d_mirror(2, VEC(i,j,k), q)
-                    } ; 
-                    auto J = Kokkos::subview(jac, VEC(i,j,k), ALL(), ALL(),  q) ; 
-                    auto const vout = ::grace::detail::apply_jacobian_vec(vin, J) ;
-                    d_mirror(0, VEC(i,j,k), q) = vout[0] ; 
-                    d_mirror(1, VEC(i,j,k), q) = vout[1] ; 
-                    d_mirror(2, VEC(i,j,k), q) = vout[2] ;
-                    }
-        ) ;
-        /* just to be sure add a fence */
-        Kokkos::fence() ;
-        #endif
+        ) ; 
+	Kokkos::fence() ; 
         
         /* Copy data d2h */
         Kokkos::deep_copy(grace::default_execution_space{},h_mirror,d_mirror) ; 
@@ -755,21 +767,26 @@ void write_extra_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chu
     /* Get the p4est pointer */
     auto _p4est = grace::amr::forest::get().get() ; 
     /* Get global number of quadrants and quadrant offset for this rank */
-    unsigned long const nq_glob = _p4est->global_num_quadrants ; 
-    unsigned long const local_quad_offset = _p4est->global_first_quadrant[rank_loc] ; 
+    uint64_t const nq_glob = _p4est->global_num_quadrants ; 
+    uint64_t const local_quad_offset = _p4est->global_first_quadrant[rank_loc] ; 
 
     /* Number of cells per quadrant */
-    unsigned long const ncells_quad = EXPR(nx,*ny,*nz) ; 
+    uint64_t const ncells_quad = EXPR(nx,*ny,*nz) ; 
     /* Local number of cells   */
-    unsigned long const ncells = ncells_quad * nq ; 
+    uint64_t const ncells = ncells_quad * nq ; 
     /* Global number of cells  */
-    unsigned long const ncells_glob = ncells_quad * nq_glob ; 
+    uint64_t const ncells_glob = ncells_quad * nq_glob ; 
 
     unsigned int* lev   = (unsigned int*) malloc(sizeof(unsigned int) * ncells ) ;
     unsigned int* rank  = (unsigned int*) malloc(sizeof(unsigned int) * ncells ) ;
     unsigned int* tree_id    = (unsigned int*) malloc(sizeof(unsigned int) * ncells ) ;
-    unsigned long long* qid  = (unsigned long long*) malloc(sizeof(unsigned long long) * ncells ) ;  
+    uint64_t* qid  = (uint64_t*) malloc(sizeof(uint64_t) * ncells ) ;  
 
+    ASSERT(qid,"Failed allocation");
+    ASSERT(tree_id,"Failed allocation");
+    ASSERT(rank,"Failed allocation");
+    ASSERT(lev,"Failed allocation");
+    
     unsigned int icell  = 0L ; 
     //#pragma omp parallel for collapse(GRACE_NSPACEDIM+1) reduction(+:icell)
     for(int64_t iq=0; iq<nq; ++iq) {
@@ -808,7 +825,7 @@ void write_extra_arrays_hdf5(hid_t file_id, size_t compression_level, size_t chu
                         , ncells,ncells_glob,offset,chunk_size,compression_level,"/Level") ; 
     write_scalar_dataset( static_cast<void*>(tree_id),H5T_NATIVE_UINT,file_id,dxpl
                         , ncells,ncells_glob,offset,chunk_size,compression_level,"/Tree_ID") ; 
-    write_scalar_dataset( static_cast<void*>(qid),H5T_NATIVE_ULLONG,file_id,dxpl
+    write_scalar_dataset( static_cast<void*>(qid),H5T_STD_U64LE,file_id,dxpl
                         , ncells,ncells_glob,offset,chunk_size,compression_level,"/Quad_ID") ;
     
     /* Release resources */
@@ -839,8 +856,9 @@ void write_scalar_dataset( void* data, hid_t mem_type_id, hid_t file_id, hid_t d
     hid_t prop_id ;
     HDF5_CALL(prop_id, H5Pcreate(H5P_DATASET_CREATE)) ; 
     hsize_t chunk_dim[1] = {chunk_size} ;
-    HDF5_CALL(err, H5Pset_chunk(prop_id,1,chunk_dim)) ; 
-    HDF5_CALL(err, H5Pset_deflate(prop_id, compression_level)) ; 
+    HDF5_CALL(err, H5Pset_chunk(prop_id,1,chunk_dim)) ;
+    if ( compression_level > 0 ) 
+      HDF5_CALL(err, H5Pset_deflate(prop_id, compression_level)) ; 
     HDF5_CALL( dset_id
              , H5Dcreate2( file_id
                          , dset_name.c_str()

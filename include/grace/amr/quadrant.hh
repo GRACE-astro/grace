@@ -29,7 +29,7 @@
 #define GRACE_AMR_QUADRANT_HH 
 
 #include <grace/utils/grace_utils.hh>
-
+#include <grace/amr/amr_flags.hh>
 #include <grace/amr/p4est_headers.hh> 
 
 #include <array>
@@ -87,6 +87,15 @@ class quadrant_t
     }
     //*****************************************************************************************************
     /**
+     * @brief Get quadrant's spacing in tree-logical ([0,1]) coordinates.
+     * 
+     * @return double The quadrant's spacing.
+     */
+     double GRACE_ALWAYS_INLINE spacing() {
+        return 1.0 / static_cast<double>(1<<level()) ; 
+     }
+    //*****************************************************************************************************
+    /**
      * @brief Get quadrant's refinement level.
      * 
      * @return int The quadrant's level.
@@ -121,9 +130,11 @@ class quadrant_t
      * refinement and coarsening.
     */
     template< typename T > 
-    void GRACE_ALWAYS_INLINE 
+    [[deprecated]] void GRACE_ALWAYS_INLINE 
     set_user_data(T const & data) 
     {
+        ASSERT(_pquad, "Quadrant pointer is null.") ; 
+        ASSERT(_pquad->p.user_data, "User data is null.") ; 
         memcpy(_pquad->p.user_data, (void*) &data, sizeof(T)) ; 
     }
     //*****************************************************************************************************
@@ -136,10 +147,92 @@ class quadrant_t
      *     use at your own risk.
     */
     template< typename T > 
-    GRACE_ALWAYS_INLINE T*  
+    [[deprecated]] GRACE_ALWAYS_INLINE T*  
     get_user_data() 
     {
         return reinterpret_cast<T*>(_pquad->p.user_data); 
+    }
+    //*****************************************************************************************************
+    /**
+     * @brief Set the regrid flag in the internal data structure of the quad.
+     * @param[in] flag The value to set the flag to
+     */
+    void GRACE_ALWAYS_INLINE 
+    set_regrid_flag(quadrant_flags_t flag) {
+        auto pd = reinterpret_cast<grace_quadrant_user_data_t*>(_pquad->p.user_data);
+        pd->regrid_flag = flag ; 
+    }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the current value of the regrid flag for this quad 
+     */
+    quadrant_flags_t GRACE_ALWAYS_INLINE 
+    get_regrid_flag() {
+        auto pd = reinterpret_cast<grace_quadrant_user_data_t*>(_pquad->p.user_data);
+        return pd->regrid_flag ; 
+    }
+    //*****************************************************************************************************
+    /**
+     * @brief Set the minimum allowed refinement level for this quadrant
+     * @param[in] min_level Minimum allowed refinement level
+     */
+    void GRACE_ALWAYS_INLINE 
+    set_min_level(int min_level) {
+        auto pd = reinterpret_cast<grace_quadrant_user_data_t*>(_pquad->p.user_data);
+        pd->min_level = min_level ; 
+    }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the minumum allowed refinement level for this quadrant
+     */
+    int GRACE_ALWAYS_INLINE 
+    get_min_level() {
+        auto pd = reinterpret_cast<grace_quadrant_user_data_t*>(_pquad->p.user_data);
+        return pd->min_level ; 
+    }
+    //*****************************************************************************************************
+    //*****************************************************************************************************
+    /**
+     * @brief Set the user int of this quadrant
+     * 
+     * @param data What to set the data to.
+     */
+    void GRACE_ALWAYS_INLINE 
+    set_user_int(int const & data) 
+    {
+        ASSERT(0, "Never touch the user int.") ; 
+    }
+    //*****************************************************************************************************
+    /**
+     * @brief Set the user long of this quadrant
+     * 
+     * @param data What to set the data to.
+     */
+    void GRACE_ALWAYS_INLINE 
+    set_user_long(long const & data) 
+    {
+        ASSERT(0, "Never touch the user long.") ; 
+    }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the user int of this quadrant.
+     * 
+     * @return int quadrant->p.user_int
+     */
+    int GRACE_ALWAYS_INLINE
+    get_user_int() const 
+    {
+        ASSERT(0, "Never touch the user int.") ; 
+    }
+    /**
+     * @brief Get the user long of this quadrant.
+     * 
+     * @return int quadrant->p.user_long
+     */
+    long GRACE_ALWAYS_INLINE
+    get_user_long() const 
+    {
+        ASSERT(0, "Never touch the user long.") ; 
     }
     //*****************************************************************************************************
     /**
@@ -160,16 +253,6 @@ class quadrant_t
     halo_owner_locidx() 
     {
         return _pquad->p.piggy3.local_num; 
-    }
-    //*****************************************************************************************************
-    /**
-     * @brief For halo quadrants: get owner's rank.
-     * \cond grace_detail
-    */
-    GRACE_ALWAYS_INLINE int  
-    halo_owner_rank() 
-    {
-        return _pquad->p.piggy1.owner_rank; 
     }
     //*****************************************************************************************************
 

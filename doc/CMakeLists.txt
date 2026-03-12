@@ -1,7 +1,7 @@
 find_package(Doxygen REQUIRED dot)
 
 find_program(SPHINXBUILD sphinx-build)
-find_program(PYTHON_COMMAND python3) 
+find_package(Python REQUIRED COMPONENTS Interpreter)
 
 if(NOT SPHINXBUILD)
   message(FATAL_ERROR "The 'sphinx-build' command was not found")
@@ -33,7 +33,7 @@ set(TABLE_GEN_OUT "${CMAKE_CURRENT_BINARY_DIR}/generate_rst_file_from_yaml.py")
 configure_file(${TABLE_GEN_IN} ${TABLE_GEN_OUT} @ONLY)
 
 add_custom_target(rst_files
-        COMMAND ${PYTHON_COMMAND} ${TABLE_GEN_OUT}
+        COMMAND ${Python_EXECUTABLE} ${TABLE_GEN_OUT}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         COMMENT "Generating rst files."
         VERBATIM)

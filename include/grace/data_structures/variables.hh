@@ -35,8 +35,7 @@
 #include<code_modules.h>
 #include<grace/data_structures/variable_properties.hh>
 #include<grace/data_structures/variable_indices.hh>
-#include<grace/data_structures/macros.hh>
-
+#include<grace/amr/amr_functions.hh>
 #include<grace/utils/inline.h>
 #include<grace/utils/singleton_holder.hh> 
 #include<grace/utils/creation_policies.hh>
@@ -44,7 +43,7 @@
 
 namespace grace { 
 //*****************************************************************************************************
-size_t get_variable_index(std::string const& name, bool is_aux=false) ;
+int get_variable_index(std::string const& name, bool is_aux=false) ;
 //*****************************************************************************************************
 /**
  * @brief Implementation of the variable list type.
@@ -60,29 +59,6 @@ class variable_list_impl_t
 
 public:
     //*****************************************************************************************************
-    /**
-     * @brief Get quadrant coordinates.
-     * 
-     * @return Quadrant coordinates. 
-     */
-    GRACE_ALWAYS_INLINE scalar_array_t<GRACE_NSPACEDIM>&
-    getcoords() { return _coords ; } 
-    //*****************************************************************************************************
-    /**
-     * @brief Get quadrant coordinates.
-     * 
-     * @return Quadrant coordinates. 
-     */
-    GRACE_ALWAYS_INLINE staggered_coordinate_arrays_t&
-    getstaggeredcoords() { return _staggered_coords ; } 
-    //*****************************************************************************************************
-    /**
-     * @brief Get inverse spacing of cell coordinates.
-     * 
-     * @return Spacing of cell coordinates  
-     */
-    GRACE_ALWAYS_INLINE cell_vol_array_t<GRACE_NSPACEDIM>&
-    getvolumes() { return _cell_volumes ; }
     //*****************************************************************************************************
     /**
      * @brief Get inverse spacing of cell coordinates.
@@ -105,7 +81,7 @@ public:
      * 
      * @return The auxiliary variables. 
      */
-    GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>&  
+    GRACE_ALWAYS_INLINE var_array_t&  
     getaux() { return _aux ; }
     //*****************************************************************************************************
     /**
@@ -114,8 +90,26 @@ public:
      * @return The state vector, containing all evolved variables
      *         on all local cells.  
      */
-    GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>&  
+    GRACE_ALWAYS_INLINE var_array_t&  
     getstate() { return _state ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get staggered state vector
+     * 
+     * @return The staggered state vector, containing all evolved staggered variables
+     *         on all local cells.  
+     */
+    GRACE_ALWAYS_INLINE staggered_variable_arrays_t&  
+    getstaggeredstate() { return _staggered_vars ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get staggered state scratch vector
+     * 
+     * @return The staggered state scratch vector, containing all evolved staggered variables
+     *         on all local cells.  
+     */
+    GRACE_ALWAYS_INLINE staggered_variable_arrays_t&  
+    getstaggeredscratch() { return _staggered_vars_p ; }
     //*****************************************************************************************************
     /**
      * @brief Get the scratch state vector 
@@ -123,21 +117,80 @@ public:
      * @return The scratch state vector, used during time 
      *         evolution to hold the previous state. 
      */
-    GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>& 
+    GRACE_ALWAYS_INLINE var_array_t& 
     getscratch() { return _state_p ; }
     //*****************************************************************************************************
     /**
-     * @brief Get the halo state vector 
+     * @brief Get the staging buffer for time-stepping. 
+     * 
+     * @return The staging buffer, it consists in a set of var_arrays_t. The
+     *         number of which depends on the active timestepper.
      */
-    GRACE_ALWAYS_INLINE var_array_t<GRACE_NSPACEDIM>& 
-    gethalo() { return _halo ; }
+    GRACE_ALWAYS_INLINE std::vector<var_array_t>&
+    getstagingbuffer() { return _staging_buffer ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the staging buffer for time-stepping. 
+     * 
+     * @return The staging buffer, it consists in a set of var_arrays_t. The
+     *         number of which depends on the active timestepper.
+     */
+    GRACE_ALWAYS_INLINE std::vector<staggered_variable_arrays_t>&
+    getstagstagingbuffer() { return _stag_staging_buffer ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the fluxes vector 
+     * 
+     * @return The fluxes vector, used during time 
+     *         evolution to hold the fluxes. 
+     */
+    GRACE_ALWAYS_INLINE flux_array_t& 
+    getfluxesarray() { return _fluxes ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the fluxes vector 
+     * 
+     * @return The fluxes vector, used during time 
+     *         evolution to hold the fluxes. 
+     */
+    GRACE_ALWAYS_INLINE flux_array_t& 
+    getvbararray() { return _vbar ; }
+    //*****************************************************************************************************
+    /**
+     * @brief Get the EMF vector 
+     * 
+     * @return The EMF vector, used during time 
+     *         evolution to hold the electromotive force at cell edges. 
+     */
+    GRACE_ALWAYS_INLINE emf_array_t& 
+    getemfarray() { return _emf ; }
     //*****************************************************************************************************
     template< typename ... ArgT >
     void realloc_state(ArgT&& ... args)
     {
         Kokkos::realloc(_state, args...) ; 
     } 
-
+    //*****************************************************************************************************
+    var_array_t
+    allocate_state(std::string const& name = "temp_storage") const 
+    {
+        DECLARE_GRID_EXTENTS ; 
+        return grace::var_array_t(name, VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz), _state.extent(GRACE_NSPACEDIM), nq) ;
+    }
+    //*****************************************************************************************************
+    staggered_variable_arrays_t
+    allocate_staggered_state(std::string const& name = "temp_storage") const 
+    {
+        DECLARE_GRID_EXTENTS ; 
+        auto tmp_storage = grace::staggered_variable_arrays_t() ; 
+        auto nvars_corner = _staggered_vars.corner_staggered_fields.extent(GRACE_NSPACEDIM) ;
+        auto nvars_face  = _staggered_vars.face_staggered_fields_x.extent(GRACE_NSPACEDIM) ;
+        auto nvars_edge  = _staggered_vars.edge_staggered_fields_xz.extent(GRACE_NSPACEDIM) ;
+        tmp_storage.realloc(VEC(nx,ny,nz), ngz, nq, nvars_face, nvars_edge, nvars_corner) ;
+        return tmp_storage ; 
+    }
+    //*****************************************************************************************************
+    void resize_aux_staging_and_flux_buffers(int nq_new) ; 
 private: 
     //*****************************************************************************************************
     /**
@@ -154,18 +207,18 @@ private:
     //*****************************************************************************************************
     //******** Member variables ***************************************************************************
     //*****************************************************************************************************
-    scalar_array_t<GRACE_NSPACEDIM>  _coords  ;  //!< tree-logical coordinates of quadrant corners 
     scalar_array_t<GRACE_NSPACEDIM>  _coords_ispacing  ;  //!< Inverse spacing of coordinate system
     scalar_array_t<GRACE_NSPACEDIM>  _coords_spacing  ;  //!< Spacing of coordinate system
-    cell_vol_array_t<GRACE_NSPACEDIM> _cell_volumes ; //!< Volume of cells 
-    var_array_t<GRACE_NSPACEDIM> _state   ;     //!< State variables 
-    var_array_t<GRACE_NSPACEDIM> _state_p ;     //!< Second timelevel, allocated at all times 
-    var_array_t<GRACE_NSPACEDIM> _halo    ;     //!< Halo exchange buffer, allocated when necessary
-    var_array_t<GRACE_NSPACEDIM> _aux     ;     //!< Auxiliary variables  
-    staggered_coordinate_arrays_t _staggered_coords ; //!< Staggered coordinate utilities (surfaces, lengths) 
+    var_array_t _state   ;     //!< State variables 
+    var_array_t _state_p ;     //!< Second timelevel, allocated at all times 
+    var_array_t _aux     ;     //!< Auxiliary variables  
+    std::vector<var_array_t> _staging_buffer; //!< Additional storage for timestepper
     staggered_variable_arrays_t   _staggered_vars   ; //!< Staggered variable arrays 
     staggered_variable_arrays_t   _staggered_vars_p ; //!< Staggered scratch state
-    staggered_variable_arrays_t   _staggered_aux    ; //!< Auxiliary variables on staggered grids.
+    std::vector<staggered_variable_arrays_t> _stag_staging_buffer ; //!< Additional storage for timestepper 
+    flux_array_t   _fluxes              ; //!< Fluxes for time evolution.
+    flux_array_t   _vbar              ; //!< Fluxes for time evolution.
+    emf_array_t   _emf                  ; //!< EMF for time evolution of ideal MHD.
     //*****************************************************************************************************
     friend class utils::singleton_holder<variable_list_impl_t, memory::default_create> ; //!< Give access 
     friend class memory::new_delete_creator<variable_list_impl_t, memory::new_delete_allocator> ; //!< Give access 

@@ -1,0 +1,59 @@
+checkpoints: 
+  type: schema 
+  description: > 
+    Parameters controlling checkpointing 
+
+  checkpoint_dir: 
+    type: string 
+    default: "../checkpoints" 
+    description: >
+      Relative path to where checkpoints are written 
+
+  max_n_checkpoints:
+    type: unsigned int 
+    default: 3
+    range: "[1,*)" 
+    description: >
+      How many checkpoints to keep before we start deleting old ones? 
+
+  interval_kind: 
+    type: keyword 
+    default: "walltime" 
+    allowed: ["walltime", "time", "iteration"]
+    description: >
+      What unit of time controls checkpointing frequency? 
+
+  iteration_interval:
+    type: int 
+    default: 1000 
+    range: "(0,*)" 
+    description: >
+      If interval_kind is iteration, how often to checkpoint? 
+
+  time_interval:
+    type: double 
+    default: 204 
+    range: "(0,*)" 
+    description: >
+      If interval_kind is time, how often to checkpoint? 
+
+  walltime_interval:
+    type: double 
+    default: 12 
+    range: "(0,*)" 
+    description: >
+      If interval_kind is walltime, how often to checkpoint (in hours)? 
+  
+  checkpoint_at_startup: 
+    type: bool 
+    default: false 
+    description: > 
+      Write a checkpoint after ID 
+
+  checkpoint_at_termination: 
+    type: bool 
+    default: true 
+    description: > 
+      Write a checkpoint before termination 
+
+   

@@ -1,8 +1,8 @@
 /**
  * @file bssn_helpers.hh
- * @author  ()
+ * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
  * @brief 
- * @date 2024-09-03
+ * @date 2026-12-21
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
  * Code for Exascale.
@@ -29,53 +29,107 @@
 #define GRACE_PHYSICS_BSSN_HELPERS_HH
 
 #include <grace_config.h> 
+
+#include <grace/data_structures/variable_indices.hh>
+#include <grace/system/print.hh>
+#include <grace/coordinates/coordinates.hh>
+#include <grace/utils/fd_utils.hh>
+
 #include <array>
 
 namespace grace {
 
-using bssn_state_t = std::array<double, NUM_BSSN_VARS> ;
+static void GRACE_HOST_DEVICE
+adm_to_bssn(
+    grmhd_id_t const& id, 
+    grace::var_array_t state,
+    VEC(int i, int j, int k), int q
+)
+{
+    std::array<double,6> const __g {
+        id.gxx,id.gxy,id.gxz,id.gyy,id.gyz,id.gzz
+    } ;
+    std::array<double,3> const __beta {
+        id.betax,id.betay,id.betaz 
+    } ; 
+    double const __alp {id.alp} ; 
+    metric_array_t adm_metric {
+        __g,__beta,__alp
+    } ; 
 
-enum BSSN_VARENUM_t {
-    PHIL=0,
-    GTXXL,
-    GTXYL,
-    GTXZL, 
-    GTYYL,
-    GTYZL,
-    GTZZL,
-    ATXXL,
-    ATXYL,
-    ATXZL,
-    ATYYL,
-    ATYZL,
-    ATZZL,
-    KL,
-    GAMMAXL,
-    GAMMAYL,
-    GAMMAZL,
-    NUM_BSSN_VARS
-} ; 
+    std::array<double,6> const __Kij {
+        id.kxx,id.kxy,id.kxz,id.kyy,id.kyz,id.kzz
+    } ; 
 
-#define FILL_BSSN_STATE(sstate, vview, q, ...)\
-do{                                      \
-sstate[PHIL] = vview(__VA_ARGS__, PHI_     , q); \
-sstate[GTXXL] = vview(__VA_ARGS__, GTXX_   , q); \
-sstate[GTXYL] = vview(__VA_ARGS__, GTXY_   , q); \
-sstate[GTXZL] = vview(__VA_ARGS__, GTXZ_   , q); \
-sstate[GTYYL] = vview(__VA_ARGS__, GTYY_   , q); \
-sstate[GTYZL] = vview(__VA_ARGS__, GTYZ_   , q); \
-sstate[GTZZL] = vview(__VA_ARGS__, GTZZ_   , q); \
-sstate[ATXXL] = vview(__VA_ARGS__, ATXX_   , q); \
-sstate[ATXYL] = vview(__VA_ARGS__, ATXY_   , q); \
-sstate[ATXZL] = vview(__VA_ARGS__, ATXZ_   , q); \
-sstate[ATYYL] = vview(__VA_ARGS__, ATYY_   , q); \
-sstate[ATYZL] = vview(__VA_ARGS__, ATYZ_   , q); \
-sstate[ATZZL] = vview(__VA_ARGS__, ATZZ_   , q); \
-sstate[KL]    = vview(__VA_ARGS__, K_      , q); \
-sstate[GAMMAXL] = vview(__VA_ARGS__,GAMMAX_, q); \
-sstate[GAMMAYL] = vview(__VA_ARGS__,GAMMAY_, q); \
-sstate[GAMMAZL] = vview(__VA_ARGS__,GAMMAZ_, q); \
-} while(false)
+    double const sqrtgamma = adm_metric.sqrtg(); 
+    double const one_over_cbrtgamma = 1./Kokkos::cbrt(math::int_pow<2>(sqrtgamma)) ;
+
+    double const chi  = one_over_cbrtgamma ; 
+
+    #pragma unroll 6 
+    for( int icomp=0; icomp<6; ++icomp ) {
+        state(VEC(i,j,k),GTXX_+icomp,q) = chi * __g[icomp] ; 
+    }
+    
+    // Compute trace of extrinsic curvature 
+    double const K =  adm_metric.trace_sym2tens_lower(__Kij) ;  //FIXME LINEAR GW 
+
+    #pragma unroll 6
+    for( int icomp=0; icomp<6; ++icomp ) {
+        state(VEC(i,j,k),ATXX_+icomp,q) = chi * (__Kij[icomp] - 1./3. * __g[icomp] * K) ; 
+    }
+
+    state(VEC(i,j,k),CHI_  ,q) = chi ; 
+    state(VEC(i,j,k),KTR_ ,q) = K   ; 
+    state(VEC(i,j,k),ALP_  ,q) = id.alp ; 
+    state(VEC(i,j,k),BETAX_,q) = id.betax ; 
+    state(VEC(i,j,k),BETAY_,q) = id.betay ; 
+    state(VEC(i,j,k),BETAZ_,q) = id.betaz ; 
+}
+
+template< size_t der_order >
+static void GRACE_HOST_DEVICE
+compute_gamma_tilde(
+    grace::var_array_t state,
+    VEC(int i, int j, int k), int q, std::array<double,GRACE_NSPACEDIM> const& idx
+    , VEC(int nx, int ny, int nz), int ngz
+)
+{
+    using namespace grace ; 
+    using namespace utils ; 
+
+    double const gtxx = state(VEC(i,j,k),GTXX_+0,q);
+    double const gtxy = state(VEC(i,j,k),GTXX_+1,q);
+    double const gtxz = state(VEC(i,j,k),GTXX_+2,q);
+    double const gtyy = state(VEC(i,j,k),GTXX_+3,q);
+    double const gtyz = state(VEC(i,j,k),GTXX_+4,q);
+    double const gtzz = state(VEC(i,j,k),GTXX_+5,q);
+
+    double const gtxxdx = grace::fd_der_bnd_check<der_order,0>(state,GTXX_+0, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[0 ];
+    double const gtxxdy = grace::fd_der_bnd_check<der_order,1>(state,GTXX_+0, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[1 ];
+    double const gtxxdz = grace::fd_der_bnd_check<der_order,2>(state,GTXX_+0, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[2 ];
+    double const gtxydx = grace::fd_der_bnd_check<der_order,0>(state,GTXX_+1, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[0 ];
+    double const gtxydy = grace::fd_der_bnd_check<der_order,1>(state,GTXX_+1, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[1 ];
+    double const gtxydz = grace::fd_der_bnd_check<der_order,2>(state,GTXX_+1, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[2 ];
+    double const gtxzdx = grace::fd_der_bnd_check<der_order,0>(state,GTXX_+2, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[0 ];
+    double const gtxzdy = grace::fd_der_bnd_check<der_order,1>(state,GTXX_+2, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[1 ];
+    double const gtxzdz = grace::fd_der_bnd_check<der_order,2>(state,GTXX_+2, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[2 ];
+    double const gtyydx = grace::fd_der_bnd_check<der_order,0>(state,GTXX_+3, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[0 ];
+    double const gtyydy = grace::fd_der_bnd_check<der_order,1>(state,GTXX_+3, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[1 ];
+    double const gtyydz = grace::fd_der_bnd_check<der_order,2>(state,GTXX_+3, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[2 ];
+    double const gtyzdx = grace::fd_der_bnd_check<der_order,0>(state,GTXX_+4, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[0 ];
+    double const gtyzdy = grace::fd_der_bnd_check<der_order,1>(state,GTXX_+4, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[1 ];
+    double const gtyzdz = grace::fd_der_bnd_check<der_order,2>(state,GTXX_+4, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[2 ];
+    double const gtzzdx = grace::fd_der_bnd_check<der_order,0>(state,GTXX_+5, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[0 ];
+    double const gtzzdy = grace::fd_der_bnd_check<der_order,1>(state,GTXX_+5, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[1 ];
+    double const gtzzdz = grace::fd_der_bnd_check<der_order,2>(state,GTXX_+5, VEC(i,j,k),q,VEC(nx,ny,nz),ngz) * idx[2 ];
+
+    // \tilde{\Gamma}^i = - D_j \tilde{\gamma}^{ij}
+    state(VEC(i,j,k),GAMMATX_+0, q) = gtxz*gtyydz - gtyz*(gtxydz + gtxzdy - 2*gtyzdx) - gtxz*gtyzdy - gtxy*gtyzdz + gtxydy*gtzz - gtyydx*gtzz + gtyy*(gtxzdz - gtzzdx) + gtxy*gtzzdy;
+    state(VEC(i,j,k),GAMMATX_+1, q) = -(gtxy*gtxzdz) + (gtxxdz - gtxzdx)*gtyz - gtxz*(gtxydz - 2*gtxzdy + gtyzdx) + gtxx*gtyzdz - gtxxdy*gtzz + gtxydx*gtzz + gtxy*gtzzdx - gtxx*gtzzdy;
+    state(VEC(i,j,k),GAMMATX_+2, q) = -(gtxydy*gtxz) + (-gtxxdz + gtxzdx)*gtyy + gtxz*gtyydx - gtxx*gtyydz + gtxxdy*gtyz - gtxydx*gtyz + gtxy*(2*gtxydz - gtxzdy - gtyzdx) + gtxx*gtyzdy;
+
+}
 
 }
 

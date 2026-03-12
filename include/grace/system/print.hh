@@ -43,15 +43,15 @@
  */
 #define GRACE_INFO(...)                          \
 do {                                               \
- int rank = parallel::mpi_comm_rank() ;            \
- if( rank == 0 )                                   \
+ int grace__internal__rank__ = parallel::mpi_comm_rank() ;        \
+ if( grace__internal__rank__ == 0 )                               \
  {                                                 \
     auto console = spdlog::get("output_console") ; \
     console->info(__VA_ARGS__) ;                   \
  }                                                 \
  std::string logger_name =                         \
     std::string("file_logger_")                    \
-  + std::to_string(rank) ;                         \
+  + std::to_string(grace__internal__rank__) ;                     \
  auto logfile = spdlog::get(logger_name) ;         \
  logfile->info(__VA_ARGS__) ;                      \
 } while(false)                                     \
@@ -63,15 +63,15 @@ do {                                               \
  */
 #define GRACE_CRITICAL(...)        \
 do {                                               \
- int rank = parallel::mpi_comm_rank() ;            \
- if( rank == 0 )                                   \
+ int grace__internal__rank__ = parallel::mpi_comm_rank() ;        \
+ if( grace__internal__rank__ == 0 )                               \
  {                                                 \
     auto console = spdlog::get("output_console") ; \
     console->critical(__VA_ARGS__) ;               \
  }                                                 \
  std::string logger_name =                         \
     std::string("file_logger_")                    \
-  + std::to_string(rank) ;                         \
+  + std::to_string(grace__internal__rank__) ;                     \
  auto logfile = spdlog::get(logger_name) ;         \
  logfile->critical(__VA_ARGS__) ;                  \
 } while(false)                                     \
@@ -83,15 +83,15 @@ do {                                               \
  */
 #define GRACE_WARN(...)          \
 do {                                               \
- int rank = parallel::mpi_comm_rank() ;            \
- if( rank == 0 )                                   \
+ int grace__internal__rank__ = parallel::mpi_comm_rank() ;        \
+ if( grace__internal__rank__ == 0 )                               \
  {                                                 \
     auto console = spdlog::get("output_console") ; \
     console->warn(__VA_ARGS__) ;                   \
  }                                                 \
  std::string logger_name =                         \
     std::string("file_logger_")                    \
-  + std::to_string(rank) ;                         \
+  + std::to_string(grace__internal__rank__) ;                     \
  auto logfile = spdlog::get(logger_name) ;         \
  logfile->warn(__VA_ARGS__) ;                      \
 } while(false)                                     \
@@ -103,15 +103,15 @@ do {                                               \
  */
 #define GRACE_VERBOSE(...)        \
 do {                                               \
- int rank = parallel::mpi_comm_rank() ;            \
- if( rank == 0 )                                   \
+ int grace__internal__rank__ = parallel::mpi_comm_rank() ;        \
+ if( grace__internal__rank__ == 0 )                               \
  {                                                 \
     auto console = spdlog::get("output_console") ; \
     console->debug(__VA_ARGS__) ;                  \
  }                                                 \
  std::string logger_name =                         \
     std::string("file_logger_")                    \
-  + std::to_string(rank) ;                         \
+  + std::to_string(grace__internal__rank__) ;                     \
  auto logfile = spdlog::get(logger_name) ;         \
  logfile->debug(__VA_ARGS__) ;                     \
 } while(false)                                     \
@@ -123,17 +123,41 @@ do {                                               \
  */
 #define GRACE_TRACE(...)          \
 do {                                               \
- int rank = parallel::mpi_comm_rank() ;            \
- if( rank == 0 )                                   \
+ int grace__internal__rank__ = parallel::mpi_comm_rank() ;        \
+ if( grace__internal__rank__ == 0 )                               \
  {                                                 \
     auto console = spdlog::get("output_console") ; \
     console->trace(__VA_ARGS__) ;                  \
  }                                                 \
  std::string logger_name =                         \
     std::string("file_logger_")                    \
-  + std::to_string(rank) ;                         \
+  + std::to_string(grace__internal__rank__) ;                     \
  auto logfile = spdlog::get(logger_name) ;         \
  logfile->trace(__VA_ARGS__) ;                     \
 } while(false)                                     \
 
+
+/**
+ * @brief Log a message with "trace" priority on files and
+ *        console only in debug mode.
+ * \ingroup system
+ */
+#ifdef GRACE_DEBUG
+#define GRACE_TRACE_DBG(...)          \
+do {                                               \
+ int grace__internal__rank__ = parallel::mpi_comm_rank() ;        \
+ if( grace__internal__rank__ == 0 )                               \
+ {                                                 \
+    auto console = spdlog::get("output_console") ; \
+    console->trace(__VA_ARGS__) ;                  \
+ }                                                 \
+ std::string logger_name =                         \
+    std::string("file_logger_")                    \
+  + std::to_string(grace__internal__rank__) ;                     \
+ auto logfile = spdlog::get(logger_name) ;         \
+ logfile->trace(__VA_ARGS__) ;                     \
+} while(false)                                     
+#else 
+#define GRACE_TRACE_DBG(...)          
+#endif 
 #endif /* INCLUDE_GRACE_SYSTEM_PRINT */

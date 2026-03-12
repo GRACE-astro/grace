@@ -1,2 +1,3 @@
-add_library(grace_singleton OBJECT lifetime_tracker.cpp) 
-target_include_directories(grace_singleton PRIVATE  "${HEADER_DIR}")
+register_grace_object(grace_singleton lifetime_tracker.cpp)
+register_grace_object(task_queue task_queue.cpp)
+

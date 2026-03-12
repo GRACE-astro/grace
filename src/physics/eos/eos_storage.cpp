@@ -48,15 +48,11 @@ static piecewise_polytropic_eos_t setup_cold_politrope()
 {
     auto& params = grace::config_parser::get() ;
 
-    unsigned int _pwpoly_n_pieces = 
-                params["eos"]["piecewise_polytrope"]["n_pieces"].as<unsigned int>() ; 
+    unsigned int _pwpoly_n_pieces = get_param<unsigned int>("eos", "piecewise_polytrope", "n_pieces") ; 
             
-    double _pwpoly_kappas_0 =
-        params["eos"]["piecewise_polytrope"]["kappa_0"].as<double>() ; 
-    std::vector<double> _pwpoly_gammas_vec  =
-        params["eos"]["piecewise_polytrope"]["gammas"].as<std::vector<double>>() ; 
-    std::vector<double> _pwpoly_rhos_vec  =
-        params["eos"]["piecewise_polytrope"]["rhos"].as<std::vector<double>>() ; 
+    double _pwpoly_kappas_0 = get_param<double>("eos", "piecewise_polytrope", "kappa_0") ; 
+    std::vector<double> _pwpoly_gammas_vec  = get_param<std::vector<double>>("eos", "piecewise_polytrope", "gammas") ; 
+    std::vector<double> _pwpoly_rhos_vec  =  get_param<std::vector<double>>("eos", "piecewise_polytrope", "rhos") ; 
     
     
     ASSERT( _pwpoly_gammas_vec.size() == _pwpoly_n_pieces
@@ -147,7 +143,7 @@ static piecewise_polytropic_eos_t setup_cold_politrope()
         , _pwpoly_press
         , _pwpoly_n_pieces
         , 1e+10
-        , 1e-20
+        , 1e-100
     }) ; 
 
 }
@@ -155,22 +151,14 @@ static piecewise_polytropic_eos_t setup_cold_politrope()
 eos_storage_t::eos_storage_t() {
     auto& params = grace::config_parser::get() ;
 
-    std::string eos_type = 
-        params["eos"]["eos_type"].as<std::string>() ;
+    std::string eos_type = get_param<std::string>("eos","eos_type") ;  
 
-    double c2p_ye_atm   = params["eos"]["ye_atmosphere"].as<double>(); 
-    double c2p_rho_atm  = params["eos"]["rho_atmosphere"].as<double>(); 
-    double c2p_temp_atm = params["eos"]["temp_atmosphere"].as<double>(); 
-    double c2p_eps_max  = params["eos"]["eps_maximum"].as<double>();
-
-    bool atm_is_beta_eq = params["eos"]["atm_is_beta_eq"].as<bool>();
-
-    bool extend_table_high = params["eos"]["extend_table_high"].as<bool>(); ; 
+    double c2p_eps_max  = get_param<double>("eos","eps_maximum") ;  
+    double c2p_entropy_min = get_param<double>("eos","entropy_minimum") ;  
 
     if ( eos_type == "hybrid" ) {
-        std::string cold_eos_type =
-            params["eos"]["cold_eos_type"].as<std::string>() ; 
-        double gamma_th = params["eos"]["gamma_th"].as<double>() ;
+        std::string cold_eos_type = get_param<std::string>("eos","hybrid_eos","cold_eos_type") ;  
+        double gamma_th = get_param<double>("eos","hybrid_eos","gamma_th") ;  
 
         if( cold_eos_type == "piecewise_polytrope" ) {
 
@@ -179,14 +167,16 @@ eos_storage_t::eos_storage_t() {
             _hybrid_pwpoly = hybrid_eos_t<piecewise_polytropic_eos_t>{
                   _pwpoly 
                 , gamma_th - 1. 
+                , c2p_entropy_min
                 , grace::physical_constants::mnuc_CGS
-                , c2p_rho_atm 
                 , c2p_eps_max 
             } ; 
 
         } else {
             ERROR("Unsupported cold_eos_type.") ; 
         }
+    } else if ( eos_type == "ideal_gas" ) {
+        ERROR("Unsupported eos_type") ; 
     } else {
         ERROR("Unsupported eos_type") ; 
     }

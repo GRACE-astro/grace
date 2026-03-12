@@ -60,7 +60,7 @@ Kokkos::Profiling::pushRegion(name);\
 //*********************************************************************************************************************
 #define GRACE_DEVICE_PROFILING_POP_REGION \
 do{\
-grace::profiling_runtime::get().pop_device_region(name); \
+grace::profiling_runtime::get().pop_device_region(); \
 Kokkos::Profiling::popRegion();\
 } while(false)
 //*********************************************************************************************************************

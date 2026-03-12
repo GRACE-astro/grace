@@ -43,11 +43,27 @@ int master_rank()
 }
 
 double get_total_runtime() {
+    return grace::runtime::get().total_elapsed() ; 
+}
+
+double get_evol_runtime() {
     return grace::runtime::get().elapsed() ; 
 }
 
 double get_simulation_time() { 
     return grace::runtime::get().time() ; 
+}
+
+void set_simulation_time(double const& _new_t) { 
+    grace::runtime::get().set_simulation_time(_new_t) ; 
+}
+
+double get_initial_simulation_time() {
+    return grace::runtime::get().initial_time() ; 
+}
+
+void set_initial_simulation_time(double const& _new_t) {
+    grace::runtime::get().set_initial_simulation_time(_new_t) ; 
 }
 
 size_t get_iteration() {
@@ -62,6 +78,10 @@ void increment_iteration() {
     grace::runtime::get().increment_iteration() ; 
 }
 
+void set_iteration(size_t const& _new_it) {
+    grace::runtime::get().set_iteration(_new_it) ; 
+}
+
 void set_timestep(double const& _new_dt ) {
     grace::runtime::get().set_timestep(_new_dt) ; 
 }
@@ -70,4 +90,19 @@ double get_timestep() {
     return grace::runtime::get().timestep() ; 
 }
 
+bool check_termination_condition()
+{
+    auto& runtime = grace::runtime::get() ; 
+    auto term_cnd = runtime.termination_condition() ; 
+    switch (term_cnd) {
+        case terminate::ITERATION: 
+        return runtime.iteration() >= runtime.max_iteration() ; 
+        case terminate::TIME:
+        return runtime.time() > runtime.max_time() ; 
+        case terminate::WALLTIME:
+        return runtime.total_elapsed()/3600 > runtime.max_walltime() ; 
+        default:
+        ERROR("Unrecognized termination condition.") ; 
+    }
+}
 } /* namespace */ 

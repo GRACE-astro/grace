@@ -1,0 +1,244 @@
+amr:
+  type: schema 
+  description: >
+    Grid parameters 
+  
+  xmin:
+    type: double
+    default: -1.0
+    range: "(*,*)"
+    description: >
+      Lower end of grid in x direction
+
+  xmax:
+    type: double
+    default: +1.0
+    range: "(*,*)"
+    description: >
+      Upper end of grid in x direction
+
+  ymin:
+    type: double
+    default: -1.0
+    range: "(*,*)"
+    description: >
+      Lower end of grid in y direction
+
+  ymax:
+    type: double
+    default: +1.0
+    range: "(*,*)"
+    description: >
+      Upper end of grid in y direction
+
+  zmin:
+    type: double
+    default: -1.0
+    range: "(*,*)"
+    description: >
+      Lower end of grid in z direction
+
+  zmax:
+    type: double
+    default: +1.0
+    range: "(*,*)"
+    description: >
+      Upper end of grid in z direction
+
+  initial_refinement_level:
+    type: unsigned int
+    range: "[0,*)"
+    default: 0
+    description: >
+      Refinement level of base grid 
+
+
+  npoints_block_x:
+    type: unsigned int
+    range: "[1,*)"
+    default: 16
+    description: >
+      Number of cells/quadrant in x direction. Prefer powers of 2, must be larger than 2*n_ghost. WARNING: currently grace requires number of cells in all directions to be equal.
+  npoints_block_y:
+    type: unsigned int
+    range: "[1,*)"
+    default: 16
+    description: >
+      Number of cells/quadrant in y direction. Prefer powers of 2, must be larger than 2*n_ghost. WARNING: currently grace requires number of cells in all directions to be equal.
+  npoints_block_z:
+    type: unsigned int
+    range: "[1,*)"
+    default: 16
+    description: >
+      Number of cells/quadrant in z direction. Prefer powers of 2, must be larger than 2*n_ghost. WARNING: currently grace requires number of cells in all directions to be equal.
+  
+  n_ghostzones:
+    type: unsigned int
+    range: "[1,*)"
+    default: 4
+    description: >
+      Number of ghost cells per quadrant. Must be even. Unless code is modified, must be >=4 for WENO-5 reconstruction and 4th order FD.
+
+  
+
+  periodic_x:
+    type: bool 
+    default: false
+    description: >
+      Is the grid periodic in x?
+
+  periodic_y:
+    type: bool 
+    default: false
+    description: >
+      Is the grid periodic in y?
+
+  periodic_z:
+    type: bool 
+    default: false
+    description: >
+      Is the grid periodic in z?
+
+  reflection_symmetries:
+    type: schema
+    description: >
+      Grid reflection symmetries 
+    x:
+      type: bool 
+      default: false 
+      description: >
+        X reflection symmetry 
+    y: 
+      type: bool 
+      default: false 
+      description: >
+        Y reflection symmetry 
+    z: 
+      type: bool 
+      default: false 
+      description: >
+        Z reflection symmetry 
+
+
+
+  regrid_every:
+    type: int 
+    default: -1
+    range: "[-1,*)"
+    description: >
+      Regrid frequency, expressed in iteration count. -1 switches off the regrid 
+
+  max_refinement_level:
+    type: unsigned int
+    default: 11
+    range: "[1,*)"
+    description: >
+      Maximum allowed regrid depth. Note this only affects AMR. FMR ignores this.
+
+  regrid_at_postinitial:
+    type: bool 
+    default: false 
+    description: >
+      If enabled, performs a regrid after initial data is set and before evolution.
+
+  postinitial_regrid_depth:
+    type: unsigned int 
+    default: 1
+    range: "[1,*)"
+    description: >
+      If regrid_at_postinitial, how many regrids are performed 
+
+  refinement_criterion:
+    type: keyword
+    allowed: ["FLASH_second_deriv", "simple_threshold", "gradient", "shear"]
+    default: "FLASH_second_deriv"
+    description: > 
+      Criterion for refinement/derefinement 
+
+  refinement_criterion_reduction:
+    type: keyword
+    allowed: ["max", "min"]
+    default: "max"
+    description: >
+      How to reduce the error estimate across cells in a quadrant 
+  
+  refinement_criterion_CTORE:
+    type: double
+    range: "(*,*)"
+    default: 0.8
+    description: >
+      If error_estimate > CTORE, flag for refinement 
+  
+  refinement_criterion_CTODE:
+    type: double
+    range: "(*,*)"
+    default: 0.8
+    description: >
+      If error_estimate < CTODE, flag for derefinement 
+
+  refinement_criterion_var: 
+    type: string 
+    default: "dens"
+    description: >
+      Name of variable used for error estimate evaluation, only cell centered is valid.
+  
+  refinement_criterion_var_is_aux:
+    type: bool 
+    default: false 
+    description: >
+      Is the variable used in refinement an auxiliary variable?
+
+  FLASH_criterion_eps:
+    type: double 
+    range: "(0,*)"
+    default: 0.01
+    description: > 
+      Epsilon in the denominator of second derivative refinement criterion 
+
+  n_fmr_boxes:
+    type: unsigned int 
+    range: "[0,*)"
+    default: 0
+    description: >
+      Number of FMR boxes set up before initial data 
+  
+  fmr_boxes:
+    description: >
+      Fixed mesh refinement boxes applied before initial data.
+
+    type: list
+    min_items: 0
+
+    item_type: node
+
+    item_schema:
+      target_level_delta:
+        type: unsigned int
+        range: "[1,*)"
+        default: 1
+        description: >
+          How many levels above the base grid?
+      x_min:
+        type: double
+        default: -1.0
+        range: "(*,*)"
+      x_max:
+        type: double
+        default: 1.0
+        range: "(*,*)"
+      y_min:
+        type: double
+        default: -1.0
+        range: "(*,*)"
+      y_max:
+        type: double
+        default: 1.0
+        range: "(*,*)"
+      z_min:
+        type: double
+        default: -1.0
+        range: "(*,*)"
+      z_max:
+        type: double
+        default: 1.0
+        range: "(*,*)"

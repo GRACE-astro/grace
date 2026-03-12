@@ -1,0 +1,66 @@
+spherical_surfaces:
+  type: schema 
+  description: >
+    Spheres 
+  
+  n_surfaces:
+    type: unsigned int 
+    default: 0
+    range: "[0,*)"
+    description: >
+      Number of spherical surfaces
+
+  spherical_detectors:
+    type: list 
+    item_type: node 
+    description: >
+      Descriptors of spherical detectors 
+    item_schema:
+      name:
+        type: string 
+        default: "spherical_detector"
+        description: >
+          Name of the detector
+      tracking:
+        type: keyword
+        allowed: ["none"]
+        default: "none"
+        description: >
+          Tracking policy for the sphere 
+      radius: 
+        type: double 
+        range: "(0,*)"
+        default: 1.0
+        description: >
+          Radius of the sphere
+      x_c:
+        type: double 
+        range: "(*,*)"
+        default: 0.0 
+        description: >
+          X coordinate of sphere center 
+      y_c:
+        type: double 
+        range: "(*,*)"
+        default: 0.0 
+        description: >
+          Y coordinate of sphere center 
+      z_c:
+        type: double 
+        range: "(*,*)"
+        default: 0.0 
+        description: >
+          Z coordinate of sphere center 
+      sampling_policy:
+        type: keyword
+        allowed: ["uniform","healpix"]
+        default: "uniform"
+        description: >
+          Policy for sphere discretization 
+      resolution: 
+        type: int 
+        range: "(0,*)"
+        default: 32 
+        description: >
+          Resolution of detector 
+      

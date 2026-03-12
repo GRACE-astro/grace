@@ -1,0 +1,208 @@
+name: "grace"
+amr: {
+  npoints_block_x: 64,
+  npoints_block_y: 64,
+  npoints_block_z: 64,
+  xmin: -512.0,
+  xmax: 512.0,
+  ymin: -512.0,
+  ymax: 512.0,
+  zmin: -1024.0,
+  zmax: 1024.0,
+
+  n_ghostzones: 4,
+  initial_refinement_level: 2,
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+  n_ghostzones: 4,
+  initial_refinement_level: 3,
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+  n_fmr_boxes: 4,
+  fmr_box_0: {
+    target_level_delta: 1,
+    x_min: -256,
+    x_max: 256,
+    y_min: -256,
+    y_max: 256,
+    z_min: -256,
+    z_max: 256
+  },
+  fmr_box_1: {
+    target_level_delta: 2,
+    x_min: -128,
+    x_max: 128,
+    y_min: -128,
+    y_max: 128,
+    z_min: -128,
+    z_max: 128
+  },
+  fmr_box_2: {
+    target_level_delta: 3,
+    x_min: -96,
+    x_max: 96,
+    y_min: -96,
+    y_max: 96,
+    z_min: -96,
+    z_max: 96
+    },
+  fmr_box_3: {
+    target_level_delta: 4,
+    x_min: -64,
+    x_max: 64,
+    y_min: -64,
+    y_max: 64,
+    z_min: -64,
+    z_max: 64
+  }
+}
+IO: {
+
+  volume_output_cell_variables: ["rho","press","eps","zvec[0]", "Bvec[0]", "Bdiv", "gamma[0,0]","gamma[0,1]","gamma[0,2]","gamma[1,0]","gamma[1,1]","gamma[1,2]","gamma[2,2]","beta[0]","alp"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: 2000,
+
+  plane_surface_output_cell_variables: ["alp","rho","press","eps","zvec[0]", "Bvec[0]","Bdiv","entropy","b2","c2p_err"],
+  plane_surface_output_every: 100,
+  sphere_surface_output_every: -1,
+
+  do_initial_output: true,
+
+  info_output_every: 2,
+  info_output_max_reductions: ["rho", "press", "Bdiv","b2"],
+  info_output_min_reductions: ["Bdiv"], 
+  info_output_norm2_reductions: ["c2p_err"], 
+
+  scalar_output_every: 10,
+  scalar_output_minmax: ["rho","press","eps","Bdiv"],
+  scalar_output_norm2: ["Bdiv"],
+  scalar_output_integral: [],
+
+  output_use_hdf5: true, 
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 131072,
+  output_extra_quantities: true,
+  diagnostic_output_every: 10
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  flush_logs_based_on_severity: false,
+  flush_level: "trace",
+  n_device_streams: 4
+}
+evolution: {
+  time_stepper: "rk3",
+  cfl_factor: 0.25,
+  termination_condition: "walltime",
+  final_walltime: 23
+}
+grmhd: {
+  id_type: "fmtorus",
+
+  B_field_initialization: "from_Avec",
+  Avec_ID: {
+    kind: "current_loop",
+    cutoff_var: "rho",
+    cutoff_fact: 0.2,
+    A_phi: 1.0,
+    A_n: 1.0
+  },
+
+  fmtorus: {
+    a_BH: 0.9375,
+    rho_min: 1.0e-5,
+    lapse_min: 0.8,
+    press_min: 0.333e-7,
+    r_in: 6,
+    r_at_max_density: 12,
+    gamma: 1.33333333333,
+    max_inverse_beta: 100,
+    perturbation_amplitude: 0.0,
+    rho_power: -1.5,
+    press_power: -2.5,
+    rho_max: 1.0
+  },
+  
+  excision: {
+    excision_criterion: "radius",
+    excision_radius: 1.0,
+    rho_excision: 1e-8,
+    temp_excision: 0.3333e-2,
+    excision_lapse: 0.2
+  },
+  atmosphere: {
+    ye_fl: 0,
+    temp_fl:  0.3333e-2,
+    rho_fl: 1.e-5,
+    rho_scaling: -1.5,
+    temp_scaling: -1
+  }
+}
+
+coordinate_system: {
+  is_kerr_schild: true,
+  bh_spin: 0.9375
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+
+  eps_maximum: 1.e+05,
+  gamma_th: 1.33333333333,
+
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [2.],
+    rhos:   [],
+    kappa_0: 0.
+  }
+}
+
+# surface output 
+spherical_surfaces: {
+  n_surfaces: 2,
+
+  spherical_surface_0: {
+    name: "bh_horizon",
+    tracking: "none",
+    radius: 1.35,
+    x_c: 0.0,
+    y_c: 0.0,
+    z_c: 0.0,
+
+    sampling_policy: "uniform",
+    resolution: 32
+  },
+
+  spherical_surface_1: {
+    name: "detector",
+    tracking: "none",
+    radius: 10.0,
+    x_c: 0.0,
+    y_c: 0.0,
+    z_c: 0.0,
+
+    sampling_policy: "uniform",
+    resolution: 32
+  }
+
+}
+
+bh_diagnostics: {
+  detector_names: ["bh_horizon","detector"]
+}
+
+profiling: {
+  do_gpu_profiling: false
+}
+
+checkpoints: {
+  checkpoint_at_termination: true,
+  checkpoint_dir: "./checkpoints",
+  interval_kind: "walltime",
+  walltime_interval: 12.0
+}

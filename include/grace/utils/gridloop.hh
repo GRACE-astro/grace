@@ -32,11 +32,14 @@
 #include <grace/utils/inline.h>
 #include <grace/utils/device.h>
 #include <grace/amr/amr_functions.hh>
+#include <grace/system/print.hh>
 
 #include <utility>
 #include <tuple>
 #include <array> 
 #include <omp.h>
+
+#include <iostream> 
 
 namespace grace {
 
@@ -200,7 +203,8 @@ host_ndloop(Ft&& _func, Idxt&& ... args ) {
  * @tparam omp_parallel  Whether OMP parallelization should be used.
  * @tparam Ft            Type of loop body lambda.
  * @param _func          Loop body as a lambda.
- * @param include_ghosts Whether the loop should run in the ghostzones
+ * @param stagger        Whether the loop is staggered in each direction.
+ * @param include_ghosts Whether the loop should run in the ghostzones.
  * 
  * This could be utilized in very similar fashion to Kokkos::parallel_loop
  * except for the fact that this loop \b always runs on host. This is useful for a lot of 
@@ -245,7 +249,7 @@ host_ndloop(Ft&& _func, Idxt&& ... args ) {
 template< bool omp_parallel
         , typename Ft > 
 void GRACE_ALWAYS_INLINE GRACE_HOST 
-host_grid_loop(Ft&& _func, bool include_ghosts=false ) {
+host_grid_loop(Ft&& _func, std::array<bool,GRACE_NSPACEDIM> stagger={VEC(false,false,false)}, bool include_ghosts=false ) {
 
     using namespace grace ; 
     using namespace detail ; 
@@ -254,31 +258,34 @@ host_grid_loop(Ft&& _func, bool include_ghosts=false ) {
     size_t nx, ny, nz ; 
     std::tie(nx,ny,nz) = amr::get_quadrant_extents() ; 
     auto const ngz = amr::get_n_ghosts() ; 
-
     
+    std::size_t const nx_st = nx + static_cast<int>(stagger[0]) ; 
     std::pair<std::size_t, std::size_t> range_x{ 
           include_ghosts ? 0 : ngz 
-        , include_ghosts ? nx + 2*ngz : nx + ngz 
-    } ; 
+        , include_ghosts ? nx_st + 2*ngz : nx_st + ngz 
+    } ;
+    std::size_t const ny_st = ny + static_cast<int>(stagger[1]) ; 
     std::pair<std::size_t, std::size_t> range_y{ 
           include_ghosts ? 0 : ngz 
-        , include_ghosts ? ny + 2*ngz : ny + ngz 
+        , include_ghosts ? ny_st + 2*ngz : ny_st + ngz 
     } ;  
+    #ifdef GRACE_3D
+    std::size_t const nz_st = nz + static_cast<int>(stagger[2]) ; 
     std::pair<std::size_t, std::size_t> range_z{ 
           include_ghosts ? 0 : ngz 
-        , include_ghosts ? nz + 2*ngz : nz + ngz 
-    } ; 
-    
+        , include_ghosts ? nz_st + 2*ngz : nz_st + ngz 
+    } ;
+    #endif 
     
     std::pair<std::size_t, std::size_t> range_q{
         0, nq 
     } ; 
 
     host_ndloop<omp_parallel,Ft>( std::forward<Ft>(_func)
-                                , std::move(range_q) 
                                 , VEC( std::move(range_x) 
                                      , std::move(range_y) 
-                                     , std::move(range_z) )) ; 
+                                     , std::move(range_z) )
+                                , std::move(range_q) ) ; 
 }
 
 

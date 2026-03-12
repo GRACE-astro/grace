@@ -44,16 +44,22 @@ namespace grace {
 
 template < typename eos_t >
 struct shocktube_id_t {
-    using state_t = grace::var_array_t<GRACE_NSPACEDIM> ; 
+    using state_t = grace::var_array_t ; 
     
     shocktube_id_t(
           eos_t eos 
         , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
         , double rhoL, double rhoR 
-        , double pL  , double pR )
+        , double pL  , double pR 
+        , double BxL, double BxR
+        , double ByL, double ByR
+        , double BzL, double BzR )
         : _eos(eos)
         , _pcoords(pcoords), _rhoL(rhoL)
         , _rhoR(rhoR), _pL(pL), _pR(pR)
+        , _BxL(BxL), _BxR(BxR)
+        , _ByL(ByL), _ByR(ByR)
+        , _BzL(BzL), _BzR(BzR)
     {} 
 
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -63,10 +69,17 @@ struct shocktube_id_t {
         if( _pcoords(VEC(i,j,k),0,q) <= 0 ) {
             id.rho     = _rhoL ; 
             id.press   = _pL   ; 
+            id.bx = _BxL ;
+            id.by = _ByL ;
+            id.bz = _BzL ;
         } else {
             id.rho     = _rhoR ; 
             id.press   = _pR   ;
+            id.bx = _BxR ;
+            id.by = _ByR ;
+            id.bz = _BzR ;
         }
+
         id.vx = 0; id.vy = 0.; id.vz = 0.;
         id.betax = 0; id.betay=0; id.betaz = 0; 
         id.alp = 1 ; 
@@ -75,13 +88,13 @@ struct shocktube_id_t {
         id.kxx = 0; id.kyy = 0; id.kzz = 0 ;
         id.kxy = 0; id.kxz =0 ; id.kyz = 0 ; 
         unsigned int err ; 
-        id.ye  = _eos.ye_beta_eq__press_cold(id.press, err);
+        id.ye  = _eos.ye_cold__press(id.press, err);
         return std::move(id) ; 
     }
 
     eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
-    double _rhoL, _rhoR, _pL, _pR;                    //!< Left and right states  
+    double _rhoL, _rhoR, _pL, _pR, _BxL, _BxR, _ByL, _ByR, _BzL, _BzR;          //!< Left and right states  
 } ; 
 
 

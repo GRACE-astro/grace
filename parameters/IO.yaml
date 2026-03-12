@@ -1,0 +1,236 @@
+IO:
+  type: schema 
+  description: >
+    Output 
+  volume_output_every:
+    type: int 
+    range: "[-1,*)"
+    default: -1
+    description: >
+      Interval (in iterations) between successive 3D outputs. -1 disables volume output.
+
+  plane_surface_output_every:
+    type: int 
+    range: "[-1,*)"
+    default: -1
+    description: >
+      Interval (in iterations) between successive planar 2D outputs. -1 disables plane surface output.
+
+  sphere_surface_output_every:
+    type: int 
+    range: "[-1,*)"
+    default: -1
+    description: >
+      Interval (in iterations) between successive spherical 2D outputs. -1 disables sphere surface output.
+  
+  scalar_output_every:
+    type: int 
+    range: "[-1,*)"
+    default: -1
+    description: >
+      Interval (in iterations) between successive scalar outputs. -1 disables scalar output.
+
+  diagnostic_output_every:
+    type: int 
+    range: "[-1,*)"
+    default: -1
+    description: >
+      Interval (in iterations) between successive diagnostic outputs. -1 disables diagnostic output.
+
+  info_output_every:
+    type: int 
+    range: "[-1,*)"
+    default: 10
+    description: >
+      Interval (in iterations) between successive prints to stdout. -1 disables info output.
+
+  do_initial_output:
+    type: bool
+    default: true 
+    description: >
+      Do output after initial data? 
+  
+  output_extra_quantities:
+    type: bool 
+    default: true 
+    description: >  
+      Output rank, quadrant and tree ID in 3D and 2D plane output? 
+  
+  info_output_max_reductions:
+    type: list 
+    default: []
+
+    item_type: string 
+
+    description: >
+      List of variables whose max values are printed in info
+  
+  info_output_min_reductions:
+    type: list 
+    default: []
+
+    item_type: string 
+
+    description: >
+      List of variables whose min values are printed in info
+
+  info_output_norm2_reductions:
+    type: list 
+    default: []
+
+    item_type: string 
+
+    description: >
+      List of variables whose L2 norm values are printed in info
+
+  scalar_output_minmax:
+    type: list 
+    default: []
+    item_type: string 
+    description: >
+      List of variables whose min and max values are written to scalar output 
+  scalar_output_norm2:
+    type: list 
+    default: []
+    item_type: string 
+    description: >
+      List of variables whose L2 norm is written to scalar output 
+  scalar_output_integral:
+    type: list 
+    default: []
+    item_type: string 
+    description: >
+      List of variables whose integral (wrt coordinate volume!) is written to scalar output
+
+  volume_output_cell_variables:
+    type: list 
+    default: []
+    item_type: string 
+    description: >
+      List of variables in 3D output 
+  plane_surface_output_cell_variables:
+    type: list 
+    default: []
+    item_type: string 
+    description: >
+      List of variables in 2D plane output 
+  sphere_surface_output_cell_variables:
+    type: list 
+    default: []
+    item_type: string 
+    description: >
+      List of variables in 2D sphere output 
+
+  log_output_base_filename:
+    type: string 
+    default: "grace_log"
+    description: >
+      Base filename for logs, full filename will be basename_rank.out/err 
+  
+  log_output_base_directory:
+    type: string 
+    default: "./logs"
+    description: >
+      Path where logs are written, relative to running directory 
+
+  volume_output_base_filename:
+    type: string 
+    default: "volume_out"
+    description: >
+      Base filename for 3D output, full filename will be basename_iteration.h5
+  
+  volume_output_base_directory:
+    type: string 
+    default: "./output_volume"
+    description: >
+      Path where 3D outputs are written, relative to running directory 
+
+  surface_output_base_filename:
+    type: string 
+    default: "surface_out"
+    description: >
+      Base filename for 2D output, full filename will be basename_surf_name_iteration.h5
+  
+  surface_output_base_directory:
+    type: string 
+    default: "./output_surface"
+    description: >
+      Path where 2D outputs are written, relative to running directory 
+  
+  sphere_surface_output_base_directory:
+    type: string 
+    default: "./output_spheres"
+    description: >
+      Path where 2D sphere outputs are written, relative to running directory 
+
+  scalar_output_base_filename:
+    type: string 
+    default: ""
+    description: >
+      Base filename for scalar output, full filename will be basename_varname_reduction.dat
+  
+  scalar_output_base_directory:
+    type: string 
+    default: "./output_scalar"
+    description: >
+      Path where scalar outputs are written, relative to running directory 
+
+
+  output_use_hdf5:
+    type: bool 
+    default: true 
+    description: >
+      Use HDF5 for output, if false, GRACE needs to be compiled with VTK support (deprecated).
+
+  hdf5_compression_level:
+    type: int 
+    default: 0
+    range: "[0,*)"
+    description: >
+      Compression level to be used in HDF5 output, can save space but generally hurts performance. Library must support this in conjunction with parallel output.
+
+  hdf5_chunk_size:
+    type: int 
+    default: 4096
+    range: "(0,*)"
+    description: >
+      Size of chunking for HDF5 output 
+
+  xy_plane_offset:
+    type: double 
+    range: "(*,*)"
+    default: 0.0
+    description: >
+      Z offset 
+
+      
+
+  xz_plane_offset:
+    type: double 
+    range: "(*,*)"
+    default: 0.0
+    description: >
+      Y offset 
+
+  yz_plane_offset:
+    type: double 
+    range: "(*,*)"
+    default: 0.0
+    description: >
+      X offset 
+
+
+  n_output_spheres:
+    type: int 
+    default: 0
+    range: "[0,*)"
+    description: >
+      Number of spherical detectors where output is requested 
+  
+  output_sphere_names: 
+    type: list 
+    item_type: string 
+    default: []
+    description: >
+      Name of spherical detectors where 2D output is requested 
+  

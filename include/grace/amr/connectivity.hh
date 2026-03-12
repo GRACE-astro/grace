@@ -213,6 +213,12 @@ class connectivity_impl_t
      * Only used by \code singleton_holder::initialize() \endcode.
      */
     connectivity_impl_t() ; 
+    /**
+     * @brief Construct a new connectivity object
+     * 
+     * Only used by \code singleton_holder::initialize() \endcode.
+     */
+    connectivity_impl_t(p4est_connectivity_t * _pconn) ; 
     //**************************************************************************************************
     /**
      * @brief Destroy the connectivity object

@@ -41,16 +41,37 @@ int master_rank() ;
  */
 double get_total_runtime() ; 
 /**
+ * @brief Get the total evolution runtime of this simulation.
+ * 
+ * @return double The runtime since evolution began (in seconds).
+ */
+double get_evol_runtime() ;
+/**
  * @brief Get the simulation time.
  * 
  * @return double The simulation time.
  */
 double get_simulation_time() ; 
 /**
+ * @brief Get the time at which this run started.
+ * 
+ * @return double The initial simulation time.
+ */
+double get_initial_simulation_time() ; 
+/**
  * @brief Increment the simulation time 
  *        by the current timestep.
  */
 void increment_simulation_time() ; 
+/**
+ * @brief Set the simulation time 
+ *        by the current timestep.
+ */
+void set_simulation_time(double const& _new_t) ; 
+/**
+ * @brief Set the initial simulation time (only done when reading checkpoints)
+ */
+void set_initial_simulation_time(double const& _new_t) ; 
 /**
  * @brief Get the iteration count.
  * 
@@ -61,6 +82,10 @@ size_t get_iteration() ;
  * @brief Increment iteration count.
  */
 void increment_iteration() ; 
+/**
+ * @brief Set iteration count.
+ */
+void set_iteration(size_t const& _new_it) ; 
 /**
  * @brief Set the timestep size.
  * 
@@ -73,6 +98,8 @@ void set_timestep(double const& _new_dt ) ;
  * @return double The timestep size.
  */
 double get_timestep() ;
+
+bool check_termination_condition() ; 
 }
 
 #endif 

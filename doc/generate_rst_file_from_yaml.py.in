@@ -1,71 +1,283 @@
 import yaml
-import os
-import textwrap
 import re
+import os 
+from pathlib import Path
 
-def wrap_text(text, width):
-    wrapper = textwrap.TextWrapper(width=width, break_long_words=True)
-    return "\n".join(wrapper.wrap(text))
+# -------------------------------
+# Formatters
+# -------------------------------
+def format_type(t):
+    return f":data-type:`{t}`"
 
-def wrap_in_role(text, role):
-    return f':{role}:`{text}`'
+def format_default(t):
+    return f":default-value:`{t}`"
 
-def wrap_in_bold(text):
-    return f'**{text}**'
+def format_range(t):
+    return f":allowed-range:`{t}`"
 
-def generate_rst_from_yaml(yaml_file, rst_file, title, mod, parfile_example):
-    with open(yaml_file, 'r') as file:
-        data = yaml.safe_load(file)
+# -------------------------------
+# Section hierarchy
+# -------------------------------
 
-    with open(rst_file, 'w') as file:
-        file.write(f".. GRACE documentation {title} file\n\n")
-        file.write(f".. _{mod}-parameters:\n\n")
-        file.write(f"{title}\n{'*' * len(title)}\n\n")
-        file.write(f'''This page contains a full reference of all parameters available for the {mod} module.\nAt the bottom of the page you can find an example parameter block that can be used in your parameter file.\n\n''')
-        file.write("----\n\n")
-        for i,item in enumerate(data):
-            file.write(
-            '''.. raw:: html\n\n  <div class="custom-list-table-container">\n\n''')
-            file.write(f".. list-table:: \n")
-            file.write("   :header-rows: 0\n")
-            file.write("   :class: custom-list-table\n\n")
+SECTION_CHARS = ["-", "^", '"', "~"]
 
-            file.write("   * - " + wrap_in_bold("Name:") + "\n     - " + f"``{item.get('Name', '')}``\n")
-            file.write("   * - " + wrap_in_bold("Type:") + "\n     - " + wrap_in_role(item.get('Type', ''),"data-type") + "\n")
-            file.write("   * - " + wrap_in_bold("Default Value:") + "\n     - " + wrap_in_role(item.get('Default Value', ''),"default-value")+"\n")
-            file.write("   * - " + wrap_in_bold("Allowed Range:") + "\n     - " + wrap_in_role(item.get('Allowed Range', ''),"allowed-range")+"\n")
-            file.write("   * - " + wrap_in_bold("Description:") + "\n     - " + f"{item.get('Description', '')}\n")
-            file.write(
-            '''\n.. raw:: html\n\n  </div>\n\n''')
-            file.write("----\n\n")
-        file.write(f"The following snippet is an example of how to set all the parameters for the {mod} module to their default value.")
-        file.write("\n\n.. code-block:: yaml\n\n")
-        for line in(parfile_example.split('\n')):
-            file.write("   " + line + "\n")
-        file.write("\n\n")
+class WriterBuffer:
+    def __init__(self):
+        self.parts = []
+
+    def write(self, s):
+        self.parts.append(s)
+
+    def get(self):
+        return "".join(self.parts)
+    
+
+# -------------------------------
+# Utilities
+# -------------------------------
+
+def normalize(node):
+    if "type" in node and isinstance(node["type"], str):
+        node["type"] = node["type"].strip()
 
 
+def render_section_title(out, title, level, base_indent=0):
+    pad = " " * (base_indent * 3)
+    ppad = " " * 3 + pad 
+    out.write(
+        f"{pad}.. container:: custom-param-title\n\n"
+        f"{pad}   {title}\n\n"
+    )
+    out.write("\n")
 
+
+def indent(n):
+    return " " * n
+
+
+# -------------------------------
+# Header
+# -------------------------------
+
+def write_header(out, title, mod):
+
+    # Proper comment
+    out.write(f".. This is the GRACE documentation {title} file\n\n")
+
+    # Cross-ref label
+    out.write(f".. _{mod}-parameters:\n\n")
+
+    # Main title
+    out.write(f"{title}\n")
+    out.write(f"{'*' * len(title)}\n\n")
+
+    # Intro
+    out.write(
+        f"This page contains a full reference of all parameters "
+        f"available for the {mod} module.\n"
+        f"At the bottom of the page you can find an example parameter "
+        f"block that can be used in your parameter file.\n\n"
+    )
+
+
+# -------------------------------
+# Containers
+# -------------------------------
+
+def open_container(out, classname, base_indent=0):
+
+    pad = indent(base_indent*3)
+
+    out.write(f"{pad}.. container:: {classname}\n\n")
+
+
+# -------------------------------
+# Parameter blocks
+# -------------------------------
+
+def write_param_block(out, name, node, level, base=0):
+
+    # Open container
+    open_container(out, "custom-list-table-container", base)
+
+    pad = indent((base + 1) * 3)
+
+    # list-table
+    out.write(f"{pad}.. list-table::\n")
+    out.write(f"{pad}   :class: custom-list-table\n\n")
+
+    def row(key, val):
+        out.write(f"{pad}   * - **{key}:**\n")
+        out.write(f"{pad}     - {val}\n")
+
+    row("Name", f"``{name}``")
+    row("Type", format_type(node.get("type", "")))
+
+    if node.get("default", "") != "":
+        row("Default", format_default(node["default"]))
+
+    if node.get("range", "") != "":
+        row("Range", format_range(node["range"]))
+    elif node.get("allowed", "") != "":
+        flattened = ', '.join(list(node["allowed"]))
+        row("Range", format_range(flattened))
+    
+
+    row("Description", node.get("description", ""))
+
+    out.write("\n")
+
+
+# -------------------------------
+# Renderers
+# -------------------------------
+
+def render_scalar(out, name, node, level, base=0):
+
+    write_param_block(out, name, node, level, base)
+
+
+def render_list(out, name, node, level, base=0):
+
+    # Section header
+    render_section_title(out,name,level,base)
+
+    # Open schema container
+    open_container(out, "schema-block", base)
+
+    
+    #write_section(out, name, level + 1)
+
+    if "description" in node:
+        out.write((base+1)*3*" " + node["description"] + "\n\n")
+
+    render_section(out, None, node["item_schema"], level + 1, base+1)
+
+    out.write("\n")
+
+
+def render_section(out, name, node, level, base_indent=0):
+    # Section header
+    if name is not None: render_section_title(out,name,level,base_indent)
+
+    # Open schema container
+    open_container(out, "schema-block", base_indent)
+
+    pad = indent(3*(1+base_indent))
+
+    def indented_write(text):
+        for line in text.splitlines(True):
+            out.write(pad + line)
+
+    if "description" in node:
+        indented_write(node["description"] + "\n\n")
+
+    for key, child in node.items():
+
+        if key in ("type", "description"):
+            continue
+
+        # Buffer child output safely
+        buf = WriterBuffer()
+
+        render_node(buf, key, child, level + 1, base_indent+1)
+
+        indented_write(buf.get())
+
+    out.write("\n")
+
+def render_node(out, name, node, level=0, base_indent=0):
+
+    normalize(node)
+
+    node_type = node.get("type", "scalar")
+
+    if node_type == "schema":
+        render_section(out, name, node, level, base_indent)
+
+    elif node_type == "list":
+        if node["item_type"] == "node":
+            render_list(out, name, node, level, base_indent)
+        else: 
+            render_scalar(out, name, node, level, base_indent)
+
+    else:
+        render_scalar(out, name, node, level, base_indent)
+
+
+# -------------------------------
+# Main entry
+# -------------------------------
+
+def generate_rst_from_yaml(yaml_file, rst_file, mod):
+
+    with open(yaml_file, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    with open(rst_file, "w", encoding="utf-8") as out:
+
+        write_header(out, mod, mod)
+
+        for name, node in data.items():
+
+            normalize(node)
+
+            render_node(out, name, node, level=0)
+
+
+# -------------------------------
+# TOC replacement
+# -------------------------------
+
+def replace_toctree_block(rst_file, entries):
+
+    content = Path(rst_file).read_text(encoding="utf-8")
+
+    toctree_pattern = re.compile(
+        r"""
+        \.\.\s+toctree::
+        [\s\S]*?
+        (?=\n\S|\Z)
+        """,
+        re.VERBOSE,
+    )
+
+    new_block = (
+        ".. toctree::\n"
+        "   :maxdepth: 1\n"
+        "   :caption: Code Modules\n\n"
+    )
+
+    for entry in entries:
+        new_block += f"   {entry}\n"
+
+    new_block += "\n"
+
+    new_content, n = toctree_pattern.subn(new_block, content, count=1)
+
+    if n == 0:
+        raise RuntimeError("No toctree block found.")
+
+    Path(rst_file).write_text(new_content, encoding="utf-8")
 
 if __name__=="__main__":
-    code_modules = ["system","IO","amr","evolution","burgers","scalar-advection","eos","profiling"]
-    titles = ["System Parameters", "IO Parameters", "AMR Parameters", "Evolution Parameters"
-              , "Burgers Equation Parameters", "Scalar Advection Equation Parameters", "EOS Parameters", "Profiling Parameters"]
-    parfile_examples = [
-        "@GRACE_SOURCE_DIR@/include/grace/system/system-defaults.yaml",
-        "@GRACE_SOURCE_DIR@/include/grace/IO/IO-defaults.yaml",
-        "@GRACE_SOURCE_DIR@/include/grace/amr/amr-defaults.yaml",
-        "@GRACE_SOURCE_DIR@/include/grace/evolution/evolution-defaults.yaml",
-        "@GRACE_SOURCE_DIR@/include/grace/physics/burgers_equation-defaults.yaml",
-        "@GRACE_SOURCE_DIR@/include/grace/physics/scalar_advection-defaults.yaml",
-        "@GRACE_SOURCE_DIR@/include/grace/physics/eos/eos-defaults.yaml",
-        "@GRACE_SOURCE_DIR@/include/grace/profiling/profiling-defaults.yaml"
-    ]
-    for i,mod in enumerate(code_modules):
-        yaml_file = mod+"-params.yaml"
-        rst_file   = "params-" + mod + ".rst"
-        yaml_file = os.path.join('@GRACE_CURRENT_SOURCE_DIR@', yaml_file)
+
+
+    root = Path("@GRACE_SOURCE_DIR@/parameters")
+
+    yaml_files = []
+
+    for path in root.rglob("*.yaml"):
+        yaml_files.append({
+            "path": path,                 # full path (Path object)
+            "name": path.stem             # filename without extension
+        })
+    rst_files = [] 
+    for i,mod in enumerate(yaml_files):
+        rst_file   = "params-" + mod["name"] + ".rst"
+        yaml_file = mod["path"]
         rst_file  = os.path.join('@GRACE_CURRENT_SOURCE_DIR@/userguide', rst_file)
-        with open(parfile_examples[i], "r") as f:
-            parfile_example = f.read()
-        generate_rst_from_yaml(yaml_file, rst_file, titles[i], mod, parfile_example)
+        rst_files.append(Path(rst_file).stem)
+        generate_rst_from_yaml(yaml_file, rst_file, mod["name"])
+
+    replace_toctree_block(os.path.join('@GRACE_CURRENT_SOURCE_DIR@/userguide',"index.rst"),rst_files)

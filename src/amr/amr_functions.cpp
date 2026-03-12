@@ -27,7 +27,6 @@
 
 #include <grace/amr/amr_functions.hh>
 
-#include <grace/data_structures/macros.hh>
 #include <grace/amr/tree.hh>
 #include <grace/amr/connectivity.hh>
 #include <grace/amr/forest.hh> 
@@ -60,7 +59,7 @@ get_local_num_quadrants()
     return grace::amr::forest::get().local_num_quadrants() ; 
 }
 
-size_t 
+int 
 get_quadrant_owner(size_t iquad)
 {
     auto& forest = grace::amr::forest::get() ;
@@ -119,18 +118,6 @@ int64_t
 get_quadrant_locidx(p4est_quadrant_t* quad)
 {
     return get_quadrant_locidx(quadrant_t(quad)) ; 
-}
-
-int 
-get_halo_quad_owner(quadrant_t& quad)
-{
-    return quad.halo_owner_rank() ; 
-};
-
-int 
-get_halo_quad_owner(p4est_quadrant_t* quad)
-{
-    return quadrant_t(quad).halo_owner_rank() ;
 }
 
 int 
