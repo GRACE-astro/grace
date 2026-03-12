@@ -12,7 +12,7 @@ grmhd:
 
   id_type: 
     type: keyword 
-    allowed: ["minkowski_vacuum", "shocktube", "magnetic_rotor", "bondi_flow", "orszag_tang_vortex", "fmtorus", "tov", "blastwave", "gas_cloud","puncture","lorene_bns", "two_punctures"]
+    allowed: ["minkowski_vacuum", "shocktube", "magnetic_rotor", "bondi_flow", "orszag_tang_vortex", "fmtorus", "tov", "blastwave", "gas_cloud","puncture","lorene_bns", "two_punctures", "fuka"]
     default: "minkowski_vacuum"
     description: > 
       Initial data type 
@@ -531,6 +531,51 @@ grmhd:
       description: >
         Recompute eps after initial data?
   
+  fuka:
+    type: schema 
+    description: >
+      fuka initial data
+    id_dir: 
+      type: string 
+      default: ""
+      description: >
+        path to ID directory
+    filename: 
+      type: string
+      default: "" 
+      description: >
+        full name of the info file
+    fuka_id_type: 
+      type: string 
+      default: "" 
+      allowed: ["BH", "BBH", "NS", "BNS", "BHNS"]
+      description: >
+        type of FUKA data
+    set_shift_to_zero_on_import:
+      type: bool 
+      default: true 
+      description: >
+        set the initial shift to zero (recommended) 
+    id_interpolation_offset:
+      type: double 
+      default: 0.0 
+      range: "(*,*)"
+      description: >
+        id_interpolation_offset
+    junk_interp_order:
+      type: int 
+      allowed: [3,5,7,8]
+      range: "(0,*)"
+      default: 8 
+      description: >
+        junk interpolation order inside the BH
+    delta_r_rel:
+      type: double 
+      range: "(0,*)"
+      default: 0.3 
+      description: >
+        delta_r_rel
+                  
   two_punctures:
     type: schema
     description: >

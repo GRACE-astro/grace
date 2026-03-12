@@ -207,7 +207,7 @@ struct bondi_id_t {
 
     }
 
-    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE GRACE_DEVICE_EXTERNAL_LINKAGE
+    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     operator() (VEC(int const i, int const j, int const k), int const q) const 
     {
         grmhd_id_t id ; 

@@ -56,7 +56,7 @@ struct zero_m1_id_t {
     {}
 
     // NB this assumes all optically thin! 
-    m1_id_t KOKKOS_INLINE_FUNCTION GRACE_DEVICE_EXTERNAL_LINKAGE
+    m1_id_t KOKKOS_INLINE_FUNCTION 
     operator() (
         VEC(int const i, int const j, int const k), 
         int const q) const 

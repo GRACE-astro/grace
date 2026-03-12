@@ -613,10 +613,10 @@ void set_grmhd_initial_data() {
         #endif 
     } else if ( id_type == "fuka"){
         #ifdef GRACE_ENABLE_FUKA
-        auto id_type = get_param<std::string>("grmhd","fuka","id_type") ; 
+        auto fuka_id_type = get_param<std::string>("grmhd","fuka","fuka_id_type") ; 
         auto id_dir = get_param<std::string>("grmhd","fuka","id_dir") ; 
         auto fname = get_param<std::string>("grmhd","fuka","filename") ; 
-        set_grmhd_initial_data_impl<eos_t,fuka_id_t<eos_t>>(id_type,id_dir,fname) ; 
+        set_grmhd_initial_data_impl<eos_t,fuka_id_t<eos_t>>(fuka_id_type,id_dir,fname) ; 
         #else 
         ERROR("FUKA id requested but GRACE was not compiled with KADATH support.") ; 
         #endif

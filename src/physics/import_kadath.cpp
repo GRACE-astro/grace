@@ -77,7 +77,7 @@ void import_data(std::vector<std::reference_wrapper<T>>& state_ref, S& exported_
         }
       }
 
-    bool set_shift_to_zero_on_import = grace::get_param<bool>("kadath","set_shift_to_zero_on_import");
+    bool set_shift_to_zero_on_import = grace::get_param<bool>("grmhd","fuka", "set_shift_to_zero_on_import");
     if(set_shift_to_zero_on_import){
         for (int i = 0; i < npoints; ++i) {
             state_ref[i*nfields+K_BETAX].get() = 0.0; 
@@ -107,7 +107,7 @@ void import_data_wmatter(std::vector<std::reference_wrapper<T>>& state_ref, S& e
     }
 
     //const bool set_shift_to_zero_on_import = grace::get_param<const bool>("kadath","set_shift_to_zero_on_import");
-    bool set_shift_to_zero_on_import = grace::get_param<bool>("kadath","set_shift_to_zero_on_import");
+    bool set_shift_to_zero_on_import = grace::get_param<bool>("grmhd","fuka", "set_shift_to_zero_on_import");
     if(set_shift_to_zero_on_import){
         for (int i = 0; i < npoints; ++i) {
           // + 1, then +2 ? 
@@ -141,9 +141,9 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
 
   // legacy serial version 
   #ifdef KADATH_EXPORTERS_SERIAL
-    const double interpolation_offset = grace::get_param<double>("kadath","id_interpolation_offset");
-    const int interp_order = grace::get_param<int>("kadath","junk_interp_order");
-    const double delta_r_rel = grace::get_param<double>("kadath","delta_r_rel");
+    const double interpolation_offset = grace::get_param<double>("grmhd", "fuka", "id_interpolation_offset");
+    const int interp_order = grace::get_param<int>("grmhd", "fuka","junk_interp_order");
+    const double delta_r_rel = grace::get_param<double>("grmhd", "fuka","delta_r_rel");
     if(id_type == "BH") {
     auto exported_vals = std::move(KadathExportBH(npoints, xx.data(), yy.data(), zz.data(),
                          filename.c_str(), interpolation_offset, interp_order, delta_r_rel));
