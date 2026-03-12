@@ -260,6 +260,17 @@ grmhd:
       default: 0.0
       description: >
         Scaling of j with theta 
+    is_magnetized:
+      type: bool 
+      default: false
+      description: > 
+        Add a radial monopole B field? 
+    beta_c:
+      type: double 
+      default: 0.246
+      range: "(0,*)"
+      description: >
+        Plasma beta at rc for B field normalization
 
   vacuum:
     type: schema

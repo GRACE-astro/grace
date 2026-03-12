@@ -59,10 +59,13 @@ struct bondi_params_t {
     double bh_spin; //!< Spin of black hole 
     double t_min  ; //!< Lower bound of temp 
     double t_max  ; //!< Upper bound of temp 
+    double beta_c ; //!< Plasma beta at rc 
+    bool magnetized; //!< Include magnetic field? 
     //! derived qtities 
     double n;
     double uc;
     double Tc;
+    double B0; 
 } ; 
 
 //! Find temperature where residual sign changes 
@@ -168,13 +171,39 @@ struct bondi_id_t {
         par.t_min = get_param<double>("grmhd","bondi_flow","temp_min")   ;
         par.t_max = get_param<double>("grmhd","bondi_flow","temp_max")   ;
 
+        par.magnetized = get_param<bool>("grmhd","bondi_flow","is_magnetized")   ;
+        par.beta_c     = get_param<double>("grmhd","bondi_flow","beta_c")   ;
+
         par.n = 1./(par.gamma-1.) ; 
 
         // Compute temperature and radial 4 velocity at the sonic  
         // point 
         bondi_uc_Tc(par.M, par.rc, par.n, &par.uc, &par.Tc) ; 
+        // NB: We assume:
+        // 1) Schwarzschild 
+        // 2) That u // rhat and B // rhat 
+        if ( par.magnetized ) {
+            double Pc = par.Tc * pow(par.Tc/par.K,par.n) ; // pressure at rc 
+            double smallb2_c = 2. * Pc / par.beta_c ; 
+            // compute W at r_c 
+            // Schwarszschild metric, BL coords 
+            double rho2 = par.rc * par.rc ; 
+            double Delta = rho2 - 2 * par.M * par.rc ; 
+            double grr = rho2 / Delta ; 
+            double gtt = - ( 1. - 2 * par.M / par.rc ) ; 
+            // find u^t 
+            double utc = sqrt((grr * SQR( par.uc)+1)/(-gtt) ) ; 
+            // get Lorentz factor 
+            double Wc = sqrt(1-2*par.M/par.rc) * utc ; 
+            // find B^r (r=r_c)
+            double Brc = Wc * sqrt( smallb2_c / (grr * (1+grr*SQR(par.uc)))) ; 
+            par.B0 = Brc * SQR(par.rc) ; // B^r = B^0/r^2 
+        } else {
+            par.B0 = 0.0 ; 
+        }
+        
         GRACE_INFO("Into Bondi initial data, solving on radial grid.") ; 
-        GRACE_INFO("Setup: r_c: {} T_c: {} u_c: {}", par.rc, par.Tc, par.uc) ; 
+        GRACE_INFO("Setup: r_c: {} T_c: {} u_c: {} B0: {}", par.rc, par.Tc, par.uc, par.B0) ; 
 
     }
 
@@ -206,9 +235,6 @@ struct bondi_id_t {
         bondi_ur_rho_p__r(
             par.rc,par.n,par.K,T,r,par.Tc,par.uc,&(uBL[1]),&id.rho,&id.press
         ) ; 
-        
-        // for now no B field 
-        id.bx = id.by = id.bz = 0.0;
         
         // four metric 
         double g4dd[4][4], g4uu[4][4] ; 
@@ -250,12 +276,22 @@ struct bondi_id_t {
         id.vy = uKS[2]/(id.alp * uKS[0]) + id.betay/id.alp ; 
         id.vz = uKS[3]/(id.alp * uKS[0]) + id.betaz/id.alp ; 
 
+        // B = B0/r^2 \hat{r}
+        double Br = par.B0 / r / r ; 
+        
+        double sqrtg = Kokkos::sqrt(
+            id.gxx * id.gyy * id.gzz - id.gxx * SQR(id.gyz) - SQR(id.gxy) * id.gzz + 2 * id.gxy * id.gxz * id.gyz - SQR(id.gxz) * id.gyy
+        );
+        id.bx = Br * xyz[0]/r/sqrtg ; 
+        id.by = Br * xyz[1]/r/sqrtg ; 
+        id.bz = Br * xyz[2]/r/sqrtg ;
+
         // ye
         id.ye = 0.0 ; 
 
         if ( excision_params.excise_by_radius and r <= ( 1e-12 + r_exc ) ) {
             id.rho = excision_params.rho_ex ; 
-            id.bx = id.by = id.bz = 0.0;
+            //id.bx = id.by = id.bz = 0.0;
             id.vx = id.vy = id.vz = 0.0;
             double temp = excision_params.temp_ex ; 
             unsigned int eoserr ; 
