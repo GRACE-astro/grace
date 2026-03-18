@@ -50,7 +50,6 @@ namespace grace {
  */
 class piecewise_polytropic_eos_t
 {
-    using error_type = unsigned int ; 
  public:
     static constexpr unsigned int max_n_pieces = 8 ; 
 
@@ -70,32 +69,31 @@ class piecewise_polytropic_eos_t
     {} 
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    press_cold_eps_cold__rho(double& eps_cold, double& rho, error_type& err) const 
+    press_cold_eps_cold__rho(double& eps_cold, double& rho) const 
     {
-        auto idx = find_index_rho(rho, err) ; 
+        auto idx = find_index_rho(rho) ; 
         double const press_cold = _k(idx) * Kokkos::pow(rho, _gamma(idx)) ; 
         eps_cold = _eps(idx) + press_cold / (rho*(_gamma(idx)-1.)) ;
         return press_cold ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    dpress_cold_drho__rho(double& rho, error_type& err) const {
-        auto idx = find_index_rho(rho, err) ; 
+    dpress_cold_drho__rho(double& rho) const {
+        auto idx = find_index_rho(rho) ; 
         auto press_cold = _k(idx) * Kokkos::pow(rho, _gamma(idx)) ; 
         return _gamma(idx) * press_cold / rho ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    rho__press_cold(double & press, error_type& err) const {
-        unsigned int idx = find_index_press(press, err) ; 
+    rho__press_cold(double & press) const {
+        unsigned int idx = find_index_press(press) ; 
         return Kokkos::pow(press/_k(idx), 1./_gamma(idx)) ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    rho__energy_cold(double & e, error_type& err) const {
+    rho__energy_cold(double & e) const {
         auto func = [=,this] (double rho, double& f, double& df) {
-            error_type errl ; 
-            unsigned int idx = find_index_rho(rho,errl) ; 
+            unsigned int idx = find_index_rho(rho) ; 
             double g = _gamma(idx) ; 
             double K = _k(idx) ; 
             double ei = rho * ( 1. + _eps(idx) ) ; 
@@ -111,16 +109,15 @@ class piecewise_polytropic_eos_t
             0.0, e, func, 30, 1e-15, rerr
         ) ; 
         if ( rerr != 0 ) {
-            err = 1 ;
             return _rho(0) ; 
         }
         return rho ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    energy_cold__press_cold(double & press, error_type& err) const {
+    energy_cold__press_cold(double & press) const {
         if(press<=0) return 0.0;
-        unsigned int idx = find_index_press(press, err) ; 
+        unsigned int idx = find_index_press(press) ; 
         double const rho =  Kokkos::pow(press/_k(idx), 1./_gamma(idx));
         return rho + rho * _eps(idx) + press/(_gamma(idx)-1.) ; 
     }
@@ -137,9 +134,7 @@ class piecewise_polytropic_eos_t
     unsigned int num_pieces ; 
 
     unsigned int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    find_index_rho(double& rho, error_type& err) const {
-        err = rho < eos_rhomin ? 1 : 0; 
-        err = rho > eos_rhomax ? 2 : 0; 
+    find_index_rho(double& rho) const {
 
         rho = fmax(eos_rhomin, fmin(eos_rhomax, rho)) ; 
         for( int ii=0; ii<num_pieces-1; ++ii) {
@@ -152,13 +147,11 @@ class piecewise_polytropic_eos_t
     } 
 
     unsigned int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    find_index_press(double& press, error_type& err) const {
+    find_index_press(double& press) const {
         if( press < _press(0) ) {
             press = _press(0) ; 
-            err = 1 ; 
             return 0 ; 
         }
-
         
         for( int ii=0; ii<num_pieces-1; ++ii) {
             if( press > _press(ii) and press <= _press(ii+1)) {
@@ -170,16 +163,14 @@ class piecewise_polytropic_eos_t
     } 
 
     unsigned int GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    find_index_ener(double& e, error_type& err) const {
+    find_index_ener(double& e) const {
         double emin = _rho(0) * (1.0 + _eps(0));
         double emax = _rho(num_pieces-1) * (1.0 + _eps(num_pieces-1));
         if( e < emin ) {
             e = emin ; 
-            err = 1 ; 
             return 0 ; 
         } else if ( e > emax ) {
             e = emax ; 
-            err = 2 ; 
             return num_pieces-1;
         }
 
@@ -192,10 +183,8 @@ class piecewise_polytropic_eos_t
         return num_pieces-1 ;
     } 
 
- public:
-    double eos_rhomin ; 
-    double eos_rhomax ; 
-
+    public:
+    double eos_rhomin, eos_rhomax ; 
 
 } ; 
 

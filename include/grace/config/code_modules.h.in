@@ -54,6 +54,7 @@ const std::vector< std::string > code_modules {
     , "coordinate_system"
     , "spherical_surfaces"
     , "bh_diagnostics"
+    , "outflows"
     #ifdef GRACE_ENABLE_Z4C_METRIC
     , "gw_integrals"
     , "puncture_tracker"
@@ -79,6 +80,7 @@ const std::vector< std::string > code_modules_default_configs {
      , "${CMAKE_SOURCE_DIR}/parameters/coordinate_system.yaml"
      , "${CMAKE_SOURCE_DIR}/parameters/spherical_surfaces.yaml"
      , "${CMAKE_SOURCE_DIR}/parameters/bh_diagnostics.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/outflows.yaml"
      #ifdef GRACE_ENABLE_Z4C_METRIC
      , "${CMAKE_SOURCE_DIR}/parameters/gw_integrals.yaml"
      , "${CMAKE_SOURCE_DIR}/parameters/puncture_tracker.yaml"

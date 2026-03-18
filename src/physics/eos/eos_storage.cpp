@@ -38,7 +38,10 @@
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
 #include <grace/physics/eos/physical_constants.hh> //! Todo 
 
+#include <grace/physics/grmhd_helpers.hh>
+
 #include <grace/physics/eos/eos_storage.hh>
+#include <grace/physics/eos/read_eos_table.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -164,21 +167,34 @@ eos_storage_t::eos_storage_t() {
 
             auto _pwpoly = setup_cold_politrope() ; 
 
+            double temp_floor = get_param<double>("grmhd", "atmosphere", "temp_fl") ; 
+            double rho_floor = get_param<double>("grmhd", "atmosphere", "rho_fl") ; 
+
+            double eps_min_c ; 
+            double p_min_c   = _pwpoly.press_cold_eps_cold__rho(eps_min_c,rho_floor) ; 
+
+            double eps_min_th = temp_floor / (gamma_th-1.) ; 
+            double p_min_th   = (gamma_th-1.) * rho_floor * eps_min_th ; 
+
+            double const h_min = 1. + eps_min_th + eps_min_c + (p_min_c+p_min_th)/rho_floor ; 
+
             _hybrid_pwpoly = hybrid_eos_t<piecewise_polytropic_eos_t>{
                   _pwpoly 
                 , gamma_th - 1. 
                 , c2p_entropy_min
+                , h_min
                 , grace::physical_constants::mnuc_CGS
                 , c2p_eps_max 
+                , temp_floor
             } ; 
 
         } else {
             ERROR("Unsupported cold_eos_type.") ; 
         }
-    } else if ( eos_type == "ideal_gas" ) {
-        ERROR("Unsupported eos_type") ; 
+    } else if ( eos_type == "tabulated") {
+        _tabulated = read_eos_table() ; 
     } else {
-        ERROR("Unsupported eos_type") ; 
+         ERROR("Unsupported eos_type") ; 
     }
 
 }

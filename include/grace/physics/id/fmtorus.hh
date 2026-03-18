@@ -79,7 +79,7 @@ struct fmtorus_id_t {
         double pert_amp
     )
         : \
-        eos(eos_), _pcoords(pcoords_), 
+        _eos(eos_), _pcoords(pcoords_), 
         params(_params),
         rand_pool64(Kokkos::Random_XorShift64_Pool<>(1234)),
         pert_amp(pert_amp)
@@ -248,11 +248,18 @@ struct fmtorus_id_t {
         }
 
         id.ye = 0 ; 
+
+        double h,cs2; 
+        eos_err_t eoserr ; 
+        id.eps = _eos.eps_h_csnd2_temp_entropy__press_rho_ye(
+            h,cs2,id.temp,id.entropy,id.press,id.rho,id.ye,eoserr 
+        ) ;
+        
         return id ;
     }
 
     // arguments to the constructor: 
-    eos_t   eos         ;                            //!< Equation of state object 
+    eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
     /*============================================================*/
     torus_params_t params ; 

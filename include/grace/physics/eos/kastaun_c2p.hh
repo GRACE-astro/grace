@@ -111,7 +111,7 @@ namespace grace {
     void KOKKOS_INLINE_FUNCTION
     get_eps_range(double& epsmin, double& epsmax, double rho) const {
       double yel{ye} ;
-      unsigned int eos_err ;
+      eos_err_t eos_err ;
       double rhol{rho} ; 
       eos.eps_range__rho_ye(epsmin,epsmax,rhol,yel,eos_err);
     }
@@ -119,7 +119,6 @@ namespace grace {
     double KOKKOS_INLINE_FUNCTION
     operator() (double mu) 
     {
-      err = C2P_SUCCESS ; 
       lmu                = mu ; 
       x                  = x__mu(mu) ;
       const double rfsqr = rfsqr__mu_x(mu,x) ; 
@@ -129,7 +128,7 @@ namespace grace {
       if ( vsqr > vsqrmax ) {
         vsqr = vsqrmax ; 
         w    = wmax    ; 
-        err = C2P_VEL_TOO_HIGH ; 
+        err.set(c2p_sig_enum_t::C2P_VEL_TOO_HIGH) ; 
       } else {
         w = 1/sqrt(1-vsqr) ; 
       }
@@ -138,10 +137,10 @@ namespace grace {
       double const rhomin = eos.density_minimum();
       rho = d/w ; 
       if ( rho >= rhomax ) {
-        err = C2P_RHO_TOO_HIGH ; 
+        err.set(c2p_sig_enum_t::C2P_RHO_TOO_HIGH) ; 
         rho = rhomax ; 
       } else if ( rho <= rhomin ) {
-        err = C2P_RHO_TOO_LOW ; 
+        err.set(c2p_sig_enum_t::C2P_RHO_TOO_LOW) ; 
         rho = rhomin ; 
       } 
 
@@ -149,18 +148,27 @@ namespace grace {
       double epsmin, epsmax ;  
       get_eps_range(epsmin,epsmax,rho) ;
       if ( eps >= epsmax ) {
-        err = C2P_EPS_TOO_HIGH ; 
+        err.set(c2p_sig_enum_t::C2P_EPS_TOO_HIGH); 
         eps = epsmax * 0.999; 
-      } else if ( eps <= epsmin ) {
-        err = C2P_EPS_TOO_LOW ; 
+      } else if ( eps < epsmin ) {
+        err.set(c2p_sig_enum_t::C2P_EPS_TOO_LOW) ; 
         eps = epsmin; 
       }
 
       double hh,csnd2 ; 
-      unsigned int eos_err ; 
+      // rho and eps are always in bound here 
+      // ye may be out of bounds, so we check
+      eos_err_t eos_err ; 
       press = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
         hh,csnd2,temp,ent,eps,rho,ye,eos_err
       ) ; 
+      
+      if (eos_err.test(EOS_ERROR_T::EOS_YE_TOO_LOW)) {
+        err.set(C2P_YE_TOO_LOW) ; 
+      }   
+      if (eos_err.test(EOS_ERROR_T::EOS_YE_TOO_HIGH)) {
+        err.set(C2P_YE_TOO_HIGH) ; 
+      }
 
       double const a = press/(rho*(1+eps)) ; 
       double const h = (1+eps) * (1+a) ; 
@@ -244,7 +252,6 @@ namespace grace {
 
       // initial bracket 
       double mu0 = 1/h0 ; 
-      #if 1
       if ( r2 >= h0*h0 ) {
         fbrack_t g(r2,Btilde2,r_dot_Btilde2,h0) ; 
         double mu0_min, mu0_max ; 
@@ -257,7 +264,6 @@ namespace grace {
           mu0 = 1.0/h0 ;
         }
       }
-      #endif 
 
       froot_t fmu(eos,D,q,r2,r_dot_Btilde2,Btilde2,ye,h0) ; 
       double mu = utils::brent(fmu, 0, mu0, tolerance) ; 
@@ -274,6 +280,8 @@ namespace grace {
       prims[BYL]    = B[1] ; 
       prims[BZL]    = B[2] ; 
 
+      // copy the signals so the caller
+      // can handle them 
       c2p_errors = fmu.err ; 
 
       double x = fmu.x; 

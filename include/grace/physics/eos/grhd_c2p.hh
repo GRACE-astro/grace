@@ -97,7 +97,6 @@ struct grhd_c2p_t {
      */
     double  GRACE_HOST_DEVICE
     invert(grmhd_prims_array_t& prims, c2p_sig_t& c2p_errors) {
-        c2p_errors = C2P_SUCCESS ; 
         auto const func = [&] (double const& zeta) {
             return zeta - r / htilde(zeta) ; 
         } ; 
@@ -110,14 +109,14 @@ struct grhd_c2p_t {
         prims[YEL]  = ye ;
         /* Enforce range on eps tilde */
         double epsmin, epsmax; 
-        unsigned int err ;
+        eos_err_t err ;
         eos.eps_range__rho_ye(epsmin,epsmax,prims[RHOL],prims[YEL],err) ; 
         double eps = epstilde(W,zeta) ; 
         if ( eps > epsmax ) {
-            c2p_errors  = C2P_EPS_TOO_HIGH ; 
+            c2p_errors.set(C2P_EPS_TOO_HIGH) ; 
             eps = 0.999 * epsmax ; 
         } else if ( eps < epsmin ) {
-            c2p_errors  = C2P_EPS_TOO_LOW ; 
+            c2p_errors.set(C2P_EPS_TOO_LOW) ; 
             eps = epsmin ; 
         }
         prims[EPSL]   = eps ;  

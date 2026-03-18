@@ -22,7 +22,7 @@ namespace grace {
 
     KOKKOS_FUNCTION ent_froot_t(
       eos_t _eos, double _d, double _rsqr, double _rbsqr, double _bsqr, double _s, double _ye, double h0
-    ) : eos(_eos), d(_d), s(_s), ye(_ye), rsqr(_rsqr), bsqr(_bsqr), rbsqr(_rbsqr), brosqr(_rsqr*_bsqr-_rbsqr)
+    ) : eos(_eos), d(_d), s(_s), ye(_ye), rsqr(_rsqr), bsqr(_bsqr), rbsqr(_rbsqr)
     {
       double zsqrmax = rsqr/(h0*h0) ; 
       double wsqrmax = 1 + zsqrmax ; 
@@ -43,7 +43,7 @@ namespace grace {
     double KOKKOS_INLINE_FUNCTION
     operator() (double mu) 
     {
-      err = C2P_SUCCESS ; 
+      err.reset() ; // fixme? 
       lmu                = mu ; 
       x                  = x__mu(mu) ;
       const double rfsqr = rfsqr__mu_x(mu,x) ; 
@@ -52,7 +52,7 @@ namespace grace {
       if ( vsqr > vsqrmax ) {
         vsqr = vsqrmax ; 
         w    = wmax    ; 
-        err = C2P_VEL_TOO_HIGH ; 
+        err.set(c2p_sig_enum_t::C2P_VEL_TOO_HIGH) ; 
       } else {
         w = 1/sqrt(1-vsqr) ; 
       }
@@ -61,18 +61,32 @@ namespace grace {
       double const rhomin = eos.density_minimum();
       rho = d/w ; 
       if ( rho >= rhomax ) {
-        err = C2P_RHO_TOO_HIGH ; 
+        err.set(c2p_sig_enum_t::C2P_RHO_TOO_HIGH) ; 
         rho = rhomax ; 
       } else if ( rho <= rhomin ) {
-        err = C2P_RHO_TOO_LOW ; 
+        err.set(c2p_sig_enum_t::C2P_RHO_TOO_LOW) ; 
         rho = rhomin ; 
       } 
 
       double hh,csnd2 ; 
-      unsigned int err ; 
+      eos_err_t eos_err ; 
       press = eos.press_h_csnd2_temp_eps__entropy_rho_ye(
-        hh,csnd2,temp,eps,s,rho,ye,err
+        hh,csnd2,temp,eps,s,rho,ye,eos_err
       ) ; 
+      // handle errors, rho always in bound, need to 
+      // check entropy and ye 
+      if (eos_err.test(EOS_ERROR_T::EOS_YE_TOO_LOW)) {
+        err.set(C2P_YE_TOO_LOW) ; 
+      }   
+      if (eos_err.test(EOS_ERROR_T::EOS_YE_TOO_HIGH)) {
+        err.set(C2P_YE_TOO_HIGH) ; 
+      }
+      if (eos_err.test(EOS_ERROR_T::EOS_ENTROPY_TOO_LOW)) {
+        err.set(C2P_ENT_TOO_LOW) ;
+      }   
+      if (eos_err.test(EOS_ERROR_T::EOS_ENTROPY_TOO_HIGH)) {
+        err.set(C2P_ENT_TOO_HIGH) ; 
+      }
 
       double const a = press/(rho*(1+eps)) ; 
       double const h = (1+eps) * (1+a) ; 
@@ -88,7 +102,7 @@ namespace grace {
 
     double d, s, ye ; 
 
-    double rsqr, bsqr, rbsqr, brosqr, h0sqr; 
+    double rsqr, bsqr, rbsqr ; 
 
     double lmu, x, rho, w, eps, press, temp, vsqr; 
 
@@ -155,9 +169,8 @@ namespace grace {
       static constexpr double tolerance = 1e-15 ; 
 
       // initial bracket 
-      #if 1
       double mu0 = 1/h0 ; 
-      if ( r2 >= h0 ) {
+      if ( r2 >= h0*h0 ) {
         fbrack_t g(r2,Btilde2,r_dot_Btilde2,h0) ; 
         int err ; 
         mu0 = utils::rootfind_newton_raphson(0,1./h0,g,30,1e-10,err) ; 
@@ -167,7 +180,6 @@ namespace grace {
           mu0 = utils::brent(g,0,1./h0,tolerance)*(1+1e-10) ;
         }
       }
-      #endif 
 
       ent_froot_t fmu(eos,D,r2,r_dot_Btilde2,Btilde2,s,ye,h0) ; 
       double mu = utils::brent(fmu, 0, mu0, tolerance) ; 
@@ -190,7 +202,7 @@ namespace grace {
       for( int ii=0; ii<3; ++ii) 
         prims[ZXL+ii] = W * mu * x * ( r[ii] + mu * r_dot_Btilde * Btilde[ii] ) ;  
       
-      return SQR(W) * fabs(residual) / (1e-50 + mu) ; 
+      return fabs(residual) ; 
     }
     
   private:

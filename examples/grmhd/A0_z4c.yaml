@@ -3,21 +3,21 @@ amr: {
   npoints_block_x: 48,
   npoints_block_y: 48,
   npoints_block_z: 48,
-  xmin: -128.0,
+  xmin: 0.0,
   xmax: 128.0,
-  ymin: -128.0,
+  ymin: 0.0,
   ymax: 128.0,
-  zmin: -128.0,
+  zmin: 0.0,
   zmax: 128.0,
 
   reflection_symmetries: {
-    x: false,
-    y: false,
-    z: false
+    x: true,
+    y: true,
+    z: true
   }, 
 
   n_ghostzones: 4,
-  initial_refinement_level: 2,
+  initial_refinement_level: 1,
 
   max_refinement_level: 7,
 
@@ -27,36 +27,36 @@ amr: {
   fmr_boxes: [
     {
       target_level_delta: 1,
-      x_min: -64,
+      x_min: 0,
       x_max: 64,
-      y_min: -64,
+      y_min: 0,
       y_max: 64,
-      z_min: -64,
+      z_min: 0,
       z_max: 64
     },
     {
       target_level_delta: 2,
-      x_min: -32,
+      x_min: 0,
       x_max: 32,
-      y_min: -32,
+      y_min: 0,
       y_max: 32,
-      z_min: -32,
+      z_min: 0,
       z_max: 32
     },
     {
       target_level_delta: 3,
-      x_min: -16,
+      x_min: 0,
       x_max: 16,
-      y_min: -16,
+      y_min: 0,
       y_max: 16,
-      z_min: -16,
+      z_min: 0,
       z_max: 16
     }
   ]
 }
 
 IO: {
-  plane_surface_output_cell_variables: ["rho","alp","z4c_H", "z4c_M[0]", "beta[0]", "z4c_Khat", "gamma_tilde[0,0]", "gamma_tilde[0,1]", "gamma_tilde[0,2]", "gamma_tilde[1,1]", "gamma_tilde[1,2]", "gamma_tilde[2,2]", "z4c_theta", "conf_fact", "z4c_Gamma[0]","A_tilde[0,0]","A_tilde[0,1]","zvec[0]","c2p_err","Bvec[0]","Bdiv"],
+  plane_surface_output_cell_variables: ["hydro", "metric"],
   plane_surface_output_every: 500,
 
   sphere_surface_output_every: -1,
@@ -69,7 +69,7 @@ IO: {
   scalar_output_every: 10,
   scalar_output_minmax: ["rho","press","eps","alp"],
   scalar_output_norm2: ["z4c_H"],
-  scalar_output_integral: [],
+  scalar_output_integral: ["dens"],
 
   output_use_hdf5: true,
   hdf5_compression_level: 0,
@@ -87,8 +87,8 @@ system: {
   n_device_streams: 4
 }
 evolution: {
-  time_stepper: "rk4",
-  cfl_factor: 0.4,
+  time_stepper: "rk3",
+  cfl_factor: 0.25,
   final_walltime: 23,
   termination_condition: "walltime"
 }
@@ -103,7 +103,7 @@ grmhd: {
   },
 
   atmosphere: {
-    temp_fl:  1e-10,
+    temp_fl:  0.0,
     rho_fl: 1.e-14
   },
 

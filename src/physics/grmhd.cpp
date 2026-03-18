@@ -217,8 +217,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
     auto& stag_state = grace::variable_list::get().getstaggeredstate() ; 
     auto& aux   = grace::variable_list::get().getaux()   ; 
 
-    auto const& _eos = eos::get().get_eos<eos_t>() ; 
-
+    auto const& _eos = eos::get().get_eos<eos_t>() ;   
     id_t id_kernel{ _eos, pcoords, kernel_args... } ; 
     Kokkos::fence() ; 
     GRACE_TRACE("Setting initial data");
@@ -257,7 +256,7 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     #elif defined(GRACE_ENABLE_BSSN_METRIC)
                     adm_to_bssn(id,state,VEC(i,j,k),q);
                     #endif
-
+                    // set z = W v^i = u^i + beta^i / alpha 
                     auto const v2 = id.gxx * id.vx * id.vx +
                                     id.gyy * id.vy * id.vy +
                                     id.gzz * id.vz * id.vz +
@@ -271,19 +270,15 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     aux(VEC(i,j,k),ZVECX_,q)  = w * id.vx ; 
                     aux(VEC(i,j,k),ZVECY_,q)  = w * id.vy ; 
                     aux(VEC(i,j,k),ZVECZ_,q)  = w * id.vz ; 
-
+                    // set ye 
                     aux(VEC(i,j,k),YE_,q) = id.ye ; 
-                    
-                    double h, csnd2; 
-                    unsigned int err ;
+       
                     /* Set eps temp and entropy */
-                    aux(VEC(i,j,k),EPS_,q) = 
-                        _eos.eps_h_csnd2_temp_entropy__press_rho_ye( h, csnd2, aux(VEC(i,j,k),TEMP_,q)
-                                                                   , aux(VEC(i,j,k),ENTROPY_,q)
-                                                                   , aux(VEC(i,j,k),PRESS_,q)
-                                                                   , aux(VEC(i,j,k),RHO_,q)
-                                                                   , aux(VEC(i,j,k),YE_,q)
-                                                                   ,err);                    
+                    aux(VEC(i,j,k),EPS_,q) = id.eps ; 
+                    aux(VEC(i,j,k),ENTROPY_,q) = id.entropy ; 
+                    aux(VEC(i,j,k),PRESS_,q) = id.press ; 
+                    aux(VEC(i,j,k),TEMP_,q) = id.temp ; 
+
                     /* Set B field */
                     aux(VEC(i,j,k),BX_,q) = id.bx ;
                     aux(VEC(i,j,k),BY_,q) = id.by ;
@@ -580,8 +575,9 @@ void set_grmhd_initial_data() {
         torus.pgas_pow = press_pow ;
 
         torus.lapse_excision = lapse_min ; 
-        torus.rho_excise = grace::get_param<double>("grmhd","excision","rho_excision") ;
-        double const temp_excise = grace::get_param<double>("grmhd","excision","temp_excision") ; 
+        auto atmo_pars = get_atmo_params() ; 
+        torus.rho_excise = atmo_pars.rho_fl ; 
+        double const temp_excise = atmo_pars.temp_fl ; 
         torus.pgas_excise  =  temp_excise * torus.rho_excise ; 
 
         double pert = pars["perturbation_amplitude"].as<double>() ; 
@@ -723,5 +719,6 @@ template                                                                \
 void set_grmhd_initial_data<EOS>( )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 }

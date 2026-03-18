@@ -4,4 +4,4 @@ register_grace_object(grace_c2p c2p.cpp)
 #    -fno-unsafe-math-optimizations
 #    -ffp-model=strict
 #)
-register_grace_object(grace_eos eos_storage.cpp)
+register_grace_object(grace_eos eos_storage.cpp read_eos_table.cpp)

@@ -139,5 +139,11 @@ namespace grace {
 
 #define SQR(a) ((a)*(a))
 
+#ifdef GRACE_ENABLE_M1
+#define GRACE_N_M1_VARS 5
+#define GRACE_N_M1_AUX 5 
+#endif
+
+
 }
 #endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

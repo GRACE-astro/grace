@@ -24,7 +24,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-
+#ifndef GRACE_PHYS_CONSTANTS_HH
+#define GRACE_PHYS_CONSTANTS_HH
 namespace grace { namespace physical_constants {
 
 /*
@@ -106,6 +107,11 @@ me_cgs = me_MeV * MeV_to_g
 */
 #define CONSTDEF(x,y) static constexpr double x = y 
 
+CONSTDEF(clight_si,299792458);
+CONSTDEF(Msun_si,1.988475e30);
+CONSTDEF(G_si,6.67430e-11);
+
+
 CONSTDEF(clight,29979245800);
 CONSTDEF(h_eVs,6.582119569e-16);
 CONSTDEF(k_evKm1,8.617333262e-5);
@@ -118,6 +124,7 @@ CONSTDEF(G_cgs,6.67430e-8);
 CONSTDEF(me_KeV,510.99895069);
 CONSTDEF(me_MeV,0.51099895069);
 CONSTDEF(mp_MeV,938.27208943 );
+CONSTDEF(mn_MeV,939.56542194 );
 CONSTDEF(J_to_erg,1e07 ); 
 
 
@@ -129,6 +136,10 @@ CONSTDEF(erg_to_eV, 1./eV_to_erg);
 CONSTDEF(erg_to_keV,erg_to_eV * 1e-3);
 CONSTDEF(eV_to_g,eV_to_erg/SQR(clight));
 CONSTDEF(MeV_to_g,eV_to_g * 1e6);
+CONSTDEF(MeV_to_erg,1/erg_to_eV * 1e6);
+CONSTDEF(cm_to_fm, 1e+13) ; 
+CONSTDEF(cm3_to_fm3, cm_to_fm * cm_to_fm * cm_to_fm);
+
 
 CONSTDEF(k_cgs,k_evKm1 * eV_to_erg);
 CONSTDEF(h_cgs,h_eVs * eV_to_erg);
@@ -138,3 +149,5 @@ CONSTDEF(mnuc_CGS, mp_cgs) ;
 
 CONSTDEF(sigma_T,  6.6524587051e-25);
 } } /* namespace grace::physical_constants */
+
+#endif 

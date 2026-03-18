@@ -63,7 +63,7 @@ void find_stable_timestep() {
             ERROR("Not implemented yet.") ;
         }
     } else if ( eos_type == "tabulated" ) {
-        ERROR("Not implemented yet.") ; 
+        find_stable_timestep_impl<grace::tabulated_eos_t>() ; 
     }
     GRACE_VERBOSE("New timestep {}", grace::get_timestep()) ; 
 }
@@ -148,5 +148,6 @@ void find_stable_timestep_impl() {
 template                              \
 void find_stable_timestep_impl<EOS>()
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 }

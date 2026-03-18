@@ -76,12 +76,12 @@ using m1_cons_array_t = std::array<double,N_M1_VARS> ;
 
 using m1_eas_array_t = std::array<double,N_M1_EAS> ; 
 
-#define FILL_M1_PRIMS_ARRAY(primsarr,vview,aview,q,...)\
-primsarr[ERADL] = vview(__VA_ARGS__,ERAD_,q);          \
-primsarr[NRADL] = vview(__VA_ARGS__,NRAD_,q);          \
-primsarr[FXL] = vview(__VA_ARGS__,FRADX_,q) ;          \
-primsarr[FYL] = vview(__VA_ARGS__,FRADY_,q) ;          \
-primsarr[FZL] = vview(__VA_ARGS__,FRADZ_,q) ;          \
+#define FILL_M1_PRIMS_ARRAY(primsarr,vview,aview,q,ispec,...)\
+primsarr[ERADL] = vview(__VA_ARGS__,ERAD_+ispec*GRACE_N_M1_VARS,q);          \
+primsarr[NRADL] = vview(__VA_ARGS__,NRAD_+ispec*GRACE_N_M1_VARS,q);          \
+primsarr[FXL] = vview(__VA_ARGS__,FRADX_+ispec*GRACE_N_M1_VARS,q) ;          \
+primsarr[FYL] = vview(__VA_ARGS__,FRADY_+ispec*GRACE_N_M1_VARS,q) ;          \
+primsarr[FZL] = vview(__VA_ARGS__,FRADZ_+ispec*GRACE_N_M1_VARS,q) ;          \
 primsarr[ZXL] = aview(__VA_ARGS__,ZVECX_,q) ;          \
 primsarr[ZYL] = aview(__VA_ARGS__,ZVECY_,q) ;          \
 primsarr[ZZL] = aview(__VA_ARGS__,ZVECZ_,q) 

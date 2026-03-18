@@ -192,12 +192,14 @@ struct photon_eas_op {
         // 2 *( k_cgs *T )**4 * np.pi**4 / ( 15 * clight**2 * h_cgs**3)
         double BB = 2 * SQR(M_PI*T)*SQR(M_PI*T) / ( 15. * SQR(clight) * SQR(h_cgs) * h_cgs) ; 
         // Planck mean opacity
-        double kappa_cgs = eta_cgs / BB ; 
+        double kappa_cgs = eta_cgs / BB ;
+        double kappa_r_cgs =  1.7e-25 * Kokkos::pow(T,-7./2.) * ;
 
         double BBn = 4 * SQR(T)*T / (SQR(clight)*SQR(h_cgs)*h_cgs) * 1.20206 ; // numerical factor is Zeta(3)
 
         aux(i,j,k,ETA_,q)    = eta_cgs  / Msun_to_erg * SQR(Msun_to_cm)*Msun_to_cm * Msun_to_s * SQR(mass_scale) * mass_scale ;
         aux(i,j,k,KAPPAA_,q) = kappa_cgs * Msun_to_cm * mass_scale ;
+        aux(i,j,k,KAPPAR_,q) =  // Rosseland mean 
         // Number rates 
         // The integral over frequency is IR divergence, we cutoff at the plasma frequency 
         // and plop the result (~log(h nu_min/(kT))) into the Gaunt factor 

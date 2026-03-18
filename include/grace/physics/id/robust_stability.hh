@@ -36,6 +36,9 @@ struct robust_stability_id_t {
         grmhd_id_t id ; 
         id.rho     = 0.0 ; 
         id.press   = 0.0   ;
+        id.eps = 0.0 ; 
+        id.temp = 0.0 ;
+        id.entropy = 0.0 ; 
         id.bx = 0.0 ;
         id.by = 0.0 ;
         id.bz = 0.0 ;

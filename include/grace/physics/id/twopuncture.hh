@@ -164,6 +164,9 @@ struct two_punctures_id_t {
         grmhd_id_t id ; 
 
         id.rho = id.press = 0.0 ; 
+        id.eps = 0.0 ; 
+        id.temp = 0.0 ;
+        id.entropy = 0.0 ; 
         id.vx = id.vy = id.vz = 0.0 ; 
         id.bx = id.by = id.bz = 0.0 ; 
 

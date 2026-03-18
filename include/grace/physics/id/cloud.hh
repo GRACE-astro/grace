@@ -88,8 +88,12 @@ struct cloud_id_t {
         id.gxy = 0; id.gxz = 0; id.gyz = 0 ;
         id.kxx = 0; id.kyy = 0; id.kzz = 0 ;
         id.kxy = 0; id.kxz =0 ; id.kyz = 0 ; 
-        unsigned int err ; 
+        eos_err_t err ; 
         id.ye  = _eos.ye_cold__press(id.press, err);
+        double h,cs2; 
+        id.eps = _eos.eps_h_csnd2_temp_entropy__press_rho_ye(
+            h,cs2,id.temp,id.entropy,id.press,id.rho,id.ye,err 
+        ) ;
         return std::move(id) ; 
     }
 

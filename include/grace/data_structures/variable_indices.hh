@@ -173,6 +173,18 @@ enum evol_hrsc_var_cc_idx : int {
     FRADX_,
     FRADY_,
     FRADZ_,
+    #ifdef M1_NU_THREESPECIES
+    ERAD1_,
+    NRAD1_,
+    FRADX1_,
+    FRADY1_,
+    FRADZ1_,
+    ERAD2_,
+    NRAD2_,
+    FRADX2_,
+    FRADY2_,
+    FRADZ2_,
+    #endif 
     #endif 
     N_HRSC_CC
 } ; 
@@ -279,6 +291,18 @@ enum aux_var_idx : int {
     ETA_,
     ETAN_,
     KAPPAAN_,
+    #ifdef M1_NU_THREESPECIES
+    KAPPAA1_,
+    KAPPAS1_,
+    ETA1_,
+    ETAN1_,
+    KAPPAAN1_,
+    KAPPAA2_,
+    KAPPAS2_,
+    ETA2_,
+    ETAN2_,
+    KAPPAAN2_,
+    #endif
     #endif
     #ifdef GRACE_ENABLE_Z4C_METRIC
     PSI4RE_,

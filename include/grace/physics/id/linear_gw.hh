@@ -33,6 +33,9 @@ struct linear_gw_id_t {
         grmhd_id_t id ; 
         id.rho     = 0.0 ; 
         id.press   = 0.0   ;
+        id.eps = 0.0 ; 
+        id.temp = 0.0 ; 
+        id.entropy = 0.0 ; 
         id.bx = 0.0 ;
         id.by = 0.0 ;
         id.bz = 0.0 ;
@@ -59,6 +62,7 @@ struct linear_gw_id_t {
         id.kxy = 0 ;  
         id.kxz = 0 ; 
         id.kyz = 0 ; 
+
 
         return std::move(id) ; 
     }

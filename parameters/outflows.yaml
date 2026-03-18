@@ -1,0 +1,11 @@
+outflows:
+  type: schema 
+  description: >
+    Outflow diagnostics 
+
+  detector_names:
+    type: list 
+    item_type: string 
+    default: []
+    description: >
+      Names of detectors where mass fluxes should be computed

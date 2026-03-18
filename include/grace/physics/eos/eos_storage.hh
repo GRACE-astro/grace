@@ -36,6 +36,7 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
+#include <grace/physics/eos/tabulated_eos.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -57,6 +58,7 @@ namespace grace {
 class eos_storage_t {
 
  public:
+    //**************************************************************************************************
     /**
      * @brief Get the hybrid piecewise polytropic EOS object.
      * 
@@ -69,6 +71,7 @@ class eos_storage_t {
     get_hybrid_pwpoly() {
         return _hybrid_pwpoly ; 
     }
+    //**************************************************************************************************
     /**
      * @brief Get the hybrid tabulated EOS object.
      * 
@@ -81,6 +84,7 @@ class eos_storage_t {
     get_hybrid_tabulated() {
         ERROR("Not implemented yet.") ;  
     }
+    //**************************************************************************************************
     /**
      * @brief Get the tabulated EOS object.
      * 
@@ -91,8 +95,9 @@ class eos_storage_t {
      */
     decltype(auto) GRACE_ALWAYS_INLINE 
     get_tabulated() {
-        ERROR("Not implemented yet.") ;  
+        return _tabulated ; 
     }
+    //**************************************************************************************************
     /**
      * @brief Get an eos object.
      * @tparam eos_t Type of requested eos, always explicit.
@@ -103,25 +108,33 @@ class eos_storage_t {
         if constexpr ( std::is_same_v<eos_t,hybrid_eos_t<piecewise_polytropic_eos_t>> )
         {
             return _hybrid_pwpoly; 
+        } else if constexpr ( std::is_same_v<eos_t,tabulated_eos_t> ) {
+            return _tabulated ; 
         } else {
-            ERROR("Not implemented yet.") ;  
+            ERROR("Requested EOS type is not implemented.") ; 
         }
     }
+    //**************************************************************************************************
  private:
+    //**************************************************************************************************
     //! Longevity of EOS utils.
     static constexpr size_t longevity = GRACE_EOS_STORAGE ; 
+    //**************************************************************************************************
     /**
      * @brief (Never) construct a new eos_storage_t object
      * 
      */
     eos_storage_t() ; 
+    //**************************************************************************************************
     /**
      * @brief (Never) destroy the eos_storage_t object
      */
     ~eos_storage_t() {}; 
-
+    //**************************************************************************************************
     //! The hybrid EOS object.
-    hybrid_eos_t<piecewise_polytropic_eos_t> _hybrid_pwpoly ; 
+    hybrid_eos_t<piecewise_polytropic_eos_t> _hybrid_pwpoly ;
+    //! The tabulated EOS object. 
+    tabulated_eos_t _tabulated ;  
     //! Give access.
     friend class utils::singleton_holder<eos_storage_t, memory::default_create>  ;
     //! Give access.
