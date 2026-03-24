@@ -89,7 +89,7 @@ void import_data(std::vector<std::reference_wrapper<T>>& state_ref, S& exported_
 }
 
 //template function that handles moving the space-time and matter field values to their GRACE couterparts
-// note that the two are separate in case we ever need to add matter-pecific statements here:
+// note that the two are separate in case we ever need to add matter-specific statements here:
 
 template<typename T, typename S>
 void import_data_wmatter(std::vector<std::reference_wrapper<T>>& state_ref, S& exported_vals) {
@@ -106,11 +106,9 @@ void import_data_wmatter(std::vector<std::reference_wrapper<T>>& state_ref, S& e
       }
     }
 
-    //const bool set_shift_to_zero_on_import = grace::get_param<const bool>("kadath","set_shift_to_zero_on_import");
     bool set_shift_to_zero_on_import = grace::get_param<bool>("grmhd","fuka", "set_shift_to_zero_on_import");
     if(set_shift_to_zero_on_import){
         for (int i = 0; i < npoints; ++i) {
-          // + 1, then +2 ? 
             state_ref[i*nfields+K_BETAX].get() = 0.0; 
             state_ref[i*nfields+K_BETAY].get() = 0.0; 
             state_ref[i*nfields+K_BETAZ].get() = 0.0; 
@@ -141,6 +139,7 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
 
   // legacy serial version 
   #ifdef KADATH_EXPORTERS_SERIAL
+    GRACE_TRACE("Utilizing serial exporters");
     const double interpolation_offset = grace::get_param<double>("grmhd", "fuka", "id_interpolation_offset");
     const int interp_order = grace::get_param<int>("grmhd", "fuka","junk_interp_order");
     const double delta_r_rel = grace::get_param<double>("grmhd", "fuka","delta_r_rel");
@@ -167,8 +166,8 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
 
   // new exporters with OpenMP support
   #ifdef KADATH_EXPORTERS_PARALLEL
+    GRACE_TRACE("Utilizing parallel exporters");
 
-    // templated lambdas feature template parameters right after the closure bracket
     auto interp_data_helper = []<typename reader_t, bool has_matter = false>(reader_t& input_reader,
                                     std::vector<double>& xgrid,
                                     std::vector<double>& ygrid,
@@ -191,8 +190,7 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
     using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BCO_BH_INFO>;
     using reader_t = Kadath::FUKA_Solvers::CFMS_BH_Exporter;
     reader_t input_reader(filename.c_str()); 
-    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, false>(input_reader, xx,yy,zz)); // for a templated lambda 
-    // auto exported_vals = std::move(interp_data_helper<reader_t, false>(input_reader, xx,yy,zz));   // for a separate function
+    auto exported_vals = std::move(interp_data_helper.template operator()<reader_t, false>(input_reader, xx,yy,zz)); 
     import_data(state_ref,exported_vals);
   } else if(id_type == "BBH") {
     using config_t = Kadath::FUKA_Config::kadath_config_boost<Kadath::FUKA_Config::BIN_INFO>;

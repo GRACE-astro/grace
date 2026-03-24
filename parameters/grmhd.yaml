@@ -532,49 +532,49 @@ grmhd:
         Recompute eps after initial data?
   
   fuka:
-    type: schema 
+    type: schema
     description: >
-      fuka initial data
-    id_dir: 
-      type: string 
+      FUKA ID
+    filename:
+      type: string
       default: ""
       description: >
-        path to ID directory
-    filename: 
+        Filename containing initial data for FUKA ID
+    id_dir:
       type: string
-      default: "" 
+      default: ""
       description: >
-        full name of the info file
+        Directory containing the FUKA ID
     fuka_id_type: 
       type: string 
       default: "" 
       allowed: ["BH", "BBH", "NS", "BNS", "BHNS"]
       description: >
         type of FUKA data
+    id_interpolation_offset:
+      type: double 
+      default: 0.0
+      range: "[0,*)"
+      description: >
+        Offset applied during ID interpolation
+    junk_interp_order:
+      type: int
+      default: 8
+      allowed: [3,5,7,8]
+      range: "[3,8]"
+      description: >
+        Interpolation order used for junk radiation removal
+    delta_r_rel:
+      type: double
+      default: 0.3
+      range: "(0,*)"
+      description: >
+        Relative radial offset for interpolation grid adjustment
     set_shift_to_zero_on_import:
       type: bool 
       default: true 
       description: >
         set the initial shift to zero (recommended) 
-    id_interpolation_offset:
-      type: double 
-      default: 0.0 
-      range: "(*,*)"
-      description: >
-        id_interpolation_offset
-    junk_interp_order:
-      type: int 
-      allowed: [3,5,7,8]
-      range: "(0,*)"
-      default: 8 
-      description: >
-        junk interpolation order inside the BH
-    delta_r_rel:
-      type: double 
-      range: "(0,*)"
-      default: 0.3 
-      description: >
-        delta_r_rel
                   
   two_punctures:
     type: schema
