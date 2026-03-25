@@ -32,9 +32,9 @@ extensions = [
     "sphinx_togglebutton"
 ]
 
-html_baseurl = '/assets/grace/'
+#html_baseurl = '/assets/grace/'
 
-templates_path = ['templates'] #[os.path.join('@GRACE_CURRENT_SOURCE_DIR@', '_templates')]
+templates_path = ['_templates'] #[os.path.join('@GRACE_CURRENT_SOURCE_DIR@', '_templates')]
 
 breathe_projects = {'G.R.A.C.E.': "doxygen/xml"}
 breathe_default_project = 'G.R.A.C.E.'
