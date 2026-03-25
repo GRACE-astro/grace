@@ -36,5 +36,6 @@
 #include <grace/system/print.hh>
 #include <grace/errors/error.hh>
 #include <grace/errors/assert.hh>
+#include <grace/system/checkpoint_handler.hh>
 
 #endif /* GRACE_SYSTEM_GRACE_SYSTEM_HH */

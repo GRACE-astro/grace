@@ -1,0 +1,182 @@
+name: "grace"
+amr: {
+  npoints_block_x: 32,
+  npoints_block_y: 32,
+  npoints_block_z: 32,
+  xmin: -32.0,
+  xmax: 32.0,
+  ymin: -32.0,
+  ymax: 32.0,
+  zmin: -32.0,
+  zmax: 32.0,
+
+  n_ghostzones: 4,
+  initial_refinement_level: 2,
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+  n_fmr_boxes: 0
+}
+IO: {
+  volume_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]","Bdiv"],
+  volume_output_base_directory: "output_volume",
+  volume_output_every: -1,
+
+  plane_surface_output_cell_variables: ["alp","rho","press","eps","vel[0]","entropy","b2","temperature","c2p_err"],
+  plane_surface_output_every: 10,
+
+  sphere_surface_output_every: -1,
+
+  do_initial_output: true,
+  info_output_every: 2,
+  info_output_max_reductions: ["rho", "temperature"],
+  info_output_min_reductions: [], 
+  info_output_norm2_reductions: ["c2p_err"], 
+
+  scalar_output_every: 50,
+  scalar_output_minmax: ["rho","press","eps","Bdiv"],
+  scalar_output_norm2: ["Bdiv"],
+  scalar_output_integral: [],
+
+  output_use_hdf5: true, 
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 131072,
+  output_extra_quantities: true,
+  diagnostic_output_every: 50
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  flush_logs_based_on_severity: false,
+  flush_level: "trace",
+  n_device_streams: 4
+}
+evolution: {
+  time_stepper: "rk2",
+  cfl_factor: 0.2,
+  termination_condition: "walltime",
+  final_time: 2000.0,
+  final_iteration: 1650,
+  final_walltime: 23
+}
+grmhd: {
+  id_type: "bondi",
+
+  fmtorus: {
+    a_BH: 0.9375,
+    rho_min: 1.0e-5,
+    lapse_min: 0.8,
+    press_min: 0.333e-7,
+    r_in: 6,
+    r_at_max_density: 12,
+    gamma: 1.33333333333,
+    max_inverse_beta: 100,
+    perturbation_amplitude: 0.0,
+    rho_power: -1.5,
+    press_power: -2.5,
+    rho_max: 1.0
+  },
+  B_field_from_Avec: false,
+
+  excision: {
+    excision_criterion: "radius",
+    excision_radius: 1.0,
+    rho_excision: 1e-8,
+    temp_excision: 0.3333e-2,
+    excision_lapse: 0.2
+  },
+  atmosphere: {
+    ye_fl: 0,
+    temp_fl:  0,
+    rho_fl: 1.e-15,
+    rho_scaling: 0,
+    temp_scaling: 0,
+    c2p_tolerance: 1e-10,
+    use_c2p_entropy_backup: true,
+    max_lorentz: 50,
+    max_sigma: 100
+  },
+  bondi_flow: {
+    r_c: 8.0,
+    K: 1.0,
+    gamma: 1.3333,
+    r_min: 1,
+    r_max: 100
+  }
+}
+
+coordinate_system: {
+  is_kerr_schild: true,
+  bh_spin: 0.
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+
+  eps_maximum: 1.e+05,
+  gamma_th: 1.33333333333,
+
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [2.],
+    rhos:   [],
+    kappa_0: 0.
+  }
+}
+
+# surface output 
+spherical_surfaces: {
+  n_surfaces: 2,
+
+  spherical_surface_0: {
+    name: "detector_1",
+    tracking: "none",
+    radius: 8,
+    x_c: 0.0,
+    y_c: 0.0,
+    z_c: 0.0,
+
+    sampling_policy: "uniform",
+    resolution: 42
+  },
+
+  spherical_surface_1: {
+    name: "detector_2",
+    tracking: "none",
+    radius: 10.0,
+    x_c: 0.0,
+    y_c: 0.0,
+    z_c: 0.0,
+
+    sampling_policy: "uniform",
+    resolution: 42
+  },
+
+  spherical_surface_2: {
+    name: "detector_3",
+    tracking: "none",
+    radius: 15.0,
+    x_c: 0.0,
+    y_c: 0.0,
+    z_c: 0.0,
+
+    sampling_policy: "uniform",
+    resolution: 42
+  }
+}
+
+bh_diagnostics: {
+  detector_names: ["detector_1","detector_2","detector_3"]
+}
+
+profiling: {
+  do_gpu_profiling: false
+}
+
+checkpoints: {
+  checkpoint_at_termination: true,
+  checkpoint_dir: "./checkpoints",
+  interval_kind: "walltime",
+  walltime_interval: 6.0
+}

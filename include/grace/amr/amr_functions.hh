@@ -34,7 +34,6 @@
 #include <grace/utils/inline.h> 
 #include <grace/utils/device.h> 
 
-#include <grace/data_structures/macros.hh>
 #include <grace/amr/quadrant.hh>
 
 #include <vector>
@@ -95,7 +94,7 @@ get_local_num_quadrants() ;
  *        0 and <code>forest::local_num_quadrants()</code>
  * @return size_t Index of the tree that owns this quadrant.
  */
-size_t 
+int 
 get_quadrant_owner(size_t iquad) ;
 /**
  * @brief Get the local quadrants offset of a tree.
@@ -138,22 +137,6 @@ get_quadrant_locidx(quadrant_t quad);
  */
 int64_t 
 get_quadrant_locidx(p4est_quadrant_t* quad);
-/**
- * @brief For halo quadrants: get owner mpi 
- *        rank.
- * \ingroup amr
- * \cond grace_detail
- */
-int 
-get_halo_quad_owner(quadrant_t& quad);
-/**
- * @brief For halo quadrants: get owner mpi 
- *        rank.
- * \ingroup amr
- * \cond grace_detail
- */
-int 
-get_halo_quad_owner(p4est_quadrant_t* quad);
 /**
  * @brief Determine whether coordinates flip across 
  *        tree boundary.

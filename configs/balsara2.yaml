@@ -1,0 +1,90 @@
+name: "grace"
+amr: {
+  npoints_block_x: 64,
+  npoints_block_y: 64,
+  npoints_block_z: 64,
+  xmin: -0.5,
+  xmax: 0.5,
+  ymin: -0.1,
+  ymax: 0.1,
+  zmin: -0.1,
+  zmax: 0.1,
+  n_ghostzones: 4,
+  initial_refinement_level: 1,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+IO: {
+  plane_surface_output_cell_variables: ["rho","press","eps","vel[0]", "Bvec[0]","Bdiv"],
+  plane_surface_output_every: 10,
+  sphere_surface_output_every: -1,
+  do_initial_output: true,
+  info_output_every: 2,
+  info_output_max_reductions: ["rho", "press", "Bvec[1]", "Bdiv"],
+  info_output_min_reductions: ["rho", "press", "Bvec[1]"], 
+  scalar_output_every: 50,
+  scalar_output_minmax: ["rho","press","eps","Bdiv"],
+  scalar_output_norm2: ["Bdiv"],
+  scalar_output_integral: [],
+  output_use_hdf5: true, 
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 128,
+  output_extra_quantities: true
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  flush_logs_based_on_severity: false,
+  flush_level: "trace",
+  n_device_streams: 4
+}
+evolution: {
+  time_stepper: "rk3",
+  cfl_factor: 0.25,
+  final_time: 0.45
+}
+grmhd: {
+  id_type: "shocktube",
+  shocktube: {
+    rho_L: 1.,
+    rho_R: 1.,
+    press_L: 30.,
+    press_R: 1.,
+    Bx_L: 5.,
+    Bx_R: 5.,
+    By_L: 6.,
+    By_R: 0.7,
+    Bz_L: 6.,
+    Bz_R: 0.7
+  },
+  atmosphere: {
+    ye_fl: 0,
+    temp_fl:  0.3333e-2,
+    rho_fl: 1.e-5,
+    rho_scaling: -1.5,
+    temp_scaling: -1
+  },
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+
+  eps_maximum: 1.e+05,
+  gamma_th: 1.66666,
+
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [2.],
+    rhos:   [],
+    kappa_0: 0.
+  }
+}
+
+profiling: {
+  do_gpu_profiling: false
+}
+
+checkpoints: {
+  checkpoint_at_termination: false,
+}

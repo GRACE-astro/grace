@@ -54,6 +54,12 @@ namespace grace {
 
 #cmakedefine GRACE_ENABLE_VTK
 
+#cmakedefine GRACE_FREEZE_HYDRO
+
+#cmakedefine GRACE_ENABLE_LORENE
+
+#cmakedefine GRACE_ENABLE_TWO_PUNCTURES
+
 #define GRACE_BANNER                                                          \
 "                                                                           \n" \
 "                                                                           \n" \
@@ -120,6 +126,18 @@ namespace grace {
 #define VECD(X,Y) X
 #define EXPRD(X,Y) X
 #endif 
+
+#cmakedefine GRACE_ENABLE_COWLING_METRIC
+#cmakedefine GRACE_ENABLE_Z4C_METRIC
+
+#cmakedefine GRACE_ENABLE_M1 
+
+#define Z4C_DER_ORDER 4
+
+// for spheres
+#define LAGRANGE_INTERP_ORDER 4
+
+#define SQR(a) ((a)*(a))
 
 }
 #endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

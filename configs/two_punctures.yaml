@@ -1,0 +1,239 @@
+name: "grace"
+amr: {
+  npoints_block_x: 32,
+  npoints_block_y: 32,
+  npoints_block_z: 32,
+  xmin: -1024.0,
+  xmax: 1024.0,
+  ymin: -1024.0,
+  ymax: 1024.0,
+  zmin: 0.0,
+  zmax: 1024.0,
+
+  reflection_symmetries: {
+    x: false, 
+    y: false,
+    z: true 
+  },
+
+  n_ghostzones: 4,
+  initial_refinement_level: 2,
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+  n_fmr_boxes: 8,
+  fmr_box_0: {
+    target_level_delta: 1,
+    x_min: -512,
+    x_max: 512,
+    y_min: -512,
+    y_max: 512,
+    z_min: 0,
+    z_max: 256
+  },
+
+  fmr_box_1: {
+    target_level_delta: 2,
+    x_min: -256,
+    x_max: 256,
+    y_min: -256,
+    y_max: 256,
+    z_min: 0,
+    z_max: 128
+  },
+  
+  fmr_box_2: {
+    target_level_delta: 3,
+    x_min: -64,
+    x_max: 64,
+    y_min: -64,
+    y_max: 64,
+    z_min: 0,
+    z_max: 32
+  },
+
+  fmr_box_3: {
+    target_level_delta: 4,
+    x_min: -32,
+    x_max: 32,
+    y_min: -32,
+    y_max: 32,
+    z_min: 0,
+    z_max: 24
+  },
+
+  fmr_box_4: {
+    target_level_delta: 5,
+    x_min: -16,
+    x_max: 16,
+    y_min: -16,
+    y_max: 16,
+    z_min: 0,
+    z_max: 16
+  },
+
+  fmr_box_5: {
+    target_level_delta: 6,
+    x_min: -12,
+    x_max: 12,
+    y_min: -12,
+    y_max: 12,
+    z_min: 0,
+    z_max: 8
+  },
+
+  fmr_box_6: {
+    target_level_delta: 7,
+    x_min: -8,
+    x_max: 8,
+    y_min: -8,
+    y_max: 8,
+    z_min: 0,
+    z_max: 6
+  },
+
+  fmr_box_7: {
+    target_level_delta: 8,
+    x_min: -6,
+    x_max: 6,
+    y_min: -6,
+    y_max: 6,
+    z_min: 0,
+    z_max: 4
+  }
+
+}
+
+IO: {
+  volume_output_every: -1,
+
+  plane_surface_output_cell_variables: ["z4c_H", "z4c_M[0]", "beta[0]", "z4c_Khat", "gamma_tilde[0,0]", "gamma_tilde[0,1]", "gamma_tilde[0,2]", "gamma_tilde[1,1]", "gamma_tilde[1,2]", "gamma_tilde[2,2]", "z4c_theta", "conf_fact", "z4c_Gamma[0]","A_tilde[0,0]","A_tilde[0,1]","alp"],
+  plane_surface_output_every: 200,
+
+  sphere_surface_output_every: -1,
+
+  info_output_every: 2,
+  info_output_min_reductions: ["alp","conf_fact"],
+  info_output_norm2_reductions: ["z4c_H"],
+
+  scalar_output_every: 2,
+  scalar_output_minmax: ["conf_fact","alp"],
+  scalar_output_norm2: ["z4c_H"],
+  scalar_output_integral: [],
+
+  output_use_hdf5: true,
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true,
+
+  output_plane_z_origin_0: 0.015,
+
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  flush_logs_based_on_severity: false,
+  flush_level: "trace",
+  n_device_streams: 4
+}
+evolution: {
+  time_stepper: "rk3",
+  cfl_factor: 0.2,
+  final_time: 4000
+}
+
+grmhd: {
+  id_type: "two_punctures",
+  two_punctures: {
+    par_b: 3.257,
+
+    target_M_plus: 0.505,
+    par_P_plus_x: 0.0,
+    par_P_plus_y: -0.133,
+    par_P_plus_z: 0.0,
+    par_S_plus_x: 0.0,
+    par_S_plus_y: 0.0,
+    par_S_plus_z: 0.0,
+
+    target_M_minus: 0.505,
+    par_P_minus_x: 0.0,
+    par_P_minus_y: 0.133,
+    par_P_minus_z: 0.0,
+    par_S_minus_x: 0.0,
+    par_S_minus_y: 0.0,
+    par_S_minus_z: 0.0,
+
+    npoints_A: 30,
+    npoints_B: 30,
+    npoints_phi: 16,
+
+    TP_epsilon: 0.0
+  }
+}
+
+z4c: {
+  kappa_1: 0.02,
+  kappa_2: 0.0,
+  eta: 2.0,
+  eps_diss: 0.5,
+  chi_floor: 1e-11,
+  is_vacuum: true,
+  eta_damp_radius: 256,
+  kappa_damp_radius: 512,
+  theta_damp_radius: 512
+}
+
+spherical_surfaces: {
+
+  n_surfaces: 3,
+
+  spherical_surface_0: {
+    name: "GW_1",
+    tracking: "none",
+    radius: 60.0,
+    x_c: 0.0,
+    y_c: 0.0,
+    z_c: 0.0,
+    
+    sampling_policy: "uniform",
+    resolution: 32
+  },
+
+  spherical_surface_1: {
+    name: "GW_2",
+    tracking: "none",
+    radius: 100.0,
+    x_c: 0.0,
+    y_c: 0.0,
+    z_c: 0.0,
+    
+    sampling_policy: "uniform",
+    resolution: 32
+  },
+
+  spherical_surface_2: {
+    name: "GW_3",
+    tracking: "none",
+    radius: 500.0,
+    x_c: 0.0,
+    y_c: 0.0,
+    z_c: 0.0,
+    
+    sampling_policy: "uniform",
+    resolution: 32
+  }
+}
+
+gw_integrals: {
+  detector_names: ["GW_1","GW_2","GW_3"],
+  detector_indices: []
+}
+
+puncture_tracker: {
+  n_punctures: 2,
+  puncture_x_initial: [3.257,-3.257],
+  puncture_y_initial: [0.0,0.0],
+  puncture_z_initial: [0.0,0.0],
+  output_frequency: 4
+}
+

@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath('.'))
 
 
 
-project = 'G.R.A.C.E.'
+project = 'GRACE'
 author = 'Carlo Musolino'
 copyright = "Carlo Musolino 2023"
 
@@ -32,7 +32,9 @@ extensions = [
     "sphinx_togglebutton"
 ]
 
-templates_path = [os.path.join('@GRACE_CURRENT_SOURCE_DIR@', '_templates')]
+html_baseurl = '/assets/grace/'
+
+templates_path = ['templates'] #[os.path.join('@GRACE_CURRENT_SOURCE_DIR@', '_templates')]
 
 breathe_projects = {'G.R.A.C.E.': "doxygen/xml"}
 breathe_default_project = 'G.R.A.C.E.'
@@ -41,11 +43,11 @@ html_theme = 'sphinx_rtd_theme'
 html_theme_options = {
     "prev_next_buttons_location": None
 }
-html_static_path = [os.path.join('@GRACE_CURRENT_SOURCE_DIR@', '_static')]
+html_static_path = ['_static'] #[os.path.join('@GRACE_CURRENT_SOURCE_DIR@', '_static')]
 
-html_title = "G.R.A.C.E. Project Documentation"
+html_title = "GRACE Project Documentation"
 html_logo  = os.path.join('@GRACE_CURRENT_SOURCE_DIR@', '_static','images',"GRACE_logo_padded.png")
-html_favicon = html_logo 
+html_favicon = os.path.join('@GRACE_CURRENT_SOURCE_DIR@', '_static','images',"favicon.png") 
 reference_prefix = ""
 docs_title="Docs"
 is_release = False

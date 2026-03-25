@@ -1,0 +1,1 @@
+register_grace_object(grace_config_helpers yaml_helpers.cpp)

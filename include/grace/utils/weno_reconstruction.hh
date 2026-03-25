@@ -43,7 +43,7 @@
 
 #define U0 u(VEC(i,j,k))
 #define UM(d) u(VEC(i-d*utils::delta(0,idir),j-d*utils::delta(1,idir),k-d*utils::delta(2,idir)))
-#define UP(d) u(VEC(i+d*utils::delta(0,idir),j+d*utils::delta(1,idir),k+d*utils::delta(2,idir)))
+#define UP(d) u(VEC(i+(d)*utils::delta(0,idir),j+(d)*utils::delta(1,idir),k+(d)*utils::delta(2,idir)))
 
 namespace grace {
 /**
@@ -140,11 +140,11 @@ template<>
 struct weno_reconstructor_t<5> 
 {
  private:
-    static constexpr double d0 = 0.3; 
+    static constexpr double d0 = 0.1; 
     static constexpr double d1 = 0.6; 
-    static constexpr double d2 = 0.1; 
+    static constexpr double d2 = 0.3; 
     
-    static constexpr double WENO5_12_BY_13 = 12.0/13.0 ; 
+    static constexpr double WENO5_13_BY_12 = 13.0/12.0 ; 
     static constexpr double WENO5_1_BY_6   = 1.0/6.0   ; 
     
  public: 
@@ -180,44 +180,101 @@ struct weno_reconstructor_t<5>
         , double& uR 
         , int8_t idir )
     {
-        std::array<double,4> const gamma {
-             WENO5_12_BY_13 * math::int_pow<2>(U0-2.*UP(1)+UP(2)),
-             WENO5_12_BY_13 * math::int_pow<2>(UM(1)-2.*U0+UP(1)),
-             WENO5_12_BY_13 * math::int_pow<2>(UM(2)-2.*UM(1)+U0),
-             WENO5_12_BY_13 * math::int_pow<2>(UM(3)-2.*UM(2)+UM(1))
-        } ; 
+        // shorthand accessor
+        auto U = [&](int ii,int jj,int kk){ return u(VEC(ii,jj,kk)); };
 
-        std::array<double,3> const betaL {
-            gamma[0] + 0.25 * math::int_pow<2>(3.*U0-4.*UP(1)+UP(2)) ,
-            gamma[1] + 0.25 * math::int_pow<2>(UM(1)-UP(1)) ,
-            gamma[2] + 0.25 * math::int_pow<2>(UM(2)-4.*UM(1)+3.*U0) 
-        } ;
+        // relative indices
+        int im3=i-3*utils::delta(0,idir), im2=i-2*utils::delta(0,idir), im1=i-1*utils::delta(0,idir);
+        int ip1=i+1*utils::delta(0,idir), ip2=i+2*utils::delta(0,idir);
+        int jm3=j-3*utils::delta(1,idir), jm2=j-2*utils::delta(1,idir), jm1=j-1*utils::delta(1,idir);
+        int jp1=j+1*utils::delta(1,idir), jp2=j+2*utils::delta(1,idir);
+        #ifdef GRACE_3D
+        int km3=k-3*utils::delta(2,idir), km2=k-2*utils::delta(2,idir), km1=k-1*utils::delta(2,idir);
+        int kp1=k+1*utils::delta(2,idir), kp2=k+2*utils::delta(2,idir);
+        #else
+        int km3=0, km2=0, km1=0, kp1=0, kp2=0;
+        #endif
 
-        std::array<double,3> const betaR {
-            gamma[1] + 0.25 * math::int_pow<2>(3.*UM(1)-4.*U0+UP(1)) ,
-            gamma[2] + 0.25 * math::int_pow<2>(UM(2)-U0) ,
-            gamma[3] + 0.25 * math::int_pow<2>(UM(3)-4.*UM(2)+3.*UM(1)) 
-        } ;
+        double um3 = U(im3,jm3,km3);
+        double um2 = U(im2,jm2,km2);
+        double um1 = U(im1,jm1,km1);
+        double u0  = U(i,j,k);
+        double up1 = U(ip1,jp1,kp1);
+        double up2 = U(ip2,jp2,kp2);
 
-        std::array<double,3> const alphaL { 
-            d2 / math::int_pow<2>( WENO_EPS + betaL[0] ),
-            d1 / math::int_pow<2>( WENO_EPS + betaL[1] ),
-            d0 / math::int_pow<2>( WENO_EPS + betaL[2] )
-        } ; 
-        std::array<double,3> const alphaR { 
-            d0 / math::int_pow<2>( WENO_EPS + betaR[0] ),
-            d1 / math::int_pow<2>( WENO_EPS + betaR[1] ),
-            d2 / math::int_pow<2>( WENO_EPS + betaR[2] )
-        } ; 
-        double const wL = 1./(alphaL[0] + alphaL[1] + alphaL[2]) ; 
-        double const wR = 1./(alphaR[0] + alphaR[1] + alphaR[2]) ; 
-        
-        uR = WENO5_1_BY_6 * wR * ( alphaR[0] * ( -UP(2) + 5.*UP(1) + 2*U0) 
-                                 + alphaR[1] * ( -UM(1) + 5.*U0 + 2*UP(1)) 
-                                 + alphaR[2] * ( 2.*UM(2) - 7.*UM(1) + 11*U0) ) ;
-        uL = WENO5_1_BY_6 * wL * ( alphaL[0] * ( 2.*UP(1) - 7.*U0 + 11*UM(1)) 
-                                 + alphaL[1] * ( -U0 + 5.*UM(1) + 2*UM(2)) 
-                                 + alphaL[2] * ( -UM(3) + 5.*UM(2) + 2.*UM(1)) ) ;
+        // Shared constants
+        // Smooth WENO weights: (Jiang & Shu 1996)
+
+        const double beta_coeff[2]{13.0/12.0, 0.25};
+        const double eps = 1.0e-42;
+
+        //========================
+        // Compute uR at i-1/2
+        //========================
+        {
+            double beta[3];
+            beta[0] = beta_coeff[0]*math::int_pow<2>(um2+u0-2.0*um1)
+                    + beta_coeff[1]*math::int_pow<2>(um2+3.0*u0-4.0*um1);
+            beta[1] = beta_coeff[0]*math::int_pow<2>(um1+up1-2.0*u0)
+                    + beta_coeff[1]*math::int_pow<2>(um1-up1);
+            beta[2] = beta_coeff[0]*math::int_pow<2>(up2+u0-2.0*up1)
+                    + beta_coeff[1]*math::int_pow<2>(up2+3.0*u0-4.0*up1);
+
+            // WENO-Z: Borges et al. 2008, Castro et al. 2011
+            double tau5 = fabs(beta[0]-beta[2]);
+
+            double ind[3];
+            ind[0] = math::int_pow<2>(tau5/(beta[0]+eps));
+            ind[1] = math::int_pow<2>(tau5/(beta[1]+eps));
+            ind[2] = math::int_pow<2>(tau5/(beta[2]+eps));
+
+            double f[3];
+            f[0] = ( 2.0*up2 - 7.0*up1 + 11.0*u0 );
+            f[1] = (-1.0*up1 + 5.0*u0 + 2.0*um1);
+            f[2] = ( 2.0*u0   + 5.0*um1 - um2 );
+
+            double alpha[3];
+            alpha[0] = 0.1*(1.0+ind[2]);
+            alpha[1] = 0.6*(1.0+ind[1]);
+            alpha[2] = 0.3*(1.0+ind[0]);
+            double asum = 6.0*(alpha[0]+alpha[1]+alpha[2]);
+
+            uR = (f[0]*alpha[0]+f[1]*alpha[1]+f[2]*alpha[2])/asum;
+        }
+
+        //========================
+        // Compute uL at i-1/2
+        //========================
+        {
+            double beta[3];
+            beta[0] = beta_coeff[0]*math::int_pow<2>(um3+um1-2.0*um2)
+                    + beta_coeff[1]*math::int_pow<2>(um3+3.0*um1-4.0*um2);
+            beta[1] = beta_coeff[0]*math::int_pow<2>(um2+u0-2.0*um1)
+                    + beta_coeff[1]*math::int_pow<2>(um2-u0);
+            beta[2] = beta_coeff[0]*math::int_pow<2>(up1+um1-2.0*u0)
+                    + beta_coeff[1]*math::int_pow<2>(up1+3.0*um1-4.0*u0);
+
+            double tau5 = fabs(beta[0]-beta[2]);
+
+            double ind[3];
+            ind[0] = math::int_pow<2>(tau5/(beta[0]+eps));
+            ind[1] = math::int_pow<2>(tau5/(beta[1]+eps));
+            ind[2] = math::int_pow<2>(tau5/(beta[2]+eps));
+
+            double f[3];
+            f[0] = ( 2.0*um3 - 7.0*um2 + 11.0*um1 );
+            f[1] = (-1.0*um2 + 5.0*um1 + 2.0*u0 );
+            f[2] = ( 2.0*um1 + 5.0*u0   - up1   );
+
+            double alpha[3];
+            alpha[0] = 0.1*(1.0+ind[0]);
+            alpha[1] = 0.6*(1.0+ind[1]);
+            alpha[2] = 0.3*(1.0+ind[2]);
+            double asum = 6.0*(alpha[0]+alpha[1]+alpha[2]);
+
+            uL = (f[0]*alpha[0]+f[1]*alpha[1]+f[2]*alpha[2])/asum;
+        }
+
     }
 } ; 
 

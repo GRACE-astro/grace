@@ -43,16 +43,21 @@ namespace grace { namespace amr {
 struct ghost_array_t 
 {
 
+    ghost_array_t() = default ; 
+
     ghost_array_t(std::string const& name)
         :  _data(name,0), _size(0)
     {}
 
-    void set_strides(size_t const& nx, size_t const& ny, size_t const& nz, 
-                     size_t const& nv, size_t const& ngz)
+    void set_strides(std::array<size_t,4> const& strides )
     {
-        fstrides = std::array<size_t,4> {ngz,ngz*nx,ngz*nx*nx,ngz*nx*nx*nv};
-        estrides = std::array<size_t,4> {ngz,ngz*ngz,ngz*ngz*nx,ngz*ngz*nx*nv};
+        auto n = strides[0] ; auto nv = strides[1]; auto ngz = strides[2]; auto n2 = strides[3] ;
+        fstrides = std::array<size_t,4> {ngz,ngz*n,ngz*n*n,ngz*n*n*nv};
+        estrides = std::array<size_t,4> {ngz,ngz*ngz,ngz*ngz*n,ngz*ngz*n*nv};
         cstrides = std::array<size_t,4> {ngz,ngz*ngz,ngz*ngz*ngz,ngz*ngz*ngz*nv};
+        // cbufs 
+        cfstrides = std::array<size_t,4> {ngz,ngz*n2,ngz*n2*n2,ngz*n2*n2*nv};
+        cestrides = std::array<size_t,4> {ngz,ngz*ngz,ngz*ngz*n2,ngz*ngz*n2*nv};
     }
 
     void set_offsets(
@@ -66,14 +71,6 @@ struct ghost_array_t
         grace::deep_copy_vec_to_const_view(cbuf_face_offsets, _offsets[3]) ; 
         grace::deep_copy_vec_to_const_view(cbuf_edge_offsets, _offsets[4]) ; 
         grace::deep_copy_vec_to_const_view(cbuf_corner_offsets, _offsets[5]) ; 
-        #if 0
-        // TODO remove 
-        auto h_ro = Kokkos::create_mirror_view(rank_offsets) ; 
-        Kokkos::deep_copy(h_ro,rank_offsets) ; 
-        for( int i=0; i<_roffsets.size(); ++i) {
-            GRACE_TRACE("Offset {}", h_ro(i)) ; 
-        }
-        #endif 
     }
 
     void realloc(size_t const& _new_size) {
@@ -109,10 +106,10 @@ struct ghost_array_t
         auto offset = rank_offsets(rank) ; 
         if constexpr ( elem_kind == element_kind_t::FACE ) {
             offset += cbuf_face_offsets(rank) ; 
-            return get(i,j,k,iv,ie,fstrides[0],fstrides[1]/2,fstrides[2]/4,fstrides[3]/4,offset) ; 
+            return get(i,j,k,iv,ie,cfstrides[0],cfstrides[1],cfstrides[2],cfstrides[3],offset) ; 
         } else if constexpr ( elem_kind == element_kind_t::EDGE ) {
             offset += cbuf_edge_offsets(rank) ; 
-            return get(i,j,k,iv,ie,estrides[0],estrides[1],estrides[2]/2,estrides[3]/2,offset) ;
+            return get(i,j,k,iv,ie,cestrides[0],cestrides[1],cestrides[2],cestrides[3],offset) ;
         } else if constexpr ( elem_kind == element_kind_t::CORNER ) {
             offset += cbuf_corner_offsets(rank) ; 
             return get(i,j,k,iv,ie,cstrides[0],cstrides[1],cstrides[2],cstrides[3],offset) ;
@@ -158,9 +155,202 @@ private:
         return get(ii,jj,kk,iv,ie,cstrides[0],cstrides[1],cstrides[2],cstrides[3],offset) ; 
     }
     readonly_view_t<std::size_t> rank_offsets, edge_offsets, corner_offsets, cbuf_face_offsets, cbuf_edge_offsets, cbuf_corner_offsets ; 
-    std::array<size_t, 4> fstrides, estrides, cstrides ;
+    std::array<size_t, 4> fstrides, estrides, cstrides, cfstrides, cestrides ;
     Kokkos::View<double *, grace::default_space> _data ; 
     std::size_t _size ; 
+} ; 
+
+//! For refluxing or emf exchanges
+struct reflux_array_t {
+    //! Ctor
+    reflux_array_t() = default ; 
+    //! Dtor
+    reflux_array_t(std::string const& name)
+        :  _data(name,0), _size(0)
+    {}
+
+    //! Set strides
+    void set_strides(size_t ncells, size_t nvars )
+    {
+        fstrides = std::array<size_t,3> {ncells,ncells*ncells,ncells*ncells*nvars};
+    }
+
+    //! Set offsets
+    void set_offsets(
+        std::vector<size_t> const& _roffsets
+    ) 
+    {
+        grace::deep_copy_vec_to_const_view(rank_offsets, _roffsets) ; 
+    }
+
+    //! Reallocate data
+    void realloc(size_t const& _new_size) {
+        _size = _new_size ; 
+        Kokkos::realloc(_data, _new_size) ; 
+    }
+
+    //! Get size
+    GRACE_HOST GRACE_ALWAYS_INLINE 
+    size_t size() const { return _size ; }
+
+    //! Get data pointer
+    GRACE_HOST GRACE_ALWAYS_INLINE 
+    double* data() const { return _data.data() ; }
+
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    double& operator() (size_t const& i, size_t const& j, size_t const& iv, size_t const& ie, size_t const& rank) const 
+    {
+        auto offset = rank_offsets(rank) ;
+        return get(i,j,iv,ie,fstrides[0],fstrides[1],fstrides[2],offset) ;  
+    }
+
+    private:
+    //! Accessor 
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    double& get(
+        size_t const& i, size_t const& j, size_t const& iv, size_t const& ie, 
+        size_t const& s0, size_t const& s1, size_t const& s2,
+        size_t const& offset) const 
+    {
+        auto c_index = i 
+                     + s0 * j 
+                     + s1 * iv 
+                     + s2 * ie ;
+        return _data(offset+c_index); 
+    }
+
+    readonly_view_t<std::size_t> rank_offsets ; 
+    std::array<size_t, 3> fstrides ; 
+    Kokkos::View<double *, grace::default_space> _data ; //! Data
+    std::size_t _size ;
+
+} ; 
+
+//! For refluxing or emf exchanges
+struct reflux_edge_array_t {
+    //! Ctor
+    reflux_edge_array_t() = default ; 
+    //! Dtor
+    reflux_edge_array_t(std::string const& name)
+        :  _data(name,0), _size(0)
+    {}
+
+    //! Set strides
+    void set_strides(size_t ncells)
+    {
+        stride = ncells ; 
+    }
+
+    //! Set offsets
+    void set_offsets(
+        std::vector<size_t> const& _roffsets
+    ) 
+    {
+        grace::deep_copy_vec_to_const_view(rank_offsets, _roffsets) ; 
+    }
+
+    //! Reallocate data
+    void realloc(size_t const& _new_size) {
+        _size = _new_size ; 
+        Kokkos::realloc(_data, _new_size) ; 
+    }
+
+    //! Get size
+    GRACE_HOST GRACE_ALWAYS_INLINE 
+    size_t size() const { return _size ; }
+
+    //! Get data pointer
+    GRACE_HOST GRACE_ALWAYS_INLINE 
+    double* data() const { return _data.data() ; }
+
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    double& operator() (size_t const& i, size_t const& ie, size_t const& rank) const 
+    {
+        auto offset = rank_offsets(rank) ;
+        return get(i,ie,stride,offset) ;  
+    }
+
+    private:
+    //! Accessor 
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    double& get(
+        size_t const& i, 
+        size_t const& ie,
+        size_t const& s0,
+        size_t const& offset) const 
+    {
+        auto c_index = i 
+                     + s0 * ie ;
+        return _data(offset+c_index); 
+    }
+
+    readonly_view_t<std::size_t> rank_offsets ; 
+    size_t stride ; 
+    Kokkos::View<double *, grace::default_space> _data ; //! Data
+    std::size_t _size ;
+
+} ; 
+
+struct face_buffer_t {
+
+    face_buffer_t() = default ; 
+
+    face_buffer_t(std::string const& name)
+        :  _data(name,0), _size(0)
+    {}
+
+    void set_strides(std::array<size_t,2> const& _strides )
+    {
+        auto n = _strides[0] ; auto nv = _strides[1]; 
+        strides = std::array<size_t,3> {n,n*n,nv*n*n};
+    }
+
+    void set_offsets(
+        std::vector<int> const& _roffsets
+    ) 
+    {
+        grace::deep_copy_vec_to_const_view(rank_offsets, _roffsets) ; 
+    }
+
+    void realloc(size_t const& _new_size) {
+        _size = _new_size ; 
+        Kokkos::realloc(_data, _new_size) ; 
+    }
+
+    GRACE_HOST GRACE_ALWAYS_INLINE 
+    size_t size() const { return _size ; }
+
+    GRACE_HOST GRACE_ALWAYS_INLINE 
+    double* data() const { return _data.data() ; }
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    double& operator() (size_t const& i, size_t const& j, size_t const& iv, size_t const& ie, size_t const& rank) const
+    {
+        return get(i,j,iv,ie,strides[0],strides[1],strides[2],rank_offsets(rank)) ; 
+    }
+
+    private:
+
+    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    double& get(
+        size_t const& i, size_t const& j, size_t const& iv, size_t const& ie, 
+        size_t const& s0, size_t const& s1, size_t const& s2, 
+        size_t const& offset) const 
+    {
+        auto c_index = i 
+                     + s0 * j
+                     + s1 * iv 
+                     + s2 * ie ;
+        return _data(offset+c_index); 
+    }
+
+    
+    readonly_view_t<int> rank_offsets;
+    std::array<size_t, 3> strides;
+    Kokkos::View<double *, grace::default_space> _data ;
+    std::size_t _size ;     
 } ; 
 
 }} /* namespace grace::amr */

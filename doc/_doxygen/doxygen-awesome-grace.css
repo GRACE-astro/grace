@@ -1,30 +1,100 @@
 /*
- * Copyright (c) 2021 Nordic Semiconductor ASA
- * SPDX-License-Identifier: Apache-2.0
+ * GRACE Project Doxygen-Awesome Branding
+ * Copyright (c) 2026, Carlo Musolino
+ * SPDX-License-Identifier: CC-BY-3.0
  */
 
-/* This file contains color customizations that follow Zephyr's branding */
+/* -------------------------------
+   Light mode (updated)
+---------------------------------*/
+:root, html.light-mode {
+    /* Page background & text */
+    --page-background-color: #fcfcfc;  /* light gray / white */
+    --page-foreground-color: #333333;  /* dark gray for text */
+    --page-secondary-foreground-color: #555555;
+    --separator-color: #e3e3e3;
+
+    /* Primary color */
+    --primary-color: #468FAF;  /* blue from your color scheme */
+    --primary-dark-color: #386d8b;
+    --primary-light-color: #74b0d1;
+
+    /* Sidebar / TOC */
+    --side-nav-background: #012A4A;
+    --side-nav-foreground:  #89C2D9;
+    --side-nav-arrow-opacity: 0;
+    --side-nav-arrow-hover-opacity: 0.9;
+    --toc-background: var(--side-nav-background);
+    --toc-foreground: var(--side-nav-foreground);
+
+    /* Code & fragments */
+    --code-background: #f5f5f5;
+    --code-foreground: #333333;
+
+    --fragment-background: #F8F9FA;
+    --fragment-foreground: #37474F;
+    --fragment-keyword: #bb6bb2;
+    --fragment-keywordtype: #8258b3;
+    --fragment-keywordflow: #d67c3b;
+    --fragment-token: #438a59;
+    --fragment-comment: #969696;
+    --fragment-link: #5383d6;
+    --fragment-preprocessor: #46aaa5;
+    --fragment-linenumber-color: #797979;
+    --fragment-linenumber-background: #f4f4f5;
+    --fragment-linenumber-border: #e3e5e7;
+
+    /* Search bar */
+    --searchbar-background: var(--side-nav-background);
+    --searchbar-foreground: var(--page-foreground-color);
+
+    /* Links & parameters */
+    --link-color: #468FAF;
+    --param-color: #FF7D29;
+}
 
 html {
+    /* Primary branding colors for top/nav */
     --primary-color: #A9D6E5;
     --primary-dark-color: #159dfe;
     --primary-light-color: #3bacfc;
     --primary-lighter-color: #70c0fa;
     --primary-lightest-color: #9ad4fd;
 
+    /* Side navigation */
     --side-nav-background: #012A4A;
     --side-nav-foreground: #89C2D9;
+    --side-nav-fixed-width: 300px;
 
-    --searchbar-background: var(--page-background-color);
-    --searchbar-foreground: var(--page-foreground-color);
+    /* Top bar / page layout */
+    --top-height: 220px;
 
+    /* Main content background & text */
+    --content-background-color: #fcfcfc;
+    --content-foreground-color: #404040;
+
+    /* Search bar */
+    --searchbar-background: #efefef;
+    --searchbar-foreground: #404040;
+
+    /* Links & parameters */
     --link-color: #468FAF;
     --param-color: #FF7D29;
 
-    --side-nav-fixed-width: 300px;
-    --top-height: 220px;
+    /* Code block background */
+    --code-background-color: #fcfcfc;
+    --code-literal-color: #FF7D29;
+
+    /* body */ 
+    --body-color: #404040;
+
+    /* page */ 
+    --page-background-color: #fcfcfc;
 }
 
+/* -------------------------------
+   Dark mode (prefers-color-scheme)
+---------------------------------*/
 @media (prefers-color-scheme: dark) {
     html:not(.light-mode) {
         color-scheme: dark;
@@ -36,12 +106,16 @@ html {
         --primary-lightest-color: #191a1c;
 
         --side-nav-background: #252628;
-        --side-nav-foreground: var(--page-foreground-color);
+        --side-nav-foreground: #eeeeee;
 
         --param-color: #ef9a9a;
+        --link-color: #61A5C2;
     }
 }
 
+/* -------------------------------
+   Dark mode toggle override
+---------------------------------*/
 html.dark-mode {
     color-scheme: dark;
 
@@ -52,24 +126,37 @@ html.dark-mode {
     --primary-lightest-color: #191a1c;
 
     --side-nav-background: #252628;
-    --side-nav-foreground: var(--page-foreground-color);
+    --side-nav-foreground: #eeeeee;
 
     --param-color: #ef9a9a;
+    --link-color: #61A5C2;
 }
 
+/* -------------------------------
+   Links
+---------------------------------*/
 a:link, a:visited, a:hover, a:focus, a:active {
     color: var(--link-color) !important;
 }
 
+/* -------------------------------
+   Parameter highlighting
+---------------------------------*/
 .paramname {
     color: var(--param-color);
+    font-weight: 600;
 }
 
-dl.section dd, dl.bug dd, dl.deprecated dd {
+/* -------------------------------
+   Section & documentation styling
+---------------------------------*/
+dl.section dd,
+dl.bug dd,
+dl.deprecated dd {
     margin-inline-start: revert;
 }
 
-/* adjust top and title to ~match Sphinx docs */
+/* Adjust top & title to match Sphinx layout */
 #top {
     background: var(--side-nav-background);
 }
@@ -98,9 +185,45 @@ dl.section dd, dl.bug dd, dl.deprecated dd {
     }
 }
 
-/* style for re-injected version */
+/* Re-injected version styling */
 #projectversion {
     color: var(--side-nav-foreground);
     padding-top: 25px;
     text-align: center;
+}
+
+body {
+    background-color: var(--page-background-color) !important;
+    color: var(--page-foreground-color) !important;
+}
+
+#side-nav, #nav-tree {
+    background-color: var(--side-nav-background) !important;
+    color: var(--side-nav-foreground) !important;
+}
+
+#nav-tree .label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#nav-tree .label:hover {
+    overflow: visible;
+    white-space: normal;
+    background: var(--side-nav-background);
+    position: absolute;
+    z-index: 1000;
+    padding: var(--spacing-small);
+    box-shadow: var(--box-shadow);
+}
+
+code, pre.fragment, div.fragment {
+    background-color: var(--code-background) !important;
+    color: var(--code-foreground) !important;
+}
+
+div.contents, div.header, div.header .title {
+    background-color: var(--page-background-color) !important;
+    color: var(--page-foreground-color) !important;
 }

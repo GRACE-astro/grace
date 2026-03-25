@@ -38,6 +38,7 @@
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
 #include <grace/physics/grmhd_helpers.hh>
+#include <grace/physics/eos/c2p_types.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -72,18 +73,9 @@ struct grhd_c2p_t {
         StildeU = metric.raise({conservs[STXL],conservs[STYL],conservs[STZL]}) ; 
         auto StildeNorm = 
             Kokkos::sqrt(conservs[STXL]*StildeU[0] + conservs[STYL]*StildeU[1] + conservs[STZL]*StildeU[2] ) ; 
-        conservs[TAUL] = math::max(0, conservs[TAUL]) ;
+
         D  = conservs[DENSL] ; 
-        /* Acausal momentum */
-        if ( StildeNorm > D+conservs[TAUL] ) {
-            double const fact = 0.9999*(D+conservs[TAUL]) ; 
-            conservs[STXL] *= fact/StildeNorm ; 
-            conservs[STYL] *= fact/StildeNorm  ;
-            conservs[STZL] *= fact/StildeNorm  ;
-            StildeU = metric.raise({conservs[STXL],conservs[STYL],conservs[STZL]}) ; 
-            StildeNorm = fact ; 
-            //    Kokkos::sqrt(conservs[STXL]*StildeU[0] + conservs[STYL]*StildeU[1] + conservs[STZL]*StildeU[2] ) ; 
-        } 
+        
         ye = conservs[YESL] / D ;
         q  = conservs[TAUL] / D ; 
         r = StildeNorm / D ; 
@@ -103,35 +95,46 @@ struct grhd_c2p_t {
      * entropy and temperature by calling the EOS and adding 
      * the relevant metric components to the velocity.
      */
-    grmhd_prims_array_t GRACE_HOST_DEVICE
-    invert(double& error) {
-
+    double  GRACE_HOST_DEVICE
+    invert(grmhd_prims_array_t& prims, c2p_sig_t& c2p_errors) {
+        c2p_errors = C2P_SUCCESS ; 
         auto const func = [&] (double const& zeta) {
             return zeta - r / htilde(zeta) ; 
         } ; 
         double const zm{ 0.5*k/Kokkos::sqrt(1-math::int_pow<2>(0.5*k))} 
                    , zp{ 1e-06 + k/Kokkos::sqrt(1-math::int_pow<2>(k))} ; 
         double const zeta = utils::brent(func,zm,zp,1e-15) ; 
-        double const W = Wtilde(zeta) ; 
-        grmhd_prims_array_t prims ; 
+        double W = Wtilde(zeta) ; 
+        
         prims[RHOL] = D/W ;
         prims[YEL]  = ye ;
         /* Enforce range on eps tilde */
         double epsmin, epsmax; 
         unsigned int err ;
         eos.eps_range__rho_ye(epsmin,epsmax,prims[RHOL],prims[YEL],err) ; 
-        prims[EPSL]   = math::min( epsmax
-                                 , math::max( epsmin
-                                            , epstilde(W,zeta) ) ) ; 
-        prims[PRESSL] = W ; 
-        double const h = htilde(zeta) ; 
-        prims[VXL] = StildeU[0] / D / h / W; 
-        prims[VYL] = StildeU[1] / D / h / W; 
-        prims[VZL] = StildeU[2] / D / h / W; 
-        error = func(zeta) ;
-        return std::move(prims) ; 
+        double eps = epstilde(W,zeta) ; 
+        if ( eps > epsmax ) {
+            c2p_errors  = C2P_EPS_TOO_HIGH ; 
+            eps = 0.999 * epsmax ; 
+        } else if ( eps < epsmin ) {
+            c2p_errors  = C2P_EPS_TOO_LOW ; 
+            eps = epsmin ; 
+        }
+        prims[EPSL]   = eps ;  
+
+        double h = htilde(zeta) ; 
+        prims[ZXL] = StildeU[0] / D / h ; 
+        prims[ZYL] = StildeU[1] / D / h ; 
+        prims[ZZL] = StildeU[2] / D / h ; 
+        
+        double csnd2 ; 
+        prims[PRESSL] = eos.press_h_csnd2_temp_entropy__eps_rho_ye(
+            h,csnd2,prims[TEMPL],prims[ENTL],prims[EPSL],prims[RHOL],prims[YEL], err
+        ) ;
+
+        return fabs(func(zeta)) ; 
     }
-    
+
  private:
     //! Equation of state
     eos_t const& eos ; 
@@ -149,6 +152,7 @@ struct grhd_c2p_t {
     double k  ; 
     //! Momentum with upper indices 
     std::array<double,3> StildeU ; 
+    
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     Wtilde(double const& z) const {
@@ -181,7 +185,7 @@ struct grhd_c2p_t {
         double yel{ye} ; 
         unsigned int err; 
         eos.eps_range__rho_ye(epsmin,epsmax,rho,yel,err) ; 
-        auto eps = math::max(epsmin,math::min(epsmax,epstilde(W,z))) ; 
+        auto eps = fmax(epsmin,fmin(epsmax,epstilde(W,z))) ; 
         return (1+eps) * (1+atilde(rho,eps)) ; 
     }
 } ; 

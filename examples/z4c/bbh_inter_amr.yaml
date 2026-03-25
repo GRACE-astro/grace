@@ -1,0 +1,214 @@
+name: "grace"
+amr: {
+  npoints_block_x: 48,
+  npoints_block_y: 48,
+  npoints_block_z: 48,
+  xmin: -1024.0,
+  xmax: 1024.0,
+  ymin: -1024.0,
+  ymax: 1024.0,
+  zmin: 0.0,
+  zmax: 1024.0,
+
+  reflection_symmetries: {
+    x: false, 
+    y: false,
+    z: true 
+  },
+
+  n_ghostzones: 4,
+  initial_refinement_level: 2,
+  
+  max_refinement_level: 10,
+
+  n_fmr_boxes: 6,
+  fmr_boxes: [
+    {
+      target_level_delta: 1,
+      x_min: -512,
+      x_max: 512,
+      y_min: -512,
+      y_max: 512,
+      z_min: 0,
+      z_max: 256
+    },
+    {
+      target_level_delta: 2,
+      x_min: -256,
+      x_max: 256,
+      y_min: -256,
+      y_max: 256,
+      z_min: 0,
+      z_max: 128
+    },
+    {
+      target_level_delta: 3,
+      x_min: -128,
+      x_max: 128,
+      y_min: -128,
+      y_max: 128,
+      z_min: 0,
+      z_max: 64
+    },
+    {
+      target_level_delta: 4,
+      x_min: -64,
+      x_max: 64,
+      y_min: -64,
+      y_max: 64,
+      z_min: 0,
+      z_max: 32
+    },
+    {
+      target_level_delta: 5,
+      x_min: -32,
+      x_max: 32,
+      y_min: -32,
+      y_max: 32,
+      z_min: 0,
+      z_max: 16
+    },
+    {
+      target_level_delta: 6,
+      x_min: -16,
+      x_max: 16,
+      y_min: -16,
+      y_max: 16,
+      z_min: 0,
+      z_max: 8
+    }
+  ],
+
+  regrid_at_postinitial: true,
+  postinitial_regrid_depth: 2,
+
+  regrid_every: 50,
+
+  refinement_criterion: "simple_threshold",
+  refinement_criterion_var: "conf_fact",
+  refinement_criterion_CTORE: 0.7,
+  refinement_criterion_CTODE: 0.8,
+  refinement_criterion_reduction: "min",
+  refinement_criterion_var_is_aux: false
+}
+
+IO: {
+  volume_output_every: -1,
+
+  plane_surface_output_cell_variables: ["metric"],
+  plane_surface_output_every: 1000,
+
+  sphere_surface_output_every: -1,
+
+  info_output_every: 2,
+  info_output_min_reductions: ["alp","conf_fact"],
+  info_output_norm2_reductions: ["z4c_H"],
+
+  scalar_output_every: 2,
+  scalar_output_minmax: ["conf_fact","alp"],
+  scalar_output_norm2: ["z4c_H"],
+  scalar_output_integral: [],
+
+  output_use_hdf5: true,
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true,
+
+  xy_plane_offset: 0.015,
+
+  diagnostic_output_every: 1
+
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "verbose",
+  n_device_streams: 4,
+  flush_logs_based_on_severity: false
+}
+evolution: {
+  time_stepper: "rk4",
+  cfl_factor: 0.4,
+  final_walltime: 23.5,
+  termination_condition: "walltime"
+}
+
+grmhd: {
+  id_type: "two_punctures",
+  two_punctures: {
+    par_b: 3.257,
+
+    target_M_plus: 0.505,
+    par_P_plus_x: 0.0,
+    par_P_plus_y: -0.133,
+    par_P_plus_z: 0.0,
+    par_S_plus_x: 0.0,
+    par_S_plus_y: 0.0,
+    par_S_plus_z: 0.0,
+
+    target_M_minus: 0.505,
+    par_P_minus_x: 0.0,
+    par_P_minus_y: 0.133,
+    par_P_minus_z: 0.0,
+    par_S_minus_x: 0.0,
+    par_S_minus_y: 0.0,
+    par_S_minus_z: 0.0,
+
+    npoints_A: 30,
+    npoints_B: 30,
+    npoints_phi: 16,
+
+    TP_epsilon: 0.0
+  }
+}
+
+z4c: {
+  kappa_1: 0.02,
+  kappa_2: 0.0,
+  eta: 2.0,
+  eps_diss: 0.5,
+  chi_floor: 1e-11,
+  is_vacuum: true,
+  eta_damp_radius: 256,
+  kappa_damp_radius: 512,
+  theta_damp_radius: 512
+}
+
+spherical_surfaces: {
+
+  n_surfaces: 2,
+
+  spherical_detectors: [
+    {
+      name: "GW_1",
+      tracking: "none",
+      radius: 60.0,
+      x_c: 0.0,
+      y_c: 0.0,
+      z_c: 0.0,
+      
+      sampling_policy: "uniform",
+      resolution: 91
+    },
+    {
+      name: "GW_2",
+      tracking: "none",
+      radius: 100.0,
+      x_c: 0.0,
+      y_c: 0.0,
+      z_c: 0.0,
+      
+      sampling_policy: "uniform",
+      resolution: 91
+    }
+  ]
+}
+
+gw_integrals: {
+  detector_names: ["GW_1","GW_2"]
+}
+
+checkpoints: {
+  checkpoint_dir: "../checkpoints",
+  max_n_checkpoints: 4,
+  checkpoint_at_startup: true
+}

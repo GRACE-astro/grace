@@ -34,6 +34,8 @@
 //*****************************************************************************************************
 #include <grace/physics/eos/eos_types.hh>
 //*****************************************************************************************************
+#include <grace/parallel/mpi_wrappers.hh>
+//*****************************************************************************************************
 namespace grace {
 //*****************************************************************************************************
 //*****************************************************************************************************
@@ -63,7 +65,128 @@ void evolve() ;
 template< typename eos_t >
 void evolve_impl() ; 
 //*****************************************************************************************************
+/** @brief Compute fluxes for all HRSC equations systems
+ * @param t Time 
+ * @param dt Time step 
+ * @param dtfact Time step factor
+ * @param new_state New state 
+ * @param old_state Old state
+ * @param new_stag_state New staggered state 
+ * @param old_stag_state Old staggered state 
+ * \ingroup evol
+ */
+template< typename eos_t >
+void compute_fluxes(
+    double const t, double const dt, double const dtfact 
+    , var_array_t& new_state 
+    , var_array_t& old_state 
+    , staggered_variable_arrays_t & new_stag_state 
+    , staggered_variable_arrays_t & old_stag_state 
+) ; 
+//*****************************************************************************************************
+/** @brief Compute the emf for CT evolution of the B field
+ * @param t Time 
+ * @param dt Time step 
+ * @param dtfact Time step factor
+ * @param new_state New state 
+ * @param old_state Old state
+ * @param new_stag_state New staggered state 
+ * @param old_stag_state Old staggered state 
+ * \ingroup evol
+*/
+void compute_emfs(
+    double const t, double const dt, double const dtfact 
+    , var_array_t& new_state 
+    , var_array_t& old_state 
+    , staggered_variable_arrays_t & new_stag_state 
+    , staggered_variable_arrays_t & old_stag_state 
+) ; 
+//*****************************************************************************************************
+/** @brief Add fluxes and geometric sources to HRSC evolution RHS
+ * @param t Time 
+ * @param dt Time step 
+ * @param dtfact Time step factor
+ * @param new_state New state 
+ * @param old_state Old state
+ * @param new_stag_state New staggered state 
+ * @param old_stag_state Old staggered state 
+ * \ingroup evol
+*/
+template< typename eos_t >
+void add_fluxes_and_source_terms(
+    double const t, double const dt, double const dtfact 
+    , var_array_t& new_state 
+    , var_array_t& old_state 
+    , staggered_variable_arrays_t & new_stag_state 
+    , staggered_variable_arrays_t & old_stag_state 
+) ; 
+//*****************************************************************************************************
+/** @brief Update the face staggered B field
+ * @param t Time 
+ * @param dt Time step 
+ * @param dtfact Time step factor
+ * @param new_state New state 
+ * @param old_state Old state
+ * @param new_stag_state New staggered state 
+ * @param old_stag_state Old staggered state 
+ * \ingroup evol
+*/
+void update_CT(
+    double const t, double const dt, double const dtfact 
+    , var_array_t& new_state 
+    , var_array_t& old_state 
+    , staggered_variable_arrays_t & new_stag_state 
+    , staggered_variable_arrays_t & old_stag_state 
+) ; 
+//*****************************************************************************************************
+/** @brief Update finite difference equation systems
+ * @param t Time 
+ * @param dt Time step 
+ * @param dtfact Time step factor
+ * @param new_state New state 
+ * @param old_state Old state
+ * @param new_stag_state New staggered state 
+ * @param old_stag_state Old staggered state 
+ * \ingroup evol
+*/
+void update_fd(
+    double const t, double const dt, double const dtfact 
+    , var_array_t& new_state 
+    , var_array_t& old_state 
+    , staggered_variable_arrays_t & new_stag_state 
+    , staggered_variable_arrays_t & old_stag_state
+) ;
+//*****************************************************************************************************
+/**
+ * @brief Advance all variables by an implicit substep.
+ * \ingroup evol
+ * @tparam eos_t Type of active EOS.
+ * @param t Current time.
+ * @param dt Timestep size.
+ * @param dtfact Timestep factor.
+ * @param state  State array.
+ * @param state_p Scratch state array.
+ * 
+ * This routine advances all variables by an implicit substep. It **assumes** 
+ * that the implicit part of the equations can be written as
+ * \f[
+ *   G(U)
+ * \f]
+ * where the operator \f$ G \f$ does not contain derivatives.
+ *
+ * Under these conditions, this routine solves the implicit fixed-point equation
+ * \f[
+ *   U = G(U)
+ * \f]
+ * everywhere, including ghost zones.
+ */
 
+template< typename eos_t >
+void advance_implicit_substep( double const t, double const dt, double const dtfact 
+                    , grace::var_array_t& state 
+                    , grace::var_array_t& state_p 
+                    , grace::staggered_variable_arrays_t & sstate 
+                    , grace::staggered_variable_arrays_t & sstate_p) ;
 //*****************************************************************************************************
 /**
  * @brief Advance all variables by a substep.
@@ -87,26 +210,46 @@ void evolve_impl() ;
  */
 template< typename eos_t >
 void advance_substep( double const t, double const dt, double const dtfact 
-                    , grace::var_array_t<GRACE_NSPACEDIM>& state 
-                    , grace::var_array_t<GRACE_NSPACEDIM>& state_p 
-                    , grace::var_array_t<GRACE_NSPACEDIM>& aux 
-                    , grace::scalar_array_t<GRACE_NSPACEDIM>&  idx
-                    , grace::cell_vol_array_t<GRACE_NSPACEDIM>& cvol
-                    , grace::staggered_coordinate_arrays_t& surfs_and_edges
-                    , grace::flux_array_t& fluxes ) ; 
+                    , grace::var_array_t& state 
+                    , grace::var_array_t& state_p 
+                    , grace::staggered_variable_arrays_t & sstate 
+                    , grace::staggered_variable_arrays_t & sstate_p) ; 
+#ifdef GRACE_ENABLE_Z4C_METRIC
+void compute_constraint_violations() ; 
+void enforce_algebraic_constraints(grace::var_array_t& state) ; 
+#endif 
 //*****************************************************************************************************
 //*****************************************************************************************************
 // Explicit template instantiation
 #define INSTANTIATE_TEMPLATE(EOS)                                     \
 extern template                                                       \
 void advance_substep<EOS>( double const , double const , double const \
-                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
-                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
-                         , grace::var_array_t<GRACE_NSPACEDIM>&       \
-                         , grace::scalar_array_t<GRACE_NSPACEDIM>&    \
-                         , grace::cell_vol_array_t<GRACE_NSPACEDIM>&  \
-                         , grace::staggered_coordinate_arrays_t&      \
-                         , grace::flux_array_t& ) ; \
+                         , grace::var_array_t&       \
+                         , grace::var_array_t&       \
+                         , grace::staggered_variable_arrays_t & \
+                         , grace::staggered_variable_arrays_t & \
+                        ) ; \
+extern template                                                       \
+void advance_implicit_substep<EOS>( double const , double const , double const \
+                         , grace::var_array_t&       \
+                         , grace::var_array_t&       \
+                         , grace::staggered_variable_arrays_t & \
+                         , grace::staggered_variable_arrays_t & \
+                        ) ; \
+extern template                                                      \
+void compute_fluxes<EOS>( double const , double const , double const \
+                        , grace::var_array_t&                        \
+                        , grace::var_array_t&                        \
+                        , grace::staggered_variable_arrays_t &       \
+                        , grace::staggered_variable_arrays_t &       \
+                        ) ;                                          \
+extern template                                                      \
+void add_fluxes_and_source_terms<EOS>( double const , double const , double const \
+                        , grace::var_array_t&                        \
+                        , grace::var_array_t&                        \
+                        , grace::staggered_variable_arrays_t &       \
+                        , grace::staggered_variable_arrays_t &       \
+                        ) ;                                          \
 extern template                                                       \
 void evolve_impl<EOS>()
 

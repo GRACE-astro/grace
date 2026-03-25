@@ -31,7 +31,6 @@
 #include <grace_config.h>
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
-#include <grace/data_structures/macros.hh>
 
 
 static void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 

@@ -1,9 +1,10 @@
 add_subdirectory(ghost_helpers)
+add_subdirectory(regrid)
 
 register_grace_object(grace_connectivity connectivity.cpp)
 register_grace_object(grace_forest forest.cpp)
 register_grace_object(grace_amr_functions amr_functions.cpp)
 register_grace_object(grace_regrid regrid.cpp)
 register_grace_object(grace_ghosts amr_ghosts.cpp)
-register_grace_object(grace_ghost_buffers amr_ghosts_construct_buffers.cpp)
+register_grace_object(grace_ghost_buffers amr_ghosts_construct_buffers.cpp amr_ghosts_construct_reflux_buffers.cpp)
 register_grace_object(grace_BC boundary_conditions.cpp)

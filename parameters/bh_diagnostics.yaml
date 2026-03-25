@@ -1,0 +1,11 @@
+bh_diagnostics:
+  type: schema 
+  description: >
+    BH diagnostics 
+  
+  detector_names:
+    type: list 
+    item_type: string 
+    default: []
+    description: >
+      Names of detectors where BH diagnostics should be computed 

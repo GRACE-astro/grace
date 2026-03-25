@@ -34,3 +34,7 @@ endif()
 if( GRACE_ENABLE_OMP )
     find_package(OpenMP REQUIRED)
 endif()
+
+if ( GRACE_ENABLE_CUDA ) 
+    add_compile_options(--expt-relaxed-constexpr)
+endif()

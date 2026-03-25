@@ -48,9 +48,39 @@
 #include <vector> 
 #include <iostream>
 #include <algorithm> 
+#include <unordered_set>
 #include <filesystem> 
 
 namespace grace {
+
+template <typename Container>
+static void print_list(const std::string& title, const Container& c)
+{
+    std::cout << "    " << title << ":\n";
+
+    if (c.empty()) {
+        std::cout << "      (none)\n";
+        return;
+    }
+
+    for (const auto& x : c) {
+        std::cout << "      - " << x << '\n';
+    }
+}
+
+template <typename S, typename V, typename AS, typename AV>
+void print_variable_group(const S& scalars,
+                          const V& vectors,
+                          const AS& aux_scalars,
+                          const AV& aux_vectors)
+{
+    print_list("Scalars", scalars);
+    print_list("Vectors", vectors);
+
+    std::cout << "    Auxiliaries:\n";
+    print_list("Scalars", aux_scalars);
+    print_list("Vectors", aux_vectors);
+}
 
 enum terminate : uint8_t {ITERATION, TIME, WALLTIME} ; 
 
@@ -94,19 +124,10 @@ class grace_runtime_impl_t
     std::vector<std::string> _integral_reduction_vars ;
     std::vector<std::string> _integral_reduction_aux  ;
     /* Output planes */
-    int _n_output_planes ; 
-    std::vector<std::array<double,3>> _output_planes_origins ; 
-    std::vector<std::array<double,3>> _output_planes_normals ; 
-    std::vector<std::string>          _output_planes_names   ; 
+    std::vector<double> _output_planes_origins ; 
     /* Output spheres */
     int _n_output_spheres ; 
-    std::vector<std::array<double,3>> _output_spheres_centers  ; 
-    std::vector<double>               _output_spheres_radii    ; 
-    std::vector<std::string>          _output_spheres_names    ; 
-    std::vector<std::string>          _output_spheres_tracking ;
-    /* Output parameters */ 
-    bool   _volume_output        ;
-    bool   _surface_output       ; 
+    std::vector<std::string>          _output_spheres_names   ; 
     int _volume_output_every  ; 
     int _plane_surface_output_every ; 
     int _sphere_surface_output_every ; 
@@ -114,14 +135,16 @@ class grace_runtime_impl_t
     int _info_output_every           ;
     std::filesystem::path _volume_io_basepath ;
     std::filesystem::path _surface_io_basepath ;
+    std::filesystem::path _sphere_io_basepath ; 
     std::filesystem::path _scalar_io_basepath ;
     std::string _volume_io_basename  ; 
     std::string _surface_io_basename ;
+    
     std::string _scalar_io_basename ;
     /* iteration count */ 
     size_t _iter ; 
     /* current simulation time */
-    double _time, _dt ; 
+    double _time, _dt, _initial_time, _initial_wtime ; 
     /* total walltime clock */
     spdlog::stopwatch _walltime ; 
     /* termination condition */
@@ -159,6 +182,11 @@ class grace_runtime_impl_t
         return _time ;
     }
 
+    double GRACE_ALWAYS_INLINE
+    initial_time() const {
+        return _initial_time ;
+    }
+
     double GRACE_ALWAYS_INLINE 
     timestep() const {
         return _dt ; 
@@ -177,6 +205,21 @@ class grace_runtime_impl_t
     void GRACE_ALWAYS_INLINE 
     set_timestep(double const& _new_dt ) {
         _dt = _new_dt ; 
+    }
+
+    void GRACE_ALWAYS_INLINE 
+    set_simulation_time(double const& _new_t ) {
+        _time = _new_t ; 
+    }
+
+    void GRACE_ALWAYS_INLINE 
+    set_initial_simulation_time(double const& _new_t ) {
+        _initial_time = _new_t ; 
+    }
+
+    void GRACE_ALWAYS_INLINE 
+    set_iteration(size_t const& _new_it ) {
+        _iter = _new_it ; 
     }
 
     int GRACE_ALWAYS_INLINE 
@@ -199,6 +242,9 @@ class grace_runtime_impl_t
 
     std::string GRACE_ALWAYS_INLINE
     surface_io_basepath() const { return _surface_io_basepath ; }
+
+    std::string GRACE_ALWAYS_INLINE
+    sphere_io_basepath() const { return _sphere_io_basepath ; }
 
     std::string GRACE_ALWAYS_INLINE
     scalar_io_basepath() const { return _scalar_io_basepath ; }
@@ -362,24 +408,9 @@ class grace_runtime_impl_t
         return _integral_reduction_aux; 
     }
 
-    int GRACE_ALWAYS_INLINE 
-    n_surface_output_planes() const {
-        return _n_output_planes ; 
-    }
-
     decltype(auto) GRACE_ALWAYS_INLINE 
     cell_plane_surface_output_origins() const {
         return _output_planes_origins ;  
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_plane_surface_output_normals() const {
-        return _output_planes_normals ; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_plane_surface_output_names() const {
-        return _output_planes_names ; 
     }
 
     int GRACE_ALWAYS_INLINE 
@@ -387,36 +418,25 @@ class grace_runtime_impl_t
         return _n_output_spheres ; 
     }
 
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_sphere_surface_output_centers() const {
-        return _output_spheres_centers ; 
-    }
-
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_sphere_surface_output_radii() const {
-        return _output_spheres_radii ; 
-    }
 
     decltype(auto) GRACE_ALWAYS_INLINE 
     cell_sphere_surface_output_names() const {
         return _output_spheres_names ;
     }
 
-    decltype(auto) GRACE_ALWAYS_INLINE 
-    cell_sphere_surface_output_tracking() const {
-        return _output_spheres_tracking ;
-    }
-
     void GRACE_ALWAYS_INLINE 
-    set_output_sphere_center(int isphere, std::array<double,3>const& new_center)
-    {
-        for( int ii=0; ii<3; ++ii)
-            _output_spheres_centers[isphere][ii] = new_center[ii] ;
+    start_walltime_clock() {
+        _initial_wtime = _walltime.elapsed().count() ; 
     }
 
     double GRACE_ALWAYS_INLINE 
     elapsed() {
-        return _walltime.elapsed().count() ; 
+        return _walltime.elapsed().count() - _initial_wtime; 
+    }
+    
+    double GRACE_ALWAYS_INLINE 
+    total_elapsed() {
+        return _walltime.elapsed().count(); 
     }
 
  private:
@@ -427,166 +447,257 @@ class grace_runtime_impl_t
          * parse IO section of parfile and sort variables into aux and state 
          * and into scalars and vectors.
         */
-        _surface_output = params["IO"]["surface_output"].as<bool>() ; 
-        _volume_output = params["IO"]["volume_output"].as<bool>() ; 
         /* Output frequencies              */
-        _sphere_surface_output_every = params["IO"]["sphere_surface_output_every"].as<int>() ; 
-        _plane_surface_output_every = params["IO"]["plane_surface_output_every"].as<int>() ; 
-        _volume_output_every = params["IO"]["volume_output_every"].as<int>() ; 
-        _scalar_output_every = params["IO"]["scalar_output_every"].as<int>() ; 
-        _info_output_every = params["IO"]["info_output_every"].as<int>() ; 
+        _sphere_surface_output_every = grace::get_param<int>("IO", "sphere_surface_output_every") ; 
+        _plane_surface_output_every = grace::get_param<int>("IO", "plane_surface_output_every") ; 
+        _volume_output_every = grace::get_param<int>("IO", "volume_output_every") ; 
+        _scalar_output_every = grace::get_param<int>("IO", "scalar_output_every") ; 
+        _info_output_every = grace::get_param<int>("IO", "info_output_every") ; 
         /* Output filenames and directories */
-        _volume_io_basename  = params["IO"]["volume_output_base_filename"].as<std::string>(); 
-        _surface_io_basename  = params["IO"]["surface_output_base_filename"].as<std::string>();
-        _scalar_io_basename  = params["IO"]["scalar_output_base_filename"].as<std::string>();
+        _volume_io_basename  = grace::get_param<std::string>("IO", "volume_output_base_filename"); 
+        _surface_io_basename  = grace::get_param<std::string>("IO", "surface_output_base_filename");
+        _scalar_io_basename  = grace::get_param<std::string>("IO", "scalar_output_base_filename");
         _volume_io_basepath  = 
-            std::filesystem::path(params["IO"]["volume_output_base_directory"].as<std::string>()); 
+            std::filesystem::path(grace::get_param<std::string>("IO", "volume_output_base_directory")); 
         _surface_io_basepath  = 
-            std::filesystem::path(params["IO"]["surface_output_base_directory"].as<std::string>()); 
+            std::filesystem::path(grace::get_param<std::string>("IO", "surface_output_base_directory")); 
         _scalar_io_basepath  = 
-            std::filesystem::path(params["IO"]["scalar_output_base_directory"].as<std::string>()); 
+            std::filesystem::path(grace::get_param<std::string>("IO", "scalar_output_base_directory")); 
+        _sphere_io_basepath = 
+            std::filesystem::path(grace::get_param<std::string>("IO","sphere_surface_output_base_directory")) ; 
         /* Create output directories if they don't exist */
-        if( not std::filesystem::exists( _volume_io_basepath ) ){
+        if( not std::filesystem::exists( _volume_io_basepath ) and (parallel::mpi_comm_rank() == 0)){
             std::filesystem::create_directory(_volume_io_basepath) ; 
         }
 
-        if( not std::filesystem::exists( _surface_io_basepath ) ){
+        if( not std::filesystem::exists( _surface_io_basepath) and (parallel::mpi_comm_rank() == 0)) {
             std::filesystem::create_directory(_surface_io_basepath) ; 
         }
 
-        if( not std::filesystem::exists( _scalar_io_basepath ) ){
+        if( not std::filesystem::exists( _sphere_io_basepath) and (parallel::mpi_comm_rank() == 0)) {
+            std::filesystem::create_directory(_sphere_io_basepath) ; 
+        }
+
+        if( not std::filesystem::exists( _scalar_io_basepath) and (parallel::mpi_comm_rank() == 0)) {
             std::filesystem::create_directory(_scalar_io_basepath) ; 
         }
         /* Set output planes and spheres properties      */
-        _n_output_planes = params["IO"]["n_output_planes"].as<int>() ;
-        #define READ_IO_PARAM(s,t) params["IO"][s].as<t>()  
-        #define AS_TYPE(t) t
-        _output_planes_origins.resize(_n_output_planes) ;
-        _output_planes_normals.resize(_n_output_planes) ;
-        _output_planes_names.resize(_n_output_planes)   ; 
-        for (int iplane=0; iplane < _n_output_planes; ++iplane) {
-            std::ostringstream oss_x,oss_y,oss_z;
-            oss_x << "output_plane_x_origin_" << iplane;
-            oss_y << "output_plane_y_origin_" << iplane;
-            oss_z << "output_plane_z_origin_" << iplane;
-            _output_planes_origins[iplane] = {
-                READ_IO_PARAM(oss_x.str(), AS_TYPE(double)),
-                READ_IO_PARAM(oss_y.str(), AS_TYPE(double)),
-                READ_IO_PARAM(oss_z.str(), AS_TYPE(double))
-            } ; 
-            oss_x.str("");  // Reset content to empty string
-            oss_x.clear();
-            oss_y.str("");  // Reset content to empty string
-            oss_y.clear();
-            oss_z.str("");  // Reset content to empty string
-            oss_z.clear();
-            oss_x << "output_plane_x_normal_" << iplane;
-            oss_y << "output_plane_y_normal_" << iplane;
-            oss_z << "output_plane_z_normal_" << iplane;
-            _output_planes_normals[iplane] = {
-                READ_IO_PARAM(oss_x.str(), AS_TYPE(double)),
-                READ_IO_PARAM(oss_y.str(), AS_TYPE(double)),
-                READ_IO_PARAM(oss_z.str(), AS_TYPE(double))
-            } ; 
-            oss_x.str("");  // Reset content to empty string
-            oss_x.clear();
-            oss_x << "output_plane_name_" << iplane;
-            _output_planes_names[iplane] = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
-        }
+        _output_planes_origins.resize(3) ;
+        _output_planes_origins[0] = grace::get_param<double>("IO","xy_plane_offset") ;
 
-        _n_output_spheres = params["IO"]["n_output_spheres"].as<int>() ;
-        _output_spheres_centers.resize(_n_output_spheres)  ;
-        _output_spheres_radii.resize(_n_output_spheres)    ;
-        _output_spheres_names.resize(_n_output_spheres)    ;
-        _output_spheres_tracking.resize(_n_output_spheres) ;
-        for (int isphere=0; isphere < _n_output_spheres; ++isphere) {
-            std::ostringstream oss_x,oss_y,oss_z;
-            oss_x << "output_sphere_x_center_" << isphere;
-            oss_y << "output_sphere_y_center_" << isphere;
-            oss_z << "output_sphere_z_center_" << isphere;
-            _output_spheres_centers[isphere] = {
-                READ_IO_PARAM(oss_x.str(), AS_TYPE(double)),
-                READ_IO_PARAM(oss_y.str(), AS_TYPE(double)),
-                READ_IO_PARAM(oss_z.str(), AS_TYPE(double))
-            } ; 
-            oss_x.str("");  // Reset content to empty string
-            oss_x.clear();
-            oss_x << "output_sphere_radius_" << isphere;
-            _output_spheres_radii[isphere]    = READ_IO_PARAM(oss_x.str(), AS_TYPE(double)) ; 
-            oss_x.str("");  // Reset content to empty string
-            oss_x.clear();
-            oss_x << "output_sphere_name_" << isphere;
-            _output_spheres_names[isphere]    = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
-            oss_x.str("");  // Reset content to empty string
-            oss_x.clear();
-            oss_x << "output_sphere_tracking_" << isphere;
-            _output_spheres_tracking[isphere] = READ_IO_PARAM(oss_x.str(), AS_TYPE(std::string)) ; 
-        }
-        #undef READ_IO_PARAM
+        _output_planes_origins[1] = grace::get_param<double>("IO","xz_plane_offset") ; 
+
+        _output_planes_origins[2] = grace::get_param<double>("IO","yz_plane_offset") ; 
+        
+        _n_output_spheres = grace::get_param<int>("IO", "n_output_spheres") ;
+        _output_spheres_names = grace::get_param<std::vector<std::string>>("IO", "output_sphere_names") ; 
         /* Volume and surface output variables */
-        auto out_cell_vars_volume = 
-            params["IO"]["volume_output_cell_variables"].as<std::vector<std::string>>() ; 
-        auto out_cell_vars_plane_surface = 
-            params["IO"]["plane_surface_output_cell_variables"].as<std::vector<std::string>>() ; 
-        auto out_cell_vars_sphere_surface = 
-            params["IO"]["sphere_surface_output_cell_variables"].as<std::vector<std::string>>() ; 
+        #ifdef GRACE_ENABLE_COWLING_METRIC
+        const std::vector<std::string> metric_vars = {
+            "gamma[0,0]", "gamma[0,1]", 
+            "gamma[0,2]", "gamma[1,1]", 
+            "gamma[1,2]", "gamma[2,2]", 
+            "ext_curv[0,0]", "ext_curv[0,1]", 
+            "ext_curv[0,2]", "ext_curv[1,1]", 
+            "ext_curv[1,2]", "ext_curv[2,2]", 
+            "beta[0]",
+            "alp"
+        } ; 
+        const std::vector<std::string> metric_aux = {};
+        #endif 
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        const std::vector<std::string> metric_vars = {
+            "gamma_tilde[0,0]", "gamma_tilde[0,1]", 
+            "gamma_tilde[0,2]", "gamma_tilde[1,1]", 
+            "gamma_tilde[1,2]", "gamma_tilde[2,2]", 
+            "A_tilde[0,0]", "A_tilde[0,1]",
+            "A_tilde[0,2]", "A_tilde[1,1]",
+            "A_tilde[1,2]", "A_tilde[2,2]",
+            "beta[0]",
+            "alp",
+            "z4c_Khat",
+            "conf_fact",
+            "z4c_Gamma[0]",
+            "z4c_theta",
+            "z4c_Bdriver[0]"
+        } ;  
+        const std::vector<std::string> metric_aux = {
+            "z4c_H",
+            "z4c_M[0]"
+        };
+        #endif
+        const std::vector<std::string> hydro_aux  = {
+            "rho", "press", "eps", "ye", "temperature",
+            "Bvec[0]", "zvec[0]", "Bdiv", "c2p_err"
+        };
+        auto out_cell_vars_volume = get_param<std::vector<std::string>>("IO","volume_output_cell_variables") ; 
+        auto out_cell_vars_plane_surface = get_param<std::vector<std::string>>("IO","plane_surface_output_cell_variables") ; 
+        auto out_cell_vars_sphere_surface = get_param<std::vector<std::string>>("IO","sphere_surface_output_cell_variables") ; 
+
         auto& vnames = grace::variables::detail::_varnames ; 
+
         auto& vprops = grace::variables::detail::_varprops ; 
+
         auto& auxnames = grace::variables::detail::_auxnames ;
-        auto& auxprops = grace::variables::detail::_auxprops ;  
+
+        auto& auxprops = grace::variables::detail::_auxprops ; 
+
         for( auto const& x: out_cell_vars_volume ) {
-            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
-                if( vprops[x].is_vector ){
-                     _cell_volume_output_vector_vars.push_back(vprops[x].name) ; 
-                } else {
-                    _cell_volume_output_scalar_vars.push_back(x) ;
+            if ( x == "metric" ) {
+                for( auto const& vn: metric_vars ) {
+                    if ( vprops[vn].is_vector ) {
+                        _cell_volume_output_vector_vars.push_back(vprops[vn].name) ;
+                    } else {
+                        _cell_volume_output_scalar_vars.push_back(vn) ; 
+                    }
                 }
-            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
-                if( auxprops[x].is_vector ){
-                     _cell_volume_output_vector_aux.push_back(auxprops[x].name) ; 
-                } else {
-                    _cell_volume_output_scalar_aux.push_back(x) ;
-                } 
-            } else { 
-                GRACE_WARN("Variable {} not found (requested for volume output).", x) ; 
+                for( auto const& vn: metric_aux ) {
+                    if ( auxprops[vn].is_vector ) {
+                        _cell_volume_output_vector_aux.push_back(auxprops[vn].name) ;
+                    } else {
+                        _cell_volume_output_scalar_aux.push_back(vn) ; 
+                    }
+                }
+            } else if ( x == "hydro" ) {
+                for( auto const& vn: hydro_aux ) {
+                    if ( auxprops[vn].is_vector ) {
+                        _cell_volume_output_vector_aux.push_back(auxprops[vn].name) ;
+                    } else {
+                        _cell_volume_output_scalar_aux.push_back(vn) ; 
+                    }
+                }
+            } else {
+                if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
+                    if( vprops[x].is_vector ){
+                        _cell_volume_output_vector_vars.push_back(vprops[x].name) ; 
+                    } else {
+                        _cell_volume_output_scalar_vars.push_back(x) ;
+                    }
+                } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
+                    if( auxprops[x].is_vector ){
+                        _cell_volume_output_vector_aux.push_back(auxprops[x].name) ; 
+                    } else {
+                        _cell_volume_output_scalar_aux.push_back(x) ;
+                    } 
+                } else { 
+                    GRACE_WARN("Variable {} not found (requested for volume output).", x) ; 
+                }
             }
         } 
 
         for( auto const& x: out_cell_vars_plane_surface ) {
-            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
-                if( vprops[x].is_vector ){
-                     _cell_plane_surface_output_vector_vars.push_back(vprops[x].name) ; 
-                } else {
-                    _cell_plane_surface_output_scalar_vars.push_back(x) ;
+            if ( x == "metric" ) {
+                for( auto const& vn: metric_vars ) {
+                    if ( vprops[vn].is_vector ) {
+                        _cell_plane_surface_output_vector_vars.push_back(vprops[vn].name) ;
+                    } else {
+                        _cell_plane_surface_output_scalar_vars.push_back(vn) ; 
+                    }
                 }
-            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
-                if( auxprops[x].is_vector ){
-                     _cell_plane_surface_output_vector_aux.push_back(auxprops[x].name) ; 
-                } else {
-                    _cell_plane_surface_output_scalar_aux.push_back(x) ;
-                } 
-            } else { 
-                GRACE_WARN("Variable {} not found (requested for plane surface output).", x) ; 
+                for( auto const& vn: metric_aux ) {
+                    if ( auxprops[vn].is_vector ) {
+                        _cell_plane_surface_output_vector_aux.push_back(auxprops[vn].name) ;
+                    } else {
+                        _cell_plane_surface_output_scalar_aux.push_back(vn) ; 
+                    }
+                }
+            } else if ( x == "hydro" ) {
+                for( auto const& vn: hydro_aux ) {
+                    if ( auxprops[vn].is_vector ) {
+                        _cell_plane_surface_output_vector_aux.push_back(auxprops[vn].name) ;
+                    } else {
+                        _cell_plane_surface_output_scalar_aux.push_back(vn) ; 
+                    }
+                }
+            } else {
+                if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
+                    if( vprops[x].is_vector ){
+                        _cell_plane_surface_output_vector_vars.push_back(vprops[x].name) ; 
+                    } else {
+                        _cell_plane_surface_output_scalar_vars.push_back(x) ;
+                    }
+                } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
+                    if( auxprops[x].is_vector ){
+                        _cell_plane_surface_output_vector_aux.push_back(auxprops[x].name) ; 
+                    } else {
+                        _cell_plane_surface_output_scalar_aux.push_back(x) ;
+                    } 
+                } else { 
+                    GRACE_WARN("Variable {} not found (requested for plane surface output).", x) ; 
+                }
             }
         } 
 
         for( auto const& x: out_cell_vars_sphere_surface ) {
-            if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
-                if( vprops[x].is_vector ){
-                     _cell_sphere_surface_output_vector_vars.push_back(vprops[x].name) ; 
-                } else {
-                    _cell_sphere_surface_output_scalar_vars.push_back(x) ;
+            if ( x == "metric" ) {
+                for( auto const& vn: metric_vars ) {
+                    if ( vprops[vn].is_vector ) {
+                        _cell_sphere_surface_output_vector_vars.push_back(vprops[vn].name) ;
+                    } else {
+                        _cell_sphere_surface_output_scalar_vars.push_back(vn) ; 
+                    }
                 }
-            } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
-                if( auxprops[x].is_vector ){
-                     _cell_sphere_surface_output_vector_aux.push_back(auxprops[x].name) ; 
-                } else {
-                    _cell_sphere_surface_output_scalar_aux.push_back(x) ;
-                } 
-            } else { 
-                GRACE_WARN("Variable {} not found (requested for sphere surface output).", x) ; 
+                for( auto const& vn: metric_aux ) {
+                    if ( auxprops[vn].is_vector ) {
+                        _cell_sphere_surface_output_vector_aux.push_back(auxprops[vn].name) ;
+                    } else {
+                        _cell_sphere_surface_output_scalar_aux.push_back(vn) ; 
+                    }
+                }
+            } else if ( x == "hydro" ) {
+                for( auto const& vn: hydro_aux ) {
+                    if ( auxprops[vn].is_vector ) {
+                        _cell_sphere_surface_output_vector_aux.push_back(auxprops[vn].name) ;
+                    } else {
+                        _cell_sphere_surface_output_scalar_aux.push_back(vn) ; 
+                    }
+                }
+            } else {
+                if(std::find(vnames.begin(), vnames.end(), x) != vnames.end()) {
+                    if( vprops[x].is_vector ){
+                        _cell_sphere_surface_output_vector_vars.push_back(vprops[x].name) ; 
+                    } else {
+                        _cell_sphere_surface_output_scalar_vars.push_back(x) ;
+                    }
+                } else if (std::find(auxnames.begin(), auxnames.end(), x) != auxnames.end()) {
+                    if( auxprops[x].is_vector ){
+                        _cell_sphere_surface_output_vector_aux.push_back(auxprops[x].name) ; 
+                    } else {
+                        _cell_sphere_surface_output_scalar_aux.push_back(x) ;
+                    } 
+                } else { 
+                    GRACE_WARN("Variable {} not found (requested for sphere surface output).", x) ; 
+                }
             }
         } 
+        auto dedup = [](std::vector<std::string>& v)
+        {
+            std::unordered_set<std::string> seen;
+            seen.reserve(v.size());
+
+            auto it = std::remove_if(v.begin(), v.end(),
+                [&seen](const std::string& s)
+                {
+                    return !seen.insert(s).second; // true if already seen
+                });
+
+            v.erase(it, v.end());
+        };
+        dedup(_cell_volume_output_vector_vars) ; 
+        dedup(_cell_volume_output_scalar_vars) ; 
+        dedup(_cell_volume_output_vector_aux) ; 
+        dedup(_cell_volume_output_scalar_aux) ; 
+
+        dedup(_cell_plane_surface_output_vector_vars) ; 
+        dedup(_cell_plane_surface_output_scalar_vars) ; 
+        dedup(_cell_plane_surface_output_vector_aux) ; 
+        dedup(_cell_plane_surface_output_scalar_aux) ; 
+
+        dedup(_cell_sphere_surface_output_vector_vars) ; 
+        dedup(_cell_sphere_surface_output_scalar_vars) ; 
+        dedup(_cell_sphere_surface_output_vector_aux) ; 
+        dedup(_cell_sphere_surface_output_scalar_aux) ; 
+        
         /* Scalar output variables */
         auto out_minmax = 
             params["IO"]["scalar_output_minmax"].as<std::vector<std::string>>() ;
@@ -621,6 +732,8 @@ class grace_runtime_impl_t
                 GRACE_WARN("Variable {} not found (requested for scalar integral output).", x) ; 
             }
         } 
+        
+
         /* Info output variables */
         auto out_info_max = 
             params["IO"]["info_output_max_reductions"].as<std::vector<std::string>>() ;
@@ -745,76 +858,73 @@ class grace_runtime_impl_t
         _iter = 0UL ; 
         /* Set time to 0            */
         _time = 0.0 ; 
+        _initial_time = 0.0 ; 
         _dt   = 0.0 ;  
+        _initial_wtime = 0.0 ; 
         /****************************/
         if( parallel::mpi_comm_rank() == grace::master_rank() ) 
         {
-            if ( _volume_output ) 
-            {
-                std::cout << "Volume output requested every " << _volume_output_every << " iterations\n" ; 
-                std::cout << "Variables registered for volume (co-dimension 0) output:\n" ; 
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_volume_output_scalar_vars){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_volume_output_vector_vars){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Auxiliaries: \n";
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_volume_output_scalar_aux){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_volume_output_vector_aux){
-                    std::cout << x << std::endl ; 
-                }      
-            }
-            if ( _surface_output )
-            {
-                std::cout << "Plane surface output requested every " << _plane_surface_output_every << " iterations\n" ; 
-                std::cout << "Sphere surface output requested every " << _sphere_surface_output_every << " iterations\n" ; 
-                std::cout << "Variables registered for plane surface (co-dimension 1) output: \n" ; 
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_plane_surface_output_scalar_vars){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_plane_surface_output_vector_vars){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Auxiliaries: \n";
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_plane_surface_output_scalar_aux){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_plane_surface_output_vector_aux){
-                    std::cout << x << std::endl ; 
-                }  
-                std::cout << "Variables registered for sphere surface (co-dimension 1) output: \n" ; 
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_sphere_surface_output_scalar_vars){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_sphere_surface_output_vector_vars){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Auxiliaries: \n";
-                std::cout << "Scalars: \n";
-                for(auto const& x: _cell_sphere_surface_output_scalar_aux){
-                    std::cout << x << std::endl ; 
-                }
-                std::cout << "Vectors: \n";
-                for(auto const& x: _cell_sphere_surface_output_vector_aux){
-                    std::cout << x << std::endl ; 
-                }    
-            }
+            
+            std::cout << "\n========================================\n";
+            std::cout << " Output Configuration\n";
+            std::cout << "========================================\n\n";
+
+            /* ---------------- Volume ---------------- */
+
+            std::cout << "[Volume Output | co-dimension 0]\n";
+            std::cout << "  Interval: every "
+                    << _volume_output_every
+                    << " iterations\n";
+
+            print_variable_group(
+                _cell_volume_output_scalar_vars,
+                _cell_volume_output_vector_vars,
+                _cell_volume_output_scalar_aux,
+                _cell_volume_output_vector_aux
+            );
+
+            std::cout << "\n";
+
+            /* ---------------- Surfaces ---------------- */
+
+            std::cout << "[Surface Output | co-dimension 1]\n";
+
+            std::cout << "  Plane interval:  every "
+                    << _plane_surface_output_every
+                    << " iterations\n";
+
+            std::cout << "  Sphere interval: every "
+                    << _sphere_surface_output_every
+                    << " iterations\n\n";
+
+            /* ---- Plane ---- */
+
+            std::cout << "  > Plane Surface\n";
+
+            print_variable_group(
+                _cell_plane_surface_output_scalar_vars,
+                _cell_plane_surface_output_vector_vars,
+                _cell_plane_surface_output_scalar_aux,
+                _cell_plane_surface_output_vector_aux
+            );
+
+            std::cout << "\n";
+
+            /* ---- Sphere ---- */
+
+            std::cout << "  > Sphere Surface\n";
+
+            print_variable_group(
+                _cell_sphere_surface_output_scalar_vars,
+                _cell_sphere_surface_output_vector_vars,
+                _cell_sphere_surface_output_scalar_aux,
+                _cell_sphere_surface_output_vector_aux
+            );
+
+            std::cout << "\n========================================\n\n";
         }
 
-        auto const term_cnd = params["evolution"]["termination_condition"].as<std::string>() ; 
+        auto const term_cnd = grace::get_param<std::string>("evolution", "termination_condition") ; 
         if ( term_cnd == "time" ) {
             _term_cnd = terminate::TIME ; 
         } else if ( term_cnd == "iteration" ) {

@@ -10,7 +10,7 @@ TEST_CASE("variable_list", "[variable_list]")
 {
     using namespace grace ; 
     auto& vars = variable_list::get() ;
-    std::cout << utils::type_name<var_array_t<GRACE_NSPACEDIM>>() << std::endl  ; 
+    std::cout << utils::type_name<var_array_t>() << std::endl  ; 
     
     auto state = vars.getstate() ;  
      

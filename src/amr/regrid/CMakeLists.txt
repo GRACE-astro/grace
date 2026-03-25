@@ -1,0 +1,1 @@
+register_grace_object(grace_regrid_helpers regrid_transaction.cpp regrid_build_buffers.cpp)

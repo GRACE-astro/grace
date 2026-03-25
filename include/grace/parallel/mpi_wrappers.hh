@@ -78,11 +78,22 @@
 
 namespace parallel {
 
-enum GRACE_MPI_Tags_t
+enum GRACE_MPI_Tags_t : size_t 
 {
     GRACE_PARTITION_TAG=0,
-    GRACE_HALO_EXCHANGE_TAG,
-    GRACE_N_MPI_TAGS 
+    GRACE_HALO_EXCHANGE_TAG_CC=1,
+    GRACE_HALO_EXCHANGE_TAG_FX=2,
+    GRACE_HALO_EXCHANGE_TAG_FY=3,
+    GRACE_HALO_EXCHANGE_TAG_FZ=4,
+    GRACE_REFLUX_TAG=5,
+    GRACE_REFLUX_EMF_FACE_TAG=6,
+    GRACE_REFLUX_EMF_COARSE_FACE_TAG=7,
+    GRACE_REFLUX_EMF_EDGE_TAG=8,
+    GRACE_REFLUX_EMF_COARSE_EDGE_TAG=9,
+    GRACE_REGRID_TAG_FX=10,
+    GRACE_REGRID_TAG_FY=11,
+    GRACE_REGRID_TAG_FZ=12,
+    GRACE_N_MPI_TAGS=13
 } ; 
 
 namespace detail {
@@ -438,6 +449,30 @@ int mpi_test(sc_MPI_Request* request, int* flag, sc_MPI_Status* status = sc_MPI_
     return mpi_retval;
 }
 
+
+template<typename T>
+static inline 
+void mpi_exscan_sum( T* send_buffer, T* recv_buffer, int size,
+              sc_MPI_Comm comm) 
+{
+    #ifndef SC_ENABLE_MPI
+    ASSERT(0, 
+           "Please make sure that a real MPI implementation"
+           "is linked before attempting to call mpi_irecv"
+           "(build sc with --enable-mpi)") ;
+    #endif
+    ASSERT_DBG( (recv_buffer!=nullptr) or (size==0), 
+                "Attempting to send more than zero "
+                "elements into a dangling pointer." ) ;
+    int mpi_retval = sc_MPI_Exscan( static_cast<void*>(send_buffer),
+                                    static_cast<void*>(recv_buffer),
+                                  size,
+                                  detail::mpi_type_utils<T>::get_type(),
+                                  mpi_sum,
+                                  comm) ;
+    ASSERT( mpi_retval == sc_MPI_SUCCESS, 
+            "mpi_irecv call failed.") ;
+}
 
 void mpi_waitall(grace_transfer_context_t& context);
 

@@ -1,0 +1,60 @@
+system: 
+  type: schema 
+  description: >
+    System parameters 
+
+  master_rank: 
+    type: unsigned int 
+    default: 0 
+    range: "[0,*)" 
+    description: > 
+      Which rank does single rank ops? 
+
+  console_log_level: 
+    type: keyword
+    allowed: ["info","verbose","trace","warn","critical"]
+    default: "info" 
+    description: >
+      Level of verbosity in stdout, info is standard, verbose adds info, trace is for debug, warn and critical probably is too little 
+
+  file_log_level: 
+    type: keyword
+    allowed: ["info","verbose","trace","warn","critical"]
+    default: "info" 
+    description: >
+      Level of verbosity in file logs, info is standard, verbose adds info, trace is for debug, warn and critical probably is too little 
+
+
+  flush_logs_based_on_severity:
+    type: bool 
+    default: false 
+    description: >
+      Logs are flushed whenever a message of a certain severity or higher is pushed, useful to avoid truncated output in debug 
+
+  flush_severity_level: 
+    type: keyword
+    allowed: ["info","verbose","trace","warn","critical"]
+    default: "trace" 
+    description: > 
+      If flush_logs_based_on_severity, severity which causes flush 
+
+  flush_logs_based_on_time: 
+    type: bool 
+    default: false 
+    description: > 
+      Force flush log buffers every so often 
+
+  flush_time: 
+    type: double 
+    default: 10 
+    range: "(0,*)"
+    description: > 
+      If flush_logs_based_on_time, how often? (in s I think..)
+
+  n_device_streams:
+    type: unsigned int 
+    default: 1
+    range: "[1,*)"
+    description: >
+      How many streams to keep in the pool
+  

@@ -52,7 +52,16 @@ target_compile_definitions(grace_hdf5_output
 # ----------------------------------------------------------------
 # Other output utilities
 # ----------------------------------------------------------------
+register_grace_object(grace_hdf5_surface_output hdf5_surface_output.cpp octree_search_class.cpp)
+register_grace_object(grace_hdf5_sphere_output hdf5_sphere_output.cpp )
+
 register_grace_object(grace_cell_output cell_output.cpp)
 register_grace_object(grace_scalar_output scalar_output.cpp)
-register_grace_object(xmf_utilities xmf_utilities.cpp)
 
+register_grace_object(grace_spherical_surfaces spherical_surfaces.cpp)
+
+register_grace_object(grace_diagnostics output_diagnostics.cpp diagnostics/black_hole_diagnostics.cpp)
+register_grace_object_conditional(grace_gw_integrals GRACE_ENABLE_Z4C_METRIC diagnostics/gw_integrals.cpp)
+
+
+register_grace_object(xmf_utilities xmf_utilities.cpp)

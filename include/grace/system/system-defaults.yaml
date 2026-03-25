@@ -1,9 +1,0 @@
-system: {
-  master_rank: 0,
-  console_log_level: "info",
-  file_log_level: "debug",
-  flush_logs_based_on_severity: false,
-  flush_severity_level: "error",
-  flush_logs_based_on_time: false,
-  flush_time: 10,  
-}

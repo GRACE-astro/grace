@@ -12,10 +12,20 @@ include(check_compiler)
 include(prohibit_in_source_build)
 include(setup_flags)
 
-configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )
-include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
+# --- Options ---
+option(GRACE_ENABLE_COWLING_METRIC "Use Cowling approximation (default)" ON)
+option(GRACE_ENABLE_Z4C_METRIC     "Use full Z4c evolution" OFF)
 
-configure_file("${CMAKE_SOURCE_DIR}/include/grace/grace_config.h.in" grace_config.h)
+if(GRACE_ENABLE_Z4C_METRIC)
+    message(STATUS "GRACE will use full Z4c metric (GRACE_ENABLE_Z4C_METRIC=ON).")
+    set(GRACE_ENABLE_COWLING_METRIC OFF)
+elseif(GRACE_ENABLE_COWLING_METRIC)
+    message(STATUS "GRACE will use full Cowling metric (GRACE_ENABLE_COWLING=ON).")
+    set(GRACE_ENABLE_Z4C_METRIC OFF)
+else()
+    message(STATUS "No option explicitly enabled; defaulting to Cowling metric.")
+    set(GRACE_ENABLE_COWLING_METRIC ON)
+endif()
 
 set(HEADER_DIR "${PROJECT_SOURCE_DIR}/include/")
 
@@ -33,19 +43,29 @@ find_package(p4est REQUIRED)
 find_package(LibXml2 REQUIRED)
 find_package(ZLIB REQUIRED)
 include(setup_kokkos)
-#include(setup_gsl)
 include(setup_yaml)
 include(setup_spdlog)
 include(setup_HDF5)
 
-option( GRACE_ENABLE_VTK "Enable VTK support" ON)
+option( GRACE_ENABLE_VTK "Enable VTK support" OFF)
 if ( GRACE_ENABLE_VTK )
     message(STATUS "VTK support enabled")
     include(setup_vtk)
 endif() 
 
+option( GRACE_ENABLE_LORENE "Lorene support" OFF )
+if ( GRACE_ENABLE_LORENE )
+    message(STATUS "LORENE support enabled")
+    find_package(LORENE REQUIRED)
+endif() 
 
-option(GRACE_ENABLE_PROFILING "Build profiling hooks" ON)
+option( GRACE_ENABLE_TWO_PUNCTURES "TwoPunctures support" OFF )
+if ( GRACE_ENABLE_TWO_PUNCTURES )
+    message(STATUS "TwoPunctures support enabled")
+    find_package(TwoPunctures REQUIRED)
+endif() 
+
+option(GRACE_ENABLE_PROFILING "Build profiling hooks" OFF)
 if( GRACE_ENABLE_PROFILING )
     message(STATUS "Profiling enabled.")
     if( GRACE_ENABLE_HIP )
@@ -56,6 +76,11 @@ if( GRACE_ENABLE_PROFILING )
 else()
     message(STATUS "Profiling disabled.")
 endif()
+
+configure_file("${CMAKE_SOURCE_DIR}/include/grace/grace_config.h.in" grace_config.h)
+
+configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )
+include_directories( "${CMAKE_CURRENT_BINARY_DIR}")
 
 add_subdirectory(src)
 
@@ -75,6 +100,8 @@ target_link_libraries(grace PRIVATE
 	    ZLIB::ZLIB
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
         $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
+        $<$<BOOL:${GRACE_ENABLE_LORENE}>:LORENE::LORENE>
+        $<$<BOOL:${GRACE_ENABLE_TWO_PUNCTURES}>:TwoPunctures::TwoPunctures>
         )
 if ( GRACE_ENABLE_VTK )
     vtk_module_autoinit(

@@ -1,0 +1,83 @@
+name: "grace"
+amr: {
+  npoints_block_x: 32,
+  npoints_block_y: 32,
+  npoints_block_z: 32,
+  xmin: -3.,
+  xmax: 3.,
+  ymin: -3.,
+  ymax: 3.,
+  zmin: -3.,
+  zmax: 3.,
+  periodic_x: true,
+  periodic_y: true,
+  periodic_z: true,
+  n_ghostzones: 4,
+  initial_refinement_level: 3,
+  regrid_every: -1,
+  regrid_at_postinitial: false
+}
+
+IO: {
+  plane_surface_output_cell_variables: ["Erad", "Frad[0]", "Nrad", ""],
+  plane_surface_output_every: 10,
+  info_output_every: 2,
+  info_output_max_reductions: ["Erad","rho"],
+  info_output_min_reductions: ["Erad","rho"],
+  output_use_hdf5: true, 
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 512
+}
+
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  flush_logs_based_on_severity: false,
+  n_device_streams: 4
+}
+
+evolution: {
+  time_stepper: "imex222",
+  cfl_factor: 0.2,
+  final_time: 10.,
+  #termination_condition: "iteration",
+  #final_iteration: 15
+}
+
+grmhd: {
+  id_type: "minkowski_vacuum",
+  vacuum: {
+    rho_floor: 1.6193220283909315e-27,
+    press_floor: 1.3542567649327657e-47,
+    velocity_x: 0.,
+    velocity_y: 0.,
+    velocity_z: 0.
+  },
+  atmosphere: {
+    ye_fl: 0,
+    temp_fl:  0,
+    rho_fl: 1e-50,
+    rho_scaling: 0,
+    temp_scaling: 0
+  }
+}
+
+m1: {
+  id_type: "zero",
+  atmosphere: {
+    E_fl: 1e-50,
+    E_scaling: 0,
+    eps_fl: 1,
+    eps_scaling: 0,
+    eps_min: 1e-50,
+    eps_max: 10
+  }
+}
+
+profiling: {
+  do_gpu_profiling: false
+}
+
+checkpoints: {
+  checkpoint_at_termination: false,
+}

@@ -47,17 +47,113 @@
 namespace grace {
 
 static void register_physical_boundary_corner(
-    p4est_iter_corner_side_t const& side, 
+    grace::sc_array_view_t<p4est_iter_corner_side_t> const& sides, 
     std::vector<quad_neighbors_descriptor_t>& neighbors
 )
 {
-    auto const offset = grace::amr::get_local_quadrants_offset(side.treeid); 
+    size_t const nsides = sides.size() ; 
+
+    auto const get_dir = [&] (int off) -> int8_t {
+        return off ? static_cast<int8_t>(+1) : static_cast<int8_t>(-1) ; 
+    } ; 
+
+    if ( nsides == 1 ) {
+        auto const& side = sides[0] ; 
+        if (side.is_ghost) return ; 
+
+        auto const offset = grace::amr::get_local_quadrants_offset(side.treeid); 
+        // not hanging not ghost 
+        auto qid = side.quadid +  offset ; 
+        auto& corner = neighbors[qid].corners[side.corner] ; 
+        corner.kind = interface_kind_t::PHYS ;
+        corner.phys.dir[0] = get_dir((side.corner>>0)&1)  ; 
+        corner.phys.dir[1] = get_dir((side.corner>>1)&1) ; 
+        corner.phys.dir[2] = get_dir((side.corner>>2)&1) ; 
+        corner.phys.in_cbuf = false ;
+        corner.filled = true ; 
+        corner.phys.type = amr::element_kind_t::CORNER ; 
+        corner.phys.task_id.fill(UNSET_TASK_ID); 
+        neighbors[qid].n_registered_corners ++ ; 
+    } else if (nsides==2) {
+        // we are on a grid edge 
+        // we need to identify the edge direction 
+        int off [3][2] = {
+            {(sides[0].corner >> 0)&1, (sides[1].corner >> 0)&1},
+            {(sides[0].corner >> 1)&1, (sides[1].corner >> 1)&1},
+            {(sides[0].corner >> 2)&1, (sides[1].corner >> 2)&1},
+        } ; 
+
+        // not hanging not ghost 
+        if ( !sides[0].is_ghost ) {
+            auto const o1 = grace::amr::get_local_quadrants_offset(sides[0].treeid); 
+            auto qid1 = sides[0].quadid +  o1 ; 
+            auto& c1 = neighbors[qid1].corners[sides[0].corner] ; 
+            c1.kind = interface_kind_t::PHYS ;
+            c1.filled = true ; 
+            c1.phys.dir[0] = (off[0][0] == off[0][1]) ? get_dir(off[0][0]) : 0 ; 
+            c1.phys.dir[1] = (off[1][0] == off[1][1]) ? get_dir(off[1][0]) : 0 ; 
+            c1.phys.dir[2] = (off[2][0] == off[2][1]) ? get_dir(off[2][0]) : 0 ; 
+            c1.phys.in_cbuf =false ;
+            c1.phys.type = amr::element_kind_t::EDGE ; 
+            c1.phys.task_id.fill(UNSET_TASK_ID);
+            neighbors[qid1].n_registered_corners ++ ; 
+        }
+        if ( !sides[1].is_ghost ) {
+            auto const o2 = grace::amr::get_local_quadrants_offset(sides[1].treeid); 
+            auto qid2 = sides[1].quadid +  o2 ; 
+            auto& c2 = neighbors[qid2].corners[sides[1].corner] ;
+            // set kind  
+            c2.kind = interface_kind_t::PHYS ;
+            // set filled 
+            c2.filled = true ; 
+            // grid normal 
+            c2.phys.dir[0] = (off[0][0] == off[0][1]) ? get_dir(off[0][0]) : 0 ; 
+            c2.phys.dir[1] = (off[1][0] == off[1][1]) ? get_dir(off[1][0]) : 0 ; 
+            c2.phys.dir[2] = (off[2][0] == off[2][1]) ? get_dir(off[2][0]) : 0 ; 
+            // we can check here that one and only one is 0 
+            c2.phys.type = amr::element_kind_t::EDGE ;
+            c2.phys.in_cbuf = false ;
+            c2.phys.task_id.fill(UNSET_TASK_ID);
+            neighbors[qid2].n_registered_corners ++ ; 
+        }
+    } else if (nsides==4) {
+        int off[3][4] = {
+            {(sides[0].corner >> 0)&1, (sides[1].corner >> 0)&1,
+            (sides[2].corner >> 0)&1, (sides[3].corner >> 0)&1},
+            {(sides[0].corner >> 1)&1, (sides[1].corner >> 1)&1,
+            (sides[2].corner >> 1)&1, (sides[3].corner >> 1)&1},
+            {(sides[0].corner >> 2)&1, (sides[1].corner >> 2)&1,
+            (sides[2].corner >> 2)&1, (sides[3].corner >> 2)&1},
+        };
+        for( int iside=0; iside<4; ++iside) {
+            if (sides[iside].is_ghost) continue ; 
+            // offsets 
+            auto const o = grace::amr::get_local_quadrants_offset(sides[iside].treeid);
+            // quad_ids 
+            auto qid = sides[iside].quadid +  o ;
+            // not hanging not ghost 
+            auto& c = neighbors[qid].corners[sides[iside].corner] ; 
+            // set kind 
+            c.kind = interface_kind_t::PHYS ;
+            // set filled 
+            c.filled = true ; 
+            // corner.phys.dir = {x, y, z}
+            for(int d=0; d<3; ++d){
+                // if all 4 offsets along this axis are the same, take +1/-1
+                c.phys.dir[d] = (off[d][0]==off[d][1] && off[d][1]==off[d][2] && off[d][2]==off[d][3])
+                                    ? get_dir(off[d][0])
+                                    : 0; 
+            }
+            c.phys.type = amr::element_kind_t::FACE ; 
+            c.phys.in_cbuf = false ;
+            c.phys.task_id.fill(UNSET_TASK_ID);
+            neighbors[qid].n_registered_corners ++ ; 
+        }
+    } else {
+        ERROR("Unexpected number of side " << sides.size() ) ; 
+    }
     
-    if (side.is_ghost) return ; 
-    // not hanging not ghost 
-    auto qid = side.quadid +  offset ; 
-    neighbors[qid].corners[side.corner].kind = interface_kind_t::PHYS ;
-    neighbors[qid].n_registered_corners ++ ; 
+    
     
 }
 
@@ -80,11 +176,11 @@ static void register_corner(
     auto const l1 = static_cast<int>(s1.quad->level);
 
     auto const other_offset = s1.is_ghost ? 0 : grace::amr::get_local_quadrants_offset(s1.treeid);
-
+    desc.filled = true ; 
     desc.kind = interface_kind_t::INTERNAL;
     desc.data.quad_id = s1.quadid + other_offset;
     desc.data.is_remote = s1.is_ghost;
-
+    desc.data.task_id.fill(UNSET_TASK_ID) ;
     if (s1.is_ghost) {
         desc.data.owner_rank =
             p4est_comm_find_owner(grace::amr::forest::get().get(), s1.treeid, s1.quad, 0);
@@ -103,13 +199,12 @@ static void register_corner(
 
 void grace_iterate_corners(p4est_iter_corner_info_t* info, void* user_data)
 {
-    auto ghosts = reinterpret_cast<std::vector<quad_neighbors_descriptor_t>*>(user_data);
+    auto iter_data = reinterpret_cast<p4est_iter_data_t*>(user_data) ; 
+    auto ghosts = iter_data->ghost_layer ;
     sc_array_view_t<p4est_iter_corner_side_t> sides{&(info->sides)};
-
+    
     if (sides.size() < P4EST_CHILDREN) {
-        for (auto const& side : sides) {
-            register_physical_boundary_corner(side, *ghosts);
-        }
+        register_physical_boundary_corner(sides, *ghosts);
         return; 
     }
 

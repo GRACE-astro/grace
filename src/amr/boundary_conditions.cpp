@@ -33,9 +33,7 @@
 #include <grace/coordinates/coordinates.hh>
 #include <grace/system/grace_system.hh>
 #include <grace/utils/grace_utils.hh>
-#include <grace/utils/prolongation.hh>
 #include <grace/utils/limiters.hh>
-#include <grace/data_structures/macros.hh>
 #include <grace/data_structures/memory_defaults.hh>
 #include <grace/data_structures/variable_indices.hh>
 #include <grace/data_structures/variable_properties.hh>
@@ -50,11 +48,17 @@ namespace grace { namespace amr {
 
 void apply_boundary_conditions() {
     auto& vars = variable_list::get().getstate() ;
-    apply_boundary_conditions(vars)              ; 
+    auto& stag_vars = variable_list::get().getstaggeredstate() ; 
+    apply_boundary_conditions(vars, stag_vars,vars,stag_vars,0,0)              ; 
 }
 
-void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
+void apply_boundary_conditions(
+    grace::var_array_t& vars, grace::staggered_variable_arrays_t& stag_vars,
+    grace::var_array_t& vars_p, grace::staggered_variable_arrays_t& stag_vars_p,
+    double dt, double dtfact
+) {
     Kokkos::Profiling::pushRegion("BC") ; 
+    GRACE_VERBOSE("Initiating ghost-zone filling.") ; 
     using namespace grace ;
     /******************************************************/
     /* First step:                                        */
@@ -62,12 +66,11 @@ void apply_boundary_conditions(grace::var_array_t<GRACE_NSPACEDIM>& vars) {
     /* halo.                                              */
     /******************************************************/
     spdlog::stopwatch sw ; 
-
     auto& ghost = grace::amr_ghosts::get() ; 
     auto& halo_executor = ghost.get_task_executor() ; 
-    halo_executor.run(view_alias_t{&vars}) ; 
+    halo_executor.run(view_alias_t{&vars,&vars_p,&stag_vars,&stag_vars_p,dt,dtfact}) ; 
     halo_executor.reset();
-
+    Kokkos::fence() ; 
     parallel::mpi_barrier() ; 
 
     size_t nx,ny,nz ; 

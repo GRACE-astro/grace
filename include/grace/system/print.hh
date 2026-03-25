@@ -136,4 +136,28 @@ do {                                               \
  logfile->trace(__VA_ARGS__) ;                     \
 } while(false)                                     \
 
+
+/**
+ * @brief Log a message with "trace" priority on files and
+ *        console only in debug mode.
+ * \ingroup system
+ */
+#ifdef GRACE_DEBUG
+#define GRACE_TRACE_DBG(...)          \
+do {                                               \
+ int grace__internal__rank__ = parallel::mpi_comm_rank() ;        \
+ if( grace__internal__rank__ == 0 )                               \
+ {                                                 \
+    auto console = spdlog::get("output_console") ; \
+    console->trace(__VA_ARGS__) ;                  \
+ }                                                 \
+ std::string logger_name =                         \
+    std::string("file_logger_")                    \
+  + std::to_string(grace__internal__rank__) ;                     \
+ auto logfile = spdlog::get(logger_name) ;         \
+ logfile->trace(__VA_ARGS__) ;                     \
+} while(false)                                     
+#else 
+#define GRACE_TRACE_DBG(...)          
+#endif 
 #endif /* INCLUDE_GRACE_SYSTEM_PRINT */

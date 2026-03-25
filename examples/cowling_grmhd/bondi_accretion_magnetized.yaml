@@ -1,0 +1,108 @@
+name: "grace"
+amr: {
+  npoints_block_x: 32,
+  npoints_block_y: 32,
+  npoints_block_z: 32,
+  xmin: 0.0,
+  xmax: 16.0,
+  ymin: 0.0,
+  ymax: 16.0,
+  zmin: 0.0,
+  zmax: 16.0,
+
+  reflection_symmetries: {
+    x: true,
+    y: true,
+    z: true
+  }, 
+
+  n_ghostzones: 4,
+  initial_refinement_level: 2,
+
+  max_refinement_level: 7,
+
+  regrid_every: -1,
+  
+  n_fmr_boxes: 0
+}
+
+IO: {
+
+  plane_surface_output_cell_variables: ["rho","zvec[0]","eps", "temperature", "c2p_err", "Bvec[0]", "Bdiv", "smallb2"],
+  plane_surface_output_every: 100,
+
+  info_output_every: 2,
+  info_output_max_reductions: ["rho"],
+  info_output_min_reductions: ["rho"],
+
+  scalar_output_every: 10,
+  scalar_output_minmax: ["rho","press","eps","alp"],
+
+  output_use_hdf5: true,
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true,
+  xy_plane_offset: 1e-5
+
+}
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  n_device_streams: 4
+}
+evolution: {
+  time_stepper: "rk3",
+  cfl_factor: 0.2,
+  final_walltime: 23,
+  termination_condition: "walltime"
+}
+
+grmhd: {
+  id_type: "bondi_flow",
+
+  bondi_flow: {
+    r_min: 1e-3,
+    r_max: 75,
+    is_magnetized: true
+  },
+
+  c2p: {
+    tolerance: 1e-10,
+    max_lorentz: 1000,
+    use_c2p_entropy_backup: false
+  },
+
+  excision: {
+    excision_criterion: "radius",
+    excision_radius: 1.0,
+    temp_excision: 1e-10
+  },
+
+  B_field_initialization: "direct",
+
+  bc_kind: "none"
+
+}
+
+eos: {
+  eos_type: "hybrid",
+
+  hybrid_eos: {
+    cold_eos_type: "piecewise_polytrope",
+    gamma_th: 1.3333
+  },
+  
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [2.],
+    rhos:   [],
+    kappa_0: 0.
+  },
+
+  eps_maximum: 1.e+05,
+}
+
+coordinate_system: {
+  is_kerr_schild: true,
+  bh_spin: 0.0
+}

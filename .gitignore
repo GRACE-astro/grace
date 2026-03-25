@@ -2,6 +2,7 @@ doc/html/*
 doc/_build/*
 doc/latex/*
 build*
+testb
 *.test
 *.o
 \#*

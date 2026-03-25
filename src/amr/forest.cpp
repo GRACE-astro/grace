@@ -33,7 +33,122 @@
 #include <grace/config/config_parser.hh>
 #include <grace/system/print.hh>
 
+#include <vector>
+#include <iostream>
+
 namespace grace { namespace amr {
+
+struct fmr_box_t {
+    fmr_box_t(node_t node) {
+        try {
+            target_level_delta = node["target_level_delta"].as<int>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve target_level_delta from fmr box") ; 
+        }
+
+        try {
+            xmin = node["x_min"].as<double>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve x_min from fmr box") ; 
+        }
+
+        try {
+            xmax = node["x_max"].as<double>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve x_max from fmr box") ; 
+        }
+
+        try {
+            ymin = node["y_min"].as<double>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve y_min from fmr box") ; 
+        }
+
+        try {
+            ymax = node["y_max"].as<double>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve y_max from fmr box") ; 
+        }
+
+        try {
+            zmin = node["z_min"].as<double>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve z_min from fmr box") ; 
+        }
+
+        try {
+            zmax = node["z_max"].as<double>() ; 
+        } catch (const YAML::BadConversion&) {
+            ERROR("Cannot retrieve z_max from fmr box") ; 
+        }
+        
+    }
+    int target_level_delta ;
+    double xmin,xmax,ymin,ymax,zmin,zmax ; 
+} ; 
+ 
+struct fmr_context {
+    std::vector<fmr_box_t> boxes;
+    unsigned base_level;
+};
+
+forest_impl_t::forest_impl_t(
+    p4est_t* _forest_ptr
+) : _p4est(_forest_ptr)
+{ }
+
+static int fmr_refine_cback(
+    p4est_t* p4est,
+    p4est_topidx_t which_tree,
+    p4est_quadrant_t* quad 
+)
+{
+    auto context = static_cast<fmr_context*>(p4est->user_pointer) ;
+    size_t n_boxes = context->boxes.size() ; 
+    size_t base_level = context->base_level ; 
+    // now compute coordinates of this quad 
+    auto pconn = p4est->connectivity ; 
+    p4est_qcoord_t qx,qy, qz; 
+    qx = quad->x ; qy = quad->y ; qz = quad->z ; 
+    double xyz[3] ; 
+    p4est_qcoord_to_vertex(pconn,which_tree,qx,qy,qz,xyz) ; 
+    double dx_quad = 1./(1<<static_cast<int>(quad->level)) ; 
+    // tree spacing (we assume same in all dimensions)
+    double dx_tree ; 
+    
+    auto nv1 = pconn->tree_to_vertex[which_tree*P4EST_CHILDREN] ; 
+    auto nv2 = pconn->tree_to_vertex[which_tree*P4EST_CHILDREN+1] ; 
+    auto xv1 = pconn->vertices[3UL*nv1] ; auto xv2 = pconn->vertices[3UL*nv2] ; 
+    dx_tree = xv2-xv1 ; 
+    ASSERT(dx_tree>0, "something wrong") ; 
+
+    dx_quad *= dx_tree ; 
+
+    double x0 = xyz[0];
+    double y0 = xyz[1];
+    double z0 = xyz[2];
+    double x1 = x0 + dx_quad;
+    double y1 = y0 + dx_quad;
+    double z1 = z0 + dx_quad;
+    double xm = (x0+x1)*0.5 ;
+    double ym = (y0+y1)*0.5 ; 
+    double zm = (z0+z1)*0.5 ; 
+
+    // determine if the quadrant is inside the box ;
+    bool need_refine = false ;
+    for( int ibox=0; ibox<n_boxes; ++ibox) {
+        auto const& box = context->boxes[ibox] ;
+        if ( static_cast<int>(quad->level) >= base_level + box.target_level_delta ) continue ; 
+        bool inside =
+            (box.xmin <= xm && xm <= box.xmax) &&
+            (box.ymin <= ym && ym <= box.ymax) &&
+            (box.zmin <= zm && zm <= box.zmax);
+
+        need_refine |= inside ; 
+    }
+    
+    return need_refine ? 1 : 0 ; 
+}
 
 forest_impl_t::forest_impl_t() 
 { 
@@ -41,25 +156,41 @@ forest_impl_t::forest_impl_t()
     auto & params       = grace::config_parser::get()   ; 
     auto & connectivity = grace::amr::connectivity::get() ; 
     int min_level( params["amr"]["initial_refinement_level"].as<int>() ) ; 
-    _p4est =  p4est_new_ext(  parallel::get_comm_world()
-                            , connectivity.get()   
-                            , 0 
-                            , min_level
-                            , 1 
-                            , sizeof(amr_flags_t)
-                            , initialize_quadrant
-                            , nullptr ) ; 
+    _p4est =  p4est_new_ext(  parallel::get_comm_world()          // MPI comm
+                            , connectivity.get()                  // Connectivity
+                            , 0                                   // min_quadrants 
+                            , min_level                           // min_level 
+                            , 1                                   // fill_uniform 
+                            , sizeof(grace_quadrant_user_data_t)  // data_size
+                            , initialize_quadrant_fmr              // init_fn 
+                            , nullptr ) ;                         // user_ptr 
+    // set up fmr grid if needed
+    // first: get the fmr boxes 
+    auto n_boxes = grace::get_param<unsigned>("amr","n_fmr_boxes") ; 
+    auto base_level = grace::get_param<unsigned>("amr", "initial_refinement_level") ; 
+    auto fmr_boxes_params = grace::config_parser::get().get()["amr"]["fmr_boxes"] ; 
+
+    std::vector<fmr_box_t> boxes ; 
+    for( int ib=0; ib<n_boxes; ++ib) {
+        fmr_box_t box(fmr_boxes_params[ib]) ; 
+        boxes.push_back(box) ; 
+    }
+
+    if (n_boxes>0) {
+        fmr_context context ; 
+        context.boxes = boxes ; 
+        context.base_level = base_level ; 
+        _p4est->user_pointer = &context ; 
+        // call refine
+        p4est_refine(_p4est, 1, fmr_refine_cback, initialize_quadrant_fmr) ;
+        // call balance 
+        p4est_balance(_p4est, P4EST_CONNECT_FULL, initialize_quadrant_fmr) ; 
+        // call partition! 
+        p4est_partition(_p4est, 1, nullptr) ; 
+    }
+
     GRACE_INFO("Forest initialized with {} ({}) total (local) quadrants."
                  , _p4est->global_num_quadrants, _p4est->local_num_quadrants ) ; 
-
-    Kokkos::View<size_t[4]> _gp_d("grid_params") ; 
-    auto _gp_h = Kokkos::create_mirror_view(_gp_d) ; 
-    _gp_h(0) = params["amr"]["npoints_block_x"].as<size_t>() ; 
-    _gp_h(1) = params["amr"]["npoints_block_y"].as<size_t>() ; 
-    _gp_h(2) = params["amr"]["npoints_block_z"].as<size_t>() ; 
-    _gp_h(3) = params["amr"]["n_ghostzones"].as<size_t>() ; 
-    Kokkos::deep_copy(_gp_d, _gp_h) ;
-    _grid_properties = _gp_d ; 
 }
 
 forest_impl_t::~forest_impl_t() 

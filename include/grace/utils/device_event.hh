@@ -118,7 +118,10 @@ struct device_event_t {
     }
 
     void reset() {
-        if (_event) EVENT_DESTROY(_event);
+        if (_event) {
+            EVENT_SYNCHRONIZE(_event); 
+            EVENT_DESTROY(_event);
+        }
         EVENT_CREATE(_event);
     }
 

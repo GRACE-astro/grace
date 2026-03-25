@@ -95,7 +95,7 @@ class iterator
          */
         reference operator*() const { return *_m ; }
 
-        private:
+        protected:
             pointer _m{nullptr} ; //!< Data being pointed to
 } ; 
 

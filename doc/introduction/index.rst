@@ -16,7 +16,7 @@ platforms.
 Obtaining the code 
 ******************
 
-The entire GRACE source code as well as the source for this documentation is available on `GitHub <https://github.com/carlomusolino/grace>`_. Please see the 
+The entire GRACE source code as well as the source for this documentation is available on `GitHub <https://github.com/GRACE-astro/grace>`_. Please see the 
 `Building The Code <_grace-building>`_ section of this documentation for a detailed guide on how to compile GRACE on your system.
 
 Code dependencies
@@ -64,13 +64,6 @@ of Kokkos and GRACE are:
 1. Enable the correct backend when building Kokoks by using the ``-DKokkos_ENABLE_{BACKEND}=ON`` configure option.
 2. Ensure that you have selected the correct device microarchitecture to gain access to the more advanced optimizations available in Kokkos.
 
-.. warning::
-    GRACE requires device relocatable code to be compiled,
-    for this reason, whatever backend you build Kokkos for, 
-    you will need to specify the option 
-    ``-DKokkos_ENABLE_{BACKEND}_RELOCATABLE_DEVICE_CODE=ON``
-    in your CMake configuration.
-
 MPI 
 ++++++
 
@@ -91,13 +84,6 @@ natively readable by most VTK-compatible visualization software such as `Paravie
     GRACE uses MPI-parallel HDF5 input/output. Ensure that the version 
     of HDF5 being linked to your GRACE executable was built with MPI support 
     and using the same MPI as GRACE is using.
-
-VTK
-+++++
-
-`VTK <https://vtk.org/>`_ can optionally be used to produce ``.vtu`` output in GRACE. The library is also 
-used to slice the grid when producing codimension 1 output. The minimal set of components required for use of 
-VTK in GRACE is: ``CommonCore``, ``CommonDataModel``, ``FiltersCore``, ``IOXML``, ``IOParallelXML``, ``ParallelMPI``.
 
 spdlog
 +++++++
@@ -136,6 +122,13 @@ Sphinx
 
 The ReadTheDocs webpage hosting the documentation of GRACE utilizes the `Sphinx <>` Python utility. 
 All the required python modules can be installed by running ``pip install -r ${GRACE_HOME}/doc/requirements.txt``.
+
+VTK
++++++
+
+`VTK <https://vtk.org/>`_ can optionally be used to produce ``.vtu`` output in GRACE. The library is also 
+used to slice the grid when producing codimension 1 output. The minimal set of components required for use of 
+VTK in GRACE is: ``CommonCore``, ``CommonDataModel``, ``FiltersCore``, ``IOXML``, ``IOParallelXML``, ``ParallelMPI``.
 
 Licensing 
 *********

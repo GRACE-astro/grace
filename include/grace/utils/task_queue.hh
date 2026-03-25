@@ -96,7 +96,7 @@ struct gpu_task_t : public task_t {
     void run(view_alias_t alias) override {
         // note need to remember to reset event and attach it to stream where kernel is running 
         // INSIDE _run 
-        ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
+        ASSERT( status == status_id_t::READY, "Attempting to run task that is not ready") ;
         ASSERT( stream != nullptr, "Attempting to run on a null stream") ; 
         status = status_id_t::RUNNING ; 
         dev_event.reset() ; 
@@ -136,7 +136,7 @@ struct mpi_task_t : public task_t {
     mpi_task_t( mpi_task_t && other ) = default ; 
 
     void run(view_alias_t alias) override {
-        ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
+        ASSERT( status == status_id_t::READY, "Attempting to run task that is not ready") ;
         status = status_id_t::RUNNING ; 
         _run(&mpi_req) ; 
     }
@@ -172,7 +172,7 @@ struct cpu_task_t : public task_t {
     }
 
     void run(view_alias_t alias) override {
-        ASSERT( status = status_id_t::READY, "Attempting to run task that is not ready") ;
+        ASSERT( status == status_id_t::READY, "Attempting to run task that is not ready") ;
         status = status_id_t::RUNNING ; 
         _run() ; 
         status = status_id_t::COMPLETE ; 

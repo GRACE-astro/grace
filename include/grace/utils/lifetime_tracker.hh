@@ -55,6 +55,8 @@ enum unique_objects_lifetimes {
     GRACE_VARIABLES,
     AMR_GHOSTS,
     GRACE_EOS_STORAGE,
+    GRACE_SPHERICAL_SURFACES,
+    GRACE_CHECKPOINT_HANDLER,
     grace_NUM_GLOBAL_OBJECTS 
 } ;
 

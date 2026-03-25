@@ -1,8 +1,13 @@
 #!/bin/zsh
 
 module load gcc/14 rocm/6.3 openmpi/5.0 hdf5-mpi
+module load gsl mkl
 
 export LIB_BASEDIR=/u/cmusolino/grace-libs
+
+export HOME_LORENE=/u/cmusolino/lorene/Lorene
+export LORENE_ROOT=${HOME_LORENE}
+export TwoPunctures_ROOT=/u/cmusolino/Standalone-TwoPunctures-C-Cpp
 
 export KOKKOS_TOOLS_ROOT=${LIB_BASEDIR}/install/kokkos-tools
 export KOKKOS_ROOT=${LIB_BASEDIR}/install/kokkos

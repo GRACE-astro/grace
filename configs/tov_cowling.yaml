@@ -1,0 +1,124 @@
+name: "grace"
+amr: {
+  npoints_block_x: 32,
+  npoints_block_y: 32,
+  npoints_block_z: 32,
+  xmin: -128.0,
+  xmax: 128.0,
+  ymin: -128.0,
+  ymax: 128.0,
+  zmin: -128.0,
+  zmax: 128.0,
+
+  n_ghostzones: 4,
+  initial_refinement_level: 2,
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+  n_fmr_boxes: 3,
+  fmr_box_0: {
+    target_level_delta: 1,
+    x_min: -32,
+    x_max: 32,
+    y_min: -32,
+    y_max: 32,
+    z_min: -32,
+    z_max: 32
+  },
+  fmr_box_1: {
+    target_level_delta: 2,
+    x_min: -16,
+    x_max: 16,
+    y_min: -16,
+    y_max: 16,
+    z_min: -16,
+    z_max: 16
+  },
+  fmr_box_2: {
+    target_level_delta: 3,
+    x_min: -8,
+    x_max: 8,
+    y_min: -8,
+    y_max: 8,
+    z_min: -8,
+    z_max: 8
+  }
+}
+
+IO: {
+  output_use_hdf5: true, 
+  hdf5_compression_level: 0,
+  output_extra_quantities: true,
+
+  scalar_output_every: 10,
+  scalar_output_minmax: ["rho","press","eps","Bdiv"],
+  scalar_output_norm2: ["Bdiv"],
+
+  info_output_every: 2,
+  info_output_max_reductions: ["rho", "press", "Bvec[1]", "Bdiv"],
+  info_output_min_reductions: ["rho", "press", "Bvec[1]"], 
+
+  do_initial_output: true,
+
+  volume_output_every: -1,
+
+  plane_surface_output_every: 100,
+  plane_surface_output_cell_variables: ["alp","rho","press","eps","vel[0]", "Bvec[0]","Bdiv","b2"],
+
+  sphere_surface_output_every: -1,
+}
+
+evolution: {
+  time_stepper: "rk3",
+  cfl_factor: 0.2,
+  final_time: 2000.0,
+}
+
+grmhd: {
+  id_type: "TOV",
+  lapse_excision: 0.05,
+  Avec_ID: {
+    kind: "current_loop",
+    cutoff_var: "press",
+    cutoff_fact: 0.02,
+    A_phi: 100,
+    A_n: 2.0
+  },
+  B_field_from_Avec: true,
+  atmosphere: {
+    ye_fl: 0,
+    temp_fl:  0,
+    rho_fl: 1.e-10,
+    rho_scaling: 0,
+    temp_scaling: 0
+  }
+}
+
+eos: {
+  eos_type: "hybrid",
+  cold_eos_type: "piecewise_polytrope",
+
+  eps_maximum: 1.e+05,
+  gamma_th: 1.8,
+
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [2.],
+    rhos:   [],
+    kappa_0: 100.
+  }
+}
+
+system: {
+  console_log_level: "info",
+  file_log_level: "verbose",
+  n_device_streams: 4
+}
+
+profiling: {
+  do_gpu_profiling: false
+}
+
+checkpoints: {
+  checkpoint_at_termination: false,
+}
