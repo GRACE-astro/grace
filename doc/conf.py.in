@@ -62,7 +62,7 @@ html_context = {
         ("latest", "/"),
     ),
     "reference_links": {
-        "API": f"{reference_prefix}/doxygen/html/index.html"
+        "API": f"doxygen/html/index.html"
     }
 }
 
