@@ -344,6 +344,12 @@ struct m1_closure_t {
     double chi ; 
     double Eclosure ; 
 
+
+    double GRACE_HOST_DEVICE
+    closure_func( double const& z ) {
+        return 1./3. + SQR(z) * (6.-2.*z+6.*SQR(z))/15. ; 
+    }
+    
     private:
 
     void GRACE_HOST_DEVICE 
@@ -377,11 +383,6 @@ struct m1_closure_t {
         fhU = metric.raise(fhD) ; 
         Fdotfh = F ; 
         vdotfh = vdotF/F ; 
-    }
-
-    double GRACE_HOST_DEVICE
-    closure_func( double const& z ) {
-        return 1./3. + SQR(z) * (6.-2.*z+6.*SQR(z))/15. ; 
     }
 
 } ; 

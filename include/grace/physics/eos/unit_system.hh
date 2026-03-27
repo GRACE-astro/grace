@@ -39,47 +39,49 @@
 namespace grace {
 
 struct unit_system {
-    double length, time, mass;
+    double length, time, mass, Bfield;
     double velocity, acceleration, force;
     double pressure, energy;
     double energy_density, mass_density;
 
 private:
-    constexpr unit_system(double _length, double _time, double _mass)
+    constexpr unit_system(double _length, double _time, double _mass, double _Bfield)
     : length          (_length)
     , time            (_time)
+    , Bfield          (_Bfield)
     , mass            (_mass)
     , velocity        (_length/_time)
     , acceleration    (_length/_time/_time)
     , force           (_mass*_length/_time/_time)
     , pressure        (_mass/_time/_time/_length)
     , energy          (_mass*_length*_length/_time/_time)
-    , energy_density  (_mass/_time/_time/_length/_length)
+    , energy_density  (_mass/_time/_time/_length)
     , mass_density    (_mass/_length/_length/_length)
     {}
 
 public:
     unit_system operator/ (unit_system const& other) const 
     {
-        return unit_system(length/other.length, time/other.time, mass/other.mass) ; 
+        return unit_system(length/other.length, time/other.time, mass/other.mass, Bfield/other.Bfield) ; 
     }
 
-    static constexpr unit_system make_constexpr(double length, double time, double mass) {
-        return unit_system(length, time, mass);
+    static constexpr unit_system make_constexpr(double length, double time, double mass, double Bfield) {
+        return unit_system(length, time, mass, Bfield);
     }
 
-    static unit_system make(double length, double time, double mass) {
-        return unit_system(length, time, mass);
+    static unit_system make(double length, double time, double mass, double Bfield) {
+        return unit_system(length, time, mass, Bfield);
     }
 };
 
 
-constexpr auto SI_units = unit_system::make_constexpr(1.0,1.0,1.0) ; 
-constexpr auto CGS_units = unit_system::make_constexpr(0.01, 1.0, 0.001);
+constexpr auto SI_units = unit_system::make_constexpr(1.0,1.0,1.0,1.0) ; 
+constexpr auto CGS_units = unit_system::make_constexpr(0.01, 1.0, 0.001,1e-4);
 constexpr auto GEOM_units = unit_system::make_constexpr(
     physical_constants::G_si * physical_constants::Msun_si /physical_constants::clight_si/physical_constants::clight_si, 
     physical_constants::G_si * physical_constants::Msun_si /physical_constants::clight_si/physical_constants::clight_si/physical_constants::clight_si, 
-    physical_constants::Msun_si
+    physical_constants::Msun_si,
+    physical_constants::Msun_to_Tesla
 );
 
 }

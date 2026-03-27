@@ -1,6 +1,6 @@
 /**
  * @file tabulated.hh
- * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @author Carlo Musolino (carlo.musolino@aei.mpg.de) & Khalil Pierre (pierre@itp.uni-frankfurt.de)
  * @brief 
  * @date 2026-02-06
  * 
@@ -229,7 +229,7 @@ class tabulated_eos_t
     /**************************************************************************************/
     enum TEOS_VIDX : int {
         TABPRESS=0,
-        TABEN,
+        TABEPS,
         TABCSND2,
         TABENTROPY,
         TABMUE,
@@ -248,7 +248,7 @@ class tabulated_eos_t
         CTABTEMP=0,
         CTABYE,
         CTABPRESS,
-        CTABEN,
+        CTABEPS,
         CTABCSND2,
         CTABENTROPY,
         N_CTAB_VARS 
@@ -267,7 +267,7 @@ class tabulated_eos_t
         double _rhomax, double _rhomin,
         double _tempmax, double _tempmin,
         double _yemax, double _yemin,
-        double _baryon_mass, 
+        double _baryon_mass, double _energy_shift,
         double _c2p_epsmin, double _c2p_epsmax,
         double _c2p_hmin, double _c2p_hmax,
         double _c2p_temp_atm,
@@ -278,6 +278,7 @@ class tabulated_eos_t
       , nrho(_logrho.size())
       , nT(_logT.size())
       , nye(_ye.size())
+      , energy_shift(_energy_shift)
       , base_t(
         _rhomax, _rhomin,
         _tempmax, _tempmin,
@@ -292,7 +293,6 @@ class tabulated_eos_t
     { 
         lrhomin = _logrho[0] ; lrhomax = _logrho[_logrho.size()-1] ; 
         ltempmin = _logT[0] ; ltempmax = _logT[_logT.size()-1] ; 
-
     }
     /**************************************************************************************/
     /**
@@ -311,8 +311,7 @@ class tabulated_eos_t
         limit_ye(ye,err)   ; 
         auto lrho = Kokkos::log(rho) ; 
         // this call imposes limits on eps ! 
-        auto le   = le__eps_lrho_ye_limited(eps,lrho,ye,err) ; 
-        auto ltemp = ltemp__le_lrho_ye(le,lrho,ye) ; 
+        auto ltemp = ltemp__eps_lrho_ye(eps,lrho,ye,err) ; 
         return press__lrho_ltemp_ye(lrho,ltemp,ye) ; 
     }
     /**************************************************************************************/
@@ -332,8 +331,8 @@ class tabulated_eos_t
         limit_rho(rho,err) ; 
         limit_ye(ye,err)   ; 
         auto lrho  = Kokkos::log(rho) ; 
-        auto le    = le__eps_lrho_ye_limited(eps,lrho,ye,err) ; 
-        auto ltemp = ltemp__le_lrho_ye(le,lrho,ye) ;
+        // this call limits epsilon! 
+        auto ltemp = ltemp__eps_lrho_ye(eps,lrho,ye,err) ;
         temp = Kokkos::exp(ltemp) ; 
         return press__lrho_ltemp_ye(lrho,ltemp,ye) ; 
     }
@@ -375,7 +374,8 @@ class tabulated_eos_t
         limit_temp(temp,err) ; 
         double lrho = Kokkos::log(rho) ; 
         double ltemp = Kokkos::log(temp) ; 
-        return  eps__lrho_ltemp_ye(lrho,ltemp,ye) ; 
+        auto leps = tables.interp(lrho,ltemp,ye,TABEPS) ;
+        return  Kokkos::exp(leps) - energy_shift ; 
     }
     /**************************************************************************************/
     /**
@@ -400,8 +400,7 @@ class tabulated_eos_t
         limit_rho(rho,err) ; 
         limit_ye(ye,err)   ; 
         auto lrho = Kokkos::log(rho) ; 
-        double le  = le__eps_lrho_ye_limited(eps,lrho,ye,err) ; 
-        auto ltemp = ltemp__le_lrho_ye(le,lrho,ye) ;
+        auto ltemp = ltemp__eps_lrho_ye(eps,lrho,ye,err) ;
         auto press = press__lrho_ltemp_ye(lrho,ltemp,ye) ; 
         csnd2 = tables.interp(lrho,ltemp,ye,TABCSND2) ; 
         h = 1 + eps + press/rho ; 
@@ -431,7 +430,7 @@ class tabulated_eos_t
         limit_temp(temp,err) ; 
         auto lrho = Kokkos::log(rho) ; 
         auto ltemp = Kokkos::log(temp) ; 
-        double eps = eps__lrho_ltemp_ye(lrho,ltemp,ye) ; 
+        double eps = Kokkos::exp(tables.interp(lrho,ltemp,ye,TABEPS)) - energy_shift ; 
         auto press = press__lrho_ltemp_ye(lrho,ltemp,ye) ; 
         csnd2 = tables.interp(lrho,ltemp,ye,TABCSND2) ; 
         h = 1 + eps + press/rho ; 
@@ -461,7 +460,7 @@ class tabulated_eos_t
         limit_temp(temp,err) ; 
         auto lrho = Kokkos::log(rho) ; 
         auto ltemp = Kokkos::log(temp) ;   
-        eps = eps__lrho_ltemp_ye(lrho,ltemp,ye) ; 
+        eps = Kokkos::exp(tables.interp(lrho,ltemp,ye,TABEPS)) - energy_shift ;
         auto press = press__lrho_ltemp_ye(lrho,ltemp,ye) ; 
         csnd2 = tables.interp(lrho,ltemp,ye,TABCSND2) ; 
         return press ; 
@@ -492,8 +491,8 @@ class tabulated_eos_t
         limit_rho(rho,err) ; 
         limit_ye(ye,err)   ; 
         auto lrho = Kokkos::log(rho) ;
-        auto le = le__eps_lrho_ye_limited(eps,lrho,ye,err) ;
-        auto ltemp = ltemp__le_lrho_ye(le,lrho,ye) ;
+        // this call limits eps 
+        auto ltemp = ltemp__eps_lrho_ye(eps,lrho,ye,err) ;
         temp = Kokkos::exp(ltemp) ; 
         auto press = press__lrho_ltemp_ye(lrho,ltemp,ye) ; 
         csnd2 = tables.interp(lrho,ltemp,ye,TABCSND2) ; 
@@ -526,7 +525,7 @@ class tabulated_eos_t
         auto ltemp = Kokkos::log(temp) ; 
         csnd2 = tables.interp(lrho,ltemp,ye,TABCSND2) ; 
         entropy = tables.interp(lrho,ltemp,ye,TABENTROPY) ; 
-        return eps__lrho_ltemp_ye(lrho,ltemp,ye) ; 
+        return Kokkos::exp(tables.interp(lrho,ltemp,ye,TABEPS)) - energy_shift ;
     }
     /**************************************************************************************/
     double GRACE_HOST_DEVICE
@@ -539,7 +538,7 @@ class tabulated_eos_t
         limit_temp(temp,err) ; 
         auto lrho  = Kokkos::log(rho) ;
         auto ltemp = Kokkos::log(temp) ; 
-        eps = eps__lrho_ltemp_ye(lrho,ltemp,ye) ; 
+        eps = Kokkos::exp(tables.interp(lrho,ltemp,ye,TABEPS)) - energy_shift ;
         csnd2 = tables.interp(lrho,ltemp,ye,TABCSND2) ; 
         entropy = tables.interp(lrho,ltemp,ye,TABENTROPY) ; 
         return press__lrho_ltemp_ye(lrho,ltemp,ye) ; 
@@ -557,7 +556,7 @@ class tabulated_eos_t
         double lrho = Kokkos::log(rho) ; 
         auto ltemp = ltemp__entropy_lrho_ye(entropy,lrho,ye) ; 
         temp = Kokkos::exp(ltemp) ; 
-        eps = eps__lrho_ltemp_ye(lrho,ltemp,ye) ; 
+        eps = Kokkos::exp(tables.interp(lrho,ltemp,ye,TABEPS)) - energy_shift ;
         double press = press__lrho_ltemp_ye(lrho,ltemp,ye) ; 
         csnd2 = tables.interp(lrho,ltemp,ye,TABCSND2) ; 
         h = 1 + eps + press/rho ;
@@ -631,7 +630,9 @@ class tabulated_eos_t
         auto rootfun = [this, lp] (double lrho) {
             return cold_table.interp(lrho,CTABPRESS) - lp ; 
         } ; 
-        double lrho = utils::brent(rootfun,lrhomin,lrhomax,1e-14/*fixme tol??*/) ; 
+        auto lrmin = cold_table._logrho(0);
+        auto lrmax = cold_table._logrho(cold_table._logrho.size()-1) ; 
+        double lrho = utils::brent(rootfun,lrmin,lrmax,1e-14/*fixme tol??*/) ; 
         return Kokkos::exp(lrho) ; 
     }
     /**************************************************************************************/
@@ -646,13 +647,30 @@ class tabulated_eos_t
     double GRACE_HOST_DEVICE
     rho__energy_cold_impl(double& e_cold, err_t& err) const 
     {
-        // e is rho(1+eps)
-        double const le_cold = cold_le__e_limited(e_cold,err) ; 
-        auto rootfun = [this, le_cold] (double lrho) {
-            double le = cold_table.interp(lrho,CTABEN)  ; 
-            return le - le_cold ; 
+        // find minimum and maximum energy 
+        int n = cold_table._logrho.size() ;
+        double eps_min = Kokkos::exp(cold_table._tables(0,CTABEPS)) - energy_shift ;  
+        double eps_max = Kokkos::exp(cold_table._tables(n-1,CTABEPS)) - energy_shift ;
+        double e_min = ( 1 + eps_min ) * Kokkos::exp(cold_table._logrho(0)) ; 
+        double e_max = ( 1 + eps_max ) * Kokkos::exp(cold_table._logrho(n-1)) ; 
+        if ( e_cold < e_min ) {
+            e_cold = e_min ; 
+            err.set(EOS_EPS_TOO_LOW) ; 
+            return Kokkos::exp(cold_table._logrho(0));
+        }
+        if ( e_cold > e_max) {
+            e_cold = e_max ; 
+            err.set(EOS_EPS_TOO_HIGH) ; 
+            return Kokkos::exp(cold_table._logrho(n-1));
+        }
+
+        auto rootfun = [this, e_cold] (double lrho) {
+            double eps = Kokkos::exp(cold_table.interp(lrho,CTABEPS)) - energy_shift  ; 
+            double e = ( 1 + eps ) * Kokkos::exp(lrho) ; 
+            return e - e_cold ; 
         } ; 
-        return Kokkos::exp(utils::brent(rootfun,lrhomin,lrhomax,1e-14/*fixme tol??*/)) ; 
+        return Kokkos::exp(utils::brent(rootfun, 
+            cold_table._logrho(0), cold_table._logrho(n-1), 1e-14));
     }
     /**************************************************************************************/
     /**
@@ -670,9 +688,11 @@ class tabulated_eos_t
         auto rootfun = [this, lp_cold] (double lrho) {
             return cold_table.interp(lrho,CTABPRESS) - lp_cold ; 
         } ; 
-        double lrho = utils::brent(rootfun,lrhomin,lrhomax,1e-14/*fixme tol??*/) ;
-        double loge = cold_table.interp(lrho,CTABEN)  ; 
-        return Kokkos::exp(loge)  ; 
+        auto lrmin = cold_table._logrho(0);
+        auto lrmax = cold_table._logrho(cold_table._logrho.size()-1) ;
+        double lrho = utils::brent(rootfun,lrmin,lrmax,1e-14/*fixme tol??*/) ;
+        double eps = Kokkos::exp(cold_table.interp(lrho,CTABEPS)) - energy_shift  ; 
+        return Kokkos::exp(lrho) * (1. + eps)  ; 
     }
     /**************************************************************************************/
     /**
@@ -688,9 +708,7 @@ class tabulated_eos_t
     {
         limit_rho(rho,err) ; 
         double lrho = Kokkos::log(rho) ; 
-        double le = cold_table.interp(lrho,CTABEN);
-        double eps = Kokkos::exp(le) / rho - 1. ;
-        return eps ; 
+        return Kokkos::exp(cold_table.interp(lrho,CTABEPS)) - energy_shift; 
     }
     /**************************************************************************************/
     /**
@@ -761,7 +779,8 @@ class tabulated_eos_t
         limit_rho(rho,err) ; 
         limit_ye(ye,err) ; 
         double lrho = Kokkos::log(rho) ; 
-        eps_range__lrho_ye(eps_min,eps_max,lrho,ye,err) ; 
+        eps_min = Kokkos::exp(tables.interp(lrho,ltempmin,ye,TABEPS)) - energy_shift ;
+        eps_max = Kokkos::exp(tables.interp(lrho,ltempmax,ye,TABEPS)) - energy_shift ;
     }
     /**************************************************************************************/
     /**
@@ -819,22 +838,6 @@ class tabulated_eos_t
     }
     /**************************************************************************************/
     void KOKKOS_INLINE_FUNCTION
-    limit_eps_rho_ye(double& eps, double& rho, double& ye, err_t& err) const 
-    {
-        // this call limits rho and ye 
-        double epsmin, epsmax;
-        eps_range__rho_ye(epsmin,epsmax,rho,ye,err) ; 
-        if ( eps<epsmin) {
-            eps = epsmin ; 
-            err.set(EOS_EPS_TOO_LOW) ; 
-        }
-        if ( eps>epsmax ) {
-            eps = epsmax;
-            err.set(EOS_EPS_TOO_HIGH) ; 
-        }
-    } 
-    /**************************************************************************************/
-    void KOKKOS_INLINE_FUNCTION
     limit_entropy_rho_ye(double& entropy, double& rho, double& ye, err_t& err) const 
     {
         // this call limits rho and ye 
@@ -844,36 +847,32 @@ class tabulated_eos_t
             entropy = smin ; 
             err.set(EOS_ENTROPY_TOO_LOW) ; 
         }
-        if ( entropy>SHRT_MAX ) {
+        if ( entropy>smax ) {
             entropy = smax;
             err.set(EOS_ENTROPY_TOO_HIGH) ; 
         }
     } 
     /**************************************************************************************/
-    double KOKKOS_INLINE_FUNCTION
-    le__eps_lrho_ye_limited(double& eps, double& lrho, double& ye, err_t& err) const 
-    {
-        // this call limits rho and ye 
-        double epsmin, epsmax;
-        eps_range__lrho_ye(epsmin,epsmax,lrho,ye,err);
-        if ( eps>epsmax ) {
-            eps = epsmax;
-            err.set(EOS_EPS_TOO_HIGH) ; 
-        }
-        if (eps<epsmin) {
-            eps = epsmin ; 
-            err.set(EOS_EPS_TOO_LOW) ; 
-        }
-        return Kokkos::log((1+eps)) + lrho ; 
-    }  
-    /**************************************************************************************/
     // no checks, takes and returns log! 
     double KOKKOS_INLINE_FUNCTION
-    ltemp__le_lrho_ye(double& le, double& lrho, double& ye) const
+    ltemp__eps_lrho_ye(double& eps, double& lrho, double& ye, err_t& err) const
     {   
+        auto leps = Kokkos::log(eps + energy_shift) ; 
+        auto lepsmin = tables.interp(lrho,ltempmin,ye,TABEPS) ;
+        auto lepsmax = tables.interp(lrho,ltempmax,ye,TABEPS) ; 
+        if ( leps <= lepsmin ) {
+            eps = Kokkos::exp(lepsmin) - energy_shift ; 
+            err.set(EOS_EPS_TOO_LOW) ; 
+            return ltempmin ; 
+        }
+        if ( leps >= lepsmax ) {
+            eps = Kokkos::exp(lepsmax) - energy_shift ; 
+            err.set(EOS_EPS_TOO_HIGH) ; 
+            return ltempmax ; 
+        }
         /************************************************/
-        auto rootfun = [this,lrho,ye,le] (double lt) {
-            return tables.interp(lrho,lt,ye,TABEN) - le ;  
+        auto rootfun = [this,lrho,ye,leps] (double lt) {
+            return tables.interp(lrho,lt,ye,TABEPS) - leps ;  
         } ; 
         /************************************************/
         return utils::brent(rootfun,ltempmin,ltempmax, 1e-14/*FIXME tolerance?*/) ; 
@@ -891,18 +890,6 @@ class tabulated_eos_t
         return utils::brent(rootfun,ltempmin,ltempmax, 1e-14/*FIXME tolerance?*/) ; 
     } 
     /**************************************************************************************/
-    /**
-     * @brief Get eps range at log(rho), ye
-     */
-    void KOKKOS_INLINE_FUNCTION 
-    eps_range__lrho_ye(double& eps_min, double& eps_max, double& lrho, double& ye, err_t& err) const 
-    {
-        double e_min = Kokkos::exp(tables.interp(lrho,ltempmin,ye,TABEN)) ;
-        double e_max = Kokkos::exp(tables.interp(lrho,ltempmax,ye,TABEN)) ;
-        double rho   = Kokkos::exp(lrho) ; 
-        eps_min = e_min/rho - 1 ; 
-        eps_max = e_max/rho - 1 ; 
-    }
     /**************************************************************************************/
     double KOKKOS_INLINE_FUNCTION
     press__lrho_ltemp_ye(double const lrho, double const ltemp, double const ye) const 
@@ -910,28 +897,6 @@ class tabulated_eos_t
         return Kokkos::exp(tables.interp(lrho,ltemp,ye,TABPRESS)) ; 
     }
     /**************************************************************************************/
-    double KOKKOS_INLINE_FUNCTION
-    eps__lrho_ltemp_ye(double const lrho, double const ltemp, double const ye) const 
-    {
-        double rho = Kokkos::exp(lrho) ; 
-        return Kokkos::exp(tables.interp(lrho,ltemp,ye,TABEN))/rho-1 ;
-    }
-    /**************************************************************************************/
-    double KOKKOS_INLINE_FUNCTION
-    cold_le__e_limited(double& e_cold, err_t& err) const {
-        double e_min = Kokkos::exp(cold_table._tables(0,CTABEN)) ;
-        int n = cold_table._logrho.size() ;  
-        double e_max = Kokkos::exp(cold_table._tables(n-1,CTABEN)) ; 
-        if ( e_cold < e_min ) {
-            err.set(EOS_EPS_TOO_LOW) ; 
-            e_cold = e_min * (1+1e-10) ; 
-        }
-        if ( e_cold > e_max ) {
-            err.set(EOS_EPS_TOO_HIGH) ;
-            e_cold = e_max * (1-1e-10) ; 
-        }
-        return Kokkos::log(e_cold) ; 
-    } 
     /**************************************************************************************/
     double KOKKOS_INLINE_FUNCTION
     cold_lpress__press_limited(double& press_cold, err_t& err) const {
@@ -956,6 +921,8 @@ class tabulated_eos_t
     cold_eos_linterp_t cold_table ;
     /**************************************************************************************/
     double lrhomin, lrhomax ;
+    /**************************************************************************************/
+    double energy_shift ; 
     /**************************************************************************************/
     double ltempmin, ltempmax ; 
     /**************************************************************************************/

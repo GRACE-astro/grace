@@ -1,0 +1,42 @@
+ns_tracker:
+  type: schema
+  description: >
+    Track one or two neutron stars on the grid. The tracking is performed by 
+    integrating the rest mass density multiplied by the coordinates to find the 
+    centers of mass of the stars. The integral is restricted to regions of the 
+    grid where the density exceeds a user-specified threshold.
+  
+  ns_number:
+    type: int
+    default: 0
+    range: "[0,2]"
+    description: >
+      How many neutron stars to track 
+  ns_x_initial:
+    type: list 
+    item_type: double
+    description: >
+      X coordinate of initial NS location(s)
+  ns_y_initial:
+    type: list 
+    item_type: double
+    description: >
+      Y coordinate of initial NS location(s)
+  ns_z_initial:
+    type: list 
+    item_type: double
+    description: >
+      Z coordinate of initial NS location(s)
+  density_threshold:
+    type: double 
+    default: 1e-6 
+    range: "(0,*)"
+    description: >
+      Minimum density included in center of mass integral
+  output_frequency:
+    type: int 
+    default: -1
+    range: "[-1, *)"
+    description: >
+      How often to update and output NS locations
+  

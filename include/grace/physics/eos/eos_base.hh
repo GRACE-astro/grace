@@ -505,7 +505,11 @@ class eos_base_t {
             mup,mun,Xa,Xh,Xn,Xp,Abar,Zbar,temp,rho,ye,err
             ) ; 
     }
-    
+    /**
+     * @brief Get maximum allowed epsilon, might differ from table bound.
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    get_c2p_eps_max() const { return c2p_eps_max ; } 
     /**
      * @brief Get the atmosphere electron fraction.
      * 

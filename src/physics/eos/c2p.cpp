@@ -71,9 +71,12 @@ limit_primitives(
     c2p_sig_t& sig
 ) {  
     // limit velocities 
-    double const W2 = 1 + metric.square_vec({prims[ZXL],prims[ZYL],prims[ZZL]}) ; 
-    if ( W2 >= max_w*max_w ) {
-        double znorm = 0.99 * max_w / sqrt(W2) ; 
+    // w^2 = z^2 + 1 
+    // but we limit z directly 
+    double const z2max = SQR(max_w) - 1. ;
+    double const z2 =  metric.square_vec({prims[ZXL],prims[ZYL],prims[ZZL]}) ; 
+    if ( z2 >= z2max ) {
+        double znorm = 0.99 * sqrt(z2max/z2) ; 
         prims[ZXL] *= znorm ; 
         prims[ZYL] *= znorm ; 
         prims[ZZL] *= znorm ; 
@@ -125,7 +128,6 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
 {
     
     using c2p_mhd_t    = kastaun_c2p_t<eos_t>     ;
-    using c2p_hydro_t  = kastaun_c2p_t<eos_t>        ;
     using c2p_backup_t = entropy_fix_c2p_t<eos_t> ;
     bool c2p_failed{ false }                      ;  
 
@@ -152,6 +154,11 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     bool c2p_is_lenient = (
         metric.sqrtg() > c2p_pars.psi6_bh_thresh 
     ) ; 
+    // FIXME!!! Sometimes tabeos randomly puts one point in the 
+    // ejecta at max eps, we don't want that to crash the whole 
+    // simulation if possible. This is a hack, we need to find 
+    // out why.
+
 
     /* Get atmo rho and temp */
     auto const dens_atmo =  atmo.rho_fl * pow(rtp[0], atmo.rho_fl_scaling);
@@ -159,7 +166,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     auto const ye_atmo   =  atmo.ye_fl ; 
     
     /* If D>rho_atm we solve*/
-    if( cons[DENSL] > dens_atmo ) { 
+    if( cons[DENSL] > dens_atmo * (1+1e-2) ) { 
         // Call main c2p 
         c2p_mhd_t c2p(eos,metric,cons) ;
         double residual = c2p.invert(prims,c2p_ret) ;
@@ -179,6 +186,9 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
                     || (c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_HIGH)) 
                     || (c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_HIGH))
                     || (!Kokkos::isfinite(residual)) ;
+        // we enforce the user-provided limit here too.
+        c2p_failed |= (prims[EPSL] >= eos.get_c2p_eps_max()) ; 
+        
         double beta = compute_beta(prims,metric) ; 
         
         // backup if needed and allowed 
@@ -199,6 +209,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
             c2p_handle_signals(c2p_ret, c2p_is_lenient, c2p_err) ;
             // decide if we can accept the inversion 
             c2p_failed = (math::abs(residual) > c2p_pars.tol) || (!Kokkos::isfinite(residual)) ;
+            c2p_failed |= (prims[EPSL] >= eos.get_c2p_eps_max()) ; 
         }
     } else {
         c2p_failed = true ;
@@ -226,7 +237,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         // no need to check EOS errs, everything is reset regardless 
         // reset all conserved
         c2p_err.set_all() ; 
-    } else if ((prims[RHOL] < (1.+1e-03) * dens_atmo) or c2p_failed ) {
+    } else if ((prims[RHOL] < (1.+1e-2) * dens_atmo) or c2p_failed ) {
         prims[RHOL]  = dens_atmo  ; 
         prims[TEMPL] = temp_atmo  ; 
         prims[YEL]   = ye_atmo    ;

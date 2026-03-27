@@ -36,7 +36,7 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
-#include <grace/physics/eos/physical_constants.hh> //! Todo 
+#include <grace/physics/eos/physical_constants.hh> 
 
 #include <grace/physics/grmhd_helpers.hh>
 

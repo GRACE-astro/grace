@@ -1,8 +1,8 @@
 name: "grace"
 amr: {
-  npoints_block_x: 16,
-  npoints_block_y: 16,
-  npoints_block_z: 16,
+  npoints_block_x: 48,
+  npoints_block_y: 48,
+  npoints_block_z: 48,
   xmin: -1024.0,
   xmax: 1024.0,
   ymin: -1024.0,
@@ -140,13 +140,17 @@ grmhd: {
   },
 
   atmosphere: {
-    rho_fl: 1e-14,
+    rho_fl: 1e-12,
     temp_fl: 0.015
   },
   
   excision: {
     excision_criterion: "lapse",
     excision_lapse: 0.05
+  },
+
+  c2p: {
+    use_c2p_entropy_backup: false
   }
 }
 

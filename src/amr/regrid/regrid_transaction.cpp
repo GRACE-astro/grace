@@ -125,6 +125,20 @@ void regrid_transaction_t::evaluate_criterion() {
         amr::shear_criterion<decltype(vx)> kernel{ VEC(vx,vy,vz) } ; 
         evaluate_regrid_criterion( d_regrid_flags
                                 , kernel) ;
+    } else if ( ref_criterion == "binary_tracker") {
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        auto co1_kind = get_param<std::string>("amr", "binary_tracker_amr_criterion", "compact_object_1_kind") ; 
+        auto co2_kind = get_param<std::string>("amr", "binary_tracker_amr_criterion", "compact_object_2_kind") ; 
+        if ( co1_kind == "NS" and co2_kind == "NS") {
+            evaluate_binary_tracker_criterion<co_t::NS,co_t::NS>(d_regrid_flags) ; 
+        } else if (co1_kind == "BH" and co2_kind == "BH") {
+            evaluate_binary_tracker_criterion<co_t::BH,co_t::BH>(d_regrid_flags) ;
+        } else {
+             evaluate_binary_tracker_criterion<co_t::NS,co_t::BH>(d_regrid_flags) ; 
+        }
+        #else 
+        ERROR("binary_tracker amr criterion requires dynamical metric.") ;
+        #endif 
     } else {
         ERROR("Unsupported refinement criterion.") ; 
     }

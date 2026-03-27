@@ -1,8 +1,8 @@
 /**
  * @file read_eos_table.cpp
- * @author Carlo Musolino (musolino@itp.uni-frankfurt.de)
+ * @author Carlo Musolino (carlo.musolino@aei.mpg.de) & Khalil Pierre (pierre@itp.uni-frankfurt.de)
  * @brief 
- * @date 2024-05-29
+ * @date 2026-03-28
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
  * Code for Exascale.
@@ -221,7 +221,7 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
 
     // Read alltables_temp
     READ_SCOLLAPSE_EOSTABLE_HDF5("logpress", tabulated_eos_t::TEOS_VIDX::TABPRESS);
-    READ_SCOLLAPSE_EOSTABLE_HDF5("logenergy", tabulated_eos_t::TEOS_VIDX::TABEN);
+    READ_SCOLLAPSE_EOSTABLE_HDF5("logenergy", tabulated_eos_t::TEOS_VIDX::TABEPS);
     READ_SCOLLAPSE_EOSTABLE_HDF5("entropy", tabulated_eos_t::TEOS_VIDX::TABENTROPY);
     READ_SCOLLAPSE_EOSTABLE_HDF5("cs2", tabulated_eos_t::TEOS_VIDX::TABCSND2);
 
@@ -243,7 +243,7 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
     READ_SCOLLAPSE_EOS_HDF5("logtemp", logtemp.data(), H5T_NATIVE_DOUBLE, H5S_ALL);
     READ_SCOLLAPSE_EOS_HDF5("ye", ye.data(), H5T_NATIVE_DOUBLE, H5S_ALL);
     READ_SCOLLAPSE_EOS_HDF5("energy_shift", &energy_shift, H5T_NATIVE_DOUBLE, H5S_ALL);
-
+    energy_shift *= SQR(uconv.velocity) ; 
     // get baryon mass if available 
     // Read in baryon mass if contained in the table
     hid_t mb_data;
@@ -304,14 +304,14 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
             int idx = tabulated_eos_t::TEOS_VIDX::TABPRESS + NTABLES * i;
 
             alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS) = alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS) * log(10.0) + log(uconv.pressure) ; 
-            double pressL = exp(alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS)) ; 
+            pressL = exp(alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS)) ; 
         }
 
         { // eps 
-            int idx = tabulated_eos_t::TEOS_VIDX::TABEN + NTABLES * i;  
-            epsL = ( pow(10,alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEN)) - energy_shift ) * SQR(uconv.velocity) ; 
-            eL = (1. + epsL ) * rhoL ; 
-            alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEN) = log(eL) ; 
+            int idx = tabulated_eos_t::TEOS_VIDX::TABEPS + NTABLES * i; 
+            double epsT =  pow(10,alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEPS))* SQR(uconv.velocity);
+            epsL = ( epsT - energy_shift  )  ; 
+            alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEPS) = log(epsT) ; 
         }
 
         const double hL = 1. + epsL + pressL / rhoL;
@@ -340,7 +340,7 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
     grace::deep_copy_vec_to_view(_lt  , logtemp) ; 
     grace::deep_copy_vec_to_view(_ye  , ye)      ; 
     GRACE_INFO("Table shape: ({}, {}, {}, {})", _tables.extent(0), _tables.extent(1), _tables.extent(2), _tables.extent(3)) ; 
-    GRACE_INFO("Rest mass density max {}, min {} Temperature max {}, min {}", rhomax, rhomin, tempmax, tempmin) ; 
+    GRACE_INFO("Rest mass density max {}, min {} Temperature max {}, min {}, minimum enthalpy {}, energy shift {}", rhomax, rhomin, tempmax, tempmin, hmin, energy_shift) ; 
 
     // figure out if atmo is beta equilibrated,
     // if so, find the beta equilibrium ye 
@@ -411,6 +411,7 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
         tempmax, tempmin, 
         yemax, yemin, 
         baryon_mass, 
+        energy_shift,
         epsmin, epsmax, 
         hmin, hmax,
         temp_floor, ye_atmo, atm_beta_eq
@@ -557,6 +558,15 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
         alltables(i,j,k,iv) = thermo_table[indold];
     }
 
+    // find minimum un-shifted epsilon 
+    double epsmin=std::numeric_limits<double>::max() ; 
+    for (int k = 0; k < nye; k++)
+    for (int j = 0; j < ntemp; j++)
+    for (int i = 0; i < nrho; i++) {
+        epsmin = fmin(epsmin, alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEPS)) ; 
+    }
+    double energy_shift = epsmin < 0 ? (-2.*epsmin) : 0.0 ; 
+
     auto const find_index_yi = [&](size_t const &index) {
         for (int i = 0; i < ncomp; ++i) {
         if (index_yi[i] == index) return i;
@@ -617,8 +627,10 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
     double rhomax{exp(logrho[nrho-1])}, rhomin{exp(logrho[0])}   ; 
     double tempmax{exp(logtemp[ntemp-1])}, tempmin{exp(logtemp[0])} ; 
     double yemax{yes[nye-1]}, yemin{yes[0]}     ;
-    double epsmax{std::numeric_limits<double>::min()}, epsmin{std::numeric_limits<double>::max()}     ;
-    double hmax{std::numeric_limits<double>::min()}, hmin{std::numeric_limits<double>::max()}     ; 
+    double epsmax{std::numeric_limits<double>::min()}  ;
+    double hmax{std::numeric_limits<double>::min()}, hmin{std::numeric_limits<double>::max()}     ;
+
+    epsmin=std::numeric_limits<double>::max();   
 
     // convert units
     for (int i = 0; i < nrho; i++) for(int j=0; j<ntemp; ++j) for( int k=0; k<nye; ++k) {
@@ -634,9 +646,8 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
 
         // shift epsilon to a positive range if necessary
         {
-            epsL = alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEN);
-            double e = ( epsL + 1 ) * rhoL ; 
-            alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEN) = log(e) ;
+            epsL = alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEPS) ;
+            alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABEPS) = log(epsL + energy_shift) ;
         }
 
         {  // cs2
@@ -742,6 +753,7 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
         tempmax, tempmin, 
         yemax, yemin, 
         baryon_mass, 
+        energy_shift,
         epsmin, epsmax, 
         hmin, hmax,
         temp_floor, ye_atmo, atm_beta_eq

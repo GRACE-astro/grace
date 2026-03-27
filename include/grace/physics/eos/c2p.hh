@@ -100,12 +100,16 @@ void KOKKOS_INLINE_FUNCTION c2p_handle_signals(
     }
 
     if (sig.test(C2P_EPS_TOO_HIGH)) {
-        if (be_lenient) {
-            err.set(C2P_RESET_STILDE) ; 
-            err.set(C2P_RESET_TAU)    ;
-        } else {
-            Kokkos::abort("In c2p: maximum eps exceeded") ; 
-        }
+        // TODO see comment in c2p.cpp
+        // about the max eps. Any way 
+        // this is flagged as a c2p failure
+        // outside. So I guess we can 
+        // not abort and reset the point 
+        // to atmo. In my experience this 
+        // flared up in points where rho was
+        // 1.001e-14, so not much of a loss. 
+        err.set(C2P_RESET_STILDE) ; 
+        err.set(C2P_RESET_TAU)    ;
     }
 
     if (sig.test(C2P_EPS_TOO_LOW)) {

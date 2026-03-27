@@ -206,3 +206,11 @@ outflows: {
   detector_names: ["GW_1", "GW_2"]
 }
 
+ns_tracker: {
+  ns_number: 2,
+  ns_x_initial: [-15.2, 15.2],
+  ns_y_initial: [0,0],
+  ns_z_initial: [0,0],
+  density_threshold: 1e-6,
+  output_frequency: 2
+}

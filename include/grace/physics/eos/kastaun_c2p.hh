@@ -202,7 +202,7 @@ namespace grace {
 		  eos_t const& _eos,
 		  metric_array_t const& _metric,
 		  grmhd_cons_array_t& conservs
-		  ) : eos(_eos), metric(_metric), h0(1.0+1e-10)
+		  ) : eos(_eos), metric(_metric), h0(_eos.enthalpy_minimum())
     {
       
 

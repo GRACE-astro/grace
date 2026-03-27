@@ -403,7 +403,7 @@ void compute_fluxes(
     auto& vbar  = grace::variable_list::get().getvbararray() ;
     //**************************************************************************************************/
     // construct grmhd object 
-    using recon_t = weno_reconstructor_t<5> ; 
+    using recon_t = GRACE_RECONSTRUCTION_T ; 
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,old_state,old_stag_state,aux) ; 
@@ -518,6 +518,7 @@ void compute_fluxes(
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_z_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
+        #endif 
     }) ; 
     #ifdef GRACE_ENABLE_M1
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux_M1")
@@ -583,7 +584,7 @@ void compute_emfs(
     DECLARE_GRID_EXTENTS ; 
     //**************************************************************************************************/
     // fetch some stuff 
-    using recon_t = weno_reconstructor_t<5> ; 
+    using recon_t = GRACE_RECONSTRUCTION_T ; 
     auto& idx     = grace::variable_list::get().getinvspacings() ;
     auto& vbar  = grace::variable_list::get().getvbararray() ;
     auto& emf  = grace::variable_list::get().getemfarray() ; 
