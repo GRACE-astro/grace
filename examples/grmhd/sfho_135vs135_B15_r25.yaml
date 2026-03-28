@@ -1,8 +1,8 @@
 name: "grace"
 amr: {
-  npoints_block_x: 16,
-  npoints_block_y: 16,
-  npoints_block_z: 16,
+  npoints_block_x: 32,
+  npoints_block_y: 32,
+  npoints_block_z: 32,
   xmin: -1024.0,
   xmax: 1024.0,
   ymin: -1024.0,
@@ -149,6 +149,10 @@ grmhd: {
     excision_lapse: 0.05
   },
 
+  c2p: {
+    use_c2p_entropy_backup: false
+  },
+
   B_field_initialization: "from_Avec", 
 
   Avec_ID: {
@@ -160,7 +164,6 @@ grmhd: {
     x_c_1: -15.2, 
     x_c_2: 15.2
   }
-
 }
 
 eos: {
