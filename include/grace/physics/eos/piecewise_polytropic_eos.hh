@@ -185,6 +185,7 @@ class piecewise_polytropic_eos_t
 
     public:
     double eos_rhomin, eos_rhomax ; 
+    double h_minimum ; 
 
 } ; 
 

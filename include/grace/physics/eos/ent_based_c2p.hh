@@ -41,21 +41,57 @@ namespace grace {
     }
 
     double KOKKOS_INLINE_FUNCTION
-    operator() (double mu) 
+    operator() (double mu)
     {
-      err.reset() ; // fixme? 
-      lmu                = mu ; 
+      double lmu         = mu ; 
+      const double x     = x__mu(mu) ;
+      const double rfsqr = rfsqr__mu_x(mu,x) ; 
+      double vsqr        = rfsqr * mu * mu ; 
+      double w           = 1/sqrt(1-vsqr) ; 
+      if ( vsqr > vsqrmax ) {
+        vsqr = vsqrmax ; 
+        w    = wmax    ; 
+      } 
+
+      double const rhomax = eos.density_maximum();
+      double const rhomin = eos.density_minimum();
+      double rho          = Kokkos::fmin(rhomax,Kokkos::fmax(rhomin,d/w)) ; 
+
+      double hh,csnd2,temp,eps ; 
+      eos_err_t eos_err ; 
+      double press = eos.press_h_csnd2_temp_eps__entropy_rho_ye(
+        hh,csnd2,temp,eps,s,rho,ye,eos_err
+      ) ; 
+
+      double const a = press/(rho*(1+eps)) ; 
+      double const h = (1+eps) * (1+a) ; 
+
+      double const hbw     = h/w      ; 
+      double const newmu   = 1. / (hbw + rfsqr * mu) ;
+
+      return mu - newmu;
+    }
+
+    double KOKKOS_INLINE_FUNCTION
+    compute_primitives (
+      double mu, c2p_sig_t& err,
+      double& x, double& w, double& rho, double& press, 
+      double& eps, double& temp, double& entropy
+    )
+    {
+
+      entropy = s ; 
+
+      double lmu         = mu ; 
       x                  = x__mu(mu) ;
       const double rfsqr = rfsqr__mu_x(mu,x) ; 
-      vsqr               = rfsqr * mu * mu ; 
-
+      double vsqr        = rfsqr * mu * mu ; 
+      w = 1/sqrt(1-vsqr) ; 
       if ( vsqr > vsqrmax ) {
         vsqr = vsqrmax ; 
         w    = wmax    ; 
         err.set(c2p_sig_enum_t::C2P_VEL_TOO_HIGH) ; 
-      } else {
-        w = 1/sqrt(1-vsqr) ; 
-      }
+      } 
 
       double const rhomax = eos.density_maximum();
       double const rhomin = eos.density_minimum();
@@ -71,16 +107,10 @@ namespace grace {
       double hh,csnd2 ; 
       eos_err_t eos_err ; 
       press = eos.press_h_csnd2_temp_eps__entropy_rho_ye(
-        hh,csnd2,temp,eps,s,rho,ye,eos_err
+        hh,csnd2,temp,eps,entropy,rho,ye,eos_err
       ) ; 
       // handle errors, rho always in bound, need to 
       // check entropy and ye 
-      if (eos_err.test(EOS_ERROR_T::EOS_YE_TOO_LOW)) {
-        err.set(C2P_YE_TOO_LOW) ; 
-      }   
-      if (eos_err.test(EOS_ERROR_T::EOS_YE_TOO_HIGH)) {
-        err.set(C2P_YE_TOO_HIGH) ; 
-      }
       if (eos_err.test(EOS_ERROR_T::EOS_ENTROPY_TOO_LOW)) {
         err.set(C2P_ENT_TOO_LOW) ;
       }   
@@ -104,11 +134,8 @@ namespace grace {
 
     double rsqr, bsqr, rbsqr ; 
 
-    double lmu, x, rho, w, eps, press, temp, vsqr; 
-
     double vsqrmax, wmax ; 
 
-    c2p_sig_t err ; 
   } ; 
 
   template< typename eos_t >
@@ -164,7 +191,6 @@ namespace grace {
     invert(grmhd_prims_array_t& prims, c2p_sig_t& err) {
 
       prims[YEL]  = ye ;
-      prims[ENTL] = s  ;
       
       static constexpr double tolerance = 1e-15 ; 
 
@@ -172,9 +198,9 @@ namespace grace {
       double mu0 = 1/h0 ; 
       if ( r2 >= h0*h0 ) {
         fbrack_t g(r2,Btilde2,r_dot_Btilde2,h0) ; 
-        int err ; 
-        mu0 = utils::rootfind_newton_raphson(0,1./h0,g,30,1e-10,err) ; 
-        if ( err == 0 ) {
+        int rerr ; 
+        mu0 = utils::rootfind_newton_raphson(0,1./h0,g,30,1e-10,rerr) ; 
+        if ( rerr == 0 ) {
           mu0 *= 1+1e-10 ; 
         } else {
           mu0 = utils::brent(g,0,1./h0,tolerance)*(1+1e-10) ;
@@ -183,24 +209,23 @@ namespace grace {
 
       ent_froot_t fmu(eos,D,r2,r_dot_Btilde2,Btilde2,s,ye,h0) ; 
       double mu = utils::brent(fmu, 0, mu0, tolerance) ; 
-      double residual = fmu(mu) ; 
 
-      double const W = fmu.w    ; 
-      prims[EPSL]   = fmu.eps   ; 
-      prims[RHOL]   = fmu.rho   ; 
-      prims[PRESSL] = fmu.press ;
-      prims[YEL]    = fmu.ye    ; 
-      prims[TEMPL]  = fmu.temp  ; 
+      double x, w, eps, rho, press, temp, entropy ; 
+      double residual = fmu.compute_primitives(
+        mu, err, x, w, rho, press, eps, temp, entropy
+      ) ;
+
+      prims[EPSL]   = eps   ; 
+      prims[RHOL]   = rho   ; 
+      prims[PRESSL] = press ;
+      prims[TEMPL]  = temp  ; 
+      prims[ENTL]   = entropy ; // we set it here in case it was clamped 
       prims[BXL]    = B[0] ; 
       prims[BYL]    = B[1] ; 
       prims[BZL]    = B[2] ; 
 
-      err = fmu.err ; 
-
-      double x = fmu.x; 
-
       for( int ii=0; ii<3; ++ii) 
-        prims[ZXL+ii] = W * mu * x * ( r[ii] + mu * r_dot_Btilde * Btilde[ii] ) ;  
+        prims[ZXL+ii] = w * mu * x * ( r[ii] + mu * r_dot_Btilde * Btilde[ii] ) ;  
       
       return fabs(residual) ; 
     }

@@ -36,7 +36,7 @@ ns_tracker:
   output_frequency:
     type: int 
     default: -1
-    range: "[-1, *)"
+    range: "[-1,*)"
     description: >
       How often to update and output NS locations
   

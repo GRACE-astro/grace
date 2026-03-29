@@ -47,7 +47,7 @@
 
 namespace grace {
 
-static piecewise_polytropic_eos_t setup_cold_politrope() 
+static piecewise_polytropic_eos_t setup_cold_polytrope() 
 {
     auto& params = grace::config_parser::get() ;
 
@@ -165,25 +165,19 @@ eos_storage_t::eos_storage_t() {
 
         if( cold_eos_type == "piecewise_polytrope" ) {
 
-            auto _pwpoly = setup_cold_politrope() ; 
+            auto _pwpoly = setup_cold_polytrope() ; 
 
             double temp_floor = get_param<double>("grmhd", "atmosphere", "temp_fl") ; 
             double rho_floor = get_param<double>("grmhd", "atmosphere", "rho_fl") ; 
 
-            double eps_min_c ; 
-            double p_min_c   = _pwpoly.press_cold_eps_cold__rho(eps_min_c,rho_floor) ; 
-
-            double eps_min_th = temp_floor / (gamma_th-1.) ; 
-            double p_min_th   = (gamma_th-1.) * rho_floor * eps_min_th ; 
-
-            double const h_min = 1. + eps_min_th + eps_min_c + (p_min_c+p_min_th)/rho_floor ; 
+            double const h_min = 1. + 1e-10 ; 
 
             _hybrid_pwpoly = hybrid_eos_t<piecewise_polytropic_eos_t>{
                   _pwpoly 
                 , gamma_th - 1. 
                 , c2p_entropy_min
                 , h_min
-                , grace::physical_constants::mnuc_CGS
+                , 1 // baryon mass, arbitrary for ideal gas eos 
                 , c2p_eps_max 
                 , temp_floor
             } ; 

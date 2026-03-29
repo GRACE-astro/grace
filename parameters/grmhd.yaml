@@ -56,6 +56,12 @@ grmhd:
       default: true 
       description: >
         Override ye_fl with beta equilibrium ye at atmosphere conditions 
+    atmo_tol:
+      type: double 
+      default: 1e-3
+      range: "[0,*)"
+      description: >
+        When setting points to atmosphere, check if rho < rho_atm * (1+tol)
   
   excision: 
     type: schema

@@ -127,9 +127,9 @@ eos: {
   eos_type: "tabulated",
 
   tabulated_eos: {
-    table_filename: "/u/cmusolino/eos/compose/sfhx/sfhx.h5",
-    table_format: "compose",
-    cold_table_filename: "/u/cmusolino/eos/compose/sfhx/sfhx.grace"
+    table_filename: "/u/cmusolino/eos/stellarcollapse/sfho/Hempel_SFHoEOS_rho222_temp180_ye60_version_1.1_20120817.h5",
+    table_format: "stellarcollapse",
+    cold_table_filename: "/u/cmusolino/eos/stellarcollapse/sfho/sfho.grace"
   },
   
   eps_maximum: 1.e+05

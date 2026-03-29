@@ -82,7 +82,7 @@ void compute_auxiliary_quantities() {
             ERROR("Not implemented yet.") ;
         }
     } else if ( eos_type == "tabulated" ) {
-        ERROR("Not implemented yet.") ; 
+        compute_auxiliary_quantities<grace::tabulated_eos_t>(state,sstate,aux) ; 
     }
     
 }

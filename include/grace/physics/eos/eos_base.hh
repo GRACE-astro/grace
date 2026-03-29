@@ -509,6 +509,16 @@ class eos_base_t {
      * @brief Get maximum allowed epsilon, might differ from table bound.
      */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    get_c2p_ye_max() const { return eos_yemax ; }
+    /**
+     * @brief Get maximum allowed epsilon, might differ from table bound.
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    get_c2p_ye_min() const { return eos_yemin ; }
+    /**
+     * @brief Get maximum allowed epsilon, might differ from table bound.
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     get_c2p_eps_max() const { return c2p_eps_max ; } 
     /**
      * @brief Get the atmosphere electron fraction.

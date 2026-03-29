@@ -39,6 +39,7 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/eos_storage.hh>
 #include <grace/physics/eos/physical_constants.hh>
+#include <grace/physics/eos/unit_system.hh>
 
 #include <grace/config/config_parser.hh>
 
@@ -182,7 +183,19 @@ struct photon_eas_op {
         , double* xyz
     ) const
     {
+        #if 0
         using namespace grace::physical_constants ; 
+        auto const Munit = mass_scale * Msun_si ; 
+        auto code_units = unit_system::make(
+            G_si * Munit / SQR(c_si),
+            G_si * Munit / (SQR(c_si)*c_si),
+            Munit,
+            -1 // not needed
+        ); 
+        auto uconv = CGS_units / code_units; 
+
+        // now we compute everything in CGS and convert 
+        
         double mu = 0.5 ; // fully ionized, fixme 
         double const rho = aux(VEC(i,j,k),RHO_,q)  * Msun_cgs / (Msun_to_cm*SQR(Msun_to_cm*mass_scale)) ; 
         double const T   = k_cgs * aux(VEC(i,j,k),TEMP_,q) / (mu * mp_cgs);// erg
@@ -190,12 +203,12 @@ struct photon_eas_op {
         double eta_cgs = 1.4e-27 * sqrt(T/k_cgs) * SQR(rho)/me_cgs/mp_cgs ; // gaunt factor 1
         // Kirchoff law 
         // 2 *( k_cgs *T )**4 * np.pi**4 / ( 15 * clight**2 * h_cgs**3)
-        double BB = 2 * SQR(M_PI*T)*SQR(M_PI*T) / ( 15. * SQR(clight) * SQR(h_cgs) * h_cgs) ; 
+        double BB = 2 * SQR(M_PI*T)*SQR(M_PI*T) / ( 15. * SQR(c_cgs) * SQR(h_cgs) * h_cgs) ; 
         // Planck mean opacity
         double kappa_cgs = eta_cgs / BB ;
         double kappa_r_cgs =  1.7e-25 * Kokkos::pow(T,-7./2.) * ;
 
-        double BBn = 4 * SQR(T)*T / (SQR(clight)*SQR(h_cgs)*h_cgs) * 1.20206 ; // numerical factor is Zeta(3)
+        double BBn = 4 * SQR(T)*T / (SQR(c_cgs)*SQR(h_cgs)*h_cgs) * 1.20206 ; // numerical factor is Zeta(3)
 
         aux(i,j,k,ETA_,q)    = eta_cgs  / Msun_to_erg * SQR(Msun_to_cm)*Msun_to_cm * Msun_to_s * SQR(mass_scale) * mass_scale ;
         aux(i,j,k,KAPPAA_,q) = kappa_cgs * Msun_to_cm * mass_scale ;
@@ -210,6 +223,7 @@ struct photon_eas_op {
         aux(i,j,k,KAPPAAN_,q) = eta_cgs / T / BBn * Msun_to_cm * mass_scale ; 
         // Scattering 
         aux(i,j,k,KAPPAS_,q) = 0;//rho/me_cgs * sigma_T * Msun_to_cm * mass_scale; 
+        #endif 
     }
 
     var_array_t aux ; 

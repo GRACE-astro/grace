@@ -44,6 +44,7 @@ struct atmo_params_t {
     double temp_fl ;  //!< Atmo T 
     double rho_fl_scaling  ; //!< Radial scaling of atmo rho
     double temp_fl_scaling ; //!< Radial scaling of atmo T
+    double atmo_tol        ; //!< Tolerance in setting points to atmosphere
 } ;
 /**
  * @brief Parameters controlling C2P behaviour 
@@ -166,6 +167,8 @@ atmo_params_t get_atmo_params()
         grace::eos::get().get_eos<grace::tabulated_eos_t>().temp_atmosphere() ;
   }
   
+  atmo_params.atmo_tol = grace::get_param<double>("grmhd","atmosphere","atmo_tol") ; 
+
   return atmo_params ; 
 }
 

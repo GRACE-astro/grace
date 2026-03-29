@@ -144,7 +144,7 @@ namespace grace {
 #define GRACE_N_M1_AUX 5 
 #endif
 
-#define GRACE_RECONSTRUCTION_T slope_limited_reconstructor_t<MCbeta>
+#define GRACE_RECONSTRUCTION_T weno_reconstructor_t<5>
 
 }
 #endif /* FB650CE9_1908_47F9_98EB_3C4E4087C9CC */

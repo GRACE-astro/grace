@@ -256,7 +256,7 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
                 &baryon_mass);
         GRACE_INFO("Read baryon mass from file {} g", baryon_mass) ; 
     } else {
-        baryon_mass = mn_MeV * MeV_to_erg / (clight*clight);
+        baryon_mass = mn_MeV * MeV_to_g * uconv.mass ;
         GRACE_INFO("Using default baryon mass {} g", baryon_mass);
     }
 
@@ -423,6 +423,8 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
 {
     using namespace grace ; 
     using namespace grace::physical_constants ; 
+
+    auto const uconv = COMPOSE_units / GEOM_units; 
 
     GRACE_INFO("Reading compose table {}", fname) ; 
 
@@ -612,14 +614,10 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
     if(yav_table != nullptr) delete[] yav_table;
     if(aav_table != nullptr) delete[] aav_table;
 
-    double baryon_mass = mn_MeV * MeV_to_erg / (clight*clight);
+    double baryon_mass = mn_MeV * uconv.mass ;
 
-    double length_unit = Msun_to_cm ; 
-    double time_unit   = Msun_to_s  ; 
-    double rho_unit    = (length_unit*length_unit*length_unit) / Msun_cgs ; 
-    double press_unit  = G_cgs / SQR(SQR(clight)) * SQR(G_cgs * Msun_cgs / SQR(clight)); 
 
-    for (int i = 0; i < nrho; i++) logrho[i] = log(logrho[i] * baryon_mass * cm3_to_fm3  * rho_unit );
+    for (int i = 0; i < nrho; i++) logrho[i] = log(logrho[i] * mn_MeV * uconv.mass_density );
     
     for (int i = 0; i < ntemp; i++) logtemp[i] = log(logtemp[i]);
 
@@ -639,7 +637,7 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
         rhoL = exp(logrho[i]) ; 
 
         {  // pressure
-            alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS) = log(alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS) * MeV_to_erg * cm3_to_fm3 * press_unit);
+            alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS) = log(alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS) * uconv.pressure );
             pressL = exp(alltables(i,j,k,tabulated_eos_t::TEOS_VIDX::TABPRESS));
         }
 

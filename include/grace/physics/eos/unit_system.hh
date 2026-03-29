@@ -74,15 +74,24 @@ public:
     }
 };
 
-
+// SI 
 constexpr auto SI_units = unit_system::make_constexpr(1.0,1.0,1.0,1.0) ; 
+// g cm s 
 constexpr auto CGS_units = unit_system::make_constexpr(0.01, 1.0, 0.001,1e-4);
+// c = G = Msun = 1
 constexpr auto GEOM_units = unit_system::make_constexpr(
-    physical_constants::G_si * physical_constants::Msun_si /physical_constants::clight_si/physical_constants::clight_si, 
-    physical_constants::G_si * physical_constants::Msun_si /physical_constants::clight_si/physical_constants::clight_si/physical_constants::clight_si, 
+    physical_constants::G_si * physical_constants::Msun_si /physical_constants::c_si/physical_constants::c_si, 
+    physical_constants::G_si * physical_constants::Msun_si /physical_constants::c_si/physical_constants::c_si/physical_constants::c_si, 
     physical_constants::Msun_si,
-    physical_constants::Msun_to_Tesla
+    physical_constants::CU_to_Tesla
 );
+// Compose uses MeV for masses, fm for length, s for time 
+constexpr auto COMPOSE_units = unit_system::make_constexpr(
+    physical_constants::MeV_to_kg,
+    physical_constants::fm_si,
+    physical_constants::fm_si/physical_constants::c_si,
+    -1 /* no magnetic field unit in CompOSE that I know of*/
+) ; 
 
 }
 

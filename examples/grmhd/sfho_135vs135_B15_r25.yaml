@@ -79,7 +79,7 @@ amr: {
       y_max: 32,
       z_min: -32,
       z_max: 32
-    },
+    }
 
   ]
 
@@ -134,23 +134,19 @@ grmhd: {
   id_type: "lorene_bns",
 
   lorene_bns: {
-    filename: "/u/cmusolino/bns_id/lorene/sfho/135vs135/resu.d",
+    filename: "/u/cmusolino/bns_id/lorene/sfho/135vs135/d42/sfho_130_42km.d",
     set_shift_to_zero: true,
     reset_eps: false
   },
 
   atmosphere: {
     rho_fl: 1e-14,
-    temp_fl: 0.015
+    temp_fl: 0.01
   },
   
   excision: {
     excision_criterion: "lapse",
     excision_lapse: 0.05
-  },
-
-  c2p: {
-    use_c2p_entropy_backup: false
   },
 
   B_field_initialization: "from_Avec", 
@@ -159,10 +155,14 @@ grmhd: {
     cutoff_var: "press",
     cutoff_fact: 0.04,
     A_n: 2,
-    A_phi: 931.6653021337289, # 1e15 Gauss 
+    A_phi: 294.5890347811254, # 1e15 Gauss 
     is_binary: true,
-    x_c_1: -15.2, 
-    x_c_2: 15.2
+    x_c_1: -14.222040716764846,
+    x_c_2: 14.222040716764846
+  },
+
+  c2p: {
+    use_c2p_entropy_backup: false
   }
 }
 
@@ -220,7 +220,7 @@ outflows: {
 
 ns_tracker: {
   ns_number: 2,
-  ns_x_initial: [-15.2, 15.2],
+  ns_x_initial: [-14.222040716764846, 14.222040716764846],
   ns_y_initial: [0,0],
   ns_z_initial: [0,0],
   density_threshold: 1e-6,
