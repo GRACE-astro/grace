@@ -36,26 +36,172 @@
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
 #include <grace/physics/grmhd_helpers.hh>
-
+#include <grace/utils/bitset.hh>
 
 namespace grace {
 
-enum c2p_sig_t : uint8_t {
-    C2P_SUCCESS=0,
-    C2P_EPS_TOO_HIGH,
+enum c2p_sig_enum_t : uint8_t {
+    C2P_EPS_TOO_HIGH=0,
     C2P_EPS_TOO_LOW,
+    C2P_YE_TOO_LOW,
+    C2P_YE_TOO_HIGH,
     C2P_RHO_TOO_HIGH,
     C2P_RHO_TOO_LOW,
+    C2P_ENT_TOO_LOW,
+    C2P_ENT_TOO_HIGH,
     C2P_VEL_TOO_HIGH,
+    C2P_SIGMA_TOO_HIGH,
     C2P_NSIG
 } ; 
 
-struct c2p_err_t {
-    bool adjust_tau{false}; 
-    bool adjust_s{false}; 
-    bool adjust_d{false};    
-    bool adjust_ent{true};
+enum c2p_err_enum_t : uint8_t {
+    C2P_RESET_DENS=0,
+    C2P_RESET_TAU,
+    C2P_RESET_STILDE,
+    C2P_RESET_ENTROPY,
+    C2P_RESET_YE,
+    C2P_N_ERR
 } ; 
+
+using c2p_sig_t = bitset_t<C2P_NSIG> ; 
+
+using c2p_err_t = bitset_t<C2P_N_ERR> ; 
+
+/**
+ * @brief Handles c2p signals coming from 
+ *        the low level routines and decides which
+ *        conserved variables need to be changed.
+ *        NB: Might abort on fatal errors!
+ */
+void KOKKOS_INLINE_FUNCTION c2p_handle_signals(
+    c2p_sig_t const& sig,
+    bool be_lenient,
+    c2p_err_t& err
+)
+{
+    if ( sig.test(C2P_RHO_TOO_HIGH) ) {
+        if ( be_lenient ) {
+            err.set_all() ; 
+        } else {
+            Kokkos::abort("In c2p: maximum density exceeded") ; 
+        }
+    }
+    if ( sig.test(C2P_RHO_TOO_LOW) ) {
+        // if rho was modified everything has to change
+        err.set(C2P_RESET_DENS)    ; 
+        err.set(C2P_RESET_TAU)     ;
+        err.set(C2P_RESET_STILDE)  ;
+        err.set(C2P_RESET_ENTROPY) ;
+        err.set(C2P_RESET_YE)      ;  
+    }
+
+    if (sig.test(C2P_YE_TOO_LOW) or sig.test(C2P_YE_TOO_HIGH)) {
+        err.set(C2P_RESET_YE) ; 
+    }
+
+    if (sig.test(C2P_ENT_TOO_LOW) or sig.test(C2P_ENT_TOO_HIGH)) {
+        err.set(C2P_RESET_ENTROPY) ; 
+    }
+
+    if (sig.test(C2P_EPS_TOO_HIGH)) {
+        // TODO see comment in c2p.cpp
+        // about the max eps. Any way 
+        // this is flagged as a c2p failure
+        // outside. So I guess we can 
+        // not abort and reset the point 
+        // to atmo. In my experience this 
+        // flared up in points where rho was
+        // 1.001e-14, so not much of a loss. 
+        // err.set(C2P_RESET_STILDE) ; FIXME: I checked around other codes, people usually leave momentum alone 
+        err.set(C2P_RESET_TAU)    ;
+    }
+
+    if (sig.test(C2P_EPS_TOO_LOW)) {
+        // err.set(C2P_RESET_STILDE) ; FIXME: I checked around other codes, people usually leave momentum alone 
+        err.set(C2P_RESET_TAU)    ;
+    }
+
+    if (sig.test(C2P_VEL_TOO_HIGH)) {
+        // W enters everything 
+        err.set(C2P_RESET_DENS)    ; 
+        err.set(C2P_RESET_TAU)     ;
+        err.set(C2P_RESET_STILDE)  ;
+        err.set(C2P_RESET_ENTROPY) ;
+        err.set(C2P_RESET_YE)      ;  
+    }
+
+    // magnetization
+    if ( sig.test(C2P_SIGMA_TOO_HIGH) ) {
+        // rho enters everything 
+        err.set(C2P_RESET_DENS)    ; 
+        err.set(C2P_RESET_TAU)     ;
+        err.set(C2P_RESET_STILDE)  ;
+        err.set(C2P_RESET_ENTROPY) ;
+        err.set(C2P_RESET_YE)      ;
+    }
+
+}
+
+/**
+ * @brief Handles eos signals coming from 
+ *        within the c2p routines and decides which
+ *        conserved variables need to be changed.
+ *        NB: Might abort on fatal errors!
+ */
+void KOKKOS_INLINE_FUNCTION c2p_handle_eos_signals(
+    eos_err_t const& eos_err,
+    bool be_lenient,
+    c2p_err_t& err
+) {
+    if ( eos_err.test(EOS_RHO_TOO_HIGH) ) {
+        Kokkos::abort("In EOS: maximum density exceeded") ; 
+    }
+
+    if (eos_err.test(EOS_RHO_TOO_LOW)) {
+        err.set(C2P_RESET_DENS)    ; 
+        err.set(C2P_RESET_TAU)     ;
+        err.set(C2P_RESET_STILDE)  ;
+        err.set(C2P_RESET_ENTROPY) ;
+        err.set(C2P_RESET_YE)      ;  
+    }
+
+    if (eos_err.test(EOS_YE_TOO_LOW) or eos_err.test(EOS_YE_TOO_HIGH)) {
+        err.set(C2P_RESET_YE) ; 
+    }
+
+    if (eos_err.test(EOS_ENTROPY_TOO_HIGH) or eos_err.test(EOS_ENTROPY_TOO_LOW)) {
+        err.set(C2P_RESET_ENTROPY) ; 
+    }
+
+    if (eos_err.test(EOS_EPS_TOO_HIGH)) {
+        if (be_lenient) {
+            err.set(C2P_RESET_STILDE) ; 
+            err.set(C2P_RESET_TAU)    ;
+        } else {
+            Kokkos::abort("In EOS: maximum eps exceeded") ; 
+        }
+    }
+
+    if (eos_err.test(EOS_EPS_TOO_LOW)) {
+        err.set(C2P_RESET_STILDE) ; 
+        err.set(C2P_RESET_TAU)    ;
+    }
+
+    if ( eos_err.test(EOS_TEMPERATURE_TOO_HIGH)) {
+        if (be_lenient) {
+            err.set(C2P_RESET_STILDE) ; 
+            err.set(C2P_RESET_TAU)    ;
+        } else {
+            Kokkos::abort("In EOS: maximum temperature exceeded") ; 
+        }
+    }
+    if (eos_err.test(EOS_TEMPERATURE_TOO_LOW)) {
+        err.set(C2P_RESET_STILDE) ; 
+        err.set(C2P_RESET_TAU)    ;
+    } 
+
+
+}
 
 /**
  * @brief Convert conservative variables to primitive ones.
@@ -100,6 +246,7 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , double * rtp \
                       , c2p_err_t& c2p_err ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 }
 

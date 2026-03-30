@@ -150,7 +150,7 @@ amr:
 
   refinement_criterion:
     type: keyword
-    allowed: ["FLASH_second_deriv", "simple_threshold", "gradient", "shear"]
+    allowed: ["FLASH_second_deriv", "simple_threshold", "gradient", "shear", "binary_tracker"]
     default: "FLASH_second_deriv"
     description: > 
       Criterion for refinement/derefinement 
@@ -194,6 +194,65 @@ amr:
     default: 0.01
     description: > 
       Epsilon in the denominator of second derivative refinement criterion 
+
+  binary_tracker_amr_criterion: 
+    type: schema
+    description: >
+      AMR criterion that tracks two compact objects 
+    compact_object_1_kind:
+      type: keyword 
+      default: "NS"
+      allowed: ["NS", "BH"]
+      description: >
+        Is the first CO a NS or a BH?
+    compact_object_2_kind:
+      type: keyword 
+      default: "NS"
+      allowed: ["NS", "BH"]
+      description: >
+        Is the second CO a NS or a BH?
+    compact_object_1_refine_radius:
+      type: double 
+      default: 1
+      range: "(0,*)"
+      description: >
+        Refine blocks within this radius of the CO 1's center 
+    compact_object_2_refine_radius:
+      type: double 
+      default: 1
+      range: "(0,*)"
+      description: >
+        Refine blocks within this radius of the CO 2's center 
+    compact_object_1_coarsen_radius:
+      type: double 
+      default: 10
+      range: "(0,*)"
+      description: >
+        Refine blocks outside this radius of the CO 1's center 
+    compact_object_2_coarsen_radius:
+      type: double 
+      default: 10
+      range: "(0,*)"
+      description: >
+        Refine blocks outside this radius of the CO 2's center
+    minimum_coordinate_separation:
+      type: double
+      default: 1
+      range: "(0,*)"
+      description: >
+        Consider the objects merge when the coordinate distance is less than this, and refine a region at the center
+    post_merger_refine_radius:
+      type: double 
+      default: 10
+      range: "(0,*)"
+      description: >
+        After merger, refine a region within this radius of the origin 
+    post_merger_coarsen_radius:
+      type: double 
+      default: 20 
+      range: "(0,*)"
+      description: >
+        After merger, coarsen anything outside this radius of the origin (FMR grid is always preserved).
 
   n_fmr_boxes:
     type: unsigned int 

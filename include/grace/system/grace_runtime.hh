@@ -528,7 +528,7 @@ class grace_runtime_impl_t
         #endif
         const std::vector<std::string> hydro_aux  = {
             "rho", "press", "eps", "ye", "temperature",
-            "Bvec[0]", "zvec[0]", "Bdiv", "c2p_err"
+            "Bvec[0]", "zvec[0]", "Bdiv", "c2p_err", "entropy"
         };
         auto out_cell_vars_volume = get_param<std::vector<std::string>>("IO","volume_output_cell_variables") ; 
         auto out_cell_vars_plane_surface = get_param<std::vector<std::string>>("IO","plane_surface_output_cell_variables") ; 

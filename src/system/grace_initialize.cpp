@@ -56,6 +56,8 @@
 #include <grace/IO/diagnostics/puncture_tracker.hh>
 #include <grace/evolution/evolve.hh>
 #endif 
+#include <grace/IO/diagnostics/ns_tracker.hh>
+
 #include <grace/amr/grace_amr.hh>
 
 #include <grace/errors/error.hh>
@@ -209,6 +211,7 @@ void initialize(int& argc, char* argv[])
     #ifdef GRACE_SPHERICAL_COORDINATES
     GRACE_INFO("GRACE running with spherical coordinates.");
     #endif 
+
     // Here we initialize the checkpoint handler and 
     // have it autodetect existing checkpoints.
     // If they are found the initialization of the grid 
@@ -231,6 +234,12 @@ void initialize(int& argc, char* argv[])
         grace::runtime::initialize() ; 
         grace::coordinate_system::initialize() ;
         grace::eos::initialize() ;
+        // initialize trackers before reading checkpoint
+        // since it contains previous locations
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        grace::puncture_tracker::initialize() ; 
+        #endif 
+        grace::ns_tracker::initialize() ; 
     }
     
     GRACE_INFO("Filling coordinate arrays...") ;
@@ -282,9 +291,7 @@ void initialize(int& argc, char* argv[])
     #ifdef GRACE_ENABLE_Z4C_METRIC
     grace::compute_constraint_violations() ; 
     #endif 
-    #ifdef GRACE_ENABLE_Z4C_METRIC
-    grace::puncture_tracker::initialize() ; 
-    #endif 
+    
     Kokkos::fence() ; 
     parallel::mpi_barrier() ; 
     GRACE_INFO("Initialization done.");

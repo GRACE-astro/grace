@@ -442,13 +442,33 @@ void register_variables() {
     register_evolved_scalar(ERAD_,"Erad",m1_bc,"second_order") ; 
     register_evolved_scalar(NRAD_,"Nrad",m1_bc,"second_order") ; 
     register_evolved_scalar({FRADX_,FRADY_,FRADZ_},"Frad",m1_bc,"second_order") ; 
+    #ifdef M1_NU_THREESPECIES
+    register_evolved_scalar(ERAD1_,"Erad1",m1_bc,"second_order") ; 
+    register_evolved_scalar(NRAD1_,"Nrad1",m1_bc,"second_order") ; 
+    register_evolved_scalar({FRADX1_,FRADY1_,FRADZ1_},"Frad1",m1_bc,"second_order") ; 
+    register_evolved_scalar(ERAD2_,"Erad2",m1_bc,"second_order") ; 
+    register_evolved_scalar(NRAD2_,"Nrad2",m1_bc,"second_order") ; 
+    register_evolved_scalar({FRADX2_,FRADY2_,FRADZ2_},"Frad2",m1_bc,"second_order") ; 
+    #endif 
     // aux 
     register_aux_scalar(KAPPAA_,"kappa_a") ; 
     register_aux_scalar(KAPPAS_,"kappa_s") ; 
     register_aux_scalar(ETA_,"eta") ; 
     register_aux_scalar(KAPPAAN_,"kappa_n") ; 
     register_aux_scalar(ETAN_,"eta_n") ; 
-    #endif 
+    #ifdef M1_NU_THREESPECIES
+    register_aux_scalar(KAPPAA1_,"kappa_a_1") ; 
+    register_aux_scalar(KAPPAS1_,"kappa_s_1") ; 
+    register_aux_scalar(ETA1_,"eta_1") ; 
+    register_aux_scalar(KAPPAAN1_,"kappa_n_1") ; 
+    register_aux_scalar(ETAN1_,"eta_n_2") ;
+    register_aux_scalar(KAPPAA2_,"kappa_a_2") ; 
+    register_aux_scalar(KAPPAS2_,"kappa_s_2") ; 
+    register_aux_scalar(ETA2_,"eta_2") ; 
+    register_aux_scalar(KAPPAAN2_,"kappa_n_2") ; 
+    register_aux_scalar(ETAN2_,"eta_n_2") ;
+    #endif
+    #endif  
 
     #ifdef GRACE_ENABLE_COWLING_METRIC
     auto metric_bc = detail::get_bc_type("none") ; 

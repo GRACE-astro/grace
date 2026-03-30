@@ -14,18 +14,21 @@ puncture_tracker:
     type: list 
     item_type: double 
     default: []
+    range: "(*,*)"
     description: > 
       X location of punctures at t=0
   puncture_y_initial:
     type: list 
     item_type: double 
     default: []
+    range: "(*,*)"
     description: > 
       Y location of punctures at t=0
   puncture_z_initial:
     type: list 
     item_type: double 
     default: []
+    range: "(*,*)"
     description: > 
       Z location of punctures at t=0
 

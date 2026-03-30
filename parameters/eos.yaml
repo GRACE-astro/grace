@@ -65,6 +65,27 @@ eos:
       description: >
         Kappa of first piece 
 
+  tabulated_eos:
+    type: schema
+    description: >
+      Parameters for nuclear tabulated eos 
+    table_filename: 
+      type: string
+      default: "blah.h5"
+      description: >
+        File name of tabulated eos 
+    table_format:
+      type: keyword 
+      allowed: ["compose", "stellarcollapse"]
+      default: "compose"
+      description: >
+        Format of 3D table 
+    cold_table_filename:
+      type: string 
+      default: "blah.grace"
+      description: >
+        Cold slice table file name
+
   eps_maximum:
     type: double 
     default: 1.e5 

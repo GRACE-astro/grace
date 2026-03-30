@@ -31,6 +31,7 @@
 #include <grace_config.h> 
 #include <grace/utils/metric_utils.hh>
 #include <grace/config/config_parser.hh>
+#include <grace/physics/eos/eos_storage.hh>
 #include <array>
 
 /**
@@ -43,6 +44,7 @@ struct atmo_params_t {
     double temp_fl ;  //!< Atmo T 
     double rho_fl_scaling  ; //!< Radial scaling of atmo rho
     double temp_fl_scaling ; //!< Radial scaling of atmo T
+    double atmo_tol        ; //!< Tolerance in setting points to atmosphere
 } ;
 /**
  * @brief Parameters controlling C2P behaviour 
@@ -53,6 +55,7 @@ struct c2p_params_t {
   double max_sigma     ; //!< Maximum magnetization b^2/rho
   double beta_fallback ; //!< beta < fallback we use ent
   bool use_ent_backup  ; //!< Use backup c2p?
+  double alp_bh_thresh ; //!< alp theshold for BH horizon
 } ; 
 /**
  * @brief Excision parameters
@@ -61,6 +64,7 @@ struct c2p_params_t {
 struct excision_params_t {
     double rho_ex ;         //!< Excision rho
     double temp_ex ;        //!< Excision temp 
+    double ye_ex   ;        //!< Excision ye
     double r_ex ;           //!< Excision radius
     double r_f  ;           //!< Start limiting fluxes here
     double alp_ex ;         //!< Excision alpha
@@ -140,11 +144,30 @@ atmo_params_t get_atmo_params()
   atmo_params_t atmo_params ; 
     
   atmo_params.rho_fl = grace::get_param<double>("grmhd","atmosphere","rho_fl") ; 
-  atmo_params.temp_fl = grace::get_param<double>("grmhd","atmosphere","temp_fl") ; 
-  atmo_params.ye_fl = grace::get_param<double>("grmhd","atmosphere","ye_fl") ; 
 
   atmo_params.rho_fl_scaling = grace::get_param<double>("grmhd","atmosphere","rho_scaling") ; 
   atmo_params.temp_fl_scaling = grace::get_param<double>("grmhd","atmosphere","temp_scaling") ;
+
+  auto eos_type = grace::get_param<std::string>("eos", "eos_type") ; 
+  if( eos_type == "hybrid" ) {
+    auto const cold_eos_type = 
+        grace::get_param<std::string>("eos","hybrid_eos","cold_eos_type") ;  
+    if( cold_eos_type == "piecewise_polytrope" ) {
+      atmo_params.ye_fl =   
+        grace::eos::get().get_eos<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>().ye_atmosphere() ;
+      atmo_params.temp_fl =   
+        grace::eos::get().get_eos<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>().temp_atmosphere() ;
+    } else {
+      ERROR("EOS implemented yet.") ;
+    }
+  } else if ( eos_type == "tabulated" ) {
+    atmo_params.ye_fl =   
+        grace::eos::get().get_eos<grace::tabulated_eos_t>().ye_atmosphere() ;
+    atmo_params.temp_fl =   
+        grace::eos::get().get_eos<grace::tabulated_eos_t>().temp_atmosphere() ;
+  }
+  
+  atmo_params.atmo_tol = grace::get_param<double>("grmhd","atmosphere","atmo_tol") ; 
 
   return atmo_params ; 
 }
@@ -159,6 +182,7 @@ c2p_params_t get_c2p_params()
   c2p_params.max_sigma = grace::get_param<double>("grmhd","c2p","max_sigma") ; 
   c2p_params.beta_fallback = grace::get_param<double>("grmhd","c2p","beta_fallback") ; 
   c2p_params.use_ent_backup = grace::get_param<bool>("grmhd","c2p","use_c2p_entropy_backup") ;
+  c2p_params.alp_bh_thresh = grace::get_param<double>("grmhd","c2p","bh_alp_thresh") ;
   return c2p_params ; 
 }
 
@@ -180,11 +204,27 @@ excision_params_t get_excision_params()
     excision_params.r_ex = grace::get_param<double>("grmhd","excision","excision_radius"); 
     excision_params.alp_ex = grace::get_param<double>("grmhd","excision","excision_lapse"); 
     
-    excision_params.rho_ex  =  grace::get_param<double>("grmhd","excision","rho_excision"); 
-    excision_params.temp_ex =  grace::get_param<double>("grmhd","excision","temp_excision"); 
+    excision_params.rho_ex  =  grace::get_param<double>("grmhd","atmosphere","rho_fl"); 
 
-    //excision_params.r_f     = grace::get_param<double>("grmhd","excision","flim_radius"); 
-    //excision_params.alp_f   = grace::get_param<double>("grmhd","excision","flim_lapse") ; 
+    // get excision temperature and ye 
+    auto eos_type = grace::get_param<std::string>("eos", "eos_type") ; 
+    if( eos_type == "hybrid" ) {
+      auto const cold_eos_type = 
+          grace::get_param<std::string>("eos","hybrid_eos","cold_eos_type") ;  
+      if( cold_eos_type == "piecewise_polytrope" ) {
+        excision_params.ye_ex =   
+          grace::eos::get().get_eos<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>().ye_atmosphere() ;
+        excision_params.temp_ex =   
+          grace::eos::get().get_eos<grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>>().temp_atmosphere() ;
+      } else {
+        ERROR("EOS implemented yet.") ;
+      }
+    } else if ( eos_type == "tabulated" ) {
+      excision_params.ye_ex =   
+          grace::eos::get().get_eos<grace::tabulated_eos_t>().ye_atmosphere() ;
+      excision_params.temp_ex =   
+          grace::eos::get().get_eos<grace::tabulated_eos_t>().temp_atmosphere() ;
+    }
     
     return excision_params ; 
 }
@@ -315,6 +355,9 @@ g = grace::metric_array_t{                                    \
 struct grmhd_id_t {
   double rho;
   double press;
+  double eps; 
+  double temp;
+  double entropy;
   double ye;
   double gxx,gxy,gxz,gyy,gyz,gzz; 
   double kxx,kxy,kxz,kyy,kyz,kzz;

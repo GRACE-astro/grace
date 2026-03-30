@@ -64,7 +64,9 @@ struct m1_equations_system_t
     private:
     //! Base class type 
     using base_t = hrsc_evolution_system_t<m1_equations_system_t>;
-
+    #ifdef M1_NU_THREESPECIES 
+    constexpr std::array<int,3> ye_coupling_sign {1,-1,0} ; 
+    #endif 
     public:
 
     m1_equations_system_t(grace::var_array_t state_
@@ -96,9 +98,9 @@ struct m1_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename recon_t >
+    template< typename recon_t, int ispec >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_x_flux_impl( int const q 
+    compute_x_flux( int const q 
                        , VEC( const int i 
                        ,      const int j 
                        ,      const int k)
@@ -108,7 +110,7 @@ struct m1_equations_system_t
                        , double const dt 
                        , double const dtfact ) const 
     {
-        getflux<0,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
+        getflux<0,ispec,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute M1 fluxes in direction \f$x^2\f$
@@ -123,9 +125,9 @@ struct m1_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename recon_t >
+    template< typename recon_t, int ispec >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_y_flux_impl( int const q 
+    compute_y_flux( int const q 
                        , VEC( const int i 
                        ,      const int j 
                        ,      const int k)
@@ -135,7 +137,7 @@ struct m1_equations_system_t
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<1,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
+        getflux<1,ispec,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
     }
     /**
      * @brief Compute M1 fluxes in direction \f$x^3\f$
@@ -150,9 +152,9 @@ struct m1_equations_system_t
      * @param ngz  Number of ghost cells.
      * @param fluxes Flux array.
      */
-    template< typename recon_t >
+    template< typename recon_t, int ispec >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_z_flux_impl( int const q 
+    compute_z_flux( int const q 
                        , VEC( const int i 
                        ,      const int j 
                        ,      const int k)
@@ -162,7 +164,7 @@ struct m1_equations_system_t
                        , double const dt 
                        , double const dtfact ) const
     {
-        getflux<2,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
+        getflux<2,ispec,recon_t>(VEC(i,j,k),q,fluxes,dx,dt,dtfact);
     }
     
 
@@ -179,6 +181,7 @@ struct m1_equations_system_t
      * @param dt Timestep.
      * @param dtfact Timestep factor.
      */
+    template< int ispec >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_source_terms( const int q 
                          , VEC( const int i 
@@ -202,7 +205,7 @@ struct m1_equations_system_t
         /**************************************************************************************************/
         // construct closure and get pressure 
         m1_prims_array_t prims ; 
-        FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
+        FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,ispec,VEC(i,j,k)) ; 
         prims[ERADL] /= metric.sqrtg() ; 
         prims[NRADL] /= metric.sqrtg() ; 
         prims[FXL]   /= metric.sqrtg() ; 
@@ -275,10 +278,10 @@ struct m1_equations_system_t
             &dE, &dF
         ) ;
         /**************************************************************************************************/
-        state_new(VEC(i,j,k),ERAD_,q)  += sqrtg * dt * dtfact * dE    ;
-        state_new(VEC(i,j,k),FRADX_,q) += sqrtg * dt * dtfact * dF[0] ;
-        state_new(VEC(i,j,k),FRADY_,q) += sqrtg * dt * dtfact * dF[1] ;
-        state_new(VEC(i,j,k),FRADZ_,q) += sqrtg * dt * dtfact * dF[2] ;
+        state_new(VEC(i,j,k),ERAD_ + ispec * GRACE_N_M1_VARS,q)  += sqrtg * dt * dtfact * dE    ;
+        state_new(VEC(i,j,k),FRADX_+ ispec * GRACE_N_M1_VARS,q) += sqrtg * dt * dtfact * dF[0] ;
+        state_new(VEC(i,j,k),FRADY_+ ispec * GRACE_N_M1_VARS,q) += sqrtg * dt * dtfact * dF[1] ;
+        state_new(VEC(i,j,k),FRADZ_+ ispec * GRACE_N_M1_VARS,q) += sqrtg * dt * dtfact * dF[2] ;
         /**************************************************************************************************/
     }
 
@@ -290,6 +293,7 @@ struct m1_equations_system_t
      * @param k Cell index in \f$x^3\f$ direction.
      * @param q Quadrant index.
      */
+    template< int ispec >
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     compute_auxiliaries(  VEC( const int i 
                         ,      const int j 
@@ -305,7 +309,7 @@ struct m1_equations_system_t
 
 
         m1_prims_array_t prims ; 
-        FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
+        FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,ispec,VEC(i,j,k)) ; 
         
         metric_array_t metric; 
         FILL_METRIC_ARRAY(metric,this->_state,q,VEC(i,j,k)) ; 
@@ -323,9 +327,9 @@ struct m1_equations_system_t
         // rescale if superluminal
         if ( cl.F >= cl.E ) {
             double fact = 0.9999 * cl.E / cl.F ; 
-            this->_state(VEC(i,j,k),FRADX_,q) *= fact ; 
-            this->_state(VEC(i,j,k),FRADY_,q) *= fact ; 
-            this->_state(VEC(i,j,k),FRADZ_,q) *= fact ; 
+            this->_state(VEC(i,j,k),FRADX_+ispec*GRACE_N_M1_VARS,q) *= fact ; 
+            this->_state(VEC(i,j,k),FRADY_+ispec*GRACE_N_M1_VARS,q) *= fact ; 
+            this->_state(VEC(i,j,k),FRADZ_+ispec*GRACE_N_M1_VARS,q) *= fact ; 
         }
         // compute radiation avg energy 
         double epsilon = cl.J / prims[NRADL] * cl.Gamma ; 
@@ -339,32 +343,32 @@ struct m1_equations_system_t
         if ( cl.E < E_atmo * (1. + 1.e-3 ) ) 
         {
             double atmo_state[4] = {E_atmo,0.0, 0.0, 0.0} ; 
-            this->_state(VEC(i,j,k),ERAD_,q)  = metric.sqrtg() * atmo_state[0]; 
-            this->_state(VEC(i,j,k),FRADX_,q) = atmo_state[1] ; 
-            this->_state(VEC(i,j,k),FRADY_,q) = atmo_state[2] ; 
-            this->_state(VEC(i,j,k),FRADZ_,q) = atmo_state[3] ;
+            this->_state(VEC(i,j,k),ERAD_+ispec*GRACE_N_M1_VARS,q)  = metric.sqrtg() * atmo_state[0]; 
+            this->_state(VEC(i,j,k),FRADX_+ispec*GRACE_N_M1_VARS,q) = atmo_state[1] ; 
+            this->_state(VEC(i,j,k),FRADY_+ispec*GRACE_N_M1_VARS,q) = atmo_state[2] ; 
+            this->_state(VEC(i,j,k),FRADZ_+ispec*GRACE_N_M1_VARS,q) = atmo_state[3] ;
             // We set N in order to ensure a sensible average energy 
             cl.update_closure(atmo_state,0,true) ; 
-            this->_state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * cl.Gamma * cl.J / eps_atmo ; 
+            this->_state(VEC(i,j,k),NRAD_+ispec*GRACE_N_M1_VARS,q)  = metric.sqrtg() * cl.Gamma * cl.J / eps_atmo ; 
             epsilon = eps_atmo ; 
         } else if ( excise ) {
-            this->_state(VEC(i,j,k),ERAD_,q)  = metric.sqrtg() * excision_params.E_ex ; 
-            this->_state(VEC(i,j,k),FRADX_,q) = 0.0 ; 
-            this->_state(VEC(i,j,k),FRADY_,q) = 0.0 ; 
-            this->_state(VEC(i,j,k),FRADZ_,q) = 0.0 ;
+            this->_state(VEC(i,j,k),ERAD_+ispec*GRACE_N_M1_VARS,q)  = metric.sqrtg() * excision_params.E_ex ; 
+            this->_state(VEC(i,j,k),FRADX_+ispec*GRACE_N_M1_VARS,q) = 0.0 ; 
+            this->_state(VEC(i,j,k),FRADY_+ispec*GRACE_N_M1_VARS,q) = 0.0 ; 
+            this->_state(VEC(i,j,k),FRADZ_+ispec*GRACE_N_M1_VARS,q) = 0.0 ;
             // here since we are in excision it's safe to assume v^i == 0 :
             // Gamma == 1 and N = sqrtg E / eps_target 
-            this->_state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * excision_params.E_ex/excision_params.eps_ex ;
+            this->_state(VEC(i,j,k),NRAD_+ispec*GRACE_N_M1_VARS,q)  = metric.sqrtg() * excision_params.E_ex/excision_params.eps_ex ;
             epsilon = excision_params.eps_ex;  
         } 
         // Finally check epsilon, if out of range 
         // we adjust **only** Nrad
         if ( epsilon < atmo_params.eps_min ) {
-            this->_state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * cl.Gamma * cl.J / atmo_params.eps_min ; 
+            this->_state(VEC(i,j,k),NRAD_+ispec*GRACE_N_M1_VARS,q)  = metric.sqrtg() * cl.Gamma * cl.J / atmo_params.eps_min ; 
         } else if ( epsilon > atmo_params.eps_max ) {
             // avoid subnormal 
             double n = fmax(1e-200, cl.J / atmo_params.eps_max ) ; 
-            this->_state(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * cl.Gamma * n ; 
+            this->_state(VEC(i,j,k),NRAD_+ispec*GRACE_N_M1_VARS,q)  = metric.sqrtg() * cl.Gamma * n ; 
         }
         
     }
@@ -377,6 +381,7 @@ struct m1_equations_system_t
      * @param k Cell index in \f$x^3\f$ direction.
      * @param q Quadrant index.
      */
+    template< int ispec >
     void KOKKOS_INLINE_FUNCTION 
     compute_implicit_update( const int q 
                          , VEC( const int i 
@@ -396,15 +401,15 @@ struct m1_equations_system_t
         /**************************************************************************************************/
         // read in eas 
         m1_eas_array_t eas ; 
-        eas[KAL]   = this->_aux(VEC(i,j,k),KAPPAA_,q) ; 
-        eas[KSL]   = this->_aux(VEC(i,j,k),KAPPAS_,q) ; 
-        eas[ETAL]  = this->_aux(VEC(i,j,k),ETA_,q) ; 
-        eas[ETANL] = this->_aux(VEC(i,j,k),ETAN_,q) ; 
-        eas[KANL]  = this->_aux(VEC(i,j,k),KAPPAAN_,q) ; 
+        eas[KAL]   = this->_aux(VEC(i,j,k),KAPPAA_+ispec*GRACE_N_M1_AUX,q) ; 
+        eas[KSL]   = this->_aux(VEC(i,j,k),KAPPAS_+ispec*GRACE_N_M1_AUX,q) ; 
+        eas[ETAL]  = this->_aux(VEC(i,j,k),ETA_+ispec*GRACE_N_M1_AUX,q) ; 
+        eas[ETANL] = this->_aux(VEC(i,j,k),ETAN_+ispec*GRACE_N_M1_AUX,q) ; 
+        eas[KANL]  = this->_aux(VEC(i,j,k),KAPPAAN_+ispec*GRACE_N_M1_AUX,q) ; 
         /**************************************************************************************************/
         // construct closure and update
         m1_prims_array_t prims ; 
-        FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
+        FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,ispec,VEC(i,j,k)) ; 
         prims[ERADL] /= metric.sqrtg() ; 
         prims[NRADL] /= metric.sqrtg() ; 
         prims[FXL] /= metric.sqrtg(); 
@@ -482,19 +487,19 @@ struct m1_equations_system_t
         //VOLATILE_WRITE(FRADX_, metric.sqrtg() * U1) ; 
         //VOLATILE_WRITE(FRADY_, metric.sqrtg() * U2) ; 
         //VOLATILE_WRITE(FRADZ_, metric.sqrtg() * U3) ; 
-        state_new(i,j,k,ERAD_,q)  = metric.sqrtg() * U[0] ; 
-        state_new(i,j,k,FRADX_,q) = metric.sqrtg() * U[1] ; 
-        state_new(i,j,k,FRADY_,q) = metric.sqrtg() * U[2] ; 
-        state_new(i,j,k,FRADZ_,q) = metric.sqrtg() * U[3] ; 
+        state_new(i,j,k,ERAD_+ispec*GRACE_N_M1_VARS,q)  = metric.sqrtg() * U[0] ; 
+        state_new(i,j,k,FRADX_+ispec*GRACE_N_M1_VARS,q) = metric.sqrtg() * U[1] ; 
+        state_new(i,j,k,FRADY_+ispec*GRACE_N_M1_VARS,q) = metric.sqrtg() * U[2] ; 
+        state_new(i,j,k,FRADZ_+ispec*GRACE_N_M1_VARS,q) = metric.sqrtg() * U[3] ; 
         /**************************************************************************************************/
         #ifndef GRACE_FREEZE_HYDRO
-        double const dE = this->_state(VEC(i,j,k),ERAD_,q) - state_new(VEC(i,j,k),ERAD_,q) ; 
+        double const dE = this->_state(VEC(i,j,k),ERAD_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),ERAD_+ispec*GRACE_N_M1_VARS,q) ; 
         state_new(VEC(i,j,k),TAU_,q) += dE ; 
-        double const dSx = this->_state(VEC(i,j,k),FRADX_,q) - state_new(VEC(i,j,k),FRADX_,q) ;
+        double const dSx = this->_state(VEC(i,j,k),FRADX_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),FRADX_+ispec*GRACE_N_M1_VARS,q) ;
         state_new(VEC(i,j,k),SX_,q) += dSx ; 
-        double const dSy = this->_state(VEC(i,j,k),FRADY_,q) - state_new(VEC(i,j,k),FRADY_,q) ;
+        double const dSy = this->_state(VEC(i,j,k),FRADY_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),FRADY_+ispec*GRACE_N_M1_VARS,q) ;
         state_new(VEC(i,j,k),SY_,q) += dSy ; 
-        double const dSz = this->_state(VEC(i,j,k),FRADZ_,q) - state_new(VEC(i,j,k),FRADZ_,q) ; 
+        double const dSz = this->_state(VEC(i,j,k),FRADZ_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),FRADZ_+ispec*GRACE_N_M1_VARS,q) ; 
         state_new(VEC(i,j,k),SZ_,q) += dSz ; 
         #endif
         /**************************************************************************************************/
@@ -508,9 +513,13 @@ struct m1_equations_system_t
             prims, eas, dt, dtfact, &N, &dN 
         ) ; 
         //VOLATILE_WRITE(NRAD_,metric.sqrtg()*N) ; 
-        state_new(VEC(i,j,k),NRAD_,q)  = metric.sqrtg() * N ; 
+        state_new(VEC(i,j,k),NRAD_+ispec*GRACE_N_M1_VARS,q)  = metric.sqrtg() * N ; 
         /**************************************************************************************************/
         // if needed add dN to ye here! 
+        #ifdef M1_NU_THREESPECIES
+        dN = this->_state(VEC(i,j,k),NRAD_+ispec*GRACE_N_M1_VARS,q) - state_new(VEC(i,j,k),NRAD_+ispec*GRACE_N_M1_VARS,q) ; 
+        state_new(VEC(i,j,k),YESTAR_,q) += ye_coupling_sign[ispec] * dN ; 
+        #endif 
         #if 0
         if ( i == 4 and j == 4 and k == 4 ) {
             printf("E_old %.16g E_new %.16g eta %.16g kappa %.16g \n", prims[ERADL], U[0], eas[ETAL], eas[KAL]) ; 
@@ -527,6 +536,7 @@ struct m1_equations_system_t
      * @param q Quadrant index.
      * @return double Maximum eigenspeed of GRMHD equations.
      */
+    template< int ispec >
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     compute_max_eigenspeed( VEC( const int i 
                           ,      const int j 
@@ -542,15 +552,15 @@ struct m1_equations_system_t
         /**************************************************************************************************/
         // read in eas 
         m1_eas_array_t eas ; 
-        eas[KAL]   = this->_aux(VEC(i,j,k),KAPPAA_,q) ; 
-        eas[KSL]   = this->_aux(VEC(i,j,k),KAPPAS_,q) ; 
-        eas[ETAL]  = this->_aux(VEC(i,j,k),ETA_,q) ; 
-        eas[ETANL] = this->_aux(VEC(i,j,k),ETAN_,q) ; 
-        eas[KANL]  = this->_aux(VEC(i,j,k),KAPPAAN_,q) ; 
+        eas[KAL]   = this->_aux(VEC(i,j,k),KAPPAA_+ispec*GRACE_N_M1_AUX,q) ; 
+        eas[KSL]   = this->_aux(VEC(i,j,k),KAPPAS_+ispec*GRACE_N_M1_AUX,q) ; 
+        eas[ETAL]  = this->_aux(VEC(i,j,k),ETA_+ispec*GRACE_N_M1_AUX,q) ; 
+        eas[ETANL] = this->_aux(VEC(i,j,k),ETAN_+ispec*GRACE_N_M1_AUX,q) ; 
+        eas[KANL]  = this->_aux(VEC(i,j,k),KAPPAAN_+ispec*GRACE_N_M1_AUX,q) ; 
         /**************************************************************************************************/
         // construct closure and update
         m1_prims_array_t prims ; 
-        FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,VEC(i,j,k)) ; 
+        FILL_M1_PRIMS_ARRAY(prims,this->_state,this->_aux,q,ispec,VEC(i,j,k)) ; 
         prims[ERADL] /= metric.sqrtg() ; 
         prims[NRADL] /= metric.sqrtg() ; 
         prims[FXL] /= metric.sqrtg(); 
@@ -603,6 +613,7 @@ struct m1_equations_system_t
      * @param fluxes Flux array.
      */
     template< int idir 
+            , int ispec 
             , typename recon_t   >
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE void
     getflux(  VEC( const int i 
@@ -628,11 +639,11 @@ struct m1_equations_system_t
         /***********************************************************************/
         std::array<int, 5>
             recon_indices{
-                  ERAD_ 
-                , NRAD_
-                , FRADX_
-                , FRADY_
-                , FRADZ_
+                  ERAD_ +ispec*GRACE_N_M1_VARS
+                , NRAD_ +ispec*GRACE_N_M1_VARS
+                , FRADX_ +ispec*GRACE_N_M1_VARS
+                , FRADY_ +ispec*GRACE_N_M1_VARS
+                , FRADZ_ +ispec*GRACE_N_M1_VARS
             } ; 
         /* Local indices in prims array (note z^k -> v^k) */
         std::array<int, 5>
@@ -748,34 +759,34 @@ struct m1_equations_system_t
         double E_r = primR[ERADL] * metric_face.sqrtg() ; 
         double f_E_l = metric_face.sqrtg() * (metric_face.alp() * FUd_l - metric_face.beta(idir) * primL[ERADL]) ; 
         double f_E_r = metric_face.sqrtg() * (metric_face.alp() * FUd_r - metric_face.beta(idir) * primR[ERADL]) ; 
-        fluxes(VEC(i,j,k),ERAD_,idir,q) = (cmax*f_E_l + cmin*f_E_r - A * cmax * cmin * (E_r-E_l))/(cmax+cmin) ; 
+        fluxes(VEC(i,j,k),ERAD_+ispec*GRACE_N_M1_VARS,idir,q) = (cmax*f_E_l + cmin*f_E_r - A * cmax * cmin * (E_r-E_l))/(cmax+cmin) ; 
         // Fx 
         double Fx_l = primL[FXL] * metric_face.sqrtg() ;
         double Fx_r = primR[FXL] * metric_face.sqrtg() ;
         double f_Fx_l = metric_face.sqrtg() * (metric_face.alp() * PUD_l[0] - metric_face.beta(idir) * primL[FXL]) ; 
         double f_Fx_r = metric_face.sqrtg() * (metric_face.alp() * PUD_r[0] - metric_face.beta(idir) * primR[FXL]) ; 
-        fluxes(VEC(i,j,k),FRADX_,idir,q) = (SQR(A)*(cmax*f_Fx_l + cmin*f_Fx_r) - A * cmax * cmin * (Fx_r-Fx_l))/(cmax+cmin) 
+        fluxes(VEC(i,j,k),FRADX_+ispec*GRACE_N_M1_VARS,idir,q) = (SQR(A)*(cmax*f_Fx_l + cmin*f_Fx_r) - A * cmax * cmin * (Fx_r-Fx_l))/(cmax+cmin) 
                                     + (1-SQR(A)) * 0.5 * (f_Fx_l+f_Fx_r); 
         // Fy 
         double Fy_l = primL[FYL] * metric_face.sqrtg() ;
         double Fy_r = primR[FYL] * metric_face.sqrtg() ;
         double f_Fy_l = metric_face.sqrtg() * (metric_face.alp() * PUD_l[1] - metric_face.beta(idir) * primL[FYL]) ; 
         double f_Fy_r = metric_face.sqrtg() * (metric_face.alp() * PUD_r[1] - metric_face.beta(idir) * primR[FYL]) ;
-        fluxes(VEC(i,j,k),FRADY_,idir,q) = (SQR(A)*(cmax*f_Fy_l + cmin*f_Fy_r) - A * cmax * cmin * (Fy_r-Fy_l))/(cmax+cmin) 
+        fluxes(VEC(i,j,k),FRADY_+ispec*GRACE_N_M1_VARS,idir,q) = (SQR(A)*(cmax*f_Fy_l + cmin*f_Fy_r) - A * cmax * cmin * (Fy_r-Fy_l))/(cmax+cmin) 
                                     + (1-SQR(A)) * 0.5 * (f_Fy_l+f_Fy_r); 
         // Fz 
         double Fz_l = primL[FZL] * metric_face.sqrtg() ;
         double Fz_r = primR[FZL] * metric_face.sqrtg() ;
         double f_Fz_l = metric_face.sqrtg() * (metric_face.alp() * PUD_l[2] - metric_face.beta(idir) * primL[FZL]) ; 
         double f_Fz_r = metric_face.sqrtg() * (metric_face.alp() * PUD_r[2] - metric_face.beta(idir) * primR[FZL]) ;
-        fluxes(VEC(i,j,k),FRADZ_,idir,q) = (SQR(A)*(cmax*f_Fz_l + cmin*f_Fz_r) - A * cmax * cmin * (Fz_r-Fz_l))/(cmax+cmin) 
+        fluxes(VEC(i,j,k),FRADZ_+ispec*GRACE_N_M1_VARS,idir,q) = (SQR(A)*(cmax*f_Fz_l + cmin*f_Fz_r) - A * cmax * cmin * (Fz_r-Fz_l))/(cmax+cmin) 
                                     + (1-SQR(A)) * 0.5 * (f_Fz_l+f_Fz_r); 
         // Nrad 
         double N_l = primL[NRADL] *  metric_face.sqrtg() ;
         double N_r = primR[NRADL] *  metric_face.sqrtg() ;
         double f_N_l = metric_face.sqrtg() * metric_face.alp() * N_l/cl.Gamma * ( cl.W * (cl.vU[idir]-metric_face.beta(idir)/metric_face.alp()) + cl.HU[idir]/cl.J ) ; 
         double f_N_r = metric_face.sqrtg() * metric_face.alp() * N_r/cr.Gamma * ( cr.W * (cr.vU[idir]-metric_face.beta(idir)/metric_face.alp()) + cr.HU[idir]/cr.J ) ; 
-        fluxes(VEC(i,j,k),NRAD_,idir,q) = (cmax*f_N_l + cmin*f_N_r - A * cmax * cmin * (N_r-N_l))/(cmax+cmin) ; 
+        fluxes(VEC(i,j,k),NRAD_+ispec*GRACE_N_M1_VARS,idir,q) = (cmax*f_N_l + cmin*f_N_r - A * cmax * cmin * (N_r-N_l))/(cmax+cmin) ; 
 
     }
 
@@ -832,6 +843,7 @@ void set_m1_eas<EOS>()
 
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 /***********************************************************************/
 } /* namespace grace */

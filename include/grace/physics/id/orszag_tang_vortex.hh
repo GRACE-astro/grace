@@ -137,8 +137,13 @@ struct orszag_tang_vortex_mhd_id_t {
         id.phi_glm = 0.;
         #endif 
 
-        unsigned int err ; 
+        eos_err_t err ; 
         id.ye  = _eos.ye_cold__press(id.press, err);
+        double h, csnd2;
+        id.eps = _eos.eps_h_csnd2_temp_entropy__press_rho_ye(
+            h, csnd2, id.temp, id.entropy, id.press, id.rho, id.ye, err
+        ) ; 
+
         return std::move(id) ; 
     }
     //**************************************************************************************************

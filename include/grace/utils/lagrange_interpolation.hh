@@ -242,7 +242,7 @@ struct lagrange_interpolator_t {
                     auto pcoords = coord_system.get_physical_coordinates(
                         ijk, ijkq.q, {0.5,0.5,0.5}, false
                     ) ; 
-                    double wL = dx * wj[ic]/(point_coords[idir]-pcoords[idir]+1e-15) ;
+                    double wL = dx * wj[ic]/(point_coords[idir]-pcoords[idir]+1e-15*std::copysign(1.0,point_coords[idir]-pcoords[idir])) ;
                     norm += wL ; 
                     iweights.w[ic][idir]= wL ;     
                 }

@@ -123,16 +123,9 @@ struct magnetic_rotor_id_t {
         id.gxy = 0; id.gxz = 0; id.gyz = 0 ;
         id.kxx = 0; id.kyy = 0; id.kzz = 0 ;
         id.kxy = 0; id.kxz =0 ; id.kyz = 0 ; 
-
-        // set the Lagrange multiplier to zero
-        #ifdef GRACE_ENABLE_B_FIELD_GLM
-        id.phi_glm = 0.;
-        #endif 
  
         double const r2 = math::int_pow<2>(x) + math::int_pow<2>(y); 
         double const phi = Kokkos::atan2(y, x);
-
-
        
         constexpr double r0 = 0.1;
         constexpr double r0_2 = r0 * r0;
@@ -152,7 +145,15 @@ struct magnetic_rotor_id_t {
         }
         // pressure
         id.press = _press;
-    
+        
+        // get the rest 
+        eos_err_t err ; 
+        id.ye  = _eos.ye_cold__press(id.press, err);
+        double h, csnd2;
+        id.eps = _eos.eps_h_csnd2_temp_entropy__press_rho_ye(
+            h, csnd2, id.temp, id.entropy, id.press, id.rho, id.ye, err
+        ) ; 
+
         // magnetic guiding field:
         id.bx = _B0;
         id.by = 0.0;
@@ -160,8 +161,7 @@ struct magnetic_rotor_id_t {
     
         id.vz    = 0.0 ;
 
-        unsigned int err ; 
-        id.ye  = _eos.ye_cold__press(id.press, err);
+        
        
         return std::move(id) ; 
     }

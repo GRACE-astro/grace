@@ -31,22 +31,29 @@
 #include <grace_config.h>
 
 #include <grace/utils/grace_utils.hh>
+#include <grace/utils/bitset.hh>
 
 namespace grace {
 /**
  * @brief EOS errors.
  */
 enum EOS_ERROR_T {
-    EOS_NO_ERROR=0,
-    EOS_RHO_TOO_HIGH,
+    EOS_RHO_TOO_HIGH=0,
     EOS_RHO_TOO_LOW,
-    ERR_EPS_TOO_HIGH,
-    ERR_YE_TOO_LOW,
-    ERR_YE_TOO_HIGH,
-    ERR_TEMPERATURE_TOO_LOW,
-    ERR_TEMPERATURE_TOO_HIGH,
+    EOS_EPS_TOO_HIGH,
+    EOS_EPS_TOO_LOW,
+    EOS_YE_TOO_LOW,
+    EOS_YE_TOO_HIGH,
+    EOS_TEMPERATURE_TOO_LOW,
+    EOS_TEMPERATURE_TOO_HIGH,
+    EOS_ENTROPY_TOO_LOW,
+    EOS_ENTROPY_TOO_HIGH,
+    EOS_PRESS_TOO_LOW,
+    EOS_PRESS_TOO_HIGH,
     EOS_NUM_ERRORS
 } ; 
+
+using eos_err_t = bitset_t<EOS_NUM_ERRORS> ; 
 
 /**
  * @brief Base class for eos handling.
@@ -61,7 +68,7 @@ enum EOS_ERROR_T {
 template< typename eos_impl_t >
 class eos_base_t {
     //! Error codes are GPU-friendly.
-    using error_type = unsigned int; 
+    using error_type = eos_err_t; 
  public:
     /**
      * @brief Default ctor.
@@ -89,18 +96,18 @@ class eos_base_t {
      * @param _atm_is_beta_eq  Is atmosphere in beta-equilibrium? 
      * @param _extend_table_high  Extend table for high rest-mass density? 
      */
-    eos_base_t( double _energy_shift, double _eos_rhomax, double _eos_rhomin
+    eos_base_t( double _eos_rhomax, double _eos_rhomin
               , double _eos_tempmax, double _eos_tempmin
               , double _eos_yemax, double _eos_yemin
               , double _baryon_mass, double _c2p_eps_min
               , double _c2p_eps_max, double _c2p_h_min
-              , double _c2p_h_max, bool _atm_is_beta_eq
+              , double _c2p_h_max, double _c2p_temp_atm, double _c2p_ye_atm, bool _atm_is_beta_eq
               , bool _extend_table_high )
-     : energy_shift(_energy_shift), eos_rhomax(_eos_rhomax), eos_rhomin(_eos_rhomin)
+     : eos_rhomax(_eos_rhomax), eos_rhomin(_eos_rhomin)
      , eos_tempmax(_eos_tempmax), eos_tempmin(_eos_tempmin)
      , eos_yemax(_eos_yemax), eos_yemin(_eos_yemin)
      , baryon_mass(_baryon_mass), c2p_eps_min(_c2p_eps_min), c2p_eps_max(_c2p_eps_max)
-     , c2p_h_min(_c2p_h_min), c2p_h_max(_c2p_h_max)
+     , c2p_h_min(_c2p_h_min), c2p_h_max(_c2p_h_max), c2p_temp_atm(_c2p_temp_atm), c2p_ye_atm(_c2p_ye_atm)
      , atm_is_beta_eq(_atm_is_beta_eq), extend_table_high(_extend_table_high)
     {}
     /**
@@ -498,13 +505,33 @@ class eos_base_t {
             mup,mun,Xa,Xh,Xn,Xp,Abar,Zbar,temp,rho,ye,err
             ) ; 
     }
-  
     /**
-     * @brief Get the atmosphere specific internal energy.
+     * @brief Get maximum allowed epsilon, might differ from table bound.
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    get_c2p_ye_max() const { return eos_yemax ; }
+    /**
+     * @brief Get maximum allowed epsilon, might differ from table bound.
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    get_c2p_ye_min() const { return eos_yemin ; }
+    /**
+     * @brief Get maximum allowed epsilon, might differ from table bound.
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+    get_c2p_eps_max() const { return c2p_eps_max ; } 
+    /**
+     * @brief Get the atmosphere electron fraction.
      * 
      */
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    eps_atmosphere() const { return c2p_eps_atm ; }
+    temp_atmosphere() const { return c2p_temp_atm ; }
+    /**
+     * @brief Get the atmosphere electron fraction.
+     * 
+     */
+    double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    ye_atmosphere() const { return c2p_ye_atm ; }
     /**
      * @brief Get the minimum of the enthalpy. Only needed for c2p
      * 
@@ -526,8 +553,6 @@ class eos_base_t {
  protected:
     //! Does this EOS depend on ye?
     static constexpr bool has_ye = eos_impl_t::has_ye ; 
-    //! Specific internal energy shift.
-    double energy_shift ; 
     //! Maximum and minimum rest-mass densities.
     double eos_rhomax, eos_rhomin ;
     //! Maximum and minimum temperatures.
@@ -536,8 +561,6 @@ class eos_base_t {
     double eos_yemax, eos_yemin ; 
     //! Baryon mass.
     double baryon_mass ;
-    //! Atmosphere specific internal energy.
-    double c2p_eps_atm   ; 
     //! Minimum specific internal energy.
     double c2p_eps_min   ; 
     //! Maximum specific internal energy.
@@ -546,6 +569,10 @@ class eos_base_t {
     double c2p_h_min     ; 
     //! Maximum specific enthalpy
     double c2p_h_max     ; 
+    //! Atmosphere temperature 
+    double c2p_temp_atm    ;
+    //! Atmosphere ye 
+    double c2p_ye_atm    ;
     //! Is the atmosphere beta-equilibrated?
     bool atm_is_beta_eq    ; 
     //! Is the table extended at high rho? 

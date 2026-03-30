@@ -95,7 +95,7 @@ void evolve() {
             ERROR("Unknown cold eos type " << cold_eos_type) ;
         }
     } else if ( eos_type == "tabulated" ) {
-        ERROR("Not implemented yet.") ; 
+        evolve_impl<grace::tabulated_eos_t>() ;
     } else {
         ERROR("Unknown EOS " << eos_type) ; 
     }
@@ -403,7 +403,7 @@ void compute_fluxes(
     auto& vbar  = grace::variable_list::get().getvbararray() ;
     //**************************************************************************************************/
     // construct grmhd object 
-    using recon_t = weno_reconstructor_t<5> ; 
+    using recon_t = GRACE_RECONSTRUCTION_T ; 
     auto eos = eos::get().get_eos<eos_t>() ;  
     grmhd_equations_system_t<eos_t>
         grmhd_eq_system(eos,old_state,old_stag_state,aux) ; 
@@ -427,6 +427,19 @@ void compute_fluxes(
             old_state(VEC(i,j,k),FRADY_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),FRADZ_,q) /=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),ERAD_,q)  /= metric.sqrtg() ; 
+            #ifdef M1_NU_THREESPECIES
+            old_state(VEC(i,j,k),NRAD1_,q)  /=  old_state(VEC(i,j,k),ERAD1_,q); 
+            old_state(VEC(i,j,k),FRADX1_,q) /=  old_state(VEC(i,j,k),ERAD1_,q); 
+            old_state(VEC(i,j,k),FRADY1_,q) /=  old_state(VEC(i,j,k),ERAD1_,q); 
+            old_state(VEC(i,j,k),FRADZ1_,q) /=  old_state(VEC(i,j,k),ERAD1_,q); 
+            old_state(VEC(i,j,k),ERAD1_,q)  /= metric.sqrtg() ; 
+
+            old_state(VEC(i,j,k),NRAD2_,q)  /=  old_state(VEC(i,j,k),ERAD2_,q); 
+            old_state(VEC(i,j,k),FRADX2_,q) /=  old_state(VEC(i,j,k),ERAD2_,q); 
+            old_state(VEC(i,j,k),FRADY2_,q) /=  old_state(VEC(i,j,k),ERAD2_,q); 
+            old_state(VEC(i,j,k),FRADZ2_,q) /=  old_state(VEC(i,j,k),ERAD2_,q); 
+            old_state(VEC(i,j,k),ERAD2_,q)  /= metric.sqrtg() ; 
+            #endif 
         }
     ) ; 
     #endif 
@@ -456,12 +469,24 @@ void compute_fluxes(
         #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_x_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact) ;
         #endif 
-        #ifdef GRACE_ENABLE_M1
-        m1_eq_system.template compute_x_flux<slope_limited_reconstructor_t<MCbeta>>(
+    }) ; 
+    #ifdef GRACE_ENABLE_M1
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux_M1")
+                , flux_x_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+         m1_eq_system.template compute_x_flux<slope_limited_reconstructor_t<MCbeta>,0>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
         ) ; 
-        #endif 
+        #ifdef M1_NU_THREESPECIES
+        m1_eq_system.template compute_x_flux<slope_limited_reconstructor_t<MCbeta>,1>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        );
+        m1_eq_system.template compute_x_flux<slope_limited_reconstructor_t<MCbeta>,2>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        );
+        #endif
     }) ; 
+    #endif 
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
                 , flux_y_policy 
@@ -469,12 +494,24 @@ void compute_fluxes(
         #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_y_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
         #endif 
-        #ifdef GRACE_ENABLE_M1
-        m1_eq_system.template compute_y_flux<slope_limited_reconstructor_t<MCbeta>>(
+    }) ;
+    #ifdef GRACE_ENABLE_M1
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux_M1")
+                , flux_x_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+         m1_eq_system.template compute_y_flux<slope_limited_reconstructor_t<MCbeta>,0>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
         ) ; 
+        #ifdef M1_NU_THREESPECIES
+        m1_eq_system.template compute_y_flux<slope_limited_reconstructor_t<MCbeta>,1>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        );
+        m1_eq_system.template compute_y_flux<slope_limited_reconstructor_t<MCbeta>,2>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        );
         #endif
-    }) ;
+    }) ; 
+    #endif 
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
                 , flux_z_policy 
@@ -482,12 +519,24 @@ void compute_fluxes(
         #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_z_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
         #endif 
-        #ifdef GRACE_ENABLE_M1
-        m1_eq_system.template compute_z_flux<slope_limited_reconstructor_t<MCbeta>>(
+    }) ; 
+    #ifdef GRACE_ENABLE_M1
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux_M1")
+                , flux_x_policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+         m1_eq_system.template compute_z_flux<slope_limited_reconstructor_t<MCbeta>,0>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
         ) ; 
+        #ifdef M1_NU_THREESPECIES
+        m1_eq_system.template compute_z_flux<slope_limited_reconstructor_t<MCbeta>,1>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        );
+        m1_eq_system.template compute_z_flux<slope_limited_reconstructor_t<MCbeta>,2>(
+            q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
+        );
         #endif
     }) ; 
+    #endif 
     //**************************************************************************************************/
     Kokkos::fence() ; 
     #ifdef GRACE_ENABLE_M1
@@ -504,6 +553,19 @@ void compute_fluxes(
             old_state(VEC(i,j,k),FRADX_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),FRADY_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
             old_state(VEC(i,j,k),FRADZ_,q) *=  old_state(VEC(i,j,k),ERAD_,q); 
+            #ifdef M1_NU_THREESPECIES
+            old_state(VEC(i,j,k),ERAD1_,q)  *= metric.sqrtg() ; 
+            old_state(VEC(i,j,k),NRAD1_,q)  *=  old_state(VEC(i,j,k),ERAD1_,q); 
+            old_state(VEC(i,j,k),FRADX1_,q) *=  old_state(VEC(i,j,k),ERAD1_,q); 
+            old_state(VEC(i,j,k),FRADY1_,q) *=  old_state(VEC(i,j,k),ERAD1_,q); 
+            old_state(VEC(i,j,k),FRADZ1_,q) *=  old_state(VEC(i,j,k),ERAD1_,q);
+
+            old_state(VEC(i,j,k),ERAD2_,q)  *= metric.sqrtg() ; 
+            old_state(VEC(i,j,k),NRAD2_,q)  *=  old_state(VEC(i,j,k),ERAD2_,q); 
+            old_state(VEC(i,j,k),FRADX2_,q) *=  old_state(VEC(i,j,k),ERAD2_,q); 
+            old_state(VEC(i,j,k),FRADY2_,q) *=  old_state(VEC(i,j,k),ERAD2_,q); 
+            old_state(VEC(i,j,k),FRADZ2_,q) *=  old_state(VEC(i,j,k),ERAD2_,q);
+            #endif 
         }
     ) ; 
     #endif 
@@ -522,7 +584,7 @@ void compute_emfs(
     DECLARE_GRID_EXTENTS ; 
     //**************************************************************************************************/
     // fetch some stuff 
-    using recon_t = weno_reconstructor_t<5> ; 
+    using recon_t = GRACE_RECONSTRUCTION_T ; 
     auto& idx     = grace::variable_list::get().getinvspacings() ;
     auto& vbar  = grace::variable_list::get().getvbararray() ;
     auto& emf  = grace::variable_list::get().getemfarray() ; 
@@ -754,14 +816,23 @@ void add_fluxes_and_source_terms(
             , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
         ) ;
     //**************************************************************************************************/
+    #ifdef GRACE_ENABLE_M1 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_sources_M1")
+                , policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
+        
+        m1_eq_system.compute_source_terms<0>(q, VEC(i,j,k), idx, new_state, dt, dtfact );
+        #ifdef M1_NU_THREESPECIES
+        m1_eq_system.compute_source_terms<1>(q, VEC(i,j,k), idx, new_state, dt, dtfact );
+        m1_eq_system.compute_source_terms<2>(q, VEC(i,j,k), idx, new_state, dt, dtfact );
+        #endif 
+    });
+    #endif 
     parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_sources")
                 , policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
-        #endif 
-        #ifdef GRACE_ENABLE_M1
-        m1_eq_system(sources_computation_kernel_t{}, q, VEC(i,j,k), idx, new_state, dt, dtfact );
         #endif 
         for( int ivar=0; ivar<nvars_hrsc; ++ivar) {
             new_state(VEC(i,j,k),ivar,q) += 
@@ -789,7 +860,6 @@ void update_CT(
     DECLARE_GRID_EXTENTS ; 
     //**************************************************************************************************/
     // fetch some stuff 
-    using recon_t = slope_limited_reconstructor_t<MCbeta>;//weno_reconstructor_t<5> ; 
     auto& idx     = grace::variable_list::get().getinvspacings() ;
     auto& emf  = grace::variable_list::get().getemfarray() ; 
     //**************************************************************************************************/
@@ -942,9 +1012,17 @@ void advance_implicit_substep( double const t, double const dt, double const dtf
           GRACE_EXECUTION_TAG("evol", "m1_implicit_sources")
         , policy
         , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
-            m1_eq_system.compute_implicit_update(
+            m1_eq_system.compute_implicit_update<0>(
                 q, VEC(i,j,k), _idx, new_state, dt, dtfact
             );
+            #ifdef M1_NU_THREESPECIES
+            m1_eq_system.compute_implicit_update<1>(
+                q, VEC(i,j,k), _idx, new_state, dt, dtfact
+            );
+            m1_eq_system.compute_implicit_update<2>(
+                q, VEC(i,j,k), _idx, new_state, dt, dtfact
+            );
+            #endif 
         }
     ) ; 
     #endif
@@ -1080,5 +1158,6 @@ template                                                              \
 void evolve_impl<EOS>()
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 }

@@ -36,15 +36,18 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
-#include <grace/physics/eos/physical_constants.hh> //! Todo 
+#include <grace/physics/eos/physical_constants.hh> 
+
+#include <grace/physics/grmhd_helpers.hh>
 
 #include <grace/physics/eos/eos_storage.hh>
+#include <grace/physics/eos/read_eos_table.hh>
 
 #include <Kokkos_Core.hpp>
 
 namespace grace {
 
-static piecewise_polytropic_eos_t setup_cold_politrope() 
+static piecewise_polytropic_eos_t setup_cold_polytrope() 
 {
     auto& params = grace::config_parser::get() ;
 
@@ -162,23 +165,30 @@ eos_storage_t::eos_storage_t() {
 
         if( cold_eos_type == "piecewise_polytrope" ) {
 
-            auto _pwpoly = setup_cold_politrope() ; 
+            auto _pwpoly = setup_cold_polytrope() ; 
+
+            double temp_floor = get_param<double>("grmhd", "atmosphere", "temp_fl") ; 
+            double rho_floor = get_param<double>("grmhd", "atmosphere", "rho_fl") ; 
+
+            double const h_min = 1. + 1e-10 ; 
 
             _hybrid_pwpoly = hybrid_eos_t<piecewise_polytropic_eos_t>{
                   _pwpoly 
                 , gamma_th - 1. 
                 , c2p_entropy_min
-                , grace::physical_constants::mnuc_CGS
+                , h_min
+                , 1 // baryon mass, arbitrary for ideal gas eos 
                 , c2p_eps_max 
+                , temp_floor
             } ; 
 
         } else {
             ERROR("Unsupported cold_eos_type.") ; 
         }
-    } else if ( eos_type == "ideal_gas" ) {
-        ERROR("Unsupported eos_type") ; 
+    } else if ( eos_type == "tabulated") {
+        _tabulated = read_eos_table() ; 
     } else {
-        ERROR("Unsupported eos_type") ; 
+         ERROR("Unsupported eos_type") ; 
     }
 
 }

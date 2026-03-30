@@ -51,6 +51,7 @@ struct blastwave_id_t {
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     operator() (VEC(int const i, int const j, int const k), int const q) const 
     {
+        using namespace grace ; 
         grmhd_id_t id ; 
         double rcyl = sqrt(
             SQR(_pcoords(VEC(i,j,k),0,q)) +
@@ -74,8 +75,14 @@ struct blastwave_id_t {
         id.kxx = 0; id.kyy = 0; id.kzz = 0 ;
         id.kxy = 0; id.kxz =0 ; id.kyz = 0 ; 
 
-        unsigned int err ; 
+        eos_err_t err ; 
         id.ye  = _eos.ye_cold__press(id.press, err);
+
+        double h,cs2; 
+        eos_err_t eoserr ; 
+        id.eps = _eos.eps_h_csnd2_temp_entropy__press_rho_ye(
+            h,cs2,id.temp,id.entropy,id.press,id.rho,id.ye,eoserr 
+        ) ; 
 
         return id ; 
     }

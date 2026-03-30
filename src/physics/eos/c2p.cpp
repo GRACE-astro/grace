@@ -68,18 +68,20 @@ limit_primitives(
     eos_t const& eos,
     double max_w,
     double max_sigma,
-    c2p_err_t& c2p_err
-)
-{  
+    c2p_sig_t& sig
+) {  
     // limit velocities 
-    double const W2 = 1 + metric.square_vec({prims[ZXL],prims[ZYL],prims[ZZL]}) ; 
-    if ( W2 >= max_w*max_w ) {
-        double znorm = 0.99 * max_w / sqrt(W2) ; 
+    // w^2 = z^2 + 1 
+    // but we limit z directly 
+    double const z2max = SQR(max_w) - 1. ;
+    double const z2 =  metric.square_vec({prims[ZXL],prims[ZYL],prims[ZZL]}) ; 
+    if ( z2 >= z2max ) {
+        double znorm = 0.99 * sqrt(z2max/z2) ; 
         prims[ZXL] *= znorm ; 
         prims[ZYL] *= znorm ; 
         prims[ZZL] *= znorm ; 
         // W has changed so the conserved are outdated
-        c2p_err.adjust_s = c2p_err.adjust_tau = c2p_err.adjust_ent = c2p_err.adjust_d = true; 
+        sig.set(c2p_sig_enum_t::C2P_VEL_TOO_HIGH) ; 
     }
     // limit magnetization 
     double const * const betau = metric._beta.data() ; 
@@ -102,14 +104,79 @@ limit_primitives(
         double const rhofact = 1.001 * sigma/max_sigma ;
         prims[RHOL] *= rhofact ; 
         // recompute other prims 
-        unsigned int eos_err ; 
+        eos_err_t eos_err ; 
         double csnd2; 
         prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(
             prims[EPSL], csnd2, prims[ENTL], prims[TEMPL], prims[RHOL], prims[YEL], eos_err
         ); 
-        // rho, P and entropy have changed so the conserved are outdated
-        c2p_err.adjust_s = c2p_err.adjust_tau = c2p_err.adjust_ent = c2p_err.adjust_d = true; 
+        // Set the signal for the caller to handle 
+        sig.set(c2p_sig_enum_t::C2P_SIGMA_TOO_HIGH) ; 
     }
+}
+
+template< typename eos_t >
+static void KOKKOS_INLINE_FUNCTION 
+limit_conservatives(
+    grace::grmhd_cons_array_t&  cons,
+    metric_array_t const& metric,
+    eos_t const& eos,
+    c2p_err_t& err
+) 
+{ 
+    
+    double rhoL = cons[DENSL] ; 
+    double yeL  = cons[YESL]  / (cons[DENSL]) ;  
+
+    double epsmax,epsmin ; 
+    eos_err_t eoserr; 
+    eos.eps_range__rho_ye(epsmin,epsmax,rhoL,yeL,eoserr) ; 
+
+    // note: this is not really staggered! 
+    auto B2L = metric.square_vec({cons[BSXL],cons[BSYL],cons[BSZL]}) ; 
+
+    if ( cons[TAUL]/cons[DENSL] - 0.5 * B2L/cons[DENSL] < Kokkos::fmin(0.0, epsmin)) 
+    {
+        cons[TAUL] = epsmin * cons[DENSL] + 0.5 * B2L ; 
+        err.set(c2p_err_enum_t::C2P_RESET_TAU) ; 
+    }
+
+    double st2_max = SQR(cons[TAUL]/cons[DENSL] + 1) ; 
+    auto st2L = metric.square_covec({cons[STXL],cons[STYL],cons[STZL]})/SQR(cons[DENSL]) ; 
+    if ( st2L > st2_max ) {
+        cons[STXL] *= sqrt(st2_max/st2L) ; 
+        cons[STYL] *= sqrt(st2_max/st2L) ;
+        cons[STZL] *= sqrt(st2_max/st2L) ;
+        err.set(c2p_err_enum_t::C2P_RESET_STILDE) ;  
+    }
+
+}
+
+template< typename eos_t >
+void GRACE_HOST_DEVICE
+reset_to_atmosphere(
+    grace::grmhd_cons_array_t&  cons,
+    grace::grmhd_prims_array_t& prims,
+    grace::metric_array_t const& metric,
+    atmo_params_t const& atmo,
+    eos_t const& eos,
+    c2p_err_t& err  
+)
+{
+    prims[RHOL]  = atmo.rho_fl ; 
+    prims[YEL]   = atmo.ye_fl  ; 
+    prims[TEMPL] = atmo.temp_fl ; 
+    prims[ZXL]   = 0. ;
+    prims[ZYL]   = 0. ;
+    prims[ZZL]   = 0. ;
+    // get pressure, eps and entropy
+    double csnd2 ;  
+    eos_err_t eos_err;  
+    prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(
+        prims[EPSL], csnd2, prims[ENTL], prims[TEMPL], prims[RHOL], prims[YEL], eos_err
+    ); 
+    // all conserved need to be reset 
+    prims_to_conservs(prims,cons,metric) ; 
+    err.set_all() ; 
 }
 
 template< typename eos_t >
@@ -126,17 +193,19 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
 {
     
     using c2p_mhd_t    = kastaun_c2p_t<eos_t>     ;
-    using c2p_hydro_t  = kastaun_c2p_t<eos_t>        ;
     using c2p_backup_t = entropy_fix_c2p_t<eos_t> ;
     bool c2p_failed{ false }                      ;  
 
+    // initialize ret code
+    c2p_sig_t c2p_ret ;
+
     // by default we overwrite S_star 
-    c2p_err.adjust_ent = true ; 
-    c2p_err.adjust_tau = c2p_err.adjust_d = c2p_err.adjust_s = false ; 
+    c2p_err.reset() ; 
+    c2p_err.set(c2p_err_enum_t::C2P_RESET_ENTROPY) ; 
 
     /* Undensitize conservs */
     for( auto& c: cons) c /= metric.sqrtg() ;
-    
+
     /* Set B */
     /* NB now the cons contains   */
     /* Cell centered undensitized */
@@ -145,105 +214,122 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     prims[BYL] = cons[BSYL] ; 
     prims[BZL] = cons[BSZL] ; 
 
-    /* limit conservative vars */
-    //limit_conserved(cons,metric,atmo,eos,c2p_err) ; 
+    /* Guard against negative density */
+    if ( cons[DENSL] < 0 ) {
+        reset_to_atmosphere(
+            cons,prims,metric,atmo,eos,c2p_err
+        ) ; 
+        return ; 
+    }
 
-    /* Get atmo rho and temp */
-    auto const dens_atmo =  atmo.rho_fl * pow(rtp[0], atmo.rho_fl_scaling);
-    auto const temp_atmo =  atmo.temp_fl * pow(rtp[0], atmo.temp_fl_scaling);
+    /* Check that the ye is within bounds */
+    prims[YEL] = cons[YESL]/cons[DENSL] ; 
+    double yemax = eos.get_c2p_ye_max();
+    double yemin = eos.get_c2p_ye_min();
+    if ( prims[YEL] > yemax ) {
+        prims[YEL] = yemax ;
+        c2p_err.set(c2p_err_enum_t::C2P_RESET_YE) ; 
+    }
+    if ( prims[YEL] < yemin ) {
+        prims[YEL] = yemin ;
+        c2p_err.set(c2p_err_enum_t::C2P_RESET_YE) ; 
+    }
+
+    /* Figure out if we are inside a bh   */
+    /* in which case we should be lenient */
+    bool c2p_is_lenient = (
+        metric.alp() < c2p_pars.alp_bh_thresh 
+    ) ; 
+    // FIXME!!! Sometimes tabeos randomly puts one point in the 
+    // ejecta at max eps, we don't want that to crash the whole 
+    // simulation if possible. This is a hack, we need to find 
+    // out why.
+
+    // enforce limits on conserved variables
+    limit_conservatives(cons,metric,eos,c2p_err) ; 
     
     /* If D>rho_atm we solve*/
-    if( cons[DENSL] > dens_atmo ) {
-        // initialize ret code
-        c2p_sig_t c2p_ret{C2P_SUCCESS} ; 
-        // initialize beta 
-        double beta=1e100 ; 
-        // check if we need mhd c2p 
-        double hydro_thresh = 1e-15 * fmin(cons[TAUL]/cons[DENSL], 1e-5) ; 
-        double Btilde2 = metric.square_vec({cons[BSXL],cons[BSYL],cons[BSZL]}) / cons[DENSL] ; 
-        if ( Btilde2 < hydro_thresh ) {
-            c2p_hydro_t c2p(eos,metric,cons) ;
-            double residual = c2p.invert(prims,c2p_ret) ;
-            c2p_failed = (math::abs(residual) > c2p_pars.tol) || (c2p_ret == C2P_EPS_TOO_HIGH);
-        } else {
-            c2p_mhd_t c2p(eos,metric,cons) ;
-            double residual = c2p.invert(prims,c2p_ret) ;
-            c2p_failed = (math::abs(residual) > c2p_pars.tol) || (c2p_ret == C2P_EPS_TOO_HIGH);
-            beta = compute_beta(prims,metric) ; 
-        }
+    if( cons[DENSL] > atmo.rho_fl * (1+atmo.atmo_tol) ) { 
+        // Call main c2p 
+        c2p_mhd_t c2p(eos,metric,cons) ;
+        double residual = c2p.invert(prims,c2p_ret) ;
         
+        // decide if we need a backup. The criteria are as follows:
+        // 1) C2P failed due to not finite residual or residual 
+        //    exceeding the threshold 
+        // 2) A severe exception was raised (rho>rho_max or eps>eps_max)
+        // 3) The plasma beta is below the threshold 
+        c2p_failed = (Kokkos::fabs(residual) > c2p_pars.tol) 
+                    || (c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_HIGH)) 
+                    || (c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_HIGH))
+                    || (!Kokkos::isfinite(residual)) ;
+        
+        double beta = compute_beta(prims,metric) ; 
+        
+        // backup if needed and allowed 
         if ( (     c2p_failed 
                 or beta <= c2p_pars.beta_fallback ) 
                and c2p_pars.use_ent_backup ) 
         {
-            c2p_ret = C2P_SUCCESS ; 
-            c2p_err.adjust_ent = false ; 
-            c2p_err.adjust_tau = true  ; 
+            // reset the c2p signals since we are
+            // trying again
+            c2p_ret.reset() ; 
+            // call the backup c2p 
             c2p_backup_t e_c2p(eos,metric,cons) ;
             double residual = e_c2p.invert(prims,c2p_ret) ; 
-            c2p_failed = (math::abs(residual) > c2p_pars.tol) || (c2p_ret == C2P_EPS_TOO_HIGH);
+            // decide if we can accept the inversion 
+            c2p_failed = (math::abs(residual) > c2p_pars.tol) || (!Kokkos::isfinite(residual)) ;
+            c2p_failed |= (prims[EPSL] >= eos.get_c2p_eps_max()) ; 
         }
+        // handle the return signals from within the 
+        // c2p operators 
+        c2p_handle_signals(c2p_ret, c2p_is_lenient, c2p_err) ; 
     } else {
         c2p_failed = true ;
     }
-
-    // now we check for atmo / excision 
 
     // excision criterion 
     bool excise = excision.excise_by_radius     
                 ? rtp[0] <= excision.r_ex 
                 : metric.alp() <= excision.alp_ex ; 
-    if ( excise ) {
-        prims[RHOL]  = excision.rho_ex  ; 
-        prims[TEMPL] = excision.temp_ex ; 
-        prims[ZXL]   = 0. ;
-        prims[ZYL]   = 0. ;
-        prims[ZZL]   = 0. ;
-        prims[YEL]   = 0   ;
-        // get pressure, eps and entropy
-        double csnd2 ;  
-        unsigned int eos_err;  
-        prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(
-            prims[EPSL], csnd2, prims[ENTL], prims[TEMPL], prims[RHOL], prims[YEL], eos_err
-        ); 
-        // reset all conserved
-        c2p_err.adjust_tau = c2p_err.adjust_d = c2p_err.adjust_s = c2p_err.adjust_ent = true ; 
-    } else if ((prims[RHOL] < (1.+1e-03) * dens_atmo) or c2p_failed ) {
-        prims[RHOL]  = dens_atmo  ; 
-        prims[TEMPL] = temp_atmo  ; 
-        prims[ZXL]   = 0. ;
-        prims[ZYL]   = 0. ;
-        prims[ZZL]   = 0. ;
-        prims[YEL]   = 0. ;
-        // get pressure, eps and entropy
-        double csnd2 ;  
-        unsigned int eos_err;  
-        prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(
-            prims[EPSL], csnd2, prims[ENTL], prims[TEMPL], prims[RHOL], prims[YEL], eos_err
-        ); 
-        // reset all conserved
-        c2p_err.adjust_tau = c2p_err.adjust_d = c2p_err.adjust_s = c2p_err.adjust_ent = true ; 
-    } else if (prims[TEMPL] < temp_atmo) {
+    if ((prims[RHOL] < (1.+atmo.atmo_tol) * atmo.rho_fl) or c2p_failed or excise ) {
+        // reset everything to atmosphere 
+        reset_to_atmosphere(
+            cons,prims,metric,atmo,eos,c2p_err
+        ) ;
+    } else if (prims[TEMPL] < atmo.temp_fl) {
         // In this case we only reset 
         // T, eps and press 
-        prims[TEMPL] = temp_atmo  ; 
+        prims[TEMPL] = atmo.temp_fl  ; 
         // get pressure, eps and entropy
         double csnd2 ;  
-        unsigned int eos_err;  
+        eos_err_t eos_err;  
         prims[PRESSL] = eos.press_eps_csnd2_entropy__temp_rho_ye(
             prims[EPSL], csnd2, prims[ENTL], prims[TEMPL], prims[RHOL], prims[YEL], eos_err
         ); 
+        // check if the EOS had any sort of problem 
+        c2p_handle_eos_signals(
+            eos_err,
+            c2p_is_lenient,
+            c2p_err
+        ) ; 
         // reset all conserved except for D, since rho and W are unchanged
-        c2p_err.adjust_tau = c2p_err.adjust_s = c2p_err.adjust_ent = true ; 
+        c2p_err.set(c2p_err_enum_t::C2P_RESET_TAU)     ; 
+        c2p_err.set(c2p_err_enum_t::C2P_RESET_STILDE)  ; 
+        c2p_err.set(c2p_err_enum_t::C2P_RESET_ENTROPY) ; 
     } else {
         /* Limit lorentz fact and magnetization  */
+        c2p_sig_t c2p_sig ; 
         limit_primitives<eos_t>(
-            prims, metric, eos, c2p_pars.max_w, c2p_pars.max_sigma, c2p_err
+            prims, metric, eos, c2p_pars.max_w, c2p_pars.max_sigma, c2p_sig
         ) ;
+        c2p_handle_signals(c2p_sig, c2p_is_lenient, c2p_err) ; 
     }
     
     /* Re-compute conservative variables based  */
     /* on new primitives.                       */
+    /* NB: only conservatives flagged in the    */
+    /* c2p errors are overwritten.              */
     prims_to_conservs(prims,cons,metric) ;
 }
 
@@ -301,6 +387,7 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , double * rtp \
                       , c2p_err_t& c2p_err ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 
 }

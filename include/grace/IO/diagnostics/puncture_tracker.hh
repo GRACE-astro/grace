@@ -73,6 +73,23 @@ struct puncture_tracker_impl_t
             } 
         }
         //**************************************************************************************************
+        std::vector<std::array<double,3>> get_puncture_locations() const {
+            return _coords ; 
+        }
+        //**************************************************************************************************
+        int get_n_punctures() const {
+            return n_punctures ;
+        }
+        //**************************************************************************************************
+        bool is_active() const {
+            return (n_punctures>0) && (out_every>0) ; 
+        }
+        //**************************************************************************************************
+        void set_puncture_locations(std::vector<std::array<double,3>> const& new_loc) {
+            ASSERT(new_loc.size() == n_punctures, "Mismatched number of punctures in initializer!") ;
+            _coords = new_loc ;  
+        }
+        //**************************************************************************************************
     private:
         //**************************************************************************************************
         void update(double dt) {
@@ -247,7 +264,7 @@ struct puncture_tracker_impl_t
                 for( int i=0; i<n_punctures_loc; ++i) {
                     beta_p[i][0] = vals_h(i,0) ; 
                     beta_p[i][1] = vals_h(i,1) ;
-                    beta_p[i][2] = vals_h(i,2) ;  
+                    beta_p[i][2] = equatorial_symm ? 0.0 : vals_h(i,2) ;  
                 }
             }
             return beta_p ; 
@@ -276,6 +293,8 @@ struct puncture_tracker_impl_t
             }
             // output frequency 
             out_every = get_param<int>("puncture_tracker", "output_frequency") ;
+            // check if z symmetric 
+            equatorial_symm = get_param<bool>("amr","reflection_symmetries","z") ; 
             // initialize files for output 
             initialize_files() ; 
         }
@@ -286,6 +305,8 @@ struct puncture_tracker_impl_t
         std::vector<std::array<double,3>> _coords ; 
         // output files 
         std::vector<std::filesystem::path> outpaths ; 
+        // z symmetry?
+        bool equatorial_symm ; 
         //**************************************************************************************************
         static constexpr unsigned long longevity = unique_objects_lifetimes::GRACE_SPHERICAL_SURFACES ; 
         //**************************************************************************************************

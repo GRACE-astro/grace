@@ -56,6 +56,12 @@ grmhd:
       default: true 
       description: >
         Override ye_fl with beta equilibrium ye at atmosphere conditions 
+    atmo_tol:
+      type: double 
+      default: 1e-3
+      range: "[0,*)"
+      description: >
+        When setting points to atmosphere, check if rho < rho_atm * (1+tol)
   
   excision: 
     type: schema
@@ -79,18 +85,6 @@ grmhd:
       default: 1.0
       description: >
         If excision criterion is radius, where to excise 
-    rho_excision:
-      type: double 
-      range: "[0,*)"
-      default: 1e-14
-      description: >
-        Rest mass density inside excised region 
-    temp_excision:
-      type: double 
-      range: "[0,*)"
-      default: 0.0
-      description: >
-        Temperature inside excised region
   
   c2p: 
     type: schema
@@ -125,6 +119,12 @@ grmhd:
       default: 1e-2
       description: >
         Directly use entropy backup if beta<fallback_threshold
+    bh_alp_thresh:
+      type: double 
+      range: "(0,*)"
+      default: 0.2
+      description: >
+        If alp <= thresh we are inside a BH and c2p errors become lenient
   
   B_field_initialization:
     type: keyword
@@ -520,6 +520,16 @@ grmhd:
       default: "./id.res"
       description: >
         Filename containing initial data for LORENE ID 
+    set_shift_to_zero:
+      type: bool 
+      default: false 
+      description: >
+        Initially set the shift to zero?
+    reset_eps:
+      type: bool
+      default: false 
+      description: >
+        Recompute eps after initial data?
   
   two_punctures:
     type: schema

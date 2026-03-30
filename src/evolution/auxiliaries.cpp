@@ -82,7 +82,7 @@ void compute_auxiliary_quantities() {
             ERROR("Not implemented yet.") ;
         }
     } else if ( eos_type == "tabulated" ) {
-        ERROR("Not implemented yet.") ; 
+        compute_auxiliary_quantities<grace::tabulated_eos_t>(state,sstate,aux) ; 
     }
     
 }
@@ -133,7 +133,11 @@ void compute_auxiliary_quantities(
         #endif 
         #endif 
         #ifdef GRACE_ENABLE_M1 
-        m1_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, dev_coords);
+        m1_eq_system.compute_auxiliaries<0>(VEC(i,j,k), q, dev_coords);
+        #ifdef M1_NU_THREESPECIES
+        m1_eq_system.compute_auxiliaries<1>(VEC(i,j,k), q, dev_coords);
+        m1_eq_system.compute_auxiliaries<2>(VEC(i,j,k), q, dev_coords);
+        #endif 
         #endif 
         #ifdef GRACE_ENABLE_BSSN_METRIC
         bssn_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx);
@@ -166,5 +170,6 @@ void compute_auxiliary_quantities<EOS>(                                 \
                          , grace::var_array_t& aux )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 }

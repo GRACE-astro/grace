@@ -72,7 +72,7 @@
     double phi   = state[2] ; 
     double riso  = state[3] ; 
 
-    unsigned int err ;
+    eos_err_t err ;
     double ye = 0 ;
     auto const e = _eos.energy_cold__press_cold(press, err) ; 
     double const A = 1.0/(1.0-2.0*m/r) ; 
@@ -99,7 +99,7 @@ solve_tov(
 )
 {
     Kokkos::parallel_for("solve_tov", 1, KOKKOS_LAMBDA (int dummy){
-        unsigned int err ; 
+        eos_err_t err ; 
         
         double rho = rho_c ;
 
@@ -225,15 +225,16 @@ solve_tov(
         GRACE_INFO("TOV solver done.") ; 
         auto h_tov_params = Kokkos::create_mirror_view(tov_params) ; 
         Kokkos::deep_copy(h_tov_params, tov_params) ; 
-        // check that the solver actually solved
-        ASSERT(static_cast<size_t>(h_tov_params(5))>1, "Fatal error in TOV solver, npt==1.");
-
         GRACE_INFO("TOV solver (all in code units):\n"
                 "   Central density  : {}\n"
                 "   Central pressure : {}\n"
                 "   Mass             : {}\n"   
                 "   Radius           : {}\n"
                 "   Isotropic Radius : {}", _rhoC, h_tov_params(2), h_tov_params(1), h_tov_params(0),h_tov_params(6)) ; 
+        // check that the solver actually solved
+        ASSERT(static_cast<size_t>(h_tov_params(5))>1, "Fatal error in TOV solver, npt==1.");
+
+        
         _M = h_tov_params(1) ; 
         _R = h_tov_params(0) ; 
         _R_iso = h_tov_params(6) ; 
@@ -283,18 +284,28 @@ solve_tov(
 
         grmhd_id_t id ; 
 
-        unsigned int err ; 
+        eos_err_t err ; 
         
         /* Check if we are inside the star */
-        double ye_atm  = _atmo_params.ye_fl  ; 
-        double rho_atm = _atmo_params.rho_fl ; 
-        double press_atm = _eos.press_cold__rho(rho_atm,err) ; 
+        double ye_atm    = _atmo_params.ye_fl  ; 
+        double rho_atm   = _atmo_params.rho_fl ; 
+        // note: this has to be the "cold EOS temperature"
+        // otherwise atmo is inconsistent! 
+        double temp_atm  = _atmo_params.temp_fl ; 
+        double press_atm = _eos.press_cold__rho(rho_atm, err) ; 
 
         if ( sol[0] > 1.001 * press_atm ) {
             id.press = sol[0] ; 
             id.ye    = _eos.ye_cold__press(sol[0],err) ;
             // Get rho and eps from press 
             id.rho   = _eos.rho__press_cold(sol[0], err) ; 
+            id.eps   = _eos.eps_cold__rho(id.rho, err) ; 
+            // and the rest 
+            // in case this is a const entropy slice 
+            id.temp = _eos.temp_cold__rho(id.rho, err) ; 
+            // in case this is a const temp slice 
+            id.entropy = _eos.entropy_cold__rho(id.rho, err) ; 
+            // perturb 
             double s[3] = {
                 x/rL, y/rL, z/rL
             } ; 
@@ -304,7 +315,12 @@ solve_tov(
         } else {
             id.rho   = rho_atm   ;
             id.ye    = ye_atm    ;
-            id.press = press_atm ; 
+            id.temp  = temp_atm ; 
+            // get the rest 
+            double dummy ;
+            id.press = _eos.press_eps_csnd2_entropy__temp_rho_ye(
+                id.eps, dummy, id.entropy, id.temp, id.rho, id.ye, err
+            ) ; 
             id.vx = id.vy = id.vz = 0.0 ; 
         }
 

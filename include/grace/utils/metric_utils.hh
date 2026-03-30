@@ -96,15 +96,15 @@ metric_array_t( std::array<double,6>const& g_
  #ifdef GRACE_ENABLE_Z4C_METRIC
 GRACE_HOST_DEVICE
 metric_array_t( std::array<double,6>const& gt_
-              , double const& chi_
+              , double const& W_
               , std::array<double,3>const& beta_ 
               , double const& alp_ )
     : _g(), _ginv(), _beta(beta_), _alp(alp_), _sqrtg()
 {
-    double oochi = 1./fmax(1e-100,chi_) ; 
+    double ooW = 1./fmax(1e-100,W_) ; 
     #pragma unroll 6
     for( int ii=0; ii<6; ++ii) {
-        _g[ii] = gt_[ii] * SQR(oochi) ; 
+        _g[ii] = gt_[ii] * SQR(ooW) ; 
     }
     _sqrtg = det(_g) ; // TODO 
     _ginv[0] = (_g[3]*_g[5] - math::int_pow<2>(_g[4]))/_sqrtg;

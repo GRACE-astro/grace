@@ -48,6 +48,11 @@
 
 #include <grace/amr/p4est_headers.hh>
 
+#include <grace/IO/diagnostics/ns_tracker.hh>
+#ifdef GRACE_ENABLE_Z4C_METRIC
+#include <grace/IO/diagnostics/puncture_tracker.hh>
+#endif 
+
 #include <hdf5.h>
 #include <omp.h>
 #include <filesystem>
@@ -486,8 +491,53 @@ void checkpoint_handler_impl_t::save_checkpoint()
                         grace::get_param<double>("amr", "zmin"),
                         grace::get_param<double>("amr", "zmax"));
 
+    // if active, we need to write ns tracker data
+    auto write_coord_dset = [&] (std::string const& name, double x, double y, double z) {
+        hsize_t dset_dims[1] = {3};
+        hid_t space_id;
+        HDF5_CALL(space_id, H5Screate_simple(1, dset_dims, NULL));
 
+        hid_t dset_id;
+        HDF5_CALL(dset_id, H5Dcreate2(file_id,
+                                    name.c_str(),
+                                    H5T_NATIVE_DOUBLE,
+                                    space_id,
+                                    H5P_DEFAULT,
+                                    H5P_DEFAULT,
+                                    H5P_DEFAULT));
 
+        double data[3] = {x, y, z};
+        HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, data));
+
+        HDF5_CALL(err, H5Dclose(dset_id));
+        HDF5_CALL(err, H5Sclose(space_id));
+    } ; 
+    auto& ns_tracker = grace::ns_tracker::get() ; 
+    if (ns_tracker.is_active()) {
+        auto ns_centers_d  = ns_tracker.get_ns_locations() ; 
+        auto ns_centers_h = Kokkos::create_mirror_view(ns_centers_d) ;
+        Kokkos::deep_copy(ns_centers_h,ns_centers_d) ; 
+        for( int in=0; in<ns_tracker.get_n_ns(); ++in){
+            std::string name = "ns_location_" + std::to_string(in) ; 
+            write_coord_dset(name, ns_centers_h(in,0), ns_centers_h(in,1),ns_centers_h(in,2)) ; 
+        }
+    }
+    // ditto for puncture tracker 
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    auto& puncture_tracker = grace::puncture_tracker::get() ; 
+    if (puncture_tracker.is_active()) {
+        auto puncture_centers  = puncture_tracker.get_puncture_locations() ; 
+        for( int ip=0; ip<puncture_tracker.get_n_punctures(); ++ip){
+            std::string name = "puncture_location_" + std::to_string(ip) ; 
+            write_coord_dset(
+                name, 
+                puncture_centers[ip][0],
+                puncture_centers[ip][1],
+                puncture_centers[ip][2]
+            ) ; 
+        }
+    }
+    #endif 
     // write state data 
     GRACE_TRACE("Writing state.") ; 
     auto state = grace::variable_list::get().getstate() ; 
@@ -576,6 +626,10 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     grace::runtime::initialize() ; 
     grace::coordinate_system::initialize() ;
     grace::eos::initialize() ;
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    grace::puncture_tracker::initialize() ; 
+    #endif 
+    grace::ns_tracker::initialize() ; 
     /**********************************************************************/
     auto data_fname = detail::get_filename(checkpoint_dir, "checkpoint_data", iter, ".h5") ;
     /**********************************************************************/
@@ -629,9 +683,6 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
         HDF5_CALL(err, H5Sget_simple_extent_dims(space_id, dset_dims, nullptr));
         ASSERT(dset_dims[0] == 2, "Dimension of " << name << " is not 2");
 
-        // Collective read
-        HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, &val_min));
-
         // Since the dataset is 2 elements, copy properly
         double tmp[2];
         HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, tmp));
@@ -658,7 +709,56 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     read_extent_dataset("grid_extent_y", ymin, ymax, "y");
     read_extent_dataset("grid_extent_z", zmin, zmax, "z");
 
-    
+    auto read_coord_dataset = [&](std::string const& name, double& x, double& y, double& z){
+        hsize_t dset_dims[1];
+        hid_t dset_id = H5Dopen(file_id, name.c_str(), H5P_DEFAULT);
+        ASSERT(dset_id >= 0, "Failed to open dataset " << name);
+
+        hid_t space_id = H5Dget_space(dset_id);
+        ASSERT(space_id >= 0, "Failed to get dataspace for " << name);
+
+        HDF5_CALL(err, H5Sget_simple_extent_dims(space_id, dset_dims, nullptr));
+        ASSERT(dset_dims[0] == 3, "Dimension of " << name << " is not 3");
+
+        // Since the dataset is 2 elements, copy properly
+        double tmp[3];
+        HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, tmp));
+        x = tmp[0];
+        y = tmp[1];
+        z = tmp[2];
+
+        HDF5_CALL(err, H5Dclose(dset_id));
+        HDF5_CALL(err, H5Sclose(space_id));
+    };
+    // load ns tracker data if needed 
+    auto& ns_tracker = grace::ns_tracker::get() ; 
+    if (ns_tracker.is_active()) {
+        auto ns_centers_d  = ns_tracker.get_ns_locations() ; 
+        auto ns_centers_h = Kokkos::create_mirror_view(ns_centers_d) ;
+        for( int in=0; in<ns_tracker.get_n_ns(); ++in){
+            std::string name = "ns_location_" + std::to_string(in) ; 
+            read_coord_dataset(name, ns_centers_h(in,0), ns_centers_h(in,1),ns_centers_h(in,2)) ; 
+        }
+        Kokkos::deep_copy(ns_centers_d,ns_centers_h) ; 
+        ns_tracker.set_ns_locations(ns_centers_d) ; 
+    }
+    // ditto for puncture tracker 
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    auto& puncture_tracker = grace::puncture_tracker::get() ; 
+    if (puncture_tracker.is_active()) {
+        auto puncture_centers  = puncture_tracker.get_puncture_locations() ; 
+        for( int ip=0; ip<puncture_tracker.get_n_punctures(); ++ip){
+            std::string name = "puncture_location_" + std::to_string(ip) ; 
+            read_coord_dataset(
+                name, 
+                puncture_centers[ip][0],
+                puncture_centers[ip][1],
+                puncture_centers[ip][2]
+            ) ; 
+        }
+        puncture_tracker.set_puncture_locations(puncture_centers) ; 
+    }
+    #endif 
     /**********************************************************************/
     /* Read the state data                                                */
     /**********************************************************************/

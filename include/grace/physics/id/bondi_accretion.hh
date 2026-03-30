@@ -154,7 +154,7 @@ struct bondi_id_t {
     bondi_id_t(
           eos_t _eos 
         , grace::coord_array_t<GRACE_NSPACEDIM> pcoords 
-    ) : eos(_eos), _pcoords(pcoords)
+    ) : _eos(_eos), _pcoords(pcoords)
     {
         using namespace Kokkos ;
         excision_params = get_excision_params() ;
@@ -231,22 +231,42 @@ struct bondi_id_t {
         double T = get_temperature_bondi(r, par) ; 
 
         // compute other quantities 
-        double uBL[4] = {0,0,0,0}; 
+        double uR ; 
         bondi_ur_rho_p__r(
-            par.rc,par.n,par.K,T,r,par.Tc,par.uc,&(uBL[1]),&id.rho,&id.press
+            par.rc,par.n,par.K,T,r,par.Tc,par.uc,&(uR),&id.rho,&id.press
         ) ; 
         
         // four metric 
         double g4dd[4][4], g4uu[4][4] ; 
         kerr_schild_four_metric(xyz,0.0,r_exc,&g4dd,&g4uu) ; 
 
+        // now get u^\phi 
+        // we know j = - u_\phi / u_t 
+        double jloc = Kokkos::pow(
+            par.j * Kokkos::sin(theta), par.j_pow
+        ) ; 
+        // u_r ** lower component ** 
+        double u_r = g4dd[1][1] * uR ; 
+        // u_t **lower component**
+        double u_t = - Kokkos::sqrt(
+            (-1 - g4uu[1][1] * SQR(u_r)) / ( g4uu[0][0] - 2 * g4uu[0][3] * jloc + g4uu[3][3] * SQR(jloc) ) 
+        ) ; 
+        // u_\phi lower component 
+        double u_phi = - jloc * u_t ; 
+
+        // finally raise the index 
+        double uBL_low[4] = {u_t, u_r, 0, u_phi} ;
+        double uBL[4] = {0,0,0,0}; 
+        for( int ii=0; ii<4; ++ii ) {
+            for( int jj=0; jj<4; ++jj) {
+                uBL[ii] += g4uu[ii][jj] * uBL_low[jj] ; 
+            }
+        }
+
         // radial vector
-        // TODO change this to be BL to CKS 
         double uKS[4] ; 
-        //transform_vector_bl2ks(uBL,xyz,0.0,1e-6,&uKS) ; 
-        uKS[1] = uBL[1] * xyz[0]/r ; 
-        uKS[2] = uBL[1] * xyz[1]/r ;
-        uKS[3] = uBL[1] * xyz[2]/r ;
+        transform_vector_bl2ks(xyz,0.0,r_exc,uBL,&uKS) ; 
+
         // get metric 
         double guu[6] ; 
         kerr_schild_adm_metric(
@@ -287,6 +307,8 @@ struct bondi_id_t {
         id.bz = Br * xyz[2]/r/sqrtg ;
 
         // ye
+        eos_err_t eoserr ;
+        
         id.ye = 0.0 ; 
 
         if ( excision_params.excise_by_radius and r <= ( 1e-12 + r_exc ) ) {
@@ -294,14 +316,18 @@ struct bondi_id_t {
             //id.bx = id.by = id.bz = 0.0;
             id.vx = id.vy = id.vz = 0.0;
             double temp = excision_params.temp_ex ; 
-            unsigned int eoserr ; 
-            id.press = eos.press__temp_rho_ye_impl(temp,id.rho,id.ye,eoserr) ; 
+            id.press = _eos.press__temp_rho_ye_impl(temp,id.rho,id.ye,eoserr) ; 
         }
+
+        double h,cs2; 
+        id.eps = _eos.eps_h_csnd2_temp_entropy__press_rho_ye(
+            h,cs2,id.temp,id.entropy,id.press,id.rho,id.ye,eoserr 
+        ) ;
 
         return id ; 
     }
 
-    eos_t eos ; 
+    eos_t _eos ; 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;
 
     bondi_params_t par ; 

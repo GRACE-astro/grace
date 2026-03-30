@@ -47,6 +47,7 @@
 #include <grace/IO/diagnostics/gw_integrals.hh>
 #include <grace/physics/z4c.hh>
 #endif
+#include <grace/IO/diagnostics/outflow_diagnostics.hh>
 #include <Kokkos_Core.hpp>
 
 #include <array>
@@ -81,6 +82,8 @@ void output_diagnostics() {
     gw_integrals gw_ints{} ; 
     gw_ints.compute_and_write() ;  
     #endif
+    outflows outfl{} ; 
+    outfl.compute_and_write() ; 
 }
 
 void initialize_diagnostic_files() {
@@ -90,6 +93,8 @@ void initialize_diagnostic_files() {
     gw_integrals gw_ints{} ; 
     gw_ints.initialize_files() ;  
     #endif
+    outflows outfl{} ; 
+    outfl.initialize_files() ; 
     parallel::mpi_barrier() ;
 }
 

@@ -44,7 +44,6 @@
 #include <grace/utils/reconstruction.hh>
 #include <grace/utils/weno_reconstruction.hh>
 #include <grace/utils/riemann_solvers.hh>
-//#include <grace/utils/advanced_riemann_solvers.hh>
 #include "grmhd_subexpressions.hh"
 //#include "hllc_subexpressions.hh"
 #include "fd_subexpressions.hh"
@@ -236,9 +235,13 @@ struct grmhd_equations_system_t
         #ifdef GRACE_ENABLE_COWLING_METRIC
         fill_deriv_tensor_4(this->_state, i,j,k, GXX_, q, dgdd_dx, idx(0,q)) ;
         #else 
-        double chi = s(CHI_) ; 
-        double ooW = 1./chi ; 
+        // conformal factor W = 1/gamma^{1/6}
+        double Wt  = s(CHI_) ; 
+        // 1/W 
+        double ooW = 1./Wt ; 
+        // 1/W^2
         double ooWsqr = SQR(ooW) ; 
+        // dW_dx/y/z 
         double dchi_dx[3] ; 
         fill_deriv_scalar_4(this->_state, i,j,k, CHI_, q, dchi_dx, idx(0,q)) ;
         fill_deriv_tensor_4(this->_state, i,j,k, GTXX_, q, dgdd_dx, idx(0,q)) ;
@@ -394,22 +397,26 @@ struct grmhd_equations_system_t
 
         aux(C2P_ERR_) = 0;
         
-        if ( c2p_errors.adjust_d ) {
+        if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_DENS) ) {
             aux(C2P_ERR_) += Kokkos::fabs(cons[DENSL]-vars(DENS_));
             vars(DENS_) = cons[DENSL] ; 
         }
-        if ( c2p_errors.adjust_s ) {
+        if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_STILDE) ) {
             for( int ii=0; ii<3; ++ii) {
                 aux(C2P_ERR_) += Kokkos::fabs(cons[STXL+ii]-vars(SX_+ii));
                 vars(SX_+ii)=cons[STXL+ii] ; 
             }
         }
-        if ( c2p_errors.adjust_tau ) {
+        if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_TAU) ) {
             aux(C2P_ERR_) += Kokkos::fabs(cons[TAUL]-vars(TAU_));
             vars(TAU_)=cons[TAUL];
         }
-        if ( c2p_errors.adjust_ent ) {
+        if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_ENTROPY) ) {
             vars(ENTROPYSTAR_) = cons[ENTSL] ; 
+        }
+        if ( c2p_errors.test(c2p_err_enum_t::C2P_RESET_YE) ) {
+            aux(C2P_ERR_) += Kokkos::fabs(cons[YESL]-vars(YESTAR_));
+            vars(YESTAR_) = cons[YESL] ; 
         }
         /* Compute W */
         double const W = Kokkos::sqrt(1.+metric.square_vec({prims[ZXL],prims[ZYL],prims[ZZL]})) ;
@@ -467,7 +474,7 @@ struct grmhd_equations_system_t
 
         /* Get soundspeed, enthalpy */
         double csnd2, h ; 
-        unsigned int err ; 
+        eos_err_t err ; 
         double dummy = _eos.press_h_csnd2__temp_rho_ye( h, csnd2, T, rho, ye, err);
 
         /* Compute Lorentz factor */
@@ -701,37 +708,7 @@ struct grmhd_equations_system_t
 
         theta = math::min(theta_m, theta_p) ;
         if ( std::isnan(theta) ) theta = 1. ; 
-        #if 0
-        // mix in the lapse 
-        double theta_exc ; 
-        if ( excision_params.excise_by_radius ) {
-            double fcoords[3] = {
-                idir == 0 ? 0. : 0.5 ,
-                idir == 1 ? 0. : 0.5 ,
-                idir == 2 ? 0. : 0.5 ,
-            } ; 
-            double rtp[3] ; 
-            dcoords.get_physical_coordinates_sph(i,j,k,q,fcoords,rtp,1) ; 
-            double a0 = 0.5 * (excision_params.r_f+excision_params.r_ex) ; 
-            double da = 0.25 * (excision_params.r_f-excision_params.r_ex) ;
-            theta_exc = 0.5 * (1.0 + Kokkos::tanh((rtp[0]-a0)/da)) ; 
-        } else {
-            double a0 = 0.5 * (excision_params.alp_f+excision_params.alp_ex) ; 
-            double da = 0.25 * (excision_params.alp_f-excision_params.alp_ex) ;
-            theta_exc = 0.5 * (1.0 + Kokkos::tanh((metric_face.alp()-a0)/da)) ; 
-        }
-        theta *= Kokkos::fmin(Kokkos::fmax(theta_exc,0.),1.) ; 
         
-        // fixme! 
-        double fcoords[3] = {
-                idir == 0 ? 0. : 0.5 ,
-                idir == 1 ? 0. : 0.5 ,
-                idir == 2 ? 0. : 0.5 ,
-            } ; 
-        double rtp[3] ; 
-        dcoords.get_physical_coordinates_sph(i,j,k,q,fcoords,rtp,1) ; 
-        if ( rtp[0] <= excision_params.r_f) theta = 0 ; 
-        #endif 
         //if ( metric_face.alp() < 0.2 ) theta = 0 ; 
         /***********************************************************************/
         /***********************************************************************/
@@ -798,13 +775,9 @@ struct grmhd_equations_system_t
         double& sr            = primR[ENTL]   ;
         double& tl            = primL[TEMPL]  ;
         double& tr            = primR[TEMPL]  ;
-        #ifdef GRACE_EVOLVE_YE
         double& yel           = primL[YEL]    ;
         double& yer           = primR[YEL]    ;
-        #else 
-        double yel            = 0.0           ;
-        double yer            = 0.0           ;
-        #endif
+
         
         /***********************************************************************/
         /* Compute W on both sides                                             */
@@ -816,7 +789,7 @@ struct grmhd_equations_system_t
         /* Compute press and cs2 on both sides                                 */
         /***********************************************************************/
         double epsl,epsr,pl,pr,cs2l,cs2r ; 
-        unsigned int eos_err; 
+        eos_err_t eos_err ; 
         pl = _eos.press_eps_csnd2__temp_rho_ye(epsl, cs2l, tl, rhol, yel, eos_err) ; 
         pr = _eos.press_eps_csnd2__temp_rho_ye(epsr, cs2r, tr, rhor, yer, eos_err) ; 
         /***********************************************************************/
@@ -906,10 +879,8 @@ struct grmhd_equations_system_t
         f[STYL] = sqrtg * solver(fstl[1],fstr[1],stl[1],str[1],cmin,cmax) ; 
         f[STZL] = sqrtg * solver(fstl[2],fstr[2],stl[2],str[2],cmin,cmax) ; 
         /***********************************************************************/
-        #ifdef GRACE_EVOLVE_YE
         f[YESL] = sqrtg * solver(yel*fdl,yer*fdr,yel*densl,yer*densr,cmin,cmax) ;
         /***********************************************************************/
-        #endif  
     }
     /***********************************************************************/
     /***********************************************************************/
@@ -1211,6 +1182,7 @@ extern template                          \
 void set_grmhd_initial_data<EOS>( )
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
+INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 /***********************************************************************/
 }
