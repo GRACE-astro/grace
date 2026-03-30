@@ -183,7 +183,7 @@ struct bondi_id_t {
         // 1) Schwarzschild 
         // 2) That u // rhat and B // rhat 
         if ( par.magnetized ) {
-            double Pc = par.Tc * pow(par.Tc/par.K,par.n) ; // pressure at rc 
+            double Pc = par.Tc * Kokkos::pow(par.Tc/par.K,par.n) ; // pressure at rc 
             double smallb2_c = 2. * Pc / par.beta_c ; 
             // compute W at r_c 
             // Schwarszschild metric, BL coords 
@@ -192,11 +192,11 @@ struct bondi_id_t {
             double grr = rho2 / Delta ; 
             double gtt = - ( 1. - 2 * par.M / par.rc ) ; 
             // find u^t 
-            double utc = sqrt((grr * SQR( par.uc)+1)/(-gtt) ) ; 
+            double utc = Kokkos::sqrt((grr * SQR( par.uc)+1)/(-gtt) ) ; 
             // get Lorentz factor 
-            double Wc = sqrt(1-2*par.M/par.rc) * utc ; 
+            double Wc = Kokkos::sqrt(1-2*par.M/par.rc) * utc ; 
             // find B^r (r=r_c)
-            double Brc = Wc * sqrt( smallb2_c / (grr * (1+grr*SQR(par.uc)))) ; 
+            double Brc = Wc * Kokkos::sqrt( smallb2_c / (grr * (1+grr*SQR(par.uc)))) ; 
             par.B0 = Brc * SQR(par.rc) ; // B^r = B^0/r^2 
         } else {
             par.B0 = 0.0 ; 
@@ -289,7 +289,7 @@ struct bondi_id_t {
         double discrim = fmax(B*B - A*C,0);
 
         // pick future-directed
-        uKS[0] = (-B - sqrt(discrim))/A ; 
+        uKS[0] = (-B - Kokkos::sqrt(discrim))/A ; 
 
         // get 3 velocity 
         id.vx = uKS[1]/(id.alp * uKS[0]) + id.betax/id.alp ; 

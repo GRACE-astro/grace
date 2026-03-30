@@ -178,7 +178,7 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
 
         kadath_output_t all_data(xgrid.size());
       
-	#pragma omp parallel for firstprivate(input_reader), schedule(static)
+	#pragma omp parallel for firstprivate(input_reader)
 	for (size_t idx = 0; idx < xgrid.size(); ++idx) {
 	  all_data[idx] = input_reader.export_pointwise(xgrid[idx], ygrid[idx], zgrid[idx]);
 	}

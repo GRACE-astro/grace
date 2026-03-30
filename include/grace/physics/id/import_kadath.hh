@@ -43,9 +43,11 @@
 #include <functional>
 
 // choose the serial or OpenMP parallelized mode - depends crucially on the setup of the underlying kadath library
-// #define KADATH_EXPORTERS_SERIAL 
 #define KADATH_EXPORTERS_PARALLEL 
 
+#ifndef KADATH_EXPORTERS_PARALLEL
+#define KADATH_EXPORTERS_SERIAL
+#endif 
 
 // enumeration for quantities to export to evolution codes
 enum sim_vac_quants {
