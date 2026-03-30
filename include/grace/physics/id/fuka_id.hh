@@ -187,7 +187,7 @@ struct fuka_id_t {
         
         
         double const rho_atm{1e-14} ; 
-        unsigned int eos_err ;
+        eos_err_t eos_err ;
 
         double rho = _rho(VEC(i,j,k),q);
 

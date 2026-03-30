@@ -367,7 +367,9 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
         Kokkos::deep_copy(yeL,_ye)       ; 
         Kokkos::deep_copy(ltL,_lt)       ;
         Kokkos::deep_copy(lrhoL, _lrho ) ; 
-        tabeos_linterp_t interpolator(alltables,lrhoL,ltL,yeL) ;
+       // tabeos_linterp_t interpolator(alltables,lrhoL,ltL,yeL) ;
+        tabeos_linterp_impl_t<Kokkos::LayoutLeft, Kokkos::HostSpace> interpolator(alltables, lrhoL, ltL, yeL);
+
 
         auto const find_betaeq = [=] (double rho, double T) {
             double logrhoL = log(rho) ; 
@@ -708,9 +710,11 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
         Kokkos::deep_copy(yeL,_ye)       ; 
         Kokkos::deep_copy(ltL,_lt)       ;
         Kokkos::deep_copy(lrhoL, _lrho ) ; 
-        tabeos_linterp_t interpolator(alltables,lrhoL,ltL,yeL) ;
+        //tabeos_linterp_t interpolator(alltables,lrhoL,ltL,yeL) ;
 
-        auto const find_betaeq = [=] (double rho, double T) {
+        tabeos_linterp_impl_t<Kokkos::LayoutLeft, Kokkos::HostSpace> interpolator(alltables, lrhoL, ltL, yeL);
+        
+	auto const find_betaeq = [=] (double rho, double T) {
             double logrhoL = log(rho) ; 
             double logtempL = log(T) ; 
             auto const dmu = [&] (double ye) {
