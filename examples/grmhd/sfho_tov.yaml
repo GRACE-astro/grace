@@ -63,7 +63,7 @@ IO: {
 
   info_output_every: 2,
   info_output_max_reductions: ["rho"],
-  info_output_min_reductions: ["alp"],
+  info_output_min_reductions: ["alp", "ye"],
   info_output_norm2_reductions: ["z4c_H"],
 
   scalar_output_every: 10,

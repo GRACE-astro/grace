@@ -15,16 +15,22 @@ ns_tracker:
   ns_x_initial:
     type: list 
     item_type: double
+    default: []
+    range: "(*,*)"
     description: >
       X coordinate of initial NS location(s)
   ns_y_initial:
     type: list 
     item_type: double
+    default: []
+    range: "(*,*)"
     description: >
       Y coordinate of initial NS location(s)
   ns_z_initial:
     type: list 
     item_type: double
+    default: []
+    range: "(*,*)"
     description: >
       Z coordinate of initial NS location(s)
   density_threshold:

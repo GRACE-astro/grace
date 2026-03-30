@@ -83,7 +83,7 @@ struct outflows:
         #else 
         this->var_interp_idx = std::vector<int>({GTXX_, GTXY_, GTXZ_, GTYY_, GTYZ_, GTZZ_, CHI_, BETAX_, BETAY_, BETAZ_, ALP_});
         #endif
-        this->aux_interp_idx = std::vector<int>({RHO_,PRESS_,EPS_,ZVECX_,ZVECY_,ZVECZ_});
+        this->aux_interp_idx = std::vector<int>({RHO_,EPS_,PRESS_,ZVECX_,ZVECY_,ZVECZ_});
     }
 
     std::array<double,n_fluxes> 

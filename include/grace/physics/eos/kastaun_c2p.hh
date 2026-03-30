@@ -15,26 +15,42 @@
 
 namespace grace {
 
+  /**
+   * @brief Auxiliary rootfind for Kastaun c2p
+   */
   struct fbrack_t {
+    /**
+     * @brief Constructor
+     */
     KOKKOS_FUNCTION fbrack_t(double _rsqr, double _bsqr, double _rbsqr,  double _h0)
       : rsqr(_rsqr), bsqr(_bsqr), rbsqr(_rbsqr), h0sqr(_h0*_h0) 
     {}
-
+    /**
+     * @brief x of mu
+     */
     double KOKKOS_INLINE_FUNCTION 
     x__mu(double mu) const {
       return 1./(1. + mu*bsqr) ; 
     }
-
+    /**
+     * @brief (r B)^2 of mu, x 
+     */
     double KOKKOS_INLINE_FUNCTION 
     rbsq__mu_x(double mu, double x) const {
       return x * (rsqr * x + mu * (x + 1.0) * rbsqr);  
     }
 
+    /**
+     * @brief h0 W of mu, x
+     */
     double KOKKOS_INLINE_FUNCTION 
     h0w__mu_x(double mu, double x) const {
       return sqrt(h0sqr + rbsq__mu_x(mu,x));  
     }
     
+    /**
+     * @brief Residual of auxiliary function, returning derivative
+     */
     void KOKKOS_INLINE_FUNCTION
     operator() (double mu, double& f, double& df) const {
       double x = x__mu(mu) ; 
@@ -45,6 +61,9 @@ namespace grace {
       df    = (h0sqr + b) / hw;
     }   
     
+    /**
+     * @brief Residual of auxiliary function, no derivative
+     */
     double KOKKOS_INLINE_FUNCTION
     operator() (double mu) const {
       double x = x__mu(mu) ; 
@@ -52,6 +71,9 @@ namespace grace {
       return mu * Kokkos::sqrt(h0sqr + rfsqr) - 1. ; 
     } 
 
+    /**
+     * @brief Bracket where the root lies
+     */
     void KOKKOS_INLINE_FUNCTION 
     bracket(double& mu_min, double& mu_max) const {
       mu_min = 1./(h0sqr + rsqr) ; 
@@ -69,9 +91,15 @@ namespace grace {
     double rsqr, bsqr, rbsqr, h0sqr; 
   } ; 
   
+  /**
+   * @brief Main rootfinding interface of Kastaun c2p
+   */
   template< typename eos_t > 
   struct froot_t {
 
+    /**
+     * @brief Constructor
+     */
     KOKKOS_FUNCTION froot_t(
       eos_t _eos, double _d, double _q, double _rsqr, double _rbsqr, double _bsqr, double _ye, double h0
     ) : eos(_eos), d(_d), qtot(_q), ye(_ye), rsqr(_rsqr), bsqr(_bsqr), rbsqr(_rbsqr), brosqr(_rsqr*_bsqr-_rbsqr)
@@ -83,22 +111,34 @@ namespace grace {
 
     }
 
+    /**
+     * @brief x of mu
+     */
     double KOKKOS_INLINE_FUNCTION 
     x__mu(double mu) const {
       return 1./(1. + mu*bsqr) ; 
     }
 
+    /**
+     * @brief Non-magnetic momentum density square of mu, x
+     */
     double KOKKOS_INLINE_FUNCTION 
     rfsqr__mu_x(double mu, double x) const {
       return x * (rsqr * x + mu * (x + 1.0) * rbsqr);  
     }
     
+    /**
+     * @brief Non-magnetic energy density of mu, x
+     */
     double KOKKOS_INLINE_FUNCTION
     qf__mu_x(double mu, double x) const {
       double mux = mu*x ; 
       return qtot - 0.5 * (bsqr + mux*mux*brosqr) ;
     }
 
+    /**
+     * @brief Get eps
+     */
     double KOKKOS_INLINE_FUNCTION
     eps_raw__mu_qf_rfsqr_w(
       double mu, double qf, double rfsqr, double w
@@ -107,6 +147,9 @@ namespace grace {
       return w * (qf - mu * rfsqr*(1.0 - mu * w / (1 + w)));
     }
 
+    /**
+     * @brief Get allowed eps range at rho, ye
+     */
     void KOKKOS_INLINE_FUNCTION
     get_eps_range(double& epsmin, double& epsmax, double rho) const {
       double yel{ye} ;
@@ -115,6 +158,9 @@ namespace grace {
       eos.eps_range__rho_ye(epsmin,epsmax,rhol,yel,eos_err);
     }
 
+    /**
+     * @brief Obtain primitives
+     */
     double KOKKOS_INLINE_FUNCTION
     compute_primitives(
       double mu, c2p_sig_t& err,
@@ -177,6 +223,9 @@ namespace grace {
       
     }
     
+    /**
+     * @brief Call to c2p residual
+     */
     double KOKKOS_INLINE_FUNCTION
     operator() (double mu) 
     {
@@ -217,16 +266,17 @@ namespace grace {
       return mu - newmu;
     }
 
-
-    eos_t eos ; 
-
-    double d, qtot, ye ; 
-
-    double rsqr, bsqr, rbsqr, brosqr, h0sqr; 
-
-    double vsqrmax, wmax ; 
+    /************************************************/
+    eos_t eos ; //!< Equation of state handle 
+    /************************************************/
+    double d, qtot, ye ; //!< Density, energy density, ye
+    /************************************************/
+    double rsqr, bsqr, rbsqr, brosqr, h0sqr; //!< Helpers
+    /************************************************/
+    double vsqrmax, wmax ; //!< Maximum v^2 and W
+    /************************************************/
   } ; 
-
+  /************************************************/
   template< typename eos_t >
   struct kastaun_c2p_t {
 
@@ -278,8 +328,6 @@ namespace grace {
      */
     double  GRACE_HOST_DEVICE
     invert(grmhd_prims_array_t& prims, c2p_sig_t& c2p_errors) {
-
-      prims[YEL] = ye ;
       
       static constexpr double tolerance = 1e-15 ; 
 

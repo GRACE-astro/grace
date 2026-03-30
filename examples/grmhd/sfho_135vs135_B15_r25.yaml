@@ -91,14 +91,14 @@ IO: {
   volume_output_base_directory: "output_volume",
   volume_output_every: -1,
 
-  plane_surface_output_cell_variables: ["metric", "hydro", "c2p_err"],
-  plane_surface_output_every: 100,
+  plane_surface_output_cell_variables: ["metric", "hydro", "c2p_err","smallb2"],
+  plane_surface_output_every: 200,
 
   sphere_surface_output_every: -1,
 
   info_output_every: 2,
   info_output_max_reductions: ["rho"],
-  info_output_min_reductions: ["alp"],
+  info_output_min_reductions: ["alp","ye"],
   info_output_norm2_reductions: ["z4c_H"],
 
   scalar_output_every: 1,

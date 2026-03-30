@@ -189,8 +189,6 @@ namespace grace {
      */
     double  GRACE_HOST_DEVICE
     invert(grmhd_prims_array_t& prims, c2p_sig_t& err) {
-
-      prims[YEL]  = ye ;
       
       static constexpr double tolerance = 1e-15 ; 
 

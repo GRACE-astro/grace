@@ -238,7 +238,7 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     /* Figure out if we are inside a bh   */
     /* in which case we should be lenient */
     bool c2p_is_lenient = (
-        metric.sqrtg() > c2p_pars.psi6_bh_thresh 
+        metric.alp() < c2p_pars.alp_bh_thresh 
     ) ; 
     // FIXME!!! Sometimes tabeos randomly puts one point in the 
     // ejecta at max eps, we don't want that to crash the whole 

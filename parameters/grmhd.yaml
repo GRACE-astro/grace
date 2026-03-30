@@ -119,12 +119,12 @@ grmhd:
       default: 1e-2
       description: >
         Directly use entropy backup if beta<fallback_threshold
-    bh_psi6_thresh:
+    bh_alp_thresh:
       type: double 
       range: "(0,*)"
-      default: 1000
+      default: 0.2
       description: >
-        If sqrtg > thresh we are inside a BH and c2p errors become lenient
+        If alp <= thresh we are inside a BH and c2p errors become lenient
   
   B_field_initialization:
     type: keyword

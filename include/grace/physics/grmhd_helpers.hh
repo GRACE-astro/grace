@@ -55,7 +55,7 @@ struct c2p_params_t {
   double max_sigma     ; //!< Maximum magnetization b^2/rho
   double beta_fallback ; //!< beta < fallback we use ent
   bool use_ent_backup  ; //!< Use backup c2p?
-  double psi6_bh_thresh; //!< sqrtg theshold for BH horizon
+  double alp_bh_thresh ; //!< alp theshold for BH horizon
 } ; 
 /**
  * @brief Excision parameters
@@ -182,7 +182,7 @@ c2p_params_t get_c2p_params()
   c2p_params.max_sigma = grace::get_param<double>("grmhd","c2p","max_sigma") ; 
   c2p_params.beta_fallback = grace::get_param<double>("grmhd","c2p","beta_fallback") ; 
   c2p_params.use_ent_backup = grace::get_param<bool>("grmhd","c2p","use_c2p_entropy_backup") ;
-  c2p_params.psi6_bh_thresh = grace::get_param<double>("grmhd","c2p","bh_psi6_thresh") ;
+  c2p_params.alp_bh_thresh = grace::get_param<double>("grmhd","c2p","bh_alp_thresh") ;
   return c2p_params ; 
 }
 

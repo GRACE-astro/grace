@@ -816,11 +816,11 @@ class tabulated_eos_t
     void KOKKOS_INLINE_FUNCTION 
     limit_ye(double& ye, err_t& err) const {
         if( ye < this->eos_yemin ) {
-            ye = (1+1e-2) * this->eos_yemin;
+            ye = this->eos_yemin;
             err.set(EOS_YE_TOO_LOW);
         } 
         if( ye > this->eos_yemax ) {
-            ye = (1-1e-2) * this->eos_yemax;
+            ye = this->eos_yemax;
             err.set(EOS_YE_TOO_HIGH);
         }
     }

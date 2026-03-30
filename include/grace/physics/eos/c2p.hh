@@ -80,7 +80,11 @@ void KOKKOS_INLINE_FUNCTION c2p_handle_signals(
 )
 {
     if ( sig.test(C2P_RHO_TOO_HIGH) ) {
-        Kokkos::abort("In c2p: maximum density exceeded") ; 
+        if ( be_lenient ) {
+            err.set_all() ; 
+        } else {
+            Kokkos::abort("In c2p: maximum density exceeded") ; 
+        }
     }
     if ( sig.test(C2P_RHO_TOO_LOW) ) {
         // if rho was modified everything has to change
@@ -108,12 +112,12 @@ void KOKKOS_INLINE_FUNCTION c2p_handle_signals(
         // to atmo. In my experience this 
         // flared up in points where rho was
         // 1.001e-14, so not much of a loss. 
-        err.set(C2P_RESET_STILDE) ; 
+        // err.set(C2P_RESET_STILDE) ; FIXME: I checked around other codes, people usually leave momentum alone 
         err.set(C2P_RESET_TAU)    ;
     }
 
     if (sig.test(C2P_EPS_TOO_LOW)) {
-        err.set(C2P_RESET_STILDE) ; 
+        // err.set(C2P_RESET_STILDE) ; FIXME: I checked around other codes, people usually leave momentum alone 
         err.set(C2P_RESET_TAU)    ;
     }
 

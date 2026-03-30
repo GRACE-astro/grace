@@ -288,9 +288,9 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
         logtemp[i] = logtemp[i] * log(10.)  ; 
     }
 
-    double rhomin{exp(logrho[0])}, rhomax{exp(logrho[nrho-1])} ; 
-    double tempmin{exp(logtemp[0])}, tempmax{exp(logtemp[ntemp-1])} ;  
-    double yemax{ye[nye-1]}, yemin{ye[0]}     ;
+    double const rhomin{exp(logrho[0])}, rhomax{exp(logrho[nrho-1])} ; 
+    double const tempmin{exp(logtemp[0])}, tempmax{exp(logtemp[ntemp-1])} ;  
+    double const yemax{ye[nye-1]}, yemin{ye[0]}     ;
 
     double hmin{std::numeric_limits<double>::max()}, hmax{std::numeric_limits<double>::min()} ;
     double epsmin{std::numeric_limits<double>::max()}, epsmax{std::numeric_limits<double>::min()} ;
@@ -340,8 +340,7 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
     grace::deep_copy_vec_to_view(_lt  , logtemp) ; 
     grace::deep_copy_vec_to_view(_ye  , ye)      ; 
     GRACE_INFO("Table shape: ({}, {}, {}, {})", _tables.extent(0), _tables.extent(1), _tables.extent(2), _tables.extent(3)) ; 
-    GRACE_INFO("Rest mass density max {}, min {} Temperature max {}, min {}, minimum enthalpy {}, energy shift {}", rhomax, rhomin, tempmax, tempmin, hmin, energy_shift) ; 
-
+    GRACE_INFO("Rest mass density max {}, min {}\n Temperature max {}, min {}\n ye max {}, min {}\n minimum enthalpy {}\n energy shift {}", rhomax, rhomin, tempmax, tempmin, yemax,yemin, hmin, energy_shift) ; 
     // figure out if atmo is beta equilibrated,
     // if so, find the beta equilibrium ye 
     double temp_floor = get_param<double>("grmhd", "atmosphere", "temp_fl") ; 
@@ -389,6 +388,8 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
     if ( usr_eps_max < epsmax ) {
         epsmax = usr_eps_max ; 
     }
+
+    GRACE_INFO("Atmosphere settings: rho: {}, temperature: {}, ye: {}", rho_floor, temp_floor, ye_atmo) ; 
 
     // read in the cold table 
     Kokkos::View<double **, grace::default_execution_space> cold_tables("eos_cold_table") ; 
