@@ -358,6 +358,8 @@ void write_data_hdf5(
 
     double * dptr = nullptr ; 
     std::vector<double> flatbuf ; 
+    decltype(Kokkos::create_mirror_view(Kokkos::HostSpace{}, data)) h_mirror;
+
     if constexpr ( Kokkos::SpaceAccessibility<Kokkos::HostSpace, grace::default_space>::accessible ) {
         if ( data.span_is_contiguous() ) {
             dptr = data.data() ; 
@@ -367,7 +369,7 @@ void write_data_hdf5(
             dptr = flatbuf.data() ; 
         }
     } else {
-        auto h_mirror = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, data) ; 
+        h_mirror = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, data);
         if ( h_mirror.span_is_contiguous() ) {
             dptr = h_mirror.data() ; 
         } else {

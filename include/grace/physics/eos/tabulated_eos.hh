@@ -41,17 +41,15 @@ namespace grace {
 
 // interpolator for tabeos 
 // spacing assumed constant 
-template<typename Layout = typename Kokkos::DefaultExecutionSpace::array_layout, 
-	 typename Space = typename Kokkos::DefaultExecutionSpace::memory_space>
-struct tabeos_linterp_impl_t {
+struct tabeos_linterp_t {
 
-    tabeos_linterp_impl_t() = default ; 
+    tabeos_linterp_t() = default ; 
 
-    tabeos_linterp_impl_t(
-        Kokkos::View<double ****, Layout, Space> tabs,
-        Kokkos::View<double *,Layout, Space> ar, 
-        Kokkos::View<double *,Layout, Space> at, 
-        Kokkos::View<double *,Layout, Space> ay
+    tabeos_linterp_t(
+        Kokkos::View<double ****> tabs,
+        Kokkos::View<double *> ar, 
+        Kokkos::View<double *> at, 
+        Kokkos::View<double *> ay
     ) : _tables(tabs), _logrho(ar), _logT(at), _ye(ay) 
     {
         idr =  1./(_logrho(1)-_logrho(0)) ; 
@@ -131,14 +129,14 @@ struct tabeos_linterp_impl_t {
     }
 
     void KOKKOS_INLINE_FUNCTION
-    getw(double x, int i, readonly_view_t<double,  Space> ax, double ih, double* w) const {
+    getw(double x, int i, readonly_view_t<double> ax, double ih, double* w) const {
         double lam = (x - ax(i)) * ih ; 
         w[0] = 1.-lam ;
         w[1] = lam    ; 
     }
 
-    readonly_view_t<double,  Space> _logrho, _logT, _ye ; 
-    Kokkos::View<double ****, Layout, Space> _tables ;
+    readonly_view_t<double> _logrho, _logT, _ye ; 
+    Kokkos::View<double ****> _tables ;
 
     double idr,idt,idy;
 } ; 
@@ -212,9 +210,6 @@ struct cold_eos_linterp_t {
 
     double idr,idt,idy;
 } ; 
-
-// default alias for device space
-using tabeos_linterp_t = tabeos_linterp_impl_t<>;
 
 /**
  * @brief Concrete EOS type corresponding to 
