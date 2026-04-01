@@ -31,7 +31,7 @@
 #ifndef GRACE_UTILS_DEVICE_H
 #define GRACE_UTILS_DEVICE_H
 
-#if defined(GRACE_ENABLE_CUDA) or defined (GRACE_ENABLE_HIP) //or defined(GRACE_ENABLE_SYCL)
+#if defined(GRACE_ENABLE_CUDA) or defined (GRACE_ENABLE_HIP)
 #define GRACE_DEVICE __device__ 
 #define GRACE_HOST   __host__ 
 #define GRACE_HOST_DEVICE __host__ __device__
