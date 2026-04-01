@@ -60,7 +60,7 @@ grmhd: {
 
 eos: {
   eos_type: "tabulated",
-  tabulated_path: "/users/pierrekh/data/eos_tables/compose_tables/DD2+VQCD_soft_quark_fraction.h5",     
+  tabulated_path: "/users/pierrekh/data/eos_tables/compose_tables/sly4.h5",     
 
   ye_atmosphere: 0,
   temp_atmosphere: 0,
