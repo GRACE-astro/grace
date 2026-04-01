@@ -40,12 +40,11 @@
 #define DEVICE_CONDITIONAL(cond,a,b) ((static_cast<bool>(cond)) * a + (1-static_cast<bool>(cond)) * b) 
 #endif
 #elif defined(GRACE_ENABLE_SYCL)
-  // SYCL does NOT support __host__ or __device__, so define empty
+  // SYCL has no notion of __host__ or __device__, empty define
   #define GRACE_DEVICE
   #define GRACE_HOST
   #define GRACE_HOST_DEVICE 
   #define GRACE_DEVICE_EXTERNAL_LINKAGE SYCL_EXTERNAL
-  //   #define GRACE_EXTERN SYCL_EXTERNAL somehow defining a macro through a macro doesn't work...
   #ifndef GRACE_ALLOW_DEVICE_CONDITIONALS
   #define DEVICE_CONDITIONAL(cond,a,b) ((static_cast<bool>(cond)) * a + (1-static_cast<bool>(cond)) * b) 
   #endif 
