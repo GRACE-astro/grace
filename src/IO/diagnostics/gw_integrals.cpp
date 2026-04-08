@@ -114,7 +114,7 @@ Y22(double theta, double phi)
 
 }
 
-std::vector<std::string> gw_integrals::flux_names = {"Psi2m2_re", "Psi2m2_im", "Psi2m1_re", "Psi2m1_im", "Psi20_re", "Psi20_im", "Psi21_re", "Psi21_im", "Psi22_re", "Psi22_im"} ; 
+std::vector<std::string> gw_integrals::flux_names = {"rPsi2m2_re", "rPsi2m2_im", "rPsi2m1_re", "rPsi2m1_im", "rPsi20_re", "rPsi20_im", "rPsi21_re", "rPsi21_im", "rPsi22_re", "rPsi22_im"} ; 
 
 std::array<double,gw_integrals::n_fluxes> 
 

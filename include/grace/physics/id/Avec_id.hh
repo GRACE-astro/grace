@@ -37,15 +37,25 @@ namespace grace {
 struct Avec_poloidal_id_t {
 
     Avec_poloidal_id_t(
-        double cut,
-        double Aphi,
-        double An,
-        bool is_binary,
-        std::array<double,3> const& _c1,
-        std::array<double,3> const& _c2
-    ) : _cut(cut), _A_phi(Aphi), _A_n(An)
-      , _is_binary(is_binary), c1(_c1), c2(_c2)
-    {}
+        double cut
+    ) : _cut(cut), c1({0,0,0}), c2({0,0,0})
+    {
+        _A_phi_1 = get_param<double>("grmhd", "Avec_ID","A_phi") ;
+        _A_phi_2 = get_param<double>("grmhd", "Avec_ID","A_phi_2") ;
+        if (_A_phi_2<0) _A_phi_2 = _A_phi_1 ; 
+
+        _A_n = get_param<double>("grmhd", "Avec_ID","A_n") ;
+
+        _is_binary = get_param<bool>("grmhd", "Avec_ID", "is_binary") ; 
+        
+        c1[0] = get_param<double>("grmhd", "Avec_ID","x_c_1") ;
+        c1[1] = get_param<double>("grmhd", "Avec_ID","y_c_1") ;
+        c1[2] = get_param<double>("grmhd", "Avec_ID","z_c_1") ;
+
+        c2[0] = get_param<double>("grmhd", "Avec_ID","x_c_2") ;
+        c2[1] = get_param<double>("grmhd", "Avec_ID","y_c_2") ;
+        c2[2] = get_param<double>("grmhd", "Avec_ID","z_c_2") ;
+    }
 
     template<size_t idir>
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
@@ -68,7 +78,7 @@ struct Avec_poloidal_id_t {
         double const& var
     ) const  
     {
-        double const _A = _A_phi * Kokkos::pow(Kokkos::max(var-_cut,0.0),_A_n) ; 
+        double const _A = _A_phi_1 * Kokkos::pow(Kokkos::max(var-_cut,0.0),_A_n) ; 
         std::array<double,3> A {
             -coords[1] * _A,
             coords[0] * _A,
@@ -89,20 +99,22 @@ struct Avec_poloidal_id_t {
 
         double d1 = SQR(x1[0]) + SQR(x1[1]) + SQR(x1[2]) ;
         double d2 = SQR(x2[0]) + SQR(x2[1]) + SQR(x2[2]) ;
-        double const _A = _A_phi * Kokkos::pow(Kokkos::max(var-_cut,0.0),_A_n) ; 
+        
 
         std::array<double,3> A{0,0,0} ;
         if (d1<d2) {   
+            double const _A = _A_phi_1 * Kokkos::pow(Kokkos::max(var-_cut,0.0),_A_n) ; 
             A[0] = -x1[1] * _A ; 
             A[1] = x1[0] * _A ; 
         } else {
+            double const _A = _A_phi_2 * Kokkos::pow(Kokkos::max(var-_cut,0.0),_A_n) ; 
             A[0] = -x2[1] * _A ; 
             A[1] = x2[0] * _A ; 
         } 
         return A[idir] ;
     }
 
-    double _cut, _A_phi, _A_n ;
+    double _cut, _A_phi_1,_A_phi_2, _A_n ;
     bool _is_binary ; 
     std::array<double,3> c1,c2 ;  
 } ; 

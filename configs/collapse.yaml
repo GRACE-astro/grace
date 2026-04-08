@@ -1,0 +1,137 @@
+name: "grace"
+amr: {
+  npoints_block_x: 48,
+  npoints_block_y: 48,
+  npoints_block_z: 48,
+  xmin: -128.0,
+  xmax:  128.0,
+  ymin: -128.0,
+  ymax:  128.0,
+  zmin: -128.0,
+  zmax:  128.0,
+
+  n_ghostzones: 4,
+  initial_refinement_level: 2,
+  max_refinement_level: 7,
+  regrid_every: -1,
+  regrid_at_postinitial: false,
+  n_fmr_boxes: 3,
+  fmr_boxes: [
+    {
+      target_level_delta: 1,
+      x_min: -64,
+      x_max:  64,
+      y_min: -64,
+      y_max:  64,
+      z_min: -64,
+      z_max:  64
+    },
+    {
+      target_level_delta: 2,
+      x_min: -32,
+      x_max:  32,
+      y_min: -32,
+      y_max:  32,
+      z_min: -32,
+      z_max:  32
+    },
+    {
+      target_level_delta: 3,
+      x_min: -16,
+      x_max:  16,
+      y_min: -16,
+      y_max:  16,
+      z_min: -16,
+      z_max:  16
+    }
+  ]
+}
+
+IO: {
+  volume_output_every: -1,
+
+  plane_surface_output_cell_variables: ["hydro","metric","c2p_err"],
+  plane_surface_output_every: 10,
+
+  sphere_surface_output_every: -1,
+
+  info_output_every: 2,
+  info_output_max_reductions: ["rho", "eps"],
+  info_output_min_reductions: ["alp","conf_fact"],
+  info_output_norm2_reductions: ["z4c_H"],
+
+  scalar_output_every: 10,
+  scalar_output_minmax: ["rho","press","eps","alp"],
+  scalar_output_norm2: ["z4c_H"],
+  scalar_output_integral: ["dens"],
+
+  output_use_hdf5: true,
+  hdf5_compression_level: 0,
+  hdf5_chunk_size: 8192,
+  output_extra_quantities: true,
+}
+
+system: {
+  console_log_level: "info",
+  file_log_level: "info",
+  n_device_streams: 4
+}
+
+evolution: {
+  time_stepper: "rk3",
+  cfl_factor: 0.2,
+  final_walltime: 23,
+  termination_condition: "walltime"
+}
+
+grmhd: {
+  id_type: "tov",
+
+  tov: {
+    rho_c: 8.e-3,
+    press_floor: 1e-15,
+    dr: 1e-3,
+    pert_amp: -0.002
+  },
+
+
+  atmosphere: {
+    temp_fl:  0.0,
+    rho_fl: 1.e-14
+  },
+
+  c2p: {
+    tolerance: 1e-10,
+    max_lorentz: 150,
+    use_c2p_entropy_backup: false
+  },
+
+  B_field_initialization: "none"
+
+}
+
+z4c: {
+  kappa_1: 0.02,
+  kappa_2: 0.0,
+  eta: 2.0,
+  eps_diss: 0.25,
+  eta_damp_radius: 64
+}
+
+eos: {
+  eos_type: "hybrid",
+  
+  eps_maximum: 1e5,
+
+  hybrid_eos: {
+    cold_eos_type: "piecewise_polytrope",
+    gamma_th: 2.0
+  },
+  
+  piecewise_polytrope: {
+    n_pieces: 1,
+    gammas: [2.],
+    rhos:   [],
+    kappa_0: 100.
+  }
+}

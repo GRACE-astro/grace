@@ -302,6 +302,41 @@ contract_4dvec_4dcovec( std::array<double,4> const& v
     return v[0]*w[0] + v[1] * w[1] + v[2] * w[2] + v[3] * w[3] ; 
 }
 /**
+ * @brief Contract a vector and covector
+ * 
+ * @param v Contravariant components of the vector.
+ * @param w Contravariant components of the covector.
+ * @return double \f$v^{\mu} w_{\mu}\f$.
+ */
+double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
+contract_4dvec_4dvec( std::array<double,4> const& v
+                    , std::array<double,4> const& w ) const
+{
+    enum idx4d : int {
+        _TT = 0,
+        _TX,
+        _TY,
+        _TZ,
+        _XX,
+        _XY,
+        _XZ,
+        _YY,
+        _YZ,
+        _ZZ
+    } ; 
+    auto gdd = gmunu() ; 
+    return gdd[idx4d::_TT] * v[0]*w[0] 
+         + gdd[idx4d::_XX] * v[1]*w[1] 
+         + gdd[idx4d::_YY] * v[2]*w[2] 
+         + gdd[idx4d::_ZZ] * v[3]*w[3]
+         + gdd[idx4d::_TX] * (v[0]*w[1] + w[0]*v[1])
+         + gdd[idx4d::_TY] * (v[0]*w[2] + w[0]*v[2])
+         + gdd[idx4d::_TZ] * (v[0]*w[3] + w[0]*v[3])
+         + gdd[idx4d::_XY] * (v[1]*w[2] + w[1]*v[2])
+         + gdd[idx4d::_XZ] * (v[1]*w[3] + w[1]*v[3])
+         + gdd[idx4d::_YZ] * (v[2]*w[3] + w[2]*v[3]) ; 
+}
+/**
  * @brief Contract a spatial vector and covector
  * 
  * @param v Contravariant components of the vector.

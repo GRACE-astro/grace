@@ -1,0 +1,11 @@
+mhd_diagnostics:
+  type: schema 
+  description: >
+    Compute mhd diagnostics such as magnetic energy etc. 
+
+  compute_energy_every:
+    type: int 
+    default: -1 
+    range: "[-1,*)"
+    description: >
+      How often to compute, -1 means never!

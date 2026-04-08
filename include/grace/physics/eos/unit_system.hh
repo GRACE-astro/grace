@@ -87,9 +87,9 @@ constexpr auto GEOM_units = unit_system::make_constexpr(
 );
 // Compose uses MeV for masses, fm for length, s for time 
 constexpr auto COMPOSE_units = unit_system::make_constexpr(
-    physical_constants::MeV_to_kg,
     physical_constants::fm_si,
     physical_constants::fm_si/physical_constants::c_si,
+    physical_constants::MeV_to_kg,
     -1 /* no magnetic field unit in CompOSE that I know of*/
 ) ; 
 

@@ -13,15 +13,9 @@ amr: {
 
   n_ghostzones: 4,
   initial_refinement_level: 2,
-  max_refinement_level: 9,
+  max_refinement_level: 7,
 
-  # Allow one extra ref level around a BH 
-  regrid_every: 1000,
-  refinement_criterion: "simple_threshold",
-  refinement_criterion_reduction: "min",
-  refinement_criterion_var: "alp",
-  refinement_criterion_CTODE: 0.5,
-  refinement_criterion_CTORE: 0.2,
+  regrid_every: -1,
 
   n_fmr_boxes: 6,
 
@@ -83,9 +77,9 @@ amr: {
       x_max: 32,
       y_min: -32,
       y_max: 32,
-      z_min: -16,
-      z_max: 16
-    }
+      z_min: -32,
+      z_max: 32
+    },
 
   ]
 
@@ -97,14 +91,14 @@ IO: {
   volume_output_base_directory: "output_volume",
   volume_output_every: -1,
 
-  plane_surface_output_cell_variables: ["metric", "hydro", "c2p_err","smallb2"],
-  plane_surface_output_every: 200,
+  plane_surface_output_cell_variables: ["metric", "hydro", "c2p_err"],
+  plane_surface_output_every: 100,
 
   sphere_surface_output_every: -1,
 
   info_output_every: 2,
   info_output_max_reductions: ["rho"],
-  info_output_min_reductions: ["alp","ye"],
+  info_output_min_reductions: ["alp"],
   info_output_norm2_reductions: ["z4c_H"],
 
   scalar_output_every: 1,
@@ -129,22 +123,23 @@ system: {
 }
 
 evolution: {
-  time_stepper: "rk3",
-  cfl_factor: 0.25,
+  time_stepper: "rk4",
+  cfl_factor: 0.4,
   termination_condition: "walltime",
   final_walltime: 23.5
 }
 
 
 grmhd: {
-  id_type: "lorene_bns",
-
-  lorene_bns: {
-    filename: "/u/cmusolino/bns_id/lorene/sfho/135vs135/d42/sfho_130_42km.d",
-    set_shift_to_zero: true,
-    reset_eps: false
+  id_type: "fuka",
+  
+  fuka: {
+  	filename: "BNS_ECC_RED.sfho_cold.30.2.0.0.2.75.q0.799738.0.0.13",
+    id_dir: "/u/cmusolino/fuka_id",
+    fuka_id_type: "BNS",
+    set_shift_to_zero: true
   },
-
+	
   atmosphere: {
     rho_fl: 1e-14,
     temp_fl: 0.01
@@ -155,30 +150,31 @@ grmhd: {
     excision_lapse: 0.15
   },
 
+  c2p: {
+    use_c2p_entropy_backup: true
+  },
+
   B_field_initialization: "from_Avec", 
 
   Avec_ID: {
     cutoff_var: "press",
     cutoff_fact: 0.04,
     A_n: 2,
-    A_phi: 294.5890347811254, # 1e15 Gauss 
+    A_phi: 442.3689622501931, # 1e14 Gauss 
+    A_phi_2: 170.5370808517842, # 5e14 Gauss 
     is_binary: true,
-    x_c_1: -14.222040716764846,
-    x_c_2: 14.222040716764846
+    x_c_1: -16.778317025108848, # Smaller star 
+    x_c_2: 13.412374184238759   # Bigger star 
   },
-
-  c2p: {
-    use_c2p_entropy_backup: false
-  }
 }
 
 eos: {
   eos_type: "tabulated",
 
   tabulated_eos: {
-    table_filename: "/u/cmusolino/eos/stellarcollapse/sfho/Hempel_SFHoEOS_rho222_temp180_ye60_version_1.1_20120817.h5",
-    table_format: "stellarcollapse",
-    cold_table_filename: "/u/cmusolino/eos/stellarcollapse/sfho/sfho.grace"
+    table_filename: "/u/cmusolino/eos/compose/sfho/sfho.h5",
+    table_format: "compose",
+    cold_table_filename: "/u/cmusolino/eos/compose/sfho/sfho_cold.grace"
   },
   
   eps_maximum: 1.e+05
@@ -226,7 +222,7 @@ outflows: {
 
 ns_tracker: {
   ns_number: 2,
-  ns_x_initial: [-14.222040716764846, 14.222040716764846],
+  ns_x_initial: [-16.778317025108848, 13.412374184238759],
   ns_y_initial: [0,0],
   ns_z_initial: [0,0],
   density_threshold: 1e-6,
@@ -235,8 +231,4 @@ ns_tracker: {
 
 mhd_diagnostics: {
   compute_energy_every: 2
-}
-
-checkpoints: {
-  walltime_interval: 6.0
 }

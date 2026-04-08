@@ -133,14 +133,14 @@ class hybrid_eos_t
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     energy_cold__press_cold_impl(double& press_cold, error_type& err) const 
     {
-        check_press_cold_range(press_cold,err)   ;
+        //check_press_cold_range(press_cold,err)   ;
         return cold_eos.energy_cold__press_cold(press_cold) ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     rho__press_cold_impl(double& press_cold, error_type& err) const 
     {
-        check_press_cold_range(press_cold,err)   ;
+        //check_press_cold_range(press_cold,err)   ;
         return cold_eos.rho__press_cold(press_cold) ; 
     }
 

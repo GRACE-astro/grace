@@ -95,59 +95,12 @@ constexpr const size_t NUM_MATTER = 6;
  * @param pcoords   The (by assumption global & Cartesian!) coordinates in Kadath space 
  * @param nfields   The number of fields to fill out (extra fields are needed for hydro import)
 */
-
-void KadathImporter(const std::string kadath_id, const std::string  kadath_id_file,
-                    std::vector<std::reference_wrapper<double>>& state_ref,
-                     const std::vector<std::array<double,GRACE_NSPACEDIM>>& pcoords,
-                     const int nfields, const int npoints);
-
+void KadathImporter(const std::string kadath_id, const std::string  filename,
+                    const std::vector<double> & xx, 
+                    const std::vector<double> & yy, 
+                    const std::vector<double> & zz,
+                    Kokkos::View<double *****, grace::default_space>& ddata, 
+                    const int nfields, const int npoints, size_t nx, size_t ny, size_t nz, size_t ngz) ;
 //}
-
-#ifdef KADATH_EXPORTERS_SERIAL
-
-// these have to be in the global namespace to enable linking to libkadath.a:
-
-//*****************************************************************************************************
-/**
- * @brief Fill the array of vectors with Kadath ID. The arrays hold NUM_VOUT quantities (metric+matter) indexed by sim_matter_quants and sim_vac_quants
- * @param npoints The total number of points to be filled
- * @param xx   The Cartesian x coordinate of these points
- * @param yy   The Cartesian y coordinate of these points
- * @param zz   The Cartesian z coordinate of these points
- * @param fn   Filename for Kadath initial data (i.e. the BH/NS/BBH/BHNS/BNS.info file)
- * @param interpolation_offset   Internal offset for the interpolation 
- * @param interp_order   Interpolation order for smooth junk filling of the AH inside (3,5,7,8th order)
- * @param delta_r_rel   Relative dr spacing for the interpolation polynomial (0.3 default)
- */
-
-std::array<std::vector<double>,NUM_VOUT> KadathExportBH(int const npoints,
-                                                        double const * xx, double const * yy, double const * zz,
-                                                        char const * fn,
-                                                        double const interpolation_offset, int const interp_order,
-                                                        double const delta_r_rel);
-
-std::array<std::vector<double>,NUM_OUT> KadathExportNS(int const npoints,
-                                                        double const * xx, double const * yy, double const * zz,
-                                                        char const * fn);
-
-std::array<std::vector<double>,NUM_OUT> KadathExportBNS(int const npoints,
-                                                        double const * xx, double const * yy, double const * zz,
-                                                        char const * fn);
-
-std::array<std::vector<double>,NUM_VOUT> KadathExportBBH(int const npoints,
-                                                        double const * xx, double const * yy, double const * zz,
-                                                        char const * fn,
-                                                        double const interpolation_offset, int const interp_order,
-                                                        double const delta_r_rel);
-
-std::array<std::vector<double>,NUM_OUT> KadathExportBHNS(int const npoints,
-                                                        double const * xx, double const * yy, double const * zz,
-                                                        char const * fn,
-                                                        double const interpolation_offset, int const interp_order,
-                                                        double const delta_r_rel);
-
-
-#endif
-
 
 #endif /* GRACE_IMPORT_KADATH_HH */

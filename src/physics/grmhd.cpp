@@ -74,6 +74,7 @@
 #endif
 #include <grace/coordinates/coordinates.hh>
 #include <grace/evolution/hrsc_evolution_system.hh>
+#include <grace/evolution/refluxing.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/evolution/evolution_kernel_tags.hh>
 #include <grace/coordinates/coordinate_systems.hh>
@@ -361,19 +362,6 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
         bool use_rho = cutoff_var == "rho" ; 
         ASSERT(cutoff_var=="press" or cutoff_var=="rho", "Only pressure and density-based cutoff supported.") ; 
         auto A_pcut = get_param<double>("grmhd", "Avec_ID","cutoff_fact") ;
-        auto A_phi = get_param<double>("grmhd", "Avec_ID","A_phi") ;
-        auto A_n = get_param<double>("grmhd", "Avec_ID","A_n") ;
-
-        auto is_binary = get_param<bool>("grmhd", "Avec_ID", "is_binary") ; 
-        
-        std::array<double,3> center_1, center_2 ; 
-        center_1[0] = get_param<double>("grmhd", "Avec_ID","x_c_1") ;
-        center_1[1] = get_param<double>("grmhd", "Avec_ID","y_c_1") ;
-        center_1[2] = get_param<double>("grmhd", "Avec_ID","z_c_1") ;
-
-        center_2[0] = get_param<double>("grmhd", "Avec_ID","x_c_2") ;
-        center_2[1] = get_param<double>("grmhd", "Avec_ID","y_c_2") ;
-        center_2[2] = get_param<double>("grmhd", "Avec_ID","z_c_2") ;
 
         double vmax ; 
         if ( use_rho  ) {
@@ -382,45 +370,81 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
             vmax = get_max_press() ; 
         }
         auto A_id = Avec_poloidal_id_t(
-            vmax * A_pcut, A_phi, A_n, is_binary, center_1, center_2
+            vmax * A_pcut
         ) ; 
         // Initialize Avec 
-        grace::var_array_t Ax("Ax", VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz+1),1,nq) 
-                         , Ay("Ay", VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz+1),1,nq) 
-                         , Az("Az", VEC(nx+2*ngz+1,ny+2*ngz+1,nz+2*ngz),1,nq) ; 
-        // Ax 
-        fill_physical_coordinates(pcoords,STAG_EDGEYZ) ;
-        id_kernel = id_t(_eos, pcoords, kernel_args... ) ; 
+        auto& emf = grace::variable_list::get().getemfarray() ; 
+
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AX")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz+1),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                     {
-                        auto const id = id_kernel(VEC(i,j,k), q) ;
-                        auto var = use_rho ? id.rho : id.press ; 
-                        Ax(VEC(i,j,k),0,q) = A_id.template get<0>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, var); 
+                        size_t varidx = use_rho ? RHO_ : PRESS_ ; 
+                        auto varv = Kokkos::subview(aux, Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL(), varidx, q ) ; 
+                        double val = 0. ;
+                        int cnt = 0 ; 
+                        for( int ii=0; ii<2; ++ii ) {
+                            for( int jj=0; jj<2; ++jj) {
+                                int i_idx = j - ii ; 
+                                int j_idx = k - jj ; 
+                                if ( (i_idx > 0) && (i_idx < nx+2*ngz) && (j_idx > 0) && (j_idx < ny+2*ngz) ){
+                                    val += varv(i,i_idx,j_idx) ; 
+                                    cnt ++ ; 
+                                }
+                                    
+                            }
+                        }
+                        emf(VEC(i,j,k),0,q) = A_id.template get<0>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, val/cnt); 
                     });
         // Ay
-        fill_physical_coordinates(pcoords,STAG_EDGEXZ) ;
-        id_kernel = id_t(_eos, pcoords, kernel_args... ) ; 
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AY")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz+1),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                     {
-                        auto const id = id_kernel(VEC(i,j,k), q) ; 
-                        auto var = use_rho ? id.rho : id.press ;  
-                        Ay(VEC(i,j,k),0,q) = A_id.template get<1>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, var); 
+                        size_t varidx = use_rho ? RHO_ : PRESS_ ; 
+                        auto varv = Kokkos::subview(aux, Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL(), varidx, q ) ; 
+                        double val = 0. ;
+                        int cnt = 0 ; 
+                        for( int ii=0; ii<2; ++ii ) {
+                            for( int jj=0; jj<2; ++jj) {
+                                int i_idx = i - ii ; 
+                                int j_idx = k - jj ; 
+                                if ( (i_idx > 0) && (i_idx < nx+2*ngz) && (j_idx > 0) && (j_idx < ny+2*ngz) ){
+                                    val += varv(i_idx,j,j_idx) ; 
+                                    cnt ++ ; 
+                                }
+                                    
+                            }
+                        }
+                        emf(VEC(i,j,k),1,q) = A_id.template get<1>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, val/cnt); 
                     });
         // Az
-        fill_physical_coordinates(pcoords,STAG_EDGEXY) ;
-        id_kernel = id_t(_eos, pcoords, kernel_args... ) ; 
         parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AZ")
                     , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz+1,nz+2*ngz),nq})
                     , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                     {
-                        auto const id = id_kernel(VEC(i,j,k), q) ;  
-                        auto var = use_rho ? id.rho : id.press ; 
-                        Az(VEC(i,j,k),0,q) = A_id.template get<2>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, var); 
+                        size_t varidx = use_rho ? RHO_ : PRESS_ ; 
+                        auto varv = Kokkos::subview(aux, Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL(), varidx, q ) ; 
+                        double val = 0. ;
+                        int cnt = 0 ; 
+                        for( int ii=0; ii<2; ++ii ) {
+                            for( int jj=0; jj<2; ++jj) {
+                                int i_idx = i - ii ; 
+                                int j_idx = j - jj ; 
+                                if ( (i_idx > 0) && (i_idx < nx+2*ngz) && (j_idx > 0) && (j_idx < ny+2*ngz) ){
+                                    val += varv(i_idx,j_idx,k) ; 
+                                    cnt ++ ; 
+                                }
+                                    
+                            }
+                        }
+                        emf(VEC(i,j,k),2,q) = A_id.template get<2>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, val/cnt); 
                     });
+        // Now we exchange EMFs to ensure they are fully consistent at quadrant 
+        // interfaces 
+        auto context = reflux_fill_emf_buffers() ; 
+        reflux_correct_emfs(context) ; 
+        Kokkos::fence() ; 
         // Now set B from A:
         // B^k = \epsilon^{ijk} d/dx^j A_k = gamma^{-1/2} [ijk] d/dx^j A_k
         // we want sqrt(gamma) B^k so the metric factors cancel out 
@@ -432,8 +456,8 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     {
                         // B^x = d/dy A^z - d/dz A^y
                         stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) = (
-                            (Az(VEC(i  ,j+1,k  ),0,q) - Az(VEC(i  ,j  ,k  ),0,q)) * idx(1,q)
-                          + (Ay(VEC(i  ,j  ,k  ),0,q) - Ay(VEC(i  ,j  ,k+1),0,q)) * idx(2,q)
+                            (emf(VEC(i  ,j+1,k  ),2,q) - emf(VEC(i  ,j  ,k  ),2,q)) * idx(1,q)
+                          + (emf(VEC(i  ,j  ,k  ),1,q) - emf(VEC(i  ,j  ,k+1),1,q)) * idx(2,q)
                         ) ; 
                     });
         // By
@@ -443,8 +467,8 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     {  
                         // B^y = d/dz A^x - d/dx A^z
                         stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) = (
-                            (Ax(VEC(i  ,j  ,k+1),0,q) - Ax(VEC(i  ,j  ,k  ),0,q)) * idx(2,q)
-                          + (Az(VEC(i  ,j  ,k  ),0,q) - Az(VEC(i+1,j  ,k  ),0,q)) * idx(0,q)
+                            (emf(VEC(i  ,j  ,k+1),0,q) - emf(VEC(i  ,j  ,k  ),0,q)) * idx(2,q)
+                          + (emf(VEC(i  ,j  ,k  ),2,q) - emf(VEC(i+1,j  ,k  ),2,q)) * idx(0,q)
                         ) ; 
                     });
         // Bz 
@@ -454,8 +478,8 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                     {
                         // B^z = d/dx A^y - d/dy A^x
                         stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = (
-                            (Ay(VEC(i+1,j  ,k  ),0,q) - Ay(VEC(i  ,j  ,k  ),0,q)) * idx(0,q)
-                          + (Ax(VEC(i  ,j  ,k  ),0,q) - Ax(VEC(i  ,j+1,k  ),0,q)) * idx(1,q)
+                            (emf(VEC(i+1,j  ,k  ),1,q) - emf(VEC(i  ,j  ,k  ),1,q)) * idx(0,q)
+                          + (emf(VEC(i  ,j  ,k  ),0,q) - emf(VEC(i  ,j+1,k  ),0,q)) * idx(1,q)
                         ) ; 
                     });
     } else if (B_init_type == "none") {

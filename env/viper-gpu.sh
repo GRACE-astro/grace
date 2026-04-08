@@ -1,11 +1,13 @@
 #!/bin/zsh
 
 module load gcc/14 rocm/6.3 openmpi/5.0 hdf5-mpi
-module load gsl mkl
+module load gsl mkl boost fftw-mpi
 
 export LIB_BASEDIR=/u/cmusolino/grace-libs
 
 export HOME_LORENE=/u/cmusolino/lorene/Lorene
+export HOME_KADATH=/u/cmusolino/fuka
+
 export LORENE_ROOT=${HOME_LORENE}
 export TwoPunctures_ROOT=/u/cmusolino/Standalone-TwoPunctures-C-Cpp
 

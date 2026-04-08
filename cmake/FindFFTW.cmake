@@ -119,15 +119,33 @@ include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(FFTW DEFAULT_MSG
                                   FFTW_INCLUDES FFTW_LIBRARIES)
 
-if (FFTW_FOUND AND NOT TARGET FFTW::FFTW)
-    add_library(FFTW::FFTW UNKNOWN IMPORTED)
-    set_target_properties(FFTW::FFTW PROPERTIES
-      IMPORTED_LOCATION "${FFTW_LIBRARIES}"
+if( FFTW_FOUND AND NOT TARGET FFTW::FFTW )
+
+  if( FFTW_LIB )
+    add_library( FFTW::FFTW UNKNOWN IMPORTED )
+    set_target_properties( FFTW::FFTW PROPERTIES
+      IMPORTED_LOCATION             "${FFTW_LIB}"
+      INTERFACE_INCLUDE_DIRECTORIES "${FFTW_INCLUDES}"
     )
-    target_include_directories(FFTW::FFTW INTERFACE
-      ${FFTW_INCLUDE_DIRS}
+  endif()
+
+  if( FFTWF_LIB )
+    add_library( FFTW::FFTW_FLOAT UNKNOWN IMPORTED )
+    set_target_properties( FFTW::FFTW_FLOAT PROPERTIES
+      IMPORTED_LOCATION             "${FFTWF_LIB}"
+      INTERFACE_INCLUDE_DIRECTORIES "${FFTW_INCLUDES}"
     )
-endif() 
+  endif()
+
+  if( FFTWL_LIB )
+    add_library( FFTW::FFTW_LONG UNKNOWN IMPORTED )
+    set_target_properties( FFTW::FFTW_LONG PROPERTIES
+      IMPORTED_LOCATION             "${FFTWL_LIB}"
+      INTERFACE_INCLUDE_DIRECTORIES "${FFTW_INCLUDES}"
+    )
+  endif()
+
+endif()
 
 mark_as_advanced(FFTW_INCLUDES FFTW_LIBRARIES FFTW_LIB FFTWF_LIB FFTWL_LIB)
 

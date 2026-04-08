@@ -100,6 +100,18 @@ struct reduction_identity< grace::array_sum_t<T,8> > {\
         return grace::array_sum_t<T,8>() ; \
     }\
 };\
+template<> \
+struct reduction_identity< grace::array_sum_t<T,3> > {\
+    KOKKOS_FORCEINLINE_FUNCTION static grace::array_sum_t<T,3> sum() {\
+        return grace::array_sum_t<T,3>() ; \
+    }\
+};\
+template<> \
+struct reduction_identity< grace::array_sum_t<T,6> > {\
+    KOKKOS_FORCEINLINE_FUNCTION static grace::array_sum_t<T,6> sum() {\
+        return grace::array_sum_t<T,6>() ; \
+    }\
+};\
 }
 
 INSTANTIATE_CUSTOM_REDUCED_TYPE(double)

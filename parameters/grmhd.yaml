@@ -160,6 +160,14 @@ grmhd:
       default: 0.0
       description: >
         Rescaling factor of A_phi 
+
+    A_phi_2:
+      type: double 
+      range: "[-1,*)"
+      default: -1
+      description: >
+        Rescaling factor of A_phi for second star, if <0 other one is used
+    
     A_n: 
       type: double 
       range: "[0,*)"
@@ -570,7 +578,7 @@ grmhd:
       range: "(0,*)"
       description: >
         Relative radial offset for interpolation grid adjustment
-    set_shift_to_zero_on_import:
+    set_shift_to_zero:
       type: bool 
       default: true 
       description: >
