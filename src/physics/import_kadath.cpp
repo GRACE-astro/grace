@@ -1,6 +1,8 @@
 /**
  * @file import_kadath.cpp
  * @author Konrad Topolski (topolski@itp.uni-frankfurt.de)
+ * Modified by Carlo Musolino <carlo.musolino@aei.mpg.de>: remove copies of data and coordinates,
+ * read e instead of rho and eps.
  * Subject to GPL and adapted from the work of author(s)/maintainer(s):
  * Samuel David Tootle <tootle@itp.uni-frankfurt.de>
  * Ludwig Jens Papenfort <papenfort@th.physik.uni-frankfurt.de>
@@ -77,7 +79,9 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
   auto data = Kokkos::create_mirror_view(ddata) ; 
 
   // new exporters with OpenMP support
-  #ifdef KADATH_EXPORTERS_PARALLEL
+  #ifndef KADATH_EXPORTERS_PARALLEL
+  ERROR("Only OpenMP parallel exporters are supported.") ; 
+  #endif 
   GRACE_TRACE("Utilizing parallel exporters");
 
   auto interp_data_helper = [&]<typename reader_t, bool has_matter = false>(reader_t& input_reader,

@@ -156,18 +156,11 @@ grmhd: {
 }
 
 eos: {
-  eos_type: "hybrid",
+  eos_type: "ideal_gas",
   
   hybrid_eos: {
-    cold_eos_type: "piecewise_polytrope",
-    gamma_th: 2
-  },
-
-  piecewise_polytrope: {
-    n_pieces: 1,
-    gammas: [2],
-    rhos: [],
-    kappa_0: 0
+    gamma: 2,
+    kappa_id: 123.613314525753
   }
 }
 
