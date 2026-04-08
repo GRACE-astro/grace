@@ -1,4 +1,8 @@
-name: "grace"
+# Cowling TOV
+# A0 model from Font+ 2001 (gr-qc/0110047)
+# Resolution is:
+# 256 / 48 / 2 / 2^4 = 0.1666667 Msun
+name: "A0"
 amr: {
   npoints_block_x: 48,
   npoints_block_y: 48,
@@ -66,7 +70,7 @@ amr: {
 
 IO: {
 
-  plane_surface_output_cell_variables: ["rho","zvec[0]","c2p_err"],
+  plane_surface_output_cell_variables: ["hydro", "c2p_err"],
   plane_surface_output_every: 100,
 
 
@@ -105,6 +109,10 @@ grmhd: {
   },
 
   atmosphere: {
+    # This is chosen 
+    # according to the 
+    # adiabat of the initial
+    # data evaluated at rho_fl 
     temp_fl:  1e-10,
     rho_fl: 1.e-12
   },
@@ -118,18 +126,11 @@ grmhd: {
 }
 
 eos: {
-  eos_type: "hybrid",
+  eos_type: "ideal_gas",
 
-  hybrid_eos: {
-    cold_eos_type: "piecewise_polytrope",
-    gamma_th: 2.0
-  },
-  
-  piecewise_polytrope: {
-    n_pieces: 1,
-    gammas: [2.],
-    rhos:   [],
-    kappa_0: 100.
+  ideal_gas_eos: {
+    gamma: 2.,
+    kappa_id: 100
   },
 
   eps_maximum: 1.e+05,

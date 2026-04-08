@@ -6,10 +6,32 @@ eos:
   eos_type:
     type: keyword
     default: "hybrid"
-    allowed: ["hybrid", "tabulated"]
+    allowed: ["ideal_gas", "hybrid", "tabulated"]
     description: >
       Kind of EOS 
 
+  ideal_gas_eos: 
+    type: schema
+    description: >
+      Parameters for the ideal gas eos
+    gamma:
+      type: double
+      default: 2
+      range: "(1,*)"
+      description: >
+        Adiabatic index 
+    entropy_min:
+      type: double 
+      default: 1e-12 
+      range: "(0,*)"
+      description: >
+        Lower bound on entropy to avoid log(0)
+    kappa_id:
+      type: double
+      default: 0
+      range: "[0,*)"
+      description: >
+        If the initial data is a polytrope, kappa of that polytrope in geom units
 
   hybrid_eos:
     type: schema 

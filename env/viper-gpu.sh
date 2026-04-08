@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-module load gcc/14 rocm/6.3 openmpi/5.0 hdf5-mpi
+module load gcc/14 rocm/6.3 openmpi/5.0 openmpi_gpu/5.0 hdf5-mpi
 module load gsl mkl boost fftw-mpi
 
 export LIB_BASEDIR=/u/cmusolino/grace-libs

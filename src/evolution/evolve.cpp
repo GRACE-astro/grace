@@ -96,6 +96,8 @@ void evolve() {
         }
     } else if ( eos_type == "tabulated" ) {
         evolve_impl<grace::tabulated_eos_t>() ;
+    } else if  ( eos_type == "ideal_gas") {
+        evolve_impl<grace::ideal_gas_eos_t>() ;
     } else {
         ERROR("Unknown EOS " << eos_type) ; 
     }
@@ -1159,5 +1161,6 @@ void evolve_impl<EOS>()
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
+INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 }

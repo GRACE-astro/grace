@@ -83,6 +83,8 @@ void compute_auxiliary_quantities() {
         }
     } else if ( eos_type == "tabulated" ) {
         compute_auxiliary_quantities<grace::tabulated_eos_t>(state,sstate,aux) ; 
+    } else if ( eos_type == "ideal_gas" ) {
+        compute_auxiliary_quantities<grace::ideal_gas_eos_t>(state,sstate,aux) ; 
     }
     
 }
@@ -171,5 +173,6 @@ void compute_auxiliary_quantities<EOS>(                                 \
 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
+INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 }
