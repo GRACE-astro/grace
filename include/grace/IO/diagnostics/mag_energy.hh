@@ -242,4 +242,4 @@ struct em_energy_diagnostic {
 }
 
 
-#endif 
+#endif

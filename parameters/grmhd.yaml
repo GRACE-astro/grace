@@ -746,5 +746,4 @@ grmhd:
       default: 0.0 
       range: "(*,*)" 
       description: >
-        Radial velocity perturbation amplitude 
-    
+        Radial velocity perturbation amplitude
