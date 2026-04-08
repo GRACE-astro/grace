@@ -102,6 +102,9 @@ struct gpu_task_t : public task_t {
         dev_event.reset() ; 
         _run(alias) ; 
         dev_event.record(*stream) ; 
+        #ifdef GRACE_ENABLE_SYCL 
+        Kokkos::fence() ; 
+        #endif 
     }
 
     /**

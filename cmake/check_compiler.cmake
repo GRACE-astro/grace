@@ -5,6 +5,12 @@ if("${CMAKE_CXX_COMPILER}" MATCHES "hipcc")
     string(REPLACE "-fno-gpu-rdc" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 endif()
 
+if ("${CMAKE_CXX_COMPILER}" MATCHES "(mpiicpx|dpcpp)")
+  message(STATUS "Compiling with ${CMAKE_CXX_COMPILER} (SYCL backend)")
+  add_compile_options(-fsycl -fsycl-rdc -fsycl-unnamed-lambda) 
+  add_link_options(-fsycl) 
+  string(REPLACE "-fno-sycl-rdc" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     message("Using Intel compiler.")

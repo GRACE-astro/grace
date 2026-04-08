@@ -203,8 +203,6 @@ IO:
     description: >
       Z offset 
 
-      
-
   xz_plane_offset:
     type: double 
     range: "(*,*)"
@@ -218,7 +216,6 @@ IO:
     default: 0.0
     description: >
       X offset 
-
 
   n_output_spheres:
     type: int 

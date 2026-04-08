@@ -12,7 +12,7 @@ grmhd:
 
   id_type: 
     type: keyword 
-    allowed: ["minkowski_vacuum", "shocktube", "magnetic_rotor", "bondi_flow", "orszag_tang_vortex", "fmtorus", "tov", "blastwave", "gas_cloud","puncture","lorene_bns", "two_punctures"]
+    allowed: ["minkowski_vacuum", "shocktube", "magnetic_rotor", "bondi_flow", "orszag_tang_vortex", "fmtorus", "tov", "blastwave", "gas_cloud","puncture","lorene_bns", "two_punctures", "fuka"]
     default: "minkowski_vacuum"
     description: > 
       Initial data type 
@@ -531,6 +531,51 @@ grmhd:
       description: >
         Recompute eps after initial data?
   
+  fuka:
+    type: schema
+    description: >
+      FUKA ID
+    filename:
+      type: string
+      default: ""
+      description: >
+        Filename containing initial data for FUKA ID
+    id_dir:
+      type: string
+      default: ""
+      description: >
+        Directory containing the FUKA ID
+    fuka_id_type: 
+      type: string 
+      default: "" 
+      allowed: ["BH", "BBH", "NS", "BNS", "BHNS"]
+      description: >
+        type of FUKA data
+    id_interpolation_offset:
+      type: double 
+      default: 0.0
+      range: "[0,*)"
+      description: >
+        Offset applied during ID interpolation
+    junk_interp_order:
+      type: int
+      default: 8
+      allowed: [3,5,7,8]
+      range: "[3,8]"
+      description: >
+        Interpolation order used for junk radiation removal
+    delta_r_rel:
+      type: double
+      default: 0.3
+      range: "(0,*)"
+      description: >
+        Relative radial offset for interpolation grid adjustment
+    set_shift_to_zero_on_import:
+      type: bool 
+      default: true 
+      description: >
+        set the initial shift to zero (recommended) 
+                  
   two_punctures:
     type: schema
     description: >

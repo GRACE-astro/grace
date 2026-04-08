@@ -237,7 +237,7 @@ void evaluate_binary_tracker_criterion(view_t & flag_view )
 
     double distance = 0.0 ; 
     for( int ii=0; ii<3; ++ii) distance+=SQR(co_locations_h(ii)-co_locations_h(3+ii));
-    distance = sqrt(distance) ; 
+    distance = Kokkos::sqrt(distance) ; 
 
     Kokkos::deep_copy(co_locations,co_locations_h) ; 
 

@@ -65,6 +65,40 @@ if ( GRACE_ENABLE_TWO_PUNCTURES )
     find_package(TwoPunctures REQUIRED)
 endif() 
 
+option( GRACE_ENABLE_FUKA "FUKA support" OFF )
+
+if( GRACE_ENABLE_FUKA )
+    # note that order of linking will be important for the final executable!
+    find_package(Kadath REQUIRED)
+    find_package(GSL REQUIRED)
+    find_package(Boost REQUIRED)
+    find_package(FFTW REQUIRED COMPONENTS DOUBLE)
+
+    find_package(MKL QUIET) 
+    if(MKL_FOUND)
+        set(MKL_INTERFACE_LAYER LP64)  
+    	message(STATUS "Using Intel MKL")
+    else()
+        # Platform-dependent BLAS/ScaLAPACK handling
+        if(CMAKE_SYSTEM_NAME STREQUAL "CrayLinuxEnvironment" OR DEFINED ENV{CRAY_LIBSCI_PREFIX_DIR} OR DEFINED ENV{CRAY_LIBSCI_BASE_DIR})
+            find_package(SCICRAY REQUIRED)
+    	    message(STATUS "Using Cray's SciLib")
+            # Cray system: use LibSci
+            set(BLAS_LIBRARIES ${SCICRAY_LIBRARIES})
+            set(SCALAPACK_LIBRARIES ${SCICRAY_LIBRARIES})
+            set(OPENBLAS_FOUND OFF) 
+            set(OpenBLAS_LIB "") # silently turn off - Cray's SciLib already has BLAS routines
+            set(SCALAPACK_FOUND ON)
+        else() 
+    	    message(STATUS "Using OpenBLAS and ScaLAPACK")
+            # non-Cray system
+            # find openblas and netlib-scalapack independently
+            find_package(OPENBLAS REQUIRED)
+            find_package(SCALAPACK REQUIRED)
+        endif()
+    endif()
+endif()
+
 option(GRACE_ENABLE_PROFILING "Build profiling hooks" OFF)
 if( GRACE_ENABLE_PROFILING )
     message(STATUS "Profiling enabled.")
@@ -98,6 +132,26 @@ target_link_libraries(grace PRIVATE
         spdlog::spdlog
         HDF5::HDF5
 	    ZLIB::ZLIB
+        # FUKA handling:
+        $<$<BOOL:${GRACE_ENABLE_FUKA}>:Kadath::kadath>
+        $<$<BOOL:${GRACE_ENABLE_FUKA}>:${GSL_LIBRARY}>
+        $<$<BOOL:${GRACE_ENABLE_FUKA}>:${FFTW_LIB}>
+        # Libraries to link if GRACE_ENABLE_FUKA and MKL_FOUND are both true
+	#$<$<AND:$<BOOL:${GRACE_ENABLE_FUKA}>,$<BOOL:${MKL_FOUND}>>:MKL::MKL>
+	$<$<AND:$<BOOL:${GRACE_ENABLE_FUKA}>,$<BOOL:${MKL_FOUND}>>:
+	-Wl,--start-group
+        ${MKL_SCALAPACK_LIBRARY}
+        ${MKL_INTERFACE_LIBRARY}
+        ${MKL_SEQUENTIAL_LAYER_LIBRARY}
+        ${MKL_CORE_LIBRARY}
+        ${MKL_BLACS_LIBRARY}
+	-Wl,--end-group
+        >
+        # Libraries to link to otherwise 
+        $<$<AND:$<BOOL:${GRACE_ENABLE_FUKA}>,$<NOT:$<BOOL:${MKL_FOUND}>>>:
+        ${SCALAPACK_LIBRARIES}        
+        ${OpenBLAS_LIB}
+        >
         $<$<BOOL:${GRACE_ENABLE_PROFILING}>:GRACE_GPUProfiling>
         $<$<BOOL:${GRACE_ENABLE_VTK}>:VTK::VTK>
         $<$<BOOL:${GRACE_ENABLE_LORENE}>:LORENE::LORENE>

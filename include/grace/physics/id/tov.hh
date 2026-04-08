@@ -261,7 +261,7 @@ solve_tov(
      * @param q quadrant index
      * @return grmhd_id_t Initial data at requested point
      */
-    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
     operator() (VEC(int i, int j, int k), int q) const 
     {
         double const x = _pcoords(VEC(i,j,k),0,q);

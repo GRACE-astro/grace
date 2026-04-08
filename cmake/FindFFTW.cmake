@@ -20,6 +20,10 @@
 if( NOT FFTW_ROOT AND ENV{FFTWDIR} )
   set( FFTW_ROOT $ENV{FFTWDIR} )
 endif()
+# same for this one
+if( NOT FFTW_ROOT AND ENV{FFTW_DIR} )
+  set( FFTW_ROOT $ENV{FFTW_DIR} )
+endif()
 
 # Check if we can use PkgConfig
 include(CMakeFindDependencyMacro)

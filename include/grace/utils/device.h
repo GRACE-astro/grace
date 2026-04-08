@@ -35,15 +35,27 @@
 #define GRACE_DEVICE __device__ 
 #define GRACE_HOST   __host__ 
 #define GRACE_HOST_DEVICE __host__ __device__
+#define GRACE_DEVICE_EXTERNAL_LINKAGE
 #ifndef GRACE_ALLOW_DEVICE_CONDITIONALS
 #define DEVICE_CONDITIONAL(cond,a,b) ((static_cast<bool>(cond)) * a + (1-static_cast<bool>(cond)) * b) 
+#endif
+#elif defined(GRACE_ENABLE_SYCL)
+  // SYCL has no notion of __host__ or __device__, empty define
+  #define GRACE_DEVICE
+  #define GRACE_HOST
+  #define GRACE_HOST_DEVICE 
+  #define GRACE_DEVICE_EXTERNAL_LINKAGE SYCL_EXTERNAL
+  #ifndef GRACE_ALLOW_DEVICE_CONDITIONALS
+  #define DEVICE_CONDITIONAL(cond,a,b) ((static_cast<bool>(cond)) * a + (1-static_cast<bool>(cond)) * b) 
+  #endif 
 #else 
 #define DEVICE_CONDITIONAL(cond,a,b) ((cond) ? a : b)
-#endif
-#else 
+// #endif
+// #else 
 #define GRACE_DEVICE 
 #define GRACE_HOST 
 #define GRACE_HOST_DEVICE 
+#define GRACE_DEVICE_EXTERNAL_LINKAGE 
 #define DEVICE_CONDITIONAL(cond,a,b) ((cond) ? a : b)
 #endif 
 
@@ -93,6 +105,36 @@
     #define EVENT_SYNCHRONIZE(event) HIP_CALL(hipEventSynchronize(event))
     #define EVENT_ELAPSED_TIME(ms, start, stop) HIP_CALL(hipEventElapsedTime(ms, start, stop))
     #define EVENT_QUERY(event) hipEventQuery(event)
+#elif defined(GRACE_ENABLE_SYCL)
+    #include <sycl/sycl.hpp>
+    /* 
+    * Due to the differences in the SYCL DAG and CUDA/HIP stream concurrency models, 
+    * these macros need to be no-op;
+    * this is achieved in two ways: 
+    * 1 ) in gpu_task_t we fence for SYCL after every kernel dispatch (end of run routine) 
+    * 2 ) query always returns SUCCESS
+    */
+    #define DEVICE_SUCCESS 0                  // 0 for success 
+    #define DEVICE_NOT_READY -1               // dummy, SYCL does not have this
+
+    struct dummy_stream { 
+        sycl::queue q{sycl::default_selector_v, sycl::property::queue::in_order()}; // hold a default SYCL queue 
+    };
+
+    struct dummy_event {};
+
+    using device_err_t = int ;  
+    using stream_t = dummy_stream ;
+    #define STREAM_CREATE(stream) dummy_stream{};
+    #define STREAM_DESTROY(stream) 
+    #define STREAM_SYNCHRONIZE(stream) 
+    using event_t = dummy_event* ;
+    #define EVENT_CREATE(event) 
+    #define EVENT_DESTROY(event) 
+    #define EVENT_RECORD(event, stream) 
+    #define EVENT_SYNCHRONIZE(event) 
+    #define EVENT_ELAPSED_TIME(ms, start, stop) 
+    #define EVENT_QUERY(event) DEVICE_SUCCESS // always return success 
 #else 
     using stream_t = char ;
     #define STREAM_CREATE(stream) 
