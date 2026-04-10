@@ -79,6 +79,7 @@
 #include <grace/evolution/evolution_kernel_tags.hh>
 #include <grace/coordinates/coordinate_systems.hh>
 #include <grace/physics/eos/eos_storage.hh>
+#include <grace/physics/grmhd_B_from_A.hh>
 #include <grace/physics/grmhd.hh>
 
 #include <grace/config/config_parser.hh>
@@ -355,133 +356,16 @@ static void set_grmhd_initial_data_impl(arg_t ... kernel_args)
                         stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = id.bz * metric.sqrtg() ; 
                     });
     } else if ( B_init_type == "from_Avec" ) {
-
         auto kind = get_param<std::string>("grmhd", "Avec_ID","Avec_kind") ;
-        ASSERT(kind == "current_loop", "Only current_loop Avec initialization supported.") ; 
-        auto cutoff_var = get_param<std::string>("grmhd", "Avec_ID","cutoff_var") ;
-        bool use_rho = cutoff_var == "rho" ; 
-        ASSERT(cutoff_var=="press" or cutoff_var=="rho", "Only pressure and density-based cutoff supported.") ; 
-        auto A_pcut = get_param<double>("grmhd", "Avec_ID","cutoff_fact") ;
-
-        double vmax ; 
-        if ( use_rho  ) {
-            vmax = get_max_rho() ; 
+        ASSERT(kind == "poloidal_confined", "Only current_loop Avec initialization supported.") ; 
+        if ( kind == "poloidal_confined" ) {
+            setup_confined_poloidal_B_field() ; 
         } else {
-            vmax = get_max_press() ; 
+            // to extend this, see the B_from_A file. 
+            // the function that sets A is quite general,
+            // and the curl is just the curl
+            ERROR("Unsupported Avec initialization") ; 
         }
-        auto A_id = Avec_poloidal_id_t(
-            vmax * A_pcut
-        ) ; 
-        // Initialize Avec 
-        auto& emf = grace::variable_list::get().getemfarray() ; 
-
-        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AX")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz+1),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {
-                        size_t varidx = use_rho ? RHO_ : PRESS_ ; 
-                        auto varv = Kokkos::subview(aux, Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL(), varidx, q ) ; 
-                        double val = 0. ;
-                        int cnt = 0 ; 
-                        for( int ii=0; ii<2; ++ii ) {
-                            for( int jj=0; jj<2; ++jj) {
-                                int i_idx = j - ii ; 
-                                int j_idx = k - jj ; 
-                                if ( (i_idx > 0) && (i_idx < nx+2*ngz) && (j_idx > 0) && (j_idx < ny+2*ngz) ){
-                                    val += varv(i,i_idx,j_idx) ; 
-                                    cnt ++ ; 
-                                }
-                                    
-                            }
-                        }
-                        emf(VEC(i,j,k),0,q) = A_id.template get<0>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, val/cnt); 
-                    });
-        // Ay
-        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AY")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz+1),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {
-                        size_t varidx = use_rho ? RHO_ : PRESS_ ; 
-                        auto varv = Kokkos::subview(aux, Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL(), varidx, q ) ; 
-                        double val = 0. ;
-                        int cnt = 0 ; 
-                        for( int ii=0; ii<2; ++ii ) {
-                            for( int jj=0; jj<2; ++jj) {
-                                int i_idx = i - ii ; 
-                                int j_idx = k - jj ; 
-                                if ( (i_idx > 0) && (i_idx < nx+2*ngz) && (j_idx > 0) && (j_idx < ny+2*ngz) ){
-                                    val += varv(i_idx,j,j_idx) ; 
-                                    cnt ++ ; 
-                                }
-                                    
-                            }
-                        }
-                        emf(VEC(i,j,k),1,q) = A_id.template get<1>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, val/cnt); 
-                    });
-        // Az
-        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_AZ")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz+1,nz+2*ngz),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {
-                        size_t varidx = use_rho ? RHO_ : PRESS_ ; 
-                        auto varv = Kokkos::subview(aux, Kokkos::ALL(),Kokkos::ALL(),Kokkos::ALL(), varidx, q ) ; 
-                        double val = 0. ;
-                        int cnt = 0 ; 
-                        for( int ii=0; ii<2; ++ii ) {
-                            for( int jj=0; jj<2; ++jj) {
-                                int i_idx = i - ii ; 
-                                int j_idx = j - jj ; 
-                                if ( (i_idx > 0) && (i_idx < nx+2*ngz) && (j_idx > 0) && (j_idx < ny+2*ngz) ){
-                                    val += varv(i_idx,j_idx,k) ; 
-                                    cnt ++ ; 
-                                }
-                                    
-                            }
-                        }
-                        emf(VEC(i,j,k),2,q) = A_id.template get<2>({pcoords(VEC(i,j,k),0,q), pcoords(VEC(i,j,k),1,q), pcoords(VEC(i,j,k),2,q)}, val/cnt); 
-                    });
-        // Now we exchange EMFs to ensure they are fully consistent at quadrant 
-        // interfaces 
-        auto context = reflux_fill_emf_buffers() ; 
-        reflux_correct_emfs(context) ; 
-        Kokkos::fence() ; 
-        // Now set B from A:
-        // B^k = \epsilon^{ijk} d/dx^j A_k = gamma^{-1/2} [ijk] d/dx^j A_k
-        // we want sqrt(gamma) B^k so the metric factors cancel out 
-        auto& idx = variable_list::get().getinvspacings() ; 
-        // Bx 
-        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BX")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz+1,ny+2*ngz,nz+2*ngz),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {
-                        // B^x = d/dy A^z - d/dz A^y
-                        stag_state.face_staggered_fields_x(VEC(i,j,k),BSX_,q) = (
-                            (emf(VEC(i  ,j+1,k  ),2,q) - emf(VEC(i  ,j  ,k  ),2,q)) * idx(1,q)
-                          + (emf(VEC(i  ,j  ,k  ),1,q) - emf(VEC(i  ,j  ,k+1),1,q)) * idx(2,q)
-                        ) ; 
-                    });
-        // By
-        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BY")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz+1,nz+2*ngz),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {  
-                        // B^y = d/dz A^x - d/dx A^z
-                        stag_state.face_staggered_fields_y(VEC(i,j,k),BSY_,q) = (
-                            (emf(VEC(i  ,j  ,k+1),0,q) - emf(VEC(i  ,j  ,k  ),0,q)) * idx(2,q)
-                          + (emf(VEC(i  ,j  ,k  ),2,q) - emf(VEC(i+1,j  ,k  ),2,q)) * idx(0,q)
-                        ) ; 
-                    });
-        // Bz 
-        parallel_for( GRACE_EXECUTION_TAG("ID","grmhd_ID_BZ")
-                    , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz+1),nq})
-                    , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                    {
-                        // B^z = d/dx A^y - d/dy A^x
-                        stag_state.face_staggered_fields_z(VEC(i,j,k),BSZ_,q) = (
-                            (emf(VEC(i+1,j  ,k  ),1,q) - emf(VEC(i  ,j  ,k  ),1,q)) * idx(0,q)
-                          + (emf(VEC(i  ,j  ,k  ),0,q) - emf(VEC(i  ,j+1,k  ),0,q)) * idx(1,q)
-                        ) ; 
-                    });
     } else if (B_init_type == "none") {
         // Strictly speaking views are zero-initialized so we don't need this,
         // but let's be pedantic

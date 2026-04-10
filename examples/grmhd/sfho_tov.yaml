@@ -3,18 +3,12 @@ amr: {
   npoints_block_x: 48,
   npoints_block_y: 48,
   npoints_block_z: 48,
-  xmin: 0.0,
-  xmax: 128.0,
-  ymin: 0.0,
-  ymax: 128.0,
-  zmin: 0.0,
-  zmax: 128.0,
-
-  reflection_symmetries: {
-    x: true,
-    y: true,
-    z: true
-  }, 
+  xmin: -64.0,
+  xmax: 64.0,
+  ymin: -64.0,
+  ymax: 64.0,
+  zmin: -64.0,
+  zmax: 64.0,
 
   n_ghostzones: 4,
   initial_refinement_level: 1,
@@ -23,33 +17,24 @@ amr: {
 
   regrid_every: -1,
   
-  n_fmr_boxes: 3,
+  n_fmr_boxes: 2,
   fmr_boxes: [
     {
       target_level_delta: 1,
-      x_min: 0,
-      x_max: 64,
-      y_min: 0,
-      y_max: 64,
-      z_min: 0,
-      z_max: 64
-    },
-    {
-      target_level_delta: 2,
-      x_min: 0,
+      x_min: -32,
       x_max: 32,
-      y_min: 0,
+      y_min: -32,
       y_max: 32,
-      z_min: 0,
+      z_min: -32,
       z_max: 32
     },
     {
-      target_level_delta: 3,
-      x_min: 0,
+      target_level_delta: 2,
+      x_min: -16,
       x_max: 16,
-      y_min: 0,
+      y_min: -16,
       y_max: 16,
-      z_min: 0,
+      z_min: -16,
       z_max: 16
     }
   ]
@@ -92,7 +77,8 @@ evolution: {
   time_stepper: "rk4",
   cfl_factor: 0.4,
   final_walltime: 23.6,
-  termination_condition: "walltime"
+  final_iteration: 200,
+  termination_condition: "iteration"
 }
 
 grmhd: {
@@ -115,7 +101,16 @@ grmhd: {
     use_c2p_entropy_backup: false
   },
 
-  B_field_initialization: "none"
+  B_field_initialization: "from_Avec", 
+
+  Avec_ID: {
+    cutoff_var: "press",
+    cutoff_fact: 0.04,
+    A_n: 2,
+    Bmax_target: 1.197285252143398e-05, # 1e15 G 
+    is_binary: false,
+    radius_1: 8
+  }
 }
 
 z4c: {
@@ -133,4 +128,24 @@ eos: {
   },
   
   eps_maximum: 1.e+05
+}
+
+co_tracker: {
+  n_cos: 1,
+  update_every: 2,
+
+  cos: [
+    {
+      kind: "ns",
+      name: "ns_1",
+      x_i: 0,
+      y_i: 0,
+      z_i: 0,
+      radius: 10
+    }
+  ]
+}
+
+checkpoints: {
+  checkpoint_at_startup: true
 }

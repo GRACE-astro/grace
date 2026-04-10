@@ -49,6 +49,7 @@
 #endif
 #include <grace/IO/diagnostics/outflow_diagnostics.hh>
 #include <grace/IO/diagnostics/mag_energy.hh>
+#include <grace/IO/diagnostics/grmhd_diagnostics.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -89,6 +90,9 @@ void output_diagnostics() {
 
     em_energy_diagnostic em_energy{} ; 
     em_energy.compute_and_write() ; 
+
+    grmhd_diagnostics grmhd_diag{} ; 
+    grmhd_diag.compute_and_write() ; 
 }
 
 void initialize_diagnostic_files() {
@@ -103,7 +107,9 @@ void initialize_diagnostic_files() {
 
     em_energy_diagnostic em_energy{} ; 
     em_energy.initialize_files() ;
-     
+
+    grmhd_diagnostics grmhd_diag{} ; 
+    grmhd_diag.initialize_files() ; 
     parallel::mpi_barrier() ;
 }
 

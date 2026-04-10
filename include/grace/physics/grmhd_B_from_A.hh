@@ -1,8 +1,8 @@
 /**
- * @file fmtorus.hh
+ * @file grmhd_B_from_A.hh
  * @author Carlo Musolino (carlo.musolino@aei.mpg.de)
  * @brief 
- * @date 2025-10-13
+ * @date 2026-04-08
  * 
  * @copyright This file is part of the General Relativistic Astrophysics
  * Code for Exascale.
@@ -24,45 +24,25 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  */
-#ifndef GRACE_PHYS_ID_AVEC_HH
-#define GRACE_PHYS_ID_AVEC_HH
 
-#include <grace_config.h>
+#ifndef GRACE_PHYSICS_GRMHD_B_FROM_A_HH
+#define GRACE_PHYSICS_GRMHD_B_FROM_A_HH
 
-#include <grace/utils/device.h>
-#include <grace/utils/inline.h>
+#include <grace_config.h> 
+
+#include <Kokkos_Core.hpp> 
 
 namespace grace {
 
-struct Avec_poloidal_id_t {
-
-    Avec_poloidal_id_t(
-        double Aphi, double cut, double n
-    ) : _A_phi(Aphi), _cut(cut), _A_n(n)
-    { }
-
-    Avec_poloidal_id_t( Avec_poloidal_id_t const& other) = default ; 
-    Avec_poloidal_id_t( Avec_poloidal_id_t && other) = default ; 
-
-    template<size_t idir>
-    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    double get(
-        std::array<double,3> const& coords,
-        double const& var
-    ) const  
-    {
-        double const _A = _A_phi * Kokkos::pow(Kokkos::max(var-_cut,0.0),_A_n) ; 
-        std::array<double,3> A {
-            -coords[1] * _A,
-            coords[0] * _A,
-            0
-        } ; 
-        return A[idir] ;
-    }
-    
-    double _cut, _A_phi, _A_n ; 
-} ; 
+/**
+ * @brief Initialize B field from A following 
+ *        the usual prescription where A is 
+ *        directed along phi and proportional
+ *        to a given power of pressure or density.
+ */
+void setup_confined_poloidal_B_field() ; 
 
 }
 
-#endif /* GRACE_PHYS_ID_AVEC_HH */
+
+#endif 

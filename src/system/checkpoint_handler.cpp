@@ -48,10 +48,7 @@
 
 #include <grace/amr/p4est_headers.hh>
 
-#include <grace/IO/diagnostics/ns_tracker.hh>
-#ifdef GRACE_ENABLE_Z4C_METRIC
-#include <grace/IO/diagnostics/puncture_tracker.hh>
-#endif 
+#include <grace/IO/diagnostics/co_tracker.hh>
 
 #include <hdf5.h>
 #include <omp.h>
@@ -492,52 +489,102 @@ void checkpoint_handler_impl_t::save_checkpoint()
                         grace::get_param<double>("amr", "zmax"));
 
     // if active, we need to write ns tracker data
-    auto write_coord_dset = [&] (std::string const& name, double x, double y, double z) {
-        hsize_t dset_dims[1] = {3};
-        hid_t space_id;
-        HDF5_CALL(space_id, H5Screate_simple(1, dset_dims, NULL));
+    auto write_co_dset = [&] (hid_t gid, int ico, std::unique_ptr<co_tracker_t> const& co ) {
 
-        hid_t dset_id;
-        HDF5_CALL(dset_id, H5Dcreate2(file_id,
-                                    name.c_str(),
-                                    H5T_NATIVE_DOUBLE,
-                                    space_id,
-                                    H5P_DEFAULT,
-                                    H5P_DEFAULT,
-                                    H5P_DEFAULT));
+        auto name = co->get_name() ; 
 
-        double data[3] = {x, y, z};
-        HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, data));
+        // Create a group for this CO so h5ls shows it cleanly
+        std::string grp_name = "co_" + std::to_string(ico) ; 
+        hid_t grp_id;
+        HDF5_CALL(grp_id, H5Gcreate2(gid, grp_name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
 
-        HDF5_CALL(err, H5Dclose(dset_id));
-        HDF5_CALL(err, H5Sclose(space_id));
-    } ; 
-    auto& ns_tracker = grace::ns_tracker::get() ; 
-    if (ns_tracker.is_active()) {
-        auto ns_centers_d  = ns_tracker.get_ns_locations() ; 
-        auto ns_centers_h = Kokkos::create_mirror_view(ns_centers_d) ;
-        Kokkos::deep_copy(ns_centers_h,ns_centers_d) ; 
-        for( int in=0; in<ns_tracker.get_n_ns(); ++in){
-            std::string name = "ns_location_" + std::to_string(in) ; 
-            write_coord_dset(name, ns_centers_h(in,0), ns_centers_h(in,1),ns_centers_h(in,2)) ; 
+        // Write location as a 3-vector dataset
+        {
+            hsize_t dims[1] = {3};
+            hid_t space_id, dset_id;
+            HDF5_CALL(space_id, H5Screate_simple(1, dims, NULL));
+            HDF5_CALL(dset_id, H5Dcreate2(grp_id, "location", H5T_NATIVE_DOUBLE,
+                                        space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+            auto data = co->get_loc() ; 
+            HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, data.data()));
+            HDF5_CALL(err, H5Dclose(dset_id));
+            HDF5_CALL(err, H5Sclose(space_id));
         }
-    }
-    // ditto for puncture tracker 
-    #ifdef GRACE_ENABLE_Z4C_METRIC
-    auto& puncture_tracker = grace::puncture_tracker::get() ; 
-    if (puncture_tracker.is_active()) {
-        auto puncture_centers  = puncture_tracker.get_puncture_locations() ; 
-        for( int ip=0; ip<puncture_tracker.get_n_punctures(); ++ip){
-            std::string name = "puncture_location_" + std::to_string(ip) ; 
-            write_coord_dset(
-                name, 
-                puncture_centers[ip][0],
-                puncture_centers[ip][1],
-                puncture_centers[ip][2]
-            ) ; 
+
+        // Write radius as a scalar dataset
+        {
+            double rad = co->get_radius() ; 
+            hid_t space_id, dset_id;
+            HDF5_CALL(space_id, H5Screate(H5S_SCALAR));
+            HDF5_CALL(dset_id, H5Dcreate2(grp_id, "radius", H5T_NATIVE_DOUBLE,
+                                        space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+            HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, &rad));
+            HDF5_CALL(err, H5Dclose(dset_id));
+            HDF5_CALL(err, H5Sclose(space_id));
         }
+
+        // Write name as a string attribute on the group
+        {
+            hid_t aspace_id, atype_id, attr_id;
+            HDF5_CALL(aspace_id, H5Screate(H5S_SCALAR));
+            HDF5_CALL(atype_id,  H5Tcopy(H5T_C_S1));
+            HDF5_CALL(err,       H5Tset_size(atype_id, name.size()+1));
+            HDF5_CALL(err,       H5Tset_strpad(atype_id, H5T_STR_NULLTERM));
+            HDF5_CALL(attr_id,   H5Acreate2(grp_id, "name", atype_id,
+                                            aspace_id, H5P_DEFAULT, H5P_DEFAULT));
+            HDF5_CALL(err, H5Awrite(attr_id, atype_id, name.c_str()));
+            HDF5_CALL(err, H5Aclose(attr_id));
+            HDF5_CALL(err, H5Tclose(atype_id));
+            HDF5_CALL(err, H5Sclose(aspace_id));
+        }
+
+        // Write kind as a string attribute on the group
+        {
+            auto kind = co->get_kind() ; 
+            hid_t aspace_id, atype_id, attr_id;
+            HDF5_CALL(aspace_id, H5Screate(H5S_SCALAR));
+            HDF5_CALL(atype_id,  H5Tcopy(H5T_C_S1));
+            HDF5_CALL(err,       H5Tset_size(atype_id, kind.size()+1));
+            HDF5_CALL(err,       H5Tset_strpad(atype_id, H5T_STR_NULLTERM));
+            HDF5_CALL(attr_id,   H5Acreate2(grp_id, "kind", atype_id,
+                                            aspace_id, H5P_DEFAULT, H5P_DEFAULT));
+            HDF5_CALL(err, H5Awrite(attr_id, atype_id, kind.c_str()));
+            HDF5_CALL(err, H5Aclose(attr_id));
+            HDF5_CALL(err, H5Tclose(atype_id));
+            HDF5_CALL(err, H5Sclose(aspace_id));
+        }
+
+        HDF5_CALL(err, H5Gclose(grp_id));
+    };
+    auto& co_tracker = grace::co_tracker::get() ;
+    if (co_tracker.is_active()) {
+        int ncos    = co_tracker.get_n_cos() ; 
+        int merged  = static_cast<int>(co_tracker.get_merged()) ; 
+        hid_t tracker_grp;
+        HDF5_CALL(tracker_grp, H5Gcreate2(file_id, "co_tracker", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+        {
+            hid_t space_id, dset_id;
+            HDF5_CALL(space_id, H5Screate(H5S_SCALAR));
+            HDF5_CALL(dset_id, H5Dcreate2(tracker_grp, "n_cos", H5T_NATIVE_INT,
+                                          space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+            HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, dxpl, &ncos));
+            HDF5_CALL(err, H5Dclose(dset_id));
+            HDF5_CALL(err, H5Sclose(space_id));
+        }
+        {
+            hid_t space_id, dset_id;
+            HDF5_CALL(space_id, H5Screate(H5S_SCALAR));
+            HDF5_CALL(dset_id, H5Dcreate2(tracker_grp, "has_merged", H5T_NATIVE_INT,
+                                          space_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+            HDF5_CALL(err, H5Dwrite(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, dxpl, &merged));
+            HDF5_CALL(err, H5Dclose(dset_id));
+            HDF5_CALL(err, H5Sclose(space_id));
+        }
+        for( int ico=0; ico<ncos; ++ico) write_co_dset(tracker_grp, ico, co_tracker.get(ico)) ; 
+
+        HDF5_CALL(err, H5Gclose(tracker_grp));
     }
-    #endif 
+     
     // write state data 
     GRACE_TRACE("Writing state.") ; 
     auto state = grace::variable_list::get().getstate() ; 
@@ -626,10 +673,7 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     grace::runtime::initialize() ; 
     grace::coordinate_system::initialize() ;
     grace::eos::initialize() ;
-    #ifdef GRACE_ENABLE_Z4C_METRIC
-    grace::puncture_tracker::initialize() ; 
-    #endif 
-    grace::ns_tracker::initialize() ; 
+    grace::co_tracker::initialize() ; 
     /**********************************************************************/
     auto data_fname = detail::get_filename(checkpoint_dir, "checkpoint_data", iter, ".h5") ;
     /**********************************************************************/
@@ -709,56 +753,101 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
     read_extent_dataset("grid_extent_y", ymin, ymax, "y");
     read_extent_dataset("grid_extent_z", zmin, zmax, "z");
 
-    auto read_coord_dataset = [&](std::string const& name, double& x, double& y, double& z){
-        hsize_t dset_dims[1];
-        hid_t dset_id = H5Dopen(file_id, name.c_str(), H5P_DEFAULT);
-        ASSERT(dset_id >= 0, "Failed to open dataset " << name);
+    auto read_co_dataset = [&](hid_t gid, int ico, std::vector<std::unique_ptr<co_tracker_t>>& vec){
+        std::string grp_name = "co_" + std::to_string(ico) ; 
+        hid_t co_grp;
+        HDF5_CALL(co_grp, H5Gopen2(gid, grp_name.c_str(), H5P_DEFAULT));
 
-        hid_t space_id = H5Dget_space(dset_id);
-        ASSERT(space_id >= 0, "Failed to get dataspace for " << name);
+        // Read location
+        std::array<double,3> loc;
+        {
+            hid_t dset_id;
+            HDF5_CALL(dset_id, H5Dopen2(co_grp, "location", H5P_DEFAULT));
+            HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, loc.data()));
+            HDF5_CALL(err, H5Dclose(dset_id));
+        }
 
-        HDF5_CALL(err, H5Sget_simple_extent_dims(space_id, dset_dims, nullptr));
-        ASSERT(dset_dims[0] == 3, "Dimension of " << name << " is not 3");
+        // Read radius
+        double radius;
+        {
+            hid_t dset_id;
+            HDF5_CALL(dset_id, H5Dopen2(co_grp, "radius", H5P_DEFAULT));
+            HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &radius));
+            HDF5_CALL(err, H5Dclose(dset_id));
+        }
 
-        // Since the dataset is 2 elements, copy properly
-        double tmp[3];
-        HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, dxpl, tmp));
-        x = tmp[0];
-        y = tmp[1];
-        z = tmp[2];
+        // Read name attribute
+        std::string name;
+        {
+            hid_t attr_id, atype_id;
+            HDF5_CALL(attr_id,  H5Aopen(co_grp, "name", H5P_DEFAULT));
+            HDF5_CALL(atype_id, H5Aget_type(attr_id));
+            size_t sz = H5Tget_size(atype_id);
+            name.resize(sz);
+            HDF5_CALL(err, H5Aread(attr_id, atype_id, name.data()));
+            HDF5_CALL(err, H5Tclose(atype_id));
+            HDF5_CALL(err, H5Aclose(attr_id));
+        }
 
-        HDF5_CALL(err, H5Dclose(dset_id));
-        HDF5_CALL(err, H5Sclose(space_id));
+        // Read kind attribute -- you need to write this in write_co_dset too
+        std::string kind;
+        {
+            hid_t attr_id, atype_id;
+            HDF5_CALL(attr_id,  H5Aopen(co_grp, "kind", H5P_DEFAULT));
+            HDF5_CALL(atype_id, H5Aget_type(attr_id));
+            size_t sz = H5Tget_size(atype_id);
+            kind.resize(sz);
+            HDF5_CALL(err, H5Aread(attr_id, atype_id, kind.data()));
+            HDF5_CALL(err, H5Tclose(atype_id));
+            HDF5_CALL(err, H5Aclose(attr_id));
+        }
+
+        if (kind=="ns") {
+            vec.push_back(std::make_unique<ns_tracker_t>(
+                loc,radius,name 
+            )) ; 
+        } else if ( kind == "bh" ) {
+            vec.push_back(std::make_unique<puncture_tracker_t>(
+                loc,radius,name 
+            )) ; 
+        } else {
+            ERROR("Unknown co kind in checkpoint " << kind ) ; 
+        }
     };
-    // load ns tracker data if needed 
-    auto& ns_tracker = grace::ns_tracker::get() ; 
-    if (ns_tracker.is_active()) {
-        auto ns_centers_d  = ns_tracker.get_ns_locations() ; 
-        auto ns_centers_h = Kokkos::create_mirror_view(ns_centers_d) ;
-        for( int in=0; in<ns_tracker.get_n_ns(); ++in){
-            std::string name = "ns_location_" + std::to_string(in) ; 
-            read_coord_dataset(name, ns_centers_h(in,0), ns_centers_h(in,1),ns_centers_h(in,2)) ; 
+    auto& co_tracker = grace::co_tracker::get() ;
+    if (co_tracker.is_active()) {
+        int ncos_exp = co_tracker.get_n_cos() ; 
+        hid_t tracker_grp;
+        HDF5_CALL(tracker_grp, H5Gopen2(file_id, "co_tracker", H5P_DEFAULT));
+
+        // Read n_cos
+        int ncos;
+        {
+            hid_t dset_id;
+            HDF5_CALL(dset_id, H5Dopen2(tracker_grp, "n_cos", H5P_DEFAULT));
+            HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &ncos));
+            HDF5_CALL(err, H5Dclose(dset_id));
         }
-        Kokkos::deep_copy(ns_centers_d,ns_centers_h) ; 
-        ns_tracker.set_ns_locations(ns_centers_d) ; 
-    }
-    // ditto for puncture tracker 
-    #ifdef GRACE_ENABLE_Z4C_METRIC
-    auto& puncture_tracker = grace::puncture_tracker::get() ; 
-    if (puncture_tracker.is_active()) {
-        auto puncture_centers  = puncture_tracker.get_puncture_locations() ; 
-        for( int ip=0; ip<puncture_tracker.get_n_punctures(); ++ip){
-            std::string name = "puncture_location_" + std::to_string(ip) ; 
-            read_coord_dataset(
-                name, 
-                puncture_centers[ip][0],
-                puncture_centers[ip][1],
-                puncture_centers[ip][2]
-            ) ; 
+        bool merged ; 
+        // Read has_merged
+        {
+            int merged_int;
+            hid_t dset_id;
+            HDF5_CALL(dset_id, H5Dopen2(tracker_grp, "has_merged", H5P_DEFAULT));
+            HDF5_CALL(err, H5Dread(dset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, &merged_int));
+            HDF5_CALL(err, H5Dclose(dset_id));
+            merged = (merged_int != 0);
         }
-        puncture_tracker.set_puncture_locations(puncture_centers) ; 
+
+        ASSERT(ncos==ncos_exp, "Mismatch in number of compact objects in the checkpoint.") ; 
+        
+        co_tracker.set_merged(merged) ;
+        // danger zone! make this protected 
+        std::vector<std::unique_ptr<co_tracker_t>> co_list ; 
+        for( int ico=0; ico<ncos; ++ico ) read_co_dataset(tracker_grp,ico,co_list) ;
+        co_tracker.set_co_list(std::move(co_list)) ; 
     }
-    #endif 
+    
     /**********************************************************************/
     /* Read the state data                                                */
     /**********************************************************************/

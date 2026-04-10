@@ -73,7 +73,7 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
                     Kokkos::View<double *****, grace::default_space>& ddata, 
                     const int nfields, const int npoints, size_t nx, size_t ny, size_t nz, size_t ngz) {
  
-  GRACE_INFO("Setting up coordinates");
+  GRACE_INFO("Importing FUKA data onto the grid...");
   std::string id_type{kadath_id};
   auto clock_start = std::chrono::high_resolution_clock::now() ; 
   auto data = Kokkos::create_mirror_view(ddata) ; 
@@ -159,7 +159,6 @@ void KadathImporter(const std::string kadath_id, const std::string  filename,
     reader_t input_reader(filename.c_str()); 
     interp_data_helper.template operator()<reader_t, true>(input_reader, xx,yy,zz);
   } 
-  #endif
   
   GRACE_INFO("Finished Kadath import") ;
   auto clock_end = std::chrono::high_resolution_clock::now() ; 

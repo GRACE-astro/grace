@@ -359,30 +359,24 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
     bool atm_beta_eq = grace::get_param<bool>("grmhd", "atmosphere", "atmosphere_is_beta_eq") ; 
     double ye_atmo = get_param<double>("grmhd", "atmosphere", "ye_fl") ; 
     if ( atm_beta_eq ) {
-        // find beta equilibrium, we do this on host
-        // since it's a single rootfind 
-        auto lrhoL = Kokkos::create_mirror_view(_lrho) ; 
-        auto ltL = Kokkos::create_mirror_view(_lt) ; 
-        auto yeL = Kokkos::create_mirror_view(_ye) ; 
-
-        Kokkos::deep_copy(yeL,_ye)       ; 
-        Kokkos::deep_copy(ltL,_lt)       ;
-        Kokkos::deep_copy(lrhoL, _lrho ) ; 
-        tabeos_linterp_t interpolator(alltables,lrhoL,ltL,yeL) ;
-
-        auto const find_betaeq = [=] (double rho, double T) {
-            double logrhoL = log(rho) ; 
-            double logtempL = log(T) ; 
-            auto const dmu = [&] (double ye) {
-                double mup = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUP) ; 
-                double mue = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUE) ; 
-                double mun = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUN) ; 
-                return mue + mup - mun ; 
-            } ; 
-            return utils::brent(dmu, yemin, yemax, 1e-14) ; 
-        } ; 
-        // find beta eq, decide ye atmo 
-        ye_atmo = find_betaeq(rho_floor, temp_floor) ; 
+        // find beta equilibrium, we do this on device cause it's simpler that way 
+        tabeos_linterp_t interpolator(_tables,_lrho,_lt,_ye) ;
+        Kokkos::parallel_reduce("find_betaeq_atmo_ye", 1, 
+            KOKKOS_LAMBDA (int dummy, double& acc) {
+                auto const find_betaeq = [=] (double rho, double T) {
+                    double logrhoL = log(rho) ; 
+                    double logtempL = log(T) ; 
+                    auto const dmu = [&] (double ye) {
+                        double mup = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUP) ; 
+                        double mue = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUE) ; 
+                        double mun = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUN) ; 
+                        return mue + mup - mun ; 
+                    } ; 
+                    return utils::brent(dmu, yemin, yemax, 1e-14) ; 
+                } ; 
+                acc = find_betaeq(rho_floor,temp_floor) ; 
+            }, Kokkos::Max<double>(ye_atmo)
+        ) ; 
     }
 
     auto usr_eps_max = grace::get_param<double>("eos", "eps_maximum");
@@ -702,31 +696,25 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
     bool atm_beta_eq = grace::get_param<bool>("grmhd", "atmosphere", "atmosphere_is_beta_eq") ; 
     double ye_atmo = get_param<double>("grmhd", "atmosphere", "ye_fl") ; 
     if ( atm_beta_eq ) {
-        // find beta equilibrium, we do this on host
-        // since it's a single rootfind 
-        auto lrhoL = Kokkos::create_mirror_view(_lrho) ; 
-        auto ltL = Kokkos::create_mirror_view(_lt) ; 
-        auto yeL = Kokkos::create_mirror_view(_ye) ; 
-
-        Kokkos::deep_copy(yeL,_ye)       ; 
-        Kokkos::deep_copy(ltL,_lt)       ;
-        Kokkos::deep_copy(lrhoL, _lrho ) ; 
-        tabeos_linterp_t interpolator(alltables,lrhoL,ltL,yeL) ;
-        
-	auto const find_betaeq = [=] (double rho, double T) {
-            double logrhoL = log(rho) ; 
-            double logtempL = log(T) ; 
-            auto const dmu = [&] (double ye) {
-                double mup = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUP) ; 
-                double mue = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUE) ; 
-                double mun = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUN) ; 
-                return mue + mup - mun ; 
-            } ; 
-            return utils::brent(dmu, yemin, yemax, 1e-14) ; 
-        } ; 
-        // find beta eq, decide ye atmo 
-        ye_atmo = find_betaeq(rho_floor, temp_floor) ; 
-    } 
+        // find beta equilibrium, we do this on device cause it's simpler that way 
+        tabeos_linterp_t interpolator(_tables,_lrho,_lt,_ye) ;
+        Kokkos::parallel_reduce("find_betaeq_atmo_ye", 1, 
+            KOKKOS_LAMBDA (int dummy, double& acc) {
+                auto const find_betaeq = [=] (double rho, double T) {
+                    double logrhoL = log(rho) ; 
+                    double logtempL = log(T) ; 
+                    auto const dmu = [&] (double ye) {
+                        double mup = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUP) ; 
+                        double mue = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUE) ; 
+                        double mun = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUN) ; 
+                        return mue + mup - mun ; 
+                    } ; 
+                    return utils::brent(dmu, yemin, yemax, 1e-14) ; 
+                } ; 
+                acc = find_betaeq(rho_floor,temp_floor) ; 
+            }, Kokkos::Max<double>(ye_atmo)
+        ) ; 
+    }
 
     auto usr_eps_max = grace::get_param<double>("eos", "eps_maximum");
     if ( usr_eps_max < epsmax ) {

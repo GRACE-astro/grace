@@ -145,8 +145,12 @@ find_package(FFTW REQUIRED COMPONENTS DOUBLE)
 set( MKL_INTERFACE    "lp64" CACHE STRING  "MKL interface layer (lp64 or ilp64)" )
 set( ENABLE_BLACS     ON     CACHE BOOL    "Enable BLACS support in MKL"          )
 set( ENABLE_SCALAPACK ON     CACHE BOOL    "Enable ScaLAPACK support in MKL"      )
-#find_package( MKL QUIET )
-find_package(MKL CONFIG REQUIRED PATHS $ENV{MKLROOT}/lib/cmake )
+
+find_package(MKL CONFIG QUIET 
+    PATHS 
+        $ENV{MKLROOT}/lib/cmake 
+        ${MKL_ROOT}/lib/cmake
+)
 if( MKL_FOUND )
   if( MKL_VERSION VERSION_LESS "2021.0" )
     message( WARNING "MKL < 2021 detected: MKL::MKL_SCALAPACK target may not exist, consider upgrading" )

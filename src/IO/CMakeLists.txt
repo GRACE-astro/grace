@@ -11,7 +11,7 @@ register_grace_object(grace_scalar_output scalar_output.cpp)
 
 register_grace_object(grace_spherical_surfaces spherical_surfaces.cpp)
 
-register_grace_object(grace_diagnostics output_diagnostics.cpp diagnostics/black_hole_diagnostics.cpp diagnostics/outflow_diagnostics.cpp)
+register_grace_object(grace_diagnostics output_diagnostics.cpp diagnostics/black_hole_diagnostics.cpp diagnostics/outflow_diagnostics.cpp diagnostics/co_tracker.cpp)
 register_grace_object_conditional(grace_gw_integrals GRACE_ENABLE_Z4C_METRIC diagnostics/gw_integrals.cpp)
 
 
