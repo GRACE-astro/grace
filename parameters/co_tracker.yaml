@@ -1,0 +1,73 @@
+co_tracker:
+  type: schema
+  description: > 
+    Trackers for compact objects of different (2) kinds. BH is tracked via shift, NS via CoM. NS radius is used as mask to decide which points to include.
+
+  n_cos:
+    type: int 
+    range: "[0,2]"
+    default: 0
+    description: > 
+      How many have we got?
+
+  update_every:
+    type: int 
+    range: "[-1,*)"
+    default: -1
+    description: >
+      How often to update and output (in iterations)
+  
+  merge_distance:
+    type: double 
+    range: "(0,*)"
+    default: 10
+    description: >
+      If binary is tracked, this is used to decide if the binary has merged. Used in e.g. regridding. Coordinate distance!!
+  
+  cos: 
+    type: list 
+    item_type: node
+
+    min_items: 0
+
+    item_schema:
+      kind: 
+        type: "keyword"
+        allowed: ["ns", "bh"]
+        default: "ns"
+        description: >
+          What kind of CO?
+
+      name: 
+        type: "string"
+        default: "foo"
+        description: >
+          Name of co, used for file, must be distinct from others!
+      
+      x_i: 
+        type: double 
+        range: "(*,*)"
+        default: 0.0
+        description: >
+          Initial x location 
+      y_i: 
+        type: double 
+        range: "(*,*)"
+        default: 0.0
+        description: >
+          Initial y location 
+      z_i: 
+        type: double 
+        range: "(*,*)"
+        default: 0.0
+        description: >
+          Initial z location 
+
+      radius:
+        type: double 
+        range: "(0,*)"
+        default: 1
+        description: >
+          (Initial) radius. Might be updated, might be used in update, who knows.
+      
+      

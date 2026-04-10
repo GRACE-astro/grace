@@ -37,33 +37,16 @@ namespace grace {
 struct Avec_poloidal_id_t {
 
     Avec_poloidal_id_t(
-        double cut,
-        double Aphi,
-        double An,
-        bool is_binary,
-        std::array<double,3> const& _c1,
-        std::array<double,3> const& _c2
-    ) : _cut(cut), _A_phi(Aphi), _A_n(An)
-      , _is_binary(is_binary), c1(_c1), c2(_c2)
-    {}
+        double Aphi, double cut, double n
+    ) : _A_phi(Aphi), _cut(cut), _A_n(n)
+    { }
+
+    Avec_poloidal_id_t( Avec_poloidal_id_t const& other) = default ; 
+    Avec_poloidal_id_t( Avec_poloidal_id_t && other) = default ; 
 
     template<size_t idir>
     GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     double get(
-        std::array<double,3> const& coords,
-        double const& var
-    ) const  
-    {
-        if ( _is_binary ) {
-            return get_binary<idir>(coords,var); 
-        } else {
-            return get_single<idir>(coords,var); 
-        }
-    }
-
-    template<size_t idir>
-    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    double get_single(
         std::array<double,3> const& coords,
         double const& var
     ) const  
@@ -76,35 +59,8 @@ struct Avec_poloidal_id_t {
         } ; 
         return A[idir] ;
     }
-
-    template<size_t idir>
-    GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
-    double get_binary(
-        std::array<double,3> const& coords,
-        double const& var
-    ) const  
-    {
-        double x1[3] = {coords[0]-c1[0], coords[1]-c1[1], coords[2]-c1[2]};
-        double x2[3] = {coords[0]-c2[0], coords[1]-c2[1], coords[2]-c2[2]};
-
-        double d1 = SQR(x1[0]) + SQR(x1[1]) + SQR(x1[2]) ;
-        double d2 = SQR(x2[0]) + SQR(x2[1]) + SQR(x2[2]) ;
-        double const _A = _A_phi * Kokkos::pow(Kokkos::max(var-_cut,0.0),_A_n) ; 
-
-        std::array<double,3> A{0,0,0} ;
-        if (d1<d2) {   
-            A[0] = -x1[1] * _A ; 
-            A[1] = x1[0] * _A ; 
-        } else {
-            A[0] = -x2[1] * _A ; 
-            A[1] = x2[0] * _A ; 
-        } 
-        return A[idir] ;
-    }
-
-    double _cut, _A_phi, _A_n ;
-    bool _is_binary ; 
-    std::array<double,3> c1,c2 ;  
+    
+    double _cut, _A_phi, _A_n ; 
 } ; 
 
 }

@@ -65,6 +65,9 @@ struct fuka_id_t {
         using namespace grace ;
         using namespace Kokkos ; 
         
+        atmo_params = get_atmo_params() ;
+        zero_shift = get_param<bool>("grmhd","fuka","set_shift_to_zero") ; 
+
         GRACE_VERBOSE("Setting FUKA initial data.") ; 
 
         GRACE_VERBOSE("Initial data type is: {}.", id_type ) ;
@@ -76,35 +79,17 @@ struct fuka_id_t {
         auto& idx   = grace::variable_list::get().getinvspacings()   ; 
 
         auto& coord_system = grace::coordinate_system::get() ; 
-  
-        _rho   = sview_t("rho_fuka", nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
-        _eps   = sview_t("eps_fuka", nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
-        _press = sview_t("press_fuka", nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
-        _vel   = vview_t("vel_fuka", 3,nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
 
-        _alp   = sview_t("lapse_fuka", nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
-        _beta  = vview_t("shift_fuka", 3,nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
-        _g     = vview_t("metric_fuka", 6,nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
-        _k     = vview_t("ext_curv_fuka", 6,nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ;
+        const bool has_matter = (id_type=="NS" || id_type=="BNS" || id_type=="BHNS");
+        int64_t const nfields= has_matter? 4+6+6+4 : 4+6+6 ;
 
-        auto _hrho = Kokkos::create_mirror_view(_rho) ; 
-        auto _heps = Kokkos::create_mirror_view(_eps) ; 
-        auto _hpress = Kokkos::create_mirror_view(_press) ; 
-        auto _hvel = Kokkos::create_mirror_view(_vel) ; 
-
-        auto _halp = Kokkos::create_mirror_view(_alp) ; 
-        auto _hbeta = Kokkos::create_mirror_view(_beta) ; 
-        auto _hg = Kokkos::create_mirror_view(_g) ; 
-        auto _hk = Kokkos::create_mirror_view(_k) ; 
+        _data  = vview_t("data_fuka", nfields, nx+2*ngz,ny+2*ngz,nz+2*ngz,nq) ; 
         
         int64_t ncells = EXPR((nx+2*ngz),*(ny+2*ngz),*(nz+2*ngz))*nq ;
-        std::vector<std::array<double, GRACE_NSPACEDIM>> cells_pcoords;
-        const bool has_matter = (id_type=="NS" || id_type=="BNS" || id_type=="BHNS");
+        
+        
 
-        int64_t const nfields= has_matter? 4+6+6+6 : 4+6+6 ;
-
-        std::vector<std::reference_wrapper<double>> local_vars; // holds references to (nfields x npoints) values
-        local_vars.reserve(nfields*ncells); 
+        std::vector<double> xx(ncells), yy(ncells), zz(ncells) ; 
 
         for( int64_t icell=0; icell<ncells; ++icell) {
             size_t const i = icell%(nx+2*ngz); 
@@ -124,134 +109,107 @@ struct fuka_id_t {
                 true
             ) ; 
         
-            cells_pcoords.push_back(pcoords); 
-
-            // The ordering here follows Kadath enums convention:
-            // ALP = 0 
-            // BETAX = 1
-
-            // access:
-            // local_vars[icell*nfields+K_MAT::FIELD_NUM] 
-
-            local_vars.push_back(std::ref(_halp(i,j,k,q)));
-            local_vars.push_back(std::ref(_hbeta(0,i,j,k,q)));
-            local_vars.push_back(std::ref(_hbeta(1,i,j,k,q)));
-            local_vars.push_back(std::ref(_hbeta(2,i,j,k,q)));
-
-            local_vars.push_back(std::ref(_hg(0,i,j,k,q)));
-            local_vars.push_back(std::ref(_hg(1,i,j,k,q)));
-            local_vars.push_back(std::ref(_hg(2,i,j,k,q)));
-            local_vars.push_back(std::ref(_hg(3,i,j,k,q)));
-            local_vars.push_back(std::ref(_hg(4,i,j,k,q)));
-            local_vars.push_back(std::ref(_hg(5,i,j,k,q)));
-
-            local_vars.push_back(std::ref(_hk(0,i,j,k,q)));
-            local_vars.push_back(std::ref(_hk(1,i,j,k,q)));
-            local_vars.push_back(std::ref(_hk(2,i,j,k,q)));
-            local_vars.push_back(std::ref(_hk(3,i,j,k,q)));
-            local_vars.push_back(std::ref(_hk(4,i,j,k,q)));
-            local_vars.push_back(std::ref(_hk(5,i,j,k,q)));
-
-            // MATTER:
-            if(has_matter){
-                local_vars.push_back(std::ref(_hrho(i,j,k,q)));
-                local_vars.push_back(std::ref(_heps(i,j,k,q)));
-                local_vars.push_back(std::ref(_hpress(i,j,k,q)));
-                local_vars.push_back(std::ref(_hvel(0,i,j,k,q)));
-                local_vars.push_back(std::ref(_hvel(1,i,j,k,q)));
-                local_vars.push_back(std::ref(_hvel(2,i,j,k,q)));
-            }
-
+            xx[icell] = pcoords[0]; 
+            yy[icell] = pcoords[1]; 
+            zz[icell] = pcoords[2]; 
         }
     
         // the import happens on host; send off the packed references to the kadath exporters
-        KadathImporter(id_type, id_dir+"/"+fname, local_vars, 
-                                    cells_pcoords, nfields, ncells);
-
-        // reuse device views  
-        Kokkos::deep_copy(_rho  , _hrho  );
-        Kokkos::deep_copy(_eps  , _heps  );
-        Kokkos::deep_copy(_press, _hpress  );
-        Kokkos::deep_copy(_vel  , _hvel  );
-        Kokkos::deep_copy(_alp  , _halp  );
-        Kokkos::deep_copy(_beta , _hbeta  );
-        Kokkos::deep_copy(_g    , _hg  );
-        Kokkos::deep_copy(_k    , _hk  );
+        KadathImporter(id_type, id_dir+"/"+fname, 
+                        xx,yy,zz,_data, nfields, ncells,nx,ny,nz,ngz);
 
     }
 
     grmhd_id_t GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE GRACE_DEVICE_EXTERNAL_LINKAGE
     operator() (VEC(int const i, int const j, int const k), int const q) const 
     {
-        grmhd_id_t id ; 
-        
-        
-        double const rho_atm{1e-14} ; 
+        grmhd_id_t id ;     
         eos_err_t eos_err ;
+        bool reset_eps{false} ; // fixme 
+        double e = _data(16,i,j,k,q) ; 
+        id.rho = _eos.rho__energy_cold_impl(e, eos_err) ; 
+        id.eps = e/id.rho - 1. ; 
 
-        double rho = _rho(VEC(i,j,k),q);
+        auto rho_atm = atmo_params.rho_fl ; 
+        auto ye_atm = atmo_params.ye_fl ; 
+        auto temp_atm = atmo_params.temp_fl ; 
 
-        if ( rho < (1.+1e-3) * rho_atm || !Kokkos::isfinite(rho)) {
-            id.rho = rho_atm ; 
-            // get ye at beta eq
-            id.ye = _eos.ye_cold__press(id.rho, eos_err) ;
-            // get pressure from EOS
-            id.press = _eos.press_cold__rho(id.rho,eos_err) ; 
+        if ( id.rho < (1.+1e-3) * rho_atm || !Kokkos::isfinite(id.rho)) {
+            id.rho   = rho_atm ; 
+            id.ye    = ye_atm   ; 
+            id.temp  = temp_atm ; 
+            // get the rest 
+            double dummy ;
+            id.press = _eos.press_eps_csnd2_entropy__temp_rho_ye(
+                id.eps, dummy, id.entropy, id.temp, id.rho, id.ye, eos_err
+            ) ; 
             // set velocities 
             id.vx = id.vy = id.vz = 0.0 ;
         } else {
-            id.rho = rho ; 
             // get ye at beta eq
-            id.ye = _eos.ye_cold__press(id.rho, eos_err) ;
-            // get pressure from EOS
-            id.press = _eos.press_cold__rho(id.rho,eos_err) ; 
-            // alternatively, we could just import:
-            // id.press = _press(VEC(i,j,k),q));
-            // set velocities 
-            id.vx =  _vel(0,VEC(i,j,k),q) ;  
-            id.vy =  _vel(1,VEC(i,j,k),q) ; 
-            id.vz =  _vel(2,VEC(i,j,k),q) ; 
+            id.ye = _eos.ye_cold__rho(id.rho, eos_err) ;
+            // get velocities 
+            id.vx =  _data(17,VEC(i,j,k),q) ;  
+            id.vy =  _data(18,VEC(i,j,k),q) ; 
+            id.vz =  _data(19,VEC(i,j,k),q) ; 
+            if (reset_eps) {
+                // assume "zero" temperature
+                // for ideal gas t_atmo **must** be 
+                // K rho_atmo^(Gamma-1) with K from the
+                // ID for this to be self-consistent.
+                double h, csnd2 ;
+                id.temp = temp_atm ; 
+                id.press = _eos.press_eps_csnd2_entropy__temp_rho_ye_impl(
+                    id.eps, csnd2, id.entropy, id.temp, id.rho, id.ye, eos_err
+                ) ; 
+            } else {
+                // get pressure and the rest assuming eps from
+                // the ID is good enough
+                double h, csnd2 ;
+                id.press = _eos.press_h_csnd2_temp_entropy__eps_rho_ye(
+                    h, csnd2, id.temp, id.entropy, id.eps, id.rho, id.ye, eos_err
+                ) ; 
+            }
         }
 
-        // is this needed?
-
-       
-        
-             
         // B field is set elsewhere    
         id.bx = id.by = id.bz = 0.0 ; 
 
         // metric 
-        id.alp =  _alp(VEC(i,j,k),q) ; 
+        id.alp =  _data(0,VEC(i,j,k),q) ; 
 
-        id.betax =  _beta(0,VEC(i,j,k),q);
-        id.betay =  _beta(1,VEC(i,j,k),q);
-        id.betaz =  _beta(2,VEC(i,j,k),q);
+        if ( zero_shift ) {
+            id.betax =  id.betay = id.betaz = 0;
+        } else {
+            id.betax =  _data(1,VEC(i,j,k),q);
+            id.betay =  _data(2,VEC(i,j,k),q);
+            id.betaz =  _data(3,VEC(i,j,k),q);
+        }
 
-        id.gxx = _g(0,VEC(i,j,k),q) ; 
-        id.gxy = _g(1,VEC(i,j,k),q) ; 
-        id.gxz = _g(2,VEC(i,j,k),q) ; 
-        id.gyy = _g(3,VEC(i,j,k),q) ; 
-        id.gyz = _g(4,VEC(i,j,k),q) ; 
-        id.gzz = _g(5,VEC(i,j,k),q) ;
+        id.gxx = _data(4,VEC(i,j,k),q) ; 
+        id.gxy = _data(5,VEC(i,j,k),q) ; 
+        id.gxz = _data(6,VEC(i,j,k),q) ; 
+        id.gyy = _data(7,VEC(i,j,k),q) ; 
+        id.gyz = _data(8,VEC(i,j,k),q) ; 
+        id.gzz = _data(9,VEC(i,j,k),q) ;
         
-        id.kxx = _k(0,VEC(i,j,k),q) ; 
-        id.kxy = _k(1,VEC(i,j,k),q)  ; 
-        id.kxz = _k(2,VEC(i,j,k),q)  ; 
-        id.kyy = _k(3,VEC(i,j,k),q)  ; 
-        id.kyz = _k(4,VEC(i,j,k),q)  ; 
-        id.kzz = _k(5,VEC(i,j,k),q)  ;
+        id.kxx = _data(10,VEC(i,j,k),q) ; 
+        id.kxy = _data(11,VEC(i,j,k),q)  ; 
+        id.kxz = _data(12,VEC(i,j,k),q)  ; 
+        id.kyy = _data(13,VEC(i,j,k),q)  ; 
+        id.kyz = _data(14,VEC(i,j,k),q)  ; 
+        id.kzz = _data(15,VEC(i,j,k),q)  ;
         
         return id ; 
     }
 
     eos_t   _eos         ;                            //!< Equation of state object 
     grace::coord_array_t<GRACE_NSPACEDIM> _pcoords ;  //!< Physical coordinates of cell centers
+    atmo_params_t atmo_params                      ;  //!< Atmosphere properties 
 
-    
-    sview_t _rho, _eps, _press; 
-    sview_t _alp ; 
-    vview_t _vel, _g, _k, _beta ; 
+    vview_t _data ; 
+
+    bool zero_shift ; 
 
 } ; 
 

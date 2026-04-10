@@ -117,16 +117,27 @@
 # Include these modules to handle the QUIETLY and REQUIRED arguments.
 # include(Modules/FindPackageHandleStandardArgs.cmake)
 
+# Modified for GRACE by Carlo Musolino <carlo.musolino@aei.mpg.de> 8 Apr. 2026,
+# now creates imported target for downstream convenience. Also uses GSL_ROOT
+# in addition to GSL_ROOT_DIR 
+
 #=============================================================================
 # If the user has provided ``GSL_ROOT_DIR``, use it!  Choose items found
 # at this location over system locations.
-if ( EXISTS "$ENV{GSL_ROOT_DIR}" )
+if( EXISTS "$ENV{GSL_ROOT_DIR}" )
   file( TO_CMAKE_PATH "$ENV{GSL_ROOT_DIR}" GSL_ROOT_DIR )
   set( GSL_ROOT_DIR "${GSL_ROOT_DIR}" CACHE PATH "Prefix for GSL installation." )
-endif ()
-if ( NOT EXISTS "${GSL_ROOT_DIR}" )
+elseif( EXISTS "$ENV{GSL_ROOT}" )
+  file( TO_CMAKE_PATH "$ENV{GSL_ROOT}" GSL_ROOT_DIR )
+  set( GSL_ROOT_DIR "${GSL_ROOT_DIR}" CACHE PATH "Prefix for GSL installation." )
+elseif( EXISTS "${GSL_ROOT}" )
+  file( TO_CMAKE_PATH "${GSL_ROOT}" GSL_ROOT_DIR )
+  set( GSL_ROOT_DIR "${GSL_ROOT_DIR}" CACHE PATH "Prefix for GSL installation." )
+endif()
+
+if( NOT EXISTS "${GSL_ROOT_DIR}" )
   set( GSL_USE_PKGCONFIG ON )
-endif ()
+endif()
 
 #=============================================================================
 # As a first try, use the PkgConfig module.  This will work on many
@@ -231,6 +242,37 @@ find_package_handle_standard_args( GSL
   VERSION_VAR
     GSL_VERSION
     )
+
+# After find_package_handle_standard_args(...)
+
+if( GSL_FOUND AND NOT TARGET GSL::gsl )
+
+  add_library( GSL::gslcblas UNKNOWN IMPORTED )
+  set_target_properties( GSL::gslcblas PROPERTIES
+    IMPORTED_LOCATION             "${GSL_CBLAS_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${GSL_INCLUDE_DIRS}"
+  )
+  if( EXISTS "${GSL_CBLAS_LIBRARY_DEBUG}" )
+    set_property( TARGET GSL::gslcblas APPEND PROPERTY
+      IMPORTED_CONFIGURATIONS DEBUG )
+    set_target_properties( GSL::gslcblas PROPERTIES
+      IMPORTED_LOCATION_DEBUG "${GSL_CBLAS_LIBRARY_DEBUG}" )
+  endif()
+
+  add_library( GSL::gsl UNKNOWN IMPORTED )
+  set_target_properties( GSL::gsl PROPERTIES
+    IMPORTED_LOCATION             "${GSL_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${GSL_INCLUDE_DIRS}"
+    INTERFACE_LINK_LIBRARIES      GSL::gslcblas
+  )
+  if( EXISTS "${GSL_LIBRARY_DEBUG}" )
+    set_property( TARGET GSL::gsl APPEND PROPERTY
+      IMPORTED_CONFIGURATIONS DEBUG )
+    set_target_properties( GSL::gsl PROPERTIES
+      IMPORTED_LOCATION_DEBUG "${GSL_LIBRARY_DEBUG}" )
+  endif()
+
+endif()
 
 mark_as_advanced( GSL_ROOT_DIR GSL_VERSION GSL_LIBRARY GSL_INCLUDE_DIR
     GSL_CBLAS_LIBRARY GSL_LIBRARY_DEBUG GSL_CBLAS_LIBRARY_DEBUG

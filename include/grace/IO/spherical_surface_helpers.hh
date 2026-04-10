@@ -31,7 +31,6 @@
 
 #include <grace/utils/device.h>
 #include <grace/utils/inline.h>
-#include <grace/IO/diagnostics/ns_tracker.hh>
 
 #include <grace/coordinates/coordinate_systems.hh>
 
@@ -277,27 +276,6 @@ struct no_tracking_policy_t {
     }
 } ; 
 
-struct ns_tracking_policy_t {
-    int ns_idx ; 
-
-    ns_tracking_policy_t(int _idx): ns_idx(_idx) 
-    {}
-
-    bool track(
-        double& radius,
-        std::array<double,3>& center
-    ) 
-    {
-        auto& tracker = grace::ns_tracker::get() ; 
-        ASSERT(tracker.get_n_ns() > ns_idx, "Requested tracking ns index exceeds number of registered COs.") ; 
-        auto centers_d = tracker.get_ns_locations() ; 
-        auto centers_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, centers_d) ; 
-        center[0] = centers_h(ns_idx,0) ; 
-        center[1] = centers_h(ns_idx,1) ; 
-        center[2] = centers_h(ns_idx,2) ; 
-        return true;
-    }
-} ; 
 
 }
 

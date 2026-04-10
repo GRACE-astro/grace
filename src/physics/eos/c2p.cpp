@@ -133,19 +133,21 @@ limit_conservatives(
 
     // note: this is not really staggered! 
     auto B2L = metric.square_vec({cons[BSXL],cons[BSYL],cons[BSZL]}) ; 
-
+    // This is Etienne+2008 (A46) (https://arxiv.org/pdf/1112.0568)
     if ( cons[TAUL]/cons[DENSL] - 0.5 * B2L/cons[DENSL] < Kokkos::fmin(0.0, epsmin)) 
     {
         cons[TAUL] = epsmin * cons[DENSL] + 0.5 * B2L ; 
         err.set(c2p_err_enum_t::C2P_RESET_TAU) ; 
     }
-
+    // This is the dominant energy condition, see 
+    // e.g. Galeazzi+2014 (C13) (https://arxiv.org/pdf/1306.4953)
     double st2_max = SQR(cons[TAUL]/cons[DENSL] + 1) ; 
     auto st2L = metric.square_covec({cons[STXL],cons[STYL],cons[STZL]})/SQR(cons[DENSL]) ; 
     if ( st2L > st2_max ) {
-        cons[STXL] *= sqrt(st2_max/st2L) ; 
-        cons[STYL] *= sqrt(st2_max/st2L) ;
-        cons[STZL] *= sqrt(st2_max/st2L) ;
+        double const fact = sqrt(st2_max/st2L) ; 
+        cons[STXL] *= fact ;
+        cons[STYL] *= fact ;
+        cons[STZL] *= fact ;
         err.set(c2p_err_enum_t::C2P_RESET_STILDE) ;  
     }
 
@@ -240,10 +242,6 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
     bool c2p_is_lenient = (
         metric.alp() < c2p_pars.alp_bh_thresh 
     ) ; 
-    // FIXME!!! Sometimes tabeos randomly puts one point in the 
-    // ejecta at max eps, we don't want that to crash the whole 
-    // simulation if possible. This is a hack, we need to find 
-    // out why.
 
     // enforce limits on conserved variables
     limit_conservatives(cons,metric,eos,c2p_err) ; 
@@ -254,16 +252,17 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
         c2p_mhd_t c2p(eos,metric,cons) ;
         double residual = c2p.invert(prims,c2p_ret) ;
         
+
         // decide if we need a backup. The criteria are as follows:
         // 1) C2P failed due to not finite residual or residual 
         //    exceeding the threshold 
-        // 2) A severe exception was raised (rho>rho_max or eps>eps_max)
+        // 2) A severe exception was raised (rho>rho_max or eps>eps_max )
         // 3) The plasma beta is below the threshold 
         c2p_failed = (Kokkos::fabs(residual) > c2p_pars.tol) 
                     || (c2p_ret.test(c2p_sig_enum_t::C2P_RHO_TOO_HIGH)) 
                     || (c2p_ret.test(c2p_sig_enum_t::C2P_EPS_TOO_HIGH))
                     || (!Kokkos::isfinite(residual)) ;
-        
+
         double beta = compute_beta(prims,metric) ; 
         
         // backup if needed and allowed 
@@ -298,6 +297,12 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
             cons,prims,metric,atmo,eos,c2p_err
         ) ;
     } else if (prims[TEMPL] < atmo.temp_fl) {
+        // NB: When using tabeos, if temp_fl == min(T_tab)
+        // this check is effectively a no-op since 
+        // the eos will never return T below the table bound.
+        // nonetheless it's useful if either of the 
+        // above does not hold.
+
         // In this case we only reset 
         // T, eps and press 
         prims[TEMPL] = atmo.temp_fl  ; 
@@ -313,9 +318,9 @@ conservs_to_prims(  grace::grmhd_cons_array_t&  cons
             c2p_is_lenient,
             c2p_err
         ) ; 
-        // reset all conserved except for D, since rho and W are unchanged
+        // reset all conserved except for D (and S_i), since rho and W are unchanged
         c2p_err.set(c2p_err_enum_t::C2P_RESET_TAU)     ; 
-        c2p_err.set(c2p_err_enum_t::C2P_RESET_STILDE)  ; 
+        //c2p_err.set(c2p_err_enum_t::C2P_RESET_STILDE)  ; stick to the convention used for eps fix
         c2p_err.set(c2p_err_enum_t::C2P_RESET_ENTROPY) ; 
     } else {
         /* Limit lorentz fact and magnetization  */
@@ -388,6 +393,7 @@ conservs_to_prims<EOS>( grace::grmhd_cons_array_t&  \
                       , c2p_err_t& c2p_err ) 
 INSTANTIATE_TEMPLATE(grace::hybrid_eos_t<grace::piecewise_polytropic_eos_t>) ;
 INSTANTIATE_TEMPLATE(grace::tabulated_eos_t) ;
+INSTANTIATE_TEMPLATE(grace::ideal_gas_eos_t) ;
 #undef INSTANTIATE_TEMPLATE
 
 }

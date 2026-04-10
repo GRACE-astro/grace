@@ -1,10 +1,11 @@
+# Spinning puncture test from GRACE paper
+
 # Finest resolution: 0.0833
 # Resolution at GW : 0.6666
 # Mass 1 spin 0.5, perturbed by companion
 
 # Runs in a few hours on 4 Mi300A cards 
-
-name: "grace"
+name: "spinning_puncture"
 amr: {
   npoints_block_x: 48,
   npoints_block_y: 48,

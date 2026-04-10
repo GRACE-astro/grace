@@ -53,10 +53,9 @@
 #include <grace/IO/spherical_surfaces.hh>
 #include <grace/IO/output_diagnostics.hh>
 #ifdef GRACE_ENABLE_Z4C_METRIC
-#include <grace/IO/diagnostics/puncture_tracker.hh>
 #include <grace/evolution/evolve.hh>
 #endif 
-#include <grace/IO/diagnostics/ns_tracker.hh>
+#include <grace/IO/diagnostics/co_tracker.hh>
 
 #include <grace/amr/grace_amr.hh>
 
@@ -236,10 +235,7 @@ void initialize(int& argc, char* argv[])
         grace::eos::initialize() ;
         // initialize trackers before reading checkpoint
         // since it contains previous locations
-        #ifdef GRACE_ENABLE_Z4C_METRIC
-        grace::puncture_tracker::initialize() ; 
-        #endif 
-        grace::ns_tracker::initialize() ; 
+        grace::co_tracker::initialize() ; 
     }
     
     GRACE_INFO("Filling coordinate arrays...") ;
@@ -260,7 +256,21 @@ void initialize(int& argc, char* argv[])
     /**********************************************************************************/
     if ( ! started_from_checkpoint ) {
         GRACE_INFO("Setting initial data.") ; 
+
+        bool regrid_at_pre_initial = grace::get_param<bool>("amr","regrid_at_preinitial") ; 
+        int pre_initial_regrid_depth = 
+            grace::get_param<int>("amr","preinitial_regrid_depth") ;
+        if (regrid_at_pre_initial) {
+            for( int ilev=0; ilev<pre_initial_regrid_depth; ++ilev){
+                auto grid_has_changed = grace::amr::regrid() ;  
+                if (grid_has_changed) {
+                    ghost.update() ;
+                }
+            }
+        }
+        // now set id 
         grace::set_initial_data() ; 
+        
         bool regrid_at_postinitial = grace::get_param<bool>("amr","regrid_at_postinitial") ; 
         int postinitial_regrid_depth = 
             grace::get_param<int>("amr","postinitial_regrid_depth") ;

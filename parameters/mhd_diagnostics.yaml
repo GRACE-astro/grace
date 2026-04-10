@@ -1,0 +1,25 @@
+mhd_diagnostics:
+  type: schema 
+  description: >
+    Compute mhd diagnostics such as magnetic energy etc. 
+
+  compute_energy_every:
+    type: int 
+    default: -1 
+    range: "[-1,*)"
+    description: >
+      How often to compute, -1 means never!
+
+  compute_other_diagnostics_every:
+    type: int 
+    default: -1 
+    range: "[-1,*)"
+    description: >
+      How often to compute, -1 means never! For now these are just disk  mass 
+
+  disk_mass_rho_threshold:
+    type: double 
+    default: 1e-12 
+    range: "(*,*)"
+    description: >
+      When computing disk mass, integrate only for rho>threshold

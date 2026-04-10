@@ -437,9 +437,9 @@ gpu_task_t make_div_free_prolong(
             have_fine_h_z(j,i) = have_fine_z[i][j];
         }
     }
-    deep_copy(have_fine_h_x,have_fine_data_x) ;
-    deep_copy(have_fine_h_y,have_fine_data_y) ;
-    deep_copy(have_fine_h_z,have_fine_data_z) ;
+    deep_copy(have_fine_data_x,have_fine_h_x) ;
+    deep_copy(have_fine_data_y,have_fine_h_y) ;
+    deep_copy(have_fine_data_z,have_fine_h_z) ;
 
     gpu_task_t task {} ; 
 

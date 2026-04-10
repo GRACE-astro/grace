@@ -346,9 +346,10 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
     double temp_floor = get_param<double>("grmhd", "atmosphere", "temp_fl") ; 
     double rho_floor = get_param<double>("grmhd", "atmosphere", "rho_fl") ; 
 
-    if( temp_floor < tempmin ) {
-        GRACE_WARN("Requested atmo temperature is below table bound {}.", tempmin) ; 
-        temp_floor = tempmin * ( 1 + 1e-5 ); 
+    double tmin_gracefact = std::exp(logtemp[1]) ; 
+    if( temp_floor < tmin_gracefact ) {
+        GRACE_WARN("Requested atmo temperature is below second point in the table {}, will be overridden.", tmin_gracefact) ; 
+        temp_floor = tmin_gracefact; 
     }
     if (rho_floor < rhomin ) {
         ERROR("Requested atmo density is below table bound.") ; 
@@ -358,30 +359,24 @@ grace::tabulated_eos_t read_scollapse_table(std::string const& fname, std::strin
     bool atm_beta_eq = grace::get_param<bool>("grmhd", "atmosphere", "atmosphere_is_beta_eq") ; 
     double ye_atmo = get_param<double>("grmhd", "atmosphere", "ye_fl") ; 
     if ( atm_beta_eq ) {
-        // find beta equilibrium, we do this on host
-        // since it's a single rootfind 
-        auto lrhoL = Kokkos::create_mirror_view(_lrho) ; 
-        auto ltL = Kokkos::create_mirror_view(_lt) ; 
-        auto yeL = Kokkos::create_mirror_view(_ye) ; 
-
-        Kokkos::deep_copy(yeL,_ye)       ; 
-        Kokkos::deep_copy(ltL,_lt)       ;
-        Kokkos::deep_copy(lrhoL, _lrho ) ; 
-        tabeos_linterp_t interpolator(alltables,lrhoL,ltL,yeL) ;
-
-        auto const find_betaeq = [=] (double rho, double T) {
-            double logrhoL = log(rho) ; 
-            double logtempL = log(T) ; 
-            auto const dmu = [&] (double ye) {
-                double mup = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUP) ; 
-                double mue = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUE) ; 
-                double mun = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUN) ; 
-                return mue + mup - mun ; 
-            } ; 
-            return utils::brent(dmu, yemin, yemax, 1e-14) ; 
-        } ; 
-        // find beta eq, decide ye atmo 
-        ye_atmo = find_betaeq(rho_floor, temp_floor) ; 
+        // find beta equilibrium, we do this on device cause it's simpler that way 
+        tabeos_linterp_t interpolator(_tables,_lrho,_lt,_ye) ;
+        Kokkos::parallel_reduce("find_betaeq_atmo_ye", 1, 
+            KOKKOS_LAMBDA (int dummy, double& acc) {
+                auto const find_betaeq = [=] (double rho, double T) {
+                    double logrhoL = log(rho) ; 
+                    double logtempL = log(T) ; 
+                    auto const dmu = [&] (double ye) {
+                        double mup = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUP) ; 
+                        double mue = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUE) ; 
+                        double mun = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUN) ; 
+                        return mue + mup - mun ; 
+                    } ; 
+                    return utils::brent(dmu, yemin, yemax, 1e-14) ; 
+                } ; 
+                acc = find_betaeq(rho_floor,temp_floor) ; 
+            }, Kokkos::Max<double>(ye_atmo)
+        ) ; 
     }
 
     auto usr_eps_max = grace::get_param<double>("eos", "eps_maximum");
@@ -681,15 +676,17 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
     grace::deep_copy_vec_to_view(_lt  , logtemp) ; 
     grace::deep_copy_vec_to_view(_ye  , yes)     ; 
     GRACE_INFO("Table shape: ({}, {}, {}, {})", _tables.extent(0), _tables.extent(1), _tables.extent(2), _tables.extent(3)) ; 
-    
+    GRACE_INFO("Rest mass density max {}, min {} Temperature max {}, min {}", rhomax, rhomin, tempmax, tempmin) ; 
+
     // figure out if atmo is beta equilibrated,
     // if so, find the beta equilibrium ye 
     double temp_floor = get_param<double>("grmhd", "atmosphere", "temp_fl") ; 
     double rho_floor = get_param<double>("grmhd", "atmosphere", "rho_fl") ; 
 
-    if( temp_floor < tempmin ) {
-        GRACE_WARN("Requested atmo temperature is below table bound {}.", tempmin) ; 
-        temp_floor = tempmin * ( 1 + 1e-5 ); 
+    double tmin_gracefact = std::exp(logtemp[1]) ; 
+    if( temp_floor < tmin_gracefact ) {
+        GRACE_WARN("Requested atmo temperature is below second point in the table {}, will be overridden.", tmin_gracefact) ; 
+        temp_floor = tmin_gracefact; 
     }
     if (rho_floor < rhomin ) {
         ERROR("Requested atmo density is below table bound.") ; 
@@ -699,31 +696,25 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
     bool atm_beta_eq = grace::get_param<bool>("grmhd", "atmosphere", "atmosphere_is_beta_eq") ; 
     double ye_atmo = get_param<double>("grmhd", "atmosphere", "ye_fl") ; 
     if ( atm_beta_eq ) {
-        // find beta equilibrium, we do this on host
-        // since it's a single rootfind 
-        auto lrhoL = Kokkos::create_mirror_view(_lrho) ; 
-        auto ltL = Kokkos::create_mirror_view(_lt) ; 
-        auto yeL = Kokkos::create_mirror_view(_ye) ; 
-
-        Kokkos::deep_copy(yeL,_ye)       ; 
-        Kokkos::deep_copy(ltL,_lt)       ;
-        Kokkos::deep_copy(lrhoL, _lrho ) ; 
-        tabeos_linterp_t interpolator(alltables,lrhoL,ltL,yeL) ;
-
-        auto const find_betaeq = [=] (double rho, double T) {
-            double logrhoL = log(rho) ; 
-            double logtempL = log(T) ; 
-            auto const dmu = [&] (double ye) {
-                double mup = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUP) ; 
-                double mue = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUE) ; 
-                double mun = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUN) ; 
-                return mue + mup - mun ; 
-            } ; 
-            return utils::brent(dmu, yemin, yemax, 1e-14) ; 
-        } ; 
-        // find beta eq, decide ye atmo 
-        ye_atmo = find_betaeq(rho_floor, temp_floor) ; 
-    } 
+        // find beta equilibrium, we do this on device cause it's simpler that way 
+        tabeos_linterp_t interpolator(_tables,_lrho,_lt,_ye) ;
+        Kokkos::parallel_reduce("find_betaeq_atmo_ye", 1, 
+            KOKKOS_LAMBDA (int dummy, double& acc) {
+                auto const find_betaeq = [=] (double rho, double T) {
+                    double logrhoL = log(rho) ; 
+                    double logtempL = log(T) ; 
+                    auto const dmu = [&] (double ye) {
+                        double mup = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUP) ; 
+                        double mue = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUE) ; 
+                        double mun = interpolator.interp(logrhoL,logtempL,ye,tabulated_eos_t::TEOS_VIDX::TABMUN) ; 
+                        return mue + mup - mun ; 
+                    } ; 
+                    return utils::brent(dmu, yemin, yemax, 1e-14) ; 
+                } ; 
+                acc = find_betaeq(rho_floor,temp_floor) ; 
+            }, Kokkos::Max<double>(ye_atmo)
+        ) ; 
+    }
 
     auto usr_eps_max = grace::get_param<double>("eos", "eps_maximum");
     if ( usr_eps_max < epsmax ) {
@@ -742,7 +733,6 @@ grace::tabulated_eos_t read_compose_table(std::string const& fname, std::string 
     ) ; 
 
     GRACE_INFO("Done reading cold table, size rho {} size table {} {}", cold_table_rho.extent(0), cold_tables.extent(0), cold_tables.extent(1)) ; 
-    GRACE_INFO("Rest mass density max {}, min {} Temperature max {}, min {}", rhomax, rhomin, tempmax, tempmin) ; 
     return tabulated_eos_t(
         _tables, 
         _lrho, _lt, _ye,

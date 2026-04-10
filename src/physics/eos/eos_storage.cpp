@@ -36,6 +36,8 @@
 #include <grace/physics/eos/eos_base.hh>
 #include <grace/physics/eos/hybrid_eos.hh>
 #include <grace/physics/eos/piecewise_polytropic_eos.hh>
+#include <grace/physics/eos/ideal_gas_eos.hh>
+
 #include <grace/physics/eos/physical_constants.hh> 
 
 #include <grace/physics/grmhd_helpers.hh>
@@ -187,6 +189,11 @@ eos_storage_t::eos_storage_t() {
         }
     } else if ( eos_type == "tabulated") {
         _tabulated = read_eos_table() ; 
+    } else if ( eos_type == "ideal_gas") {
+        _gammalaw = ideal_gas_eos_t(
+            get_param<double>("grmhd", "atmosphere", "temp_fl"),
+            c2p_eps_max
+        ) ; 
     } else {
          ERROR("Unsupported eos_type") ; 
     }

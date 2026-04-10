@@ -57,9 +57,9 @@ const std::vector< std::string > code_modules {
     , "outflows"
     #ifdef GRACE_ENABLE_Z4C_METRIC
     , "gw_integrals"
-    , "puncture_tracker"
     #endif
-    , "ns_tracker"
+    , "co_tracker"
+    , "mhd_diagnostics"
 } ;
 //*****************************************************************************************************
 const std::vector< std::string > code_modules_default_configs { 
@@ -84,9 +84,9 @@ const std::vector< std::string > code_modules_default_configs {
      , "${CMAKE_SOURCE_DIR}/parameters/outflows.yaml"
      #ifdef GRACE_ENABLE_Z4C_METRIC
      , "${CMAKE_SOURCE_DIR}/parameters/gw_integrals.yaml"
-     , "${CMAKE_SOURCE_DIR}/parameters/puncture_tracker.yaml"
      #endif
-     , "${CMAKE_SOURCE_DIR}/parameters/ns_tracker.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/co_tracker.yaml"
+     , "${CMAKE_SOURCE_DIR}/parameters/mhd_diagnostics.yaml"
 } ;
 //*****************************************************************************************************
 }} /* namespace grace::detail */
