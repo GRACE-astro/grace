@@ -190,6 +190,7 @@ int main(int argc, char* argv[])
         /**********************************************************************************/
         /* Update COs surfaces if needed                                                  */
         /**********************************************************************************/
+<<<<<<< HEAD
         grace::co_tracker::get().update_and_write() ;
         /**********************************************************************************/
         /* Inject B field mid-run if requested                                            */
@@ -203,6 +204,9 @@ int main(int argc, char* argv[])
         #ifdef GRACE_ENABLE_Z4C_METRIC
         grace::ah_finder_manager::get().find_all() ;
         #endif
+=======
+        grace::co_tracker::get().update_and_write() ; 
+>>>>>>> c49abd5 (fix annoying bug in CT transfer at regrid)
         /**********************************************************************************/
         /* Update spherical surfaces if needed                                            */
         /**********************************************************************************/
