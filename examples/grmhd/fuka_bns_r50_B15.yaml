@@ -110,7 +110,7 @@ IO: {
 
 system: {
   console_log_level: "info",
-  file_log_level: "info",
+  file_log_level: "trace",
   n_device_streams: 4
 }
 

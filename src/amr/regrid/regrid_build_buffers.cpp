@@ -317,9 +317,9 @@ void regrid_transaction_t::build_buffers() {
         for( int ircv=0; ircv<recvcounts_##axis[r]; ++ircv) {\
             fine_interface_desc_t desc; \
             desc.qid_src = ircv ; \
-            desc.qid_dst = recvbuf_##axis[ircv+rdispls_##axis[r]].qid_remote ;\
-            desc.fid_src = recvbuf_##axis[ircv+rdispls_##axis[r]].fid_local ;\
-            desc.fid_dst = recvbuf_##axis[ircv+rdispls_##axis[r]].fid_remote ;\
+            desc.qid_dst = recvbuf_##axis[ircv+rdispls_##axis[r]].qid_local  ;\
+            desc.fid_src = recvbuf_##axis[ircv+rdispls_##axis[r]].fid_remote ;\
+            desc.fid_dst = recvbuf_##axis[ircv+rdispls_##axis[r]].fid_local  ;\
             remote_fine_face_recv_##axis[r].push_back(desc);\
             GRACE_TRACE("[REGRID] Remote face recv rank r {} qsrc {} qdst {} fsrc {} fdst {}", r, desc.qid_src, desc.qid_dst, desc.fid_src, desc.fid_dst  );\
         }\
@@ -327,9 +327,9 @@ void regrid_transaction_t::build_buffers() {
             auto const& info = sendbuf_##axis[isnd+sdispls_##axis[r]];\
             fine_interface_desc_t desc; \
             desc.qid_dst = isnd ; \
-            desc.qid_src = info.qid_local ;/*+ grace::amr::get_local_quadrants_offset(info.which_tree);*/\
-            desc.fid_src = info.fid_local ;\
-            desc.fid_dst = info.fid_remote  ;\
+            desc.qid_src = info.qid_remote ;\
+            desc.fid_src = info.fid_remote ;\
+            desc.fid_dst = info.fid_local  ;\
             remote_fine_face_send_##axis[r].push_back(desc);\
             GRACE_TRACE("[REGRID] Remote face send rank r {} qsrc {} qdst {} fsrc {} fdst {}", r, desc.qid_src, desc.qid_dst, desc.fid_src, desc.fid_dst  );\
         }\

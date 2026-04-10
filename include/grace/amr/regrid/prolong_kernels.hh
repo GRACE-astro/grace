@@ -26,6 +26,7 @@
  */
 
 #ifndef GRACE_AMR_REGRID_PROLONG_KERNEL_HH
+#define GRACE_AMR_REGRID_PROLONG_KERNEL_HH
 
 #include <grace_config.h>
 
@@ -249,7 +250,7 @@ struct regrid_div_free_prolong_op {
                 
                 // now we need to fill the last face at the end 
                 // if there is no fine data 
-                if ( i_f == n+g-2 and (not have_fine_data_x(1,iq)) ) {
+                if ( (i_f == n+g-2) and (not have_fine_data_x(1,iq)) ) {
                     fill_inside_face(
                         i_c+1,j_c,k_c,
                         i_f+2,j_f,k_f,ivar,
@@ -258,7 +259,7 @@ struct regrid_div_free_prolong_op {
                         limiter,
                         true,false,false) ; 
                 }
-                if ( j_f == n+g-2 and (not have_fine_data_y(1,iq)) ) {
+                if ( (j_f == n+g-2) and (not have_fine_data_y(1,iq)) ) {
                     fill_inside_face(
                         i_c,j_c+1,k_c,
                         i_f,j_f+2,k_f,ivar,
@@ -267,7 +268,7 @@ struct regrid_div_free_prolong_op {
                         limiter,
                         false,true,false) ; 
                 }
-                if ( k_f == n+g-2 and (not have_fine_data_z(1,iq)) ) {
+                if ( (k_f == n+g-2) and (not have_fine_data_z(1,iq)) ) {
                     fill_inside_face(
                         i_c,j_c,k_c+1,
                         i_f,j_f,k_f+2,ivar,

@@ -504,18 +504,19 @@ void regrid_transaction_t::build_task_list() {
         )\
     )
     #define INSERT_FUPACK_TASKS(axis,idx)\
-    if( remote_fine_face_recv_##axis[r].size() > 0)\
-    task_list.push_back(\
-        std::make_unique<gpu_task_t>(\
-            make_unpack_face<decltype(sstate_dst.face_staggered_fields_##axis)>(\
-                sstate_dst.face_staggered_fields_##axis,\
-                _recv_fbuf_##axis,\
-                remote_fine_face_recv_##axis[r],\
-                copy_stream,nvars_fs,r,mpi_recv_tid[r][idx],task_counter,task_list\
+    if( remote_fine_face_recv_##axis[r].size() > 0){\
+        task_list.push_back(\
+            std::make_unique<gpu_task_t>(\
+                make_unpack_face<decltype(sstate_dst.face_staggered_fields_##axis)>(\
+                    sstate_dst.face_staggered_fields_##axis,\
+                    _recv_fbuf_##axis,\
+                    remote_fine_face_recv_##axis[r],\
+                    copy_stream,nvars_fs,r,mpi_recv_tid[r][idx],task_counter,task_list\
+                )\
             )\
-        )\
-    );\
-    prolong_fs_dependencies.insert(task_list.back()->task_id)
+        );\
+        prolong_fs_dependencies.insert(task_list.back()->task_id);\
+    }
 
     for( int r=0; r<nprocs; ++r) {
         INSERT_FPACK_TASKS(x,0);
