@@ -47,6 +47,9 @@
 #include <grace/IO/scalar_output.hh>
 #include <grace/IO/output_diagnostics.hh>
 #include <grace/IO/diagnostics/co_tracker.hh>
+#ifdef GRACE_ENABLE_Z4C_METRIC
+#include <grace/IO/diagnostics/apparent_horizon.hh>
+#endif
 /**********************************************************************************/
 int main(int argc, char* argv[])
 {
@@ -178,7 +181,13 @@ int main(int argc, char* argv[])
         /**********************************************************************************/
         /* Update COs surfaces if needed                                                  */
         /**********************************************************************************/
-        grace::co_tracker::get().update_and_write() ; 
+        grace::co_tracker::get().update_and_write() ;
+        /**********************************************************************************/
+        /* Find apparent horizons if needed                                               */
+        /**********************************************************************************/
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        grace::ah_finder_manager::get().find_all() ;
+        #endif
         /**********************************************************************************/
         /* Update spherical surfaces if needed                                            */
         /**********************************************************************************/

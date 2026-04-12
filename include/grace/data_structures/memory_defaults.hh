@@ -32,13 +32,14 @@
 
 #include <grace/utils/inline.h>
 #include <grace/utils/device.h>
+#include <grace/utils/device_stream.hh>
 
 #include <Kokkos_Core.hpp>
 
-#include <vector> 
+#include <vector>
 #include <array>
 
-namespace grace { 
+namespace grace {
 //*****************************************************************************************************
 /**
  * @brief Typedef that defines the default Memory and Execution space(s) in GRACE.
@@ -65,6 +66,24 @@ using default_space = Kokkos::Experimental::SYCLDeviceUSMSpace    ;
 using default_space = Kokkos::HostSpace   ;
 #endif   
 using default_execution_space = default_space::execution_space ;
+//*****************************************************************************************************
+/**
+ * @brief Create a Kokkos execution space instance, optionally tied to a device stream.
+ *
+ * On GPU backends (CUDA/HIP/SYCL) the returned execution space is bound to the
+ * underlying device stream so that kernel launches are enqueued on that stream.
+ * On CPU backends (OpenMP/Serial) streams have no meaning, so the execution
+ * space is simply default-constructed.
+ */
+inline default_execution_space
+make_exec_space([[maybe_unused]] device_stream_t const& stream)
+{
+#if defined(GRACE_ENABLE_CUDA) || defined(GRACE_ENABLE_HIP) || defined(GRACE_ENABLE_SYCL)
+    return default_execution_space{stream};
+#else
+    return default_execution_space{};
+#endif
+}
 //*****************************************************************************************************
 //*****************************************************************************************************
 /**

@@ -400,14 +400,16 @@ struct phys_bc_op {
                 parities[1] = var_refl_fact(iv,1);
                 parities[2] = var_refl_fact(iv,2); 
             } else if ( stag == STAG_FACEX ) {
-                parities[0] = -1 ; 
-                parities[1] = parities[2] = 1;
+                // B is a pseudovector: B_d is even under d-reflection,
+                // B_{j!=d} are odd
+                parities[0] = 1 ;
+                parities[1] = parities[2] = -1;
             } else if ( stag == STAG_FACEY ) {
-                parities[1] = -1 ; 
-                parities[0] = parities[2] = 1;
+                parities[1] = 1 ;
+                parities[0] = parities[2] = -1;
             } else if ( stag == STAG_FACEZ ) {
-                parities[2] = -1 ; 
-                parities[0] = parities[1] = 1;
+                parities[2] = 1 ;
+                parities[0] = parities[1] = -1;
             }
 
             if ( _dir[0] == -1 and rx ) {

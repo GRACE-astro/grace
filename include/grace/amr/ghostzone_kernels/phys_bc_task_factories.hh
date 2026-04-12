@@ -113,7 +113,7 @@ make_gpu_phys_bc_task(
     grace::deep_copy_vec_to_view(eid_d,eid_h) ; 
     grace::deep_copy_vec_to_2D_view(dir_d,dir_h) ;
 
-    auto exec_space = Kokkos::DefaultExecutionSpace{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     gpu_task_t task{} ;
 

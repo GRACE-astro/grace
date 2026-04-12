@@ -33,6 +33,7 @@
 #include <grace/utils/inline.h>
 
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
+#include <grace/data_structures/memory_defaults.hh>
 #include <Kokkos_Core.hpp>
 
 namespace grace {
@@ -237,7 +238,7 @@ gpu_task_t make_copy(
 
     regrid_copy_op functor(data_in,data_out,qid_dst,qid_src) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     auto s = get_index_staggerings(stag) ;
 
@@ -293,7 +294,7 @@ gpu_task_t make_copy_face(
 
     regrid_copy_fine_data_op functor(data_in,data_out,info_d,nx,ngz) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     MDRangePolicy<Rank<4,Iterate::Left>>
     policy{
@@ -341,7 +342,7 @@ gpu_task_t make_pack_face(
 
     regrid_pack_fine_data_op functor(data,buffer,info_d,nx,ngz,rank) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     MDRangePolicy<Rank<4,Iterate::Left>>
     policy{
@@ -389,7 +390,7 @@ gpu_task_t make_unpack_face(
 
     regrid_unpack_fine_data_op functor(data,buffer,info_d,nx,ngz,rank) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     MDRangePolicy<Rank<4,Iterate::Left>>
     policy{

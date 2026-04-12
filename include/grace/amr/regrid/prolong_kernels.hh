@@ -36,7 +36,7 @@
 
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
 #include <grace/amr/ghostzone_kernels/pr_helpers.hh>
-
+#include <grace/data_structures/memory_defaults.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -375,7 +375,7 @@ gpu_task_t make_prolong(
     regrid_prolong_op<prolong_op_ho,view_t>
         functor_ho(data_in,data_out,qid_dst,qid_src,varidx_ho,prolong_op_ho{ho_prolong_coeffs_d}, nx, ngz) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
     // loop over fine quad_ids --> qid_in 
     MDRangePolicy<Rank<5,Iterate::Left>>
     policy_lo{
@@ -447,7 +447,7 @@ gpu_task_t make_div_free_prolong(
     regrid_div_free_prolong_op
         functor(data_in,data_out,qid_dst,qid_src,have_fine_data_x,have_fine_data_y,have_fine_data_z, nx, ngz,nvars) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
     // loop over fine quad_ids --> qid_in 
     TeamPolicy
     policy{

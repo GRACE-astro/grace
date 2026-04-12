@@ -35,6 +35,7 @@
 #include <grace/amr/ghostzone_kernels/type_helpers.hh>
 
 #include <grace/amr/ghostzone_kernels/pr_helpers.hh>
+#include <grace/data_structures/memory_defaults.hh>
 
 #include <Kokkos_Core.hpp>
 
@@ -181,7 +182,7 @@ gpu_task_t make_div_free_restrict(
     regrid_div_preserving_restrict_op<stag_dir,decltype(data_in)> 
         functor(data_in,data_out,qid_dst,qid_src,nx,ngz) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     static_assert(std::is_same_v<typename decltype(functor.data_in)::memory_space,
                              typename DefaultExecutionSpace::memory_space>,
@@ -256,7 +257,7 @@ gpu_task_t make_restrict(
             qid_dst,qid_src,vidx_ho,
             restrict_ho_op(ho_restrict_coeffs_d,nx,ny,nz,ngz),nx,ngz) ; 
 
-    DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
 
     // loop over coarse quads 
     MDRangePolicy<Rank<5,Iterate::Left>>

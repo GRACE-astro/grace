@@ -56,6 +56,9 @@
 #include <grace/evolution/evolve.hh>
 #endif 
 #include <grace/IO/diagnostics/co_tracker.hh>
+#ifdef GRACE_ENABLE_Z4C_METRIC
+#include <grace/IO/diagnostics/apparent_horizon.hh>
+#endif
 
 #include <grace/amr/grace_amr.hh>
 
@@ -235,7 +238,10 @@ void initialize(int& argc, char* argv[])
         grace::eos::initialize() ;
         // initialize trackers before reading checkpoint
         // since it contains previous locations
-        grace::co_tracker::initialize() ; 
+        grace::co_tracker::initialize() ;
+        #ifdef GRACE_ENABLE_Z4C_METRIC
+        grace::ah_finder_manager::initialize() ;
+        #endif
     }
     
     GRACE_INFO("Filling coordinate arrays...") ;
@@ -299,8 +305,8 @@ void initialize(int& argc, char* argv[])
     grace::spherical_surface_manager::initialize() ;
     //--
     #ifdef GRACE_ENABLE_Z4C_METRIC
-    grace::compute_constraint_violations() ; 
-    #endif 
+    grace::compute_constraint_violations() ;
+    #endif
     
     Kokkos::fence() ; 
     parallel::mpi_barrier() ; 

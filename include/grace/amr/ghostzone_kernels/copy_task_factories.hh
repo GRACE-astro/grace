@@ -205,7 +205,7 @@ gpu_task_t make_gpu_copy_task(
         cbufs, src_cbuf_qid, dst_cbuf_qid, src_cbuf_elem, dst_cbuf_elem, VEC(nx/2,ny/2,nz/2), stag, ngz
     } ; 
     
-    Kokkos::DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
     
     size_t loop_off = (stag == STAG_CENTER ? 0 : 1 ) ; 
     size_t gz_off = (elem_kind == amr::FACE) ? 0 : loop_off ; 
@@ -366,7 +366,7 @@ gpu_task_t make_gpu_copy_to_cbuf_task(
         data, cbuf, src_qid, dst_qid, src_elem, dst_elem, ic, VEC(nx,ny,nz), ngz, stag
     } ; 
     
-    Kokkos::DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
     size_t loop_off = (stag == STAG_CENTER ? 0 : 1 ) ; 
     size_t gz_off = (elem_kind == amr::FACE) ? 0 : loop_off ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
@@ -492,7 +492,7 @@ gpu_task_t make_gpu_copy_from_cbuf_task(
         ic, VEC(nx,ny,nz), ngz, stag
     } ; 
     
-    Kokkos::DefaultExecutionSpace exec_space{stream} ; 
+    auto exec_space = grace::make_exec_space(stream) ;
     size_t loop_off = (stag == STAG_CENTER ? 0 : 1 ) ; 
     size_t gz_off = (elem_kind == amr::FACE) ? 0 : loop_off ; 
     Kokkos::MDRangePolicy<Kokkos::Rank<5, Kokkos::Iterate::Left>>   
