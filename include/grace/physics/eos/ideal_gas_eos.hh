@@ -117,6 +117,10 @@ class ideal_gas_eos_t
     {
         // note that if k0 is zero this will be nan,
         // deal with it
+        if ( press_cold < 0 ) {
+            err.set(EOS_PRESS_TOO_LOW) ; 
+            press_cold = 1e-100 ; 
+        }
         return Kokkos::pow(press_cold/k0, 1./(gamma_m1+1.)) ; 
     }
 
@@ -125,7 +129,7 @@ class ideal_gas_eos_t
     {
         double rho = rho__press_cold_impl(press_cold,err) ; 
         double eps = press_cold / (rho*gamma_m1) ; 
-        return eps * ( 1 + rho ) ; 
+        return rho * ( 1. + eps ) ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE

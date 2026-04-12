@@ -61,12 +61,12 @@
 
 namespace grace {
 
-// communication key 
+// communication key
 struct comm_key_t {
     size_t qid ;
-    int elem_id ; // face or edge 
+    int elem_id ; // face or edge
     bool operator==(const comm_key_t & other) const {
-    return (qid == other.qid) && 
+    return (qid == other.qid) &&
             (elem_id == other.elem_id);
     }
 } ;
@@ -106,7 +106,10 @@ struct comm_patt_builder {
         for (int r = 0; r < nproc; ++r) {
             auto& vec = keys[r];
             std::sort(vec.begin(), vec.end(), key_cmp{});
-            vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
+            vec.erase(std::unique(vec.begin(), vec.end(),
+                [](const comm_key_t& a, const comm_key_t& b) {
+                    return (a.qid == b.qid) && (a.elem_id == b.elem_id);
+                }), vec.end());
             counts[r] = vec.size();
             
             std::unordered_map<comm_key_t, size_t, comm_key_hash> index;
@@ -806,41 +809,39 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
     /************************************************************************************************/
     /************************************************************************************************/
     // now the coarse edge
-    // reset 
-    snd_keys = std::vector<std::vector<comm_key_t>>(nproc) ; 
-    rcv_keys = std::vector<std::vector<comm_key_t>>(nproc) ; 
+    // reset
+    snd_keys = std::vector<std::vector<comm_key_t>>(nproc) ;
+    rcv_keys = std::vector<std::vector<comm_key_t>>(nproc) ;
     for( int i=0; i<_reflux_coarse_edge_descs.size(); ++i) {
         auto& dsc = _reflux_coarse_edge_descs[i] ;
-        // loop over sides 
+        // loop over sides
         for( int iside=0; iside<dsc.n_sides; ++iside) {
-            auto const& dsc_this = dsc.sides[iside] ; 
-            ASSERT(!dsc_this.is_fine, "In coarse edges got fine side.") ; 
-            // if remote 
+            auto const& dsc_this = dsc.sides[iside] ;
+            ASSERT(!dsc_this.is_fine, "In coarse edges got fine side.") ;
+            // if remote
             if ( dsc_this.octants.coarse.is_remote ) {
-                //GRACE_TRACE_DBG("Receive coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_this.octants.coarse.owner_rank,dsc_this.edge_id );
-                // receive 
+                // receive
                 rcv_keys[dsc_this.octants.coarse.owner_rank].push_back(
                         comm_key_t{
                             dsc_this.octants.coarse.quad_id, dsc_this.edge_id
                         }
                     ) ;
             // if local
-            } else { 
-                // send 
-                for( int jside=0; jside<dsc.n_sides; ++jside){ 
+            } else {
+                // send
+                for( int jside=0; jside<dsc.n_sides; ++jside){
                     if ( jside==iside ) continue ;
-                    auto const& dsc_other = dsc.sides[jside] ; 
-                    if ( !dsc_other.octants.coarse.is_remote ) continue ; 
-                    //GRACE_TRACE_DBG("Send coarse, quadid {} rank {} edge {}",dsc_this.octants.coarse.quad_id,dsc_other.octants.coarse.owner_rank,dsc_this.edge_id );
+                    auto const& dsc_other = dsc.sides[jside] ;
+                    if ( !dsc_other.octants.coarse.is_remote ) continue ;
                     snd_keys[dsc_other.octants.coarse.owner_rank].push_back(
                                     comm_key_t{
                                         dsc_this.octants.coarse.quad_id, dsc_this.edge_id
                                     }
                                 ) ;
                 }
-            } // is remote 
-        } // loop over sides 
-    } // loop over coarse edges 
+            } // is remote
+        } // loop over sides
+    } // loop over coarse edges
     /************************************************************************************************/
     std::tie(send_lookup,rank_send_counts) = cpb.sort_and_dedup(snd_keys) ;
     std::tie(recv_lookup,rank_recv_counts) = cpb.sort_and_dedup(rcv_keys) ;

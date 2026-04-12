@@ -1096,7 +1096,11 @@ void checkpoint_handler_impl_t::detect_checkpoints()
         }
     }
     /**********************************************************************/
-    GRACE_INFO("Found {} checkpoints in directory {}, most recent at iteration {}", checkpoint_list.size(), dir.string(), checkpoint_list.front()) ;
+    if (checkpoint_list.size() > 0) {
+        GRACE_INFO("Found {} checkpoints in directory {}, most recent at iteration {}", checkpoint_list.size(), dir.string(), checkpoint_list.front()) ;
+    } else {
+        GRACE_INFO("No checkpoints found") ;
+    }
 }
 
 bool checkpoint_handler_impl_t::need_checkpoint()  {
