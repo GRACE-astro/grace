@@ -117,9 +117,14 @@ class ideal_gas_eos_t
     {
         // note that if k0 is zero this will be nan,
         // deal with it
+        if (k0 == 0.0 ) {
+            // the check is fine because if left at default this
+            // will be **exactly** 0
+            Kokkos::abort("When using ideal gas eos with an initial data that uses the cold interface, a k_initial must be provided.") ; 
+        }
         if ( press_cold < 0 ) {
             err.set(EOS_PRESS_TOO_LOW) ; 
-            press_cold = 1e-100 ; 
+            press_cold = 0.0 ; 
         }
         return Kokkos::pow(press_cold/k0, 1./(gamma_m1+1.)) ; 
     }
@@ -127,7 +132,7 @@ class ideal_gas_eos_t
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     energy_cold__press_cold_impl(double& press_cold, error_type& err) const 
     {
-        double rho = rho__press_cold_impl(press_cold,err) ; 
+        double rho = Kokkos::fmax(1e-100,rho__press_cold_impl(press_cold,err)) ; 
         double eps = press_cold / (rho*gamma_m1) ; 
         return rho * ( 1. + eps ) ; 
     }
