@@ -759,42 +759,59 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
         GRACE_EXECUTION_TAG("EVOL", "reflux_emf_compute_edge"),
         edge_policy,
         KOKKOS_LAMBDA (int const& i, int const& iq) {
-            auto n_sides = edge_desc.n_sides(iq); 
-            
-            size_t ijk[3] ; 
-            double emf_correction[2] = {0,0} ; // accumulate here 
-            int cnt = 0 ; 
+            auto n_sides = edge_desc.n_sides(iq);
+
+            size_t ijk[3] ;
+            // Collect fine contributions with their edge_id for canonical ordering.
+            // Accumulating in edge_id order guarantees FP-identical results on all
+            // ranks, regardless of local/remote descriptor layout.
+            double v0[4], v1[4] ;
+            int keys[4] ;
+            int cnt = 0 ;
             for( int iside=0; iside<n_sides; ++iside) {
-                if ( ! edge_desc.is_fine(iq,iside) ) continue ; 
-                cnt ++ ; 
-                // edge index 
-                auto edge_id = edge_desc.edge_id(iq,iside) ; 
+                if ( ! edge_desc.is_fine(iq,iside) ) continue ;
+                // edge index
+                auto edge_id = edge_desc.edge_id(iq,iside) ;
+                keys[cnt] = edge_id ;
                 // direction and side
-                int edge_dir = edge_id / 4 ; 
+                int edge_dir = edge_id / 4 ;
                 int side_i = (edge_id>>0)&1;
                 int side_j = (edge_id>>1)&1;
-                // child id loop 
+                // child id loop
                 for( int ichild=0; ichild<2; ++ichild ) {
-                    // fine quadid
-                    
                     double val = 0.0;
                     if ( edge_desc.fine_is_remote(iq,iside,ichild) ) {
                         auto bid = edge_desc.fine_bid(iq,iside,ichild);
-                        auto rank = edge_desc.fine_owner_rank(iq,iside,ichild) ; 
-                        val = edge_rbuf(i,bid,rank) ; 
+                        auto rank = edge_desc.fine_owner_rank(iq,iside,ichild) ;
+                        val = edge_rbuf(i,bid,rank) ;
                     } else {
                         auto qid = edge_desc.fine_qid(iq,iside,ichild);
-                        ijk[edge_dir] = ngz + i ; 
-                        ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ; 
-                        ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ; 
-                        val = emf(ijk[0],ijk[1],ijk[2],edge_dir,qid); 
+                        ijk[edge_dir] = ngz + i ;
+                        ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;
+                        ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;
+                        val = emf(ijk[0],ijk[1],ijk[2],edge_dir,qid);
                     }
-                    emf_correction[ichild] += val ; 
+                    if (ichild == 0) v0[cnt] = val ;
+                    else             v1[cnt] = val ;
                 }
+                cnt++ ;
             }
-            
-            emf_edge_correction(i,0,iq) = cnt ? emf_correction[0] * 1./((double)cnt) : 0.0 ; 
-            emf_edge_correction(i,1,iq) = cnt ? emf_correction[1] * 1./((double)cnt) : 0.0 ; 
+            // insertion sort by edge_id (≤4 elements)
+            for( int a=1; a<cnt; ++a ) {
+                int k = keys[a] ; double t0 = v0[a], t1 = v1[a] ;
+                int b = a - 1 ;
+                while( b >= 0 && keys[b] > k ) {
+                    keys[b+1] = keys[b] ; v0[b+1] = v0[b] ; v1[b+1] = v1[b] ;
+                    b-- ;
+                }
+                keys[b+1] = k ; v0[b+1] = t0 ; v1[b+1] = t1 ;
+            }
+            // canonical accumulation in sorted order
+            double sum0 = 0.0, sum1 = 0.0 ;
+            for( int a=0; a<cnt; ++a ) { sum0 += v0[a] ; sum1 += v1[a] ; }
+
+            emf_edge_correction(i,0,iq) = cnt ? sum0 * 1./((double)cnt) : 0.0 ;
+            emf_edge_correction(i,1,iq) = cnt ? sum1 * 1./((double)cnt) : 0.0 ; 
         }
     );
     //**************************************************************************************************/
@@ -875,29 +892,45 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
         GRACE_EXECUTION_TAG("EVOL", "reflux_coarse_emf_compute_coarse_edge"),
         coarse_edge_policy,
         KOKKOS_LAMBDA (int const& i, int const& iq) {
-            auto n_sides = coarse_edge_desc.n_sides(iq); 
-            size_t ijk[3] ; 
-            double emf_correction{0} ; // accumulate here 
+            auto n_sides = coarse_edge_desc.n_sides(iq);
+            size_t ijk[3] ;
+            // Collect all coarse contributions with their edge_id for canonical ordering.
+            double vals[4] ;
+            int keys[4] ;
             for( int iside=0; iside<n_sides; ++iside) {
-                // edge index 
-                auto edge_id = coarse_edge_desc.edge_id(iq,iside) ; 
+                // edge index
+                auto edge_id = coarse_edge_desc.edge_id(iq,iside) ;
+                keys[iside] = edge_id ;
                 // direction and side
-                int edge_dir = edge_id / 4 ; 
+                int edge_dir = edge_id / 4 ;
                 int side_i = (edge_id>>0)&1;
                 int side_j = (edge_id>>1)&1;
                 // coarse quadid
                 if ( coarse_edge_desc.coarse_is_remote(iq,iside) ) {
                     auto bid = coarse_edge_desc.coarse_bid(iq,iside);
-                    auto rank = coarse_edge_desc.coarse_owner_rank(iq,iside) ; 
-                    emf_correction += coarse_edge_rbuf(i,bid,rank) ; 
+                    auto rank = coarse_edge_desc.coarse_owner_rank(iq,iside) ;
+                    vals[iside] = coarse_edge_rbuf(i,bid,rank) ;
                 } else {
                     auto qid = coarse_edge_desc.coarse_qid(iq,iside);
-                    ijk[edge_dir] = ngz + i ; 
-                    ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ; 
-                    ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ; 
-                    emf_correction += emf(ijk[0],ijk[1],ijk[2],edge_dir,qid); 
+                    ijk[edge_dir] = ngz + i ;
+                    ijk[other_dirs[edge_dir][0]] = side_i ? nx + ngz : ngz ;
+                    ijk[other_dirs[edge_dir][1]] = side_j ? nx + ngz : ngz ;
+                    vals[iside] = emf(ijk[0],ijk[1],ijk[2],edge_dir,qid);
                 }
             }
+            // insertion sort by edge_id (≤4 elements)
+            for( int a=1; a<n_sides; ++a ) {
+                int k = keys[a] ; double tv = vals[a] ;
+                int b = a - 1 ;
+                while( b >= 0 && keys[b] > k ) {
+                    keys[b+1] = keys[b] ; vals[b+1] = vals[b] ;
+                    b-- ;
+                }
+                keys[b+1] = k ; vals[b+1] = tv ;
+            }
+            // canonical accumulation in sorted order
+            double emf_correction = 0.0 ;
+            for( int a=0; a<n_sides; ++a ) { emf_correction += vals[a] ; }
             emf_coarse_edge_correction(i,iq) = emf_correction/(static_cast<double>(n_sides)); 
         }
     );

@@ -322,9 +322,8 @@ gpu_task_t make_copy_face(
             int8_t sd = d.fid_dst % 2;
             GRACE_TRACE("[REGRID:FCOPY] iq={} qsrc={} qdst={} fsrc={} fdst={} axis={} side={}",
                 iq, d.qid_src, d.qid_dst, d.fid_src, d.fid_dst, ax, sd);
-            for (int cj = 0; cj < 2; ++cj) {
-                for (int ck = 0; ck < 2; ++ck) {
-                    size_t tj = cj ? _n-1 : 0, tk = ck ? _n-1 : 0;
+            for (size_t tj = 0; tj <= _n; ++tj) {
+                for (size_t tk = 0; tk <= _n; ++tk) {
                     size_t ia, ja, ka;
                     if (ax==0) { ia = sd ? _n+_g : _g; ja = _g+tj; ka = _g+tk; }
                     else if (ax==1) { ia = _g+tj; ja = sd ? _n+_g : _g; ka = _g+tk; }
@@ -399,17 +398,20 @@ gpu_task_t make_pack_face(
             int8_t sd = d.fid_src % 2;
             GRACE_TRACE("[REGRID:FPACK] iq={} qsrc={} qdst_buf={} fsrc={} fdst={} axis={} side={} to_rank={}",
                 iq, d.qid_src, d.qid_dst, d.fid_src, d.fid_dst, ax, sd, pack_rank);
-            // print source data corners (var 0)
-            for (int cj = 0; cj < 2; ++cj) {
-                for (int ck = 0; ck < 2; ++ck) {
-                    size_t tj = cj ? _n-1 : 0, tk = ck ? _n-1 : 0;
+            for (size_t tj = 0; tj <= _n; ++tj) {
+                for (size_t tk = 0; tk <= _n; ++tk) {
                     size_t ia, ja, ka;
                     if (ax==0) { ia = sd ? _n+_g : _g; ja = _g+tj; ka = _g+tk; }
                     else if (ax==1) { ia = _g+tj; ja = sd ? _n+_g : _g; ka = _g+tk; }
                     else { ia = _g+tj; ja = _g+tk; ka = sd ? _n+_g : _g; }
-                    GRACE_TRACE("  src({},{},{},0,{}) = {:.15e}  buf({},{},0,{},{}) = {:.15e}",
-                        ia, ja, ka, d.qid_src, _data(ia, ja, ka, 0, d.qid_src),
-                        tj, tk, d.qid_dst, pack_rank, _buf(tj, tk, 0, d.qid_dst, pack_rank));
+                    if (tj < _n && tk < _n) {
+                        GRACE_TRACE("  src({},{},{},0,{}) = {:.15e}  buf({},{},0,{},{}) = {:.15e}",
+                            ia, ja, ka, d.qid_src, _data(ia, ja, ka, 0, d.qid_src),
+                            tj, tk, d.qid_dst, pack_rank, _buf(tj, tk, 0, d.qid_dst, pack_rank));
+                    } else {
+                        GRACE_TRACE("  src({},{},{},0,{}) = {:.15e}  (outside buffer)",
+                            ia, ja, ka, d.qid_src, _data(ia, ja, ka, 0, d.qid_src));
+                    }
                 }
             }
         }
@@ -479,17 +481,20 @@ gpu_task_t make_unpack_face(
             int8_t sd = d.fid_dst % 2;
             GRACE_TRACE("[REGRID:FUNPACK] iq={} qsrc_buf={} qdst={} fsrc={} fdst={} axis={} side={} from_rank={}",
                 iq, d.qid_src, d.qid_dst, d.fid_src, d.fid_dst, ax, sd, unpack_rank);
-            // print destination data corners (var 0)
-            for (int cj = 0; cj < 2; ++cj) {
-                for (int ck = 0; ck < 2; ++ck) {
-                    size_t tj = cj ? _n-1 : 0, tk = ck ? _n-1 : 0;
+            for (size_t tj = 0; tj <= _n; ++tj) {
+                for (size_t tk = 0; tk <= _n; ++tk) {
                     size_t ia, ja, ka;
                     if (ax==0) { ia = sd ? _n+_g : _g; ja = _g+tj; ka = _g+tk; }
                     else if (ax==1) { ia = _g+tj; ja = sd ? _n+_g : _g; ka = _g+tk; }
                     else { ia = _g+tj; ja = _g+tk; ka = sd ? _n+_g : _g; }
-                    GRACE_TRACE("  buf({},{},0,{},{}) = {:.15e}  dst({},{},{},0,{}) = {:.15e}",
-                        tj, tk, d.qid_src, unpack_rank, _buf(tj, tk, 0, d.qid_src, unpack_rank),
-                        ia, ja, ka, d.qid_dst, _data(ia, ja, ka, 0, d.qid_dst));
+                    if (tj < _n && tk < _n) {
+                        GRACE_TRACE("  buf({},{},0,{},{}) = {:.15e}  dst({},{},{},0,{}) = {:.15e}",
+                            tj, tk, d.qid_src, unpack_rank, _buf(tj, tk, 0, d.qid_src, unpack_rank),
+                            ia, ja, ka, d.qid_dst, _data(ia, ja, ka, 0, d.qid_dst));
+                    } else {
+                        GRACE_TRACE("  dst({},{},{},0,{}) = {:.15e}  (outside buffer)",
+                            ia, ja, ka, d.qid_dst, _data(ia, ja, ka, 0, d.qid_dst));
+                    }
                 }
             }
         }

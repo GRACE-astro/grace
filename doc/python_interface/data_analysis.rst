@@ -174,6 +174,73 @@ The ``grace_gw_data`` class (in ``grace_tools.gw_reader_utils``) reads rPsi4 (or
 
 Each ``grace_gw_mode`` stores the spherical harmonic indices ``l`` and ``m``, the iteration and time arrays, and the complex ``data`` array (real and imaginary parts are paired automatically from separate files).
 
+Initial data metadata
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``grace_gw_data`` object can optionally carry the total ADM mass and initial orbital frequency of the system:
+
+.. code-block:: python
+
+    gw = gtg.grace_gw_data("/path/to/output_scalar", Madm=2.75, omega0=0.00894)
+    gw.Madm    # 2.75
+    gw.omega0  # 0.00894
+
+When using ``grace_simulation``, these are **auto-detected from the FUKA info file** if the initial data type in the parameter file is ``fuka``. They can also be set explicitly via the ``grace_simulation`` constructor, which takes precedence over auto-detection:
+
+.. code-block:: python
+
+    sim = grace_simulation("/path/to/sim", Madm=2.75, omega0=0.00894)
+
+For non-FUKA simulations, both default to ``None``.
+
+Computing strain
+~~~~~~~~~~~~~~~~~~
+
+The ``compute_strain`` method integrates :math:`r\Psi_4` to obtain :math:`r \cdot h` for a given detector and mode, using the stored ``omega0`` as the default cutoff frequency:
+
+.. code-block:: python
+
+    t, rh = gw.compute_strain("GW_1", (2, 2))
+
+    # or with an explicit cutoff frequency:
+    t, rh = gw.compute_strain("GW_1", (2, 2), f0=0.001)
+
+.. note::
+
+    Since GRACE outputs :math:`r\Psi_4`, all integrated quantities carry a factor of :math:`r` (the extraction radius in code units, :math:`M_\odot`). In particular, ``compute_strain`` returns :math:`r \cdot h`, not :math:`h`. To obtain the physical strain at a distance :math:`D`, divide by :math:`D` (in the same units).
+
+Additional keyword arguments (``N``, ``window``, ``wpars``) are passed through to ``fixed_frequency_integration`` from ``analysis.gw_utils``.
+
+Radiated quantities
+~~~~~~~~~~~~~~~~~~~~~
+
+Three methods compute radiated energy, angular momentum, and linear momentum by summing over all available modes at a detector. All formulas work directly with :math:`r\Psi_4` and its time integrals — the :math:`r^2` factors cancel in the bilinear products, so no explicit extraction radius is needed.
+
+**Radiated energy:**
+
+.. code-block:: python
+
+    t, dEdt, E = gw.radiated_energy("GW_1")
+
+Returns the energy flux :math:`dE/dt = \frac{1}{16\pi}\sum_{l,m}|r\dot{h}_{lm}|^2` and the cumulative radiated energy :math:`E(t)`.
+
+**Radiated angular momentum** (z-component):
+
+.. code-block:: python
+
+    t, dJzdt, Jz = gw.radiated_angular_momentum("GW_1")
+
+Returns :math:`dJ_z/dt` and cumulative :math:`J_z(t)`. The sign convention is that :math:`dJ_z/dt < 0` for a system losing angular momentum.
+
+**Radiated linear momentum** (gravitational wave recoil):
+
+.. code-block:: python
+
+    t, dPdt, P = gw.radiated_linear_momentum("GW_1")
+    # dPdt and P have shape (3, npoints) for x, y, z components
+
+The linear momentum computation uses coupling coefficients from the spin-weight :math:`s = -2` spherical harmonic recurrence relations to couple adjacent :math:`(l,m)` modes. The recoil (kick) velocity of the remnant is :math:`v_{\mathrm{kick}} = -P / M_{\mathrm{remnant}}`.
+
 
 Detectors
 ***********
@@ -220,6 +287,8 @@ Constructor arguments:
 - ``simdir`` — path to the simulation directory
 - ``parfile`` (optional) — explicit path to the YAML parameter file. If omitted, the class searches ``config/parfile/`` (simpilot layout) or the simulation root for a ``.yaml`` file.
 - ``ppdir`` (optional) — directory for post-processing output (descriptors, plots). Defaults to ``./plots``.
+- ``Madm`` (optional) — total ADM mass of the system. Auto-detected from FUKA initial data if not provided.
+- ``omega0`` (optional) — initial orbital frequency. Auto-detected from FUKA initial data if not provided.
 
 Available attributes:
 
@@ -236,8 +305,8 @@ Available attributes:
 
 The class supports both **simpilot-managed** directories (with ``config/parfile/`` and ``restart_NNNN/`` subdirectories) and **flat layouts** where all output lives under a single directory.
 
-HDF5 export
-~~~~~~~~~~~~~
+HDF5 export and import
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 All scalar and GW data can be exported to a single HDF5 file for archival or sharing:
 
@@ -249,10 +318,36 @@ All scalar and GW data can be exported to a single HDF5 file for archival or sha
     # or with an explicit path:
     sim.export_scalars("/path/to/output.h5")
 
-The HDF5 file is organized as:
+The HDF5 file stores the simulation name, detector metadata (radius, center, resolution), ADM mass and orbital frequency (if available), and all scalar/GW data organized as:
 
 - ``reductions/{max,min,norm2,integral}/{varname}`` — scalar reductions
 - ``em_energy`` — electromagnetic energy diagnostic
 - ``mass_flux/{detector}/{type}`` — per-detector mass flux
 - ``co_locations/{name}`` — compact object positions
 - ``gw/{detector}/l{l}_m{m}`` — complex GW mode data
+- ``detectors/{name}`` — detector attributes (radius, center, etc.)
+
+Reconstructing from HDF5
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A simulation object can be reconstructed from an exported HDF5 file using the ``from_hdf5`` classmethod. This enables a workflow where data is exported on an HPC cluster and analyzed locally:
+
+.. code-block:: python
+
+    # On the cluster
+    sim = grace_simulation("/scratch/bns_run")
+    sim.export_scalars()
+
+    # On your laptop (after downloading the .h5 file)
+    sim = grace_simulation.from_hdf5("bns_run_scalars.h5")
+
+    sim.scalars    # fully reconstructed
+    sim.gw         # fully reconstructed, with Madm and omega0
+    sim.detectors  # fully reconstructed with metadata
+
+    # Volume/plane readers are not available (None)
+    sim.xyz        # None
+    sim.xy         # None
+
+    # GW analysis works out of the box
+    t, h = sim.gw.compute_strain("GW_1", (2, 2))
