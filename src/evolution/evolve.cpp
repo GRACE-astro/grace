@@ -1055,7 +1055,9 @@ void advance_substep( double const t, double const dt, double const dtfact
     //**************************************************************************************************/
     reflux_correct_emfs(emf_context) ;
     //**************************************************************************************************/
-    update_CT(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
+    update_CT(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
+    //**************************************************************************************************/
+    diagnose_face_B_conservation() ;
     //**************************************************************************************************/
     update_fd(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/

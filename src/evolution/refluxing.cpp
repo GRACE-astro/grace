@@ -31,9 +31,15 @@
 #include <grace/data_structures/grace_data_structures.hh>
 #include <grace/amr/amr_functions.hh>
 #include <grace/parallel/mpi_wrappers.hh>
+#include <grace/system/grace_system.hh>
 
 #include <grace/utils/inline.h>
 #include <grace/utils/device.h>
+
+#include <fstream>
+#include <filesystem>
+#include <iomanip>
+#include <cmath>
 
 namespace grace {
 
@@ -969,5 +975,540 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
 }
 
 
+
+//**************************************************************************************************/
+//**************************************************************************************************/
+// DIAGNOSTIC: check face-staggered B conservation at all interfaces
+// Reports per-(level, direction) max error and integrated flux imbalance
+// for both hanging (coarse-fine) and same-level faces.
+//**************************************************************************************************/
+
+namespace {
+
+constexpr int DIAG_MAX_LEVELS = 16 ;
+constexpr int DIAG_NDIRS      = 3 ;
+
+// CAS-based atomic max for doubles on device
+KOKKOS_INLINE_FUNCTION
+void atomic_max_d(double* ptr, double val) {
+    double old = *ptr ;
+    while (val > old) {
+        double prev = Kokkos::atomic_compare_exchange(ptr, old, val) ;
+        if (prev == old) return ;
+        old = prev ;
+    }
+}
+
+// Derive relative refinement level from inverse spacing
+KOKKOS_INLINE_FUNCTION
+int level_from_idx(double idx_q, double idx_min) {
+    double ratio = idx_q / idx_min ;
+    // ratio is an exact power of 2 in oct-tree AMR
+    int lev = 0 ;
+    while (ratio > 1.5) { ratio *= 0.5 ; lev++ ; }
+    return (lev < DIAG_MAX_LEVELS) ? lev : DIAG_MAX_LEVELS - 1 ;
+}
+
+// File output helpers (rank 0 only)
+void init_Bflux_dat(std::filesystem::path const& fpath, std::string const& header) {
+    if (!std::filesystem::exists(fpath)) {
+        std::ofstream f(fpath.string()) ;
+        f << header << '\n' ;
+    }
+}
+
+} // anonymous namespace
+
+void diagnose_face_B_conservation()
+{
+    using namespace grace ;
+    using namespace Kokkos ;
+    DECLARE_GRID_EXTENTS ;
+    //**************************************************************************************************/
+    auto& stag = grace::variable_list::get().getstaggeredstate() ;
+    auto Bx = stag.face_staggered_fields_x ;
+    auto By = stag.face_staggered_fields_y ;
+    auto Bz = stag.face_staggered_fields_z ;
+    //**************************************************************************************************/
+    auto& ghost_layer = grace::amr_ghosts::get();
+    auto nprocs = parallel::mpi_comm_size() ;
+    auto proc   = parallel::mpi_comm_rank() ;
+    //**************************************************************************************************/
+    auto idx = grace::variable_list::get().getinvspacings() ;
+    auto dx  = grace::variable_list::get().getspacings() ;
+    //**************************************************************************************************/
+    constexpr std::array<std::array<int,2>,3> other_dirs = {{
+        {{1,2}}, {{0,2}}, {{0,1}}
+    }} ;
+    //**************************************************************************************************/
+    // Helper: derive 1-var offsets/sizes from existing 2-var EMF offsets/sizes
+    auto halve_offsets = [](std::vector<size_t> const& v) {
+        std::vector<size_t> out(v.size()) ;
+        for(size_t i=0; i<v.size(); ++i) out[i] = v[i] / 2 ;
+        return out ;
+    } ;
+    //**************************************************************************************************/
+    // Find coarsest inverse spacing to derive relative levels
+    //**************************************************************************************************/
+    double idx_min_local = std::numeric_limits<double>::max() ;
+    Kokkos::parallel_reduce("diag_B_idx_min",
+        RangePolicy<>(0, static_cast<long>(nq)),
+        KOKKOS_LAMBDA(int q, double& lmin) {
+            double v = idx(0, q) ;
+            if (v < lmin) lmin = v ;
+        },
+        Kokkos::Min<double>(idx_min_local)
+    ) ;
+    Kokkos::fence() ;
+    double idx_min = 0.0 ;
+    parallel::mpi_allreduce(&idx_min_local, &idx_min, 1, sc_MPI_MIN) ;
+    //**************************************************************************************************/
+    // Per-(level, dir) accumulation views on device (LayoutRight for consistent flat indexing)
+    //**************************************************************************************************/
+    using diag_view_t = Kokkos::View<double**, Kokkos::LayoutRight> ;
+    diag_view_t hang_max_d("diag_hang_max", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t hang_sum_d("diag_hang_sum", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t same_max_d("diag_same_max", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t same_sum_d("diag_same_sum", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    Kokkos::deep_copy(hang_max_d, 0.0) ;
+    Kokkos::deep_copy(hang_sum_d, 0.0) ;
+    Kokkos::deep_copy(same_max_d, 0.0) ;
+    Kokkos::deep_copy(same_sum_d, 0.0) ;
+    //**************************************************************************************************/
+    //**************************************************************************************************/
+    // PART 1: HANGING FACES (coarse-fine)
+    //**************************************************************************************************/
+    //**************************************************************************************************/
+    auto desc = ghost_layer.get_reflux_face_descriptors() ;
+    auto info = ghost_layer.get_reflux_face_send_list() ;
+    //**************************************************************************************************/
+    // Build 1-var send/recv buffers reusing the hanging-face EMF comm pattern
+    auto diag_snd_off  = halve_offsets(ghost_layer.get_reflux_buffer_rank_send_emf_offsets()) ;
+    auto diag_snd_size = halve_offsets(ghost_layer.get_reflux_buffer_rank_send_emf_sizes()) ;
+    auto diag_rcv_off  = halve_offsets(ghost_layer.get_reflux_buffer_rank_recv_emf_offsets()) ;
+    auto diag_rcv_size = halve_offsets(ghost_layer.get_reflux_buffer_rank_recv_emf_sizes()) ;
+    size_t total_snd = 0, total_rcv = 0 ;
+    for(int r=0; r<nprocs; ++r) { total_snd += diag_snd_size[r] ; total_rcv += diag_rcv_size[r] ; }
+    //**************************************************************************************************/
+    amr::reflux_array_t sbuf("diag_B_hang_snd") ;
+    sbuf.set_strides(nx/2, 1) ;
+    sbuf.set_offsets(diag_snd_off) ;
+    sbuf.realloc(total_snd) ;
+    amr::reflux_array_t rbuf("diag_B_hang_rcv") ;
+    rbuf.set_strides(nx/2, 1) ;
+    rbuf.set_offsets(diag_rcv_off) ;
+    rbuf.realloc(total_rcv) ;
+    //**************************************************************************************************/
+    // Fill send buffer: fine side packs restricted face B = 0.25 * sum(2x2 fine B)
+    {
+        auto policy =
+            MDRangePolicy<Rank<3>> (
+                {0,0,0},
+                {static_cast<long>(nx/2)
+                ,static_cast<long>(nx/2)
+                ,static_cast<long>(info.qid.extent(0))}
+            ) ;
+        parallel_for( GRACE_EXECUTION_TAG("DIAG", "diag_B_hang_fill")
+                , policy
+                , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
+                    auto const iface = info.elem_id(iq) ;
+                    auto const rank  = info.rank(iq) ;
+                    auto const fdir  = iface / 2 ;
+                    auto const iside = iface % 2 ;
+                    auto const qid   = info.qid(iq) ;
+                    auto const bid   = info.buf_id(iq) ;
+                    // face position on the fine side
+                    size_t ijk[3] ;
+                    ijk[fdir] = iside ? nx + ngz : ngz ;
+                    ijk[other_dirs[fdir][0]] = 2*i + ngz ;
+                    ijk[other_dirs[fdir][1]] = 2*j + ngz ;
+                    // accumulate 2x2 fine B values
+                    auto idir = other_dirs[fdir][0] ;
+                    auto jdir = other_dirs[fdir][1] ;
+                    double sum = 0.0 ;
+                    for(int di=0; di<2; ++di) {
+                        for(int dj=0; dj<2; ++dj) {
+                            size_t ijk_f[3] ;
+                            ijk_f[fdir] = ijk[fdir] ;
+                            ijk_f[idir] = 2*i + di + ngz ;
+                            ijk_f[jdir] = 2*j + dj + ngz ;
+                            if      (fdir==0) sum += Bx(ijk_f[0],ijk_f[1],ijk_f[2],0,qid) ;
+                            else if (fdir==1) sum += By(ijk_f[0],ijk_f[1],ijk_f[2],0,qid) ;
+                            else              sum += Bz(ijk_f[0],ijk_f[1],ijk_f[2],0,qid) ;
+                        }
+                    }
+                    sbuf(i,j,0,bid,rank) = 0.25 * sum ;
+                }
+            ) ;
+    }
+    Kokkos::fence() ;
+    //**************************************************************************************************/
+    // MPI exchange for hanging faces
+    parallel::grace_transfer_context_t ctx_hang ;
+    for(int iproc=0; iproc<nprocs; ++iproc) {
+        if ( iproc == proc ) continue ;
+        if ( diag_snd_size[iproc] > 0 ) {
+            ctx_hang._send_requests.push_back(MPI_Request{}) ;
+            parallel::mpi_isend(
+                sbuf.data() + diag_snd_off[iproc],
+                diag_snd_size[iproc], iproc,
+                parallel::GRACE_DIAG_FACE_B_HANGING_TAG,
+                MPI_COMM_WORLD, &ctx_hang._send_requests.back()
+            ) ;
+        }
+        if ( diag_rcv_size[iproc] > 0 ) {
+            ctx_hang._recv_requests.push_back(MPI_Request{}) ;
+            parallel::mpi_irecv(
+                rbuf.data() + diag_rcv_off[iproc],
+                diag_rcv_size[iproc], iproc,
+                parallel::GRACE_DIAG_FACE_B_HANGING_TAG,
+                MPI_COMM_WORLD, &ctx_hang._recv_requests.back()
+            ) ;
+        }
+    }
+    parallel::mpi_waitall(ctx_hang) ;
+    //**************************************************************************************************/
+    // Compare: on the coarse side, per-(level, dir) via atomics
+    //**************************************************************************************************/
+    {
+        auto policy =
+            MDRangePolicy<Rank<3>> (
+                {0,0,0},
+                {static_cast<long>(nx/2)
+                ,static_cast<long>(nx/2)
+                ,static_cast<long>(desc.coarse_qid.extent(0))}
+            ) ;
+        parallel_for( GRACE_EXECUTION_TAG("DIAG", "diag_B_hang_check")
+                , policy
+                , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
+                    if ( desc.coarse_is_remote(iq) ) return ;
+                    auto const iface_c = desc.coarse_face_id(iq) ;
+                    auto const fdir  = iface_c / 2 ;
+                    auto const idir  = other_dirs[fdir][0] ;
+                    auto const jdir  = other_dirs[fdir][1] ;
+                    auto const iside = iface_c % 2 ;
+                    auto const qid_c = desc.coarse_qid(iq) ;
+                    int const lev = level_from_idx(idx(0, qid_c), idx_min) ;
+
+                    for(int ichild=0; ichild<P4EST_CHILDREN/2; ++ichild) {
+                        int ichild_i = (ichild>>0)&1 ;
+                        int ichild_j = (ichild>>1)&1 ;
+                        int off_i = ichild_i ? nx/2 : 0 ;
+                        int off_j = ichild_j ? nx/2 : 0 ;
+                        // coarse position
+                        size_t ijk_c[3] ;
+                        ijk_c[fdir] = iside ? nx + ngz : ngz ;
+                        ijk_c[idir] = i + off_i + ngz ;
+                        ijk_c[jdir] = j + off_j + ngz ;
+                        // read coarse B
+                        double Bc = 0.0 ;
+                        if      (fdir==0) Bc = Bx(ijk_c[0],ijk_c[1],ijk_c[2],0,qid_c) ;
+                        else if (fdir==1) Bc = By(ijk_c[0],ijk_c[1],ijk_c[2],0,qid_c) ;
+                        else              Bc = Bz(ijk_c[0],ijk_c[1],ijk_c[2],0,qid_c) ;
+                        // fine side restricted B
+                        double Bf_avg = 0.0 ;
+                        if ( desc.fine_is_remote(iq,ichild) ) {
+                            auto bid = desc.fine_bid(iq,ichild) ;
+                            auto rank = desc.fine_owner_rank(iq,ichild) ;
+                            Bf_avg = rbuf(i,j,0,bid,rank) ;
+                        } else {
+                            auto qid_f = desc.fine_qid(iq,ichild) ;
+                            size_t ijk_f[3] ;
+                            ijk_f[fdir] = iside ? ngz : nx + ngz ;
+                            double sum = 0.0 ;
+                            for(int di=0; di<2; ++di) {
+                                for(int dj=0; dj<2; ++dj) {
+                                    ijk_f[idir] = 2*i + di + ngz ;
+                                    ijk_f[jdir] = 2*j + dj + ngz ;
+                                    if      (fdir==0) sum += Bx(ijk_f[0],ijk_f[1],ijk_f[2],0,qid_f) ;
+                                    else if (fdir==1) sum += By(ijk_f[0],ijk_f[1],ijk_f[2],0,qid_f) ;
+                                    else              sum += Bz(ijk_f[0],ijk_f[1],ijk_f[2],0,qid_f) ;
+                                }
+                            }
+                            Bf_avg = 0.25 * sum ;
+                        }
+                        double err = fabs(Bc - Bf_avg) ;
+                        atomic_max_d(&hang_max_d(lev, fdir), err) ;
+                        Kokkos::atomic_add(&hang_sum_d(lev, fdir), err) ;
+                    }
+                }
+            ) ;
+    }
+    Kokkos::fence() ;
+    //**************************************************************************************************/
+    //**************************************************************************************************/
+    // PART 2: SAME-LEVEL FACES
+    //**************************************************************************************************/
+    //**************************************************************************************************/
+    auto coarse_desc = ghost_layer.get_reflux_coarse_face_descriptors() ;
+    auto coarse_info = ghost_layer.get_reflux_coarse_face_send_list() ;
+    //**************************************************************************************************/
+    // Build 1-var send/recv buffers reusing the coarse-face EMF comm pattern
+    auto cdiag_snd_off  = halve_offsets(ghost_layer.get_reflux_buffer_rank_send_emf_coarse_offsets()) ;
+    auto cdiag_snd_size = halve_offsets(ghost_layer.get_reflux_buffer_rank_send_emf_coarse_sizes()) ;
+    auto cdiag_rcv_off  = halve_offsets(ghost_layer.get_reflux_buffer_rank_recv_emf_coarse_offsets()) ;
+    auto cdiag_rcv_size = halve_offsets(ghost_layer.get_reflux_buffer_rank_recv_emf_coarse_sizes()) ;
+    size_t ctotal_snd = 0, ctotal_rcv = 0 ;
+    for(int r=0; r<nprocs; ++r) { ctotal_snd += cdiag_snd_size[r] ; ctotal_rcv += cdiag_rcv_size[r] ; }
+    //**************************************************************************************************/
+    amr::reflux_array_t csbuf("diag_B_same_snd") ;
+    csbuf.set_strides(nx, 1) ;
+    csbuf.set_offsets(cdiag_snd_off) ;
+    csbuf.realloc(ctotal_snd) ;
+    amr::reflux_array_t crbuf("diag_B_same_rcv") ;
+    crbuf.set_strides(nx, 1) ;
+    crbuf.set_offsets(cdiag_rcv_off) ;
+    crbuf.realloc(ctotal_rcv) ;
+    //**************************************************************************************************/
+    // Fill send buffer: pack face B
+    {
+        auto policy =
+            MDRangePolicy<Rank<3>> (
+                {0,0,0},
+                {static_cast<long>(nx)
+                ,static_cast<long>(nx)
+                ,static_cast<long>(coarse_info.qid.extent(0))}
+            ) ;
+        parallel_for( GRACE_EXECUTION_TAG("DIAG", "diag_B_same_fill")
+                , policy
+                , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
+                    auto const iface = coarse_info.elem_id(iq) ;
+                    auto const rank  = coarse_info.rank(iq) ;
+                    auto const fdir  = iface / 2 ;
+                    auto const idir  = other_dirs[fdir][0] ;
+                    auto const jdir  = other_dirs[fdir][1] ;
+                    auto const iside = iface % 2 ;
+                    auto const qid   = coarse_info.qid(iq) ;
+                    auto const bid   = coarse_info.buf_id(iq) ;
+                    size_t ijk[3] ;
+                    ijk[fdir] = iside ? nx + ngz : ngz ;
+                    ijk[idir] = i + ngz ;
+                    ijk[jdir] = j + ngz ;
+                    double B = 0.0 ;
+                    if      (fdir==0) B = Bx(ijk[0],ijk[1],ijk[2],0,qid) ;
+                    else if (fdir==1) B = By(ijk[0],ijk[1],ijk[2],0,qid) ;
+                    else              B = Bz(ijk[0],ijk[1],ijk[2],0,qid) ;
+                    csbuf(i,j,0,bid,rank) = B ;
+                }
+            ) ;
+    }
+    Kokkos::fence() ;
+    //**************************************************************************************************/
+    // MPI exchange for same-level faces
+    parallel::grace_transfer_context_t ctx_same ;
+    for(int iproc=0; iproc<nprocs; ++iproc) {
+        if ( iproc == proc ) continue ;
+        if ( cdiag_snd_size[iproc] > 0 ) {
+            ctx_same._send_requests.push_back(MPI_Request{}) ;
+            parallel::mpi_isend(
+                csbuf.data() + cdiag_snd_off[iproc],
+                cdiag_snd_size[iproc], iproc,
+                parallel::GRACE_DIAG_FACE_B_SAMELEVEL_TAG,
+                MPI_COMM_WORLD, &ctx_same._send_requests.back()
+            ) ;
+        }
+        if ( cdiag_rcv_size[iproc] > 0 ) {
+            ctx_same._recv_requests.push_back(MPI_Request{}) ;
+            parallel::mpi_irecv(
+                crbuf.data() + cdiag_rcv_off[iproc],
+                cdiag_rcv_size[iproc], iproc,
+                parallel::GRACE_DIAG_FACE_B_SAMELEVEL_TAG,
+                MPI_COMM_WORLD, &ctx_same._recv_requests.back()
+            ) ;
+        }
+    }
+    parallel::mpi_waitall(ctx_same) ;
+    //**************************************************************************************************/
+    // Compare same-level faces, per-(level, dir) via atomics
+    //**************************************************************************************************/
+    {
+        auto policy =
+            MDRangePolicy<Rank<3>> (
+                {0,0,0},
+                {static_cast<long>(nx)
+                ,static_cast<long>(nx)
+                ,static_cast<long>(coarse_desc.qid.extent(0))}
+            ) ;
+        parallel_for( GRACE_EXECUTION_TAG("DIAG", "diag_B_same_check")
+                , policy
+                , KOKKOS_LAMBDA (VECD(int const& i, int const& j), int const& iq) {
+                    auto const fid0  = coarse_desc.face_id(iq,0) ;
+                    auto const fdir  = fid0 / 2 ;
+                    auto const idir  = other_dirs[fdir][0] ;
+                    auto const jdir  = other_dirs[fdir][1] ;
+                    // Derive level from whichever side is local
+                    int lev = 0 ;
+                    for(int is=0; is<2; ++is) {
+                        if ( !coarse_desc.is_remote(iq,is) ) {
+                            auto qid = coarse_desc.qid(iq,is) ;
+                            lev = level_from_idx(idx(0, qid), idx_min) ;
+                            break ;
+                        }
+                    }
+                    // read local B from both sides (remote from recv buffer)
+                    double B[2] ;
+                    for(int is=0; is<2; ++is) {
+                        auto const fid   = coarse_desc.face_id(iq,is) ;
+                        auto const iside = fid % 2 ;
+                        if ( coarse_desc.is_remote(iq,is) ) {
+                            auto bid  = coarse_desc.bid(iq,is) ;
+                            int  rank = coarse_desc.owner_rank(iq,is) ;
+                            B[is] = crbuf(i,j,0,bid,rank) ;
+                        } else {
+                            auto qid = coarse_desc.qid(iq,is) ;
+                            size_t ijk[3] ;
+                            ijk[fdir] = iside ? nx + ngz : ngz ;
+                            ijk[idir] = i + ngz ;
+                            ijk[jdir] = j + ngz ;
+                            if      (fdir==0) B[is] = Bx(ijk[0],ijk[1],ijk[2],0,qid) ;
+                            else if (fdir==1) B[is] = By(ijk[0],ijk[1],ijk[2],0,qid) ;
+                            else              B[is] = Bz(ijk[0],ijk[1],ijk[2],0,qid) ;
+                        }
+                    }
+                    double err = fabs(B[0] - B[1]) ;
+                    atomic_max_d(&same_max_d(lev, fdir), err) ;
+                    Kokkos::atomic_add(&same_sum_d(lev, fdir), err) ;
+                }
+            ) ;
+    }
+    Kokkos::fence() ;
+    //**************************************************************************************************/
+    //**************************************************************************************************/
+    // HOST-SIDE POST-PROCESSING
+    //**************************************************************************************************/
+    //**************************************************************************************************/
+    // Copy device views to host
+    auto hang_max_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, hang_max_d) ;
+    auto hang_sum_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, hang_sum_d) ;
+    auto same_max_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, same_max_d) ;
+    auto same_sum_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, same_sum_d) ;
+    //**************************************************************************************************/
+    // MPI allreduce: max for max_err, sum for sum_err
+    std::array<double, DIAG_MAX_LEVELS * DIAG_NDIRS> hang_max_g{}, hang_sum_g{} ;
+    std::array<double, DIAG_MAX_LEVELS * DIAG_NDIRS> same_max_g{}, same_sum_g{} ;
+    parallel::mpi_allreduce(hang_max_h.data(), hang_max_g.data(),
+                            DIAG_MAX_LEVELS * DIAG_NDIRS, sc_MPI_MAX) ;
+    parallel::mpi_allreduce(hang_sum_h.data(), hang_sum_g.data(),
+                            DIAG_MAX_LEVELS * DIAG_NDIRS, sc_MPI_SUM) ;
+    parallel::mpi_allreduce(same_max_h.data(), same_max_g.data(),
+                            DIAG_MAX_LEVELS * DIAG_NDIRS, sc_MPI_MAX) ;
+    parallel::mpi_allreduce(same_sum_h.data(), same_sum_g.data(),
+                            DIAG_MAX_LEVELS * DIAG_NDIRS, sc_MPI_SUM) ;
+    //**************************************************************************************************/
+    // Compute per-level face area for integrated flux: dA = dx_coarse^2
+    // dx at level L = 1/(idx_min * 2^L)
+    std::array<double, DIAG_MAX_LEVELS> dA_level{} ;
+    for(int l=0; l<DIAG_MAX_LEVELS; ++l) {
+        double dx_l = 1.0 / (idx_min * (1 << l)) ;
+        dA_level[l] = dx_l * dx_l ;
+    }
+    //**************************************************************************************************/
+    // Backward-compatible global max
+    double global_hanging = 0.0, global_samelevel = 0.0 ;
+    for(int l=0; l<DIAG_MAX_LEVELS; ++l) {
+        for(int d=0; d<DIAG_NDIRS; ++d) {
+            int k = l * DIAG_NDIRS + d ;
+            if (hang_max_g[k] > global_hanging)   global_hanging   = hang_max_g[k] ;
+            if (same_max_g[k] > global_samelevel)  global_samelevel = same_max_g[k] ;
+        }
+    }
+    GRACE_TRACE("[DIAG] face B conservation: hanging max|Bc-avg(Bf)|={:.6e}  same-level max|B0-B1|={:.6e}",
+                global_hanging, global_samelevel) ;
+    //**************************************************************************************************/
+    // Per-level detail (only print levels that have nonzero error)
+    constexpr char const* dname[3] = {"x","y","z"} ;
+    for(int l=0; l<DIAG_MAX_LEVELS; ++l) {
+        for(int d=0; d<DIAG_NDIRS; ++d) {
+            int k = l * DIAG_NDIRS + d ;
+            if (hang_max_g[k] > 0.0) {
+                GRACE_TRACE("[DIAG]   hanging L{}/L{} dir={}: max={:.6e}  sum|dB|*dA={:.6e}",
+                    l, l+1, dname[d], hang_max_g[k], hang_sum_g[k] * dA_level[l]) ;
+            }
+        }
+    }
+    for(int l=0; l<DIAG_MAX_LEVELS; ++l) {
+        for(int d=0; d<DIAG_NDIRS; ++d) {
+            int k = l * DIAG_NDIRS + d ;
+            if (same_max_g[k] > 0.0) {
+                GRACE_TRACE("[DIAG]   same-level L{} dir={}: max={:.6e}  sum|dB|*dA={:.6e}",
+                    l, dname[d], same_max_g[k], same_sum_g[k] * dA_level[l]) ;
+            }
+        }
+    }
+    //**************************************************************************************************/
+    // .dat file output (rank 0 only, at scalar output frequency)
+    //**************************************************************************************************/
+    auto& grace_runtime = grace::runtime::get() ;
+    auto iter = grace_runtime.iteration() ;
+    auto time = grace_runtime.time() ;
+    int scalar_every = grace_runtime.scalar_output_every() ;
+    if ( proc == 0 && scalar_every > 0 && (iter % scalar_every == 0) ) {
+        std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ;
+        std::string base = grace_runtime.scalar_io_basename() ;
+        //**************************************************************************************************/
+        // Hanging max per-(level, dir)
+        {
+            auto fpath = bdir / (base + "Bflux_hanging_max.dat") ;
+            static bool init_hang_max = false ;
+            if (!init_hang_max) {
+                std::string hdr = "# Iteration\tTime" ;
+                for(int l=0; l<DIAG_MAX_LEVELS; ++l)
+                    for(int d=0; d<DIAG_NDIRS; ++d)
+                        hdr += "\tL" + std::to_string(l) + "_" + dname[d] ;
+                init_Bflux_dat(fpath, hdr) ;
+                init_hang_max = true ;
+            }
+            std::ofstream f(fpath.string(), std::ios::app) ;
+            f << std::scientific << std::setprecision(6) ;
+            f << iter << '\t' << time ;
+            for(int l=0; l<DIAG_MAX_LEVELS; ++l)
+                for(int d=0; d<DIAG_NDIRS; ++d)
+                    f << '\t' << hang_max_g[l * DIAG_NDIRS + d] ;
+            f << '\n' ;
+        }
+        //**************************************************************************************************/
+        // Hanging integrated flux imbalance per-(level, dir)
+        {
+            auto fpath = bdir / (base + "Bflux_hanging_integral.dat") ;
+            static bool init_hang_int = false ;
+            if (!init_hang_int) {
+                std::string hdr = "# Iteration\tTime" ;
+                for(int l=0; l<DIAG_MAX_LEVELS; ++l)
+                    for(int d=0; d<DIAG_NDIRS; ++d)
+                        hdr += "\tL" + std::to_string(l) + "_" + dname[d] ;
+                init_Bflux_dat(fpath, hdr) ;
+                init_hang_int = true ;
+            }
+            std::ofstream f(fpath.string(), std::ios::app) ;
+            f << std::scientific << std::setprecision(6) ;
+            f << iter << '\t' << time ;
+            for(int l=0; l<DIAG_MAX_LEVELS; ++l)
+                for(int d=0; d<DIAG_NDIRS; ++d)
+                    f << '\t' << hang_sum_g[l * DIAG_NDIRS + d] * dA_level[l] ;
+            f << '\n' ;
+        }
+        //**************************************************************************************************/
+        // Same-level max per-(level, dir)
+        {
+            auto fpath = bdir / (base + "Bflux_samelevel_max.dat") ;
+            static bool init_same_max = false ;
+            if (!init_same_max) {
+                std::string hdr = "# Iteration\tTime" ;
+                for(int l=0; l<DIAG_MAX_LEVELS; ++l)
+                    for(int d=0; d<DIAG_NDIRS; ++d)
+                        hdr += "\tL" + std::to_string(l) + "_" + dname[d] ;
+                init_Bflux_dat(fpath, hdr) ;
+                init_same_max = true ;
+            }
+            std::ofstream f(fpath.string(), std::ios::app) ;
+            f << std::scientific << std::setprecision(6) ;
+            f << iter << '\t' << time ;
+            for(int l=0; l<DIAG_MAX_LEVELS; ++l)
+                for(int d=0; d<DIAG_NDIRS; ++d)
+                    f << '\t' << same_max_g[l * DIAG_NDIRS + d] ;
+            f << '\n' ;
+        }
+    }
+}
 
 } /* namespace grace */
