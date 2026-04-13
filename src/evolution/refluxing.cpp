@@ -812,12 +812,13 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 }
                 keys[b+1] = k ; v0[b+1] = t0 ; v1[b+1] = t1 ;
             }
-            // canonical accumulation in sorted order
-            double sum0 = 0.0, sum1 = 0.0 ;
-            for( int a=0; a<cnt; ++a ) { sum0 += v0[a] ; sum1 += v1[a] ; }
-
-            emf_edge_correction(i,0,iq) = cnt ? sum0 * 1./((double)cnt) : 0.0 ;
-            emf_edge_correction(i,1,iq) = cnt ? sum1 * 1./((double)cnt) : 0.0 ; 
+            // Use first sorted value (smallest edge_id) instead of averaging.
+            // All fine EMFs at a shared edge are the same physical field, so
+            // any single value is as good as the mean.  Unlike an average,
+            // this is deterministic regardless of how many fine sides each
+            // rank's descriptor happens to list.
+            emf_edge_correction(i,0,iq) = cnt ? v0[0] : 0.0 ;
+            emf_edge_correction(i,1,iq) = cnt ? v1[0] : 0.0 ; 
         }
     );
     //**************************************************************************************************/
@@ -934,10 +935,9 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
                 }
                 keys[b+1] = k ; vals[b+1] = tv ;
             }
-            // canonical accumulation in sorted order
-            double emf_correction = 0.0 ;
-            for( int a=0; a<n_sides; ++a ) { emf_correction += vals[a] ; }
-            emf_coarse_edge_correction(i,iq) = emf_correction/(static_cast<double>(n_sides)); 
+            // Use first sorted value (smallest edge_id) — deterministic
+            // regardless of how many coarse sides each rank sees.
+            emf_coarse_edge_correction(i,iq) = n_sides ? vals[0] : 0.0 ; 
         }
     );
     //**************************************************************************************************/
