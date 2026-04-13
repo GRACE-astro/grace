@@ -1064,16 +1064,25 @@ void diagnose_face_B_conservation()
     parallel::mpi_allreduce(&idx_min_local, &idx_min, 1, sc_MPI_MIN) ;
     //**************************************************************************************************/
     // Per-(level, dir) accumulation views on device (LayoutRight for consistent flat indexing)
+    // Split into local-only (_loc) and MPI-involving (_mpi) contributions
     //**************************************************************************************************/
     using diag_view_t = Kokkos::View<double**, Kokkos::LayoutRight> ;
-    diag_view_t hang_max_d("diag_hang_max", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
-    diag_view_t hang_sum_d("diag_hang_sum", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
-    diag_view_t same_max_d("diag_same_max", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
-    diag_view_t same_sum_d("diag_same_sum", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
-    Kokkos::deep_copy(hang_max_d, 0.0) ;
-    Kokkos::deep_copy(hang_sum_d, 0.0) ;
-    Kokkos::deep_copy(same_max_d, 0.0) ;
-    Kokkos::deep_copy(same_sum_d, 0.0) ;
+    diag_view_t hang_max_loc_d("diag_hang_max_loc", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t hang_sum_loc_d("diag_hang_sum_loc", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t hang_max_mpi_d("diag_hang_max_mpi", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t hang_sum_mpi_d("diag_hang_sum_mpi", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t same_max_loc_d("diag_same_max_loc", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t same_sum_loc_d("diag_same_sum_loc", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t same_max_mpi_d("diag_same_max_mpi", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t same_sum_mpi_d("diag_same_sum_mpi", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    Kokkos::deep_copy(hang_max_loc_d, 0.0) ;
+    Kokkos::deep_copy(hang_sum_loc_d, 0.0) ;
+    Kokkos::deep_copy(hang_max_mpi_d, 0.0) ;
+    Kokkos::deep_copy(hang_sum_mpi_d, 0.0) ;
+    Kokkos::deep_copy(same_max_loc_d, 0.0) ;
+    Kokkos::deep_copy(same_sum_loc_d, 0.0) ;
+    Kokkos::deep_copy(same_max_mpi_d, 0.0) ;
+    Kokkos::deep_copy(same_sum_mpi_d, 0.0) ;
     //**************************************************************************************************/
     //**************************************************************************************************/
     // PART 1: HANGING FACES (coarse-fine)
@@ -1228,8 +1237,14 @@ void diagnose_face_B_conservation()
                             Bf_avg = 0.25 * sum ;
                         }
                         double err = fabs(Bc - Bf_avg) ;
-                        atomic_max_d(&hang_max_d(lev, fdir), err) ;
-                        Kokkos::atomic_add(&hang_sum_d(lev, fdir), err) ;
+                        bool is_mpi = desc.fine_is_remote(iq,ichild) ;
+                        if (is_mpi) {
+                            atomic_max_d(&hang_max_mpi_d(lev, fdir), err) ;
+                            Kokkos::atomic_add(&hang_sum_mpi_d(lev, fdir), err) ;
+                        } else {
+                            atomic_max_d(&hang_max_loc_d(lev, fdir), err) ;
+                            Kokkos::atomic_add(&hang_sum_loc_d(lev, fdir), err) ;
+                        }
                     }
                 }
             ) ;
@@ -1366,8 +1381,14 @@ void diagnose_face_B_conservation()
                         }
                     }
                     double err = fabs(B[0] - B[1]) ;
-                    atomic_max_d(&same_max_d(lev, fdir), err) ;
-                    Kokkos::atomic_add(&same_sum_d(lev, fdir), err) ;
+                    bool is_mpi = coarse_desc.is_remote(iq,0) || coarse_desc.is_remote(iq,1) ;
+                    if (is_mpi) {
+                        atomic_max_d(&same_max_mpi_d(lev, fdir), err) ;
+                        Kokkos::atomic_add(&same_sum_mpi_d(lev, fdir), err) ;
+                    } else {
+                        atomic_max_d(&same_max_loc_d(lev, fdir), err) ;
+                        Kokkos::atomic_add(&same_sum_loc_d(lev, fdir), err) ;
+                    }
                 }
             ) ;
     }
@@ -1378,22 +1399,29 @@ void diagnose_face_B_conservation()
     //**************************************************************************************************/
     //**************************************************************************************************/
     // Copy device views to host
-    auto hang_max_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, hang_max_d) ;
-    auto hang_sum_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, hang_sum_d) ;
-    auto same_max_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, same_max_d) ;
-    auto same_sum_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, same_sum_d) ;
+    constexpr int NN = DIAG_MAX_LEVELS * DIAG_NDIRS ;
+    auto hang_max_loc_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, hang_max_loc_d) ;
+    auto hang_sum_loc_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, hang_sum_loc_d) ;
+    auto hang_max_mpi_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, hang_max_mpi_d) ;
+    auto hang_sum_mpi_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, hang_sum_mpi_d) ;
+    auto same_max_loc_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, same_max_loc_d) ;
+    auto same_sum_loc_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, same_sum_loc_d) ;
+    auto same_max_mpi_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, same_max_mpi_d) ;
+    auto same_sum_mpi_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, same_sum_mpi_d) ;
     //**************************************************************************************************/
     // MPI allreduce: max for max_err, sum for sum_err
-    std::array<double, DIAG_MAX_LEVELS * DIAG_NDIRS> hang_max_g{}, hang_sum_g{} ;
-    std::array<double, DIAG_MAX_LEVELS * DIAG_NDIRS> same_max_g{}, same_sum_g{} ;
-    parallel::mpi_allreduce(hang_max_h.data(), hang_max_g.data(),
-                            DIAG_MAX_LEVELS * DIAG_NDIRS, sc_MPI_MAX) ;
-    parallel::mpi_allreduce(hang_sum_h.data(), hang_sum_g.data(),
-                            DIAG_MAX_LEVELS * DIAG_NDIRS, sc_MPI_SUM) ;
-    parallel::mpi_allreduce(same_max_h.data(), same_max_g.data(),
-                            DIAG_MAX_LEVELS * DIAG_NDIRS, sc_MPI_MAX) ;
-    parallel::mpi_allreduce(same_sum_h.data(), same_sum_g.data(),
-                            DIAG_MAX_LEVELS * DIAG_NDIRS, sc_MPI_SUM) ;
+    std::array<double, NN> hang_max_loc_g{}, hang_sum_loc_g{} ;
+    std::array<double, NN> hang_max_mpi_g{}, hang_sum_mpi_g{} ;
+    std::array<double, NN> same_max_loc_g{}, same_sum_loc_g{} ;
+    std::array<double, NN> same_max_mpi_g{}, same_sum_mpi_g{} ;
+    parallel::mpi_allreduce(hang_max_loc_h.data(), hang_max_loc_g.data(), NN, sc_MPI_MAX) ;
+    parallel::mpi_allreduce(hang_sum_loc_h.data(), hang_sum_loc_g.data(), NN, sc_MPI_SUM) ;
+    parallel::mpi_allreduce(hang_max_mpi_h.data(), hang_max_mpi_g.data(), NN, sc_MPI_MAX) ;
+    parallel::mpi_allreduce(hang_sum_mpi_h.data(), hang_sum_mpi_g.data(), NN, sc_MPI_SUM) ;
+    parallel::mpi_allreduce(same_max_loc_h.data(), same_max_loc_g.data(), NN, sc_MPI_MAX) ;
+    parallel::mpi_allreduce(same_sum_loc_h.data(), same_sum_loc_g.data(), NN, sc_MPI_SUM) ;
+    parallel::mpi_allreduce(same_max_mpi_h.data(), same_max_mpi_g.data(), NN, sc_MPI_MAX) ;
+    parallel::mpi_allreduce(same_sum_mpi_h.data(), same_sum_mpi_g.data(), NN, sc_MPI_SUM) ;
     //**************************************************************************************************/
     // Compute per-level face area for integrated flux: dA = dx_coarse^2
     // dx at level L = 1/(idx_min * 2^L)
@@ -1405,33 +1433,36 @@ void diagnose_face_B_conservation()
     //**************************************************************************************************/
     // Backward-compatible global max
     double global_hanging = 0.0, global_samelevel = 0.0 ;
-    for(int l=0; l<DIAG_MAX_LEVELS; ++l) {
-        for(int d=0; d<DIAG_NDIRS; ++d) {
-            int k = l * DIAG_NDIRS + d ;
-            if (hang_max_g[k] > global_hanging)   global_hanging   = hang_max_g[k] ;
-            if (same_max_g[k] > global_samelevel)  global_samelevel = same_max_g[k] ;
-        }
+    for(int k=0; k<NN; ++k) {
+        double hm = std::max(hang_max_loc_g[k], hang_max_mpi_g[k]) ;
+        double sm = std::max(same_max_loc_g[k], same_max_mpi_g[k]) ;
+        if (hm > global_hanging)   global_hanging   = hm ;
+        if (sm > global_samelevel) global_samelevel  = sm ;
     }
     GRACE_TRACE("[DIAG] face B conservation: hanging max|Bc-avg(Bf)|={:.6e}  same-level max|B0-B1|={:.6e}",
                 global_hanging, global_samelevel) ;
     //**************************************************************************************************/
-    // Per-level detail (only print levels that have nonzero error)
+    // Per-level detail split by LOCAL vs MPI
     constexpr char const* dname[3] = {"x","y","z"} ;
     for(int l=0; l<DIAG_MAX_LEVELS; ++l) {
         for(int d=0; d<DIAG_NDIRS; ++d) {
             int k = l * DIAG_NDIRS + d ;
-            if (hang_max_g[k] > 0.0) {
-                GRACE_TRACE("[DIAG]   hanging L{}/L{} dir={}: max={:.6e}  sum|dB|*dA={:.6e}",
-                    l, l+1, dname[d], hang_max_g[k], hang_sum_g[k] * dA_level[l]) ;
+            if (hang_max_loc_g[k] > 0.0 || hang_max_mpi_g[k] > 0.0) {
+                GRACE_TRACE("[DIAG]   hanging L{}/L{} dir={}: LOCAL max={:.6e} sum*dA={:.6e}  |  MPI max={:.6e} sum*dA={:.6e}",
+                    l, l+1, dname[d],
+                    hang_max_loc_g[k], hang_sum_loc_g[k] * dA_level[l],
+                    hang_max_mpi_g[k], hang_sum_mpi_g[k] * dA_level[l]) ;
             }
         }
     }
     for(int l=0; l<DIAG_MAX_LEVELS; ++l) {
         for(int d=0; d<DIAG_NDIRS; ++d) {
             int k = l * DIAG_NDIRS + d ;
-            if (same_max_g[k] > 0.0) {
-                GRACE_TRACE("[DIAG]   same-level L{} dir={}: max={:.6e}  sum|dB|*dA={:.6e}",
-                    l, dname[d], same_max_g[k], same_sum_g[k] * dA_level[l]) ;
+            if (same_max_loc_g[k] > 0.0 || same_max_mpi_g[k] > 0.0) {
+                GRACE_TRACE("[DIAG]   same-level L{} dir={}: LOCAL max={:.6e} sum*dA={:.6e}  |  MPI max={:.6e} sum*dA={:.6e}",
+                    l, dname[d],
+                    same_max_loc_g[k], same_sum_loc_g[k] * dA_level[l],
+                    same_max_mpi_g[k], same_sum_mpi_g[k] * dA_level[l]) ;
             }
         }
     }
@@ -1446,68 +1477,42 @@ void diagnose_face_B_conservation()
         std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ;
         std::string base = grace_runtime.scalar_io_basename() ;
         //**************************************************************************************************/
-        // Hanging max per-(level, dir)
+        // Helper lambda: write one .dat file with local|mpi columns
+        auto write_dat = [&](std::string const& suffix,
+                             std::array<double,NN> const& loc_data,
+                             std::array<double,NN> const& mpi_data,
+                             double const* scale, /* if non-null, multiply by scale[l] */
+                             bool& initialized)
         {
-            auto fpath = bdir / (base + "Bflux_hanging_max.dat") ;
-            static bool init_hang_max = false ;
-            if (!init_hang_max) {
+            auto fpath = bdir / (base + suffix) ;
+            if (!initialized) {
                 std::string hdr = "# Iteration\tTime" ;
                 for(int l=0; l<DIAG_MAX_LEVELS; ++l)
-                    for(int d=0; d<DIAG_NDIRS; ++d)
-                        hdr += "\tL" + std::to_string(l) + "_" + dname[d] ;
+                    for(int d=0; d<DIAG_NDIRS; ++d) {
+                        std::string tag = "L" + std::to_string(l) + "_" + dname[d] ;
+                        hdr += "\t" + tag + "_loc\t" + tag + "_mpi" ;
+                    }
                 init_Bflux_dat(fpath, hdr) ;
-                init_hang_max = true ;
+                initialized = true ;
             }
             std::ofstream f(fpath.string(), std::ios::app) ;
             f << std::scientific << std::setprecision(6) ;
             f << iter << '\t' << time ;
-            for(int l=0; l<DIAG_MAX_LEVELS; ++l)
-                for(int d=0; d<DIAG_NDIRS; ++d)
-                    f << '\t' << hang_max_g[l * DIAG_NDIRS + d] ;
+            for(int l=0; l<DIAG_MAX_LEVELS; ++l) {
+                double s = scale ? scale[l] : 1.0 ;
+                for(int d=0; d<DIAG_NDIRS; ++d) {
+                    int k = l * DIAG_NDIRS + d ;
+                    f << '\t' << loc_data[k] * s << '\t' << mpi_data[k] * s ;
+                }
+            }
             f << '\n' ;
-        }
+        } ;
         //**************************************************************************************************/
-        // Hanging integrated flux imbalance per-(level, dir)
-        {
-            auto fpath = bdir / (base + "Bflux_hanging_integral.dat") ;
-            static bool init_hang_int = false ;
-            if (!init_hang_int) {
-                std::string hdr = "# Iteration\tTime" ;
-                for(int l=0; l<DIAG_MAX_LEVELS; ++l)
-                    for(int d=0; d<DIAG_NDIRS; ++d)
-                        hdr += "\tL" + std::to_string(l) + "_" + dname[d] ;
-                init_Bflux_dat(fpath, hdr) ;
-                init_hang_int = true ;
-            }
-            std::ofstream f(fpath.string(), std::ios::app) ;
-            f << std::scientific << std::setprecision(6) ;
-            f << iter << '\t' << time ;
-            for(int l=0; l<DIAG_MAX_LEVELS; ++l)
-                for(int d=0; d<DIAG_NDIRS; ++d)
-                    f << '\t' << hang_sum_g[l * DIAG_NDIRS + d] * dA_level[l] ;
-            f << '\n' ;
-        }
-        //**************************************************************************************************/
-        // Same-level max per-(level, dir)
-        {
-            auto fpath = bdir / (base + "Bflux_samelevel_max.dat") ;
-            static bool init_same_max = false ;
-            if (!init_same_max) {
-                std::string hdr = "# Iteration\tTime" ;
-                for(int l=0; l<DIAG_MAX_LEVELS; ++l)
-                    for(int d=0; d<DIAG_NDIRS; ++d)
-                        hdr += "\tL" + std::to_string(l) + "_" + dname[d] ;
-                init_Bflux_dat(fpath, hdr) ;
-                init_same_max = true ;
-            }
-            std::ofstream f(fpath.string(), std::ios::app) ;
-            f << std::scientific << std::setprecision(6) ;
-            f << iter << '\t' << time ;
-            for(int l=0; l<DIAG_MAX_LEVELS; ++l)
-                for(int d=0; d<DIAG_NDIRS; ++d)
-                    f << '\t' << same_max_g[l * DIAG_NDIRS + d] ;
-            f << '\n' ;
-        }
+        static bool i1=false, i2=false, i3=false, i4=false ;
+        write_dat("Bflux_hanging_max.dat",      hang_max_loc_g, hang_max_mpi_g, nullptr,          i1) ;
+        write_dat("Bflux_hanging_integral.dat",  hang_sum_loc_g, hang_sum_mpi_g, dA_level.data(),  i2) ;
+        write_dat("Bflux_samelevel_max.dat",     same_max_loc_g, same_max_mpi_g, nullptr,          i3) ;
+        write_dat("Bflux_samelevel_integral.dat", same_sum_loc_g, same_sum_mpi_g, dA_level.data(), i4) ;
     }
 }
 
