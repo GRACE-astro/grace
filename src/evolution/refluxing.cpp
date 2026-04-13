@@ -356,15 +356,32 @@ parallel::grace_transfer_context_t reflux_fill_emf_buffers()
                 ijk_s[jdir] = jside ? nx + ngz : ngz ; 
                 ijk_s[kdir] = kside ? nx + ngz : ngz ; 
 
-                auto const rank = info_edge.rank(iq) ; 
+                auto const rank = info_edge.rank(iq) ;
                 auto bid = info_edge.buf_id(iq);
                 // write to buffer
-                sbuf_edge(i, bid, rank) = emf(ijk_s[0],ijk_s[1],ijk_s[2],idir,qid) ; 
+                sbuf_edge(i, bid, rank) = emf(ijk_s[0],ijk_s[1],ijk_s[2],idir,qid) ;
             }
         ) ;
-    Kokkos::fence() ; 
-        // todo maybe edge bufs can be separate, this seems wasteful 
-    // send - receive edge buffers 
+    Kokkos::fence() ;
+    // ---- DEBUG: dump edge send buffer at i=0 ----
+    {
+        auto n_send = info_edge.qid.extent(0) ;
+        for(size_t iq=0; iq<n_send; ++iq) {
+            auto iedge = info_edge.elem_id(iq) ;
+            int idir = iedge / 4 ;
+            int jside = (iedge>>0)&1 ;
+            int kside = (iedge>>1)&1 ;
+            auto qid = info_edge.qid(iq) ;
+            auto rank = info_edge.rank(iq) ;
+            auto bid = info_edge.buf_id(iq) ;
+            double val = sbuf_edge(0, bid, rank) ;
+            GRACE_TRACE("[EDGE_SEND] iq={} iedge={} dir={} jside={} kside={} qid={} bid={} dest_rank={} val={:.15e}",
+                iq, iedge, idir, jside, kside, (int)qid, (int)bid, (int)rank, val) ;
+        }
+    }
+    // ---- END DEBUG ----
+        // todo maybe edge bufs can be separate, this seems wasteful
+    // send - receive edge buffers
     auto soffsets_edge = ghost_layer.get_reflux_buffer_rank_send_emf_edge_offsets() ; 
     auto ssizes_edge   = ghost_layer.get_reflux_buffer_rank_send_emf_edge_sizes()   ;
     
@@ -822,8 +839,51 @@ void reflux_correct_emfs(parallel::grace_transfer_context_t& context)
         }
     );
     //**************************************************************************************************/
-    Kokkos::fence() ; 
-    // apply 
+    Kokkos::fence() ;
+    // ---- DEBUG: dump Phase 3 edge correction inputs at i=0 ----
+    {
+        auto n_edges = edge_desc.n_sides.extent(0) ;
+        for(size_t iq=0; iq<n_edges; ++iq) {
+            int ns = edge_desc.n_sides(iq) ;
+            for(int iside=0; iside<ns; ++iside) {
+                if ( !edge_desc.is_fine(iq,iside) ) continue ;
+                int eid = edge_desc.edge_id(iq,iside) ;
+                int edir = eid / 4 ;
+                int si = (eid>>0)&1, sj = (eid>>1)&1 ;
+                for(int ichild=0; ichild<2; ++ichild) {
+                    double val = 0.0 ;
+                    bool remote = edge_desc.fine_is_remote(iq,iside,ichild) ;
+                    if (remote) {
+                        auto bid = edge_desc.fine_bid(iq,iside,ichild) ;
+                        auto rank = edge_desc.fine_owner_rank(iq,iside,ichild) ;
+                        val = edge_rbuf(0, bid, rank) ;
+                    } else {
+                        auto qid = edge_desc.fine_qid(iq,iside,ichild) ;
+                        size_t ijk[3] ;
+                        ijk[edir] = ngz ;
+                        ijk[other_dirs[edir][0]] = si ? nx + ngz : ngz ;
+                        ijk[other_dirs[edir][1]] = sj ? nx + ngz : ngz ;
+                        val = emf(ijk[0],ijk[1],ijk[2],edir,qid) ;
+                    }
+                    if (remote) {
+                        auto bid = edge_desc.fine_bid(iq,iside,ichild) ;
+                        auto rank = edge_desc.fine_owner_rank(iq,iside,ichild) ;
+                        GRACE_TRACE("[EDGE_DBG] iq={} iside={} eid={} dir={} si={} sj={} ichild={} REMOTE from_rank={} bid={} val={:.15e}",
+                            iq, iside, eid, edir, si, sj, ichild, rank, bid, val) ;
+                    } else {
+                        auto qid = edge_desc.fine_qid(iq,iside,ichild) ;
+                        GRACE_TRACE("[EDGE_DBG] iq={} iside={} eid={} dir={} si={} sj={} ichild={} LOCAL qid={} val={:.15e}",
+                            iq, iside, eid, edir, si, sj, ichild, qid, val) ;
+                    }
+                }
+            }
+            // also dump the computed correction
+            GRACE_TRACE("[EDGE_DBG] iq={} n_sides={} correction child0={:.15e} child1={:.15e}",
+                iq, ns, emf_edge_correction(0,0,iq), emf_edge_correction(0,1,iq)) ;
+        }
+    }
+    // ---- END DEBUG ----
+    // apply
     parallel_for(
         GRACE_EXECUTION_TAG("EVOL", "reflux_emf_apply_edge"),
         edge_policy,

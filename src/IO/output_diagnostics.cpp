@@ -110,6 +110,20 @@ void initialize_diagnostic_files() {
 
     grmhd_diagnostics grmhd_diag{} ; 
     grmhd_diag.initialize_files() ; 
+
+    // integral div B 
+    {
+        static constexpr const size_t width = 20 ; 
+        int proc = parallel::mpi_comm_rank() ; 
+        if ( !std::filesystem::exists(fpath) and (proc == 0) and (out_every>0)) {
+            std::ofstream outfile(fpath.string());
+            outfile << std::fixed << std::setprecision(15) ; 
+            outfile << std::left << std::setw(width) << "Iteration" 
+                    << std::left << std::setw(width) << "Time" 
+                    << std::left << std::setw(width) << "dB" << '\n' ;  
+        }
+    }   
+
     parallel::mpi_barrier() ;
 }
 
