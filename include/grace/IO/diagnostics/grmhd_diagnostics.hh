@@ -77,7 +77,7 @@ struct grmhd_diagnostics {
     void initialize_files() {
         static constexpr const size_t width = 20 ; 
         int proc = parallel::mpi_comm_rank() ; 
-        if ( !std::filesystem::exists(fpath) and (proc == 0) ) {
+        if ( !std::filesystem::exists(fpath) and (proc == 0) and (out_every>0)) {
             std::ofstream outfile(fpath.string());
             outfile << std::fixed << std::setprecision(15) ; 
             outfile << std::left << std::setw(width) << "Iteration" 

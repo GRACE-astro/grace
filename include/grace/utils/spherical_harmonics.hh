@@ -238,7 +238,9 @@ private:
             double th = theta_[it];
             double x = cos_theta_[it];
             double sth = sin_theta_[it];
-            auto [P, N] = compute_legendre_and_norm(th);
+            auto PN = compute_legendre_and_norm(th);
+            auto& P = PN.first;
+            auto& N = PN.second;
 
             // dP_l^m / dtheta
             // = [l*cos(th)*P_l^m - (l+m)*P_{l-1}^m] / sin(th)

@@ -231,6 +231,12 @@ void initialize(int& argc, char* argv[])
         grace::amr::detail::_ny = grace::config_parser::get()["amr"]["npoints_block_y"].as<int64_t>() ;
         grace::amr::detail::_nz = grace::config_parser::get()["amr"]["npoints_block_z"].as<int64_t>() ;
         grace::amr::detail::_ngz = grace::config_parser::get()["amr"]["n_ghostzones"].as<int>() ;
+        ASSERT(grace::amr::detail::_ngz % 2 == 0,
+            "n_ghostzones must be even (required by div-free prolongation), got " << grace::amr::detail::_ngz) ;
+        ASSERT(grace::amr::detail::_nx == grace::amr::detail::_ny
+            && grace::amr::detail::_ny == grace::amr::detail::_nz,
+            "npoints_block_x/y/z must all be equal, got "
+            << grace::amr::detail::_nx << ", " << grace::amr::detail::_ny << ", " << grace::amr::detail::_nz) ;
         GRACE_INFO("Allocating memory...");
         grace::variable_list::initialize() ;
         grace::runtime::initialize() ; 
