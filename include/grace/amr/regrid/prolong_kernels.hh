@@ -454,22 +454,116 @@ gpu_task_t make_div_free_prolong(
         exec_space, static_cast<int>(qin.size()), AUTO
     } ; 
     
-    task._run = [functor, policy] (view_alias_t dummy) {
-        parallel_for("regrid_div_free_prolong", policy, functor) ;
-        #ifdef GRACE_DEBUG 
-        Kokkos::fence() ; 
+    auto qin_host = qin;
+    auto have_fine_x_host = have_fine_x;
+    auto have_fine_y_host = have_fine_y;
+    auto have_fine_z_host = have_fine_z;
+    size_t prolong_nx = nx, prolong_ngz = ngz, prolong_nv = nvars;
+    task._run = [functor, policy
+        #ifdef GRACE_REGRID_DIVB_DEBUG
+        , qin_host, have_fine_x_host, have_fine_y_host, have_fine_z_host
+        , prolong_nx, prolong_ngz, prolong_nv
         #endif
-    } ; 
+        ] (view_alias_t dummy) {
+        parallel_for("regrid_div_free_prolong", policy, functor) ;
+        #ifdef GRACE_DEBUG
+        Kokkos::fence() ;
+        #endif
+        #ifdef GRACE_REGRID_DIVB_DEBUG
+        Kokkos::fence();
+        {
+            auto u = functor.data_in.face_staggered_fields_x;
+            auto v = functor.data_in.face_staggered_fields_y;
+            auto w = functor.data_in.face_staggered_fields_z;
+            size_t _n = prolong_nx, _g = prolong_ngz, _nv = prolong_nv;
+            for (size_t iq = 0; iq < qin_host.size(); ++iq) {
+                size_t qid = qin_host[iq];
+                int8_t ichild = iq % P4EST_CHILDREN;
+                auto const& hfx = have_fine_x_host[iq];
+                auto const& hfy = have_fine_y_host[iq];
+                auto const& hfz = have_fine_z_host[iq];
+                GRACE_TRACE("[REGRID:PROLONG] iq={} qid={} child={} hfd_x=[{},{}] hfd_y=[{},{}] hfd_z=[{},{}]",
+                    iq, qid, ichild, hfx[0], hfx[1], hfy[0], hfy[1], hfz[0], hfz[1]);
+                // print boundary face corners (var 0) for faces that have fine data
+                if (hfx[0]) {
+                    GRACE_TRACE("  Bx lower-x face (i={}): [{:.15e}, {:.15e}, {:.15e}, {:.15e}]",
+                        _g, u(_g, _g, _g, 0, qid), u(_g, _g, _g+_n-1, 0, qid),
+                        u(_g, _g+_n-1, _g, 0, qid), u(_g, _g+_n-1, _g+_n-1, 0, qid));
+                }
+                if (hfx[1]) {
+                    GRACE_TRACE("  Bx upper-x face (i={}): [{:.15e}, {:.15e}, {:.15e}, {:.15e}]",
+                        _n+_g, u(_n+_g, _g, _g, 0, qid), u(_n+_g, _g, _g+_n-1, 0, qid),
+                        u(_n+_g, _g+_n-1, _g, 0, qid), u(_n+_g, _g+_n-1, _g+_n-1, 0, qid));
+                }
+                if (hfy[0]) {
+                    GRACE_TRACE("  By lower-y face (j={}): [{:.15e}, {:.15e}, {:.15e}, {:.15e}]",
+                        _g, v(_g, _g, _g, 0, qid), v(_g, _g, _g+_n-1, 0, qid),
+                        v(_g+_n-1, _g, _g, 0, qid), v(_g+_n-1, _g, _g+_n-1, 0, qid));
+                }
+                if (hfy[1]) {
+                    GRACE_TRACE("  By upper-y face (j={}): [{:.15e}, {:.15e}, {:.15e}, {:.15e}]",
+                        _n+_g, v(_g, _n+_g, _g, 0, qid), v(_g, _n+_g, _g+_n-1, 0, qid),
+                        v(_g+_n-1, _n+_g, _g, 0, qid), v(_g+_n-1, _n+_g, _g+_n-1, 0, qid));
+                }
+                if (hfz[0]) {
+                    GRACE_TRACE("  Bz lower-z face (k={}): [{:.15e}, {:.15e}, {:.15e}, {:.15e}]",
+                        _g, w(_g, _g, _g, 0, qid), w(_g, _g+_n-1, _g, 0, qid),
+                        w(_g+_n-1, _g, _g, 0, qid), w(_g+_n-1, _g+_n-1, _g, 0, qid));
+                }
+                if (hfz[1]) {
+                    GRACE_TRACE("  Bz upper-z face (k={}): [{:.15e}, {:.15e}, {:.15e}, {:.15e}]",
+                        _n+_g, w(_g, _g, _n+_g, 0, qid), w(_g, _g+_n-1, _n+_g, 0, qid),
+                        w(_g+_n-1, _g, _n+_g, 0, qid), w(_g+_n-1, _g+_n-1, _n+_g, 0, qid));
+                }
+                // div-B check for all interior cells
+                double max_divb = 0;
+                size_t max_i = 0, max_j = 0, max_k = 0;
+                for (size_t iv = 0; iv < _nv; ++iv) {
+                    for (size_t i = _g; i < _g+_n; ++i) {
+                        for (size_t j = _g; j < _g+_n; ++j) {
+                            for (size_t k = _g; k < _g+_n; ++k) {
+                                double divb = (u(i+1,j,k,iv,qid) - u(i,j,k,iv,qid))
+                                            + (v(i,j+1,k,iv,qid) - v(i,j,k,iv,qid))
+                                            + (w(i,j,k+1,iv,qid) - w(i,j,k,iv,qid));
+                                double adivb = divb < 0 ? -divb : divb;
+                                if (adivb > max_divb) {
+                                    max_divb = adivb;
+                                    max_i = i; max_j = j; max_k = k;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (max_divb > 1e-14) {
+                    GRACE_TRACE("  *** DIVB *** iq={} qid={} max|divB|={:.6e} at ({},{},{})",
+                        iq, qid, max_divb, max_i, max_j, max_k);
+                    // print the 6 face values around the worst cell
+                    GRACE_TRACE("    Bx: u({},{},{})={:.15e}  u({},{},{})={:.15e}",
+                        max_i, max_j, max_k, u(max_i, max_j, max_k, 0, qid),
+                        max_i+1, max_j, max_k, u(max_i+1, max_j, max_k, 0, qid));
+                    GRACE_TRACE("    By: v({},{},{})={:.15e}  v({},{},{})={:.15e}",
+                        max_i, max_j, max_k, v(max_i, max_j, max_k, 0, qid),
+                        max_i, max_j+1, max_k, v(max_i, max_j+1, max_k, 0, qid));
+                    GRACE_TRACE("    Bz: w({},{},{})={:.15e}  w({},{},{})={:.15e}",
+                        max_i, max_j, max_k, w(max_i, max_j, max_k, 0, qid),
+                        max_i, max_j, max_k+1, w(max_i, max_j, max_k+1, 0, qid));
+                } else {
+                    GRACE_TRACE("  divB clean (max {:.6e})", max_divb);
+                }
+            }
+        }
+        #endif
+    } ;
 
-    task.stream = &stream ; 
-    task.task_id = task_counter++ ; 
+    task.stream = &stream ;
+    task.task_id = task_counter++ ;
     for( auto tid: dependencies ) {
-        task._dependencies.push_back(tid) ; 
-        task_list[tid]->_dependents.push_back(task.task_id) ; 
+        task._dependencies.push_back(tid) ;
+        task_list[tid]->_dependents.push_back(task.task_id) ;
     }
-    
+
     return task ;
 
-} 
+}
 }
 #endif 

@@ -1079,7 +1079,7 @@ ah_flux_result_t apparent_horizon_finder_t::compute_surface_fluxes()
             for (int i = 0; i < 3; ++i) s_down[i] = N[i] / Nmag ;
 
             // u_s = u^i s_i (spatial velocity through the surface)
-            u_s = uU[1]*s_down[0] + uU[2]*s_down[1] + uU[3]*s_down[2] ;
+            double u_s = uU[1]*s_down[0] + uU[2]*s_down[1] + uU[3]*s_down[2] ;
             double b_s = b1*s_down[0] + b2*s_down[1] + b3*s_down[2] ;
 
             // angular momentum: u_phi = x * u_y - y * u_x (z-component of angular momentum)
