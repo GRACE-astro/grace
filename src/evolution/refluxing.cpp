@@ -1075,6 +1075,14 @@ void diagnose_face_B_conservation()
     diag_view_t same_sum_loc_d("diag_same_sum_loc", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
     diag_view_t same_max_mpi_d("diag_same_max_mpi", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
     diag_view_t same_sum_mpi_d("diag_same_sum_mpi", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    // Edge vs interior split for hanging faces:
+    // "edge" = B-face cell whose EMF stencil touches a Phase-1-skipped edge
+    //          (block boundary at 0/nx, or quadrant boundary at nx/2)
+    // "interior" = everything else (all 4 surrounding EMFs corrected by Phase 1)
+    diag_view_t hang_max_loc_int_d ("diag_hang_max_loc_int",  DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t hang_max_mpi_int_d ("diag_hang_max_mpi_int",  DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t hang_max_loc_edge_d("diag_hang_max_loc_edge", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
+    diag_view_t hang_max_mpi_edge_d("diag_hang_max_mpi_edge", DIAG_MAX_LEVELS, DIAG_NDIRS) ;
     Kokkos::deep_copy(hang_max_loc_d, 0.0) ;
     Kokkos::deep_copy(hang_sum_loc_d, 0.0) ;
     Kokkos::deep_copy(hang_max_mpi_d, 0.0) ;
@@ -1083,6 +1091,10 @@ void diagnose_face_B_conservation()
     Kokkos::deep_copy(same_sum_loc_d, 0.0) ;
     Kokkos::deep_copy(same_max_mpi_d, 0.0) ;
     Kokkos::deep_copy(same_sum_mpi_d, 0.0) ;
+    Kokkos::deep_copy(hang_max_loc_int_d,  0.0) ;
+    Kokkos::deep_copy(hang_max_mpi_int_d,  0.0) ;
+    Kokkos::deep_copy(hang_max_loc_edge_d, 0.0) ;
+    Kokkos::deep_copy(hang_max_mpi_edge_d, 0.0) ;
     //**************************************************************************************************/
     //**************************************************************************************************/
     // PART 1: HANGING FACES (coarse-fine)
@@ -1238,12 +1250,29 @@ void diagnose_face_B_conservation()
                         }
                         double err = fabs(Bc - Bf_avg) ;
                         bool is_mpi = desc.fine_is_remote(iq,ichild) ;
+                        // Classify: is this B-face cell adjacent to an
+                        // edge-corrected EMF?  Phase 1 skips EMFs at
+                        // idir-index ∈ {0, nx/2} and jdir-index ∈ {0, nx/2}
+                        // (block and quadrant boundaries).  Phase 1 also
+                        // never reaches index nx (upper block boundary).
+                        // A B-cell at (ic,jc) uses E_jdir at ic and ic+1,
+                        // and E_idir at jc and jc+1, so it is edge-affected
+                        // when any of those falls in the skipped set.
+                        int ic = i + off_i ;   // 0-based coarse idir coord
+                        int jc = j + off_j ;   // 0-based coarse jdir coord
+                        bool is_edge =
+                            (ic == 0 || ic == (int)nx/2 - 1 || ic == (int)nx/2 || ic == (int)nx - 1 ||
+                             jc == 0 || jc == (int)nx/2 - 1 || jc == (int)nx/2 || jc == (int)nx - 1) ;
                         if (is_mpi) {
                             atomic_max_d(&hang_max_mpi_d(lev, fdir), err) ;
                             Kokkos::atomic_add(&hang_sum_mpi_d(lev, fdir), err) ;
+                            if (is_edge) atomic_max_d(&hang_max_mpi_edge_d(lev, fdir), err) ;
+                            else         atomic_max_d(&hang_max_mpi_int_d(lev, fdir), err) ;
                         } else {
                             atomic_max_d(&hang_max_loc_d(lev, fdir), err) ;
                             Kokkos::atomic_add(&hang_sum_loc_d(lev, fdir), err) ;
+                            if (is_edge) atomic_max_d(&hang_max_loc_edge_d(lev, fdir), err) ;
+                            else         atomic_max_d(&hang_max_loc_int_d(lev, fdir), err) ;
                         }
                     }
                 }
@@ -1408,6 +1437,10 @@ void diagnose_face_B_conservation()
     auto same_sum_loc_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, same_sum_loc_d) ;
     auto same_max_mpi_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, same_max_mpi_d) ;
     auto same_sum_mpi_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, same_sum_mpi_d) ;
+    auto hang_max_loc_int_h  = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, hang_max_loc_int_d) ;
+    auto hang_max_mpi_int_h  = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, hang_max_mpi_int_d) ;
+    auto hang_max_loc_edge_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, hang_max_loc_edge_d) ;
+    auto hang_max_mpi_edge_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, hang_max_mpi_edge_d) ;
     //**************************************************************************************************/
     // MPI allreduce: max for max_err, sum for sum_err
     std::array<double, NN> hang_max_loc_g{}, hang_sum_loc_g{} ;
@@ -1422,6 +1455,12 @@ void diagnose_face_B_conservation()
     parallel::mpi_allreduce(same_sum_loc_h.data(), same_sum_loc_g.data(), NN, sc_MPI_SUM) ;
     parallel::mpi_allreduce(same_max_mpi_h.data(), same_max_mpi_g.data(), NN, sc_MPI_MAX) ;
     parallel::mpi_allreduce(same_sum_mpi_h.data(), same_sum_mpi_g.data(), NN, sc_MPI_SUM) ;
+    std::array<double, NN> hang_max_loc_int_g{}, hang_max_mpi_int_g{} ;
+    std::array<double, NN> hang_max_loc_edge_g{}, hang_max_mpi_edge_g{} ;
+    parallel::mpi_allreduce(hang_max_loc_int_h.data(),  hang_max_loc_int_g.data(),  NN, sc_MPI_MAX) ;
+    parallel::mpi_allreduce(hang_max_mpi_int_h.data(),  hang_max_mpi_int_g.data(),  NN, sc_MPI_MAX) ;
+    parallel::mpi_allreduce(hang_max_loc_edge_h.data(), hang_max_loc_edge_g.data(), NN, sc_MPI_MAX) ;
+    parallel::mpi_allreduce(hang_max_mpi_edge_h.data(), hang_max_mpi_edge_g.data(), NN, sc_MPI_MAX) ;
     //**************************************************************************************************/
     // Compute per-level face area for integrated flux: dA = dx_coarse^2
     // dx at level L = 1/(idx_min * 2^L)
@@ -1452,6 +1491,9 @@ void diagnose_face_B_conservation()
                     l, l+1, dname[d],
                     hang_max_loc_g[k], hang_sum_loc_g[k] * dA_level[l],
                     hang_max_mpi_g[k], hang_sum_mpi_g[k] * dA_level[l]) ;
+                GRACE_TRACE("[DIAG]     -> interior: LOC={:.6e}  MPI={:.6e}  |  edge: LOC={:.6e}  MPI={:.6e}",
+                    hang_max_loc_int_g[k], hang_max_mpi_int_g[k],
+                    hang_max_loc_edge_g[k], hang_max_mpi_edge_g[k]) ;
             }
         }
     }
