@@ -1550,11 +1550,13 @@ void diagnose_face_B_conservation()
             f << '\n' ;
         } ;
         //**************************************************************************************************/
-        static bool i1=false, i2=false, i3=false, i4=false ;
+        static bool i1=false, i2=false, i3=false, i4=false, i5=false, i6=false ;
         write_dat("Bflux_hanging_max.dat",      hang_max_loc_g, hang_max_mpi_g, nullptr,          i1) ;
         write_dat("Bflux_hanging_integral.dat",  hang_sum_loc_g, hang_sum_mpi_g, dA_level.data(),  i2) ;
         write_dat("Bflux_samelevel_max.dat",     same_max_loc_g, same_max_mpi_g, nullptr,          i3) ;
         write_dat("Bflux_samelevel_integral.dat", same_sum_loc_g, same_sum_mpi_g, dA_level.data(), i4) ;
+        write_dat("Bflux_hanging_max_interior.dat", hang_max_loc_int_g,  hang_max_mpi_int_g,  nullptr, i5) ;
+        write_dat("Bflux_hanging_max_edge.dat",     hang_max_loc_edge_g, hang_max_mpi_edge_g, nullptr, i6) ;
     }
 }
 
