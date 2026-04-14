@@ -139,7 +139,7 @@ void evolve_impl() {
     // reset mass error once per timestep
     #ifdef GRACE_ENABLE_GRMHD 
     #ifndef GRACE_FREEZE_HYDRO
-    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
+    Kokkos::MDRangePolicy<Kokkos::Rank<GRACE_NSPACEDIM+1>,default_execution_space>
         policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ;
     parallel_for(GRACE_EXECUTION_TAG("EVOL","reset_d_err"), policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
