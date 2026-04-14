@@ -680,9 +680,8 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                         } 
                     ) ; 
                 } else {
-                    // local -> send 
+                    // local -> send
                     for( int jside=0; jside<dsc.n_sides; ++jside) {
-                        if ( iside == jside ) continue ; 
                         auto const& dsc_other = dsc.sides[jside] ; 
                         if ( dsc_other.is_fine) { // other is fine
                             for( int icj=0; icj<2; ++icj) {
@@ -740,9 +739,8 @@ void amr_ghosts_impl_t::build_reflux_buffers() {
                     // to ensure stable ordering in the send / receive buffers,
                     // which we already constructed. FIXME is this right? 
                     dsc_this.octants.fine.buf_id[ic] = recv_lookup[r][key];
-                } else { // local 
-                    for( int jside=0; jside<dsc.n_sides; ++jside){ 
-                        if ( jside==iside ) continue ; 
+                } else { // local
+                    for( int jside=0; jside<dsc.n_sides; ++jside){
                         auto const& dsc_other = dsc.sides[jside] ; 
                         if ( dsc_other.is_fine) { // other is fine
                             for( int icj=0; icj<2; ++icj) {
