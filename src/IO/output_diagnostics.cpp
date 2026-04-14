@@ -91,8 +91,8 @@ void output_diagnostics() {
     em_energy_diagnostic em_energy{} ; 
     em_energy.compute_and_write() ; 
 
-    grmhd_diagnostics grmhd_diag{} ; 
-    grmhd_diag.compute_and_write() ; 
+    grmhd_diagnostics grmhd_diag{} ;
+    grmhd_diag.compute_and_write() ;
 }
 
 void initialize_diagnostic_files() {
@@ -108,8 +108,8 @@ void initialize_diagnostic_files() {
     em_energy_diagnostic em_energy{} ; 
     em_energy.initialize_files() ;
 
-    grmhd_diagnostics grmhd_diag{} ; 
-    grmhd_diag.initialize_files() ;  
+    grmhd_diagnostics grmhd_diag{} ;
+    grmhd_diag.initialize_files() ;
 
     parallel::mpi_barrier() ;
 }

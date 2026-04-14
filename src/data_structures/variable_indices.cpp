@@ -432,7 +432,7 @@ void register_variables() {
     register_aux_scalar(EPS_,"eps") ; 
     register_aux_scalar(PRESS_,"press") ;
     register_aux_scalar(BDIV_, "Bdiv") ; 
-    register_aux_scalar(SMALLB2_,"smallb2") ; 
+    register_aux_scalar(C2P_DENS_ERR_,"c2p_dens_corr") ; 
     register_aux_scalar(C2P_ERR_,"c2p_err") ; 
 
     #ifdef GRACE_ENABLE_M1

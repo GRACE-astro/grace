@@ -301,38 +301,11 @@ gpu_task_t make_copy_face(
         exec_space, {0,0,0,0}, {nx,nx,nvars,info.size()}
     } ; 
     
-    auto info_host = info; // copy host vector for debug capture
-    task._run = [functor, policy
-        #ifdef GRACE_REGRID_DIVB_DEBUG
-        , info_host
-        #endif
-        ] (view_alias_t dummy) {
+    task._run = [functor, policy] (view_alias_t dummy) {
         parallel_for("regrid_copy", policy, functor) ;
         #ifdef GRACE_DEBUG
         Kokkos::fence() ;
         GRACE_TRACE("Face copy done") ;
-        #endif
-        #ifdef GRACE_REGRID_DIVB_DEBUG
-        Kokkos::fence();
-        auto _data = functor.data_in;
-        size_t _n = functor.n, _g = functor.g;
-        for (size_t iq = 0; iq < info_host.size(); ++iq) {
-            auto const& d = info_host[iq];
-            int8_t ax = d.fid_dst / 2;
-            int8_t sd = d.fid_dst % 2;
-            GRACE_TRACE("[REGRID:FCOPY] iq={} qsrc={} qdst={} fsrc={} fdst={} axis={} side={}",
-                iq, d.qid_src, d.qid_dst, d.fid_src, d.fid_dst, ax, sd);
-            for (size_t tj = 0; tj <= _n; ++tj) {
-                for (size_t tk = 0; tk <= _n; ++tk) {
-                    size_t ia, ja, ka;
-                    if (ax==0) { ia = sd ? _n+_g : _g; ja = _g+tj; ka = _g+tk; }
-                    else if (ax==1) { ia = _g+tj; ja = sd ? _n+_g : _g; ka = _g+tk; }
-                    else { ia = _g+tj; ja = _g+tk; ka = sd ? _n+_g : _g; }
-                    GRACE_TRACE("  dst({},{},{},0,{}) = {:.15e}", ia, ja, ka, d.qid_dst,
-                        _data(ia, ja, ka, 0, d.qid_dst));
-                }
-            }
-        }
         #endif
     } ;
 
@@ -376,45 +349,10 @@ gpu_task_t make_pack_face(
         exec_space, {0,0,0,0}, {nx,nx,nvars,info.size()}
     } ; 
     
-    auto info_host_pack = info;
-    auto pack_rank = rank;
-    task._run = [functor, policy
-        #ifdef GRACE_REGRID_DIVB_DEBUG
-        , info_host_pack, pack_rank
-        #endif
-        ] (view_alias_t dummy) {
+    task._run = [functor, policy] (view_alias_t dummy) {
         parallel_for("regrid_copy", policy, functor) ;
         #ifdef GRACE_DEBUG
         Kokkos::fence() ;
-        #endif
-        #ifdef GRACE_REGRID_DIVB_DEBUG
-        Kokkos::fence();
-        auto _data = functor.data;
-        auto _buf  = functor.buffer;
-        size_t _n = functor.n, _g = functor.g;
-        for (size_t iq = 0; iq < info_host_pack.size(); ++iq) {
-            auto const& d = info_host_pack[iq];
-            int8_t ax = d.fid_src / 2;
-            int8_t sd = d.fid_src % 2;
-            GRACE_TRACE("[REGRID:FPACK] iq={} qsrc={} qdst_buf={} fsrc={} fdst={} axis={} side={} to_rank={}",
-                iq, d.qid_src, d.qid_dst, d.fid_src, d.fid_dst, ax, sd, pack_rank);
-            for (size_t tj = 0; tj <= _n; ++tj) {
-                for (size_t tk = 0; tk <= _n; ++tk) {
-                    size_t ia, ja, ka;
-                    if (ax==0) { ia = sd ? _n+_g : _g; ja = _g+tj; ka = _g+tk; }
-                    else if (ax==1) { ia = _g+tj; ja = sd ? _n+_g : _g; ka = _g+tk; }
-                    else { ia = _g+tj; ja = _g+tk; ka = sd ? _n+_g : _g; }
-                    if (tj < _n && tk < _n) {
-                        GRACE_TRACE("  src({},{},{},0,{}) = {:.15e}  buf({},{},0,{},{}) = {:.15e}",
-                            ia, ja, ka, d.qid_src, _data(ia, ja, ka, 0, d.qid_src),
-                            tj, tk, d.qid_dst, pack_rank, _buf(tj, tk, 0, d.qid_dst, pack_rank));
-                    } else {
-                        GRACE_TRACE("  src({},{},{},0,{}) = {:.15e}  (outside buffer)",
-                            ia, ja, ka, d.qid_src, _data(ia, ja, ka, 0, d.qid_src));
-                    }
-                }
-            }
-        }
         #endif
     } ;
 
@@ -459,45 +397,10 @@ gpu_task_t make_unpack_face(
         exec_space, {0,0,0,0}, {nx,nx,nvars,info.size()}
     } ; 
     
-    auto info_host_unpack = info;
-    auto unpack_rank = rank;
-    task._run = [functor, policy
-        #ifdef GRACE_REGRID_DIVB_DEBUG
-        , info_host_unpack, unpack_rank
-        #endif
-        ] (view_alias_t dummy) {
+    task._run = [functor, policy] (view_alias_t dummy) {
         parallel_for("regrid_copy", policy, functor) ;
         #ifdef GRACE_DEBUG
         Kokkos::fence() ;
-        #endif
-        #ifdef GRACE_REGRID_DIVB_DEBUG
-        Kokkos::fence();
-        auto _data = functor.data;
-        auto _buf  = functor.buffer;
-        size_t _n = functor.n, _g = functor.g;
-        for (size_t iq = 0; iq < info_host_unpack.size(); ++iq) {
-            auto const& d = info_host_unpack[iq];
-            int8_t ax = d.fid_dst / 2;
-            int8_t sd = d.fid_dst % 2;
-            GRACE_TRACE("[REGRID:FUNPACK] iq={} qsrc_buf={} qdst={} fsrc={} fdst={} axis={} side={} from_rank={}",
-                iq, d.qid_src, d.qid_dst, d.fid_src, d.fid_dst, ax, sd, unpack_rank);
-            for (size_t tj = 0; tj <= _n; ++tj) {
-                for (size_t tk = 0; tk <= _n; ++tk) {
-                    size_t ia, ja, ka;
-                    if (ax==0) { ia = sd ? _n+_g : _g; ja = _g+tj; ka = _g+tk; }
-                    else if (ax==1) { ia = _g+tj; ja = sd ? _n+_g : _g; ka = _g+tk; }
-                    else { ia = _g+tj; ja = _g+tk; ka = sd ? _n+_g : _g; }
-                    if (tj < _n && tk < _n) {
-                        GRACE_TRACE("  buf({},{},0,{},{}) = {:.15e}  dst({},{},{},0,{}) = {:.15e}",
-                            tj, tk, d.qid_src, unpack_rank, _buf(tj, tk, 0, d.qid_src, unpack_rank),
-                            ia, ja, ka, d.qid_dst, _data(ia, ja, ka, 0, d.qid_dst));
-                    } else {
-                        GRACE_TRACE("  dst({},{},{},0,{}) = {:.15e}  (outside buffer)",
-                            ia, ja, ka, d.qid_dst, _data(ia, ja, ka, 0, d.qid_dst));
-                    }
-                }
-            }
-        }
         #endif
     } ;
 

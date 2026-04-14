@@ -72,12 +72,6 @@ void reflux_correct_emfs(
     parallel::grace_transfer_context_t& context
 ) ;
 //*****************************************************************************************************
-/** @brief Diagnostic: check face-staggered B conservation at all interfaces
- * For hanging faces: 4*Bc should equal sum of 4 fine Bf values
- * For same-level faces: B on both sides should match
- * \ingroup evol
-*/
-void diagnose_face_B_conservation() ;
 //*****************************************************************************************************
 } /* namespace grace */
 

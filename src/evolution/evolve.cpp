@@ -136,6 +136,18 @@ void evolve_impl() {
     //amr::apply_boundary_conditions(state) ; 
     Kokkos::deep_copy(state_p, state) ; 
     grace::deep_copy(sstate_p, sstate) ; 
+    // reset mass error once per timestep
+    #ifdef GRACE_ENABLE_GRMHD 
+    #ifndef GRACE_FREEZE_HYDRO
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
+        policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ;
+    parallel_for(GRACE_EXECUTION_TAG("EVOL","reset_d_err"), policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        aux(i,j,k,C2P_DENS_ERR_,q) = 0.0 ; 
+    });
+    #endif
+    #endif 
     if ( tstepper == "euler" ) {
         //compute_auxiliary_quantities<eos_t>(state, aux) ;
         advance_substep<eos_t>(t,dt,1.0,state,state_p,sstate,sstate_p) ; 
@@ -1056,8 +1068,6 @@ void advance_substep( double const t, double const dt, double const dtfact
     reflux_correct_emfs(emf_context) ;
     //**************************************************************************************************/
     update_CT(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ;
-    //**************************************************************************************************/
-    diagnose_face_B_conservation() ;
     //**************************************************************************************************/
     update_fd(t,dt,dtfact,new_state,old_state,new_stag_state,old_stag_state) ; 
     //**************************************************************************************************/

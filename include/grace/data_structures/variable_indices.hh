@@ -283,7 +283,7 @@ enum aux_var_idx : int {
     EPS_,
     PRESS_,
     BDIV_,
-    SMALLB2_,
+    C2P_DENS_ERR_,
     C2P_ERR_,
     #ifdef GRACE_ENABLE_M1
     KAPPAA_,

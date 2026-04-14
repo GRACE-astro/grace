@@ -125,25 +125,14 @@ void compute_auxiliary_quantities(
     auto dev_coords = coord_system.get_device_coord_system() ; 
 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>
-        policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ; 
-    parallel_for(GRACE_EXECUTION_TAG("EVOL","get_auxiliaries"), policy 
+        policy({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq}) ;
+     
+    #ifdef GRACE_ENABLE_GRMHD 
+    #ifndef GRACE_FREEZE_HYDRO 
+    parallel_for(GRACE_EXECUTION_TAG("EVOL","conservs_to_prims"), policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-    {
-        #ifdef GRACE_ENABLE_GRMHD 
-        #ifndef GRACE_FREEZE_HYDRO 
+    {   
         grmhd_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, dev_coords);
-        #endif 
-        #endif 
-        #ifdef GRACE_ENABLE_M1 
-        m1_eq_system.compute_auxiliaries<0>(VEC(i,j,k), q, dev_coords);
-        #ifdef M1_NU_THREESPECIES
-        m1_eq_system.compute_auxiliaries<1>(VEC(i,j,k), q, dev_coords);
-        m1_eq_system.compute_auxiliaries<2>(VEC(i,j,k), q, dev_coords);
-        #endif 
-        #endif 
-        #ifdef GRACE_ENABLE_BSSN_METRIC
-        bssn_eq_system(auxiliaries_computation_kernel_t{}, VEC(i,j,k), q, idx);
-        #endif 
         metric_array_t metric ; 
         FILL_METRIC_ARRAY(metric, state, q, VEC(i,j,k)) ; 
         auto Bx = Kokkos::subview(sstate.face_staggered_fields_x,
@@ -155,12 +144,23 @@ void compute_auxiliary_quantities(
         aux(VEC(i,j,k),BDIV_,q) = ( (Bx(VEC(i+1,j,k)) - Bx(VEC(i,j,k))) * idx(0,q) 
                                   + (By(VEC(i,j+1,k)) - By(VEC(i,j,k))) * idx(1,q)
                                   + (Bz(VEC(i,j,k+1)) - Bz(VEC(i,j,k))) * idx(2,q))/metric.sqrtg() ;         
+    } ) ;
+    #endif 
+    #endif 
+    #ifdef GRACE_ENABLE_M1 
+    parallel_for(GRACE_EXECUTION_TAG("EVOL","m1_get_auxiliaries"), policy 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        m1_eq_system.compute_auxiliaries<0>(VEC(i,j,k), q, dev_coords);
+        #ifdef M1_NU_THREESPECIES
+        m1_eq_system.compute_auxiliaries<1>(VEC(i,j,k), q, dev_coords);
+        m1_eq_system.compute_auxiliaries<2>(VEC(i,j,k), q, dev_coords);
+        #endif 
     }) ; 
-    #ifdef GRACE_ENABLE_M1
     // now fill out the eas 
     set_m1_eas<eos_t>(state,sstate,aux) ; 
     #endif 
-    #undef GET_AUX
+
     Kokkos::Profiling::popRegion() ; 
 }
 // Explicit template instantiation

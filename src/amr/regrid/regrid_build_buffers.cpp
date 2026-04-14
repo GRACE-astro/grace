@@ -163,40 +163,6 @@ void regrid_transaction_t::build_buffers() {
         } // loop faces
     } // loop quadrants 
 
-    #ifdef GRACE_REGRID_DIVB_DEBUG
-    GRACE_TRACE("[REGRID:BUILD_BUFFERS] have_fine_data flags ({} incoming quads):", refine_incoming.size());
-    for (size_t iq = 0; iq < refine_incoming.size(); ++iq) {
-        if (have_fine_data_x[iq][0] || have_fine_data_x[iq][1] ||
-            have_fine_data_y[iq][0] || have_fine_data_y[iq][1] ||
-            have_fine_data_z[iq][0] || have_fine_data_z[iq][1]) {
-            GRACE_TRACE("  iq={} qid={} child={} hfd_x=[{},{}] hfd_y=[{},{}] hfd_z=[{},{}]",
-                iq, refine_incoming[iq], iq % P4EST_CHILDREN,
-                have_fine_data_x[iq][0], have_fine_data_x[iq][1],
-                have_fine_data_y[iq][0], have_fine_data_y[iq][1],
-                have_fine_data_z[iq][0], have_fine_data_z[iq][1]);
-        }
-    }
-    GRACE_TRACE("[REGRID:BUILD_BUFFERS] local fine face copies: x={} y={} z={}",
-        local_fine_face_x.size(), local_fine_face_y.size(), local_fine_face_z.size());
-    for (auto const& d : local_fine_face_x)
-        GRACE_TRACE("  LOCAL_X qsrc={} qdst={} fsrc={} fdst={}", d.qid_src, d.qid_dst, d.fid_src, d.fid_dst);
-    for (auto const& d : local_fine_face_y)
-        GRACE_TRACE("  LOCAL_Y qsrc={} qdst={} fsrc={} fdst={}", d.qid_src, d.qid_dst, d.fid_src, d.fid_dst);
-    for (auto const& d : local_fine_face_z)
-        GRACE_TRACE("  LOCAL_Z qsrc={} qdst={} fsrc={} fdst={}", d.qid_src, d.qid_dst, d.fid_src, d.fid_dst);
-    for (int r = 0; r < nprocs; ++r) {
-        for (auto const& d : recv_x[r])
-            GRACE_TRACE("  REMOTE_X recv from_rank={} qlocal={} qremote={} flocal={} fremote={} axis={} side={}",
-                r, d.qid_local, d.qid_remote, d.fid_local, d.fid_remote, d.axis, d.side);
-        for (auto const& d : recv_y[r])
-            GRACE_TRACE("  REMOTE_Y recv from_rank={} qlocal={} qremote={} flocal={} fremote={} axis={} side={}",
-                r, d.qid_local, d.qid_remote, d.fid_local, d.fid_remote, d.axis, d.side);
-        for (auto const& d : recv_z[r])
-            GRACE_TRACE("  REMOTE_Z recv from_rank={} qlocal={} qremote={} flocal={} fremote={} axis={} side={}",
-                r, d.qid_local, d.qid_remote, d.fid_local, d.fid_remote, d.axis, d.side);
-    }
-    #endif
-
     // we are now done with local data.
     // For remote buffers:
     // now we make a call to alltoallv

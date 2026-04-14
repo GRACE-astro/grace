@@ -147,9 +147,6 @@ namespace grace {
 #define GRACE_N_M1_AUX 5 
 #endif
 
-// FIXME remove this when done
-#define GRACE_REGRID_DIVB_DEBUG
-
 
 #define GRACE_RECONSTRUCTION_T weno_reconstructor_t<5>
 

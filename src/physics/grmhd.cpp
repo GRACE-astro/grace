@@ -607,11 +607,7 @@ void set_conservs_from_prims() {
         double W ; 
         grmhd_get_W(gdd,z,&W) ; 
 
-        double smallbu[4]; 
-        grmhd_get_smallbu_smallb2(
-            betau, gdd, B, z, W, alp,
-            &smallbu, &(aux(VEC(i,j,k),SMALLB2_,q))
-        ) ; 
+
         /*************************************************/
         /*               Set conserved                   */
         /*************************************************/
