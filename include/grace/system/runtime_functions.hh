@@ -77,7 +77,13 @@ void set_initial_simulation_time(double const& _new_t) ;
  * 
  * @return size_t Current iteration count.
  */
-size_t get_iteration() ; 
+size_t get_iteration() ;
+/**
+ * @brief Get the iteration count at which this run started.
+ *
+ * @return size_t Initial iteration count (0 for fresh start, restored value for checkpoint).
+ */
+size_t get_initial_iteration() ;
 /**
  * @brief Increment iteration count.
  */

@@ -378,6 +378,19 @@ void initialize_output_files() {
         std::ofstream outfile(fname.string(),std::ios::app) ;
         outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;
     }
+    auto const perf_metric = grace_runtime.performance_metric() ;
+    if ( perf_metric != perf_metric_display::PERF_NONE ) {
+        auto write_header = [&](const std::string& fname_suffix) {
+            std::string pfname = grace_runtime.scalar_io_basename() + fname_suffix ;
+            std::filesystem::path fname = bdir / pfname ;
+            std::ofstream outfile(fname.string(), std::ios::app) ;
+            outfile << std::left << std::setw(width) << "Iteration" << std::left << std::setw(width) << "Time" << std::left << std::setw(width) << "Value" << '\n' ;
+        } ;
+        if ( perf_metric == perf_metric_display::PERF_MZPH || perf_metric == perf_metric_display::PERF_BOTH )
+            write_header("performance_mzph.dat") ;
+        if ( perf_metric == perf_metric_display::PERF_ZCPS || perf_metric == perf_metric_display::PERF_BOTH )
+            write_header("performance_zcps.dat") ;
+    }
     }
     parallel::mpi_barrier() ;
 }
@@ -386,26 +399,54 @@ void info_output() {
 
     using namespace grace ;
 
-    int64_t iter = grace::get_iteration() ; 
+    int64_t iter = grace::get_iteration() ;
+    int64_t initial_iter = grace::get_initial_iteration() ;
     double  time = grace::get_simulation_time() ;
     double  initial_time = grace::get_initial_simulation_time() ;
-    double walltime = grace::get_evol_runtime() ; 
-    double rate = (time-initial_time) / walltime * 3.6e03 ; 
+    double walltime = grace::get_evol_runtime() ;
+    double rate = (time-initial_time) / walltime * 3.6e03 ;
 
-    int64_t outinfo_every = grace::config_parser::get()["IO"]["info_output_every"].as<int64_t>() * 10 ; 
+    int64_t outinfo_every = grace::config_parser::get()["IO"]["info_output_every"].as<int64_t>() * 10 ;
 
-    std::ostringstream os ; 
-    os << std::scientific << std::setprecision(5) ; 
+    auto& grace_runtime = grace::runtime::get() ;
+    auto const perf_metric = grace_runtime.performance_metric() ;
 
-    auto& grace_runtime = grace::runtime::get() ; 
-    auto const max_vars = grace_runtime.info_output_max_vars() ; 
-    auto const max_aux  = grace_runtime.info_output_max_aux()  ; 
-    auto const min_vars = grace_runtime.info_output_min_vars() ; 
+    // compute performance metrics
+    int64_t nx,ny,nz ;
+    std::tie(nx,ny,nz) = amr::get_quadrant_extents() ;
+    size_t global_ncells = math::int_pow<3>(nx) * grace::amr::forest::get().get()->global_num_quadrants ;
+    int64_t iters_done = iter - initial_iter ;
+    double mzph = 0.0, zcps = 0.0 ;
+    if ( walltime > 0.0 && iters_done > 0 ) {
+        zcps = static_cast<double>(iters_done) * static_cast<double>(global_ncells) / walltime ;
+        mzph = zcps * 3.6e03 / 1.0e06 ;
+    }
+
+    std::ostringstream os ;
+    os << std::scientific << std::setprecision(5) ;
+
+    auto const max_vars = grace_runtime.info_output_max_vars() ;
+    auto const max_aux  = grace_runtime.info_output_max_aux()  ;
+    auto const min_vars = grace_runtime.info_output_min_vars() ;
     auto const min_aux  = grace_runtime.info_output_min_aux()  ;
-    auto const norm_vars = grace_runtime.info_output_norm2_vars() ; 
-    auto const norm_aux  = grace_runtime.info_output_norm2_aux()  ; 
+    auto const norm_vars = grace_runtime.info_output_norm2_vars() ;
+    auto const norm_aux  = grace_runtime.info_output_norm2_aux()  ;
 
-    static constexpr const size_t width = 15 ; 
+    // compute column width from longest label
+    auto label_width = [](const std::vector<std::string>& v, const std::string& suffix) -> size_t {
+        size_t w = 0 ;
+        for(auto const& x: v)
+            w = std::max(w, x.size() + 1 + suffix.size()) ;
+        return w ;
+    } ;
+    size_t width = 15 ;
+    width = std::max(width, label_width(max_vars, "[max]")) ;
+    width = std::max(width, label_width(max_aux,  "[max]")) ;
+    width = std::max(width, label_width(min_vars, "[min]")) ;
+    width = std::max(width, label_width(min_aux,  "[min]")) ;
+    width = std::max(width, label_width(norm_vars,"[norm2]")) ;
+    width = std::max(width, label_width(norm_aux, "[norm2]")) ;
+    width += 2 ; // padding
 
     #define APPEND_OUTPUT(vvect,s)    \
     for(auto const& x: vvect) {       \
@@ -414,20 +455,24 @@ void info_output() {
         os << std::left << std::setw(width) << tmp ; \
     }
 
-    
+
     if( iter%outinfo_every == 0 ) {
-        os << std::left << std::setw(width) << "Iteration" 
-           << std::left << std::setw(width) <<  "Time" 
-           << std::left << std::setw(width) << "M/h" ; 
+        os << std::left << std::setw(width) << "Iteration"
+           << std::left << std::setw(width) <<  "Time"
+           << std::left << std::setw(width) << "t/h" ;
+        if ( perf_metric == perf_metric_display::PERF_MZPH || perf_metric == perf_metric_display::PERF_BOTH )
+            os << std::left << std::setw(width) << "Mzc/h" ;
+        if ( perf_metric == perf_metric_display::PERF_ZCPS || perf_metric == perf_metric_display::PERF_BOTH )
+            os << std::left << std::setw(width) << "zc/s" ;
         APPEND_OUTPUT(max_vars,"[max]") ;
-        APPEND_OUTPUT(max_aux, "[max]") ; 
+        APPEND_OUTPUT(max_aux, "[max]") ;
         APPEND_OUTPUT(min_vars,"[min]") ;
-        APPEND_OUTPUT(min_aux, "[min]") ; 
+        APPEND_OUTPUT(min_aux, "[min]") ;
         APPEND_OUTPUT(norm_vars,"[norm2]") ;
-        APPEND_OUTPUT(norm_aux, "[norm2]") ; 
-        os << '\n' ; 
+        APPEND_OUTPUT(norm_aux, "[norm2]") ;
+        os << '\n' ;
         GRACE_INFO(os.str().c_str()) ;
-        os.str("");  // Reset content to empty string
+        os.str("");
         os.clear();
     }
 
@@ -445,18 +490,43 @@ void info_output() {
         os << std::left << std::setw(width) << dvect[x].max_val ; \
     }
 
-    os << std::left << std::setw(width) << iter << std::left << std::setw(width) << time << std::left << std::setw(width) << rate ; 
-    APPEND_MAX(max_vars,detail::_minmax_reduction_vars_results) ; 
-    APPEND_MAX(max_aux,detail::_minmax_reduction_aux_results)   ; 
-    APPEND_MIN(min_vars,detail::_minmax_reduction_vars_results) ; 
+    os << std::left << std::setw(width) << iter << std::left << std::setw(width) << time << std::left << std::setw(width) << rate ;
+    if ( perf_metric == perf_metric_display::PERF_MZPH || perf_metric == perf_metric_display::PERF_BOTH )
+        os << std::left << std::setw(width) << mzph ;
+    if ( perf_metric == perf_metric_display::PERF_ZCPS || perf_metric == perf_metric_display::PERF_BOTH )
+        os << std::left << std::setw(width) << zcps ;
+    APPEND_MAX(max_vars,detail::_minmax_reduction_vars_results) ;
+    APPEND_MAX(max_aux,detail::_minmax_reduction_aux_results)   ;
+    APPEND_MIN(min_vars,detail::_minmax_reduction_vars_results) ;
     APPEND_MIN(min_aux,detail::_minmax_reduction_aux_results)   ;
-    APPEND_OUTPUT(norm_vars,detail::_norm2_reduction_vars_results) ; 
-    APPEND_OUTPUT(norm_aux,detail::_norm2_reduction_aux_results) ; 
-    os << '\n' ; 
+    APPEND_OUTPUT(norm_vars,detail::_norm2_reduction_vars_results) ;
+    APPEND_OUTPUT(norm_aux,detail::_norm2_reduction_aux_results) ;
+    os << '\n' ;
     #undef APPEND_MAX
-    #undef APPEND_MIN 
+    #undef APPEND_MIN
     #undef APPEND_OUTPUT
-    GRACE_INFO(os.str().c_str()) ; 
+    GRACE_INFO(os.str().c_str()) ;
+
+    // write performance scalar output files
+    if ( perf_metric != perf_metric_display::PERF_NONE && parallel::mpi_comm_rank() == 0 ) {
+        std::filesystem::path bdir = grace_runtime.scalar_io_basepath() ;
+        if( not std::filesystem::exists(bdir) ) {
+            std::filesystem::create_directories(bdir) ;
+        }
+        auto write_perf_scalar = [&](const std::string& fname_suffix, double value) {
+            std::string pfname = grace_runtime.scalar_io_basename() + fname_suffix ;
+            std::filesystem::path fname = bdir / pfname ;
+            std::ofstream outfile(fname.string(), std::ios::app) ;
+            outfile << std::scientific << std::setprecision(15) ;
+            outfile << std::left << iter << '\t'
+                    << std::left << time << '\t'
+                    << std::left << value << '\n' ;
+        } ;
+        if ( perf_metric == perf_metric_display::PERF_MZPH || perf_metric == perf_metric_display::PERF_BOTH )
+            write_perf_scalar("performance_mzph.dat", mzph) ;
+        if ( perf_metric == perf_metric_display::PERF_ZCPS || perf_metric == perf_metric_display::PERF_BOTH )
+            write_perf_scalar("performance_zcps.dat", zcps) ;
+    }
 }
 
 }}

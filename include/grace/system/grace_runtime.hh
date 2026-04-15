@@ -82,7 +82,8 @@ void print_variable_group(const S& scalars,
     print_list("Vectors", aux_vectors);
 }
 
-enum terminate : uint8_t {ITERATION, TIME, WALLTIME} ; 
+enum terminate : uint8_t {ITERATION, TIME, WALLTIME} ;
+enum perf_metric_display : uint8_t { PERF_NONE, PERF_MZPH, PERF_ZCPS, PERF_BOTH } ;
 
 class grace_runtime_impl_t 
 {
@@ -141,14 +142,17 @@ class grace_runtime_impl_t
     std::string _surface_io_basename ;
     
     std::string _scalar_io_basename ;
-    /* iteration count */ 
-    size_t _iter ; 
+    /* iteration count */
+    size_t _iter ;
+    size_t _initial_iter ;
     /* current simulation time */
-    double _time, _dt, _initial_time, _initial_wtime ; 
+    double _time, _dt, _initial_time, _initial_wtime ;
     /* total walltime clock */
     spdlog::stopwatch _walltime ; 
     /* termination condition */
-    terminate _term_cnd ; 
+    terminate _term_cnd ;
+    /* performance metric display */
+    perf_metric_display _perf_metric ;
     /* max iter */
     size_t _max_iter ; 
     /* max time */
@@ -159,6 +163,12 @@ class grace_runtime_impl_t
     
     terminate GRACE_ALWAYS_INLINE
     termination_condition() const {return _term_cnd; }
+
+    perf_metric_display GRACE_ALWAYS_INLINE
+    performance_metric() const {return _perf_metric; }
+
+    size_t GRACE_ALWAYS_INLINE
+    initial_iteration() const { return _initial_iter ; }
 
     size_t GRACE_ALWAYS_INLINE
     max_iteration() const {return _max_iter; }
@@ -424,9 +434,10 @@ class grace_runtime_impl_t
         return _output_spheres_names ;
     }
 
-    void GRACE_ALWAYS_INLINE 
+    void GRACE_ALWAYS_INLINE
     start_walltime_clock() {
-        _initial_wtime = _walltime.elapsed().count() ; 
+        _initial_wtime = _walltime.elapsed().count() ;
+        _initial_iter = _iter ;
     }
 
     double GRACE_ALWAYS_INLINE 
@@ -854,13 +865,14 @@ class grace_runtime_impl_t
         }
         /***************************************************************/
         /****************************/
-        /* Set iteration count to 0 */ 
-        _iter = 0UL ; 
+        /* Set iteration count to 0 */
+        _iter = 0UL ;
+        _initial_iter = 0UL ;
         /* Set time to 0            */
-        _time = 0.0 ; 
-        _initial_time = 0.0 ; 
-        _dt   = 0.0 ;  
-        _initial_wtime = 0.0 ; 
+        _time = 0.0 ;
+        _initial_time = 0.0 ;
+        _dt   = 0.0 ;
+        _initial_wtime = 0.0 ;
         /****************************/
         if( parallel::mpi_comm_rank() == grace::master_rank() ) 
         {
@@ -924,15 +936,28 @@ class grace_runtime_impl_t
             std::cout << "\n========================================\n\n";
         }
 
-        auto const term_cnd = grace::get_param<std::string>("evolution", "termination_condition") ; 
+        auto const term_cnd = grace::get_param<std::string>("evolution", "termination_condition") ;
         if ( term_cnd == "time" ) {
-            _term_cnd = terminate::TIME ; 
+            _term_cnd = terminate::TIME ;
         } else if ( term_cnd == "iteration" ) {
-            _term_cnd = terminate::ITERATION ; 
+            _term_cnd = terminate::ITERATION ;
         } else if ( term_cnd == "walltime" ) {
-            _term_cnd = terminate::WALLTIME ; 
+            _term_cnd = terminate::WALLTIME ;
         } else {
-            ERROR("Unrecognized termination condition, please choose one of 'time', 'iteration' and 'walltime'."); 
+            ERROR("Unrecognized termination condition, please choose one of 'time', 'iteration' and 'walltime'.");
+        }
+
+        auto const perf_metric = grace::get_param<std::string>("IO", "performance_metric") ;
+        if ( perf_metric == "none" ) {
+            _perf_metric = perf_metric_display::PERF_NONE ;
+        } else if ( perf_metric == "mzph" ) {
+            _perf_metric = perf_metric_display::PERF_MZPH ;
+        } else if ( perf_metric == "zcps" ) {
+            _perf_metric = perf_metric_display::PERF_ZCPS ;
+        } else if ( perf_metric == "both" ) {
+            _perf_metric = perf_metric_display::PERF_BOTH ;
+        } else {
+            _perf_metric = perf_metric_display::PERF_BOTH ;
         }
 
         _max_time = grace::get_param<double>("evolution","final_time") ; 
