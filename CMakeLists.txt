@@ -1,5 +1,6 @@
 
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.22 FATAL_ERROR)
+cmake_policy(SET CMP0144 NEW)
 
 project(GRACE VERSION 0.5 LANGUAGES CXX C)
 
