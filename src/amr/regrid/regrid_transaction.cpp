@@ -356,8 +356,8 @@ void regrid_transaction_t::partition_grid() {
     /*                                    Partition forest                                    */
     /******************************************************************************************/
     size_t transfer_count = p4est_partition_ext( forest::get().get()
-                                            , 0
-                                            , nullptr  ) ; 
+                                            , 1
+                                            , nullptr  ) ;
     new_glob_qoffsets = amr::get_global_quadrant_offsets() ; 
     /******************************************************************************************/
     /* Now we know the quad count                                                             */

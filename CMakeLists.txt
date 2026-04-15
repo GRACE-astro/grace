@@ -86,6 +86,12 @@ else()
     message(STATUS "Profiling disabled.")
 endif()
 
+option(GRACE_ENABLE_CABANA "Include Cabana support for particle functionality" OFF)
+if( GRACE_ENABLE_CABANA )
+    message(STATUS "Cabana support enabled")
+    find_package(Cabana REQUIRED)
+endif()
+
 configure_file("${CMAKE_SOURCE_DIR}/include/grace/grace_config.h.in" grace_config.h)
 
 configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )

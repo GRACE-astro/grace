@@ -412,11 +412,12 @@ void checkpoint_handler_impl_t::save_checkpoint()
 
     // first write the forest to file 
     auto forest_file = detail::get_filename(checkpoint_dir, "checkpoint_grid", iter, ".bin") ; 
-    p4est_save(
+    p4est_save_ext(
         forest_file.string().c_str(),
         amr::forest::get().get(),
-        true
-    ) ; 
+        true,   // save_data
+        0       // save_partition=false: file is mpisize-independent
+    ) ;
 
     // Now we write the state data to an hdf5 file 
     auto state_file = detail::get_filename(checkpoint_dir, "checkpoint_data", iter, ".h5") ;
@@ -732,20 +733,24 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
 
     auto grid_fname = detail::get_filename(checkpoint_dir, "checkpoint_grid", iter, ".bin") ; 
 
-    p4est_connectivity_t * conn = nullptr; 
-    p4est_t* p4est  = p4est_load( 
-        grid_fname.string().c_str(), 
-        sc_MPI_COMM_WORLD, 
-        sizeof(amr::grace_quadrant_user_data_t), 
-        true, 
-        nullptr, 
+    p4est_connectivity_t * conn = nullptr;
+    p4est_t* p4est  = p4est_load_ext(
+        grid_fname.string().c_str(),
+        sc_MPI_COMM_WORLD,
+        sizeof(amr::grace_quadrant_user_data_t),
+        true,       // load_data
+        1,          // autopartition: ignore saved partition, allows any core count
+        1,          // broadcasthead: rank 0 reads headers and bcasts
+        nullptr,    // user_pointer
         &conn
-    ) ; 
+    ) ;
     ASSERT( p4est != nullptr, "Could not load forest file " << grid_fname ) ;
     ASSERT( conn != nullptr, "Could not load connectivity file " << grid_fname ) ;
 
     amr::connectivity::initialize(conn) ;
-    amr::forest::initialize(p4est) ; 
+    amr::forest::initialize(p4est) ;
+    // Repartition with SFC respecting sibling families (autopartition gives uniform)
+    p4est_partition(amr::forest::get().get(), 1, nullptr) ;
     /**********************************************************************/
     /* Now we set these static variables from the parameter file          */
     /* Later we will need to check that they haven't changed since        */
