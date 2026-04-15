@@ -172,7 +172,7 @@ class ideal_gas_eos_t
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     temp_cold__rho_impl(double& rho, error_type& err) const 
     {
-        return 0. ; 
+        return k0 * Kokkos::pow(rho,gamma_m1) ; 
     }
 
     double GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
