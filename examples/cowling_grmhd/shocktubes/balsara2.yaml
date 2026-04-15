@@ -66,8 +66,8 @@ grmhd: {
     Bx_R: 5.,
     By_L: 6.,
     By_R: 0.7,
-    Bz_L: 0.7,
-    Bz_R: 6.
+    Bz_L: 6.,
+    Bz_R: 0.7
   },
 
   # This means B is set directly 
