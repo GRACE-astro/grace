@@ -149,7 +149,7 @@ void amr_ghosts_impl_t::update() {
         &_reflux_coarse_face_descs,
         &_reflux_edge_descs,
         &_reflux_coarse_edge_descs
-    } ; 
+    } ;
     //**************************************************************************************************
     // Register neighbor faces into ghost_layer
     p4est_iterate(grace::amr::forest::get().get(),      /*forest*/

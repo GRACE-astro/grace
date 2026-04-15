@@ -310,95 +310,100 @@ static void register_hanging_corner(
     }
 }
 
-void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data) 
+void grace_iterate_edges(p8est_iter_edge_info_t* info, void* user_data)
 {
-    auto iter_data = reinterpret_cast<p4est_iter_data_t*>(user_data) ; 
-    auto ghosts = iter_data->ghost_layer ; 
+    auto iter_data = reinterpret_cast<p4est_iter_data_t*>(user_data) ;
+    auto ghosts = iter_data->ghost_layer ;
     sc_array_view_t<p8est_iter_edge_side_t> sides{&(info->sides)};
-    if (sides.size() < 4) {
-        // Boundary edge(s)
+    int const nsides = static_cast<int>(sides.size()) ;
+
+    if (nsides == 1) {
+        // Domain corner edge: only 1 quadrant, nothing to reflux
         register_physical_boundary_edge(sides, *ghosts);
         return;
     }
 
-    ASSERT(sides.size() == 4, "Expected 4 sides for an interior edge");
+    if (nsides < 4) {
+        // Boundary edge with 2 sides: register physical BC,
+        // then fall through to build reflux descriptor
+        register_physical_boundary_edge(sides, *ghosts);
+    }
 
-    static constexpr int opposite_edge[12] = {
-        3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8
-    } ;
+    if (nsides == 4) {
+        // Interior edge: pair and register ghost-zone neighbors
+        static constexpr int opposite_edge[12] = {
+            3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8
+        } ;
 
-    auto is_edge_neighbor = [&](int i, int j) {
-        return opposite_edge[sides[i].edge] == sides[j].edge;
-    } ;
+        auto is_edge_neighbor = [&](int i, int j) {
+            return opposite_edge[sides[i].edge] == sides[j].edge;
+        } ;
 
-    std::vector<std::array<int,2>> pairs;
-    std::vector<bool> found(sides.size(), false);
+        std::vector<std::array<int,2>> pairs;
+        std::vector<bool> found(sides.size(), false);
 
-    for (int in = 0; in < static_cast<int>(sides.size()); ++in) {
-        if (found[in]) continue;
-        for (int jn = in + 1; jn < static_cast<int>(sides.size()); ++jn) {
-            if (found[jn]) continue;
-            if (is_edge_neighbor(in, jn)) {
-                pairs.push_back({in, jn});
-                found[in] = found[jn] = true;
-                break;
+        for (int in = 0; in < nsides; ++in) {
+            if (found[in]) continue;
+            for (int jn = in + 1; jn < nsides; ++jn) {
+                if (found[jn]) continue;
+                if (is_edge_neighbor(in, jn)) {
+                    pairs.push_back({in, jn});
+                    found[in] = found[jn] = true;
+                    break;
+                }
+            }
+        }
+
+        for (auto const& [i0, i1] : pairs) {
+            register_edge(sides[i0], sides[i1], *ghosts);
+            register_edge(sides[i1], sides[i0], *ghosts);
+            if ( sides[i0].is_hanging and sides[i1].is_hanging ) {
+                register_hanging_corner(sides[i0],sides[i1], *ghosts) ;
+                register_hanging_corner(sides[i1],sides[i0], *ghosts) ;
             }
         }
     }
 
-    for (auto const& [i0, i1] : pairs) {
-        register_edge(sides[i0], sides[i1], *ghosts);
-        register_edge(sides[i1], sides[i0], *ghosts);
-        if ( sides[i0].is_hanging and sides[i1].is_hanging ) {
-            register_hanging_corner(sides[i0],sides[i1], *ghosts) ; 
-            register_hanging_corner(sides[i1],sides[i0], *ghosts) ; 
-        }
+    // Build reflux descriptor
+    int n_fine = 0 ;
+    for( int is=0; is<nsides; ++is ) {
+        n_fine += sides[is].is_hanging ;
     }
 
-    // decide if we need refluxing -> if at least one is hanging 
-    int n_fine = 0 ; 
-    for( int is=0; is<4; ++is ) {
-        n_fine += sides[is].is_hanging ; 
-    }
-    //bool need_reflux = (n_fine > 0) ; 
-    // if reflux is not needed we are done.
-    //if ( ! need_reflux ) return ; 
-
-
-    hanging_edge_reflux_desc_t desc {} ; 
-    desc.n_sides = 4 ; 
-    desc.n_fine = n_fine ; 
-    desc.n_coarse = 4-n_fine ; 
+    hanging_edge_reflux_desc_t desc {} ;
+    desc.n_sides = nsides ;
+    desc.n_fine = n_fine ;
+    desc.n_coarse = nsides - n_fine ;
     int ifine{0}, icoarse{0};
-    for( int is=0; is<4; ++is) {
-        auto& side = sides[is] ; 
-        auto& sdsc = desc.sides[is] ; 
-        sdsc.edge_id = side.edge ; 
-        sdsc.off_i = sdsc.off_j = 0 ; 
+    for( int is=0; is<nsides; ++is) {
+        auto& side = sides[is] ;
+        auto& sdsc = desc.sides[is] ;
+        sdsc.edge_id = side.edge ;
+        sdsc.off_i = sdsc.off_j = 0 ;
         if ( side.is_hanging ) {
             desc.fine_sides[ifine++] = is ;
-            sdsc.is_fine = true ; 
+            sdsc.is_fine = true ;
             for ( int ic=0; ic<2; ++ic ) {
-                sdsc.octants.fine.is_remote[ic] = side.is.hanging.is_ghost[ic] ; 
+                sdsc.octants.fine.is_remote[ic] = side.is.hanging.is_ghost[ic] ;
                 sdsc.octants.fine.quad_id[ic] = side.is.hanging.is_ghost[ic]
                                               ? side.is.hanging.quadid[ic]
-                                              : side.is.hanging.quadid[ic] + grace::amr::get_local_quadrants_offset(side.treeid) ; 
+                                              : side.is.hanging.quadid[ic] + grace::amr::get_local_quadrants_offset(side.treeid) ;
                 sdsc.octants.fine.owner_rank[ic] = p4est_comm_find_owner(grace::amr::forest::get().get(), side.treeid, side.is.hanging.quad[ic], 0);
             }
         } else {
-            desc.coarse_sides[icoarse++] = is ; 
+            desc.coarse_sides[icoarse++] = is ;
             sdsc.is_fine = false ;
-            sdsc.octants.coarse.is_remote = side.is.full.is_ghost ; 
+            sdsc.octants.coarse.is_remote = side.is.full.is_ghost ;
             sdsc.octants.coarse.quad_id = side.is.full.is_ghost
-                                        ? side.is.full.quadid 
-                                        : side.is.full.quadid + grace::amr::get_local_quadrants_offset(side.treeid) ; 
+                                        ? side.is.full.quadid
+                                        : side.is.full.quadid + grace::amr::get_local_quadrants_offset(side.treeid) ;
             sdsc.octants.coarse.owner_rank = p4est_comm_find_owner(grace::amr::forest::get().get(), side.treeid, side.is.full.quad, 0);
         }
     }
-    if ( n_fine > 0 ) { 
-        iter_data->reflux_edges->push_back(desc) ; 
+    if ( n_fine > 0 ) {
+        iter_data->reflux_edges->push_back(desc) ;
     } else {
-        iter_data->reflux_coarse_edges->push_back(desc) ; 
+        iter_data->reflux_coarse_edges->push_back(desc) ;
     }
 }
 
