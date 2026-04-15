@@ -88,24 +88,6 @@ struct grmhd_diagnostics {
         parallel::mpi_barrier() ; 
     }
     //**************************************************************************************************
-    private: 
-    //**************************************************************************************************
-    void output() {
-        int proc = parallel::mpi_comm_rank() ; 
-        if ( proc == 0 ) { 
-            auto& grace_runtime = grace::runtime::get() ; 
-            size_t const iter = grace_runtime.iteration() ; 
-            double const time = grace_runtime.time()      ;
-            std::ofstream outfile(fpath.string(), std::ios::app) ;
-            outfile << std::fixed << std::setprecision(15) ; 
-            outfile << std::left << iter << '\t'
-                << std::left << time << '\t' 
-                << std::left << disk_mass << '\n' ;
-            
-        }
-        parallel::mpi_barrier() ; 
-    }
-    //**************************************************************************************************
     void compute()
     {
         DECLARE_GRID_EXTENTS ; 
@@ -159,6 +141,24 @@ struct grmhd_diagnostics {
             MPI_SUM,                    // op
             MPI_COMM_WORLD              // comm
         );
+    }
+    //**************************************************************************************************
+    private: 
+    //**************************************************************************************************
+    void output() {
+        int proc = parallel::mpi_comm_rank() ; 
+        if ( proc == 0 ) { 
+            auto& grace_runtime = grace::runtime::get() ; 
+            size_t const iter = grace_runtime.iteration() ; 
+            double const time = grace_runtime.time()      ;
+            std::ofstream outfile(fpath.string(), std::ios::app) ;
+            outfile << std::fixed << std::setprecision(15) ; 
+            outfile << std::left << iter << '\t'
+                << std::left << time << '\t' 
+                << std::left << disk_mass << '\n' ;
+            
+        }
+        parallel::mpi_barrier() ; 
     }
     //**************************************************************************************************
     double disk_rho_thresh      ; //!< Only integrate for rho > thresh 

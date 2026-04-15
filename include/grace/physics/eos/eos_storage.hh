@@ -125,7 +125,7 @@ class eos_storage_t {
             return _tabulated ; 
         } else if constexpr ( std::is_same_v<eos_t,ideal_gas_eos_t> ) {
             return _gammalaw; 
-        } {
+        } else {
             ERROR("Requested EOS type is not implemented.") ; 
         }
     }

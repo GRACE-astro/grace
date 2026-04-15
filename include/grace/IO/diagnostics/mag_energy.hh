@@ -91,26 +91,6 @@ struct em_energy_diagnostic {
         parallel::mpi_barrier() ; 
     }
     //**************************************************************************************************
-    private: 
-    //**************************************************************************************************
-    void output() {
-        int proc = parallel::mpi_comm_rank() ; 
-        if ( proc == 0 ) { 
-            auto& grace_runtime = grace::runtime::get() ; 
-            size_t const iter = grace_runtime.iteration() ; 
-            double const time = grace_runtime.time()      ;
-            std::ofstream outfile(fpath.string(), std::ios::app) ;
-            outfile << std::fixed << std::setprecision(15) ; 
-            outfile << std::left << iter << '\t'
-                << std::left << time << '\t' 
-                << std::left << E << '\t'
-                << std::left << Epol << '\t'
-                << std::left << Etor << '\n' ; 
-            
-        }
-        parallel::mpi_barrier() ; 
-    }
-    //**************************************************************************************************
     void compute()
     {
         DECLARE_GRID_EXTENTS ; 
@@ -229,6 +209,27 @@ struct em_energy_diagnostic {
         Epol  = em_integrals_glob[1] ; 
         Etor  = em_integrals_glob[2] ; 
     }
+    //**************************************************************************************************
+    private: 
+    //**************************************************************************************************
+    void output() {
+        int proc = parallel::mpi_comm_rank() ; 
+        if ( proc == 0 ) { 
+            auto& grace_runtime = grace::runtime::get() ; 
+            size_t const iter = grace_runtime.iteration() ; 
+            double const time = grace_runtime.time()      ;
+            std::ofstream outfile(fpath.string(), std::ios::app) ;
+            outfile << std::fixed << std::setprecision(15) ; 
+            outfile << std::left << iter << '\t'
+                << std::left << time << '\t' 
+                << std::left << E << '\t'
+                << std::left << Epol << '\t'
+                << std::left << Etor << '\n' ; 
+            
+        }
+        parallel::mpi_barrier() ; 
+    }
+    
     //**************************************************************************************************
     double E, Epol, Etor    ;        //!< Magnetic energies 
     //double Ef, Epolf, Etorf ;        //!< Magnetic energies wrt fluid frame

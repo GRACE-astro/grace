@@ -231,7 +231,6 @@ class puncture_tracker_t : public co_tracker_t
 
     void update(double dt) override final {
         auto l = this->location ; 
-        auto r = this->radius   ; 
 
         using namespace grace  ; 
         using namespace Kokkos ;

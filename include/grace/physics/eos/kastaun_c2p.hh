@@ -168,7 +168,6 @@ namespace grace {
       double& eps, double& temp, double& entropy
     )
     {
-      double lmu                = mu ; 
       x                  = x__mu(mu) ;
       const double rfsqr = rfsqr__mu_x(mu,x) ; 
       const double qf    = qf__mu_x(mu,x) ; 
@@ -229,7 +228,6 @@ namespace grace {
     double KOKKOS_INLINE_FUNCTION
     operator() (double mu) 
     {
-      const double lmu   = mu ; 
       const double x     = x__mu(mu) ;
       const double rfsqr = rfsqr__mu_x(mu,x) ; 
       const double qf    = qf__mu_x(mu,x) ; 
