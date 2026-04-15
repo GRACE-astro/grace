@@ -563,7 +563,7 @@ grmhd:
         Directory containing the FUKA ID
     fuka_id_type: 
       type: keyword 
-      default: "" 
+      default: "BNS" 
       allowed: ["BH", "BBH", "NS", "BNS", "BHNS"]
       description: >
         type of FUKA data
