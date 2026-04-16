@@ -75,10 +75,13 @@ variable_list_impl_t::variable_list_impl_t()
     , _state("state", VEC(0,0,0),0,0)
     , _state_p("scratch_state", VEC(0,0,0),0,0)
     , _aux("auxiliaries", VEC(0,0,0),0,0)
-    , _staggered_vars() 
-    , _staggered_vars_p() 
+    , _staggered_vars()
+    , _staggered_vars_p()
     , _fluxes()
     , _emf()
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    , _z4c_curv_scratch("z4c_curv_scratch", VEC(0,0,0),0,0)
+    #endif
 {
     using namespace grace; 
     /* Get param parser and forest object */
@@ -217,8 +220,16 @@ void variable_list_impl_t::resize_aux_staging_and_flux_buffers(int nq_new)
     #endif 
     Kokkos::realloc( _emf
                    , VEC( nx + 1 + 2*ngz,ny + 1 + 2*ngz,nz + 1 + 2*ngz)
-                   , GRACE_NSPACEDIM 
-                   , nq_new ) ; 
+                   , GRACE_NSPACEDIM
+                   , nq_new ) ;
+
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    Kokkos::realloc( _z4c_curv_scratch
+                   , VEC(nx + 2*ngz, ny + 2*ngz, nz + 2*ngz)
+                   , N_Z4C_CURV_SCRATCH
+                   , nq_new
+                   ) ;
+    #endif
 
     for( int ibuf=0; ibuf<_staging_buffer.size(); ++ibuf) {
         Kokkos::realloc(

@@ -1166,12 +1166,13 @@ void update_fd(
     //**************************************************************************************************/
     #ifdef GRACE_ENABLE_Z4C_METRIC
     //**************************************************************************************************/
-    // fetch some stuff 
-    auto& idx     = grace::variable_list::get().getinvspacings() ;  
-    auto& aux     = grace::variable_list::get().getaux()     ; 
-    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ; 
+    // fetch some stuff
+    auto& idx     = grace::variable_list::get().getinvspacings() ;
+    auto& aux     = grace::variable_list::get().getaux()     ;
+    auto& curv_scratch = grace::variable_list::get().getz4ccurvscratch() ;
+    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ;
     //**************************************************************************************************/
-    z4c_system_t z4c_eq_system(old_state,aux,old_stag_state) ;
+    z4c_system_t z4c_eq_system(old_state,aux,old_stag_state,curv_scratch) ;
     //**************************************************************************************************/
     // Launch-bounds note: a too-tight LaunchBounds (in particular a
     // MaxThreadsPerBlock smaller than the policy's tile-product) lets hipcc
@@ -1180,21 +1181,28 @@ void update_fd(
     // with an explicit tile whose product equals MaxThreadsPerBlock, and rely
     // on the post-launch hipGetLastError below to surface any mismatch.
     //
-    // Defaults below: 256-thread blocks (4 wave64s on MI300A) for both kernels.
-    //   adv:  LaunchBounds<256, 4> — bandwidth-bound, ask for high occupancy
-    //         (4 waves/EU min ≈ 128 VGPR/lane cap, fine for the small footprint).
-    //   curv: LaunchBounds<256, 1> — heavy register pressure, give it the full
-    //         register file (1 wave/EU min ≈ ~512 VGPR/lane cap).
+    // Defaults below: 256-thread blocks (4 wave64s on MI300A) for all three kernels.
+    //   adv:      LaunchBounds<256, 4> — bandwidth-bound, ask for high occupancy
+    //             (4 waves/EU min ≈ 128 VGPR/lane cap, fine for the small footprint).
+    //   curv_pre: LaunchBounds<256, 1> — second-derivative heavy (ddgtdd_dx2[36],
+    //             ddchi_dx2[6], dGammat_dx[9]); needs the full register file.
+    //   curv:     LaunchBounds<256, 1> — still register-pressured even after
+    //             scratch read, give it the full register file.
     //
     // Override per-architecture via -DGRACE_Z4C_*_LB / -DGRACE_Z4C_*_TILE.
     #ifndef GRACE_Z4C_ADV_LB
       #define GRACE_Z4C_ADV_LB  Kokkos::LaunchBounds<256, 4>
+    #endif
+    #ifndef GRACE_Z4C_CURV_PRE_LB
+      #define GRACE_Z4C_CURV_PRE_LB Kokkos::LaunchBounds<256, 1>
     #endif
     #ifndef GRACE_Z4C_CURV_LB
       #define GRACE_Z4C_CURV_LB Kokkos::LaunchBounds<256, 1>
     #endif
     using adv_policy_t =
         MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_ADV_LB > ;
+    using curv_pre_policy_t =
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_CURV_PRE_LB > ;
     using curv_policy_t =
         MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_CURV_LB > ;
     // Tile chosen so the product = 256 = MaxThreadsPerBlock above.
@@ -1203,6 +1211,11 @@ void update_fd(
     // single block never straddles two patches (patches are tens of MB apart
     // along the last view dim).
     adv_policy_t advective_policy (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
+            , {VEC(16,4,4),1}
+        ) ;
+    curv_pre_policy_t curvature_pre_policy (
               {VEC(ngz,ngz,ngz),0}
             , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
             , {VEC(16,4,4),1}
@@ -1218,6 +1231,13 @@ void update_fd(
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
                     z4c_eq_system.compute_advective_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
+                }) ;
+    //**************************************************************************************************/
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_curvature_pre")
+                , curvature_pre_policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    z4c_eq_system.compute_curvature_pre(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
                 }) ;
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_curvature_update")
@@ -1361,14 +1381,15 @@ void compute_constraint_violations() {
     using namespace Kokkos  ; 
     DECLARE_GRID_EXTENTS ;
     //**************************************************************************************************/
-    // fetch some stuff 
-    auto& idx     = grace::variable_list::get().getinvspacings() ;  
-    auto& aux     = grace::variable_list::get().getaux()     ; 
-    auto& state   = grace::variable_list::get().getstate()   ; 
-    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ; 
-    auto dummy = grace::variable_list::get().getstaggeredstate() ; 
+    // fetch some stuff
+    auto& idx     = grace::variable_list::get().getinvspacings() ;
+    auto& aux     = grace::variable_list::get().getaux()     ;
+    auto& state   = grace::variable_list::get().getstate()   ;
+    auto& curv_scratch = grace::variable_list::get().getz4ccurvscratch() ;
+    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ;
+    auto dummy = grace::variable_list::get().getstaggeredstate() ;
     //**************************************************************************************************/
-    z4c_system_t z4c_eq_system(state,aux,dummy) ; 
+    z4c_system_t z4c_eq_system(state,aux,dummy,curv_scratch) ;
     //**************************************************************************************************/
     auto policy = 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
@@ -1389,13 +1410,14 @@ void enforce_algebraic_constraints(grace::var_array_t& state) {
     using namespace Kokkos ; 
     DECLARE_GRID_EXTENTS ;
     //**************************************************************************************************/
-    // fetch some stuff 
-    auto& idx     = grace::variable_list::get().getinvspacings() ;  
-    auto& aux     = grace::variable_list::get().getaux()     ; 
-    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ; 
-    auto dummy = grace::variable_list::get().getstaggeredstate() ; 
+    // fetch some stuff
+    auto& idx     = grace::variable_list::get().getinvspacings() ;
+    auto& aux     = grace::variable_list::get().getaux()     ;
+    auto& curv_scratch = grace::variable_list::get().getz4ccurvscratch() ;
+    auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ;
+    auto dummy = grace::variable_list::get().getstaggeredstate() ;
     //**************************************************************************************************/
-    z4c_system_t z4c_eq_system(state,aux,dummy) ; 
+    z4c_system_t z4c_eq_system(state,aux,dummy,curv_scratch) ;
     //**************************************************************************************************/
     auto policy = 
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (

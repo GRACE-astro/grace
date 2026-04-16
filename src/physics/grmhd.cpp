@@ -564,10 +564,11 @@ void set_conservs_from_prims() {
     auto& csys = grace::coordinate_system::get() ;
     auto dev_coords = csys.get_device_coord_system() ;  
     #ifdef GRACE_ENABLE_Z4C_METRIC
-    z4c_system_t metric_evol_eq_system(state,aux,sstate) ; 
+    auto& curv_scratch = grace::variable_list::get().getz4ccurvscratch() ;
+    z4c_system_t metric_evol_eq_system(state,aux,sstate,curv_scratch) ;
     #elif defined(GRACE_ENABLE_BSSN_METRIC)
-    bssn_system_t metric_evol_eq_system(state,aux,sstate) ; 
-    #endif 
+    bssn_system_t metric_evol_eq_system(state,aux,sstate) ;
+    #endif
 
     parallel_for( GRACE_EXECUTION_TAG("ID","set_conservs_from_prims")
                 , MDRangePolicy<Rank<GRACE_NSPACEDIM+1>,default_execution_space>({VEC(0,0,0),0},{VEC(nx+2*ngz,ny+2*ngz,nz+2*ngz),nq})

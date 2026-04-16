@@ -313,6 +313,30 @@ enum aux_var_idx : int {
     MOMZ_,
     #endif
     N_AUX_VARS
-} ; 
+} ;
+
+#ifdef GRACE_ENABLE_Z4C_METRIC
+// Per-cell scratch produced by the curvature-pre kernel and consumed by the
+// curvature-update kernel.  Persisting these intermediates lets the update
+// kernel drop the second-derivative loads (ddgtdd_dx2[36], ddchi_dx2[6],
+// dGammat_dx[9]) and the Christoffel/Ricci helpers from its live set, which
+// is what was forcing register spills.
+//   W2Rdd:    6 components (xx, xy, xz, yy, yz, zz)
+//   Rtrace:   1
+//   Gammatudd: 18 (3 upper × 6 lower-symmetric)
+// GammatDu is *not* persisted: it is one cheap contraction of gtuu against
+// Gammatudd, recomputed inline in the update kernel.
+enum z4c_curv_scratch_idx : int {
+    RICCI_XX_=0, RICCI_XY_, RICCI_XZ_, RICCI_YY_, RICCI_YZ_, RICCI_ZZ_,
+    RTRACE_,
+    GAMMATU_X_XX_, GAMMATU_X_XY_, GAMMATU_X_XZ_,
+    GAMMATU_X_YY_, GAMMATU_X_YZ_, GAMMATU_X_ZZ_,
+    GAMMATU_Y_XX_, GAMMATU_Y_XY_, GAMMATU_Y_XZ_,
+    GAMMATU_Y_YY_, GAMMATU_Y_YZ_, GAMMATU_Y_ZZ_,
+    GAMMATU_Z_XX_, GAMMATU_Z_XY_, GAMMATU_Z_XZ_,
+    GAMMATU_Z_YY_, GAMMATU_Z_YZ_, GAMMATU_Z_ZZ_,
+    N_Z4C_CURV_SCRATCH
+} ;
+#endif
 
 #endif /* INCLUDE_GRACE_DATA_STRUCTURES_VARIABLE_INDICES */

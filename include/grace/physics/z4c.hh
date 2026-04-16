@@ -55,22 +55,31 @@
 #include <Kokkos_Core.hpp>
 namespace grace {
 
-struct z4c_system_t 
+struct z4c_system_t
     : public fd_evolution_system_t<z4c_system_t>
 {
     private:
     using base_t = fd_evolution_system_t<z4c_system_t>  ;
 
+    // Persistent per-cell scratch filled by compute_curvature_pre_impl
+    // and consumed by compute_curvature_update_impl.  Holds Ricci (W2Rdd
+    // [6], Rtrace) and second Christoffel (Gammatudd[18]) so the update
+    // kernel does not have to re-load ddgtdd_dx2[36], ddchi_dx2[6] or
+    // dGammat_dx[9].  GammatDu is cheap and is recomputed inline.
+    var_array_t _curv_scratch ;
+
     double k1,k2,eta,chi_safeguard,alp_min,epsdiss;
-    double eta_ad_a, eta_ad_b, eta_ad_r, theta_ad_r, kappa_ad_r ; 
-    bool adaptive_eta, is_vacuum ; 
+    double eta_ad_a, eta_ad_b, eta_ad_r, theta_ad_r, kappa_ad_r ;
+    bool adaptive_eta, is_vacuum ;
 
     public:
-    z4c_system_t( 
+    z4c_system_t(
         var_array_t _state,
         var_array_t _aux,
-        staggered_variable_arrays_t _sstate
+        staggered_variable_arrays_t _sstate,
+        var_array_t _curv_scratch_
     ) : base_t(_state,_aux,_sstate)
+      , _curv_scratch(_curv_scratch_)
     {
         k1 = get_param<double>("z4c", "kappa_1") ; 
         k2 = get_param<double>("z4c", "kappa_2") ; 
@@ -443,15 +452,104 @@ struct z4c_system_t
     }
 
     // ---------------------------------------------------------------------
-    // Kernel B: curvature / non-advective RHS + in-flight constraints
+    // Kernel B1: curvature pre — build per-cell Ricci + second Christoffel
+    // and persist to _curv_scratch so the RHS-assembly kernel can drop the
+    // second-derivative loads (ddgtdd_dx2[36], ddchi_dx2[6], dGammat_dx[9])
+    // and the Christoffel / Ricci helpers from its live set.  This is the
+    // heaviest geometric pass; isolating it into its own kernel keeps the
+    // downstream RHS-assembly pass's register footprint low enough for
+    // good GPU occupancy.  GammatDu is deliberately not persisted — it is
+    // one cheap contraction of gtuu against Gammatudd and is recomputed
+    // inline in the next kernel.
+    // ---------------------------------------------------------------------
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_curvature_pre_impl( int const q
+                              , VEC( int const i
+                                   , int const j
+                                   , int const k)
+                              , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx
+                              , grace::var_array_t const /*state_new*/
+                              , grace::staggered_variable_arrays_t /*sstate_new*/
+                              , double const /*dt*/
+                              , double const /*dtfact*/
+                              , grace::device_coordinate_system /*coords*/ ) const
+    {
+        using namespace Kokkos ;
+        auto s  = subview(this->_state,i,j,k,ALL(),q) ;
+        auto cs = subview(this->_curv_scratch,i,j,k,ALL(),q) ;
+
+        double chi{s(CHI_)} ;
+        double gtdd[6] = {
+            s(GTXX_), s(GTXY_), s(GTXZ_),
+            s(GTYY_), s(GTYZ_), s(GTZZ_)
+        } ;
+
+        double gtuu[6] ;
+        z4c_get_inverse_conf_metric(gtdd, 1.0, &gtuu) ;
+
+        double idx[3] = {_idx(0,q), _idx(1,q), _idx(2,q)} ;
+
+        // Centered first derivatives of χ and g̃_ij
+        double dchi_dx[3] ;
+        fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ;
+        double dgtdd_dx[18] ;
+        fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
+
+        // Christoffel (first + second).  GammatDu is a temp consumed by
+        // z4c_get_Ricci below and does not need to survive the kernel.
+        double Gammatddd[18], Gammatudd[18], GammatDu[3] ;
+        z4c_get_first_Christoffel(dgtdd_dx, &Gammatddd) ;
+        z4c_get_second_Christoffel(gtuu, Gammatddd, &Gammatudd) ;
+        z4c_get_contracted_Christoffel(gtuu, Gammatudd, &GammatDu) ;
+
+        // Ricci — non-conformal part needs ddgtdd_dx2[36] and dGammat_dx[9].
+        double W2Rdd[6] = {0.,0.,0.,0.,0.,0.} ;
+        {
+            double ddgtdd_dx2[36] ;
+            double dGammat_dx[9] ;
+            fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
+            fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
+            z4c_get_Ricci(
+                gtdd, chi, gtuu, Gammatddd, Gammatudd, GammatDu,
+                dGammat_dx, ddgtdd_dx2, &W2Rdd
+            ) ;
+        }
+        // Conformal part — needs ddchi_dx2[6].
+        {
+            double ddchi_dx2[6] ;
+            fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ;
+            z4c_get_Ricci_conf(
+                gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &W2Rdd
+            ) ;
+        }
+        double Rtrace ;
+        z4c_get_Ricci_trace(gtuu, W2Rdd, &Rtrace) ;
+
+        // Persist to scratch.  Index layout mirrors z4c_curv_scratch_idx.
+        cs(RICCI_XX_) = W2Rdd[0] ;
+        cs(RICCI_XY_) = W2Rdd[1] ;
+        cs(RICCI_XZ_) = W2Rdd[2] ;
+        cs(RICCI_YY_) = W2Rdd[3] ;
+        cs(RICCI_YZ_) = W2Rdd[4] ;
+        cs(RICCI_ZZ_) = W2Rdd[5] ;
+        cs(RTRACE_)   = Rtrace ;
+        #pragma unroll 18
+        for (int a=0; a<18; ++a) {
+            cs(GAMMATU_X_XX_ + a) = Gammatudd[a] ;
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Kernel B2: curvature / non-advective RHS + in-flight constraints
     //
-    // Computes every RHS contribution that does not involve the upwind
-    // shift-transport stencil — i.e. the centered-derivative Lie correction
-    // terms on tensorial equations, Christoffel/Ricci/DiDjα, matter sources,
-    // algebraic damping, and the Γ-driver coupling. The Hamiltonian and
-    // momentum constraints are filled here as a by-product using the
-    // centered derivatives already on hand; one extra centered tensor
-    // derivative (dAtdd_dx[18]) is needed for the momentum constraint.
+    // Reads Ricci + second Christoffel from _curv_scratch (filled by
+    // compute_curvature_pre_impl) and assembles every RHS contribution
+    // that does not involve the upwind shift-transport stencil — i.e.
+    // the centered-derivative Lie correction terms on tensorial equations,
+    // DiDjα, matter sources, algebraic damping, and the Γ-driver coupling.
+    // The Hamiltonian and momentum constraints are filled here as a
+    // by-product; one extra centered tensor derivative (dAtdd_dx[18]) is
+    // needed for the momentum constraint.
     // ---------------------------------------------------------------------
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
     compute_curvature_update_impl( int const q
@@ -466,8 +564,9 @@ struct z4c_system_t
                                  , grace::device_coordinate_system coords ) const
     {
         using namespace Kokkos ;
-        auto s = subview(this->_state,i,j,k,ALL(),q) ;
-        auto a = subview(this->_aux,i,j,k,ALL(),q) ;
+        auto s  = subview(this->_state,i,j,k,ALL(),q) ;
+        auto a  = subview(this->_aux,i,j,k,ALL(),q) ;
+        auto cs = subview(this->_curv_scratch,i,j,k,ALL(),q) ;
 
         // radius for damping factors
         double r ;
@@ -526,12 +625,18 @@ struct z4c_system_t
             gtdd, Atdd, alp, zero_upw_ten, dbeta_dx, &dgtdd
         ) ;
 
-        // Christoffel
-        double Gammatddd[18], Gammatudd[18], GammatDu[3] ;
-        double dgtdd_dx[18] ;
-        fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
-        z4c_get_first_Christoffel(dgtdd_dx, &Gammatddd) ;
-        z4c_get_second_Christoffel(gtuu, Gammatddd, &Gammatudd) ;
+        // Load Ricci + second Christoffel from the pre-kernel scratch.
+        // GammatDu is cheap — recompute inline to save one persisted
+        // vector and the associated memory traffic.
+        double W2Rdd[6] = {
+            cs(RICCI_XX_), cs(RICCI_XY_), cs(RICCI_XZ_),
+            cs(RICCI_YY_), cs(RICCI_YZ_), cs(RICCI_ZZ_)
+        } ;
+        double const Rtrace = cs(RTRACE_) ;
+        double Gammatudd[18] ;
+        #pragma unroll 18
+        for (int aa=0; aa<18; ++aa) Gammatudd[aa] = cs(GAMMATU_X_XX_ + aa) ;
+        double GammatDu[3] ;
         z4c_get_contracted_Christoffel(gtuu, Gammatudd, &GammatDu) ;
 
         // DiDj α
@@ -566,28 +671,6 @@ struct z4c_system_t
             alp, theta, Ktr, Strace, rho, k1L, k2, AA, DiDialp,
             zero_upw_scalar, &dKhat
         ) ;
-
-        // Ricci (conformal + trace)
-        double Rtrace ;
-        double W2Rdd[6] = {0.,0.,0.,0.,0.,0.} ;
-        {
-            double ddgtdd_dx2[36] ;
-            double dGammat_dx[9] ;
-            fill_second_deriv_tensor(this->_state,i,j,k,GTXX_,q,ddgtdd_dx2,idx[0]) ;
-            fill_deriv_vector(this->_state,i,j,k,GAMMATX_,q,dGammat_dx,idx[0]) ;
-            z4c_get_Ricci(
-                gtdd, chi, gtuu, Gammatddd, Gammatudd, GammatDu,
-                dGammat_dx, ddgtdd_dx2, &W2Rdd
-            ) ;
-        }
-        {
-            double ddchi_dx2[6] ;
-            fill_second_deriv_scalar(this->_state,i,j,k,CHI_,q,ddchi_dx2,idx[0]) ;
-            z4c_get_Ricci_conf(
-                gtdd, chi, gtuu, Gammatudd, dchi_dx, ddchi_dx2, &W2Rdd
-            ) ;
-        }
-        z4c_get_Ricci_trace(gtuu, W2Rdd, &Rtrace) ;
 
         // theta RHS
         {
@@ -644,10 +727,11 @@ struct z4c_system_t
             Bdriver, etaL, dGammat, zero_upw_vec, zero_upw_vec, &dBdr
         ) ;
 
-        // Constraints: reuse every quantity already computed.  Needs one
-        // extra centered derivative of Ã_ij for the momentum constraint.
+        // Constraints: reuse every quantity already computed.  Needs the
+        // centered derivatives of g̃_ij and Ã_ij for the momentum constraint.
         {
-            double dAtdd_dx[18] ;
+            double dgtdd_dx[18], dAtdd_dx[18] ;
+            fill_deriv_tensor(this->_state,i,j,k,GTXX_,q,dgtdd_dx,idx[0]) ;
             fill_deriv_tensor(this->_state,i,j,k,ATXX_,q,dAtdd_dx,idx[0]) ;
             double H, Mi[3] ;
             z4c_get_constraints(

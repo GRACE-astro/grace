@@ -179,8 +179,18 @@ public:
      * @return The EMF vector, used during time 
      *         evolution to hold the electromotive force at cell edges. 
      */
-    GRACE_ALWAYS_INLINE emf_array_t& 
+    GRACE_ALWAYS_INLINE emf_array_t&
     getemfarray() { return _emf ; }
+    //*****************************************************************************************************
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    /**
+     * @brief Per-cell scratch produced by the Z4c curvature-pre kernel.
+     *        Holds Ricci tensor, Ricci trace, and second Christoffel
+     *        (see z4c_curv_scratch_idx in variable_indices.hh).
+     */
+    GRACE_ALWAYS_INLINE var_array_t&
+    getz4ccurvscratch() { return _z4c_curv_scratch ; }
+    #endif
     //*****************************************************************************************************
     template< typename ... ArgT >
     void realloc_state(ArgT&& ... args)
@@ -241,6 +251,9 @@ private:
     flux_array_t   _vbar              ; //!< Fluxes for time evolution.
     #endif 
     emf_array_t   _emf                  ; //!< EMF for time evolution of ideal MHD.
+    #ifdef GRACE_ENABLE_Z4C_METRIC
+    var_array_t   _z4c_curv_scratch     ; //!< Persistent intermediates between curvature-pre and curvature-update kernels.
+    #endif
     //*****************************************************************************************************
     friend class utils::singleton_holder<variable_list_impl_t, memory::default_create> ; //!< Give access 
     friend class memory::new_delete_creator<variable_list_impl_t, memory::new_delete_allocator> ; //!< Give access 
