@@ -459,7 +459,7 @@ void info_output() {
     if( iter%outinfo_every == 0 ) {
         os << std::left << std::setw(width) << "Iteration"
            << std::left << std::setw(width) <<  "Time"
-           << std::left << std::setw(width) << "t/h" ;
+           << std::left << std::setw(width) << "M/h" ;
         if ( perf_metric == perf_metric_display::PERF_MZPH || perf_metric == perf_metric_display::PERF_BOTH )
             os << std::left << std::setw(width) << "Mzc/h" ;
         if ( perf_metric == perf_metric_display::PERF_ZCPS || perf_metric == perf_metric_display::PERF_BOTH )

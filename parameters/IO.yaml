@@ -124,7 +124,7 @@ IO:
   performance_metric:
     type: keyword
     allowed: ["none", "mzph", "zcps", "both"]
-    default: "both"
+    default: "none"
     description: >
       Performance metric displayed in info output and written to scalar output.
       Options: "none" (disabled), "mzph" (million zone-cycles per hour),

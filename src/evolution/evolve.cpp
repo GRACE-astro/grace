@@ -458,34 +458,50 @@ void compute_fluxes(
     ) ; 
     #endif 
     //**************************************************************************************************/
-    // loop ranges 
-    auto flux_x_policy = 
+    // loop ranges: extended for mhd (need vbar at faces for emf)
+    auto flux_x_policy_mhd = 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(ngz,0,0),0}
             , {VEC(nx+ngz+1,ny+2*ngz,nz+2*ngz),nq}
         ) ;
-    auto flux_y_policy = 
+    auto flux_y_policy_mhd = 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,ngz,0),0}
             , {VEC(nx+2*ngz,ny+ngz+1,nz+2*ngz),nq}
         ) ;
-    auto flux_z_policy = 
+    auto flux_z_policy_mhd = 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(0,0,ngz),0}
             , {VEC(nx+2*ngz,ny+2*ngz,nz+ngz+1),nq}
+        ) ; 
+    // non-mhd 
+    auto flux_x_policy = 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz+1,ny+ngz,nz+ngz),nq}
+        ) ;
+    auto flux_y_policy = 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz+1,nz+ngz),nq}
+        ) ;
+    auto flux_z_policy = 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz+1),nq}
         ) ;
     //**************************************************************************************************/
     //**************************************************************************************************/
     // compute x flux 
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux")
-                , flux_x_policy 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_grmhd_x_flux")
+                , flux_x_policy_mhd 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_x_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact) ;
         #endif 
     }) ; 
     #ifdef GRACE_ENABLE_M1
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_x_flux_M1")
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_M1_x_flux")
                 , flux_x_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
          m1_eq_system.template compute_x_flux<slope_limited_reconstructor_t<MCbeta>,0>(
@@ -502,16 +518,16 @@ void compute_fluxes(
     }) ; 
     #endif 
     //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux")
-                , flux_y_policy 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_grmhd_y_flux")
+                , flux_y_policy_mhd 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_y_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
         #endif 
     }) ;
     #ifdef GRACE_ENABLE_M1
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_y_flux_M1")
-                , flux_x_policy 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_M1_y_flux")
+                , flux_y_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
          m1_eq_system.template compute_y_flux<slope_limited_reconstructor_t<MCbeta>,0>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
@@ -527,16 +543,16 @@ void compute_fluxes(
     }) ; 
     #endif 
     //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux")
-                , flux_z_policy 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_grmhd_z_flux")
+                , flux_z_policy_mhd 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
         #ifndef GRACE_FREEZE_HYDRO
         grmhd_eq_system.template compute_z_flux<recon_t>(q, VEC(i,j,k), fluxes, vbar, dx, dt, dtfact);
         #endif 
     }) ; 
     #ifdef GRACE_ENABLE_M1
-    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_z_flux_M1")
-                , flux_x_policy 
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "compute_M1_z_flux")
+                , flux_z_policy 
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) {
          m1_eq_system.template compute_z_flux<slope_limited_reconstructor_t<MCbeta>,0>(
             q, VEC(i,j,k), fluxes, vbar, dx, t, dtfact
