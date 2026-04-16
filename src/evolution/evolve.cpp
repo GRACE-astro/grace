@@ -1173,21 +1173,40 @@ void update_fd(
     //**************************************************************************************************/
     z4c_system_t z4c_eq_system(old_state,aux,old_stag_state) ;
     //**************************************************************************************************/
-    auto advance_policy =
-    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+    // Launch bounds: the advective kernel is bandwidth-bound with a small
+    // register footprint, so we ask for high occupancy.  The curvature
+    // kernel is heavily register-pressured and benefits from the compiler
+    // allocating more registers per thread at the cost of occupancy.
+    //
+    // Override per-architecture via compile flags if needed.
+    #ifndef GRACE_Z4C_ADV_LB
+      #define GRACE_Z4C_ADV_LB  Kokkos::LaunchBounds<256, 4>
+    #endif
+    #ifndef GRACE_Z4C_CURV_LB
+      #define GRACE_Z4C_CURV_LB Kokkos::LaunchBounds<128, 1>
+    #endif
+    using adv_policy_t =
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_ADV_LB > ;
+    using curv_policy_t =
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_CURV_LB > ;
+    adv_policy_t advective_policy (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
+        ) ;
+    curv_policy_t curvature_policy (
               {VEC(ngz,ngz,ngz),0}
             , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
         ) ;
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_advective_update")
-                , advance_policy
+                , advective_policy
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
                     z4c_eq_system.compute_advective_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
                 }) ;
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_curvature_update")
-                , advance_policy
+                , curvature_policy
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
                     z4c_eq_system.compute_curvature_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
