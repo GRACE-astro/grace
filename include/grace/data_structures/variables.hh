@@ -147,6 +147,22 @@ public:
     GRACE_ALWAYS_INLINE flux_array_t& 
     getfluxesarray() { return _fluxes ; }
     //*****************************************************************************************************
+    #ifdef GRACE_GRMHD_USE_GS 
+    /**
+     * @brief Get the cell centered electric field 
+     * 
+     * @return The cell centered electric field.
+     */
+    GRACE_ALWAYS_INLINE var_array_t& 
+    getecarray() { return _Ecenter ; }
+    /**
+     * @brief Get the face-staggered electric field 
+     * 
+     * @return The face-staggered electric field.
+     */
+    GRACE_ALWAYS_INLINE flux_array_t& 
+    getefarray() { return _Eface ; }
+    #else 
     /**
      * @brief Get the fluxes vector 
      * 
@@ -155,6 +171,7 @@ public:
      */
     GRACE_ALWAYS_INLINE flux_array_t& 
     getvbararray() { return _vbar ; }
+    #endif 
     //*****************************************************************************************************
     /**
      * @brief Get the EMF vector 
@@ -217,7 +234,12 @@ private:
     staggered_variable_arrays_t   _staggered_vars_p ; //!< Staggered scratch state
     std::vector<staggered_variable_arrays_t> _stag_staging_buffer ; //!< Additional storage for timestepper 
     flux_array_t   _fluxes              ; //!< Fluxes for time evolution.
+    #ifdef GRACE_GRMHD_USE_GS 
+    var_array_t  _Ecenter ; //!< Cell centered E field 
+    flux_array_t _Eface   ; //!< Face staggered E field
+    #else 
     flux_array_t   _vbar              ; //!< Fluxes for time evolution.
+    #endif 
     emf_array_t   _emf                  ; //!< EMF for time evolution of ideal MHD.
     //*****************************************************************************************************
     friend class utils::singleton_holder<variable_list_impl_t, memory::default_create> ; //!< Give access 

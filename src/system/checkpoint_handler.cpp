@@ -26,6 +26,7 @@
  */
 
 #include <grace/system/checkpoint_handler.hh>
+#include <cstring>
 
 #include <grace_config.h>
 #include <grace/utils/grace_utils.hh>
@@ -894,6 +895,8 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
             HDF5_CALL(err, H5Aread(attr_id, atype_id, name.data()));
             HDF5_CALL(err, H5Tclose(atype_id));
             HDF5_CALL(err, H5Aclose(attr_id));
+            // H5Tget_size includes the null terminator for H5T_STR_NULLTERM strings
+            name.resize(std::strlen(name.c_str()));
         }
 
         // Read kind attribute -- you need to write this in write_co_dset too
@@ -907,6 +910,8 @@ void checkpoint_handler_impl_t::load_checkpoint(int64_t iter )
             HDF5_CALL(err, H5Aread(attr_id, atype_id, kind.data()));
             HDF5_CALL(err, H5Tclose(atype_id));
             HDF5_CALL(err, H5Aclose(attr_id));
+            // H5Tget_size includes the null terminator for H5T_STR_NULLTERM strings
+            kind.resize(std::strlen(kind.c_str()));
         }
 
         if (kind=="ns") {

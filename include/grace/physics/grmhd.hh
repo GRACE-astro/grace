@@ -541,7 +541,7 @@ struct grmhd_equations_system_t
             ,      const int k)
             , const int64_t q 
             , grace::flux_array_t const fluxes
-            , grace::flux_array_t const vbar
+            , grace::flux_array_t const vbar /* this is actually eface for GS */
             , grace::scalar_array_t<GRACE_NSPACEDIM> const dx
             , double const dt 
             , double const dtfact ) const 
@@ -628,7 +628,11 @@ struct grmhd_equations_system_t
         }
         // Compute HLL fluxes
         grmhd_cons_array_t f_HLL ; 
+        #ifdef GRACE_GRMHD_USE_GS 
+        std::array<double,2> vb_HLL  ;
+        #else 
         std::array<double,4> vb_HLL ; 
+        #endif 
         compute_mhd_fluxes<idir,true>( primL, primR, metric_face, f_HLL, vb_HLL, 1, 1) ; 
         #ifdef GRMHD_USE_PPLIM
         /***********************************************************************/
@@ -653,7 +657,11 @@ struct grmhd_equations_system_t
         /*                      Compute LLF flux                               */
         /***********************************************************************/
         grmhd_cons_array_t f_LLF ;
-	    std::array<double,4> dummy ; 
+	    #ifdef GRACE_GRMHD_USE_GS 
+        std::array<double,2> dummy  ;
+        #else 
+        std::array<double,4> dummy ; 
+        #endif 
         compute_mhd_fluxes<idir,false>( primL, primR, metric_face, f_LLF, dummy, 1., 1.) ;
         /***********************************************************************/
         // Get conserves 
@@ -727,11 +735,17 @@ struct grmhd_equations_system_t
         fluxes(VEC(i,j,k),SZ_,idir,q)          = f_HLL[STZL] ;
         /***********************************************************************/
         #endif
+        #ifdef GRACE_GRMHD_USE_GS 
+        // fill emf array 
+        vbar(VEC(i,j,k),0,idir,q) = vb_HLL[0] ; 
+        vbar(VEC(i,j,k),1,idir,q) = vb_HLL[1] ; 
+        #else 
 	    // fill vbar and cmin/max for later
         vbar(VEC(i,j,k),0,idir,q) = vb_HLL[0] ; 
         vbar(VEC(i,j,k),1,idir,q) = vb_HLL[1] ; 
         vbar(VEC(i,j,k),2,idir,q) = vb_HLL[2] ; 
         vbar(VEC(i,j,k),3,idir,q) = vb_HLL[3] ; 
+        #endif 
     }
     template< size_t idir
             , bool recompute_cp_cm >
@@ -740,7 +754,11 @@ struct grmhd_equations_system_t
                            , grmhd_prims_array_t& primR 
                            , metric_array_t const& metric_face 
                            , grmhd_cons_array_t& f
+                           #ifdef GRACE_GRMHD_USE_GS
+                           , std::array<double,2>& emf
+                           #else 
                            , std::array<double,4>& vbar
+                           #endif 
                            , double const cmin_loc = 1
                            , double const cmax_loc = 1 ) const 
     {
@@ -826,10 +844,12 @@ struct grmhd_equations_system_t
             cmax =  Kokkos::max(0., Kokkos::max(cpl,cpr)) ; 
             /* Add some diffusion in weakly hyperbolic limit */
             if( cmin < 1e-12 and cmax < 1e-12 ) { cmin=1; cmax=1; }
+            #ifndef GRACE_GRMHD_USE_GS
             /* Store cmin/cmax and vtilde for EMF            */
             vbar[0] = solver(vtildel[jk[idir][0]],vtilder[jk[idir][0]],0,0,cmin,cmax) ;
             vbar[1] = solver(vtildel[jk[idir][1]],vtilder[jk[idir][1]],0,0,cmin,cmax) ; 
             vbar[2] = cmin; vbar[3] = cmax ; 
+            #endif
         } else {
             cmin = cmin_loc ; 
             cmax = cmax_loc ; 
@@ -870,6 +890,39 @@ struct grmhd_equations_system_t
         /***********************************************************************/
         f[YESL] = sqrtg * solver(yel*fdl,yer*fdr,yel*densl,yer*densr,cmin,cmax) ;
         /***********************************************************************/
+        #ifdef GRACE_GRMHD_USE_GS 
+        if constexpr ( idir == 0 ) {
+            // cross directions are y, z
+            // Ey = Fx(Bz)
+            // Ez = - Fx(By)
+            double Fbzl = - Bl[0] * vtildel[2] + Bl[2] * vtildel[0] ; 
+            double Fbzr = - Br[0] * vtilder[2] + Br[2] * vtilder[0] ; 
+            emf[0] = sqrtg * solver(Fbzl, Fbzr, Bl[2], Br[2], cmin,cmax) ; 
+            double Fbyl = - Bl[0] * vtildel[1] + Bl[1] * vtildel[0] ;
+            double Fbyr = - Br[0] * vtilder[1] + Br[1] * vtilder[0] ;
+            emf[1] = - sqrtg * solver(Fbyl, Fbyr, Bl[1], Br[1], cmin,cmax) ; 
+        } else if constexpr (idir == 1) {
+            // cross directions are x, z
+            // Ex = - Fy(Bz)
+            // Ez = Fy(Bx)
+            double Fbzl = - Bl[1] * vtildel[2] + Bl[2] * vtildel[1] ;
+            double Fbzr = - Br[1] * vtilder[2] + Br[2] * vtilder[1] ; 
+            emf[0] = - sqrtg * solver(Fbzl,Fbzr,Bl[2],Br[2],cmin,cmax) ; 
+            double Fbxl = Bl[0] * vtildel[1] - Bl[1] * vtildel[0] ;
+            double Fbxr = Br[0] * vtilder[1] - Br[1] * vtilder[0] ;
+            emf[1] = sqrtg * solver(Fbxl,Fbxr,Bl[0],Br[0],cmin,cmax) ; 
+        } else {
+            // cross directions are x, y
+            // Ex = Fz(By)
+            // Ey = - Fz(Bx)
+            double Fbyl = Bl[1] * vtildel[2] - Bl[2] * vtildel[1] ; 
+            double Fbyr = Br[1] * vtilder[2] - Br[2] * vtilder[1] ; 
+            emf[0] = sqrtg * solver(Fbyl,Fbyr,Bl[1],Br[1],cmin,cmax) ; 
+            double Fbxl = Bl[0] * vtildel[2] - Bl[2] * vtildel[0] ;
+            double Fbxr = Br[0] * vtilder[2] - Br[2] * vtilder[0] ; 
+            emf[1] = - sqrtg * solver(Fbxl,Fbxr,Bl[0],Br[0],cmin,cmax) ; 
+        }
+        #endif 
     }
     /***********************************************************************/
     /***********************************************************************/

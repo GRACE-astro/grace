@@ -127,7 +127,6 @@ void evolve_impl() {
     auto& dx     = grace::variable_list::get().getspacings() ;  
     auto& fluxes  = grace::variable_list::get().getfluxesarray() ; 
     auto& emf  = grace::variable_list::get().getemfarray() ; 
-    auto& vbar  = grace::variable_list::get().getvbararray() ;
 
     auto nvars_face  = sstate.face_staggered_fields_x.extent(GRACE_NSPACEDIM) ;
     auto nvars_cc  = state.extent(GRACE_NSPACEDIM) ;
@@ -414,7 +413,11 @@ void compute_fluxes(
     auto& dx     = grace::variable_list::get().getspacings() ;  
     auto& fluxes  = grace::variable_list::get().getfluxesarray() ; 
     auto& aux     = grace::variable_list::get().getaux()     ; 
+    #ifdef GRACE_GRMHD_USE_GS
+    auto& vbar  = grace::variable_list::get().getefarray() ;
+    #else 
     auto& vbar  = grace::variable_list::get().getvbararray() ;
+    #endif 
     //**************************************************************************************************/
     // construct grmhd object 
     using recon_t = GRACE_RECONSTRUCTION_T ; 
@@ -600,7 +603,202 @@ void compute_fluxes(
     ) ; 
     #endif 
 }
+#ifdef GRACE_GRMHD_USE_GS
+void compute_emfs(
+    double const t, double const dt, double const dtfact 
+    , var_array_t& new_state 
+    , var_array_t& old_state 
+    , staggered_variable_arrays_t & new_stag_state 
+    , staggered_variable_arrays_t & old_stag_state 
+) 
+{
+    using namespace grace ; 
+    using namespace Kokkos ; 
+    DECLARE_GRID_EXTENTS ; 
+    //**************************************************************************************************/
+    // fetch some stuff 
+    using recon_t = GRACE_RECONSTRUCTION_T ; 
+    auto& idx     = grace::variable_list::get().getinvspacings() ;
+    auto& fluxes = grace::variable_list::get().getfluxesarray() ;
+    auto& Eface  = grace::variable_list::get().getefarray() ;
+    auto& Ecenter  = grace::variable_list::get().getecarray() ;
+    auto& emf  = grace::variable_list::get().getemfarray() ;
+    //**************************************************************************************************/
+    // loop ranges 
+    auto emf_policy_x = 
+    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+            {VEC(ngz,ngz,ngz),0}
+        , {VEC(nx+ngz,ny+ngz+1,nz+ngz+1),nq}
+    ) ;
+    auto emf_policy_y = 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz+1,ny+ngz,nz+ngz+1),nq}
+    ) ;
+    auto emf_policy_z = 
+        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz+1,ny+ngz+1,nz+ngz),nq}
+    ) ;
+    //**************************************************************************************************/
+    //**************************************************************************************************/
+    // compute EMF -- x (stag yz)
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "EMF_X")
+                , emf_policy_x 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        // Here direction 0 is y and direction 1 is z 
+        // meaning that South-North is -+ z and West-East is -+ y
+        double Exzf  = Eface(i,j,k,0,2,q)    ;
+        double Exzfm = Eface(i,j-1,k,0,2,q)  ;
+        double Exyf  = Eface(i,j,k,0,1,q)    ;
+        double Exyfm = Eface(i,j,k-1,0,1,q)  ;
+        // and centered 
+        double ExNE = Ecenter(i,j,k,0,q)     ; 
+        double ExNW = Ecenter(i,j-1,k,0,q)   ; 
+        double ExSE = Ecenter(i,j,k-1,0,q)   ; 
+        double ExSW = Ecenter(i,j-1,k-1,0,q) ;
+        // first compute arithmetic average 
+        double Eavg = 0.25 * ( 
+            Exzf + Exzfm
+          + Exyf + Exyfm    
+        ) ;
+        // first derivative piece:
+        // dE/dz (north south)
+        // get signs 
+        double Sy  = Kokkos::copysign(1.,fluxes(i,j,k,DENS_,1,q))   ; 
+        double Sym = Kokkos::copysign(1.,fluxes(i,j,k-1,DENS_,1,q)) ; 
+        // Get "North"
+        double dEdzN = (1-Sy) * (ExNE-Exzf)
+                     + (1+Sy) * (ExNW-Exzfm) ; 
+        // "South"
+        double dEdzS = (1-Sym) * (Exzf-ExSE) 
+                     + (1+Sym) * (Exzfm-ExSW) ; 
+        // Assemble 
+        double dEdz = 1./8. * (dEdzS - dEdzN) ; 
+        // second derivative piece 
+        // Other signs 
+        double Sz  = Kokkos::copysign(1.,fluxes(i,j,k,DENS_,2,q)) ; 
+        double Szm = Kokkos::copysign(1.,fluxes(i,j-1,k,DENS_,2,q)) ; 
+        // Get "East"
+        double dEdyE = (1-Sz) * (ExNE - Exyf)
+                     + (1+Sz) * (ExSE - Exyfm) ; 
+        // "West"
+        double dEdyW = (1-Szm) * (Exyf  - ExNW) 
+                     + (1+Szm) * (Exyfm - ExSW) ; 
+        // Assemble 
+        double dEdy = 1./8. * (dEdyW - dEdyE) ; 
+        // finally 
+        emf(i,j,k,0,q) = Eavg + dEdz + dEdy ; 
+    } );
+    //**************************************************************************************************/
+    // compute EMF -- y (stag xz)
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "EMF_Y")
+                , emf_policy_y 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        // Here direction 0 is x and direction 1 is z 
+        // meaning that South-North is -+ z and West-East is -+ x 
+        // copy locally 
+        double Eyzf  = Eface(i,j,k,1,2,q)    ;
+        double Eyzfm = Eface(i-1,j,k,1,2,q)  ;
+        double Eyxf  = Eface(i,j,k,0,0,q)    ;
+        double Eyxfm = Eface(i,j,k-1,0,0,q)  ;
+        // and centered 
+        double EyNE = Ecenter(i,j,k,1,q)     ; 
+        double EyNW = Ecenter(i-1,j,k,1,q)   ; 
+        double EySE = Ecenter(i,j,k-1,1,q)   ; 
+        double EySW = Ecenter(i-1,j,k-1,1,q) ; 
+        // first compute arithmetic average 
+        double Eavg = 0.25 * ( 
+            Eyzf + Eyzfm
+          + Eyxf + Eyxfm    
+        ) ;
+        // first derivative piece:
+        // dE/dz (north south)
+        // get signs 
+        double Sx  = Kokkos::copysign(1.,fluxes(i,j,k,DENS_,0,q)) ; 
+        double Sxm = Kokkos::copysign(1.,fluxes(i,j,k-1,DENS_,0,q)) ; 
+        // Get "North"
+        double dEdzN = (1-Sx) * (EyNE-Eyzf)
+                     + (1+Sx) * (EyNW-Eyzfm) ; 
+        // "South"
+        double dEdzS = (1-Sxm) * (Eyzf-EySE) 
+                     + (1+Sxm) * (Eyzfm-EySW) ; 
+        // Assemble (Avengers!)
+        double dEdz = 1./8. * (dEdzS - dEdzN) ; 
+        // Other signs 
+        double Sz  = Kokkos::copysign(1.,fluxes(i,j,k,DENS_,2,q)) ; 
+        double Szm = Kokkos::copysign(1.,fluxes(i-1,j,k,DENS_,2,q)) ; 
+        // "East"
+        double dEdxE = (1-Sz) * (EyNE - Eyxf)
+                     + (1+Sz) * (EySE - Eyxfm) ; 
+        // "West"
+        double dEdxW = (1-Szm) * (Eyxf  - EyNW) 
+                     + (1+Szm) * (Eyxfm - EySW) ; 
+        // Assemble 
+        double dEdx = 1./8. * (dEdxW - dEdxE) ; 
+        // finally 
+        emf(i,j,k,1,q) = Eavg + dEdz + dEdx ; 
 
+    } ) ; 
+    //**************************************************************************************************/
+    // compute EMF -- z (stag xy)
+    parallel_for( GRACE_EXECUTION_TAG("EVOL", "EMF_Z")
+                , emf_policy_z 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+    {
+        // E^z_{i-1/2, j-1/2, k} = 1/4 ( avg E from faces )
+        //                       + (1+Sxf)/2 (Fx_{yf} - F_x)
+        // copy locally 
+        double Ezyf  = Eface(i,j,k,1,1,q)    ;
+        double Ezyfm = Eface(i-1,j,k,1,1,q)  ;
+        double Ezxf  = Eface(i,j,k,1,0,q)    ;
+        double Ezxfm = Eface(i,j-1,k,1,0,q)  ;
+        // and centered 
+        double EzNE = Ecenter(i,j,k,2,q)     ; 
+        double EzNW = Ecenter(i-1,j,k,2,q)   ; 
+        double EzSE = Ecenter(i,j-1,k,2,q)   ; 
+        double EzSW = Ecenter(i-1,j-1,k,2,q) ; 
+        // first compute arithmetic average 
+        double Eavg = 0.25 * ( 
+            Ezyf + Ezyfm   // E_z(i,j-1/2,k) + E_z(i-1,j-1/2,k)
+          + Ezxf + Ezxfm   // E_z(i-1/2,j,k) + E_z(i-1/2,j-1,k) 
+        ) ; 
+
+        // then we need the derivatives 
+        // get the sign of vbar at x face 
+        auto Sx  = Kokkos::copysign(1.0, fluxes(i,j,k,DENS_,0,q))   ; 
+        auto Sxm = Kokkos::copysign(1.0, fluxes(i,j-1,k,DENS_,0,q)) ;
+        // first derivative term  
+        // "north"
+        double dEdyN =  (1.-Sx) * ( EzNE - Ezyf  )    // select if v < 0
+                     +  (1.+Sx) * ( EzNW - Ezyfm ) ;  // select if v > 0 
+        // "south"
+        double dEdyS =  (1.-Sxm) * ( Ezyf  - EzSE )
+                     +  (1.+Sxm) * ( Ezyfm - EzSW ) ; 
+        double dEdy  = 1./ 8. * ( dEdyS - dEdyN ) ; 
+        // Get the sign of vbar at y face 
+        auto Sy  = Kokkos::copysign(1.0, fluxes(i,j,k,DENS_,1,q))   ; 
+        auto Sym = Kokkos::copysign(1.0, fluxes(i-1,j,k,DENS_,1,q))   ; 
+        // second derivative term 
+        // "east"
+        double dEdxE = (1-Sy) * ( EzNE - Ezxf  ) 
+                     + (1+Sy) * ( EzSE - Ezxfm ) ;
+        // "west" 
+        double dEdxW = (1-Sym) * ( Ezxf  - EzNW  ) 
+                     + (1+Sym) * ( Ezxfm - EzSW ) ;
+        // combine 
+        double dEdx = 1./8. * ( dEdxW - dEdxE ) ; 
+        
+        // finally 
+        emf(i,j,k,2,q) = Eavg + dEdy + dEdx ; 
+
+    } ) ;
+    //**************************************************************************************************/
+    // all done! 
+}
+#else 
 void compute_emfs(
     double const t, double const dt, double const dtfact 
     , var_array_t& new_state 
@@ -811,6 +1009,7 @@ void compute_emfs(
     Kokkos::fence() ; 
     //**************************************************************************************************/
 }
+#endif 
 template< typename eos_t >
 void add_fluxes_and_source_terms(
     double const t, double const dt, double const dtfact 
