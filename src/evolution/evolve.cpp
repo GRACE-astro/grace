@@ -1173,27 +1173,55 @@ void update_fd(
     //**************************************************************************************************/
     z4c_system_t z4c_eq_system(old_state,aux,old_stag_state) ;
     //**************************************************************************************************/
-    // No explicit launch bounds for now: a too-tight LaunchBounds (in particular
-    // a MaxThreadsPerBlock smaller than the policy's default tile-product) lets
-    // hipcc emit a kernel whose launch the runtime silently rejects, leaving
-    // the kernel a no-op while reporting a tiny runtime in the trace.  If we
-    // re-introduce LaunchBounds, also set explicit Tile<...> so the policy's
-    // block size matches the bound.
-    auto advance_policy =
-    MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+    // Launch-bounds note: a too-tight LaunchBounds (in particular a
+    // MaxThreadsPerBlock smaller than the policy's tile-product) lets hipcc
+    // emit a kernel the runtime silently rejects, leaving the kernel a no-op
+    // while reporting a tiny runtime in the trace.  Always pair LaunchBounds
+    // with an explicit tile whose product equals MaxThreadsPerBlock, and rely
+    // on the post-launch hipGetLastError below to surface any mismatch.
+    //
+    // Defaults below: 256-thread blocks (4 wave64s on MI300A) for both kernels.
+    //   adv:  LaunchBounds<256, 4> — bandwidth-bound, ask for high occupancy
+    //         (4 waves/EU min ≈ 128 VGPR/lane cap, fine for the small footprint).
+    //   curv: LaunchBounds<256, 1> — heavy register pressure, give it the full
+    //         register file (1 wave/EU min ≈ ~512 VGPR/lane cap).
+    //
+    // Override per-architecture via -DGRACE_Z4C_*_LB / -DGRACE_Z4C_*_TILE.
+    #ifndef GRACE_Z4C_ADV_LB
+      #define GRACE_Z4C_ADV_LB  Kokkos::LaunchBounds<256, 4>
+    #endif
+    #ifndef GRACE_Z4C_CURV_LB
+      #define GRACE_Z4C_CURV_LB Kokkos::LaunchBounds<256, 1>
+    #endif
+    using adv_policy_t =
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_ADV_LB > ;
+    using curv_policy_t =
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_Z4C_CURV_LB > ;
+    // Tile chosen so the product = 256 = MaxThreadsPerBlock above.
+    // Shape (16,4,4,1) on LayoutLeft data: one wavefront of 64 lanes covers
+    // 16 contiguous i × 4 j × 1 k = four full 128B cache lines.  q=1 so a
+    // single block never straddles two patches (patches are tens of MB apart
+    // along the last view dim).
+    adv_policy_t advective_policy (
               {VEC(ngz,ngz,ngz),0}
             , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
+            , {VEC(16,4,4),1}
+        ) ;
+    curv_policy_t curvature_policy (
+              {VEC(ngz,ngz,ngz),0}
+            , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
+            , {VEC(16,4,4),1}
         ) ;
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_advective_update")
-                , advance_policy
+                , advective_policy
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
                     z4c_eq_system.compute_advective_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
                 }) ;
     //**************************************************************************************************/
     parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_curvature_update")
-                , advance_policy
+                , curvature_policy
                 , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
                     z4c_eq_system.compute_curvature_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
@@ -1206,7 +1234,7 @@ void update_fd(
     {
         auto _err = hipGetLastError() ;
         if (_err != hipSuccess) {
-            GRACE_ERROR("z4c update kernel launch failed: " << hipGetErrorString(_err)) ;
+            ERROR("z4c update kernel launch failed: " << hipGetErrorString(_err)) ;
         }
     }
     #elif defined(KOKKOS_ENABLE_CUDA)
@@ -1214,7 +1242,7 @@ void update_fd(
     {
         auto _err = cudaGetLastError() ;
         if (_err != cudaSuccess) {
-            GRACE_ERROR("z4c update kernel launch failed: " << cudaGetErrorString(_err)) ;
+            ERROR("z4c update kernel launch failed: " << cudaGetErrorString(_err)) ;
         }
     }
     #endif
