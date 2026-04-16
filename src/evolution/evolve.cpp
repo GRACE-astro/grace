@@ -387,12 +387,13 @@ void evolve_impl() {
     } else {
         ERROR("Unrecognised time-stepper.") ; 
     }
-    Kokkos::deep_copy(state_p,state) ; 
-    grace::deep_copy(sstate_p,sstate) ; 
+    Kokkos::deep_copy(state_p,state) ;
+    grace::deep_copy(sstate_p,sstate) ;
 
-    #ifdef GRACE_ENABLE_Z4C_METRIC
-    compute_constraint_violations() ; 
-    #endif 
+    // Hamiltonian/momentum constraints are now filled in-flight by the
+    // curvature half of the Z4c update, so no separate pass is needed here.
+    // The standalone compute_constraint_violations() entry point is kept
+    // for post-regrid diagnostic refreshes and initial-data setup.
 }
 
 template< typename eos_t >
@@ -1170,20 +1171,27 @@ void update_fd(
     auto& aux     = grace::variable_list::get().getaux()     ; 
     auto dev_coords = grace::coordinate_system::get().get_device_coord_system() ; 
     //**************************************************************************************************/
-    z4c_system_t z4c_eq_system(old_state,aux,old_stag_state) ; 
+    z4c_system_t z4c_eq_system(old_state,aux,old_stag_state) ;
     //**************************************************************************************************/
-    auto advance_policy = 
+    auto advance_policy =
     MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
               {VEC(ngz,ngz,ngz),0}
             , {VEC(nx+ngz,ny+ngz,nz+ngz),nq}
         ) ;
     //**************************************************************************************************/
-    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_update")
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_advective_update")
                 , advance_policy
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q) 
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
                 {
-                    z4c_eq_system.compute_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
-                }) ; 
+                    z4c_eq_system.compute_advective_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
+                }) ;
+    //**************************************************************************************************/
+    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_curvature_update")
+                , advance_policy
+                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
+                {
+                    z4c_eq_system.compute_curvature_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
+                }) ;
     //**************************************************************************************************/
     #elif defined(GRACE_ENABLE_BSSN_METRIC)
     //**************************************************************************************************/

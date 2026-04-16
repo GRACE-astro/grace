@@ -49,19 +49,49 @@ struct fd_evolution_system_t {
     {} 
 
 
-    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
-    compute_update( int const q 
-                  , VEC( int const i 
-                       , int const j 
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_update( int const q
+                  , VEC( int const i
+                       , int const j
                        , int const k)
-                  , grace::scalar_array_t<GRACE_NSPACEDIM> const idx 
-                  , grace::var_array_t const state_new 
-                  , grace::staggered_variable_arrays_t const sstate_new 
-                  , double const dt 
-                  , double const dtfact 
-                  , grace::device_coordinate_system coords ) const 
+                  , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
+                  , grace::var_array_t const state_new
+                  , grace::staggered_variable_arrays_t const sstate_new
+                  , double const dt
+                  , double const dtfact
+                  , grace::device_coordinate_system coords ) const
     {
         return static_cast<EvolSystem_t const*>(this)->compute_update_impl(q,VEC(i,j,k),idx,state_new,sstate_new,dt,dtfact,coords) ;
+    }
+
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_advective_update( int const q
+                            , VEC( int const i
+                                 , int const j
+                                 , int const k)
+                            , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
+                            , grace::var_array_t const state_new
+                            , grace::staggered_variable_arrays_t const sstate_new
+                            , double const dt
+                            , double const dtfact
+                            , grace::device_coordinate_system coords ) const
+    {
+        return static_cast<EvolSystem_t const*>(this)->compute_advective_update_impl(q,VEC(i,j,k),idx,state_new,sstate_new,dt,dtfact,coords) ;
+    }
+
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_curvature_update( int const q
+                            , VEC( int const i
+                                 , int const j
+                                 , int const k)
+                            , grace::scalar_array_t<GRACE_NSPACEDIM> const idx
+                            , grace::var_array_t const state_new
+                            , grace::staggered_variable_arrays_t const sstate_new
+                            , double const dt
+                            , double const dtfact
+                            , grace::device_coordinate_system coords ) const
+    {
+        return static_cast<EvolSystem_t const*>(this)->compute_curvature_update_impl(q,VEC(i,j,k),idx,state_new,sstate_new,dt,dtfact,coords) ;
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE 
