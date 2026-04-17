@@ -689,9 +689,10 @@ struct z4c_system_t
         }
         double k1L = (r>kappa_ad_r) ? k1 * kappa_ad_r/r : k1 ;
 
-        // RHS accumulators
+        // RHS accumulators — Γ̃ and B driver live in
+        // compute_gammatilde_update_impl, not here.
         double dchi, dalp, dtheta, dKhat ;
-        double dgtdd[6], dAtdd[6], dGammat[3], dbetau[3], dBdr[3] ;
+        double dgtdd[6], dAtdd[6], dbetau[3] ;
 
         // state
         double alp{s(ALP_)}, theta{s(THETA_)}, chi{s(CHI_)}, Khat{s(KHAT_)} ;
@@ -705,7 +706,6 @@ struct z4c_system_t
             s(ATXX_), s(ATXY_), s(ATXZ_),
             s(ATYY_), s(ATYZ_), s(ATZZ_)
         } ;
-        double Gammat[3] = {s(GAMMATX_), s(GAMMATY_), s(GAMMATZ_)} ;
 
         double gtuu[6] ;
         z4c_get_inverse_conf_metric(gtdd, 1.0, &gtuu) ;
@@ -734,8 +734,8 @@ struct z4c_system_t
         ) ;
 
         // Load Ricci + second Christoffel from the pre-kernel scratch.
-        // GammatDu is cheap — recompute inline to save one persisted
-        // vector and the associated memory traffic.
+        // GammatDu is only needed by the Γ̃ RHS (own kernel now) — no need
+        // to materialise it here.
         double W2Rdd[6] = {
             cs(RICCI_XX_), cs(RICCI_XY_), cs(RICCI_XZ_),
             cs(RICCI_YY_), cs(RICCI_YZ_), cs(RICCI_ZZ_)
@@ -744,8 +744,6 @@ struct z4c_system_t
         double Gammatudd[18] ;
         #pragma unroll 18
         for (int aa=0; aa<18; ++aa) Gammatudd[aa] = cs(GAMMATU_X_XX_ + aa) ;
-        double GammatDu[3] ;
-        z4c_get_contracted_Christoffel(gtuu, Gammatudd, &GammatDu) ;
 
         // DiDj α
         double W2DiDjalp[6], DiDialp ;
@@ -762,10 +760,11 @@ struct z4c_system_t
             z4c_get_DiDialp(gtuu, W2DiDjalp, &DiDialp) ;
         }
 
-        // matter sources — loaded from scratch (filled by compute_matter_sources_impl)
+        // matter sources — loaded from scratch (filled by
+        // compute_matter_sources_impl).  Si[3] is consumed only by the Γ̃
+        // RHS, which lives in compute_gammatilde_update_impl.
         double const rho    = cs(SRC_RHO_) ;
         double const Strace = cs(SRC_STRACE_) ;
-        double const Si[3]  = {cs(SRC_SX_), cs(SRC_SY_), cs(SRC_SZ_)} ;
         double const Sij[6] = {
             cs(SRC_SXX_), cs(SRC_SXY_), cs(SRC_SXZ_),
             cs(SRC_SYY_), cs(SRC_SYZ_), cs(SRC_SZZ_)
@@ -795,14 +794,109 @@ struct z4c_system_t
         // alpha RHS
         z4c_get_alpha_rhs(alp, Khat, &dalp) ;
 
-        // shift RHS
+        // shift RHS (β̇ = Bdriver).  Γ̃ and B-driver RHS live in
+        // compute_gammatilde_update_impl.
         double Bdriver[3] = {s(BDRIVERX_), s(BDRIVERY_), s(BDRIVERZ_)} ;
         z4c_get_beta_rhs(Bdriver, &dbetau) ;
 
-        // Γ̃ RHS — needs extra centered derivatives and second derivative of β
+        // accumulate into new_state
+        auto n = subview(state_new,i,j,k,ALL(),q) ;
+        double const w = dt*dtfact ;
+        n(CHI_)   += w*dchi   ;
+        n(ALP_)   += w*dalp   ;
+        n(THETA_) += w*dtheta ;
+        n(KHAT_)  += w*dKhat  ;
+        #pragma unroll 6
+        for (int ww=0; ww<6; ++ww) {
+            n(GTXX_+ww) += w*dgtdd[ww] ;
+            n(ATXX_+ww) += w*dAtdd[ww] ;
+        }
+        #pragma unroll 3
+        for (int ww=0; ww<3; ++ww) {
+            n(BETAX_+ww) += w*dbetau[ww] ;
+        }
+
+        // post-RHS algebraic fix-up on g̃ / Ã.  Γ̃ and B are written by a
+        // subsequent kernel; they are untouched by the algebraic fix-up.
+        impose_algebraic_constraints(state_new,i,j,k,q) ;
+    }
+
+    // ---------------------------------------------------------------------
+    // Kernel B3: Γ̃ and B-driver RHS (non-advective).
+    //
+    // Pulled out of compute_curvature_update_impl to retire ddbeta_dx2[18],
+    // dKhat_dx[3], dtheta_dx[3], Si[3], Gammat[3], GammatDu[3], and the
+    // dGammat / dBdr accumulators from that kernel's live set.  Inputs are
+    // gtuu + Atuu (rebuilt locally), Gammatudd + Si from _curv_scratch,
+    // state + the needed centered derivatives.  Must run after the three
+    // pre-kernels.  Order vs compute_curvature_update_impl is free: both
+    // write disjoint field groups in state_new and impose_algebraic touches
+    // only g̃ / Ã.
+    // ---------------------------------------------------------------------
+    void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
+    compute_gammatilde_update_impl( int const q
+                                  , VEC( int const i
+                                       , int const j
+                                       , int const k)
+                                  , grace::scalar_array_t<GRACE_NSPACEDIM> const _idx
+                                  , grace::var_array_t const state_new
+                                  , grace::staggered_variable_arrays_t /*sstate_new*/
+                                  , double const dt
+                                  , double const dtfact
+                                  , grace::device_coordinate_system coords ) const
+    {
+        using namespace Kokkos ;
+        auto s  = subview(this->_state,i,j,k,ALL(),q) ;
+        auto cs = subview(this->_curv_scratch,i,j,k,ALL(),q) ;
+
+        // radius-dependent damping factor for the Γ̃ RHS.
+        double r ;
+        {
+            double xyz[3] ;
+            coords.get_physical_coordinates(i,j,k,q,xyz) ;
+            r = Kokkos::sqrt(SQR(xyz[0])+SQR(xyz[1])+SQR(xyz[2])) ;
+        }
+        double k1L = (r>kappa_ad_r) ? k1 * kappa_ad_r/r : k1 ;
+
+        double alp{s(ALP_)}, chi{s(CHI_)} ;
+        double gtdd[6] = {
+            s(GTXX_), s(GTXY_), s(GTXZ_),
+            s(GTYY_), s(GTYZ_), s(GTZZ_)
+        } ;
+        double Atdd[6] = {
+            s(ATXX_), s(ATXY_), s(ATXZ_),
+            s(ATYY_), s(ATYZ_), s(ATZZ_)
+        } ;
+        double gtuu[6] ;
+        z4c_get_inverse_conf_metric(gtdd, 1.0, &gtuu) ;
+        double Atuu[6] ;
+        z4c_get_Atuu(Atdd, gtuu, &Atuu) ;
+
+        double Gammat[3]  = {s(GAMMATX_),  s(GAMMATY_),  s(GAMMATZ_)}  ;
+        double Bdriver[3] = {s(BDRIVERX_), s(BDRIVERY_), s(BDRIVERZ_)} ;
+
+        // Gammatudd + GammatDu: load from scratch, contract locally.
+        double Gammatudd[18] ;
+        #pragma unroll 18
+        for (int aa=0; aa<18; ++aa) Gammatudd[aa] = cs(GAMMATU_X_XX_ + aa) ;
+        double GammatDu[3] ;
+        z4c_get_contracted_Christoffel(gtuu, Gammatudd, &GammatDu) ;
+
+        // matter momentum source
+        double const Si[3] = {cs(SRC_SX_), cs(SRC_SY_), cs(SRC_SZ_)} ;
+
+        double idx[3] = {_idx(0,q), _idx(1,q), _idx(2,q)} ;
+
+        double dbeta_dx[9] ;
+        fill_deriv_vector(this->_state,i,j,k,BETAX_,q,dbeta_dx,idx[0]) ;
+        double dchi_dx[3], dalp_dx[3] ;
+        fill_deriv_scalar(this->_state,i,j,k,CHI_,q,dchi_dx,idx[0]) ;
+        fill_deriv_scalar(this->_state,i,j,k,ALP_,q,dalp_dx,idx[0]) ;
         double dKhat_dx[3], dtheta_dx[3] ;
         fill_deriv_scalar(this->_state,i,j,k,KHAT_ ,q,dKhat_dx ,idx[0]) ;
         fill_deriv_scalar(this->_state,i,j,k,THETA_,q,dtheta_dx,idx[0]) ;
+
+        double dGammat[3] ;
         {
             double ddbeta_dx2[18] ;
             fill_second_deriv_vector(this->_state,i,j,k,BETAX_,q,ddbeta_dx2,idx[0]) ;
@@ -823,33 +917,17 @@ struct z4c_system_t
             ) ;
         }
 
-        // B driver RHS.  dGammat is the non-advective Γ̃ RHS built above;
-        // dBdr = -η B + nonadv_Γ̃.  (Advective pieces live in Kernel A.)
-        z4c_get_Bdriver_rhs(
-            Bdriver, etaL, dGammat, &dBdr
-        ) ;
+        // B driver RHS: dBdr = -η B + nonadv_Γ̃.
+        double dBdr[3] ;
+        z4c_get_Bdriver_rhs(Bdriver, etaL, dGammat, &dBdr) ;
 
-        // accumulate into new_state
         auto n = subview(state_new,i,j,k,ALL(),q) ;
         double const w = dt*dtfact ;
-        n(CHI_)   += w*dchi   ;
-        n(ALP_)   += w*dalp   ;
-        n(THETA_) += w*dtheta ;
-        n(KHAT_)  += w*dKhat  ;
-        #pragma unroll 6
-        for (int ww=0; ww<6; ++ww) {
-            n(GTXX_+ww) += w*dgtdd[ww] ;
-            n(ATXX_+ww) += w*dAtdd[ww] ;
-        }
         #pragma unroll 3
         for (int ww=0; ww<3; ++ww) {
-            n(BDRIVERX_+ww) += w*dBdr[ww] ;
-            n(BETAX_+ww)    += w*dbetau[ww] ;
             n(GAMMATX_+ww)  += w*dGammat[ww] ;
+            n(BDRIVERX_+ww) += w*dBdr[ww] ;
         }
-
-        // post-RHS algebraic fix-up runs in the last kernel only
-        impose_algebraic_constraints(state_new,i,j,k,q) ;
     }
 
     void GRACE_ALWAYS_INLINE GRACE_HOST_DEVICE
