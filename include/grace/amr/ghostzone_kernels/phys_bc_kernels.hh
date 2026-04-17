@@ -182,7 +182,7 @@ static void get_somm_props(int iv, double *v, double *f0) {
     #endif 
 } 
 
-template< element_kind_t elem_kind, element_kind_t bc_kind, typename view_t >
+template< element_kind_t elem_kind, element_kind_t bc_kind, typename view_t, bool extended = false >
 struct phys_bc_op {
 
     readonly_view_t<std::size_t> qid   ;
@@ -190,12 +190,18 @@ struct phys_bc_op {
     readonly_twod_view_t<int8_t,3> dir ;
     readonly_twod_view_t<double,3> var_refl_fact ;
 
-    readonly_view_t<bc_t> var_bcs      ; 
+    readonly_view_t<bc_t> var_bcs      ;
 
     readonly_twod_view_t<int,3> exloop       ;
     readonly_twod_view_t<int,3> offloop      ;
-    
-    view_t data, data_p ; 
+
+    // Guard mask for the fused FACE_EXT kernel.  Bit layout per quad:
+    //   0..3 : adjacent type=FACE edges (f2e ordering: A-lo, A-hi, B-lo, B-hi)
+    //   4..7 : adjacent type=FACE corners (f2c ordering: AloBlo, AhiBlo, AloBhi, AhiBhi)
+    // Unused (empty view) when `extended == false`.
+    readonly_view_t<uint8_t> guard_mask ;
+
+    view_t data, data_p ;
 
     outflow_bc_t outflow_kernel ;
     extrap_bc_t<3> extrap_kernel ; 
@@ -237,19 +243,21 @@ struct phys_bc_op {
 
     phys_bc_op(
         view_t _data, view_t _data_p, scalar_array_t<GRACE_NSPACEDIM> _dx, device_coordinate_system _coords,
-        Kokkos::View<size_t*> _qid, 
-        Kokkos::View<uint8_t*> _eid, 
-        Kokkos::View<int8_t*[3]> _dir, 
+        Kokkos::View<size_t*> _qid,
+        Kokkos::View<uint8_t*> _eid,
+        Kokkos::View<int8_t*[3]> _dir,
         Kokkos::View<int*[3]> _ext,
-        Kokkos::View<int*[3]> _off_l, 
-        Kokkos::View<double*[3]> _var_rfact,  
-        Kokkos::View<bc_t*> _var_bcs, 
-         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, size_t _nv, bool _is_cbuf, var_staggering_t _stag, bool _rx, bool _ry, bool _rz
-    ) : qid(_qid),  eid(_eid), dir(_dir), var_refl_fact(_var_rfact), var_bcs(_var_bcs), exloop(_ext), offloop(_off_l), dx(_dx), coords(_coords),
+        Kokkos::View<int*[3]> _off_l,
+        Kokkos::View<double*[3]> _var_rfact,
+        Kokkos::View<bc_t*> _var_bcs,
+         VEC(size_t _nx, size_t _ny, size_t _nz), size_t _ngz, size_t _nv, bool _is_cbuf, var_staggering_t _stag, bool _rx, bool _ry, bool _rz,
+        Kokkos::View<uint8_t*> _guard_mask = Kokkos::View<uint8_t*>{}
+    ) : qid(_qid),  eid(_eid), dir(_dir), var_refl_fact(_var_rfact), var_bcs(_var_bcs), exloop(_ext), offloop(_off_l),
+        guard_mask(_guard_mask), dx(_dx), coords(_coords),
         data(_data), data_p(_data_p),
         nx(_nx), ny(_ny), nz(_nz), ngz(_ngz), nv(_nv), is_cbuf(_is_cbuf), stag(_stag), rx(_rx), ry(_ry), rz(_rz)
     {
-        outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ; sommerfeld_kernel = sommerfeld_bc_t{} ; reflect_kernel = reflect_bc_t{} ; 
+        outflow_kernel = outflow_bc_t{} ; extrap_kernel = extrap_bc_t<3>{} ; sommerfeld_kernel = sommerfeld_bc_t{} ; reflect_kernel = reflect_bc_t{} ;
     }
 
     KOKKOS_INLINE_FUNCTION 
@@ -263,12 +271,12 @@ struct phys_bc_op {
 
             lmax = lmin + ngz;
             extent = ngz ; 
-        } else if constexpr ((elem_kind == element_kind_t::EDGE) && (bc_kind == element_kind_t::FACE)) { 
-            // supercalifragilistichespiralidoso 
-            if(eid/4 == dir_idx) { 
+        } else if constexpr ((elem_kind == element_kind_t::EDGE) && (bc_kind == element_kind_t::FACE)) {
+            // supercalifragilistichespiralidoso
+            if(eid/4 == dir_idx) {
                 // along-edge -> full sweep
                 lmin = ngz; lmax = n + ngz; idir = +1;
-                extent = n ; 
+                extent = n ;
             } else {
                 // perpendicular -> ghost only
                 if(eid < 4) {          // X-axis edges
@@ -279,12 +287,17 @@ struct phys_bc_op {
                     lmin = ((eid>>dir_idx)&1) ? n + ngz : 0;
                 }
                 lmax = lmin + ngz;
-                extent = ngz ; 
+                extent = ngz ;
             }
 
+        } else if constexpr (extended && (elem_kind == element_kind_t::FACE) && (bc_kind == element_kind_t::FACE)) {
+            // FACE_EXT: extend in-face sweep to cover adjacent edge/corner ghost
+            // regions.  Guard mask decides per-cell whether to apply the BC.
+            lmin = 0; lmax = n + 2 * ngz;
+            extent = n + 2 * ngz;
         } else {
             lmin = ngz; lmax = n + ngz ;
-            extent = n ; 
+            extent = n ;
         }
     }
     
@@ -511,25 +524,53 @@ struct phys_bc_op {
         // anything in edges: 1 
         // corner: all serial 
         if constexpr (bc_kind == element_kind_t::FACE) {
-            TeamThreadMDRange<Rank<2>, team_handle_t> 
-                range(team, extents[pdim[0]], extents[pdim[1]]) ; 
+            TeamThreadMDRange<Rank<2>, team_handle_t>
+                range(team, extents[pdim[0]], extents[pdim[1]]) ;
             parallel_for(
                 range,
                 [=,this] ( int i, int j ) {
-                    int ijk[3] ; 
-                    ijk[pdim[0]] = lmin[pdim[0]] + idir[pdim[0]] * i ; 
-                    ijk[pdim[1]] = lmin[pdim[1]] + idir[pdim[1]] * j ; 
+                    int ijk[3] ;
+                    ijk[pdim[0]] = lmin[pdim[0]] + idir[pdim[0]] * i ;
+                    ijk[pdim[1]] = lmin[pdim[1]] + idir[pdim[1]] * j ;
+                    if constexpr (extended && (elem_kind == element_kind_t::FACE)) {
+                        // Classify position along each in-face axis:
+                        //   0 = low-ghost, 1 = interior, 2 = high-ghost.
+                        uint8_t const mask = guard_mask(iq);
+                        size_t const _ncells[3] = {nx, ny, nz};
+                        size_t const nA = _ncells[pdim[0]];
+                        size_t const nB = _ncells[pdim[1]];
+                        int const pA = ijk[pdim[0]];
+                        int const pB = ijk[pdim[1]];
+                        int const clsA = (pA < (int)ngz) ? 0 : ((pA >= (int)(nA + ngz)) ? 2 : 1);
+                        int const clsB = (pB < (int)ngz) ? 0 : ((pB >= (int)(nB + ngz)) ? 2 : 1);
+                        if (clsA != 1 || clsB != 1) {
+                            int bit;
+                            if (clsA == 1) {
+                                // edge at B-boundary
+                                bit = (clsB == 0) ? 2 : 3;
+                            } else if (clsB == 1) {
+                                // edge at A-boundary
+                                bit = (clsA == 0) ? 0 : 1;
+                            } else {
+                                // corner: f2c order is {AloBlo, AhiBlo, AloBhi, AhiBhi}
+                                int const aHi = (clsA == 2) ? 1 : 0;
+                                int const bHi = (clsB == 2) ? 1 : 0;
+                                bit = 4 + (bHi << 1) + aHi;
+                            }
+                            if (!((mask >> bit) & 1)) return;
+                        }
+                    }
                     for( int k=0; k<extents[npdim[0]]; ++k) {
                         ijk[npdim[0]] = lmin[npdim[0]]+ idir[npdim[0]] * k ;
                         for( int iv=0; iv<nv; ++iv) {
-                            apply_bc_impl(iv,ijk,_dir,_qid) ; 
+                            apply_bc_impl(iv,ijk,_dir,_qid) ;
                         }
                         #ifdef GRACE_ENABLE_Z4C_METRIC
-                        if (stag==var_staggering_t::STAG_CENTER) impose_algebraic_constraintz_z4c(ijk,_qid) ; 
-                        #endif 
+                        if (stag==var_staggering_t::STAG_CENTER) impose_algebraic_constraintz_z4c(ijk,_qid) ;
+                        #endif
                     }
-                } 
-            ) ; 
+                }
+            ) ;
 
         } else if constexpr ( bc_kind == element_kind_t::EDGE ) {
             parallel_for(

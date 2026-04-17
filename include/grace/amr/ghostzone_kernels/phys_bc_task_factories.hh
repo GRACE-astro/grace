@@ -158,6 +158,91 @@ make_gpu_phys_bc_task(
     return tid; 
 }
 
+// Fused FACE_EXT kernel: handles (FACE-FACE) + absorbed (EDGE-FACE of type=FACE)
+// + absorbed (CORNER-FACE of type=FACE) in a single launch.  The per-quad
+// `guard_mask_h` decides which adjacent edge/corner regions are written by
+// extending the face-sweep; bits are laid out per `phys_bc_op::guard_mask`.
+template< var_staggering_t stag >
+task_id_t
+make_gpu_phys_bc_face_ext_task(
+    std::vector<size_t> const& qid_h,
+    std::vector<uint8_t> const& eid_h,
+    std::vector<std::array<int8_t,3>> const& dir_h,
+    std::vector<uint8_t> const& guard_mask_h,
+    std::unordered_set<task_id_t> const& deps,
+    Kokkos::View<bc_t*> var_bc,
+    Kokkos::View<double*[3]> var_refl,
+    device_stream_t& stream,
+    task_id_t& task_counter,
+    grace::var_array_t data_array,
+    size_t nx, size_t ny, size_t nz, size_t nv, size_t ngz,
+    std::vector<std::unique_ptr<task_t>>& task_list
+)
+{
+    auto& idx = grace::variable_list::get().getinvspacings() ;
+    auto coords = grace::coordinate_system::get().get_device_coord_system();
+
+    bool rx = get_param<bool>("amr","reflection_symmetries", "x") ;
+    bool ry = get_param<bool>("amr","reflection_symmetries", "y") ;
+    bool rz = get_param<bool>("amr","reflection_symmetries", "z") ;
+
+    GRACE_TRACE("Registering phys-bc face-ext task (tid {}) number of faces {} staggering {}",
+        task_counter, qid_h.size(), static_cast<int>(stag)) ;
+
+    Kokkos::View<size_t*> qid_d{"qid_ext", qid_h.size()};
+    Kokkos::View<uint8_t*> eid_d{"eid_ext", qid_h.size()} ;
+    Kokkos::View<int8_t*[3]> dir_d{"dir_ext", qid_h.size()} ;
+    Kokkos::View<int*[3]> ext_d{"extension_ext", qid_h.size()} ;   // always zero
+    Kokkos::View<int*[3]> off_d{"offset_ext", qid_h.size()} ;      // always zero
+    Kokkos::View<uint8_t*> guard_d{"guard_mask", qid_h.size()} ;
+
+    grace::deep_copy_vec_to_view(qid_d, qid_h) ;
+    grace::deep_copy_vec_to_view(eid_d, eid_h) ;
+    grace::deep_copy_vec_to_2D_view(dir_d, dir_h) ;
+    grace::deep_copy_vec_to_view(guard_d, guard_mask_h) ;
+
+    auto exec_space = grace::make_exec_space(stream) ;
+
+    gpu_task_t task{} ;
+    auto const off = get_index_staggerings(stag) ;
+    amr::phys_bc_op<amr::element_kind_t::FACE,amr::element_kind_t::FACE,decltype(data_array),true> functor{
+       data_array, data_array, idx, coords, qid_d, eid_d, dir_d,
+       ext_d, off_d, var_refl, var_bc,
+       VEC(nx+off[0], ny+off[1], nz+off[2]), ngz, nv,
+       /*is_cbuf*/ false, stag, rx, ry, rz,
+       guard_d
+    } ;
+
+    Kokkos::TeamPolicy policy{
+        exec_space, static_cast<int>(qid_h.size()), Kokkos::AUTO
+    } ;
+
+    task._run = [functor, policy] (view_alias_t alias) mutable {
+        functor.template set_data_ptr<stag>(alias) ;
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        GRACE_TRACE("Fill phys face-ext start") ;
+        #endif
+        Kokkos::parallel_for("fill_phys_ghostzones_face_ext", policy, functor) ;
+        #ifdef INSERT_FENCE_DEBUG_TASKS_
+        Kokkos::fence() ;
+        GRACE_TRACE("Fill phys face-ext done") ;
+        #endif
+    };
+
+    task.stream = &stream ;
+    auto tid = task_counter++ ;
+    task.task_id = tid ;
+
+    for (auto const dep_id : deps) {
+        ASSERT(dep_id < task_list.size(), "Dep-id out-of-range") ;
+        task._dependencies.push_back(dep_id) ;
+        task_list[dep_id]->_dependents.push_back(tid) ;
+    }
+
+    task_list.push_back(std::make_unique<gpu_task_t>(std::move(task))) ;
+    return tid ;
+}
+
 namespace detail {
 
 std::tuple<bool, size_t, size_t, uint8_t, int8_t, int8_t, int8_t, amr::element_kind_t>
@@ -344,26 +429,51 @@ bucket_t insert_phys_bc_tasks(
 {
     using namespace amr ;
 
-    bucket_t deferred_phys_bcs ; 
+    bucket_t deferred_phys_bcs ;
 
     // we have faces (ff) edges in faces (ef)
     // corners in faces (cf), edges in edges (ee)
     // corners in edges (ce), corners in corners (cc)
-    // quad_id 
+    // quad_id
     std::array<std::array<std::vector<size_t>,3>,3> qid, qid_cbuf, cid_cbuf  ;
     std::array<std::array<std::vector<uint8_t>,3>,3> eid, eid_cbuf ;
-    std::array<std::array<std::vector<std::array<int8_t,3>>,3>,3> dir, dir_cbuf ; 
-    std::array<std::array<std::unordered_set<task_id_t>,3>,3> dependencies, dependencies_cbuf ; 
+    std::array<std::array<std::vector<std::array<int8_t,3>>,3>,3> dir, dir_cbuf ;
+    std::array<std::array<std::unordered_set<task_id_t>,3>,3> dependencies, dependencies_cbuf ;
+
+    // --- FACE_EXT fused bucket ---
+    // Fuses non-cbuf FACE-FACE + (absorbed) EDGE-FACE + CORNER-FACE launches
+    // whose cluster is entirely non-cbuf.  Cluster = (face, its 4 adjacent
+    // type=FACE edges, its 4 adjacent type=FACE corners).  Cbuf-tainted
+    // clusters fall through to the classical path.
+    std::vector<size_t>                     fused_qid;
+    std::vector<uint8_t>                    fused_eid;
+    std::vector<std::array<int8_t,3>>       fused_dir;
+    std::vector<uint8_t>                    fused_guard;
+    std::unordered_set<uint64_t>            absorbed_faces;    // qid*6 + eid
+    std::unordered_set<uint64_t>            absorbed_edges;    // qid*12 + eid
+    std::unordered_set<uint64_t>            absorbed_corners;  // qid*8 + eid
+
+    // Deps accumulated for the fused FACE_EXT kernel: union of the deps of
+    // all absorbed edges/corners (the face itself has no phys-bc predecessors).
+    std::unordered_set<task_id_t> fused_deps;
 
     auto insert_dependencies = [&] (int elem, int bc, task_id_t const& tid, bool is_cbuf) {
         if ( tid == UNSET_TASK_ID ) {
-            ERROR("Unset task_id") ; 
+            ERROR("Unset task_id") ;
         } else {
             if ( is_cbuf ) {
-                dependencies_cbuf[elem][bc].insert(tid) ; 
+                dependencies_cbuf[elem][bc].insert(tid) ;
             } else {
-                dependencies[elem][bc].insert(tid) ; 
-            }   
+                dependencies[elem][bc].insert(tid) ;
+            }
+        }
+    };
+
+    auto insert_fused_dep = [&] (int /*elem*/, int /*bc*/, task_id_t const& tid, bool /*is_cbuf*/) {
+        if ( tid == UNSET_TASK_ID ) {
+            ERROR("Unset task_id") ;
+        } else {
+            fused_deps.insert(tid) ;
         }
     };
 
@@ -391,37 +501,151 @@ bucket_t insert_phys_bc_tasks(
         
     } ;  
 
+    // --- Pre-pass: classify face clusters as fused or classical. ---
+    //
+    // A face-cluster is eligible for FACE_EXT iff:
+    //   - the face is PHYS, non-cbuf (type is always FACE for PHYS faces);
+    //   - every adjacent type=FACE edge and corner is also non-cbuf.
+    // Otherwise, the whole cluster falls through to the classical path.
+    {
+        auto const is_elem_cbuf_phys_face = [&] (size_t qid, int idx, int which) -> std::tuple<bool,bool> {
+            // returns {is_phys_face_type, is_cbuf}
+            if (which == 0) {
+                auto const& e = ghost_array[qid].edges[idx];
+                if (e.kind != interface_kind_t::PHYS) return {false, false};
+                return {e.data.phys.type == amr::FACE, e.data.phys.in_cbuf};
+            } else {
+                auto const& c = ghost_array[qid].corners[idx];
+                if (c.kind != interface_kind_t::PHYS) return {false, false};
+                return {c.phys.type == amr::FACE, c.phys.in_cbuf};
+            }
+        };
+
+        for (auto const& d : phys_bc_tasks[amr::FACE]) {
+            auto const _qid = std::get<0>(d);
+            auto const _eid = std::get<1>(d);
+            auto const& face = ghost_array[_qid].faces[_eid];
+            if (face.kind != interface_kind_t::PHYS) continue;
+            if (face.data.phys.in_cbuf) continue;          // cbuf → classical
+            // adj type=FACE edges
+            uint8_t mask = 0;
+            bool cluster_clean = true;
+            uint8_t const fe = _eid;
+            int adj_edges[4]    = { grace::amr::detail::f2e[fe][0], grace::amr::detail::f2e[fe][1],
+                                    grace::amr::detail::f2e[fe][2], grace::amr::detail::f2e[fe][3] };
+            int adj_corners[4]  = { grace::amr::detail::f2c[fe][0], grace::amr::detail::f2c[fe][1],
+                                    grace::amr::detail::f2c[fe][2], grace::amr::detail::f2c[fe][3] };
+            for (int b = 0; b < 4; ++b) {
+                auto [is_face_t, is_cbuf] = is_elem_cbuf_phys_face(_qid, adj_edges[b], /*edge*/0);
+                if (is_face_t && is_cbuf) { cluster_clean = false; break; }
+                if (is_face_t) mask |= static_cast<uint8_t>(1u << b);
+            }
+            if (!cluster_clean) continue;
+            for (int b = 0; b < 4; ++b) {
+                auto [is_face_t, is_cbuf] = is_elem_cbuf_phys_face(_qid, adj_corners[b], /*corner*/1);
+                if (is_face_t && is_cbuf) { cluster_clean = false; break; }
+                if (is_face_t) mask |= static_cast<uint8_t>(1u << (4 + b));
+            }
+            if (!cluster_clean) continue;
+
+            // Commit fused cluster.
+            absorbed_faces.insert(uint64_t(_qid) * 6 + _eid);
+            for (int b = 0; b < 4; ++b) {
+                if ((mask >> b) & 1u)
+                    absorbed_edges.insert(uint64_t(_qid) * 12 + adj_edges[b]);
+            }
+            for (int b = 0; b < 4; ++b) {
+                if ((mask >> (4 + b)) & 1u)
+                    absorbed_corners.insert(uint64_t(_qid) * 8 + adj_corners[b]);
+            }
+            fused_qid.push_back(_qid);
+            fused_eid.push_back(_eid);
+            fused_dir.emplace_back(std::array<int8_t,3>{
+                face.data.phys.dir[0], face.data.phys.dir[1], face.data.phys.dir[2]});
+            fused_guard.push_back(mask);
+        }
+    }
+
+    auto const is_absorbed = [&] (int kind, size_t _qid, uint8_t _eid) -> bool {
+        if (kind == amr::FACE)   return absorbed_faces.count(uint64_t(_qid) * 6 + _eid) > 0;
+        if (kind == amr::EDGE)   return absorbed_edges.count(uint64_t(_qid) * 12 + _eid) > 0;
+        return absorbed_corners.count(uint64_t(_qid) * 8 + _eid) > 0;
+    };
+
     // loop through bucket, fill
-    for( int kind=0; kind<3 ; ++kind) { // element kind 
-        for( auto const& d: phys_bc_tasks[kind]) { 
-            // find dependencies here ! 
-            // for EDGE, FACE we need to look at faces underneath 
-            // for CORNER, FACE we need to look at edges 
+    for( int kind=0; kind<3 ; ++kind) { // element kind
+        for( auto const& d: phys_bc_tasks[kind]) {
+            // find dependencies here !
+            // for EDGE, FACE we need to look at faces underneath
+            // for CORNER, FACE we need to look at edges
             // for EDGE EDGE we depend on face BCs
-            // for CORNER, EDGE we depend on EDGE FACE BCs 
-            // for CORNER CORNER we depend on EDGE BCs 
-            auto [is_cbuf,_cid,_qid,_eid,dx,dy,dz,type] = grace::detail::get_phys_bc_info(kind, ghost_array, d) ; 
+            // for CORNER, EDGE we depend on EDGE FACE BCs
+            // for CORNER CORNER we depend on EDGE BCs
+            auto [is_cbuf,_cid,_qid,_eid,dx,dy,dz,type] = grace::detail::get_phys_bc_info(kind, ghost_array, d) ;
+
+            // Items absorbed into FACE_EXT: route their deps to fused_deps
+            // and skip classical bucket insertion.
+            bool const absorbed = (!is_cbuf && type == amr::FACE && is_absorbed(kind, _qid, _eid));
+            if (absorbed) {
+                grace::detail::unpack_dependencies<stag>(kind, d, ghost_array, is_cbuf, restrict_tid, insert_fused_dep);
+                continue;
+            }
+
             auto is_deferred = grace::detail::unpack_dependencies<stag>(kind, d, ghost_array, is_cbuf, restrict_tid, insert_dependencies);
 
             if ( is_cbuf ) {
-                cid_cbuf[kind][type].push_back(_cid) ; 
-                qid_cbuf[kind][type].push_back(_qid) ; 
-                eid_cbuf[kind][type].push_back(_eid) ; 
-                dir_cbuf[kind][type].emplace_back(std::array{dx,dy,dz}) ; 
+                cid_cbuf[kind][type].push_back(_cid) ;
+                qid_cbuf[kind][type].push_back(_qid) ;
+                eid_cbuf[kind][type].push_back(_eid) ;
+                dir_cbuf[kind][type].emplace_back(std::array{dx,dy,dz}) ;
             } else if (! is_deferred ) {
-                qid[kind][type].push_back(_qid) ; 
-                eid[kind][type].push_back(_eid) ; 
-                dir[kind][type].emplace_back(std::array{dx,dy,dz}) ; 
+                qid[kind][type].push_back(_qid) ;
+                eid[kind][type].push_back(_eid) ;
+                dir[kind][type].emplace_back(std::array{dx,dy,dz}) ;
             }
             if (is_cbuf or is_deferred) {
-                // will be processed later 
-                deferred_phys_bcs[kind].push_back(d) ;  
+                // will be processed later
+                deferred_phys_bcs[kind].push_back(d) ;
             }
-            
+
         }
     }
+    // FACE_EXT fused kernel: faces whose full cluster is non-cbuf.  Replaces
+    // FACE-FACE + absorbed EDGE-FACE + absorbed CORNER-FACE for those quads.
+    task_id_t tid ;
+    if (!fused_qid.empty()) {
+        tid = make_gpu_phys_bc_face_ext_task<stag>(
+            fused_qid, fused_eid, fused_dir, fused_guard,
+            fused_deps,
+            var_bc, var_parities, stream, task_counter,
+            state, nx, ny, nz, nv, ngz, task_list
+        ) ;
+        // write back tid to face, absorbed edges, absorbed corners
+        for (size_t i = 0; i < fused_qid.size(); ++i) {
+            auto _qid = fused_qid[i];
+            auto _feid = fused_eid[i];
+            uint8_t const mask = fused_guard[i];
+            ghost_array[_qid].faces[_feid].data.phys.task_id[stag] = tid;
+            for (int b = 0; b < 4; ++b) {
+                if ((mask >> b) & 1u) {
+                    auto eid_adj = grace::amr::detail::f2e[_feid][b];
+                    ghost_array[_qid].edges[eid_adj].data.phys.task_id[stag] = tid;
+                }
+            }
+            for (int b = 0; b < 4; ++b) {
+                if ((mask >> (4 + b)) & 1u) {
+                    auto cid_adj = grace::amr::detail::f2c[_feid][b];
+                    ghost_array[_qid].corners[cid_adj].phys.task_id[stag] = tid;
+                }
+            }
+        }
+        // EDGE-EDGE depends on EDGE-FACE (absorbed into FACE_EXT)
+        dependencies[EDGE][EDGE].insert(tid) ;
+        // CORNER-EDGE depends on EDGE-FACE (absorbed into FACE_EXT)
+        dependencies[CORNER][EDGE].insert(tid) ;
+    }
+
     // face face is safe to schedule
-    task_id_t tid ; 
     if ( qid[FACE][FACE].size() >0 ) {
         tid =make_gpu_phys_bc_task<FACE,FACE,stag>(
             qid[FACE][FACE],
