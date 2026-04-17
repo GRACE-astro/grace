@@ -93,6 +93,29 @@ if( GRACE_ENABLE_CABANA )
     find_package(Cabana REQUIRED)
 endif()
 
+# Select a per-architecture performance-tuning header.  The chosen file is
+# included into grace_config.h and defines kernel LaunchBounds / tile macros.
+# Each source file keeps `#ifndef GRACE_* / #define ... default / #endif`
+# fallbacks, so if a tuning header does not set a macro (or the generic
+# header is chosen) the source-level default applies.  LaunchBounds is a
+# no-op on CPU backends, so headers are safe to include unconditionally.
+if(Kokkos_ARCH_AMD_GFX942)
+    set(GRACE_PERF_TUNING_HEADER "${CMAKE_SOURCE_DIR}/performance_tuning/Mi300A/tuning.h")
+    message(STATUS "Perf-tuning header: Mi300A (gfx942)")
+elseif(Kokkos_ARCH_AMD_GFX90A)
+    set(GRACE_PERF_TUNING_HEADER "${CMAKE_SOURCE_DIR}/performance_tuning/Mi250X/tuning.h")
+    message(STATUS "Perf-tuning header: Mi250X (gfx90a)")
+elseif(Kokkos_ARCH_AMPERE80)
+    set(GRACE_PERF_TUNING_HEADER "${CMAKE_SOURCE_DIR}/performance_tuning/A100/tuning.h")
+    message(STATUS "Perf-tuning header: A100 (sm_80)")
+elseif(Kokkos_ARCH_HOPPER90)
+    set(GRACE_PERF_TUNING_HEADER "${CMAKE_SOURCE_DIR}/performance_tuning/H100/tuning.h")
+    message(STATUS "Perf-tuning header: H100 (sm_90)")
+else()
+    set(GRACE_PERF_TUNING_HEADER "${CMAKE_SOURCE_DIR}/performance_tuning/generic.h")
+    message(STATUS "Perf-tuning header: generic (CPU backend or untuned GPU)")
+endif()
+
 configure_file("${CMAKE_SOURCE_DIR}/include/grace/grace_config.h.in" grace_config.h)
 
 configure_file( "${CMAKE_SOURCE_DIR}/include/grace/config/code_modules.h.in" code_modules.h )
