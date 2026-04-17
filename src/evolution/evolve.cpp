@@ -467,21 +467,35 @@ void compute_fluxes(
     #endif 
     //**************************************************************************************************/
     // loop ranges: extended for mhd (need vbar at faces for emf)
-    auto flux_x_policy_mhd = 
-        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+    //
+    // Launch-bounds note: the WENO5 reconstruction + HLL/LLF flux mix pushes
+    // these kernels past 128 VGPR under the default heuristic, so the compiler
+    // spills ~1.5-2 KB/thread to scratch.  LaunchBounds<256, 2> lifts the cap
+    // to ~256 VGPR (2 waves/EU instead of 4) in exchange for half the latency
+    // hiding; worthwhile because the kernels are compute-heavy (WENO smoothness
+    // indicators, Riemann branches) rather than bandwidth-bound.  Tile product
+    // must match MaxThreadsPerBlock or HIP silently rejects the launch — see
+    // z4c_update notes below.
+    #ifndef GRACE_FLUX_LB
+      #define GRACE_FLUX_LB Kokkos::LaunchBounds<256, 2>
+    #endif
+    using flux_policy_t =
+        MDRangePolicy< Rank<GRACE_NSPACEDIM+1>, GRACE_FLUX_LB > ;
+    flux_policy_t flux_x_policy_mhd (
               {VEC(ngz,0,0),0}
             , {VEC(nx+ngz+1,ny+2*ngz,nz+2*ngz),nq}
+            , {VEC(16,4,4),1}
         ) ;
-    auto flux_y_policy_mhd = 
-        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+    flux_policy_t flux_y_policy_mhd (
               {VEC(0,ngz,0),0}
             , {VEC(nx+2*ngz,ny+ngz+1,nz+2*ngz),nq}
+            , {VEC(16,4,4),1}
         ) ;
-    auto flux_z_policy_mhd = 
-        MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
+    flux_policy_t flux_z_policy_mhd (
               {VEC(0,0,ngz),0}
             , {VEC(nx+2*ngz,ny+2*ngz,nz+ngz+1),nq}
-        ) ; 
+            , {VEC(16,4,4),1}
+        ) ;
     // non-mhd 
     auto flux_x_policy = 
         MDRangePolicy<Rank<GRACE_NSPACEDIM+1>> (
@@ -574,9 +588,29 @@ void compute_fluxes(
         );
         #endif
     }) ; 
-    #endif 
+    #endif
     //**************************************************************************************************/
-    Kokkos::fence() ; 
+    // Surface silent launch failures (mismatched LaunchBounds/tile or exceeded
+    // occupancy constraints).  Kokkos does not abort on these by default.
+    #if defined(KOKKOS_ENABLE_HIP)
+    Kokkos::fence("compute_fluxes post-launch error check") ;
+    {
+        auto _err = hipGetLastError() ;
+        if (_err != hipSuccess) {
+            ERROR("compute_fluxes kernel launch failed: " << hipGetErrorString(_err)) ;
+        }
+    }
+    #elif defined(KOKKOS_ENABLE_CUDA)
+    Kokkos::fence("compute_fluxes post-launch error check") ;
+    {
+        auto _err = cudaGetLastError() ;
+        if (_err != cudaSuccess) {
+            ERROR("compute_fluxes kernel launch failed: " << cudaGetErrorString(_err)) ;
+        }
+    }
+    #else
+    Kokkos::fence() ;
+    #endif
     #ifdef GRACE_ENABLE_M1
     // un-normalize
     parallel_for(
