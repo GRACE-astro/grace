@@ -1306,17 +1306,6 @@ void update_fd(
                 {
                     z4c_eq_system.compute_curvature_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
                 }) ;
-    //**************************************************************************************************/
-    // Γ̃ + B-driver RHS, split out of curvature_update to retire ddbeta_dx2,
-    // dKhat_dx, dtheta_dx, Si, GammatDu, Gammat, dGammat, dBdr from that
-    // kernel's live set.  Writes disjoint fields (Γ̃, B) of new_state; order
-    // vs. curvature_update is a free choice.
-    parallel_for( GRACE_EXECUTION_TAG("EVOL","z4c_gammatilde_update")
-                , curvature_policy
-                , KOKKOS_LAMBDA (VEC(int const& i, int const& j, int const& k), int const& q)
-                {
-                    z4c_eq_system.compute_gammatilde_update(q,VEC(i,j,k),idx,new_state,new_stag_state,dt,dtfact,dev_coords);
-                }) ;
     // Surface silent launch failures.  HIP can return e.g. hipErrorInvalidConfiguration
     // for a kernel whose register/scratch footprint is incompatible with the chosen
     // launch geometry, and Kokkos does not abort on it by default.
